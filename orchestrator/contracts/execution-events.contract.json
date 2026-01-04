@@ -1,0 +1,58 @@
+{
+  "version": "1.0",
+  "source": "C.3 backend",
+  "type": "event_catalog",
+
+  "events": {
+    "execution_start": { "payload": {} },
+
+    "execution_resumed": {
+      "payload": { "executionId": "string" }
+    },
+
+    "execution_paused": {
+      "payload": { "reason": "string" }
+    },
+
+    "step_start": {
+      "payload": {
+        "name": "string",
+        "step": "object"
+      }
+    },
+
+    "step_done": {
+      "payload": {
+        "name": "string",
+        "step": "object",
+        "result": "object"
+      }
+    },
+
+    "approval_request": {
+      "payload": {
+        "name": "string",
+        "progress": "number",
+        "questions": "optional array",
+        "steps": "optional array"
+      }
+    },
+
+    "decision_done": {
+      "payload": {
+        "artifact": "string",
+        "path": "string"
+      }
+    },
+
+    "execution_done": {
+      "payload": {}
+    },
+
+    "step_failed": {
+      "payload": {
+        "error": "string"
+      }
+    }
+  }
+}

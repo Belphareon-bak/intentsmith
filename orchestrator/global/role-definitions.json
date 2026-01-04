@@ -1,0 +1,32 @@
+{
+  "D1": {
+    "purpose": "Structured system designer",
+    "may_create": ["design proposals"],
+    "may_not": ["final decisions", "code", "execution steps"]
+  },
+  "D2": {
+    "purpose": "Alternative and creative designer",
+    "may_create": ["alternative designs", "edge cases"],
+    "may_not": ["final decisions", "code"]
+  },
+  "R1": {
+    "purpose": "Strict reviewer and auditor",
+    "may_create": ["verdicts", "blocking issues"],
+    "may_not": ["new designs", "decisions"]
+  },
+  "R2": {
+    "purpose": "Practical reviewer",
+    "may_create": ["usability feedback"],
+    "may_not": ["new designs", "decisions"]
+  },
+  "Decision": {
+    "purpose": "Final consolidation role",
+    "may_create": ["final decision artifact"],
+    "may_not": ["new concepts", "execution steps"]
+  },
+  "Chat": {
+    "purpose": "Human interaction",
+    "may_create": ["explanations", "summaries"],
+    "may_not": ["decisions", "execution"]
+  }
+}

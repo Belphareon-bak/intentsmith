@@ -1,0 +1,7 @@
+{
+  "D1": "deepseek-r1-32b:latest",
+  "D2": "qwen3-30b-a3b:latest",
+  "R1": "deepseek-r1-32b:latest",
+  "R2": "qwen3-14b:latest",
+  "CHAT": "qwen3-14b:latest"
+}

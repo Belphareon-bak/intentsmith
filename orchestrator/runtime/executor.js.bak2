@@ -1,0 +1,40 @@
+import { execFs } from "../executors/fs.js";
+import { execShell } from "../executors/shell.js";
+import { requestApproval } from "../approval-manager.js";
+
+export async function runPlan(plan, options = {}) {
+  if (!plan?.steps) {
+    throw new Error("runPlan: invalid plan");
+  }
+
+  const sandbox = options.sandbox;
+  if (!sandbox) {
+    throw new Error("runPlan: sandbox missing");
+  }
+
+  console.log("RUNPLAN START, steps =", plan.steps.length);
+
+  for (const step of plan.steps) {
+    console.log("STEP:", step);
+
+    const autoApprove = process.env.C3_AUTO_APPROVE === "1";
+    console.log("AUTO_APPROVE?", process.env.C3_AUTO_APPROVE);
+
+    if (!autoApprove) {
+      const ok = await requestApproval(step);
+      if (!ok) throw new Error("Denied");
+    }
+
+    if (step.action.startsWith("create") || step.action.includes("file")) {
+      await execFs(step, sandbox);
+    } else if (step.action === "shell") {
+      await execShell(step, sandbox);
+    } else {
+      throw new Error("Unknown step action: " + step.action);
+    }
+
+    console.log("STEP DONE");
+  }
+
+  console.log("PLAN DONE");
+}

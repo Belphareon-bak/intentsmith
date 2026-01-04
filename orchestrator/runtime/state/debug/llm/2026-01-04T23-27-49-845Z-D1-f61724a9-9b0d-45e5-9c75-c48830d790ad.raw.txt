@@ -1,0 +1,16 @@
+</think>
+
+{
+  "analysis": "The user has requested an example of a Jaguar F-Pace on sauto.cz. The current state shows that a web extraction tool was used to fetch content from the website, but no specific results for the Jaguar F-Pace were found.",
+  "progress": "A web extraction attempt was made using the selector '.car-models .jaguar-f-pace', which did not yield any results.",
+  "done": false,
+  "result": null,
+  "summary": "The task is incomplete as no specific examples of Jaguar F-Pace were found on sauto.cz using the provided selector.",
+  "nextAction": {
+    "tool": "web:search",
+    "params": {
+      "query": "Jaguar F-Pace on sauto.cz"
+    },
+    "reason": "To find relevant listings for Jaguar F-Pace by searching the website."
+  }
+}

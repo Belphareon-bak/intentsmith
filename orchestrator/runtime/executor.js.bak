@@ -1,0 +1,46 @@
+import { execSync } from "node:child_process"
+import path from "node:path"
+import fs from "node:fs"
+
+function isShellStep(step) {
+  return typeof step === "string"
+}
+
+export async function runPlan(steps, sandboxRoot) {
+  for (const step of steps) {
+
+    // ─────────────────────────────
+    // VARIANTA 1: shell command
+    // ─────────────────────────────
+    if (isShellStep(step)) {
+      const cmd = `cd "${sandboxRoot}" && ${step}`
+      console.log("EXEC SHELL:", cmd)
+
+      execSync(cmd, {
+        stdio: "inherit",
+        shell: true
+      })
+      continue
+    }
+
+    // ─────────────────────────────
+    // VARIANTA 2: structured step
+    // ─────────────────────────────
+    if (step.action === "create_directory") {
+      const target = path.join(sandboxRoot, step.path)
+      fs.mkdirSync(target, { recursive: true })
+      console.log("FS MKDIR →", target)
+      continue
+    }
+
+    if (step.action === "create_file") {
+      const target = path.join(sandboxRoot, step.path)
+      fs.mkdirSync(path.dirname(target), { recursive: true })
+      fs.writeFileSync(target, step.content ?? "")
+      console.log("FS WRITE →", target)
+      continue
+    }
+
+    throw new Error("Unknown plan step: " + JSON.stringify(step))
+  }
+}

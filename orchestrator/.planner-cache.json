@@ -1,0 +1,59 @@
+{
+  "9d09f67573b54a8c936a7c9b058337e5d928d1936ec4127135c12ec83d39226a": {
+    "goal": "Create folder multi-demo and file a.txt with 'hello'",
+    "steps": [
+      {
+        "id": "1",
+        "type": "shell",
+        "command": "mkdir multi-demo",
+        "cwd": ".",
+        "risk": "LOW"
+      },
+      {
+        "id": "2",
+        "type": "fs",
+        "path": "./multi-demo/a.txt",
+        "content": "hello",
+        "risk": "LOW"
+      }
+    ]
+  },
+  "6b5c04237e6dc9c13c4698886f73ab5011db1770e24a91df620ba4d82374ff7a": {
+    "goal": "Create folder multi-demo and file a.txt with 'hello'",
+    "steps": [
+      {
+        "id": "1",
+        "type": "shell",
+        "command": "mkdir multi-demo",
+        "cwd": ".",
+        "risk": "LOW"
+      },
+      {
+        "id": "2",
+        "type": "fs",
+        "path": "./multi-demo/a.txt",
+        "content": "hello",
+        "risk": "LOW"
+      }
+    ]
+  },
+  "66a7e11eb839484072907c0f3bab9b356fb2565260fd4ce73ce59a71c5201f4a": {
+    "goal": "Create folder multi-demo and file a.txt with 'hello'",
+    "steps": [
+      {
+        "id": "1",
+        "type": "shell",
+        "command": "mkdir multi-demo",
+        "cwd": ".",
+        "risk": "LOW"
+      },
+      {
+        "id": "2",
+        "type": "fs",
+        "path": "./multi-demo/a.txt",
+        "content": "hello",
+        "risk": "LOW"
+      }
+    ]
+  }
+}

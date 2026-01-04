@@ -1,0 +1,14 @@
+</think>
+
+{
+  "analysis": "The user has asked to create a local web server. The current state shows that no progress has been made yet.",
+  "progress": "No progress has been made towards creating a local web server.",
+  "done": false,
+  "result": null,
+  "summary": "A local web server needs to be created, but no steps have been taken yet.",
+  "nextAction": {
+    "tool": "npm:init",
+    "params": {},
+    "reason": "Initialize an npm project to set up the necessary structure and dependencies for a web server."
+  }
+}

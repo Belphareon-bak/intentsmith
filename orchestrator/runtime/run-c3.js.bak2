@@ -1,0 +1,17 @@
+import { runPlan } from "./executor.js"
+import { planFromPrompt } from "./planner.js"
+
+export async function runC3(prompt, sandboxRoot) {
+  console.log("runC3() PROMPT =", prompt)
+
+  const plan = await planFromPrompt(prompt)
+  console.log("PLAN FROM PLANNER =", JSON.stringify(plan, null, 2))
+
+  if (!plan || !Array.isArray(plan.steps)) {
+    throw new Error("Invalid plan format: missing steps array")
+  }
+
+  console.log("RUNPLAN START, steps =", plan.steps.length)
+
+  await runPlan(plan.steps, sandboxRoot)
+}

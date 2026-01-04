@@ -1,0 +1,15 @@
+</think>
+
+{
+  "analysis": "The user has successfully fetched content from seznam.cz using the web:extract tool. The extracted content includes a variety of articles and news items covering topics such as technology, politics, sports, and entertainment.",
+  "progress": "Successfully retrieved and analyzed the webpage content from seznam.cz.",
+  "done": true,
+  "result": {
+    "url": "https://seznam.cz",
+    "title": "Seznam – najdu tam, co neznám",
+    "description": "Nejnavštěvovanější český portál s rozmanitým obsahem, včetně aktualit, zpráv, pořadů a služeb.",
+    "contentPreview": "The webpage contains various news articles and sections covering technology, politics, sports, entertainment, and more."
+  },
+  "summary": "Successfully analyzed the seznam.cz webpage content.",
+  "nextAction": null
+}

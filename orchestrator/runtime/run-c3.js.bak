@@ -1,0 +1,33 @@
+import path from "path";
+import { fileURLToPath } from "url";
+import { runPlanner } from "../planner/planner-runner.js";
+import { runPlan } from "./executor.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// 🔑 OPRAVA: repo root = o úroveň výš než orchestrator/
+const REPO_ROOT = path.resolve(__dirname, "../..");
+
+export async function runC3(prompt, options = {}) {
+  console.log("runC3() PROMPT =", prompt);
+
+  const sandbox = path.resolve(
+    options.sandbox
+      ? path.resolve(REPO_ROOT, options.sandbox)
+      : path.resolve(REPO_ROOT, "sandbox")
+  );
+
+  console.log("SANDBOX ROOT =", sandbox);
+
+  const plan = await runPlannerRunner(prompt, {
+    sandbox,
+    workspaceRoot: options.workspaceRoot
+  });
+
+  console.log("PLAN FROM PLANNER =", JSON.stringify(plan, null, 2));
+
+  await runPlan(plan, { sandbox });
+
+  console.log("runC3() DONE");
+}

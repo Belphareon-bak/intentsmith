@@ -1,0 +1,8 @@
+{
+  "mode": "single",
+  "max_rounds": 1,
+  "consensus_rule": "both_pass",
+  "designers": 1,
+  "reviewers": 1,
+  "stop_on_first_pass": true
+}
