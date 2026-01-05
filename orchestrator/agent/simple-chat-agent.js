@@ -92,15 +92,23 @@ class SimpleChatAgent {
   detectTaskType(message) {
     const msg = message.toLowerCase();
     
-    // Code generation patterns
+    // Code generation patterns - more flexible matching
     const codePatterns = [
-      /vytvo[řr]\s*(soubor|kód|script|aplikaci|server|api|funkci|class)/i,
-      /napi[šs]\s*(kód|script|funkci|program)/i,
+      // Czech - flexible word order
+      /vytvo[řr]/i,  // Simplified - any "vytvoř/vytvor"
+      /napi[šs]\s+\w*\s*(kód|kod|script|funkci|program|soubor)/i,
       /implementuj/i,
-      /create\s*(file|code|script|app|server|api|function)/i,
-      /write\s*(code|script|function)/i,
-      /generate\s*(code|script)/i,
-      /\.(js|ts|py|java|cpp|go|rs)\s*$/i,
+      /vygeneruj/i,
+      // English
+      /create\s+\w*\s*(file|code|script|app|server|api|function|project)/i,
+      /write\s+\w*\s*(code|script|function)/i,
+      /generate\s+\w*\s*(code|script)/i,
+      /build\s+\w*\s*(app|api|server|project)/i,
+      // File indicators
+      /\.js\b|\.ts\b|\.py\b|\.java\b|\.cpp\b|\.go\b|\.rs\b/i,
+      /do\s+\/\w+/i,  // "do /tmp/..." path indicator
+      /soubor[yu]?\s*:/i,  // "Soubory:"
+      /struktura\s*:/i,  // "Struktura:"
     ];
     
     // Review/analysis patterns
@@ -108,32 +116,42 @@ class SimpleChatAgent {
       /zkontroluj/i,
       /zanalyzuj/i,
       /review/i,
-      /check/i,
-      /vylepši/i,
-      /oprav\s*(chyby|bugy|kod)/i,
+      /check\s+(the\s+)?code/i,
+      /vylep[sš]i/i,
+      /oprav\s*(chyby|bugy|kód|kod)/i,
       /najdi\s*(chyby|bugy|problemy)/i,
       /code\s*review/i,
+      /navrhni\s*vylep[sš]en/i,
     ];
     
     // Planning/architecture patterns
     const planPatterns = [
       /navrhni\s*(architekturu|strukturu|plan)/i,
-      /jak\s*(bych|by)\s*(měl|mohl)/i,
-      /design/i,
+      /jak\s*(bych|by)\s*(m[eě]l|mohl)/i,
+      /design\s+(the\s+)?(architecture|system)/i,
       /architect/i,
-      /plan\s*(how|what)/i,
+      /plan\s+(how|what)/i,
     ];
     
-    // Check patterns
-    for (const pattern of codePatterns) {
-      if (pattern.test(msg)) {
-        return { type: "CODE", model: "CODE", reason: "Code generation detected" };
+    // Check patterns - order matters! Check CODE first for messages with file paths
+    // Check for file paths first - strong indicator of CODE task
+    if (/\/tmp\/|\/home\/|soubor|\.js|\.py|\.ts/.test(msg)) {
+      for (const pattern of codePatterns) {
+        if (pattern.test(msg)) {
+          return { type: "CODE", model: "CODE", reason: "Code generation with file path detected" };
+        }
       }
     }
     
     for (const pattern of reviewPatterns) {
       if (pattern.test(msg)) {
         return { type: "REVIEW", model: "D1", reason: "Code review detected" };
+      }
+    }
+    
+    for (const pattern of codePatterns) {
+      if (pattern.test(msg)) {
+        return { type: "CODE", model: "CODE", reason: "Code generation detected" };
       }
     }
     
@@ -174,10 +192,13 @@ Always use <tool name="fs:write"> to actually create files!`;
 
   /**
    * Extract code from markdown and create files if LLM didn't use tools
+   * Supports multiple files with format:
+   * ### 📁 `/path/to/file.js`
+   * ```javascript
+   * code here
+   * ```
    */
   async extractAndSaveCode(response, workdir) {
-    // Check if there are markdown code blocks but no tool calls
-    const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
     const toolCallRegex = /<tool\s+name=/;
     
     if (toolCallRegex.test(response)) {
@@ -185,57 +206,95 @@ Always use <tool name="fs:write"> to actually create files!`;
       return response;
     }
     
-    const matches = [...response.matchAll(codeBlockRegex)];
+    // Pattern to find file headers followed by code blocks
+    // Matches: ### 📁 `/path/file.js` or ### `/path/file.js` or `/path/file.js`
+    // Followed by ```language\ncode\n```
+    const fileBlockPattern = /(?:#{1,4}\s*)?(?:📁\s*)?[`'"]?(\/[\w\/.+-]+\.(js|ts|py|java|cpp|go|rs|sh|json|yaml|yml|html|css|md))[`'"]?\s*\n```(\w*)\n([\s\S]*?)```/gi;
+    
+    const matches = [...response.matchAll(fileBlockPattern)];
+    
     if (matches.length === 0) {
+      // Fallback: try simple extraction for single file
+      const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+      const codeMatches = [...response.matchAll(codeBlockRegex)];
+      
+      if (codeMatches.length === 0) {
+        return response;
+      }
+      
+      // Try to find filename from request context
+      const filePatterns = [
+        /do\s+(\/[\w\/.+-]+\.\w+)/i,
+        /soubor[yu]?:?\s*(\/[\w\/.+-]+\.\w+)/i,
+        /(\/tmp\/[\w\/.+-]+\.\w+)/i,
+        /(\/home\/[\w\/.+-]+\.\w+)/i,
+      ];
+      
+      let detectedFile = null;
+      for (const pattern of filePatterns) {
+        const match = response.match(pattern) || this.history[this.history.length - 1]?.content?.match(pattern);
+        if (match) {
+          detectedFile = match[1];
+          break;
+        }
+      }
+      
+      if (detectedFile && codeMatches.length > 0) {
+        agentLog.info(`Found ${codeMatches.length} code blocks, saving first to: ${detectedFile}`);
+        
+        try {
+          const tool = toolRegistry.get("fs:write");
+          if (tool) {
+            const result = await tool.execute({ 
+              path: detectedFile, 
+              content: codeMatches[0][2],
+              createDirs: true 
+            }, { workdir });
+            
+            if (result.success) {
+              response += `\n\n✅ Soubor automaticky uložen: ${detectedFile}`;
+            }
+          }
+        } catch (e) {
+          agentLog.error(`Failed to auto-save: ${e.message}`);
+        }
+      }
+      
       return response;
     }
     
-    agentLog.info(`Found ${matches.length} code blocks without tool calls, extracting...`);
+    // Multi-file extraction
+    agentLog.info(`Found ${matches.length} file blocks to extract`);
     
-    // Try to determine filename from context
-    const filePatterns = [
-      /(?:do|to|into|soubor[ua]?)\s+([\/\w.-]+\.(js|ts|py|java|cpp|go|rs|sh|json|yaml|yml|html|css))/i,
-      /([\/\w.-]+\.(js|ts|py|java|cpp|go|rs|sh|json|yaml|yml|html|css))/i,
-    ];
+    const savedFiles = [];
+    const tool = toolRegistry.get("fs:write");
     
-    let detectedFile = null;
-    for (const pattern of filePatterns) {
-      const match = response.match(pattern);
-      if (match) {
-        detectedFile = match[1];
-        break;
-      }
-    }
-    
-    // If we found code and a filename, save it
-    if (matches.length > 0 && detectedFile) {
-      const mainCode = matches[0][2]; // First code block
-      const lang = matches[0][1] || "text";
+    for (const match of matches) {
+      const filePath = match[1];
+      const lang = match[3] || "text";
+      const content = match[4];
       
-      // Determine full path
-      let filePath = detectedFile;
-      if (!filePath.startsWith("/")) {
-        filePath = `${workdir}/${detectedFile}`;
-      }
-      
-      agentLog.info(`Auto-saving code to: ${filePath}`);
+      agentLog.info(`Auto-saving: ${filePath} (${lang}, ${content.length} chars)`);
       
       try {
-        const tool = toolRegistry.get("fs:write");
         if (tool) {
           const result = await tool.execute({ 
             path: filePath, 
-            content: mainCode,
+            content: content,
             createDirs: true 
           }, { workdir });
           
           if (result.success) {
-            response += `\n\n✅ Soubor automaticky uložen: ${filePath}`;
+            savedFiles.push(filePath);
           }
         }
       } catch (e) {
-        agentLog.error(`Failed to auto-save: ${e.message}`);
+        agentLog.error(`Failed to save ${filePath}: ${e.message}`);
       }
+    }
+    
+    if (savedFiles.length > 0) {
+      response += `\n\n✅ Soubory automaticky uloženy:\n${savedFiles.map(f => `  - ${f}`).join('\n')}`;
     }
     
     return response;
