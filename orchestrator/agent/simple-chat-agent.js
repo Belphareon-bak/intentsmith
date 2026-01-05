@@ -9,72 +9,62 @@ import { toolRegistry } from "../tools/index.js";
 import { callLLM } from "../llm/llm-client.js";
 import { agentLog } from "../utils/logger.js";
 
-const SYSTEM_PROMPT = `You are C.3, a helpful AI coding assistant. You communicate naturally in the user's language.
+const SYSTEM_PROMPT = `You are C.3, a helpful AI assistant. You communicate naturally in the user's language.
 
 CRITICAL RULES:
 1. ALWAYS respond in the same language as the user's message
 2. If request is vague, ASK clarifying questions before acting
-3. When using tools, explain what you're doing
-4. Show actual results - file contents, command output, etc.
-5. Be concise but helpful
-6. **NEVER invent or hallucinate URLs, links, or data!** Only use ACTUAL results from tools.
-7. If a search returns no results, say "Nenašel jsem žádné výsledky" - DO NOT make up fake results!
-8. When showing search results, use ONLY the URLs returned by the tool, never generate your own.
+3. **NEVER invent URLs, links, prices, or any factual data!**
+4. If you don't have real data, say "Nemám k dispozici" - DO NOT make up fake information
+5. When search returns no results, suggest using web:fetch on specific known URLs
 
 TOOLS AVAILABLE:
 {{TOOLS}}
 
-TO USE A TOOL:
+HOW TO USE TOOLS:
 <tool name="tool_name">
-{"param1": "value1", "param2": "value2"}
+{"param1": "value1"}
 </tool>
 
-IMPORTANT: 
-- Include ALL required parameters when calling tools!
-- After tool execution, you will see the results. Use ONLY those real results in your response.
-- If web:search returns empty results, tell the user honestly and suggest different search terms.
+IMPORTANT TOOL GUIDELINES:
 
-EXAMPLE - Web Search:
+**web:search** - Often blocked by search engines. If returns empty:
+- DON'T make up fake results
+- Suggest specific URLs to fetch instead
+- Example: "Vyhledávání nenašlo výsledky. Mohu přímo načíst stránku pokud mi dáte konkrétní URL."
 
-User: najdi auta na sauto.cz
-Assistant: Vyhledám auta na sauto.cz...
+**web:fetch** - Use for specific URLs. More reliable than search.
+- Example: Fetch https://www.sauto.cz to get content
 
-<tool name="web:search">
-{"query": "auta site:sauto.cz", "maxResults": 5}
-</tool>
+**fs:write** - Create files. ALWAYS include path AND content parameters.
+**fs:read** - Read file contents.
+**shell:exec** - Run shell commands.
 
-[After tool returns results like: "• [Title](https://real-url.com)"]
+EXAMPLE - Creating a file:
 
-Zde jsou výsledky z vyhledávání:
-• [Skutečný titulek](https://skutecna-url.com) - popis
-• [Další výsledek](https://dalsi-url.com) - popis
-
-NEVER write results before the tool executes! Wait for actual data.
-
-EXAMPLE - File Creation:
-
-User: vytvoř mi webový server
-Assistant: Rád vytvořím webový server! Potřebuji pár informací:
-- V jakém jazyce? (Node.js, Python, ...)
-- Kam ho mám uložit? (cesta k adresáři)
-- Má to být jednoduchý server nebo REST API?
-
-User: nodejs, do /home/user/projects/myserver, REST API
-Assistant: Vytvořím Node.js REST API server.
-
-<tool name="fs:mkdir">
-{"path": "/home/user/projects/myserver"}
-</tool>
+User: vytvoř soubor test.txt s textem ahoj
+Assistant: Vytvořím soubor test.txt.
 
 <tool name="fs:write">
-{"path": "/home/user/projects/myserver/server.js", "content": "import express from 'express';\\nconst app = express();\\napp.listen(3000);"}
+{"path": "test.txt", "content": "ahoj"}
 </tool>
 
-Hotovo! Vytvořil jsem REST API server v /home/user/projects/myserver.
+Soubor test.txt vytvořen.
+
+EXAMPLE - When search fails:
+
+User: najdi auta na sauto.cz
+Assistant: Zkusím vyhledat...
+
+<tool name="web:search">
+{"query": "auta sauto.cz"}
+</tool>
+
+[If returns empty]
+Vyhledávání nevrátilo výsledky. Mohu přímo načíst konkrétní URL - jakou stránku chcete zobrazit?
 
 ---
-
-Now respond to the user naturally.`;
+Remember: NEVER fabricate data. Be honest when you don't have information.`;
 
 class SimpleChatAgent {
   constructor(config = {}) {
@@ -82,6 +72,7 @@ class SimpleChatAgent {
       model: config.model || "CHAT",
       workdir: config.workdir || process.cwd(),
       maxToolCalls: config.maxToolCalls || 15,
+      dynamicModel: config.dynamicModel !== false, // Enable by default
       ...config
     };
     
@@ -90,12 +81,178 @@ class SimpleChatAgent {
     
     agentLog.info("SimpleChatAgent initialized", { 
       model: this.config.model,
-      workdir: this.config.workdir 
+      workdir: this.config.workdir,
+      dynamicModel: this.config.dynamicModel
     });
+  }
+
+  /**
+   * Detect task type and select appropriate model
+   */
+  detectTaskType(message) {
+    const msg = message.toLowerCase();
+    
+    // Code generation patterns
+    const codePatterns = [
+      /vytvo[řr]\s*(soubor|kód|script|aplikaci|server|api|funkci|class)/i,
+      /napi[šs]\s*(kód|script|funkci|program)/i,
+      /implementuj/i,
+      /create\s*(file|code|script|app|server|api|function)/i,
+      /write\s*(code|script|function)/i,
+      /generate\s*(code|script)/i,
+      /\.(js|ts|py|java|cpp|go|rs)\s*$/i,
+    ];
+    
+    // Review/analysis patterns
+    const reviewPatterns = [
+      /zkontroluj/i,
+      /zanalyzuj/i,
+      /review/i,
+      /check/i,
+      /vylepši/i,
+      /oprav\s*(chyby|bugy|kod)/i,
+      /najdi\s*(chyby|bugy|problemy)/i,
+      /code\s*review/i,
+    ];
+    
+    // Planning/architecture patterns
+    const planPatterns = [
+      /navrhni\s*(architekturu|strukturu|plan)/i,
+      /jak\s*(bych|by)\s*(měl|mohl)/i,
+      /design/i,
+      /architect/i,
+      /plan\s*(how|what)/i,
+    ];
+    
+    // Check patterns
+    for (const pattern of codePatterns) {
+      if (pattern.test(msg)) {
+        return { type: "CODE", model: "CODE", reason: "Code generation detected" };
+      }
+    }
+    
+    for (const pattern of reviewPatterns) {
+      if (pattern.test(msg)) {
+        return { type: "REVIEW", model: "D1", reason: "Code review detected" };
+      }
+    }
+    
+    for (const pattern of planPatterns) {
+      if (pattern.test(msg)) {
+        return { type: "PLAN", model: "D1", reason: "Planning/design detected" };
+      }
+    }
+    
+    // Default to chat
+    return { type: "CHAT", model: "CHAT", reason: "General conversation" };
+  }
+
+  /**
+   * Get role-specific system prompt additions
+   */
+  getRolePromptAddition(role) {
+    if (role === "CODE") {
+      return `
+
+IMPORTANT FOR CODE GENERATION:
+When asked to create a file, you MUST use the fs:write tool. DO NOT just show code in markdown blocks.
+
+CORRECT way to create a file:
+<tool name="fs:write">
+{"path": "/path/to/file.js", "content": "const x = 1;"}
+</tool>
+
+WRONG way (do NOT do this):
+\`\`\`javascript
+const x = 1;
+\`\`\`
+
+Always use <tool name="fs:write"> to actually create files!`;
+    }
+    return "";
+  }
+
+  /**
+   * Extract code from markdown and create files if LLM didn't use tools
+   */
+  async extractAndSaveCode(response, workdir) {
+    // Check if there are markdown code blocks but no tool calls
+    const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+    const toolCallRegex = /<tool\s+name=/;
+    
+    if (toolCallRegex.test(response)) {
+      // LLM used tools correctly, no need to extract
+      return response;
+    }
+    
+    const matches = [...response.matchAll(codeBlockRegex)];
+    if (matches.length === 0) {
+      return response;
+    }
+    
+    agentLog.info(`Found ${matches.length} code blocks without tool calls, extracting...`);
+    
+    // Try to determine filename from context
+    const filePatterns = [
+      /(?:do|to|into|soubor[ua]?)\s+([\/\w.-]+\.(js|ts|py|java|cpp|go|rs|sh|json|yaml|yml|html|css))/i,
+      /([\/\w.-]+\.(js|ts|py|java|cpp|go|rs|sh|json|yaml|yml|html|css))/i,
+    ];
+    
+    let detectedFile = null;
+    for (const pattern of filePatterns) {
+      const match = response.match(pattern);
+      if (match) {
+        detectedFile = match[1];
+        break;
+      }
+    }
+    
+    // If we found code and a filename, save it
+    if (matches.length > 0 && detectedFile) {
+      const mainCode = matches[0][2]; // First code block
+      const lang = matches[0][1] || "text";
+      
+      // Determine full path
+      let filePath = detectedFile;
+      if (!filePath.startsWith("/")) {
+        filePath = `${workdir}/${detectedFile}`;
+      }
+      
+      agentLog.info(`Auto-saving code to: ${filePath}`);
+      
+      try {
+        const tool = toolRegistry.get("fs:write");
+        if (tool) {
+          const result = await tool.execute({ 
+            path: filePath, 
+            content: mainCode,
+            createDirs: true 
+          }, { workdir });
+          
+          if (result.success) {
+            response += `\n\n✅ Soubor automaticky uložen: ${filePath}`;
+          }
+        }
+      } catch (e) {
+        agentLog.error(`Failed to auto-save: ${e.message}`);
+      }
+    }
+    
+    return response;
   }
 
   async chat(userMessage) {
     agentLog.info(`User message: ${userMessage.substring(0, 100)}`);
+    
+    // Detect task type and select model
+    let selectedModel = this.config.model;
+    let taskInfo = { type: "CHAT", model: "CHAT", reason: "default" };
+    
+    if (this.config.dynamicModel) {
+      taskInfo = this.detectTaskType(userMessage);
+      selectedModel = taskInfo.model;
+      agentLog.info(`Task detected: ${taskInfo.type} -> Model: ${selectedModel} (${taskInfo.reason})`);
+    }
     
     this.history.push({ role: "user", content: userMessage });
 
@@ -105,7 +262,10 @@ class SimpleChatAgent {
       .map(t => `- ${t.name}: ${t.description} | params: ${JSON.stringify(t.parameters || {})}`)
       .join("\n");
 
-    const systemPrompt = SYSTEM_PROMPT.replace("{{TOOLS}}", toolsDesc);
+    let systemPrompt = SYSTEM_PROMPT.replace("{{TOOLS}}", toolsDesc);
+    
+    // Add role-specific instructions
+    systemPrompt += this.getRolePromptAddition(selectedModel);
 
     // Build conversation
     const conversation = this.history
@@ -117,7 +277,7 @@ class SimpleChatAgent {
 
     try {
       let response = await callLLM({
-        role: this.config.model,
+        role: selectedModel,  // Use detected model
         prompt: conversation,
         systemPrompt
       });
@@ -126,6 +286,11 @@ class SimpleChatAgent {
 
       // Process tool calls
       response = await this.processTools(response);
+      
+      // If CODE model didn't use tools, try to extract and save code
+      if (taskInfo.type === "CODE") {
+        response = await this.extractAndSaveCode(response, this.config.workdir);
+      }
 
       // Save to history
       this.history.push({ role: "assistant", content: response });

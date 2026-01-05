@@ -3,5 +3,6 @@
   "D2": "qwen3-30b-a3b:latest",
   "R1": "deepseek-r1-32b:latest",
   "R2": "qwen3:14b",
-  "CHAT": "qwen3:14b"
+  "CHAT": "qwen3:14b",
+  "CODE": "qwen25-coder-32b:latest"
 }

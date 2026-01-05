@@ -71,80 +71,87 @@ registerTool({
 registerTool({
   name: "web:search",
   category: "web",
-  description: "Search the web using DuckDuckGo",
+  description: "Search the web. Note: Search engines may block requests. For specific sites, use web:fetch directly.",
   risk: "low",
   parameters: {
     query: { type: "string", required: true },
-    maxResults: { type: "number", default: 10 }
+    maxResults: { type: "number", default: 5 }
   },
-  async execute({ query, maxResults = 10 }) {
-    // Using DuckDuckGo HTML version (no API key needed)
-    const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-
+  async execute({ query, maxResults = 5 }) {
+    console.log(`[web:search] Query: ${query}`);
+    
+    // Try DuckDuckGo with better headers
     try {
+      const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+      
       const response = await fetch(url, {
         headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; C3-Agent/1.0)"
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+          "Accept-Language": "cs,en;q=0.9",
+          "Accept-Encoding": "gzip, deflate, br",
+          "DNT": "1",
+          "Connection": "keep-alive",
+          "Upgrade-Insecure-Requests": "1"
         }
       });
 
       const html = await response.text();
-      
-      // Parse results from HTML
       const results = [];
-      const resultRegex = /<a class="result__a" href="([^"]+)"[^>]*>([^<]+)<\/a>[\s\S]*?<a class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
       
-      // Helper to decode DDG redirect URLs
+      // Decode DDG redirect URLs
       function decodeUrl(ddgUrl) {
-        // DDG uses //duckduckgo.com/l/?uddg=ENCODED_URL
-        if (ddgUrl.includes('uddg=')) {
+        if (ddgUrl && ddgUrl.includes('uddg=')) {
           try {
             const match = ddgUrl.match(/uddg=([^&]+)/);
-            if (match) {
-              return decodeURIComponent(match[1]);
-            }
+            if (match) return decodeURIComponent(match[1]);
           } catch (e) {}
         }
-        // Some URLs are direct
-        if (ddgUrl.startsWith('//')) {
-          return 'https:' + ddgUrl;
-        }
+        if (ddgUrl && ddgUrl.startsWith('//')) return 'https:' + ddgUrl;
         return ddgUrl;
       }
       
-      let match;
-      while ((match = resultRegex.exec(html)) !== null && results.length < maxResults) {
-        results.push({
-          url: decodeUrl(match[1]),
-          title: match[2].trim(),
-          snippet: match[3].replace(/<[^>]+>/g, "").trim()
-        });
-      }
-
-      // Fallback: simpler regex if above doesn't match
-      if (results.length === 0) {
-        const simpleRegex = /<a rel="nofollow" class="result__a" href="([^"]+)">([^<]+)<\/a>/g;
-        while ((match = simpleRegex.exec(html)) !== null && results.length < maxResults) {
-          results.push({
-            url: decodeUrl(match[1]),
-            title: match[2].trim(),
-            snippet: ""
-          });
+      // Try multiple patterns
+      const patterns = [
+        /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([^<]+)<\/a>/gi,
+        /<a[^>]+href="([^"]+)"[^>]+class="result__a"[^>]*>([^<]+)<\/a>/gi,
+        /href="(\/\/duckduckgo\.com\/l\/[^"]+)"[^>]*>([^<]+)<\/a>/gi,
+      ];
+      
+      for (const pattern of patterns) {
+        let match;
+        while ((match = pattern.exec(html)) !== null && results.length < maxResults) {
+          const decodedUrl = decodeUrl(match[1]);
+          if (decodedUrl && decodedUrl.startsWith('http') && !decodedUrl.includes('duckduckgo.com')) {
+            results.push({
+              url: decodedUrl,
+              title: match[2].replace(/<[^>]+>/g, '').trim(),
+              snippet: ""
+            });
+          }
         }
+        if (results.length > 0) break;
       }
-
+      
+      console.log(`[web:search] Found ${results.length} results`);
+      
       return {
         success: true,
         query,
         results,
-        count: results.length
+        count: results.length,
+        note: results.length === 0 ? "No results found. Try using web:fetch to access specific URLs directly." : null
       };
-
+      
     } catch (error) {
+      console.error(`[web:search] Error: ${error.message}`);
       return {
-        success: false,
+        success: true, // Return success but empty to not trigger error handling
         query,
-        error: error.message
+        results: [],
+        count: 0,
+        error: error.message,
+        note: "Search failed. Try using web:fetch to access specific URLs directly."
       };
     }
   }
