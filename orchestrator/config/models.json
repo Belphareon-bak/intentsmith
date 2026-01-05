@@ -1,0 +1,81 @@
+{
+  "models": {
+    "qwen3:14b": {
+      "name": "Qwen3 14B",
+      "size": "14B",
+      "type": "chat",
+      "speed": "fast",
+      "capabilities": ["chat", "code", "reasoning"]
+    },
+    "deepseek-r1-32b:latest": {
+      "name": "DeepSeek R1 32B", 
+      "size": "32B",
+      "type": "reasoning",
+      "speed": "slow",
+      "capabilities": ["reasoning", "planning", "code"]
+    },
+    "qwen3-30b-a3b:latest": {
+      "name": "Qwen3 30B A3B",
+      "size": "30B", 
+      "type": "hybrid",
+      "speed": "medium",
+      "capabilities": ["chat", "code", "reasoning"]
+    },
+    "qwen25-coder-32b:latest": {
+      "name": "Qwen 2.5 Coder 32B",
+      "size": "32B",
+      "type": "code",
+      "speed": "medium",
+      "capabilities": ["code", "refactor", "debug"]
+    }
+  },
+  
+  "roles": {
+    "CHAT": {
+      "description": "General conversation",
+      "defaultModel": "qwen3:14b",
+      "fallback": "qwen3-30b-a3b:latest"
+    },
+    "D1": {
+      "description": "Deep thinking, planning",
+      "defaultModel": "deepseek-r1-32b:latest",
+      "fallback": "qwen3-30b-a3b:latest"
+    },
+    "D2": {
+      "description": "Complex reasoning",
+      "defaultModel": "qwen3-30b-a3b:latest",
+      "fallback": "qwen3:14b"
+    },
+    "CODE": {
+      "description": "Code generation and review",
+      "defaultModel": "qwen25-coder-32b:latest",
+      "fallback": "qwen3:14b"
+    },
+    "FAST": {
+      "description": "Quick responses",
+      "defaultModel": "qwen3:14b",
+      "fallback": null
+    }
+  },
+  
+  "taskTypeMapping": {
+    "chat": "CHAT",
+    "question": "CHAT", 
+    "code": "CODE",
+    "debug": "CODE",
+    "plan": "D1",
+    "analyze": "D2",
+    "search": "FAST",
+    "file": "FAST"
+  },
+  
+  "autoSelect": {
+    "enabled": false,
+    "keywords": {
+      "CODE": ["kód", "code", "funkce", "function", "class", "debug", "oprav", "fix"],
+      "D1": ["plán", "plan", "architektura", "design", "strategie"],
+      "D2": ["analyzuj", "analyze", "porovnej", "compare", "vysvětli", "explain"],
+      "FAST": ["rychle", "quick", "jednoduchý", "simple"]
+    }
+  }
+}
