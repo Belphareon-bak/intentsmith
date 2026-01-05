@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { callOllama } from "./ollama-client.js";
+import { llmLog } from "../utils/logger.js";
 
 /* -------- role → model binding -------- */
 
@@ -28,7 +29,7 @@ fs.mkdirSync(DEBUG_DIR, { recursive: true });
 
 /* -------- main -------- */
 
-export async function callLLM({ role, prompt }) {
+export async function callLLM({ role, prompt, systemPrompt }) {
   if (!role) {
     throw new Error("LLM role is required");
   }
@@ -40,22 +41,54 @@ export async function callLLM({ role, prompt }) {
     throw new Error(`LLM model not resolved (role=${role})`);
   }
 
-  const id = crypto.randomUUID();
+  const id = crypto.randomUUID().slice(0, 8);
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
 
-  try {
-    const output = await callOllama({ model, prompt });
+  llmLog.info(`Calling LLM`, { role, model, promptLength: prompt?.length });
+  llmLog.debug(`Prompt preview: ${prompt?.substring(0, 200)}...`);
 
+  const startTime = Date.now();
+
+  try {
+    const output = await callOllama({ 
+      model, 
+      prompt,
+      system: systemPrompt 
+    });
+
+    const duration = Date.now() - startTime;
+    llmLog.info(`LLM response received`, { role, model, duration: `${duration}ms`, outputLength: output?.length });
+    llmLog.debug(`Response preview: ${output?.substring(0, 200)}...`);
+
+    // Save debug file
+    const debugContent = `
+=== LLM CALL ===
+Role: ${role}
+Model: ${model}
+Time: ${new Date().toISOString()}
+Duration: ${duration}ms
+
+=== SYSTEM PROMPT ===
+${systemPrompt || "(none)"}
+
+=== USER PROMPT ===
+${prompt}
+
+=== OUTPUT ===
+${output}
+`;
     fs.writeFileSync(
-      path.join(DEBUG_DIR, `${ts}-${role}-${id}.raw.txt`),
-      output
+      path.join(DEBUG_DIR, `${ts}-${role}-${id}.txt`),
+      debugContent
     );
 
     return output;
   } catch (err) {
+    llmLog.error(`LLM call failed`, { role, model, error: err.message });
+    
     fs.writeFileSync(
       path.join(DEBUG_DIR, `${ts}-${role}-${id}.error.txt`),
-      String(err)
+      `Error: ${err.message}\n\nPrompt:\n${prompt}`
     );
     throw err;
   }

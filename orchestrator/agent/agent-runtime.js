@@ -10,6 +10,7 @@ import { toolRegistry, executeTool } from "../tools/index.js";
 import { agentMemory } from "../memory/memory-store.js";
 import { userProfile } from "../memory/user-profile.js";
 import { callLLM } from "../llm/llm-client.js";
+import { agentLog } from "../utils/logger.js";
 
 /**
  * Agent State
@@ -26,6 +27,7 @@ class AgentState {
 
   setStatus(status) {
     this.status = status;
+    agentLog.debug(`Status changed: ${status}`);
     emit({ type: "agent_status", status });
   }
 
@@ -117,6 +119,8 @@ class AgentRuntime {
       throw new Error("Agent is already running");
     }
 
+    agentLog.info(`=== Starting task ===`, { task });
+    
     this.running = true;
     this.paused = false;
     this.toolCallCount = 0;
@@ -142,16 +146,21 @@ class AgentRuntime {
         }
 
         iteration++;
+        agentLog.info(`--- Iteration ${iteration}/${this.config.maxIterations} ---`);
         emit({ type: "agent_iteration", iteration });
 
         // 1. OBSERVE - gather current state
+        agentLog.debug("Step 1: OBSERVE");
         const observation = await this.observe(context);
 
         // 2. THINK - analyze situation
+        agentLog.debug("Step 2: THINK (calling LLM with role D1)");
         const thought = await this.think(observation);
+        agentLog.info(`Thought result`, { done: thought.done, summary: thought.summary?.substring(0, 100) });
 
         // 3. Check if done
         if (thought.done) {
+          agentLog.info("Task marked as DONE by LLM");
           emit({ type: "agent_complete", result: thought.result });
           this.state.addToHistory({ type: "complete", result: thought.result });
           this.memory.recordInteraction("task_complete", { task, result: thought.result });
@@ -159,15 +168,21 @@ class AgentRuntime {
         }
 
         // 4. PLAN - decide next action
+        agentLog.debug("Step 3: PLAN");
         const action = await this.plan(thought);
+        agentLog.info(`Planned action`, { tool: action.tool, reason: action.reason });
 
         // 5. ACT - execute action
+        agentLog.debug(`Step 4: ACT - executing ${action.tool}`);
         const result = await this.act(action);
+        agentLog.info(`Action result`, { tool: action.tool, success: result.success, error: result.error });
 
         // 6. Track consecutive errors
         if (!result.success) {
           consecutiveErrors++;
+          agentLog.warn(`Consecutive errors: ${consecutiveErrors}/${maxConsecutiveErrors}`);
           if (consecutiveErrors >= maxConsecutiveErrors) {
+            agentLog.error(`Too many errors, stopping task`);
             emit({ 
               type: "agent_error", 
               error: `Task stopped after ${consecutiveErrors} consecutive failures. Last error: ${result.error || 'Unknown'}` 
@@ -469,18 +484,40 @@ When planning actions:
    * Parse action response
    */
   parseAction(response) {
+    agentLog.debug(`Parsing action from response: ${response.substring(0, 300)}`);
+    
     try {
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+        const parsed = JSON.parse(jsonMatch[0]);
+        agentLog.debug(`Parsed action:`, parsed);
+        
+        // Validate required fields
+        if (!parsed.tool) {
+          agentLog.warn("Parsed action missing 'tool' field");
+          return this.fallbackAction("No tool specified in response");
+        }
+        
+        // Ensure params exists
+        if (!parsed.params) {
+          agentLog.warn(`Action ${parsed.tool} missing 'params' field`);
+          parsed.params = {};
+        }
+        
+        return parsed;
       }
     } catch (e) {
-      // Fall back
+      agentLog.error(`Failed to parse action: ${e.message}`);
     }
 
+    return this.fallbackAction("Unable to parse LLM response");
+  }
+
+  fallbackAction(reason) {
+    agentLog.warn(`Using fallback action: ${reason}`);
     return {
       tool: "shell:exec",
-      params: { command: "echo 'Unable to parse action'" },
+      params: { command: `echo 'Agent error: ${reason}'` },
       reason: "Fallback action"
     };
   }

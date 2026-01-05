@@ -94,10 +94,28 @@ registerTool({
       const results = [];
       const resultRegex = /<a class="result__a" href="([^"]+)"[^>]*>([^<]+)<\/a>[\s\S]*?<a class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
       
+      // Helper to decode DDG redirect URLs
+      function decodeUrl(ddgUrl) {
+        // DDG uses //duckduckgo.com/l/?uddg=ENCODED_URL
+        if (ddgUrl.includes('uddg=')) {
+          try {
+            const match = ddgUrl.match(/uddg=([^&]+)/);
+            if (match) {
+              return decodeURIComponent(match[1]);
+            }
+          } catch (e) {}
+        }
+        // Some URLs are direct
+        if (ddgUrl.startsWith('//')) {
+          return 'https:' + ddgUrl;
+        }
+        return ddgUrl;
+      }
+      
       let match;
       while ((match = resultRegex.exec(html)) !== null && results.length < maxResults) {
         results.push({
-          url: match[1],
+          url: decodeUrl(match[1]),
           title: match[2].trim(),
           snippet: match[3].replace(/<[^>]+>/g, "").trim()
         });
@@ -108,7 +126,7 @@ registerTool({
         const simpleRegex = /<a rel="nofollow" class="result__a" href="([^"]+)">([^<]+)<\/a>/g;
         while ((match = simpleRegex.exec(html)) !== null && results.length < maxResults) {
           results.push({
-            url: match[1],
+            url: decodeUrl(match[1]),
             title: match[2].trim(),
             snippet: ""
           });

@@ -200,13 +200,31 @@ registerTool({
   },
   async execute({ template: templateId, name, path: projectPath, description = "" }, context) {
     const workdir = context.workdir || process.cwd();
+    
+    // Log what we received
+    console.log(`[project:create] Received params:`, { templateId, name, projectPath, description });
+    
+    // Validate required params
+    if (!templateId) {
+      return {
+        success: false,
+        error: "Missing required parameter: template. Available templates: " + Object.keys(TEMPLATES).join(", ")
+      };
+    }
+    
+    if (!name) {
+      return {
+        success: false,
+        error: "Missing required parameter: name (project name)"
+      };
+    }
+    
     const template = TEMPLATES[templateId];
     
     if (!template) {
       return { 
         success: false, 
-        error: `Template not found: ${templateId}`,
-        available: Object.keys(TEMPLATES)
+        error: `Template not found: ${templateId}. Available: ${Object.keys(TEMPLATES).join(", ")}`
       };
     }
 

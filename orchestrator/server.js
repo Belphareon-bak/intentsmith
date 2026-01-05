@@ -18,9 +18,11 @@ import { URL } from "url";
 // Core imports
 import { emit, addClient } from "./runtime/event-bus.js";
 import { handleAgentRequest } from "./agent/agent-api.js";
+import { handleChatRequest } from "./agent/chat-api.js";
 import { toolRegistry, executeTool } from "./tools/index.js";
 import { agentMemory } from "./memory/memory-store.js";
 import { userProfile } from "./memory/user-profile.js";
+import { serverLog } from "./utils/logger.js";
 
 // Execution imports
 import {
@@ -120,6 +122,11 @@ export function startServer(port = 3335) {
     const url = new URL(req.url, `http://localhost:${port}`);
     const pathname = url.pathname;
     const query = parseQuery(url);
+    
+    // Log request (skip static files and stream)
+    if (!pathname.startsWith("/stream") && !pathname.includes(".")) {
+      serverLog.info(`${req.method} ${pathname}`);
+    }
 
     try {
       /* ============== SSE STREAM ============== */
@@ -156,6 +163,13 @@ export function startServer(port = 3335) {
         const result = await handleAgentRequest(req.method, pathname, body, query);
         const httpCode = typeof result.status === 'number' ? result.status : 200;
         return json(res, httpCode, result);
+      }
+
+      /* ============== CHAT API (NEW) ============== */
+      if (pathname.startsWith("/chat") && !pathname.includes(".")) {
+        const body = req.method !== "GET" ? JSON.parse(await readBody(req) || "{}") : {};
+        const result = await handleChatRequest(req.method, pathname, body, query);
+        return json(res, result.error ? 400 : 200, result);
       }
 
       /* ============== TOOLS API ============== */
@@ -387,19 +401,27 @@ export function startServer(port = 3335) {
 
       /* ============== STATIC FILES ============== */
       if (req.method === "GET") {
-        const staticPath = path.join(process.cwd(), "ui", pathname);
+        // Remove leading slash for file path
+        const cleanPath = pathname === "/" ? "/index.html" : pathname;
+        const staticPath = path.join(process.cwd(), "ui", cleanPath);
+        
+        serverLog.debug(`Static file request: ${cleanPath} -> ${staticPath}`);
+        
         if (fs.existsSync(staticPath) && fs.statSync(staticPath).isFile()) {
           if (serveStatic(res, staticPath)) return;
         }
         
-        // Try index.html for SPA
-        const indexPath = path.join(process.cwd(), "ui", "index.html");
-        if (fs.existsSync(indexPath)) {
-          if (serveStatic(res, indexPath)) return;
+        // Fallback to index.html only for non-file paths
+        if (!pathname.includes(".")) {
+          const indexPath = path.join(process.cwd(), "ui", "index.html");
+          if (fs.existsSync(indexPath)) {
+            if (serveStatic(res, indexPath)) return;
+          }
         }
       }
 
       /* ============== 404 ============== */
+      serverLog.warn(`404 Not Found: ${pathname}`);
       return json(res, 404, { error: "Not found", path: pathname });
 
     } catch (err) {
