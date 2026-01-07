@@ -608,3 +608,120 @@ APPROVED:...
 [2026-01-07T19:49:58.663Z] [INFO] [C3:Server] Workflow: GET /workflow/auto-test-26549
 [2026-01-07T19:49:58.699Z] [INFO] [C3:Server] GET /workflow/auto-test-26549
 [2026-01-07T19:49:58.699Z] [INFO] [C3:Server] Workflow: GET /workflow/auto-test-26549
+[2026-01-07T20:11:50.609Z] [INFO] [C3:Server] POST /workflow
+[2026-01-07T20:11:50.610Z] [INFO] [C3:Server] Workflow: POST /workflow
+[2026-01-07T20:11:50.611Z] [INFO] [C3:LLM] Calling LLM {"role":"D1","model":"deepseek-r1-32b:latest","promptLength":475}
+[2026-01-07T20:11:50.611Z] [DEBUG] [C3:LLM] Prompt preview: 
+
+## Kontext z paměti:
+
+
+---
+
+Požadavek uživatele:
+Vytvoř jednoduchou TODO CLI aplikaci v Node.js.
+
+Soubory:
+- /tmp/workflow-auto/todo.js - hlavní aplikace
+
+Funkce:
+- add <text> - přidá úkol
+- list - ...
+[2026-01-07T20:12:14.027Z] [INFO] [C3:LLM] LLM response received {"role":"D1","model":"deepseek-r1-32b:latest","duration":"23416ms","outputLength":2740}
+[2026-01-07T20:12:14.027Z] [DEBUG] [C3:LLM] Response preview: 
+
+Například:
+1. [ ] Učit se Node.js
+2. [x] Napsat aplikaci
+
+Očekávané chování:
+- Pokud je tasks.json neexistující, vytvoř ho.
+- Při spuštění bez parametrů zobraz nápovědu.
+
+Například:
+Usage: node todo...
+[2026-01-07T20:12:14.027Z] [INFO] [C3:LLM] Calling LLM {"role":"D1","model":"deepseek-r1-32b:latest","promptLength":501}
+[2026-01-07T20:12:14.027Z] [DEBUG] [C3:LLM] Prompt preview: 
+
+## Kontext z paměti:
+
+
+---
+
+Požadavek:
+Vytvoř jednoduchou TODO CLI aplikaci v Node.js.
+
+Soubory:
+- /tmp/workflow-auto/todo.js - hlavní aplikace
+
+Funkce:
+- add <text> - přidá úkol
+- list - vypíše úko...
+[2026-01-07T20:12:39.070Z] [INFO] [C3:LLM] LLM response received {"role":"D1","model":"deepseek-r1-32b:latest","duration":"25043ms","outputLength":2349}
+[2026-01-07T20:12:39.070Z] [DEBUG] [C3:LLM] Response preview:  Zahrňte všechny kroky od návrhu struktury po testování.
+</think>
+
+### Plán Implementace TODO CLI Aplikace v Node.js
+
+#### 1. Návrh Struktury
+- **Soubory:**
+  - `todo.js`: Hlavní aplikace
+  - `/tmp/wo...
+[2026-01-07T20:12:39.084Z] [INFO] [C3:Server] POST /workflow
+[2026-01-07T20:12:39.084Z] [INFO] [C3:Server] Workflow: POST /workflow
+[2026-01-07T20:12:39.085Z] [INFO] [C3:LLM] Calling LLM {"role":"CODE","model":"qwen25-coder-32b:latest","promptLength":2476}
+[2026-01-07T20:12:39.085Z] [DEBUG] [C3:LLM] Prompt preview: Plán k implementaci:
+
+ Zahrňte všechny kroky od návrhu struktury po testování.
+</think>
+
+### Plán Implementace TODO CLI Aplikace v Node.js
+
+#### 1. Návrh Struktury
+- **Soubory:**
+  - `todo.js`: Hlavní...
+[2026-01-07T20:13:27.512Z] [INFO] [C3:LLM] LLM response received {"role":"CODE","model":"qwen25-coder-32b:latest","duration":"48427ms","outputLength":2227}
+[2026-01-07T20:13:27.512Z] [DEBUG] [C3:LLM] Response preview:  
+
+### Implementace
+
+#### 1. Soubor `todo.js`
+```javascript
+// /path/to/project/todo.js
+const fs = require('fs');
+const path = '/tmp/workflow-auto/tasks.json';
+
+function loadTasks() {
+  try {
+    cons...
+[2026-01-07T20:13:27.513Z] [INFO] [C3:LLM] Calling LLM {"role":"R2","model":"qwen2.5:32b","promptLength":4715}
+[2026-01-07T20:13:27.513Z] [DEBUG] [C3:LLM] Prompt preview: ## Plán:
+ Zahrňte všechny kroky od návrhu struktury po testování.
+</think>
+
+### Plán Implementace TODO CLI Aplikace v Node.js
+
+#### 1. Návrh Struktury
+- **Soubory:**
+  - `todo.js`: Hlavní aplikace
+  -...
+[2026-01-07T20:14:01.149Z] [INFO] [C3:LLM] LLM response received {"role":"R2","model":"qwen2.5:32b","duration":"33636ms","outputLength":372}
+[2026-01-07T20:14:01.150Z] [DEBUG] [C3:LLM] Response preview: PASS: 
+- Kód je syntakticky správný a implementuje všechny požadované funkce.
+- Nejsou zde žádné zjevné bezpečnostní problémy, jako hardcoded secrets nebo SQL injection (kód používá jen souborový syst...
+[2026-01-07T20:14:01.155Z] [INFO] [C3:LLM] Calling LLM {"role":"R1","model":"deepseek-r1-32b:latest","promptLength":3951}
+[2026-01-07T20:14:01.155Z] [DEBUG] [C3:LLM] Prompt preview: ## Shrnutí plánu:
+ Zahrňte všechny kroky od návrhu struktury po testování.
+</think>
+
+### Plán Implementace TODO CLI Aplikace v Node.js
+
+#### 1. Návrh Struktury
+- **Soubory:**
+  - `todo.js`: Hlavní apl...
+[2026-01-07T20:14:27.619Z] [INFO] [C3:LLM] LLM response received {"role":"R1","model":"deepseek-r1-32b:latest","duration":"26464ms","outputLength":0}
+[2026-01-07T20:14:27.620Z] [DEBUG] [C3:LLM] Response preview: ...
+[2026-01-07T20:14:30.689Z] [INFO] [C3:Server] GET /workflow/auto-test-29893
+[2026-01-07T20:14:30.689Z] [INFO] [C3:Server] Workflow: GET /workflow/auto-test-29893
+[2026-01-07T20:14:30.699Z] [INFO] [C3:Server] GET /workflow/auto-test-29893
+[2026-01-07T20:14:30.699Z] [INFO] [C3:Server] Workflow: GET /workflow/auto-test-29893

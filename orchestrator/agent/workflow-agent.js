@@ -114,8 +114,16 @@ FORMÁT PRO KAŽDÝ SOUBOR:
 [kód]
 \`\`\`
 
+PRO JSON SOUBORY (tasks.json, config.json, package.json atd.):
+Protože JSON nepodporuje komentáře, napiš cestu PŘED code block:
+Soubor: /cesta/k/souboru.json
+\`\`\`json
+{"key": "value"}
+\`\`\`
+
 DŮLEŽITÉ:
-- Každý code block MUSÍ mít na prvním řádku komentář s plnou cestou
+- Každý code block MUSÍ mít identifikaci cesty (komentář uvnitř NEBO "Soubor:" před blokem)
+- Pro JSON soubory NIKDY nepřidávej komentáře dovnitř - JSON je nepodporuje!
 - Implementuj VŠECHNY soubory z plánu
 - Nepřeskakuj žádný soubor
 - Pokud používáš EXTERNÍ MODULY (npm balíčky jako commander, express, axios...), MUSÍŠ také vytvořit package.json
@@ -410,23 +418,57 @@ ${plan}
    */
   async extractAndSaveCode(response) {
     const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
-    const blocks = [...response.matchAll(codeBlockRegex)];
-    
     const savedFiles = [];
     
-    for (const block of blocks) {
-      const lang = block[1] || "";
-      const code = block[2];
+    let match;
+    while ((match = codeBlockRegex.exec(response)) !== null) {
+      const lang = match[1] || "";
+      let code = match[2];
+      const blockStart = match.index;
       
-      // Skip non-code blocks
+      // Skip non-code blocks (bash commands are instructions, not files)
       if (["bash", "sh", "shell", "markdown", "md"].includes(lang) && !code.includes("#!/")) {
         continue;
       }
       
-      // Find path in first line comment
+      let filePath = null;
+      
+      // Method 1: Find path in first line comment inside code block
+      // Supports: // /path, # /path, <!-- /path, /* /path
       const pathMatch = code.match(/^(?:\/\/|#|<!--|\/\*)\s*(\/[\w\/.+-]+\.\w+)/m);
       if (pathMatch) {
-        const filePath = pathMatch[1];
+        filePath = pathMatch[1];
+        // Remove the path comment line from content
+        code = code.replace(/^(?:\/\/|#|<!--|\/\*)\s*\/[\w\/.+-]+\.\w+\s*\n?/, '');
+      }
+      
+      // Method 2: Find "Soubor: /path" or "File: /path" before the code block
+      if (!filePath) {
+        // Look at text before this code block (last 200 chars)
+        const textBefore = response.substring(Math.max(0, blockStart - 200), blockStart);
+        const fileMarkerMatch = textBefore.match(/(?:Soubor|File|Súbor):\s*(\/[\w\/.+-]+\.\w+)\s*$/i);
+        if (fileMarkerMatch) {
+          filePath = fileMarkerMatch[1];
+        }
+      }
+      
+      // Method 3: For JSON blocks, try to find filename in nearby context
+      if (!filePath && lang === 'json') {
+        const textBefore = response.substring(Math.max(0, blockStart - 300), blockStart);
+        // Look for patterns like "tasks.json:", "`tasks.json`", "soubor tasks.json"
+        const jsonFileMatch = textBefore.match(/[`"]?([\w-]+\.json)[`"]?\s*:?\s*$/i);
+        if (jsonFileMatch) {
+          // Use workdir as base path
+          filePath = path.join(this.config.workdir, jsonFileMatch[1]);
+          log.info(`Inferred JSON path from context: ${filePath}`);
+        }
+      }
+      
+      if (filePath) {
+        // For JSON files: validate and fix if needed
+        if (filePath.endsWith('.json')) {
+          code = this.sanitizeJsonContent(code, filePath);
+        }
         
         log.info(`Saving file: ${filePath}`);
         
@@ -444,6 +486,45 @@ ${plan}
     }
     
     return savedFiles;
+  }
+
+  /**
+   * Sanitize JSON content - validate and fix common issues
+   */
+  sanitizeJsonContent(content, filePath) {
+    const trimmed = content.trim();
+    
+    // Try to parse as-is first
+    try {
+      JSON.parse(trimmed);
+      return trimmed;
+    } catch (e) {
+      log.warn(`Invalid JSON in ${filePath}, attempting fix: ${e.message}`);
+    }
+    
+    // Try removing any remaining comment lines (// or #)
+    const withoutComments = trimmed
+      .split('\n')
+      .filter(line => !line.trim().startsWith('//') && !line.trim().startsWith('#'))
+      .join('\n')
+      .trim();
+    
+    try {
+      JSON.parse(withoutComments);
+      log.info(`Fixed JSON by removing comments: ${filePath}`);
+      return withoutComments;
+    } catch (e) {
+      // Still invalid
+    }
+    
+    // Last resort: detect intended structure and provide fallback
+    if (trimmed.includes('[') || filePath.includes('task') || filePath.includes('list') || filePath.includes('array')) {
+      log.warn(`Using fallback empty array for ${filePath}`);
+      return '[]';
+    } else {
+      log.warn(`Using fallback empty object for ${filePath}`);
+      return '{}';
+    }
   }
 
   /**
