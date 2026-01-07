@@ -1,0 +1,300 @@
+
+=== LLM CALL ===
+Role: D1
+Model: deepseek-r1-32b:latest
+Time: 2026-01-07T18:46:25.794Z
+Duration: 74333ms
+
+=== SYSTEM PROMPT ===
+Jsi D1 - hlavní architekt AI systému. Tvým úkolem je analyzovat požadavek uživatele.
+
+INSTRUKCE:
+1. Přečti požadavek a zhodnoť, zda máš dostatek informací pro vytvoření kvalitního řešení.
+2. Pokud NE - vytvoř seznam konkrétních otázek (max 5), které potřebuješ zodpovědět.
+3. Pokud ANO - odpověz "READY" a stručně shrň, co budeš vytvářet.
+
+FORMÁT ODPOVĚDI:
+Pokud potřebuješ více informací:
+CLARIFY:
+1. [otázka 1]
+2. [otázka 2]
+...
+
+Pokud máš dostatek informací:
+READY: [stručný popis co vytvoříš]
+
+=== USER PROMPT ===
+
+
+## Kontext z paměti:
+
+
+---
+
+Požadavek uživatele:
+Vytvoř jednoduchou TODO CLI aplikaci v Node.js.
+
+Soubory:
+- /tmp/workflow-auto/todo.js - hlavní aplikace
+
+Funkce:
+- add <text> - přidá úkol
+- list - vypíše úkoly
+- done <id> - označí úkol jako hotový
+
+Technologie: Node.js, fs modul pro ukládání do JSON souboru.
+
+Požadavky:
+- Úkoly ukládej do /tmp/workflow-auto/tasks.json
+- Každý úkol má id, text, done (boolean), createdAt
+- Formátovaný výstup s čísly a [x] / [ ] značkami
+
+=== OUTPUT ===
+
+
+Napíšte kód pro hlavní aplikaci.
+
+---
+
+Krok za krokem:
+
+1. Vytvořte strukturu úkolu: id, text, done, createdAt.
+2. Načtěte úkoly ze souboru tasks.json.
+3. Zpracujte příkazový řádek a volání funkcí add, list, done.
+4. Uložte změny zpět do tasks.json po provedení akce.
+
+Příklady výstupu:
+
+List:
+1. [ ] Nákupy
+2. [x] Účty
+
+Done 1:
+Změněno na hotovo.
+Výpis úkolů znovu.
+
+Problémy a řešení:
+
+- Zpracování chyb: Pokud soubor tasks.json neexistuje, vytvořte ho.
+- Generování id: Každé nové id je o 1 vyšší než poslední.
+- Validace vstupu: Pro 'done <id>', zkontrolujte, že id existuje a je číslo.
+
+Kód:
+
+```javascript
+const fs = require('fs');
+const path = require('path');
+
+const tasksPath = path.join(__dirname, 'tasks.json');
+
+function loadTasks() {
+    try {
+        const fileContent = fs.readFileSync(tasksPath, 'utf8');
+        return JSON.parse(fileContent);
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            return [];
+        }
+        throw err;
+    }
+}
+
+function saveTasks(tasks) {
+    fs.writeFileSync(tasksPath, JSON.stringify(tasks, null, 2));
+}
+
+function addTask(text) {
+    const tasks = loadTasks();
+    const newTask = {
+        id: tasks.length ? tasks[tasks.length - 1].id + 1 : 1,
+        text,
+        done: false,
+        createdAt: new Date().toISOString()
+    };
+    tasks.push(newTask);
+    saveTasks(tasks);
+}
+
+function listTasks() {
+    const tasks = loadTasks();
+    if (tasks.length === 0) {
+        console.log('Žádné úkoly.');
+        return;
+    }
+    tasks.forEach((task, index) => {
+        const status = task.done ? '[x]' : '[ ]';
+        console.log(`${index + 1}. ${status} ${task.text}`);
+    });
+}
+
+function doneTask(id) {
+    const tasks = loadTasks();
+    const taskId = parseInt(id);
+    if (isNaN(taskId)) {
+        console.error('Neplatné ID úkolu.');
+        return;
+    }
+    const taskIndex = tasks.findIndex(task => task.id === taskId);
+    if (taskIndex === -1) {
+        console.error('Úkol s tímto ID neexistuje.');
+        return;
+    }
+    tasks[taskIndex].done = true;
+    saveTasks(tasks);
+    console.log('Změněno na hotovo.');
+    listTasks();
+}
+
+function main() {
+    const args = process.argv.slice(2);
+    if (args.length === 0) {
+        console.error('Zadejte příkaz: add <text>, list, done <id>');
+        return;
+    }
+
+    const command = args[0];
+    switch(command) {
+        case 'add':
+            if (args.length < 2) {
+                console.error('Příkaz add vyžaduje text.');
+                return;
+            }
+            const taskText = args.slice(1).join(' ');
+            addTask(taskText);
+            break;
+        case 'list':
+            listTasks();
+            break;
+        case 'done':
+            if (args.length < 2) {
+                console.error('Příkaz done vyžaduje ID.');
+                return;
+            }
+            const taskID = args[1];
+            doneTask(taskID);
+            break;
+        default:
+            console.error('Neznámý příkaz. Možné příkazy: add, list, done');
+    }
+}
+
+main();
+```
+
+---
+
+Problémy a řešení:
+
+- Zpracování chyb: Pokud soubor tasks.json neexistuje, vytvořte ho.
+  - Řešení: V loadTasks() funkci zkontrolujte existence souboru. Pokud neexistuje, vrátí prázdný pole.
+
+- Generování id: Každé nové id je o 1 vyšší než poslední.
+  - Řešení: Při přidávání úkolu zkontrolujte počet úkolů. Pokud jsou nějaké, id = poslední id +1, jinak 1.
+
+- Validace vstupu: Pro 'done <id>', zkontrolujte, že id existuje a je číslo.
+  - Řešení: Převod na číslo pomocí parseInt(), kontrola isNaN() a existence úkolu s daným ID.
+
+---
+
+Konec
+</think>
+
+```javascript
+const fs = require('fs');
+const path = require('path');
+
+const tasksPath = path.join(__dirname, 'tasks.json');
+
+function loadTasks() {
+    try {
+        const fileContent = fs.readFileSync(tasksPath, 'utf8');
+        return JSON.parse(fileContent);
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            return [];
+        }
+        throw err;
+    }
+}
+
+function saveTasks(tasks) {
+    fs.writeFileSync(tasksPath, JSON.stringify(tasks, null, 2));
+}
+
+function addTask(text) {
+    const tasks = loadTasks();
+    const newTask = {
+        id: tasks.length ? tasks[tasks.length - 1].id + 1 : 1,
+        text,
+        done: false,
+        createdAt: new Date().toISOString()
+    };
+    tasks.push(newTask);
+    saveTasks(tasks);
+}
+
+function listTasks() {
+    const tasks = loadTasks();
+    if (tasks.length === 0) {
+        console.log('Žádné úkoly.');
+        return;
+    }
+    tasks.forEach((task, index) => {
+        const status = task.done ? '[x]' : '[ ]';
+        console.log(`${index + 1}. ${status} ${task.text}`);
+    });
+}
+
+function doneTask(id) {
+    const tasks = loadTasks();
+    const taskId = parseInt(id);
+    if (isNaN(taskId)) {
+        console.error('Neplatné ID úkolu.');
+        return;
+    }
+    const taskIndex = tasks.findIndex(task => task.id === taskId);
+    if (taskIndex === -1) {
+        console.error('Úkol s tímto ID neexistuje.');
+        return;
+    }
+    tasks[taskIndex].done = true;
+    saveTasks(tasks);
+    console.log('Změněno na hotovo.');
+    listTasks();
+}
+
+function main() {
+    const args = process.argv.slice(2);
+    if (args.length === 0) {
+        console.error('Zadejte příkaz: add <text>, list, done <id>');
+        return;
+    }
+
+    const command = args[0];
+    switch(command) {
+        case 'add':
+            if (args.length < 2) {
+                console.error('Příkaz add vyžaduje text.');
+                return;
+            }
+            const taskText = args.slice(1).join(' ');
+            addTask(taskText);
+            break;
+        case 'list':
+            listTasks();
+            break;
+        case 'done':
+            if (args.length < 2) {
+                console.error('Příkaz done vyžaduje ID.');
+                return;
+            }
+            const taskID = args[1];
+            doneTask(taskID);
+            break;
+        default:
+            console.error('Neznámý příkaz. Možné příkazy: add, list, done');
+    }
+}
+
+main();
+```

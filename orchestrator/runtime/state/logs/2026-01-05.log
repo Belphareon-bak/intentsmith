@@ -3060,3 +3060,140 @@ const WebSocket = require('ws');
 [2026-01-05T22:27:16.500Z] [INFO] [C3:Server] POST /agent/tool
 [2026-01-05T22:27:26.496Z] [INFO] [C3:Server] GET /status
 [2026-01-05T22:27:26.497Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:30:16.704Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:30:16.709Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:30:26.703Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:30:26.710Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:30:36.704Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:30:36.705Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:30:46.704Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:30:46.714Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:30:46.828Z] [INFO] [C3:Server] POST /chat
+[2026-01-05T22:30:46.828Z] [INFO] [C3:Agent] Chat request {"sessionId":"default","workdir":"/tmp/dual-test","messageLength":336}
+[2026-01-05T22:30:46.829Z] [INFO] [C3:Agent] SimpleChatAgent initialized {"model":"CHAT","workdir":"/tmp/dual-test","dynamicModel":true}
+[2026-01-05T22:30:46.829Z] [INFO] [C3:Agent] User message: Vytvor CLI aplikaci pro poznamky v Node.js s SQLite databazi. Soubory: /tmp/dual-test/notes.js (hlav
+[2026-01-05T22:30:46.829Z] [INFO] [C3:Agent] Task detected: CODE -> Model: CODE (Code generation with file path detected)
+[2026-01-05T22:30:46.829Z] [DEBUG] [C3:Agent] Calling LLM with 1 messages in history
+[2026-01-05T22:30:46.830Z] [INFO] [C3:LLM] Calling LLM {"role":"CODE","model":"qwen25-coder-32b:latest","promptLength":342}
+[2026-01-05T22:30:46.830Z] [DEBUG] [C3:LLM] Prompt preview: User: Vytvor CLI aplikaci pro poznamky v Node.js s SQLite databazi. Soubory: /tmp/dual-test/notes.js (hlavni), /tmp/dual-test/db.js (databaze). Funkce: add (pridat poznamku s tagem), list (vypsat vse)...
+[2026-01-05T22:30:56.702Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:30:56.715Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:31:06.702Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:31:06.705Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:31:16.702Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:31:16.706Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:31:26.702Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:31:26.704Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:31:36.702Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:31:36.704Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:31:46.703Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:31:46.704Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:31:56.703Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:31:56.704Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:31:59.495Z] [INFO] [C3:LLM] LLM response received {"role":"CODE","model":"qwen25-coder-32b:latest","duration":"72665ms","outputLength":5283}
+[2026-01-05T22:31:59.495Z] [DEBUG] [C3:LLM] Response preview:  Vytvor i README.md s popisem aplikace a instrukcemi pro pouziti.
+<|im_start|>
+<|im_start|>
+Jistě, vytvořím pro vás CLI aplikaci v Node.js s SQLite databází pomocí knihovny `better-sqlite3`. Tato apli...
+[2026-01-05T22:31:59.495Z] [INFO] [C3:Agent] LLM response length: 5283
+[2026-01-05T22:31:59.495Z] [DEBUG] [C3:Agent] Found 0 tool calls in response
+[2026-01-05T22:31:59.497Z] [INFO] [C3:Agent] Found 16 code blocks, saving first to: /tmp/dual-test/notes.js
+[2026-01-05T22:32:01.564Z] [INFO] [C3:Server] POST /chat
+[2026-01-05T22:32:01.564Z] [INFO] [C3:Agent] Chat request {"sessionId":"default","workdir":"/tmp/dual-test","messageLength":94}
+[2026-01-05T22:32:01.564Z] [INFO] [C3:Agent] User message: Zkontroluj kod v /tmp/dual-test a navrhni vylepseni. Zamer se na chyby, bezpecnost, citelnost.
+[2026-01-05T22:32:01.565Z] [INFO] [C3:Agent] Task detected: REVIEW -> Model: D1 (Code review detected)
+[2026-01-05T22:32:01.565Z] [DEBUG] [C3:Agent] Calling LLM with 3 messages in history
+[2026-01-05T22:32:01.565Z] [INFO] [C3:LLM] Calling LLM {"role":"D1","model":"deepseek-r1-32b:latest","promptLength":5740}
+[2026-01-05T22:32:01.565Z] [DEBUG] [C3:LLM] Prompt preview: User: Vytvor CLI aplikaci pro poznamky v Node.js s SQLite databazi. Soubory: /tmp/dual-test/notes.js (hlavni), /tmp/dual-test/db.js (databaze). Funkce: add (pridat poznamku s tagem), list (vypsat vse)...
+[2026-01-05T22:32:06.705Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:32:06.736Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:32:16.706Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:32:16.711Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:32:26.703Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:32:26.704Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:32:36.703Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:32:36.704Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:32:46.703Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:32:46.704Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:32:56.703Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:32:56.707Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:33:06.704Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:33:06.705Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:33:16.704Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:33:16.706Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:33:26.704Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:33:26.705Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:33:36.704Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:33:36.705Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:33:46.704Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:33:46.705Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:33:56.705Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:33:56.706Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:34:06.705Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:34:06.706Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:34:16.705Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:34:16.706Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:34:26.705Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:34:26.706Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:34:29.966Z] [INFO] [C3:LLM] LLM response received {"role":"D1","model":"deepseek-r1-32b:latest","duration":"148401ms","outputLength":11611}
+[2026-01-05T22:34:29.966Z] [DEBUG] [C3:LLM] Response preview:  Napište vsechno do README.md.
+
+<|im_end|>
+
+## Výstup
+
+Problémy v současném kódu:
+
+1. **Chyby:**
+   - **Nedodržení požadovaných argumentů:** Při volání funkcí jako `add`, `search`, `delete` nebo `expo...
+[2026-01-05T22:34:29.967Z] [INFO] [C3:Agent] LLM response length: 11611
+[2026-01-05T22:34:29.967Z] [DEBUG] [C3:Agent] Found 0 tool calls in response
+[2026-01-05T22:34:36.705Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:34:36.706Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:34:46.707Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:34:46.711Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:34:56.705Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:34:56.707Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:35:06.720Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:35:06.730Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-05T22:35:16.705Z] [INFO] [C3:Server] GET /status
+[2026-01-05T22:35:16.707Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-06T19:31:36.770Z] [INFO] [C3:Server] GET /status
+[2026-01-06T19:31:36.789Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-06T19:31:46.768Z] [INFO] [C3:Server] GET /status
+[2026-01-06T19:31:46.769Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-06T19:31:56.772Z] [INFO] [C3:Server] GET /status
+[2026-01-06T19:31:56.785Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-06T19:32:06.772Z] [INFO] [C3:Server] GET /status
+[2026-01-06T19:32:06.777Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-06T19:32:14.129Z] [INFO] [C3:Server] POST /chat
+[2026-01-06T19:32:14.129Z] [INFO] [C3:Agent] Chat request {"sessionId":"default","workdir":"/tmp/dual-test","messageLength":460}
+[2026-01-06T19:32:14.129Z] [INFO] [C3:Agent] User message: Vytvor real-time chat aplikaci v Node.js s WebSocket. Struktura: /tmp/dual-test/server.js (WebSocket
+[2026-01-06T19:32:14.129Z] [INFO] [C3:Agent] Task detected: CODE -> Model: CODE (Code generation with file path detected)
+[2026-01-06T19:32:14.129Z] [DEBUG] [C3:Agent] Calling LLM with 5 messages in history
+[2026-01-06T19:32:14.129Z] [INFO] [C3:LLM] Calling LLM {"role":"CODE","model":"qwen25-coder-32b:latest","promptLength":17832}
+[2026-01-06T19:32:14.129Z] [DEBUG] [C3:LLM] Prompt preview: User: Vytvor CLI aplikaci pro poznamky v Node.js s SQLite databazi. Soubory: /tmp/dual-test/notes.js (hlavni), /tmp/dual-test/db.js (databaze). Funkce: add (pridat poznamku s tagem), list (vypsat vse)...
+[2026-01-06T19:32:16.773Z] [INFO] [C3:Server] GET /status
+[2026-01-06T19:32:16.778Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-06T19:32:26.772Z] [INFO] [C3:Server] GET /status
+[2026-01-06T19:32:26.777Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-06T19:32:36.772Z] [INFO] [C3:Server] GET /status
+[2026-01-06T19:32:36.776Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-06T19:32:43.513Z] [ERROR] [C3:LLM] LLM call failed {"role":"CODE","model":"qwen25-coder-32b:latest","error":"Ollama error 500: {\"error\":\"llama runner process has terminated: error loading model: unable to allocate CUDA0 buffer\"}"}
+[2026-01-06T19:32:43.519Z] [ERROR] [C3:Agent] Chat error: Ollama error 500: {"error":"llama runner process has terminated: error loading model: unable to allocate CUDA0 buffer"}
+[2026-01-06T19:32:46.772Z] [INFO] [C3:Server] GET /status
+[2026-01-06T19:32:46.776Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-06T19:32:56.772Z] [INFO] [C3:Server] GET /status
+[2026-01-06T19:32:56.777Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-06T19:33:06.773Z] [INFO] [C3:Server] GET /status
+[2026-01-06T19:33:06.778Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-06T19:33:16.774Z] [INFO] [C3:Server] GET /status
+[2026-01-06T19:33:16.779Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-06T19:33:26.775Z] [INFO] [C3:Server] GET /status
+[2026-01-06T19:33:26.780Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-06T19:33:36.774Z] [INFO] [C3:Server] GET /status
+[2026-01-06T19:33:36.780Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-06T19:33:46.776Z] [INFO] [C3:Server] GET /status
+[2026-01-06T19:33:46.783Z] [INFO] [C3:Server] POST /agent/tool
+[2026-01-06T19:33:56.775Z] [INFO] [C3:Server] GET /status
+[2026-01-06T19:33:56.781Z] [INFO] [C3:Server] POST /agent/tool

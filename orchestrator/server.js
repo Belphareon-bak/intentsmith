@@ -7,6 +7,7 @@
  * - Memory API
  * - Project API
  * - Execution API
+ * - Workflow API (NEW)
  * - SSE Events
  */
 
@@ -19,6 +20,7 @@ import { URL } from "url";
 import { emit, addClient } from "./runtime/event-bus.js";
 import { handleAgentRequest } from "./agent/agent-api.js";
 import { handleChatRequest } from "./agent/chat-api.js";
+import { handleWorkflowRequest } from "./agent/workflow-api.js";
 import { toolRegistry, executeTool } from "./tools/index.js";
 import { agentMemory } from "./memory/memory-store.js";
 import { userProfile } from "./memory/user-profile.js";
@@ -165,10 +167,18 @@ export function startServer(port = 3335) {
         return json(res, httpCode, result);
       }
 
-      /* ============== CHAT API (NEW) ============== */
+      /* ============== CHAT API ============== */
       if (pathname.startsWith("/chat") && !pathname.includes(".")) {
         const body = req.method !== "GET" ? JSON.parse(await readBody(req) || "{}") : {};
         const result = await handleChatRequest(req.method, pathname, body, query);
+        return json(res, result.error ? 400 : 200, result);
+      }
+
+      /* ============== WORKFLOW API (NEW) ============== */
+      if (pathname.startsWith("/workflow")) {
+        const body = req.method !== "GET" ? JSON.parse(await readBody(req) || "{}") : {};
+        serverLog.info(`Workflow: ${req.method} ${pathname}`);
+        const result = await handleWorkflowRequest(req.method, pathname, body, query);
         return json(res, result.error ? 400 : 200, result);
       }
 
@@ -446,16 +456,17 @@ export function startServer(port = 3335) {
 ║   •                                                       ║
 ║   • POST /agent/run       - Start agent task              ║
 ║   • GET  /agent/status    - Agent status                  ║
-║   • GET  /agent/tools     - List tools                    ║
+║   •                                                       ║
+║   • POST /chat            - Simple chat                   ║
+║   •                                                       ║
+║   • POST /workflow        - Workflow (D1→CODE→R2→R1)      ║
+║   • GET  /workflow/:id    - Workflow state                ║
 ║   •                                                       ║
 ║   • GET  /tools           - All tools                     ║
 ║   • POST /tools/execute   - Execute tool                  ║
 ║   •                                                       ║
 ║   • GET  /memory          - Memory stats                  ║
 ║   • POST /memory          - Store memory                  ║
-║   •                                                       ║
-║   • GET  /profile         - User profile                  ║
-║   • POST /profile         - Update profile                ║
 ║   •                                                       ║
 ║   • GET  /projects        - List projects                 ║
 ║   • POST /projects/select - Select project                ║

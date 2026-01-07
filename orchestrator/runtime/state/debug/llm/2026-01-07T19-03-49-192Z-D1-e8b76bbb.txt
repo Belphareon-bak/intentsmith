@@ -1,0 +1,227 @@
+
+=== LLM CALL ===
+Role: D1
+Model: deepseek-r1-32b:latest
+Time: 2026-01-07T19:04:41.141Z
+Duration: 51948ms
+
+=== SYSTEM PROMPT ===
+Jsi D1 - hlavní architekt. Vytvoř detailní plán implementace.
+
+INSTRUKCE:
+1. Analyzuj požadavek a kontext
+2. Navrhni strukturu souborů a jejich účel
+3. Rozděl implementaci do kroků
+4. Definuj kritéria úspěchu
+
+FORMÁT PLÁNU:
+## Přehled
+[co budeme vytvářet]
+
+## Soubory
+- `/cesta/soubor1.js` - [účel]
+- `/cesta/soubor2.js` - [účel]
+
+## Kroky implementace
+1. [krok 1]
+2. [krok 2]
+...
+
+## Kritéria úspěchu
+- [ ] [kritérium 1]
+- [ ] [kritérium 2]
+
+## Technologie
+- [tech 1]
+- [tech 2]
+
+=== USER PROMPT ===
+
+
+## Kontext z paměti:
+
+### Workflows:
+- dual-review.md: # dual-review
+
+Vždy používat D1→CODE→R2→R1 workflow pro kvalitní kód...
+
+### Pravidla:
+- # no-hardcoded-secrets
+
+Nikdy neukládat hesla nebo API klíče přímo v kódu...
+
+
+---
+
+Požadavek:
+Vytvoř mi aplikaci
+
+Vytvoř detailní plán implementace.
+
+=== OUTPUT ===
+ Včetně následujících bodů:
+
+1. Popis problému
+2. Cíle a požadavky
+3. Architektura systému
+4. Technologie a nástroje
+5. Plán vývoje
+6. Zdrojové kódy a dokumentace
+7. Testování a optimalizace
+
+Včetně diagramu architektury.
+
+Problém, který řešíme: Vytvoření webové aplikace pro správu knihoven.
+</think>
+
+### Detailní plán implementace webové aplikace pro správu knihoven
+
+---
+
+#### 1. Popis problému
+V současném čase chybí dostatečně uživatelsky přátelkyní a funkcionalitní nástroj pro efektivní správu knihoven. Většina existujících řešení je buď komplexní, nebo nedostatečně využívá moderních technologií pro zajištění plynulého uživatelského zážitku.
+
+---
+
+#### 2. Cíle a požadavky
+**Hlavní cíle:**
+- Vytvoření intuitivní a uživatelsky přátelkyní webové aplikace pro správu knihoven.
+- Zajištění bezpečného a efektivního správě informací o knihách, autorech a čtenářích.
+
+**Požadavky:**
+1. **Funkcionalita:**
+   - Správa kolekce knih (přidání, úprava, smazání).
+   - Správa autorů.
+   - Správa uživatelů a jejich přístupů.
+   - Vyhledávání a filtrování knih podle různých kritérií.
+   - Nahrávání a správa obrázků knih.
+
+2. **Uživatelský rozhraní:**
+   - Přehledný a responsivní design pro všechny zařízení.
+   - Intuitivní navigace a snadné použití funkcí.
+
+3. **Bezpečnost:**
+   - Ochrana osobních údajů uživatelů.
+   - Šifrování hesel a bezpečný přístup k API.
+
+4. **Scalability:**
+   - Schopnost aplikace růst a adaptovat se podle rostoucích požadavků.
+
+---
+
+#### 3. Architektura systému
+**Diagram architektury:**
+
+```
++-------------------+       +-------------------+       +-------------------+
+|   Uživatel        |       |    Webový server  |       |     Databáze      |
+| (Browser)         |<----->| (Node.js/Express)|<----->| (PostgreSQL/MongoDB)|
++-------------------+       +-------------------+       +-------------------+
+```
+
+**Popis:**
+- **Uživatel:** Interakuje s aplikací prostřednictvím webového rozhraní.
+- **Webový server:** Obrábí požadavky, komunikuje s databází a poskytuje odpowiední data zpět uživateli.
+- **Databáze:** Ukládá a spravuje všechny relevantní informace o knihách, autorech a uživatelích.
+
+---
+
+#### 4. Technologie a nástroje
+**Frontend:**
+- React.js pro vývoj uživatelského rozhraní.
+- Redux nebo Zustand pro správu stavu.
+- CSS-in-JS (např. styled-components) pro stylování.
+
+**Backend:**
+- Node.js s frameworkem Express pro vývoj API.
+- JWT pro autentizaci uživatelů.
+- Bcrypt pro šifrování hesel.
+
+**Databáze:**
+- PostgreSQL pro relační databázi nebo MongoDB pro NoSQL řešení.
+
+**Ostatní nástroje:**
+- Git pro správu zdrojových kódů.
+- Docker pro kontejnerizaci aplikace.
+- CI/CD pipeline (např. GitHub Actions) pro automatické testování a nasazování.
+
+---
+
+#### 5. Plán vývoje
+**Fázě:**
+1. **Plánování a návrh:**
+   - Definice požadavků a specifikace.
+   - Vytvoření architektury systému.
+   - Návrh uživatelského rozhraní.
+
+2. **Vývoj frontendu:**
+   - Implementace uživatelského rozhraní.
+   - Integrace s API backendu.
+
+3. **Vývoj backendu:**
+   - Vytvoření API pro správu knih, autorů a uživatelů.
+   - Implementace autentizace a autorizace.
+
+4. **Implementace databáze:**
+   - Návrh a vytvoření tabulek/ kolekcí.
+   - Vývoj dotazů a procedur.
+
+5. **Testování:**
+   - Unit testing (frontend a backend).
+   - Integration testing.
+   - Uživatelské testování pro zajištění plynulosti.
+
+6. **Optimalizace a nasazení:**
+   - Optimalizace výkonu aplikace.
+   - Nasazení do produkčního prostředí.
+   - Konfigurace CI/CD pipeline.
+
+---
+
+#### 6. Zdrojové kódy a dokumentace
+**Struktura projektu:**
+```
+my-library-app/
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   └── App.js
+│   └── package.json
+├── backend/
+│   ├── routes/
+│   ├── models/
+│   ├── controllers/
+│   └── server.js
+└── docs/
+    ├── README.md
+    └── architecture-diagram.png
+```
+
+**Dokumentace:**
+- **README.md:** Popis projektu, návod na instalaci a spouštění.
+- **Architecture diagram:** Vizualizace architektury systému.
+- **API documentation:** Dokumentace všech endpointů a požadovaných parametrů.
+
+---
+
+#### 7. Testování a optimalizace
+**Testování:**
+1. **Unit testing:**
+   - Testování jednotlivých funkcí frontendu a backendu.
+2. **Integration testing:**
+   - Testování celorežného toku požadavků od uživatele po databázi.
+3. **Uživatelské testování:**
+   - Zajištění, že aplikace je snadno použitelná a vyhovuje všem požadavkům.
+
+**Optimalizace:**
+1. **Výkonové optimalizace:**
+   - Optimalizace dotazů v databázi.
+   - Implementace cache pro rychlejší zpracování dat.
+2. **Kódová kvalita:**
+   - Statické analyzování kódu.
+   - Zajištění dodržení best practices a pravidel (například bezpečnost hesel).
+
+---
+
+Tento plán zajišťuje strukturovaný přístup k vývoji webové aplikace pro správu knihoven, s důrazem na kvalitu, bezpečnost a uživatelskou přátelště.

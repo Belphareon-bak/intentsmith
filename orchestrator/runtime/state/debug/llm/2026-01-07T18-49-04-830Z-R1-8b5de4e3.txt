@@ -1,0 +1,438 @@
+
+=== LLM CALL ===
+Role: R1
+Model: deepseek-r1-32b:latest
+Time: 2026-01-07T18:49:33.250Z
+Duration: 28417ms
+
+=== SYSTEM PROMPT ===
+Jsi R1 - senior reviewer a finální gate. Proveď důkladnou kontrolu kvality.
+
+INSTRUKCE:
+1. Zkontroluj architekturu a design patterns
+2. Zkontroluj bezpečnost (auth, validation, injection, XSS)
+3. Zkontroluj error handling a edge cases
+4. Zkontroluj čitelnost a maintainability
+5. Porovnej s best practices
+
+FORMÁT ODPOVĚDI:
+Pokud je vše OK a připraveno k nasazení:
+APPROVED: [shrnutí kvality]
+
+Pokud jsou závažné problémy vyžadující redesign:
+REDESIGN:
+- [závažný problém 1]
+- [závažný problém 2]
+DŮVOD: [proč je potřeba redesign, ne jen fix]
+
+Pokud jsou menší problémy:
+MINOR_ISSUES:
+- [menší problém 1]
+- [menší problém 2]
+ROZHODNUTÍ: [APPROVED s výhradami / nebo REDESIGN]
+
+=== USER PROMPT ===
+## Plán:
+ Zajistěte, aby byl kód čitelný a dobře strukturovaný.
+</think>
+
+### Plán Implementace TODO CLI Aplikace v Node.js
+
+#### 1. Nastavení Projektu
+- Vytvořit nový Node.js projekt.
+- Zkontrolovat, zda je nainstalován Node.js a npm.
+- Vytvořit hlavní soubor `todo.js` ve složce `/tmp/workflow-auto/`.
+
+#### 2. Inicializace Souboru pro Úkoly
+- Vytvořit soubor `tasks.json` v stejné složce.
+- Zajistit, že po spuštění aplikace je tento soubor inicializován jako prázdný pole.
+
+#### 3. Struktura Úkolu
+- Každý úkol bude mít následující vlastnosti:
+  - `id`: Unikátní identifikátor (integer).
+  - `text`: Popis úkolu (string).
+  - `done`: stav hotovosti (boolean).
+  - `createdAt`: čas vytvoření (timestamp).
+
+#### 4. Funkce Aplikace
+- **add <text>**: Přidá nový úkol.
+  - Generování unikátního ID pro každý nový úkol.
+  - Uložení aktuálního času vytvoření.
+- **list**: Vypíše seznam úkolů.
+  - Formátovaný výstup s pořadovým číslem, značkou [x] nebo [ ], a textem úkolu.
+- **done <id>**: Označí úkol jako hotový.
+  - Zkontroluje existence ID v seznamu úkolů.
+
+#### 5. Implementace pomocných funkcí
+- **loadTasks()**: Načte úkoly z `tasks.json`.
+- **saveTasks(tasks)**: Uloží aktuální stav úkolů do `tasks.json`.
+- **getNewId()**: Vrátí nové unikátní ID pro nový úkol.
+
+#### 6. Parsování Argumentů
+- Použití modulu `process.argv` pro získání argumentů příkazové řádky.
+- Rozdělení na příkaz a parametry (například `add`, `<text>`).
+
+#### 7. Obsluha Příkazů
+- **Příkaz add**:
+  - Zkontroluje, zda byl poskytnut text.
+  - Vytvoří nový úkol a uloží ho.
+- **Příkaz list**:
+  - Načte všechny úkoly a vypíše je formátovaně.
+- **Příkaz done**:
+  - Zkontroluje, zda byl poskytnut platný ID.
+  - Označí úkol jako hotový.
+
+#### 8. Chybové Zprávy
+- Implementovat chybové výstupy pro situace, kdy:
+  - Úkol s daným ID neexistuje.
+  - Nebyl poskytnut požadovaný parametr (například pro `add` nebo `done`).
+
+#### 9. Testování
+- Spustit aplikaci a testovat všechny funkcionalita:
+  - Přidání úkolu.
+  - Výpis seznamu.
+  - Označení úkolu jako hotového.
+- Zkontrolovat, zda jsou úkoly správně ukládány do `tasks.json`.
+
+#### 10. Úpravy a Optimalizace
+- Zajistit, aby byl kód čitelný a dobře strukturovaný.
+- Přidání komentářů pro lepší pochopení kódu.
+- Minimalizovat opakující se kód pomocí funkcí.
+
+#### 11. Dokončení
+- Ujistit se, že aplikace správně funguje podle požadavků.
+- Vytvořit README s popisem používání a dostupných příkazů.
+
+### Struktura Kódu
+
+```javascript
+// todo.js
+
+const fs = require('fs');
+const path = require('path');
+
+const TASKS_FILE = path.join(__dirname, 'tasks.json');
+
+function loadTasks() {
+  try {
+    const fileContent = fs.readFileSync(TASKS_FILE, 'utf8');
+    return JSON.parse(fileContent);
+  } catch (err) {
+    return [];
+  }
+}
+
+function saveTasks(tasks) {
+  fs.writeFileSync(TASKS_FILE, JSON.stringify(tasks, null, 2));
+}
+
+function getNewId() {
+  const tasks = loadTasks();
+  return tasks.length === 0 ? 1 : Math.max(...tasks.map(task => task.id)) + 1;
+}
+
+function addTask(text) {
+  const tasks = loadTasks();
+  const newTask = {
+    id: getNewId(),
+    text,
+    done: false,
+    createdAt: Date.now()
+  };
+  tasks.push(newTask);
+  saveTasks(tasks);
+  console.log('Úkol byl přidán.');
+}
+
+function listTasks() {
+  const tasks = loadTasks();
+  if (tasks.length === 0) {
+    console.log('Seznam úkolů je prázdný.');
+    return;
+  }
+  console.log('\nSeznam úkolů:');
+  tasks.forEach(task => {
+    const status = task.done ? '[x]' : '[ ]';
+    console.log(` ${task.id}. ${status} ${task.text}`);
+  });
+}
+
+function markAsDone(id) {
+  const tasks = loadTasks();
+  const taskIndex = tasks.findIndex(task => task.id === id);
+  if (taskIndex === -1) {
+    console.log('Úkol s daným ID neexistuje.');
+    return;
+  }
+  tasks[taskIndex].done = true;
+  saveTasks(tasks);
+  console.log('Úkol byl označen jako hotový.');
+}
+
+function main() {
+  const args = process.argv.slice(2);
+  if (args.length === 0) {
+    console.log('Zadejte příkaz: add, list nebo done');
+    return;
+  }
+
+  const command = args[0];
+  switch (command.toLowerCase()) {
+    case 'add':
+      if (args.length < 2) {
+        console.log('Prosím zadejte text úkolu.');
+        return;
+      }
+      const taskText = args.slice(1).join(' ');
+      addTask(taskText);
+      break;
+
+    case 'list':
+      listTasks();
+      break;
+
+    case 'done':
+      if (args.length < 2) {
+        console.log('Prosím zadejte ID úkolu.');
+        return;
+      }
+      const taskId = parseInt(args[1], 10);
+      if (isNaN(taskId)) {
+        console.log('ID musí být číslo.');
+        return;
+      }
+      markAsDone(taskId);
+      break;
+
+    default:
+      console.log('Neznámý příkaz. Dostupné příkazy: add, list, done');
+  }
+}
+
+main();
+```
+
+### Popis Funkcí
+
+- **loadTasks()**: Načte úkoly z `tasks.json` nebo vytvoří prázdné pole, pokud soubor neexistuje.
+- **saveTasks(tasks)**: Uloží aktuální stav úkolů do `tasks.json`.
+- **getNewId()**: Vrátí nové unikátní ID pro nový úkol.
+- **addTask(text)**: Přidá nový úkol s daným textem, generuje nové ID a uloží ho.
+- **listTasks()**: Vypíše seznam úkolů včetně jejich stavu (hotovo/nehotovo).
+- **markAsDone(id)**: Označí úkol s daným ID jako hotový.
+
+### Použití
+
+1. Spustit aplikaci:
+   ```bash
+   node todo.js
+   ```
+
+2. Příkazy:
+   - `add <text>`: Přidá nový úkol.
+     ```bash
+     node todo.js add Zkontrolovat poštu
+     ```
+   - `list`: Vypíše seznam úkolů.
+     ```bash
+     node todo.js list
+     ```
+   - `done <id>`: Označí úkol jako hotový.
+     ```bash
+     node todo.js done 1
+     ```
+
+### Poznámky
+
+- Aplikace ukládá úkoly do souboru `tasks.json` ve složce `/tmp/workflow-auto/`.
+- Každý úkol má unikátní ID, text, stav hotovosti a čas vytvoření.
+- Výstup je formátovaný pro lepší přehlednost.
+
+## Finální implementace:
+ <!-- /tmp/workflow-auto/todo.js -->
+
+### Soubory k Implementaci
+
+1. **todo.js**
+2. **tasks.json**
+
+---
+
+### Implementace Souboru `todo.js`
+
+```javascript
+<!-- /tmp/workflow-auto/todo.js -->
+const fs = require('fs');
+const path = require('path');
+
+const TASKS_FILE = path.join(__dirname, 'tasks.json');
+
+function loadTasks() {
+  try {
+    const fileContent = fs.readFileSync(TASKS_FILE, 'utf8');
+    return JSON.parse(fileContent);
+  } catch (err) {
+    return [];
+  }
+}
+
+function saveTasks(tasks) {
+  fs.writeFileSync(TASKS_FILE, JSON.stringify(tasks, null, 2));
+}
+
+function getNewId() {
+  const tasks = loadTasks();
+  return tasks.length === 0 ? 1 : Math.max(...tasks.map(task => task.id)) + 1;
+}
+
+function addTask(text) {
+  const tasks = loadTasks();
+  const newTask = {
+    id: getNewId(),
+    text,
+    done: false,
+    createdAt: Date.now()
+  };
+  tasks.push(newTask);
+  saveTasks(tasks);
+  console.log('Úkol byl přidán.');
+}
+
+function listTasks() {
+  const tasks = loadTasks();
+  if (tasks.length === 0) {
+    console.log('Seznam úkolů je prázdný.');
+    return;
+  }
+  console.log('\nSeznam úkolů:');
+  tasks.forEach(task => {
+    const status = task.done ? '[x]' : '[ ]';
+    console.log(` ${task.id}. ${status} ${task.text}`);
+  });
+}
+
+function markAsDone(id) {
+  const tasks = loadTasks();
+  const taskIndex = tasks.findIndex(task => task.id === id);
+  if (taskIndex === -1) {
+    console.log('Úkol s daným ID neexistuje.');
+    return;
+  }
+  tasks[taskIndex].done = true;
+  saveTasks(tasks);
+  console.log('Úkol byl označen jako hotový.');
+}
+
+function main() {
+  const args = process.argv.slice(2);
+  if (args.length === 0) {
+    console.log('Zadejte příkaz: add, list nebo done');
+    return;
+  }
+
+  const command = args[0];
+  switch (command.toLowerCase()) {
+    case 'add':
+      if (args.length < 2) {
+        console.log('Prosím zadejte text úkolu.');
+        return;
+      }
+      const taskText = args.slice(1).join(' ');
+      addTask(taskText);
+      break;
+
+    case 'list':
+      listTasks();
+      break;
+
+    case 'done':
+      if (args.length < 2) {
+        console.log('Prosím zadejte ID úkolu.');
+        return;
+      }
+      const taskId = parseInt(args[1], 10);
+      if (isNaN(taskId)) {
+        console.log('ID musí být číslo.');
+        return;
+      }
+      markAsDone(taskId);
+      break;
+
+    default:
+      console.log('Neznámý příkaz. Dostupné příkazy: add, list, done');
+  }
+}
+
+main();
+```
+
+### Implementace Souboru `tasks.json`
+
+```json
+<!-- /tmp/workflow-auto/tasks.json -->
+[]
+```
+
+---
+
+### Dokončení
+
+Aplikace je nyní implementována podle plánu. Spusťte ji pomocí příkazu `node todo.js` a testujte všechny funkce.
+
+---
+
+### README.md
+
+```markdown
+# TODO CLI Aplikace v Node.js
+
+## Popis
+Aplikace pro správu úkolů z příkazového řádku. Umožňuje přidávat, zobrazovat a označovat úkoly jako hotové.
+
+## Použití
+
+1. Spusťte aplikaci:
+   ```bash
+   node todo.js
+   ```
+
+2. Příkazy:
+   - `add <text>`: Přidá nový úkol.
+     ```bash
+     node todo.js add Zkontrolovat poštu
+     ```
+   - `list`: Vypíše seznam úkolů.
+     ```bash
+     node todo.js list
+     ```
+   - `done <id>`: Označí úkol jako hotový.
+     ```bash
+     node todo.js done 1
+     ```
+
+## Struktura Úkolu
+Každý úkol má následující vlastnosti:
+- `id`: Unikátní identifikátor (integer).
+- `text`: Popis úkolu (string).
+- `done`: Stav hotovosti (boolean).
+- `createdAt`: Čas vytvoření (timestamp).
+
+## Soubory
+- `todo.js`: Hlavní soubor aplikace.
+- `tasks.json`: Soubor pro ukládání úkolů.
+
+## Autor
+[Jakub](https://github.com/jakub)
+```
+
+---
+
+Aplikace je nyní kompletně implementována a připravena k použití. Testujte ji a upravujte podle potřeby.
+
+## Uložené soubory:
+/tmp/workflow-auto/todo.js, /tmp/workflow-auto/tasks.json
+
+Proveď důkladnou finální kontrolu architektury, bezpečnosti a kvality.
+
+=== OUTPUT ===
+

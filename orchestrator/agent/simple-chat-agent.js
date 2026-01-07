@@ -192,112 +192,184 @@ Always use <tool name="fs:write"> to actually create files!`;
 
   /**
    * Extract code from markdown and create files if LLM didn't use tools
-   * Supports multiple files with format:
-   * ### 📁 `/path/to/file.js`
-   * ```javascript
-   * code here
-   * ```
+   * Supports multiple formats:
+   * 1. Comment at start: // /path/to/file.js
+   * 2. Header before block: ### `/path/file.js` or Soubor `file.js` v `/path/`
+   * 3. Inline path mention: v adresáři `/tmp/dual-test/`
    */
   async extractAndSaveCode(response, workdir) {
     const toolCallRegex = /<tool\s+name=/;
     
     if (toolCallRegex.test(response)) {
-      // LLM used tools correctly, no need to extract
       return response;
     }
     
-    // Pattern to find file headers followed by code blocks
-    // Matches: ### 📁 `/path/file.js` or ### `/path/file.js` or `/path/file.js`
-    // Followed by ```language\ncode\n```
-    const fileBlockPattern = /(?:#{1,4}\s*)?(?:📁\s*)?[`'"]?(\/[\w\/.+-]+\.(js|ts|py|java|cpp|go|rs|sh|json|yaml|yml|html|css|md))[`'"]?\s*\n```(\w*)\n([\s\S]*?)```/gi;
+    // Find all code blocks
+    const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+    const codeBlocks = [...response.matchAll(codeBlockRegex)];
     
-    const matches = [...response.matchAll(fileBlockPattern)];
-    
-    if (matches.length === 0) {
-      // Fallback: try simple extraction for single file
-      const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
-      const codeMatches = [...response.matchAll(codeBlockRegex)];
-      
-      if (codeMatches.length === 0) {
-        return response;
-      }
-      
-      // Try to find filename from request context
-      const filePatterns = [
-        /do\s+(\/[\w\/.+-]+\.\w+)/i,
-        /soubor[yu]?:?\s*(\/[\w\/.+-]+\.\w+)/i,
-        /(\/tmp\/[\w\/.+-]+\.\w+)/i,
-        /(\/home\/[\w\/.+-]+\.\w+)/i,
-      ];
-      
-      let detectedFile = null;
-      for (const pattern of filePatterns) {
-        const match = response.match(pattern) || this.history[this.history.length - 1]?.content?.match(pattern);
-        if (match) {
-          detectedFile = match[1];
-          break;
-        }
-      }
-      
-      if (detectedFile && codeMatches.length > 0) {
-        agentLog.info(`Found ${codeMatches.length} code blocks, saving first to: ${detectedFile}`);
-        
-        try {
-          const tool = toolRegistry.get("fs:write");
-          if (tool) {
-            const result = await tool.execute({ 
-              path: detectedFile, 
-              content: codeMatches[0][2],
-              createDirs: true 
-            }, { workdir });
-            
-            if (result.success) {
-              response += `\n\n✅ Soubor automaticky uložen: ${detectedFile}`;
-            }
-          }
-        } catch (e) {
-          agentLog.error(`Failed to auto-save: ${e.message}`);
-        }
-      }
-      
+    if (codeBlocks.length === 0) {
       return response;
     }
     
-    // Multi-file extraction
-    agentLog.info(`Found ${matches.length} file blocks to extract`);
+    agentLog.info(`Found ${codeBlocks.length} code blocks to analyze`);
     
     const savedFiles = [];
     const tool = toolRegistry.get("fs:write");
+    const userMessage = this.history[this.history.length - 1]?.content || "";
     
-    for (const match of matches) {
-      const filePath = match[1];
-      const lang = match[3] || "text";
-      const content = match[4];
+    for (let i = 0; i < codeBlocks.length; i++) {
+      const block = codeBlocks[i];
+      const lang = block[1] || "";
+      const code = block[2];
+      const blockStart = block.index;
       
-      agentLog.info(`Auto-saving: ${filePath} (${lang}, ${content.length} chars)`);
+      // Skip non-code blocks (bash commands, json config examples)
+      if (lang === "bash" || lang === "sh") {
+        // But allow shell scripts if they look like actual scripts
+        if (!code.includes("#!/") && !code.includes("function ")) {
+          continue;
+        }
+      }
       
-      try {
-        if (tool) {
+      // Try to find filepath for this block
+      let filePath = null;
+      
+      // Method 1: Comment at start of code (// /path/file.js or # /path/file.py)
+      const commentPathMatch = code.match(/^(?:\/\/|#)\s*(\/[\w\/.+-]+\.\w+)/m);
+      if (commentPathMatch) {
+        filePath = commentPathMatch[1];
+      }
+      
+      // Method 2: Look in text before this code block (last 500 chars)
+      if (!filePath) {
+        const textBefore = response.substring(Math.max(0, blockStart - 500), blockStart);
+        
+        // Patterns like: soubor `file.js` v adresáři `/tmp/test/`
+        const beforePatterns = [
+          /soubor[ua]?\s+[`'"]?([\w.-]+)[`'"]?\s+v\s+(?:adresáři\s+)?[`'"]?(\/[\w\/.+-]+)[`'"]?/i,
+          /[`'"]?(\/[\w\/.+-]+\/[\w.-]+\.\w+)[`'"]?\s*[:.]?\s*$/i,
+          /vytvoř[ít]?(?:e|me)?\s+(?:soubor\s+)?[`'"]?(\/[\w\/.+-]+\.\w+)[`'"]?/i,
+          /📁\s*[`'"]?(\/[\w\/.+-]+\.\w+)[`'"]?/i,
+        ];
+        
+        for (const pattern of beforePatterns) {
+          const match = textBefore.match(pattern);
+          if (match) {
+            if (match[2]) {
+              // Pattern with dir + filename
+              filePath = match[2].endsWith('/') ? match[2] + match[1] : match[2] + '/' + match[1];
+            } else {
+              filePath = match[1];
+            }
+            break;
+          }
+        }
+      }
+      
+      // Method 3: Extract from user's original request
+      if (!filePath && i === 0) {
+        const userPathMatch = userMessage.match(/(\/[\w\/.+-]+\.\w+)/);
+        if (userPathMatch) {
+          filePath = userPathMatch[1];
+        }
+      }
+      
+      // Method 4: Infer from language and workdir
+      if (!filePath && lang) {
+        const extMap = { javascript: 'js', typescript: 'ts', python: 'py', java: 'java' };
+        const ext = extMap[lang] || lang;
+        if (['js', 'ts', 'py', 'java', 'go', 'rs', 'cpp', 'html', 'css'].includes(ext)) {
+          // Try to find filename in text before
+          const textBefore = response.substring(Math.max(0, blockStart - 300), blockStart);
+          const nameMatch = textBefore.match(/[`'"]?([\w.-]+\.(?:js|ts|py|java|go|rs|cpp|html|css))[`'"]?/i);
+          if (nameMatch) {
+            filePath = `${workdir}/${nameMatch[1]}`;
+          }
+        }
+      }
+      
+      // Save if we found a path
+      if (filePath && tool) {
+        // Ensure absolute path
+        if (!filePath.startsWith('/')) {
+          filePath = `${workdir}/${filePath}`;
+        }
+        
+        agentLog.info(`Auto-saving: ${filePath} (${lang}, ${code.length} chars)`);
+        
+        try {
           const result = await tool.execute({ 
             path: filePath, 
-            content: content,
+            content: code,
             createDirs: true 
           }, { workdir });
           
           if (result.success) {
             savedFiles.push(filePath);
           }
+        } catch (e) {
+          agentLog.error(`Failed to save ${filePath}: ${e.message}`);
         }
-      } catch (e) {
-        agentLog.error(`Failed to save ${filePath}: ${e.message}`);
       }
     }
     
     if (savedFiles.length > 0) {
       response += `\n\n✅ Soubory automaticky uloženy:\n${savedFiles.map(f => `  - ${f}`).join('\n')}`;
+    } else if (codeBlocks.length > 0) {
+      agentLog.warn(`Found ${codeBlocks.length} code blocks but couldn't determine file paths`);
     }
     
     return response;
+  }
+
+  /**
+   * Check if request needs clarification before execution
+   */
+  needsClarification(message, taskType) {
+    // Only ask for complex tasks (CODE, PLAN)
+    if (taskType !== "CODE" && taskType !== "PLAN") {
+      return null;
+    }
+    
+    const msg = message.toLowerCase();
+    const issues = [];
+    
+    // Check for vague requests
+    const vaguePatterns = [
+      { pattern: /vytvo[řr]\s+aplikaci/i, missing: "typ aplikace (CLI, web, desktop)" },
+      { pattern: /vytvo[řr]\s+projekt/i, missing: "specifikace projektu" },
+      { pattern: /něco\s+na/i, missing: "konkrétní požadavky" },
+      { pattern: /jednoduch[áéý]/i, missing: "rozsah 'jednoduchosti'" },
+    ];
+    
+    for (const { pattern, missing } of vaguePatterns) {
+      if (pattern.test(msg) && msg.length < 100) {
+        issues.push(missing);
+      }
+    }
+    
+    // Check for missing key info for CODE tasks
+    if (taskType === "CODE") {
+      // No file path specified
+      if (!msg.includes("/") && !msg.includes("soubor")) {
+        issues.push("cesta k souboru (kam uložit)");
+      }
+      
+      // No language/framework specified for web apps
+      if ((msg.includes("web") || msg.includes("aplikac")) && 
+          !msg.includes("node") && !msg.includes("python") && 
+          !msg.includes("react") && !msg.includes("express")) {
+        issues.push("technologie/framework");
+      }
+    }
+    
+    // If too many missing pieces, ask for clarification
+    if (issues.length >= 2) {
+      return issues;
+    }
+    
+    return null;
   }
 
   async chat(userMessage) {
@@ -311,6 +383,22 @@ Always use <tool name="fs:write"> to actually create files!`;
       taskInfo = this.detectTaskType(userMessage);
       selectedModel = taskInfo.model;
       agentLog.info(`Task detected: ${taskInfo.type} -> Model: ${selectedModel} (${taskInfo.reason})`);
+    }
+    
+    // Check if we need clarification (only for first message in conversation)
+    if (this.history.length === 0) {
+      const missingInfo = this.needsClarification(userMessage, taskInfo.type);
+      if (missingInfo) {
+        agentLog.info(`Requesting clarification for: ${missingInfo.join(", ")}`);
+        this.history.push({ role: "user", content: userMessage });
+        
+        const clarification = `Než začnu, potřebuji upřesnit pár věcí:\n\n` +
+          missingInfo.map((item, i) => `${i + 1}. **${item}**`).join("\n") +
+          `\n\nMůžeš mi prosím doplnit tyto detaily? Díky tomu vytvořím přesně to, co potřebuješ.`;
+        
+        this.history.push({ role: "assistant", content: clarification });
+        return clarification;
+      }
     }
     
     this.history.push({ role: "user", content: userMessage });
