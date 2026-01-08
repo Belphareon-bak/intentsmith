@@ -1,15 +1,17 @@
 /**
- * C.3 Workflow Agent
+ * C.3 Workflow Agent v26.1 - JSON Contract Edition
  * 
- * Hierarchický dual review systém:
- * D1 (plan) → CODE (impl) → R2 (quick review) → [D2 → CODE → R2]* → R1 (final) → DONE
+ * Klíčové principy:
+ * - Každá role má TVRDÝ JSON contract
+ * - Acceptance Criteria (AC) jsou povinný gate
+ * - R2B (adversarial) jen při HIGH risk
+ * - CODE a D2 sdílí stejný prompt
  * 
- * Roles:
- * - D1: deepseek-r1-32b - Hlavní architekt, plánování, finální review
- * - D2: qwen3-30b-a3b - Sekundární designer, návrhy oprav
- * - R1: deepseek-r1-32b - Senior reviewer, finální gate
- * - R2: qwen2.5:32b - Junior reviewer, rychlé iterace
- * - CODE: qwen25-coder-32b - Implementace
+ * Flow:
+ * THINKER → ANALYZER → [CLARIFY loop] 
+ *   → D1 (plan) → DESIGN_AUDIT → [REDESIGN loop] → User confirms
+ *   → CODE → R2A (AC check) → [R2B if HIGH risk] → [D2 → CODE → R2A loop]
+ *   → DONE
  */
 
 import { callLLM } from "../llm/llm-router.js";
@@ -30,183 +32,377 @@ export const State = {
   INIT: "INIT",
   CLARIFYING: "CLARIFYING",
   PLANNING: "PLANNING",
+  DESIGN_AUDITING: "DESIGN_AUDITING",
   PLAN_REVIEW: "PLAN_REVIEW",
   IMPLEMENTING: "IMPLEMENTING",
-  REVIEWING_R2: "REVIEWING_R2",
+  REVIEWING_R2A: "REVIEWING_R2A",
+  REVIEWING_R2B: "REVIEWING_R2B",
   FIXING_D2: "FIXING_D2",
-  REVIEWING_R1: "REVIEWING_R1",
-  REDESIGNING_D1: "REDESIGNING_D1",
   DONE: "DONE",
   ERROR: "ERROR",
 };
 
-// Role prompts
+// ============================================================================
+// ROLE PROMPTS - STRICT JSON CONTRACTS
+// ============================================================================
+
 const ROLE_PROMPTS = {
-  D1_ANALYZE: `Jsi D1 - hlavní architekt AI systému. Tvým úkolem je analyzovat požadavek uživatele.
+  // ---------------------------------------------------------------------------
+  // THINKER: Detektor mlhy - ŽÁDNÁ řešení, pouze identifikace nejasností
+  // ---------------------------------------------------------------------------
+  THINKER_ANALYZE: `Jsi THINKER - detektor mlhy v požadavcích.
 
-INSTRUKCE:
-1. Přečti požadavek a zhodnoť, zda máš VŠECHNY potřebné informace.
-2. BUĎ PŘÍSNÝ - pokud chybí COKOLIV z následujícího, VŽDY se zeptej:
-   - Kam uložit soubory (cesta)?
-   - Jaký jazyk/framework použít?
-   - Jaké konkrétní funkce má mít?
-   - Jaké jsou technické požadavky?
-   - Jsou nějaké speciální požadavky na design/UI?
+TVŮJ JEDINÝ ÚKOL: Identifikovat co je NEJASNÉ nebo CHYBÍ.
 
-3. Pokud je požadavek vágní (např. "vytvoř aplikaci", "udělej web", "naprogramuj něco"), 
-   VŽDY odpověz CLARIFY s konkrétními otázkami.
+ZÁKAZY:
+❌ Nenavrhuj řešení
+❌ Nenavrhuj architekturu
+❌ Nepřemýšlej o implementaci
+❌ Nepiš kód
 
-4. Odpověz READY pouze pokud:
-   - Znáš přesnou cestu kam ukládat
-   - Znáš jazyk/framework
-   - Znáš konkrétní funkce
-   - Máš dostatek detailů pro kvalitní implementaci
+KONTROLNÍ SEZNAM:
+1. Je jasné KAM ukládat soubory? (konkrétní cesta)
+2. Je jasný JAZYK/FRAMEWORK?
+3. Jsou jasné KONKRÉTNÍ FUNKCE?
+4. Jsou jasné VSTUPY a VÝSTUPY?
+5. Jsou jasná OMEZENÍ? (performance, security, compatibility)
 
-FORMÁT ODPOVĚDI:
-Pokud potřebuješ více informací (PREFEROVANÁ ODPOVĚĎ pro krátké/vágní požadavky):
-CLARIFY:
-1. [konkrétní otázka 1]
-2. [konkrétní otázka 2]
-...
+POVINNÝ VÝSTUP (POUZE TENTO JSON, nic jiného):
+{
+  "unclear_points": ["bod 1", "bod 2"],
+  "assumptions_needed": ["předpoklad 1", "předpoklad 2"],
+  "hidden_risks": ["riziko 1"],
+  "recommend_clarify": true
+}
 
-Pokud máš VŠECHNY potřebné informace:
-READY: [stručný popis co vytvoříš včetně cesty, jazyka a funkcí]`,
+Pokud je vše jasné:
+{
+  "unclear_points": [],
+  "assumptions_needed": [],
+  "hidden_risks": [],
+  "recommend_clarify": false
+}`,
 
-  D1_PLAN: `Jsi D1 - hlavní architekt. Vytvoř detailní plán implementace.
+  // ---------------------------------------------------------------------------
+  // ANALYZER: Extraktor struktury - AC jsou povinné
+  // ---------------------------------------------------------------------------
+  ANALYZER_EXTRACT: `Jsi ANALYZER - extraktor strukturovaných dat.
 
-INSTRUKCE:
-1. Analyzuj požadavek a kontext
-2. Navrhni strukturu souborů a jejich účel
-3. Rozděl implementaci do kroků
-4. Definuj kritéria úspěchu
+VSTUP: Analýza od THINKERa + původní požadavek.
 
-FORMÁT PLÁNU:
-## Přehled
-[co budeme vytvářet]
+TVŮJ ÚKOL:
+1. Pokud THINKER doporučuje clarify → vytvoř otázky
+2. Pokud je vše jasné → vytvoř Acceptance Criteria
 
-## Soubory
-- \`/cesta/soubor1.js\` - [účel]
-- \`/cesta/soubor2.js\` - [účel]
+POVINNÝ VÝSTUP (POUZE TENTO JSON):
+{
+  "state": "CLARIFY" | "READY",
+  "clarify_questions": ["otázka 1", "otázka 2"],
+  "acceptance_criteria": [
+    {"id": "AC-1", "description": "...", "test_hint": "jak ověřit"},
+    {"id": "AC-2", "description": "...", "test_hint": "jak ověřit"}
+  ],
+  "risk_level": "LOW" | "MEDIUM" | "HIGH"
+}
 
-## Kroky implementace
-1. [krok 1]
-2. [krok 2]
-...
+PRAVIDLA:
+- Pokud state="CLARIFY", musí být clarify_questions neprázdné
+- Pokud state="READY", musí být acceptance_criteria neprázdné (min 2)
+- risk_level určuje zda poběží R2B adversarial review:
+  - LOW: jednoduchá utilita, žádná security
+  - MEDIUM: práce se soubory, sítí, uživatelskými daty
+  - HIGH: autentifikace, platby, citlivá data, infrastruktura`,
 
-## Kritéria úspěchu
-- [ ] [kritérium 1]
-- [ ] [kritérium 2]
+  // ---------------------------------------------------------------------------
+  // D1: Plánování - strukturovaný JSON plán
+  // ---------------------------------------------------------------------------
+  D1_PLAN: `Jsi D1 - architekt. Vytvoř strukturovaný plán.
 
-## Technologie
-- [tech 1]
-- [tech 2]`,
+VSTUP: Požadavek + Acceptance Criteria
 
-  CODE_IMPLEMENT: `Jsi CODE - expert na implementaci. Tvým úkolem je napsat kvalitní kód podle plánu.
+POVINNÝ VÝSTUP (POUZE TENTO JSON):
+{
+  "overview": "jednořádkový popis co vytváříme",
+  "architecture": {
+    "pattern": "MVC | CLI | REST API | Static | ...",
+    "description": "stručný popis architektury"
+  },
+  "components": [
+    {
+      "file": "/absolutní/cesta/soubor.js",
+      "purpose": "účel souboru",
+      "exports": ["funkce1", "funkce2"],
+      "dependencies": ["fs", "path"]
+    }
+  ],
+  "data_flow": "jak data proudí systémem",
+  "edge_cases": [
+    {"case": "prázdný vstup", "handling": "jak řešíme"}
+  ],
+  "acceptance_criteria_mapping": {
+    "AC-1": ["soubor1.js:funkce1"],
+    "AC-2": ["soubor2.js:funkce2"]
+  }
+}
 
-INSTRUKCE:
-1. Řiď se plánem od D1
-2. Piš čistý, komentovaný kód
-3. Pro KAŽDÝ soubor použij přesný formát s cestou v komentáři na prvním řádku
+PRAVIDLA:
+- Každý soubor MUSÍ mít ABSOLUTNÍ cestu
+- Každé AC musí být namapováno na konkrétní kód
+- Preferuj vestavěné moduly (fs, path, http) před npm
+- Pokud potřebuješ npm balíčky, přidej package.json do components`,
+
+  // ---------------------------------------------------------------------------
+  // DESIGN_AUDIT: Zpochybnění plánu - konkrétní verdikt
+  // ---------------------------------------------------------------------------
+  DESIGN_AUDIT: `Jsi DESIGN_AUDIT - kritický reviewer.
+
+TVŮJ ÚKOL: Najít KONKRÉTNÍ díry v plánu.
+
+ZÁKAZY:
+❌ Žádné "zvážil bych..."
+❌ Žádné obecné rady
+❌ Žádné vágní připomínky
+
+KONTROLUJ:
+1. Je každé AC pokryté kódem?
+2. Jsou všechny edge cases z plánu řešené?
+3. Chybí nějaký soubor? (např. package.json pro npm deps)
+4. Jsou závislosti mezi soubory správně?
+5. Je data flow konzistentní?
+
+POVINNÝ VÝSTUP (POUZE TENTO JSON):
+{
+  "verdict": "APPROVE" | "REDESIGN",
+  "critical_flaws": [
+    {"flaw": "popis problému", "impact": "co se stane", "location": "kde v plánu"}
+  ],
+  "missing_components": ["co chybí"],
+  "required_changes": ["konkrétní změna 1", "konkrétní změna 2"],
+  "why_fails_if_unchanged": "co přesně selže a proč"
+}
+
+Pokud je plán OK:
+{
+  "verdict": "APPROVE",
+  "critical_flaws": [],
+  "missing_components": [],
+  "required_changes": [],
+  "why_fails_if_unchanged": null
+}`,
+
+  // ---------------------------------------------------------------------------
+  // CODE: Implementace - sdílený prompt s D2
+  // ---------------------------------------------------------------------------
+  CODE_IMPLEMENT: `Jsi CODE - implementátor.
+
+PRAVIDLA:
+1. Řiď se PŘESNĚ plánem - žádné vlastní "vylepšení"
+2. Každý soubor MUSÍ mít ABSOLUTNÍ cestu z plánu
+3. Preferuj vestavěné moduly
+4. Pokud používáš npm, MUSÍ existovat package.json
 
 FORMÁT PRO KAŽDÝ SOUBOR:
+
+Pro JS/TS/Python (kód s komentáři):
 \`\`\`javascript
-// /cesta/k/souboru.js
+// /absolutni/cesta/soubor.js
 [kód]
 \`\`\`
 
-PRO JSON SOUBORY (tasks.json, config.json, package.json atd.):
-Protože JSON nepodporuje komentáře, napiš cestu PŘED code block:
-Soubor: /cesta/k/souboru.json
+Pro JSON (bez komentářů uvnitř!):
+Soubor: /absolutni/cesta/soubor.json
 \`\`\`json
 {"key": "value"}
 \`\`\`
 
-DŮLEŽITÉ:
-- Každý code block MUSÍ mít identifikaci cesty (komentář uvnitř NEBO "Soubor:" před blokem)
-- Pro JSON soubory NIKDY nepřidávej komentáře dovnitř - JSON je nepodporuje!
-- Implementuj VŠECHNY soubory z plánu
-- Nepřeskakuj žádný soubor
-- Pokud používáš EXTERNÍ MODULY (npm balíčky jako commander, express, axios...), MUSÍŠ také vytvořit package.json
-- Pro Node.js projekty VŽDY vytvoř package.json se všemi dependencies
-- NEPOUŽÍVEJ externí moduly pokud to není nutné - preferuj vestavěné moduly (fs, path, http...)`,
+ZÁKAZY:
+❌ NIKDY /path/to/ nebo /cesta/k/
+❌ NIKDY komentáře uvnitř JSON
+❌ NIKDY měnit architekturu z plánu
+❌ NIKDY přidávat funkce které nejsou v plánu`,
 
-  R2_REVIEW: `Jsi R2 - junior reviewer. Proveď rychlou kontrolu kvality kódu.
+  // ---------------------------------------------------------------------------
+  // D2: Opravy - STEJNÝ prompt jako CODE + kontext chyb
+  // ---------------------------------------------------------------------------
+  D2_FIX: `Jsi D2 - opravář kódu. Máš STEJNÁ pravidla jako CODE.
 
-INSTRUKCE:
-1. Zkontroluj základní chyby (syntax, importy, typy)
-2. Zkontroluj, zda jsou všechny soubory z plánu implementovány
-3. Zkontroluj základní bezpečnost (hardcoded secrets, SQL injection)
-4. KRITICKÉ: Zkontroluj DEPENDENCIES:
-   - Pokud kód používá require() nebo import pro EXTERNÍ modul (např. commander, express, axios)
-   - A NEEXISTUJE package.json s tímto modulem v dependencies
-   - Označ jako FAIL s doporučením vytvořit package.json nebo použít vestavěný modul
-   - Vestavěné moduly (fs, path, http, crypto, os...) jsou OK bez package.json
+TVŮJ ÚKOL: Opravit POUZE nahlášené problémy.
 
-FORMÁT ODPOVĚDI:
-Pokud je vše OK:
-PASS: [stručné shrnutí co je dobře]
+ZÁKAZY:
+❌ NEMĚŇ architekturu
+❌ NEPŘIDÁVEJ nové funkce
+❌ NEMĚŇ styl kódu
+❌ NEOPTIMALIZUJ co není rozbité
 
-Pokud jsou problémy:
-FAIL:
-- [problém 1]
-- [problém 2]
-...
-DOPORUČENÍ:
-- [jak opravit 1]
-- [jak opravit 2]`,
+PRAVIDLA:
+1. Řiď se PŘESNĚ plánem
+2. Oprav POUZE to co je v PROBLEMS
+3. Zachovej existující styl
 
-  D2_FIX: `Jsi D2 - sekundární designer. Tvým úkolem je navrhnout konkrétní opravy na základě review.
-
-INSTRUKCE:
-1. Přečti review od R2
-2. Pro každý problém navrhni konkrétní opravu
-3. Buď specifický - ukaž přesně co změnit
-
-FORMÁT:
-## Opravy
-
-### Problém 1: [název]
-Soubor: \`/cesta/soubor.js\`
-Původní:
-\`\`\`
-[původní kód]
-\`\`\`
-Opravené:
-\`\`\`
+FORMÁT - stejný jako CODE:
+\`\`\`javascript
+// /absolutni/cesta/soubor.js
 [opravený kód]
-\`\`\`
+\`\`\``,
 
-### Problém 2: [název]
-...`,
+  // ---------------------------------------------------------------------------
+  // R2A: Intent review - kontrola proti AC
+  // ---------------------------------------------------------------------------
+  R2A_INTENT: `Jsi R2A - kontrolor souladu s plánem a AC.
 
-  R1_REVIEW: `Jsi R1 - senior reviewer a finální gate. Proveď důkladnou kontrolu kvality.
+VSTUP: Plán + Acceptance Criteria + Implementace
 
-INSTRUKCE:
-1. Zkontroluj architekturu a design patterns
-2. Zkontroluj bezpečnost (auth, validation, injection, XSS)
-3. Zkontroluj error handling a edge cases
-4. Zkontroluj čitelnost a maintainability
-5. Porovnej s best practices
+TVŮJ ÚKOL: Zkontrolovat zda implementace splňuje VŠECHNA AC.
 
-FORMÁT ODPOVĚDI:
-Pokud je vše OK a připraveno k nasazení:
-APPROVED: [shrnutí kvality]
+KONTROLNÍ SEZNAM:
+1. Je KAŽDÝ soubor z plánu implementován?
+2. Je KAŽDÉ AC splněno? (projdi jedno po druhém)
+3. Odpovídá architektura plánu?
+4. Jsou všechny dependencies v package.json (pokud existuje)?
 
-Pokud jsou závažné problémy vyžadující redesign:
-REDESIGN:
-- [závažný problém 1]
-- [závažný problém 2]
-DŮVOD: [proč je potřeba redesign, ne jen fix]
+POVINNÝ VÝSTUP (POUZE TENTO JSON):
+{
+  "verdict": "PASS" | "FAIL",
+  "ac_results": [
+    {"id": "AC-1", "status": "PASS" | "FAIL", "reason": "proč"},
+    {"id": "AC-2", "status": "PASS" | "FAIL", "reason": "proč"}
+  ],
+  "missing_files": ["soubor.js"],
+  "architecture_issues": ["problém"],
+  "fix_required": ["co přesně opravit"]
+}`,
 
-Pokud jsou menší problémy:
-MINOR_ISSUES:
-- [menší problém 1]
-- [menší problém 2]
-ROZHODNUTÍ: [APPROVED s výhradami / nebo REDESIGN]`,
+  // ---------------------------------------------------------------------------
+  // R2B: Adversarial - POUZE pro HIGH risk, BEZ řešení
+  // ---------------------------------------------------------------------------
+  R2B_ADVERSARIAL: `Jsi R2B - adversarial tester. Hledáš CO SE ROZBIJE.
+
+ZÁKAZY:
+❌ NEPOSKYTUJ ŘEŠENÍ
+❌ NENAVRHUJ OPRAVY
+❌ Pouze IDENTIFIKUJ problémy
+
+HLEDEJ:
+1. Edge cases: prázdný vstup, null, undefined, příliš velká data
+2. Runtime chyby: neošetřené výjimky, chybějící error handling
+3. Security: injection, path traversal, hardcoded secrets
+4. Race conditions, memory leaks
+
+POVINNÝ VÝSTUP (POUZE TENTO JSON):
+{
+  "verdict": "PASS" | "FAIL",
+  "vulnerabilities": [
+    {"type": "security|runtime|edge_case|logic", "description": "...", "location": "soubor:řádek", "severity": "LOW|MEDIUM|HIGH"}
+  ],
+  "crash_scenarios": [
+    {"trigger": "co to způsobí", "result": "co se stane"}
+  ]
+}
+
+PAMATUJ: Pouze problémy, ŽÁDNÁ řešení!`,
 };
 
-// Session storage for workflow instances
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Parse JSON from LLM response (handles markdown code blocks)
+ */
+function parseJsonResponse(response, fallback = null) {
+  if (!response || response.trim().length === 0) {
+    log.warn("Empty response, using fallback");
+    return fallback;
+  }
+  
+  // Try to extract JSON from markdown code block
+  const jsonMatch = response.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const jsonStr = jsonMatch ? jsonMatch[1].trim() : response.trim();
+  
+  try {
+    return JSON.parse(jsonStr);
+  } catch (e) {
+    log.warn(`Failed to parse JSON: ${e.message}`, { response: response.substring(0, 200) });
+    
+    // Try to find JSON object in response
+    const objMatch = response.match(/\{[\s\S]*\}/);
+    if (objMatch) {
+      try {
+        return JSON.parse(objMatch[0]);
+      } catch (e2) {
+        log.error("Failed to extract JSON object");
+      }
+    }
+    
+    return fallback;
+  }
+}
+
+/**
+ * Format AC for display
+ */
+function formatAcceptanceCriteria(criteria) {
+  if (!criteria || criteria.length === 0) return "Žádná AC definována";
+  return criteria.map(ac => `- **${ac.id}**: ${ac.description}\n  Test: ${ac.test_hint || "N/A"}`).join("\n");
+}
+
+/**
+ * Format plan for display
+ */
+function formatPlanForDisplay(plan) {
+  if (!plan) return "Žádný plán";
+  
+  let output = `## Přehled\n${plan.overview || "N/A"}\n\n`;
+  output += `## Architektura\n${plan.architecture?.pattern || "N/A"}: ${plan.architecture?.description || ""}\n\n`;
+  
+  output += `## Komponenty\n`;
+  for (const comp of (plan.components || [])) {
+    output += `- \`${comp.file}\` - ${comp.purpose}\n`;
+  }
+  
+  output += `\n## Data Flow\n${plan.data_flow || "N/A"}\n\n`;
+  
+  if (plan.edge_cases?.length > 0) {
+    output += `## Edge Cases\n`;
+    for (const ec of plan.edge_cases) {
+      output += `- ${ec.case}: ${ec.handling}\n`;
+    }
+  }
+  
+  return output;
+}
+
+// ============================================================================
+// SESSION MANAGEMENT
+// ============================================================================
+
 const workflowSessions = new Map();
+const SESSION_TTL = 3600000;
+
+const sessionCleanupInterval = setInterval(() => {
+  const now = Date.now();
+  let cleaned = 0;
+  
+  for (const [id, session] of workflowSessions) {
+    const lastActivity = session.lastActivity || session.createdAt || 0;
+    if (now - lastActivity > SESSION_TTL) {
+      workflowSessions.delete(id);
+      cleaned++;
+    }
+  }
+  
+  if (cleaned > 0) {
+    log.info(`Session cleanup: removed ${cleaned} expired sessions`);
+  }
+}, 300000);
+
+if (sessionCleanupInterval.unref) {
+  sessionCleanupInterval.unref();
+}
+
+// ============================================================================
+// WORKFLOW AGENT CLASS
+// ============================================================================
 
 export class WorkflowAgent {
   constructor(config = {}) {
@@ -215,21 +411,25 @@ export class WorkflowAgent {
       projectName: config.projectName || "default",
       sessionId: config.sessionId || "default",
       maxIterations: config.maxIterations || 5,
+      maxAuditRetries: config.maxAuditRetries || 2,
       ...config,
     };
     
     this.state = State.INIT;
     this.history = [];
     this.plan = null;
+    this.planJson = null;
     this.implementation = null;
+    this.acceptanceCriteria = [];
+    this.riskLevel = "LOW";
     this.iterations = 0;
+    this.auditRetries = 0;
     this.memory = null;
     
-    // Paths
     this.memoryDir = path.join(this.config.workdir, "memories");
-    this.planFile = path.join(this.config.workdir, ".c3-plan.md");
+    this.planFile = path.join(this.config.workdir, ".c3-plan.json");
     
-    log.info("WorkflowAgent initialized", { 
+    log.info("WorkflowAgent v26.1 initialized", { 
       workdir: this.config.workdir,
       sessionId: this.config.sessionId 
     });
@@ -239,17 +439,9 @@ export class WorkflowAgent {
    * Load memory from project
    */
   async loadMemory() {
-    this.memory = {
-      workflows: [],
-      constraints: [],
-      tools: [],
-      metadata: {},
-    };
+    this.memory = { workflows: [], constraints: [], tools: [], metadata: {} };
     
-    if (!fs.existsSync(this.memoryDir)) {
-      log.debug("No memory directory found");
-      return;
-    }
+    if (!fs.existsSync(this.memoryDir)) return;
     
     const categories = ["workflows", "constraints", "tools", "metadata"];
     for (const cat of categories) {
@@ -270,22 +462,15 @@ export class WorkflowAgent {
     log.info("Memory loaded", {
       workflows: this.memory.workflows.length,
       constraints: this.memory.constraints.length,
-      tools: this.memory.tools.length,
     });
   }
 
   /**
-   * Save plan to file for persistence
+   * Save plan to file
    */
-  async savePlan(plan) {
-    const content = `# C.3 Implementation Plan
-Generated: ${new Date().toISOString()}
-Session: ${this.config.sessionId}
-
-${plan}
-`;
+  async savePlan(planJson) {
     fs.mkdirSync(path.dirname(this.planFile), { recursive: true });
-    fs.writeFileSync(this.planFile, content, "utf-8");
+    fs.writeFileSync(this.planFile, JSON.stringify(planJson, null, 2), "utf-8");
     log.info("Plan saved", { path: this.planFile });
   }
 
@@ -295,17 +480,10 @@ ${plan}
   buildMemoryContext() {
     if (!this.memory) return "";
     
-    let context = "\n\n## Kontext z paměti:\n";
-    
-    if (this.memory.workflows.length > 0) {
-      context += "\n### Workflows:\n";
-      for (const w of this.memory.workflows.slice(0, 3)) {
-        context += `- ${w.file}: ${w.content.substring(0, 200)}...\n`;
-      }
-    }
+    let context = "";
     
     if (this.memory.constraints.length > 0) {
-      context += "\n### Pravidla:\n";
+      context += "\n## Pravidla projektu:\n";
       for (const c of this.memory.constraints) {
         context += `- ${c.content.substring(0, 200)}...\n`;
       }
@@ -318,7 +496,7 @@ ${plan}
    * Call specific role
    */
   async callRole(role, prompt, systemPromptKey = null) {
-    const sysKey = systemPromptKey || `${role}_${this.getRoleAction()}`;
+    const sysKey = systemPromptKey || role;
     const systemPrompt = ROLE_PROMPTS[sysKey] || "";
     
     log.info(`Calling ${role}`, { promptLength: prompt.length, systemKey: sysKey });
@@ -333,92 +511,12 @@ ${plan}
     return response;
   }
 
-  getRoleAction() {
-    switch (this.state) {
-      case State.CLARIFYING: return "ANALYZE";
-      case State.PLANNING: return "PLAN";
-      case State.IMPLEMENTING: return "IMPLEMENT";
-      case State.REVIEWING_R2: return "REVIEW";
-      case State.FIXING_D2: return "FIX";
-      case State.REVIEWING_R1: return "REVIEW";
-      default: return "ANALYZE";
-    }
-  }
-
-  /**
-   * Parse review response
-   */
-  parseReviewResponse(response) {
-    // Handle empty response (bug v deepseek-r1 s dlouhými prompty)
-    if (!response || response.trim().length === 0) {
-      log.warn("Empty review response - treating as PASS with warning");
-      return { 
-        passed: true, 
-        issues: [], 
-        response: "(prázdná odpověď - pravděpodobně timeout)",
-        warning: "Model vrátil prázdnou odpověď" 
-      };
-    }
-    
-    if (response.includes("PASS:") || response.includes("APPROVED:")) {
-      return { passed: true, issues: [], response };
-    }
-    
-    if (response.includes("FAIL:") || response.includes("REDESIGN:") || response.includes("MINOR_ISSUES:")) {
-      const issues = [];
-      const lines = response.split("\n");
-      let inIssues = false;
-      
-      for (const line of lines) {
-        if (line.includes("FAIL:") || line.includes("REDESIGN:") || line.includes("MINOR_ISSUES:")) {
-          inIssues = true;
-          continue;
-        }
-        if (line.startsWith("DOPORUČENÍ:") || line.startsWith("DŮVOD:") || line.startsWith("ROZHODNUTÍ:")) {
-          inIssues = false;
-        }
-        if (inIssues && line.trim().startsWith("-")) {
-          issues.push(line.trim().substring(1).trim());
-        }
-      }
-      
-      const needsRedesign = response.includes("REDESIGN:");
-      return { passed: false, issues, needsRedesign, response };
-    }
-    
-    // Default to pass if unclear
-    return { passed: true, issues: [], response };
-  }
-
-  /**
-   * Parse clarification response
-   */
-  parseClarifyResponse(response) {
-    if (response.includes("READY:")) {
-      return { needsClarification: false, summary: response.split("READY:")[1]?.trim() || response };
-    }
-    
-    if (response.includes("CLARIFY:")) {
-      const questions = [];
-      const lines = response.split("CLARIFY:")[1]?.split("\n") || [];
-      for (const line of lines) {
-        const match = line.match(/^\d+\.\s*(.+)/);
-        if (match) {
-          questions.push(match[1].trim());
-        }
-      }
-      return { needsClarification: questions.length > 0, questions };
-    }
-    
-    return { needsClarification: false, summary: response };
-  }
-
   /**
    * Extract and save code from response
    */
   async extractAndSaveCode(response) {
     const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
-    const savedFiles = [];
+    const fileMap = new Map();
     
     let match;
     while ((match = codeBlockRegex.exec(response)) !== null) {
@@ -426,62 +524,75 @@ ${plan}
       let code = match[2];
       const blockStart = match.index;
       
-      // Skip non-code blocks (bash commands are instructions, not files)
       if (["bash", "sh", "shell", "markdown", "md"].includes(lang) && !code.includes("#!/")) {
         continue;
       }
       
       let filePath = null;
       
-      // Method 1: Find path in first line comment inside code block
-      // Supports: // /path, # /path, <!-- /path, /* /path
+      // Method 1: Path in first line comment
       const pathMatch = code.match(/^(?:\/\/|#|<!--|\/\*)\s*(\/[\w\/.+-]+\.\w+)/m);
       if (pathMatch) {
         filePath = pathMatch[1];
-        // Remove the path comment line from content
         code = code.replace(/^(?:\/\/|#|<!--|\/\*)\s*\/[\w\/.+-]+\.\w+\s*\n?/, '');
       }
       
-      // Method 2: Find "Soubor: /path" or "File: /path" before the code block
+      // Method 2: "Soubor: /path" before code block
       if (!filePath) {
-        // Look at text before this code block (last 200 chars)
         const textBefore = response.substring(Math.max(0, blockStart - 200), blockStart);
-        const fileMarkerMatch = textBefore.match(/(?:Soubor|File|Súbor):\s*(\/[\w\/.+-]+\.\w+)\s*$/i);
+        const fileMarkerMatch = textBefore.match(/(?:Soubor|File):\s*(\/[\w\/.+-]+\.\w+)\s*$/i);
         if (fileMarkerMatch) {
           filePath = fileMarkerMatch[1];
         }
       }
       
-      // Method 3: For JSON blocks, try to find filename in nearby context
+      // Method 3: Infer JSON filename
       if (!filePath && lang === 'json') {
         const textBefore = response.substring(Math.max(0, blockStart - 300), blockStart);
-        // Look for patterns like "tasks.json:", "`tasks.json`", "soubor tasks.json"
         const jsonFileMatch = textBefore.match(/[`"]?([\w-]+\.json)[`"]?\s*:?\s*$/i);
         if (jsonFileMatch) {
-          // Use workdir as base path
           filePath = path.join(this.config.workdir, jsonFileMatch[1]);
-          log.info(`Inferred JSON path from context: ${filePath}`);
         }
       }
       
       if (filePath) {
-        // For JSON files: validate and fix if needed
+        // Validate path
+        const INVALID_PATTERNS = [/^\/path\/to\//i, /^\/cesta\/k\//i, /^\/your\//i, /\[path\]/i];
+        
+        if (INVALID_PATTERNS.some(p => p.test(filePath))) {
+          const filename = path.basename(filePath);
+          if (filename && filename.includes('.')) {
+            filePath = path.join(this.config.workdir, filename);
+            log.warn(`Recovered placeholder path → ${filePath}`);
+          } else {
+            continue;
+          }
+        }
+        
+        // Sanitize JSON
         if (filePath.endsWith('.json')) {
-          code = this.sanitizeJsonContent(code, filePath);
+          code = this.sanitizeJson(code, filePath);
         }
         
-        log.info(`Saving file: ${filePath}`);
-        
-        try {
-          await executeTool("fs:write", {
-            path: filePath,
-            content: code,
-            createDirs: true,
-          }, { workdir: this.config.workdir });
-          savedFiles.push(filePath);
-        } catch (e) {
-          log.error(`Failed to save ${filePath}: ${e.message}`);
-        }
+        fileMap.set(filePath, { code, lang });
+      }
+    }
+    
+    // Save files
+    const savedFiles = [];
+    
+    for (const [filePath, { code }] of fileMap) {
+      log.info(`Saving file: ${filePath}`);
+      
+      try {
+        await executeTool("fs:write", {
+          path: filePath,
+          content: code,
+          createDirs: true,
+        }, { workdir: this.config.workdir });
+        savedFiles.push(filePath);
+      } catch (e) {
+        log.error(`Failed to save ${filePath}: ${e.message}`);
       }
     }
     
@@ -489,53 +600,38 @@ ${plan}
   }
 
   /**
-   * Sanitize JSON content - validate and fix common issues
+   * Sanitize JSON content
    */
-  sanitizeJsonContent(content, filePath) {
+  sanitizeJson(content, filePath) {
     const trimmed = content.trim();
     
-    // Try to parse as-is first
     try {
       JSON.parse(trimmed);
       return trimmed;
     } catch (e) {
-      log.warn(`Invalid JSON in ${filePath}, attempting fix: ${e.message}`);
-    }
-    
-    // Try removing any remaining comment lines (// or #)
-    const withoutComments = trimmed
-      .split('\n')
-      .filter(line => !line.trim().startsWith('//') && !line.trim().startsWith('#'))
-      .join('\n')
-      .trim();
-    
-    try {
-      JSON.parse(withoutComments);
-      log.info(`Fixed JSON by removing comments: ${filePath}`);
-      return withoutComments;
-    } catch (e) {
-      // Still invalid
-    }
-    
-    // Last resort: detect intended structure and provide fallback
-    if (trimmed.includes('[') || filePath.includes('task') || filePath.includes('list') || filePath.includes('array')) {
-      log.warn(`Using fallback empty array for ${filePath}`);
-      return '[]';
-    } else {
-      log.warn(`Using fallback empty object for ${filePath}`);
-      return '{}';
+      // Remove comments
+      const clean = trimmed
+        .split('\n')
+        .filter(line => !line.trim().startsWith('//') && !line.trim().startsWith('#'))
+        .join('\n')
+        .trim();
+      
+      try {
+        JSON.parse(clean);
+        return clean;
+      } catch (e2) {
+        log.warn(`Invalid JSON in ${filePath}, using fallback`);
+        return filePath.includes('array') || filePath.includes('list') ? '[]' : '{}';
+      }
     }
   }
 
   /**
-   * Summarize implementation for shorter prompts (R1 timeout prevention)
+   * Summarize implementation
    */
   summarizeImplementation(implementation, maxLength = 3000) {
-    if (implementation.length <= maxLength) {
-      return implementation;
-    }
+    if (implementation.length <= maxLength) return implementation;
     
-    // Extract code blocks and truncate each
     const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
     const blocks = [...implementation.matchAll(codeBlockRegex)];
     
@@ -544,99 +640,230 @@ ${plan}
     }
     
     let summary = "";
-    const perBlockLimit = Math.floor(maxLength / blocks.length);
     
     for (const block of blocks) {
       const lang = block[1] || "";
       const code = block[2];
+      const lines = code.split("\n").slice(0, 30);
       
-      // Get first line (path) and first 30 lines of code
-      const lines = code.split("\n");
-      const truncatedCode = lines.slice(0, 30).join("\n");
-      
-      summary += `\`\`\`${lang}\n${truncatedCode}\n`;
-      if (lines.length > 30) {
-        summary += `// ... (${lines.length - 30} dalších řádků)\n`;
+      summary += `\`\`\`${lang}\n${lines.join("\n")}\n`;
+      if (code.split("\n").length > 30) {
+        summary += `// ... (zkráceno)\n`;
       }
       summary += `\`\`\`\n\n`;
       
-      if (summary.length > maxLength) {
-        summary += "...(další soubory zkráceny)";
-        break;
-      }
+      if (summary.length > maxLength) break;
     }
     
     return summary;
   }
 
+  // ==========================================================================
+  // MAIN WORKFLOW EXECUTION
+  // ==========================================================================
+
   /**
-   * Main workflow execution - Phase 1: Analysis & Planning
+   * Phase 1: THINKER → ANALYZER
    */
   async execute(userMessage) {
-    log.info("Workflow started", { message: userMessage.substring(0, 100) });
+    log.info("Workflow v26.1 started", { message: userMessage.substring(0, 100) });
     
-    // Load memory
     await this.loadMemory();
     const memoryContext = this.buildMemoryContext();
     
-    // Store original request
     this.history.push({ role: "user", content: userMessage });
     
-    // Phase 1: D1 Analysis - Check if clarification needed
     this.state = State.CLARIFYING;
-    log.info("Phase 1: D1 Analysis");
+    log.info("Phase 1: THINKER → ANALYZER");
     
-    const analysisPrompt = memoryContext 
-      ? `${memoryContext}\n\n---\n\nPožadavek uživatele:\n${userMessage}`
-      : userMessage;
+    const fullRequest = memoryContext 
+      ? `${memoryContext}\n\nPožadavek:\n${userMessage}`
+      : `Požadavek:\n${userMessage}`;
     
-    const analysisResponse = await this.callRole("D1", analysisPrompt, "D1_ANALYZE");
-    const analysis = this.parseClarifyResponse(analysisResponse);
+    // THINKER
+    log.info("THINKER analyzing...");
+    const thinkerResponse = await this.callRole("THINKER", fullRequest, "THINKER_ANALYZE");
+    const thinkerResult = parseJsonResponse(thinkerResponse, {
+      unclear_points: [],
+      assumptions_needed: [],
+      hidden_risks: [],
+      recommend_clarify: false
+    });
     
-    if (analysis.needsClarification && analysis.questions?.length > 0) {
-      log.info("Clarification needed", { questions: analysis.questions });
-      this.state = State.CLARIFYING;
+    log.debug("THINKER result", thinkerResult);
+    
+    // ANALYZER
+    log.info("ANALYZER extracting...");
+    const analyzerPrompt = `## Požadavek:
+${userMessage}
+
+## THINKER analýza:
+${JSON.stringify(thinkerResult, null, 2)}
+
+Vytvoř strukturovaný výstup.`;
+
+    const analyzerResponse = await this.callRole("ANALYZER", analyzerPrompt, "ANALYZER_EXTRACT");
+    const analyzerResult = parseJsonResponse(analyzerResponse, {
+      state: "READY",
+      clarify_questions: [],
+      acceptance_criteria: [],
+      risk_level: "MEDIUM"
+    });
+    
+    log.debug("ANALYZER result", analyzerResult);
+    
+    // Store AC and risk level
+    this.acceptanceCriteria = analyzerResult.acceptance_criteria || [];
+    this.riskLevel = analyzerResult.risk_level || "MEDIUM";
+    
+    if (analyzerResult.state === "CLARIFY" && analyzerResult.clarify_questions?.length > 0) {
+      log.info("Clarification needed", { questions: analyzerResult.clarify_questions.length });
       
-      const clarifyMessage = `## Potřebuji upřesnění\n\nPřed začátkem implementace potřebuji zodpovědět několik otázek:\n\n${analysis.questions.map((q, i) => `${i + 1}. ${q}`).join("\n")}\n\n---\n*Odpověz na tyto otázky, abych mohl vytvořit přesně to, co potřebuješ.*`;
+      const clarifyMessage = `## 🤔 Potřebuji upřesnění
+
+${analyzerResult.clarify_questions.map((q, i) => `**${i + 1}.** ${q}`).join("\n\n")}
+
+---
+*Odpověz na tyto otázky pro přesnou implementaci.*`;
       
       this.history.push({ role: "assistant", content: clarifyMessage });
       return { 
         state: this.state, 
         response: clarifyMessage,
-        needsInput: true 
+        needsInput: true,
+        questions: analyzerResult.clarify_questions,
       };
     }
     
-    // Phase 2: D1 Planning
-    return this.createPlan(userMessage, memoryContext);
+    // Check AC
+    if (this.acceptanceCriteria.length < 2) {
+      log.warn("Insufficient AC, generating defaults");
+      this.acceptanceCriteria = [
+        { id: "AC-1", description: "Kód se spustí bez chyb", test_hint: "node soubor.js" },
+        { id: "AC-2", description: "Funkce odpovídá požadavku", test_hint: "manuální test" }
+      ];
+    }
+    
+    log.info("Request complete, proceeding to planning", { 
+      riskLevel: this.riskLevel,
+      acCount: this.acceptanceCriteria.length 
+    });
+    
+    return this.createPlan(userMessage);
   }
 
   /**
-   * Create implementation plan
+   * Phase 2: D1 Planning
    */
-  async createPlan(userMessage, memoryContext = "") {
+  async createPlan(userMessage) {
     this.state = State.PLANNING;
     log.info("Phase 2: D1 Planning");
     
-    const planPrompt = memoryContext 
-      ? `${memoryContext}\n\n---\n\nPožadavek:\n${userMessage}\n\nVytvoř detailní plán implementace.`
-      : `Požadavek:\n${userMessage}\n\nVytvoř detailní plán implementace.`;
-    
+    const planPrompt = `## Požadavek:
+${userMessage}
+
+## Acceptance Criteria:
+${JSON.stringify(this.acceptanceCriteria, null, 2)}
+
+## Working directory:
+${this.config.workdir}
+
+Vytvoř strukturovaný plán implementace.`;
+
     const planResponse = await this.callRole("D1", planPrompt, "D1_PLAN");
+    this.planJson = parseJsonResponse(planResponse, {
+      overview: userMessage,
+      architecture: { pattern: "Unknown", description: "" },
+      components: [],
+      data_flow: "",
+      edge_cases: [],
+      acceptance_criteria_mapping: {}
+    });
     
     this.plan = planResponse;
-    await this.savePlan(planResponse);
+    await this.savePlan(this.planJson);
     
-    // Return plan for user confirmation
+    return this.auditPlan(userMessage);
+  }
+
+  /**
+   * Phase 3: DESIGN_AUDIT
+   */
+  async auditPlan(userMessage) {
+    this.state = State.DESIGN_AUDITING;
+    log.info("Phase 3: DESIGN_AUDIT");
+    
+    const auditPrompt = `## Požadavek:
+${userMessage}
+
+## Acceptance Criteria:
+${JSON.stringify(this.acceptanceCriteria, null, 2)}
+
+## Plán:
+${JSON.stringify(this.planJson, null, 2)}
+
+Najdi konkrétní díry v plánu.`;
+
+    const auditResponse = await this.callRole("DESIGN_AUDIT", auditPrompt, "DESIGN_AUDIT");
+    const auditResult = parseJsonResponse(auditResponse, {
+      verdict: "APPROVE",
+      critical_flaws: [],
+      missing_components: [],
+      required_changes: [],
+      why_fails_if_unchanged: null
+    });
+    
+    log.info("DESIGN_AUDIT result", { verdict: auditResult.verdict, flaws: auditResult.critical_flaws?.length });
+    
+    if (auditResult.verdict === "REDESIGN" && this.auditRetries < this.config.maxAuditRetries) {
+      this.auditRetries++;
+      log.info(`REDESIGN required (attempt ${this.auditRetries})`);
+      
+      const redesignPrompt = `## Původní plán:
+${JSON.stringify(this.planJson, null, 2)}
+
+## DESIGN_AUDIT kritika:
+${JSON.stringify(auditResult, null, 2)}
+
+Přepracuj plán - adresuj VŠECHNY critical_flaws a required_changes.`;
+
+      this.state = State.PLANNING;
+      const newPlanResponse = await this.callRole("D1", redesignPrompt, "D1_PLAN");
+      this.planJson = parseJsonResponse(newPlanResponse, this.planJson);
+      this.plan = newPlanResponse;
+      await this.savePlan(this.planJson);
+      
+      return this.auditPlan(userMessage);
+    }
+    
+    // Plan approved - show to user
     this.state = State.PLAN_REVIEW;
-    const planMessage = `## 📋 Plán implementace\n\n${planResponse}\n\n---\n\n**Potvrď plán odpovědí "OK" nebo "ano", případně navrhni změny.**`;
+    
+    let planMessage = `## 📋 Plán implementace
+
+${formatPlanForDisplay(this.planJson)}
+
+## Acceptance Criteria
+${formatAcceptanceCriteria(this.acceptanceCriteria)}
+
+## Risk Level: ${this.riskLevel}
+${this.riskLevel === "HIGH" ? "⚠️ Bude spuštěn adversarial review (R2B)" : ""}
+`;
+
+    if (this.auditRetries > 0) {
+      planMessage += `\n*Plán prošel ${this.auditRetries}x revizí.*\n`;
+    }
+
+    planMessage += `\n---\n**Potvrď "OK" nebo navrhni změny.**`;
     
     this.history.push({ role: "assistant", content: planMessage });
     return {
       state: this.state,
       response: planMessage,
       needsInput: true,
-      plan: this.plan,
+      plan: this.planJson,
+      acceptanceCriteria: this.acceptanceCriteria,
+      riskLevel: this.riskLevel,
     };
   }
 
@@ -648,260 +875,275 @@ ${plan}
     
     this.history.push({ role: "user", content: userInput });
     
-    // Handle clarification response
+    // Handle clarification
     if (this.state === State.CLARIFYING) {
       const originalRequest = this.history[0].content;
-      const fullContext = `Původní požadavek:\n${originalRequest}\n\nUpřesnění od uživatele:\n${userInput}`;
+      const enrichedRequest = `${originalRequest}\n\nUpřesnění:\n${userInput}`;
       
-      await this.loadMemory();
-      const memoryContext = this.buildMemoryContext();
-      
-      // Create plan with clarified context
-      return this.createPlan(fullContext, memoryContext);
+      // Re-run THINKER → ANALYZER
+      return this.execute(enrichedRequest);
     }
     
     // Handle plan confirmation
     if (this.state === State.PLAN_REVIEW) {
-      const isApproved = /^(ok|ano|yes|potvrz|schval|good|fine|super|výborně|v pořádku)/i.test(userInput.trim());
+      const isApproved = /^(ok|ano|yes|potvrz|schval|good|fine|super)/i.test(userInput.trim());
       
       if (!isApproved) {
-        // User wants changes - update plan
         log.info("Plan modification requested");
         
-        const modifyPrompt = `Původní plán:\n${this.plan}\n\nPožadované změny od uživatele:\n${userInput}\n\nUprav plán podle těchto požadavků.`;
-        const newPlan = await this.callRole("D1", modifyPrompt, "D1_PLAN");
+        const modifyPrompt = `## Aktuální plán:
+${JSON.stringify(this.planJson, null, 2)}
+
+## Požadované změny:
+${userInput}
+
+Uprav plán.`;
+
+        const newPlanResponse = await this.callRole("D1", modifyPrompt, "D1_PLAN");
+        this.planJson = parseJsonResponse(newPlanResponse, this.planJson);
+        this.plan = newPlanResponse;
+        this.auditRetries = 0;
+        await this.savePlan(this.planJson);
         
-        this.plan = newPlan;
-        await this.savePlan(newPlan);
-        
-        const planMessage = `## 📋 Upravený plán\n\n${newPlan}\n\n---\n\n**Potvrď plán odpovědí "OK" nebo navrhni další změny.**`;
-        this.history.push({ role: "assistant", content: planMessage });
-        
-        return {
-          state: this.state,
-          response: planMessage,
-          needsInput: true,
-          plan: this.plan,
-        };
+        return this.auditPlan(this.history[0].content);
       }
       
-      // Plan approved - start implementation
       return this.implement();
     }
     
-    // Handle other states - user interrupt during implementation
     return { 
       state: this.state, 
-      response: `Aktuální stav: ${this.state}. Implementace probíhá...`,
+      response: `Stav: ${this.state}`,
       needsInput: false 
     };
   }
 
   /**
-   * Implementation phase with review loop
+   * Phase 4-7: Implementation with review
    */
   async implement() {
-    log.info("Starting implementation phase");
+    log.info("Starting implementation");
     
-    // Phase 3: CODE Implementation
     this.state = State.IMPLEMENTING;
     this.iterations = 0;
     
-    const implPrompt = `Plán k implementaci:\n\n${this.plan}\n\nImplementuj VŠECHNY soubory podle plánu. KAŽDÝ soubor MUSÍ mít na prvním řádku komentář s plnou cestou.`;
+    const implPrompt = `## Plán:
+${JSON.stringify(this.planJson, null, 2)}
+
+## Working directory:
+${this.config.workdir}
+
+Implementuj VŠECHNY soubory z plánu.`;
+
     let codeResponse = await this.callRole("CODE", implPrompt, "CODE_IMPLEMENT");
-    
-    // Save implementation
     let savedFiles = await this.extractAndSaveCode(codeResponse);
     this.implementation = codeResponse;
     
-    log.info("Initial implementation", { savedFiles: savedFiles.length });
+    log.info("Initial implementation", { files: savedFiles.length });
     
     // Review loop
     while (this.iterations < this.config.maxIterations) {
       this.iterations++;
-      log.info(`Review iteration ${this.iterations}/${this.config.maxIterations}`);
+      log.info(`Review iteration ${this.iterations}`);
       
-      // Phase 4: R2 Quick Review
-      this.state = State.REVIEWING_R2;
-      log.info(`R2 Review (iteration ${this.iterations})`);
+      // R2A: Intent check
+      this.state = State.REVIEWING_R2A;
       
-      const r2Prompt = `## Plán:\n${this.plan}\n\n## Implementace:\n${this.implementation}\n\n## Uložené soubory:\n${savedFiles.join(", ") || "žádné"}\n\nProveď rychlou kontrolu kvality.`;
-      const r2Response = await this.callRole("R2", r2Prompt, "R2_REVIEW");
-      const r2Result = this.parseReviewResponse(r2Response);
-      
-      log.info("R2 result", { passed: r2Result.passed, issues: r2Result.issues?.length });
-      
-      if (!r2Result.passed) {
-        // Phase 5: D2 Fix Proposal
-        this.state = State.FIXING_D2;
-        log.info("R2 failed, D2 proposing fixes");
-        
-        const d2Prompt = `## Implementace:\n${this.implementation}\n\n## Problémy z R2 review:\n${r2Response}\n\nNavrhni konkrétní opravy pro každý problém.`;
-        const d2Response = await this.callRole("D2", d2Prompt, "D2_FIX");
-        
-        // Phase 6: CODE Apply Fixes
-        this.state = State.IMPLEMENTING;
-        log.info("CODE applying fixes");
-        
-        const fixPrompt = `## Původní implementace:\n${this.implementation}\n\n## Navržené opravy od D2:\n${d2Response}\n\nAplikuj všechny opravy. KAŽDÝ soubor MUSÍ mít na prvním řádku komentář s plnou cestou.`;
-        codeResponse = await this.callRole("CODE", fixPrompt, "CODE_IMPLEMENT");
-        
-        savedFiles = await this.extractAndSaveCode(codeResponse);
-        this.implementation = codeResponse;
-        
-        continue; // Back to R2
-      }
-      
-      // R2 passed - Phase 7: R1 Final Review
-      this.state = State.REVIEWING_R1;
-      log.info("R2 passed, R1 Final Review");
-      
-      // Zkrátit implementaci pro R1 (prevence timeoutu)
-      const implSummary = this.summarizeImplementation(this.implementation, 3000);
-      
-      const r1Prompt = `## Shrnutí plánu:
-${this.plan.substring(0, 1500)}...
+      const r2aPrompt = `## Plán:
+${JSON.stringify(this.planJson, null, 2)}
 
-## Implementace (zkráceno):
-${implSummary}
+## Acceptance Criteria:
+${JSON.stringify(this.acceptanceCriteria, null, 2)}
+
+## Implementace:
+${this.summarizeImplementation(this.implementation)}
 
 ## Uložené soubory:
-${savedFiles.join(", ")}
+${savedFiles.join(", ")}`;
 
-Proveď finální kontrolu architektury, bezpečnosti a kvality. Odpověz APPROVED: nebo REDESIGN:.`;
-      const r1Response = await this.callRole("R1", r1Prompt, "R1_REVIEW");
-      const r1Result = this.parseReviewResponse(r1Response);
+      const r2aResponse = await this.callRole("R2A", r2aPrompt, "R2A_INTENT");
+      const r2aResult = parseJsonResponse(r2aResponse, { verdict: "PASS", ac_results: [], fix_required: [] });
       
-      log.info("R1 result", { passed: r1Result.passed, needsRedesign: r1Result.needsRedesign });
+      log.info("R2A result", { verdict: r2aResult.verdict });
       
-      if (r1Result.passed) {
-        // DONE!
-        this.state = State.DONE;
-        log.info("Workflow completed successfully", { iterations: this.iterations, files: savedFiles.length });
+      if (r2aResult.verdict === "FAIL") {
+        // Fix and retry
+        this.state = State.FIXING_D2;
         
-        const doneMessage = `## ✅ Implementace dokončena!\n\n### Vytvořené soubory:\n${savedFiles.map(f => `- \`${f}\``).join("\n")}\n\n### R1 Review:\n${r1Response}\n\n### Statistiky:\n- Iterací: ${this.iterations}\n- Souborů: ${savedFiles.length}\n\n### Další kroky:\n${this.getNextSteps(savedFiles)}`;
+        const d2Prompt = `## Plán:
+${JSON.stringify(this.planJson, null, 2)}
+
+## Implementace:
+${this.implementation}
+
+## PROBLEMS (z R2A):
+${JSON.stringify(r2aResult.fix_required, null, 2)}
+
+Oprav POUZE nahlášené problémy.`;
+
+        const d2Response = await this.callRole("D2", d2Prompt, "D2_FIX");
         
-        this.history.push({ role: "assistant", content: doneMessage });
-        
-        return {
-          state: this.state,
-          response: doneMessage,
-          needsInput: false,
-          files: savedFiles,
-        };
-      }
-      
-      if (r1Result.needsRedesign) {
-        // Major issues - back to D1
-        this.state = State.REDESIGNING_D1;
-        log.info("R1 requires redesign");
-        
-        const redesignPrompt = `## Původní plán:\n${this.plan}\n\n## Problémy vyžadující redesign (z R1):\n${r1Response}\n\nPřepracuj plán s ohledem na tyto závažné problémy.`;
-        const newPlan = await this.callRole("D1", redesignPrompt, "D1_PLAN");
-        
-        this.plan = newPlan;
-        await this.savePlan(newPlan);
-        
-        // Restart implementation with new plan
         this.state = State.IMPLEMENTING;
-        const implPrompt2 = `## Nový plán po redesignu:\n${newPlan}\n\nImplementuj podle nového plánu. KAŽDÝ soubor MUSÍ mít na prvním řádku komentář s plnou cestou.`;
-        codeResponse = await this.callRole("CODE", implPrompt2, "CODE_IMPLEMENT");
+        const fixPrompt = `## Původní implementace:
+${this.implementation}
+
+## Opravy od D2:
+${d2Response}
+
+Aplikuj opravy.`;
+
+        codeResponse = await this.callRole("CODE", fixPrompt, "CODE_IMPLEMENT");
         savedFiles = await this.extractAndSaveCode(codeResponse);
         this.implementation = codeResponse;
         
-        continue; // Back to R2
+        continue;
       }
       
-      // Minor issues from R1 - D2 can fix
-      this.state = State.FIXING_D2;
-      log.info("R1 found minor issues, D2 fixing");
+      // R2A passed - run R2B only for HIGH risk
+      if (this.riskLevel === "HIGH") {
+        this.state = State.REVIEWING_R2B;
+        log.info("R2B Adversarial (HIGH risk)");
+        
+        const r2bPrompt = `## Implementace:
+${this.summarizeImplementation(this.implementation)}
+
+## Soubory:
+${savedFiles.join(", ")}
+
+Najdi co se může rozbít. ŽÁDNÁ ŘEŠENÍ!`;
+
+        const r2bResponse = await this.callRole("R2B", r2bPrompt, "R2B_ADVERSARIAL");
+        const r2bResult = parseJsonResponse(r2bResponse, { verdict: "PASS", vulnerabilities: [], crash_scenarios: [] });
+        
+        log.info("R2B result", { verdict: r2bResult.verdict, vulns: r2bResult.vulnerabilities?.length });
+        
+        if (r2bResult.verdict === "FAIL" && r2bResult.vulnerabilities?.length > 0) {
+          this.state = State.FIXING_D2;
+          
+          const d2Prompt = `## Implementace:
+${this.implementation}
+
+## PROBLEMS (z R2B):
+${JSON.stringify(r2bResult.vulnerabilities, null, 2)}
+${JSON.stringify(r2bResult.crash_scenarios, null, 2)}
+
+Oprav POUZE nahlášené problémy.`;
+
+          const d2Response = await this.callRole("D2", d2Prompt, "D2_FIX");
+          
+          this.state = State.IMPLEMENTING;
+          codeResponse = await this.callRole("CODE", `## Původní:\n${this.implementation}\n\n## Opravy:\n${d2Response}`, "CODE_IMPLEMENT");
+          savedFiles = await this.extractAndSaveCode(codeResponse);
+          this.implementation = codeResponse;
+          
+          continue; // Back to R2A
+        }
+      }
       
-      const d2FixPrompt = `## Implementace:\n${this.implementation}\n\n## Menší problémy z R1:\n${r1Response}\n\nNavrhni opravy pro tyto menší problémy.`;
-      const d2FixResponse = await this.callRole("D2", d2FixPrompt, "D2_FIX");
+      // All passed - DONE!
+      this.state = State.DONE;
+      log.info("Workflow completed", { iterations: this.iterations, files: savedFiles.length });
       
-      this.state = State.IMPLEMENTING;
-      const applyFixPrompt = `## Původní implementace:\n${this.implementation}\n\n## Opravy od D2:\n${d2FixResponse}\n\nAplikuj opravy. KAŽDÝ soubor MUSÍ mít na prvním řádku komentář s plnou cestou.`;
-      codeResponse = await this.callRole("CODE", applyFixPrompt, "CODE_IMPLEMENT");
-      savedFiles = await this.extractAndSaveCode(codeResponse);
-      this.implementation = codeResponse;
+      const doneMessage = `## ✅ Implementace dokončena!
+
+### Soubory:
+${savedFiles.map(f => `- \`${f}\``).join("\n")}
+
+### Review:
+- **R2A (Intent):** ✅ PASS
+${this.riskLevel === "HIGH" ? "- **R2B (Adversarial):** ✅ PASS" : "- R2B: přeskočeno (risk level: " + this.riskLevel + ")"}
+
+### Statistiky:
+- Iterací: ${this.iterations}
+- Souborů: ${savedFiles.length}
+
+### Další kroky:
+${this.getNextSteps(savedFiles)}`;
+
+      this.history.push({ role: "assistant", content: doneMessage });
       
-      // Continue to R2 again
+      return {
+        state: this.state,
+        response: doneMessage,
+        needsInput: false,
+        files: savedFiles,
+      };
     }
     
-    // Max iterations reached
+    // Max iterations
     this.state = State.ERROR;
-    log.warn("Max iterations reached", { iterations: this.iterations });
-    
     return {
       state: this.state,
-      response: `⚠️ Dosažen maximální počet iterací (${this.config.maxIterations}).\n\nPoslední verze souborů byla uložena:\n${savedFiles.map(f => `- \`${f}\``).join("\n")}\n\n**Poznámka:** Implementace neprošla plnou kontrolou kvality. Zkontroluj soubory manuálně.`,
+      response: `⚠️ Max iterací (${this.config.maxIterations}).\n\nSoubory: ${savedFiles.join(", ")}`,
       needsInput: false,
       files: savedFiles,
     };
   }
 
   /**
-   * Generate next steps based on files
+   * Generate next steps
    */
   getNextSteps(files) {
     const steps = [];
     
-    const hasPackageJson = files.some(f => f.includes("package.json"));
-    const hasServerJs = files.some(f => f.includes("server.js") || f.includes("index.js"));
-    const hasPython = files.some(f => f.endsWith(".py"));
-    const hasHtml = files.some(f => f.endsWith(".html"));
-    
-    if (hasPackageJson) {
-      steps.push(`\`\`\`bash\ncd ${this.config.workdir}\nnpm install\n\`\`\``);
+    if (files.some(f => f.includes("package.json"))) {
+      steps.push(`cd ${this.config.workdir} && npm install`);
     }
     
-    if (hasServerJs) {
-      const serverFile = files.find(f => f.includes("server.js") || f.includes("index.js"));
-      steps.push(`\`\`\`bash\nnode ${serverFile}\n\`\`\``);
+    const mainJs = files.find(f => f.includes("index.js") || f.includes("main.js") || f.includes("server.js"));
+    if (mainJs) {
+      steps.push(`node ${mainJs}`);
     }
     
-    if (hasPython) {
-      const mainPy = files.find(f => f.endsWith(".py"));
-      steps.push(`\`\`\`bash\npython ${mainPy}\n\`\`\``);
+    const mainPy = files.find(f => f.endsWith(".py"));
+    if (mainPy) {
+      steps.push(`python ${mainPy}`);
     }
     
-    if (hasHtml && !hasServerJs) {
-      const htmlFile = files.find(f => f.endsWith(".html"));
-      steps.push(`Otevři v prohlížeči: \`file://${htmlFile}\``);
-    }
-    
-    return steps.length > 0 ? steps.join("\n\n") : "Zkontroluj vytvořené soubory a spusť podle potřeby.";
+    return steps.length > 0 
+      ? steps.map(s => `\`\`\`bash\n${s}\n\`\`\``).join("\n")
+      : "Zkontroluj soubory a spusť podle potřeby.";
   }
 
-  /**
-   * Get current state info
-   */
   getState() {
     return {
       state: this.state,
       iterations: this.iterations,
-      plan: this.plan,
-      historyLength: this.history.length,
+      auditRetries: this.auditRetries,
+      riskLevel: this.riskLevel,
+      acCount: this.acceptanceCriteria.length,
     };
   }
 }
 
-/**
- * Get or create workflow session
- */
+// ============================================================================
+// EXPORTS
+// ============================================================================
+
 export function getWorkflowSession(sessionId, config = {}) {
-  if (!workflowSessions.has(sessionId)) {
-    workflowSessions.set(sessionId, new WorkflowAgent({ ...config, sessionId }));
+  let session = workflowSessions.get(sessionId);
+  
+  if (!session) {
+    session = new WorkflowAgent({ ...config, sessionId });
+    session.createdAt = Date.now();
+    session.lastActivity = Date.now();
+    workflowSessions.set(sessionId, session);
+  } else {
+    session.lastActivity = Date.now();
   }
-  return workflowSessions.get(sessionId);
+  
+  return session;
 }
 
-/**
- * Clear workflow session
- */
 export function clearWorkflowSession(sessionId) {
   workflowSessions.delete(sessionId);
 }
 
-export default WorkflowAgent;
+export function getSessionStats() {
+  return {
+    activeSessions: workflowSessions.size,
+    sessionIds: [...workflowSessions.keys()],
+  };
+}
 
+export default WorkflowAgent;

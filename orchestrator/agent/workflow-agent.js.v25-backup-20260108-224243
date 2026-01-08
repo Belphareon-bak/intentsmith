@@ -1,0 +1,1237 @@
+/**
+ * C.3 Workflow Agent v26 - Design Audit Edition
+ * 
+ * Flow:
+ * THINKER → ANALYZER → [CLARIFY loop] 
+ *   → D1 (plan) → DESIGN_AUDIT → [REDESIGN loop] → User confirms
+ *   → CODE → R2.a (intent) → R2.b (adversarial) → [D2 → CODE → R2.a loop]
+ *   → DONE
+ * 
+ * Roles:
+ * - THINKER: deepseek-r1 - Hluboké přemýšlení o požadavku
+ * - ANALYZER: qwen2.5 - Extrakce struktury (CLARIFY/READY)
+ * - D1: qwen2.5 - Vytvoření plánu (dodržuje formát)
+ * - DESIGN_AUDIT: deepseek-r1 - Zpochybnění plánu, hledání děr
+ * - CODE: qwen25-coder - Implementace
+ * - R2A: qwen2.5 - Intent review (odpovídá plán?)
+ * - R2B: deepseek-r1 - Adversarial (co se rozbije? BEZ řešení!)
+ * - D2: qwen25-coder - Návrhy oprav
+ */
+
+import { callLLM } from "../llm/llm-router.js";
+import { toolRegistry, executeTool } from "../tools/index.js";
+import fs from "fs";
+import path from "path";
+
+// Logging
+const log = {
+  info: (msg, data) => console.log(`[${new Date().toISOString()}] [INFO] [C3:Workflow] ${msg}`, data ? JSON.stringify(data) : ""),
+  debug: (msg, data) => console.log(`[${new Date().toISOString()}] [DEBUG] [C3:Workflow] ${msg}`, data ? JSON.stringify(data) : ""),
+  warn: (msg, data) => console.log(`[${new Date().toISOString()}] [WARN] [C3:Workflow] ${msg}`, data ? JSON.stringify(data) : ""),
+  error: (msg, data) => console.log(`[${new Date().toISOString()}] [ERROR] [C3:Workflow] ${msg}`, data ? JSON.stringify(data) : ""),
+};
+
+// Workflow states
+export const State = {
+  INIT: "INIT",
+  CLARIFYING: "CLARIFYING",
+  PLANNING: "PLANNING",
+  DESIGN_AUDITING: "DESIGN_AUDITING",
+  PLAN_REVIEW: "PLAN_REVIEW",
+  IMPLEMENTING: "IMPLEMENTING",
+  REVIEWING_R2A: "REVIEWING_R2A",
+  REVIEWING_R2B: "REVIEWING_R2B",
+  FIXING_D2: "FIXING_D2",
+  DONE: "DONE",
+  ERROR: "ERROR",
+};
+
+// Role prompts
+const ROLE_PROMPTS = {
+  // === DUAL-MODEL ANALYSIS ===
+  THINKER_ANALYZE: `Jsi THINKER - hluboký analytik požadavků. Tvým úkolem je důkladně promyslet požadavek uživatele.
+
+TVŮJ ÚKOL:
+Přečti požadavek a přemýšlej nahlas o tom:
+1. Co přesně uživatel chce?
+2. Jaké informace CHYBÍ pro kvalitní implementaci?
+3. Co je NEJASNÉ nebo VÁGNÍ?
+4. Jaké otázky bys položil, abys mohl vytvořit přesně to, co uživatel potřebuje?
+
+KONTROLNÍ SEZNAM - zkontroluj zda požadavek obsahuje:
+- [ ] Kam uložit soubory? (konkrétní cesta)
+- [ ] Jaký jazyk/framework?
+- [ ] Jaké konkrétní funkce?
+- [ ] Jaké UI/design požadavky? (pokud relevantní)
+- [ ] Jaké technické omezení?
+
+DŮLEŽITÉ:
+- Pokud COKOLIV z kontrolního seznamu chybí, popiš CO chybí
+- Buď kritický - lepší se zeptat než hádat
+- Napiš své myšlenky volně, formátování není důležité
+- Na konci shrň: je požadavek KOMPLETNÍ nebo NEKOMPLETNÍ?`,
+
+  ANALYZER_EXTRACT: `Jsi ANALYZER - extrakce strukturovaných dat. Tvým úkolem je z analýzy THINKERa vytvořit strukturovanou odpověď.
+
+VSTUP: Dostaneš analýzu od THINKERa a původní požadavek uživatele.
+
+TVŮJ ÚKOL:
+1. Přečti analýzu THINKERa
+2. Rozhodni: jsou všechny potřebné informace k dispozici?
+3. Odpověz PŘESNĚ v jednom z těchto formátů:
+
+FORMÁT A - Pokud chybí informace (THINKER označil jako NEKOMPLETNÍ nebo identifikoval chybějící info):
+CLARIFY:
+1. [první konkrétní otázka]
+2. [druhá konkrétní otázka]
+...
+
+FORMÁT B - Pokud jsou všechny informace k dispozici:
+READY: [jednořádkové shrnutí co se bude implementovat]
+
+PRAVIDLA:
+- MUSÍŠ odpovědět POUZE jedním z formátů výše
+- Žádný jiný text před ani po
+- Otázky v CLARIFY musí být konkrétní a číslované
+- Pokud si nejsi jistý, použij CLARIFY`,
+
+  D1_PLAN: `Jsi D1 - hlavní architekt. Vytvoř detailní plán implementace.
+
+INSTRUKCE:
+1. Analyzuj požadavek a kontext
+2. Navrhni strukturu souborů a jejich účel
+3. Rozděl implementaci do kroků
+4. Definuj kritéria úspěchu
+
+FORMÁT PLÁNU:
+## Přehled
+[co budeme vytvářet]
+
+## Soubory
+- \`/cesta/soubor1.js\` - [účel]
+- \`/cesta/soubor2.js\` - [účel]
+
+## Kroky implementace
+1. [krok 1]
+2. [krok 2]
+...
+
+## Kritéria úspěchu
+- [ ] [kritérium 1]
+- [ ] [kritérium 2]
+
+## Technologie
+- [tech 1]
+- [tech 2]`,
+
+  // === NEW: DESIGN AUDIT ===
+  DESIGN_AUDIT: `Jsi DESIGN_AUDIT - kritický reviewer architektonických rozhodnutí. 
+Tvým úkolem je ZPOCHYBNIT plán a NAJÍT DÍRY.
+
+PŘÍSTUP:
+- Buď skeptický - hledej problémy, ne důvody proč to funguje
+- Představ si nejhorší scénáře
+- Mysli jako útočník/tester
+
+ZKONTROLUJ:
+1. CHYBĚJÍCÍ KOMPONENTY
+   - Chybí nějaký soubor který bude potřeba?
+   - Jsou všechny závislosti pokryté?
+   - Chybí konfigurace/env proměnné?
+
+2. ARCHITEKTONICKÉ PROBLÉMY
+   - Je struktura správná pro daný use case?
+   - Jsou zodpovědnosti správně rozdělené?
+   - Bude to škálovat? (pokud relevantní)
+
+3. EDGE CASES
+   - Co když vstup je prázdný/null/undefined?
+   - Co když soubor neexistuje?
+   - Co když síť selže?
+   - Co když data jsou ve špatném formátu?
+
+4. BEZPEČNOST
+   - Jsou vstupy validované?
+   - Jsou citlivá data chráněná?
+   - Existují injection vektory?
+
+FORMÁT ODPOVĚDI:
+Pokud je plán v pořádku:
+APPROVED: [stručné shrnutí proč je plán dobrý]
+
+Pokud jsou problémy vyžadující přepracování:
+REDESIGN:
+## Kritické problémy
+- [problém 1]: [proč je kritický]
+- [problém 2]: [proč je kritický]
+
+## Co chybí
+- [chybějící věc 1]
+- [chybějící věc 2]
+
+## Doporučení
+[stručně co by měl D1 změnit]`,
+
+  CODE_IMPLEMENT: `Jsi CODE - expert na implementaci. Tvým úkolem je napsat kvalitní kód podle plánu.
+
+KRITICKÉ PRAVIDLO PRO CESTY:
+⚠️ Použij PŘESNÉ cesty ze zadání/plánu - NIKDY nepoužívej placeholdery jako "/path/to/", "/cesta/k/" apod.
+⚠️ Pokud je v plánu "/tmp/workflow-auto/todo.js", použij PŘESNĚ tuto cestu!
+
+INSTRUKCE:
+1. Řiď se plánem od D1
+2. Piš čistý, komentovaný kód
+3. Pro KAŽDÝ soubor použij přesný formát s REÁLNOU cestou v komentáři na prvním řádku
+
+FORMÁT PRO KAŽDÝ SOUBOR (JavaScript, Python, atd.):
+\`\`\`javascript
+// /tmp/workflow-auto/todo.js    ← REÁLNÁ cesta ze zadání!
+[kód]
+\`\`\`
+
+PRO JSON SOUBORY (tasks.json, config.json, package.json atd.):
+Protože JSON nepodporuje komentáře, napiš cestu PŘED code block:
+Soubor: /tmp/workflow-auto/tasks.json
+\`\`\`json
+[]
+\`\`\`
+
+DŮLEŽITÉ:
+- ❌ NIKDY nepoužívej: "/path/to/", "/cesta/k/", "your/path/", "[path]" - tyto jsou NEPLATNÉ!
+- ✅ VŽDY použij skutečnou cestu ze zadání nebo plánu
+- Každý code block MUSÍ mít identifikaci cesty (komentář uvnitř NEBO "Soubor:" před blokem)
+- Pro JSON soubory NIKDY nepřidávej komentáře dovnitř - JSON je nepodporuje!
+- Implementuj VŠECHNY soubory z plánu
+- Pokud používáš EXTERNÍ MODULY (npm balíčky), MUSÍŠ vytvořit package.json
+- NEPOUŽÍVEJ externí moduly pokud to není nutné - preferuj vestavěné moduly (fs, path, http...)`,
+
+  // === NEW: R2.a INTENT REVIEW ===
+  R2A_INTENT: `Jsi R2.a - reviewer souladu s plánem. 
+Tvým úkolem je zkontrolovat zda implementace ODPOVÍDÁ plánu.
+
+ZKONTROLUJ:
+1. Jsou VŠECHNY soubory z plánu implementovány?
+2. Odpovídá struktura kódu plánu?
+3. Jsou implementovány VŠECHNY funkce z plánu?
+4. Jsou splněna kritéria úspěchu z plánu?
+5. DEPENDENCIES: Pokud kód používá require/import pro EXTERNÍ modul, existuje package.json?
+
+IGNORUJ (to zkontroluje R2.b):
+- Edge cases
+- Bezpečnostní problémy
+- Co by se mohlo rozbít
+
+FORMÁT ODPOVĚDI:
+Pokud implementace odpovídá plánu:
+PASS: [stručné shrnutí co je implementováno správně]
+
+Pokud jsou nesoulady:
+FAIL:
+- [co chybí nebo neodpovídá 1]
+- [co chybí nebo neodpovídá 2]
+DOPORUČENÍ:
+- [jak napravit 1]
+- [jak napravit 2]`,
+
+  // === NEW: R2.b ADVERSARIAL REVIEW ===
+  R2B_ADVERSARIAL: `Jsi R2.b - adversarial reviewer. 
+Tvým úkolem je HLEDAT PROBLÉMY a zjistit CO SE ROZBIJE.
+
+⚠️ KRITICKÉ: NEPOSKYTUJ NÁVRHY ŘEŠENÍ! Pouze identifikuj problémy.
+
+HLEDEJ:
+1. EDGE CASES
+   - Co když vstup je prázdný/null/undefined?
+   - Co když soubor neexistuje?
+   - Co když formát dat je špatný?
+   - Co když je vstup příliš velký?
+
+2. RUNTIME CHYBY
+   - Neošetřené výjimky
+   - Chybějící error handling
+   - Race conditions
+   - Memory leaks
+
+3. BEZPEČNOST
+   - Injection (SQL, command, path traversal)
+   - Hardcoded credentials
+   - Nezvalidované vstupy
+   - XSS/CSRF (pokud web)
+
+4. LOGICKÉ CHYBY
+   - Off-by-one errors
+   - Nekonzistentní stav
+   - Chybná logika
+
+FORMÁT ODPOVĚDI:
+Pokud nebyly nalezeny kritické problémy:
+PASS: [stručné shrnutí že kód je robustní]
+
+Pokud jsou problémy:
+FAIL:
+## Edge Cases
+- [edge case 1]: [co se stane]
+- [edge case 2]: [co se stane]
+
+## Bezpečnost  
+- [problém 1]: [jaký dopad]
+
+## Logické chyby
+- [chyba 1]: [proč je to problém]
+
+⚠️ NEPIŠ JAK TO OPRAVIT - to je práce D2!`,
+
+  D2_FIX: `Jsi D2 - expert na opravy. Tvým úkolem je navrhnout konkrétní opravy na základě review.
+
+INSTRUKCE:
+1. Přečti problémy z review (R2.a nebo R2.b)
+2. Pro každý problém navrhni konkrétní opravu
+3. Buď specifický - ukaž přesně co změnit
+4. Piš kompletní opravený kód, ne jen fragmenty
+
+FORMÁT:
+## Opravy
+
+### Problém 1: [název]
+Soubor: \`/cesta/soubor.js\`
+Původní:
+\`\`\`
+[původní kód - jen relevantní část]
+\`\`\`
+Opravené:
+\`\`\`
+[opravený kód]
+\`\`\`
+
+### Problém 2: [název]
+...
+
+## Nové soubory (pokud potřeba)
+[pokud je třeba přidat nový soubor]`,
+};
+
+// Session storage with TTL cleanup
+const workflowSessions = new Map();
+const SESSION_TTL = 3600000; // 1 hour
+
+// Cleanup old sessions every 5 minutes
+const sessionCleanupInterval = setInterval(() => {
+  const now = Date.now();
+  let cleaned = 0;
+  
+  for (const [id, session] of workflowSessions) {
+    const lastActivity = session.lastActivity || session.createdAt || 0;
+    if (now - lastActivity > SESSION_TTL) {
+      workflowSessions.delete(id);
+      cleaned++;
+    }
+  }
+  
+  if (cleaned > 0) {
+    log.info(`Session cleanup: removed ${cleaned} expired sessions`);
+  }
+}, 300000); // Every 5 minutes
+
+// Prevent interval from blocking process exit
+if (sessionCleanupInterval.unref) {
+  sessionCleanupInterval.unref();
+}
+
+export class WorkflowAgent {
+  constructor(config = {}) {
+    this.config = {
+      workdir: config.workdir || process.cwd(),
+      projectName: config.projectName || "default",
+      sessionId: config.sessionId || "default",
+      maxIterations: config.maxIterations || 5,
+      maxAuditRetries: config.maxAuditRetries || 2,
+      ...config,
+    };
+    
+    this.state = State.INIT;
+    this.history = [];
+    this.plan = null;
+    this.implementation = null;
+    this.iterations = 0;
+    this.auditRetries = 0;
+    this.memory = null;
+    
+    // Paths
+    this.memoryDir = path.join(this.config.workdir, "memories");
+    this.planFile = path.join(this.config.workdir, ".c3-plan.md");
+    
+    log.info("WorkflowAgent v26 initialized", { 
+      workdir: this.config.workdir,
+      sessionId: this.config.sessionId 
+    });
+  }
+
+  /**
+   * Load memory from project
+   */
+  async loadMemory() {
+    this.memory = {
+      workflows: [],
+      constraints: [],
+      tools: [],
+      metadata: {},
+    };
+    
+    if (!fs.existsSync(this.memoryDir)) {
+      log.debug("No memory directory found");
+      return;
+    }
+    
+    const categories = ["workflows", "constraints", "tools", "metadata"];
+    for (const cat of categories) {
+      const catDir = path.join(this.memoryDir, cat);
+      if (fs.existsSync(catDir)) {
+        const files = fs.readdirSync(catDir).filter(f => f.endsWith(".md"));
+        for (const file of files) {
+          const content = fs.readFileSync(path.join(catDir, file), "utf-8");
+          if (cat === "metadata") {
+            this.memory.metadata[file.replace(".md", "")] = content;
+          } else {
+            this.memory[cat].push({ file, content });
+          }
+        }
+      }
+    }
+    
+    log.info("Memory loaded", {
+      workflows: this.memory.workflows.length,
+      constraints: this.memory.constraints.length,
+      tools: this.memory.tools.length,
+    });
+  }
+
+  /**
+   * Save plan to file for persistence
+   */
+  async savePlan(plan) {
+    const content = `# C.3 Implementation Plan
+Generated: ${new Date().toISOString()}
+Session: ${this.config.sessionId}
+
+${plan}
+`;
+    fs.mkdirSync(path.dirname(this.planFile), { recursive: true });
+    fs.writeFileSync(this.planFile, content, "utf-8");
+    log.info("Plan saved", { path: this.planFile });
+  }
+
+  /**
+   * Build context from memory
+   */
+  buildMemoryContext() {
+    if (!this.memory) return "";
+    
+    let context = "\n\n## Kontext z paměti:\n";
+    
+    if (this.memory.workflows.length > 0) {
+      context += "\n### Workflows:\n";
+      for (const w of this.memory.workflows.slice(0, 3)) {
+        context += `- ${w.file}: ${w.content.substring(0, 200)}...\n`;
+      }
+    }
+    
+    if (this.memory.constraints.length > 0) {
+      context += "\n### Pravidla:\n";
+      for (const c of this.memory.constraints) {
+        context += `- ${c.content.substring(0, 200)}...\n`;
+      }
+    }
+    
+    return context;
+  }
+
+  /**
+   * Call specific role
+   */
+  async callRole(role, prompt, systemPromptKey = null) {
+    const sysKey = systemPromptKey || `${role}_${this.getRoleAction()}`;
+    const systemPrompt = ROLE_PROMPTS[sysKey] || "";
+    
+    log.info(`Calling ${role}`, { promptLength: prompt.length, systemKey: sysKey });
+    
+    const response = await callLLM({
+      role: role,
+      prompt: prompt,
+      systemPrompt: systemPrompt,
+    });
+    
+    log.debug(`${role} response`, { length: response?.length });
+    return response;
+  }
+
+  getRoleAction() {
+    switch (this.state) {
+      case State.CLARIFYING: return "ANALYZE";
+      case State.PLANNING: return "PLAN";
+      case State.DESIGN_AUDITING: return "AUDIT";
+      case State.IMPLEMENTING: return "IMPLEMENT";
+      case State.REVIEWING_R2A: return "INTENT";
+      case State.REVIEWING_R2B: return "ADVERSARIAL";
+      case State.FIXING_D2: return "FIX";
+      default: return "ANALYZE";
+    }
+  }
+
+  /**
+   * Parse review response
+   */
+  parseReviewResponse(response) {
+    // Handle empty response
+    if (!response || response.trim().length === 0) {
+      log.warn("Empty review response - treating as PASS with warning");
+      return { 
+        passed: true, 
+        issues: [], 
+        response: "(prázdná odpověď - pravděpodobně timeout)",
+        warning: "Model vrátil prázdnou odpověď" 
+      };
+    }
+    
+    if (response.includes("PASS:") || response.includes("APPROVED:")) {
+      return { passed: true, issues: [], response };
+    }
+    
+    if (response.includes("FAIL:") || response.includes("REDESIGN:")) {
+      const issues = [];
+      const lines = response.split("\n");
+      let inIssues = false;
+      
+      for (const line of lines) {
+        if (line.includes("FAIL:") || line.includes("REDESIGN:") || 
+            line.includes("## ") || line.includes("###")) {
+          inIssues = true;
+          continue;
+        }
+        if (line.startsWith("DOPORUČENÍ:") || line.startsWith("DŮVOD:")) {
+          inIssues = false;
+        }
+        if (inIssues && line.trim().startsWith("-")) {
+          issues.push(line.trim().substring(1).trim());
+        }
+      }
+      
+      const needsRedesign = response.includes("REDESIGN:");
+      return { passed: false, issues, needsRedesign, response };
+    }
+    
+    // Default to pass if unclear
+    return { passed: true, issues: [], response };
+  }
+
+  /**
+   * Parse clarification response
+   */
+  parseClarifyResponse(response) {
+    if (response.includes("READY:")) {
+      return { needsClarification: false, summary: response.split("READY:")[1]?.trim() || response };
+    }
+    
+    if (response.includes("CLARIFY:")) {
+      const questions = [];
+      const lines = response.split("CLARIFY:")[1]?.split("\n") || [];
+      for (const line of lines) {
+        const match = line.match(/^\d+\.\s*(.+)/);
+        if (match) {
+          questions.push(match[1].trim());
+        }
+      }
+      return { needsClarification: questions.length > 0, questions };
+    }
+    
+    return { needsClarification: false, summary: response };
+  }
+
+  /**
+   * Extract and save code from response
+   */
+  async extractAndSaveCode(response) {
+    const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+    const fileMap = new Map();
+    
+    let match;
+    while ((match = codeBlockRegex.exec(response)) !== null) {
+      const lang = match[1] || "";
+      let code = match[2];
+      const blockStart = match.index;
+      
+      // Skip non-code blocks
+      if (["bash", "sh", "shell", "markdown", "md"].includes(lang) && !code.includes("#!/")) {
+        continue;
+      }
+      
+      let filePath = null;
+      
+      // Method 1: Find path in first line comment
+      const pathMatch = code.match(/^(?:\/\/|#|<!--|\/\*)\s*(\/[\w\/.+-]+\.\w+)/m);
+      if (pathMatch) {
+        filePath = pathMatch[1];
+        code = code.replace(/^(?:\/\/|#|<!--|\/\*)\s*\/[\w\/.+-]+\.\w+\s*\n?/, '');
+      }
+      
+      // Method 2: Find "Soubor: /path" before the code block
+      if (!filePath) {
+        const textBefore = response.substring(Math.max(0, blockStart - 200), blockStart);
+        const fileMarkerMatch = textBefore.match(/(?:Soubor|File|Súbor):\s*(\/[\w\/.+-]+\.\w+)\s*$/i);
+        if (fileMarkerMatch) {
+          filePath = fileMarkerMatch[1];
+        }
+      }
+      
+      // Method 3: For JSON blocks, infer from context
+      if (!filePath && lang === 'json') {
+        const textBefore = response.substring(Math.max(0, blockStart - 300), blockStart);
+        const jsonFileMatch = textBefore.match(/[`"]?([\w-]+\.json)[`"]?\s*:?\s*$/i);
+        if (jsonFileMatch) {
+          filePath = path.join(this.config.workdir, jsonFileMatch[1]);
+          log.info(`Inferred JSON path from context: ${filePath}`);
+        }
+      }
+      
+      if (filePath) {
+        // Validate and recover placeholder paths
+        const INVALID_PATH_PATTERNS = [
+          /^\/path\/to\//i,
+          /^\/cesta\/k\//i,
+          /^\/your\//i,
+          /\[path\]/i,
+          /\[cesta\]/i,
+          /\/example\//i,
+          /\/placeholder\//i,
+        ];
+        
+        if (INVALID_PATH_PATTERNS.some(pattern => pattern.test(filePath))) {
+          const filename = path.basename(filePath);
+          if (filename && filename.includes('.')) {
+            const recoveredPath = path.join(this.config.workdir, filename);
+            log.warn(`Recovered placeholder path: ${filePath} → ${recoveredPath}`);
+            filePath = recoveredPath;
+          } else {
+            log.warn(`Skipping invalid placeholder path: ${filePath}`);
+            continue;
+          }
+        }
+        
+        // Sanitize JSON
+        if (filePath.endsWith('.json')) {
+          code = this.sanitizeJsonContent(code, filePath);
+        }
+        
+        if (fileMap.has(filePath)) {
+          log.debug(`Duplicate file path, using latest version: ${filePath}`);
+        }
+        fileMap.set(filePath, { code, lang });
+      }
+    }
+    
+    // Save files
+    const savedFiles = [];
+    
+    for (const [filePath, { code }] of fileMap) {
+      log.info(`Saving file: ${filePath}`);
+      
+      try {
+        await executeTool("fs:write", {
+          path: filePath,
+          content: code,
+          createDirs: true,
+        }, { workdir: this.config.workdir });
+        savedFiles.push(filePath);
+      } catch (e) {
+        log.error(`Failed to save ${filePath}: ${e.message}`);
+      }
+    }
+    
+    return savedFiles;
+  }
+
+  /**
+   * Sanitize JSON content
+   */
+  sanitizeJsonContent(content, filePath) {
+    const trimmed = content.trim();
+    
+    try {
+      JSON.parse(trimmed);
+      return trimmed;
+    } catch (e) {
+      log.warn(`Invalid JSON in ${filePath}, attempting fix: ${e.message}`);
+    }
+    
+    const withoutComments = trimmed
+      .split('\n')
+      .filter(line => !line.trim().startsWith('//') && !line.trim().startsWith('#'))
+      .join('\n')
+      .trim();
+    
+    try {
+      JSON.parse(withoutComments);
+      log.info(`Fixed JSON by removing comments: ${filePath}`);
+      return withoutComments;
+    } catch (e) {
+      // Still invalid
+    }
+    
+    if (trimmed.includes('[') || filePath.includes('task') || filePath.includes('list')) {
+      log.warn(`Using fallback empty array for ${filePath}`);
+      return '[]';
+    } else {
+      log.warn(`Using fallback empty object for ${filePath}`);
+      return '{}';
+    }
+  }
+
+  /**
+   * Summarize implementation for shorter prompts
+   */
+  summarizeImplementation(implementation, maxLength = 3000) {
+    if (implementation.length <= maxLength) {
+      return implementation;
+    }
+    
+    const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+    const blocks = [...implementation.matchAll(codeBlockRegex)];
+    
+    if (blocks.length === 0) {
+      return implementation.substring(0, maxLength) + "\n...(zkráceno)";
+    }
+    
+    let summary = "";
+    
+    for (const block of blocks) {
+      const lang = block[1] || "";
+      const code = block[2];
+      const lines = code.split("\n");
+      const truncatedCode = lines.slice(0, 30).join("\n");
+      
+      summary += `\`\`\`${lang}\n${truncatedCode}\n`;
+      if (lines.length > 30) {
+        summary += `// ... (${lines.length - 30} dalších řádků)\n`;
+      }
+      summary += `\`\`\`\n\n`;
+      
+      if (summary.length > maxLength) {
+        summary += "...(další soubory zkráceny)";
+        break;
+      }
+    }
+    
+    return summary;
+  }
+
+  /**
+   * Main workflow execution - Phase 1: Analysis
+   */
+  async execute(userMessage) {
+    log.info("Workflow v26 started", { message: userMessage.substring(0, 100) });
+    
+    await this.loadMemory();
+    const memoryContext = this.buildMemoryContext();
+    
+    this.history.push({ role: "user", content: userMessage });
+    
+    // Phase 1: THINKER → ANALYZER
+    this.state = State.CLARIFYING;
+    log.info("Phase 1: Dual-model Analysis (THINKER → ANALYZER)");
+    
+    const fullRequest = memoryContext 
+      ? `${memoryContext}\n\n---\n\nPožadavek uživatele:\n${userMessage}`
+      : `Požadavek uživatele:\n${userMessage}`;
+    
+    // Step 1: THINKER
+    log.info("Step 1: THINKER analyzing request");
+    const thinkerResponse = await this.callRole("THINKER", fullRequest, "THINKER_ANALYZE");
+    
+    // Step 2: ANALYZER
+    log.info("Step 2: ANALYZER extracting structure");
+    const analyzerPrompt = `## Původní požadavek uživatele:
+${userMessage}
+
+## Analýza od THINKERa:
+${thinkerResponse}
+
+---
+
+Na základě analýzy THINKERa rozhodni: Je požadavek kompletní nebo chybí informace?
+Odpověz POUZE ve formátu CLARIFY: nebo READY:`;
+
+    const analyzerResponse = await this.callRole("ANALYZER", analyzerPrompt, "ANALYZER_EXTRACT");
+    const analysis = this.parseClarifyResponse(analyzerResponse);
+    
+    if (analysis.needsClarification && analysis.questions?.length > 0) {
+      log.info("Clarification needed", { questions: analysis.questions });
+      this.state = State.CLARIFYING;
+      
+      const clarifyMessage = `## 🤔 Potřebuji upřesnění
+
+Před začátkem implementace potřebuji zodpovědět několik otázek:
+
+${analysis.questions.map((q, i) => `**${i + 1}.** ${q}`).join("\n\n")}
+
+---
+*Odpověz na tyto otázky, abych mohl vytvořit přesně to, co potřebuješ.*`;
+      
+      this.history.push({ role: "assistant", content: clarifyMessage });
+      return { 
+        state: this.state, 
+        response: clarifyMessage,
+        needsInput: true,
+        questions: analysis.questions,
+      };
+    }
+    
+    // Proceed to planning
+    log.info("Request complete, proceeding to planning");
+    return this.createPlan(userMessage, memoryContext);
+  }
+
+  /**
+   * Phase 2: Create plan with D1
+   */
+  async createPlan(userMessage, memoryContext = "") {
+    this.state = State.PLANNING;
+    log.info("Phase 2: D1 Planning");
+    
+    const planPrompt = memoryContext 
+      ? `${memoryContext}\n\n---\n\nPožadavek:\n${userMessage}\n\nVytvoř detailní plán implementace.`
+      : `Požadavek:\n${userMessage}\n\nVytvoř detailní plán implementace.`;
+    
+    const planResponse = await this.callRole("D1", planPrompt, "D1_PLAN");
+    
+    this.plan = planResponse;
+    await this.savePlan(planResponse);
+    
+    // Phase 3: DESIGN_AUDIT
+    return this.auditPlan(userMessage);
+  }
+
+  /**
+   * Phase 3: DESIGN_AUDIT - challenge the plan
+   */
+  async auditPlan(userMessage) {
+    this.state = State.DESIGN_AUDITING;
+    log.info("Phase 3: DESIGN_AUDIT");
+    
+    const auditPrompt = `## Původní požadavek:
+${userMessage}
+
+## Plán od D1:
+${this.plan}
+
+---
+
+Zpochybni tento plán. Hledej díry, chybějící komponenty, edge cases, bezpečnostní problémy.
+Buď kritický!`;
+
+    const auditResponse = await this.callRole("DESIGN_AUDIT", auditPrompt, "DESIGN_AUDIT");
+    const auditResult = this.parseReviewResponse(auditResponse);
+    
+    log.info("DESIGN_AUDIT result", { passed: auditResult.passed, issues: auditResult.issues?.length });
+    
+    if (!auditResult.passed && this.auditRetries < this.config.maxAuditRetries) {
+      // Plan needs redesign
+      this.auditRetries++;
+      log.info(`DESIGN_AUDIT failed, redesigning (attempt ${this.auditRetries})`);
+      
+      const redesignPrompt = `## Původní plán:
+${this.plan}
+
+## Kritika od DESIGN_AUDIT:
+${auditResponse}
+
+---
+
+Přepracuj plán tak, aby adresoval všechny identifikované problémy.
+Zachovej formát plánu.`;
+
+      this.state = State.PLANNING;
+      const newPlan = await this.callRole("D1", redesignPrompt, "D1_PLAN");
+      this.plan = newPlan;
+      await this.savePlan(newPlan);
+      
+      // Re-audit
+      return this.auditPlan(userMessage);
+    }
+    
+    // Plan approved or max retries - proceed to user confirmation
+    this.state = State.PLAN_REVIEW;
+    
+    let planMessage = `## 📋 Plán implementace\n\n${this.plan}`;
+    
+    if (this.auditRetries > 0) {
+      planMessage += `\n\n---\n*Plán prošel ${this.auditRetries}x revizí na základě DESIGN_AUDIT.*`;
+    }
+    
+    if (auditResponse.includes("APPROVED:")) {
+      planMessage += `\n\n### ✅ DESIGN_AUDIT schválil plán`;
+    }
+    
+    planMessage += `\n\n---\n\n**Potvrď plán odpovědí "OK" nebo "ano", případně navrhni změny.**`;
+    
+    this.history.push({ role: "assistant", content: planMessage });
+    return {
+      state: this.state,
+      response: planMessage,
+      needsInput: true,
+      plan: this.plan,
+      auditResult: auditResponse,
+    };
+  }
+
+  /**
+   * Continue workflow after user input
+   */
+  async continue(userInput) {
+    log.info("Workflow continue", { state: this.state, input: userInput.substring(0, 50) });
+    
+    this.history.push({ role: "user", content: userInput });
+    
+    // Handle clarification response
+    if (this.state === State.CLARIFYING) {
+      const originalRequest = this.history[0].content;
+      
+      let clarificationHistory = "";
+      for (let i = 1; i < this.history.length; i++) {
+        const msg = this.history[i];
+        if (msg.role === "assistant" && msg.content.includes("Potřebuji upřesnění")) {
+          clarificationHistory += `\nOtázky agenta:\n${msg.content}\n`;
+        } else if (msg.role === "user") {
+          clarificationHistory += `\nOdpověď uživatele:\n${msg.content}\n`;
+        }
+      }
+      
+      const enrichedRequest = `Původní požadavek:
+${originalRequest}
+
+---
+Historie upřesnění:
+${clarificationHistory}
+
+---
+Analyzuj znovu - máme teď všechny potřebné informace?`;
+
+      await this.loadMemory();
+      const memoryContext = this.buildMemoryContext();
+      
+      const fullRequest = memoryContext 
+        ? `${memoryContext}\n\n${enrichedRequest}`
+        : enrichedRequest;
+      
+      // Re-run THINKER → ANALYZER
+      const thinkerResponse = await this.callRole("THINKER", fullRequest, "THINKER_ANALYZE");
+      
+      const analyzerPrompt = `## Původní požadavek uživatele:
+${originalRequest}
+
+## Upřesnění od uživatele:
+${userInput}
+
+## Analýza od THINKERa:
+${thinkerResponse}
+
+---
+
+Na základě analýzy THINKERa rozhodni: Je požadavek nyní kompletní nebo stále chybí informace?
+Odpověz POUZE ve formátu CLARIFY: nebo READY:`;
+
+      const analyzerResponse = await this.callRole("ANALYZER", analyzerPrompt, "ANALYZER_EXTRACT");
+      const analysis = this.parseClarifyResponse(analyzerResponse);
+      
+      if (analysis.needsClarification && analysis.questions?.length > 0) {
+        const clarifyMessage = `## 🤔 Ještě potřebuji upřesnit
+
+Díky za odpověď! Ještě mi prosím upřesni:
+
+${analysis.questions.map((q, i) => `**${i + 1}.** ${q}`).join("\n\n")}`;
+        
+        this.history.push({ role: "assistant", content: clarifyMessage });
+        return { 
+          state: this.state, 
+          response: clarifyMessage,
+          needsInput: true,
+          questions: analysis.questions,
+        };
+      }
+      
+      const fullContext = `Původní požadavek:\n${originalRequest}\n\nUpřesnění od uživatele:\n${clarificationHistory}\n${userInput}`;
+      return this.createPlan(fullContext, memoryContext);
+    }
+    
+    // Handle plan confirmation
+    if (this.state === State.PLAN_REVIEW) {
+      const isApproved = /^(ok|ano|yes|potvrz|schval|good|fine|super|výborně|v pořádku)/i.test(userInput.trim());
+      
+      if (!isApproved) {
+        log.info("Plan modification requested");
+        
+        const modifyPrompt = `Původní plán:\n${this.plan}\n\nPožadované změny od uživatele:\n${userInput}\n\nUprav plán podle těchto požadavků.`;
+        const newPlan = await this.callRole("D1", modifyPrompt, "D1_PLAN");
+        
+        this.plan = newPlan;
+        this.auditRetries = 0; // Reset audit retries
+        await this.savePlan(newPlan);
+        
+        // Re-run audit on modified plan
+        return this.auditPlan(this.history[0].content);
+      }
+      
+      // Plan approved - start implementation
+      return this.implement();
+    }
+    
+    return { 
+      state: this.state, 
+      response: `Aktuální stav: ${this.state}. Implementace probíhá...`,
+      needsInput: false 
+    };
+  }
+
+  /**
+   * Phase 4-7: Implementation with dual R2 review
+   */
+  async implement() {
+    log.info("Starting implementation phase");
+    
+    // Phase 4: CODE Implementation
+    this.state = State.IMPLEMENTING;
+    this.iterations = 0;
+    
+    const implPrompt = `Plán k implementaci:\n\n${this.plan}\n\nImplementuj VŠECHNY soubory podle plánu. KAŽDÝ soubor MUSÍ mít na prvním řádku komentář s plnou cestou.`;
+    let codeResponse = await this.callRole("CODE", implPrompt, "CODE_IMPLEMENT");
+    
+    let savedFiles = await this.extractAndSaveCode(codeResponse);
+    this.implementation = codeResponse;
+    
+    log.info("Initial implementation", { savedFiles: savedFiles.length });
+    
+    // Review loop
+    while (this.iterations < this.config.maxIterations) {
+      this.iterations++;
+      log.info(`Review iteration ${this.iterations}/${this.config.maxIterations}`);
+      
+      // Phase 5: R2.a Intent Review
+      this.state = State.REVIEWING_R2A;
+      log.info(`R2.a Intent Review (iteration ${this.iterations})`);
+      
+      const r2aPrompt = `## Plán:
+${this.plan}
+
+## Implementace:
+${this.implementation}
+
+## Uložené soubory:
+${savedFiles.join(", ") || "žádné"}
+
+Zkontroluj zda implementace ODPOVÍDÁ plánu.`;
+      
+      const r2aResponse = await this.callRole("R2A", r2aPrompt, "R2A_INTENT");
+      const r2aResult = this.parseReviewResponse(r2aResponse);
+      
+      log.info("R2.a result", { passed: r2aResult.passed, issues: r2aResult.issues?.length });
+      
+      if (!r2aResult.passed) {
+        // R2.a failed - D2 fix and retry R2.a
+        this.state = State.FIXING_D2;
+        log.info("R2.a failed, D2 proposing fixes");
+        
+        const d2Prompt = `## Plán:
+${this.plan}
+
+## Implementace:
+${this.implementation}
+
+## Problémy z R2.a review (nesoulad s plánem):
+${r2aResponse}
+
+Navrhni konkrétní opravy pro každý problém.`;
+        
+        const d2Response = await this.callRole("D2", d2Prompt, "D2_FIX");
+        
+        // CODE applies fixes
+        this.state = State.IMPLEMENTING;
+        const fixPrompt = `## Původní implementace:\n${this.implementation}\n\n## Navržené opravy od D2:\n${d2Response}\n\nAplikuj všechny opravy. KAŽDÝ soubor MUSÍ mít na prvním řádku komentář s plnou cestou.`;
+        codeResponse = await this.callRole("CODE", fixPrompt, "CODE_IMPLEMENT");
+        
+        savedFiles = await this.extractAndSaveCode(codeResponse);
+        this.implementation = codeResponse;
+        
+        continue; // Back to R2.a
+      }
+      
+      // Phase 6: R2.b Adversarial Review
+      this.state = State.REVIEWING_R2B;
+      log.info("R2.a passed, R2.b Adversarial Review");
+      
+      const implSummary = this.summarizeImplementation(this.implementation, 3000);
+      
+      const r2bPrompt = `## Plán:
+${this.plan.substring(0, 1500)}
+
+## Implementace:
+${implSummary}
+
+## Uložené soubory:
+${savedFiles.join(", ")}
+
+Hledej edge cases, bezpečnostní problémy, co se může rozbít.
+⚠️ NEPOSKYTUJ NÁVRHY ŘEŠENÍ - pouze identifikuj problémy!`;
+      
+      const r2bResponse = await this.callRole("R2B", r2bPrompt, "R2B_ADVERSARIAL");
+      const r2bResult = this.parseReviewResponse(r2bResponse);
+      
+      log.info("R2.b result", { passed: r2bResult.passed, issues: r2bResult.issues?.length });
+      
+      if (!r2bResult.passed) {
+        // R2.b found issues - D2 fix and back to R2.a
+        this.state = State.FIXING_D2;
+        log.info("R2.b found issues, D2 proposing fixes");
+        
+        const d2Prompt = `## Implementace:
+${this.implementation}
+
+## Problémy z R2.b (edge cases, bezpečnost):
+${r2bResponse}
+
+Navrhni konkrétní opravy pro každý problém.`;
+        
+        const d2Response = await this.callRole("D2", d2Prompt, "D2_FIX");
+        
+        this.state = State.IMPLEMENTING;
+        const fixPrompt = `## Původní implementace:\n${this.implementation}\n\n## Navržené opravy od D2:\n${d2Response}\n\nAplikuj všechny opravy. KAŽDÝ soubor MUSÍ mít na prvním řádku komentář s plnou cestou.`;
+        codeResponse = await this.callRole("CODE", fixPrompt, "CODE_IMPLEMENT");
+        
+        savedFiles = await this.extractAndSaveCode(codeResponse);
+        this.implementation = codeResponse;
+        
+        continue; // Back to R2.a (not R2.b!)
+      }
+      
+      // Both R2.a and R2.b passed - DONE!
+      this.state = State.DONE;
+      log.info("Workflow completed successfully", { iterations: this.iterations, files: savedFiles.length });
+      
+      const doneMessage = `## ✅ Implementace dokončena!
+
+### Vytvořené soubory:
+${savedFiles.map(f => `- \`${f}\``).join("\n")}
+
+### Review výsledky:
+- **R2.a (Intent):** ✅ PASS
+- **R2.b (Adversarial):** ✅ PASS
+
+### Statistiky:
+- Iterací: ${this.iterations}
+- Souborů: ${savedFiles.length}
+
+### Další kroky:
+${this.getNextSteps(savedFiles)}`;
+      
+      this.history.push({ role: "assistant", content: doneMessage });
+      
+      return {
+        state: this.state,
+        response: doneMessage,
+        needsInput: false,
+        files: savedFiles,
+      };
+    }
+    
+    // Max iterations reached
+    this.state = State.ERROR;
+    log.warn("Max iterations reached", { iterations: this.iterations });
+    
+    return {
+      state: this.state,
+      response: `⚠️ Dosažen maximální počet iterací (${this.config.maxIterations}).\n\nPoslední verze souborů byla uložena:\n${savedFiles.map(f => `- \`${f}\``).join("\n")}\n\n**Poznámka:** Implementace neprošla plnou kontrolou kvality. Zkontroluj soubory manuálně.`,
+      needsInput: false,
+      files: savedFiles,
+    };
+  }
+
+  /**
+   * Generate next steps based on files
+   */
+  getNextSteps(files) {
+    const steps = [];
+    
+    const hasPackageJson = files.some(f => f.includes("package.json"));
+    const hasServerJs = files.some(f => f.includes("server.js") || f.includes("index.js"));
+    const hasPython = files.some(f => f.endsWith(".py"));
+    const hasHtml = files.some(f => f.endsWith(".html"));
+    
+    if (hasPackageJson) {
+      steps.push(`\`\`\`bash\ncd ${this.config.workdir}\nnpm install\n\`\`\``);
+    }
+    
+    if (hasServerJs) {
+      const serverFile = files.find(f => f.includes("server.js") || f.includes("index.js"));
+      steps.push(`\`\`\`bash\nnode ${serverFile}\n\`\`\``);
+    }
+    
+    if (hasPython) {
+      const mainPy = files.find(f => f.endsWith(".py"));
+      steps.push(`\`\`\`bash\npython ${mainPy}\n\`\`\``);
+    }
+    
+    if (hasHtml && !hasServerJs) {
+      const htmlFile = files.find(f => f.endsWith(".html"));
+      steps.push(`Otevři v prohlížeči: \`file://${htmlFile}\``);
+    }
+    
+    return steps.length > 0 ? steps.join("\n\n") : "Zkontroluj vytvořené soubory a spusť podle potřeby.";
+  }
+
+  /**
+   * Get current state info
+   */
+  getState() {
+    return {
+      state: this.state,
+      iterations: this.iterations,
+      auditRetries: this.auditRetries,
+      plan: this.plan,
+      historyLength: this.history.length,
+    };
+  }
+}
+
+/**
+ * Get or create workflow session
+ */
+export function getWorkflowSession(sessionId, config = {}) {
+  let session = workflowSessions.get(sessionId);
+  
+  if (!session) {
+    session = new WorkflowAgent({ ...config, sessionId });
+    session.createdAt = Date.now();
+    session.lastActivity = Date.now();
+    workflowSessions.set(sessionId, session);
+  } else {
+    session.lastActivity = Date.now();
+  }
+  
+  return session;
+}
+
+/**
+ * Clear workflow session
+ */
+export function clearWorkflowSession(sessionId) {
+  workflowSessions.delete(sessionId);
+}
+
+/**
+ * Get session stats
+ */
+export function getSessionStats() {
+  return {
+    activeSessions: workflowSessions.size,
+    sessionIds: [...workflowSessions.keys()],
+  };
+}
+
+export default WorkflowAgent;

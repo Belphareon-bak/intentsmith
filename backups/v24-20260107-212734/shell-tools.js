@@ -4,13 +4,12 @@
  * Nástroje pro spouštění shell příkazů.
  */
 
-import { exec, spawn, execFile } from "child_process";
+import { exec, spawn } from "child_process";
 import { promisify } from "util";
 import path from "path";
 import { registerTool } from "./registry.js";
 
 const execAsync = promisify(exec);
-const execFileAsync = promisify(execFile);
 
 // Dangerous commands that require explicit approval
 const DANGEROUS_PATTERNS = [
@@ -142,19 +141,8 @@ registerTool({
     command: { type: "string", required: true }
   },
   async execute({ command }) {
-    // Security: validate command name (no special chars)
-    if (!/^[\w.-]+$/.test(command)) {
-      return {
-        command,
-        path: null,
-        found: false,
-        error: "Invalid command name"
-      };
-    }
-    
     try {
-      // Use execFile to prevent command injection
-      const { stdout } = await execFileAsync('which', [command]);
+      const { stdout } = await execAsync(`which ${command}`);
       return {
         command,
         path: stdout.trim(),
@@ -181,26 +169,12 @@ registerTool({
   async execute({ filter }) {
     let env = { ...process.env };
 
-    // Remove sensitive vars using pattern matching
-    const SENSITIVE_PATTERNS = [
-      /password/i,
-      /secret/i,
-      /token/i,
-      /key/i,
-      /credential/i,
-      /auth/i,
-      /private/i,
-      /api.?key/i,
-      /access.?key/i,
-      /session/i,
-      /cookie/i,
-    ];
-    
-    env = Object.fromEntries(
-      Object.entries(env).filter(([key]) => 
-        !SENSITIVE_PATTERNS.some(pattern => pattern.test(key))
-      )
-    );
+    // Remove sensitive vars
+    delete env.PASSWORD;
+    delete env.SECRET;
+    delete env.TOKEN;
+    delete env.API_KEY;
+    delete env.PRIVATE_KEY;
 
     if (filter) {
       const regex = new RegExp(filter, "i");

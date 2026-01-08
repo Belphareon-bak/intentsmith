@@ -4,29 +4,23 @@ const OLLAMA_HOST = process.env.OLLAMA_HOST || "http://127.0.0.1:11434";
 
 // Role-specific max tokens configuration
 const ROLE_MAX_TOKENS = {
-  THINKER: 4096,       // Deep reasoning about request
-  ANALYZER: 1024,      // Short structured output
-  CODE: 8192,          // Needs more for large implementations
-  D1: 6144,            // Planning can be verbose
-  DESIGN_AUDIT: 4096,  // Audit findings
-  D2: 4096,            // Fix proposals
-  R2A: 2048,           // Intent review - shorter
-  R2B: 3072,           // Adversarial - needs to explain edge cases
-  CHAT: 4096,          // General chat
+  CODE: 8192,    // Needs more for large implementations
+  D1: 6144,      // Planning can be verbose
+  D2: 4096,      // Fix proposals
+  R1: 4096,      // Senior review
+  R2: 2048,      // Quick review - shorter
+  CHAT: 4096,    // General chat
   default: 4096
 };
 
 // Role-specific timeouts (ms)
 const ROLE_TIMEOUTS = {
-  THINKER: 120000,     // 2 min - deep reasoning
-  ANALYZER: 30000,     // 30s - quick extraction
-  CODE: 300000,        // 5 min - implementation takes time
-  D1: 120000,          // 2 min - planning (qwen2.5 is faster)
-  DESIGN_AUDIT: 180000,// 3 min - deep audit (deepseek-r1)
-  D2: 120000,          // 2 min - fixes
-  R2A: 60000,          // 1 min - quick intent review
-  R2B: 120000,         // 2 min - adversarial analysis (deepseek-r1)
-  CHAT: 60000,         // 1 min
+  CODE: 300000,  // 5 min - implementation takes time
+  D1: 180000,    // 3 min - planning
+  D2: 120000,    // 2 min - fixes
+  R1: 120000,    // 2 min - review
+  R2: 60000,     // 1 min - quick review
+  CHAT: 60000,   // 1 min
   default: 120000
 };
 

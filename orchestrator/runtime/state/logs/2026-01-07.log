@@ -725,3 +725,193 @@ function loadTasks() {
 [2026-01-07T20:14:30.689Z] [INFO] [C3:Server] Workflow: GET /workflow/auto-test-29893
 [2026-01-07T20:14:30.699Z] [INFO] [C3:Server] GET /workflow/auto-test-29893
 [2026-01-07T20:14:30.699Z] [INFO] [C3:Server] Workflow: GET /workflow/auto-test-29893
+[2026-01-07T20:28:12.773Z] [INFO] [C3:Server] POST /workflow
+[2026-01-07T20:28:12.777Z] [INFO] [C3:Server] Workflow: POST /workflow
+[2026-01-07T20:28:12.781Z] [INFO] [C3:LLM] Calling LLM {"role":"D1","model":"deepseek-r1-32b:latest","promptLength":475}
+[2026-01-07T20:28:12.781Z] [DEBUG] [C3:LLM] Prompt preview: 
+
+## Kontext z paměti:
+
+
+---
+
+Požadavek uživatele:
+Vytvoř jednoduchou TODO CLI aplikaci v Node.js.
+
+Soubory:
+- /tmp/workflow-auto/todo.js - hlavní aplikace
+
+Funkce:
+- add <text> - přidá úkol
+- list - ...
+[2026-01-07T20:28:44.315Z] [INFO] [C3:LLM] LLM response received {"role":"D1","model":"deepseek-r1-32b:latest","duration":"31534ms","outputLength":3885}
+[2026-01-07T20:28:44.315Z] [DEBUG] [C3:LLM] Response preview: 
+
+Nápověda:
+Pokud uživatel zadá "help" nebo "?", zobraz následující informace:
+
+Usage: todo <command>
+Available commands:
+- add <text> - Add a new task
+- list - List all tasks
+- done <id> - Mark task ...
+[2026-01-07T20:28:44.315Z] [INFO] [C3:LLM] Calling LLM {"role":"D1","model":"deepseek-r1-32b:latest","promptLength":501}
+[2026-01-07T20:28:44.315Z] [DEBUG] [C3:LLM] Prompt preview: 
+
+## Kontext z paměti:
+
+
+---
+
+Požadavek:
+Vytvoř jednoduchou TODO CLI aplikaci v Node.js.
+
+Soubory:
+- /tmp/workflow-auto/todo.js - hlavní aplikace
+
+Funkce:
+- add <text> - přidá úkol
+- list - vypíše úko...
+[2026-01-07T20:30:04.344Z] [INFO] [C3:LLM] LLM response received {"role":"D1","model":"deepseek-r1-32b:latest","duration":"80029ms","outputLength":9301}
+[2026-01-07T20:30:04.344Z] [DEBUG] [C3:LLM] Response preview:  Zde je tvoje odpověď:
+
+1. **Nastavení projektu**
+   - Vytvoř nový Node.js projekt
+   - Nainstaluj potřebné balíky (node, npm)
+   - Vytvoř hlavní soubor todo.js
+
+2. **Definice struktury úkolu**
+   - K...
+[2026-01-07T20:30:04.359Z] [INFO] [C3:Server] POST /workflow
+[2026-01-07T20:30:04.359Z] [INFO] [C3:Server] Workflow: POST /workflow
+[2026-01-07T20:30:04.360Z] [INFO] [C3:LLM] Calling LLM {"role":"CODE","model":"qwen25-coder-32b:latest","promptLength":9428}
+[2026-01-07T20:30:04.360Z] [DEBUG] [C3:LLM] Prompt preview: Plán k implementaci:
+
+ Zde je tvoje odpověď:
+
+1. **Nastavení projektu**
+   - Vytvoř nový Node.js projekt
+   - Nainstaluj potřebné balíky (node, npm)
+   - Vytvoř hlavní soubor todo.js
+
+2. **Definice st...
+[2026-01-07T20:31:00.565Z] [INFO] [C3:LLM] LLM response received {"role":"CODE","model":"qwen25-coder-32b:latest","duration":"56205ms","outputLength":3294}
+[2026-01-07T20:31:00.565Z] [DEBUG] [C3:LLM] Response preview:  Například:
+
+```javascript
+// /path/to/your/project/todo.js
+```
+
+---
+
+### Celý kód v souboru `todo.js` s komentářem
+
+```javascript
+// /path/to/your/project/todo.js
+import fs from 'fs/promises';
+
+const...
+[2026-01-07T20:31:00.566Z] [INFO] [C3:LLM] Calling LLM {"role":"R2","model":"qwen2.5:32b","promptLength":12733}
+[2026-01-07T20:31:00.566Z] [DEBUG] [C3:LLM] Prompt preview: ## Plán:
+ Zde je tvoje odpověď:
+
+1. **Nastavení projektu**
+   - Vytvoř nový Node.js projekt
+   - Nainstaluj potřebné balíky (node, npm)
+   - Vytvoř hlavní soubor todo.js
+
+2. **Definice struktury úkolu...
+[2026-01-07T20:32:00.595Z] [WARN] [C3:LLM] LLM call failed (attempt 1/3), retrying in 2000ms {"error":"Ollama timeout after 60000ms (role: R2, model: qwen2.5:32b)"}
+[2026-01-07T20:32:42.323Z] [INFO] [C3:LLM] LLM response received {"role":"R2","model":"qwen2.5:32b","duration":"101757ms","outputLength":3944}
+[2026-01-07T20:32:42.323Z] [DEBUG] [C3:LLM] Response preview: FAIL:
+- **Syntax Chyby**: Kód obsahuje TypeScript syntax (například `interface Task`), ale soubor má příponu `.js`, což způsobuje problémy při spouštění v Node.js.
+- **Chybějící Importy**: Používá se ...
+[2026-01-07T20:32:42.325Z] [INFO] [C3:LLM] Calling LLM {"role":"D2","model":"qwen3-30b-a3b:latest","promptLength":7327}
+[2026-01-07T20:32:42.325Z] [DEBUG] [C3:LLM] Prompt preview: ## Implementace:
+ Například:
+
+```javascript
+// /path/to/your/project/todo.js
+```
+
+---
+
+### Celý kód v souboru `todo.js` s komentářem
+
+```javascript
+// /path/to/your/project/todo.js
+import fs from 'fs/...
+[2026-01-07T20:33:37.976Z] [INFO] [C3:LLM] LLM response received {"role":"D2","model":"qwen3-30b-a3b:latest","duration":"55651ms","outputLength":14162}
+[2026-01-07T20:33:37.976Z] [DEBUG] [C3:LLM] Response preview:  Zde jsou konkrétní opravy pro každý zjištěný problém:
+
+---
+
+### 1. **Problém: Použití TypeScript syntaxe v `.js` souboru**
+
+**Problém:** Kód používá TypeScript syntax (např. `interface Task`, `Task[]...
+[2026-01-07T20:33:37.977Z] [INFO] [C3:LLM] Calling LLM {"role":"CODE","model":"qwen25-coder-32b:latest","promptLength":17597}
+[2026-01-07T20:33:37.977Z] [DEBUG] [C3:LLM] Prompt preview: ## Původní implementace:
+ Například:
+
+```javascript
+// /path/to/your/project/todo.js
+```
+
+---
+
+### Celý kód v souboru `todo.js` s komentářem
+
+```javascript
+// /path/to/your/project/todo.js
+import fs f...
+[2026-01-07T20:38:37.982Z] [WARN] [C3:LLM] LLM call failed (attempt 1/3), retrying in 2000ms {"error":"Ollama timeout after 300000ms (role: CODE, model: qwen25-coder-32b:latest)"}
+[2026-01-07T20:43:25.044Z] [INFO] [C3:LLM] LLM response received {"role":"CODE","model":"qwen25-coder-32b:latest","duration":"587067ms","outputLength":28934}
+[2026-01-07T20:43:25.044Z] [DEBUG] [C3:LLM] Response preview:  Například:
+
+```javascript
+// /path/to/your/project/todo.js
+```
+
+---
+
+### Úpravený kód (pro `.js` soubor):
+
+```javascript
+// /path/to/your/project/todo.js
+const fs = require('fs').promises;
+
+const TAS...
+[2026-01-07T20:43:25.073Z] [INFO] [C3:LLM] Calling LLM {"role":"R2","model":"qwen2.5:32b","promptLength":38569}
+[2026-01-07T20:43:25.074Z] [DEBUG] [C3:LLM] Prompt preview: ## Plán:
+ Zde je tvoje odpověď:
+
+1. **Nastavení projektu**
+   - Vytvoř nový Node.js projekt
+   - Nainstaluj potřebné balíky (node, npm)
+   - Vytvoř hlavní soubor todo.js
+
+2. **Definice struktury úkolu...
+[2026-01-07T20:44:16.079Z] [INFO] [C3:LLM] LLM response received {"role":"R2","model":"qwen2.5:32b","duration":"51005ms","outputLength":1632}
+[2026-01-07T20:44:16.079Z] [DEBUG] [C3:LLM] Response preview: Jistě, provedu rychlou kontrolu kvality souboru `/tmp/workflow-auto/todo.js`. Zkontroluji syntax a základní funkčnost.
+
+### Kontrola syntaxe:
+1. **Použití `require` místo ES6 importů**: Správně použív...
+[2026-01-07T20:44:16.080Z] [INFO] [C3:LLM] Calling LLM {"role":"R1","model":"deepseek-r1-32b:latest","promptLength":5239}
+[2026-01-07T20:44:16.080Z] [DEBUG] [C3:LLM] Prompt preview: ## Shrnutí plánu:
+ Zde je tvoje odpověď:
+
+1. **Nastavení projektu**
+   - Vytvoř nový Node.js projekt
+   - Nainstaluj potřebné balíky (node, npm)
+   - Vytvoř hlavní soubor todo.js
+
+2. **Definice strukt...
+[2026-01-07T20:44:45.049Z] [INFO] [C3:LLM] LLM response received {"role":"R1","model":"deepseek-r1-32b:latest","duration":"28969ms","outputLength":184}
+[2026-01-07T20:44:45.049Z] [DEBUG] [C3:LLM] Response preview:  Pokud je něco špatně, uvedi co.
+</think>
+
+APPROVED: Architektura je základní, ale pro větší projekt by mohlo být potřeba implementovat další bezpečnostní opatření a modularizaci kódu....
+[2026-01-07T20:44:48.178Z] [INFO] [C3:Server] GET /workflow/auto-test-31419
+[2026-01-07T20:44:48.178Z] [INFO] [C3:Server] Workflow: GET /workflow/auto-test-31419
+[2026-01-07T20:44:48.194Z] [INFO] [C3:Server] GET /workflow/auto-test-31419
+[2026-01-07T20:44:48.194Z] [INFO] [C3:Server] Workflow: GET /workflow/auto-test-31419

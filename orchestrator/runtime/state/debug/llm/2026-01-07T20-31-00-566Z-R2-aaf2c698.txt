@@ -1,0 +1,693 @@
+
+=== LLM CALL ===
+Role: R2
+Model: qwen2.5:32b
+Time: 2026-01-07T20:32:42.323Z
+Duration: 101757ms
+
+=== SYSTEM PROMPT ===
+Jsi R2 - junior reviewer. Proveď rychlou kontrolu kvality kódu.
+
+INSTRUKCE:
+1. Zkontroluj základní chyby (syntax, importy, typy)
+2. Zkontroluj, zda jsou všechny soubory z plánu implementovány
+3. Zkontroluj základní bezpečnost (hardcoded secrets, SQL injection)
+4. KRITICKÉ: Zkontroluj DEPENDENCIES:
+   - Pokud kód používá require() nebo import pro EXTERNÍ modul (např. commander, express, axios)
+   - A NEEXISTUJE package.json s tímto modulem v dependencies
+   - Označ jako FAIL s doporučením vytvořit package.json nebo použít vestavěný modul
+   - Vestavěné moduly (fs, path, http, crypto, os...) jsou OK bez package.json
+
+FORMÁT ODPOVĚDI:
+Pokud je vše OK:
+PASS: [stručné shrnutí co je dobře]
+
+Pokud jsou problémy:
+FAIL:
+- [problém 1]
+- [problém 2]
+...
+DOPORUČENÍ:
+- [jak opravit 1]
+- [jak opravit 2]
+
+=== USER PROMPT ===
+## Plán:
+ Zde je tvoje odpověď:
+
+1. **Nastavení projektu**
+   - Vytvoř nový Node.js projekt
+   - Nainstaluj potřebné balíky (node, npm)
+   - Vytvoř hlavní soubor todo.js
+
+2. **Definice struktury úkolu**
+   - Každý úkol má id, text, done, createdAt
+   - Zde je příklad:
+     ```javascript
+     {
+       id: 1,
+       text: "Učit se Node.js",
+       done: false,
+       createdAt: "2023-10-05T14:30:00Z"
+     }
+     ```
+
+3. **Funkce pro ukládání úkolů**
+   - Vytvoř funkci saveTasks(tasks) => void
+   - Uloží úkoly do souboru /tmp/workflow-auto/tasks.json
+
+4. **Funkce pro načítání úkolů**
+   - Vytvoř funkci loadTasks() => Promise<Task[]>
+   - Načte úkoly z tasks.json, pokud soubor neexistuje, vytvoř prázdný pole
+
+5. **Implementace příkazů**
+   - `add <text>`: Přidá nový úkol
+     - Generování unikátního id (může být length of tasks +1)
+     - Aktuální čas ve formátu ISO
+   - `list`: Vypíše všechny úkoly s formátovaným výstupem
+     - Číslo, [x] nebo [ ], text
+   - `done <id>`: Označí úkol jako hotový
+
+6. **Parsování argumentů CLI**
+   - Použij process.argv pro získání příkazových parametrů
+   - Odeber prvních dvě položky (node a cesta k souboru)
+   - Zpracuj zbylé parametry podle příkazu
+
+7. **Testování**
+   - Testování jednotlivých funkcí
+   - Spouštění CLI příkazů a kontrola výstupu
+
+8. **Ošetření chyb**
+   - Chyba při parsování JSON
+   - Neexistující ID pro `done`
+   - Nekorektní požadavek (např. chybějící parametr)
+
+9. **Výstupní formát**
+   - Pro každý úkol vypisovat:
+     ```
+     [${index + 1}] ${done ? '[x]' : '[ ]'} ${text}
+     ```
+
+10. **Bonusy (nepovinné)**
+    - Validace textu úkolu
+    - Historie změn
+
+**Poznámky:**
+- Všechny funkce by měly být asynchronní kvůli práci souborovým systémem
+- Používej try-catch pro ošetření chyb
+- Ukládej úkoly vždy po změně
+
+---
+
+Nyní, prosím, napište kód pro tento plán implementace.
+</think>
+
+Dobře, nyní přistupujeme k implementaci TODO CLI aplikace v Node.js podle uvedeného plánu. Zde je detailní kód pro každý krok:
+
+---
+
+### 1. Nastavení projektu
+Vytvořte nový Node.js projekt a v hlavním adresáři vytvořte soubor `todo.js`.
+
+```bash
+mkdir todo-cli && cd todo-cli
+npm init -y
+touch todo.js
+```
+
+---
+
+### 2. Definice struktury úkolu
+V souboru `todo.js` definujeme strukturu úkolu.
+
+```javascript
+const TASKS_FILE = '/tmp/workflow-auto/tasks.json';
+
+interface Task {
+    id: number;
+    text: string;
+    done: boolean;
+    createdAt: string;
+}
+```
+
+---
+
+### 3. Funkce pro ukládání úkolů
+Implementujeme funkci `saveTasks`, která uloží úkoly do souboru.
+
+```javascript
+async function saveTasks(tasks: Task[]) {
+    try {
+        const data = JSON.stringify(tasks, null, 2);
+        await fs.promises.writeFile(TASKS_FILE, data);
+    } catch (error) {
+        console.error('Chyba při ukládání úkolů:', error);
+        throw error;
+    }
+}
+```
+
+---
+
+### 4. Funkce pro načítání úkolů
+Implementujeme funkci `loadTasks`, která načte úkoly z souboru.
+
+```javascript
+async function loadTasks(): Promise<Task[]> {
+    try {
+        const data = await fs.promises.readFile(TASKS_FILE, 'utf8');
+        return JSON.parse(data) || [];
+    } catch (error) {
+        if ((error as NodeJS.ErrnoE).code === 'ENOENT') {
+            // Soubor neexistuje, vytvoříme prázdný pole
+            return [];
+        }
+        console.error('Chyba při načítání úkolů:', error);
+        throw error;
+    }
+}
+```
+
+---
+
+### 5. Implementace příkazů
+
+#### Příkaz `add <text>`
+Přidá nový úkol do seznamu.
+
+```javascript
+async function addTask(text: string) {
+    const tasks = await loadTasks();
+    const newTask: Task = {
+        id: tasks.length + 1,
+        text,
+        done: false,
+        createdAt: new Date().toISOString(),
+    };
+    tasks.push(newTask);
+    await saveTasks(tasks);
+    console.log('Úkol byl přidán.');
+}
+```
+
+#### Příkaz `list`
+Vypíše všechny úkoly s formátovaným výstupem.
+
+```javascript
+async function listTasks() {
+    const tasks = await loadTasks();
+    if (tasks.length === 0) {
+        console.log('Žádné úkoly nenalezeno.');
+        return;
+    }
+    console.log('\nSeznam úkolů:');
+    tasks.forEach((task, index) => {
+        const doneSymbol = task.done ? '[x]' : '[ ]';
+        console.log(`[${index + 1}] ${doneSymbol} ${task.text}`);
+    });
+}
+```
+
+#### Příkaz `done <id>`
+Označí úkol jako hotový.
+
+```javascript
+async function markTaskAsDone(id: number) {
+    const tasks = await loadTasks();
+    const taskIndex = tasks.findIndex(task => task.id === id);
+    if (taskIndex === -1) {
+        console.error('Úkol s daným ID nebyl nalezen.');
+        return;
+    }
+    tasks[taskIndex].done = true;
+    await saveTasks(tasks);
+    console.log('Úkol byl označen jako hotový.');
+}
+```
+
+---
+
+### 6. Parsování argumentů CLI
+Zpracujeme příkazové parametry.
+
+```javascript
+async function main() {
+    const args = process.argv.slice(2);
+    if (args.length === 0) {
+        console.error('Zadejte platný příkaz: add, list nebo done.');
+        return;
+    }
+
+    const command = args[0];
+    switch (command.toLowerCase()) {
+        case 'add':
+            if (args.length < 2) {
+                console.error('Text úkolu je vyžadován.');
+                return;
+            }
+            const text = args.slice(1).join(' ');
+            await addTask(text);
+            break;
+
+        case 'list':
+            await listTasks();
+            break;
+
+        case 'done':
+            if (args.length < 2) {
+                console.error('ID úkolu je vyžadováno.');
+                return;
+            }
+            const taskId = parseInt(args[1], 10);
+            if (isNaN(taskId)) {
+                console.error('Neplatné ID úkolu.');
+                return;
+            }
+            await markTaskAsDone(taskId);
+            break;
+
+        default:
+            console.error('Neznámý příkaz. Použijte add, list nebo done.');
+    }
+}
+
+main().catch(error => {
+    console.error('Chyba:', error);
+});
+```
+
+---
+
+### 7. Testování
+Spusťte aplikaci pomocí následujících příkazů:
+
+```bash
+node todo.js add "Učit se Node.js"
+node todo.js list
+node todo.js done 1
+```
+
+---
+
+### 8. Ošetření chyb
+Všechny funkce obsahují `try-catch` pro zachycení chyb a výstupní zprávy.
+
+---
+
+### Celý kód v souboru `todo.js`
+```javascript
+import fs from 'fs/promises';
+
+const TASKS_FILE = '/tmp/workflow-auto/tasks.json';
+
+interface Task {
+    id: number;
+    text: string;
+    done: boolean;
+    createdAt: string;
+}
+
+async function saveTasks(tasks: Task[]) {
+    try {
+        const data = JSON.stringify(tasks, null, 2);
+        await fs.writeFile(TASKS_FILE, data);
+    } catch (error) {
+        console.error('Chyba při ukládání úkolů:', error);
+        throw error;
+    }
+}
+
+async function loadTasks(): Promise<Task[]> {
+    try {
+        const data = await fs.readFile(TASKS_FILE, 'utf8');
+        return JSON.parse(data) || [];
+    } catch (error) {
+        if ((error as NodeJS.ErrnoE).code === 'ENOENT') {
+            return [];
+        }
+        console.error('Chyba při načítání úkolů:', error);
+        throw error;
+    }
+}
+
+async function addTask(text: string) {
+    const tasks = await loadTasks();
+    const newTask: Task = {
+        id: tasks.length + 1,
+        text,
+        done: false,
+        createdAt: new Date().toISOString(),
+    };
+    tasks.push(newTask);
+    await saveTasks(tasks);
+    console.log('Úkol byl přidán.');
+}
+
+async function listTasks() {
+    const tasks = await loadTasks();
+    if (tasks.length === 0) {
+        console.log('Žádné úkoly nenalezeno.');
+        return;
+    }
+    console.log('\nSeznam úkolů:');
+    tasks.forEach((task, index) => {
+        const doneSymbol = task.done ? '[x]' : '[ ]';
+        console.log(`[${index + 1}] ${doneSymbol} ${task.text}`);
+    });
+}
+
+async function markTaskAsDone(id: number) {
+    const tasks = await loadTasks();
+    const taskIndex = tasks.findIndex(task => task.id === id);
+    if (taskIndex === -1) {
+        console.error('Úkol s daným ID nebyl nalezen.');
+        return;
+    }
+    tasks[taskIndex].done = true;
+    await saveTasks(tasks);
+    console.log('Úkol byl označen jako hotový.');
+}
+
+async function main() {
+    const args = process.argv.slice(2);
+    if (args.length === 0) {
+        console.error('Zadejte platný příkaz: add, list nebo done.');
+        return;
+    }
+
+    const command = args[0];
+    switch (command.toLowerCase()) {
+        case 'add':
+            if (args.length < 2) {
+                console.error('Text úkolu je vyžadován.');
+                return;
+            }
+            const text = args.slice(1).join(' ');
+            await addTask(text);
+            break;
+
+        case 'list':
+            await listTasks();
+            break;
+
+        case 'done':
+            if (args.length < 2) {
+                console.error('ID úkolu je vyžadováno.');
+                return;
+            }
+            const taskId = parseInt(args[1], 10);
+            if (isNaN(taskId)) {
+                console.error('Neplatné ID úkolu.');
+                return;
+            }
+            await markTaskAsDone(taskId);
+            break;
+
+        default:
+            console.error('Neznámý příkaz. Použijte add, list nebo done.');
+    }
+}
+
+main().catch(error => {
+    console.error('Chyba:', error);
+});
+```
+
+---
+
+Tento kód implementuje všechny požadované funkce a ošetření chyb. Aplikace může být spuštěna pomocí příkazů v terminálu.
+
+## Implementace:
+ Například:
+
+```javascript
+// /path/to/your/project/todo.js
+```
+
+---
+
+### Celý kód v souboru `todo.js` s komentářem
+
+```javascript
+// /path/to/your/project/todo.js
+import fs from 'fs/promises';
+
+const TASKS_FILE = '/tmp/workflow-auto/tasks.json';
+
+interface Task {
+    id: number;
+    text: string;
+    done: boolean;
+    createdAt: string;
+}
+
+async function saveTasks(tasks: Task[]) {
+    try {
+        const data = JSON.stringify(tasks, null, 2);
+        await fs.writeFile(TASKS_FILE, data);
+    } catch (error) {
+        console.error('Chyba při ukládání úkolů:', error);
+        throw error;
+    }
+}
+
+async function loadTasks(): Promise<Task[]> {
+    try {
+        const data = await fs.readFile(TASKS_FILE, 'utf8');
+        return JSON.parse(data) || [];
+    } catch (error) {
+        if ((error as NodeJS.ErrnoE).code === 'ENOENT') {
+            return [];
+        }
+        console.error('Chyba při načítání úkolů:', error);
+        throw error;
+    }
+}
+
+async function addTask(text: string) {
+    const tasks = await loadTasks();
+    const newTask: Task = {
+        id: tasks.length + 1,
+        text,
+        done: false,
+        createdAt: new Date().toISOString(),
+    };
+    tasks.push(newTask);
+    await saveTasks(tasks);
+    console.log('Úkol byl přidán.');
+}
+
+async function listTasks() {
+    const tasks = await loadTasks();
+    if (tasks.length === 0) {
+        console.log('Žádné úkoly nenalezeno.');
+        return;
+    }
+    console.log('\nSeznam úkolů:');
+    tasks.forEach((task, index) => {
+        const doneSymbol = task.done ? '[x]' : '[ ]';
+        console.log(`[${index + 1}] ${doneSymbol} ${task.text}`);
+    });
+}
+
+async function markTaskAsDone(id: number) {
+    const tasks = await loadTasks();
+    const taskIndex = tasks.findIndex(task => task.id === id);
+    if (taskIndex === -1) {
+        console.error('Úkol s daným ID nebyl nalezen.');
+        return;
+    }
+    tasks[taskIndex].done = true;
+    await saveTasks(tasks);
+    console.log('Úkol byl označen jako hotový.');
+}
+
+async function main() {
+    const args = process.argv.slice(2);
+    if (args.length === 0) {
+        console.error('Zadejte platný příkaz: add, list nebo done.');
+        return;
+    }
+
+    const command = args[0];
+    switch (command.toLowerCase()) {
+        case 'add':
+            if (args.length < 2) {
+                console.error('Text úkolu je vyžadován.');
+                return;
+            }
+            const text = args.slice(1).join(' ');
+            await addTask(text);
+            break;
+
+        case 'list':
+            await listTasks();
+            break;
+
+        case 'done':
+            if (args.length < 2) {
+                console.error('ID úkolu je vyžadováno.');
+                return;
+            }
+            const taskId = parseInt(args[1], 10);
+            if (isNaN(taskId)) {
+                console.error('Neplatné ID úkolu.');
+                return;
+            }
+            await markTaskAsDone(taskId);
+            break;
+
+        default:
+            console.error('Neznámý příkaz. Použijte add, list nebo done.');
+    }
+}
+
+main().catch(error => {
+    console.error('Chyba:', error);
+});
+```
+
+---
+
+Tento kód je kompletní a by měl fungovat podle plánu implementace. Spusťte aplikaci pomocí příkazů v terminálu a otestujte všechny funkce.
+
+## Uložené soubory:
+/tmp/workflow-auto/todo.js, /tmp/workflow-auto/todo.js
+
+Proveď rychlou kontrolu kvality.
+
+=== OUTPUT ===
+FAIL:
+- **Syntax Chyby**: Kód obsahuje TypeScript syntax (například `interface Task`), ale soubor má příponu `.js`, což způsobuje problémy při spouštění v Node.js.
+- **Chybějící Importy**: Používá se ES6 import (`import fs from 'fs/promises';`), který by měl být změněn na CommonJS syntaxu pro `.js` soubory (`const fs = require('fs').promises;`).
+- **Typové Anotace**: Typové anotace jako `Task[]` nebudou fungovat v JavaScriptu, pokud není použit TypeScript kompilátor.
+
+### Doporučení:
+1. **Změna Syntaxe**:
+   - Změňte soubor na `.ts`, pokud chcete použít TypeScript.
+   - Nebo změňte syntax na JavaScript, pokud bude soubor zůstat jako `.js`.
+
+2. **Použití Správného Importu**:
+   ```javascript
+   const fs = require('fs').promises;
+   ```
+
+3. **Odstranění Typových Anotací**:
+   - Odstraňte typové anotace jako `Task[]` a použijte standardní JavaScript.
+
+### Úpravený Kód pro `.js` Soubor:
+
+```javascript
+const fs = require('fs').promises;
+
+const TASKS_FILE = '/tmp/workflow-auto/tasks.json';
+
+async function saveTasks(tasks) {
+    try {
+        const data = JSON.stringify(tasks, null, 2);
+        await fs.writeFile(TASKS_FILE, data);
+    } catch (error) {
+        console.error('Chyba při ukládání úkolů:', error);
+        throw error;
+    }
+}
+
+async function loadTasks() {
+    try {
+        const data = await fs.readFile(TASKS_FILE, 'utf8');
+        return JSON.parse(data) || [];
+    } catch (error) {
+        if ((error.code === 'ENOENT')) {
+            return [];
+        }
+        console.error('Chyba při načítání úkolů:', error);
+        throw error;
+    }
+}
+
+async function addTask(text) {
+    const tasks = await loadTasks();
+    const newTask = {
+        id: tasks.length + 1,
+        text,
+        done: false,
+        createdAt: new Date().toISOString(),
+    };
+    tasks.push(newTask);
+    await saveTasks(tasks);
+    console.log('Úkol byl přidán.');
+}
+
+async function listTasks() {
+    const tasks = await loadTasks();
+    if (tasks.length === 0) {
+        console.log('Žádné úkoly nenalezeno.');
+        return;
+    }
+    console.log('\nSeznam úkolů:');
+    tasks.forEach((task, index) => {
+        const doneSymbol = task.done ? '[x]' : '[ ]';
+        console.log(`[${index + 1}] ${doneSymbol} ${task.text}`);
+    });
+}
+
+async function markTaskAsDone(id) {
+    const tasks = await loadTasks();
+    const taskIndex = tasks.findIndex(task => task.id === id);
+    if (taskIndex === -1) {
+        console.error('Úkol s daným ID nebyl nalezen.');
+        return;
+    }
+    tasks[taskIndex].done = true;
+    await saveTasks(tasks);
+    console.log('Úkol byl označen jako hotový.');
+}
+
+async function main() {
+    const args = process.argv.slice(2);
+    if (args.length === 0) {
+        console.error('Zadejte platný příkaz: add, list nebo done.');
+        return;
+    }
+
+    const command = args[0];
+    switch (command.toLowerCase()) {
+        case 'add':
+            if (args.length < 2) {
+                console.error('Text úkolu je vyžadován.');
+                return;
+            }
+            const text = args.slice(1).join(' ');
+            await addTask(text);
+            break;
+
+        case 'list':
+            await listTasks();
+            break;
+
+        case 'done':
+            if (args.length < 2) {
+                console.error('ID úkolu je vyžadováno.');
+                return;
+            }
+            const taskId = parseInt(args[1], 10);
+            if (isNaN(taskId)) {
+                console.error('Neplatné ID úkolu.');
+                return;
+            }
+            await markTaskAsDone(taskId);
+            break;
+
+        default:
+            console.error('Neznámý příkaz. Použijte add, list nebo done.');
+    }
+}
+
+main().catch(error => {
+    console.error('Chyba:', error);
+});
+```
+
+### Závěr:
+Tento úpravený kód by měl fungovat v Node.js bez problémů a splňuje požadavky plánu implementace. Pokud chcete použít TypeScript, změňte soubor na `.ts` a přizpůsobte si syntax podle potřeb.

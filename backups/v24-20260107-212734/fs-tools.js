@@ -8,48 +8,18 @@ import fs from "fs";
 import path from "path";
 import { registerTool } from "./registry.js";
 
-// Sandbox enforcement with security validation
-const ALLOWED_PATH_ROOTS = [
-  '/tmp',
-  '/home',
-  process.env.HOME,
-].filter(Boolean);
-
+// Sandbox enforcement
 function resolveSafePath(basePath, relativePath) {
-  const resolved = path.isAbsolute(relativePath)
-    ? relativePath
-    : path.resolve(basePath, relativePath || ".");
-  
-  // Security: validate ALL paths against allowlist
-  const normalizedResolved = path.resolve(resolved);
-  const normalizedBase = path.resolve(basePath);
-  
-  // Allow paths within workdir
-  if (normalizedResolved.startsWith(normalizedBase)) {
-    return resolved;
+  // Allow absolute paths (user specified)
+  if (relativePath && path.isAbsolute(relativePath)) {
+    return relativePath;
   }
   
-  // Allow paths within allowed roots
-  const isAllowed = ALLOWED_PATH_ROOTS.some(root => 
-    normalizedResolved.startsWith(path.resolve(root))
-  );
+  const resolved = path.resolve(basePath, relativePath || ".");
   
-  if (!isAllowed) {
-    throw new Error(`Access denied - path outside allowed directories: ${relativePath}`);
-  }
-  
-  // Additional security: block sensitive paths even within allowed roots
-  const BLOCKED_PATTERNS = [
-    /\.ssh/i,
-    /\.gnupg/i,
-    /\.aws/i,
-    /\.config\/.*credentials/i,
-    /\.netrc/i,
-    /\.env$/i,
-  ];
-  
-  if (BLOCKED_PATTERNS.some(pattern => pattern.test(normalizedResolved))) {
-    throw new Error(`Access denied - sensitive path: ${relativePath}`);
+  // Security: ensure path is within sandbox for relative paths
+  if (!resolved.startsWith(path.resolve(basePath))) {
+    throw new Error(`Path escape attempt: ${relativePath} (base: ${basePath})`);
   }
   
   return resolved;
