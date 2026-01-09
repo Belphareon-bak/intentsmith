@@ -19,7 +19,7 @@ const ROLE_MAX_TOKENS = {
 // Role-specific timeouts (ms)
 const ROLE_TIMEOUTS = {
   THINKER: 120000,     // 2 min - deep reasoning
-  ANALYZER: 30000,     // 30s - quick extraction
+  ANALYZER: 90000,     // 90s - extraction (qwen needs warmup)
   CODE: 300000,        // 5 min - implementation takes time
   D1: 120000,          // 2 min - planning (qwen2.5 is faster)
   DESIGN_AUDIT: 180000,// 3 min - deep audit (deepseek-r1)

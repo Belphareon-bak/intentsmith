@@ -530,28 +530,56 @@ export class WorkflowAgent {
       
       let filePath = null;
       
-      // Method 1: Path in first line comment
+      // Method 1: Path in first line comment (absolute)
       const pathMatch = code.match(/^(?:\/\/|#|<!--|\/\*)\s*(\/[\w\/.+-]+\.\w+)/m);
       if (pathMatch) {
         filePath = pathMatch[1];
         code = code.replace(/^(?:\/\/|#|<!--|\/\*)\s*\/[\w\/.+-]+\.\w+\s*\n?/, '');
       }
       
-      // Method 2: "Soubor: /path" before code block
+      // Method 2: "Soubor: /path" or "### Soubor: filename" before code block
       if (!filePath) {
-        const textBefore = response.substring(Math.max(0, blockStart - 200), blockStart);
-        const fileMarkerMatch = textBefore.match(/(?:Soubor|File):\s*(\/[\w\/.+-]+\.\w+)\s*$/i);
+        const textBefore = response.substring(Math.max(0, blockStart - 400), blockStart);
+        // Match absolute or relative paths with optional ### prefix and optional backticks
+        // Handles: "Soubor: /path", "### Soubor: `/path`", "File: `filename.js`"
+        // Removed $ anchor to allow matching anywhere in text
+        const fileMarkerMatch = textBefore.match(/(?:#{1,3}\s*)?(?:Soubor|File):\s*`?(\/[\w\/.+-]+\.\w+|[\w.-]+\.\w+)`?/im);
         if (fileMarkerMatch) {
-          filePath = fileMarkerMatch[1];
+          const matchedPath = fileMarkerMatch[1];
+          filePath = matchedPath.startsWith('/') 
+            ? matchedPath 
+            : path.join(this.config.workdir, matchedPath);
+          log.info(`Found file marker: ${matchedPath} → ${filePath}`);
         }
       }
       
-      // Method 3: Infer JSON filename
+      // Method 3: Path in first line comment (relative) - join with workdir
+      if (!filePath) {
+        const relPathMatch = code.match(/^(?:\/\/|#|<!--|\/\*)\s*([\w.-]+\.\w+)/m);
+        if (relPathMatch && !relPathMatch[1].includes(' ')) {
+          filePath = path.join(this.config.workdir, relPathMatch[1]);
+          code = code.replace(/^(?:\/\/|#|<!--|\/\*)\s*[\w.-]+\.\w+\s*\n?/, '');
+          log.info(`Inferred from relative comment: ${relPathMatch[1]} → ${filePath}`);
+        }
+      }
+      
+      // Method 4: Infer JSON filename from context
       if (!filePath && lang === 'json') {
         const textBefore = response.substring(Math.max(0, blockStart - 300), blockStart);
         const jsonFileMatch = textBefore.match(/[`"]?([\w-]+\.json)[`"]?\s*:?\s*$/i);
         if (jsonFileMatch) {
           filePath = path.join(this.config.workdir, jsonFileMatch[1]);
+          log.info(`Inferred JSON: ${jsonFileMatch[1]} → ${filePath}`);
+        }
+      }
+      
+      // Method 5: Infer JS filename from context before code block
+      if (!filePath && lang === 'javascript') {
+        const textBefore = response.substring(Math.max(0, blockStart - 500), blockStart);
+        const jsFileMatch = textBefore.match(/[`"]([\w-]+\.js)[`"]/i);
+        if (jsFileMatch) {
+          filePath = path.join(this.config.workdir, jsFileMatch[1]);
+          log.info(`Inferred JS from context: ${jsFileMatch[1]} → ${filePath}`);
         }
       }
       
@@ -575,6 +603,8 @@ export class WorkflowAgent {
         }
         
         fileMap.set(filePath, { code, lang });
+      } else {
+        log.warn(`Could not determine path for code block (lang: ${lang}, length: ${code.length})`);
       }
     }
     
