@@ -1,12 +1,25 @@
 {
-  "name": "copilot-orchestrator",
-  "private": true,
+  "name": "c3-agent",
+  "version": "28.0.0",
+  "description": "C.3 - Local AI Copilot with Hybrid Q&A Workflow",
   "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node test/run-tests.js",
+    "test:quick": "node test/quick-test.js",
+    "db:init": "node src/db/init.js",
+    "db:reset": "rm -f data/c3.db && node src/db/init.js"
+  },
   "dependencies": {
-    "ajv": "^8.17.1",
-    "diff": "^8.0.2",
-    "express": "^5.2.1",
-    "node-fetch": "^3.3.2",
-    "yaml": "^2.8.2"
-  }
+    "better-sqlite3": "^11.0.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": ["ai", "agent", "copilot", "llm", "ollama"],
+  "author": "Belfik",
+  "license": "MIT"
 }

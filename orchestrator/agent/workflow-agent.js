@@ -1,16 +1,19 @@
 /**
- * C.3 Workflow Agent v26.1 - JSON Contract Edition
+ * C.3 Workflow Agent v27 - Hybrid Q&A Edition
  * 
  * Klíčové principy:
+ * - THINKER detekuje otázky a navrhuje odpovědi
+ * - ANALYZER kategorizuje: CRITICAL (ask user) / TRIVIAL (auto-answer)
+ * - Learning loop: uživatel potvrzuje/opravuje → systém se učí
  * - Každá role má TVRDÝ JSON contract
- * - Acceptance Criteria (AC) jsou povinný gate
- * - R2B (adversarial) jen při HIGH risk
- * - CODE a D2 sdílí stejný prompt
  * 
  * Flow:
- * THINKER → ANALYZER → [CLARIFY loop] 
- *   → D1 (plan) → DESIGN_AUDIT → [REDESIGN loop] → User confirms
- *   → CODE → R2A (AC check) → [R2B if HIGH risk] → [D2 → CODE → R2A loop]
+ * THINKER → ANALYZER → 
+ *   [ASK_USER: čeká na člověka] |
+ *   [AUTO_ANSWER: zobrazí předpoklady, pokračuje] |
+ *   [READY: pokračuje]
+ *   → D1 (plan) → DESIGN_AUDIT → User confirms
+ *   → CODE → R2A → [R2B if HIGH] → [D2 fix loop]
  *   → DONE
  */
 
@@ -30,7 +33,9 @@ const log = {
 // Workflow states
 export const State = {
   INIT: "INIT",
-  CLARIFYING: "CLARIFYING",
+  ANALYZING: "ANALYZING",           // THINKER + ANALYZER running
+  ASK_USER: "ASK_USER",             // Waiting for user to answer CRITICAL questions
+  AUTO_ANSWER: "AUTO_ANSWER",       // Showing auto-answered TRIVIAL questions
   PLANNING: "PLANNING",
   DESIGN_AUDITING: "DESIGN_AUDITING",
   PLAN_REVIEW: "PLAN_REVIEW",
@@ -50,68 +55,88 @@ const ROLE_PROMPTS = {
   // ---------------------------------------------------------------------------
   // THINKER: Detektor mlhy - ŽÁDNÁ řešení, pouze identifikace nejasností
   // ---------------------------------------------------------------------------
-  THINKER_ANALYZE: `Jsi THINKER - detektor mlhy v požadavcích.
-
-TVŮJ JEDINÝ ÚKOL: Identifikovat co je NEJASNÉ nebo CHYBÍ.
-
-ZÁKAZY:
-❌ Nenavrhuj řešení
-❌ Nenavrhuj architekturu
-❌ Nepřemýšlej o implementaci
-❌ Nepiš kód
-
-KONTROLNÍ SEZNAM:
-1. Je jasné KAM ukládat soubory? (konkrétní cesta)
-2. Je jasný JAZYK/FRAMEWORK?
-3. Jsou jasné KONKRÉTNÍ FUNKCE?
-4. Jsou jasné VSTUPY a VÝSTUPY?
-5. Jsou jasná OMEZENÍ? (performance, security, compatibility)
-
-POVINNÝ VÝSTUP (POUZE TENTO JSON, nic jiného):
-{
-  "unclear_points": ["bod 1", "bod 2"],
-  "assumptions_needed": ["předpoklad 1", "předpoklad 2"],
-  "hidden_risks": ["riziko 1"],
-  "recommend_clarify": true
-}
-
-Pokud je vše jasné:
-{
-  "unclear_points": [],
-  "assumptions_needed": [],
-  "hidden_risks": [],
-  "recommend_clarify": false
-}`,
-
+  // THINKER: Detektor nejasností s návrhy odpovědí
   // ---------------------------------------------------------------------------
-  // ANALYZER: Extraktor struktury - AC jsou povinné
-  // ---------------------------------------------------------------------------
-  ANALYZER_EXTRACT: `Jsi ANALYZER - extraktor strukturovaných dat.
+  THINKER_ANALYZE: `Jsi THINKER - detektor nejasností v požadavcích.
 
-VSTUP: Analýza od THINKERa + původní požadavek.
+TVŮJ ÚKOL: 
+1. Identifikovat co není 100% jasné
+2. KE KAŽDÉ NEJASNOSTI navrhnout rozumnou odpověď
+3. Kategorizovat jako CRITICAL nebo TRIVIAL
 
-TVŮJ ÚKOL:
-1. Pokud THINKER doporučuje clarify → vytvoř otázky
-2. Pokud je vše jasné → vytvoř Acceptance Criteria
+KATEGORIE:
+- CRITICAL: Bez odpovědi NELZE pokračovat (chybí cesta, jazyk, hlavní funkce)
+- TRIVIAL: Jde rozumně předpokládat (error handling, formát dat, edge cases)
 
 POVINNÝ VÝSTUP (POUZE TENTO JSON):
 {
-  "state": "CLARIFY" | "READY",
-  "clarify_questions": ["otázka 1", "otázka 2"],
+  "questions": [
+    {
+      "text": "Jak reagovat na neexistující ID?",
+      "suggested_answer": "Vypsat chybu 'Task not found' a vrátit exit code 1",
+      "category": "TRIVIAL",
+      "confidence": 0.8
+    },
+    {
+      "text": "Jaký port má server používat?",
+      "suggested_answer": null,
+      "category": "CRITICAL", 
+      "confidence": 0.0
+    }
+  ],
+  "summary": "Požadavek je jasný, pouze detaily implementace"
+}
+
+PRAVIDLA:
+- confidence: 0.0-1.0 (jak moc věříš návrhu)
+- Pokud confidence >= 0.7 a TRIVIAL → může se auto-approve
+- suggested_answer může být null pokud nevíš
+- Pokud ŽÁDNÉ otázky → prázdné pole questions: []`,
+
+  // ---------------------------------------------------------------------------
+  // ANALYZER: Rozhodovač flow + AC generátor
+  // ---------------------------------------------------------------------------
+  ANALYZER_EXTRACT: `Jsi ANALYZER - rozhoduješ o dalším kroku workflow.
+
+VSTUP: Otázky od THINKERa + původní požadavek.
+
+TVŮJ ÚKOL:
+1. Vyhodnotit otázky od THINKERa
+2. Rozhodnout: ASK_USER (critical) / AUTO_ANSWER (trivial) / READY (žádné otázky)
+3. Vygenerovat Acceptance Criteria
+
+LOGIKA ROZHODOVÁNÍ:
+- Pokud ŽÁDNÉ otázky → state: "READY"
+- Pokud POUZE TRIVIAL s confidence >= 0.7 → state: "AUTO_ANSWER"
+- Pokud ALESPOŇ 1 CRITICAL → state: "ASK_USER"
+
+POVINNÝ VÝSTUP (POUZE TENTO JSON):
+{
+  "state": "READY" | "AUTO_ANSWER" | "ASK_USER",
+  "questions_for_user": [
+    {
+      "text": "...",
+      "suggested_answer": "...",
+      "category": "CRITICAL"
+    }
+  ],
+  "auto_answers": [
+    {
+      "text": "Jak reagovat na neexistující ID?",
+      "answer": "Vypsat 'Task not found' a exit code 1",
+      "reason": "Standardní chování CLI aplikací"
+    }
+  ],
   "acceptance_criteria": [
-    {"id": "AC-1", "description": "...", "test_hint": "jak ověřit"},
-    {"id": "AC-2", "description": "...", "test_hint": "jak ověřit"}
+    {"id": "AC-1", "description": "...", "test_hint": "jak ověřit"}
   ],
   "risk_level": "LOW" | "MEDIUM" | "HIGH"
 }
 
 PRAVIDLA:
-- Pokud state="CLARIFY", musí být clarify_questions neprázdné
-- Pokud state="READY", musí být acceptance_criteria neprázdné (min 2)
-- risk_level určuje zda poběží R2B adversarial review:
-  - LOW: jednoduchá utilita, žádná security
-  - MEDIUM: práce se soubory, sítí, uživatelskými daty
-  - HIGH: autentifikace, platby, citlivá data, infrastruktura`,
+- Pokud state != "READY", musí být questions_for_user nebo auto_answers neprázdné
+- Pokud state == "READY" nebo "AUTO_ANSWER", musí být acceptance_criteria (min 2)
+- auto_answers MUSÍ mít reason proč je to bezpečný předpoklad`,
 
   // ---------------------------------------------------------------------------
   // D1: Plánování - strukturovaný JSON plán
@@ -433,13 +458,144 @@ export class WorkflowAgent {
     this.auditRetries = 0;
     this.memory = null;
     
+    // v27: Hybrid Q&A
+    this.pendingQuestions = [];      // Questions waiting for user
+    this.autoAnswers = [];           // Auto-answered trivial questions
+    this.resolvedAnswers = {};       // User-confirmed answers (question_hash → answer)
+    
+    // Timing tracking
+    this.timings = {};
+    this.workflowStartTime = null;
+    
+    // File paths
     this.memoryDir = path.join(this.config.workdir, "memories");
     this.planFile = path.join(this.config.workdir, ".c3-plan.json");
+    this.learningFile = path.join(this.config.workdir, ".c3-learning.json");
     
-    log.info("WorkflowAgent v26.1 initialized", { 
+    log.info("WorkflowAgent v27 initialized", { 
       workdir: this.config.workdir,
       sessionId: this.config.sessionId 
     });
+  }
+
+  /**
+   * Simple hash for question deduplication
+   */
+  hashQuestion(text) {
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+      hash = ((hash << 5) - hash) + text.charCodeAt(i);
+      hash |= 0;
+    }
+    return 'q_' + Math.abs(hash).toString(16);
+  }
+
+  /**
+   * Load learning data (past user choices)
+   */
+  loadLearning() {
+    try {
+      if (fs.existsSync(this.learningFile)) {
+        return JSON.parse(fs.readFileSync(this.learningFile, 'utf-8'));
+      }
+    } catch (e) {
+      log.warn("Failed to load learning data", { error: e.message });
+    }
+    return { patterns: {}, stats: { total: 0, trivial: 0, critical: 0 } };
+  }
+
+  /**
+   * Save learning feedback
+   */
+  saveLearningFeedback(questionHash, data) {
+    try {
+      const learning = this.loadLearning();
+      learning.patterns[questionHash] = {
+        ...learning.patterns[questionHash],
+        ...data,
+        lastSeen: new Date().toISOString(),
+        count: (learning.patterns[questionHash]?.count || 0) + 1,
+      };
+      learning.stats.total++;
+      if (data.userChoice === 'TRIVIAL') learning.stats.trivial++;
+      if (data.userChoice === 'CRITICAL') learning.stats.critical++;
+      
+      fs.writeFileSync(this.learningFile, JSON.stringify(learning, null, 2));
+      log.debug("Learning feedback saved", { questionHash, choice: data.userChoice });
+    } catch (e) {
+      log.warn("Failed to save learning feedback", { error: e.message });
+    }
+  }
+
+  /**
+   * Check if we have learned pattern for question
+   */
+  getLearnedPattern(questionHash) {
+    const learning = this.loadLearning();
+    const pattern = learning.patterns[questionHash];
+    if (pattern && pattern.count >= 3) {
+      // Trust pattern after 3 consistent confirmations
+      return pattern;
+    }
+    return null;
+  }
+
+  /**
+   * Get current time in ms
+   */
+  nowMs() {
+    return Date.now();
+  }
+
+  /**
+   * Run role with timing
+   */
+  async runWithTiming(role, fn) {
+    const start = this.nowMs();
+    try {
+      return await fn();
+    } finally {
+      const duration = ((this.nowMs() - start) / 1000).toFixed(1);
+      
+      // Accumulate if role called multiple times (e.g. D2, CODE in fix loops)
+      if (this.timings[role]) {
+        const prev = parseFloat(this.timings[role]);
+        this.timings[role] = (prev + parseFloat(duration)).toFixed(1) + 's';
+      } else {
+        this.timings[role] = duration + 's';
+      }
+      
+      log.debug(`${role} completed in ${duration}s`);
+    }
+  }
+
+  /**
+   * Print timing summary
+   */
+  printTimingSummary() {
+    const totalTime = this.workflowStartTime 
+      ? ((this.nowMs() - this.workflowStartTime) / 1000).toFixed(1)
+      : '?';
+    
+    log.info("=== WORKFLOW TIMING SUMMARY ===");
+    console.log("\n┌─────────────────┬──────────┐");
+    console.log("│ Role            │ Time     │");
+    console.log("├─────────────────┼──────────┤");
+    
+    for (const [role, time] of Object.entries(this.timings)) {
+      const paddedRole = role.padEnd(15);
+      const paddedTime = time.padStart(8);
+      console.log(`│ ${paddedRole} │ ${paddedTime} │`);
+    }
+    
+    console.log("├─────────────────┼──────────┤");
+    console.log(`│ TOTAL           │ ${(totalTime + 's').padStart(8)} │`);
+    console.log("└─────────────────┴──────────┘\n");
+    
+    return {
+      timings: this.timings,
+      total: totalTime + 's'
+    };
   }
 
   /**
@@ -500,7 +656,7 @@ export class WorkflowAgent {
   }
 
   /**
-   * Call specific role
+   * Call specific role with timing
    */
   async callRole(role, prompt, systemPromptKey = null) {
     const sysKey = systemPromptKey || role;
@@ -508,14 +664,16 @@ export class WorkflowAgent {
     
     log.info(`Calling ${role}`, { promptLength: prompt.length, systemKey: sysKey });
     
-    const response = await callLLM({
-      role: role,
-      prompt: prompt,
-      systemPrompt: systemPrompt,
+    return await this.runWithTiming(role, async () => {
+      const response = await callLLM({
+        role: role,
+        prompt: prompt,
+        systemPrompt: systemPrompt,
+      });
+      
+      log.debug(`${role} response`, { length: response?.length });
+      return response;
     });
-    
-    log.debug(`${role} response`, { length: response?.length });
-    return response;
   }
 
   /**
@@ -703,76 +861,116 @@ export class WorkflowAgent {
    * Phase 1: THINKER → ANALYZER
    */
   async execute(userMessage) {
-    log.info("Workflow v26.1 started", { message: userMessage.substring(0, 100) });
+    log.info("Workflow v27 started", { message: userMessage.substring(0, 100) });
+    
+    // Start timing
+    this.workflowStartTime = this.nowMs();
+    this.timings = {}; // Reset timings for new workflow
     
     await this.loadMemory();
     const memoryContext = this.buildMemoryContext();
     
     this.history.push({ role: "user", content: userMessage });
     
-    this.state = State.CLARIFYING;
-    log.info("Phase 1: THINKER → ANALYZER");
+    this.state = State.ANALYZING;
+    log.info("Phase 1: THINKER → ANALYZER (Hybrid Q&A)");
     
     const fullRequest = memoryContext 
       ? `${memoryContext}\n\nPožadavek:\n${userMessage}`
       : `Požadavek:\n${userMessage}`;
     
-    // THINKER
+    // THINKER - detekuje otázky s návrhy
     log.info("THINKER analyzing...");
     const thinkerResponse = await this.callRole("THINKER", fullRequest, "THINKER_ANALYZE");
     const thinkerResult = parseJsonResponse(thinkerResponse, {
-      unclear_points: [],
-      assumptions_needed: [],
-      hidden_risks: [],
-      recommend_clarify: false
+      questions: [],
+      summary: "Požadavek je jasný"
     });
     
-    log.debug("THINKER result", thinkerResult);
+    log.debug("THINKER result", { questionsCount: thinkerResult.questions?.length });
     
-    // ANALYZER
-    log.info("ANALYZER extracting...");
+    // ANALYZER - rozhoduje flow
+    log.info("ANALYZER deciding...");
     const analyzerPrompt = `## Požadavek:
 ${userMessage}
 
-## THINKER analýza:
-${JSON.stringify(thinkerResult, null, 2)}
+## THINKER otázky:
+${JSON.stringify(thinkerResult.questions, null, 2)}
 
-Vytvoř strukturovaný výstup.`;
+Rozhodni o dalším kroku.`;
 
     const analyzerResponse = await this.callRole("ANALYZER", analyzerPrompt, "ANALYZER_EXTRACT");
     const analyzerResult = parseJsonResponse(analyzerResponse, {
       state: "READY",
-      clarify_questions: [],
+      questions_for_user: [],
+      auto_answers: [],
       acceptance_criteria: [],
-      risk_level: "MEDIUM"
+      risk_level: "LOW"
     });
     
-    log.debug("ANALYZER result", analyzerResult);
+    log.debug("ANALYZER result", { 
+      state: analyzerResult.state,
+      questionsForUser: analyzerResult.questions_for_user?.length,
+      autoAnswers: analyzerResult.auto_answers?.length
+    });
     
     // Store AC and risk level
     this.acceptanceCriteria = analyzerResult.acceptance_criteria || [];
-    this.riskLevel = analyzerResult.risk_level || "MEDIUM";
+    this.riskLevel = analyzerResult.risk_level || "LOW";
+    this.autoAnswers = analyzerResult.auto_answers || [];
+    this.pendingQuestions = analyzerResult.questions_for_user || [];
     
-    if (analyzerResult.state === "CLARIFY" && analyzerResult.clarify_questions?.length > 0) {
-      log.info("Clarification needed", { questions: analyzerResult.clarify_questions.length });
+    // Apply learned patterns to pending questions
+    for (const q of this.pendingQuestions) {
+      const qHash = this.hashQuestion(q.text);
+      const learned = this.getLearnedPattern(qHash);
+      if (learned && learned.userChoice === 'TRIVIAL') {
+        log.info("Applying learned pattern", { question: q.text.substring(0, 50) });
+        q.learned = true;
+        q.learnedAnswer = learned.answer;
+      }
+    }
+    
+    // Handle different states
+    if (analyzerResult.state === "ASK_USER" && this.pendingQuestions.length > 0) {
+      this.state = State.ASK_USER;
+      log.info("Questions for user", { count: this.pendingQuestions.length });
       
-      const clarifyMessage = `## 🤔 Potřebuji upřesnění
-
-${analyzerResult.clarify_questions.map((q, i) => `**${i + 1}.** ${q}`).join("\n\n")}
-
----
-*Odpověz na tyto otázky pro přesnou implementaci.*`;
+      const askMessage = this.formatQuestionsForUser();
+      this.history.push({ role: "assistant", content: askMessage });
       
-      this.history.push({ role: "assistant", content: clarifyMessage });
       return { 
         state: this.state, 
-        response: clarifyMessage,
+        response: askMessage,
         needsInput: true,
-        questions: analyzerResult.clarify_questions,
+        questions: this.pendingQuestions,
+        autoAnswers: this.autoAnswers,
       };
     }
     
-    // Check AC
+    if (analyzerResult.state === "AUTO_ANSWER" && this.autoAnswers.length > 0) {
+      this.state = State.AUTO_ANSWER;
+      log.info("Auto-answering trivial questions", { count: this.autoAnswers.length });
+      
+      const autoMessage = this.formatAutoAnswers();
+      this.history.push({ role: "assistant", content: autoMessage });
+      
+      // Store auto answers as resolved
+      for (const aa of this.autoAnswers) {
+        const qHash = this.hashQuestion(aa.text);
+        this.resolvedAnswers[qHash] = aa.answer;
+      }
+      
+      return { 
+        state: this.state, 
+        response: autoMessage,
+        needsInput: true, // User can still override
+        autoAnswers: this.autoAnswers,
+        acceptanceCriteria: this.acceptanceCriteria,
+      };
+    }
+    
+    // READY - no questions, proceed to planning
     if (this.acceptanceCriteria.length < 2) {
       log.warn("Insufficient AC, generating defaults");
       this.acceptanceCriteria = [
@@ -781,12 +979,146 @@ ${analyzerResult.clarify_questions.map((q, i) => `**${i + 1}.** ${q}`).join("\n\
       ];
     }
     
-    log.info("Request complete, proceeding to planning", { 
+    log.info("Request ready, proceeding to planning", { 
       riskLevel: this.riskLevel,
       acCount: this.acceptanceCriteria.length 
     });
     
     return this.createPlan(userMessage);
+  }
+
+  /**
+   * Format questions for user display (with suggested answers and buttons)
+   */
+  formatQuestionsForUser() {
+    let msg = `## 🤔 Mám pár otázek\n\n`;
+    
+    for (let i = 0; i < this.pendingQuestions.length; i++) {
+      const q = this.pendingQuestions[i];
+      msg += `### ${i + 1}. ${q.text}\n`;
+      
+      if (q.suggested_answer) {
+        msg += `💡 **Návrh:** ${q.suggested_answer}\n`;
+      }
+      
+      if (q.learned) {
+        msg += `🧠 *Naučeno z minulých odpovědí*\n`;
+      }
+      
+      msg += `\n[✓ TRIVIAL - použít návrh] [⚠ CRITICAL - upravit]\n\n`;
+    }
+    
+    if (this.autoAnswers.length > 0) {
+      msg += `---\n### ✅ Automaticky zodpovězeno:\n`;
+      for (const aa of this.autoAnswers) {
+        msg += `- **${aa.text}** → ${aa.answer} *(${aa.reason})*\n`;
+      }
+    }
+    
+    msg += `\n---\n*Odpověz číslem otázky + tvá odpověď, nebo "OK" pro použití návrhů.*`;
+    
+    return msg;
+  }
+
+  /**
+   * Format auto answers display
+   */
+  formatAutoAnswers() {
+    let msg = `## ✅ Předpoklady\n\nPokračuji s těmito předpoklady:\n\n`;
+    
+    for (const aa of this.autoAnswers) {
+      msg += `- **${aa.text}**\n`;
+      msg += `  → ${aa.answer}\n`;
+      msg += `  *(${aa.reason})*\n\n`;
+    }
+    
+    if (this.acceptanceCriteria.length > 0) {
+      msg += `---\n### Acceptance Criteria:\n`;
+      for (const ac of this.acceptanceCriteria) {
+        msg += `- **${ac.id}:** ${ac.description}\n`;
+      }
+    }
+    
+    msg += `\n---\n*[OK - pokračovat] nebo [Upravit - změnit předpoklady]*`;
+    
+    return msg;
+  }
+
+  /**
+   * Handle user response to questions
+   */
+  async handleQuestionResponse(userResponse) {
+    log.info("Processing question response", { response: userResponse.substring(0, 100) });
+    
+    const lowerResponse = userResponse.toLowerCase().trim();
+    
+    // "OK" = accept all suggestions
+    if (lowerResponse === 'ok' || lowerResponse === 'ano' || lowerResponse === 'yes') {
+      log.info("User accepted all suggestions");
+      
+      // Save learning feedback for all questions
+      for (const q of this.pendingQuestions) {
+        const qHash = this.hashQuestion(q.text);
+        this.resolvedAnswers[qHash] = q.suggested_answer;
+        this.saveLearningFeedback(qHash, {
+          question: q.text,
+          answer: q.suggested_answer,
+          userChoice: 'TRIVIAL',
+          usedSuggestion: true,
+          context: this.config.projectName,
+        });
+      }
+      
+      for (const aa of this.autoAnswers) {
+        const qHash = this.hashQuestion(aa.text);
+        this.resolvedAnswers[qHash] = aa.answer;
+      }
+      
+      // Proceed to planning
+      const originalRequest = this.history.find(h => h.role === 'user')?.content || '';
+      return this.createPlan(originalRequest);
+    }
+    
+    // Parse specific answers (format: "1: moje odpověď" or "1. moje odpověď")
+    const answerMatch = userResponse.match(/^(\d+)[:.]\s*(.+)$/m);
+    if (answerMatch) {
+      const qIndex = parseInt(answerMatch[1]) - 1;
+      const userAnswer = answerMatch[2].trim();
+      
+      if (qIndex >= 0 && qIndex < this.pendingQuestions.length) {
+        const q = this.pendingQuestions[qIndex];
+        const qHash = this.hashQuestion(q.text);
+        
+        this.resolvedAnswers[qHash] = userAnswer;
+        this.saveLearningFeedback(qHash, {
+          question: q.text,
+          answer: userAnswer,
+          userChoice: 'CRITICAL',
+          usedSuggestion: false,
+          context: this.config.projectName,
+        });
+        
+        // Remove answered question
+        this.pendingQuestions.splice(qIndex, 1);
+        
+        log.info("Question answered", { qIndex, answer: userAnswer.substring(0, 50) });
+      }
+    }
+    
+    // Check if more questions remain
+    if (this.pendingQuestions.length > 0) {
+      const followupMsg = this.formatQuestionsForUser();
+      return {
+        state: this.state,
+        response: followupMsg,
+        needsInput: true,
+        questions: this.pendingQuestions,
+      };
+    }
+    
+    // All answered - proceed to planning
+    const originalRequest = this.history.find(h => h.role === 'user')?.content || '';
+    return this.createPlan(originalRequest);
   }
 
   /**
@@ -912,12 +1244,40 @@ ${this.riskLevel === "HIGH" ? "⚠️ Bude spuštěn adversarial review (R2B)" :
     
     this.history.push({ role: "user", content: userInput });
     
-    // Handle clarification
-    if (this.state === State.CLARIFYING) {
+    // v27: Handle question responses
+    if (this.state === State.ASK_USER) {
+      return this.handleQuestionResponse(userInput);
+    }
+    
+    // v27: Handle auto-answer confirmation
+    if (this.state === State.AUTO_ANSWER) {
+      const isApproved = /^(ok|ano|yes|pokrač|continue|fine)/i.test(userInput.trim());
+      
+      if (isApproved) {
+        // User accepted auto-answers - save learning feedback
+        for (const aa of this.autoAnswers) {
+          const qHash = this.hashQuestion(aa.text);
+          this.saveLearningFeedback(qHash, {
+            question: aa.text,
+            answer: aa.answer,
+            userChoice: 'TRIVIAL',
+            usedSuggestion: true,
+            context: this.config.projectName,
+          });
+        }
+        
+        const originalRequest = this.history.find(h => h.role === 'user')?.content || '';
+        return this.createPlan(originalRequest);
+      } else {
+        // User wants to modify - parse their input
+        return this.handleQuestionResponse(userInput);
+      }
+    }
+    
+    // Legacy: Handle clarification (backwards compat)
+    if (this.state === State.ANALYZING) {
       const originalRequest = this.history[0].content;
       const enrichedRequest = `${originalRequest}\n\nUpřesnění:\n${userInput}`;
-      
-      // Re-run THINKER → ANALYZER
       return this.execute(enrichedRequest);
     }
     
@@ -1138,6 +1498,9 @@ Oprav POUZE nahlášené problémy. Vrať JSON s opravenými soubory.`;
       this.state = State.DONE;
       log.info("Workflow completed", { iterations: this.iterations, files: savedFiles.length });
       
+      // Print timing summary
+      const timingData = this.printTimingSummary();
+      
       const doneMessage = `## ✅ Implementace dokončena!
 
 ### Soubory:
@@ -1150,6 +1513,7 @@ ${this.riskLevel === "HIGH" ? "- **R2B (Adversarial):** ✅ PASS" : "- R2B: pře
 ### Statistiky:
 - Iterací: ${this.iterations}
 - Souborů: ${savedFiles.length}
+- Celkový čas: ${timingData.total}
 
 ### Další kroky:
 ${this.getNextSteps(savedFiles)}`;
@@ -1161,16 +1525,24 @@ ${this.getNextSteps(savedFiles)}`;
         response: doneMessage,
         needsInput: false,
         files: savedFiles,
+        timings: timingData.timings,
+        totalTime: timingData.total,
       };
     }
     
     // Max iterations
     this.state = State.ERROR;
+    
+    // Print timing even on error
+    const timingData = this.printTimingSummary();
+    
     return {
       state: this.state,
-      response: `⚠️ Max iterací (${this.config.maxIterations}).\n\nSoubory: ${savedFiles.join(", ")}`,
+      response: `⚠️ Max iterací (${this.config.maxIterations}).\n\nSoubory: ${savedFiles.join(", ")}\nČas: ${timingData.total}`,
       needsInput: false,
       files: savedFiles,
+      timings: timingData.timings,
+      totalTime: timingData.total,
     };
   }
 
@@ -1200,12 +1572,21 @@ ${this.getNextSteps(savedFiles)}`;
   }
 
   getState() {
+    const elapsedTime = this.workflowStartTime 
+      ? ((this.nowMs() - this.workflowStartTime) / 1000).toFixed(1) + 's'
+      : null;
+    
     return {
       state: this.state,
       iterations: this.iterations,
       auditRetries: this.auditRetries,
       riskLevel: this.riskLevel,
       acCount: this.acceptanceCriteria.length,
+      timings: this.timings,
+      elapsedTime: elapsedTime,
+      // v27: Hybrid Q&A
+      pendingQuestions: this.pendingQuestions?.length || 0,
+      autoAnswers: this.autoAnswers?.length || 0,
     };
   }
 }
