@@ -224,7 +224,7 @@ ZÁKAZY:
   // ---------------------------------------------------------------------------
   // D2: Opravy - STEJNÝ prompt jako CODE + kontext chyb
   // ---------------------------------------------------------------------------
-  D2_FIX: `Jsi D2 - opravář kódu. Máš STEJNÁ pravidla jako CODE.
+  D2_FIX: `Jsi D2 - opravář kódu.
 
 TVŮJ ÚKOL: Opravit POUZE nahlášené problémy.
 
@@ -234,16 +234,23 @@ ZÁKAZY:
 ❌ NEMĚŇ styl kódu
 ❌ NEOPTIMALIZUJ co není rozbité
 
-PRAVIDLA:
-1. Řiď se PŘESNĚ plánem
-2. Oprav POUZE to co je v PROBLEMS
-3. Zachovej existující styl
+POVINNÝ VÝSTUP (POUZE TENTO JSON):
+{
+  "modified_files": [
+    {
+      "path": "/absolutni/cesta/soubor.js",
+      "reason": "stručný důvod opravy",
+      "content": "CELÝ opravený obsah souboru"
+    }
+  ],
+  "summary": "co bylo opraveno"
+}
 
-FORMÁT - stejný jako CODE:
-\`\`\`javascript
-// /absolutni/cesta/soubor.js
-[opravený kód]
-\`\`\``,
+PRAVIDLA:
+- V "content" MUSÍ být KOMPLETNÍ obsah souboru, ne jen fragment
+- "path" MUSÍ být absolutní cesta ze zadání/plánu
+- Oprav POUZE soubory které potřebují opravu
+- Zachovej existující styl kódu`,
 
   // ---------------------------------------------------------------------------
   // R2A: Intent review - kontrola proti AC
@@ -1003,29 +1010,55 @@ ${savedFiles.join(", ")}`;
         const d2Prompt = `## Plán:
 ${JSON.stringify(this.planJson, null, 2)}
 
-## Implementace:
+## Aktuální implementace:
 ${this.implementation}
 
 ## PROBLEMS (z R2A):
 ${JSON.stringify(r2aResult.fix_required, null, 2)}
 
-Oprav POUZE nahlášené problémy.`;
+Oprav POUZE nahlášené problémy. Vrať JSON s opravenými soubory.`;
 
         const d2Response = await this.callRole("D2", d2Prompt, "D2_FIX");
+        const d2Result = parseJsonResponse(d2Response, null);
+        
+        // Validate D2 output
+        if (!d2Result || !d2Result.modified_files || d2Result.modified_files.length === 0) {
+          log.error("D2 failed to return valid JSON with modified_files");
+          // Fallback: try to extract code blocks
+          const fallbackFiles = await this.extractAndSaveCode(d2Response);
+          if (fallbackFiles.length > 0) {
+            log.warn("D2 fallback: extracted files from code blocks", { files: fallbackFiles.length });
+            savedFiles = [...new Set([...savedFiles, ...fallbackFiles])];
+          }
+        } else {
+          // Save files from D2 JSON response
+          log.info("D2 returned JSON", { files: d2Result.modified_files.length, summary: d2Result.summary });
+          
+          for (const file of d2Result.modified_files) {
+            if (file.path && file.content) {
+              log.info(`D2 saving file: ${file.path} (reason: ${file.reason})`);
+              try {
+                await executeTool("fs:write", {
+                  path: file.path,
+                  content: file.content,
+                  createDirs: true,
+                }, { workdir: this.config.workdir });
+                if (!savedFiles.includes(file.path)) {
+                  savedFiles.push(file.path);
+                }
+              } catch (e) {
+                log.error(`D2 failed to save ${file.path}: ${e.message}`);
+              }
+            }
+          }
+          
+          // Update implementation for next review
+          this.implementation = d2Result.modified_files.map(f => 
+            `### Soubor: \`${f.path}\`\n\`\`\`javascript\n${f.content}\n\`\`\``
+          ).join("\n\n");
+        }
         
         this.state = State.IMPLEMENTING;
-        const fixPrompt = `## Původní implementace:
-${this.implementation}
-
-## Opravy od D2:
-${d2Response}
-
-Aplikuj opravy.`;
-
-        codeResponse = await this.callRole("CODE", fixPrompt, "CODE_IMPLEMENT");
-        savedFiles = await this.extractAndSaveCode(codeResponse);
-        this.implementation = codeResponse;
-        
         continue;
       }
       
@@ -1050,22 +1083,53 @@ Najdi co se může rozbít. ŽÁDNÁ ŘEŠENÍ!`;
         if (r2bResult.verdict === "FAIL" && r2bResult.vulnerabilities?.length > 0) {
           this.state = State.FIXING_D2;
           
-          const d2Prompt = `## Implementace:
+          const d2Prompt = `## Plán:
+${JSON.stringify(this.planJson, null, 2)}
+
+## Aktuální implementace:
 ${this.implementation}
 
-## PROBLEMS (z R2B):
+## PROBLEMS (z R2B - security/edge cases):
 ${JSON.stringify(r2bResult.vulnerabilities, null, 2)}
 ${JSON.stringify(r2bResult.crash_scenarios, null, 2)}
 
-Oprav POUZE nahlášené problémy.`;
+Oprav POUZE nahlášené problémy. Vrať JSON s opravenými soubory.`;
 
           const d2Response = await this.callRole("D2", d2Prompt, "D2_FIX");
+          const d2Result = parseJsonResponse(d2Response, null);
+          
+          if (!d2Result || !d2Result.modified_files || d2Result.modified_files.length === 0) {
+            log.error("D2 failed to return valid JSON with modified_files (R2B)");
+            const fallbackFiles = await this.extractAndSaveCode(d2Response);
+            if (fallbackFiles.length > 0) {
+              savedFiles = [...new Set([...savedFiles, ...fallbackFiles])];
+            }
+          } else {
+            log.info("D2 (R2B) returned JSON", { files: d2Result.modified_files.length });
+            
+            for (const file of d2Result.modified_files) {
+              if (file.path && file.content) {
+                try {
+                  await executeTool("fs:write", {
+                    path: file.path,
+                    content: file.content,
+                    createDirs: true,
+                  }, { workdir: this.config.workdir });
+                  if (!savedFiles.includes(file.path)) {
+                    savedFiles.push(file.path);
+                  }
+                } catch (e) {
+                  log.error(`D2 failed to save ${file.path}: ${e.message}`);
+                }
+              }
+            }
+            
+            this.implementation = d2Result.modified_files.map(f => 
+              `### Soubor: \`${f.path}\`\n\`\`\`javascript\n${f.content}\n\`\`\``
+            ).join("\n\n");
+          }
           
           this.state = State.IMPLEMENTING;
-          codeResponse = await this.callRole("CODE", `## Původní:\n${this.implementation}\n\n## Opravy:\n${d2Response}`, "CODE_IMPLEMENT");
-          savedFiles = await this.extractAndSaveCode(codeResponse);
-          this.implementation = codeResponse;
-          
           continue; // Back to R2A
         }
       }

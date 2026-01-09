@@ -18,16 +18,16 @@ const ROLE_MAX_TOKENS = {
 
 // Role-specific timeouts (ms)
 const ROLE_TIMEOUTS = {
-  THINKER: 120000,     // 2 min - deep reasoning
-  ANALYZER: 90000,     // 90s - extraction (qwen needs warmup)
-  CODE: 300000,        // 5 min - implementation takes time
-  D1: 120000,          // 2 min - planning (qwen2.5 is faster)
-  DESIGN_AUDIT: 180000,// 3 min - deep audit (deepseek-r1)
-  D2: 120000,          // 2 min - fixes
-  R2A: 60000,          // 1 min - quick intent review
-  R2B: 120000,         // 2 min - adversarial analysis (deepseek-r1)
+  THINKER: 60000,      // 1 min - qwen2.5 is fast
+  ANALYZER: 60000,     // 1 min - qwen2.5
+  CODE: 180000,        // 3 min - coder model, implementation
+  D1: 90000,           // 90s - planning (qwen2.5)
+  DESIGN_AUDIT: 90000, // 90s - audit (qwen2.5)
+  D2: 120000,          // 2 min - fixes, needs to include full file content
+  R2A: 60000,          // 1 min - qwen2.5
+  R2B: 180000,         // 3 min - adversarial (deepseek-r1, slow)
   CHAT: 60000,         // 1 min
-  default: 120000
+  default: 90000
 };
 
 /**
