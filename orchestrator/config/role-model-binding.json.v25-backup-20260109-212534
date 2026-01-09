@@ -1,0 +1,14 @@
+{
+  "THINKER": "qwen2.5:32b",
+  "ANALYZER": "qwen2.5:32b",
+  "D1": "qwen2.5:32b",
+  "DESIGN_AUDIT": "qwen2.5:32b",
+
+  "CODE": "qwen2.5-coder:32b",
+  "D2": "qwen2.5-coder:32b",
+
+  "R2A": "qwen2.5:32b",
+  "R2B": "deepseek-r1-32b:latest",
+
+  "CHAT": "qwen2.5:32b"
+}
