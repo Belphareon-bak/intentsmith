@@ -188,10 +188,10 @@ function fixBrokenJSON(str) {
  */
 export function extractCodeBlocks(text) {
   const blocks = [];
+  let match;
   
   // Pattern 1: ### Soubor: `/path/file.js` followed by code block
   const pattern1 = /###\s*(?:Soubor|File):\s*`([^`]+)`[\s\S]*?```(?:\w+)?\s*([\s\S]*?)```/gi;
-  let match;
   
   while ((match = pattern1.exec(text)) !== null) {
     blocks.push({
@@ -229,6 +229,30 @@ export function extractCodeBlocks(text) {
     });
   }
   
+  if (blocks.length > 0) return blocks;
+  
+  // Pattern 4: **path/file.js** or **`path/file.js`** followed by code block
+  const pattern4 = /\*\*`?([\/\w.-]+\.\w+)`?\*\*[:\s]*\n```(?:\w+)?\s*([\s\S]*?)```/gi;
+  
+  while ((match = pattern4.exec(text)) !== null) {
+    blocks.push({
+      path: match[1].trim(),
+      content: match[2].trim(),
+    });
+  }
+  
+  if (blocks.length > 0) return blocks;
+  
+  // Pattern 5: // filename.js comment at start of code block
+  const pattern5 = /```(?:\w+)?\s*\n\/\/\s*([\/\w.-]+\.\w+)\n([\s\S]*?)```/gi;
+  
+  while ((match = pattern5.exec(text)) !== null) {
+    blocks.push({
+      path: match[1].trim(),
+      content: `// ${match[1].trim()}\n${match[2].trim()}`,
+    });
+  }
+  
   return blocks;
 }
 
@@ -237,11 +261,21 @@ export function extractCodeBlocks(text) {
  * Expected format: { "modified_files": [{ "path": "...", "content": "..." }] }
  */
 export function extractModifiedFiles(text) {
+  // Debug: log first 500 chars of response
+  logger.debug('LLM', `CODER response preview: ${text?.substring(0, 500)}...`);
+  
   // First try JSON extraction
   const json = extractJSON(text);
   
   if (json?.modified_files && Array.isArray(json.modified_files)) {
+    logger.debug('LLM', `Extracted ${json.modified_files.length} files from JSON`);
     return json.modified_files;
+  }
+  
+  // Try files array directly (some models return this format)
+  if (json?.files && Array.isArray(json.files)) {
+    logger.debug('LLM', `Extracted ${json.files.length} files from JSON (files key)`);
+    return json.files.map(f => ({ path: f.path || f.filename, content: f.content || f.code }));
   }
   
   // Fallback to code block extraction
@@ -250,6 +284,24 @@ export function extractModifiedFiles(text) {
     logger.debug('LLM', `Extracted ${blocks.length} files from code blocks (fallback)`);
     return blocks.map(b => ({ path: b.path, content: b.content }));
   }
+  
+  // Last resort: try to find any JSON array with path/content
+  const arrayMatch = text?.match(/\[\s*\{[\s\S]*?"path"[\s\S]*?"content"[\s\S]*?\}\s*\]/);
+  if (arrayMatch) {
+    try {
+      const arr = JSON.parse(arrayMatch[0]);
+      if (Array.isArray(arr) && arr.length > 0) {
+        logger.debug('LLM', `Extracted ${arr.length} files from embedded array`);
+        return arr;
+      }
+    } catch {}
+  }
+  
+  logger.warn('LLM', 'No files extracted from CODER response', { 
+    textLength: text?.length,
+    hasJson: !!json,
+    jsonKeys: json ? Object.keys(json) : []
+  });
   
   return [];
 }

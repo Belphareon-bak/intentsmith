@@ -1,4 +1,4 @@
-// C.3 v28 Server
+// C.3 v30 Server - Architect Mode
 // ══════════════════════════════════════════════════════════════════════════════
 
 import http from 'http';
@@ -42,6 +42,42 @@ function sendHTML(res, html) {
   res.end(html);
 }
 
+async function sendStaticFile(res, filepath, contentType) {
+  try {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const fullPath = path.join(process.cwd(), filepath);
+    const content = await fs.readFile(fullPath, 'utf-8');
+    res.writeHead(200, {
+      'Content-Type': contentType + '; charset=utf-8',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'no-cache',
+    });
+    res.end(content);
+  } catch (err) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('File not found');
+  }
+}
+
+async function getArchitectUIHTML() {
+  try {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const htmlPath = path.join(process.cwd(), 'src/ui/architect/architect.html');
+    return await fs.readFile(htmlPath, 'utf-8');
+  } catch {
+    return `<!DOCTYPE html>
+<html>
+<head><title>C.3 Architect</title></head>
+<body style="background: #0f0f0f; color: white; font-family: sans-serif; padding: 40px;">
+<h1>🏗️ Architect Mode</h1>
+<p>UI files not found. Make sure src/ui/architect/ exists.</p>
+</body>
+</html>`;
+  }
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // API ROUTES
 // ════════════════════════════════════════════════════════════════════════════
@@ -51,7 +87,7 @@ const routes = {
   'GET /': (req, res) => {
     sendJSON(res, 200, {
       name: 'C.3 Agent',
-      version: '28.0.0',
+      version: '30.0.0',
       status: 'ok',
       endpoints: [
         'POST /workflow - Start or continue workflow',
@@ -60,6 +96,12 @@ const routes = {
         'POST /chat - Simple chat',
         'GET /memory - List global memory',
         'POST /memory - Set memory value',
+        'GET /ui - Workflow UI',
+        'GET /architect - Architect Mode UI',
+        'POST /architect/init - Initialize Architect Mode project',
+        'POST /architect/message - Send message to Architect',
+        'GET /architect/status/:projectRoot - Get Architect status',
+        'POST /architect/action - Execute Architect action',
       ],
     });
   },
@@ -223,11 +265,132 @@ const routes = {
   },
   
   // ══════════════════════════════════════════════════════════════════════════
+  // ARCHITECT MODE API
+  // ══════════════════════════════════════════════════════════════════════════
+  
+  'POST /architect/init': async (req, res) => {
+    const body = await parseBody(req);
+    const { projectRoot, projectName } = body;
+    
+    if (!projectRoot || !projectName) {
+      return sendJSON(res, 400, { error: 'projectRoot and projectName are required' });
+    }
+    
+    try {
+      const { createArchitect } = await import('./architect/index.js');
+      const orchestrator = await createArchitect(projectRoot, projectName);
+      
+      // Store orchestrator for this project (simplified - in production use proper session management)
+      global.architectSessions = global.architectSessions || {};
+      global.architectSessions[projectRoot] = orchestrator;
+      
+      sendJSON(res, 200, {
+        success: true,
+        project: projectName,
+        state: orchestrator.getSessionInfo(),
+      });
+    } catch (err) {
+      logger.error('Server', `Architect init error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+  
+  'POST /architect/message': async (req, res) => {
+    const body = await parseBody(req);
+    const { projectRoot, message, attachments } = body;
+    
+    if (!projectRoot || !message) {
+      return sendJSON(res, 400, { error: 'projectRoot and message are required' });
+    }
+    
+    try {
+      global.architectSessions = global.architectSessions || {};
+      let orchestrator = global.architectSessions[projectRoot];
+      
+      if (!orchestrator) {
+        // Try to load existing project
+        const { ConversationOrchestrator } = await import('./architect/index.js');
+        orchestrator = new ConversationOrchestrator(projectRoot);
+        await orchestrator.init('unknown'); // Will load existing state
+        global.architectSessions[projectRoot] = orchestrator;
+      }
+      
+      const result = await orchestrator.process(message, attachments || []);
+      
+      sendJSON(res, 200, {
+        ...result,
+        state: orchestrator.getSessionInfo(),
+      });
+    } catch (err) {
+      logger.error('Server', `Architect message error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+  
+  'GET /architect/status/:projectRoot': async (req, res, params) => {
+    const projectRoot = decodeURIComponent(params.projectRoot);
+    
+    try {
+      global.architectSessions = global.architectSessions || {};
+      const orchestrator = global.architectSessions[projectRoot];
+      
+      if (!orchestrator) {
+        return sendJSON(res, 404, { error: 'Project not loaded' });
+      }
+      
+      sendJSON(res, 200, orchestrator.getSessionInfo());
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+  
+  'POST /architect/action': async (req, res) => {
+    const body = await parseBody(req);
+    const { projectRoot, action } = body;
+    
+    if (!projectRoot || !action) {
+      return sendJSON(res, 400, { error: 'projectRoot and action are required' });
+    }
+    
+    try {
+      global.architectSessions = global.architectSessions || {};
+      const orchestrator = global.architectSessions[projectRoot];
+      
+      if (!orchestrator) {
+        return sendJSON(res, 404, { error: 'Project not loaded' });
+      }
+      
+      const result = await orchestrator.actions.execute(action);
+      
+      sendJSON(res, 200, {
+        ...result,
+        state: orchestrator.getSessionInfo(),
+      });
+    } catch (err) {
+      logger.error('Server', `Architect action error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+  
+  // ══════════════════════════════════════════════════════════════════════════
   // UI
   // ══════════════════════════════════════════════════════════════════════════
   
   'GET /ui': async (req, res) => {
     sendHTML(res, getUIHTML());
+  },
+  
+  // Architect UI
+  'GET /architect': async (req, res) => {
+    sendHTML(res, await getArchitectUIHTML());
+  },
+  
+  'GET /architect/architect.css': async (req, res) => {
+    await sendStaticFile(res, 'src/ui/architect/architect.css', 'text/css');
+  },
+  
+  'GET /architect/architect.js': async (req, res) => {
+    await sendStaticFile(res, 'src/ui/architect/architect.js', 'application/javascript');
   },
 };
 
@@ -315,7 +478,7 @@ function getUIHTML() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>C.3 Agent v28</title>
+  <title>C.3 Agent v30</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
@@ -585,7 +748,7 @@ function getUIHTML() {
 </head>
 <body>
   <header>
-    <div class="logo">🤖 C.3 Agent <small style="color:#888">v28</small></div>
+    <div class="logo">🤖 C.3 Agent <small style="color:#888">v30</small></div>
     <div class="status">
       <div class="status-dot"></div>
       <span id="statusText">Ready</span>
@@ -596,7 +759,7 @@ function getUIHTML() {
     <div class="chat-container">
       <div class="messages" id="messages">
         <div class="message system">
-          Vítej v C.3 Agent v28! Zadej požadavek a já ho implementuji.
+          Vítej v C.3 Agent v30! Zadej požadavek a já ho implementuji.
         </div>
       </div>
       
@@ -780,13 +943,14 @@ server.listen(config.server.port, config.server.host, () => {
   console.log(`
 ╔══════════════════════════════════════════════════════════════╗
 ║                                                              ║
-║     🤖  C.3 Agent v28                                        ║
+║     🤖  C.3 Agent v30 - Architect Mode                       ║
 ║                                                              ║
-║     API:  http://${config.server.host}:${config.server.port}                            ║
-║     UI:   http://${config.server.host}:${config.server.port}/ui                         ║
+║     API:       http://${config.server.host}:${config.server.port}                       ║
+║     UI:        http://${config.server.host}:${config.server.port}/ui                    ║
+║     Architect: http://${config.server.host}:${config.server.port}/architect             ║
 ║                                                              ║
-║     Adaptivní workflow podle složitosti                      ║
-║     SQLite databáze pro persistenci                          ║
+║     Mode A: Adaptivní workflow (lineární)                    ║
+║     Mode B: Architect Mode (konverzační, iterativní)         ║
 ║                                                              ║
 ╚══════════════════════════════════════════════════════════════╝
   `);

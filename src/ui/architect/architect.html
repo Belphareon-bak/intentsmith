@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C.3 Architect Mode</title>
+  <link rel="stylesheet" href="architect.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+</head>
+<body>
+  <div class="architect-app" id="app">
+    
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         SIDEBAR - Roadmap & Blocks
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <aside class="sidebar" id="sidebar">
+      <header class="sidebar-header">
+        <h1>C.3 Architect</h1>
+        <span class="version" id="version">v30</span>
+      </header>
+      
+      <!-- Project Info -->
+      <div class="project-info" id="project-info">
+        <div class="project-name" id="project-name">Načítám...</div>
+        <div class="project-stats">
+          <span class="stat">
+            <span id="blocks-done">0</span>/<span id="blocks-total">0</span> bloků
+          </span>
+          <span class="stat">
+            <span id="progress-percent">0</span>%
+          </span>
+        </div>
+      </div>
+      
+      <!-- Roadmap -->
+      <div class="roadmap-container">
+        <div class="roadmap-title">Roadmap</div>
+        <ul class="block-list" id="block-list">
+          <!-- Blocks will be rendered here -->
+        </ul>
+      </div>
+      
+      <!-- Actions -->
+      <div class="sidebar-actions" style="padding: 16px; border-top: 1px solid var(--border);">
+        <button class="quick-action" style="width: 100%;" onclick="initProject()">
+          + Nový projekt
+        </button>
+      </div>
+    </aside>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         MAIN CONTENT - Chat Area
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <main class="main-content">
+      
+      <!-- Header -->
+      <header class="main-header">
+        <div class="current-block-info">
+          <span class="current-block-path" id="current-block-path">Žádný blok</span>
+          <span class="current-block-status defining" id="current-block-status">—</span>
+        </div>
+        
+        <div class="confidence-meter">
+          <span>Confidence:</span>
+          <div class="confidence-bar">
+            <div class="confidence-fill" id="confidence-fill" style="width: 0%"></div>
+          </div>
+          <span class="confidence-value" id="confidence-value">0%</span>
+        </div>
+        
+        <span class="mode-badge architect" id="mode-badge">ARCHITECT</span>
+      </header>
+      
+      <!-- Messages -->
+      <div class="messages-container" id="messages-container">
+        <div class="empty-state" id="empty-state">
+          <div class="empty-state-icon">🏗️</div>
+          <h3>Architect Mode</h3>
+          <p>Vyber blok ze sidebar nebo inicializuj nový projekt</p>
+        </div>
+      </div>
+      
+      <!-- Input Area -->
+      <div class="input-area">
+        <div class="quick-actions" id="quick-actions">
+          <button class="quick-action" onclick="sendQuickAction('stav')">📊 Stav</button>
+          <button class="quick-action" onclick="sendQuickAction('co chybí v definici?')">❓ Co chybí</button>
+          <button class="quick-action primary" id="btn-generate" onclick="sendQuickAction('generuj kód')" disabled>
+            ⚡ Generuj kód
+          </button>
+          <button class="quick-action" onclick="sendQuickAction('hotovo')">✅ Dokončit</button>
+        </div>
+        
+        <div class="input-container">
+          <div class="input-wrapper">
+            <textarea 
+              class="message-input" 
+              id="message-input"
+              placeholder="Napiš zprávu... (Enter = odeslat, Shift+Enter = nový řádek)"
+              rows="1"
+            ></textarea>
+          </div>
+          <button class="send-button" id="send-button" onclick="sendMessage()">
+            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </main>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         RIGHT PANEL - Definition & Details
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <aside class="right-panel" id="right-panel">
+      <header class="panel-header">
+        <span class="panel-title">Detaily</span>
+      </header>
+      
+      <div class="panel-tabs">
+        <div class="panel-tab active" data-tab="definition" onclick="switchTab('definition')">
+          Definice
+        </div>
+        <div class="panel-tab" data-tab="history" onclick="switchTab('history')">
+          Historie
+        </div>
+        <div class="panel-tab" data-tab="decisions" onclick="switchTab('decisions')">
+          Rozhodnutí
+        </div>
+      </div>
+      
+      <div class="panel-content">
+        <!-- Blocker Alert (hidden by default) -->
+        <div class="blocker-alert hidden" id="blocker-alert">
+          <h4>⚠️ BLOCKER</h4>
+          <p class="blocker-description" id="blocker-description"></p>
+        </div>
+        
+        <!-- Definition Tab -->
+        <div class="tab-content" id="tab-definition">
+          <div class="definition-content" id="definition-content">
+            <p style="color: var(--text-muted);">Vyber blok pro zobrazení definice</p>
+          </div>
+        </div>
+        
+        <!-- History Tab -->
+        <div class="tab-content hidden" id="tab-history">
+          <div id="history-content">
+            <p style="color: var(--text-muted);">Žádná historie</p>
+          </div>
+        </div>
+        
+        <!-- Decisions Tab -->
+        <div class="tab-content hidden" id="tab-decisions">
+          <div id="decisions-content">
+            <p style="color: var(--text-muted);">Žádná rozhodnutí</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+    
+  </div>
+  
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+  
+  <!-- Loading Overlay -->
+  <div class="loading-overlay hidden" id="loading-overlay">
+    <div class="spinner"></div>
+  </div>
+  
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="architect.js"></script>
+</body>
+</html>
