@@ -31,9 +31,6 @@ const state = {
   
   // Draft
   draftTimeout: null,
-  
-  // Pending attachments (waiting to be sent with next message)
-  pendingAttachments: [],  // [{ id, name, size }]
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -164,32 +161,23 @@ async function refreshData() {
 // Projects
 // ═══════════════════════════════════════════════════════════════════════════
 
-function renderProjects(showAll = false) {
+function renderProjects() {
   if (state.projects.length === 0) {
     el.projectsList.innerHTML = '<div class="section-item muted">No projects yet</div>';
     return;
   }
   
-  const displayProjects = showAll ? state.projects : state.projects.slice(0, 5);
-  const hasMore = state.projects.length > 5 && !showAll;
-  
-  el.projectsList.innerHTML = displayProjects.map(p => `
+  el.projectsList.innerHTML = state.projects.slice(0, 3).map(p => `
     <button class="section-item ${state.currentProject?.id === p.id ? 'active' : ''}"
             onclick="openProject(${p.id})">
       <span class="section-item-icon">📁</span>
       <span>${escapeHtml(p.name)}</span>
     </button>
-  `).join('') + (hasMore ? `
-    <button class="section-item show-more" onclick="renderProjects(true)">
-      <span class="section-item-icon">...</span>
-      <span>Show all (${state.projects.length})</span>
-    </button>
-  ` : '');
+  `).join('');
 }
 
 async function newProject() {
-  // Show modal dialog instead of prompt()
-  const name = await showInputModal('New Project', 'Enter project name:', 'my-project');
+  const name = prompt('Project name:');
   if (!name || !name.trim()) return;
   
   setLoading(true);
@@ -209,65 +197,6 @@ async function newProject() {
     setLoading(false);
   }
 }
-
-/**
- * Show modal input dialog (replaces prompt())
- */
-function showInputModal(title, label, placeholder = '') {
-  return new Promise((resolve) => {
-    // Create modal HTML
-    const modalId = `modal-${Date.now()}`;
-    const html = `
-      <div class="modal-overlay" id="${modalId}">
-        <div class="modal-dialog">
-          <div class="modal-header">
-            <h3>${escapeHtml(title)}</h3>
-            <button class="modal-close" onclick="closeModal('${modalId}', null)">&times;</button>
-          </div>
-          <div class="modal-body">
-            <label>${escapeHtml(label)}</label>
-            <input type="text" class="modal-input" id="${modalId}-input" placeholder="${escapeHtml(placeholder)}" autofocus>
-          </div>
-          <div class="modal-footer">
-            <button class="modal-btn secondary" onclick="closeModal('${modalId}', null)">Cancel</button>
-            <button class="modal-btn primary" onclick="closeModal('${modalId}', document.getElementById('${modalId}-input').value)">Create</button>
-          </div>
-        </div>
-      </div>
-    `;
-    
-    document.body.insertAdjacentHTML('beforeend', html);
-    
-    const modal = document.getElementById(modalId);
-    const input = document.getElementById(`${modalId}-input`);
-    
-    // Focus input
-    setTimeout(() => input.focus(), 50);
-    
-    // Handle Enter key
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        closeModal(modalId, input.value);
-      } else if (e.key === 'Escape') {
-        closeModal(modalId, null);
-      }
-    });
-    
-    // Store resolve function
-    modal._resolve = resolve;
-  });
-}
-
-/**
- * Close modal and resolve promise
- */
-window.closeModal = function(modalId, value) {
-  const modal = document.getElementById(modalId);
-  if (modal) {
-    modal._resolve(value);
-    modal.remove();
-  }
-};
 
 async function openProject(projectId) {
   setLoading(true);
@@ -300,12 +229,9 @@ async function newConversationForProject(projectId) {
   const data = await api('POST', '/api/conversations', { project_id: projectId });
   state.currentConversation = data.conversation;
   state.messages = [];
-  
-  // Clear and switch to chat
-  renderMessages();  // Clear old messages from DOM
   switchToChat();
   
-  // Show project welcome as first message
+  // Show project roadmap as first message
   if (state.currentProject) {
     addMessage('assistant', `📁 **Project: ${state.currentProject.name}**\n\nHow can I help you with this project?`);
   }
@@ -315,30 +241,19 @@ async function newConversationForProject(projectId) {
 // Conversations
 // ═══════════════════════════════════════════════════════════════════════════
 
-function renderHistory(showAll = false) {
-  // Filter only non-project conversations
-  const nonProjectChats = state.conversations.filter(c => !c.project_id);
-  
-  if (nonProjectChats.length === 0) {
+function renderHistory() {
+  if (state.conversations.length === 0) {
     el.historyList.innerHTML = '<div class="section-item muted">No conversations yet</div>';
     return;
   }
   
-  const displayChats = showAll ? nonProjectChats : nonProjectChats.slice(0, 5);
-  const hasMore = nonProjectChats.length > 5 && !showAll;
-  
-  el.historyList.innerHTML = displayChats.map(c => `
+  el.historyList.innerHTML = state.conversations.slice(0, 3).map(c => `
     <button class="section-item ${state.currentConversation?.id === c.id ? 'active' : ''}"
             onclick="openConversation('${c.id}')">
-      <span class="section-item-icon">💬</span>
+      <span class="section-item-icon">${c.project_id ? '📁' : '💬'}</span>
       <span>${escapeHtml(c.title || 'Untitled chat')}</span>
     </button>
-  `).join('') + (hasMore ? `
-    <button class="section-item show-more" onclick="renderHistory(true)">
-      <span class="section-item-icon">...</span>
-      <span>Show all (${nonProjectChats.length})</span>
-    </button>
-  ` : '');
+  `).join('');
 }
 
 async function newChat() {
@@ -350,7 +265,6 @@ async function newChat() {
     state.currentProject = null;
     state.messages = [];
     
-    renderMessages();  // Clear old messages from DOM
     switchToChat();
     updateUI();
     await loadConversations();
@@ -421,21 +335,8 @@ async function sendMessage(text = null) {
     switchToChat();
   }
   
-  // Build message with attachments
-  let fullMessage = msg;
-  if (state.pendingAttachments.length > 0) {
-    const attachmentText = state.pendingAttachments
-      .map(a => `📎 ${a.name}`)
-      .join('\n');
-    fullMessage = `${attachmentText}\n\n${msg}`;
-  }
-  
-  // Add user message (with attachments shown)
-  addMessage('user', fullMessage);
-  
-  // Clear pending attachments
-  clearPendingAttachments();
-  
+  // Add user message
+  addMessage('user', msg);
   const typingId = addTyping();
   setLoading(true);
   
@@ -443,7 +344,7 @@ async function sendMessage(text = null) {
     const res = await api('POST', '/api/chat', {
       conversation_id: state.currentConversation.id,
       project_id: state.currentProject?.id || null,
-      message: msg,  // Send original message (attachments already uploaded)
+      message: msg,
     });
     
     removeMessage(typingId);
@@ -498,7 +399,7 @@ function addMessageToDOM(role, content) {
   const id = `msg-${++msgCounter}`;
   const avatar = role === 'user' ? '👤' : '🤖';
   const roleName = role === 'user' ? 'You' : 'AI Assistant';
-  const html = renderMarkdown(content, role === 'assistant');
+  const html = renderMarkdown(content);
   
   el.messages.insertAdjacentHTML('beforeend', `
     <div class="message ${role}" id="${id}">
@@ -541,7 +442,7 @@ function scrollToBottom() {
   el.messages.scrollTop = el.messages.scrollHeight;
 }
 
-function renderMarkdown(text, isAssistant = false) {
+function renderMarkdown(text) {
   if (!text) return '';
   
   marked.setOptions({
@@ -554,18 +455,7 @@ function renderMarkdown(text, isAssistant = false) {
     breaks: true,
   });
   
-  let html = marked.parse(text);
-  
-  // For assistant messages, highlight questions
-  if (isAssistant) {
-    // Wrap sentences ending with ? in a highlight span
-    html = html.replace(
-      /(<li>|<p>)([^<]*\?)/g, 
-      '$1<span class="ai-question">$2</span>'
-    );
-  }
-  
-  return html;
+  return marked.parse(text);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -757,17 +647,12 @@ async function attachFile() {
         const data = await res.json();
         
         if (res.ok) {
-          // Add to pending attachments (will be included with next message)
-          state.pendingAttachments.push({
-            id: data.id,
-            name: file.name,
-            size: data.size
-          });
+          toast(`Uploaded: ${file.name} (${(data.size / 1024).toFixed(1)} KB)`, 'success');
           
-          toast(`✓ ${file.name} ready to send`, 'success');
-          
-          // Show pending attachments indicator
-          renderPendingAttachments();
+          // Add attachment reference to chat
+          if (state.inChat && state.currentConversation) {
+            addMessage('user', `📎 Attached: ${file.name}`);
+          }
           
           // Refresh storage info
           loadStorageInfo();
@@ -781,52 +666,6 @@ async function attachFile() {
   };
   
   input.click();
-}
-
-/**
- * Render pending attachments indicator above input
- */
-function renderPendingAttachments() {
-  // Remove old indicator
-  const old = document.querySelector('.pending-attachments');
-  if (old) old.remove();
-  
-  if (state.pendingAttachments.length === 0) return;
-  
-  const container = state.inChat ? el.chatInputArea : el.welcomeScreen.querySelector('.input-wrapper');
-  if (!container) return;
-  
-  const html = `
-    <div class="pending-attachments">
-      ${state.pendingAttachments.map((att, i) => `
-        <div class="pending-attachment">
-          <span class="attachment-icon">📎</span>
-          <span class="attachment-name">${escapeHtml(att.name)}</span>
-          <span class="attachment-size">(${(att.size / 1024).toFixed(1)} KB)</span>
-          <button class="attachment-remove" onclick="removePendingAttachment(${i})" title="Remove">×</button>
-        </div>
-      `).join('')}
-    </div>
-  `;
-  
-  container.insertAdjacentHTML('afterbegin', html);
-}
-
-/**
- * Remove a pending attachment
- */
-window.removePendingAttachment = function(index) {
-  state.pendingAttachments.splice(index, 1);
-  renderPendingAttachments();
-};
-
-/**
- * Clear all pending attachments
- */
-function clearPendingAttachments() {
-  state.pendingAttachments = [];
-  const indicator = document.querySelector('.pending-attachments');
-  if (indicator) indicator.remove();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -35,6 +35,9 @@ export const config = {
     
     // Chat (general conversation)
     CHAT: 'qwen2.5:32b',
+    
+    // Vision (for image analysis) - requires: ollama pull llava:13b
+    VISION: 'llava:13b',
   },
 
   // Timeouts per role (ms) - REDUCED from v27
@@ -48,6 +51,7 @@ export const config = {
     FIXER: 90000,       // 90s (was 120s)
     ADVERSARIAL: 120000, // 120s (unchanged)
     CHAT: 30000,        // 30s
+    VISION: 60000,      // 60s for image analysis
   },
 
   // Workflow configuration

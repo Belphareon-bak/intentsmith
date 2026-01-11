@@ -1,0 +1,22 @@
+{
+  "project": "P3 web",
+  "created": "2026-01-11T21:03:16.215Z",
+  "mode": "architect",
+  "definitionConfidence": 0,
+  "current": {
+    "path": null,
+    "status": "initializing",
+    "started": "2026-01-11T21:03:16.215Z"
+  },
+  "scopeLock": {
+    "active": false,
+    "path": null
+  },
+  "stats": {
+    "total": 0,
+    "done": 0,
+    "wip": 0,
+    "blocked": 0
+  },
+  "lastActivity": "2026-01-11T21:03:16.215Z"
+}

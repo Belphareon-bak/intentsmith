@@ -82,6 +82,92 @@ export async function callOllama(role, prompt, systemPrompt = '', options = {}) 
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// OLLAMA VISION CLIENT
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Call Ollama vision model with image(s)
+ * @param {string} prompt - Text prompt
+ * @param {string[]} images - Array of base64 encoded images (without data: prefix)
+ * @param {string} systemPrompt - System prompt
+ * @returns {Promise<{content: string, model: string, duration: number}>}
+ */
+export async function callOllamaVision(prompt, images, systemPrompt = '') {
+  const model = config.models.VISION || 'llava:13b';
+  const timeout = config.timeouts.VISION || 60000;
+  
+  logger.info('LLM', `Calling VISION`, { model, imageCount: images.length });
+  
+  const timer = logger.time('LLM', `VISION (${model})`);
+  
+  const body = {
+    model,
+    prompt,
+    system: systemPrompt,
+    images, // Base64 encoded images
+    stream: false,
+    options: {
+      temperature: 0.3,
+      num_predict: 2048,
+    },
+  };
+  
+  let lastError;
+  
+  for (let attempt = 1; attempt <= config.ollama.retries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      
+      const response = await fetch(`${config.ollama.baseUrl}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        // Check if model not found
+        if (errorText.includes('not found') || errorText.includes('does not exist')) {
+          throw new Error(`Vision model "${model}" not installed. Run: ollama pull ${model}`);
+        }
+        throw new Error(`Ollama HTTP ${response.status}: ${errorText}`);
+      }
+      
+      const data = await response.json();
+      const output = data.response || '';
+      
+      const duration = timer.end(`(${output.length} chars)`);
+      
+      return {
+        content: output,
+        model,
+        duration,
+        role: 'VISION',
+      };
+      
+    } catch (err) {
+      lastError = err;
+      
+      if (err.name === 'AbortError') {
+        logger.warn('LLM', `Vision timeout after ${timeout}ms (attempt ${attempt})`);
+      } else {
+        logger.warn('LLM', `Vision error (attempt ${attempt}): ${err.message}`);
+      }
+      
+      if (attempt < config.ollama.retries) {
+        await sleep(config.ollama.retryDelay * attempt);
+      }
+    }
+  }
+  
+  throw new Error(`Vision failed: ${lastError?.message}`);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // JSON EXTRACTION (ROBUST)
 // ════════════════════════════════════════════════════════════════════════════
 

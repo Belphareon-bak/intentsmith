@@ -3,175 +3,320 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>C.3 Architect Mode</title>
-  <link rel="stylesheet" href="architect.css">
+  <title>AI Assistant</title>
+  <!-- Favicon - Personal AI Assistant icon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg viewBox='300 100 424 500' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23ffb65e'/%3E%3Cstop offset='45%25' stop-color='%23ff5fa2'/%3E%3Cstop offset='100%25' stop-color='%234cc9ff'/%3E%3C/linearGradient%3E%3ClinearGradient id='h' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%232a0f4f' stop-opacity='0.7'/%3E%3Cstop offset='100%25' stop-color='%231a0c3d' stop-opacity='0.7'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cline x1='512' y1='260' x2='512' y2='150' stroke='url(%23g)' stroke-width='8' stroke-linecap='round'/%3E%3Ccircle cx='512' cy='135' r='12' fill='url(%23g)'/%3E%3Cpath d='M360 350 C360 260 455 230 512 230 C569 230 664 260 664 350 V420 C664 500 580 540 512 540 C455 540 410 510 388 490 L350 525 V420 C350 380 360 375 360 350 Z' fill='url(%23h)' stroke='url(%23g)' stroke-width='18' stroke-linejoin='round'/%3E%3Cellipse cx='345' cy='395' rx='28' ry='32' fill='url(%23h)' stroke='url(%23g)' stroke-width='6'/%3E%3Cellipse cx='679' cy='395' rx='28' ry='32' fill='url(%23h)' stroke='url(%23g)' stroke-width='6'/%3E%3Crect x='420' y='365' width='184' height='92' rx='46' fill='none' stroke='url(%23g)' stroke-width='14'/%3E%3Ccircle cx='465' cy='410' r='13' fill='%23ff5fa2'/%3E%3Ccircle cx='559' cy='410' r='13' fill='%234cc9ff'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/architect/architect.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
 </head>
 <body>
-  <div class="architect-app" id="app">
+  <div class="app" id="app">
     
-    <!-- ═══════════════════════════════════════════════════════════════════════
-         SIDEBAR - Roadmap & Blocks
-         ═══════════════════════════════════════════════════════════════════════ -->
-    <aside class="sidebar" id="sidebar">
-      <header class="sidebar-header">
-        <h1>C.3 Architect</h1>
-        <span class="version" id="version">v30</span>
-      </header>
+    <!-- LEFT SIDEBAR -->
+    <aside class="sidebar left-sidebar" id="left-sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <div class="logo-icon">
+            <svg viewBox="300 100 424 500" width="32" height="32">
+              <defs>
+                <linearGradient id="logoGrad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#ffb65e"/>
+                  <stop offset="45%" stop-color="#ff5fa2"/>
+                  <stop offset="100%" stop-color="#4cc9ff"/>
+                </linearGradient>
+                <linearGradient id="helmetFill" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#2a0f4f" stop-opacity="0.7"/>
+                  <stop offset="100%" stop-color="#1a0c3d" stop-opacity="0.7"/>
+                </linearGradient>
+                <radialGradient id="eyePink">
+                  <stop offset="0%" stop-color="#ffb1df"/>
+                  <stop offset="100%" stop-color="#ff5fa2"/>
+                </radialGradient>
+                <radialGradient id="eyeBlue">
+                  <stop offset="0%" stop-color="#bfe9ff"/>
+                  <stop offset="100%" stop-color="#4cc9ff"/>
+                </radialGradient>
+              </defs>
+              <!-- Antenna -->
+              <line x1="512" y1="260" x2="512" y2="150" stroke="url(#logoGrad)" stroke-width="8" stroke-linecap="round"/>
+              <circle cx="512" cy="135" r="12" fill="url(#logoGrad)"/>
+              <!-- Helmet -->
+              <path d="M360 350 C360 260 455 230 512 230 C569 230 664 260 664 350 V420 C664 500 580 540 512 540 C455 540 410 510 388 490 L350 525 V420 C350 380 360 375 360 350 Z" fill="url(#helmetFill)" stroke="url(#logoGrad)" stroke-width="18" stroke-linejoin="round"/>
+              <!-- Ears -->
+              <ellipse cx="345" cy="395" rx="28" ry="32" fill="url(#helmetFill)" stroke="url(#logoGrad)" stroke-width="6"/>
+              <ellipse cx="679" cy="395" rx="28" ry="32" fill="url(#helmetFill)" stroke="url(#logoGrad)" stroke-width="6"/>
+              <!-- Visor -->
+              <rect x="420" y="365" width="184" height="92" rx="46" fill="none" stroke="url(#logoGrad)" stroke-width="14"/>
+              <!-- Eyes -->
+              <circle cx="465" cy="410" r="13" fill="url(#eyePink)"/>
+              <circle cx="559" cy="410" r="13" fill="url(#eyeBlue)"/>
+            </svg>
+          </div>
+          <span class="logo-text">AI Assistant</span>
+        </div>
+        <button class="sidebar-toggle" onclick="toggleLeftSidebar()" title="Toggle sidebar">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/>
+          </svg>
+        </button>
+      </div>
       
-      <!-- Project Info -->
-      <div class="project-info" id="project-info">
-        <div class="project-name" id="project-name">Načítám...</div>
-        <div class="project-stats">
-          <span class="stat">
-            <span id="blocks-done">0</span>/<span id="blocks-total">0</span> bloků
-          </span>
-          <span class="stat">
-            <span id="progress-percent">0</span>%
-          </span>
+      <!-- Main Actions -->
+      <nav class="sidebar-nav">
+        <button class="nav-btn" onclick="newChat()">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          <span>New Chat</span>
+        </button>
+        <button class="nav-btn" onclick="newProject()">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+          </svg>
+          <span>New Project</span>
+        </button>
+      </nav>
+      
+      <!-- Projects Section -->
+      <div class="sidebar-section">
+        <button class="section-header" onclick="toggleSection('projects')">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+          </svg>
+          <span>Projects</span>
+          <svg class="chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div class="section-content" id="projects-list">
+          <div class="section-item muted">No projects yet</div>
         </div>
       </div>
       
-      <!-- Roadmap -->
-      <div class="roadmap-container">
-        <div class="roadmap-title">Roadmap</div>
-        <ul class="block-list" id="block-list">
-          <!-- Blocks will be rendered here -->
-        </ul>
+      <!-- Chat History Section -->
+      <div class="sidebar-section">
+        <button class="section-header" onclick="toggleSection('history')">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+          </svg>
+          <span>Chat History</span>
+          <svg class="chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div class="section-content" id="history-list">
+          <div class="section-item muted">No conversations yet</div>
+        </div>
       </div>
       
-      <!-- Actions -->
-      <div class="sidebar-actions" style="padding: 16px; border-top: 1px solid var(--border);">
-        <button class="quick-action" style="width: 100%;" onclick="initProject()">
-          + Nový projekt
+      <!-- Agents Section -->
+      <div class="sidebar-section">
+        <button class="section-header" onclick="toggleSection('agents')">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+          </svg>
+          <span>Agents</span>
+          <svg class="chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
         </button>
+        <div class="section-content" id="agents-list">
+          <div class="section-item muted">Coming soon...</div>
+        </div>
+      </div>
+      
+      <!-- Sidebar Footer -->
+      <div class="sidebar-footer">
+        <div class="storage-info">
+          <span class="storage-label">Storage</span>
+          <div class="storage-bar">
+            <div class="storage-fill" id="storage-fill" style="width: 0%"></div>
+          </div>
+          <span class="storage-value" id="storage-value">0 MB</span>
+        </div>
       </div>
     </aside>
     
-    <!-- ═══════════════════════════════════════════════════════════════════════
-         MAIN CONTENT - Chat Area
-         ═══════════════════════════════════════════════════════════════════════ -->
-    <main class="main-content">
-      
+    <!-- MAIN CONTENT -->
+    <main class="main">
       <!-- Header -->
       <header class="main-header">
-        <div class="current-block-info">
-          <span class="current-block-path" id="current-block-path">Žádný blok</span>
-          <span class="current-block-status defining" id="current-block-status">—</span>
+        <button class="header-btn menu-btn" onclick="toggleLeftSidebar()" title="Toggle sidebar">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+        
+        <div class="header-title">
+          <span id="header-title">AI Assistant</span>
+          <span class="header-badge" id="header-badge"></span>
         </div>
         
-        <div class="confidence-meter">
-          <span>Confidence:</span>
-          <div class="confidence-bar">
-            <div class="confidence-fill" id="confidence-fill" style="width: 0%"></div>
-          </div>
-          <span class="confidence-value" id="confidence-value">0%</span>
-        </div>
+        <div class="header-spacer"></div>
         
-        <span class="mode-badge architect" id="mode-badge">ARCHITECT</span>
-      </header>
-      
-      <!-- Messages -->
-      <div class="messages-container" id="messages-container">
-        <div class="empty-state" id="empty-state">
-          <div class="empty-state-icon">🏗️</div>
-          <h3>Architect Mode</h3>
-          <p>Vyber blok ze sidebar nebo inicializuj nový projekt</p>
-        </div>
-      </div>
-      
-      <!-- Input Area -->
-      <div class="input-area">
-        <div class="quick-actions" id="quick-actions">
-          <button class="quick-action" onclick="sendQuickAction('stav')">📊 Stav</button>
-          <button class="quick-action" onclick="sendQuickAction('co chybí v definici?')">❓ Co chybí</button>
-          <button class="quick-action primary" id="btn-generate" onclick="sendQuickAction('generuj kód')" disabled>
-            ⚡ Generuj kód
-          </button>
-          <button class="quick-action" onclick="sendQuickAction('hotovo')">✅ Dokončit</button>
-        </div>
-        
-        <div class="input-container">
-          <div class="input-wrapper">
-            <textarea 
-              class="message-input" 
-              id="message-input"
-              placeholder="Napiš zprávu... (Enter = odeslat, Shift+Enter = nový řádek)"
-              rows="1"
-            ></textarea>
-          </div>
-          <button class="send-button" id="send-button" onclick="sendMessage()">
-            <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+        <div class="header-actions">
+          <button class="header-btn" onclick="refreshData()" title="Refresh">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
             </svg>
           </button>
         </div>
-      </div>
-    </main>
-    
-    <!-- ═══════════════════════════════════════════════════════════════════════
-         RIGHT PANEL - Definition & Details
-         ═══════════════════════════════════════════════════════════════════════ -->
-    <aside class="right-panel" id="right-panel">
-      <header class="panel-header">
-        <span class="panel-title">Detaily</span>
       </header>
       
-      <div class="panel-tabs">
-        <div class="panel-tab active" data-tab="definition" onclick="switchTab('definition')">
-          Definice
+      <!-- Chat Container -->
+      <div class="chat-container" id="chat-container">
+        <!-- Welcome Screen -->
+        <div class="welcome-screen" id="welcome-screen">
+          <div class="welcome-logo">
+            <svg viewBox="300 100 424 500" width="100" height="100">
+              <defs>
+                <linearGradient id="welcomeGrad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#ffb65e"/>
+                  <stop offset="45%" stop-color="#ff5fa2"/>
+                  <stop offset="100%" stop-color="#4cc9ff"/>
+                </linearGradient>
+                <linearGradient id="welcomeHelmet" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#2a0f4f" stop-opacity="0.7"/>
+                  <stop offset="100%" stop-color="#1a0c3d" stop-opacity="0.7"/>
+                </linearGradient>
+                <radialGradient id="welcomePink">
+                  <stop offset="0%" stop-color="#ffb1df"/>
+                  <stop offset="100%" stop-color="#ff5fa2"/>
+                </radialGradient>
+                <radialGradient id="welcomeBlue">
+                  <stop offset="0%" stop-color="#bfe9ff"/>
+                  <stop offset="100%" stop-color="#4cc9ff"/>
+                </radialGradient>
+              </defs>
+              <!-- Antenna -->
+              <line x1="512" y1="260" x2="512" y2="150" stroke="url(#welcomeGrad)" stroke-width="8" stroke-linecap="round"/>
+              <circle cx="512" cy="135" r="12" fill="url(#welcomeGrad)"/>
+              <!-- Helmet -->
+              <path d="M360 350 C360 260 455 230 512 230 C569 230 664 260 664 350 V420 C664 500 580 540 512 540 C455 540 410 510 388 490 L350 525 V420 C350 380 360 375 360 350 Z" fill="url(#welcomeHelmet)" stroke="url(#welcomeGrad)" stroke-width="18" stroke-linejoin="round"/>
+              <!-- Ears -->
+              <ellipse cx="345" cy="395" rx="28" ry="32" fill="url(#welcomeHelmet)" stroke="url(#welcomeGrad)" stroke-width="6"/>
+              <ellipse cx="679" cy="395" rx="28" ry="32" fill="url(#welcomeHelmet)" stroke="url(#welcomeGrad)" stroke-width="6"/>
+              <!-- Visor -->
+              <rect x="420" y="365" width="184" height="92" rx="46" fill="none" stroke="url(#welcomeGrad)" stroke-width="14"/>
+              <!-- Eyes -->
+              <circle cx="465" cy="410" r="13" fill="url(#welcomePink)"/>
+              <circle cx="559" cy="410" r="13" fill="url(#welcomeBlue)"/>
+            </svg>
+          </div>
+          <h1 class="welcome-title">AI Assistant</h1>
+          <p class="welcome-subtitle">Your local AI copilot for complex projects</p>
+          
+          <div class="input-wrapper">
+            <div class="input-container">
+              <div class="input-top">
+                <textarea 
+                  class="message-input" 
+                  id="message-input"
+                  placeholder="Send a message..."
+                  rows="1"
+                ></textarea>
+              </div>
+              <div class="input-bottom">
+                <button class="input-btn" onclick="attachFile()" title="Attach file">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                  </svg>
+                </button>
+                <button class="input-btn send" id="send-btn" onclick="sendMessage()">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Suggestions -->
+          <div class="suggestions">
+            <div class="suggestions-header">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+              </svg>
+              <span>Suggested</span>
+            </div>
+            <div class="suggestion-list">
+              <button class="suggestion-item" onclick="sendMessage('Create a new project')">
+                <div class="suggestion-title">Create a new project</div>
+                <div class="suggestion-desc">Start a new development project</div>
+              </button>
+              <button class="suggestion-item" onclick="sendMessage('Show my recent projects')">
+                <div class="suggestion-title">Show my recent projects</div>
+                <div class="suggestion-desc">View and continue your work</div>
+              </button>
+              <button class="suggestion-item" onclick="sendMessage('Help me understand the codebase')">
+                <div class="suggestion-title">Analyze codebase</div>
+                <div class="suggestion-desc">Get insights about your code</div>
+              </button>
+            </div>
+          </div>
         </div>
-        <div class="panel-tab" data-tab="history" onclick="switchTab('history')">
-          Historie
+        
+        <!-- Messages Area (hidden initially) -->
+        <div class="messages-area hidden" id="messages-area">
+          <div class="messages" id="messages"></div>
         </div>
-        <div class="panel-tab" data-tab="decisions" onclick="switchTab('decisions')">
-          Rozhodnutí
+        
+        <!-- Chat Input (bottom, hidden initially) -->
+        <div class="chat-input-area hidden" id="chat-input-area">
+          <div class="input-wrapper">
+            <div class="input-container">
+              <div class="input-top">
+                <textarea 
+                  class="message-input" 
+                  id="chat-input"
+                  placeholder="Send a message..."
+                  rows="1"
+                ></textarea>
+              </div>
+              <div class="input-bottom">
+                <button class="input-btn" onclick="attachFile()" title="Attach file">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                  </svg>
+                </button>
+                <button class="input-btn send" onclick="sendFromChat()">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       
-      <div class="panel-content">
-        <!-- Blocker Alert (hidden by default) -->
-        <div class="blocker-alert hidden" id="blocker-alert">
-          <h4>⚠️ BLOCKER</h4>
-          <p class="blocker-description" id="blocker-description"></p>
+      <!-- Status Bar -->
+      <div class="status-bar">
+        <div class="status-item">
+          <span class="status-dot" id="status-dot"></span>
+          <span id="status-text">Ready</span>
         </div>
-        
-        <!-- Definition Tab -->
-        <div class="tab-content" id="tab-definition">
-          <div class="definition-content" id="definition-content">
-            <p style="color: var(--text-muted);">Vyber blok pro zobrazení definice</p>
-          </div>
+        <div class="status-item" id="project-indicator" style="display: none;">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+          </svg>
+          <span id="project-name">—</span>
         </div>
-        
-        <!-- History Tab -->
-        <div class="tab-content hidden" id="tab-history">
-          <div id="history-content">
-            <p style="color: var(--text-muted);">Žádná historie</p>
-          </div>
-        </div>
-        
-        <!-- Decisions Tab -->
-        <div class="tab-content hidden" id="tab-decisions">
-          <div id="decisions-content">
-            <p style="color: var(--text-muted);">Žádná rozhodnutí</p>
-          </div>
+        <div class="status-spacer"></div>
+        <div class="status-item">
+          <span class="status-version">v32.5</span>
         </div>
       </div>
-    </aside>
+    </main>
     
   </div>
   
   <!-- Toast Container -->
   <div class="toast-container" id="toast-container"></div>
   
-  <!-- Loading Overlay -->
-  <div class="loading-overlay hidden" id="loading-overlay">
-    <div class="spinner"></div>
-  </div>
-  
   <!-- Scripts -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-  <script src="architect.js"></script>
+  <script src="/architect/architect.js"></script>
 </body>
 </html>

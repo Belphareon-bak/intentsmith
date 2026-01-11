@@ -1,7 +1,9 @@
-// C.3 v30 Server - Architect Mode
+// C.3 v32.4 Server - Architect Mode
 // ══════════════════════════════════════════════════════════════════════════════
 
 import http from 'http';
+import fs from 'fs';
+import path from 'path';
 import { config } from './config.js';
 import { logger } from './core/logger.js';
 import { workflowEngine } from './workflow/engine.js';
@@ -87,7 +89,7 @@ const routes = {
   'GET /': (req, res) => {
     sendJSON(res, 200, {
       name: 'C.3 Agent',
-      version: '30.0.0',
+      version: '32.4.0',
       status: 'ok',
       endpoints: [
         'POST /workflow - Start or continue workflow',
@@ -391,6 +393,567 @@ const routes = {
   
   'GET /architect/architect.js': async (req, res) => {
     await sendStaticFile(res, 'src/ui/architect/architect.js', 'application/javascript');
+  },
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // API v2 - Projects, Conversations, Chat
+  // ══════════════════════════════════════════════════════════════════════════
+  
+  // Projects
+  'GET /api/projects': async (req, res) => {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const limit = parseInt(url.searchParams.get('limit')) || 10;
+    
+    try {
+      const projects = db.projects.listRecent.all(limit);
+      sendJSON(res, 200, { projects });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+  
+  'POST /api/projects': async (req, res) => {
+    const body = await parseBody(req);
+    const { name, description } = body;
+    
+    if (!name) {
+      return sendJSON(res, 400, { error: 'name is required' });
+    }
+    
+    try {
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      
+      // Create project directory
+      const projectsDir = path.join(process.cwd(), 'projects');
+      await fs.mkdir(projectsDir, { recursive: true });
+      
+      const projectPath = path.join(projectsDir, name.replace(/[^a-zA-Z0-9-_]/g, '-'));
+      await fs.mkdir(projectPath, { recursive: true });
+      await fs.mkdir(path.join(projectPath, '.c3'), { recursive: true });
+      await fs.mkdir(path.join(projectPath, 'chat'), { recursive: true });
+      
+      // Create in DB
+      const project = db.projects.getOrCreate(name, projectPath, description || '');
+      
+      sendJSON(res, 201, { project });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+  
+  'GET /api/projects/:id': async (req, res, params) => {
+    try {
+      const project = db.projects.findById.get(parseInt(params.id));
+      
+      if (!project) {
+        return sendJSON(res, 404, { error: 'Project not found' });
+      }
+      
+      sendJSON(res, 200, { project });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+  
+  'GET /api/projects/:id/conversations': async (req, res, params) => {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const limit = parseInt(url.searchParams.get('limit')) || 10;
+    
+    try {
+      const conversations = db.conversations.listRecentByProject.all(parseInt(params.id), limit);
+      sendJSON(res, 200, { conversations });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+  
+  // Conversations
+  'GET /api/conversations': async (req, res) => {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const limit = parseInt(url.searchParams.get('limit')) || 10;
+    
+    try {
+      const conversations = db.conversations.listRecent.all(limit);
+      sendJSON(res, 200, { conversations });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+  
+  'POST /api/conversations': async (req, res) => {
+    const body = await parseBody(req);
+    const { project_id, title } = body;
+    
+    try {
+      const id = `conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const conversation = db.conversations.getOrCreate(id, project_id || null, title || null);
+      
+      sendJSON(res, 201, { conversation });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+  
+  'GET /api/conversations/:id': async (req, res, params) => {
+    try {
+      const conversation = db.conversations.findById.get(params.id);
+      
+      if (!conversation) {
+        return sendJSON(res, 404, { error: 'Conversation not found' });
+      }
+      
+      sendJSON(res, 200, { conversation });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+  
+  'GET /api/conversations/:id/messages': async (req, res, params) => {
+    try {
+      const messages = db.messages.listByConversation.all(params.id);
+      sendJSON(res, 200, { messages });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+  
+  // Chat (send message)
+  'POST /api/chat': async (req, res) => {
+    const body = await parseBody(req);
+    const { conversation_id, project_id, message } = body;
+    
+    if (!conversation_id || !message) {
+      return sendJSON(res, 400, { error: 'conversation_id and message are required' });
+    }
+    
+    try {
+      // Save user message
+      db.messages.addMessage(conversation_id, 'user', message);
+      
+      // Get AI response (use architect if project, else simple chat)
+      let response;
+      
+      if (project_id) {
+        // Use Architect for project context
+        global.architectSessions = global.architectSessions || {};
+        let orchestrator = global.architectSessions[project_id];
+        
+        if (!orchestrator) {
+          // Load project
+          const project = db.projects.findById.get(project_id);
+          if (project) {
+            const { ConversationOrchestrator } = await import('./architect/index.js');
+            orchestrator = new ConversationOrchestrator(project.path);
+            await orchestrator.init(project.name);
+            global.architectSessions[project_id] = orchestrator;
+          }
+        }
+        
+        if (orchestrator) {
+          const result = await orchestrator.process(message);
+          response = result.response;
+        } else {
+          response = 'Project not found. Please create or select a project.';
+        }
+      } else {
+        // Simple chat without project context
+        const { callOllama, callOllamaVision } = await import('./llm/client.js');
+        const webSearch = await import('./llm/web-search.js');
+        
+        // Get recent messages for context
+        const recentMessages = db.messages.getLastN.all(conversation_id, 10);
+        const context = recentMessages.map(m => `${m.role}: ${m.content}`).join('\n\n');
+        
+        // Check for recent image attachments
+        const recentAttachments = db.attachments.listByConversation.all(conversation_id);
+        const imageAttachments = recentAttachments.filter(a => 
+          a.mime_type?.startsWith('image/') && 
+          ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(a.mime_type)
+        ).slice(0, 3); // Max 3 images
+        
+        // If images are present, use vision model
+        if (imageAttachments.length > 0) {
+          logger.info('Server', `Processing ${imageAttachments.length} image(s) with vision model`);
+          
+          try {
+            // Load images as base64
+            const images = [];
+            for (const att of imageAttachments) {
+              const imgPath = path.join('./data/attachments', att.filename);
+              if (fs.existsSync(imgPath)) {
+                const imgBuffer = fs.readFileSync(imgPath);
+                const base64 = imgBuffer.toString('base64');
+                images.push(base64);
+              }
+            }
+            
+            if (images.length > 0) {
+              const visionPrompt = context 
+                ? `Context: ${context}\n\nUser: ${message}`
+                : message;
+              
+              const visionSystemPrompt = `You are a helpful AI assistant that can analyze images.
+Describe what you see in detail and answer the user's question about the image(s).
+Respond in the same language as the user's message.
+Be specific and helpful.`;
+              
+              const visionResult = await callOllamaVision(visionPrompt, images, visionSystemPrompt);
+              response = visionResult.content;
+              
+              // Save and return
+              db.messages.addMessage(conversation_id, 'assistant', response);
+              return sendJSON(res, 200, { response });
+            }
+          } catch (visionErr) {
+            logger.warn('Server', `Vision error: ${visionErr.message}`);
+            // Fall through to regular chat with error message
+            if (visionErr.message.includes('not installed')) {
+              response = `⚠️ Vision model není nainstalován.\n\nPro analýzu obrázků spusťte:\n\`\`\`\nollama pull llava:13b\n\`\`\`\n\nPotom restartujte server.`;
+              db.messages.addMessage(conversation_id, 'assistant', response);
+              return sendJSON(res, 200, { response });
+            }
+          }
+        }
+        
+        // Check if web search is needed
+        let searchContext = '';
+        if (webSearch.needsWebSearch(message)) {
+          logger.info('Server', 'Web search triggered');
+          
+          // Check if message contains full URL
+          const urlMatch = message.match(/https?:\/\/[^\s]+/);
+          // Check if message contains domain (e.g. seznam.cz, bazos.cz)
+          const domainMatch = message.match(/\b([\w-]+\.(cz|sk|com|org|net|eu|io))\b/i);
+          
+          if (urlMatch) {
+            // Fetch specific URL
+            logger.info('Server', `Fetching URL: ${urlMatch[0]}`);
+            const page = await webSearch.fetchPage(urlMatch[0], 8000);
+            if (page) {
+              searchContext = `\n\n[WEB CONTENT - USE THIS DATA]\nSource: ${page.url}\nTitle: ${page.title}\n\n${page.content}\n[END WEB CONTENT]`;
+              logger.info('Server', `Fetched ${page.content.length} chars from URL`);
+            } else {
+              logger.warn('Server', 'URL fetch returned no content');
+            }
+          } else if (domainMatch) {
+            const domain = domainMatch[1];
+            
+            // Extract what user is looking for (remove domain from message)
+            const searchTerms = message
+              .toLowerCase()
+              .replace(domain, '')
+              .replace(/\b(najdi|vyhledej|hledej|dej mi|ukaž|odkaz|na|z|ze|webu?|stránk\w*|seznam|všech?n?y?|zpráv\w*|v\s*současn\w*|chvíl\w*)\b/gi, '')
+              .replace(/\s+/g, ' ')
+              .trim();
+            
+            // Always fetch homepage + search
+            const url = `https://www.${domain.replace(/^www\./, '')}`;
+            logger.info('Server', `Fetching: ${url}`);
+            const page = await webSearch.fetchPage(url, 10000);
+            
+            if (page && page.content.length > 100) {
+              searchContext = `\n\n[WEB CONTENT FROM ${domain.toUpperCase()} - YOU MUST USE THIS DATA]\n${page.content}\n[END WEB CONTENT]`;
+              logger.info('Server', `Fetched ${page.content.length} chars from ${domain}`);
+            }
+            
+            // Also do search if there are specific terms
+            if (searchTerms.length > 2) {
+              const query = `${searchTerms} site:${domain}`;
+              logger.info('Server', `Also searching: ${query}`);
+              const searchResults = await webSearch.searchAndFormat(query, false);
+              if (searchResults) {
+                searchContext += '\n\n[SEARCH RESULTS]\n' + searchResults;
+              }
+            }
+          } else {
+            // General web search
+            const query = webSearch.extractSearchQuery(message);
+            logger.info('Server', `Web search: ${query}`);
+            searchContext = '\n\n[SEARCH RESULTS - USE THIS DATA]\n' + await webSearch.searchAndFormat(query, true);
+          }
+        }
+        
+        const prompt = context 
+          ? `Previous conversation:\n${context}${searchContext}\n\nUser question: ${message}\n\nAnswer based on the web content above:`
+          : `${searchContext}\n\nUser question: ${message}\n\nAnswer based on the web content above:`;
+        
+        const systemPrompt = `You are AI Assistant. Answer questions using the provided web content.
+
+MANDATORY RULES:
+1. When [WEB CONTENT] is provided, you MUST extract and present information from it.
+2. List specific items, headlines, or data found in the content.
+3. FORBIDDEN phrases (never use these):
+   - "navštivte stránku/web" / "visit the website"
+   - "nemám přístup" / "I cannot access"  
+   - "moje schopnost je omezena" / "my ability is limited"
+   - "doporučuji přejít na" / "I recommend going to"
+   - "pro kompletní seznam" / "for complete list"
+4. If you have web content, present what's IN IT - don't redirect users elsewhere.
+5. Respond in the same language as the user.`;
+        
+        const result = await callOllama('CHAT', prompt, systemPrompt);
+        
+        // Post-process: Remove forbidden phrases if model still uses them
+        response = result.content
+          .replace(/pro\s*(kompletní|úplný)\s*(seznam|přehled)[^.]*navštivte[^.]*\./gi, '')
+          .replace(/doporučuji\s*(vám\s*)?(přejít|navštívit)[^.]*\./gi, '')
+          .replace(/pro\s*nejaktuálnější[^.]*navštivte[^.]*\./gi, '')
+          .replace(/moje\s*schopnost[^.]*omezena[^.]*\./gi, '')
+          .replace(/nemám\s*přístup[^.]*\./gi, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+      
+      // Save assistant message
+      db.messages.addMessage(conversation_id, 'assistant', response);
+      
+      // Update conversation title if first message
+      const conv = db.conversations.findById.get(conversation_id);
+      if (conv && !conv.title && conv.message_count <= 2) {
+        db.conversations.updateTitle.run(message.substring(0, 50), conversation_id);
+      }
+      
+      sendJSON(res, 200, { response });
+      
+    } catch (err) {
+      logger.error('Server', `Chat error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+  
+  // Drafts
+  'GET /api/drafts': async (req, res) => {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const conversationId = url.searchParams.get('conversation_id');
+    const projectId = url.searchParams.get('project_id');
+    
+    try {
+      const draft = db.drafts.get(conversationId, projectId ? parseInt(projectId) : null);
+      sendJSON(res, 200, { draft });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+  
+  'POST /api/drafts': async (req, res) => {
+    const body = await parseBody(req);
+    const { conversation_id, project_id, content } = body;
+    
+    if (!content) {
+      return sendJSON(res, 400, { error: 'content is required' });
+    }
+    
+    try {
+      db.drafts.save(content, conversation_id, project_id ? parseInt(project_id) : null);
+      sendJSON(res, 200, { success: true });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+  
+  'DELETE /api/drafts': async (req, res) => {
+    const body = await parseBody(req);
+    const { conversation_id, project_id } = body;
+    
+    try {
+      db.drafts.clear(conversation_id, project_id ? parseInt(project_id) : null);
+      sendJSON(res, 200, { success: true });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+  
+  // Storage info
+  'GET /api/storage/info': async (req, res) => {
+    try {
+      const result = db.attachments.getTotalSize.get();
+      sendJSON(res, 200, { totalSize: result?.total || 0 });
+    } catch (err) {
+      sendJSON(res, 200, { totalSize: 0 });
+    }
+  },
+  
+  // Assign conversation to project
+  'POST /api/conversations/:id/assign': async (req, res, params) => {
+    const body = await parseBody(req);
+    const { project_id } = body;
+    
+    if (!project_id) {
+      return sendJSON(res, 400, { error: 'project_id is required' });
+    }
+    
+    try {
+      db.conversations.assignToProject.run(project_id, params.id);
+      sendJSON(res, 200, { success: true });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+  
+  // Project roadmap
+  'GET /api/projects/:id/roadmap': async (req, res, params) => {
+    try {
+      const project = db.projects.findById.get(parseInt(params.id));
+      
+      if (!project) {
+        return sendJSON(res, 404, { error: 'Project not found' });
+      }
+      
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      
+      // Try to read roadmap/main.md
+      const roadmapPath = path.join(project.path, 'roadmap', 'main.md');
+      
+      try {
+        const roadmap = await fs.readFile(roadmapPath, 'utf-8');
+        sendJSON(res, 200, { roadmap });
+      } catch {
+        // No roadmap yet
+        sendJSON(res, 200, { roadmap: null });
+      }
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+  
+  // Attachments upload
+  'POST /api/attachments': async (req, res) => {
+    try {
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      const crypto = await import('crypto');
+      
+      // Parse multipart form data
+      const boundary = req.headers['content-type']?.split('boundary=')[1];
+      
+      if (!boundary) {
+        return sendJSON(res, 400, { error: 'Invalid content type' });
+      }
+      
+      const chunks = [];
+      for await (const chunk of req) {
+        chunks.push(chunk);
+      }
+      const buffer = Buffer.concat(chunks);
+      
+      // Simple multipart parser
+      const parts = buffer.toString('binary').split('--' + boundary);
+      let fileData = null;
+      let filename = '';
+      let mimeType = '';
+      let conversationId = '';
+      let projectId = '';
+      
+      for (const part of parts) {
+        if (part.includes('filename="')) {
+          const filenameMatch = part.match(/filename="([^"]+)"/);
+          const contentTypeMatch = part.match(/Content-Type: ([^\r\n]+)/);
+          
+          if (filenameMatch) {
+            filename = filenameMatch[1];
+            mimeType = contentTypeMatch ? contentTypeMatch[1] : 'application/octet-stream';
+            
+            // Extract file data (after double CRLF)
+            const dataStart = part.indexOf('\r\n\r\n') + 4;
+            const dataEnd = part.lastIndexOf('\r\n');
+            fileData = Buffer.from(part.substring(dataStart, dataEnd), 'binary');
+          }
+        } else if (part.includes('name="conversation_id"')) {
+          const dataStart = part.indexOf('\r\n\r\n') + 4;
+          conversationId = part.substring(dataStart).trim().replace(/\r\n--$/, '');
+        } else if (part.includes('name="project_id"')) {
+          const dataStart = part.indexOf('\r\n\r\n') + 4;
+          projectId = part.substring(dataStart).trim().replace(/\r\n--$/, '');
+        }
+      }
+      
+      if (!fileData || !filename) {
+        return sendJSON(res, 400, { error: 'No file uploaded' });
+      }
+      
+      // Generate hash
+      const hash = crypto.createHash('sha256').update(fileData).digest('hex').substring(0, 16);
+      const ext = path.extname(filename);
+      const storedFilename = `${hash}${ext}`;
+      
+      // Determine storage path
+      let attachmentsDir;
+      if (projectId) {
+        const project = db.projects.findById.get(parseInt(projectId));
+        if (project) {
+          attachmentsDir = path.join(project.path, 'attachments');
+        }
+      }
+      
+      if (!attachmentsDir && conversationId) {
+        attachmentsDir = path.join(process.cwd(), 'chats', conversationId, 'attachments');
+      }
+      
+      if (!attachmentsDir) {
+        attachmentsDir = path.join(process.cwd(), 'data', 'attachments');
+      }
+      
+      await fs.mkdir(attachmentsDir, { recursive: true });
+      
+      const filePath = path.join(attachmentsDir, storedFilename);
+      await fs.writeFile(filePath, fileData);
+      
+      // Save to DB
+      const id = db.attachments.create(
+        conversationId || null,
+        projectId ? parseInt(projectId) : null,
+        storedFilename,
+        filename,
+        mimeType,
+        fileData.length,
+        hash,
+        filePath
+      );
+      
+      // Check total storage
+      const totalSize = db.attachments.getTotalSize.get();
+      const totalMB = (totalSize?.total || 0) / (1024 * 1024);
+      
+      sendJSON(res, 201, { 
+        id, 
+        filename: storedFilename,
+        originalName: filename,
+        size: fileData.length,
+        totalStorageMB: totalMB.toFixed(1),
+        warning: totalMB > 80 ? 'Storage approaching 100MB limit' : null
+      });
+      
+    } catch (err) {
+      logger.error('Server', `Attachment upload error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+  
+  // Get attachment
+  'GET /api/attachments/:id': async (req, res, params) => {
+    try {
+      const fs = await import('fs/promises');
+      
+      const attachment = db.attachments.findById.get(parseInt(params.id));
+      
+      if (!attachment) {
+        return sendJSON(res, 404, { error: 'Attachment not found' });
+      }
+      
+      const data = await fs.readFile(attachment.path);
+      
+      res.writeHead(200, {
+        'Content-Type': attachment.mime_type,
+        'Content-Disposition': `inline; filename="${attachment.original_name}"`,
+        'Content-Length': data.length,
+      });
+      res.end(data);
+      
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
   },
 };
 

@@ -24,6 +24,7 @@ export { HistoryManager } from './history.js';
 // LLM modules - separate responsibilities
 export { ArchitectLLM } from './llm.js';
 export { CoderLLM } from './coder.js';
+export { EditorLLM } from './editor.js';
 export { ReviewerLLM, Verdict, Severity } from './reviewer.js';
 
 export { PROMPTS } from './prompts.js';

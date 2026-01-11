@@ -1,6 +1,6 @@
 {
   "name": "c3-agent",
-  "version": "30.0.0",
+  "version": "31.0.0",
   "description": "C.3 - Local AI Copilot with Hybrid Q&A Workflow",
   "type": "module",
   "main": "src/server.js",
@@ -9,6 +9,7 @@
     "dev": "node --watch src/server.js",
     "test": "node test/run-tests.js",
     "test:quick": "node test/quick-test.js",
+    "test:architect": "node test/test-architect.js",
     "db:init": "node src/db/init.js",
     "db:reset": "rm -f data/c3.db && node src/db/init.js"
   },

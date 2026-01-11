@@ -20,6 +20,7 @@ import { ActionExecutor } from './actions.js';
 import { GitManager } from './git.js';
 import { ArchitectLLM } from './llm.js';
 import { CoderLLM } from './coder.js';
+import { EditorLLM } from './editor.js';
 import { ReviewerLLM, Verdict } from './reviewer.js';
 
 /**
@@ -28,6 +29,7 @@ import { ReviewerLLM, Verdict } from './reviewer.js';
 const Intent = {
   CONTINUE_DEFINING: 'continue_defining',
   APPROVE_TO_CODE: 'approve_to_code',
+  EDIT_FILE: 'edit_file',  // NEW: Edit existing files
   SWITCH_BLOCK: 'switch_block',
   QUERY_STATUS: 'query_status',
   NEW_INPUT: 'new_input',
@@ -48,6 +50,12 @@ const INTENT_PATTERNS = {
     /^(ok|ano|yes|jo|jasn[eě]|ud[eě]lej|go|do it|jdi do k[oó]du|m[uů][zž]e[sš]|generuj|implementuj)/i,
     /^(potvrz|schvaluj|start|za[čc]ni|coding|kód)/i,
     /^(ano,?\s*(jdi|generuj|udělej))/i,
+  ],
+  [Intent.EDIT_FILE]: [
+    /^(uprav|edit|modifikuj|zm[eě][nň]).*(soubor|file)/i,
+    /^(oprav|fix|patch).*(soubor|file|kód|code)/i,
+    /^(p[řr]idej|append|prepend).*(do|to).*(soubor|file)/i,
+    /^(refaktor|refactor)/i,
   ],
   [Intent.QUERY_STATUS]: [
     /^(stav|status|kde jsm|progress|jak.*(dal|eko)|co (zbývá|chybí|je hotov))/i,
@@ -111,6 +119,7 @@ export class ConversationOrchestrator {
     // LLM modules - separate responsibilities
     this.architect = new ArchitectLLM();  // ADVISOR - radí, nikdy nerozhoduje
     this.coder = new CoderLLM();          // Izolovaný generátor kódu
+    this.editor = new EditorLLM(projectRoot); // Izolovaný editor kódu
     this.reviewer = new ReviewerLLM();     // Izolovaný reviewer
     
     this.initialized = false;
@@ -260,6 +269,9 @@ export class ConversationOrchestrator {
     switch (intent) {
       case Intent.APPROVE_TO_CODE:
         return await this.handleApproveToCode();
+      
+      case Intent.EDIT_FILE:
+        return await this.handleEditFile(message);
       
       case Intent.QUERY_STATUS:
         return await this.handleQueryStatus();
@@ -417,6 +429,170 @@ export class ConversationOrchestrator {
       
       return {
         response: `❌ Chyba při generování: ${err.message}\n\nChceš to zkusit znovu nebo upravit definici?`,
+        action: null,
+        error: err.message,
+      };
+    }
+  }
+
+  /**
+   * Handle: Edit existing files
+   * Higher risk than CODER - modifies existing code
+   * 
+   * Flow:
+   * 1. Parse file paths from message
+   * 2. Check edit gate
+   * 3. Create WIP safepoint
+   * 4. EditorLLM generates modifications
+   * 5. Preview changes (dry run)
+   * 6. Apply modifications
+   * 7. ReviewerLLM reviews changes
+   * 8. Update confidence based on review
+   */
+  async handleEditFile(message) {
+    const currentPath = this.state.state.current?.path;
+    
+    // 1. Check basic gate - need current block
+    if (!currentPath) {
+      return {
+        response: '❌ Nejdříve vyber blok, který chceš editovat.',
+        action: null,
+      };
+    }
+
+    // 2. Extract file paths from message or ask
+    const filePathMatch = message.match(/(?:soubor|file|upravit?|edit)\s+[`"']?([^\s`"']+)[`"']?/i);
+    
+    if (!filePathMatch) {
+      // Ask for specific files
+      return {
+        response: '📝 Které soubory chceš upravit?\n\nNapiš např.: `uprav soubor src/api/auth.js`\n\nNebo mi řekni co chceš změnit a já najdu relevantní soubory.',
+        action: { type: 'QUERY' },
+      };
+    }
+
+    const targetFiles = [filePathMatch[1]];
+    
+    // 3. Extract instructions (rest of message)
+    const instructions = message
+      .replace(filePathMatch[0], '')
+      .replace(/^[\s,.-]+|[\s,.-]+$/g, '')
+      .trim() || 'Uprav podle aktuální definice bloku';
+
+    logger.info('Orchestrator', 'Edit request', { targetFiles, instructions: instructions.substring(0, 50) });
+
+    try {
+      // 4. Create WIP safepoint BEFORE any changes
+      await this.actions.createSafepoint(currentPath);
+      
+      // HARDENING: Assert WIP safepoint exists
+      if (!this.git.hasWIPSafepoint()) {
+        logger.error('Orchestrator', 'EDIT WIP GUARD FAILED - no safepoint');
+        return {
+          response: '❌ Bezpečnostní chyba: nelze vytvořit zálohu. Operace zrušena.',
+          error: 'WIP_GUARD_FAILED',
+        };
+      }
+
+      await this.state.setMode('editor');
+      logger.info('Orchestrator', 'Invoking EditorLLM', { 
+        files: targetFiles, 
+        wipCommit: this.git.getWIPCommit() 
+      });
+
+      // 5. Load definition for context
+      const definition = await this.roadmap.loadDefinition(currentPath);
+      const fullInstructions = `## Kontext bloku\n\n${definition}\n\n## Instrukce\n\n${instructions}`;
+
+      // 6. Generate modifications
+      const { modifications, summary, risks, duration, backupSize } = 
+        await this.editor.generateModifications(fullInstructions, targetFiles);
+
+      // 7. Validate modifications (dry run)
+      const validation = await this.editor.validateModifications(modifications);
+      
+      if (!validation.valid) {
+        const errors = validation.results.filter(r => !r.valid);
+        await this.state.setMode('architect');
+        
+        return {
+          response: `⚠️ Některé modifikace nelze aplikovat:\n${errors.map(e => `- ${e.path}: ${e.error}`).join('\n')}\n\nUpřesni instrukce nebo zvol jiné soubory.`,
+          action: null,
+        };
+      }
+
+      // 8. Preview changes
+      const previews = await this.editor.previewChanges(modifications);
+      
+      let previewText = `📝 **Náhled změn** (${modifications.length} modifikací):\n\n`;
+      for (const p of previews) {
+        if (p.error) {
+          previewText += `- ❌ \`${p.path}\`: ${p.error}\n`;
+        } else {
+          previewText += `- \`${p.path}\` [${p.type}]: ${p.lineDiff > 0 ? '+' : ''}${p.lineDiff} řádků\n`;
+        }
+      }
+
+      if (risks.length > 0) {
+        previewText += `\n⚠️ **Rizika:**\n${risks.map(r => `- ${r}`).join('\n')}`;
+      }
+
+      // 9. Apply modifications
+      const editResult = await this.actions.editor(modifications);
+      
+      if (!editResult.success) {
+        // Rollback on failure
+        await this.editor.restoreBackup();
+        await this.state.setMode('architect');
+        
+        return {
+          response: `❌ Chyba při aplikaci změn:\n${editResult.errors.map(e => `- ${e.path}: ${e.error}`).join('\n')}\n\nZměny byly vráceny zpět.`,
+          action: null,
+        };
+      }
+
+      // 10. Review changes
+      const filesContent = await this.editor.loadFiles(targetFiles);
+      const review = await this.reviewer.review(definition, filesContent);
+
+      // 11. Apply confidence impact (Orchestrator decides, not LLM)
+      const newConfidence = Math.max(0, Math.min(1, 
+        this.state.state.definitionConfidence + review.confidenceImpact
+      ));
+      await this.state.setConfidence(newConfidence);
+
+      // 12. Clear WIP marker on success
+      this.git.clearWIPMarker();
+
+      // 13. Build response
+      let response = `✅ **Editace dokončena** (${duration.toFixed(1)}s)\n\n`;
+      response += previewText;
+      response += `\n\n📊 Review: ${review.verdict} (${review.score}/100)\n`;
+      response += `Confidence: ${(newConfidence * 100).toFixed(0)}%`;
+
+      if (review.verdict === Verdict.FAIL) {
+        response += `\n\n❌ Review selhalo. Chceš vrátit změny? (rollback)`;
+      } else if (review.verdict === Verdict.WARN) {
+        response += `\n\n⚠️ ${review.issues.slice(0, 2).map(i => i.issue).join(', ')}`;
+      }
+
+      await this.state.setMode('architect');
+
+      return {
+        response,
+        action: { type: 'EDITOR', files: targetFiles, modifications: editResult.modified },
+        review,
+        summary,
+      };
+
+    } catch (err) {
+      // Restore backup on any error
+      await this.editor.restoreBackup();
+      await this.state.setMode('architect');
+      logger.error('Orchestrator', `Edit failed: ${err.message}`);
+      
+      return {
+        response: `❌ Chyba při editaci: ${err.message}\n\nZměny byly vráceny zpět.`,
         action: null,
         error: err.message,
       };
