@@ -1,6 +1,6 @@
 {
-  "name": "c3-agent",
-  "version": "31.0.0",
+  "name": "p-ai-assistant",
+  "version": "33.3.2",
   "description": "C.3 - Local AI Copilot with Hybrid Q&A Workflow",
   "type": "module",
   "main": "src/server.js",
@@ -14,7 +14,8 @@
     "db:reset": "rm -f data/c3.db && node src/db/init.js"
   },
   "dependencies": {
-    "better-sqlite3": "^11.0.0"
+    "better-sqlite3": "^11.0.0",
+    "cheerio": "^1.0.0"
   },
   "devDependencies": {},
   "engines": {

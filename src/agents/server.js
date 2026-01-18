@@ -150,7 +150,7 @@ const routes = {
   'GET /': (req, res) => {
     sendJSON(res, 200, {
       name: 'p(AI)assistant',
-      version: '33.3.2',
+      version: '33.2.3',
       status: 'ok',
       endpoints: [
         'POST /workflow - Start or continue workflow',
@@ -554,28 +554,6 @@ const routes = {
     } catch (err) {
       sendJSON(res, 500, { error: err.message });
     }
-  },
-  
-  // Source Inspection API
-  'POST /api/sources/inspect': async (req, res) => {
-    const body = await parseBody(req);
-    const mockReq = { body };
-    const mockRes = createMockResponse(res);
-    await agentRoutes.inspectSourceUrl(mockReq, mockRes);
-  },
-  
-  'POST /api/sources/validate-field': async (req, res) => {
-    const body = await parseBody(req);
-    const mockReq = { body };
-    const mockRes = createMockResponse(res);
-    await agentRoutes.validateField(mockReq, mockRes);
-  },
-  
-  'POST /api/sources/validate-condition': async (req, res) => {
-    const body = await parseBody(req);
-    const mockReq = { body };
-    const mockRes = createMockResponse(res);
-    await agentRoutes.validateCondition(mockReq, mockRes);
   },
   
   // Memory API
@@ -1400,7 +1378,7 @@ function getUIHTML() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>p(AI)assistant v33.3.2</title>
+  <title>p(AI)assistant v33.2.3</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
@@ -1670,7 +1648,7 @@ function getUIHTML() {
 </head>
 <body>
   <header>
-    <div class="logo">⚡ p(AI)assistant <small style="color:#888">v33.3.2</small></div>
+    <div class="logo">⚡ p(AI)assistant <small style="color:#888">v33.2.3</small></div>
     <div class="status">
       <div class="status-dot"></div>
       <span id="statusText">Ready</span>
@@ -1681,7 +1659,7 @@ function getUIHTML() {
     <div class="chat-container">
       <div class="messages" id="messages">
         <div class="message system">
-          Vítej v p(AI)assistant v33.3.2! Zadej požadavek a já ho implementuji.
+          Vítej v p(AI)assistant v33.2.3! Zadej požadavek a já ho implementuji.
         </div>
       </div>
       
@@ -1868,7 +1846,7 @@ server.listen(config.server.port, config.server.host, () => {
   console.log(`
 ╔══════════════════════════════════════════════════════════════╗
 ║                                                              ║
-║     ⚡  p(AI)assistant v33.3.2                               ║
+║     ⚡  p(AI)assistant v33.2.3                               ║
 ║                                                              ║
 ║     Chat:      http://${config.server.host}:${config.server.port}/architect             ║
 ║     Agents:    http://${config.server.host}:${config.server.port}/agents                ║

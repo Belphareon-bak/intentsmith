@@ -50,7 +50,7 @@ export const config = {
     CODER: 90000,       // 90s (was 180s)
     FIXER: 90000,       // 90s (was 120s)
     ADVERSARIAL: 120000, // 120s (unchanged)
-    CHAT: 30000,        // 30s
+    CHAT: 60000,        // 60s (increased from 30s)
     VISION: 60000,      // 60s for image analysis
   },
 

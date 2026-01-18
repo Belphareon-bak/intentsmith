@@ -1,0 +1,3065 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>p(AI)assistant - Agents</title>
+  <style>
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #12121a;
+      --bg-tertiary: #1a1a25;
+      --bg-hover: #22222f;
+      --border: #2a2a3a;
+      --text-primary: #e8e8f0;
+      --text-secondary: #888898;
+      --text-muted: #555565;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --info: #3b82f6;
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+    
+    /* ═══════════════════════════════════════════════════════════════════════
+       LAYOUT
+       ═══════════════════════════════════════════════════════════════════════ */
+    
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    
+    .back-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+    
+    .breadcrumb a {
+      color: var(--text-secondary);
+      text-decoration: none;
+    }
+    
+    .breadcrumb a:hover {
+      color: var(--accent);
+    }
+    
+    .breadcrumb .current {
+      color: var(--text-primary);
+    }
+    
+    .header-title {
+      font-size: 20px;
+      font-weight: 600;
+    }
+    
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+    
+    /* ═══════════════════════════════════════════════════════════════════════
+       AGENT LIST VIEW
+       ═══════════════════════════════════════════════════════════════════════ */
+    
+    .list-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    
+    .list-title {
+      font-size: 28px;
+      font-weight: 700;
+    }
+    
+    .list-subtitle {
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+    
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }
+    
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+    
+    .btn-secondary {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+    
+    .btn-secondary:hover {
+      background: var(--bg-hover);
+    }
+    
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+    }
+    
+    .btn-ghost:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    
+    /* Summary Cards */
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    
+    .summary-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    
+    .summary-card-value {
+      font-size: 32px;
+      font-weight: 700;
+    }
+    
+    .summary-card-label {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin-top: 4px;
+    }
+    
+    /* Agent Cards */
+    .agent-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 16px;
+    }
+    
+    .agent-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .agent-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+    
+    .agent-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    
+    .agent-icon {
+      font-size: 32px;
+      line-height: 1;
+    }
+    
+    .agent-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    
+    .status-active { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+    .status-paused { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+    .status-broken { background: rgba(239, 68, 68, 0.15); color: var(--error); }
+    .status-degraded { background: rgba(251, 191, 36, 0.15); color: #f59e0b; }
+    .status-broken .status-dot { background: var(--error); animation: pulse 1s infinite; }
+    .status-degraded .status-dot { background: #f59e0b; }
+    
+    .schema-error-badge {
+      cursor: help;
+      font-size: 14px;
+    }
+    .status-error { background: rgba(239, 68, 68, 0.15); color: var(--error); }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    
+    .status-active .status-dot { background: var(--success); }
+    .status-paused .status-dot { background: var(--warning); }
+    .status-error .status-dot { background: var(--error); }
+    
+    .agent-name {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    
+    .agent-pattern {
+      display: inline-block;
+      padding: 2px 8px;
+      background: var(--bg-tertiary);
+      border-radius: 4px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .agent-description {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin: 12px 0;
+      line-height: 1.5;
+    }
+    
+    .agent-meta {
+      display: flex;
+      gap: 16px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    
+    .agent-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .agent-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    
+    .agent-actions .btn {
+      flex: 1;
+      justify-content: center;
+      padding: 8px;
+    }
+    
+    /* ═══════════════════════════════════════════════════════════════════════
+       CREATE AGENT - STEPPER
+       ═══════════════════════════════════════════════════════════════════════ */
+    
+    .stepper-container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    .stepper-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 40px;
+      position: relative;
+    }
+    
+    .stepper-header::before {
+      content: '';
+      position: absolute;
+      top: 20px;
+      left: 40px;
+      right: 40px;
+      height: 2px;
+      background: var(--border);
+    }
+    
+    .stepper-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .stepper-number {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--bg-secondary);
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    
+    .stepper-step.active .stepper-number {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    
+    .stepper-step.completed .stepper-number {
+      background: var(--success);
+      border-color: var(--success);
+    }
+    
+    .stepper-label {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    
+    .stepper-step.active .stepper-label {
+      color: var(--text-primary);
+    }
+    
+    .step-content {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+    }
+    
+    .step-title {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    
+    .step-subtitle {
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+    
+    /* Form Elements */
+    .form-group {
+      margin-bottom: 24px;
+    }
+    
+    .form-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+    
+    .form-label .required {
+      color: var(--error);
+    }
+    
+    .form-hint {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: 12px 16px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 15px;
+      transition: all 0.2s;
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    }
+    
+    .form-input::placeholder {
+      color: var(--text-muted);
+    }
+    
+    textarea.form-input {
+      min-height: 120px;
+      resize: vertical;
+    }
+    
+    .form-input.error {
+      border-color: var(--error);
+    }
+    
+    .form-error {
+      color: var(--error);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    
+    /* Pattern Selection */
+    .pattern-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+    }
+    
+    .pattern-option {
+      padding: 16px;
+      background: var(--bg-tertiary);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    
+    .pattern-option:hover {
+      border-color: var(--accent);
+    }
+    
+    .pattern-option.selected {
+      border-color: var(--accent);
+      background: rgba(99, 102, 241, 0.1);
+    }
+    
+    .pattern-option-icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+    
+    .pattern-option-name {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    
+    .pattern-option-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    
+    /* Icon Picker */
+    .icon-picker {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    
+    .icon-option {
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      background: var(--bg-tertiary);
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .icon-option:hover {
+      border-color: var(--accent);
+    }
+    
+    .icon-option.selected {
+      border-color: var(--accent);
+      background: rgba(99, 102, 241, 0.1);
+    }
+    
+    .custom-icon {
+      position: relative;
+    }
+    
+    .custom-icon-input {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: transparent;
+      text-align: center;
+      font-size: 20px;
+      color: var(--text-primary);
+      outline: none;
+    }
+    
+    .custom-icon-input::placeholder {
+      color: var(--text-muted);
+    }
+    
+    /* Step Navigation */
+    .step-nav {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+    
+    /* ═══════════════════════════════════════════════════════════════════════
+       BUILDER PREVIEW (Step 2)
+       ═══════════════════════════════════════════════════════════════════════ */
+    
+    .builder-preview {
+      background: var(--bg-tertiary);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    
+    .builder-section {
+      margin-bottom: 20px;
+    }
+    
+    .builder-section:last-child {
+      margin-bottom: 0;
+    }
+    
+    .builder-section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+    
+    .builder-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+    
+    .builder-item-icon {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-tertiary);
+      border-radius: 6px;
+      font-size: 16px;
+    }
+    
+    .builder-item-content {
+      flex: 1;
+    }
+    
+    .builder-item-title {
+      font-weight: 500;
+    }
+    
+    .builder-item-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    
+    .builder-item-actions {
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    
+    .builder-item:hover .builder-item-actions {
+      opacity: 1;
+    }
+    
+    .builder-item-btn {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    .builder-item-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    
+    .builder-item-btn.delete:hover {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--error);
+    }
+    
+    .builder-section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    
+    .builder-add-btn {
+      padding: 4px 12px;
+      font-size: 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+    
+    .builder-add-btn:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+    
+    /* Edit Modal */
+    .edit-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    
+    .edit-modal-content {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    
+    .edit-modal-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    
+    .edit-modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 20px;
+    }
+    
+    .builder-explanation {
+      padding: 16px;
+      background: rgba(99, 102, 241, 0.1);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+      margin-top: 16px;
+    }
+    
+    .builder-explanation-title {
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    
+    /* ═══════════════════════════════════════════════════════════════════════
+       AGENT DETAIL VIEW
+       ═══════════════════════════════════════════════════════════════════════ */
+    
+    .detail-header {
+      display: flex;
+      gap: 24px;
+      padding: 24px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      margin-bottom: 24px;
+    }
+    
+    .detail-icon {
+      font-size: 64px;
+    }
+    
+    .detail-info {
+      flex: 1;
+    }
+    
+    .detail-name {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    
+    .detail-description {
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+    
+    .detail-badges {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    
+    .detail-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    /* Health Panel */
+    .health-panel {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      padding: 20px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 24px;
+    }
+    
+    .health-item {
+      text-align: center;
+    }
+    
+    .health-value {
+      font-size: 24px;
+      font-weight: 700;
+    }
+    
+    .health-value.success { color: var(--success); }
+    .health-value.warning { color: var(--warning); }
+    .health-value.error { color: var(--error); }
+    
+    .health-label {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--bg-secondary);
+      padding: 4px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+    }
+    
+    .tab {
+      flex: 1;
+      padding: 12px;
+      background: transparent;
+      border: none;
+      border-radius: 8px;
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .tab:hover {
+      color: var(--text-primary);
+    }
+    
+    .tab.active {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    /* ═══════════════════════════════════════════════════════════════════════
+       LOGS VIEW
+       ═══════════════════════════════════════════════════════════════════════ */
+    
+    .logs-filters {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    
+    .filter-btn {
+      padding: 6px 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .filter-btn:hover,
+    .filter-btn.active {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    
+    .log-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .log-entry {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    
+    .log-entry.latest {
+      border-color: var(--accent);
+    }
+    
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      background: var(--bg-tertiary);
+      cursor: pointer;
+    }
+    
+    .log-header:hover {
+      background: var(--bg-hover);
+    }
+    
+    .log-time {
+      font-weight: 600;
+    }
+    
+    .log-result {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .log-badge {
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    
+    .log-badge.success { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+    .log-badge.error { background: rgba(239, 68, 68, 0.15); color: var(--error); }
+    .log-badge.triggered { background: rgba(99, 102, 241, 0.15); color: var(--accent); }
+    
+    .log-body {
+      padding: 16px;
+      display: none;
+    }
+    
+    .log-entry.expanded .log-body {
+      display: block;
+    }
+    
+    .log-section {
+      margin-bottom: 16px;
+    }
+    
+    .log-section:last-child {
+      margin-bottom: 0;
+    }
+    
+    .log-section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+    
+    .log-detail {
+      display: flex;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--bg-tertiary);
+      border-radius: 6px;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+    
+    .log-detail-label {
+      color: var(--text-muted);
+      min-width: 100px;
+    }
+    
+    .log-detail-value {
+      flex: 1;
+    }
+    
+    .log-detail-value.success { color: var(--success); }
+    .log-detail-value.error { color: var(--error); }
+    
+    /* ═══════════════════════════════════════════════════════════════════════
+       NOTIFICATIONS SETTINGS (Step 3)
+       ═══════════════════════════════════════════════════════════════════════ */
+    
+    .notification-channels {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .channel-option {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    
+    .channel-checkbox {
+      width: 24px;
+      height: 24px;
+      accent-color: var(--accent);
+    }
+    
+    .channel-icon {
+      font-size: 24px;
+    }
+    
+    .channel-info {
+      flex: 1;
+    }
+    
+    .channel-name {
+      font-weight: 500;
+    }
+    
+    .channel-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    
+    .channel-config {
+      display: none;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    
+    .channel-option.enabled .channel-config {
+      display: block;
+    }
+    
+    /* ═══════════════════════════════════════════════════════════════════════
+       REVIEW (Step 4)
+       ═══════════════════════════════════════════════════════════════════════ */
+    
+    .review-section {
+      padding: 20px;
+      background: var(--bg-tertiary);
+      border-radius: 12px;
+      margin-bottom: 16px;
+    }
+    
+    .review-section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+    }
+    
+    .review-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .review-item:last-child {
+      border-bottom: none;
+    }
+    
+    .review-label {
+      color: var(--text-muted);
+    }
+    
+    .review-value {
+      font-weight: 500;
+    }
+    
+    .review-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    
+    .review-actions .btn {
+      flex: 1;
+      justify-content: center;
+      padding: 16px;
+      font-size: 16px;
+    }
+    
+    /* ═══════════════════════════════════════════════════════════════════════
+       EMPTY STATE
+       ═══════════════════════════════════════════════════════════════════════ */
+    
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+    }
+    
+    .empty-state-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+    }
+    
+    .empty-state-title {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    
+    .empty-state-desc {
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+    
+    /* ═══════════════════════════════════════════════════════════════════════
+       LOADING
+       ═══════════════════════════════════════════════════════════════════════ */
+    
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 40px;
+      color: var(--text-secondary);
+    }
+    
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    /* ═══════════════════════════════════════════════════════════════════════
+       RESPONSIVE
+       ═══════════════════════════════════════════════════════════════════════ */
+    
+    @media (max-width: 768px) {
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+      
+      .health-panel {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      
+      .agent-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    /* Source Inspection */
+    .inspection-result {
+      margin-top: 12px;
+      padding: 12px;
+      background: var(--bg-tertiary);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .inspection-result.hidden { display: none; }
+    .inspection-result.loading { 
+      opacity: 0.7;
+      pointer-events: none;
+    }
+    .inspection-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .inspection-status {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 13px;
+    }
+    .inspection-status.ok { color: var(--success); }
+    .inspection-status.error { color: var(--error); }
+    .inspection-fields {
+      margin-top: 8px;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    .inspection-field {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 8px;
+      font-size: 12px;
+      font-family: monospace;
+    }
+    .inspection-field:hover {
+      background: var(--bg-secondary);
+      border-radius: 4px;
+    }
+    .inspection-field .path { color: var(--text); }
+    .inspection-field .type { 
+      color: var(--text-muted); 
+      font-size: 11px;
+      background: var(--bg-secondary);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .inspection-field .sample { 
+      color: var(--text-muted); 
+      font-size: 11px;
+      margin-left: auto;
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    /* Field validation */
+    .validation-icon {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+    .validation-icon.valid::after { content: '✅'; }
+    .validation-icon.invalid::after { content: '❌'; }
+    .validation-icon.unknown::after { content: '❓'; }
+    .validation-icon.loading::after { content: '⏳'; }
+    
+    /* Available fields chips */
+    .available-fields {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .field-chip {
+      padding: 4px 8px;
+      font-size: 11px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--bg-tertiary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .field-chip:hover {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    .field-chip.number { border-color: #4ade80; }
+    .field-chip.string { border-color: #60a5fa; }
+    .field-chip.array { border-color: #f472b6; }
+    
+    .field-hint {
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: normal;
+    }
+    
+    /* Schema confidence */
+    .schema-confidence {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-left: auto;
+    }
+    .schema-confidence.high { background: rgba(74, 222, 128, 0.2); color: #4ade80; }
+    .schema-confidence.medium { background: rgba(251, 191, 36, 0.2); color: #fbbf24; }
+    .schema-confidence.low { background: rgba(248, 113, 113, 0.2); color: #f87171; }
+    
+    /* Confidence bar */
+    .confidence-bar {
+      height: 4px;
+      border-radius: 2px;
+      margin-left: 8px;
+    }
+    .has-fallback {
+      font-size: 10px;
+      margin-left: 4px;
+    }
+    
+    /* Form hints */
+    .form-hint {
+      display: block;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    
+    /* Quantifier group */
+    #condition-quantifier-group {
+      border-left: 3px solid var(--border);
+      padding-left: 12px;
+      margin-left: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <!-- Content will be rendered by JS -->
+  </div>
+
+  <script>
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const state = {
+      view: 'list', // list, create, detail
+      createStep: 1,
+      agents: [],
+      selectedAgent: null,
+      notifications: [],
+      editModal: null, // { type: 'source'|'condition'|'trigger'|'action', index: number }
+      sourceInspection: null, // Result from /api/sources/inspect
+      
+      // Create form
+      createForm: {
+        name: '',
+        icon: '⚡',
+        pattern: '',
+        description: '',
+        definition: null,
+        draftId: null,
+        notifications: {
+          inApp: true,
+          email: false,
+          telegram: false,
+          webhook: false
+        },
+        schedule: '1h',
+        scheduleType: 'interval',
+        customCron: '',
+        cooldown: 300,
+        cooldownType: 'preset',
+        customCooldown: 60
+      }
+    };
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PATTERNS
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const PATTERNS = [
+      { id: 'hunter', name: 'Hunter', icon: '🎯', desc: 'Hledá nové položky' },
+      { id: 'monitor', name: 'Monitor', icon: '👁️', desc: 'Sleduje podmínku' },
+      { id: 'tracker', name: 'Tracker', icon: '📅', desc: 'Hlídá termíny' },
+      { id: 'digest', name: 'Digest', icon: '📰', desc: 'Pravidelné shrnutí' },
+      { id: 'scout', name: 'Scout', icon: '🔍', desc: 'Průzkum novinek' },
+      { id: 'custom', name: 'Custom', icon: '⚙️', desc: 'Vlastní definice' }
+    ];
+    
+    const ICONS = ['⚡', '🎯', '👁️', '📅', '📰', '🔍', '🏠', '💰', '🛒', '🌡️', '📊', '🔔', '🚀', '💡', '🎮', '🛡️', '📈', '🌐', '⏰', '📦'];
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // API
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    const API = {
+      async listAgents(includeDisabled = true) {
+        const res = await fetch('/api/agents' + (includeDisabled ? '?all=true' : ''));
+        return res.json();
+      },
+      
+      async getAgent(id) {
+        const res = await fetch(`/api/agents/${id}`);
+        return res.json();
+      },
+      
+      async buildAgent(description) {
+        const res = await fetch('/api/agents/build', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description })
+        });
+        return res.json();
+      },
+      
+      async confirmDraft(definition, params, forceCreate = false) {
+        const res = await fetch('/api/agents/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ definition, params, forceCreate })
+        });
+        return res.json();
+      },
+      
+      async runAgent(id) {
+        const res = await fetch(`/api/agents/${id}/run`, { method: 'POST' });
+        return res.json();
+      },
+      
+      async toggleAgent(id, enabled) {
+        const endpoint = enabled ? 'enable' : 'disable';
+        const res = await fetch(`/api/agents/${id}/${endpoint}`, { method: 'POST' });
+        return res.json();
+      },
+      
+      async getNotifications() {
+        const res = await fetch('/api/notifications');
+        return res.json();
+      },
+      
+      async dryRun(definition) {
+        const res = await fetch('/api/agents/dry-run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ definition })
+        });
+        return res.json();
+      }
+    };
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // RENDER
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function render() {
+      const app = document.getElementById('app');
+      
+      switch (state.view) {
+        case 'list':
+          app.innerHTML = renderListView();
+          break;
+        case 'create':
+          app.innerHTML = renderCreateView();
+          break;
+        case 'detail':
+          app.innerHTML = renderDetailView();
+          break;
+      }
+      
+      attachEventListeners();
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LIST VIEW
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function renderListView() {
+      const activeCount = state.agents.filter(a => a.enabled).length;
+      const errorCount = state.agents.filter(a => a.lastRun?.status === 'error').length;
+      
+      return `
+        <header class="header">
+          <div class="header-left">
+            <button class="back-btn" onclick="goBack()">
+              ← Zpět
+            </button>
+            <h1 class="header-title">⚡ Agents</h1>
+          </div>
+        </header>
+        
+        <main class="main">
+          <div class="list-header">
+            <div>
+              <h2 class="list-title">Moji agenti</h2>
+              <p class="list-subtitle">Autonomní pomocníci, kteří pracují pro tebe</p>
+            </div>
+            <button class="btn btn-primary" onclick="startCreate()">
+              + Vytvořit agenta
+            </button>
+          </div>
+          
+          <div class="summary-cards">
+            <div class="summary-card">
+              <div class="summary-card-value">${state.agents.length}</div>
+              <div class="summary-card-label">Celkem agentů</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-card-value" style="color: var(--success)">${activeCount}</div>
+              <div class="summary-card-label">Aktivních</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-card-value" style="color: var(--error)">${errorCount}</div>
+              <div class="summary-card-label">S chybou</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-card-value">${state.notifications.length}</div>
+              <div class="summary-card-label">Notifikací</div>
+            </div>
+          </div>
+          
+          ${state.agents.length === 0 ? renderEmptyState() : renderAgentGrid()}
+        </main>
+      `;
+    }
+    
+    function renderEmptyState() {
+      return `
+        <div class="empty-state">
+          <div class="empty-state-icon">⚡</div>
+          <h3 class="empty-state-title">Zatím nemáš žádné agenty</h3>
+          <p class="empty-state-desc">Vytvoř svého prvního agenta a nech ho pracovat za tebe</p>
+          <button class="btn btn-primary" onclick="startCreate()">
+            + Vytvořit prvního agenta
+          </button>
+        </div>
+      `;
+    }
+    
+    function renderAgentGrid() {
+      return `
+        <div class="agent-grid">
+          ${state.agents.map(agent => renderAgentCard(agent)).join('')}
+        </div>
+      `;
+    }
+    
+    function renderAgentCard(agent) {
+      const schemaStatus = agent.state?.schemaStatus;
+      let statusClass, statusText;
+      
+      if (schemaStatus === 'broken') {
+        statusClass = 'broken';
+        statusText = 'Schema rozbité';
+      } else if (schemaStatus === 'degraded') {
+        statusClass = 'degraded';
+        statusText = 'Schema degradováno';
+      } else if (!agent.enabled) {
+        statusClass = 'paused';
+        statusText = 'Pozastaveno';
+      } else if (agent.lastRun?.status === 'error') {
+        statusClass = 'error';
+        statusText = 'Chyba';
+      } else {
+        statusClass = 'active';
+        statusText = 'Aktivní';
+      }
+      
+      return `
+        <div class="agent-card" onclick="showDetail('${agent.id}')">
+          <div class="agent-card-header">
+            <span class="agent-icon">${agent.icon || '⚡'}</span>
+            <div class="agent-status status-${statusClass}">
+              <span class="status-dot"></span>
+              ${statusText}
+            </div>
+          </div>
+          
+          <h3 class="agent-name">${agent.name}</h3>
+          <span class="agent-pattern">${agent.schedule?.type || 'Manual'}</span>
+          
+          <p class="agent-description">${agent.description || 'Bez popisu'}</p>
+          
+          <div class="agent-meta">
+            <span class="agent-meta-item">
+              🕐 ${agent.lastRun?.at ? formatTime(agent.lastRun.at) : 'Nespuštěn'}
+            </span>
+            <span class="agent-meta-item">
+              🔔 ${agent.lastRun?.triggers || 0} triggerů
+            </span>
+          </div>
+          
+          <div class="agent-actions" onclick="event.stopPropagation()">
+            <button class="btn btn-ghost" onclick="runAgent('${agent.id}')" title="Spustit">▶</button>
+            <button class="btn btn-ghost" onclick="toggleAgent('${agent.id}', ${!agent.enabled})" title="${agent.enabled ? 'Pozastavit' : 'Aktivovat'}">
+              ${agent.enabled ? '⏸' : '▶'}
+            </button>
+            <button class="btn btn-ghost" onclick="cloneAgent('${agent.id}')" title="Klonovat">📋</button>
+          </div>
+        </div>
+      `;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CREATE VIEW (STEPPER)
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function renderCreateView() {
+      const steps = [
+        { num: 1, label: 'Základ' },
+        { num: 2, label: 'Návrh' },
+        { num: 3, label: 'Nastavení' },
+        { num: 4, label: 'Kontrola' }
+      ];
+      
+      return `
+        <header class="header">
+          <div class="header-left">
+            <button class="back-btn" onclick="cancelCreate()">
+              ← Zpět
+            </button>
+            <nav class="breadcrumb">
+              <a href="#" onclick="goToList()">Agents</a>
+              <span>/</span>
+              <span class="current">Vytvořit agenta</span>
+            </nav>
+          </div>
+        </header>
+        
+        <main class="main">
+          <div class="stepper-container">
+            <div class="stepper-header">
+              ${steps.map(step => `
+                <div class="stepper-step ${step.num < state.createStep ? 'completed' : ''} ${step.num === state.createStep ? 'active' : ''}">
+                  <div class="stepper-number">${step.num < state.createStep ? '✓' : step.num}</div>
+                  <span class="stepper-label">${step.label}</span>
+                </div>
+              `).join('')}
+            </div>
+            
+            ${renderCreateStep()}
+          </div>
+        </main>
+      `;
+    }
+    
+    function renderCreateStep() {
+      switch (state.createStep) {
+        case 1: return renderStep1();
+        case 2: return renderStep2();
+        case 3: return renderStep3();
+        case 4: return renderStep4();
+      }
+    }
+    
+    function renderStep1() {
+      return `
+        <div class="step-content">
+          <h2 class="step-title">Základní informace</h2>
+          <p class="step-subtitle">Pojmenuj agenta a popiš co má dělat</p>
+          
+          <div class="form-group">
+            <label class="form-label">
+              Název agenta <span class="required">*</span>
+            </label>
+            <input type="text" class="form-input" id="agent-name" 
+              value="${state.createForm.name}"
+              placeholder="např. Hlídač počasí Praha"
+              oninput="updateFormText('name', this.value)">
+            <p class="form-hint">Unikátní název pro snadnou identifikaci</p>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Ikona</label>
+            <div class="icon-picker">
+              ${ICONS.map(icon => `
+                <div class="icon-option ${state.createForm.icon === icon ? 'selected' : ''}" 
+                     onclick="updateForm('icon', '${icon}')">${icon}</div>
+              `).join('')}
+              <div class="icon-option custom-icon ${!ICONS.includes(state.createForm.icon) && state.createForm.icon ? 'selected' : ''}"
+                   onclick="document.getElementById('custom-icon-input').focus()"
+                   title="Vlastní emoji nebo URL">
+                <input type="text" id="custom-icon-input" 
+                       class="custom-icon-input"
+                       placeholder="✨"
+                       value="${!ICONS.includes(state.createForm.icon) ? state.createForm.icon : ''}"
+                       oninput="updateForm('icon', this.value)"
+                       maxlength="50">
+              </div>
+            </div>
+            <p class="form-hint">Emoji nebo URL obrázku (PNG/SVG, max 64x64px)</p>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Pattern</label>
+            <div class="pattern-grid">
+              ${PATTERNS.map(p => `
+                <div class="pattern-option ${state.createForm.pattern === p.id ? 'selected' : ''}"
+                     onclick="updateForm('pattern', '${p.id}')">
+                  <div class="pattern-option-icon">${p.icon}</div>
+                  <div class="pattern-option-name">${p.name}</div>
+                  <div class="pattern-option-desc">${p.desc}</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">
+              Co má agent dělat? <span class="required">*</span>
+            </label>
+            <textarea class="form-input" id="agent-description" 
+              placeholder="Popiš přirozeným jazykem co chceš aby agent dělal...
+
+Příklady:
+• Hlídej kdy teplota v Praze klesne pod 0°C a upozorni mě 2 dny předem
+• Najdi nové pozemky v okolí Prahy do 3 milionů Kč
+• Každý den ráno mi pošli shrnutí novinek z AI světa"
+              oninput="updateFormText('description', this.value)">${state.createForm.description}</textarea>
+            <p class="form-hint">Čím přesněji popíšeš, tím lepší agent vznikne</p>
+          </div>
+          
+          <div class="step-nav">
+            <button class="btn btn-secondary" onclick="cancelCreate()">Zrušit</button>
+            <button class="btn btn-primary" onclick="nextStep()" 
+              ${!state.createForm.name || !state.createForm.description ? 'disabled' : ''}>
+              Pokračovat →
+            </button>
+          </div>
+        </div>
+      `;
+    }
+    
+    function renderStep2() {
+      if (!state.createForm.definition) {
+        return `
+          <div class="step-content">
+            <h2 class="step-title">Generuji návrh...</h2>
+            <p class="step-subtitle">Analyzuji tvůj popis a vytvářím definici agenta</p>
+            <div class="loading">
+              <div class="spinner"></div>
+              <span>Zpracovávám...</span>
+            </div>
+          </div>
+        `;
+      }
+      
+      const def = state.createForm.definition;
+      
+      return `
+        <div class="step-content">
+          <h2 class="step-title">Návrh agenta</h2>
+          <p class="step-subtitle">Zkontroluj a případně uprav vygenerovaný návrh</p>
+          
+          <div class="builder-preview">
+            <div class="builder-section">
+              <div class="builder-section-header">
+                <h4 class="builder-section-title">📡 Zdroje dat</h4>
+                <button class="builder-add-btn" onclick="openEditModal('source', -1)">+ Přidat</button>
+              </div>
+              ${(def.sources || []).map((s, i) => `
+                <div class="builder-item">
+                  <div class="builder-item-icon">🔗</div>
+                  <div class="builder-item-content">
+                    <div class="builder-item-title">${s.id}</div>
+                    <div class="builder-item-desc">${s.type}: ${s.config?.url || s.config?.table || '...'}</div>
+                  </div>
+                  <div class="builder-item-actions">
+                    <button class="builder-item-btn" onclick="cloneDefinitionItem('sources', ${i})" title="Klonovat">📋</button>
+                    <button class="builder-item-btn" onclick="openEditModal('source', ${i})" title="Upravit">✏️</button>
+                    <button class="builder-item-btn delete" onclick="deleteDefinitionItem('sources', ${i})" title="Smazat">🗑️</button>
+                  </div>
+                </div>
+              `).join('') || '<div class="section-item muted">Žádné zdroje</div>'}
+            </div>
+            
+            <div class="builder-section">
+              <div class="builder-section-header">
+                <h4 class="builder-section-title">🔍 Podmínky</h4>
+                <button class="builder-add-btn" onclick="openEditModal('condition', -1)">+ Přidat</button>
+              </div>
+              ${(def.conditions || []).map((c, i) => `
+                <div class="builder-item">
+                  <div class="builder-item-icon">⚙️</div>
+                  <div class="builder-item-content">
+                    <div class="builder-item-title">${c.id}</div>
+                    <div class="builder-item-desc">${c.type}: ${c.field} ${c.operator || ''} ${c.value || ''}</div>
+                  </div>
+                  <div class="builder-item-actions">
+                    <button class="builder-item-btn" onclick="cloneDefinitionItem('conditions', ${i})" title="Klonovat">📋</button>
+                    <button class="builder-item-btn" onclick="openEditModal('condition', ${i})" title="Upravit">✏️</button>
+                    <button class="builder-item-btn delete" onclick="deleteDefinitionItem('conditions', ${i})" title="Smazat">🗑️</button>
+                  </div>
+                </div>
+              `).join('') || '<div class="section-item muted">Žádné podmínky</div>'}
+            </div>
+            
+            <div class="builder-section">
+              <div class="builder-section-header">
+                <h4 class="builder-section-title">⚡ Triggery</h4>
+                <button class="builder-add-btn" onclick="openEditModal('trigger', -1)">+ Přidat</button>
+              </div>
+              ${(def.triggers || []).map((t, i) => `
+                <div class="builder-item">
+                  <div class="builder-item-icon">🔔</div>
+                  <div class="builder-item-content">
+                    <div class="builder-item-title">${t.id}</div>
+                    <div class="builder-item-desc">Cond: ${t.condition_id || t.condition || '?'}, Edge: ${t.edge}, Cooldown: ${t.cooldown || 0}s</div>
+                  </div>
+                  <div class="builder-item-actions">
+                    <button class="builder-item-btn" onclick="cloneDefinitionItem('triggers', ${i})" title="Klonovat">📋</button>
+                    <button class="builder-item-btn" onclick="openEditModal('trigger', ${i})" title="Upravit">✏️</button>
+                    <button class="builder-item-btn delete" onclick="deleteDefinitionItem('triggers', ${i})" title="Smazat">🗑️</button>
+                  </div>
+                </div>
+              `).join('') || '<div class="section-item muted">Žádné triggery</div>'}
+            </div>
+            
+            <div class="builder-section">
+              <div class="builder-section-header">
+                <h4 class="builder-section-title">🎬 Akce</h4>
+                <button class="builder-add-btn" onclick="openEditModal('action', -1)">+ Přidat</button>
+              </div>
+              ${(def.actions || []).map((a, i) => `
+                <div class="builder-item">
+                  <div class="builder-item-icon">${a.type === 'notify' ? '📢' : '💾'}</div>
+                  <div class="builder-item-content">
+                    <div class="builder-item-title">${a.type}</div>
+                    <div class="builder-item-desc">${a.config?.title || a.config?.key || '...'}</div>
+                  </div>
+                  <div class="builder-item-actions">
+                    <button class="builder-item-btn" onclick="openEditModal('action', ${i})" title="Upravit">✏️</button>
+                    <button class="builder-item-btn delete" onclick="deleteDefinitionItem('actions', ${i})" title="Smazat">🗑️</button>
+                  </div>
+                </div>
+              `).join('') || '<div class="section-item muted">Žádné akce</div>'}
+            </div>
+          </div>
+          
+          ${state.createForm.explanation ? `
+            <div class="builder-explanation">
+              <div class="builder-explanation-title">💡 Co agent bude dělat:</div>
+              <p>${state.createForm.explanation}</p>
+            </div>
+          ` : ''}
+          
+          <div class="step-nav">
+            <button class="btn btn-secondary" onclick="prevStep()">← Zpět</button>
+            <button class="btn btn-primary" onclick="nextStep()">
+              Pokračovat →
+            </button>
+          </div>
+        </div>
+        
+        ${state.editModal ? renderEditModal() : ''}
+      `;
+    }
+    
+    function renderEditModal() {
+      const { type, index } = state.editModal;
+      const def = state.createForm.definition;
+      const isNew = index === -1;
+      
+      let item = {};
+      let fields = '';
+      
+      if (type === 'source') {
+        item = isNew ? { id: '', type: 'scraper', config: { url: '' } } : { ...def.sources[index] };
+        const inspection = state.sourceInspection || null;
+        fields = `
+          <div class="form-group">
+            <label class="form-label">ID</label>
+            <input class="form-input" id="edit-id" value="${item.id}" placeholder="muj_zdroj">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Typ</label>
+            <select class="form-input" id="edit-type">
+              <option value="scraper" ${item.type === 'scraper' ? 'selected' : ''}>Web Scraper (HTML)</option>
+              <option value="http" ${item.type === 'http' ? 'selected' : ''}>HTTP API (JSON)</option>
+              <option value="rss" ${item.type === 'rss' ? 'selected' : ''}>RSS Feed</option>
+              <option value="database" ${item.type === 'database' ? 'selected' : ''}>Database</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">URL</label>
+            <div style="display: flex; gap: 8px;">
+              <input class="form-input" id="edit-url" value="${item.config?.url || ''}" placeholder="https://..." style="flex: 1;">
+              <button type="button" class="btn btn-secondary" onclick="inspectSourceUrl()" id="inspect-btn">
+                🔍 Zkontrolovat
+              </button>
+            </div>
+          </div>
+          
+          <div id="inspection-result" class="inspection-result ${inspection ? '' : 'hidden'}">
+            ${inspection ? renderInspectionResult(inspection) : ''}
+          </div>
+        `;
+      } else if (type === 'condition') {
+        item = isNew ? { id: '', type: 'compare', field: '', operator: '>=', value: '' } : { ...def.conditions[index] };
+        const inspection = state.sourceInspection;
+        const availableFields = inspection?.structure?.fields || [];
+        
+        fields = `
+          <div class="form-group">
+            <label class="form-label">ID</label>
+            <input class="form-input" id="edit-id" value="${item.id}" placeholder="moje_podminka">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Typ</label>
+            <select class="form-input" id="edit-type" onchange="updateConditionFields()">
+              <option value="compare" ${item.type === 'compare' ? 'selected' : ''}>Porovnání (číslo)</option>
+              <option value="new_items" ${item.type === 'new_items' ? 'selected' : ''}>Nové položky</option>
+              <option value="contains" ${item.type === 'contains' ? 'selected' : ''}>Obsahuje text</option>
+              <option value="exists" ${item.type === 'exists' ? 'selected' : ''}>Existuje</option>
+              <option value="changed" ${item.type === 'changed' ? 'selected' : ''}>Změnilo se</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Pole ${availableFields.length > 0 ? '<span class="field-hint">(dostupná pole níže)</span>' : ''}</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <input class="form-input" id="edit-field" value="${item.field || ''}" 
+                     placeholder="sources.zdroj.items[*].price" style="flex: 1;"
+                     oninput="validateFieldPath(this.value)">
+              <span id="field-validation" class="validation-icon"></span>
+            </div>
+            ${availableFields.length > 0 ? `
+              <div class="available-fields">
+                ${availableFields.slice(0, 10).map(f => `
+                  <button type="button" class="field-chip ${f.type}" onclick="selectField('${f.path}')">
+                    ${f.path.split('.').pop()} <small>(${f.type})</small>
+                  </button>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+          <div class="form-group" id="condition-operator-group">
+            <label class="form-label">Operátor</label>
+            <select class="form-input" id="edit-operator">
+              <option value=">=" ${item.operator === '>=' ? 'selected' : ''}>≥ větší nebo rovno</option>
+              <option value="<=" ${item.operator === '<=' ? 'selected' : ''}>≤ menší nebo rovno</option>
+              <option value=">" ${item.operator === '>' ? 'selected' : ''}>> větší než</option>
+              <option value="<" ${item.operator === '<' ? 'selected' : ''}>< menší než</option>
+              <option value="==" ${item.operator === '==' ? 'selected' : ''}>= rovná se</option>
+              <option value="!=" ${item.operator === '!=' ? 'selected' : ''}>≠ nerovná se</option>
+            </select>
+          </div>
+          <div class="form-group" id="condition-quantifier-group">
+            <label class="form-label">Pro více položek</label>
+            <select class="form-input" id="edit-quantifier" required>
+              <option value="" ${!item.array_mode ? 'selected' : ''}>-- Vyber mód pro kolekce --</option>
+              <option value="any" ${item.array_mode === 'any' ? 'selected' : ''}>ANY - alespoň jedna splňuje</option>
+              <option value="all" ${item.array_mode === 'all' ? 'selected' : ''}>ALL - všechny splňují</option>
+              <option value="none" ${item.array_mode === 'none' ? 'selected' : ''}>NONE - žádná nesplňuje</option>
+              <option value="min" ${item.array_mode === 'min' ? 'selected' : ''}>MIN - nejmenší hodnota</option>
+              <option value="max" ${item.array_mode === 'max' ? 'selected' : ''}>MAX - největší hodnota</option>
+              <option value="avg" ${item.array_mode === 'avg' ? 'selected' : ''}>AVG - průměrná hodnota</option>
+              <option value="count" ${item.array_mode === 'count' ? 'selected' : ''}>COUNT - počet splňujících</option>
+            </select>
+            <small class="form-hint">Pokud zdroj vrací více položek (array), jak je vyhodnotit?</small>
+          </div>
+          <div class="form-group" id="condition-value-group">
+            <label class="form-label">Hodnota</label>
+            <input class="form-input" id="edit-value" value="${item.value || ''}" placeholder="100">
+          </div>
+        `;
+      } else if (type === 'trigger') {
+        item = isNew ? { id: '', condition_id: '', edge: 'rising', cooldown: 3600 } : { ...def.triggers[index] };
+        const conditionOptions = (def.conditions || []).map(c => 
+          `<option value="${c.id}" ${item.condition_id === c.id ? 'selected' : ''}>${c.id}</option>`
+        ).join('');
+        fields = `
+          <div class="form-group">
+            <label class="form-label">ID</label>
+            <input class="form-input" id="edit-id" value="${item.id}" placeholder="muj_trigger">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Podmínka</label>
+            <select class="form-input" id="edit-condition">
+              ${conditionOptions || '<option value="">-- žádné podmínky --</option>'}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Edge</label>
+            <select class="form-input" id="edit-edge">
+              <option value="rising" ${item.edge === 'rising' ? 'selected' : ''}>Rising (false→true)</option>
+              <option value="falling" ${item.edge === 'falling' ? 'selected' : ''}>Falling (true→false)</option>
+              <option value="both" ${item.edge === 'both' ? 'selected' : ''}>Both</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cooldown (sekundy)</label>
+            <input class="form-input" type="number" id="edit-cooldown" value="${item.cooldown || 3600}">
+          </div>
+        `;
+      } else if (type === 'action') {
+        item = isNew ? { type: 'notify', trigger_id: '', config: { title: '', body: '' } } : { ...def.actions[index] };
+        const triggerOptions = (def.triggers || []).map(t => 
+          `<option value="${t.id}" ${item.trigger_id === t.id ? 'selected' : ''}>${t.id}</option>`
+        ).join('');
+        fields = `
+          <div class="form-group">
+            <label class="form-label">Typ</label>
+            <select class="form-input" id="edit-action-type">
+              <option value="notify" ${item.type === 'notify' ? 'selected' : ''}>Notifikace</option>
+              <option value="store" ${item.type === 'store' ? 'selected' : ''}>Uložit data</option>
+              <option value="webhook" ${item.type === 'webhook' ? 'selected' : ''}>Webhook</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Trigger</label>
+            <select class="form-input" id="edit-trigger">
+              ${triggerOptions || '<option value="">-- žádné triggery --</option>'}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Titulek</label>
+            <input class="form-input" id="edit-title" value="${item.config?.title || ''}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tělo zprávy</label>
+            <textarea class="form-input" id="edit-body" rows="3">${item.config?.body || ''}</textarea>
+          </div>
+        `;
+      }
+      
+      return `
+        <div class="edit-modal" onclick="if(event.target===this) closeEditModal()">
+          <div class="edit-modal-content">
+            <div class="edit-modal-title">${isNew ? 'Přidat' : 'Upravit'} ${type}</div>
+            ${fields}
+            <div class="edit-modal-actions">
+              <button class="btn btn-secondary" onclick="closeEditModal()">Zrušit</button>
+              <button class="btn btn-primary" onclick="saveEditModal()">Uložit</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    function openEditModal(type, index) {
+      state.editModal = { type, index };
+      // Reset inspection when opening source modal
+      if (type === 'source') {
+        state.sourceInspection = null;
+      }
+      render();
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SOURCE INSPECTION (Live validation)
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    async function inspectSourceUrl() {
+      const url = document.getElementById('edit-url')?.value;
+      if (!url) {
+        alert('Zadej URL');
+        return;
+      }
+      
+      const btn = document.getElementById('inspect-btn');
+      const resultDiv = document.getElementById('inspection-result');
+      
+      btn.textContent = '⏳ Kontroluji...';
+      btn.disabled = true;
+      resultDiv.classList.remove('hidden');
+      resultDiv.classList.add('loading');
+      resultDiv.innerHTML = '<div class="inspection-status">Stahuji a analyzuji...</div>';
+      
+      try {
+        const res = await fetch('/api/sources/inspect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        
+        const inspection = await res.json();
+        state.sourceInspection = inspection;
+        
+        resultDiv.innerHTML = renderInspectionResult(inspection);
+        resultDiv.classList.remove('loading');
+        
+        // Auto-generate source ID from URL if empty
+        const idField = document.getElementById('edit-id');
+        if (idField && !idField.value) {
+          const hostname = new URL(url).hostname.replace('www.', '').split('.')[0];
+          idField.value = hostname.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        }
+        
+      } catch (err) {
+        resultDiv.innerHTML = `<div class="inspection-status error">❌ Chyba: ${err.message}</div>`;
+        resultDiv.classList.remove('loading');
+      }
+      
+      btn.textContent = '🔍 Zkontrolovat';
+      btn.disabled = false;
+    }
+    
+    function renderInspectionResult(inspection) {
+      if (inspection.error) {
+        return `
+          <div class="inspection-header">
+            <div class="inspection-status error">❌ ${inspection.error}</div>
+          </div>
+        `;
+      }
+      
+      const fields = inspection.structure?.fields || [];
+      const items = inspection.structure?.detectedItems || [];
+      const schema = inspection.schema;
+      const confidence = schema?.confidence || 0;
+      const confidenceClass = confidence >= 0.7 ? 'high' : confidence >= 0.5 ? 'medium' : 'low';
+      
+      return `
+        <div class="inspection-header">
+          <div class="inspection-status ok">
+            ✅ ${inspection.dataType?.toUpperCase() || 'OK'} 
+            (${(inspection.size / 1024).toFixed(1)} KB)
+          </div>
+          ${schema ? `
+            <div class="schema-confidence ${confidenceClass}" title="Hash: ${schema.hash}">
+              🎯 ${Math.round(confidence * 100)}% spolehlivost
+            </div>
+          ` : ''}
+        </div>
+        
+        ${inspection.warning ? `
+          <div style="font-size: 11px; color: var(--warning); margin: 4px 0;">
+            ⚠️ ${inspection.warning}
+          </div>
+        ` : ''}
+        
+        ${items.length > 0 ? `
+          <div style="font-size: 12px; color: var(--text-muted); margin: 8px 0;">
+            📦 Detekováno ${items.length} položek
+            ${items[0]?.price ? `| 💰 Ceny: ${items.filter(i => i.price).map(i => (i.price/1000000).toFixed(1) + 'M').slice(0, 3).join(', ')}...` : ''}
+          </div>
+        ` : ''}
+        
+        ${schema?.fields?.length > 0 ? `
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">
+            Dostupná pole: <small style="color: var(--text-muted)">(klikni pro výběr)</small>
+          </div>
+          <div class="inspection-fields">
+            ${schema.fields.map(f => `
+              <div class="inspection-field" onclick="selectFieldFromInspection('${f.path}')">
+                <span class="path">${f.path}</span>
+                <span class="type">${f.type}</span>
+                <span class="confidence-bar" style="width: ${(f.confidence || 0) * 40}px; background: ${f.confidence >= 0.7 ? 'var(--success)' : f.confidence >= 0.5 ? 'var(--warning)' : 'var(--error)'}"></span>
+                ${f.fallback ? '<span class="has-fallback" title="Má fallback strategii">🔄</span>' : ''}
+              </div>
+            `).join('')}
+          </div>
+        ` : fields.length > 0 ? `
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">Dostupná pole:</div>
+          <div class="inspection-fields">
+            ${fields.map(f => `
+              <div class="inspection-field" onclick="selectFieldFromInspection('${f.path}')">
+                <span class="path">${f.path}</span>
+                <span class="type">${f.type}</span>
+                <span class="sample">${f.sample || ''}</span>
+              </div>
+            `).join('')}
+          </div>
+        ` : '<div style="font-size: 12px; color: var(--text-muted);">Žádná strukturovaná pole nenalezena</div>'}
+      `;
+    }
+    
+    function selectFieldFromInspection(path) {
+      // Copy path to clipboard or fill in condition field
+      const fieldInput = document.getElementById('edit-field');
+      if (fieldInput) {
+        const sourceId = document.getElementById('edit-id')?.value || 'source';
+        fieldInput.value = `sources.${sourceId}.${path}`;
+        validateFieldPath(fieldInput.value);
+      }
+    }
+    
+    function selectField(path) {
+      const fieldInput = document.getElementById('edit-field');
+      if (fieldInput) {
+        // Try to get source ID from definition
+        const def = state.createForm.definition;
+        const sourceId = def?.sources?.[0]?.id || 'source';
+        fieldInput.value = `sources.${sourceId}.${path}`;
+        validateFieldPath(fieldInput.value);
+      }
+    }
+    
+    async function validateFieldPath(path) {
+      const icon = document.getElementById('field-validation');
+      if (!icon) return;
+      
+      if (!path) {
+        icon.className = 'validation-icon';
+        return;
+      }
+      
+      // Quick local validation
+      if (!path.startsWith('sources.')) {
+        icon.className = 'validation-icon invalid';
+        icon.title = 'Pole musí začínat "sources."';
+        return;
+      }
+      
+      // Check against inspection if available
+      const inspection = state.sourceInspection;
+      if (inspection?.structure?.fields) {
+        const fields = inspection.structure.fields;
+        const fieldName = path.split('.').slice(2).join('.');
+        const found = fields.some(f => 
+          f.path === fieldName || 
+          f.path.includes(fieldName) ||
+          fieldName.includes(f.path)
+        );
+        
+        icon.className = found ? 'validation-icon valid' : 'validation-icon invalid';
+        icon.title = found ? 'Pole existuje' : 'Pole nebylo nalezeno v datech';
+      } else {
+        icon.className = 'validation-icon unknown';
+        icon.title = 'Nejprve zkontroluj zdroj';
+      }
+    }
+    
+    function updateConditionFields() {
+      const type = document.getElementById('edit-type')?.value;
+      const operatorGroup = document.getElementById('condition-operator-group');
+      const valueGroup = document.getElementById('condition-value-group');
+      const quantifierGroup = document.getElementById('condition-quantifier-group');
+      
+      // Hide operator/value/quantifier for some types
+      if (['new_items', 'exists', 'changed'].includes(type)) {
+        if (operatorGroup) operatorGroup.style.display = 'none';
+        if (valueGroup) valueGroup.style.display = 'none';
+        if (quantifierGroup) quantifierGroup.style.display = 'none';
+      } else {
+        if (operatorGroup) operatorGroup.style.display = 'block';
+        if (valueGroup) valueGroup.style.display = 'block';
+        if (quantifierGroup) quantifierGroup.style.display = 'block';
+      }
+    }
+    
+    function closeEditModal() {
+      state.editModal = null;
+      render();
+    }
+    
+    function saveEditModal() {
+      const { type, index } = state.editModal;
+      const def = state.createForm.definition;
+      const isNew = index === -1;
+      
+      if (type === 'source') {
+        const item = {
+          id: document.getElementById('edit-id').value,
+          type: document.getElementById('edit-type').value,
+          config: { url: document.getElementById('edit-url').value }
+        };
+        if (isNew) {
+          def.sources = def.sources || [];
+          def.sources.push(item);
+        } else {
+          def.sources[index] = item;
+        }
+      } else if (type === 'condition') {
+        const condType = document.getElementById('edit-type').value;
+        const item = {
+          id: document.getElementById('edit-id').value,
+          type: condType,
+          field: document.getElementById('edit-field').value
+        };
+        
+        // Add operator/value/quantifier only for compare type
+        if (condType === 'compare') {
+          item.operator = document.getElementById('edit-operator')?.value || '>=';
+          item.value = document.getElementById('edit-value')?.value || '';
+          item.array_mode = document.getElementById('edit-quantifier')?.value || null;
+          
+          // Validate: if field likely returns array, quantifier is required
+          if (!item.array_mode && item.field?.includes('[*]')) {
+            alert('Pro pole s [*] je nutné vybrat mód pro kolekce (ANY/ALL/MIN/MAX...)');
+            return;
+          }
+        }
+        
+        if (isNew) {
+          def.conditions = def.conditions || [];
+          def.conditions.push(item);
+        } else {
+          def.conditions[index] = item;
+        }
+      } else if (type === 'trigger') {
+        const item = {
+          id: document.getElementById('edit-id').value,
+          condition_id: document.getElementById('edit-condition').value,
+          edge: document.getElementById('edit-edge').value,
+          cooldown: parseInt(document.getElementById('edit-cooldown').value) || 3600
+        };
+        if (isNew) {
+          def.triggers = def.triggers || [];
+          def.triggers.push(item);
+        } else {
+          def.triggers[index] = item;
+        }
+      } else if (type === 'action') {
+        const item = {
+          type: document.getElementById('edit-action-type').value,
+          trigger_id: document.getElementById('edit-trigger').value || null,
+          config: {
+            title: document.getElementById('edit-title').value,
+            body: document.getElementById('edit-body').value
+          }
+        };
+        if (isNew) {
+          def.actions = def.actions || [];
+          def.actions.push(item);
+        } else {
+          def.actions[index] = item;
+        }
+      }
+      
+      closeEditModal();
+    }
+    
+    function cloneDefinitionItem(key, index) {
+      const def = state.createForm.definition;
+      const original = def[key][index];
+      if (!original) return;
+      
+      // Create a copy with modified ID
+      const clone = JSON.parse(JSON.stringify(original));
+      clone.id = clone.id + '_copy';
+      
+      // Insert after original
+      def[key].splice(index + 1, 0, clone);
+      render();
+    }
+    
+    function deleteDefinitionItem(key, index) {
+      if (!confirm('Opravdu smazat?')) return;
+      const def = state.createForm.definition;
+      def[key].splice(index, 1);
+      render();
+    }
+    
+    function renderStep3() {
+      return `
+        <div class="step-content">
+          <h2 class="step-title">Nastavení</h2>
+          <p class="step-subtitle">Nastav notifikace a plánování</p>
+          
+          <div class="form-group">
+            <label class="form-label">Notifikační kanály</label>
+            <div class="notification-channels">
+              <label class="channel-option ${state.createForm.notifications.inApp ? 'enabled' : ''}">
+                <input type="checkbox" class="channel-checkbox" 
+                  ${state.createForm.notifications.inApp ? 'checked' : ''}
+                  onchange="updateNotification('inApp', this.checked)">
+                <span class="channel-icon">🔔</span>
+                <div class="channel-info">
+                  <div class="channel-name">In-app notifikace</div>
+                  <div class="channel-desc">Notifikace přímo v aplikaci</div>
+                </div>
+              </label>
+              
+              <label class="channel-option ${state.createForm.notifications.email ? 'enabled' : ''}">
+                <input type="checkbox" class="channel-checkbox"
+                  ${state.createForm.notifications.email ? 'checked' : ''}
+                  onchange="updateNotification('email', this.checked)">
+                <span class="channel-icon">📧</span>
+                <div class="channel-info">
+                  <div class="channel-name">Email</div>
+                  <div class="channel-desc">Notifikace na email</div>
+                </div>
+              </label>
+              
+              <label class="channel-option ${state.createForm.notifications.telegram ? 'enabled' : ''}">
+                <input type="checkbox" class="channel-checkbox"
+                  ${state.createForm.notifications.telegram ? 'checked' : ''}
+                  onchange="updateNotification('telegram', this.checked)">
+                <span class="channel-icon">✈️</span>
+                <div class="channel-info">
+                  <div class="channel-name">Telegram</div>
+                  <div class="channel-desc">Notifikace do Telegramu</div>
+                </div>
+              </label>
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Jak často spouštět</label>
+              <select class="form-input" id="schedule-select" onchange="handleScheduleChange(this.value)">
+                <option value="5m" ${state.createForm.schedule === '5m' ? 'selected' : ''}>Každých 5 minut</option>
+                <option value="15m" ${state.createForm.schedule === '15m' ? 'selected' : ''}>Každých 15 minut</option>
+                <option value="30m" ${state.createForm.schedule === '30m' ? 'selected' : ''}>Každých 30 minut</option>
+                <option value="1h" ${state.createForm.schedule === '1h' ? 'selected' : ''}>Každou hodinu</option>
+                <option value="2h" ${state.createForm.schedule === '2h' ? 'selected' : ''}>Každé 2 hodiny</option>
+                <option value="4h" ${state.createForm.schedule === '4h' ? 'selected' : ''}>Každé 4 hodiny</option>
+                <option value="6h" ${state.createForm.schedule === '6h' ? 'selected' : ''}>Každých 6 hodin</option>
+                <option value="12h" ${state.createForm.schedule === '12h' ? 'selected' : ''}>Každých 12 hodin</option>
+                <option value="1d" ${state.createForm.schedule === '1d' ? 'selected' : ''}>Jednou denně</option>
+                <option value="custom" ${state.createForm.scheduleType === 'custom' ? 'selected' : ''}>Vlastní (cron)</option>
+              </select>
+              ${state.createForm.scheduleType === 'custom' ? `
+                <input class="form-input" style="margin-top: 8px" placeholder="Cron: 0 8 * * *"
+                       value="${state.createForm.customCron || ''}"
+                       oninput="updateFormText('customCron', this.value)">
+                <small class="form-hint">Formát: minuty hodiny den měsíc den_týdne (např. "0 8 * * *" = denně v 8:00)</small>
+              ` : ''}
+            </div>
+            
+            <div class="form-group">
+              <label class="form-label">Cooldown mezi notifikacemi</label>
+              <select class="form-input" id="cooldown-select" onchange="handleCooldownChange(this.value)">
+                <option value="60" ${state.createForm.cooldown === 60 ? 'selected' : ''}>1 minuta</option>
+                <option value="300" ${state.createForm.cooldown === 300 ? 'selected' : ''}>5 minut</option>
+                <option value="600" ${state.createForm.cooldown === 600 ? 'selected' : ''}>10 minut</option>
+                <option value="1800" ${state.createForm.cooldown === 1800 ? 'selected' : ''}>30 minut</option>
+                <option value="3600" ${state.createForm.cooldown === 3600 ? 'selected' : ''}>1 hodina</option>
+                <option value="7200" ${state.createForm.cooldown === 7200 ? 'selected' : ''}>2 hodiny</option>
+                <option value="14400" ${state.createForm.cooldown === 14400 ? 'selected' : ''}>4 hodiny</option>
+                <option value="43200" ${state.createForm.cooldown === 43200 ? 'selected' : ''}>12 hodin</option>
+                <option value="86400" ${state.createForm.cooldown === 86400 ? 'selected' : ''}>1 den</option>
+                <option value="custom" ${state.createForm.cooldownType === 'custom' ? 'selected' : ''}>Vlastní</option>
+              </select>
+              ${state.createForm.cooldownType === 'custom' ? `
+                <div style="display: flex; gap: 8px; margin-top: 8px; align-items: center;">
+                  <input class="form-input" type="number" style="width: 100px" 
+                         value="${state.createForm.customCooldown || 60}"
+                         oninput="updateForm('customCooldown', parseInt(this.value))">
+                  <span>sekund</span>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+          
+          <div class="step-nav">
+            <button class="btn btn-secondary" onclick="prevStep()">← Zpět</button>
+            <button class="btn btn-primary" onclick="nextStep()">
+              Pokračovat →
+            </button>
+          </div>
+        </div>
+      `;
+    }
+    
+    function renderStep4() {
+      const def = state.createForm.definition;
+      
+      return `
+        <div class="step-content">
+          <h2 class="step-title">Kontrola a vytvoření</h2>
+          <p class="step-subtitle">Zkontroluj shrnutí a vytvoř agenta</p>
+          
+          <div class="review-section">
+            <h4 class="review-section-title">Základní informace</h4>
+            <div class="review-item">
+              <span class="review-label">Název</span>
+              <span class="review-value">${state.createForm.icon} ${state.createForm.name}</span>
+            </div>
+            <div class="review-item">
+              <span class="review-label">Pattern</span>
+              <span class="review-value">${state.createForm.pattern || 'Automatický'}</span>
+            </div>
+          </div>
+          
+          <div class="review-section">
+            <h4 class="review-section-title">Co bude dělat</h4>
+            <p>${state.createForm.explanation || state.createForm.description}</p>
+          </div>
+          
+          <div class="review-section">
+            <h4 class="review-section-title">Plánování</h4>
+            <div class="review-item">
+              <span class="review-label">Interval</span>
+              <span class="review-value">${state.createForm.schedule}</span>
+            </div>
+            <div class="review-item">
+              <span class="review-label">Cooldown</span>
+              <span class="review-value">${state.createForm.cooldown}s</span>
+            </div>
+          </div>
+          
+          <div class="review-section">
+            <h4 class="review-section-title">Notifikace</h4>
+            <div class="review-item">
+              <span class="review-label">Kanály</span>
+              <span class="review-value">
+                ${Object.entries(state.createForm.notifications)
+                  .filter(([k, v]) => v)
+                  .map(([k]) => k)
+                  .join(', ') || 'Žádné'}
+              </span>
+            </div>
+          </div>
+          
+          <div class="review-actions">
+            <button class="btn btn-secondary" onclick="prevStep()">← Zpět</button>
+            <button class="btn btn-secondary" onclick="dryRun()">
+              🧪 Testovací běh
+            </button>
+            <button class="btn btn-primary" onclick="createAgent()">
+              ✅ Vytvořit a aktivovat
+            </button>
+          </div>
+          
+          <div id="dry-run-result" style="display: none; margin-top: 20px;">
+            <div class="builder-explanation">
+              <div class="builder-explanation-title">🧪 Výsledek testovacího běhu:</div>
+              <pre id="dry-run-log" style="font-size: 12px; white-space: pre-wrap; margin-top: 8px;"></pre>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DETAIL VIEW
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function renderDetailView() {
+      const agent = state.selectedAgent;
+      if (!agent) return '<div class="loading"><div class="spinner"></div></div>';
+      
+      const schemaStatus = agent.state?.schemaStatus;
+      let statusClass, statusText;
+      
+      if (schemaStatus === 'broken') {
+        statusClass = 'broken';
+        statusText = 'Schema rozbité';
+      } else if (schemaStatus === 'degraded') {
+        statusClass = 'degraded';
+        statusText = 'Schema degradováno';
+      } else if (!agent.enabled) {
+        statusClass = 'paused';
+        statusText = 'Pozastaveno';
+      } else if (agent.lastRun?.status === 'error') {
+        statusClass = 'error';
+        statusText = 'Chyba';
+      } else {
+        statusClass = 'active';
+        statusText = 'Aktivní';
+      }
+      
+      return `
+        <header class="header">
+          <div class="header-left">
+            <button class="back-btn" onclick="goToList()">
+              ← Agenti
+            </button>
+            <nav class="breadcrumb">
+              <a href="#" onclick="goToList()">Agents</a>
+              <span>/</span>
+              <span class="current">${agent.name}</span>
+            </nav>
+          </div>
+        </header>
+        
+        <main class="main">
+          <div class="detail-header">
+            <span class="detail-icon">${agent.icon || '⚡'}</span>
+            <div class="detail-info">
+              <h1 class="detail-name">${agent.name}</h1>
+              <p class="detail-description">${agent.description || 'Bez popisu'}</p>
+              <div class="detail-badges">
+                <div class="agent-status status-${statusClass}">
+                  <span class="status-dot"></span>
+                  ${statusText}
+                </div>
+                ${agent.state?.schemaError ? `<span class="schema-error-badge" title="${agent.state.schemaError}">⚠️</span>` : ''}
+                <span class="agent-pattern">${agent.definition?.schedule?.type || 'Manual'}</span>
+              </div>
+            </div>
+            <div class="detail-actions">
+              <button class="btn btn-primary" onclick="runAgent('${agent.id}')">
+                ▶ Spustit teď
+              </button>
+              <button class="btn btn-secondary" onclick="toggleAgent('${agent.id}', ${!agent.enabled})">
+                ${agent.enabled ? '⏸ Pozastavit' : '▶ Aktivovat'}
+              </button>
+              <button class="btn btn-secondary" onclick="cloneAgent('${agent.id}')">
+                📋 Klonovat
+              </button>
+            </div>
+          </div>
+          
+          <div class="health-panel">
+            <div class="health-item">
+              <div class="health-value success">98%</div>
+              <div class="health-label">Success Rate</div>
+            </div>
+            <div class="health-item">
+              <div class="health-value">${agent.recent_runs?.length || 0}</div>
+              <div class="health-label">Běhů celkem</div>
+            </div>
+            <div class="health-item">
+              <div class="health-value">${agent.notifications?.length || 0}</div>
+              <div class="health-label">Notifikací</div>
+            </div>
+            <div class="health-item">
+              <div class="health-value">${agent.schedule_info?.last_run ? formatTime(agent.schedule_info.last_run) : '-'}</div>
+              <div class="health-label">Poslední běh</div>
+            </div>
+          </div>
+          
+          <div class="tabs">
+            <button class="tab active" onclick="switchTab(this, 'logs')">📄 Logy</button>
+            <button class="tab" onclick="switchTab(this, 'settings')">⚙️ Nastavení</button>
+            <button class="tab" onclick="switchTab(this, 'advanced')">🔧 Pokročilé</button>
+          </div>
+          
+          <div id="tab-logs" class="tab-content active">
+            ${renderLogsTab(agent)}
+          </div>
+          
+          <div id="tab-settings" class="tab-content">
+            <p>Nastavení agenta (TODO)</p>
+          </div>
+          
+          <div id="tab-advanced" class="tab-content">
+            <pre style="background: var(--bg-tertiary); padding: 16px; border-radius: 8px; overflow: auto; font-size: 12px;">
+${JSON.stringify(agent.definition, null, 2)}
+            </pre>
+          </div>
+        </main>
+      `;
+    }
+    
+    function renderLogsTab(agent) {
+      const runs = agent.recent_runs || [];
+      
+      if (runs.length === 0) {
+        return `
+          <div class="empty-state">
+            <div class="empty-state-icon">📭</div>
+            <h3 class="empty-state-title">Žádné logy</h3>
+            <p class="empty-state-desc">Agent ještě nebyl spuštěn</p>
+            <button class="btn btn-primary" onclick="runAgent('${agent.id}')">
+              ▶ Spustit poprvé
+            </button>
+          </div>
+        `;
+      }
+      
+      return `
+        <div class="logs-filters">
+          <button class="filter-btn active">Všechny</button>
+          <button class="filter-btn">Jen triggery</button>
+          <button class="filter-btn">Jen chyby</button>
+        </div>
+        
+        <div class="log-list">
+          ${runs.map((run, i) => `
+            <div class="log-entry ${i === 0 ? 'latest' : ''}" onclick="toggleLog(this)">
+              <div class="log-header">
+                <div class="log-time">${formatDateTime(run.started_at)}</div>
+                <div class="log-result">
+                  ${run.triggers_fired?.length > 0 ? '<span class="log-badge triggered">🔔 Triggered</span>' : ''}
+                  <span class="log-badge ${run.status === 'success' ? 'success' : 'error'}">
+                    ${run.status === 'success' ? '✓ OK' : '✗ Error'}
+                  </span>
+                </div>
+              </div>
+              <div class="log-body">
+                ${run.explain ? `
+                  <div class="log-section">
+                    <h5 class="log-section-title">Zdroje</h5>
+                    ${run.explain.sources?.map(s => `
+                      <div class="log-detail">
+                        <span class="log-detail-label">${s.id}</span>
+                        <span class="log-detail-value ${s.status === 'ok' ? 'success' : 'error'}">
+                          ${s.status} ${s.count ? `(${s.count} položek)` : ''}
+                        </span>
+                      </div>
+                    `).join('') || ''}
+                  </div>
+                  
+                  <div class="log-section">
+                    <h5 class="log-section-title">Podmínky</h5>
+                    ${run.explain.conditions?.map(c => `
+                      <div class="log-detail">
+                        <span class="log-detail-label">${c.id}</span>
+                        <span class="log-detail-value ${c.passed ? 'success' : ''}">
+                          ${c.passed ? '✓' : '○'} ${c.reason}
+                        </span>
+                      </div>
+                    `).join('') || ''}
+                  </div>
+                  
+                  ${run.explain.triggers?.length > 0 ? `
+                    <div class="log-section">
+                      <h5 class="log-section-title">Spuštěné triggery</h5>
+                      ${run.explain.triggers.map(t => `
+                        <div class="log-detail">
+                          <span class="log-detail-label">${t.id}</span>
+                          <span class="log-detail-value success">${t.reason}</span>
+                        </div>
+                      `).join('')}
+                    </div>
+                  ` : ''}
+                ` : '<p>Detail není dostupný</p>'}
+                
+                ${run.error ? `
+                  <div class="log-section">
+                    <h5 class="log-section-title">Chyba</h5>
+                    <div class="log-detail">
+                      <span class="log-detail-value error">${run.error}</span>
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ACTIONS
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function goBack() {
+      window.history.back();
+    }
+    
+    function goToList() {
+      state.view = 'list';
+      render();
+    }
+    
+    function startCreate() {
+      state.view = 'create';
+      state.createStep = 1;
+      state.createForm = {
+        name: '',
+        icon: '⚡',
+        pattern: '',
+        description: '',
+        definition: null,
+        draftId: null,
+        notifications: { inApp: true, email: false, telegram: false, webhook: false },
+        schedule: '1h',
+        scheduleType: 'interval',
+        customCron: '',
+        cooldown: 300,
+        cooldownType: 'preset',
+        customCooldown: 60
+      };
+      render();
+    }
+    
+    function cancelCreate() {
+      if (confirm('Opravdu chceš zrušit vytváření agenta?')) {
+        goToList();
+      }
+    }
+    
+    function updateForm(key, value, skipRender = false) {
+      state.createForm[key] = value;
+      if (!skipRender) {
+        render();
+      }
+    }
+    
+    // For text inputs - update state without re-render
+    function updateFormText(key, value) {
+      state.createForm[key] = value;
+      // Update button state without full re-render
+      const nextBtn = document.querySelector('.step-nav .btn-primary');
+      if (nextBtn && state.createStep === 1) {
+        nextBtn.disabled = !state.createForm.name || !state.createForm.description;
+      }
+    }
+    
+    function handleScheduleChange(value) {
+      if (value === 'custom') {
+        state.createForm.scheduleType = 'custom';
+        state.createForm.schedule = state.createForm.customCron || '0 8 * * *';
+      } else {
+        state.createForm.scheduleType = 'interval';
+        state.createForm.schedule = value;
+      }
+      render();
+    }
+    
+    function handleCooldownChange(value) {
+      if (value === 'custom') {
+        state.createForm.cooldownType = 'custom';
+        state.createForm.cooldown = state.createForm.customCooldown || 60;
+      } else {
+        state.createForm.cooldownType = 'preset';
+        state.createForm.cooldown = parseInt(value);
+      }
+      render();
+    }
+    
+    function updateNotification(key, value) {
+      state.createForm.notifications[key] = value;
+      render();
+    }
+    
+    async function nextStep() {
+      if (state.createStep === 1) {
+        // Validate
+        if (!state.createForm.name || !state.createForm.description) {
+          alert('Vyplň název a popis agenta');
+          return;
+        }
+        
+        state.createStep = 2;
+        render();
+        
+        // Build agent
+        try {
+          const result = await API.buildAgent(state.createForm.description);
+          if (result.error) {
+            alert('Chyba při generování: ' + result.error);
+            state.createStep = 1;
+          } else {
+            state.createForm.definition = result.definition;
+            state.createForm.explanation = result.explanation;
+            state.createForm.draftId = result.draft_id;
+          }
+        } catch (err) {
+          alert('Chyba: ' + err.message);
+          state.createStep = 1;
+        }
+        render();
+        
+      } else if (state.createStep < 4) {
+        state.createStep++;
+        render();
+      }
+    }
+    
+    function prevStep() {
+      if (state.createStep > 1) {
+        state.createStep--;
+        render();
+      }
+    }
+    
+    async function createAgent(forceCreate = false) {
+      try {
+        // Build schedule object
+        const scheduleObj = state.createForm.scheduleType === 'custom'
+          ? { type: 'cron', value: state.createForm.customCron || state.createForm.schedule }
+          : { type: 'interval', value: state.createForm.schedule };
+        
+        // Build full definition with metadata
+        const definition = {
+          ...state.createForm.definition,
+          id: state.createForm.definition?.id || generateId(state.createForm.name),
+          name: state.createForm.name,
+          description: state.createForm.description,
+          icon: state.createForm.icon,
+          schedule: scheduleObj
+        };
+        
+        // Update trigger cooldowns from form
+        if (definition.triggers) {
+          const cooldown = state.createForm.cooldownType === 'custom'
+            ? state.createForm.customCooldown
+            : state.createForm.cooldown;
+          definition.triggers = definition.triggers.map(t => ({
+            ...t,
+            cooldown: t.cooldown || cooldown
+          }));
+        }
+        
+        console.log('Creating agent with definition:', definition);
+        
+        const result = await API.confirmDraft(definition, {}, forceCreate);
+        
+        if (result.error) {
+          let errorMsg = result.error;
+          if (result.details && Array.isArray(result.details)) {
+            errorMsg += '\n\nChyby:\n• ' + result.details.join('\n• ');
+          }
+          if (result.warnings && result.warnings.length > 0) {
+            errorMsg += '\n\nVarování:\n• ' + result.warnings.join('\n• ');
+          }
+          
+          // Offer to create anyway if possible
+          if (!result.canForce === false) {
+            const createAnyway = confirm(errorMsg + '\n\nChceš přesto vytvořit agenta jako NEAKTIVNÍHO?');
+            if (createAnyway) {
+              return createAgent(true);
+            }
+          } else {
+            alert('Chyba: ' + errorMsg);
+          }
+        } else {
+          // Show warnings if any
+          if (result.warnings?.length > 0 || result.softErrors?.length > 0) {
+            const msgs = [...(result.softErrors || []), ...(result.warnings || [])];
+            alert('Agent vytvořen jako NEAKTIVNÍ.\n\nVarování:\n• ' + msgs.join('\n• ') + '\n\nPo opravě ho můžeš aktivovat.');
+          }
+          
+          await loadAgents();
+          showDetail(result.id);
+        }
+      } catch (err) {
+        alert('Chyba: ' + err.message);
+      }
+    }
+    
+    function generateId(name) {
+      return name.toLowerCase()
+        .replace(/[áàâä]/g, 'a')
+        .replace(/[éèêë]/g, 'e')
+        .replace(/[íìîï]/g, 'i')
+        .replace(/[óòôö]/g, 'o')
+        .replace(/[úùûü]/g, 'u')
+        .replace(/[ýÿ]/g, 'y')
+        .replace(/[čć]/g, 'c')
+        .replace(/[ďđ]/g, 'd')
+        .replace(/[ňń]/g, 'n')
+        .replace(/[řŕ]/g, 'r')
+        .replace(/[šś]/g, 's')
+        .replace(/[ťţ]/g, 't')
+        .replace(/[žź]/g, 'z')
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .substring(0, 32) + '_' + Date.now().toString(36);
+    }
+    
+    async function showDetail(id) {
+      state.view = 'detail';
+      state.selectedAgent = null;
+      render();
+      
+      try {
+        const result = await API.getAgent(id);
+        state.selectedAgent = result;
+        render();
+      } catch (err) {
+        alert('Chyba: ' + err.message);
+        goToList();
+      }
+    }
+    
+    async function runAgent(id) {
+      try {
+        await API.runAgent(id);
+        if (state.view === 'detail') {
+          showDetail(id);
+        }
+      } catch (err) {
+        alert('Chyba: ' + err.message);
+      }
+    }
+    
+    async function toggleAgent(id, enabled) {
+      try {
+        await API.toggleAgent(id, enabled);
+        await loadAgents();
+        render();
+      } catch (err) {
+        alert('Chyba: ' + err.message);
+      }
+    }
+    
+    async function dryRun() {
+      const resultDiv = document.getElementById('dry-run-result');
+      const logPre = document.getElementById('dry-run-log');
+      
+      resultDiv.style.display = 'block';
+      logPre.textContent = '⏳ Spouštím testovací běh...';
+      
+      try {
+        const result = await API.dryRun(state.createForm.definition);
+        
+        if (result.error) {
+          logPre.textContent = '❌ Chyba: ' + result.error;
+        } else {
+          let log = result.success ? '✅ Testovací běh dokončen\n\n' : '⚠️ Testovací běh s chybami\n\n';
+          
+          // Summary
+          if (result.summary) {
+            const s = result.summary;
+            log += '📊 SHRNUTÍ:\n';
+            log += `   Zdroje: ${s.sourcesOk}/${s.sources} OK\n`;
+            log += `   Podmínky: ${s.conditionsTrue}/${s.conditions} splněno\n`;
+            if (s.wouldTrigger?.length > 0) {
+              log += `   Triggery: ${s.wouldTrigger.join(', ')} by se spustily\n`;
+            } else {
+              log += `   Triggery: žádný by se nespustil\n`;
+            }
+            log += '\n';
+          }
+          
+          // Detailed log
+          if (result.log) {
+            log += '📜 LOG:\n';
+            result.log.forEach(entry => {
+              log += `   [${entry.time}] ${entry.msg}\n`;
+            });
+          }
+          
+          logPre.textContent = log;
+        }
+      } catch (err) {
+        logPre.textContent = '❌ Chyba: ' + err.message;
+      }
+    }
+    
+    async function cloneAgent(id) {
+      try {
+        const agent = state.agents.find(a => a.id === id);
+        if (!agent) {
+          const detail = await API.getAgent(id);
+          startClone(detail);
+        } else {
+          const detail = await API.getAgent(id);
+          startClone(detail);
+        }
+      } catch (err) {
+        alert('Chyba: ' + err.message);
+      }
+    }
+    
+    function startClone(agent) {
+      state.view = 'create';
+      state.createStep = 1;
+      state.createForm = {
+        name: agent.name + ' (kopie)',
+        icon: agent.icon || '⚡',
+        pattern: '',
+        description: agent.description || '',
+        definition: agent.definition,
+        draftId: null,
+        notifications: { inApp: true, email: false, telegram: false, webhook: false },
+        schedule: agent.definition?.schedule?.value || '1h',
+        cooldown: 300
+      };
+      render();
+    }
+    
+    function switchTab(btn, tabId) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + tabId).classList.add('active');
+    }
+    
+    function toggleLog(el) {
+      el.classList.toggle('expanded');
+    }
+    
+    function attachEventListeners() {
+      // Add any additional event listeners
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // HELPERS
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function formatTime(dateStr) {
+      if (!dateStr) return '-';
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diff = now - date;
+      
+      if (diff < 60000) return 'Právě teď';
+      if (diff < 3600000) return Math.floor(diff / 60000) + ' min';
+      if (diff < 86400000) return Math.floor(diff / 3600000) + ' h';
+      return Math.floor(diff / 86400000) + ' d';
+    }
+    
+    function formatDateTime(dateStr) {
+      if (!dateStr) return '-';
+      return new Date(dateStr).toLocaleString('cs-CZ');
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // INIT
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    async function loadAgents() {
+      try {
+        const result = await API.listAgents();
+        state.agents = result.agents || [];
+      } catch (err) {
+        console.error('Failed to load agents:', err);
+        state.agents = [];
+      }
+    }
+    
+    async function loadNotifications() {
+      try {
+        const result = await API.getNotifications();
+        state.notifications = result.notifications || [];
+      } catch (err) {
+        state.notifications = [];
+      }
+    }
+    
+    async function init() {
+      await Promise.all([loadAgents(), loadNotifications()]);
+      render();
+    }
+    
+    init();
+  </script>
+</body>
+</html>

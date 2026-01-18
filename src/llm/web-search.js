@@ -92,7 +92,7 @@ function parseDDGResults(html, maxResults) {
  * Fetch and extract text content from a webpage
  * @param {string} url - URL to fetch
  * @param {number} maxLength - Maximum text length (default 5000)
- * @returns {Promise<{title: string, content: string, url: string} | null>}
+ * @returns {Promise<{title: string, content: string, url: string, links: Array} | null>}
  */
 export async function fetchPage(url, maxLength = 5000) {
   logger.info('WebSearch', `Fetching: ${url}`);
@@ -102,6 +102,7 @@ export async function fetchPage(url, maxLength = 5000) {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'cs,en;q=0.9',
       },
       timeout: 15000,
     });
@@ -115,6 +116,48 @@ export async function fetchPage(url, maxLength = 5000) {
     // Extract title
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
     const title = titleMatch ? titleMatch[1].trim() : url;
+    
+    // Extract links with their text (for listings like bazos, etc.)
+    const links = [];
+    const baseUrl = new URL(url);
+    const linkRegex = /<a[^>]+href=["']([^"']+)["'][^>]*>([^<]*(?:<[^/a][^>]*>[^<]*)*)<\/a>/gi;
+    let linkMatch;
+    
+    while ((linkMatch = linkRegex.exec(html)) !== null && links.length < 20) {
+      let href = linkMatch[1];
+      let text = linkMatch[2]
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      // Skip empty, javascript, or anchor links
+      if (!href || href.startsWith('#') || href.startsWith('javascript:') || !text || text.length < 3) {
+        continue;
+      }
+      
+      // Convert relative to absolute URL
+      if (href.startsWith('/')) {
+        href = `${baseUrl.protocol}//${baseUrl.host}${href}`;
+      } else if (!href.startsWith('http')) {
+        href = `${baseUrl.protocol}//${baseUrl.host}/${href}`;
+      }
+      
+      // Filter: keep only links from same domain or relevant subdomains
+      try {
+        const linkUrl = new URL(href);
+        if (linkUrl.host.includes(baseUrl.host.replace('www.', '')) || 
+            baseUrl.host.includes(linkUrl.host.replace('www.', ''))) {
+          // Skip navigation/menu links
+          if (text.length > 5 && text.length < 200 && 
+              !href.includes('login') && !href.includes('registr') &&
+              !href.includes('cookies') && !href.includes('gdpr')) {
+            links.push({ url: href, title: text });
+          }
+        }
+      } catch (e) {
+        // Invalid URL, skip
+      }
+    }
     
     // Extract main content (simplified)
     let content = html
@@ -143,7 +186,9 @@ export async function fetchPage(url, maxLength = 5000) {
       content = content.substring(0, maxLength) + '...';
     }
     
-    return { title, content, url };
+    logger.info('WebSearch', `Extracted ${links.length} links from ${url}`);
+    
+    return { title, content, url, links };
     
   } catch (err) {
     logger.error('WebSearch', `Fetch failed: ${err.message}`);
@@ -156,62 +201,194 @@ export async function fetchPage(url, maxLength = 5000) {
 // ════════════════════════════════════════════════════════════════════════════
 
 /**
+ * Detect if a message requires EXTERNAL/REAL-TIME data (links, prices, listings)
+ * These queries CANNOT be answered without web search or provided data
+ * @param {string} message - User message
+ * @returns {boolean}
+ */
+export function needsExternalData(message) {
+  const lower = message.toLowerCase();
+  
+  // Patterns that REQUIRE external data - cannot be hallucinated
+  const externalDataTriggers = [
+    // Explicit link requests
+    /\bodkaz\w*\b/,           // odkaz, odkazy, odkazů
+    /\blink\w*\b/,
+    /\burl\b/i,
+    // Shopping/listings
+    /\bauto\b.*\b(kup|prod|nabíd|inzer)/i,
+    /\bvozidl\w*\b/,
+    /\binzerát\w*\b/,
+    /\bnabídk\w*\b/,
+    /\bprodej\w*\b/,
+    // Real-time data
+    /\baktuální\w*\s*(cen|kurz|počasí|zpráv)/i,
+    /\bdej mi\s*\d+/,         // "dej mi 5 odkazů"
+    /\bseznam\w*\s*(odkaz|auto|nabíd)/i,
+    // Specific sites
+    /\b(bazos|sauto|tipcars|autohero|aaa|mobile\.de)\b/i,
+  ];
+  
+  for (const pattern of externalDataTriggers) {
+    if (pattern.test(lower)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Check if message is a SOFT/explanatory intent that should NOT trigger web search
+ * These are questions asking for explanation, not current/external data
+ * @param {string} lower - Lowercase message
+ * @returns {boolean}
+ */
+function isSoftExplainerIntent(lower) {
+  // SOFT patterns - user wants EXPLANATION, not real-time data
+  const softPatterns = [
+    // "co je X" without external context = asking for explanation
+    /^co\s+je\s+(?!aktuální|dnešní|nového|v\s+prodeji)/i,
+    /\bco\s+je\s+v\s+(tom|daném|tomhle|tamtom|souboru|zipu|archivu|balíčku|složce)\b/i,
+    // "jak funguje X" = asking how something works
+    /\bjak\s+(funguje|fungují|pracuje|pracují|to\s+funguje)\b/i,
+    // "vysvětli X" = asking for explanation
+    /\b(vysvětli|vysvětlit|vysvětlíš|vysvětlete|popsat|popiš|popis)\b/i,
+    // "co znamená X" = asking for meaning
+    /\bco\s+znamená\b/i,
+    // "jaký je rozdíl" = asking for comparison/explanation
+    /\bjaký\s+(je\s+)?rozdíl\b/i,
+    // "co to je" = simple what-is-this
+    /\bco\s+to\s+je\b/i,
+    // Programming/file context questions
+    /\b(v\s+kódu|ve\s+scriptu|v\s+souboru|v\s+projektu|v\s+repozitáři)\b/i,
+    // "jak se dělá X", "jak udělat X" = how-to questions
+    /\bjak\s+(se\s+)?(dělá|udělat|napsat|vytvořit|nastavit)\b/i,
+    // English soft patterns
+    /\b(explain|what\s+does|how\s+does|what\'s\s+the\s+difference|what\s+is\s+a|what\s+is\s+an)\b/i,
+    /\bin\s+(this|the|that)\s+(file|zip|archive|folder|code|script|project)\b/i,
+  ];
+  
+  for (const pattern of softPatterns) {
+    if (pattern.test(lower)) {
+      logger.info('WebSearch', `Blocked by SOFT explainer pattern: ${pattern}`);
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Check if message has HARD external intent that MUST trigger web search
+ * @param {string} lower - Lowercase message
+ * @returns {{triggered: boolean, reason: string}}
+ */
+function hasHardExternalIntent(lower) {
+  // HARD patterns - user NEEDS real-time/external data
+  const hardPatterns = [
+    // Explicit search commands with specific targets
+    { pattern: /\b(najdi|vyhledej|hledej)\s+(na\s+(webu|internetu|googlu)|online)\b/i, reason: 'explicit web search' },
+    // Current/real-time data
+    { pattern: /\baktuální\s*(cen|kurz|počasí|zpráv|stav|hodnot)/i, reason: 'current data request' },
+    // Shopping with prices
+    { pattern: /\b(kolik\s+stojí|cena|ceník)\s+[^?]*\b/i, reason: 'price query' },
+    // News explicitly
+    { pattern: /\b(novinky|zprávy|news|headlines)\s+(o|z|from|about)/i, reason: 'news request' },
+    { pattern: /\b(hlavní\s+zpráv|breaking\s+news|latest\s+news)\b/i, reason: 'breaking news' },
+    // Weather/forecast
+    { pattern: /\b(počasí|předpověď|weather|forecast)\s+(v|pro|in|for)?\s*[A-ZÁ-Ž]/i, reason: 'weather request' },
+    // Exchange rates
+    { pattern: /\b(kurz|exchange\s+rate)\s+(k|czk|eur|usd|gbp)/i, reason: 'exchange rate' },
+    // Listings with quantity
+    { pattern: /\bdej\s+mi\s+\d+\s*(odkaz|link|nabíd)/i, reason: 'link list request' },
+    // Site-specific requests
+    { pattern: /\b(na|z|from|at)\s+(bazos|sauto|tipcars|autohero|mobile\.de|sreality|idnes|novinky)\b/i, reason: 'site-specific' },
+  ];
+  
+  for (const { pattern, reason } of hardPatterns) {
+    if (pattern.test(lower)) {
+      return { triggered: true, reason };
+    }
+  }
+  
+  return { triggered: false, reason: '' };
+}
+
+/**
  * Detect if a message likely needs web search
+ * Philosophy: False negative > false positive (better fewer searches than spam)
  * @param {string} message - User message
  * @returns {boolean}
  */
 export function needsWebSearch(message) {
   const lower = message.toLowerCase();
   
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PHASE 1: HARD TRIGGERS - always search (URLs, domains, external data)
+  // ═══════════════════════════════════════════════════════════════════════════
+  
   // URL in message = wants info from that site
   if (message.match(/https?:\/\/[^\s]+/)) {
-    logger.info('WebSearch', 'Triggered by URL in message');
+    logger.info('WebSearch', 'HARD trigger: URL in message');
     return true;
   }
   
   // Domain mentions (.cz, .com, etc.) = wants info from that site
   if (lower.match(/\b[\w-]+\.(cz|com|sk|eu|org|net|io)\b/)) {
-    logger.info('WebSearch', 'Triggered by domain mention');
+    logger.info('WebSearch', 'HARD trigger: domain mention');
     return true;
   }
   
-  // Keywords that suggest web search
-  const searchTriggers = [
-    // Czech - commands
-    'najdi', 'vyhledej', 'hledej', 'zjisti', 'ukaž', 'podívej', 'řekni mi',
-    'vyhledat', 'najít', 'dohledat',
-    // Czech - questions about current state
-    'jaká je', 'jaký je', 'kde je', 'co je', 'kdo je', 'kdy je', 'jak je',
-    'kolik stojí', 'kolik je', 'která', 'které', 'hlavní zpráva',
-    // Czech - time/news
-    'aktuální', 'novinky', 'zprávy', 'titulky', 'headlines',
-    'dnes', 'včera', 'tento týden', 'tento měsíc', 'letos', 'teď', 'nyní',
+  // External data requirement (links, listings, prices)
+  if (needsExternalData(message)) {
+    logger.info('WebSearch', 'HARD trigger: external data requirement');
+    return true;
+  }
+  
+  // Explicit HARD external intent
+  const hardIntent = hasHardExternalIntent(lower);
+  if (hardIntent.triggered) {
+    logger.info('WebSearch', `HARD trigger: ${hardIntent.reason}`);
+    return true;
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PHASE 2: SOFT BLOCK - if it's an explainer question, don't search
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  if (isSoftExplainerIntent(lower)) {
+    // This is an explanation question, not a web search need
+    return false;
+  }
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PHASE 3: MEDIUM TRIGGERS - only if not blocked by SOFT
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  // These are medium-confidence triggers - can be blocked by SOFT patterns
+  const mediumTriggers = [
+    // Explicit search commands
+    'vyhledej', 'najdi na', 'hledej', 'dohledat',
+    // Time-sensitive
+    'dnes', 'včera', 'tento týden', 'teď', 'nyní',
     'co je nového', 'co se děje', 'co se stalo',
-    // Czech - shopping/search
-    'cena', 'inzerát', 'inzerat', 'nabídka', 'prodej', 'koupit', 'kde sehnat',
-    'kurz', 'počasí', 'předpověď', 'srovnání', 'recenze',
     // English
-    'search', 'find', 'look up', 'google', 'current', 'latest', 'news',
-    'today', 'yesterday', 'this week', 'what is the', 'how much', 'where is',
-    'price', 'weather', 'forecast', 'recent', 'breaking',
+    'search for', 'look up', 'find me', 'google',
+    'today', 'yesterday', 'this week', 'latest', 'recent',
   ];
   
-  // Check triggers
-  for (const trigger of searchTriggers) {
+  for (const trigger of mediumTriggers) {
     if (lower.includes(trigger)) {
-      logger.info('WebSearch', `Triggered by keyword: "${trigger}"`);
+      logger.info('WebSearch', `MEDIUM trigger: "${trigger}"`);
       return true;
     }
   }
   
-  // Questions starting with question words (but not about coding)
-  if (lower.match(/^(kdo|co|kde|kdy|jak|proč|kolik|jaký|jaká|které|čí|kam)\s/i)) {
-    // Exclude coding/general knowledge questions
-    if (!lower.match(/(naprogramovat|vytvořit|udělat|napsat|code|create|make|write|funguje|znamená|difference|rozdíl)/)) {
-      logger.info('WebSearch', 'Triggered by question word');
-      return true;
-    }
-  }
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DEFAULT: NO SEARCH
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Philosophy: If unsure, don't search. LLM can ask for search if needed.
   
   return false;
 }

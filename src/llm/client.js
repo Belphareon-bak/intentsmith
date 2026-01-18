@@ -17,15 +17,22 @@ export async function callOllama(role, prompt, systemPrompt = '', options = {}) 
   
   const timer = logger.time('LLM', `${role} (${model})`);
   
+  // Build messages array with explicit roles - system FIRST
+  const messages = [];
+  if (systemPrompt) {
+    messages.push({ role: 'system', content: systemPrompt });
+  }
+  messages.push({ role: 'user', content: prompt });
+  
   const body = {
     model,
-    prompt,
-    system: systemPrompt,
+    messages,  // Using chat format with explicit roles
     stream: false,
     options: {
       temperature: options.temperature ?? 0.3,
+      top_p: options.top_p ?? 0.75,
+      repeat_penalty: options.repeat_penalty ?? 1.1,
       num_predict: options.maxTokens ?? 4096,
-      ...options,
     },
   };
   
@@ -36,7 +43,8 @@ export async function callOllama(role, prompt, systemPrompt = '', options = {}) 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
       
-      const response = await fetch(`${config.ollama.baseUrl}/api/generate`, {
+      // Use /api/chat endpoint for proper role handling
+      const response = await fetch(`${config.ollama.baseUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -50,7 +58,8 @@ export async function callOllama(role, prompt, systemPrompt = '', options = {}) 
       }
       
       const data = await response.json();
-      const output = data.response || '';
+      // /api/chat returns { message: { role, content } }
+      const output = data.message?.content || data.response || '';
       
       const duration = timer.end(`(${output.length} chars)`);
       
