@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Assistant</title>
+  <title>p(AI)assistant v34.3.2</title>
   <!-- Favicon - Personal AI Assistant icon -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg viewBox='300 100 424 500' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23ffb65e'/%3E%3Cstop offset='45%25' stop-color='%23ff5fa2'/%3E%3Cstop offset='100%25' stop-color='%234cc9ff'/%3E%3C/linearGradient%3E%3ClinearGradient id='h' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%232a0f4f' stop-opacity='0.7'/%3E%3Cstop offset='100%25' stop-color='%231a0c3d' stop-opacity='0.7'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cline x1='512' y1='260' x2='512' y2='150' stroke='url(%23g)' stroke-width='8' stroke-linecap='round'/%3E%3Ccircle cx='512' cy='135' r='12' fill='url(%23g)'/%3E%3Cpath d='M360 350 C360 260 455 230 512 230 C569 230 664 260 664 350 V420 C664 500 580 540 512 540 C455 540 410 510 388 490 L350 525 V420 C350 380 360 375 360 350 Z' fill='url(%23h)' stroke='url(%23g)' stroke-width='18' stroke-linejoin='round'/%3E%3Cellipse cx='345' cy='395' rx='28' ry='32' fill='url(%23h)' stroke='url(%23g)' stroke-width='6'/%3E%3Cellipse cx='679' cy='395' rx='28' ry='32' fill='url(%23h)' stroke='url(%23g)' stroke-width='6'/%3E%3Crect x='420' y='365' width='184' height='92' rx='46' fill='none' stroke='url(%23g)' stroke-width='14'/%3E%3Ccircle cx='465' cy='410' r='13' fill='%23ff5fa2'/%3E%3Ccircle cx='559' cy='410' r='13' fill='%234cc9ff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/architect/architect.css">
@@ -307,211 +307,669 @@
         </div>
         <div class="status-spacer"></div>
         <div class="status-item">
-          <span class="status-version">v33.3.2</span>
+          <span class="status-version">v34.3.2</span>
         </div>
       </div>
     </main>
     
-    <!-- RIGHT SIDEBAR (Settings & Memory) -->
-    <aside class="sidebar right-sidebar" id="right-sidebar">
-      <div class="sidebar-header">
-        <div class="sidebar-title-row">
-          <span class="sidebar-title">⚙️ Nastavení</span>
-          <button class="sidebar-close-btn" onclick="toggleRightSidebar()" title="Zavřít">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-      
-      <!-- Tabs -->
-      <div class="settings-tabs">
-        <button class="settings-tab active" data-tab="general" onclick="switchSettingsTab('general')">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-          </svg>
-          Obecné
-        </button>
-        <button class="settings-tab" data-tab="memory" onclick="switchSettingsTab('memory')">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
-          </svg>
-          Paměť
-        </button>
-        <button class="settings-tab" data-tab="tools" onclick="switchSettingsTab('tools')">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-          </svg>
-          Tools
-        </button>
-      </div>
-      
-      <!-- Tab Content -->
-      <div class="settings-content">
-        <!-- General Settings Tab -->
-        <div class="settings-panel active" id="settings-general">
-          <div class="settings-section">
-            <label class="settings-label">Model</label>
-            <select class="settings-select" id="model-select" onchange="updateSettings()">
-              <option value="qwen2.5:32b">qwen2.5:32b (Chat)</option>
-              <option value="qwen2.5-coder:32b">qwen2.5-coder:32b (Code)</option>
-              <option value="deepseek-r1:32b">deepseek-r1:32b (Review)</option>
-            </select>
-          </div>
-          
-          <div class="settings-section">
-            <label class="settings-label">Temperature</label>
-            <div class="settings-slider-row">
-              <input type="range" class="settings-slider" id="temperature-slider" 
-                     min="0" max="100" value="70" oninput="updateTemperature()">
-              <span class="settings-value" id="temperature-value">0.7</span>
+
+<aside class="sidebar right-sidebar" id="right-sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-title-row">
+      <span class="sidebar-title">⚙️ Nastavení</span>
+      <button class="sidebar-close-btn" onclick="toggleRightSidebar()" title="Zavřít">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    
+    <!-- Effective Settings Summary -->
+    <div class="settings-summary" id="settings-summary">
+      <span class="summary-item">🔔 Email + App</span>
+      <span class="summary-item">🎨 Dark</span>
+      <span class="summary-item">📍 Praha</span>
+    </div>
+  </div>
+  
+  <div class="settings-accordion" id="settings-accordion">
+    
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         1. USER / IDENTITY
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <div class="accordion-section" data-section="user">
+      <button class="accordion-header" onclick="toggleAccordion('user')">
+        <span class="accordion-icon">👤</span>
+        <span class="accordion-title">User / Identity</span>
+        <svg class="accordion-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div class="accordion-content">
+        <div class="settings-group">
+          <!-- Avatar & Name -->
+          <div class="user-profile-header">
+            <div class="user-avatar" id="user-avatar">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="32" height="32">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+              </svg>
+            </div>
+            <div class="user-info">
+              <input type="text" class="settings-input" id="user-name" placeholder="Vaše jméno" value="">
+              <span class="user-status" id="user-status">Nepřihlášen</span>
             </div>
           </div>
           
-          <div class="settings-section">
-            <label class="settings-label">Systémový prompt</label>
-            <textarea class="settings-textarea" id="system-prompt" 
-                      placeholder="Zadej systémový prompt..."
-                      oninput="updateSettings()"></textarea>
+          <!-- Connected Accounts -->
+          <label class="settings-label">Propojené účty</label>
+          <div class="connected-accounts">
+            <button class="account-btn" onclick="connectAccount('google')" id="btn-google">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              <span>Google</span>
+            </button>
+            <button class="account-btn" onclick="connectAccount('github')" id="btn-github">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+              </svg>
+              <span>GitHub</span>
+            </button>
           </div>
           
-          <div class="settings-section">
-            <label class="settings-label">Kontext okno</label>
-            <select class="settings-select" id="context-select" onchange="updateSettings()">
-              <option value="8192">8K tokenů</option>
-              <option value="16384">16K tokenů</option>
-              <option value="32768" selected>32K tokenů</option>
-              <option value="65536">64K tokenů</option>
-              <option value="131072">128K tokenů</option>
-            </select>
+          <!-- Session Scope -->
+          <label class="settings-label">Session scope</label>
+          <div class="radio-group">
+            <label class="radio-item">
+              <input type="radio" name="session-scope" value="personal" checked>
+              <span class="radio-mark"></span>
+              <span>Osobní</span>
+            </label>
+            <label class="radio-item">
+              <input type="radio" name="session-scope" value="work">
+              <span class="radio-mark"></span>
+              <span>Pracovní</span>
+            </label>
+            <label class="radio-item">
+              <input type="radio" name="session-scope" value="anonymous">
+              <span class="radio-mark"></span>
+              <span>Anonymní</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         2. NOTIFICATIONS
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <div class="accordion-section" data-section="notifications">
+      <button class="accordion-header" onclick="toggleAccordion('notifications')">
+        <span class="accordion-icon">🔔</span>
+        <span class="accordion-title">Notifications</span>
+        <svg class="accordion-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div class="accordion-content">
+        <div class="settings-group">
+          <!-- Notification Channels -->
+          <label class="settings-label">Kanály notifikací</label>
+          
+          <div class="channel-item">
+            <div class="channel-header">
+              <label class="toggle-row">
+                <span class="channel-icon">📱</span>
+                <span class="channel-name">In-App</span>
+                <label class="toggle">
+                  <input type="checkbox" id="notif-inapp" checked onchange="updateNotifSettings()">
+                  <span class="toggle-slider"></span>
+                </label>
+              </label>
+            </div>
+          </div>
+          
+          <div class="channel-item">
+            <div class="channel-header">
+              <label class="toggle-row">
+                <span class="channel-icon">📧</span>
+                <span class="channel-name">Email</span>
+                <label class="toggle">
+                  <input type="checkbox" id="notif-email" onchange="updateNotifSettings()">
+                  <span class="toggle-slider"></span>
+                </label>
+              </label>
+            </div>
+            <div class="channel-config" id="email-config">
+              <input type="email" class="settings-input" id="notif-email-address" placeholder="váš@email.cz">
+              <button class="btn btn-xs" onclick="addEmailAddress()">+ Další</button>
+            </div>
+          </div>
+          
+          <div class="channel-item">
+            <div class="channel-header">
+              <label class="toggle-row">
+                <span class="channel-icon">✈️</span>
+                <span class="channel-name">Telegram</span>
+                <label class="toggle">
+                  <input type="checkbox" id="notif-telegram" onchange="updateNotifSettings()">
+                  <span class="toggle-slider"></span>
+                </label>
+              </label>
+            </div>
+            <div class="channel-config" id="telegram-config">
+              <input type="text" class="settings-input" id="notif-telegram-token" placeholder="Bot token">
+              <input type="text" class="settings-input" id="notif-telegram-chat" placeholder="Chat ID">
+            </div>
+          </div>
+          
+          <div class="channel-item">
+            <div class="channel-header">
+              <label class="toggle-row">
+                <span class="channel-icon">🔗</span>
+                <span class="channel-name">Webhook</span>
+                <label class="toggle">
+                  <input type="checkbox" id="notif-webhook" onchange="updateNotifSettings()">
+                  <span class="toggle-slider"></span>
+                </label>
+              </label>
+            </div>
+            <div class="channel-config" id="webhook-config">
+              <input type="url" class="settings-input" id="notif-webhook-url" placeholder="https://...">
+            </div>
           </div>
           
           <div class="settings-divider"></div>
           
-          <div class="settings-section">
-            <label class="settings-label">Ollama URL</label>
-            <input type="text" class="settings-input" id="ollama-url" 
-                   value="http://localhost:11434" 
-                   placeholder="http://localhost:11434"
-                   onchange="updateSettings()">
+          <!-- Quiet Hours -->
+          <label class="settings-label">Tichý režim</label>
+          <label class="settings-sublabel">Během tichého režimu nebudou odesílány notifikace.</label>
+          <div class="quiet-hours-row">
+            <label class="toggle-row compact">
+              <input type="checkbox" id="quiet-hours-enabled">
+              <span>Zapnout</span>
+            </label>
+            <div class="time-range">
+              <input type="time" class="settings-input-small" id="quiet-from" value="22:00">
+              <span>—</span>
+              <input type="time" class="settings-input-small" id="quiet-to" value="07:00">
+            </div>
           </div>
+          
+          <p class="settings-note">💡 Priorita notifikací a eskalace se nastavují u jednotlivých agentů.</p>
         </div>
-        
-        <!-- Memory Tab -->
-        <div class="settings-panel" id="settings-memory">
-          <div class="memory-header">
-            <span class="memory-count" id="memory-count">0 položek</span>
-            <button class="btn-icon" onclick="addMemoryItem()" title="Přidat">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-              </svg>
+      </div>
+    </div>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         3. APPEARANCE
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <div class="accordion-section" data-section="appearance">
+      <button class="accordion-header" onclick="toggleAccordion('appearance')">
+        <span class="accordion-icon">🎨</span>
+        <span class="accordion-title">Appearance</span>
+        <svg class="accordion-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div class="accordion-content">
+        <div class="settings-group">
+          <!-- Theme -->
+          <label class="settings-label">Téma</label>
+          <div class="theme-selector">
+            <button class="theme-btn active" data-theme="dark" onclick="setTheme('dark')">
+              <span class="theme-icon">🌙</span>
+              <span>Tmavé</span>
+            </button>
+            <button class="theme-btn" data-theme="light" onclick="setTheme('light')">
+              <span class="theme-icon">☀️</span>
+              <span>Světlé</span>
+            </button>
+            <button class="theme-btn" data-theme="system" onclick="setTheme('system')">
+              <span class="theme-icon">💻</span>
+              <span>Systém</span>
             </button>
           </div>
           
-          <div class="memory-list" id="memory-list">
-            <div class="memory-empty">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="48" height="48">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
-              </svg>
-              <p>Žádné položky v paměti</p>
-              <button class="btn btn-sm" onclick="addMemoryItem()">+ Přidat první</button>
-            </div>
+          <!-- Accent Color -->
+          <label class="settings-label">Accent barva</label>
+          <div class="color-picker">
+            <button class="color-btn active" data-color="#6366f1" style="background: #6366f1" onclick="setAccentColor('#6366f1')"></button>
+            <button class="color-btn" data-color="#8b5cf6" style="background: #8b5cf6" onclick="setAccentColor('#8b5cf6')"></button>
+            <button class="color-btn" data-color="#ec4899" style="background: #ec4899" onclick="setAccentColor('#ec4899')"></button>
+            <button class="color-btn" data-color="#14b8a6" style="background: #14b8a6" onclick="setAccentColor('#14b8a6')"></button>
+            <button class="color-btn" data-color="#f59e0b" style="background: #f59e0b" onclick="setAccentColor('#f59e0b')"></button>
+            <button class="color-btn" data-color="#ef4444" style="background: #ef4444" onclick="setAccentColor('#ef4444')"></button>
           </div>
           
-          <div class="memory-actions">
-            <button class="btn btn-secondary btn-sm" onclick="exportMemory()">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
-              </svg>
-              Export
-            </button>
-            <button class="btn btn-secondary btn-sm" onclick="importMemory()">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-              </svg>
-              Import
-            </button>
-          </div>
-        </div>
-        
-        <!-- Tools Tab -->
-        <div class="settings-panel" id="settings-tools">
-          <div class="tools-header">
-            <span class="tools-count" id="tools-count">0 nástrojů</span>
-            <button class="btn-icon" onclick="refreshTools()" title="Obnovit">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-              </svg>
-            </button>
+          <!-- Font -->
+          <label class="settings-label">Písmo</label>
+          <select class="settings-select" id="font-family" onchange="updateAppearance()">
+            <option value="system">Systémové</option>
+            <option value="inter">Inter</option>
+            <option value="roboto">Roboto</option>
+            <option value="source-code">Source Code Pro</option>
+          </select>
+          
+          <!-- Font Size -->
+          <label class="settings-label">Velikost písma</label>
+          <div class="settings-slider-row">
+            <input type="range" class="settings-slider" id="font-size" 
+                   min="12" max="20" value="14" oninput="updateFontSize()">
+            <span class="settings-value" id="font-size-value">14px</span>
           </div>
           
-          <div class="tools-list" id="tools-list">
-            <div class="tool-category">
-              <div class="tool-category-header" onclick="toggleToolCategory('filesystem')">
-                <span>📁 Filesystem</span>
-                <span class="tool-category-count">8</span>
-              </div>
-              <div class="tool-category-items" id="tools-filesystem">
-                <div class="tool-item">
-                  <span class="tool-name">read_file</span>
-                  <label class="toggle">
-                    <input type="checkbox" checked>
-                    <span class="toggle-slider"></span>
-                  </label>
-                </div>
-                <div class="tool-item">
-                  <span class="tool-name">write_file</span>
-                  <label class="toggle">
-                    <input type="checkbox" checked>
-                    <span class="toggle-slider"></span>
-                  </label>
-                </div>
-              </div>
-            </div>
-            
-            <div class="tool-category">
-              <div class="tool-category-header" onclick="toggleToolCategory('shell')">
-                <span>💻 Shell</span>
-                <span class="tool-category-count">4</span>
-              </div>
-              <div class="tool-category-items collapsed" id="tools-shell">
-                <div class="tool-item">
-                  <span class="tool-name">bash</span>
-                  <label class="toggle">
-                    <input type="checkbox" checked>
-                    <span class="toggle-slider"></span>
-                  </label>
-                </div>
-              </div>
-            </div>
-            
-            <div class="tool-category">
-              <div class="tool-category-header" onclick="toggleToolCategory('web')">
-                <span>🌐 Web</span>
-                <span class="tool-category-count">3</span>
-              </div>
-              <div class="tool-category-items collapsed" id="tools-web">
-                <div class="tool-item">
-                  <span class="tool-name">web_search</span>
-                  <label class="toggle">
-                    <input type="checkbox" checked>
-                    <span class="toggle-slider"></span>
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div class="tools-info">
-            <p class="text-muted">MCP nástroje jsou načítány z registru. Deaktivované nástroje nebudou dostupné v chatu.</p>
+          <!-- Density -->
+          <label class="settings-label">Hustota UI</label>
+          <div class="radio-group horizontal">
+            <label class="radio-item">
+              <input type="radio" name="density" value="comfortable" checked>
+              <span class="radio-mark"></span>
+              <span>Pohodlná</span>
+            </label>
+            <label class="radio-item">
+              <input type="radio" name="density" value="compact">
+              <span class="radio-mark"></span>
+              <span>Kompaktní</span>
+            </label>
           </div>
         </div>
       </div>
-    </aside>
+    </div>
     
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         4. MEMORY & CONTEXT
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <div class="accordion-section" data-section="memory">
+      <button class="accordion-header" onclick="toggleAccordion('memory')">
+        <span class="accordion-icon">🧠</span>
+        <span class="accordion-title">Memory & Context</span>
+        <svg class="accordion-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div class="accordion-content">
+        <div class="settings-group">
+          <!-- Persistent Memory / Skills -->
+          <label class="settings-label">Dovednosti & Skills</label>
+          <div class="memory-list" id="skills-list">
+            <div class="memory-item">
+              <span class="memory-text">Rozumím Kubernetes a Docker</span>
+              <button class="btn-icon-xs" onclick="removeSkill(this)">×</button>
+            </div>
+            <div class="memory-item">
+              <span class="memory-text">Preferuji TypeScript před JavaScript</span>
+              <button class="btn-icon-xs" onclick="removeSkill(this)">×</button>
+            </div>
+          </div>
+          <div class="memory-add-row">
+            <input type="text" class="settings-input" id="new-skill" placeholder="Přidat dovednost...">
+            <button class="btn btn-sm" onclick="addSkill()">+</button>
+          </div>
+          
+          <div class="settings-divider"></div>
+          
+          <!-- Custom System Prompts -->
+          <label class="settings-label">Vlastní systémový prompt</label>
+          <textarea class="settings-textarea" id="custom-prompt" 
+                    placeholder="Zadej vlastní instrukce pro AI..."
+                    rows="4"></textarea>
+          
+          <div class="settings-divider"></div>
+          
+          <!-- Privacy -->
+          <label class="settings-label">Soukromí</label>
+          <label class="toggle-row compact">
+            <input type="checkbox" id="save-history" checked>
+            <span>Ukládat historii konverzací</span>
+          </label>
+          <label class="toggle-row compact">
+            <input type="checkbox" id="save-context" checked>
+            <span>Pamatovat si kontext mezi sessions</span>
+          </label>
+          
+          <div class="memory-actions">
+            <button class="btn btn-secondary btn-sm" onclick="exportMemory()">
+              📤 Export
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="importMemory()">
+              📥 Import
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="clearMemory()">
+              🗑️ Vymazat vše
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         5. LOCATION & METADATA
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <div class="accordion-section" data-section="location">
+      <button class="accordion-header" onclick="toggleAccordion('location')">
+        <span class="accordion-icon">📍</span>
+        <span class="accordion-title">Location & Metadata</span>
+        <svg class="accordion-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div class="accordion-content">
+        <div class="settings-group">
+          <!-- Location -->
+          <label class="settings-label">Výchozí lokace</label>
+          <div class="location-row">
+            <input type="text" class="settings-input" id="location-city" placeholder="Město" value="Praha" onchange="updateLocationSettings()">
+            <input type="text" class="settings-input" id="location-country" placeholder="Země" value="CZ" onchange="updateLocationSettings()">
+          </div>
+          <button class="btn btn-xs btn-secondary" onclick="detectLocation()">
+            📍 Detekovat automaticky
+          </button>
+          
+          <!-- Timezone -->
+          <label class="settings-label">Časová zóna</label>
+          <select class="settings-select" id="timezone" onchange="updateLocationSettings()">
+            <option value="Europe/Prague" selected>Europe/Prague (CET)</option>
+            <option value="Europe/London">Europe/London (GMT)</option>
+            <option value="America/New_York">America/New_York (EST)</option>
+            <option value="America/Los_Angeles">America/Los_Angeles (PST)</option>
+            <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+          </select>
+          
+          <!-- Currency -->
+          <label class="settings-label">Měna</label>
+          <select class="settings-select" id="currency" onchange="updateLocationSettings()">
+            <option value="CZK" selected>CZK (Kč)</option>
+            <option value="EUR">EUR (€)</option>
+            <option value="USD">USD ($)</option>
+            <option value="GBP">GBP (£)</option>
+          </select>
+          
+          <!-- Units -->
+          <label class="settings-label">Jednotky</label>
+          <div class="radio-group horizontal">
+            <label class="radio-item">
+              <input type="radio" name="units" value="metric" checked onchange="updateLocationSettings()">
+              <span class="radio-mark"></span>
+              <span>Metrické</span>
+            </label>
+            <label class="radio-item">
+              <input type="radio" name="units" value="imperial" onchange="updateLocationSettings()">
+              <span class="radio-mark"></span>
+              <span>Imperiální</span>
+            </label>
+          </div>
+          
+          <!-- Language -->
+          <label class="settings-label">Jazyk odpovědí</label>
+          <select class="settings-select" id="language" onchange="updateLocationSettings()">
+            <option value="cs" selected>Čeština</option>
+            <option value="en">English</option>
+            <option value="de">Deutsch</option>
+            <option value="auto">Automaticky</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         6. OUTPUT & FORMATS
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <div class="accordion-section" data-section="output">
+      <button class="accordion-header" onclick="toggleAccordion('output')">
+        <span class="accordion-icon">📄</span>
+        <span class="accordion-title">Output & Formats</span>
+        <svg class="accordion-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div class="accordion-content">
+        <div class="settings-group">
+          <!-- Enabled Output Types -->
+          <label class="settings-label">Povolené výstupy</label>
+          <div class="output-grid">
+            <label class="checkbox-card">
+              <input type="checkbox" id="output-code" checked>
+              <span class="checkbox-card-icon">💻</span>
+              <span class="checkbox-card-label">Code</span>
+            </label>
+            <label class="checkbox-card">
+              <input type="checkbox" id="output-docs" checked>
+              <span class="checkbox-card-icon">📝</span>
+              <span class="checkbox-card-label">Docs</span>
+            </label>
+            <label class="checkbox-card">
+              <input type="checkbox" id="output-xlsx" checked>
+              <span class="checkbox-card-icon">📊</span>
+              <span class="checkbox-card-label">Excel</span>
+            </label>
+            <label class="checkbox-card">
+              <input type="checkbox" id="output-pptx">
+              <span class="checkbox-card-icon">📽️</span>
+              <span class="checkbox-card-label">PPT</span>
+            </label>
+            <label class="checkbox-card">
+              <input type="checkbox" id="output-pdf" checked>
+              <span class="checkbox-card-icon">📕</span>
+              <span class="checkbox-card-label">PDF</span>
+            </label>
+            <label class="checkbox-card">
+              <input type="checkbox" id="output-reports" checked>
+              <span class="checkbox-card-icon">📈</span>
+              <span class="checkbox-card-label">Reports</span>
+            </label>
+          </div>
+          
+          <!-- Default Format -->
+          <label class="settings-label">Výchozí formát dat</label>
+          <select class="settings-select" id="default-format">
+            <option value="markdown" selected>Markdown</option>
+            <option value="json">JSON</option>
+            <option value="csv">CSV</option>
+            <option value="yaml">YAML</option>
+          </select>
+          
+          <!-- Code Style -->
+          <label class="settings-label">Styl kódu</label>
+          <select class="settings-select" id="code-style">
+            <option value="default">Výchozí</option>
+            <option value="airbnb">Airbnb</option>
+            <option value="google">Google</option>
+            <option value="standard">Standard</option>
+          </select>
+          
+          <!-- Naming Convention -->
+          <label class="settings-label">Naming convention</label>
+          <select class="settings-select" id="naming-convention">
+            <option value="camelCase">camelCase</option>
+            <option value="snake_case">snake_case</option>
+            <option value="kebab-case">kebab-case</option>
+            <option value="PascalCase">PascalCase</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         7. SYSTEM
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <div class="accordion-section" data-section="system">
+      <button class="accordion-header" onclick="toggleAccordion('system')">
+        <span class="accordion-icon">⚙️</span>
+        <span class="accordion-title">System</span>
+        <svg class="accordion-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div class="accordion-content">
+        <div class="settings-group">
+          <!-- Runtime -->
+          <label class="settings-label">Runtime</label>
+          <div class="radio-group horizontal">
+            <label class="radio-item">
+              <input type="radio" name="runtime" value="local" checked>
+              <span class="radio-mark"></span>
+              <span>Local</span>
+            </label>
+            <label class="radio-item">
+              <input type="radio" name="runtime" value="remote" disabled>
+              <span class="radio-mark"></span>
+              <span>Remote</span>
+            </label>
+          </div>
+          
+          <!-- Models -->
+          <label class="settings-label">Výchozí model (Chat)</label>
+          <select class="settings-select" id="model-chat">
+            <option value="qwen2.5:32b" selected>qwen2.5:32b</option>
+            <option value="llama3.2:latest">llama3.2:latest</option>
+            <option value="mistral:latest">mistral:latest</option>
+          </select>
+          
+          <label class="settings-label">Model pro kód</label>
+          <select class="settings-select" id="model-code">
+            <option value="qwen2.5-coder:32b" selected>qwen2.5-coder:32b</option>
+            <option value="deepseek-coder:33b">deepseek-coder:33b</option>
+          </select>
+          
+          <!-- Ollama URL -->
+          <label class="settings-label">Ollama URL</label>
+          <input type="text" class="settings-input" id="ollama-url" 
+                 value="http://localhost:11434" placeholder="http://localhost:11434">
+          
+          <div class="settings-divider"></div>
+          
+          <!-- Limits -->
+          <label class="settings-label">Max tokens</label>
+          <select class="settings-select" id="max-tokens">
+            <option value="4096">4K</option>
+            <option value="8192">8K</option>
+            <option value="16384">16K</option>
+            <option value="32768" selected>32K</option>
+            <option value="65536">64K</option>
+          </select>
+          
+          <div class="settings-divider"></div>
+          
+          <!-- Logs -->
+          <label class="settings-label">Logy</label>
+          <div class="btn-row">
+            <button class="btn btn-secondary btn-sm" onclick="viewLogs()">
+              📋 Zobrazit
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="exportLogs()">
+              📤 Export
+            </button>
+          </div>
+          
+          <div class="settings-divider"></div>
+          
+          <!-- Reset -->
+          <label class="settings-label">Reset</label>
+          <div class="btn-row">
+            <button class="btn btn-secondary btn-sm" onclick="resetSettings()">
+              ↺ Nastavení
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="resetAll()">
+              🗑️ Vše
+            </button>
+          </div>
+          
+          <!-- Lock Config -->
+          <label class="toggle-row compact" style="margin-top: 12px;">
+            <input type="checkbox" id="lock-config">
+            <span>🔒 Zamknout konfiguraci</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         8. ABOUT
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <div class="accordion-section" data-section="about">
+      <button class="accordion-header" onclick="toggleAccordion('about')">
+        <span class="accordion-icon">ℹ️</span>
+        <span class="accordion-title">About</span>
+        <svg class="accordion-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div class="accordion-content">
+        <div class="settings-group">
+          <div class="about-header">
+            <div class="about-logo">
+              <svg viewBox="300 100 424 500" width="48" height="48">
+                <defs>
+                  <linearGradient id="aboutGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="#ffb65e"/>
+                    <stop offset="45%" stop-color="#ff5fa2"/>
+                    <stop offset="100%" stop-color="#4cc9ff"/>
+                  </linearGradient>
+                  <linearGradient id="aboutHelmet" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="#2a0f4f" stop-opacity="0.7"/>
+                    <stop offset="100%" stop-color="#1a0c3d" stop-opacity="0.7"/>
+                  </linearGradient>
+                </defs>
+                <line x1="512" y1="260" x2="512" y2="150" stroke="url(#aboutGrad)" stroke-width="8" stroke-linecap="round"/>
+                <circle cx="512" cy="135" r="12" fill="url(#aboutGrad)"/>
+                <path d="M360 350 C360 260 455 230 512 230 C569 230 664 260 664 350 V420 C664 500 580 540 512 540 C455 540 410 510 388 490 L350 525 V420 C350 380 360 375 360 350 Z" fill="url(#aboutHelmet)" stroke="url(#aboutGrad)" stroke-width="18" stroke-linejoin="round"/>
+                <ellipse cx="345" cy="395" rx="28" ry="32" fill="url(#aboutHelmet)" stroke="url(#aboutGrad)" stroke-width="6"/>
+                <ellipse cx="679" cy="395" rx="28" ry="32" fill="url(#aboutHelmet)" stroke="url(#aboutGrad)" stroke-width="6"/>
+                <rect x="420" y="365" width="184" height="92" rx="46" fill="none" stroke="url(#aboutGrad)" stroke-width="14"/>
+                <circle cx="465" cy="410" r="13" fill="#ff5fa2"/>
+                <circle cx="559" cy="410" r="13" fill="#4cc9ff"/>
+              </svg>
+            </div>
+            <div class="about-info">
+              <h3 class="about-name">p(AI)assistant</h3>
+              <p class="about-tagline">Your local AI copilot</p>
+            </div>
+          </div>
+          
+          <div class="about-details">
+            <div class="about-row">
+              <span class="about-label">Verze</span>
+              <span class="about-value" id="version">34.3.2</span>
+            </div>
+            <div class="about-row">
+              <span class="about-label">Build</span>
+              <span class="about-value" id="build-date">2026-01-18</span>
+            </div>
+            <div class="about-row">
+              <span class="about-label">Runtime</span>
+              <span class="about-value" id="runtime-info">Node.js + Ollama</span>
+            </div>
+          </div>
+          
+          <div class="about-links">
+            <a href="#" class="about-link" onclick="showChangelog()">📋 Changelog</a>
+            <a href="#" class="about-link" onclick="showLicenses()">📜 Licence</a>
+            <a href="#" class="about-link" onclick="runDiagnostics()">🔧 Diagnostika</a>
+          </div>
+          
+          <div class="about-footer">
+            <p class="text-muted">Made with ❤️ by Belfik</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+  
+  <!-- Settings Actions -->
+  <div class="settings-footer">
+    <button class="btn btn-secondary btn-sm" onclick="exportSettings()">
+      📤 Export nastavení
+    </button>
+    <button class="btn btn-secondary btn-sm" onclick="importSettings()">
+      📥 Import nastavení
+    </button>
+  </div>
+</aside>
   </div>
   
   <!-- Sidebar Backdrop -->

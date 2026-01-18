@@ -142,6 +142,50 @@ async function getArchitectUIHTML() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// INTENT CLASSIFICATION HELPERS
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Detect file type from message and intent
+ */
+function detectFileTypeFromIntent(message, intent) {
+  // Check explicit file type mentions
+  if (/\bpdf\b/i.test(message)) return 'pdf';
+  if (/\b(xlsx|excel|spreadsheet)\b/i.test(message)) return 'xlsx';
+  if (/\bcsv\b/i.test(message)) return 'csv';
+  if (/\b(docx|word)\b/i.test(message)) return 'docx';
+  if (/\bjson\b/i.test(message)) return 'json';
+  if (/\b(yaml|yml)\b/i.test(message)) return 'yaml';
+  
+  // Default based on intent
+  const intentDefaults = {
+    'FILE_REQUEST': 'pdf',
+    'REPORT_REQUEST': 'pdf',
+    'TABLE_REQUEST': 'xlsx',
+    'CONFIG_REQUEST': 'json'
+  };
+  
+  return intentDefaults[intent] || 'pdf';
+}
+
+/**
+ * Extract topic/subject from message
+ */
+function extractTopicFromMessage(message) {
+  return message
+    .replace(/vygeneruj\s+(mi\s+)?/gi, '')
+    .replace(/vytvoř\s+(mi\s+)?/gi, '')
+    .replace(/připrav\s+(mi\s+)?/gi, '')
+    .replace(/exportuj\s+(jako\s+)?/gi, '')
+    .replace(/udělej\s+(mi\s+)?/gi, '')
+    .replace(/chci\s+(to\s+)?/gi, '')
+    .replace(/\b(pdf|xlsx|excel|csv|docx|word|dokument|tabulku?|soubor|report|přehled)\b/gi, '')
+    .replace(/\s+(s|kde|který|která|které|obsahující|ke\s+stažení)\s+/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // API ROUTES
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -150,7 +194,7 @@ const routes = {
   'GET /': (req, res) => {
     sendJSON(res, 200, {
       name: 'p(AI)assistant',
-      version: '33.3.2',
+      version: '34.3.2',
       status: 'ok',
       endpoints: [
         'POST /workflow - Start or continue workflow',
@@ -785,7 +829,139 @@ const routes = {
       // Save user message
       db.messages.addMessage(conversation_id, 'user', message);
       
-      // Get AI response (use architect if project, else simple chat)
+      // v34.3.2: SEMANTIC INTENT CLASSIFIER - check FIRST before any chat logic
+      const artifactPipeline = await import('./artifact-pipeline.js');
+      const { callOllama } = await import('./llm/client.js');
+      
+      // LLM call function for classifier and pipeline
+      const llmCall = async (prompt, systemPrompt, options) => {
+        return callOllama('CHAT', prompt, systemPrompt, options);
+      };
+      
+      // Use async semantic classifier (hybrid: heuristic + LLM)
+      const intentResult = await artifactPipeline.classifyIntent(message, llmCall);
+      logger.info('Server', `Intent classified: ${intentResult.intent} (${intentResult.confidence.toFixed(2)}, ${intentResult.method}${intentResult.cached ? ', cached' : ''})`);
+      
+      // Map intent to task type
+      const isArtifact = intentResult.intent !== artifactPipeline.INTENT.CHAT;
+      
+      if (isArtifact) {
+        const task = {
+          type: 'ARTIFACT',
+          intent: intentResult.intent,
+          artifactType: detectFileTypeFromIntent(message, intentResult.intent),
+          topic: extractTopicFromMessage(message),
+          confidence: intentResult.confidence
+        };
+        
+        logger.info('Server', `Artifact request: ${task.artifactType} - ${task.topic}`);
+        
+        // Load user settings for locale
+        let userSettings = {};
+        try {
+          const settingsRow = db.db.prepare('SELECT data FROM user_settings WHERE id = 1').get();
+          if (settingsRow) {
+            userSettings = JSON.parse(settingsRow.data);
+          }
+        } catch (e) {
+          logger.warn('Server', 'Could not load user settings, using defaults');
+        }
+        
+        // Execute artifact pipeline
+        const result = await artifactPipeline.executeArtifactPipeline(
+          message,
+          userSettings,
+          llmCall
+        );
+        
+        if (result.success) {
+          // Build response with download link
+          const artifact = result.artifact;
+          const downloadUrl = artifact.downloadUrl;
+          const confidence = result.metadata?.confidence || 'unknown';
+          
+          // Confidence indicator
+          const confidenceText = {
+            high: '✅ Ověřená data',
+            medium: '⚡ Odhadovaná data',
+            low: '⚠️ Orientační data',
+            unknown: '❓ Neověřeno'
+          }[confidence] || '❓ Neověřeno';
+          
+          // Determine display type (actual type, not requested)
+          const displayType = artifact.actualType?.toUpperCase() || artifact.type?.toUpperCase() || 'PDF';
+          
+          let response = `✅ **Soubor vygenerován**
+
+📄 **${artifact.title}**
+
+${result.data.description || ''}
+
+| Sloupec | Ukázka |
+|---------|--------|
+${result.data.columns?.slice(0, 4).map(col => `| ${col} | ${result.data.data[0]?.[col] || '-'} |`).join('\n')}
+
+📊 **Celkem řádků:** ${result.data.data.length}
+🎯 **Kvalita dat:** ${confidenceText}
+
+---
+
+⬇️ **[Stáhnout ${displayType}: ${artifact.title}](${downloadUrl})**`;
+
+          // Add HTML fallback warning
+          if (result.htmlFallback || artifact.htmlFallback) {
+            response += `\n\n💡 **Tip:** Pro skutečné PDF nainstalujte puppeteer: \`npm install puppeteer\``;
+          }
+
+          // Add warning if partial/fallback
+          if (result.warning) {
+            response += `\n\n⚠️ **Upozornění:** ${result.warning}`;
+          }
+          
+          // Add notes
+          if (result.data.notes?.length) {
+            response += '\n\n📝 **Poznámky:**\n' + result.data.notes.map(n => `- ${n}`).join('\n');
+          }
+
+          db.messages.addMessage(conversation_id, 'assistant', response);
+          
+          return sendJSON(res, 200, { 
+            response,
+            artifact: {
+              type: artifact.actualType || artifact.type,
+              requestedType: artifact.requestedType,
+              title: artifact.title,
+              downloadUrl: artifact.downloadUrl,
+              size: artifact.size,
+              confidence: confidence,
+              canRetry: result.canRetry || false,
+              htmlFallback: result.htmlFallback || artifact.htmlFallback || false
+            }
+          });
+        } else {
+          // Artifact generation failed - provide helpful error with retry option
+          let errorResponse = `❌ **Nepodařilo se vygenerovat soubor**
+
+**Důvod:** ${result.error}`;
+
+          if (result.suggestion) {
+            errorResponse += `\n\n💡 **Tip:** ${result.suggestion}`;
+          }
+          
+          errorResponse += `\n\n**Co můžete zkusit:**
+- Upřesnit požadavek (např. "RTX 4000 série, nové, CZ e-shopy")
+- Zjednodušit dotaz
+- Zkusit znovu (model může mít lepší výsledek)`;
+
+          db.messages.addMessage(conversation_id, 'assistant', errorResponse);
+          return sendJSON(res, 200, { 
+            response: errorResponse,
+            canRetry: result.canRetry || true
+          });
+        }
+      }
+      
+      // Continue with regular chat flow...
       let response;
       
       if (project_id) {
@@ -998,8 +1174,12 @@ Váš dotaz vyžaduje aktuální data z internetu (odkazy, nabídky, ceny), kter
           ? `${context}\n\nUser: ${message}${searchContext}`
           : `User: ${message}${searchContext}`;
         
+        // v34.2: Artifact requests are now handled at the beginning of POST /api/chat
+        // This code path is only reached for regular chat
+        
         // Strict, structured system prompt based on best practices
         let systemPrompt;
+        
         if (searchContext) {
           // Web search mode - strict factual with sources
           systemPrompt = `ROLE: You are a Strict Information Assistant.
@@ -1290,6 +1470,62 @@ CRITICAL REMINDER:
     }
   },
   
+  // ══════════════════════════════════════════════════════════════════════════
+  // v34.2: ARTIFACT DOWNLOAD
+  // ══════════════════════════════════════════════════════════════════════════
+  
+  'GET /api/artifacts/:filename': async (req, res, params) => {
+    try {
+      const fsPromises = await import('fs/promises');
+      const pathModule = await import('path');
+      
+      const artifactsDir = './data/artifacts';
+      const filepath = pathModule.default.join(artifactsDir, params.filename);
+      
+      // Check if file exists
+      try {
+        await fsPromises.access(filepath);
+      } catch {
+        return sendJSON(res, 404, { error: 'Artifact not found' });
+      }
+      
+      // Determine content type from extension
+      let contentType, disposition;
+      
+      if (params.filename.endsWith('.pdf')) {
+        contentType = 'application/pdf';
+        disposition = 'inline';
+      } else if (params.filename.endsWith('.csv')) {
+        contentType = 'text/csv; charset=utf-8';
+        disposition = 'attachment';
+      } else if (params.filename.endsWith('.json')) {
+        contentType = 'application/json; charset=utf-8';
+        disposition = 'attachment';
+      } else if (params.filename.endsWith('.html')) {
+        contentType = 'text/html; charset=utf-8';
+        disposition = 'inline';
+      } else {
+        contentType = 'application/octet-stream';
+        disposition = 'attachment';
+      }
+      
+      // Read file
+      const content = await fsPromises.readFile(filepath);
+      
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Content-Disposition': `${disposition}; filename="${params.filename}"`,
+        'Content-Length': content.length,
+        'Cache-Control': 'private, max-age=3600'
+      });
+      res.end(content);
+      
+    } catch (err) {
+      logger.error('Server', `Artifact download error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+  
   // Get attachment
   'GET /api/attachments/:id': async (req, res, params) => {
     try {
@@ -1310,6 +1546,97 @@ CRITICAL REMINDER:
       });
       res.end(data);
       
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // v34: SETTINGS API
+  // ══════════════════════════════════════════════════════════════════════════
+  
+  'GET /api/settings': async (req, res) => {
+    try {
+      const row = db.db.prepare('SELECT data FROM user_settings WHERE id = 1').get();
+      if (row) {
+        sendJSON(res, 200, JSON.parse(row.data));
+      } else {
+        sendJSON(res, 200, {});
+      }
+    } catch (err) {
+      sendJSON(res, 200, {});
+    }
+  },
+  
+  'POST /api/settings': async (req, res) => {
+    const body = await parseBody(req);
+    try {
+      db.db.exec(`
+        CREATE TABLE IF NOT EXISTS user_settings (
+          id INTEGER PRIMARY KEY,
+          data TEXT NOT NULL,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      
+      db.db.prepare(`
+        INSERT OR REPLACE INTO user_settings (id, data, updated_at)
+        VALUES (1, ?, datetime('now'))
+      `).run(JSON.stringify(body));
+      
+      sendJSON(res, 200, { success: true });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+  
+  'GET /api/health': (req, res) => {
+    sendJSON(res, 200, { 
+      status: 'ok', 
+      version: '34.3.2',
+      timestamp: new Date().toISOString()
+    });
+  },
+  
+  'GET /api/logs': async (req, res) => {
+    try {
+      const logs = db.db.prepare(`
+        SELECT * FROM logs 
+        ORDER BY created_at DESC 
+        LIMIT 1000
+      `).all();
+      sendJSON(res, 200, { logs });
+    } catch (err) {
+      sendJSON(res, 200, { logs: [] });
+    }
+  },
+  
+  'GET /api/logs/export': async (req, res) => {
+    try {
+      const logs = db.db.prepare(`
+        SELECT * FROM logs 
+        ORDER BY created_at DESC
+      `).all();
+      
+      const content = logs.map(l => 
+        `[${l.created_at}] [${l.level}] ${l.message}`
+      ).join('\n');
+      
+      res.writeHead(200, {
+        'Content-Type': 'text/plain',
+        'Content-Disposition': 'attachment; filename=paiass-logs.log'
+      });
+      res.end(content);
+    } catch (err) {
+      res.writeHead(500);
+      res.end('Error exporting logs');
+    }
+  },
+  
+  'POST /api/reset': async (req, res) => {
+    try {
+      db.db.exec('DELETE FROM user_settings');
+      sendJSON(res, 200, { success: true, message: 'Settings cleared' });
     } catch (err) {
       sendJSON(res, 500, { error: err.message });
     }
@@ -1400,7 +1727,7 @@ function getUIHTML() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>p(AI)assistant v33.3.2</title>
+  <title>p(AI)assistant v33.3.3</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
@@ -1670,7 +1997,7 @@ function getUIHTML() {
 </head>
 <body>
   <header>
-    <div class="logo">⚡ p(AI)assistant <small style="color:#888">v33.3.2</small></div>
+    <div class="logo">⚡ p(AI)assistant <small style="color:#888">v33.3.3</small></div>
     <div class="status">
       <div class="status-dot"></div>
       <span id="statusText">Ready</span>
@@ -1681,7 +2008,7 @@ function getUIHTML() {
     <div class="chat-container">
       <div class="messages" id="messages">
         <div class="message system">
-          Vítej v p(AI)assistant v33.3.2! Zadej požadavek a já ho implementuji.
+          Vítej v p(AI)assistant v33.3.3! Zadej požadavek a já ho implementuji.
         </div>
       </div>
       
@@ -1868,7 +2195,7 @@ server.listen(config.server.port, config.server.host, () => {
   console.log(`
 ╔══════════════════════════════════════════════════════════════╗
 ║                                                              ║
-║     ⚡  p(AI)assistant v33.3.2                               ║
+║     ⚡  p(AI)assistant v33.3.3                               ║
 ║                                                              ║
 ║     Chat:      http://${config.server.host}:${config.server.port}/architect             ║
 ║     Agents:    http://${config.server.host}:${config.server.port}/agents                ║

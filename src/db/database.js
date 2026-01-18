@@ -186,6 +186,22 @@ CREATE TABLE IF NOT EXISTS drafts (
     UNIQUE(project_id)
 );
 
+-- v34: User settings persistence
+CREATE TABLE IF NOT EXISTS user_settings (
+    id INTEGER PRIMARY KEY,
+    data TEXT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- v34: System logs for diagnostics
+CREATE TABLE IF NOT EXISTS logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    level TEXT DEFAULT 'info',
+    message TEXT,
+    data TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_project_memory_project ON project_memory(project_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id);

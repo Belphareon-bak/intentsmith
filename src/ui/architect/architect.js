@@ -994,10 +994,10 @@ function updateSettings() {
   appSettings.systemPrompt = document.getElementById('system-prompt')?.value || '';
   appSettings.contextWindow = parseInt(document.getElementById('context-select')?.value) || 32768;
   appSettings.ollamaUrl = document.getElementById('ollama-url')?.value || 'http://localhost:11434';
-  saveSettings();
+  saveModelSettings();
 }
 
-function loadSettings() {
+function loadModelSettings() {
   // Load from localStorage
   const saved = localStorage.getItem('c3-settings');
   if (saved) {
@@ -1022,7 +1022,7 @@ function loadSettings() {
   if (ollamaUrl) ollamaUrl.value = appSettings.ollamaUrl;
 }
 
-function saveSettings() {
+function saveModelSettings() {
   localStorage.setItem('c3-settings', JSON.stringify(appSettings));
 }
 
@@ -1180,16 +1180,6 @@ function refreshTools() {
   loadTools();
 }
 
-// Helper
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // Initialization
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1225,3 +1215,694 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// v34: RIGHT SIDEBAR SETTINGS MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════
+// RIGHT SIDEBAR - p(AI)assistant Settings Management
+// Add this to architect.js or include as separate file
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Settings state
+const settingsState = {
+  // User
+  user: {
+    name: '',
+    avatar: null,
+    connectedAccounts: [],
+    sessionScope: 'personal'
+  },
+  // Notifications
+  notifications: {
+    channels: {
+      inapp: true,
+      email: false,
+      telegram: false,
+      webhook: false
+    },
+    emailAddresses: [],
+    telegramToken: '',
+    telegramChatId: '',
+    webhookUrl: '',
+    defaultPriority: 'normal',
+    quietHours: {
+      enabled: false,
+      from: '22:00',
+      to: '07:00'
+    },
+    escalation: true
+  },
+  // Appearance
+  appearance: {
+    theme: 'dark',
+    accentColor: '#6366f1',
+    fontFamily: 'system',
+    fontSize: 14,
+    density: 'comfortable'
+  },
+  // Memory
+  memory: {
+    skills: [],
+    customPrompt: '',
+    saveHistory: true,
+    saveContext: true
+  },
+  // Location
+  location: {
+    city: 'Praha',
+    country: 'CZ',
+    timezone: 'Europe/Prague',
+    currency: 'CZK',
+    units: 'metric',
+    language: 'cs'
+  },
+  // Output
+  output: {
+    enabledTypes: ['code', 'docs', 'xlsx', 'pdf', 'reports'],
+    defaultFormat: 'markdown',
+    codeStyle: 'default',
+    namingConvention: 'camelCase'
+  },
+  // System
+  system: {
+    runtime: 'local',
+    modelChat: 'qwen2.5:32b',
+    modelCode: 'qwen2.5-coder:32b',
+    ollamaUrl: 'http://localhost:11434',
+    maxTokens: 32768,
+    lockConfig: false
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ACCORDION
+// ═══════════════════════════════════════════════════════════════════════════
+
+function toggleAccordion(sectionId) {
+  const section = document.querySelector(`.accordion-section[data-section="${sectionId}"]`);
+  if (!section) return;
+  
+  const isOpen = section.classList.contains('open');
+  
+  // Optionally close others (single-open mode)
+  // document.querySelectorAll('.accordion-section.open').forEach(s => s.classList.remove('open'));
+  
+  section.classList.toggle('open', !isOpen);
+  
+  // Save open state
+  saveAccordionState();
+}
+
+function saveAccordionState() {
+  const openSections = Array.from(document.querySelectorAll('.accordion-section.open'))
+    .map(s => s.dataset.section);
+  localStorage.setItem('paiass_accordion_state', JSON.stringify(openSections));
+}
+
+function restoreAccordionState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('paiass_accordion_state') || '[]');
+    saved.forEach(sectionId => {
+      const section = document.querySelector(`.accordion-section[data-section="${sectionId}"]`);
+      if (section) section.classList.add('open');
+    });
+  } catch (e) {
+    console.warn('Failed to restore accordion state:', e);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SETTINGS PERSISTENCE
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function loadSettings() {
+  try {
+    const res = await fetch('/api/settings');
+    if (res.ok) {
+      const data = await res.json();
+      Object.assign(settingsState, data);
+    }
+  } catch (e) {
+    console.warn('Failed to load settings from server, using defaults');
+  }
+  
+  // Also check localStorage as fallback
+  try {
+    const local = JSON.parse(localStorage.getItem('paiass_settings') || '{}');
+    // Merge local with state (local takes precedence for offline)
+    Object.keys(local).forEach(key => {
+      if (settingsState[key]) {
+        Object.assign(settingsState[key], local[key]);
+      }
+    });
+  } catch (e) {
+    console.warn('Failed to load local settings');
+  }
+  
+  applySettings();
+  populateSettingsUI();
+}
+
+async function saveSettings() {
+  // Save to localStorage first (always works)
+  localStorage.setItem('paiass_settings', JSON.stringify(settingsState));
+  
+  // Then try server
+  try {
+    await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settingsState)
+    });
+  } catch (e) {
+    console.warn('Failed to save settings to server:', e);
+  }
+  
+  updateSettingsSummary();
+}
+
+function applySettings() {
+  // Apply theme
+  document.documentElement.setAttribute('data-theme', settingsState.appearance.theme);
+  
+  // Apply accent color
+  document.documentElement.style.setProperty('--accent', settingsState.appearance.accentColor);
+  document.documentElement.style.setProperty('--accent-hover', adjustColor(settingsState.appearance.accentColor, 20));
+  
+  // Apply font size
+  document.documentElement.style.setProperty('--font-size-base', settingsState.appearance.fontSize + 'px');
+  
+  // Apply density
+  document.body.classList.toggle('compact', settingsState.appearance.density === 'compact');
+}
+
+function populateSettingsUI() {
+  // User
+  const nameInput = document.getElementById('user-name');
+  if (nameInput) nameInput.value = settingsState.user.name || '';
+  
+  // Notifications
+  setCheckbox('notif-inapp', settingsState.notifications.channels.inapp);
+  setCheckbox('notif-email', settingsState.notifications.channels.email);
+  setCheckbox('notif-telegram', settingsState.notifications.channels.telegram);
+  setCheckbox('notif-webhook', settingsState.notifications.channels.webhook);
+  
+  setValue('notif-email-address', settingsState.notifications.emailAddresses[0] || '');
+  setValue('notif-telegram-token', settingsState.notifications.telegramToken);
+  setValue('notif-telegram-chat', settingsState.notifications.telegramChatId);
+  setValue('notif-webhook-url', settingsState.notifications.webhookUrl);
+  
+  setCheckbox('quiet-hours-enabled', settingsState.notifications.quietHours.enabled);
+  setValue('quiet-from', settingsState.notifications.quietHours.from);
+  setValue('quiet-to', settingsState.notifications.quietHours.to);
+  // Note: defaultPriority and escalation removed from sidebar - now per-agent settings
+  
+  // Appearance
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.theme === settingsState.appearance.theme);
+  });
+  document.querySelectorAll('.color-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.color === settingsState.appearance.accentColor);
+  });
+  setValue('font-family', settingsState.appearance.fontFamily);
+  setValue('font-size', settingsState.appearance.fontSize);
+  setRadio('density', settingsState.appearance.density);
+  
+  // Memory
+  renderSkillsList();
+  setValue('custom-prompt', settingsState.memory.customPrompt);
+  setCheckbox('save-history', settingsState.memory.saveHistory);
+  setCheckbox('save-context', settingsState.memory.saveContext);
+  
+  // Location
+  setValue('location-city', settingsState.location.city);
+  setValue('location-country', settingsState.location.country);
+  setValue('timezone', settingsState.location.timezone);
+  setValue('currency', settingsState.location.currency);
+  setRadio('units', settingsState.location.units);
+  setValue('language', settingsState.location.language);
+  
+  // Output
+  settingsState.output.enabledTypes.forEach(type => {
+    setCheckbox('output-' + type, true);
+  });
+  setValue('default-format', settingsState.output.defaultFormat);
+  setValue('code-style', settingsState.output.codeStyle);
+  setValue('naming-convention', settingsState.output.namingConvention);
+  
+  // System
+  setRadio('runtime', settingsState.system.runtime);
+  setValue('model-chat', settingsState.system.modelChat);
+  setValue('model-code', settingsState.system.modelCode);
+  setValue('ollama-url', settingsState.system.ollamaUrl);
+  setValue('max-tokens', settingsState.system.maxTokens);
+  setCheckbox('lock-config', settingsState.system.lockConfig);
+  
+  updateSettingsSummary();
+}
+
+// Helper functions
+function setValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value;
+}
+
+function setCheckbox(id, checked) {
+  const el = document.getElementById(id);
+  if (el) el.checked = checked;
+}
+
+function setRadio(name, value) {
+  const radio = document.querySelector(`input[name="${name}"][value="${value}"]`);
+  if (radio) radio.checked = true;
+}
+
+function adjustColor(hex, percent) {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const amt = Math.round(2.55 * percent);
+  const R = (num >> 16) + amt;
+  const G = (num >> 8 & 0x00FF) + amt;
+  const B = (num & 0x0000FF) + amt;
+  return '#' + (0x1000000 + 
+    (R < 255 ? (R < 1 ? 0 : R) : 255) * 0x10000 + 
+    (G < 255 ? (G < 1 ? 0 : G) : 255) * 0x100 + 
+    (B < 255 ? (B < 1 ? 0 : B) : 255)
+  ).toString(16).slice(1);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SETTINGS SUMMARY
+// ═══════════════════════════════════════════════════════════════════════════
+
+function updateSettingsSummary() {
+  const summary = document.getElementById('settings-summary');
+  if (!summary) return;
+  
+  const items = [];
+  
+  // Notifications
+  const channels = [];
+  if (settingsState.notifications.channels.email) channels.push('Email');
+  if (settingsState.notifications.channels.inapp) channels.push('App');
+  if (settingsState.notifications.channels.telegram) channels.push('TG');
+  items.push(`🔔 ${channels.join(' + ') || 'Off'}`);
+  
+  // Theme
+  const themeLabel = settingsState.appearance.theme === 'dark' ? 'Dark' : 
+                     settingsState.appearance.theme === 'light' ? 'Light' : 'Auto';
+  items.push(`🎨 ${themeLabel}`);
+  
+  // Location + Currency
+  items.push(`📍 ${settingsState.location.city}`);
+  items.push(`💰 ${settingsState.location.currency}`);
+  
+  summary.innerHTML = items.map(i => `<span class="summary-item">${i}</span>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// USER / IDENTITY
+// ═══════════════════════════════════════════════════════════════════════════
+
+function connectAccount(provider) {
+  // In real implementation, this would open OAuth flow
+  console.log('Connecting to:', provider);
+  showToast('info', `Připojení k ${provider}...`, 'Tato funkce bude brzy dostupná.');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function updateNotifSettings() {
+  settingsState.notifications.channels = {
+    inapp: document.getElementById('notif-inapp')?.checked || false,
+    email: document.getElementById('notif-email')?.checked || false,
+    telegram: document.getElementById('notif-telegram')?.checked || false,
+    webhook: document.getElementById('notif-webhook')?.checked || false
+  };
+  saveSettings();
+}
+
+function addEmailAddress() {
+  const input = document.getElementById('notif-email-address');
+  if (input && input.value) {
+    settingsState.notifications.emailAddresses.push(input.value);
+    saveSettings();
+    showToast('success', 'Email přidán', input.value);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOCATION SETTINGS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function updateLocationSettings() {
+  settingsState.location = {
+    city: document.getElementById('location-city')?.value || 'Praha',
+    country: document.getElementById('location-country')?.value || 'CZ',
+    timezone: document.getElementById('timezone')?.value || 'Europe/Prague',
+    currency: document.getElementById('currency')?.value || 'CZK',
+    units: document.querySelector('input[name="units"]:checked')?.value || 'metric',
+    language: document.getElementById('language')?.value || 'cs'
+  };
+  
+  updateSettingsSummary();
+  saveSettings();
+  
+  // Show confirmation
+  showToast('success', 'Nastavení uloženo', `Měna: ${settingsState.location.currency}, Jazyk: ${settingsState.location.language}`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// APPEARANCE
+// ═══════════════════════════════════════════════════════════════════════════
+
+function setTheme(theme) {
+  settingsState.appearance.theme = theme;
+  
+  // Update UI
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.theme === theme);
+  });
+  
+  applySettings();
+  saveSettings();
+}
+
+function setAccentColor(color) {
+  settingsState.appearance.accentColor = color;
+  
+  // Update UI
+  document.querySelectorAll('.color-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.color === color);
+  });
+  
+  applySettings();
+  saveSettings();
+}
+
+function updateFontSize() {
+  const slider = document.getElementById('font-size');
+  const valueDisplay = document.getElementById('font-size-value');
+  
+  if (slider && valueDisplay) {
+    settingsState.appearance.fontSize = parseInt(slider.value);
+    valueDisplay.textContent = slider.value + 'px';
+    applySettings();
+    saveSettings();
+  }
+}
+
+function updateAppearance() {
+  settingsState.appearance.fontFamily = document.getElementById('font-family')?.value || 'system';
+  applySettings();
+  saveSettings();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MEMORY & SKILLS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function renderSkillsList() {
+  const list = document.getElementById('skills-list');
+  if (!list) return;
+  
+  list.innerHTML = settingsState.memory.skills.map((skill, i) => `
+    <div class="memory-item">
+      <span class="memory-text">${skill}</span>
+      <button class="btn-icon-xs" onclick="removeSkill(${i})">×</button>
+    </div>
+  `).join('');
+}
+
+function addSkill() {
+  const input = document.getElementById('new-skill');
+  if (input && input.value.trim()) {
+    settingsState.memory.skills.push(input.value.trim());
+    input.value = '';
+    renderSkillsList();
+    saveSettings();
+  }
+}
+
+function removeSkill(index) {
+  settingsState.memory.skills.splice(index, 1);
+  renderSkillsList();
+  saveSettings();
+}
+
+function clearMemory() {
+  if (confirm('Opravdu chcete vymazat všechnu paměť? Tato akce je nevratná.')) {
+    settingsState.memory.skills = [];
+    settingsState.memory.customPrompt = '';
+    renderSkillsList();
+    document.getElementById('custom-prompt').value = '';
+    saveSettings();
+    showToast('success', 'Paměť vymazána', '');
+  }
+}
+
+function exportMemorySettings() {
+  const data = JSON.stringify(settingsState.memory, null, 2);
+  downloadJSON(data, 'paiass-memory.json');
+}
+
+function importMemorySettings() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        Object.assign(settingsState.memory, data);
+        populateSettingsUI();
+        saveSettings();
+        showToast('success', 'Paměť importována', '');
+      } catch (err) {
+        showToast('error', 'Chyba importu', err.message);
+      }
+    }
+  };
+  input.click();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOCATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function detectLocation() {
+  try {
+    // Use IP-based geolocation (no permission needed)
+    const res = await fetch('https://ipapi.co/json/');
+    const data = await res.json();
+    
+    settingsState.location.city = data.city || settingsState.location.city;
+    settingsState.location.country = data.country_code || settingsState.location.country;
+    settingsState.location.timezone = data.timezone || settingsState.location.timezone;
+    settingsState.location.currency = data.currency || settingsState.location.currency;
+    
+    populateSettingsUI();
+    saveSettings();
+    showToast('success', 'Lokace detekována', `${data.city}, ${data.country_code}`);
+  } catch (err) {
+    showToast('error', 'Nelze detekovat lokaci', err.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════
+
+function viewLogs() {
+  // Open logs viewer
+  window.open('/api/logs', '_blank');
+}
+
+async function exportLogs() {
+  try {
+    const res = await fetch('/api/logs/export');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `paiass-logs-${new Date().toISOString().split('T')[0]}.log`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    showToast('error', 'Chyba exportu logů', err.message);
+  }
+}
+
+function resetSettings() {
+  if (confirm('Opravdu chcete resetovat všechna nastavení na výchozí hodnoty?')) {
+    localStorage.removeItem('paiass_settings');
+    localStorage.removeItem('paiass_accordion_state');
+    location.reload();
+  }
+}
+
+function resetAll() {
+  if (confirm('POZOR: Tímto smažete všechna data včetně agentů, konverzací a paměti. Pokračovat?')) {
+    if (confirm('Jste si opravdu jisti? Tato akce je NEVRATNÁ.')) {
+      // Clear everything
+      localStorage.clear();
+      fetch('/api/reset', { method: 'POST' }).finally(() => {
+        location.reload();
+      });
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ABOUT
+// ═══════════════════════════════════════════════════════════════════════════
+
+function showChangelog() {
+  showToast('info', 'Changelog', 'Bude implementováno...');
+}
+
+function showLicenses() {
+  showToast('info', 'Licence', 'MIT License - Belfik © 2026');
+}
+
+async function runDiagnostics() {
+  showToast('info', '🔧 Diagnostika', 'Spouštím...');
+  
+  try {
+    const checks = [];
+    
+    // Check Ollama
+    try {
+      const res = await fetch(settingsState.system.ollamaUrl + '/api/tags');
+      const data = await res.json();
+      checks.push(`✅ Ollama: ${data.models?.length || 0} modelů`);
+    } catch {
+      checks.push('❌ Ollama: nedostupná');
+    }
+    
+    // Check API
+    try {
+      const res = await fetch('/api/health');
+      if (res.ok) {
+        checks.push('✅ API: OK');
+      } else {
+        checks.push('❌ API: chyba');
+      }
+    } catch {
+      checks.push('❌ API: nedostupné');
+    }
+    
+    // Check storage
+    const storage = localStorage.getItem('paiass_settings');
+    checks.push(`📦 LocalStorage: ${storage ? Math.round(storage.length / 1024) + 'KB' : 'prázdné'}`);
+    
+    alert('Diagnostika:\n\n' + checks.join('\n'));
+  } catch (err) {
+    showToast('error', 'Diagnostika selhala', err.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXPORT / IMPORT SETTINGS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function exportSettings() {
+  const data = JSON.stringify(settingsState, null, 2);
+  downloadJSON(data, 'paiass-settings.json');
+}
+
+function importSettings() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        Object.assign(settingsState, data);
+        applySettings();
+        populateSettingsUI();
+        saveSettings();
+        showToast('success', 'Nastavení importována', '');
+      } catch (err) {
+        showToast('error', 'Chyba importu', err.message);
+      }
+    }
+  };
+  input.click();
+}
+
+function downloadJSON(data, filename) {
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TOAST (if not already defined)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function showToast(type, title, message) {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `
+    <div class="toast-icon">${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</div>
+    <div class="toast-content">
+      <div class="toast-title">${title}</div>
+      ${message ? `<div class="toast-message">${message}</div>` : ''}
+    </div>
+    <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+  `;
+  container.appendChild(toast);
+  
+  setTimeout(() => toast.remove(), 5000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Call on page load
+document.addEventListener('DOMContentLoaded', () => {
+  loadSettings();
+  restoreAccordionState();
+});
+
+// Export for global access
+window.toggleAccordion = toggleAccordion;
+window.setTheme = setTheme;
+window.setAccentColor = setAccentColor;
+window.updateFontSize = updateFontSize;
+window.updateAppearance = updateAppearance;
+window.updateNotifSettings = updateNotifSettings;
+window.updateLocationSettings = updateLocationSettings;
+window.addEmailAddress = addEmailAddress;
+window.addSkill = addSkill;
+window.removeSkill = removeSkill;
+window.clearMemory = clearMemory;
+window.exportMemory = exportMemory;
+window.importMemory = importMemory;
+window.detectLocation = detectLocation;
+window.viewLogs = viewLogs;
+window.exportLogs = exportLogs;
+window.resetSettings = resetSettings;
+window.resetAll = resetAll;
+window.showChangelog = showChangelog;
+window.showLicenses = showLicenses;
+window.runDiagnostics = runDiagnostics;
+window.exportSettings = exportSettings;
+window.importSettings = importSettings;
+window.connectAccount = connectAccount;

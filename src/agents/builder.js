@@ -79,10 +79,11 @@ Odpověz POUZE tímto JSON formátem:
     "conditions": [
       {
         "id": "condition_id", 
-        "type": "compare|date_diff|changed|exists|contains",
+        "type": "compare|date_diff|changed|exists|contains|new_items",
         "field": "sources.source_id.path.to.value",
         "operator": "<|>|==|<=|>=|!=",
         "value": "threshold",
+        "array_mode": "any|all|min|max|avg (REQUIRED for fields with [*])",
         "params": {}
       }
     ],
@@ -145,6 +146,15 @@ Odpověz POUZE tímto JSON formátem:
 
     try {
       const result = JSON.parse(response.content);
+      
+      // Post-process: auto-add array_mode for conditions with [*] in field path
+      if (result.definition?.conditions) {
+        for (const cond of result.definition.conditions) {
+          if (cond.type === 'compare' && cond.field?.includes('[*]') && !cond.array_mode) {
+            cond.array_mode = 'any'; // Default to "any" for arrays
+          }
+        }
+      }
       
       // Validate the generated definition
       if (result.definition) {

@@ -385,7 +385,6 @@ function validateAction(act, index, triggerIds) {
   const trigId = act.trigger_id || act.trigger;
   if (trigId && trigId !== '' && !triggerIds.has(trigId)) {
     errors.push(`${prefix}: references non-existent trigger "${trigId}"`);
-    }
   }
   
   if (!act.config) {

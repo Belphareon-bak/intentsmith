@@ -12,6 +12,113 @@ import { ConditionEvaluator } from './conditions.js';
 import { TriggerEvaluator } from './triggers.js';
 
 /**
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * RUN STATE ENUM - Backend is source of truth
+ * UI only maps these states to display text, no interpretation
+ * ═══════════════════════════════════════════════════════════════════════════════
+ */
+export const RUN_STATE = {
+  // Final success states
+  SUCCESS_TRIGGERED: 'SUCCESS_TRIGGERED',     // Run completed, triggers fired, actions executed
+  SUCCESS_NO_TRIGGER: 'SUCCESS_NO_TRIGGER',   // Run completed, no triggers fired (conditions not met)
+  SUCCESS_NO_NEW: 'SUCCESS_NO_NEW',           // Run completed, no new items (HUNTER pattern - waiting)
+  
+  // Skip states (run not executed)
+  SKIP_DISABLED: 'SKIP_DISABLED',             // Agent is disabled
+  SKIP_SCHEMA_BROKEN: 'SKIP_SCHEMA_BROKEN',   // Schema is broken
+  SKIP_COOLDOWN: 'SKIP_COOLDOWN',             // Cooldown not elapsed (schedule)
+  
+  // Error states
+  ERROR_SOURCE: 'ERROR_SOURCE',               // Source fetch failed
+  ERROR_EXECUTION: 'ERROR_EXECUTION',         // Action execution failed
+  ERROR_UNKNOWN: 'ERROR_UNKNOWN',             // Unexpected error
+  
+  // Special states
+  INIT_BASELINE: 'INIT_BASELINE',             // First run - baseline established
+  SCHEMA_DEGRADED: 'SCHEMA_DEGRADED',         // Some conditions invalid but running
+  SCHEMA_BROKEN: 'SCHEMA_BROKEN'              // Too many conditions invalid - auto-disabled
+};
+
+/**
+ * Human-readable descriptions for each state (for UI reference)
+ * UI should use these, NOT interpret the state itself
+ */
+export const RUN_STATE_INFO = {
+  [RUN_STATE.SUCCESS_TRIGGERED]: {
+    icon: '🔔',
+    label: 'Triggers fired',
+    desc: 'Podmínky splněny, akce vykonány',
+    type: 'success'
+  },
+  [RUN_STATE.SUCCESS_NO_TRIGGER]: {
+    icon: '✓',
+    label: 'No trigger',
+    desc: 'Běh OK, podmínky nesplněny',
+    type: 'success'
+  },
+  [RUN_STATE.SUCCESS_NO_NEW]: {
+    icon: '📭',
+    label: 'Waiting',
+    desc: 'Čeká na nové položky',
+    type: 'info'
+  },
+  [RUN_STATE.SKIP_DISABLED]: {
+    icon: '⏸',
+    label: 'Disabled',
+    desc: 'Agent je pozastaven',
+    type: 'muted'
+  },
+  [RUN_STATE.SKIP_SCHEMA_BROKEN]: {
+    icon: '⛔',
+    label: 'Schema broken',
+    desc: 'Schema je rozbité',
+    type: 'error'
+  },
+  [RUN_STATE.SKIP_COOLDOWN]: {
+    icon: '⏱',
+    label: 'Cooldown',
+    desc: 'Čeká na další plánovaný běh',
+    type: 'muted'
+  },
+  [RUN_STATE.ERROR_SOURCE]: {
+    icon: '❌',
+    label: 'Source error',
+    desc: 'Chyba načítání zdroje',
+    type: 'error'
+  },
+  [RUN_STATE.ERROR_EXECUTION]: {
+    icon: '❌',
+    label: 'Action error',
+    desc: 'Chyba vykonání akce',
+    type: 'error'
+  },
+  [RUN_STATE.ERROR_UNKNOWN]: {
+    icon: '❌',
+    label: 'Error',
+    desc: 'Neznámá chyba',
+    type: 'error'
+  },
+  [RUN_STATE.INIT_BASELINE]: {
+    icon: '🏁',
+    label: 'Baseline set',
+    desc: 'První běh - baseline nastaven',
+    type: 'info'
+  },
+  [RUN_STATE.SCHEMA_DEGRADED]: {
+    icon: '⚠️',
+    label: 'Degraded',
+    desc: 'Některé podmínky jsou neplatné',
+    type: 'warning'
+  },
+  [RUN_STATE.SCHEMA_BROKEN]: {
+    icon: '⛔',
+    label: 'Broken',
+    desc: 'Schema je rozbité - agent deaktivován',
+    type: 'error'
+  }
+};
+
+/**
  * Agent Runner - deterministic execution engine
  */
 export class AgentRunner {
@@ -34,34 +141,64 @@ export class AgentRunner {
   /**
    * Execute agent
    * @param {string} agentId
-   * @param {object} options - { force: boolean }
+   * @param {object} options - { force: boolean, isManual: boolean }
+   * @returns {object} - Always includes run_state for UI
    */
   async execute(agentId, options = {}) {
     const agent = this.repo.getAgent(agentId);
     if (!agent) throw new Error(`Agent not found: ${agentId}`);
+    
+    // ══════════════════════════════════════════════════════════════════════
+    // PRE-CHECKS
+    // ══════════════════════════════════════════════════════════════════════
+    
+    // Check if disabled
     if (!agent.enabled && !options.force) {
-      return { status: 'skipped', reason: 'disabled' };
+      return { 
+        run_state: RUN_STATE.SKIP_DISABLED,
+        status: 'skipped', 
+        reason: 'disabled' 
+      };
     }
     
+    // Check schema status
+    const prevSchemaStatus = agent.state?.schemaStatus || 'unknown';
+    if (prevSchemaStatus === 'broken' && !options.force) {
+      return { 
+        run_state: RUN_STATE.SKIP_SCHEMA_BROKEN,
+        status: 'skipped', 
+        reason: 'schema_broken' 
+      };
+    }
+    
+    // Check cooldown (only for scheduled runs, not manual)
+    if (!options.isManual && !options.force) {
+      const cooldownOk = this.checkCooldown(agent);
+      if (!cooldownOk) {
+        return {
+          run_state: RUN_STATE.SKIP_COOLDOWN,
+          status: 'skipped',
+          reason: 'cooldown',
+          next_run: this.calculateNextRun(agent)
+        };
+      }
+    }
+    
+    // ══════════════════════════════════════════════════════════════════════
+    // START RUN
+    // ══════════════════════════════════════════════════════════════════════
     const runId = this.repo.createRun(agentId);
     const now = new Date();
     const log = [];
     
+    // Track if this is first run (for baseline detection)
+    const isFirstRun = !agent.state?._last_run;
+    
     try {
-      // ══════════════════════════════════════════════════════════════════════
-      // STEP 0: Check schema status
-      // ══════════════════════════════════════════════════════════════════════
-      const prevSchemaStatus = agent.state?.schemaStatus || 'unknown';
-      if (prevSchemaStatus === 'broken' && !options.force) {
-        log.push(`[${this.timestamp()}] ⛔ Agent schema is BROKEN - skipping run`);
-        this.repo.completeRun(runId, 'skipped', { reason: 'schema_broken' }, log);
-        return { status: 'skipped', reason: 'schema_broken', log };
-      }
-      
-      // ══════════════════════════════════════════════════════════════════════
-      // STEP 1: Build context
-      // ══════════════════════════════════════════════════════════════════════
       log.push(`[${this.timestamp()}] Starting agent: ${agent.name}`);
+      if (options.isManual) {
+        log.push(`[${this.timestamp()}] 👆 Manual run (user initiated)`);
+      }
       
       const def = agent.definition;
       const context = {
@@ -73,10 +210,11 @@ export class AgentRunner {
       };
       
       // ══════════════════════════════════════════════════════════════════════
-      // STEP 2: Fetch sources (parallel)
+      // STEP 1: Fetch sources (parallel)
       // ══════════════════════════════════════════════════════════════════════
       log.push(`[${this.timestamp()}] Fetching ${def.sources.length} sources...`);
       
+      let sourceFailed = false;
       const sourcePromises = def.sources.map(async (source) => {
         try {
           const handler = this.sourceHandlers[source.type];
@@ -94,13 +232,70 @@ export class AgentRunner {
             raw_count: Array.isArray(data) ? data.length : null,
             filtered_count: Array.isArray(filteredData) ? filteredData.length : null
           };
-          log.push(`  ✓ ${source.id}: OK`);
+          log.push(`  ✓ ${source.id}: OK (${context.sources[source.id].filtered_count} items)`);
         } catch (err) {
           context.sources[source.id] = { status: 'error', error: err.message };
           log.push(`  ✗ ${source.id}: ${err.message}`);
+          sourceFailed = true;
         }
       });
       await Promise.all(sourcePromises);
+      
+      // Check if all sources failed
+      if (sourceFailed && Object.values(context.sources).every(s => s.status === 'error')) {
+        log.push(`[${this.timestamp()}] ⛔ All sources failed`);
+        this.repo.completeRun(runId, {
+          run_state: RUN_STATE.ERROR_SOURCE,
+          status: 'error',
+          error: 'All sources failed',
+          log: log.join('\n')
+        });
+        return {
+          run_state: RUN_STATE.ERROR_SOURCE,
+          status: 'error',
+          runId,
+          error: 'All sources failed',
+          log
+        };
+      }
+      
+      // ══════════════════════════════════════════════════════════════════════
+      // STEP 2: Check for HUNTER pattern - no new items
+      // ══════════════════════════════════════════════════════════════════════
+      const totalNewItems = Object.values(context.sources)
+        .filter(s => s.status === 'ok')
+        .reduce((sum, s) => sum + (s.filtered_count || 0), 0);
+      
+      if (totalNewItems === 0 && !isFirstRun) {
+        log.push(`[${this.timestamp()}] 📭 No new items found - waiting for changes`);
+        
+        // Still update last_run
+        const newState = { ...context.state, _last_run: now.toISOString() };
+        this.repo.updateAgentState(agentId, newState);
+        
+        this.repo.completeRun(runId, {
+          run_state: RUN_STATE.SUCCESS_NO_NEW,
+          status: 'success',
+          triggers_fired: [],
+          actions_executed: 0,
+          log: log.join('\n')
+        });
+        
+        return {
+          run_state: RUN_STATE.SUCCESS_NO_NEW,
+          status: 'success',
+          runId,
+          duration: Date.now() - now.getTime(),
+          triggered: [],
+          actions: [],
+          log
+        };
+      }
+      
+      // First run - establishing baseline
+      if (isFirstRun) {
+        log.push(`[${this.timestamp()}] 🏁 First run - establishing baseline with ${totalNewItems} items`);
+      }
       
       // ══════════════════════════════════════════════════════════════════════
       // STEP 3: Evaluate conditions (DETERMINISTIC)
@@ -115,6 +310,7 @@ export class AgentRunner {
       // Track schema status
       let schemaStatus = 'valid';
       let schemaError = null;
+      let runState = null; // Will be determined later
       
       // Check for invalid conditions (schema problems)
       let invalidCount = 0;
@@ -142,6 +338,7 @@ export class AgentRunner {
           log.push(`[${this.timestamp()}] ⛔ Schema BROKEN: ${invalidCount}/${totalConditions} conditions invalid`);
           schemaStatus = 'broken';
           schemaError = `${invalidCount}/${totalConditions} conditions are invalid`;
+          runState = RUN_STATE.SCHEMA_BROKEN;
           
           // Auto-disable agent
           this.repo.updateAgent(agentId, { enabled: false });
@@ -152,6 +349,7 @@ export class AgentRunner {
           log.push(`[${this.timestamp()}] ⚠️ Schema DEGRADED: ${invalidCount}/${totalConditions} conditions invalid`);
           schemaStatus = 'degraded';
           schemaError = `${invalidCount}/${totalConditions} conditions are invalid`;
+          runState = RUN_STATE.SCHEMA_DEGRADED;
         }
       }
       
@@ -182,6 +380,7 @@ export class AgentRunner {
       // STEP 5: Execute actions
       // ══════════════════════════════════════════════════════════════════════
       const executedActions = [];
+      let actionError = false;
       
       if (triggerResults.fired.length > 0 || def.actions?.some(a => a.trigger_id === null)) {
         log.push(`[${this.timestamp()}] Executing actions...`);
@@ -199,6 +398,7 @@ export class AgentRunner {
           } catch (err) {
             executedActions.push({ type: action.type, trigger: action.trigger_id, status: 'error', error: err.message });
             log.push(`  ✗ ${action.type}: ${err.message}`);
+            actionError = true;
           }
         }
       } else {
@@ -206,18 +406,37 @@ export class AgentRunner {
       }
       
       // ══════════════════════════════════════════════════════════════════════
-      // STEP 6: Update state and complete run
+      // STEP 6: Determine final run_state
+      // ══════════════════════════════════════════════════════════════════════
+      if (!runState) {
+        // If schema wasn't broken/degraded, determine based on run result
+        if (isFirstRun) {
+          runState = RUN_STATE.INIT_BASELINE;
+        } else if (actionError) {
+          runState = RUN_STATE.ERROR_EXECUTION;
+        } else if (triggerResults.fired.length > 0) {
+          runState = RUN_STATE.SUCCESS_TRIGGERED;
+        } else {
+          runState = RUN_STATE.SUCCESS_NO_TRIGGER;
+        }
+      }
+      
+      // ══════════════════════════════════════════════════════════════════════
+      // STEP 7: Update state and complete run
       // ══════════════════════════════════════════════════════════════════════
       newState._last_run = now.toISOString();
       this.repo.updateAgentState(agentId, newState);
       
       const duration = Date.now() - now.getTime();
-      log.push(`[${this.timestamp()}] Completed in ${duration}ms`);
+      log.push(`[${this.timestamp()}] Completed in ${duration}ms (state: ${runState})`);
       
       // Create explain record
       const explainRecord = {
         run_id: runId,
         timestamp: now.toISOString(),
+        run_state: runState,
+        is_manual: options.isManual || false,
+        is_first_run: isFirstRun,
         sources: Object.keys(context.sources).map(id => ({
           id,
           status: context.sources[id].status,
@@ -229,7 +448,8 @@ export class AgentRunner {
       };
       
       this.repo.completeRun(runId, {
-        status: 'success',
+        run_state: runState,
+        status: actionError ? 'partial' : 'success',
         triggers_fired: triggerResults.fired,
         actions_executed: executedActions.length,
         explain: explainRecord,
@@ -237,24 +457,29 @@ export class AgentRunner {
       });
       
       return {
-        status: 'success',
+        run_state: runState,
+        status: actionError ? 'partial' : 'success',
         runId,
         duration,
         triggered: triggerResults.fired,
         actions: executedActions,
-        explain: explainRecord
+        explain: explainRecord,
+        log
       };
       
     } catch (err) {
-      log.push(`[${this.timestamp()}] ERROR: ${err.message}`);
+      // Unexpected error
+      log.push(`[${this.timestamp()}] ❌ Unexpected error: ${err.message}`);
       
       this.repo.completeRun(runId, {
+        run_state: RUN_STATE.ERROR_UNKNOWN,
         status: 'error',
         error: err.message,
         log: log.join('\n')
       });
       
       return {
+        run_state: RUN_STATE.ERROR_UNKNOWN,
         status: 'error',
         runId,
         error: err.message,
@@ -263,129 +488,112 @@ export class AgentRunner {
     }
   }
   
-  // ════════════════════════════════════════════════════════════════════════════
-  // ACTIONS
-  // ════════════════════════════════════════════════════════════════════════════
-  
-  async executeAction(action, context, agentId, runId, triggerResults) {
-    switch (action.type) {
-      case 'notify':
-        return this.actionNotify(action, context, agentId, runId);
-      case 'store':
-        return this.actionStore(action, context, agentId);
-      case 'webhook':
-        return this.actionWebhook(action, context);
-      case 'mark_seen':
-        return this.actionMarkSeen(action, context, agentId);
+  /**
+   * Check if cooldown period has elapsed
+   */
+  checkCooldown(agent) {
+    const schedule = agent.definition?.schedule;
+    if (!schedule) return true; // No schedule = always run
+    
+    const lastRun = agent.state?._last_run;
+    if (!lastRun) return true; // Never run = run now
+    
+    const lastRunTime = new Date(lastRun).getTime();
+    const now = Date.now();
+    
+    // Calculate minimum interval based on schedule type
+    let minInterval;
+    switch (schedule.type) {
+      case 'interval':
+        minInterval = this.parseInterval(schedule.interval);
+        break;
+      case 'cron':
+        // For cron, defer to scheduler
+        return true;
       default:
-        throw new Error(`Unknown action type: ${action.type}`);
+        return true;
+    }
+    
+    return (now - lastRunTime) >= minInterval;
+  }
+  
+  /**
+   * Calculate next scheduled run time
+   */
+  calculateNextRun(agent) {
+    const schedule = agent.definition?.schedule;
+    if (!schedule) return null;
+    
+    const lastRun = agent.state?._last_run;
+    if (!lastRun) return new Date().toISOString();
+    
+    const lastRunTime = new Date(lastRun).getTime();
+    const interval = this.parseInterval(schedule.interval);
+    
+    return new Date(lastRunTime + interval).toISOString();
+  }
+  
+  /**
+   * Parse interval string to milliseconds
+   */
+  parseInterval(interval) {
+    if (!interval) return 60000; // Default 1 minute
+    
+    const match = interval.match(/^(\d+)(s|m|h|d)$/);
+    if (!match) return 60000;
+    
+    const value = parseInt(match[1]);
+    const unit = match[2];
+    
+    switch (unit) {
+      case 's': return value * 1000;
+      case 'm': return value * 60 * 1000;
+      case 'h': return value * 60 * 60 * 1000;
+      case 'd': return value * 24 * 60 * 60 * 1000;
+      default: return 60000;
     }
   }
   
-  async actionNotify(action, context, agentId, runId) {
-    const { config } = action;
+  /**
+   * Filter out items that have already been seen (for HUNTER pattern)
+   */
+  filterSeenItems(data, sourceId, state) {
+    if (!Array.isArray(data)) return data;
     
-    let title = this.interpolate(config.title || '', context);
-    let body = this.interpolate(config.body || '', context);
+    const seenKey = `_seen_${sourceId}`;
+    const seenIds = new Set(state[seenKey] || []);
     
-    // LLM pouze pro formátování textu (presentation-only)
-    if (config.use_llm && this.llm) {
-      body = await this.llm.formatNotification({
-        template: body,
-        data: {
-          sources: context.sources,
-          params: context.params
-        }
-      });
-    }
-    
-    this.repo.createNotification(agentId, runId, {
-      title,
-      body,
-      priority: config.priority || 'normal',
-      data: {
-        trigger: action.trigger_id,
-        context_snapshot: this.createSnapshot(context)
-      }
-    });
-  }
-  
-  async actionStore(action, context, agentId) {
-    const { config } = action;
-    const key = config.key;
-    let value = this.interpolate(config.value, context);
-    
-    if (config.append) {
-      const current = this.repo.getAgentData(agentId, key) || [];
-      if (Array.isArray(current)) {
-        value = [...current, value].slice(-(config.max_items || 1000));
-      }
-    }
-    
-    this.repo.setAgentData(agentId, key, value);
-  }
-  
-  async actionWebhook(action, context) {
-    const { config } = action;
-    const url = this.interpolate(config.url, context);
-    const body = this.interpolate(config.body || {}, context);
-    
-    const response = await fetch(url, {
-      method: config.method || 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'C3-Agent/33',
-        ...config.headers
-      },
-      body: JSON.stringify(body),
-      timeout: 30000
+    // Filter out seen items
+    const newItems = data.filter(item => {
+      const itemId = this.getItemId(item);
+      return !seenIds.has(itemId);
     });
     
-    if (!response.ok) {
-      throw new Error(`Webhook failed: HTTP ${response.status}`);
-    }
+    // Update seen list (will be saved in state)
+    const newSeenIds = data.map(item => this.getItemId(item));
+    state[seenKey] = [...new Set([...seenIds, ...newSeenIds])].slice(-1000); // Keep last 1000
+    
+    return newItems;
   }
   
-  async actionMarkSeen(action, context, agentId) {
-    const { config } = action;
-    const sourceData = context.sources[config.source_id]?.data;
-    
-    if (!sourceData || !Array.isArray(sourceData)) return;
-    
-    const currentSeen = new Set(context.state.seen_ids || []);
-    
-    for (const item of sourceData) {
-      const id = this.getNestedValue(item, config.id_field);
-      if (id) currentSeen.add(String(id));
-    }
-    
-    // Keep only last 10000 IDs
-    const seenArray = Array.from(currentSeen).slice(-10000);
-    this.repo.updateAgentState(agentId, {
-      ...context.state,
-      seen_ids: seenArray
-    });
+  /**
+   * Get unique ID for an item
+   */
+  getItemId(item) {
+    // Try common ID fields
+    return item.id || item._id || item.url || item.link || JSON.stringify(item);
   }
   
-  // ════════════════════════════════════════════════════════════════════════════
-  // DATA SOURCES
-  // ════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════════
+  // SOURCE HANDLERS
+  // ══════════════════════════════════════════════════════════════════════════════
   
   async fetchHttp(config, context) {
-    const url = new URL(config.url);
-    for (const [k, v] of Object.entries(config.params || {})) {
-      url.searchParams.set(k, v);
-    }
-    
-    const response = await fetch(url.toString(), {
+    const url = this.interpolate(config.url, context);
+    const response = await fetch(url, {
       method: config.method || 'GET',
-      headers: {
-        'User-Agent': 'C3-Agent/33',
-        'Accept': 'application/json',
-        ...config.headers
-      },
-      body: config.body ? JSON.stringify(config.body) : undefined,
-      timeout: config.timeout || 30000
+      headers: config.headers || {},
+      ...(config.body && { body: JSON.stringify(config.body) })
     });
     
     if (!response.ok) {
@@ -393,446 +601,175 @@ export class AgentRunner {
     }
     
     const contentType = response.headers.get('content-type') || '';
-    return contentType.includes('json') ? response.json() : response.text();
+    if (contentType.includes('application/json')) {
+      return response.json();
+    }
+    return response.text();
   }
   
   async fetchScraper(config, context) {
-    const response = await fetch(config.url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'cs,en;q=0.9'
-      },
-      timeout: config.timeout || 30000
-    });
-    
-    const html = await response.text();
-    
-    // Try to detect if it's actually JSON
-    if (html.trim().startsWith('{') || html.trim().startsWith('[')) {
-      try {
-        return JSON.parse(html);
-      } catch (e) {
-        // Not JSON, continue with HTML parsing
-      }
-    }
-    
-    // Use cheerio for HTML parsing if available
-    let $;
-    try {
-      const cheerio = await import('cheerio');
-      $ = cheerio.load(html);
-    } catch (e) {
-      // Cheerio not available, use regex fallback
-      console.log('Cheerio not available, using regex fallback');
-      return this.scrapeWithRegex(html, config);
-    }
-    
-    const result = {
-      url: config.url,
-      timestamp: new Date().toISOString(),
-      items: []
-    };
-    
-    // If selectors are provided, use them
-    if (config.selectors) {
-      const itemSelector = config.selectors.item || config.selectors.items || '.property, .listing, .item, article';
-      const items = $(itemSelector);
-      
-      items.each((i, el) => {
-        if (config.limit && i >= config.limit) return false;
-        
-        const item = {};
-        const $el = $(el);
-        
-        // Extract ID
-        item.id = $el.attr('data-id') || 
-                  $el.attr('id') || 
-                  $el.find('[data-id]').attr('data-id') ||
-                  `item-${i}`;
-        
-        // Extract link
-        const link = $el.find('a').first().attr('href') || $el.attr('href');
-        if (link) {
-          item.link = link.startsWith('http') ? link : new URL(link, config.url).href;
-        }
-        
-        // Extract price - try multiple patterns
-        const priceText = $el.find(config.selectors?.price || '.price, .cena, [class*="price"], [class*="cena"]').first().text();
-        const priceMatch = priceText.match(/([0-9\s]+)\s*(Kč|CZK|€|EUR|\$|USD)?/i);
-        if (priceMatch) {
-          item.price = parseInt(priceMatch[1].replace(/\s/g, '')) || 0;
-          item.price_text = priceText.trim();
-        }
-        
-        // Extract area (m²)
-        const areaText = $el.find(config.selectors?.area || '.area, .plocha, [class*="area"], [class*="plocha"]').text();
-        const areaMatch = areaText.match(/(\d+)\s*m[²2]/i);
-        if (areaMatch) {
-          item.area = parseInt(areaMatch[1]) || 0;
-        }
-        
-        // Extract land area
-        const landText = $el.find(config.selectors?.land_area || '.land, .pozemek, [class*="land"], [class*="pozemek"]').text();
-        const landMatch = landText.match(/(\d+)\s*m[²2]/i);
-        if (landMatch) {
-          item.land_area = parseInt(landMatch[1]) || 0;
-        }
-        
-        // Extract title
-        item.title = $el.find(config.selectors?.title || 'h1, h2, h3, .title, .name, .nazev').first().text().trim();
-        
-        // Extract location
-        item.location = $el.find(config.selectors?.location || '.location, .address, .adresa, .lokalita').first().text().trim();
-        
-        // Extract image
-        const img = $el.find('img').first();
-        item.image = img.attr('src') || img.attr('data-src');
-        
-        // Extract all text for fallback parsing
-        item._text = $el.text().replace(/\s+/g, ' ').trim().substring(0, 500);
-        
-        // Try to extract numbers from text if specific fields not found
-        if (!item.price || !item.area) {
-          const numbers = item._text.match(/\d[\d\s]*\d/g) || [];
-          numbers.forEach(num => {
-            const val = parseInt(num.replace(/\s/g, ''));
-            if (!item.price && val > 100000 && val < 100000000) {
-              item.price = val;
-            } else if (!item.area && val > 20 && val < 10000) {
-              if (!item.area) item.area = val;
-              else if (!item.land_area) item.land_area = val;
-            }
-          });
-        }
-        
-        result.items.push(item);
-      });
-      
-      // Summary stats
-      result.count = result.items.length;
-      if (result.items.length > 0) {
-        result.min_price = Math.min(...result.items.filter(i => i.price).map(i => i.price));
-        result.max_price = Math.max(...result.items.filter(i => i.price).map(i => i.price));
-        result.avg_price = Math.round(result.items.filter(i => i.price).reduce((a, b) => a + b.price, 0) / result.items.filter(i => i.price).length);
-      }
-    } else {
-      // Auto-detect items without selectors
-      result.items = this.autoDetectItems($, config.url, config.limit || 20);
-      result.count = result.items.length;
-    }
-    
-    return result;
-  }
-  
-  /**
-   * Auto-detect property listings from HTML
-   */
-  autoDetectItems($, baseUrl, limit) {
-    const items = [];
-    
-    // Common selectors for property listings
-    const selectors = [
-      '.property', '.listing', '.estate', '.item', '.result',
-      '[class*="property"]', '[class*="listing"]', '[class*="estate"]',
-      'article', '.card', '.offer'
-    ];
-    
-    for (const selector of selectors) {
-      const elements = $(selector);
-      if (elements.length > 2) {
-        elements.each((i, el) => {
-          if (i >= limit) return false;
-          
-          const $el = $(el);
-          const text = $el.text().replace(/\s+/g, ' ').trim();
-          
-          // Must have some substance
-          if (text.length < 20) return;
-          
-          const item = {
-            id: $el.attr('data-id') || $el.attr('id') || `auto-${i}`,
-            _text: text.substring(0, 500)
-          };
-          
-          // Find link
-          const link = $el.find('a').first().attr('href');
-          if (link) {
-            item.link = link.startsWith('http') ? link : new URL(link, baseUrl).href;
-          }
-          
-          // Extract numbers
-          const priceMatch = text.match(/(\d[\d\s]{2,})\s*(Kč|CZK|,-)/i);
-          if (priceMatch) {
-            item.price = parseInt(priceMatch[1].replace(/\s/g, ''));
-          }
-          
-          const areaMatches = text.match(/(\d+)\s*m[²2]/gi) || [];
-          areaMatches.forEach((m, idx) => {
-            const val = parseInt(m);
-            if (idx === 0) item.area = val;
-            if (idx === 1) item.land_area = val;
-          });
-          
-          items.push(item);
-        });
-        
-        if (items.length > 0) break;
-      }
-    }
-    
-    return items;
-  }
-  
-  /**
-   * Regex fallback when cheerio not available
-   */
-  scrapeWithRegex(html, config) {
-    const result = {
-      url: config.url,
-      timestamp: new Date().toISOString(),
-      items: [],
-      _raw_length: html.length
-    };
-    
-    // Try to extract prices
-    const priceMatches = html.match(/(\d[\d\s]{4,})\s*(Kč|CZK|,-)/gi) || [];
-    priceMatches.slice(0, 20).forEach((m, i) => {
-      const price = parseInt(m.replace(/[^\d]/g, ''));
-      if (price > 100000 && price < 100000000) {
-        result.items.push({
-          id: `price-${i}`,
-          price,
-          price_text: m.trim()
-        });
-      }
-    });
-    
-    result.count = result.items.length;
-    return result;
+    // Placeholder - would use Puppeteer or similar
+    const url = this.interpolate(config.url, context);
+    this.logger.warn(`Scraper not implemented, falling back to HTTP for: ${url}`);
+    return this.fetchHttp({ url }, context);
   }
   
   async fetchRss(config, context) {
-    const response = await fetch(config.url, {
-      headers: { 'User-Agent': 'C3-Agent/33' },
-      timeout: config.timeout || 30000
-    });
-    
-    const xml = await response.text();
+    const url = this.interpolate(config.url, context);
+    const response = await fetch(url);
+    const text = await response.text();
+    // Basic RSS parsing - would use proper parser in production
+    return this.parseRss(text);
+  }
+  
+  async fetchDatabase(config, context) {
+    // Placeholder for database queries
+    this.logger.warn('Database source not implemented');
+    return [];
+  }
+  
+  parseRss(xml) {
+    // Very basic RSS parsing
     const items = [];
-    const limit = config.limit || 20;
-    
-    // Simple RSS parsing
-    const itemRegex = /<item>([\s\S]*?)<\/item>/gi;
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
     let match;
     
-    while ((match = itemRegex.exec(xml)) !== null && items.length < limit) {
-      const item = match[1];
+    while ((match = itemRegex.exec(xml)) !== null) {
+      const itemXml = match[1];
       items.push({
-        id: item.match(/<guid[^>]*>(.*?)<\/guid>/i)?.[1]?.trim() || 
-            item.match(/<link>(.*?)<\/link>/i)?.[1]?.trim() || 
-            `rss-${items.length}`,
-        title: item.match(/<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/i)?.[1]?.trim() || '',
-        link: item.match(/<link>(.*?)<\/link>/i)?.[1]?.trim() || '',
-        description: item.match(/<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i)?.[1]
-          ?.trim().replace(/<[^>]+>/g, '').substring(0, 500) || '',
-        pubDate: item.match(/<pubDate>(.*?)<\/pubDate>/i)?.[1] || ''
+        title: this.extractTag(itemXml, 'title'),
+        link: this.extractTag(itemXml, 'link'),
+        description: this.extractTag(itemXml, 'description'),
+        pubDate: this.extractTag(itemXml, 'pubDate')
       });
     }
     
     return items;
   }
   
-  async fetchDatabase(config, context) {
-    const { table, where } = config;
-    // Use repository to query allowed tables
-    return this.repo.queryAgentData(table, where) || [];
+  extractTag(xml, tag) {
+    const match = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`));
+    return match ? match[1].trim() : null;
   }
   
-  // ════════════════════════════════════════════════════════════════════════════
-  // HELPERS
-  // ════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════════
+  // ACTION HANDLERS
+  // ══════════════════════════════════════════════════════════════════════════════
   
-  /**
-   * Filter out already seen items (for HUNTER pattern)
-   */
-  filterSeenItems(data, sourceId, state) {
-    if (!Array.isArray(data)) return data;
-    
-    const seenIds = new Set(state.seen_ids || []);
-    if (seenIds.size === 0) return data;
-    
-    return data.filter(item => {
-      const id = item.id || item._id || item.guid;
-      return !id || !seenIds.has(String(id));
-    });
+  async executeAction(action, context, agentId, runId, triggerResults) {
+    switch (action.type) {
+      case 'notify':
+        return this.executeNotify(action, context, agentId, runId, triggerResults);
+      case 'webhook':
+        return this.executeWebhook(action, context);
+      case 'update_state':
+        return this.executeUpdateState(action, context, agentId);
+      case 'log':
+        return this.executeLog(action, context);
+      default:
+        throw new Error(`Unknown action type: ${action.type}`);
+    }
   }
   
-  /**
-   * Interpolate {{path}} in strings
-   */
-  interpolate(template, context) {
-    if (typeof template !== 'string') {
-      if (Array.isArray(template)) {
-        return template.map(t => this.interpolate(t, context));
-      }
-      if (typeof template === 'object' && template !== null) {
-        const result = {};
-        for (const [k, v] of Object.entries(template)) {
-          result[k] = this.interpolate(v, context);
+  async executeNotify(action, context, agentId, runId, triggerResults) {
+    const config = action.config || {};
+    
+    // Build notification content
+    let content;
+    if (config.use_llm && this.llm) {
+      // Use LLM to generate message
+      content = await this.llm.generate({
+        prompt: this.interpolate(config.llm_prompt, context),
+        context: {
+          triggers: triggerResults.fired,
+          sources: context.sources
         }
-        return result;
-      }
-      return template;
+      });
+    } else {
+      content = this.interpolate(config.message || config.template, context);
     }
     
-    return template.replace(/\{\{([\w.[\]*]+)\}\}/g, (match, path) => {
-      const value = this.getNestedValue(context, path);
-      if (value === undefined) return match;
-      if (typeof value === 'object') return JSON.stringify(value);
-      return String(value);
+    // Store notification
+    this.repo.createNotification(agentId, {
+      run_id: runId,
+      channel: config.channel || 'default',
+      priority: config.priority || 'normal',
+      title: this.interpolate(config.title || '', context),
+      content,
+      data: config.data
     });
+    
+    // Send through configured channels (in-app, email, telegram, etc.)
+    // This would be handled by notification service
+    this.logger.info(`Notification created: ${content.substring(0, 100)}...`);
+  }
+  
+  async executeWebhook(action, context) {
+    const config = action.config || {};
+    const url = this.interpolate(config.url, context);
+    const body = this.interpolateObject(config.body || {}, context);
+    
+    const response = await fetch(url, {
+      method: config.method || 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(config.headers || {})
+      },
+      body: JSON.stringify(body)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Webhook failed: ${response.status}`);
+    }
+  }
+  
+  async executeUpdateState(action, context, agentId) {
+    const updates = this.interpolateObject(action.config?.updates || {}, context);
+    this.repo.updateAgentState(agentId, updates);
+  }
+  
+  async executeLog(action, context) {
+    const message = this.interpolate(action.config?.message || '', context);
+    this.logger.info(`[Agent Log] ${message}`);
+  }
+  
+  // ══════════════════════════════════════════════════════════════════════════════
+  // INTERPOLATION
+  // ══════════════════════════════════════════════════════════════════════════════
+  
+  interpolate(template, context) {
+    if (typeof template !== 'string') return template;
+    
+    return template.replace(/\{\{([^}]+)\}\}/g, (match, path) => {
+      const value = this.getNestedValue(context, path.trim());
+      return value !== undefined ? String(value) : match;
+    });
+  }
+  
+  interpolateObject(obj, context) {
+    if (typeof obj === 'string') {
+      return this.interpolate(obj, context);
+    }
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.interpolateObject(item, context));
+    }
+    if (obj && typeof obj === 'object') {
+      const result = {};
+      for (const [key, value] of Object.entries(obj)) {
+        result[key] = this.interpolateObject(value, context);
+      }
+      return result;
+    }
+    return obj;
   }
   
   getNestedValue(obj, path) {
-    return path.split('.').reduce((acc, part) => {
-      if (acc === null || acc === undefined) return undefined;
-      const indexMatch = part.match(/^(\w+)\[(\d+)\]$/);
-      if (indexMatch) return acc[indexMatch[1]]?.[parseInt(indexMatch[2])];
-      return acc[part];
+    return path.split('.').reduce((current, key) => {
+      return current && current[key] !== undefined ? current[key] : undefined;
     }, obj);
   }
   
-  createSnapshot(context) {
-    // Create minimal snapshot for explain/audit
-    return {
-      params: context.params,
-      source_status: Object.fromEntries(
-        Object.entries(context.sources).map(([k, v]) => [k, v.status])
-      )
-    };
-  }
-  
   timestamp() {
-    return new Date().toISOString().substring(11, 23);
-  }
-  
-  /**
-   * Dry run - execute agent definition without saving state
-   * @param {object} definition - Agent definition to test
-   * @returns {Promise<object>} - Test results
-   */
-  async dryRun(definition) {
-    const log = [];
-    const now = new Date();
-    
-    try {
-      log.push({ time: this.timestamp(), msg: '🧪 Dry run started' });
-      
-      // Validate definition
-      if (!definition) {
-        throw new Error('No definition provided');
-      }
-      
-      // Create mock context
-      const context = {
-        agent: { id: 'dry-run-test', definition },
-        params: definition.params || {},
-        sources: {},
-        conditions: {},
-        now
-      };
-      
-      // Fetch sources (with timeout)
-      if (definition.sources) {
-        for (const source of definition.sources) {
-          log.push({ time: this.timestamp(), msg: `📡 Fetching source: ${source.id}` });
-          try {
-            const handler = this.sourceHandlers[source.type];
-            if (handler) {
-              const data = await Promise.race([
-                handler(source.config),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-              ]);
-              context.sources[source.id] = data; // Store data directly, not wrapped
-              
-              // Better logging for scraper results
-              if (data && data.items) {
-                log.push({ time: this.timestamp(), msg: `✅ Source ${source.id}: OK (${data.items.length} položek)` });
-                if (data.items.length > 0) {
-                  const sample = data.items[0];
-                  log.push({ time: this.timestamp(), msg: `   📦 Ukázka: price=${sample.price || '?'}, area=${sample.area || '?'}m², land=${sample.land_area || '?'}m²` });
-                }
-              } else {
-                log.push({ time: this.timestamp(), msg: `✅ Source ${source.id}: OK (${JSON.stringify(data).length} bytes)` });
-              }
-            } else {
-              context.sources[source.id] = { status: 'error', error: 'Unknown source type' };
-              log.push({ time: this.timestamp(), msg: `❌ Source ${source.id}: Unknown type ${source.type}` });
-            }
-          } catch (err) {
-            context.sources[source.id] = { status: 'error', error: err.message };
-            log.push({ time: this.timestamp(), msg: `❌ Source ${source.id}: ${err.message}` });
-          }
-        }
-      }
-      
-      // Evaluate conditions
-      const conditionResults = {};
-      if (definition.conditions) {
-        for (const cond of definition.conditions) {
-          log.push({ time: this.timestamp(), msg: `🔍 Evaluating condition: ${cond.id}` });
-          try {
-            const result = this.conditions.evaluate(cond, context);
-            const passed = result.passed;
-            conditionResults[cond.id] = passed;
-            context.conditions[cond.id] = passed;
-            log.push({ time: this.timestamp(), msg: `  → ${cond.id} = ${passed} (${result.reason || ''})` });
-          } catch (err) {
-            conditionResults[cond.id] = false;
-            log.push({ time: this.timestamp(), msg: `❌ Condition ${cond.id}: ${err.message}` });
-          }
-        }
-      }
-      
-      // Check triggers (without edge detection - just show what would trigger)
-      const wouldTrigger = [];
-      if (definition.triggers) {
-        for (const trigger of definition.triggers) {
-          const condId = trigger.condition_id || trigger.condition; // support both
-          const condValue = conditionResults[condId];
-          if (condValue) {
-            wouldTrigger.push(trigger.id);
-            log.push({ time: this.timestamp(), msg: `⚡ Trigger ${trigger.id} WOULD fire (condition ${condId} is true)` });
-          } else {
-            log.push({ time: this.timestamp(), msg: `💤 Trigger ${trigger.id} would NOT fire (condition ${condId} is false)` });
-          }
-        }
-      }
-      
-      log.push({ time: this.timestamp(), msg: '🧪 Dry run completed' });
-      
-      return {
-        success: true,
-        log,
-        summary: {
-          sources: Object.keys(context.sources).length,
-          sourcesOk: Object.values(context.sources).filter(s => s.status === 'ok').length,
-          conditions: Object.keys(conditionResults).length,
-          conditionsTrue: Object.values(conditionResults).filter(v => v).length,
-          wouldTrigger
-        }
-      };
-      
-    } catch (err) {
-      log.push({ time: this.timestamp(), msg: `❌ Error: ${err.message}` });
-      return {
-        success: false,
-        error: err.message,
-        log
-      };
-    }
+    return new Date().toISOString().replace('T', ' ').substring(0, 19);
   }
 }
-
-export default AgentRunner;

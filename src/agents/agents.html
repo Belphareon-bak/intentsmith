@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>p(AI)assistant - Agents</title>
+  <title>p(AI)assistant v34.3.2 - Agents</title>
   <style>
     :root {
       --bg-primary: #0a0a0f;
@@ -170,6 +170,15 @@
       color: var(--text-primary);
     }
     
+    .btn-danger {
+      background: var(--error);
+      color: white;
+    }
+    
+    .btn-danger:hover {
+      background: #dc2626;
+    }
+    
     /* Summary Cards */
     .summary-cards {
       display: grid;
@@ -219,38 +228,52 @@
     
     .agent-card-header {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
       margin-bottom: 12px;
     }
     
-    .agent-icon {
-      font-size: 32px;
-      line-height: 1;
+    .agent-card-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .agent-card-icon {
+      font-size: 28px;
+    }
+    
+    .agent-card-name {
+      font-weight: 600;
+      font-size: 16px;
+    }
+    
+    .agent-card-actions {
+      display: flex;
+      gap: 4px;
+    }
+    
+    .agent-card-description {
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+    
+    .agent-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
     }
     
     .agent-status {
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 4px 10px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 500;
+      font-size: 13px;
     }
-    
-    .status-active { background: rgba(34, 197, 94, 0.15); color: var(--success); }
-    .status-paused { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
-    .status-broken { background: rgba(239, 68, 68, 0.15); color: var(--error); }
-    .status-degraded { background: rgba(251, 191, 36, 0.15); color: #f59e0b; }
-    .status-broken .status-dot { background: var(--error); animation: pulse 1s infinite; }
-    .status-degraded .status-dot { background: #f59e0b; }
-    
-    .schema-error-badge {
-      cursor: help;
-      font-size: 14px;
-    }
-    .status-error { background: rgba(239, 68, 68, 0.15); color: var(--error); }
     
     .status-dot {
       width: 8px;
@@ -261,146 +284,102 @@
     .status-active .status-dot { background: var(--success); }
     .status-paused .status-dot { background: var(--warning); }
     .status-error .status-dot { background: var(--error); }
+    .status-broken .status-dot { background: var(--error); animation: pulse 1s infinite; }
+    .status-degraded .status-dot { background: var(--warning); }
     
-    .agent-name {
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 4px;
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
     }
     
     .agent-pattern {
-      display: inline-block;
-      padding: 2px 8px;
-      background: var(--bg-tertiary);
-      border-radius: 4px;
-      font-size: 11px;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    
-    .agent-description {
-      color: var(--text-secondary);
-      font-size: 14px;
-      margin: 12px 0;
-      line-height: 1.5;
-    }
-    
-    .agent-meta {
-      display: flex;
-      gap: 16px;
-      padding-top: 12px;
-      border-top: 1px solid var(--border);
-      font-size: 13px;
+      font-size: 12px;
       color: var(--text-muted);
-    }
-    
-    .agent-meta-item {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    
-    .agent-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 12px;
-    }
-    
-    .agent-actions .btn {
-      flex: 1;
-      justify-content: center;
-      padding: 8px;
+      background: var(--bg-tertiary);
+      padding: 4px 8px;
+      border-radius: 4px;
     }
     
     /* ═══════════════════════════════════════════════════════════════════════
-       CREATE AGENT - STEPPER
+       CREATE VIEW
        ═══════════════════════════════════════════════════════════════════════ */
     
-    .stepper-container {
+    .create-container {
       max-width: 800px;
       margin: 0 auto;
     }
     
-    .stepper-header {
+    .step-indicator {
       display: flex;
-      justify-content: space-between;
-      margin-bottom: 40px;
-      position: relative;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 32px;
     }
     
-    .stepper-header::before {
-      content: '';
-      position: absolute;
-      top: 20px;
-      left: 40px;
-      right: 40px;
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-muted);
+    }
+    
+    .step.active {
+      color: var(--accent);
+    }
+    
+    .step.completed {
+      color: var(--success);
+    }
+    
+    .step-number {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--bg-tertiary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    
+    .step.active .step-number {
+      background: var(--accent);
+      color: white;
+    }
+    
+    .step.completed .step-number {
+      background: var(--success);
+      color: white;
+    }
+    
+    .step-line {
+      width: 40px;
       height: 2px;
       background: var(--border);
     }
     
-    .stepper-step {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      position: relative;
-      z-index: 1;
-    }
-    
-    .stepper-number {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: var(--bg-secondary);
-      border: 2px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 600;
-      transition: all 0.3s;
-    }
-    
-    .stepper-step.active .stepper-number {
-      background: var(--accent);
-      border-color: var(--accent);
-    }
-    
-    .stepper-step.completed .stepper-number {
-      background: var(--success);
-      border-color: var(--success);
-    }
-    
-    .stepper-label {
-      font-size: 13px;
-      color: var(--text-muted);
-    }
-    
-    .stepper-step.active .stepper-label {
-      color: var(--text-primary);
-    }
-    
-    .step-content {
+    .create-card {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 32px;
+      border-radius: 12px;
+      padding: 24px;
     }
     
-    .step-title {
-      font-size: 24px;
+    .create-title {
+      font-size: 20px;
       font-weight: 600;
       margin-bottom: 8px;
     }
     
-    .step-subtitle {
+    .create-subtitle {
       color: var(--text-secondary);
       margin-bottom: 24px;
     }
     
-    /* Form Elements */
     .form-group {
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
     
     .form-label {
@@ -410,344 +389,120 @@
       margin-bottom: 8px;
     }
     
-    .form-label .required {
-      color: var(--error);
-    }
-    
-    .form-hint {
-      font-size: 13px;
-      color: var(--text-muted);
-      margin-top: 4px;
-    }
-    
-    .form-input {
+    .form-input, .form-textarea {
       width: 100%;
-      padding: 12px 16px;
       background: var(--bg-tertiary);
       border: 1px solid var(--border);
       border-radius: 8px;
+      padding: 12px;
       color: var(--text-primary);
-      font-size: 15px;
-      transition: all 0.2s;
+      font-size: 14px;
     }
     
-    .form-input:focus {
+    .form-input:focus, .form-textarea:focus {
       outline: none;
       border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
     }
     
-    .form-input::placeholder {
-      color: var(--text-muted);
-    }
-    
-    textarea.form-input {
+    .form-textarea {
       min-height: 120px;
       resize: vertical;
     }
     
-    .form-input.error {
-      border-color: var(--error);
-    }
-    
-    .form-error {
-      color: var(--error);
-      font-size: 13px;
-      margin-top: 4px;
-    }
-    
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-    
-    /* Pattern Selection */
-    .pattern-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 12px;
-    }
-    
-    .pattern-option {
-      padding: 16px;
-      background: var(--bg-tertiary);
-      border: 2px solid var(--border);
-      border-radius: 12px;
-      cursor: pointer;
-      transition: all 0.2s;
-      text-align: center;
-    }
-    
-    .pattern-option:hover {
-      border-color: var(--accent);
-    }
-    
-    .pattern-option.selected {
-      border-color: var(--accent);
-      background: rgba(99, 102, 241, 0.1);
-    }
-    
-    .pattern-option-icon {
-      font-size: 28px;
-      margin-bottom: 8px;
-    }
-    
-    .pattern-option-name {
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-    
-    .pattern-option-desc {
+    .form-hint {
       font-size: 12px;
       color: var(--text-muted);
+      margin-top: 6px;
     }
     
-    /* Icon Picker */
-    .icon-picker {
+    .form-actions {
       display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 24px;
     }
     
-    .icon-option {
-      width: 48px;
-      height: 48px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      background: var(--bg-tertiary);
-      border: 2px solid var(--border);
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    
-    .icon-option:hover {
-      border-color: var(--accent);
-    }
-    
-    .icon-option.selected {
-      border-color: var(--accent);
-      background: rgba(99, 102, 241, 0.1);
-    }
-    
-    .custom-icon {
-      position: relative;
-    }
-    
-    .custom-icon-input {
-      width: 100%;
-      height: 100%;
-      border: none;
-      background: transparent;
-      text-align: center;
-      font-size: 20px;
-      color: var(--text-primary);
-      outline: none;
-    }
-    
-    .custom-icon-input::placeholder {
-      color: var(--text-muted);
-    }
-    
-    /* Step Navigation */
-    .step-nav {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 32px;
-      padding-top: 24px;
-      border-top: 1px solid var(--border);
-    }
-    
-    /* ═══════════════════════════════════════════════════════════════════════
-       BUILDER PREVIEW (Step 2)
-       ═══════════════════════════════════════════════════════════════════════ */
-    
-    .builder-preview {
-      background: var(--bg-tertiary);
-      border-radius: 12px;
-      padding: 20px;
+    /* Draft Review */
+    .draft-section {
       margin-bottom: 24px;
     }
     
-    .builder-section {
-      margin-bottom: 20px;
-    }
-    
-    .builder-section:last-child {
-      margin-bottom: 0;
-    }
-    
-    .builder-section-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+    .draft-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       margin-bottom: 12px;
     }
     
-    .builder-item {
+    .draft-section-title {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 12px;
-      background: var(--bg-secondary);
+      gap: 8px;
+      font-weight: 600;
+    }
+    
+    .draft-item {
+      background: var(--bg-tertiary);
       border-radius: 8px;
+      padding: 12px 16px;
       margin-bottom: 8px;
     }
     
-    .builder-item-icon {
-      width: 32px;
-      height: 32px;
+    .draft-item-header {
       display: flex;
       align-items: center;
-      justify-content: center;
-      background: var(--bg-tertiary);
-      border-radius: 6px;
-      font-size: 16px;
+      gap: 12px;
     }
     
-    .builder-item-content {
-      flex: 1;
+    .draft-item-icon {
+      font-size: 20px;
     }
     
-    .builder-item-title {
+    .draft-item-name {
       font-weight: 500;
     }
     
-    .builder-item-desc {
+    .draft-item-desc {
+      color: var(--text-secondary);
       font-size: 13px;
-      color: var(--text-muted);
+      margin-top: 4px;
+      margin-left: 32px;
     }
     
-    .builder-item-actions {
-      display: flex;
-      gap: 4px;
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
-    
-    .builder-item:hover .builder-item-actions {
-      opacity: 1;
-    }
-    
-    .builder-item-btn {
-      width: 28px;
-      height: 28px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .draft-explanation {
       background: var(--bg-tertiary);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      color: var(--text-secondary);
-      cursor: pointer;
-      font-size: 14px;
-    }
-    
-    .builder-item-btn:hover {
-      background: var(--bg-hover);
-      color: var(--text-primary);
-    }
-    
-    .builder-item-btn.delete:hover {
-      background: rgba(239, 68, 68, 0.2);
-      color: var(--error);
-    }
-    
-    .builder-section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-    
-    .builder-add-btn {
-      padding: 4px 12px;
-      font-size: 12px;
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      color: var(--text-secondary);
-      cursor: pointer;
-    }
-    
-    .builder-add-btn:hover {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: white;
-    }
-    
-    /* Edit Modal */
-    .edit-modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.8);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-    
-    .edit-modal-content {
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 24px;
-      width: 90%;
-      max-width: 500px;
-      max-height: 80vh;
-      overflow-y: auto;
-    }
-    
-    .edit-modal-title {
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 16px;
-    }
-    
-    .edit-modal-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      margin-top: 20px;
-    }
-    
-    .builder-explanation {
+      border-left: 3px solid var(--info);
       padding: 16px;
-      background: rgba(99, 102, 241, 0.1);
-      border-left: 3px solid var(--accent);
       border-radius: 0 8px 8px 0;
       margin-top: 16px;
     }
     
-    .builder-explanation-title {
-      font-weight: 600;
+    .draft-explanation-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--info);
       margin-bottom: 8px;
     }
     
+    .draft-explanation-text {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+    
     /* ═══════════════════════════════════════════════════════════════════════
-       AGENT DETAIL VIEW
+       DETAIL VIEW
        ═══════════════════════════════════════════════════════════════════════ */
     
     .detail-header {
       display: flex;
-      gap: 24px;
-      padding: 24px;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
-      border-radius: 16px;
+      align-items: flex-start;
+      gap: 20px;
       margin-bottom: 24px;
     }
     
     .detail-icon {
-      font-size: 64px;
+      font-size: 48px;
     }
     
     .detail-info {
@@ -762,30 +517,28 @@
     
     .detail-description {
       color: var(--text-secondary);
-      margin-bottom: 16px;
+      margin-bottom: 12px;
     }
     
     .detail-badges {
       display: flex;
+      align-items: center;
       gap: 12px;
-      flex-wrap: wrap;
     }
     
     .detail-actions {
       display: flex;
-      flex-direction: column;
       gap: 8px;
     }
     
-    /* Health Panel */
     .health-panel {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 16px;
-      padding: 20px;
       background: var(--bg-secondary);
       border: 1px solid var(--border);
       border-radius: 12px;
+      padding: 20px;
       margin-bottom: 24px;
     }
     
@@ -798,45 +551,42 @@
       font-weight: 700;
     }
     
-    .health-value.success { color: var(--success); }
-    .health-value.warning { color: var(--warning); }
-    .health-value.error { color: var(--error); }
+    .health-value.success {
+      color: var(--success);
+    }
     
     .health-label {
       font-size: 13px;
-      color: var(--text-muted);
+      color: var(--text-secondary);
+      margin-top: 4px;
     }
     
     /* Tabs */
     .tabs {
       display: flex;
-      gap: 4px;
-      background: var(--bg-secondary);
-      padding: 4px;
-      border-radius: 12px;
-      margin-bottom: 24px;
+      gap: 8px;
+      margin-bottom: 20px;
     }
     
     .tab {
-      flex: 1;
-      padding: 12px;
-      background: transparent;
-      border: none;
+      padding: 10px 16px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
       border-radius: 8px;
       color: var(--text-secondary);
-      font-size: 14px;
-      font-weight: 500;
       cursor: pointer;
+      font-size: 14px;
       transition: all 0.2s;
     }
     
     .tab:hover {
-      color: var(--text-primary);
+      background: var(--bg-hover);
     }
     
     .tab.active {
-      background: var(--bg-tertiary);
-      color: var(--text-primary);
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
     }
     
     .tab-content {
@@ -847,13 +597,10 @@
       display: block;
     }
     
-    /* ═══════════════════════════════════════════════════════════════════════
-       LOGS VIEW
-       ═══════════════════════════════════════════════════════════════════════ */
-    
+    /* Logs */
     .logs-filters {
       display: flex;
-      gap: 12px;
+      gap: 8px;
       margin-bottom: 16px;
     }
     
@@ -863,27 +610,25 @@
       border: 1px solid var(--border);
       border-radius: 6px;
       color: var(--text-secondary);
-      font-size: 13px;
       cursor: pointer;
-      transition: all 0.2s;
+      font-size: 13px;
     }
     
-    .filter-btn:hover,
-    .filter-btn.active {
-      border-color: var(--accent);
-      color: var(--accent);
+    .filter-btn:hover, .filter-btn.active {
+      background: var(--bg-hover);
+      color: var(--text-primary);
     }
     
     .log-list {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 8px;
     }
     
     .log-entry {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 8px;
       overflow: hidden;
     }
     
@@ -895,8 +640,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 16px;
-      background: var(--bg-tertiary);
+      padding: 12px 16px;
       cursor: pointer;
     }
     
@@ -905,20 +649,19 @@
     }
     
     .log-time {
-      font-weight: 600;
+      color: var(--text-secondary);
+      font-size: 13px;
     }
     
     .log-result {
       display: flex;
-      align-items: center;
-      gap: 12px;
+      gap: 8px;
     }
     
     .log-badge {
-      padding: 4px 10px;
+      padding: 3px 8px;
       border-radius: 4px;
       font-size: 12px;
-      font-weight: 500;
     }
     
     .log-badge.success { background: rgba(34, 197, 94, 0.15); color: var(--success); }
@@ -926,8 +669,8 @@
     .log-badge.triggered { background: rgba(99, 102, 241, 0.15); color: var(--accent); }
     
     .log-body {
-      padding: 16px;
       display: none;
+      padding: 0 16px 16px;
     }
     
     .log-entry.expanded .log-body {
@@ -944,143 +687,47 @@
     
     .log-section-title {
       font-size: 12px;
-      font-weight: 600;
-      color: var(--text-muted);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      color: var(--text-muted);
       margin-bottom: 8px;
+      letter-spacing: 0.5px;
     }
     
     .log-detail {
       display: flex;
-      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
       padding: 8px 12px;
       background: var(--bg-tertiary);
       border-radius: 6px;
       margin-bottom: 4px;
-      font-size: 13px;
     }
     
     .log-detail-label {
-      color: var(--text-muted);
-      min-width: 100px;
+      font-size: 13px;
     }
     
     .log-detail-value {
-      flex: 1;
+      font-size: 13px;
+      color: var(--text-secondary);
     }
     
     .log-detail-value.success { color: var(--success); }
     .log-detail-value.error { color: var(--error); }
     
-    /* ═══════════════════════════════════════════════════════════════════════
-       NOTIFICATIONS SETTINGS (Step 3)
-       ═══════════════════════════════════════════════════════════════════════ */
-    
-    .notification-channels {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    
-    .channel-option {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 16px;
+    .log-raw {
       background: var(--bg-tertiary);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-    }
-    
-    .channel-checkbox {
-      width: 24px;
-      height: 24px;
-      accent-color: var(--accent);
-    }
-    
-    .channel-icon {
-      font-size: 24px;
-    }
-    
-    .channel-info {
-      flex: 1;
-    }
-    
-    .channel-name {
-      font-weight: 500;
-    }
-    
-    .channel-desc {
-      font-size: 13px;
-      color: var(--text-muted);
-    }
-    
-    .channel-config {
-      display: none;
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid var(--border);
-    }
-    
-    .channel-option.enabled .channel-config {
-      display: block;
-    }
-    
-    /* ═══════════════════════════════════════════════════════════════════════
-       REVIEW (Step 4)
-       ═══════════════════════════════════════════════════════════════════════ */
-    
-    .review-section {
-      padding: 20px;
-      background: var(--bg-tertiary);
-      border-radius: 12px;
-      margin-bottom: 16px;
-    }
-    
-    .review-section-title {
-      font-size: 14px;
-      font-weight: 600;
+      border-radius: 6px;
+      padding: 12px;
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      max-height: 300px;
+      overflow-y: auto;
       color: var(--text-secondary);
-      margin-bottom: 12px;
     }
     
-    .review-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 0;
-      border-bottom: 1px solid var(--border);
-    }
-    
-    .review-item:last-child {
-      border-bottom: none;
-    }
-    
-    .review-label {
-      color: var(--text-muted);
-    }
-    
-    .review-value {
-      font-weight: 500;
-    }
-    
-    .review-actions {
-      display: flex;
-      gap: 12px;
-      margin-top: 24px;
-    }
-    
-    .review-actions .btn {
-      flex: 1;
-      justify-content: center;
-      padding: 16px;
-      font-size: 16px;
-    }
-    
-    /* ═══════════════════════════════════════════════════════════════════════
-       EMPTY STATE
-       ═══════════════════════════════════════════════════════════════════════ */
-    
+    /* Empty State */
     .empty-state {
       text-align: center;
       padding: 60px 20px;
@@ -1092,7 +739,7 @@
     }
     
     .empty-state-title {
-      font-size: 24px;
+      font-size: 20px;
       font-weight: 600;
       margin-bottom: 8px;
     }
@@ -1102,251 +749,277 @@
       margin-bottom: 24px;
     }
     
-    /* ═══════════════════════════════════════════════════════════════════════
-       LOADING
-       ═══════════════════════════════════════════════════════════════════════ */
-    
+    /* Loading */
     .loading {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 12px;
-      padding: 40px;
-      color: var(--text-secondary);
+      height: 200px;
     }
     
     .spinner {
-      width: 24px;
-      height: 24px;
+      width: 32px;
+      height: 32px;
       border: 3px solid var(--border);
       border-top-color: var(--accent);
       border-radius: 50%;
-      animation: spin 1s linear infinite;
+      animation: spin 0.8s linear infinite;
     }
     
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
     
-    /* ═══════════════════════════════════════════════════════════════════════
-       RESPONSIVE
-       ═══════════════════════════════════════════════════════════════════════ */
-    
-    @media (max-width: 768px) {
-      .form-row {
-        grid-template-columns: 1fr;
-      }
-      
-      .health-panel {
-        grid-template-columns: repeat(2, 1fr);
-      }
-      
-      .agent-grid {
-        grid-template-columns: 1fr;
-      }
+    /* Schema Status Badge */
+    .schema-error-badge {
+      cursor: help;
     }
-    
-    /* Source Inspection */
-    .inspection-result {
-      margin-top: 12px;
-      padding: 12px;
-      background: var(--bg-tertiary);
-      border-radius: 8px;
+
+    /* Settings Tab */
+    .settings-section {
+      background: var(--bg-secondary);
       border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
     }
-    .inspection-result.hidden { display: none; }
-    .inspection-result.loading { 
-      opacity: 0.7;
-      pointer-events: none;
-    }
-    .inspection-header {
+
+    .settings-section-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
       display: flex;
       align-items: center;
       gap: 8px;
+    }
+
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .settings-row:last-child {
+      border-bottom: none;
+    }
+
+    .settings-label {
+      font-size: 14px;
+    }
+
+    .settings-value {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    /* Danger Zone */
+    .danger-zone {
+      border-color: var(--error);
+      background: rgba(239, 68, 68, 0.05);
+    }
+
+    .danger-zone .settings-section-title {
+      color: var(--error);
+    }
+
+    /* Run Result Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      z-index: 1000;
+      max-width: 400px;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    .toast.success {
+      border-color: var(--success);
+    }
+
+    .toast.error {
+      border-color: var(--error);
+    }
+
+    .toast-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       margin-bottom: 8px;
     }
-    .inspection-status {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 13px;
+
+    .toast-title {
+      font-weight: 600;
+      font-size: 14px;
     }
-    .inspection-status.ok { color: var(--success); }
-    .inspection-status.error { color: var(--error); }
-    .inspection-fields {
-      margin-top: 8px;
-      max-height: 150px;
-      overflow-y: auto;
-    }
-    .inspection-field {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 4px 8px;
-      font-size: 12px;
-      font-family: monospace;
-    }
-    .inspection-field:hover {
-      background: var(--bg-secondary);
-      border-radius: 4px;
-    }
-    .inspection-field .path { color: var(--text); }
-    .inspection-field .type { 
-      color: var(--text-muted); 
-      font-size: 11px;
-      background: var(--bg-secondary);
-      padding: 2px 6px;
-      border-radius: 4px;
-    }
-    .inspection-field .sample { 
-      color: var(--text-muted); 
-      font-size: 11px;
-      margin-left: auto;
-      max-width: 150px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    
-    /* Field validation */
-    .validation-icon {
-      width: 24px;
-      height: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-    }
-    .validation-icon.valid::after { content: '✅'; }
-    .validation-icon.invalid::after { content: '❌'; }
-    .validation-icon.unknown::after { content: '❓'; }
-    .validation-icon.loading::after { content: '⏳'; }
-    
-    /* Available fields chips */
-    .available-fields {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 8px;
-    }
-    .field-chip {
-      padding: 4px 8px;
-      font-size: 11px;
-      border-radius: 4px;
-      border: 1px solid var(--border);
-      background: var(--bg-tertiary);
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-    .field-chip:hover {
-      background: var(--accent);
-      color: white;
-      border-color: var(--accent);
-    }
-    .field-chip.number { border-color: #4ade80; }
-    .field-chip.string { border-color: #60a5fa; }
-    .field-chip.array { border-color: #f472b6; }
-    
-    .field-hint {
+
+    .toast-close {
+      background: none;
+      border: none;
       color: var(--text-muted);
-      font-size: 11px;
-      font-weight: normal;
+      cursor: pointer;
+      font-size: 18px;
     }
+
+    .toast-body {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       v34: NEW STATUS STYLES
+       ═══════════════════════════════════════════════════════════════════════ */
     
-    /* Schema confidence */
-    .schema-confidence {
-      font-size: 11px;
-      padding: 2px 8px;
+    .agent-status.status-init {
+      background: rgba(99, 102, 241, 0.15);
+      color: #a5b4fc;
+    }
+
+    .agent-status.status-waiting {
+      background: rgba(59, 130, 246, 0.15);
+      color: #93c5fd;
+    }
+
+    .agent-status.status-monitoring {
+      background: rgba(20, 184, 166, 0.15);
+      color: #5eead4;
+    }
+
+    .health-value.muted {
+      color: var(--text-muted);
+      font-size: 20px;
+    }
+
+    .json-editor-warning {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px;
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 6px;
+      margin-bottom: 12px;
+    }
+
+    .json-editor-warning .warning-icon {
+      font-size: 24px;
+    }
+
+    .json-editor-warning .warning-text {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .json-editor-warning .warning-text strong {
+      color: var(--warning);
+    }
+
+    .json-editor-toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .validation-status {
+      font-size: 12px;
+      padding: 4px 8px;
       border-radius: 4px;
-      margin-left: auto;
-    }
-    .schema-confidence.high { background: rgba(74, 222, 128, 0.2); color: #4ade80; }
-    .schema-confidence.medium { background: rgba(251, 191, 36, 0.2); color: #fbbf24; }
-    .schema-confidence.low { background: rgba(248, 113, 113, 0.2); color: #f87171; }
-    
-    /* Confidence bar */
-    .confidence-bar {
-      height: 4px;
-      border-radius: 2px;
       margin-left: 8px;
     }
-    .has-fallback {
+
+    .validation-status.success {
+      background: rgba(34, 197, 94, 0.2);
+      color: var(--success);
+    }
+
+    .validation-status.error {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--error);
+    }
+
+    .json-error {
+      padding: 8px 12px;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid var(--error);
+      border-radius: 4px;
+      color: var(--error);
+      font-size: 12px;
+      font-family: monospace;
+      margin-top: 8px;
+    }
+
+    .json-error.hidden {
+      display: none;
+    }
+
+    .settings-textarea.code {
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      tab-size: 2;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 6px;
       font-size: 10px;
-      margin-left: 4px;
+      font-weight: 600;
+      border-radius: 4px;
+      margin-left: 8px;
     }
-    
-    /* Form hints */
-    .form-hint {
-      display: block;
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-top: 4px;
+
+    .badge-warning {
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--warning);
     }
-    
-    /* Quantifier group */
-    #condition-quantifier-group {
-      border-left: 3px solid var(--border);
-      padding-left: 12px;
-      margin-left: 4px;
-    }
+
   </style>
 </head>
 <body>
-  <div class="app" id="app">
-    <!-- Content will be rendered by JS -->
+  <div id="app" class="app">
+    <div class="loading"><div class="spinner"></div></div>
   </div>
-
+  
+  <div id="toast-container"></div>
+  
   <script>
     // ═══════════════════════════════════════════════════════════════════════════
     // STATE
     // ═══════════════════════════════════════════════════════════════════════════
     
     const state = {
-      view: 'list', // list, create, detail
-      createStep: 1,
+      view: 'list', // list, create, detail, edit
       agents: [],
-      selectedAgent: null,
       notifications: [],
-      editModal: null, // { type: 'source'|'condition'|'trigger'|'action', index: number }
-      sourceInspection: null, // Result from /api/sources/inspect
-      
-      // Create form
+      selectedAgent: null,
+      editingAgent: null,
       createForm: {
-        name: '',
-        icon: '⚡',
-        pattern: '',
+        step: 'describe', // describe, review
         description: '',
         definition: null,
-        draftId: null,
-        notifications: {
-          inApp: true,
-          email: false,
-          telegram: false,
-          webhook: false
-        },
-        schedule: '1h',
-        scheduleType: 'interval',
-        customCron: '',
-        cooldown: 300,
-        cooldownType: 'preset',
-        customCooldown: 60
+        explanation: null,
+        loading: false
       }
     };
-    
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PATTERNS
-    // ═══════════════════════════════════════════════════════════════════════════
-    
-    const PATTERNS = [
-      { id: 'hunter', name: 'Hunter', icon: '🎯', desc: 'Hledá nové položky' },
-      { id: 'monitor', name: 'Monitor', icon: '👁️', desc: 'Sleduje podmínku' },
-      { id: 'tracker', name: 'Tracker', icon: '📅', desc: 'Hlídá termíny' },
-      { id: 'digest', name: 'Digest', icon: '📰', desc: 'Pravidelné shrnutí' },
-      { id: 'scout', name: 'Scout', icon: '🔍', desc: 'Průzkum novinek' },
-      { id: 'custom', name: 'Custom', icon: '⚙️', desc: 'Vlastní definice' }
-    ];
-    
-    const ICONS = ['⚡', '🎯', '👁️', '📅', '📰', '🔍', '🏠', '💰', '🛒', '🌡️', '📊', '🔔', '🚀', '💡', '🎮', '🛡️', '📈', '🌐', '⏰', '📦'];
     
     // ═══════════════════════════════════════════════════════════════════════════
     // API
@@ -1377,6 +1050,22 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ definition, params, forceCreate })
+        });
+        return res.json();
+      },
+      
+      async updateAgent(id, data) {
+        const res = await fetch(`/api/agents/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        return res.json();
+      },
+      
+      async deleteAgent(id) {
+        const res = await fetch(`/api/agents/${id}`, {
+          method: 'DELETE'
         });
         return res.json();
       },
@@ -1424,6 +1113,9 @@
         case 'detail':
           app.innerHTML = renderDetailView();
           break;
+        case 'edit':
+          app.innerHTML = renderEditView();
+          break;
       }
       
       attachEventListeners();
@@ -1451,10 +1143,10 @@
           <div class="list-header">
             <div>
               <h2 class="list-title">Moji agenti</h2>
-              <p class="list-subtitle">Autonomní pomocníci, kteří pracují pro tebe</p>
+              <p class="list-subtitle">Automatizace, monitoring a notifikace</p>
             </div>
             <button class="btn btn-primary" onclick="startCreate()">
-              + Vytvořit agenta
+              ✨ Nový agent
             </button>
           </div>
           
@@ -1485,11 +1177,11 @@
     function renderEmptyState() {
       return `
         <div class="empty-state">
-          <div class="empty-state-icon">⚡</div>
-          <h3 class="empty-state-title">Zatím nemáš žádné agenty</h3>
-          <p class="empty-state-desc">Vytvoř svého prvního agenta a nech ho pracovat za tebe</p>
+          <div class="empty-state-icon">🤖</div>
+          <h3 class="empty-state-title">Zatím nemáte žádné agenty</h3>
+          <p class="empty-state-desc">Vytvořte svého prvního agenta a nechte ho pracovat za vás.</p>
           <button class="btn btn-primary" onclick="startCreate()">
-            + Vytvořit prvního agenta
+            ✨ Vytvořit agenta
           </button>
         </div>
       `;
@@ -1498,83 +1190,44 @@
     function renderAgentGrid() {
       return `
         <div class="agent-grid">
-          ${state.agents.map(agent => renderAgentCard(agent)).join('')}
-        </div>
-      `;
-    }
-    
-    function renderAgentCard(agent) {
-      const schemaStatus = agent.state?.schemaStatus;
-      let statusClass, statusText;
-      
-      if (schemaStatus === 'broken') {
-        statusClass = 'broken';
-        statusText = 'Schema rozbité';
-      } else if (schemaStatus === 'degraded') {
-        statusClass = 'degraded';
-        statusText = 'Schema degradováno';
-      } else if (!agent.enabled) {
-        statusClass = 'paused';
-        statusText = 'Pozastaveno';
-      } else if (agent.lastRun?.status === 'error') {
-        statusClass = 'error';
-        statusText = 'Chyba';
-      } else {
-        statusClass = 'active';
-        statusText = 'Aktivní';
-      }
-      
-      return `
-        <div class="agent-card" onclick="showDetail('${agent.id}')">
-          <div class="agent-card-header">
-            <span class="agent-icon">${agent.icon || '⚡'}</span>
-            <div class="agent-status status-${statusClass}">
-              <span class="status-dot"></span>
-              ${statusText}
+          ${state.agents.map(agent => `
+            <div class="agent-card" onclick="showDetail('${agent.id}')">
+              <div class="agent-card-header">
+                <div class="agent-card-title">
+                  <span class="agent-card-icon">${agent.icon || '⚡'}</span>
+                  <span class="agent-card-name">${agent.name}</span>
+                </div>
+                <div class="agent-card-actions" onclick="event.stopPropagation()">
+                  <button class="btn btn-ghost" onclick="runAgent('${agent.id}', event)" title="Spustit">▶</button>
+                </div>
+              </div>
+              <p class="agent-card-description">
+                ${agent.description || 'Bez popisu'}
+              </p>
+              <div class="agent-card-footer">
+                <div class="agent-status status-${agent.enabled ? 'active' : 'paused'}">
+                  <span class="status-dot"></span>
+                  ${agent.enabled ? 'Aktivní' : 'Pozastaven'}
+                </div>
+                <span class="agent-pattern">${agent.schedule?.type || 'Manual'}</span>
+              </div>
             </div>
-          </div>
-          
-          <h3 class="agent-name">${agent.name}</h3>
-          <span class="agent-pattern">${agent.schedule?.type || 'Manual'}</span>
-          
-          <p class="agent-description">${agent.description || 'Bez popisu'}</p>
-          
-          <div class="agent-meta">
-            <span class="agent-meta-item">
-              🕐 ${agent.lastRun?.at ? formatTime(agent.lastRun.at) : 'Nespuštěn'}
-            </span>
-            <span class="agent-meta-item">
-              🔔 ${agent.lastRun?.triggers || 0} triggerů
-            </span>
-          </div>
-          
-          <div class="agent-actions" onclick="event.stopPropagation()">
-            <button class="btn btn-ghost" onclick="runAgent('${agent.id}')" title="Spustit">▶</button>
-            <button class="btn btn-ghost" onclick="toggleAgent('${agent.id}', ${!agent.enabled})" title="${agent.enabled ? 'Pozastavit' : 'Aktivovat'}">
-              ${agent.enabled ? '⏸' : '▶'}
-            </button>
-            <button class="btn btn-ghost" onclick="cloneAgent('${agent.id}')" title="Klonovat">📋</button>
-          </div>
+          `).join('')}
         </div>
       `;
     }
     
     // ═══════════════════════════════════════════════════════════════════════════
-    // CREATE VIEW (STEPPER)
+    // CREATE VIEW
     // ═══════════════════════════════════════════════════════════════════════════
     
     function renderCreateView() {
-      const steps = [
-        { num: 1, label: 'Základ' },
-        { num: 2, label: 'Návrh' },
-        { num: 3, label: 'Nastavení' },
-        { num: 4, label: 'Kontrola' }
-      ];
+      const { step, loading } = state.createForm;
       
       return `
         <header class="header">
           <div class="header-left">
-            <button class="back-btn" onclick="cancelCreate()">
+            <button class="back-btn" onclick="goToList()">
               ← Zpět
             </button>
             <nav class="breadcrumb">
@@ -1586,887 +1239,144 @@
         </header>
         
         <main class="main">
-          <div class="stepper-container">
-            <div class="stepper-header">
-              ${steps.map(step => `
-                <div class="stepper-step ${step.num < state.createStep ? 'completed' : ''} ${step.num === state.createStep ? 'active' : ''}">
-                  <div class="stepper-number">${step.num < state.createStep ? '✓' : step.num}</div>
-                  <span class="stepper-label">${step.label}</span>
-                </div>
-              `).join('')}
+          <div class="create-container">
+            <div class="step-indicator">
+              <div class="step ${step === 'describe' ? 'active' : 'completed'}">
+                <span class="step-number">${step === 'describe' ? '1' : '✓'}</span>
+                <span>Popište</span>
+              </div>
+              <div class="step-line"></div>
+              <div class="step ${step === 'review' ? 'active' : ''}">
+                <span class="step-number">2</span>
+                <span>Zkontrolujte</span>
+              </div>
             </div>
             
-            ${renderCreateStep()}
+            ${step === 'describe' ? renderDescribeStep() : renderReviewStep()}
           </div>
         </main>
       `;
     }
     
-    function renderCreateStep() {
-      switch (state.createStep) {
-        case 1: return renderStep1();
-        case 2: return renderStep2();
-        case 3: return renderStep3();
-        case 4: return renderStep4();
-      }
-    }
-    
-    function renderStep1() {
+    function renderDescribeStep() {
       return `
-        <div class="step-content">
-          <h2 class="step-title">Základní informace</h2>
-          <p class="step-subtitle">Pojmenuj agenta a popiš co má dělat</p>
+        <div class="create-card">
+          <h2 class="create-title">🎯 Popište svého agenta</h2>
+          <p class="create-subtitle">Řekněte mi, co má agent dělat. Já ho pro vás navrhnu.</p>
           
           <div class="form-group">
-            <label class="form-label">
-              Název agenta <span class="required">*</span>
-            </label>
-            <input type="text" class="form-input" id="agent-name" 
-              value="${state.createForm.name}"
-              placeholder="např. Hlídač počasí Praha"
-              oninput="updateFormText('name', this.value)">
-            <p class="form-hint">Unikátní název pro snadnou identifikaci</p>
+            <label class="form-label">Co má agent dělat?</label>
+            <textarea 
+              class="form-textarea" 
+              id="agent-description"
+              placeholder="Např: Sleduj nové byty na Sreality v Praze do 5 milionů a pošli mi notifikaci když se objeví nový..."
+              rows="4"
+            >${state.createForm.description}</textarea>
+            <p class="form-hint">Čím přesněji popíšete, tím lepší návrh dostanete.</p>
           </div>
           
-          <div class="form-group">
-            <label class="form-label">Ikona</label>
-            <div class="icon-picker">
-              ${ICONS.map(icon => `
-                <div class="icon-option ${state.createForm.icon === icon ? 'selected' : ''}" 
-                     onclick="updateForm('icon', '${icon}')">${icon}</div>
-              `).join('')}
-              <div class="icon-option custom-icon ${!ICONS.includes(state.createForm.icon) && state.createForm.icon ? 'selected' : ''}"
-                   onclick="document.getElementById('custom-icon-input').focus()"
-                   title="Vlastní emoji nebo URL">
-                <input type="text" id="custom-icon-input" 
-                       class="custom-icon-input"
-                       placeholder="✨"
-                       value="${!ICONS.includes(state.createForm.icon) ? state.createForm.icon : ''}"
-                       oninput="updateForm('icon', this.value)"
-                       maxlength="50">
-              </div>
-            </div>
-            <p class="form-hint">Emoji nebo URL obrázku (PNG/SVG, max 64x64px)</p>
-          </div>
-          
-          <div class="form-group">
-            <label class="form-label">Pattern</label>
-            <div class="pattern-grid">
-              ${PATTERNS.map(p => `
-                <div class="pattern-option ${state.createForm.pattern === p.id ? 'selected' : ''}"
-                     onclick="updateForm('pattern', '${p.id}')">
-                  <div class="pattern-option-icon">${p.icon}</div>
-                  <div class="pattern-option-name">${p.name}</div>
-                  <div class="pattern-option-desc">${p.desc}</div>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-          
-          <div class="form-group">
-            <label class="form-label">
-              Co má agent dělat? <span class="required">*</span>
-            </label>
-            <textarea class="form-input" id="agent-description" 
-              placeholder="Popiš přirozeným jazykem co chceš aby agent dělal...
-
-Příklady:
-• Hlídej kdy teplota v Praze klesne pod 0°C a upozorni mě 2 dny předem
-• Najdi nové pozemky v okolí Prahy do 3 milionů Kč
-• Každý den ráno mi pošli shrnutí novinek z AI světa"
-              oninput="updateFormText('description', this.value)">${state.createForm.description}</textarea>
-            <p class="form-hint">Čím přesněji popíšeš, tím lepší agent vznikne</p>
-          </div>
-          
-          <div class="step-nav">
-            <button class="btn btn-secondary" onclick="cancelCreate()">Zrušit</button>
-            <button class="btn btn-primary" onclick="nextStep()" 
-              ${!state.createForm.name || !state.createForm.description ? 'disabled' : ''}>
-              Pokračovat →
+          <div class="form-actions">
+            <button class="btn btn-secondary" onclick="goToList()">Zrušit</button>
+            <button class="btn btn-primary" id="generate-btn" onclick="generateAgent()" ${state.createForm.loading ? 'disabled' : ''}>
+              ${state.createForm.loading ? '⏳ Generuji...' : '✨ Navrhnout agenta'}
             </button>
           </div>
         </div>
       `;
     }
     
-    function renderStep2() {
-      if (!state.createForm.definition) {
-        return `
-          <div class="step-content">
-            <h2 class="step-title">Generuji návrh...</h2>
-            <p class="step-subtitle">Analyzuji tvůj popis a vytvářím definici agenta</p>
-            <div class="loading">
-              <div class="spinner"></div>
-              <span>Zpracovávám...</span>
-            </div>
-          </div>
-        `;
-      }
-      
+    function renderReviewStep() {
       const def = state.createForm.definition;
+      if (!def) return '<div class="loading"><div class="spinner"></div></div>';
       
       return `
-        <div class="step-content">
-          <h2 class="step-title">Návrh agenta</h2>
-          <p class="step-subtitle">Zkontroluj a případně uprav vygenerovaný návrh</p>
+        <div class="create-card">
+          <h2 class="create-title">📋 Návrh agenta</h2>
+          <p class="create-subtitle">Zkontroluj a případně uprav vygenerovaný návrh</p>
           
-          <div class="builder-preview">
-            <div class="builder-section">
-              <div class="builder-section-header">
-                <h4 class="builder-section-title">📡 Zdroje dat</h4>
-                <button class="builder-add-btn" onclick="openEditModal('source', -1)">+ Přidat</button>
-              </div>
-              ${(def.sources || []).map((s, i) => `
-                <div class="builder-item">
-                  <div class="builder-item-icon">🔗</div>
-                  <div class="builder-item-content">
-                    <div class="builder-item-title">${s.id}</div>
-                    <div class="builder-item-desc">${s.type}: ${s.config?.url || s.config?.table || '...'}</div>
-                  </div>
-                  <div class="builder-item-actions">
-                    <button class="builder-item-btn" onclick="cloneDefinitionItem('sources', ${i})" title="Klonovat">📋</button>
-                    <button class="builder-item-btn" onclick="openEditModal('source', ${i})" title="Upravit">✏️</button>
-                    <button class="builder-item-btn delete" onclick="deleteDefinitionItem('sources', ${i})" title="Smazat">🗑️</button>
-                  </div>
-                </div>
-              `).join('') || '<div class="section-item muted">Žádné zdroje</div>'}
+          <div class="draft-section">
+            <div class="draft-section-header">
+              <h3 class="draft-section-title">🔌 ZDROJE DAT</h3>
+              <button class="btn btn-ghost" onclick="addSource()">+ Přidat</button>
             </div>
-            
-            <div class="builder-section">
-              <div class="builder-section-header">
-                <h4 class="builder-section-title">🔍 Podmínky</h4>
-                <button class="builder-add-btn" onclick="openEditModal('condition', -1)">+ Přidat</button>
-              </div>
-              ${(def.conditions || []).map((c, i) => `
-                <div class="builder-item">
-                  <div class="builder-item-icon">⚙️</div>
-                  <div class="builder-item-content">
-                    <div class="builder-item-title">${c.id}</div>
-                    <div class="builder-item-desc">${c.type}: ${c.field} ${c.operator || ''} ${c.value || ''}</div>
-                  </div>
-                  <div class="builder-item-actions">
-                    <button class="builder-item-btn" onclick="cloneDefinitionItem('conditions', ${i})" title="Klonovat">📋</button>
-                    <button class="builder-item-btn" onclick="openEditModal('condition', ${i})" title="Upravit">✏️</button>
-                    <button class="builder-item-btn delete" onclick="deleteDefinitionItem('conditions', ${i})" title="Smazat">🗑️</button>
-                  </div>
+            ${(def.sources || []).map(s => `
+              <div class="draft-item">
+                <div class="draft-item-header">
+                  <span class="draft-item-icon">🔗</span>
+                  <span class="draft-item-name">${s.id}</span>
                 </div>
-              `).join('') || '<div class="section-item muted">Žádné podmínky</div>'}
-            </div>
-            
-            <div class="builder-section">
-              <div class="builder-section-header">
-                <h4 class="builder-section-title">⚡ Triggery</h4>
-                <button class="builder-add-btn" onclick="openEditModal('trigger', -1)">+ Přidat</button>
+                <div class="draft-item-desc">${s.type}: ${s.config?.url || JSON.stringify(s.config)}</div>
               </div>
-              ${(def.triggers || []).map((t, i) => `
-                <div class="builder-item">
-                  <div class="builder-item-icon">🔔</div>
-                  <div class="builder-item-content">
-                    <div class="builder-item-title">${t.id}</div>
-                    <div class="builder-item-desc">Cond: ${t.condition_id || t.condition || '?'}, Edge: ${t.edge}, Cooldown: ${t.cooldown || 0}s</div>
-                  </div>
-                  <div class="builder-item-actions">
-                    <button class="builder-item-btn" onclick="cloneDefinitionItem('triggers', ${i})" title="Klonovat">📋</button>
-                    <button class="builder-item-btn" onclick="openEditModal('trigger', ${i})" title="Upravit">✏️</button>
-                    <button class="builder-item-btn delete" onclick="deleteDefinitionItem('triggers', ${i})" title="Smazat">🗑️</button>
-                  </div>
-                </div>
-              `).join('') || '<div class="section-item muted">Žádné triggery</div>'}
+            `).join('')}
+          </div>
+          
+          <div class="draft-section">
+            <div class="draft-section-header">
+              <h3 class="draft-section-title">🔍 PODMÍNKY</h3>
+              <button class="btn btn-ghost" onclick="addCondition()">+ Přidat</button>
             </div>
-            
-            <div class="builder-section">
-              <div class="builder-section-header">
-                <h4 class="builder-section-title">🎬 Akce</h4>
-                <button class="builder-add-btn" onclick="openEditModal('action', -1)">+ Přidat</button>
+            ${(def.conditions || []).map(c => `
+              <div class="draft-item">
+                <div class="draft-item-header">
+                  <span class="draft-item-icon">⚙️</span>
+                  <span class="draft-item-name">${c.id}</span>
+                </div>
+                <div class="draft-item-desc">${c.type}: ${c.field} ${c.operator || ''} ${c.value !== undefined ? c.value : ''}</div>
               </div>
-              ${(def.actions || []).map((a, i) => `
-                <div class="builder-item">
-                  <div class="builder-item-icon">${a.type === 'notify' ? '📢' : '💾'}</div>
-                  <div class="builder-item-content">
-                    <div class="builder-item-title">${a.type}</div>
-                    <div class="builder-item-desc">${a.config?.title || a.config?.key || '...'}</div>
-                  </div>
-                  <div class="builder-item-actions">
-                    <button class="builder-item-btn" onclick="openEditModal('action', ${i})" title="Upravit">✏️</button>
-                    <button class="builder-item-btn delete" onclick="deleteDefinitionItem('actions', ${i})" title="Smazat">🗑️</button>
-                  </div>
-                </div>
-              `).join('') || '<div class="section-item muted">Žádné akce</div>'}
+            `).join('')}
+          </div>
+          
+          <div class="draft-section">
+            <div class="draft-section-header">
+              <h3 class="draft-section-title">⚡ TRIGGERY</h3>
+              <button class="btn btn-ghost" onclick="addTrigger()">+ Přidat</button>
             </div>
+            ${(def.triggers || []).map(t => `
+              <div class="draft-item">
+                <div class="draft-item-header">
+                  <span class="draft-item-icon">🔔</span>
+                  <span class="draft-item-name">${t.id}</span>
+                </div>
+                <div class="draft-item-desc">Cond: ${t.condition_id}, Edge: ${t.edge}, Cooldown: ${t.cooldown}s</div>
+              </div>
+            `).join('')}
+          </div>
+          
+          <div class="draft-section">
+            <div class="draft-section-header">
+              <h3 class="draft-section-title">🎬 AKCE</h3>
+              <button class="btn btn-ghost" onclick="addAction()">+ Přidat</button>
+            </div>
+            ${(def.actions || []).map(a => `
+              <div class="draft-item">
+                <div class="draft-item-header">
+                  <span class="draft-item-icon">📤</span>
+                  <span class="draft-item-name">${a.type}</span>
+                </div>
+                <div class="draft-item-desc">${a.config?.title || JSON.stringify(a.config)}</div>
+              </div>
+            `).join('')}
           </div>
           
           ${state.createForm.explanation ? `
-            <div class="builder-explanation">
-              <div class="builder-explanation-title">💡 Co agent bude dělat:</div>
-              <p>${state.createForm.explanation}</p>
+            <div class="draft-explanation">
+              <div class="draft-explanation-title">💡 Co agent bude dělat:</div>
+              <div class="draft-explanation-text">${state.createForm.explanation}</div>
             </div>
           ` : ''}
           
-          <div class="step-nav">
-            <button class="btn btn-secondary" onclick="prevStep()">← Zpět</button>
-            <button class="btn btn-primary" onclick="nextStep()">
-              Pokračovat →
-            </button>
-          </div>
-        </div>
-        
-        ${state.editModal ? renderEditModal() : ''}
-      `;
-    }
-    
-    function renderEditModal() {
-      const { type, index } = state.editModal;
-      const def = state.createForm.definition;
-      const isNew = index === -1;
-      
-      let item = {};
-      let fields = '';
-      
-      if (type === 'source') {
-        item = isNew ? { id: '', type: 'scraper', config: { url: '' } } : { ...def.sources[index] };
-        const inspection = state.sourceInspection || null;
-        fields = `
-          <div class="form-group">
-            <label class="form-label">ID</label>
-            <input class="form-input" id="edit-id" value="${item.id}" placeholder="muj_zdroj">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Typ</label>
-            <select class="form-input" id="edit-type">
-              <option value="scraper" ${item.type === 'scraper' ? 'selected' : ''}>Web Scraper (HTML)</option>
-              <option value="http" ${item.type === 'http' ? 'selected' : ''}>HTTP API (JSON)</option>
-              <option value="rss" ${item.type === 'rss' ? 'selected' : ''}>RSS Feed</option>
-              <option value="database" ${item.type === 'database' ? 'selected' : ''}>Database</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">URL</label>
-            <div style="display: flex; gap: 8px;">
-              <input class="form-input" id="edit-url" value="${item.config?.url || ''}" placeholder="https://..." style="flex: 1;">
-              <button type="button" class="btn btn-secondary" onclick="inspectSourceUrl()" id="inspect-btn">
-                🔍 Zkontrolovat
-              </button>
-            </div>
-          </div>
-          
-          <div id="inspection-result" class="inspection-result ${inspection ? '' : 'hidden'}">
-            ${inspection ? renderInspectionResult(inspection) : ''}
-          </div>
-        `;
-      } else if (type === 'condition') {
-        item = isNew ? { id: '', type: 'compare', field: '', operator: '>=', value: '' } : { ...def.conditions[index] };
-        const inspection = state.sourceInspection;
-        const availableFields = inspection?.structure?.fields || [];
-        
-        fields = `
-          <div class="form-group">
-            <label class="form-label">ID</label>
-            <input class="form-input" id="edit-id" value="${item.id}" placeholder="moje_podminka">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Typ</label>
-            <select class="form-input" id="edit-type" onchange="updateConditionFields()">
-              <option value="compare" ${item.type === 'compare' ? 'selected' : ''}>Porovnání (číslo)</option>
-              <option value="new_items" ${item.type === 'new_items' ? 'selected' : ''}>Nové položky</option>
-              <option value="contains" ${item.type === 'contains' ? 'selected' : ''}>Obsahuje text</option>
-              <option value="exists" ${item.type === 'exists' ? 'selected' : ''}>Existuje</option>
-              <option value="changed" ${item.type === 'changed' ? 'selected' : ''}>Změnilo se</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Pole ${availableFields.length > 0 ? '<span class="field-hint">(dostupná pole níže)</span>' : ''}</label>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <input class="form-input" id="edit-field" value="${item.field || ''}" 
-                     placeholder="sources.zdroj.items[*].price" style="flex: 1;"
-                     oninput="validateFieldPath(this.value)">
-              <span id="field-validation" class="validation-icon"></span>
-            </div>
-            ${availableFields.length > 0 ? `
-              <div class="available-fields">
-                ${availableFields.slice(0, 10).map(f => `
-                  <button type="button" class="field-chip ${f.type}" onclick="selectField('${f.path}')">
-                    ${f.path.split('.').pop()} <small>(${f.type})</small>
-                  </button>
-                `).join('')}
-              </div>
-            ` : ''}
-          </div>
-          <div class="form-group" id="condition-operator-group">
-            <label class="form-label">Operátor</label>
-            <select class="form-input" id="edit-operator">
-              <option value=">=" ${item.operator === '>=' ? 'selected' : ''}>≥ větší nebo rovno</option>
-              <option value="<=" ${item.operator === '<=' ? 'selected' : ''}>≤ menší nebo rovno</option>
-              <option value=">" ${item.operator === '>' ? 'selected' : ''}>> větší než</option>
-              <option value="<" ${item.operator === '<' ? 'selected' : ''}>< menší než</option>
-              <option value="==" ${item.operator === '==' ? 'selected' : ''}>= rovná se</option>
-              <option value="!=" ${item.operator === '!=' ? 'selected' : ''}>≠ nerovná se</option>
-            </select>
-          </div>
-          <div class="form-group" id="condition-quantifier-group">
-            <label class="form-label">Pro více položek</label>
-            <select class="form-input" id="edit-quantifier" required>
-              <option value="" ${!item.array_mode ? 'selected' : ''}>-- Vyber mód pro kolekce --</option>
-              <option value="any" ${item.array_mode === 'any' ? 'selected' : ''}>ANY - alespoň jedna splňuje</option>
-              <option value="all" ${item.array_mode === 'all' ? 'selected' : ''}>ALL - všechny splňují</option>
-              <option value="none" ${item.array_mode === 'none' ? 'selected' : ''}>NONE - žádná nesplňuje</option>
-              <option value="min" ${item.array_mode === 'min' ? 'selected' : ''}>MIN - nejmenší hodnota</option>
-              <option value="max" ${item.array_mode === 'max' ? 'selected' : ''}>MAX - největší hodnota</option>
-              <option value="avg" ${item.array_mode === 'avg' ? 'selected' : ''}>AVG - průměrná hodnota</option>
-              <option value="count" ${item.array_mode === 'count' ? 'selected' : ''}>COUNT - počet splňujících</option>
-            </select>
-            <small class="form-hint">Pokud zdroj vrací více položek (array), jak je vyhodnotit?</small>
-          </div>
-          <div class="form-group" id="condition-value-group">
-            <label class="form-label">Hodnota</label>
-            <input class="form-input" id="edit-value" value="${item.value || ''}" placeholder="100">
-          </div>
-        `;
-      } else if (type === 'trigger') {
-        item = isNew ? { id: '', condition_id: '', edge: 'rising', cooldown: 3600 } : { ...def.triggers[index] };
-        const conditionOptions = (def.conditions || []).map(c => 
-          `<option value="${c.id}" ${item.condition_id === c.id ? 'selected' : ''}>${c.id}</option>`
-        ).join('');
-        fields = `
-          <div class="form-group">
-            <label class="form-label">ID</label>
-            <input class="form-input" id="edit-id" value="${item.id}" placeholder="muj_trigger">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Podmínka</label>
-            <select class="form-input" id="edit-condition">
-              ${conditionOptions || '<option value="">-- žádné podmínky --</option>'}
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Edge</label>
-            <select class="form-input" id="edit-edge">
-              <option value="rising" ${item.edge === 'rising' ? 'selected' : ''}>Rising (false→true)</option>
-              <option value="falling" ${item.edge === 'falling' ? 'selected' : ''}>Falling (true→false)</option>
-              <option value="both" ${item.edge === 'both' ? 'selected' : ''}>Both</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Cooldown (sekundy)</label>
-            <input class="form-input" type="number" id="edit-cooldown" value="${item.cooldown || 3600}">
-          </div>
-        `;
-      } else if (type === 'action') {
-        item = isNew ? { type: 'notify', trigger_id: '', config: { title: '', body: '' } } : { ...def.actions[index] };
-        const triggerOptions = (def.triggers || []).map(t => 
-          `<option value="${t.id}" ${item.trigger_id === t.id ? 'selected' : ''}>${t.id}</option>`
-        ).join('');
-        fields = `
-          <div class="form-group">
-            <label class="form-label">Typ</label>
-            <select class="form-input" id="edit-action-type">
-              <option value="notify" ${item.type === 'notify' ? 'selected' : ''}>Notifikace</option>
-              <option value="store" ${item.type === 'store' ? 'selected' : ''}>Uložit data</option>
-              <option value="webhook" ${item.type === 'webhook' ? 'selected' : ''}>Webhook</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Trigger</label>
-            <select class="form-input" id="edit-trigger">
-              ${triggerOptions || '<option value="">-- žádné triggery --</option>'}
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Titulek</label>
-            <input class="form-input" id="edit-title" value="${item.config?.title || ''}">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Tělo zprávy</label>
-            <textarea class="form-input" id="edit-body" rows="3">${item.config?.body || ''}</textarea>
-          </div>
-        `;
-      }
-      
-      return `
-        <div class="edit-modal" onclick="if(event.target===this) closeEditModal()">
-          <div class="edit-modal-content">
-            <div class="edit-modal-title">${isNew ? 'Přidat' : 'Upravit'} ${type}</div>
-            ${fields}
-            <div class="edit-modal-actions">
-              <button class="btn btn-secondary" onclick="closeEditModal()">Zrušit</button>
-              <button class="btn btn-primary" onclick="saveEditModal()">Uložit</button>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-    
-    function openEditModal(type, index) {
-      state.editModal = { type, index };
-      // Reset inspection when opening source modal
-      if (type === 'source') {
-        state.sourceInspection = null;
-      }
-      render();
-    }
-    
-    // ═══════════════════════════════════════════════════════════════════════════
-    // SOURCE INSPECTION (Live validation)
-    // ═══════════════════════════════════════════════════════════════════════════
-    
-    async function inspectSourceUrl() {
-      const url = document.getElementById('edit-url')?.value;
-      if (!url) {
-        alert('Zadej URL');
-        return;
-      }
-      
-      const btn = document.getElementById('inspect-btn');
-      const resultDiv = document.getElementById('inspection-result');
-      
-      btn.textContent = '⏳ Kontroluji...';
-      btn.disabled = true;
-      resultDiv.classList.remove('hidden');
-      resultDiv.classList.add('loading');
-      resultDiv.innerHTML = '<div class="inspection-status">Stahuji a analyzuji...</div>';
-      
-      try {
-        const res = await fetch('/api/sources/inspect', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url })
-        });
-        
-        const inspection = await res.json();
-        state.sourceInspection = inspection;
-        
-        resultDiv.innerHTML = renderInspectionResult(inspection);
-        resultDiv.classList.remove('loading');
-        
-        // Auto-generate source ID from URL if empty
-        const idField = document.getElementById('edit-id');
-        if (idField && !idField.value) {
-          const hostname = new URL(url).hostname.replace('www.', '').split('.')[0];
-          idField.value = hostname.toLowerCase().replace(/[^a-z0-9]/g, '_');
-        }
-        
-      } catch (err) {
-        resultDiv.innerHTML = `<div class="inspection-status error">❌ Chyba: ${err.message}</div>`;
-        resultDiv.classList.remove('loading');
-      }
-      
-      btn.textContent = '🔍 Zkontrolovat';
-      btn.disabled = false;
-    }
-    
-    function renderInspectionResult(inspection) {
-      if (inspection.error) {
-        return `
-          <div class="inspection-header">
-            <div class="inspection-status error">❌ ${inspection.error}</div>
-          </div>
-        `;
-      }
-      
-      const fields = inspection.structure?.fields || [];
-      const items = inspection.structure?.detectedItems || [];
-      const schema = inspection.schema;
-      const confidence = schema?.confidence || 0;
-      const confidenceClass = confidence >= 0.7 ? 'high' : confidence >= 0.5 ? 'medium' : 'low';
-      
-      return `
-        <div class="inspection-header">
-          <div class="inspection-status ok">
-            ✅ ${inspection.dataType?.toUpperCase() || 'OK'} 
-            (${(inspection.size / 1024).toFixed(1)} KB)
-          </div>
-          ${schema ? `
-            <div class="schema-confidence ${confidenceClass}" title="Hash: ${schema.hash}">
-              🎯 ${Math.round(confidence * 100)}% spolehlivost
-            </div>
-          ` : ''}
-        </div>
-        
-        ${inspection.warning ? `
-          <div style="font-size: 11px; color: var(--warning); margin: 4px 0;">
-            ⚠️ ${inspection.warning}
-          </div>
-        ` : ''}
-        
-        ${items.length > 0 ? `
-          <div style="font-size: 12px; color: var(--text-muted); margin: 8px 0;">
-            📦 Detekováno ${items.length} položek
-            ${items[0]?.price ? `| 💰 Ceny: ${items.filter(i => i.price).map(i => (i.price/1000000).toFixed(1) + 'M').slice(0, 3).join(', ')}...` : ''}
-          </div>
-        ` : ''}
-        
-        ${schema?.fields?.length > 0 ? `
-          <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">
-            Dostupná pole: <small style="color: var(--text-muted)">(klikni pro výběr)</small>
-          </div>
-          <div class="inspection-fields">
-            ${schema.fields.map(f => `
-              <div class="inspection-field" onclick="selectFieldFromInspection('${f.path}')">
-                <span class="path">${f.path}</span>
-                <span class="type">${f.type}</span>
-                <span class="confidence-bar" style="width: ${(f.confidence || 0) * 40}px; background: ${f.confidence >= 0.7 ? 'var(--success)' : f.confidence >= 0.5 ? 'var(--warning)' : 'var(--error)'}"></span>
-                ${f.fallback ? '<span class="has-fallback" title="Má fallback strategii">🔄</span>' : ''}
-              </div>
-            `).join('')}
-          </div>
-        ` : fields.length > 0 ? `
-          <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">Dostupná pole:</div>
-          <div class="inspection-fields">
-            ${fields.map(f => `
-              <div class="inspection-field" onclick="selectFieldFromInspection('${f.path}')">
-                <span class="path">${f.path}</span>
-                <span class="type">${f.type}</span>
-                <span class="sample">${f.sample || ''}</span>
-              </div>
-            `).join('')}
-          </div>
-        ` : '<div style="font-size: 12px; color: var(--text-muted);">Žádná strukturovaná pole nenalezena</div>'}
-      `;
-    }
-    
-    function selectFieldFromInspection(path) {
-      // Copy path to clipboard or fill in condition field
-      const fieldInput = document.getElementById('edit-field');
-      if (fieldInput) {
-        const sourceId = document.getElementById('edit-id')?.value || 'source';
-        fieldInput.value = `sources.${sourceId}.${path}`;
-        validateFieldPath(fieldInput.value);
-      }
-    }
-    
-    function selectField(path) {
-      const fieldInput = document.getElementById('edit-field');
-      if (fieldInput) {
-        // Try to get source ID from definition
-        const def = state.createForm.definition;
-        const sourceId = def?.sources?.[0]?.id || 'source';
-        fieldInput.value = `sources.${sourceId}.${path}`;
-        validateFieldPath(fieldInput.value);
-      }
-    }
-    
-    async function validateFieldPath(path) {
-      const icon = document.getElementById('field-validation');
-      if (!icon) return;
-      
-      if (!path) {
-        icon.className = 'validation-icon';
-        return;
-      }
-      
-      // Quick local validation
-      if (!path.startsWith('sources.')) {
-        icon.className = 'validation-icon invalid';
-        icon.title = 'Pole musí začínat "sources."';
-        return;
-      }
-      
-      // Check against inspection if available
-      const inspection = state.sourceInspection;
-      if (inspection?.structure?.fields) {
-        const fields = inspection.structure.fields;
-        const fieldName = path.split('.').slice(2).join('.');
-        const found = fields.some(f => 
-          f.path === fieldName || 
-          f.path.includes(fieldName) ||
-          fieldName.includes(f.path)
-        );
-        
-        icon.className = found ? 'validation-icon valid' : 'validation-icon invalid';
-        icon.title = found ? 'Pole existuje' : 'Pole nebylo nalezeno v datech';
-      } else {
-        icon.className = 'validation-icon unknown';
-        icon.title = 'Nejprve zkontroluj zdroj';
-      }
-    }
-    
-    function updateConditionFields() {
-      const type = document.getElementById('edit-type')?.value;
-      const operatorGroup = document.getElementById('condition-operator-group');
-      const valueGroup = document.getElementById('condition-value-group');
-      const quantifierGroup = document.getElementById('condition-quantifier-group');
-      
-      // Hide operator/value/quantifier for some types
-      if (['new_items', 'exists', 'changed'].includes(type)) {
-        if (operatorGroup) operatorGroup.style.display = 'none';
-        if (valueGroup) valueGroup.style.display = 'none';
-        if (quantifierGroup) quantifierGroup.style.display = 'none';
-      } else {
-        if (operatorGroup) operatorGroup.style.display = 'block';
-        if (valueGroup) valueGroup.style.display = 'block';
-        if (quantifierGroup) quantifierGroup.style.display = 'block';
-      }
-    }
-    
-    function closeEditModal() {
-      state.editModal = null;
-      render();
-    }
-    
-    function saveEditModal() {
-      const { type, index } = state.editModal;
-      const def = state.createForm.definition;
-      const isNew = index === -1;
-      
-      if (type === 'source') {
-        const item = {
-          id: document.getElementById('edit-id').value,
-          type: document.getElementById('edit-type').value,
-          config: { url: document.getElementById('edit-url').value }
-        };
-        if (isNew) {
-          def.sources = def.sources || [];
-          def.sources.push(item);
-        } else {
-          def.sources[index] = item;
-        }
-      } else if (type === 'condition') {
-        const condType = document.getElementById('edit-type').value;
-        const item = {
-          id: document.getElementById('edit-id').value,
-          type: condType,
-          field: document.getElementById('edit-field').value
-        };
-        
-        // Add operator/value/quantifier only for compare type
-        if (condType === 'compare') {
-          item.operator = document.getElementById('edit-operator')?.value || '>=';
-          item.value = document.getElementById('edit-value')?.value || '';
-          item.array_mode = document.getElementById('edit-quantifier')?.value || null;
-          
-          // Validate: if field likely returns array, quantifier is required
-          if (!item.array_mode && item.field?.includes('[*]')) {
-            alert('Pro pole s [*] je nutné vybrat mód pro kolekce (ANY/ALL/MIN/MAX...)');
-            return;
-          }
-        }
-        
-        if (isNew) {
-          def.conditions = def.conditions || [];
-          def.conditions.push(item);
-        } else {
-          def.conditions[index] = item;
-        }
-      } else if (type === 'trigger') {
-        const item = {
-          id: document.getElementById('edit-id').value,
-          condition_id: document.getElementById('edit-condition').value,
-          edge: document.getElementById('edit-edge').value,
-          cooldown: parseInt(document.getElementById('edit-cooldown').value) || 3600
-        };
-        if (isNew) {
-          def.triggers = def.triggers || [];
-          def.triggers.push(item);
-        } else {
-          def.triggers[index] = item;
-        }
-      } else if (type === 'action') {
-        const item = {
-          type: document.getElementById('edit-action-type').value,
-          trigger_id: document.getElementById('edit-trigger').value || null,
-          config: {
-            title: document.getElementById('edit-title').value,
-            body: document.getElementById('edit-body').value
-          }
-        };
-        if (isNew) {
-          def.actions = def.actions || [];
-          def.actions.push(item);
-        } else {
-          def.actions[index] = item;
-        }
-      }
-      
-      closeEditModal();
-    }
-    
-    function cloneDefinitionItem(key, index) {
-      const def = state.createForm.definition;
-      const original = def[key][index];
-      if (!original) return;
-      
-      // Create a copy with modified ID
-      const clone = JSON.parse(JSON.stringify(original));
-      clone.id = clone.id + '_copy';
-      
-      // Insert after original
-      def[key].splice(index + 1, 0, clone);
-      render();
-    }
-    
-    function deleteDefinitionItem(key, index) {
-      if (!confirm('Opravdu smazat?')) return;
-      const def = state.createForm.definition;
-      def[key].splice(index, 1);
-      render();
-    }
-    
-    function renderStep3() {
-      return `
-        <div class="step-content">
-          <h2 class="step-title">Nastavení</h2>
-          <p class="step-subtitle">Nastav notifikace a plánování</p>
-          
-          <div class="form-group">
-            <label class="form-label">Notifikační kanály</label>
-            <div class="notification-channels">
-              <label class="channel-option ${state.createForm.notifications.inApp ? 'enabled' : ''}">
-                <input type="checkbox" class="channel-checkbox" 
-                  ${state.createForm.notifications.inApp ? 'checked' : ''}
-                  onchange="updateNotification('inApp', this.checked)">
-                <span class="channel-icon">🔔</span>
-                <div class="channel-info">
-                  <div class="channel-name">In-app notifikace</div>
-                  <div class="channel-desc">Notifikace přímo v aplikaci</div>
-                </div>
-              </label>
-              
-              <label class="channel-option ${state.createForm.notifications.email ? 'enabled' : ''}">
-                <input type="checkbox" class="channel-checkbox"
-                  ${state.createForm.notifications.email ? 'checked' : ''}
-                  onchange="updateNotification('email', this.checked)">
-                <span class="channel-icon">📧</span>
-                <div class="channel-info">
-                  <div class="channel-name">Email</div>
-                  <div class="channel-desc">Notifikace na email</div>
-                </div>
-              </label>
-              
-              <label class="channel-option ${state.createForm.notifications.telegram ? 'enabled' : ''}">
-                <input type="checkbox" class="channel-checkbox"
-                  ${state.createForm.notifications.telegram ? 'checked' : ''}
-                  onchange="updateNotification('telegram', this.checked)">
-                <span class="channel-icon">✈️</span>
-                <div class="channel-info">
-                  <div class="channel-name">Telegram</div>
-                  <div class="channel-desc">Notifikace do Telegramu</div>
-                </div>
-              </label>
-            </div>
-          </div>
-          
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Jak často spouštět</label>
-              <select class="form-input" id="schedule-select" onchange="handleScheduleChange(this.value)">
-                <option value="5m" ${state.createForm.schedule === '5m' ? 'selected' : ''}>Každých 5 minut</option>
-                <option value="15m" ${state.createForm.schedule === '15m' ? 'selected' : ''}>Každých 15 minut</option>
-                <option value="30m" ${state.createForm.schedule === '30m' ? 'selected' : ''}>Každých 30 minut</option>
-                <option value="1h" ${state.createForm.schedule === '1h' ? 'selected' : ''}>Každou hodinu</option>
-                <option value="2h" ${state.createForm.schedule === '2h' ? 'selected' : ''}>Každé 2 hodiny</option>
-                <option value="4h" ${state.createForm.schedule === '4h' ? 'selected' : ''}>Každé 4 hodiny</option>
-                <option value="6h" ${state.createForm.schedule === '6h' ? 'selected' : ''}>Každých 6 hodin</option>
-                <option value="12h" ${state.createForm.schedule === '12h' ? 'selected' : ''}>Každých 12 hodin</option>
-                <option value="1d" ${state.createForm.schedule === '1d' ? 'selected' : ''}>Jednou denně</option>
-                <option value="custom" ${state.createForm.scheduleType === 'custom' ? 'selected' : ''}>Vlastní (cron)</option>
-              </select>
-              ${state.createForm.scheduleType === 'custom' ? `
-                <input class="form-input" style="margin-top: 8px" placeholder="Cron: 0 8 * * *"
-                       value="${state.createForm.customCron || ''}"
-                       oninput="updateFormText('customCron', this.value)">
-                <small class="form-hint">Formát: minuty hodiny den měsíc den_týdne (např. "0 8 * * *" = denně v 8:00)</small>
-              ` : ''}
-            </div>
-            
-            <div class="form-group">
-              <label class="form-label">Cooldown mezi notifikacemi</label>
-              <select class="form-input" id="cooldown-select" onchange="handleCooldownChange(this.value)">
-                <option value="60" ${state.createForm.cooldown === 60 ? 'selected' : ''}>1 minuta</option>
-                <option value="300" ${state.createForm.cooldown === 300 ? 'selected' : ''}>5 minut</option>
-                <option value="600" ${state.createForm.cooldown === 600 ? 'selected' : ''}>10 minut</option>
-                <option value="1800" ${state.createForm.cooldown === 1800 ? 'selected' : ''}>30 minut</option>
-                <option value="3600" ${state.createForm.cooldown === 3600 ? 'selected' : ''}>1 hodina</option>
-                <option value="7200" ${state.createForm.cooldown === 7200 ? 'selected' : ''}>2 hodiny</option>
-                <option value="14400" ${state.createForm.cooldown === 14400 ? 'selected' : ''}>4 hodiny</option>
-                <option value="43200" ${state.createForm.cooldown === 43200 ? 'selected' : ''}>12 hodin</option>
-                <option value="86400" ${state.createForm.cooldown === 86400 ? 'selected' : ''}>1 den</option>
-                <option value="custom" ${state.createForm.cooldownType === 'custom' ? 'selected' : ''}>Vlastní</option>
-              </select>
-              ${state.createForm.cooldownType === 'custom' ? `
-                <div style="display: flex; gap: 8px; margin-top: 8px; align-items: center;">
-                  <input class="form-input" type="number" style="width: 100px" 
-                         value="${state.createForm.customCooldown || 60}"
-                         oninput="updateForm('customCooldown', parseInt(this.value))">
-                  <span>sekund</span>
-                </div>
-              ` : ''}
-            </div>
-          </div>
-          
-          <div class="step-nav">
-            <button class="btn btn-secondary" onclick="prevStep()">← Zpět</button>
-            <button class="btn btn-primary" onclick="nextStep()">
-              Pokračovat →
-            </button>
-          </div>
-        </div>
-      `;
-    }
-    
-    function renderStep4() {
-      const def = state.createForm.definition;
-      
-      return `
-        <div class="step-content">
-          <h2 class="step-title">Kontrola a vytvoření</h2>
-          <p class="step-subtitle">Zkontroluj shrnutí a vytvoř agenta</p>
-          
-          <div class="review-section">
-            <h4 class="review-section-title">Základní informace</h4>
-            <div class="review-item">
-              <span class="review-label">Název</span>
-              <span class="review-value">${state.createForm.icon} ${state.createForm.name}</span>
-            </div>
-            <div class="review-item">
-              <span class="review-label">Pattern</span>
-              <span class="review-value">${state.createForm.pattern || 'Automatický'}</span>
-            </div>
-          </div>
-          
-          <div class="review-section">
-            <h4 class="review-section-title">Co bude dělat</h4>
-            <p>${state.createForm.explanation || state.createForm.description}</p>
-          </div>
-          
-          <div class="review-section">
-            <h4 class="review-section-title">Plánování</h4>
-            <div class="review-item">
-              <span class="review-label">Interval</span>
-              <span class="review-value">${state.createForm.schedule}</span>
-            </div>
-            <div class="review-item">
-              <span class="review-label">Cooldown</span>
-              <span class="review-value">${state.createForm.cooldown}s</span>
-            </div>
-          </div>
-          
-          <div class="review-section">
-            <h4 class="review-section-title">Notifikace</h4>
-            <div class="review-item">
-              <span class="review-label">Kanály</span>
-              <span class="review-value">
-                ${Object.entries(state.createForm.notifications)
-                  .filter(([k, v]) => v)
-                  .map(([k]) => k)
-                  .join(', ') || 'Žádné'}
-              </span>
-            </div>
-          </div>
-          
-          <div class="review-actions">
-            <button class="btn btn-secondary" onclick="prevStep()">← Zpět</button>
-            <button class="btn btn-secondary" onclick="dryRun()">
-              🧪 Testovací běh
-            </button>
-            <button class="btn btn-primary" onclick="createAgent()">
-              ✅ Vytvořit a aktivovat
-            </button>
-          </div>
-          
-          <div id="dry-run-result" style="display: none; margin-top: 20px;">
-            <div class="builder-explanation">
-              <div class="builder-explanation-title">🧪 Výsledek testovacího běhu:</div>
+          <div style="background: var(--bg-tertiary); border-radius: 8px; padding: 12px; margin-top: 16px;">
+            <button class="btn btn-ghost" onclick="toggleDryRun()">🧪 Testovací běh</button>
+            <div id="dry-run-result" style="display: none; margin-top: 12px;">
               <pre id="dry-run-log" style="font-size: 12px; white-space: pre-wrap; margin-top: 8px;"></pre>
             </div>
+          </div>
+          
+          <div class="form-actions">
+            <button class="btn btn-secondary" onclick="backToDescribe()">← Zpět</button>
+            <button class="btn btn-primary" onclick="confirmAndCreate()">
+              ✅ Vytvořit agenta
+            </button>
           </div>
         </div>
       `;
@@ -2481,23 +1391,47 @@ Příklady:
       if (!agent) return '<div class="loading"><div class="spinner"></div></div>';
       
       const schemaStatus = agent.state?.schemaStatus;
-      let statusClass, statusText;
+      const isFirstRun = !agent.state?._last_run;
+      const lastRunState = agent.recentRuns?.[0]?.run_state;
       
+      let statusClass, statusText, statusDesc;
+      
+      // v34: Priority order for status with explicit waiting states
       if (schemaStatus === 'broken') {
         statusClass = 'broken';
         statusText = 'Schema rozbité';
+        statusDesc = agent.state?.schemaError || 'Opravte definici agenta';
       } else if (schemaStatus === 'degraded') {
         statusClass = 'degraded';
         statusText = 'Schema degradováno';
+        statusDesc = 'Některé podmínky nefungují';
       } else if (!agent.enabled) {
         statusClass = 'paused';
         statusText = 'Pozastaveno';
+        statusDesc = 'Agent je pozastaven';
+      } else if (isFirstRun) {
+        // v34: Explicit waiting for initialization
+        statusClass = 'init';
+        statusText = 'Čeká na inicializaci';
+        statusDesc = 'Spusťte agenta pro nastavení baseline';
+      } else if (lastRunState === 'SUCCESS_NO_NEW') {
+        // v34: Waiting for new items
+        statusClass = 'waiting';
+        statusText = 'Sleduje změny';
+        statusDesc = 'Baseline nastaven - čeká na nové položky';
+      } else if (lastRunState === 'SUCCESS_NO_TRIGGER') {
+        // v34: Monitoring
+        statusClass = 'monitoring';
+        statusText = 'Monitoruje';
+        statusDesc = 'Čeká na splnění podmínek';
       } else if (agent.lastRun?.status === 'error') {
         statusClass = 'error';
         statusText = 'Chyba';
+        statusDesc = agent.lastRun?.error || 'Poslední běh selhal';
       } else {
         statusClass = 'active';
         statusText = 'Aktivní';
+        statusDesc = 'Agent běží normálně';
       }
       
       return `
@@ -2530,25 +1464,34 @@ Příklady:
               </div>
             </div>
             <div class="detail-actions">
-              <button class="btn btn-primary" onclick="runAgent('${agent.id}')">
-                ▶ Spustit teď
-              </button>
+              ${(() => {
+                const isFirstRun = !agent.state?._last_run;
+                const isDisabled = !agent.enabled || agent.state?.schemaStatus === 'broken';
+                
+                if (isDisabled) {
+                  return '<button class="btn btn-primary" disabled title="Agent je pozastaven nebo má rozbité schema">▶ Nelze spustit</button>';
+                }
+                if (isFirstRun) {
+                  return '<button class="btn btn-primary" onclick="runAgent(\'' + agent.id + '\', event)" title="Spustí první kontrolu a nastaví baseline">🏁 Inicializovat</button>';
+                }
+                return '<button class="btn btn-primary" onclick="runAgent(\'' + agent.id + '\', event)" title="Manuální běh: zkontroluje zdroje">▶ Zkontrolovat</button>';
+              })()}
               <button class="btn btn-secondary" onclick="toggleAgent('${agent.id}', ${!agent.enabled})">
                 ${agent.enabled ? '⏸ Pozastavit' : '▶ Aktivovat'}
               </button>
-              <button class="btn btn-secondary" onclick="cloneAgent('${agent.id}')">
-                📋 Klonovat
+              <button class="btn btn-secondary" onclick="startEdit('${agent.id}')">
+                ✏️ Upravit
               </button>
             </div>
           </div>
           
           <div class="health-panel">
             <div class="health-item">
-              <div class="health-value success">98%</div>
+              ${renderHealthValue(calculateSuccessRate(agent))}
               <div class="health-label">Success Rate</div>
             </div>
             <div class="health-item">
-              <div class="health-value">${agent.recent_runs?.length || 0}</div>
+              <div class="health-value">${agent.recentRuns?.length || 0}</div>
               <div class="health-label">Běhů celkem</div>
             </div>
             <div class="health-item">
@@ -2556,7 +1499,7 @@ Příklady:
               <div class="health-label">Notifikací</div>
             </div>
             <div class="health-item">
-              <div class="health-value">${agent.schedule_info?.last_run ? formatTime(agent.schedule_info.last_run) : '-'}</div>
+              <div class="health-value">${agent.schedule?.last_run ? formatTime(agent.schedule.last_run) : '-'}</div>
               <div class="health-label">Poslední běh</div>
             </div>
           </div>
@@ -2572,7 +1515,7 @@ Příklady:
           </div>
           
           <div id="tab-settings" class="tab-content">
-            <p>Nastavení agenta (TODO)</p>
+            ${renderSettingsTab(agent)}
           </div>
           
           <div id="tab-advanced" class="tab-content">
@@ -2584,8 +1527,37 @@ ${JSON.stringify(agent.definition, null, 2)}
       `;
     }
     
+    function calculateSuccessRate(agent) {
+      const runs = agent.recentRuns || [];
+      
+      // v34: No runs = null (displayed as "—"), not fake 100%
+      if (runs.length === 0) {
+        return null;
+      }
+      
+      // Count success states
+      const successCount = runs.filter(r => 
+        r.status === 'success' || 
+        r.run_state === 'SUCCESS_TRIGGERED' || 
+        r.run_state === 'SUCCESS_NO_TRIGGER' ||
+        r.run_state === 'SUCCESS_NO_NEW' ||
+        r.run_state === 'INIT_BASELINE'
+      ).length;
+      
+      return Math.round((successCount / runs.length) * 100);
+    }
+    
+    // v34: Helper for health panel
+    function renderHealthValue(rate) {
+      if (rate === null) {
+        return '<div class="health-value muted">—</div>';
+      }
+      const colorClass = rate >= 80 ? 'success' : rate >= 50 ? 'warning' : 'error';
+      return '<div class="health-value ' + colorClass + '">' + rate + '%</div>';
+    }
+    
     function renderLogsTab(agent) {
-      const runs = agent.recent_runs || [];
+      const runs = agent.recentRuns || [];
       
       if (runs.length === 0) {
         return `
@@ -2593,7 +1565,7 @@ ${JSON.stringify(agent.definition, null, 2)}
             <div class="empty-state-icon">📭</div>
             <h3 class="empty-state-title">Žádné logy</h3>
             <p class="empty-state-desc">Agent ještě nebyl spuštěn</p>
-            <button class="btn btn-primary" onclick="runAgent('${agent.id}')">
+            <button class="btn btn-primary" onclick="runAgent('${agent.id}', event)">
               ▶ Spustit poprvé
             </button>
           </div>
@@ -2623,47 +1595,50 @@ ${JSON.stringify(agent.definition, null, 2)}
                 ${run.explain ? `
                   <div class="log-section">
                     <h5 class="log-section-title">Zdroje</h5>
-                    ${run.explain.sources?.map(s => `
+                    ${(run.explain.sources || []).map(s => `
                       <div class="log-detail">
                         <span class="log-detail-label">${s.id}</span>
                         <span class="log-detail-value ${s.status === 'ok' ? 'success' : 'error'}">
-                          ${s.status} ${s.count ? `(${s.count} položek)` : ''}
+                          ${s.status}${s.count !== undefined ? ` (${s.count} položek)` : ''}
                         </span>
                       </div>
-                    `).join('') || ''}
+                    `).join('')}
                   </div>
-                  
                   <div class="log-section">
                     <h5 class="log-section-title">Podmínky</h5>
-                    ${run.explain.conditions?.map(c => `
+                    ${(run.explain.conditions || []).map(c => `
                       <div class="log-detail">
                         <span class="log-detail-label">${c.id}</span>
                         <span class="log-detail-value ${c.passed ? 'success' : ''}">
-                          ${c.passed ? '✓' : '○'} ${c.reason}
+                          ${c.passed ? '✓' : '○'} ${c.reason || ''}
                         </span>
                       </div>
-                    `).join('') || ''}
+                    `).join('')}
                   </div>
-                  
-                  ${run.explain.triggers?.length > 0 ? `
-                    <div class="log-section">
-                      <h5 class="log-section-title">Spuštěné triggery</h5>
-                      ${run.explain.triggers.map(t => `
-                        <div class="log-detail">
-                          <span class="log-detail-label">${t.id}</span>
-                          <span class="log-detail-value success">${t.reason}</span>
-                        </div>
-                      `).join('')}
-                    </div>
-                  ` : ''}
-                ` : '<p>Detail není dostupný</p>'}
-                
+                ` : ''}
+                ${run.triggers_fired?.length > 0 ? `
+                  <div class="log-section">
+                    <h5 class="log-section-title">Spuštěné triggery</h5>
+                    ${run.triggers_fired.map(t => `
+                      <div class="log-detail">
+                        <span class="log-detail-label">${t}</span>
+                        <span class="log-detail-value success">🔔 Fired</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                ` : ''}
                 ${run.error ? `
                   <div class="log-section">
                     <h5 class="log-section-title">Chyba</h5>
                     <div class="log-detail">
                       <span class="log-detail-value error">${run.error}</span>
                     </div>
+                  </div>
+                ` : ''}
+                ${run.log ? `
+                  <div class="log-section">
+                    <h5 class="log-section-title">Raw Log</h5>
+                    <div class="log-raw">${run.log}</div>
                   </div>
                 ` : ''}
               </div>
@@ -2673,214 +1648,214 @@ ${JSON.stringify(agent.definition, null, 2)}
       `;
     }
     
+    function renderSettingsTab(agent) {
+      return `
+        <div class="settings-section">
+          <h3 class="settings-section-title">📋 Základní informace</h3>
+          <div class="settings-row">
+            <span class="settings-label">Název</span>
+            <span class="settings-value">${agent.name}</span>
+          </div>
+          <div class="settings-row">
+            <span class="settings-label">ID</span>
+            <span class="settings-value">${agent.id}</span>
+          </div>
+          <div class="settings-row">
+            <span class="settings-label">Popis</span>
+            <span class="settings-value">${agent.description || 'Bez popisu'}</span>
+          </div>
+          <div class="settings-row">
+            <span class="settings-label">Vytvořeno</span>
+            <span class="settings-value">${formatDateTime(agent.created_at)}</span>
+          </div>
+        </div>
+        
+        <div class="settings-section">
+          <h3 class="settings-section-title">⏰ Plánování</h3>
+          <div class="settings-row">
+            <span class="settings-label">Typ</span>
+            <span class="settings-value">${agent.definition?.schedule?.type || 'Manual'}</span>
+          </div>
+          <div class="settings-row">
+            <span class="settings-label">Interval</span>
+            <span class="settings-value">${agent.definition?.schedule?.value || '-'}</span>
+          </div>
+          <div class="settings-row">
+            <span class="settings-label">Příští běh</span>
+            <span class="settings-value">${agent.schedule?.next_run ? formatDateTime(agent.schedule.next_run) : '-'}</span>
+          </div>
+        </div>
+        
+        <div class="settings-section danger-zone">
+          <h3 class="settings-section-title">⚠️ Danger Zone</h3>
+          <div class="settings-row">
+            <span class="settings-label">Smazat agenta</span>
+            <button class="btn btn-danger" onclick="deleteAgent('${agent.id}')">
+              🗑️ Smazat
+            </button>
+          </div>
+        </div>
+      `;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EDIT VIEW
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function renderEditView() {
+      const agent = state.editingAgent;
+      if (!agent) return '<div class="loading"><div class="spinner"></div></div>';
+      
+      return `
+        <header class="header">
+          <div class="header-left">
+            <button class="back-btn" onclick="cancelEdit()">
+              ← Zpět
+            </button>
+            <nav class="breadcrumb">
+              <a href="#" onclick="goToList()">Agents</a>
+              <span>/</span>
+              <a href="#" onclick="showDetail('${agent.id}')">${agent.name}</a>
+              <span>/</span>
+              <span class="current">Upravit</span>
+            </nav>
+          </div>
+        </header>
+        
+        <main class="main">
+          <div class="create-container">
+            <div class="create-card">
+              <h2 class="create-title">✏️ Upravit agenta</h2>
+              <p class="create-subtitle">Změňte nastavení agenta</p>
+              
+              <div class="form-group">
+                <label class="form-label">Název</label>
+                <input type="text" class="form-input" id="edit-name" value="${agent.name}">
+              </div>
+              
+              <div class="form-group">
+                <label class="form-label">Popis</label>
+                <textarea class="form-textarea" id="edit-description" rows="3">${agent.description || ''}</textarea>
+              </div>
+              
+              <div class="form-group">
+                <label class="form-label">Ikona</label>
+                <input type="text" class="form-input" id="edit-icon" value="${agent.icon || '🤖'}" style="width: 80px;">
+              </div>
+              
+              <div class="form-group">
+                <label class="form-label">Definice (JSON)</label>
+                <textarea class="form-textarea" id="edit-definition" rows="15" style="font-family: monospace; font-size: 12px;">${JSON.stringify(agent.definition, null, 2)}</textarea>
+                <p class="form-hint">Upravte JSON definici agenta opatrně.</p>
+              </div>
+              
+              <div class="form-actions">
+                <button class="btn btn-secondary" onclick="cancelEdit()">Zrušit</button>
+                <button class="btn btn-primary" onclick="saveEdit('${agent.id}')">
+                  💾 Uložit změny
+                </button>
+              </div>
+            </div>
+          </div>
+        </main>
+      `;
+    }
+    
     // ═══════════════════════════════════════════════════════════════════════════
     // ACTIONS
     // ═══════════════════════════════════════════════════════════════════════════
     
     function goBack() {
-      window.history.back();
+      window.location.href = '/architect';
     }
     
     function goToList() {
       state.view = 'list';
+      state.selectedAgent = null;
+      state.editingAgent = null;
       render();
     }
     
     function startCreate() {
       state.view = 'create';
-      state.createStep = 1;
       state.createForm = {
-        name: '',
-        icon: '⚡',
-        pattern: '',
+        step: 'describe',
         description: '',
         definition: null,
-        draftId: null,
-        notifications: { inApp: true, email: false, telegram: false, webhook: false },
-        schedule: '1h',
-        scheduleType: 'interval',
-        customCron: '',
-        cooldown: 300,
-        cooldownType: 'preset',
-        customCooldown: 60
+        explanation: null,
+        loading: false
       };
       render();
     }
     
-    function cancelCreate() {
-      if (confirm('Opravdu chceš zrušit vytváření agenta?')) {
-        goToList();
-      }
-    }
-    
-    function updateForm(key, value, skipRender = false) {
-      state.createForm[key] = value;
-      if (!skipRender) {
-        render();
-      }
-    }
-    
-    // For text inputs - update state without re-render
-    function updateFormText(key, value) {
-      state.createForm[key] = value;
-      // Update button state without full re-render
-      const nextBtn = document.querySelector('.step-nav .btn-primary');
-      if (nextBtn && state.createStep === 1) {
-        nextBtn.disabled = !state.createForm.name || !state.createForm.description;
-      }
-    }
-    
-    function handleScheduleChange(value) {
-      if (value === 'custom') {
-        state.createForm.scheduleType = 'custom';
-        state.createForm.schedule = state.createForm.customCron || '0 8 * * *';
-      } else {
-        state.createForm.scheduleType = 'interval';
-        state.createForm.schedule = value;
-      }
+    function backToDescribe() {
+      state.createForm.step = 'describe';
       render();
     }
     
-    function handleCooldownChange(value) {
-      if (value === 'custom') {
-        state.createForm.cooldownType = 'custom';
-        state.createForm.cooldown = state.createForm.customCooldown || 60;
-      } else {
-        state.createForm.cooldownType = 'preset';
-        state.createForm.cooldown = parseInt(value);
+    async function generateAgent() {
+      const description = document.getElementById('agent-description').value.trim();
+      if (!description) {
+        alert('Zadejte popis agenta');
+        return;
       }
+      
+      state.createForm.description = description;
+      state.createForm.loading = true;
       render();
-    }
-    
-    function updateNotification(key, value) {
-      state.createForm.notifications[key] = value;
-      render();
-    }
-    
-    async function nextStep() {
-      if (state.createStep === 1) {
-        // Validate
-        if (!state.createForm.name || !state.createForm.description) {
-          alert('Vyplň název a popis agenta');
+      
+      try {
+        const result = await API.buildAgent(description);
+        
+        if (result.error) {
+          alert('Chyba: ' + result.error);
+          state.createForm.loading = false;
+          render();
           return;
         }
         
-        state.createStep = 2;
+        state.createForm.definition = result.definition;
+        state.createForm.explanation = result.explanation;
+        state.createForm.step = 'review';
+        state.createForm.loading = false;
         render();
-        
-        // Build agent
-        try {
-          const result = await API.buildAgent(state.createForm.description);
-          if (result.error) {
-            alert('Chyba při generování: ' + result.error);
-            state.createStep = 1;
-          } else {
-            state.createForm.definition = result.definition;
-            state.createForm.explanation = result.explanation;
-            state.createForm.draftId = result.draft_id;
-          }
-        } catch (err) {
-          alert('Chyba: ' + err.message);
-          state.createStep = 1;
-        }
-        render();
-        
-      } else if (state.createStep < 4) {
-        state.createStep++;
+      } catch (err) {
+        alert('Chyba: ' + err.message);
+        state.createForm.loading = false;
         render();
       }
     }
     
-    function prevStep() {
-      if (state.createStep > 1) {
-        state.createStep--;
-        render();
-      }
-    }
-    
-    async function createAgent(forceCreate = false) {
+    async function confirmAndCreate(forceCreate = false) {
+      const definition = state.createForm.definition;
+      if (!definition) return;
+      
       try {
-        // Build schedule object
-        const scheduleObj = state.createForm.scheduleType === 'custom'
-          ? { type: 'cron', value: state.createForm.customCron || state.createForm.schedule }
-          : { type: 'interval', value: state.createForm.schedule };
-        
-        // Build full definition with metadata
-        const definition = {
-          ...state.createForm.definition,
-          id: state.createForm.definition?.id || generateId(state.createForm.name),
-          name: state.createForm.name,
-          description: state.createForm.description,
-          icon: state.createForm.icon,
-          schedule: scheduleObj
-        };
-        
-        // Update trigger cooldowns from form
-        if (definition.triggers) {
-          const cooldown = state.createForm.cooldownType === 'custom'
-            ? state.createForm.customCooldown
-            : state.createForm.cooldown;
-          definition.triggers = definition.triggers.map(t => ({
-            ...t,
-            cooldown: t.cooldown || cooldown
-          }));
-        }
-        
         console.log('Creating agent with definition:', definition);
-        
         const result = await API.confirmDraft(definition, {}, forceCreate);
         
         if (result.error) {
-          let errorMsg = result.error;
-          if (result.details && Array.isArray(result.details)) {
-            errorMsg += '\n\nChyby:\n• ' + result.details.join('\n• ');
-          }
-          if (result.warnings && result.warnings.length > 0) {
-            errorMsg += '\n\nVarování:\n• ' + result.warnings.join('\n• ');
-          }
-          
-          // Offer to create anyway if possible
-          if (!result.canForce === false) {
-            const createAnyway = confirm(errorMsg + '\n\nChceš přesto vytvořit agenta jako NEAKTIVNÍHO?');
-            if (createAnyway) {
-              return createAgent(true);
+          // Check if we can force create
+          if (result.canForce !== false && !forceCreate) {
+            if (confirm(`Varování: ${result.error}\n\nChcete přesto vytvořit agenta jako deaktivovaného?`)) {
+              return confirmAndCreate(true);
             }
           } else {
-            alert('Chyba: ' + errorMsg);
+            alert('Chyba: ' + result.error);
           }
-        } else {
-          // Show warnings if any
-          if (result.warnings?.length > 0 || result.softErrors?.length > 0) {
-            const msgs = [...(result.softErrors || []), ...(result.warnings || [])];
-            alert('Agent vytvořen jako NEAKTIVNÍ.\n\nVarování:\n• ' + msgs.join('\n• ') + '\n\nPo opravě ho můžeš aktivovat.');
-          }
-          
-          await loadAgents();
-          showDetail(result.id);
+          return;
         }
+        
+        // Success - show warnings if any
+        if (result.warnings?.length > 0 || result.softErrors?.length > 0) {
+          alert(`Agent vytvořen s varováními:\n${[...(result.warnings || []), ...(result.softErrors || [])].join('\n')}`);
+        }
+        
+        await loadAgents();
+        showDetail(result.id);
       } catch (err) {
         alert('Chyba: ' + err.message);
       }
-    }
-    
-    function generateId(name) {
-      return name.toLowerCase()
-        .replace(/[áàâä]/g, 'a')
-        .replace(/[éèêë]/g, 'e')
-        .replace(/[íìîï]/g, 'i')
-        .replace(/[óòôö]/g, 'o')
-        .replace(/[úùûü]/g, 'u')
-        .replace(/[ýÿ]/g, 'y')
-        .replace(/[čć]/g, 'c')
-        .replace(/[ďđ]/g, 'd')
-        .replace(/[ňń]/g, 'n')
-        .replace(/[řŕ]/g, 'r')
-        .replace(/[šś]/g, 's')
-        .replace(/[ťţ]/g, 't')
-        .replace(/[žź]/g, 'z')
-        .replace(/[^a-z0-9]+/g, '_')
-        .replace(/^_+|_+$/g, '')
-        .substring(0, 32) + '_' + Date.now().toString(36);
     }
     
     async function showDetail(id) {
@@ -2898,22 +1873,214 @@ ${JSON.stringify(agent.definition, null, 2)}
       }
     }
     
-    async function runAgent(id) {
+    async function startEdit(id) {
       try {
-        await API.runAgent(id);
-        if (state.view === 'detail') {
-          showDetail(id);
-        }
+        const agent = await API.getAgent(id);
+        state.editingAgent = agent;
+        state.view = 'edit';
+        render();
       } catch (err) {
         alert('Chyba: ' + err.message);
+      }
+    }
+    
+    function cancelEdit() {
+      if (state.editingAgent) {
+        showDetail(state.editingAgent.id);
+      } else {
+        goToList();
+      }
+    }
+    
+    async function saveEdit(id) {
+      const name = document.getElementById('edit-name').value.trim();
+      const description = document.getElementById('edit-description').value.trim();
+      const icon = document.getElementById('edit-icon').value.trim();
+      let definition;
+      
+      try {
+        definition = JSON.parse(document.getElementById('edit-definition').value);
+      } catch (err) {
+        alert('Neplatný JSON v definici: ' + err.message);
+        return;
+      }
+      
+      try {
+        const result = await API.updateAgent(id, {
+          name,
+          description,
+          icon,
+          definition
+        });
+        
+        if (result.error) {
+          alert('Chyba: ' + result.error);
+          return;
+        }
+        
+        showToast('success', 'Agent upraven', 'Změny byly uloženy.');
+        showDetail(id);
+      } catch (err) {
+        alert('Chyba: ' + err.message);
+      }
+    }
+    
+    async function deleteAgent(id) {
+      if (!confirm('Opravdu chcete smazat tohoto agenta? Tato akce je nevratná.')) {
+        return;
+      }
+      
+      try {
+        const result = await API.deleteAgent(id);
+        if (result.error) {
+          alert('Chyba: ' + result.error);
+          return;
+        }
+        
+        showToast('success', 'Agent smazán', 'Agent byl úspěšně odstraněn.');
+        await loadAgents();
+        goToList();
+      } catch (err) {
+        alert('Chyba: ' + err.message);
+      }
+    }
+    
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // v34: RUN_STATE UI MAPPING - Backend is source of truth
+    // UI only maps, never interprets
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    const RUN_STATE_UI_MAP = {
+      'SUCCESS_TRIGGERED': {
+        icon: '🔔',
+        title: 'Triggery spuštěny',
+        type: 'success',
+        desc: (r) => `Trvání: ${r.duration}ms, Akce: ${r.actions?.length || 0}`
+      },
+      'SUCCESS_NO_TRIGGER': {
+        icon: '✓',
+        title: 'Podmínky nesplněny',
+        type: 'info',
+        desc: (r) => `Trvání: ${r.duration}ms - čeká na splnění podmínek`
+      },
+      'SUCCESS_NO_NEW': {
+        icon: '📭',
+        title: 'Žádné nové položky',
+        type: 'info',
+        desc: () => 'Čeká na nové položky ze zdroje'
+      },
+      'SKIP_DISABLED': {
+        icon: '⏸',
+        title: 'Agent pozastaven',
+        type: 'warning',
+        desc: () => 'Aktivujte agenta pro spuštění'
+      },
+      'SKIP_SCHEMA_BROKEN': {
+        icon: '⛔',
+        title: 'Schema rozbité',
+        type: 'error',
+        desc: () => 'Opravte definici agenta'
+      },
+      'SKIP_COOLDOWN': {
+        icon: '⏱',
+        title: 'Cooldown',
+        type: 'info',
+        desc: (r) => `Další běh: ${r.next_run ? formatTime(r.next_run) : 'brzy'}`
+      },
+      'ERROR_SOURCE': {
+        icon: '❌',
+        title: 'Chyba zdroje',
+        type: 'error',
+        desc: (r) => r.error || 'Nepodařilo se načíst data'
+      },
+      'ERROR_EXECUTION': {
+        icon: '❌',
+        title: 'Chyba akce',
+        type: 'error',
+        desc: (r) => r.error || 'Některé akce selhaly'
+      },
+      'ERROR_UNKNOWN': {
+        icon: '❌',
+        title: 'Neznámá chyba',
+        type: 'error',
+        desc: (r) => r.error || 'Neočekávaná chyba'
+      },
+      'INIT_BASELINE': {
+        icon: '🏁',
+        title: 'Baseline nastaven',
+        type: 'success',
+        desc: () => 'První běh - agent je připraven sledovat změny'
+      },
+      'SCHEMA_DEGRADED': {
+        icon: '⚠️',
+        title: 'Schema degradováno',
+        type: 'warning',
+        desc: () => 'Některé podmínky jsou neplatné'
+      },
+      'SCHEMA_BROKEN': {
+        icon: '⛔',
+        title: 'Schema rozbité',
+        type: 'error',
+        desc: () => 'Agent byl automaticky deaktivován'
+      }
+    };
+
+    async function runAgent(id, evt) {
+      try {
+        const btn = evt?.target;
+        const originalText = btn?.textContent;
+        if (btn) {
+          btn.textContent = '⏳';
+          btn.disabled = true;
+        }
+        
+        console.log('[runAgent] Starting run for:', id);
+        const result = await API.runAgent(id);
+        console.log('[runAgent] Result:', result);
+        
+        if (btn) {
+          btn.textContent = originalText || '▶';
+          btn.disabled = false;
+        }
+        
+        // v34: Use run_state from backend, not interpret status
+        const runState = result.run_state || 'ERROR_UNKNOWN';
+        const uiInfo = RUN_STATE_UI_MAP[runState] || RUN_STATE_UI_MAP['ERROR_UNKNOWN'];
+        
+        showToast(
+          uiInfo.type, 
+          `${uiInfo.icon} ${uiInfo.title}`,
+          uiInfo.desc(result)
+        );
+        
+        // Refresh UI
+        if (state.view === 'detail') {
+          await showDetail(id);
+        } else {
+          await loadAgents();
+          render();
+        }
+        
+      } catch (err) {
+        console.error('[runAgent] Error:', err);
+        showToast('error', '❌ Chyba', err.message);
       }
     }
     
     async function toggleAgent(id, enabled) {
       try {
         await API.toggleAgent(id, enabled);
+        
+        showToast('success', enabled ? 'Agent aktivován' : 'Agent pozastaven', '');
+        
         await loadAgents();
-        render();
+        
+        if (state.view === 'detail') {
+          await showDetail(id);
+        } else {
+          render();
+        }
       } catch (err) {
         alert('Chyba: ' + err.message);
       }
@@ -2936,23 +2103,17 @@ ${JSON.stringify(agent.definition, null, 2)}
           
           // Summary
           if (result.summary) {
-            const s = result.summary;
-            log += '📊 SHRNUTÍ:\n';
-            log += `   Zdroje: ${s.sourcesOk}/${s.sources} OK\n`;
-            log += `   Podmínky: ${s.conditionsTrue}/${s.conditions} splněno\n`;
-            if (s.wouldTrigger?.length > 0) {
-              log += `   Triggery: ${s.wouldTrigger.join(', ')} by se spustily\n`;
-            } else {
-              log += `   Triggery: žádný by se nespustil\n`;
-            }
-            log += '\n';
+            log += `📊 Souhrn:\n`;
+            log += `   Zdroje: ${result.summary.sourcesOk || 0}/${result.summary.sources || 0} OK\n`;
+            log += `   Podmínky: ${result.summary.conditionsTrue || 0}/${result.summary.conditions || 0} true\n`;
+            log += `   Triggery: ${result.summary.wouldTrigger?.length || 0} by se spustily\n\n`;
           }
           
           // Detailed log
-          if (result.log) {
-            log += '📜 LOG:\n';
+          if (result.log && result.log.length > 0) {
+            log += '📜 Detail:\n';
             result.log.forEach(entry => {
-              log += `   [${entry.time}] ${entry.msg}\n`;
+              log += `[${entry.time}] ${entry.msg}\n`;
             });
           }
           
@@ -2963,72 +2124,72 @@ ${JSON.stringify(agent.definition, null, 2)}
       }
     }
     
-    async function cloneAgent(id) {
-      try {
-        const agent = state.agents.find(a => a.id === id);
-        if (!agent) {
-          const detail = await API.getAgent(id);
-          startClone(detail);
-        } else {
-          const detail = await API.getAgent(id);
-          startClone(detail);
-        }
-      } catch (err) {
-        alert('Chyba: ' + err.message);
+    function toggleDryRun() {
+      const resultDiv = document.getElementById('dry-run-result');
+      if (resultDiv.style.display === 'none') {
+        dryRun();
+      } else {
+        resultDiv.style.display = 'none';
       }
     }
     
-    function startClone(agent) {
-      state.view = 'create';
-      state.createStep = 1;
-      state.createForm = {
-        name: agent.name + ' (kopie)',
-        icon: agent.icon || '⚡',
-        pattern: '',
-        description: agent.description || '',
-        definition: agent.definition,
-        draftId: null,
-        notifications: { inApp: true, email: false, telegram: false, webhook: false },
-        schedule: agent.definition?.schedule?.value || '1h',
-        cooldown: 300
-      };
-      render();
-    }
-    
     function switchTab(btn, tabId) {
+      // Update buttons
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       btn.classList.add('active');
+      
+      // Update content
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       document.getElementById('tab-' + tabId).classList.add('active');
     }
     
-    function toggleLog(el) {
-      el.classList.toggle('expanded');
+    function toggleLog(entry) {
+      entry.classList.toggle('expanded');
     }
     
     function attachEventListeners() {
-      // Add any additional event listeners
+      // Any dynamic event listeners
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TOAST
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    function showToast(type, title, body) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `
+        <div class="toast-header">
+          <span class="toast-title">${type === 'success' ? '✅' : type === 'error' ? '❌' : '⚠️'} ${title}</span>
+          <button class="toast-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        </div>
+        ${body ? `<div class="toast-body">${body}</div>` : ''}
+      `;
+      container.appendChild(toast);
+      
+      // Auto remove after 5s
+      setTimeout(() => {
+        if (toast.parentElement) {
+          toast.remove();
+        }
+      }, 5000);
     }
     
     // ═══════════════════════════════════════════════════════════════════════════
     // HELPERS
     // ═══════════════════════════════════════════════════════════════════════════
     
+    function formatDateTime(dateStr) {
+      if (!dateStr) return '-';
+      const date = new Date(dateStr);
+      return date.toLocaleString('cs-CZ');
+    }
+    
     function formatTime(dateStr) {
       if (!dateStr) return '-';
       const date = new Date(dateStr);
-      const now = new Date();
-      const diff = now - date;
-      
-      if (diff < 60000) return 'Právě teď';
-      if (diff < 3600000) return Math.floor(diff / 60000) + ' min';
-      if (diff < 86400000) return Math.floor(diff / 3600000) + ' h';
-      return Math.floor(diff / 86400000) + ' d';
-    }
-    
-    function formatDateTime(dateStr) {
-      if (!dateStr) return '-';
-      return new Date(dateStr).toLocaleString('cs-CZ');
+      return date.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });
     }
     
     // ═══════════════════════════════════════════════════════════════════════════
@@ -3050,12 +2211,16 @@ ${JSON.stringify(agent.definition, null, 2)}
         const result = await API.getNotifications();
         state.notifications = result.notifications || [];
       } catch (err) {
+        console.error('Failed to load notifications:', err);
         state.notifications = [];
       }
     }
     
     async function init() {
-      await Promise.all([loadAgents(), loadNotifications()]);
+      await Promise.all([
+        loadAgents(),
+        loadNotifications()
+      ]);
       render();
     }
     
