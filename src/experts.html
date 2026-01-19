@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C.3 Experts - Mistři v oboru</title>
+  <style>
+    :root {
+      --bg-primary: #0f0f0f;
+      --bg-secondary: #1a1a1a;
+      --bg-tertiary: #252525;
+      --bg-hover: #2a2a2a;
+      --border-color: #333;
+      --text-primary: #e5e5e5;
+      --text-secondary: #888;
+      --accent: #7c3aed;
+      --accent-hover: #8b5cf6;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --error: #ef4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .back-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+
+    .back-link:hover {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    /* Main Layout */
+    .main-content {
+      display: flex;
+      height: calc(100vh - 65px);
+    }
+
+    /* Sidebar - Categories */
+    .sidebar {
+      width: 280px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      padding: 16px;
+      overflow-y: auto;
+    }
+
+    .sidebar h2 {
+      font-size: 12px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+      padding: 0 8px;
+    }
+
+    .category-item {
+      padding: 12px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 4px;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .category-item:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .category-item.active {
+      background: var(--accent);
+      color: white;
+    }
+
+    .category-icon {
+      font-size: 1.2rem;
+    }
+
+    .category-name {
+      flex: 1;
+    }
+
+    .category-count {
+      background: var(--bg-tertiary);
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .category-item.active .category-count {
+      background: rgba(255,255,255,0.2);
+      color: white;
+    }
+
+    /* Expert Grid */
+    .content-area {
+      flex: 1;
+      padding: 24px;
+      overflow-y: auto;
+    }
+
+    .content-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .content-header h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .expert-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+    }
+
+    .expert-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .expert-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .expert-card.selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.3);
+    }
+
+    .expert-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+
+    .expert-icon {
+      font-size: 2.5rem;
+      line-height: 1;
+    }
+
+    .expert-info {
+      flex: 1;
+    }
+
+    .expert-name {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .expert-domain {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .expert-description {
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+
+    .expert-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .expert-tag {
+      background: var(--bg-tertiary);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .expert-tag.creative { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
+    .expert-tag.analytical { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+    .expert-tag.conservative { background: rgba(234, 179, 8, 0.2); color: #fbbf24; }
+
+    /* Detail Panel */
+    .detail-panel {
+      width: 400px;
+      background: var(--bg-secondary);
+      border-left: 1px solid var(--border-color);
+      padding: 24px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    .detail-panel.visible {
+      display: block;
+    }
+
+    .detail-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .detail-icon {
+      font-size: 3rem;
+    }
+
+    .detail-title h3 {
+      font-size: 1.25rem;
+      margin-bottom: 4px;
+    }
+
+    .detail-title p {
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .detail-section {
+      margin-bottom: 24px;
+    }
+
+    .detail-section h4 {
+      font-size: 12px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .detail-row:last-child {
+      border-bottom: none;
+    }
+
+    .detail-label {
+      color: var(--text-secondary);
+    }
+
+    .detail-value {
+      font-weight: 500;
+    }
+
+    .detail-prompt {
+      background: var(--bg-tertiary);
+      border-radius: 8px;
+      padding: 16px;
+      font-size: 13px;
+      line-height: 1.6;
+      max-height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    .detail-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .btn-secondary {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      flex: 1;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-hover);
+    }
+
+    .btn-chat {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      flex: 1;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .btn-chat:hover {
+      background: var(--accent-hover);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-overlay.visible {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h3 {
+      font-size: 1.1rem;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 1.5rem;
+      padding: 0;
+    }
+
+    .modal-body {
+      padding: 24px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      color: var(--text-primary);
+      font-size: 14px;
+    }
+
+    .form-group textarea {
+      min-height: 150px;
+      resize: vertical;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-secondary);
+    }
+
+    .empty-state-icon {
+      font-size: 4rem;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    /* Custom badge */
+    .custom-badge {
+      background: rgba(124, 58, 237, 0.2);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      margin-left: 8px;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-left">
+      <a href="/architect" class="back-link">
+        ← Zpět na chat
+      </a>
+      <h1>🎓 Experts</h1>
+    </div>
+    <button class="btn-primary" onclick="openCreateModal()">
+      + Vytvořit experta
+    </button>
+  </header>
+
+  <div class="main-content">
+    <!-- Sidebar - Categories -->
+    <aside class="sidebar">
+      <h2>Kategorie</h2>
+      <div id="categories"></div>
+    </aside>
+
+    <!-- Expert Grid -->
+    <main class="content-area">
+      <div class="content-header">
+        <h2 id="content-title">Všichni experti</h2>
+      </div>
+      <div class="expert-grid" id="expert-grid"></div>
+    </main>
+
+    <!-- Detail Panel -->
+    <aside class="detail-panel" id="detail-panel">
+      <div class="detail-header">
+        <span class="detail-icon" id="detail-icon">✍️</span>
+        <div class="detail-title">
+          <h3 id="detail-name">Spisovatel</h3>
+          <p id="detail-domain">creative_writing</p>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <h4>Nastavení</h4>
+        <div class="detail-row">
+          <span class="detail-label">Plánování</span>
+          <span class="detail-value" id="detail-planning">deep</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Revize</span>
+          <span class="detail-value" id="detail-review">iterative</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Data</span>
+          <span class="detail-value" id="detail-data">forbidden</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Styl</span>
+          <span class="detail-value" id="detail-bias">creative</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Teplota</span>
+          <span class="detail-value" id="detail-temp">0.8</span>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <h4>System Prompt</h4>
+        <div class="detail-prompt" id="detail-prompt"></div>
+      </div>
+
+      <div class="detail-actions">
+        <button class="btn-secondary" id="btn-edit" onclick="editExpert()">Upravit</button>
+        <button class="btn-chat" onclick="startChat()">💬 Zahájit chat</button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Create/Edit Modal -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-title">Vytvořit experta</h3>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Jméno</label>
+            <input type="text" id="expert-name" placeholder="Např. Spisovatel">
+          </div>
+          <div class="form-group">
+            <label>Ikona (emoji)</label>
+            <input type="text" id="expert-icon" placeholder="✍️" maxlength="4">
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>Doména</label>
+          <input type="text" id="expert-domain" placeholder="Např. creative_writing">
+        </div>
+
+        <div class="form-group">
+          <label>Popis</label>
+          <input type="text" id="expert-description" placeholder="Krátký popis co expert umí">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Plánování</label>
+            <select id="expert-planning">
+              <option value="none">Žádné</option>
+              <option value="light">Lehké</option>
+              <option value="deep">Hluboké</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Revize</label>
+            <select id="expert-review">
+              <option value="none">Žádná</option>
+              <option value="self">Samo-revize</option>
+              <option value="iterative">Iterativní</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Použití dat</label>
+            <select id="expert-data">
+              <option value="forbidden">Zakázáno</option>
+              <option value="evidence">Jako důkaz</option>
+              <option value="controlled">Řízené</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Styl výstupu</label>
+            <select id="expert-bias">
+              <option value="creative">Kreativní</option>
+              <option value="analytical">Analytický</option>
+              <option value="conservative">Konzervativní</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Teplota (0.0 - 1.0)</label>
+          <input type="number" id="expert-temp" value="0.5" min="0" max="1" step="0.1">
+        </div>
+
+        <div class="form-group">
+          <label>System Prompt</label>
+          <textarea id="expert-prompt" placeholder="Instrukce pro experta..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal()">Zrušit</button>
+        <button class="btn-primary" onclick="saveExpert()">Uložit</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State
+    let experts = [];
+    let categories = [];
+    let selectedExpert = null;
+    let selectedCategory = 'all';
+    let editingExpertId = null;
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      loadExperts();
+    });
+
+    async function loadExperts() {
+      try {
+        const response = await fetch('/api/experts');
+        const data = await response.json();
+        experts = data.experts || [];
+        categories = data.categories || [];
+        renderCategories();
+        renderExperts();
+      } catch (err) {
+        console.error('Failed to load experts:', err);
+      }
+    }
+
+    function renderCategories() {
+      const container = document.getElementById('categories');
+      
+      // All experts
+      let html = `
+        <div class="category-item ${selectedCategory === 'all' ? 'active' : ''}" 
+             onclick="selectCategory('all')">
+          <span class="category-icon">📚</span>
+          <span class="category-name">Všichni</span>
+          <span class="category-count">${experts.length}</span>
+        </div>
+      `;
+
+      // Built-in categories
+      categories.forEach(cat => {
+        const count = cat.id === 'custom' 
+          ? experts.filter(e => e.isCustom).length
+          : cat.experts.filter(id => experts.find(e => e.id === id)).length;
+        
+        html += `
+          <div class="category-item ${selectedCategory === cat.id ? 'active' : ''}" 
+               onclick="selectCategory('${cat.id}')">
+            <span class="category-icon">${cat.icon}</span>
+            <span class="category-name">${cat.name}</span>
+            <span class="category-count">${count}</span>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function selectCategory(catId) {
+      selectedCategory = catId;
+      renderCategories();
+      renderExperts();
+      
+      const cat = categories.find(c => c.id === catId);
+      document.getElementById('content-title').textContent = 
+        catId === 'all' ? 'Všichni experti' : (cat?.name || catId);
+    }
+
+    function renderExperts() {
+      const container = document.getElementById('expert-grid');
+      
+      let filtered = experts;
+      if (selectedCategory !== 'all') {
+        const cat = categories.find(c => c.id === selectedCategory);
+        if (cat) {
+          if (cat.id === 'custom') {
+            filtered = experts.filter(e => e.isCustom);
+          } else {
+            filtered = experts.filter(e => cat.experts.includes(e.id));
+          }
+        }
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">🎓</div>
+            <p>Žádní experti v této kategorii</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(expert => `
+        <div class="expert-card ${selectedExpert?.id === expert.id ? 'selected' : ''}" 
+             onclick="selectExpert('${expert.id}')">
+          <div class="expert-header">
+            <span class="expert-icon">${expert.icon}</span>
+            <div class="expert-info">
+              <div class="expert-name">
+                ${expert.name}
+                ${expert.isCustom ? '<span class="custom-badge">Custom</span>' : ''}
+              </div>
+              <div class="expert-domain">${expert.domain}</div>
+            </div>
+          </div>
+          <p class="expert-description">${expert.description}</p>
+          <div class="expert-tags">
+            <span class="expert-tag ${expert.outputBias}">${expert.outputBias}</span>
+            <span class="expert-tag">${expert.planningDepth} planning</span>
+            <span class="expert-tag">temp: ${expert.temperature}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function selectExpert(id) {
+      selectedExpert = experts.find(e => e.id === id);
+      if (!selectedExpert) return;
+
+      renderExperts();
+      showDetailPanel();
+    }
+
+    function showDetailPanel() {
+      const panel = document.getElementById('detail-panel');
+      panel.classList.add('visible');
+
+      document.getElementById('detail-icon').textContent = selectedExpert.icon;
+      document.getElementById('detail-name').textContent = selectedExpert.name;
+      document.getElementById('detail-domain').textContent = selectedExpert.domain;
+      document.getElementById('detail-planning').textContent = selectedExpert.planningDepth;
+      document.getElementById('detail-review').textContent = selectedExpert.reviewPolicy;
+      document.getElementById('detail-data').textContent = selectedExpert.dataUsagePolicy;
+      document.getElementById('detail-bias').textContent = selectedExpert.outputBias;
+      document.getElementById('detail-temp').textContent = selectedExpert.temperature;
+      document.getElementById('detail-prompt').textContent = selectedExpert.systemPrompt;
+
+      // Show/hide edit button for custom experts
+      document.getElementById('btn-edit').style.display = 
+        selectedExpert.isCustom ? 'block' : 'none';
+    }
+
+    function startChat() {
+      if (!selectedExpert) return;
+      // Redirect to architect with expert context
+      window.location.href = `/architect?expert=${selectedExpert.id}`;
+    }
+
+    function openCreateModal() {
+      editingExpertId = null;
+      document.getElementById('modal-title').textContent = 'Vytvořit experta';
+      clearForm();
+      document.getElementById('modal-overlay').classList.add('visible');
+    }
+
+    function editExpert() {
+      if (!selectedExpert || !selectedExpert.isCustom) return;
+      
+      editingExpertId = selectedExpert.id;
+      document.getElementById('modal-title').textContent = 'Upravit experta';
+      
+      document.getElementById('expert-name').value = selectedExpert.name;
+      document.getElementById('expert-icon').value = selectedExpert.icon;
+      document.getElementById('expert-domain').value = selectedExpert.domain;
+      document.getElementById('expert-description').value = selectedExpert.description;
+      document.getElementById('expert-planning').value = selectedExpert.planningDepth;
+      document.getElementById('expert-review').value = selectedExpert.reviewPolicy;
+      document.getElementById('expert-data').value = selectedExpert.dataUsagePolicy;
+      document.getElementById('expert-bias').value = selectedExpert.outputBias;
+      document.getElementById('expert-temp').value = selectedExpert.temperature;
+      document.getElementById('expert-prompt').value = selectedExpert.systemPrompt;
+      
+      document.getElementById('modal-overlay').classList.add('visible');
+    }
+
+    function closeModal() {
+      document.getElementById('modal-overlay').classList.remove('visible');
+      clearForm();
+    }
+
+    function clearForm() {
+      document.getElementById('expert-name').value = '';
+      document.getElementById('expert-icon').value = '';
+      document.getElementById('expert-domain').value = '';
+      document.getElementById('expert-description').value = '';
+      document.getElementById('expert-planning').value = 'none';
+      document.getElementById('expert-review').value = 'none';
+      document.getElementById('expert-data').value = 'forbidden';
+      document.getElementById('expert-bias').value = 'analytical';
+      document.getElementById('expert-temp').value = '0.5';
+      document.getElementById('expert-prompt').value = '';
+    }
+
+    async function saveExpert() {
+      const expert = {
+        name: document.getElementById('expert-name').value,
+        icon: document.getElementById('expert-icon').value || '👤',
+        domain: document.getElementById('expert-domain').value,
+        description: document.getElementById('expert-description').value,
+        planningDepth: document.getElementById('expert-planning').value,
+        reviewPolicy: document.getElementById('expert-review').value,
+        dataUsagePolicy: document.getElementById('expert-data').value,
+        outputBias: document.getElementById('expert-bias').value,
+        temperature: parseFloat(document.getElementById('expert-temp').value),
+        systemPrompt: document.getElementById('expert-prompt').value
+      };
+
+      if (!expert.name) {
+        alert('Jméno je povinné');
+        return;
+      }
+
+      try {
+        const url = editingExpertId 
+          ? `/api/experts/${editingExpertId}`
+          : '/api/experts';
+        
+        const method = editingExpertId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(expert)
+        });
+
+        if (response.ok) {
+          closeModal();
+          loadExperts();
+        } else {
+          const error = await response.json();
+          alert(error.error || 'Chyba při ukládání');
+        }
+      } catch (err) {
+        console.error('Save failed:', err);
+        alert('Chyba při ukládání');
+      }
+    }
+
+    // Close modal on overlay click
+    document.getElementById('modal-overlay').addEventListener('click', (e) => {
+      if (e.target.id === 'modal-overlay') {
+        closeModal();
+      }
+    });
+  </script>
+</body>
+</html>

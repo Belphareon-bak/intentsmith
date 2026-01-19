@@ -1,4 +1,4 @@
-// C.3 v33.2 Server - p(AI)assistant
+// C.3 v35.0.0 Server - p(AI)assistant
 // ══════════════════════════════════════════════════════════════════════════════
 
 import http from 'http';
@@ -15,6 +15,15 @@ import { AgentScheduler } from './agents/scheduler.js';
 import { AgentRunner } from './agents/runner.js';
 import { createAgentRoutes } from './agents/api.js';
 import { LLMServices } from './agents/llm-services.js';
+
+// Expert Layer v35
+let expertLayer = null;
+try {
+  expertLayer = await import('./expert-layer.js');
+  logger.info('Server', 'Expert layer loaded');
+} catch (err) {
+  logger.warn('Server', `Expert layer not available: ${err.message}`);
+}
 
 // Initialize Agent tables
 initAgentTables(db.db);
@@ -1650,7 +1659,223 @@ CRITICAL REMINDER:
       sendJSON(res, 500, { error: err.message });
     }
   },
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // EXPERT LAYER ROUTES (v35)
+  // ════════════════════════════════════════════════════════════════════════════
+
+  'GET /experts': async (req, res) => {
+    try {
+      const html = fs.readFileSync(path.join(process.cwd(), 'experts.html'), 'utf8');
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(html);
+    } catch (err) {
+      res.writeHead(500);
+      res.end('Error loading experts page');
+    }
+  },
+
+  'GET /api/experts': async (req, res) => {
+    try {
+      if (!expertLayer) {
+        return sendJSON(res, 500, { error: 'Expert layer not loaded' });
+      }
+
+      const experts = expertLayer.expertRegistry.getAll().map(e => e.toJSON());
+      const categories = expertLayer.getExpertCategories();
+      
+      // Add custom experts to custom category
+      const customExperts = experts.filter(e => e.isCustom).map(e => e.id);
+      const customCat = categories.find(c => c.id === 'custom');
+      if (customCat) {
+        customCat.experts = customExperts;
+      }
+
+      sendJSON(res, 200, { experts, categories });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'GET /api/experts/:id': async (req, res, params) => {
+    try {
+      if (!expertLayer) {
+        return sendJSON(res, 500, { error: 'Expert layer not loaded' });
+      }
+
+      const expert = expertLayer.expertRegistry.get(params.id);
+      if (!expert) {
+        return sendJSON(res, 404, { error: 'Expert not found' });
+      }
+
+      sendJSON(res, 200, expert.toJSON());
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'POST /api/experts': async (req, res) => {
+    try {
+      if (!expertLayer) {
+        return sendJSON(res, 500, { error: 'Expert layer not loaded' });
+      }
+
+      const body = await parseBody(req);
+      
+      if (!body.name) {
+        return sendJSON(res, 400, { error: 'Name is required' });
+      }
+
+      // Generate ID from name
+      const id = body.id || body.name.toLowerCase()
+        .replace(/\s+/g, '_')
+        .replace(/[^a-z0-9_]/g, '')
+        .substring(0, 32);
+
+      // Check if exists
+      if (expertLayer.expertRegistry.get(id)) {
+        return sendJSON(res, 400, { error: 'Expert with this ID already exists' });
+      }
+
+      const expert = expertLayer.expertRegistry.addCustom({
+        id,
+        ...body,
+        primaryProblemTypes: body.primaryProblemTypes || ['procedural'],
+        allowedRepresentations: body.allowedRepresentations || ['structured'],
+        preferredModels: body.preferredModels || ['qwen2.5:32b']
+      });
+
+      // Save to database
+      saveCustomExperts();
+
+      sendJSON(res, 201, expert.toJSON());
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'PUT /api/experts/:id': async (req, res, params) => {
+    try {
+      if (!expertLayer) {
+        return sendJSON(res, 500, { error: 'Expert layer not loaded' });
+      }
+
+      const body = await parseBody(req);
+      const expert = expertLayer.expertRegistry.updateCustom(params.id, body);
+      
+      if (!expert) {
+        return sendJSON(res, 404, { error: 'Custom expert not found' });
+      }
+
+      // Save to database
+      saveCustomExperts();
+
+      sendJSON(res, 200, expert.toJSON());
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'DELETE /api/experts/:id': async (req, res, params) => {
+    try {
+      if (!expertLayer) {
+        return sendJSON(res, 500, { error: 'Expert layer not loaded' });
+      }
+
+      const deleted = expertLayer.expertRegistry.removeCustom(params.id);
+      
+      if (!deleted) {
+        return sendJSON(res, 404, { error: 'Custom expert not found' });
+      }
+
+      // Save to database
+      saveCustomExperts();
+
+      sendJSON(res, 200, { success: true });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'POST /api/experts/route': async (req, res) => {
+    try {
+      if (!expertLayer) {
+        return sendJSON(res, 500, { error: 'Expert layer not loaded' });
+      }
+
+      const body = await parseBody(req);
+      const result = expertLayer.routeToExpert(body.message, body.intent);
+
+      sendJSON(res, 200, {
+        expertId: result.expert?.id || null,
+        expertName: result.expert?.name || null,
+        confidence: result.confidence,
+        reason: result.reason
+      });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
 };
+
+// ════════════════════════════════════════════════════════════════════════════
+// EXPERT PERSISTENCE HELPERS
+// ════════════════════════════════════════════════════════════════════════════
+
+// Create experts table if not exists
+try {
+  db.db.exec(`
+    CREATE TABLE IF NOT EXISTS custom_experts (
+      id TEXT PRIMARY KEY,
+      config TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+} catch (err) {
+  logger.warn('Server', `Could not create experts table: ${err.message}`);
+}
+
+// Load custom experts on startup
+function loadCustomExperts() {
+  if (!expertLayer) return;
+  
+  try {
+    const rows = db.db.prepare('SELECT id, config FROM custom_experts').all();
+    for (const row of rows) {
+      const config = JSON.parse(row.config);
+      expertLayer.expertRegistry.addCustom(config);
+    }
+    logger.info('Server', `Loaded ${rows.length} custom experts`);
+  } catch (err) {
+    logger.warn('Server', `Could not load custom experts: ${err.message}`);
+  }
+}
+
+// Save custom experts
+function saveCustomExperts() {
+  if (!expertLayer) return;
+  
+  try {
+    const experts = expertLayer.expertRegistry.getCustom();
+    
+    // Clear existing
+    db.db.exec('DELETE FROM custom_experts');
+    
+    // Insert all
+    const insert = db.db.prepare('INSERT INTO custom_experts (id, config) VALUES (?, ?)');
+    for (const expert of experts) {
+      insert.run(expert.id, JSON.stringify(expert.toJSON()));
+    }
+    
+    logger.debug('Server', `Saved ${experts.length} custom experts`);
+  } catch (err) {
+    logger.warn('Server', `Could not save custom experts: ${err.message}`);
+  }
+}
+
+// Load custom experts on startup
+loadCustomExperts();
 
 // ════════════════════════════════════════════════════════════════════════════
 // ROUTER

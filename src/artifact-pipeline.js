@@ -1,4 +1,4 @@
-// C.3 v34.4.2.1 - Artifact Pipeline
+// C.3 v35.0.0.1 - Artifact Pipeline
 // ══════════════════════════════════════════════════════════════════════════════
 // Handles artifact generation with HARD validation + graceful degradation
 // v2: Semantic intent classifier (hybrid: heuristic + LLM)
@@ -1336,7 +1336,7 @@ export function generatePdfHtml(artifactData, locale) {
   ` : ''}
   
   <div class="footer">
-    <span>Vygenerováno: p(AI)assistant v34.4.2</span>
+    <span>Vygenerováno: p(AI)assistant v35.0.0</span>
     <span>${new Date().toLocaleString(locale.locale)}</span>
   </div>
 </body>

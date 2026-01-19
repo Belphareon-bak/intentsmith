@@ -1,6 +1,6 @@
 {
   "name": "p-ai-assistant",
-  "version": "34.4.2",
+  "version": "35.0.0",
   "description": "C.3 - Local AI Copilot with Hybrid Q&A Workflow",
   "type": "module",
   "main": "src/server.js",
