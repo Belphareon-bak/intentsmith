@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="cs-CZ">
+<head>
+  <meta charset="UTF-8">
+  <title>Porovnání nejnovějších CPU Intel a AMD</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: 'Segoe UI', Arial, sans-serif; 
+      padding: 40px;
+      color: #1a1a2e;
+      background: #fff;
+    }
+    .header { 
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 3px solid #4361ee;
+    }
+    h1 { 
+      color: #4361ee;
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    .description {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 15px;
+    }
+    .meta {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      align-items: center;
+      font-size: 12px;
+      color: #666;
+    }
+    .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .confidence-banner {
+      margin: 20px 0;
+      padding: 15px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    .confidence-high { background: #d1fae5; border-left: 4px solid #10b981; }
+    .confidence-medium { background: #fef3c7; border-left: 4px solid #f59e0b; }
+    .confidence-low { background: #fee2e2; border-left: 4px solid #ef4444; }
+    .confidence-unknown { background: #f3f4f6; border-left: 4px solid #6b7280; }
+    table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      margin: 20px 0;
+      font-size: 14px;
+    }
+    th { 
+      background: #4361ee;
+      color: white;
+      padding: 12px 15px;
+      text-align: left;
+      font-weight: 600;
+    }
+    td { 
+      padding: 12px 15px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    tr:nth-child(even) { background: #f8f9fa; }
+    tr:hover { background: #e8f4f8; }
+    .price-cell {
+      font-weight: 600;
+      color: #1a1a2e;
+      white-space: nowrap;
+    }
+    .notes {
+      margin-top: 30px;
+      padding: 15px;
+      background: #f8fafc;
+      border-left: 4px solid #64748b;
+      font-size: 13px;
+    }
+    .notes h3 { 
+      color: #475569;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    .notes ul { margin-left: 20px; }
+    .notes li { margin: 5px 0; color: #666; }
+    .footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #e0e0e0;
+      font-size: 11px;
+      color: #999;
+      display: flex;
+      justify-content: space-between;
+    }
+    @media print {
+      body { padding: 20px; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Porovnání nejnovějších CPU Intel a AMD</h1>
+    <p class="description">Srovnávání detailů pro aktuální generaci procesorů Intel a AMD, včetně cen na trhu a bazaru.</p>
+    <div class="meta">
+      <span class="meta-item">📅 18. 1. 2026</span>
+      <span class="meta-item">💰 CZK</span>
+      <span class="meta-item">🌍 Czech Republic</span>
+      <span style="background:#fef3c7;color:#f59e0b;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">⚡ Odhad</span>
+    </div>
+  </div>
+  
+  <div class="confidence-banner confidence-medium">
+    <div>
+      <strong>Kvalita dat:</strong> Odhad na základě znalosti trhu - ceny se mohou lišit
+    </div>
+    <div style="font-size:12px;color:#666;">Zdroj: heuristic</div>
+  </div>
+  
+  <table>
+    <thead>
+      <tr>
+        <th>Produkt</th><th>Specifikace</th><th>Cena</th><th>Typ ceny</th><th>Jistota</th>
+      </tr>
+    </thead>
+    <tbody>
+      
+        <tr>
+          <td>Intel Core i9-13900K</td><td>24 jader (8 jader Performance + 16 E-jader), 3.5 GHz - 5.8 GHz, 36 MB cache</td><td class="price-cell">25 000 - 30 000 Kč</td><td><span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-size:12px;">retail</span></td><td><span style="color:#92400e;">◐ střední</span></td>
+        </tr>
+      
+        <tr>
+          <td>Intel Core i9-12900K</td><td>16 jader (8 jader Performance + 8 E-jader), 3.2 GHz - 5.2 GHz, 30 MB cache</td><td class="price-cell">18 000 - 22 000 Kč</td><td><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:12px;">bazar</span></td><td><span style="color:#92400e;">◐ střední</span></td>
+        </tr>
+      
+        <tr>
+          <td>AMD Ryzen 9 7950X</td><td>16 jader, 3.5 GHz - 5.7 GHz, 80 MB cache</td><td class="price-cell">24 000 - 29 000 Kč</td><td><span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-size:12px;">retail</span></td><td><span style="color:#92400e;">◐ střední</span></td>
+        </tr>
+      
+        <tr>
+          <td>AMD Ryzen 9 5950X</td><td>16 jader, 3.4 GHz - 4.9 GHz, 70 MB cache</td><td class="price-cell">12 000 - 18 000 Kč</td><td><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:12px;">bazar</span></td><td><span style="color:#92400e;">◐ střední</span></td>
+        </tr>
+      
+        <tr>
+          <td>Intel Core i9-14900K (odhad)</td><td>24 jader (8 jader Performance + 16 E-jader), 3.7 GHz - 5.9 GHz, 40 MB cache</td><td class="price-cell">28 000 - 35 000 Kč</td><td><span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:12px;">odhad</span></td><td><span style="color:#991b1b;">○ nízká</span></td>
+        </tr>
+      
+        <tr>
+          <td>AMD Ryzen 9 7960X (odhad)</td><td>16 jader, 3.8 GHz - 5.9 GHz, 96 MB cache</td><td class="price-cell">26 000 - 34 000 Kč</td><td><span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:12px;">odhad</span></td><td><span style="color:#991b1b;">○ nízká</span></td>
+        </tr>
+      
+    </tbody>
+  </table>
+  
+  
+    <div class="notes">
+      <h3>📝 Poznámky</h3>
+      <ul>
+        <li>Ceny jsou odhadovány na základě současného trhu a mohou se lišit v závislosti na dodavateli.</li>
+      </ul>
+    </div>
+  
+  
+  <div class="footer">
+    <span>Vygenerováno: p(AI)assistant v34.3.3</span>
+    <span>18. 1. 2026 23:13:44</span>
+  </div>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "id": "1768774208276",
+  "filename": "nová-vozidla-značky-skoda-a-detailní-informace-o-d-1768774208276.pdf",
+  "title": "Nová vozidla značky Skoda a detailní informace o dostupných motorizacích",
+  "requestedType": "pdf",
+  "actualType": "pdf",
+  "mimeType": "application/pdf",
+  "size": 81478,
+  "created": "2026-01-18T22:10:09.428Z",
+  "puppeteerAvailable": true,
+  "locale": "cs-CZ",
+  "currency": "CZK",
+  "region": "Czech Republic",
+  "confidence": "medium",
+  "intent": "FILE_REQUEST",
+  "rowCount": 6
+}

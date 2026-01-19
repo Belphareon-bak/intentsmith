@@ -194,7 +194,7 @@ const routes = {
   'GET /': (req, res) => {
     sendJSON(res, 200, {
       name: 'p(AI)assistant',
-      version: '34.3.2',
+      version: '34.4.2',
       status: 'ok',
       endpoints: [
         'POST /workflow - Start or continue workflow',
@@ -829,7 +829,7 @@ const routes = {
       // Save user message
       db.messages.addMessage(conversation_id, 'user', message);
       
-      // v34.3.2: SEMANTIC INTENT CLASSIFIER - check FIRST before any chat logic
+      // v34.4.2: SEMANTIC INTENT CLASSIFIER - check FIRST before any chat logic
       const artifactPipeline = await import('./artifact-pipeline.js');
       const { callOllama } = await import('./llm/client.js');
       
@@ -1512,9 +1512,14 @@ CRITICAL REMINDER:
       // Read file
       const content = await fsPromises.readFile(filepath);
       
+      // Create safe ASCII filename + UTF-8 encoded original
+      // RFC 5987: filename*=UTF-8''encoded_name for non-ASCII
+      const safeFilename = params.filename.replace(/[^\x00-\x7F]/g, '_');
+      const encodedFilename = encodeURIComponent(params.filename);
+      
       res.writeHead(200, {
         'Content-Type': contentType,
-        'Content-Disposition': `${disposition}; filename="${params.filename}"`,
+        'Content-Disposition': `${disposition}; filename="${safeFilename}"; filename*=UTF-8''${encodedFilename}`,
         'Content-Length': content.length,
         'Cache-Control': 'private, max-age=3600'
       });
@@ -1539,9 +1544,13 @@ CRITICAL REMINDER:
       
       const data = await fs.readFile(attachment.path);
       
+      // Safe filename for non-ASCII characters
+      const safeFilename = attachment.original_name.replace(/[^\x00-\x7F]/g, '_');
+      const encodedFilename = encodeURIComponent(attachment.original_name);
+      
       res.writeHead(200, {
         'Content-Type': attachment.mime_type,
-        'Content-Disposition': `inline; filename="${attachment.original_name}"`,
+        'Content-Disposition': `inline; filename="${safeFilename}"; filename*=UTF-8''${encodedFilename}`,
         'Content-Length': data.length,
       });
       res.end(data);
@@ -1593,7 +1602,7 @@ CRITICAL REMINDER:
   'GET /api/health': (req, res) => {
     sendJSON(res, 200, { 
       status: 'ok', 
-      version: '34.3.2',
+      version: '34.4.2',
       timestamp: new Date().toISOString()
     });
   },
