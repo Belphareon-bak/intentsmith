@@ -18,12 +18,23 @@ import { LLMServices } from './agents/llm-services.js';
 
 // Expert Layer v35
 let expertLayer = null;
-try {
-  expertLayer = await import('./expert-layer.js');
-  logger.info('Server', 'Expert layer loaded');
-} catch (err) {
-  logger.warn('Server', `Expert layer not available: ${err.message}`);
+async function loadExpertLayer() {
+  const possiblePaths = [
+    './experts/expert-layer.js',    // Primary location (src/experts/)
+    './expert-layer.js',             // Fallback (root)
+    './src/experts/expert-layer.js'  // Alternative
+  ];
+  
+  for (const p of possiblePaths) {
+    try {
+      expertLayer = await import(p);
+      logger.info('Server', `Expert layer loaded from ${p}`);
+      return;
+    } catch {}
+  }
+  logger.warn('Server', 'Expert layer not available - file not found');
 }
+await loadExpertLayer();
 
 // Initialize Agent tables
 initAgentTables(db.db);
@@ -1666,12 +1677,30 @@ CRITICAL REMINDER:
 
   'GET /experts': async (req, res) => {
     try {
-      const html = fs.readFileSync(path.join(process.cwd(), 'experts.html'), 'utf8');
+      // Try multiple possible locations
+      const possiblePaths = [
+        path.join(process.cwd(), 'src/experts/experts.html'),  // Primary
+        path.join(process.cwd(), 'experts/experts.html'),
+        path.join(process.cwd(), 'experts.html')               // Fallback
+      ];
+      
+      let html = null;
+      for (const p of possiblePaths) {
+        try {
+          html = fs.readFileSync(p, 'utf8');
+          break;
+        } catch {}
+      }
+      
+      if (!html) {
+        throw new Error('experts.html not found in: ' + possiblePaths.join(', '));
+      }
+      
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(html);
     } catch (err) {
       res.writeHead(500);
-      res.end('Error loading experts page');
+      res.end('Error loading experts page: ' + err.message);
     }
   },
 
