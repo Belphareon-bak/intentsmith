@@ -1,4 +1,4 @@
-// C.3 v35.0.0 Server - p(AI)assistant
+// C.3 v35.0.1 Server - p(AI)assistant
 // ══════════════════════════════════════════════════════════════════════════════
 
 import http from 'http';
@@ -214,7 +214,7 @@ const routes = {
   'GET /': (req, res) => {
     sendJSON(res, 200, {
       name: 'p(AI)assistant',
-      version: '34.4.2',
+      version: '35.0.1',
       status: 'ok',
       endpoints: [
         'POST /workflow - Start or continue workflow',
@@ -225,6 +225,7 @@ const routes = {
         'POST /memory - Set memory value',
         'GET /ui - Workflow UI',
         'GET /architect - Architect Mode UI',
+        'GET /experts - Expert Layer UI (v35)',
         'GET /agents - Agent Platform UI',
         'GET /api/agents - List all agents',
         'POST /api/agents - Create agent',
