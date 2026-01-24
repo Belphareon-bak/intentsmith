@@ -1,4 +1,4 @@
-// CRE v36.9.2 Tool Executor
+// CRE v36.9.3 Tool Executor
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Executes tools from CREDecision(TOOL_CALL).
@@ -7,13 +7,15 @@
 //
 // Features:
 // - Param validation (required params check)
-// - Permission check (stub - always allows for now)
+// - Permission check (basic capability gate)
+// - HumanGate integration (CONFIRM_ONCE / ALWAYS_ASK)
 // - Execution timeout
-// - Normalized error codes: MISSING_PARAM, UNKNOWN_TOOL, PERMISSION_DENIED, BACKEND_UNAVAILABLE
+// - Normalized error codes: MISSING_PARAM, UNKNOWN_TOOL, PERMISSION_DENIED, GATED, BACKEND_UNAVAILABLE
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { toolRegistry } from './registry.js';
+import { humanGate } from '../gates/human-gate.js';
 import { logger } from '../core/logger.js';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -24,6 +26,7 @@ export const ToolError = {
   MISSING_PARAM: 'MISSING_PARAM',
   UNKNOWN_TOOL: 'UNKNOWN_TOOL',
   PERMISSION_DENIED: 'PERMISSION_DENIED',
+  GATED: 'GATED',
   BACKEND_UNAVAILABLE: 'BACKEND_UNAVAILABLE',
   TIMEOUT: 'TIMEOUT',
   EXECUTION_ERROR: 'EXECUTION_ERROR',
@@ -87,7 +90,7 @@ class ToolExecutor {
     }
 
     // ──────────────────────────────────────────────────────────────────────
-    // 3. PERMISSION CHECK (stub)
+    // 3. PERMISSION CHECK
     // ──────────────────────────────────────────────────────────────────────
 
     const deniedPerms = (tool.permissions || []).filter(p => !this.permissions.has(p));
@@ -99,6 +102,27 @@ class ToolExecutor {
       );
       this.logExecution(toolName, params, result);
       return result;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // 3.5 HUMAN GATE CHECK
+    // ──────────────────────────────────────────────────────────────────────
+
+    if (!context.skipGate) {
+      const gateResult = humanGate.check(toolName, params);
+      if (!gateResult.allowed) {
+        const result = {
+          ok: false,
+          code: ToolError.GATED,
+          error: gateResult.reason,
+          gated: true,
+          tool: toolName,
+          params,
+          duration: Date.now() - startTime,
+        };
+        this.logExecution(toolName, params, result);
+        return result;
+      }
     }
 
     // ──────────────────────────────────────────────────────────────────────

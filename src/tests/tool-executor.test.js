@@ -213,7 +213,7 @@ await asyncTest('Tool timeout returns TIMEOUT error', async () => {
   });
 
   const decision = toolCall('test.slow', {});
-  const result = await toolExecutor.execute(decision, { timeout: 50 });
+  const result = await toolExecutor.execute(decision, { timeout: 50, skipGate: true });
 
   assertTrue(!result.ok, 'Should fail');
   assertEqual(result.code, ToolError.TIMEOUT, 'Error code');

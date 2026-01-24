@@ -17,6 +17,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { httpClient } from './http-client.js';
+import { memory } from '../memory/policy.js';
 import { logger } from '../core/logger.js';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -316,6 +317,48 @@ tools['fs.list'] = {
     } catch (err) {
       return { error: err.message, code: 'FS_ERROR' };
     }
+  },
+};
+
+// ────────────────────────────────────────────────────────────────────────────
+// memory.store
+// ────────────────────────────────────────────────────────────────────────────
+
+tools['memory.store'] = {
+  name: 'memory.store',
+  description: 'Store a fact in session memory',
+  params: {
+    required: ['key', 'value'],
+    optional: ['ttl', 'source', 'tags'],
+  },
+  permissions: [],
+  async execute(params) {
+    const { key, value, ttl, source, tags } = params;
+    return memory.set(key, value, { ttl, source, tags });
+  },
+};
+
+// ────────────────────────────────────────────────────────────────────────────
+// memory.recall
+// ────────────────────────────────────────────────────────────────────────────
+
+tools['memory.recall'] = {
+  name: 'memory.recall',
+  description: 'Recall a fact from session memory',
+  params: {
+    required: ['key'],
+    optional: ['tag', 'prefix'],
+  },
+  permissions: [],
+  async execute(params) {
+    const { key, tag, prefix } = params;
+
+    // Tag-based recall
+    if (tag) return { results: memory.getByTag(tag) };
+    // Prefix-based recall
+    if (prefix) return { results: memory.getByPrefix(prefix) };
+    // Key-based recall
+    return memory.get(key);
   },
 };
 
