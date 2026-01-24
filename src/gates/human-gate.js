@@ -28,6 +28,12 @@ export const GateLevel = {
   ALWAYS_ASK: 'ALWAYS_ASK',     // Always ask
 };
 
+export const ApprovalScope = {
+  STEP: 'step',       // Approval valid for single execution
+  SESSION: 'session', // Approval valid for entire session (default for CONFIRM_ONCE)
+  GOAL: 'goal',       // Approval valid while current goal is active
+};
+
 // ════════════════════════════════════════════════════════════════════════════
 // DEFAULT POLICY — which tools need what level of confirmation
 // ════════════════════════════════════════════════════════════════════════════
@@ -83,9 +89,11 @@ const DEFAULT_POLICY = {
 export class HumanGate {
   constructor(options = {}) {
     this.policy = { ...DEFAULT_POLICY, ...options.policy };
-    this.confirmed = new Set(); // Tools confirmed this session (for CONFIRM_ONCE)
+    // Scope per tool: { toolName → { scope: ApprovalScope, confirmedAt: timestamp, goalId?: string } }
+    this.approvals = new Map();
     this.denied = new Set();    // Tools explicitly denied this session
     this.auditLog = [];
+    this.currentGoalId = null;  // Set by planner when goal changes
   }
 
   /**
@@ -110,7 +118,7 @@ export class HumanGate {
         return { allowed: true };
 
       case GateLevel.CONFIRM_ONCE:
-        if (this.confirmed.has(toolName)) {
+        if (this.isApprovalValid(toolName)) {
           this.log('PREVIOUSLY_CONFIRMED', toolName, params);
           return { allowed: true };
         }
@@ -128,14 +136,48 @@ export class HumanGate {
   }
 
   /**
-   * Confirm a tool for this session
-   * After confirmation, CONFIRM_ONCE tools won't ask again
+   * Check if a previous approval is still valid (respects scope)
    */
-  confirm(toolName) {
-    this.confirmed.add(toolName);
+  isApprovalValid(toolName) {
+    const approval = this.approvals.get(toolName);
+    if (!approval) return false;
+
+    switch (approval.scope) {
+      case ApprovalScope.STEP:
+        // Single-use: consume and invalidate
+        this.approvals.delete(toolName);
+        return true;
+      case ApprovalScope.GOAL:
+        // Valid while same goal is active
+        return approval.goalId === this.currentGoalId;
+      case ApprovalScope.SESSION:
+      default:
+        // Valid for entire session
+        return true;
+    }
+  }
+
+  /**
+   * Confirm a tool with scope
+   * @param {string} toolName
+   * @param {string} [scope='session'] - ApprovalScope value
+   */
+  confirm(toolName, scope = ApprovalScope.SESSION) {
+    this.approvals.set(toolName, {
+      scope,
+      confirmedAt: Date.now(),
+      goalId: this.currentGoalId,
+    });
     this.denied.delete(toolName);
-    this.log('CONFIRMED', toolName);
-    logger.debug('HumanGate', `Confirmed: ${toolName}`);
+    this.log('CONFIRMED', toolName, { scope });
+    logger.debug('HumanGate', `Confirmed: ${toolName} (scope: ${scope})`);
+  }
+
+  /**
+   * Set current goal ID (called by planner on goal change)
+   */
+  setGoal(goalId) {
+    this.currentGoalId = goalId;
   }
 
   /**
@@ -143,7 +185,7 @@ export class HumanGate {
    */
   deny(toolName) {
     this.denied.add(toolName);
-    this.confirmed.delete(toolName);
+    this.approvals.delete(toolName);
     this.log('DENIED_BY_USER', toolName);
     logger.debug('HumanGate', `Denied: ${toolName}`);
   }
@@ -169,8 +211,9 @@ export class HumanGate {
    * Reset session state (confirmations/denials)
    */
   resetSession() {
-    this.confirmed.clear();
+    this.approvals.clear();
     this.denied.clear();
+    this.currentGoalId = null;
     logger.debug('HumanGate', 'Session reset');
   }
 
@@ -179,8 +222,10 @@ export class HumanGate {
    */
   getStats() {
     return {
-      confirmed: [...this.confirmed],
+      confirmed: [...this.approvals.keys()],
+      approvals: Object.fromEntries(this.approvals),
       denied: [...this.denied],
+      currentGoalId: this.currentGoalId,
       policyEntries: Object.keys(this.policy).length,
       recentGates: this.auditLog.slice(-20),
     };

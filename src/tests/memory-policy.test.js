@@ -208,6 +208,22 @@ test('forget non-existent key returns deleted: false', () => {
   assertTrue(!result.deleted, 'Should not confirm deletion');
 });
 
+test('forget with reason records the reason', () => {
+  const mem = new MemoryPolicy();
+  mem.set('bad.fact', 'wrong value');
+  const result = mem.forget('bad.fact', 'user_correction');
+  assertTrue(result.deleted, 'Should delete');
+  assertEqual(result.reason, 'user_correction', 'Should record reason');
+});
+
+test('forget without reason returns undefined reason', () => {
+  const mem = new MemoryPolicy();
+  mem.set('temp', 'x');
+  const result = mem.forget('temp');
+  assertTrue(result.deleted, 'Should delete');
+  assertEqual(result.reason, undefined, 'No reason = undefined');
+});
+
 // ────────────────────────────────────────────────────────────────────────────
 // Max entries eviction
 // ────────────────────────────────────────────────────────────────────────────

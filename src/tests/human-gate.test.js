@@ -12,7 +12,7 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { HumanGate, GateLevel } from '../gates/human-gate.js';
+import { HumanGate, GateLevel, ApprovalScope } from '../gates/human-gate.js';
 import { toolExecutor } from '../tools/executor.js';
 import { ToolError } from '../tools/executor.js';
 import { toolCall } from '../chat/cre-decision-types.js';
@@ -234,6 +234,55 @@ test('resetSession clears confirmations and denials', () => {
   assertTrue(!gate.check('fs.write', {}).allowed, 'Should be gated after reset');
   // shell.exec should not be DENIED_THIS_SESSION but CONFIRM_REQUIRED
   assertEqual(gate.check('shell.exec', {}).reason, 'CONFIRM_REQUIRED', 'Should not be denied after reset');
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// ApprovalScope
+// ────────────────────────────────────────────────────────────────────────────
+
+console.log('\n📋 ApprovalScope');
+
+test('STEP scope: consumed after single use', () => {
+  const gate = new HumanGate();
+  gate.confirm('fs.write', ApprovalScope.STEP);
+  // First check: allowed (consumes approval)
+  assertTrue(gate.check('fs.write', {}).allowed, 'Should be allowed once');
+  // Second check: gated again
+  assertTrue(!gate.check('fs.write', {}).allowed, 'Should be gated after consumption');
+});
+
+test('SESSION scope: persists for entire session', () => {
+  const gate = new HumanGate();
+  gate.confirm('fs.write', ApprovalScope.SESSION);
+  assertTrue(gate.check('fs.write', {}).allowed, 'First check');
+  assertTrue(gate.check('fs.write', {}).allowed, 'Second check');
+  assertTrue(gate.check('fs.write', {}).allowed, 'Third check');
+});
+
+test('GOAL scope: invalidated when goal changes', () => {
+  const gate = new HumanGate();
+  gate.setGoal('goal-1');
+  gate.confirm('fs.write', ApprovalScope.GOAL);
+  assertTrue(gate.check('fs.write', {}).allowed, 'Should be allowed for same goal');
+  // Change goal
+  gate.setGoal('goal-2');
+  assertTrue(!gate.check('fs.write', {}).allowed, 'Should be gated after goal change');
+});
+
+test('GOAL scope: still valid if goal unchanged', () => {
+  const gate = new HumanGate();
+  gate.setGoal('goal-A');
+  gate.confirm('fs.write', ApprovalScope.GOAL);
+  assertTrue(gate.check('fs.write', {}).allowed, 'Check 1');
+  assertTrue(gate.check('fs.write', {}).allowed, 'Check 2');
+});
+
+test('Default confirm() uses SESSION scope', () => {
+  const gate = new HumanGate();
+  gate.confirm('fs.write');
+  // Should persist across multiple checks
+  assertTrue(gate.check('fs.write', {}).allowed, 'Check 1');
+  assertTrue(gate.check('fs.write', {}).allowed, 'Check 2');
 });
 
 // ────────────────────────────────────────────────────────────────────────────

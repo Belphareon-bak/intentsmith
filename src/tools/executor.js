@@ -108,7 +108,15 @@ class ToolExecutor {
     // 3.5 HUMAN GATE CHECK
     // ──────────────────────────────────────────────────────────────────────
 
-    if (!context.skipGate) {
+    const skipGate = context.internal === true || context.skipGate === true;
+    if (skipGate) {
+      logger.warn('ToolExecutor', `GATE_SKIPPED: ${toolName}`, {
+        internal: context.internal,
+        skipGate: context.skipGate,
+      });
+    }
+
+    if (!skipGate) {
       const gateResult = humanGate.check(toolName, params);
       if (!gateResult.allowed) {
         const result = {

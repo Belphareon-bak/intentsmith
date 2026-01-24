@@ -167,14 +167,15 @@ export class MemoryPolicy {
    * Forget a fact (explicit deletion)
    *
    * @param {string} key
-   * @returns {{ deleted: boolean, key: string }}
+   * @param {string} [reason] - Why it was forgotten (for audit/self-correction)
+   * @returns {{ deleted: boolean, key: string, reason?: string }}
    */
-  forget(key) {
+  forget(key, reason) {
     const existed = this.store.delete(key);
     if (existed) {
-      logger.debug('MemoryPolicy', `Forgot: ${key}`);
+      logger.debug('MemoryPolicy', `Forgot: ${key}`, { reason: reason || 'explicit' });
     }
-    return { deleted: existed, key };
+    return { deleted: existed, key, reason: reason || undefined };
   }
 
   /**
