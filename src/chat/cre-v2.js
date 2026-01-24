@@ -1,19 +1,24 @@
-// C.3 v36.5 Conversational Reasoning Engine v2
+// C.3 v36.6 Conversational Reasoning Engine v2
 // ══════════════════════════════════════════════════════════════════════════════
 // 
 // CRE je SOUDCE, ne moderátor.
 // 
+// v36.6 CRITICAL CHANGES:
+//   - FIX 2: Forbidden Meta-Claims (no "jako AI", no "nemohu prohledávat")
+//   - FIX 3: Deterministic Execution Fallbacks (reason → specific response)
+//   - FIX 4: System Slots (now, timezone) - NEVER ask user for date
+//
 // Flow:
 //   1. Detect (intent, domain, volatility, workflow)
 //   2. Extract slots from message
 //   3. Update DialogState (AUTHORITATIVE)
 //   4. Decision Matrix (single source of truth)
-//   5. EXECUTION AUTHORITY (v36.4.4 - precondition check)
-//   6. CAPABILITY INJECTION (v36.5 - tell LLM the truth)
+//   5. EXECUTION AUTHORITY - precondition check with DETERMINISTIC fallbacks
+//   6. CALENDAR AUTO-RESPONSE (v36.5)
 //   7. Execute decision
 //   8. Speech Act Enforcement
-//   9. Answer Quality Gate
-//   10. Evidence-Based Confidence Tracking (topic-scoped)
+//   9. Answer Quality Gate + META-CLAIM SANITIZATION
+//   10. Evidence-Based Confidence Tracking
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -36,11 +41,15 @@ import {
   SpeechAct
 } from './dialog-state-v2.js';
 import { decide, explainDecision, Decision } from './decision-matrix.js';
-import { applyQualityGate } from './answer-quality-gate.js';
-import { guardExecution, createSafeExecutionContext } from './execution-contracts.js';
-import { 
-  capabilityRegistry, 
-  generateSystemContext, 
+import {
+  guardExecution,
+  createSafeExecutionContext,
+  generateExecutionFallback,
+  ExecutionBlockReason
+} from './execution-contracts.js';
+import {
+  capabilityRegistry,
+  generateSystemContext,
   getSystemSlots,
   evaluateCapabilityStatus,
   generateCapabilityFallback,
@@ -48,6 +57,17 @@ import {
   CapabilityKind,
   WorkflowCapabilityMap
 } from './capability-registry.js';
+import { responseRenderer } from './response-renderer.js';
+import {
+  answer,
+  askUser,
+  refuse,
+  toolCall,
+  createSlotRequest,
+  ResponseTemplate,
+  RefusalReason,
+  Verbosity
+} from './cre-decision-types.js';
 
 // ════════════════════════════════════════════════════════════════════════════
 // CRE RESULT
@@ -371,7 +391,7 @@ export function detectUserFrustration(message) {
 // v36.4 DETECTORS - ADVANCED EPISTEMIC DIMENSIONS
 // ════════════════════════════════════════════════════════════════════════════
 
-import { ConceptExistence, RefusalReason } from './dialog-state-v2.js';
+import { ConceptExistence } from './dialog-state-v2.js';
 
 // NON-EXISTENT CONCEPT patterns (pseudoscience, made-up terms)
 const NON_EXISTENT_PATTERNS = [
@@ -516,16 +536,17 @@ export function detectMultiDomainQuery(message) {
 
 /**
  * Determine refusal reason for better UX messaging
+ * v36.9: Uses RefusalReason from cre-decision-types.js
  */
 export function determineRefusalReason(state) {
   if (state.epistemic.dataDependency === DataDependency.LIVE && !state.epistemic.hasEvidence) {
-    return RefusalReason.DATA_UNAVAILABLE;
+    return RefusalReason.MISSING_REQUIRED_DATA;
   }
   if (state.epistemic.impossibility) {
-    return RefusalReason.IMPOSSIBLE;
+    return RefusalReason.OUT_OF_SCOPE;
   }
   if (state.epistemic.conceptExistence === ConceptExistence.NON_EXISTENT) {
-    return RefusalReason.NON_EXISTENT;
+    return RefusalReason.OUT_OF_SCOPE;
   }
   return RefusalReason.OUT_OF_SCOPE;
 }
@@ -757,166 +778,13 @@ export function extractSlots(message, state) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// RESPONSE TEMPLATES
+// NOTE: Templates moved to response-renderer.js (v36.9)
+// CRE now returns CREDecision objects, ResponseRenderer handles text.
 // ════════════════════════════════════════════════════════════════════════════
 
-const TEMPLATES = {
-  ASK: {
-    year: '📅 Pro který rok se ptáš?',
-    month: '📅 Který měsíc tě zajímá?',
-    location: '📍 Pro jaké místo/město?',
-    entity: '🔍 O jaký konkrétní produkt/položku se jedná?',
-    topic: '🔍 Jaké téma tě zajímá?',
-    timeframe: '📅 Pro jaké období?',
-    default: '❓ Potřebuji více informací.'
-  },
-  DEFER: '🔍 Vyhledám aktuální data.',
-  RESET: '🔄 Změnil jsi téma. Co tě teď zajímá?',
-  REFUSE: '⚠️ Tuto otázku nelze spolehlivě zodpovědět.',
-  
-  // v36.5: Capability-Truthful Templates (NIKDY nelžou o schopnostech)
-  EXECUTION: {
-    ASK_DATA_SOURCE: {
-      NEWS: `📰 **Mohu vyhledat zprávy**, ale potřebuji vědět zdroje.
-
-Dostupné zdroje:
-• Reuters, AP, ČTK (mezinárodní)
-• Novinky, iDnes, Seznam Zprávy (české)
-• Specializované podle tématu
-
-Které zdroje mám použít?`,
-      
-      REPORT: `📊 **Mohu vytvořit report**, ale potřebuji podklady.
-
-Co potřebuji:
-• Data k analýze (nebo zdroj odkud je získat)
-• Formát reportu (PDF, DOCX)
-• Klíčové metriky
-
-Co mi můžeš poskytnout?`,
-      
-      DEFAULT: `📋 **Tuto akci umím provést**, ale potřebuji upřesnit zdroj dat.
-
-Jaký zdroj mám použít?`
-    },
-    
-    OFFER_SEARCH_SETUP: {
-      CARS: `🚗 **Mohu vyhledat inzeráty na auta.**
-
-Dostupné zdroje: Sauto, Bazoš, Mobile.de
-
-Tvoje kritéria: 4x4, uzávěrka diferenciálu, benzín, do 200 000 Kč
-
-Mám spustit vyhledávání? Na kterém serveru začít?`,
-      
-      FLATS: `🏠 **Mohu vyhledat nemovitosti.**
-
-Dostupné zdroje: Sreality, Bezrealitky, Reality.cz
-
-Mám spustit vyhledávání? Upřesni prosím lokalitu.`,
-      
-      DEFAULT: `🔍 **Mohu provést vyhledávání.**
-
-Dostupné zdroje závisí na typu hledání.
-Upřesni prosím, co hledáš a kde mám hledat.`
-    },
-    
-    BLOCK_NO_DATA: `⚠️ **Tuto akci umím**, ale momentálně nemám potřebná data.
-
-Možnosti:
-1. Poskytneš mi data
-2. Řekneš mi, odkud je mám získat
-3. Navrhneme alternativní postup
-
-Jak chceš pokračovat?`
-  }
-};
-
 // ════════════════════════════════════════════════════════════════════════════
-// SPEECH ACT ENFORCEMENT
+// NOTE: Speech Act & Correction enforcement moved to response-renderer.js (v36.9)
 // ════════════════════════════════════════════════════════════════════════════
-
-function enforceSpeechAct(text, speechAct, state) {
-  let result = text || '';
-  const changes = [];
-  
-  // ESTIMATE/HYPOTHESIS needs uncertainty marker
-  if (speechAct === SpeechAct.ESTIMATE || speechAct === SpeechAct.HYPOTHESIS) {
-    const hasUncertainty = /⚠️|přibližně|orientačn|možná|pravděpodobně|odhad/i.test(result);
-    if (!hasUncertainty) {
-      result = '⚠️ **Odhad:** ' + result;
-      changes.push('ADDED_ESTIMATE_MARKER');
-    }
-  }
-  
-  // REFUSAL must be clear
-  if (speechAct === SpeechAct.REFUSAL) {
-    if (!/⚠️|nemohu/i.test(result)) {
-      result = '⚠️ ' + result;
-      changes.push('ADDED_REFUSAL_MARKER');
-    }
-  }
-  
-  // Enforce forbidNumbers
-  if (state.enforcement.forbidNumbers) {
-    const hasSpecificNumber = /\d+\s*(kč|czk|eur|\$|km\/h|°c|kg|km)/i.test(result);
-    if (hasSpecificNumber && !/přibližně|kolem|zhruba|cca/i.test(result)) {
-      result = '⚠️ **Upozornění:** Konkrétní hodnoty jsou pouze orientační.\n\n' + result;
-      changes.push('ADDED_NUMBER_WARNING');
-    }
-  }
-  
-  // Enforce forbidPrices
-  if (state.enforcement.forbidPrices) {
-    const hasPrice = /\d+\s*(kč|czk|eur|\$)/i.test(result);
-    if (hasPrice && !/přibližně|kolem|zhruba|rozmezí/i.test(result)) {
-      result = '⚠️ **Upozornění:** Ceny jsou pouze orientační.\n\n' + result;
-      changes.push('ADDED_PRICE_WARNING');
-    }
-  }
-  
-  // Enforce requireDisclaimer
-  if (state.needsDisclaimer()) {
-    const hasDisclaimer = /⚠️|upozornění|orientační|odhad/i.test(result);
-    if (!hasDisclaimer) {
-      result = '⚠️ **Upozornění:** Následující informace nemusí být přesná.\n\n' + result;
-      changes.push('ADDED_DISCLAIMER');
-    }
-    state.disclaimerGiven = true;
-  }
-  
-  return { text: result, changes };
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// CORRECTION ENFORCEMENT
-// ════════════════════════════════════════════════════════════════════════════
-
-function enforceCorrection(text, state) {
-  if (!state.correctionMode) return { text, changes: [] };
-  
-  let result = text || '';
-  const changes = [];
-  
-  // Must acknowledge error
-  const hasAck = /oprav|chyb|máš pravdu|mýlil/i.test(result);
-  if (!hasAck) {
-    result = '🔄 **Opravuji svou předchozí odpověď.**\n\n' + result;
-    changes.push('ADDED_CORRECTION_ACK');
-  }
-  
-  // Remove defensive language
-  const defensive = /ale já|měl jsem pravdu|trvám na|nesouhlasím|jak jsem říkal/gi;
-  if (defensive.test(result)) {
-    result = result.replace(defensive, '');
-    changes.push('REMOVED_DEFENSIVE');
-  }
-  
-  // Clear correction mode
-  state.correctionMode = false;
-  
-  return { text: result, changes };
-}
 
 // ════════════════════════════════════════════════════════════════════════════
 // CALENDAR QUERY HANDLER (v36.5)
@@ -1027,19 +895,25 @@ function determineExecutionFallback(workflowIntent, missing) {
 
 /**
  * Process a message through the Conversational Reasoning Engine
- * 
+ *
+ * v36.9: CRE no longer accepts llmCall parameter.
+ * Text generation is handled exclusively by ResponseRenderer.
+ * LLM calls use only SYNTHESIZER token via llmGateway.
+ *
  * @param {string} message - User message
  * @param {DialogState} state - Dialog state (will be mutated)
- * @param {object} context - Additional context (source URL, etc.)
- * @param {Function} llmCall - Optional LLM function (message, prompt) => { text }
+ * @param {object} context - Additional context (source URL, sessionId, etc.)
  * @returns {Promise<CREResult>}
  */
-export async function process(message, state, context = {}, llmCall = null) {
+export async function process(message, state, context = {}) {
   try {
+    // v36.9: Generate unique decisionId for this request (propagated to all subsystems)
+    const decisionId = context.decisionId || `cre-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
     // ═══════════════════════════════════════════════════════════════════════
     // STEP 1: DETECT
     // ═══════════════════════════════════════════════════════════════════════
-    
+
     const domain = detectDomain(message);
     const intent = detectIntent(message, state);
     const volatility = detectVolatility(message, domain);
@@ -1111,6 +985,7 @@ export async function process(message, state, context = {}, llmCall = null) {
     }
     
     logger.info('CRE', 'Analysis complete', {
+      decisionId,
       domain, intent, volatility, certainty,
       extractedSlots,
       openSlots: state.getOpenSlots(),
@@ -1127,45 +1002,54 @@ export async function process(message, state, context = {}, llmCall = null) {
     // ═══════════════════════════════════════════════════════════════════════
     // STEP 4.5: EXECUTION AUTHORITY (v36.4.4)
     // ═══════════════════════════════════════════════════════════════════════
-    // 
-    // Before executing, verify we have the capability to execute.
-    // This prevents crashes from missing data/backends.
-    //
-    
+
     const executionContext = createSafeExecutionContext(context);
     const executionGuard = guardExecution(state.workflow.intent, executionContext);
-    
-    // Log execution authority check
+
     logger.info('CRE', 'Execution authority check', {
+      decisionId,
       workflowIntent: state.workflow.intent,
       canExecute: executionGuard.canExecute,
-      missing: executionGuard.missing
+      missing: executionGuard.missing,
+      blockReason: executionGuard.blockReason
     });
-    
+
     // Override decision if execution cannot proceed
     if (!executionGuard.canExecute) {
-      // Determine the appropriate fallback action
+      if (executionGuard.fallbackResponse) {
+        logger.warn('CRE', 'Execution blocked - using deterministic fallback', {
+          originalAction: decision.action,
+          blockReason: executionGuard.blockReason
+        });
+
+        // v36.9: Return fallback as rendered execution template
+        const fallbackText = responseRenderer.renderExecutionFallback(
+          determineExecutionFallback(state.workflow.intent, executionGuard.missing),
+          { workflowIntent: state.workflow.intent, message }
+        );
+
+        return CREResult.ok(fallbackText, SpeechAct.QUESTION, decision, state, null);
+      }
+
       const fallbackAction = determineExecutionFallback(state.workflow.intent, executionGuard.missing);
-      
-      logger.warn('CRE', 'Execution blocked - applying fallback', {
+
+      logger.warn('CRE', 'Execution blocked - applying fallback action', {
         originalAction: decision.action,
         fallbackAction: fallbackAction,
         reason: executionGuard.error
       });
-      
-      // Create new decision with fallback
+
       decision = new Decision(
         fallbackAction,
         executionGuard.error || 'Execution preconditions not met',
         SpeechAct.QUESTION
       );
     }
-    
+
     // ═══════════════════════════════════════════════════════════════════════
     // STEP 4.6: CALENDAR AUTO-RESPONSE (v36.5)
     // ═══════════════════════════════════════════════════════════════════════
-    // Calendar queries are deterministic - no LLM needed
-    
+
     if (state.workflow.intent === WorkflowIntent.CALENDAR) {
       const calendarResponse = handleCalendarQuery(message);
       if (calendarResponse) {
@@ -1173,205 +1057,174 @@ export async function process(message, state, context = {}, llmCall = null) {
         return CREResult.ok(calendarResponse, SpeechAct.FACT, decision, state, null);
       }
     }
-    
+
     // ═══════════════════════════════════════════════════════════════════════
-    // STEP 5: EXECUTE DECISION
+    // STEP 5: CREATE CRE DECISION (v36.9 - NO TEXT GENERATION)
     // ═══════════════════════════════════════════════════════════════════════
-    
-    let response;
+    // CRE creates a structured CREDecision object.
+    // Text generation happens ONLY in ResponseRenderer.
+
+    let creDecision;
     let speechAct = decision.speechAct;
-    
+
     switch (decision.action) {
       case SystemAction.ASK_CLARIFICATION: {
-        const slot = decision.askSlot || 'default';
-        response = TEMPLATES.ASK[slot] || TEMPLATES.ASK.default;
+        const slot = decision.askSlot || 'clarification';
+        creDecision = askUser(
+          [createSlotRequest(slot, 'text', { required: true })],
+          ResponseTemplate.SLOT_REQUEST
+        );
         speechAct = SpeechAct.QUESTION;
         break;
       }
-      
+
       case SystemAction.DEFER_TO_SEARCH: {
-        response = TEMPLATES.DEFER;
+        creDecision = refuse(RefusalReason.MISSING_REQUIRED_DATA, [
+          'Mohu vyhledat aktuální data, upřesni zdroj.'
+        ]);
         speechAct = SpeechAct.REFUSAL;
         break;
       }
-      
+
       case SystemAction.RESET_CONTEXT: {
-        response = TEMPLATES.RESET;
-        // Clear domain change marker
+        creDecision = askUser(
+          [createSlotRequest('topic', 'text', { description: '🔄 Změnil jsi téma. Co tě teď zajímá?' })],
+          ResponseTemplate.SLOT_REQUEST
+        );
         state.previousDomain = null;
         speechAct = SpeechAct.QUESTION;
         break;
       }
-      
+
       case SystemAction.REFUSE: {
-        response = TEMPLATES.REFUSE;
+        const refusalReason = determineRefusalReason(state);
+        creDecision = refuse(refusalReason);
         speechAct = SpeechAct.REFUSAL;
         break;
       }
-      
-      // ───────────────────────────────────────────────────────────────────────
-      // v36.4.4: Execution Authority Actions
-      // ───────────────────────────────────────────────────────────────────────
-      
+
       case SystemAction.ASK_DATA_SOURCE: {
-        // Select appropriate template based on workflow
-        if (state.workflow.intent === WorkflowIntent.NEWS_AGGREGATION) {
-          response = TEMPLATES.EXECUTION.ASK_DATA_SOURCE.NEWS;
-        } else if (state.workflow.intent === WorkflowIntent.REPORT) {
-          response = TEMPLATES.EXECUTION.ASK_DATA_SOURCE.REPORT;
-        } else {
-          response = TEMPLATES.EXECUTION.ASK_DATA_SOURCE.DEFAULT;
-        }
+        const sourceType = state.workflow.intent === WorkflowIntent.NEWS_AGGREGATION ? 'news' :
+                          state.workflow.intent === WorkflowIntent.REPORT ? 'report' : 'default';
+        creDecision = askUser(
+          [createSlotRequest('source', 'text', { required: true })],
+          ResponseTemplate.SOURCE_SELECTION,
+          { sourceType }
+        );
         speechAct = SpeechAct.QUESTION;
         break;
       }
-      
+
       case SystemAction.OFFER_SEARCH_SETUP: {
-        // Select appropriate template based on message content (not domain)
-        if (/auto|vůz|vozidl|4x4|motor/i.test(message)) {
-          response = TEMPLATES.EXECUTION.OFFER_SEARCH_SETUP.CARS;
-        } else if (/byt|nemovitost|dům|pronájem|sreality/i.test(message)) {
-          response = TEMPLATES.EXECUTION.OFFER_SEARCH_SETUP.FLATS;
-        } else {
-          response = TEMPLATES.EXECUTION.OFFER_SEARCH_SETUP.DEFAULT;
-        }
+        const searchType = /auto|vůz|vozidl|4x4|motor/i.test(message) ? 'cars' :
+                          /byt|nemovitost|dům|pronájem|sreality/i.test(message) ? 'flats' : 'default';
+        creDecision = askUser(
+          [createSlotRequest('source', 'text', { required: true })],
+          ResponseTemplate.SOURCE_SELECTION,
+          { sourceType: searchType }
+        );
         speechAct = SpeechAct.QUESTION;
         break;
       }
-      
+
       case SystemAction.BLOCK_NO_DATA: {
-        response = TEMPLATES.EXECUTION.BLOCK_NO_DATA;
+        creDecision = refuse(RefusalReason.MISSING_REQUIRED_DATA, [
+          'Poskytneš mi data',
+          'Řekneš mi, odkud je mám získat',
+          'Navrhneme alternativní postup'
+        ]);
         speechAct = SpeechAct.REFUSAL;
         break;
       }
-      
-      // ───────────────────────────────────────────────────────────────────────
-      
+
       case SystemAction.ANSWER_WITH_BOUNDS: {
-        // Generate bounded answer with conditions
         const bounds = decision.getBounds?.(state) || state.getBoundedAnswerOptions?.() || [];
-        
-        if (!llmCall) {
-          // Template-based bounded answer
-          const conditions = bounds.map(b => 
-            `Pokud jde o ${b.slot} ${b.possibleValues[0]}, pak [odpověď 1]. ` +
-            `Pokud ${b.possibleValues[1] || 'jinak'}, pak [odpověď 2].`
-          ).join('\n');
-          response = conditions + '\nUpřesni, prosím, o co konkrétně jde.';
-        } else {
-          // LLM-generated bounded answer
-          const boundInstructions = bounds.map(b => 
-            `- Slot "${b.slot}" není jasný. Zvažte tyto možnosti: ${b.possibleValues.join(', ')}`
-          ).join('\n');
-          
-          const prompt = buildPrompt(decision, state, {
-            additionalInstructions: `
-Odpověz s PODMÍNKAMI, ne otázkou.
-Format: "Pokud myslíš X, pak Y. Pokud Z, pak W."
-Neznámé sloty:
-${boundInstructions}
-Na konci se můžeš zeptat na upřesnění.`
-          });
-          
-          const llmResult = await llmCall(message, prompt);
-          if (!llmResult?.text) {
-            return CREResult.fail('LLM call failed');
-          }
-          response = llmResult.text;
-        }
+        creDecision = answer(ResponseTemplate.FACTUAL_ANSWER, {
+          data: {
+            bounds: bounds,
+            type: 'conditional',
+            userMessage: message
+          },
+          verbosity: Verbosity.NORMAL,
+          context: { resolvedSlots: state.getResolvedSlots() }
+        });
         speechAct = SpeechAct.CONDITIONAL;
         break;
       }
-      
+
       default: {
-        // Needs LLM for ANSWER, ANSWER_WITH_DISCLAIMER, ANSWER_STRUCTURAL, CONFIRM_CONTEXT, CORRECT_PREVIOUS
-        if (!llmCall) {
-          response = `[LLM REQUIRED]\nAction: ${decision.action}\nSpeech Act: ${speechAct}`;
-        } else {
-          const prompt = buildPrompt(decision, state);
-          const llmResult = await llmCall(message, prompt);
-          if (!llmResult?.text) {
-            return CREResult.fail('LLM call failed');
-          }
-          response = llmResult.text;
-        }
-      }
-    }
-    
-    // ═══════════════════════════════════════════════════════════════════════
-    // STEP 6: ENFORCE SPEECH ACT
-    // ═══════════════════════════════════════════════════════════════════════
-    
-    const allEnforcement = [];
-    
-    // Correction enforcement
-    if (decision.action === SystemAction.CORRECT_PREVIOUS) {
-      const { text, changes } = enforceCorrection(response, state);
-      response = text;
-      allEnforcement.push(...changes);
-    }
-    
-    // Speech act enforcement
-    const { text: finalText, changes } = enforceSpeechAct(response, speechAct, state);
-    response = finalText;
-    allEnforcement.push(...changes);
-    
-    // ═══════════════════════════════════════════════════════════════════════
-    // STEP 7: ANSWER QUALITY GATE
-    // ═══════════════════════════════════════════════════════════════════════
-    
-    let qualityGateResult = null;
-    
-    // Apply quality gate for LLM-generated responses
-    if ([SystemAction.ANSWER, SystemAction.ANSWER_WITH_DISCLAIMER, 
-         SystemAction.ANSWER_STRUCTURAL, SystemAction.CONFIRM_CONTEXT,
-         SystemAction.CORRECT_PREVIOUS].includes(decision.action)) {
-      
-      qualityGateResult = applyQualityGate(response, state, decision);
-      
-      if (qualityGateResult.fallback) {
-        // Quality gate failed - use fallback
-        response = qualityGateResult.text;
-        speechAct = SpeechAct.REFUSAL;
-        logger.warn('CRE', 'Quality gate fallback applied', {
-          violations: qualityGateResult.violations
+        // ANSWER, ANSWER_WITH_DISCLAIMER, ANSWER_STRUCTURAL, CONFIRM_CONTEXT, CORRECT_PREVIOUS
+        // All use FACTUAL_ANSWER or EXPLANATION template with data for synthesis
+        const templateType = decision.action === SystemAction.CONFIRM_CONTEXT
+          ? ResponseTemplate.CONFIRMATION
+          : ResponseTemplate.FACTUAL_ANSWER;
+
+        creDecision = answer(templateType, {
+          data: {
+            action: decision.action,
+            constraints: decision.constraints || [],
+            resolvedSlots: state.getResolvedSlots(),
+            userMessage: message
+          },
+          verbosity: Verbosity.NORMAL,
+          context: { resolvedSlots: state.getResolvedSlots() }
         });
-      } else if (qualityGateResult.text !== response) {
-        // Quality gate corrected response
-        response = qualityGateResult.text;
-        allEnforcement.push('QUALITY_GATE_CORRECTION');
       }
     }
-    
+
     // ═══════════════════════════════════════════════════════════════════════
-    // STEP 7B: EVIDENCE-BASED CONFIDENCE TRACKING
+    // STEP 6: RENDER DECISION VIA ResponseRenderer (v36.9)
     // ═══════════════════════════════════════════════════════════════════════
-    
-    // Track confidence based on EVIDENCE, not fluency
+    // ResponseRenderer handles: text generation, speech act enforcement,
+    // quality gate, meta-claim sanitization.
+
+    const renderContext = {
+      state,
+      decision,
+      speechAct,
+      action: decision.action,
+      userMessage: message,
+      constraints: decision.constraints || [],
+      resolvedSlots: state.getResolvedSlots(),
+      sessionId: context.sessionId || 'cre-' + Date.now(),
+      decisionId,
+      executionResults: context.executionResults
+    };
+
+    const renderResult = await responseRenderer.render(creDecision, renderContext);
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // STEP 7: EVIDENCE-BASED CONFIDENCE TRACKING
+    // ═══════════════════════════════════════════════════════════════════════
+
     if (decision.action === SystemAction.CORRECT_PREVIOUS) {
-      // Correction = system was wrong → penalize
       state.recordCorrection();
-    } else if (decision.action !== SystemAction.ASK_CLARIFICATION && 
+    } else if (decision.action !== SystemAction.ASK_CLARIFICATION &&
                decision.action !== SystemAction.DEFER_TO_SEARCH) {
-      // Answer was given
       if (state.epistemic.hasEvidence || context.source) {
-        // Had external evidence → verified answer
         state.recordVerifiedAnswer();
-        state.updateCoherence(0.1);  // Small coherence boost
+        state.updateCoherence(0.1);
       } else {
-        // No evidence → unverified answer
         state.recordUnverifiedAnswer();
-        state.updateCoherence(0.05);  // Smaller boost
+        state.updateCoherence(0.05);
       }
     }
-    
+
     // ═══════════════════════════════════════════════════════════════════════
     // STEP 8: RETURN RESULT
     // ═══════════════════════════════════════════════════════════════════════
-    
-    const result = CREResult.ok(response, speechAct, decision, state, qualityGateResult);
-    result.enforcement = allEnforcement;
-    
+
+    const result = CREResult.ok(
+      renderResult.text,
+      speechAct,
+      decision,
+      state,
+      renderResult.metadata?.qualityGate || null
+    );
+    result.enforcement = renderResult.enforcement || [];
+    result.creDecision = creDecision;  // Attach structured decision for debugging
+    result.decisionId = decisionId;    // v36.9: Propagate for audit/replay
+
     return result;
     
   } catch (error) {
@@ -1381,69 +1234,9 @@ Na konci se můžeš zeptat na upřesnění.`
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// PROMPT BUILDER
+// NOTE: buildPrompt moved to response-renderer.js as buildSynthesisPrompt (v36.9)
+// CRE no longer builds prompts or calls LLM directly for text generation.
 // ════════════════════════════════════════════════════════════════════════════
-
-function buildPrompt(decision, state, options = {}) {
-  // v36.5: INJECT SYSTEM CONTEXT FIRST
-  // This tells LLM the truth about capabilities and current time
-  let prompt = generateSystemContext();
-  
-  prompt += `\nJsi C.3 Agent. STRIKTNĚ dodržuj následující pravidla:\n\n`;
-  
-  // Action-specific instructions
-  const actionInstructions = {
-    [SystemAction.ANSWER]: 'ODPOVĚZ přesně a věcně.',
-    [SystemAction.ANSWER_WITH_DISCLAIMER]: 'ODPOVĚZ s upozorněním na nejistotu.',
-    [SystemAction.ANSWER_STRUCTURAL]: 'ODPOVĚZ RÁMCOVĚ. NEUVÁDĚJ konkrétní čísla bez zdroje.',
-    [SystemAction.ANSWER_WITH_BOUNDS]: 'ODPOVĚZ s PODMÍNKAMI. "Pokud X, pak Y."',
-    [SystemAction.CONFIRM_CONTEXT]: 'POTVRĎ nebo VYVRAŤ. NEPTEJ SE. NEHLEDEJ nové informace.',
-    [SystemAction.CORRECT_PREVIOUS]: 'OPRAV předchozí odpověď. PŘIZNEJ CHYBU. NEBRAŇ SE.'
-  };
-  prompt += `AKCE: ${actionInstructions[decision.action] || 'ODPOVĚZ.'}\n\n`;
-  
-  // Constraints
-  if (decision.constraints.length > 0) {
-    prompt += `OMEZENÍ:\n`;
-    const constraintDescriptions = {
-      'NO_SPECIFIC_NUMBERS': '- NEUVÁDĚJ konkrétní čísla bez ověřeného zdroje',
-      'NO_SPECIFIC_DATES': '- NEUVÁDĚJ konkrétní data bez ověření',
-      'NO_SPECIFIC_PRICES': '- NEUVÁDĚJ konkrétní ceny',
-      'REQUIRE_DISCLAIMER': '- MUSÍŠ uvést upozornění na nejistotu',
-      'NO_SPECIFIC_CLAIMS': '- NEUVÁDĚJ konkrétní tvrzení bez evidence'
-    };
-    for (const c of decision.constraints) {
-      prompt += `${constraintDescriptions[c] || `- ${c}`}\n`;
-    }
-    prompt += '\n';
-  }
-  
-  // Context from slots
-  const resolved = state.getResolvedSlots();
-  if (Object.keys(resolved).length > 0) {
-    prompt += `🔒 KONTEXT (NESMÍŠ se znovu ptát):\n`;
-    for (const [key, value] of Object.entries(resolved)) {
-      prompt += `- ${key}: ${value}\n`;
-    }
-    prompt += '\n';
-  }
-  
-  // Additional instructions (for bounded answers, repairs, etc.)
-  if (options.additionalInstructions) {
-    prompt += `\n📋 SPECIÁLNÍ INSTRUKCE:\n${options.additionalInstructions}\n`;
-  }
-  
-  // Repair instructions (for iterative quality gate)
-  if (options.repairHints) {
-    prompt += `\n⚠️ OPRAV TYTO PROBLÉMY:\n`;
-    for (const hint of options.repairHints) {
-      prompt += `- ${hint}\n`;
-    }
-    prompt += '\n';
-  }
-  
-  return prompt;
-}
 
 // ════════════════════════════════════════════════════════════════════════════
 // EXPORTS

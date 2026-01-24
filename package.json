@@ -1,8 +1,8 @@
 {
   "name": "c3-agent",
-  "version": "36.5.0",
+  "version": "36.9.0",
   "type": "module",
-  "description": "C.3 Agent - CRE v36.5 (Capability Registry + System Slots + Truthful LLM)",
+  "description": "C.3 Agent - CRE v36.9 (ResponseRenderer + Single LLM Call - hard LLM guard)",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

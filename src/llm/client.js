@@ -1,107 +1,68 @@
-// C.3 v28 LLM Client
+// C.3 v36.7 LLM Client
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// v36.7: All calls now go through LLMGateway
+// This file provides backward-compatible wrappers for legacy code.
+// 
+// MIGRATION: All direct callOllama() calls should migrate to using
+// auth tokens via llmGateway.authorize() / llmGateway.call()
+//
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { config } from '../config.js';
 import { logger } from '../core/logger.js';
+import { legacyCall, llmGateway } from './gateway.js';
 
 // ════════════════════════════════════════════════════════════════════════════
-// OLLAMA CLIENT
+// LEGACY OLLAMA CLIENT (routes through Gateway)
 // ════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Call Ollama LLM (LEGACY - use llmGateway.call() with auth token instead)
+ *
+ * v36.9: This function is DEPRECATED. All LLM calls must use auth tokens.
+ * Will throw unless ALLOW_LEGACY_LLM=1 environment variable is set.
+ *
+ * @deprecated Use llmGateway with auth token instead
+ */
 export async function callOllama(role, prompt, systemPrompt = '', options = {}) {
-  const model = config.models[role] || config.models.CHAT;
-  const timeout = config.timeouts[role] || 60000;
-  
-  logger.info('LLM', `Calling ${role}`, { model, promptLength: prompt.length });
-  logger.debug('LLM', `Prompt preview: ${prompt.substring(0, 200)}...`);
-  
-  const timer = logger.time('LLM', `${role} (${model})`);
-  
-  // Build messages array with explicit roles - system FIRST
-  const messages = [];
-  if (systemPrompt) {
-    messages.push({ role: 'system', content: systemPrompt });
-  }
-  messages.push({ role: 'user', content: prompt });
-  
-  const body = {
-    model,
-    messages,  // Using chat format with explicit roles
-    stream: false,
-    options: {
-      temperature: options.temperature ?? 0.3,
-      top_p: options.top_p ?? 0.75,
-      repeat_penalty: options.repeat_penalty ?? 1.1,
-      num_predict: options.maxTokens ?? 4096,
-    },
-  };
-  
-  let lastError;
-  
-  for (let attempt = 1; attempt <= config.ollama.retries; attempt++) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
-      
-      // Use /api/chat endpoint for proper role handling
-      const response = await fetch(`${config.ollama.baseUrl}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        throw new Error(`Ollama HTTP ${response.status}: ${await response.text()}`);
-      }
-      
-      const data = await response.json();
-      // /api/chat returns { message: { role, content } }
-      const output = data.message?.content || data.response || '';
-      
-      const duration = timer.end(`(${output.length} chars)`);
-      
-      logger.debug('LLM', `Response preview: ${output.substring(0, 200)}...`);
-      
-      return {
-        content: output,
-        model,
-        duration,
-        role,
-      };
-      
-    } catch (err) {
-      lastError = err;
-      
-      if (err.name === 'AbortError') {
-        logger.warn('LLM', `Timeout after ${timeout}ms (attempt ${attempt}/${config.ollama.retries})`, { role, model });
-      } else {
-        logger.warn('LLM', `Error (attempt ${attempt}/${config.ollama.retries}): ${err.message}`);
-      }
-      
-      if (attempt < config.ollama.retries) {
-        await sleep(config.ollama.retryDelay * attempt);
-      }
-    }
-  }
-  
-  throw new Error(`LLM failed after ${config.ollama.retries} attempts: ${lastError?.message}`);
+  // v36.9: LOUD deprecation warning
+  logger.warn('LLM', `[DEPRECATED] callOllama() called with role: ${role}. MIGRATE TO AUTH TOKENS.`);
+
+  // Route through gateway - gateway will enforce auth check
+  const result = await legacyCall(role, prompt, systemPrompt, {
+    ...options,
+    model: config.models?.[role] || config.models?.CHAT
+  });
+
+  return result;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
 // OLLAMA VISION CLIENT
 // ════════════════════════════════════════════════════════════════════════════
+// NOTE: Vision uses /api/generate endpoint which is different from chat.
+// TODO v36.8: Route vision calls through gateway with special handling
 
 /**
  * Call Ollama vision model with image(s)
+ *
+ * v36.9: DEPRECATED - bypasses gateway. Requires ALLOW_LEGACY_LLM=1.
+ *
+ * @deprecated Migrate to gateway with vision support
  * @param {string} prompt - Text prompt
  * @param {string[]} images - Array of base64 encoded images (without data: prefix)
  * @param {string} systemPrompt - System prompt
  * @returns {Promise<{content: string, model: string, duration: number}>}
  */
 export async function callOllamaVision(prompt, images, systemPrompt = '') {
+  // v36.9: Hard guard - vision bypasses gateway, requires env flag
+  if (process.env.ALLOW_LEGACY_LLM !== '1') {
+    throw new Error('LLM_CALL_OUTSIDE_CRE: callOllamaVision() bypasses LLMGateway. Set ALLOW_LEGACY_LLM=1 to allow, or migrate to gateway with vision support.');
+  }
+
+  logger.warn('LLM', '[DEPRECATED] VISION CALL - bypasses gateway. MIGRATE TO AUTH TOKENS.');
+  
   const model = config.models.VISION || 'llava:13b';
   const timeout = config.timeouts.VISION || 60000;
   

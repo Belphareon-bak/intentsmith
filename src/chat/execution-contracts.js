@@ -1,4 +1,4 @@
-// CRE v36.4.3 Execution Contracts
+// CRE v36.6 Execution Contracts
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // PURPOSE: Define what each CRE decision REQUIRES to execute
@@ -8,9 +8,89 @@
 //
 // Every action has preconditions. If not met → BLOCK, don't crash.
 //
+// v36.6: Added ExecutionBlockReason for deterministic fallback selection
+//
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { SystemAction, WorkflowIntent, DataRequirement } from './dialog-state-v2.js';
+
+// ════════════════════════════════════════════════════════════════════════════
+// EXECUTION BLOCK REASONS (v36.6)
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Normalized reasons why execution was blocked
+ * Each reason maps to a specific fallback response template
+ */
+export const ExecutionBlockReason = {
+  MISSING_BACKEND: 'MISSING_BACKEND',       // No search/API backend configured
+  MISSING_DATA: 'MISSING_DATA',             // No data to process
+  MISSING_SOURCES: 'MISSING_SOURCES',       // No news/content sources
+  MISSING_SLOTS: 'MISSING_SLOTS',           // Required parameters not provided
+  PERMISSION_REQUIRED: 'PERMISSION_REQUIRED', // User permission needed
+  BACKEND_UNAVAILABLE: 'BACKEND_UNAVAILABLE'  // Backend exists but offline
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// EXECUTION FALLBACK TEMPLATES (v36.6)
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Deterministic fallback responses based on block reason
+ * NEVER generic, ALWAYS capability-truthful
+ */
+export const ExecutionFallbackTemplates = {
+  [ExecutionBlockReason.MISSING_BACKEND]: (ctx) => `🔍 **Vyhledávání je dostupné**, ale není připojen backend.
+
+${ctx.availableBackends?.length > 0 
+  ? `Dostupné backendy: ${ctx.availableBackends.join(', ')}\n\n` 
+  : ''}Mohu:
+• připravit přesný vyhledávací dotaz
+• doporučit vhodné zdroje
+• navrhnout filtry a kritéria
+
+Jak chceš pokračovat?`,
+
+  [ExecutionBlockReason.MISSING_DATA]: (ctx) => `📊 **Tuto akci umím provést**, ale chybí vstupní data.
+
+Pro ${ctx.action || 'tuto operaci'} potřebuji:
+• data k analýze / zpracování
+• nebo zdroj, odkud je získat
+
+Můžeš mi poskytnout data, nebo mám navrhnout kde je sehnat?`,
+
+  [ExecutionBlockReason.MISSING_SOURCES]: (ctx) => `📰 **Mohu vytvořit souhrn zpráv**, ale potřebuji zdroje.
+
+Dostupné zdroje:
+• Reuters, AP, ČTK (mezinárodní)
+• Novinky, iDnes, Seznam Zprávy (české)
+• Specializované podle tématu
+
+Které zdroje mám použít?`,
+
+  [ExecutionBlockReason.MISSING_SLOTS]: (ctx) => `❓ **Rozumím co chceš**, ale potřebuji upřesnění.
+
+Chybí: ${ctx.missingSlots?.join(', ') || 'některé parametry'}
+
+Můžeš mi to upřesnit?`,
+
+  [ExecutionBlockReason.PERMISSION_REQUIRED]: (ctx) => `🔐 **Tuto akci umím**, ale vyžaduje povolení.
+
+Pro ${ctx.action || 'tuto operaci'} potřebuji tvůj souhlas.
+
+Chceš pokračovat?`,
+
+  [ExecutionBlockReason.BACKEND_UNAVAILABLE]: (ctx) => `⚠️ **Backend je momentálně nedostupný.**
+
+${ctx.backend ? `(${ctx.backend})` : ''}
+
+Mohu:
+• zkusit znovu za chvíli
+• použít alternativní zdroj
+• připravit data offline
+
+Co preferuješ?`
+};
 
 // ════════════════════════════════════════════════════════════════════════════
 // EXECUTION CONTRACT DEFINITION
@@ -191,6 +271,7 @@ export const WorkflowContracts = {
   [WorkflowIntent.NEWS_AGGREGATION]: ExecutionContracts.NEWS_AGGREGATION,
   [WorkflowIntent.REPORT]: ExecutionContracts.ARTIFACT_GENERATION,
   [WorkflowIntent.ADVICE]: ExecutionContracts[SystemAction.ANSWER],
+  [WorkflowIntent.CALENDAR]: ExecutionContracts[SystemAction.ANSWER],  // Calendar needs nothing special
   [WorkflowIntent.CHAT]: ExecutionContracts[SystemAction.ANSWER]
 };
 
@@ -259,13 +340,43 @@ export function createSafeExecutionContext(rawContext) {
 // ════════════════════════════════════════════════════════════════════════════
 
 /**
+ * Determine the block reason from missing items
+ */
+function determineBlockReason(workflowIntent, missing) {
+  if (missing.includes('searchBackend') || missing.includes('marketplace')) {
+    return ExecutionBlockReason.MISSING_BACKEND;
+  }
+  if (missing.includes('data') || missing.includes('dataLength')) {
+    return ExecutionBlockReason.MISSING_DATA;
+  }
+  if (missing.includes('newsSources') || missing.includes('corpus')) {
+    return ExecutionBlockReason.MISSING_SOURCES;
+  }
+  if (missing.length > 0) {
+    return ExecutionBlockReason.MISSING_SLOTS;
+  }
+  return null;
+}
+
+/**
+ * Generate fallback response based on block reason
+ */
+export function generateExecutionFallback(blockReason, context = {}) {
+  const template = ExecutionFallbackTemplates[blockReason];
+  if (!template) {
+    return '❓ Pro tuto akci chybí některé požadavky. Můžeš mi je upřesnit?';
+  }
+  return template(context);
+}
+
+/**
  * Guards execution - prevents crashes from missing data
  * 
  * This is the KEY function that should be called BEFORE any execution
  * 
  * @param {WorkflowIntent} workflowIntent - What we're trying to do
  * @param {Object} rawContext - Raw execution context (may have undefined)
- * @returns {{ canExecute: boolean, context: Object, error: string|null }}
+ * @returns {{ canExecute: boolean, context: Object, error: string|null, blockReason: string|null, fallbackResponse: string|null }}
  */
 export function guardExecution(workflowIntent, rawContext) {
   // Step 1: Create safe context (no undefined)
@@ -275,11 +386,20 @@ export function guardExecution(workflowIntent, rawContext) {
   const validation = validateExecutionContract(workflowIntent, safeContext);
   
   if (!validation.valid) {
+    const blockReason = determineBlockReason(workflowIntent, validation.missing);
+    const fallbackResponse = generateExecutionFallback(blockReason, {
+      ...safeContext,
+      missingSlots: validation.missing,
+      action: workflowIntent
+    });
+    
     return {
       canExecute: false,
       context: safeContext,
       error: validation.blockMessage,
-      missing: validation.missing
+      missing: validation.missing,
+      blockReason,
+      fallbackResponse
     };
   }
   
@@ -287,7 +407,9 @@ export function guardExecution(workflowIntent, rawContext) {
     canExecute: true,
     context: safeContext,
     error: null,
-    missing: []
+    missing: [],
+    blockReason: null,
+    fallbackResponse: null
   };
 }
 
@@ -298,7 +420,10 @@ export function guardExecution(workflowIntent, rawContext) {
 export default {
   ExecutionContracts,
   WorkflowContracts,
+  ExecutionBlockReason,
+  ExecutionFallbackTemplates,
   validateExecutionContract,
   createSafeExecutionContext,
-  guardExecution
+  guardExecution,
+  generateExecutionFallback
 };

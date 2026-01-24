@@ -696,14 +696,31 @@ describe('✅ Answer Quality Gate', () => {
     // Might pass or fail depending on exact rules
   });
   
-  test('applyQualityGate returns fallback on violation', () => {
+  test('applyQualityGate returns fallback on empty input', () => {
     const state = new DialogState();
     const decision = new Decision(SystemAction.ANSWER, 'test');
     
     const result = applyQualityGate('', state, decision);
     
     expect(result.fallback).toBe(true);
-    expect(result.text).toContain('⚠️');
+    // Empty input returns ❓ clarification request
+    expect(result.text).toContain('❓');
+  });
+  
+  test('applyQualityGate sanitizes forbidden meta-claims', () => {
+    const state = new DialogState();
+    const decision = new Decision(SystemAction.ANSWER, 'test');
+    
+    // Input with forbidden meta-claims mixed with good content
+    const result = applyQualityGate('Jako AI nemohu prohledávat internet, ale mohu poradit.', state, decision);
+    
+    // Should sanitize but NOT fallback (there's useful content)
+    expect(result.fallback).toBe(false);
+    // Should NOT contain the forbidden phrases
+    expect(result.text).not.toContain('Jako AI');
+    expect(result.text).not.toContain('nemohu prohledávat');
+    // Should contain the good part
+    expect(result.text).toContain('mohu poradit');
   });
   
   test('applyQualityGate passes good response', () => {

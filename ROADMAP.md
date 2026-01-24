@@ -1,7 +1,7 @@
 # 📊 C.3 Agent - Roadmap Status
 
-**Verze:** v36.0.0  
-**Datum:** 2026-01-21  
+**Verze:** v36.9.0
+**Datum:** 2026-01-24
 **Projekt:** ~/Projects/c3-agent-wip
 
 ---
@@ -13,10 +13,57 @@ C.3 Agent je lokální AI asistent a workflow automatizační platforma, která 
 - **Agent Platform** - autonomní agenti pro monitoring a notifikace
 - **Expert Layer** - specializovaní "mistři v oboru" pro specifické úlohy
 - **Orchestrator** - řízená integrace agentů a expertů (v36)
+- **CRE** - Conversational Reasoning Engine jako single authority (v36.6+)
+
+---
+
+## 🚀 AKTUÁLNÍ FOCUS: CRE Architecture Consolidation
+
+### Problém (identifikován v36.6)
+
+CRE bylo bypass-able:
+```
+BROKEN:
+User → Intent Router → Artifact/Search/PDF → LLM (direct)
+                    └→ CRE (sometimes)
+
+REQUIRED:
+User → CRE.process() → Decision → Tools → Response
+```
+
+### Řešení: 5-Commit Plan (v36.7 → v36.9)
+
+| Commit | Verze | Název | Stav |
+|--------|-------|-------|------|
+| **1** | v36.7 | LLM Gateway Lockdown | ✅ DONE |
+| **2** | v36.8 | Tool-First CREDecision Contract | ✅ DONE |
+| **3** | v36.9 | ResponseRenderer + Single LLM Call | ✅ DONE |
+| **4** | v36.9.1 | Real Capability Wiring (Safe Tools) | 🔄 NEXT |
+| **5** | v36.9.2 | Memory Policy + Human Gate | ⏳ TODO |
 
 ---
 
 ## ✅ HOTOVO
+
+### CRE Architecture (v36.6-v36.9) — NEW
+
+| Feature | Verze | Popis | Testy |
+|---------|-------|-------|-------|
+| **Capability Truth Layer** | v36.6 | Forbidden meta-claims sanitization | 28 |
+| **Deterministic Fallbacks** | v36.6 | reason → specific response | - |
+| **System Slots** | v36.6 | now, timezone - never ask user for date | - |
+| **LLM Gateway** | v36.7 | Capability-based auth tokens | 50 |
+| **LLMAuthToken** | v36.7 | role, decisionId, capabilities, audit | - |
+| **CREDecision Types** | v36.8 | TOOL_CALL, ASK_USER, REFUSE, ANSWER, MULTI_STEP | 46 |
+| **Response Templates** | v36.8 | Enum-based, no free text | - |
+| **Decision Validation** | v36.8 | ANSWER with content string = REJECTED | - |
+| **ResponseRenderer** | v36.9 | Full impl: static + synthesize + QualityGate | 29 |
+| **Hard LLM Guard** | v36.9 | Strict mode default, ALLOW_LEGACY_LLM env flag | - |
+| **Single LLM Call** | v36.9 | Max 1 LLM call per render(), SYNTHESIZER token | - |
+| **decisionId Propagation** | v36.9 | Unique ID per CRE request, audit trail | - |
+| **CRE Text Removal** | v36.9 | CRE returns ONLY CREDecision, no text | - |
+
+**Celkem nových testů:** 342 passing (50 + 46 + 142 + 28 + 29 + 27 + 20)
 
 ### Core Infrastructure
 
@@ -64,33 +111,6 @@ C.3 Agent je lokální AI asistent a workflow automatizační platforma, která 
 | **Price Sanity Guard** | v34.3.3 | Reference data pro CZ trh (RTX 30/40/50xx) |
 | **Stable Schema** | v34.3.3 | cena_min, cena_max jako čísla, colored badges |
 
-### Data Layer
-
-| Feature | Verze | Popis |
-|---------|-------|-------|
-| **DataSource Base** | v34.4.0 | Abstraktní třída pro doménové zdroje |
-| **GPU Source** | v34.4.0 | RTX 30xx/40xx/50xx referenční data |
-| **Cars Source** | v34.4.0 | Škoda modely |
-| **Sanity Checks** | v34.4.0 | Automatická validace vs. reference |
-
-### Decision Layer
-
-| Feature | Verze | Popis |
-|---------|-------|-------|
-| **Problem Classifier** | v34.4.1 | price_range, specification, availability, consensus, procedural, hybrid |
-| **Decision Matrix** | v34.4.1 | Per-type pravidla a constraints |
-| **Hybrid Handler** | v34.4.1 | Subtask decomposition |
-| **Dynamic Prompting** | v34.4.1 | Prompt podle typu problému |
-
-### Representation Layer
-
-| Feature | Verze | Popis |
-|---------|-------|-------|
-| **Content Types** | v34.4.2 | narrative, structured, tabular, report |
-| **Narrative Detection** | v34.4.2 | isNarrativeRequest() pattern matching |
-| **Narrative HTML** | v34.4.2 | Prose layout, serif font, drop cap |
-| **Structured HTML** | v34.4.2 | Sekce s nadpisy, sans font |
-
 ### Expert Layer
 
 | Feature | Verze | Popis |
@@ -101,7 +121,6 @@ C.3 Agent je lokální AI asistent a workflow automatizační platforma, která 
 | **Expert Router** | v35.0 | routeToExpert() - automatický routing |
 | **Expert UI** | v35.0 | /experts - správa, CRUD, kategorie |
 | **Custom Experts** | v35.0 | Persistence v SQLite |
-| **Expert Categories** | v35.0 | Creative, Analytical, Normative, Technical, Domain |
 
 ### Orchestrator (Agent-Expert Integration)
 
@@ -112,345 +131,217 @@ C.3 Agent je lokální AI asistent a workflow automatizační platforma, která 
 | **requestExpert()** | v36.0 | Hlavní API pro delegaci |
 | **shouldUseExpert()** | v36.0 | Pre-flight check - kdy použít experta |
 | **Audit Log** | v36.0 | Kompletní logging všech requestů |
-| **Expert Integration** | v36.0 | Helper pro agenty |
-| **API Endpoints** | v36.0 | /api/orchestrator/* (request, check, log, stats) |
-| **Schema Extension** | v36.0 | expertDelegation v agent definition |
-| **Runner Integration** | v36.0 | STEP 4.5, {expert_output} template |
-| **Anonymizace** | v36.0 | Expert neví kdo ho volá |
-
-**Architektura:**
-```
-Agent → Orchestrator → Expert → C3 Core → Output → Agent
-
-✅ Orchestrator je jediný bod moci
-✅ Agent je hloupý vykonavatel  
-✅ Expert je anonymní nástroj
-✅ C3 Core zůstává autorita
-```
 
 ---
 
-## 🟡 ROZPRACOVÁNO / ČÁSTEČNĚ
+## 🔄 ROZPRACOVÁNO
 
-| Feature | Stav | Poznámka |
-|---------|------|----------|
-| **Labels** | ❌ Nezačato | Projekty: new, in progress, done, custom labels |
-| **Pravý Sidebar - Memory** | 🟡 Částečně | Základní UI, chybí plná správa |
-| **Agent Templates** | 🟡 Částečně | Architektura hotová, chybí předpřipravené šablony |
+### COMMIT 4 — Real Capability Wiring (NEXT)
+
+```
+feat(tools): safe http client + real capability execution
+```
+
+**Nové soubory:**
+- `src/tools/http-client.js` - SafeHttpClient
+- `src/tools/registry.js` - Tool implementations
+- `src/tools/executor.js` - Tool executor
+
+**Features:**
+- Rate limiting per domain
+- Retry with exponential backoff
+- User-agent rotation
+- Real HTTP requests (Sauto, Bazoš, etc.)
+
+### COMMIT 5 — Memory Policy + Human Gate
+
+```
+feat(safety): memory policy layer + human-in-the-loop gate
+```
+
+**Nové soubory:**
+- `src/memory/policy.js` - MemoryPolicyLayer
+- `src/safety/human-gate.js` - HumanGate
+
+**Features:**
+- Memory read/write through policy
+- Approval levels: none, notify, confirm, require
+- Audit logging
 
 ---
 
-## ❌ TODO
+## 🗺️ ROADMAP v37.x → v39.x
 
-### ⚠️ DŮLEŽITÉ: v36 je experimental
+### VRSTVA 2: MEMORY & CONTEXT (v37.x)
 
-**v36 (Orchestrator) je připravená, ale NENÍ v produkci.**
+| Verze | Feature | Popis |
+|-------|---------|-------|
+| v37.0 | SessionMemory | Turn history, slots, goals, decisions |
+| v37.1 | Long-Term Memory | SQLite: preferences, interactions, patterns |
+| v37.2 | Preference-Aware Reasoning | CRE uses learned preferences |
 
-Důvod: Bez P0 pojistek by rozšíření zvyšovalo riziko tiché regrese.
+### VRSTVA 3: MULTI-STEP REASONING (v38.x)
 
-```
-Branch: experimental/v36
-Tag: v36.0.0-pre-freeze
-Status: Čeká na dokončení P0
-```
+| Verze | Feature | Popis |
+|-------|---------|-------|
+| v38.0 | Planner/Executor Split | PLANNER (LLM) → Plan → EXECUTOR (deterministic) |
+| v38.1 | Action Graph | Parallel execution, conditional branching |
+| v38.2 | Tool-Reflection Loop | Validate and retry (LLM off by default) |
+| v38.3 | Error Recovery | Retry strategies, fallbacks |
 
-### 🔴 P0 - Kritické (PŘED v36!)
+### VRSTVA 4: AUTONOMOUS MODE (v39.x)
 
-**Root causes z reálného testu:**
-- ❌ Rozpad kontextu mezi dotazy (temporal + domain lock chybí)
-- ❌ Mis-classification (`price_range` pro fáze Měsíce!)
-- ❌ Web search neuzamkl odpověď jako autoritu
-- ❌ Chybí correction mode při "jsi mimo"
-
-#### P0.1 - ProblemType Hard Guards
-
-```javascript
-// price_range POUZE pokud:
-const isPriceRange = (query) => {
-  return query.includes('cena') || 
-         query.includes('kolik stojí') ||
-         /\d+\s*(kč|czk|eur)/i.test(query);
-};
-
-// confidence < 0.5 → fallback = CHAT_FACTUAL
-if (classification.confidence < 0.5) {
-  return { type: 'CHAT_FACTUAL', reason: 'low_confidence' };
-}
-```
-
-#### P0.2 - Context Lock
-
-```javascript
-// Udržuj aktivní referenční rámec dokud uživatel nezmění
-contextLock: {
-  month: 'únor',
-  year: 2026,
-  domain: 'astronomical',
-  source: 'https://spaceweatherlive.com/...',
-  lockedAt: timestamp
-}
-```
-
-#### P0.3 - Correction Mode
-
-Trigger fráze:
-- "jsi mimo"
-- "ne, myslel jsem"
-- "tady je zdroj"
-- "špatně"
-
-Chování:
-1. Zastavit generování
-2. Invalidovat předchozí odhad
-3. Přepnout do režimu korekce ze zdroje
-4. Odpověď začíná "Opravuji..."
-
-#### P0.4 - Artifact Eligibility Gate
-
-```javascript
-// Fakta ≠ artefakt
-const canGenerateArtifact = (problemType, query) => {
-  const BLOCKED_TYPES = ['factual', 'availability', 'calendar'];
-  
-  if (BLOCKED_TYPES.includes(problemType)) {
-    logger.info('ARTIFACT_BLOCKED_BY_CONTEXT', { problemType });
-    return false;
-  }
-  return true;
-};
-```
+| Verze | Feature | Popis |
+|-------|---------|-------|
+| v39.0 | Goal Persistence | Long-running background goals |
+| v39.1 | Safe Autonomy | Sandbox, limits, audit |
+| v39.2 | Self-Correction | Learn from failures |
+| v39.3 | Local Copilot Mode | IDE-like inline assistance |
 
 ---
 
-### 🧪 E2E Scénáře (10 konkrétních testů)
-
-| # | Název | Vstup | Očekávání | Guard |
-|---|-------|-------|-----------|-------|
-| **01** | Fakta s časovým ukotvením | "kdy bude úplněk v únoru 2026" | problemType=factual, web search, datum+zdroj+rok | P0.1 |
-| **02** | Follow-up zpřesnění | "fáze měsíce v únoru" → "myslím 2026" | context carry, žádný nový odhad | P0.2 |
-| **03** | Explicitní URL = autorita | `https://spaceweatherlive.com/.../2026/2.html` | web fetch povinný, extrakce ne generování | P0.2 |
-| **04** | Oprava uživatelem | "jsi úplně mimo, tady je zdroj" | correction mode, invalidace, "Opravuji..." | P0.3 |
-| **05** | Zákaz artefaktů u faktů | "kdy je úplněk v únoru 2026" | žádný PDF/XLSX, čistá odpověď | P0.4 |
-| **06** | Chybný problemType guard | "fáze měsíce v únoru 2026" | problemType ≠ price_range | P0.1 |
-| **07** | Domain contamination | "ceny GPU" → "fáze měsíce" | domain reset, GPU layer inactive | P0.2 |
-| **08** | Web search freshness | "aktuální fáze měsíce" | evidence required, timestamp | P0.2 |
-| **09** | User correction without URL | "ne, myslím únor 2026, ne listopad" | přepočet bez artefaktu | P0.3 |
-| **10** | Artifact hard guard | faktická otázka + LLM chce PDF | ARTIFACT_BLOCKED_BY_CONTEXT | P0.4 |
-
-**Test formát:**
-```javascript
-// E2E-06: Chybný problemType guard
-test('fáze měsíce nesmí být price_range', async () => {
-  const result = await classify('fáze měsíce v únoru 2026');
-  
-  expect(result.problemType).not.toBe('price_range');
-  expect(result.problemType).toBe('factual');
-  expect(result.confidence).toBeGreaterThan(0.5);
-});
-```
-
----
-
-### 🟠 P0.5 - Expert Layer Guards
-
-| Feature | Popis | Effort |
-|---------|-------|--------|
-| **Expert constraints badge** | Viditelné v UI + logu | S |
-| **Disclaimer slots** | Hard-coded pro Právník/Lékař/Psycholog | S |
-
-### 🟡 P1 - Důležité
-
-| Feature | Popis | Effort |
-|---------|-------|--------|
-| **Labels** | Štítky pro projekty a konverzace | M |
-| **Memory UI** | Plná správa paměti v pravém sidebaru | M |
-| **Prompt Skeleton** | Společná kostra pro všechny experty | M |
-
-### 🟠 P1.5 - Error Taxonomy
-
-| Feature | Popis | Effort |
-|---------|-------|--------|
-| **Error kódy** | DATA_MISSING, EVIDENCE_STALE, CONSTRAINT_VIOLATION... | S |
-| **Error handling** | Graceful degradation pro všechny error typy | M |
-
-### 🟢 P2 - Nice to have
-
-| Feature | Popis | Effort |
-|---------|-------|--------|
-| **"Why" metadata** | Strojově čitelný blok u každé odpovědi | M |
-| **Import** | Konverzace z Claude/GPT | M |
-| **SSE Streaming** | Real-time UI updates | L |
-| **Agent Templates** | Weather, Property Hunter, Price Monitor... | M |
-
----
-
-## 🔮 FUTURE ROADMAP
-
-### Fáze 1: Stabilizace v35 (AKTUÁLNÍ)
-- [ ] P0.1: ProblemType hard guards (price_range only with "cena")
-- [ ] P0.2: Context lock (month/year/domain/source)
-- [ ] P0.3: Correction mode ("jsi mimo" triggers)
-- [ ] P0.4: Artifact eligibility gate
-- [ ] P0.5: Expert constraints badge + disclaimers
-- [ ] E2E testy (10 scénářů)
-- [ ] Tag: `v35.1.0-stable`
-
-### Fáze 2: Release v36 (po P0)
-- [ ] Merge experimental/v36
-- [ ] E2E testy pro Orchestrator flow
-- [ ] Auth pro API
-- [ ] Tag: `v36.0.0-stable`
-
-### Fáze 3: Advanced Features (v37+)
-- [ ] SSE streaming pro real-time updates
-- [ ] Definition editor v browseru
-- [ ] Multi-file rollback (atomic operace)
-- [ ] Agent chaining (řízené přes Orchestrator)
-- [ ] Expert může NAVRHNOUT akci, Orchestrator rozhodne (ne spouštět přímo!)
-
-### Fáze 4: Mobile & Distribution (v38+)
-- [ ] React Native mobile app
-- [ ] Push notifications
-- [ ] Agent marketplace
-- [ ] Public sharing
-
----
-
-## ⚠️ Rizika a prevence
-
-| Riziko | Prevence |
-|--------|----------|
-| **Expert zoo** | Žádní další built-in experti, pouze custom |
-| **Prompt drift** | Prompt Skeleton (P1) - společná kostra |
-| **Feature creep v UI** | UI = ovladač, ne logika |
-| **Tichá regrese** | E2E testy před každým release |
-
----
-
-## 🔧 Error Taxonomy (P1.5)
-
-Standardizované error kódy pro debug, UX a automatizaci:
-
-| Kód | Popis | Vrstva |
-|-----|-------|--------|
-| `DATA_MISSING` | Chybí požadovaná data | Data Layer |
-| `DATA_STALE` | Data jsou zastaralá | Data Layer |
-| `EVIDENCE_STALE` | Evidence starší než threshold | Evidence Layer |
-| `EVIDENCE_REQUIRED` | Dotaz vyžaduje externí zdroj | Evidence Layer |
-| `EXPERT_UNAVAILABLE` | Expert není dostupný | Expert Layer |
-| `EXPERT_INCOMPETENT` | Task mimo kompetenci experta | Orchestrator |
-| `CONSTRAINT_VIOLATION` | Porušení C3 Core pravidel | Core |
-| `CYCLE_DETECTED` | Detekován cyklus v delegaci | Orchestrator |
-| `RATE_LIMITED` | Překročen rate limit | Orchestrator |
-| `CLASSIFICATION_LOW_CONFIDENCE` | problemType confidence < threshold | Decision Layer |
-| `CLASSIFICATION_MISMATCH` | problemType neodpovídá dotazu | Decision Layer |
-| `CONTEXT_LOST` | Ztráta temporal/domain kontextu | Decision Layer |
-| `ARTIFACT_BLOCKED_BY_CONTEXT` | Artefakt zablokován (faktický dotaz) | Artifact Pipeline |
-| `CORRECTION_MODE_ACTIVE` | Uživatel opravuje předchozí odpověď | Core |
-| `DOMAIN_CONTAMINATION` | Aktivní data layer z jiné domény | Data Layer |
-
----
-
-## 📊 "Why" Metadata (P2)
-
-Každá odpověď by měla obsahovat strojově čitelný blok:
-
-```json
-{
-  "usedExpert": "analyst",
-  "usedDataLayer": true,
-  "dataSource": "gpu_source",
-  "confidence": "medium",
-  "constraintsApplied": ["price_sanity", "locale_cz"],
-  "warnings": []
-}
-```
-
-Užitečné pro:
-- Debug
-- UX (zobrazení "proč tak odpověděl")
-- Budoucí automatizaci
-
----
-
-## 🔗 Agent-Expert Integration (IMPLEMENTOVÁNO v36)
-
-### Architektura
+## 📐 Architektura po v36.9
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      AGENT                                  │
-│  Trigger: new property listing detected                     │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ delegate
+┌─────────────────────────────────────────────────────────────────┐
+│                          USER                                    │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   ORCHESTRATOR (v36)                        │
-│  ├─ Guard: anti-cycle                                       │
-│  ├─ Guard: expert exists                                    │
-│  ├─ Guard: task competence                                  │
-│  ├─ Guard: rate limit                                       │
-│  └─ Log: audit entry                                        │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ approved
+┌─────────────────────────────────────────────────────────────────┐
+│                    CRE.process()                                 │
+│  ├─ Detect (intent, domain, volatility)                         │
+│  ├─ DialogState (authoritative)                                 │
+│  ├─ Decision Matrix                                             │
+│  ├─ Capability Truth                                            │
+│  └─ Return CREDecision (NEVER text)                            │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+        ┌──────────────────┼──────────────────┐
+        ▼                  ▼                  ▼
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│  TOOL_CALL   │  │  ASK_USER    │  │   ANSWER     │
+│  ─────────   │  │  ─────────   │  │   ──────     │
+│  tool: ...   │  │  slots: ...  │  │  template    │
+│  params: ... │  │  template    │  │  dataRef     │
+│  then: ...   │  │              │  │              │
+└──────┬───────┘  └──────┬───────┘  └──────┬───────┘
+       │                 │                 │
+       ▼                 ▼                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    ToolExecutor                                  │
+│  ├─ Validate params                                             │
+│  ├─ Check permissions (HumanGate)                               │
+│  ├─ Execute with timeout                                        │
+│  └─ Return results                                              │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      EXPERT                                 │
-│  Analyst: evaluate property vs. user criteria               │
-│  (Expert neví kdo ho volá - anonymizace)                    │
-│  Output: recommendation + reasoning                         │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ return
+┌─────────────────────────────────────────────────────────────────┐
+│                  ResponseRenderer                                │
+│  ├─ Static templates (no LLM)                                   │
+│  ├─ Synthesize templates (single LLM call)                      │
+│  ├─ QualityGate                                                 │
+│  └─ Return text                                                 │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      AGENT                                  │
-│  Action: notify user with {expert_output}                   │
-└─────────────────────────────────────────────────────────────┘
-```
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Use Cases
-
-| Agent | Expert | Flow |
-|-------|--------|------|
-| Property Hunter | Analyst | Najde inzerát → Analytik vyhodnotí → Notifikace s doporučením |
-| News Digest | Writer | Sesbírá články → Spisovatel shrne → Daily email |
-| Price Monitor | Překupník | Detekuje změnu → Překupník vyhodnotí timing → Alert |
-| Warranty Tracker | Technik | Blíží se konec záruky → Technik doporučí náhradu → Notifikace |
-| AI Updates | AI Expert | Najde novinku → AI Expert vyhodnotí relevanci → Návrh updatu |
-
-### Technická implementace (návrh)
-
-```javascript
-// Agent definition with expert delegation
-{
-  id: 'property-hunter',
-  sources: [{ type: 'scraper', url: '...' }],
-  conditions: [{ type: 'new_items' }],
-  
-  // NEW: Expert delegation
-  expertDelegation: {
-    expertId: 'analyst',
-    task: 'Vyhodnoť nemovitost podle mých kritérií: {user_criteria}',
-    includeData: true  // Pass source data to expert
-  },
-  
-  actions: [{
-    type: 'notify',
-    template: '{expert_output}'  // Use expert's response
-  }]
-}
+┌─────────────────────────────────────────────────────────────────┐
+│                          USER                                    │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 📈 Progres
+## 🔑 Klíčové principy
+
+1. **LLM je TOOL, ne AUTHOR**
+   - ❌ LLM decides what to do
+   - ✅ CRE decides, LLM executes specific task
+
+2. **SINGLE SOURCE OF TRUTH**
+   - ❌ Multiple places decide intent/capability
+   - ✅ CRE is sole authority
+
+3. **TOOLS ARE PURE**
+   - ❌ Tool calls LLM for "decisions"
+   - ✅ Tool receives instructions, returns data
+
+4. **RESPONSE IS ASSEMBLED**
+   - ❌ LLM generates entire response
+   - ✅ Response is template + data + (optional) LLM synthesis
+
+5. **PLANS, NOT TEXT**
+   - ❌ CRE returns: "Mohu ti pomoci s..."
+   - ✅ CRE returns: { type: 'TOOL_CALL', tool: '...', params: {...} }
+
+---
+
+## 📁 Struktura projektu (v36.9)
 
 ```
-████████████████████░░░░  80% Hotovo
-████░░░░░░░░░░░░░░░░░░░░  15% WIP
-█░░░░░░░░░░░░░░░░░░░░░░░   5% TODO
+c3-agent-wip/
+├── package.json
+├── CLAUDE.md               ← Context pro CLI/IDE
+├── ROADMAP.md              ← Tento soubor
+└── src/
+    ├── server.js
+    ├── config.js
+    │
+    ├── llm/                # LLM Gateway (v36.7)
+    │   ├── auth-types.js   # LLMAuthToken, capabilities
+    │   ├── gateway.js      # Centrální gateway singleton
+    │   ├── client.js       # Legacy wrapper
+    │   └── web-search.js
+    │
+    ├── chat/               # CRE (v36.6-v36.8)
+    │   ├── cre-v2.js       # Main CRE engine
+    │   ├── cre-decision-types.js  # CREDecision ADT
+    │   ├── response-renderer.js   # Decision → Text
+    │   ├── dialog-state-v2.js
+    │   ├── decision-matrix.js
+    │   ├── capability-registry.js
+    │   ├── answer-quality-gate.js
+    │   └── execution-contracts.js
+    │
+    ├── tools/              # Tools (v36.9+) — TODO
+    │   ├── http-client.js
+    │   ├── registry.js
+    │   └── executor.js
+    │
+    ├── memory/             # Memory (v37+) — TODO
+    │   └── policy.js
+    │
+    ├── safety/             # Safety (v36.9+) — TODO
+    │   └── human-gate.js
+    │
+    ├── agents/             # Agent Platform (v33)
+    ├── experts/            # Expert Layer (v35)
+    ├── orchestrator/       # Orchestrator (v36.0)
+    ├── data/               # Data Layer (v34.4)
+    ├── db/                 # SQLite database
+    ├── ui/                 # Frontend
+    ├── workflow/           # Workflow engine
+    │
+    └── tests/
+        ├── llm-gateway.test.js        # 50 tests
+        ├── cre-decision-types.test.js # 46 tests
+        ├── cre-v2.test.js             # 142 tests
+        ├── capability-truth.test.js   # 28 tests
+        ├── llm-enforcement.test.js    # 29 tests (v36.9)
+        ├── correction-enforcer.test.js # 27 tests
+        ├── cre-v36-e2e.test.js        # 20 tests
+        └── ...
+```
+
+---
+
+## 📊 Progres
+
+```
+████████████████████████░░  90% Core done
+████████████████░░░░░░░░░░  65% CRE consolidation
+████░░░░░░░░░░░░░░░░░░░░░░  15% Memory/Autonomy
 ```
 
 ### Milníky
@@ -461,7 +352,14 @@ Užitečné pro:
 | v33 | Agent Platform | 2026-01-18 |
 | v34 | Artifact Pipeline + Layers | 2026-01-18/19 |
 | v35 | Expert Layer | 2026-01-19 |
-| v36 | **Agent-Expert Integration (Orchestrator)** | 2026-01-21 |
+| v36.0 | Orchestrator | 2026-01-21 |
+| v36.6 | Capability Truth Layer | 2026-01-24 |
+| v36.7 | **LLM Gateway Lockdown** | 2026-01-24 |
+| v36.8 | **Tool-First CREDecision** | 2026-01-24 |
+| v36.9 | **ResponseRenderer + Single LLM Call** | 2026-01-24 |
+| v37.x | Memory & Context (planned) | - |
+| v38.x | Multi-step Reasoning (planned) | - |
+| v39.x | Autonomous Mode (planned) | - |
 
 ---
 
@@ -477,70 +375,26 @@ Užitečné pro:
 
 ---
 
-## 📁 Struktura projektu
+## 🧪 Spuštění testů
 
+```bash
+cd ~/Projects/c3-agent-wip
+
+# Všechny CRE testy (342)
+node src/tests/llm-gateway.test.js && \
+node src/tests/cre-decision-types.test.js && \
+node src/tests/cre-v2.test.js && \
+node src/tests/capability-truth.test.js && \
+node src/tests/llm-enforcement.test.js && \
+node src/tests/correction-enforcer.test.js && \
+node src/tests/cre-v36-e2e.test.js
+
+# Quick status
+for f in src/tests/*.test.js; do
+  echo "=== $f ===" 
+  node "$f" 2>&1 | grep -E "Passed:|Failed:"
+done
 ```
-c3-agent-wip/
-├── package.json
-├── README.md
-├── ROADMAP.md              ← tento soubor
-└── src/
-    ├── server.js           # Hlavní server (v35.0.1)
-    ├── config.js
-    ├── decision-layer.js   # Problem classification
-    ├── artifact-pipeline.js
-    │
-    ├── experts/            # Expert Layer (v35)
-    │   ├── expert-layer.js
-    │   └── experts.html
-    │
-    ├── agents/             # Agent Platform (v33)
-    │   ├── agents.html
-    │   ├── repository.js
-    │   ├── runner.js
-    │   ├── scheduler.js
-    │   ├── builder.js
-    │   └── ...
-    │
-    ├── data/               # Data Layer (v34.4)
-    │   ├── data-layer.js
-    │   ├── gpu-source.js
-    │   └── cars-source.js
-    │
-    ├── db/
-    │   └── database.js
-    │
-    ├── llm/
-    │   ├── client.js
-    │   └── web-search.js
-    │
-    ├── ui/
-    │   └── architect/
-    │
-    └── workflow/
-        └── engine.js
-```
-
----
-
-## 📝 Changelog Summary
-
-| Verze | Hlavní změny |
-|-------|--------------|
-| v36.0.0 | **Orchestrator** - Agent-Expert Integration, guardy, audit log |
-| v35.0.1 | Expert Layer path fixes, version sync |
-| v35.0.0 | **Expert Layer** - 15 expertů, UI, custom experts |
-| v34.4.2 | Representation Layer (narrative vs report) |
-| v34.4.1 | Decision Layer (problem classification) |
-| v34.4.0 | Data Layer (GPU, Cars sources) |
-| v34.3.3 | Price Sanity Guard, stable schema |
-| v34.3.0 | Intent classifier, confidence degradation |
-| v34.2.0 | Artifact Pipeline, PDF generation |
-| v34.0.0 | Pravý sidebar |
-| v33.3.x | Agent Platform polish |
-| v33.0.0 | **Agent Platform** - DSL, scheduler, runner |
-| v32.7 | Web search HARD/SOFT separation |
-| v31.0 | **Architect UI** - SQLite, projects, conversations |
 
 ---
 
@@ -549,9 +403,27 @@ c3-agent-wip/
 - **Hlavní UI:** http://localhost:3335/architect
 - **Experts:** http://localhost:3335/experts
 - **Agents:** http://localhost:3335/agents
-- **Orchestrator API:** http://localhost:3335/api/orchestrator/stats
+- **API:** http://localhost:3335/api/
 - **Health:** http://localhost:3335/
 
 ---
 
-*Poslední aktualizace: 2026-01-21*
+## 📝 Changelog Summary
+
+| Verze | Hlavní změny |
+|-------|--------------|
+| **v36.9.0** | **ResponseRenderer + Single LLM Call** - CRE→Decision→Renderer, hard LLM guard |
+| **v36.8.0** | **Tool-First CREDecision Contract** - CRE returns structure, not text |
+| **v36.7.0** | **LLM Gateway Lockdown** - capability-based auth tokens |
+| **v36.6.0** | **Capability Truth** - forbidden meta-claims, deterministic fallbacks |
+| v36.0.0 | Orchestrator - Agent-Expert Integration |
+| v35.0.0 | Expert Layer - 15 expertů, UI, custom experts |
+| v34.4.x | Data Layer, Decision Layer, Representation Layer |
+| v34.2.0 | Artifact Pipeline, PDF generation |
+| v33.0.0 | Agent Platform - DSL, scheduler, runner |
+| v32.7 | Web search HARD/SOFT separation |
+| v31.0 | Architect UI - SQLite, projects, conversations |
+
+---
+
+*Poslední aktualizace: 2026-01-24*
