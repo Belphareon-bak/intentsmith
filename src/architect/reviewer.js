@@ -6,102 +6,17 @@
 // - Žádné opravování, jen posouzení
 // - Může použít jiný model než Coder (adversarial review)
 //
+// v36.9.1: Migrated to LLMGateway with WORKFLOW_REVIEWER auth token
+//
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { logger } from '../core/logger.js';
-import { config } from '../config.js';
+import { callWithAuth } from '../llm/gateway.js';
+import { createAuthToken, LLMCallerRole } from '../llm/auth-types.js';
+import { extractJSON } from '../llm/client.js';
 
-const OLLAMA_URL = config.ollama?.url || 'http://127.0.0.1:11434';
 // Používáme jiný model než Coder pro adversarial review
 const REVIEWER_MODEL = 'qwen2.5:32b';
-
-/**
- * Call Ollama API
- */
-async function callOllama(prompt, options = {}) {
-  const {
-    timeout = 90000,
-    temperature = 0.3,
-  } = options;
-
-  const body = {
-    model: REVIEWER_MODEL,
-    messages: [{ role: 'user', content: prompt }],
-    stream: false,
-    format: 'json',
-    options: {
-      temperature,
-      num_predict: 2048,
-    },
-  };
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-  try {
-    const startTime = Date.now();
-    
-    const response = await fetch(`${OLLAMA_URL}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error(`Ollama error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const duration = (Date.now() - startTime) / 1000;
-    
-    logger.debug('ReviewerLLM', `Response in ${duration.toFixed(1)}s`);
-
-    return {
-      content: data.message?.content || '',
-      duration,
-    };
-
-  } catch (err) {
-    clearTimeout(timeoutId);
-    
-    if (err.name === 'AbortError') {
-      throw new Error(`Timeout after ${timeout/1000}s`);
-    }
-    throw err;
-  }
-}
-
-/**
- * Extract JSON from response
- */
-function extractJSON(text) {
-  if (!text) return null;
-
-  try {
-    return JSON.parse(text.trim());
-  } catch {}
-
-  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (codeBlockMatch) {
-    try {
-      return JSON.parse(codeBlockMatch[1].trim());
-    } catch {}
-  }
-
-  const jsonStart = text.indexOf('{');
-  const jsonEnd = text.lastIndexOf('}');
-  
-  if (jsonStart !== -1 && jsonEnd > jsonStart) {
-    try {
-      return JSON.parse(text.substring(jsonStart, jsonEnd + 1));
-    } catch {}
-  }
-
-  return null;
-}
 
 /**
  * REVIEWER PROMPT
@@ -210,9 +125,18 @@ export class ReviewerLLM {
     logger.info('ReviewerLLM', 'Reviewing code...', { fileCount: files.length });
 
     try {
-      const response = await callOllama(prompt, {
-        timeout: 90000,
+      const token = createAuthToken({
+        role: LLMCallerRole.WORKFLOW_REVIEWER,
+        decisionId: `reviewer_${Date.now()}`,
+        auditContext: { sessionId: 'architect' }
+      });
+
+      const response = await callWithAuth(token, prompt, {
+        model: REVIEWER_MODEL,
         temperature: 0.2,
+        timeout: 90000,
+        format: 'json',
+        maxTokens: 3000
       });
 
       const result = extractJSON(response.content);

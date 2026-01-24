@@ -7,103 +7,18 @@
 // - Žádný kontext konverzace
 // - Voláno pouze přes Orchestrator po splnění všech gates
 //
+// v36.9.1: Migrated to LLMGateway with WORKFLOW_CODER auth token
+//
 // ══════════════════════════════════════════════════════════════════════════════
 
 import fs from 'fs/promises';
 import path from 'path';
 import { logger } from '../core/logger.js';
-import { config } from '../config.js';
+import { callWithAuth } from '../llm/gateway.js';
+import { createAuthToken, LLMCallerRole } from '../llm/auth-types.js';
+import { extractJSON } from '../llm/client.js';
 
-const OLLAMA_URL = config.ollama?.url || 'http://127.0.0.1:11434';
 const EDITOR_MODEL = 'qwen2.5-coder:32b';
-
-/**
- * Call Ollama API
- */
-async function callOllama(prompt, options = {}) {
-  const {
-    timeout = 180000,
-    temperature = 0.2,
-  } = options;
-
-  const body = {
-    model: EDITOR_MODEL,
-    messages: [{ role: 'user', content: prompt }],
-    stream: false,
-    format: 'json',
-    options: {
-      temperature,
-      num_predict: 8192,
-    },
-  };
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-  try {
-    const startTime = Date.now();
-    
-    const response = await fetch(`${OLLAMA_URL}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error(`Ollama error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const duration = (Date.now() - startTime) / 1000;
-    
-    logger.debug('EditorLLM', `Response in ${duration.toFixed(1)}s`);
-
-    return {
-      content: data.message?.content || '',
-      duration,
-    };
-
-  } catch (err) {
-    clearTimeout(timeoutId);
-    
-    if (err.name === 'AbortError') {
-      throw new Error(`Timeout after ${timeout/1000}s`);
-    }
-    throw err;
-  }
-}
-
-/**
- * Extract JSON from response
- */
-function extractJSON(text) {
-  if (!text) return null;
-
-  try {
-    return JSON.parse(text.trim());
-  } catch {}
-
-  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (codeBlockMatch) {
-    try {
-      return JSON.parse(codeBlockMatch[1].trim());
-    } catch {}
-  }
-
-  const jsonStart = text.indexOf('{');
-  const jsonEnd = text.lastIndexOf('}');
-  
-  if (jsonStart !== -1 && jsonEnd > jsonStart) {
-    try {
-      return JSON.parse(text.substring(jsonStart, jsonEnd + 1));
-    } catch {}
-  }
-
-  return null;
-}
 
 /**
  * EDITOR PROMPT - pro modifikaci existujících souborů
@@ -309,9 +224,18 @@ export class EditorLLM {
     });
 
     try {
-      const response = await callOllama(prompt, {
+      const token = createAuthToken({
+        role: LLMCallerRole.WORKFLOW_CODER,
+        decisionId: `editor_${Date.now()}`,
+        auditContext: { sessionId: 'architect' }
+      });
+
+      const response = await callWithAuth(token, prompt, {
+        model: EDITOR_MODEL,
+        temperature: 0.1,
         timeout: 180000,
-        temperature: 0.1, // Velmi nízká teplota pro přesné úpravy
+        format: 'json',
+        maxTokens: 8000
       });
 
       const result = extractJSON(response.content);

@@ -315,12 +315,15 @@ class LLMGateway {
     const model = options.model || config.models?.CHAT || 'qwen2.5:32b';
     const timeout = options.timeout || config.timeouts?.CHAT || 60000;
     
-    // Build messages
-    const messages = [];
-    if (options.systemPrompt) {
-      messages.push({ role: 'system', content: options.systemPrompt });
-    }
-    messages.push({ role: 'user', content: prompt });
+    // Build messages (support pre-built array via options.messages)
+    const messages = options.messages || (() => {
+      const msgs = [];
+      if (options.systemPrompt) {
+        msgs.push({ role: 'system', content: options.systemPrompt });
+      }
+      msgs.push({ role: 'user', content: prompt });
+      return msgs;
+    })();
     
     const body = {
       model,
@@ -333,6 +336,11 @@ class LLMGateway {
         num_predict: effectiveMaxTokens
       }
     };
+
+    // Pass format through if specified (e.g. 'json' for structured output)
+    if (options.format) {
+      body.format = options.format;
+    }
     
     let lastError;
     const maxRetries = config.ollama?.retries || 3;

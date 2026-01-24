@@ -139,16 +139,10 @@ test('No direct fetch to ollama/api outside gateway.js', () => {
   const srcDir = resolve(import.meta.url.replace('file://', ''), '../../');
   const files = getAllSourceFiles(srcDir);
 
-  // Known pre-existing bypasses scheduled for migration in v36.9.1
-  // These files will be demoted to use llmGateway.call() with auth tokens
+  // v36.9.1: All subsystems migrated to llmGateway with auth tokens.
+  // Only UI file remains (frontend, cannot use server-side gateway).
   const KNOWN_BYPASSES = [
-    'agents/server.js',
-    'architect/coder.js',
-    'architect/editor.js',
-    'architect/llm.js',
-    'architect/reviewer.js',
-    'server.js',
-    'ui/architect/architect.js'
+    'ui/architect/architect.js'  // Frontend: fetch to /api/tags for model listing
   ];
 
   const violations = [];
@@ -172,6 +166,19 @@ test('No direct fetch to ollama/api outside gateway.js', () => {
   if (violations.length > 0) {
     throw new Error(`NEW direct ollama calls found in: ${violations.join(', ')}`);
   }
+});
+
+test('KNOWN_BYPASSES list must NOT grow (only shrink as subsystems are migrated)', () => {
+  // v36.9.1: Migrated 6 subsystems, only UI frontend remains.
+  // This number must stay at 1 or decrease to 0.
+  const MAX_ALLOWED_BYPASSES = 1;
+  const KNOWN_BYPASSES = [
+    'ui/architect/architect.js'  // Frontend: fetch to /api/tags for model listing
+  ];
+  assertTrue(
+    KNOWN_BYPASSES.length <= MAX_ALLOWED_BYPASSES,
+    `KNOWN_BYPASSES must not grow beyond ${MAX_ALLOWED_BYPASSES}, currently: ${KNOWN_BYPASSES.length}`
+  );
 });
 
 test('No imports of callOllama in non-legacy files (chat/, agents/)', () => {

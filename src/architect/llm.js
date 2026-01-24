@@ -6,118 +6,17 @@
 // - Žádné generování kódu (to je CoderLLM)
 // - Žádné rozhodování o next step (to je Orchestrator)
 //
+// v36.9.1: Migrated to LLMGateway with WORKFLOW_THINKER auth token
+//
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { logger } from '../core/logger.js';
-import { config } from '../config.js';
 import { PROMPTS } from './prompts.js';
+import { callWithAuth } from '../llm/gateway.js';
+import { createAuthToken, LLMCallerRole } from '../llm/auth-types.js';
+import { extractJSON } from '../llm/client.js';
 
-const OLLAMA_URL = config.ollama?.url || 'http://127.0.0.1:11434';
 const ARCHITECT_MODEL = 'qwen2.5:32b';
-
-/**
- * Call Ollama API
- */
-async function callOllama(model, prompt, systemPrompt = null, options = {}) {
-  const {
-    timeout = 120000,
-    temperature = 0.7,
-    jsonMode = false,
-  } = options;
-
-  const messages = [];
-  
-  if (systemPrompt) {
-    messages.push({ role: 'system', content: systemPrompt });
-  }
-  
-  messages.push({ role: 'user', content: prompt });
-
-  const body = {
-    model,
-    messages,
-    stream: false,
-    options: {
-      temperature,
-      num_predict: jsonMode ? 4096 : 2048,
-    },
-  };
-
-  if (jsonMode) {
-    body.format = 'json';
-  }
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-  try {
-    const startTime = Date.now();
-    
-    const response = await fetch(`${OLLAMA_URL}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error(`Ollama error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const duration = (Date.now() - startTime) / 1000;
-    
-    logger.debug('ArchitectLLM', `Response in ${duration.toFixed(1)}s`, { model });
-
-    return {
-      content: data.message?.content || '',
-      model,
-      duration,
-    };
-
-  } catch (err) {
-    clearTimeout(timeoutId);
-    
-    if (err.name === 'AbortError') {
-      throw new Error(`Timeout after ${timeout/1000}s`);
-    }
-    throw err;
-  }
-}
-
-/**
- * Extract JSON from LLM response
- */
-function extractJSON(text) {
-  if (!text) return null;
-
-  // Try direct parse
-  try {
-    return JSON.parse(text.trim());
-  } catch {}
-
-  // Try from code block
-  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (codeBlockMatch) {
-    try {
-      return JSON.parse(codeBlockMatch[1].trim());
-    } catch {}
-  }
-
-  // Try finding JSON object
-  const jsonStart = text.indexOf('{');
-  const jsonEnd = text.lastIndexOf('}');
-  
-  if (jsonStart !== -1 && jsonEnd > jsonStart) {
-    try {
-      return JSON.parse(text.substring(jsonStart, jsonEnd + 1));
-    } catch {}
-  }
-
-  return null;
-}
 
 /**
  * ArchitectLLM - ADVISOR role only
@@ -177,9 +76,16 @@ export class ArchitectLLM {
       .replace('{message}', message);
 
     try {
-      const response = await callOllama(ARCHITECT_MODEL, prompt, null, {
-        timeout: 60000,
+      const token = createAuthToken({
+        role: LLMCallerRole.WORKFLOW_THINKER,
+        decisionId: `architect_converse_${Date.now()}`,
+        auditContext: { sessionId: 'architect' }
+      });
+
+      const response = await callWithAuth(token, prompt, {
+        model: ARCHITECT_MODEL,
         temperature: 0.8,
+        timeout: 60000
       });
 
       this.addToHistory('user', message);
@@ -212,10 +118,17 @@ export class ArchitectLLM {
     const prompt = PROMPTS.EVALUATE_CONFIDENCE.replace('{definition}', definition);
 
     try {
-      const response = await callOllama(ARCHITECT_MODEL, prompt, null, {
-        timeout: 30000,
-        jsonMode: true,
+      const token = createAuthToken({
+        role: LLMCallerRole.WORKFLOW_THINKER,
+        decisionId: `architect_confidence_${Date.now()}`,
+        auditContext: { sessionId: 'architect' }
+      });
+
+      const response = await callWithAuth(token, prompt, {
+        model: ARCHITECT_MODEL,
         temperature: 0.3,
+        timeout: 30000,
+        format: 'json'
       });
 
       const result = extractJSON(response.content);
@@ -287,9 +200,17 @@ export class ArchitectLLM {
       .replace('{conversation}', conversation || this.getFormattedHistory());
 
     try {
-      const response = await callOllama(ARCHITECT_MODEL, prompt, PROMPTS.ARCHITECT_SYSTEM, {
-        timeout: 90000,
+      const token = createAuthToken({
+        role: LLMCallerRole.WORKFLOW_THINKER,
+        decisionId: `architect_definition_${Date.now()}`,
+        auditContext: { sessionId: 'architect' }
+      });
+
+      const response = await callWithAuth(token, prompt, {
+        model: ARCHITECT_MODEL,
+        systemPrompt: PROMPTS.ARCHITECT_SYSTEM,
         temperature: 0.7,
+        timeout: 90000
       });
 
       return {
@@ -312,10 +233,17 @@ export class ArchitectLLM {
     const prompt = PROMPTS.EXTRACT_DECISIONS.replace('{conversation}', conv);
 
     try {
-      const response = await callOllama(ARCHITECT_MODEL, prompt, null, {
-        timeout: 60000,
-        jsonMode: true,
+      const token = createAuthToken({
+        role: LLMCallerRole.WORKFLOW_THINKER,
+        decisionId: `architect_decisions_${Date.now()}`,
+        auditContext: { sessionId: 'architect' }
+      });
+
+      const response = await callWithAuth(token, prompt, {
+        model: ARCHITECT_MODEL,
         temperature: 0.3,
+        timeout: 60000,
+        format: 'json'
       });
 
       return extractJSON(response.content) || { decided: [], rejected: [], open: [] };
@@ -338,10 +266,17 @@ export class ArchitectLLM {
         : 'Žádné změny souborů');
 
     try {
-      const response = await callOllama(ARCHITECT_MODEL, prompt, null, {
-        timeout: 60000,
-        jsonMode: true,
+      const token = createAuthToken({
+        role: LLMCallerRole.WORKFLOW_THINKER,
+        decisionId: `architect_summary_${Date.now()}`,
+        auditContext: { sessionId: 'architect' }
+      });
+
+      const response = await callWithAuth(token, prompt, {
+        model: ARCHITECT_MODEL,
         temperature: 0.3,
+        timeout: 60000,
+        format: 'json'
       });
 
       return extractJSON(response.content) || {

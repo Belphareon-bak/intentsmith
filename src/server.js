@@ -57,27 +57,27 @@ await loadOrchestrator();
 // Initialize Agent tables
 initAgentTables(db.db);
 
-// Simple LLM client wrapper for agents and orchestrator
+// v36.9.1: LLM client routed through gateway with auth tokens
+import { callWithAuth } from './llm/gateway.js';
+import { createAuthToken, LLMCallerRole } from './llm/auth-types.js';
+
 const agentLLMClient = {
   async chat({ model, messages, format, options = {} }) {
-    const body = {
-      model: model || 'qwen2.5:32b',
-      messages,
-      stream: false,
-      format: format === 'json' ? 'json' : undefined,
-      options: { 
-        temperature: options.temperature ?? 0.3 
-      }
-    };
-    
     try {
-      const response = await fetch(`${config.llm?.baseUrl || 'http://localhost:11434'}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+      const token = createAuthToken({
+        role: LLMCallerRole.WORKFLOW_THINKER,
+        decisionId: `agent_${Date.now()}`,
+        auditContext: { sessionId: 'agents' }
       });
-      const data = await response.json();
-      return { content: data.message?.content || '' };
+
+      const response = await callWithAuth(token, '', {
+        model: model || 'qwen2.5:32b',
+        messages,
+        format: format === 'json' ? 'json' : undefined,
+        temperature: options.temperature ?? 0.3
+      });
+
+      return { content: response.content || '' };
     } catch (err) {
       logger.error('AgentLLM', `Error: ${err.message}`);
       return { content: '' };
