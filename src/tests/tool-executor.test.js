@@ -333,6 +333,33 @@ test('Registry list returns all tool names', () => {
   assertTrue(list.includes('web.search'), 'Should include web.search');
 });
 
+// ────────────────────────────────────────────────────────────────────────────
+// Metrics
+// ────────────────────────────────────────────────────────────────────────────
+
+console.log('\n📋 Metrics');
+
+test('getStats returns counts, errorsByCode, durations, byTool', () => {
+  const stats = toolExecutor.getStats();
+
+  // We've run several tools above, stats should reflect that
+  assertTrue(stats.totalExecutions > 0, 'Should have executions');
+  assertTrue(stats.counts.success > 0, 'Should have successes');
+  assertTrue(stats.counts.errors > 0, 'Should have errors');
+  assertTrue(typeof stats.errorsByCode === 'object', 'Should have errorsByCode');
+  assertTrue(stats.errorsByCode.MISSING_PARAM > 0, 'Should track MISSING_PARAM');
+  assertTrue(stats.errorsByCode.UNKNOWN_TOOL > 0, 'Should track UNKNOWN_TOOL');
+  assertTrue(typeof stats.durations === 'object', 'Should have durations');
+  assertTrue(stats.durations.min >= 0, 'Duration min >= 0');
+  assertTrue(stats.durations.max >= stats.durations.min, 'Duration max >= min');
+  assertTrue(stats.durations.avg >= 0, 'Duration avg >= 0');
+  assertTrue(stats.durations.p95 >= 0, 'Duration p95 >= 0');
+  assertTrue(typeof stats.byTool === 'object', 'Should have byTool');
+  assertTrue(stats.byTool['data.parse'] !== undefined, 'Should track data.parse');
+  assertTrue(stats.byTool['data.parse'].calls > 0, 'data.parse calls > 0');
+  assertTrue(stats.byTool['data.parse'].avgDuration >= 0, 'data.parse avgDuration >= 0');
+});
+
 // ════════════════════════════════════════════════════════════════════════════
 // RESULTS
 // ════════════════════════════════════════════════════════════════════════════

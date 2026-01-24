@@ -227,24 +227,71 @@ class ToolExecutor {
   }
 
   /**
-   * Get execution stats
+   * Get execution stats — full metrics for planner/diagnostics
    */
   getStats() {
-    const recent = this.executionLog.filter(l => l.timestamp > Date.now() - 300000);
+    const now = Date.now();
+    const recent = this.executionLog.filter(l => l.timestamp > now - 300000);
+    const successes = recent.filter(l => l.ok);
+    const failures = recent.filter(l => !l.ok);
+
     return {
       totalExecutions: this.executionLog.length,
       recentExecutions: recent.length,
-      successRate: recent.length > 0
-        ? recent.filter(l => l.ok).length / recent.length
-        : 0,
-      byTool: this.groupBy(recent, 'tool'),
+      successRate: recent.length > 0 ? successes.length / recent.length : 0,
+      counts: {
+        success: successes.length,
+        errors: failures.length,
+      },
+      errorsByCode: this.groupBy(failures, 'code'),
+      durations: this.durationStats(recent),
+      byTool: this.toolBreakdown(recent),
     };
+  }
+
+  /**
+   * Duration statistics (min, max, avg, p95)
+   */
+  durationStats(logs) {
+    if (logs.length === 0) return { min: 0, max: 0, avg: 0, p95: 0 };
+    const durations = logs.map(l => l.duration).sort((a, b) => a - b);
+    const sum = durations.reduce((a, b) => a + b, 0);
+    const p95Index = Math.min(Math.floor(durations.length * 0.95), durations.length - 1);
+    return {
+      min: durations[0],
+      max: durations[durations.length - 1],
+      avg: Math.round(sum / durations.length),
+      p95: durations[p95Index],
+    };
+  }
+
+  /**
+   * Per-tool breakdown: calls, successes, errors, avgDuration
+   */
+  toolBreakdown(logs) {
+    const tools = {};
+    for (const log of logs) {
+      if (!tools[log.tool]) {
+        tools[log.tool] = { calls: 0, success: 0, errors: 0, totalDuration: 0 };
+      }
+      const t = tools[log.tool];
+      t.calls++;
+      if (log.ok) t.success++; else t.errors++;
+      t.totalDuration += log.duration;
+    }
+    // Compute avg
+    for (const t of Object.values(tools)) {
+      t.avgDuration = t.calls > 0 ? Math.round(t.totalDuration / t.calls) : 0;
+      delete t.totalDuration;
+    }
+    return tools;
   }
 
   groupBy(arr, key) {
     const result = {};
     for (const item of arr) {
-      result[item[key]] = (result[item[key]] || 0) + 1;
+      const k = item[key] || 'UNKNOWN';
+      result[k] = (result[k] || 0) + 1;
     }
     return result;
   }
