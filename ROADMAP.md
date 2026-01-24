@@ -156,18 +156,107 @@ Status: Čeká na dokončení P0
 
 ### 🔴 P0 - Kritické (PŘED v36!)
 
-| Feature | Popis | Effort | Proč |
-|---------|-------|--------|------|
-| **E2E Scénářové testy** | 5-7 invariantních testů | M | Chrání architekturu |
-| **Expert constraints badge** | Viditelné v UI + logu | S | Auditovatelnost |
-| **Disclaimer slots** | Hard-coded pro Právník/Lékař/Psycholog | S | Bezpečnost |
+**Root causes z reálného testu:**
+- ❌ Rozpad kontextu mezi dotazy (temporal + domain lock chybí)
+- ❌ Mis-classification (`price_range` pro fáze Měsíce!)
+- ❌ Web search neuzamkl odpověď jako autoritu
+- ❌ Chybí correction mode při "jsi mimo"
 
-**E2E Scénáře (konkrétní):**
-1. Chat → Writer → kniha → DOCX
-2. Chat → Analyst → data → PDF report
-3. Agent → trigger → notify (bez experta)
-4. Evidence stale → warning v UI
-5. Price sanity violation → graceful degradation
+#### P0.1 - ProblemType Hard Guards
+
+```javascript
+// price_range POUZE pokud:
+const isPriceRange = (query) => {
+  return query.includes('cena') || 
+         query.includes('kolik stojí') ||
+         /\d+\s*(kč|czk|eur)/i.test(query);
+};
+
+// confidence < 0.5 → fallback = CHAT_FACTUAL
+if (classification.confidence < 0.5) {
+  return { type: 'CHAT_FACTUAL', reason: 'low_confidence' };
+}
+```
+
+#### P0.2 - Context Lock
+
+```javascript
+// Udržuj aktivní referenční rámec dokud uživatel nezmění
+contextLock: {
+  month: 'únor',
+  year: 2026,
+  domain: 'astronomical',
+  source: 'https://spaceweatherlive.com/...',
+  lockedAt: timestamp
+}
+```
+
+#### P0.3 - Correction Mode
+
+Trigger fráze:
+- "jsi mimo"
+- "ne, myslel jsem"
+- "tady je zdroj"
+- "špatně"
+
+Chování:
+1. Zastavit generování
+2. Invalidovat předchozí odhad
+3. Přepnout do režimu korekce ze zdroje
+4. Odpověď začíná "Opravuji..."
+
+#### P0.4 - Artifact Eligibility Gate
+
+```javascript
+// Fakta ≠ artefakt
+const canGenerateArtifact = (problemType, query) => {
+  const BLOCKED_TYPES = ['factual', 'availability', 'calendar'];
+  
+  if (BLOCKED_TYPES.includes(problemType)) {
+    logger.info('ARTIFACT_BLOCKED_BY_CONTEXT', { problemType });
+    return false;
+  }
+  return true;
+};
+```
+
+---
+
+### 🧪 E2E Scénáře (10 konkrétních testů)
+
+| # | Název | Vstup | Očekávání | Guard |
+|---|-------|-------|-----------|-------|
+| **01** | Fakta s časovým ukotvením | "kdy bude úplněk v únoru 2026" | problemType=factual, web search, datum+zdroj+rok | P0.1 |
+| **02** | Follow-up zpřesnění | "fáze měsíce v únoru" → "myslím 2026" | context carry, žádný nový odhad | P0.2 |
+| **03** | Explicitní URL = autorita | `https://spaceweatherlive.com/.../2026/2.html` | web fetch povinný, extrakce ne generování | P0.2 |
+| **04** | Oprava uživatelem | "jsi úplně mimo, tady je zdroj" | correction mode, invalidace, "Opravuji..." | P0.3 |
+| **05** | Zákaz artefaktů u faktů | "kdy je úplněk v únoru 2026" | žádný PDF/XLSX, čistá odpověď | P0.4 |
+| **06** | Chybný problemType guard | "fáze měsíce v únoru 2026" | problemType ≠ price_range | P0.1 |
+| **07** | Domain contamination | "ceny GPU" → "fáze měsíce" | domain reset, GPU layer inactive | P0.2 |
+| **08** | Web search freshness | "aktuální fáze měsíce" | evidence required, timestamp | P0.2 |
+| **09** | User correction without URL | "ne, myslím únor 2026, ne listopad" | přepočet bez artefaktu | P0.3 |
+| **10** | Artifact hard guard | faktická otázka + LLM chce PDF | ARTIFACT_BLOCKED_BY_CONTEXT | P0.4 |
+
+**Test formát:**
+```javascript
+// E2E-06: Chybný problemType guard
+test('fáze měsíce nesmí být price_range', async () => {
+  const result = await classify('fáze měsíce v únoru 2026');
+  
+  expect(result.problemType).not.toBe('price_range');
+  expect(result.problemType).toBe('factual');
+  expect(result.confidence).toBeGreaterThan(0.5);
+});
+```
+
+---
+
+### 🟠 P0.5 - Expert Layer Guards
+
+| Feature | Popis | Effort |
+|---------|-------|--------|
+| **Expert constraints badge** | Viditelné v UI + logu | S |
+| **Disclaimer slots** | Hard-coded pro Právník/Lékař/Psycholog | S |
 
 ### 🟡 P1 - Důležité
 
@@ -198,9 +287,12 @@ Status: Čeká na dokončení P0
 ## 🔮 FUTURE ROADMAP
 
 ### Fáze 1: Stabilizace v35 (AKTUÁLNÍ)
-- [ ] E2E testy (5-7 scénářů)
-- [ ] Expert constraints badge
-- [ ] Disclaimer slots
+- [ ] P0.1: ProblemType hard guards (price_range only with "cena")
+- [ ] P0.2: Context lock (month/year/domain/source)
+- [ ] P0.3: Correction mode ("jsi mimo" triggers)
+- [ ] P0.4: Artifact eligibility gate
+- [ ] P0.5: Expert constraints badge + disclaimers
+- [ ] E2E testy (10 scénářů)
 - [ ] Tag: `v35.1.0-stable`
 
 ### Fáze 2: Release v36 (po P0)
@@ -244,11 +336,18 @@ Standardizované error kódy pro debug, UX a automatizaci:
 | `DATA_MISSING` | Chybí požadovaná data | Data Layer |
 | `DATA_STALE` | Data jsou zastaralá | Data Layer |
 | `EVIDENCE_STALE` | Evidence starší než threshold | Evidence Layer |
+| `EVIDENCE_REQUIRED` | Dotaz vyžaduje externí zdroj | Evidence Layer |
 | `EXPERT_UNAVAILABLE` | Expert není dostupný | Expert Layer |
 | `EXPERT_INCOMPETENT` | Task mimo kompetenci experta | Orchestrator |
 | `CONSTRAINT_VIOLATION` | Porušení C3 Core pravidel | Core |
 | `CYCLE_DETECTED` | Detekován cyklus v delegaci | Orchestrator |
 | `RATE_LIMITED` | Překročen rate limit | Orchestrator |
+| `CLASSIFICATION_LOW_CONFIDENCE` | problemType confidence < threshold | Decision Layer |
+| `CLASSIFICATION_MISMATCH` | problemType neodpovídá dotazu | Decision Layer |
+| `CONTEXT_LOST` | Ztráta temporal/domain kontextu | Decision Layer |
+| `ARTIFACT_BLOCKED_BY_CONTEXT` | Artefakt zablokován (faktický dotaz) | Artifact Pipeline |
+| `CORRECTION_MODE_ACTIVE` | Uživatel opravuje předchozí odpověď | Core |
+| `DOMAIN_CONTAMINATION` | Aktivní data layer z jiné domény | Data Layer |
 
 ---
 

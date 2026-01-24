@@ -1,0 +1,19 @@
+{
+  "id": "1769204736323",
+  "filename": "seznam-aktuálních-zahraničních-zpráv-1769204736323.pdf",
+  "title": "Seznam aktuálních zahraničních zpráv",
+  "requestedType": "pdf",
+  "actualType": "pdf",
+  "mimeType": "application/pdf",
+  "size": 63376,
+  "created": "2026-01-23T21:45:38.921Z",
+  "puppeteerAvailable": true,
+  "locale": "cs-CZ",
+  "currency": "CZK",
+  "region": "Czech Republic",
+  "confidence": "low",
+  "intent": "TABLE_REQUEST",
+  "representation": "report",
+  "rowCount": 4,
+  "wordCount": 0
+}

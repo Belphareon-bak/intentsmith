@@ -1,0 +1,196 @@
+.
+├── ARCHITECTURE.md
+├── chats
+│   ├── conv-1768165091450-n9ss37evx
+│   │   └── attachments
+│   │       └── 0649bdce5d5899a4.png
+│   ├── conv-1768166660825-3fipqmy0i
+│   │   └── attachments
+│   │       └── 371f3c0363f64aad.jpeg
+│   └── conv-1768592151296-xtx75d2in
+│       └── attachments
+│           └── fba07691541b0b79.zip
+├── data
+│   ├── artifacts
+│   │   ├── dostupné-rtx-grafiky-1768773301833.html
+│   │   ├── dostupné-rtx-grafiky-1768773301833.pdf
+│   │   ├── dostupné-rtx-grafiky-1768773301833.pdf.meta.json
+│   │   ├── dostupné-rtx-grafiky-1768774100353.html
+│   │   ├── dostupné-rtx-grafiky-1768774100353.pdf
+│   │   ├── dostupné-rtx-grafiky-1768774100353.pdf.meta.json
+│   │   ├── nová-vozidla-značky-skoda-a-detailní-informace-o-d-1768774208276.html
+│   │   ├── nová-vozidla-značky-skoda-a-detailní-informace-o-d-1768774208276.pdf
+│   │   ├── nová-vozidla-značky-skoda-a-detailní-informace-o-d-1768774208276.pdf.meta.json
+│   │   ├── orientační-ceny-pro-listopad-prosinec-a-únor-2026-1769119241754.html
+│   │   ├── orientační-ceny-pro-listopad-prosinec-a-únor-2026-1769119241754.pdf
+│   │   ├── orientační-ceny-pro-listopad-prosinec-a-únor-2026-1769119241754.pdf.meta.json
+│   │   ├── porovnání-nejnovějších-cpu-intel-a-amd-1768774424188.html
+│   │   ├── porovnání-nejnovějších-cpu-intel-a-amd-1768774424188.pdf
+│   │   ├── porovnání-nejnovějších-cpu-intel-a-amd-1768774424188.pdf.meta.json
+│   │   ├── přehled-grafických-karet-1768855755363.docx
+│   │   ├── přehled-grafických-karet-1768855755363.docx.meta.json
+│   │   ├── seznam-aktuálních-zahraničních-zpráv-1769204736323.html
+│   │   ├── seznam-aktuálních-zahraničních-zpráv-1769204736323.pdf
+│   │   ├── seznam-aktuálních-zahraničních-zpráv-1769204736323.pdf.meta.json
+│   │   ├── souhrn-zpráv-za-poslední-týden-o-trumpově-politice-1769264005300.html
+│   │   ├── souhrn-zpráv-za-poslední-týden-o-trumpově-politice-1769264005300.pdf
+│   │   ├── souhrn-zpráv-za-poslední-týden-o-trumpově-politice-1769264005300.pdf.meta.json
+│   │   ├── tmavý-les-morgrima-1768856582442.docx
+│   │   └── tmavý-les-morgrima-1768856582442.docx.meta.json
+│   └── c3.db
+├── package.json
+├── package-lock.json
+├── projects
+│   ├── P2-agenti
+│   │   ├── .c3
+│   │   ├── .c3-architect
+│   │   │   ├── history
+│   │   │   ├── roadmap
+│   │   │   │   └── main.md
+│   │   │   └── state.json
+│   │   └── chat
+│   ├── p3---test
+│   │   ├── .c3
+│   │   └── chat
+│   ├── P3-web
+│   │   ├── attachments
+│   │   │   ├── 48b92208dfdab8fd.pdf
+│   │   │   └── f44d3426c09ba678.jpg
+│   │   ├── .c3
+│   │   ├── .c3-architect
+│   │   │   ├── history
+│   │   │   ├── roadmap
+│   │   │   │   └── main.md
+│   │   │   └── state.json
+│   │   └── chat
+│   └── prvni-projekt
+│       ├── .c3
+│       ├── .c3-architect
+│       │   ├── history
+│       │   ├── roadmap
+│       │   │   └── main.md
+│       │   └── state.json
+│       └── chat
+├── README.md
+├── ROADMAP.md
+├── src
+│   ├── agents
+│   │   ├── AGENT-DSL-SCHEMA.md
+│   │   ├── agents.html
+│   │   ├── api.js
+│   │   ├── architect.js
+│   │   ├── builder.js
+│   │   ├── conditions.js
+│   │   ├── database.js
+│   │   ├── index.js
+│   │   ├── llm-services.js
+│   │   ├── README.md
+│   │   ├── repository.js
+│   │   ├── runner.js
+│   │   ├── scheduler.js
+│   │   ├── schema.js
+│   │   ├── server.js
+│   │   ├── sources
+│   │   │   ├── inspector.js
+│   │   │   └── schema.js
+│   │   └── triggers.js
+│   ├── architect
+│   │   ├── actions.js
+│   │   ├── architect.js
+│   │   ├── coder.js
+│   │   ├── context.js
+│   │   ├── editor.js
+│   │   ├── git.js
+│   │   ├── history.js
+│   │   ├── index.js
+│   │   ├── llm.js
+│   │   ├── orchestrator.js
+│   │   ├── prompts.js
+│   │   ├── reviewer.js
+│   │   ├── roadmap.js
+│   │   ├── scripts
+│   │   │   ├── complete-block.sh
+│   │   │   ├── create-block.sh
+│   │   │   ├── init-architect.sh
+│   │   │   └── project-status.sh
+│   │   ├── state.js
+│   │   └── templates
+│   │       └── spec.md
+│   ├── artifact-pipeline.js
+│   ├── chat
+│   │   ├── answer-quality-gate.js
+│   │   ├── chat-guards.js
+│   │   ├── claim-model.js
+│   │   ├── correction-enforcer.js
+│   │   ├── cre-v2.js
+│   │   ├── decision-matrix.js
+│   │   ├── dialog-state-v2.js
+│   │   └── execution-contracts.js
+│   ├── config.js
+│   ├── core
+│   │   ├── config.js
+│   │   └── logger.js
+│   ├── data
+│   │   ├── c3.db
+│   │   ├── cars-source.js
+│   │   ├── data-layer.js
+│   │   ├── gpu-source.js
+│   │   └── index.js
+│   ├── db
+│   │   ├── database.js
+│   │   └── init.js
+│   ├── decision-layer.js
+│   ├── experts
+│   │   ├── expert-layer.js
+│   │   └── experts.html
+│   ├── llm
+│   │   ├── client.js
+│   │   ├── prompts.js
+│   │   ├── test-web-search-heuristic.js
+│   │   └── web-search.js
+│   ├── server.js
+│   ├── tests
+│   │   ├── chat-e2e.js
+│   │   ├── chat-e2e-v2.js
+│   │   ├── chat-llm-context-override.js
+│   │   ├── chat-llm-e2e.js
+│   │   ├── chat-llm-evidence-usage.js
+│   │   ├── chat-llm-factual-sanity.js
+│   │   ├── chat-llm-freshness.js
+│   │   ├── chat-llm-infra.js
+│   │   ├── chat-llm-reasoning.js
+│   │   ├── correction-enforcer.test.js
+│   │   ├── cre-v2.test.js
+│   │   ├── cre-v36-e2e.test.js
+│   │   ├── e2e-helpers.js
+│   │   ├── e2e-runner.js
+│   │   ├── e2e-scenarios.js
+│   │   ├── full-integration.test.js
+│   │   ├── llm-behavior.test.js
+│   │   ├── real-user-simulation.test.js
+│   │   └── workflow-e2e.test.js
+│   ├── ui
+│   │   ├── architect
+│   │   │   ├── architect.css
+│   │   │   ├── architect.html
+│   │   │   ├── architect.js
+│   │   │   └── logo.svg
+│   │   └── assets
+│   │       └── paiass-logo.svg
+│   └── workflow
+│       └── engine.js
+├── test
+│   ├── quick-test.js
+│   ├── test-architect.js
+│   ├── test-clarify.sh
+│   ├── test-commands.sh
+│   ├── test-dual.sh
+│   ├── test-quick.sh
+│   ├── test-tools.sh
+│   ├── test-ui-gen.sh
+│   ├── test-workflow-auto.sh
+│   └── test-workflow.sh
+├── test-dual.sh.bak
+└── working-progress.md
+
+51 directories, 143 files

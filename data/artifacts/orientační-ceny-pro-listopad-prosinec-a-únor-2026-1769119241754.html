@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="cs-CZ">
+<head>
+  <meta charset="UTF-8">
+  <title>Orientační ceny pro listopad, prosinec a únor 2026</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: 'Segoe UI', Arial, sans-serif; 
+      padding: 40px;
+      color: #1a1a2e;
+      background: #fff;
+    }
+    .header { 
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 3px solid #4361ee;
+    }
+    h1 { 
+      color: #4361ee;
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    .description {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 15px;
+    }
+    .meta {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      align-items: center;
+      font-size: 12px;
+      color: #666;
+    }
+    .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .confidence-banner {
+      margin: 20px 0;
+      padding: 15px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    .confidence-high { background: #d1fae5; border-left: 4px solid #10b981; }
+    .confidence-medium { background: #fef3c7; border-left: 4px solid #f59e0b; }
+    .confidence-low { background: #fee2e2; border-left: 4px solid #ef4444; }
+    .confidence-unknown { background: #f3f4f6; border-left: 4px solid #6b7280; }
+    table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      margin: 20px 0;
+      font-size: 14px;
+    }
+    th { 
+      background: #4361ee;
+      color: white;
+      padding: 12px 15px;
+      text-align: left;
+      font-weight: 600;
+    }
+    td { 
+      padding: 12px 15px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    tr:nth-child(even) { background: #f8f9fa; }
+    tr:hover { background: #e8f4f8; }
+    .price-cell {
+      font-weight: 600;
+      color: #1a1a2e;
+      white-space: nowrap;
+    }
+    .notes {
+      margin-top: 30px;
+      padding: 15px;
+      background: #f8fafc;
+      border-left: 4px solid #64748b;
+      font-size: 13px;
+    }
+    .notes h3 { 
+      color: #475569;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    .notes ul { margin-left: 20px; }
+    .notes li { margin: 5px 0; color: #666; }
+    .footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #e0e0e0;
+      font-size: 11px;
+      color: #999;
+      display: flex;
+      justify-content: space-between;
+    }
+    @media print {
+      body { padding: 20px; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Orientační ceny pro listopad, prosinec a únor 2026</h1>
+    <p class="description">Tabulka s odhadovanými cenami pro zadané měsíce v roce 2026.</p>
+    <div class="meta">
+      <span class="meta-item">📅 22. 1. 2026</span>
+      <span class="meta-item">💰 CZK</span>
+      <span class="meta-item">🌍 Czech Republic</span>
+      <span style="background:#fee2e2;color:#ef4444;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;">⚠️ Orientační</span>
+    </div>
+  </div>
+  
+  <div class="confidence-banner confidence-low">
+    <div>
+      <strong>Kvalita dat:</strong> Orientační data - doporučujeme ověřit aktuální ceny
+    </div>
+    <div style="font-size:12px;color:#666;">Zdroj: heuristic</div>
+  </div>
+  
+  <table>
+    <thead>
+      <tr>
+        <th>Produkt</th><th>Specifikace</th><th>Cena</th><th>Typ ceny</th><th>Jistota</th>
+      </tr>
+    </thead>
+    <tbody>
+      
+        <tr>
+          <td>Elektronická technika</td><td>Středně pokročilé modely</td><td class="price-cell">15 000 - 20 000 Kč</td><td><span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:12px;">odhad</span></td><td><span style="color:#991b1b;">○ nízká</span></td>
+        </tr>
+      
+        <tr>
+          <td>Automobily</td><td>Střední třída, nové modely</td><td class="price-cell">1 200 000 - 1 500 000 Kč</td><td><span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:12px;">odhad</span></td><td><span style="color:#991b1b;">○ nízká</span></td>
+        </tr>
+      
+        <tr>
+          <td>Domácnostní potřeby</td><td>Standardní vybavení pro byt</td><td class="price-cell">5 000 - 8 000 Kč</td><td><span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:12px;">odhad</span></td><td><span style="color:#991b1b;">○ nízká</span></td>
+        </tr>
+      
+        <tr>
+          <td>Oblečení</td><td>Zimní oblečení pro dospělé</td><td class="price-cell">2 500 - 4 000 Kč</td><td><span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:12px;">odhad</span></td><td><span style="color:#991b1b;">○ nízká</span></td>
+        </tr>
+      
+        <tr>
+          <td>Zdravotní péče</td><td>Standardní léky a zdravotnické vybavení</td><td class="price-cell">1 000 - 2 500 Kč</td><td><span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:12px;">odhad</span></td><td><span style="color:#991b1b;">○ nízká</span></td>
+        </tr>
+      
+    </tbody>
+  </table>
+  
+  
+    <div class="notes">
+      <h3>📝 Poznámky</h3>
+      <ul>
+        <li>Ceny jsou orientační odhady</li><li>Používáme odhad na základě podobných produktů/služeb.</li><li>⚠️ Orientační data - doporučujeme ověřit aktuální informace</li>
+      </ul>
+    </div>
+  
+  
+  <div class="footer">
+    <span>Vygenerováno: p(AI)assistant v35.0.0</span>
+    <span>22. 1. 2026 23:00:41</span>
+  </div>
+</body>
+</html>
