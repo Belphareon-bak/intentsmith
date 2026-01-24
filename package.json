@@ -1,15 +1,15 @@
 {
   "name": "c3-agent",
-  "version": "37.0.0",
+  "version": "37.2.0",
   "type": "module",
-  "description": "C.3 Agent - CRE v37.0 (Planner / Executor Split)",
+  "description": "C.3 Agent - CRE v37.2 (Memory & Context Layer)",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     
-    "test": "npm run test:unit && npm run test:e2e && npm run test:workflow && npm run test:simulation && npm run test:integration && npm run test:guards && npm run test:tools",
-    "test:all": "npm run test:unit && npm run test:e2e && npm run test:workflow && npm run test:simulation && npm run test:integration && npm run test:guards && npm run test:tools && npm run test:llm:mock",
+    "test": "npm run test:unit && npm run test:e2e && npm run test:workflow && npm run test:simulation && npm run test:integration && npm run test:guards && npm run test:tools && npm run test:memory",
+    "test:all": "npm run test:unit && npm run test:e2e && npm run test:workflow && npm run test:simulation && npm run test:integration && npm run test:guards && npm run test:tools && npm run test:memory && npm run test:llm:mock",
     
     "test:unit": "node src/tests/cre-v2.test.js",
     "test:e2e": "node src/tests/cre-v36-e2e.test.js",
@@ -27,7 +27,8 @@
     "test:chat:v2": "node src/tests/chat-e2e-v2.js",
     "test:correction": "node src/tests/correction-enforcer.test.js",
     "test:cre": "node src/tests/cre-v2.test.js",
-    "test:tools": "node src/tests/http-client.test.js && node src/tests/tool-executor.test.js && node src/tests/memory-policy.test.js && node src/tests/human-gate.test.js && node src/tests/planner.test.js"
+    "test:tools": "node src/tests/http-client.test.js && node src/tests/tool-executor.test.js && node src/tests/memory-policy.test.js && node src/tests/human-gate.test.js && node src/tests/planner.test.js",
+    "test:memory": "node src/tests/session-memory.test.js && node src/tests/long-term-memory.test.js && node src/tests/preferences.test.js"
   },
   "dependencies": {
     "better-sqlite3": "^9.0.0",

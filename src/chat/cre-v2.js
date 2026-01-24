@@ -68,6 +68,9 @@ import {
   RefusalReason,
   Verbosity
 } from './cre-decision-types.js';
+import { sessionMemory } from '../memory/session.js';
+import { referenceResolver } from '../memory/reference-resolver.js';
+import { preferenceResolver } from './preference-resolver.js';
 
 // ════════════════════════════════════════════════════════════════════════════
 // CRE RESULT
@@ -911,6 +914,28 @@ export async function process(message, state, context = {}) {
     const decisionId = context.decisionId || `cre-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     // ═══════════════════════════════════════════════════════════════════════
+    // STEP 0.5: REFERENCE RESOLUTION (v37.0)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    const sessionContext = sessionMemory.getContext();
+    const resolved = referenceResolver.resolve(message, sessionContext);
+
+    // If correction detected, propagate to context
+    if (resolved.isCorrection) {
+      context._isCorrection = true;
+      context._resolvedFrom = resolved.resolvedFrom;
+    }
+
+    // If reference resolved, enrich context with resolved data
+    if (resolved.hasReference) {
+      context._resolvedReference = resolved;
+      logger.debug('CRE', 'Reference resolved', {
+        type: resolved.referenceType,
+        hasResolvedFrom: !!resolved.resolvedFrom,
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // STEP 1: DETECT
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -1173,6 +1198,14 @@ export async function process(message, state, context = {}) {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // STEP 5.5: PREFERENCE-AWARE MODIFICATION (v37.2)
+    // ═══════════════════════════════════════════════════════════════════════
+    // Preferences modify decision parameters (verbosity, auto-execute),
+    // NOT decision type. CRE remains authority.
+
+    creDecision = preferenceResolver.applyToDecision(creDecision, sessionContext);
+
+    // ═══════════════════════════════════════════════════════════════════════
     // STEP 6: RENDER DECISION VIA ResponseRenderer (v36.9)
     // ═══════════════════════════════════════════════════════════════════════
     // ResponseRenderer handles: text generation, speech act enforcement,
@@ -1224,6 +1257,17 @@ export async function process(message, state, context = {}) {
     result.enforcement = renderResult.enforcement || [];
     result.creDecision = creDecision;  // Attach structured decision for debugging
     result.decisionId = decisionId;    // v36.9: Propagate for audit/replay
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // STEP 9: RECORD TURN IN SESSION MEMORY (v37.0)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    sessionMemory.addTurn(message, creDecision, null, extractedSlots);
+
+    // Observe corrections for AutoLearner (v37.2)
+    if (context._isCorrection && context._resolvedFrom) {
+      preferenceResolver.observeCorrection('last_decision', context._resolvedFrom);
+    }
 
     return result;
     
