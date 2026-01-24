@@ -1,15 +1,15 @@
 {
   "name": "c3-agent",
-  "version": "36.9.0",
+  "version": "36.9.2",
   "type": "module",
-  "description": "C.3 Agent - CRE v36.9 (ResponseRenderer + Single LLM Call - hard LLM guard)",
+  "description": "C.3 Agent - CRE v36.9.2 (Real Capability Wiring - ToolExecutor)",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     
-    "test": "npm run test:unit && npm run test:e2e && npm run test:workflow && npm run test:simulation && npm run test:integration && npm run test:guards",
-    "test:all": "npm run test:unit && npm run test:e2e && npm run test:workflow && npm run test:simulation && npm run test:integration && npm run test:guards && npm run test:llm:mock",
+    "test": "npm run test:unit && npm run test:e2e && npm run test:workflow && npm run test:simulation && npm run test:integration && npm run test:guards && npm run test:tools",
+    "test:all": "npm run test:unit && npm run test:e2e && npm run test:workflow && npm run test:simulation && npm run test:integration && npm run test:guards && npm run test:tools && npm run test:llm:mock",
     
     "test:unit": "node src/tests/cre-v2.test.js",
     "test:e2e": "node src/tests/cre-v36-e2e.test.js",
@@ -26,7 +26,8 @@
     "test:chat": "node src/tests/chat-e2e.js",
     "test:chat:v2": "node src/tests/chat-e2e-v2.js",
     "test:correction": "node src/tests/correction-enforcer.test.js",
-    "test:cre": "node src/tests/cre-v2.test.js"
+    "test:cre": "node src/tests/cre-v2.test.js",
+    "test:tools": "node src/tests/http-client.test.js && node src/tests/tool-executor.test.js"
   },
   "dependencies": {
     "better-sqlite3": "^9.0.0",
