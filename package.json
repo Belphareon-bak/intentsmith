@@ -1,8 +1,8 @@
 {
   "name": "c3-agent",
-  "version": "36.9.3",
+  "version": "37.0.0",
   "type": "module",
-  "description": "C.3 Agent - CRE v36.9.3 (Memory Policy + HumanGate)",
+  "description": "C.3 Agent - CRE v37.0 (Planner / Executor Split)",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -27,7 +27,7 @@
     "test:chat:v2": "node src/tests/chat-e2e-v2.js",
     "test:correction": "node src/tests/correction-enforcer.test.js",
     "test:cre": "node src/tests/cre-v2.test.js",
-    "test:tools": "node src/tests/http-client.test.js && node src/tests/tool-executor.test.js && node src/tests/memory-policy.test.js && node src/tests/human-gate.test.js"
+    "test:tools": "node src/tests/http-client.test.js && node src/tests/tool-executor.test.js && node src/tests/memory-policy.test.js && node src/tests/human-gate.test.js && node src/tests/planner.test.js"
   },
   "dependencies": {
     "better-sqlite3": "^9.0.0",

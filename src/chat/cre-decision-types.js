@@ -267,6 +267,23 @@ export function toolCall(tool, params, then = null) {
 }
 
 /**
+ * Create a PLAN decision — multi-step execution
+ * CRE returns this instead of TOOL_CALL for multi-step operations.
+ * PlanRunner executes the steps.
+ *
+ * @param {string} goal - What the plan achieves
+ * @param {Array<{id, tool, params, dependsOn?, label?, mapInput?}>} steps
+ * @returns {Object} PLAN decision
+ */
+export function plan(goal, steps) {
+  return {
+    type: 'PLAN',
+    goal,
+    steps: steps || [],
+  };
+}
+
+/**
  * Create an ASK_USER decision
  */
 export function askUser(slots, template = ResponseTemplate.SLOT_REQUEST, context = {}) {
@@ -383,7 +400,14 @@ export function validateDecision(decision) {
         }
       }
       break;
-      
+
+    case 'PLAN':
+      if (!decision.goal) errors.push('PLAN missing goal');
+      if (!decision.steps || decision.steps.length === 0) {
+        errors.push('PLAN missing steps');
+      }
+      break;
+
     default:
       errors.push(`Unknown decision type: ${decision.type}`);
   }
@@ -415,6 +439,10 @@ export function isAnswer(decision) {
 
 export function isMultiStep(decision) {
   return decision?.type === 'MULTI_STEP';
+}
+
+export function isPlan(decision) {
+  return decision?.type === 'PLAN';
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -468,6 +496,7 @@ export default {
   
   // Creators
   toolCall,
+  plan,
   askUser,
   refuse,
   answer,
@@ -477,6 +506,7 @@ export default {
   // Validation
   validateDecision,
   isToolCall,
+  isPlan,
   isAskUser,
   isRefuse,
   isAnswer,
