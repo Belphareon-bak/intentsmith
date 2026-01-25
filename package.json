@@ -1,34 +1,30 @@
 {
   "name": "c3-agent",
-  "version": "38.3.1",
+  "version": "39.3.0",
   "type": "module",
-  "description": "C.3 Agent - CRE v38.3 (Execution Layer)",
+  "description": "C.3 Agent - CRE v39.3 (Autonomous Mode)",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    
-    "test": "npm run test:unit && npm run test:e2e && npm run test:workflow && npm run test:simulation && npm run test:integration && npm run test:guards && npm run test:tools && npm run test:memory",
-    "test:all": "npm run test:unit && npm run test:e2e && npm run test:workflow && npm run test:simulation && npm run test:integration && npm run test:guards && npm run test:tools && npm run test:memory && npm run test:llm:mock",
-    
-    "test:unit": "node src/tests/cre-v2.test.js",
-    "test:e2e": "node src/tests/cre-v36-e2e.test.js",
-    "test:workflow": "node src/tests/workflow-e2e.test.js",
-    "test:simulation": "node src/tests/real-user-simulation.test.js",
-    "test:integration": "node src/tests/full-integration.test.js",
-    "test:guards": "node src/tests/e2e-scenarios.js && node src/tests/chat-e2e.js && node src/tests/chat-e2e-v2.js && node src/tests/correction-enforcer.test.js",
-    
-    "test:llm": "node src/tests/llm-behavior.test.js",
-    "test:llm:mock": "MOCK_LLM=1 node src/tests/llm-behavior.test.js",
-    "test:llm:live": "node src/tests/llm-behavior.test.js",
-    
-    "test:arch": "node src/tests/e2e-scenarios.js",
-    "test:chat": "node src/tests/chat-e2e.js",
-    "test:chat:v2": "node src/tests/chat-e2e-v2.js",
-    "test:correction": "node src/tests/correction-enforcer.test.js",
-    "test:cre": "node src/tests/cre-v2.test.js",
-    "test:tools": "node src/tests/http-client.test.js && node src/tests/tool-executor.test.js && node src/tests/memory-policy.test.js && node src/tests/human-gate.test.js && node src/tests/planner.test.js && node src/tests/planner-v38.test.js",
-    "test:memory": "node src/tests/session-memory.test.js && node src/tests/long-term-memory.test.js && node src/tests/preferences.test.js"
+
+    "test": "npm run test:core && npm run test:tools && npm run test:memory && npm run test:planner && npm run test:autonomous",
+    "test:all": "npm run test && npm run test:llm:mock",
+
+    "test:core": "node tests/cre-v2.test.js && node tests/cre-decision-types.test.js",
+    "test:integration": "node tests/full-integration.test.js",
+    "test:guards": "node tests/chat-e2e-v2.js && node tests/correction-enforcer.test.js",
+
+    "test:llm": "node tests/llm-behavior.test.js",
+    "test:llm:mock": "MOCK_LLM=1 node tests/llm-behavior.test.js",
+    "test:llm:live": "node tests/llm-behavior.test.js",
+    "test:llm:gateway": "node tests/llm-gateway.test.js",
+    "test:llm:enforcement": "node tests/llm-enforcement.test.js",
+
+    "test:tools": "node tests/http-client.test.js && node tests/tool-executor.test.js && node tests/human-gate.test.js",
+    "test:memory": "node tests/session-memory.test.js && node tests/long-term-memory.test.js && node tests/preferences.test.js && node tests/memory-policy.test.js",
+    "test:planner": "node tests/planner.test.js && node tests/planner-v38.test.js",
+    "test:autonomous": "node tests/autonomous-v39.test.js"
   },
   "dependencies": {
     "better-sqlite3": "^9.0.0",
