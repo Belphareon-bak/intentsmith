@@ -1,8 +1,8 @@
 {
   "name": "c3-agent",
-  "version": "37.2.0",
+  "version": "38.3.0",
   "type": "module",
-  "description": "C.3 Agent - CRE v37.2 (Memory & Context Layer)",
+  "description": "C.3 Agent - CRE v38.3 (Execution Layer)",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -27,7 +27,7 @@
     "test:chat:v2": "node src/tests/chat-e2e-v2.js",
     "test:correction": "node src/tests/correction-enforcer.test.js",
     "test:cre": "node src/tests/cre-v2.test.js",
-    "test:tools": "node src/tests/http-client.test.js && node src/tests/tool-executor.test.js && node src/tests/memory-policy.test.js && node src/tests/human-gate.test.js && node src/tests/planner.test.js",
+    "test:tools": "node src/tests/http-client.test.js && node src/tests/tool-executor.test.js && node src/tests/memory-policy.test.js && node src/tests/human-gate.test.js && node src/tests/planner.test.js && node src/tests/planner-v38.test.js",
     "test:memory": "node src/tests/session-memory.test.js && node src/tests/long-term-memory.test.js && node src/tests/preferences.test.js"
   },
   "dependencies": {
