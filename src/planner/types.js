@@ -101,6 +101,39 @@ export function createRetryConfig(overrides = {}) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// EXECUTION LIMITS (v38.0.1 — safety guards)
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Hard limits to prevent infinite execution
+ * These are NON-NEGOTIABLE safety guards
+ */
+export const DEFAULT_EXECUTION_LIMITS = {
+  maxSteps: 50,           // Hard stop: total steps executed
+  maxIterations: 100,     // Hard stop: execution loop iterations
+  maxParallel: 10,        // Max concurrent step executions
+  maxRetryTotal: 20,      // Total retries across all steps
+};
+
+/**
+ * Create execution limits config
+ */
+export function createExecutionLimits(overrides = {}) {
+  return { ...DEFAULT_EXECUTION_LIMITS, ...overrides };
+}
+
+/**
+ * Execution limit error codes
+ */
+export const ExecutionLimitError = {
+  MAX_STEPS_EXCEEDED: 'MAX_STEPS_EXCEEDED',
+  MAX_ITERATIONS_EXCEEDED: 'MAX_ITERATIONS_EXCEEDED',
+  MAX_PARALLEL_EXCEEDED: 'MAX_PARALLEL_EXCEEDED',
+  MAX_RETRY_EXCEEDED: 'MAX_RETRY_EXCEEDED',
+  CYCLE_DETECTED: 'CYCLE_DETECTED',
+};
+
+// ════════════════════════════════════════════════════════════════════════════
 // STEP (v38.0)
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -442,12 +475,15 @@ export default {
   PlanStatus,
   ConditionType,
   DEFAULT_RETRY_CONFIG,
+  DEFAULT_EXECUTION_LIMITS,
+  ExecutionLimitError,
 
   // Factories
   createStep,
   createPlan,
   createCondition,
   createRetryConfig,
+  createExecutionLimits,
 
   // Graph helpers
   areDependenciesMet,

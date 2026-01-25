@@ -1,4 +1,4 @@
-// CRE v38.0 Plan Runner
+// CRE v38.0.1 Plan Runner
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Executes a Plan graph, respecting dependencies, conditions, and gates.
@@ -11,6 +11,11 @@
 //   - All changes via PlanMutator (auditable)
 //   - Deterministic reflection on failure (retry → fallback → ask → fail)
 //
+// v38.0.1 — Safety guards:
+//   - Hard execution limits (maxSteps, maxIterations, maxParallel, maxRetryTotal)
+//   - Cycle detection HARD FAIL (plan with cycles won't run)
+//   - Visited step tracking (prevent infinite re-execution)
+//
 // Flow:
 //   CREDecision(PLAN) → PlanRunner.run(plan)
 //   → parallel execution of ready steps
@@ -21,6 +26,7 @@
 //   ❌ stepResult doesn't change plan directly
 //   ✅ All changes via PlanMutator
 //   ✅ Every mutation is auditable
+//   ✅ Hard limits enforced (v38.0.1)
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -29,23 +35,26 @@ import { humanGate } from '../gates/human-gate.js';
 import {
   StepStatus, PlanStatus,
   areDependenciesMet, hasDependencyFailed, getNextSteps, getParallelSteps,
-  isPlanComplete, evaluateCondition, getRetryDelay
+  isPlanComplete, evaluateCondition, getRetryDelay, validatePlan,
+  DEFAULT_EXECUTION_LIMITS, createExecutionLimits, ExecutionLimitError
 } from './types.js';
 import { createMutator } from './mutations.js';
 import { deterministicReflector, ReflectionAction } from './reflection.js';
 import { logger } from '../core/logger.js';
 
 // ════════════════════════════════════════════════════════════════════════════
-// PLAN RUNNER (v38.0)
+// PLAN RUNNER (v38.0.1)
 // ════════════════════════════════════════════════════════════════════════════
 
 export class PlanRunner {
   constructor(options = {}) {
     this.defaultStepTimeout = options.stepTimeout || 30000;
-    this.maxSteps = options.maxSteps || 50; // Safety: max steps per plan
     this.parallelExecution = options.parallel ?? true; // v38: parallel by default
     this.reflector = options.reflector || deterministicReflector;
     this.executionHistory = [];
+
+    // v38.0.1: Execution limits — NON-NEGOTIABLE safety guards
+    this.limits = createExecutionLimits(options.limits || {});
   }
 
   /**
@@ -57,26 +66,87 @@ export class PlanRunner {
    */
   async run(plan, context = {}) {
     const mutator = createMutator(plan);
+
+    // v38.0.1: HARD FAIL on cycles — don't even start
+    const validation = validatePlan(plan);
+    if (!validation.valid) {
+      if (plan.graph?.hasCycles) {
+        mutator.setPlanStatus(PlanStatus.FAILED, 'runner');
+        logger.error('PlanRunner', 'CYCLE_DETECTED: Plan has cycles, refusing to execute');
+        return {
+          status: PlanStatus.FAILED,
+          plan,
+          error: ExecutionLimitError.CYCLE_DETECTED,
+          details: 'Plan graph contains cycles — infinite loop risk',
+        };
+      }
+    }
+
     mutator.setPlanStatus(PlanStatus.RUNNING, 'runner');
 
     logger.debug('PlanRunner', `Running plan: ${plan.goal}`, {
       steps: plan.steps.length,
       parallel: this.parallelExecution,
+      limits: this.limits,
     });
 
     // Set goal for HumanGate scope
     humanGate.setGoal(plan.id);
 
+    // v38.0.1: Execution tracking
     let stepsExecuted = 0;
+    let iterations = 0;
+    let totalRetries = 0;
+    const visitedSteps = new Set(); // Track executed steps to detect re-execution loops
 
-    while (!isPlanComplete(plan) && stepsExecuted < this.maxSteps) {
+    while (!isPlanComplete(plan)) {
+      iterations++;
+
+      // v38.0.1: HARD LIMIT — max iterations
+      if (iterations > this.limits.maxIterations) {
+        mutator.setPlanStatus(PlanStatus.FAILED, 'runner');
+        logger.error('PlanRunner', `MAX_ITERATIONS_EXCEEDED: ${iterations} > ${this.limits.maxIterations}`);
+        return {
+          status: PlanStatus.FAILED,
+          plan,
+          error: ExecutionLimitError.MAX_ITERATIONS_EXCEEDED,
+        };
+      }
+
+      // v38.0.1: HARD LIMIT — max steps
+      if (stepsExecuted >= this.limits.maxSteps) {
+        mutator.setPlanStatus(PlanStatus.FAILED, 'runner');
+        logger.error('PlanRunner', `MAX_STEPS_EXCEEDED: ${stepsExecuted} >= ${this.limits.maxSteps}`);
+        return {
+          status: PlanStatus.FAILED,
+          plan,
+          error: ExecutionLimitError.MAX_STEPS_EXCEEDED,
+        };
+      }
+
+      // v38.0.1: HARD LIMIT — max total retries
+      if (totalRetries > this.limits.maxRetryTotal) {
+        mutator.setPlanStatus(PlanStatus.FAILED, 'runner');
+        logger.error('PlanRunner', `MAX_RETRY_EXCEEDED: ${totalRetries} > ${this.limits.maxRetryTotal}`);
+        return {
+          status: PlanStatus.FAILED,
+          plan,
+          error: ExecutionLimitError.MAX_RETRY_EXCEEDED,
+        };
+      }
+
       // Mark failed dependencies as SKIPPED
       this.propagateFailures(plan, mutator);
 
       // Get next executable steps (v38: parallel-aware)
-      const nextSteps = this.parallelExecution
+      let nextSteps = this.parallelExecution
         ? getParallelSteps(plan)
         : getNextSteps(plan).slice(0, 1);
+
+      // v38.0.1: Enforce maxParallel limit
+      if (nextSteps.length > this.limits.maxParallel) {
+        nextSteps = nextSteps.slice(0, this.limits.maxParallel);
+      }
 
       if (nextSteps.length === 0) {
         // No more runnable steps — either all done, or deadlocked
@@ -89,8 +159,18 @@ export class PlanRunner {
 
       // Execute steps (parallel or sequential)
       if (this.parallelExecution && nextSteps.length > 1) {
+        // Track which steps we're executing
+        for (const s of nextSteps) {
+          visitedSteps.add(`${s.id}:${s.attempts}`);
+        }
+
         const results = await this.executeParallel(nextSteps, plan, mutator, context);
         stepsExecuted += nextSteps.length;
+
+        // v38.0.1: Track retries from results
+        for (const r of results) {
+          if (r.retrying) totalRetries++;
+        }
 
         // Check for gated/paused conditions
         const pauseResult = this.checkPauseConditions(results, plan, mutator);
@@ -98,8 +178,15 @@ export class PlanRunner {
       } else {
         // Single step execution
         const step = nextSteps[0];
+
+        // v38.0.1: Track step execution
+        visitedSteps.add(`${step.id}:${step.attempts}`);
+
         const result = await this.executeStep(step, plan, mutator, context);
         stepsExecuted++;
+
+        // v38.0.1: Track retries
+        if (result.retrying) totalRetries++;
 
         // Handle special results
         if (result.gated) {

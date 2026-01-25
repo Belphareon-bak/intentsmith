@@ -1,6 +1,6 @@
 {
   "name": "c3-agent",
-  "version": "38.3.0",
+  "version": "38.3.1",
   "type": "module",
   "description": "C.3 Agent - CRE v38.3 (Execution Layer)",
   "main": "src/server.js",

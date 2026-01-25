@@ -1,4 +1,4 @@
-// CRE v38.3 LLM Gate
+// CRE v38.3.1 LLM Gate
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Authorization gate for LLM reflection.
@@ -10,9 +10,14 @@
 //   LLM never changes plan directly — only returns recommendations.
 //
 // Authorization levels:
-//   DISABLED    — LLM reflection completely off
+//   DISABLED    — LLM reflection completely off (v38.3.1: DEFAULT)
 //   GATED       — LLM reflection requires explicit user approval per use
 //   AUTO        — LLM reflection allowed automatically (trusted user)
+//
+// v38.3.1: DISABLED by default until v39.2+
+//   - LLM reflection not useful without self-metrics
+//   - Adds complexity, complicates debugging
+//   - Enable manually when needed
 //
 // Rate limiting:
 //   Prevents runaway LLM costs by limiting reflection calls per plan/session.
@@ -37,8 +42,8 @@ export const LLMAuthLevel = {
 
 export class LLMGate {
   constructor(options = {}) {
-    // Global authorization level
-    this.authLevel = options.authLevel || LLMAuthLevel.GATED;
+    // v38.3.1: DISABLED by default — enable explicitly when needed
+    this.authLevel = options.authLevel || LLMAuthLevel.DISABLED;
 
     // Rate limiting
     this.maxCallsPerPlan = options.maxCallsPerPlan || 3;

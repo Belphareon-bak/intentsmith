@@ -1,25 +1,31 @@
-// CRE v38.0-38.3 Planner Tests
+// CRE v38.0-38.3.1 Planner Tests
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Tests:
 // - v38.0: Graph structure (cycles, roots, leaves, conditions)
 // - v38.0: Parallel execution
 // - v38.0: Retry with exponential backoff
+// - v38.0.1: Execution limits (maxSteps, maxIterations, cycle hard fail)
 // - v38.1: PlanMutator (auditable changes)
+// - v38.1.1: Mutation whitelist by phase
 // - v38.2: DeterministicReflector (retry → fallback → ask → fail)
 // - v38.3: LLMGate (authorization, rate limiting)
+// - v38.3.1: LLMGate DISABLED by default
 // - v38.3: LLMReflector (advisory only)
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
 import {
-  createStep, createPlan, createCondition, createRetryConfig,
-  StepStatus, PlanStatus, ConditionType,
+  createStep, createPlan, createCondition, createRetryConfig, createExecutionLimits,
+  StepStatus, PlanStatus, ConditionType, ExecutionLimitError,
   areDependenciesMet, hasDependencyFailed, evaluateCondition,
   getNextSteps, getParallelSteps, isPlanComplete,
-  shouldRetry, getRetryDelay, validatePlan
+  shouldRetry, getRetryDelay, validatePlan, DEFAULT_EXECUTION_LIMITS
 } from '../planner/types.js';
-import { PlanMutator, createMutator, MutationType } from '../planner/mutations.js';
+import {
+  PlanMutator, createMutator, MutationType,
+  ExecutionPhase, AllowedMutationsByPhase, isMutationAllowed
+} from '../planner/mutations.js';
 import { DeterministicReflector, ReflectionAction } from '../planner/reflection.js';
 import { LLMGate, LLMAuthLevel } from '../gates/llm-gate.js';
 import { LLMReflector, RecommendationType } from '../planner/llm-reflector.js';
@@ -643,6 +649,143 @@ test('LLMReflector returns null for NO_RECOMMENDATION', () => {
   const action = reflector.toReflectionAction(recommendation);
 
   assertEqual(action, null, 'Should return null');
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// v38.0.1: Execution Limits (CRITICAL SAFETY TESTS)
+// ────────────────────────────────────────────────────────────────────────────
+
+console.log('\n📊 v38.0.1: Execution Limits');
+
+test('DEFAULT_EXECUTION_LIMITS has required fields', () => {
+  assertTrue(DEFAULT_EXECUTION_LIMITS.maxSteps > 0, 'maxSteps defined');
+  assertTrue(DEFAULT_EXECUTION_LIMITS.maxIterations > 0, 'maxIterations defined');
+  assertTrue(DEFAULT_EXECUTION_LIMITS.maxParallel > 0, 'maxParallel defined');
+  assertTrue(DEFAULT_EXECUTION_LIMITS.maxRetryTotal > 0, 'maxRetryTotal defined');
+});
+
+test('createExecutionLimits merges custom values', () => {
+  const limits = createExecutionLimits({ maxSteps: 10 });
+
+  assertEqual(limits.maxSteps, 10, 'Custom maxSteps');
+  assertEqual(limits.maxIterations, DEFAULT_EXECUTION_LIMITS.maxIterations, 'Default maxIterations');
+});
+
+test('ExecutionLimitError has all error types', () => {
+  assertTrue(ExecutionLimitError.MAX_STEPS_EXCEEDED !== undefined, 'MAX_STEPS_EXCEEDED');
+  assertTrue(ExecutionLimitError.MAX_ITERATIONS_EXCEEDED !== undefined, 'MAX_ITERATIONS_EXCEEDED');
+  assertTrue(ExecutionLimitError.CYCLE_DETECTED !== undefined, 'CYCLE_DETECTED');
+});
+
+test('validatePlan HARD FAILS on cycles', () => {
+  // Create plan with cycle
+  const steps = [
+    createStep({ id: 'a', tool: 'x', params: {}, dependsOn: ['b'] }),
+    createStep({ id: 'b', tool: 'y', params: {}, dependsOn: ['a'] }),
+  ];
+  const plan = createPlan({ goal: 'Cycle', steps });
+
+  const validation = validatePlan(plan);
+
+  assertFalse(validation.valid, 'Plan with cycle is invalid');
+  assertTrue(validation.errors.some(e => e.includes('cycle')), 'Error mentions cycle');
+  assertTrue(plan.graph.hasCycles, 'Graph knows it has cycles');
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// v38.1.1: Mutation Whitelist (CRITICAL SAFETY TESTS)
+// ────────────────────────────────────────────────────────────────────────────
+
+console.log('\n📊 v38.1.1: Mutation Whitelist');
+
+test('isMutationAllowed blocks ADD_STEP during EXECUTION', () => {
+  const allowed = isMutationAllowed(MutationType.ADD_STEP, ExecutionPhase.EXECUTION);
+  assertFalse(allowed, 'ADD_STEP should be blocked during execution');
+});
+
+test('isMutationAllowed blocks REMOVE_STEP during EXECUTION', () => {
+  const allowed = isMutationAllowed(MutationType.REMOVE_STEP, ExecutionPhase.EXECUTION);
+  assertFalse(allowed, 'REMOVE_STEP should be blocked during execution');
+});
+
+test('isMutationAllowed blocks MODIFY_STEP during EXECUTION', () => {
+  const allowed = isMutationAllowed(MutationType.MODIFY_STEP, ExecutionPhase.EXECUTION);
+  assertFalse(allowed, 'MODIFY_STEP should be blocked during execution');
+});
+
+test('isMutationAllowed allows SET_STEP_STATUS during EXECUTION', () => {
+  const allowed = isMutationAllowed(MutationType.SET_STEP_STATUS, ExecutionPhase.EXECUTION);
+  assertTrue(allowed, 'SET_STEP_STATUS should be allowed during execution');
+});
+
+test('isMutationAllowed allows ADD_STEP during PLANNING', () => {
+  const allowed = isMutationAllowed(MutationType.ADD_STEP, ExecutionPhase.PLANNING);
+  assertTrue(allowed, 'ADD_STEP should be allowed during planning');
+});
+
+test('PlanMutator denies addStep during EXECUTION', () => {
+  const plan = createPlan({
+    goal: 'Test',
+    steps: [createStep({ id: 's1', tool: 'a', params: {} })],
+  });
+
+  const mutator = new PlanMutator(plan, { phase: ExecutionPhase.EXECUTION });
+  const result = mutator.addStep({ id: 's2', tool: 'b', params: {} }, 'agent');
+
+  assertFalse(result.success, 'addStep should fail');
+  assertTrue(result.denied, 'Should be denied');
+  assertEqual(mutator.getDeniedMutations().length, 1, 'Should log denied mutation');
+});
+
+test('PlanMutator allows addStep during PLANNING', () => {
+  const plan = createPlan({
+    goal: 'Test',
+    steps: [createStep({ id: 's1', tool: 'a', params: {} })],
+  });
+
+  const mutator = new PlanMutator(plan, { phase: ExecutionPhase.PLANNING });
+  const result = mutator.addStep({ id: 's2', tool: 'b', params: {} }, 'planner');
+
+  assertTrue(result.success, 'addStep should succeed');
+  assertEqual(plan.steps.length, 2, 'Step should be added');
+});
+
+test('PlanMutator can disable phase restrictions', () => {
+  const plan = createPlan({
+    goal: 'Test',
+    steps: [createStep({ id: 's1', tool: 'a', params: {} })],
+  });
+
+  const mutator = new PlanMutator(plan, {
+    phase: ExecutionPhase.EXECUTION,
+    enforcePhaseRestrictions: false,
+  });
+  const result = mutator.addStep({ id: 's2', tool: 'b', params: {} }, 'admin');
+
+  assertTrue(result.success, 'addStep should succeed when restrictions disabled');
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// v38.3.1: LLMGate DISABLED by Default
+// ────────────────────────────────────────────────────────────────────────────
+
+console.log('\n📊 v38.3.1: LLMGate DISABLED by Default');
+
+test('LLMGate is DISABLED by default', () => {
+  const gate = new LLMGate(); // No options
+
+  assertEqual(gate.authLevel, LLMAuthLevel.DISABLED, 'Default should be DISABLED');
+  assertFalse(gate.isEnabled(), 'Should not be enabled');
+});
+
+test('LLMGate blocks all calls when DISABLED', () => {
+  const gate = new LLMGate(); // DISABLED by default
+
+  const result = gate.check({ planId: 'p1', stepId: 's1' });
+
+  assertFalse(result.authorized, 'Should block');
+  assertFalse(result.needsApproval, 'Should not ask for approval');
+  assertTrue(result.reason.includes('disabled'), 'Should say disabled');
 });
 
 // ════════════════════════════════════════════════════════════════════════════

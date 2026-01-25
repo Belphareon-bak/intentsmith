@@ -1,14 +1,19 @@
-// CRE v38.1 Plan Mutations
+// CRE v38.1.1 Plan Mutations
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // All plan changes go through PlanMutator.
 // Every mutation is logged and auditable.
+//
+// v38.1.1 — Mutation whitelist by phase:
+//   - Mutations are restricted based on execution phase
+//   - Prevents agent from arbitrarily modifying plan structure
 //
 // Architectural invariants:
 //   ❌ stepResult doesn't change plan directly
 //   ❌ LLM doesn't change plan directly
 //   ✅ Changes are mutations
 //   ✅ Every mutation is auditable
+//   ✅ Mutations restricted by phase (v38.1.1)
 //
 // Mutation types:
 //   SET_STEP_STATUS   — Change step status
@@ -40,6 +45,62 @@ export const MutationType = {
   RETRY_STEP: 'RETRY_STEP',
   ENABLE_FALLBACK: 'ENABLE_FALLBACK',
 };
+
+// ════════════════════════════════════════════════════════════════════════════
+// EXECUTION PHASES (v38.1.1)
+// ════════════════════════════════════════════════════════════════════════════
+
+export const ExecutionPhase = {
+  PLANNING: 'planning',       // Plan is being constructed
+  EXECUTION: 'execution',     // Plan is running
+  REFLECTION: 'reflection',   // Analyzing failures
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// MUTATION WHITELIST BY PHASE (v38.1.1 — safety restriction)
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Which mutations are allowed in each phase.
+ * This prevents the agent from arbitrarily rewriting the plan.
+ */
+export const AllowedMutationsByPhase = {
+  [ExecutionPhase.PLANNING]: [
+    // During planning, can build the plan
+    MutationType.ADD_STEP,
+    MutationType.REMOVE_STEP,
+    MutationType.MODIFY_STEP,
+    MutationType.SET_PLAN_STATUS,
+  ],
+
+  [ExecutionPhase.EXECUTION]: [
+    // During execution, can only update status and results
+    MutationType.SET_STEP_STATUS,
+    MutationType.SET_STEP_RESULT,
+    MutationType.SET_STEP_ERROR,
+    MutationType.SET_PLAN_STATUS,
+    MutationType.RETRY_STEP,
+    MutationType.ENABLE_FALLBACK,
+    // NOT allowed: ADD_STEP, REMOVE_STEP, MODIFY_STEP (unless via reflection)
+  ],
+
+  [ExecutionPhase.REFLECTION]: [
+    // During reflection, can retry, fallback, or annotate
+    MutationType.SET_STEP_STATUS,
+    MutationType.RETRY_STEP,
+    MutationType.ENABLE_FALLBACK,
+    // NOT allowed: ADD_STEP (that's replanning), REMOVE_STEP, MODIFY_STEP
+  ],
+};
+
+/**
+ * Check if a mutation is allowed in the given phase
+ */
+export function isMutationAllowed(mutationType, phase) {
+  const allowed = AllowedMutationsByPhase[phase];
+  if (!allowed) return true; // Unknown phase = allow (backward compat)
+  return allowed.includes(mutationType);
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 // MUTATION RECORD
@@ -75,14 +136,67 @@ function createMutationRecord(type, source, payload, previous = null) {
 /**
  * PlanMutator — single point of plan modifications
  *
+ * v38.1.1: Now supports phase-based mutation restrictions
+ *
  * Usage:
  *   const mutator = new PlanMutator(plan);
+ *   mutator.setPhase(ExecutionPhase.EXECUTION);  // Optional: restrict mutations
  *   mutator.setStepStatus('s1', StepStatus.RUNNING, 'runner');
  *   mutator.setStepResult('s1', { data: [...] }, 'runner');
  */
 export class PlanMutator {
-  constructor(plan) {
+  constructor(plan, options = {}) {
     this.plan = plan;
+    this.phase = options.phase || ExecutionPhase.EXECUTION; // Default to execution
+    this.enforcePhaseRestrictions = options.enforcePhaseRestrictions ?? true;
+    this.deniedMutations = []; // Track denied mutations for audit
+  }
+
+  /**
+   * Set current execution phase (v38.1.1)
+   */
+  setPhase(phase) {
+    this.phase = phase;
+    logger.debug('PlanMutator', `Phase set to: ${phase}`);
+  }
+
+  /**
+   * Check if mutation is allowed in current phase (v38.1.1)
+   * @returns {{ allowed: boolean, reason?: string }}
+   */
+  checkMutationAllowed(mutationType) {
+    if (!this.enforcePhaseRestrictions) {
+      return { allowed: true };
+    }
+
+    if (!isMutationAllowed(mutationType, this.phase)) {
+      return {
+        allowed: false,
+        reason: `Mutation ${mutationType} not allowed in phase ${this.phase}`,
+      };
+    }
+
+    return { allowed: true };
+  }
+
+  /**
+   * Guard wrapper for mutations (v38.1.1)
+   */
+  guardMutation(mutationType, source, fn) {
+    const check = this.checkMutationAllowed(mutationType);
+    if (!check.allowed) {
+      // Log denied mutation
+      this.deniedMutations.push({
+        type: mutationType,
+        source,
+        phase: this.phase,
+        reason: check.reason,
+        timestamp: Date.now(),
+      });
+      logger.warn('PlanMutator', `MUTATION_DENIED: ${check.reason}`, { source });
+      return { success: false, error: check.reason, denied: true };
+    }
+    return fn();
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -97,22 +211,24 @@ export class PlanMutator {
    * @param {string} source - Who triggered
    */
   setStepStatus(stepId, status, source = 'runner') {
-    const step = this.findStep(stepId);
-    if (!step) return { success: false, error: `Step not found: ${stepId}` };
+    return this.guardMutation(MutationType.SET_STEP_STATUS, source, () => {
+      const step = this.findStep(stepId);
+      if (!step) return { success: false, error: `Step not found: ${stepId}` };
 
-    const previous = { status: step.status };
-    step.status = status;
+      const previous = { status: step.status };
+      step.status = status;
 
-    // Update timestamps
-    if (status === StepStatus.RUNNING) {
-      step.startedAt = Date.now();
-    }
-    if ([StepStatus.COMPLETED, StepStatus.FAILED, StepStatus.SKIPPED].includes(status)) {
-      step.completedAt = Date.now();
-    }
+      // Update timestamps
+      if (status === StepStatus.RUNNING) {
+        step.startedAt = Date.now();
+      }
+      if ([StepStatus.COMPLETED, StepStatus.FAILED, StepStatus.SKIPPED].includes(status)) {
+        step.completedAt = Date.now();
+      }
 
-    this.log(MutationType.SET_STEP_STATUS, source, { stepId, status }, previous);
-    return { success: true };
+      this.log(MutationType.SET_STEP_STATUS, source, { stepId, status }, previous);
+      return { success: true };
+    });
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -200,40 +316,46 @@ export class PlanMutator {
 
   /**
    * Add a new step (e.g., dynamically adding fallback)
+   * NOTE: Blocked during EXECUTION phase — use PLANNING phase
    */
   addStep(stepConfig, source = 'reflector') {
-    // Validate: no duplicate IDs
-    if (this.plan.steps.some(s => s.id === stepConfig.id)) {
-      return { success: false, error: `Step ID already exists: ${stepConfig.id}` };
-    }
+    return this.guardMutation(MutationType.ADD_STEP, source, () => {
+      // Validate: no duplicate IDs
+      if (this.plan.steps.some(s => s.id === stepConfig.id)) {
+        return { success: false, error: `Step ID already exists: ${stepConfig.id}` };
+      }
 
-    const step = createStep(stepConfig);
-    this.plan.steps.push(step);
+      const step = createStep(stepConfig);
+      this.plan.steps.push(step);
 
-    // Update graph metadata
-    this.plan.graph.nodeCount = this.plan.steps.length;
+      // Update graph metadata
+      this.plan.graph.nodeCount = this.plan.steps.length;
 
-    this.log(MutationType.ADD_STEP, source, { stepId: step.id, tool: step.tool }, null);
-    return { success: true, step };
+      this.log(MutationType.ADD_STEP, source, { stepId: step.id, tool: step.tool }, null);
+      return { success: true, step };
+    });
   }
 
   /**
    * Remove a step
+   * NOTE: Blocked during EXECUTION phase — use PLANNING phase
    */
   removeStep(stepId, source = 'reflector') {
-    const idx = this.plan.steps.findIndex(s => s.id === stepId);
-    if (idx === -1) return { success: false, error: `Step not found: ${stepId}` };
+    return this.guardMutation(MutationType.REMOVE_STEP, source, () => {
+      const idx = this.plan.steps.findIndex(s => s.id === stepId);
+      if (idx === -1) return { success: false, error: `Step not found: ${stepId}` };
 
-    const [removed] = this.plan.steps.splice(idx, 1);
+      const [removed] = this.plan.steps.splice(idx, 1);
 
-    // Remove from results
-    delete this.plan.results[stepId];
+      // Remove from results
+      delete this.plan.results[stepId];
 
-    // Update graph metadata
-    this.plan.graph.nodeCount = this.plan.steps.length;
+      // Update graph metadata
+      this.plan.graph.nodeCount = this.plan.steps.length;
 
-    this.log(MutationType.REMOVE_STEP, source, { stepId }, { step: removed });
-    return { success: true };
+      this.log(MutationType.REMOVE_STEP, source, { stepId }, { step: removed });
+      return { success: true };
+    });
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -242,19 +364,22 @@ export class PlanMutator {
 
   /**
    * Modify step params or config
+   * NOTE: Blocked during EXECUTION phase — use PLANNING phase
    */
   modifyStep(stepId, modifications, source = 'reflector') {
-    const step = this.findStep(stepId);
-    if (!step) return { success: false, error: `Step not found: ${stepId}` };
+    return this.guardMutation(MutationType.MODIFY_STEP, source, () => {
+      const step = this.findStep(stepId);
+      if (!step) return { success: false, error: `Step not found: ${stepId}` };
 
-    const previous = {};
-    for (const key of Object.keys(modifications)) {
-      previous[key] = step[key];
-      step[key] = modifications[key];
-    }
+      const previous = {};
+      for (const key of Object.keys(modifications)) {
+        previous[key] = step[key];
+        step[key] = modifications[key];
+      }
 
-    this.log(MutationType.MODIFY_STEP, source, { stepId, modifications: Object.keys(modifications) }, previous);
-    return { success: true };
+      this.log(MutationType.MODIFY_STEP, source, { stepId, modifications: Object.keys(modifications) }, previous);
+      return { success: true };
+    });
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -367,6 +492,13 @@ export class PlanMutator {
   getMutationsByType(type) {
     return this.plan.mutations.filter(m => m.type === type);
   }
+
+  /**
+   * Get denied mutations (v38.1.1)
+   */
+  getDeniedMutations() {
+    return [...this.deniedMutations];
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -382,6 +514,9 @@ export function createMutator(plan) {
 
 export default {
   MutationType,
+  ExecutionPhase,
+  AllowedMutationsByPhase,
+  isMutationAllowed,
   PlanMutator,
   createMutator,
 };
