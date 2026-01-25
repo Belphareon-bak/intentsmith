@@ -567,9 +567,11 @@ function removeMessage(id) {
 function scrollToBottom() {
   // Use requestAnimationFrame for smooth scrolling after DOM update
   requestAnimationFrame(() => {
-    if (el.messages) {
-      el.messages.scrollTo({
-        top: el.messages.scrollHeight,
+    // Scroll the messages-area container (which has overflow-y: auto),
+    // NOT the inner messages div
+    if (el.messagesArea) {
+      el.messagesArea.scrollTo({
+        top: el.messagesArea.scrollHeight,
         behavior: 'smooth'
       });
     }

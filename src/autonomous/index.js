@@ -8,18 +8,34 @@
 //   - GoalScheduler: Scheduling and queue management
 //   - GoalRunner: Goal execution engine
 //
+// v39.0.1 Hotfix:
+//   - Separate staticContext vs dynamicContext in GoalStore
+//   - Per-goal sandboxMode support
+//
 // v39.1: Safe Autonomy
 //   - SafetyLimits: Global safety constraints
 //   - Sandbox: Isolated execution environment
 //   - AuditLog: Comprehensive audit trail
 //
+// v39.1.1 Hotfix:
+//   - SandboxManager: Per-goal sandbox instances
+//
 // v39.2: Self-Correction
 //   - FailureAnalyzer: Failure classification and learning
 //   - CorrectionStrategy: Correction action selection
 //
+// v39.2.1 Hotfix:
+//   - FailureHistory: Global failure tracking
+//   - Correction loop prevention
+//
 // v39.3: Local Copilot Mode
 //   - CopilotContext: Working context maintenance
 //   - SuggestionEngine: Proactive suggestions
+//
+// v39.3.1 Hotfix:
+//   - SuggestionEngine connected to GoalStore and FailureHistory
+//   - Goal-aware suggestions
+//   - Failure-aware filtering
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -48,6 +64,7 @@ export {
 export {
   SandboxMode, SandboxViolation, DEFAULT_SANDBOX_RESTRICTIONS,
   Sandbox, sandbox,
+  SandboxManager, sandboxManager,  // v39.1.1
 } from './sandbox.js';
 
 export {
@@ -64,6 +81,7 @@ export {
 export {
   CorrectionAction,
   CorrectionStrategy, correctionStrategy,
+  FailureHistory, failureHistory,  // v39.2.1
 } from './correction-strategy.js';
 
 // v39.3: Local Copilot Mode

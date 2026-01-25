@@ -1,4 +1,4 @@
-// C.3 v33.2 Server - p(AI)assistant
+// C.3 v44.0 Server - p(AI)assistant
 // ══════════════════════════════════════════════════════════════════════════════
 
 import http from 'http';
@@ -1377,7 +1377,7 @@ function getUIHTML() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>p(AI)assistant v33.2.3</title>
+  <title>p(AI)assistant v44.0.0</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
@@ -1647,7 +1647,7 @@ function getUIHTML() {
 </head>
 <body>
   <header>
-    <div class="logo">⚡ p(AI)assistant <small style="color:#888">v33.2.3</small></div>
+    <div class="logo">⚡ p(AI)assistant <small style="color:#888">v44.0.0</small></div>
     <div class="status">
       <div class="status-dot"></div>
       <span id="statusText">Ready</span>
@@ -1658,7 +1658,7 @@ function getUIHTML() {
     <div class="chat-container">
       <div class="messages" id="messages">
         <div class="message system">
-          Vítej v p(AI)assistant v33.2.3! Zadej požadavek a já ho implementuji.
+          Vítej v p(AI)assistant v44.0.0! Zadej požadavek a já ho implementuji.
         </div>
       </div>
       
@@ -1845,7 +1845,7 @@ server.listen(config.server.port, config.server.host, () => {
   console.log(`
 ╔══════════════════════════════════════════════════════════════╗
 ║                                                              ║
-║     ⚡  p(AI)assistant v33.2.3                               ║
+║     ⚡  p(AI)assistant v44.0.0                               ║
 ║                                                              ║
 ║     Chat:      http://${config.server.host}:${config.server.port}/architect             ║
 ║     Agents:    http://${config.server.host}:${config.server.port}/agents                ║

@@ -139,6 +139,295 @@ export class AgentRunner {
   }
   
   /**
+   * Dry run - validate agent config without executing
+   * @param {object} config - Agent definition to validate
+   * @returns {object} - Validation result with preview
+   */
+  async dryRun(config) {
+    const validation = {
+      valid: true,
+      errors: [],
+      warnings: [],
+      preview: {
+        sources: [],
+        conditions: [],
+        triggers: [],
+        actions: []
+      }
+    };
+
+    const def = config.definition || config;
+
+    // ══════════════════════════════════════════════════════════════════════
+    // VALIDATE SOURCES
+    // ══════════════════════════════════════════════════════════════════════
+    if (!def.sources || def.sources.length === 0) {
+      validation.errors.push({
+        field: 'sources',
+        message: 'At least one source is required'
+      });
+      validation.valid = false;
+    } else {
+      for (const source of def.sources) {
+        const sourceValidation = this.validateSource(source);
+        if (!sourceValidation.valid) {
+          validation.errors.push(...sourceValidation.errors.map(e => ({
+            field: `sources.${source.id || 'unknown'}`,
+            message: e
+          })));
+          validation.valid = false;
+        }
+        validation.preview.sources.push({
+          id: source.id,
+          type: source.type,
+          valid: sourceValidation.valid,
+          description: this.describeSource(source)
+        });
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // VALIDATE CONDITIONS
+    // ══════════════════════════════════════════════════════════════════════
+    for (const condition of def.conditions || []) {
+      const conditionValidation = this.validateCondition(condition);
+      if (!conditionValidation.valid) {
+        validation.warnings.push({
+          field: `conditions.${condition.id || 'unknown'}`,
+          message: conditionValidation.error
+        });
+      }
+      validation.preview.conditions.push({
+        id: condition.id,
+        type: condition.type,
+        valid: conditionValidation.valid,
+        description: this.describeCondition(condition)
+      });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // VALIDATE TRIGGERS
+    // ══════════════════════════════════════════════════════════════════════
+    const conditionIds = new Set((def.conditions || []).map(c => c.id));
+
+    for (const trigger of def.triggers || []) {
+      const triggerValidation = this.validateTrigger(trigger, conditionIds);
+      if (!triggerValidation.valid) {
+        validation.errors.push({
+          field: `triggers.${trigger.id || 'unknown'}`,
+          message: triggerValidation.error
+        });
+        validation.valid = false;
+      }
+      validation.preview.triggers.push({
+        id: trigger.id,
+        type: trigger.type,
+        valid: triggerValidation.valid,
+        description: this.describeTrigger(trigger)
+      });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // VALIDATE ACTIONS
+    // ══════════════════════════════════════════════════════════════════════
+    const triggerIds = new Set((def.triggers || []).map(t => t.id));
+
+    for (const action of def.actions || []) {
+      const actionValidation = this.validateAction(action, triggerIds);
+      if (!actionValidation.valid) {
+        validation.errors.push({
+          field: `actions.${action.type || 'unknown'}`,
+          message: actionValidation.error
+        });
+        validation.valid = false;
+      }
+      validation.preview.actions.push({
+        type: action.type,
+        trigger_id: action.trigger_id,
+        valid: actionValidation.valid,
+        description: this.describeAction(action)
+      });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // VALIDATE SCHEDULE
+    // ══════════════════════════════════════════════════════════════════════
+    if (def.schedule) {
+      const scheduleValidation = this.validateSchedule(def.schedule);
+      if (!scheduleValidation.valid) {
+        validation.errors.push({
+          field: 'schedule',
+          message: scheduleValidation.error
+        });
+        validation.valid = false;
+      }
+      validation.preview.schedule = {
+        type: def.schedule.type,
+        interval: def.schedule.interval,
+        description: this.describeSchedule(def.schedule)
+      };
+    }
+
+    return validation;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // VALIDATION HELPERS
+  // ══════════════════════════════════════════════════════════════════════════════
+
+  validateSource(source) {
+    const errors = [];
+
+    if (!source.id) errors.push('Source must have an id');
+    if (!source.type) errors.push('Source must have a type');
+    if (!this.sourceHandlers[source.type]) {
+      errors.push(`Unknown source type: ${source.type}`);
+    }
+    if (!source.config) errors.push('Source must have config');
+
+    return { valid: errors.length === 0, errors };
+  }
+
+  validateCondition(condition) {
+    if (!condition.id) {
+      return { valid: false, error: 'Condition must have an id' };
+    }
+    if (!condition.type) {
+      return { valid: false, error: 'Condition must have a type' };
+    }
+    // Delegate to ConditionEvaluator for type-specific validation
+    return this.conditions.validate ?
+      this.conditions.validate(condition) :
+      { valid: true };
+  }
+
+  validateTrigger(trigger, conditionIds) {
+    if (!trigger.id) {
+      return { valid: false, error: 'Trigger must have an id' };
+    }
+    if (!trigger.type) {
+      return { valid: false, error: 'Trigger must have a type' };
+    }
+    // Check that referenced conditions exist
+    if (trigger.condition_id && !conditionIds.has(trigger.condition_id)) {
+      return { valid: false, error: `Referenced condition not found: ${trigger.condition_id}` };
+    }
+    return { valid: true };
+  }
+
+  validateAction(action, triggerIds) {
+    if (!action.type) {
+      return { valid: false, error: 'Action must have a type' };
+    }
+    const validTypes = ['notify', 'webhook', 'update_state', 'log'];
+    if (!validTypes.includes(action.type)) {
+      return { valid: false, error: `Unknown action type: ${action.type}` };
+    }
+    // Check that referenced trigger exists (if specified)
+    if (action.trigger_id !== null && action.trigger_id !== undefined && !triggerIds.has(action.trigger_id)) {
+      return { valid: false, error: `Referenced trigger not found: ${action.trigger_id}` };
+    }
+    return { valid: true };
+  }
+
+  validateSchedule(schedule) {
+    if (!schedule.type) {
+      return { valid: false, error: 'Schedule must have a type' };
+    }
+    if (schedule.type === 'interval' && !schedule.interval) {
+      return { valid: false, error: 'Interval schedule must have an interval' };
+    }
+    if (schedule.type === 'interval') {
+      const match = schedule.interval.match(/^(\d+)(s|m|h|d)$/);
+      if (!match) {
+        return { valid: false, error: `Invalid interval format: ${schedule.interval}. Use format like "5m", "1h", "1d"` };
+      }
+    }
+    return { valid: true };
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // DESCRIPTION HELPERS (for preview)
+  // ══════════════════════════════════════════════════════════════════════════════
+
+  describeSource(source) {
+    switch (source.type) {
+      case 'http':
+        return `HTTP request to ${source.config?.url || 'unknown URL'}`;
+      case 'rss':
+        return `RSS feed from ${source.config?.url || 'unknown URL'}`;
+      case 'scraper':
+        return `Web scrape of ${source.config?.url || 'unknown URL'}`;
+      case 'database':
+        return `Database query`;
+      default:
+        return `${source.type} source`;
+    }
+  }
+
+  describeCondition(condition) {
+    const c = condition;
+    switch (c.type) {
+      case 'compare':
+        return `Compare ${c.field || 'field'} ${c.operator || '=='} ${c.value || 'value'}`;
+      case 'threshold':
+        return `${c.field || 'field'} ${c.direction || '>'} ${c.threshold || 'threshold'}`;
+      case 'change':
+        return `Detect change in ${c.field || 'field'}`;
+      case 'contains':
+        return `${c.field || 'field'} contains "${c.value || 'value'}"`;
+      default:
+        return `${c.type} condition`;
+    }
+  }
+
+  describeTrigger(trigger) {
+    switch (trigger.type) {
+      case 'on_true':
+        return `Fire when condition "${trigger.condition_id}" becomes true`;
+      case 'on_false':
+        return `Fire when condition "${trigger.condition_id}" becomes false`;
+      case 'on_change':
+        return `Fire when condition "${trigger.condition_id}" changes`;
+      case 'always':
+        return `Fire on every run`;
+      default:
+        return `${trigger.type} trigger`;
+    }
+  }
+
+  describeAction(action) {
+    const c = action.config || {};
+    switch (action.type) {
+      case 'notify':
+        return c.use_llm ?
+          `Send LLM-generated notification to ${c.channel || 'default'}` :
+          `Send notification to ${c.channel || 'default'}`;
+      case 'webhook':
+        return `POST to ${c.url || 'unknown URL'}`;
+      case 'update_state':
+        return `Update agent state`;
+      case 'log':
+        return `Log message`;
+      default:
+        return `${action.type} action`;
+    }
+  }
+
+  describeSchedule(schedule) {
+    switch (schedule.type) {
+      case 'interval':
+        return `Run every ${schedule.interval}`;
+      case 'cron':
+        return `Cron: ${schedule.cron}`;
+      case 'manual':
+        return `Manual trigger only`;
+      default:
+        return `${schedule.type} schedule`;
+    }
+  }
+
+  /**
    * Execute agent
    * @param {string} agentId
    * @param {object} options - { force: boolean, isManual: boolean }

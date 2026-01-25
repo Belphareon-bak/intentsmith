@@ -1,4 +1,4 @@
-// CRE v39.1 Sandbox
+// CRE v39.1.1 Sandbox
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Isolated execution environment for autonomous goals.
@@ -8,6 +8,11 @@
 //   - Network restrictions (allowlist-based)
 //   - Process isolation (no shell exec)
 //   - Resource limits enforcement
+//
+// v39.1.1: Per-goal sandbox support
+//   - Each goal can specify its own sandbox mode
+//   - SandboxManager creates goal-scoped instances
+//   - Global sandbox is the default, per-goal overrides
 //
 // Key Principle:
 //   Sandboxed goals can only affect their isolated environment.
@@ -454,9 +459,128 @@ export class Sandbox {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// v39.1.1: SANDBOX MANAGER (per-goal sandbox support)
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * SandboxManager — manages per-goal sandbox instances
+ *
+ * Goals can specify their own sandbox mode, which creates isolated
+ * sandbox instances with goal-specific restrictions.
+ */
+export class SandboxManager {
+  constructor(options = {}) {
+    this.globalSandbox = options.globalSandbox || new Sandbox();
+    this.goalSandboxes = new Map();  // goalId → Sandbox
+
+    // Default restrictions for different goal types
+    this.defaultRestrictionsByType = {
+      monitoring: { allowShellExec: false, allowWrite: false, allowDelete: false },
+      automation: { allowShellExec: true, allowWrite: true, allowDelete: false },
+      dangerous: { allowShellExec: false, allowWrite: false, allowDelete: false },
+    };
+  }
+
+  /**
+   * Get or create sandbox for a goal
+   *
+   * @param {string} goalId
+   * @param {Object} goal - Goal object with constraints.sandboxMode
+   */
+  getForGoal(goalId, goal = null) {
+    // If goal doesn't specify sandbox mode, use global
+    if (!goal || !goal.constraints?.sandboxMode || goal.constraints.sandboxMode === 'global') {
+      return this.globalSandbox;
+    }
+
+    // Check if we already have a sandbox for this goal
+    if (this.goalSandboxes.has(goalId)) {
+      return this.goalSandboxes.get(goalId);
+    }
+
+    // Create new sandbox with goal's mode and restrictions
+    const sandboxMode = goal.constraints.sandboxMode;
+    const goalType = goal.staticContext?.type || 'general';
+    const baseRestrictions = this.defaultRestrictionsByType[goalType] || {};
+
+    const goalSandbox = new Sandbox({
+      mode: sandboxMode,
+      restrictions: {
+        ...DEFAULT_SANDBOX_RESTRICTIONS,
+        ...baseRestrictions,
+        ...goal.constraints.sandboxRestrictions,  // Goal-specific overrides
+      },
+    });
+
+    this.goalSandboxes.set(goalId, goalSandbox);
+    logger.debug('SandboxManager', `Created sandbox for goal ${goalId}`, { mode: sandboxMode });
+
+    return goalSandbox;
+  }
+
+  /**
+   * Release sandbox for a completed/failed goal
+   */
+  releaseGoal(goalId) {
+    if (this.goalSandboxes.has(goalId)) {
+      const sandbox = this.goalSandboxes.get(goalId);
+      sandbox.reset();
+      this.goalSandboxes.delete(goalId);
+      logger.debug('SandboxManager', `Released sandbox for goal ${goalId}`);
+    }
+  }
+
+  /**
+   * Get violations across all goal sandboxes
+   */
+  getAllViolations() {
+    const violations = [];
+
+    // Global sandbox violations
+    violations.push(...this.globalSandbox.getViolations().map(v => ({
+      ...v,
+      source: 'global',
+    })));
+
+    // Per-goal sandbox violations
+    for (const [goalId, sandbox] of this.goalSandboxes) {
+      violations.push(...sandbox.getViolations().map(v => ({
+        ...v,
+        source: goalId,
+      })));
+    }
+
+    return violations.sort((a, b) => b.timestamp - a.timestamp);
+  }
+
+  /**
+   * Get stats
+   */
+  getStats() {
+    return {
+      globalMode: this.globalSandbox.mode,
+      activeGoalSandboxes: this.goalSandboxes.size,
+      goalIds: Array.from(this.goalSandboxes.keys()),
+    };
+  }
+
+  /**
+   * Reset all sandboxes
+   */
+  reset() {
+    this.globalSandbox.reset();
+    for (const sandbox of this.goalSandboxes.values()) {
+      sandbox.reset();
+    }
+    this.goalSandboxes.clear();
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // SINGLETON
 // ════════════════════════════════════════════════════════════════════════════
 
 export const sandbox = new Sandbox();
+export const sandboxManager = new SandboxManager({ globalSandbox: sandbox });
 
 export default Sandbox;

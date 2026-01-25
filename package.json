@@ -1,8 +1,8 @@
 {
   "name": "c3-agent",
-  "version": "39.3.0",
+  "version": "44.1.0",
   "type": "module",
-  "description": "C.3 Agent - CRE v39.3 (Autonomous Mode)",
+  "description": "C.3 Agent - CRE v44.1 (Unified Decision Engine)",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -24,7 +24,8 @@
     "test:tools": "node tests/http-client.test.js && node tests/tool-executor.test.js && node tests/human-gate.test.js",
     "test:memory": "node tests/session-memory.test.js && node tests/long-term-memory.test.js && node tests/preferences.test.js && node tests/memory-policy.test.js",
     "test:planner": "node tests/planner.test.js && node tests/planner-v38.test.js",
-    "test:autonomous": "node tests/autonomous-v39.test.js"
+    "test:autonomous": "node tests/autonomous-v39.test.js",
+    "test:unification": "node tests/cre-decision-invariants.test.js && node tests/tool-executor.test.js && node tests/unification-v44.test.js"
   },
   "dependencies": {
     "better-sqlite3": "^9.0.0",

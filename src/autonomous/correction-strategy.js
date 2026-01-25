@@ -1,4 +1,4 @@
-// CRE v39.2 Correction Strategy
+// CRE v39.2.1 Correction Strategy
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Determines how to correct failures based on analysis.
@@ -12,13 +12,184 @@
 //   6. SKIP      — Skip the failing step
 //   7. FAIL      — Accept failure and stop
 //
+// v39.2.1: FailureHistory
+//   - Tracks correction attempts across goals
+//   - Prevents correction loops ("this correction already failed 3× for this goal")
+//   - Global learning from failures
+//
 // Key Principle:
 //   Apply the least disruptive correction that has a chance of success.
+//   Don't repeat corrections that have already failed.
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { FailureCategory, failureAnalyzer } from './failure-analyzer.js';
 import { logger } from '../core/logger.js';
+
+// ════════════════════════════════════════════════════════════════════════════
+// v39.2.1: FAILURE HISTORY
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * FailureHistory — tracks correction outcomes across goals
+ *
+ * Prevents:
+ *   - Correction loops (same correction failing repeatedly)
+ *   - Unbounded retry storms
+ *   - Repeated unsuccessful patterns
+ */
+export class FailureHistory {
+  constructor(options = {}) {
+    this.maxEntries = options.maxEntries || 500;
+    this.entries = [];
+
+    // Pattern tracking: pattern → { attempts, successes, lastOutcome, lastSeen }
+    this.patterns = new Map();
+
+    // Goal-specific tracking: goalId → { pattern → attempts }
+    this.goalPatterns = new Map();
+  }
+
+  /**
+   * Record a correction attempt and its outcome
+   */
+  record(entry) {
+    const {
+      goalId,
+      pattern,        // e.g., "NETWORK_ERROR:retry"
+      action,         // CorrectionAction
+      success,
+      timestamp = Date.now(),
+    } = entry;
+
+    // Store entry
+    this.entries.push({ goalId, pattern, action, success, timestamp });
+    if (this.entries.length > this.maxEntries) {
+      this.entries.shift();
+    }
+
+    // Update pattern stats
+    const patternKey = `${pattern}:${action}`;
+    const stats = this.patterns.get(patternKey) || {
+      attempts: 0,
+      successes: 0,
+      lastOutcome: null,
+      lastSeen: null,
+    };
+    stats.attempts++;
+    if (success) stats.successes++;
+    stats.lastOutcome = success ? 'success' : 'failure';
+    stats.lastSeen = timestamp;
+    this.patterns.set(patternKey, stats);
+
+    // Update goal-specific tracking
+    if (!this.goalPatterns.has(goalId)) {
+      this.goalPatterns.set(goalId, new Map());
+    }
+    const goalMap = this.goalPatterns.get(goalId);
+    const goalAttempts = goalMap.get(patternKey) || { total: 0, failures: 0 };
+    goalAttempts.total++;
+    if (!success) goalAttempts.failures++;
+    goalMap.set(patternKey, goalAttempts);
+  }
+
+  /**
+   * Check if a correction has repeatedly failed for a goal
+   *
+   * @returns {{ blocked: boolean, reason?: string }}
+   */
+  shouldBlock(goalId, pattern, action, maxFailures = 3) {
+    const patternKey = `${pattern}:${action}`;
+
+    // Check goal-specific failures
+    const goalMap = this.goalPatterns.get(goalId);
+    if (goalMap) {
+      const attempts = goalMap.get(patternKey);
+      if (attempts && attempts.failures >= maxFailures) {
+        return {
+          blocked: true,
+          reason: `Correction ${action} for ${pattern} has failed ${attempts.failures} times for this goal`,
+        };
+      }
+    }
+
+    // Check global pattern success rate
+    const stats = this.patterns.get(patternKey);
+    if (stats && stats.attempts >= 10) {
+      const successRate = stats.successes / stats.attempts;
+      if (successRate < 0.1) {
+        return {
+          blocked: true,
+          reason: `Correction ${action} for ${pattern} has <10% success rate globally`,
+        };
+      }
+    }
+
+    return { blocked: false };
+  }
+
+  /**
+   * Get success rate for a correction pattern
+   */
+  getSuccessRate(pattern, action) {
+    const patternKey = `${pattern}:${action}`;
+    const stats = this.patterns.get(patternKey);
+    if (!stats || stats.attempts === 0) return null;
+    return stats.successes / stats.attempts;
+  }
+
+  /**
+   * Get correction history for a goal
+   */
+  getGoalHistory(goalId, limit = 20) {
+    return this.entries
+      .filter(e => e.goalId === goalId)
+      .slice(-limit);
+  }
+
+  /**
+   * Get patterns that are consistently failing
+   */
+  getFailingPatterns(minAttempts = 5, maxSuccessRate = 0.2) {
+    const failing = [];
+    for (const [patternKey, stats] of this.patterns) {
+      if (stats.attempts >= minAttempts) {
+        const rate = stats.successes / stats.attempts;
+        if (rate <= maxSuccessRate) {
+          failing.push({
+            pattern: patternKey,
+            attempts: stats.attempts,
+            successRate: rate,
+            lastOutcome: stats.lastOutcome,
+          });
+        }
+      }
+    }
+    return failing.sort((a, b) => a.successRate - b.successRate);
+  }
+
+  /**
+   * Clear history for a goal (after goal completes)
+   */
+  clearGoal(goalId) {
+    this.goalPatterns.delete(goalId);
+  }
+
+  /**
+   * Get stats
+   */
+  getStats() {
+    return {
+      totalEntries: this.entries.length,
+      uniquePatterns: this.patterns.size,
+      goalsTracked: this.goalPatterns.size,
+      failingPatterns: this.getFailingPatterns().length,
+    };
+  }
+}
+
+// Global failure history instance
+export const failureHistory = new FailureHistory();
 
 // ════════════════════════════════════════════════════════════════════════════
 // CORRECTION ACTIONS
@@ -55,12 +226,14 @@ export const CorrectionAction = {
 export class CorrectionStrategy {
   constructor(options = {}) {
     this.analyzer = options.analyzer || failureAnalyzer;
+    this.history = options.history || failureHistory;  // v39.2.1: Use failure history
 
     // Configuration
     this.maxRetries = options.maxRetries || 3;
     this.maxReplanAttempts = options.maxReplanAttempts || 2;
     this.backoffMultiplier = options.backoffMultiplier || 2;
     this.initialBackoffMs = options.initialBackoffMs || 1000;
+    this.maxCorrectionFailures = options.maxCorrectionFailures || 3;  // v39.2.1
 
     // State tracking
     this.retryCounters = new Map();  // stepId → count
@@ -69,6 +242,7 @@ export class CorrectionStrategy {
     // Stats
     this.stats = {
       corrections: 0,
+      blocked: 0,  // v39.2.1: Corrections blocked by history
       byAction: {},
     };
   }
@@ -97,28 +271,51 @@ export class CorrectionStrategy {
 
     let result;
 
+    // v39.2.1: Check failure history before attempting corrections
+    const checkHistoryForAction = (action) => {
+      if (!goalId) return { blocked: false };
+      return this.history.shouldBlock(goalId, category, action, this.maxCorrectionFailures);
+    };
+
     // 1. Check if retryable and under limit
     if (analysis.isRetryable && retryCount < this.maxRetries) {
-      result = this.retryStrategy(failure, retryCount, context);
+      const historyCheck = checkHistoryForAction(CorrectionAction.RETRY);
+      if (historyCheck.blocked) {
+        logger.warn('CorrectionStrategy', `RETRY blocked by history: ${historyCheck.reason}`);
+        this.stats.blocked++;
+        // Skip to next strategy
+      } else {
+        result = this.retryStrategy(failure, retryCount, context);
+      }
     }
     // 2. Check for fallback availability
-    else if (context.hasFallback) {
-      result = this.fallbackStrategy(failure, context);
+    if (!result && context.hasFallback) {
+      const historyCheck = checkHistoryForAction(CorrectionAction.FALLBACK);
+      if (!historyCheck.blocked) {
+        result = this.fallbackStrategy(failure, context);
+      } else {
+        this.stats.blocked++;
+      }
     }
     // 3. Check if replan is possible
-    else if (this.canReplan(category) && replanCount < this.maxReplanAttempts) {
-      result = this.replanStrategy(failure, replanCount, context);
+    if (!result && this.canReplan(category) && replanCount < this.maxReplanAttempts) {
+      const historyCheck = checkHistoryForAction(CorrectionAction.REPLAN);
+      if (!historyCheck.blocked) {
+        result = this.replanStrategy(failure, replanCount, context);
+      } else {
+        this.stats.blocked++;
+      }
     }
     // 4. Check if user can help
-    else if (this.needsUserInput(category)) {
+    if (!result && this.needsUserInput(category)) {
       result = this.askUserStrategy(failure, context, suggestions);
     }
     // 5. Check if step can be skipped
-    else if (context.canSkip) {
+    if (!result && context.canSkip) {
       result = this.skipStrategy(failure, context);
     }
     // 6. Fail
-    else {
+    if (!result) {
       result = this.failStrategy(failure, context);
     }
 
@@ -362,6 +559,94 @@ export class CorrectionStrategy {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
+  // v39.2.1: OUTCOME RECORDING
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Record the outcome of a correction attempt
+   *
+   * Call this after attempting a correction to track success/failure.
+   * This enables learning: corrections that repeatedly fail will be blocked.
+   *
+   * @param {Object} outcome
+   * @param {string} outcome.goalId - Goal ID
+   * @param {string} outcome.category - Failure category (pattern)
+   * @param {string} outcome.action - CorrectionAction that was attempted
+   * @param {boolean} outcome.success - Whether the correction succeeded
+   */
+  recordOutcome(outcome) {
+    const { goalId, category, action, success } = outcome;
+
+    if (!goalId || !action) {
+      logger.warn('CorrectionStrategy', 'recordOutcome called without goalId or action');
+      return;
+    }
+
+    this.history.record({
+      goalId,
+      pattern: category || 'UNKNOWN',
+      action,
+      success,
+      timestamp: Date.now(),
+    });
+
+    logger.debug('CorrectionStrategy', `Recorded outcome: ${action} ${success ? 'succeeded' : 'failed'}`, {
+      goalId,
+      category,
+    });
+  }
+
+  /**
+   * Get correction success rate for a goal
+   *
+   * @param {string} goalId
+   * @returns {{ total: number, successful: number, rate: number }}
+   */
+  getGoalCorrectionStats(goalId) {
+    const history = this.history.getGoalHistory(goalId);
+    const successful = history.filter(e => e.success).length;
+    return {
+      total: history.length,
+      successful,
+      rate: history.length > 0 ? successful / history.length : null,
+    };
+  }
+
+  /**
+   * Check if a correction is recommended based on history
+   *
+   * @param {string} goalId
+   * @param {string} category - Failure category
+   * @param {string} action - CorrectionAction to check
+   * @returns {{ recommended: boolean, successRate: number | null, reason: string }}
+   */
+  isCorrectionRecommended(goalId, category, action) {
+    const blockCheck = this.history.shouldBlock(goalId, category, action, this.maxCorrectionFailures);
+    if (blockCheck.blocked) {
+      return {
+        recommended: false,
+        successRate: this.history.getSuccessRate(category, action),
+        reason: blockCheck.reason,
+      };
+    }
+
+    const rate = this.history.getSuccessRate(category, action);
+    if (rate !== null && rate < 0.3) {
+      return {
+        recommended: false,
+        successRate: rate,
+        reason: `Low success rate: ${(rate * 100).toFixed(0)}%`,
+      };
+    }
+
+    return {
+      recommended: true,
+      successRate: rate,
+      reason: rate !== null ? `Success rate: ${(rate * 100).toFixed(0)}%` : 'No history',
+    };
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
   // RESET & STATS
   // ──────────────────────────────────────────────────────────────────────────
 
@@ -376,6 +661,9 @@ export class CorrectionStrategy {
       }
     }
     this.replanCounters.delete(goalId);
+
+    // v39.2.1: Clear goal-specific history (preserves global pattern stats)
+    this.history.clearGoal(goalId);
   }
 
   /**
@@ -394,6 +682,8 @@ export class CorrectionStrategy {
       ...this.stats,
       activeRetries: this.retryCounters.size,
       activeReplans: this.replanCounters.size,
+      // v39.2.1: Include history stats
+      history: this.history.getStats(),
     };
   }
 }

@@ -3,7 +3,7 @@
 **Lokální AI asistent a workflow automatizační platforma**
 
 ```
-Verze: v35.0.1 (stable) | v36.0.0 (experimental)
+Verze: v44.1.0 (stable)
 Stack: Node.js + SQLite + Ollama
 ```
 
@@ -18,8 +18,9 @@ C.3 Agent je inteligentní copilot pro software development a project management
 | **Architect Mode** | Konverzační AI pro vývoj - projekty, chaty, artefakty |
 | **Agent Platform** | Autonomní agenti pro monitoring a notifikace |
 | **Expert Layer** | 15 specializovaných "mistrů v oboru" |
+| **CRE Decision Engine** | Tool-first rozhodování - TOOL_CALL před ANSWER |
+| **ToolExecutor** | Exekuce nástrojů z CRE rozhodnutí |
 | **Data Layer** | Doménové zdroje (GPU, Cars...) |
-| **Decision Layer** | Klasifikace problémů a routing |
 
 ---
 
@@ -250,7 +251,14 @@ c3-agent-wip/
     │
     ├── llm/
     │   ├── client.js
+    │   ├── cre-bridge.js       # LLM bridge for CRE
     │   └── web-search.js
+    │
+    ├── unification/            # CRE v44 - Unified Decision Engine
+    │   ├── cre-decision.js     # Decision types, intent classification
+    │   ├── tool-executor.js    # Tool execution layer
+    │   ├── handlers.js         # Mode handlers (conversation, project, expert, agent)
+    │   └── chat-controller.js  # Session & mode management
     │
     ├── ui/
     │   └── architect/
@@ -337,8 +345,12 @@ src/
 
 | Verze | Status | Popis |
 |-------|--------|-------|
-| v35.0.1 | ✅ **Stable** | Expert Layer, path fixes |
-| v36.0.0 | ⚠️ Experimental | Orchestrator (Agent-Expert Integration) |
+| v44.1.0 | ✅ **Stable** | Unified Decision Engine, ToolExecutor, Handlers |
+| v43.x | ✅ Stable | Ecosystem Layer |
+| v42.x | ✅ Stable | Copilot Layer |
+| v41.x | ✅ Stable | Skills Layer |
+| v40.x | ✅ Stable | Observability Layer |
+| v39.x | ✅ Stable | Autonomous Mode |
 
 ### Milníky
 
@@ -348,6 +360,12 @@ src/
 | v33 | Agent Platform | 2026-01-18 |
 | v34 | Layers (Data, Decision, Representation) | 2026-01-18/19 |
 | v35 | Expert Layer | 2026-01-19 |
+| v39 | Autonomous Mode | 2026-01-22 |
+| v40 | Observability | 2026-01-23 |
+| v41 | Skills | 2026-01-23 |
+| v42 | Copilot | 2026-01-24 |
+| v43 | Ecosystem | 2026-01-24 |
+| v44 | Unification (CRE v44) | 2026-01-25 |
 
 ---
 
@@ -355,17 +373,23 @@ src/
 
 Viz [ROADMAP.md](./ROADMAP.md) pro detailní plán.
 
-### Aktuální priorita (P0)
+### Aktuální verze (v44.1)
 
-1. **E2E Scénářové testy** - 5-7 invariantních testů
-2. **Expert constraints badge** - Viditelné v UI + logu
-3. **Disclaimer slots** - Pro normativní experty
+**CRE Unification** - sjednocený rozhodovací engine:
 
-### Po P0
+1. ✅ **CRE Decision Engine** - Tool-first decision logic
+2. ✅ **ToolExecutor** - Actual tool execution (not description)
+3. ✅ **Handlers** - Project, Expert, Agent mode handlers
+4. ✅ **AgentRunner.dryRun** - Config validation without execution
+5. ✅ **UI Autoscroll** - Chat scrolls to new messages
 
-- Merge v36 (Orchestrator)
-- Labels pro projekty
-- Full Memory UI
+### Klíčové invarianty v44
+
+- **SEARCH/FACTUAL/REPORT** → vždy TOOL_CALL (nikdy ANSWER)
+- **ANSWER** pouze pro CONVERSATIONAL intent
+- **Forbidden phrases** detekce ("nemám přístup k internetu...")
+- **Project mode** → CRE s `hasActiveProject=true`
+- **Expert mode** → locked expert until user changes
 
 ---
 

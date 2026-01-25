@@ -18,11 +18,13 @@ import {
   // v39.1: Safe Autonomy
   SafetyLimits, DEFAULT_SAFETY_LIMITS, LimitViolation,
   Sandbox, SandboxMode, SandboxViolation,
+  SandboxManager, sandboxManager,  // v39.1.1
   AuditLog, AuditEventType, AuditSeverity,
 
   // v39.2: Self-Correction
   FailureAnalyzer, FailureCategory,
   CorrectionStrategy, CorrectionAction,
+  FailureHistory, failureHistory,  // v39.2.1
 
   // v39.3: Local Copilot Mode
   CopilotContext, ContextEventType,
@@ -504,6 +506,303 @@ test('SuggestionEngine getPending returns sorted by priority', () => {
   const pending = engine.getPending();
   assertEqual(pending[0].title, 'High priority', 'High priority first');
   assertEqual(pending[1].title, 'Low priority', 'Low priority second');
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// v39.0.1 HOTFIX: STATIC vs DYNAMIC CONTEXT
+// ════════════════════════════════════════════════════════════════════════════
+
+console.log('\n📊 v39.0.1 Hotfix: Static vs Dynamic Context');
+
+test('createGoal separates static and dynamic context', () => {
+  const goal = createGoal({
+    description: 'Context test',
+    staticContext: {
+      owner: 'test-user',
+      type: 'automation',
+      createdBy: 'system',
+    },
+    dynamicContextKeys: {
+      permissionsKey: 'user-perms-123',
+      limitsKey: 'limits-abc',
+    },
+  });
+
+  assertEqual(goal.staticContext.owner, 'test-user', 'Static owner');
+  assertEqual(goal.staticContext.type, 'automation', 'Static type');
+  assertEqual(goal.dynamicContextKeys.permissionsKey, 'user-perms-123', 'Dynamic perms key');
+  assertEqual(goal.dynamicContextKeys.limitsKey, 'limits-abc', 'Dynamic limits key');
+  assertTrue(goal.context.cachedDynamic !== undefined, 'Cached dynamic exists');
+});
+
+asyncTest('GoalStore refreshes dynamic context', async () => {
+  const store = new GoalStore({
+    permissionsProvider: async (key) => ({ canWrite: true, key }),
+    limitsProvider: async (key) => ({ maxOps: 100, key }),
+  });
+
+  const goal = store.create({
+    description: 'Dynamic refresh test',
+    dynamicContextKeys: {
+      permissionsKey: 'perm-key',
+      limitsKey: 'limit-key',
+    },
+  });
+
+  const result = await store.refreshDynamicContext(goal.id);
+  assertTrue(result.success, 'Refresh succeeded');
+  assertTrue(result.refreshed.permissions.canWrite, 'Permissions refreshed');
+  assertEqual(result.refreshed.limits.maxOps, 100, 'Limits refreshed');
+
+  const updated = store.get(goal.id);
+  assertTrue(updated.context.cachedDynamic.lastRefreshed > 0, 'Timestamp set');
+});
+
+test('createGoal supports per-goal sandboxMode', () => {
+  const goal = createGoal({
+    description: 'Sandbox mode test',
+    constraints: {
+      sandboxMode: 'RESTRICTED',
+    },
+  });
+
+  assertEqual(goal.constraints.sandboxMode, 'RESTRICTED', 'Sandbox mode set');
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// v39.1.1 HOTFIX: PER-GOAL SANDBOX
+// ════════════════════════════════════════════════════════════════════════════
+
+console.log('\n📊 v39.1.1 Hotfix: Per-Goal Sandbox');
+
+test('SandboxManager creates per-goal sandboxes', () => {
+  const manager = new SandboxManager();
+
+  const goal1 = createGoal({
+    description: 'Goal 1',
+    constraints: { sandboxMode: 'RESTRICTED' },
+  });
+
+  const sandbox1 = manager.getForGoal('goal-1', goal1);
+  assertTrue(sandbox1 !== null, 'Sandbox created for goal');
+
+  // Same goal returns same sandbox
+  const sandbox1Again = manager.getForGoal('goal-1', goal1);
+  assertTrue(sandbox1 === sandbox1Again, 'Same sandbox returned');
+
+  // Different goal gets different sandbox
+  const sandbox2 = manager.getForGoal('goal-2', createGoal({ description: 'Goal 2' }));
+  assertTrue(sandbox1 !== sandbox2, 'Different sandbox for different goal');
+});
+
+test('SandboxManager applies goal-type restrictions', () => {
+  const manager = new SandboxManager();
+
+  const monitoringGoal = createGoal({
+    description: 'Monitoring',
+    staticContext: { type: 'monitoring' },
+  });
+
+  const sandbox = manager.getForGoal('mon-1', monitoringGoal);
+  assertTrue(sandbox !== null, 'Monitoring sandbox created');
+
+  // Monitoring goals should have strict restrictions
+  const stats = manager.getStats();
+  assertTrue(stats.activeGoalSandboxes > 0, 'Active goal sandboxes tracked');
+});
+
+test('SandboxManager releases goal sandboxes', () => {
+  const manager = new SandboxManager();
+
+  manager.getForGoal('release-test', createGoal({ description: 'Release test' }));
+  assertEqual(manager.getStats().activeGoalSandboxes, 1, 'One active goal sandbox');
+
+  manager.releaseGoal('release-test');
+  assertEqual(manager.getStats().activeGoalSandboxes, 0, 'No active goal sandboxes after release');
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// v39.2.1 HOTFIX: FAILURE HISTORY
+// ════════════════════════════════════════════════════════════════════════════
+
+console.log('\n📊 v39.2.1 Hotfix: Failure History');
+
+test('FailureHistory records correction outcomes', () => {
+  const history = new FailureHistory();
+
+  history.record({
+    goalId: 'goal-1',
+    pattern: 'NETWORK_ERROR',
+    action: 'retry',
+    success: false,
+  });
+
+  history.record({
+    goalId: 'goal-1',
+    pattern: 'NETWORK_ERROR',
+    action: 'retry',
+    success: true,
+  });
+
+  const stats = history.getStats();
+  assertEqual(stats.totalEntries, 2, 'Two entries recorded');
+  assertEqual(stats.uniquePatterns, 1, 'One unique pattern');
+});
+
+test('FailureHistory blocks repeatedly failing corrections', () => {
+  const history = new FailureHistory();
+
+  // Record 3 failures
+  for (let i = 0; i < 3; i++) {
+    history.record({
+      goalId: 'goal-block',
+      pattern: 'RATE_LIMITED',
+      action: 'retry',
+      success: false,
+    });
+  }
+
+  const check = history.shouldBlock('goal-block', 'RATE_LIMITED', 'retry', 3);
+  assertTrue(check.blocked, 'Should be blocked after 3 failures');
+  assertTrue(check.reason.includes('failed 3 times'), 'Reason explains why');
+});
+
+test('FailureHistory calculates success rate', () => {
+  const history = new FailureHistory();
+
+  // 8 failures, 2 successes = 20% success rate
+  for (let i = 0; i < 8; i++) {
+    history.record({ goalId: 'g', pattern: 'ERR', action: 'fix', success: false });
+  }
+  for (let i = 0; i < 2; i++) {
+    history.record({ goalId: 'g', pattern: 'ERR', action: 'fix', success: true });
+  }
+
+  const rate = history.getSuccessRate('ERR', 'fix');
+  assertEqual(rate, 0.2, 'Success rate is 20%');
+});
+
+test('CorrectionStrategy uses failure history', () => {
+  const history = new FailureHistory();
+  const strategy = new CorrectionStrategy({ history });
+
+  // Record failures to trigger blocking
+  for (let i = 0; i < 4; i++) {
+    history.record({
+      goalId: 'strat-goal',
+      pattern: 'TIMEOUT',
+      action: 'retry',
+      success: false,
+    });
+  }
+
+  // Try to correct a TIMEOUT failure
+  const failure = {
+    category: 'TIMEOUT',
+    goalId: 'strat-goal',
+    stepId: 'step-1',
+    analysis: { isRetryable: true },
+    suggestions: [],
+  };
+
+  const result = strategy.correct(failure, {});
+  // Should NOT be retry because history blocks it
+  assertTrue(result.action !== 'retry' || strategy.stats.blocked > 0, 'Retry blocked or different action');
+});
+
+test('CorrectionStrategy records outcomes', () => {
+  const history = new FailureHistory();
+  const strategy = new CorrectionStrategy({ history });
+
+  strategy.recordOutcome({
+    goalId: 'outcome-test',
+    category: 'NETWORK_ERROR',
+    action: 'retry',
+    success: true,
+  });
+
+  const goalHistory = history.getGoalHistory('outcome-test');
+  assertEqual(goalHistory.length, 1, 'One outcome recorded');
+  assertTrue(goalHistory[0].success, 'Outcome was success');
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// v39.3.1 HOTFIX: GOAL-AWARE SUGGESTIONS
+// ════════════════════════════════════════════════════════════════════════════
+
+console.log('\n📊 v39.3.1 Hotfix: Goal-Aware Suggestions');
+
+test('SuggestionEngine connects to GoalStore', () => {
+  const store = new GoalStore();
+  const history = new FailureHistory();
+  const context = new CopilotContext();
+
+  const engine = new SuggestionEngine({
+    goalStore: store,
+    failureHistory: history,
+    context,
+    enabled: false,  // Don't start timers
+  });
+
+  const stats = engine.getStats();
+  assertTrue(stats.goalConnected, 'GoalStore connected');
+  assertTrue(stats.failureHistoryConnected, 'FailureHistory connected');
+});
+
+test('SuggestionEngine includes goal types', () => {
+  assertTrue(SuggestionType.GOAL_PROGRESS !== undefined, 'GOAL_PROGRESS type exists');
+  assertTrue(SuggestionType.GOAL_STUCK !== undefined, 'GOAL_STUCK type exists');
+  assertTrue(SuggestionType.GOAL_ALIGNED !== undefined, 'GOAL_ALIGNED type exists');
+});
+
+test('SuggestionEngine.getForGoal returns goal suggestions', () => {
+  const context = new CopilotContext();
+  const engine = new SuggestionEngine({ context, enabled: false });
+
+  // Add suggestion with goalId
+  engine.addSuggestion(engine.createSuggestion({
+    type: SuggestionType.GOAL_PROGRESS,
+    priority: SuggestionPriority.NORMAL,
+    title: 'Resume paused goal',
+    confidence: 0.8,
+    context: { goalId: 'test-goal' },
+  }));
+
+  // Add suggestion without goalId
+  engine.addSuggestion(engine.createSuggestion({
+    type: SuggestionType.FIX_ERROR,
+    priority: SuggestionPriority.HIGH,
+    title: 'Fix error',
+    confidence: 0.9,
+  }));
+
+  const goalSuggestions = engine.getForGoal('test-goal');
+  assertEqual(goalSuggestions.length, 1, 'One goal suggestion');
+  assertEqual(goalSuggestions[0].title, 'Resume paused goal', 'Correct suggestion');
+});
+
+test('SuggestionEngine filters failing actions', () => {
+  const history = new FailureHistory();
+  const context = new CopilotContext();
+  const engine = new SuggestionEngine({
+    context,
+    failureHistory: history,
+    enabled: false,
+  });
+
+  // Record many failures for FIX_ERROR + retry
+  for (let i = 0; i < 5; i++) {
+    history.record({
+      goalId: 'filter-goal',
+      pattern: 'fix_error',
+      action: 'retry',
+      success: false,
+    });
+  }
+
+  const isBlocked = engine.isActionFailing(SuggestionType.FIX_ERROR, 'filter-goal');
+  assertTrue(isBlocked, 'Action should be blocked due to failure history');
+  assertTrue(engine.stats.failureAvoided > 0, 'Failure avoided stat incremented');
 });
 
 // ════════════════════════════════════════════════════════════════════════════

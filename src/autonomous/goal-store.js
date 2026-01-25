@@ -1,4 +1,4 @@
-// CRE v39.0 Goal Store
+// CRE v39.0.1 Goal Store
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Persistent goal storage — goals survive restarts, timeouts, failures.
@@ -6,6 +6,12 @@
 // v39.0 Paradigm Shift:
 //   OLD: request → plan → execute → respond → END
 //   NEW: goal → observe → plan → execute → learn → repeat
+//
+// v39.0.1 Fix:
+//   - Separate staticContext vs dynamicContext
+//   - staticContext: immutable (owner, type, initial input)
+//   - dynamicContext: reloaded at execution (permissions, limits, preferences)
+//   - Per-goal sandboxMode support
 //
 // Goal Lifecycle:
 //   CREATED → SCHEDULED → RUNNING → { COMPLETED | FAILED | PAUSED | CANCELLED }
@@ -15,6 +21,7 @@
 //   ✅ Goals are resumable (can continue after failure)
 //   ✅ Goals are auditable (full history)
 //   ✅ Goals respect safety limits
+//   ✅ Dynamic context is always fresh (v39.0.1)
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -107,14 +114,37 @@ export function createGoal(config) {
       requiresApproval: config.constraints?.requiresApproval ?? true,
       allowedTools: config.constraints?.allowedTools || null,       // null = all allowed
       blockedTools: config.constraints?.blockedTools || [],
-      sandboxed: config.constraints?.sandboxed ?? false,
+      sandboxMode: config.constraints?.sandboxMode || 'disabled',   // v39.1.1: Per-goal sandbox mode
     },
 
-    // Execution context
+    // v39.0.1: Static context — immutable, set at creation
+    staticContext: {
+      owner: config.staticContext?.owner || 'user',                 // Who created the goal
+      type: config.staticContext?.type || 'general',                // Goal type/category
+      initialInput: config.context?.input || {},                    // Original input (immutable)
+      createdBy: config.staticContext?.createdBy || 'user',         // 'user' | 'system' | 'copilot'
+    },
+
+    // v39.0.1: Dynamic context — reloaded at execution time
+    // These are KEYS, not values — actual values fetched from providers
+    dynamicContextKeys: {
+      permissionsKey: config.dynamicContextKeys?.permissionsKey || null,  // Key to fetch permissions
+      limitsKey: config.dynamicContextKeys?.limitsKey || null,            // Key to fetch limits
+      preferencesKey: config.dynamicContextKeys?.preferencesKey || null,  // Key to fetch preferences
+    },
+
+    // Execution context (runtime state)
     context: {
-      input: config.context?.input || {},
+      input: config.context?.input || {},                           // Current input (may be modified)
       output: config.context?.output || null,
       error: null,
+      // v39.0.1: Cached dynamic context (refreshed at execution)
+      cachedDynamic: {
+        permissions: null,
+        limits: null,
+        preferences: null,
+        lastRefreshed: null,
+      },
       metrics: {
         plansCreated: 0,
         plansCompleted: 0,
@@ -171,6 +201,14 @@ export class GoalStore {
     // Event handlers
     this.onGoalChanged = options.onGoalChanged || null;
 
+    // v39.0.1: Dynamic context providers
+    // These are functions that fetch fresh context at execution time
+    this.contextProviders = {
+      permissions: options.permissionsProvider || null,  // (key) => permissions
+      limits: options.limitsProvider || null,            // (key) => limits
+      preferences: options.preferencesProvider || null,  // (key) => preferences
+    };
+
     // Stats
     this.stats = {
       created: 0,
@@ -178,6 +216,115 @@ export class GoalStore {
       failed: 0,
       cancelled: 0,
     };
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // v39.0.1: DYNAMIC CONTEXT
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Set a context provider
+   * @param {string} type - 'permissions' | 'limits' | 'preferences'
+   * @param {Function} provider - (key) => value
+   */
+  setContextProvider(type, provider) {
+    if (this.contextProviders.hasOwnProperty(type)) {
+      this.contextProviders[type] = provider;
+    }
+  }
+
+  /**
+   * Refresh dynamic context for a goal (called before execution)
+   * This ensures goal always runs with current permissions/limits/preferences
+   */
+  async refreshDynamicContext(goalId) {
+    const goal = this.get(goalId);
+    if (!goal) return { success: false, error: 'Goal not found' };
+
+    const refreshed = {
+      permissions: null,
+      limits: null,
+      preferences: null,
+      lastRefreshed: Date.now(),
+    };
+
+    // Fetch permissions
+    if (goal.dynamicContextKeys.permissionsKey && this.contextProviders.permissions) {
+      try {
+        refreshed.permissions = await this.contextProviders.permissions(
+          goal.dynamicContextKeys.permissionsKey
+        );
+      } catch (e) {
+        logger.warn('GoalStore', `Failed to refresh permissions for ${goalId}`, { error: e.message });
+      }
+    }
+
+    // Fetch limits
+    if (goal.dynamicContextKeys.limitsKey && this.contextProviders.limits) {
+      try {
+        refreshed.limits = await this.contextProviders.limits(
+          goal.dynamicContextKeys.limitsKey
+        );
+      } catch (e) {
+        logger.warn('GoalStore', `Failed to refresh limits for ${goalId}`, { error: e.message });
+      }
+    }
+
+    // Fetch preferences
+    if (goal.dynamicContextKeys.preferencesKey && this.contextProviders.preferences) {
+      try {
+        refreshed.preferences = await this.contextProviders.preferences(
+          goal.dynamicContextKeys.preferencesKey
+        );
+      } catch (e) {
+        logger.warn('GoalStore', `Failed to refresh preferences for ${goalId}`, { error: e.message });
+      }
+    }
+
+    // Update cached context
+    goal.context.cachedDynamic = refreshed;
+    goal.updatedAt = Date.now();
+
+    this.logHistory(goal, 'CONTEXT_REFRESHED', {
+      hasPermissions: !!refreshed.permissions,
+      hasLimits: !!refreshed.limits,
+      hasPreferences: !!refreshed.preferences,
+    });
+
+    logger.debug('GoalStore', `Dynamic context refreshed for ${goalId}`);
+    return { success: true, refreshed };
+  }
+
+  /**
+   * Get effective permissions for a goal (combines static + dynamic)
+   */
+  getEffectivePermissions(goalId) {
+    const goal = this.get(goalId);
+    if (!goal) return null;
+
+    // Dynamic permissions override static constraints
+    const dynamic = goal.context.cachedDynamic?.permissions;
+    if (dynamic) {
+      return {
+        ...goal.constraints,  // Base constraints
+        ...dynamic,           // Override with dynamic
+      };
+    }
+
+    return goal.constraints;
+  }
+
+  /**
+   * Check if dynamic context is stale (older than maxAge ms)
+   */
+  isDynamicContextStale(goalId, maxAge = 60000) {
+    const goal = this.get(goalId);
+    if (!goal) return true;
+
+    const lastRefreshed = goal.context.cachedDynamic?.lastRefreshed;
+    if (!lastRefreshed) return true;
+
+    return (Date.now() - lastRefreshed) > maxAge;
   }
 
   // ──────────────────────────────────────────────────────────────────────────

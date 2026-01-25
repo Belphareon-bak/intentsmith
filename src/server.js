@@ -1,4 +1,4 @@
-// C.3 v36.0.0 Server - p(AI)assistant
+// C.3 v44.0.0 Server - p(AI)assistant
 // ══════════════════════════════════════════════════════════════════════════════
 
 import http from 'http';
@@ -60,6 +60,53 @@ initAgentTables(db.db);
 // v36.9.1: LLM client routed through gateway with auth tokens
 import { callWithAuth } from './llm/gateway.js';
 import { createAuthToken, LLMCallerRole } from './llm/auth-types.js';
+
+// v44.0: ChatController - THE ONLY entry point for chat
+import { ChatController, ChatMode } from './unification/chat-controller.js';
+import { getDefaultHandlers } from './unification/handlers.js';
+import { toolExecutor } from './unification/tool-executor.js';
+import { toolRegistry } from './tools/registry.js';
+
+// Configure ChatController with default handlers
+ChatController.configure({
+  handlers: getDefaultHandlers(),
+  config: {
+    autoModeDetection: true,
+    modeConfidenceThreshold: 0.6,
+  },
+});
+logger.info('Server', 'ChatController v44.0 configured');
+
+// ════════════════════════════════════════════════════════════════════════════
+// v44.0: Wire ToolExecutor to existing tool implementations
+// ════════════════════════════════════════════════════════════════════════════
+
+toolExecutor.wireServices({
+  // Wire existing toolRegistry tools as services
+  searchService: {
+    async search(query) {
+      const tool = toolRegistry.get('web.search');
+      if (!tool) throw new Error('web.search tool not available');
+      const result = await tool.execute({ query, maxResults: 5 });
+      if (result.error) throw new Error(result.error);
+      return { results: result };
+    }
+  },
+  scrapeService: {
+    async scrape(url) {
+      const tool = toolRegistry.get('web.scrape');
+      if (!tool) throw new Error('web.scrape tool not available');
+      const result = await tool.execute({ url });
+      if (result.error) throw new Error(result.error);
+      return result;
+    }
+  }
+});
+
+logger.info('Server', 'ToolExecutor wired to toolRegistry', {
+  search: !!toolExecutor.searchService,
+  scrape: !!toolExecutor.scrapeService
+});
 
 const agentLLMClient = {
   async chat({ model, messages, format, options = {} }) {
@@ -412,23 +459,24 @@ const routes = {
   'POST /chat': async (req, res) => {
     const body = await parseBody(req);
     const { message } = body;
-    
+
     if (!message) {
       return sendJSON(res, 400, { error: 'message is required' });
     }
-    
+
     try {
-      const { callOllama } = await import('./llm/client.js');
+      // v44.0: Use CRE bridge for authorized LLM calls
+      const creBridge = await import('./llm/cre-bridge.js');
       const { PROMPTS } = await import('./llm/prompts.js');
-      
-      const response = await callOllama('CHAT', message, PROMPTS.CHAT);
-      
+
+      const response = await creBridge.generateChatResponse(message, PROMPTS.CHAT);
+
       sendJSON(res, 200, {
         response: response.content,
         model: response.model,
         duration: response.duration,
       });
-      
+
     } catch (err) {
       logger.error('Server', `Chat error: ${err.message}`);
       sendJSON(res, 500, { error: err.message });
@@ -881,444 +929,52 @@ const routes = {
   },
   
   // Chat (send message)
+  // v44.0: ALL chat goes through ChatController - THE ONLY entry point
   'POST /api/chat': async (req, res) => {
     const body = await parseBody(req);
     const { conversation_id, project_id, message } = body;
-    
+
     if (!conversation_id || !message) {
       return sendJSON(res, 400, { error: 'conversation_id and message are required' });
     }
-    
+
     try {
       // Save user message
       db.messages.addMessage(conversation_id, 'user', message);
-      
-      // v34.4.2: SEMANTIC INTENT CLASSIFIER - check FIRST before any chat logic
-      const artifactPipeline = await import('./artifact-pipeline.js');
-      const { callOllama } = await import('./llm/client.js');
-      
-      // LLM call function for classifier and pipeline
-      const llmCall = async (prompt, systemPrompt, options) => {
-        return callOllama('CHAT', prompt, systemPrompt, options);
-      };
-      
-      // Use async semantic classifier (hybrid: heuristic + LLM)
-      const intentResult = await artifactPipeline.classifyIntent(message, llmCall);
-      logger.info('Server', `Intent classified: ${intentResult.intent} (${intentResult.confidence.toFixed(2)}, ${intentResult.method}${intentResult.cached ? ', cached' : ''})`);
-      
-      // Map intent to task type
-      const isArtifact = intentResult.intent !== artifactPipeline.INTENT.CHAT;
-      
-      if (isArtifact) {
-        const task = {
-          type: 'ARTIFACT',
-          intent: intentResult.intent,
-          artifactType: detectFileTypeFromIntent(message, intentResult.intent),
-          topic: extractTopicFromMessage(message),
-          confidence: intentResult.confidence
-        };
-        
-        logger.info('Server', `Artifact request: ${task.artifactType} - ${task.topic}`);
-        
-        // Load user settings for locale
-        let userSettings = {};
-        try {
-          const settingsRow = db.db.prepare('SELECT data FROM user_settings WHERE id = 1').get();
-          if (settingsRow) {
-            userSettings = JSON.parse(settingsRow.data);
-          }
-        } catch (e) {
-          logger.warn('Server', 'Could not load user settings, using defaults');
-        }
-        
-        // Execute artifact pipeline
-        const result = await artifactPipeline.executeArtifactPipeline(
-          message,
-          userSettings,
-          llmCall
-        );
-        
-        if (result.success) {
-          // Build response with download link
-          const artifact = result.artifact;
-          const downloadUrl = artifact.downloadUrl;
-          const confidence = result.metadata?.confidence || 'unknown';
-          
-          // Confidence indicator
-          const confidenceText = {
-            high: '✅ Ověřená data',
-            medium: '⚡ Odhadovaná data',
-            low: '⚠️ Orientační data',
-            unknown: '❓ Neověřeno'
-          }[confidence] || '❓ Neověřeno';
-          
-          // Determine display type (actual type, not requested)
-          const displayType = artifact.actualType?.toUpperCase() || artifact.type?.toUpperCase() || 'PDF';
-          
-          let response = `✅ **Soubor vygenerován**
 
-📄 **${artifact.title}**
+      // v44.0: Route through ChatController - NO legacy routing
+      logger.info('Server', `[ChatController] Processing: "${message.substring(0, 50)}..."`);
 
-${result.data.description || ''}
+      const result = await ChatController.handle({
+        message,
+        sessionId: conversation_id,
+        userId: body.userId || null,
+        context: {
+          projectId: project_id,
+          hasActiveProject: !!project_id,
+        },
+      });
 
-| Sloupec | Ukázka |
-|---------|--------|
-${result.data.columns?.slice(0, 4).map(col => `| ${col} | ${result.data.data[0]?.[col] || '-'} |`).join('\n')}
+      logger.info('Server', `[ChatController] Mode: ${result.mode}, Confidence: ${result.confidence.toFixed(2)}`);
 
-📊 **Celkem řádků:** ${result.data.data.length}
-🎯 **Kvalita dat:** ${confidenceText}
+      const response = result.response;
 
----
-
-⬇️ **[Stáhnout ${displayType}: ${artifact.title}](${downloadUrl})**`;
-
-          // Add HTML fallback warning
-          if (result.htmlFallback || artifact.htmlFallback) {
-            response += `\n\n💡 **Tip:** Pro skutečné PDF nainstalujte puppeteer: \`npm install puppeteer\``;
-          }
-
-          // Add warning if partial/fallback
-          if (result.warning) {
-            response += `\n\n⚠️ **Upozornění:** ${result.warning}`;
-          }
-          
-          // Add notes
-          if (result.data.notes?.length) {
-            response += '\n\n📝 **Poznámky:**\n' + result.data.notes.map(n => `- ${n}`).join('\n');
-          }
-
-          db.messages.addMessage(conversation_id, 'assistant', response);
-          
-          return sendJSON(res, 200, { 
-            response,
-            artifact: {
-              type: artifact.actualType || artifact.type,
-              requestedType: artifact.requestedType,
-              title: artifact.title,
-              downloadUrl: artifact.downloadUrl,
-              size: artifact.size,
-              confidence: confidence,
-              canRetry: result.canRetry || false,
-              htmlFallback: result.htmlFallback || artifact.htmlFallback || false
-            }
-          });
-        } else {
-          // Artifact generation failed - provide helpful error with retry option
-          let errorResponse = `❌ **Nepodařilo se vygenerovat soubor**
-
-**Důvod:** ${result.error}`;
-
-          if (result.suggestion) {
-            errorResponse += `\n\n💡 **Tip:** ${result.suggestion}`;
-          }
-          
-          errorResponse += `\n\n**Co můžete zkusit:**
-- Upřesnit požadavek (např. "RTX 4000 série, nové, CZ e-shopy")
-- Zjednodušit dotaz
-- Zkusit znovu (model může mít lepší výsledek)`;
-
-          db.messages.addMessage(conversation_id, 'assistant', errorResponse);
-          return sendJSON(res, 200, { 
-            response: errorResponse,
-            canRetry: result.canRetry || true
-          });
-        }
-      }
-      
-      // Continue with regular chat flow...
-      let response;
-      
-      if (project_id) {
-        // Use Architect for project context
-        global.architectSessions = global.architectSessions || {};
-        let orchestrator = global.architectSessions[project_id];
-        
-        if (!orchestrator) {
-          // Load project
-          const project = db.projects.findById.get(project_id);
-          if (project) {
-            const { ConversationOrchestrator } = await import('./architect/index.js');
-            orchestrator = new ConversationOrchestrator(project.path);
-            await orchestrator.init(project.name);
-            global.architectSessions[project_id] = orchestrator;
-          }
-        }
-        
-        if (orchestrator) {
-          const result = await orchestrator.process(message);
-          response = result.response;
-        } else {
-          response = 'Project not found. Please create or select a project.';
-        }
-      } else {
-        // Simple chat without project context
-        const { callOllama, callOllamaVision } = await import('./llm/client.js');
-        const webSearch = await import('./llm/web-search.js');
-        
-        // Get recent messages for context
-        const recentMessages = db.messages.getLastN.all(conversation_id, 10);
-        const context = recentMessages.map(m => `${m.role}: ${m.content}`).join('\n\n');
-        
-        // Check for recent image attachments
-        const recentAttachments = db.attachments.listByConversation.all(conversation_id);
-        const imageAttachments = recentAttachments.filter(a => 
-          a.mime_type?.startsWith('image/') && 
-          ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(a.mime_type)
-        ).slice(0, 3); // Max 3 images
-        
-        // If images are present, use vision model
-        if (imageAttachments.length > 0) {
-          logger.info('Server', `Processing ${imageAttachments.length} image(s) with vision model`);
-          
-          try {
-            // Load images as base64
-            const images = [];
-            for (const att of imageAttachments) {
-              const imgPath = path.join('./data/attachments', att.filename);
-              if (fs.existsSync(imgPath)) {
-                const imgBuffer = fs.readFileSync(imgPath);
-                const base64 = imgBuffer.toString('base64');
-                images.push(base64);
-              }
-            }
-            
-            if (images.length > 0) {
-              const visionPrompt = context 
-                ? `Context: ${context}\n\nUser: ${message}`
-                : message;
-              
-              const visionSystemPrompt = `You are a helpful AI assistant that can analyze images.
-Describe what you see in detail and answer the user's question about the image(s).
-Respond in the same language as the user's message.
-Be specific and helpful.`;
-              
-              const visionResult = await callOllamaVision(visionPrompt, images, visionSystemPrompt);
-              response = visionResult.content;
-              
-              // Save and return
-              db.messages.addMessage(conversation_id, 'assistant', response);
-              return sendJSON(res, 200, { response });
-            }
-          } catch (visionErr) {
-            logger.warn('Server', `Vision error: ${visionErr.message}`);
-            // Fall through to regular chat with error message
-            if (visionErr.message.includes('not installed')) {
-              response = `⚠️ Vision model není nainstalován.\n\nPro analýzu obrázků spusťte:\n\`\`\`\nollama pull llava:13b\n\`\`\`\n\nPotom restartujte server.`;
-              db.messages.addMessage(conversation_id, 'assistant', response);
-              return sendJSON(res, 200, { response });
-            }
-          }
-        }
-        
-        // Check if web search is needed
-        let searchContext = '';
-        let extractedLinks = [];
-        
-        if (webSearch.needsWebSearch(message)) {
-          logger.info('Server', 'Web search triggered');
-          
-          // Check if message contains full URL
-          const urlMatch = message.match(/https?:\/\/[^\s]+/);
-          // Check if message contains domain (e.g. seznam.cz, bazos.cz)
-          const domainMatch = message.match(/\b([\w-]+\.(cz|sk|com|org|net|eu|io))\b/i);
-          
-          if (urlMatch) {
-            // Fetch specific URL
-            logger.info('Server', `Fetching URL: ${urlMatch[0]}`);
-            const page = await webSearch.fetchPage(urlMatch[0], 8000);
-            if (page) {
-              extractedLinks = page.links || [];
-              searchContext = `\n\n[WEB CONTENT]\nSource: ${page.url}\nTitle: ${page.title}\n\n${page.content}`;
-              if (extractedLinks.length > 0) {
-                searchContext += '\n\n[EXTRACTED LINKS - USE ONLY THESE EXACT URLs]:\n';
-                extractedLinks.forEach((link, i) => {
-                  searchContext += `${i+1}. ${link.title}\n   URL: ${link.url}\n`;
-                });
-              }
-              searchContext += '\n[END WEB CONTENT]';
-              logger.info('Server', `Fetched ${page.content.length} chars, ${extractedLinks.length} links`);
-            }
-          } else if (domainMatch) {
-            const domain = domainMatch[1];
-            
-            // Extract search terms
-            const searchTerms = message
-              .toLowerCase()
-              .replace(domain, '')
-              .replace(/\b(najdi|vyhledej|hledej|dej mi|ukaž|odkaz|na|z|ze|webu?|stránk\w*|seznam|všech?n?y?|zpráv\w*|v\s*současn\w*|chvíl\w*|karty?|všechny)\b/gi, '')
-              .replace(/\s+/g, ' ')
-              .trim();
-            
-            // For bazos.cz, construct search URL directly
-            if (domain.includes('bazos')) {
-              // bazos has specific URL structure for search
-              const bazosSearch = searchTerms.replace(/\s+/g, '-').replace(/[^a-z0-9-]/gi, '');
-              const searchUrl = `https://pc.bazos.cz/inzeraty/${encodeURIComponent(searchTerms.replace(/\s+/g, '-'))}/`;
-              logger.info('Server', `Fetching bazos search: ${searchUrl}`);
-              const page = await webSearch.fetchPage(searchUrl, 15000);
-              
-              if (page && page.links && page.links.length > 0) {
-                // Filter only inzerat links
-                extractedLinks = page.links.filter(l => l.url.includes('/inzerat/'));
-                searchContext = `\n\n[BAZOS.CZ SEARCH RESULTS FOR: ${searchTerms}]\n`;
-                searchContext += `Found ${extractedLinks.length} listings:\n\n`;
-                extractedLinks.slice(0, 10).forEach((link, i) => {
-                  searchContext += `${i+1}. ${link.title}\n   LINK: ${link.url}\n\n`;
-                });
-                searchContext += '[END RESULTS]\n\nIMPORTANT: Use ONLY the exact URLs listed above. Do NOT modify or invent URLs.';
-                logger.info('Server', `Found ${extractedLinks.length} bazos listings`);
-              } else {
-                // Fallback to homepage
-                const homePage = await webSearch.fetchPage(`https://www.${domain}`, 10000);
-                if (homePage) {
-                  searchContext = `\n\n[WEB CONTENT FROM ${domain}]\n${homePage.content}\n[END]`;
-                }
-              }
-            } else {
-              // Other domains - fetch homepage
-              const url = `https://www.${domain.replace(/^www\./, '')}`;
-              logger.info('Server', `Fetching: ${url}`);
-              const page = await webSearch.fetchPage(url, 10000);
-              
-              if (page) {
-                extractedLinks = page.links || [];
-                searchContext = `\n\n[WEB CONTENT FROM ${domain.toUpperCase()}]\n${page.content}`;
-                if (extractedLinks.length > 0) {
-                  searchContext += '\n\n[LINKS FROM THIS PAGE - USE ONLY THESE EXACT URLs]:\n';
-                  extractedLinks.slice(0, 15).forEach((link, i) => {
-                    searchContext += `${i+1}. ${link.title} - ${link.url}\n`;
-                  });
-                }
-                searchContext += '\n[END WEB CONTENT]';
-                logger.info('Server', `Fetched ${page.content.length} chars, ${extractedLinks.length} links`);
-              }
-            }
-            
-            // Also do DuckDuckGo search for more results
-            if (searchTerms.length > 2) {
-              const query = `${searchTerms} site:${domain}`;
-              logger.info('Server', `Also searching: ${query}`);
-              const searchResults = await webSearch.searchAndFormat(query, true);
-              if (searchResults) {
-                searchContext += '\n\n[ADDITIONAL SEARCH RESULTS]\n' + searchResults;
-              }
-            }
-          } else {
-            // General web search
-            const query = webSearch.extractSearchQuery(message);
-            logger.info('Server', `Web search: ${query}`);
-            searchContext = '\n\n[SEARCH RESULTS]\n' + await webSearch.searchAndFormat(query, true);
-          }
-        }
-        
-        // CRITICAL: If query requires external data but we have none → NEDOSTATEK_DAT
-        const requiresExternalData = webSearch.needsExternalData(message);
-        const hasNoData = !searchContext || searchContext.trim().length < 50;
-        
-        if (requiresExternalData && hasNoData) {
-          logger.warn('Server', 'Query requires external data but none available');
-          response = `NEDOSTATEK_DAT
-
-Váš dotaz vyžaduje aktuální data z internetu (odkazy, nabídky, ceny), která se nepodařilo získat.
-
-**Možné příčiny:**
-- Cílová stránka blokuje přístup
-- Web search nenašel relevantní výsledky
-- Problém s připojením
-
-**Doporučení:**
-- Zkuste specifikovat konkrétní web (např. "na sauto.cz")
-- Nebo vložte přímý odkaz na stránku`;
-          
-          db.messages.addMessage(conversation_id, 'assistant', response);
-          return sendJSON(res, 200, { response });
-        }
-        
-        const prompt = context 
-          ? `${context}\n\nUser: ${message}${searchContext}`
-          : `User: ${message}${searchContext}`;
-        
-        // v34.2: Artifact requests are now handled at the beginning of POST /api/chat
-        // This code path is only reached for regular chat
-        
-        // Strict, structured system prompt based on best practices
-        let systemPrompt;
-        
-        if (searchContext) {
-          // Web search mode - strict factual with sources
-          systemPrompt = `ROLE: You are a Strict Information Assistant.
-TASK: Answer using ONLY the provided web content in [brackets].
-FORMAT: Use numbered lists, cite sources with exact URLs.
-
-RULES:
-- Extract and present specific data (titles, prices, dates, URLs)
-- Use Markdown formatting (headers, lists, bold for key info)
-- Cite exact URLs from the provided content - NEVER invent URLs
-- If data is insufficient, respond exactly: NEDOSTATEK_DAT
-- Respond in the same language as the user
-- Be thorough but concise - no filler text`;
-        } else {
-          // General chat mode - helpful but structured
-          systemPrompt = `ROLE: You are a helpful AI Assistant.
-TASK: Provide clear, structured, actionable answers.
-FORMAT: Use Markdown - headers, numbered lists, code blocks where appropriate.
-
-RULES:
-- Be specific and thorough - give complete answers
-- Use numbered lists for multiple items
-- Bold key terms and important information
-- For code, always use markdown code blocks with language
-- If uncertain, say so honestly
-- Respond in the same language as the user
-- No vague or lazy responses - provide real value`;
-        }
-        
-        const llmOptions = { 
-          temperature: searchContext ? 0.15 : 0.5,
-          top_p: 0.75,
-          repeat_penalty: 1.1
-        };
-        
-        // First attempt
-        let result = await callOllama('CHAT', prompt, systemPrompt, llmOptions);
-        response = result.content;
-        
-        // Validation + retry logic
-        const isLazyResponse = response.length < 50 && !response.includes('NEDOSTATEK_DAT');
-        const hasInventedUrl = searchContext && /https?:\/\/[^\s]+/.test(response) && 
-          !searchContext.includes(response.match(/https?:\/\/[^\s]+/)?.[0]?.split('?')[0]);
-        
-        if (isLazyResponse || hasInventedUrl) {
-          logger.warn('Server', `Response validation failed, retrying with stricter prompt`);
-          
-          // Stricter retry prompt
-          const retrySystemPrompt = `${systemPrompt}
-
-CRITICAL REMINDER:
-- Previous response was rejected for being ${isLazyResponse ? 'too brief/vague' : 'containing invented URLs'}
-- You MUST provide a complete, structured answer
-- If using URLs, copy them EXACTLY from the provided content
-- No shortcuts - give a thorough response`;
-          
-          const retryResult = await callOllama('CHAT', prompt, retrySystemPrompt, {
-            ...llmOptions,
-            temperature: 0.1  // Even lower for retry
-          });
-          response = retryResult.content;
-        }
-      }
-      
       // Save assistant message
       db.messages.addMessage(conversation_id, 'assistant', response);
-      
+
       // Update conversation title if first message
       const conv = db.conversations.findById.get(conversation_id);
       if (conv && !conv.title && conv.message_count <= 2) {
         db.conversations.updateTitle.run(message.substring(0, 50), conversation_id);
       }
-      
-      sendJSON(res, 200, { response });
-      
+
+      sendJSON(res, 200, {
+        response,
+        mode: result.mode,
+        confidence: result.confidence,
+        metadata: result.metadata,
+      });
+
     } catch (err) {
       logger.error('Server', `Chat error: ${err.message}`);
       sendJSON(res, 500, { error: err.message });
@@ -2147,7 +1803,7 @@ function getUIHTML() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>p(AI)assistant v33.3.3</title>
+  <title>p(AI)assistant v44.0.0</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
@@ -2417,7 +2073,7 @@ function getUIHTML() {
 </head>
 <body>
   <header>
-    <div class="logo">⚡ p(AI)assistant <small style="color:#888">v33.3.3</small></div>
+    <div class="logo">⚡ p(AI)assistant <small style="color:#888">v44.0.0</small></div>
     <div class="status">
       <div class="status-dot"></div>
       <span id="statusText">Ready</span>
@@ -2428,7 +2084,7 @@ function getUIHTML() {
     <div class="chat-container">
       <div class="messages" id="messages">
         <div class="message system">
-          Vítej v p(AI)assistant v33.3.3! Zadej požadavek a já ho implementuji.
+          Vítej v p(AI)assistant v44.0.0! Zadej požadavek a já ho implementuji.
         </div>
       </div>
       
@@ -2615,7 +2271,7 @@ server.listen(config.server.port, config.server.host, () => {
   console.log(`
 ╔══════════════════════════════════════════════════════════════╗
 ║                                                              ║
-║     ⚡  p(AI)assistant v33.3.3                               ║
+║     ⚡  p(AI)assistant v44.0.0                               ║
 ║                                                              ║
 ║     Chat:      http://${config.server.host}:${config.server.port}/architect             ║
 ║     Agents:    http://${config.server.host}:${config.server.port}/agents                ║

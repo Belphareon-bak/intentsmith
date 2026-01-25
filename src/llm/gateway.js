@@ -229,12 +229,20 @@ class LLMGateway {
    */
   async call(prompt, options = {}) {
     const startTime = Date.now();
-    
+
+    // ════════════════════════════════════════════════════════════════════════
+    // v44.0: INLINE AUTH TOKEN SUPPORT (avoids race condition)
+    // ════════════════════════════════════════════════════════════════════════
+
+    // Use inline token if provided, otherwise fall back to singleton
+    const authToken = options._authToken || this.currentAuth;
+    const isAuthorizedCall = authToken && validateAuthToken(authToken).valid;
+
     // ════════════════════════════════════════════════════════════════════════
     // AUTHORIZATION CHECK
     // ════════════════════════════════════════════════════════════════════════
-    
-    if (!this.isAuthorized()) {
+
+    if (!isAuthorizedCall) {
       if (this.strictMode) {
         // v36.9: Check if LEGACY_DIRECT is allowed via env flag
         if (options.legacyRole && process.env.ALLOW_LEGACY_LLM === '1') {
@@ -252,7 +260,9 @@ class LLMGateway {
           // HARD BLOCK - no auth token, no env flag
           this.audit.log('UNAUTHORIZED_CALL', {
             promptPreview: prompt.substring(0, 100),
-            options,
+            hasInlineToken: !!options._authToken,
+            hasSingletonAuth: !!this.currentAuth,
+            options: { ...options, _authToken: undefined },
             stack: new Error().stack?.split('\n').slice(2, 5).join(' <- ')
           });
           throw new Error('LLM_CALL_OUTSIDE_CRE: No valid auth token. All LLM calls must go through CRE with proper authorization.');
@@ -269,43 +279,43 @@ class LLMGateway {
         });
       }
     }
-    
+
     // ════════════════════════════════════════════════════════════════════════
     // CAPABILITY CHECK
     // ════════════════════════════════════════════════════════════════════════
-    
-    if (this.currentAuth && options.capability) {
-      if (!hasCapability(this.currentAuth, options.capability)) {
+
+    if (authToken && options.capability) {
+      if (!hasCapability(authToken, options.capability)) {
         this.audit.log('CAPABILITY_DENIED', {
-          role: this.currentAuth.role,
-          decisionId: this.currentAuth.decisionId,
+          role: authToken.role,
+          decisionId: authToken.decisionId,
           capability: options.capability,
-          allowed: this.currentAuth.allowedCapabilities
+          allowed: authToken.allowedCapabilities
         });
         throw new Error(`CAPABILITY_NOT_ALLOWED: ${options.capability}`);
       }
     }
-    
+
     // ════════════════════════════════════════════════════════════════════════
     // RATE LIMIT CHECK
     // ════════════════════════════════════════════════════════════════════════
-    
+
     const rateCheck = this.checkRateLimit();
     if (!rateCheck.allowed) {
       this.audit.log('RATE_LIMITED', {
-        role: this.currentAuth?.role,
+        role: authToken?.role,
         retryAfter: rateCheck.retryAfter
       });
       throw new Error(`RATE_LIMITED: Retry after ${rateCheck.retryAfter}ms`);
     }
-    
+
     // ════════════════════════════════════════════════════════════════════════
     // DETERMINE LIMITS
     // ════════════════════════════════════════════════════════════════════════
-    
+
     const effectiveMaxTokens = Math.min(
       options.maxTokens || 4096,
-      this.currentAuth?.maxTokens || 4096
+      authToken?.maxTokens || 4096
     );
     
     // ════════════════════════════════════════════════════════════════════════
@@ -373,21 +383,21 @@ class LLMGateway {
         
         // Audit successful call
         this.audit.log('LLM_CALL_COMPLETE', {
-          role: this.currentAuth?.role || options.legacyRole || 'UNKNOWN',
-          decisionId: this.currentAuth?.decisionId,
-          sessionId: this.currentAuth?.auditContext?.sessionId,
+          role: authToken?.role || options.legacyRole || 'UNKNOWN',
+          decisionId: authToken?.decisionId,
+          sessionId: authToken?.auditContext?.sessionId,
           model,
           promptLength: prompt.length,
           outputLength: output.length,
           duration,
           attempt
         });
-        
+
         return {
           content: output,
           model,
           duration,
-          role: this.currentAuth?.role || options.legacyRole
+          role: authToken?.role || options.legacyRole
         };
         
       } catch (err) {
@@ -406,11 +416,11 @@ class LLMGateway {
     }
     
     this.audit.log('LLM_CALL_FAILED', {
-      role: this.currentAuth?.role,
-      decisionId: this.currentAuth?.decisionId,
+      role: authToken?.role,
+      decisionId: authToken?.decisionId,
       error: lastError?.message
     });
-    
+
     throw new Error(`LLM failed after ${maxRetries} attempts: ${lastError?.message}`);
   }
   
@@ -455,14 +465,15 @@ export const llmGateway = new LLMGateway();
 /**
  * Call LLM with auth token (convenience wrapper)
  * Use this in places that have their own auth token
+ *
+ * v44.0: Pass token directly to call() to avoid race conditions with singleton
  */
 export async function callWithAuth(token, prompt, options = {}) {
-  llmGateway.authorize(token);
-  try {
-    return await llmGateway.call(prompt, options);
-  } finally {
-    llmGateway.revoke();
-  }
+  // v44.0: Pass token in options to avoid singleton race condition
+  return await llmGateway.call(prompt, {
+    ...options,
+    _authToken: token
+  });
 }
 
 /**
