@@ -1,8 +1,8 @@
 {
   "name": "c3-agent",
-  "version": "44.1.0",
+  "version": "44.10.0",
   "type": "module",
-  "description": "C.3 Agent - CRE v44.1 (Unified Decision Engine)",
+  "description": "C.3 Agent - CRE v44.10 (Response Quality + Expert Style Contract)",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

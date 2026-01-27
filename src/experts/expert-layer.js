@@ -1,7 +1,7 @@
-// C.3 v35.0.0 - Expert Layer
+// C.3 v44.10 - Expert Layer
 // ══════════════════════════════════════════════════════════════════════════════
 // Expert = řízený pracovní režim, který přebírá odpovědnost za JAK se úloha řeší
-// 
+//
 // Expert:
 // - volí strategii práce
 // - určuje kdy plánovat, kdy iterovat
@@ -12,6 +12,13 @@
 // - background agent (to jsou scrapers, data layer)
 // - jen jiný prompt
 // - data layer
+//
+// v44.10 - Added styleRules for response quality enforcement
+//
+// styleRules:
+// - tone: 'concise' | 'friendly' | 'professional' | 'creative'
+// - forbiddenPhrases: patterns that MUST NOT appear in expert responses
+// - requiredElements: elements that MUST appear (for some experts)
 
 /**
  * Planning depth levels
@@ -73,6 +80,19 @@ export const BUILTIN_EXPERTS = {
     temperature: 0.8,
     chunkingStrategy: 'chapters',
     memoryPolicy: 'long_context',
+    // v44.10 - Style rules for response quality
+    styleRules: {
+      tone: 'creative',
+      minResponseLength: 200,  // Creative content should have substance
+      forbiddenPhrases: [
+        /obecně (se|lze|platí)/i,           // "obecně platí" bez obsahu
+        /může být různé/i,                   // vágní AI výplň
+        /záleží na kontextu/i,               // cop-out
+        /existuje mnoho možností/i,          // generic filler
+        /to je složitá otázka/i,             // avoiding answer
+      ],
+      requiredElements: [],  // No specific required elements
+    },
     systemPrompt: `Jsi zkušený spisovatel s citem pro příběh, postavy a atmosféru.
 
 TVŮJ PŘÍSTUP:
@@ -109,6 +129,18 @@ NIKDY:
     temperature: 0.85,
     chunkingStrategy: 'sessions',
     memoryPolicy: 'world_state',
+    // v44.10 - Style rules for DnD content
+    styleRules: {
+      tone: 'creative',
+      minResponseLength: 150,
+      forbiddenPhrases: [
+        /obecně (se|lze|platí)/i,
+        /může být různé/i,
+        /záleží na kontextu/i,
+        /to závisí na/i,
+      ],
+      requiredElements: [],  // Specific elements checked per response type
+    },
     systemPrompt: `Jsi zkušený Dungeon Master s desítkami let praxe.
 
 TVŮJ PŘÍSTUP:
@@ -180,6 +212,21 @@ STYLY:
     outputBias: OUTPUT_BIAS.ANALYTICAL,
     preferredModels: ['qwen2.5:32b'],
     temperature: 0.3,
+    // v44.10 - Style rules for analytical content
+    styleRules: {
+      tone: 'professional',
+      minResponseLength: 100,
+      forbiddenPhrases: [
+        /možná/i,                            // analyst should be specific
+        /asi/i,                              // hedging
+        /nevím přesně/i,                     // should state uncertainty clearly
+        /obecně platí/i,                     // too vague for analysis
+      ],
+      requiredElements: [
+        // Analyst responses should have structure
+        /(\d|pro|proti|výhod|nevýhod)/i,    // numbers or pro/con
+      ],
+    },
     systemPrompt: `Jsi analytik s důrazem na fakta a strukturu.
 
 TVŮJ PŘÍSTUP:
@@ -424,6 +471,17 @@ NIKDY:
     outputBias: OUTPUT_BIAS.ANALYTICAL,
     preferredModels: ['qwen2.5-coder:32b', 'qwen2.5:32b'],
     temperature: 0.3,
+    // v44.10 - Style rules for code responses
+    styleRules: {
+      tone: 'concise',
+      minResponseLength: 50,
+      forbiddenPhrases: [
+        /TODO.*later/i,                      // no lazy TODOs
+        /this is just an example/i,          // should be real code
+        /you might want to/i,                // be direct
+      ],
+      requiredElements: [],  // Code blocks checked separately
+    },
     systemPrompt: `Jsi senior vývojář s rozsáhlou praxí.
 
 TVŮJ PŘÍSTUP:
@@ -590,6 +648,21 @@ NIKDY:
 /**
  * Expert Agent base class
  */
+/**
+ * Default style rules for experts without custom rules
+ * v44.10 - Baseline quality enforcement
+ */
+const DEFAULT_STYLE_RULES = {
+  tone: 'professional',
+  minResponseLength: 50,
+  forbiddenPhrases: [
+    /obecně (se|lze|platí)(?! \w)/i,      // "obecně platí" without content
+    /to záleží$/i,                          // just "it depends" with nothing
+    /nevím$/i,                              // just "I don't know"
+  ],
+  requiredElements: [],
+};
+
 export class ExpertAgent {
   constructor(config) {
     this.id = config.id;
@@ -609,6 +682,8 @@ export class ExpertAgent {
     this.chunkingStrategy = config.chunkingStrategy || null;
     this.memoryPolicy = config.memoryPolicy || 'standard';
     this.isCustom = config.isCustom || false;
+    // v44.10 - Style rules with defaults
+    this.styleRules = config.styleRules || { ...DEFAULT_STYLE_RULES };
   }
 
   /**
@@ -675,7 +750,8 @@ export class ExpertAgent {
       systemPrompt: this.systemPrompt,
       chunkingStrategy: this.chunkingStrategy,
       memoryPolicy: this.memoryPolicy,
-      isCustom: this.isCustom
+      isCustom: this.isCustom,
+      styleRules: this.styleRules,  // v44.10
     };
   }
 }

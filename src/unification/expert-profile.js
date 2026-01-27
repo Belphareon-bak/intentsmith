@@ -1,4 +1,4 @@
-// CRE v44.2 — FÁZE C: Expert Profile & Arbitration
+// CRE v44.10 — FÁZE C: Expert Profile & Arbitration
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // LAYER 9 — SYSTEM UNIFICATION
@@ -8,6 +8,8 @@
 // - Correction tracking (user corrections)
 // - Accepted rate calculation
 // - Multi-expert arbitration with conflict resolution
+//
+// v44.10 - Added assertExpertStyle() for response quality enforcement
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -781,4 +783,177 @@ export function createExpertResponse(options) {
  */
 export function createExpertArbitrator(options = {}) {
   return new ExpertArbitrator(options);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v44.10 - Expert Style Assertion
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * StyleViolation - describes a style rule violation
+ */
+export class StyleViolation {
+  constructor({ type, message, pattern = null, severity = 'warning' }) {
+    this.type = type;
+    this.message = message;
+    this.pattern = pattern;
+    this.severity = severity;  // 'warning' | 'error'
+    Object.freeze(this);
+  }
+
+  toJSON() {
+    return {
+      type: this.type,
+      message: this.message,
+      pattern: this.pattern?.toString(),
+      severity: this.severity,
+    };
+  }
+}
+
+/**
+ * StyleValidationResult - result of style validation
+ */
+export class StyleValidationResult {
+  constructor({ valid, violations = [], warnings = [] }) {
+    this.valid = valid;
+    this.violations = Object.freeze([...violations]);
+    this.warnings = Object.freeze([...warnings]);
+    Object.freeze(this);
+  }
+
+  get hasErrors() {
+    return this.violations.some(v => v.severity === 'error');
+  }
+
+  get hasWarnings() {
+    return this.violations.some(v => v.severity === 'warning') || this.warnings.length > 0;
+  }
+
+  toJSON() {
+    return {
+      valid: this.valid,
+      violations: this.violations.map(v => v.toJSON()),
+      warnings: this.warnings,
+    };
+  }
+}
+
+/**
+ * assertExpertStyle - Validate response against expert's style rules
+ *
+ * v44.10 - Expert Style Contract enforcement
+ *
+ * @param {string} response - The response content to validate
+ * @param {Object} styleRules - Expert's style rules
+ * @param {Object} [options] - Validation options
+ * @returns {StyleValidationResult}
+ */
+export function assertExpertStyle(response, styleRules, options = {}) {
+  if (!response || typeof response !== 'string') {
+    return new StyleValidationResult({
+      valid: false,
+      violations: [new StyleViolation({
+        type: 'EMPTY_RESPONSE',
+        message: 'Response is empty or invalid',
+        severity: 'error',
+      })],
+    });
+  }
+
+  if (!styleRules) {
+    // No rules = valid by default
+    return new StyleValidationResult({ valid: true });
+  }
+
+  const violations = [];
+  const warnings = [];
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // CHECK 1: Minimum response length
+  // ════════════════════════════════════════════════════════════════════════════
+  if (styleRules.minResponseLength && response.length < styleRules.minResponseLength) {
+    // For very short responses, this is a warning, not an error
+    // (User might have asked a yes/no question)
+    const severity = response.length < 20 ? 'error' : 'warning';
+    violations.push(new StyleViolation({
+      type: 'TOO_SHORT',
+      message: `Response too short (${response.length} chars, min: ${styleRules.minResponseLength})`,
+      severity,
+    }));
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // CHECK 2: Forbidden phrases (AI filler, generic cop-outs)
+  // ════════════════════════════════════════════════════════════════════════════
+  if (styleRules.forbiddenPhrases && Array.isArray(styleRules.forbiddenPhrases)) {
+    for (const pattern of styleRules.forbiddenPhrases) {
+      if (pattern instanceof RegExp && pattern.test(response)) {
+        violations.push(new StyleViolation({
+          type: 'FORBIDDEN_PHRASE',
+          message: `Response contains forbidden pattern: ${pattern.toString()}`,
+          pattern,
+          severity: 'warning',
+        }));
+      }
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // CHECK 3: Required elements (for analytical/structured content)
+  // ════════════════════════════════════════════════════════════════════════════
+  if (styleRules.requiredElements && Array.isArray(styleRules.requiredElements)) {
+    for (const pattern of styleRules.requiredElements) {
+      if (pattern instanceof RegExp && !pattern.test(response)) {
+        // Required elements missing is a warning, not hard failure
+        warnings.push(`Missing expected element: ${pattern.toString()}`);
+      }
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // CHECK 4: Repetition detection (response repeats the question)
+  // ════════════════════════════════════════════════════════════════════════════
+  if (options.originalInput) {
+    const inputLower = options.originalInput.toLowerCase().trim();
+    const responseLower = response.toLowerCase().trim();
+
+    // If response starts with the exact question, it's repeating
+    if (responseLower.startsWith(inputLower) && inputLower.length > 10) {
+      violations.push(new StyleViolation({
+        type: 'REPEATS_QUESTION',
+        message: 'Response starts by repeating the question',
+        severity: 'warning',
+      }));
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // CHECK 5: Empty structure detection (has structure but no content)
+  // ════════════════════════════════════════════════════════════════════════════
+  // Detect responses like "# Title\n\n" with no actual content
+  const contentWithoutMarkdown = response
+    .replace(/^#+\s*.*/gm, '')      // Remove headings
+    .replace(/^\s*[-*]\s*/gm, '')   // Remove list markers
+    .replace(/\*\*/g, '')           // Remove bold
+    .replace(/\n+/g, ' ')           // Normalize newlines
+    .trim();
+
+  if (contentWithoutMarkdown.length < 30 && response.length > 50) {
+    violations.push(new StyleViolation({
+      type: 'EMPTY_STRUCTURE',
+      message: 'Response has formatting but lacks actual content',
+      severity: 'warning',
+    }));
+  }
+
+  // Determine validity
+  const hasErrors = violations.some(v => v.severity === 'error');
+  const valid = !hasErrors;
+
+  return new StyleValidationResult({
+    valid,
+    violations,
+    warnings,
+  });
 }
