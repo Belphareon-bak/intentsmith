@@ -1,4 +1,4 @@
-// CRE v44.10 — Chat Handlers
+// CRE v45.0 — Chat Handlers
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Mode-specific handlers for ChatController
@@ -12,8 +12,17 @@
 // 5. First turn vague inputs NEVER trigger SEARCH (v44.9)
 // 6. ANSWER decisions MUST record to sessionState (v44.9)
 // 7. CREATIVE responses validated for quality (v44.10)
+// 8. REPORT = SEARCH→SCRAPE pipeline, NEVER scrape without URLs (v44.11)
+// 9. Tools return DATA only — LLM synthesizes response (v45.0)
+//
+// v45.0 ARCHITECTURE:
+// - Tools return ToolResult (structured data) — no text!
+// - synthesizeWithLLM() generates human response from tool data
+// - Tool nesmí "mluvit" — tools provide DATA, LLM generates RESPONSE
 //
 // CHANGELOG:
+// v45.0 - LLM synthesis layer (synthesizeWithLLM) — tools return data only
+// v44.11 - REPORT pipeline orchestration (SEARCH→SCRAPE, fallback on failure)
 // v44.10 - Creative quality gate (assertCreativeQuality)
 // v44.9 - FIX A: CREATIVE follow-up lock (sessionState.recordDecision in handleAnswerDecision)
 //         FIX B: First-turn SEARCH block for vague inputs ("něco", "hmm", etc.)
@@ -31,9 +40,13 @@ import {
   FORBIDDEN_PHRASES,
   assertDecision,
   assertNoDirectAnswer,
+  ResponseIntent,
+  detectResponseIntent,
 } from './cre-decision.js';
 import { toolExecutor, ExecutionStatus } from './tool-executor.js';
 import { logger } from '../core/logger.js';
+import { preferenceEngine, Structure, FollowUpStyle } from '../memory/preferences.js';
+import { expertRegistry, ExpertStrength, ExpertWeights } from '../experts/expert-layer.js';
 
 // v44.5 - Helper to detect clarification-like responses
 function isClarification(input) {
@@ -183,6 +196,1113 @@ function assertCreativeQuality(response, input, minLength = 100) {
   }
 
   return { valid: true };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v45.0 FIX 3.3 - LLM Confidence Gate (Anti-Fluff)
+// ─────────────────────────────────────────────────────────────────────────────
+// Detects low-quality "fluff" responses before returning to user:
+// - Just repeats/lists sources without synthesis
+// - Generic filler without actual content
+// - Empty promises ("Zde je přehled...")
+// If fluff detected → retry with stronger prompt
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Patterns indicating fluff (low-quality synthesis)
+ */
+const FLUFF_PATTERNS = [
+  // Just lists sources without synthesis
+  /^(zde jsou|here are|tady jsou).*:?\s*\n/i,
+
+  // Empty framing without content
+  /^(na základě|based on|podle).*(zdrojů|sources|dat|data)[,:]/i,
+
+  // Generic opener followed by just links/titles
+  /^(našel jsem|found|zjistil jsem).*(výsledk|result)/i,
+
+  // Markdown headers with no content after
+  /^##?\s+\w+\s*\n\s*\n##/m,
+
+  // Just numbered list of titles
+  /^1\.\s+\*\*[^*]+\*\*\s*\n2\.\s+\*\*[^*]+\*\*\s*\n3\./m,
+
+  // Empty structure markers
+  /^(shrnutí|summary|přehled|overview):\s*$/im,
+
+  // Promises without delivery
+  /^(rád|ráda)?\s*(bych)?\s*(vám)?\s*(poskytl|připravil|shrnul)/i,
+];
+
+/**
+ * Minimum thresholds for non-fluff response
+ */
+const SYNTHESIS_THRESHOLDS = {
+  minUniqueWords: 30,          // At least 30 unique words (not just source titles)
+  minContentRatio: 0.3,        // At least 30% of response is original synthesis
+  maxUrlRatio: 0.4,            // Max 40% of response is URLs/links
+  minSentences: 2,             // At least 2 complete sentences
+};
+
+/**
+ * v45.0 FIX 3.3 - Check if response is fluff
+ *
+ * @param {string} content - The synthesized response
+ * @param {Array} sourceData - Original tool data (to detect repetition)
+ * @returns {{ isFluff: boolean, reason?: string, confidence: number }}
+ */
+function detectFluff(content, sourceData = []) {
+  if (!content || typeof content !== 'string') {
+    return { isFluff: true, reason: 'EMPTY_RESPONSE', confidence: 1.0 };
+  }
+
+  const trimmed = content.trim();
+
+  // Check explicit fluff patterns
+  for (const pattern of FLUFF_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      return {
+        isFluff: true,
+        reason: 'FLUFF_PATTERN_MATCH',
+        pattern: pattern.toString(),
+        confidence: 0.8,
+      };
+    }
+  }
+
+  // Count unique words (excluding URLs and common words)
+  const words = trimmed.toLowerCase()
+    .replace(/https?:\/\/\S+/g, '') // Remove URLs
+    .replace(/[^\p{L}\s]/gu, ' ')   // Keep only letters
+    .split(/\s+/)
+    .filter(w => w.length > 3);    // Only words > 3 chars
+
+  const uniqueWords = new Set(words);
+
+  if (uniqueWords.size < SYNTHESIS_THRESHOLDS.minUniqueWords) {
+    return {
+      isFluff: true,
+      reason: 'TOO_FEW_UNIQUE_WORDS',
+      count: uniqueWords.size,
+      threshold: SYNTHESIS_THRESHOLDS.minUniqueWords,
+      confidence: 0.7,
+    };
+  }
+
+  // Check URL ratio
+  const urlMatches = trimmed.match(/https?:\/\/\S+/g) || [];
+  const urlLength = urlMatches.join('').length;
+  const urlRatio = urlLength / trimmed.length;
+
+  if (urlRatio > SYNTHESIS_THRESHOLDS.maxUrlRatio) {
+    return {
+      isFluff: true,
+      reason: 'TOO_MANY_URLS',
+      ratio: urlRatio,
+      threshold: SYNTHESIS_THRESHOLDS.maxUrlRatio,
+      confidence: 0.75,
+    };
+  }
+
+  // Check for source title repetition
+  if (sourceData.length > 0) {
+    const sourceTitles = sourceData
+      .flatMap(d => d.data?.results || [])
+      .map(r => r.title?.toLowerCase())
+      .filter(Boolean);
+
+    let titleMatches = 0;
+    for (const title of sourceTitles) {
+      if (title && trimmed.toLowerCase().includes(title)) {
+        titleMatches++;
+      }
+    }
+
+    // If response mostly just lists source titles
+    if (sourceTitles.length > 0 && titleMatches >= sourceTitles.length * 0.8) {
+      // Check if there's synthesis beyond just titles
+      let contentWithoutTitles = trimmed.toLowerCase();
+      for (const title of sourceTitles) {
+        contentWithoutTitles = contentWithoutTitles.replace(title, '');
+      }
+
+      const remainingWords = contentWithoutTitles
+        .replace(/[^\p{L}\s]/gu, ' ')
+        .split(/\s+/)
+        .filter(w => w.length > 3);
+
+      if (remainingWords.length < 20) {
+        return {
+          isFluff: true,
+          reason: 'JUST_SOURCE_TITLES',
+          titleMatches,
+          totalTitles: sourceTitles.length,
+          confidence: 0.85,
+        };
+      }
+    }
+  }
+
+  // Count sentences (rough heuristic)
+  const sentences = trimmed.split(/[.!?]+/).filter(s => s.trim().length > 10);
+  if (sentences.length < SYNTHESIS_THRESHOLDS.minSentences) {
+    return {
+      isFluff: true,
+      reason: 'TOO_FEW_SENTENCES',
+      count: sentences.length,
+      threshold: SYNTHESIS_THRESHOLDS.minSentences,
+      confidence: 0.6,
+    };
+  }
+
+  return { isFluff: false, confidence: 0.0 };
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// v45.0 KOLO 4.2 — Atomic Answer Gate
+// ════════════════════════════════════════════════════════════════════════════════
+//
+// CONTRACT:
+// If ResponseIntent === MINIMAL or ConversationStyle.prefersMinimal === true:
+// - Response MUST be 1 sentence
+// - NO intro phrases ("Ano, zde je...")
+// - NO explanations
+// - NO offers
+// - NO links
+//
+// ════════════════════════════════════════════════════════════════════════════════
+
+// Patterns FORBIDDEN in atomic answers
+const ATOMIC_FORBIDDEN_PATTERNS = [
+  /^ano[,\s]/i,
+  /^samozřejmě/i,
+  /^jistě/i,
+  /zde je/i,
+  /tady je/i,
+  /here is/i,
+  /here's/i,
+  /mohu (případně|také)/i,
+  /can also/i,
+  /pokud chcete/i,
+  /if you want/i,
+  /chcete.*\?/i,
+  /want.*\?/i,
+  /https?:\/\//i,  // No links
+];
+
+/**
+ * Count sentences in text (for atomic validation)
+ * @param {string} text - Text to analyze
+ * @returns {number} Sentence count
+ */
+function countSentences(text) {
+  if (!text) return 0;
+  // Split on sentence terminators, filter out empty/short fragments
+  return text
+    .split(/[.!?]+/)
+    .filter(s => s.trim().length > 3)
+    .length;
+}
+
+/**
+ * v45.0 KOLO 4.2: Atomic Answer Gate
+ * Validates that MINIMAL responses are truly atomic.
+ *
+ * @param {string} content - Response content
+ * @param {Object} options - Validation options
+ * @param {string} options.responseIntent - Current ResponseIntent
+ * @param {boolean} options.prefersMinimal - ConversationStyle.prefersMinimal
+ * @returns {{ pass: boolean, reason?: string, violation?: string }}
+ */
+function atomicAnswerGate(content, options = {}) {
+  const { responseIntent, prefersMinimal } = options;
+
+  // Gate only applies to MINIMAL responses
+  if (responseIntent !== 'MINIMAL' && !prefersMinimal) {
+    return { pass: true };
+  }
+
+  if (!content || typeof content !== 'string') {
+    return { pass: false, reason: 'EMPTY_RESPONSE' };
+  }
+
+  const trimmed = content.trim();
+
+  // Check forbidden patterns
+  for (const pattern of ATOMIC_FORBIDDEN_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      return {
+        pass: false,
+        reason: 'FORBIDDEN_PATTERN',
+        violation: pattern.toString(),
+      };
+    }
+  }
+
+  // Check sentence count (must be 1)
+  const sentences = countSentences(trimmed);
+  if (sentences > 1) {
+    return {
+      pass: false,
+      reason: 'TOO_MANY_SENTENCES',
+      count: sentences,
+    };
+  }
+
+  // Check length (atomic should be < 150 chars typically)
+  if (trimmed.length > 200) {
+    return {
+      pass: false,
+      reason: 'TOO_LONG',
+      length: trimmed.length,
+    };
+  }
+
+  return { pass: true };
+}
+
+/**
+ * Build atomic retry prompt when atomic gate fails
+ * @param {string} originalPrompt - Original prompt
+ * @param {Object} gateResult - Result from atomicAnswerGate
+ * @returns {string} Modified prompt for retry
+ */
+function buildAtomicRetryPrompt(originalPrompt, gateResult) {
+  return `${originalPrompt}
+
+⚠️ ATOMIC RESPONSE REQUIRED — ONE SENTENCE ONLY!
+
+Your previous response failed the atomic gate: ${gateResult.reason}
+${gateResult.violation ? `Pattern violated: ${gateResult.violation}` : ''}
+${gateResult.count ? `You wrote ${gateResult.count} sentences, but only 1 is allowed.` : ''}
+
+RULES:
+- EXACTLY 1 sentence
+- NO "Ano,", "Samozřejmě,", "Zde je..."
+- NO explanations
+- NO links
+- NO offers
+
+Example good responses:
+- "45 230 USD"
+- "Bitcoin je kryptoměna."
+- "Ano."
+`;
+}
+
+/**
+ * v45.0 FIX 3.3 - Build retry prompt for fluff response
+ *
+ * @param {string} originalPrompt - The original synthesis prompt
+ * @param {Object} fluffInfo - Info about why it was fluff
+ * @returns {string} Improved prompt for retry
+ */
+function buildRetryPrompt(originalPrompt, fluffInfo) {
+  let addition = '\n\n⚠️ CRITICAL: Your previous response was insufficient.\n';
+
+  switch (fluffInfo.reason) {
+    case 'JUST_SOURCE_TITLES':
+      addition += `DO NOT just list source titles.
+SYNTHESIZE the information into a coherent answer.
+Add your own analysis, connections, and conclusions.`;
+      break;
+
+    case 'TOO_MANY_URLS':
+      addition += `Your response had too many URLs and not enough synthesis.
+Focus on EXPLAINING the information, not just linking to it.
+Include URLs only at the end as sources.`;
+      break;
+
+    case 'TOO_FEW_UNIQUE_WORDS':
+      addition += `Your response was too brief or repetitive.
+Provide a more thorough, detailed synthesis.
+Use varied vocabulary and explain concepts fully.`;
+      break;
+
+    case 'FLUFF_PATTERN_MATCH':
+      addition += `Your response was generic filler.
+Provide SPECIFIC information from the data.
+Answer the user's question directly with concrete details.`;
+      break;
+
+    default:
+      addition += `Provide a more substantial, synthesized response.
+Don't just list data - analyze and explain it.`;
+  }
+
+  return originalPrompt + addition;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v45.0 - LLM Synthesis Layer
+// ─────────────────────────────────────────────────────────────────────────────
+// Tools return DATA only — this function synthesizes human-readable responses
+// using the LLM. The LLM generates all user-facing text, not tools.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * synthesizeWithLLM - Generate human response from tool data
+ *
+ * v45.0 - Core architecture change: Tools return DATA, LLM generates RESPONSE
+ * v45.0 FIX 3.3 - Confidence gate: detect fluff, retry with improved prompt
+ *
+ * @param {Object} options
+ * @param {string} options.query - Original user query
+ * @param {string} options.intent - Detected intent (SEARCH, REPORT, etc.)
+ * @param {Array} options.toolResults - Array of ToolResult objects from execution
+ * @param {Object} options.context - Handler context (sessionId, history, etc.)
+ * @param {Object} options.userPreferences - Optional user preferences (verbosity, structure)
+ * @param {Object} options.expertHints - Optional expert synthesis hints (v45.0 Phase 3)
+ * @param {string} options.responseIntent - Optional ResponseIntent (v45.0 KOLO 3)
+ * @returns {Promise<{ content: string, confidence: number, model: string }>}
+ */
+async function synthesizeWithLLM({
+  query,
+  intent,
+  toolResults,
+  context = {},
+  userPreferences = {},
+  expertHints = null,
+  responseIntent = null,
+}) {
+  // Extract successful results' data
+  const successfulData = toolResults
+    .filter(r => r.success !== false)
+    .map(r => ({
+      type: r.type,
+      data: r.data,
+      meta: r.meta,
+    }));
+
+  // Extract failure info for context
+  const failures = toolResults
+    .filter(r => r.success === false)
+    .map(r => ({
+      type: r.type,
+      error: r.error,
+      errorCode: r.errorCode,
+    }));
+
+  // If no successful data, return degraded response
+  if (successfulData.length === 0) {
+    return {
+      content: buildSynthesisFailureResponse(query, failures),
+      confidence: 0.3,
+      model: 'fallback',
+    };
+  }
+
+  // Build synthesis prompt
+  let synthesisPrompt = buildSynthesisPrompt({
+    query,
+    intent,
+    data: successfulData,
+    failures,
+    userPreferences,
+    expertHints,  // v45.0 Phase 3
+  });
+
+  // Build system prompt for synthesis (includes expert hints + responseIntent)
+  const systemPrompt = buildSynthesisSystemPrompt(intent, userPreferences, expertHints, responseIntent);
+
+  // v45.0 FIX 3.3: Maximum retry attempts for fluff
+  const MAX_RETRIES = 1;
+  let retryCount = 0;
+
+  try {
+    // Lazy import CRE bridge
+    const creBridge = await import('../llm/cre-bridge.js');
+
+    while (retryCount <= MAX_RETRIES) {
+      // Call LLM to synthesize response
+      const result = await creBridge.generateChatResponse(synthesisPrompt, systemPrompt, {
+        sessionId: `synth-${context.sessionId || 'default'}`,
+        temperature: retryCount === 0 ? 0.4 : 0.5, // Slightly higher temp on retry
+      });
+
+      // Validate response (forbidden phrases)
+      const validation = creDecisionEngine.validateResponse(result.content);
+      if (!validation.valid) {
+        logger.warn('SynthesizeWithLLM', 'LLM generated forbidden phrase in synthesis', {
+          violations: validation.violations,
+          intent,
+        });
+      }
+
+      // v45.0 FIX 3.3: Check for fluff
+      const fluffCheck = detectFluff(result.content, successfulData);
+
+      if (fluffCheck.isFluff && retryCount < MAX_RETRIES) {
+        logger.warn('SynthesizeWithLLM', 'Fluff detected, retrying with improved prompt', {
+          reason: fluffCheck.reason,
+          confidence: fluffCheck.confidence,
+          retryCount,
+        });
+
+        // Build improved prompt for retry
+        synthesisPrompt = buildRetryPrompt(synthesisPrompt, fluffCheck);
+        retryCount++;
+        continue;
+      }
+
+      // Log if fluff but max retries reached
+      if (fluffCheck.isFluff) {
+        logger.warn('SynthesizeWithLLM', 'Fluff detected but max retries reached', {
+          reason: fluffCheck.reason,
+        });
+      }
+
+      return {
+        content: result.content,
+        confidence: fluffCheck.isFluff ? 0.6 : 0.85,  // Lower confidence if still fluff
+        model: result.model,
+        duration: result.duration,
+        retried: retryCount > 0,
+      };
+    }
+
+    // Should not reach here, but fallback just in case
+    return {
+      content: buildBasicSynthesis(query, intent, successfulData),
+      confidence: 0.5,
+      model: 'fallback',
+    };
+
+  } catch (err) {
+    logger.error('SynthesizeWithLLM', `LLM synthesis failed: ${err.message}`);
+
+    // Fallback: build basic response from data without LLM
+    return {
+      content: buildBasicSynthesis(query, intent, successfulData),
+      confidence: 0.5,
+      model: 'fallback',
+    };
+  }
+}
+
+/**
+ * Build the prompt for LLM synthesis
+ * v45.0 Phase 3: Added expertHints support
+ */
+function buildSynthesisPrompt({ query, intent, data, failures, userPreferences, expertHints = null }) {
+  let prompt = `User query: "${query}"\n\n`;
+  prompt += `Intent: ${intent}\n\n`;
+
+  // v45.0 FIX 1.3: Apply adaptive result count before sending to LLM
+  const adaptedData = applyAdaptiveResultCount(data, query, intent);
+
+  // Add tool data
+  prompt += `Tool execution data:\n`;
+  prompt += '```json\n';
+  prompt += JSON.stringify(adaptedData, null, 2);
+  prompt += '\n```\n\n';
+
+  // Add failure info if any
+  if (failures.length > 0) {
+    prompt += `Note: Some tools failed:\n`;
+    failures.forEach(f => {
+      prompt += `- ${f.type}: ${f.error}\n`;
+    });
+    prompt += '\n';
+  }
+
+  // Add user preferences if any (v45.0)
+  const prefLines = [];
+  if (userPreferences.verbosity) {
+    prefLines.push(`verbosity: ${userPreferences.verbosity}`);
+  }
+  if (userPreferences.structure) {
+    prefLines.push(`structure: ${userPreferences.structure}`);
+  }
+  if (userPreferences.followUpStyle) {
+    prefLines.push(`follow-up style: ${userPreferences.followUpStyle}`);
+  }
+  if (userPreferences.technicalDepth) {
+    prefLines.push(`technical depth: ${userPreferences.technicalDepth}`);
+  }
+
+  if (prefLines.length > 0) {
+    prompt += `User preferences: ${prefLines.join(', ')}\n`;
+  }
+
+  // v45.0 Phase 3: Add expert hints if active
+  if (expertHints?.active) {
+    prompt += `\nExpert mode: ${expertHints.expertName} (${Math.round(expertHints.influence * 100)}% intensity)\n`;
+    if (expertHints.systemAddition) {
+      prompt += `Expert guidance: ${expertHints.systemAddition}\n`;
+    }
+  }
+
+  prompt += `\nSynthesize a helpful response based on this data.`;
+
+  return prompt;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v45.0 FIX 1.3 - Adaptive Result Count
+// ─────────────────────────────────────────────────────────────────────────────
+// Dynamically determine how many results to include based on:
+// - Query type (list query = more results, specific query = fewer)
+// - Result relevance (high-match results get priority)
+// - Intent type (REPORT needs more, FACTUAL needs fewer)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Determine if query is asking for a list/multiple results
+ */
+function isListQuery(query) {
+  const listPatterns = [
+    /nejlepší|top|seznam|list|přehled|porovn|srovn/i,  // "nejlepší", "top", "seznam", "list", "přehled", "porovnej"
+    /všechny|všech|multiple|several|many/i,            // "všechny", "všech"
+    /\d+\s*(nejlepší|top|možností|options)/i,          // "5 nejlepších", "10 top"
+    /kolik|how many/i,                                  // "kolik", "how many"
+  ];
+  return listPatterns.some(p => p.test(query));
+}
+
+/**
+ * Determine if query is asking for a specific answer
+ */
+function isSpecificQuery(query) {
+  const specificPatterns = [
+    /co je|what is|who is|kdo je/i,                    // "co je", "what is", "kdo je"
+    /kdy|when|kolik stojí|how much/i,                  // "kdy", "when", "kolik stojí"
+    /^najdi\s+\w+$/i,                                  // "najdi X" (single item)
+    /konkrétní|specific|exact/i,                       // "konkrétní", "specific"
+  ];
+  return specificPatterns.some(p => p.test(query));
+}
+
+/**
+ * Calculate relevance score for a search result
+ * @param {Object} result - Search result { title, url, snippet }
+ * @param {string} query - User query
+ * @returns {number} Score 0-1
+ */
+function calculateRelevanceScore(result, query) {
+  if (!result || !query) return 0;
+
+  const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+  let score = 0;
+  let maxScore = queryWords.length * 3; // title=3pts, snippet=2pts, url=1pt
+
+  const title = (result.title || '').toLowerCase();
+  const snippet = (result.snippet || '').toLowerCase();
+  const url = (result.url || '').toLowerCase();
+
+  for (const word of queryWords) {
+    if (title.includes(word)) score += 3;
+    if (snippet.includes(word)) score += 2;
+    if (url.includes(word)) score += 1;
+  }
+
+  return maxScore > 0 ? Math.min(score / maxScore, 1) : 0;
+}
+
+/**
+ * Apply adaptive result count to tool data
+ * @param {Array} data - Tool result data array
+ * @param {string} query - User query
+ * @param {string} intent - Detected intent
+ * @returns {Array} Filtered data with appropriate result count
+ */
+function applyAdaptiveResultCount(data, query, intent) {
+  return data.map(item => {
+    // Only apply to search results
+    if (item.type !== 'search' || !item.data?.results) {
+      return item;
+    }
+
+    const results = item.data.results;
+
+    // Determine target count based on query type and intent
+    let targetCount;
+    const isList = isListQuery(query);
+    const isSpecific = isSpecificQuery(query);
+
+    if (intent === 'REPORT') {
+      // REPORT always needs comprehensive data
+      targetCount = isList ? 10 : 5;
+    } else if (intent === 'FACTUAL') {
+      // FACTUAL needs fewer, focused results
+      targetCount = isSpecific ? 1 : 3;
+    } else if (intent === 'SEARCH') {
+      // SEARCH adapts to query type
+      targetCount = isList ? 8 : (isSpecific ? 2 : 5);
+    } else {
+      // Default
+      targetCount = 5;
+    }
+
+    // Calculate relevance scores and sort
+    const scoredResults = results.map(r => ({
+      ...r,
+      relevanceScore: calculateRelevanceScore(r, query),
+    }));
+
+    // Sort by relevance
+    scoredResults.sort((a, b) => b.relevanceScore - a.relevanceScore);
+
+    // Apply minimum relevance threshold for non-list queries
+    let filteredResults = scoredResults;
+    if (!isList && scoredResults.length > 1) {
+      const minRelevance = 0.2; // Minimum 20% relevance
+      filteredResults = scoredResults.filter(r => r.relevanceScore >= minRelevance);
+
+      // Always keep at least 1 result
+      if (filteredResults.length === 0) {
+        filteredResults = [scoredResults[0]];
+      }
+    }
+
+    // Apply target count
+    const finalResults = filteredResults.slice(0, targetCount);
+
+    logger.debug('AdaptiveResultCount', 'Applied adaptive filtering', {
+      originalCount: results.length,
+      filteredCount: finalResults.length,
+      targetCount,
+      isList,
+      isSpecific,
+      intent,
+    });
+
+    // Return modified item with filtered results
+    return {
+      ...item,
+      data: {
+        ...item.data,
+        results: finalResults,
+        originalCount: results.length,
+        adaptiveFiltered: true,
+      },
+    };
+  });
+}
+
+/**
+ * Build system prompt for synthesis based on intent
+ * v45.0 Phase 3: Added expertHints support
+ */
+function buildSynthesisSystemPrompt(intent, userPreferences, expertHints = null, responseIntent = null) {
+  let basePrompt = `You are a response synthesizer. Your job is to take tool execution data and create a helpful, well-structured response for the user.
+
+CRITICAL RULES:
+1. ONLY use information from the provided tool data - do not make up facts
+2. Be concise and relevant to the user's query
+3. Use markdown formatting for readability
+4. If data is limited, acknowledge it but still provide what you can
+5. NEVER say "I cannot access" or "I don't have access" - you have the data!
+
+FORBIDDEN PHRASES (never use these):
+${FORBIDDEN_PHRASES.slice(0, 5).map(p => `- "${p}"`).join('\n')}`;
+
+  // v45.0 Phase 3: Add expert style hints
+  if (expertHints?.active && expertHints.influence >= 0.25) {
+    basePrompt += `\n\nEXPERT MODE (${expertHints.expertName}):`;
+
+    // Add style based on weight
+    switch (expertHints.style) {
+      case 'creative':
+        basePrompt += '\n- Use creative, expressive language';
+        break;
+      case 'technical':
+        basePrompt += '\n- Use precise technical terminology';
+        break;
+      case 'formal':
+        basePrompt += '\n- Maintain formal, professional tone';
+        break;
+      case 'casual':
+        basePrompt += '\n- Use friendly, approachable language';
+        break;
+    }
+
+    // Add depth based on weight
+    switch (expertHints.depth) {
+      case 'deep':
+        basePrompt += '\n- Provide thorough, detailed explanations';
+        break;
+      case 'shallow':
+        basePrompt += '\n- Keep explanations brief and focused';
+        break;
+    }
+
+    // Add caution based on weight
+    if (expertHints.caution === 'high') {
+      basePrompt += '\n- Include disclaimers and caveats where appropriate';
+      basePrompt += '\n- Emphasize limitations and risks';
+    }
+
+    // Add custom system addition if influence is high enough
+    if (expertHints.influence >= 0.5 && expertHints.systemAddition) {
+      basePrompt += `\n- ${expertHints.systemAddition}`;
+    }
+  }
+
+  // Intent-specific additions
+  const intentPrompts = {
+    SEARCH: `
+FORMAT:
+- Lead with the most relevant information
+- Include source URLs when available
+- Keep it factual and concise`,
+
+    REPORT: `
+FORMAT:
+- Use clear section headers
+- Summarize key points first
+- Include sources at the end
+- Be comprehensive but structured`,
+
+    FACTUAL: `
+FORMAT:
+- Direct answer first
+- Brief explanation if needed
+- Source citation if available`,
+  };
+
+  let prompt = basePrompt;
+  if (intentPrompts[intent]) {
+    prompt += intentPrompts[intent];
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════════
+  // v45.0 KOLO 3: RESPONSE INTENT FORMATTING
+  // ResponseIntent controls HOW to present the answer (user-driven formatting)
+  // This OVERRIDES default Intent formatting when user explicitly requests it
+  // ════════════════════════════════════════════════════════════════════════════════
+
+  if (responseIntent) {
+    const responseIntentInstructions = {
+      DIRECT: `
+RESPONSE STYLE: DIRECT
+- Answer in one clear sentence or short paragraph
+- No headers, no bullet lists, no preamble
+- Get straight to the point`,
+
+      SUMMARY: `
+RESPONSE STYLE: SUMMARY
+- Condense the information to its essence
+- Maximum 2-3 sentences
+- Focus on the single most important takeaway
+- No elaboration, no examples`,
+
+      BULLETS: `
+RESPONSE STYLE: BULLETS
+- MANDATORY: Use bullet points only
+- No paragraphs, no headers
+- Each bullet: one key point (5-15 words)
+- Order from most to least important`,
+
+      COMPARISON: `
+RESPONSE STYLE: COMPARISON
+- Use a side-by-side format (table or parallel lists)
+- Highlight key differences clearly
+- Include both similarities AND differences
+- End with a brief verdict if appropriate`,
+
+      STEP_BY_STEP: `
+RESPONSE STYLE: STEP-BY-STEP
+- Use numbered steps (1, 2, 3...)
+- Each step: clear, actionable instruction
+- Include prerequisites if any
+- One action per step`,
+
+      EXPLORATORY: `
+RESPONSE STYLE: EXPLORATORY
+- Present multiple options/directions
+- Don't commit to one answer
+- Offer trade-offs for each option
+- Invite user to narrow down preference`,
+
+      OPINIONATED: `
+RESPONSE STYLE: OPINIONATED
+- Give a clear recommendation
+- State your reasoning (2-3 points)
+- Acknowledge alternatives briefly
+- Be confident but not dismissive`,
+
+      MINIMAL: `
+RESPONSE STYLE: MINIMAL
+- Absolute minimum words needed
+- Just the answer: number, date, yes/no, name
+- No explanation, no context, no sources
+- Example: "42", "January 28, 2026", "Yes"`,
+    };
+
+    if (responseIntentInstructions[responseIntent]) {
+      prompt += `
+
+════════════════════════════════════════════════════════════════════════════════
+🎯 USER REQUESTED FORMAT — FOLLOW EXACTLY
+════════════════════════════════════════════════════════════════════════════════
+${responseIntentInstructions[responseIntent]}
+════════════════════════════════════════════════════════════════════════════════`;
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════════
+  // v45.0 KOLO 2: STRICT PREFERENCE ENFORCEMENT
+  // These are REQUIREMENTS, not suggestions. Violating them is an error.
+  // ════════════════════════════════════════════════════════════════════════════════
+
+  const strictPreferences = [];
+
+  // Verbosity - STRICT
+  if (userPreferences.verbosity === 'minimal' || userPreferences.verbosity === 'brief') {
+    strictPreferences.push('VERBOSITY: MINIMAL — Maximum 3 sentences. No fluff, no filler, no preambles.');
+  } else if (userPreferences.verbosity === 'detailed') {
+    strictPreferences.push('VERBOSITY: DETAILED — Provide thorough explanations with examples and context.');
+  } else {
+    strictPreferences.push('VERBOSITY: NORMAL — Balanced responses, neither too brief nor too verbose.');
+  }
+
+  // Structure - STRICT
+  if (userPreferences.structure === Structure.BULLETS || userPreferences.structure === 'bullets') {
+    strictPreferences.push('STRUCTURE: BULLETS — You MUST use bullet points. Paragraphs are forbidden.');
+  } else if (userPreferences.structure === Structure.PARAGRAPHS || userPreferences.structure === 'paragraphs') {
+    strictPreferences.push('STRUCTURE: PARAGRAPHS — You MUST use flowing prose. Bullet lists are forbidden.');
+  } else {
+    strictPreferences.push('STRUCTURE: MIXED — Use appropriate formatting based on content.');
+  }
+
+  // Follow-up style - STRICT
+  if (userPreferences.followUpStyle === FollowUpStyle.CONCISE || userPreferences.followUpStyle === 'concise') {
+    strictPreferences.push('FOLLOW-UP STYLE: CONCISE — Keep responses brief and direct. No repetition of previous context.');
+  } else if (userPreferences.followUpStyle === FollowUpStyle.COMPREHENSIVE || userPreferences.followUpStyle === 'comprehensive') {
+    strictPreferences.push('FOLLOW-UP STYLE: COMPREHENSIVE — Include full context even if repeating previous information.');
+  }
+
+  if (strictPreferences.length > 0) {
+    prompt += `
+
+═══════════════════════════════════════════════════════════════════════════════
+⚠️  STRICT USER PREFERENCES — THESE ARE REQUIREMENTS, NOT SUGGESTIONS!
+═══════════════════════════════════════════════════════════════════════════════
+
+${strictPreferences.map(p => `• ${p}`).join('\n')}
+
+VIOLATION OF THESE PREFERENCES IS AN ERROR. Follow them exactly.
+═══════════════════════════════════════════════════════════════════════════════`;
+  }
+
+  return prompt;
+}
+
+/**
+ * Build fallback response when synthesis fails
+ */
+function buildSynthesisFailureResponse(query, failures) {
+  let content = `⚠️ **Nepodařilo se získat data pro váš dotaz**\n\n`;
+  content += `**Dotaz:** ${query}\n\n`;
+
+  if (failures.length > 0) {
+    content += `**Problémy:**\n`;
+    failures.forEach(f => {
+      content += `- ${f.type}: ${f.error || 'neznámá chyba'}\n`;
+    });
+  }
+
+  content += `\nZkuste to prosím znovu nebo přeformulujte dotaz.`;
+
+  return content;
+}
+
+/**
+ * Build basic synthesis without LLM (emergency fallback)
+ */
+function buildBasicSynthesis(query, intent, data) {
+  let content = '';
+
+  // Handle search results
+  const searchData = data.find(d => d.type === 'search');
+  if (searchData?.data?.results) {
+    content += `📊 **Výsledky vyhledávání**\n\n`;
+    searchData.data.results.slice(0, 5).forEach((r, i) => {
+      content += `${i + 1}. **${r.title || 'Bez názvu'}**\n`;
+      if (r.url) content += `   🔗 ${r.url}\n`;
+      if (r.snippet) content += `   ${r.snippet}\n`;
+      content += '\n';
+    });
+  }
+
+  // Handle scrape results
+  const scrapeData = data.find(d => d.type === 'scrape');
+  if (scrapeData?.data?.content) {
+    content += `📄 **Obsah stránky**\n\n`;
+    content += scrapeData.data.content.substring(0, 1000);
+    if (scrapeData.data.content.length > 1000) content += '...';
+    content += '\n';
+  }
+
+  // Handle local computation
+  const localData = data.find(d => d.type === 'local');
+  if (localData?.data) {
+    content += `📊 **Výsledek:** ${JSON.stringify(localData.data)}\n`;
+  }
+
+  return content || `Dotaz: ${query}\n\nData zpracována, ale bez možnosti syntézy.`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v45.0 FIX 1.4 - Follow-up Detection
+// ─────────────────────────────────────────────────────────────────────────────
+// Distinguish between:
+// - FORMAT_CHANGE: User wants same data in different format ("kratší", "v tabulce")
+// - NEW_QUERY: User is asking something completely new
+// - REFINEMENT: User is refining the previous query ("jen benzínová")
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const FollowUpType = {
+  FORMAT_CHANGE: 'FORMAT_CHANGE',  // Same data, different presentation
+  REFINEMENT: 'REFINEMENT',        // Same topic, narrower focus
+  NEW_QUERY: 'NEW_QUERY',          // Completely different topic
+  CONTINUATION: 'CONTINUATION',    // Continue discussing same topic
+};
+
+/**
+ * Detect the type of follow-up based on current input and session context
+ *
+ * @param {string} input - Current user input
+ * @param {Object} sessionState - Session state with history
+ * @returns {{ type: string, confidence: number, reusePreviousData: boolean }}
+ */
+function detectFollowUpType(input, sessionState) {
+  const lastDecision = sessionState?.lastDecision;
+  const lastInput = sessionState?.lastUserInput;
+
+  // No history = definitely new query
+  if (!lastDecision || !lastInput) {
+    return { type: FollowUpType.NEW_QUERY, confidence: 1.0, reusePreviousData: false };
+  }
+
+  const inputLower = input.toLowerCase().trim();
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Pattern 1: FORMAT_CHANGE - user wants different presentation
+  // v45.0 FIX: Patterns without ^ to match anywhere in input
+  // ════════════════════════════════════════════════════════════════════════════
+  const formatChangePatterns = [
+    // Shorter/longer/summary (CZ + EN)
+    /(kratší|zkrať|stručněji|brief|shorter|delší|podrobněji|more detail)/i,
+    /(shrnout|shrň|sumarizuj|summarize|shrnutí|summary)/i,
+    // Structure changes
+    /(v tabulce|as table|jako seznam|as list|v bodech|bullet|odrážk)/i,
+    /(ve formě|in form of|formát|format)/i,
+    // Style changes
+    /(jednodušeji|simpler|formálněji|more formal|neformálně|informal)/i,
+    // Explicit reformat requests
+    /(přepiš|rewrite|změň formát|change format|přeformátuj|reformat)/i,
+    // "teď to..." or "můžeš to..." followed by style word
+    /(teď to|můžeš to|dej mi to|give me|can you).*(jinak|kratší|delší|stručněji|podrobněji|v bodech)/i,
+  ];
+
+  if (formatChangePatterns.some(p => p.test(inputLower))) {
+    return {
+      type: FollowUpType.FORMAT_CHANGE,
+      confidence: 0.9,
+      reusePreviousData: true,  // Re-use previous tool data!
+    };
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Pattern 2: REFINEMENT - narrowing down previous query
+  // ════════════════════════════════════════════════════════════════════════════
+  const refinementPatterns = [
+    // Filter additions
+    /^(jen|pouze|only|just|bez|without|s |with )/i,
+    // Constraints
+    /^(do \d|pod \d|nad \d|max |min |levnější|cheaper|dražší)/i,
+    // Selections
+    /^(první|první tři|top \d|ten první|the first)/i,
+    // Specific aspect
+    /^(konkrétně|specifically|hlavně|mainly|especially)/i,
+  ];
+
+  if (refinementPatterns.some(p => p.test(inputLower))) {
+    return {
+      type: FollowUpType.REFINEMENT,
+      confidence: 0.85,
+      reusePreviousData: false,  // Need new search with refinement
+    };
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Pattern 3: CONTINUATION - discussing same topic
+  // ════════════════════════════════════════════════════════════════════════════
+  // Short inputs that reference previous context
+  const isContinuation =
+    inputLower.length < 30 &&
+    (inputLower.includes('to') ||      // "řekni mi o tom víc"
+     inputLower.includes('tenhle') ||  // "tenhle"
+     inputLower.includes('tohle') ||   // "tohle"
+     inputLower.includes('ten') ||     // "ten první"
+     inputLower.includes('it') ||      // "tell me more about it"
+     inputLower.includes('this'));     // "this one"
+
+  if (isContinuation && lastDecision.intent !== IntentType.CONVERSATIONAL) {
+    return {
+      type: FollowUpType.CONTINUATION,
+      confidence: 0.7,
+      reusePreviousData: true,
+    };
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Pattern 4: NEW_QUERY - detect topic change
+  // ════════════════════════════════════════════════════════════════════════════
+  // Check if input shares keywords with last query
+  const lastWords = new Set(
+    lastInput.toLowerCase().split(/\s+/).filter(w => w.length > 3)
+  );
+  const currentWords = inputLower.split(/\s+/).filter(w => w.length > 3);
+  const sharedWords = currentWords.filter(w => lastWords.has(w));
+
+  // If no shared keywords and input is substantial, it's likely new
+  if (sharedWords.length === 0 && currentWords.length >= 2) {
+    return {
+      type: FollowUpType.NEW_QUERY,
+      confidence: 0.8,
+      reusePreviousData: false,
+    };
+  }
+
+  // Default: treat as continuation if there's some keyword overlap
+  if (sharedWords.length > 0) {
+    return {
+      type: FollowUpType.CONTINUATION,
+      confidence: 0.6,
+      reusePreviousData: false,
+    };
+  }
+
+  // Fallback: new query
+  return {
+    type: FollowUpType.NEW_QUERY,
+    confidence: 0.5,
+    reusePreviousData: false,
+  };
+}
+
+/**
+ * Get previous tool data from session state if available
+ * Used for FORMAT_CHANGE follow-ups to avoid re-fetching
+ */
+function getPreviousToolData(sessionState) {
+  if (!sessionState?.lastToolResults) {
+    return null;
+  }
+
+  // Check if data is still fresh (within 5 minutes)
+  const dataAge = Date.now() - (sessionState.lastToolResultsTimestamp || 0);
+  const maxAge = 5 * 60 * 1000; // 5 minutes
+
+  if (dataAge > maxAge) {
+    logger.debug('FollowUpDetection', 'Previous tool data expired', { dataAge, maxAge });
+    return null;
+  }
+
+  return sessionState.lastToolResults;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -840,6 +1960,75 @@ async function handleToolCallDecision(input, decision, context) {
   });
 
   // ════════════════════════════════════════════════════════════════════════════
+  // v45.0 FIX 1.4 — FOLLOW-UP DETECTION
+  // ════════════════════════════════════════════════════════════════════════════
+  // Detect if this is a FORMAT_CHANGE (reuse previous data) or NEW_QUERY
+  // ════════════════════════════════════════════════════════════════════════════
+  const followUp = detectFollowUpType(input, sessionState);
+
+  if (followUp.type === FollowUpType.FORMAT_CHANGE && followUp.reusePreviousData) {
+    const previousData = getPreviousToolData(sessionState);
+
+    if (previousData) {
+      logger.info('HandleToolCall', 'FORMAT_CHANGE detected - reusing previous data', {
+        followUpType: followUp.type,
+        confidence: followUp.confidence,
+      });
+
+      // v45.0: Get optimized preferences from engine
+      const optimizedPrefs = preferenceEngine.getPreferencesForSynthesis(decision.intent);
+
+      // v45.0 KOLO 3: Detect ResponseIntent from format change request
+      const responseIntent = detectResponseIntent(input, {
+        lastResponseIntent: sessionState?.lastResponseIntent,
+      });
+
+      // Re-synthesize with new format request but same data
+      const synthesizedResponse = await synthesizeWithLLM({
+        query: input,
+        intent: decision.intent,
+        toolResults: previousData,
+        context,
+        userPreferences: {
+          ...optimizedPrefs,
+          ...context.userPreferences,
+          formatChange: input,  // Pass the format change request
+        },
+        responseIntent,  // v45.0 KOLO 3: Pass detected responseIntent
+      });
+
+      // v45.0 KOLO 3: Store responseIntent for next turn
+      if (sessionState) {
+        sessionState.lastResponseIntent = responseIntent;
+      }
+
+      const tag = new ResponseTag({
+        speaker: ResponseSpeaker.SYSTEM,
+        mode: ChatMode.CONVERSATION,
+        confidence: synthesizedResponse.confidence,
+        canExecute: false,
+        metadata: {
+          decision: decision.toJSON(),
+          followUpType: followUp.type,
+          reusedPreviousData: true,
+          synthesized: true,
+        },
+      });
+
+      return new TaggedResponse({
+        content: synthesizedResponse.content,
+        tag,
+      });
+    }
+  }
+
+  logger.debug('HandleToolCall', 'Follow-up detection result', {
+    type: followUp.type,
+    confidence: followUp.confidence,
+    reusePreviousData: followUp.reusePreviousData,
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
   // v44.4 — PROJECT GOAL ENFORCEMENT (with confirmation)
   // v44.5 — Now blocks on 2nd+ drift instead of just warning
   // ════════════════════════════════════════════════════════════════════════════
@@ -933,7 +2122,109 @@ async function handleToolCallDecision(input, decision, context) {
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  // EXECUTE TOOLS - this is the critical fix
+  // v44.11 — REPORT PIPELINE ORCHESTRATION
+  // ════════════════════════════════════════════════════════════════════════════
+  // REPORT is NOT a parallel tool call! It's a pipeline:
+  // 1. SEARCH → get URLs from search results
+  // 2. SCRAPE → fetch content from URLs (only if search succeeded)
+  // 3. SYNTHESIZE → build report from scraped content
+  //
+  // If SEARCH fails → return degraded fallback (no ASK_USER)
+  // If SEARCH returns 0 results → return degraded fallback
+  // NEVER call SCRAPE without URLs!
+  // ════════════════════════════════════════════════════════════════════════════
+  if (decision.intent === IntentType.REPORT) {
+    logger.info('HandleToolCall', 'REPORT pipeline started', { input: input.substring(0, 50) });
+
+    // Step 1: Execute web.search
+    const searchResult = await toolExecutor.execute({
+      ...decision,
+      tools: ['web.search'],
+    }, {
+      input,
+      query: input,
+      sessionId: context.sessionId,
+      projectGoal,
+      ...context,
+    });
+
+    // Check if search succeeded and returned results
+    const searchData = searchResult.toolResults?.find(r => r.tool === 'web.search');
+    const hasResults = searchData?.success && searchData?.data?.results?.length > 0;
+
+    if (!hasResults) {
+      // Search failed or returned no results → return REPORT fallback
+      logger.warn('HandleToolCall', 'REPORT pipeline: search failed or no results', {
+        status: searchResult.status,
+        hasData: !!searchData,
+        resultCount: searchData?.data?.results?.length || 0,
+      });
+
+      return buildReportFallback(input, decision, searchResult, context);
+    }
+
+    // Step 2: Extract URLs from search results (max 5)
+    const urls = searchData.data.results
+      .filter(r => r.url && r.url.startsWith('http'))
+      .slice(0, 5)
+      .map(r => r.url);
+
+    logger.info('HandleToolCall', 'REPORT pipeline: scraping URLs', {
+      urlCount: urls.length,
+      urls: urls.slice(0, 3),
+    });
+
+    // Step 3: Execute web.scrape with URLs (if we have any)
+    let scrapeResults = [];
+    if (urls.length > 0) {
+      const scrapeResult = await toolExecutor.execute({
+        ...decision,
+        tools: ['web.scrape'],
+      }, {
+        input,
+        urls,  // Pass URLs, not query!
+        sessionId: context.sessionId,
+        projectGoal,
+        ...context,
+      });
+
+      scrapeResults = scrapeResult.toolResults || [];
+    }
+
+    // Step 4: Synthesize report from search + scrape results
+    const tag = new ResponseTag({
+      speaker: ResponseSpeaker.SYSTEM,
+      mode: ChatMode.CONVERSATION,
+      confidence: decision.confidence,
+      canExecute: false,
+      metadata: {
+        decision: decision.toJSON(),
+        pipeline: 'REPORT',
+        searchResults: searchData?.data?.results?.length || 0,
+        scrapedUrls: urls.length,
+      },
+    });
+
+    // Build report content
+    const reportContent = synthesizeReport({
+      query: input,
+      searchResults: searchData?.data?.results || [],
+      scrapeResults: scrapeResults.filter(r => r.success).map(r => r.data),
+    });
+
+    // Record successful decision
+    if (sessionState) {
+      sessionState.recordDecision(decision, input);
+    }
+
+    return new TaggedResponse({
+      content: reportContent,
+      tag,
+    });
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // EXECUTE TOOLS - regular execution for non-REPORT intents
   // ════════════════════════════════════════════════════════════════════════════
 
   const executionResult = await toolExecutor.execute(decision, {
@@ -1022,10 +2313,55 @@ async function handleToolCallDecision(input, decision, context) {
     sessionState.recordDecision(decision, input);
   }
 
-  // Return execution results
+  // ════════════════════════════════════════════════════════════════════════════
+  // v45.0 — LLM SYNTHESIS: Tools returned DATA, now LLM generates RESPONSE
+  // ════════════════════════════════════════════════════════════════════════════
+  // The key architectural change: tools don't "speak" — they provide data.
+  // LLM synthesizes the user-facing response from tool data.
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // v45.0: Get optimized preferences from engine
+  const optimizedPrefs = preferenceEngine.getPreferencesForSynthesis(decision.intent);
+
+  // v45.0 KOLO 3: Detect ResponseIntent from user input
+  const responseIntent = detectResponseIntent(input, {
+    lastResponseIntent: sessionState?.lastResponseIntent,
+  });
+
+  const synthesizedResponse = await synthesizeWithLLM({
+    query: input,
+    intent: decision.intent,
+    toolResults: executionResult.toolResults,
+    context,
+    userPreferences: {
+      ...optimizedPrefs,
+      ...context.userPreferences,
+    },
+    responseIntent,  // v45.0 KOLO 3: Pass detected responseIntent
+  });
+
+  // v45.0 FIX 1.4: Save tool results for FORMAT_CHANGE follow-ups
+  if (sessionState) {
+    sessionState.lastToolResults = executionResult.toolResults;
+    sessionState.lastToolResultsTimestamp = Date.now();
+    sessionState.lastResponseIntent = responseIntent;  // v45.0 KOLO 3: Store for next turn
+  }
+
+  // Update tag with synthesis metadata
+  const finalTag = new ResponseTag({
+    ...tag.toJSON(),
+    metadata: {
+      ...tag.metadata,
+      synthesized: true,
+      synthesisModel: synthesizedResponse.model,
+      synthesisConfidence: synthesizedResponse.confidence,
+      followUpType: followUp?.type,
+    },
+  });
+
   return new TaggedResponse({
-    content: executionResult.summary,
-    tag,
+    content: synthesizedResponse.content,
+    tag: finalTag,
   });
 }
 
@@ -2045,8 +3381,158 @@ export async function agentHandler(input, context) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// v44.11 - REPORT Pipeline Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Build degraded REPORT fallback when search fails or returns no results.
+ * NEVER asks user for clarification - provides orientational overview instead.
+ *
+ * @param {string} input - Original user query
+ * @param {Object} decision - CRE decision
+ * @param {Object} searchResult - Failed search result
+ * @param {Object} context - Handler context
+ * @returns {TaggedResponse}
+ */
+function buildReportFallback(input, decision, searchResult, context) {
+  const tag = new ResponseTag({
+    speaker: ResponseSpeaker.SYSTEM,
+    mode: ChatMode.CONVERSATION,
+    confidence: 0.4,  // Low confidence for degraded response
+    canExecute: false,
+    metadata: {
+      decision: decision.toJSON(),
+      degraded: true,
+      reason: 'SEARCH_FAILED_OR_NO_RESULTS',
+      searchStatus: searchResult.status,
+    },
+  });
+
+  // Get error details for logging
+  const errorInfo = searchResult.toolResults
+    ?.filter(r => !r.success)
+    ?.map(r => r.error || 'unknown')
+    ?.join(', ') || 'unknown';
+
+  logger.warn('HandleToolCall', 'REPORT fallback triggered', {
+    query: input.substring(0, 50),
+    errorInfo,
+  });
+
+  // Build orientational fallback content
+  const content = `⚠️ **Nelze získat aktuální zdroje**
+
+Vyhledávání selhalo nebo nevrátilo žádné výsledky.
+
+**Důvod:** ${errorInfo.includes('timeout') ? 'Vypršel časový limit' :
+             errorInfo.includes('blocked') ? 'Zdroje dočasně nedostupné' :
+             'Vyhledávání nebylo úspěšné'}
+
+---
+
+📋 **Orientační přehled** (bez aktuálních zdrojů):
+
+K tématu "${input.substring(0, 80)}${input.length > 80 ? '...' : ''}" mohu nabídnout:
+• Obecné informace z mých znalostí
+• Doporučení relevantních zdrojů k ruční kontrole
+• Strukturu reportu, kterou můžete doplnit
+
+Chcete pokračovat s orientačním přehledem, nebo zkusit vyhledávání znovu?`;
+
+  // Record the fallback decision
+  if (context.sessionState) {
+    context.sessionState.recordDecision(decision, input);
+  }
+
+  return new TaggedResponse({
+    content,
+    tag,
+  });
+}
+
+/**
+ * Synthesize a report from search and scrape results.
+ *
+ * @param {Object} options
+ * @param {string} options.query - Original user query
+ * @param {Array} options.searchResults - Search result items
+ * @param {Array} options.scrapeResults - Scraped content items
+ * @returns {string} Synthesized report content
+ */
+function synthesizeReport({ query, searchResults, scrapeResults }) {
+  const parts = [];
+
+  // Header
+  parts.push(`📊 **Report: ${query.substring(0, 80)}${query.length > 80 ? '...' : ''}**\n`);
+  parts.push(`*Zpracováno ${searchResults.length} zdrojů*\n`);
+  parts.push('---\n');
+
+  // If we have scraped content, use it
+  if (scrapeResults && scrapeResults.length > 0) {
+    parts.push('## 📄 Shrnutí zdrojů\n');
+
+    scrapeResults.forEach((scraped, i) => {
+      if (scraped?.content || scraped?.text) {
+        const content = scraped.content || scraped.text;
+        const title = scraped.title || searchResults[i]?.title || `Zdroj ${i + 1}`;
+        const url = scraped.url || searchResults[i]?.url;
+
+        parts.push(`### ${title}\n`);
+        if (url) parts.push(`🔗 ${url}\n`);
+        parts.push(`\n${content.substring(0, 500)}${content.length > 500 ? '...' : ''}\n\n`);
+      }
+    });
+  } else {
+    // Fallback to search result snippets
+    parts.push('## 🔍 Nalezené zdroje\n');
+
+    searchResults.slice(0, 5).forEach((result, i) => {
+      parts.push(`### ${i + 1}. ${result.title || 'Bez názvu'}\n`);
+      if (result.url) parts.push(`🔗 ${result.url}\n`);
+      if (result.snippet) parts.push(`\n${result.snippet}\n`);
+      parts.push('\n');
+    });
+  }
+
+  // Footer with sources
+  parts.push('---\n');
+  parts.push('## 📚 Zdroje\n');
+  searchResults.slice(0, 5).forEach((result, i) => {
+    if (result.url) {
+      parts.push(`${i + 1}. [${result.title || result.url}](${result.url})\n`);
+    }
+  });
+
+  return parts.join('');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Default Handlers Map
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ════════════════════════════════════════════════════════════════════════════════
+// v45.0 — FEEDBACK API
+// ════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Record user feedback signal for preference learning
+ * @param {string} type - 'positive' or 'negative'
+ * @param {Object} context - Context about the response
+ */
+export function recordFeedback(type, context = {}) {
+  if (type === 'positive') {
+    preferenceEngine.recordPositiveFeedback(context);
+  } else if (type === 'negative') {
+    preferenceEngine.recordNegativeFeedback(context);
+  }
+}
+
+/**
+ * Get current user preferences for external use
+ */
+export function getUserPreferences() {
+  return preferenceEngine.getStats();
+}
 
 /**
  * Get default handlers for all modes
@@ -2066,4 +3552,8 @@ export default {
   expertHandler,
   agentHandler,
   getDefaultHandlers,
+  // v45.0 - Feedback API
+  recordFeedback,
+  getUserPreferences,
+  FollowUpType,
 };

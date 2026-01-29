@@ -1,4 +1,4 @@
-// C.3 v44.10 - Expert Layer
+// C.3 v45.0 - Expert Layer
 // ══════════════════════════════════════════════════════════════════════════════
 // Expert = řízený pracovní režim, který přebírá odpovědnost za JAK se úloha řeší
 //
@@ -13,12 +13,130 @@
 // - jen jiný prompt
 // - data layer
 //
+// v45.0 - Expert Intensity (Phase 3)
+// - ExpertStrength quantized levels (0/25/50/75/100)
+// - Expert weight overrides (style, depth, vocabulary, caution)
+// - Expert influences synthesis style, NOT intent/tools/decisions
+//
 // v44.10 - Added styleRules for response quality enforcement
 //
 // styleRules:
 // - tone: 'concise' | 'friendly' | 'professional' | 'creative'
 // - forbiddenPhrases: patterns that MUST NOT appear in expert responses
 // - requiredElements: elements that MUST appear (for some experts)
+
+/**
+ * v45.0 - Expert Strength (quantized, not continuous slider)
+ * User perception: people can't distinguish 63% from 65%
+ */
+export const ExpertStrength = {
+  OFF: 0,          // Expert disabled
+  LIGHT: 25,       // Subtle influence
+  MEDIUM: 50,      // Default, balanced
+  STRONG: 75,      // Dominant expert style
+  FULL: 100,       // Maximum expert character
+};
+
+// ════════════════════════════════════════════════════════════════════════════════
+// v45.0 KOLO 4.3 — Expert Presets (replaces "dull slider")
+// ════════════════════════════════════════════════════════════════════════════════
+//
+// CONTRACT:
+// - Slider (0-100%) maps to preset (light/balanced/deep)
+// - Preset defines weight configuration
+// - Expert cannot change intent or force tools
+//
+// ════════════════════════════════════════════════════════════════════════════════
+
+export const ExpertPreset = {
+  LIGHT: 'light',       // 0-30%: Subtle influence, minimal depth
+  BALANCED: 'balanced', // 31-60%: Normal influence
+  DEEP: 'deep',         // 61-100%: Strong influence, max depth
+};
+
+/**
+ * Map slider value (0-100) to preset
+ */
+export function strengthToPreset(strength) {
+  if (strength <= 30) return ExpertPreset.LIGHT;
+  if (strength <= 60) return ExpertPreset.BALANCED;
+  return ExpertPreset.DEEP;
+}
+
+/**
+ * Get weight configuration for preset
+ */
+export function getPresetWeights(preset, baseWeights = {}) {
+  const presetConfigs = {
+    [ExpertPreset.LIGHT]: {
+      styleMultiplier: 0.3,   // 30% of expert style
+      depthOverride: 'shallow',
+      cautionMultiplier: 0.5,
+      vocabularyMultiplier: 0.4,
+    },
+    [ExpertPreset.BALANCED]: {
+      styleMultiplier: 0.6,   // 60% of expert style
+      depthOverride: null,    // Use expert's default
+      cautionMultiplier: 0.8,
+      vocabularyMultiplier: 0.7,
+    },
+    [ExpertPreset.DEEP]: {
+      styleMultiplier: 1.0,   // Full expert style
+      depthOverride: 'deep',  // Force deep
+      cautionMultiplier: 1.0,
+      vocabularyMultiplier: 1.0,
+    },
+  };
+
+  const config = presetConfigs[preset] || presetConfigs[ExpertPreset.BALANCED];
+
+  return {
+    style: baseWeights.style || 'balanced',
+    depth: config.depthOverride || baseWeights.depth || 'balanced',
+    vocabulary: baseWeights.vocabulary || 'simple',
+    caution: baseWeights.caution || 'medium',
+    _preset: preset,
+    _multipliers: config,
+  };
+}
+
+/**
+ * v45.0 - Expert weight dimensions for synthesis influence
+ * These are HINTS to synthesizeWithLLM(), NOT overrides!
+ *
+ * Expert CANNOT:
+ * - Change intent (SEARCH stays SEARCH)
+ * - Force tools (web.search stays web.search)
+ * - Suppress LOCAL/CREATIVE decisions
+ *
+ * Expert CAN influence:
+ * - style (formal/casual/creative)
+ * - depth (shallow/balanced/deep)
+ * - vocabulary (simple/technical/domain-specific)
+ * - caution (low/medium/high - for normative experts)
+ */
+export const ExpertWeights = {
+  // Style dimension
+  STYLE_FORMAL: 'formal',
+  STYLE_CASUAL: 'casual',
+  STYLE_CREATIVE: 'creative',
+  STYLE_TECHNICAL: 'technical',
+
+  // Depth dimension
+  DEPTH_SHALLOW: 'shallow',
+  DEPTH_BALANCED: 'balanced',
+  DEPTH_DEEP: 'deep',
+
+  // Vocabulary dimension
+  VOCAB_SIMPLE: 'simple',
+  VOCAB_TECHNICAL: 'technical',
+  VOCAB_DOMAIN: 'domain',
+
+  // Caution dimension (for normative experts: lawyer, doctor)
+  CAUTION_LOW: 'low',
+  CAUTION_MEDIUM: 'medium',
+  CAUTION_HIGH: 'high',
+};
 
 /**
  * Planning depth levels
@@ -684,6 +802,51 @@ export class ExpertAgent {
     this.isCustom = config.isCustom || false;
     // v44.10 - Style rules with defaults
     this.styleRules = config.styleRules || { ...DEFAULT_STYLE_RULES };
+    // v45.0 - Expert intensity and weights
+    this.strength = config.strength ?? ExpertStrength.MEDIUM;
+    this.weights = config.weights || this._deriveDefaultWeights();
+  }
+
+  /**
+   * v45.0 - Derive default weights from outputBias and domain
+   * @private
+   */
+  _deriveDefaultWeights() {
+    const weights = {
+      style: ExpertWeights.STYLE_FORMAL,
+      depth: ExpertWeights.DEPTH_BALANCED,
+      vocabulary: ExpertWeights.VOCAB_SIMPLE,
+      caution: ExpertWeights.CAUTION_MEDIUM,
+    };
+
+    // Derive from outputBias
+    switch (this.outputBias) {
+      case OUTPUT_BIAS.CREATIVE:
+        weights.style = ExpertWeights.STYLE_CREATIVE;
+        weights.depth = ExpertWeights.DEPTH_DEEP;
+        break;
+      case OUTPUT_BIAS.ANALYTICAL:
+        weights.style = ExpertWeights.STYLE_TECHNICAL;
+        weights.vocabulary = ExpertWeights.VOCAB_TECHNICAL;
+        break;
+      case OUTPUT_BIAS.CONSERVATIVE:
+        weights.caution = ExpertWeights.CAUTION_HIGH;
+        break;
+    }
+
+    // Domain-specific adjustments
+    if (['legal', 'medical_education'].includes(this.domain)) {
+      weights.caution = ExpertWeights.CAUTION_HIGH;
+    }
+    if (['software_development', 'artificial_intelligence'].includes(this.domain)) {
+      weights.vocabulary = ExpertWeights.VOCAB_TECHNICAL;
+    }
+    if (['creative_writing', 'tabletop_rpg', 'music_lyrics'].includes(this.domain)) {
+      weights.style = ExpertWeights.STYLE_CREATIVE;
+      weights.depth = ExpertWeights.DEPTH_DEEP;
+    }
+
+    return weights;
   }
 
   /**
@@ -709,6 +872,115 @@ export class ExpertAgent {
       temperature: this.temperature,
       top_p: this.outputBias === OUTPUT_BIAS.CREATIVE ? 0.95 : 0.9
     };
+  }
+
+  /**
+   * v45.0 - Get synthesis hints for synthesizeWithLLM()
+   * These INFLUENCE the synthesis, they do NOT override decisions.
+   *
+   * v45.0 KOLO 4.3: Now uses presets (light/balanced/deep) instead of raw slider
+   *
+   * @param {number} overrideStrength - Optional strength override (0-100)
+   * @returns {Object} Hints for synthesis
+   */
+  getSynthesisHints(overrideStrength = null) {
+    const strength = overrideStrength ?? this.strength;
+
+    // If expert is OFF, return empty hints
+    if (strength === ExpertStrength.OFF) {
+      return { active: false };
+    }
+
+    // v45.0 KOLO 4.3: Map strength to preset
+    const preset = strengthToPreset(strength);
+    const presetWeights = getPresetWeights(preset, this.weights);
+
+    // Calculate influence factor (0.0 to 1.0)
+    const influence = strength / 100;
+
+    return {
+      active: true,
+      expertId: this.id,
+      expertName: this.name,
+      influence,           // 0.0-1.0 how much to apply expert style
+      preset,              // v45.0 KOLO 4.3: light/balanced/deep
+      style: this.weights.style,
+      depth: presetWeights.depth,  // KOLO 4.3: Preset may override depth
+      vocabulary: this.weights.vocabulary,
+      caution: this.weights.caution,
+      tone: this.styleRules?.tone || 'professional',
+      minLength: this.styleRules?.minResponseLength || 50,
+      // Expert-specific additions to system prompt (scaled by influence)
+      systemAddition: influence >= 0.5 ? this._getSystemAddition(preset) : null,
+      _presetWeights: presetWeights, // Debug info
+    };
+  }
+
+  /**
+   * v45.0 - Get system prompt addition based on expert weights
+   * v45.0 KOLO 4.3: Now preset-aware
+   * @param {string} preset - Current preset (light/balanced/deep)
+   * @private
+   */
+  _getSystemAddition(preset = ExpertPreset.BALANCED) {
+    const additions = [];
+
+    // Style additions (scaled by preset)
+    if (this.weights.style === ExpertWeights.STYLE_CREATIVE) {
+      if (preset === ExpertPreset.DEEP) {
+        additions.push('Buď velmi kreativní a expresivní. Neboj se netradičních přístupů.');
+      } else if (preset === ExpertPreset.BALANCED) {
+        additions.push('Buď kreativní a expresivní.');
+      } else {
+        additions.push('Přidej trochu kreativity.');
+      }
+    } else if (this.weights.style === ExpertWeights.STYLE_FORMAL) {
+      if (preset === ExpertPreset.DEEP) {
+        additions.push('Používej striktně formální, profesionální tón. Žádná neformálnost.');
+      } else {
+        additions.push('Používej formální, profesionální tón.');
+      }
+    } else if (this.weights.style === ExpertWeights.STYLE_TECHNICAL) {
+      if (preset === ExpertPreset.DEEP) {
+        additions.push('Používej plnou technickou terminologii. Předpokládej experta.');
+      } else if (preset === ExpertPreset.BALANCED) {
+        additions.push('Používej technickou terminologii.');
+      } else {
+        additions.push('Zmiň klíčové technické termíny.');
+      }
+    }
+
+    // Depth additions (preset-driven)
+    if (preset === ExpertPreset.DEEP) {
+      additions.push('Jdi do maximální hloubky, vysvětli všechny detaily.');
+    } else if (preset === ExpertPreset.LIGHT) {
+      additions.push('Buď stručný, zaměř se na podstatu.');
+    }
+
+    // Caution additions
+    if (this.weights.caution === ExpertWeights.CAUTION_HIGH) {
+      if (preset === ExpertPreset.DEEP) {
+        additions.push('Buď velmi opatrný, zdůrazni všechna omezení, rizika a disclaimery.');
+      } else {
+        additions.push('Buď opatrný, zdůrazni omezení a rizika.');
+      }
+    }
+
+    return additions.length > 0 ? additions.join(' ') : null;
+  }
+
+  /**
+   * v45.0 - Set expert strength (quantized)
+   * @param {number} value - Strength value (will be quantized to 0/25/50/75/100)
+   */
+  setStrength(value) {
+    // Quantize to nearest valid level
+    const levels = [0, 25, 50, 75, 100];
+    const nearest = levels.reduce((prev, curr) =>
+      Math.abs(curr - value) < Math.abs(prev - value) ? curr : prev
+    );
+    this.strength = nearest;
+    return this.strength;
   }
 
   /**
@@ -752,6 +1024,9 @@ export class ExpertAgent {
       memoryPolicy: this.memoryPolicy,
       isCustom: this.isCustom,
       styleRules: this.styleRules,  // v44.10
+      // v45.0 - Expert intensity
+      strength: this.strength,
+      weights: { ...this.weights },
     };
   }
 }
@@ -942,5 +1217,12 @@ export default {
   ExpertAgent,
   expertRegistry,
   routeToExpert,
-  getExpertCategories
+  getExpertCategories,
+  // v45.0 - Expert intensity
+  ExpertStrength,
+  ExpertWeights,
+  // v45.0 KOLO 4.3 - Expert presets
+  ExpertPreset,
+  strengthToPreset,
+  getPresetWeights,
 };

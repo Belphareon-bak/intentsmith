@@ -1,0 +1,344 @@
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  CRE v45.0 — E2E Conversation Scenarios Output                              ║
+║  Generated: 2026-01-28T21:54:53.066Z                                       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+
+════════════════════════════════════════════════════════════════════════════════
+SCENARIO: REPORT→FORMAT
+════════════════════════════════════════════════════════════════════════════════
+
+─── TURN 1 ───
+USER: Dej mi report o trhu s elektromobily za poslední měsíc
+INTENT: REPORT
+DECISION: TOOL_CALL
+TOOLS: web.search
+RESPONSE:
+# Analýza trhu s elektromobily
+
+## Klíčová zjištění
+Trh s elektromobily zaznamenal meziroční růst 35%. Tesla si udržuje vedení s 18% tržním podílem, ale BYD agresivně expanduje (+120% YoY).
+
+## Faktory růstu
+- Klesající ceny baterií (-15% YoY)
+- Přísnější emisní regulace v EU
+- Růst nabíjecí infrastruktury
+
+## Závěr
+Očekáváme pokračující růst. Doporučení: sledovat vývoj čínských výrobců a regulatorní změny.
+
+Zdroje: BloombergNEF, IEA Global EV Outlook 2026
+
+─── TURN 2 ───
+USER: Můžeš to shrnout stručněji?
+INTENT: REPORT
+DECISION: ANSWER
+RESPONSE_INTENT: SUMMARY
+FORMAT_CHANGE: ✓ Skipped tool call, reusing previous data
+TOOLS: (none)
+RESPONSE:
+**Shrnutí:** Trh roste o 35%, Tesla vede, baterie levnější. Doporučení: sledovat vývoj.
+
+─── TURN 3 ───
+USER: Teď to prosím ve formě odrážek
+INTENT: REPORT
+DECISION: ANSWER
+RESPONSE_INTENT: BULLETS
+FORMAT_CHANGE: ✓ Skipped tool call, reusing previous data
+TOOLS: (none)
+RESPONSE:
+**Klíčové body:**
+- Růst trhu: +35% meziročně
+- Lídři: Tesla (18%), BYD (+120% YoY)
+- Trend: Klesající ceny baterií (-15%)
+- Regulace: Přísnější emisní normy v EU
+- Doporučení: Sledovat čínské výrobce
+
+─── TURN 4 ───
+USER: Díky, to je super
+INTENT: REPORT
+DECISION: ANSWER
+RESPONSE_INTENT: BULLETS
+FORMAT_CHANGE: ✓ Skipped tool call, reusing previous data
+TOOLS: (none)
+RESPONSE:
+Rádo se stalo! Pokud budete potřebovat něco dalšího, jsem tu.
+
+────────────────────────────────────────────────────────────────────────────────
+
+📊 INVARIANT CHECKS:
+✓ First turn: REPORT intent with TOOL_CALL
+✓ Tools: web.search
+
+📊 PREFERENCE INVARIANT CHECK:
+  Before: verbosity=normal, structure=mixed
+  After:  verbosity=minimal, structure=mixed
+  Axes changed: 1
+✓ Max 1 axis change rule respected
+
+════════════════════════════════════════════════════════════════════════════════
+SCENARIO: SEARCH→PRODUCT
+════════════════════════════════════════════════════════════════════════════════
+
+─── TURN 1 ───
+USER: Najdi mi informace o ceně bitcoinu
+INTENT: FACTUAL
+DECISION: TOOL_CALL
+TOOLS: web.search
+RESPONSE:
+Bitcoin je momentálně na ceně 45 230 USD (+2.3% za 24h). Trend je rostoucí díky institucionální adopci a blížícímu se halvingu.
+
+─── TURN 2 ───
+USER: A jaký je trend?
+INTENT: FACTUAL
+DECISION: TOOL_CALL
+TOOLS: web.search
+RESPONSE:
+Aktuální trend ukazuje růst o 15% za poslední měsíc. Hlavní faktory: ETF schválení, snížení úrokových sazeb, rostoucí institucionální zájem.
+
+─── TURN 3 ───
+USER: Porovnej to s ethereem
+INTENT: REPORT
+DECISION: TOOL_CALL
+RESPONSE_INTENT: COMPARISON
+TOOLS: web.search
+RESPONSE:
+# Srovnání: Bitcoin vs Ethereum
+
+## Aktuální ceny
+| Měna | Cena | 24h změna | 30d změna |
+|------|------|-----------|-----------|
+| BTC  | 45 230 USD | +2.3% | +15% |
+| ETH  | 2 850 USD | +1.8% | +12% |
+
+## Klíčové rozdíly
+- **BTC**: Store of value, "digitální zlato", nižší volatilita
+- **ETH**: Smart contracts, DeFi ekosystém, vyšší utility
+
+## Závěr
+Bitcoin vhodný pro dlouhodobé držení, Ethereum pro aktivnější využití v DeFi.
+
+Zdroje: CoinGecko, CryptoCompare
+
+─── TURN 4 ───
+USER: Díky za info
+INTENT: REPORT
+DECISION: ANSWER
+RESPONSE_INTENT: COMPARISON
+FORMAT_CHANGE: ✓ Skipped tool call, reusing previous data
+TOOLS: (none)
+RESPONSE:
+Rádo se stalo! Pokud budete potřebovat něco dalšího, jsem tu.
+
+────────────────────────────────────────────────────────────────────────────────
+
+📊 INVARIANT CHECKS:
+✓ First turn: FACTUAL intent with TOOL_CALL
+✓ Tools: web.search
+✓ Follow-up maintains search context
+
+📊 TOPIC ISOLATION CHECK:
+  Bitcoin topicHash: bitcoinu_informace
+  Ethereum topicHash: ethereu_informace
+✓ Topic hashes are isolated
+
+════════════════════════════════════════════════════════════════════════════════
+SCENARIO: CREATIVE
+════════════════════════════════════════════════════════════════════════════════
+
+─── TURN 1 ───
+USER: Vymysli mi marketingovou kampaň pro nový produkt
+INTENT: CREATIVE
+DECISION: ANSWER
+TOOLS: (none)
+RESPONSE:
+# Marketingová kampaň "Budoucnost je teď"
+
+## Koncept
+Emocionální storytelling zaměřený na životní momenty, které technologie umožňuje.
+
+## Klíčové prvky
+1. **Hero video (60s)**: Příběh rodiny napříč generacemi
+2. **Social media série**: 15 krátkých videí s reálnými use cases
+3. **Influencer partnerství**: Tech a lifestyle influenceři
+
+## Cílová skupina
+Millennials a Gen Z (25-40 let), digitálně aktivní, hledající efektivitu.
+
+## Timeline
+- Příprava: 4 týdny
+- Produkce: 6 týdnů
+- Launch: Q2 2026
+
+─── TURN 2 ───
+USER: Jaký to může mít vliv na zákazníky?
+INTENT: CREATIVE
+DECISION: ANSWER
+TOOLS: (none)
+RESPONSE:
+## Očekávaný vliv na zákazníky
+
+**Emocionální rovina:**
+- Posílení důvěry v značku (+25% brand affinity)
+- Vytvoření pocitu "být součástí něčeho většího"
+
+**Behaviorální změny:**
+- Zvýšení konverzí o 15-20%
+- Prodloužení času na webu o 40%
+- Vyšší engagement na sociálních sítích
+
+**Dlouhodobý efekt:**
+- Budování loajální komunity
+- Organický word-of-mouth marketing
+
+─── TURN 3 ───
+USER: Rozviň tu myšlenku o social media
+INTENT: CREATIVE
+DECISION: ANSWER
+TOOLS: (none)
+RESPONSE:
+## Social Media Strategie - Detail
+
+### Formáty obsahu
+1. **Reels/TikTok (15s)**: Rychlé tipy a "wow" momenty
+2. **Stories (24h)**: Behind-the-scenes, ankety, Q&A
+3. **Feed posts**: Inspirativní vizuály s příběhy zákazníků
+4. **Live sessions**: Týdenní Q&A s produktovým týmem
+
+### Harmonogram
+- Pondělí: Motivační start týdne
+- Středa: Edukativní obsah
+- Pátek: User-generated content
+- Víkend: Lifestyle a komunita
+
+### KPIs
+- Engagement rate: cíl 5%+
+- Reach growth: +20% měsíčně
+- Conversion rate: 2-3%
+
+─── TURN 4 ───
+USER: Dej mi ještě alternativní verzi
+INTENT: CREATIVE
+DECISION: ANSWER
+TOOLS: (none)
+RESPONSE:
+# Alternativní koncept: "Malé kroky, velký dopad"
+
+## Odlišný přístup
+Místo velkolepého storytellingu se zaměříme na micro-momenty - drobné každodenní situace, kde produkt pomáhá.
+
+## Klíčové prvky
+1. **UGC kampaň**: Zákazníci sdílejí své "aha" momenty
+2. **Série mini-dokumentů**: 3-minutové příběhy reálných uživatelů
+3. **Interaktivní web**: Konfigurátor "Jak vám pomůžeme?"
+
+## Tón komunikace
+Přátelský, autentický, bez korporátního jazyka.
+
+## Proč tato varianta?
+- Nižší produkční náklady
+- Vyšší autenticita
+- Rychlejší iterace na základě feedbacku
+
+────────────────────────────────────────────────────────────────────────────────
+
+📊 CREATIVE INVARIANT CHECK:
+✓ All CREATIVE turns use ANSWER (not TOOL_CALL)
+✓ No web.search tools in CREATIVE intent
+
+📊 CREATIVE FOLLOW-UP CHECK:
+  "jaký to může mít vliv na hráče?" → CREATIVE
+  "rozviň tu myšlenku" → CREATIVE
+  "co by se stalo kdyby..." → CREATIVE
+✓ All CREATIVE follow-ups maintained CREATIVE intent
+
+════════════════════════════════════════════════════════════════════════════════
+SCENARIO: LOCAL
+════════════════════════════════════════════════════════════════════════════════
+
+─── TURN 1 ───
+USER: Jaké je dnes datum?
+INTENT: LOCAL
+DECISION: LOCAL
+TOOLS: (none)
+RESPONSE:
+Dnes je 28. ledna 2026, úterý.
+
+─── TURN 2 ───
+USER: Kdy bude úplněk?
+INTENT: LOCAL
+DECISION: LOCAL
+TOOLS: (none)
+RESPONSE:
+Příští úplněk bude 12. února 2026.
+
+─── TURN 3 ───
+USER: Kolik je 15 + 27?
+INTENT: LOCAL
+DECISION: LOCAL
+TOOLS: (none)
+RESPONSE:
+15 + 27 = 42
+
+────────────────────────────────────────────────────────────────────────────────
+
+📊 LOCAL INVARIANT CHECK:
+✓ All LOCAL turns use DecisionType.LOCAL
+✓ No tool calls for LOCAL intent
+
+📊 LOCAL PRIORITY CHECK:
+  "kdy bude úplněk?" → LOCAL
+  "jaké je dnes datum?" → LOCAL
+  "kolik je hodin?" → LOCAL
+✓ LOCAL has priority over SEARCH patterns
+
+📊 RESPONSE TYPE ISOLATION:
+  SEARCH optimized: verbosity=detailed
+  REPORT optimized: verbosity=minimal
+✓ Preferences correctly isolated per responseType
+
+═════════════════════════════════════════════════════════════════════════════
+SCENARIO: TOPIC_CHANGE
+═════════════════════════════════════════════════════════════════════════════
+
+─── TURN 1 ───
+USER: Najdi info o bitcoinu
+INTENT: FACTUAL
+DECISION: TOOL_CALL
+TOPIC_HASH: bitcoinu_info
+RESPONSE_TYPE: SEARCH
+
+─── TURN 2 ───
+USER: Teď mi dej report o elektromobilech
+INTENT: FACTUAL
+DECISION: TOOL_CALL
+TOPIC_HASH: elektromobilech_report_teď
+RESPONSE_TYPE: REPORT
+
+─── TURN 3 ───
+USER: Vymysli kampaň pro krypto
+INTENT: CREATIVE
+DECISION: ANSWER
+TOPIC_HASH: kampaň_krypto_vymysli
+RESPONSE_TYPE: CREATIVE
+
+📊 TOPIC ISOLATION CHECK:
+  Topics: Najdi info o bitcoinu, Teď mi dej report o elektromob, Vymysli kampaň pro krypto
+  Hashes: bitcoinu_info, elektromobilech_report_teď, kampaň_krypto_vymysli
+  Unique hashes: 3
+✓ No preference bleeding between topics
+
+📊 EXPERT STRENGTH=0 INVARIANT:
+  Hints: {"active":false}
+✓ expertStrength=0 returns exactly { active: false }
+
+📊 BUILT-IN EXPERTS WITH STRENGTH=0:
+  writer: {"active":false}
+  analyst: {"active":false}
+  lawyer: {"active":false}
+✓ All built-in experts with strength=0 return { active: false }
+
+════════════════════════════════════════════════════════════════════════════════
+ALL E2E SCENARIOS COMPLETED
+════════════════════════════════════════════════════════════════════════════════

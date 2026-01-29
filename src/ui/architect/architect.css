@@ -523,6 +523,305 @@ html, body {
   display: none;
 }
 
+/* v44.2 - Expert Selector */
+/* v44.7 - Updated for input-bottom placement */
+.expert-selector-container {
+  display: flex;
+  align-items: center;
+}
+
+.expert-selector {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  min-width: 110px;
+  max-width: 150px;
+}
+
+/* v44.7 - Compact style in input-bottom */
+.input-bottom .expert-selector-container {
+  margin-right: 4px;
+}
+
+.input-bottom .expert-selector {
+  height: 36px;
+  padding: 4px 8px;
+}
+
+.expert-selector:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-light);
+}
+
+.expert-selector:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+.expert-selector option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* v44.4 - Expert Badge (visible indicator when expert is active) */
+.expert-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, var(--accent-primary), #9333ea);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 500;
+  color: white;
+  animation: expertBadgeFadeIn 0.3s ease;
+}
+
+@keyframes expertBadgeFadeIn {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.expert-badge-icon {
+  font-size: 14px;
+}
+
+.expert-badge-name {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.expert-badge-clear {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: white;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.expert-badge-clear:hover {
+  background: rgba(255,255,255,0.4);
+}
+
+/* v44.5 - Expert Message Styling */
+.message.expert-message .message-avatar {
+  background: linear-gradient(135deg, var(--accent-primary), #9333ea);
+  color: white;
+}
+
+.message.expert-message .message-role {
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.message.expert-message .message-body {
+  border-left: 3px solid var(--accent-primary);
+  padding-left: 12px;
+}
+
+/* v44.5 - Tool Failure Message */
+.message.tool-failure-message .message-text {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.tool-failure-header {
+  font-weight: 600;
+  color: #ef4444;
+  margin-bottom: 8px;
+}
+
+.tool-failure-query {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.tool-failure-log {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 12px;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.failure-log-title {
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.failure-log-item {
+  padding: 3px 0;
+  color: var(--text-secondary);
+}
+
+.tool-failure-tip {
+  background: rgba(59, 130, 246, 0.1);
+  border-left: 3px solid #3b82f6;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  border-radius: 0 6px 6px 0;
+}
+
+.tool-failure-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.failure-action-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+}
+
+.failure-action-btn.btn-primary {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.failure-action-btn.btn-primary:hover {
+  filter: brightness(1.1);
+}
+
+.failure-action-btn.btn-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.failure-action-btn.btn-secondary:hover {
+  background: var(--bg-secondary);
+}
+
+.failure-action-btn.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.failure-action-btn.btn-ghost:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* v44.2+ - Project Mode Banner */
+.project-mode-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(90deg, var(--accent-primary) 0%, var(--accent-secondary, #6366f1) 100%);
+  color: white;
+  padding: 8px 16px;
+  font-size: 13px;
+  gap: 12px;
+}
+
+.project-mode-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.project-mode-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.project-mode-label {
+  font-weight: 500;
+  opacity: 0.9;
+  flex-shrink: 0;
+}
+
+.project-mode-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-mode-goal {
+  opacity: 0.8;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+.project-mode-goal::before {
+  content: '• ';
+  opacity: 0.6;
+}
+
+.project-mode-goal:empty::before {
+  content: '';
+}
+
+.project-mode-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.project-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.project-mode-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.project-mode-btn.exit {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.project-mode-btn.exit:hover {
+  background: rgba(239, 68, 68, 0.5);
+  border-color: rgba(239, 68, 68, 0.6);
+}
+
 .header-spacer {
   flex: 1;
 }

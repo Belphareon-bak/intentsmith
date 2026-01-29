@@ -18,20 +18,27 @@ const state = {
   // Current context
   currentProject: null,       // { id, name, path, description }
   currentConversation: null,  // { id, project_id, title }
-  
+  currentExpert: null,        // { id, name, domain } (v44.1)
+
+  // v44.2+ - Project working memory
+  projectGoal: null,          // Current task/goal string
+  activeFile: null,           // Last edited file path
+  lastArtifactId: null,       // Last generated artifact
+
   // Data
   projects: [],
   conversations: [],
   messages: [],
-  
+  experts: [],                // Available experts (v44.1)
+
   // UI state
   isLoading: false,
   inChat: false,
   leftSidebarOpen: true,
-  
+
   // Draft
   draftTimeout: null,
-  
+
   // Pending attachments (waiting to be sent with next message)
   pendingAttachments: [],  // [{ id, name, size }]
 };
@@ -69,7 +76,12 @@ const el = {
   statusText: $('status-text'),
   projectIndicator: $('project-indicator'),
   projectName: $('project-name'),
-  
+
+  // v44.2+ - Project Mode Banner
+  projectModeBanner: $('project-mode-banner'),
+  projectModeName: $('project-mode-name'),
+  projectModeGoal: $('project-mode-goal'),
+
   // Toast
   toastContainer: $('toast-container'),
 };
@@ -110,6 +122,60 @@ async function loadProjects() {
     console.error('Failed to load projects:', err);
     state.projects = [];
     renderProjects();
+  }
+}
+
+// v44.2 - Load experts for expert mode selection
+async function loadExperts() {
+  try {
+    const data = await api('GET', '/api/experts');
+    state.experts = data.experts || [];
+    renderExpertSelector();
+  } catch (err) {
+    console.error('Failed to load experts:', err);
+    state.experts = [];
+  }
+}
+
+// v44.2 - Render expert selector dropdown
+// v44.7 - Updated to populate both selectors (welcome screen + chat view)
+function renderExpertSelector() {
+  const selectors = [
+    document.getElementById('expert-selector'),
+    document.getElementById('chat-expert-selector'),
+  ].filter(Boolean);
+
+  if (selectors.length === 0) return;
+
+  const options = state.experts.map(e =>
+    `<option value="${e.id}" ${state.currentExpert?.id === e.id ? 'selected' : ''}>
+      ${e.icon || '👨‍💻'} ${e.name}
+    </option>`
+  ).join('');
+
+  const html = `
+    <option value="">🎭 Expert</option>
+    ${options}
+  `;
+
+  selectors.forEach(selector => {
+    selector.innerHTML = html;
+  });
+}
+
+// v44.2 - Handle expert selection change
+function onExpertChange(selectElement) {
+  const expertId = selectElement.value;
+
+  if (!expertId) {
+    clearExpert();
+    toast('Přepnuto na obecný chat', 'info');
+    return;
+  }
+
+  const expert = state.experts.find(e => e.id === expertId);
+  if (expert) {
+    selectExpert(expert);
   }
 }
 
@@ -349,13 +415,21 @@ function renderHistory(showAll = false) {
 
 async function newChat() {
   setLoading(true);
-  
+
   try {
     const data = await api('POST', '/api/conversations', {});
     state.currentConversation = data.conversation;
     state.currentProject = null;
     state.messages = [];
-    
+
+    // v44.5 - Sync session state from backend (preserves expert if locked)
+    if (data.sessionState) {
+      if (data.sessionState.expert) {
+        state.currentExpert = data.sessionState.expert;
+      }
+      // Future: other session state can be synced here
+    }
+
     renderMessages();  // Clear old messages from DOM
     switchToChat();
     updateUI();
@@ -369,11 +443,11 @@ async function newChat() {
 
 async function openConversation(conversationId) {
   setLoading(true);
-  
+
   try {
     const data = await api('GET', `/api/conversations/${conversationId}`);
     state.currentConversation = data.conversation;
-    
+
     // Load project if associated
     if (data.conversation.project_id) {
       const projData = await api('GET', `/api/projects/${data.conversation.project_id}`);
@@ -381,10 +455,18 @@ async function openConversation(conversationId) {
     } else {
       state.currentProject = null;
     }
-    
+
+    // v44.5 - Sync expert state from conversation/session
+    if (data.sessionState?.expert) {
+      state.currentExpert = data.sessionState.expert;
+    } else if (data.conversation.expert) {
+      // Fallback: expert stored on conversation
+      state.currentExpert = data.conversation.expert;
+    }
+
     // Load messages
     await loadMessages(conversationId);
-    
+
     switchToChat();
     updateUI();
     renderHistory();
@@ -425,7 +507,15 @@ async function sendMessage(text = null) {
   const input = state.inChat ? el.chatInput : el.messageInput;
   const msg = text || input.value.trim();
   if (!msg || state.isLoading) return;
-  
+
+  // v45.0 - Log user action to C3 visibility layer
+  if (typeof addC3Action === 'function') {
+    addC3Action({
+      type: 'info',
+      message: `User: ${msg.substring(0, 50)}${msg.length > 50 ? '...' : ''}`,
+    });
+  }
+
   input.value = '';
   autoResize(input);
   clearDraft();
@@ -471,20 +561,54 @@ async function sendMessage(text = null) {
       conversation_id: state.currentConversation.id,
       project_id: state.currentProject?.id || null,
       message: msg,  // Send original message (attachments already uploaded)
+      // v44.1 - Include expert and session context
+      expert: state.currentExpert || null,
+      project: state.currentProject || null,
+      // v45.0 - Include user-provided files from drag & drop
+      userContext: typeof c3State !== 'undefined' ? c3State.userProvidedFiles : [],
     });
-    
+
     removeMessage(typingId);
-    
-    if (res.response) {
-      addMessage('assistant', res.response);
+
+    // v44.1 - Sync state from server response BEFORE adding message
+    // so we can use the updated expert info for the message display
+    if (res.state) {
+      if (res.state.project !== undefined) {
+        state.currentProject = res.state.project;
+        updateProjectIndicator();
+      }
+      if (res.state.expert !== undefined) {
+        state.currentExpert = res.state.expert;
+        updateExpertIndicator();
+      }
     }
-    
+
+    if (res.response) {
+      // v44.5 - Include expert info in message
+      // Use expert from response metadata, response state, or current state
+      const responseExpert = res.metadata?.expert || res.state?.expert || state.currentExpert;
+
+      // v45.0 - Process C3 visibility layer
+      if (typeof processC3Response === 'function') {
+        processC3Response(res);
+      }
+
+      // v44.5 - Check for structured fallback (tool failure with options)
+      const structured = res.metadata?.structured;
+      if (structured?.type === 'ASK_USER' && structured?.subtype === 'TOOL_FAILURE_RECOVERY') {
+        // Render rich fallback UI instead of plain message
+        addToolFailureMessage(res.response, structured, { expert: responseExpert });
+      } else {
+        addMessage('assistant', res.response, { expert: responseExpert });
+      }
+    }
+
     // Update conversation title from first message
     if (state.messages.length <= 2 && !state.currentConversation.title) {
       state.currentConversation.title = msg.substring(0, 50);
       await loadConversations();
     }
-    
+
   } catch (err) {
     removeMessage(typingId);
     addMessage('assistant', `❌ Error: ${err.message}`);
@@ -507,28 +631,61 @@ let msgCounter = 0;
 function renderMessages() {
   el.messages.innerHTML = '';
   msgCounter = 0;
-  
+
   for (const msg of state.messages) {
-    addMessageToDOM(msg.role, msg.content);
+    addMessageToDOM(msg.role, msg.content, { expert: msg.expert });
   }
-  
+
   scrollToBottom();
 }
 
-function addMessage(role, content) {
-  state.messages.push({ role, content, created_at: new Date().toISOString() });
-  addMessageToDOM(role, content);
+/**
+ * Add a message to state and DOM
+ * @param {string} role - 'user' or 'assistant'
+ * @param {string} content - Message content
+ * @param {Object} options - Optional { expert: { id, name, icon } }
+ */
+function addMessage(role, content, options = {}) {
+  const msg = {
+    role,
+    content,
+    created_at: new Date().toISOString(),
+    // v44.5 - Include expert info if present
+    expert: options.expert || null,
+  };
+  state.messages.push(msg);
+  addMessageToDOM(role, content, options);
   scrollToBottom();
 }
 
-function addMessageToDOM(role, content) {
+/**
+ * Add message to DOM
+ * v44.5 - Now supports expert display
+ */
+function addMessageToDOM(role, content, options = {}) {
   const id = `msg-${++msgCounter}`;
-  const avatar = role === 'user' ? '👤' : '🤖';
-  const roleName = role === 'user' ? 'You' : 'AI Assistant';
+  const expert = options.expert;
+
+  // v44.5 - Use expert info if available for assistant messages
+  let avatar, roleName, expertClass = '';
+  if (role === 'user') {
+    avatar = '👤';
+    roleName = 'You';
+  } else if (expert) {
+    // Expert response
+    avatar = expert.icon || '👨‍💻';
+    roleName = expert.name || 'Expert';
+    expertClass = ' expert-message';
+  } else {
+    // Regular AI response
+    avatar = '🤖';
+    roleName = 'AI Assistant';
+  }
+
   const html = renderMarkdown(content, role === 'assistant');
-  
+
   el.messages.insertAdjacentHTML('beforeend', `
-    <div class="message ${role}" id="${id}">
+    <div class="message ${role}${expertClass}" id="${id}">
       <div class="message-avatar">${avatar}</div>
       <div class="message-body">
         <div class="message-role">${roleName}</div>
@@ -536,25 +693,150 @@ function addMessageToDOM(role, content) {
       </div>
     </div>
   `);
-  
+
   return id;
+}
+
+/**
+ * v44.5 - Add rich tool failure message with action buttons
+ * Shows fallback log and interactive options
+ */
+function addToolFailureMessage(content, structured, options = {}) {
+  const id = `msg-${++msgCounter}`;
+  const expert = options.expert;
+  const avatar = expert ? (expert.icon || '👨‍💻') : '🤖';
+  const roleName = expert ? expert.name : 'AI Assistant';
+  const expertClass = expert ? ' expert-message' : '';
+
+  // Build fallback log display
+  let fallbackHtml = '';
+  if (structured.failedTools?.length > 0) {
+    fallbackHtml = '<div class="tool-failure-log">';
+    fallbackHtml += '<div class="failure-log-title">Pokus o získání dat:</div>';
+    for (const tool of structured.failedTools) {
+      const icon = tool.code === 'SOURCE_BLOCKED' ? '⛔' : '❌';
+      const toolName = {
+        'web.search': 'Vyhledávání',
+        'web.scrape': 'Načtení stránky',
+        'file.read': 'Čtení souboru',
+      }[tool.tool] || tool.tool;
+      fallbackHtml += `<div class="failure-log-item">${icon} ${toolName}: ${tool.error}</div>`;
+    }
+    fallbackHtml += '</div>';
+  }
+
+  // Build action buttons
+  let actionsHtml = '<div class="tool-failure-actions">';
+  for (const opt of (structured.options || [])) {
+    if (opt.id === 'cancel') continue; // Skip cancel, always show
+    const btnClass = opt.action === 'auto' ? 'btn-primary' : 'btn-secondary';
+    actionsHtml += `<button class="failure-action-btn ${btnClass}" onclick="handleToolFailureAction('${opt.id}', '${opt.action}')">${opt.label}</button>`;
+  }
+  actionsHtml += `<button class="failure-action-btn btn-ghost" onclick="handleToolFailureAction('cancel', 'cancel')">Zrušit</button>`;
+  actionsHtml += '</div>';
+
+  // Suggestion tip
+  let tipHtml = '';
+  if (structured.suggestion) {
+    tipHtml = `<div class="tool-failure-tip">💡 <strong>Tip:</strong> ${structured.suggestion}</div>`;
+  }
+
+  // Store structured data for action handlers
+  state.pendingToolFailure = structured;
+
+  el.messages.insertAdjacentHTML('beforeend', `
+    <div class="message assistant tool-failure-message${expertClass}" id="${id}">
+      <div class="message-avatar">${avatar}</div>
+      <div class="message-body">
+        <div class="message-role">${roleName}</div>
+        <div class="message-text">
+          <div class="tool-failure-header">⚠️ Nepodařilo se zpracovat požadavek</div>
+          <div class="tool-failure-query"><strong>Váš dotaz:</strong> ${structured.originalInput || ''}</div>
+          ${fallbackHtml}
+          ${tipHtml}
+          ${actionsHtml}
+        </div>
+      </div>
+    </div>
+  `);
+
+  // Store message in state
+  state.messages.push({
+    role: 'assistant',
+    content,
+    expert: options.expert || null,
+    structured,
+    created_at: new Date().toISOString(),
+  });
+
+  scrollToBottom();
+  return id;
+}
+
+/**
+ * v44.5 - Handle tool failure action button click
+ */
+function handleToolFailureAction(actionId, actionType) {
+  const structured = state.pendingToolFailure;
+  if (!structured) return;
+
+  if (actionType === 'cancel') {
+    toast('Operace zrušena', 'info');
+    state.pendingToolFailure = null;
+    return;
+  }
+
+  if (actionType === 'retry') {
+    // Retry with original query
+    sendMessage(structured.originalInput);
+    state.pendingToolFailure = null;
+    return;
+  }
+
+  if (actionType === 'auto') {
+    // Auto action (e.g., try different provider)
+    const opt = structured.options?.find(o => o.id === actionId);
+    if (opt?.tool === 'web.search') {
+      // Send original query with provider hint
+      sendMessage(`${structured.originalInput}`);
+    }
+    state.pendingToolFailure = null;
+    return;
+  }
+
+  if (actionType === 'prompt') {
+    // Show prompt for user input
+    const opt = structured.options?.find(o => o.id === actionId);
+    const input = state.inChat ? el.chatInput : el.messageInput;
+    input.focus();
+    input.placeholder = opt?.prompt || 'Zadejte nový dotaz...';
+    toast(opt?.prompt || 'Zadejte nový dotaz', 'info');
+    state.pendingToolFailure = null;
+    return;
+  }
 }
 
 function addTyping() {
   const id = `typing-${++msgCounter}`;
-  
+
+  // v44.5 - Show expert avatar/name if expert is active
+  const expert = state.currentExpert;
+  const avatar = expert ? (expert.icon || '👨‍💻') : '🤖';
+  const roleName = expert ? expert.name : 'AI Assistant';
+  const expertClass = expert ? ' expert-message' : '';
+
   el.messages.insertAdjacentHTML('beforeend', `
-    <div class="message assistant" id="${id}">
-      <div class="message-avatar">🤖</div>
+    <div class="message assistant${expertClass}" id="${id}">
+      <div class="message-avatar">${avatar}</div>
       <div class="message-body">
-        <div class="message-role">AI Assistant</div>
+        <div class="message-role">${roleName}</div>
         <div class="typing">
           <span></span><span></span><span></span>
         </div>
       </div>
     </div>
   `);
-  
+
   scrollToBottom();
   return id;
 }
@@ -610,25 +892,102 @@ function renderMarkdown(text, isAssistant = false) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function updateUI() {
-  // Header
+  // Header - Project or Expert or Default
   if (state.currentProject) {
     el.headerTitle.textContent = state.currentProject.name;
     el.headerBadge.textContent = 'PROJECT';
     el.projectIndicator.style.display = 'flex';
     el.projectName.textContent = state.currentProject.name;
+    // v44.2+ - Show project mode banner
+    if (el.projectModeBanner) {
+      el.projectModeBanner.style.display = 'flex';
+      el.projectModeName.textContent = state.currentProject.name;
+      el.projectModeGoal.textContent = state.projectGoal || '';
+    }
+  } else if (state.currentExpert) {
+    // v44.1 - Expert mode display
+    el.headerTitle.textContent = state.currentExpert.name;
+    el.headerBadge.textContent = 'EXPERT';
+    el.projectIndicator.style.display = 'flex';
+    el.projectName.textContent = state.currentExpert.name;
+    // v44.2+ - Hide project banner when in expert mode
+    if (el.projectModeBanner) {
+      el.projectModeBanner.style.display = 'none';
+    }
   } else if (state.currentConversation) {
     el.headerTitle.textContent = state.currentConversation.title || 'New Chat';
     el.headerBadge.textContent = '';
     el.projectIndicator.style.display = 'none';
+    // v44.2+ - Hide project banner
+    if (el.projectModeBanner) {
+      el.projectModeBanner.style.display = 'none';
+    }
   } else {
     el.headerTitle.textContent = 'AI Assistant';
     el.headerBadge.textContent = '';
     el.projectIndicator.style.display = 'none';
+    // v44.2+ - Hide project banner
+    if (el.projectModeBanner) {
+      el.projectModeBanner.style.display = 'none';
+    }
   }
-  
+
   // Status
   el.statusText.textContent = state.isLoading ? 'Processing...' : 'Ready';
   el.statusDot.className = 'status-dot' + (state.isLoading ? ' loading' : '');
+
+  // v44.4 - Expert badge indicator
+  const expertBadge = document.getElementById('expert-badge');
+  const expertBadgeIcon = document.getElementById('expert-badge-icon');
+  const expertBadgeName = document.getElementById('expert-badge-name');
+  if (expertBadge) {
+    if (state.currentExpert) {
+      expertBadge.style.display = 'flex';
+      expertBadgeIcon.textContent = state.currentExpert.icon || '👨‍💻';
+      expertBadgeName.textContent = state.currentExpert.name;
+    } else {
+      expertBadge.style.display = 'none';
+    }
+  }
+
+  // v44.4 - Update expert selector dropdown to match state
+  const expertSelector = document.getElementById('expert-selector');
+  if (expertSelector && state.currentExpert) {
+    expertSelector.value = state.currentExpert.id;
+  } else if (expertSelector) {
+    expertSelector.value = '';
+  }
+}
+
+// v44.1 - Project/Expert indicator updates
+function updateProjectIndicator() {
+  updateUI();
+}
+
+function updateExpertIndicator() {
+  updateUI();
+}
+
+// v44.1 - Select expert
+function selectExpert(expert) {
+  state.currentExpert = expert;
+  updateUI();
+  toast(`Expert: ${expert.name}`, 'info');
+}
+
+// v44.1 - Clear expert
+function clearExpert() {
+  state.currentExpert = null;
+  updateUI();
+}
+
+// v44.4 - Clear expert from UI (badge click)
+function clearExpertFromUI() {
+  clearExpert();
+  toast('Expert zrušen', 'info');
+  // Also update selector dropdown
+  const selector = document.getElementById('expert-selector');
+  if (selector) selector.value = '';
 }
 
 function switchToChat() {
@@ -643,6 +1002,8 @@ function switchToWelcome() {
   state.inChat = false;
   state.currentConversation = null;
   state.currentProject = null;
+  // v44.5 - DON'T clear expert on welcome - expert persists across chats
+  // state.currentExpert = null;  // REMOVED: Expert should persist
   state.messages = [];
   el.welcomeScreen.classList.remove('hidden');
   el.messagesArea.classList.add('hidden');
@@ -655,6 +1016,27 @@ function setLoading(loading) {
   state.isLoading = loading;
   el.sendBtn.disabled = loading;
   updateUI();
+}
+
+// v44.2+ - Project Mode Actions
+function changeProject() {
+  // Open project selection - switch to projects view in sidebar
+  state.leftSidebarOpen = true;
+  el.leftSidebar.classList.add('open');
+  // Switch to projects section
+  const projectsSection = document.querySelector('.section[data-section="projects"]');
+  if (projectsSection) {
+    projectsSection.scrollIntoView({ behavior: 'smooth' });
+  }
+  toast('Vyberte nový projekt', 'info');
+}
+
+function exitProjectMode() {
+  state.currentProject = null;
+  state.projectGoal = null;
+  updateUI();
+  addMessage('assistant', '👋 **Projekt ukončen.** Jste zpět v obecném chatu.');
+  toast('Projekt ukončen', 'info');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1196,6 +1578,7 @@ async function init() {
     loadProjects(),
     loadConversations(),
     loadStorageInfo(),
+    loadExperts(),  // v44.2 - Load experts for expert mode
   ]);
   
   // Check URL params
@@ -1908,3 +2291,12 @@ window.runDiagnostics = runDiagnostics;
 window.exportSettings = exportSettings;
 window.importSettings = importSettings;
 window.connectAccount = connectAccount;
+// v44.1 - Expert functions
+window.selectExpert = selectExpert;
+window.clearExpert = clearExpert;
+window.clearExpertFromUI = clearExpertFromUI;
+// v44.2 - Expert selector
+window.onExpertChange = onExpertChange;
+// v44.2+ - Project mode actions
+window.changeProject = changeProject;
+window.exitProjectMode = exitProjectMode;

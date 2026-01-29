@@ -1,4 +1,4 @@
-// CRE v44.10 — Decision Engine
+// CRE v45.0 — Decision Engine
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Tool-first decision logic for CRE.
@@ -11,8 +11,10 @@
 // 5. CREATIVE = terminal (direct ideation, NEVER web.search)
 // 6. CREATIVE follow-ups stay in CREATIVE mode (v44.9)
 // 7. CREATIVE responses validated for quality (v44.10)
+// 8. REPORT = SEARCH first, then SCRAPE URLs (v45.0) — NEVER scrape without URL!
 //
 // CHANGELOG:
+// v45.0 - REPORT pipeline fix (SEARCH→SCRAPE orchestration, URL guard, fallback)
 // v44.10 - Response quality gate, expert style contract
 // v44.9 - CREATIVE follow-up lock (FIX A), vague input first-turn blocking (FIX B)
 // v44.8 - CREATIVE intent for ideation, first-turn ASK_USER blocking
@@ -70,6 +72,342 @@ export const ToolType = {
   LOCAL_CALENDAR: 'local.calendar',   // Calendar calculations
   LOCAL_MATH: 'local.math',           // Mathematical calculations
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v45.0 KOLO 3: Response Intent (HOW to present the answer)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// ResponseIntent is SEPARATE from Intent (WHAT user wants).
+// It controls synthesis style, NOT tool selection.
+//
+// CRITICAL: ResponseIntent affects buildSynthesisSystemPrompt(), not decide()
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const ResponseIntent = {
+  DIRECT: 'DIRECT',           // Single sentence/paragraph answer
+  SUMMARY: 'SUMMARY',         // Condensed version of data
+  BULLETS: 'BULLETS',         // Bullet point list
+  COMPARISON: 'COMPARISON',   // Side-by-side comparison (table/list)
+  STEP_BY_STEP: 'STEP_BY_STEP', // Numbered steps/process
+  EXPLORATORY: 'EXPLORATORY', // Open-ended, multiple directions offered
+  OPINIONATED: 'OPINIONATED', // Personal recommendation with reasoning
+  MINIMAL: 'MINIMAL',         // Absolute minimum (number, yes/no, date)
+};
+
+// Patterns to detect ResponseIntent from user input
+const RESPONSE_INTENT_PATTERNS = {
+  [ResponseIntent.SUMMARY]: [
+    /stručně/i, /stručněji/i, /kratší/i, /zkrať/i, /shrň/i, /shrnout/i,
+    /summary/i, /summarize/i, /brief/i, /shorter/i, /condense/i,
+  ],
+  [ResponseIntent.BULLETS]: [
+    /v bodech/i, /odrážk/i, /bullet/i, /seznam/i, /ve formě/i, /as list/i,
+    /points/i, /list.*form/i,
+  ],
+  [ResponseIntent.COMPARISON]: [
+    /porovnej/i, /srovnej/i, /compare/i, /rozdíl/i, /difference/i,
+    /vs\.?/i, /versus/i, /oproti/i, /against/i,
+  ],
+  [ResponseIntent.STEP_BY_STEP]: [
+    /krok.*za.*krok/i, /postup/i, /jak.*udělat/i, /návod/i,
+    /step.*by.*step/i, /how.*to/i, /tutorial/i, /guide/i, /instructions/i,
+  ],
+  [ResponseIntent.MINIMAL]: [
+    /jen číslo/i, /jen datum/i, /jen ano.*ne/i, /pouze/i, /jenom/i,
+    /just.*number/i, /just.*date/i, /only/i, /nothing.*else/i,
+  ],
+  [ResponseIntent.OPINIONATED]: [
+    /co.*bys.*doporučil/i, /co.*myslíš/i, /tvůj.*názor/i, /jaký.*je.*nejlepší/i,
+    /what.*would.*you.*recommend/i, /your.*opinion/i, /which.*is.*best/i,
+  ],
+  [ResponseIntent.EXPLORATORY]: [
+    /jaké.*možnosti/i, /co.*všechno/i, /různé.*způsoby/i,
+    /what.*options/i, /different.*ways/i, /explore/i, /possibilities/i,
+  ],
+};
+
+/**
+ * v45.0 KOLO 3: Detect ResponseIntent from user input
+ * @param {string} input - User input
+ * @param {Object} context - Conversation context
+ * @returns {string} ResponseIntent value
+ */
+export function detectResponseIntent(input, context = {}) {
+  const inputLower = input.toLowerCase().trim();
+
+  // Check each pattern group
+  for (const [intent, patterns] of Object.entries(RESPONSE_INTENT_PATTERNS)) {
+    if (patterns.some(p => p.test(inputLower))) {
+      return intent;
+    }
+  }
+
+  // Default based on context
+  if (context.lastResponseIntent) {
+    // Maintain previous ResponseIntent if no explicit change
+    return context.lastResponseIntent;
+  }
+
+  return ResponseIntent.DIRECT;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v45.0 KOLO 3: Question Budget / Conversational Offers
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// RULES:
+// 1. Don't ask if task is clear → execute immediately
+// 2. Max 1 question per turn (budget=1)
+// 3. Offer expansion when response is short AND user might want more
+// 4. Never offer expansion on gratitude/minimal responses
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Patterns indicating task is clear (no question needed)
+const CLEAR_TASK_PATTERNS = [
+  // Explicit commands
+  /^(najdi|vyhledej|dej mi|popiš|vysvětli|napiš|vytvoř|shrň)/i,
+  /^(find|search|get|describe|explain|write|create|summarize)/i,
+
+  // Specific entities with clear intent
+  /info(rmace)?\s+(o|about)\s+\w+/i,
+  /report\s+(o|about|on)\s+\w+/i,
+  /cen[auě]\s+\w+/i,  // "cena bitcoin", "cenu akcie"
+  /price\s+(of\s+)?\w+/i,
+
+  // Direct questions with clear scope
+  /^(co|kdo|kde|kdy|jak|proč|kolik)\s+.{5,}/i,
+  /^(what|who|where|when|how|why)\s+.{5,}/i,
+];
+
+// Patterns indicating task needs clarification
+const UNCLEAR_TASK_PATTERNS = [
+  // Too vague
+  /^(něco|nějaké|cokoli|hmm+|eh+|no|nevím)$/i,
+  /^(something|anything|stuff|hmm+|eh+|well|dunno)$/i,
+
+  // Ambiguous scope
+  /pomoz\s+mi\s*$/i,  // "pomoz mi" without specifics
+  /help\s+me\s*$/i,
+
+  // Missing key information
+  /^(report|analýz[au]|srovn)/i,  // "report" without topic
+];
+
+/**
+ * v45.0 KOLO 3: Check if task is clear enough to execute without questions
+ * @param {string} input - User input
+ * @param {Object} context - Conversation context
+ * @returns {{ clear: boolean, reason: string }}
+ */
+export function isTaskClear(input, context = {}) {
+  const inputLower = input.toLowerCase().trim();
+
+  // Very short input is usually unclear
+  if (inputLower.length < 5) {
+    return { clear: false, reason: 'too_short' };
+  }
+
+  // Check for explicitly unclear patterns
+  if (UNCLEAR_TASK_PATTERNS.some(p => p.test(inputLower))) {
+    return { clear: false, reason: 'vague_input' };
+  }
+
+  // Check for clear task patterns
+  if (CLEAR_TASK_PATTERNS.some(p => p.test(inputLower))) {
+    return { clear: true, reason: 'explicit_command' };
+  }
+
+  // Follow-ups in existing conversation are usually clear
+  if (context.lastIntent && context.conversationLength > 0) {
+    return { clear: true, reason: 'conversation_context' };
+  }
+
+  // Default: medium-length inputs with content are usually clear
+  if (inputLower.length >= 10 && inputLower.split(/\s+/).length >= 3) {
+    return { clear: true, reason: 'sufficient_detail' };
+  }
+
+  return { clear: false, reason: 'insufficient_detail' };
+}
+
+/**
+ * v45.0 KOLO 3: Determine if expansion offer should be made
+ * @param {string} response - Generated response
+ * @param {Object} context - Conversation context
+ * @returns {{ offer: boolean, type: string | null }}
+ */
+export function shouldOfferExpansion(response, context = {}) {
+  // Never offer on gratitude responses
+  if (/^(rádo se stalo|není zač|rádi pomůžeme)/i.test(response)) {
+    return { offer: false, type: null };
+  }
+
+  // Never offer if user requested minimal
+  if (context.responseIntent === ResponseIntent.MINIMAL) {
+    return { offer: false, type: null };
+  }
+
+  // Don't offer too frequently (max every 3 turns)
+  if (context.turnsSinceLastOffer < 3) {
+    return { offer: false, type: null };
+  }
+
+  // Offer expansion for short factual responses
+  const wordCount = response.split(/\s+/).length;
+  if (wordCount < 30 && context.intent === 'FACTUAL') {
+    return { offer: true, type: 'expand_detail' };
+  }
+
+  // Offer comparison for single-item responses
+  if (wordCount < 50 && !response.includes('vs') && !response.includes('srovnání')) {
+    return { offer: true, type: 'offer_comparison' };
+  }
+
+  return { offer: false, type: null };
+}
+
+/**
+ * v45.0 KOLO 3: Generate expansion offer text
+ * @param {string} offerType - Type of expansion offer
+ * @returns {string}
+ * @deprecated Use getImplicitOffer() from KOLO 4.4 instead
+ */
+export function getExpansionOfferText(offerType) {
+  const offers = {
+    expand_detail: '\n\n💡 _Chcete podrobnější informace?_',
+    offer_comparison: '\n\n💡 _Chcete srovnat s alternativami?_',
+    offer_sources: '\n\n💡 _Chcete odkazy na zdroje?_',
+    offer_next_steps: '\n\n💡 _Chcete návrh dalších kroků?_',
+  };
+  return offers[offerType] || '';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v45.0 KOLO 4.4 — Curiosity Budget (Implicit Offers)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// CONTRACT:
+// - NO questions (no "?")
+// - Use parentheses format: "(Mohu případně rozvést...)"
+// - Max 1 offer per response
+// - Never on MINIMAL or gratitude
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Implicit offer types - statements, not questions
+ */
+export const ImplicitOfferType = {
+  EXPAND_STRATEGY: 'expand_strategy',
+  EXPAND_RISKS: 'expand_risks',
+  EXPAND_EXAMPLES: 'expand_examples',
+  EXPAND_ALTERNATIVES: 'expand_alternatives',
+  EXPAND_SOURCES: 'expand_sources',
+  EXPAND_STEPS: 'expand_steps',
+};
+
+/**
+ * Implicit offers - NO QUESTIONS, just parenthetical statements
+ */
+const IMPLICIT_OFFERS = {
+  [ImplicitOfferType.EXPAND_STRATEGY]: '(Mohu případně rozvést strategii.)',
+  [ImplicitOfferType.EXPAND_RISKS]: '(Mohu případně upřesnit rizika.)',
+  [ImplicitOfferType.EXPAND_EXAMPLES]: '(Mohu případně doplnit příklady.)',
+  [ImplicitOfferType.EXPAND_ALTERNATIVES]: '(Mohu případně zmínit alternativy.)',
+  [ImplicitOfferType.EXPAND_SOURCES]: '(Mohu případně doplnit zdroje.)',
+  [ImplicitOfferType.EXPAND_STEPS]: '(Mohu případně popsat konkrétní kroky.)',
+};
+
+/**
+ * v45.0 KOLO 4.4: Check if implicit offer should be included
+ * @param {Object} context - Response context
+ * @returns {{ shouldOffer: boolean, reason?: string }}
+ */
+export function shouldIncludeImplicitOffer(context = {}) {
+  const {
+    responseIntent,
+    prefersMinimal,
+    isGratitude,
+    turnsSinceLastOffer = 0,
+    responseLength = 0,
+  } = context;
+
+  // Never on MINIMAL
+  if (responseIntent === ResponseIntent.MINIMAL || prefersMinimal) {
+    return { shouldOffer: false, reason: 'MINIMAL_MODE' };
+  }
+
+  // Never on gratitude
+  if (isGratitude) {
+    return { shouldOffer: false, reason: 'GRATITUDE' };
+  }
+
+  // Not too frequently (every 3+ turns)
+  if (turnsSinceLastOffer < 3) {
+    return { shouldOffer: false, reason: 'TOO_FREQUENT' };
+  }
+
+  // Only on shorter responses (< 500 chars)
+  if (responseLength > 500) {
+    return { shouldOffer: false, reason: 'RESPONSE_TOO_LONG' };
+  }
+
+  return { shouldOffer: true };
+}
+
+/**
+ * v45.0 KOLO 4.4: Get appropriate implicit offer based on context
+ * @param {Object} context - Response context
+ * @returns {string} Implicit offer text (or empty string)
+ */
+export function getImplicitOffer(context = {}) {
+  const check = shouldIncludeImplicitOffer(context);
+  if (!check.shouldOffer) {
+    return '';
+  }
+
+  const { intent, responseContent = '' } = context;
+  const contentLower = responseContent.toLowerCase();
+
+  // Choose offer type based on content
+  let offerType = ImplicitOfferType.EXPAND_EXAMPLES; // Default
+
+  if (contentLower.includes('strateg') || contentLower.includes('plán')) {
+    offerType = ImplicitOfferType.EXPAND_STRATEGY;
+  } else if (contentLower.includes('rizik') || contentLower.includes('risk')) {
+    offerType = ImplicitOfferType.EXPAND_RISKS;
+  } else if (contentLower.includes('alternativ') || contentLower.includes('jiná')) {
+    offerType = ImplicitOfferType.EXPAND_ALTERNATIVES;
+  } else if (contentLower.includes('zdroj') || contentLower.includes('odkaz')) {
+    offerType = ImplicitOfferType.EXPAND_SOURCES;
+  } else if (contentLower.includes('krok') || contentLower.includes('postup')) {
+    offerType = ImplicitOfferType.EXPAND_STEPS;
+  }
+
+  return '\n\n' + IMPLICIT_OFFERS[offerType];
+}
+
+/**
+ * v45.0 KOLO 4.4: Validate that offer has no questions
+ * @param {string} offer - Offer text
+ * @returns {{ valid: boolean, violation?: string }}
+ */
+export function validateImplicitOffer(offer) {
+  if (!offer || offer.trim() === '') {
+    return { valid: true };
+  }
+
+  // Must not contain question marks
+  if (offer.includes('?')) {
+    return { valid: false, violation: 'CONTAINS_QUESTION' };
+  }
+
+  // Must be in parentheses format
+  if (!offer.includes('(') || !offer.includes(')')) {
+    return { valid: false, violation: 'NOT_PARENTHETICAL' };
+  }
+
+  return { valid: true };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Forbidden Phrases (if LLM generates these, something is WRONG)
@@ -193,6 +531,19 @@ const CREATIVE_FOLLOW_UP_PATTERNS = [
   /jak by/i,                        // "jak by to vypadalo?"
   /co by se stalo/i,                // "co by se stalo?"
 
+  // v45.0 FIX: Alternative/variation requests (MUST stay CREATIVE!)
+  /alternativ/i,                    // "alternativní verzi", "alternativu"
+  /jinak pojat/i,                   // "jinak pojaté"
+  /jin[áéouů] verz/i,               // "jinou verzi", "jiná verze" (include plain u!)
+  /dát.*verz/i,                     // "dát jinou verzi"
+  /zkus.*temnější/i,                // "zkus temnější"
+  /zkus.*lehčí/i,                   // "zkus lehčí"
+  /zkus.*jinak/i,                   // "zkus to jinak"
+  /ještě.*verz/i,                   // "ještě jednu verzi"
+  /další.*verz/i,                   // "další verzi"
+  /podobn[ěé]/i,                    // "podobně", "podobné"
+  /variac[ie]/i,                    // "variace", "variaci" - explicit check
+
   // English equivalents
   /what.*effect/i,
   /what.*impact/i,
@@ -203,6 +554,11 @@ const CREATIVE_FOLLOW_UP_PATTERNS = [
   /expand.*on/i,
   /tell me more/i,
   /go deeper/i,
+  /alternative/i,                   // "alternative version"
+  /another.*version/i,              // "another version"
+  /different.*take/i,               // "different take"
+  /try.*darker/i,                   // "try darker"
+  /try.*lighter/i,                  // "try lighter"
 ];
 
 const REPORT_PATTERNS = [
@@ -549,8 +905,10 @@ export class CREDecisionEngine {
         return [ToolType.WEB_SEARCH];
 
       case IntentType.REPORT:
-        // Reports need search + possibly scrape
-        return [ToolType.WEB_SEARCH, ToolType.WEB_SCRAPE];
+        // v45.0 FIX: REPORT starts with SEARCH only
+        // SCRAPE is orchestrated by handler AFTER search returns URLs
+        // NEVER call scrape directly from CRE - it needs URLs from search!
+        return [ToolType.WEB_SEARCH];
 
       case IntentType.FACTUAL:
         return [ToolType.WEB_SEARCH];
@@ -616,12 +974,17 @@ export class CREDecisionEngine {
 
     // ════════════════════════════════════════════════════════════════════════
     // v44.9 FIX A: CREATIVE FOLLOW-UP LOCK
+    // v45.0 FIX: CREATIVE follow-up has priority even over CONVERSATIONAL!
     // ════════════════════════════════════════════════════════════════════════
     // When in CREATIVE mode, follow-up questions should STAY in CREATIVE.
     // "jaký to může mít vliv na hráče?" after "vymysli kampaň" = CREATIVE
+    // "ukaž mi variaci" = CREATIVE (not CONVERSATIONAL!)
     // User is exploring THEIR ideation, not asking for web search!
     // ════════════════════════════════════════════════════════════════════════
-    if (lastIntent === IntentType.CREATIVE && !isStrongIntent) {
+    // v45.0: Check CREATIVE follow-up BEFORE respecting strong intents
+    // Exception: LOCAL (deterministic) and explicit new CREATIVE (fresh ideation)
+    const exceptCreativeFollowUp = [IntentType.LOCAL];
+    if (lastIntent === IntentType.CREATIVE && !exceptCreativeFollowUp.includes(intent)) {
       // Check if this looks like a follow-up to creative work
       const isCreativeFollowUp = CREATIVE_FOLLOW_UP_PATTERNS.some(p => p.test(input.trim()));
 
@@ -977,6 +1340,18 @@ export default {
   DecisionType,
   IntentType,
   ToolType,
+  // v45.0 KOLO 3: Response Intent
+  ResponseIntent,
+  detectResponseIntent,
+  // v45.0 KOLO 3: Question Budget
+  isTaskClear,
+  shouldOfferExpansion,
+  getExpansionOfferText,
+  // v45.0 KOLO 4.4: Curiosity Budget (Implicit Offers)
+  ImplicitOfferType,
+  shouldIncludeImplicitOffer,
+  getImplicitOffer,
+  validateImplicitOffer,
   FORBIDDEN_PHRASES,
   CREDecision,
   CREDecisionEngine,
