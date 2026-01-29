@@ -28,6 +28,21 @@ const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
 ];
 
+// Browser-like headers to prevent 403 errors
+const DEFAULT_HEADERS = {
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'cs-CZ,cs;q=0.9,en-US;q=0.8,en;q=0.7',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'DNT': '1',
+  'Connection': 'keep-alive',
+  'Upgrade-Insecure-Requests': '1',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'none',
+  'Sec-Fetch-User': '?1',
+  'Cache-Control': 'max-age=0',
+};
+
 // ════════════════════════════════════════════════════════════════════════════
 // RATE LIMITER
 // ════════════════════════════════════════════════════════════════════════════
@@ -131,6 +146,20 @@ export class SafeHttpClient {
   }
 
   /**
+   * Generate plausible referer for the URL
+   * Uses Google as referer for search-like requests, otherwise same domain
+   */
+  getReferer(url) {
+    try {
+      const parsed = new URL(url);
+      // For most requests, pretend we came from Google search
+      return 'https://www.google.com/';
+    } catch {
+      return 'https://www.google.com/';
+    }
+  }
+
+  /**
    * Execute HTTP request with rate limiting, retry, timeout
    *
    * @param {string} url
@@ -160,9 +189,12 @@ export class SafeHttpClient {
       };
     }
 
-    // Build headers
+    // Build headers with browser-like defaults
+    const referer = this.getReferer(url);
     const headers = {
+      ...DEFAULT_HEADERS,
       'User-Agent': this.getNextUserAgent(),
+      'Referer': referer,
       ...options.headers,
     };
 

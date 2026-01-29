@@ -1,4 +1,4 @@
-// CRE v44.0 LLM Bridge
+// CRE v45.0 LLM Bridge
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Authorized LLM interface for server endpoints.

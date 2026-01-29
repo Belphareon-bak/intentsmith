@@ -409,7 +409,22 @@ export class ChatController {
     let detection = null;
     let pendingConfirmation = null;
 
-    if (this.#config.autoModeDetection) {
+    // ════════════════════════════════════════════════════════════════════════════
+    // v44.2 - STICKY MODES: Project/Expert mode stays until explicit exit
+    // ════════════════════════════════════════════════════════════════════════════
+
+    const stickyMode = this.#getStickyMode(context);
+    if (stickyMode) {
+      // Sticky mode active - don't auto-detect, stay in current mode
+      targetMode = stickyMode;
+      detection = new ModeDetection({
+        mode: stickyMode,
+        confidence: 1.0,
+        signals: [{ type: 'sticky', mode: stickyMode }],
+        reason: `Sticky mode: ${stickyMode} (active project/expert)`,
+        requiresConfirmation: false,
+      });
+    } else if (this.#config.autoModeDetection) {
       detection = this.#modeDetector.detect(input, context);
 
       if (detection.confidence >= this.#config.modeConfidenceThreshold) {
@@ -428,7 +443,7 @@ export class ChatController {
       }
     }
 
-    // Handle explicit mode switch (user confirmed)
+    // Handle explicit mode switch (user confirmed) - overrides sticky
     if (context.forceMode && Object.values(ChatMode).includes(context.forceMode)) {
       targetMode = context.forceMode;
       pendingConfirmation = null; // Clear any pending
@@ -505,6 +520,28 @@ export class ChatController {
   }
 
   // ─── Private Methods ───────────────────────────────────────────────────────
+
+  /**
+   * v44.2 - Get sticky mode based on context
+   * Project/Expert modes are sticky until explicitly exited
+   *
+   * @param {Object} context - Request context
+   * @returns {string|null} - Sticky mode or null
+   */
+  #getStickyMode(context) {
+    // Project mode is sticky when project is active
+    if (context.hasActiveProject && context.project?.id) {
+      return ChatMode.PROJECT;
+    }
+
+    // Expert mode is sticky when expert is active
+    if (context.hasActiveExpert && context.expert?.id) {
+      return ChatMode.EXPERT;
+    }
+
+    // No sticky mode
+    return null;
+  }
 
   #transitionMode(newMode, reason) {
     const transition = {
@@ -589,14 +626,472 @@ export class ChatController {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Session State (v44.1 - Persistent Context)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Persistent session state for project, expert, user preferences,
+ * and conversation continuity (v44.2).
+ *
+ * This state survives across requests and page reloads.
+ *
+ * CONVERSATION STATE (v44.2):
+ * - lastIntent: Last classified intent
+ * - lastDecision: Last CRE decision made
+ * - pendingDecision: Decision waiting for user clarification
+ * - awaitingClarification: Whether we're waiting for user input
+ * - awaitingSlots: What information we need from user
+ */
+export class SessionState {
+  #sessionId;
+  #project;      // Active project { id, name, path, scope }
+  #expert;       // Active expert { id, name, domain }
+  #preferences;  // User preferences
+  #updatedAt;
+
+  // v44.2 - Conversation state for intent continuity
+  #lastIntent;           // Last classified intent (SEARCH, REPORT, CODE, etc.)
+  #lastDecision;         // Last CRE decision { type, intent, tools, ... }
+  #pendingDecision;      // Decision waiting for clarification
+  #awaitingClarification; // Whether waiting for user clarification
+  #awaitingSlots;        // What slots need to be filled ['intent', 'source', 'project']
+  #lastUserInput;        // Last user input (for context)
+
+  // v44.2+ - Project working memory (contextual state)
+  #projectWorkingMemory; // { goal, activeFile, lastArtifactId }
+
+  // v44.3 - Expert lock (CRE cannot override when locked)
+  #expertLocked;         // When true, CRE cannot auto-change expert
+
+  constructor(sessionId) {
+    this.#sessionId = sessionId;
+    this.#project = null;
+    this.#expert = null;
+    this.#preferences = {};
+    this.#updatedAt = Date.now();
+
+    // v44.2 - Initialize conversation state
+    this.#lastIntent = null;
+    this.#lastDecision = null;
+    this.#pendingDecision = null;
+    this.#awaitingClarification = false;
+    this.#awaitingSlots = [];
+    this.#lastUserInput = null;
+
+    // v44.2+ - Initialize project working memory
+    this.#projectWorkingMemory = {
+      goal: null,           // Current task/goal: "implementovat login formulář"
+      activeFile: null,     // Last edited/viewed file: "src/components/Login.tsx"
+      lastArtifactId: null, // Last generated artifact ID
+      driftCount: 0,        // v44.5 - Count of goal drift warnings (2nd+ = block)
+    };
+
+    // v44.3 - Expert is not locked by default
+    this.#expertLocked = false;
+  }
+
+  get sessionId() { return this.#sessionId; }
+  get project() { return this.#project; }
+  get expert() { return this.#expert; }
+  get preferences() { return { ...this.#preferences }; }
+  get hasActiveProject() { return this.#project !== null && this.#project.id !== null; }
+  get hasActiveExpert() { return this.#expert !== null && this.#expert.id !== null; }
+  // v44.3 - Expert lock state
+  get expertLocked() { return this.#expertLocked; }
+
+  // v44.2 - Conversation state getters
+  get lastIntent() { return this.#lastIntent; }
+  get lastDecision() { return this.#lastDecision; }
+  get pendingDecision() { return this.#pendingDecision; }
+  get awaitingClarification() { return this.#awaitingClarification; }
+  get awaitingSlots() { return [...this.#awaitingSlots]; }
+  get lastUserInput() { return this.#lastUserInput; }
+
+  // v44.2+ - Project working memory getters
+  get projectWorkingMemory() { return { ...this.#projectWorkingMemory }; }
+  get projectGoal() { return this.#projectWorkingMemory.goal; }
+  get activeFile() { return this.#projectWorkingMemory.activeFile; }
+  get lastArtifactId() { return this.#projectWorkingMemory.lastArtifactId; }
+  // v44.5 - Drift count getter
+  get driftCount() { return this.#projectWorkingMemory.driftCount || 0; }
+
+  /**
+   * Set active project
+   * v44.2+ - Now clears working memory when project changes
+   * @param {Object|null} project - { id, name, path?, scope? }
+   */
+  setProject(project) {
+    if (project && !project.id) {
+      throw new Error('Project must have an id');
+    }
+    // Clear working memory if project changed
+    const projectChanged = !this.#project || !project ||
+                          this.#project.id !== project?.id;
+    if (projectChanged) {
+      this.clearProjectWorkingMemory();
+    }
+    this.#project = project ? { ...project } : null;
+    this.#updatedAt = Date.now();
+    return this;
+  }
+
+  /**
+   * Set active expert
+   * v44.3 - Now supports locking (CRE cannot override when locked)
+   *
+   * @param {Object|null} expert - { id, name, domain? }
+   * @param {Object} options - { locked?: boolean, force?: boolean }
+   */
+  setExpert(expert, options = {}) {
+    const { locked = true, force = false } = options;
+
+    // v44.3 - Check if expert is locked and this isn't a forced change
+    if (this.#expertLocked && !force && expert?.id !== this.#expert?.id) {
+      // Expert is locked, cannot change without force
+      return this;
+    }
+
+    if (expert && !expert.id) {
+      throw new Error('Expert must have an id');
+    }
+    this.#expert = expert ? { ...expert } : null;
+
+    // v44.3 - Lock expert when explicitly set by user (default)
+    // Unlock when expert is cleared
+    this.#expertLocked = expert ? locked : false;
+
+    this.#updatedAt = Date.now();
+    return this;
+  }
+
+  /**
+   * v44.3 - Lock the current expert (prevent CRE from changing)
+   */
+  lockExpert() {
+    if (this.#expert) {
+      this.#expertLocked = true;
+      this.#updatedAt = Date.now();
+    }
+    return this;
+  }
+
+  /**
+   * v44.3 - Unlock the expert (allow CRE to change)
+   */
+  unlockExpert() {
+    this.#expertLocked = false;
+    this.#updatedAt = Date.now();
+    return this;
+  }
+
+  /**
+   * v44.3 - Check if expert can be changed (for CRE)
+   * Returns true if expert is not set or not locked
+   */
+  canChangeExpert() {
+    return !this.#expert || !this.#expertLocked;
+  }
+
+  /**
+   * Clear project
+   */
+  clearProject() {
+    this.#project = null;
+    this.#updatedAt = Date.now();
+    return this;
+  }
+
+  /**
+   * Clear expert
+   * v44.3 - Also clears the lock
+   */
+  clearExpert() {
+    this.#expert = null;
+    this.#expertLocked = false;
+    this.#updatedAt = Date.now();
+    return this;
+  }
+
+  /**
+   * Set a preference
+   */
+  setPreference(key, value) {
+    this.#preferences[key] = value;
+    this.#updatedAt = Date.now();
+    return this;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // v44.2+ - Project Working Memory Methods
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Set current project goal
+   * @param {string|null} goal - Current task/objective
+   */
+  setProjectGoal(goal) {
+    this.#projectWorkingMemory.goal = goal;
+    this.#updatedAt = Date.now();
+    return this;
+  }
+
+  /**
+   * Set active file being worked on
+   * @param {string|null} filePath - File path relative to project root
+   */
+  setActiveFile(filePath) {
+    this.#projectWorkingMemory.activeFile = filePath;
+    this.#updatedAt = Date.now();
+    return this;
+  }
+
+  /**
+   * Set last generated artifact
+   * @param {string|null} artifactId - Artifact ID
+   */
+  setLastArtifact(artifactId) {
+    this.#projectWorkingMemory.lastArtifactId = artifactId;
+    this.#updatedAt = Date.now();
+    return this;
+  }
+
+  /**
+   * Clear project working memory (called when project changes)
+   */
+  clearProjectWorkingMemory() {
+    this.#projectWorkingMemory = {
+      goal: null,
+      activeFile: null,
+      lastArtifactId: null,
+      driftCount: 0, // v44.5
+    };
+    this.#updatedAt = Date.now();
+    return this;
+  }
+
+  /**
+   * v44.5 - Increment drift count (called when user drifts from goal)
+   * @returns {number} New drift count
+   */
+  incrementDriftCount() {
+    this.#projectWorkingMemory.driftCount = (this.#projectWorkingMemory.driftCount || 0) + 1;
+    this.#updatedAt = Date.now();
+    return this.#projectWorkingMemory.driftCount;
+  }
+
+  /**
+   * v44.5 - Reset drift count (called when user returns to goal or confirms drift)
+   */
+  resetDriftCount() {
+    this.#projectWorkingMemory.driftCount = 0;
+    this.#updatedAt = Date.now();
+    return this;
+  }
+
+  /**
+   * v44.5 - Check if drift should be blocked (2nd+ drift)
+   */
+  shouldBlockDrift() {
+    return (this.#projectWorkingMemory.driftCount || 0) >= 1;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // v44.2 - Conversation State Methods
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Record a decision and update conversation state
+   * Called after CRE makes a decision
+   */
+  recordDecision(decision, userInput) {
+    this.#lastIntent = decision.intent;
+    this.#lastDecision = decision.toJSON ? decision.toJSON() : decision;
+    this.#lastUserInput = userInput;
+    this.#updatedAt = Date.now();
+
+    // If ASK_USER, mark as awaiting clarification
+    if (decision.type === 'ASK_USER') {
+      this.#pendingDecision = this.#lastDecision;
+      this.#awaitingClarification = true;
+      this.#awaitingSlots = decision.slots || [];
+    } else {
+      // Clear pending state on non-ASK_USER decisions
+      this.#pendingDecision = null;
+      this.#awaitingClarification = false;
+      this.#awaitingSlots = [];
+    }
+
+    return this;
+  }
+
+  /**
+   * Set pending decision (for ASK_USER flow)
+   */
+  setPendingDecision(decision, slots = []) {
+    this.#pendingDecision = decision.toJSON ? decision.toJSON() : decision;
+    this.#awaitingClarification = true;
+    this.#awaitingSlots = slots;
+    this.#updatedAt = Date.now();
+    return this;
+  }
+
+  /**
+   * Clear pending decision (after clarification received)
+   */
+  clearPendingDecision() {
+    this.#pendingDecision = null;
+    this.#awaitingClarification = false;
+    this.#awaitingSlots = [];
+    this.#updatedAt = Date.now();
+    return this;
+  }
+
+  /**
+   * Check if we're waiting for a specific type of clarification
+   */
+  isAwaitingSlot(slotName) {
+    return this.#awaitingSlots.includes(slotName);
+  }
+
+  /**
+   * Get the original intent that triggered ASK_USER
+   * Used for resuming after clarification
+   */
+  getPendingIntent() {
+    return this.#pendingDecision?.intent || this.#lastIntent;
+  }
+
+  /**
+   * Serialize to JSON for storage
+   */
+  toJSON() {
+    return {
+      sessionId: this.#sessionId,
+      project: this.#project,
+      expert: this.#expert,
+      expertLocked: this.#expertLocked, // v44.3
+      preferences: this.#preferences,
+      updatedAt: this.#updatedAt,
+      // v44.2 - Conversation state
+      lastIntent: this.#lastIntent,
+      lastDecision: this.#lastDecision,
+      pendingDecision: this.#pendingDecision,
+      awaitingClarification: this.#awaitingClarification,
+      awaitingSlots: this.#awaitingSlots,
+      lastUserInput: this.#lastUserInput,
+      // v44.2+ - Project working memory
+      projectWorkingMemory: this.#projectWorkingMemory,
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // v44.3 - Persistence Methods (localStorage support)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Save session state to localStorage
+   * Call this after any state change that should persist
+   */
+  saveToStorage() {
+    if (typeof localStorage === 'undefined') {
+      return false; // Not in browser environment
+    }
+    try {
+      const key = `cre_session_${this.#sessionId}`;
+      localStorage.setItem(key, JSON.stringify(this.toJSON()));
+      return true;
+    } catch (err) {
+      console.warn('SessionState.saveToStorage failed:', err.message);
+      return false;
+    }
+  }
+
+  /**
+   * Load session state from localStorage
+   * @param {string} sessionId
+   * @returns {SessionState|null}
+   */
+  static loadFromStorage(sessionId) {
+    if (typeof localStorage === 'undefined') {
+      return null; // Not in browser environment
+    }
+    try {
+      const key = `cre_session_${sessionId}`;
+      const stored = localStorage.getItem(key);
+      if (!stored) return null;
+      const json = JSON.parse(stored);
+      return SessionState.fromJSON(json);
+    } catch (err) {
+      console.warn('SessionState.loadFromStorage failed:', err.message);
+      return null;
+    }
+  }
+
+  /**
+   * Clear session state from localStorage
+   */
+  clearFromStorage() {
+    if (typeof localStorage === 'undefined') {
+      return false;
+    }
+    try {
+      const key = `cre_session_${this.#sessionId}`;
+      localStorage.removeItem(key);
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  /**
+   * Create from JSON
+   * v44.2+ - Now restores project working memory
+   * v44.3 - Now restores expertLocked
+   */
+  static fromJSON(json) {
+    const state = new SessionState(json.sessionId);
+    if (json.project) state.setProject(json.project);
+    // v44.3 - Restore expert with locked state
+    if (json.expert) {
+      state.setExpert(json.expert, { locked: json.expertLocked ?? true, force: true });
+    }
+    if (json.preferences) {
+      for (const [key, value] of Object.entries(json.preferences)) {
+        state.setPreference(key, value);
+      }
+    }
+    // v44.2 - Restore conversation state
+    if (json.pendingDecision) {
+      state.setPendingDecision(json.pendingDecision, json.awaitingSlots || []);
+    }
+    // v44.2+ - Restore project working memory (AFTER project is set)
+    if (json.projectWorkingMemory) {
+      if (json.projectWorkingMemory.goal) {
+        state.setProjectGoal(json.projectWorkingMemory.goal);
+      }
+      if (json.projectWorkingMemory.activeFile) {
+        state.setActiveFile(json.projectWorkingMemory.activeFile);
+      }
+      if (json.projectWorkingMemory.lastArtifactId) {
+        state.setLastArtifact(json.projectWorkingMemory.lastArtifactId);
+      }
+    }
+    return state;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Session Manager (Singleton)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Global session manager for ChatController instances
+ * v44.1 - Now includes persistent SessionState
+ * v44.3 - Now supports localStorage persistence
  */
 class ChatSessionManager {
-  #sessions = new Map();
+  #sessions = new Map();       // sessionId → ChatController
+  #states = new Map();         // sessionId → SessionState
   #config = {};
   #handlers = {};
 
@@ -609,7 +1104,7 @@ class ChatSessionManager {
   }
 
   /**
-   * Get or create a session
+   * Get or create a session controller
    */
   getSession(sessionId) {
     if (!this.#sessions.has(sessionId)) {
@@ -624,10 +1119,63 @@ class ChatSessionManager {
   }
 
   /**
+   * Get or create session state
+   * v44.3 - Now tries to restore from localStorage first
+   * This is THE persistent state for project/expert context
+   */
+  getState(sessionId) {
+    if (!this.#states.has(sessionId)) {
+      // v44.3 - Try to restore from localStorage first
+      const restored = SessionState.loadFromStorage(sessionId);
+      if (restored) {
+        this.#states.set(sessionId, restored);
+      } else {
+        this.#states.set(sessionId, new SessionState(sessionId));
+      }
+    }
+    return this.#states.get(sessionId);
+  }
+
+  /**
+   * v44.3 - Save session state to localStorage
+   */
+  saveState(sessionId) {
+    const state = this.#states.get(sessionId);
+    if (state) {
+      state.saveToStorage();
+    }
+  }
+
+  /**
+   * Set project for a session
+   * v44.3 - Now auto-saves to localStorage
+   */
+  setProject(sessionId, project) {
+    const state = this.getState(sessionId);
+    state.setProject(project);
+    // v44.3 - Auto-save to localStorage
+    state.saveToStorage();
+    return state;
+  }
+
+  /**
+   * Set expert for a session
+   * v44.3 - Now auto-saves to localStorage
+   */
+  setExpert(sessionId, expert, options = {}) {
+    const state = this.getState(sessionId);
+    state.setExpert(expert, options);
+    // v44.3 - Auto-save to localStorage
+    state.saveToStorage();
+    return state;
+  }
+
+  /**
    * Remove a session
    */
   removeSession(sessionId) {
     this.#sessions.delete(sessionId);
+    this.#states.delete(sessionId);
   }
 
   /**
@@ -635,6 +1183,19 @@ class ChatSessionManager {
    */
   getActiveSessions() {
     return Array.from(this.#sessions.keys());
+  }
+
+  /**
+   * Get session state for debugging/API
+   */
+  getSessionInfo(sessionId) {
+    const controller = this.#sessions.get(sessionId);
+    const state = this.#states.get(sessionId);
+    return {
+      exists: !!controller,
+      mode: controller?.currentMode || null,
+      state: state?.toJSON() || null,
+    };
   }
 }
 
@@ -647,15 +1208,19 @@ const sessionManager = new ChatSessionManager();
  * This is THE ONLY way external code should interact with ChatController.
  * All intent detection, mode routing, and response generation happens here.
  *
+ * v44.1 - Now uses persistent SessionState for project/expert context
+ *
  * @param {Object} request
  * @param {string} request.message - User message
  * @param {string} request.sessionId - Session ID
  * @param {string} [request.userId] - User ID
+ * @param {Object} [request.project] - Project to set/use { id, name, ... }
+ * @param {Object} [request.expert] - Expert to set/use { id, name, ... }
  * @param {Object} [request.context] - Additional context
  * @returns {Promise<{response: string, mode: string, confidence: number, metadata: Object}>}
  */
 ChatController.handle = async function(request) {
-  const { message, sessionId, userId, context = {} } = request;
+  const { message, sessionId, userId, project, expert, context = {} } = request;
 
   if (!message) {
     return {
@@ -675,22 +1240,80 @@ ChatController.handle = async function(request) {
     };
   }
 
-  // Get controller for this session
+  // Get controller and state for this session
   const controller = sessionManager.getSession(sessionId);
+  const state = sessionManager.getState(sessionId);
 
-  // Process the message
-  const result = await controller.process(message, {
+  // ════════════════════════════════════════════════════════════════════════════
+  // UPDATE SESSION STATE (v44.1 - persistent project/expert)
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // If project provided in request, update state
+  if (project !== undefined) {
+    if (project === null) {
+      state.clearProject();
+    } else if (project.id) {
+      state.setProject(project);
+    }
+  }
+
+  // If expert provided in request, update state
+  if (expert !== undefined) {
+    if (expert === null) {
+      state.clearExpert();
+    } else if (expert.id) {
+      state.setExpert(expert);
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // BUILD CONTEXT WITH PERSISTENT STATE
+  // ════════════════════════════════════════════════════════════════════════════
+
+  const fullContext = {
     ...context,
     userId,
-  });
+    // Persistent state from session (survives across requests)
+    project: state.project,
+    expert: state.expert,
+    // v44.3 - Expert lock info for CRE
+    expertLocked: state.expertLocked,
+    canChangeExpert: state.canChangeExpert(),
+    // Convenience flags for handlers
+    hasActiveProject: state.hasActiveProject,
+    hasActiveExpert: state.hasActiveExpert,
+    // v44.2 - Pass actual SessionState instance (not JSON) so handlers can call methods
+    sessionState: state,
+    // JSON version for debugging only
+    sessionStateJSON: state.toJSON(),
+    // v44.2+ - Project working memory for context
+    projectWorkingMemory: state.projectWorkingMemory,
+    projectGoal: state.projectGoal,
+    activeFile: state.activeFile,
+    lastArtifactId: state.lastArtifactId,
+  };
 
-  // Return structured response
+  // Process the message with full context
+  const result = await controller.process(message, fullContext);
+
+  // v44.3 - Save state after processing (auto-persist)
+  state.saveToStorage();
+
+  // Return structured response with state info
   return {
     response: result.content,
     mode: result.mode,
     confidence: result.confidence,
     canExecute: result.canExecute,
     metadata: result.tag.metadata,
+    // Include current state in response so UI can stay in sync
+    state: {
+      project: state.project,
+      expert: state.expert,
+      expertLocked: state.expertLocked, // v44.3
+      // v44.2+ - Include working memory
+      workingMemory: state.projectWorkingMemory,
+    },
   };
 };
 
@@ -707,6 +1330,43 @@ ChatController.configure = function(options) {
  */
 ChatController.getSessionManager = function() {
   return sessionManager;
+};
+
+/**
+ * Set project for a session (v44.1)
+ * @param {string} sessionId
+ * @param {Object|null} project - { id, name, path?, scope? }
+ */
+ChatController.setProject = function(sessionId, project) {
+  return sessionManager.setProject(sessionId, project);
+};
+
+/**
+ * Set expert for a session (v44.1)
+ * v44.3 - Now supports locked option
+ * @param {string} sessionId
+ * @param {Object|null} expert - { id, name, domain? }
+ * @param {Object} [options] - { locked?: boolean, force?: boolean }
+ */
+ChatController.setExpert = function(sessionId, expert, options = {}) {
+  return sessionManager.setExpert(sessionId, expert, options);
+};
+
+/**
+ * Get session state (v44.1)
+ * @param {string} sessionId
+ * @returns {SessionState}
+ */
+ChatController.getState = function(sessionId) {
+  return sessionManager.getState(sessionId);
+};
+
+/**
+ * Get session info for debugging (v44.1)
+ * @param {string} sessionId
+ */
+ChatController.getSessionInfo = function(sessionId) {
+  return sessionManager.getSessionInfo(sessionId);
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

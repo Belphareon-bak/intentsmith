@@ -1,0 +1,19 @@
+{
+  "id": "1769366124583",
+  "filename": "souhrn-zpráv-za-poslední-týden-o-trumpově-politice-1769366124583.pdf",
+  "title": "Souhrn zpráv za poslední týden o Trumpově politice",
+  "requestedType": "pdf",
+  "actualType": "pdf",
+  "mimeType": "application/pdf",
+  "size": 80822,
+  "created": "2026-01-25T18:35:25.784Z",
+  "puppeteerAvailable": true,
+  "locale": "cs-CZ",
+  "currency": "CZK",
+  "region": "Czech Republic",
+  "confidence": "unknown",
+  "intent": "REPORT_REQUEST",
+  "representation": "structured",
+  "rowCount": 0,
+  "wordCount": 0
+}

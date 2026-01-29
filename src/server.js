@@ -1,4 +1,4 @@
-// C.3 v44.0.0 Server - p(AI)assistant
+// C.3 v45.0.0 Server - p(AI)assistant
 // ══════════════════════════════════════════════════════════════════════════════
 
 import http from 'http';
@@ -75,7 +75,7 @@ ChatController.configure({
     modeConfidenceThreshold: 0.6,
   },
 });
-logger.info('Server', 'ChatController v44.0 configured');
+logger.info('Server', 'ChatController v45.0 configured');
 
 // ════════════════════════════════════════════════════════════════════════════
 // v44.0: Wire ToolExecutor to existing tool implementations
@@ -248,52 +248,31 @@ async function getArchitectUIHTML() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// INTENT CLASSIFICATION HELPERS
-// ════════════════════════════════════════════════════════════════════════════
-
-/**
- * Detect file type from message and intent
- */
-function detectFileTypeFromIntent(message, intent) {
-  // Check explicit file type mentions
-  if (/\bpdf\b/i.test(message)) return 'pdf';
-  if (/\b(xlsx|excel|spreadsheet)\b/i.test(message)) return 'xlsx';
-  if (/\bcsv\b/i.test(message)) return 'csv';
-  if (/\b(docx|word)\b/i.test(message)) return 'docx';
-  if (/\bjson\b/i.test(message)) return 'json';
-  if (/\b(yaml|yml)\b/i.test(message)) return 'yaml';
-  
-  // Default based on intent
-  const intentDefaults = {
-    'FILE_REQUEST': 'pdf',
-    'REPORT_REQUEST': 'pdf',
-    'TABLE_REQUEST': 'xlsx',
-    'CONFIG_REQUEST': 'json'
-  };
-  
-  return intentDefaults[intent] || 'pdf';
-}
-
-/**
- * Extract topic/subject from message
- */
-function extractTopicFromMessage(message) {
-  return message
-    .replace(/vygeneruj\s+(mi\s+)?/gi, '')
-    .replace(/vytvoř\s+(mi\s+)?/gi, '')
-    .replace(/připrav\s+(mi\s+)?/gi, '')
-    .replace(/exportuj\s+(jako\s+)?/gi, '')
-    .replace(/udělej\s+(mi\s+)?/gi, '')
-    .replace(/chci\s+(to\s+)?/gi, '')
-    .replace(/\b(pdf|xlsx|excel|csv|docx|word|dokument|tabulku?|soubor|report|přehled)\b/gi, '')
-    .replace(/\s+(s|kde|který|která|které|obsahující|ke\s+stažení)\s+/gi, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-// ════════════════════════════════════════════════════════════════════════════
 // API ROUTES
+// v44.5: server.js = transport & wiring ONLY
+// All logic goes through ChatController → handlers.js → CRE → ToolExecutor
 // ════════════════════════════════════════════════════════════════════════════
+//
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║  🛑 ARCHITECTURAL INVARIANT - DO NOT VIOLATE                              ║
+// ╠═══════════════════════════════════════════════════════════════════════════╣
+// ║  server.js MUST NOT contain:                                              ║
+// ║  ❌ intent classification (classifyIntent, detectIntent, etc.)            ║
+// ║  ❌ LLM calls (llmCall, callOllama, generateResponse, etc.)               ║
+// ║  ❌ fallback logic ("if error, try X")                                    ║
+// ║  ❌ expert/project decisions                                               ║
+// ║  ❌ semantic routing (switch on intent type)                               ║
+// ║                                                                           ║
+// ║  server.js MAY ONLY:                                                      ║
+// ║  ✅ parse HTTP request                                                    ║
+// ║  ✅ create context object                                                 ║
+// ║  ✅ call ChatController.handle()                                          ║
+// ║  ✅ return HTTP response                                                  ║
+// ║                                                                           ║
+// ║  If you think "just this one special case..." → STOP                      ║
+// ║  Put it in handlers.js or CRE. That's what they're for.                   ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
+//
 
 const routes = {
   // Health check
@@ -454,8 +433,9 @@ const routes = {
   
   // ══════════════════════════════════════════════════════════════════════════
   // CHAT API (Simple, stateless)
+  // v44.5: Now routes through ChatController like /api/chat
   // ══════════════════════════════════════════════════════════════════════════
-  
+
   'POST /chat': async (req, res) => {
     const body = await parseBody(req);
     const { message } = body;
@@ -465,16 +445,22 @@ const routes = {
     }
 
     try {
-      // v44.0: Use CRE bridge for authorized LLM calls
-      const creBridge = await import('./llm/cre-bridge.js');
-      const { PROMPTS } = await import('./llm/prompts.js');
+      // v44.5: Route through ChatController - THE ONLY brain
+      const sessionId = `simple-${Date.now()}`;
 
-      const response = await creBridge.generateChatResponse(message, PROMPTS.CHAT);
+      const result = await ChatController.handle({
+        message,
+        sessionId,
+        userId: null,
+        context: {
+          hasActiveProject: false,
+        },
+      });
 
       sendJSON(res, 200, {
-        response: response.content,
-        model: response.model,
-        duration: response.duration,
+        response: result.response,
+        mode: result.mode,
+        confidence: result.confidence,
       });
 
     } catch (err) {
@@ -1803,7 +1789,7 @@ function getUIHTML() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>p(AI)assistant v44.0.0</title>
+  <title>p(AI)assistant v45.0.0</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
@@ -2073,7 +2059,7 @@ function getUIHTML() {
 </head>
 <body>
   <header>
-    <div class="logo">⚡ p(AI)assistant <small style="color:#888">v44.0.0</small></div>
+    <div class="logo">⚡ p(AI)assistant <small style="color:#888">v45.0.0</small></div>
     <div class="status">
       <div class="status-dot"></div>
       <span id="statusText">Ready</span>
@@ -2084,7 +2070,7 @@ function getUIHTML() {
     <div class="chat-container">
       <div class="messages" id="messages">
         <div class="message system">
-          Vítej v p(AI)assistant v44.0.0! Zadej požadavek a já ho implementuji.
+          Vítej v p(AI)assistant v45.0.0! Zadej požadavek a já ho implementuji.
         </div>
       </div>
       
@@ -2271,7 +2257,7 @@ server.listen(config.server.port, config.server.host, () => {
   console.log(`
 ╔══════════════════════════════════════════════════════════════╗
 ║                                                              ║
-║     ⚡  p(AI)assistant v44.0.0                               ║
+║     ⚡  p(AI)assistant v45.0.0                               ║
 ║                                                              ║
 ║     Chat:      http://${config.server.host}:${config.server.port}/architect             ║
 ║     Agents:    http://${config.server.host}:${config.server.port}/agents                ║

@@ -1,50 +1,187 @@
-// C.3 v31 Web Search Module
+// C.3 v44.2 Web Search Module
 // ══════════════════════════════════════════════════════════════════════════════
-// DuckDuckGo search integration for local LLM enhancement
+// Multi-provider web search with automatic fallback
+// Providers: DuckDuckGo → SearX → Brave (if key available)
 
 import { logger } from '../core/logger.js';
 
 // ════════════════════════════════════════════════════════════════════════════
-// DUCKDUCKGO SEARCH
+// SEARCH PROVIDERS (with fallback chain)
+// ════════════════════════════════════════════════════════════════════════════
+
+// Public SearX instances (privacy-respecting meta-search engines)
+// These instances may change availability - rotated on failure
+const SEARX_INSTANCES = [
+  'https://searx.be',
+  'https://search.mdosch.de',
+  'https://searx.tiekoetter.com',
+  'https://search.bus-hit.me',
+  'https://searx.fmac.xyz',
+];
+
+// Track failed providers to avoid retrying immediately
+const failedProviders = new Map(); // provider -> failUntil timestamp
+const FAIL_COOLDOWN = 5 * 60 * 1000; // 5 minutes cooldown after failure
+
+/**
+ * Check if a provider is currently failed (in cooldown)
+ */
+function isProviderFailed(provider) {
+  const failUntil = failedProviders.get(provider);
+  if (!failUntil) return false;
+  if (Date.now() > failUntil) {
+    failedProviders.delete(provider);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Mark a provider as failed
+ */
+function markProviderFailed(provider) {
+  failedProviders.set(provider, Date.now() + FAIL_COOLDOWN);
+  logger.warn('WebSearch', `Provider ${provider} marked as failed for ${FAIL_COOLDOWN/1000}s`);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// DUCKDUCKGO PROVIDER
+// ════════════════════════════════════════════════════════════════════════════
+
+async function searchDDG(query, maxResults) {
+  const encoded = encodeURIComponent(query);
+  const url = `https://html.duckduckgo.com/html/?q=${encoded}`;
+
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml',
+      'Accept-Language': 'cs,en;q=0.9',
+    },
+    signal: AbortSignal.timeout(10000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const html = await response.text();
+  return parseDDGResults(html, maxResults);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SEARX PROVIDER (fallback)
+// ════════════════════════════════════════════════════════════════════════════
+
+async function searchSearX(query, maxResults, instance) {
+  const encoded = encodeURIComponent(query);
+  const url = `${instance}/search?q=${encoded}&format=json&categories=general`;
+
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': 'application/json',
+    },
+    signal: AbortSignal.timeout(15000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+  const results = [];
+
+  for (const item of (data.results || []).slice(0, maxResults)) {
+    results.push({
+      title: item.title || '',
+      url: item.url || '',
+      snippet: item.content || '',
+    });
+  }
+
+  return results;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MAIN SEARCH FUNCTION (with fallback chain)
 // ════════════════════════════════════════════════════════════════════════════
 
 /**
- * Search DuckDuckGo and return results
+ * Search web using multiple providers with automatic fallback
+ * v44.2 - Now returns full result object with fallback info
+ *
  * @param {string} query - Search query
  * @param {number} maxResults - Maximum number of results (default 5)
- * @returns {Promise<Array<{title: string, url: string, snippet: string}>>}
+ * @returns {Promise<{results: Array, usedProvider: string|null, fallbackLog: Array, allFailed: boolean}>}
  */
 export async function searchWeb(query, maxResults = 5) {
   logger.info('WebSearch', `Searching: "${query}"`);
-  
-  try {
-    // Use DuckDuckGo HTML search (no API key needed)
-    const encoded = encodeURIComponent(query);
-    const url = `https://html.duckduckgo.com/html/?q=${encoded}`;
-    
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml',
-        'Accept-Language': 'cs,en;q=0.9',
-      },
-      timeout: 10000,
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+
+  const fallbackLog = [];
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // TRY 1: DuckDuckGo (primary, most reliable)
+  // ─────────────────────────────────────────────────────────────────────────
+  if (!isProviderFailed('ddg')) {
+    fallbackLog.push({ provider: 'DuckDuckGo', status: 'trying' });
+    try {
+      const results = await searchDDG(query, maxResults);
+      if (results.length > 0) {
+        logger.info('WebSearch', `DDG: Found ${results.length} results`);
+        fallbackLog[fallbackLog.length - 1].status = 'success';
+        fallbackLog[fallbackLog.length - 1].count = results.length;
+        return { results, usedProvider: 'DuckDuckGo', fallbackLog, allFailed: false };
+      }
+      fallbackLog[fallbackLog.length - 1].status = 'no_results';
+    } catch (err) {
+      fallbackLog[fallbackLog.length - 1].status = 'error';
+      fallbackLog[fallbackLog.length - 1].error = err.message;
+      if (err.message.includes('403') || err.message.includes('429')) {
+        markProviderFailed('ddg');
+        fallbackLog[fallbackLog.length - 1].blocked = true;
+      }
     }
-    
-    const html = await response.text();
-    const results = parseDDGResults(html, maxResults);
-    
-    logger.info('WebSearch', `Found ${results.length} results`);
-    return results;
-    
-  } catch (err) {
-    logger.error('WebSearch', `Search failed: ${err.message}`);
-    return [];
+  } else {
+    fallbackLog.push({ provider: 'DuckDuckGo', status: 'cooldown', skipped: true });
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // TRY 2: SearX instances (privacy-respecting meta-search)
+  // ─────────────────────────────────────────────────────────────────────────
+  for (const instance of SEARX_INSTANCES) {
+    if (isProviderFailed(instance)) {
+      fallbackLog.push({ provider: `SearX (${new URL(instance).host})`, status: 'cooldown', skipped: true });
+      continue;
+    }
+
+    const providerName = `SearX (${new URL(instance).host})`;
+    fallbackLog.push({ provider: providerName, status: 'trying' });
+
+    try {
+      const results = await searchSearX(query, maxResults, instance);
+      if (results.length > 0) {
+        logger.info('WebSearch', `SearX (${instance}): Found ${results.length} results`);
+        fallbackLog[fallbackLog.length - 1].status = 'success';
+        fallbackLog[fallbackLog.length - 1].count = results.length;
+        return { results, usedProvider: providerName, fallbackLog, allFailed: false };
+      }
+      fallbackLog[fallbackLog.length - 1].status = 'no_results';
+    } catch (err) {
+      fallbackLog[fallbackLog.length - 1].status = 'error';
+      fallbackLog[fallbackLog.length - 1].error = err.message;
+      if (err.message.includes('403') || err.message.includes('429') || err.message.includes('503')) {
+        markProviderFailed(instance);
+        fallbackLog[fallbackLog.length - 1].blocked = true;
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ALL PROVIDERS FAILED
+  // ─────────────────────────────────────────────────────────────────────────
+  logger.error('WebSearch', `All providers failed`, { fallbackLog });
+  return { results: [], usedProvider: null, fallbackLog, allFailed: true };
 }
 
 /**
@@ -462,6 +599,39 @@ export async function searchAndFormat(query, fetchContent = false) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// PROVIDER MANAGEMENT
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Reset all failed providers (clear cooldowns)
+ * Useful for testing or manual recovery
+ */
+export function resetFailedProviders() {
+  failedProviders.clear();
+  logger.info('WebSearch', 'All provider cooldowns reset');
+}
+
+/**
+ * Get current provider status
+ * @returns {Object} Status of all providers
+ */
+export function getProviderStatus() {
+  const now = Date.now();
+  return {
+    ddg: isProviderFailed('ddg') ? 'failed' : 'ok',
+    searx: SEARX_INSTANCES.map(inst => ({
+      instance: inst,
+      status: isProviderFailed(inst) ? 'failed' : 'ok',
+    })),
+    failedProviders: Array.from(failedProviders.entries()).map(([k, v]) => ({
+      provider: k,
+      failedUntil: new Date(v).toISOString(),
+      remainingMs: Math.max(0, v - now),
+    })),
+  };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // EXPORTS
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -471,4 +641,6 @@ export default {
   needsWebSearch,
   extractSearchQuery,
   searchAndFormat,
+  resetFailedProviders,
+  getProviderStatus,
 };

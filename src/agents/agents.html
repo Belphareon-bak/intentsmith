@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>p(AI)assistant v44.0.0 - Agents</title>
+  <title>p(AI)assistant v45.0.0 - Agents</title>
   <style>
     :root {
       --bg-primary: #0a0a0f;
@@ -970,6 +970,211 @@
       display: none;
     }
 
+    /* ═══════════════════════════════════════════════════════════════════════
+       v44.4 D-FIX-1: Form Editor Styles
+       ═══════════════════════════════════════════════════════════════════════ */
+
+    .draft-item.editable {
+      cursor: default;
+      position: relative;
+    }
+
+    .draft-item-actions {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .draft-item:hover .draft-item-actions {
+      opacity: 1;
+    }
+
+    .draft-item-action {
+      width: 24px;
+      height: 24px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .draft-item-action:hover {
+      background: var(--bg-hover);
+    }
+
+    .draft-item-action.danger:hover {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: var(--error);
+    }
+
+    /* Form editor modal */
+    .editor-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .editor-modal-content {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .editor-modal-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .editor-field {
+      margin-bottom: 16px;
+    }
+
+    .editor-field label {
+      display: block;
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .editor-field input,
+    .editor-field select,
+    .editor-field textarea {
+      width: 100%;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      color: var(--text-primary);
+      font-size: 14px;
+    }
+
+    .editor-field input:focus,
+    .editor-field select:focus,
+    .editor-field textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .editor-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 20px;
+    }
+
+    /* v44.4 D-FIX-3: Inline dryRun preview */
+    .dry-run-panel {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-top: 20px;
+      overflow: hidden;
+    }
+
+    .dry-run-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dry-run-header h4 {
+      font-size: 14px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dry-run-body {
+      padding: 16px;
+    }
+
+    .dry-run-summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .dry-run-stat {
+      text-align: center;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border-radius: 6px;
+    }
+
+    .dry-run-stat-value {
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .dry-run-stat-value.success { color: var(--success); }
+    .dry-run-stat-value.warning { color: var(--warning); }
+    .dry-run-stat-value.error { color: var(--error); }
+
+    .dry-run-stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .dry-run-log {
+      font-family: monospace;
+      font-size: 12px;
+      background: var(--bg-primary);
+      border-radius: 6px;
+      padding: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .dry-run-log-entry {
+      padding: 4px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dry-run-log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .dry-run-log-time {
+      color: var(--text-muted);
+      margin-right: 8px;
+    }
+
+    .dry-run-pending {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 24px;
+      color: var(--text-secondary);
+    }
+
     .settings-textarea.code {
       font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
       font-size: 12px;
@@ -1017,7 +1222,9 @@
         description: '',
         definition: null,
         explanation: null,
-        loading: false
+        loading: false,
+        dryRunLoading: false,  // v44.4
+        dryRunResult: null     // v44.4
       }
     };
     
@@ -1288,19 +1495,44 @@
     function renderReviewStep() {
       const def = state.createForm.definition;
       if (!def) return '<div class="loading"><div class="spinner"></div></div>';
-      
+
+      // v44.4 - Parse schedule for interval picker
+      const schedule = def.schedule || { type: 'interval', interval: '1h' };
+      const interval = parseInterval(schedule.interval);
+
       return `
         <div class="create-card">
           <h2 class="create-title">📋 Návrh agenta</h2>
           <p class="create-subtitle">Zkontroluj a případně uprav vygenerovaný návrh</p>
-          
+
+          <!-- v44.4 D-FIX-2: Interval picker in create view -->
+          <div class="form-group" style="margin-bottom: 24px;">
+            <label class="form-label">⏰ Interval kontroly</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <input type="number" class="form-input" id="create-interval-value"
+                     value="${interval.value}" min="1" style="width: 100px;"
+                     onchange="updateDefinitionInterval()">
+              <select class="form-input" id="create-interval-unit" style="width: 140px;"
+                      onchange="updateDefinitionInterval()">
+                <option value="s" ${interval.unit === 's' ? 'selected' : ''}>sekund</option>
+                <option value="m" ${interval.unit === 'm' ? 'selected' : ''}>minut</option>
+                <option value="h" ${interval.unit === 'h' ? 'selected' : ''}>hodin</option>
+                <option value="d" ${interval.unit === 'd' ? 'selected' : ''}>dnů</option>
+              </select>
+            </div>
+          </div>
+
           <div class="draft-section">
             <div class="draft-section-header">
               <h3 class="draft-section-title">🔌 ZDROJE DAT</h3>
-              <button class="btn btn-ghost" onclick="addSource()">+ Přidat</button>
+              <button class="btn btn-ghost" onclick="openSourceEditor()">+ Přidat</button>
             </div>
-            ${(def.sources || []).map(s => `
-              <div class="draft-item">
+            ${(def.sources || []).map((s, i) => `
+              <div class="draft-item editable">
+                <div class="draft-item-actions">
+                  <button class="draft-item-action" onclick="editSource(${i})" title="Upravit">✏️</button>
+                  <button class="draft-item-action danger" onclick="removeSource(${i})" title="Odstranit">🗑️</button>
+                </div>
                 <div class="draft-item-header">
                   <span class="draft-item-icon">🔗</span>
                   <span class="draft-item-name">${s.id}</span>
@@ -1309,14 +1541,18 @@
               </div>
             `).join('')}
           </div>
-          
+
           <div class="draft-section">
             <div class="draft-section-header">
               <h3 class="draft-section-title">🔍 PODMÍNKY</h3>
-              <button class="btn btn-ghost" onclick="addCondition()">+ Přidat</button>
+              <button class="btn btn-ghost" onclick="openConditionEditor()">+ Přidat</button>
             </div>
-            ${(def.conditions || []).map(c => `
-              <div class="draft-item">
+            ${(def.conditions || []).map((c, i) => `
+              <div class="draft-item editable">
+                <div class="draft-item-actions">
+                  <button class="draft-item-action" onclick="editCondition(${i})" title="Upravit">✏️</button>
+                  <button class="draft-item-action danger" onclick="removeCondition(${i})" title="Odstranit">🗑️</button>
+                </div>
                 <div class="draft-item-header">
                   <span class="draft-item-icon">⚙️</span>
                   <span class="draft-item-name">${c.id}</span>
@@ -1325,14 +1561,18 @@
               </div>
             `).join('')}
           </div>
-          
+
           <div class="draft-section">
             <div class="draft-section-header">
               <h3 class="draft-section-title">⚡ TRIGGERY</h3>
-              <button class="btn btn-ghost" onclick="addTrigger()">+ Přidat</button>
+              <button class="btn btn-ghost" onclick="openTriggerEditor()">+ Přidat</button>
             </div>
-            ${(def.triggers || []).map(t => `
-              <div class="draft-item">
+            ${(def.triggers || []).map((t, i) => `
+              <div class="draft-item editable">
+                <div class="draft-item-actions">
+                  <button class="draft-item-action" onclick="editTrigger(${i})" title="Upravit">✏️</button>
+                  <button class="draft-item-action danger" onclick="removeTrigger(${i})" title="Odstranit">🗑️</button>
+                </div>
                 <div class="draft-item-header">
                   <span class="draft-item-icon">🔔</span>
                   <span class="draft-item-name">${t.id}</span>
@@ -1341,14 +1581,18 @@
               </div>
             `).join('')}
           </div>
-          
+
           <div class="draft-section">
             <div class="draft-section-header">
               <h3 class="draft-section-title">🎬 AKCE</h3>
-              <button class="btn btn-ghost" onclick="addAction()">+ Přidat</button>
+              <button class="btn btn-ghost" onclick="openActionEditor()">+ Přidat</button>
             </div>
-            ${(def.actions || []).map(a => `
-              <div class="draft-item">
+            ${(def.actions || []).map((a, i) => `
+              <div class="draft-item editable">
+                <div class="draft-item-actions">
+                  <button class="draft-item-action" onclick="editAction(${i})" title="Upravit">✏️</button>
+                  <button class="draft-item-action danger" onclick="removeAction(${i})" title="Odstranit">🗑️</button>
+                </div>
                 <div class="draft-item-header">
                   <span class="draft-item-icon">📤</span>
                   <span class="draft-item-name">${a.type}</span>
@@ -1357,21 +1601,27 @@
               </div>
             `).join('')}
           </div>
-          
+
           ${state.createForm.explanation ? `
             <div class="draft-explanation">
               <div class="draft-explanation-title">💡 Co agent bude dělat:</div>
               <div class="draft-explanation-text">${state.createForm.explanation}</div>
             </div>
           ` : ''}
-          
-          <div style="background: var(--bg-tertiary); border-radius: 8px; padding: 12px; margin-top: 16px;">
-            <button class="btn btn-ghost" onclick="toggleDryRun()">🧪 Testovací běh</button>
-            <div id="dry-run-result" style="display: none; margin-top: 12px;">
-              <pre id="dry-run-log" style="font-size: 12px; white-space: pre-wrap; margin-top: 8px;"></pre>
+
+          <!-- v44.4 D-FIX-3: Inline dryRun preview -->
+          <div class="dry-run-panel">
+            <div class="dry-run-header">
+              <h4>🧪 Testovací běh</h4>
+              <button class="btn btn-ghost" onclick="runDryRunInline()" id="dry-run-btn">
+                ${state.createForm.dryRunLoading ? '⏳ Testuji...' : '▶ Spustit test'}
+              </button>
+            </div>
+            <div class="dry-run-body" id="dry-run-body">
+              ${renderDryRunResult()}
             </div>
           </div>
-          
+
           <div class="form-actions">
             <button class="btn btn-secondary" onclick="backToDescribe()">← Zpět</button>
             <button class="btn btn-primary" onclick="confirmAndCreate()">
@@ -1379,7 +1629,370 @@
             </button>
           </div>
         </div>
+
+        <!-- Editor Modal Container -->
+        <div id="editor-modal-container"></div>
       `;
+    }
+
+    // v44.4 D-FIX-3: Render dry run result inline
+    function renderDryRunResult() {
+      const result = state.createForm.dryRunResult;
+
+      if (!result) {
+        return `
+          <div class="dry-run-pending">
+            <span>💡</span>
+            <span>Klikněte na "Spustit test" pro ověření konfigurace agenta</span>
+          </div>
+        `;
+      }
+
+      if (result.error) {
+        return `
+          <div style="color: var(--error); padding: 12px;">
+            ❌ Chyba: ${result.error}
+          </div>
+        `;
+      }
+
+      const summary = result.summary || {};
+      const sourcesOk = summary.sourcesOk || 0;
+      const sourcesTotal = summary.sources || 0;
+      const conditionsTrue = summary.conditionsTrue || 0;
+      const conditionsTotal = summary.conditions || 0;
+      const wouldTrigger = summary.wouldTrigger?.length || 0;
+
+      return `
+        <div class="dry-run-summary">
+          <div class="dry-run-stat">
+            <div class="dry-run-stat-value ${sourcesOk === sourcesTotal ? 'success' : 'error'}">${sourcesOk}/${sourcesTotal}</div>
+            <div class="dry-run-stat-label">Zdroje OK</div>
+          </div>
+          <div class="dry-run-stat">
+            <div class="dry-run-stat-value ${conditionsTrue > 0 ? 'success' : 'warning'}">${conditionsTrue}/${conditionsTotal}</div>
+            <div class="dry-run-stat-label">Podmínky splněny</div>
+          </div>
+          <div class="dry-run-stat">
+            <div class="dry-run-stat-value ${wouldTrigger > 0 ? 'success' : ''}">${wouldTrigger}</div>
+            <div class="dry-run-stat-label">Triggery by spustily</div>
+          </div>
+        </div>
+        ${result.log && result.log.length > 0 ? `
+          <div class="dry-run-log">
+            ${result.log.map(entry => `
+              <div class="dry-run-log-entry">
+                <span class="dry-run-log-time">[${entry.time}]</span>
+                <span>${entry.msg}</span>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+      `;
+    }
+
+    // v44.4 D-FIX-3: Run dryRun inline
+    async function runDryRunInline() {
+      state.createForm.dryRunLoading = true;
+      state.createForm.dryRunResult = null;
+      render();
+
+      try {
+        const result = await API.dryRun(state.createForm.definition);
+        state.createForm.dryRunResult = result;
+      } catch (err) {
+        state.createForm.dryRunResult = { error: err.message };
+      }
+
+      state.createForm.dryRunLoading = false;
+      render();
+    }
+
+    // v44.4 D-FIX-2: Update definition interval from form
+    function updateDefinitionInterval() {
+      const value = parseInt(document.getElementById('create-interval-value').value, 10) || 1;
+      const unit = document.getElementById('create-interval-unit').value || 'h';
+
+      if (!state.createForm.definition.schedule) {
+        state.createForm.definition.schedule = { type: 'interval' };
+      }
+      state.createForm.definition.schedule.interval = `${value}${unit}`;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // v44.4 D-FIX-1: Form Editors for Sources, Conditions, Triggers, Actions
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    function showEditorModal(title, fields, onSave) {
+      const container = document.getElementById('editor-modal-container');
+      container.innerHTML = `
+        <div class="editor-modal" onclick="closeEditorModal(event)">
+          <div class="editor-modal-content" onclick="event.stopPropagation()">
+            <h3 class="editor-modal-title">${title}</h3>
+            ${fields.map(f => `
+              <div class="editor-field">
+                <label>${f.label}</label>
+                ${f.type === 'select' ? `
+                  <select id="editor-${f.name}">
+                    ${f.options.map(o => `<option value="${o.value}" ${f.value === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
+                  </select>
+                ` : f.type === 'textarea' ? `
+                  <textarea id="editor-${f.name}" rows="3">${f.value || ''}</textarea>
+                ` : `
+                  <input type="${f.type || 'text'}" id="editor-${f.name}" value="${f.value || ''}" placeholder="${f.placeholder || ''}">
+                `}
+              </div>
+            `).join('')}
+            <div class="editor-actions">
+              <button class="btn btn-secondary" onclick="closeEditorModal()">Zrušit</button>
+              <button class="btn btn-primary" onclick="saveEditorModal()">Uložit</button>
+            </div>
+          </div>
+        </div>
+      `;
+      container._onSave = onSave;
+      container._fields = fields;
+    }
+
+    function closeEditorModal(event) {
+      if (event && event.target !== event.currentTarget) return;
+      document.getElementById('editor-modal-container').innerHTML = '';
+    }
+
+    function saveEditorModal() {
+      const container = document.getElementById('editor-modal-container');
+      const fields = container._fields;
+      const values = {};
+
+      fields.forEach(f => {
+        const el = document.getElementById('editor-' + f.name);
+        values[f.name] = el.value;
+      });
+
+      container._onSave(values);
+      closeEditorModal();
+      render();
+    }
+
+    // ══════════════ SOURCES ══════════════
+
+    function openSourceEditor(index = -1) {
+      const def = state.createForm.definition;
+      const source = index >= 0 ? def.sources[index] : null;
+
+      const fields = [
+        { name: 'id', label: 'ID zdroje', value: source?.id || `source_${Date.now()}`, placeholder: 'unique_id' },
+        { name: 'type', label: 'Typ', type: 'select', value: source?.type || 'rss', options: [
+          { value: 'rss', label: 'RSS Feed' },
+          { value: 'http', label: 'HTTP API' },
+          { value: 'web_scrape', label: 'Web Scraping' },
+          { value: 'email', label: 'Email IMAP' }
+        ]},
+        { name: 'url', label: 'URL', value: source?.config?.url || '', placeholder: 'https://...' }
+      ];
+
+      showEditorModal(
+        index >= 0 ? 'Upravit zdroj' : 'Přidat zdroj',
+        fields,
+        (values) => {
+          const newSource = {
+            id: values.id,
+            type: values.type,
+            config: { url: values.url }
+          };
+
+          if (index >= 0) {
+            def.sources[index] = newSource;
+          } else {
+            if (!def.sources) def.sources = [];
+            def.sources.push(newSource);
+          }
+        }
+      );
+    }
+
+    function editSource(index) {
+      openSourceEditor(index);
+    }
+
+    function removeSource(index) {
+      if (confirm('Opravdu odstranit tento zdroj?')) {
+        state.createForm.definition.sources.splice(index, 1);
+        render();
+      }
+    }
+
+    // ══════════════ CONDITIONS ══════════════
+
+    function openConditionEditor(index = -1) {
+      const def = state.createForm.definition;
+      const cond = index >= 0 ? def.conditions[index] : null;
+
+      const fields = [
+        { name: 'id', label: 'ID podmínky', value: cond?.id || `cond_${Date.now()}`, placeholder: 'unique_id' },
+        { name: 'type', label: 'Typ', type: 'select', value: cond?.type || 'comparison', options: [
+          { value: 'comparison', label: 'Porovnání hodnoty' },
+          { value: 'contains', label: 'Obsahuje text' },
+          { value: 'regex', label: 'Regex match' },
+          { value: 'exists', label: 'Pole existuje' },
+          { value: 'new_items', label: 'Nové položky' }
+        ]},
+        { name: 'field', label: 'Pole', value: cond?.field || '', placeholder: 'data.price, title, ...' },
+        { name: 'operator', label: 'Operátor', type: 'select', value: cond?.operator || 'lt', options: [
+          { value: 'eq', label: '= rovná se' },
+          { value: 'neq', label: '≠ nerovná se' },
+          { value: 'lt', label: '< menší než' },
+          { value: 'lte', label: '≤ menší nebo rovno' },
+          { value: 'gt', label: '> větší než' },
+          { value: 'gte', label: '≥ větší nebo rovno' },
+          { value: 'contains', label: 'obsahuje' },
+          { value: 'matches', label: 'regex match' }
+        ]},
+        { name: 'value', label: 'Hodnota', value: cond?.value !== undefined ? cond.value : '', placeholder: '5000000' }
+      ];
+
+      showEditorModal(
+        index >= 0 ? 'Upravit podmínku' : 'Přidat podmínku',
+        fields,
+        (values) => {
+          const newCond = {
+            id: values.id,
+            type: values.type,
+            field: values.field,
+            operator: values.operator,
+            value: isNaN(values.value) ? values.value : Number(values.value)
+          };
+
+          if (index >= 0) {
+            def.conditions[index] = newCond;
+          } else {
+            if (!def.conditions) def.conditions = [];
+            def.conditions.push(newCond);
+          }
+        }
+      );
+    }
+
+    function editCondition(index) {
+      openConditionEditor(index);
+    }
+
+    function removeCondition(index) {
+      if (confirm('Opravdu odstranit tuto podmínku?')) {
+        state.createForm.definition.conditions.splice(index, 1);
+        render();
+      }
+    }
+
+    // ══════════════ TRIGGERS ══════════════
+
+    function openTriggerEditor(index = -1) {
+      const def = state.createForm.definition;
+      const trigger = index >= 0 ? def.triggers[index] : null;
+
+      // Build condition options
+      const condOptions = (def.conditions || []).map(c => ({
+        value: c.id,
+        label: c.id
+      }));
+      condOptions.unshift({ value: '', label: '-- vyberte podmínku --' });
+
+      const fields = [
+        { name: 'id', label: 'ID triggeru', value: trigger?.id || `trigger_${Date.now()}`, placeholder: 'unique_id' },
+        { name: 'condition_id', label: 'Podmínka', type: 'select', value: trigger?.condition_id || '', options: condOptions },
+        { name: 'edge', label: 'Hrana (edge)', type: 'select', value: trigger?.edge || 'rising', options: [
+          { value: 'rising', label: 'Rising (false → true)' },
+          { value: 'falling', label: 'Falling (true → false)' },
+          { value: 'any', label: 'Any change' },
+          { value: 'always', label: 'Always when true' }
+        ]},
+        { name: 'cooldown', label: 'Cooldown (sekundy)', type: 'number', value: trigger?.cooldown || 3600, placeholder: '3600' }
+      ];
+
+      showEditorModal(
+        index >= 0 ? 'Upravit trigger' : 'Přidat trigger',
+        fields,
+        (values) => {
+          const newTrigger = {
+            id: values.id,
+            condition_id: values.condition_id,
+            edge: values.edge,
+            cooldown: parseInt(values.cooldown, 10) || 3600
+          };
+
+          if (index >= 0) {
+            def.triggers[index] = newTrigger;
+          } else {
+            if (!def.triggers) def.triggers = [];
+            def.triggers.push(newTrigger);
+          }
+        }
+      );
+    }
+
+    function editTrigger(index) {
+      openTriggerEditor(index);
+    }
+
+    function removeTrigger(index) {
+      if (confirm('Opravdu odstranit tento trigger?')) {
+        state.createForm.definition.triggers.splice(index, 1);
+        render();
+      }
+    }
+
+    // ══════════════ ACTIONS ══════════════
+
+    function openActionEditor(index = -1) {
+      const def = state.createForm.definition;
+      const action = index >= 0 ? def.actions[index] : null;
+
+      const fields = [
+        { name: 'type', label: 'Typ akce', type: 'select', value: action?.type || 'notification', options: [
+          { value: 'notification', label: 'Push notifikace' },
+          { value: 'email', label: 'Email' },
+          { value: 'webhook', label: 'Webhook' },
+          { value: 'log', label: 'Pouze logovat' }
+        ]},
+        { name: 'title', label: 'Titulek', value: action?.config?.title || '', placeholder: 'Nový byt nalezen!' },
+        { name: 'body', label: 'Text zprávy', type: 'textarea', value: action?.config?.body || '', placeholder: '{{item.title}} - {{item.price}}' },
+        { name: 'url', label: 'URL (volitelné)', value: action?.config?.url || '', placeholder: '{{item.link}}' }
+      ];
+
+      showEditorModal(
+        index >= 0 ? 'Upravit akci' : 'Přidat akci',
+        fields,
+        (values) => {
+          const newAction = {
+            type: values.type,
+            config: {
+              title: values.title,
+              body: values.body
+            }
+          };
+          if (values.url) {
+            newAction.config.url = values.url;
+          }
+
+          if (index >= 0) {
+            def.actions[index] = newAction;
+          } else {
+            if (!def.actions) def.actions = [];
+            def.actions.push(newAction);
+          }
+        }
+      );
+    }
+
+    function editAction(index) {
+      openActionEditor(index);
+    }
+
+    function removeAction(index) {
+      if (confirm('Opravdu odstranit tuto akci?')) {
+        state.createForm.definition.actions.splice(index, 1);
+        render();
+      }
     }
     
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1702,10 +2315,26 @@ ${JSON.stringify(agent.definition, null, 2)}
     // EDIT VIEW
     // ═══════════════════════════════════════════════════════════════════════════
     
+    // v44.1 - Parse interval string to { value, unit }
+    function parseInterval(intervalStr) {
+      if (!intervalStr || typeof intervalStr !== 'string') {
+        return { value: 1, unit: 'h' };
+      }
+      const match = intervalStr.match(/^(\d+)(s|m|h|d)$/);
+      if (!match) {
+        return { value: 1, unit: 'h' };
+      }
+      return { value: parseInt(match[1], 10), unit: match[2] };
+    }
+
     function renderEditView() {
       const agent = state.editingAgent;
       if (!agent) return '<div class="loading"><div class="spinner"></div></div>';
-      
+
+      // v44.1 - Parse schedule for structured editing
+      const schedule = agent.definition?.schedule || { type: 'interval', interval: '1h' };
+      const interval = parseInterval(schedule.interval);
+
       return `
         <header class="header">
           <div class="header-left">
@@ -1721,34 +2350,56 @@ ${JSON.stringify(agent.definition, null, 2)}
             </nav>
           </div>
         </header>
-        
+
         <main class="main">
           <div class="create-container">
             <div class="create-card">
               <h2 class="create-title">✏️ Upravit agenta</h2>
               <p class="create-subtitle">Změňte nastavení agenta</p>
-              
+
               <div class="form-group">
                 <label class="form-label">Název</label>
                 <input type="text" class="form-input" id="edit-name" value="${agent.name}">
               </div>
-              
+
               <div class="form-group">
                 <label class="form-label">Popis</label>
                 <textarea class="form-textarea" id="edit-description" rows="3">${agent.description || ''}</textarea>
               </div>
-              
+
               <div class="form-group">
                 <label class="form-label">Ikona</label>
                 <input type="text" class="form-input" id="edit-icon" value="${agent.icon || '🤖'}" style="width: 80px;">
               </div>
-              
+
+              <!-- v44.1 - Structured Schedule Editor -->
               <div class="form-group">
-                <label class="form-label">Definice (JSON)</label>
-                <textarea class="form-textarea" id="edit-definition" rows="15" style="font-family: monospace; font-size: 12px;">${JSON.stringify(agent.definition, null, 2)}</textarea>
-                <p class="form-hint">Upravte JSON definici agenta opatrně.</p>
+                <label class="form-label">Interval spouštění</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <input type="number" class="form-input" id="edit-interval-value"
+                         value="${interval.value}" min="1" style="width: 100px;">
+                  <select class="form-input" id="edit-interval-unit" style="width: 140px;">
+                    <option value="s" ${interval.unit === 's' ? 'selected' : ''}>sekund</option>
+                    <option value="m" ${interval.unit === 'm' ? 'selected' : ''}>minut</option>
+                    <option value="h" ${interval.unit === 'h' ? 'selected' : ''}>hodin</option>
+                    <option value="d" ${interval.unit === 'd' ? 'selected' : ''}>dnů</option>
+                  </select>
+                </div>
+                <p class="form-hint">Jak často má agent kontrolovat zdroje.</p>
               </div>
-              
+
+              <!-- Collapsible JSON editor for advanced users -->
+              <details class="form-group" style="margin-top: 16px;">
+                <summary style="cursor: pointer; color: var(--text-secondary); font-size: 14px;">
+                  🔧 Rozšířené nastavení (JSON)
+                </summary>
+                <div style="margin-top: 12px;">
+                  <textarea class="form-textarea" id="edit-definition" rows="15"
+                            style="font-family: monospace; font-size: 12px;">${JSON.stringify(agent.definition, null, 2)}</textarea>
+                  <p class="form-hint">Upravte JSON definici agenta opatrně. Změny zde přepíší hodnoty z formuláře výše.</p>
+                </div>
+              </details>
+
               <div class="form-actions">
                 <button class="btn btn-secondary" onclick="cancelEdit()">Zrušit</button>
                 <button class="btn btn-primary" onclick="saveEdit('${agent.id}')">
@@ -1783,7 +2434,9 @@ ${JSON.stringify(agent.definition, null, 2)}
         description: '',
         definition: null,
         explanation: null,
-        loading: false
+        loading: false,
+        dryRunLoading: false,  // v44.4
+        dryRunResult: null     // v44.4
       };
       render();
     }
@@ -1896,15 +2549,29 @@ ${JSON.stringify(agent.definition, null, 2)}
       const name = document.getElementById('edit-name').value.trim();
       const description = document.getElementById('edit-description').value.trim();
       const icon = document.getElementById('edit-icon').value.trim();
+
+      // v44.1 - Get interval from structured form
+      const intervalValue = parseInt(document.getElementById('edit-interval-value').value, 10) || 1;
+      const intervalUnit = document.getElementById('edit-interval-unit').value || 'h';
+      const intervalString = `${intervalValue}${intervalUnit}`;
+
       let definition;
-      
+
       try {
         definition = JSON.parse(document.getElementById('edit-definition').value);
       } catch (err) {
         alert('Neplatný JSON v definici: ' + err.message);
         return;
       }
-      
+
+      // v44.1 - Merge structured form values into definition
+      // This allows both form and JSON editing to coexist
+      if (definition.schedule) {
+        definition.schedule.interval = intervalString;
+      } else {
+        definition.schedule = { type: 'interval', interval: intervalString };
+      }
+
       try {
         const result = await API.updateAgent(id, {
           name,
@@ -1912,12 +2579,12 @@ ${JSON.stringify(agent.definition, null, 2)}
           icon,
           definition
         });
-        
+
         if (result.error) {
           alert('Chyba: ' + result.error);
           return;
         }
-        
+
         showToast('success', 'Agent upraven', 'Změny byly uloženy.');
         showDetail(id);
       } catch (err) {
@@ -2086,53 +2753,8 @@ ${JSON.stringify(agent.definition, null, 2)}
       }
     }
     
-    async function dryRun() {
-      const resultDiv = document.getElementById('dry-run-result');
-      const logPre = document.getElementById('dry-run-log');
-      
-      resultDiv.style.display = 'block';
-      logPre.textContent = '⏳ Spouštím testovací běh...';
-      
-      try {
-        const result = await API.dryRun(state.createForm.definition);
-        
-        if (result.error) {
-          logPre.textContent = '❌ Chyba: ' + result.error;
-        } else {
-          let log = result.success ? '✅ Testovací běh dokončen\n\n' : '⚠️ Testovací běh s chybami\n\n';
-          
-          // Summary
-          if (result.summary) {
-            log += `📊 Souhrn:\n`;
-            log += `   Zdroje: ${result.summary.sourcesOk || 0}/${result.summary.sources || 0} OK\n`;
-            log += `   Podmínky: ${result.summary.conditionsTrue || 0}/${result.summary.conditions || 0} true\n`;
-            log += `   Triggery: ${result.summary.wouldTrigger?.length || 0} by se spustily\n\n`;
-          }
-          
-          // Detailed log
-          if (result.log && result.log.length > 0) {
-            log += '📜 Detail:\n';
-            result.log.forEach(entry => {
-              log += `[${entry.time}] ${entry.msg}\n`;
-            });
-          }
-          
-          logPre.textContent = log;
-        }
-      } catch (err) {
-        logPre.textContent = '❌ Chyba: ' + err.message;
-      }
-    }
-    
-    function toggleDryRun() {
-      const resultDiv = document.getElementById('dry-run-result');
-      if (resultDiv.style.display === 'none') {
-        dryRun();
-      } else {
-        resultDiv.style.display = 'none';
-      }
-    }
-    
+    // v44.4: Old dryRun/toggleDryRun removed - replaced by runDryRunInline()
+
     function switchTab(btn, tabId) {
       // Update buttons
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
