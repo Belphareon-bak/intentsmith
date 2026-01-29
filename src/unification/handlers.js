@@ -940,6 +940,7 @@ ${FORBIDDEN_PHRASES.slice(0, 5).map(p => `- "${p}"`).join('\n')}`;
   }
 
   // Intent-specific additions
+  // v45.0 FIX: REPORT = SYNTHESIS, not data dump!
   const intentPrompts = {
     SEARCH: `
 FORMAT:
@@ -948,17 +949,90 @@ FORMAT:
 - Keep it factual and concise`,
 
     REPORT: `
-FORMAT:
-- Use clear section headers
-- Summarize key points first
-- Include sources at the end
-- Be comprehensive but structured`,
+═══════════════════════════════════════════════════════════════════════════════
+CRITICAL: REPORT = INTELLIGENT SYNTHESIS
+You must SYNTHESIZE information, not just list sources!
+═══════════════════════════════════════════════════════════════════════════════
+
+YOUR JOB:
+1. ANALYZE the scraped content thoroughly
+2. IDENTIFY key facts, events, and patterns relevant to the query
+3. SYNTHESIZE a coherent narrative that ANSWERS the user's question
+4. ORGANIZE information logically (chronological, by topic, by importance)
+
+ABSOLUTELY FORBIDDEN:
+- ❌ Listing source URLs as the main content
+- ❌ Copying raw scraped text
+- ❌ "Zde jsou zdroje:" followed by links
+- ❌ Generic phrases like "Na těchto stránkách najdete..."
+- ❌ Dump of headlines without analysis
+
+REQUIRED OUTPUT:
+- ✅ Original synthesis in YOUR words
+- ✅ Key points organized with bullet points or sections
+- ✅ Specific facts, numbers, dates when available
+- ✅ Sources only as footnote reference, not main content
+- ✅ If data is sparse, acknowledge what IS known from sources
+
+EXAMPLE GOOD OUTPUT:
+"## Hlavní události české politiky (posledních 14 dní)
+• **Vládní krize**: Premiér Fiala čelil kritice kvůli...
+• **Legislativa**: Sněmovna schválila návrh o...
+• **Volby**: Průzkumy ukazují posun preferencí..."
+
+EXAMPLE BAD OUTPUT:
+"📊 Report: politika ČR
+Zde jsou zdroje:
+- CNN Prima News
+- iDNES.cz
+..."`,
 
     FACTUAL: `
 FORMAT:
 - Direct answer first
 - Brief explanation if needed
 - Source citation if available`,
+
+    // v45.0: ITEM_LOOKUP - user wants specific items/listings
+    ITEM_LOOKUP: `
+═══════════════════════════════════════════════════════════════════════════════
+CRITICAL: ITEM_LOOKUP = SPECIFIC ITEMS WITH LINKS
+You must return SPECIFIC ITEMS the user can click on!
+═══════════════════════════════════════════════════════════════════════════════
+
+YOUR JOB:
+1. Extract the NUMBER of items requested (e.g., "4 inzeráty" → return 4 items)
+2. Find ACTUAL listings/products/items from the search/scrape results
+3. Each item MUST have a clickable URL
+4. Include price, location, key details when available
+
+ABSOLUTELY FORBIDDEN:
+- ❌ Links to generic homepages (bazos.cz, sauto.cz without specific item)
+- ❌ "Najdete zde: bazos.cz" without specific listings
+- ❌ Fewer items than requested (if user asks for 4, give 4 if possible)
+- ❌ Synthesis/summary instead of actual listings
+
+REQUIRED OUTPUT FORMAT:
+1. **[Item title]** - [price] | [location]
+   [Brief description]
+   🔗 [direct link to this specific item]
+
+2. **[Item title]** - [price] | [location]
+   ...
+
+EXAMPLE GOOD OUTPUT (user asked for "4 inzeráty na auta"):
+1. **Škoda Octavia 1.6 TDI, 2018** - 289 000 Kč | Praha
+   110 000 km, klimatizace, tempomat
+   🔗 https://bazos.cz/inzerat/12345
+
+2. **VW Golf VII 1.4 TSI, 2017** - 245 000 Kč | Brno
+   95 000 km, servisní kniha
+   🔗 https://sauto.cz/detail/67890
+
+EXAMPLE BAD OUTPUT:
+"Pro hledání inzerátů na auta doporučuji:
+- bazos.cz
+- sauto.cz"`,
   };
 
   let prompt = basePrompt;
@@ -2192,25 +2266,56 @@ async function handleToolCallDecision(input, decision, context) {
       scrapeResults = scrapeResult.toolResults || [];
     }
 
-    // Step 4: Synthesize report from search + scrape results
+    // Step 4: SYNTHESIZE with LLM (v45.0 FIX - REPORT must use LLM, not string concatenation!)
+    // ════════════════════════════════════════════════════════════════════════════
+    // CRITICAL: REPORT = SYNTHESIS, not data dump!
+    // LLM must:
+    //   1. Analyze the scraped content
+    //   2. Extract key points relevant to the query
+    //   3. Synthesize a coherent summary
+    //   4. NOT just list sources/links
+    // ════════════════════════════════════════════════════════════════════════════
+
+    // Prepare tool results for LLM synthesis
+    const allToolResults = [
+      searchData,
+      ...scrapeResults.filter(r => r.success),
+    ].filter(Boolean);
+
+    // Get user preferences and expert hints from context
+    const userPreferences = context.userPreferences || {};
+    const expertHints = context.expertHints || null;
+    const responseIntent = decision.responseIntent || ResponseIntent.SUMMARY;
+
+    // Call LLM for actual synthesis
+    const synthesisResult = await synthesizeWithLLM({
+      query: input,
+      intent: decision.intent,
+      toolResults: allToolResults,
+      context,
+      userPreferences,
+      expertHints,
+      responseIntent,
+    });
+
+    logger.info('HandleToolCall', 'REPORT synthesis complete', {
+      query: input.substring(0, 50),
+      synthesisLength: synthesisResult.content?.length || 0,
+      confidence: synthesisResult.confidence,
+    });
+
     const tag = new ResponseTag({
       speaker: ResponseSpeaker.SYSTEM,
       mode: ChatMode.CONVERSATION,
-      confidence: decision.confidence,
+      confidence: synthesisResult.confidence || decision.confidence,
       canExecute: false,
       metadata: {
         decision: decision.toJSON(),
         pipeline: 'REPORT',
         searchResults: searchData?.data?.results?.length || 0,
         scrapedUrls: urls.length,
+        synthesisModel: synthesisResult.model,
       },
-    });
-
-    // Build report content
-    const reportContent = synthesizeReport({
-      query: input,
-      searchResults: searchData?.data?.results || [],
-      scrapeResults: scrapeResults.filter(r => r.success).map(r => r.data),
     });
 
     // Record successful decision
@@ -2219,7 +2324,120 @@ async function handleToolCallDecision(input, decision, context) {
     }
 
     return new TaggedResponse({
-      content: reportContent,
+      content: synthesisResult.content,
+      tag,
+    });
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // v45.0: ITEM_LOOKUP PIPELINE
+  // ════════════════════════════════════════════════════════════════════════════
+  // Similar to REPORT but output must be SPECIFIC ITEMS with links
+  // User asked for "4 inzeráty" → must return 4 actual listings
+  // ════════════════════════════════════════════════════════════════════════════
+  if (decision.intent === IntentType.ITEM_LOOKUP) {
+    logger.info('HandleToolCall', 'ITEM_LOOKUP pipeline started', { input: input.substring(0, 50) });
+
+    // Step 1: Execute web.search
+    const searchResult = await toolExecutor.execute({
+      ...decision,
+      tools: ['web.search'],
+    }, {
+      input,
+      query: input,
+      sessionId: context.sessionId,
+      projectGoal,
+      ...context,
+    });
+
+    // Check if search succeeded
+    const searchData = searchResult.toolResults?.find(r => r.type === 'search');
+    const hasResults = searchData?.success && searchData?.data?.results?.length > 0;
+
+    if (!hasResults) {
+      logger.warn('HandleToolCall', 'ITEM_LOOKUP pipeline: search failed or no results', {
+        status: searchResult.status,
+        hasData: !!searchData,
+        resultCount: searchData?.data?.results?.length || 0,
+      });
+
+      return buildReportFallback(input, decision, searchResult, context);
+    }
+
+    // Step 2: Extract URLs - prioritize marketplace/listing sites
+    const urls = searchData.data.results
+      .filter(r => r.url && r.url.startsWith('http'))
+      .slice(0, 8) // More URLs for item lookup to find actual listings
+      .map(r => r.url);
+
+    logger.info('HandleToolCall', 'ITEM_LOOKUP pipeline: scraping URLs', {
+      urlCount: urls.length,
+      urls: urls.slice(0, 3),
+    });
+
+    // Step 3: Execute web.scrape
+    let scrapeResults = [];
+    if (urls.length > 0) {
+      const scrapeResult = await toolExecutor.execute({
+        ...decision,
+        tools: ['web.scrape'],
+      }, {
+        input,
+        urls,
+        sessionId: context.sessionId,
+        projectGoal,
+        ...context,
+      });
+
+      scrapeResults = scrapeResult.toolResults || [];
+    }
+
+    // Step 4: SYNTHESIZE with LLM - but with ITEM_LOOKUP prompt (extract items, not synthesize)
+    const allToolResults = [
+      searchData,
+      ...scrapeResults.filter(r => r.success),
+    ].filter(Boolean);
+
+    const userPreferences = context.userPreferences || {};
+    const expertHints = context.expertHints || null;
+    const responseIntent = decision.responseIntent || ResponseIntent.BULLETS;
+
+    const synthesisResult = await synthesizeWithLLM({
+      query: input,
+      intent: decision.intent, // ITEM_LOOKUP - will use the correct prompt
+      toolResults: allToolResults,
+      context,
+      userPreferences,
+      expertHints,
+      responseIntent,
+    });
+
+    logger.info('HandleToolCall', 'ITEM_LOOKUP synthesis complete', {
+      query: input.substring(0, 50),
+      synthesisLength: synthesisResult.content?.length || 0,
+      confidence: synthesisResult.confidence,
+    });
+
+    const tag = new ResponseTag({
+      speaker: ResponseSpeaker.SYSTEM,
+      mode: ChatMode.CONVERSATION,
+      confidence: synthesisResult.confidence || decision.confidence,
+      canExecute: false,
+      metadata: {
+        decision: decision.toJSON(),
+        pipeline: 'ITEM_LOOKUP',
+        searchResults: searchData?.data?.results?.length || 0,
+        scrapedUrls: urls.length,
+        synthesisModel: synthesisResult.model,
+      },
+    });
+
+    if (sessionState) {
+      sessionState.recordDecision(decision, input);
+    }
+
+    return new TaggedResponse({
+      content: synthesisResult.content,
       tag,
     });
   }

@@ -54,6 +54,24 @@ export const IntentType = {
   AMBIGUOUS: 'AMBIGUOUS',     // Need clarification
   // v44.8 - CREATIVE: ideation, design, brainstorming (NEVER uses web search)
   CREATIVE: 'CREATIVE',       // User wants ideas, designs, suggestions, inspiration
+  // v45.0 - ITEM_LOOKUP: specific product/listing queries with count constraints
+  ITEM_LOOKUP: 'ITEM_LOOKUP', // User wants specific items (inzeráty, produkty, nabídky)
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v45.0 Task Type (controls execution constraints)
+// ─────────────────────────────────────────────────────────────────────────────
+// TaskType is used to enforce hard constraints on the response:
+// - SYNTHESIS: must synthesize, cannot be data dump
+// - ITEM_LIST: must return specific count of items with required fields
+// - EXPLANATION: must explain, not just state
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const TaskType = {
+  SYNTHESIS: 'SYNTHESIS',     // Must synthesize content (REPORT, FACTUAL)
+  ITEM_LIST: 'ITEM_LIST',     // Must return N specific items (ITEM_LOOKUP)
+  EXPLANATION: 'EXPLANATION', // Must explain reasoning (CREATIVE, CODE)
+  DIRECT: 'DIRECT',           // Can answer directly (CONVERSATIONAL, LOCAL)
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -673,6 +691,27 @@ const LOCAL_DETERMINISTIC_PATTERNS = [
   /current.*time/i, /current.*date/i,    // English variants
 ];
 
+// v45.0 - ITEM_LOOKUP patterns: queries for specific items/listings with count constraints
+// MUST be checked BEFORE REPORT to avoid "4 inzeráty" being treated as report request
+const ITEM_LOOKUP_PATTERNS = [
+  // Czech patterns for item/listing queries with numbers
+  /\d+\s*(inzerát|inzerat|nabíd|nabid|produkt|auto|byt|dům|dum|nemovit|položk|polozk)/i,
+  /dej\s*mi\s*\d+/i,                        // "dej mi 4 inzeráty"
+  /najdi\s*(mi\s*)?\d+/i,                   // "najdi mi 3 auta", "najdi 5 bytů"
+  /vyber\s*(mi\s*)?\d+/i,                   // "vyber 5 nejlepších"
+  /uka[zž]\s*(mi\s*)?\d+/i,                  // "ukaž mi 4 nabídky", "ukaz mi 4"
+  /seznam\s*\d+/i,                          // "seznam 10 aut"
+  /top\s*\d+/i,                             // "top 5 nabídek"
+  /\d+\s*nejlep/i,                          // "5 nejlepších"
+  /\d+\s*nejlevn/i,                         // "3 nejlevnější"
+  // English patterns
+  /\d+\s*(listing|product|item|car|apartment|house|offer)/i,
+  /find\s*(me\s*)?\d+/i,                    // "find me 5 cars"
+  /show\s*(me\s*)?\d+/i,                    // "show me 3 listings"
+  /get\s*(me\s*)?\d+/i,                     // "get me 4 products"
+  /list\s*\d+/i,                            // "list 10 items"
+];
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CRE Decision Engine
 // ─────────────────────────────────────────────────────────────────────────────
@@ -869,6 +908,16 @@ export class CREDecisionEngine {
       return IntentType.CODE;
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // v45.0: ITEM_LOOKUP - MUST be BEFORE REPORT!
+    // ════════════════════════════════════════════════════════════════════════
+    // "dej mi 4 inzeráty na auta" = wants specific items, NOT a report
+    // The user expects N concrete listings with links, not a synthesis
+    // ════════════════════════════════════════════════════════════════════════
+    if (ITEM_LOOKUP_PATTERNS.some(p => p.test(text))) {
+      return IntentType.ITEM_LOOKUP;
+    }
+
     // REPORT patterns
     if (REPORT_PATTERNS.some(p => p.test(text))) {
       return IntentType.REPORT;
@@ -908,6 +957,10 @@ export class CREDecisionEngine {
         // v45.0 FIX: REPORT starts with SEARCH only
         // SCRAPE is orchestrated by handler AFTER search returns URLs
         // NEVER call scrape directly from CRE - it needs URLs from search!
+        return [ToolType.WEB_SEARCH];
+
+      // v45.0: ITEM_LOOKUP - search + scrape to get specific items
+      case IntentType.ITEM_LOOKUP:
         return [ToolType.WEB_SEARCH];
 
       case IntentType.FACTUAL:
@@ -958,7 +1011,8 @@ export class CREDecisionEngine {
     // - 'alternative_action' → tool failed, offering alternatives (intent is valid!)
     // Sticky intent should work for alternative_action, not for intent_clarification.
     // ════════════════════════════════════════════════════════════════════════
-    const STICKY_INTENTS = [IntentType.REPORT, IntentType.SEARCH, IntentType.FACTUAL];
+    // v45.0: Added ITEM_LOOKUP to sticky intents
+    const STICKY_INTENTS = [IntentType.REPORT, IntentType.SEARCH, IntentType.FACTUAL, IntentType.ITEM_LOOKUP];
     const lastIntent = context.lastIntent || context.conversationState?.lastIntent;
     const awaitingSlots = context.awaitingSlots || context.sessionState?.awaitingSlots || [];
     const retryCount = context.retryCount ?? 0;
@@ -969,7 +1023,8 @@ export class CREDecisionEngine {
     // v44.7 FIX: Strong intents NEVER get overridden by sticky intent
     // LOCAL and CONVERSATIONAL are terminal - they should not be changed by context
     // v44.8: Added CREATIVE - ideation requests must not be overridden by sticky SEARCH
-    const STRONG_INTENTS = [IntentType.LOCAL, IntentType.CONVERSATIONAL, IntentType.CREATIVE];
+    // v45.0: Added ITEM_LOOKUP - explicit item requests must not be overridden by REPORT
+    const STRONG_INTENTS = [IntentType.LOCAL, IntentType.CONVERSATIONAL, IntentType.CREATIVE, IntentType.ITEM_LOOKUP];
     const isStrongIntent = STRONG_INTENTS.includes(intent);
 
     // ════════════════════════════════════════════════════════════════════════
@@ -1015,8 +1070,29 @@ export class CREDecisionEngine {
       /^(vyhledej|prohledej)/i,              // explicit search commands
     ];
 
+    // v45.0: Patterns that BREAK sticky intent - user is starting a NEW task
+    const INTENT_BREAK_PATTERNS = [
+      /^(teď|ted|nyní|nyni)\s/i,              // "teď chci...", "nyní najdi..."
+      /^(změň|zmen|přepni|prepni)\s/i,        // "změň téma", "přepni na..."
+      /^(něco|neco)\s(jin|úplně|uplne)/i,     // "něco jiného", "něco úplně jiného"
+      /^(dost|stačí|staci|konec)\s/i,         // "dost reportů", "stačí"
+      /^(chci|potřebuju|potrebuju)\s/i,       // "chci najít...", "potřebuju..."
+      /^(now|switch|change)\s/i,              // English: "now find...", "switch to..."
+      /\d+\s*(inzerát|nabíd|produkt|auto)/i,  // Explicit item request always breaks
+    ];
+
     // v44.7: Skip sticky intent if we have a strong intent (LOCAL, CONVERSATIONAL)
-    if (!isStrongIntent && STICKY_INTENTS.includes(lastIntent) && !blockStickyIntent) {
+    // v45.0: Also skip if INTENT_BREAK_PATTERNS match (user starting new task)
+    const isIntentBreak = INTENT_BREAK_PATTERNS.some(p => p.test(input.trim()));
+    if (isIntentBreak) {
+      logger.info('CREDecision', 'Intent break detected - not applying sticky intent', {
+        input: input.substring(0, 50),
+        lastIntent,
+        newIntent: intent,
+      });
+    }
+
+    if (!isStrongIntent && !isIntentBreak && STICKY_INTENTS.includes(lastIntent) && !blockStickyIntent) {
       // User is continuing a REPORT/SEARCH/FACTUAL flow
       if (intent === IntentType.AMBIGUOUS) {
         // Don't let REPORT degrade to AMBIGUOUS - maintain continuity
@@ -1117,8 +1193,9 @@ export class CREDecisionEngine {
       });
     }
 
-    // INVARIANT 2: SEARCH/FACT/REPORT = TOOL_CALL first
-    if ([IntentType.SEARCH, IntentType.FACTUAL, IntentType.REPORT].includes(intent)) {
+    // INVARIANT 2: SEARCH/FACT/REPORT/ITEM_LOOKUP = TOOL_CALL first
+    // v45.0: Added ITEM_LOOKUP - requires web search to find specific items
+    if ([IntentType.SEARCH, IntentType.FACTUAL, IntentType.REPORT, IntentType.ITEM_LOOKUP].includes(intent)) {
       return new CREDecision({
         type: DecisionType.TOOL_CALL,
         intent,
