@@ -2149,7 +2149,8 @@ async function handleToolCallDecision(input, decision, context) {
     });
 
     // Check if search succeeded and returned results
-    const searchData = searchResult.toolResults?.find(r => r.tool === 'web.search');
+    // v45.0 FIX: ToolResult uses 'type', not 'tool'
+    const searchData = searchResult.toolResults?.find(r => r.type === 'search');
     const hasResults = searchData?.success && searchData?.data?.results?.length > 0;
 
     if (!hasResults) {
