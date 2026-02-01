@@ -1,8 +1,8 @@
 {
   "name": "c3-agent",
-  "version": "45.0.0",
+  "version": "46.0.0",
   "type": "module",
-  "description": "C.3 Agent - CRE v45.0 (UI Visibility Layer)",
+  "description": "C.3 Agent - v46.0 (Headless Daemon + Sandbox)",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -28,7 +28,14 @@
     "test:unification": "node tests/cre-decision-invariants.test.js && node tests/tool-executor.test.js && node tests/unification-v44.test.js",
 
     "test:golden": "node tests/golden-path.test.js",
-    "test:contracts": "node tests/contracts/planner-output.test.js && node tests/contracts/tool-call.test.js"
+    "test:contracts": "node tests/contracts/planner-output.test.js && node tests/contracts/tool-call.test.js",
+
+    "test:agentd": "node tests/agentd-v46.test.js",
+    "test:audit": "node tests/audit-trail-v46.test.js",
+    "test:sandbox": "node tests/sandbox-v46.test.js",
+    "test:v46": "npm run test:agentd && npm run test:audit && npm run test:sandbox",
+
+    "agentd": "node bin/agentd.js"
   },
   "dependencies": {
     "better-sqlite3": "^9.0.0",
