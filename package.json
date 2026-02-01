@@ -25,7 +25,10 @@
     "test:memory": "node tests/session-memory.test.js && node tests/long-term-memory.test.js && node tests/preferences.test.js && node tests/memory-policy.test.js",
     "test:planner": "node tests/planner.test.js && node tests/planner-v38.test.js",
     "test:autonomous": "node tests/autonomous-v39.test.js",
-    "test:unification": "node tests/cre-decision-invariants.test.js && node tests/tool-executor.test.js && node tests/unification-v44.test.js"
+    "test:unification": "node tests/cre-decision-invariants.test.js && node tests/tool-executor.test.js && node tests/unification-v44.test.js",
+
+    "test:golden": "node tests/golden-path.test.js",
+    "test:contracts": "node tests/contracts/planner-output.test.js && node tests/contracts/tool-call.test.js"
   },
   "dependencies": {
     "better-sqlite3": "^9.0.0",

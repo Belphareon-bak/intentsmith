@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "execution-result",
+  "title": "Execution Result Contract",
+  "description": "The strict output format from the Executor component after plan execution.",
+  "type": "object",
+  "required": ["plan_id", "status", "step_results", "total_duration_ms"],
+  "additionalProperties": false,
+  "properties": {
+    "plan_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "ID of the plan that was executed"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["completed", "partial", "failed"],
+      "description": "Overall execution status"
+    },
+    "step_results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/StepResult"
+      },
+      "description": "Results for each executed step"
+    },
+    "total_duration_ms": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Total execution time in milliseconds"
+    }
+  },
+  "$defs": {
+    "StepResult": {
+      "type": "object",
+      "required": ["step_id", "status", "duration_ms"],
+      "additionalProperties": false,
+      "properties": {
+        "step_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "ID of the step that was executed"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["completed", "failed", "skipped"],
+          "description": "Step execution status"
+        },
+        "data": {
+          "description": "Result data if step completed successfully"
+        },
+        "error": {
+          "type": "string",
+          "description": "Error message if step failed"
+        },
+        "duration_ms": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Step execution time in milliseconds"
+        }
+      }
+    }
+  }
+}
