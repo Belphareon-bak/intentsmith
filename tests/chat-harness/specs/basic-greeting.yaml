@@ -1,0 +1,33 @@
+# Basic Greeting Scenario
+# Tests simple greeting exchanges and context awareness
+
+id: basic_greeting_001
+name: "Basic Greeting Flow"
+description: "Tests initial greeting and follow-up context retention"
+
+metadata:
+  category: greetings
+  priority: high
+  expected_intent: casual_conversation
+
+system_prompt: "You are a helpful assistant."
+
+mock_responses:
+  hello: "Hello! How can I help you today?"
+  my name is: "Nice to meet you, {{name}}! How can I assist you?"
+  what is my name: "Based on our conversation, your name is {{name}}."
+
+turns:
+  - user: "Hello"
+    expected: "Hello! How can I help you"
+    intent: greeting
+
+  - user: "My name is Alice"
+    expected: "Nice to meet you"
+    intent: introduction
+
+  - user: "What is my name?"
+    expected: "Alice"
+    intent: context_recall
+    required_facts:
+      - "The user's name is Alice"

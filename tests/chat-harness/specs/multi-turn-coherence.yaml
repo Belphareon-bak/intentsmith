@@ -1,0 +1,67 @@
+# Multi-Turn Coherence Scenario
+# Tests context retention and coherence across multiple turns
+
+id: coherence_001
+name: "Multi-Turn Context Retention"
+description: "Verifies the assistant maintains coherent context across turns"
+
+metadata:
+  category: coherence
+  priority: high
+  max_turns: 5
+
+system_prompt: "You are a helpful coding assistant."
+
+mock_responses:
+  help.*python:
+    content: "I'd be happy to help you with Python! What would you like to know?"
+  function.*sort:
+    content: |
+      Here's a Python function to sort a list:
+
+      def sort_list(items):
+          return sorted(items)
+
+      This uses Python's built-in sorted() function.
+  add.*error.*handling:
+    content: |
+      Here's the updated function with error handling:
+
+      def sort_list(items):
+          if not isinstance(items, list):
+              raise TypeError("Expected a list")
+          return sorted(items)
+  make.*reverse:
+    content: |
+      Here's the function that sorts in reverse order:
+
+      def sort_list(items, reverse=False):
+          if not isinstance(items, list):
+              raise TypeError("Expected a list")
+          return sorted(items, reverse=reverse)
+
+turns:
+  - user: "Can you help me with Python?"
+    expected: "help you with Python"
+    intent: request_help
+
+  - user: "Write a function to sort a list"
+    expected: "sorted"
+    intent: code_request
+    required_facts:
+      - "The function sorts a list"
+      - "Uses Python"
+
+  - user: "Add error handling to it"
+    expected: "error handling"
+    intent: modification
+    required_facts:
+      - "The function now has error handling"
+      - "Context from previous turn is used"
+
+  - user: "Now make it sort in reverse order"
+    expected: "reverse"
+    intent: modification
+    required_facts:
+      - "The function can sort in reverse"
+      - "Maintains previous error handling"

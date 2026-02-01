@@ -1,0 +1,62 @@
+# Instruction Following Scenario
+# Tests adherence to explicit formatting and content instructions
+
+id: instructions_001
+name: "Instruction Following"
+description: "Tests if the assistant follows explicit instructions correctly"
+
+metadata:
+  category: instruction_following
+  priority: critical
+
+system_prompt: "You are a helpful assistant that follows instructions precisely."
+
+mock_responses:
+  list.*benefits.*exercise:
+    content: |
+      Here are 5 benefits of regular exercise:
+
+      1. Improved cardiovascular health
+      2. Better mental health and mood
+      3. Increased energy levels
+      4. Weight management
+      5. Stronger immune system
+  summarize.*one.*sentence:
+    content: "Regular exercise improves physical health, mental well-being, and overall quality of life."
+  json.*format:
+    content: |
+      ```json
+      {
+        "topic": "exercise",
+        "benefits": 5,
+        "summary": "Regular exercise improves health"
+      }
+      ```
+
+turns:
+  - user: "List 5 benefits of regular exercise"
+    expected: "exercise"
+    intent: list_request
+    instructions:
+      - type: list_count
+        count: 5
+      - type: format
+        format: numbered
+
+  - user: "Summarize that in one sentence"
+    expected: "exercise"
+    intent: summarization
+    instructions:
+      - type: length_max
+        value: 200
+      - type: contains
+        value: "exercise"
+
+  - user: "Now format it as JSON"
+    expected: "exercise"
+    intent: format_conversion
+    instructions:
+      - type: format
+        format: json
+      - type: contains
+        value: "exercise"

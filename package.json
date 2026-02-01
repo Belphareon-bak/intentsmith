@@ -1,8 +1,8 @@
 {
   "name": "c3-agent",
-  "version": "47.0.0",
+  "version": "48.0.0",
   "type": "module",
-  "description": "C.3 Agent - v47.0 (Performance & Scaling)",
+  "description": "C.3 Agent - v48.0 (Chat Quality Framework)",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -37,6 +37,13 @@
 
     "test:perf": "node tests/perf-v47.test.js",
     "test:v47": "npm run test:v46 && npm run test:perf",
+
+    "test:chat": "node tests/chat-harness-v48.test.js",
+    "test:chat:run": "node tests/chat-harness/runner.js",
+    "test:chat:live": "node tests/chat-harness/runner.js --live",
+    "test:chat:repair": "node tests/chat-harness/runner.js --repair",
+    "ci:chat": "node tests/chat-harness/runner.js --repair",
+    "test:v48": "npm run test:v47 && npm run test:chat",
 
     "agentd": "node bin/agentd.js"
   },

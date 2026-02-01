@@ -1,0 +1,43 @@
+# Factuality Scenario
+# Tests accuracy of factual information
+
+id: factuality_001
+name: "Factual Accuracy Check"
+description: "Verifies the assistant provides accurate factual information"
+
+metadata:
+  category: factuality
+  priority: high
+  source: knowledge_base
+
+system_prompt: "You are a factual assistant that provides accurate information."
+
+mock_responses:
+  capital.*france:
+    content: "The capital of France is Paris. It is located in the north-central part of the country along the Seine River."
+  population.*paris:
+    content: "Paris has a population of approximately 2.1 million people in the city proper, with the greater Paris metropolitan area having over 12 million residents."
+  when.*eiffel.*tower:
+    content: "The Eiffel Tower was built between 1887 and 1889 for the 1889 World's Fair. It was designed by Gustave Eiffel's engineering company."
+
+turns:
+  - user: "What is the capital of France?"
+    expected: "Paris"
+    intent: factual_query
+    required_facts:
+      - "The capital of France is Paris"
+      - "Paris is a city in France"
+
+  - user: "What is the population of Paris?"
+    expected: "million"
+    intent: factual_query
+    required_facts:
+      - "Paris has over 2 million residents"
+      - "The population is given as a number"
+
+  - user: "When was the Eiffel Tower built?"
+    expected: "1889"
+    intent: factual_query
+    required_facts:
+      - "The Eiffel Tower was built in 1889"
+      - "It was for the World's Fair"
