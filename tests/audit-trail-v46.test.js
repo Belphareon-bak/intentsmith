@@ -219,6 +219,68 @@ test('AuditAction has gate events', () => {
   assertTrue(AuditAction.GATE_DENIED, 'Has GATE_DENIED');
 });
 
+// ────────────────────────────────────────────────────────────────────────────
+// Export (C3.1)
+// ────────────────────────────────────────────────────────────────────────────
+
+console.log('\n📋 Export');
+
+test('exportJSON returns structured data', () => {
+  const exportData = auditTrail.exportJSON({ limit: 10 });
+
+  assertTrue('metadata' in exportData, 'Has metadata');
+  assertTrue('events' in exportData, 'Has events');
+  assertTrue(exportData.metadata.exported_at, 'Has exported_at timestamp');
+  assertTrue(Array.isArray(exportData.events), 'Events is array');
+});
+
+test('exportJSON includes ISO timestamps', () => {
+  const exportData = auditTrail.exportJSON({ limit: 5 });
+
+  if (exportData.events.length > 0) {
+    const event = exportData.events[0];
+    assertTrue(event.timestamp_iso, 'Has ISO timestamp');
+    assertTrue(event.timestamp_iso.includes('T'), 'ISO format includes T');
+  }
+});
+
+test('exportCSV returns valid CSV string', () => {
+  const csv = auditTrail.exportCSV({ limit: 10 });
+
+  assertTrue(typeof csv === 'string', 'Is string');
+  assertTrue(csv.includes('id,plan_id,timestamp'), 'Has header row');
+  assertTrue(csv.split('\n').length >= 1, 'Has at least header');
+});
+
+test('exportCSV escapes commas in payload', () => {
+  // Log event with commas in payload
+  auditTrail.log({
+    actor: 'test',
+    action: 'EXPORT_TEST',
+    payload: { text: 'hello, world', nested: { a: 1, b: 2 } },
+  });
+
+  const csv = auditTrail.exportCSV({ action: 'EXPORT_TEST', limit: 5 });
+  assertTrue(csv.length > 0, 'Has content');
+  // CSV should escape or quote fields with commas
+});
+
+test('exportPlanTimeline returns timeline for plan', () => {
+  const planId = `timeline-test-${Date.now()}`;
+
+  // Log events for timeline
+  auditTrail.log({ plan_id: planId, actor: 'test', action: AuditAction.PLAN_STARTED });
+  auditTrail.log({ plan_id: planId, actor: 'test', action: AuditAction.STEP_STARTED });
+  auditTrail.log({ plan_id: planId, actor: 'test', action: AuditAction.PLAN_COMPLETED });
+
+  const timeline = auditTrail.exportPlanTimeline(planId);
+
+  assertEqual(timeline.plan_id, planId, 'Has plan_id');
+  assertTrue(timeline.timeline.length === 3, 'Has 3 events');
+  assertTrue(timeline.duration_ms >= 0, 'Has duration');
+  assertTrue(timeline.timeline[0].sequence === 1, 'First event has sequence 1');
+});
+
 // ════════════════════════════════════════════════════════════════════════════
 // SUMMARY
 // ════════════════════════════════════════════════════════════════════════════

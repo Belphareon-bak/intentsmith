@@ -385,6 +385,47 @@ function handleMetrics(res) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// AUDIT EXPORT HANDLERS (C3.1)
+// ════════════════════════════════════════════════════════════════════════════
+
+function handleAuditExport(url, res) {
+  metrics.requests++;
+
+  const params = url.searchParams;
+  const format = params.get('format') || 'json';
+  const options = {
+    plan_id: params.get('plan_id') || undefined,
+    action: params.get('action') || undefined,
+    since: params.get('since') ? parseInt(params.get('since')) : undefined,
+    until: params.get('until') ? parseInt(params.get('until')) : undefined,
+    limit: params.get('limit') ? parseInt(params.get('limit')) : 1000,
+  };
+
+  // Enforce max limit
+  options.limit = Math.min(options.limit, 10000);
+
+  if (format === 'csv') {
+    const csv = auditTrail.exportCSV(options);
+    res.writeHead(200, {
+      'Content-Type': 'text/csv',
+      'Content-Disposition': 'attachment; filename="audit-export.csv"',
+      'Access-Control-Allow-Origin': '*',
+    });
+    res.end(csv);
+  } else {
+    const data = auditTrail.exportJSON(options);
+    sendJSON(res, 200, data);
+  }
+}
+
+function handleAuditTimeline(planId, res) {
+  metrics.requests++;
+
+  const timeline = auditTrail.exportPlanTimeline(planId);
+  sendJSON(res, 200, timeline);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // HTTP HELPERS
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -455,6 +496,16 @@ async function router(req, res) {
     return handleMetrics(res);
   }
 
+  // Audit export endpoints (C3.1)
+  if (method === 'GET' && path === '/audit/export') {
+    return handleAuditExport(url, res);
+  }
+
+  if (method === 'GET' && path.match(/^\/audit\/plans\/[^/]+\/timeline$/)) {
+    const planId = path.split('/')[3];
+    return handleAuditTimeline(planId, res);
+  }
+
   // 404
   sendJSON(res, 404, { error: 'Not found' });
 }
@@ -467,7 +518,7 @@ const server = http.createServer(router);
 
 server.listen(port, () => {
   logger.info('AgentD', `Headless agent daemon started on port ${port}`);
-  logger.info('AgentD', `Endpoints: /ask, /ask_stream, /plans/:id, /plans/:id/events, /health, /metrics`);
+  logger.info('AgentD', `Endpoints: /ask, /ask_stream, /plans/:id, /health, /metrics, /audit/export`);
 });
 
 // Graceful shutdown

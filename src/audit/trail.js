@@ -317,6 +317,172 @@ class AuditTrail {
   hashPayload(payloadStr) {
     return createHash('sha256').update(payloadStr).digest('hex');
   }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // EXPORT METHODS (C3.1)
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Export events to JSON format
+   *
+   * @param {Object} [options]
+   * @param {string} [options.plan_id] - Filter by plan ID
+   * @param {string} [options.action] - Filter by action
+   * @param {number} [options.since] - Timestamp filter
+   * @param {number} [options.until] - Timestamp filter
+   * @param {number} [options.limit=1000] - Max events
+   * @returns {Object} JSON export with metadata
+   */
+  exportJSON(options = {}) {
+    const events = this.queryForExport(options);
+
+    return {
+      metadata: {
+        exported_at: new Date().toISOString(),
+        total_events: events.length,
+        filters: options,
+        version: '47.0',
+      },
+      events: events.map(e => ({
+        id: e.id,
+        plan_id: e.plan_id,
+        timestamp: e.timestamp,
+        timestamp_iso: new Date(e.timestamp).toISOString(),
+        actor: e.actor,
+        action: e.action,
+        payload_hash: e.payload_hash,
+        payload: e.payload,
+      })),
+    };
+  }
+
+  /**
+   * Export events to CSV format
+   *
+   * @param {Object} [options] - Same as exportJSON
+   * @returns {string} CSV string
+   */
+  exportCSV(options = {}) {
+    const events = this.queryForExport(options);
+
+    // CSV header
+    const header = ['id', 'plan_id', 'timestamp', 'timestamp_iso', 'actor', 'action', 'payload_hash', 'payload_json'];
+
+    // CSV rows
+    const rows = events.map(e => [
+      e.id,
+      e.plan_id || '',
+      e.timestamp,
+      new Date(e.timestamp).toISOString(),
+      e.actor,
+      e.action,
+      e.payload_hash,
+      JSON.stringify(e.payload).replace(/"/g, '""'),  // Escape quotes for CSV
+    ]);
+
+    // Build CSV
+    const csvLines = [
+      header.join(','),
+      ...rows.map(row => row.map(cell =>
+        typeof cell === 'string' && (cell.includes(',') || cell.includes('"'))
+          ? `"${cell}"`
+          : cell
+      ).join(',')),
+    ];
+
+    return csvLines.join('\n');
+  }
+
+  /**
+   * Export events for a specific plan (timeline format)
+   *
+   * @param {string} planId
+   * @returns {Object} Timeline export
+   */
+  exportPlanTimeline(planId) {
+    const events = this.getByPlanId(planId);
+
+    if (events.length === 0) {
+      return { plan_id: planId, events: [], duration_ms: 0 };
+    }
+
+    const firstEvent = events[0];
+    const lastEvent = events[events.length - 1];
+
+    return {
+      plan_id: planId,
+      start_time: new Date(firstEvent.timestamp).toISOString(),
+      end_time: new Date(lastEvent.timestamp).toISOString(),
+      duration_ms: lastEvent.timestamp - firstEvent.timestamp,
+      event_count: events.length,
+      timeline: events.map((e, i) => ({
+        sequence: i + 1,
+        action: e.action,
+        actor: e.actor,
+        timestamp_iso: new Date(e.timestamp).toISOString(),
+        elapsed_ms: e.timestamp - firstEvent.timestamp,
+        payload_summary: this.summarizePayload(e.payload),
+      })),
+    };
+  }
+
+  /**
+   * Query events for export (internal)
+   */
+  queryForExport(options = {}) {
+    const { plan_id, action, since = 0, until = Date.now() + 1000, limit = 1000 } = options;
+
+    try {
+      let sql = `
+        SELECT id, plan_id, timestamp, actor, action, payload_hash, payload
+        FROM audit_events
+        WHERE timestamp >= ? AND timestamp <= ?
+      `;
+      const params = [since, until];
+
+      if (plan_id) {
+        sql += ' AND plan_id = ?';
+        params.push(plan_id);
+      }
+
+      if (action) {
+        sql += ' AND action = ?';
+        params.push(action);
+      }
+
+      sql += ' ORDER BY timestamp ASC LIMIT ?';
+      params.push(limit);
+
+      const stmt = db.db.prepare(sql);
+      return stmt.all(...params).map(row => ({
+        ...row,
+        payload: JSON.parse(row.payload),
+      }));
+    } catch (err) {
+      logger.error('AuditTrail', `Export query failed: ${err.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Create a short summary of payload for timeline view
+   */
+  summarizePayload(payload) {
+    if (!payload || Object.keys(payload).length === 0) {
+      return null;
+    }
+
+    // Extract key info
+    const summary = {};
+
+    if (payload.tool) summary.tool = payload.tool;
+    if (payload.status) summary.status = payload.status;
+    if (payload.error) summary.error = payload.error.substring(0, 100);
+    if (payload.input) summary.input = payload.input.substring(0, 50);
+    if (payload.duration_ms !== undefined) summary.duration_ms = payload.duration_ms;
+
+    return Object.keys(summary).length > 0 ? summary : null;
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════════════

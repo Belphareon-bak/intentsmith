@@ -3,7 +3,7 @@
 Lokální AI asistent s kontraktovanou pipeline.
 
 ```
-Verze: v45.0.0
+Verze: v47.0.0
 Stack: Node.js + SQLite + Ollama
 ```
 

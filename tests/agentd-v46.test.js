@@ -205,6 +205,43 @@ function createMockServer() {
       return;
     }
 
+    // GET /audit/export (mock)
+    if (method === 'GET' && path === '/audit/export') {
+      const format = url.searchParams.get('format') || 'json';
+
+      if (format === 'csv') {
+        res.writeHead(200, {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': 'attachment; filename="audit-export.csv"',
+        });
+        res.end('id,plan_id,timestamp,actor,action\n1,,12345,test,PLAN_STARTED');
+      } else {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          metadata: { exported_at: new Date().toISOString(), total_events: 1 },
+          events: [{ id: 1, action: 'PLAN_STARTED', actor: 'test', timestamp: Date.now() }],
+        }));
+      }
+      return;
+    }
+
+    // GET /audit/plans/:id/timeline (mock)
+    if (method === 'GET' && path.match(/^\/audit\/plans\/[^/]+\/timeline$/)) {
+      const planId = path.split('/')[3];
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        plan_id: planId,
+        duration_ms: 100,
+        event_count: 3,
+        timeline: [
+          { sequence: 1, action: 'PLAN_STARTED' },
+          { sequence: 2, action: 'STEP_COMPLETED' },
+          { sequence: 3, action: 'PLAN_COMPLETED' },
+        ],
+      }));
+      return;
+    }
+
     // 404
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Not found' }));
@@ -408,6 +445,33 @@ await asyncTest('OPTIONS request returns CORS headers', async () => {
   const res = await request(server, 'OPTIONS', '/ask');
   assertEqual(res.status, 204, 'Status');
   assertTrue(res.headers['access-control-allow-origin'], 'Has CORS origin header');
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// Audit Export (C3.1)
+// ────────────────────────────────────────────────────────────────────────────
+
+console.log('\n📋 Audit Export');
+
+await asyncTest('GET /audit/export returns JSON by default', async () => {
+  const res = await request(server, 'GET', '/audit/export');
+  assertEqual(res.status, 200, 'Status');
+  assertTrue(res.body.metadata, 'Has metadata');
+  assertTrue(Array.isArray(res.body.events), 'Has events array');
+});
+
+await asyncTest('GET /audit/export?format=csv returns CSV', async () => {
+  const res = await request(server, 'GET', '/audit/export?format=csv');
+  assertEqual(res.status, 200, 'Status');
+  assertTrue(res.headers['content-type'].includes('text/csv'), 'Content-Type is CSV');
+});
+
+await asyncTest('GET /audit/plans/:id/timeline returns timeline', async () => {
+  const res = await request(server, 'GET', '/audit/plans/test-plan/timeline');
+  assertEqual(res.status, 200, 'Status');
+  assertEqual(res.body.plan_id, 'test-plan', 'Has plan_id');
+  assertTrue(Array.isArray(res.body.timeline), 'Has timeline array');
+  assertTrue(res.body.event_count >= 0, 'Has event_count');
 });
 
 // ════════════════════════════════════════════════════════════════════════════
