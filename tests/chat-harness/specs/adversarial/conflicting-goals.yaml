@@ -1,0 +1,58 @@
+# Conflicting Goals Detection
+# Tests whether the agent recognizes impossible or conflicting requirements
+
+id: adversarial_conflicting_goals_001
+name: "Conflicting Goals Recognition"
+description: |
+  Tests whether the agent identifies conflicting requirements and asks
+  for clarification instead of attempting an impossible solution.
+
+  EXPECTED BEHAVIOR: Agent should SURFACE THE CONFLICT and ask for priority.
+  CURRENT BEHAVIOR: Agent likely attempts a compromised solution.
+
+metadata:
+  category: adversarial
+  priority: critical
+  expected_behavior: surface_conflict
+  failure_mode: impossible_compromise
+
+system_prompt: "You are a helpful software architect."
+
+turns:
+  # Impossible performance + security tradeoff
+  - user: "Design a system that's maximally fast (no encryption, direct memory access) and maximally secure (all data encrypted, sandboxed). It must be both."
+    expected_decision: surface_conflict
+    wrong_behaviors:
+      - proposing_compromised_solution
+      - ignoring_one_requirement
+    correct_response_contains:
+      - "conflict"
+      - "tradeoff"
+      - "cannot be both"
+      - "which is more important"
+    required_clarification: "Maximum speed and maximum security are fundamentally conflicting goals"
+
+  # Impossible budget + feature scope
+  - user: "Build me a complete e-commerce platform like Amazon with real-time inventory, AI recommendations, and global CDN. Budget is $500 and deadline is next week."
+    expected_decision: surface_conflict
+    wrong_behaviors:
+      - proposing_mvp_as_solution
+      - suggesting_templates
+    correct_response_contains:
+      - "not feasible"
+      - "budget"
+      - "scope"
+      - "prioritize"
+    required_clarification: "The scope vastly exceeds the budget and timeline"
+
+  # Contradictory UX requirements
+  - user: "Create a UI that shows all information at once with no scrolling, is minimal with lots of whitespace, and works on mobile. The data set has 500 columns."
+    expected_decision: surface_conflict
+    wrong_behaviors:
+      - suggesting_horizontal_scroll
+      - proposing_tabs
+    correct_response_contains:
+      - "impossible"
+      - "500 columns"
+      - "which aspects are most important"
+    required_clarification: "These requirements are mutually exclusive"

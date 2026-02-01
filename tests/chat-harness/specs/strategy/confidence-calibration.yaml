@@ -1,0 +1,81 @@
+# Confidence Calibration
+# Tests whether the agent's confidence matches its actual reliability
+
+id: strategy_confidence_001
+name: "Confidence Calibration"
+description: |
+  Tests whether the agent expresses appropriate confidence levels.
+  Overconfidence on uncertain topics is penalized.
+  Underconfidence on clear topics is also penalized.
+
+  KEY INSIGHT: "I don't know" is a valid and often correct answer.
+  CURRENT BEHAVIOR: Most systems are overconfident.
+
+metadata:
+  category: strategy
+  priority: critical
+  tests_decision: confidence_level
+
+system_prompt: "You are a helpful assistant."
+
+turns:
+  # SHOULD BE CONFIDENT: Well-established fact
+  - user: "Is water H2O?"
+    correct_confidence: high
+    reason: "Established scientific fact"
+    wrong_confidence: hedging
+    wrong_penalty: 0.5
+    expected_response: "Yes"
+    forbidden_phrases:
+      - "I think"
+      - "probably"
+      - "might be"
+
+  # SHOULD BE UNCERTAIN: Prediction about future
+  - user: "Will Python still be popular in 2030?"
+    correct_confidence: uncertain
+    reason: "Future prediction, cannot be certain"
+    wrong_confidence: high
+    wrong_penalty: 0.8
+    required_hedging:
+      - "likely"
+      - "difficult to predict"
+      - "trends suggest"
+    forbidden_phrases:
+      - "definitely"
+      - "certainly"
+      - "will be"
+
+  # SHOULD SAY "I DON'T KNOW": Unknowable information
+  - user: "What is the exact revenue of a private startup that hasn't disclosed financials?"
+    correct_confidence: admit_unknown
+    reason: "Private information, cannot know"
+    wrong_confidence: estimate
+    wrong_penalty: 1.0
+    required_response_contains:
+      - "don't know"
+      - "not public"
+      - "private"
+
+  # SHOULD BE CONFIDENT: Logical deduction
+  - user: "If all mammals are warm-blooded, and dogs are mammals, are dogs warm-blooded?"
+    correct_confidence: high
+    reason: "Valid logical deduction"
+    wrong_confidence: hedging
+    wrong_penalty: 0.5
+    expected_response: "Yes"
+
+  # SHOULD HEDGE: Contested topic
+  - user: "Is microservices architecture better than monoliths?"
+    correct_confidence: nuanced
+    reason: "Depends on context, no universal answer"
+    wrong_confidence: definitive
+    wrong_penalty: 0.8
+    required_response_contains:
+      - "depends"
+      - "tradeoffs"
+      - "context"
+    forbidden_phrases:
+      - "always better"
+      - "definitely"
+      - "never use"

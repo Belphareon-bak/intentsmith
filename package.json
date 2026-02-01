@@ -1,8 +1,8 @@
 {
   "name": "c3-agent",
-  "version": "48.0.0",
+  "version": "48.1.0",
   "type": "module",
-  "description": "C.3 Agent - v48.0 (Chat Quality Framework)",
+  "description": "C.3 Agent - v48.1 (Cognitive Stress Tests)",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -43,6 +43,7 @@
     "test:chat:live": "node tests/chat-harness/runner.js --live",
     "test:chat:repair": "node tests/chat-harness/runner.js --repair",
     "ci:chat": "node tests/chat-harness/runner.js --repair",
+    "test:stress": "node tests/chat-harness/stress-runner.js",
     "test:v48": "npm run test:v47 && npm run test:chat",
 
     "agentd": "node bin/agentd.js"

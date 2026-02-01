@@ -415,4 +415,16 @@ export const defaultEvaluators = [
   new ContradictionDetector(),
 ];
 
+// Re-export cognitive evaluators
+export {
+  cognitiveEvaluators,
+  DecisionEvaluator,
+  AssumptionDetector,
+  ClarificationEvaluator,
+  RefusalCorrectnessEvaluator,
+  OverconfidencePenalty,
+  PremiseChallengeEvaluator,
+  CognitiveMetricType,
+} from './cognitive.js';
+
 export default defaultEvaluators;
