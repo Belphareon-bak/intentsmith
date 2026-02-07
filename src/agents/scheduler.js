@@ -129,38 +129,54 @@ export class AgentScheduler {
   }
   
   /**
-   * Schedule single agent
+   * v57.0 - Schedule single agent
+   * Computes next_run from last_run for deterministic recovery after restart.
    */
   scheduleAgent(agent) {
     const schedule = agent.definition?.schedule;
     if (!schedule || schedule.type === 'manual') {
       return false;
     }
-    
+
     try {
       let nextRun;
       let intervalMs = null;
       let cronExpression = null;
-      
+
+      // v57.0 - Get last_run from agent state for deterministic scheduling
+      const lastRun = agent.state?._last_run ? new Date(agent.state._last_run) : null;
+
       if (schedule.type === 'cron') {
         cronExpression = schedule.value;
-        nextRun = getNextCronRun(cronExpression);
+        // For cron, calculate next occurrence after last_run (or now if never run)
+        const after = lastRun || new Date();
+        nextRun = getNextCronRun(cronExpression, after);
       } else if (schedule.type === 'interval') {
         intervalMs = parseInterval(schedule.value);
-        nextRun = new Date(Date.now() + intervalMs);
+        // v57.0 FIX: Calculate from last_run, not Date.now()
+        // This ensures restart at 10:20 with 30m interval and last_run at 10:00
+        // results in next_run at 10:30, not 10:50
+        if (lastRun) {
+          const expectedNext = new Date(lastRun.getTime() + intervalMs);
+          // If we're past the expected time, run immediately (catch up)
+          nextRun = expectedNext < new Date() ? new Date() : expectedNext;
+        } else {
+          // Never run before - run now
+          nextRun = new Date();
+        }
       } else {
         return false;
       }
-      
+
       this.repo.setSchedule(agent.id, {
         nextRun: nextRun.toISOString(),
         intervalMs,
         cronExpression
       });
-      
-      this.logger.info(`[Scheduler] ${agent.id}: next run ${nextRun.toISOString()}`);
+
+      this.logger.info(`[Scheduler] ${agent.id}: next run ${nextRun.toISOString()}${lastRun ? ` (last: ${lastRun.toISOString()})` : ' (first run)'}`);
       return true;
-      
+
     } catch (err) {
       this.logger.error(`[Scheduler] Failed to schedule ${agent.id}: ${err.message}`);
       return false;
@@ -185,12 +201,15 @@ export class AgentScheduler {
   }
   
   /**
-   * Run agent and update schedule
+   * v57.0 - Run agent and update schedule
+   * Calculates next_run from the actual run time (now), not from schedule time.
    */
   async runAgent(schedule) {
     const agentId = schedule.agent_id;
     this.runningAgents.add(agentId);
-    
+
+    const runStartTime = new Date();
+
     try {
       this.logger.info(`[Scheduler] Running ${agentId}`);
       await this.runner.execute(agentId);
@@ -199,18 +218,21 @@ export class AgentScheduler {
     } finally {
       this.runningAgents.delete(agentId);
     }
-    
-    // Calculate next run
+
+    // v57.0 FIX: Calculate next run from actual run time, not Date.now()
+    // This ensures consistent intervals even if execution takes time
     let nextRun;
-    
+
     if (schedule.cron_expression) {
-      nextRun = getNextCronRun(schedule.cron_expression);
+      // For cron, get next occurrence after the run completed
+      nextRun = getNextCronRun(schedule.cron_expression, runStartTime);
     } else if (schedule.interval_ms) {
-      nextRun = new Date(Date.now() + schedule.interval_ms);
+      // For interval, add interval to the run start time
+      nextRun = new Date(runStartTime.getTime() + schedule.interval_ms);
     } else {
       return;
     }
-    
+
     this.repo.updateLastRun(agentId, nextRun.toISOString());
   }
   

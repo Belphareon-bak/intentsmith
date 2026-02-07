@@ -118,11 +118,36 @@ async function loadProjects() {
     const data = await api('GET', '/api/projects?limit=10');
     state.projects = data.projects || [];
     renderProjects();
+    // v59 - Sync full view if open for projects
+    syncFullViewState('projects');
   } catch (err) {
     console.error('Failed to load projects:', err);
     state.projects = [];
     renderProjects();
   }
+}
+
+/**
+ * v59 - Sync full view state with main state when data changes
+ */
+function syncFullViewState(type) {
+  if (!fullViewState.type || fullViewState.type !== type) return;
+
+  if (type === 'projects') {
+    fullViewState.items = [...state.projects];
+  } else if (type === 'conversations') {
+    fullViewState.items = [...state.conversations];
+  }
+
+  // Remove any selected IDs that no longer exist
+  const existingIds = new Set(fullViewState.items.map(i => String(i.id)));
+  for (const id of fullViewState.selected) {
+    if (!existingIds.has(String(id))) {
+      fullViewState.selected.delete(id);
+    }
+  }
+
+  renderFullViewList();
 }
 
 // v44.2 - Load experts for expert mode selection
@@ -184,6 +209,8 @@ async function loadConversations() {
     const data = await api('GET', '/api/conversations?limit=10');
     state.conversations = data.conversations || [];
     renderHistory();
+    // v59 - Sync full view if open for conversations
+    syncFullViewState('conversations');
   } catch (err) {
     console.error('Failed to load conversations:', err);
     state.conversations = [];
@@ -480,18 +507,18 @@ async function openConversation(conversationId) {
 
 async function deleteConversation(conversationId) {
   if (!confirm('Opravdu smazat tento chat?')) return;
-  
+
   try {
     await api('DELETE', `/api/conversations/${conversationId}`);
-    
+
     // If we deleted current conversation, clear it
     if (state.currentConversation?.id === conversationId) {
       state.currentConversation = null;
       state.messages = [];
       renderMessages();
     }
-    
-    // Reload conversations
+
+    // Reload conversations (also syncs full view via v59 syncFullViewState)
     await loadConversations();
     toast('Chat smazán', 'info');
   } catch (err) {
@@ -1050,11 +1077,11 @@ function toggleLeftSidebar() {
 }
 
 function toggleSection(sectionId) {
-  const header = event.currentTarget;
-  const content = header.nextElementSibling;
-  
-  header.classList.toggle('collapsed');
-  content.classList.toggle('collapsed');
+  // v59 - Find the section container and toggle collapsed class
+  const section = document.getElementById(`section-${sectionId}`);
+  if (section) {
+    section.classList.toggle('collapsed');
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1618,25 +1645,40 @@ const settingsState = {
     connectedAccounts: [],
     sessionScope: 'personal'
   },
-  // Notifications
+  // Notifications (v57 enhanced)
   notifications: {
     channels: {
       inapp: true,
+      push: false,
       email: false,
       telegram: false,
-      webhook: false
+      slack: false,
+      discord: false,
+      webhook: false,
+      sms: false
     },
+    // Channel configs
     emailAddresses: [],
     telegramToken: '',
     telegramChatId: '',
+    slackWebhook: '',
+    slackChannel: '',
+    discordWebhook: '',
     webhookUrl: '',
+    webhookMethod: 'POST',
+    smsProvider: '',
+    smsApiKey: '',
+    smsSecret: '',
+    smsPhone: '',
+    // Settings
     defaultPriority: 'normal',
     quietHours: {
       enabled: false,
       from: '22:00',
       to: '07:00'
     },
-    escalation: true
+    escalation: true,
+    activeTemplate: null
   },
   // Appearance
   appearance: {
@@ -1770,16 +1812,39 @@ async function saveSettings() {
 function applySettings() {
   // Apply theme
   document.documentElement.setAttribute('data-theme', settingsState.appearance.theme);
-  
-  // Apply accent color
-  document.documentElement.style.setProperty('--accent', settingsState.appearance.accentColor);
-  document.documentElement.style.setProperty('--accent-hover', adjustColor(settingsState.appearance.accentColor, 20));
-  
+
+  // v60 - Apply accent color to all CSS custom properties
+  const accentColor = settingsState.appearance.accentColor || '#6366f1';
+  document.documentElement.style.setProperty('--accent', accentColor);
+  document.documentElement.style.setProperty('--accent-hover', adjustColor(accentColor, 20));
+  document.documentElement.style.setProperty('--accent-light', adjustColor(accentColor, 40));
+  document.documentElement.style.setProperty('--accent-dark', adjustColor(accentColor, -20));
+  document.documentElement.style.setProperty('--primary', accentColor);
+  document.documentElement.style.setProperty('--primary-hover', adjustColor(accentColor, 20));
+
+  // Apply accent as rgba for backgrounds
+  const rgb = hexToRgb(accentColor);
+  if (rgb) {
+    document.documentElement.style.setProperty('--accent-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
+    document.documentElement.style.setProperty('--accent-10', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)`);
+    document.documentElement.style.setProperty('--accent-20', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)`);
+  }
+
   // Apply font size
   document.documentElement.style.setProperty('--font-size-base', settingsState.appearance.fontSize + 'px');
-  
+
   // Apply density
   document.body.classList.toggle('compact', settingsState.appearance.density === 'compact');
+}
+
+// v60 - Convert hex to RGB
+function hexToRgb(hex) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : null;
 }
 
 function populateSettingsUI() {
@@ -1787,39 +1852,99 @@ function populateSettingsUI() {
   const nameInput = document.getElementById('user-name');
   if (nameInput) nameInput.value = settingsState.user.name || '';
   
-  // Notifications
+  // Notifications (v57 enhanced)
   setCheckbox('notif-inapp', settingsState.notifications.channels.inapp);
+  setCheckbox('notif-push', settingsState.notifications.channels.push);
   setCheckbox('notif-email', settingsState.notifications.channels.email);
   setCheckbox('notif-telegram', settingsState.notifications.channels.telegram);
+  setCheckbox('notif-slack', settingsState.notifications.channels.slack);
+  setCheckbox('notif-discord', settingsState.notifications.channels.discord);
   setCheckbox('notif-webhook', settingsState.notifications.channels.webhook);
-  
-  setValue('notif-email-address', settingsState.notifications.emailAddresses[0] || '');
+  setCheckbox('notif-sms', settingsState.notifications.channels.sms);
+
+  // Channel configs
   setValue('notif-telegram-token', settingsState.notifications.telegramToken);
   setValue('notif-telegram-chat', settingsState.notifications.telegramChatId);
+  setValue('notif-slack-webhook', settingsState.notifications.slackWebhook);
+  setValue('notif-slack-channel', settingsState.notifications.slackChannel);
+  setValue('notif-discord-webhook', settingsState.notifications.discordWebhook);
   setValue('notif-webhook-url', settingsState.notifications.webhookUrl);
-  
+  setValue('notif-webhook-method', settingsState.notifications.webhookMethod);
+  setValue('notif-sms-provider', settingsState.notifications.smsProvider);
+  setValue('notif-sms-apikey', settingsState.notifications.smsApiKey);
+  setValue('notif-sms-secret', settingsState.notifications.smsSecret);
+  setValue('notif-sms-phone', settingsState.notifications.smsPhone);
+
+  // Email list
+  renderEmailList();
+
+  // Quiet hours
   setCheckbox('quiet-hours-enabled', settingsState.notifications.quietHours.enabled);
   setValue('quiet-from', settingsState.notifications.quietHours.from);
   setValue('quiet-to', settingsState.notifications.quietHours.to);
-  // Note: defaultPriority and escalation removed from sidebar - now per-agent settings
+
+  // Priority
+  document.querySelectorAll('.priority-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.priority === settingsState.notifications.defaultPriority);
+  });
+
+  // Template highlight
+  if (settingsState.notifications.activeTemplate) {
+    document.querySelectorAll('.notif-template-btn').forEach(btn => {
+      const btnTemplate = btn.getAttribute('onclick')?.match(/'(\w+)'/)?.[1];
+      btn.classList.toggle('active', btnTemplate === settingsState.notifications.activeTemplate);
+    });
+  }
+
+  // Update channel statuses
+  setTimeout(updateChannelStatuses, 100);
   
   // Appearance
   document.querySelectorAll('.theme-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.theme === settingsState.appearance.theme);
   });
-  document.querySelectorAll('.color-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.color === settingsState.appearance.accentColor);
+
+  // v60 - Accent color buttons with custom color support
+  const accentColor = settingsState.appearance.accentColor || '#6366f1';
+  const presetColors = ['#6366f1', '#8b5cf6', '#ec4899', '#14b8a6', '#f59e0b', '#ef4444'];
+  const isPreset = presetColors.includes(accentColor);
+
+  document.querySelectorAll('.color-btn:not(.custom-color-btn)').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.color === accentColor);
   });
+
+  // Custom color button
+  const customBtn = document.getElementById('custom-color-btn');
+  const customInput = document.getElementById('custom-accent-color');
+  if (customBtn && customInput) {
+    customBtn.classList.toggle('active', !isPreset);
+    customInput.value = accentColor;
+    if (!isPreset) {
+      customBtn.style.background = accentColor;
+    }
+  }
+
+  // Color preview
+  const colorValueEl = document.getElementById('current-accent-color');
+  if (colorValueEl) {
+    colorValueEl.textContent = accentColor;
+    colorValueEl.style.color = accentColor;
+  }
+
   setValue('font-family', settingsState.appearance.fontFamily);
   setValue('font-size', settingsState.appearance.fontSize);
+  const fontSizeValue = document.getElementById('font-size-value');
+  if (fontSizeValue) fontSizeValue.textContent = (settingsState.appearance.fontSize || 14) + 'px';
   setRadio('density', settingsState.appearance.density);
   
-  // Memory
-  renderSkillsList();
-  setValue('custom-prompt', settingsState.memory.customPrompt);
-  setCheckbox('save-history', settingsState.memory.saveHistory);
-  setCheckbox('save-context', settingsState.memory.saveContext);
-  
+  // Memory & Persistence (v60)
+  setValue('custom-prompt', settingsState.memory.customPrompt || '');
+  updatePromptCharCount();
+  setCheckbox('save-history', settingsState.memory.saveHistory !== false);
+  setCheckbox('save-context', settingsState.memory.saveContext !== false);
+  setCheckbox('save-attachments', settingsState.memory.saveAttachments !== false);
+  updateStorageInfo();
+
   // Location
   setValue('location-city', settingsState.location.city);
   setValue('location-country', settingsState.location.country);
@@ -1881,38 +2006,380 @@ function adjustColor(hex, percent) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function updateSettingsSummary() {
-  const summary = document.getElementById('settings-summary');
-  if (!summary) return;
-  
-  const items = [];
-  
-  // Notifications
-  const channels = [];
-  if (settingsState.notifications.channels.email) channels.push('Email');
-  if (settingsState.notifications.channels.inapp) channels.push('App');
-  if (settingsState.notifications.channels.telegram) channels.push('TG');
-  items.push(`🔔 ${channels.join(' + ') || 'Off'}`);
-  
-  // Theme
-  const themeLabel = settingsState.appearance.theme === 'dark' ? 'Dark' : 
-                     settingsState.appearance.theme === 'light' ? 'Light' : 'Auto';
-  items.push(`🎨 ${themeLabel}`);
-  
-  // Location + Currency
-  items.push(`📍 ${settingsState.location.city}`);
-  items.push(`💰 ${settingsState.location.currency}`);
-  
-  summary.innerHTML = items.map(i => `<span class="summary-item">${i}</span>`).join('');
+  // Update notification overview
+  const notifEl = document.getElementById('overview-notif');
+  if (notifEl) {
+    const channels = [];
+    if (settingsState.notifications.channels.email) channels.push('Email');
+    if (settingsState.notifications.channels.inapp) channels.push('App');
+    if (settingsState.notifications.channels.push) channels.push('Push');
+    if (settingsState.notifications.channels.telegram) channels.push('TG');
+    if (settingsState.notifications.channels.slack) channels.push('Slack');
+    if (settingsState.notifications.channels.discord) channels.push('Discord');
+    notifEl.textContent = channels.length > 0 ? channels.slice(0, 2).join(' + ') + (channels.length > 2 ? ' +' + (channels.length - 2) : '') : 'Vypnuto';
+  }
+
+  // Update theme overview
+  const themeEl = document.getElementById('overview-theme');
+  if (themeEl) {
+    const themeLabels = { dark: 'Tmavé', light: 'Světlé', system: 'Systémové' };
+    themeEl.textContent = themeLabels[settingsState.appearance.theme] || 'Tmavé';
+  }
+
+  // Update location overview
+  const locationEl = document.getElementById('overview-location');
+  if (locationEl) {
+    const city = settingsState.location.city || 'Praha';
+    const country = settingsState.location.country || 'CZ';
+    locationEl.textContent = `${city}, ${country}`;
+  }
+
+  // Update context overview
+  const contextEl = document.getElementById('overview-context');
+  if (contextEl) {
+    const saveHistory = settingsState.memory?.saveHistory !== false;
+    const saveContext = settingsState.memory?.saveContext !== false;
+    contextEl.textContent = saveHistory && saveContext ? 'Aktivní' :
+                            saveHistory || saveContext ? 'Částečný' : 'Vypnutý';
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// USER / IDENTITY
+// USER / IDENTITY - v60 Enhanced
 // ═══════════════════════════════════════════════════════════════════════════
 
+function toggleAccountConnection(provider) {
+  const accountItem = document.getElementById(`account-${provider}`);
+  const isConnected = accountItem?.classList.contains('connected');
+
+  if (isConnected) {
+    disconnectAccount(provider);
+  } else {
+    connectAccount(provider);
+  }
+}
+
 function connectAccount(provider) {
-  // In real implementation, this would open OAuth flow
-  console.log('Connecting to:', provider);
-  showToast('info', `Připojení k ${provider}...`, 'Tato funkce bude brzy dostupná.');
+  const providerNames = { google: 'Google', github: 'GitHub' };
+  showToast('info', `Připojování k ${providerNames[provider]}...`, 'Otevírám přihlašovací okno...');
+
+  // In production, this would open OAuth popup
+  // For demo, simulate OAuth flow
+  const oauthWindow = window.open(
+    `/api/auth/${provider}`,
+    `${provider}OAuth`,
+    'width=600,height=700,left=200,top=100'
+  );
+
+  // Listen for OAuth callback
+  window.addEventListener('message', function oauthCallback(event) {
+    if (event.data?.type === 'oauth-success' && event.data?.provider === provider) {
+      window.removeEventListener('message', oauthCallback);
+      handleOAuthSuccess(provider, event.data);
+    }
+  });
+
+  // For demo purposes, simulate success after 2 seconds
+  setTimeout(() => {
+    if (!oauthWindow || oauthWindow.closed) {
+      // Simulate successful OAuth for demo
+      const demoEmail = provider === 'google' ? 'user@gmail.com' : 'user@github.com';
+      handleOAuthSuccess(provider, { email: demoEmail, name: 'Demo User' });
+    }
+  }, 2000);
+}
+
+function handleOAuthSuccess(provider, data) {
+  const accountItem = document.getElementById(`account-${provider}`);
+  const emailEl = document.getElementById(`${provider}-email`);
+  const actionBtn = accountItem?.querySelector('.account-action-btn .action-text');
+
+  if (accountItem) {
+    accountItem.classList.add('connected');
+  }
+  if (emailEl) {
+    emailEl.textContent = data.email;
+  }
+  if (actionBtn) {
+    actionBtn.textContent = 'Odpojit';
+  }
+
+  // Store connected account
+  if (!settingsState.user.connectedAccounts.find(a => a.provider === provider)) {
+    settingsState.user.connectedAccounts.push({
+      provider,
+      email: data.email,
+      name: data.name,
+      connectedAt: new Date().toISOString()
+    });
+  }
+
+  // Auto-fill email for notifications if not set
+  if (provider === 'google' && data.email) {
+    const emailInput = document.getElementById('notif-email-address');
+    if (emailInput && !emailInput.value) {
+      emailInput.value = data.email;
+      validateChannelConfig('email');
+    }
+  }
+
+  // Update user name if not set
+  if (data.name && !settingsState.user.name) {
+    settingsState.user.name = data.name;
+    const nameInput = document.getElementById('user-name');
+    if (nameInput) nameInput.value = data.name;
+  }
+
+  updateUserStatus();
+  saveSettings();
+  showToast('success', `${provider === 'google' ? 'Google' : 'GitHub'} propojeno`, data.email);
+}
+
+function disconnectAccount(provider) {
+  const providerNames = { google: 'Google', github: 'GitHub' };
+
+  if (!confirm(`Opravdu chcete odpojit účet ${providerNames[provider]}?`)) {
+    return;
+  }
+
+  const accountItem = document.getElementById(`account-${provider}`);
+  const emailEl = document.getElementById(`${provider}-email`);
+  const actionBtn = accountItem?.querySelector('.account-action-btn .action-text');
+
+  if (accountItem) {
+    accountItem.classList.remove('connected');
+  }
+  if (emailEl) {
+    emailEl.textContent = 'Nepropojeno';
+  }
+  if (actionBtn) {
+    actionBtn.textContent = 'Propojit';
+  }
+
+  // Remove from connected accounts
+  settingsState.user.connectedAccounts = settingsState.user.connectedAccounts.filter(
+    a => a.provider !== provider
+  );
+
+  updateUserStatus();
+  saveSettings();
+  showToast('info', `${providerNames[provider]} odpojeno`, '');
+}
+
+function updateUserName() {
+  const nameInput = document.getElementById('user-name');
+  if (nameInput) {
+    settingsState.user.name = nameInput.value;
+    updateUserStatus();
+    saveSettings();
+  }
+}
+
+function updateUserStatus() {
+  const statusEl = document.getElementById('user-status');
+  if (!statusEl) return;
+
+  const connectedCount = settingsState.user.connectedAccounts.length;
+  const hasLocalAccount = settingsState.user.localAccount;
+
+  if (connectedCount > 0 || hasLocalAccount) {
+    statusEl.textContent = connectedCount > 0
+      ? `Propojeno: ${connectedCount} účt${connectedCount === 1 ? '' : 'y'}`
+      : 'Lokální účet';
+    statusEl.classList.add('connected');
+  } else {
+    statusEl.textContent = 'Nepřihlášen';
+    statusEl.classList.remove('connected');
+  }
+}
+
+function showLocalAccountModal() {
+  showModal(`
+    <div class="modal-content local-account-modal">
+      <h3>Vytvořit lokální účet</h3>
+      <p class="modal-description">Lokální účet je uložen pouze na tomto zařízení.</p>
+
+      <div class="form-group">
+        <label>Uživatelské jméno</label>
+        <input type="text" id="local-username" class="settings-input" placeholder="Vaše jméno">
+      </div>
+
+      <div class="form-group">
+        <label>Email (volitelné)</label>
+        <input type="email" id="local-email" class="settings-input" placeholder="email@example.com">
+      </div>
+
+      <div class="form-group">
+        <label>Heslo (volitelné)</label>
+        <input type="password" id="local-password" class="settings-input" placeholder="Pro lokální šifrování">
+        <span class="form-hint">Heslo slouží k šifrování lokálních dat.</span>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="hideModal()">Zrušit</button>
+        <button class="btn btn-primary" onclick="createLocalAccount()">Vytvořit účet</button>
+      </div>
+    </div>
+  `);
+}
+
+function createLocalAccount() {
+  const username = document.getElementById('local-username')?.value?.trim();
+  const email = document.getElementById('local-email')?.value?.trim();
+  const password = document.getElementById('local-password')?.value;
+
+  if (!username) {
+    showToast('error', 'Chybí jméno', 'Zadejte uživatelské jméno.');
+    return;
+  }
+
+  settingsState.user.localAccount = {
+    username,
+    email: email || null,
+    hasPassword: !!password,
+    createdAt: new Date().toISOString()
+  };
+
+  settingsState.user.name = username;
+
+  // Update UI
+  const nameInput = document.getElementById('user-name');
+  if (nameInput) nameInput.value = username;
+
+  const localSection = document.getElementById('local-account-section');
+  const localStatus = document.getElementById('local-account-status');
+  const localBtn = document.getElementById('btn-local-account');
+
+  if (localSection) localSection.classList.add('has-account');
+  if (localStatus) {
+    localStatus.querySelector('.status-text').textContent = username;
+  }
+  if (localBtn) {
+    localBtn.textContent = 'Upravit';
+    localBtn.onclick = showEditLocalAccountModal;
+  }
+
+  // Auto-fill email if provided
+  if (email) {
+    const emailInput = document.getElementById('notif-email-address');
+    if (emailInput && !emailInput.value) {
+      emailInput.value = email;
+      validateChannelConfig('email');
+    }
+  }
+
+  updateUserStatus();
+  saveSettings();
+  hideModal();
+  showToast('success', 'Lokální účet vytvořen', username);
+}
+
+function showEditLocalAccountModal() {
+  const account = settingsState.user.localAccount;
+  if (!account) {
+    showLocalAccountModal();
+    return;
+  }
+
+  showModal(`
+    <div class="modal-content local-account-modal">
+      <h3>Upravit lokální účet</h3>
+
+      <div class="form-group">
+        <label>Uživatelské jméno</label>
+        <input type="text" id="local-username" class="settings-input" value="${account.username || ''}">
+      </div>
+
+      <div class="form-group">
+        <label>Email (volitelné)</label>
+        <input type="email" id="local-email" class="settings-input" value="${account.email || ''}">
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-danger" onclick="deleteLocalAccount()">Smazat účet</button>
+        <button class="btn btn-secondary" onclick="hideModal()">Zrušit</button>
+        <button class="btn btn-primary" onclick="updateLocalAccount()">Uložit</button>
+      </div>
+    </div>
+  `);
+}
+
+function updateLocalAccount() {
+  const username = document.getElementById('local-username')?.value?.trim();
+  const email = document.getElementById('local-email')?.value?.trim();
+
+  if (!username) {
+    showToast('error', 'Chybí jméno', 'Zadejte uživatelské jméno.');
+    return;
+  }
+
+  settingsState.user.localAccount.username = username;
+  settingsState.user.localAccount.email = email || null;
+  settingsState.user.name = username;
+
+  const nameInput = document.getElementById('user-name');
+  if (nameInput) nameInput.value = username;
+
+  const localStatus = document.getElementById('local-account-status');
+  if (localStatus) {
+    localStatus.querySelector('.status-text').textContent = username;
+  }
+
+  updateUserStatus();
+  saveSettings();
+  hideModal();
+  showToast('success', 'Účet aktualizován', '');
+}
+
+function deleteLocalAccount() {
+  if (!confirm('Opravdu chcete smazat lokální účet?')) return;
+
+  settingsState.user.localAccount = null;
+
+  const localSection = document.getElementById('local-account-section');
+  const localStatus = document.getElementById('local-account-status');
+  const localBtn = document.getElementById('btn-local-account');
+
+  if (localSection) localSection.classList.remove('has-account');
+  if (localStatus) {
+    localStatus.querySelector('.status-text').textContent = 'Žádný lokální účet';
+  }
+  if (localBtn) {
+    localBtn.textContent = '+ Vytvořit lokální účet';
+    localBtn.onclick = showLocalAccountModal;
+  }
+
+  updateUserStatus();
+  saveSettings();
+  hideModal();
+  showToast('info', 'Lokální účet smazán', '');
+}
+
+function changeAvatar() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Convert to base64 for storage
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64 = e.target.result;
+      settingsState.user.avatar = base64;
+
+      const avatarEl = document.getElementById('user-avatar');
+      if (avatarEl) {
+        avatarEl.innerHTML = `<img src="${base64}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;"><span class="avatar-edit-hint">📷</span>`;
+      }
+
+      saveSettings();
+      showToast('success', 'Avatar aktualizován', '');
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1920,22 +2387,411 @@ function connectAccount(provider) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function updateNotifSettings() {
-  settingsState.notifications.channels = {
-    inapp: document.getElementById('notif-inapp')?.checked || false,
-    email: document.getElementById('notif-email')?.checked || false,
-    telegram: document.getElementById('notif-telegram')?.checked || false,
-    webhook: document.getElementById('notif-webhook')?.checked || false
+  // v60 - Validate channels before enabling
+  const channelsToValidate = ['email', 'telegram', 'slack', 'discord', 'webhook', 'push', 'sms'];
+
+  // Save channel configs first (needed for validation)
+  settingsState.notifications.telegramToken = document.getElementById('notif-telegram-token')?.value || '';
+  settingsState.notifications.telegramChatId = document.getElementById('notif-telegram-chat')?.value || '';
+  settingsState.notifications.slackWebhook = document.getElementById('notif-slack-webhook')?.value || '';
+  settingsState.notifications.slackChannel = document.getElementById('notif-slack-channel')?.value || '';
+  settingsState.notifications.discordWebhook = document.getElementById('notif-discord-webhook')?.value || '';
+  settingsState.notifications.webhookUrl = document.getElementById('notif-webhook-url')?.value || '';
+  settingsState.notifications.webhookMethod = document.getElementById('notif-webhook-method')?.value || 'POST';
+  settingsState.notifications.smsProvider = document.getElementById('notif-sms-provider')?.value || '';
+  settingsState.notifications.smsApiKey = document.getElementById('notif-sms-apikey')?.value || '';
+  settingsState.notifications.smsSecret = document.getElementById('notif-sms-secret')?.value || '';
+  settingsState.notifications.smsPhone = document.getElementById('notif-sms-phone')?.value || '';
+
+  // v60 - Check each channel and prevent enabling if not configured
+  const newChannels = {};
+  channelsToValidate.forEach(channel => {
+    const checkbox = document.getElementById(`notif-${channel}`);
+    if (!checkbox) return;
+
+    const wantsEnabled = checkbox.checked;
+    const wasEnabled = settingsState.notifications.channels[channel] || false;
+
+    if (wantsEnabled && !wasEnabled) {
+      // User is trying to enable - validate first
+      const isValid = isChannelConfigured(channel);
+      if (!isValid) {
+        checkbox.checked = false;
+        showChannelConfigWarning(channel);
+        newChannels[channel] = false;
+      } else {
+        newChannels[channel] = true;
+      }
+    } else {
+      newChannels[channel] = wantsEnabled;
+    }
+  });
+
+  // In-app is always valid
+  newChannels.inapp = document.getElementById('notif-inapp')?.checked || false;
+
+  settingsState.notifications.channels = newChannels;
+
+  // Quiet hours
+  settingsState.notifications.quietHours = {
+    enabled: document.getElementById('quiet-hours-enabled')?.checked || false,
+    from: document.getElementById('quiet-from')?.value || '22:00',
+    to: document.getElementById('quiet-to')?.value || '07:00'
   };
+
+  updateChannelStatuses();
+  updateSettingsSummary();
   saveSettings();
+}
+
+// v60 - Check if channel has valid configuration
+function isChannelConfigured(channel) {
+  switch (channel) {
+    case 'email':
+      const emailInput = document.getElementById('notif-email-address')?.value?.trim();
+      return emailInput || settingsState.notifications.emailAddresses?.length > 0;
+
+    case 'telegram':
+      const token = document.getElementById('notif-telegram-token')?.value?.trim();
+      const chat = document.getElementById('notif-telegram-chat')?.value?.trim();
+      return token && chat;
+
+    case 'slack':
+      const slackUrl = document.getElementById('notif-slack-webhook')?.value?.trim();
+      return slackUrl && slackUrl.includes('hooks.slack.com');
+
+    case 'discord':
+      const discordUrl = document.getElementById('notif-discord-webhook')?.value?.trim();
+      return discordUrl && discordUrl.includes('discord.com/api/webhooks');
+
+    case 'webhook':
+      const webhookUrl = document.getElementById('notif-webhook-url')?.value?.trim();
+      return webhookUrl && webhookUrl.startsWith('http');
+
+    case 'push':
+      return typeof Notification !== 'undefined' && Notification.permission === 'granted';
+
+    case 'sms':
+      const provider = document.getElementById('notif-sms-provider')?.value;
+      const apiKey = document.getElementById('notif-sms-apikey')?.value?.trim();
+      const phone = document.getElementById('notif-sms-phone')?.value?.trim();
+      return provider && apiKey && phone;
+
+    default:
+      return true;
+  }
+}
+
+// v60 - Show warning when channel is not configured
+function showChannelConfigWarning(channel) {
+  const warnings = {
+    email: 'Nejprve zadejte emailovou adresu.',
+    telegram: 'Nejprve vyplňte Telegram Bot Token a Chat ID.',
+    slack: 'Nejprve zadejte Slack Webhook URL.',
+    discord: 'Nejprve zadejte Discord Webhook URL.',
+    webhook: 'Nejprve zadejte Webhook URL.',
+    push: 'Nejprve povolte push notifikace v prohlížeči.',
+    sms: 'Nejprve nakonfigurujte SMS poskytovatele.'
+  };
+
+  showToast('warning', 'Nelze aktivovat', warnings[channel] || 'Kanál není nakonfigurován.');
+
+  // Highlight the config section
+  const configEl = document.getElementById(`${channel}-config`);
+  if (configEl) {
+    configEl.classList.add('highlight');
+    setTimeout(() => configEl.classList.remove('highlight'), 2000);
+  }
 }
 
 function addEmailAddress() {
   const input = document.getElementById('notif-email-address');
   if (input && input.value) {
-    settingsState.notifications.emailAddresses.push(input.value);
-    saveSettings();
-    showToast('success', 'Email přidán', input.value);
+    if (!settingsState.notifications.emailAddresses.includes(input.value)) {
+      settingsState.notifications.emailAddresses.push(input.value);
+      renderEmailList();
+      saveSettings();
+      showToast('success', 'Email přidán', input.value);
+      input.value = '';
+      validateChannelConfig('email');
+    } else {
+      showToast('warning', 'Email již existuje', input.value);
+    }
   }
+}
+
+// v57 - Render email list with remove buttons
+function renderEmailList() {
+  const list = document.getElementById('email-list');
+  if (!list) return;
+
+  list.innerHTML = settingsState.notifications.emailAddresses.map((email, i) => `
+    <span class="email-tag">
+      ${email}
+      <button class="email-tag-remove" onclick="removeEmail(${i})" title="Odstranit">×</button>
+    </span>
+  `).join('');
+}
+
+function removeEmail(index) {
+  settingsState.notifications.emailAddresses.splice(index, 1);
+  renderEmailList();
+  validateChannelConfig('email');
+  saveSettings();
+}
+
+// v57 - Apply notification template
+function applyNotifTemplate(template) {
+  const templates = {
+    personal: { inapp: true, push: false, email: true, telegram: false, slack: false, discord: false, webhook: false, sms: false },
+    work: { inapp: true, push: true, email: true, telegram: false, slack: true, discord: false, webhook: false, sms: false },
+    developer: { inapp: true, push: true, email: false, telegram: false, slack: false, discord: true, webhook: true, sms: false },
+    minimal: { inapp: true, push: false, email: false, telegram: false, slack: false, discord: false, webhook: false, sms: false }
+  };
+
+  const config = templates[template];
+  if (!config) return;
+
+  // Update checkboxes
+  Object.keys(config).forEach(channel => {
+    const checkbox = document.getElementById(`notif-${channel}`);
+    if (checkbox) checkbox.checked = config[channel];
+  });
+
+  // Update state
+  settingsState.notifications.channels = { ...config };
+  settingsState.notifications.activeTemplate = template;
+
+  // Update template buttons
+  document.querySelectorAll('.notif-template-btn').forEach(btn => {
+    const btnTemplate = btn.getAttribute('onclick')?.match(/'(\w+)'/)?.[1];
+    btn.classList.toggle('active', btnTemplate === template);
+  });
+
+  updateChannelStatuses();
+  saveSettings();
+  showToast('success', 'Šablona aplikována', `${template.charAt(0).toUpperCase() + template.slice(1)}`);
+}
+
+// v57 - Validate channel configuration
+function validateChannelConfig(channel) {
+  const statusEl = document.getElementById(`status-${channel}`);
+  if (!statusEl) return false;
+
+  let isValid = false;
+  let statusText = 'Nenastaveno';
+  let statusClass = '';
+
+  switch (channel) {
+    case 'email':
+      isValid = settingsState.notifications.emailAddresses.length > 0;
+      statusText = isValid ? `${settingsState.notifications.emailAddresses.length} adres` : 'Nenastaveno';
+      statusClass = isValid ? 'connected' : '';
+      break;
+
+    case 'telegram':
+      const token = document.getElementById('notif-telegram-token')?.value;
+      const chat = document.getElementById('notif-telegram-chat')?.value;
+      isValid = token && chat;
+      statusText = isValid ? 'Nakonfigurováno' : 'Vyplňte token a chat ID';
+      statusClass = isValid ? 'connected' : '';
+      break;
+
+    case 'slack':
+      const slackUrl = document.getElementById('notif-slack-webhook')?.value;
+      isValid = slackUrl && slackUrl.includes('hooks.slack.com');
+      statusText = isValid ? 'Nakonfigurováno' : 'Nenastaveno';
+      statusClass = isValid ? 'connected' : '';
+      break;
+
+    case 'discord':
+      const discordUrl = document.getElementById('notif-discord-webhook')?.value;
+      isValid = discordUrl && discordUrl.includes('discord.com/api/webhooks');
+      statusText = isValid ? 'Nakonfigurováno' : 'Nenastaveno';
+      statusClass = isValid ? 'connected' : '';
+      break;
+
+    case 'webhook':
+      const webhookUrl = document.getElementById('notif-webhook-url')?.value;
+      isValid = webhookUrl && webhookUrl.startsWith('http');
+      statusText = isValid ? 'Nakonfigurováno' : 'Nenastaveno';
+      statusClass = isValid ? 'connected' : '';
+      break;
+
+    case 'push':
+      isValid = Notification.permission === 'granted';
+      statusText = isValid ? 'Povoleno' : (Notification.permission === 'denied' ? 'Zakázáno' : 'Vyžaduje povolení');
+      statusClass = isValid ? 'connected' : (Notification.permission === 'denied' ? 'error' : '');
+      break;
+  }
+
+  statusEl.textContent = statusText;
+  statusEl.className = 'channel-status ' + statusClass;
+
+  return isValid;
+}
+
+// v57 - Update all channel statuses
+function updateChannelStatuses() {
+  ['email', 'telegram', 'slack', 'discord', 'webhook', 'push'].forEach(validateChannelConfig);
+
+  // In-App is always active if enabled
+  const inappStatus = document.getElementById('status-inapp');
+  if (inappStatus) {
+    const enabled = settingsState.notifications.channels.inapp;
+    inappStatus.textContent = enabled ? 'Aktivní' : 'Vypnuto';
+    inappStatus.className = 'channel-status ' + (enabled ? 'connected' : '');
+  }
+}
+
+// v57 - Request push notification permission
+async function requestPushPermission() {
+  if (!('Notification' in window)) {
+    showToast('error', 'Nepodporováno', 'Váš prohlížeč nepodporuje push notifikace');
+    return;
+  }
+
+  try {
+    const permission = await Notification.requestPermission();
+    validateChannelConfig('push');
+
+    if (permission === 'granted') {
+      showToast('success', 'Push notifikace povoleny', '');
+      // Send test notification
+      new Notification('p(AI)assistant', {
+        body: 'Push notifikace jsou nyní aktivní! 🎉',
+        icon: '/favicon.ico'
+      });
+    } else if (permission === 'denied') {
+      showToast('error', 'Přístup odepřen', 'Push notifikace byly zamítnuty v nastavení prohlížeče');
+    }
+  } catch (err) {
+    showToast('error', 'Chyba', err.message);
+  }
+}
+
+// v57 - Test notification channel
+async function testChannel(channel) {
+  showToast('info', 'Odesílám testovací notifikaci...', channel);
+
+  try {
+    const response = await fetch('/api/notifications/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        channel,
+        config: getChannelConfig(channel)
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      showToast('success', 'Test úspěšný', `${channel} notifikace odeslána`);
+      validateChannelConfig(channel);
+    } else {
+      showToast('error', 'Test selhal', result.error || 'Neznámá chyba');
+    }
+  } catch (err) {
+    // Fallback for local testing (no backend)
+    if (channel === 'push' && Notification.permission === 'granted') {
+      new Notification('p(AI)assistant - Test', {
+        body: 'Toto je testovací push notifikace! ✅',
+        icon: '/favicon.ico'
+      });
+      showToast('success', 'Test úspěšný', 'Push notifikace odeslána');
+    } else {
+      showToast('warning', 'Backend nedostupný', 'Test odeslán pouze lokálně');
+    }
+  }
+}
+
+// v57 - Get channel configuration for API
+function getChannelConfig(channel) {
+  switch (channel) {
+    case 'email':
+      return { addresses: settingsState.notifications.emailAddresses };
+    case 'telegram':
+      return {
+        token: settingsState.notifications.telegramToken,
+        chatId: settingsState.notifications.telegramChatId
+      };
+    case 'slack':
+      return {
+        webhookUrl: settingsState.notifications.slackWebhook,
+        channel: settingsState.notifications.slackChannel
+      };
+    case 'discord':
+      return { webhookUrl: settingsState.notifications.discordWebhook };
+    case 'webhook':
+      return {
+        url: settingsState.notifications.webhookUrl,
+        method: settingsState.notifications.webhookMethod
+      };
+    case 'sms':
+      return {
+        provider: settingsState.notifications.smsProvider,
+        apiKey: settingsState.notifications.smsApiKey,
+        secret: settingsState.notifications.smsSecret,
+        phone: settingsState.notifications.smsPhone
+      };
+    default:
+      return {};
+  }
+}
+
+// v57 - Show webhook payload example
+function showWebhookPayload() {
+  const payload = {
+    event: 'notification',
+    timestamp: new Date().toISOString(),
+    priority: 'normal',
+    data: {
+      title: 'Příklad notifikace',
+      message: 'Toto je ukázková zpráva z p(AI)assistant',
+      source: 'agent',
+      agentId: 'example-agent',
+      metadata: {}
+    }
+  };
+
+  const html = `
+    <pre style="background: var(--bg-tertiary); padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 12px;">
+${JSON.stringify(payload, null, 2)}
+    </pre>
+  `;
+
+  // Create modal
+  const modalId = `modal-webhook-${Date.now()}`;
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay" id="${modalId}" onclick="if(event.target===this)this.remove()">
+      <div class="modal-dialog" style="max-width: 500px;">
+        <div class="modal-header">
+          <h3>📋 Webhook Payload</h3>
+          <button class="modal-close" onclick="document.getElementById('${modalId}').remove()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p style="margin-bottom: 12px; color: var(--text-secondary);">Příklad JSON payloadu, který bude odeslán na váš webhook:</p>
+          ${html}
+          <button class="btn btn-secondary btn-sm" style="margin-top: 12px;" onclick="navigator.clipboard.writeText(\`${JSON.stringify(payload, null, 2)}\`); showToast('success', 'Zkopírováno', '')">
+            📋 Kopírovat do schránky
+          </button>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+// v57 - Set default notification priority
+function setDefaultPriority(priority) {
+  settingsState.notifications.defaultPriority = priority;
+
+  // Update UI
+  document.querySelectorAll('.priority-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.priority === priority);
+  });
+
+  saveSettings();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1975,15 +2831,37 @@ function setTheme(theme) {
   saveSettings();
 }
 
-function setAccentColor(color) {
+function setAccentColor(color, isCustom = false) {
   settingsState.appearance.accentColor = color;
-  
-  // Update UI
-  document.querySelectorAll('.color-btn').forEach(btn => {
+
+  // Update UI - preset buttons
+  document.querySelectorAll('.color-btn:not(.custom-color-btn)').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.color === color);
   });
-  
+
+  // Update custom color button
+  const customBtn = document.getElementById('custom-color-btn');
+  const customInput = document.getElementById('custom-accent-color');
+  if (customBtn && customInput) {
+    const isPreset = ['#6366f1', '#8b5cf6', '#ec4899', '#14b8a6', '#f59e0b', '#ef4444'].includes(color);
+    customBtn.classList.toggle('active', isCustom || !isPreset);
+    customInput.value = color;
+    if (isCustom || !isPreset) {
+      customBtn.style.background = color;
+    } else {
+      customBtn.style.background = 'conic-gradient(red, yellow, lime, aqua, blue, magenta, red)';
+    }
+  }
+
+  // Update current color preview
+  const colorValueEl = document.getElementById('current-accent-color');
+  if (colorValueEl) {
+    colorValueEl.textContent = color;
+    colorValueEl.style.color = color;
+  }
+
   applySettings();
+  updateSettingsSummary();
   saveSettings();
 }
 
@@ -2038,13 +2916,105 @@ function removeSkill(index) {
 }
 
 function clearMemory() {
-  if (confirm('Opravdu chcete vymazat všechnu paměť? Tato akce je nevratná.')) {
+  if (confirm('Opravdu chcete vymazat všechnu paměť a historii? Tato akce je nevratná.')) {
     settingsState.memory.skills = [];
     settingsState.memory.customPrompt = '';
-    renderSkillsList();
     document.getElementById('custom-prompt').value = '';
+    updatePromptCharCount();
     saveSettings();
-    showToast('success', 'Paměť vymazána', '');
+
+    // Clear stored data
+    localStorage.removeItem('paiass_history');
+    localStorage.removeItem('paiass_attachments');
+    localStorage.removeItem('paiass_cache');
+
+    updateStorageInfo();
+    showToast('success', 'Vše vymazáno', 'Paměť a historie byly vymazány.');
+  }
+}
+
+// v60 - Custom prompt management
+function saveCustomPrompt() {
+  const textarea = document.getElementById('custom-prompt');
+  if (textarea) {
+    settingsState.memory.customPrompt = textarea.value;
+    updatePromptCharCount();
+    saveSettings();
+    showToast('success', 'Prompt uložen', '');
+  }
+}
+
+function resetCustomPrompt() {
+  if (confirm('Obnovit výchozí prompt?')) {
+    settingsState.memory.customPrompt = '';
+    const textarea = document.getElementById('custom-prompt');
+    if (textarea) textarea.value = '';
+    updatePromptCharCount();
+    saveSettings();
+    showToast('info', 'Prompt obnoven', 'Výchozí nastavení obnoveno.');
+  }
+}
+
+function updatePromptCharCount() {
+  const textarea = document.getElementById('custom-prompt');
+  const counter = document.getElementById('prompt-char-count');
+  if (textarea && counter) {
+    const length = textarea.value.length;
+    counter.textContent = `${length} / 2000`;
+    counter.style.color = length > 1800 ? 'var(--warning)' : length > 2000 ? 'var(--error)' : 'var(--text-muted)';
+  }
+}
+
+// v60 - Persistence settings
+function updatePersistenceSettings() {
+  settingsState.memory.saveHistory = document.getElementById('save-history')?.checked ?? true;
+  settingsState.memory.saveContext = document.getElementById('save-context')?.checked ?? true;
+  settingsState.memory.saveAttachments = document.getElementById('save-attachments')?.checked ?? true;
+
+  updateSettingsSummary();
+  saveSettings();
+}
+
+// v60 - Storage management
+function updateStorageInfo() {
+  // Calculate localStorage usage
+  const historySize = getStorageSize('paiass_history');
+  const attachmentsSize = getStorageSize('paiass_attachments');
+  const cacheSize = getStorageSize('paiass_cache') + getStorageSize('paiass_settings');
+  const totalSize = historySize + attachmentsSize + cacheSize;
+
+  const formatSize = (bytes) => {
+    if (bytes === 0) return '0 B';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  };
+
+  const setEl = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = formatSize(value);
+  };
+
+  setEl('storage-history', historySize);
+  setEl('storage-attachments', attachmentsSize);
+  setEl('storage-cache', cacheSize);
+  setEl('storage-total', totalSize);
+}
+
+function getStorageSize(key) {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? new Blob([item]).size : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function clearCache() {
+  if (confirm('Vymazat cache? Nastavení zůstanou zachována.')) {
+    localStorage.removeItem('paiass_cache');
+    updateStorageInfo();
+    showToast('success', 'Cache vymazána', '');
   }
 }
 
@@ -2073,6 +3043,68 @@ function importMemorySettings() {
     }
   };
   input.click();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// OUTPUT & FORMATS (v60)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function updateOutputSettings() {
+  // Get enabled output types
+  const outputTypes = ['code', 'docs', 'xlsx', 'pptx', 'pdf', 'reports'];
+  settingsState.output.enabledTypes = outputTypes.filter(type =>
+    document.getElementById(`output-${type}`)?.checked
+  );
+
+  // Get format preferences
+  settingsState.output.defaultFormat = document.getElementById('default-format')?.value || 'markdown';
+  settingsState.output.codeStyle = document.getElementById('code-style')?.value || 'default';
+  settingsState.output.namingConvention = document.getElementById('naming-convention')?.value || 'camelCase';
+
+  saveSettings();
+}
+
+function previewFormat() {
+  const format = document.getElementById('default-format')?.value || 'markdown';
+  const previewEl = document.getElementById('format-preview');
+  if (!previewEl) return;
+
+  const examples = {
+    markdown: `# Ukázka Markdown
+
+**Tučný text** a *kurzíva*
+
+- Seznam položek
+- Další položka
+
+\`\`\`javascript
+const hello = "world";
+\`\`\``,
+
+    json: `{
+  "name": "Ukázka",
+  "values": [1, 2, 3],
+  "nested": {
+    "key": "value"
+  }
+}`,
+
+    csv: `name,age,city
+Jan,25,Praha
+Marie,30,Brno
+Petr,28,Ostrava`,
+
+    yaml: `name: Ukázka
+values:
+  - 1
+  - 2
+  - 3
+nested:
+  key: value`
+  };
+
+  previewEl.textContent = examples[format] || 'Náhled není k dispozici.';
+  previewEl.classList.toggle('visible', !previewEl.classList.contains('visible'));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2278,9 +3310,15 @@ window.addEmailAddress = addEmailAddress;
 window.addSkill = addSkill;
 window.removeSkill = removeSkill;
 window.clearMemory = clearMemory;
+window.clearCache = clearCache;
+window.saveCustomPrompt = saveCustomPrompt;
+window.resetCustomPrompt = resetCustomPrompt;
+window.updatePersistenceSettings = updatePersistenceSettings;
 window.exportMemory = exportMemory;
 window.importMemory = importMemory;
 window.detectLocation = detectLocation;
+window.updateOutputSettings = updateOutputSettings;
+window.previewFormat = previewFormat;
 window.viewLogs = viewLogs;
 window.exportLogs = exportLogs;
 window.resetSettings = resetSettings;
@@ -2300,3 +3338,390 @@ window.onExpertChange = onExpertChange;
 // v44.2+ - Project mode actions
 window.changeProject = changeProject;
 window.exitProjectMode = exitProjectMode;
+// v57 - Enhanced notifications
+window.applyNotifTemplate = applyNotifTemplate;
+window.validateChannelConfig = validateChannelConfig;
+window.testChannel = testChannel;
+window.requestPushPermission = requestPushPermission;
+window.showWebhookPayload = showWebhookPayload;
+window.setDefaultPriority = setDefaultPriority;
+window.removeEmail = removeEmail;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// v58 - Full View Modal for Projects/Conversations with Bulk Operations
+// ═══════════════════════════════════════════════════════════════════════════
+
+let fullViewState = {
+  type: null, // 'projects' | 'conversations'
+  items: [],
+  selected: new Set(),
+  searchQuery: '',
+  viewMode: localStorage.getItem('fullview-mode') || 'list' // 'list' | 'grid'
+};
+
+/**
+ * Show full view modal for projects or conversations
+ */
+function showFullView(type) {
+  fullViewState.type = type;
+  fullViewState.selected = new Set();
+  fullViewState.searchQuery = '';
+
+  const modal = document.getElementById('fullview-modal');
+  const title = document.getElementById('fullview-title');
+  const searchInput = document.getElementById('fullview-search');
+
+  if (type === 'projects') {
+    title.innerHTML = '📁 Všechny projekty';
+    fullViewState.items = [...state.projects];
+  } else {
+    title.innerHTML = '💬 Všechny konverzace';
+    // Include all conversations (both project and non-project)
+    fullViewState.items = [...state.conversations];
+  }
+
+  searchInput.value = '';
+  modal.classList.remove('hidden');
+
+  // Apply view mode
+  applyViewMode();
+
+  renderFullViewList();
+  updateFullViewUI();
+
+  // Focus search input
+  setTimeout(() => searchInput.focus(), 100);
+
+  // Add escape key handler
+  document.addEventListener('keydown', handleFullViewEscape);
+}
+
+/**
+ * Set full view display mode (list or grid)
+ */
+function setFullViewMode(mode) {
+  fullViewState.viewMode = mode;
+  applyViewMode();
+
+  // Save preference
+  try {
+    localStorage.setItem('fullview-mode', mode);
+  } catch (e) {}
+}
+
+/**
+ * Apply view mode to UI
+ */
+function applyViewMode() {
+  const list = document.getElementById('fullview-list');
+  const toggleBtns = document.querySelectorAll('.view-toggle-btn');
+
+  // Update list class
+  list.classList.remove('view-list', 'view-grid');
+  list.classList.add(`view-${fullViewState.viewMode}`);
+
+  // Update toggle buttons
+  toggleBtns.forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === fullViewState.viewMode);
+  });
+}
+
+/**
+ * Close full view modal
+ */
+function closeFullView() {
+  const modal = document.getElementById('fullview-modal');
+  modal.classList.add('hidden');
+  fullViewState.type = null;
+  fullViewState.items = [];
+  fullViewState.selected = new Set();
+
+  document.removeEventListener('keydown', handleFullViewEscape);
+}
+
+function handleFullViewEscape(e) {
+  if (e.key === 'Escape') {
+    closeFullView();
+  }
+}
+
+/**
+ * Render the list of items in full view
+ */
+function renderFullViewList() {
+  const container = document.getElementById('fullview-list');
+  const query = fullViewState.searchQuery.toLowerCase();
+
+  // Filter items based on search
+  const filtered = fullViewState.items.filter(item => {
+    const name = (item.name || item.title || 'Untitled').toLowerCase();
+    return name.includes(query);
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="fullview-empty">
+        <div class="fullview-empty-icon">${fullViewState.type === 'projects' ? '📁' : '💬'}</div>
+        <div class="fullview-empty-text">${query ? 'Žádné výsledky' : 'Žádné položky'}</div>
+      </div>
+    `;
+    updateFullViewUI();
+    return;
+  }
+
+  container.innerHTML = filtered.map(item => {
+    const id = item.id;
+    const name = escapeHtml(item.name || item.title || 'Untitled');
+    const isSelected = fullViewState.selected.has(id);
+    const icon = fullViewState.type === 'projects' ? '📁' : '💬';
+    const meta = formatItemMeta(item);
+    const isActive = fullViewState.type === 'projects'
+      ? state.currentProject?.id === id
+      : state.currentConversation?.id === id;
+
+    return `
+      <div class="fullview-item ${isSelected ? 'selected' : ''} ${isActive ? 'active' : ''}"
+           data-id="${id}"
+           onclick="toggleItemSelection('${id}')">
+        <div class="fullview-checkbox"></div>
+        <span class="fullview-icon">${icon}</span>
+        <div class="fullview-info">
+          <div class="fullview-name">${name}</div>
+          <div class="fullview-meta">${meta}</div>
+        </div>
+        <div class="fullview-item-actions">
+          <button class="fullview-item-btn" onclick="event.stopPropagation(); openFromFullView('${id}')" title="Otevřít">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+          </button>
+          <button class="fullview-item-btn danger" onclick="event.stopPropagation(); deleteFromFullView('${id}')" title="Smazat">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  updateFullViewUI();
+}
+
+/**
+ * Format metadata for item (date, message count, etc.)
+ */
+function formatItemMeta(item) {
+  const parts = [];
+
+  if (item.created_at) {
+    const date = new Date(item.created_at);
+    parts.push(date.toLocaleDateString('cs-CZ'));
+  }
+
+  if (item.message_count) {
+    parts.push(`${item.message_count} zpráv`);
+  }
+
+  if (item.project_id && fullViewState.type === 'conversations') {
+    parts.push('📁 Projekt');
+  }
+
+  return parts.join(' • ') || '—';
+}
+
+/**
+ * Toggle selection of an item
+ */
+function toggleItemSelection(id) {
+  if (fullViewState.selected.has(id)) {
+    fullViewState.selected.delete(id);
+  } else {
+    fullViewState.selected.add(id);
+  }
+
+  // Update visual state
+  const itemEl = document.querySelector(`.fullview-item[data-id="${id}"]`);
+  if (itemEl) {
+    itemEl.classList.toggle('selected', fullViewState.selected.has(id));
+  }
+
+  updateFullViewUI();
+}
+
+/**
+ * Toggle select all items
+ */
+function toggleSelectAll() {
+  const query = fullViewState.searchQuery.toLowerCase();
+  const filtered = fullViewState.items.filter(item => {
+    const name = (item.name || item.title || 'Untitled').toLowerCase();
+    return name.includes(query);
+  });
+
+  const allSelected = filtered.length > 0 && filtered.every(item => fullViewState.selected.has(item.id));
+
+  if (allSelected) {
+    // Deselect all
+    filtered.forEach(item => fullViewState.selected.delete(item.id));
+  } else {
+    // Select all filtered items
+    filtered.forEach(item => fullViewState.selected.add(item.id));
+  }
+
+  renderFullViewList();
+}
+
+/**
+ * Update UI elements (counts, button states)
+ */
+function updateFullViewUI() {
+  const countEl = document.getElementById('fullview-count');
+  const selectedCountEl = document.getElementById('fullview-selected-count');
+  const deleteBtn = document.getElementById('fullview-delete-selected');
+  const deleteCountSpan = document.getElementById('delete-count');
+  const selectAllBtn = document.getElementById('fullview-select-all');
+
+  const total = fullViewState.items.length;
+  const selectedCount = fullViewState.selected.size;
+
+  // Update counts
+  countEl.textContent = `${total} ${fullViewState.type === 'projects' ? 'projektů' : 'konverzací'}`;
+
+  if (selectedCount > 0) {
+    selectedCountEl.style.display = 'inline';
+    selectedCountEl.textContent = `${selectedCount} vybráno`;
+    deleteBtn.style.display = 'flex';
+    deleteCountSpan.textContent = `Smazat (${selectedCount})`;
+  } else {
+    selectedCountEl.style.display = 'none';
+    deleteBtn.style.display = 'none';
+  }
+
+  // Update select all button text
+  const query = fullViewState.searchQuery.toLowerCase();
+  const filtered = fullViewState.items.filter(item => {
+    const name = (item.name || item.title || 'Untitled').toLowerCase();
+    return name.includes(query);
+  });
+  const allSelected = filtered.length > 0 && filtered.every(item => fullViewState.selected.has(item.id));
+  selectAllBtn.querySelector('span').textContent = allSelected ? 'Zrušit výběr' : 'Vybrat vše';
+}
+
+/**
+ * Filter full view list based on search
+ */
+function filterFullView() {
+  const searchInput = document.getElementById('fullview-search');
+  fullViewState.searchQuery = searchInput.value;
+  renderFullViewList();
+}
+
+/**
+ * Open item from full view
+ */
+async function openFromFullView(id) {
+  closeFullView();
+
+  if (fullViewState.type === 'projects') {
+    await openProject(parseInt(id));
+  } else {
+    await openConversation(id);
+  }
+}
+
+/**
+ * Delete single item from full view
+ */
+async function deleteFromFullView(id) {
+  const item = fullViewState.items.find(i => String(i.id) === String(id));
+  const name = item?.name || item?.title || 'tuto položku';
+
+  if (!confirm(`Opravdu chcete smazat "${name}"?`)) {
+    return;
+  }
+
+  try {
+    if (fullViewState.type === 'projects') {
+      await api('DELETE', `/api/projects/${id}`);
+      await loadProjects();
+    } else {
+      await api('DELETE', `/api/conversations/${id}`);
+      await loadConversations();
+    }
+
+    // Remove from local state
+    fullViewState.items = fullViewState.items.filter(i => String(i.id) !== String(id));
+    fullViewState.selected.delete(id);
+
+    renderFullViewList();
+    toast('Položka smazána', 'success');
+  } catch (err) {
+    toast(`Chyba: ${err.message}`, 'error');
+  }
+}
+
+/**
+ * Delete all selected items
+ */
+async function deleteSelected() {
+  const count = fullViewState.selected.size;
+
+  if (count === 0) return;
+
+  const itemType = fullViewState.type === 'projects' ? 'projektů' : 'konverzací';
+  if (!confirm(`Opravdu chcete smazat ${count} ${itemType}?`)) {
+    return;
+  }
+
+  setLoading(true);
+  let successCount = 0;
+  let errorCount = 0;
+
+  for (const id of fullViewState.selected) {
+    try {
+      if (fullViewState.type === 'projects') {
+        await api('DELETE', `/api/projects/${id}`);
+      } else {
+        await api('DELETE', `/api/conversations/${id}`);
+      }
+      successCount++;
+    } catch (err) {
+      console.error(`Failed to delete ${id}:`, err);
+      errorCount++;
+    }
+  }
+
+  // Reload data
+  if (fullViewState.type === 'projects') {
+    await loadProjects();
+    fullViewState.items = [...state.projects];
+  } else {
+    await loadConversations();
+    fullViewState.items = [...state.conversations];
+  }
+
+  fullViewState.selected = new Set();
+  renderFullViewList();
+
+  setLoading(false);
+
+  if (errorCount > 0) {
+    toast(`Smazáno ${successCount}, chyby: ${errorCount}`, 'warning');
+  } else {
+    toast(`Smazáno ${successCount} položek`, 'success');
+  }
+}
+
+// v58/59 - Window exports for full view and sections
+window.showFullView = showFullView;
+window.closeFullView = closeFullView;
+window.toggleSelectAll = toggleSelectAll;
+window.deleteSelected = deleteSelected;
+window.filterFullView = filterFullView;
+window.toggleItemSelection = toggleItemSelection;
+window.setFullViewMode = setFullViewMode;
+window.openFromFullView = openFromFullView;
+window.deleteFromFullView = deleteFromFullView;
+window.toggleSection = toggleSection;

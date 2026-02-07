@@ -1,15 +1,34 @@
-// C.3 v33 Agent Runner - Execution Engine
+// C.3 v57.0 Agent Runner - Execution Engine
 // ══════════════════════════════════════════════════════════════════════════════
 // Runner je čistě deterministický:
 // 1. Fetch data
 // 2. Evaluate conditions
 // 3. Detect trigger edges
-// 4. Dispatch actions
+// 4. Execute mark_seen (transactional, before business actions)
+// 5. Dispatch business actions (with retry/backoff)
 //
 // LLM je volán POUZE z akcí (notify s use_llm: true), nikdy z runneru
 
 import { ConditionEvaluator } from './conditions.js';
 import { TriggerEvaluator } from './triggers.js';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// v57.0 - RETRY CONFIGURATION
+// ═══════════════════════════════════════════════════════════════════════════════
+const RETRY_CONFIG = {
+  maxAttempts: 3,                    // Max retry attempts for business actions
+  baseDelayMs: 500,                  // Initial delay: 500ms
+  backoffMultiplier: 2,              // Exponential: 500ms, 1000ms, 2000ms
+  retryableTypes: ['notify', 'webhook'],  // Only these action types are retried
+  // mark_seen, update_state, log are NOT retried (either succeed or fail permanently)
+};
+
+/**
+ * v57.0 - Sleep helper for retry backoff
+ */
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
@@ -319,7 +338,8 @@ export class AgentRunner {
     if (!action.type) {
       return { valid: false, error: 'Action must have a type' };
     }
-    const validTypes = ['notify', 'webhook', 'update_state', 'log'];
+    // v57.0 - Added mark_seen as valid action type
+    const validTypes = ['notify', 'webhook', 'update_state', 'log', 'mark_seen'];
     if (!validTypes.includes(action.type)) {
       return { valid: false, error: `Unknown action type: ${action.type}` };
     }
@@ -511,9 +531,9 @@ export class AgentRunner {
           
           const config = this.interpolate(source.config, context);
           const data = await handler(config, context);
-          
-          // Filter seen items for HUNTER pattern
-          const filteredData = this.filterSeenItems(data, source.id, context.state);
+
+          // v57.0 - Filter seen items for HUNTER pattern (uses DB, not in-memory state)
+          const filteredData = this.filterSeenItems(data, source.id, agentId);
           
           context.sources[source.id] = { 
             status: 'ok', 
@@ -666,32 +686,86 @@ export class AgentRunner {
       };
       
       // ══════════════════════════════════════════════════════════════════════
-      // STEP 5: Execute actions
+      // v57.0 STEP 5a: Execute mark_seen FIRST (before business actions)
+      // This ensures crash recovery doesn't cause duplicate processing
       // ══════════════════════════════════════════════════════════════════════
       const executedActions = [];
       let actionError = false;
-      
-      if (triggerResults.fired.length > 0 || def.actions?.some(a => a.trigger_id === null)) {
-        log.push(`[${this.timestamp()}] Executing actions...`);
-        
-        for (const action of def.actions || []) {
+
+      // Separate mark_seen actions from business actions
+      const markSeenActions = (def.actions || []).filter(a => a.type === 'mark_seen');
+      const businessActions = (def.actions || []).filter(a => a.type !== 'mark_seen');
+
+      // v57.0 - Auto-generate mark_seen if HUNTER pattern detected and no explicit mark_seen
+      if (markSeenActions.length === 0 && totalNewItems > 0) {
+        // Auto-mark all sources with new items
+        for (const [sourceId, sourceData] of Object.entries(context.sources)) {
+          if (sourceData.status === 'ok' && sourceData.filtered_count > 0) {
+            log.push(`[${this.timestamp()}] Auto mark_seen for source: ${sourceId}`);
+            try {
+              const result = await this.executeMarkSeen(
+                { type: 'mark_seen', config: { source: sourceId } },
+                context,
+                agentId
+              );
+              executedActions.push({ type: 'mark_seen', source: sourceId, status: 'ok', ...result });
+              log.push(`  ✓ mark_seen (${sourceId}): ${result.marked} marked`);
+            } catch (err) {
+              log.push(`  ✗ mark_seen (${sourceId}): ${err.message}`);
+              // Don't set actionError for mark_seen - it's not a business action
+            }
+          }
+        }
+      } else {
+        // Execute explicit mark_seen actions
+        for (const action of markSeenActions) {
+          try {
+            const result = await this.executeMarkSeen(action, context, agentId);
+            executedActions.push({ type: 'mark_seen', source: action.config?.source, status: 'ok', ...result });
+            log.push(`  ✓ mark_seen: ${result.marked} marked`);
+          } catch (err) {
+            log.push(`  ✗ mark_seen: ${err.message}`);
+          }
+        }
+      }
+
+      // ══════════════════════════════════════════════════════════════════════
+      // v57.0 STEP 5b: Execute business actions (notify, webhook, etc.)
+      // - State is persisted AFTER EACH ACTION for crash recovery
+      // - Retryable actions (notify, webhook) get exponential backoff retry
+      // - Non-retryable actions (update_state, log) fail immediately
+      // ══════════════════════════════════════════════════════════════════════
+      if (triggerResults.fired.length > 0 || businessActions.some(a => a.trigger_id === null)) {
+        log.push(`[${this.timestamp()}] Executing ${businessActions.length} business actions...`);
+
+        for (const action of businessActions) {
           // Check if action should run
           if (action.trigger_id !== null && !triggerResults.fired.includes(action.trigger_id)) {
             continue;
           }
-          
-          try {
-            await this.executeAction(action, context, agentId, runId, triggerResults);
-            executedActions.push({ type: action.type, trigger: action.trigger_id, status: 'ok' });
-            log.push(`  ✓ ${action.type}: OK`);
-          } catch (err) {
-            executedActions.push({ type: action.type, trigger: action.trigger_id, status: 'error', error: err.message });
-            log.push(`  ✗ ${action.type}: ${err.message}`);
+
+          // v57.0 - Execute with retry for retryable action types
+          const isRetryable = RETRY_CONFIG.retryableTypes.includes(action.type);
+          const result = await this.executeActionWithRetry(
+            action, context, agentId, runId, triggerResults, isRetryable, log
+          );
+
+          executedActions.push(result);
+
+          if (result.status === 'ok') {
+            log.push(`  ✓ ${action.type}: OK${result.attempts > 1 ? ` (after ${result.attempts} attempts)` : ''}`);
+            newState._last_action = { type: action.type, at: new Date().toISOString() };
+          } else {
+            log.push(`  ✗ ${action.type}: ${result.error}${result.attempts > 1 ? ` (failed after ${result.attempts} attempts)` : ''}`);
             actionError = true;
+            newState._last_action = { type: action.type, at: new Date().toISOString(), error: result.error };
           }
+
+          // v57.0 - Persist state after each action (success or failure)
+          this.repo.updateAgentState(agentId, newState);
         }
       } else {
-        log.push(`[${this.timestamp()}] No triggers fired, skipping actions`);
+        log.push(`[${this.timestamp()}] No triggers fired, skipping business actions`);
       }
       
       // ══════════════════════════════════════════════════════════════════════
@@ -844,24 +918,24 @@ export class AgentRunner {
   }
   
   /**
-   * Filter out items that have already been seen (for HUNTER pattern)
+   * v57.0 - Filter out items that have already been seen (for HUNTER pattern)
+   * Uses repository for DB-backed seen tracking instead of in-memory state.
+   *
+   * NOTE: This only FILTERS - it does NOT mark items as seen.
+   * Marking happens via explicit mark_seen action AFTER trigger detection.
    */
-  filterSeenItems(data, sourceId, state) {
+  filterSeenItems(data, sourceId, agentId) {
     if (!Array.isArray(data)) return data;
-    
-    const seenKey = `_seen_${sourceId}`;
-    const seenIds = new Set(state[seenKey] || []);
-    
+
+    // v57.0 - Use repository to get seen items from DB
+    const seenIds = this.repo.getSeenItemIds(agentId, sourceId);
+
     // Filter out seen items
     const newItems = data.filter(item => {
       const itemId = this.getItemId(item);
       return !seenIds.has(itemId);
     });
-    
-    // Update seen list (will be saved in state)
-    const newSeenIds = data.map(item => this.getItemId(item));
-    state[seenKey] = [...new Set([...seenIds, ...newSeenIds])].slice(-1000); // Keep last 1000
-    
+
     return newItems;
   }
   
@@ -955,8 +1029,162 @@ export class AgentRunner {
         return this.executeUpdateState(action, context, agentId);
       case 'log':
         return this.executeLog(action, context);
+      case 'mark_seen':
+        // v57.0 - Transactional mark_seen action
+        return this.executeMarkSeen(action, context, agentId);
       default:
         throw new Error(`Unknown action type: ${action.type}`);
+    }
+  }
+
+  /**
+   * v57.0 - Execute action with retry and exponential backoff
+   *
+   * CONTRACT:
+   * - Only retries for retryable action types (notify, webhook)
+   * - NEVER retries mark_seen (it's transactional, not a business action)
+   * - NEVER restores triggers (retry is action-level only)
+   * - Exponential backoff: 500ms, 1000ms, 2000ms
+   * - Returns result object with status, attempts, and error info
+   *
+   * @param {Object} action - Action to execute
+   * @param {Object} context - Execution context
+   * @param {string} agentId
+   * @param {number} runId
+   * @param {Object} triggerResults
+   * @param {boolean} isRetryable - Whether this action type supports retry
+   * @param {string[]} log - Log array for recording attempts
+   * @returns {Promise<{type: string, trigger: string, status: string, attempts: number, error?: string}>}
+   */
+  async executeActionWithRetry(action, context, agentId, runId, triggerResults, isRetryable, log) {
+    const result = {
+      type: action.type,
+      trigger: action.trigger_id,
+      status: 'ok',
+      attempts: 0
+    };
+
+    const maxAttempts = isRetryable ? RETRY_CONFIG.maxAttempts : 1;
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      result.attempts = attempt;
+
+      try {
+        await this.executeAction(action, context, agentId, runId, triggerResults);
+        result.status = 'ok';
+        return result;
+
+      } catch (err) {
+        lastError = err;
+
+        // If not retryable or last attempt, fail immediately
+        if (!isRetryable || attempt >= maxAttempts) {
+          result.status = 'error';
+          result.error = err.message;
+          return result;
+        }
+
+        // Calculate backoff delay
+        const delayMs = RETRY_CONFIG.baseDelayMs * Math.pow(RETRY_CONFIG.backoffMultiplier, attempt - 1);
+        log.push(`  ⟳ ${action.type}: attempt ${attempt} failed (${err.message}), retrying in ${delayMs}ms...`);
+
+        // Wait before retry
+        await sleep(delayMs);
+      }
+    }
+
+    // Should not reach here, but safety net
+    result.status = 'error';
+    result.error = lastError?.message || 'Unknown error';
+    return result;
+  }
+
+  /**
+   * v57.0 - Execute mark_seen action (transactional, idempotent)
+   *
+   * CONTRACT:
+   * - Persists immediately to DB
+   * - Idempotent (safe to call multiple times)
+   * - Does NOT send notifications
+   * - Runs BEFORE business actions
+   *
+   * DSL format:
+   *   actions:
+   *     - type: mark_seen
+   *       config:
+   *         source: source_id
+   *         items: "{{ sources.source_id.data }}" or explicit array
+   */
+  async executeMarkSeen(action, context, agentId) {
+    const config = action.config || {};
+    const sourceId = config.source;
+
+    if (!sourceId) {
+      throw new Error('mark_seen requires source config');
+    }
+
+    // Get items to mark - either from config or from source data
+    let items;
+    if (config.items) {
+      items = this.interpolate(config.items, context);
+      if (typeof items === 'string') {
+        // Try to parse as JSON array
+        try {
+          items = JSON.parse(items);
+        } catch {
+          items = [items]; // Single item
+        }
+      }
+    } else {
+      // Default: use all items from the source
+      const sourceData = context.sources[sourceId];
+      if (!sourceData || sourceData.status !== 'ok') {
+        this.logger.warn(`mark_seen: source ${sourceId} not available`);
+        return { marked: 0, skipped: 0 };
+      }
+      items = sourceData.data;
+    }
+
+    if (!Array.isArray(items)) {
+      items = items ? [items] : [];
+    }
+
+    // Extract item IDs
+    const itemsToMark = items.map(item => ({
+      id: this.getItemId(item),
+      hash: typeof item === 'object' ? this.hashItem(item) : null
+    }));
+
+    // Mark in DB (transactional)
+    const result = this.repo.markItemsSeenBatch(agentId, sourceId, itemsToMark);
+
+    this.logger.info(`mark_seen: ${result.newlyMarked.length} new, ${result.alreadySeen.length} already seen`);
+
+    return {
+      marked: result.newlyMarked.length,
+      skipped: result.alreadySeen.length,
+      newlyMarked: result.newlyMarked
+    };
+  }
+
+  /**
+   * v57.0 - Create a simple hash for item deduplication
+   */
+  hashItem(item) {
+    if (!item || typeof item !== 'object') return null;
+    try {
+      // Simple hash: stringify and use first 32 chars
+      const str = JSON.stringify(item);
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+      }
+      return hash.toString(16);
+    } catch {
+      return null;
     }
   }
   

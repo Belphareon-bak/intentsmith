@@ -2,6 +2,8 @@
 // ══════════════════════════════════════════════════════════════════════════════
 // Database operations for agents
 
+import { logger } from '../core/logger.js';
+
 /**
  * Initialize agent tables
  * @param {import('better-sqlite3').Database} db
@@ -111,6 +113,20 @@ export function initAgentTables(db) {
     )
   `);
   
+  // v57.0 - Seen items table (for HUNTER pattern - transactional mark_seen)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS agent_seen_items_v57 (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      agent_id TEXT NOT NULL,
+      source_id TEXT NOT NULL,
+      item_id TEXT NOT NULL,
+      item_hash TEXT,
+      seen_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(agent_id, source_id, item_id),
+      FOREIGN KEY (agent_id) REFERENCES agents_v33(id) ON DELETE CASCADE
+    )
+  `);
+
   // Indexes
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_agent_runs_agent ON agent_runs_v33(agent_id);
@@ -118,9 +134,10 @@ export function initAgentTables(db) {
     CREATE INDEX IF NOT EXISTS idx_agent_notif_agent ON agent_notifications_v33(agent_id);
     CREATE INDEX IF NOT EXISTS idx_agent_notif_read ON agent_notifications_v33(read_at);
     CREATE INDEX IF NOT EXISTS idx_agent_schedule_next ON agent_schedule_v33(next_run);
+    CREATE INDEX IF NOT EXISTS idx_agent_seen_lookup ON agent_seen_items_v57(agent_id, source_id, item_id);
   `);
-  
-  console.log('[Agents v33] Database tables initialized');
+
+  logger.info('AgentRepo', 'Database tables initialized (v57 with seen_items)');
 }
 
 /**
@@ -449,7 +466,7 @@ export class AgentRepository {
     if (table === 'user_inventory') {
       let sql = 'SELECT * FROM user_inventory WHERE 1=1';
       const params = [];
-      
+
       for (const [key, value] of Object.entries(where)) {
         if (value && typeof value === 'object' && value.not_null) {
           sql += ` AND ${key} IS NOT NULL`;
@@ -458,16 +475,187 @@ export class AgentRepository {
           params.push(value);
         }
       }
-      
+
       return this.db.prepare(sql).all(...params);
     }
-    
+
     if (table === 'agent_data') {
       // Query from agent_data_v33
       return [];
     }
-    
+
     return [];
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // v57.0 - SEEN ITEMS (transactional mark_seen for HUNTER pattern)
+  // ════════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Check if an item has been seen.
+   * @param {string} agentId
+   * @param {string} sourceId
+   * @param {string} itemId
+   * @returns {boolean}
+   */
+  isItemSeen(agentId, sourceId, itemId) {
+    const row = this.db.prepare(`
+      SELECT 1 FROM agent_seen_items_v57
+      WHERE agent_id = ? AND source_id = ? AND item_id = ?
+    `).get(agentId, sourceId, itemId);
+    return !!row;
+  }
+
+  /**
+   * Mark a single item as seen (transactional, idempotent).
+   * @param {string} agentId
+   * @param {string} sourceId
+   * @param {string} itemId
+   * @param {string} [itemHash] - Optional hash for deduplication
+   * @returns {boolean} - true if newly marked, false if already seen
+   */
+  markItemSeen(agentId, sourceId, itemId, itemHash = null) {
+    try {
+      this.db.prepare(`
+        INSERT INTO agent_seen_items_v57 (agent_id, source_id, item_id, item_hash)
+        VALUES (?, ?, ?, ?)
+      `).run(agentId, sourceId, itemId, itemHash);
+      return true; // Newly marked
+    } catch (err) {
+      if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || err.message.includes('UNIQUE constraint')) {
+        return false; // Already seen (idempotent)
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Mark multiple items as seen in a single transaction.
+   * Returns array of item IDs that were newly marked (not previously seen).
+   *
+   * CONTRACT:
+   * - Atomic: all or nothing
+   * - Idempotent: safe to call multiple times
+   * - Per-item: each item is individually tracked
+   *
+   * @param {string} agentId
+   * @param {string} sourceId
+   * @param {Array<{id: string, hash?: string}>} items
+   * @returns {{ newlyMarked: string[], alreadySeen: string[] }}
+   */
+  markItemsSeenBatch(agentId, sourceId, items) {
+    const newlyMarked = [];
+    const alreadySeen = [];
+
+    const insertStmt = this.db.prepare(`
+      INSERT INTO agent_seen_items_v57 (agent_id, source_id, item_id, item_hash)
+      VALUES (?, ?, ?, ?)
+    `);
+
+    const checkStmt = this.db.prepare(`
+      SELECT 1 FROM agent_seen_items_v57
+      WHERE agent_id = ? AND source_id = ? AND item_id = ?
+    `);
+
+    // Use transaction for atomicity
+    const markBatch = this.db.transaction((items) => {
+      for (const item of items) {
+        const itemId = typeof item === 'string' ? item : item.id;
+        const itemHash = typeof item === 'object' ? item.hash : null;
+
+        // Check if already seen
+        const existing = checkStmt.get(agentId, sourceId, itemId);
+        if (existing) {
+          alreadySeen.push(itemId);
+          continue;
+        }
+
+        // Mark as seen
+        try {
+          insertStmt.run(agentId, sourceId, itemId, itemHash);
+          newlyMarked.push(itemId);
+        } catch (err) {
+          // Race condition: another process marked it between check and insert
+          if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || err.message.includes('UNIQUE constraint')) {
+            alreadySeen.push(itemId);
+          } else {
+            throw err;
+          }
+        }
+      }
+    });
+
+    markBatch(items);
+
+    return { newlyMarked, alreadySeen };
+  }
+
+  /**
+   * Get all seen item IDs for an agent/source (for filtering).
+   * @param {string} agentId
+   * @param {string} sourceId
+   * @returns {Set<string>}
+   */
+  getSeenItemIds(agentId, sourceId) {
+    const rows = this.db.prepare(`
+      SELECT item_id FROM agent_seen_items_v57
+      WHERE agent_id = ? AND source_id = ?
+    `).all(agentId, sourceId);
+    return new Set(rows.map(r => r.item_id));
+  }
+
+  /**
+   * Clear seen items for an agent/source (for reset).
+   * @param {string} agentId
+   * @param {string} [sourceId] - If omitted, clears all sources
+   */
+  clearSeenItems(agentId, sourceId = null) {
+    if (sourceId) {
+      this.db.prepare(`
+        DELETE FROM agent_seen_items_v57 WHERE agent_id = ? AND source_id = ?
+      `).run(agentId, sourceId);
+    } else {
+      this.db.prepare(`
+        DELETE FROM agent_seen_items_v57 WHERE agent_id = ?
+      `).run(agentId);
+    }
+  }
+
+  /**
+   * Get seen items count for an agent.
+   * @param {string} agentId
+   * @returns {number}
+   */
+  getSeenItemsCount(agentId) {
+    const row = this.db.prepare(`
+      SELECT COUNT(*) as count FROM agent_seen_items_v57 WHERE agent_id = ?
+    `).get(agentId);
+    return row?.count || 0;
+  }
+
+  /**
+   * Prune old seen items (keep last N per source).
+   * @param {string} agentId
+   * @param {number} keepCount - Number of items to keep per source
+   */
+  pruneSeenItems(agentId, keepCount = 1000) {
+    // Get distinct sources
+    const sources = this.db.prepare(`
+      SELECT DISTINCT source_id FROM agent_seen_items_v57 WHERE agent_id = ?
+    `).all(agentId);
+
+    for (const { source_id } of sources) {
+      // Delete oldest items beyond keepCount
+      this.db.prepare(`
+        DELETE FROM agent_seen_items_v57
+        WHERE agent_id = ? AND source_id = ? AND id NOT IN (
+          SELECT id FROM agent_seen_items_v57
+          WHERE agent_id = ? AND source_id = ?
+          ORDER BY seen_at DESC
+          LIMIT ?
+        )
+      `).run(agentId, source_id, agentId, source_id, keepCount);
+    }
   }
 }
 

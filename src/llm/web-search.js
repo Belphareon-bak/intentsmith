@@ -1,9 +1,20 @@
-// C.3 v44.2 Web Search Module
+// C.3 v56.2 Sprint B — Web Search Module
 // ══════════════════════════════════════════════════════════════════════════════
 // Multi-provider web search with automatic fallback
 // Providers: DuckDuckGo → SearX → Brave (if key available)
+//
+// v56.2 Sprint B changes:
+// - FAIL_COOLDOWN: 5min → 60s (faster recovery)
+// - SearX: sequential → parallel (Promise.any) — eliminates tail latency
+// - DDG-first fast path (skip SearX if DDG returns results)
+// v55.2: Search quality scoring, scrape content validation, usefulness metrics
 
 import { logger } from '../core/logger.js';
+import {
+  scoreSearchResults,
+  scoreScrapeContent,
+  searchMetrics,
+} from '../chat/handlers/utils/search-metrics.js';
 
 // ════════════════════════════════════════════════════════════════════════════
 // SEARCH PROVIDERS (with fallback chain)
@@ -21,7 +32,7 @@ const SEARX_INSTANCES = [
 
 // Track failed providers to avoid retrying immediately
 const failedProviders = new Map(); // provider -> failUntil timestamp
-const FAIL_COOLDOWN = 5 * 60 * 1000; // 5 minutes cooldown after failure
+const FAIL_COOLDOWN = 60 * 1000; // v56.2 Sprint B: 60s cooldown (was 5min — too aggressive)
 
 /**
  * Check if a provider is currently failed (in cooldown)
@@ -117,11 +128,14 @@ async function searchSearX(query, maxResults, instance) {
  */
 export async function searchWeb(query, maxResults = 5) {
   logger.info('WebSearch', `Searching: "${query}"`);
+  const searchStartTime = Date.now();
 
   const fallbackLog = [];
 
   // ─────────────────────────────────────────────────────────────────────────
   // TRY 1: DuckDuckGo (primary, most reliable)
+  // v56.2 Sprint B: DDG-FIRST fast path — if DDG succeeds with ≥3 results,
+  // skip SearX entirely. This eliminates tail latency from SearX timeouts.
   // ─────────────────────────────────────────────────────────────────────────
   if (!isProviderFailed('ddg')) {
     fallbackLog.push({ provider: 'DuckDuckGo', status: 'trying' });
@@ -131,7 +145,13 @@ export async function searchWeb(query, maxResults = 5) {
         logger.info('WebSearch', `DDG: Found ${results.length} results`);
         fallbackLog[fallbackLog.length - 1].status = 'success';
         fallbackLog[fallbackLog.length - 1].count = results.length;
-        return { results, usedProvider: 'DuckDuckGo', fallbackLog, allFailed: false };
+        const quality = scoreSearchResults(results, query);
+        const latency = Date.now() - searchStartTime;
+        searchMetrics.record({
+          query, provider: 'DuckDuckGo', resultCount: results.length,
+          resultGrade: quality.grade, outcome: 'SUCCESS', latencyMs: latency,
+        });
+        return { results, usedProvider: 'DuckDuckGo', fallbackLog, allFailed: false, quality };
       }
       fallbackLog[fallbackLog.length - 1].status = 'no_results';
     } catch (err) {
@@ -147,41 +167,73 @@ export async function searchWeb(query, maxResults = 5) {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // TRY 2: SearX instances (privacy-respecting meta-search)
+  // TRY 2: SearX instances — PARALLEL (v56.2 Sprint B)
   // ─────────────────────────────────────────────────────────────────────────
-  for (const instance of SEARX_INSTANCES) {
-    if (isProviderFailed(instance)) {
-      fallbackLog.push({ provider: `SearX (${new URL(instance).host})`, status: 'cooldown', skipped: true });
-      continue;
-    }
+  // BEFORE: Sequential for-loop → 6s+ if all fail (each timeout ~1s)
+  // NOW: Promise.any() on all available instances → first success wins
+  // Timeout: 4s per instance (explicit AbortSignal)
+  // ─────────────────────────────────────────────────────────────────────────
+  const availableInstances = SEARX_INSTANCES.filter(inst => !isProviderFailed(inst));
 
-    const providerName = `SearX (${new URL(instance).host})`;
-    fallbackLog.push({ provider: providerName, status: 'trying' });
+  if (availableInstances.length > 0) {
+    const searxPromises = availableInstances.map(instance => {
+      const providerName = `SearX (${new URL(instance).host})`;
+      fallbackLog.push({ provider: providerName, status: 'trying' });
+      const logIndex = fallbackLog.length - 1;
+
+      return searchSearX(query, maxResults, instance)
+        .then(results => {
+          if (results.length > 0) {
+            fallbackLog[logIndex].status = 'success';
+            fallbackLog[logIndex].count = results.length;
+            return { results, providerName, instance };
+          }
+          fallbackLog[logIndex].status = 'no_results';
+          throw new Error('no_results');
+        })
+        .catch(err => {
+          if (fallbackLog[logIndex].status === 'trying') {
+            fallbackLog[logIndex].status = 'error';
+            fallbackLog[logIndex].error = err.message;
+          }
+          if (err.message.includes('403') || err.message.includes('429') || err.message.includes('503')) {
+            markProviderFailed(instance);
+            fallbackLog[logIndex].blocked = true;
+          }
+          throw err; // re-throw for Promise.any
+        });
+    });
 
     try {
-      const results = await searchSearX(query, maxResults, instance);
-      if (results.length > 0) {
-        logger.info('WebSearch', `SearX (${instance}): Found ${results.length} results`);
-        fallbackLog[fallbackLog.length - 1].status = 'success';
-        fallbackLog[fallbackLog.length - 1].count = results.length;
-        return { results, usedProvider: providerName, fallbackLog, allFailed: false };
-      }
-      fallbackLog[fallbackLog.length - 1].status = 'no_results';
-    } catch (err) {
-      fallbackLog[fallbackLog.length - 1].status = 'error';
-      fallbackLog[fallbackLog.length - 1].error = err.message;
-      if (err.message.includes('403') || err.message.includes('429') || err.message.includes('503')) {
-        markProviderFailed(instance);
-        fallbackLog[fallbackLog.length - 1].blocked = true;
-      }
+      const winner = await Promise.any(searxPromises);
+      logger.info('WebSearch', `SearX (${winner.instance}): Found ${winner.results.length} results`);
+      const quality = scoreSearchResults(winner.results, query);
+      const latency = Date.now() - searchStartTime;
+      searchMetrics.record({
+        query, provider: winner.providerName, resultCount: winner.results.length,
+        resultGrade: quality.grade, outcome: 'SUCCESS', latencyMs: latency,
+      });
+      return { results: winner.results, usedProvider: winner.providerName, fallbackLog, allFailed: false, quality };
+    } catch (aggErr) {
+      // All SearX instances failed — logged individually above
+      logger.warn('WebSearch', 'All SearX instances failed in parallel', {
+        attempted: availableInstances.length,
+      });
     }
+  } else {
+    fallbackLog.push({ provider: 'SearX (all)', status: 'cooldown', skipped: true });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
   // ALL PROVIDERS FAILED
   // ─────────────────────────────────────────────────────────────────────────
   logger.error('WebSearch', `All providers failed`, { fallbackLog });
-  return { results: [], usedProvider: null, fallbackLog, allFailed: true };
+  const latency = Date.now() - searchStartTime;
+  searchMetrics.record({
+    query, provider: 'none', resultCount: 0,
+    resultGrade: 'EMPTY', outcome: 'NO_RESULTS', latencyMs: latency,
+  });
+  return { results: [], usedProvider: null, fallbackLog, allFailed: true, quality: { grade: 'EMPTY', totalResults: 0 } };
 }
 
 /**
@@ -227,11 +279,14 @@ function parseDDGResults(html, maxResults) {
 
 /**
  * Fetch and extract text content from a webpage
+ * v55.2: Content quality scoring, block detection, smart truncation
+ *
  * @param {string} url - URL to fetch
  * @param {number} maxLength - Maximum text length (default 5000)
- * @returns {Promise<{title: string, content: string, url: string, links: Array} | null>}
+ * @param {string} [query] - Original query for relevance scoring
+ * @returns {Promise<{title: string, content: string, url: string, links: Array, quality: Object} | null>}
  */
-export async function fetchPage(url, maxLength = 5000) {
+export async function fetchPage(url, maxLength = 5000, query = '') {
   logger.info('WebSearch', `Fetching: ${url}`);
   
   try {
@@ -325,7 +380,14 @@ export async function fetchPage(url, maxLength = 5000) {
     
     logger.info('WebSearch', `Extracted ${links.length} links from ${url}`);
     
-    return { title, content, url, links };
+    // v55.2: Score content quality
+    const quality = scoreScrapeContent(content, query);
+    
+    if (!quality.usable) {
+      logger.warn('WebSearch', `Scrape quality BLOCKED: ${quality.reason}`, { url, contentLength: quality.contentLength });
+    }
+    
+    return { title, content, url, links, quality };
     
   } catch (err) {
     logger.error('WebSearch', `Fetch failed: ${err.message}`);
@@ -643,4 +705,5 @@ export default {
   searchAndFormat,
   resetFailedProviders,
   getProviderStatus,
+  searchMetrics,
 };

@@ -7,12 +7,19 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { config } from './config.js';
 import { logger } from './core/logger.js';
-import { workflowEngine } from './workflow/engine.js';
+import { installGlobalHandlers, handleError } from './core/error-handler.js';
+// @deprecated v55 — Legacy workflow engine (THINKER→CODER→REVIEWER pipeline)
+// Use planner/workflow.js (D1→CODE→R2→D2→R1) for all new features.
+// This import is kept ONLY for backward-compat with POST /workflow endpoint.
+import { workflowEngine as legacyWorkflowEngine } from './workflow/engine.js';
 import db from './db/database.js';
 
 // ESM __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Global error handlers (Phase 1 — error-handler.js)
+installGlobalHandlers({ logger, exitOnUncaught: false });
 
 // Agent Platform v33
 import { AgentRepository, initAgentTables } from './agents/repository.js';
@@ -21,8 +28,10 @@ import { AgentRunner } from './agents/runner.js';
 import { createAgentRoutes } from './agents/api.js';
 import { LLMServices } from './agents/llm-services.js';
 
-// Expert Layer v35
+// Expert Layer v35 + v57 Expert Store
+import { validateExpertConfig, getExpertStore } from './experts/expert-store.js';
 let expertLayer = null;
+let expertStore = null;
 async function loadExpertLayer() {
   const possiblePaths = [
     './experts/expert-layer.js',    // Primary location (src/experts/)
@@ -35,24 +44,17 @@ async function loadExpertLayer() {
       expertLayer = await import(p);
       logger.info('Server', `Expert layer loaded from ${p}`);
       return;
-    } catch {}
+    } catch (err) {
+      // Expected: trying multiple paths, continue to next
+      logger.debug('Server', `Expert layer not at ${p}: ${err.code || err.message}`);
+    }
   }
   logger.warn('Server', 'Expert layer not available - file not found');
 }
 await loadExpertLayer();
 
-// Orchestrator v36 (Agent-Expert Integration)
-let orchestrator = null;
-async function loadOrchestrator() {
-  try {
-    const { getOrchestrator } = await import('./orchestrator/orchestrator.js');
-    orchestrator = getOrchestrator();
-    logger.info('Server', 'Orchestrator v36 loaded');
-  } catch (err) {
-    logger.warn('Server', `Orchestrator not available: ${err.message}`);
-  }
-}
-await loadOrchestrator();
+// Orchestrator v36 — loaded on-demand via architect/ routes
+// (Module-level orchestrator removed: getOrchestrator API was never implemented)
 
 // Initialize Agent tables
 initAgentTables(db.db);
@@ -62,10 +64,17 @@ import { callWithAuth } from './llm/gateway.js';
 import { createAuthToken, LLMCallerRole } from './llm/auth-types.js';
 
 // v44.0: ChatController - THE ONLY entry point for chat
-import { ChatController, ChatMode } from './unification/chat-controller.js';
-import { getDefaultHandlers } from './unification/handlers.js';
-import { toolExecutor } from './unification/tool-executor.js';
+import { ChatController, ChatMode } from './chat/controller.js';
+import { getDefaultHandlers } from './chat/handlers/index.js';
+import { toolExecutor } from './executor/tool-executor.js';
 import { toolRegistry } from './tools/registry.js';
+
+// v56.0 Sprint 3: Initialize ConversationStore with DB
+import { getConversationStore } from './chat/conversation-store.js';
+getConversationStore(db);
+
+// v57.0: Initialize ExpertStore with DB
+expertStore = getExpertStore(db);
 
 // Configure ChatController with default handlers
 ChatController.configure({
@@ -144,11 +153,7 @@ const agentRoutes = createAgentRoutes({
   llmClient: agentLLMClient
 });
 
-// Bind LLM client to Orchestrator (late binding)
-if (orchestrator) {
-  orchestrator.setLLMClient(agentLLMClient);
-  logger.info('Server', 'Orchestrator bound to LLM client');
-}
+// (Orchestrator LLM binding removed — dead code, setLLMClient never existed)
 
 // ════════════════════════════════════════════════════════════════════════════
 // REQUEST HELPERS
@@ -216,7 +221,10 @@ async function sendStaticFile(res, filepath, contentType) {
         });
         res.end(content);
         return;
-      } catch {}
+      } catch (err) {
+        // Expected: trying multiple paths
+        logger.debug('Server', `Static file not at ${fullPath}: ${err.code}`);
+      }
     }
     
     // None found
@@ -250,7 +258,7 @@ async function getArchitectUIHTML() {
 // ════════════════════════════════════════════════════════════════════════════
 // API ROUTES
 // v44.5: server.js = transport & wiring ONLY
-// All logic goes through ChatController → handlers.js → CRE → ToolExecutor
+// All logic goes through ChatController → handlers/ → CRE → ToolExecutor
 // ════════════════════════════════════════════════════════════════════════════
 //
 // ╔═══════════════════════════════════════════════════════════════════════════╗
@@ -270,7 +278,7 @@ async function getArchitectUIHTML() {
 // ║  ✅ return HTTP response                                                  ║
 // ║                                                                           ║
 // ║  If you think "just this one special case..." → STOP                      ║
-// ║  Put it in handlers.js or CRE. That's what they're for.                   ║
+// ║  Put it in handlers/ modules or CRE. That's what they're for.                   ║
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 //
 
@@ -286,25 +294,30 @@ const routes = {
         'GET /workflow/:sessionId - Get workflow status',
         'GET /sessions - List active sessions',
         'POST /chat - Simple chat',
+        'POST /planner/start - Start D1→CODE→R2→R1 workflow',
+        'POST /planner/clarify - Answer D1 clarification questions',
+        'POST /planner/approve - Approve plan, start execution',
+        'POST /planner/reject - Reject plan with feedback',
+        'GET /planner/session?id= - Get workflow session status',
         'GET /memory - List global memory',
         'POST /memory - Set memory value',
         'GET /ui - Workflow UI',
         'GET /architect - Architect Mode UI',
         'GET /experts - Expert Layer UI (v35)',
         'GET /agents - Agent Platform UI',
+        'GET /chat-ui - Chat UI (v56.1)',
         'GET /api/agents - List all agents',
         'POST /api/agents - Create agent',
         'POST /api/agents/build - Build agent from description',
-        'POST /api/orchestrator/request - Request expert (v36)',
-        'POST /api/orchestrator/check - Pre-flight expert check (v36)',
-        'GET /api/orchestrator/log - Audit log (v36)',
-        'GET /api/orchestrator/stats - Statistics (v36)',
+        'GET /api/debug/modules - Module trace (C3_TRACE=1)',
+        'GET /api/debug/health - Server health (C3_TRACE=1)',
       ],
     });
   },
   
   // ══════════════════════════════════════════════════════════════════════════
-  // WORKFLOW API
+  // WORKFLOW API — @deprecated v55: Legacy pipeline (THINKER→CODER→REVIEWER)
+  // For new features, use POST /planner/* (D1→CODE→R2→D2→R1)
   // ══════════════════════════════════════════════════════════════════════════
   
   'POST /workflow': async (req, res) => {
@@ -315,11 +328,15 @@ const routes = {
       return sendJSON(res, 400, { error: 'sessionId is required' });
     }
     
-    logger.info('Server', `POST /workflow`, { sessionId, messageLength: message?.length });
+    // v55: Deprecation warning — track usage of legacy endpoint
+    logger.warn('Server', 'DEPRECATED: POST /workflow uses legacy workflow engine (THINKER→CODER→REVIEWER). Use /planner/* for new work.', {
+      sessionId,
+      messageLength: message?.length,
+    });
     
     try {
       // Check if session exists
-      const existingSession = workflowEngine.getSession(sessionId);
+      const existingSession = legacyWorkflowEngine.getSession(sessionId);
       
       let result;
       
@@ -332,14 +349,14 @@ const routes = {
           return sendJSON(res, 400, { error: 'workdir is required for new workflow' });
         }
         
-        result = await workflowEngine.start(sessionId, message, workdir);
+        result = await legacyWorkflowEngine.start(sessionId, message, workdir);
       } else {
         // Continue existing workflow
         if (!message) {
           return sendJSON(res, 400, { error: 'message is required to continue workflow' });
         }
         
-        result = await workflowEngine.continue(sessionId, message);
+        result = await legacyWorkflowEngine.continue(sessionId, message);
       }
       
       sendJSON(res, 200, result);
@@ -351,7 +368,7 @@ const routes = {
   },
   
   'GET /workflow/:sessionId': (req, res, params) => {
-    const session = workflowEngine.getSession(params.sessionId);
+    const session = legacyWorkflowEngine.getSession(params.sessionId);
     
     if (!session) {
       return sendJSON(res, 404, { error: 'Session not found' });
@@ -366,13 +383,13 @@ const routes = {
   },
   
   // ══════════════════════════════════════════════════════════════════════════
-  // SESSIONS API
+  // SESSIONS API (legacy workflow sessions)
   // ══════════════════════════════════════════════════════════════════════════
   
   'GET /sessions': (req, res) => {
     const sessions = [];
     
-    for (const [id, session] of workflowEngine.sessions) {
+    for (const [id, session] of legacyWorkflowEngine.sessions) {
       sessions.push({
         sessionId: id,
         state: session.state,
@@ -382,6 +399,38 @@ const routes = {
     }
     
     sendJSON(res, 200, { sessions });
+  },
+  
+  // v55.1 - Chat session management endpoints
+  'GET /api/chat/sessions/stats': (req, res) => {
+    const stats = ChatController.getStats();
+    sendJSON(res, 200, stats);
+  },
+  
+  'GET /api/chat/sessions': (req, res) => {
+    const sessionIds = ChatController.getActiveSessions();
+    const sessions = sessionIds.map(id => ({
+      sessionId: id,
+      ...ChatController.getSessionInfo(id)
+    }));
+    sendJSON(res, 200, { sessions, total: sessions.length });
+  },
+  
+  'GET /api/chat/sessions/:sessionId': (req, res, params) => {
+    const info = ChatController.getSessionInfo(params.sessionId);
+    if (!info.exists) {
+      return sendJSON(res, 404, { error: 'Session not found' });
+    }
+    sendJSON(res, 200, info);
+  },
+  
+  'DELETE /api/chat/sessions/:sessionId': (req, res, params) => {
+    const info = ChatController.getSessionInfo(params.sessionId);
+    if (!info.exists) {
+      return sendJSON(res, 404, { error: 'Session not found' });
+    }
+    ChatController.removeSession(params.sessionId);
+    sendJSON(res, 200, { success: true, deleted: params.sessionId });
   },
   
   // ══════════════════════════════════════════════════════════════════════════
@@ -438,15 +487,15 @@ const routes = {
 
   'POST /chat': async (req, res) => {
     const body = await parseBody(req);
-    const { message } = body;
+    const { message, session_id } = body;
 
     if (!message) {
       return sendJSON(res, 400, { error: 'message is required' });
     }
 
     try {
-      // v44.5: Route through ChatController - THE ONLY brain
-      const sessionId = `simple-${Date.now()}`;
+      // v56.0 Sprint 3: Use provided session_id or create a proper one
+      const sessionId = session_id || `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
       const result = await ChatController.handle({
         message,
@@ -461,6 +510,7 @@ const routes = {
         response: result.response,
         mode: result.mode,
         confidence: result.confidence,
+        session_id: sessionId, // v56.0: Return session_id for continuity
       });
 
     } catch (err) {
@@ -469,6 +519,152 @@ const routes = {
     }
   },
   
+  // ══════════════════════════════════════════════════════════════════════════
+  // v56.1 Sprint 4C: CHAT UI
+  // ══════════════════════════════════════════════════════════════════════════
+  
+  'GET /chat-ui': async (req, res) => {
+    await sendStaticFile(res, 'src/chat/chat.html', 'text/html');
+  },
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // v56.1 Sprint 4B: EXPORT PIPELINE
+  // ══════════════════════════════════════════════════════════════════════════
+  
+  'POST /api/export': async (req, res) => {
+    const body = await parseBody(req);
+    const { conversation_id, format, scope } = body;
+    
+    if (!conversation_id) {
+      return sendJSON(res, 400, { error: 'conversation_id is required' });
+    }
+    
+    try {
+      const { exportConversation } = await import('./chat/export-pipeline.js');
+      const result = await exportConversation(conversation_id, {
+        format: format || 'md',
+        scope: scope || 'conversation',
+      });
+      
+      sendJSON(res, 200, {
+        filename: result.filename,
+        download_url: result.downloadUrl,
+        format: result.format,
+        scope: result.scope,
+        size: result.size,
+        turn_count: result.turnCount,
+      });
+    } catch (err) {
+      logger.error('Server', `Export error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // PLANNER WORKFLOW API — D1→CODE→R2→D2/R1 Pipeline
+  // ══════════════════════════════════════════════════════════════════════════
+
+  'POST /planner/start': async (req, res) => {
+    const body = await parseBody(req);
+    const { request, context } = body;
+
+    if (!request) {
+      return sendJSON(res, 400, { error: 'request is required' });
+    }
+
+    try {
+      const { workflowOrchestrator } = await import('./planner/index.js');
+      const result = await workflowOrchestrator.start(request, context || {});
+      sendJSON(res, 200, result);
+    } catch (err) {
+      logger.error('Server', `Planner start error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'POST /planner/clarify': async (req, res) => {
+    const body = await parseBody(req);
+    const { sessionId, answers } = body;
+
+    if (!sessionId || !answers) {
+      return sendJSON(res, 400, { error: 'sessionId and answers are required' });
+    }
+
+    try {
+      const { workflowOrchestrator } = await import('./planner/index.js');
+      const result = await workflowOrchestrator.clarify(sessionId, answers);
+      sendJSON(res, 200, result);
+    } catch (err) {
+      logger.error('Server', `Planner clarify error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'POST /planner/approve': async (req, res) => {
+    const body = await parseBody(req);
+    const { sessionId } = body;
+
+    if (!sessionId) {
+      return sendJSON(res, 400, { error: 'sessionId is required' });
+    }
+
+    try {
+      const { workflowOrchestrator } = await import('./planner/index.js');
+      const result = await workflowOrchestrator.approve(sessionId);
+      sendJSON(res, 200, result);
+    } catch (err) {
+      logger.error('Server', `Planner approve error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'POST /planner/reject': async (req, res) => {
+    const body = await parseBody(req);
+    const { sessionId, feedback } = body;
+
+    if (!sessionId) {
+      return sendJSON(res, 400, { error: 'sessionId is required' });
+    }
+
+    try {
+      const { workflowOrchestrator } = await import('./planner/index.js');
+      const result = await workflowOrchestrator.reject(sessionId, feedback || '');
+      sendJSON(res, 200, result);
+    } catch (err) {
+      logger.error('Server', `Planner reject error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'GET /planner/session': async (req, res) => {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const sessionId = url.searchParams.get('id');
+
+    if (!sessionId) {
+      return sendJSON(res, 400, { error: 'id query param is required' });
+    }
+
+    try {
+      const { workflowOrchestrator } = await import('./planner/index.js');
+      const session = workflowOrchestrator.getSession(sessionId);
+      if (!session) {
+        return sendJSON(res, 404, { error: 'Session not found' });
+      }
+      sendJSON(res, 200, {
+        id: session.id,
+        state: session.state,
+        plan: session.plan,
+        fixAttempts: session.fixAttempts,
+        redesignAttempts: session.redesignAttempts,
+        historyLength: session.history.length,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+      });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
   // ══════════════════════════════════════════════════════════════════════════
   // ARCHITECT MODE API
   // ══════════════════════════════════════════════════════════════════════════
@@ -839,10 +1035,158 @@ const routes = {
   'GET /api/projects/:id/conversations': async (req, res, params) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const limit = parseInt(url.searchParams.get('limit')) || 10;
-    
+
     try {
       const conversations = db.conversations.listRecentByProject.all(parseInt(params.id), limit);
       sendJSON(res, 200, { conversations });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // v59: Open Folder - Register existing filesystem folder as project
+  // ══════════════════════════════════════════════════════════════════════════
+
+  'POST /api/projects/open-folder': async (req, res) => {
+    const body = await parseBody(req);
+    const { folderPath, name } = body;
+
+    if (!folderPath) {
+      return sendJSON(res, 400, { error: 'folderPath is required' });
+    }
+
+    try {
+      const fsPromises = await import('fs/promises');
+      const pathModule = await import('path');
+      const fsConstants = await import('fs');
+
+      // 1. Normalize path (resolve to absolute, follow symlinks)
+      let normalizedPath;
+      try {
+        normalizedPath = await fsPromises.realpath(folderPath);
+      } catch (err) {
+        return sendJSON(res, 400, {
+          error: 'Path does not exist or is not accessible',
+          details: err.message
+        });
+      }
+
+      // 2. Validate it's a directory
+      const stats = await fsPromises.stat(normalizedPath);
+      if (!stats.isDirectory()) {
+        return sendJSON(res, 400, { error: 'Path is not a directory' });
+      }
+
+      // 3. Check write permissions
+      try {
+        await fsPromises.access(normalizedPath, fsConstants.constants.W_OK);
+      } catch (err) {
+        return sendJSON(res, 400, {
+          error: 'No write access to directory',
+          details: 'The folder must be writable to store project metadata'
+        });
+      }
+
+      // 4. Check if already registered in DB
+      const existingProject = db.projects.findByPath.get(normalizedPath);
+      if (existingProject) {
+        // Update last_active and return existing project
+        db.projects.touch(existingProject.id);
+        return sendJSON(res, 200, {
+          project: existingProject,
+          status: 'already_registered',
+          message: 'Project was already registered'
+        });
+      }
+
+      // 5. Detect existing metadata directories
+      const c3Path = pathModule.join(normalizedPath, '.c3');
+      const c3ArchitectPath = pathModule.join(normalizedPath, '.c3-architect');
+
+      let hasC3 = false;
+      let hasC3Architect = false;
+      let metadataState = null;
+
+      try {
+        await fsPromises.access(c3Path);
+        hasC3 = true;
+      } catch { /* doesn't exist */ }
+
+      try {
+        await fsPromises.access(c3ArchitectPath);
+        hasC3Architect = true;
+        // Try to read existing state
+        try {
+          const statePath = pathModule.join(c3ArchitectPath, 'state.json');
+          const stateContent = await fsPromises.readFile(statePath, 'utf-8');
+          metadataState = JSON.parse(stateContent);
+        } catch { /* state.json doesn't exist or invalid */ }
+      } catch { /* doesn't exist */ }
+
+      // 6. Bootstrap metadata if missing
+      let bootstrapped = false;
+      if (!hasC3 && !hasC3Architect) {
+        // Create minimal .c3-architect structure
+        await fsPromises.mkdir(c3ArchitectPath, { recursive: true });
+        await fsPromises.mkdir(pathModule.join(c3ArchitectPath, 'roadmap'), { recursive: true });
+
+        // Derive name from folder name if not provided
+        const derivedName = name || pathModule.basename(normalizedPath);
+
+        // Create minimal state.json
+        const initialState = {
+          projectName: derivedName,
+          createdAt: new Date().toISOString(),
+          phase: 'discovery',
+          version: '1.0.0',
+          isExternal: true
+        };
+
+        await fsPromises.writeFile(
+          pathModule.join(c3ArchitectPath, 'state.json'),
+          JSON.stringify(initialState, null, 2),
+          'utf-8'
+        );
+
+        bootstrapped = true;
+        metadataState = initialState;
+      }
+
+      // 7. Register in DB (is_external = 1)
+      const projectName = name || metadataState?.projectName || pathModule.basename(normalizedPath);
+      const description = metadataState?.description || `External project: ${normalizedPath}`;
+
+      const { project, wasExisting } = db.projects.registerExternal(projectName, normalizedPath, description);
+
+      sendJSON(res, 201, {
+        project,
+        status: 'registered',
+        metadata: {
+          hasC3,
+          hasC3Architect,
+          bootstrapped,
+          state: metadataState
+        }
+      });
+
+    } catch (err) {
+      logger.error('Server', `Open folder error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'DELETE /api/projects/:id': async (req, res, params) => {
+    try {
+      const project = db.projects.findById.get(parseInt(params.id));
+      if (!project) {
+        return sendJSON(res, 404, { error: 'Project not found' });
+      }
+
+      // Delete project from DB (cascades to conversations, etc.)
+      db.projects.delete.run(parseInt(params.id));
+
+      sendJSON(res, 200, { success: true, deleted: params.id });
     } catch (err) {
       sendJSON(res, 500, { error: err.message });
     }
@@ -916,6 +1260,7 @@ const routes = {
   
   // Chat (send message)
   // v44.0: ALL chat goes through ChatController - THE ONLY entry point
+  // v56.0 Sprint 3: DB persistence now handled by ConversationStore inside ChatController.handle
   'POST /api/chat': async (req, res) => {
     const body = await parseBody(req);
     const { conversation_id, project_id, message } = body;
@@ -925,10 +1270,7 @@ const routes = {
     }
 
     try {
-      // Save user message
-      db.messages.addMessage(conversation_id, 'user', message);
-
-      // v44.0: Route through ChatController - NO legacy routing
+      // v56.0: No manual DB writes here — ChatController.handle persists via ConversationStore
       logger.info('Server', `[ChatController] Processing: "${message.substring(0, 50)}..."`);
 
       const result = await ChatController.handle({
@@ -943,19 +1285,8 @@ const routes = {
 
       logger.info('Server', `[ChatController] Mode: ${result.mode}, Confidence: ${result.confidence.toFixed(2)}`);
 
-      const response = result.response;
-
-      // Save assistant message
-      db.messages.addMessage(conversation_id, 'assistant', response);
-
-      // Update conversation title if first message
-      const conv = db.conversations.findById.get(conversation_id);
-      if (conv && !conv.title && conv.message_count <= 2) {
-        db.conversations.updateTitle.run(message.substring(0, 50), conversation_id);
-      }
-
       sendJSON(res, 200, {
-        response,
+        response: result.response,
         mode: result.mode,
         confidence: result.confidence,
         metadata: result.metadata,
@@ -1377,7 +1708,10 @@ const routes = {
         try {
           html = fs.readFileSync(p, 'utf8');
           break;
-        } catch {}
+        } catch (err) {
+          // Expected: trying multiple paths
+          logger.debug('Server', `experts.html not at ${p}: ${err.code}`);
+        }
       }
       
       if (!html) {
@@ -1438,9 +1772,14 @@ const routes = {
       }
 
       const body = await parseBody(req);
-      
-      if (!body.name) {
-        return sendJSON(res, 400, { error: 'Name is required' });
+
+      // v57.0 - Validate config before saving
+      const validation = validateExpertConfig(body);
+      if (!validation.valid) {
+        return sendJSON(res, 400, {
+          error: 'Invalid expert configuration',
+          details: validation.errors
+        });
       }
 
       // Generate ID from name
@@ -1478,8 +1817,20 @@ const routes = {
       }
 
       const body = await parseBody(req);
+
+      // v57.0 - Validate config before updating
+      // Only validate fields that are being updated
+      const configToValidate = { name: body.name || 'placeholder', ...body };
+      const validation = validateExpertConfig(configToValidate);
+      if (!validation.valid) {
+        return sendJSON(res, 400, {
+          error: 'Invalid expert configuration',
+          details: validation.errors
+        });
+      }
+
       const expert = expertLayer.expertRegistry.updateCustom(params.id, body);
-      
+
       if (!expert) {
         return sendJSON(res, 404, { error: 'Custom expert not found' });
       }
@@ -1534,117 +1885,54 @@ const routes = {
     }
   },
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // ORCHESTRATOR API v36 (Agent-Expert Integration)
-  // ══════════════════════════════════════════════════════════════════════════
-
-  'POST /api/orchestrator/request': async (req, res) => {
-    try {
-      if (!orchestrator) {
-        return sendJSON(res, 500, { error: 'Orchestrator not loaded' });
-      }
-
-      // P1: Auth check placeholder (implement proper auth in production)
-      // TODO: Add authentication/role check here
-      // if (!isAuthorized(req, 'orchestrator.request')) {
-      //   return sendJSON(res, 403, { error: 'Unauthorized' });
-      // }
-
-      const body = await parseBody(req);
-      
-      if (!body.expertId || !body.task) {
-        return sendJSON(res, 400, { error: 'expertId and task are required' });
-      }
-
-      const result = await orchestrator.requestExpert({
-        requester: body.requester || 'api_manual',
-        expertId: body.expertId,
-        task: body.task,
-        context: body.context || null
-      });
-
-      sendJSON(res, result.success ? 200 : 400, result);
-    } catch (err) {
-      sendJSON(res, 500, { error: err.message });
-    }
-  },
-
-  'POST /api/orchestrator/check': async (req, res) => {
-    try {
-      if (!orchestrator) {
-        return sendJSON(res, 500, { error: 'Orchestrator not loaded' });
-      }
-
-      const body = await parseBody(req);
-      
-      if (!body.task) {
-        return sendJSON(res, 400, { error: 'task is required' });
-      }
-
-      const result = orchestrator.shouldUseExpert(body.task, body.context);
-      sendJSON(res, 200, result);
-    } catch (err) {
-      sendJSON(res, 500, { error: err.message });
-    }
-  },
-
-  'GET /api/orchestrator/log': async (req, res) => {
-    try {
-      if (!orchestrator) {
-        return sendJSON(res, 500, { error: 'Orchestrator not loaded' });
-      }
-
-      // P1: Auth check placeholder
-      // TODO: Add admin role check here
-
-      const url = new URL(req.url, `http://${req.headers.host}`);
-      const filters = {
-        requester: url.searchParams.get('requester'),
-        expertId: url.searchParams.get('expertId'),
-        status: url.searchParams.get('status'),
-        since: url.searchParams.get('since') ? parseInt(url.searchParams.get('since')) : null,
-        limit: url.searchParams.get('limit') ? parseInt(url.searchParams.get('limit')) : 100
-      };
-
-      // Remove null/undefined filters
-      Object.keys(filters).forEach(k => filters[k] == null && delete filters[k]);
-
-      const log = orchestrator.getAuditLog(filters);
-      sendJSON(res, 200, { entries: log, count: log.length });
-    } catch (err) {
-      sendJSON(res, 500, { error: err.message });
-    }
-  },
-
-  'GET /api/orchestrator/stats': async (req, res) => {
-    try {
-      if (!orchestrator) {
-        return sendJSON(res, 500, { error: 'Orchestrator not loaded' });
-      }
-
-      const stats = orchestrator.getStats();
-      sendJSON(res, 200, stats);
-    } catch (err) {
-      sendJSON(res, 500, { error: err.message });
-    }
-  },
-
-  'DELETE /api/orchestrator/log': async (req, res) => {
-    try {
-      if (!orchestrator) {
-        return sendJSON(res, 500, { error: 'Orchestrator not loaded' });
-      }
-
-      // P1: Auth check - admin only
-      // TODO: Add admin role check here
-
-      const count = orchestrator.clearLog();
-      sendJSON(res, 200, { cleared: count });
-    } catch (err) {
-      sendJSON(res, 500, { error: err.message });
-    }
-  },
+  // (Orchestrator API v36 routes removed — module-level orchestrator was dead code.
+  //  Architect routes at /api/architect/* still work via ConversationOrchestrator.)
 };
+
+// ════════════════════════════════════════════════════════════════════════════
+// DEBUG: Runtime Module Tracer (activate: C3_TRACE=1 or --import ./src/core/tracer-register.mjs)
+// ════════════════════════════════════════════════════════════════════════════
+
+if (process.env.C3_TRACE === '1' || globalThis.__c3_tracer) {
+  routes['GET /api/debug/modules'] = (req, res) => {
+    if (globalThis.__c3_tracer) {
+      sendJSON(res, 200, globalThis.__c3_tracer.getReport());
+    } else {
+      // Fallback: list statically known files
+      import('fs').then(fs => import('path').then(path => {
+        const srcDir = path.dirname(new URL(import.meta.url).pathname);
+        const files = [];
+        function walk(dir, base = '') {
+          for (const entry of fs.readdirSync(dir)) {
+            const full = path.join(dir, entry);
+            const rel = base ? `${base}/${entry}` : entry;
+            if (fs.statSync(full).isDirectory()) {
+              if (!entry.startsWith('.') && entry !== 'node_modules' && entry !== '_archive') {
+                walk(full, rel);
+              }
+            } else if (entry.endsWith('.js') || entry.endsWith('.mjs')) {
+              files.push(rel);
+            }
+          }
+        }
+        walk(srcDir);
+        sendJSON(res, 200, { source: 'filesystem', totalFiles: files.length, files });
+      }));
+    }
+  };
+
+  routes['GET /api/debug/health'] = (req, res) => {
+    sendJSON(res, 200, {
+      status: 'ok',
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      tracer: !!globalThis.__c3_tracer,
+      nodeVersion: process.version,
+    });
+  };
+
+  logger.info('Server', 'Debug endpoints enabled: /api/debug/modules, /api/debug/health');
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 // EXPERT PERSISTENCE HELPERS
@@ -2267,17 +2555,69 @@ server.listen(config.server.port, config.server.host, () => {
   `);
 });
 
-// Graceful shutdown
-process.on('SIGINT', () => {
-  logger.info('Server', 'Shutting down...');
-  db.close();
-  process.exit(0);
+// ════════════════════════════════════════════════════════════════════════════
+// GLOBAL ERROR HANDLERS
+// ════════════════════════════════════════════════════════════════════════════
+
+process.on('unhandledRejection', (reason, promise) => {
+  const message = reason instanceof Error ? reason.message : String(reason);
+  const stack = reason instanceof Error ? reason.stack : undefined;
+  logger.error('Process', 'Unhandled Promise Rejection', {
+    message,
+    stack,
+    promiseInfo: 'Promise rejection not caught',
+  });
 });
 
-process.on('SIGTERM', () => {
-  logger.info('Server', 'Shutting down...');
-  db.close();
-  process.exit(0);
+process.on('uncaughtException', (error, origin) => {
+  logger.error('Process', 'Uncaught Exception - FATAL', {
+    message: error.message,
+    stack: error.stack,
+    origin,
+  });
+  
+  // Attempt graceful shutdown
+  try {
+    db.close();
+  } catch (e) {
+    // Ignore cleanup errors
+  }
+  
+  // Give logs time to flush, then exit
+  setTimeout(() => process.exit(1), 100);
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// GRACEFUL SHUTDOWN
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * v55.1 - Graceful shutdown with proper cleanup
+ */
+function gracefulShutdown(signal) {
+  logger.info('Server', `Received ${signal}, shutting down gracefully...`);
+  
+  // Stop session cleanup timer
+  try {
+    ChatController.stopCleanup();
+    logger.debug('Server', 'Session cleanup stopped');
+  } catch (e) {
+    // Ignore
+  }
+  
+  // Close database
+  try {
+    db.close();
+    logger.debug('Server', 'Database closed');
+  } catch (e) {
+    // Ignore
+  }
+  
+  logger.info('Server', 'Shutdown complete');
+  process.exit(0);
+}
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 export default server;

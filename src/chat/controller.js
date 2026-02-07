@@ -15,13 +15,6 @@ import { logger } from '../core/logger.js';
 import { SafetyEngine } from './safety/engine.js';
 import { getConversationStore, TurnRole } from './conversation-store.js';
 import { getLTMContextForSynthesis } from './ltm-context.js';
-import {
-  C3InputEvent,
-  C3OutputEvent,
-  C3ErrorEvent,
-  ContentType,
-  ChannelCapabilities,
-} from '../channels/types.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Chat Mode Types
@@ -579,57 +572,6 @@ export class ChatController {
         `Handler error: ${error.message}`,
         targetMode
       );
-    }
-  }
-
-  /**
-   * Process a C3InputEvent (Channel Adapter contract v1.0)
-   *
-   * This is the preferred entry point for Channel Adapters.
-   * It accepts a normalized C3InputEvent and returns a C3OutputEvent.
-   *
-   * @param {C3InputEvent} event - Normalized input event
-   * @returns {Promise<C3OutputEvent|C3ErrorEvent>}
-   */
-  async processEvent(event) {
-    // Validate input event
-    if (!(event instanceof C3InputEvent)) {
-      return C3ErrorEvent.validation(
-        event?.correlationId || 'unknown',
-        'Input must be a C3InputEvent instance'
-      );
-    }
-
-    // Extract text from content
-    const input = event.content.text || '';
-    if (!input && event.content.type === ContentType.TEXT) {
-      return C3ErrorEvent.validation(
-        event.correlationId,
-        'Text content is empty'
-      );
-    }
-
-    // Build legacy context from event
-    const context = {
-      correlationId: event.correlationId,
-      source: event.source,
-      user: event.user,
-      hints: event.hints,
-      capabilities: event.capabilities,
-    };
-
-    try {
-      // Process using existing method
-      const taggedResponse = await this.process(input, context);
-
-      // Convert TaggedResponse to C3OutputEvent
-      return C3OutputEvent.fromTaggedResponse(event.correlationId, taggedResponse);
-    } catch (error) {
-      logger.error('ChatController', `processEvent error: ${error.message}`);
-      return C3ErrorEvent.internal(event.correlationId, {
-        error: error.message,
-        stack: error.stack,
-      });
     }
   }
 

@@ -82,11 +82,13 @@ logger.info('DB', 'Database initialized', { path: dbPath });
 
 const SCHEMA = `
 -- Projects
+-- v59: Added is_external flag + UNIQUE(path) for "Open Folder" feature
 CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT UNIQUE NOT NULL,
-    path TEXT NOT NULL,
+    path TEXT UNIQUE NOT NULL,
     description TEXT,
+    is_external INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_active DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -260,6 +262,33 @@ CREATE TABLE IF NOT EXISTS logs (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- v57: Custom experts (definice vlastních expertů)
+CREATE TABLE IF NOT EXISTS experts (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    domain TEXT,
+    system_prompt TEXT,
+    temperature REAL DEFAULT 0.5 CHECK(temperature >= 0 AND temperature <= 1),
+    config TEXT NOT NULL DEFAULT '{}',
+    is_builtin INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- v57: Conversation-expert binding (expert lock state per conversation)
+CREATE TABLE IF NOT EXISTS conversation_experts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    expert_id TEXT NOT NULL,
+    locked INTEGER DEFAULT 0,
+    strength INTEGER DEFAULT 50 CHECK(strength >= 0 AND strength <= 100),
+    locked_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(conversation_id)
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_project_memory_project ON project_memory(project_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id);
@@ -271,6 +300,8 @@ CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(updated_at
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_attachments_conversation ON attachments(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_attachments_project ON attachments(project_id);
+CREATE INDEX IF NOT EXISTS idx_conversation_experts_conv ON conversation_experts(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_experts_domain ON experts(domain);
 
 -- Full-text search for chat
 CREATE VIRTUAL TABLE IF NOT EXISTS chat_fts USING fts5(
@@ -320,6 +351,27 @@ END;
 db.exec(SCHEMA);
 
 // ════════════════════════════════════════════════════════════════════════════
+// v59: MIGRATIONS - Add is_external column to existing projects table
+// ════════════════════════════════════════════════════════════════════════════
+
+try {
+  // Check if is_external column exists
+  const columns = db.prepare("PRAGMA table_info(projects)").all();
+  const hasIsExternal = columns.some(col => col.name === 'is_external');
+
+  if (!hasIsExternal) {
+    logger.info('DB', 'Migrating projects table: adding is_external column');
+    db.exec('ALTER TABLE projects ADD COLUMN is_external INTEGER DEFAULT 0');
+  }
+
+  // Note: UNIQUE constraint on path is already in CREATE TABLE for new DBs
+  // For existing DBs, we can't easily add UNIQUE constraint without recreating table
+  // So we rely on application-level check in findByPath before insert
+} catch (err) {
+  logger.warn('DB', `Migration check failed: ${err.message}`);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // REPOSITORIES
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -328,52 +380,87 @@ export const projects = {
   create: db.prepare(`
     INSERT INTO projects (name, path, description) VALUES (?, ?, ?)
   `),
-  
+
+  // v59: Create external project (from "Open Folder")
+  createExternal: db.prepare(`
+    INSERT INTO projects (name, path, description, is_external) VALUES (?, ?, ?, 1)
+  `),
+
   findByName: db.prepare(`
     SELECT * FROM projects WHERE name = ?
   `),
-  
+
   findById: db.prepare(`
     SELECT * FROM projects WHERE id = ?
   `),
-  
+
   findByPath: db.prepare(`
     SELECT * FROM projects WHERE path = ?
   `),
-  
+
   updateLastActive: db.prepare(`
     UPDATE projects SET last_active = CURRENT_TIMESTAMP WHERE id = ?
   `),
-  
+
   updateDescription: db.prepare(`
     UPDATE projects SET description = ?, last_active = CURRENT_TIMESTAMP WHERE id = ?
   `),
-  
+
   list: db.prepare(`
     SELECT * FROM projects ORDER BY last_active DESC LIMIT ?
   `),
-  
+
   listAll: db.prepare(`
     SELECT * FROM projects ORDER BY last_active DESC
   `),
-  
+
   listRecent: db.prepare(`
     SELECT * FROM projects ORDER BY last_active DESC LIMIT ?
   `),
-  
+
   delete: db.prepare(`DELETE FROM projects WHERE id = ?`),
-  
+
   getOrCreate(name, projectPath, description = '') {
     let project = this.findByPath.get(projectPath);
     if (!project) {
       const result = this.create.run(name, projectPath, description);
-      project = { id: result.lastInsertRowid, name, path: projectPath, description };
+      project = { id: result.lastInsertRowid, name, path: projectPath, description, is_external: 0 };
     } else {
       this.updateLastActive.run(project.id);
     }
     return project;
   },
-  
+
+  /**
+   * v59: Register external folder as project
+   * Used by "Open Folder" feature - marks project as is_external=1
+   */
+  registerExternal(name, projectPath, description = '') {
+    // Check if already registered
+    let project = this.findByPath.get(projectPath);
+    if (project) {
+      this.updateLastActive.run(project.id);
+      return { project, wasExisting: true };
+    }
+
+    // Check name uniqueness and generate alternative if needed
+    let finalName = name;
+    let counter = 1;
+    while (this.findByName.get(finalName)) {
+      finalName = `${name} (${counter++})`;
+    }
+
+    const result = this.createExternal.run(finalName, projectPath, description);
+    project = {
+      id: result.lastInsertRowid,
+      name: finalName,
+      path: projectPath,
+      description,
+      is_external: 1
+    };
+    return { project, wasExisting: false };
+  },
+
   touch(id) {
     this.updateLastActive.run(id);
   }
@@ -803,6 +890,120 @@ export const drafts = {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
+// v57: EXPERT REPOSITORIES
+// ════════════════════════════════════════════════════════════════════════════
+
+// Custom Experts
+export const experts = {
+  create: db.prepare(`
+    INSERT INTO experts (id, name, description, domain, system_prompt, temperature, config)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `),
+
+  findById: db.prepare(`SELECT * FROM experts WHERE id = ?`),
+
+  findByDomain: db.prepare(`SELECT * FROM experts WHERE domain = ?`),
+
+  listAll: db.prepare(`SELECT * FROM experts ORDER BY name`),
+
+  listCustom: db.prepare(`SELECT * FROM experts WHERE is_builtin = 0 ORDER BY name`),
+
+  update: db.prepare(`
+    UPDATE experts
+    SET name = ?, description = ?, domain = ?, system_prompt = ?, temperature = ?, config = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `),
+
+  delete: db.prepare(`DELETE FROM experts WHERE id = ? AND is_builtin = 0`),
+
+  /**
+   * Create or update an expert
+   */
+  upsert(id, name, description, domain, systemPrompt, temperature, config) {
+    const configStr = typeof config === 'string' ? config : JSON.stringify(config);
+    const existing = this.findById.get(id);
+    if (existing) {
+      this.update.run(name, description, domain, systemPrompt, temperature, configStr, id);
+    } else {
+      this.create.run(id, name, description, domain, systemPrompt, temperature, configStr);
+    }
+  },
+
+  /**
+   * Get expert config as parsed object
+   */
+  getConfig(id) {
+    const row = this.findById.get(id);
+    if (!row) return null;
+    try {
+      return { ...row, config: JSON.parse(row.config) };
+    } catch {
+      return row;
+    }
+  }
+};
+
+// Conversation-Expert bindings (for lock state)
+export const conversationExperts = {
+  get: db.prepare(`SELECT * FROM conversation_experts WHERE conversation_id = ?`),
+
+  create: db.prepare(`
+    INSERT INTO conversation_experts (conversation_id, expert_id, locked, strength, locked_at)
+    VALUES (?, ?, ?, ?, ?)
+  `),
+
+  update: db.prepare(`
+    UPDATE conversation_experts
+    SET expert_id = ?, locked = ?, strength = ?, locked_at = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE conversation_id = ?
+  `),
+
+  delete: db.prepare(`DELETE FROM conversation_experts WHERE conversation_id = ?`),
+
+  lock: db.prepare(`
+    UPDATE conversation_experts
+    SET locked = 1, locked_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+    WHERE conversation_id = ?
+  `),
+
+  unlock: db.prepare(`
+    UPDATE conversation_experts
+    SET locked = 0, locked_at = NULL, updated_at = CURRENT_TIMESTAMP
+    WHERE conversation_id = ?
+  `),
+
+  /**
+   * Set expert for conversation (creates or updates)
+   */
+  setExpert(conversationId, expertId, options = {}) {
+    const locked = options.locked ? 1 : 0;
+    const strength = options.strength ?? 50;
+    const lockedAt = locked ? new Date().toISOString() : null;
+
+    const existing = this.get.get(conversationId);
+    if (existing) {
+      this.update.run(expertId, locked, strength, lockedAt, conversationId);
+    } else {
+      this.create.run(conversationId, expertId, locked, strength, lockedAt);
+    }
+  },
+
+  /**
+   * Get expert binding for conversation
+   */
+  getBinding(conversationId) {
+    return this.get.get(conversationId) || null;
+  },
+
+  /**
+   * Clear expert for conversation
+   */
+  clearExpert(conversationId) {
+    this.delete.run(conversationId);
+  }
+};
+
+// ════════════════════════════════════════════════════════════════════════════
 // UTILITIES
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -834,6 +1035,9 @@ export default {
   messages,
   attachments,
   drafts,
+  // v57 Experts
+  experts,
+  conversationExperts,
   transaction,
   close,
 };

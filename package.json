@@ -1,8 +1,8 @@
 {
   "name": "c3-agent",
-  "version": "48.2.0",
+  "version": "56.0.0",
   "type": "module",
-  "description": "C.3 Agent - v48.2 (Decision Layer)",
+  "description": "C.3 Agent - v56.0 (Full Pipeline + Domains + 154 Tests)",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -46,6 +46,53 @@
     "test:stress": "node tests/chat-harness/stress-runner.js",
     "test:decision": "node tests/chat-harness/decision-runner.js",
     "test:v48": "npm run test:v47 && npm run test:chat && npm run test:decision",
+
+    "test:decision:unit": "node tests/decision-v48.test.js",
+    "test:decision:priority": "node tests/decision-priority.test.js",
+    "test:decision:fuzzing": "node tests/decision-fuzzing.test.js",
+    "test:decision:drift": "node tests/decision-drift.test.js",
+    "test:decision:calibration": "node tests/decision-calibration.test.js",
+    "test:decision:all": "npm run test:decision:unit && npm run test:decision:priority && npm run test:decision:fuzzing && npm run test:decision:drift && npm run test:decision:calibration",
+    "test:v48.3": "npm run test:v48 && npm run test:decision:all",
+
+    "test:quality": "node tests/quality-evaluators.test.js",
+    "test:runtime": "node tests/quality-runtime.test.js",
+    "test:v48.5": "npm run test:v48.3 && npm run test:quality && npm run test:runtime",
+
+    "test:strategy": "node tests/conversation-strategy.test.js",
+    "test:v49": "npm run test:v48.5 && npm run test:strategy",
+
+    "test:epistemic": "node tests/epistemic-control.test.js",
+    "test:v49.1": "npm run test:v49 && npm run test:epistemic",
+
+    "test:safety": "node tests/safety/safety-engine.test.js",
+    "test:v50": "npm run test:v49.1 && npm run test:safety",
+
+    "test:state": "node tests/memory/state-management.test.js",
+    "test:v51": "npm run test:v50 && npm run test:state",
+
+    "test:governance": "node tests/tools/governance.test.js",
+    "test:v52": "npm run test:v51 && npm run test:governance",
+
+    "test:observability": "node tests/audit/observability.test.js",
+    "test:v53": "npm run test:v52 && npm run test:observability",
+
+    "test:ux": "node tests/ux/contracts.test.js",
+    "test:v54": "npm run test:v53 && npm run test:ux",
+
+    "test:e2e": "node tests/e2e/e2e.test.js",
+    "test:e2e:run": "node tests/e2e/runner.js",
+    "test:e2e:verbose": "node tests/e2e/runner.js --verbose",
+    "test:v55": "npm run test:v54 && npm run test:e2e",
+
+    "test:build-patterns": "node tests/build-patterns.test.js",
+    "test:build-handoff": "node tests/build-handoff.test.js",
+    "test:workflow": "node tests/workflow-orchestrator.test.js",
+    "test:circuit": "node tests/circuit-breaker-v55.test.js",
+    "test:domains": "node tests/domains.test.js",
+    "test:e2e:build": "node tests/e2e/build-flow.test.js",
+    "test:pipeline": "npm run test:build-patterns && npm run test:build-handoff && npm run test:workflow && npm run test:circuit && npm run test:domains && npm run test:e2e:build",
+    "test:v56": "npm run test:v55 && npm run test:pipeline",
 
     "agentd": "node bin/agentd.js"
   },

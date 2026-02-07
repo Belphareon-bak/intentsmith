@@ -1,10 +1,24 @@
 // C.3 v28 Workflow Engine
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// Adaptivní workflow podle složitosti:
-// - SIMPLE:  THINKER → ANALYZER → PLANNER → CODER → REVIEWER → DONE
-// - MEDIUM:  + DESIGN_AUDIT (1 retry max)
-// - HIGH:    + ADVERSARIAL review
+// @deprecated v55 — LEGACY WORKFLOW ENGINE (FROZEN)
+//
+// Status: LEGACY — no new features, bugfix only if blocking.
+// Replacement: planner/workflow.js (D1→CODE→R2→D2→R1 pipeline)
+//
+// This engine uses the old THINKER→CODER→REVIEWER pipeline.
+// It is kept ONLY for backward-compat with:
+//   - POST /workflow endpoint
+//   - GET /workflow/:sessionId endpoint
+//   - GET /sessions endpoint
+//   - Inline workflow UI in server.js
+//
+// DO NOT add new features here.
+// DO NOT write new tests for this module.
+// DO NOT import this in new code — use planner/workflow.js instead.
+//
+// Pipeline: THINKER → ANALYZER → PLANNER → CODER → REVIEWER → DONE
+// (+ DESIGN_AUDIT for MEDIUM, + ADVERSARIAL for HIGH)
 //
 // ══════════════════════════════════════════════════════════════════════════════
 

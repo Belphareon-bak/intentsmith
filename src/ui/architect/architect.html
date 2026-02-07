@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>p(AI)assistant v45.0.0</title>
+  <title>p(AI)assistant v58.0.0</title>
   <!-- Favicon - Personal AI Assistant icon -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg viewBox='300 100 424 500' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23ffb65e'/%3E%3Cstop offset='45%25' stop-color='%23ff5fa2'/%3E%3Cstop offset='100%25' stop-color='%234cc9ff'/%3E%3C/linearGradient%3E%3ClinearGradient id='h' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%232a0f4f' stop-opacity='0.7'/%3E%3Cstop offset='100%25' stop-color='%231a0c3d' stop-opacity='0.7'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cline x1='512' y1='260' x2='512' y2='150' stroke='url(%23g)' stroke-width='8' stroke-linecap='round'/%3E%3Ccircle cx='512' cy='135' r='12' fill='url(%23g)'/%3E%3Cpath d='M360 350 C360 260 455 230 512 230 C569 230 664 260 664 350 V420 C664 500 580 540 512 540 C455 540 410 510 388 490 L350 525 V420 C350 380 360 375 360 350 Z' fill='url(%23h)' stroke='url(%23g)' stroke-width='18' stroke-linejoin='round'/%3E%3Cellipse cx='345' cy='395' rx='28' ry='32' fill='url(%23h)' stroke='url(%23g)' stroke-width='6'/%3E%3Cellipse cx='679' cy='395' rx='28' ry='32' fill='url(%23h)' stroke='url(%23g)' stroke-width='6'/%3E%3Crect x='420' y='365' width='184' height='92' rx='46' fill='none' stroke='url(%23g)' stroke-width='14'/%3E%3Ccircle cx='465' cy='410' r='13' fill='%23ff5fa2'/%3E%3Ccircle cx='559' cy='410' r='13' fill='%234cc9ff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/architect/architect.css">
@@ -79,32 +79,36 @@
       </nav>
       
       <!-- Projects Section -->
-      <div class="sidebar-section">
-        <button class="section-header" onclick="toggleSection('projects')">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="sidebar-section" id="section-projects">
+        <div class="section-header-row" onclick="showFullView('projects')">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" class="section-icon">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
           </svg>
-          <span>Projects</span>
-          <svg class="chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-          </svg>
-        </button>
+          <span class="section-title">Projects</span>
+          <button class="section-chevron-btn" onclick="event.stopPropagation(); toggleSection('projects')" title="Rozbalit/Sbalit">
+            <svg class="chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+        </div>
         <div class="section-content" id="projects-list">
           <div class="section-item muted">No projects yet</div>
         </div>
       </div>
       
       <!-- Chat History Section -->
-      <div class="sidebar-section">
-        <button class="section-header" onclick="toggleSection('history')">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="sidebar-section" id="section-history">
+        <div class="section-header-row" onclick="showFullView('conversations')">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" class="section-icon">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
           </svg>
-          <span>Chat History</span>
-          <svg class="chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-          </svg>
-        </button>
+          <span class="section-title">Chat History</span>
+          <button class="section-chevron-btn" onclick="event.stopPropagation(); toggleSection('history')" title="Rozbalit/Sbalit">
+            <svg class="chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+        </div>
         <div class="section-content" id="history-list">
           <div class="section-item muted">No conversations yet</div>
         </div>
@@ -360,7 +364,7 @@
         </div>
         <div class="status-spacer"></div>
         <div class="status-item">
-          <span class="status-version">v45.0.0</span>
+          <span class="status-version">v58.0.0</span>
         </div>
       </div>
     </main>
@@ -377,11 +381,40 @@
       </button>
     </div>
     
-    <!-- Effective Settings Summary -->
-    <div class="settings-summary" id="settings-summary">
-      <span class="summary-item">🔔 Email + App</span>
-      <span class="summary-item">🎨 Dark</span>
-      <span class="summary-item">📍 Praha</span>
+    <!-- Settings Overview -->
+    <div class="settings-overview" id="settings-overview">
+      <div class="settings-overview-row">
+        <div class="overview-item">
+          <span class="overview-icon">🔔</span>
+          <div class="overview-content">
+            <span class="overview-label">Notifikace</span>
+            <span class="overview-value" id="overview-notif">Email + App</span>
+          </div>
+        </div>
+        <div class="overview-item">
+          <span class="overview-icon">🎨</span>
+          <div class="overview-content">
+            <span class="overview-label">Téma</span>
+            <span class="overview-value" id="overview-theme">Tmavé</span>
+          </div>
+        </div>
+      </div>
+      <div class="settings-overview-row">
+        <div class="overview-item">
+          <span class="overview-icon">📍</span>
+          <div class="overview-content">
+            <span class="overview-label">Lokace</span>
+            <span class="overview-value" id="overview-location">Praha, CZ</span>
+          </div>
+        </div>
+        <div class="overview-item">
+          <span class="overview-icon">🧠</span>
+          <div class="overview-content">
+            <span class="overview-label">Kontext</span>
+            <span class="overview-value" id="overview-context">Aktivní</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   
@@ -402,34 +435,65 @@
         <div class="settings-group">
           <!-- Avatar & Name -->
           <div class="user-profile-header">
-            <div class="user-avatar" id="user-avatar">
+            <div class="user-avatar" id="user-avatar" onclick="changeAvatar()">
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="32" height="32">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
               </svg>
+              <span class="avatar-edit-hint">📷</span>
             </div>
             <div class="user-info">
-              <input type="text" class="settings-input" id="user-name" placeholder="Vaše jméno" value="">
+              <input type="text" class="settings-input" id="user-name" placeholder="Vaše jméno" value="" onchange="updateUserName()">
               <span class="user-status" id="user-status">Nepřihlášen</span>
             </div>
           </div>
-          
+
           <!-- Connected Accounts -->
           <label class="settings-label">Propojené účty</label>
-          <div class="connected-accounts">
-            <button class="account-btn" onclick="connectAccount('google')" id="btn-google">
-              <svg viewBox="0 0 24 24" width="18" height="18">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-              <span>Google</span>
-            </button>
-            <button class="account-btn" onclick="connectAccount('github')" id="btn-github">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-              </svg>
-              <span>GitHub</span>
+          <div class="connected-accounts" id="connected-accounts-list">
+            <div class="account-item" id="account-google">
+              <div class="account-info">
+                <svg viewBox="0 0 24 24" width="20" height="20">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                <div class="account-details">
+                  <span class="account-name">Google</span>
+                  <span class="account-email" id="google-email">Nepropojeno</span>
+                </div>
+              </div>
+              <button class="account-action-btn" onclick="toggleAccountConnection('google')" id="btn-google">
+                <span class="action-text">Propojit</span>
+              </button>
+            </div>
+            <div class="account-item" id="account-github">
+              <div class="account-info">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                  <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
+                <div class="account-details">
+                  <span class="account-name">GitHub</span>
+                  <span class="account-email" id="github-email">Nepropojeno</span>
+                </div>
+              </div>
+              <button class="account-action-btn" onclick="toggleAccountConnection('github')" id="btn-github">
+                <span class="action-text">Propojit</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="settings-divider"></div>
+
+          <!-- Local Account -->
+          <label class="settings-label">Lokální účet</label>
+          <div class="local-account-section" id="local-account-section">
+            <div class="local-account-status" id="local-account-status">
+              <span class="status-icon">👤</span>
+              <span class="status-text">Žádný lokální účet</span>
+            </div>
+            <button class="btn btn-sm btn-secondary" onclick="showLocalAccountModal()" id="btn-local-account">
+              + Vytvořit lokální účet
             </button>
           </div>
           
@@ -471,12 +535,14 @@
         <div class="settings-group">
           <!-- Notification Channels -->
           <label class="settings-label">Kanály notifikací</label>
-          
-          <div class="channel-item">
+
+          <!-- In-App -->
+          <div class="channel-item" data-channel="inapp">
             <div class="channel-header">
               <label class="toggle-row">
                 <span class="channel-icon">📱</span>
                 <span class="channel-name">In-App</span>
+                <span class="channel-status connected" id="status-inapp">Aktivní</span>
                 <label class="toggle">
                   <input type="checkbox" id="notif-inapp" checked onchange="updateNotifSettings()">
                   <span class="toggle-slider"></span>
@@ -484,12 +550,37 @@
               </label>
             </div>
           </div>
-          
-          <div class="channel-item">
+
+          <!-- Push Notifications -->
+          <div class="channel-item" data-channel="push">
+            <div class="channel-header">
+              <label class="toggle-row">
+                <span class="channel-icon">🔔</span>
+                <span class="channel-name">Push (prohlížeč)</span>
+                <span class="channel-status" id="status-push">Vyžaduje povolení</span>
+                <label class="toggle">
+                  <input type="checkbox" id="notif-push" onchange="updateNotifSettings()">
+                  <span class="toggle-slider"></span>
+                </label>
+              </label>
+            </div>
+            <div class="channel-config" id="push-config">
+              <button class="btn btn-sm btn-secondary" onclick="requestPushPermission()">
+                🔐 Povolit notifikace
+              </button>
+              <button class="btn btn-sm btn-secondary" onclick="testChannel('push')">
+                🧪 Test
+              </button>
+            </div>
+          </div>
+
+          <!-- Email -->
+          <div class="channel-item" data-channel="email">
             <div class="channel-header">
               <label class="toggle-row">
                 <span class="channel-icon">📧</span>
                 <span class="channel-name">Email</span>
+                <span class="channel-status" id="status-email">Nenastaveno</span>
                 <label class="toggle">
                   <input type="checkbox" id="notif-email" onchange="updateNotifSettings()">
                   <span class="toggle-slider"></span>
@@ -497,16 +588,22 @@
               </label>
             </div>
             <div class="channel-config" id="email-config">
-              <input type="email" class="settings-input" id="notif-email-address" placeholder="váš@email.cz">
-              <button class="btn btn-xs" onclick="addEmailAddress()">+ Další</button>
+              <input type="email" class="settings-input" id="notif-email-address" placeholder="váš@email.cz" onchange="validateChannelConfig('email')">
+              <div class="channel-actions">
+                <button class="btn btn-xs" onclick="addEmailAddress()">+ Další</button>
+                <button class="btn btn-xs btn-secondary" onclick="testChannel('email')">🧪 Test</button>
+              </div>
+              <div class="email-list" id="email-list"></div>
             </div>
           </div>
-          
-          <div class="channel-item">
+
+          <!-- Telegram -->
+          <div class="channel-item" data-channel="telegram">
             <div class="channel-header">
               <label class="toggle-row">
                 <span class="channel-icon">✈️</span>
                 <span class="channel-name">Telegram</span>
+                <span class="channel-status" id="status-telegram">Nenastaveno</span>
                 <label class="toggle">
                   <input type="checkbox" id="notif-telegram" onchange="updateNotifSettings()">
                   <span class="toggle-slider"></span>
@@ -514,16 +611,67 @@
               </label>
             </div>
             <div class="channel-config" id="telegram-config">
-              <input type="text" class="settings-input" id="notif-telegram-token" placeholder="Bot token">
-              <input type="text" class="settings-input" id="notif-telegram-chat" placeholder="Chat ID">
+              <input type="text" class="settings-input" id="notif-telegram-token" placeholder="Bot token" onchange="validateChannelConfig('telegram')">
+              <input type="text" class="settings-input" id="notif-telegram-chat" placeholder="Chat ID" onchange="validateChannelConfig('telegram')">
+              <div class="channel-actions">
+                <a href="https://t.me/botfather" target="_blank" class="btn btn-xs btn-secondary">📖 Jak získat?</a>
+                <button class="btn btn-xs btn-secondary" onclick="testChannel('telegram')">🧪 Test</button>
+              </div>
             </div>
           </div>
-          
-          <div class="channel-item">
+
+          <!-- Slack -->
+          <div class="channel-item" data-channel="slack">
+            <div class="channel-header">
+              <label class="toggle-row">
+                <span class="channel-icon">💬</span>
+                <span class="channel-name">Slack</span>
+                <span class="channel-status" id="status-slack">Nenastaveno</span>
+                <label class="toggle">
+                  <input type="checkbox" id="notif-slack" onchange="updateNotifSettings()">
+                  <span class="toggle-slider"></span>
+                </label>
+              </label>
+            </div>
+            <div class="channel-config" id="slack-config">
+              <input type="url" class="settings-input" id="notif-slack-webhook" placeholder="Webhook URL (https://hooks.slack.com/...)" onchange="validateChannelConfig('slack')">
+              <input type="text" class="settings-input" id="notif-slack-channel" placeholder="#channel (volitelné)">
+              <div class="channel-actions">
+                <a href="https://api.slack.com/messaging/webhooks" target="_blank" class="btn btn-xs btn-secondary">📖 Návod</a>
+                <button class="btn btn-xs btn-secondary" onclick="testChannel('slack')">🧪 Test</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Discord -->
+          <div class="channel-item" data-channel="discord">
+            <div class="channel-header">
+              <label class="toggle-row">
+                <span class="channel-icon">🎮</span>
+                <span class="channel-name">Discord</span>
+                <span class="channel-status" id="status-discord">Nenastaveno</span>
+                <label class="toggle">
+                  <input type="checkbox" id="notif-discord" onchange="updateNotifSettings()">
+                  <span class="toggle-slider"></span>
+                </label>
+              </label>
+            </div>
+            <div class="channel-config" id="discord-config">
+              <input type="url" class="settings-input" id="notif-discord-webhook" placeholder="Webhook URL (https://discord.com/api/webhooks/...)" onchange="validateChannelConfig('discord')">
+              <div class="channel-actions">
+                <a href="https://support.discord.com/hc/en-us/articles/228383668" target="_blank" class="btn btn-xs btn-secondary">📖 Návod</a>
+                <button class="btn btn-xs btn-secondary" onclick="testChannel('discord')">🧪 Test</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Webhook (Generic) -->
+          <div class="channel-item" data-channel="webhook">
             <div class="channel-header">
               <label class="toggle-row">
                 <span class="channel-icon">🔗</span>
-                <span class="channel-name">Webhook</span>
+                <span class="channel-name">Webhook (vlastní)</span>
+                <span class="channel-status" id="status-webhook">Nenastaveno</span>
                 <label class="toggle">
                   <input type="checkbox" id="notif-webhook" onchange="updateNotifSettings()">
                   <span class="toggle-slider"></span>
@@ -531,28 +679,85 @@
               </label>
             </div>
             <div class="channel-config" id="webhook-config">
-              <input type="url" class="settings-input" id="notif-webhook-url" placeholder="https://...">
+              <input type="url" class="settings-input" id="notif-webhook-url" placeholder="https://your-server.com/webhook" onchange="validateChannelConfig('webhook')">
+              <select class="settings-select" id="notif-webhook-method">
+                <option value="POST">POST</option>
+                <option value="GET">GET</option>
+              </select>
+              <div class="channel-actions">
+                <button class="btn btn-xs btn-secondary" onclick="showWebhookPayload()">📋 Payload</button>
+                <button class="btn btn-xs btn-secondary" onclick="testChannel('webhook')">🧪 Test</button>
+              </div>
             </div>
           </div>
-          
+
+          <!-- SMS (Twilio/Vonage) -->
+          <div class="channel-item" data-channel="sms">
+            <div class="channel-header">
+              <label class="toggle-row">
+                <span class="channel-icon">📲</span>
+                <span class="channel-name">SMS</span>
+                <span class="channel-status premium" id="status-sms">Premium</span>
+                <label class="toggle">
+                  <input type="checkbox" id="notif-sms" onchange="updateNotifSettings()">
+                  <span class="toggle-slider"></span>
+                </label>
+              </label>
+            </div>
+            <div class="channel-config" id="sms-config">
+              <select class="settings-select" id="notif-sms-provider">
+                <option value="">Vyberte poskytovatele</option>
+                <option value="twilio">Twilio</option>
+                <option value="vonage">Vonage (Nexmo)</option>
+                <option value="messagebird">MessageBird</option>
+              </select>
+              <input type="text" class="settings-input" id="notif-sms-apikey" placeholder="API Key">
+              <input type="text" class="settings-input" id="notif-sms-secret" placeholder="API Secret">
+              <input type="tel" class="settings-input" id="notif-sms-phone" placeholder="+420 xxx xxx xxx">
+              <div class="channel-actions">
+                <button class="btn btn-xs btn-secondary" onclick="testChannel('sms')">🧪 Test</button>
+              </div>
+              <p class="channel-note">⚠️ SMS notifikace jsou zpoplatněné podle tarifu poskytovatele.</p>
+            </div>
+          </div>
+
           <div class="settings-divider"></div>
-          
+
           <!-- Quiet Hours -->
           <label class="settings-label">Tichý režim</label>
           <label class="settings-sublabel">Během tichého režimu nebudou odesílány notifikace.</label>
           <div class="quiet-hours-row">
             <label class="toggle-row compact">
-              <input type="checkbox" id="quiet-hours-enabled">
+              <input type="checkbox" id="quiet-hours-enabled" onchange="updateNotifSettings()">
               <span>Zapnout</span>
             </label>
             <div class="time-range">
-              <input type="time" class="settings-input-small" id="quiet-from" value="22:00">
+              <input type="time" class="settings-input-small" id="quiet-from" value="22:00" onchange="updateNotifSettings()">
               <span>—</span>
-              <input type="time" class="settings-input-small" id="quiet-to" value="07:00">
+              <input type="time" class="settings-input-small" id="quiet-to" value="07:00" onchange="updateNotifSettings()">
             </div>
           </div>
-          
-          <p class="settings-note">💡 Priorita notifikací a eskalace se nastavují u jednotlivých agentů.</p>
+
+          <div class="settings-divider"></div>
+
+          <!-- Priority Settings -->
+          <label class="settings-label">Výchozí priorita</label>
+          <div class="priority-selector">
+            <button class="priority-btn" data-priority="low" onclick="setDefaultPriority('low')">
+              <span>🟢</span> Nízká
+            </button>
+            <button class="priority-btn active" data-priority="normal" onclick="setDefaultPriority('normal')">
+              <span>🟡</span> Normální
+            </button>
+            <button class="priority-btn" data-priority="high" onclick="setDefaultPriority('high')">
+              <span>🟠</span> Vysoká
+            </button>
+            <button class="priority-btn" data-priority="urgent" onclick="setDefaultPriority('urgent')">
+              <span>🔴</span> Urgentní
+            </button>
+          </div>
+
+          <p class="settings-note">💡 Priorita a eskalace se dají přepsat u jednotlivých agentů.</p>
         </div>
       </div>
     </div>
@@ -589,13 +794,23 @@
           
           <!-- Accent Color -->
           <label class="settings-label">Accent barva</label>
-          <div class="color-picker">
-            <button class="color-btn active" data-color="#6366f1" style="background: #6366f1" onclick="setAccentColor('#6366f1')"></button>
-            <button class="color-btn" data-color="#8b5cf6" style="background: #8b5cf6" onclick="setAccentColor('#8b5cf6')"></button>
-            <button class="color-btn" data-color="#ec4899" style="background: #ec4899" onclick="setAccentColor('#ec4899')"></button>
-            <button class="color-btn" data-color="#14b8a6" style="background: #14b8a6" onclick="setAccentColor('#14b8a6')"></button>
-            <button class="color-btn" data-color="#f59e0b" style="background: #f59e0b" onclick="setAccentColor('#f59e0b')"></button>
-            <button class="color-btn" data-color="#ef4444" style="background: #ef4444" onclick="setAccentColor('#ef4444')"></button>
+          <div class="color-picker-container">
+            <div class="color-picker">
+              <button class="color-btn active" data-color="#6366f1" style="background: #6366f1" onclick="setAccentColor('#6366f1')" title="Indigo"></button>
+              <button class="color-btn" data-color="#8b5cf6" style="background: #8b5cf6" onclick="setAccentColor('#8b5cf6')" title="Fialová"></button>
+              <button class="color-btn" data-color="#ec4899" style="background: #ec4899" onclick="setAccentColor('#ec4899')" title="Růžová"></button>
+              <button class="color-btn" data-color="#14b8a6" style="background: #14b8a6" onclick="setAccentColor('#14b8a6')" title="Tyrkysová"></button>
+              <button class="color-btn" data-color="#f59e0b" style="background: #f59e0b" onclick="setAccentColor('#f59e0b')" title="Oranžová"></button>
+              <button class="color-btn" data-color="#ef4444" style="background: #ef4444" onclick="setAccentColor('#ef4444')" title="Červená"></button>
+              <div class="color-btn custom-color-btn" id="custom-color-btn" title="Vlastní barva">
+                <input type="color" id="custom-accent-color" value="#6366f1" onchange="setAccentColor(this.value, true)">
+                <span class="custom-color-icon">🎨</span>
+              </div>
+            </div>
+            <div class="current-color-preview">
+              <span class="color-label">Aktuální:</span>
+              <span class="color-value" id="current-accent-color">#6366f1</span>
+            </div>
           </div>
           
           <!-- Font -->
@@ -646,44 +861,64 @@
       </button>
       <div class="accordion-content">
         <div class="settings-group">
-          <!-- Persistent Memory / Skills -->
-          <label class="settings-label">Dovednosti & Skills</label>
-          <div class="memory-list" id="skills-list">
-            <div class="memory-item">
-              <span class="memory-text">Rozumím Kubernetes a Docker</span>
-              <button class="btn-icon-xs" onclick="removeSkill(this)">×</button>
-            </div>
-            <div class="memory-item">
-              <span class="memory-text">Preferuji TypeScript před JavaScript</span>
-              <button class="btn-icon-xs" onclick="removeSkill(this)">×</button>
-            </div>
-          </div>
-          <div class="memory-add-row">
-            <input type="text" class="settings-input" id="new-skill" placeholder="Přidat dovednost...">
-            <button class="btn btn-sm" onclick="addSkill()">+</button>
-          </div>
-          
-          <div class="settings-divider"></div>
-          
-          <!-- Custom System Prompts -->
+          <!-- Custom System Prompt for Default Chat -->
           <label class="settings-label">Vlastní systémový prompt</label>
-          <textarea class="settings-textarea" id="custom-prompt" 
-                    placeholder="Zadej vlastní instrukce pro AI..."
-                    rows="4"></textarea>
-          
+          <label class="settings-sublabel">Tento prompt platí pouze pro výchozí chat (ne pro experty).</label>
+          <textarea class="settings-textarea" id="custom-prompt"
+                    placeholder="Zadej vlastní instrukce pro AI v základním chatu...
+
+Například:
+• Vždy odpovídej v češtině
+• Preferuj stručné odpovědi
+• Používej neformální oslovení"
+                    rows="5" onchange="saveCustomPrompt()"></textarea>
+          <div class="prompt-actions">
+            <button class="btn btn-xs btn-secondary" onclick="resetCustomPrompt()">↺ Obnovit výchozí</button>
+            <span class="prompt-char-count" id="prompt-char-count">0 / 2000</span>
+          </div>
+
           <div class="settings-divider"></div>
-          
-          <!-- Privacy -->
-          <label class="settings-label">Soukromí</label>
+
+          <!-- Persistence (formerly Privacy) -->
+          <label class="settings-label">Persistence</label>
+          <label class="settings-sublabel">Nastavení ukládání dat a historie.</label>
+
           <label class="toggle-row compact">
-            <input type="checkbox" id="save-history" checked>
+            <input type="checkbox" id="save-history" checked onchange="updatePersistenceSettings()">
             <span>Ukládat historii konverzací</span>
           </label>
           <label class="toggle-row compact">
-            <input type="checkbox" id="save-context" checked>
+            <input type="checkbox" id="save-context" checked onchange="updatePersistenceSettings()">
             <span>Pamatovat si kontext mezi sessions</span>
           </label>
-          
+          <label class="toggle-row compact">
+            <input type="checkbox" id="save-attachments" checked onchange="updatePersistenceSettings()">
+            <span>Ukládat přílohy lokálně</span>
+          </label>
+
+          <div class="settings-divider"></div>
+
+          <!-- Storage Info -->
+          <label class="settings-label">Úložiště</label>
+          <div class="storage-info">
+            <div class="storage-row">
+              <span class="storage-label">Historie konverzací</span>
+              <span class="storage-value" id="storage-history">— MB</span>
+            </div>
+            <div class="storage-row">
+              <span class="storage-label">Přílohy</span>
+              <span class="storage-value" id="storage-attachments">— MB</span>
+            </div>
+            <div class="storage-row">
+              <span class="storage-label">Cache</span>
+              <span class="storage-value" id="storage-cache">— MB</span>
+            </div>
+            <div class="storage-row total">
+              <span class="storage-label">Celkem</span>
+              <span class="storage-value" id="storage-total">— MB</span>
+            </div>
+          </div>
+
           <div class="memory-actions">
             <button class="btn btn-secondary btn-sm" onclick="exportMemory()">
               📤 Export
@@ -691,8 +926,11 @@
             <button class="btn btn-secondary btn-sm" onclick="importMemory()">
               📥 Import
             </button>
+            <button class="btn btn-secondary btn-sm" onclick="clearCache()">
+              🗑️ Vymazat cache
+            </button>
             <button class="btn btn-danger btn-sm" onclick="clearMemory()">
-              🗑️ Vymazat vše
+              ⚠️ Vymazat vše
             </button>
           </div>
         </div>
@@ -783,60 +1021,110 @@
         <div class="settings-group">
           <!-- Enabled Output Types -->
           <label class="settings-label">Povolené výstupy</label>
+          <label class="settings-sublabel">AI může generovat pouze vybrané typy výstupů.</label>
           <div class="output-grid">
-            <label class="checkbox-card">
-              <input type="checkbox" id="output-code" checked>
-              <span class="checkbox-card-icon">💻</span>
+            <label class="checkbox-card" title="Zdrojový kód v různých jazycích">
+              <input type="checkbox" id="output-code" checked onchange="updateOutputSettings()">
+              <div class="checkbox-card-visual">
+                <svg class="output-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="16,18 22,12 16,6"></polyline>
+                  <polyline points="8,6 2,12 8,18"></polyline>
+                </svg>
+              </div>
               <span class="checkbox-card-label">Code</span>
             </label>
-            <label class="checkbox-card">
-              <input type="checkbox" id="output-docs" checked>
-              <span class="checkbox-card-icon">📝</span>
+            <label class="checkbox-card" title="Dokumenty a dokumentace">
+              <input type="checkbox" id="output-docs" checked onchange="updateOutputSettings()">
+              <div class="checkbox-card-visual">
+                <svg class="output-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2Z"></path>
+                  <polyline points="14,2 14,8 20,8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                </svg>
+              </div>
               <span class="checkbox-card-label">Docs</span>
             </label>
-            <label class="checkbox-card">
-              <input type="checkbox" id="output-xlsx" checked>
-              <span class="checkbox-card-icon">📊</span>
+            <label class="checkbox-card" title="Excel tabulky (.xlsx)">
+              <input type="checkbox" id="output-xlsx" checked onchange="updateOutputSettings()">
+              <div class="checkbox-card-visual">
+                <svg class="output-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="3" y1="9" x2="21" y2="9"></line>
+                  <line x1="3" y1="15" x2="21" y2="15"></line>
+                  <line x1="9" y1="3" x2="9" y2="21"></line>
+                  <line x1="15" y1="3" x2="15" y2="21"></line>
+                </svg>
+              </div>
               <span class="checkbox-card-label">Excel</span>
             </label>
-            <label class="checkbox-card">
-              <input type="checkbox" id="output-pptx">
-              <span class="checkbox-card-icon">📽️</span>
+            <label class="checkbox-card" title="PowerPoint prezentace">
+              <input type="checkbox" id="output-pptx" onchange="updateOutputSettings()">
+              <div class="checkbox-card-visual">
+                <svg class="output-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M2 12h3M19 12h3"></path>
+                </svg>
+              </div>
               <span class="checkbox-card-label">PPT</span>
             </label>
-            <label class="checkbox-card">
-              <input type="checkbox" id="output-pdf" checked>
-              <span class="checkbox-card-icon">📕</span>
+            <label class="checkbox-card" title="PDF dokumenty">
+              <input type="checkbox" id="output-pdf" checked onchange="updateOutputSettings()">
+              <div class="checkbox-card-visual">
+                <svg class="output-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2Z"></path>
+                  <path d="M14,2v6h6"></path>
+                  <text x="8" y="16" font-size="6" fill="currentColor">PDF</text>
+                </svg>
+              </div>
               <span class="checkbox-card-label">PDF</span>
             </label>
-            <label class="checkbox-card">
-              <input type="checkbox" id="output-reports" checked>
-              <span class="checkbox-card-icon">📈</span>
+            <label class="checkbox-card" title="Reporty a analytické výstupy">
+              <input type="checkbox" id="output-reports" checked onchange="updateOutputSettings()">
+              <div class="checkbox-card-visual">
+                <svg class="output-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="20" x2="18" y2="10"></line>
+                  <line x1="12" y1="20" x2="12" y2="4"></line>
+                  <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+              </div>
               <span class="checkbox-card-label">Reports</span>
             </label>
           </div>
-          
+
+          <div class="settings-divider"></div>
+
           <!-- Default Format -->
           <label class="settings-label">Výchozí formát dat</label>
-          <select class="settings-select" id="default-format">
-            <option value="markdown" selected>Markdown</option>
-            <option value="json">JSON</option>
-            <option value="csv">CSV</option>
-            <option value="yaml">YAML</option>
-          </select>
-          
+          <div class="format-selector">
+            <select class="settings-select" id="default-format" onchange="updateOutputSettings(); previewFormat()">
+              <option value="markdown" selected>Markdown</option>
+              <option value="json">JSON</option>
+              <option value="csv">CSV</option>
+              <option value="yaml">YAML</option>
+            </select>
+            <button class="btn btn-xs btn-secondary" onclick="previewFormat()" title="Zobrazit ukázku">
+              👁️ Náhled
+            </button>
+          </div>
+
+          <div class="format-preview" id="format-preview"></div>
+
+          <div class="settings-divider"></div>
+
           <!-- Code Style -->
           <label class="settings-label">Styl kódu</label>
-          <select class="settings-select" id="code-style">
+          <select class="settings-select" id="code-style" onchange="updateOutputSettings()">
             <option value="default">Výchozí</option>
             <option value="airbnb">Airbnb</option>
             <option value="google">Google</option>
             <option value="standard">Standard</option>
           </select>
-          
+
           <!-- Naming Convention -->
           <label class="settings-label">Naming convention</label>
-          <select class="settings-select" id="naming-convention">
+          <select class="settings-select" id="naming-convention" onchange="updateOutputSettings()">
             <option value="camelCase">camelCase</option>
             <option value="snake_case">snake_case</option>
             <option value="kebab-case">kebab-case</option>
@@ -986,7 +1274,7 @@
           <div class="about-details">
             <div class="about-row">
               <span class="about-label">Verze</span>
-              <span class="about-value" id="version">44.0.0</span>
+              <span class="about-value" id="version">58.0.0</span>
             </div>
             <div class="about-row">
               <span class="about-label">Build</span>
@@ -1030,7 +1318,60 @@
   
   <!-- Toast Container -->
   <div class="toast-container" id="toast-container"></div>
-  
+
+  <!-- v58 - Full View for Projects/Conversations (replaces main content) -->
+  <div class="fullview-modal hidden" id="fullview-modal">
+    <div class="fullview-content">
+      <div class="fullview-header">
+        <div class="fullview-title-row">
+          <button class="fullview-back-btn" onclick="closeFullView()" title="Zpět">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+            </svg>
+          </button>
+          <h2 class="fullview-title" id="fullview-title">Projects</h2>
+        </div>
+        <div class="fullview-actions">
+          <!-- View Toggle -->
+          <div class="view-toggle" id="view-toggle">
+            <button class="view-toggle-btn active" data-view="list" onclick="setFullViewMode('list')" title="Seznam">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+              </svg>
+            </button>
+            <button class="view-toggle-btn" data-view="grid" onclick="setFullViewMode('grid')" title="Dlaždice">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM14 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zM14 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>
+              </svg>
+            </button>
+          </div>
+          <button class="btn btn-sm btn-secondary" id="fullview-select-all" onclick="toggleSelectAll()">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            <span>Vybrat vše</span>
+          </button>
+          <button class="btn btn-sm btn-danger" id="fullview-delete-selected" onclick="deleteSelected()" style="display: none;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+            <span id="delete-count">Smazat (0)</span>
+          </button>
+        </div>
+      </div>
+      <div class="fullview-search">
+        <input type="text" class="settings-input" id="fullview-search" placeholder="Hledat..." oninput="filterFullView()">
+      </div>
+      <div class="fullview-list view-list" id="fullview-list">
+        <!-- Items will be rendered here -->
+      </div>
+      <div class="fullview-footer">
+        <span class="fullview-count" id="fullview-count">0 items</span>
+        <span class="fullview-selected" id="fullview-selected-count" style="display: none;">0 selected</span>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>

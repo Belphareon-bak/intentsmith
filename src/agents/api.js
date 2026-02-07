@@ -1,6 +1,7 @@
 // C.3 Agent System - API Routes
 // ══════════════════════════════════════════════════════════════════════════════
 
+import { logger } from '../core/logger.js';
 import { validateAgentDefinition } from './schema.js';
 import { AgentBuilder } from './builder.js';
 import { inspectSource } from './sources/inspector.js';
@@ -26,7 +27,7 @@ function cleanDefinition(def) {
     cleaned.triggers = cleaned.triggers.filter(t => {
       const condId = t.condition_id || t.condition;
       if (condId && !conditionIds.has(condId)) {
-        console.log(`Removing trigger ${t.id} - references non-existent condition ${condId}`);
+        logger.debug('AgentAPI', `Removing trigger ${t.id} - references non-existent condition ${condId}`);
         return false;
       }
       return true;
@@ -41,7 +42,7 @@ function cleanDefinition(def) {
     cleaned.actions = cleaned.actions.map(a => {
       const trigId = a.trigger_id || a.trigger;
       if (trigId && !cleanedTriggerIds.has(trigId)) {
-        console.log(`Clearing trigger reference in action - ${trigId} doesn't exist`);
+        logger.debug('AgentAPI', `Clearing trigger reference in action - ${trigId} doesn't exist`);
         return { ...a, trigger_id: null, trigger: null };
       }
       return a;

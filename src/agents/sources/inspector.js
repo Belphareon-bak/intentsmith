@@ -191,7 +191,9 @@ function detectDataType(contentType, sample) {
     try {
       JSON.parse(trimmed);
       return 'json';
-    } catch {}
+    } catch {
+      // Not valid JSON despite looking like it - continue detection
+    }
   }
   if (trimmed.startsWith('<?xml') || trimmed.startsWith('<rss')) return 'xml';
   if (trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html')) return 'html';

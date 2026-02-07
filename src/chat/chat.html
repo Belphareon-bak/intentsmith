@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C3 Chat</title>
+  <style>
+    /* ── Reset & Base ──────────────────────────────────────────── */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #f5f5f7; --surface: #ffffff; --border: #e0e0e6;
+      --text: #1a1a2e; --text-muted: #8888a0; --text-light: #b0b0c0;
+      --accent: #4a6fa5; --accent-hover: #3a5f95;
+      --green: #2d9a5c; --green-bg: #eaf7f0;
+      --user-bg: #e8edf3; --user-border: #4a6fa5;
+      --assist-border: #2d9a5c;
+      --error: #d44; --error-bg: #fdeaea;
+      --sidebar-w: 280px;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg); color: var(--text); height: 100vh;
+      display: flex; overflow: hidden; font-size: 14px; line-height: 1.5;
+    }
+
+    /* ── Sidebar ───────────────────────────────────────────────── */
+    .sidebar {
+      width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; flex-shrink: 0;
+    }
+    .sidebar-header {
+      padding: 16px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .sidebar-header h2 { font-size: 16px; font-weight: 600; }
+    .btn-new {
+      background: var(--accent); color: #fff; border: none; border-radius: 8px;
+      padding: 6px 14px; font-size: 13px; cursor: pointer; font-weight: 500;
+    }
+    .btn-new:hover { background: var(--accent-hover); }
+    .conv-list {
+      flex: 1; overflow-y: auto; padding: 8px;
+    }
+    .conv-item {
+      padding: 10px 12px; border-radius: 8px; cursor: pointer;
+      margin-bottom: 2px; transition: background 0.15s;
+    }
+    .conv-item:hover { background: var(--bg); }
+    .conv-item.active { background: var(--user-bg); border-left: 3px solid var(--accent); }
+    .conv-item .conv-title {
+      font-size: 13px; font-weight: 500; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .conv-item .conv-meta {
+      font-size: 11px; color: var(--text-muted); margin-top: 2px;
+    }
+
+    /* ── Main Area ─────────────────────────────────────────────── */
+    .main {
+      flex: 1; display: flex; flex-direction: column; min-width: 0;
+    }
+    .main-header {
+      padding: 12px 20px; border-bottom: 1px solid var(--border);
+      background: var(--surface); display: flex; align-items: center;
+      justify-content: space-between;
+    }
+    .main-header .title { font-weight: 600; font-size: 15px; }
+    .main-header .actions { display: flex; gap: 8px; }
+    .btn-icon {
+      background: none; border: 1px solid var(--border); border-radius: 6px;
+      padding: 5px 10px; cursor: pointer; font-size: 12px; color: var(--text-muted);
+    }
+    .btn-icon:hover { background: var(--bg); color: var(--text); }
+
+    /* ── Messages ──────────────────────────────────────────────── */
+    .messages {
+      flex: 1; overflow-y: auto; padding: 20px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .msg {
+      max-width: 85%; padding: 12px 16px; border-radius: 12px;
+      line-height: 1.55; white-space: pre-wrap; word-break: break-word;
+    }
+    .msg.user {
+      align-self: flex-end; background: var(--user-bg);
+      border-bottom-right-radius: 4px;
+    }
+    .msg.assistant {
+      align-self: flex-start; background: var(--surface);
+      border: 1px solid var(--border); border-bottom-left-radius: 4px;
+    }
+    .msg.system {
+      align-self: center; background: #fff8e1; font-style: italic;
+      font-size: 13px; color: var(--text-muted); border-radius: 8px;
+    }
+    .msg.error {
+      align-self: center; background: var(--error-bg); color: var(--error);
+      font-size: 13px; border-radius: 8px;
+    }
+    .msg .msg-meta {
+      font-size: 11px; color: var(--text-light); margin-top: 6px;
+      display: flex; gap: 8px; align-items: center;
+    }
+    .msg .msg-meta .mode-badge {
+      background: var(--green-bg); color: var(--green); padding: 1px 6px;
+      border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase;
+    }
+    .msg .export-btn {
+      background: none; border: none; color: var(--text-light); cursor: pointer;
+      font-size: 11px; padding: 0;
+    }
+    .msg .export-btn:hover { color: var(--accent); }
+
+    .typing-indicator {
+      align-self: flex-start; padding: 12px 16px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 12px; color: var(--text-muted);
+    }
+    .typing-indicator .dots { display: inline-block; }
+    .typing-indicator .dots span {
+      animation: blink 1.4s infinite both;
+      font-size: 18px; line-height: 1;
+    }
+    .typing-indicator .dots span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-indicator .dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes blink { 0%,80%,100% { opacity: 0.3; } 40% { opacity: 1; } }
+
+    /* ── Empty State ───────────────────────────────────────────── */
+    .empty-state {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted); font-size: 15px; text-align: center;
+      flex-direction: column; gap: 8px;
+    }
+    .empty-state .emoji { font-size: 40px; }
+
+    /* ── Input ─────────────────────────────────────────────────── */
+    .input-area {
+      padding: 12px 20px; border-top: 1px solid var(--border);
+      background: var(--surface); display: flex; gap: 10px; align-items: flex-end;
+    }
+    .input-area textarea {
+      flex: 1; resize: none; border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 14px; font-size: 14px; font-family: inherit;
+      line-height: 1.4; max-height: 120px; outline: none;
+      transition: border-color 0.2s;
+    }
+    .input-area textarea:focus { border-color: var(--accent); }
+    .btn-send {
+      background: var(--accent); color: #fff; border: none; border-radius: 10px;
+      padding: 10px 20px; font-size: 14px; font-weight: 500; cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-send:hover { background: var(--accent-hover); }
+    .btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Responsive ────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-header">
+    <h2>C3 Chat</h2>
+    <button class="btn-new" onclick="newConversation()">+ Nová</button>
+  </div>
+  <div class="conv-list" id="convList"></div>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <div class="main-header">
+    <span class="title" id="mainTitle">Nová konverzace</span>
+    <div class="actions">
+      <button class="btn-icon" onclick="exportChat('md')" title="Export MD">📄 MD</button>
+      <button class="btn-icon" onclick="exportChat('html')" title="Export HTML">🌐 HTML</button>
+      <button class="btn-icon" onclick="exportChat('txt')" title="Export TXT">📝 TXT</button>
+    </div>
+  </div>
+  <div class="messages" id="messages">
+    <div class="empty-state">
+      <div class="emoji">💬</div>
+      <div>Napište zprávu a začněte konverzaci</div>
+    </div>
+  </div>
+  <div class="input-area">
+    <textarea id="input" rows="1" placeholder="Napište zprávu..." 
+              onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+    <button class="btn-send" id="btnSend" onclick="sendMessage()">Odeslat</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// State
+// ══════════════════════════════════════════════════════════════════════════════
+
+let currentConvId = null;
+let conversations = [];
+let sending = false;
+
+const API = window.location.origin;
+
+// ══════════════════════════════════════════════════════════════════════════════
+// API Helpers
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function api(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(`${API}${path}`, opts);
+  if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
+  return res.json();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Conversation Management
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function loadConversations() {
+  try {
+    const data = await api('GET', '/api/conversations');
+    conversations = data.conversations || data || [];
+    renderConvList();
+  } catch (err) {
+    console.warn('Failed to load conversations:', err.message);
+    conversations = [];
+    renderConvList();
+  }
+}
+
+function renderConvList() {
+  const el = document.getElementById('convList');
+  if (!conversations.length) {
+    el.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:13px;">Žádné konverzace</div>';
+    return;
+  }
+  el.innerHTML = conversations.map(c => {
+    const active = c.id === currentConvId ? 'active' : '';
+    const title = c.title || 'Bez názvu';
+    const date = c.updated_at ? new Date(c.updated_at).toLocaleDateString('cs-CZ') : '';
+    return `<div class="conv-item ${active}" onclick="loadConversation('${c.id}')">
+      <div class="conv-title">${esc(title)}</div>
+      <div class="conv-meta">${date}</div>
+    </div>`;
+  }).join('');
+}
+
+async function loadConversation(id) {
+  currentConvId = id;
+  renderConvList();
+  document.getElementById('messages').innerHTML = '';
+
+  try {
+    const data = await api('GET', `/api/conversations/${id}/messages`);
+    const msgs = data.messages || data || [];
+
+    const conv = conversations.find(c => c.id === id);
+    document.getElementById('mainTitle').textContent = conv?.title || id;
+
+    if (msgs.length === 0) {
+      showEmpty();
+      return;
+    }
+
+    for (const msg of msgs) {
+      appendMessage(msg.role, msg.content, msg.metadata);
+    }
+    scrollBottom();
+  } catch (err) {
+    appendSystemMsg(`Chyba při načítání: ${err.message}`, true);
+  }
+}
+
+function newConversation() {
+  currentConvId = `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  document.getElementById('mainTitle').textContent = 'Nová konverzace';
+  document.getElementById('messages').innerHTML = '';
+  showEmpty();
+  renderConvList();
+  document.getElementById('input').focus();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Send Message
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function sendMessage() {
+  const input = document.getElementById('input');
+  const text = input.value.trim();
+  if (!text || sending) return;
+
+  // Clear empty state
+  const empty = document.querySelector('.empty-state');
+  if (empty) empty.remove();
+
+  // Ensure conversation ID
+  if (!currentConvId) {
+    currentConvId = `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  // Show user message
+  appendMessage('user', text);
+  input.value = '';
+  autoResize(input);
+  scrollBottom();
+
+  // Show typing
+  sending = true;
+  document.getElementById('btnSend').disabled = true;
+  const typingEl = showTyping();
+
+  try {
+    // Use POST /api/chat for full-featured endpoint
+    const data = await api('POST', '/api/chat', {
+      conversation_id: currentConvId,
+      message: text,
+    });
+
+    // Remove typing indicator
+    typingEl.remove();
+
+    // Show response
+    appendMessage('assistant', data.response, {
+      mode: data.mode,
+      confidence: data.confidence,
+    });
+    scrollBottom();
+
+    // Refresh conversation list
+    await loadConversations();
+  } catch (err) {
+    typingEl.remove();
+    appendSystemMsg(`Chyba: ${err.message}`, true);
+  } finally {
+    sending = false;
+    document.getElementById('btnSend').disabled = false;
+    input.focus();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Export
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function exportChat(format) {
+  if (!currentConvId) {
+    appendSystemMsg('Nejdříve vyberte konverzaci', true);
+    return;
+  }
+  try {
+    const data = await api('POST', '/api/export', {
+      conversation_id: currentConvId,
+      format: format,
+      scope: 'conversation',
+    });
+    // Trigger download
+    window.open(`${API}${data.download_url}`, '_blank');
+    appendSystemMsg(`Export ${format.toUpperCase()} úspěšný: ${data.filename}`);
+  } catch (err) {
+    appendSystemMsg(`Export selhal: ${err.message}`, true);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DOM Helpers
+// ══════════════════════════════════════════════════════════════════════════════
+
+function appendMessage(role, content, metadata) {
+  const el = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  
+  // Content
+  const contentDiv = document.createElement('div');
+  contentDiv.textContent = content;
+  div.appendChild(contentDiv);
+
+  // Metadata (only for assistant)
+  if (role === 'assistant' && metadata) {
+    const metaDiv = document.createElement('div');
+    metaDiv.className = 'msg-meta';
+    
+    if (metadata.mode) {
+      const badge = document.createElement('span');
+      badge.className = 'mode-badge';
+      badge.textContent = metadata.mode;
+      metaDiv.appendChild(badge);
+    }
+    if (metadata.confidence != null) {
+      const conf = document.createElement('span');
+      conf.textContent = `${Math.round(metadata.confidence * 100)}%`;
+      metaDiv.appendChild(conf);
+    }
+    div.appendChild(metaDiv);
+  }
+
+  el.appendChild(div);
+}
+
+function appendSystemMsg(text, isError = false) {
+  const el = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = `msg ${isError ? 'error' : 'system'}`;
+  div.textContent = text;
+  el.appendChild(div);
+  scrollBottom();
+}
+
+function showTyping() {
+  const el = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'typing-indicator';
+  div.innerHTML = '<div class="dots"><span>·</span><span>·</span><span>·</span></div>';
+  el.appendChild(div);
+  scrollBottom();
+  return div;
+}
+
+function showEmpty() {
+  const el = document.getElementById('messages');
+  el.innerHTML = `<div class="empty-state">
+    <div class="emoji">💬</div>
+    <div>Napište zprávu a začněte konverzaci</div>
+  </div>`;
+}
+
+function scrollBottom() {
+  const el = document.getElementById('messages');
+  requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function esc(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Init
+// ══════════════════════════════════════════════════════════════════════════════
+
+(async function init() {
+  await loadConversations();
+  document.getElementById('input').focus();
+})();
+</script>
+</body>
+</html>

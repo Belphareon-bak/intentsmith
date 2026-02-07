@@ -154,18 +154,26 @@ export function extractJSON(text) {
   if (!text || typeof text !== 'string') {
     return null;
   }
+
+  // Helper: try to parse, return null on failure
+  const tryParse = (str, strategy) => {
+    try {
+      return JSON.parse(str);
+    } catch (err) {
+      logger.debug('LLM', `JSON parse failed (${strategy}): ${err.message.slice(0, 50)}`);
+      return null;
+    }
+  };
   
   // 1. Try direct parse first
-  try {
-    return JSON.parse(text.trim());
-  } catch {}
+  let result = tryParse(text.trim(), 'direct');
+  if (result !== null) return result;
   
   // 2. Extract from markdown code block
   const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (codeBlockMatch) {
-    try {
-      return JSON.parse(codeBlockMatch[1].trim());
-    } catch {}
+    result = tryParse(codeBlockMatch[1].trim(), 'codeblock');
+    if (result !== null) return result;
   }
   
   // 3. Find JSON object boundaries
@@ -174,15 +182,13 @@ export function extractJSON(text) {
   
   if (jsonStart !== -1 && jsonEnd > jsonStart) {
     const jsonCandidate = text.substring(jsonStart, jsonEnd + 1);
-    try {
-      return JSON.parse(jsonCandidate);
-    } catch {
-      // 4. Try to fix common JSON issues
-      const fixed = fixBrokenJSON(jsonCandidate);
-      try {
-        return JSON.parse(fixed);
-      } catch {}
-    }
+    result = tryParse(jsonCandidate, 'extracted-object');
+    if (result !== null) return result;
+    
+    // 4. Try to fix common JSON issues
+    const fixed = fixBrokenJSON(jsonCandidate);
+    result = tryParse(fixed, 'fixed-object');
+    if (result !== null) return result;
   }
   
   // 5. Try array format
@@ -191,14 +197,12 @@ export function extractJSON(text) {
   
   if (arrayStart !== -1 && arrayEnd > arrayStart) {
     const arrayCandidate = text.substring(arrayStart, arrayEnd + 1);
-    try {
-      return JSON.parse(arrayCandidate);
-    } catch {
-      const fixed = fixBrokenJSON(arrayCandidate);
-      try {
-        return JSON.parse(fixed);
-      } catch {}
-    }
+    result = tryParse(arrayCandidate, 'extracted-array');
+    if (result !== null) return result;
+    
+    const fixed = fixBrokenJSON(arrayCandidate);
+    result = tryParse(fixed, 'fixed-array');
+    if (result !== null) return result;
   }
   
   logger.warn('LLM', 'Failed to extract JSON from response');
@@ -350,7 +354,9 @@ export function extractModifiedFiles(text) {
         logger.debug('LLM', `Extracted ${arr.length} files from embedded array`);
         return arr;
       }
-    } catch {}
+    } catch (err) {
+      logger.debug('LLM', `Embedded array parse failed: ${err.message.slice(0, 50)}`);
+    }
   }
   
   logger.warn('LLM', 'No files extracted from CODER response', { 

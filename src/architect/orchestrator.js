@@ -738,7 +738,10 @@ export class ConversationOrchestrator {
       try {
         const sessionLog = await this.architect.createSessionSummary(this.state.state.current.path);
         await this.history.saveReplay(this.state.state.current.path, sessionLog);
-      } catch {}
+      } catch (err) {
+        // Non-critical: log but continue
+        logger.warn('Orchestrator', `Failed to save session progress: ${err.message}`);
+      }
     }
 
     // Clear history
