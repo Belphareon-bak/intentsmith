@@ -141,10 +141,11 @@ export const RUN_STATE_INFO = {
  * Agent Runner - deterministic execution engine
  */
 export class AgentRunner {
-  constructor({ repository, llmServices = null, notificationRouter = null, logger = console }) {
+  constructor({ repository, llmServices = null, notificationRouter = null, notificationPipeline = null, logger = console }) {
     this.repo = repository;
     this.llm = llmServices;
     this.notificationRouter = notificationRouter;
+    this.notificationPipeline = notificationPipeline;
     this.logger = logger;
     this.conditions = new ConditionEvaluator();
     this.triggers = new TriggerEvaluator();
@@ -1170,11 +1171,10 @@ export class AgentRunner {
   
   async executeNotify(action, context, agentId, runId, triggerResults) {
     const config = action.config || {};
-    
+
     // Build notification content
     let content;
     if (config.use_llm && this.llm) {
-      // Use LLM to generate message
       content = await this.llm.generate({
         prompt: this.interpolate(config.llm_prompt, context),
         context: {
@@ -1185,7 +1185,7 @@ export class AgentRunner {
     } else {
       content = this.interpolate(config.message || config.template, context);
     }
-    
+
     const title = this.interpolate(config.title || '', context);
     const priority = config.priority || 'normal';
 
@@ -1199,8 +1199,37 @@ export class AgentRunner {
       data: config.data
     });
 
-    // Deliver through notification router (if available and channel != in_app)
-    if (this.notificationRouter && config.channel && config.channel !== 'in_app') {
+    // Build notification context (plain object, not a class)
+    const notifCtx = {
+      agent_id: agentId,
+      channel: config.channel || 'in_app',
+      recipient: config.recipient || '',
+      title,
+      body: content,
+      priority,
+      created_at: Date.now(),
+      reason: {
+        trigger: triggerResults.fired?.[0] || null,
+        condition: null,
+        source_id: Object.keys(context.sources || {})[0] || null,
+        source_type: null,
+      },
+      data: config.data || null,
+    };
+
+    // Deliver through pipeline (policy → escalation → immediate/digest/drop)
+    if (this.notificationPipeline && config.channel && config.channel !== 'in_app') {
+      // Get per-agent policy config from agent definition
+      const agent = this.repo.getAgent(agentId);
+      const policyConfig = agent?.definition?.notification_policy || null;
+
+      const result = await this.notificationPipeline.process(notifCtx, policyConfig);
+      this.logger.info('AgentRunner',
+        `Event → pipeline: ${result.decision} (${result.reason})`, { agentId }
+      );
+
+    // Fallback: direct router send (if pipeline not available but router is)
+    } else if (this.notificationRouter && config.channel && config.channel !== 'in_app') {
       const delivery = await this.notificationRouter.send({
         channel: config.channel,
         recipient: config.recipient,
@@ -1208,14 +1237,14 @@ export class AgentRunner {
         body: content,
         priority,
         agentId,
-        data: config.data
+        data: config.data,
       });
       if (!delivery.delivered) {
         this.logger.warn('AgentRunner', `Notification delivery failed: ${delivery.error}`, { agentId });
       }
     }
 
-    this.logger.info('AgentRunner', `Notification created: ${content.substring(0, 100)}...`);
+    this.logger.info('AgentRunner', `Notification processed: ${(content || '').substring(0, 100)}...`);
   }
   
   async executeWebhook(action, context) {
