@@ -1,0 +1,61 @@
+{
+  "id": "realty-watcher",
+  "name": "Realitní hlídač",
+  "description": "Monitors sreality.cz API for new listings matching criteria, sends email notifications",
+  "icon": "🏠",
+  "schedule": {
+    "type": "interval",
+    "value": "30m"
+  },
+  "sources": [
+    {
+      "id": "listings",
+      "type": "http",
+      "config": {
+        "url": "https://www.sreality.cz/api/cs/v2/estates?category_main_cb=1&category_type_cb=1&locality_region_id=10&per_page=20&sort=0",
+        "method": "GET",
+        "headers": {
+          "User-Agent": "C3-Agent/57.0"
+        }
+      }
+    }
+  ],
+  "conditions": [
+    {
+      "id": "new-listings",
+      "type": "new_items",
+      "field": "sources.listings.data._embedded.estates",
+      "array_mode": "count"
+    }
+  ],
+  "triggers": [
+    {
+      "id": "new-listing-trigger",
+      "condition_id": "new-listings",
+      "edge": "rising",
+      "cooldown": 1800,
+      "max_fires_per_day": 10
+    }
+  ],
+  "actions": [
+    {
+      "type": "notify",
+      "trigger_id": "new-listing-trigger",
+      "config": {
+        "channel": "email",
+        "recipient": "user@example.com",
+        "title": "Nové nemovitosti na Sreality",
+        "message": "Nalezeny nové inzeráty v Praze. Zkontrolujte https://www.sreality.cz",
+        "priority": "normal"
+      }
+    },
+    {
+      "type": "mark_seen",
+      "trigger_id": "new-listing-trigger",
+      "config": {
+        "source_id": "listings",
+        "id_field": "hash_id"
+      }
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "id": "ai-news-digest",
+  "name": "AI News Digest",
+  "description": "Monitors RSS feeds for AI-related news and sends daily Telegram digest",
+  "icon": "📰",
+  "schedule": {
+    "type": "cron",
+    "value": "0 8 * * *"
+  },
+  "sources": [
+    {
+      "id": "novinky-rss",
+      "type": "rss",
+      "config": {
+        "url": "https://www.novinky.cz/rss",
+        "maxItems": 30,
+        "filterKeywords": ["AI", "umělá inteligence", "artificial intelligence", "ChatGPT", "robot"]
+      }
+    },
+    {
+      "id": "technet-rss",
+      "type": "rss",
+      "config": {
+        "url": "https://technet.idnes.cz/rss.aspx",
+        "maxItems": 30,
+        "filterKeywords": ["AI", "umělá inteligence", "ChatGPT", "neural", "machine learning"]
+      }
+    }
+  ],
+  "conditions": [
+    {
+      "id": "has-ai-news",
+      "type": "new_items",
+      "field": "sources.novinky-rss.data",
+      "array_mode": "count"
+    }
+  ],
+  "triggers": [
+    {
+      "id": "daily-digest",
+      "condition_id": "has-ai-news",
+      "edge": "any",
+      "cooldown": 86400,
+      "max_fires_per_day": 1
+    }
+  ],
+  "actions": [
+    {
+      "type": "notify",
+      "trigger_id": "daily-digest",
+      "config": {
+        "channel": "telegram",
+        "title": "AI News Digest",
+        "use_llm": true,
+        "llm_prompt": "Shrň následující AI zprávy do stručného přehledu v češtině (max 5 bodů):\n\n{{sources.novinky-rss.data}}\n{{sources.technet-rss.data}}",
+        "priority": "low"
+      }
+    },
+    {
+      "type": "mark_seen",
+      "trigger_id": "daily-digest",
+      "config": {
+        "source_id": "novinky-rss",
+        "id_field": "id"
+      }
+    }
+  ]
+}

@@ -141,9 +141,10 @@ export const RUN_STATE_INFO = {
  * Agent Runner - deterministic execution engine
  */
 export class AgentRunner {
-  constructor({ repository, llmServices = null, logger = console }) {
+  constructor({ repository, llmServices = null, notificationRouter = null, logger = console }) {
     this.repo = repository;
     this.llm = llmServices;
+    this.notificationRouter = notificationRouter;
     this.logger = logger;
     this.conditions = new ConditionEvaluator();
     this.triggers = new TriggerEvaluator();
@@ -978,41 +979,20 @@ export class AgentRunner {
   }
   
   async fetchRss(config, context) {
-    const url = this.interpolate(config.url, context);
-    const response = await fetch(url);
-    const text = await response.text();
-    // Basic RSS parsing - would use proper parser in production
-    return this.parseRss(text);
+    const { RSSSource } = await import('./sources/rss.js');
+    const source = new RSSSource({
+      url: this.interpolate(config.url, context),
+      maxItems: config.maxItems || 20,
+      filterKeywords: config.filterKeywords,
+    });
+    const { items } = await source.fetch();
+    return items;
   }
-  
+
   async fetchDatabase(config, context) {
     // Placeholder for database queries
     this.logger.warn('Database source not implemented');
     return [];
-  }
-  
-  parseRss(xml) {
-    // Very basic RSS parsing
-    const items = [];
-    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-    let match;
-    
-    while ((match = itemRegex.exec(xml)) !== null) {
-      const itemXml = match[1];
-      items.push({
-        title: this.extractTag(itemXml, 'title'),
-        link: this.extractTag(itemXml, 'link'),
-        description: this.extractTag(itemXml, 'description'),
-        pubDate: this.extractTag(itemXml, 'pubDate')
-      });
-    }
-    
-    return items;
-  }
-  
-  extractTag(xml, tag) {
-    const match = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`));
-    return match ? match[1].trim() : null;
   }
   
   // ══════════════════════════════════════════════════════════════════════════════
@@ -1206,19 +1186,36 @@ export class AgentRunner {
       content = this.interpolate(config.message || config.template, context);
     }
     
-    // Store notification
+    const title = this.interpolate(config.title || '', context);
+    const priority = config.priority || 'normal';
+
+    // Store notification in DB (always, regardless of channel)
     this.repo.createNotification(agentId, {
       run_id: runId,
-      channel: config.channel || 'default',
-      priority: config.priority || 'normal',
-      title: this.interpolate(config.title || '', context),
+      channel: config.channel || 'in_app',
+      priority,
+      title,
       content,
       data: config.data
     });
-    
-    // Send through configured channels (in-app, email, telegram, etc.)
-    // This would be handled by notification service
-    this.logger.info(`Notification created: ${content.substring(0, 100)}...`);
+
+    // Deliver through notification router (if available and channel != in_app)
+    if (this.notificationRouter && config.channel && config.channel !== 'in_app') {
+      const delivery = await this.notificationRouter.send({
+        channel: config.channel,
+        recipient: config.recipient,
+        title,
+        body: content,
+        priority,
+        agentId,
+        data: config.data
+      });
+      if (!delivery.delivered) {
+        this.logger.warn('AgentRunner', `Notification delivery failed: ${delivery.error}`, { agentId });
+      }
+    }
+
+    this.logger.info('AgentRunner', `Notification created: ${content.substring(0, 100)}...`);
   }
   
   async executeWebhook(action, context) {

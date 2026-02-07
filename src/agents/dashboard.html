@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>C3 Agent Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0f;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+    header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      padding: 1rem 2rem;
+      border-bottom: 1px solid #2a2a4a;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo { font-size: 1.4rem; font-weight: 700; color: #00d4ff; }
+    .logo small { color: #666; font-weight: 400; }
+    .refresh-btn {
+      background: #1a1a2e; border: 1px solid #2a2a4a; color: #00d4ff;
+      padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem;
+    }
+    .refresh-btn:hover { background: #2a2a4a; }
+    main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+
+    .agent-table {
+      width: 100%; border-collapse: collapse; background: #12121a;
+      border-radius: 8px; overflow: hidden; border: 1px solid #2a2a4a;
+    }
+    .agent-table th {
+      background: #1a1a2e; padding: 0.75rem 1rem; text-align: left;
+      font-size: 0.8rem; text-transform: uppercase; color: #888; letter-spacing: 0.05em;
+    }
+    .agent-table td {
+      padding: 0.75rem 1rem; border-top: 1px solid #1a1a2e; font-size: 0.9rem;
+    }
+    .agent-table tr:hover td { background: #16162a; }
+    .agent-table tr.clickable { cursor: pointer; }
+
+    .status-dot {
+      display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px;
+    }
+    .status-ok { background: #00ff88; }
+    .status-error { background: #ff4444; }
+    .status-inactive { background: #666; }
+    .status-disabled { background: #444; opacity: 0.5; }
+
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600;
+    }
+    .badge-error { background: #5f1e1e; color: #ff6666; }
+    .badge-ok { background: #1e3a1e; color: #66ff88; }
+    .badge-muted { background: #2a2a2a; color: #888; }
+
+    .detail-panel {
+      margin-top: 1.5rem; background: #12121a; border: 1px solid #2a2a4a;
+      border-radius: 8px; padding: 1.5rem; display: none;
+    }
+    .detail-panel.active { display: block; }
+    .detail-panel h3 { color: #00d4ff; margin-bottom: 1rem; font-size: 1.1rem; }
+
+    .run-list { list-style: none; }
+    .run-list li {
+      padding: 0.5rem 0; border-bottom: 1px solid #1a1a2e;
+      font-size: 0.85rem; display: flex; gap: 1rem; align-items: center;
+    }
+    .run-time { color: #666; min-width: 160px; }
+    .run-status { min-width: 80px; }
+    .run-triggers { color: #aaa; }
+
+    .test-section { margin-top: 1rem; display: flex; gap: 0.5rem; align-items: center; }
+    .test-section select, .test-section input {
+      background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 6px;
+      padding: 0.5rem; color: #e0e0e0; font-size: 0.85rem;
+    }
+    .test-btn {
+      background: #00d4ff; color: #000; border: none; border-radius: 6px;
+      padding: 0.5rem 1rem; font-weight: 600; cursor: pointer; font-size: 0.85rem;
+    }
+    .test-btn:hover { opacity: 0.9; }
+    .test-result { font-size: 0.85rem; margin-left: 0.5rem; }
+
+    .empty { text-align: center; padding: 3rem; color: #666; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">C3 Agent Dashboard <small>v57.0</small></div>
+    <button class="refresh-btn" onclick="loadHealth()">Obnovit</button>
+  </header>
+
+  <main>
+    <table class="agent-table">
+      <thead>
+        <tr>
+          <th>Agent</th>
+          <th>Status</th>
+          <th>Posledni beh</th>
+          <th>Behu celkem</th>
+          <th>Chyb</th>
+        </tr>
+      </thead>
+      <tbody id="agentBody">
+        <tr><td colspan="5" class="empty">Nacitam...</td></tr>
+      </tbody>
+    </table>
+
+    <div class="detail-panel" id="detailPanel">
+      <h3 id="detailTitle">Detail agenta</h3>
+
+      <h4 style="color:#888;margin:1rem 0 0.5rem;font-size:0.85rem;">HISTORIE BEHU</h4>
+      <ul class="run-list" id="runList"></ul>
+
+      <h4 style="color:#888;margin:1rem 0 0.5rem;font-size:0.85rem;">TEST NOTIFIKACE</h4>
+      <div class="test-section">
+        <select id="testChannel">
+          <option value="telegram">Telegram</option>
+          <option value="email">Email</option>
+        </select>
+        <input type="text" id="testRecipient" placeholder="Prijemce (chat_id / email)">
+        <button class="test-btn" onclick="testNotify()">Otestovat</button>
+        <span class="test-result" id="testResult"></span>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const API = '';
+    let selectedAgentId = null;
+
+    async function loadHealth() {
+      try {
+        const res = await fetch(API + '/api/agents/health');
+        const data = await res.json();
+        renderTable(data.agents || []);
+      } catch (err) {
+        document.getElementById('agentBody').innerHTML =
+          `<tr><td colspan="5" class="empty">Chyba: ${err.message}</td></tr>`;
+      }
+    }
+
+    function renderTable(agents) {
+      const tbody = document.getElementById('agentBody');
+      if (!agents.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty">Zadni agenti</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = agents.map(a => {
+        const statusClass = 'status-' + a.status;
+        const statusLabel = { ok: 'OK', error: 'Chyba', inactive: 'Neaktivni', disabled: 'Vypnuto' }[a.status] || a.status;
+        const lastRun = a.last_run ? new Date(a.last_run).toLocaleString('cs-CZ') : '-';
+        const errorBadge = a.error_count > 0
+          ? `<span class="badge badge-error">${a.error_count}</span>`
+          : `<span class="badge badge-muted">0</span>`;
+
+        return `<tr class="clickable" onclick="selectAgent('${a.id}', '${escape(a.name)}')">
+          <td><strong>${a.name}</strong><br><small style="color:#666">${a.id}</small></td>
+          <td><span class="status-dot ${statusClass}"></span>${statusLabel}</td>
+          <td>${lastRun}</td>
+          <td>${a.total_runs}</td>
+          <td>${errorBadge}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function selectAgent(id, name) {
+      selectedAgentId = id;
+      const panel = document.getElementById('detailPanel');
+      panel.classList.add('active');
+      document.getElementById('detailTitle').textContent = unescape(name) + ' — Detail';
+      document.getElementById('testResult').textContent = '';
+
+      try {
+        const res = await fetch(API + `/api/agents/${id}/runs?limit=50`);
+        const data = await res.json();
+        renderRuns(data.runs || []);
+      } catch (err) {
+        document.getElementById('runList').innerHTML = `<li>Chyba: ${err.message}</li>`;
+      }
+    }
+
+    function renderRuns(runs) {
+      const list = document.getElementById('runList');
+      if (!runs.length) {
+        list.innerHTML = '<li style="color:#666">Zadne behy</li>';
+        return;
+      }
+
+      list.innerHTML = runs.slice(0, 20).map(r => {
+        const time = r.started_at ? new Date(r.started_at).toLocaleString('cs-CZ') : '?';
+        const statusBadge = r.status === 'error'
+          ? '<span class="badge badge-error">error</span>'
+          : `<span class="badge badge-ok">${r.status || 'ok'}</span>`;
+        const triggers = r.triggers_fired ? `${r.triggers_fired} triggeru` : '';
+        const duration = r.duration_ms ? `${r.duration_ms}ms` : '';
+
+        return `<li>
+          <span class="run-time">${time}</span>
+          <span class="run-status">${statusBadge}</span>
+          <span class="run-triggers">${triggers} ${duration}</span>
+        </li>`;
+      }).join('');
+    }
+
+    async function testNotify() {
+      if (!selectedAgentId) return;
+      const channel = document.getElementById('testChannel').value;
+      const recipient = document.getElementById('testRecipient').value;
+      const resultEl = document.getElementById('testResult');
+      resultEl.textContent = 'Odesilam...';
+
+      try {
+        const res = await fetch(API + `/api/agents/${selectedAgentId}/test-notify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channel, recipient }),
+        });
+        const data = await res.json();
+        resultEl.textContent = data.ok ? 'OK - doruceno' : `Chyba: ${data.error}`;
+        resultEl.style.color = data.ok ? '#00ff88' : '#ff4444';
+      } catch (err) {
+        resultEl.textContent = `Chyba: ${err.message}`;
+        resultEl.style.color = '#ff4444';
+      }
+    }
+
+    // Auto-refresh every 30s
+    loadHealth();
+    setInterval(loadHealth, 30000);
+  </script>
+</body>
+</html>

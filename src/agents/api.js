@@ -57,8 +57,8 @@ function cleanDefinition(def) {
  * @param {object} deps - Dependencies
  * @returns {object} Route handlers
  */
-export function createAgentRoutes({ repository, scheduler, executor, llmClient }) {
-  
+export function createAgentRoutes({ repository, scheduler, executor, llmClient, notificationRouter = null }) {
+
   // Agent Builder for creating agents from descriptions
   const builder = llmClient ? new AgentBuilder({ llmClient }) : null;
   return {
@@ -617,7 +617,87 @@ export function createAgentRoutes({ repository, scheduler, executor, llmClient }
       } catch (err) {
         res.status(500).json({ error: err.message });
       }
-    }
+    },
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AGENT HEALTH & MONITORING (B7)
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * GET /api/agents/health
+     * Overview of all agents with status, last run, error count
+     */
+    async getAgentsHealth(req, res) {
+      try {
+        const agents = repository.getAll(true);
+        const health = agents.map(agent => {
+          const lastRun = repository.getLastRun(agent.id);
+          const runs = repository.getRunHistory(agent.id, 50);
+          const errorCount = runs.filter(r => r.status === 'error').length;
+
+          let status = 'inactive'; // ⚪
+          if (!agent.enabled) {
+            status = 'disabled';
+          } else if (lastRun) {
+            status = lastRun.status === 'error' ? 'error' : 'ok'; // 🔴 / 🟢
+          }
+
+          return {
+            id: agent.id,
+            name: agent.name,
+            status,
+            enabled: agent.enabled,
+            last_run: lastRun ? lastRun.started_at : null,
+            last_status: lastRun ? lastRun.status : null,
+            error_count: errorCount,
+            total_runs: runs.length,
+          };
+        });
+
+        res.json({ agents: health });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    },
+
+    /**
+     * GET /api/agents/:id/notifications
+     * Get notifications for a specific agent
+     */
+    async getAgentNotifications(req, res) {
+      try {
+        const limit = parseInt(req.query.limit) || 50;
+        const notifications = repository.getNotifications({
+          agentId: req.params.id,
+          limit,
+        });
+        res.json({ notifications });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    },
+
+    /**
+     * POST /api/agents/:id/test-notify
+     * Test notification delivery for an agent's configured channel
+     */
+    async testAgentNotification(req, res) {
+      try {
+        if (!notificationRouter) {
+          return res.status(503).json({ error: 'Notification service not initialized' });
+        }
+
+        const { channel, recipient } = req.body;
+        if (!channel) {
+          return res.status(400).json({ error: 'channel is required (email, telegram)' });
+        }
+
+        const result = await notificationRouter.testChannel(channel, recipient);
+        res.json(result);
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    },
   };
 }
 
@@ -741,6 +821,11 @@ export function registerAgentRoutes(app, deps) {
   app.post('/api/sources/inspect', routes.inspectSourceUrl);
   app.post('/api/sources/validate-field', routes.validateField);
   app.post('/api/sources/validate-condition', routes.validateCondition);
+
+  // Agent Health & Monitoring (B7)
+  app.get('/api/agents/health', routes.getAgentsHealth);
+  app.get('/api/agents/:id/notifications', routes.getAgentNotifications);
+  app.post('/api/agents/:id/test-notify', routes.testAgentNotification);
 }
 
 export default {
