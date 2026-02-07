@@ -684,6 +684,33 @@ export async function synthesizeWithLLM({
       }
       // ─── End D6 Output Quality Gate ────────────────────────────────────
 
+      // ─── Tool-Only Numeric Enforcement (expert opt-in, v57.2) ────────
+      if (expertHints?.toolEnforcement && retryCount < MAX_RETRIES) {
+        const guard = await import('../../../experts/guards/tool-enforcement.js');
+        const numericVerdict = guard.verifyNumericClaims(result.content, successfulData);
+
+        if (!numericVerdict.ok) {
+          logger.warn('Synthesis', 'Tool enforcement: unbacked numbers detected', {
+            unbacked: numericVerdict.unbacked.length,
+            backed: numericVerdict.backed.length,
+            reason: numericVerdict.reason,
+          });
+          synthesisPrompt = guard.buildToolEnforcementRetryPrompt(synthesisPrompt, numericVerdict);
+          retryCount++;
+          continue;
+        }
+      }
+      if (expertHints?.toolEnforcement && retryCount >= MAX_RETRIES) {
+        const guard = await import('../../../experts/guards/tool-enforcement.js');
+        const finalNumericVerdict = guard.verifyNumericClaims(result.content, successfulData);
+        if (!finalNumericVerdict.ok) {
+          logger.warn('Synthesis', 'Tool enforcement failed but max retries reached', {
+            reason: finalNumericVerdict.reason,
+          });
+        }
+      }
+      // ─── End Tool Enforcement ────────────────────────────────────────
+
       // ─── v55.2 Sprint 2.4: Confidence-based response styling ─────────
       const finalConfidence = fluffCheck.isFluff ? 0.6 : (gateVerdict.ok ? 0.85 : 0.55);
       let finalContent = result.content;

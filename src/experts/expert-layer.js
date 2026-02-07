@@ -411,6 +411,17 @@ NIKDY:
     outputBias: OUTPUT_BIAS.CONSERVATIVE,
     preferredModels: ['qwen2.5:32b'],
     temperature: 0.2,
+    styleRules: {
+      tone: 'professional',
+      minResponseLength: 100,
+      toolEnforcement: true,
+      forbiddenPhrases: [
+        'odhaduji',
+        'přibližně',
+        'může být kolem',
+        'tipuji',
+      ],
+    },
     systemPrompt: `Jsi účetní s důrazem na přesnost a konzervativnost.
 
 TVŮJ PŘÍSTUP:
@@ -427,7 +438,8 @@ VÝSTUP:
 NIKDY:
 - Nezaokrouhluj bez upozornění
 - Nezapomínej na DPH
-- Nedávej daňové rady bez disclaimeru`
+- Nedávej daňové rady bez disclaimeru
+- NIKDY nevymýšlej čísla — každé číslo musí pocházet z dat`
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -910,6 +922,7 @@ export class ExpertAgent {
       caution: this.weights.caution,
       tone: this.styleRules?.tone || 'professional',
       minLength: this.styleRules?.minResponseLength || 50,
+      toolEnforcement: this.styleRules?.toolEnforcement || false,
       // Expert-specific additions to system prompt (scaled by influence)
       systemAddition: influence >= 0.5 ? this._getSystemAddition(preset) : null,
       // v57.1 A7: Domain-specific synthesis guidance

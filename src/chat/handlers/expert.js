@@ -162,6 +162,19 @@ async function generateExpertResponse(input, expert, context) {
       });
     }
 
+    // v57.2 - Tool enforcement for direct expert responses (no tool data = all numbers unbacked)
+    if (expert.styleRules?.toolEnforcement) {
+      const guard = await import('../../experts/guards/tool-enforcement.js');
+      const numericVerdict = guard.verifyNumericClaims(enforcement.response, []);
+      if (!numericVerdict.ok) {
+        logger.warn('ExpertHandler', 'Direct expert response has unbacked numbers', {
+          expert: expert.id,
+          unbacked: numericVerdict.unbacked.length,
+        });
+        enforcement.response += '\n\n---\n*⚠️ Uvedená čísla nebyla ověřena z externích zdrojů.*';
+      }
+    }
+
     // Build response tag with enforcement metadata
     const tag = new ResponseTag({
       speaker: ResponseSpeaker.EXPERT,
