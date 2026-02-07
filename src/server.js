@@ -1508,6 +1508,9 @@ const routes = {
       if (params.filename.endsWith('.pdf')) {
         contentType = 'application/pdf';
         disposition = 'inline';
+      } else if (params.filename.endsWith('.xlsx')) {
+        contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        disposition = 'attachment';
       } else if (params.filename.endsWith('.csv')) {
         contentType = 'text/csv; charset=utf-8';
         disposition = 'attachment';

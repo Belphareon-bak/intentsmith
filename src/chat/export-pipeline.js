@@ -24,6 +24,7 @@ export const ExportFormat = Object.freeze({
   TEXT: 'txt',
   PDF: 'pdf',    // v57.1 A5: HTML→PDF via puppeteer
   DOCX: 'docx',  // v57.1 A6: DOCX via docx package
+  XLSX: 'xlsx',  // v57.2: XLSX via exceljs
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -41,11 +42,11 @@ export const ExportScope = Object.freeze({
 // ─────────────────────────────────────────────────────────────────────────────
 
 const EXPORT_PATTERNS = [
-  { pattern: /ulož.*(?:jako|do)\s+(markdown|md|html|txt|text|pdf|docx|word)/i, formatGroup: 1 },
-  { pattern: /export(?:uj|ovat|ni).*(?:jako|do)\s+(markdown|md|html|txt|text|pdf|docx|word)/i, formatGroup: 1 },
-  { pattern: /save.*(?:as|to)\s+(markdown|md|html|txt|text|pdf|docx|word)/i, formatGroup: 1 },
-  { pattern: /(?:stáhn|stahni|download).*(?:jako|do)?\s*(markdown|md|html|txt|text|pdf|docx|word)/i, formatGroup: 1 },
-  { pattern: /vygeneruj\s+(markdown|md|html|pdf|docx|word)\s+(?:soubor|stránku|dokument)/i, formatGroup: 1 },
+  { pattern: /ulož.*(?:jako|do)\s+(markdown|md|html|txt|text|pdf|docx|word|xlsx|excel)/i, formatGroup: 1 },
+  { pattern: /export(?:uj|ovat|ni).*(?:jako|do)\s+(markdown|md|html|txt|text|pdf|docx|word|xlsx|excel)/i, formatGroup: 1 },
+  { pattern: /save.*(?:as|to)\s+(markdown|md|html|txt|text|pdf|docx|word|xlsx|excel)/i, formatGroup: 1 },
+  { pattern: /(?:stáhn|stahni|download).*(?:jako|do)?\s*(markdown|md|html|txt|text|pdf|docx|word|xlsx|excel)/i, formatGroup: 1 },
+  { pattern: /vygeneruj\s+(markdown|md|html|pdf|docx|word|xlsx|excel)\s+(?:soubor|stránku|dokument|tabulku)/i, formatGroup: 1 },
 ];
 
 /**
@@ -78,6 +79,7 @@ function normalizeFormat(raw) {
     case 'txt': case 'text': return ExportFormat.TEXT;
     case 'pdf': return ExportFormat.PDF;
     case 'docx': case 'word': return ExportFormat.DOCX;
+    case 'xlsx': case 'excel': return ExportFormat.XLSX;
     default: return ExportFormat.MARKDOWN;
   }
 }
@@ -143,6 +145,11 @@ export async function exportConversation(conversationId, opts = {}) {
       content = await renderDOCX(title, date, turns, scope);
       isBinary = true;
       break;
+    case ExportFormat.XLSX:
+      // v57.2: XLSX via exceljs
+      content = await renderXLSX(title, date, turns, scope);
+      isBinary = true;
+      break;
     case ExportFormat.MARKDOWN:
     default:
       content = renderMarkdown(title, date, turns, scope);
@@ -156,7 +163,7 @@ export async function exportConversation(conversationId, opts = {}) {
     .substring(0, 50)
     .toLowerCase();
   const timestamp = Date.now();
-  const extMap = { html: 'html', txt: 'txt', pdf: 'pdf', docx: 'docx', md: 'md' };
+  const extMap = { html: 'html', txt: 'txt', pdf: 'pdf', docx: 'docx', xlsx: 'xlsx', md: 'md' };
   const ext = extMap[format] || 'md';
   const filename = `${safeName}-${timestamp}.${ext}`;
 
@@ -478,6 +485,90 @@ async function renderDOCX(title, date, turns, scope) {
     if (err.code === 'ERR_MODULE_NOT_FOUND' || err.message?.includes('Cannot find')) {
       logger.error('ExportPipeline', 'docx not installed. Run: npm install docx');
       throw new Error('Export DOCX: docx package is not installed. Run: npm install docx');
+    }
+    throw err;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v57.2: XLSX Renderer (via exceljs)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Render conversation as XLSX spreadsheet.
+ * Columns: #, Role, Content, Timestamp
+ * Requires: npm install exceljs
+ *
+ * @returns {Promise<Buffer>} XLSX as Buffer
+ */
+async function renderXLSX(title, date, turns, scope) {
+  try {
+    const ExcelJS = await import('exceljs');
+    const workbook = new ExcelJS.default.Workbook();
+    workbook.creator = 'C3-Agent v57.2';
+    workbook.created = new Date();
+
+    const sheet = workbook.addWorksheet('Konverzace', {
+      properties: { defaultColWidth: 20 },
+    });
+
+    // Column definitions
+    sheet.columns = [
+      { header: '#', key: 'num', width: 5 },
+      { header: 'Role', key: 'role', width: 12 },
+      { header: 'Obsah', key: 'content', width: 80 },
+    ];
+
+    // Style header row
+    const headerRow = sheet.getRow(1);
+    headerRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A1A2E' } };
+    headerRow.alignment = { vertical: 'middle' };
+
+    // Role colors matching existing theme
+    const roleColors = {
+      user: { font: 'FF4A6FA5', fill: 'FFE8EDF3' },
+      assistant: { font: 'FF2D9A5C', fill: 'FFF0F9F4' },
+      system: { font: 'FFF5A623', fill: 'FFFFF8E1' },
+    };
+
+    // Add turn rows
+    for (let i = 0; i < turns.length; i++) {
+      const turn = turns[i];
+      const label = turn.role === 'user' ? 'Uživatel' :
+                    turn.role === 'assistant' ? 'Asistent' : 'Systém';
+      const colors = roleColors[turn.role] || roleColors.system;
+
+      const row = sheet.addRow({
+        num: i + 1,
+        role: label,
+        content: turn.content || '',
+      });
+
+      row.getCell('role').font = { bold: true, color: { argb: colors.font } };
+      row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.fill } };
+      row.alignment = { vertical: 'top', wrapText: true };
+    }
+
+    // Footer row
+    sheet.addRow({});
+    const footerRow = sheet.addRow({ content: `Exportováno z C3-Agent v57.2 | ${title} | ${date} | ${turns.length} zpráv` });
+    footerRow.font = { italic: true, color: { argb: 'FF999999' }, size: 9 };
+
+    // Auto-height for content rows (approximate)
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber > 1) {
+        const content = row.getCell('content').value || '';
+        const lines = String(content).split('\n').length;
+        row.height = Math.max(20, lines * 15);
+      }
+    });
+
+    return Buffer.from(await workbook.xlsx.writeBuffer());
+  } catch (err) {
+    if (err.code === 'ERR_MODULE_NOT_FOUND' || err.message?.includes('Cannot find')) {
+      logger.error('ExportPipeline', 'exceljs not installed. Run: npm install exceljs');
+      throw new Error('Export XLSX: exceljs package is not installed. Run: npm install exceljs');
     }
     throw err;
   }

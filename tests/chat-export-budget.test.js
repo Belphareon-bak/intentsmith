@@ -683,6 +683,90 @@ describe('T10.6: DOCX Export (A6)', async () => {
 
 
 // ══════════════════════════════════════════════════════════════════════════════
+// T10.7: XLSX EXPORT
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('T10.7: XLSX Export', async () => {
+
+  async function createTestStore(convId) {
+    const store = new ConversationStore(null);
+    store.ensureConversation(convId, {});
+    store.setTitle(convId, 'XLSX Test konverzace');
+    store.appendTurn(convId, TurnRole.USER, 'Jaké je počasí?');
+    store.appendTurn(convId, TurnRole.ASSISTANT, 'Dnes bude oblačno, teplota 5°C.\nVítr z jihozápadu.');
+    store.appendTurn(convId, TurnRole.USER, 'A zítra?');
+    store.appendTurn(convId, TurnRole.ASSISTANT, 'Zítra slunečno, 8°C.');
+    return store;
+  }
+
+  await it('XLSX export produces valid file', async () => {
+    const store = await createTestStore('xlsx-e2e');
+    const tmpDir = `/tmp/c3-export-xlsx-${Date.now()}`;
+    const result = await exportConversation('xlsx-e2e', {
+      format: 'xlsx', store, artifactsDir: tmpDir,
+    });
+    assert.ok(result.filename.endsWith('.xlsx'));
+    assert.equal(result.format, 'xlsx');
+    assert.ok(result.size > 1000, `XLSX should be >1KB, got ${result.size}`);
+    assert.equal(result.turnCount, 4);
+    assert.ok(result.downloadUrl.startsWith('/api/artifacts/'));
+  });
+
+  await it('XLSX file is valid ZIP (OOXML)', async () => {
+    const store = await createTestStore('xlsx-zip');
+    const tmpDir = `/tmp/c3-export-xlsxzip-${Date.now()}`;
+    const result = await exportConversation('xlsx-zip', {
+      format: 'xlsx', store, artifactsDir: tmpDir,
+    });
+    const fs = await import('fs/promises');
+    const buf = await fs.readFile(result.path);
+    // XLSX is ZIP format, starts with PK (0x50 0x4B)
+    assert.ok(buf[0] === 0x50 && buf[1] === 0x4B,
+      'XLSX should start with PK (ZIP) magic bytes');
+  });
+
+  await it('XLSX with scope "last" exports only last turn', async () => {
+    const store = await createTestStore('xlsx-last');
+    const tmpDir = `/tmp/c3-export-xlsxlast-${Date.now()}`;
+    const result = await exportConversation('xlsx-last', {
+      format: 'xlsx', scope: 'last', store, artifactsDir: tmpDir,
+    });
+    assert.equal(result.turnCount, 1);
+    assert.ok(result.size > 500);
+  });
+
+  await it('XLSX handles Czech characters', async () => {
+    const store = new ConversationStore(null);
+    store.ensureConversation('xlsx-cz');
+    store.setTitle('xlsx-cz', 'Český test — háčky');
+    store.appendTurn('xlsx-cz', TurnRole.USER, 'Příliš žluťoučký kůň úpěl ďábelské ódy.');
+    store.appendTurn('xlsx-cz', TurnRole.ASSISTANT, 'Řeřicha říká: šťáva žďáru.');
+
+    const tmpDir = `/tmp/c3-export-xlsxcz-${Date.now()}`;
+    const result = await exportConversation('xlsx-cz', {
+      format: 'xlsx', store, artifactsDir: tmpDir,
+    });
+    assert.ok(result.size > 500, 'Czech XLSX should generate');
+  });
+
+  await it('XLSX handles multiline content', async () => {
+    const store = new ConversationStore(null);
+    store.ensureConversation('xlsx-ml');
+    store.setTitle('xlsx-ml', 'Multiline test');
+    store.appendTurn('xlsx-ml', TurnRole.USER, 'Shrnutí');
+    store.appendTurn('xlsx-ml', TurnRole.ASSISTANT,
+      'Bod 1: První věc\nBod 2: Druhá věc\n\nBod 3: Třetí věc');
+
+    const tmpDir = `/tmp/c3-export-xlsxml-${Date.now()}`;
+    const result = await exportConversation('xlsx-ml', {
+      format: 'xlsx', store, artifactsDir: tmpDir,
+    });
+    assert.ok(result.size > 500, 'Multiline XLSX should generate');
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════════════════════
 // T10.4: EXPORT COMMAND DETECTION
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -772,6 +856,30 @@ describe('T10.4: Export Command Detection', async () => {
     const r = detectExportCommand('stáhni jako pdf');
     assert.equal(r.isExport, true);
     assert.equal(r.format, 'pdf');
+  });
+
+  await it('"ulož jako xlsx" triggers XLSX export', async () => {
+    const r = detectExportCommand('ulož jako xlsx');
+    assert.equal(r.isExport, true);
+    assert.equal(r.format, 'xlsx');
+  });
+
+  await it('"save as excel" triggers XLSX export', async () => {
+    const r = detectExportCommand('save as excel');
+    assert.equal(r.isExport, true);
+    assert.equal(r.format, 'xlsx');
+  });
+
+  await it('"exportuj do xlsx" triggers XLSX export', async () => {
+    const r = detectExportCommand('exportuj do xlsx');
+    assert.equal(r.isExport, true);
+    assert.equal(r.format, 'xlsx');
+  });
+
+  await it('"vygeneruj excel tabulku" triggers XLSX export', async () => {
+    const r = detectExportCommand('vygeneruj excel tabulku');
+    assert.equal(r.isExport, true);
+    assert.equal(r.format, 'xlsx');
   });
 });
 
