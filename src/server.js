@@ -59,6 +59,10 @@ initAgentTables(db.db);
 import { callWithAuth } from './llm/gateway.js';
 import { createAuthToken, LLMCallerRole } from './llm/auth-types.js';
 
+// v57.2: Trust Feedback Loop
+import { createTrustRoutes } from './notifications/trust-api.js';
+import { getTrustTracker } from './notifications/trust.js';
+
 // v44.0: ChatController - THE ONLY entry point for chat
 import { ChatController, ChatMode } from './chat/controller.js';
 import { getDefaultHandlers } from './chat/handlers/index.js';
@@ -1860,6 +1864,12 @@ const routes = {
   // (Orchestrator API v36 routes removed — module-level orchestrator was dead code.
   //  Architect routes at /api/architect/* still work via ConversationOrchestrator.)
 };
+
+// ═══ Trust Feedback Loop API (v57.2) ═════════════════════════════════════════
+// Initialize trust tracker singleton with raw DB, then mount routes
+getTrustTracker(db.db);
+const trustRoutes = createTrustRoutes({ db: db.db, sendJSON, parseBody });
+Object.assign(routes, trustRoutes);
 
 // ════════════════════════════════════════════════════════════════════════════
 // DEBUG: Runtime Module Tracer (activate: C3_TRACE=1 or --import ./src/core/tracer-register.mjs)

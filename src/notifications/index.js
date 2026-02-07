@@ -11,6 +11,11 @@ export { DigestAggregator } from './digest.js';
 
 export { initNotificationTables } from './db.js';
 
+// Trust Feedback Loop (v57.2)
+export { TrustTracker, getTrustTracker, resetTrustTracker, TRUST_CONFIG, buildAutoMuteNotification, buildDegradeNotification } from './trust.js';
+export { FeedbackHandler, buildFeedbackKeyboard, parseFeedbackCallback, isFeedbackCallback } from './feedback.js';
+export { createTrustRoutes } from './trust-api.js';
+
 import { logger } from '../core/logger.js';
 import { NotificationRouter } from './service.js';
 import { NotificationPolicy } from './policy.js';

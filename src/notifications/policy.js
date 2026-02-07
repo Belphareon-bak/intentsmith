@@ -25,6 +25,7 @@
 //     escalation_counter, escalation_window_start }
 
 import { logger as defaultLogger } from '../core/logger.js';
+import { getTrustTracker } from './trust.js';
 
 /** @typedef {'immediate'|'digest'|'drop'} PolicyDecision */
 
@@ -131,7 +132,29 @@ export class NotificationPolicy {
       }
     }
 
-    // ─── 5. Determine mode ────────────────────────────────────────────
+    // ─── 5. Trust override (auto-degrade / auto-mute from feedback) ──
+    const trustTracker = getTrustTracker();
+    if (trustTracker) {
+      const trust = trustTracker.getTrustOverride(ctx.agent_id);
+      if (trust.override === 'drop') {
+        return {
+          decision: 'drop',
+          effectivePriority,
+          reason: `trust: ${trust.reason}`,
+          escalated,
+        };
+      }
+      if (trust.override === 'digest') {
+        return {
+          decision: 'digest',
+          effectivePriority,
+          reason: `trust: ${trust.reason}`,
+          escalated,
+        };
+      }
+    }
+
+    // ─── 6. Determine mode ────────────────────────────────────────────
     let mode = policy.mode || 'immediate';
 
     if (mode === 'auto') {
