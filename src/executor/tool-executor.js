@@ -208,7 +208,7 @@ export class ToolResult {
   /**
    * Create a successful scrape result
    */
-  static scrape({ url, title, content, links = [], latency }) {
+  static scrape({ url, title, content, links = [], latency, quality = null }) {
     return new ToolResult({
       type: ToolResultType.SCRAPE,
       success: true,
@@ -218,11 +218,13 @@ export class ToolResult {
         content,
         links,
         contentLength: content?.length || 0,
+        quality,  // v57.1 A1: scrape quality score
       },
       meta: {
         source: url,
         latency,
         truncated: content?.length > 10000,
+        qualityGrade: quality?.grade || 'UNKNOWN',  // v57.1 A1
       },
     });
   }
@@ -906,6 +908,7 @@ export class ToolExecutor {
 
   /**
    * Execute web search
+   * v57.1 A2 - Auto-retry with query simplification when results are sparse
    * v45.0 - Returns ToolResult with structured data (no formatted text)
    * v44.2 - Multi-provider search with automatic fallback
    */
@@ -918,13 +921,68 @@ export class ToolExecutor {
     try {
       const searchResult = await searchWeb(query, 10);
       const { results, usedProvider, fallbackLog, allFailed } = searchResult;
-      const latency = Date.now() - startTime;
 
+      // ──────────────────────────────────────────────────────────────────────
+      // v57.1 A2: Auto-retry with simplified query when results are sparse
+      // Condition: not all failed (providers work) but < 3 results
+      // Strategy: simplify query deterministically (no LLM call needed)
+      // ──────────────────────────────────────────────────────────────────────
+      if (!allFailed && results.length < 3 && results.length > 0) {
+        const simplified = simplifySearchQuery(query);
+        if (simplified && simplified !== query) {
+          logger.info('ToolExecutor', `Sparse results (${results.length}), retrying with simplified: "${simplified}"`);
+          
+          const retryResult = await searchWeb(simplified, 10);
+          if (!retryResult.allFailed && retryResult.results.length > 0) {
+            // Merge and deduplicate
+            const seen = new Set(results.map(r => r.url));
+            for (const r of retryResult.results) {
+              if (!seen.has(r.url)) {
+                results.push(r);
+                seen.add(r.url);
+              }
+            }
+            logger.info('ToolExecutor', `Auto-retry added ${retryResult.results.length} results, total: ${results.length}`);
+            fallbackLog.push({ provider: 'auto-retry', status: 'success', query: simplified, added: retryResult.results.length });
+          }
+        }
+      }
+
+      // v57.1 A2: Also retry on zero results with broadened query
       if (allFailed || results.length === 0) {
-        const status = getProviderStatus();
-        logger.warn('ToolExecutor', 'Web search returned no results', { status, fallbackLog });
+        const broadened = broadenSearchQuery(query);
+        if (broadened && broadened !== query) {
+          logger.info('ToolExecutor', `Zero results, retrying with broadened: "${broadened}"`);
+          const retryResult = await searchWeb(broadened, 10);
+          
+          if (!retryResult.allFailed && retryResult.results.length > 0) {
+            const latency = Date.now() - startTime;
+            logger.info('ToolExecutor', `Broadened retry found ${retryResult.results.length} results`);
+            
+            return ToolResult.search({
+              results: retryResult.results.map(r => ({
+                title: r.title,
+                url: r.url,
+                snippet: r.snippet,
+              })),
+              count: retryResult.results.length,
+              source: retryResult.usedProvider,
+              latency,
+              fallbackInfo: {
+                hadFallback: true,
+                retried: true,
+                originalQuery: query,
+                retriedQuery: broadened,
+                providers: [...fallbackLog, { provider: 'auto-retry-broadened', status: 'success' }].map(l => l.provider),
+              },
+            });
+          }
+        }
 
-        // v45.0: Return structured failure
+        // Still nothing
+        const status = getProviderStatus();
+        logger.warn('ToolExecutor', 'Web search returned no results (after retry)', { status, fallbackLog });
+
         return ToolResult.failed({
           type: ToolResultType.SEARCH,
           error: 'No search results found. All search providers may be temporarily unavailable.',
@@ -933,6 +991,7 @@ export class ToolExecutor {
         });
       }
 
+      const latency = Date.now() - startTime;
       logger.info('ToolExecutor', `Web search found ${results.length} results via ${usedProvider}`);
 
       // v45.0: Return structured success with DATA only
@@ -1006,7 +1065,10 @@ export class ToolExecutor {
     logger.info('ToolExecutor', `Executing web scrape: ${targetUrl}`);
 
     try {
-      const page = await fetchPage(targetUrl, 10000);
+      // v57.1 A1: Pass query to fetchPage for relevance-based truncation
+      const query = params.query || params.input || '';
+      const maxLength = params.maxLength || 10000;
+      const page = await fetchPage(targetUrl, maxLength, query);
       const latency = Date.now() - startTime;
 
       if (!page) {
@@ -1017,6 +1079,19 @@ export class ToolExecutor {
         });
       }
 
+      // v57.1 A1: If content is blocked (login wall, captcha, etc.), return failure
+      if (page.quality && !page.quality.usable) {
+        logger.warn('ToolExecutor', `Scrape blocked: ${page.quality.reason}`, { url: targetUrl });
+        return ToolResult.failed({
+          type: ToolResultType.SCRAPE,
+          error: `Page content blocked: ${page.quality.reason}`,
+          errorCode: 'SCRAPE_BLOCKED',
+          suggestion: page.quality.reason === 'LOGIN_WALL' 
+            ? 'Stránka vyžaduje přihlášení.' 
+            : 'Obsah stránky se nepodařilo extrahovat.',
+        });
+      }
+
       // v45.0: Return structured data only
       return ToolResult.scrape({
         url: targetUrl,
@@ -1024,6 +1099,7 @@ export class ToolExecutor {
         content: page.content,
         links: page.links || [],
         latency,
+        quality: page.quality,  // v57.1 A1
       });
 
     } catch (err) {
@@ -1316,6 +1392,68 @@ export class ToolExecutor {
       logger.info('ToolExecutor', 'Database service wired');
     }
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v57.1 A2: Search Query Retry Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Simplify a search query by removing filler words and keeping key terms.
+ * Used when original query returns sparse results (< 3).
+ * Deterministic — no LLM call needed.
+ */
+function simplifySearchQuery(query) {
+  if (!query || query.length < 5) return null;
+
+  // Remove question structures, keep subject
+  let simplified = query
+    // Czech question patterns → keep the noun
+    .replace(/^(?:co je to|co je|co jsou|kdo je|kdo byl|jak funguje|jak se)\s+/i, '')
+    .replace(/^(?:jaký je|jaká je|jaké je|jaké jsou|kolik je|kolik stojí)\s+/i, '')
+    .replace(/^(?:kde je|kde najdu|kdy je|kdy byl|proč je)\s+/i, '')
+    // English question patterns
+    .replace(/^(?:what is|who is|how does|where is|when is|why is)\s+/i, '')
+    // Trailing instructions
+    .replace(/\s*(?:prosím|odpověz|stručně|podrobně|vysvětli|please|briefly)\s*$/i, '')
+    .replace(/[?!.]+$/, '')
+    .trim();
+
+  // If simplified is too short or same, try just keeping longest words
+  if (simplified.length < 3 || simplified === query) {
+    const words = query
+      .split(/\s+/)
+      .filter(w => w.length > 3)
+      .filter(w => !/^(jaký|jaká|jaké|který|která|které|prosím|odpověz|stručně|this|that|the|what|how)$/i.test(w));
+    
+    if (words.length >= 1) {
+      simplified = words.slice(0, 4).join(' ');
+    }
+  }
+
+  return simplified.length >= 3 ? simplified : null;
+}
+
+/**
+ * Broaden a search query when zero results returned.
+ * Strategy: reduce to just the core 1-2 keywords.
+ */
+function broadenSearchQuery(query) {
+  if (!query || query.length < 5) return null;
+
+  const words = query
+    .replace(/[?!.,;:'"]/g, '')
+    .split(/\s+/)
+    .filter(w => w.length > 3)
+    // Remove very common words
+    .filter(w => !/^(jaký|jaká|jaké|který|která|které|prosím|odpověz|stručně|aktuální|nejlepší|this|that|the|what|how|best|current|latest|about)$/i.test(w));
+
+  if (words.length === 0) return null;
+  if (words.length <= 2) return words.join(' ');
+
+  // Keep only the 2 longest words (most likely to be meaningful nouns)
+  const byLength = [...words].sort((a, b) => b.length - a.length);
+  return byLength.slice(0, 2).join(' ');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

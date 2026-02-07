@@ -173,40 +173,52 @@ export const HEDGING_PHRASES = {
 
 /**
  * Get synthesis instructions for confidence scaling
+ * v57.1 A3: Enhanced with structural guidance per confidence level
  * @param {Object} confidenceInfo - Output from calculateAnswerConfidence
  * @returns {string} Instructions for synthesis prompt
  */
 export function getConfidenceSynthesisInstructions(confidenceInfo) {
-  const { level, factors } = confidenceInfo;
+  const { level, score, factors } = confidenceInfo;
 
   const instructions = [];
 
-  // Level-specific guidance
+  // v57.1 A3: Level-specific structural guidance
   switch (level) {
     case ConfidenceLevel.HIGH:
       instructions.push('JISTOTA: Vysoká. Formuluj přímo a sebevědomě.');
-      instructions.push('Nepoužívej zbytečné hedging fráze.');
+      instructions.push('STRUKTURA: Začni přímou odpovědí. Konkrétní fakta (čísla, data, jména).');
+      instructions.push('TÓN: Jasný, jistý. Žádný hedging.');
       break;
 
     case ConfidenceLevel.MEDIUM:
-      instructions.push('JISTOTA: Střední. Použij přirozené uvedení zdroje.');
-      instructions.push('Příklad: "Podle dostupných zdrojů..."');
+      instructions.push('JISTOTA: Střední. Odpovídej věcně, s přirozeným uvedením zdroje.');
+      instructions.push('STRUKTURA: Odpověď + kontext ze zdrojů. Uveď odkud informace pochází.');
+      instructions.push('TÓN: "Podle dostupných zdrojů...", "Na základě aktuálních dat..."');
+      instructions.push('Pokud se zdroje mírně liší, uveď hlavní shodu i odchylky.');
       break;
 
     case ConfidenceLevel.LOW:
-      instructions.push('JISTOTA: Nízká. Naznač nejistotu přirozeně.');
-      instructions.push('Příklad: "Dostupná data naznačují..." nebo "Pravděpodobně..."');
+      instructions.push('JISTOTA: Nízká. Data jsou omezená nebo z neověřených zdrojů.');
+      instructions.push('STRUKTURA: Řekni co víš, ale přiznej že data nejsou úplná.');
+      instructions.push('TÓN: "Dostupná data naznačují..." nebo "Podle neověřených informací..."');
+      instructions.push('Na konci navrhni jak si uživatel může informaci ověřit (konkrétní zdroj/web).');
       instructions.push('NIKDY nepiš "Nemohu si být jistý" nebo podobné disclaimery.');
       break;
 
     case ConfidenceLevel.UNCERTAIN:
-      instructions.push('JISTOTA: Velmi nízká. Přiznej omezení dat.');
-      instructions.push('Příklad: "Informace k tomuto tématu jsou omezené, ale..."');
+      instructions.push('JISTOTA: Velmi nízká. Zdroje se liší nebo jsou nedostatečné.');
+      instructions.push('STRUKTURA: Shrň co se podařilo najít, explicitně uveď mezery.');
+      instructions.push('TÓN: "Informace k tomuto tématu jsou omezené..." nebo "Dostupné zdroje si protiřečí..."');
+      instructions.push('Navrhni alternativní přístupy: jiné klíčové slovo, konkrétní web, odbornou poradnu.');
       instructions.push('NIKDY nepiš explicitní omluvy nebo disclaimery o AI.');
       break;
   }
 
-  // Add forbidden phrases reminder
+  // Confidence metadata for prompt context
+  instructions.push('');
+  instructions.push(`[Confidence score: ${score.toFixed(2)}, factors: ${factors.join(', ')}]`);
+
+  // Forbidden phrases reminder
   instructions.push('');
   instructions.push('ZAKÁZANÉ FRÁZE:');
   instructions.push('- "Nemohu si být jistý/á"');

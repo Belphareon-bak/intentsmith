@@ -262,6 +262,11 @@ ${FORBIDDEN_PHRASES.slice(0, 5).map(p => `- "${p}"`).join('\n')}`;
     if (expertHints.influence >= 0.5 && expertHints.systemAddition) {
       basePrompt += `\n- ${expertHints.systemAddition}`;
     }
+
+    // v57.1 A7: Domain-specific synthesis instructions
+    if (expertHints.domainSynthesis) {
+      basePrompt += `\n\n${expertHints.domainSynthesis}`;
+    }
   }
 
   // Intent-specific prompts

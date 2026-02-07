@@ -912,8 +912,63 @@ export class ExpertAgent {
       minLength: this.styleRules?.minResponseLength || 50,
       // Expert-specific additions to system prompt (scaled by influence)
       systemAddition: influence >= 0.5 ? this._getSystemAddition(preset) : null,
+      // v57.1 A7: Domain-specific synthesis guidance
+      domainSynthesis: influence >= 0.25 ? this._getDomainSynthesisPrompt() : null,
       _presetWeights: presetWeights, // Debug info
     };
+  }
+
+  /**
+   * v57.1 A7: Domain-specific synthesis instructions.
+   * These tell the LLM HOW to present search/scrape results
+   * through this expert's professional lens.
+   * @private
+   */
+  _getDomainSynthesisPrompt() {
+    const DOMAIN_SYNTHESIS = {
+      legal: `SYNTÉZA PRO PRÁVNÍ DOMÉNU:
+- Cituj konkrétní zákony, paragrafy, vyhlášky (číslo zákona/rok Sb.)
+- Rozlišuj: zákon vs. judikatura vs. praxe vs. názor
+- Uveď jurisdikci (ČR, SR, EU) — každá může mít odlišnou úpravu
+- NIKDY neprezentuj informaci jako právní radu
+- Na konci vždy: "Pro konkrétní situaci konzultujte advokáta."
+- Pokud se zdroje liší, uveď obě varianty a vysvětli proč`,
+
+      medical_education: `SYNTÉZA PRO ZDRAVOTNÍ EDUKACI:
+- Odkazuj na konkrétní studie, guidelines (WHO, ČLS JEP, NICE)
+- NIKDY nediagnostikuj — popisuj co stav znamená, ne co pacient má
+- Rozlišuj: vědecký konsensus vs. jednotlivé studie vs. alternativní přístupy
+- Uveď kdy vyhledat lékaře (červené vlajky)
+- Na konci: "Toto je edukační informace, nikoli lékařská rada."
+- Dávkování léků NIKDY neuvádět konkrétně`,
+
+      psychology: `SYNTÉZA PRO PSYCHOLOGICKOU DOMÉNU:
+- Odkazuj na přístupy (KBT, psychodynamický, humanistický) — ne jeden jako pravdu
+- Normalizuj emoce, nepatologizuj
+- Nabídni konkrétní techniky/cvičení kde to dává smysl
+- Pokud téma naznačuje krizi: navrhni Linku bezpečí (116 111) nebo Krizové centrum`,
+
+      finance: `SYNTÉZA PRO FINANČNÍ/ÚČETNÍ DOMÉNU:
+- Přesné termíny: lhůty s datem, sazby s číslem, zákony s číslem Sb.
+- Rozlišuj: OSVČ vs. s.r.o. vs. a.s. — pravidla se liší
+- Uveď zdaňovací období a platnost informace (rok)
+- Upozorni na sankce a penále kde relevantní
+- Na konci: "Pro konkrétní účetní/daňový případ konzultujte daňového poradce."`,
+
+      technology: `SYNTÉZA PRO TECHNICKOU DOMÉNU:
+- Konkrétní verze, kompatibilita, systémové požadavky
+- Praktické příklady (příkazy, konfigurační snippety)
+- Uveď alternativy a trade-offs
+- Zdroje: oficiální dokumentace > blog > fórum`,
+
+      automotive: `SYNTÉZA PRO AUTOMOBILOVOU DOMÉNU:
+- Konkrétní modely, ročníky, motorizace
+- Ceny: rozlišuj nové vs. ojeté, ČR vs. import
+- Technické specifikace kde relevantní
+- Upozorni na známé problémy/vady daného modelu`,
+    };
+
+    return DOMAIN_SYNTHESIS[this.domain] || null;
   }
 
   /**

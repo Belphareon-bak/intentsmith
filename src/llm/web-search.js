@@ -279,7 +279,8 @@ function parseDDGResults(html, maxResults) {
 
 /**
  * Fetch and extract text content from a webpage
- * v55.2: Content quality scoring, block detection, smart truncation
+ * v57.1 A1: Smart paragraph extraction, relevance-based truncation, block detection
+ * v55.2: Content quality scoring
  *
  * @param {string} url - URL to fetch
  * @param {number} maxLength - Maximum text length (default 5000)
@@ -296,7 +297,7 @@ export async function fetchPage(url, maxLength = 5000, query = '') {
         'Accept': 'text/html,application/xhtml+xml',
         'Accept-Language': 'cs,en;q=0.9',
       },
-      timeout: 15000,
+      signal: AbortSignal.timeout(15000),
     });
     
     if (!response.ok) {
@@ -307,78 +308,42 @@ export async function fetchPage(url, maxLength = 5000, query = '') {
     
     // Extract title
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-    const title = titleMatch ? titleMatch[1].trim() : url;
+    const title = titleMatch ? decodeHTMLEntities(titleMatch[1].trim()) : url;
     
     // Extract links with their text (for listings like bazos, etc.)
-    const links = [];
-    const baseUrl = new URL(url);
-    const linkRegex = /<a[^>]+href=["']([^"']+)["'][^>]*>([^<]*(?:<[^/a][^>]*>[^<]*)*)<\/a>/gi;
-    let linkMatch;
+    const links = extractPageLinks(html, url);
     
-    while ((linkMatch = linkRegex.exec(html)) !== null && links.length < 20) {
-      let href = linkMatch[1];
-      let text = linkMatch[2]
-        .replace(/<[^>]+>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-      
-      // Skip empty, javascript, or anchor links
-      if (!href || href.startsWith('#') || href.startsWith('javascript:') || !text || text.length < 3) {
-        continue;
-      }
-      
-      // Convert relative to absolute URL
-      if (href.startsWith('/')) {
-        href = `${baseUrl.protocol}//${baseUrl.host}${href}`;
-      } else if (!href.startsWith('http')) {
-        href = `${baseUrl.protocol}//${baseUrl.host}/${href}`;
-      }
-      
-      // Filter: keep only links from same domain or relevant subdomains
-      try {
-        const linkUrl = new URL(href);
-        if (linkUrl.host.includes(baseUrl.host.replace('www.', '')) || 
-            baseUrl.host.includes(linkUrl.host.replace('www.', ''))) {
-          // Skip navigation/menu links
-          if (text.length > 5 && text.length < 200 && 
-              !href.includes('login') && !href.includes('registr') &&
-              !href.includes('cookies') && !href.includes('gdpr')) {
-            links.push({ url: href, title: text });
-          }
-        }
-      } catch (e) {
-        // Invalid URL, skip
-      }
-    }
+    // ──────────────────────────────────────────────────────────────────────────
+    // v57.1 A1: Smart content extraction
+    // Priority: <article> → <main> → <div class="*content*"> → <body>
+    // Then: paragraph-level extraction + relevance-based truncation
+    // ──────────────────────────────────────────────────────────────────────────
     
-    // Extract main content (simplified)
-    let content = html
-      // Remove scripts, styles, etc.
+    // Step 1: Remove non-content elements
+    let cleanHtml = html
       .replace(/<script[\s\S]*?<\/script>/gi, '')
       .replace(/<style[\s\S]*?<\/style>/gi, '')
       .replace(/<nav[\s\S]*?<\/nav>/gi, '')
       .replace(/<header[\s\S]*?<\/header>/gi, '')
       .replace(/<footer[\s\S]*?<\/footer>/gi, '')
-      .replace(/<!--[\s\S]*?-->/g, '')
-      // Get text from common content areas
-      .replace(/<(article|main|div[^>]*class="[^"]*content[^"]*")[^>]*>([\s\S]*?)<\/\1>/gi, '$2')
-      // Strip remaining HTML
-      .replace(/<[^>]+>/g, ' ')
-      // Clean up whitespace
-      .replace(/\s+/g, ' ')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .trim();
+      .replace(/<aside[\s\S]*?<\/aside>/gi, '')
+      .replace(/<noscript[\s\S]*?<\/noscript>/gi, '')
+      .replace(/<form[\s\S]*?<\/form>/gi, '')
+      .replace(/<!--[\s\S]*?-->/g, '');
     
-    // Truncate if needed
-    if (content.length > maxLength) {
-      content = content.substring(0, maxLength) + '...';
-    }
+    // Step 2: Find the best content zone
+    const contentZone = extractContentZone(cleanHtml);
     
-    logger.info('WebSearch', `Extracted ${links.length} links from ${url}`);
+    // Step 3: Extract paragraphs from content zone
+    const paragraphs = extractParagraphs(contentZone);
+    
+    // Step 4: Smart truncation — relevance-based if query available
+    const content = smartTruncate(paragraphs, maxLength, query);
+    
+    logger.info('WebSearch', `Extracted ${paragraphs.length} paragraphs, ${links.length} links from ${url}`, {
+      contentLength: content.length,
+      maxLength,
+    });
     
     // v55.2: Score content quality
     const quality = scoreScrapeContent(content, query);
@@ -393,6 +358,236 @@ export async function fetchPage(url, maxLength = 5000, query = '') {
     logger.error('WebSearch', `Fetch failed: ${err.message}`);
     return null;
   }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// v57.1 A1: CONTENT EXTRACTION HELPERS
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Extract the best content zone from HTML.
+ * Priority: <article> → <main> → <div class/id with "content/article/post/entry"> → full body
+ */
+function extractContentZone(html) {
+  // Try content zones in priority order
+  const zones = [
+    /<article[^>]*>([\s\S]*?)<\/article>/gi,
+    /<main[^>]*>([\s\S]*?)<\/main>/gi,
+    /<div[^>]*(?:class|id)="[^"]*(?:article|post|entry|content|body|text)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+  ];
+  
+  for (const regex of zones) {
+    const matches = [];
+    let m;
+    while ((m = regex.exec(html)) !== null) {
+      matches.push(m[1]);
+    }
+    // Use the longest match (most content)
+    if (matches.length > 0) {
+      const best = matches.sort((a, b) => b.length - a.length)[0];
+      if (best.length > 200) {
+        return best;
+      }
+    }
+  }
+  
+  // Fallback: use everything after removing non-content
+  return html;
+}
+
+/**
+ * Extract text paragraphs from HTML content.
+ * Returns array of paragraph strings, each cleaned of HTML tags.
+ */
+function extractParagraphs(html) {
+  const paragraphs = [];
+  
+  // Extract from <p>, <li>, <h1-h6>, <td>, <blockquote>
+  const blockRegex = /<(?:p|li|h[1-6]|td|blockquote|dd|dt|figcaption)[^>]*>([\s\S]*?)<\/(?:p|li|h[1-6]|td|blockquote|dd|dt|figcaption)>/gi;
+  let match;
+  
+  while ((match = blockRegex.exec(html)) !== null) {
+    const text = stripHtml(match[1]).trim();
+    if (text.length >= 20) {
+      paragraphs.push(text);
+    }
+  }
+  
+  // If we got very few paragraphs, fall back to splitting by double-newline after stripping HTML
+  if (paragraphs.length < 3) {
+    const plainText = stripHtml(html);
+    const fallbackParagraphs = plainText
+      .split(/(?:\n\s*\n|\.\s{2,})/)
+      .map(p => p.trim())
+      .filter(p => p.length >= 30);
+    
+    if (fallbackParagraphs.length > paragraphs.length) {
+      return fallbackParagraphs;
+    }
+  }
+  
+  return paragraphs;
+}
+
+/**
+ * Smart truncation: keep the most relevant paragraphs up to maxLength.
+ * If no query given, keeps paragraphs in original order.
+ */
+function smartTruncate(paragraphs, maxLength, query) {
+  if (paragraphs.length === 0) return '';
+  
+  // If everything fits, just join
+  const fullText = paragraphs.join('\n\n');
+  if (fullText.length <= maxLength) return fullText;
+  
+  // If no query or very short query → keep paragraphs in order, cut at limit
+  if (!query || query.length < 3) {
+    return truncateByOrder(paragraphs, maxLength);
+  }
+  
+  // Score each paragraph by query keyword relevance
+  const queryWords = query.toLowerCase()
+    .split(/\s+/)
+    .filter(w => w.length > 2)
+    .map(w => w.replace(/[?!.,;:]/g, ''));
+  
+  if (queryWords.length === 0) {
+    return truncateByOrder(paragraphs, maxLength);
+  }
+  
+  const scored = paragraphs.map((p, idx) => {
+    const lower = p.toLowerCase();
+    let score = 0;
+    for (const word of queryWords) {
+      // Prefix matching for Czech declensions: "pythago" matches "pythagorova"
+      const prefix = word.length > 4 ? word.substring(0, Math.ceil(word.length * 0.7)) : word;
+      if (lower.includes(prefix)) score += 2;
+      if (lower.includes(word)) score += 1;
+    }
+    // Small bonus for position (earlier = slightly better for equal relevance)
+    score += Math.max(0, (paragraphs.length - idx) / paragraphs.length * 0.5);
+    return { text: p, score, idx };
+  });
+  
+  // Sort by relevance (highest first), but keep original order among equally-scored
+  scored.sort((a, b) => b.score - a.score || a.idx - b.idx);
+  
+  // Take highest-scoring paragraphs, restore original order
+  const selected = [];
+  let totalLength = 0;
+  for (const item of scored) {
+    if (totalLength + item.text.length + 2 > maxLength) {
+      // If we have nothing yet, take at least a truncated first paragraph
+      if (selected.length === 0) {
+        selected.push({ ...item, text: item.text.substring(0, maxLength - 3) + '...' });
+      }
+      break;
+    }
+    selected.push(item);
+    totalLength += item.text.length + 2;
+  }
+  
+  // Restore original document order
+  selected.sort((a, b) => a.idx - b.idx);
+  return selected.map(s => s.text).join('\n\n');
+}
+
+/**
+ * Simple truncation: keep paragraphs in order until maxLength exceeded.
+ */
+function truncateByOrder(paragraphs, maxLength) {
+  const result = [];
+  let totalLength = 0;
+  
+  for (const p of paragraphs) {
+    if (totalLength + p.length + 2 > maxLength) {
+      // Add partial last paragraph if we have room
+      const remaining = maxLength - totalLength - 5;
+      if (remaining > 50) {
+        result.push(p.substring(0, remaining) + '...');
+      }
+      break;
+    }
+    result.push(p);
+    totalLength += p.length + 2;
+  }
+  
+  return result.join('\n\n');
+}
+
+/**
+ * Strip HTML tags and decode entities from a string.
+ */
+function stripHtml(html) {
+  return html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
+    .trim();
+}
+
+/**
+ * Decode common HTML entities in a string.
+ */
+function decodeHTMLEntities(text) {
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)));
+}
+
+/**
+ * Extract page links with filtering.
+ */
+function extractPageLinks(html, sourceUrl) {
+  const links = [];
+  const baseUrl = new URL(sourceUrl);
+  const linkRegex = /<a[^>]+href=["']([^"']+)["'][^>]*>([^<]*(?:<[^/a][^>]*>[^<]*)*)<\/a>/gi;
+  let linkMatch;
+  
+  while ((linkMatch = linkRegex.exec(html)) !== null && links.length < 20) {
+    let href = linkMatch[1];
+    let text = linkMatch[2]
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    if (!href || href.startsWith('#') || href.startsWith('javascript:') || !text || text.length < 3) {
+      continue;
+    }
+    
+    if (href.startsWith('/')) {
+      href = `${baseUrl.protocol}//${baseUrl.host}${href}`;
+    } else if (!href.startsWith('http')) {
+      href = `${baseUrl.protocol}//${baseUrl.host}/${href}`;
+    }
+    
+    try {
+      const linkUrl = new URL(href);
+      if (linkUrl.host.includes(baseUrl.host.replace('www.', '')) || 
+          baseUrl.host.includes(linkUrl.host.replace('www.', ''))) {
+        if (text.length > 5 && text.length < 200 && 
+            !href.includes('login') && !href.includes('registr') &&
+            !href.includes('cookies') && !href.includes('gdpr')) {
+          links.push({ url: href, title: text });
+        }
+      }
+    } catch (e) {
+      // Invalid URL, skip
+    }
+  }
+  
+  return links;
 }
 
 // ════════════════════════════════════════════════════════════════════════════

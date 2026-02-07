@@ -231,7 +231,7 @@ async function sendStaticFile(res, filepath, contentType) {
         const content = await fsPromises.readFile(fullPath, 'utf-8');
         res.writeHead(200, {
           'Content-Type': contentType + '; charset=utf-8',
-          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Origin': res._corsOrigin || '*',
           'Cache-Control': 'no-cache',
         });
         res.end(content);

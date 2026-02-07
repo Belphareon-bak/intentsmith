@@ -289,6 +289,17 @@ CREATE TABLE IF NOT EXISTS conversation_experts (
     UNIQUE(conversation_id)
 );
 
+-- v57.1 A8: Expert cross-session memory (facts remembered across conversations)
+CREATE TABLE IF NOT EXISTS expert_memory (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    expert_id TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(expert_id, key)
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_project_memory_project ON project_memory(project_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id);
@@ -302,6 +313,7 @@ CREATE INDEX IF NOT EXISTS idx_attachments_conversation ON attachments(conversat
 CREATE INDEX IF NOT EXISTS idx_attachments_project ON attachments(project_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_experts_conv ON conversation_experts(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_experts_domain ON experts(domain);
+CREATE INDEX IF NOT EXISTS idx_expert_memory_expert ON expert_memory(expert_id);
 
 -- Full-text search for chat
 CREATE VIRTUAL TABLE IF NOT EXISTS chat_fts USING fts5(

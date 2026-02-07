@@ -436,9 +436,22 @@ async function handleToolCallDecision(input, decision, context) {
     // ════════════════════════════════════════════════════════════════════════════
 
     // Prepare tool results for LLM synthesis
+    // v57.1 A1: Filter out blocked/poor quality scrape results
+    const usableScrapes = scrapeResults.filter(r => {
+      if (!r.success) return false;
+      const grade = r.data?.quality?.grade || r.meta?.qualityGrade;
+      if (grade === 'BLOCKED' || grade === 'EMPTY') {
+        logger.info('HandleToolCall', 'REPORT: skipping blocked/empty scrape', {
+          url: r.data?.url, grade,
+        });
+        return false;
+      }
+      return true;
+    });
+
     const allToolResults = [
       searchData,
-      ...scrapeResults.filter(r => r.success),
+      ...usableScrapes,
     ].filter(Boolean);
 
     // Get user preferences and expert hints from context
@@ -553,9 +566,22 @@ async function handleToolCallDecision(input, decision, context) {
     }
 
     // Step 4: SYNTHESIZE with LLM - but with ITEM_LOOKUP prompt (extract items, not synthesize)
+    // v57.1 A1: Filter blocked/poor quality scrape results
+    const usableItemScrapes = scrapeResults.filter(r => {
+      if (!r.success) return false;
+      const grade = r.data?.quality?.grade || r.meta?.qualityGrade;
+      if (grade === 'BLOCKED' || grade === 'EMPTY') {
+        logger.info('HandleToolCall', 'ITEM_LOOKUP: skipping blocked/empty scrape', {
+          url: r.data?.url, grade,
+        });
+        return false;
+      }
+      return true;
+    });
+
     const allToolResults = [
       searchData,
-      ...scrapeResults.filter(r => r.success),
+      ...usableItemScrapes,
     ].filter(Boolean);
 
     const userPreferences = context.userPreferences || {};

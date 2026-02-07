@@ -435,6 +435,168 @@ export class ExpertStore {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // v57.1 A8: Expert Cross-Session Memory
+  // ─────────────────────────────────────────────────────────────────────────
+  // Expert remembers facts/context across conversations.
+  // Example: "accountant" remembers user's company type (s.r.o.),
+  //          "lawyer" remembers jurisdiction preference (ČR vs EU).
+  //
+  // Memory is per-expert, not per-conversation.
+  // Max 50 items per expert, max 2000 chars per value.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Store a memory item for an expert.
+   *
+   * @param {string} expertId
+   * @param {string} key - Memory key (e.g. 'user_company_type', 'preferred_jurisdiction')
+   * @param {string} value - Memory value
+   * @returns {boolean}
+   */
+  setMemory(expertId, key, value) {
+    if (!expertId || !key) return false;
+    if (typeof value !== 'string') value = JSON.stringify(value);
+    if (value.length > 2000) {
+      logger.warn('ExpertStore', `Memory value too long for ${expertId}/${key}: ${value.length}`);
+      value = value.substring(0, 2000);
+    }
+
+    if (this.#db) {
+      try {
+        // Uses a dedicated expert_memory table
+        this.#db.run(
+          `INSERT OR REPLACE INTO expert_memory (expert_id, key, value, updated_at)
+           VALUES (?, ?, ?, datetime('now'))`,
+          [expertId, key, value]
+        );
+        logger.debug('ExpertStore', `Memory set: ${expertId}/${key}`);
+        return true;
+      } catch (err) {
+        logger.error('ExpertStore', `Failed to set memory: ${err.message}`);
+        return false;
+      }
+    }
+
+    // In-memory fallback
+    if (!this._memMemory) this._memMemory = new Map();
+    const memKey = `${expertId}:${key}`;
+    this._memMemory.set(memKey, { expertId, key, value, updatedAt: new Date().toISOString() });
+    return true;
+  }
+
+  /**
+   * Get a specific memory item.
+   *
+   * @param {string} expertId
+   * @param {string} key
+   * @returns {string|null}
+   */
+  getMemory(expertId, key) {
+    if (this.#db) {
+      try {
+        const row = this.#db.prepare(
+          `SELECT value FROM expert_memory WHERE expert_id = ? AND key = ?`
+        ).get(expertId, key);
+        return row?.value || null;
+      } catch (err) {
+        logger.error('ExpertStore', `Failed to get memory: ${err.message}`);
+        return null;
+      }
+    }
+
+    if (!this._memMemory) return null;
+    return this._memMemory.get(`${expertId}:${key}`)?.value || null;
+  }
+
+  /**
+   * Get ALL memory items for an expert.
+   * Used to inject into synthesis context.
+   *
+   * @param {string} expertId
+   * @returns {Array<{ key: string, value: string, updatedAt: string }>}
+   */
+  getAllMemory(expertId) {
+    if (this.#db) {
+      try {
+        return this.#db.prepare(
+          `SELECT key, value, updated_at as updatedAt
+           FROM expert_memory WHERE expert_id = ?
+           ORDER BY updated_at DESC LIMIT 50`
+        ).all(expertId) || [];
+      } catch (err) {
+        logger.error('ExpertStore', `Failed to get all memory: ${err.message}`);
+        return [];
+      }
+    }
+
+    if (!this._memMemory) return [];
+    return [...this._memMemory.values()]
+      .filter(m => m.expertId === expertId)
+      .slice(0, 50);
+  }
+
+  /**
+   * Delete a specific memory item.
+   *
+   * @param {string} expertId
+   * @param {string} key
+   * @returns {boolean}
+   */
+  deleteMemory(expertId, key) {
+    if (this.#db) {
+      try {
+        const result = this.#db.prepare(
+          `DELETE FROM expert_memory WHERE expert_id = ? AND key = ?`
+        ).run(expertId, key);
+        return result.changes > 0;
+      } catch (err) {
+        logger.error('ExpertStore', `Failed to delete memory: ${err.message}`);
+        return false;
+      }
+    }
+
+    if (!this._memMemory) return false;
+    return this._memMemory.delete(`${expertId}:${key}`);
+  }
+
+  /**
+   * Clear ALL memory for an expert.
+   *
+   * @param {string} expertId
+   * @returns {boolean}
+   */
+  clearMemory(expertId) {
+    if (this.#db) {
+      try {
+        this.#db.prepare(`DELETE FROM expert_memory WHERE expert_id = ?`).run(expertId);
+        return true;
+      } catch (err) {
+        logger.error('ExpertStore', `Failed to clear memory: ${err.message}`);
+        return false;
+      }
+    }
+
+    if (!this._memMemory) return false;
+    const toDelete = [...this._memMemory.keys()].filter(k => k.startsWith(`${expertId}:`));
+    toDelete.forEach(k => this._memMemory.delete(k));
+    return toDelete.length > 0;
+  }
+
+  /**
+   * Format expert memory as context string for synthesis prompt injection.
+   *
+   * @param {string} expertId
+   * @returns {string|null} Formatted memory context, or null if empty
+   */
+  getMemoryContext(expertId) {
+    const items = this.getAllMemory(expertId);
+    if (items.length === 0) return null;
+
+    const lines = items.map(m => `- ${m.key}: ${m.value}`);
+    return `Expert memory (facts from previous sessions):\n${lines.join('\n')}`;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Private Helpers
   // ─────────────────────────────────────────────────────────────────────────
 

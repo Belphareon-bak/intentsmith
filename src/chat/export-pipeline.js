@@ -22,6 +22,8 @@ export const ExportFormat = Object.freeze({
   MARKDOWN: 'md',
   HTML: 'html',
   TEXT: 'txt',
+  PDF: 'pdf',    // v57.1 A5: HTML→PDF via puppeteer
+  DOCX: 'docx',  // v57.1 A6: DOCX via docx package
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,11 +41,11 @@ export const ExportScope = Object.freeze({
 // ─────────────────────────────────────────────────────────────────────────────
 
 const EXPORT_PATTERNS = [
-  { pattern: /ulož.*(?:jako|do)\s+(markdown|md|html|txt|text)/i, formatGroup: 1 },
-  { pattern: /export(?:uj|ovat|ni).*(?:jako|do)\s+(markdown|md|html|txt|text)/i, formatGroup: 1 },
-  { pattern: /save.*(?:as|to)\s+(markdown|md|html|txt|text)/i, formatGroup: 1 },
-  { pattern: /(?:stáhn|stahni|download).*(?:jako|do)?\s*(markdown|md|html|txt|text)/i, formatGroup: 1 },
-  { pattern: /vygeneruj\s+(markdown|md|html)\s+(?:soubor|stránku|dokument)/i, formatGroup: 1 },
+  { pattern: /ulož.*(?:jako|do)\s+(markdown|md|html|txt|text|pdf|docx|word)/i, formatGroup: 1 },
+  { pattern: /export(?:uj|ovat|ni).*(?:jako|do)\s+(markdown|md|html|txt|text|pdf|docx|word)/i, formatGroup: 1 },
+  { pattern: /save.*(?:as|to)\s+(markdown|md|html|txt|text|pdf|docx|word)/i, formatGroup: 1 },
+  { pattern: /(?:stáhn|stahni|download).*(?:jako|do)?\s*(markdown|md|html|txt|text|pdf|docx|word)/i, formatGroup: 1 },
+  { pattern: /vygeneruj\s+(markdown|md|html|pdf|docx|word)\s+(?:soubor|stránku|dokument)/i, formatGroup: 1 },
 ];
 
 /**
@@ -74,6 +76,8 @@ function normalizeFormat(raw) {
     case 'markdown': case 'md': return ExportFormat.MARKDOWN;
     case 'html': return ExportFormat.HTML;
     case 'txt': case 'text': return ExportFormat.TEXT;
+    case 'pdf': return ExportFormat.PDF;
+    case 'docx': case 'word': return ExportFormat.DOCX;
     default: return ExportFormat.MARKDOWN;
   }
 }
@@ -120,6 +124,7 @@ export async function exportConversation(conversationId, opts = {}) {
   const title = conv.title || `Konverzace ${conversationId}`;
   const date = new Date(conv.created_at || Date.now()).toLocaleDateString('cs-CZ');
   let content;
+  let isBinary = false;
 
   switch (format) {
     case ExportFormat.HTML:
@@ -127,6 +132,16 @@ export async function exportConversation(conversationId, opts = {}) {
       break;
     case ExportFormat.TEXT:
       content = renderText(title, date, turns, scope);
+      break;
+    case ExportFormat.PDF:
+      // v57.1 A5: HTML→PDF via puppeteer
+      content = await renderPDF(title, date, turns, scope);
+      isBinary = true;
+      break;
+    case ExportFormat.DOCX:
+      // v57.1 A6: DOCX via docx package
+      content = await renderDOCX(title, date, turns, scope);
+      isBinary = true;
       break;
     case ExportFormat.MARKDOWN:
     default:
@@ -141,7 +156,8 @@ export async function exportConversation(conversationId, opts = {}) {
     .substring(0, 50)
     .toLowerCase();
   const timestamp = Date.now();
-  const ext = format === ExportFormat.HTML ? 'html' : format === ExportFormat.TEXT ? 'txt' : 'md';
+  const extMap = { html: 'html', txt: 'txt', pdf: 'pdf', docx: 'docx', md: 'md' };
+  const ext = extMap[format] || 'md';
   const filename = `${safeName}-${timestamp}.${ext}`;
 
   // Write file
@@ -150,7 +166,11 @@ export async function exportConversation(conversationId, opts = {}) {
     const fs = await import('fs/promises');
     const pathModule = await import('path');
     await fs.mkdir(pathModule.dirname(path), { recursive: true });
-    await fs.writeFile(path, content, 'utf-8');
+    if (isBinary) {
+      await fs.writeFile(path, content); // Buffer for PDF/DOCX
+    } else {
+      await fs.writeFile(path, content, 'utf-8');
+    }
   } catch (err) {
     logger.error('ExportPipeline', `File write failed: ${err.message}`);
     throw new Error(`Export: file write failed: ${err.message}`);
@@ -162,7 +182,7 @@ export async function exportConversation(conversationId, opts = {}) {
     downloadUrl: `/api/artifacts/${filename}`,
     format,
     scope,
-    size: Buffer.byteLength(content, 'utf-8'),
+    size: isBinary ? content.length : Buffer.byteLength(content, 'utf-8'),
     turnCount: turns.length,
   };
 }
@@ -318,6 +338,149 @@ function renderText(title, date, turns, scope) {
 
   lines.push('Exportováno z C3-Agent v56.1');
   return lines.join('\n');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v57.1 A5: PDF Renderer (HTML→PDF via puppeteer)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Render conversation as PDF.
+ * Uses the HTML renderer → puppeteer to convert to PDF.
+ * Requires: npm install puppeteer
+ *
+ * @returns {Promise<Buffer>} PDF as Buffer
+ */
+async function renderPDF(title, date, turns, scope) {
+  const html = renderHTML(title, date, turns, scope);
+
+  try {
+    const puppeteer = await import('puppeteer');
+    const browser = await puppeteer.default.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'domcontentloaded' });
+
+    const pdf = await page.pdf({
+      format: 'A4',
+      margin: { top: '20mm', right: '15mm', bottom: '20mm', left: '15mm' },
+      printBackground: true,
+    });
+
+    await browser.close();
+    return Buffer.from(pdf);
+  } catch (err) {
+    if (err.code === 'ERR_MODULE_NOT_FOUND' || err.message?.includes('Cannot find')) {
+      logger.error('ExportPipeline', 'puppeteer not installed. Run: npm install puppeteer');
+      throw new Error('Export PDF: puppeteer is not installed. Run: npm install puppeteer');
+    }
+    throw err;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v57.1 A6: DOCX Renderer (via docx package)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Render conversation as DOCX.
+ * Requires: npm install docx
+ *
+ * @returns {Promise<Buffer>} DOCX as Buffer
+ */
+async function renderDOCX(title, date, turns, scope) {
+  try {
+    const docxLib = await import('docx');
+    const { Document, Packer, Paragraph, TextRun, HeadingLevel, BorderStyle, AlignmentType } = docxLib;
+
+    const children = [];
+
+    // Title
+    children.push(new Paragraph({
+      text: title,
+      heading: HeadingLevel.HEADING_1,
+    }));
+
+    // Metadata
+    children.push(new Paragraph({
+      children: [
+        new TextRun({ text: `${date} | ${turns.length} zpráv`, color: '666666', size: 20 }),
+      ],
+      spacing: { after: 300 },
+    }));
+
+    // Separator
+    children.push(new Paragraph({
+      border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' } },
+      spacing: { after: 200 },
+    }));
+
+    // Turns
+    for (const turn of turns) {
+      const label = turn.role === 'user' ? 'Uživatel' :
+                    turn.role === 'assistant' ? 'Asistent' : 'Systém';
+      const labelColor = turn.role === 'user' ? '4A6FA5' :
+                         turn.role === 'assistant' ? '2D9A5C' : 'F5A623';
+
+      // Label
+      children.push(new Paragraph({
+        children: [
+          new TextRun({ text: label, bold: true, color: labelColor, size: 20, font: 'Segoe UI' }),
+        ],
+        spacing: { before: 200 },
+      }));
+
+      // Content — split by newlines for proper paragraph formatting
+      const lines = (turn.content || '').split('\n');
+      for (const line of lines) {
+        if (line.trim()) {
+          children.push(new Paragraph({
+            children: [new TextRun({ text: line, size: 22, font: 'Segoe UI' })],
+            spacing: { after: 80 },
+          }));
+        } else {
+          children.push(new Paragraph({ spacing: { after: 80 } }));
+        }
+      }
+
+      // Separator between turns
+      children.push(new Paragraph({
+        border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'EEEEEE' } },
+        spacing: { after: 100 },
+      }));
+    }
+
+    // Footer
+    children.push(new Paragraph({
+      children: [
+        new TextRun({ text: 'Exportováno z C3-Agent v57.1', italics: true, color: '999999', size: 18 }),
+      ],
+      spacing: { before: 400 },
+      alignment: AlignmentType.CENTER,
+    }));
+
+    const doc = new Document({
+      sections: [{
+        properties: {
+          page: {
+            margin: { top: 1440, right: 1080, bottom: 1440, left: 1080 }, // twips
+          },
+        },
+        children,
+      }],
+    });
+
+    return await Packer.toBuffer(doc);
+  } catch (err) {
+    if (err.code === 'ERR_MODULE_NOT_FOUND' || err.message?.includes('Cannot find')) {
+      logger.error('ExportPipeline', 'docx not installed. Run: npm install docx');
+      throw new Error('Export DOCX: docx package is not installed. Run: npm install docx');
+    }
+    throw err;
+  }
 }
 
 function escapeHTML(text) {
