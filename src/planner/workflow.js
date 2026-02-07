@@ -21,6 +21,12 @@
 //                                  ↓ APPROVED
 //                                  ✅ DONE
 //
+// PERSISTENCE (v57.1 — Phase C):
+//   - Sessions persisted to workflow_sessions DB table after every state change
+//   - RAM Map serves as hot cache, DB as durable store
+//   - Resume: interactive states (CLARIFYING, AWAITING_APPROVAL) survive restart
+//   - Progress: computed from history + plan steps, exposed via getProgress()
+//
 // RULES:
 //   - D1 NEVER executes code
 //   - CODE NEVER decides what to build
@@ -87,11 +93,19 @@ export class WorkflowSession {
     this.clarificationQuestions = null;
     this.createdAt = new Date().toISOString();
     this.updatedAt = new Date().toISOString();
+    this._onUpdate = null;           // Persistence callback (set by orchestrator)
+  }
+
+  transition(newState) {
+    this.state = newState;
+    this.updatedAt = new Date().toISOString();
+    this._onUpdate?.(this);
   }
 
   addStep(result) {
     this.history.push(result);
     this.updatedAt = new Date().toISOString();
+    this._onUpdate?.(this);
   }
 
   get lastStep() {
@@ -274,6 +288,7 @@ export class WorkflowOrchestrator {
     this.maxFixAttempts = options.maxFixAttempts ?? config.workflow?.maxIterations ?? 3;
     this.maxRedesignAttempts = options.maxRedesignAttempts ?? config.workflow?.maxDesignRetries ?? 1;
     this.sessions = new Map();
+    this.db = options.db || null;  // workflowSessions repository from database.js
   }
 
   // ═══ PUBLIC API ═══════════════════════════════════════════════════════════
@@ -285,12 +300,14 @@ export class WorkflowOrchestrator {
   async start(request, context = {}) {
     const sessionId = `wf_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const session = new WorkflowSession(sessionId, request);
+    session._onUpdate = (s) => this._persist(s);
     this.sessions.set(sessionId, session);
+    this._createDbRow(session);
 
     logger.info('Workflow', 'Starting workflow', { sessionId, request: request.slice(0, 100) });
 
     // ─── D1: Analyze ────────────────────────────────────────────────────
-    session.state = WorkflowState.ANALYZING;
+    session.transition(WorkflowState.ANALYZING);
     const analysisPrompt = PROMPTS.analyze(request, context);
 
     const analysisResult = await callLLM('D1', analysisPrompt.prompt, analysisPrompt.system);
@@ -310,8 +327,8 @@ export class WorkflowOrchestrator {
     }
 
     if (analysis.status === 'CLARIFY') {
-      session.state = WorkflowState.CLARIFYING;
       session.clarificationQuestions = analysis.questions;
+      session.transition(WorkflowState.CLARIFYING);
       return {
         sessionId,
         state: WorkflowState.CLARIFYING,
@@ -327,7 +344,7 @@ export class WorkflowOrchestrator {
    * Provide clarification answers and continue.
    */
   async clarify(sessionId, answers) {
-    const session = this.sessions.get(sessionId);
+    const session = this.getSession(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
     if (session.state !== WorkflowState.CLARIFYING) {
       throw new Error(`Session is in ${session.state}, not CLARIFYING`);
@@ -344,7 +361,7 @@ export class WorkflowOrchestrator {
    * User approves the plan — start implementation.
    */
   async approve(sessionId) {
-    const session = this.sessions.get(sessionId);
+    const session = this.getSession(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
     if (session.state !== WorkflowState.AWAITING_APPROVAL) {
       throw new Error(`Session is in ${session.state}, not AWAITING_APPROVAL`);
@@ -357,7 +374,7 @@ export class WorkflowOrchestrator {
    * User rejects the plan — back to D1.
    */
   async reject(sessionId, feedback = '') {
-    const session = this.sessions.get(sessionId);
+    const session = this.getSession(sessionId);
     if (!session) throw new Error(`Session ${sessionId} not found`);
 
     const enrichedRequest = feedback
@@ -368,17 +385,186 @@ export class WorkflowOrchestrator {
   }
 
   /**
-   * Get session status.
+   * Get session status (RAM cache first, then DB fallback).
    */
   getSession(sessionId) {
-    return this.sessions.get(sessionId) || null;
+    const cached = this.sessions.get(sessionId);
+    if (cached) return cached;
+
+    // DB fallback — hydrate from persistent storage
+    if (this.db) {
+      const row = this.db.findById.get(sessionId);
+      if (row) {
+        const session = this._hydrateSession(row);
+        this.sessions.set(sessionId, session);
+        return session;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Resume a session from DB (interactive states survive server restart).
+   */
+  async resume(sessionId) {
+    const session = this.getSession(sessionId);
+    if (!session) throw new Error(`Session ${sessionId} not found`);
+
+    // Resumable interactive states
+    if (session.state === WorkflowState.AWAITING_APPROVAL) {
+      return {
+        sessionId: session.id,
+        state: session.state,
+        plan: session.plan,
+        message: 'Session resumed — awaiting plan approval',
+      };
+    }
+
+    if (session.state === WorkflowState.CLARIFYING) {
+      return {
+        sessionId: session.id,
+        state: session.state,
+        questions: session.clarificationQuestions,
+        message: 'Session resumed — awaiting clarification',
+      };
+    }
+
+    // Terminal states
+    if (session.state === WorkflowState.COMPLETED || session.state === WorkflowState.FAILED) {
+      return {
+        sessionId: session.id,
+        state: session.state,
+        plan: session.plan,
+        implementation: session.implementation,
+        message: `Session already ${session.state.toLowerCase()}`,
+      };
+    }
+
+    // Mid-pipeline states — interrupted, cannot resume
+    return {
+      sessionId: session.id,
+      state: session.state,
+      message: `Session was interrupted during ${session.state} — cannot resume mid-pipeline`,
+      canRetry: true,
+    };
+  }
+
+  /**
+   * List sessions (active or all).
+   */
+  listSessions({ activeOnly = true } = {}) {
+    if (!this.db) {
+      // RAM-only fallback
+      const all = [...this.sessions.values()];
+      const filtered = activeOnly
+        ? all.filter(s => s.state !== WorkflowState.COMPLETED && s.state !== WorkflowState.FAILED)
+        : all;
+      return filtered.map(s => ({
+        sessionId: s.id,
+        state: s.state,
+        request: s.request?.slice(0, 200),
+        planTitle: s.plan?.title || null,
+        createdAt: s.createdAt,
+        updatedAt: s.updatedAt,
+      }));
+    }
+
+    const rows = activeOnly ? this.db.listActive.all() : this.db.listAll.all();
+    return rows.map(row => ({
+      sessionId: row.session_id,
+      state: row.state,
+      complexity: row.complexity,
+      request: row.request?.slice(0, 200),
+      planTitle: row.plan ? (JSON.parse(row.plan)?.title || null) : null,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  }
+
+  /**
+   * Get progress info for a session (C2).
+   * Computes: % complete, current stage, blocker list, step history summary.
+   */
+  getProgress(sessionId) {
+    const session = this.getSession(sessionId);
+    if (!session) return null;
+
+    const plan = session.plan;
+    const totalSteps = plan?.steps?.length || 0;
+
+    // Count completed implementation steps
+    const implementedSteps = session.history
+      .filter(h => h.step.startsWith('CODE_IMPLEMENT_'))
+      .length;
+
+    // Percentage based on pipeline stage + implementation progress
+    const implProgress = totalSteps > 0 ? (implementedSteps / totalSteps) * 30 : 0;
+    const stageWeights = {
+      IDLE: 0,
+      ANALYZING: 5,
+      CLARIFYING: 10,
+      PLANNING: 15,
+      AWAITING_APPROVAL: 20,
+      IMPLEMENTING: 30 + implProgress,
+      QUICK_REVIEWING: 65,
+      FIX_DELIBERATING: 50,
+      APPLYING_FIX: 55,
+      FINAL_REVIEWING: 80,
+      REDESIGNING: 25,
+      COMPLETED: 100,
+      FAILED: 0,
+    };
+
+    const percentage = Math.round(Math.max(0, Math.min(100, stageWeights[session.state] ?? 0)));
+
+    // Aggregate blockers from R2/R1 review failures
+    const blockers = [];
+    for (const step of session.history) {
+      if ((step.step === 'R2_QUICK_REVIEW' || step.step === 'R1_FINAL_REVIEW')
+          && step.verdict === 'FAIL'
+          && step.output?.issues) {
+        for (const issue of step.output.issues) {
+          blockers.push({
+            source: step.step,
+            severity: issue.severity || 'warning',
+            description: issue.description,
+            location: issue.location || null,
+            fixAttempt: session.fixAttempts,
+            timestamp: step.timestamp,
+          });
+        }
+      }
+    }
+
+    return {
+      sessionId: session.id,
+      state: session.state,
+      percentage,
+      currentStage: this._currentStage(session.state),
+      totalSteps,
+      implementedSteps,
+      fixAttempts: session.fixAttempts,
+      maxFixAttempts: this.maxFixAttempts,
+      redesignAttempts: session.redesignAttempts,
+      maxRedesignAttempts: this.maxRedesignAttempts,
+      blockers,
+      stepsCompleted: session.history.map(h => ({
+        step: h.step,
+        duration: h.duration,
+        verdict: h.verdict,
+        timestamp: h.timestamp,
+      })),
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+    };
   }
 
   // ═══ INTERNAL PIPELINE ════════════════════════════════════════════════════
 
   async _createPlan(session, request, analysis, context) {
     // ─── D1: Plan ─────────────────────────────────────────────────────
-    session.state = WorkflowState.PLANNING;
+    session.transition(WorkflowState.PLANNING);
     const planPrompt = PROMPTS.plan(request, analysis, context);
 
     const planResult = await callLLM('D1', planPrompt.prompt, planPrompt.system);
@@ -392,12 +578,12 @@ export class WorkflowOrchestrator {
     }));
 
     if (!plan) {
-      session.state = WorkflowState.FAILED;
+      session.transition(WorkflowState.FAILED);
       return { sessionId: session.id, state: WorkflowState.FAILED, error: 'D1 failed to produce structured plan' };
     }
 
     session.plan = plan;
-    session.state = WorkflowState.AWAITING_APPROVAL;
+    session.transition(WorkflowState.AWAITING_APPROVAL);
 
     return {
       sessionId: session.id,
@@ -409,12 +595,12 @@ export class WorkflowOrchestrator {
   async _executeWorkflow(session) {
     const plan = session.plan;
     if (!plan || !plan.steps || plan.steps.length === 0) {
-      session.state = WorkflowState.FAILED;
+      session.transition(WorkflowState.FAILED);
       return { sessionId: session.id, state: WorkflowState.FAILED, error: 'No plan steps to execute' };
     }
 
     // ─── CODE: Implement all steps ──────────────────────────────────────
-    session.state = WorkflowState.IMPLEMENTING;
+    session.transition(WorkflowState.IMPLEMENTING);
     const implementations = [];
 
     for (const step of plan.steps) {
@@ -436,6 +622,7 @@ export class WorkflowOrchestrator {
     }
 
     session.implementation = implementations;
+    this._persist(session); // persist implementation blob
 
     // ─── Enter review loop ──────────────────────────────────────────────
     return this._reviewLoop(session);
@@ -443,7 +630,7 @@ export class WorkflowOrchestrator {
 
   async _reviewLoop(session) {
     // ─── R2: Quick Review ────────────────────────────────────────────────
-    session.state = WorkflowState.QUICK_REVIEWING;
+    session.transition(WorkflowState.QUICK_REVIEWING);
     const r2Prompt = PROMPTS.quickReview(session.implementation, session.plan);
     const r2Result = await callLLM('R2', r2Prompt.prompt, r2Prompt.system);
     const r2Verdict = parseJSON(r2Result.content);
@@ -460,7 +647,7 @@ export class WorkflowOrchestrator {
       // ─── R2 FAIL → D2 + CODE fix loop ─────────────────────────────────
       if (session.fixAttempts >= this.maxFixAttempts) {
         logger.warn('Workflow', 'Max fix attempts reached', { sessionId: session.id, attempts: session.fixAttempts });
-        session.state = WorkflowState.FAILED;
+        session.transition(WorkflowState.FAILED);
         return {
           sessionId: session.id,
           state: WorkflowState.FAILED,
@@ -479,7 +666,7 @@ export class WorkflowOrchestrator {
 
   async _fixLoop(session, issues) {
     // ─── D2: Fix Deliberation ────────────────────────────────────────────
-    session.state = WorkflowState.FIX_DELIBERATING;
+    session.transition(WorkflowState.FIX_DELIBERATING);
     const d2Prompt = PROMPTS.fixDeliberation(session.implementation, issues);
     const d2Result = await callLLM('D2', d2Prompt.prompt, d2Prompt.system);
     const fixPlan = parseJSON(d2Result.content);
@@ -492,7 +679,7 @@ export class WorkflowOrchestrator {
     }));
 
     // ─── CODE: Apply Fix ─────────────────────────────────────────────────
-    session.state = WorkflowState.APPLYING_FIX;
+    session.transition(WorkflowState.APPLYING_FIX);
     const fixPrompt = PROMPTS.applyFix(session.implementation, fixPlan || d2Result.content);
     const fixResult = await callLLM('CODE', fixPrompt.prompt, fixPrompt.system);
 
@@ -511,7 +698,7 @@ export class WorkflowOrchestrator {
 
   async _finalReview(session) {
     // ─── R1: Final Deep Review ───────────────────────────────────────────
-    session.state = WorkflowState.FINAL_REVIEWING;
+    session.transition(WorkflowState.FINAL_REVIEWING);
     const r1Prompt = PROMPTS.finalReview(session.implementation, session.plan);
     const r1Result = await callLLM('R1', r1Prompt.prompt, r1Prompt.system);
     const r1Verdict = parseJSON(r1Result.content);
@@ -525,8 +712,8 @@ export class WorkflowOrchestrator {
     }));
 
     if (!r1Verdict || r1Verdict.verdict === 'PASS') {
-      // ─── ✅ DONE ──────────────────────────────────────────────────────
-      session.state = WorkflowState.COMPLETED;
+      // ─── DONE ──────────────────────────────────────────────────────
+      session.transition(WorkflowState.COMPLETED);
       return {
         sessionId: session.id,
         state: WorkflowState.COMPLETED,
@@ -540,7 +727,7 @@ export class WorkflowOrchestrator {
     if (r1Verdict.verdict === 'REDESIGN') {
       // ─── R1 REDESIGN → D1 redesign → CODE re-implement → R2 loop ──────
       if (session.redesignAttempts >= this.maxRedesignAttempts) {
-        session.state = WorkflowState.FAILED;
+        session.transition(WorkflowState.FAILED);
         return {
           sessionId: session.id,
           state: WorkflowState.FAILED,
@@ -555,7 +742,7 @@ export class WorkflowOrchestrator {
 
     // R1 FAIL → back to D2→CODE→R2 fix loop
     if (session.fixAttempts >= this.maxFixAttempts) {
-      session.state = WorkflowState.FAILED;
+      session.transition(WorkflowState.FAILED);
       return {
         sessionId: session.id,
         state: WorkflowState.FAILED,
@@ -569,7 +756,7 @@ export class WorkflowOrchestrator {
 
   async _redesign(session, reviewFeedback) {
     // ─── D1: Redesign ────────────────────────────────────────────────────
-    session.state = WorkflowState.REDESIGNING;
+    session.transition(WorkflowState.REDESIGNING);
     const redesignPrompt = PROMPTS.redesign(session.request, session.plan, reviewFeedback);
     const redesignResult = await callLLM('D1', redesignPrompt.prompt, redesignPrompt.system);
     const newPlan = parseJSON(redesignResult.content);
@@ -582,19 +769,91 @@ export class WorkflowOrchestrator {
     }));
 
     if (!newPlan) {
-      session.state = WorkflowState.FAILED;
+      session.transition(WorkflowState.FAILED);
       return { sessionId: session.id, state: WorkflowState.FAILED, error: 'D1 redesign failed to produce plan' };
     }
 
     session.plan = newPlan;
     session.fixAttempts = 0; // Reset fix counter for new plan
+    this._persist(session); // persist new plan
 
     // ─── CODE: Re-implement with new plan → R2 loop ─────────────────────
     return this._executeWorkflow(session);
   }
+
+  // ═══ PERSISTENCE ════════════════════════════════════════════════════════
+
+  _persist(session) {
+    if (!this.db) return;
+    try {
+      const timing = {
+        history: session.history,
+        fixAttempts: session.fixAttempts,
+        redesignAttempts: session.redesignAttempts,
+        clarificationQuestions: session.clarificationQuestions,
+        createdAt: session.createdAt,
+      };
+      this.db.save(session.id, session.state, session.plan, session.implementation, timing);
+    } catch (err) {
+      logger.debug('Workflow', `DB persist failed: ${err.message}`);
+    }
+  }
+
+  _createDbRow(session) {
+    if (!this.db) return;
+    try {
+      this.db.getOrCreate(session.id, null, session.request);
+    } catch (err) {
+      logger.debug('Workflow', `DB create failed: ${err.message}`);
+    }
+  }
+
+  _hydrateSession(row) {
+    const session = new WorkflowSession(row.session_id, row.request);
+    session.state = row.state;
+    try { session.plan = row.plan ? JSON.parse(row.plan) : null; } catch { session.plan = row.plan; }
+    try { session.implementation = row.implementation ? JSON.parse(row.implementation) : null; } catch { session.implementation = row.implementation; }
+
+    let timing = {};
+    try { timing = row.timing ? JSON.parse(row.timing) : {}; } catch {}
+
+    session.history = (timing.history || []).map(h => Object.assign(new StepResult({
+      step: h.step, model: h.model, output: h.output,
+      verdict: h.verdict, duration: h.duration, error: h.error,
+    }), { timestamp: h.timestamp }));
+    session.fixAttempts = timing.fixAttempts || 0;
+    session.redesignAttempts = timing.redesignAttempts || 0;
+    session.clarificationQuestions = timing.clarificationQuestions || null;
+    session.createdAt = timing.createdAt || row.created_at;
+    session.updatedAt = row.updated_at;
+
+    // Wire persistence callback
+    session._onUpdate = (s) => this._persist(s);
+
+    return session;
+  }
+
+  _currentStage(state) {
+    const stageMap = {
+      IDLE: 'init',
+      ANALYZING: 'D1',
+      CLARIFYING: 'D1',
+      PLANNING: 'D1',
+      AWAITING_APPROVAL: 'approval',
+      IMPLEMENTING: 'CODE',
+      QUICK_REVIEWING: 'R2',
+      FIX_DELIBERATING: 'D2',
+      APPLYING_FIX: 'CODE',
+      FINAL_REVIEWING: 'R1',
+      REDESIGNING: 'D1',
+      COMPLETED: 'done',
+      FAILED: 'failed',
+    };
+    return stageMap[state] || 'unknown';
+  }
 }
 
-// ─── Singleton ──────────────────────────────────────────────────────────────
+// ─── Singleton (no-DB default — index.js creates the DB-backed instance) ────
 
 export const workflowOrchestrator = new WorkflowOrchestrator();
 export default WorkflowOrchestrator;

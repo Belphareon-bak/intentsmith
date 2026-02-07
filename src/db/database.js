@@ -650,10 +650,14 @@ export const workflowSessions = {
   `),
   
   listActive: db.prepare(`
-    SELECT * FROM workflow_sessions WHERE state NOT IN ('DONE', 'ERROR', 'CANCELLED')
+    SELECT * FROM workflow_sessions WHERE state NOT IN ('COMPLETED', 'FAILED')
     ORDER BY updated_at DESC
   `),
-  
+
+  listAll: db.prepare(`
+    SELECT * FROM workflow_sessions ORDER BY updated_at DESC LIMIT 50
+  `),
+
   getOrCreate(sessionId, projectId, request, complexity = 'SIMPLE') {
     let session = this.findById.get(sessionId);
     if (!session) {

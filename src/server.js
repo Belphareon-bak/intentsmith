@@ -590,10 +590,61 @@ const routes = {
     }
   },
 
+  'GET /planner/sessions': async (req, res) => {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const activeOnly = url.searchParams.get('all') !== 'true';
+
+    try {
+      const { workflowOrchestrator } = await import('./planner/index.js');
+      const sessions = workflowOrchestrator.listSessions({ activeOnly });
+      sendJSON(res, 200, { sessions });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'GET /planner/progress': async (req, res) => {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const sessionId = url.searchParams.get('id');
+
+    if (!sessionId) {
+      return sendJSON(res, 400, { error: 'id query param is required' });
+    }
+
+    try {
+      const { workflowOrchestrator } = await import('./planner/index.js');
+      const progress = workflowOrchestrator.getProgress(sessionId);
+      if (!progress) {
+        return sendJSON(res, 404, { error: 'Session not found' });
+      }
+      sendJSON(res, 200, progress);
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'POST /planner/resume': async (req, res) => {
+    const body = await parseBody(req);
+    const { sessionId } = body;
+
+    if (!sessionId) {
+      return sendJSON(res, 400, { error: 'sessionId is required' });
+    }
+
+    try {
+      const { workflowOrchestrator } = await import('./planner/index.js');
+      const result = await workflowOrchestrator.resume(sessionId);
+      sendJSON(res, 200, result);
+    } catch (err) {
+      logger.error('Server', `Planner resume error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
   // ══════════════════════════════════════════════════════════════════════════
   // ARCHITECT MODE API
   // ══════════════════════════════════════════════════════════════════════════
-  
+
   'POST /architect/init': async (req, res) => {
     const body = await parseBody(req);
     const { projectRoot, projectName } = body;

@@ -12,6 +12,8 @@
 //   → CODE Implement → R2 Quick Review → [PASS→R1 / FAIL→D2+CODE loop]
 //   → R1 Final Review → [PASS→✅ / FAIL→D2 loop / REDESIGN→D1 loop]
 //
+// Phase C: DB-backed singleton with session persistence + resume + progress.
+//
 // ══════════════════════════════════════════════════════════════════════════════
 
 export {
@@ -19,5 +21,10 @@ export {
   WorkflowSession,
   WorkflowState,
   ReviewVerdict,
-  workflowOrchestrator,
 } from './workflow.js';
+
+import { WorkflowOrchestrator } from './workflow.js';
+import { workflowSessions } from '../db/database.js';
+
+// DB-backed singleton (replaces the no-DB default from workflow.js)
+export const workflowOrchestrator = new WorkflowOrchestrator({ db: workflowSessions });
