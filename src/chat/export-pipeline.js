@@ -1,4 +1,4 @@
-// CRE v56.1 — Sprint 4B: Export Pipeline
+// CRE v57.2 — Sprint 4B: Export Pipeline (incl. PDF/DOCX)
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Deterministic transformation: conversation → file.
@@ -249,7 +249,7 @@ function renderMarkdown(title, date, turns, scope) {
     lines.push('');
   }
 
-  lines.push('*Exportováno z C3-Agent v56.1*');
+  lines.push('*Exportováno z C3-Agent v57.2*');
   return lines.join('\n');
 }
 
@@ -313,7 +313,7 @@ function renderHTML(title, date, turns, scope) {
   <h1>${escapeHTML(title)}</h1>
   <div class="meta">${date} | ${turns.length} zpráv</div>
 ${turnHTML}
-  <footer>Exportováno z C3-Agent v56.1</footer>
+  <footer>Exportováno z C3-Agent v57.2</footer>
 </body>
 </html>`;
 }
@@ -336,7 +336,7 @@ function renderText(title, date, turns, scope) {
     lines.push('');
   }
 
-  lines.push('Exportováno z C3-Agent v56.1');
+  lines.push('Exportováno z C3-Agent v57.2');
   return lines.join('\n');
 }
 

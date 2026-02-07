@@ -25,7 +25,7 @@
           ▼                  ▼                   ▼
    ┌──────────────────────────────────────────────────────────┐
    │                    Sdílená infrastruktura                  │
-   │  llm/  memory/  experts/  tools/  db/  core/  workflow/   │
+   │  llm/  memory/  experts/  tools/  db/  core/  planner/    │
    └──────────────────────────────────────────────────────────┘
 ```
 
@@ -42,6 +42,9 @@ src/
 │   ├── controller.js            # Vstupní bod: input → mode detection → handler
 │   ├── controller.d.ts          # TypeScript deklarace
 │   ├── cre-decision.js          # CRE v45.0 — Decision Engine
+│   ├── export-pipeline.js       # Export: MD/HTML/TXT/PDF/DOCX (v57.2)
+│   ├── context-budget.js        # Intent-aware context budget management
+│   ├── conversation-store.js    # Conversation persistence (SQLite)
 │   ├── handlers/                # Mode-specific handlery
 │   │   ├── index.js             # Barrel export + getDefaultHandlers()
 │   │   ├── conversation.js      # CONVERSATION mode
@@ -100,7 +103,9 @@ src/
 │   └── policy.js                # Memory retention policies
 │
 ├── experts/                     # Sdílené: Expert personas
-│   └── expert-layer.js          # Expert personality layer
+│   ├── expert-layer.js          # Expert personality layer
+│   └── guards/                  # Post-synthesis guards
+│       └── tool-enforcement.js  # Tool-only numeric enforcement (v57.2)
 │
 ├── tools/                       # Sdílené: Tool registry
 │   ├── registry.js              # Tool registration & discovery
@@ -135,8 +140,20 @@ src/
 │   ├── state.js                 # Session state
 │   └── index.js                 # Barrel export
 │
-├── workflow/                    # ⚠️ LEGACY — frozen, see Workflow Bifurcation below
-│   └── engine.js                # @deprecated v55 — THINKER→CODER→REVIEWER pipeline
+├── notifications/               # Notification delivery system (v57.0+)
+│   ├── index.js                 # Barrel export + factory functions
+│   ├── service.js               # NotificationRouter — channel dispatch
+│   ├── pipeline.js              # NotificationPipeline — policy + digest + routing
+│   ├── policy.js                # NotificationPolicy — rate limiting, trust override
+│   ├── digest.js                # DigestAggregator — batch notifications
+│   ├── trust.js                 # TrustTracker — feedback-based trust scoring
+│   ├── feedback.js              # FeedbackHandler — user feedback processing
+│   ├── trust-api.js             # Trust REST API routes
+│   ├── db.js                    # Notification DB tables
+│   └── channels/                # Delivery channels
+│       ├── base.js              # NotificationChannel interface
+│       ├── email.js             # EmailChannel (nodemailer)
+│       └── telegram.js          # TelegramChannel (Bot API)
 │
 ├── core/                        # Infrastruktura
 │   ├── logger.js                # Structured logging
@@ -231,30 +248,20 @@ Integrováno v: `executor/tool-executor.js → execute()`
 
 ---
 
-## ⚠️ Workflow Bifurcation (v55)
+## Workflow Pipeline
 
-Systém obsahuje **dva nezávislé workflow enginy**. Toto je záměrná bifurkace, nikoliv technický dluh.
+Jeden aktivní workflow engine:
 
-| Systém | Soubor | Status | Pipeline | Endpoint |
-|--------|--------|--------|----------|----------|
-| Legacy | `workflow/engine.js` | **FROZEN** ❄️ | THINKER→CODER→REVIEWER | `POST /workflow` |
-| Active | `planner/workflow.js` | **ACTIVE** ✅ | D1→CODE→R2→D2→R1 | `POST /planner/*` + Chat BUILD handoff |
+| Soubor | Status | Pipeline | Endpoint |
+|--------|--------|----------|----------|
+| `planner/workflow.js` | **ACTIVE** ✅ | D1→CODE→R2→D2→R1 | `POST /planner/*` + Chat BUILD handoff |
 
-### Pravidla
-
-1. **Legacy engine je zamražený** — žádné nové features, žádné nové testy, jen bugfix pokud blokuje
-2. **Nový kód NIKDY neimportuje `workflow/engine.js`** — vždy `planner/workflow.js`
-3. **Chat kvalita, UX kontrakty, rozhodování se NETÝKAJÍ legacy workflow**
-4. **CRE invariant**: `BUILD` intent → `PLAN` decision → `planner/workflow.js` (tvrdě vynuceno v `cre-decision.js`)
+> Legacy `workflow/engine.js` (THINKER→CODER→REVIEWER) byl odstraněn ve v57.2.
 
 ### Routing v server.js
 
 ```
-POST /workflow           → legacyWorkflowEngine  (deprecated, logged)
-GET  /workflow/:id       → legacyWorkflowEngine
-GET  /sessions           → legacyWorkflowEngine.sessions
-
-POST /planner/start      → workflowOrchestrator  ← ACTIVE
+POST /planner/start      → workflowOrchestrator
 POST /planner/clarify    → workflowOrchestrator
 POST /planner/approve    → workflowOrchestrator
 POST /planner/reject     → workflowOrchestrator
@@ -262,13 +269,7 @@ POST /planner/reject     → workflowOrchestrator
 POST /api/chat (BUILD)   → ChatController → CRE → build-handoff → workflowOrchestrator
 ```
 
-### Cesta k odstranění legacy
-
-1. ✅ Import přejmenován na `legacyWorkflowEngine` (v55)
-2. ✅ Deprecation warning logován při každém `POST /workflow` (v55)
-3. ⬜ Monitorovat logy — pokud 0 hitů za 30 dní → bezpečné k odstranění
-4. ⬜ Přesunout obecné workflow úlohy na `planner/workflow.js`
-5. ⬜ Odstranit `workflow/engine.js` + legacy endpointy + inline UI
+**CRE invariant**: `BUILD` intent → `PLAN` decision → `planner/workflow.js` (tvrdě vynuceno v `cre-decision.js`)
 
 ---
 

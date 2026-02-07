@@ -1,4 +1,4 @@
-// C3-Agent v56.1 — Sprint 4 Tests: Context Budget & Export
+// C3-Agent v57.2 — Sprint 4 Tests: Context Budget & Export (incl. PDF/DOCX)
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // T10.1: Context Budget
@@ -529,6 +529,160 @@ describe('T10.3: Export Pipeline', async () => {
 
 
 // ══════════════════════════════════════════════════════════════════════════════
+// T10.5: PDF EXPORT (A5)
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('T10.5: PDF Export (A5)', async () => {
+
+  async function createTestStore(convId) {
+    const store = new ConversationStore(null);
+    store.ensureConversation(convId, {});
+    store.setTitle(convId, 'PDF Test konverzace');
+    store.appendTurn(convId, TurnRole.USER, 'Jaké je počasí v Praze?');
+    store.appendTurn(convId, TurnRole.ASSISTANT, 'Dnes v Praze bude oblačno, teplota kolem 5°C.\nVítr z jihozápadu, rychlost 15 km/h.');
+    store.appendTurn(convId, TurnRole.USER, 'A zítra?');
+    store.appendTurn(convId, TurnRole.ASSISTANT, 'Zítra se očekává slunečno, až 8°C.');
+    return store;
+  }
+
+  await it('PDF export produces valid file', async () => {
+    const store = await createTestStore('pdf-e2e');
+    const tmpDir = `/tmp/c3-export-pdf-${Date.now()}`;
+    const result = await exportConversation('pdf-e2e', {
+      format: 'pdf', store, artifactsDir: tmpDir,
+    });
+    assert.ok(result.filename.endsWith('.pdf'));
+    assert.equal(result.format, 'pdf');
+    assert.ok(result.size > 1000, `PDF should be >1KB, got ${result.size}`);
+    assert.equal(result.turnCount, 4);
+    assert.ok(result.downloadUrl.startsWith('/api/artifacts/'));
+  });
+
+  await it('PDF file is valid binary', async () => {
+    const store = await createTestStore('pdf-bin');
+    const tmpDir = `/tmp/c3-export-pdfbin-${Date.now()}`;
+    const result = await exportConversation('pdf-bin', {
+      format: 'pdf', store, artifactsDir: tmpDir,
+    });
+    const fs = await import('fs/promises');
+    const buf = await fs.readFile(result.path);
+    // PDF starts with %PDF
+    assert.ok(buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46,
+      'File should start with %PDF magic bytes');
+  });
+
+  await it('PDF with scope "last" exports only last turn', async () => {
+    const store = await createTestStore('pdf-last');
+    const tmpDir = `/tmp/c3-export-pdflast-${Date.now()}`;
+    const result = await exportConversation('pdf-last', {
+      format: 'pdf', scope: 'last', store, artifactsDir: tmpDir,
+    });
+    assert.equal(result.turnCount, 1);
+    assert.ok(result.size > 500);
+  });
+
+  await it('PDF handles Czech characters correctly', async () => {
+    const store = new ConversationStore(null);
+    store.ensureConversation('pdf-cz');
+    store.setTitle('pdf-cz', 'Český test — háčky a čárky');
+    store.appendTurn('pdf-cz', TurnRole.USER, 'Příliš žluťoučký kůň úpěl ďábelské ódy.');
+    store.appendTurn('pdf-cz', TurnRole.ASSISTANT, 'Řeřicha říká: šťáva žďáru.');
+
+    const tmpDir = `/tmp/c3-export-pdfcz-${Date.now()}`;
+    const result = await exportConversation('pdf-cz', {
+      format: 'pdf', store, artifactsDir: tmpDir,
+    });
+    assert.ok(result.size > 500, 'Czech PDF should generate');
+    assert.ok(result.filename.includes('český-test'));
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// T10.6: DOCX EXPORT (A6)
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('T10.6: DOCX Export (A6)', async () => {
+
+  async function createTestStore(convId) {
+    const store = new ConversationStore(null);
+    store.ensureConversation(convId, {});
+    store.setTitle(convId, 'DOCX Test konverzace');
+    store.appendTurn(convId, TurnRole.USER, 'Kolik stojí bydlení v Brně?');
+    store.appendTurn(convId, TurnRole.ASSISTANT, 'Průměrná cena nájmu v Brně je přibližně 15 000 Kč měsíčně za byt 2+1.');
+    store.appendTurn(convId, TurnRole.USER, 'A v Praze?');
+    store.appendTurn(convId, TurnRole.ASSISTANT, 'V Praze je to přibližně 22 000 Kč za srovnatelný byt.');
+    return store;
+  }
+
+  await it('DOCX export produces valid file', async () => {
+    const store = await createTestStore('docx-e2e');
+    const tmpDir = `/tmp/c3-export-docx-${Date.now()}`;
+    const result = await exportConversation('docx-e2e', {
+      format: 'docx', store, artifactsDir: tmpDir,
+    });
+    assert.ok(result.filename.endsWith('.docx'));
+    assert.equal(result.format, 'docx');
+    assert.ok(result.size > 1000, `DOCX should be >1KB, got ${result.size}`);
+    assert.equal(result.turnCount, 4);
+    assert.ok(result.downloadUrl.startsWith('/api/artifacts/'));
+  });
+
+  await it('DOCX file is valid ZIP (OOXML)', async () => {
+    const store = await createTestStore('docx-zip');
+    const tmpDir = `/tmp/c3-export-docxzip-${Date.now()}`;
+    const result = await exportConversation('docx-zip', {
+      format: 'docx', store, artifactsDir: tmpDir,
+    });
+    const fs = await import('fs/promises');
+    const buf = await fs.readFile(result.path);
+    // DOCX is ZIP format, starts with PK (0x50 0x4B)
+    assert.ok(buf[0] === 0x50 && buf[1] === 0x4B,
+      'DOCX should start with PK (ZIP) magic bytes');
+  });
+
+  await it('DOCX with scope "last" exports only last turn', async () => {
+    const store = await createTestStore('docx-last');
+    const tmpDir = `/tmp/c3-export-docxlast-${Date.now()}`;
+    const result = await exportConversation('docx-last', {
+      format: 'docx', scope: 'last', store, artifactsDir: tmpDir,
+    });
+    assert.equal(result.turnCount, 1);
+    assert.ok(result.size > 500);
+  });
+
+  await it('DOCX handles Czech characters', async () => {
+    const store = new ConversationStore(null);
+    store.ensureConversation('docx-cz');
+    store.setTitle('docx-cz', 'Český test — háčky a čárky');
+    store.appendTurn('docx-cz', TurnRole.USER, 'Příliš žluťoučký kůň úpěl ďábelské ódy.');
+    store.appendTurn('docx-cz', TurnRole.ASSISTANT, 'Řeřicha říká: šťáva žďáru.');
+
+    const tmpDir = `/tmp/c3-export-docxcz-${Date.now()}`;
+    const result = await exportConversation('docx-cz', {
+      format: 'docx', store, artifactsDir: tmpDir,
+    });
+    assert.ok(result.size > 500, 'Czech DOCX should generate');
+  });
+
+  await it('DOCX handles multiline content', async () => {
+    const store = new ConversationStore(null);
+    store.ensureConversation('docx-ml');
+    store.setTitle('docx-ml', 'Multiline test');
+    store.appendTurn('docx-ml', TurnRole.USER, 'Shrnutí');
+    store.appendTurn('docx-ml', TurnRole.ASSISTANT,
+      'Bod 1: První věc\nBod 2: Druhá věc\n\nBod 3: Třetí věc s prázdným řádkem');
+
+    const tmpDir = `/tmp/c3-export-docxml-${Date.now()}`;
+    const result = await exportConversation('docx-ml', {
+      format: 'docx', store, artifactsDir: tmpDir,
+    });
+    assert.ok(result.size > 500, 'Multiline DOCX should generate');
+  });
+});
+
+
+// ══════════════════════════════════════════════════════════════════════════════
 // T10.4: EXPORT COMMAND DETECTION
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -588,6 +742,36 @@ describe('T10.4: Export Command Detection', async () => {
     const r = detectExportCommand('stáhni jako text');
     assert.equal(r.isExport, true);
     assert.equal(r.format, 'txt');
+  });
+
+  await it('"ulož jako pdf" triggers PDF export', async () => {
+    const r = detectExportCommand('ulož jako pdf');
+    assert.equal(r.isExport, true);
+    assert.equal(r.format, 'pdf');
+  });
+
+  await it('"exportuj do docx" triggers DOCX export', async () => {
+    const r = detectExportCommand('exportuj do docx');
+    assert.equal(r.isExport, true);
+    assert.equal(r.format, 'docx');
+  });
+
+  await it('"save as word" triggers DOCX export', async () => {
+    const r = detectExportCommand('save as word');
+    assert.equal(r.isExport, true);
+    assert.equal(r.format, 'docx');
+  });
+
+  await it('"vygeneruj pdf dokument" triggers PDF export', async () => {
+    const r = detectExportCommand('vygeneruj pdf dokument');
+    assert.equal(r.isExport, true);
+    assert.equal(r.format, 'pdf');
+  });
+
+  await it('"stáhni jako pdf" triggers PDF export', async () => {
+    const r = detectExportCommand('stáhni jako pdf');
+    assert.equal(r.isExport, true);
+    assert.equal(r.format, 'pdf');
   });
 });
 

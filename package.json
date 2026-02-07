@@ -7,37 +7,29 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-
     "test": "npm run test:core && npm run test:tools && npm run test:memory && npm run test:planner && npm run test:autonomous",
     "test:all": "npm run test && npm run test:llm:mock",
-
     "test:core": "node tests/cre-v2.test.js && node tests/cre-decision-types.test.js",
     "test:integration": "node tests/full-integration.test.js",
     "test:guards": "node tests/chat-e2e-v2.js && node tests/correction-enforcer.test.js",
-
     "test:llm": "node tests/llm-behavior.test.js",
     "test:llm:mock": "MOCK_LLM=1 node tests/llm-behavior.test.js",
     "test:llm:live": "node tests/llm-behavior.test.js",
     "test:llm:gateway": "node tests/llm-gateway.test.js",
     "test:llm:enforcement": "node tests/llm-enforcement.test.js",
-
     "test:tools": "node tests/http-client.test.js && node tests/tool-executor.test.js && node tests/human-gate.test.js",
     "test:memory": "node tests/session-memory.test.js && node tests/long-term-memory.test.js && node tests/preferences.test.js && node tests/memory-policy.test.js",
     "test:planner": "node tests/planner.test.js && node tests/planner-v38.test.js",
     "test:autonomous": "node tests/autonomous-v39.test.js",
     "test:unification": "node tests/cre-decision-invariants.test.js && node tests/tool-executor.test.js && node tests/unification-v44.test.js",
-
     "test:golden": "node tests/golden-path.test.js",
     "test:contracts": "node tests/contracts/planner-output.test.js && node tests/contracts/tool-call.test.js",
-
     "test:agentd": "node tests/agentd-v46.test.js",
     "test:audit": "node tests/audit-trail-v46.test.js",
     "test:sandbox": "node tests/sandbox-v46.test.js",
     "test:v46": "npm run test:agentd && npm run test:audit && npm run test:sandbox",
-
     "test:perf": "node tests/perf-v47.test.js",
     "test:v47": "npm run test:v46 && npm run test:perf",
-
     "test:chat": "node tests/chat-harness-v48.test.js",
     "test:chat:run": "node tests/chat-harness/runner.js",
     "test:chat:live": "node tests/chat-harness/runner.js --live",
@@ -46,7 +38,6 @@
     "test:stress": "node tests/chat-harness/stress-runner.js",
     "test:decision": "node tests/chat-harness/decision-runner.js",
     "test:v48": "npm run test:v47 && npm run test:chat && npm run test:decision",
-
     "test:decision:unit": "node tests/decision-v48.test.js",
     "test:decision:priority": "node tests/decision-priority.test.js",
     "test:decision:fuzzing": "node tests/decision-fuzzing.test.js",
@@ -54,37 +45,27 @@
     "test:decision:calibration": "node tests/decision-calibration.test.js",
     "test:decision:all": "npm run test:decision:unit && npm run test:decision:priority && npm run test:decision:fuzzing && npm run test:decision:drift && npm run test:decision:calibration",
     "test:v48.3": "npm run test:v48 && npm run test:decision:all",
-
     "test:quality": "node tests/quality-evaluators.test.js",
     "test:runtime": "node tests/quality-runtime.test.js",
     "test:v48.5": "npm run test:v48.3 && npm run test:quality && npm run test:runtime",
-
     "test:strategy": "node tests/conversation-strategy.test.js",
     "test:v49": "npm run test:v48.5 && npm run test:strategy",
-
     "test:epistemic": "node tests/epistemic-control.test.js",
     "test:v49.1": "npm run test:v49 && npm run test:epistemic",
-
     "test:safety": "node tests/safety/safety-engine.test.js",
     "test:v50": "npm run test:v49.1 && npm run test:safety",
-
     "test:state": "node tests/memory/state-management.test.js",
     "test:v51": "npm run test:v50 && npm run test:state",
-
     "test:governance": "node tests/tools/governance.test.js",
     "test:v52": "npm run test:v51 && npm run test:governance",
-
     "test:observability": "node tests/audit/observability.test.js",
     "test:v53": "npm run test:v52 && npm run test:observability",
-
     "test:ux": "node tests/ux/contracts.test.js",
     "test:v54": "npm run test:v53 && npm run test:ux",
-
     "test:e2e": "node tests/e2e/e2e.test.js",
     "test:e2e:run": "node tests/e2e/runner.js",
     "test:e2e:verbose": "node tests/e2e/runner.js --verbose",
     "test:v55": "npm run test:v54 && npm run test:e2e",
-
     "test:build-patterns": "node tests/build-patterns.test.js",
     "test:build-handoff": "node tests/build-handoff.test.js",
     "test:workflow": "node tests/workflow-orchestrator.test.js",
@@ -93,11 +74,11 @@
     "test:e2e:build": "node tests/e2e/build-flow.test.js",
     "test:pipeline": "npm run test:build-patterns && npm run test:build-handoff && npm run test:workflow && npm run test:circuit && npm run test:domains && npm run test:e2e:build",
     "test:v56": "npm run test:v55 && npm run test:pipeline",
-
     "agentd": "node bin/agentd.js"
   },
   "dependencies": {
     "better-sqlite3": "^9.0.0",
+    "docx": "^9.5.1",
     "puppeteer": "^21.0.0"
   }
 }
