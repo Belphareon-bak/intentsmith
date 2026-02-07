@@ -1,4 +1,4 @@
-// C.3 v28 Configuration
+// C.3 v57.0 Configuration
 // ══════════════════════════════════════════════════════════════════════════════
 
 export const config = {
@@ -6,6 +6,13 @@ export const config = {
   server: {
     port: parseInt(process.env.C3_PORT || '3335'),
     host: process.env.C3_HOST || '127.0.0.1',
+    // CORS: allowed origins (empty = same-origin only, '*' = allow all)
+    allowedOrigins: (process.env.C3_CORS_ORIGINS || '').split(',').filter(Boolean),
+    // Rate limiting: max requests per IP per window
+    rateLimit: {
+      windowMs: 60_000,   // 1 minute
+      maxRequests: 120,    // 120 req/min per IP
+    },
   },
 
   // Ollama
@@ -40,15 +47,6 @@ export const config = {
     // R2: Quick review — fast structural/logic check
     R2: 'qwen2.5:32b',
 
-    // ─── Legacy role aliases (backwards compatibility) ───
-    THINKER: 'qwen2.5:32b',
-    ANALYZER: 'deepseek-r1:32b',    // = D1
-    CLASSIFIER: 'qwen2.5:32b',
-    PLANNER: 'deepseek-r1:32b',     // = D1
-    REVIEWER: 'qwen2.5:32b',        // = R2
-    CODER: 'qwen2.5-coder:32b',     // = CODE
-    FIXER: 'qwen2.5-coder:32b',     // = CODE
-    ADVERSARIAL: 'deepseek-r1:32b',  // = R1
     CHAT: 'qwen2.5:32b',
     VISION: 'llava:13b',
   },
@@ -62,15 +60,6 @@ export const config = {
     R1: 120000,       // 120s — deep review (= D1)
     R2: 45000,        // 45s — quick review
 
-    // Legacy aliases
-    THINKER: 45000,
-    ANALYZER: 45000,
-    CLASSIFIER: 30000,
-    PLANNER: 60000,
-    REVIEWER: 45000,
-    CODER: 90000,
-    FIXER: 90000,
-    ADVERSARIAL: 120000,
     CHAT: 60000,
     VISION: 60000,
   },

@@ -1,4 +1,4 @@
-// C.3 v45.0.0 Server - p(AI)assistant
+// C.3 v57.0 Server - p(AI)assistant
 // ══════════════════════════════════════════════════════════════════════════════
 
 import http from 'http';
@@ -8,10 +8,6 @@ import { fileURLToPath } from 'url';
 import { config } from './config.js';
 import { logger } from './core/logger.js';
 import { installGlobalHandlers, handleError } from './core/error-handler.js';
-// @deprecated v55 — Legacy workflow engine (THINKER→CODER→REVIEWER pipeline)
-// Use planner/workflow.js (D1→CODE→R2→D2→R1) for all new features.
-// This import is kept ONLY for backward-compat with POST /workflow endpoint.
-import { workflowEngine as legacyWorkflowEngine } from './workflow/engine.js';
 import db from './db/database.js';
 
 // ESM __dirname equivalent
@@ -84,7 +80,7 @@ ChatController.configure({
     modeConfidenceThreshold: 0.6,
   },
 });
-logger.info('Server', 'ChatController v45.0 configured');
+logger.info('Server', 'ChatController v57.0 configured');
 
 // ════════════════════════════════════════════════════════════════════════════
 // v44.0: Wire ToolExecutor to existing tool implementations
@@ -159,10 +155,21 @@ const agentRoutes = createAgentRoutes({
 // REQUEST HELPERS
 // ════════════════════════════════════════════════════════════════════════════
 
+const MAX_BODY_SIZE = 1 * 1024 * 1024; // 1MB
+
 async function parseBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', chunk => body += chunk);
+    let size = 0;
+    req.on('data', chunk => {
+      size += chunk.length;
+      if (size > MAX_BODY_SIZE) {
+        req.destroy();
+        reject(new Error('Request body too large (max 1MB)'));
+        return;
+      }
+      body += chunk;
+    });
     req.on('end', () => {
       try {
         resolve(body ? JSON.parse(body) : {});
@@ -174,19 +181,27 @@ async function parseBody(req) {
   });
 }
 
-function sendJSON(res, status, data) {
-  res.writeHead(status, {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-  });
+function getCorsOrigin(req) {
+  const origin = req?.headers?.origin;
+  const allowed = config.server.allowedOrigins;
+  if (!allowed.length) return origin || '*'; // no restriction configured
+  if (allowed.includes(origin)) return origin;
+  return null; // blocked
+}
+
+function sendJSON(res, status, data, req = null) {
+  const corsOrigin = getCorsOrigin(req);
+  const headers = { 'Content-Type': 'application/json' };
+  if (corsOrigin) headers['Access-Control-Allow-Origin'] = corsOrigin;
+  res.writeHead(status, headers);
   res.end(JSON.stringify(data));
 }
 
-function sendHTML(res, html) {
-  res.writeHead(200, {
-    'Content-Type': 'text/html; charset=utf-8',
-    'Access-Control-Allow-Origin': '*',
-  });
+function sendHTML(res, html, req = null) {
+  const corsOrigin = getCorsOrigin(req);
+  const headers = { 'Content-Type': 'text/html; charset=utf-8' };
+  if (corsOrigin) headers['Access-Control-Allow-Origin'] = corsOrigin;
+  res.writeHead(200, headers);
   res.end(html);
 }
 
@@ -287,12 +302,9 @@ const routes = {
   'GET /': (req, res) => {
     sendJSON(res, 200, {
       name: 'p(AI)assistant',
-      version: '36.0.0',
+      version: '57.0.0',
       status: 'ok',
       endpoints: [
-        'POST /workflow - Start or continue workflow',
-        'GET /workflow/:sessionId - Get workflow status',
-        'GET /sessions - List active sessions',
         'POST /chat - Simple chat',
         'POST /planner/start - Start D1→CODE→R2→R1 workflow',
         'POST /planner/clarify - Answer D1 clarification questions',
@@ -301,7 +313,6 @@ const routes = {
         'GET /planner/session?id= - Get workflow session status',
         'GET /memory - List global memory',
         'POST /memory - Set memory value',
-        'GET /ui - Workflow UI',
         'GET /architect - Architect Mode UI',
         'GET /experts - Expert Layer UI (v35)',
         'GET /agents - Agent Platform UI',
@@ -313,92 +324,6 @@ const routes = {
         'GET /api/debug/health - Server health (C3_TRACE=1)',
       ],
     });
-  },
-  
-  // ══════════════════════════════════════════════════════════════════════════
-  // WORKFLOW API — @deprecated v55: Legacy pipeline (THINKER→CODER→REVIEWER)
-  // For new features, use POST /planner/* (D1→CODE→R2→D2→R1)
-  // ══════════════════════════════════════════════════════════════════════════
-  
-  'POST /workflow': async (req, res) => {
-    const body = await parseBody(req);
-    const { sessionId, message, workdir } = body;
-    
-    if (!sessionId) {
-      return sendJSON(res, 400, { error: 'sessionId is required' });
-    }
-    
-    // v55: Deprecation warning — track usage of legacy endpoint
-    logger.warn('Server', 'DEPRECATED: POST /workflow uses legacy workflow engine (THINKER→CODER→REVIEWER). Use /planner/* for new work.', {
-      sessionId,
-      messageLength: message?.length,
-    });
-    
-    try {
-      // Check if session exists
-      const existingSession = legacyWorkflowEngine.getSession(sessionId);
-      
-      let result;
-      
-      if (!existingSession) {
-        // Start new workflow
-        if (!message) {
-          return sendJSON(res, 400, { error: 'message is required for new workflow' });
-        }
-        if (!workdir) {
-          return sendJSON(res, 400, { error: 'workdir is required for new workflow' });
-        }
-        
-        result = await legacyWorkflowEngine.start(sessionId, message, workdir);
-      } else {
-        // Continue existing workflow
-        if (!message) {
-          return sendJSON(res, 400, { error: 'message is required to continue workflow' });
-        }
-        
-        result = await legacyWorkflowEngine.continue(sessionId, message);
-      }
-      
-      sendJSON(res, 200, result);
-      
-    } catch (err) {
-      logger.error('Server', `Workflow error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message, state: 'ERROR' });
-    }
-  },
-  
-  'GET /workflow/:sessionId': (req, res, params) => {
-    const session = legacyWorkflowEngine.getSession(params.sessionId);
-    
-    if (!session) {
-      return sendJSON(res, 404, { error: 'Session not found' });
-    }
-    
-    sendJSON(res, 200, {
-      sessionId: session.sessionId,
-      state: session.state,
-      complexity: session.complexity,
-      summary: session.getSummary(),
-    });
-  },
-  
-  // ══════════════════════════════════════════════════════════════════════════
-  // SESSIONS API (legacy workflow sessions)
-  // ══════════════════════════════════════════════════════════════════════════
-  
-  'GET /sessions': (req, res) => {
-    const sessions = [];
-    
-    for (const [id, session] of legacyWorkflowEngine.sessions) {
-      sessions.push({
-        sessionId: id,
-        state: session.state,
-        complexity: session.complexity,
-        workdir: session.workdir,
-      });
-    }
-    
-    sendJSON(res, 200, { sessions });
   },
   
   // v55.1 - Chat session management endpoints
@@ -776,10 +701,6 @@ const routes = {
   // ══════════════════════════════════════════════════════════════════════════
   // UI
   // ══════════════════════════════════════════════════════════════════════════
-  
-  'GET /ui': async (req, res) => {
-    sendHTML(res, getUIHTML());
-  },
   
   // Architect UI
   'GET /architect': async (req, res) => {
@@ -2023,9 +1944,13 @@ function matchRoute(method, url) {
     
     if (match) {
       const params = {};
-      paramNames.forEach((name, i) => {
-        params[name] = decodeURIComponent(match[i + 1]);
-      });
+      try {
+        paramNames.forEach((name, i) => {
+          params[name] = decodeURIComponent(match[i + 1]);
+        });
+      } catch {
+        return null; // Malformed URI component → 404
+      }
       return { handler, params };
     }
   }
@@ -2037,502 +1962,78 @@ function matchRoute(method, url) {
 // SERVER
 // ════════════════════════════════════════════════════════════════════════════
 
+// ── Rate limiter (per-IP, in-memory) ─────────────────────────────────────
+const _rateBuckets = new Map();
+function checkRateLimit(ip) {
+  const { windowMs, maxRequests } = config.server.rateLimit;
+  const now = Date.now();
+  let bucket = _rateBuckets.get(ip);
+  if (!bucket || now - bucket.start > windowMs) {
+    bucket = { start: now, count: 0 };
+    _rateBuckets.set(ip, bucket);
+  }
+  bucket.count++;
+  return bucket.count <= maxRequests;
+}
+// Cleanup stale buckets every 5 minutes
+setInterval(() => {
+  const cutoff = Date.now() - config.server.rateLimit.windowMs * 2;
+  for (const [ip, b] of _rateBuckets) {
+    if (b.start < cutoff) _rateBuckets.delete(ip);
+  }
+}, 300_000).unref();
+
 const server = http.createServer(async (req, res) => {
   // CORS preflight
   if (req.method === 'OPTIONS') {
-    res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
+    const corsOrigin = getCorsOrigin(req);
+    const headers = {
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
-    });
+    };
+    if (corsOrigin) headers['Access-Control-Allow-Origin'] = corsOrigin;
+    res.writeHead(204, headers);
     return res.end();
   }
-  
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const pathname = url.pathname;
-  
+
+  // Rate limiting
+  const clientIp = req.socket.remoteAddress || 'unknown';
+  if (!checkRateLimit(clientIp)) {
+    res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' });
+    return res.end(JSON.stringify({ error: 'Too many requests' }));
+  }
+
+  let pathname;
+  try {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    pathname = url.pathname;
+  } catch {
+    return sendJSON(res, 400, { error: 'Malformed URL' });
+  }
+
   logger.debug('Server', `${req.method} ${pathname}`);
-  
+
   const route = matchRoute(req.method, pathname);
-  
+
   if (!route) {
     return sendJSON(res, 404, { error: 'Not found' });
   }
-  
+
   try {
     await route.handler(req, res, route.params);
   } catch (err) {
+    if (err.message === 'Request body too large (max 1MB)') {
+      return sendJSON(res, 413, { error: err.message });
+    }
     logger.error('Server', `Handler error: ${err.message}`);
     sendJSON(res, 500, { error: err.message });
   }
 });
 
 // ════════════════════════════════════════════════════════════════════════════
-// UI HTML
-// ════════════════════════════════════════════════════════════════════════════
-
-function getUIHTML() {
-  return `<!DOCTYPE html>
-<html lang="cs">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>p(AI)assistant v45.0.0</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0a0a0f;
-      color: #e0e0e0;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    
-    header {
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      padding: 1rem 2rem;
-      border-bottom: 1px solid #2a2a4a;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    
-    .logo {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #00d4ff;
-    }
-    
-    .status {
-      display: flex;
-      gap: 1rem;
-      align-items: center;
-    }
-    
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      background: #00ff88;
-      border-radius: 50%;
-      animation: pulse 2s infinite;
-    }
-    
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    
-    main {
-      flex: 1;
-      display: flex;
-      max-width: 1400px;
-      margin: 0 auto;
-      width: 100%;
-      padding: 1rem;
-      gap: 1rem;
-    }
-    
-    .chat-container {
-      flex: 2;
-      display: flex;
-      flex-direction: column;
-      background: #12121a;
-      border-radius: 12px;
-      border: 1px solid #2a2a4a;
-      overflow: hidden;
-    }
-    
-    .messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-    
-    .message {
-      max-width: 85%;
-      padding: 0.75rem 1rem;
-      border-radius: 12px;
-      line-height: 1.5;
-    }
-    
-    .message.user {
-      background: #1e3a5f;
-      align-self: flex-end;
-      border-bottom-right-radius: 4px;
-    }
-    
-    .message.assistant {
-      background: #1a1a2e;
-      align-self: flex-start;
-      border-bottom-left-radius: 4px;
-      border: 1px solid #2a2a4a;
-    }
-    
-    .message.system {
-      background: #2a1a2e;
-      align-self: center;
-      font-size: 0.9rem;
-      color: #c0a0c0;
-    }
-    
-    .message pre {
-      background: #0a0a0f;
-      padding: 0.75rem;
-      border-radius: 8px;
-      overflow-x: auto;
-      margin: 0.5rem 0;
-      font-size: 0.85rem;
-    }
-    
-    .message code {
-      font-family: 'Fira Code', 'Consolas', monospace;
-    }
-    
-    .input-area {
-      padding: 1rem;
-      border-top: 1px solid #2a2a4a;
-      background: #0a0a0f;
-    }
-    
-    .input-row {
-      display: flex;
-      gap: 0.5rem;
-    }
-    
-    .input-area textarea {
-      flex: 1;
-      background: #1a1a2e;
-      border: 1px solid #2a2a4a;
-      border-radius: 8px;
-      padding: 0.75rem;
-      color: #e0e0e0;
-      font-family: inherit;
-      font-size: 1rem;
-      resize: none;
-      min-height: 60px;
-    }
-    
-    .input-area textarea:focus {
-      outline: none;
-      border-color: #00d4ff;
-    }
-    
-    .input-area button {
-      background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
-      color: #000;
-      border: none;
-      border-radius: 8px;
-      padding: 0.75rem 1.5rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: transform 0.1s, opacity 0.1s;
-    }
-    
-    .input-area button:hover {
-      opacity: 0.9;
-    }
-    
-    .input-area button:active {
-      transform: scale(0.98);
-    }
-    
-    .input-area button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    
-    .sidebar {
-      flex: 1;
-      max-width: 350px;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-    
-    .panel {
-      background: #12121a;
-      border-radius: 12px;
-      border: 1px solid #2a2a4a;
-      padding: 1rem;
-    }
-    
-    .panel h3 {
-      color: #00d4ff;
-      font-size: 0.9rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 0.75rem;
-    }
-    
-    .config-row {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-      margin-bottom: 0.75rem;
-    }
-    
-    .config-row label {
-      font-size: 0.85rem;
-      color: #888;
-    }
-    
-    .config-row input {
-      background: #1a1a2e;
-      border: 1px solid #2a2a4a;
-      border-radius: 6px;
-      padding: 0.5rem;
-      color: #e0e0e0;
-      font-family: monospace;
-      font-size: 0.9rem;
-    }
-    
-    .config-row input:focus {
-      outline: none;
-      border-color: #00d4ff;
-    }
-    
-    .workflow-state {
-      display: inline-block;
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-      font-size: 0.8rem;
-      font-weight: 600;
-    }
-    
-    .workflow-state.INIT { background: #333; }
-    .workflow-state.ANALYZING { background: #1e3a5f; }
-    .workflow-state.ASK_USER { background: #5f3a1e; color: #ffa500; }
-    .workflow-state.AUTO_ANSWER { background: #3a5f1e; }
-    .workflow-state.PLANNING { background: #3a1e5f; }
-    .workflow-state.IMPLEMENTING { background: #1e5f3a; }
-    .workflow-state.DONE { background: #0a3a0a; color: #00ff88; }
-    .workflow-state.ERROR { background: #5f1e1e; color: #ff4444; }
-    
-    .quick-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-    }
-    
-    .quick-actions button {
-      background: #1a1a2e;
-      border: 1px solid #2a2a4a;
-      color: #e0e0e0;
-      padding: 0.5rem 0.75rem;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.85rem;
-      transition: background 0.1s;
-    }
-    
-    .quick-actions button:hover {
-      background: #2a2a4a;
-    }
-    
-    .timing {
-      font-family: monospace;
-      font-size: 0.85rem;
-      color: #888;
-    }
-    
-    .timing span {
-      color: #00d4ff;
-    }
-  </style>
-</head>
-<body>
-  <header>
-    <div class="logo">⚡ p(AI)assistant <small style="color:#888">v45.0.0</small></div>
-    <div class="status">
-      <div class="status-dot"></div>
-      <span id="statusText">Ready</span>
-    </div>
-  </header>
-  
-  <main>
-    <div class="chat-container">
-      <div class="messages" id="messages">
-        <div class="message system">
-          Vítej v p(AI)assistant v45.0.0! Zadej požadavek a já ho implementuji.
-        </div>
-      </div>
-      
-      <div class="input-area">
-        <div class="input-row">
-          <textarea id="input" placeholder="Napiš požadavek nebo odpověz na otázky..." rows="3"></textarea>
-          <button id="sendBtn" onclick="send()">Odeslat</button>
-        </div>
-      </div>
-    </div>
-    
-    <div class="sidebar">
-      <div class="panel">
-        <h3>⚙️ Konfigurace</h3>
-        <div class="config-row">
-          <label>Session ID</label>
-          <input type="text" id="sessionId" value="session-${Date.now()}">
-        </div>
-        <div class="config-row">
-          <label>Workdir</label>
-          <input type="text" id="workdir" value="/tmp/c3-project">
-        </div>
-      </div>
-      
-      <div class="panel">
-        <h3>📊 Stav workflow</h3>
-        <p>Stav: <span class="workflow-state INIT" id="workflowState">INIT</span></p>
-        <p>Složitost: <span id="complexity">-</span></p>
-        <p class="timing">Čas: <span id="timing">-</span></p>
-      </div>
-      
-      <div class="panel">
-        <h3>⚡ Rychlé akce</h3>
-        <div class="quick-actions">
-          <button onclick="quickSend('OK')">✓ OK</button>
-          <button onclick="quickSend('Jiný návrh')">🔄 Jiný návrh</button>
-          <button onclick="newSession()">🆕 Nová session</button>
-        </div>
-      </div>
-    </div>
-  </main>
-  
-  <script>
-    const API = '';
-    let isProcessing = false;
-    
-    function addMessage(content, role = 'assistant') {
-      const messages = document.getElementById('messages');
-      const div = document.createElement('div');
-      div.className = 'message ' + role;
-      
-      // Simple markdown-ish rendering
-      let html = content
-        .replace(/\`\`\`(\\w*)?\\n([\\s\\S]*?)\`\`\`/g, '<pre><code>$2</code></pre>')
-        .replace(/\`([^\`]+)\`/g, '<code>$1</code>')
-        .replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>')
-        .replace(/\\n/g, '<br>');
-      
-      div.innerHTML = html;
-      messages.appendChild(div);
-      messages.scrollTop = messages.scrollHeight;
-    }
-    
-    function updateState(state, complexity, timing) {
-      const stateEl = document.getElementById('workflowState');
-      stateEl.textContent = state;
-      stateEl.className = 'workflow-state ' + state;
-      
-      if (complexity) {
-        document.getElementById('complexity').textContent = complexity;
-      }
-      if (timing) {
-        document.getElementById('timing').textContent = timing;
-      }
-    }
-    
-    async function send() {
-      if (isProcessing) return;
-      
-      const input = document.getElementById('input');
-      const message = input.value.trim();
-      if (!message) return;
-      
-      const sessionId = document.getElementById('sessionId').value;
-      const workdir = document.getElementById('workdir').value;
-      
-      addMessage(message, 'user');
-      input.value = '';
-      
-      isProcessing = true;
-      document.getElementById('sendBtn').disabled = true;
-      document.getElementById('statusText').textContent = 'Processing...';
-      
-      try {
-        const res = await fetch(API + '/workflow', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId, message, workdir }),
-        });
-        
-        const data = await res.json();
-        
-        updateState(
-          data.state,
-          data.complexity || data.summary?.complexity,
-          data.summary?.totalTime
-        );
-        
-        // Format response based on state
-        let response = '';
-        
-        if (data.error) {
-          response = '❌ Chyba: ' + data.error;
-        } else if (data.state === 'AUTO_ANSWER' && data.auto_answers) {
-          response = '📋 **Předpoklady** (potvrdíte "OK" nebo upravíte):\\n\\n';
-          data.auto_answers.forEach(a => {
-            response += '• ' + a.text + '\\n  → ' + a.answer + '\\n\\n';
-          });
-        } else if (data.state === 'ASK_USER' && data.questions_for_user) {
-          response = '❓ **Potřebuji upřesnění:**\\n\\n';
-          data.questions_for_user.forEach((q, i) => {
-            response += (i+1) + '. ' + q.text + '\\n';
-            if (q.suggested_answer) {
-              response += '   (návrh: ' + q.suggested_answer + ')\\n';
-            }
-            response += '\\n';
-          });
-        } else if (data.state === 'PLAN_REVIEW' && data.plan) {
-          response = data.plan + '\\n\\n*Potvrďte "OK" pro implementaci nebo napište připomínky.*';
-        } else if (data.state === 'DONE') {
-          response = '✅ **Hotovo!**\\n\\nVytvořené soubory:\\n';
-          (data.files || []).forEach(f => {
-            response += '• \`' + f + '\`\\n';
-          });
-          if (data.summary) {
-            response += '\\nČas: ' + data.summary.totalTime;
-          }
-        } else {
-          response = JSON.stringify(data, null, 2);
-        }
-        
-        addMessage(response);
-        
-      } catch (err) {
-        addMessage('❌ Chyba: ' + err.message, 'system');
-      } finally {
-        isProcessing = false;
-        document.getElementById('sendBtn').disabled = false;
-        document.getElementById('statusText').textContent = 'Ready';
-      }
-    }
-    
-    function quickSend(text) {
-      document.getElementById('input').value = text;
-      send();
-    }
-    
-    function newSession() {
-      document.getElementById('sessionId').value = 'session-' + Date.now();
-      document.getElementById('messages').innerHTML = '<div class="message system">Nová session vytvořena.</div>';
-      updateState('INIT', '-', '-');
-    }
-    
-    // Enter to send
-    document.getElementById('input').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        send();
-      }
-    });
-  </script>
-</body>
-</html>`;
-}
+// REMOVED: Legacy workflow UI (getUIHTML) — v57.0
+// Legacy workflow engine (THINKER→CODER→REVIEWER) deleted.
+// Use /architect for UI, planner/workflow.js for backend.
 
 // ════════════════════════════════════════════════════════════════════════════
 // START
@@ -2542,17 +2043,10 @@ server.listen(config.server.port, config.server.host, () => {
   // Start agent scheduler
   agentScheduler.start();
   
-  console.log(`
-╔══════════════════════════════════════════════════════════════╗
-║                                                              ║
-║     ⚡  p(AI)assistant v45.0.0                               ║
-║                                                              ║
-║     Chat:      http://${config.server.host}:${config.server.port}/architect             ║
-║     Agents:    http://${config.server.host}:${config.server.port}/agents                ║
-║     API:       http://${config.server.host}:${config.server.port}                       ║
-║                                                              ║
-╚══════════════════════════════════════════════════════════════╝
-  `);
+  logger.info('Server', `p(AI)assistant v57.0 started`);
+  logger.info('Server', `Chat:   http://${config.server.host}:${config.server.port}/architect`);
+  logger.info('Server', `Agents: http://${config.server.host}:${config.server.port}/agents`);
+  logger.info('Server', `API:    http://${config.server.host}:${config.server.port}`);
 });
 
 // ════════════════════════════════════════════════════════════════════════════
