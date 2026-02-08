@@ -475,6 +475,43 @@ export const FORBIDDEN_PHRASES = [
   'I need a URL',
   'I don\'t have current',
   'I cannot access',
+  // v58.1: Global hedging/deflection (was only DESIGN-scoped)
+  'informace jsou omezené',
+  'informace byly omezené',
+  'doporučuji vyhledat',
+  'zkuste se podívat na web',
+  'zkuste vyhledat na internetu',
+  'no search results found',
+  'nemám k dispozici aktuální',
+  'nemohu poskytnout aktuální',
+  'moje znalosti jsou omezené',
+  'moje znalosti sahají pouze',
+  'as a language model',
+  'as an AI assistant',
+  'I\'m just an AI',
+  'my knowledge is limited',
+  'my training data',
+  'my knowledge cutoff',
+  // v58.2 Fix #2: Additional hedging/deflection (from live conversation tests)
+  'doporučuji konzultovat',           // "doporučuji konzultovat s odborníkem"
+  'neváhejte se zeptat',              // "neváhejte se zeptat na další"
+  'záleží na kontextu',               // "záleží na kontextu"
+  'záleží na požadavcích',            // "záleží na vašich požadavcích"
+  'existuje více možností',           // "existuje více možností"
+  'existuje mnoho možností',          // "existuje mnoho možností"
+  'pokud potřebujete další informace',// "pokud potřebujete další informace"
+  'pokud máte konkrétní požadavky',   // chatbot hedging
+  'je třeba zvážit',                  // "je třeba zvážit"
+  'limited information',              // "based on limited information"
+  'it depends on the context',        // EN hedging
+  'I recommend consulting',           // EN hedging
+  'feel free to ask',                 // EN hedging
+  // v58.2: Polish/Spanish language leaks (Qwen contamination)
+  'informacje',                       // PL: "informacje są ograniczone"
+  'ograniczone',                      // PL: limited
+  'zalecam',                          // PL: I recommend
+  'lo siento',                        // ES: I'm sorry
+  'no puedo',                         // ES: I cannot
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -483,11 +520,67 @@ export const FORBIDDEN_PHRASES = [
 
 const SEARCH_PATTERNS = [
   /najdi/i, /hledej/i, /vyhledej/i, /search/i, /find/i,
-  /co je/i, /kdo je/i, /what is/i, /who is/i,
+  // v58.1: "co je / what is" ONLY with fresh-data modifier or proper noun signal
+  // "co je neuronová síť" = knowledge → CONVERSATIONAL (LLM knows this)
+  // "co je aktuální kurz" = fresh data → SEARCH
+  /co je .{0,15}\b(aktuáln|současn|dnes|teď|nyn|cena|kurz|verze|stav|nového?|nových)\b/i,
+  /kdo je/i, /who is/i,   // "kdo je prezident" needs fresh lookup
+  /what is .{0,15}(current|latest|today|price|version|status|new)/i,
   /aktuální/i, /current/i, /latest/i, /nejnovější/i,
   /cena/i, /price/i, /kolik stojí/i, /how much/i,
   /kde (je|jsou|najdu)/i, /where (is|are|can)/i,
   /kdy (je|jsou|bude)/i, /when (is|are|will)/i,
+];
+
+// v58.1: KNOWLEDGE patterns — "co je X" / "what is X" for general knowledge
+// These go to CONVERSATIONAL/ANSWER, NOT SEARCH.
+// Must be checked AFTER SEARCH_PATTERNS in classification order (SEARCH now narrowed).
+export const KNOWLEDGE_EXPLANATION_PATTERNS = [
+  // ─── CZ: "co je" + general concept (no fresh-data modifier) ─────────────
+  /^co\s+je\s+/i,         // "co je neuronová síť", "co je Python"
+  /^co\s+jsou\s+/i,       // "co jsou hashovací tabulky"
+  /^co\s+znamená\s+/i,    // "co znamená OOP"
+  /^co\s+to\s+je/i,       // "co to je za strukturu"
+  // CZ: "jaký je rozdíl" — comparison questions (LLM knowledge)
+  /jak[ýy]\s+je\s+rozd[ií]l/i,
+  /jak[ýy]\s+je\s+rozdil/i,  // no diacritics
+  // CZ: "vysvětli" — explanation requests
+  /vysv[eě]tli/i,
+  /vysvetli/i,   // no diacritics
+  /popiš/i, /popis/i,
+  // CZ: "jak funguje" — mechanism questions (LLM knowledge)
+  /jak\s+(to\s+)?funguje/i,
+  /jak\s+(to\s+)?funguj/i,
+  /jak\s+(to\s+)?fungují/i,
+  // ─── v58.2: EXPANDED CZ knowledge question forms ──────────────────────
+  /jak\s+se\s+(dělá|dela|tvoří|tvori|vyrábí|vyrabi|říká|rika|počítá|pocita|měří|meri)/i,
+  /jak\s+vzniká/i, /jak\s+vznikaji/i,
+  /jak\s+probíhá/i,
+  /proč\s+(je|jsou|se)\s+/i,       // "proč je nebe modré", "proč se říká"
+  /proc\s+(je|jsou|se)\s+/i,       // no diacritics
+  /kde\s+(je|jsou)\s+.{0,20}(v\s+těle|v\s+tele|v\s+organismu|anatomicky|v\s+přírodě|v\s+prirode)/i,
+  /kdo\s+(vynalezl|vytvořil|vytvoril|objevil|navrhl|založil|zalozil|napsal|vymyslel|byl\s+první)/i,
+  /kdo\s+je\s+.{0,20}(v\s+historii|postava|autor|spisovatel|filosof|vědec|vedec|malíř|malir|skladatel)/i,
+  /co\s+způsobuje/i, /co\s+zpusobuje/i,
+  /co\s+(dělá|dela)\s+/i,          // "co dělá insulin"
+  /kdy\s+(vznikl|vznikla|byl[ao]?\s+(vynalezen|objeveno|založen))/i,
+  /kolik\s+(má|ma)\s+.{0,20}(nohou|očí|oci|planet|dnů|dni|kostí|kosti|strun)/i,
+  // ─── EN: "what is" + general concept ─────────────────────────────────────
+  /^what\s+is\s+/i,        // "what is a neural network"
+  /^what\s+are\s+/i,       // "what are hash tables"
+  /^what\s+does\s+.*mean/i, // "what does OOP mean"
+  /explain/i,
+  /describe/i,
+  /difference\s+between/i,
+  /how\s+does.*work/i,
+  /how\s+do.*work/i,
+  // ─── v58.2: EXPANDED EN knowledge question forms ──────────────────────
+  /how\s+is\s+.{0,30}(made|created|formed|calculated|measured|produced)/i,
+  /why\s+(is|are|does|do)\s+/i,    // "why is the sky blue"
+  /who\s+(invented|created|discovered|designed|founded|wrote|was\s+the\s+first)/i,
+  /what\s+(causes|makes)\s+/i,     // "what causes rain"
+  /when\s+was\s+.{0,30}(invented|discovered|founded|built|created|written)/i,
+  /how\s+many\s+.{0,20}(legs|eyes|planets|days|bones|strings|continents|oceans)/i,
 ];
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -630,14 +723,14 @@ const REPORT_PATTERNS = [
 ];
 
 const FACTUAL_PATTERNS = [
-  /počasí/i, /pocasi/i, /weather/i,
-  /kurz/i, /exchange rate/i,
-  /akcie/i, /stock/i,
-  /bitcoin/i, /crypto/i, /krypto/i,
-  /zpráv[ay]/i, /zprav[ay]?/i, /news/i,    // v57.3: "zpravy" + "zprav" without diacritics
-  /výsledk[yů]/i, /vysledk/i, /results/i, /score/i,
-  /statistik/i, /statistic/i,
-  /novinky/i,                                // v57.3: "novinky" (Czech news)
+  /\bpočasí\b/i, /\bpocasi\b/i, /\bweather\b/i,
+  /\bkurz\b/i, /\bexchange rate\b/i,      // v58.1: \b prevents "kurz" inside "rekurze"
+  /\bakcie\b/i, /\bstock\b/i,
+  /\bbitcoin\b/i, /\bcrypto\b/i, /\bkrypto\b/i,
+  /\bzpráv[ay]\b/i, /\bzprav[ay]?\b/i, /\bnews\b/i,    // v57.3: "zpravy" + "zprav" without diacritics
+  /\bvýsledk[yů]/i, /\bvysledk/i, /\bresults\b/i, /\bscore\b/i,
+  /\bstatistik/i, /\bstatistic/i,
+  /\bnovinky\b/i,                                // v57.3: "novinky" (Czech news)
 ];
 
 const CODE_PATTERNS = [
@@ -653,6 +746,17 @@ const CODE_PATTERNS = [
   /funkci pro/i,              // "funkci pro sčítání"
   /class\s+\w+/i,             // "class Foo"
   /function\s+\w+/i,          // "function bar"
+  // v58.1: Imperative + technical artifact (prevents ASK_USER for clear requests)
+  /napi[sš]\s+.{0,30}(server|api|endpoint|handler|parser|crawler|bot|cli|script|modul|komponent)/i,
+  /vytvo[rř]\s+.{0,30}(server|api|endpoint|handler|parser|crawler|bot|cli|script|modul|komponent)/i,
+  /ud[eě]lej\s+.{0,30}(server|api|endpoint|handler|parser|crawler|bot|cli|script)/i,
+  /naprogramuj/i,              // "naprogramuj crawler"
+  /write\s+.{0,20}(server|api|endpoint|handler|parser|crawler|bot|cli|script|component|module)/i,
+  /create\s+.{0,20}(server|api|endpoint|handler|parser|crawler|bot|cli|script|component|module)/i,
+  // v58.1: Imperative + language (clear intent to write code)
+  /napi[sš]\s+.{0,40}(python|node|javascript|typescript|java|rust|go|ruby|php|bash|react|vue)/i,
+  /write\s+.{0,30}(python|node|javascript|typescript|java|rust|go|ruby|php|bash|react|vue)/i,
+  /create\s+.{0,30}(python|node|javascript|typescript|java|rust|go|ruby|php|bash|react|vue)/i,
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1131,11 +1235,12 @@ export class CREDecision {
     // v44.8: CREATIVE intent also uses ANSWER (direct ideation, no tools)
     // ════════════════════════════════════════════════════════════════════════
     // v58.0: DESIGN intent also uses ANSWER (structured synthesis, no tools)
-    const ANSWER_ALLOWED_INTENTS = [IntentType.CONVERSATIONAL, IntentType.CREATIVE, IntentType.DESIGN];
+    // v58.1: CODE intent uses ANSWER for imperative+artifact (inline code)
+    const ANSWER_ALLOWED_INTENTS = [IntentType.CONVERSATIONAL, IntentType.CREATIVE, IntentType.DESIGN, IntentType.CODE];
     if (type === DecisionType.ANSWER && !ANSWER_ALLOWED_INTENTS.includes(intent)) {
       const error = new Error(
         `ANSWER_NOT_ALLOWED_FOR_INTENT: Cannot create ANSWER decision for intent "${intent}". ` +
-        `ANSWER is ONLY allowed for CONVERSATIONAL or CREATIVE intent. Use TOOL_CALL or ASK_USER instead.`
+        `ANSWER is ONLY allowed for CONVERSATIONAL, CREATIVE, DESIGN, or CODE intent. Use TOOL_CALL or ASK_USER instead.`
       );
       logger.error('CREDecision', 'INVARIANT VIOLATION', {
         type,
@@ -1395,9 +1500,17 @@ export class CREDecisionEngine {
       return IntentType.FACTUAL;
     }
 
-    // SEARCH patterns
+    // SEARCH patterns (v58.1: narrowed — "co je" only with fresh-data modifiers)
     if (SEARCH_PATTERNS.some(p => p.test(text))) {
       return IntentType.SEARCH;
+    }
+
+    // v58.1: KNOWLEDGE / EXPLANATION — "co je X", "vysvětli Y", "jak funguje Z"
+    // MUST be AFTER SEARCH! SEARCH now only catches "co je + fresh-data".
+    // Remaining "co je neuronová síť" (no fresh-data modifier) → LLM knowledge.
+    // ════════════════════════════════════════════════════════════════════════
+    if (KNOWLEDGE_EXPLANATION_PATTERNS.some(p => p.test(text))) {
+      return IntentType.CONVERSATIONAL;
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -1740,27 +1853,6 @@ export class CREDecisionEngine {
 
     // v58.0: DESIGN is TERMINAL — structured synthesis, NEVER web search
     // ════════════════════════════════════════════════════════════════════════
-    // "navrhni architekturu", "udělej roadmapu", "rozděl na sprinty"
-    // User wants STRUCTURED PLAN from LLM knowledge, not web results.
-    // DESIGN uses ANSWER (no tools), with specialized system prompt.
-    // ════════════════════════════════════════════════════════════════════════
-    if (intent === IntentType.DESIGN) {
-      return new CREDecision({
-        type: DecisionType.ANSWER,   // NOT TOOL_CALL! Pure LLM synthesis
-        intent,
-        tools: [],                    // EMPTY — no web.search, no scrape
-        reason: 'DESIGN is terminal - structured synthesis from LLM knowledge',
-        confidence: 0.9,
-        metadata: {
-          inputPreview: input.substring(0, 200),
-          designRequest: true,
-          taskType: TaskType.DESIGN_SYNTHESIS,
-          projectScope,
-        },
-      });
-    }
-
-    // ════════════════════════════════════════════════════════════════════════
     // v44.8 FIX: CREATIVE is TERMINAL - direct answer, NEVER web search
     // ════════════════════════════════════════════════════════════════════════
     // "vymyslet kampaň", "dej mi nápady", "navrhni příběh"
@@ -1776,6 +1868,29 @@ export class CREDecisionEngine {
         metadata: {
           inputPreview: input.substring(0, 100),
           creativeRequest: true,
+          projectScope,
+        },
+      });
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // v58.0: DESIGN is TERMINAL — structured synthesis, NEVER web search
+    // ════════════════════════════════════════════════════════════════════════
+    // "navrhni architekturu", "udělej roadmapu", "rozděl na sprinty"
+    // User wants STRUCTURED PLAN from LLM knowledge, not web results.
+    // DESIGN uses ANSWER (no tools), with specialized system prompt.
+    // ════════════════════════════════════════════════════════════════════════
+    if (intent === IntentType.DESIGN) {
+      return new CREDecision({
+        type: DecisionType.ANSWER,   // NOT TOOL_CALL! Pure LLM synthesis
+        intent,
+        tools: [],                    // EMPTY — no web.search, no scrape
+        reason: 'DESIGN is terminal - structured synthesis from LLM knowledge',
+        confidence: 0.9,
+        metadata: {
+          inputPreview: input.substring(0, 200),
+          designRequest: true,
+          taskType: TaskType.DESIGN_SYNTHESIS,
           projectScope,
         },
       });
@@ -1839,7 +1954,30 @@ export class CREDecisionEngine {
           },
         });
       }
-      // No project context - need clarification about what/where
+
+      // ════════════════════════════════════════════════════════════════════
+      // v58.1 Fix #3: Imperative + artifact → ANSWER (inline code)
+      // "Napiš HTTP server v Node.js" → user wants CODE, not "vyberte záměr"
+      // ASK_USER only for truly ambiguous: "něco s Pythonem", "pomoz s kódem"
+      // NOTE: No \b boundaries — broken with Czech diacritics (š, ž, etc.)
+      // ════════════════════════════════════════════════════════════════════
+      const IMPERATIVE_WITH_ARTIFACT = /(napi[sš]|vytvo[rř]|ud[eě]lej|implementuj|naprogramuj|write|create|implement|code|build)\s.{0,30}(server|api|funkc[ie]|function|script|komponent|component|modul|class|tříd|endpoint|handler|parser|crawler|bot|cli|app)/i;
+      const IMPERATIVE_WITH_LANG = /(napi[sš]|vytvo[rř]|ud[eě]lej|write|create|implement)\s.{0,40}(python|node|javascript|typescript|java|c\+\+|rust|go|ruby|php|bash|sql|html|css|react|vue|angular|swift|kotlin)/i;
+
+      if (IMPERATIVE_WITH_ARTIFACT.test(input) || IMPERATIVE_WITH_LANG.test(input)) {
+        return new CREDecision({
+          type: DecisionType.ANSWER,
+          intent,
+          reason: 'Code intent with clear imperative + artifact — inline code response (no project needed)',
+          confidence: 0.85,
+          metadata: {
+            inlineCode: true,
+            noProjectRequired: true,
+          },
+        });
+      }
+
+      // Truly ambiguous CODE — need clarification
       return new CREDecision({
         type: DecisionType.ASK_USER,
         intent,
@@ -1943,13 +2081,15 @@ export function assertDecision(decision) {
     throw new Error(`INVALID_DECISION: Unknown intent type "${decision.intent}"`);
   }
 
-  // CRITICAL INVARIANT: ANSWER only for CONVERSATIONAL or CREATIVE
+  // CRITICAL INVARIANT: ANSWER only for CONVERSATIONAL, CREATIVE, DESIGN, or CODE
   // v44.8: CREATIVE is also a direct-answer intent (ideation, not web search)
-  const ANSWER_ALLOWED_INTENTS = [IntentType.CONVERSATIONAL, IntentType.CREATIVE];
+  // v58.0: DESIGN intent also uses ANSWER (structured synthesis, no tools)
+  // v58.1: CODE intent uses ANSWER for imperative+artifact (inline code)
+  const ANSWER_ALLOWED_INTENTS = [IntentType.CONVERSATIONAL, IntentType.CREATIVE, IntentType.DESIGN, IntentType.CODE];
   if (decision.type === DecisionType.ANSWER && !ANSWER_ALLOWED_INTENTS.includes(decision.intent)) {
     throw new Error(
       `INVALID_DECISION_FLOW: ANSWER decision for intent "${decision.intent}". ` +
-      `ANSWER is only valid for CONVERSATIONAL or CREATIVE intents.`
+      `ANSWER is only valid for CONVERSATIONAL, CREATIVE, DESIGN, or CODE intents.`
     );
   }
 

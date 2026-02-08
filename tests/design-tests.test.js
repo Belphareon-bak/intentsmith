@@ -155,8 +155,8 @@ assert('"end-to-end plan for the app" → DESIGN',
 // ═══════════════════════════════════════════════════════════════════════════
 section('2A. DESIGN vs SEARCH disambiguation');
 
-assert('"co je Flutter" → SEARCH (not DESIGN)',
-  classifyIntent('co je Flutter') === IntentType.SEARCH);
+assert('"co je Flutter" → CONVERSATIONAL (not DESIGN)',  // v58.2: "co je" knowledge → CONVERSATIONAL
+  classifyIntent('co je Flutter') === IntentType.CONVERSATIONAL);
 
 assert('"jaká je nejnovější verze React" → SEARCH (not DESIGN)',
   classifyIntent('jaká je nejnovější verze React') !== IntentType.DESIGN);

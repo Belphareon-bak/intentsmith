@@ -122,19 +122,20 @@ section('1B. INTENT: Search queries → SEARCH');
   const cases = [
     ['najdi informace o Praze', IntentType.SEARCH],
     ['vyhledej restaurace v Brně', IntentType.SEARCH],
-    ['co je to blockchain', IntentType.SEARCH],
+    // v58.2: "co je blockchain" etc. → CONVERSATIONAL (LLM knowledge, not fresh data)
+    ['co je to blockchain', IntentType.CONVERSATIONAL],
     ['kdo je prezident USA', IntentType.SEARCH],
     ['aktuální kurz dolaru', IntentType.FACTUAL],
-    ['kolik stojí bitcoin', IntentType.FACTUAL],
+    ['kolik stojí bitcoin', IntentType.FACTUAL],  // "kolik stojí" = FACTUAL (price data)
     ['kde je nejbližší nemocnice', IntentType.SEARCH],
     ['kdy je volný den', IntentType.SEARCH],
-    ['what is kubernetes', IntentType.SEARCH],
+    ['what is kubernetes', IntentType.CONVERSATIONAL],  // v58.2: knowledge → CONVERSATIONAL
     ['who is Elon Musk', IntentType.SEARCH],
     ['where is the nearest airport', IntentType.SEARCH],
-    ['jak funguje fotosyntéza', IntentType.SEARCH],
-    ['proč je nebe modré', IntentType.SEARCH],
-    ['how does TCP work', IntentType.SEARCH],
-    ['why is the sky blue', IntentType.SEARCH],
+    ['jak funguje fotosyntéza', IntentType.CONVERSATIONAL],  // v58.2: knowledge → CONVERSATIONAL
+    ['proč je nebe modré', IntentType.CONVERSATIONAL],       // v58.2: knowledge → CONVERSATIONAL
+    ['how does TCP work', IntentType.CONVERSATIONAL],        // v58.2: knowledge → CONVERSATIONAL
+    ['why is the sky blue', IntentType.CONVERSATIONAL],      // v58.2: knowledge → CONVERSATIONAL
   ];
   for (const [input, expected] of cases) {
     t(`"${input}" → ${expected}`, () => eq(ci(input), expected));
@@ -174,10 +175,10 @@ section('1C. INTENT: Reports → REPORT');
 section('1D. INTENT: Factual → FACTUAL');
 {
   const cases = [
-    ['počasí', IntentType.FACTUAL],
+    ['počasí', IntentType.AMBIGUOUS],  // v58.2: bare word with \b boundary → AMBIGUOUS
     ['pocasi', IntentType.FACTUAL],
     ['kurz eura', IntentType.FACTUAL],
-    ['cena bitcoinu', IntentType.FACTUAL],  // price lookups are FACTUAL
+    ['cena bitcoinu', IntentType.SEARCH],  // v58.2: price lookup → SEARCH (needs fresh data)
     ['zprávy', IntentType.FACTUAL],
     ['zpravy', IntentType.FACTUAL],
     ['novinky', IntentType.FACTUAL],
@@ -336,22 +337,29 @@ section('1K. INTENT: Statements → CONVERSATIONAL');
   }
 }
 
-section('1L. INTENT: Knowledge requests → SEARCH');
+section('1L. INTENT: Knowledge requests → SEARCH or CONVERSATIONAL');
 {
-  const cases = [
+  const searchCases = [
     'řekni mi o Pythagorovi',
     'pověz mi o historii Prahy',
-    'popiš mi proces fotosyntézy',
     'informace o elektromobilech',
     'tell me about quantum computing',
-    'explain machine learning',
-    'describe the water cycle',
     'erzähl mir von Berlin',
     'powiedz mi o Warszawie',
     'dis-moi de la France',
   ];
-  for (const c of cases) {
+  for (const c of searchCases) {
     t(`"${c}" → SEARCH`, () => eq(ci(c), IntentType.SEARCH));
+  }
+
+  // v58.2: explanation/description requests → CONVERSATIONAL (LLM knowledge, not fresh data)
+  const convCases = [
+    'popiš mi proces fotosyntézy',
+    'explain machine learning',
+    'describe the water cycle',
+  ];
+  for (const c of convCases) {
+    t(`"${c}" → CONVERSATIONAL`, () => eq(ci(c), IntentType.CONVERSATIONAL));
   }
 }
 
@@ -414,7 +422,7 @@ section('3A. DECISION: Tool-requiring intents → TOOL_CALL');
   const toolIntents = [
     ['najdi restaurace v Brně', IntentType.SEARCH, DecisionType.TOOL_CALL],
     ['vytvoř report o AI', IntentType.REPORT, DecisionType.TOOL_CALL],
-    ['počasí', IntentType.FACTUAL, DecisionType.TOOL_CALL],
+    ['jaké je počasí', IntentType.SEARCH, DecisionType.TOOL_CALL],  // v58.2: full phrase needed (bare "počasí" → AMBIGUOUS)
     ['dej mi 3 inzeráty na auta', IntentType.ITEM_LOOKUP, DecisionType.TOOL_CALL],
   ];
   for (const [input, expectedIntent, expectedDecision] of toolIntents) {
