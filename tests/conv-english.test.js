@@ -62,8 +62,8 @@ async function runConversation(ChatController, convNum, title, messages) {
       if (!result.response) throw new Error('Empty response');
       // Detect graceful error messages that mask real failures
       const resp = result.response;
-      if (/LLM failed|fetch failed|circuit breaker|error processing|could not process/i.test(resp)) {
-        throw new Error(`LLM error in response: ${resp.substring(0, 120)}`);
+      if (/LLM failed|fetch failed|circuit breaker|error processing|could not process|Failed to process|No search results|toJSON is not a function/i.test(resp)) {
+        throw new Error(`Pipeline error: ${resp.substring(0, 150)}`);
       }
       printStep(convNum, i + 1, msg, resp, {
         mode: result.mode,

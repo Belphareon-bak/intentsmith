@@ -62,8 +62,8 @@ async function runConversation(ChatController, convNum, title, messages) {
       if (!result.response) throw new Error('Prazdna odpoved');
       // Detect graceful error messages that mask real failures
       const resp = result.response;
-      if (/LLM failed|fetch failed|circuit breaker|Chyba zpracování|nemohl zpracovat/i.test(resp)) {
-        throw new Error(`LLM error v odpovedi: ${resp.substring(0, 120)}`);
+      if (/LLM failed|fetch failed|circuit breaker|Chyba zpracování|nemohl zpracovat|Nepodařilo se zpracovat|No search results|toJSON is not a function/i.test(resp)) {
+        throw new Error(`Pipeline error: ${resp.substring(0, 150)}`);
       }
       printStep(convNum, i + 1, msg, resp, {
         mode: result.mode,
