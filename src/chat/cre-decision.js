@@ -101,6 +101,13 @@ export const ToolType = {
   LOCAL_DATE: 'local.date',           // Current date/time
   LOCAL_CALENDAR: 'local.calendar',   // Calendar calculations
   LOCAL_MATH: 'local.math',           // Mathematical calculations
+  // v57.3 - Accountant expert tools (deterministic, no LLM)
+  TAX_CALCULATOR: 'accountant.tax_calculator',
+  VAT_CALCULATOR: 'accountant.vat_calculator',
+  SALARY_CALCULATOR: 'accountant.salary_calculator',
+  DEADLINE_CHECKER: 'accountant.deadline_checker',
+  COMPARE_TAX_ENTITIES: 'accountant.compare_tax_entities',
+  COMPARE_SALARIES: 'accountant.compare_salaries',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

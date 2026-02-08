@@ -24,6 +24,11 @@ import { ToolType, DecisionType, IntentType } from '../chat/cre-decision.js';
 import { searchWeb, fetchPage, getProviderStatus } from '../llm/web-search.js';
 import { CircuitBreaker, CircuitState } from './circuit-breaker.js';
 import { canonicalizeQuery } from './query-canonicalizer.js';
+// v57.3 — Accountant expert tools (lazy-loaded in registerBuiltinHandlers)
+import { calculateTax, compareTaxEntities } from '../experts/tools/tax-calc.js';
+import { calculateVAT } from '../experts/tools/vat-calc.js';
+import { calculateSalary, compareSalaries } from '../experts/tools/salary-calc.js';
+import { checkDeadlines } from '../experts/tools/deadline-checker.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // v56.2 Sprint B: Search Query Sanitization
@@ -528,6 +533,26 @@ export class ToolExecutor {
 
     this.register(ToolType.LOCAL_MATH, async (params) => {
       return await this.executeLocalMath(params);
+    });
+
+    // v57.3 — Accountant expert tools (deterministic, no LLM)
+    this.register(ToolType.TAX_CALCULATOR, async (params) => {
+      return calculateTax(params);
+    });
+    this.register(ToolType.VAT_CALCULATOR, async (params) => {
+      return calculateVAT(params);
+    });
+    this.register(ToolType.SALARY_CALCULATOR, async (params) => {
+      return calculateSalary(params);
+    });
+    this.register(ToolType.DEADLINE_CHECKER, async (params) => {
+      return checkDeadlines(params);
+    });
+    this.register(ToolType.COMPARE_TAX_ENTITIES, async (params) => {
+      return compareTaxEntities(params.gross_income, params);
+    });
+    this.register(ToolType.COMPARE_SALARIES, async (params) => {
+      return compareSalaries(params.gross_levels, params);
     });
   }
 
