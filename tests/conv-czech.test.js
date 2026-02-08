@@ -64,7 +64,12 @@ async function runConversation(ChatController, convNum, title, messages) {
     try {
       const result = await ChatController.handle({ message: msg, sessionId });
       if (!result.response) throw new Error('Prázdná odpověď');
-      printStep(convNum, i + 1, msg, result.response, {
+      // Detect graceful error messages that mask real failures
+      const resp = result.response;
+      if (/LLM failed|fetch failed|circuit breaker|Chyba zpracování|nemohl zpracovat/i.test(resp)) {
+        throw new Error(`LLM error v odpovedi: ${resp.substring(0, 120)}`);
+      }
+      printStep(convNum, i + 1, msg, resp, {
         mode: result.mode,
         model: result.metadata?.model,
         duration: result.metadata?.duration,
@@ -90,8 +95,20 @@ try {
   const r = await fetch(`${OLLAMA_URL}/api/tags`);
   ollamaOk = r.ok;
 } catch { /* */ }
-if (!ollamaOk) { console.error('❌ Ollama nedostupná'); process.exit(1); }
-console.log('  ✅ Ollama dostupná\n');
+if (!ollamaOk) { console.error('Ollama nedostupna (HTTP check failed)'); process.exit(1); }
+
+// Real LLM check — generate a single token to verify GPU/model is loaded
+let llmOk = false;
+try {
+  const r = await fetch(`${OLLAMA_URL}/api/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'qwen2.5:32b', prompt: 'Say OK', stream: false, options: { num_predict: 5 } }),
+  });
+  llmOk = r.ok && (await r.json()).response?.length > 0;
+} catch { /* */ }
+if (!llmOk) { console.error('Ollama bezi, ale LLM model neodpovida (GPU neni ready?)'); process.exit(1); }
+console.log('  Ollama + LLM OK\n');
 
 // Suppress noisy pipeline logs
 const _origLog = console.log;
