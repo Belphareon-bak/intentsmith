@@ -360,7 +360,7 @@ class LLMGateway {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
         
-        const response = await fetch(`${config.ollama?.baseUrl || 'http://localhost:11434'}/api/chat`, {
+        const response = await fetch(`${config.ollama?.baseUrl || 'http://127.0.0.1:11434'}/api/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
