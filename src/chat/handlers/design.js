@@ -148,8 +148,15 @@ ${defaultsText}`;
 }
 
 function buildDesignContinueSystemPrompt(language, project) {
+  // v58.3: Role lock — re-injected on every CONTINUE turn to prevent
+  // LLM from drifting to chatbot tone after 2-3 turns.
+  const turnCount = project.turnCount || 1;
+
   const baseInstruction = language === 'cs' || language === 'sk'
-    ? `Jsi zkušený softwarový architekt. Pokračuješ v návrhu projektu.
+    ? `═══ ROLE LOCK: ARCHITEKT (turn ${turnCount + 1}) ═══
+Jsi VÝHRADNĚ softwarový architekt a tech lead. NE chatbot, NE asistent.
+Toto je pokračování design session — drž profesionální, autoritativní tón.
+Rozhoduj se. Neomlouvej se. Nenavrhuj "konzultaci s odborníkem".
 
 JAZYK: Odpovídej VÝHRADNĚ ${language === 'cs' ? 'ČESKY' : 'SLOVENSKY'}.
 
@@ -159,8 +166,11 @@ PRAVIDLA:
 - Zachovej konzistenci s předchozími rozhodnutími (stack, architektura).
 - Pokud uživatel mění direction, explicitně řekni co se mění a proč.
 - Buď konkrétní — čísla, názvy, příkazy.
-- ZAKÁZANÉ FRÁZE: "informace jsou omezené", "doporučuji konzultovat", "neváhejte se zeptat"`
-    : `You are an experienced software architect. You are continuing a project design.
+- ZAKÁZANÉ FRÁZE: "informace jsou omezené", "doporučuji konzultovat", "neváhejte se zeptat", "záleží na kontextu"`
+    : `═══ ROLE LOCK: ARCHITECT (turn ${turnCount + 1}) ═══
+You are EXCLUSIVELY a software architect and tech lead. NOT a chatbot, NOT an assistant.
+This is a continuation of a design session — maintain professional, authoritative tone.
+Make decisions. Don't apologize. Don't suggest "consulting an expert".
 
 LANGUAGE: Respond EXCLUSIVELY IN ENGLISH.
 
@@ -169,7 +179,8 @@ RULES:
 - Expand/refine the requested section.
 - Maintain consistency with previous decisions (stack, architecture).
 - If user changes direction, explicitly state what changes and why.
-- Be specific — numbers, names, commands.`;
+- Be specific — numbers, names, commands.
+- FORBIDDEN: "limited information", "it depends on the context", "feel free to ask"`;
 
   return baseInstruction;
 }
@@ -350,7 +361,7 @@ export async function handleDesignDecision(input, decision, context) {
           reason: gateVerdict.reason,
           retry,
         });
-        currentUserPrompt = buildOutputGateRetryPrompt(currentUserPrompt, gateVerdict);
+        currentUserPrompt = buildOutputGateRetryPrompt(currentUserPrompt, gateVerdict, { language: langCtx.language });
         retry++;
         continue;
       }
@@ -410,7 +421,22 @@ export async function handleDesignDecision(input, decision, context) {
       }
     }
 
-    // 6. Return result
+    // 6. Quality metrics telemetry (v58.3 — log, not gate)
+    const finalQuality = assertDesignQuality(result.content, input);
+    logger.info('DesignMetrics', 'DESIGN response quality', {
+      intent: 'DESIGN',
+      projectType,
+      sections_present: finalQuality.details?.sections ?? '?',
+      forbidden_hits: finalQuality.details?.hedging?.length ?? 0,
+      length: result.content.length,
+      retries: retry,
+      model: result.model,
+      duration: result.duration,
+      valid: finalQuality.valid,
+      language: langCtx.language,
+    });
+
+    // 7. Return result
     const tag = new ResponseTag({
       speaker: ResponseSpeaker.SYSTEM,
       mode: ChatMode.CONVERSATION,
@@ -520,6 +546,21 @@ export async function handleDesignContinue(input, decision, context) {
         sessionState.saveToStorage();
       }
     }
+
+    // v58.3: Quality metrics telemetry (CONTINUE)
+    logger.info('DesignMetrics', 'DESIGN_CONTINUE response quality', {
+      intent: 'DESIGN_CONTINUE',
+      projectType: project.type,
+      turn: project.turnCount + 1,
+      sections_present: qualityCheck.details?.sections ?? '?',
+      forbidden_hits: qualityCheck.details?.hedging?.length ?? 0,
+      length: result.content.length,
+      retries: 0,
+      model: result.model,
+      duration: result.duration,
+      valid: qualityCheck.valid,
+      language: project.language,
+    });
 
     const tag = new ResponseTag({
       speaker: ResponseSpeaker.SYSTEM,

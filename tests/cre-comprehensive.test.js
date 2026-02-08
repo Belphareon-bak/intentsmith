@@ -178,7 +178,7 @@ section('1D. INTENT: Factual → FACTUAL');
     ['počasí', IntentType.AMBIGUOUS],  // v58.2: bare word with \b boundary → AMBIGUOUS
     ['pocasi', IntentType.FACTUAL],
     ['kurz eura', IntentType.FACTUAL],
-    ['cena bitcoinu', IntentType.SEARCH],  // v58.2: price lookup → SEARCH (needs fresh data)
+    ['cena bitcoinu', IntentType.AMBIGUOUS],  // v58.3: bare 2-word phrase, no question form → AMBIGUOUS
     ['zprávy', IntentType.FACTUAL],
     ['zpravy', IntentType.FACTUAL],
     ['novinky', IntentType.FACTUAL],

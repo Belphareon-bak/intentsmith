@@ -519,22 +519,35 @@ export const FORBIDDEN_PHRASES = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SEARCH_PATTERNS = [
+  // ── Explicit search commands (always SEARCH) ──────────────────────────
   /najdi/i, /hledej/i, /vyhledej/i, /search/i, /find/i,
-  // v58.1: "co je / what is" ONLY with fresh-data modifier or proper noun signal
-  // "co je neuronová síť" = knowledge → CONVERSATIONAL (LLM knows this)
-  // "co je aktuální kurz" = fresh data → SEARCH
+
+  // ── "co je" / "what is" ONLY with fresh-data modifier ─────────────────
   /co je .{0,15}\b(aktuáln|současn|dnes|teď|nyn|cena|kurz|verze|stav|nového?|nových)\b/i,
-  /kdo je/i, /who is/i,   // "kdo je prezident" needs fresh lookup
   /what is .{0,15}(current|latest|today|price|version|status|new)/i,
+
+  // ── Standalone fresh-data keywords ────────────────────────────────────
   /aktuální/i, /current/i, /latest/i, /nejnovější/i,
-  /cena/i, /price/i, /kolik stojí/i, /how much/i,
-  /kde (je|jsou|najdu)/i, /where (is|are|can)/i,
-  /kdy (je|jsou|bude)/i, /when (is|are|will)/i,
+  /kolik stojí/i,       // "kolik stojí X" = price query (inherently fresh)
+
+  // ── v58.3: REMOVED overly broad patterns (now handled by Tier 1 FRESH_DATA_SIGNALS) ──
+  // REMOVED: /kdo je/i, /who is/i → "kdo je Einstein" = knowledge
+  // REMOVED: /cena/i, /price/i → "cena míru", "price of freedom" = knowledge
+  // REMOVED: /how much/i → "how much does the earth weigh" = knowledge
+  // REMOVED: /kde (je|jsou|najdu)/i → "kde je Mount Everest" = knowledge
+  // REMOVED: /where (is|are|can)/i → "where is the Eiffel Tower" = knowledge
+  // REMOVED: /kdy (je|jsou|bude)/i → "kdy byl vynalezen telefon" = knowledge
+  // REMOVED: /when (is|are|will)/i → "when was Rome founded" = knowledge
+  // All above now fall through to Tier 1 which routes to SEARCH only if
+  // FRESH_DATA_SIGNALS are present (aktuální, dnes, teď, current, today, etc.)
+
+  // ── Kept: explicit location search ────────────────────────────────────
+  /kde\s+najdu/i,       // "kde najdu lékárnu" = needs web search (but not "kde je")
 ];
 
 // v58.1: KNOWLEDGE patterns — "co je X" / "what is X" for general knowledge
 // These go to CONVERSATIONAL/ANSWER, NOT SEARCH.
-// Must be checked AFTER SEARCH_PATTERNS in classification order (SEARCH now narrowed).
+// Must be checked BEFORE SEARCH_PATTERNS in classification order.
 export const KNOWLEDGE_EXPLANATION_PATTERNS = [
   // ─── CZ: "co je" + general concept (no fresh-data modifier) ─────────────
   /^co\s+je\s+/i,         // "co je neuronová síť", "co je Python"
@@ -891,6 +904,9 @@ export const DESIGN_CONTINUE_PATTERNS = [
   /co\s+s\s+.{0,15}(test|deploy|CI|bezpe[cč])/i,
   /(?:a\s+)?co\s+.{0,10}(rizik|alternativ)/i,
 
+  // Expansion / elaboration
+  /roz[sš]i[rř]\s+.{0,15}(datov|model|sch[eé]ma|api|modul)/i,
+
   // Modification requests
   /zm[eě][nň]\s+.{0,15}(stack|technologi|framework)/i,
   /m[ií]sto\s+.{0,15}(Flutter|React|Kotlin|Swift|Next|Node)/i,
@@ -989,7 +1005,7 @@ const LOCAL_DETERMINISTIC_PATTERNS = [
   /jak[ýyéae].*(den|datum|rok|m[eě]s[ií]c)/i,     // "jaký/jaky je dnes den"
   /dnes.*datum/i,                          // "jaké je dnes datum"
   /kolik[áa]t[ée]ho/i,                    // "kolikátého/kolikateho je"
-  /what.*day/i, /what.*date/i, /what.*time/i,
+  /what\s+(is\s+(the\s+)?)?\bday\b/i, /what.*\bdate\b/i, /what.*\btime\b/i,
   // Calendar/astronomy (deterministic calculations)
   /fáze měsíce/i, /moon phase/i,
   /za kolik dn[ií]/i,                     // "za kolik dní/dni bude..."
@@ -1465,7 +1481,10 @@ export class CREDecisionEngine {
     // not CREATIVE. DESIGN patterns are more specific (require tech nouns).
     // Generic "navrhni" falls through to CREATIVE.
     // ════════════════════════════════════════════════════════════════════════
-    if (DESIGN_PATTERNS.some(p => p.test(text))) {
+    // v58.3: Anti-creative guard — "nápady na názvy", "příběh", "jídelníček", "barvy pro logo"
+    // contain DESIGN nouns (aplikac) but intent is CREATIVE, not architecture
+    const DESIGN_ANTI_CREATIVE = /n[áa]pad[yů]?\s+na\s+n[áa]zv|p[rř][ií]b[eě]h|j[ií]deln[ií][cč]ek|barv[yu]?\s+(pro|na)\b/i;
+    if (DESIGN_PATTERNS.some(p => p.test(text)) && !DESIGN_ANTI_CREATIVE.test(text)) {
       return IntentType.DESIGN;
     }
 
@@ -1572,22 +1591,25 @@ export class CREDecisionEngine {
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // v56.2 Sprint A: STRICT question-word catch-all
+    // v58.3: RESTRUCTURED question-word catch-all
     // ════════════════════════════════════════════════════════════════════════
-    // BEFORE v56.2: /\?|jak|co|kdo|kde|kdy|proč|how|what|who|where|when|why/
-    // This was too aggressive — matched "Jak se máš?", "Co děláš?", "Opravdu?"
+    // BEFORE v58.3: All compound question forms → SEARCH (massive false positive rate)
+    //   "jak se jmenuje hlavní město Francie" → SEARCH (LLM knows this)
+    //   "kolik planet má sluneční soustava" → SEARCH (LLM knows this)
     //
-    // NOW: Two-tier approach:
-    // Tier 1: Compound info-seeking phrases → always SEARCH
-    // Tier 2: Question words in substantive text (>15 chars, 3+ words) → SEARCH
-    //         Short/bare question words → AMBIGUOUS
+    // NOW: Question form + FRESH_DATA_SIGNAL → SEARCH
+    //      Question form WITHOUT fresh signal → CONVERSATIONAL (LLM knowledge)
+    //
+    // FRESH_DATA_SIGNALS: keywords indicating the answer changes over time
+    // (prices, versions, weather, news, current status, live scores)
     // ════════════════════════════════════════════════════════════════════════
 
-    // Tier 1: Compound phrases (high confidence → SEARCH)
+    // Tier 1: Compound info-seeking phrases (CZ/SK/DE/PL/FR/ES/EN)
     // NOTE: Cannot use \b with non-ASCII chars (č, ľ, ó, ñ, é etc. are \W in JS).
     //       Use (?:^|\s) for start boundary and (?:\s|[?!.,;]|$) for end.
+    const hasCompoundQuestionForm =
     // CZ (ASCII-safe subset can use \b)
-    if (/\b(co je|co jsou|co to je|kdo je|kdo byl|kde je|kde jsou|kdy bude|kdy je|kdy byl|jak funguje|jak fungují|jak se dělá|jak se tvoří|jak vzniká)\b/i.test(text) ||
+        /\b(co je|co jsou|co to je|kdo je|kdo byl|kde je|kde jsou|kdy bude|kdy je|kdy byl|jak funguje|jak fungují|jak se dělá|jak se tvoří|jak vzniká)\b/i.test(text) ||
         /(?:^|\s)(proč je|proč jsou|proč se)(?:\s|[?!.,;]|$)/i.test(text) ||
         /(?:^|\s)(jak[áéý] je|jak[áéý] jsou|jak[áéý] byl[aoy]?|kolik je|kolik má|kolik stojí)(?:\s|[?!.,;]|$)/i.test(text) ||
     // SK (ľ, č, ý, ô etc. — must avoid \b)
@@ -1601,19 +1623,63 @@ export class CREDecisionEngine {
     // ES (ñ, á, é, í, ó, ú — must avoid \b)
         /(?:^|\s)(qué es|qué son|quién es|quién fue|dónde está|dónde están|cuándo es|cuándo fue|cómo funciona|por qué es|por qué son|cuánto|cuántos|cuál es|cuáles son)(?:\s|[?!.,;]|$)/i.test(text) ||
     // EN (ASCII — \b safe)
-        /\b(what is|what are|what was|who is|who was|where is|where are|when is|when was|how does|how do|how is|why is|why are|why does|how many|how much|which is)\b/i.test(text)) {
-      return IntentType.SEARCH;
-    }
+        /\b(what is|what are|what was|who is|who was|where is|where are|when is|when was|how does|how do|how is|why is|why are|why does|how many|how much|which is)\b/i.test(text);
 
-    // Tier 2: Question words in substantive input (length-gated)
-    // "Kdo vyhrál MS?" = 3 words, 15 chars → SEARCH
-    // "Proč?" = 1 word, 5 chars → AMBIGUOUS
-    // "Ok" = no question word → AMBIGUOUS
+    // Tier 2: Bare question words in substantive text (>12 chars, 3+ words)
     // NOTE: Cannot use \b for Czech/Slovak words — č/ř/ž etc. are \W in JS regex.
     const hasQuestionWord = /(?:^|\s)(jak[áéýoui]?|co|kdo|kde|kdy|proč|kolik|čo|kto|ako|kedy|prečo|koľko|ak[áéý]|was|wer|wo|wann|wie|warum|welch|wieviel|jaki?e?|kto|gdzie|kiedy|dlaczego|ile|qu[eéi]|qui|où|quand|comment|combien|pourquoi|quel|qué|quién|dónde|cuándo|cómo|cuánto|por qué|how|what|who|where|when|why|which)(?:\s|[?!.,;]|$)/i.test(text);
     const wordCount = text.split(/\s+/).length;
-    if (hasQuestionWord && text.length > 12 && wordCount >= 3) {
-      return IntentType.SEARCH;
+    const hasTier2Form = hasQuestionWord && text.length > 12 && wordCount >= 3;
+
+    if (hasCompoundQuestionForm || hasTier2Form) {
+      // ── v58.3: FRESH_DATA_SIGNALS — only these route to SEARCH ────────
+      // Everything else = LLM knowledge (CONVERSATIONAL)
+      const hasFreshSignal =
+        // CZ temporal keywords (no \b — diacritics break it)
+        /aktu[áa]ln|sou[čc]asn|dne[sš]|te[ďd](?:\s|$|[?!.,;])|nyn[ií]|nyn[eě]j[šs]|tento rok|letos/i.test(text) ||
+        // EN temporal keywords (\b safe — ASCII only)
+        /\b(current|today|now|latest|this year|right now|live|real.?time)\b/i.test(text) ||
+        // Price / cost / financial (inherently temporal)
+        /\b(price|stock)\b|cena(?:\s|$|[?!.,;])|kolik\s+stoj[ií]|kurz(?:\s|$|[?!.,;])|verze|version/i.test(text) ||
+        // Weather / news (inherently fresh)
+        /po[čc]as[ií]|weather|forecast|zpr[áa]v|news|novinky/i.test(text) ||
+        // Score / results / status
+        /\b(score|status|result)\b|sk[oó]re|v[ýy]sledek|stav(?:\s|$|[?!.,;])/i.test(text) ||
+        // Location services (opening hours, address, nearest)
+        /otev[rř]en|otev[ií]rac|opening.?hour|\baddress\b|adresa/i.test(text) ||
+        // Proximity / "nearest" queries (location-dependent, inherently fresh)
+        /nejbli[žz][sš][ií]|nejblizsi|\bnearest\b|\bclosest\b/i.test(text) ||
+        // Calendar / schedule queries (voln[ýé] den, holiday, svátek)
+        /voln[ýyée]\s+den|sv[áa]t[eě]k|holiday|state\s+holiday|bank\s+holiday/i.test(text) ||
+        // Living person queries: "kdo je X" / "who is X" (status may change)
+        /kdo\s+je\b|who\s+is\b/i.test(text) ||
+        // DE temporal (stem match)
+        /aktuell|heute|jetzt|derzeit|momentan|neueste/i.test(text) ||
+        // SK temporal
+        /aktu[áa]lne|teraz|s[úu][čc]asn/i.test(text) ||
+        // FR temporal
+        /actuel|maintenant|dernier|aujourd'?hui|en\s+ce\s+moment/i.test(text) ||
+        // ES temporal
+        /actual(?:mente)?|hoy|ahora|último|en\s+este\s+momento/i.test(text) ||
+        // PL temporal (stem match)
+        /aktualn|dzisiaj|teraz|najnowsz/i.test(text) ||
+        // SK/PL/DE/FR/ES living person queries
+        /kto\s+je|wer\s+ist|qui\s+est|quién\s+es/i.test(text);
+
+      // v58.3 §2.2: Log decision for future classifier training data
+      logger.info('FreshDataSignal', 'Question-form classification', {
+        input: text.substring(0, 80),
+        tier: hasCompoundQuestionForm ? 1 : 2,
+        hasFreshSignal,
+        decision: hasFreshSignal ? 'SEARCH' : 'CONVERSATIONAL',
+      });
+
+      if (hasFreshSignal) {
+        return IntentType.SEARCH;
+      }
+
+      // No fresh-data signal → LLM can answer from knowledge
+      return IntentType.CONVERSATIONAL;
     }
 
     // Default to AMBIGUOUS - need clarification

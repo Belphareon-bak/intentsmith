@@ -459,16 +459,14 @@ export function assertDesignQuality(content, input, opts = {}) {
       hedgingViolations.push(pattern.source.substring(0, 40));
     }
   }
-  if (hedgingViolations.length > 0) {
-    details.hedging = hedgingViolations;
-    // Single hedging = warning (still valid), 2+ = fail
-    if (hedgingViolations.length >= 2) {
-      return {
-        valid: false,
-        reason: `Design response contains ${hedgingViolations.length} hedging phrases`,
-        details,
-      };
-    }
+  // v58.3: Always include hedging array in details (for metrics logging even when empty)
+  details.hedging = hedgingViolations;
+  if (hedgingViolations.length >= 2) {
+    return {
+      valid: false,
+      reason: `Design response contains ${hedgingViolations.length} hedging phrases`,
+      details,
+    };
   }
 
   // ─── Section structure check (initial design only) ────────────────────
