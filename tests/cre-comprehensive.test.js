@@ -60,7 +60,7 @@ function t(name, fn) {
     fn();
     passed++;
     sectionStats[currentSection].passed++;
-    // silent pass — only show failures
+    console.log(`  \x1b[32m✅\x1b[0m ${name}`);
   } catch (err) {
     failed++;
     sectionStats[currentSection].failed++;
@@ -912,6 +912,10 @@ section('10E. PRIORITY: BUILD beats CODE');
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// Suppress expected ERROR logs from invariant violation tests (11A-11C)
+const _origLog = console.log;
+console.log = (...args) => { if (!String(args[0]).includes('INVARIANT')) _origLog(...args); };
+
 section('11A. INVARIANT: ANSWER only for CONVERSATIONAL/CREATIVE');
 {
   const toolIntents = [IntentType.SEARCH, IntentType.REPORT, IntentType.FACTUAL];
@@ -960,11 +964,13 @@ section('11C. INVARIANT: BUILD ↔ PLAN mutual enforcement');
   t('BUILD without PLAN → throws', () => {
     let threw = false;
     try {
-      
+
       new CREDecision({ type: DecisionType.TOOL_CALL, intent: IntentType.BUILD, tools: ['web.search'], reason: 'test' });
     } catch (e) { threw = true; }
     ok(threw);
   });
+  // Restore console.log after invariant sections
+  console.log = _origLog;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
