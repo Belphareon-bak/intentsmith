@@ -41,6 +41,17 @@ const PATTERNS = {
     /\b(protože|aby|když|jestli|pokud|než|zatímco)\b/i,
     /\b(něco|někdo|nikdo|nic|všechno|každý)\b/i,
     /\b(tento|tato|toto|těchto|tomto|tohle)\b/i,
+    // v57.3: No-diacritics Czech (users often type without háčky/čárky)
+    /\b(udelej|udělej|udelat|pridat|pridej)\b/i,
+    /\b(zprav[ay]?|novinky|novinek|clanek|clanky)\b/i,
+    /\b(webu|stranky|stranek|stranka)\b/i,
+    /\b(cesky|ceskem|cestine|ceskem\s+jazyce)\b/i,
+    /\b(z\s+webu)\b/i,
+    /\b(mi|mne|nam|vas|tebe)\b/i,
+    /\b(diky|dekuju|dekuji|prosim)\b/i,
+    /\b(zkus|zkusit|zopakuj|zopakovat)\b/i,
+    /\b(pomoc|pomoct|pomoz|pomoci|poradit|porad)\b/i,
+    /\b(chyba|chybi|spatne|spatny|problem)\b/i,
   ],
 
   sk: [

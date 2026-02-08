@@ -6,11 +6,12 @@ import {
   DecisionType,
   IntentType,
   assertDecision,
+  REFORMULATION_PATTERNS,
 } from '../cre-decision.js';
 import { logger } from '../../core/logger.js';
 import { isVagueInput } from './utils/intent.js';
 import { tryResolveClarification, buildResolvedDecision, assessGoalAlignment } from './clarification.js';
-import { handleLocalDecision } from './local.js';
+import { handleLocalDecision, computeCalendar, computeDate } from './local.js';
 import {
   handleToolCallDecision,
   handleAskUserDecision,
@@ -25,6 +26,16 @@ import {
   getActiveBuildHandoff,
   cancelBuildHandoff,
 } from './build-handoff.js';
+
+// v57.3: Patterns for date-correction detection
+const DATE_CORRECTION_PATTERNS = [
+  /dnes\s+(?:je|máme|mame)\s+(?:ale\s+)?\d{1,2}\s*\.\s*\d{1,2}/i,
+  /dneska\s+(?:je|máme)\s+(?:ale\s+)?\d{1,2}\s*\.\s*\d{1,2}/i,
+  /(?:ale\s+)?dnes\s+(?:je|máme)\s+\d{1,2}\s*\.\s*\d{1,2}/i,
+  /(?:dnešní|dnesni|aktuální|aktualni)\s+datum/i,
+  /today\s+is\s+/i,
+  /today'?s\s+date/i,
+];
 
 export async function conversationHandler(input, context) {
   const { sessionId, sessionState } = context;
@@ -124,6 +135,109 @@ export async function conversationHandler(input, context) {
     lastIntent: sessionState?.lastIntent,
     lastDecision: sessionState?.lastDecision,
   };
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // v57.3: DATE CORRECTION HANDLING
+  // ════════════════════════════════════════════════════════════════════════════
+  // "dnes je ale 8.2.2026" after LOCAL computation → confirm date + replay
+  // User is questioning whether we know the correct date.
+  // ════════════════════════════════════════════════════════════════════════════
+  const isDateCorrection = DATE_CORRECTION_PATTERNS.some(p => p.test(input.trim()));
+  if (isDateCorrection && sessionState?.lastDecision) {
+    const previousDecision = sessionState.lastDecision;
+    const previousInput = sessionState.lastUserInput || '';
+
+    logger.info('ConversationHandler', 'Date correction detected', {
+      input: input.substring(0, 50),
+      previousIntent: previousDecision.intent,
+    });
+
+    if (previousDecision.intent === IntentType.LOCAL) {
+      // Replay LOCAL computation — it already uses new Date() so result is correct
+      // Just need to acknowledge and confirm
+      const now = new Date();
+      const todayStr = now.toLocaleDateString('cs-CZ');
+
+      // Re-run the original computation to get fresh result with today's date
+      let recomputedResult;
+      try {
+        if (/úplněk|uplnek|moon/i.test(previousInput)) {
+          recomputedResult = computeCalendar(previousInput);
+        } else {
+          recomputedResult = computeDate(previousInput);
+        }
+      } catch (e) {
+        recomputedResult = { explanation: null };
+      }
+
+      const confirmationMsg = recomputedResult?.explanation
+        ? `Ano, dnes je ${todayStr}. ${recomputedResult.explanation}.`
+        : `Ano, dnes je ${todayStr}. Moje předchozí odpověď byla vypočtena z tohoto data.`;
+
+      // Record and return
+      if (sessionState) {
+        sessionState.recordDecision(previousDecision, input);
+      }
+
+      return {
+        content: `📊 **${confirmationMsg}**`,
+        tag: 'RESPONSE',
+        speaker: 'SYSTEM',
+        mode: context.mode || 'conversation',
+        confidence: 0.95,
+      };
+    }
+    // For non-LOCAL previous intents, fall through to normal processing
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // v57.3: REFORMULATION DETECTION
+  // ════════════════════════════════════════════════════════════════════════════
+  // "zkus to v ceskem jazyce" = replay previous intent, not new classification.
+  // "zkus to znovu" = retry previous action.
+  // Must be checked BEFORE decide() to avoid AMBIGUOUS classification.
+  // ════════════════════════════════════════════════════════════════════════════
+  const isReformulation = REFORMULATION_PATTERNS.some(p => p.test(input.trim()));
+  if (isReformulation && sessionState?.lastDecision) {
+    const previousDecision = sessionState.lastDecision;
+    const previousInput = sessionState.lastUserInput || input;
+
+    logger.info('ConversationHandler', 'Reformulation detected — replaying previous intent', {
+      input: input.substring(0, 50),
+      previousIntent: previousDecision.intent,
+      previousInput: previousInput.substring(0, 50),
+    });
+
+    // Build decision from previous intent with current input context
+    const replayIntent = previousDecision.intent || IntentType.CONVERSATIONAL;
+    const replayTools = creDecisionEngine.getRequiredTools(replayIntent, previousInput);
+
+    // For language switch: use the PREVIOUS input as the task, current input just changes language
+    const effectiveInput = previousInput;
+
+    if (replayTools.length > 0) {
+      const replayDecision = new (await import('../cre-decision.js')).CREDecision({
+        type: DecisionType.TOOL_CALL,
+        intent: replayIntent,
+        tools: replayTools,
+        reason: `Reformulation of previous ${replayIntent} intent`,
+        confidence: 0.85,
+        metadata: { reformulation: true, originalInput: effectiveInput },
+      });
+      return await handleToolCallDecision(effectiveInput, replayDecision, context);
+    } else {
+      // CONVERSATIONAL/CREATIVE — replay as answer with previous input
+      const replayDecision = new (await import('../cre-decision.js')).CREDecision({
+        type: DecisionType.ANSWER,
+        intent: replayIntent === IntentType.CREATIVE ? IntentType.CREATIVE : IntentType.CONVERSATIONAL,
+        reason: `Reformulation of previous ${replayIntent} intent`,
+        confidence: 0.85,
+        metadata: { reformulation: true, originalInput: effectiveInput },
+      });
+      return await handleAnswerDecision(effectiveInput, replayDecision, context);
+    }
+  }
+
   let decision = creDecisionEngine.decide(input, decisionContext);
 
   // STEP 1.5: Fail-fast assertion - catch bugs early

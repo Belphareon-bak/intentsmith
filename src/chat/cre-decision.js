@@ -529,7 +529,7 @@ const CREATIVE_IDEATION_PATTERNS = [
   /joke/i,                                          // "tell me a joke"
   /napiš.*(báse[ňn]|básničk|povidku|povídku|příběh|pribeh)/i, // "napiš báseň", "napiš básničku", "napiš příběh"
   /řekni mi.*(k tomu|o tom)/i,                     // "řekni mi k tomu" (contextual continuation)
-  /tell me.*(about|a joke|a story)/i,              // "tell me a story"
+  /tell me\s+(a joke|a story|a tale|a poem)/i,  // "tell me a story" (NOT "tell me about X")
 ];
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -571,7 +571,7 @@ const CREATIVE_FOLLOW_UP_PATTERNS = [
   // v45.0 FIX: Alternative/variation requests (MUST stay CREATIVE!)
   /alternativ/i,                    // "alternativní verzi", "alternativu"
   /jinak pojat/i,                   // "jinak pojaté"
-  /jin[áéouů] verz/i,               // "jinou verzi", "jiná verze" (include plain u!)
+  /jin(ou|[áéůý])\s*verz/i,               // "jinou verzi", "jiná verze", "jiné verze"
   /dát.*verz/i,                     // "dát jinou verzi"
   /zkus.*temnější/i,                // "zkus temnější"
   /zkus.*lehčí/i,                   // "zkus lehčí"
@@ -599,7 +599,12 @@ const CREATIVE_FOLLOW_UP_PATTERNS = [
 ];
 
 const REPORT_PATTERNS = [
-  /vytvoř.*report/i, /create.*report/i,
+  /vytvo[rř].*report/i, /create.*report/i,
+  // v57.3: Czech without diacritics + more report triggers
+  /(ud[eě]lej|ud[eě]lat|p[rř]iprav|dej mi|napi[sš]).*report/i,  // "udelej mi report", "připrav report"
+  /report\s+(?:z|ze|o|zpráv|zprav|novink|o\s)/i,                  // "report z webu", "report zprav"
+  /(?:report|zpráv[ay]?|zprav|přehled|prehled).*(?:z\s+webu|z\s+\w+\.\w+)/i,  // "report z webu novinky.cz"
+  /z\s+webu\s+\S+\.\S+/i,                                         // "z webu novinky.cz" (website + domain)
   /analýza/i, /analyza/i, /analysis/i, /analyze/i, /analyzuj/i,
   /shrnutí/i, /shrnuti/i, /summary/i, /summarize/i, /shrň/i, /shrn/i,
   /porovnej/i, /compare/i, /comparison/i, /srovnání/i, /srovnani/i,
@@ -614,16 +619,20 @@ const REPORT_PATTERNS = [
   /zpráv.*za/i, /zprav.*za/i,                   // "zprávy za poslední týden"
   /novinky.*za/i,                               // "novinky za tento měsíc"
   /co (se stalo|je nového).*za/i,               // "co se stalo za poslední den"
+  // v57.3 — domain-specific report triggers
+  /zpráv[ay]?\s+(?:z|ze|na)/i,                  // "zprávy z/ze/na" (news from)
+  /zprav\s+(?:z|ze|na)/i,                       // no-diacritics variant
 ];
 
 const FACTUAL_PATTERNS = [
-  /počasí/i, /weather/i,
+  /počasí/i, /pocasi/i, /weather/i,
   /kurz/i, /exchange rate/i,
   /akcie/i, /stock/i,
   /bitcoin/i, /crypto/i, /krypto/i,
-  /zpráv[ay]/i, /news/i,
-  /výsledk[yů]/i, /results/i, /score/i,
+  /zpráv[ay]/i, /zprav[ay]?/i, /news/i,    // v57.3: "zpravy" + "zprav" without diacritics
+  /výsledk[yů]/i, /vysledk/i, /results/i, /score/i,
   /statistik/i, /statistic/i,
+  /novinky/i,                                // v57.3: "novinky" (Czech news)
 ];
 
 const CODE_PATTERNS = [
@@ -737,10 +746,10 @@ const LOCAL_DETERMINISTIC_PATTERNS = [
   /za kolik dní/i,                        // "za kolik dní bude..."
   /kolik dní do/i,                        // "kolik dní do vánoc"
   /úplněk/i, /uplnek/i,                   // "kdy bude úplněk" direct match
-  /nov.*měsíc/i,                          // "kdy bude nov"
+  /nov[ýéě]h?o?\s+měsíc/i,                // "nový měsíc", "nového měsíce" (NOT "novinek za měsíc")
   // Math calculations
-  /kolik je \d+/i, /\d+ [+\-*/] \d+/,     // "kolik je 5+3"
-  /vypočítej/i, /spočítej/i, /calculate/i,
+  /kolik je \d+/i, /\d+\s*[+\-*/]\s*\d+/,     // "kolik je 5+3", "5+3", "5 + 3"
+  /vypočítej/i, /spočítej/i, /calculate\s+\d/i,
   // v44.7 FIX 3: Additional LOCAL patterns
   /napi[sš]\s*(mi\s+)?č[ií]slo/i,         // "napiš číslo", "napiš mi číslo"
   /bez\s*odkaz[ůu]/i,                     // "bez odkazů"
@@ -774,6 +783,38 @@ const ITEM_LOOKUP_PATTERNS = [
 ];
 
 // ════════════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════════
+// v57.3 — CORRECTION / CONTEXT-PROVIDING PATTERNS
+// ════════════════════════════════════════════════════════════════════════════════
+// User is correcting or providing context for previous response.
+// "dnes je ale 8.2.2026" = user provides date context → should replay previous
+// "ne, myslel jsem" = user corrects misunderstanding → clarification
+// Must NOT be AMBIGUOUS — it's a continuation of previous intent.
+// ════════════════════════════════════════════════════════════════════════════════
+const CORRECTION_PATTERNS = [
+  // Czech: "ale" + factual statement (correction)
+  /(?:^|\s)ale\s+(?:dnes|dneska|teď|ted)\s+(je|jsou|máme|mame)/i,  // "ale dnes je 8.2."
+  /(?:^|\s)ale\s+(?:já|ja)\s+(jsem|mám|mam|chci|mysl)/i,           // "ale já jsem myslel..."
+  /(?:^|\s)ale\s+(?:to|ten|ta)\s+(je|jsou|byl|bylo|není|neni)/i,    // "ale to je jinak"
+  /dnes\s+je\s+(?:ale\s+)?\d/i,                                     // "dnes je 8.2.2026", "dnes je ale 8.2."
+  /dneska\s+je\s+(?:ale\s+)?\d/i,                                   // "dneska je 8.2."
+  /(?:dnešní|dnesni)\s+datum/i,                                      // "dnešní datum je..."
+  /(?:^|\s)ne[, ]\s*(?:myslel|myslela|chtěl|chtěla|měl|to je|to není)/i, // "ne, myslel jsem..."
+  /(?:^|\s)špatně[, ]/i,                                             // "špatně, dnes je..."
+  /(?:^|\s)spatne[, ]/i,                                             // "spatne" (no diacritics)
+
+  // Date correction patterns
+  /dnes\s+(?:je|máme|mame)\s+\d{1,2}\s*\.\s*\d{1,2}/i,             // "dnes je 8.2." or "dnes máme 8.2."
+  /(?:aktuální|aktualni|současný|soucasny)\s+datum/i,               // "aktuální datum je..."
+
+  // English
+  /(?:^|\s)but\s+today\s+is/i,                                      // "but today is..."
+  /(?:^|\s)no[, ]\s*(?:I meant|that'?s wrong|actually)/i,           // "no, I meant..."
+  /today'?s\s+date\s+is/i,                                          // "today's date is..."
+  /(?:^|\s)wrong[, ]/i,                                              // "wrong, today is..."
+  /(?:^|\s)actually[, ]/i,                                           // "actually, it's..."
+];
+
 // v56.2 Sprint A — SELF-REFERENCE PATTERNS
 // ════════════════════════════════════════════════════════════════════════════════
 // Queries about the user's OWN context within the session.
@@ -869,7 +910,7 @@ const STATEMENT_PATTERNS = [
   /trabajo (en|como) /i,            // "Trabajo como developer"
   // English: self-introduction / personal facts
   /my name is /i,                    // "My name is Alice"
-  /I (am|'m) (a |an )?[A-Z]/,       // "I am a developer" (capitalized noun)
+  /\bI (am|'m) (a |an )?\w/i,           // "I am a developer", "I'm an engineer"
   /I (live|work|study) (in|at|as|for) /i,  // "I live in Prague"
   /I prefer /i,                      // "I prefer dark mode"
 ];
@@ -920,6 +961,30 @@ const KNOWLEDGE_PATTERNS = [
   /give me info(rmation)? (on|about) /i, // "give me info on..."
   /explain .{5,}/i,                  // "explain quantum computing" (min 5 chars)
   /describe .{3,}/i,                 // "describe the process"
+];
+
+// ════════════════════════════════════════════════════════════════════════════════
+// v57.3 — REFORMULATION PATTERNS
+// ════════════════════════════════════════════════════════════════════════════════
+// User wants the SAME thing but expressed differently (language switch, retry).
+// "zkus to v ceskem jazyce" = repeat previous intent, change language.
+// "zkus to znovu" = retry previous action.
+// Must be detected BEFORE CRE decide() — replays previous intent.
+// ════════════════════════════════════════════════════════════════════════════════
+export const REFORMULATION_PATTERNS = [
+  // Language switch requests
+  /zkus\s+to\s+(v|po)\s+(česk|cesk|češtin|cestin|anglick|angličtin|slovenštin|slovensk|německ|nemeck|polsk|francouzštin|francous|španělštin|spanelštin)/i,
+  /(?:odpov[eě]z|řekni|piš|napi[sš])\s+(?:to\s+)?(česky|cesky|anglicky|slovensky|německy|nemecky|polsky|francouzsky|španělsky)/i,
+  /(?:to\s+sam[ée]?|totéž|tote[zž])\s+(?:v|po)?\s*(česky|cesky|anglicky|slovensky)/i,
+  /v\s+(?:česk[ée]m|cesk[ée]m|anglick[ée]m|slovensk[ée]m|německ[ée]m|nemeck[ée]m)\s+jazyce/i,
+  /p[rř]elo[zž]\s+to\s+do\s+/i,                    // "přelož to do češtiny"
+
+  // Retry / redo requests (repeat previous action)
+  /zkus\s+to\s+(znovu|znova|je[sš]t[eě])/i,        // "zkus to znovu"
+  /zopakuj\s+(to|posledn[ií])/i,                    // "zopakuj to"
+  /ud[eě]lej\s+to\s+(znovu|znova|je[sš]t[eě])/i,   // "udelej to znovu"
+  /(?:je[sš]t[eě]\s+jednou|once\s+more|try\s+again)/i,
+  /(?:repeat|redo|again)\s+(?:in|but)/i,            // EN: "repeat in Czech"
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1160,6 +1225,20 @@ export class CREDecisionEngine {
       return IntentType.ITEM_LOOKUP;
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // v57.3: SELF-REFERENCE and STATEMENTS must be BEFORE SEARCH_PATTERNS
+    // ════════════════════════════════════════════════════════════════════════
+    // "what is my name" has "what is" → SEARCH_PATTERNS would catch it
+    // "I am a developer" would fall through to AMBIGUOUS
+    // Both must be intercepted FIRST.
+    // ════════════════════════════════════════════════════════════════════════
+    if (SELF_REFERENCE_PATTERNS.some(p => p.test(text))) {
+      return IntentType.CONVERSATIONAL;
+    }
+    if (STATEMENT_PATTERNS.some(p => p.test(text))) {
+      return IntentType.CONVERSATIONAL;
+    }
+
     // REPORT patterns
     if (REPORT_PATTERNS.some(p => p.test(text))) {
       return IntentType.REPORT;
@@ -1176,25 +1255,25 @@ export class CREDecisionEngine {
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // v56.2 Sprint A: SELF-REFERENCE → CONVERSATIONAL
+    // v57.3: CORRECTION / CONTEXT → CONVERSATIONAL
     // ════════════════════════════════════════════════════════════════════════
-    // "Jak se jmenuju?" "Kdo jsem?" "Co jsem ti říkal?"
-    // These ask about session/user context, NOT web facts.
-    // MUST be BEFORE question-word catch-all (otherwise "jak" → SEARCH).
+    // "dnes je ale 8.2.2026" = user providing context/correction.
+    // Should NOT be AMBIGUOUS. Route to CONVERSATIONAL so handler can
+    // detect it as a continuation of previous intent.
     // ════════════════════════════════════════════════════════════════════════
-    if (SELF_REFERENCE_PATTERNS.some(p => p.test(text))) {
+    if (CORRECTION_PATTERNS.some(p => p.test(text))) {
       return IntentType.CONVERSATIONAL;
     }
 
     // ════════════════════════════════════════════════════════════════════════
+    // v56.2 Sprint A: SELF-REFERENCE → CONVERSATIONAL
+    // v57.3: MOVED to before SEARCH_PATTERNS (see above)
+    // ════════════════════════════════════════════════════════════════════════
+
+    // ════════════════════════════════════════════════════════════════════════
     // v56.2 Sprint A: STATEMENTS → CONVERSATIONAL
+    // v57.3: MOVED to before SEARCH_PATTERNS (see above)
     // ════════════════════════════════════════════════════════════════════════
-    // "Moje jméno je Alice" "Bydlím v Praze" "I am a developer"
-    // Declarative facts about the user — acknowledge, don't search.
-    // ════════════════════════════════════════════════════════════════════════
-    if (STATEMENT_PATTERNS.some(p => p.test(text))) {
-      return IntentType.CONVERSATIONAL;
-    }
 
     // ════════════════════════════════════════════════════════════════════════
     // v56.2 Sprint A: KNOWLEDGE REQUESTS → SEARCH
@@ -1785,6 +1864,8 @@ export default {
   getImplicitOffer,
   validateImplicitOffer,
   FORBIDDEN_PHRASES,
+  // v57.3: Reformulation
+  REFORMULATION_PATTERNS,
   CREDecision,
   CREDecisionEngine,
   creDecisionEngine,

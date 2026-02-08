@@ -436,22 +436,9 @@ async function handleToolCallDecision(input, decision, context) {
     // ════════════════════════════════════════════════════════════════════════════
 
     // Prepare tool results for LLM synthesis
-    // v57.1 A1: Filter out blocked/poor quality scrape results
-    const usableScrapes = scrapeResults.filter(r => {
-      if (!r.success) return false;
-      const grade = r.data?.quality?.grade || r.meta?.qualityGrade;
-      if (grade === 'BLOCKED' || grade === 'EMPTY') {
-        logger.info('HandleToolCall', 'REPORT: skipping blocked/empty scrape', {
-          url: r.data?.url, grade,
-        });
-        return false;
-      }
-      return true;
-    });
-
     const allToolResults = [
       searchData,
-      ...usableScrapes,
+      ...scrapeResults.filter(r => r.success),
     ].filter(Boolean);
 
     // Get user preferences and expert hints from context
@@ -566,22 +553,9 @@ async function handleToolCallDecision(input, decision, context) {
     }
 
     // Step 4: SYNTHESIZE with LLM - but with ITEM_LOOKUP prompt (extract items, not synthesize)
-    // v57.1 A1: Filter blocked/poor quality scrape results
-    const usableItemScrapes = scrapeResults.filter(r => {
-      if (!r.success) return false;
-      const grade = r.data?.quality?.grade || r.meta?.qualityGrade;
-      if (grade === 'BLOCKED' || grade === 'EMPTY') {
-        logger.info('HandleToolCall', 'ITEM_LOOKUP: skipping blocked/empty scrape', {
-          url: r.data?.url, grade,
-        });
-        return false;
-      }
-      return true;
-    });
-
     const allToolResults = [
       searchData,
-      ...usableItemScrapes,
+      ...scrapeResults.filter(r => r.success),
     ].filter(Boolean);
 
     const userPreferences = context.userPreferences || {};
@@ -1023,16 +997,47 @@ async function handleAnswerDecision(input, decision, context) {
     }
 
     // System prompt for CONVERSATIONAL - strict rules
-    // v55.2: Language-aware system prompt
+    // v57.3: Full language-native system prompt (not English + appended instruction)
+    // Local models (Qwen/Ollama) need the ENTIRE prompt in target language to stay on track
     const langCtx = getLanguageContext(input);
-    const systemPrompt = `You are a helpful AI assistant in CONVERSATIONAL mode.
+
+    const CONVERSATIONAL_SYSTEM_PROMPTS = {
+      cs: `Jsi užitečný AI asistent v konverzačním režimu.
+
+PRAVIDLA:
+- Zpracováváš pouze běžnou konverzaci (pozdravy, názory, obecné znalosti)
+- NEMŮŽEŠ vyhledávat na webu — pokud uživatel potřebuje konkrétní data, řekni mu, že potřebuješ provést vyhledávání
+- NEMŮŽEŠ přistupovat k URL — pokud dostaneš URL, řekni, že potřebuješ ji načíst
+- NIKDY neříkej "nemám přístup", "nemohu vyhledávat" — místo toho řekni, jaká AKCE je potřeba
+- Odpovídej VÝHRADNĚ ČESKY, nikdy nepřepínej do jiného jazyka
+
+POVOLENO:
+- Pozdravy a rozloučení
+- Názory a preference
+- Obecné znalosti z tvého tréninku
+- Vysvětlení jak používat systém
+
+ZAKÁZANÉ FRÁZE:
+${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
+
+      sk: `Si užitočný AI asistent v konverzačnom režime.
+
+PRAVIDLÁ:
+- Spracúvaš iba bežnú konverzáciu (pozdravy, názory, všeobecné znalosti)
+- NEMÔŽEŠ vyhľadávať na webe
+- Odpovedaj VÝHRADNE SLOVENSKY
+
+ZAKÁZANÉ FRÁZY:
+${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
+
+      en: `You are a helpful AI assistant in CONVERSATIONAL mode.
 
 CRITICAL RULES:
 - You are ONLY handling casual conversation (greetings, opinions, small talk)
 - You CANNOT search the web - if asked about facts, say you need to search first
 - You CANNOT access URLs - if given a URL, say you need to fetch it first
 - NEVER say "nemám přístup", "nemohu vyhledávat", etc. - instead say what ACTION is needed
-- If the user asks about anything requiring real data, redirect them to ask properly
+- Respond EXCLUSIVELY IN ENGLISH
 
 ALLOWED:
 - Greetings and farewells
@@ -1041,8 +1046,22 @@ ALLOWED:
 - Explaining how to use the system
 
 FORBIDDEN PHRASES (never use these):
-${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}
-${langCtx.instruction}`;
+${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
+
+      de: `Du bist ein hilfreicher KI-Assistent im Konversationsmodus.
+
+REGELN:
+- Verarbeite nur normale Konversation (Begrüßungen, Meinungen, Allgemeinwissen)
+- Antworte AUSSCHLIESSLICH AUF DEUTSCH
+
+VERBOTENE PHRASEN:
+${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
+    };
+
+    // Use detected language or fallback to Czech
+    const systemPrompt = CONVERSATIONAL_SYSTEM_PROMPTS[langCtx.language]
+      || CONVERSATIONAL_SYSTEM_PROMPTS.cs  // Default to Czech, not English
+      + (langCtx.instruction || '');
 
     // Call LLM via CRE bridge (authorized)
     // v55.2 Sprint 2: Retry loop with D6 gate + creative quality enforcement

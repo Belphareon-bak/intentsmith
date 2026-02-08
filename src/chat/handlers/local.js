@@ -82,11 +82,15 @@ export function computeCalendar(input) {
     const nextFullMoon = new Date(now);
     nextFullMoon.setDate(nextFullMoon.getDate() + daysToFullMoon);
 
+    // v57.3: Include today's date for transparency
+    const todayStr = now.toLocaleDateString('cs-CZ');
+
     return {
       answer: daysToFullMoon,
       unit: 'dní',
       date: nextFullMoon.toLocaleDateString('cs-CZ'),
-      explanation: `Příští úplněk bude za ${daysToFullMoon} dní (${nextFullMoon.toLocaleDateString('cs-CZ')})`,
+      today: todayStr,
+      explanation: `Příští úplněk bude za ${daysToFullMoon} dní (${nextFullMoon.toLocaleDateString('cs-CZ')}), počítáno od ${todayStr}`,
     };
   }
 
@@ -97,11 +101,13 @@ export function computeCalendar(input) {
       christmas.setFullYear(christmas.getFullYear() + 1);
     }
     const days = Math.ceil((christmas - now) / (1000 * 60 * 60 * 24));
+    const todayStr = now.toLocaleDateString('cs-CZ');
     return {
       answer: days,
       unit: 'dní',
       date: christmas.toLocaleDateString('cs-CZ'),
-      explanation: `Do Vánoc zbývá ${days} dní`,
+      today: todayStr,
+      explanation: `Do Vánoc zbývá ${days} dní (od ${todayStr})`,
     };
   }
 
