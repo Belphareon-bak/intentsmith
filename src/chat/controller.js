@@ -742,6 +742,9 @@ export class SessionState {
   // v44.3 - Expert lock (CRE cannot override when locked)
   #expertLocked;         // When true, CRE cannot auto-change expert
 
+  // v58.0 - Active design project (DESIGN intent state)
+  #activeDesignProject;  // { type, defaults, startedAt, phase, turnCount, language }
+
   constructor(sessionId) {
     this.#sessionId = sessionId;
     this.#project = null;
@@ -767,6 +770,9 @@ export class SessionState {
 
     // v44.3 - Expert is not locked by default
     this.#expertLocked = false;
+
+    // v58.0 - No active design project by default
+    this.#activeDesignProject = null;
   }
 
   get sessionId() { return this.#sessionId; }
@@ -785,6 +791,42 @@ export class SessionState {
   get awaitingClarification() { return this.#awaitingClarification; }
   get awaitingSlots() { return [...this.#awaitingSlots]; }
   get lastUserInput() { return this.#lastUserInput; }
+
+  // v58.0 - DESIGN project getters
+  get activeDesignProject() { return this.#activeDesignProject ? { ...this.#activeDesignProject } : null; }
+  get hasActiveDesignProject() { return this.#activeDesignProject !== null; }
+
+  /**
+   * v58.0 - Set active design project
+   * @param {Object|null} project - { type, defaults, startedAt, phase, turnCount, language }
+   */
+  setActiveDesignProject(project) {
+    this.#activeDesignProject = project ? { ...project } : null;
+    this.#updatedAt = Date.now();
+    return this;
+  }
+
+  /**
+   * v58.0 - Update design project phase/turn
+   * @param {Object} updates - Partial updates to merge
+   */
+  updateDesignProject(updates) {
+    if (!this.#activeDesignProject) return this;
+    Object.assign(this.#activeDesignProject, updates, { updatedAt: new Date().toISOString() });
+    this.#updatedAt = Date.now();
+    return this;
+  }
+
+  /**
+   * v58.0 - Close design project (e.g. on BUILD transition or explicit break)
+   * @returns {Object|null} The closed project (for logging/handoff)
+   */
+  closeDesignProject() {
+    const closed = this.#activeDesignProject;
+    this.#activeDesignProject = null;
+    this.#updatedAt = Date.now();
+    return closed;
+  }
 
   // v44.2+ - Project working memory getters
   get projectWorkingMemory() { return { ...this.#projectWorkingMemory }; }
@@ -1060,6 +1102,8 @@ export class SessionState {
       lastUserInput: this.#lastUserInput,
       // v44.2+ - Project working memory
       projectWorkingMemory: this.#projectWorkingMemory,
+      // v58.0 - DESIGN project state
+      activeDesignProject: this.#activeDesignProject,
     };
   }
 
@@ -1154,6 +1198,10 @@ export class SessionState {
       if (json.projectWorkingMemory.lastArtifactId) {
         state.setLastArtifact(json.projectWorkingMemory.lastArtifactId);
       }
+    }
+    // v58.0 - Restore active design project
+    if (json.activeDesignProject) {
+      state.setActiveDesignProject(json.activeDesignProject);
     }
     return state;
   }

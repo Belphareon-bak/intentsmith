@@ -363,6 +363,153 @@ export function buildAtomicRetryPrompt(originalPrompt, gateResult) {
     `═══════════════════════════════════════════════════════════════`;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// v58.0 — DESIGN Quality Gate
+// ═══════════════════════════════════════════════════════════════════════════════
+// Validates DESIGN intent responses for architect-level quality.
+// Checks: minimum length, structure sections, language leaks, forbidden hedging.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const DESIGN_MIN_LENGTH = 500;
+
+/**
+ * Section markers expected in a full DESIGN response.
+ * We don't require ALL sections (follow-ups may cover 1-2),
+ * but initial design should have at least 3.
+ */
+const DESIGN_SECTION_MARKERS = [
+  /0️⃣|cílov[ýé]\s+stav|target\s+state/i,
+  /1️⃣|high.level\s+architektur|high.level\s+architect/i,
+  /2️⃣|detailn[ií]\s+architektur|detailed\s+architect/i,
+  /3️⃣|vývojov[ýé]\s+plán|development\s+plan|sprint/i,
+  /4️⃣|CI.?CD|provoz|operations/i,
+  /5️⃣|rizik|risk/i,
+  /6️⃣|alternativ|alternative/i,
+];
+
+/**
+ * Hedging phrases banned in DESIGN responses.
+ */
+const DESIGN_HEDGING_PATTERNS = [
+  /informace (jsou|byly) omezené/i,
+  /doporučuji konzultovat/i,
+  /záleží na (kontextu|požadavcích|vašich)/i,
+  /existuje (více|mnoho|řada) možností/i,
+  /pokud (potřebujete|máte) (další|konkrétní)/i,
+  /neváhejte se zeptat/i,
+  /rád(a)?\s+(vám\s+)?pomohu/i,
+  /limited information/i,
+  /it depends on/i,
+  /I recommend consulting/i,
+];
+
+/**
+ * Language leak patterns (Polish/Spanish — common Qwen artifact).
+ */
+const DESIGN_LANGUAGE_LEAK_PATTERNS = [
+  /\b(informacje|ograniczone|zalecam|również|proszę|może|bardzo)\b/i,
+  /\b(lo siento|no puedo|también|puede|aquí)\b/i,
+];
+
+/**
+ * Assert that a DESIGN response has architect-level quality.
+ *
+ * @param {string} content — LLM response content
+ * @param {string} input — Original user input (for context)
+ * @param {Object} [opts] — Options
+ * @param {boolean} [opts.isFollowUp=false] — If true, relaxes section count requirement
+ * @returns {{ valid: boolean, reason?: string, sections?: number, details?: Object }}
+ */
+export function assertDesignQuality(content, input, opts = {}) {
+  const { isFollowUp = false } = opts;
+
+  if (!content || typeof content !== 'string') {
+    return { valid: false, reason: 'Empty design response' };
+  }
+
+  const trimmed = content.trim();
+  const details = {};
+
+  // ─── Length check ───────────────────────────────────────────────────────
+  // Follow-ups can be shorter (expanding one section)
+  const minLength = isFollowUp ? 200 : DESIGN_MIN_LENGTH;
+  if (trimmed.length < minLength) {
+    return {
+      valid: false,
+      reason: `Design response too short: ${trimmed.length}/${minLength} chars`,
+      details: { actualLength: trimmed.length, minLength },
+    };
+  }
+
+  // ─── Language leak check (CRITICAL — always fail) ──────────────────────
+  for (const pattern of DESIGN_LANGUAGE_LEAK_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      return {
+        valid: false,
+        reason: `Language leak detected: ${pattern.source.substring(0, 30)}`,
+        details: { severity: 'CRITICAL', pattern: pattern.source },
+      };
+    }
+  }
+
+  // ─── Hedging check ────────────────────────────────────────────────────
+  const hedgingViolations = [];
+  for (const pattern of DESIGN_HEDGING_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      hedgingViolations.push(pattern.source.substring(0, 40));
+    }
+  }
+  if (hedgingViolations.length > 0) {
+    details.hedging = hedgingViolations;
+    // Single hedging = warning (still valid), 2+ = fail
+    if (hedgingViolations.length >= 2) {
+      return {
+        valid: false,
+        reason: `Design response contains ${hedgingViolations.length} hedging phrases`,
+        details,
+      };
+    }
+  }
+
+  // ─── Section structure check (initial design only) ────────────────────
+  if (!isFollowUp) {
+    const presentSections = DESIGN_SECTION_MARKERS.filter(p => p.test(trimmed));
+    details.sections = presentSections.length;
+
+    // Initial design should have at least 3 of 7 sections
+    if (presentSections.length < 3) {
+      return {
+        valid: false,
+        reason: `Design response has only ${presentSections.length}/7 sections (minimum 3 required)`,
+        details,
+      };
+    }
+  }
+
+  return { valid: true, details };
+}
+
+/**
+ * Build retry prompt for DESIGN quality gate failure.
+ *
+ * @param {string} originalPrompt
+ * @param {{ reason: string }} gateResult
+ * @returns {string}
+ */
+export function buildDesignRetryPrompt(originalPrompt, gateResult) {
+  return `${originalPrompt}\n\n` +
+    `═══════════════════════════════════════════════════════════════\n` +
+    `⚠️ PŘEDCHOZÍ NÁVRH ODMÍTNUT: ${gateResult.reason}\n` +
+    `═══════════════════════════════════════════════════════════════\n` +
+    `POŽADAVKY:\n` +
+    `- ODPOVÍDEJ VÝHRADNĚ ČESKY. Žádná polština, angličtina, španělština.\n` +
+    `- Jsi ARCHITEKT, ne chatbot. Rozhoduj se, neomlouvej se.\n` +
+    `- ZAKÁZÁNO: "informace jsou omezené", "záleží na", "doporučuji konzultovat"\n` +
+    `- Struktura: 0️⃣ Cíl, 1️⃣ Architektura, 2️⃣ Detail, 3️⃣ Sprinty, 4️⃣ CI/CD, 5️⃣ Rizika, 6️⃣ Alternativy\n` +
+    `- Minimum 500 znaků s KONKRÉTNÍM obsahem.\n` +
+    `═══════════════════════════════════════════════════════════════`;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Exports for testing
 // ─────────────────────────────────────────────────────────────────────────────
@@ -372,4 +519,9 @@ export const _test = {
   FILLER_PHRASES,
   FLUFF_PATTERNS,
   CREATIVE_MIN_LENGTH,
+  // v58.0
+  DESIGN_MIN_LENGTH,
+  DESIGN_SECTION_MARKERS,
+  DESIGN_HEDGING_PATTERNS,
+  DESIGN_LANGUAGE_LEAK_PATTERNS,
 };

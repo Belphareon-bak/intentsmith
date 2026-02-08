@@ -88,6 +88,8 @@ const DENSITY_THRESHOLDS = {
   ANALYSIS: 100,
   SYNTHESIS: 60,
   ITEM_LOOKUP: 40,
+  // v58.0: DESIGN — structured docs must be substantial
+  DESIGN: 500,
   DEFAULT: 30,
 };
 
@@ -160,6 +162,36 @@ function checkIntentAlignment(content, intent, responseIntent) {
     for (const marker of skeletonMarkers) {
       if (content.toLowerCase().includes(marker.toLowerCase())) {
         return { aligned: false, reason: `creative_skeleton: contains placeholder "${marker}"` };
+      }
+    }
+  }
+
+  // v58.0: For DESIGN intent: must not contain hedging, must have structure
+  if (intent === 'DESIGN') {
+    // Hedging phrases that indicate chatbot mode, not architect mode
+    const DESIGN_HEDGING = [
+      /informace (jsou|byly) omezené/i,
+      /doporučuji konzultovat/i,
+      /záleží na (kontextu|požadavcích|vašich)/i,
+      /existuje (více|mnoho|řada) možností/i,
+      /limited information/i,
+      /it depends on/i,
+      /consult with/i,
+    ];
+    for (const pattern of DESIGN_HEDGING) {
+      if (pattern.test(content)) {
+        return { aligned: false, reason: `design_hedging: "${pattern.source.substring(0, 40)}"` };
+      }
+    }
+
+    // Language leak detection (Polish/Spanish from search contamination)
+    const LANGUAGE_LEAKS = [
+      /\b(informacje|ograniczone|zalecam|również|proszę)\b/i,  // Polish
+      /\b(lo siento|no puedo|en español|también|puede)\b/i,    // Spanish
+    ];
+    for (const pattern of LANGUAGE_LEAKS) {
+      if (pattern.test(content)) {
+        return { aligned: false, reason: `design_language_leak: "${pattern.source.substring(0, 30)}"` };
       }
     }
   }

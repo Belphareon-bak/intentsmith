@@ -68,6 +68,9 @@ export const IntentType = {
   ITEM_LOOKUP: 'ITEM_LOOKUP', // User wants specific items (inzeráty, produkty, nabídky)
   // BUILD: user wants to build/create/deploy something (→ Planner handoff)
   BUILD: 'BUILD',             // User wants to construct a project, infra, app, automation
+  // v58.0: DESIGN — structured synthesis from LLM knowledge (architecture, roadmap, plan)
+  // NEVER uses web search. ANSWER only. Opinionated, structured output.
+  DESIGN: 'DESIGN',           // User wants tech plan, roadmap, architecture, sprint breakdown
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -84,6 +87,8 @@ export const TaskType = {
   ITEM_LIST: 'ITEM_LIST',     // Must return N specific items (ITEM_LOOKUP)
   EXPLANATION: 'EXPLANATION', // Must explain reasoning (CREATIVE, CODE)
   DIRECT: 'DIRECT',           // Can answer directly (CONVERSATIONAL, LOCAL)
+  // v58.0: DESIGN — structured plan/architecture with opinionated decisions
+  DESIGN_SYNTHESIS: 'DESIGN_SYNTHESIS',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -692,6 +697,120 @@ const BUILD_PATTERNS = [
   /připrav\s+(mi\s+)?(prostředí|environment|stack|infra)/i,
 ];
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// v58.0 — DESIGN PATTERNS: structured synthesis from LLM knowledge
+// ═══════════════════════════════════════════════════════════════════════════════
+// "udělej roadmapu", "navrhni architekturu", "chci vytvořit mobilní aplikaci"
+// User wants STRUCTURED PLAN — NOT web search, NOT planner execution.
+// DESIGN = LLM synthesizes from knowledge. BUILD = Planner executes code.
+//
+// Distinction:
+//   DESIGN: "navrhni jak bys to řešil"    → structured doc, no tools
+//   BUILD:  "postav mi to" / "jdeme stavět" → Planner pipeline with code
+//   CREATIVE: "vymysli příběh" / "dej nápady" → free-form ideation
+//   SEARCH: "co je Flutter" / "verze React" → web lookup
+// ═══════════════════════════════════════════════════════════════════════════════
+const DESIGN_PATTERNS = [
+  // === CZ: Explicit plan/roadmap/architecture requests ===
+  /(ud[eě]lej|vytvo[rř]|napi[sš]|p[rř]iprav|dej\s+mi)\s+.{0,20}(roadmap[ua]?|plán|harmonogram)/i,
+  /(ud[eě]lej|vytvo[rř]|napi[sš]|p[rř]iprav)\s+.{0,20}(rozvrh|osnov|postup|kroky|návod|checklist)/i,
+  /(ud[eě]lej|vytvo[rř]|napi[sš]|p[rř]iprav)\s+.{0,20}(architektur|návrh\s+(systém|aplikac|projekt))/i,
+
+  // "navrhni" + system/app/platform = DESIGN (strongest signal)
+  /navrhni\s+.{0,30}(aplikac|systém|system|platformu|infrastruktur|architekturu|řešení|reseni)/i,
+  /navrhni\s+.{0,20}(jak|postup|plán|strategii|roadmap)/i,
+  /navrhni\s+.{0,20}(technick|v[ýy]vojov|implementa[cč])/i,
+
+  // "chci vytvořit" + project type = DESIGN (planning phase, not building yet)
+  /chci\s+(vytvo[rř]it|ud[eě]lat|postavit|napsat)\s+.{0,20}(aplikac|app|web|str[aá]nk|syst[eé]m|platform)/i,
+  /chci\s+(vytvo[rř]it|ud[eě]lat)\s+.{0,20}(mobiln[ií]|android|ios|flutter)/i,
+
+  // Sprint/phase decomposition
+  /rozd[eě]l\s+.{0,15}na\s+sprint/i,
+  /rozd[eě]l\s+.{0,15}na\s+(f[aá]ze|etap|kroky|[úu]koly)/i,
+  /od\s+za[cč][aá]tku\s+do\s+konce/i,
+  /od\s+n[aá]vrhu\s+.{0,15}(po|do|a[zž])\s+(deploy|nasazen|produk)/i,
+  /v[cč]etn[eě]\s+(test[uů]|deploy|nasazen|CI)/i,
+
+  // Stack/tech planning
+  /jak[ýy]\s+stack/i,
+  /jak[aá]\s+technologi/i,
+  /zvol\s+technologi/i,
+  /doporu[cč]\s+.{0,15}(stack|technologi|framework|architektur)/i,
+
+  // === CZ: No-diacritics ===
+  /(udelej|vytvor|napis|priprav)\s+.{0,20}(roadmap|plan|architektur|navrh)/i,
+  /chci\s+(vytvorit|udelat)\s+.{0,20}(aplikac|app|web|system|mobilni)/i,
+  /rozdel\s+.{0,15}na\s+sprint/i,
+  /vcetne\s+(testu|deploy|nasazeni)/i,
+
+  // === EN: Design/architecture requests ===
+  /design\s+.{0,20}(app|system|platform|architecture|solution)/i,
+  /create\s+.{0,20}(roadmap|plan|architecture|blueprint)/i,
+  /plan\s+.{0,20}(development|implementation|deployment|project)/i,
+  /break\s+.{0,15}into\s+sprint/i,
+  /from\s+scratch\s+to\s+(production|deployment)/i,
+  /end.to.end\s+(plan|design|architecture)/i,
+  /architect\s+.{0,20}(solution|system|app|platform)/i,
+  /(propose|draft|outline)\s+.{0,20}(architecture|roadmap|plan|design)/i,
+];
+
+// v58.0: DESIGN follow-up patterns (keep conversation in DESIGN mode)
+export const DESIGN_CONTINUE_PATTERNS = [
+  // Refinement requests
+  /v[ií]ce\s+(podrobn|detail|inform)/i,
+  /podrobn[eě]ji/i,
+  /detailn[eě]ji/i,
+  /rozd[eě]l\s+to\s+(na|do)\s/i,
+  /rozepi[sš]\s+(to|sprint|f[aá]z|krok)/i,
+  /rozepsat/i,
+
+  // Section-specific drill-down
+  /jak\s+.{0,15}(test|deploy|CI|bezpe[cč]|architektur)/i,
+  /co\s+s\s+.{0,15}(test|deploy|CI|bezpe[cč])/i,
+  /(?:a\s+)?co\s+.{0,10}(rizik|alternativ)/i,
+
+  // Modification requests
+  /zm[eě][nň]\s+.{0,15}(stack|technologi|framework)/i,
+  /m[ií]sto\s+.{0,15}(Flutter|React|Kotlin|Swift|Next|Node)/i,
+  /pou[zž]ij\s+rad[eě]ji/i,
+  /p[rř]idej\s+.{0,15}(sprint|f[aá]zi|krok|sekci)/i,
+  /co\s+kdybych\s+.{0,15}(cht[eě]l|pou[zž]il|zm[eě]nil)/i,
+
+  // Continuation / next step
+  /dal[sš][ií]\s+(krok|sprint|f[aá]ze)/i,
+  /co\s+d[aá]l/i,
+
+  // EN
+  /more\s+detail/i,
+  /break.*down/i,
+  /what\s+about\s+(test|deploy|CI|security)/i,
+  /change\s+.{0,15}(stack|tech|framework)/i,
+  /use\s+.{0,15}instead/i,
+  /next\s+(step|sprint|phase)/i,
+];
+
+// v58.0: Forbidden phrases for DESIGN responses (chatbot hedging)
+export const DESIGN_FORBIDDEN_PHRASES = [
+  // Generic AI hedging
+  'informace jsou omezené',
+  'doporučuji konzultovat',
+  'záleží na požadavcích',
+  'existuje více možností',
+  'je třeba zvážit',
+  'nemohu přistupovat',
+  'nemohu vyhledávat',
+  'omezené zdroje',
+  'limited information',
+  'available information is limited',
+  // Chatbot phrases (not architect)
+  'pokud potřebujete další informace',
+  'pokud máte konkrétní požadavky',
+  'neváhejte se zeptat',
+  // Polish leaks (Qwen artifact)
+  'informacje', 'ograniczone', 'zalecam',
+];
+
 const CONVERSATIONAL_PATTERNS = [
   // Greetings
   /^(ahoj|čau|nazdar|hi|hello|hey)[\s!.?]*$/i,
@@ -1011,7 +1130,8 @@ export class CREDecision {
     // INVARIANT GUARD: ANSWER only allowed for CONVERSATIONAL or CREATIVE
     // v44.8: CREATIVE intent also uses ANSWER (direct ideation, no tools)
     // ════════════════════════════════════════════════════════════════════════
-    const ANSWER_ALLOWED_INTENTS = [IntentType.CONVERSATIONAL, IntentType.CREATIVE];
+    // v58.0: DESIGN intent also uses ANSWER (structured synthesis, no tools)
+    const ANSWER_ALLOWED_INTENTS = [IntentType.CONVERSATIONAL, IntentType.CREATIVE, IntentType.DESIGN];
     if (type === DecisionType.ANSWER && !ANSWER_ALLOWED_INTENTS.includes(intent)) {
       const error = new Error(
         `ANSWER_NOT_ALLOWED_FOR_INTENT: Cannot create ANSWER decision for intent "${intent}". ` +
@@ -1062,6 +1182,23 @@ export class CREDecision {
         intent,
         tools,
         reason,
+        stack: error.stack?.split('\n').slice(0, 5).join(' <- '),
+      });
+      throw error;
+    }
+
+    // v58.0: DESIGN must NEVER trigger TOOL_CALL
+    // ════════════════════════════════════════════════════════════════════════
+    // "navrhni architekturu" = structured synthesis from LLM knowledge
+    // DESIGN is ANSWER-only — no web search, no scrape
+    // ════════════════════════════════════════════════════════════════════════
+    if (type === DecisionType.TOOL_CALL && intent === IntentType.DESIGN) {
+      const error = new Error(
+        `INVALID_DECISION: DESIGN intent must NEVER call tools. ` +
+        `Got TOOL_CALL for DESIGN - structured synthesis uses ANSWER, not web search.`
+      );
+      logger.error('CREDecision', 'INVARIANT VIOLATION: DESIGN + TOOL_CALL', {
+        type, intent, tools, reason,
         stack: error.stack?.split('\n').slice(0, 5).join(' <- '),
       });
       throw error;
@@ -1190,6 +1327,15 @@ export class CREDecisionEngine {
         /write.*(poem|story|tale|essay|letter)/i.test(text) ||
         /vytvoř.*(báseň|příběh|text)/i.test(text)) {
       return IntentType.CREATIVE;
+    }
+
+    // v58.0: DESIGN — structured synthesis (architecture, roadmap, plan)
+    // MUST be BEFORE CREATIVE_IDEATION — "navrhni architekturu" is DESIGN,
+    // not CREATIVE. DESIGN patterns are more specific (require tech nouns).
+    // Generic "navrhni" falls through to CREATIVE.
+    // ════════════════════════════════════════════════════════════════════════
+    if (DESIGN_PATTERNS.some(p => p.test(text))) {
+      return IntentType.DESIGN;
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -1421,7 +1567,8 @@ export class CREDecisionEngine {
     // LOCAL and CONVERSATIONAL are terminal - they should not be changed by context
     // v44.8: Added CREATIVE - ideation requests must not be overridden by sticky SEARCH
     // v45.0: Added ITEM_LOOKUP - explicit item requests must not be overridden by REPORT
-    const STRONG_INTENTS = [IntentType.LOCAL, IntentType.CONVERSATIONAL, IntentType.CREATIVE, IntentType.ITEM_LOOKUP];
+    // v58.0: Added DESIGN - structured synthesis must not fall to SEARCH
+    const STRONG_INTENTS = [IntentType.LOCAL, IntentType.CONVERSATIONAL, IntentType.CREATIVE, IntentType.ITEM_LOOKUP, IntentType.DESIGN];
     const isStrongIntent = STRONG_INTENTS.includes(intent);
 
     // ════════════════════════════════════════════════════════════════════════
@@ -1447,6 +1594,28 @@ export class CREDecisionEngine {
           maintainingAs: IntentType.CREATIVE,
         });
         intent = IntentType.CREATIVE;
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // v58.0: DESIGN FOLLOW-UP LOCK
+    // ════════════════════════════════════════════════════════════════════════
+    // When in DESIGN mode, follow-up questions should STAY in DESIGN.
+    // "více podrobností" / "rozděl na sprinty" after roadmap = DESIGN
+    // NOT new SEARCH!
+    // Exception: LOCAL (deterministic), explicit FACTUAL (escape hatch)
+    // ════════════════════════════════════════════════════════════════════════
+    const exceptDesignFollowUp = [IntentType.LOCAL, IntentType.FACTUAL];
+    if (lastIntent === IntentType.DESIGN && !exceptDesignFollowUp.includes(intent)) {
+      const isDesignFollowUp = DESIGN_CONTINUE_PATTERNS.some(p => p.test(input.trim()));
+
+      if (isDesignFollowUp) {
+        logger.info('CREDecision', 'DESIGN follow-up detected, maintaining DESIGN intent', {
+          input: input.substring(0, 50),
+          classifiedAs: intent,
+          maintainingAs: IntentType.DESIGN,
+        });
+        intent = IntentType.DESIGN;
       }
     }
 
@@ -1564,6 +1733,28 @@ export class CREDecisionEngine {
           inputPreview: input.substring(0, 100),
           handler,                 // Which local handler to use
           localComputation: true,
+          projectScope,
+        },
+      });
+    }
+
+    // v58.0: DESIGN is TERMINAL — structured synthesis, NEVER web search
+    // ════════════════════════════════════════════════════════════════════════
+    // "navrhni architekturu", "udělej roadmapu", "rozděl na sprinty"
+    // User wants STRUCTURED PLAN from LLM knowledge, not web results.
+    // DESIGN uses ANSWER (no tools), with specialized system prompt.
+    // ════════════════════════════════════════════════════════════════════════
+    if (intent === IntentType.DESIGN) {
+      return new CREDecision({
+        type: DecisionType.ANSWER,   // NOT TOOL_CALL! Pure LLM synthesis
+        intent,
+        tools: [],                    // EMPTY — no web.search, no scrape
+        reason: 'DESIGN is terminal - structured synthesis from LLM knowledge',
+        confidence: 0.9,
+        metadata: {
+          inputPreview: input.substring(0, 200),
+          designRequest: true,
+          taskType: TaskType.DESIGN_SYNTHESIS,
           projectScope,
         },
       });
@@ -1864,6 +2055,9 @@ export default {
   getImplicitOffer,
   validateImplicitOffer,
   FORBIDDEN_PHRASES,
+  // v58.0: DESIGN
+  DESIGN_FORBIDDEN_PHRASES,
+  DESIGN_CONTINUE_PATTERNS,
   // v57.3: Reformulation
   REFORMULATION_PATTERNS,
   CREDecision,

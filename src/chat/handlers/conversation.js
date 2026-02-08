@@ -7,6 +7,7 @@ import {
   IntentType,
   assertDecision,
   REFORMULATION_PATTERNS,
+  DESIGN_CONTINUE_PATTERNS,
 } from '../cre-decision.js';
 import { logger } from '../../core/logger.js';
 import { isVagueInput } from './utils/intent.js';
@@ -26,6 +27,11 @@ import {
   getActiveBuildHandoff,
   cancelBuildHandoff,
 } from './build-handoff.js';
+import {
+  handleDesignDecision,
+  handleDesignContinue,
+  isExplicitFactQuery,
+} from './design.js';
 
 // v57.3: Patterns for date-correction detection
 const DATE_CORRECTION_PATTERNS = [
@@ -226,15 +232,108 @@ export async function conversationHandler(input, context) {
       });
       return await handleToolCallDecision(effectiveInput, replayDecision, context);
     } else {
-      // CONVERSATIONAL/CREATIVE — replay as answer with previous input
+      // CONVERSATIONAL/CREATIVE/DESIGN — replay as answer with previous input
+      // v58.0: DESIGN gets its own handler
+      const resolvedIntent = replayIntent === IntentType.CREATIVE ? IntentType.CREATIVE
+        : replayIntent === IntentType.DESIGN ? IntentType.DESIGN
+        : IntentType.CONVERSATIONAL;
       const replayDecision = new (await import('../cre-decision.js')).CREDecision({
         type: DecisionType.ANSWER,
-        intent: replayIntent === IntentType.CREATIVE ? IntentType.CREATIVE : IntentType.CONVERSATIONAL,
+        intent: resolvedIntent,
         reason: `Reformulation of previous ${replayIntent} intent`,
         confidence: 0.85,
         metadata: { reformulation: true, originalInput: effectiveInput },
       });
+      if (resolvedIntent === IntentType.DESIGN) {
+        return await handleDesignDecision(effectiveInput, replayDecision, context);
+      }
       return await handleAnswerDecision(effectiveInput, replayDecision, context);
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // v58.0: DESIGN_CONTINUE INTERCEPT — check BEFORE CRE decide()
+  // ════════════════════════════════════════════════════════════════════════════
+  // If there's an active DESIGN project and user sends a follow-up,
+  // route directly to DESIGN handler WITHOUT CRE classification.
+  // This prevents "více podrobností" from being classified as SEARCH.
+  //
+  // Escape hatches:
+  //   - Explicit fact query → let CRE classify (FACTUAL/SEARCH)
+  //   - Explicit intent break ("teď chci něco jiného") → close project, let CRE classify
+  // ════════════════════════════════════════════════════════════════════════════
+  if (sessionState?.activeDesignProject) {
+    const isDesignFollowUp = DESIGN_CONTINUE_PATTERNS.some(p => p.test(input.trim()));
+    const isFactQuery = isExplicitFactQuery(input);
+
+    // Explicit break patterns (from cre-decision.js INTENT_BREAK_PATTERNS)
+    const isExplicitBreak = /^(teď|ted|nyní|nyni|změň|zmen|přepni|prepni|něco|neco|dost|stačí|staci|konec)\s/i.test(input.trim());
+
+    // ════════════════════════════════════════════════════════════════════════
+    // v58.0 Sprint 3: BUILD TRANSITION — "jdeme stavět" closes DESIGN → BUILD
+    // ════════════════════════════════════════════════════════════════════════
+    const BUILD_TRANSITION_PATTERNS = [
+      /jdeme?\s+stav[eě]t/i,              // "jdeme stavět", "jdem stavět"
+      /jdi\s+stav[eě]t/i,                 // "jdi stavět"
+      /za[cč]ni\s+stav[eě]t/i,            // "začni stavět"
+      /za[cč]ni\s+implementovat/i,         // "začni implementovat"
+      /jdi\s+(do|na)\s+(implementac|k[oó]d|v[ýy]voj)/i,  // "jdi do implementace"
+      /p[rř]ejdi\s+(ke?\s+|na\s+|do\s+)(stav|implementac|k[oó]d|v[ýy]voj)/i,
+      /postav\s+(to|mi\s+to)/i,            // "postav to", "postav mi to"
+      /let'?s\s+build/i,                   // "let's build"
+      /start\s+(building|coding|implementing)/i,
+      /implement\s+this/i,
+      /go\s+ahead\s+and\s+build/i,
+    ];
+
+    const isBuildTransition = BUILD_TRANSITION_PATTERNS.some(p => p.test(input.trim()));
+
+    if (isBuildTransition) {
+      const closedProject = typeof sessionState.closeDesignProject === 'function'
+        ? sessionState.closeDesignProject('build_transition')
+        : (() => { const p = sessionState.activeDesignProject; sessionState.activeDesignProject = null; return p; })();
+
+      logger.info('ConversationHandler', 'DESIGN → BUILD transition', {
+        input: input.substring(0, 80),
+        projectType: closedProject?.type,
+        turnCount: closedProject?.turnCount,
+      });
+
+      // Fall through — CRE will classify as BUILD → Planner handoff
+      // Attach design context to decisionContext so Planner gets it
+      decisionContext.designContext = closedProject;
+    } else if (isDesignFollowUp && !isExplicitBreak && !isFactQuery) {
+      logger.info('ConversationHandler', 'DESIGN_CONTINUE intercept — routing to design handler', {
+        input: input.substring(0, 80),
+        projectType: sessionState.activeDesignProject.type,
+        turnCount: sessionState.activeDesignProject.turnCount,
+      });
+
+      const designDecision = {
+        type: DecisionType.ANSWER,
+        intent: IntentType.DESIGN,
+        tools: [],
+        reason: 'DESIGN_CONTINUE — active project follow-up',
+        confidence: 0.9,
+        metadata: { designContinue: true },
+        toJSON() { return this; },
+      };
+      return await handleDesignContinue(input, designDecision, context);
+    } else if (isExplicitBreak) {
+      const closedProject = typeof sessionState.closeDesignProject === 'function'
+        ? sessionState.closeDesignProject('explicit_break')
+        : (() => { sessionState.activeDesignProject = null; return null; })();
+
+      logger.info('ConversationHandler', 'DESIGN project closed — explicit intent break', {
+        input: input.substring(0, 50),
+        projectType: closedProject?.type,
+      });
+      // Fall through to normal CRE classification
+    } else if (isFactQuery) {
+      logger.info('ConversationHandler', 'DESIGN escape hatch — fact query during design', {
+        input: input.substring(0, 50),
+      });
+      // Fall through to CRE — project stays active
     }
   }
 
@@ -346,8 +445,9 @@ export async function conversationHandler(input, context) {
       return handleAskUserDecision(input, decision, context);
 
     case DecisionType.ANSWER:
-      // v44.8: ANSWER is valid for CONVERSATIONAL and CREATIVE intents
-      const ANSWER_VALID_INTENTS = [IntentType.CONVERSATIONAL, IntentType.CREATIVE];
+      // v44.8: ANSWER is valid for CONVERSATIONAL, CREATIVE, and DESIGN intents
+      // v58.0: Added DESIGN — structured synthesis from LLM knowledge
+      const ANSWER_VALID_INTENTS = [IntentType.CONVERSATIONAL, IntentType.CREATIVE, IntentType.DESIGN];
       if (!ANSWER_VALID_INTENTS.includes(decision.intent)) {
         logger.warn('ConversationHandler', 'BLOCKED: ANSWER decision for non-valid intent', {
           intent: decision.intent,
@@ -359,6 +459,10 @@ export async function conversationHandler(input, context) {
           tools: ['web.search'],
           reason: 'Forced TOOL_CALL for non-valid ANSWER intent',
         }, context);
+      }
+      // v58.0: DESIGN gets its own handler with specialized system prompt
+      if (decision.intent === IntentType.DESIGN) {
+        return await handleDesignDecision(input, decision, context);
       }
       return await handleAnswerDecision(input, decision, context);
 
