@@ -381,41 +381,6 @@
       </button>
     </div>
     
-    <!-- Settings Overview -->
-    <div class="settings-overview" id="settings-overview">
-      <div class="settings-overview-row">
-        <div class="overview-item">
-          <span class="overview-icon">🔔</span>
-          <div class="overview-content">
-            <span class="overview-label">Notifikace</span>
-            <span class="overview-value" id="overview-notif">Email + App</span>
-          </div>
-        </div>
-        <div class="overview-item">
-          <span class="overview-icon">🎨</span>
-          <div class="overview-content">
-            <span class="overview-label">Téma</span>
-            <span class="overview-value" id="overview-theme">Tmavé</span>
-          </div>
-        </div>
-      </div>
-      <div class="settings-overview-row">
-        <div class="overview-item">
-          <span class="overview-icon">📍</span>
-          <div class="overview-content">
-            <span class="overview-label">Lokace</span>
-            <span class="overview-value" id="overview-location">Praha, CZ</span>
-          </div>
-        </div>
-        <div class="overview-item">
-          <span class="overview-icon">🧠</span>
-          <div class="overview-content">
-            <span class="overview-label">Kontext</span>
-            <span class="overview-value" id="overview-context">Aktivní</span>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
   
   <div class="settings-accordion" id="settings-accordion">
@@ -553,12 +518,12 @@
 
           <!-- Push Notifications -->
           <div class="channel-item" data-channel="push">
-            <div class="channel-header">
+            <div class="channel-header" onclick="toggleChannelConfig('push', event)">
               <label class="toggle-row">
                 <span class="channel-icon">🔔</span>
                 <span class="channel-name">Push (prohlížeč)</span>
                 <span class="channel-status" id="status-push">Vyžaduje povolení</span>
-                <label class="toggle">
+                <label class="toggle" onclick="event.stopPropagation()">
                   <input type="checkbox" id="notif-push" onchange="updateNotifSettings()">
                   <span class="toggle-slider"></span>
                 </label>
@@ -576,12 +541,12 @@
 
           <!-- Email -->
           <div class="channel-item" data-channel="email">
-            <div class="channel-header">
+            <div class="channel-header" onclick="toggleChannelConfig('email', event)">
               <label class="toggle-row">
                 <span class="channel-icon">📧</span>
                 <span class="channel-name">Email</span>
                 <span class="channel-status" id="status-email">Nenastaveno</span>
-                <label class="toggle">
+                <label class="toggle" onclick="event.stopPropagation()">
                   <input type="checkbox" id="notif-email" onchange="updateNotifSettings()">
                   <span class="toggle-slider"></span>
                 </label>
@@ -599,12 +564,12 @@
 
           <!-- Telegram -->
           <div class="channel-item" data-channel="telegram">
-            <div class="channel-header">
+            <div class="channel-header" onclick="toggleChannelConfig('telegram', event)">
               <label class="toggle-row">
                 <span class="channel-icon">✈️</span>
                 <span class="channel-name">Telegram</span>
                 <span class="channel-status" id="status-telegram">Nenastaveno</span>
-                <label class="toggle">
+                <label class="toggle" onclick="event.stopPropagation()">
                   <input type="checkbox" id="notif-telegram" onchange="updateNotifSettings()">
                   <span class="toggle-slider"></span>
                 </label>
@@ -622,12 +587,12 @@
 
           <!-- Slack -->
           <div class="channel-item" data-channel="slack">
-            <div class="channel-header">
+            <div class="channel-header" onclick="toggleChannelConfig('slack', event)">
               <label class="toggle-row">
                 <span class="channel-icon">💬</span>
                 <span class="channel-name">Slack</span>
                 <span class="channel-status" id="status-slack">Nenastaveno</span>
-                <label class="toggle">
+                <label class="toggle" onclick="event.stopPropagation()">
                   <input type="checkbox" id="notif-slack" onchange="updateNotifSettings()">
                   <span class="toggle-slider"></span>
                 </label>
@@ -645,12 +610,12 @@
 
           <!-- Discord -->
           <div class="channel-item" data-channel="discord">
-            <div class="channel-header">
+            <div class="channel-header" onclick="toggleChannelConfig('discord', event)">
               <label class="toggle-row">
                 <span class="channel-icon">🎮</span>
                 <span class="channel-name">Discord</span>
                 <span class="channel-status" id="status-discord">Nenastaveno</span>
-                <label class="toggle">
+                <label class="toggle" onclick="event.stopPropagation()">
                   <input type="checkbox" id="notif-discord" onchange="updateNotifSettings()">
                   <span class="toggle-slider"></span>
                 </label>
@@ -667,12 +632,12 @@
 
           <!-- Webhook (Generic) -->
           <div class="channel-item" data-channel="webhook">
-            <div class="channel-header">
+            <div class="channel-header" onclick="toggleChannelConfig('webhook', event)">
               <label class="toggle-row">
                 <span class="channel-icon">🔗</span>
                 <span class="channel-name">Webhook (vlastní)</span>
                 <span class="channel-status" id="status-webhook">Nenastaveno</span>
-                <label class="toggle">
+                <label class="toggle" onclick="event.stopPropagation()">
                   <input type="checkbox" id="notif-webhook" onchange="updateNotifSettings()">
                   <span class="toggle-slider"></span>
                 </label>
@@ -693,12 +658,12 @@
 
           <!-- SMS (Twilio/Vonage) -->
           <div class="channel-item" data-channel="sms">
-            <div class="channel-header">
+            <div class="channel-header" onclick="toggleChannelConfig('sms', event)">
               <label class="toggle-row">
                 <span class="channel-icon">📲</span>
                 <span class="channel-name">SMS</span>
                 <span class="channel-status premium" id="status-sms">Premium</span>
-                <label class="toggle">
+                <label class="toggle" onclick="event.stopPropagation()">
                   <input type="checkbox" id="notif-sms" onchange="updateNotifSettings()">
                   <span class="toggle-slider"></span>
                 </label>

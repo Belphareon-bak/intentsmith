@@ -1586,6 +1586,12 @@ html, body {
   justify-content: space-between;
 }
 
+.sidebar-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
 .sidebar-close-btn {
   background: none;
   border: none;
@@ -2617,6 +2623,11 @@ html, body {
 
 .channel-header {
   padding: 10px 12px;
+  cursor: pointer;
+}
+
+.channel-header:hover {
+  background: rgba(255,255,255,0.03);
 }
 
 .channel-icon {
@@ -2635,7 +2646,7 @@ html, body {
   flex-direction: column;
 }
 
-.channel-item:has(input:checked) .channel-config {
+.channel-item.expanded .channel-config {
   display: flex;
 }
 

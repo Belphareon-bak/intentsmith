@@ -2061,32 +2061,31 @@ function toggleAccountConnection(provider) {
 
 function connectAccount(provider) {
   const providerNames = { google: 'Google', github: 'GitHub' };
-  showToast('info', `Připojování k ${providerNames[provider]}...`, 'Otevírám přihlašovací okno...');
+  const placeholders = {
+    google: 'vas@gmail.com',
+    github: 'username'
+  };
 
-  // In production, this would open OAuth popup
-  // For demo, simulate OAuth flow
-  const oauthWindow = window.open(
-    `/api/auth/${provider}`,
-    `${provider}OAuth`,
-    'width=600,height=700,left=200,top=100'
+  // v57.3 - Local account linking (no OAuth server needed)
+  const email = prompt(
+    `Zadejte svůj ${providerNames[provider]} ${provider === 'google' ? 'email' : 'username'}:`,
+    placeholders[provider]
   );
 
-  // Listen for OAuth callback
-  window.addEventListener('message', function oauthCallback(event) {
-    if (event.data?.type === 'oauth-success' && event.data?.provider === provider) {
-      window.removeEventListener('message', oauthCallback);
-      handleOAuthSuccess(provider, event.data);
-    }
-  });
+  if (!email || !email.trim()) {
+    showToast('info', 'Zrušeno', '');
+    return;
+  }
 
-  // For demo purposes, simulate success after 2 seconds
-  setTimeout(() => {
-    if (!oauthWindow || oauthWindow.closed) {
-      // Simulate successful OAuth for demo
-      const demoEmail = provider === 'google' ? 'user@gmail.com' : 'user@github.com';
-      handleOAuthSuccess(provider, { email: demoEmail, name: 'Demo User' });
-    }
-  }, 2000);
+  const trimmed = email.trim();
+  const displayEmail = provider === 'github' && !trimmed.includes('@')
+    ? `${trimmed}@github.com`
+    : trimmed;
+
+  handleOAuthSuccess(provider, {
+    email: displayEmail,
+    name: trimmed.split('@')[0]
+  });
 }
 
 function handleOAuthSuccess(provider, data) {
@@ -2386,11 +2385,17 @@ function changeAvatar() {
 // NOTIFICATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
+// v57.3 - Toggle channel config panel visibility (click on header)
+function toggleChannelConfig(channel, event) {
+  if (event?.target?.closest?.('.toggle')) return;
+  const item = document.querySelector(`.channel-item[data-channel="${channel}"]`);
+  if (item) item.classList.toggle('expanded');
+}
+
 function updateNotifSettings() {
-  // v60 - Validate channels before enabling
   const channelsToValidate = ['email', 'telegram', 'slack', 'discord', 'webhook', 'push', 'sms'];
 
-  // Save channel configs first (needed for validation)
+  // Save channel configs first
   settingsState.notifications.telegramToken = document.getElementById('notif-telegram-token')?.value || '';
   settingsState.notifications.telegramChatId = document.getElementById('notif-telegram-chat')?.value || '';
   settingsState.notifications.slackWebhook = document.getElementById('notif-slack-webhook')?.value || '';
@@ -2403,27 +2408,19 @@ function updateNotifSettings() {
   settingsState.notifications.smsSecret = document.getElementById('notif-sms-secret')?.value || '';
   settingsState.notifications.smsPhone = document.getElementById('notif-sms-phone')?.value || '';
 
-  // v60 - Check each channel and prevent enabling if not configured
+  // v57.3 - Allow enabling channels freely; warn if not configured but don't block
   const newChannels = {};
   channelsToValidate.forEach(channel => {
     const checkbox = document.getElementById(`notif-${channel}`);
     if (!checkbox) return;
 
-    const wantsEnabled = checkbox.checked;
-    const wasEnabled = settingsState.notifications.channels[channel] || false;
+    newChannels[channel] = checkbox.checked;
 
-    if (wantsEnabled && !wasEnabled) {
-      // User is trying to enable - validate first
-      const isValid = isChannelConfigured(channel);
-      if (!isValid) {
-        checkbox.checked = false;
-        showChannelConfigWarning(channel);
-        newChannels[channel] = false;
-      } else {
-        newChannels[channel] = true;
-      }
-    } else {
-      newChannels[channel] = wantsEnabled;
+    // Show warning + auto-expand config if enabling without config
+    if (checkbox.checked && !isChannelConfigured(channel)) {
+      showChannelConfigWarning(channel);
+      const item = document.querySelector(`.channel-item[data-channel="${channel}"]`);
+      if (item) item.classList.add('expanded');
     }
   });
 
