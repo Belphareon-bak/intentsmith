@@ -445,9 +445,10 @@ export async function conversationHandler(input, context) {
       return handleAskUserDecision(input, decision, context);
 
     case DecisionType.ANSWER:
-      // v44.8: ANSWER is valid for CONVERSATIONAL, CREATIVE, and DESIGN intents
+      // v44.8: ANSWER is valid for CONVERSATIONAL, CREATIVE, DESIGN, and CODE intents
       // v58.0: Added DESIGN — structured synthesis from LLM knowledge
-      const ANSWER_VALID_INTENTS = [IntentType.CONVERSATIONAL, IntentType.CREATIVE, IntentType.DESIGN];
+      // v58.2: Added CODE — imperative code requests get inline answer
+      const ANSWER_VALID_INTENTS = [IntentType.CONVERSATIONAL, IntentType.CREATIVE, IntentType.DESIGN, IntentType.CODE];
       if (!ANSWER_VALID_INTENTS.includes(decision.intent)) {
         logger.warn('ConversationHandler', 'BLOCKED: ANSWER decision for non-valid intent', {
           intent: decision.intent,
@@ -458,6 +459,7 @@ export async function conversationHandler(input, context) {
           type: DecisionType.TOOL_CALL,
           tools: ['web.search'],
           reason: 'Forced TOOL_CALL for non-valid ANSWER intent',
+          toJSON() { return { ...this, toJSON: undefined }; },
         }, context);
       }
       // v58.0: DESIGN gets its own handler with specialized system prompt

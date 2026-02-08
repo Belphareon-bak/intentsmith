@@ -651,6 +651,36 @@ async function handleToolCallDecision(input, decision, context) {
       tools: decision.tools,
     });
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // v58.3: LLM fallback — when search fails, try answering from LLM knowledge
+    // Many SEARCH queries (capitals, history, recommendations) can be answered
+    // by the LLM without web data. Only fall through to error if LLM also fails.
+    // ═══════════════════════════════════════════════════════════════════════
+    if (decision.intent === IntentType.SEARCH || decision.intent === IntentType.FACTUAL) {
+      try {
+        logger.info('HandleToolCall', 'Search failed → trying LLM knowledge fallback', {
+          intent: decision.intent,
+          input: input.substring(0, 60),
+        });
+        const llmFallback = await handleAnswerDecision(input, {
+          ...decision,
+          type: DecisionType.ANSWER,
+          intent: IntentType.CONVERSATIONAL,
+          reason: 'LLM fallback after search failure',
+          toJSON() { return { ...this, toJSON: undefined }; },
+        }, context);
+        // Tag it as degraded so we know it's not search-backed
+        if (llmFallback?.content) {
+          logger.info('HandleToolCall', 'LLM fallback succeeded', {
+            contentLength: llmFallback.content.length,
+          });
+          return llmFallback;
+        }
+      } catch (llmErr) {
+        logger.warn('HandleToolCall', 'LLM fallback also failed', { error: llmErr.message });
+      }
+    }
+
     // Check if we can offer alternatives
     const fallbackResponse = buildFailureFallback(input, decision, executionResult, context);
 

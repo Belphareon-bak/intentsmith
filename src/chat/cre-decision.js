@@ -565,6 +565,20 @@ export const KNOWLEDGE_EXPLANATION_PATTERNS = [
   /co\s+(dělá|dela)\s+/i,          // "co dělá insulin"
   /kdy\s+(vznikl|vznikla|byl[ao]?\s+(vynalezen|objeveno|založen))/i,
   /kolik\s+(má|ma)\s+.{0,20}(nohou|očí|oci|planet|dnů|dni|kostí|kosti|strun)/i,
+  /kolik\s+(planet|kostí|kosti|nohou|oci|očí)/i,    // "kolik planet má sluneční soustava"
+  // v58.3: Static facts — capitals, physical constants, counts
+  /jak[ée]\s+(je|jsou)\s+hlavn[ií]\s+m[eě]sto/i,    // "jaké je hlavní město Itálie"
+  /hlavn[ií]\s+m[eě]sto/i,                           // "hlavní město Japonska"
+  /kolik\s+(je|jsou)\s+.{0,15}(rychlost|hmotnost|vzdálenost|vzd[aá]lenost|teplota|obyvatel)/i,
+  /kolik\s+(je|jsou)\s+.{0,15}(planet|kontinent|oceán|ocean|světadíl|svetadil)/i,
+  /co\s+se\s+(stalo|d[eě]lo)\s+/i,                   // "co se stalo v roce 1989"
+  /kdo\s+byl\s+(prvn[ií]|posledn[ií]|nejv[eě]t[sš])/i, // "kdo byl první prezident"
+  /jak[ée]\s+(jsou|byly)\s+nejv[eě]t[sš]/i,          // "jaké jsou největší vynálezy"
+  /jak[ée]\s+(jsou|byly)\s+nejd[uů]le[zž]it[eě]j[sš]/i, // "jaké jsou nejdůležitější"
+  /jak[ée]\s+(jsou|byly)\s+nejlep[sš][ií]/i,         // "jaké jsou nejlepší cviky"
+  /jak[ée]\s+(jsou|byly)\s+nejhezc[ií]/i,            // "jaké jsou nejhezčí hrady"
+  /co\s+pot[rř]ebuj/i,                               // "co potřebuji k přípravě"
+  /jak\s+se\s+vyvarovat/i,                           // "jak se vyvarovat zranění"
   // ─── EN: "what is" + general concept ─────────────────────────────────────
   /^what\s+is\s+/i,        // "what is a neural network"
   /^what\s+are\s+/i,       // "what are hash tables"
@@ -753,6 +767,9 @@ const CODE_PATTERNS = [
   /naprogramuj/i,              // "naprogramuj crawler"
   /write\s+.{0,20}(server|api|endpoint|handler|parser|crawler|bot|cli|script|component|module)/i,
   /create\s+.{0,20}(server|api|endpoint|handler|parser|crawler|bot|cli|script|component|module)/i,
+  // v58.3: Common code artifacts not covered above
+  /napi[sš]\s+.{0,30}(regex|regexp|validaci|validátor|test|query|sql|html|css|algorit)/i,
+  /write\s+.{0,20}(regex|regexp|validator|test|query|sql|html|css|algorit)/i,
   // v58.1: Imperative + language (clear intent to write code)
   /napi[sš]\s+.{0,40}(python|node|javascript|typescript|java|rust|go|ruby|php|bash|react|vue)/i,
   /write\s+.{0,30}(python|node|javascript|typescript|java|rust|go|ruby|php|bash|react|vue)/i,
@@ -916,12 +933,21 @@ export const DESIGN_FORBIDDEN_PHRASES = [
 ];
 
 const CONVERSATIONAL_PATTERNS = [
-  // Greetings
-  /^(ahoj|čau|nazdar|hi|hello|hey)[\s!.?]*$/i,
-  /^(díky|děkuji|thanks|thank you)[\s!.?]*$/i,
-  /^(jak se máš|how are you)/i,
-  /^(co si myslíš|what do you think)/i,
-  /tvůj názor/i, /your opinion/i,
+  // Greetings — match even with trailing text ("Ahoj! Jak se mas?")
+  /^(ahoj|čau|cau|nazdar|hi|hello|hey)\b/i,
+  // Thanks — standalone or with trailing text ("Díky za motivaci!")
+  /^(d[ií]ky|d[eě]kuji?|dekuju|thanks|thank you)\b/i,
+  // How are you — with/without diacritics
+  /jak se m[áa][sš]/i,                       // "jak se máš", "jak se mas"
+  /how are you/i,
+  // Opinion requests — "co si myslíš/myslis o..."
+  /co si mysl[ií][sš]/i,                     // "co si myslíš", "co si myslis"
+  /what do you think/i,
+  /tvůj názor/i, /tv[uů]j n[aá]zor/i, /your opinion/i,
+  // v58.3: Opinion/recommendation/advice requests — LLM can answer directly
+  /co\s+bys\s+(doporu[cč]il|porovnal|popsal|vysv[eě]tlil)/i,     // "co bys doporučil", "co bys porovnal"
+  /jak\s+bys\s+(porovnal|popsal|vysv[eě]tlil|zhodnotil)/i,       // "jak bys porovnal TypeScript a JS"
+  /stoj[ií]\s+za\s+(n[áa]v[sš]t[eě]vu|to|zkus)/i,               // "stojí za návštěvu"
 
   // v44.8: Follow-up / educational continuation patterns (must NOT trigger SEARCH)
   // These are conversational continuations within an ongoing dialogue
@@ -957,18 +983,18 @@ const CONVERSATIONAL_PATTERNS = [
 // v44.7 - Extended with more patterns for deterministic local computation
 const LOCAL_DETERMINISTIC_PATTERNS = [
   // Date/time questions
-  /kolik.*(hodin|dní|týdn|měsíc)/i,      // "za kolik dní"
-  /kdy.*bude.*(úplněk|nov|měsíc)/i,      // "kdy bude úplněk"
+  /kolik.*(hodin|dn[ií]|t[ýy]dn|m[eě]s[ií]c)/i,  // "za kolik dní/dni"
+  /kdy.*bude.*([úu]pln[eě]k|nov|m[eě]s[ií]c)/i,  // "kdy bude úplněk/uplnek"
   /kdy.*uplnek/i,                         // "kdy bude uplnek" (without diacritics)
-  /jak[ýéae].*(den|datum|rok|měsíc)/i,    // "jaký je dnes den", "jaké je datum"
+  /jak[ýyéae].*(den|datum|rok|m[eě]s[ií]c)/i,     // "jaký/jaky je dnes den"
   /dnes.*datum/i,                          // "jaké je dnes datum"
-  /kolikátého/i,                          // "kolikátého je"
+  /kolik[áa]t[ée]ho/i,                    // "kolikátého/kolikateho je"
   /what.*day/i, /what.*date/i, /what.*time/i,
   // Calendar/astronomy (deterministic calculations)
   /fáze měsíce/i, /moon phase/i,
-  /za kolik dní/i,                        // "za kolik dní bude..."
-  /kolik dní do/i,                        // "kolik dní do vánoc"
-  /úplněk/i, /uplnek/i,                   // "kdy bude úplněk" direct match
+  /za kolik dn[ií]/i,                     // "za kolik dní/dni bude..."
+  /kolik dn[ií] do/i,                     // "kolik dní/dni do vánoc/vanoc"
+  /[úu]pln[eě]k/i, /uplnek/i,            // "kdy bude úplněk" direct match
   /nov[ýéě]h?o?\s+měsíc/i,                // "nový měsíc", "nového měsíce" (NOT "novinek za měsíc")
   // Math calculations
   /kolik je \d+/i, /\d+\s*[+\-*/]\s*\d+/,     // "kolik je 5+3", "5+3", "5 + 3"
@@ -1961,7 +1987,7 @@ export class CREDecisionEngine {
       // ASK_USER only for truly ambiguous: "něco s Pythonem", "pomoz s kódem"
       // NOTE: No \b boundaries — broken with Czech diacritics (š, ž, etc.)
       // ════════════════════════════════════════════════════════════════════
-      const IMPERATIVE_WITH_ARTIFACT = /(napi[sš]|vytvo[rř]|ud[eě]lej|implementuj|naprogramuj|write|create|implement|code|build)\s.{0,30}(server|api|funkc[ie]|function|script|komponent|component|modul|class|tříd|endpoint|handler|parser|crawler|bot|cli|app)/i;
+      const IMPERATIVE_WITH_ARTIFACT = /(napi[sš]|vytvo[rř]|ud[eě]lej|implementuj|naprogramuj|write|create|implement|code|build)\s.{0,30}(server|api|funkc[ie]|function|script|komponent|component|modul|class|tříd|endpoint|handler|parser|crawler|bot|cli|app|regex|regexp|valid[áa]t|valid[áa]ci|test|query|sql|algorit)/i;
       const IMPERATIVE_WITH_LANG = /(napi[sš]|vytvo[rř]|ud[eě]lej|write|create|implement)\s.{0,40}(python|node|javascript|typescript|java|c\+\+|rust|go|ruby|php|bash|sql|html|css|react|vue|angular|swift|kotlin)/i;
 
       if (IMPERATIVE_WITH_ARTIFACT.test(input) || IMPERATIVE_WITH_LANG.test(input)) {
