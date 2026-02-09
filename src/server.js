@@ -65,6 +65,9 @@ import { getTrustTracker } from './notifications/trust.js';
 
 // v44.0: ChatController - THE ONLY entry point for chat
 import { ChatController, ChatMode } from './chat/controller.js';
+
+// v59.0: WebSocket bridge for IDE integration
+import { attachWebSocketServer } from './ws-bridge/index.js';
 import { getDefaultHandlers } from './chat/handlers/index.js';
 import { toolExecutor } from './executor/tool-executor.js';
 import { toolRegistry } from './tools/registry.js';
@@ -2107,10 +2110,14 @@ server.listen(config.server.port, config.server.host, () => {
   // Start agent scheduler
   agentScheduler.start();
   
+  // v59.0: Attach WebSocket server for IDE integration
+  attachWebSocketServer(server, ChatController, logger);
+
   logger.info('Server', `p(AI)assistant v57.0 started`);
   logger.info('Server', `Chat:   http://${config.server.host}:${config.server.port}/architect`);
   logger.info('Server', `Agents: http://${config.server.host}:${config.server.port}/agents`);
   logger.info('Server', `API:    http://${config.server.host}:${config.server.port}`);
+  logger.info('Server', `WS:    ws://${config.server.host}:${config.server.port}/c3/ws`);
 });
 
 // ════════════════════════════════════════════════════════════════════════════

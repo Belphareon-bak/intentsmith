@@ -17,6 +17,8 @@
 
 import { spawn } from 'child_process';
 import { logger } from '../core/logger.js';
+import { parseCommand } from './shell-parser.js';
+import { validateCommand, injectSafetyFlags } from './shell-security.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -278,7 +280,10 @@ function getTool(name) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Execute a shell command with timeout and sanitized environment.
+ * Execute a shell command with timeout, sanitized environment, and security validation.
+ * Command is parsed into argv and validated against the whitelist BEFORE execution.
+ * Uses spawn with shell:false — no shell interpretation.
+ *
  * @param {string} command
  * @param {Object} options
  * @param {number} options.timeoutMs
@@ -287,12 +292,24 @@ function getTool(name) {
  * @returns {Promise<{ stdout: string, stderr: string, exitCode: number }>}
  */
 async function executeShell(command, options) {
+  // SECURITY: Parse command string into argv tokens (rejects pipes, chains, subshells)
+  const argv = parseCommand(command);
+
+  // SECURITY: Validate binary whitelist, arg blacklist, path sandbox
+  const cwd = options.cwd || process.cwd();
+  validateCommand(argv, cwd);
+
+  // SECURITY: Inject safety flags (e.g. npm install --ignore-scripts)
+  const safeArgv = injectSafetyFlags(argv);
+  const [binary, ...args] = safeArgv;
+
   return new Promise((resolve, reject) => {
     const sanitizedEnv = sanitizeEnvironment(process.env);
 
-    const child = spawn('sh', ['-c', command], {
+    const child = spawn(binary, args, {
       env: sanitizedEnv,
-      cwd: options.cwd || process.cwd(),
+      cwd,
+      shell: false,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 

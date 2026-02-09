@@ -51,6 +51,36 @@ export async function expertHandler(input, context) {
       expert: expert.name,
     });
 
+    // ════════════════════════════════════════════════════════════════════════
+    // D-int2: Accountant tool interception
+    // ════════════════════════════════════════════════════════════════════════
+    // When accountant expert is active and CRE says ANSWER, check if input
+    // matches accounting patterns → execute deterministic tool directly,
+    // then wrap result with expert persona for human-readable formatting.
+    // This ensures "kolik zaplatím z 850k" gets a precise calculation,
+    // not an LLM estimate.
+    // ════════════════════════════════════════════════════════════════════════
+    if (expert.styleRules?.toolEnforcement && decision.type === DecisionType.ANSWER) {
+      const { detectAccountantTool } = await import('../../experts/tools/accountant-detector.js');
+      const toolMatch = detectAccountantTool(input);
+
+      if (toolMatch) {
+        logger.info('ExpertHandler', 'Accountant tool interception: ANSWER → TOOL_CALL', {
+          toolType: toolMatch.toolType,
+          params: toolMatch.params,
+          expert: expert.id,
+        });
+
+        try {
+          const toolResponse = await executeAccountantTool(input, toolMatch, expert, context);
+          return toolResponse;
+        } catch (err) {
+          logger.warn('ExpertHandler', `Accountant tool failed, falling back to LLM: ${err.message}`);
+          // Fall through to normal ANSWER path
+        }
+      }
+    }
+
     // v44.6 FIX 6: Expert MUST respect CRE decision type
     // If CRE says ANSWER (for CONVERSATIONAL), expert answers directly
     // Expert NEVER forces TOOL_CALL when CRE says ANSWER
@@ -117,7 +147,7 @@ async function generateExpertResponse(input, expert, context) {
     const creBridge = await import('../../llm/cre-bridge.js');
 
     // v57.0 - Build expert system prompt with synthesis hints
-    const expertSystemPrompt = buildExpertSystemPrompt(expert);
+    const expertSystemPrompt = await buildExpertSystemPrompt(expert);
 
     // Build prompt with context
     let prompt = input;
@@ -251,7 +281,7 @@ async function generateExpertResponse(input, expert, context) {
 async function wrapWithExpertPersona(input, toolResult, expert, context) {
   try {
     const creBridge = await import('../../llm/cre-bridge.js');
-    const expertSystemPrompt = buildExpertSystemPrompt(expert);
+    const expertSystemPrompt = await buildExpertSystemPrompt(expert);
 
     // Build prompt that includes tool results
     const toolContent = toolResult.content || '';
@@ -307,9 +337,10 @@ Based on these results, provide your expert analysis and response.`;
 
 /**
  * v57.0 - Build expert system prompt based on expert profile
+ * D-int3: Now async — injects memory context for {{ memory_context }} placeholder
  * Uses expert.getSynthesisHints() for style guidance
  */
-function buildExpertSystemPrompt(expert) {
+async function buildExpertSystemPrompt(expert) {
   const basePrompt = `You are ${expert.name}, an expert in ${expert.domain || 'technology'}.
 
 Your expertise includes: ${expert.description || expert.domain || 'general software development'}
@@ -356,7 +387,98 @@ IMPORTANT RULES:
     fullPrompt = `${fullPrompt}\n\n${expert.systemPrompt}`;
   }
 
+  // D-int3: Inject memory context for {{ memory_context }} placeholder
+  if (fullPrompt.includes('{{ memory_context }}')) {
+    try {
+      const { ExpertStore } = await import('../../experts/expert-store.js');
+      const store = new ExpertStore();
+      const memoryContext = store.getMemoryContext(expert.id);
+      fullPrompt = fullPrompt.replace(
+        '{{ memory_context }}',
+        memoryContext || 'Žádné uložené informace z předchozích relací.'
+      );
+    } catch (err) {
+      logger.warn('ExpertHandler', `Failed to inject memory context: ${err.message}`);
+      fullPrompt = fullPrompt.replace('{{ memory_context }}', 'Paměťový kontext nedostupný.');
+    }
+  }
+
   return fullPrompt;
+}
+
+/**
+ * D-int2: Execute an accountant tool directly with extracted parameters.
+ * Calls the deterministic tool function, formats result as JSON,
+ * then wraps with expert persona via LLM for human-readable output.
+ */
+async function executeAccountantTool(input, toolMatch, expert, context) {
+  const { toolType, params } = toolMatch;
+
+  // Lazy-load the appropriate tool function
+  let toolFn;
+  switch (toolType) {
+    case 'accountant.tax_calculator': {
+      const mod = await import('../../experts/tools/tax-calc.js');
+      toolFn = mod.calculateTax;
+      break;
+    }
+    case 'accountant.vat_calculator': {
+      const mod = await import('../../experts/tools/vat-calc.js');
+      toolFn = mod.calculateVAT;
+      break;
+    }
+    case 'accountant.salary_calculator': {
+      const mod = await import('../../experts/tools/salary-calc.js');
+      toolFn = mod.calculateSalary;
+      break;
+    }
+    case 'accountant.deadline_checker': {
+      const mod = await import('../../experts/tools/deadline-checker.js');
+      toolFn = mod.checkDeadlines;
+      break;
+    }
+    case 'accountant.compare_tax_entities': {
+      const mod = await import('../../experts/tools/tax-calc.js');
+      toolFn = (p) => mod.compareTaxEntities(p.gross_income, p);
+      break;
+    }
+    case 'accountant.compare_salaries': {
+      const mod = await import('../../experts/tools/salary-calc.js');
+      toolFn = (p) => mod.compareSalaries(p.gross_levels || [], p);
+      break;
+    }
+    default:
+      throw new Error(`Unknown accountant tool: ${toolType}`);
+  }
+
+  // Execute deterministic tool
+  const result = toolFn(params);
+
+  if (!result.success) {
+    throw new Error(result.error || 'Tool execution failed');
+  }
+
+  // Format tool result as content string
+  const toolContent = JSON.stringify(result.result, null, 2);
+
+  // Build TaggedResponse with tool data
+  const rawTag = new ResponseTag({
+    speaker: ResponseSpeaker.SYSTEM,
+    mode: ChatMode.EXPERT,
+    confidence: 0.95,
+    canExecute: false,
+    metadata: {
+      executionStatus: 'SUCCESS',
+      toolResults: [{ type: toolType, data: result.result }],
+      accountantTool: toolType,
+      extractedParams: params,
+    },
+  });
+
+  const rawResponse = new TaggedResponse({ content: toolContent, tag: rawTag });
+
+  // Wrap with expert persona for human-readable formatting
+  return await wrapWithExpertPersona(input, rawResponse, expert, context);
 }
 
 export { generateExpertResponse, wrapWithExpertPersona, buildExpertSystemPrompt };

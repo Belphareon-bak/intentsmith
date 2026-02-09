@@ -71,6 +71,7 @@ const agentFiles = [
   '../src/agents/examples/weather-monitor.json',
   '../src/agents/examples/realty-watcher.json',
   '../src/agents/examples/news-rss-digest.json',
+  '../src/agents/examples/rate-monitor.json',
 ];
 
 for (const file of agentFiles) {

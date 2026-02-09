@@ -1,0 +1,106 @@
+{
+  "id": "tax-rate-monitor",
+  "name": "Hlídač daňových sazeb",
+  "description": "Týdenní kontrola aktuálnosti daňových sazeb z oficiálních zdrojů ČR (ČSSZ, VZP, MPSV, Finanční správa)",
+  "icon": "📊",
+  "schedule": {
+    "type": "cron",
+    "value": "0 9 * * 1"
+  },
+  "sources": [
+    {
+      "id": "cssz_osvc",
+      "type": "http",
+      "config": {
+        "url": "https://www.cssz.cz/web/cz/osvc-platba-pojistneho",
+        "method": "GET",
+        "headers": {
+          "User-Agent": "C3-Agent/59.0"
+        }
+      }
+    },
+    {
+      "id": "vzp_osvc",
+      "type": "http",
+      "config": {
+        "url": "https://www.vzp.cz/platci/informace/osvc/platba-pojistneho",
+        "method": "GET",
+        "headers": {
+          "User-Agent": "C3-Agent/59.0"
+        }
+      }
+    },
+    {
+      "id": "mpsv_min_wage",
+      "type": "http",
+      "config": {
+        "url": "https://www.mpsv.cz/minimalni-mzda",
+        "method": "GET",
+        "headers": {
+          "User-Agent": "C3-Agent/59.0"
+        }
+      }
+    },
+    {
+      "id": "zdp_sazby",
+      "type": "http",
+      "config": {
+        "url": "https://www.financnisprava.cz/cs/dane/dane/dan-z-prijmu",
+        "method": "GET",
+        "headers": {
+          "User-Agent": "C3-Agent/59.0"
+        }
+      }
+    },
+    {
+      "id": "dph_sazby",
+      "type": "http",
+      "config": {
+        "url": "https://www.financnisprava.cz/cs/dane/dane/dan-z-pridane-hodnoty",
+        "method": "GET",
+        "headers": {
+          "User-Agent": "C3-Agent/59.0"
+        }
+      }
+    },
+    {
+      "id": "pausalni_dan",
+      "type": "http",
+      "config": {
+        "url": "https://www.financnisprava.cz/cs/dane/dane/pausalni-dan",
+        "method": "GET",
+        "headers": {
+          "User-Agent": "C3-Agent/59.0"
+        }
+      }
+    }
+  ],
+  "conditions": [
+    {
+      "id": "content-changed",
+      "type": "changed",
+      "field": "sources.*.raw"
+    }
+  ],
+  "triggers": [
+    {
+      "id": "rate-change-detected",
+      "condition_id": "content-changed",
+      "edge": "rising",
+      "cooldown": 604800,
+      "max_fires_per_day": 1
+    }
+  ],
+  "actions": [
+    {
+      "type": "notify",
+      "trigger_id": "rate-change-detected",
+      "config": {
+        "channel": "in_app",
+        "title": "Daňové sazby — změna obsahu detekována",
+        "message": "Na jednom nebo více oficiálních zdrojů (ČSSZ, VZP, MPSV, Finanční správa) byla detekována změna obsahu. Doporučujeme ověřit aktuálnost sazeb v tax-rates.js.",
+        "priority": "high"
+      }
+    }
+  ]
+}

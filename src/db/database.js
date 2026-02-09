@@ -295,6 +295,7 @@ CREATE TABLE IF NOT EXISTS expert_memory (
     expert_id TEXT NOT NULL,
     key TEXT NOT NULL,
     value TEXT NOT NULL,
+    previous_value TEXT DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(expert_id, key)

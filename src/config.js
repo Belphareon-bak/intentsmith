@@ -33,22 +33,22 @@ export const config = {
   // ═══════════════════════════════════════════════════════
   models: {
     // D1: Deep deliberation — analysis, planning, final review, redesign
-    D1: 'deepseek-r1:32b',
-    
-    // D2: Fix deliberation — focused fix reasoning
-    D2: 'qwen3-30b-a3b',
-    
-    // CODE: Implementation — code generation and fixes
-    CODE: 'qwen2.5-coder:32b',
-    
-    // R1: Final deep review (= D1, same deep reasoning)
-    R1: 'deepseek-r1:32b',
-    
-    // R2: Quick review — fast structural/logic check
-    R2: 'qwen2.5:32b',
+    D1: process.env.C3_MODEL_D1 || 'deepseek-r1:32b',
 
-    CHAT: 'qwen2.5:32b',
-    VISION: 'llava:13b',
+    // D2: Fix deliberation — focused fix reasoning
+    D2: process.env.C3_MODEL_D2 || 'qwen3-30b-a3b',
+
+    // CODE: Implementation — code generation and fixes
+    CODE: process.env.C3_MODEL_CODE || 'qwen2.5-coder:32b',
+
+    // R1: Final deep review (= D1, same deep reasoning)
+    R1: process.env.C3_MODEL_R1 || 'deepseek-r1:32b',
+
+    // R2: Quick review — fast structural/logic check
+    R2: process.env.C3_MODEL_R2 || 'qwen2.5:32b',
+
+    CHAT: process.env.C3_MODEL_CHAT || 'qwen2.5:32b',
+    VISION: process.env.C3_MODEL_VISION || 'llava:13b',
   },
 
   // Timeouts per role (ms)

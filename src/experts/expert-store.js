@@ -461,15 +461,24 @@ export class ExpertStore {
       value = value.substring(0, 2000);
     }
 
+    // D-int4: Capture previous value before overwrite
+    const previousValue = this.getMemory(expertId, key);
+
     if (this.#db) {
       try {
-        // Uses a dedicated expert_memory table
         this.#db.run(
-          `INSERT OR REPLACE INTO expert_memory (expert_id, key, value, updated_at)
-           VALUES (?, ?, ?, datetime('now'))`,
-          [expertId, key, value]
+          `INSERT OR REPLACE INTO expert_memory (expert_id, key, value, previous_value, updated_at)
+           VALUES (?, ?, ?, ?, datetime('now'))`,
+          [expertId, key, value, previousValue]
         );
-        logger.debug('ExpertStore', `Memory set: ${expertId}/${key}`);
+        if (previousValue !== null && previousValue !== value) {
+          logger.info('ExpertStore', `Memory changed: ${expertId}/${key}`, {
+            previous: previousValue.substring(0, 50),
+            current: value.substring(0, 50),
+          });
+        } else {
+          logger.debug('ExpertStore', `Memory set: ${expertId}/${key}`);
+        }
         return true;
       } catch (err) {
         logger.error('ExpertStore', `Failed to set memory: ${err.message}`);
@@ -480,7 +489,10 @@ export class ExpertStore {
     // In-memory fallback
     if (!this._memMemory) this._memMemory = new Map();
     const memKey = `${expertId}:${key}`;
-    this._memMemory.set(memKey, { expertId, key, value, updatedAt: new Date().toISOString() });
+    this._memMemory.set(memKey, {
+      expertId, key, value, previousValue,
+      updatedAt: new Date().toISOString(),
+    });
     return true;
   }
 
@@ -532,6 +544,39 @@ export class ExpertStore {
     if (!this._memMemory) return [];
     return [...this._memMemory.values()]
       .filter(m => m.expertId === expertId)
+      .slice(0, 50);
+  }
+
+  /**
+   * D-int4: Get ALL memory items with change history.
+   * Returns previous_value for change-aware context injection.
+   *
+   * @param {string} expertId
+   * @returns {Array<{ key: string, value: string, previousValue: string|null, updatedAt: string }>}
+   */
+  getMemoryWithHistory(expertId) {
+    if (this.#db) {
+      try {
+        return this.#db.prepare(
+          `SELECT key, value, previous_value as previousValue, updated_at as updatedAt
+           FROM expert_memory WHERE expert_id = ?
+           ORDER BY updated_at DESC LIMIT 50`
+        ).all(expertId) || [];
+      } catch (err) {
+        logger.error('ExpertStore', `Failed to get memory with history: ${err.message}`);
+        return [];
+      }
+    }
+
+    if (!this._memMemory) return [];
+    return [...this._memMemory.values()]
+      .filter(m => m.expertId === expertId)
+      .map(m => ({
+        key: m.key,
+        value: m.value,
+        previousValue: m.previousValue || null,
+        updatedAt: m.updatedAt,
+      }))
       .slice(0, 50);
   }
 
@@ -589,10 +634,16 @@ export class ExpertStore {
    * @returns {string|null} Formatted memory context, or null if empty
    */
   getMemoryContext(expertId) {
-    const items = this.getAllMemory(expertId);
+    // D-int4: Use history-aware query for change tracking
+    const items = this.getMemoryWithHistory(expertId);
     if (items.length === 0) return null;
 
-    const lines = items.map(m => `- ${m.key}: ${m.value}`);
+    const lines = items.map(m => {
+      if (m.previousValue && m.previousValue !== m.value) {
+        return `- ${m.key}: ${m.value} (předchozí: ${m.previousValue})`;
+      }
+      return `- ${m.key}: ${m.value}`;
+    });
     return `Expert memory (facts from previous sessions):\n${lines.join('\n')}`;
   }
 

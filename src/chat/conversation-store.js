@@ -62,6 +62,38 @@ export class ConversationStore {
       this._memConversations = new Map(); // id → { id, title, message_count, state, created_at, updated_at }
       this._memMessages = [];             // [{ id, conversation_id, role, content, tokens, metadata, created_at }]
       this._nextMsgId = 1;
+      this._memSessionStates = new Map(); // sessionId → { session_id, state_json, updated_at }
+    }
+
+    // v59.0: Self-migrate session_state table (no database.js changes needed)
+    if (db && db.db) {
+      try {
+        db.db.exec(`
+          CREATE TABLE IF NOT EXISTS session_state (
+            session_id TEXT PRIMARY KEY,
+            state_json TEXT NOT NULL,
+            updated_at INTEGER NOT NULL
+          )
+        `);
+        this._sessionStateStmts = {
+          save: db.db.prepare(`
+            INSERT OR REPLACE INTO session_state (session_id, state_json, updated_at)
+            VALUES (?, ?, ?)
+          `),
+          load: db.db.prepare(`
+            SELECT state_json FROM session_state WHERE session_id = ?
+          `),
+          delete: db.db.prepare(`
+            DELETE FROM session_state WHERE session_id = ?
+          `),
+          listAll: db.db.prepare(`
+            SELECT session_id, updated_at FROM session_state ORDER BY updated_at DESC
+          `),
+        };
+      } catch (err) {
+        logger.warn('ConversationStore', `session_state migration failed: ${err.message}`);
+        this._sessionStateStmts = null;
+      }
     }
   }
 
@@ -473,6 +505,100 @@ export class ConversationStore {
     } catch {
       return {};
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // v59.0 Session State Persistence (for IDE bridge — survives restart)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Save session state to DB.
+   * Replaces localStorage-based persistence (which doesn't work server-side).
+   *
+   * @param {string} sessionId
+   * @param {string} stateJSON — JSON.stringify(sessionState.toJSON())
+   * @returns {boolean} — true if persisted
+   */
+  saveSessionState(sessionId, stateJSON) {
+    if (!sessionId || !stateJSON) return false;
+
+    if (this._sessionStateStmts) {
+      try {
+        this._sessionStateStmts.save.run(sessionId, stateJSON, Date.now());
+        return true;
+      } catch (err) {
+        logger.warn('ConversationStore', `saveSessionState failed: ${err.message}`);
+        return false;
+      }
+    }
+
+    // In-memory fallback
+    if (this._memSessionStates) {
+      this._memSessionStates.set(sessionId, {
+        session_id: sessionId,
+        state_json: stateJSON,
+        updated_at: Date.now(),
+      });
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Load session state from DB.
+   *
+   * @param {string} sessionId
+   * @returns {string|null} — JSON string or null
+   */
+  loadSessionState(sessionId) {
+    if (!sessionId) return null;
+
+    if (this._sessionStateStmts) {
+      try {
+        const row = this._sessionStateStmts.load.get(sessionId);
+        return row?.state_json || null;
+      } catch (err) {
+        logger.warn('ConversationStore', `loadSessionState failed: ${err.message}`);
+        return null;
+      }
+    }
+
+    // In-memory fallback
+    if (this._memSessionStates) {
+      const entry = this._memSessionStates.get(sessionId);
+      return entry?.state_json || null;
+    }
+
+    return null;
+  }
+
+  /**
+   * Delete session state from DB.
+   *
+   * @param {string} sessionId
+   * @returns {boolean}
+   */
+  deleteSessionState(sessionId) {
+    if (!sessionId) return false;
+
+    if (this._sessionStateStmts) {
+      try {
+        this._sessionStateStmts.delete.run(sessionId);
+        return true;
+      } catch (err) {
+        logger.warn('ConversationStore', `deleteSessionState failed: ${err.message}`);
+        return false;
+      }
+    }
+
+    // In-memory fallback
+    if (this._memSessionStates) {
+      this._memSessionStates.delete(sessionId);
+      return true;
+    }
+
+    return false;
   }
 }
 
