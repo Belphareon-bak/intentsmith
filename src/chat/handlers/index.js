@@ -28,6 +28,16 @@ export {
   assessGoalAlignment,
 } from './clarification.js';
 
+// ─── Agent Wizard (v59.0) ────────────────────────────────────────────────────
+export {
+  getActiveWizard,
+  cancelWizard,
+  handleWizardInput,
+  handleAgentWizardDetected,
+  isWizardTrigger,
+  WIZARD_PATTERNS,
+} from './agent-wizard.js';
+
 // ─── Report Pipeline ────────────────────────────────────────────────────────
 export { buildReportFallback, synthesizeReport } from './report.js';
 

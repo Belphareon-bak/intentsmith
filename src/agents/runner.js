@@ -570,12 +570,28 @@ export class AgentRunner {
         };
       }
       
+      // v59.0 - Build merged view for multi-source conditions
+      const allMergedItems = [];
+      for (const [sid, s] of Object.entries(context.sources)) {
+        if (s.status === 'ok' && Array.isArray(s.data)) {
+          allMergedItems.push(...s.data.map(item => ({ ...item, _source: sid })));
+        }
+      }
+      if (allMergedItems.length > 0) {
+        context.sources._merged = {
+          status: 'ok',
+          data: allMergedItems,
+          raw_count: allMergedItems.length,
+          filtered_count: allMergedItems.length,
+        };
+      }
+
       // ══════════════════════════════════════════════════════════════════════
       // STEP 2: Check for HUNTER pattern - no new items
       // ══════════════════════════════════════════════════════════════════════
-      const totalNewItems = Object.values(context.sources)
-        .filter(s => s.status === 'ok')
-        .reduce((sum, s) => sum + (s.filtered_count || 0), 0);
+      const totalNewItems = Object.entries(context.sources)
+        .filter(([sid, s]) => sid !== '_merged' && s.status === 'ok')
+        .reduce((sum, [, s]) => sum + (s.filtered_count || 0), 0);
       
       if (totalNewItems === 0 && !isFirstRun) {
         log.push(`[${this.timestamp()}] 📭 No new items found - waiting for changes`);
@@ -702,6 +718,7 @@ export class AgentRunner {
       if (markSeenActions.length === 0 && totalNewItems > 0) {
         // Auto-mark all sources with new items
         for (const [sourceId, sourceData] of Object.entries(context.sources)) {
+          if (sourceId === '_merged') continue;
           if (sourceData.status === 'ok' && sourceData.filtered_count > 0) {
             log.push(`[${this.timestamp()}] Auto mark_seen for source: ${sourceId}`);
             try {
@@ -1285,7 +1302,11 @@ export class AgentRunner {
     
     return template.replace(/\{\{([^}]+)\}\}/g, (match, path) => {
       const value = this.getNestedValue(context, path.trim());
-      return value !== undefined ? String(value) : match;
+      if (value === undefined) return match;
+      if (Array.isArray(value) || (typeof value === 'object' && value !== null)) {
+        return JSON.stringify(value, null, 2);
+      }
+      return String(value);
     });
   }
   

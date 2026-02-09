@@ -1,0 +1,79 @@
+{
+  "id": "realty-multi",
+  "name": "Realitni hlidac (multi-source)",
+  "description": "Monitors multiple real estate portals for new listings, uses _merged view for cross-source detection",
+  "icon": "🏘️",
+  "schedule": {
+    "type": "interval",
+    "value": "30m"
+  },
+  "sources": [
+    {
+      "id": "sreality",
+      "type": "http",
+      "config": {
+        "url": "https://www.sreality.cz/api/cs/v2/estates?category_main_cb=1&category_type_cb=1&locality_region_id=10&per_page=20&sort=0",
+        "method": "GET",
+        "headers": {
+          "User-Agent": "C3-Agent/59.0"
+        }
+      }
+    },
+    {
+      "id": "bezrealitky",
+      "type": "http",
+      "config": {
+        "url": "https://www.bezrealitky.cz/api/record/markers?offerType=prodej&estateType=pozemek&regionOsmIds=R435514&currency=CZK&page=1&order=timeOrder_desc",
+        "method": "GET",
+        "headers": {
+          "User-Agent": "C3-Agent/59.0"
+        }
+      }
+    }
+  ],
+  "conditions": [
+    {
+      "id": "any-new-listing",
+      "type": "exists",
+      "field": "sources._merged.data"
+    }
+  ],
+  "triggers": [
+    {
+      "id": "new-listings-trigger",
+      "condition_id": "any-new-listing",
+      "edge": "rising",
+      "cooldown": 1800,
+      "max_fires_per_day": 10
+    }
+  ],
+  "actions": [
+    {
+      "type": "notify",
+      "trigger_id": "new-listings-trigger",
+      "config": {
+        "channel": "email",
+        "recipient": "user@example.com",
+        "title": "Nove nemovitosti (Sreality + Bezrealitky)",
+        "message": "Nalezeny nove inzeraty z vice zdroju. Zkontrolujte portaly.",
+        "priority": "normal"
+      }
+    },
+    {
+      "type": "mark_seen",
+      "trigger_id": null,
+      "config": {
+        "source_id": "sreality",
+        "id_field": "hash_id"
+      }
+    },
+    {
+      "type": "mark_seen",
+      "trigger_id": null,
+      "config": {
+        "source_id": "bezrealitky",
+        "id_field": "id"
+      }
+    }
+  ]
+}

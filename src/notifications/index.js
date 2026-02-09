@@ -5,6 +5,7 @@ export { NotificationRouter } from './service.js';
 export { NotificationChannel } from './channels/base.js';
 export { EmailChannel } from './channels/email.js';
 export { TelegramChannel } from './channels/telegram.js';
+export { PushChannel } from './channels/push.js';
 export { NotificationPolicy } from './policy.js';
 export { NotificationPipeline } from './pipeline.js';
 export { DigestAggregator } from './digest.js';
@@ -23,6 +24,7 @@ import { NotificationPipeline } from './pipeline.js';
 import { DigestAggregator } from './digest.js';
 import { EmailChannel } from './channels/email.js';
 import { TelegramChannel } from './channels/telegram.js';
+import { PushChannel } from './channels/push.js';
 
 /**
  * Create and configure a NotificationRouter with all available channels.
@@ -38,6 +40,7 @@ export function createNotificationRouter({ db = null } = {}) {
 
   router.registerChannel(new EmailChannel({ logger }));
   router.registerChannel(new TelegramChannel({ logger }));
+  router.registerChannel(new PushChannel({ logger }));
 
   return router;
 }

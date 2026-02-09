@@ -28,6 +28,13 @@ import {
   cancelBuildHandoff,
 } from './build-handoff.js';
 import {
+  getActiveWizard,
+  cancelWizard,
+  handleWizardInput,
+  handleAgentWizardDetected,
+  isWizardTrigger,
+} from './agent-wizard.js';
+import {
   handleDesignDecision,
   handleDesignContinue,
   isExplicitFactQuery,
@@ -88,6 +95,25 @@ export async function conversationHandler(input, context) {
         cancelBuildHandoff(sessionId);
         break;
     }
+  }
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // v59.0 - AGENT WIZARD INTERCEPT — route messages during active wizard flow
+  // ════════════════════════════════════════════════════════════════════════════
+  const activeWizard = getActiveWizard(sessionId);
+  if (activeWizard) {
+    if (/^(zru[sš]it?|cancel|stop|zp[eě]t|back)\s*[!.]?$/i.test(input.trim())) {
+      cancelWizard(sessionId);
+      return {
+        content: 'Wizard zrusen. Jsem zpet v chat modu.',
+        tag: 'RESPONSE',
+        speaker: 'SYSTEM',
+        mode: context.mode || 'conversation',
+        confidence: 1.0,
+      };
+    }
+    return await handleWizardInput(input, context);
   }
   // ════════════════════════════════════════════════════════════════════════════
 
@@ -482,6 +508,12 @@ export async function conversationHandler(input, context) {
     tools: decision.tools,
     reason: decision.reason,
   });
+
+  // v59.0 - Check for agent wizard trigger BEFORE standard routing
+  if (isWizardTrigger(input) && !getActiveWizard(sessionId)) {
+    logger.info('ConversationHandler', 'Agent wizard trigger detected', { input: input.substring(0, 80) });
+    return handleAgentWizardDetected(input, context);
+  }
 
   // STEP 2: Handle based on decision type
   switch (decision.type) {
