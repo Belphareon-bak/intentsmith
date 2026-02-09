@@ -610,14 +610,13 @@ await runner.test('T-TYPO1: "moblni aplikace" → DESIGN', () => {
   assertIntent('Navrhni architekturu moblni aplikace', IntentType.DESIGN);
 });
 
-// T-TYPO1b, T-TYPO1c: Aspirational — needs Levenshtein fuzzy matching layer (skipped)
-await runner.test('T-TYPO1b: "webove apliakce" → DESIGN (needs fuzzy matching)', () => {
+await runner.test('T-TYPO1b: "webove apliakce" → DESIGN', () => {
   assertIntent('Navrhn architekturu webove apliakce', IntentType.DESIGN);
-}, { nightly: true });
+});
 
-await runner.test('T-TYPO1c: "architekutru pro eshop" → DESIGN (needs fuzzy matching)', () => {
+await runner.test('T-TYPO1c: "architekutru pro eshop" → DESIGN', () => {
   assertIntent('navrhni architekutru pro eshop', IntentType.DESIGN);
-}, { nightly: true });
+});
 
 // T-TYPO2: DESIGN_CONTINUE with typos
 await runner.test('T-TYPO2: "rozděl to na sprinty" variants → DESIGN_CONTINUE match', () => {

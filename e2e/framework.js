@@ -21,6 +21,7 @@ import {
   DecisionType,
   FORBIDDEN_PHRASES,
   DESIGN_CONTINUE_PATTERNS,
+  normalizeForClassification,
 } from '../src/chat/cre-decision.js';
 import { assertDesignQuality } from '../src/chat/handlers/utils/quality.js';
 
@@ -41,20 +42,9 @@ export const E2EMode = Object.freeze({
   WEEKLY: 'weekly',
 });
 
+// Delegate to canonical normalizer from cre-decision.js
 export function normalizeTypos(text) {
-  const TYPOS = [
-    [/\bnavrhn\b(?!i)/gi, 'navrhni'],
-    [/architekutru|architetkuru/gi, 'architekturu'],
-    [/apliakce|aplikca/gi, 'aplikace'],
-    [/moblni|mobliní/gi, 'mobilní'],
-    [/sprinyt|spritny/gi, 'sprinty'],
-    [/rozdle|rozdel/gi, 'rozděl'],
-    [/datmu|dtaum/gi, 'datum'],
-    [/rekuzre/gi, 'rekurze'],
-  ];
-  let n = text;
-  for (const [p, r] of TYPOS) n = n.replace(p, r);
-  return n;
+  return normalizeForClassification(text);
 }
 
 export { IntentType, DecisionType, FORBIDDEN_PHRASES, DESIGN_CONTINUE_PATTERNS };

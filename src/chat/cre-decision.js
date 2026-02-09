@@ -887,6 +887,56 @@ const DESIGN_PATTERNS = [
   /end.to.end\s+(plan|design|architecture)/i,
   /architect\s+.{0,20}(solution|system|app|platform)/i,
   /(propose|draft|outline)\s+.{0,20}(architecture|roadmap|plan|design)/i,
+
+  // v58.3: "navrhni" + concrete tech artifact (API, app, web, service, tool, CLI)
+  /navrhni\s+.{0,15}(api|rest\s*api|graphql|backend|frontend|server|microservice|service)/i,
+  /navrhni\s+.{0,15}(mobiln[ií]\s+app|webov|cli\s+tool|desktop|saas|crm|erp|cms)/i,
+];
+
+// v58.3: Typo normalization for classification (CRE-level, not LLM-level)
+// Only normalizes keywords critical for intent routing.
+const TYPO_NORMALIZATIONS = [
+  // "navrhni" variants
+  [/\bnavrhn\b(?!i)/gi, 'navrhni'],           // "navrhn" → "navrhni" (missing i)
+  [/\bnavhrni\b/gi, 'navrhni'],               // transposition
+  // "architekturu/a" variants
+  [/architekutru|architetkuru|architektruu/gi, 'architekturu'],
+  [/architekutra|architetkura/gi, 'architektura'],
+  // "aplikace" variants
+  [/apliakce|aplikca|aplkiace/gi, 'aplikace'],
+  // "mobilní" variants
+  [/moblni|mobliní|mobiní/gi, 'mobilní'],
+  // "sprinty" variants
+  [/sprinyt|spritny|sprinst/gi, 'sprinty'],
+  // "systém" variants
+  [/sytsém|systme|sytém/gi, 'systém'],
+  // "rozděl" variants
+  [/rozdle|rozdel/gi, 'rozděl'],
+  // "datový/datum" variants
+  [/datmu|dtaum/gi, 'datum'],
+  [/datvoy|daotvy/gi, 'datový'],
+  // "rekurze"
+  [/rekuzre|rekuzr\b/gi, 'rekurze'],
+];
+
+export function normalizeForClassification(text) {
+  let normalized = text;
+  for (const [pattern, replacement] of TYPO_NORMALIZATIONS) {
+    normalized = normalized.replace(pattern, replacement);
+  }
+  return normalized;
+}
+
+// v58.3: Anti-DESIGN exclusions — "navrhni" + these = NOT architecture
+const DESIGN_EXCLUSION_PATTERNS = [
+  /navrhni\s+.{0,10}(n[áa]pad|n[áa]zv|jm[ée]n|titul)/i,     // "navrhni nápady/názvy"
+  /navrhni\s+.{0,10}(p[rř][ií]b[eě]h|poh[áa]dk|bajk)/i,      // "navrhni příběh"
+  /navrhni\s+.{0,10}(j[ií]deln|recept|menu)/i,                 // "navrhni jídelníček"
+  /navrhni\s+.{0,10}(barv|logo|grafik|design\s+log)/i,         // "navrhni barvy/logo"
+  /navrhni\s+.{0,10}(v[ýy]let|cestu|dovolen)/i,                // "navrhni výlet"
+  /navrhni\s+.{0,10}(cvi[čc]en|tr[ée]nink|workout)/i,          // "navrhni cvičení"
+  /navrhni\s+.{0,10}(dopis|email|zpr[áa]v)/i,                  // "navrhni dopis"
+  /navrhni\s+\d+\s+(zp[ůu]sob|tip|n[áa]pad|bod)/i,            // "navrhni 5 způsobů"
 ];
 
 // v58.0: DESIGN follow-up patterns (keep conversation in DESIGN mode)
@@ -899,13 +949,31 @@ export const DESIGN_CONTINUE_PATTERNS = [
   /rozepi[sš]\s+(to|sprint|f[aá]z|krok)/i,
   /rozepsat/i,
 
+  // v58.3: Additional follow-up patterns found by E2E testing
+  /rozeber/i,                                  // "rozeber víc datový model"
+  /roz[sš]i[rř]/i,                            // "rozšiř datový model"
+  /pokra[čc]uj\s+(v\s+)?(n[aá]vrh|design|pl[aá]n)/i,  // "pokračuj v návrhu"
+  /pokra[čc]uj\s*$/i,                         // bare "pokračuj"
+  /zp[eě]t\s+k\s+n[áa]vrhu/i,                // "zpět k návrhu"
+  /jak\s+to\s+bude\s+(s|se)\s/i,              // "jak to bude s autentizací"
+  /jak\s+bude\s+fungovat/i,                    // "jak bude fungovat platební systém"
+  /(?:a\s+)?co\s+(rate|limit|error|handl|cachin|loggin|monitor|deploy|nasaz|škálov|autentiz|auth|plateb|payment|notifik|search)/i,  // "a co caching?"
+  /p[rř]idej\s+(?!.*sprint)/i,                // "přidej caching" (but not "přidej sprint" which is already matched)
+  /navrhni\s+.{0,15}(strategi|[rř]e[sš]en)/i,  // "navrhni caching strategii" (within session = CONTINUE)
+
   // Section-specific drill-down
-  /jak\s+.{0,15}(test|deploy|CI|bezpe[cč]|architektur)/i,
-  /co\s+s\s+.{0,15}(test|deploy|CI|bezpe[cč])/i,
+  /jak\s+.{0,15}(test|deploy|CI|bezpe[cč]|architektur|autentiz|auth|nastav|škálov|nasad)/i,
+  /co\s+s\s+.{0,15}(test|deploy|CI|bezpe[cč]|autentiz|auth)/i,
   /(?:a\s+)?co\s+.{0,10}(rizik|alternativ)/i,
 
-  // Expansion / elaboration
-  /roz[sš]i[rř]\s+.{0,15}(datov|model|sch[eé]ma|api|modul)/i,
+  // Summary / wrap-up (still within DESIGN)
+  /shr[nň]\s+(cel[ýéy]|n[áa]vrh|projekt|v[sš]e)/i,  // "shrň celý návrh"
+
+  // Requirements / "what do we need" questions
+  /jak[ée]\s+.{0,10}(test|testy)\s+(pot[rř]eb|budeme|m[áa]me)/i,  // "jaké testy potřebujeme"
+  /jak[ée]\s+.{0,10}(n[áa]stroj|tool)/i,              // "jaké nástroje"
+  /co\s+(pot[rř]eb|budeme\s+pot[rř]eb)/i,             // "co potřebujeme"
+  /jak[ýy]\s+.{0,10}(test|testing|qa)\s+(framework|strateg)/i,
 
   // Modification requests
   /zm[eě][nň]\s+.{0,15}(stack|technologi|framework)/i,
@@ -918,13 +986,43 @@ export const DESIGN_CONTINUE_PATTERNS = [
   /dal[sš][ií]\s+(krok|sprint|f[aá]ze)/i,
   /co\s+d[aá]l/i,
 
+  // v58.3-fix: Imperative continuation — "začni s X", "pusť se do X"
+  /za[cč]ni\s+(s\s+|od\s+)?(prvn|druh|t[rř]et|[cč]tvrt|\d)/i,           // "začni s první fází"
+  /za[cč]ni\s+(s\s+)?(implementac|prerekvizit|p[rř][ií]prav|nastaven)/i, // "začni s prerekvizitami"
+  /za[cč]ni\s+(s\s+)?(sprint|f[aá]z[ií]|etap|krok)/i,                    // "začni s sprintem 1"
+  /za[cč]ni\s+(to\s+)?(budovat|stav[eě]t|programovat|k[oó]dovat|implementovat)/i, // "začni to budovat"
+  /m[uů][zž]e[sš]\s+za[cč][ií]t/i,                                       // "můžeš začít s..."
+  /pus[tť]\s+se\s+(do|k)\s/i,                                             // "pusť se do toho"
+  /spus[tť]\s+(to|implementac|v[ýy]voj)/i,                                // "spusť to"
+  /jdi\s+na\s+(to|sprint|f[aá]z)/i,                                       // "jdi na to"
+  /p[rř]ejdi\s+(k|na)\s+(sprint|f[aá]z|implementac|dal[sš])/i,            // "přejdi k implementaci"
+
+  // v58.3-fix: Approval + action — "líbí se mi to, pokračuj/začni/udělej"
+  /l[ií]b[ií]\s+se\s+mi/i,                             // "líbí se mi to" (approval = stay in DESIGN)
+  /to\s+(je\s+)?(super|skv[eě]l|v[ýy]born|dobr[ée]|ok|fajn|par[aá]da)/i,  // "to je super"
+  /dob[rř]e[\s,]+/i,                                   // "dobře, ..." (approval prefix)
+  /ok[\s,]+(tak|te[dď]|za[cč]|m[uů][zž]|pokra[cč])/i, // "ok, začni"
+  /souhlas[ií]m/i,                                      // "souhlasím"
+  /s\s+t[ií]m\s+souhlas/i,                             // "s tím souhlasím"
+  /vypad[aá]\s+to\s+(dob[rř]|skv[eě]l)/i,              // "vypadá to dobře"
+
+  // v58.3-fix: Sprint/phase-specific start requests
+  /sprint\s+\d/i,                                       // "sprint 1", "sprint 2"
+  /f[aá]ze?\s+\d/i,                                    // "fáze 1"
+  /prerekvizit/i,                                       // standalone "prerekvizity"
+
   // EN
   /more\s+detail/i,
   /break.*down/i,
-  /what\s+about\s+(test|deploy|CI|security)/i,
+  /what\s+about\s+(the\s+)?(test|deploy|CI|security|database|auth|caching|monitoring|scaling)/i,
   /change\s+.{0,15}(stack|tech|framework)/i,
   /use\s+.{0,15}instead/i,
   /next\s+(step|sprint|phase)/i,
+  /continue\s+(the\s+)?(design|plan|draft)/i,
+  /go\s+back\s+to\s+(the\s+)?(design|plan)/i,
+  /add\s+(caching|monitoring|logging|auth|testing|deployment|ci)/i,
+  /how\s+.{0,15}(deploy|scale|test|monitor|authenticate)/i,
+  /summarize\s+(the\s+)?(whole|entire|full)?\s*(design|plan|project)/i,
 ];
 
 // v58.0: Forbidden phrases for DESIGN responses (chatbot hedging)
@@ -1447,13 +1545,19 @@ export class CREDecisionEngine {
   classifyIntent(input) {
     const text = input.trim();
 
+    // v58.3: Typo-tolerant normalization for CLASSIFICATION ONLY
+    // This normalized text is used for pattern matching, NOT for LLM input.
+    // Handles: missing diacritics (already covered by patterns), common swaps,
+    // missing/extra letters in key Czech tech vocabulary.
+    const textNorm = normalizeForClassification(text);
+
     // ════════════════════════════════════════════════════════════════════════
     // v44.6 FIX 3: LOCAL INTENT HAS ABSOLUTE PRIORITY
     // ════════════════════════════════════════════════════════════════════════
     // "kdy bude úplněk?" MUST be LOCAL, not SEARCH
     // These are deterministic calculations - no external API needed
     // ════════════════════════════════════════════════════════════════════════
-    if (LOCAL_DETERMINISTIC_PATTERNS.some(p => p.test(text))) {
+    if (LOCAL_DETERMINISTIC_PATTERNS.some(p => p.test(textNorm))) {
       return IntentType.LOCAL;
     }
 
@@ -1481,10 +1585,9 @@ export class CREDecisionEngine {
     // not CREATIVE. DESIGN patterns are more specific (require tech nouns).
     // Generic "navrhni" falls through to CREATIVE.
     // ════════════════════════════════════════════════════════════════════════
-    // v58.3: Anti-creative guard — "nápady na názvy", "příběh", "jídelníček", "barvy pro logo"
-    // contain DESIGN nouns (aplikac) but intent is CREATIVE, not architecture
-    const DESIGN_ANTI_CREATIVE = /n[áa]pad[yů]?\s+na\s+n[áa]zv|p[rř][ií]b[eě]h|j[ií]deln[ií][cč]ek|barv[yu]?\s+(pro|na)\b/i;
-    if (DESIGN_PATTERNS.some(p => p.test(text)) && !DESIGN_ANTI_CREATIVE.test(text)) {
+    // v58.3: DESIGN_EXCLUSION — "navrhni nápady/příběh/jídelníček" = NOT architecture
+    if (DESIGN_PATTERNS.some(p => p.test(textNorm)) &&
+        !DESIGN_EXCLUSION_PATTERNS.some(p => p.test(textNorm))) {
       return IntentType.DESIGN;
     }
 
@@ -2297,4 +2400,6 @@ export default {
   creDecisionEngine,
   assertDecision,
   assertNoDirectAnswer,
+  // v58.3: Typo normalization
+  normalizeForClassification,
 };
