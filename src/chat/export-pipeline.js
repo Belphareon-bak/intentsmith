@@ -13,6 +13,8 @@
 
 import { logger } from '../core/logger.js';
 import { getConversationStore } from './conversation-store.js';
+import { exportToPdf, isPdfAvailable } from './export/pdf-exporter.js';
+import { exportToDocx, isDocxAvailable } from './export/docx-exporter.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Export Formats
@@ -348,145 +350,70 @@ function renderText(title, date, turns, scope) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// v57.1 A5: PDF Renderer (HTML→PDF via puppeteer)
+// v57.1 A5: PDF Renderer (via reportlab — Czech diacritics, DejaVu fonts)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Render conversation as PDF.
- * Uses the HTML renderer → puppeteer to convert to PDF.
- * Requires: npm install puppeteer
+ * Uses Python reportlab via export/pdf-exporter.js for proper Czech support.
+ * Requires: python3 + pip install reportlab + DejaVu fonts
  *
  * @returns {Promise<Buffer>} PDF as Buffer
  */
 async function renderPDF(title, date, turns, scope) {
-  const html = renderHTML(title, date, turns, scope);
+  const fs = await import('fs/promises');
+  const os = await import('os');
+  const path = await import('path');
+
+  const tmpPath = path.join(os.tmpdir(), `c3-pdf-${Date.now()}.pdf`);
+  const formattedTurns = turns.map(t => ({
+    role: t.role || 'user',
+    content: t.content || '',
+  }));
 
   try {
-    const puppeteer = await import('puppeteer');
-    const browser = await puppeteer.default.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'domcontentloaded' });
-
-    const pdf = await page.pdf({
-      format: 'A4',
-      margin: { top: '20mm', right: '15mm', bottom: '20mm', left: '15mm' },
-      printBackground: true,
-    });
-
-    await browser.close();
-    return Buffer.from(pdf);
+    const result = await exportToPdf(formattedTurns, title, tmpPath, 'cs');
+    const buffer = await fs.readFile(tmpPath);
+    return buffer;
   } catch (err) {
-    if (err.code === 'ERR_MODULE_NOT_FOUND' || err.message?.includes('Cannot find')) {
-      logger.error('ExportPipeline', 'puppeteer not installed. Run: npm install puppeteer');
-      throw new Error('Export PDF: puppeteer is not installed. Run: npm install puppeteer');
-    }
-    throw err;
+    logger.error('ExportPipeline', `PDF generation failed: ${err.message}`);
+    throw new Error(`Export PDF: ${err.message}`);
+  } finally {
+    try { await fs.unlink(tmpPath); } catch { /* ignore */ }
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// v57.1 A6: DOCX Renderer (via docx package)
+// v57.1 A6: DOCX Renderer (via export/docx-exporter.js — styled, i18n)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Render conversation as DOCX.
+ * Uses export/docx-exporter.js with Calibri styling and i18n labels.
  * Requires: npm install docx
  *
  * @returns {Promise<Buffer>} DOCX as Buffer
  */
 async function renderDOCX(title, date, turns, scope) {
+  const fs = await import('fs/promises');
+  const os = await import('os');
+  const path = await import('path');
+
+  const tmpPath = path.join(os.tmpdir(), `c3-docx-${Date.now()}.docx`);
+  const formattedTurns = turns.map(t => ({
+    role: t.role || 'user',
+    content: t.content || '',
+  }));
+
   try {
-    const docxLib = await import('docx');
-    const { Document, Packer, Paragraph, TextRun, HeadingLevel, BorderStyle, AlignmentType } = docxLib;
-
-    const children = [];
-
-    // Title
-    children.push(new Paragraph({
-      text: title,
-      heading: HeadingLevel.HEADING_1,
-    }));
-
-    // Metadata
-    children.push(new Paragraph({
-      children: [
-        new TextRun({ text: `${date} | ${turns.length} zpráv`, color: '666666', size: 20 }),
-      ],
-      spacing: { after: 300 },
-    }));
-
-    // Separator
-    children.push(new Paragraph({
-      border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'CCCCCC' } },
-      spacing: { after: 200 },
-    }));
-
-    // Turns
-    for (const turn of turns) {
-      const label = turn.role === 'user' ? 'Uživatel' :
-                    turn.role === 'assistant' ? 'Asistent' : 'Systém';
-      const labelColor = turn.role === 'user' ? '4A6FA5' :
-                         turn.role === 'assistant' ? '2D9A5C' : 'F5A623';
-
-      // Label
-      children.push(new Paragraph({
-        children: [
-          new TextRun({ text: label, bold: true, color: labelColor, size: 20, font: 'Segoe UI' }),
-        ],
-        spacing: { before: 200 },
-      }));
-
-      // Content — split by newlines for proper paragraph formatting
-      const lines = (turn.content || '').split('\n');
-      for (const line of lines) {
-        if (line.trim()) {
-          children.push(new Paragraph({
-            children: [new TextRun({ text: line, size: 22, font: 'Segoe UI' })],
-            spacing: { after: 80 },
-          }));
-        } else {
-          children.push(new Paragraph({ spacing: { after: 80 } }));
-        }
-      }
-
-      // Separator between turns
-      children.push(new Paragraph({
-        border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'EEEEEE' } },
-        spacing: { after: 100 },
-      }));
-    }
-
-    // Footer
-    children.push(new Paragraph({
-      children: [
-        new TextRun({ text: 'Exportováno z C3-Agent v57.1', italics: true, color: '999999', size: 18 }),
-      ],
-      spacing: { before: 400 },
-      alignment: AlignmentType.CENTER,
-    }));
-
-    const doc = new Document({
-      sections: [{
-        properties: {
-          page: {
-            margin: { top: 1440, right: 1080, bottom: 1440, left: 1080 }, // twips
-          },
-        },
-        children,
-      }],
-    });
-
-    return await Packer.toBuffer(doc);
+    const result = await exportToDocx(formattedTurns, title, tmpPath, 'cs');
+    const buffer = await fs.readFile(tmpPath);
+    return buffer;
   } catch (err) {
-    if (err.code === 'ERR_MODULE_NOT_FOUND' || err.message?.includes('Cannot find')) {
-      logger.error('ExportPipeline', 'docx not installed. Run: npm install docx');
-      throw new Error('Export DOCX: docx package is not installed. Run: npm install docx');
-    }
-    throw err;
+    logger.error('ExportPipeline', `DOCX generation failed: ${err.message}`);
+    throw new Error(`Export DOCX: ${err.message}`);
+  } finally {
+    try { await fs.unlink(tmpPath); } catch { /* ignore */ }
   }
 }
 
