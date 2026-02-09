@@ -28,6 +28,7 @@ import { preferenceEngine, Structure, FollowUpStyle } from '../../memory/prefere
 import { synthesizeWithLLM } from './utils/synthesis.js';
 import { getLanguageContext } from './utils/language.js';
 import { enforceOutputContract, buildOutputGateRetryPrompt } from './utils/output-gate.js';
+import { styleWithConfidence, scoreToLevel } from './utils/confidence-styling.js';
 import { assertCreativeQuality } from './utils/quality.js';
 import { FollowUpType, detectFollowUpType, getPreviousToolData } from './utils/followup.js';
 import { assessGoalAlignment } from './clarification.js';
@@ -369,6 +370,11 @@ async function handleToolCallDecision(input, decision, context) {
   if (decision.intent === IntentType.REPORT) {
     logger.info('HandleToolCall', 'REPORT pipeline started', { input: input.substring(0, 50) });
 
+    // v59.0 IDE Bridge: Notify search tool call
+    if (typeof context.onToolCall === 'function') {
+      try { context.onToolCall('web.search', { query: effectiveQuery, pipeline: 'REPORT' }); } catch { /* */ }
+    }
+
     // Step 1: Execute web.search
     const searchResult = await toolExecutor.execute({
       ...decision,
@@ -380,6 +386,18 @@ async function handleToolCallDecision(input, decision, context) {
       projectGoal,
       ...context,
     });
+
+    // v59.0 IDE Bridge: Notify search result
+    if (typeof context.onToolResult === 'function') {
+      const _sr = searchResult.toolResults?.find(r => r.type === 'search');
+      try {
+        context.onToolResult('web.search', {
+          success: !!(_sr?.success),
+          durationMs: searchResult.duration,
+          summary: `${_sr?.data?.results?.length || 0} results`,
+        });
+      } catch { /* */ }
+    }
 
     // Check if search succeeded and returned results
     // v45.0 FIX: ToolResult uses 'type', not 'tool'
@@ -498,6 +516,11 @@ async function handleToolCallDecision(input, decision, context) {
   if (decision.intent === IntentType.ITEM_LOOKUP) {
     logger.info('HandleToolCall', 'ITEM_LOOKUP pipeline started', { input: input.substring(0, 50) });
 
+    // v59.0 IDE Bridge: Notify search tool call
+    if (typeof context.onToolCall === 'function') {
+      try { context.onToolCall('web.search', { query: effectiveQuery, pipeline: 'ITEM_LOOKUP' }); } catch { /* */ }
+    }
+
     // Step 1: Execute web.search
     const searchResult = await toolExecutor.execute({
       ...decision,
@@ -512,6 +535,18 @@ async function handleToolCallDecision(input, decision, context) {
 
     // Check if search succeeded
     const searchData = searchResult.toolResults?.find(r => r.type === 'search');
+
+    // v59.0 IDE Bridge: Notify search result
+    if (typeof context.onToolResult === 'function') {
+      try {
+        context.onToolResult('web.search', {
+          success: !!(searchData?.success),
+          durationMs: searchResult.duration,
+          summary: `${searchData?.data?.results?.length || 0} results`,
+        });
+      } catch { /* */ }
+    }
+
     const hasResults = searchData?.success && searchData?.data?.results?.length > 0;
 
     if (!hasResults) {
@@ -607,6 +642,11 @@ async function handleToolCallDecision(input, decision, context) {
   // EXECUTE TOOLS - regular execution for non-REPORT intents
   // ════════════════════════════════════════════════════════════════════════════
 
+  // v59.0 IDE Bridge: Notify tool call start
+  if (typeof context.onToolCall === 'function') {
+    try { context.onToolCall(decision.tools?.[0] || 'unknown', { query: effectiveQuery }); } catch { /* */ }
+  }
+
   const executionResult = await toolExecutor.execute(decision, {
     input,
     query: effectiveQuery,  // v56.2 C1: enriched follow-up
@@ -614,6 +654,17 @@ async function handleToolCallDecision(input, decision, context) {
     projectGoal, // v44.3 - Pass goal for context
     ...context,
   });
+
+  // v59.0 IDE Bridge: Notify tool call result
+  if (typeof context.onToolResult === 'function') {
+    try {
+      context.onToolResult(decision.tools?.[0] || 'unknown', {
+        success: executionResult.status !== ExecutionStatus.FAILED,
+        durationMs: executionResult.duration,
+        summary: `${executionResult.toolResults?.length || 0} results`,
+      });
+    } catch { /* */ }
+  }
 
   // v56.0 FIX: Defensive — ensure toolResults is always an array
   if (!Array.isArray(executionResult.toolResults)) {
@@ -775,8 +826,16 @@ async function handleToolCallDecision(input, decision, context) {
     },
   });
 
+  // A3: Apply confidence styling before returning to user
+  const langCtx = getLanguageContext(input);
+  const confidenceScore = synthesizedResponse.confidence || 0.5;
+  const styled = styleWithConfidence(synthesizedResponse.content, {
+    level: scoreToLevel(confidenceScore),
+    score: confidenceScore,
+  }, { lang: langCtx?.language || 'cs', mode: 'footer' });
+
   return new TaggedResponse({
-    content: synthesizedResponse.content,
+    content: styled.text,
     tag: finalTag,
   });
 }
@@ -1100,6 +1159,11 @@ ${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
     let currentPrompt = prompt;
     let result;
 
+    // v59.0 IDE Bridge: Notify LLM start for ANSWER path
+    if (typeof context.onLLMStart === 'function') {
+      try { context.onLLMStart('answer', prompt.length); } catch { /* */ }
+    }
+
     while (answerRetry <= MAX_ANSWER_RETRIES) {
       result = await creBridge.generateChatResponse(currentPrompt, systemPrompt, {
         sessionId: `conv-${sessionId}`,
@@ -1183,6 +1247,14 @@ ${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
     const { sessionState } = context;
     if (sessionState) {
       sessionState.recordDecision(decision, input);
+    }
+
+    // v59.0 IDE Bridge: Notify gate verdict and LLM done
+    if (typeof context.onGateVerdict === 'function') {
+      try { context.onGateVerdict({ ok: finalGate.ok, dimension: finalGate.failDimension }); } catch { /* */ }
+    }
+    if (typeof context.onLLMDone === 'function') {
+      try { context.onLLMDone(result.content.length, result.duration); } catch { /* */ }
     }
 
     const tag = new ResponseTag({

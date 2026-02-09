@@ -15,6 +15,8 @@ import {
   scoreScrapeContent,
   searchMetrics,
 } from '../chat/handlers/utils/search-metrics.js';
+import { detectPaywall } from '../chat/handlers/utils/fetch-quality.js';
+import { retryableSearch } from '../chat/handlers/utils/search-retry.js';
 
 // ════════════════════════════════════════════════════════════════════════════
 // SEARCH PROVIDERS (with fallback chain)
@@ -347,12 +349,20 @@ export async function fetchPage(url, maxLength = 5000, query = '') {
     
     // v55.2: Score content quality
     const quality = scoreScrapeContent(content, query);
-    
+
+    // A1: Enhanced paywall detection
+    const paywall = detectPaywall(content);
+    if (paywall.blocked && quality.usable) {
+      quality.usable = false;
+      quality.reason = paywall.reason || 'PAYWALL_DETECTED';
+      logger.warn('WebSearch', `Paywall detected: ${paywall.reason}`, { url, confidence: paywall.confidence });
+    }
+
     if (!quality.usable) {
       logger.warn('WebSearch', `Scrape quality BLOCKED: ${quality.reason}`, { url, contentLength: quality.contentLength });
     }
-    
-    return { title, content, url, links, quality };
+
+    return { title, content, url, links, quality, paywall };
     
   } catch (err) {
     logger.error('WebSearch', `Fetch failed: ${err.message}`);
@@ -892,6 +902,8 @@ export function getProviderStatus() {
 // EXPORTS
 // ════════════════════════════════════════════════════════════════════════════
 
+export { retryableSearch };
+
 export default {
   searchWeb,
   fetchPage,
@@ -901,4 +913,5 @@ export default {
   resetFailedProviders,
   getProviderStatus,
   searchMetrics,
+  retryableSearch,
 };
