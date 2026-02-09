@@ -1,8 +1,8 @@
 {
   "name": "c3-agent",
-  "version": "56.0.0",
+  "version": "58.3.0",
   "type": "module",
-  "description": "C.3 Agent - v56.0 (Full Pipeline + Domains + 154 Tests)",
+  "description": "C.3 Agent v58.3 — CRE Decision Engine + DESIGN Pipeline + Expert System + Theia IDE",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

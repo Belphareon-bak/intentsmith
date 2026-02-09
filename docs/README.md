@@ -1,140 +1,158 @@
-# C3-Agent Sprint 1+2+3+4 — Cumulative Delivery
-## v55.2 → v56.1
+# C3-Agent v58.3
 
-### Jak nasadit
-Rozbal ZIP do kořene C3 projektu. Struktura odpovídá `src/` layoutu.
+Conversational AI agent s CRE decision enginem, DESIGN pipeline, expert systemem a Theia IDE frontendem.
 
-```
-c3-sprint4/
-├── src/
-│   ├── server.js                        ← REPLACE (export endpoint + chat-ui route)
-│   ├── chat/
-│   │   ├── context-budget.js            ← NEW (token budgeting per intent)
-│   │   ├── export-pipeline.js           ← NEW (MD/HTML/TXT export)
-│   │   ├── chat.html                    ← NEW (Chat UI)
-│   │   ├── controller.js                ← REPLACE (Sprint 3)
-│   │   ├── conversation-store.js        ← REPLACE (+ summary persistence)
-│   │   ├── ltm-context.js               ← EXISTING
-│   │   └── handlers/
-│   │       ├── decisions.js             ← REPLACE (Sprint 2)
-│   │       └── utils/
-│   │           ├── language.js          ← Sprint 1
-│   │           ├── search-metrics.js    ← Sprint 1
-│   │           └── synthesis.js         ← Sprint 2
-│   └── llm/
-│       └── web-search.js               ← Sprint 1
-└── tests/
-    ├── chat-search-quality.test.js      ← Sprint 1 (43 testů)
-    ├── chat-synthesis-hardening.test.js ← Sprint 2 (22 testů)
-    ├── chat-persistence.test.js         ← Sprint 3 (35 testů)
-    └── chat-export-budget.test.js       ← Sprint 4 (44 testů)
-```
-
-### Sprint 4 — co se změnilo
-
-#### 4A: Context Budgeting (`context-budget.js`)
-
-Token budgeting per intent — nahrazuje hardcoded `buildHandlerHistory(id, 10)`:
-
-| Intent | History budget | Search budget | LTM budget |
-|--------|---------------|---------------|------------|
-| CONVERSATIONAL | 2000 tok | — | 500 tok |
-| CREATIVE | 3000 tok | — | 300 tok |
-| SEARCH | 500 tok | 3000 tok | 200 tok |
-| REPORT | 300 tok | 5000 tok | 200 tok |
-| CODE | 1500 tok | — | 500 tok |
-
-**Algoritmus:**
-1. CRE rozhodne intent (budgeting intent NEOVLIVŇUJE)
-2. `buildBudgetedContext()` načte turny z DB
-3. Naplní verbatim turny od nejnovějšího do budgetu
-4. Pokud starší turny existují → lazy summarization
-5. LTM trimován na budget
-
-**Lazy summarization:**
-- Sumarizuje jen při překročení budgetu
-- Summary uložena do DB (cache, NE náhrada)
-- Stale detection: `summary_up_to_msg_id` trackuje pokrytí
-- Failure = graceful degradation (pokračuj bez summary)
-
-#### 4B: Export Pipeline (`export-pipeline.js`)
-
-Deterministická transformace — NE LLM intent:
-
-| Formát | Výstup |
-|--------|--------|
-| MD | Markdown s headery, metadata, oddělovači |
-| HTML | Styled HTML s CSS (user/assistant barvy) |
-| TXT | Plain text, žádné formátování |
-
-**Scopes:**
-- `conversation` — všechny turny (default)
-- `last` — poslední assistant turn
-- `summary` — summary + posledních 5 turnů
-
-**Command detection:**
-```
-"ulož to jako markdown"  → export MD
-"exportuj do HTML"       → export HTML
-"save as txt"            → export TXT
-"napiš mi report"       → NE export (normální request)
-```
-
-**API:**
-```
-POST /api/export
-  { conversation_id, format: "md"|"html"|"txt", scope: "conversation"|"last" }
-  → { filename, download_url, size, turn_count }
-
-GET /api/artifacts/:filename  (existující endpoint)
-```
-
-#### 4C: Chat UI (`chat.html`)
-
-Minimální single-file UI (vanilla JS, žádný framework):
-- Message list s markdown-like formátováním
-- Conversation sidebar
-- Export buttons (MD/HTML/TXT)
-- Mode badge + confidence u odpovědí
-- Loading indicator (typing dots)
-- Error handling
-
-**Přístup:** `GET /chat-ui`
-
-#### Summary Persistence (v `conversation-store.js`)
-
-Nové metody:
-- `setSummary(convId, summary, upToMsgId)` — uložení
-- `getSummary(convId)` → `{ summary, upToMsgId } | null`
-- In-memory mode pro testy
-
-### Invarianty Sprint 4
-
-- ✅ Budget per intent, ne fixní 10 turnů
-- ✅ Budget NEOVLIVŇUJE CRE routing (aplikuje se PO rozhodnutí)
-- ✅ Summary je cache, NE náhrada za DB turns
-- ✅ Export je deterministická transformace, NE LLM intent
-- ✅ Export NEOBSAHUJE interní metadata (confidence, gate logs)
-- ✅ UI funguje bez frameworku (vanilla JS)
-- ✅ Summarization failure = graceful degradation
-- ✅ HTML export escapuje nebezpečný obsah (XSS)
-
-### Verifikace
+## Spusteni
 
 ```bash
-# Všechny testy (247 total, 0 failures)
-node --experimental-vm-modules tests/chat-pipeline.test.js           # T1-T5: 52
-node --experimental-vm-modules tests/chat-output-quality.test.js     # T6: 51
-node --experimental-vm-modules tests/chat-search-quality.test.js     # T7+T8.3: 43
-node --experimental-vm-modules tests/chat-synthesis-hardening.test.js # T8: 22
-node --experimental-vm-modules tests/chat-persistence.test.js        # T9: 35
-node --experimental-vm-modules tests/chat-export-budget.test.js      # T10: 44
+# Backend (Express + Ollama)
+node src/server.js
+# → http://127.0.0.1:3335
+# → Chat UI: http://127.0.0.1:3335/architect
 ```
 
-### Out of scope (záměrně)
+### Prerekvizity
 
-- ❌ PDF export (puppeteer dependency — Sprint 5+)
-- ❌ WebSocket streaming
-- ❌ Multi-user auth
-- ❌ LTM write pipeline (fact extraction)
-- ❌ Controller integration (CRE→budget→handler sekvence) — připraveno, čeká na Sprint 5
+- Node.js 18+
+- Ollama s modelem `qwen2.5:32b` na `http://127.0.0.1:11434`
+- SQLite (better-sqlite3 — `npm install`)
+
+## Struktura projektu
+
+```
+c3-agent-wip/
+├── src/
+│   ├── server.js                  # Express HTTP server
+│   ├── config.js                  # Konfigurace
+│   ├── chat/
+│   │   ├── controller.js          # ChatController — vstupni bod
+│   │   ├── cre-decision.js        # CRE klasifikace intentu (~2400 radku)
+│   │   ├── cre-decision-types.js  # DecisionType, IntentType
+│   │   ├── conversation-store.js  # Session persistence (SQLite)
+│   │   └── handlers/
+│   │       ├── conversation.js    # ConversationHandler — routing
+│   │       ├── design.js          # DESIGN pipeline
+│   │       └── utils/
+│   │           ├── synthesis.js   # LLM synteza + Output Gate (D6)
+│   │           └── quality.js     # Quality evaluators
+│   ├── llm/
+│   │   ├── gateway.js             # LLM Gateway + auth
+│   │   ├── client.js              # Ollama klient
+│   │   └── web-search.js          # Web search tool
+│   ├── experts/
+│   │   ├── expert-layer.js        # Expert routing (ucetni, pravnik, ...)
+│   │   └── expert-store.js        # Expert config persistence
+│   ├── executor/
+│   │   └── tool-executor.js       # Tool executor
+│   ├── tools/
+│   │   └── registry.js            # Tool registry
+│   ├── agents/                    # Agent platform
+│   ├── planner/                   # BUILD pipeline
+│   ├── notifications/             # Trust feedback loop
+│   ├── memory/                    # Session + LTM memory
+│   ├── db/                        # SQLite database
+│   └── core/                      # Logger, error handling
+│
+├── ide/                           # C3-IDE (Theia) — 7 sprintu
+│   ├── c3-ide-roadmap-v3.md       # Roadmap + architektonicke kontrakty
+│   └── sprints/
+│       ├── sprint0/               # Theia scaffold
+│       ├── sprint1/               # Chat + Agent Log + WS bridge
+│       ├── sprint2/               # ShellTool + Project Store
+│       ├── sprint3/               # Design Viewer + Commands
+│       ├── sprint4/               # Diff Viewer + Code Review
+│       ├── sprint5/               # Error Recovery + Settings
+│       ├── sprint6/               # Multi-project + Search
+│       └── sprint7/               # Security hardening
+│
+├── tests/                         # 35 testovych souboru (~700 testu)
+├── e2e/                           # E2E framework + runner (60 testu)
+└── docs/                          # Dokumentace
+```
+
+## CRE Intent Routing
+
+| Intent | Popis | Priklad |
+|--------|-------|---------|
+| LOCAL | Cas, datum, kalkulacka | "kolik je hodin", "5+3" |
+| CONVERSATIONAL | Bezna konverzace | "jak se mas", "vysvetli mi X" |
+| SEARCH | Dotazy na cerstve udaje | "pocasi v Praze", "cena bitcoinu" |
+| DESIGN | Strukturovane navrhy | "navrhni architekturu pro X" |
+| CREATIVE | Kreativni obsah | "napis basnicku", "vymysli pribeh" |
+| BUILD | Stavba projektu | "postav mi webovou aplikaci" |
+| CODE | Inline kod | "napis funkci na X" |
+
+## DESIGN Session Lifecycle
+
+```
+"navrhni X" → DESIGN intent → SessionState created
+    ↓
+Follow-upy → DESIGN_CONTINUE intercept (60+ patterns)
+    ↓
+"hotovo" / "diky, to staci" → DESIGN_CLOSE → graceful close
+    nebo
+"jdeme stavet" → BUILD_TRANSITION → zavre DESIGN, preda kontext
+```
+
+## IDE (Theia)
+
+C3-IDE je Theia-based IDE s custom panely:
+
+| Sprint | Obsah | Testu |
+|--------|-------|-------|
+| 0 | Theia scaffold, Electron wrapper | - |
+| 1 | Chat panel, Agent log, WS bridge | 29 |
+| 2 | ShellTool, Project Store, Status | 25 |
+| 3 | Design Viewer, Command Palette, Keybindings | - |
+| 4 | Diff Viewer, Code Review, Git | 30 |
+| 5 | Error Recovery, Onboarding, Settings, Export | 29 |
+| 6 | Multi-project, Chat Search, Token Dashboard | 37 |
+| 7 | Process Isolation, Shell Security, WS Security | 90 |
+
+### IDE spusteni
+
+IDE vyzaduje Theia scaffold (Sprint 0) jako zaklad. Sprinty 1-7 jsou extensions.
+
+Pro spusteni plneho IDE:
+1. Naklonovat Theia monorepo
+2. Pridat Sprint 0 scaffold (Electron wrapper, C3 theme, stripped moduly)
+3. Nainstalovat sprint extensions do `extensions/`
+4. `yarn && yarn build`
+5. `yarn electron start`
+
+Backend (ws-server) se spousti jako soucast C3 backendu:
+```javascript
+import { createC3WebSocketServer } from './ide/sprints/sprint1/packages/c3-backend/ws-server.cjs';
+createC3WebSocketServer(httpServer, conversationHandler, logger);
+// → ws://localhost:3001/c3/ws
+```
+
+## Testy
+
+```bash
+# Hlavni sady
+node tests/cre-comprehensive.test.js    # 401 — CRE klasifikace
+node tests/notifications.test.js        # 67
+node tests/workflow.test.js             # 42
+node tests/trust-feedback.test.js       # 34
+node tests/v583-tier1.test.js           # 94
+node e2e/run-e2e.js                     # 60 — E2E
+
+# IDE sprint testy
+node ide/sprints/sprint1/packages/c3-backend/ws-server.test.cjs  # 29
+node ide/sprints/sprint4/tests/sprint4.test.cjs                   # 30
+node ide/sprints/sprint5/tests/sprint5.test.cjs                   # 29
+node ide/sprints/sprint6/tests/sprint6.test.cjs                   # 37
+node ide/sprints/sprint7/tests/sprint7.test.cjs                   # 90
+
+# Konverzacni testy (vyzaduje Ollama + GPU)
+OLLAMA_URL=http://127.0.0.1:11434 node tests/conv-czech-nodiacritics.test.js
+```
+
+## Dalsi dokumentace
+
+- [CLAUDE.md](../CLAUDE.md) — development context pro AI asistenty
+- [ide/c3-ide-roadmap-v3.md](../ide/c3-ide-roadmap-v3.md) — IDE roadmap + architektonicke kontrakty
+- [ide/REVIEW.md](../ide/REVIEW.md) — revize roadmap vs. implementace
+- [docs/ARCHITECTURE.md](ARCHITECTURE.md) — starsi architektura
+- [docs/CHANGELOG.md](CHANGELOG.md) — historicky changelog

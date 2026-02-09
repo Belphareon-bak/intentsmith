@@ -1,0 +1,291 @@
+/**
+ * C3 Chat Panel Styles
+ * Dark-first theme. Minimal, readable, focused on conversation.
+ */
+
+/* ─── Container ─────────────────────────────────────────── */
+
+.c3-chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--theia-editor-background);
+  font-family: var(--theia-ui-font-family);
+  font-size: var(--theia-ui-font-size1);
+}
+
+/* ─── Message List ──────────────────────────────────────── */
+
+.c3-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  scroll-behavior: smooth;
+}
+
+.c3-chat-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.c3-chat-messages::-webkit-scrollbar-thumb {
+  background: var(--theia-scrollbarSlider-background);
+  border-radius: 3px;
+}
+
+.c3-chat-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--theia-descriptionForeground);
+  font-style: italic;
+}
+
+/* ─── Message Bubble ────────────────────────────────────── */
+
+.c3-msg {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  animation: c3-msg-fade-in 0.2s ease-out;
+}
+
+@keyframes c3-msg-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.c3-msg-avatar {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.c3-msg-user .c3-msg-avatar {
+  background: var(--theia-button-background);
+}
+
+.c3-msg-assistant .c3-msg-avatar {
+  background: #2d6a4f;
+}
+
+.c3-msg-system .c3-msg-avatar {
+  background: var(--theia-descriptionForeground);
+}
+
+.c3-msg-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.c3-msg-content {
+  line-height: 1.5;
+  color: var(--theia-foreground);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.c3-msg-content p {
+  margin: 0 0 8px;
+}
+
+.c3-msg-content p:last-child {
+  margin-bottom: 0;
+}
+
+.c3-msg-content pre {
+  background: var(--theia-textCodeBlock-background);
+  padding: 8px 12px;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-family: var(--theia-code-font-family);
+  font-size: var(--theia-code-font-size);
+  margin: 8px 0;
+}
+
+.c3-msg-content code {
+  background: var(--theia-textCodeBlock-background);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: var(--theia-code-font-family);
+  font-size: var(--theia-code-font-size);
+}
+
+/* Intent badge (optional, togglable) */
+.c3-msg-intent-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--theia-descriptionForeground);
+}
+
+/* ─── Streaming Indicator ───────────────────────────────── */
+
+.c3-streaming-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--theia-foreground);
+  margin-left: 2px;
+  animation: c3-blink 0.8s infinite;
+  vertical-align: text-bottom;
+}
+
+@keyframes c3-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.c3-streaming-thinking {
+  color: var(--theia-descriptionForeground);
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.c3-streaming-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.c3-streaming-dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--theia-descriptionForeground);
+  animation: c3-dot-bounce 1.2s infinite;
+}
+
+.c3-streaming-dots span:nth-child(2) { animation-delay: 0.2s; }
+.c3-streaming-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes c3-dot-bounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-4px); }
+}
+
+/* ─── Chat Input ────────────────────────────────────────── */
+
+.c3-chat-input-area {
+  padding: 8px 12px;
+  border-top: 1px solid var(--theia-panel-border);
+  background: var(--theia-editor-background);
+}
+
+.c3-chat-input-wrapper {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.c3-chat-textarea {
+  flex: 1;
+  resize: none;
+  border: 1px solid var(--theia-input-border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  background: var(--theia-input-background);
+  color: var(--theia-input-foreground);
+  font-family: var(--theia-ui-font-family);
+  font-size: var(--theia-ui-font-size1);
+  line-height: 1.4;
+  min-height: 36px;
+  max-height: 200px;
+  overflow-y: auto;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.c3-chat-textarea:focus {
+  border-color: var(--theia-focusBorder);
+}
+
+.c3-chat-textarea::placeholder {
+  color: var(--theia-input-placeholderForeground);
+}
+
+.c3-chat-textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.c3-chat-send-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 6px;
+  background: var(--theia-button-background);
+  color: var(--theia-button-foreground);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: background 0.15s;
+}
+
+.c3-chat-send-btn:hover:not(:disabled) {
+  background: var(--theia-button-hoverBackground);
+}
+
+.c3-chat-send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.c3-chat-cancel-btn {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: 1px solid var(--theia-inputValidation-warningBorder);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--theia-inputValidation-warningBorder);
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.15s;
+}
+
+.c3-chat-cancel-btn:hover {
+  background: rgba(250, 204, 21, 0.1);
+}
+
+/* ─── Connection Banner ─────────────────────────────────── */
+
+.c3-chat-banner {
+  padding: 6px 12px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.c3-chat-banner.disconnected {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+}
+
+.c3-chat-banner.reconnecting {
+  background: rgba(250, 204, 21, 0.15);
+  color: #facc15;
+}
+
+.c3-chat-banner.connected {
+  background: rgba(74, 222, 128, 0.15);
+  color: #4ade80;
+  animation: c3-banner-fade-out 2s 1s forwards;
+}
+
+@keyframes c3-banner-fade-out {
+  to { opacity: 0; height: 0; padding: 0; overflow: hidden; }
+}

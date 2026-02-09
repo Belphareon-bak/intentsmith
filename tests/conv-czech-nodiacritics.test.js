@@ -1,8 +1,9 @@
-// C3-Agent v57.3 — Czech No-Diacritics Conversation Tests (10 × 15+ steps)
+// C3-Agent v58.3 — Czech No-Diacritics Deep Conversation Tests (5 × 10 steps)
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// 10 multi-turn Czech conversations WITHOUT diacritics (háčky/čárky).
-// Tests language detection robustness with "udelej", "cesky", "diky" etc.
+// 5 deep multi-turn Czech conversations WITHOUT diacritics (háčky/čárky).
+// Focus: context continuity, follow-ups, depth of explanation, consistency.
+// Minimizes trivial questions (time, date, math) in favor of sustained topics.
 //
 // Run: OLLAMA_URL=http://127.0.0.1:11434 node tests/conv-czech-nodiacritics.test.js
 //
@@ -20,9 +21,8 @@ function printStep(convNum, step, input, response, meta = {}) {
   const mode = meta.mode || '?';
   const model = meta.model || 'local';
   const dur = meta.duration || 0;
-  const short = response.length > 300 ? response.substring(0, 300) + '...' : response;
-  console.log(`  [${convNum}.${String(step).padStart(2, '0')}] \x1b[36m(${mode})\x1b[0m \x1b[90m${input.substring(0, 60)}\x1b[0m`);
-  console.log(`         \x1b[33m${short}\x1b[0m`);
+  console.log(`  [${convNum}.${String(step).padStart(2, '0')}] \x1b[36m(${mode})\x1b[0m \x1b[90m${input}\x1b[0m`);
+  console.log(`         \x1b[33m${response}\x1b[0m`);
   if (model !== 'local') console.log(`         \x1b[90m[${model} ${dur}ms]\x1b[0m`);
   passedSteps++;
 }
@@ -83,7 +83,7 @@ async function runConversation(ChatController, convNum, title, messages) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 console.log(`\n${'═'.repeat(70)}`);
-console.log('  CESKE KONVERZACNI TESTY BEZ DIAKRITIKY (10 × 15+ kroku)');
+console.log('  CESKE KONVERZACNI TESTY BEZ DIAKRITIKY – HLUBKOVE SCENARE (5 × 10)');
 console.log(`${'═'.repeat(70)}`);
 
 let ollamaOk = false;
@@ -112,187 +112,72 @@ console.info = (...args) => { if (!suppressPatterns.test(String(args[0]))) _orig
 const ChatController = await setupPipeline();
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// 10 konverzaci
+// 5 hlubkovych konverzaci (10 kroku kazda)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-await runConversation(ChatController, 1, 'Bezny rozhovor + pocitani', [
-  'Ahoj! Jak se mas?',
-  'Co si myslis o umele inteligenci?',
-  'Jaky je dnes den?',
-  'Kolik je 347 * 12?',
-  '99 + 1',
-  'Kdy bude pristi uplnek?',
-  'Kolik je hodin?',
-  'Diky za informace. A co si myslis o budoucnosti AI?',
-  '1024 / 16',
-  'Jake je dnes datum?',
-  'Co je to neuronova sit?',
-  'Kolik dni do Vanoc?',
-  '55 * 55',
-  'A co si myslis o kvantovych pocitacich?',
-  'Diky, to je zajimave!',
+await runConversation(ChatController, 1, 'AI a spolecnost (hloubkovy kontext)', [
+  'Ahoj, rad bych se bavil o umele inteligenci v beznem zivote.',
+  'Jak dnes AI realne pomaha lidem, ne teoreticky?',
+  'Kde jsou podle tebe nejvetsi limity soucasne AI?',
+  'Jaky dopad muze mit AI na pracovni trh v CR?',
+  'Ktera povolani budou ovlivnena driv a proc?',
+  'Myslis, ze by stat mel regulovat pouziti AI? Proc ano/ne.',
+  'Jak by mela vypadat rozumna regulace, aby nezabila inovace?',
+  'Co bys doporucil jednotlivci, ktery se nechce stat "zbytecnym"?',
+  'Jakou roli v tom hraje vzdelavani?',
+  'Shrni hlavni rizika a prilezitosti AI pro bezneho cloveka.',
 ]);
 
-await runConversation(ChatController, 2, 'Programovani a kod', [
-  'Ahoj, potrebuji pomoc s programovanim.',
-  'Co si myslis o Pythonu jako prvnim jazyku?',
-  'Napis mi funkci pro vypocet faktorialu v Pythonu.',
-  'A co rekurzivni verze?',
-  'Kolik je 10 * 9 * 8?',
-  'Jaky je rozdil mezi seznamem a n-tici v Pythonu?',
-  'Vymysli mi nazev pro knihovnu na zpracovani dat.',
-  'Napis mi jednoduchy HTTP server v Node.js.',
-  '2 * 512',
-  'Co je to REST API?',
-  'Jak bys porovnal TypeScript a JavaScript?',
-  'Napis mi regex pro validaci emailu.',
-  'Co je to Big O notace?',
-  '1000 - 777',
-  'Diky za vsechno!',
+await runConversation(ChatController, 2, 'Programovani – od konceptu k praxi', [
+  'Chci se naucit programovat systematicky, ne nahodne.',
+  'Jak bys vysvetlil rozdil mezi programovanim a softwarovym inzenyrstvim?',
+  'Proc je dulezite rozumet algoritmum a datovym strukturam?',
+  'Vysvetli Big O notaci na jednoduchem, realnem prikladu.',
+  'Jak se to projevi v praxi u bezne webove aplikace?',
+  'Kdy ma smysl optimalizovat kod a kdy je to zbytecne?',
+  'Jak by mel vypadat prvni mensi projekt pro juniora?',
+  'Jake chyby zacatecnici delaji nejcasteji?',
+  'Jak poznat, ze se jako programator realne zlepsuju?',
+  'Shrni, co je nejdulezitejsi pro dlouhodoby rust.',
 ]);
 
-await runConversation(ChatController, 3, 'Cestovani a mesta', [
-  'Ahoj! Rad bych se dozvedel neco o cestovani.',
-  'Jake je hlavni mesto Italie?',
-  'Co bys doporucil navstivit v Rime?',
-  'Kolik je hodin?',
-  'Jaky je dnes den?',
-  '500 * 3',
-  'A co Japonsko? Stoji za navstevu?',
-  'Jake je hlavni mesto Japonska?',
-  'Vymysli mi plan na 3 dny v Praze.',
-  'Kolik je 120 * 24?',
-  'Co si myslis o cestovani vlakem?',
-  'Kdy bude pristi uplnek?',
-  'Jake jsou nejhezci ceske hrady?',
-  '250 + 750',
-  'Diky za tipy!',
+await runConversation(ChatController, 3, 'Zdravi, pohyb a dlouhodoba udrzitelnost', [
+  'Chci zacit cvicit, ale dlouhodobe, ne jen na mesic.',
+  'Proc vetsina lidi se cvicenim prestane?',
+  'Jaky je rozdil mezi motivaci a disciplinou?',
+  'Jak by mel vypadat realisticky plan pro uplneho zacatecnika?',
+  'Jakou roli hraje regenerace a spanek?',
+  'Je lepsi zacit silou nebo kondici? Proc?',
+  'Jak poznat, ze uz trenink skodi misto pomaha?',
+  'Jake jsou nejcastejsi chyby pri cviceni doma?',
+  'Jak si udrzet konzistenci i pri stresu a praci?',
+  'Shrni zakladni principy dlouhodobeho zdraveho pohybu.',
 ]);
 
-await runConversation(ChatController, 4, 'Veda a vzdelavani', [
-  'Ahoj, zajimam se o vedu.',
-  'Co je to fotosynteza?',
-  'A jak funguje gravitace?',
-  'Kolik je rychlost svetla?',
-  '299792 * 2',
-  'Co je to DNA?',
-  'Jaky je rozdil mezi atomem a molekulou?',
-  'Kolik planet ma slunecni soustava?',
-  'Vymysli mi zajimavej vedeckej experiment pro deti.',
-  'Jaky je dnes den?',
-  'Co je to periodicka tabulka prvku?',
-  '273 + 15',
-  'Kdo vynalezl zarovku?',
-  'Co si myslis o vyzkumu vesmiru?',
-  'Diky, bylo to poucne!',
+await runConversation(ChatController, 4, 'Historie jako zdroj porozumeni', [
+  'Zajima me, proc je dulezite ucit se historii.',
+  'Jak muze historie pomoct pri rozhodovani dnes?',
+  'Uved konkretni priklad z ceskych dejin.',
+  'Jak se historicke udalosti casto zkresluji?',
+  'Proc maji ruzne generace odlisny pohled na stejnou udalost?',
+  'Jaky vliv ma propaganda na vyklad historie?',
+  'Jak se da poznat kvalitni historicky zdroj?',
+  'Proc se nektere chyby v dejinach opakuji?',
+  'Co by se podle tebe melo ucit jinak nez dnes?',
+  'Shrni hlavni lekce historie pro soucasnost.',
 ]);
 
-await runConversation(ChatController, 5, 'Vareni a jidlo', [
-  'Ahoj! Rad bych se naucil varit.',
-  'Co si myslis o ceske kuchyni?',
-  'Jaky je tvuj oblibenej ceskej recept?',
-  'Kolik je 250 * 4?',
-  'Vymysli mi originaln recept na dezert.',
-  'Kolik je hodin?',
-  'Co potrebuji k priprave svickove?',
-  'A kolik to vareni asi trva?',
-  '180 * 3',
-  'Jaky je rozdil mezi pecenim a grilovanim?',
-  'Vymysli mi jidelnicek na tyden.',
-  'Jaky je dnes den?',
-  'Co si myslis o veganske strave?',
-  '350 + 275',
-  'Diky za rady, pujdu varit!',
-]);
-
-await runConversation(ChatController, 6, 'Podnikani a byznys', [
-  'Ahoj, premyslim o zalozeni firmy.',
-  'Co si myslis o startupech v Cesku?',
-  'Vymysli mi nazev pro technologickej startup.',
-  'Jake jsou hlavni kroky pri zalozeni s.r.o.?',
-  'Kolik je 15000 * 12?',
-  'Jaky je dnes den?',
-  'Co je to MVP v kontextu startupu?',
-  'Vymysli mi elevator pitch pro appku na sdileni jidla.',
-  '1000000 / 12',
-  'Jake jsou trendy v IT podnikani?',
-  'Co si myslis o praci na dalku?',
-  'Kdy bude pristi uplnek?',
-  'Kolik je hodin?',
-  'Jake dovednosti potrebuje dobrej podnikatel?',
-  'Diky, inspiroval jsi me!',
-]);
-
-await runConversation(ChatController, 7, 'Film a kultura', [
-  'Ahoj! Bavme se o kulture.',
-  'Co si myslis o ceskem filmu?',
-  'Jakej je tvuj oblibenej filmovej zanr?',
-  'Vymysli mi zapletku pro kratkej film.',
-  'Jaky je dnes den?',
-  '120 * 25',
-  'Co je to streaming?',
-  'Jake ceske filmy bys doporucil?',
-  'Co si myslis o vlivu socialnich siti na kulturu?',
-  'Vymysli mi nazev pro podcast o technologiich.',
-  'Kolik je hodin?',
-  'Co je to jazz?',
-  '1900 + 126',
-  'Jaka je role umeni ve spolecnosti?',
-  'Diky za inspirativni rozhovor!',
-]);
-
-await runConversation(ChatController, 8, 'Zdravi a cviceni', [
-  'Ahoj, chci zacit cvicit.',
-  'Co si myslis o behani?',
-  'Kolik kalorii spalim za hodinu behu?',
-  '500 * 7',
-  'Vymysli mi treninkovej plan pro zacatecnika.',
-  'Jaky je dnes den?',
-  'Co je dulezitejsi, kardio nebo sila?',
-  'Kolik vody bych mel denne vypit?',
-  '2000 + 500',
-  'Co si myslis o intermittent fasting?',
-  'Jake jsou nejlepsi protahovaci cviky?',
-  'Kolik je hodin?',
-  'Kdy bude pristi uplnek?',
-  'Jak se vyvarovat zraneni pri cviceni?',
-  'Diky za motivaci!',
-]);
-
-await runConversation(ChatController, 9, 'Historie a spolecnost', [
-  'Ahoj, zajima me historie.',
-  'Kdy vznikla Ceska republika?',
-  'Co se stalo v roce 1989?',
-  'Jaky je dnes den?',
-  '2026 - 1993',
-  'Kdo byl prvni ceskoslovenskej prezident?',
-  'Co si myslis o vlivu historie na soucasnost?',
-  'Vymysli mi namet na historickej roman z Prahy.',
-  '1918 + 20',
-  'Co je to renesance?',
-  'Jake jsou nejdulezitejsi vynalezy 20. stoleti?',
-  'Kolik je hodin?',
-  'Co si myslis o uceni historie ve skolach?',
-  'Kdy bude pristi uplnek?',
-  'Diky, historie je fascinujici!',
-]);
-
-await runConversation(ChatController, 10, 'Technologie a budoucnost', [
-  'Ahoj! Co je novyho v technologiich?',
-  'Co si myslis o elektromobilech?',
-  'Jaky je dnes den?',
-  '2050 - 2026',
-  'Co je to blockchain?',
-  'Vymysli mi koncept chytry domacnosti budoucnosti.',
-  'Kolik je 1024 * 1024?',
-  'Co si myslis o robotice?',
-  'Napis mi jednoduchy skript pro automatizaci v Bashi.',
-  'Kolik je hodin?',
-  'Jake technologie zmeni svet v pristich 10 letech?',
-  'Co je to IoT?',
-  '365 * 24',
-  'Kdy bude pristi uplnek?',
-  'Diky za skvelou konverzaci o budoucnosti!',
+await runConversation(ChatController, 5, 'Technologie a budoucnost (strategicky pohled)', [
+  'Jak se bude podle tebe menit role cloveka v technologickem svete?',
+  'Ktere technologie budou mit nejvetsi dopad na kazdodenni zivot?',
+  'Proc nejsou technologicke zmeny rozlozene rovnomerne?',
+  'Jaky vliv bude mit automatizace na male firmy?',
+  'Co je vetsi riziko: pomaly pokrok nebo prilis rychly?',
+  'Jak se mohou jednotlivci pripravit na nejistou budoucnost?',
+  'Jakou roli v tom hraje kriticke mysleni?',
+  'Jak se zmeni vzdelavani v pristich 10–20 letech?',
+  'Co bys doporucil mladym lidem dnes?',
+  'Strucne shrn hlavni trendy a dopady.',
 ]);
 
 // ═══════════════════════════════════════════════════════════════════════════════

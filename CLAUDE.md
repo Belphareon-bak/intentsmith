@@ -1,222 +1,210 @@
 # CLAUDE.md - C.3 Agent Development Context
 
-**Verze:** v36.9.0
-**Datum:** 2026-01-24
+**Verze:** v58.3
+**Datum:** 2026-02-09
 **Projekt:** ~/Projects/c3-agent-wip
 
 ---
 
-## 🎯 Aktuální stav
+## Aktualni stav
 
-C.3 Agent prochází architektonickou konsolidací CRE (Conversational Reasoning Engine) z bypass-able chatu na single-authority decision engine.
+C.3 Agent je plne funkcni conversational AI s CRE (Conversational Reasoning Engine) jako single-authority decision enginem, DESIGN pipeline pro strukturovane navrhy, expert systemem, a IDE (Theia) frontend.
 
-### Aktivní branch
+### Branch: `master`
 
-```bash
-git checkout cre-v36.9
-```
+### Testovaci pokryti
 
-### Dokončené commity
-
-| Commit | Verze | Popis | Testy |
-|--------|-------|-------|-------|
-| **COMMIT 1** | v36.7 | LLM Gateway Lockdown | 50 |
-| **COMMIT 2** | v36.8 | Tool-First CREDecision Contract | 46 |
-| **COMMIT 3** | v36.9 | ResponseRenderer + Single LLM Call | 29 |
-
-### Celkem testů: 342 passing
+| Sada | Pocet | Stav |
+|------|-------|------|
+| CRE Comprehensive | 401 | pass |
+| Notifications | 67 | pass |
+| Workflow | 42 | pass |
+| Trust Feedback | 34 | pass |
+| v583 Tier1 | 94 | pass |
+| E2E (framework) | 60 | pass |
+| IDE Sprint 1 (WS) | 29 | pass |
+| IDE Sprint 4 (Diff/Review) | 30 | pass |
+| IDE Sprint 5 (Export/Settings) | 29 | pass |
+| IDE Sprint 6 (Multi-project) | 37 | pass |
+| IDE Sprint 7 (Security) | 90 | pass |
+| **Celkem** | **~913** | **pass** |
 
 ---
 
-## 📁 Klíčové soubory
+## Architektura
 
-### LLM Gateway (v36.7)
 ```
-src/llm/auth-types.js      # LLMCallerRole, LLMCapability, createAuthToken()
-src/llm/gateway.js         # Centrální LLMGateway singleton
-src/llm/client.js          # Legacy wrapper (routes through gateway)
+User Input
+  |
+  v
+ChatController.handle()
+  |
+  v
+ConversationHandler
+  |-- CRE classifyIntent() --> LOCAL | CONVERSATIONAL | SEARCH | DESIGN | CREATIVE | BUILD | CODE
+  |-- DESIGN session intercept (DESIGN_CONTINUE_PATTERNS, DESIGN_CLOSE, BUILD_TRANSITION)
+  |-- Tool execution (TOOL_CALL)
+  |-- LLM synthesis + Output Gate (D6)
+  |
+  v
+Response (text + metadata)
 ```
 
-### CRE Decision Types + ResponseRenderer (v36.8-v36.9)
+### CRE Intent Routing
+
+| Intent | Handler | Popis |
+|--------|---------|-------|
+| LOCAL | Deterministic | Cas, datum, kalkulacka, konverze |
+| CONVERSATIONAL | LLM synthesis | Bezna konverzace |
+| SEARCH | WebSearch + synthesis | Fresh data dotazy |
+| DESIGN | Design pipeline | Strukturovane navrhy (SessionState lifecycle) |
+| CREATIVE | LLM synthesis | Pribehy, basne, kreativni obsah |
+| BUILD | Planner pipeline | Stavba projektu |
+| CODE | LLM synthesis | Inline kod (bez projektu) |
+
+---
+
+## Klicove soubory
+
+### CRE Decision Engine
 ```
-src/chat/cre-decision-types.js   # CREDecision ADT, validators
-src/chat/response-renderer.js    # Full impl: static + synthesize + QualityGate (v36.9)
+src/chat/cre-decision.js          # ~2400 radku — klasifikace intentu, patterns, typo normalizace
+src/chat/cre-decision-types.js    # CREDecision ADT, DecisionType, IntentType
 ```
 
-### Core CRE
+### Chat Pipeline
 ```
-src/chat/cre-v2.js              # Main CRE engine
-src/chat/dialog-state-v2.js     # Dialog state management
-src/chat/decision-matrix.js     # Decision rules
-src/chat/capability-registry.js # Tool capabilities
-src/chat/answer-quality-gate.js # Output sanitization
+src/chat/controller.js             # ChatController — vstupni bod pro chat
+src/chat/handlers/conversation.js  # ConversationHandler — routing, DESIGN session, tool calls
+src/chat/handlers/design.js        # DESIGN pipeline (SessionState, metrics, quality gates)
+src/chat/handlers/utils/synthesis.js  # LLM synteza + Output Gate (D6)
+src/chat/handlers/utils/quality.js    # Quality evaluators (fluff, hedging, sections)
+src/chat/conversation-store.js     # Session persistence (SQLite)
+```
+
+### LLM + Tools
+```
+src/llm/gateway.js                # LLM Gateway s auth tokeny
+src/llm/client.js                 # Ollama klient
+src/llm/web-search.js             # Web search tool
+src/executor/tool-executor.js     # Tool executor
+src/tools/registry.js             # Tool registry
+```
+
+### Expert System
+```
+src/experts/expert-layer.js       # Expert routing (ucetni, pravnik, atd.)
+src/experts/expert-store.js       # Expert config persistence
+```
+
+### IDE (Theia)
+```
+ide/                               # C3-IDE — Theia-based IDE (novy, nahrazuje UI)
+ide/c3-ide-roadmap-v3.md          # Roadmap s architektonickymi kontrakty
+ide/sprints/sprint0/              # Theia scaffold (prerekvizita)
+ide/sprints/sprint1/              # Chat panel, Agent log, WS bridge
+ide/sprints/sprint2/              # ShellTool, Project Store, Status
+ide/sprints/sprint3/              # Design Viewer, Command Palette, Keybindings
+ide/sprints/sprint4/              # Diff Viewer, Code Review, Git integration
+ide/sprints/sprint5/              # Error Recovery, Onboarding, Settings, Export
+ide/sprints/sprint6/              # Multi-project, Chat Search, Token Dashboard
+ide/sprints/sprint7/              # Process Isolation, Shell Security, WS Security
+```
+
+### Server
+```
+src/server.js                     # Express HTTP server, port 3335
+src/config.js                     # Konfigurace (server, ollama, modely)
 ```
 
 ### Testy
 ```
-src/tests/llm-gateway.test.js        # 50 tests
-src/tests/cre-decision-types.test.js # 46 tests
-src/tests/cre-v2.test.js             # 142 tests
-src/tests/capability-truth.test.js   # 28 tests
-src/tests/llm-enforcement.test.js    # 29 tests (v36.9)
-src/tests/correction-enforcer.test.js # 27 tests
-src/tests/cre-v36-e2e.test.js        # 20 tests
+tests/                            # 35 testovych souboru
+e2e/framework.js                  # E2E test framework (ConversationSimulator)
+e2e/run-e2e.js                    # E2E test runner (60 testu)
+ide/sprints/*/tests/              # IDE sprint testy (~215 testu)
 ```
 
 ---
 
-## 🔧 Zbývající commity
+## Spusteni
 
-### COMMIT 4 — Real Capability Wiring (Safe Tools) — NEXT
-```
-feat(tools): safe http client + real capability execution
-```
-
-**Cíl:** Tools skutečně DĚLAJÍ věci, ne jen "mohu připravit dotaz".
-
-**Nové soubory:**
-- `src/tools/http-client.js` - SafeHttpClient s rate limiter + retry
-- `src/tools/registry.js` - Tool implementations
-- `src/tools/executor.js` - Tool executor with validation
-
-**STOP-CONDITION:**
-```bash
-# "najdi mi auto" → HTTP request skutečně proběhne
-# ŽÁDNÉ: "Mohu ti pomoci připravit dotaz"
-```
-
----
-
-### COMMIT 5 — Memory Policy + Human Gate
-```
-feat(safety): memory policy layer + human-in-the-loop gate
-```
-
-**Nové soubory:**
-- `src/memory/policy.js` - MemoryPolicyLayer
-- `src/safety/human-gate.js` - HumanGate with approval levels
-
-**STOP-CONDITION:**
-```bash
-# fs.write / shell.exec → VŽDY projde HumanGate
-# CRE → memory.read/write → POUZE přes policy
-```
-
----
-
-## 🚨 Klíčové kontrakty
-
-### 1. LLM Gateway - capability-based auth (v36.9: STRICT by default)
-```javascript
-// SPRÁVNĚ:
-const token = createAuthToken({
-  role: 'CRE_DECISION',
-  decisionId: uuid(),
-  auditContext: { sessionId }
-});
-llmGateway.authorize(token);
-try {
-  const result = await llmGateway.call(prompt, { systemPrompt });
-} finally {
-  llmGateway.revoke();
-}
-
-// ŠPATNĚ (throws LLM_CALL_OUTSIDE_CRE):
-await callOllama('CHAT', prompt);  // Throws unless ALLOW_LEGACY_LLM=1
-```
-
-### 2. CRE Decision - NO content string
-```javascript
-// ❌ ZAKÁZÁNO (validateDecision ODMÍTNE):
-{ type: 'ANSWER', content: 'Nějaký text...' }
-
-// ✅ SPRÁVNĚ:
-{ type: 'ANSWER', template: 'factual_answer', data: {...} }
-{ type: 'ANSWER', template: 'search_results', dataRef: 'step_1' }
-```
-
-### 3. RefusalReason - enum, NOT free text
-```javascript
-// ✅ SPRÁVNĚ:
-refuse('CAPABILITY_NOT_AVAILABLE')
-refuse('PERMISSION_DENIED')
-
-// ❌ ŠPATNĚ:
-refuse('Nemohu to udělat protože...')
-```
-
----
-
-## 🧪 Spuštění testů
-
+### Backend
 ```bash
 cd ~/Projects/c3-agent-wip
+node src/server.js
+# Server na http://127.0.0.1:3335
+# Chat UI: http://127.0.0.1:3335/architect
+```
 
-# Všechny CRE testy (342)
-node src/tests/llm-gateway.test.js && \
-node src/tests/cre-decision-types.test.js && \
-node src/tests/cre-v2.test.js && \
-node src/tests/capability-truth.test.js && \
-node src/tests/llm-enforcement.test.js && \
-node src/tests/correction-enforcer.test.js && \
-node src/tests/cre-v36-e2e.test.js
+### Prerekvizity
+- Node.js 18+
+- Ollama s modelem qwen2.5:32b (http://127.0.0.1:11434)
+- SQLite (better-sqlite3)
 
-# Quick check
-for f in src/tests/*.test.js; do
-  echo "=== $f ==="
-  node "$f" 2>&1 | grep -E "Passed:|Failed:"
-done
+### IDE (zatim jen sprinty — Theia scaffold je prerekvizita)
+```bash
+# Sprint testy:
+node ide/sprints/sprint1/packages/c3-backend/ws-server.test.cjs   # 29 testu
+node ide/sprints/sprint4/tests/sprint4.test.cjs                    # 30 testu
+node ide/sprints/sprint5/tests/sprint5.test.cjs                    # 29 testu
+node ide/sprints/sprint6/tests/sprint6.test.cjs                    # 37 testu
+node ide/sprints/sprint7/tests/sprint7.test.cjs                    # 90 testu
+```
+
+### Testy
+```bash
+# Hlavni testovaci sady
+node tests/cre-comprehensive.test.js    # 401 testu — CRE klasifikace
+node tests/notifications.test.js        # 67 testu
+node tests/workflow.test.js             # 42 testu
+node tests/trust-feedback.test.js       # 34 testu
+node tests/v583-tier1.test.js           # 94 testu
+node e2e/run-e2e.js                     # 60 E2E testu
+
+# Konverzacni testy (vyzaduje Ollama + GPU)
+OLLAMA_URL=http://127.0.0.1:11434 node tests/conv-czech-nodiacritics.test.js
 ```
 
 ---
 
-## 🏗️ Architektura po v36.9
+## Klicove kontrakty
 
-```
-User → CRE.process() → CREDecision → ToolExecutor → ResponseRenderer → Text
-                           │
-                           ├─ TOOL_CALL → execute → results
-                           ├─ ASK_USER → render slots question
-                           ├─ REFUSE → render refusal with reason
-                           ├─ ANSWER → template + data → render
-                           └─ MULTI_STEP → execute steps → combine
-```
+### 1. CRE je jedina autorita
+Vsechny chat zpravy prochazi CRE klasifikaci. Zadny bypass.
 
-**Klíčové principy:**
-1. **LLM je TOOL, ne AUTHOR** - CRE decides, LLM executes specific task
-2. **SINGLE SOURCE OF TRUTH** - CRE is sole authority
-3. **TOOLS ARE PURE** - Tool receives instructions, returns data
-4. **RESPONSE IS ASSEMBLED** - template + data + (optional) LLM synthesis
-5. **PLANS, NOT TEXT** - CRE returns structure, never raw text
+### 2. DESIGN session lifecycle
+- `navrhni X` → DESIGN intent → SessionState created
+- Follow-upy zustavaji v DESIGN (60+ DESIGN_CONTINUE_PATTERNS)
+- `hotovo` / `diky, to staci` → graceful close (DESIGN_CLOSE_PATTERNS)
+- `jdeme stavet` → BUILD transition (zavre DESIGN, preda kontext)
 
----
+### 3. Output Gate (D6)
+Kazda LLM odpoved projde quality gatem: fluff check, hedging check, language leak check, section structure check (pro DESIGN).
 
-## 📊 Roadmap v36.x → v39.x
+### 4. Typo normalizace
+`normalizeForClassification()` v cre-decision.js normalizuje caste ceske preklepy (navhni→navrhni, archtiekturu→architekturu) pred klasifikaci.
 
-| Layer | Versions | Deliverable |
-|-------|----------|-------------|
-| **1. Consolidation** | v36.7-36.9 | CRE = single entry, real tools |
-| **2. Memory** | v37.0-37.2 | Session + Long-term + Preferences |
-| **3. Multi-step** | v38.0-38.3 | Planner/Executor, Error recovery |
-| **4. Autonomy** | v39.0-39.3 | Goals, Safety, Self-correction, Copilot |
+### 5. IDE kontrakty (Sprint 1-7)
+- Protocol versioning (hello/hello_ack handshake)
+- Turn lifecycle (turn_start/turn_end se statusy)
+- Agent concurrency (max 1 turn)
+- Chat != Command Palette
+- Design immutability
+- Git dirty tree invariant
+- Atomic writes (crash consistency)
+- Shell security (7 vrstev + bubblewrap)
+- WS security (256-bit token, rate limiting, localhost only)
 
 ---
 
-## 🔗 Odkazy
+## Poznamky pro pokracovani
 
-- **UI:** http://localhost:3335/architect
-- **API:** http://localhost:3335/api/
-- **Transcripts:** /mnt/transcripts/
-
----
-
-## 📝 Poznámky pro pokračování
-
-1. **Nejdřív testy** - před jakoukoliv změnou spusť existující testy
-2. **Inkrementální změny** - jeden commit = jeden concern
-3. **STOP-CONDITIONS** - každý commit má jasné kritérium dokončení
-4. **Backward compatibility** - legacy code funguje přes wrappery
+1. **Nejdriv testy** — pred jakoukoli zmenou spust existujici testy
+2. **ESM projekt** — package.json ma `"type": "module"`, IDE soubory jsou .cjs (CommonJS)
+3. **Ceska diakritika** — `\b` nefunguje s non-ASCII; pouzij `(?:\s|$|[?!.,;])` misto `\b`
+4. **Ollama model** — `qwen2.5:32b` je vychozi model pro vsechny LLM volani
 
 ---
 
-*Poslední aktualizace: 2026-01-24*
+*Posledni aktualizace: 2026-02-09*
