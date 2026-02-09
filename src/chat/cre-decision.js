@@ -33,6 +33,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { logger } from '../core/logger.js';
+import { isGratitudeOrFarewell, isCodeRequest } from './cre-routing-patches.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Decision Types
@@ -1559,6 +1560,22 @@ export class CREDecisionEngine {
     // ════════════════════════════════════════════════════════════════════════
     if (LOCAL_DETERMINISTIC_PATTERNS.some(p => p.test(textNorm))) {
       return IntentType.LOCAL;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Q2: Gratitude/farewell → CONVERSATIONAL (before SEARCH catches it)
+    // "Thanks for the tips!" must NOT trigger SEARCH
+    // ════════════════════════════════════════════════════════════════════════
+    if (isGratitudeOrFarewell(text)) {
+      return IntentType.CONVERSATIONAL;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // Q3: Code requests → CODE (before SEARCH catches "Write me...")
+    // "Write me a simple HTTP server in Node.js" → CODE, not SEARCH
+    // ════════════════════════════════════════════════════════════════════════
+    if (isCodeRequest(text)) {
+      return IntentType.CODE;
     }
 
     // ════════════════════════════════════════════════════════════════════════

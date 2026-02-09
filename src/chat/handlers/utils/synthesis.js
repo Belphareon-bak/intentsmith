@@ -14,6 +14,7 @@ import { Structure, FollowUpStyle } from '../../../memory/preferences.js';
 import { detectFluff, buildFluffRetryPrompt } from './quality.js';
 import { enforceOutputContract, buildOutputGateRetryPrompt } from './output-gate.js';
 import { getLanguageContext } from './language.js';
+import { buildStrictLanguageInstruction } from './language-enforcement.js';
 import {
   filterToolResults,
   annotateWithTrust,
@@ -225,7 +226,7 @@ export function buildSynthesisPrompt({ query, intent, data, failures, userPrefer
  * v45.0 Phase 3: Added expertHints and responseIntent support
  * v55.2: Added languageInstruction for language consistency
  */
-export function buildSynthesisSystemPrompt(intent, userPreferences, expertHints = null, responseIntent = null, languageInstruction = '') {
+export function buildSynthesisSystemPrompt(intent, userPreferences, expertHints = null, responseIntent = null, languageInstruction = '', lang = 'cs') {
   let basePrompt = `You are a response synthesizer. Your job is to take tool execution data and create a helpful, well-structured response for the user.
 
 CRITICAL RULES:
@@ -294,6 +295,9 @@ ${responseIntentInstructions[responseIntent]}
   if (languageInstruction) {
     basePrompt += languageInstruction;
   }
+
+  // Q1: Strict language enforcement — prevents SK/RU/CN contamination
+  basePrompt += buildStrictLanguageInstruction(lang);
 
   return basePrompt;
 }
@@ -609,7 +613,7 @@ export async function synthesizeWithLLM({
   });
   // v55.2: Detect language and inject instruction
   const langCtx = getLanguageContext(query);
-  const systemPrompt = buildSynthesisSystemPrompt(intent, userPreferences, expertHints, responseIntent, langCtx.instruction)
+  const systemPrompt = buildSynthesisSystemPrompt(intent, userPreferences, expertHints, responseIntent, langCtx.instruction, langCtx.language)
     + (confidenceInstructions ? `\n\n${confidenceInstructions}` : '');
 
   const MAX_RETRIES = 1;
@@ -617,6 +621,11 @@ export async function synthesizeWithLLM({
 
   try {
     const creBridge = await import('../../../llm/cre-bridge.js');
+
+    // v59.0 IDE Bridge: Notify LLM synthesis start
+    if (typeof context.onLLMStart === 'function') {
+      try { context.onLLMStart('synthesis', synthesisPrompt.length); } catch { /* */ }
+    }
 
     while (retryCount <= MAX_RETRIES) {
       const result = await creBridge.generateChatResponse(synthesisPrompt, systemPrompt, {
@@ -725,6 +734,24 @@ export async function synthesizeWithLLM({
       // Confidence boost: if HIGH confidence + good gate, no suffix needed
       // This is the happy path — clean, confident answer
       // ─── End confidence styling ────────────────────────────────────
+
+      // v59.0 IDE Bridge: Notify gate verdict
+      if (typeof context.onGateVerdict === 'function') {
+        try {
+          context.onGateVerdict({
+            ok: gateVerdict.ok,
+            dimension: gateVerdict.failDimension,
+            confidence: finalConfidence,
+            fluff: fluffCheck.isFluff,
+            retried: retryCount > 0,
+          });
+        } catch { /* */ }
+      }
+
+      // v59.0 IDE Bridge: Notify LLM synthesis done
+      if (typeof context.onLLMDone === 'function') {
+        try { context.onLLMDone(finalContent.length, result.duration); } catch { /* */ }
+      }
 
       return {
         content: finalContent,

@@ -15,6 +15,9 @@ import { logger } from '../core/logger.js';
 import { SafetyEngine } from './safety/engine.js';
 import { getConversationStore, TurnRole } from './conversation-store.js';
 import { getLTMContextForSynthesis } from './ltm-context.js';
+import { validateResponseLanguage, buildLanguageRetryInstruction } from './handlers/utils/language-enforcement.js';
+import { sanitizeResponse } from './handlers/utils/response-sanitizer.js';
+import { getLanguageContext } from './handlers/utils/language.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Chat Mode Types
@@ -539,6 +542,22 @@ export class ChatController {
       this.#transitionMode(targetMode, detection?.reason || 'auto');
     }
 
+    // ════════════════════════════════════════════════════════════════════════════
+    // v59.0 IDE Bridge: Emit CRE decision via hook (if provided by WS bridge)
+    // ════════════════════════════════════════════════════════════════════════════
+    if (detection && typeof context.onCREDecision === 'function') {
+      try {
+        context.onCREDecision({
+          intent: detection.mode,
+          confidence: detection.confidence,
+          signals: detection.signals,
+          reason: detection.reason,
+        });
+      } catch (e) {
+        logger.warn('ChatController', `onCREDecision hook error: ${e.message}`);
+      }
+    }
+
     // Get handler
     const handler = this.#handlers.get(targetMode);
     if (!handler) {
@@ -561,7 +580,35 @@ export class ChatController {
       });
 
       // Ensure response is properly tagged
-      const taggedResponse = this.#ensureTagged(response, targetMode, pendingConfirmation);
+      let taggedResponse = this.#ensureTagged(response, targetMode, pendingConfirmation);
+
+      // ── Q5: Sanitize response (JSON leak, empty, etc.) ──────────────────
+      // ── Q1: Post-response language validation ───────────────────────────
+      try {
+        const langCtx = getLanguageContext(input);
+        const lang = langCtx?.language || 'cs';
+        const content = taggedResponse?.content;
+
+        if (typeof content === 'string' && content.length > 0) {
+          const sanitized = sanitizeResponse(content, lang);
+          const langCheck = validateResponseLanguage(sanitized, lang);
+
+          if (!langCheck.clean) {
+            logger.warn('LanguageEnforcement', 'Language contamination detected', {
+              issues: langCheck.issues,
+              sessionId: this.#sessionId,
+              input: input.substring(0, 50),
+            });
+          }
+
+          // Apply sanitized content if it changed
+          if (sanitized !== content) {
+            taggedResponse = this.#ensureTagged(sanitized, targetMode, pendingConfirmation);
+          }
+        }
+      } catch (postErr) {
+        logger.warn('PostProcessing', `Q1/Q5 post-processing error: ${postErr.message}`);
+      }
 
       // Add to history
       this.#addToHistory(taggedResponse);
@@ -1108,21 +1155,17 @@ export class SessionState {
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // v44.3 - Persistence Methods (localStorage support)
+  // v59.0 - Persistence Methods (DB via ConversationStore — replaces localStorage)
   // ─────────────────────────────────────────────────────────────────────────────
 
   /**
-   * Save session state to localStorage
-   * Call this after any state change that should persist
+   * Save session state to persistent storage (DB via ConversationStore).
+   * v59.0: Replaced localStorage (browser-only) with DB persistence.
    */
   saveToStorage() {
-    if (typeof localStorage === 'undefined') {
-      return false; // Not in browser environment
-    }
     try {
-      const key = `cre_session_${this.#sessionId}`;
-      localStorage.setItem(key, JSON.stringify(this.toJSON()));
-      return true;
+      const store = getConversationStore();
+      return store.saveSessionState(this.#sessionId, JSON.stringify(this.toJSON()));
     } catch (err) {
       logger.debug('SessionState', `saveToStorage failed: ${err.message}`);
       return false;
@@ -1130,20 +1173,17 @@ export class SessionState {
   }
 
   /**
-   * Load session state from localStorage
+   * Load session state from persistent storage.
+   * v59.0: DB-backed, survives server restart.
    * @param {string} sessionId
    * @returns {SessionState|null}
    */
   static loadFromStorage(sessionId) {
-    if (typeof localStorage === 'undefined') {
-      return null; // Not in browser environment
-    }
     try {
-      const key = `cre_session_${sessionId}`;
-      const stored = localStorage.getItem(key);
-      if (!stored) return null;
-      const json = JSON.parse(stored);
-      return SessionState.fromJSON(json);
+      const store = getConversationStore();
+      const json = store.loadSessionState(sessionId);
+      if (!json) return null;
+      return SessionState.fromJSON(JSON.parse(json));
     } catch (err) {
       logger.debug('SessionState', `loadFromStorage failed: ${err.message}`);
       return null;
@@ -1151,16 +1191,12 @@ export class SessionState {
   }
 
   /**
-   * Clear session state from localStorage
+   * Clear session state from persistent storage.
    */
   clearFromStorage() {
-    if (typeof localStorage === 'undefined') {
-      return false;
-    }
     try {
-      const key = `cre_session_${this.#sessionId}`;
-      localStorage.removeItem(key);
-      return true;
+      const store = getConversationStore();
+      return store.deleteSessionState(this.#sessionId);
     } catch (err) {
       return false;
     }

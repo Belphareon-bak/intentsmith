@@ -7,6 +7,14 @@
 
 import { ResponseTag, TaggedResponse, ResponseSpeaker, ChatMode } from '../controller.js';
 import { logger } from '../../core/logger.js';
+import { getLanguageContext } from './utils/language.js';
+import {
+  formatTodayResponse,
+  formatTimeResponse,
+  formatMathResponse,
+  formatMoonResponse,
+  formatDate,
+} from './utils/local-i18n.js';
 
 /**
  * Handle LOCAL decision - TERMINAL direct computation
@@ -57,7 +65,11 @@ export async function handleLocalDecision(input, decision, context) {
     },
   });
 
-  const content = formatLocalResponse(input, result, handler);
+  // Q4: Detect user language for i18n response formatting
+  const langCtx = context.langCtx || getLanguageContext(input);
+  const lang = langCtx?.language || 'cs';
+
+  const content = formatLocalResponse(input, result, handler, lang);
 
   return new TaggedResponse({
     content,
@@ -173,19 +185,50 @@ export function computeDate(input) {
 
 /**
  * Format LOCAL computation result for user
+ * Q4: Now i18n-aware — formats response in user's detected language
  */
-export function formatLocalResponse(input, result, handler) {
+export function formatLocalResponse(input, result, handler, lang = 'cs') {
   if (result.error) {
-    return `⚠️ Nepodařilo se vypočítat: ${result.error}`;
+    return lang === 'en'
+      ? `⚠️ Calculation failed: ${result.error}`
+      : `⚠️ Nepodařilo se vypočítat: ${result.error}`;
   }
 
+  // Q4: Use i18n-aware formatters based on handler type
+  switch (handler) {
+    case 'local.date':
+      if (/hodin|time/i.test(input)) {
+        return formatTimeResponse(lang);
+      }
+      return formatTodayResponse(lang);
+
+    case 'local.math':
+      if (result.expression && result.answer !== null) {
+        return formatMathResponse(result.expression, result.answer, lang);
+      }
+      break;
+
+    case 'local.calendar':
+      if (result.answer && result.date && result.today) {
+        const moonDate = lang !== 'cs'
+          ? formatDate(new Date(result.date.split('.').reverse().join('-')), lang)
+          : result.date;
+        const todayDate = lang !== 'cs'
+          ? formatDate(new Date(result.today.split('.').reverse().join('-')), lang)
+          : result.today;
+        return formatMoonResponse(result.answer, moonDate, todayDate, lang);
+      }
+      break;
+  }
+
+  // Fallback: use explanation if available
   if (result.explanation) {
     return `📊 **${result.explanation}**`;
   }
 
   if (result.answer !== null && result.answer !== undefined) {
-    return `📊 **Výsledek:** ${result.answer}${result.unit ? ' ' + result.unit : ''}`;
+    return `📊 **${lang === 'en' ? 'Result:' : 'Výsledek:'} ${result.answer}${result.unit ? ' ' + result.unit : ''}`;
   }
 
-  return `📊 Výpočet dokončen.`;
+  return lang === 'en' ? `📊 Computation complete.` : `📊 Výpočet dokončen.`;
 }
