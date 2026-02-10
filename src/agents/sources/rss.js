@@ -1,88 +1,97 @@
-// C.3 v57.0 — RSS/Atom Source Adapter
-// ══════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
+// C3-Agent — B5: RSS/Atom Source Adapter
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Source adapter for RSS 2.0 and Atom feeds.
+// Used by agent runner to monitor news, blogs, listings.
+//
+// Features:
+//   - RSS 2.0 parsing (<channel>/<item>)
+//   - Atom 1.0 parsing (<feed>/<entry>)
+//   - Auto-detection of feed format
+//   - HTML entity unescaping + CDATA extraction
+//   - HTML tag stripping from content
+//   - Keyword filtering (case-insensitive, title + content)
+//   - maxItems limiting
+//   - Deduplication by ID/GUID
+//
+// API:
+//   const src = new RSSSource({ url, maxItems?, filterKeywords? });
+//   const { items } = await src.fetch();
+//   // items: [{ id, title, link, published, content, source }]
+//
+// ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * RSS/Atom feed source.
- * Parses both RSS 2.0 and Atom formats into a normalized item array.
- * Uses regex-based parsing — no external XML library needed.
- *
- * @example
- *   const source = new RSSSource({ url: 'https://example.com/rss' });
- *   const { items } = await source.fetch();
- */
 export class RSSSource {
   /**
    * @param {object} config
    * @param {string} config.url - Feed URL
-   * @param {number} [config.maxItems=20] - Max items to return
-   * @param {string[]} [config.filterKeywords] - Only include items matching these keywords
+   * @param {number} [config.maxItems=20] - Maximum items to return
+   * @param {string[]} [config.filterKeywords=[]] - Keywords to filter by (case-insensitive)
    */
   constructor(config) {
     this.url = config.url;
-    this.maxItems = config.maxItems || 20;
+    this.maxItems = config.maxItems ?? 20;
     this.filterKeywords = (config.filterKeywords || []).map(k => k.toLowerCase());
   }
 
   /**
-   * Fetch and parse the RSS/Atom feed.
-   * @returns {Promise<{items: Array<{id: string, title: string, link: string, published: string, content: string, source: string}>}>}
+   * Fetch and parse the feed.
+   * @returns {Promise<{ items: FeedItem[] }>}
+   * @throws {Error} On HTTP or network errors
    */
   async fetch() {
-    const response = await fetch(this.url, {
-      headers: { 'User-Agent': 'C3-Agent/57.0 (RSS Reader)' },
-    });
-
-    if (!response.ok) {
-      throw new Error(`RSS fetch failed: HTTP ${response.status} from ${this.url}`);
+    const res = await fetch(this.url);
+    if (!res.ok) {
+      throw new Error(`RSS fetch failed: HTTP ${res.status}`);
     }
 
-    const xml = await response.text();
-    const isAtom = xml.includes('<feed') && xml.includes('xmlns="http://www.w3.org/2005/Atom"');
+    const xml = await res.text();
+    let items;
 
-    let items = isAtom ? this._parseAtom(xml) : this._parseRSS(xml);
+    if (this._isAtom(xml)) {
+      items = this._parseAtom(xml);
+    } else {
+      items = this._parseRSS(xml);
+    }
 
-    // Filter by keywords if configured
+    // Dedup by ID
+    items = this._deduplicate(items);
+
+    // Keyword filter
     if (this.filterKeywords.length > 0) {
-      items = items.filter(item => {
-        const text = `${item.title} ${item.content}`.toLowerCase();
-        return this.filterKeywords.some(kw => text.includes(kw));
-      });
+      items = items.filter(item => this._matchesKeywords(item));
     }
 
-    // Deduplicate by id
-    const seen = new Set();
-    items = items.filter(item => {
-      if (seen.has(item.id)) return false;
-      seen.add(item.id);
-      return true;
-    });
+    // Limit
+    items = items.slice(0, this.maxItems);
 
-    return { items: items.slice(0, this.maxItems) };
+    return { items };
   }
 
-  /**
-   * Parse RSS 2.0 XML into normalized items.
-   */
+  // ─── Format Detection ────────────────────────────────────────────────────
+
+  _isAtom(xml) {
+    return /<feed[\s>]/.test(xml) && /<entry[\s>]/.test(xml);
+  }
+
+  // ─── RSS 2.0 Parser ─────────────────────────────────────────────────────
+
   _parseRSS(xml) {
     const items = [];
-    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+    const itemRegex = /<item[\s>]([\s\S]*?)<\/item>/gi;
     let match;
 
     while ((match = itemRegex.exec(xml)) !== null) {
       const block = match[1];
-      const title = this._tag(block, 'title');
-      const link = this._tag(block, 'link');
-      const guid = this._tag(block, 'guid');
-      const pubDate = this._tag(block, 'pubDate');
-      const description = this._tag(block, 'description');
-      const contentEncoded = this._tag(block, 'content:encoded');
+      const rawDesc = this._tag(block, 'description');
 
       items.push({
-        id: guid || link || title,
-        title: this._unescape(title || ''),
-        link: link || '',
-        published: pubDate || '',
-        content: this._stripHTML(this._unescape(contentEncoded || description || '')),
+        id: this._tag(block, 'guid') || this._tag(block, 'link') || `rss-${items.length}`,
+        title: this._tag(block, 'title') || '',
+        link: this._tag(block, 'link') || '',
+        published: this._tag(block, 'pubDate') || '',
+        content: rawDesc ? this._stripHTML(this._unescape(rawDesc)) : '',
         source: this.url,
       });
     }
@@ -90,33 +99,32 @@ export class RSSSource {
     return items;
   }
 
-  /**
-   * Parse Atom XML into normalized items.
-   */
+  // ─── Atom 1.0 Parser ────────────────────────────────────────────────────
+
   _parseAtom(xml) {
     const items = [];
-    const entryRegex = /<entry>([\s\S]*?)<\/entry>/g;
+    const entryRegex = /<entry[\s>]([\s\S]*?)<\/entry>/gi;
     let match;
 
     while ((match = entryRegex.exec(xml)) !== null) {
       const block = match[1];
-      const title = this._tag(block, 'title');
-      const id = this._tag(block, 'id');
-      const updated = this._tag(block, 'updated');
-      const published = this._tag(block, 'published');
-      const summary = this._tag(block, 'summary');
-      const content = this._tag(block, 'content');
 
-      // Atom links are self-closing: <link href="..." />
-      const linkMatch = block.match(/<link[^>]*href="([^"]*)"[^>]*(?:rel="alternate")?/);
+      // Atom <link href="..." /> extraction
+      const linkMatch = block.match(/<link[^>]*href=["']([^"']+)["'][^>]*\/?>/);
       const link = linkMatch ? linkMatch[1] : '';
 
+      // Prefer <published> over <updated>
+      const published = this._tag(block, 'published') || this._tag(block, 'updated') || '';
+
+      // Prefer <content> over <summary>
+      const rawContent = this._tag(block, 'content') || this._tag(block, 'summary') || '';
+
       items.push({
-        id: id || link || title,
-        title: this._unescape(title || ''),
+        id: this._tag(block, 'id') || link || `atom-${items.length}`,
+        title: this._tag(block, 'title') || '',
         link,
-        published: published || updated || '',
-        content: this._stripHTML(this._unescape(content || summary || '')),
+        published,
+        content: rawContent ? this._stripHTML(this._unescape(rawContent)) : '',
         source: this.url,
       });
     }
@@ -124,29 +132,80 @@ export class RSSSource {
     return items;
   }
 
-  /** Extract text content of an XML tag. */
-  _tag(xml, tag) {
-    // Handle CDATA sections
-    const cdataMatch = xml.match(new RegExp(`<${tag}[^>]*>\\s*<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>\\s*</${tag}>`, 'i'));
-    if (cdataMatch) return cdataMatch[1].trim();
+  // ─── Deduplication ───────────────────────────────────────────────────────
 
-    const match = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i'));
-    return match ? match[1].trim() : null;
+  _deduplicate(items) {
+    const seen = new Set();
+    return items.filter(item => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
   }
 
-  /** Unescape HTML entities. */
-  _unescape(str) {
-    return str
-      .replace(/&amp;/g, '&')
+  // ─── Keyword Matching ───────────────────────────────────────────────────
+
+  _matchesKeywords(item) {
+    const text = `${item.title} ${item.content}`.toLowerCase();
+    return this.filterKeywords.some(kw => text.includes(kw));
+  }
+
+  // ─── XML Helpers ─────────────────────────────────────────────────────────
+
+  /**
+   * Extract text content from an XML tag.
+   * Handles CDATA sections.
+   *
+   * @param {string} xml - XML fragment
+   * @param {string} tag - Tag name
+   * @returns {string|null}
+   */
+  _tag(xml, tag) {
+    // Match tag with possible attributes
+    const regex = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i');
+    const match = xml.match(regex);
+    if (!match) return null;
+
+    let content = match[1].trim();
+
+    // Extract CDATA if present
+    const cdataMatch = content.match(/<!\[CDATA\[([\s\S]*?)\]\]>/);
+    if (cdataMatch) {
+      content = cdataMatch[1];
+    }
+
+    return content;
+  }
+
+  /**
+   * Unescape HTML entities.
+   * @param {string} text
+   * @returns {string}
+   */
+  _unescape(text) {
+    if (!text) return '';
+    return text
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code)));
+      .replace(/&apos;/g, "'")
+      .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+      .replace(/&amp;/g, '&'); // Must be last
   }
 
-  /** Strip HTML tags from content. */
-  _stripHTML(str) {
-    return str.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  /**
+   * Strip HTML tags from text.
+   * @param {string} html
+   * @returns {string}
+   */
+  _stripHTML(html) {
+    if (!html) return '';
+    return html
+      .replace(/<[^>]+>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 }
+
+export default RSSSource;
