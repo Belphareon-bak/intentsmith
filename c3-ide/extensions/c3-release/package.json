@@ -1,0 +1,29 @@
+{
+  "name": "@c3/release",
+  "version": "1.0.0",
+  "description": "C3 Studio \u2014 release",
+  "license": "MIT",
+  "main": "lib/index.js",
+  "typings": "lib/index.d.ts",
+  "files": [
+    "lib",
+    "src"
+  ],
+  "dependencies": {},
+  "devDependencies": {
+    "@theia/core": "1.52.0",
+    "@theia/editor": "1.52.0",
+    "@theia/filesystem": "1.52.0",
+    "@theia/terminal": "1.52.0",
+    "@theia/workspace": "1.52.0",
+    "@theia/monaco": "1.52.0",
+    "@theia/navigator": "1.52.0",
+    "typescript": "~5.4.0",
+    "rimraf": "^5.0.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "watch": "tsc -b -w",
+    "clean": "rimraf lib tsconfig.tsbuildinfo"
+  }
+}

@@ -7,7 +7,7 @@ import {
   CodeChangeProposal,
   ProposalStatus,
   UserReviewAction,
-} from '../../../diff-viewer/src/common/diff-viewer-protocol';
+} from '@c3/diff-viewer/lib/common/diff-viewer-protocol';
 
 interface ReviewItemProps {
   proposal: CodeChangeProposal;

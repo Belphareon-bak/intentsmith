@@ -10,9 +10,9 @@
 import * as React from 'react';
 import { injectable, inject, postConstruct } from '@theia/core/shared/inversify';
 import { ReactWidget, Message } from '@theia/core/lib/browser';
-import { C3BackendBridgeProxy } from '../../backend-bridge/src/browser/backend-bridge-proxy';
+import { C3BackendBridgeProxy } from '@c3/backend-bridge/lib/browser/backend-bridge-proxy';
 import { C3Message, AgentStatus } from '@c3/protocol';
-import { ConnectionStatus, ConnectionState } from '../../backend-bridge/src/common/backend-bridge-protocol';
+import { ConnectionStatus, ConnectionState } from '@c3/backend-bridge/lib/common/backend-bridge-protocol';
 import { DEFAULT_WS_URL } from '@c3/protocol';
 import { ChatMessage } from './components/ChatMessage';
 import { ChatInput } from './components/ChatInput';

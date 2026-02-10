@@ -18,8 +18,8 @@ export default new ContainerModule(bind => {
 
   // Create JSON-RPC proxy to backend, with frontend as event listener
   bind(C3BackendBridge).toDynamicValue(ctx => {
-    const proxy = ctx.container.get(C3BackendBridgeProxy);
-    const connection = ctx.container.get(WebSocketConnectionProvider);
+    const proxy = ctx.container.get<C3BackendBridgeProxy>(C3BackendBridgeProxy);
+    const connection = ctx.container.get<WebSocketConnectionProvider>(WebSocketConnectionProvider);
 
     return connection.createProxy<C3BackendBridge>(
       C3BackendBridgePath,

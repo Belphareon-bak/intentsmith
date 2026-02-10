@@ -16,7 +16,7 @@ export default new ContainerModule(bind => {
   bind(C3DesignViewer).toService(C3DesignViewerService);
 
   bind(ConnectionHandler).toDynamicValue(ctx => {
-    const service = ctx.container.get(C3DesignViewerService);
+    const service = ctx.container.get<C3DesignViewerService>(C3DesignViewerService);
     return new JsonRpcConnectionHandler<C3DesignViewerClient>(
       C3DesignViewerPath,
       client => {

@@ -26,7 +26,7 @@ import './styles/design-viewer.css';
 
 // Reuse MarkdownRenderer from Sprint 1 chat-panel
 // In production: extract to shared @c3/ui-components
-import { MarkdownRenderer } from '../../../chat-panel/src/browser/components/MarkdownRenderer';
+import { MarkdownRenderer } from '@c3/chat-panel/lib/browser/components/MarkdownRenderer';
 
 type TabId = 'architecture' | 'sprints';
 

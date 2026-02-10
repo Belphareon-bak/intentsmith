@@ -20,7 +20,7 @@ export default new ContainerModule(bind => {
 
   // Expose as JSON-RPC service (frontend can call backend methods)
   bind(ConnectionHandler).toDynamicValue(ctx => {
-    const service = ctx.container.get(C3BackendBridgeService);
+    const service = ctx.container.get<C3BackendBridgeService>(C3BackendBridgeService);
 
     return new JsonRpcConnectionHandler<C3BackendBridgeClient>(
       C3BackendBridgePath,

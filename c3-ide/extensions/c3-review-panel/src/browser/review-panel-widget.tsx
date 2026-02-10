@@ -25,8 +25,8 @@ import {
   CodeChangeProposal,
   UserReviewAction,
   ProposalStatus,
-} from '../../../diff-viewer/src/common/diff-viewer-protocol';
-import { C3DiffProposalManager } from '../../../diff-viewer/src/browser/diff-proposal-manager';
+} from '@c3/diff-viewer/lib/common/diff-viewer-protocol';
+import { C3DiffProposalManager } from '@c3/diff-viewer/lib/browser/diff-proposal-manager';
 import { ReviewItem } from './components/ReviewItem';
 import { REVIEW_PANEL_WIDGET_ID } from '../common/review-panel-protocol';
 

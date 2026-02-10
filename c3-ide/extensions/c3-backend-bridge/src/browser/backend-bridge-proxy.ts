@@ -20,7 +20,7 @@ import {
 } from '@c3/protocol';
 
 @injectable()
-export class C3BackendBridgeProxy implements C3BackendBridgeClient {
+export class C3BackendBridgeProxy {
 
   @inject(C3BackendBridge)
   protected readonly service!: C3BackendBridge;

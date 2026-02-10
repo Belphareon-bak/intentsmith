@@ -16,7 +16,7 @@ export default new ContainerModule(bind => {
   bind(C3DiffViewer).toService(C3DiffViewerService);
 
   bind(ConnectionHandler).toDynamicValue(ctx => {
-    const service = ctx.container.get(C3DiffViewerService);
+    const service = ctx.container.get<C3DiffViewerService>(C3DiffViewerService);
     return new JsonRpcConnectionHandler<C3DiffViewerClient>(
       C3DiffViewerPath,
       client => {
