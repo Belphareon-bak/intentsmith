@@ -1,0 +1,27 @@
+{
+  "name": "@c3/keybindings",
+  "version": "0.1.0",
+  "description": "C3 Keybindings — custom keyboard shortcuts",
+  "main": "lib/browser/keybindings-module.js",
+  "files": [
+    "lib",
+    "src"
+  ],
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/keybindings-module"
+    }
+  ],
+  "dependencies": {
+    "@theia/core": "1.65.2"
+  },
+  "devDependencies": {
+    "typescript": "~5.3.0",
+    "rimraf": "^5.0.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "watch": "tsc -b -w",
+    "clean": "rimraf lib"
+  }
+}

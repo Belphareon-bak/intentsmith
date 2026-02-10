@@ -1,0 +1,25 @@
+{
+  "name": "@c3/status-widget",
+  "version": "0.1.0",
+  "description": "C3 Status Widget — Theia status bar showing connection, phase, and progress",
+  "main": "lib/browser/status-widget-module.js",
+  "typings": "lib/browser/status-widget-module.d.ts",
+  "files": ["lib", "src"],
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/status-widget-module"
+    }
+  ],
+  "dependencies": {
+    "@theia/core": "1.65.2"
+  },
+  "devDependencies": {
+    "typescript": "~5.3.0",
+    "rimraf": "^5.0.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "watch": "tsc -b -w",
+    "clean": "rimraf lib"
+  }
+}

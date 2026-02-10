@@ -1,0 +1,28 @@
+{
+  "name": "@c3/review-panel",
+  "version": "0.1.0",
+  "description": "C3 Review Panel — code review workflow UI",
+  "main": "lib/browser/review-panel-module.js",
+  "files": [
+    "lib",
+    "src"
+  ],
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/review-panel-module"
+    }
+  ],
+  "dependencies": {
+    "@theia/core": "1.65.2",
+    "@c3/diff-viewer": "0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.3.0",
+    "rimraf": "^5.0.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "watch": "tsc -b -w",
+    "clean": "rimraf lib"
+  }
+}

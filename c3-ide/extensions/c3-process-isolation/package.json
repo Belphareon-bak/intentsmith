@@ -1,0 +1,27 @@
+{
+  "name": "@c3/process-isolation",
+  "version": "0.1.0",
+  "description": "C3 Process Isolation — bubblewrap sandboxing",
+  "main": "lib/node/process-isolation-service.js",
+  "files": [
+    "lib",
+    "src"
+  ],
+  "theiaExtensions": [
+    {
+      "backend": "lib/node/process-isolation-service"
+    }
+  ],
+  "dependencies": {
+    "@theia/core": "1.65.2"
+  },
+  "devDependencies": {
+    "typescript": "~5.3.0",
+    "rimraf": "^5.0.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "watch": "tsc -b -w",
+    "clean": "rimraf lib"
+  }
+}

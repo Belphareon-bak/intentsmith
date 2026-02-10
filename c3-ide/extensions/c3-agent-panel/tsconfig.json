@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib"
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../c3-protocol" },
+    { "path": "../c3-backend-bridge" }
+  ]
+}

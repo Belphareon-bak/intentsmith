@@ -1,0 +1,28 @@
+{
+  "name": "@c3/token-dashboard",
+  "version": "0.1.0",
+  "description": "C3 Token Dashboard — token usage monitoring",
+  "main": "lib/node/token-dashboard-service.js",
+  "files": [
+    "lib",
+    "src"
+  ],
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/token-dashboard-module",
+      "backend": "lib/node/token-dashboard-service"
+    }
+  ],
+  "dependencies": {
+    "@theia/core": "1.65.2"
+  },
+  "devDependencies": {
+    "typescript": "~5.3.0",
+    "rimraf": "^5.0.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "watch": "tsc -b -w",
+    "clean": "rimraf lib"
+  }
+}

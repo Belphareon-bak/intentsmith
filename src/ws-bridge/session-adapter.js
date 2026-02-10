@@ -1,0 +1,335 @@
+// C3 WS Bridge — Session Adapter
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// v59.0 — Maps a WebSocket connection to a ChatController session.
+//
+// Responsibilities:
+//   1. Manage per-connection state (seq counter, turn ID, abort controller)
+//   2. Build ChatController.handle() requests with event hooks injected
+//   3. Forward intermediate events to WS client via send callback
+//   4. Enforce max-1-concurrent-turn execution model
+//
+// ══════════════════════════════════════════════════════════════════════════════
+
+import {
+  Channel,
+  AgentEventType,
+  buildAgentEvent,
+  buildChannelMessage,
+  messageId,
+} from './protocol.js';
+
+/**
+ * Create a session adapter for a single WebSocket connection.
+ *
+ * @param {Object} options
+ * @param {Function} options.send — (jsonString) => void, sends to WS client
+ * @param {Function} options.handleRequest — ChatController.handle(request) function
+ * @param {Object}  options.logger — Logger instance
+ * @param {string}  [options.sessionId] — Explicit session ID (default: auto-generated)
+ * @returns {SessionAdapter}
+ */
+export function createSessionAdapter({ send, handleRequest, logger, sessionId = null }) {
+  let seq = 0;
+  let turnCounter = 0;
+  let currentTurnId = null;
+  let abortController = null;
+
+  const sid = sessionId || `ws-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  // ─── Internal helpers ──────────────────────────────────────────────
+
+  function sendChannel(channel, data) {
+    send(buildChannelMessage(channel, data));
+  }
+
+  function sendAgentEvent(type, turnId, payload) {
+    sendChannel(Channel.AGENT, buildAgentEvent(++seq, type, turnId, payload));
+  }
+
+  function sendStatus() {
+    sendChannel(Channel.STATUS, {
+      agentStatus: currentTurnId ? 'executing' : 'idle',
+    });
+  }
+
+  // ─── Turn execution ────────────────────────────────────────────────
+
+  /**
+   * Process a user chat message through ChatController.
+   * Enforces max-1-concurrent-turn. Injects event hooks into request context.
+   *
+   * @param {string} content — User message text
+   */
+  async function processChat(content) {
+    if (!content || typeof content !== 'string') return;
+
+    // Max 1 concurrent turn
+    if (currentTurnId) {
+      sendChannel(Channel.CHAT, {
+        id: messageId('sys'),
+        type: 'system',
+        content: 'Agent právě zpracovává předchozí zprávu. Počkejte prosím.',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    // Start new turn
+    turnCounter++;
+    currentTurnId = `t-${String(turnCounter).padStart(3, '0')}`;
+    const turnId = currentTurnId;
+    const turnStartTime = Date.now();
+
+    abortController = new AbortController();
+
+    sendAgentEvent(AgentEventType.TURN_START, turnId, { input: content });
+
+    try {
+      // ═══════════════════════════════════════════════════════════════
+      // Build request with IDE event hooks injected into context.
+      // ChatController.handle() passes context → fullContext → handler.
+      // Handlers call hooks at appropriate points (B2 changes).
+      // ═══════════════════════════════════════════════════════════════
+
+      const request = {
+        message: content,
+        sessionId: sid,
+        context: {
+          turnId,
+          signal: abortController.signal,
+
+          // Hook: CRE decision (called in ChatController.process after mode detection)
+          onCREDecision: (decision) => {
+            sendAgentEvent(AgentEventType.CRE_DECISION, turnId, {
+              intent: decision.intent,
+              confidence: decision.confidence,
+              input: content,
+              actionType: decision.actionType,
+              tools: decision.tools,
+            });
+          },
+
+          // Hook: Tool call start (called in handleToolCallDecision before execute)
+          onToolCall: (tool, args) => {
+            sendAgentEvent(AgentEventType.TOOL_CALL, turnId, { tool, args });
+          },
+
+          // Hook: Tool call result (called in handleToolCallDecision after execute)
+          onToolResult: (tool, result) => {
+            sendAgentEvent(AgentEventType.TOOL_RESULT, turnId, {
+              tool,
+              success: result.success,
+              durationMs: result.durationMs,
+              summary: result.summary,
+            });
+          },
+
+          // Hook: LLM synthesis start (called in synthesizeWithLLM before LLM call)
+          onLLMStart: (model, tokensIn) => {
+            sendAgentEvent(AgentEventType.LLM_START, turnId, { model, tokensIn });
+          },
+
+          // Hook: LLM token (streaming — reserved for future use)
+          onLLMToken: (token) => {
+            sendAgentEvent(AgentEventType.LLM_TOKEN, turnId, { token });
+          },
+
+          // Hook: LLM synthesis done (called in synthesizeWithLLM after LLM returns)
+          onLLMDone: (tokensOut, durationMs) => {
+            sendAgentEvent(AgentEventType.LLM_DONE, turnId, { tokensOut, durationMs });
+          },
+
+          // Hook: Output quality gate verdict (called after D6 gate check)
+          onGateVerdict: (verdict) => {
+            sendAgentEvent(AgentEventType.GATE_VERDICT, turnId, verdict);
+          },
+        },
+      };
+
+      const response = await handleRequest(request);
+
+      // Send final response via chat channel
+      sendChannel(Channel.CHAT, {
+        id: messageId('msg'),
+        type: 'assistant',
+        content: response.response,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          mode: response.mode,
+          confidence: response.confidence,
+          turnId,
+          state: response.state,
+        },
+      });
+
+      // Turn end — success
+      sendAgentEvent(AgentEventType.TURN_END, turnId, {
+        status: 'ok',
+        durationMs: Date.now() - turnStartTime,
+      });
+
+    } catch (err) {
+      const durationMs = Date.now() - turnStartTime;
+
+      if (err.name === 'AbortError') {
+        sendAgentEvent(AgentEventType.TURN_END, turnId, {
+          status: 'cancelled_by_user',
+          durationMs,
+        });
+      } else if (err.message?.includes('timeout')) {
+        sendAgentEvent(AgentEventType.TURN_END, turnId, {
+          status: 'timeout',
+          durationMs,
+          error: err.message,
+        });
+        sendAgentEvent(AgentEventType.ERROR, turnId, {
+          code: 'TIMEOUT',
+          message: err.message,
+          recoverable: true,
+        });
+      } else {
+        logger.error('WSSession', `Turn error: ${err.message}`, { turnId });
+        sendAgentEvent(AgentEventType.TURN_END, turnId, {
+          status: 'error',
+          durationMs,
+          error: err.message,
+        });
+        sendAgentEvent(AgentEventType.ERROR, turnId, {
+          code: 'UNEXPECTED',
+          message: err.message,
+          recoverable: false,
+        });
+      }
+
+      // Send error to chat
+      sendChannel(Channel.CHAT, {
+        id: messageId('err'),
+        type: 'system',
+        content: err.name === 'AbortError'
+          ? 'Zpracování zrušeno.'
+          : `Chyba: ${err.message}`,
+        timestamp: new Date().toISOString(),
+      });
+
+    } finally {
+      currentTurnId = null;
+      abortController = null;
+      sendStatus();
+    }
+  }
+
+  // ─── Terminal execution ────────────────────────────────────────────
+
+  /**
+   * Handle a terminal command execution request.
+   * Uses C3ToolExecutor with security validation (whitelist, argv spawn, sanitized env).
+   *
+   * @param {Object} data — { type: 'exec', command: string, cwd?: string, reqId?: string }
+   */
+  async function handleTerminal(data) {
+    if (data.type !== 'exec' || !data.command || typeof data.command !== 'string') {
+      sendChannel(Channel.TERMINAL, {
+        type: 'error',
+        reqId: data.reqId || null,
+        error: 'Invalid terminal request: type must be "exec" with a non-empty command string.',
+      });
+      return;
+    }
+
+    const reqId = data.reqId || `term-${Date.now()}`;
+    const startTime = Date.now();
+
+    // Notify IDE that execution started
+    sendChannel(Channel.TERMINAL, {
+      type: 'exec_start',
+      reqId,
+      command: data.command,
+      timestamp: new Date().toISOString(),
+    });
+
+    try {
+      // Dynamically import executor to avoid circular dependency at module level
+      const { C3ToolExecutor } = await import('../executor/c3-tool-executor.js');
+      const executor = new C3ToolExecutor();
+
+      const result = await executor.execute({
+        correlationId: `ws-term-${reqId}`,
+        tool: 'shell',
+        args: {
+          command: data.command,
+          cwd: data.cwd || undefined,
+        },
+        timeoutMs: 120000, // 2 minute default for interactive commands
+        signal: abortController?.signal,
+      });
+
+      sendChannel(Channel.TERMINAL, {
+        type: 'exec_result',
+        reqId,
+        status: result.status,
+        stdout: result.output?.stdout || '',
+        stderr: result.output?.stderr || '',
+        exitCode: result.output?.exitCode ?? (result.status === 'ok' ? 0 : 1),
+        durationMs: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      logger.error('WSSession', `Terminal exec error: ${err.message}`, { reqId });
+      sendChannel(Channel.TERMINAL, {
+        type: 'exec_result',
+        reqId,
+        status: 'error',
+        stdout: '',
+        stderr: err.message,
+        exitCode: 1,
+        durationMs: Date.now() - startTime,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
+  // ─── Control commands ──────────────────────────────────────────────
+
+  /**
+   * Handle a control command (cancel, ping).
+   * @param {Object} data — { action: 'cancel' | 'ping' }
+   */
+  function handleControl(data) {
+    switch (data.action) {
+      case 'cancel':
+        if (abortController) {
+          abortController.abort();
+          logger.info('WSSession', 'Execution cancelled by user', { sessionId: sid });
+        }
+        sendChannel(Channel.CONTROL, { action: 'cancel', success: true });
+        break;
+
+      case 'ping':
+        sendChannel(Channel.CONTROL, { action: 'pong', success: true });
+        break;
+    }
+  }
+
+  // ─── Cleanup ───────────────────────────────────────────────────────
+
+  function cleanup() {
+    if (abortController) {
+      abortController.abort();
+    }
+    logger.info('WSSession', 'Session cleaned up', { sessionId: sid });
+  }
+
+  // ─── Public API ────────────────────────────────────────────────────
+
+  return {
+    get sessionId() { return sid; },
+    get isExecuting() { return currentTurnId !== null; },
+    get currentTurnId() { return currentTurnId; },
+    processChat,
+    handleTerminal,
+    handleControl,
+    sendStatus,
+    cleanup,
+  };
+}

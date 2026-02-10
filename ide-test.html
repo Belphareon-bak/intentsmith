@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>C3 IDE</title>
+<style>
+  :root {
+    --bg: #1e1e2e;
+    --surface: #282840;
+    --sidebar: #1a1a2e;
+    --border: #3a3a5c;
+    --text: #cdd6f4;
+    --dim: #6c7086;
+    --accent: #89b4fa;
+    --green: #a6e3a1;
+    --red: #f38ba8;
+    --yellow: #f9e2af;
+    --peach: #fab387;
+    --mauve: #cba6f7;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: grid;
+    grid-template-columns: 52px 1fr;
+    grid-template-rows: 1fr;
+    overflow: hidden;
+  }
+
+  /* ═══ Activity Bar (left sidebar) ═══════════════ */
+  #activity-bar {
+    background: var(--sidebar);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 0;
+    gap: 4px;
+    z-index: 10;
+  }
+  .ab-icon {
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.15s;
+    border: none;
+    background: none;
+    color: var(--dim);
+    font-size: 20px;
+    line-height: 1;
+  }
+  .ab-icon:hover { background: var(--surface); color: var(--text); }
+  .ab-icon.active {
+    color: var(--accent);
+    background: var(--surface);
+  }
+  .ab-icon.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    background: var(--accent);
+    border-radius: 0 2px 2px 0;
+  }
+  .ab-icon svg { width: 22px; height: 22px; fill: currentColor; }
+  .ab-spacer { flex: 1; }
+  .ab-icon .tooltip {
+    display: none;
+    position: absolute;
+    left: 54px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+    z-index: 100;
+  }
+  .ab-icon:hover .tooltip { display: block; }
+
+  /* ═══ Main Area ═════════════════════════════════ */
+  #main-area {
+    display: grid;
+    grid-template-rows: 1fr;
+    overflow: hidden;
+  }
+
+  /* ─── View: WS Chat ──────────────────────────── */
+  #view-ws {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    grid-template-rows: 40px 1fr 52px;
+    overflow: hidden;
+  }
+  #ws-header {
+    grid-column: 1 / -1;
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  #ws-header h2 { font-size: 13px; color: var(--accent); font-weight: 600; }
+  #status {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--red);
+    color: var(--bg);
+    font-weight: 700;
+  }
+  #status.connected { background: var(--green); }
+  #status.connecting { background: var(--yellow); }
+
+  #chat-panel {
+    background: var(--bg);
+    overflow-y: auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .msg {
+    padding: 7px 11px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    max-width: 88%;
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+  .msg.user {
+    background: var(--accent);
+    color: var(--bg);
+    align-self: flex-end;
+    border-bottom-right-radius: 2px;
+  }
+  .msg.assistant {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    align-self: flex-start;
+    border-bottom-left-radius: 2px;
+  }
+  .msg.system {
+    background: transparent;
+    color: var(--dim);
+    font-size: 10.5px;
+    align-self: center;
+    font-style: italic;
+  }
+  .msg .meta { font-size: 10px; color: var(--dim); margin-top: 3px; }
+
+  #agent-panel {
+    background: var(--surface);
+    overflow-y: auto;
+    padding: 6px;
+    border-left: 1px solid var(--border);
+    font-size: 10.5px;
+  }
+  #agent-panel h3 {
+    font-size: 11px;
+    color: var(--mauve);
+    padding: 4px 6px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .evt {
+    padding: 3px 6px;
+    margin-bottom: 1px;
+    border-radius: 3px;
+    font-size: 10.5px;
+    line-height: 1.4;
+  }
+  .evt.turn_start { color: var(--green); }
+  .evt.turn_end { color: var(--green); font-weight: 700; }
+  .evt.turn_end.error { color: var(--red); }
+  .evt.cre_decision { color: var(--accent); }
+  .evt.tool_call { color: var(--peach); }
+  .evt.tool_result { color: var(--yellow); }
+  .evt.llm_start { color: var(--mauve); }
+  .evt.llm_done { color: var(--mauve); }
+  .evt.gate_verdict { color: var(--yellow); }
+  .evt.error { color: var(--red); font-weight: 700; }
+  .evt.status_change { color: var(--dim); }
+
+  #input-bar {
+    grid-column: 1 / -1;
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    padding: 6px 12px;
+    gap: 6px;
+    border-top: 1px solid var(--border);
+  }
+  #input-bar input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 12.5px;
+    outline: none;
+  }
+  #input-bar input:focus { border-color: var(--accent); }
+  #input-bar input::placeholder { color: var(--dim); }
+  #input-bar button {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: none;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  #input-bar button:hover { opacity: 0.85; }
+  #btn-send { background: var(--accent); color: var(--bg); }
+  #btn-cancel { background: var(--red); color: var(--bg); }
+  #btn-connect { background: var(--green); color: var(--bg); }
+
+  /* ─── View: iframe pages ─────────────────────── */
+  .view-frame {
+    display: none;
+    width: 100%;
+    height: 100%;
+  }
+  .view-frame.active { display: block; }
+  .view-frame iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: var(--bg);
+  }
+
+  /* ─── Status Bar ─────────────────────────────── */
+  #statusbar {
+    position: fixed;
+    bottom: 0;
+    left: 52px;
+    right: 0;
+    height: 24px;
+    background: #181825;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    font-size: 11px;
+    color: var(--dim);
+    gap: 16px;
+    z-index: 20;
+  }
+  #statusbar .sb-accent { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- ═══ Activity Bar ═══════════════════════════════ -->
+<div id="activity-bar">
+  <button class="ab-icon active" data-view="ws" title="WS Bridge">
+    <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+    <span class="tooltip">Chat (WS Bridge)</span>
+  </button>
+  <button class="ab-icon" data-view="chat-ui" data-url="/chat-ui" title="Chat UI">
+    <svg viewBox="0 0 24 24"><path d="M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1zm-4 6V3c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1z"/></svg>
+    <span class="tooltip">Chat UI</span>
+  </button>
+  <button class="ab-icon" data-view="architect" data-url="/architect" title="Architect">
+    <svg viewBox="0 0 24 24"><path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z"/></svg>
+    <span class="tooltip">Architect Mode</span>
+  </button>
+  <button class="ab-icon" data-view="experts" data-url="/experts" title="Experts">
+    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+    <span class="tooltip">Experts</span>
+  </button>
+  <button class="ab-icon" data-view="agents" data-url="/agents" title="Agents">
+    <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+    <span class="tooltip">Agents</span>
+  </button>
+
+  <div class="ab-spacer"></div>
+
+  <button class="ab-icon" data-view="memory" data-url="/memory" title="Memory">
+    <svg viewBox="0 0 24 24"><path d="M15 9H9v6h6V9zm-2 4h-2v-2h2v2zm8-2V9h-2V7c0-1.1-.9-2-2-2h-2V3h-2v2h-2V3H9v2H7c-1.1 0-2 .9-2 2v2H3v2h2v2H3v2h2v2c0 1.1.9 2 2 2h2v2h2v-2h2v2h2v-2h2c1.1 0 2-.9 2-2v-2h2v-2h-2v-2h2zm-4 6H7V7h10v10z"/></svg>
+    <span class="tooltip">Memory</span>
+  </button>
+  <button class="ab-icon" data-view="health" data-url="/api/debug/health" title="Health">
+    <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+    <span class="tooltip">Health</span>
+  </button>
+</div>
+
+<!-- ═══ Main Area ═════════════════════════════════ -->
+<div id="main-area">
+  <!-- WS Chat View -->
+  <div id="view-ws" class="active">
+    <div id="ws-header">
+      <h2>WS Bridge</h2>
+      <span id="status">disconnected</span>
+      <span id="session-id" style="font-size:10px;color:var(--dim)"></span>
+    </div>
+    <div id="chat-panel"></div>
+    <div id="agent-panel">
+      <h3>Agent Events</h3>
+    </div>
+    <div id="input-bar">
+      <input id="msg-input" type="text" placeholder="Napiste zpravu..." autocomplete="off" disabled>
+      <button id="btn-send" disabled>Send</button>
+      <button id="btn-cancel" style="display:none">Cancel</button>
+      <button id="btn-connect">Reconnect</button>
+    </div>
+  </div>
+
+  <!-- iframe views (lazy-loaded) -->
+  <div id="view-chat-ui" class="view-frame"></div>
+  <div id="view-architect" class="view-frame"></div>
+  <div id="view-experts" class="view-frame"></div>
+  <div id="view-agents" class="view-frame"></div>
+  <div id="view-memory" class="view-frame"></div>
+  <div id="view-health" class="view-frame"></div>
+</div>
+
+<!-- ═══ Status Bar ════════════════════════════════ -->
+<div id="statusbar">
+  <span class="sb-accent">C3 v59.0</span>
+  <span id="sb-view">WS Bridge</span>
+  <span id="sb-ws-status">WS: disconnected</span>
+</div>
+
+<script>
+const BASE_URL = 'http://127.0.0.1:3335';
+const WS_URL = 'ws://127.0.0.1:3335/c3/ws';
+const PROTOCOL_VERSION = 1;
+
+// ═══ View Switching ══════════════════════════════
+
+const icons = document.querySelectorAll('.ab-icon');
+const sbView = document.getElementById('sb-view');
+let activeView = 'ws';
+
+icons.forEach(icon => {
+  icon.addEventListener('click', () => {
+    const view = icon.dataset.view;
+    if (view === activeView) return;
+
+    // Deactivate old
+    document.querySelector('.ab-icon.active')?.classList.remove('active');
+    if (activeView === 'ws') {
+      document.getElementById('view-ws').style.display = 'none';
+    } else {
+      document.getElementById(`view-${activeView}`)?.classList.remove('active');
+    }
+
+    // Activate new
+    icon.classList.add('active');
+    activeView = view;
+    sbView.textContent = icon.title;
+
+    if (view === 'ws') {
+      document.getElementById('view-ws').style.display = 'grid';
+    } else {
+      const container = document.getElementById(`view-${view}`);
+      container.classList.add('active');
+      // Lazy-load iframe
+      if (!container.querySelector('iframe')) {
+        const iframe = document.createElement('iframe');
+        iframe.src = BASE_URL + icon.dataset.url;
+        container.appendChild(iframe);
+      }
+    }
+  });
+});
+
+// ═══ WS Chat Logic ═══════════════════════════════
+
+let ws = null;
+let isConnected = false;
+
+const chatPanel = document.getElementById('chat-panel');
+const agentPanel = document.getElementById('agent-panel');
+const msgInput = document.getElementById('msg-input');
+const btnSend = document.getElementById('btn-send');
+const btnCancel = document.getElementById('btn-cancel');
+const btnConnect = document.getElementById('btn-connect');
+const statusEl = document.getElementById('status');
+const sbWs = document.getElementById('sb-ws-status');
+
+function addChat(type, content, meta) {
+  const div = document.createElement('div');
+  div.className = `msg ${type}`;
+  div.textContent = content;
+  if (meta) {
+    const m = document.createElement('div');
+    m.className = 'meta';
+    m.textContent = meta;
+    div.appendChild(m);
+  }
+  chatPanel.appendChild(div);
+  chatPanel.scrollTop = chatPanel.scrollHeight;
+}
+
+function addEvent(type, payload) {
+  const div = document.createElement('div');
+  const errClass = (type === 'turn_end' && payload?.status !== 'ok') ? ' error' : '';
+  div.className = `evt ${type}${errClass}`;
+  const ts = new Date().toLocaleTimeString('cs-CZ', { hour12: false });
+  let text = '';
+  switch (type) {
+    case 'turn_start': text = `[${ts}] TURN START`; break;
+    case 'turn_end': text = `[${ts}] TURN END — ${payload?.status} (${payload?.durationMs}ms)`; break;
+    case 'cre_decision':
+      text = `[${ts}] CRE: ${payload?.intent} (${Math.round((payload?.confidence||0)*100)}%)`;
+      if (payload?.tools?.length) text += ` [${payload.tools.join(',')}]`;
+      break;
+    case 'tool_call': text = `[${ts}] TOOL: ${payload?.tool}`; break;
+    case 'tool_result': text = `[${ts}] RESULT: ${payload?.tool} ${payload?.success?'OK':'FAIL'} (${payload?.durationMs}ms)`; break;
+    case 'llm_start': text = `[${ts}] LLM: ${payload?.model}`; break;
+    case 'llm_done': text = `[${ts}] LLM DONE (${payload?.durationMs}ms)`; break;
+    case 'gate_verdict': text = `[${ts}] GATE: ${JSON.stringify(payload)}`; break;
+    case 'error': text = `[${ts}] ERROR: ${payload?.code} — ${payload?.message}`; break;
+    default: text = `[${ts}] ${type}: ${JSON.stringify(payload)}`;
+  }
+  div.textContent = text;
+  agentPanel.appendChild(div);
+  agentPanel.scrollTop = agentPanel.scrollHeight;
+}
+
+function setWsStatus(state) {
+  statusEl.textContent = state;
+  statusEl.className = state;
+  sbWs.textContent = `WS: ${state}`;
+}
+
+function setExecuting(val) {
+  btnSend.style.display = val ? 'none' : '';
+  btnCancel.style.display = val ? '' : 'none';
+  msgInput.disabled = val;
+}
+
+function connect() {
+  if (ws) { ws.close(); ws = null; }
+  setWsStatus('connecting');
+  addChat('system', `Connecting to ${WS_URL}...`);
+
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ type: 'hello', protocolVersion: PROTOCOL_VERSION, ideVersion: 'c3-ide-1.0' }));
+  };
+
+  ws.onmessage = (event) => {
+    let msg;
+    try { msg = JSON.parse(event.data); } catch(e) { return; }
+
+    if (msg.type === 'hello_ack') {
+      isConnected = true;
+      setWsStatus('connected');
+      msgInput.disabled = false;
+      btnSend.disabled = false;
+      addChat('system', `Handshake OK — backend v${msg.backendVersion}`);
+      return;
+    }
+    if (msg.type === 'hello_reject') {
+      addChat('system', `REJECTED: ${msg.reason}`);
+      setWsStatus('disconnected');
+      return;
+    }
+
+    if (msg.channel === 'chat') {
+      const d = msg.data;
+      if (d.type === 'assistant') {
+        addChat('assistant', d.content, `${d.metadata?.mode || '?'} | ${d.metadata?.turnId || '?'}`);
+      } else if (d.type === 'system') {
+        addChat('system', d.content);
+      }
+    }
+    if (msg.channel === 'agent') addEvent(msg.data.type, msg.data.payload);
+    if (msg.channel === 'status') {
+      setExecuting(msg.data?.agentStatus === 'executing');
+      addEvent('status_change', msg.data);
+    }
+    if (msg.channel === 'control' && msg.data?.action === 'pong') addChat('system', 'pong');
+  };
+
+  ws.onclose = (e) => {
+    isConnected = false;
+    setWsStatus('disconnected');
+    msgInput.disabled = true;
+    btnSend.disabled = true;
+    setExecuting(false);
+    addChat('system', `Disconnected (${e.code})`);
+  };
+
+  ws.onerror = () => addChat('system', 'WebSocket error');
+}
+
+function sendMessage() {
+  const text = msgInput.value.trim();
+  if (!text || !isConnected) return;
+  addChat('user', text);
+  ws.send(JSON.stringify({ channel: 'chat', data: { content: text } }));
+  msgInput.value = '';
+}
+
+btnConnect.addEventListener('click', connect);
+btnSend.addEventListener('click', sendMessage);
+btnCancel.addEventListener('click', () => {
+  if (!isConnected) return;
+  ws.send(JSON.stringify({ channel: 'control', data: { action: 'cancel' } }));
+  addChat('system', 'Cancel...');
+});
+msgInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+// Auto-connect
+connect();
+</script>
+</body>
+</html>

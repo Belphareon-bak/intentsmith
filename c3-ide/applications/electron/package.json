@@ -1,0 +1,84 @@
+{
+  "private": true,
+  "name": "c3-ide-electron",
+  "version": "0.1.0",
+  "description": "C3 Studio — Electron application",
+  "main": "lib/backend/electron-main.js",
+  "license": "MIT",
+  "theia": {
+    "target": "electron",
+    "frontend": {
+      "config": {
+        "applicationName": "C3 Studio",
+        "defaultTheme": "dark",
+        "preferences": {
+          "editor.fontSize": 14,
+          "editor.fontFamily": "'JetBrains Mono', 'Fira Code', monospace",
+          "terminal.integrated.fontSize": 13,
+          "workbench.colorTheme": "dark",
+          "files.enableTrash": false,
+          "window.menuBarVisibility": "visible"
+        }
+      }
+    },
+    "backend": {
+      "config": {
+        "startupTimeout": -1,
+        "resolveSystemPlugins": false
+      }
+    }
+  },
+  "dependencies": {
+    "@theia/core": "1.65.2",
+    "@theia/editor": "1.65.2",
+    "@theia/electron": "1.65.2",
+    "@theia/filesystem": "1.65.2",
+    "@theia/markers": "1.65.2",
+    "@theia/messages": "1.65.2",
+    "@theia/monaco": "1.65.2",
+    "@theia/navigator": "1.65.2",
+    "@theia/outline-view": "1.65.2",
+    "@theia/preferences": "1.65.2",
+    "@theia/process": "1.65.2",
+    "@theia/terminal": "1.65.2",
+    "@theia/workspace": "1.65.2",
+    "@c3/protocol": "0.1.0",
+    "@c3/backend-bridge": "0.1.0",
+    "@c3/chat-panel": "0.1.0",
+    "@c3/agent-panel": "0.1.0",
+    "@c3/shell-bridge": "0.1.0",
+    "@c3/project-store": "0.1.0",
+    "@c3/audit-trail": "0.1.0",
+    "@c3/status-widget": "0.1.0",
+    "@c3/command-palette": "0.1.0",
+    "@c3/context-menu": "0.1.0",
+    "@c3/design-viewer": "0.1.0",
+    "@c3/keybindings": "0.1.0",
+    "@c3/notifications": "0.1.0",
+    "@c3/diff-viewer": "0.1.0",
+    "@c3/git-integration": "0.1.0",
+    "@c3/review-panel": "0.1.0",
+    "@c3/error-recovery": "0.1.0",
+    "@c3/onboarding": "0.1.0",
+    "@c3/project-export": "0.1.0",
+    "@c3/settings": "0.1.0",
+    "@c3/chat-search": "0.1.0",
+    "@c3/multi-project": "0.1.0",
+    "@c3/token-dashboard": "0.1.0",
+    "@c3/process-isolation": "0.1.0",
+    "@c3/security-audit": "0.1.0",
+    "@c3/shell-security": "0.1.0",
+    "@c3/ws-security": "0.1.0"
+  },
+  "devDependencies": {
+    "@theia/cli": "1.65.2",
+    "electron": "37.2.1"
+  },
+  "scripts": {
+    "build": "theia build --mode production",
+    "build:dev": "theia build",
+    "start": "node scripts/launch.js",
+    "watch": "theia build --watch",
+    "clean": "theia clean && rimraf lib"
+  }
+}

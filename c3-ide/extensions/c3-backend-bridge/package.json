@@ -1,0 +1,27 @@
+{
+  "name": "@c3/backend-bridge",
+  "version": "0.1.0",
+  "description": "C3 Backend WebSocket bridge — Theia service (frontend proxy + backend WS client)",
+  "main": "lib/common/backend-bridge-protocol.js",
+  "typings": "lib/common/backend-bridge-protocol.d.ts",
+  "files": ["lib", "src"],
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/backend-bridge-module",
+      "backend": "lib/node/backend-bridge-module"
+    }
+  ],
+  "dependencies": {
+    "@theia/core": "1.65.2",
+    "@c3/protocol": "0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.3.0",
+    "rimraf": "^5.0.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "watch": "tsc -b -w",
+    "clean": "rimraf lib"
+  }
+}

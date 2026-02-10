@@ -1,0 +1,27 @@
+{
+  "name": "@c3/context-menu",
+  "version": "0.1.0",
+  "description": "C3 Context Menu — right-click integration",
+  "main": "lib/browser/context-menu-module.js",
+  "files": [
+    "lib",
+    "src"
+  ],
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/context-menu-module"
+    }
+  ],
+  "dependencies": {
+    "@theia/core": "1.65.2"
+  },
+  "devDependencies": {
+    "typescript": "~5.3.0",
+    "rimraf": "^5.0.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "watch": "tsc -b -w",
+    "clean": "rimraf lib"
+  }
+}

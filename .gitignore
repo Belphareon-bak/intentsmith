@@ -1,0 +1,13 @@
+node_modules
+data/*.db
+data/*.db-shm
+data/*.db-wal
+e2e-report.json
+tests.zip
+c3-ide/node_modules
+c3-ide/applications/electron/lib
+c3-ide/applications/electron/src-gen
+c3-ide/yarn.lock
+*.tsbuildinfo
+c3-ide/applications/electron/gen-webpack*.js
+c3-ide/applications/electron/webpack.config.js

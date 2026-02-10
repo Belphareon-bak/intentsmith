@@ -1,0 +1,28 @@
+{
+  "applicationName": "C3 Studio",
+  "applicationVersion": "0.1.0",
+  "description": "C3 — AI-powered development environment",
+  "reportIssueUrl": "",
+  "iconTheme": "theia-file-icons",
+  "defaultTheme": {
+    "light": "light",
+    "dark": "dark",
+    "hcDark": "hc-theia"
+  },
+  "electron": {
+    "windowOptions": {
+      "title": "C3 Studio",
+      "width": 1400,
+      "height": 900,
+      "minWidth": 800,
+      "minHeight": 600,
+      "backgroundColor": "#1e1e2e"
+    },
+    "showWindowEarly": true,
+    "splashScreenOptions": {
+      "content": "<div style='display:flex;align-items:center;justify-content:center;height:100%;background:#1e1e2e;color:#cdd6f4;font-family:sans-serif;'><div style='text-align:center;'><h1 style='font-size:2em;margin:0;'>C3 Studio</h1><p style='opacity:0.6;margin-top:0.5em;'>Loading...</p></div></div>",
+      "width": 400,
+      "height": 300
+    }
+  }
+}

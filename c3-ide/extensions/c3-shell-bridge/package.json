@@ -1,0 +1,25 @@
+{
+  "name": "@c3/shell-bridge",
+  "version": "0.1.0",
+  "description": "C3 Shell Bridge — secure shell execution with 7-layer security model",
+  "main": "lib/node/shell-bridge-module.js",
+  "typings": "lib/node/shell-bridge-module.d.ts",
+  "files": ["lib", "src"],
+  "theiaExtensions": [
+    {
+      "backend": "lib/node/shell-bridge-module"
+    }
+  ],
+  "dependencies": {
+    "@theia/core": "1.65.2"
+  },
+  "devDependencies": {
+    "typescript": "~5.3.0",
+    "rimraf": "^5.0.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "watch": "tsc -b -w",
+    "clean": "rimraf lib"
+  }
+}

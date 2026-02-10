@@ -1,0 +1,27 @@
+{
+  "name": "@c3/project-export",
+  "version": "0.1.0",
+  "description": "C3 Project Export — project export/import",
+  "main": "lib/node/project-export-module.js",
+  "files": [
+    "lib",
+    "src"
+  ],
+  "theiaExtensions": [
+    {
+      "backend": "lib/node/project-export-module"
+    }
+  ],
+  "dependencies": {
+    "@theia/core": "1.65.2"
+  },
+  "devDependencies": {
+    "typescript": "~5.3.0",
+    "rimraf": "^5.0.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "watch": "tsc -b -w",
+    "clean": "rimraf lib"
+  }
+}

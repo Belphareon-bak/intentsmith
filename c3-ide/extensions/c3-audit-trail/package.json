@@ -1,0 +1,25 @@
+{
+  "name": "@c3/audit-trail",
+  "version": "0.1.0",
+  "description": "C3 Audit Trail — append-only JSONL event log with rotation",
+  "main": "lib/node/audit-trail-service.js",
+  "typings": "lib/node/audit-trail-service.d.ts",
+  "files": ["lib", "src"],
+  "theiaExtensions": [
+    {
+      "backend": "lib/node/audit-trail-service"
+    }
+  ],
+  "dependencies": {
+    "@theia/core": "1.65.2"
+  },
+  "devDependencies": {
+    "typescript": "~5.3.0",
+    "rimraf": "^5.0.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "watch": "tsc -b -w",
+    "clean": "rimraf lib"
+  }
+}
