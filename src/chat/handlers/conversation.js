@@ -26,7 +26,13 @@ import {
   handlePlanVerdict,
   getActiveBuildHandoff,
   cancelBuildHandoff,
+  setHandoffState,
 } from './build-handoff.js';
+import {
+  detectResumeIntent,
+  handleResumeRequest,
+  handleProgressRequest,
+} from './session-resume.js';
 import {
   getActiveWizard,
   cancelWizard,
@@ -52,6 +58,73 @@ const DATE_CORRECTION_PATTERNS = [
 
 export async function conversationHandler(input, context) {
   const { sessionId, sessionState } = context;
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // PHASE C1: SESSION RESUME / PROGRESS INTERCEPT
+  // ════════════════════════════════════════════════════════════════════════════
+  const resumeIntent = detectResumeIntent(input);
+
+  if (resumeIntent === 'resume') {
+    const result = await handleResumeRequest(input, context, setHandoffState);
+    if (result.handled) {
+      if (result.pendingChoice) {
+        context.sessionState.pendingResumeChoice = result.pendingChoice;
+      }
+      return {
+        content: result.content,
+        tag: 'RESPONSE',
+        speaker: 'SYSTEM',
+        mode: context.mode || 'conversation',
+        confidence: 1.0,
+        metadata: {
+          sessionResume: true,
+          pendingChoice: result.pendingChoice || null,
+        },
+      };
+    }
+  }
+
+  if (resumeIntent === 'progress') {
+    const result = handleProgressRequest();
+    if (result.handled) {
+      return {
+        content: result.content,
+        tag: 'RESPONSE',
+        speaker: 'SYSTEM',
+        mode: context.mode || 'conversation',
+        confidence: 1.0,
+        metadata: { progressInquiry: true },
+      };
+    }
+  }
+
+  // Handle numeric session selection after resume list was shown
+  if (context.sessionState?.pendingResumeChoice) {
+    const num = parseInt(input.trim());
+    if (!isNaN(num) && num >= 1) {
+      const choices = context.sessionState.pendingResumeChoice;
+      const idx = num - 1;
+      if (idx < choices.length) {
+        const { restoreSession } = await import('./session-resume.js');
+        const result = await restoreSession(
+          sessionId,
+          choices[idx].sessionId,
+          setHandoffState,
+        );
+        delete context.sessionState.pendingResumeChoice;
+        return {
+          content: result.message,
+          tag: 'RESPONSE',
+          speaker: 'SYSTEM',
+          mode: context.mode || 'conversation',
+          confidence: 1.0,
+          metadata: { sessionResume: true },
+        };
+      }
+    }
+    delete context.sessionState.pendingResumeChoice;
+  }
+  // ════════════════════════════════════════════════════════════════════════════
 
   // ════════════════════════════════════════════════════════════════════════════
   // BUILD HANDOFF INTERCEPT — route messages during active Planner flow

@@ -610,38 +610,115 @@ const routes = {
     }
   },
 
+  // Phase C2: Enhanced progress with time estimates and detailed breakdown
   'GET /planner/progress': async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const sessionId = url.searchParams.get('id');
-
-    if (!sessionId) {
-      return sendJSON(res, 400, { error: 'id query param is required' });
-    }
+    const detailed = url.searchParams.get('detailed') === 'true';
 
     try {
       const { workflowOrchestrator } = await import('./planner/index.js');
-      const progress = workflowOrchestrator.getProgress(sessionId);
-      if (!progress) {
-        return sendJSON(res, 404, { error: 'Session not found' });
+      const { buildProgressApiResponse, formatDetailedProgress } = await import('./planner/progress-tracker.js');
+
+      if (sessionId) {
+        const progress = workflowOrchestrator.getProgress(sessionId);
+        if (!progress) {
+          return sendJSON(res, 404, { error: 'Session not found' });
+        }
+        const data = detailed
+          ? formatDetailedProgress(progress)
+          : progress;
+        sendJSON(res, 200, data);
+      } else {
+        // All sessions with progress
+        const result = buildProgressApiResponse(
+          (id) => workflowOrchestrator.getProgress(id),
+          (opts) => workflowOrchestrator.listSessions(opts),
+        );
+        sendJSON(res, result.status, result.data);
       }
-      sendJSON(res, 200, progress);
     } catch (err) {
       sendJSON(res, 500, { error: err.message });
     }
   },
 
+  // Phase C2: Dashboard — all sessions with compact progress summaries
+  'GET /planner/dashboard': async (req, res) => {
+    try {
+      const { workflowOrchestrator } = await import('./planner/index.js');
+      const { formatDetailedProgress, estimateRemainingTime } = await import('./planner/progress-tracker.js');
+
+      const sessions = workflowOrchestrator.listSessions({ activeOnly: false });
+      const dashboard = sessions.slice(0, 20).map(s => {
+        const progress = workflowOrchestrator.getProgress(s.sessionId);
+        return {
+          sessionId: s.sessionId,
+          state: s.state,
+          planTitle: s.planTitle || null,
+          request: s.request,
+          complexity: s.complexity,
+          percentage: progress?.percentage ?? 0,
+          estimatedRemaining: progress ? estimateRemainingTime(progress) : null,
+          blockerCount: progress?.blockers?.length || 0,
+          fixAttempts: progress?.fixAttempts || 0,
+          createdAt: s.createdAt,
+          updatedAt: s.updatedAt,
+        };
+      });
+
+      sendJSON(res, 200, {
+        total: sessions.length,
+        active: sessions.filter(s => s.state !== 'COMPLETED' && s.state !== 'FAILED').length,
+        sessions: dashboard,
+      });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  // Phase C: Project-scoped sessions
+  'GET /planner/project/:projectId/sessions': async (req, res, params) => {
+    try {
+      const projectId = parseInt(params.projectId);
+      if (isNaN(projectId)) {
+        return sendJSON(res, 400, { error: 'Invalid projectId' });
+      }
+
+      const { workflowOrchestrator } = await import('./planner/index.js');
+      const allSessions = workflowOrchestrator.listSessions({ activeOnly: false });
+      const projectSessions = allSessions.filter(s => {
+        const session = workflowOrchestrator.getSession(s.sessionId);
+        return session && session.projectId === projectId;
+      });
+
+      sendJSON(res, 200, { projectId, sessions: projectSessions });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  // Phase C1: Enhanced resume with handoff state restoration
   'POST /planner/resume': async (req, res) => {
     const body = await parseBody(req);
-    const { sessionId } = body;
+    const { sessionId, chatSessionId } = body;
 
     if (!sessionId) {
       return sendJSON(res, 400, { error: 'sessionId is required' });
     }
 
     try {
-      const { workflowOrchestrator } = await import('./planner/index.js');
-      const result = await workflowOrchestrator.resume(sessionId);
-      sendJSON(res, 200, result);
+      const { restoreSession } = await import('./chat/handlers/session-resume.js');
+      const setHandoff = chatSessionId
+        ? (await import('./chat/handlers/build-handoff.js')).setHandoffState
+        : () => {};
+
+      const result = await restoreSession(
+        chatSessionId || 'api-session',
+        sessionId,
+        setHandoff,
+      );
+
+      sendJSON(res, result.success ? 200 : 404, result);
     } catch (err) {
       logger.error('Server', `Planner resume error: ${err.message}`);
       sendJSON(res, 500, { error: err.message });
@@ -2112,6 +2189,15 @@ server.listen(config.server.port, config.server.host, () => {
   
   // v59.0: Attach WebSocket server for IDE integration
   attachWebSocketServer(server, ChatController, logger);
+
+  // Phase C1: Preload active workflow sessions into RAM cache
+  try {
+    const { preloadActiveSessions } = await import('./chat/handlers/session-resume.js');
+    const count = preloadActiveSessions();
+    if (count > 0) logger.info('Server', `Preloaded ${count} active workflow sessions`);
+  } catch (err) {
+    logger.debug('Server', `Session preload skipped: ${err.message}`);
+  }
 
   logger.info('Server', `p(AI)assistant v57.0 started`);
   logger.info('Server', `Chat:   http://${config.server.host}:${config.server.port}/architect`);

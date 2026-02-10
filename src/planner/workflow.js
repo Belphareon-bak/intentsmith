@@ -39,6 +39,7 @@ import { logger } from '../core/logger.js';
 import { config } from '../config.js';
 import { callWithAuth } from '../llm/gateway.js';
 import { createAuthToken, LLMCallerRole } from '../llm/auth-types.js';
+import { getProjectContextManager } from './project-context.js';
 
 // ─── Workflow States ────────────────────────────────────────────────────────
 
@@ -91,14 +92,21 @@ export class WorkflowSession {
     this.fixAttempts = 0;
     this.redesignAttempts = 0;
     this.clarificationQuestions = null;
+    this.projectId = null;           // Phase C: linked project
     this.createdAt = new Date().toISOString();
     this.updatedAt = new Date().toISOString();
     this._onUpdate = null;           // Persistence callback (set by orchestrator)
   }
 
   transition(newState) {
+    const oldState = this.state;
     this.state = newState;
     this.updatedAt = new Date().toISOString();
+    // Phase C: timeline events
+    if (this.projectId) {
+      const projectCtx = getProjectContextManager();
+      projectCtx?.addTimelineEvent(this.projectId, `State: ${oldState} → ${newState}`);
+    }
     this._onUpdate?.(this);
   }
 
@@ -303,6 +311,17 @@ export class WorkflowOrchestrator {
     session._onUpdate = (s) => this._persist(s);
     this.sessions.set(sessionId, session);
     this._createDbRow(session);
+
+    // Phase C: link to project
+    const projectCtx = getProjectContextManager();
+    if (projectCtx) {
+      const project = projectCtx.resolveProject(request, context?.projectId);
+      if (project) {
+        session.projectId = project.id;
+        projectCtx.linkSessionToProject(session.id, project.id);
+        projectCtx.addTimelineEvent(project.id, 'Workflow started', request.slice(0, 100));
+      }
+    }
 
     logger.info('Workflow', 'Starting workflow', { sessionId, request: request.slice(0, 100) });
 
@@ -824,6 +843,7 @@ export class WorkflowOrchestrator {
     session.fixAttempts = timing.fixAttempts || 0;
     session.redesignAttempts = timing.redesignAttempts || 0;
     session.clarificationQuestions = timing.clarificationQuestions || null;
+    session.projectId = row.project_id || null;  // Phase C
     session.createdAt = timing.createdAt || row.created_at;
     session.updatedAt = row.updated_at;
 

@@ -454,6 +454,8 @@ function formatFailureReport(result) {
   ].join('\n');
 }
 
+export { setHandoffState };
+
 export default {
   handleBuildDetected,
   handleBuildConfirmed,
@@ -461,4 +463,5 @@ export default {
   handlePlanVerdict,
   getActiveBuildHandoff,
   cancelBuildHandoff,
+  setHandoffState,
 };

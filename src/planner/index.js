@@ -26,5 +26,14 @@ export {
 import { WorkflowOrchestrator } from './workflow.js';
 import { workflowSessions } from '../db/database.js';
 
+// Phase C2: Progress tracker with time estimates and formatting
+export {
+  formatProgress,
+  formatSessionSummary,
+  formatDetailedProgress,
+  estimateRemainingTime,
+  buildProgressApiResponse,
+} from './progress-tracker.js';
+
 // DB-backed singleton (replaces the no-DB default from workflow.js)
 export const workflowOrchestrator = new WorkflowOrchestrator({ db: workflowSessions });

@@ -1,0 +1,91 @@
+# C3-Agent Docker Compose
+# ══════════════════════════════════════════════════════════════════════════════
+# Usage:
+#   docker compose up -d          # Start C3 + Ollama
+#   docker compose logs -f c3     # Watch C3 logs
+#   docker compose down           # Stop everything
+#
+# First run pulls Ollama models automatically via init container.
+# ══════════════════════════════════════════════════════════════════════════════
+
+version: '3.8'
+
+services:
+  # ─── Ollama LLM Server ───────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: c3-ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ─── Ollama Model Pull (init) ────────────────────────────────────────────
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: c3-ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "🔄 Pulling C3 models..."
+        ollama pull qwen2.5:32b
+        ollama pull qwen2.5-coder:32b
+        ollama pull deepseek-r1:32b
+        echo "✅ All models ready"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: "no"
+
+  # ─── C3-Agent Backend ────────────────────────────────────────────────────
+  c3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: c3-agent
+    ports:
+      - "${C3_PORT:-3335}:3335"
+    environment:
+      - C3_PORT=3335
+      - C3_HOST=0.0.0.0
+      - OLLAMA_URL=http://ollama:11434
+      - C3_DB_PATH=/data/c3.db
+      - C3_LOG_LEVEL=${C3_LOG_LEVEL:-info}
+      - NODE_ENV=production
+    volumes:
+      - c3_data:/data
+      - c3_projects:/projects
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3335/api/status').then(r => process.exit(r.ok ? 0 : 1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  ollama_data:
+    name: c3-ollama-data
+  c3_data:
+    name: c3-agent-data
+  c3_projects:
+    name: c3-projects
