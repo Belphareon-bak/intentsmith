@@ -312,7 +312,7 @@ Example agenti se automaticky registrují na startupu serveru:
 ✅ B5. RSS/Atom source adapter — rss.js, 47 testů, BBC E2E verified
 
 Týden 2:
-  ❌ B6. Multi-source agent                                          [2 dny]
+  ✅ B6. Multi-source agent — RSS+HTTP integration, 14 testů, E2E verified
   ❌ B9. Agent builder wizard                                        [3 dny]
 
 Týden 3:
@@ -428,9 +428,12 @@ Fáze F: BALÍČKOVÁNÍ██░░░░░░░░░░░░░░░░�
 17. ✅ BBC RSS E2E: 3 položky parsed, HUNTER mark_seen OK
 18. ✅ Agent runner E2E: INIT_BASELINE → SUCCESS_NO_NEW flow
 
+19. ✅ **B6: Multi-source agent** — morning-briefing.json (RSS+HTTP+HTTP), runner-level integration (14 testů)
+20. ✅ Multi-source E2E: BBC RSS + OpenMeteo HTTP → _merged, per-source mark_seen, partial failure isolation
+21. ✅ HUNTER pattern cross-type: mark_seen idempotent, SUCCESS_NO_NEW po baseline
+
 **Další logický krok:**
-- B6 Multi-source agent — kombinace RSS + HTTP zdrojů
-- nebo B8 reální workeři (počasí, reality, zprávy)
+- B8 reální workeři (počasí, reality, zprávy)
 - nebo B9 Agent builder wizard
 
 ---
@@ -440,7 +443,7 @@ Fáze F: BALÍČKOVÁNÍ██░░░░░░░░░░░░░░░░�
 | # | Fáze | Úkol | Effort | Status |
 |---|------|------|--------|--------|
 | 1 | C | C3 Reálný LLM test | průběžně | ❌ |
-| 2 | B | B6 Multi-source agent | 2d | ❌ |
+| 2 | B | B6 Multi-source agent | 2d | ✅ |
 | 3 | B | B9 Agent builder wizard | 3d | ❌ |
 | 4 | B | B8 Worker: počasí → Telegram | 2d | ❌ |
 | 5 | B | B8 Worker: reality → email | 2d | ❌ |
@@ -449,8 +452,8 @@ Fáze F: BALÍČKOVÁNÍ██░░░░░░░░░░░░░░░░�
 | 8 | D | D1–D9 Specialist platform | ~8 týdnů | ❌ |
 | 9 | F | F1–F6 Balíčkování | ~3 týdny | ❌ |
 
-**Celkem hotovo:** ~80% celkové vize (v3.3 bylo ~78%, v3.4: B0+B4+B5 E2E verified)
-**Klíčový posun:** Phase B 50%→70% (B0 E2E verified, B4 push OK, B5 RSS OK), push.js UTF-8 fix
+**Celkem hotovo:** ~82% celkové vize (v3.4 bylo ~80%)
+**Klíčový posun:** Phase B 70%→80% (B6 multi-source complete, 14 integračních testů, E2E verified)
 
 ---
 
@@ -462,4 +465,7 @@ v3.2 (2026-02-12): Modularizace B/C/D — feature flags, lazy loading, 6 soubor�
 v3.3 (2026-02-12): C1 crash recovery (DB write-through), C4 multi-session (auto-detect+bind),
 D-int5 rate monitor auto-registrace. Phase C→95%, Phase D-int→100%. 0 nových regresi.
 v3.4 (2026-02-12): B0 E2E verifikace — celý worker pipeline ověřen (runner, sources, conditions,
-triggers, delivery). Push.js UTF-8 fix. B0+B4+B5 done. Phase B→70%.*
+triggers, delivery). Push.js UTF-8 fix. B0+B4+B5 done. Phase B→70%.
+v3.5 (2026-02-12): B6 Multi-source agent — morning-briefing.json (RSS+HTTP+HTTP), runner-level
+integration (14 testů), E2E BBC RSS + OpenMeteo HTTP. Per-source mark_seen, partial failure isolation,
+HUNTER cross-type. Phase B→80%. Celkem 221+ testů pro agent pipeline.*

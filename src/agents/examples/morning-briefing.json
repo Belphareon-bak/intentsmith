@@ -1,0 +1,80 @@
+{
+  "id": "morning-briefing",
+  "name": "Ranní přehled (multi-source)",
+  "description": "Kombinuje RSS zprávy + HTTP API počasí + směnný kurz do ranního přehledu. Demonstrace multi-source agenta s různými typy zdrojů.",
+  "icon": "☀️",
+  "schedule": {
+    "type": "cron",
+    "value": "0 7 * * *"
+  },
+  "sources": [
+    {
+      "id": "bbc_news",
+      "type": "rss",
+      "config": {
+        "url": "https://feeds.bbci.co.uk/news/technology/rss.xml",
+        "maxItems": 5
+      }
+    },
+    {
+      "id": "weather_prague",
+      "type": "http",
+      "config": {
+        "url": "https://api.open-meteo.com/v1/forecast?latitude=50.08&longitude=14.42&current=temperature_2m,weather_code&timezone=Europe/Prague",
+        "method": "GET"
+      }
+    },
+    {
+      "id": "exchange_rates",
+      "type": "http",
+      "config": {
+        "url": "https://api.exchangerate-api.com/v4/latest/CZK",
+        "method": "GET",
+        "headers": {
+          "User-Agent": "C3-Agent/62.0"
+        }
+      }
+    }
+  ],
+  "conditions": [
+    {
+      "id": "has-news",
+      "type": "exists",
+      "field": "sources.bbc_news.data"
+    },
+    {
+      "id": "weather-available",
+      "type": "exists",
+      "field": "sources.weather_prague.data"
+    }
+  ],
+  "triggers": [
+    {
+      "id": "morning-trigger",
+      "condition_id": "has-news",
+      "edge": "any",
+      "cooldown": 86400,
+      "max_fires_per_day": 1
+    }
+  ],
+  "actions": [
+    {
+      "type": "notify",
+      "trigger_id": "morning-trigger",
+      "config": {
+        "channel": "push",
+        "title": "Ranní přehled",
+        "message": "Počasí Praha: {{sources.weather_prague.data.current.temperature_2m}}°C | Zprávy: {{sources.bbc_news.filtered_count}} nových článků",
+        "priority": "normal"
+      }
+    },
+    {
+      "type": "mark_seen",
+      "trigger_id": null,
+      "config": {
+        "source_id": "bbc_news",
+        "id_field": "id"
+      }
+    }
+  ]
+}
