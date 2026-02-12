@@ -2,13 +2,17 @@
 // ══════════════════════════════════════════════════════════════════════════════
 // Re-exports for backwards compatibility with existing imports.
 // New code should import directly from submodules.
+//
+// v60.2: Optional modules (expert, agent) loaded with try-catch.
+//        Core (conversation, project, decisions) always loaded.
 // ══════════════════════════════════════════════════════════════════════════════
 
-// ─── Mode Handlers ───────────────────────────────────────────────────────────
+import { config } from '../../config.js';
+import { logger } from '../../core/logger.js';
+
+// ─── Core Handlers (always available) ──────────────────────────────────────
 export { conversationHandler } from './conversation.js';
 export { projectHandler } from './project.js';
-export { expertHandler, generateExpertResponse, wrapWithExpertPersona, buildExpertSystemPrompt } from './expert.js';
-export { agentHandler } from './agent.js';
 
 // ─── Decision Sub-Handlers ──────────────────────────────────────────────────
 export {
@@ -21,22 +25,12 @@ export {
   handleRefuseDecision,
 } from './decisions.js';
 
-// ─── Clarification & Goal Alignment ────────────────────────────────────────
+// ─── Clarification & Goal Alignment ─────────────────────────────────────────
 export {
   tryResolveClarification,
   buildResolvedDecision,
   assessGoalAlignment,
 } from './clarification.js';
-
-// ─── Agent Wizard (v59.0) ────────────────────────────────────────────────────
-export {
-  getActiveWizard,
-  cancelWizard,
-  handleWizardInput,
-  handleAgentWizardDetected,
-  isWizardTrigger,
-  WIZARD_PATTERNS,
-} from './agent-wizard.js';
 
 // ─── Report Pipeline ────────────────────────────────────────────────────────
 export { buildReportFallback, synthesizeReport } from './report.js';
@@ -53,14 +47,64 @@ export {
 // ─── Utility Modules ────────────────────────────────────────────────────────
 export * from './utils/index.js';
 
+// ─── Optional Module Re-exports (lazy, may not exist) ───────────────────────
+// These are re-exported only if the modules are available.
+// Consumer code should handle missing exports gracefully.
+
+let _expertHandler = null;
+let _generateExpertResponse = null;
+let _wrapWithExpertPersona = null;
+let _buildExpertSystemPrompt = null;
+let _agentHandler = null;
+let _wizardExports = {};
+
+// Lazy-load optional modules at import time (top-level await)
+if (config.features.experts !== false) {
+  try {
+    const mod = await import('./expert.js');
+    _expertHandler = mod.expertHandler;
+    _generateExpertResponse = mod.generateExpertResponse;
+    _wrapWithExpertPersona = mod.wrapWithExpertPersona;
+    _buildExpertSystemPrompt = mod.buildExpertSystemPrompt;
+  } catch (err) {
+    logger.warn('handlers/index', `Expert handler not available: ${err.message}`);
+  }
+}
+
+if (config.features.agents !== false) {
+  try {
+    const mod = await import('./agent.js');
+    _agentHandler = mod.agentHandler;
+  } catch (err) {
+    logger.warn('handlers/index', `Agent handler not available: ${err.message}`);
+  }
+  try {
+    const mod = await import('./agent-wizard.js');
+    _wizardExports = mod;
+  } catch (err) {
+    logger.warn('handlers/index', `Agent wizard not available: ${err.message}`);
+  }
+}
+
+export const expertHandler = _expertHandler;
+export const generateExpertResponse = _generateExpertResponse;
+export const wrapWithExpertPersona = _wrapWithExpertPersona;
+export const buildExpertSystemPrompt = _buildExpertSystemPrompt;
+export const agentHandler = _agentHandler;
+
+// Wizard exports — may be null if agents disabled
+export const getActiveWizard = _wizardExports.getActiveWizard || null;
+export const cancelWizard = _wizardExports.cancelWizard || null;
+export const handleWizardInput = _wizardExports.handleWizardInput || null;
+export const handleAgentWizardDetected = _wizardExports.handleAgentWizardDetected || null;
+export const isWizardTrigger = _wizardExports.isWizardTrigger || null;
+export const WIZARD_PATTERNS = _wizardExports.WIZARD_PATTERNS || null;
+
 // ─── Feedback & Preferences API (v45.0) ─────────────────────────────────────
 import { preferenceEngine } from '../../memory/preferences.js';
 import { ChatMode } from '../controller.js';
-
 import { conversationHandler } from './conversation.js';
 import { projectHandler } from './project.js';
-import { expertHandler } from './expert.js';
-import { agentHandler } from './agent.js';
 import { FollowUpType } from './utils/followup.js';
 
 export function recordFeedback(type, context = {}) {
@@ -76,20 +120,21 @@ export function getUserPreferences() {
 }
 
 export function getDefaultHandlers() {
-  return {
+  const handlers = {
     [ChatMode.CONVERSATION]: conversationHandler,
     [ChatMode.PROJECT]: projectHandler,
-    [ChatMode.EXPERT]: expertHandler,
-    [ChatMode.AGENT]: agentHandler,
   };
+  if (_expertHandler) handlers[ChatMode.EXPERT] = _expertHandler;
+  if (_agentHandler) handlers[ChatMode.AGENT] = _agentHandler;
+  return handlers;
 }
 
 // ─── Default Export ─────────────────────────────────────────────────────────
 export default {
   conversationHandler,
   projectHandler,
-  expertHandler,
-  agentHandler,
+  expertHandler: _expertHandler,
+  agentHandler: _agentHandler,
   getDefaultHandlers,
   recordFeedback,
   getUserPreferences,

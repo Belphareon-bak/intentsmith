@@ -17,43 +17,55 @@ const __dirname = path.dirname(__filename);
 // Global error handlers (Phase 1 — error-handler.js)
 installGlobalHandlers({ logger, exitOnUncaught: false });
 
-// Agent Platform v33
-import { AgentRepository, initAgentTables } from './agents/repository.js';
-import { AgentScheduler } from './agents/scheduler.js';
-import { AgentRunner } from './agents/runner.js';
-import { createAgentRoutes } from './agents/api.js';
-import { LLMServices } from './agents/llm-services.js';
+// ─── Optional: Agent Platform v33 (Phase B) ─────────────────────────────────
+let AgentRepository, AgentScheduler, AgentRunner, createAgentRoutes, LLMServices;
+if (config.features.agents !== false) {
+  try {
+    const repo = await import('./agents/repository.js');
+    AgentRepository = repo.AgentRepository;
+    repo.initAgentTables(db.db);
+    AgentScheduler = (await import('./agents/scheduler.js')).AgentScheduler;
+    AgentRunner = (await import('./agents/runner.js')).AgentRunner;
+    createAgentRoutes = (await import('./agents/api.js')).createAgentRoutes;
+    LLMServices = (await import('./agents/llm-services.js')).LLMServices;
+    logger.info('Server', 'Agent platform loaded (Phase B)');
+  } catch (err) {
+    logger.warn('Server', `Agent platform not available: ${err.message}`);
+  }
+} else {
+  logger.info('Server', 'Agent platform disabled (C3_ENABLE_AGENTS=false)');
+}
 
-// Expert Layer v35 + v57 Expert Store
-import { validateExpertConfig, getExpertStore } from './experts/expert-store.js';
+// ─── Optional: Expert Layer v35 + v57 (Phase D) ─────────────────────────────
 let expertLayer = null;
 let expertStore = null;
-async function loadExpertLayer() {
+let getExpertStore = null;
+if (config.features.experts !== false) {
+  try {
+    const store = await import('./experts/expert-store.js');
+    getExpertStore = store.getExpertStore;
+  } catch (err) {
+    logger.warn('Server', `Expert store not available: ${err.message}`);
+  }
+
   const possiblePaths = [
-    './experts/expert-layer.js',    // Primary location (src/experts/)
-    './expert-layer.js',             // Fallback (root)
-    './src/experts/expert-layer.js'  // Alternative
+    './experts/expert-layer.js',
+    './expert-layer.js',
+    './src/experts/expert-layer.js',
   ];
-  
   for (const p of possiblePaths) {
     try {
       expertLayer = await import(p);
       logger.info('Server', `Expert layer loaded from ${p}`);
-      return;
+      break;
     } catch (err) {
-      // Expected: trying multiple paths, continue to next
       logger.debug('Server', `Expert layer not at ${p}: ${err.code || err.message}`);
     }
   }
-  logger.warn('Server', 'Expert layer not available - file not found');
+  if (!expertLayer) logger.warn('Server', 'Expert layer not available - file not found');
+} else {
+  logger.info('Server', 'Expert platform disabled (C3_ENABLE_EXPERTS=false)');
 }
-await loadExpertLayer();
-
-// Orchestrator v36 — loaded on-demand via architect/ routes
-// (Module-level orchestrator removed: getOrchestrator API was never implemented)
-
-// Initialize Agent tables
-initAgentTables(db.db);
 
 // v36.9.1: LLM client routed through gateway with auth tokens
 import { callWithAuth } from './llm/gateway.js';
@@ -76,8 +88,8 @@ import { toolRegistry } from './tools/registry.js';
 import { getConversationStore } from './chat/conversation-store.js';
 getConversationStore(db);
 
-// v57.0: Initialize ExpertStore with DB
-expertStore = getExpertStore(db);
+// v57.0: Initialize ExpertStore with DB (if experts enabled)
+if (getExpertStore) expertStore = getExpertStore(db);
 
 // Configure ChatController with default handlers
 ChatController.configure({
@@ -120,43 +132,52 @@ logger.info('Server', 'ToolExecutor wired to toolRegistry', {
   scrape: !!toolExecutor.scrapeService
 });
 
-const agentLLMClient = {
-  async chat({ model, messages, format, options = {} }) {
-    try {
-      const token = createAuthToken({
-        role: LLMCallerRole.WORKFLOW_THINKER,
-        decisionId: `agent_${Date.now()}`,
-        auditContext: { sessionId: 'agents' }
-      });
+// ─── Agent Platform Init (conditional — Phase B) ───────────────────────────
+let agentLLMClient = null;
+let agentRepository = null;
+let agentRunner = null;
+let agentScheduler = null;
+let agentRoutes = null;
 
-      const response = await callWithAuth(token, '', {
-        model: model || 'qwen2.5:32b',
-        messages,
-        format: format === 'json' ? 'json' : undefined,
-        temperature: options.temperature ?? 0.3
-      });
+if (AgentRepository) {
+  agentLLMClient = {
+    async chat({ model, messages, format, options = {} }) {
+      try {
+        const token = createAuthToken({
+          role: LLMCallerRole.WORKFLOW_THINKER,
+          decisionId: `agent_${Date.now()}`,
+          auditContext: { sessionId: 'agents' }
+        });
 
-      return { content: response.content || '' };
-    } catch (err) {
-      logger.error('AgentLLM', `Error: ${err.message}`);
-      return { content: '' };
+        const response = await callWithAuth(token, '', {
+          model: model || 'qwen2.5:32b',
+          messages,
+          format: format === 'json' ? 'json' : undefined,
+          temperature: options.temperature ?? 0.3
+        });
+
+        return { content: response.content || '' };
+      } catch (err) {
+        logger.error('AgentLLM', `Error: ${err.message}`);
+        return { content: '' };
+      }
     }
-  }
-};
+  };
 
-// Initialize Agent Platform
-const agentRepository = new AgentRepository(db.db);
-const llmServices = new LLMServices({ llmClient: agentLLMClient });
-const agentRunner = new AgentRunner({ repository: agentRepository, llmServices });
-const agentScheduler = new AgentScheduler({ repository: agentRepository, runner: agentRunner });
-const agentRoutes = createAgentRoutes({ 
-  repository: agentRepository, 
-  scheduler: agentScheduler, 
-  executor: agentRunner,
-  llmClient: agentLLMClient
-});
-
-// (Orchestrator LLM binding removed — dead code, setLLMClient never existed)
+  agentRepository = new AgentRepository(db.db);
+  const llmServices = new LLMServices({ llmClient: agentLLMClient });
+  agentRunner = new AgentRunner({ repository: agentRepository, llmServices });
+  agentScheduler = new AgentScheduler({ repository: agentRepository, runner: agentRunner });
+  agentRoutes = createAgentRoutes({
+    repository: agentRepository,
+    scheduler: agentScheduler,
+    executor: agentRunner,
+    llmClient: agentLLMClient
+  });
+  logger.info('Server', 'Agent platform initialized (Phase B)');
+} else {
+  logger.info('Server', 'Agent platform skipped (disabled or not available)');
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 // REQUEST HELPERS
@@ -2266,6 +2287,20 @@ const routes = {
   },
 };
 
+// ─── Guard agent routes if platform not loaded ──────────────────────────────
+if (!agentRoutes) {
+  const notAvailable = (req, res) => sendJSON(res, 501, {
+    error: 'Agent platform not available (C3_ENABLE_AGENTS=false)'
+  });
+  for (const key of Object.keys(routes)) {
+    if (key.includes('/api/agents') || key === 'GET /agents' ||
+        key.includes('/api/sources/') || key.includes('/api/notifications') ||
+        key.includes('/api/scheduler')) {
+      routes[key] = notAvailable;
+    }
+  }
+}
+
 // ═══ Trust Feedback Loop API (v57.2) ═════════════════════════════════════════
 // Initialize trust tracker singleton with raw DB, then mount routes
 getTrustTracker(db.db);
@@ -2502,9 +2537,36 @@ const server = http.createServer(async (req, res) => {
 // ════════════════════════════════════════════════════════════════════════════
 
 server.listen(config.server.port, config.server.host, async () => {
-  // Start agent scheduler
-  agentScheduler.start();
-  
+  // Start agent scheduler (Phase B — conditional)
+  if (agentScheduler) agentScheduler.start();
+
+  // D-int5: Auto-register example agents from src/agents/examples/
+  if (agentRepository) {
+    try {
+      const { readdirSync, readFileSync } = await import('node:fs');
+      const { join, dirname } = await import('node:path');
+      const { fileURLToPath } = await import('node:url');
+      const __dir = dirname(fileURLToPath(import.meta.url));
+      const exDir = join(__dir, 'agents', 'examples');
+      let registered = 0;
+      for (const f of readdirSync(exDir).filter(f => f.endsWith('.json'))) {
+        const def = JSON.parse(readFileSync(join(exDir, f), 'utf-8'));
+        if (!def.id || agentRepository.getAgent(def.id)) continue;
+        agentRepository.createAgent({
+          id: def.id, name: def.name, description: def.description,
+          icon: def.icon || '🤖', definition: def, enabled: true,
+        });
+        if (agentScheduler && def.schedule?.type !== 'manual') {
+          agentScheduler.scheduleAgent(agentRepository.getAgent(def.id));
+        }
+        registered++;
+      }
+      if (registered > 0) logger.info('Server', `Auto-registered ${registered} example agents`);
+    } catch (err) {
+      logger.debug('Server', `Example agent registration skipped: ${err.message}`);
+    }
+  }
+
   // v59.0: Attach WebSocket server for IDE integration
   attachWebSocketServer(server, ChatController, logger);
 
@@ -2517,9 +2579,20 @@ server.listen(config.server.port, config.server.host, async () => {
     logger.debug('Server', `Session preload skipped: ${err.message}`);
   }
 
+  // C1: Preload active lifecycle handoff states from DB (crash recovery)
+  try {
+    const { lifecycleHandoffState, lifecycles: lcRepo } = await import('./db/database.js');
+    const { initLifecycleStateDb, preloadActiveLifecycles } = await import('./chat/handlers/lifecycle-state.js');
+    initLifecycleStateDb(lifecycleHandoffState, lcRepo);
+    const lcCount = preloadActiveLifecycles();
+    if (lcCount > 0) logger.info('Server', `Preloaded ${lcCount} active lifecycle handoff states`);
+  } catch (err) {
+    logger.debug('Server', `Lifecycle handoff preload skipped: ${err.message}`);
+  }
+
   logger.info('Server', `p(AI)assistant v57.0 started`);
   logger.info('Server', `Chat:   http://${config.server.host}:${config.server.port}/architect`);
-  logger.info('Server', `Agents: http://${config.server.host}:${config.server.port}/agents`);
+  if (agentRoutes) logger.info('Server', `Agents: http://${config.server.host}:${config.server.port}/agents`);
   logger.info('Server', `API:    http://${config.server.host}:${config.server.port}`);
   logger.info('Server', `WS:    ws://${config.server.host}:${config.server.port}/c3/ws`);
 });

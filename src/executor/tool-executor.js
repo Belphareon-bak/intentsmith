@@ -24,11 +24,19 @@ import { ToolType, DecisionType, IntentType } from '../chat/cre-decision.js';
 import { searchWeb, fetchPage, getProviderStatus } from '../llm/web-search.js';
 import { CircuitBreaker, CircuitState } from './circuit-breaker.js';
 import { canonicalizeQuery } from './query-canonicalizer.js';
-// v57.3 — Accountant expert tools (lazy-loaded in registerBuiltinHandlers)
-import { calculateTax, compareTaxEntities } from '../experts/tools/tax-calc.js';
-import { calculateVAT } from '../experts/tools/vat-calc.js';
-import { calculateSalary, compareSalaries } from '../experts/tools/salary-calc.js';
-import { checkDeadlines } from '../experts/tools/deadline-checker.js';
+// v57.3 — Accountant expert tools (lazy-loaded — Phase D optional)
+import { config } from '../config.js';
+let calculateTax, compareTaxEntities, calculateVAT, calculateSalary, compareSalaries, checkDeadlines;
+if (config.features.experts !== false) {
+  try {
+    ({ calculateTax, compareTaxEntities } = await import('../experts/tools/tax-calc.js'));
+    ({ calculateVAT } = await import('../experts/tools/vat-calc.js'));
+    ({ calculateSalary, compareSalaries } = await import('../experts/tools/salary-calc.js'));
+    ({ checkDeadlines } = await import('../experts/tools/deadline-checker.js'));
+  } catch (err) {
+    logger.warn('ToolExecutor', `Expert tools not available: ${err.message}`);
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // v56.2 Sprint B: Search Query Sanitization
@@ -535,25 +543,15 @@ export class ToolExecutor {
       return await this.executeLocalMath(params);
     });
 
-    // v57.3 — Accountant expert tools (deterministic, no LLM)
-    this.register(ToolType.TAX_CALCULATOR, async (params) => {
-      return calculateTax(params);
-    });
-    this.register(ToolType.VAT_CALCULATOR, async (params) => {
-      return calculateVAT(params);
-    });
-    this.register(ToolType.SALARY_CALCULATOR, async (params) => {
-      return calculateSalary(params);
-    });
-    this.register(ToolType.DEADLINE_CHECKER, async (params) => {
-      return checkDeadlines(params);
-    });
-    this.register(ToolType.COMPARE_TAX_ENTITIES, async (params) => {
-      return compareTaxEntities(params.gross_income, params);
-    });
-    this.register(ToolType.COMPARE_SALARIES, async (params) => {
-      return compareSalaries(params.gross_levels, params);
-    });
+    // v57.3 — Accountant expert tools (Phase D — conditional)
+    if (calculateTax) {
+      this.register(ToolType.TAX_CALCULATOR, async (params) => calculateTax(params));
+      this.register(ToolType.VAT_CALCULATOR, async (params) => calculateVAT(params));
+      this.register(ToolType.SALARY_CALCULATOR, async (params) => calculateSalary(params));
+      this.register(ToolType.DEADLINE_CHECKER, async (params) => checkDeadlines(params));
+      this.register(ToolType.COMPARE_TAX_ENTITIES, async (params) => compareTaxEntities(params.gross_income, params));
+      this.register(ToolType.COMPARE_SALARIES, async (params) => compareSalaries(params.gross_levels, params));
+    }
   }
 
   /**

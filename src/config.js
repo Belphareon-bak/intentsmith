@@ -2,6 +2,14 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 export const config = {
+  // Feature flags — enable/disable optional modules (B/C/D)
+  // Core chat works without any of these.
+  features: {
+    agents:    process.env.C3_ENABLE_AGENTS !== 'false',     // Phase B: Workers
+    lifecycle: process.env.C3_ENABLE_LIFECYCLE !== 'false',  // Phase C: Project Lifecycle
+    experts:   process.env.C3_ENABLE_EXPERTS !== 'false',    // Phase D: Specialists
+  },
+
   // Server
   server: {
     port: parseInt(process.env.C3_PORT || '3335'),

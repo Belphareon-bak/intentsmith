@@ -16,7 +16,15 @@
 
 import { logger } from '../../core/logger.js';
 import { ResponseTag, TaggedResponse, ResponseSpeaker, ChatMode } from '../controller.js';
-import { WorkflowState } from '../../planner/index.js';
+
+// Lazy-load WorkflowState — planner is optional (Phase C)
+let WorkflowState = null;
+try {
+  const mod = await import('../../planner/index.js');
+  WorkflowState = mod.WorkflowState;
+} catch (err) {
+  logger.warn('BuildHandoff', `Planner not available: ${err.message}`);
+}
 
 // ─── Helper: create TaggedResponse with proper ResponseTag ──────────────────
 

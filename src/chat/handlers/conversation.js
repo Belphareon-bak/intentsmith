@@ -19,32 +19,69 @@ import {
   handleAnswerDecision,
   handleRefuseDecision,
 } from './decisions.js';
-import {
-  handleBuildDetected,
-  handleBuildConfirmed,
-  handleClarificationAnswer,
-  handlePlanVerdict,
-  getActiveBuildHandoff,
-  cancelBuildHandoff,
-  setHandoffState,
-} from './build-handoff.js';
-import {
-  getActiveLifecycleHandoff,
-  cancelLifecycleHandoff,
-  handleLifecycleInput,
-} from './lifecycle-handoff.js';
-import {
-  detectResumeIntent,
-  handleResumeRequest,
-  handleProgressRequest,
-} from './session-resume.js';
-import {
-  getActiveWizard,
-  cancelWizard,
-  handleWizardInput,
-  handleAgentWizardDetected,
-  isWizardTrigger,
-} from './agent-wizard.js';
+// ─── Optional module imports (B/C/D) — lazy-loaded, null if feature disabled ──
+import { config } from '../../config.js';
+
+// Phase C: Build handoff (planner pipeline)
+let handleBuildDetected, handleBuildConfirmed, handleClarificationAnswer,
+    handlePlanVerdict, getActiveBuildHandoff, cancelBuildHandoff, setHandoffState;
+
+// Phase C: Lifecycle handoff (project lifecycle)
+let getActiveLifecycleHandoff, cancelLifecycleHandoff, handleLifecycleInput;
+
+// Phase C: Session resume (multi-session projects)
+let detectResumeIntent, handleResumeRequest, handleProgressRequest;
+
+// Phase B: Agent wizard
+let getActiveWizard, cancelWizard, handleWizardInput, handleAgentWizardDetected, isWizardTrigger;
+
+// Load Phase C modules
+if (config.features.lifecycle !== false) {
+  try {
+    const bh = await import('./build-handoff.js');
+    handleBuildDetected = bh.handleBuildDetected;
+    handleBuildConfirmed = bh.handleBuildConfirmed;
+    handleClarificationAnswer = bh.handleClarificationAnswer;
+    handlePlanVerdict = bh.handlePlanVerdict;
+    getActiveBuildHandoff = bh.getActiveBuildHandoff;
+    cancelBuildHandoff = bh.cancelBuildHandoff;
+    setHandoffState = bh.setHandoffState;
+  } catch (err) {
+    logger.warn('Conversation', `Build handoff not available: ${err.message}`);
+  }
+
+  try {
+    const lh = await import('./lifecycle-handoff.js');
+    getActiveLifecycleHandoff = lh.getActiveLifecycleHandoff;
+    cancelLifecycleHandoff = lh.cancelLifecycleHandoff;
+    handleLifecycleInput = lh.handleLifecycleInput;
+  } catch (err) {
+    logger.warn('Conversation', `Lifecycle handoff not available: ${err.message}`);
+  }
+
+  try {
+    const sr = await import('./session-resume.js');
+    detectResumeIntent = sr.detectResumeIntent;
+    handleResumeRequest = sr.handleResumeRequest;
+    handleProgressRequest = sr.handleProgressRequest;
+  } catch (err) {
+    logger.warn('Conversation', `Session resume not available: ${err.message}`);
+  }
+}
+
+// Load Phase B modules
+if (config.features.agents !== false) {
+  try {
+    const wiz = await import('./agent-wizard.js');
+    getActiveWizard = wiz.getActiveWizard;
+    cancelWizard = wiz.cancelWizard;
+    handleWizardInput = wiz.handleWizardInput;
+    handleAgentWizardDetected = wiz.handleAgentWizardDetected;
+    isWizardTrigger = wiz.isWizardTrigger;
+  } catch (err) {
+    logger.warn('Conversation', `Agent wizard not available: ${err.message}`);
+  }
+}
 import {
   handleDesignDecision,
   handleDesignContinue,
@@ -65,9 +102,9 @@ export async function conversationHandler(input, context) {
   const { sessionId, sessionState } = context;
 
   // ════════════════════════════════════════════════════════════════════════════
-  // PHASE C1: SESSION RESUME / PROGRESS INTERCEPT
+  // PHASE C1: SESSION RESUME / PROGRESS INTERCEPT (optional — Phase C)
   // ════════════════════════════════════════════════════════════════════════════
-  const resumeIntent = detectResumeIntent(input);
+  const resumeIntent = detectResumeIntent ? detectResumeIntent(input) : null;
 
   if (resumeIntent === 'resume') {
     const result = await handleResumeRequest(input, context, setHandoffState);
@@ -132,9 +169,9 @@ export async function conversationHandler(input, context) {
   // ════════════════════════════════════════════════════════════════════════════
 
   // ════════════════════════════════════════════════════════════════════════════
-  // BUILD HANDOFF INTERCEPT — route messages during active Planner flow
+  // BUILD HANDOFF INTERCEPT — route messages during active Planner flow (optional — Phase C)
   // ════════════════════════════════════════════════════════════════════════════
-  const activeHandoff = getActiveBuildHandoff(sessionId);
+  const activeHandoff = getActiveBuildHandoff ? getActiveBuildHandoff(sessionId) : null;
   if (activeHandoff) {
     // Cancel command
     if (/^(zrušit?|cancel|stop|zpět|back)\s*[!.]?$/i.test(input.trim())) {
@@ -177,9 +214,41 @@ export async function conversationHandler(input, context) {
   // ════════════════════════════════════════════════════════════════════════════
 
   // ════════════════════════════════════════════════════════════════════════════
-  // v61: LIFECYCLE HANDOFF INTERCEPT — route messages during active lifecycle
+  // v62: C4 LIFECYCLE AUTO-DETECT — new session for existing project with active lifecycle
   // ════════════════════════════════════════════════════════════════════════════
-  const activeLifecycle = getActiveLifecycleHandoff(sessionId);
+  if (getActiveLifecycleHandoff && !getActiveLifecycleHandoff(sessionId)) {
+    const projectId = context.project?.id || context.projectId;
+    if (projectId && config.features.lifecycle !== false) {
+      try {
+        const { lifecycles: lcRepo, lifecycleHandoffState: lhsRepo } = await import('../../db/database.js');
+        const activeLc = lcRepo.findActiveByProject.get(projectId);
+        if (activeLc && activeLc.phase !== 'COMPLETED' && activeLc.phase !== 'FAILED') {
+          const { setLcState: setLcS, bindSessionToLifecycle: bindS } = await import('./lifecycle-state.js');
+          // Try to restore previous handoff state from DB
+          const prev = activeLc.active_session_id && lhsRepo
+            ? lhsRepo.findBySession.get(activeLc.active_session_id) : null;
+          setLcS(sessionId, {
+            phase: activeLc.phase,
+            lifecycleId: activeLc.id,
+            currentMilestoneId: prev?.current_milestone_id || null,
+            originalRequest: prev?.original_request || '',
+            projectId: activeLc.project_id,
+            projectPath: context.project?.path || prev?.project_path,
+          });
+          bindS(sessionId, activeLc.id);
+          logger.info('Conversation', `C4: Auto-detected active lifecycle ${activeLc.id} for project ${projectId}`);
+        }
+      } catch (err) {
+        logger.debug('Conversation', `Lifecycle auto-detect: ${err.message}`);
+      }
+    }
+  }
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // v61: LIFECYCLE HANDOFF INTERCEPT — route messages during active lifecycle (optional — Phase C)
+  // ════════════════════════════════════════════════════════════════════════════
+  const activeLifecycle = getActiveLifecycleHandoff ? getActiveLifecycleHandoff(sessionId) : null;
   if (activeLifecycle) {
     // Cancel command
     if (/^(zru[sš]it?|cancel|stop)\s*[!.]?$/i.test(input.trim())) {
@@ -199,9 +268,9 @@ export async function conversationHandler(input, context) {
   // ════════════════════════════════════════════════════════════════════════════
 
   // ════════════════════════════════════════════════════════════════════════════
-  // v59.0 - AGENT WIZARD INTERCEPT — route messages during active wizard flow
+  // v59.0 - AGENT WIZARD INTERCEPT — route messages during active wizard flow (optional — Phase B)
   // ════════════════════════════════════════════════════════════════════════════
-  const activeWizard = getActiveWizard(sessionId);
+  const activeWizard = getActiveWizard ? getActiveWizard(sessionId) : null;
   if (activeWizard) {
     if (/^(zru[sš]it?|cancel|stop|zp[eě]t|back)\s*[!.]?$/i.test(input.trim())) {
       cancelWizard(sessionId);
@@ -609,8 +678,8 @@ export async function conversationHandler(input, context) {
     reason: decision.reason,
   });
 
-  // v59.0 - Check for agent wizard trigger BEFORE standard routing
-  if (isWizardTrigger(input) && !getActiveWizard(sessionId)) {
+  // v59.0 - Check for agent wizard trigger BEFORE standard routing (optional — Phase B)
+  if (isWizardTrigger && isWizardTrigger(input) && !getActiveWizard(sessionId)) {
     logger.info('ConversationHandler', 'Agent wizard trigger detected', { input: input.substring(0, 80) });
     return handleAgentWizardDetected(input, context);
   }
@@ -621,7 +690,9 @@ export async function conversationHandler(input, context) {
     // BUILD → PLAN: Handoff to Planner pipeline
     // ════════════════════════════════════════════════════════════════════════
     case DecisionType.PLAN:
-      return handleBuildDetected(input, decision, context);
+      if (handleBuildDetected) return handleBuildDetected(input, decision, context);
+      // Phase C not loaded — fall through to ANSWER
+      return await handleAnswerDecision(input, decision, context);
 
     // ════════════════════════════════════════════════════════════════════════
     // v44.7 FIX 1: LOCAL is TERMINAL - direct computation, no tools

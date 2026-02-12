@@ -402,6 +402,20 @@ CREATE INDEX IF NOT EXISTS idx_change_requests_lifecycle ON change_requests(life
 CREATE INDEX IF NOT EXISTS idx_drift_checks_lifecycle ON drift_checks(lifecycle_id);
 CREATE INDEX IF NOT EXISTS idx_drift_checks_milestone ON drift_checks(milestone_id);
 
+-- v62: Lifecycle Handoff State (crash recovery — RAM+DB dual-write)
+CREATE TABLE IF NOT EXISTS lifecycle_handoff_state (
+    session_id TEXT PRIMARY KEY,
+    phase TEXT NOT NULL,
+    lifecycle_id TEXT REFERENCES project_lifecycles(id) ON DELETE CASCADE,
+    current_milestone_id TEXT,
+    original_request TEXT,
+    project_id INTEGER,
+    project_path TEXT,
+    change_request_id TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_lhs_lifecycle ON lifecycle_handoff_state(lifecycle_id);
+
 -- Full-text search for chat
 CREATE VIRTUAL TABLE IF NOT EXISTS chat_fts USING fts5(
     content,
@@ -468,6 +482,13 @@ try {
   // So we rely on application-level check in findByPath before insert
 } catch (err) {
   logger.warn('DB', `Migration check failed: ${err.message}`);
+}
+
+// v62: Add active_session_id to project_lifecycles (C4 multi-session)
+try {
+  db.exec('ALTER TABLE project_lifecycles ADD COLUMN active_session_id TEXT');
+} catch {
+  // Column already exists — expected on subsequent starts
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1141,6 +1162,11 @@ export const lifecycles = {
     UPDATE project_lifecycles SET config = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
   `),
 
+  // v62: C4 multi-session — track which session owns the lifecycle
+  updateActiveSession: db.prepare(`
+    UPDATE project_lifecycles SET active_session_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+  `),
+
   save(id, projectId, phase, spec = null, lifecycleConfig = {}) {
     const specStr = spec ? (typeof spec === 'string' ? spec : JSON.stringify(spec)) : null;
     const configStr = typeof lifecycleConfig === 'string' ? lifecycleConfig : JSON.stringify(lifecycleConfig);
@@ -1410,6 +1436,36 @@ function parseDriftCheckJSON(row) {
   }
   return parsed;
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// v62: LIFECYCLE HANDOFF STATE (crash recovery — RAM+DB dual-write)
+// ════════════════════════════════════════════════════════════════════════════
+
+export const lifecycleHandoffState = {
+  upsert: db.prepare(`
+    INSERT INTO lifecycle_handoff_state
+      (session_id, phase, lifecycle_id, current_milestone_id, original_request, project_id, project_path, change_request_id, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(session_id) DO UPDATE SET
+      phase=excluded.phase, lifecycle_id=excluded.lifecycle_id,
+      current_milestone_id=excluded.current_milestone_id,
+      original_request=excluded.original_request, project_id=excluded.project_id,
+      project_path=excluded.project_path, change_request_id=excluded.change_request_id,
+      updated_at=CURRENT_TIMESTAMP
+  `),
+
+  findBySession: db.prepare(`SELECT * FROM lifecycle_handoff_state WHERE session_id = ?`),
+
+  findAllActive: db.prepare(`
+    SELECT lhs.*, pl.phase as lc_phase FROM lifecycle_handoff_state lhs
+    LEFT JOIN project_lifecycles pl ON lhs.lifecycle_id = pl.id
+    WHERE pl.phase NOT IN ('COMPLETED', 'FAILED') OR pl.phase IS NULL
+  `),
+
+  delete: db.prepare(`DELETE FROM lifecycle_handoff_state WHERE session_id = ?`),
+
+  deleteByLifecycle: db.prepare(`DELETE FROM lifecycle_handoff_state WHERE lifecycle_id = ?`),
+};
 
 // ════════════════════════════════════════════════════════════════════════════
 // UTILITIES

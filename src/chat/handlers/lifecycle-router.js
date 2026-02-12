@@ -9,7 +9,7 @@
 
 import { logger } from '../../core/logger.js';
 import { ProjectPhase } from '../../planner/lifecycle.js';
-import { getLcState, setLcState, clearLcState } from './lifecycle-state.js';
+import { getLcState, setLcState, clearLcState, bindSessionToLifecycle } from './lifecycle-state.js';
 import {
   lcResponse,
   formatSpecQuestions,
@@ -35,7 +35,8 @@ import {
  */
 async function resumeWithContext(state, context) {
   const { ProjectLifecycle } = await import('../../planner/lifecycle.js');
-  const lifecycle = ProjectLifecycle.resume(state.lifecycleId, context.projectPath);
+  const projectPath = context.projectPath || state.projectPath;
+  const lifecycle = ProjectLifecycle.resume(state.lifecycleId, projectPath);
   if (!lifecycle) {
     throw new Error(`Lifecycle ${state.lifecycleId} not found in DB`);
   }
@@ -213,7 +214,11 @@ async function handleProposedResponse(input, state, context) {
       phase: 'SPEC',
       lifecycleId: lifecycle.id,
       projectId,
+      projectPath,
     });
+
+    // C4: Bind this session as lifecycle owner
+    bindSessionToLifecycle(sessionId, lifecycle.id);
 
     // Start spec analysis
     const { startSpec } = await import('../../planner/lifecycle-spec.js');
@@ -230,7 +235,7 @@ async function handleProposedResponse(input, state, context) {
 
     // No questions — spec already generated (unlikely but possible)
     if (specResult.spec) {
-      setLcState(sessionId, { ...state, phase: 'SPEC_REVIEW', lifecycleId: lifecycle.id, projectId });
+      setLcState(sessionId, { ...state, phase: 'SPEC_REVIEW', lifecycleId: lifecycle.id, projectId, projectPath });
       return lcResponse(formatSpec(specResult.spec), {
         phase: 'SPEC_REVIEW',
         lifecycleId: lifecycle.id,

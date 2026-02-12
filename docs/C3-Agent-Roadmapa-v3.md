@@ -3,7 +3,7 @@
 ## Od aktuálního stavu k tvé vizi
 
 **Datum:** 2026-02-12
-**Verze kódu:** v60.1 (po Phase C lifecycle engine + Phase A audit + Q fix)
+**Verze kódu:** v62 (po Phase C lifecycle engine + Phase A audit + Q fix + modularizace B/C/D + C1/C4/D-int5)
 **Testy:** 1700+ ověřených (1193 non-DB + 512 lifecycle = 1705 posledních regresí)
 
 ---
@@ -68,14 +68,14 @@ Licenční systém. Setup wizard.
 **Zbývá:** Pouze A7 kvalitativní ověření expert promptů (ne kódová práce).
 **Status: PHASE A = DONE.**
 
-### Pilíř 2: PROJEKTY — 85% ✅
+### Pilíř 2: PROJEKTY — 95% ✅
 
 | Co funguje | Co chybí |
 |------------|----------|
 | ✅ Lifecycle engine: SPEC→PLANNING→BUILD→REVIEW→CHANGE→COMPLETED | ⚠️ Reálný test s LLM (ne fakeLLM) |
-| ✅ Per-milestone execution s DI (callLLM + executor) | ⚠️ server.js API endpoints pro lifecycle |
-| ✅ Scope enforcement (file-level validation) | ⚠️ Crash recovery (resume po pádu) |
-| ✅ Health scores (scope, tests, complexity, debt) | ⚠️ Multi-session projekty (pokračování po dnech) |
+| ✅ Per-milestone execution s DI (callLLM + executor) | |
+| ✅ Scope enforcement (file-level validation) | |
+| ✅ Health scores (scope, tests, complexity, debt) | |
 | ✅ Drift detection (4 check types) | |
 | ✅ Change management (propose/approve/reject) | |
 | ✅ Roadmap versioning (v1→v2 na schválenou změnu) | |
@@ -85,9 +85,12 @@ Licenční systém. Setup wizard.
 | ✅ 512 lifecycle testů, 55 E2E konverzačních | |
 | ✅ formatSpec/formatRoadmap/formatReview bez bugů | |
 | ✅ BUILD → COMPLETED state transition | |
+| ✅ Crash recovery — DB write-through + preload (C1) | |
+| ✅ 13 API endpoints v server.js (C2) | |
+| ✅ Multi-session projekty — auto-detect + bind (C4) | |
 
-**Zbývá:** Reálný LLM test, crash recovery, API endpoints.
-**Odhad:** ~1 týden práce.
+**Zbývá:** Pouze C3 reálný LLM test (ne kódová práce).
+**Status: PHASE C = téměř DONE.**
 
 ### Pilíř 3: WORKERI — 50%
 
@@ -178,6 +181,63 @@ už byly implementovány a napojeny do pipeline:
 
 **Žádný z těchto modulů není mrtvý kód — všechny jsou aktivně wired in.**
 
+### Modularizace B/C/D — v60.2 (2026-02-12)
+
+Phase B (Workers), Phase C (Projects/Lifecycle), Phase D (Specialists) jsou nyní
+**odpojitelné moduly**. Core chat funguje bez nich. Řízeno feature flags:
+
+```
+C3_ENABLE_AGENTS=false    → Phase B (Workers) disabled
+C3_ENABLE_LIFECYCLE=false → Phase C (Projects) disabled
+C3_ENABLE_EXPERTS=false   → Phase D (Specialists) disabled
+```
+
+**Změněné soubory (6):**
+
+| Soubor | Změna |
+|--------|-------|
+| `src/config.js` | Feature flags (`config.features.agents/lifecycle/experts`) |
+| `src/chat/handlers/index.js` | Expert/agent handlers → conditional try-catch loading |
+| `src/chat/handlers/conversation.js` | 4 hard importy → lazy loading + null guards |
+| `src/chat/handlers/build-handoff.js` | `WorkflowState` → lazy loading |
+| `src/server.js` | Agent platform init → `if (AgentRepository)`, agent routes → 501 when disabled, scheduler → guarded |
+| `src/executor/tool-executor.js` | Expert tools (tax, vat, salary, deadline) → lazy loading |
+
+**Architektura:**
+- Všechny B/C/D moduly se načítají přes `await import()` uvnitř try-catch bloků
+- Pokud modul chybí nebo je feature disabled → graceful fallback (null handler, 501 response)
+- Core (CRE, conversation, project, quality pipeline, exports) funguje nezávisle
+- 0 nových regresi — všechny existující testy prošly beze změn
+
+### C1: Crash Recovery — IMPLEMENTED (v62)
+
+DB-backed lifecycle handoff state pro přežití restartu serveru:
+- Nová tabulka `lifecycle_handoff_state` (session_id, phase, lifecycle_id, ...)
+- `setLcState()` / `clearLcState()` → RAM + DB write-through
+- `preloadActiveLifecycles()` na startupu — restore RAM z DB
+- `projectPath` propagace v lifecycle-router.js
+
+**Soubory:** database.js, lifecycle-state.js, lifecycle-router.js, server.js
+
+### C4: Multi-session projekty — IMPLEMENTED (v62)
+
+Nový chat session automaticky detekuje existující aktivní lifecycle:
+- ALTER TABLE `project_lifecycles` + `active_session_id`
+- Auto-detect intercept v conversation.js (před lifecycle handoff)
+- `bindSessionToLifecycle()` — váže session k lifecycle v DB
+- Restore handoff state z předchozí session
+
+**Soubory:** database.js, lifecycle-state.js, conversation.js, lifecycle-router.js
+
+### D-int5: Rate Monitor Auto-registrace — IMPLEMENTED (v62)
+
+Example agenti se automaticky registrují na startupu serveru:
+- Čte `src/agents/examples/*.json` definice
+- Idempotentní — přeskakuje existující agenty (`getAgent(id)` check)
+- Plánuje cron agenty přes `agentScheduler.scheduleAgent()`
+
+**Soubor:** server.js (~20 řádků)
+
 ### Opravené bugy
 - BUILD → COMPLETED state transition (lifecycle zůstával v BUILD po dokončení)
 - formatSpec() `[object Object]` → `renderItem()` helper
@@ -228,18 +288,18 @@ už byly implementovány a napojeny do pipeline:
 
 ---
 
-### ~~Fáze D-int: ÚČETNÍ INTEGRACE~~ — 95% HOTOVO ✅
+### ~~Fáze D-int: ÚČETNÍ INTEGRACE~~ — 100% HOTOVO ✅
 
 ```
 ✅ D-int1. Tool registration — expert-layer.js, 6 tools v src/experts/tools/
 ✅ D-int2. Tool dispatch — expert.js detector→tool→expert wrap pipeline
 ✅ D-int3. Enhanced accountant systemPrompt — memory injection + tool enforcement
 ✅ D-int4. Memory change awareness — previous value tracking + history
-⚠️ D-int5. Rate monitor agent — definice existuje, není auto-registrovaný na startupu
+✅ D-int5. Rate monitor agent — auto-registrace z src/agents/examples/ na startupu
 ✅ D-int6. E2E test — accountant-e2e (388 řádků) + accountant-tools (719 řádků)
 ```
 
-**Zbývá:** D-int5 auto-registrace rate monitoru v server.js (nebo docs pro manuální setup).
+**Status: PHASE D-int = DONE.**
 
 ---
 
@@ -270,7 +330,7 @@ Týden 3:
 
 ---
 
-### Fáze C: PROJEKTY — 85% HOTOVO (aktualizováno!)
+### ~~Fáze C: PROJEKTY~~ — 95% HOTOVO ✅
 
 ```
 ✅ Lifecycle engine — SPEC→PLANNING→BUILD→REVIEW→CHANGE→COMPLETED
@@ -278,12 +338,18 @@ Týden 3:
 ✅ Drift detection (4 check types), change management, roadmap versioning
 ✅ 567 testů (512 unit + 55 E2E konverzační)
 ✅ BUILD → COMPLETED state transition
+✅ C1. Crash recovery — DB write-through + preload na startupu (lifecycle_handoff_state tabulka)
+✅ C2. Server.js API endpoints pro lifecycle — 13 endpointů (již existovaly)
+✅ C4. Multi-session projekty — auto-detect active lifecycle + session binding
 
-❌ C1. Crash recovery — resume po pádu                              [2 dny]
-❌ C2. Server.js API endpoints pro lifecycle                         [1 den]
 ❌ C3. Reálný test s LLM (ne fakeLLM)                               [průběžně]
-❌ C4. Multi-session projekty (pokračování po dnech)                 [2 dny]
 ```
+
+**C1 implementace:** Nová tabulka `lifecycle_handoff_state`, write-through v setLcState/clearLcState,
+preloadActiveLifecycles() na startupu. Soubory: database.js, lifecycle-state.js, server.js.
+
+**C4 implementace:** ALTER TABLE `project_lifecycles` + `active_session_id`, auto-detect intercept
+v conversation.js, bindSessionToLifecycle(). Nový session → detekuje aktivní lifecycle → obnoví handoff stav.
 
 **Milestone:** E2E test pokrývá celý flow: detekce projektu → spec → planning → 3 milníky
 s scope violation + retry → change management (reject) → review → COMPLETED.
@@ -306,8 +372,8 @@ s scope violation + retry → change management (reject) → review → COMPLETE
 ```
 Fáze Q: QUALITY    ██████████████████████████████████████  100% → DONE
 Fáze A: CHAT       ██████████████████████████████████████  95% → DONE
-Fáze C: PROJEKTY   ██████████████████████████████░░░░░░░░  85% (lifecycle engine hotový)
-Fáze D-int: ÚČETNÍ █████████████████████████████████████░  95% → skoro DONE
+Fáze C: PROJEKTY   ████████████████████████████████████░░  95% → téměř DONE
+Fáze D-int: ÚČETNÍ ██████████████████████████████████████  100% → DONE
 Fáze B: WORKERI    ██████████████████░░░░░░░░░░░░░░░░░░░░  50%
 Fáze D: SPECIALISTÉ████████████░░░░░░░░░░░░░░░░░░░░░░░░░░  30%
 Fáze E: IDE        ████████████████████░░░░░░░░░░░░░░░░░░  50% (kód existuje, runtime ne)
@@ -320,11 +386,18 @@ Fáze F: BALÍČKOVÁNÍ██░░░░░░░░░░░░░░░░�
 3. ✅ quality.js: přidán empty structure detector
 4. ✅ output-gate.js: přidány zombie patterns (process narration, hollow filler, capability denial)
 5. ✅ Regrese: 1193 non-DB testů, 0 failures
+6. ✅ **Modularizace B/C/D** — feature flags, lazy loading, null guards (6 souborů)
+7. ✅ Smoke test: core bez B/C/D funguje (conversation + project only)
+8. ✅ Regrese po modularizaci: 0 nových failures
+9. ✅ **D-int5: Rate monitor auto-registrace** — server.js čte src/agents/examples/*.json, idempotentní
+10. ✅ **C1: Crash recovery** — lifecycle_handoff_state tabulka, DB write-through, preload na startupu
+11. ✅ **C4: Multi-session projekty** — active_session_id, auto-detect intercept v conversation.js
+12. ✅ Regrese po C1/C4/D-int5: 0 nových failures (1193+ non-DB testů)
 
 **Další logický krok:**
-- Fáze D-int (účetní integrace) — 3 dny, highest ROI
-- nebo Fáze B (worker E2E verification) — 1 den pro realitu check
-- nebo Fáze C zbytky (crash recovery, API endpoints) — 3-5 dní
+- Fáze B (worker E2E verification) — 1 den pro realitu check
+- nebo C3 reálný LLM test — průběžně
+- nebo Fáze E (IDE Theia runtime)
 
 ---
 
@@ -332,29 +405,28 @@ Fáze F: BALÍČKOVÁNÍ██░░░░░░░░░░░░░░░░�
 
 | # | Fáze | Úkol | Effort | Status |
 |---|------|------|--------|--------|
-| 1 | C | C1 Crash recovery | 2d | ❌ |
-| 2 | C | C2 Lifecycle API endpoints | 1d | ❌ |
-| 3 | C | C3 Reálný LLM test | průběžně | ❌ |
-| 4 | C | C4 Multi-session projekty | 2d | ❌ |
-| 5 | D-int | D-int5 Rate monitor auto-registrace | 2h | ⚠️ |
-| 6 | B | B0 E2E notification verification | 1d | ❌ |
-| 12 | B | B4 Push channel (ntfy.sh) | 1d | ❌ |
-| 13 | B | B5 RSS/Atom source adapter | 2d | ❌ |
-| 14 | B | B6 Multi-source agent | 2d | ❌ |
-| 15 | B | B9 Agent builder wizard | 3d | ❌ |
-| 16 | B | B8 Worker: počasí → Telegram | 2d | ❌ |
-| 17 | B | B8 Worker: reality → email | 2d | ❌ |
-| 18 | B | B8 Worker: zprávy RSS → digest | 2d | ❌ |
-| 14 | E | Sprint 0–7 Theia runtime | ~2 měsíce | ❌ |
-| 15 | D | D1–D9 Specialist platform | ~8 týdnů | ❌ |
-| 16 | F | F1–F6 Balíčkování | ~3 týdny | ❌ |
+| 1 | C | C3 Reálný LLM test | průběžně | ❌ |
+| 2 | B | B0 E2E notification verification | 1d | ❌ |
+| 3 | B | B4 Push channel (ntfy.sh) | 1d | ❌ |
+| 4 | B | B5 RSS/Atom source adapter | 2d | ❌ |
+| 5 | B | B6 Multi-source agent | 2d | ❌ |
+| 6 | B | B9 Agent builder wizard | 3d | ❌ |
+| 7 | B | B8 Worker: počasí → Telegram | 2d | ❌ |
+| 8 | B | B8 Worker: reality → email | 2d | ❌ |
+| 9 | B | B8 Worker: zprávy RSS → digest | 2d | ❌ |
+| 10 | E | Sprint 0–7 Theia runtime | ~2 měsíce | ❌ |
+| 11 | D | D1–D9 Specialist platform | ~8 týdnů | ❌ |
+| 12 | F | F1–F6 Balíčkování | ~3 týdny | ❌ |
 
-**Celkem hotovo:** ~73% celkové vize (v2 bylo ~55%, v3.0 bylo ~65%, v3.1 bylo ~68%)
-**Klíčový posun:** Phase Q 100%, Phase A 95%, Phase C 85%, Phase D-int 95% — vše DONE
+**Celkem hotovo:** ~78% celkové vize (v2 bylo ~55%, v3.0 bylo ~65%, v3.1 bylo ~68%, v3.2 bylo ~73%, v3.3 bylo ~75%)
+**Klíčový posun:** Phase C 85%→95% (C1+C2+C4), Phase D-int 95%→100%, Modularizace B/C/D 100%
 
 ---
 
 *Tento dokument nahrazuje C3-Agent-Roadmapa-v2.md (v59.0, 2026-02-09).
 Aktualizováno o: Phase C lifecycle engine (567 testů), Phase A audit (vše implementováno),
 opravy formátovacích bugů, BUILD→COMPLETED fix.
-v3.1 (2026-02-12): Phase Q 100% done, broken testy opraveny, regrese 1705 testů.*
+v3.1 (2026-02-12): Phase Q 100% done, broken testy opraveny, regrese 1705 testů.
+v3.2 (2026-02-12): Modularizace B/C/D — feature flags, lazy loading, 6 souborů změněno, 0 regresi.
+v3.3 (2026-02-12): C1 crash recovery (DB write-through), C4 multi-session (auto-detect+bind),
+D-int5 rate monitor auto-registrace. Phase C→95%, Phase D-int→100%. 0 nových regresi.*
