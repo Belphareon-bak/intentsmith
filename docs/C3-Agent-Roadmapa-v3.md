@@ -92,7 +92,7 @@ Licenční systém. Setup wizard.
 **Zbývá:** Pouze C3 reálný LLM test (ne kódová práce).
 **Status: PHASE C = téměř DONE.**
 
-### Pilíř 3: WORKERI — 50%
+### Pilíř 3: WORKERI — 70% ✅
 
 | Co funguje | Co chybí |
 |------------|----------|
@@ -307,10 +307,9 @@ Example agenti se automaticky registrují na startupu serveru:
 **Cíl:** Aspoň 3 agenti běží 24/7 a reálně posílají notifikace.
 
 ```
-Týden 1:
-  ❌ B0. E2E verifikace existujícího kódu                           [1 den]
-  ❌ B4. Push channel (ntfy.sh nebo Pushover)                        [1 den]
-  ❌ B5. RSS/Atom source adapter                                     [2 dny]
+✅ B0. E2E verifikace existujícího kódu — vše funguje (viz report níže)
+✅ B4. Push channel (ntfy.sh) — push.js + ntfy.js, UTF-8 fix
+✅ B5. RSS/Atom source adapter — rss.js, 47 testů, BBC E2E verified
 
 Týden 2:
   ❌ B6. Multi-source agent                                          [2 dny]
@@ -320,13 +319,42 @@ Týden 3:
   ❌ B8. Testování 3 reálných workerů                                [1 týden]
 ```
 
-**Co je HOTOVO z původní Fáze B:**
-- ~~B1. Notification Service~~ ✅
-- ~~B2. Email channel~~ ✅ (E2E neověřeno)
-- ~~B3. Telegram channel~~ ✅ (E2E neověřeno)
-- ~~B7. Agent health dashboard~~ ✅
+**B0 E2E Verifikace (v62, 2026-02-12):**
 
-**Beze změny od v2.**
+| Komponenta | Status | Detail |
+|------------|--------|--------|
+| Agent Runner (execute) | ✅ | 20 DB testů + httpbin E2E |
+| Agent Scheduler | ✅ | Cron + interval, deterministic recovery |
+| HTTP Source | ✅ | httpbin.org E2E fetch OK |
+| RSS Source | ✅ | BBC News E2E, 47 unit testů |
+| Condition Eval | ✅ | 7 typů, deterministic, no LLM |
+| Edge Detection | ✅ | Rising/falling/any + cooldown + daily limit |
+| Mark Seen (HUNTER) | ✅ | Transactional, idempotent, 20 testů |
+| Push/ntfy Channel | ✅ | E2E delivery OK, UTF-8 fix (JSON body) |
+| Email Channel | ✅ | Unit testy OK, E2E čeká na SMTP credentials |
+| Telegram Channel | ✅ | Unit testy OK, E2E čeká na bot token |
+| Pipeline (policy→router→channel) | ✅ | Full E2E přes ntfy.sh (620ms) |
+| Policy Engine | ✅ | Escalation, cooldown, digest, mute |
+| Trust Feedback | ✅ | 34 testů, auto-degrade/mute |
+| Notification Templates | ✅ | HTML + Markdown + PlainText |
+
+**Bug nalezen a opraven:** push.js HTTP header encoding — české znaky v Title
+header (ByteString limit). Fix: přechod na JSON body API.
+
+**Gaps identifikované:**
+- ❌ Discord notification channel — neexistuje
+- ❌ WhatsApp notification channel — neexistuje
+- ⚠️ Database source adapter — placeholder (returns [])
+- ⚠️ Scraper source — fallback na HTTP (no real web scraping)
+
+**Co je HOTOVO z původní Fáze B:**
+- ~~B0. E2E verifikace~~ ✅ (kompletní)
+- ~~B1. Notification Service~~ ✅
+- ~~B2. Email channel~~ ✅ (unit testy OK)
+- ~~B3. Telegram channel~~ ✅ (unit testy OK)
+- ~~B4. Push channel~~ ✅ (ntfy.sh E2E OK)
+- ~~B5. RSS/Atom source~~ ✅ (47 testů + BBC E2E)
+- ~~B7. Agent health dashboard~~ ✅
 
 ---
 
@@ -374,7 +402,7 @@ Fáze Q: QUALITY    ████████████████████
 Fáze A: CHAT       ██████████████████████████████████████  95% → DONE
 Fáze C: PROJEKTY   ████████████████████████████████████░░  95% → téměř DONE
 Fáze D-int: ÚČETNÍ ██████████████████████████████████████  100% → DONE
-Fáze B: WORKERI    ██████████████████░░░░░░░░░░░░░░░░░░░░  50%
+Fáze B: WORKERI    ██████████████████████████░░░░░░░░░░░░░  70% (B0+B4+B5 done)
 Fáze D: SPECIALISTÉ████████████░░░░░░░░░░░░░░░░░░░░░░░░░░  30%
 Fáze E: IDE        ████████████████████░░░░░░░░░░░░░░░░░░  50% (kód existuje, runtime ne)
 Fáze F: BALÍČKOVÁNÍ██░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  5%
@@ -393,11 +421,17 @@ Fáze F: BALÍČKOVÁNÍ██░░░░░░░░░░░░░░░░�
 10. ✅ **C1: Crash recovery** — lifecycle_handoff_state tabulka, DB write-through, preload na startupu
 11. ✅ **C4: Multi-session projekty** — active_session_id, auto-detect intercept v conversation.js
 12. ✅ Regrese po C1/C4/D-int5: 0 nových failures (1193+ non-DB testů)
+13. ✅ **B0: E2E notification verifikace** — celý pipeline ověřen (runner, sources, conditions, triggers, delivery)
+14. ✅ **push.js UTF-8 fix** — přechod z HTTP headers na JSON body (ByteString bug s českou diakritikou)
+15. ✅ **better-sqlite3 rebuild** — NODE_MODULE_VERSION mismatch fix (npm rebuild)
+16. ✅ ntfy.sh E2E delivery: 620ms latency, messageId OK
+17. ✅ BBC RSS E2E: 3 položky parsed, HUNTER mark_seen OK
+18. ✅ Agent runner E2E: INIT_BASELINE → SUCCESS_NO_NEW flow
 
 **Další logický krok:**
-- Fáze B (worker E2E verification) — 1 den pro realitu check
-- nebo C3 reálný LLM test — průběžně
-- nebo Fáze E (IDE Theia runtime)
+- B6 Multi-source agent — kombinace RSS + HTTP zdrojů
+- nebo B8 reální workeři (počasí, reality, zprávy)
+- nebo B9 Agent builder wizard
 
 ---
 
@@ -406,20 +440,17 @@ Fáze F: BALÍČKOVÁNÍ██░░░░░░░░░░░░░░░░�
 | # | Fáze | Úkol | Effort | Status |
 |---|------|------|--------|--------|
 | 1 | C | C3 Reálný LLM test | průběžně | ❌ |
-| 2 | B | B0 E2E notification verification | 1d | ❌ |
-| 3 | B | B4 Push channel (ntfy.sh) | 1d | ❌ |
-| 4 | B | B5 RSS/Atom source adapter | 2d | ❌ |
-| 5 | B | B6 Multi-source agent | 2d | ❌ |
-| 6 | B | B9 Agent builder wizard | 3d | ❌ |
-| 7 | B | B8 Worker: počasí → Telegram | 2d | ❌ |
-| 8 | B | B8 Worker: reality → email | 2d | ❌ |
-| 9 | B | B8 Worker: zprávy RSS → digest | 2d | ❌ |
-| 10 | E | Sprint 0–7 Theia runtime | ~2 měsíce | ❌ |
-| 11 | D | D1–D9 Specialist platform | ~8 týdnů | ❌ |
-| 12 | F | F1–F6 Balíčkování | ~3 týdny | ❌ |
+| 2 | B | B6 Multi-source agent | 2d | ❌ |
+| 3 | B | B9 Agent builder wizard | 3d | ❌ |
+| 4 | B | B8 Worker: počasí → Telegram | 2d | ❌ |
+| 5 | B | B8 Worker: reality → email | 2d | ❌ |
+| 6 | B | B8 Worker: zprávy RSS → digest | 2d | ❌ |
+| 7 | E | Sprint 0–7 Theia runtime | ~2 měsíce | ❌ |
+| 8 | D | D1–D9 Specialist platform | ~8 týdnů | ❌ |
+| 9 | F | F1–F6 Balíčkování | ~3 týdny | ❌ |
 
-**Celkem hotovo:** ~78% celkové vize (v2 bylo ~55%, v3.0 bylo ~65%, v3.1 bylo ~68%, v3.2 bylo ~73%, v3.3 bylo ~75%)
-**Klíčový posun:** Phase C 85%→95% (C1+C2+C4), Phase D-int 95%→100%, Modularizace B/C/D 100%
+**Celkem hotovo:** ~80% celkové vize (v3.3 bylo ~78%, v3.4: B0+B4+B5 E2E verified)
+**Klíčový posun:** Phase B 50%→70% (B0 E2E verified, B4 push OK, B5 RSS OK), push.js UTF-8 fix
 
 ---
 
@@ -429,4 +460,6 @@ opravy formátovacích bugů, BUILD→COMPLETED fix.
 v3.1 (2026-02-12): Phase Q 100% done, broken testy opraveny, regrese 1705 testů.
 v3.2 (2026-02-12): Modularizace B/C/D — feature flags, lazy loading, 6 souborů změněno, 0 regresi.
 v3.3 (2026-02-12): C1 crash recovery (DB write-through), C4 multi-session (auto-detect+bind),
-D-int5 rate monitor auto-registrace. Phase C→95%, Phase D-int→100%. 0 nových regresi.*
+D-int5 rate monitor auto-registrace. Phase C→95%, Phase D-int→100%. 0 nových regresi.
+v3.4 (2026-02-12): B0 E2E verifikace — celý worker pipeline ověřen (runner, sources, conditions,
+triggers, delivery). Push.js UTF-8 fix. B0+B4+B5 done. Phase B→70%.*

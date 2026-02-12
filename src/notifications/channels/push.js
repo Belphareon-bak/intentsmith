@@ -45,16 +45,20 @@ export class PushChannel extends NotificationChannel {
       return { delivered: false, error: 'No topic configured (set C3_NTFY_TOPIC or provide recipient)' };
     }
 
-    const url = `${this.serverUrl}/${encodeURIComponent(topic)}`;
-    const priority = PRIORITY_MAP[notification.priority] || '3';
-    const tags = PRIORITY_TAGS[notification.priority] || 'robot';
+    const url = `${this.serverUrl}`;
+    const priority = Number(PRIORITY_MAP[notification.priority] || '3');
+    const tags = [PRIORITY_TAGS[notification.priority] || 'robot'];
 
-    const headers = {
-      'Title': notification.title || 'C3 Notification',
-      'Priority': priority,
-      'Tags': tags,
+    // Use JSON body instead of HTTP headers to support UTF-8 (Czech diacritics etc.)
+    const body = {
+      topic,
+      title: notification.title || 'C3 Notification',
+      message: notification.body || '',
+      priority,
+      tags,
     };
 
+    const headers = { 'Content-Type': 'application/json' };
     if (this.token) {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
@@ -63,7 +67,7 @@ export class PushChannel extends NotificationChannel {
       const res = await fetch(url, {
         method: 'POST',
         headers,
-        body: notification.body || '',
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
