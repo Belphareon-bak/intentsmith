@@ -29,6 +29,11 @@ import {
   setHandoffState,
 } from './build-handoff.js';
 import {
+  getActiveLifecycleHandoff,
+  cancelLifecycleHandoff,
+  handleLifecycleInput,
+} from './lifecycle-handoff.js';
+import {
   detectResumeIntent,
   handleResumeRequest,
   handleProgressRequest,
@@ -168,6 +173,28 @@ export async function conversationHandler(input, context) {
         cancelBuildHandoff(sessionId);
         break;
     }
+  }
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // v61: LIFECYCLE HANDOFF INTERCEPT — route messages during active lifecycle
+  // ════════════════════════════════════════════════════════════════════════════
+  const activeLifecycle = getActiveLifecycleHandoff(sessionId);
+  if (activeLifecycle) {
+    // Cancel command
+    if (/^(zru[sš]it?|cancel|stop)\s*[!.]?$/i.test(input.trim())) {
+      cancelLifecycleHandoff(sessionId);
+      return {
+        content: 'Lifecycle zrušen. Jsem zpět v chat módu.',
+        tag: 'RESPONSE',
+        speaker: 'SYSTEM',
+        mode: context.mode || 'conversation',
+        confidence: 1.0,
+      };
+    }
+
+    const lcResult = await handleLifecycleInput(input, context);
+    if (lcResult) return lcResult;
   }
   // ════════════════════════════════════════════════════════════════════════════
 

@@ -295,11 +295,20 @@ export async function fetchPage(url, maxLength = 5000, query = '') {
   try {
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'text/html,application/xhtml+xml',
-        'Accept-Language': 'cs,en;q=0.9',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'cs-CZ,cs;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'DNT': '1',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Cache-Control': 'max-age=0',
       },
       signal: AbortSignal.timeout(15000),
+      redirect: 'follow',
     });
     
     if (!response.ok) {
@@ -365,7 +374,11 @@ export async function fetchPage(url, maxLength = 5000, query = '') {
     return { title, content, url, links, quality, paywall };
     
   } catch (err) {
-    logger.error('WebSearch', `Fetch failed: ${err.message}`);
+    // v61.2: Differentiate fetch errors for better diagnostics
+    const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError' || /timeout/i.test(err.message);
+    const isNetwork = /ECONNREFUSED|ENOTFOUND|ECONNRESET|fetch failed/i.test(err.message);
+    const errorType = isTimeout ? 'TIMEOUT' : isNetwork ? 'NETWORK' : 'UNKNOWN';
+    logger.error('WebSearch', `Fetch failed [${errorType}]: ${err.message}`, { url, errorType });
     return null;
   }
 }

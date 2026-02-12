@@ -89,11 +89,54 @@ export function sanitizeResponse(response, lang = 'cs') {
       : 'Sorry, I was unable to generate a response. Please try again.';
   }
 
-  // ─── 5. Trim excessive whitespace ──────────────────────────────────────
+  // ─── 5. CJK contamination cleanup ─────────────────────────────────────
+  // Qwen/multilingual LLMs sometimes inject Chinese/Japanese/Korean characters
+  // into Czech/English responses. Strip them while preserving valid content.
+  text = stripCJKContamination(text);
+
+  // ─── 6. Trim excessive whitespace ──────────────────────────────────────
   // Replace 3+ consecutive newlines with 2
   text = text.replace(/\n{3,}/g, '\n\n');
 
   return text;
+}
+
+/**
+ * Remove CJK character contamination from responses that should be in Czech/English.
+ *
+ * Strategy:
+ *   1. Lines that are >50% CJK → remove entirely (garbage lines)
+ *   2. Remaining isolated CJK characters → strip inline
+ *   3. Clean up resulting double-spaces and empty lines
+ */
+export function stripCJKContamination(text) {
+  // CJK Unified Ideographs + Extensions + CJK Compatibility
+  const CJK_RE = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u2e80-\u2eff\u3000-\u303f\u31c0-\u31ef\ufe30-\ufe4f]/g;
+
+  // Quick check — if no CJK at all, return unchanged
+  if (!CJK_RE.test(text)) return text;
+  CJK_RE.lastIndex = 0;
+
+  const lines = text.split('\n');
+  const cleaned = [];
+
+  for (const line of lines) {
+    const cjkCount = (line.match(CJK_RE) || []).length;
+    const totalChars = line.replace(/\s/g, '').length;
+
+    if (totalChars > 0 && cjkCount / totalChars > 0.5) {
+      // >50% CJK → skip this line entirely
+      continue;
+    }
+
+    // Strip isolated CJK chars from otherwise valid line
+    const stripped = line.replace(CJK_RE, '').replace(/\s{2,}/g, ' ').trim();
+    if (stripped.length > 0 || line.trim().length === 0) {
+      cleaned.push(stripped);
+    }
+  }
+
+  return cleaned.join('\n');
 }
 
 /**
@@ -123,4 +166,5 @@ export function checkResponseHealth(response) {
 export default {
   sanitizeResponse,
   checkResponseHealth,
+  stripCJKContamination,
 };

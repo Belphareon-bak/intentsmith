@@ -91,6 +91,20 @@ export const config = {
     path: process.env.C3_DB_PATH || './data/c3.db',
   },
 
+  // v61: Project Lifecycle (Phase C — Collaborative Milestone Execution)
+  lifecycle: {
+    // How often to trigger PROJECT_REVIEW (every N milestones)
+    reviewFrequency: parseInt(process.env.C3_LIFECYCLE_REVIEW_FREQ || '3'),
+    // Max LOC per milestone (context budget)
+    maxMilestoneLOC: parseInt(process.env.C3_MAX_MILESTONE_LOC || '2000'),
+    // Max files per milestone (context budget)
+    maxMilestoneFiles: parseInt(process.env.C3_MAX_MILESTONE_FILES || '10'),
+    // Max retries before milestone is BLOCKED
+    maxMilestoneRetries: parseInt(process.env.C3_MAX_MILESTONE_RETRIES || '3'),
+    // Auto-commit on milestone PASS
+    autoCommit: (process.env.C3_LIFECYCLE_AUTO_COMMIT || 'true') === 'true',
+  },
+
   // Logging
   log: {
     level: process.env.C3_LOG_LEVEL || 'info', // debug, info, warn, error

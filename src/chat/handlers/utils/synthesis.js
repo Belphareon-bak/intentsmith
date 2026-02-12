@@ -611,6 +611,14 @@ export async function synthesizeWithLLM({
     failures, userPreferences, expertHints,
     conversationContext,  // v56.2 Sprint C2
   });
+
+  // v61.2: When scrapes failed, instruct LLM to maximize snippet extraction
+  if (context.snippetOnlyMode) {
+    synthesisPrompt += `\n\nIMPORTANT: Full page content could not be fetched (sites blocked scraping). `
+      + `You MUST extract and synthesize ALL available information from the search result snippets above. `
+      + `Present every relevant fact, headline, and detail found in the snippets. `
+      + `Do NOT say you cannot access the pages — work with what you have and be thorough.`;
+  }
   // v55.2: Detect language and inject instruction
   const langCtx = getLanguageContext(query);
   const systemPrompt = buildSynthesisSystemPrompt(intent, userPreferences, expertHints, responseIntent, langCtx.instruction, langCtx.language)

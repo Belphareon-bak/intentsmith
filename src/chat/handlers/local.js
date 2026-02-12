@@ -127,9 +127,65 @@ export function computeCalendar(input) {
 }
 
 /**
+ * Normalize Czech natural-language math into a standard expression.
+ * "847 děleno 7" → "847 / 7", "3 krát 5" → "3 * 5", "2 na druhou" → "2 ** 2"
+ */
+export function normalizeCzechMath(input) {
+  let expr = input.toLowerCase().trim();
+
+  // Strip common Czech prefixes: "vypočítej", "kolik je", "spočítej", etc.
+  expr = expr
+    .replace(/^(vypočít[ea][jž]\s*(mi\s*(prosím\s*)?)?)/i, '')
+    .replace(/^(spočít[ea][jž]\s*(mi\s*(prosím\s*)?)?)/i, '')
+    .replace(/^(kolik\s+je\s*)/i, '')
+    .replace(/^(jaký\s+je\s+výsledek\s*)/i, '')
+    .trim();
+
+  // Division: "děleno", "lomeno", "÷"
+  expr = expr.replace(/\s*(děleno|lomeno|÷)\s*/gi, ' / ');
+
+  // Multiplication: "krát", "×", "násobek"
+  expr = expr.replace(/\s*(krát|×)\s*/gi, ' * ');
+
+  // Addition: "plus", "a"(between numbers)
+  expr = expr.replace(/\s+plus\s+/gi, ' + ');
+  expr = expr.replace(/(\d)\s+a\s+(\d)/g, '$1 + $2');
+
+  // Subtraction: "mínus", "méně"
+  expr = expr.replace(/\s*(mínus|minus|méně)\s*/gi, ' - ');
+
+  // Power: "na druhou" → **2, "na třetí" → **3
+  expr = expr.replace(/(\d+)\s+na\s+druhou/gi, '$1 ** 2');
+  expr = expr.replace(/(\d+)\s+na\s+t[řr]et[ií]/gi, '$1 ** 3');
+
+  // Square root: "odmocnina z 144" → Math.sqrt(144)
+  expr = expr.replace(/odmocnina\s+z\s+(\d+)/gi, 'Math.sqrt($1)');
+
+  // Percent: "15 procent z 200" → (15/100)*200
+  expr = expr.replace(/(\d+)\s*procent\s+z\s+(\d+)/gi, '($1/100)*$2');
+
+  // Clean remaining Czech words (keep digits, operators, parens, dots)
+  // Protect Math.sqrt and ** from being stripped
+  const sqrtPlaceholder = '\x00SQ\x00';
+  const powPlaceholder = '\x00PW\x00';
+  expr = expr.replace(/Math\.sqrt/g, sqrtPlaceholder);
+  expr = expr.replace(/\*\*/g, powPlaceholder);
+  expr = expr.replace(/[a-záčďéěíňóřšťúůýž]+/gi, '').trim();
+  expr = expr.replace(new RegExp(sqrtPlaceholder.replace(/\x00/g, '\\x00'), 'g'), 'Math.sqrt');
+  expr = expr.replace(new RegExp(powPlaceholder.replace(/\x00/g, '\\x00'), 'g'), '**');
+
+  // Collapse extra spaces
+  expr = expr.replace(/\s{2,}/g, ' ').trim();
+
+  return expr || null;
+}
+
+/**
  * Compute math expressions
+ * Supports both standard notation (5+3) and Czech natural language (847 děleno 7)
  */
 export function computeMath(input) {
+  // Try standard notation first
   const mathMatch = input.match(/(\d+)\s*([+\-*/])\s*(\d+)/);
   if (mathMatch) {
     const [, a, op, b] = mathMatch;
@@ -150,6 +206,27 @@ export function computeMath(input) {
       expression: `${a} ${op} ${b}`,
       explanation: `${a} ${op} ${b} = ${result}`,
     };
+  }
+
+  // Try Czech natural language normalization
+  const normalized = normalizeCzechMath(input);
+  if (normalized && /[\d]/.test(normalized)) {
+    try {
+      // Safe eval: only allow digits, operators, parens, dots, Math.sqrt, **
+      if (/^[\d\s+\-*/().%]*(?:Math\.sqrt\([\d.]+\))?[\d\s+\-*/().%]*$/.test(normalized)
+          || /\*\*/.test(normalized)) {
+        const result = Function('"use strict"; return (' + normalized + ')')();
+        if (typeof result === 'number' && !isNaN(result)) {
+          return {
+            answer: result,
+            expression: normalized,
+            explanation: `${normalized} = ${result}`,
+          };
+        }
+      }
+    } catch {
+      // eval failed — fall through
+    }
   }
 
   return { answer: null, error: 'Could not parse math expression' };

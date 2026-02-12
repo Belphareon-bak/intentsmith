@@ -67,6 +67,21 @@ export function assertCreativeQuality(content, input) {
     };
   }
 
+  // ─── Empty structure check ──────────────────────────────────────────────
+  // Detect responses that are just markdown headers with no body content
+  const lines = trimmed.split('\n').filter(l => l.trim().length > 0);
+  if (lines.length >= 3) {
+    const headerLines = lines.filter(l => /^#{1,6}\s/.test(l.trim()));
+    const bodyLines = lines.filter(l => !/^#{1,6}\s/.test(l.trim()));
+    const bodyText = bodyLines.join(' ').trim();
+    if (headerLines.length >= 3 && bodyText.length < 50) {
+      return {
+        valid: false,
+        reason: 'Creative response is empty structure (headers without body content)',
+      };
+    }
+  }
+
   // ─── Skeleton/template check ────────────────────────────────────────────
   for (const pattern of SKELETON_MARKERS) {
     if (pattern.test(trimmed)) {

@@ -327,6 +327,18 @@ const routes = {
         'GET /api/agents - List all agents',
         'POST /api/agents - Create agent',
         'POST /api/agents/build - Build agent from description',
+        'POST /api/lifecycle/start - Start lifecycle (SPEC phase)',
+        'POST /api/lifecycle/spec/answer - Answer spec questions',
+        'POST /api/lifecycle/spec/approve - Approve spec → PLANNING',
+        'POST /api/lifecycle/roadmap/approve - Approve roadmap → BUILD',
+        'POST /api/lifecycle/milestone/approve - Approve milestone plan',
+        'POST /api/lifecycle/milestone/next - Start next milestone',
+        'POST /api/lifecycle/milestone/blocked - Handle blocked milestone',
+        'POST /api/lifecycle/change/propose - Propose change request',
+        'POST /api/lifecycle/change/approve - Approve change',
+        'POST /api/lifecycle/change/reject - Reject change',
+        'GET /api/lifecycle/status?id= - Full lifecycle status',
+        'GET /api/lifecycle/resume?id= - Resume lifecycle',
         'GET /api/debug/modules - Module trace (C3_TRACE=1)',
         'GET /api/debug/health - Server health (C3_TRACE=1)',
       ],
@@ -1946,6 +1958,312 @@ const routes = {
 
   // (Orchestrator API v36 routes removed — module-level orchestrator was dead code.
   //  Architect routes at /api/architect/* still work via ConversationOrchestrator.)
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // v61: Lifecycle API — Project Lifecycle Management
+  // ════════════════════════════════════════════════════════════════════════════
+
+  'POST /api/lifecycle/start': async (req, res) => {
+    const body = await parseBody(req);
+    const { projectId, request, config: lcConfig } = body;
+
+    if (!projectId || !request) {
+      return sendJSON(res, 400, { error: 'projectId and request are required' });
+    }
+
+    try {
+      const { ProjectLifecycle } = await import('./planner/lifecycle.js');
+      const { startSpec } = await import('./planner/lifecycle-spec.js');
+
+      const lifecycle = ProjectLifecycle.create({ projectId, config: lcConfig || {} });
+      const specResult = await startSpec(lifecycle, request, {});
+
+      sendJSON(res, 200, {
+        lifecycleId: lifecycle.id,
+        phase: lifecycle.phase,
+        ...specResult,
+      });
+    } catch (err) {
+      logger.error('Server', `Lifecycle start error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'POST /api/lifecycle/spec/answer': async (req, res) => {
+    const body = await parseBody(req);
+    const { lifecycleId, answers } = body;
+
+    if (!lifecycleId || !answers) {
+      return sendJSON(res, 400, { error: 'lifecycleId and answers are required' });
+    }
+
+    try {
+      const { ProjectLifecycle } = await import('./planner/lifecycle.js');
+      const { answerSpecQuestions } = await import('./planner/lifecycle-spec.js');
+
+      const lifecycle = ProjectLifecycle.resume(lifecycleId);
+      const result = await answerSpecQuestions(lifecycle, answers);
+      sendJSON(res, 200, { lifecycleId, phase: lifecycle.phase, ...result });
+    } catch (err) {
+      logger.error('Server', `Lifecycle spec/answer error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'POST /api/lifecycle/spec/approve': async (req, res) => {
+    const body = await parseBody(req);
+    const { lifecycleId } = body;
+
+    if (!lifecycleId) {
+      return sendJSON(res, 400, { error: 'lifecycleId is required' });
+    }
+
+    try {
+      const { ProjectLifecycle } = await import('./planner/lifecycle.js');
+      const { approveSpec } = await import('./planner/lifecycle-spec.js');
+      const { generateRoadmap } = await import('./planner/lifecycle-planning.js');
+
+      const lifecycle = ProjectLifecycle.resume(lifecycleId);
+      await approveSpec(lifecycle);
+      const roadmapResult = await generateRoadmap(lifecycle);
+
+      sendJSON(res, 200, { lifecycleId, phase: lifecycle.phase, ...roadmapResult });
+    } catch (err) {
+      logger.error('Server', `Lifecycle spec/approve error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'POST /api/lifecycle/roadmap/approve': async (req, res) => {
+    const body = await parseBody(req);
+    const { lifecycleId } = body;
+
+    if (!lifecycleId) {
+      return sendJSON(res, 400, { error: 'lifecycleId is required' });
+    }
+
+    try {
+      const { ProjectLifecycle } = await import('./planner/lifecycle.js');
+      const { approveRoadmap } = await import('./planner/lifecycle-planning.js');
+
+      const lifecycle = ProjectLifecycle.resume(lifecycleId);
+      const result = await approveRoadmap(lifecycle);
+      sendJSON(res, 200, { lifecycleId, phase: lifecycle.phase, ...result });
+    } catch (err) {
+      logger.error('Server', `Lifecycle roadmap/approve error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'POST /api/lifecycle/milestone/approve': async (req, res) => {
+    const body = await parseBody(req);
+    const { lifecycleId, milestoneId } = body;
+
+    if (!lifecycleId || !milestoneId) {
+      return sendJSON(res, 400, { error: 'lifecycleId and milestoneId are required' });
+    }
+
+    try {
+      const { ProjectLifecycle } = await import('./planner/lifecycle.js');
+      const { approveMilestonePlan } = await import('./planner/lifecycle-build.js');
+
+      const lifecycle = ProjectLifecycle.resume(lifecycleId);
+      const result = await approveMilestonePlan(lifecycle, milestoneId);
+      sendJSON(res, 200, { lifecycleId, milestoneId, ...result });
+    } catch (err) {
+      logger.error('Server', `Lifecycle milestone/approve error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'POST /api/lifecycle/milestone/next': async (req, res) => {
+    const body = await parseBody(req);
+    const { lifecycleId } = body;
+
+    if (!lifecycleId) {
+      return sendJSON(res, 400, { error: 'lifecycleId is required' });
+    }
+
+    try {
+      const { ProjectLifecycle } = await import('./planner/lifecycle.js');
+      const { startNextMilestone } = await import('./planner/lifecycle-build.js');
+
+      const lifecycle = ProjectLifecycle.resume(lifecycleId);
+      const result = await startNextMilestone(lifecycle);
+      sendJSON(res, 200, { lifecycleId, ...result });
+    } catch (err) {
+      logger.error('Server', `Lifecycle milestone/next error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'POST /api/lifecycle/milestone/blocked': async (req, res) => {
+    const body = await parseBody(req);
+    const { lifecycleId, milestoneId, decision, feedback } = body;
+
+    if (!lifecycleId || !milestoneId || !decision) {
+      return sendJSON(res, 400, { error: 'lifecycleId, milestoneId and decision are required' });
+    }
+
+    try {
+      const { ProjectLifecycle } = await import('./planner/lifecycle.js');
+      const { handleMilestoneBlocked } = await import('./planner/lifecycle-build.js');
+
+      const lifecycle = ProjectLifecycle.resume(lifecycleId);
+      const result = await handleMilestoneBlocked(lifecycle, milestoneId, decision, feedback);
+      sendJSON(res, 200, { lifecycleId, milestoneId, ...result });
+    } catch (err) {
+      logger.error('Server', `Lifecycle milestone/blocked error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'POST /api/lifecycle/review/acknowledge': async (req, res) => {
+    const body = await parseBody(req);
+    const { lifecycleId, action } = body;
+
+    if (!lifecycleId) {
+      return sendJSON(res, 400, { error: 'lifecycleId is required' });
+    }
+
+    try {
+      const { ProjectLifecycle } = await import('./planner/lifecycle.js');
+      const lifecycle = ProjectLifecycle.resume(lifecycleId);
+
+      // Action: 'continue' → back to BUILD, 'change' → CHANGE_MANAGEMENT
+      if (action === 'change') {
+        lifecycle.transitionTo('CHANGE_MANAGEMENT');
+      } else {
+        lifecycle.transitionTo('BUILD');
+      }
+
+      sendJSON(res, 200, { lifecycleId, phase: lifecycle.phase });
+    } catch (err) {
+      logger.error('Server', `Lifecycle review/acknowledge error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'POST /api/lifecycle/change/propose': async (req, res) => {
+    const body = await parseBody(req);
+    const { lifecycleId, description } = body;
+
+    if (!lifecycleId || !description) {
+      return sendJSON(res, 400, { error: 'lifecycleId and description are required' });
+    }
+
+    try {
+      const { ProjectLifecycle } = await import('./planner/lifecycle.js');
+      const { proposeChange } = await import('./planner/lifecycle-change.js');
+
+      const lifecycle = ProjectLifecycle.resume(lifecycleId);
+      const result = await proposeChange(lifecycle, description);
+      sendJSON(res, 200, { lifecycleId, ...result });
+    } catch (err) {
+      logger.error('Server', `Lifecycle change/propose error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'POST /api/lifecycle/change/approve': async (req, res) => {
+    const body = await parseBody(req);
+    const { lifecycleId, changeRequestId } = body;
+
+    if (!lifecycleId || !changeRequestId) {
+      return sendJSON(res, 400, { error: 'lifecycleId and changeRequestId are required' });
+    }
+
+    try {
+      const { ProjectLifecycle } = await import('./planner/lifecycle.js');
+      const { applyChange } = await import('./planner/lifecycle-change.js');
+
+      const lifecycle = ProjectLifecycle.resume(lifecycleId);
+      const result = await applyChange(lifecycle, changeRequestId);
+      sendJSON(res, 200, { lifecycleId, ...result });
+    } catch (err) {
+      logger.error('Server', `Lifecycle change/approve error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'POST /api/lifecycle/change/reject': async (req, res) => {
+    const body = await parseBody(req);
+    const { changeRequestId } = body;
+
+    if (!changeRequestId) {
+      return sendJSON(res, 400, { error: 'changeRequestId is required' });
+    }
+
+    try {
+      const { rejectChange } = await import('./planner/lifecycle-change.js');
+      const result = rejectChange(changeRequestId);
+      sendJSON(res, 200, result);
+    } catch (err) {
+      logger.error('Server', `Lifecycle change/reject error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'GET /api/lifecycle/status': async (req, res) => {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const lifecycleId = url.searchParams.get('id');
+
+    if (!lifecycleId) {
+      return sendJSON(res, 400, { error: 'id query param is required' });
+    }
+
+    try {
+      const { ProjectLifecycle } = await import('./planner/lifecycle.js');
+      const { computeLifecycleProgress } = await import('./planner/lifecycle-progress.js');
+      const { getDriftHistory, getAggregateHealth } = await import('./planner/lifecycle-review.js');
+      const { listChangeRequests } = await import('./planner/lifecycle-change.js');
+
+      const lifecycle = ProjectLifecycle.resume(lifecycleId);
+      const progress = computeLifecycleProgress(lifecycleId);
+      const driftHistory = getDriftHistory(lifecycleId);
+      const aggregateHealth = getAggregateHealth(lifecycleId);
+      const changeRequests = listChangeRequests(lifecycleId);
+
+      sendJSON(res, 200, {
+        lifecycleId,
+        phase: lifecycle.phase,
+        progress,
+        driftHistory,
+        aggregateHealth,
+        changeRequests,
+      });
+    } catch (err) {
+      logger.error('Server', `Lifecycle status error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'GET /api/lifecycle/resume': async (req, res) => {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const lifecycleId = url.searchParams.get('id');
+
+    if (!lifecycleId) {
+      return sendJSON(res, 400, { error: 'id query param is required' });
+    }
+
+    try {
+      const { ProjectLifecycle } = await import('./planner/lifecycle.js');
+      const { computeLifecycleProgress } = await import('./planner/lifecycle-progress.js');
+
+      const lifecycle = ProjectLifecycle.resume(lifecycleId);
+      const progress = computeLifecycleProgress(lifecycleId);
+
+      sendJSON(res, 200, {
+        lifecycleId,
+        phase: lifecycle.phase,
+        config: lifecycle.config,
+        progress,
+      });
+    } catch (err) {
+      logger.error('Server', `Lifecycle resume error: ${err.message}`);
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
 };
 
 // ═══ Trust Feedback Loop API (v57.2) ═════════════════════════════════════════
@@ -2183,7 +2501,7 @@ const server = http.createServer(async (req, res) => {
 // START
 // ════════════════════════════════════════════════════════════════════════════
 
-server.listen(config.server.port, config.server.host, () => {
+server.listen(config.server.port, config.server.host, async () => {
   // Start agent scheduler
   agentScheduler.start();
   

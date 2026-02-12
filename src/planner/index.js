@@ -4,23 +4,23 @@
 // ARCHITECTURE ROLE: Agent #2 (Planner / LLM-B)
 //
 // Contains:
-//   - WorkflowOrchestrator: D1→CODE→R2→D2/R1 pipeline
+//   - WorkflowOrchestrator: D1→CODE→R2→D2/R1 pipeline (per-task execution)
+//   - ProjectLifecycle: Full project lifecycle (SPEC→PLANNING→BUILD→REVIEW)
 //   - Plan types and status definitions
 //
-// Workflow:
-//   User Request → D1 Analyze → [CLARIFY?] → D1 Plan → [Approve?]
-//   → CODE Implement → R2 Quick Review → [PASS→R1 / FAIL→D2+CODE loop]
-//   → R1 Final Review → [PASS→✅ / FAIL→D2 loop / REDESIGN→D1 loop]
-//
-// Phase C: DB-backed singleton with session persistence + resume + progress.
+// v61: Lifecycle system added (Phase C — Collaborative Milestone Execution)
 //
 // ══════════════════════════════════════════════════════════════════════════════
+
+// ─── Workflow (existing) ─────────────────────────────────────────────────────
 
 export {
   WorkflowOrchestrator,
   WorkflowSession,
   WorkflowState,
   ReviewVerdict,
+  callLLM,
+  parseJSON,
 } from './workflow.js';
 
 import { WorkflowOrchestrator } from './workflow.js';
@@ -35,5 +35,24 @@ export {
   buildProgressApiResponse,
 } from './progress-tracker.js';
 
-// DB-backed singleton (replaces the no-DB default from workflow.js)
+// ─── Lifecycle (v61 — Phase C) ──────────────────────────────────────────────
+
+export {
+  ProjectPhase,
+  MilestoneStatus,
+  ChangeRequestStatus,
+  ProjectLifecycle,
+} from './lifecycle.js';
+
+export { validateSpec } from './lifecycle-spec.js';
+export { validateDependencies, checkDependencies } from './lifecycle-planning.js';
+export { validateMilestoneSize, suggestMilestoneSplit, estimateContextTokens } from './milestone-size.js';
+export { startNextMilestone, approveMilestonePlan, handleMilestoneBlocked, getBuildProgress } from './lifecycle-build.js';
+export { DriftCheckType, getDriftHistory, getAggregateHealth } from './lifecycle-review.js';
+export { validatePreservation, rejectChange, listChangeRequests } from './lifecycle-change.js';
+export { computeLifecycleProgress, formatLifecycleProgress, formatMilestoneTable, formatHealthScoreHistory } from './lifecycle-progress.js';
+
+// ─── Singletons ──────────────────────────────────────────────────────────────
+
+// DB-backed workflow orchestrator (replaces the no-DB default from workflow.js)
 export const workflowOrchestrator = new WorkflowOrchestrator({ db: workflowSessions });

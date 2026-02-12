@@ -1682,6 +1682,10 @@ ChatController.handle = async function(request) {
     projectGoal: state.projectGoal,
     activeFile: state.activeFile,
     lastArtifactId: state.lastArtifactId,
+    // v61.2: Pass lastTurnTopic for continuation query enrichment
+    // When user sends a meta follow-up ("dej mi ten report"), enrichSearchQuery
+    // needs the previous query to avoid searching for the raw follow-up text.
+    lastTurnTopic: state.lastUserInput || null,
     // v56.0 Sprint 3 — DB-backed history replaces RAM
     dbHistory,
     // v56.0 Sprint 3 — LTM context for synthesis

@@ -138,7 +138,11 @@ async function callLLM(role, prompt, systemPrompt = '', options = {}) {
   };
 
   const callerRole = callerRoleMap[role] || LLMCallerRole.WORKFLOW_THINKER;
-  const token = createAuthToken(callerRole, `workflow-${role}`);
+  const token = createAuthToken({
+    role: callerRole,
+    decisionId: `workflow-${role}-${Date.now()}`,
+    auditContext: { sessionId: `workflow-${Date.now()}` },
+  });
 
   const startTime = Date.now();
   try {
@@ -872,6 +876,10 @@ export class WorkflowOrchestrator {
     return stageMap[state] || 'unknown';
   }
 }
+
+// ─── Exported utilities (v61: used by lifecycle sub-modules) ─────────────────
+
+export { callLLM, parseJSON };
 
 // ─── Singleton (no-DB default — index.js creates the DB-backed instance) ────
 

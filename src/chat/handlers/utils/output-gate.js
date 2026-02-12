@@ -19,12 +19,21 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ZOMBIE_PATTERNS_CS = [
+  // Self-referential
   /^(Jako jazykový model|Jako AI|Jako umělá inteligence)/i,
   /nemohu (zodpovědět|odpovědět|pomoci).*bez dalš/i,
   /nerozumím.*otázce.*upřesn/i,
   /^Omlouvám se,?\s+(ale\s+)?(nemohu|nemůžu|nedokážu)/i,
   /moje znalosti (jsou omezené|sahají pouze)/i,
+  // Capability denial
   /nemám přístup k (internetu|aktuálním|reálným)/i,
+  /nemohu vyhledávat na (webu|internetu)/i,
+  // Process narration
+  /^(Zde|Tady) (je|jsou) (moje?|m[áa]) odpov[eě][dď]/i,
+  /^Připravil jsem (pro vás|ti)/i,
+  /^(Here is|Here are) (my|the) (response|answer)/i,
+  // Echo
+  /^(Ptáte se|Ptáš se) na /i,
 ];
 
 const ZOMBIE_PATTERNS_EN = [
@@ -37,6 +46,13 @@ const ZOMBIE_PATTERNS_EN = [
 ];
 
 const ZOMBIE_PATTERNS = [...ZOMBIE_PATTERNS_CS, ...ZOMBIE_PATTERNS_EN];
+
+// Hollow filler — zombie only when response is short (< 100 chars)
+const HOLLOW_FILLER_PATTERNS = [
+  /^(Rád|Ráda) ti (pomůžu|pomohu|poradím)/i,
+  /^Samozřejmě,?\s+(rád[a]?\s+)?(pomůžu|pomohu)/i,
+  /^(Of course|Sure|Happy to help)/i,
+];
 
 /**
  * D6.1: Detect zombie/meta responses.
@@ -60,7 +76,21 @@ function detectZombie(content) {
 
   for (const pattern of ZOMBIE_PATTERNS) {
     if (pattern.test(head)) {
+      // Meta opener with substantial tail (>100 chars after first sentence) — PASS
+      const firstDot = trimmed.indexOf('. ');
+      if (firstDot > 0 && trimmed.length - firstDot > 100) {
+        continue; // Has real content after the meta opener
+      }
       return { isZombie: true, pattern: pattern.source.substring(0, 60) };
+    }
+  }
+
+  // Hollow filler — only zombie when standalone (< 100 chars)
+  if (trimmed.length < 100) {
+    for (const pattern of HOLLOW_FILLER_PATTERNS) {
+      if (pattern.test(head)) {
+        return { isZombie: true, pattern: 'hollow_filler' };
+      }
     }
   }
 
@@ -289,11 +319,12 @@ export function buildOutputGateRetryPrompt(originalPrompt, verdict) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Exports for testing
 // ─────────────────────────────────────────────────────────────────────────────
-export const _test = {
+export {
   detectZombie,
   checkDensity,
   checkIntentAlignment,
   ZOMBIE_PATTERNS,
   DENSITY_THRESHOLDS,
   ECHO_PATTERNS,
+  HOLLOW_FILLER_PATTERNS,
 };

@@ -275,6 +275,74 @@ export class GitManager {
       return { hash, message: messageParts.join(' ') };
     });
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // v61: Lifecycle Milestone Operations
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Ensure git repo exists. If not → git init (local, no remote).
+   * @param {string} [projectPath] - Override project root
+   * @returns {Promise<{success: boolean, initialized: boolean}>}
+   */
+  async ensureRepo(projectPath) {
+    const originalRoot = this.projectRoot;
+    if (projectPath) this.projectRoot = projectPath;
+
+    try {
+      if (await this.isInitialized()) {
+        return { success: true, initialized: false };
+      }
+
+      const result = await this.git('init');
+      if (result.success) {
+        logger.info('Git', 'Auto-initialized repository', { path: this.projectRoot });
+        // Create initial commit so HEAD exists
+        await this.git('commit', '--allow-empty', '-m', 'chore: init project');
+      }
+      return { success: result.success, initialized: result.success };
+    } finally {
+      if (projectPath) this.projectRoot = originalRoot;
+    }
+  }
+
+  /**
+   * Commit milestone completion.
+   * Format: feat(ms-N): <title>
+   * @param {string} milestoneId - e.g. "ms-1"
+   * @param {string} title - Milestone title
+   * @returns {Promise<{success: boolean, commitHash?: string}>}
+   */
+  async commitMilestone(milestoneId, title) {
+    const message = `feat(${milestoneId}): ${title}`;
+    const result = await this.commit(message);
+
+    if (result.success && result.message !== 'Nothing to commit') {
+      const hash = await this.getLastCommit();
+      logger.info('Git', 'Milestone committed', { milestoneId, hash });
+      return { success: true, commitHash: hash };
+    }
+
+    return { success: result.success, commitHash: null };
+  }
+
+  /**
+   * Tag milestone.
+   * Format: ms-<id>
+   * @param {string} milestoneId - e.g. "ms-1"
+   * @param {string} title - Milestone title
+   * @returns {Promise<{success: boolean, tag?: string}>}
+   */
+  async tagMilestone(milestoneId, title) {
+    const tagName = milestoneId; // already "ms-1" format
+    const message = `Milestone: ${title}`;
+    const result = await this.tag(tagName, message);
+
+    if (result.success) {
+      logger.info('Git', 'Milestone tagged', { tag: tagName });
+    }
+    return { success: result.success, tag: result.success ? tagName : null };
+  }
 }
 
 export default GitManager;

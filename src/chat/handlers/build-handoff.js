@@ -58,11 +58,78 @@ function clearHandoffState(sessionId) {
   handoffStates.delete(sessionId);
 }
 
+// ─── Project-scope detection heuristic ──────────────────────────────────────
+
+/**
+ * Detect whether a BUILD request is project-scope (lifecycle) vs quick build.
+ *
+ * Project-scope indicators:
+ *   - "celý projekt/systém", "kompletní", "od specifikace", "vícero fází"
+ *   - "e-shop", "full system", "from spec", "multi-phase"
+ *   - Multiple component mentions (backend + frontend + DB)
+ *
+ * Quick build (existing path):
+ *   - "postav API endpoint", "scaffoldni Express server", single component
+ *
+ * @param {string} input - User's original message
+ * @param {Object} [decision] - CRE decision (optional, for metadata)
+ * @returns {boolean} true if project-scope → lifecycle path
+ */
+export function isProjectScopeBuild(input, decision = null) {
+  const text = input.toLowerCase();
+
+  // Explicit lifecycle/project-scope patterns
+  const PROJECT_SCOPE_PATTERNS = [
+    /cel[ýé]?\s+(projekt|syst[ée]m|aplikac[ei]|stack|řešení|reseni)/i,
+    /kompletn[ií]\s+(projekt|syst[ée]m|aplikac[ei]|stack|řešení|reseni|e-?shop)/i,
+    /od\s+specifikace/i,
+    /v[ií]cero?\s+f[áa]z[ií]/i,
+    /multi-?phase/i,
+    /full\s+(project|system|application|stack|solution)/i,
+    /from\s+spec(ification)?/i,
+    /end[- ]to[- ]end/i,
+    /lifecycle/i,
+    /milestone/i,
+    /e-?shop/i,
+    /kompletní\s+e-?/i,
+    /chci\s+postavit\s+kompletn/i,
+    /chci\s+postavit\s+cel/i,
+    /chci\s+vybudovat/i,
+    /celou\s+aplikaci/i,
+    /celý\s+stack/i,
+  ];
+
+  if (PROJECT_SCOPE_PATTERNS.some(p => p.test(input))) {
+    return true;
+  }
+
+  // Multi-component heuristic: if 3+ distinct component types mentioned → project-scope
+  const COMPONENT_INDICATORS = [
+    /\b(frontend|front[- ]end|ui|react|vue|angular|svelte)\b/i,
+    /\b(backend|back[- ]end|server|api|express|fastify|nest|koa)\b/i,
+    /\b(databáz[ei]|database|db|postgre(?:s|sql)?|mysql|mongo(?:db)?|redis|sqlite)\b/i,
+    /\b(auth|autentikac|autentizac|authentication|authorization|login)\b/i,
+    /\b(deploy|nasaz|ci\/?cd|pipeline|docker|k8s|kubernetes)\b/i,
+    /\b(monitoring|logging|observability|grafana|prometheus)\b/i,
+    /\b(testing|testy|e2e|unit\s+test|integration\s+test)\b/i,
+  ];
+
+  const componentCount = COMPONENT_INDICATORS.filter(p => p.test(input)).length;
+  if (componentCount >= 3) {
+    return true;
+  }
+
+  return false;
+}
+
 // ─── Phase 1: BUILD detected → propose handoff ─────────────────────────────
 
 /**
  * Handle initial BUILD/PLAN decision from CRE.
  * Shows user what will happen and asks for confirmation.
+ *
+ * If project-scope build detected → delegates to lifecycle-handoff.js
+ * Otherwise → quick build (existing Planner pipeline)
  *
  * @param {string} input - User's original message
  * @param {Object} decision - CRE decision (type: PLAN, intent: BUILD)
@@ -71,6 +138,16 @@ function clearHandoffState(sessionId) {
  */
 export function handleBuildDetected(input, decision, context) {
   const { sessionId } = context;
+
+  // v61: Project-scope gate — lifecycle path for complex projects
+  if (isProjectScopeBuild(input, decision)) {
+    logger.info('BuildHandoff', 'Project-scope BUILD → lifecycle handoff', {
+      sessionId,
+      input: input.substring(0, 100),
+    });
+    // Dynamic import to avoid circular dependency
+    return import('./lifecycle-handoff.js').then(m => m.handleLifecycleBuildDetected(input, decision, context));
+  }
 
   logger.info('BuildHandoff', 'BUILD intent detected, proposing handoff', {
     sessionId,
@@ -457,6 +534,7 @@ function formatFailureReport(result) {
 export { setHandoffState };
 
 export default {
+  isProjectScopeBuild,
   handleBuildDetected,
   handleBuildConfirmed,
   handleClarificationAnswer,

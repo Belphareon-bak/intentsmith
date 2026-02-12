@@ -111,6 +111,42 @@ function hasOwnSubject(input) {
 }
 
 /**
+ * v61.2: Detect "meta" follow-ups that carry no meaningful search terms.
+ * These are messages like "dej mi to", "jo přesně", "tak ten report",
+ * "no to jsem myslel" — the user is asking for the SAME thing, not a new search.
+ *
+ * @param {string} input
+ * @returns {boolean}
+ */
+function isMetaContinuation(input) {
+  const trimmed = input.trim().toLowerCase();
+
+  // Direct meta patterns (CZ/SK/EN/DE/PL)
+  const META_PATTERNS = [
+    /^(no\s+)?(to\s+)?(jsem\s+myslel|přesně|exactly|genau)/i,
+    /^(tak\s+)?(mi\s+)?(to\s+)?(dej|ukaž|pošli|give|show|send)/i,
+    /^(jo|ano|yeah?|yes|ja)\s*(,\s*)?(to|přesně|exactly|genau)?/i,
+    /^dej\s+(mi\s+)?(ten|to|tu)\s+(report|výsledek|result)/i,
+    /^(ukaž|zobraz|pošli)\s+(mi\s+)?(to|ten|tu)/i,
+    /^(tak|no)\s+(co|jak)\s+(ten|ta|to)\b/i,
+    /^(chci|chtěl)\s+(ten|to|tu)\s+(report|výsledek|result|odpověď)/i,
+  ];
+
+  if (META_PATTERNS.some(p => p.test(trimmed))) return true;
+
+  // Heuristic: strip common filler words and check if fewer than 3 content words remain
+  const stripped = trimmed
+    .replace(/\b(no|tak|jo|ano|a|to|ten|ta|tu|ty|ti|mi|mě|mně|si|se|jsem|myslel|přesně|prosím|dej|ukaž|report|dál|please|just|the|that|it|me|give|show)\b/gi, '')
+    .replace(/[,!?.]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // If after stripping meta words, fewer than 2 content words remain → meta continuation
+  const contentWords = stripped.split(' ').filter(w => w.length > 2);
+  return contentWords.length < 2;
+}
+
+/**
  * Enrich a follow-up search query with context from the last turn.
  *
  * @param {string} input - Current user input
@@ -254,13 +290,27 @@ async function handleToolCallDecision(input, decision, context) {
 
   // ════════════════════════════════════════════════════════════════════════════
   // v56.2 Sprint C1: Enrich search query with topic from last turn (#2A/C)
-  // ════════════════════════════════════════════════════════════════════════════
-  // "A co jeho teorém?" + lastTurnTopic="Pythagoras" → "Pythagoras teorém"
-  // This runs BEFORE tool execution so the enriched query reaches DDG/SearX.
+  // v61.2: Also handle meta follow-ups ("dej ten report", "jo, to přesně")
+  //        that carry no search content — reuse previous query directly.
   // ════════════════════════════════════════════════════════════════════════════
   const { query: enrichedQuery, enriched: wasEnriched } =
     enrichSearchQuery(input, context.lastTurnTopic);
-  const effectiveQuery = wasEnriched ? enrichedQuery : input;
+
+  let effectiveQuery;
+  if (wasEnriched) {
+    effectiveQuery = enrichedQuery;
+  } else if (context.lastTurnTopic && isMetaContinuation(input)) {
+    // v61.2: User sent a meta follow-up with no real search terms
+    // ("no to jsem myslel, dej ten report", "jo přesně to", "tak mi to ukaž")
+    // → reuse the previous query instead of searching for the literal follow-up
+    effectiveQuery = context.lastTurnTopic;
+    logger.info('EnrichQuery', 'Meta-continuation detected — reusing previous query', {
+      currentInput: input.substring(0, 60),
+      reusedQuery: effectiveQuery.substring(0, 60),
+    });
+  } else {
+    effectiveQuery = input;
+  }
 
   // ════════════════════════════════════════════════════════════════════════════
   // v44.4 — PROJECT GOAL ENFORCEMENT (with confirmation)
@@ -454,22 +504,39 @@ async function handleToolCallDecision(input, decision, context) {
     // ════════════════════════════════════════════════════════════════════════════
 
     // Prepare tool results for LLM synthesis
+    const successfulScrapes = scrapeResults.filter(r => r.success);
     const allToolResults = [
       searchData,
-      ...scrapeResults.filter(r => r.success),
+      ...successfulScrapes,
     ].filter(Boolean);
+
+    // v61.2: When scrapes mostly fail, log warning and hint synthesis to use snippets
+    const scrapeSuccessRate = urls.length > 0 ? successfulScrapes.length / urls.length : 0;
+    if (scrapeSuccessRate < 0.4 && urls.length > 0) {
+      logger.warn('HandleToolCall', 'REPORT pipeline: most scrapes failed — synthesis uses snippets only', {
+        attempted: urls.length,
+        succeeded: successfulScrapes.length,
+        rate: scrapeSuccessRate,
+      });
+    }
 
     // Get user preferences and expert hints from context
     const userPreferences = context.userPreferences || {};
     const expertHints = context.expertHints || null;
     const responseIntent = decision.responseIntent || ResponseIntent.SUMMARY;
 
+    // v61.2: When scrapes mostly failed, add hint to synthesis context
+    // so LLM extracts maximum info from search snippets
+    const synthesisContext = scrapeSuccessRate < 0.4 && urls.length > 0
+      ? { ...context, snippetOnlyMode: true }
+      : context;
+
     // Call LLM for actual synthesis
     const synthesisResult = await synthesizeWithLLM({
       query: input,
       intent: decision.intent,
       toolResults: allToolResults,
-      context,
+      context: synthesisContext,
       userPreferences,
       expertHints,
       responseIntent,

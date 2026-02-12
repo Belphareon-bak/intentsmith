@@ -301,6 +301,82 @@ CREATE TABLE IF NOT EXISTS expert_memory (
     UNIQUE(expert_id, key)
 );
 
+-- v61: Project Lifecycles (Phase C — Collaborative Milestone Execution)
+CREATE TABLE IF NOT EXISTS project_lifecycles (
+    id TEXT PRIMARY KEY,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    phase TEXT NOT NULL DEFAULT 'SPEC',
+    spec TEXT,
+    config TEXT NOT NULL DEFAULT '{}',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- v61: Roadmap Versions (immutable — change = new version)
+CREATE TABLE IF NOT EXISTS roadmap_versions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    lifecycle_id TEXT NOT NULL REFERENCES project_lifecycles(id) ON DELETE CASCADE,
+    version INTEGER NOT NULL,
+    roadmap TEXT NOT NULL,
+    change_reason TEXT,
+    diff_summary TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(lifecycle_id, version)
+);
+
+-- v61: Milestones (unit of work within a lifecycle)
+CREATE TABLE IF NOT EXISTS milestones (
+    id TEXT PRIMARY KEY,
+    lifecycle_id TEXT NOT NULL REFERENCES project_lifecycles(id) ON DELETE CASCADE,
+    roadmap_version INTEGER NOT NULL,
+    sequence INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'PENDING',
+    dependencies TEXT DEFAULT '[]',
+    estimated_loc INTEGER DEFAULT 0,
+    estimated_files INTEGER DEFAULT 0,
+    estimated_complexity TEXT DEFAULT 'MEDIUM',
+    test_strategy TEXT,
+    local_plan TEXT,
+    scope_files TEXT,
+    workflow_session_id TEXT,
+    commit_hash TEXT,
+    git_tag TEXT,
+    health_score TEXT,
+    started_at DATETIME,
+    completed_at DATETIME,
+    retry_count INTEGER DEFAULT 0,
+    max_retries INTEGER DEFAULT 3,
+    UNIQUE(lifecycle_id, sequence)
+);
+
+-- v61: Change Requests (direction changes during BUILD)
+CREATE TABLE IF NOT EXISTS change_requests (
+    id TEXT PRIMARY KEY,
+    lifecycle_id TEXT NOT NULL REFERENCES project_lifecycles(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'PROPOSED',
+    description TEXT NOT NULL,
+    affected_milestones TEXT DEFAULT '[]',
+    impact_analysis TEXT,
+    proposed_roadmap_diff TEXT,
+    old_roadmap_version INTEGER,
+    new_roadmap_version INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    resolved_at DATETIME
+);
+
+-- v61: Drift Checks (spec alignment, scope creep, architecture, tech debt)
+CREATE TABLE IF NOT EXISTS drift_checks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    lifecycle_id TEXT NOT NULL REFERENCES project_lifecycles(id) ON DELETE CASCADE,
+    milestone_id TEXT REFERENCES milestones(id) ON DELETE SET NULL,
+    check_type TEXT NOT NULL,
+    result TEXT NOT NULL,
+    details TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_project_memory_project ON project_memory(project_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id);
@@ -315,6 +391,16 @@ CREATE INDEX IF NOT EXISTS idx_attachments_project ON attachments(project_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_experts_conv ON conversation_experts(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_experts_domain ON experts(domain);
 CREATE INDEX IF NOT EXISTS idx_expert_memory_expert ON expert_memory(expert_id);
+
+-- v61: Lifecycle indexes
+CREATE INDEX IF NOT EXISTS idx_lifecycles_project ON project_lifecycles(project_id);
+CREATE INDEX IF NOT EXISTS idx_lifecycles_phase ON project_lifecycles(phase);
+CREATE INDEX IF NOT EXISTS idx_roadmap_versions_lifecycle ON roadmap_versions(lifecycle_id);
+CREATE INDEX IF NOT EXISTS idx_milestones_lifecycle ON milestones(lifecycle_id);
+CREATE INDEX IF NOT EXISTS idx_milestones_status ON milestones(status);
+CREATE INDEX IF NOT EXISTS idx_change_requests_lifecycle ON change_requests(lifecycle_id);
+CREATE INDEX IF NOT EXISTS idx_drift_checks_lifecycle ON drift_checks(lifecycle_id);
+CREATE INDEX IF NOT EXISTS idx_drift_checks_milestone ON drift_checks(milestone_id);
 
 -- Full-text search for chat
 CREATE VIRTUAL TABLE IF NOT EXISTS chat_fts USING fts5(
@@ -1021,6 +1107,311 @@ export const conversationExperts = {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
+// v61: LIFECYCLE REPOSITORIES (Phase C — Collaborative Milestone Execution)
+// ════════════════════════════════════════════════════════════════════════════
+
+// Project Lifecycles
+export const lifecycles = {
+  create: db.prepare(`
+    INSERT INTO project_lifecycles (id, project_id, phase, spec, config)
+    VALUES (?, ?, ?, ?, ?)
+  `),
+
+  findById: db.prepare(`SELECT * FROM project_lifecycles WHERE id = ?`),
+
+  findByProject: db.prepare(`
+    SELECT * FROM project_lifecycles WHERE project_id = ? ORDER BY updated_at DESC
+  `),
+
+  findActiveByProject: db.prepare(`
+    SELECT * FROM project_lifecycles
+    WHERE project_id = ? AND phase NOT IN ('COMPLETED', 'FAILED')
+    ORDER BY updated_at DESC LIMIT 1
+  `),
+
+  updatePhase: db.prepare(`
+    UPDATE project_lifecycles SET phase = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+  `),
+
+  updateSpec: db.prepare(`
+    UPDATE project_lifecycles SET spec = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+  `),
+
+  updateConfig: db.prepare(`
+    UPDATE project_lifecycles SET config = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+  `),
+
+  save(id, projectId, phase, spec = null, lifecycleConfig = {}) {
+    const specStr = spec ? (typeof spec === 'string' ? spec : JSON.stringify(spec)) : null;
+    const configStr = typeof lifecycleConfig === 'string' ? lifecycleConfig : JSON.stringify(lifecycleConfig);
+    const existing = this.findById.get(id);
+    if (existing) {
+      this.updatePhase.run(phase, id);
+      if (spec) this.updateSpec.run(specStr, id);
+    } else {
+      this.create.run(id, projectId, phase, specStr, configStr);
+    }
+  },
+
+  getSpec(id) {
+    const row = this.findById.get(id);
+    if (!row || !row.spec) return null;
+    try { return JSON.parse(row.spec); } catch { return row.spec; }
+  },
+
+  getConfig(id) {
+    const row = this.findById.get(id);
+    if (!row) return {};
+    try { return JSON.parse(row.config); } catch { return {}; }
+  },
+};
+
+// Roadmap Versions (immutable)
+export const roadmapVersions = {
+  create: db.prepare(`
+    INSERT INTO roadmap_versions (lifecycle_id, version, roadmap, change_reason, diff_summary)
+    VALUES (?, ?, ?, ?, ?)
+  `),
+
+  findByLifecycle: db.prepare(`
+    SELECT * FROM roadmap_versions WHERE lifecycle_id = ? ORDER BY version DESC
+  `),
+
+  findLatest: db.prepare(`
+    SELECT * FROM roadmap_versions WHERE lifecycle_id = ? ORDER BY version DESC LIMIT 1
+  `),
+
+  findByVersion: db.prepare(`
+    SELECT * FROM roadmap_versions WHERE lifecycle_id = ? AND version = ?
+  `),
+
+  addVersion(lifecycleId, version, roadmap, changeReason = null, diffSummary = null) {
+    const roadmapStr = typeof roadmap === 'string' ? roadmap : JSON.stringify(roadmap);
+    this.create.run(lifecycleId, version, roadmapStr, changeReason, diffSummary);
+  },
+
+  getLatestRoadmap(lifecycleId) {
+    const row = this.findLatest.get(lifecycleId);
+    if (!row) return null;
+    try { return { ...row, roadmap: JSON.parse(row.roadmap) }; } catch { return row; }
+  },
+
+  getLatestVersion(lifecycleId) {
+    const row = this.findLatest.get(lifecycleId);
+    return row ? row.version : 0;
+  },
+};
+
+// Milestones
+export const milestones = {
+  create: db.prepare(`
+    INSERT INTO milestones (id, lifecycle_id, roadmap_version, sequence, title, description,
+      status, dependencies, estimated_loc, estimated_files, estimated_complexity,
+      test_strategy, local_plan, scope_files, max_retries)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `),
+
+  findById: db.prepare(`SELECT * FROM milestones WHERE id = ?`),
+
+  findByLifecycle: db.prepare(`
+    SELECT * FROM milestones WHERE lifecycle_id = ? ORDER BY sequence ASC
+  `),
+
+  findByStatus: db.prepare(`
+    SELECT * FROM milestones WHERE lifecycle_id = ? AND status = ? ORDER BY sequence ASC
+  `),
+
+  findNext: db.prepare(`
+    SELECT * FROM milestones WHERE lifecycle_id = ? AND status = 'PENDING'
+    ORDER BY sequence ASC LIMIT 1
+  `),
+
+  updateStatus: db.prepare(`
+    UPDATE milestones SET status = ? WHERE id = ?
+  `),
+
+  updateLocalPlan: db.prepare(`
+    UPDATE milestones SET local_plan = ?, scope_files = ? WHERE id = ?
+  `),
+
+  updateWorkflowSession: db.prepare(`
+    UPDATE milestones SET workflow_session_id = ? WHERE id = ?
+  `),
+
+  updateCompletion: db.prepare(`
+    UPDATE milestones SET status = 'PASSED', commit_hash = ?, git_tag = ?,
+      health_score = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?
+  `),
+
+  updateRetry: db.prepare(`
+    UPDATE milestones SET retry_count = retry_count + 1 WHERE id = ?
+  `),
+
+  markStarted: db.prepare(`
+    UPDATE milestones SET started_at = CURRENT_TIMESTAMP WHERE id = ?
+  `),
+
+  countByStatus: db.prepare(`
+    SELECT status, COUNT(*) as count FROM milestones WHERE lifecycle_id = ? GROUP BY status
+  `),
+
+  addMilestone(data) {
+    const deps = typeof data.dependencies === 'string' ? data.dependencies : JSON.stringify(data.dependencies || []);
+    const testStr = data.test_strategy ? (typeof data.test_strategy === 'string' ? data.test_strategy : JSON.stringify(data.test_strategy)) : null;
+    const planStr = data.local_plan ? (typeof data.local_plan === 'string' ? data.local_plan : JSON.stringify(data.local_plan)) : null;
+    const scopeStr = data.scope_files ? (typeof data.scope_files === 'string' ? data.scope_files : JSON.stringify(data.scope_files)) : null;
+
+    this.create.run(
+      data.id, data.lifecycle_id, data.roadmap_version, data.sequence,
+      data.title, data.description || null,
+      data.status || 'PENDING', deps,
+      data.estimated_loc || 0, data.estimated_files || 0,
+      data.estimated_complexity || 'MEDIUM',
+      testStr, planStr, scopeStr,
+      data.max_retries || 3
+    );
+  },
+
+  getMilestone(id) {
+    const row = this.findById.get(id);
+    if (!row) return null;
+    return parseMilestoneJSON(row);
+  },
+
+  listByLifecycle(lifecycleId) {
+    return this.findByLifecycle.all(lifecycleId).map(parseMilestoneJSON);
+  },
+
+  getCompleted(lifecycleId) {
+    return this.findByStatus.all(lifecycleId, 'PASSED').map(parseMilestoneJSON);
+  },
+};
+
+function parseMilestoneJSON(row) {
+  const parsed = { ...row };
+  for (const field of ['dependencies', 'test_strategy', 'local_plan', 'scope_files', 'health_score']) {
+    if (parsed[field] && typeof parsed[field] === 'string') {
+      try { parsed[field] = JSON.parse(parsed[field]); } catch { /* keep string */ }
+    }
+  }
+  return parsed;
+}
+
+// Change Requests
+export const changeRequests = {
+  create: db.prepare(`
+    INSERT INTO change_requests (id, lifecycle_id, status, description,
+      affected_milestones, impact_analysis, proposed_roadmap_diff, old_roadmap_version)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `),
+
+  findById: db.prepare(`SELECT * FROM change_requests WHERE id = ?`),
+
+  findByLifecycle: db.prepare(`
+    SELECT * FROM change_requests WHERE lifecycle_id = ? ORDER BY created_at DESC
+  `),
+
+  findPending: db.prepare(`
+    SELECT * FROM change_requests WHERE lifecycle_id = ? AND status IN ('PROPOSED', 'ANALYZED')
+    ORDER BY created_at ASC
+  `),
+
+  updateStatus: db.prepare(`
+    UPDATE change_requests SET status = ?, resolved_at = CURRENT_TIMESTAMP WHERE id = ?
+  `),
+
+  updateAnalysis: db.prepare(`
+    UPDATE change_requests SET status = 'ANALYZED', impact_analysis = ?,
+      affected_milestones = ?, proposed_roadmap_diff = ? WHERE id = ?
+  `),
+
+  updateApplied: db.prepare(`
+    UPDATE change_requests SET status = 'APPLIED', new_roadmap_version = ?,
+      resolved_at = CURRENT_TIMESTAMP WHERE id = ?
+  `),
+
+  addRequest(data) {
+    const affectedStr = typeof data.affected_milestones === 'string'
+      ? data.affected_milestones : JSON.stringify(data.affected_milestones || []);
+    const impactStr = data.impact_analysis
+      ? (typeof data.impact_analysis === 'string' ? data.impact_analysis : JSON.stringify(data.impact_analysis))
+      : null;
+    const diffStr = data.proposed_roadmap_diff
+      ? (typeof data.proposed_roadmap_diff === 'string' ? data.proposed_roadmap_diff : JSON.stringify(data.proposed_roadmap_diff))
+      : null;
+
+    this.create.run(
+      data.id, data.lifecycle_id, data.status || 'PROPOSED', data.description,
+      affectedStr, impactStr, diffStr, data.old_roadmap_version || null
+    );
+  },
+
+  getRequest(id) {
+    const row = this.findById.get(id);
+    if (!row) return null;
+    return parseChangeRequestJSON(row);
+  },
+};
+
+function parseChangeRequestJSON(row) {
+  const parsed = { ...row };
+  for (const field of ['affected_milestones', 'impact_analysis', 'proposed_roadmap_diff']) {
+    if (parsed[field] && typeof parsed[field] === 'string') {
+      try { parsed[field] = JSON.parse(parsed[field]); } catch { /* keep string */ }
+    }
+  }
+  return parsed;
+}
+
+// Drift Checks
+export const driftChecks = {
+  create: db.prepare(`
+    INSERT INTO drift_checks (lifecycle_id, milestone_id, check_type, result, details)
+    VALUES (?, ?, ?, ?, ?)
+  `),
+
+  findByLifecycle: db.prepare(`
+    SELECT * FROM drift_checks WHERE lifecycle_id = ? ORDER BY created_at DESC, id DESC
+  `),
+
+  findByMilestone: db.prepare(`
+    SELECT * FROM drift_checks WHERE milestone_id = ? ORDER BY created_at DESC, id DESC
+  `),
+
+  findByType: db.prepare(`
+    SELECT * FROM drift_checks WHERE lifecycle_id = ? AND check_type = ? ORDER BY created_at DESC
+  `),
+
+  findLatestByType: db.prepare(`
+    SELECT * FROM drift_checks WHERE lifecycle_id = ? AND check_type = ?
+    ORDER BY created_at DESC LIMIT 1
+  `),
+
+  addCheck(lifecycleId, milestoneId, checkType, result, details = null) {
+    const detailsStr = details
+      ? (typeof details === 'string' ? details : JSON.stringify(details))
+      : null;
+    this.create.run(lifecycleId, milestoneId, checkType, result, detailsStr);
+  },
+
+  getChecks(lifecycleId) {
+    return this.findByLifecycle.all(lifecycleId).map(parseDriftCheckJSON);
+  },
+
+  getChecksByMilestone(milestoneId) {
+    return this.findByMilestone.all(milestoneId).map(parseDriftCheckJSON);
+  },
+};
+
+function parseDriftCheckJSON(row) {
+  const parsed = { ...row };
+  if (parsed.details && typeof parsed.details === 'string') {
+    try { parsed.details = JSON.parse(parsed.details); } catch { /* keep string */ }
+  }
+  return parsed;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // UTILITIES
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -1055,6 +1446,12 @@ export default {
   // v57 Experts
   experts,
   conversationExperts,
+  // v61 Lifecycle
+  lifecycles,
+  roadmapVersions,
+  milestones,
+  changeRequests,
+  driftChecks,
   transaction,
   close,
 };

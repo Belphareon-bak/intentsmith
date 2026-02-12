@@ -43,11 +43,17 @@ import { logger } from '../core/logger.js';
 
 const NOISE_PREFIXES = [
   // ── Czech (longest first) ─────────────────────────────────────
+  // v61.2: "chci report z/o X" → "X" (REPORT intent queries)
+  /^chci\s+report\s+(z|ze|o|na\s+t[ée]ma)\s+/i,
+  /^chci\s+(zpr[áa]vu|report|shrnut[ií]|p[řr]ehled)\s+(z|ze|o|na\s+t[ée]ma)\s+/i,
+  /^dej\s+mi\s+(report|zpr[áa]vu|shrnut[ií]|p[řr]ehled)\s+(z|ze|o|na\s+t[ée]ma)\s+/i,
+  // "chci X" / "chtěl bych X" — generic want prefix
+  /^(chci|cht[ěe]l\s+bych?|pot[řr]ebuji|pot[řr]ebuju)\s+/i,
   // "A teď mi řekni o X" → sanitizer → "A teď mi o X"
   /^a\s+te[ďd]\s+mi\s+o\s+/i,
   // "Řekni mi něco o X" → sanitizer → "mi něco o X"
   /^mi\s+n[ěe][čc]o\s+o\s+/i,
-  // "Řekni mi více o X" → sanitizer → "mi více o X"  
+  // "Řekni mi více o X" → sanitizer → "mi více o X"
   /^mi\s+(v[íi]ce|v[íi]c)\s+o\s+/i,
   // "Vysvětli mi co je to X" → sanitizer → "mi co je to X"
   /^mi\s+co\s+je\s+to\s+/i,
@@ -178,6 +184,24 @@ export function canonicalizeQuery(sanitizedQuery) {
       // Only apply ONE prefix pattern (they're ordered longest-first)
       break;
     }
+  }
+
+  // ── Phase 1.5: Strip mid-query filler phrases ────────────────────────
+  // v61.2: "politiky ze serveru novinky.cz" → "politiky novinky.cz"
+  const FILLER_PHRASES = [
+    /\bze?\s+serveru\b/gi,        // "ze serveru", "z serveru"
+    /\bna\s+str[áa]nce\b/gi,      // "na stránce"
+    /\bna\s+str[áa]nk[áa]ch\b/gi, // "na stránkách"
+    /\bna\s+webu\b/gi,            // "na webu"
+    /\bna\s+internetu\b/gi,       // "na internetu"
+    /\bz\s+webu\b/gi,             // "z webu"
+    /\bfrom\s+(the\s+)?(website|site|server)\b/gi, // EN: "from the website"
+    /\bvon\s+(der\s+)?Webseite\b/gi, // DE: "von der Webseite"
+  ];
+  for (const fp of FILLER_PHRASES) {
+    const before = q;
+    q = q.replace(fp, ' ').trim();
+    if (q !== before) stripped.push(fp.source);
   }
 
   // ── Phase 2: Clean residual punctuation ───────────────────────────────
