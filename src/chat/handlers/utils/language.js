@@ -220,6 +220,14 @@ export function detectLanguage(text) {
     return { language: topLang, confidence: 0.75 };
   }
 
+  // v61.3: Pure ASCII text with English matches → prefer English over unknown→Czech default
+  // Czech users typing without diacritics still use Czech-specific words (chci, prosim, najdi)
+  // but pure English text (only matching EN patterns) shouldn't default to Czech via 'unknown'
+  const isPureAscii = /^[\x20-\x7E\n\r\t]*$/.test(trimmed);
+  if (isPureAscii && scores.en > 0 && scores.en >= scores.cs) {
+    return { language: 'en', confidence: 0.55 };
+  }
+
   // Too close to call
   return { language: 'unknown', confidence: 0.3 };
 }

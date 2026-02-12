@@ -30,6 +30,7 @@ import { getLanguageContext } from './utils/language.js';
 import { enforceOutputContract, buildOutputGateRetryPrompt } from './utils/output-gate.js';
 import { styleWithConfidence, scoreToLevel } from './utils/confidence-styling.js';
 import { assertCreativeQuality } from './utils/quality.js';
+import { buildStrictLanguageInstruction, validateResponseLanguage, buildLanguageRetryInstruction } from './utils/language-enforcement.js';
 import { FollowUpType, detectFollowUpType, getPreviousToolData } from './utils/followup.js';
 import { assessGoalAlignment } from './clarification.js';
 import { buildReportFallback } from './report.js';
@@ -1215,13 +1216,16 @@ ${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
     };
 
     // Use detected language or fallback to Czech
-    const systemPrompt = CONVERSATIONAL_SYSTEM_PROMPTS[langCtx.language]
-      || CONVERSATIONAL_SYSTEM_PROMPTS.cs  // Default to Czech, not English
-      + (langCtx.instruction || '');
+    // v61.3: Fix operator precedence (|| vs +) and add strict language enforcement
+    const systemPrompt = (CONVERSATIONAL_SYSTEM_PROMPTS[langCtx.language]
+      || CONVERSATIONAL_SYSTEM_PROMPTS.cs)
+      + (langCtx.instruction || '')
+      + buildStrictLanguageInstruction(langCtx.language);
 
     // Call LLM via CRE bridge (authorized)
     // v55.2 Sprint 2: Retry loop with D6 gate + creative quality enforcement
-    const MAX_ANSWER_RETRIES = 1;
+    // v61.3: Increased to 2 for D6 gate + language validation retries
+    const MAX_ANSWER_RETRIES = 2;
     let answerRetry = 0;
     let currentPrompt = prompt;
     let result;
@@ -1262,6 +1266,22 @@ ${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
           retry: answerRetry,
         });
         currentPrompt = buildOutputGateRetryPrompt(currentPrompt, gateVerdict);
+        answerRetry++;
+        continue;
+      }
+
+      // ════════════════════════════════════════════════════════════════════════
+      // v61.3 — Language Validation Gate: detect SK/RU/CN contamination
+      // ════════════════════════════════════════════════════════════════════════
+      const langValidation = validateResponseLanguage(result.content, langCtx.language);
+      if (!langValidation.clean && answerRetry < MAX_ANSWER_RETRIES) {
+        logger.warn('ConversationHandler', 'Language validation failed on ANSWER path, retrying', {
+          issues: langValidation.issues,
+          language: langCtx.language,
+          retry: answerRetry,
+        });
+        currentPrompt = buildLanguageRetryInstruction(langCtx.language, langValidation.issues)
+          + '\n\n' + prompt;
         answerRetry++;
         continue;
       }

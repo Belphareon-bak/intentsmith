@@ -609,6 +609,34 @@ export const KNOWLEDGE_EXPLANATION_PATTERNS = [
   /what\s+(causes|makes)\s+/i,     // "what causes rain"
   /when\s+was\s+.{0,30}(invented|discovered|founded|built|created|written)/i,
   /how\s+many\s+.{0,20}(legs|eyes|planets|days|bones|strings|continents|oceans)/i,
+  // ─── v61.3: Role/impact/consequence/broader knowledge questions ──────
+  // CZ: "jakou roli hraje X", "jaký dopad má Y"
+  /jakou\s+roli/i,
+  /jak[ýy]\s+dopad/i,
+  /jak[ée]\s+d[uů]sledky/i,                    // "jaké důsledky"
+  /jak[ée]\s+n[áa]sledky/i,                    // "jaké následky"
+  /jak[ée]\s+v[ýy]hody/i,                      // "jaké výhody"
+  /jak[ée]\s+nev[ýy]hody/i,                    // "jaké nevýhody"
+  /jak[ée]\s+rizik/i,                           // "jaké rizika"
+  /jak[ée]\s+p[rř][ií]nosy/i,                  // "jaké přínosy"
+  // CZ: Broader "proč" — "proč většina lidí přestane" (beyond je/jsou/se)
+  /pro[čc]\s+v[eě]t[sš]in/i,                  // "proč/proc většina"
+  /pro[čc]\s+lid[ié]/i,                        // "proč/proc lidé/lidi"
+  /pro[čc]\s+n[eě]kter/i,                      // "proč/proc někteří"
+  /pro[čc]\s+mnoho/i,                          // "proč/proc mnoho"
+  /pro[čc]\s+\w{3,}\s+\w{3,}\s+/i,            // "proč/proc <word> <word>" — broad knowledge Q
+  // CZ: No-diacritics expanded (users often type without háčky)
+  /jakou\s+roli/i,                              // already diacritics-safe
+  /jaky\s+dopad/i,                              // no diacritics "jaký dopad"
+  /jake\s+(vyhody|nevyhody|rizika|dusledky|nasledky|prinosy)/i,
+  // CZ: "které/kteří" prediction/consequence forms
+  /kter[éeáa]\s+\w+\s+(budou|jsou|m[aá]j[ií]|mohou|m[uů][zž]ou)/i,
+  // EN expanded: role/impact/consequence
+  /what\s+role/i,                               // "what role does X play"
+  /what\s+impact/i,                             // "what impact does X have"
+  /what\s+are\s+the\s+(benefits|risks|consequences|advantages|disadvantages|effects)/i,
+  /why\s+do\s+(most|many|some|few)\s+/i,        // "why do most people quit..."
+  /why\s+does\s+(the|a|an)\s+/i,                // "why does the body..."
 ];
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -1747,7 +1775,8 @@ export class CREDecisionEngine {
 
     // Tier 2: Bare question words in substantive text (>12 chars, 3+ words)
     // NOTE: Cannot use \b for Czech/Slovak words — č/ř/ž etc. are \W in JS regex.
-    const hasQuestionWord = /(?:^|\s)(jak[áéýoui]?|co|kdo|kde|kdy|proč|kolik|čo|kto|ako|kedy|prečo|koľko|ak[áéý]|was|wer|wo|wann|wie|warum|welch|wieviel|jaki?e?|kto|gdzie|kiedy|dlaczego|ile|qu[eéi]|qui|où|quand|comment|combien|pourquoi|quel|qué|quién|dónde|cuándo|cómo|cuánto|por qué|how|what|who|where|when|why|which)(?:\s|[?!.,;]|$)/i.test(text);
+    // v61.3: Added no-diacritics CZ variants (proc, jaky, jake, kolikatym...)
+    const hasQuestionWord = /(?:^|\s)(jak[áéýoui]?|jaky|jake|co|kdo|kde|kdy|proč|proc|kolik|čo|kto|ako|kedy|prečo|koľko|ak[áéý]|was|wer|wo|wann|wie|warum|welch|wieviel|jaki?e?|kto|gdzie|kiedy|dlaczego|ile|qu[eéi]|qui|où|quand|comment|combien|pourquoi|quel|qué|quién|dónde|cuándo|cómo|cuánto|por qué|how|what|who|where|when|why|which)(?:\s|[?!.,;]|$)/i.test(text);
     const wordCount = text.split(/\s+/).length;
     const hasTier2Form = hasQuestionWord && text.length > 12 && wordCount >= 3;
 

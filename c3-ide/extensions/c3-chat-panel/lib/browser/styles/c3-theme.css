@@ -1,0 +1,203 @@
+/* ═══════════════════════════════════════════════════════════
+   C3 Studio v7 — Theia Chrome Overrides (FIXED)
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  --c3-bg0:#0c0c0f;--c3-bg1:#111114;--c3-bg2:#18181c;--c3-bg3:#1f2025;--c3-bg4:#27282e;--c3-bg5:#2f3038;
+  --c3-tx1:#ececef;--c3-tx2:#a1a1aa;--c3-tx3:#71717a;--c3-tx4:#52525b;
+  --c3-accent:#22c55e;--c3-accent-dim:#16a34a;--c3-accent-bg:rgba(34,197,94,0.08);--c3-accent-text:#4ade80;
+  --c3-border:rgba(255,255,255,0.06);--c3-border2:rgba(255,255,255,0.1);
+}
+
+/* ─── Global ─── */
+body, .theia-ApplicationShell {
+  background: var(--c3-bg0) !important;
+  color: var(--c3-tx1) !important;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
+/* ─── Scrollbars ─── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--c3-bg5); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--c3-tx4); }
+
+/* ─── Menu Bar ─── */
+.p-MenuBar, #theia\:menubar {
+  background: var(--c3-bg1) !important;
+  border-bottom: 1px solid var(--c3-border) !important;
+  font-size: 12px !important;
+  color: var(--c3-tx3) !important;
+}
+.p-MenuBar-item {
+  padding: 2px 8px !important;
+  border-radius: 3px !important;
+  color: var(--c3-tx3) !important;
+}
+.p-MenuBar-item:hover, .p-MenuBar-item.p-mod-active {
+  background: var(--c3-bg3) !important;
+  color: var(--c3-tx2) !important;
+}
+.p-Menu {
+  background: var(--c3-bg2) !important;
+  border: 1px solid var(--c3-border2) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;
+}
+.p-Menu-item:hover { background: var(--c3-bg3) !important; }
+.p-Menu-item .p-Menu-itemLabel { color: var(--c3-tx1) !important; }
+.p-Menu-itemShortcut { color: var(--c3-tx4) !important; }
+
+/* ═══════════════════════════════════════════════════════════
+   HIDE BOTH ACTIVITY BARS — aggressive, target all layers
+   ═══════════════════════════════════════════════════════════ */
+.theia-app-sides {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+}
+.theia-app-sidebar-container {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  flex: 0 0 0px !important;
+  overflow: hidden !important;
+}
+/* Ensure right side panel (chat container) stays visible and sized */
+#theia-right-side-panel {
+  display: block !important;
+  min-width: 320px !important;
+}
+
+/* Force SplitPanel children containing activity bars to collapse */
+.lm-SplitPanel-child:has(.theia-app-sidebar-container) {
+  min-width: 0 !important;
+}
+/* Override inline width set by Theia layout manager on sidebar containers */
+.lm-BoxPanel-child.theia-app-sidebar-container {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  flex: 0 0 0px !important;
+}
+
+/* ─── Left side panel (sidebar content area) ─── */
+#theia-left-side-panel {
+  background: var(--c3-bg1) !important;
+  border: none !important;
+}
+.theia-side-panel {
+  background: var(--c3-bg1) !important;
+}
+/* Hide side panel title bar (our C3 brand header replaces it) */
+#theia-left-side-panel > .theia-sidepanel-toolbar,
+#theia-right-side-panel > .theia-sidepanel-toolbar {
+  display: none !important;
+}
+
+/* ─── Editor Tabs ─── */
+.p-TabBar-tab {
+  background: var(--c3-bg1) !important;
+  color: var(--c3-tx3) !important;
+  border: none !important;
+  border-right: 1px solid var(--c3-border) !important;
+  font-size: 12px !important;
+}
+.p-TabBar-tab:hover {
+  background: var(--c3-bg2) !important;
+  color: var(--c3-tx2) !important;
+}
+.p-TabBar-tab.p-mod-current {
+  background: var(--c3-bg2) !important;
+  color: var(--c3-tx1) !important;
+  border-bottom: 2px solid var(--c3-accent) !important;
+}
+.p-TabBar {
+  background: var(--c3-bg1) !important;
+  border-bottom: 1px solid var(--c3-border) !important;
+}
+.p-TabBar-tab .p-TabBar-tabCloseIcon:hover {
+  color: var(--c3-accent-text) !important;
+}
+
+/* ─── Editor Area ─── */
+.p-DockPanel, .p-DockPanel-widget {
+  background: var(--c3-bg0) !important;
+}
+
+/* ─── Bottom Panel ─── */
+#theia-bottom-content-panel {
+  background: var(--c3-bg1) !important;
+  border-top: 1px solid var(--c3-border) !important;
+}
+
+/* ─── Status Bar ─── */
+#theia-statusBar, .theia-statusBar {
+  background: var(--c3-bg1) !important;
+  border-top: 1px solid var(--c3-border) !important;
+  font-size: 10px !important;
+  color: var(--c3-tx4) !important;
+  height: 24px !important;
+}
+.theia-statusBar .area .element {
+  color: var(--c3-tx4) !important;
+  font-size: 10px !important;
+}
+.theia-statusBar .area .element:hover {
+  background: var(--c3-bg3) !important;
+}
+.theia-statusBar .area.left .element:first-child {
+  font-weight: 800 !important;
+  color: var(--c3-accent-text) !important;
+  letter-spacing: 1px !important;
+  opacity: 0.6 !important;
+}
+
+/* ─── Inputs & Buttons ─── */
+.theia-input, input[type="text"], textarea {
+  background: var(--c3-bg3) !important;
+  border: 1px solid var(--c3-border2) !important;
+  border-radius: 6px !important;
+  color: var(--c3-tx1) !important;
+}
+.theia-input:focus, input[type="text"]:focus, textarea:focus {
+  border-color: rgba(34,197,94,0.4) !important;
+  outline: none !important;
+}
+button.theia-button {
+  background: var(--c3-bg3) !important;
+  border: 1px solid var(--c3-border2) !important;
+  color: var(--c3-tx2) !important;
+  border-radius: 6px !important;
+}
+button.theia-button.main {
+  background: var(--c3-accent) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+}
+
+/* ─── Split handles ─── */
+.p-SplitPanel-handle {
+  background: transparent !important;
+}
+.p-SplitPanel-handle:hover {
+  background: var(--c3-accent) !important;
+}
+
+/* ─── Terminal ─── */
+.terminal-wrapper, .xterm {
+  background: var(--c3-bg0) !important;
+}
+.xterm-viewport { background: var(--c3-bg0) !important; }
+
+/* ─── Widget sizing ─── */
+#c3-sidebar, #c3-chat-panel, #c3-agent-panel, #c3-center-view {
+  background: var(--c3-bg1) !important;
+}
+
+/* ─── Hide Welcome tab ─── */
+.theia-WelcomeView { display: none !important; }
