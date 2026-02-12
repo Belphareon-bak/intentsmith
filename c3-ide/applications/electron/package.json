@@ -68,7 +68,10 @@
     "@c3/process-isolation": "0.1.0",
     "@c3/security-audit": "0.1.0",
     "@c3/shell-security": "0.1.0",
-    "@c3/ws-security": "0.1.0"
+    "@c3/ws-security": "0.1.0",
+    "@c3-ide/c3-sidebar": "*",
+    "@c3-ide/c3-center-views": "*",
+    "@c3-ide/c3-detail-panel": "*"
   },
   "devDependencies": {
     "@theia/cli": "1.65.2",

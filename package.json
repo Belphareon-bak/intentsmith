@@ -80,6 +80,7 @@
     "better-sqlite3": "^9.0.0",
     "docx": "^9.5.1",
     "exceljs": "^4.4.0",
+    "nodemailer": "^8.0.1",
     "puppeteer": "^21.0.0"
   }
 }

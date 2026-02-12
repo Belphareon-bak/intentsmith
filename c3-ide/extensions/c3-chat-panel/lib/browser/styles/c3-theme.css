@@ -93,10 +93,26 @@ body, .theia-ApplicationShell {
 .theia-side-panel {
   background: var(--c3-bg1) !important;
 }
-/* Hide side panel title bar (our C3 brand header replaces it) */
+/* Hide side panel title bars + tab bars (C3 brand header replaces them) */
 #theia-left-side-panel > .theia-sidepanel-toolbar,
-#theia-right-side-panel > .theia-sidepanel-toolbar {
+#theia-right-side-panel > .theia-sidepanel-toolbar,
+#theia-left-side-panel > .p-TabBar,
+#theia-right-side-panel > .p-TabBar,
+#theia-bottom-content-panel > .p-TabBar {
   display: none !important;
+  height: 0 !important;
+}
+
+/* Disable drag & drop on right and bottom panels */
+#theia-right-side-panel .p-SplitPanel-handle,
+#theia-bottom-content-panel .p-SplitPanel-handle {
+  pointer-events: none !important;
+  cursor: default !important;
+}
+#theia-right-side-panel .p-TabBar-tab,
+#theia-bottom-content-panel .p-TabBar-tab {
+  -webkit-user-drag: none !important;
+  cursor: default !important;
 }
 
 /* ─── Editor Tabs ─── */
@@ -197,6 +213,16 @@ button.theia-button.main {
 /* ─── Widget sizing ─── */
 #c3-sidebar, #c3-chat-panel, #c3-agent-panel, #c3-center-view {
   background: var(--c3-bg1) !important;
+}
+
+/* ─── Sidebar collapse/expand ─── */
+#theia-left-side-panel {
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+.lm-SplitPanel-child:has(#theia-left-side-panel) {
+  transition: width 0.15s ease !important;
+  min-width: 0 !important;
 }
 
 /* ─── Hide Welcome tab ─── */
