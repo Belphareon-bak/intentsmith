@@ -113,8 +113,13 @@ export const CODE_REQUEST_PATTERNS = [
  * Check if input is a code request.
  * Returns true if the message should be classified as CODE.
  */
+// Creative writing nouns — these are NOT code requests even if they start with "write"
+const CREATIVE_WRITING_EXCLUSION = /\b(poem|poetry|story|tale|essay|letter|song|lyrics|joke|novel|chapter|paragraph|haiku|sonnet|limerick|fable|myth|narrative|báse[ňn]|příběh|pohádku?|povídku?|esej|dopis|vtip|píse[ňn]|básničku?)\b/i;
+
 export function isCodeRequest(input) {
   const trimmed = input.trim();
+  // "write a poem" / "write a story" = creative, not code
+  if (CREATIVE_WRITING_EXCLUSION.test(trimmed)) return false;
   for (const pattern of CODE_REQUEST_PATTERNS) {
     if (pattern.test(trimmed)) return true;
   }

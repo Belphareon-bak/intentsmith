@@ -29,7 +29,7 @@ import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const SRC = join(__dirname, '..');
+const SRC = join(__dirname, '..', 'src');
 
 const args = process.argv.slice(2);
 const SECTION_ONLY = args.includes('--section') ? parseInt(args[args.indexOf('--section') + 1]) : null;

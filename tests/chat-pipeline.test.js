@@ -138,8 +138,9 @@ async function testT1_IntentClassification() {
       assert.equal(engine.classifyIntent('najdi mi restauraci v Praze'), IntentType.SEARCH);
     });
 
-    it('SEARCH: "co je to GraphQL" → SEARCH', async () => {
-      assert.equal(engine.classifyIntent('co je to GraphQL'), IntentType.SEARCH);
+    // "co je to X?" = explanation from knowledge, not web search
+    it('CONVERSATIONAL: "co je to GraphQL" → CONVERSATIONAL', async () => {
+      assert.equal(engine.classifyIntent('co je to GraphQL'), IntentType.CONVERSATIONAL);
     });
 
     // ─── REPORT: synthesis queries ──────────────────────────────────────
