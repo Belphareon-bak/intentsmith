@@ -77,7 +77,7 @@ function sanitizeSearchQuery(rawInput) {
     'odpovedz', 'povedz', 'napíš', 'vysvetli', 'stručne', 'podrobne',
     'detailne', 'slovensky', 'prosím', 'v skratke', 'jednoducho',
     // German
-    'antworte', 'erkläre', 'beschreibe', 'kurz', 'ausführlich',
+    'antworte', 'erkläre', 'beschreibe', 'ausführlich',  // v62.2d: removed 'kurz' — CZ "kurz" = exchange rate
     'auf deutsch', 'auf englisch', 'bitte', 'zusammenfassung',
     'in einem satz', 'genau', 'einfach',
     // Polish

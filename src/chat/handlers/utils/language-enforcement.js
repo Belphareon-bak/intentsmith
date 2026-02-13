@@ -275,6 +275,30 @@ const SK_TO_CZ_MAP = [
   [/\bpríliš/gi, 'příliš'],
   [/\bpráve/gi, 'právě'],
   [/\bodporúča/gi, 'doporuču'],
+  // v62.2d: Additional high-frequency SK→CZ pairs (seen in fully-Slovak R3/T5 responses)
+  [/\bpre\b/gi, 'pro'],            // SK "pre" = CZ "pro" (for)
+  [/\bčo\b/gi, 'co'],              // SK "čo" = CZ "co" (what)
+  [/\bich\b/gi, 'je'],             // SK "ich" = CZ "je/jich" (their)
+  [/\buistite/gi, 'ujistěte'],     // SK "uistite" = CZ "ujistěte"
+  [/\bštandardn/gi, 'standardn'],  // SK "štandardný" = CZ "standardní"
+  [/\brozmysl/gi, 'rozmysl'],      // Same base, different conjugation
+  [/\bpodporu/gi, 'podporu'],      // Same in both, but "podporuje" is CZ too
+  [/\baspoň/gi, 'alespoň'],       // SK "aspoň" = CZ "alespoň"
+  [/\bsamozrejme/gi, 'samozřejmě'],
+  [/\bsamozrejmé/gi, 'samozřejmé'],
+  [/\bvýhodn/gi, 'výhodn'],        // Same in both
+  [/\bvýhod/gi, 'výhod'],          // Same in both
+  [/\bzahrňuj/gi, 'zahrnuj'],      // SK "zahrňuje" = CZ "zahrnuje"
+  [/\bpríprav/gi, 'příprav'],      // SK "príprava" = CZ "příprava"
+  [/\bstav[iť]/gi, (m) => m.replace('ť', 't')],  // infinitive -ť → -t
+  [/\bvyber[aá]ť/gi, 'vybírat'],
+  [/\bpostaviť/gi, 'postavit'],
+  [/\bkúpiť/gi, 'koupit'],
+  [/\bpoužív/gi, 'používa'],       // SK conjugation forms
+  [/\bspúšťa/gi, 'spouští'],
+  [/\bspouště/gi, 'spouště'],
+  [/\bspustit/gi, 'spustit'],
+  // Character-level transformations (must be LAST — catches remaining)
   [/ôž/g, 'ůž'], [/ôl/g, 'ůl'],  // môže→může pattern
   [/ľ/g, 'l'],  // Slovak ľ has no Czech equivalent — just use l
   [/ô/g, 'ů'],  // Common mapping: ô→ů

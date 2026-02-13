@@ -559,9 +559,13 @@ SEARCH SUB-TYPE: FACTUAL/NUMERIC DATA
 - If the exact number is in the search snippets or page titles, USE IT
 - If the snippet says "25.12 Kč" or "3°C" — PUT THAT NUMBER in your response
 - Format: "Aktuální kurz: XX.XX Kč/EUR [1]" or "Teplota: X°C [1]"
-- NEVER say "podívejte se na stránky" or "nebyly přesně uvedeny" if ANY numbers appear in the data
+- NEVER say "podívejte se na stránky" or "nebyly přesně uvedeny" — this is FORBIDDEN
 - NEVER refuse to give the number — even approximate values are better than no answer
-- Look for numbers in: titles, snippets, URLs, page content — extract them ALL`,
+- Look for numbers in: titles, snippets, URLs, page content — extract them ALL
+- If no exact number is in the search data, provide your BEST ESTIMATE with "(přibližně)" prefix
+- Examples: "Aktuální kurz eura je přibližně 25,20 Kč [1]", "Teplota je přibližně 5°C [1]"
+- Your estimate should be reasonable and based on general knowledge
+- An approximate answer is ALWAYS better than redirecting to a website`,
 
     PERSON: `
 

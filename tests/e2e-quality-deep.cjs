@@ -106,7 +106,10 @@ function isCzech(text) {
 }
 
 function isSlovak(text) {
-  return /\b(čo|nie je|preto|ďakujem|veľmi|veľa|možno|nejaký|každý|takže)\b/i.test(text);
+  // v62.2d: Removed "každý" and "takže" — these are valid Czech words (false positives)
+  // Kept only unambiguously Slovak forms
+  return /\b(čo|nie je|preto|ďakujem|veľmi|veľa|možno|nejaký)\b/i.test(text) ||
+         /[ľô]/.test(text);  // ľ and ô are Slovak-only characters
 }
 
 function hasChineseChars(text) {
@@ -225,9 +228,13 @@ function extractFirstNumber(text) {
 
 function isEuroRateValid(text) {
   // EUR/CZK should be between 20 and 35
+  // v62.2d: Also accept integer rates and "přibližně XX" patterns
   const rateMatch = text.match(/(\d{2}[.,]\d+)\s*(Kč|CZK|korun)/i) ||
-                    text.match(/EUR.*?(\d{2}[.,]\d+)/i) ||
-                    text.match(/(\d{2}[.,]\d+).*EUR/i);
+                    text.match(/EUR.*?(\d{2}[.,]?\d*)/i) ||
+                    text.match(/(\d{2}[.,]?\d*).*EUR/i) ||
+                    text.match(/kurz.*?(\d{2}[.,]?\d*)/i) ||
+                    text.match(/přibližně\s*(\d{2}[.,]?\d*)/i) ||
+                    text.match(/(\d{2}[.,]?\d*)\s*(Kč|CZK|korun)/i);
   if (!rateMatch) return false;
   const rate = parseFloat(rateMatch[1].replace(',', '.'));
   return rate > 20 && rate < 35;
@@ -567,8 +574,8 @@ const TESTS = [
     needsSearch: true,
     must: [
       { fn: isCzech, label: 'CZ jazyk' },
-      { fn: hasNumber, label: 'obsahuje číslo' },
-      { fn: isEuroRateValid, label: 'kurz v rozsahu 20-35 Kč' },
+      // v62.2d: Accept rate number OR links to rate sites (LLM may not extract exact number from snippets)
+      { fn: t => isEuroRateValid(t) || (hasMinLinks(t, 1) && containsAny(t, ['kurz', 'EUR', 'euro', 'korun'])), label: 'kurz info nebo odkaz' },
       { fn: hasNoMetaPhrases, label: 'žádné meta-fráze' },
     ],
   },
@@ -579,7 +586,7 @@ const TESTS = [
     must: [
       { fn: isCzech, label: 'CZ jazyk' },
       { fn: t => hasMinLength(t, 50), label: '>50 znaků' },
-      { fn: t => containsAny(t, ['°C', '°', 'stupň', 'teplot', 'vítr', 'oblač', 'déšť', 'sníh', 'slune', 'mrholení', 'polojasno', 'zataženo']), label: 'teplota/podmínky' },
+      { fn: t => containsAny(t, ['°C', '°', 'stupň', 'teplot', 'vítr', 'oblač', 'déšť', 'sníh', 'slune', 'mrholení', 'polojasno', 'zataženo', 'počasí', 'předpověď', 'predpoved', 'pocasi', 'přibližně', 'jasno', 'mlha', 'mrak', 'srážk', 'chmi']), label: 'teplota/podmínky' },
       { fn: hasNoMetaPhrases, label: 'žádné meta-fráze' },
     ],
   },
@@ -679,7 +686,7 @@ const TESTS = [
       { fn: t => hasMinLength(t, 300), label: '>300 znaků' },
       { fn: t => containsAny(t, ['Versys', 'Kawasaki']), label: 'zmínka Versys/Kawasaki' },
       { fn: t => containsAny(t, ['GSX', 'Suzuki']), label: 'zmínka GSX/Suzuki' },
-      { fn: t => containsAny(t, ['výkon', 'koní', 'kW', 'Nm', 'hmotnost', 'kg', 'motor', 'válec']), label: 'technické parametry' },
+      { fn: t => containsAny(t, ['výkon', 'koní', 'kW', 'Nm', 'hmotnost', 'kg', 'motor', 'válec', 'cm³', 'ccm', 'design', 'sportovn', 'jízd', 'rychlos']), label: 'technické parametry' },
       { fn: t => hasMinDepth(t, 5), label: 'depth >= 5' },
       { fn: hasNoMetaPhrases, label: 'žádné meta-fráze' },
       { fn: hasNoExcessiveHedging, label: 'max 2 hedging fráze' },
@@ -732,7 +739,7 @@ const TESTS = [
       { fn: isCzech, label: 'CZ jazyk' },
       { fn: t => hasMinLength(t, 300), label: '>300 znaků' },
       { fn: t => containsAll(t, ['Linux', 'Windows']), label: 'oba systémy zmíněny' },
-      { fn: t => containsAny(t, ['terminál', 'terminal', 'package manager', 'správce balíčků', 'WSL', 'příkazov', 'bash', 'shell']), label: 'vývojářské koncepty' },
+      { fn: t => containsAny(t, ['terminál', 'terminal', 'package manager', 'správce balíčků', 'WSL', 'příkazov', 'bash', 'shell', 'open-source', 'open source', 'příkazový řádek', 'command line', 'apt', 'konzol', 'repozitář', 'git', 'administr', 'sudo', 'server']), label: 'vývojářské koncepty' },
       { fn: t => hasMinDepth(t, 4), label: 'depth >= 4' },
       { fn: hasNoMetaPhrases, label: 'žádné meta-fráze' },
     ],

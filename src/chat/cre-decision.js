@@ -521,7 +521,7 @@ export const FORBIDDEN_PHRASES = [
 
 const SEARCH_PATTERNS = [
   // ── Explicit search commands (always SEARCH) ──────────────────────────
-  /najdi/i, /hledej/i, /vyhledej/i, /search/i, /find/i,
+  /najdi/i, /hledej/i, /hled[áa]m/i, /vyhledej/i, /search/i, /find/i,
 
   // ── "co je" / "what is" ONLY with fresh-data modifier ─────────────────
   /co je .{0,15}\b(aktuáln|současn|dnes|teď|nyn|cena|kurz|verze|stav|nového?|nových)\b/i,
@@ -1168,6 +1168,8 @@ const ITEM_LOOKUP_PATTERNS = [
   /seznam\s*\d+/i,                          // "seznam 10 aut"
   /top\s*\d+/i,                             // "top 5 nabídek"
   /\d+\s*nejlep/i,                          // "5 nejlepších"
+  // v62.2d: "hledám pronájem/byt/auto" — item lookup without explicit count
+  /hled[áa]m\s.{0,20}(pron[áa]jem|byt[ůuy]?|auto|dum|dům|nemovit|pr[áa]c[ie]|nab[ií]dk)/i,
   /\d+\s*nejlevn/i,                         // "3 nejlevnější"
   // English patterns
   /\d+\s*(listing|product|item|car|apartment|house|offer)/i,
