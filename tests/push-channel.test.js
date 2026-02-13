@@ -109,12 +109,12 @@ const originalFetch = globalThis.fetch;
 {
   let capturedUrl = '';
   let capturedHeaders = {};
-  let capturedBody = '';
+  let capturedBody = null;
 
   globalThis.fetch = async (url, opts) => {
     capturedUrl = url;
     capturedHeaders = opts.headers;
-    capturedBody = opts.body;
+    capturedBody = JSON.parse(opts.body);
     return {
       ok: true,
       json: async () => ({ id: 'ntfy-msg-42' }),
@@ -135,12 +135,13 @@ const originalFetch = globalThis.fetch;
 
   assert(result.delivered === true, 'send() succeeds with mock');
   assert(result.messageId === 'ntfy-msg-42', 'Returns message ID');
-  assert(capturedUrl.includes('/test-topic'), 'Sends to correct topic URL');
-  assert(capturedHeaders['Title'] === 'Alert Title', 'Title header set');
-  assert(capturedHeaders['Priority'] === '4', 'High priority maps to 4');
-  assert(capturedHeaders['Tags'] === 'warning', 'High priority tag is warning');
+  // JSON body format: topic, title, message, priority, tags are in body (not URL/headers)
+  assert(capturedBody.topic === 'test-topic', 'Sends to correct topic via JSON body');
+  assert(capturedBody.title === 'Alert Title', 'Title in JSON body');
+  assert(capturedBody.priority === 4, 'High priority maps to 4');
+  assert(capturedBody.tags.includes('warning'), 'High priority tag is warning');
   assert(!capturedHeaders['Authorization'], 'No auth header without token');
-  assert(capturedBody === 'Alert body text', 'Body sent as plaintext');
+  assert(capturedBody.message === 'Alert body text', 'Body in JSON message field');
 
   // Restore
   globalThis.fetch = originalFetch;
@@ -152,8 +153,9 @@ const originalFetch = globalThis.fetch;
 
 // 1.5 send() with recipient overrides default topic
 {
-  globalThis.fetch = async (url) => {
-    assert(url.includes('/custom-topic'), 'Recipient overrides default topic');
+  let capturedBody5 = null;
+  globalThis.fetch = async (url, opts) => {
+    capturedBody5 = JSON.parse(opts.body);
     return { ok: true, json: async () => ({ id: 'x' }) };
   };
 
@@ -168,6 +170,8 @@ const originalFetch = globalThis.fetch;
     priority: 'normal',
     agentId: 'test',
   });
+
+  assert(capturedBody5.topic === 'custom-topic', 'Recipient overrides default topic');
 
   globalThis.fetch = originalFetch;
   if (saved.C3_NTFY_TOPIC) process.env.C3_NTFY_TOPIC = saved.C3_NTFY_TOPIC;
@@ -239,11 +243,12 @@ const originalFetch = globalThis.fetch;
   else delete process.env.C3_NTFY_TOPIC;
 }
 
-// 1.9 Priority mapping
+// 1.9 Priority mapping (JSON body format)
 {
   const results = {};
   globalThis.fetch = async (url, opts) => {
-    results[opts.headers['Priority']] = opts.headers['Tags'];
+    const body = JSON.parse(opts.body);
+    results[body.priority] = body.tags;
     return { ok: true, json: async () => ({ id: 'z' }) };
   };
 
@@ -255,10 +260,10 @@ const originalFetch = globalThis.fetch;
     await ch.send({ title: 'T', body: 'B', priority: p, agentId: 'a' });
   }
 
-  assert(results['2'] === 'information_source', 'low → priority 2, tag information_source');
-  assert(results['3'] === 'robot', 'normal → priority 3, tag robot');
-  assert(results['4'] === 'warning', 'high → priority 4, tag warning');
-  assert(results['5'] === 'rotating_light', 'critical → priority 5, tag rotating_light');
+  assert(results[2]?.includes('information_source'), 'low → priority 2, tag information_source');
+  assert(results[3]?.includes('robot'), 'normal → priority 3, tag robot');
+  assert(results[4]?.includes('warning'), 'high → priority 4, tag warning');
+  assert(results[5]?.includes('rotating_light'), 'critical → priority 5, tag rotating_light');
 
   globalThis.fetch = originalFetch;
   if (saved.C3_NTFY_TOPIC) process.env.C3_NTFY_TOPIC = saved.C3_NTFY_TOPIC;

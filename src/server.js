@@ -185,6 +185,22 @@ if (AgentRepository) {
 
 const MAX_BODY_SIZE = 1 * 1024 * 1024; // 1MB
 
+// H1: Error sanitization — never leak internal error details to clients
+function safeError(err) {
+  const id = `E-${Date.now().toString(36)}`;
+  logger.error('Server', `[${id}] ${err.message}`, { stack: err.stack });
+  const payload = { error: 'Internal server error', errorId: id };
+  if (config.log?.level === 'debug') payload.detail = err.message;
+  return payload;
+}
+
+// H7: Safe parseInt — returns parsed number or throws for invalid input
+function safeParseInt(val, name = 'id') {
+  const n = parseInt(val, 10);
+  if (isNaN(n)) throw Object.assign(new Error(`Invalid ${name}: ${val}`), { statusCode: 400 });
+  return n;
+}
+
 async function parseBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
@@ -199,10 +215,11 @@ async function parseBody(req) {
       body += chunk;
     });
     req.on('end', () => {
+      if (!body) return resolve({});
       try {
-        resolve(body ? JSON.parse(body) : {});
+        resolve(JSON.parse(body));
       } catch {
-        resolve({ raw: body });
+        reject(new Error('Invalid JSON in request body'));
       }
     });
     req.on('error', reject);
@@ -217,9 +234,18 @@ function getCorsOrigin(req) {
   return null; // blocked
 }
 
+// H2: Security headers — applied to all responses
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'SAMEORIGIN',
+  'X-XSS-Protection': '1; mode=block',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' ws: wss:",
+};
+
 function sendJSON(res, status, data, req = null) {
   const corsOrigin = getCorsOrigin(req);
-  const headers = { 'Content-Type': 'application/json' };
+  const headers = { 'Content-Type': 'application/json', ...SECURITY_HEADERS };
   if (corsOrigin) headers['Access-Control-Allow-Origin'] = corsOrigin;
   res.writeHead(status, headers);
   res.end(JSON.stringify(data));
@@ -227,7 +253,7 @@ function sendJSON(res, status, data, req = null) {
 
 function sendHTML(res, html, req = null) {
   const corsOrigin = getCorsOrigin(req);
-  const headers = { 'Content-Type': 'text/html; charset=utf-8' };
+  const headers = { 'Content-Type': 'text/html; charset=utf-8', ...SECURITY_HEADERS };
   if (corsOrigin) headers['Access-Control-Allow-Origin'] = corsOrigin;
   res.writeHead(200, headers);
   res.end(html);
@@ -246,21 +272,32 @@ function createMockResponse(res) {
 async function sendStaticFile(res, filepath, contentType) {
   try {
     const fsPromises = await import('fs/promises');
-    
-    // Try multiple paths: relative to server.js, then relative to cwd
+
+    // H5: Path traversal guard — all candidate paths must resolve within allowed base dirs
+    const baseDirs = [
+      path.resolve(__dirname, '..'),   // project root
+      path.resolve(process.cwd()),     // cwd
+    ];
+
     const pathsToTry = [
       path.join(__dirname, '..', filepath),           // From src/../filepath
       path.join(__dirname, filepath.replace(/^src\//, '')),  // From src/filepath without src prefix
       path.join(process.cwd(), filepath)              // From cwd/filepath
     ];
-    
+
     for (const fullPath of pathsToTry) {
+      const resolved = path.resolve(fullPath);
+      if (!baseDirs.some(base => resolved.startsWith(base + path.sep) || resolved === base)) {
+        logger.warn('Server', `Path traversal blocked: ${filepath} → ${resolved}`);
+        continue;
+      }
       try {
         const content = await fsPromises.readFile(fullPath, 'utf-8');
         res.writeHead(200, {
           'Content-Type': contentType + '; charset=utf-8',
           'Access-Control-Allow-Origin': res._corsOrigin || '*',
           'Cache-Control': 'no-cache',
+          ...SECURITY_HEADERS,
         });
         res.end(content);
         return;
@@ -297,6 +334,41 @@ async function getArchitectUIHTML() {
 </html>`;
   }
 }
+
+// H3: Architect sessions with TTL — prevents unbounded memory growth
+const ARCHITECT_SESSION_TTL = 4 * 60 * 60 * 1000; // 4 hours
+const ARCHITECT_MAX_SESSIONS = 20;
+const architectSessions = new Map(); // key → { orchestrator, lastAccess }
+
+function getArchitectSession(key) {
+  const entry = architectSessions.get(key);
+  if (entry) entry.lastAccess = Date.now();
+  return entry?.orchestrator || null;
+}
+
+function setArchitectSession(key, orchestrator) {
+  // Evict oldest if at capacity
+  if (architectSessions.size >= ARCHITECT_MAX_SESSIONS && !architectSessions.has(key)) {
+    let oldest = null, oldestKey = null;
+    for (const [k, v] of architectSessions) {
+      if (!oldest || v.lastAccess < oldest) { oldest = v.lastAccess; oldestKey = k; }
+    }
+    if (oldestKey) architectSessions.delete(oldestKey);
+  }
+  architectSessions.set(key, { orchestrator, lastAccess: Date.now() });
+}
+
+// Cleanup stale sessions every 30 minutes
+const architectCleanupInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of architectSessions) {
+    if (now - entry.lastAccess > ARCHITECT_SESSION_TTL) {
+      architectSessions.delete(key);
+      logger.debug('Server', `Evicted stale architect session: ${key}`);
+    }
+  }
+}, 30 * 60 * 1000);
+architectCleanupInterval.unref(); // Don't prevent process exit
 
 // ════════════════════════════════════════════════════════════════════════════
 // API ROUTES
@@ -399,26 +471,49 @@ const routes = {
   },
   
   // ══════════════════════════════════════════════════════════════════════════
-  // MEMORY API
+  // GLOBAL MEMORY API (H6: canonical path is /api/global-memory, /memory kept for backward compat)
   // ══════════════════════════════════════════════════════════════════════════
-  
+
+  'GET /api/global-memory': (req, res) => {
+    const memories = db.globalMemory.listAll.all();
+    sendJSON(res, 200, { memories });
+  },
+
+  'POST /api/global-memory': async (req, res) => {
+    const body = await parseBody(req);
+    const { key, value, category } = body;
+
+    if (!key || value === undefined) {
+      return sendJSON(res, 400, { error: 'key and value are required' });
+    }
+
+    db.globalMemory.setValue(key, value, category || 'general');
+    sendJSON(res, 200, { success: true, key });
+  },
+
+  'DELETE /api/global-memory/:key': (req, res, params) => {
+    db.globalMemory.delete.run(params.key);
+    sendJSON(res, 200, { success: true, deleted: params.key });
+  },
+
+  // Deprecated: use /api/global-memory instead
   'GET /memory': (req, res) => {
     const memories = db.globalMemory.listAll.all();
     sendJSON(res, 200, { memories });
   },
-  
+
   'POST /memory': async (req, res) => {
     const body = await parseBody(req);
     const { key, value, category } = body;
-    
+
     if (!key || value === undefined) {
       return sendJSON(res, 400, { error: 'key and value are required' });
     }
-    
+
     db.globalMemory.setValue(key, value, category || 'general');
     sendJSON(res, 200, { success: true, key });
   },
-  
+
   'DELETE /memory/:key': (req, res, params) => {
     db.globalMemory.delete.run(params.key);
     sendJSON(res, 200, { success: true, deleted: params.key });
@@ -480,7 +575,7 @@ const routes = {
 
     } catch (err) {
       logger.error('Server', `Chat error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -521,7 +616,7 @@ const routes = {
       });
     } catch (err) {
       logger.error('Server', `Export error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -543,7 +638,7 @@ const routes = {
       sendJSON(res, 200, result);
     } catch (err) {
       logger.error('Server', `Planner start error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -561,7 +656,7 @@ const routes = {
       sendJSON(res, 200, result);
     } catch (err) {
       logger.error('Server', `Planner clarify error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -579,7 +674,7 @@ const routes = {
       sendJSON(res, 200, result);
     } catch (err) {
       logger.error('Server', `Planner approve error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -597,7 +692,7 @@ const routes = {
       sendJSON(res, 200, result);
     } catch (err) {
       logger.error('Server', `Planner reject error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -626,7 +721,7 @@ const routes = {
         updatedAt: session.updatedAt,
       });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -639,7 +734,7 @@ const routes = {
       const sessions = workflowOrchestrator.listSessions({ activeOnly });
       sendJSON(res, 200, { sessions });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -671,7 +766,7 @@ const routes = {
         sendJSON(res, result.status, result.data);
       }
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -705,14 +800,14 @@ const routes = {
         sessions: dashboard,
       });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
   // Phase C: Project-scoped sessions
   'GET /planner/project/:projectId/sessions': async (req, res, params) => {
     try {
-      const projectId = parseInt(params.projectId);
+      const projectId = safeParseInt(params.projectId, 'projectId');
       if (isNaN(projectId)) {
         return sendJSON(res, 400, { error: 'Invalid projectId' });
       }
@@ -726,7 +821,7 @@ const routes = {
 
       sendJSON(res, 200, { projectId, sessions: projectSessions });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -754,7 +849,7 @@ const routes = {
       sendJSON(res, result.success ? 200 : 404, result);
     } catch (err) {
       logger.error('Server', `Planner resume error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -774,9 +869,7 @@ const routes = {
       const { createArchitect } = await import('./architect/index.js');
       const orchestrator = await createArchitect(projectRoot, projectName);
       
-      // Store orchestrator for this project (simplified - in production use proper session management)
-      global.architectSessions = global.architectSessions || {};
-      global.architectSessions[projectRoot] = orchestrator;
+      setArchitectSession(projectRoot, orchestrator);
       
       sendJSON(res, 200, {
         success: true,
@@ -785,7 +878,7 @@ const routes = {
       });
     } catch (err) {
       logger.error('Server', `Architect init error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -798,15 +891,14 @@ const routes = {
     }
     
     try {
-      global.architectSessions = global.architectSessions || {};
-      let orchestrator = global.architectSessions[projectRoot];
-      
+      let orchestrator = getArchitectSession(projectRoot);
+
       if (!orchestrator) {
         // Try to load existing project
         const { ConversationOrchestrator } = await import('./architect/index.js');
         orchestrator = new ConversationOrchestrator(projectRoot);
         await orchestrator.init('unknown'); // Will load existing state
-        global.architectSessions[projectRoot] = orchestrator;
+        setArchitectSession(projectRoot, orchestrator);
       }
       
       const result = await orchestrator.process(message, attachments || []);
@@ -817,7 +909,7 @@ const routes = {
       });
     } catch (err) {
       logger.error('Server', `Architect message error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -825,30 +917,28 @@ const routes = {
     const projectRoot = decodeURIComponent(params.projectRoot);
     
     try {
-      global.architectSessions = global.architectSessions || {};
-      const orchestrator = global.architectSessions[projectRoot];
-      
+      const orchestrator = getArchitectSession(projectRoot);
+
       if (!orchestrator) {
         return sendJSON(res, 404, { error: 'Project not loaded' });
       }
-      
+
       sendJSON(res, 200, orchestrator.getSessionInfo());
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
-  
+
   'POST /architect/action': async (req, res) => {
     const body = await parseBody(req);
     const { projectRoot, action } = body;
-    
+
     if (!projectRoot || !action) {
       return sendJSON(res, 400, { error: 'projectRoot and action are required' });
     }
-    
+
     try {
-      global.architectSessions = global.architectSessions || {};
-      const orchestrator = global.architectSessions[projectRoot];
+      const orchestrator = getArchitectSession(projectRoot);
       
       if (!orchestrator) {
         return sendJSON(res, 404, { error: 'Project not loaded' });
@@ -862,7 +952,7 @@ const routes = {
       });
     } catch (err) {
       logger.error('Server', `Architect action error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -979,7 +1069,7 @@ const routes = {
       const result = await agentRunner.dryRun(body.definition);
       sendJSON(res, 200, result);
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -1021,14 +1111,22 @@ const routes = {
   
   'POST /api/memory': async (req, res) => {
     const body = await parseBody(req);
+    // H6: Validate memory payload — max 100KB, must be array or object
+    const json = JSON.stringify(body);
+    if (json.length > 100 * 1024) {
+      return sendJSON(res, 400, { error: 'Memory payload too large (max 100KB)' });
+    }
+    if (typeof body !== 'object' || body === null) {
+      return sendJSON(res, 400, { error: 'Memory payload must be a JSON object or array' });
+    }
     try {
       db.db.prepare(`
         INSERT OR REPLACE INTO user_memory (id, data, updated_at)
         VALUES (1, ?, datetime('now'))
-      `).run(JSON.stringify(body));
+      `).run(json);
       sendJSON(res, 200, { success: true });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -1073,7 +1171,7 @@ const routes = {
       const projects = db.projects.listRecent.all(limit);
       sendJSON(res, 200, { projects });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -1103,13 +1201,13 @@ const routes = {
       
       sendJSON(res, 201, { project });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
   'GET /api/projects/:id': async (req, res, params) => {
     try {
-      const project = db.projects.findById.get(parseInt(params.id));
+      const project = db.projects.findById.get(safeParseInt(params.id));
       
       if (!project) {
         return sendJSON(res, 404, { error: 'Project not found' });
@@ -1117,7 +1215,7 @@ const routes = {
       
       sendJSON(res, 200, { project });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -1126,10 +1224,10 @@ const routes = {
     const limit = parseInt(url.searchParams.get('limit')) || 10;
 
     try {
-      const conversations = db.conversations.listRecentByProject.all(parseInt(params.id), limit);
+      const conversations = db.conversations.listRecentByProject.all(safeParseInt(params.id), limit);
       sendJSON(res, 200, { conversations });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -1261,23 +1359,23 @@ const routes = {
 
     } catch (err) {
       logger.error('Server', `Open folder error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
   'DELETE /api/projects/:id': async (req, res, params) => {
     try {
-      const project = db.projects.findById.get(parseInt(params.id));
+      const project = db.projects.findById.get(safeParseInt(params.id));
       if (!project) {
         return sendJSON(res, 404, { error: 'Project not found' });
       }
 
       // Delete project from DB (cascades to conversations, etc.)
-      db.projects.delete.run(parseInt(params.id));
+      db.projects.delete.run(safeParseInt(params.id));
 
       sendJSON(res, 200, { success: true, deleted: params.id });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -1290,7 +1388,7 @@ const routes = {
       const conversations = db.conversations.listRecent.all(limit);
       sendJSON(res, 200, { conversations });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -1304,7 +1402,7 @@ const routes = {
       
       sendJSON(res, 201, { conversation });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -1318,7 +1416,7 @@ const routes = {
       
       sendJSON(res, 200, { conversation });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -1327,7 +1425,7 @@ const routes = {
       const messages = db.messages.listByConversation.all(params.id);
       sendJSON(res, 200, { messages });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -1343,7 +1441,7 @@ const routes = {
       
       sendJSON(res, 200, { success: true });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -1383,7 +1481,7 @@ const routes = {
 
     } catch (err) {
       logger.error('Server', `Chat error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -1397,7 +1495,7 @@ const routes = {
       const draft = db.drafts.get(conversationId, projectId ? parseInt(projectId) : null);
       sendJSON(res, 200, { draft });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -1413,7 +1511,7 @@ const routes = {
       db.drafts.save(content, conversation_id, project_id ? parseInt(project_id) : null);
       sendJSON(res, 200, { success: true });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -1425,7 +1523,7 @@ const routes = {
       db.drafts.clear(conversation_id, project_id ? parseInt(project_id) : null);
       sendJSON(res, 200, { success: true });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -1452,14 +1550,14 @@ const routes = {
       db.conversations.assignToProject.run(project_id, params.id);
       sendJSON(res, 200, { success: true });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
   // Project roadmap
   'GET /api/projects/:id/roadmap': async (req, res, params) => {
     try {
-      const project = db.projects.findById.get(parseInt(params.id));
+      const project = db.projects.findById.get(safeParseInt(params.id));
       
       if (!project) {
         return sendJSON(res, 404, { error: 'Project not found' });
@@ -1479,7 +1577,7 @@ const routes = {
         sendJSON(res, 200, { roadmap: null });
       }
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -1546,7 +1644,7 @@ const routes = {
       // Determine storage path
       let attachmentsDir;
       if (projectId) {
-        const project = db.projects.findById.get(parseInt(projectId));
+        const project = db.projects.findById.get(safeParseInt(projectId, 'projectId'));
         if (project) {
           attachmentsDir = path.join(project.path, 'attachments');
         }
@@ -1592,7 +1690,7 @@ const routes = {
       
     } catch (err) {
       logger.error('Server', `Attachment upload error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -1656,7 +1754,7 @@ const routes = {
       
     } catch (err) {
       logger.error('Server', `Artifact download error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -1665,7 +1763,7 @@ const routes = {
     try {
       const fs = await import('fs/promises');
       
-      const attachment = db.attachments.findById.get(parseInt(params.id));
+      const attachment = db.attachments.findById.get(safeParseInt(params.id));
       
       if (!attachment) {
         return sendJSON(res, 404, { error: 'Attachment not found' });
@@ -1685,7 +1783,7 @@ const routes = {
       res.end(data);
       
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -1724,7 +1822,7 @@ const routes = {
       
       sendJSON(res, 200, { success: true });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
   
@@ -1776,7 +1874,7 @@ const routes = {
       db.db.exec('DELETE FROM user_settings');
       sendJSON(res, 200, { success: true, message: 'Settings cleared' });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -1836,7 +1934,7 @@ const routes = {
 
       sendJSON(res, 200, { experts, categories });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -1853,7 +1951,7 @@ const routes = {
 
       sendJSON(res, 200, expert.toJSON());
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -1898,7 +1996,7 @@ const routes = {
 
       sendJSON(res, 201, expert.toJSON());
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -1932,7 +2030,7 @@ const routes = {
 
       sendJSON(res, 200, expert.toJSON());
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -1953,7 +2051,7 @@ const routes = {
 
       sendJSON(res, 200, { success: true });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -1973,7 +2071,7 @@ const routes = {
         reason: result.reason
       });
     } catch (err) {
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -2006,7 +2104,7 @@ const routes = {
       });
     } catch (err) {
       logger.error('Server', `Lifecycle start error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -2027,7 +2125,7 @@ const routes = {
       sendJSON(res, 200, { lifecycleId, phase: lifecycle.phase, ...result });
     } catch (err) {
       logger.error('Server', `Lifecycle spec/answer error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -2051,7 +2149,7 @@ const routes = {
       sendJSON(res, 200, { lifecycleId, phase: lifecycle.phase, ...roadmapResult });
     } catch (err) {
       logger.error('Server', `Lifecycle spec/approve error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -2072,7 +2170,7 @@ const routes = {
       sendJSON(res, 200, { lifecycleId, phase: lifecycle.phase, ...result });
     } catch (err) {
       logger.error('Server', `Lifecycle roadmap/approve error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -2093,7 +2191,7 @@ const routes = {
       sendJSON(res, 200, { lifecycleId, milestoneId, ...result });
     } catch (err) {
       logger.error('Server', `Lifecycle milestone/approve error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -2114,7 +2212,7 @@ const routes = {
       sendJSON(res, 200, { lifecycleId, ...result });
     } catch (err) {
       logger.error('Server', `Lifecycle milestone/next error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -2135,7 +2233,7 @@ const routes = {
       sendJSON(res, 200, { lifecycleId, milestoneId, ...result });
     } catch (err) {
       logger.error('Server', `Lifecycle milestone/blocked error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -2161,7 +2259,7 @@ const routes = {
       sendJSON(res, 200, { lifecycleId, phase: lifecycle.phase });
     } catch (err) {
       logger.error('Server', `Lifecycle review/acknowledge error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -2182,7 +2280,7 @@ const routes = {
       sendJSON(res, 200, { lifecycleId, ...result });
     } catch (err) {
       logger.error('Server', `Lifecycle change/propose error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -2203,7 +2301,7 @@ const routes = {
       sendJSON(res, 200, { lifecycleId, ...result });
     } catch (err) {
       logger.error('Server', `Lifecycle change/approve error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -2221,7 +2319,7 @@ const routes = {
       sendJSON(res, 200, result);
     } catch (err) {
       logger.error('Server', `Lifecycle change/reject error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -2255,7 +2353,7 @@ const routes = {
       });
     } catch (err) {
       logger.error('Server', `Lifecycle status error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 
@@ -2282,7 +2380,7 @@ const routes = {
       });
     } catch (err) {
       logger.error('Server', `Lifecycle resume error: ${err.message}`);
-      sendJSON(res, 500, { error: err.message });
+      sendJSON(res, 500, safeError(err));
     }
   },
 };
@@ -2496,7 +2594,7 @@ const server = http.createServer(async (req, res) => {
   // Rate limiting
   const clientIp = req.socket.remoteAddress || 'unknown';
   if (!checkRateLimit(clientIp)) {
-    res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' });
+    res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60', ...SECURITY_HEADERS });
     return res.end(JSON.stringify({ error: 'Too many requests' }));
   }
 
@@ -2520,10 +2618,16 @@ const server = http.createServer(async (req, res) => {
     await route.handler(req, res, route.params);
   } catch (err) {
     if (err.message === 'Request body too large (max 1MB)') {
-      return sendJSON(res, 413, { error: err.message });
+      return sendJSON(res, 413, { error: 'Request body too large (max 1MB)' });
+    }
+    if (err.message === 'Invalid JSON in request body') {
+      return sendJSON(res, 400, { error: 'Invalid JSON in request body' });
+    }
+    if (err.statusCode) {
+      return sendJSON(res, err.statusCode, { error: err.message });
     }
     logger.error('Server', `Handler error: ${err.message}`);
-    sendJSON(res, 500, { error: err.message });
+    sendJSON(res, 500, safeError(err));
   }
 });
 
