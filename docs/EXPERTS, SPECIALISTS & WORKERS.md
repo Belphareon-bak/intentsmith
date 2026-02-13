@@ -1,14 +1,14 @@
 # C.3 Agent Platform — Kompletni Overview Subsystemu
 
-**Verze:** v63 (2026-02-13)
-**Celkem souboru:** 61 (41 src + 20 testu)
-**Celkem radku kodu:** ~24 500
+**Verze:** v63.1 (2026-02-13)
+**Celkem souboru:** 76 (48 src + 7 test suites + 10 IDE extensions + 11 wizard/CSS)
+**Celkem radku kodu:** ~30 200
 
 ---
 
 ## Obsah
 
-**Experti & Specialiste (Faze D — 30%)**
+**Experti & Specialiste (Faze D — 65%)**
 
 1. [Subsystem 1: Expert Layer (registrace, routing, sila, presety)](#subsystem-1-expert-layer)
 2. [Subsystem 2: Accountant Specialist (ucelni — deterministicke nastroje)](#subsystem-2-accountant-specialist)
@@ -45,9 +45,13 @@ Expert Layer je jadro celeho specialistickeho systemu. Definuje **15 vestavenych
 | Domain-specific synthesis prompty | HOTOVO | v57.1 A7 |
 | Custom expert CRUD (API) | HOTOVO | 6 HTTP endpointu |
 | Expert UI (HTML stranka) | HOTOVO | experts.html (889 radku) |
+| **Merge Engine v2** | **HOTOVO** | v63.0 — az 3 expertisy soucasne, 5D kompatibilita, moduly |
+| **Capability Runtime Layer** | **HOTOVO** | v63.1 — 5D vektor → runtime modifikatory (teplota, delka, instrukce) |
+| **Expert Sandbox** | **HOTOVO** | v63.1 — offline simulace, baseline drift detekce |
+| **Expertise Wizard UI** | **HOTOVO** | v63.1 — 5 modularnich komponent, live preview, LLM test |
+| **Capability Normalization** | **HOTOVO** | v63.1 — soft warnings (sum > 350, kontradikce) |
 | **Specialist Runtime** | **CHYBI** | Dlouhodobe behy, rutiny |
 | **Knowledge Base integrace** | **CHYBI** | Propojeni s domenovymi DB |
-| **Merge Engine v2** | **HOTOVO** | v63.0 — az 3 expertisy soucasne, 5D kompatibilita, moduly |
 
 ## Architektura
 
@@ -89,17 +93,22 @@ Synthesis s expertHints (styl, hloubka, slovnik, opatrnost)
 
 | Soubor | Radku | Ucel |
 |--------|-------|------|
-| `src/experts/expert-layer.js` | ~1 720 | Definice expertu + modules/capabilities, ExpertAgent, registry, routing, resolveInheritance |
-| `src/experts/expert-store.js` | ~800 | DB persistence — CRUD, vazby, pamet, multi-expertise metody |
-| `src/experts/merge-types.js` | ~175 | **v63.0** Konstanty, CompatibilityBlockError, token utility |
-| `src/experts/merge-compatibility.js` | ~190 | **v63.0** 5D pairwise conflict detection |
-| `src/experts/merge-engine.js` | ~420 | **v63.0** mergeExpertisePrompt() — 15-krokovy cisti funkce |
+| `src/experts/expert-layer.js` | 1 760 | Definice expertu + modules/capabilities, ExpertAgent, registry, routing, resolveInheritance |
+| `src/experts/expert-store.js` | 917 | DB persistence — CRUD, vazby, pamet, multi-expertise metody, validace modules/capabilities/inheritance |
+| `src/experts/merge-types.js` | 195 | **v63.0** Konstanty, CompatibilityBlockError, token utility |
+| `src/experts/merge-compatibility.js` | 189 | **v63.0** 5D pairwise conflict detection |
+| `src/experts/merge-engine.js` | 568 | **v63.1** mergeExpertisePrompt() — 15.5-krokovy cisty algoritmus + capability integrace |
+| `src/experts/capability-mapping.js` | 267 | **v63.1** 5D vektor → runtime modifikatory (teplota, instrukce, minResponseLength) |
+| `src/experts/expert-sandbox.js` | 299 | **v63.1** Offline simulace, multi-simulace, baseline drift comparison |
 | `src/experts/experts.html` | 889 | Web UI pro spravu expertu |
-| `src/chat/handlers/expert.js` | ~635 | Expert handler — routing, merge flow, tool intercepce, enforcement |
-| `tests/expert-system.test.js` | 587 | Unit testy — CRUD, validace, vazby, enforcement |
-| `tests/expert-integration.test.js` | 300 | Integracni testy — DB, lifecycle |
-| `tests/merge-engine.test.js` | ~330 | **v63.0** 30 testu — merge, pure function, temperature, trimming |
-| `tests/merge-compatibility.test.js` | ~250 | **v63.0** 16 testu — 5D kompatibilita, built-in assertions |
+| `src/chat/handlers/expert.js` | 655 | Expert handler — routing, merge flow, tool intercepce, enforcement, disclaimer dedup |
+| `tests/expert-system.test.js` | 587 | Unit testy — CRUD, validace, vazby, enforcement (40 testu) |
+| `tests/expert-integration.test.js` | 300 | Integracni testy — DB, lifecycle (10 testu) |
+| `tests/merge-engine.test.js` | 476 | **v63.1** 34 testu — merge, pure function, temperature, trimming, comutativita |
+| `tests/merge-compatibility.test.js` | 224 | **v63.0** 16 testu — 5D kompatibilita, built-in assertions |
+| `tests/merge-enforcement-integration.test.js` | 288 | **v63.0** 15 testu — merge→enforcement integrace (🔴3) |
+| `tests/capability-sandbox.test.js` | 462 | **v63.1** 35 testu — capability modifikatory, normalizace, sandbox, baseline |
+| `tests/expertise-wizard.test.js` | 436 | **v63.1** 38 testu — validace modules, capabilities, inheritance, full config |
 
 ## Vestaven experti (15)
 
@@ -163,9 +172,11 @@ Kvantizovana sila — uzivatel nevi rozlisit 63% od 65%, proto 5 pevnych urovni:
 | BALANCED | 31-60% | 0.6 | default | 0.8 | 0.7 |
 | DEEP | 61-100% | 1.0 | deep | 1.0 | 1.0 |
 
-## Merge Engine v2 (v63.0)
+## Merge Engine v2 (v63.0 → v63.1)
 
 Multi-expertise system — az 3 expertisy soucasne v jedne konverzaci s inteligentnim slucovanim promptu.
+
+**v63.1 rozsireni:** Capability vektory nyni realne ovlivnuji runtime chovani (teplota, instrukce, minResponseLength). Merge je komutativni: `merge(A,B) == merge(B,A)` pri ruznych vahach.
 
 ### Architektura
 
@@ -176,7 +187,7 @@ context.activeExpertises = [
 ]
     |
     v
-mergeExpertisePrompt() ── 15-krokovy CISTY algoritmus (no side effects)
+mergeExpertisePrompt() ── 15.5-krokovy CISTY algoritmus (no side effects)
     |
     +── 1. Validate count (max 3)
     +── 2. checkCompatibility() ── 5D vektory, HARD_BLOCK/SOFT_BLOCK/WARNING/OK
@@ -191,24 +202,44 @@ mergeExpertisePrompt() ── 15-krokovy CISTY algoritmus (no side effects)
     +── 11. buildStructuredPrompt() ── sekce: Pravidla, Duraz, Omezeni, Slovnik, Antipatterns
     +── 12. Append user context
     +── 13. mergeEnforcement() ── forbiddenPhrases=UNION, minResponseLength=MAX
-    +── 14. buildAuditLog()
+    +── 13.5. computeCapabilityModifiers() + applyCapabilityModifiers() ── v63.1
+    +── 14. buildAuditLog() ── vcetne capabilityModifiers
     +── 15. Object.freeze(result)
     |
     v
 Frozen { prompt, metadata, enforcement, audit }
 ```
 
+### Precedence Rules (v63.1)
+
+| Konflikt | Resoluce |
+|----------|----------|
+| specialist_override vs capability_bias | specialist_override WINS (absolutni precedence) |
+| weight tie (A=0.5, B=0.5) | position je tie-breaker (nizsi = vyssi priorita) |
+| inheritance extend vs replace | per-section, child rozhoduje |
+| enforcement forbiddenPhrases | UNION (vsechny z obou expertiz) |
+| enforcement minResponseLength | MAX + capability modifier |
+| disclaimers | UNION + dedup (case-insensitive) |
+| tone conflict | highest weight wins |
+| temperature conflict | dominance (>0.6) nebo weighted avg |
+
 ### 5D Capability Vektory
 
-Kazdy expert ma 5-dimenzionalni vektor pro detekci konfliktu:
+Kazdy expert ma 5-dimenzionalni vektor. Od v63.1 vektor aktivne ovlivnuje runtime chovani (ne jen detekci konfliktu).
 
-| Dimenze | Popis | Priklad konfliktu |
-|---------|-------|-------------------|
-| reasoning | Analyticky vs intuitivni | — |
-| creativity | Kreativni vs konzervativni | creativity >70 vs determinism >70 |
-| determinism | Deterministicky vs volny | viz creativity |
-| riskTolerance | Rizikovost | gap >60 = conflict |
-| verbosity | Usecny vs upovidany | gap >50 = conflict |
+| Dimenze | Popis | Runtime efekt (v63.1) |
+|---------|-------|-----------------------|
+| reasoning | Analyticky vs intuitivni | HIGH (>70): instrukce pro hlubsi analyzu |
+| creativity | Kreativni vs konzervativni | HIGH: temp bias +0.1, instrukce pro originalitu |
+| determinism | Deterministicky vs volny | HIGH: temp bias -0.2, instrukce pro presnost |
+| riskTolerance | Rizikovost | LOW (<30): minResponseLength +50, detailni instrukce |
+| verbosity | Usecny vs upovidany | HIGH: instrukce pro detailni odpovedi |
+
+**Thresholds:** LOW = 0-30, MEDIUM = 31-70, HIGH = 71-100
+
+**Specialist override:** Pokud je teplota nastavena specialist override, capability bias se NEAPLIKUJE.
+
+#### Compatibility Severity
 
 | Severity | Pravidlo | Vysledek |
 |----------|---------|---------|
@@ -218,6 +249,13 @@ Kazdy expert ma 5-dimenzionalni vektor pro detekci konfliktu:
 | OK | else | Bez problemu |
 
 Priklad: `writer` (creativity=90) + `accountant` (determinism=95) → gap=85 → **HARD_BLOCK**
+
+#### Capability Normalization (v63.1)
+
+Soft warnings (neblokuji, jen informuji):
+- **Sum > 350:** "Suma capabilities je vysoka, expert bude prilis specializovany"
+- **Kontradikce:** creativity > 70 && determinism > 70, reasoning > 80 && verbosity < 20
+- Vraci se jako `warnings[]` z `validateExpertConfig()` (oddelene od `errors[]`)
 
 ### Modules Format
 
@@ -235,6 +273,38 @@ modules: {
 ```
 
 Existujici `systemPrompt` zustava beze zmeny pro single-expert flow (dual-path architektura).
+
+### Expertise Wizard UI (v63.1)
+
+Formular pro vytvareni/editaci expertiz primo v IDE (center-views extension).
+
+```
+center-views: "+" button → wizard mode
+    |
+    +── Zakladni udaje (name, domain, icon, desc, systemPrompt, tone, temperature)
+    +── Capabilities (5D) — 5 slideru s LOW/MEDIUM/HIGH gradient hinty
+    +── Modules — 6 section editors (add/remove items) + inheritance badges
+    +── Preview & Test — live compatibility, token count, prompt preview, LLM test
+    |
+    v
+Save → POST /api/experts → expert se objevi v registru
+```
+
+**Anti-drift (🔴1):** Wizard si nacte konstanty z `GET /api/expertise-schema` — zadne hardcoded hodnoty ve frontendu.
+
+**Rate limiting:** `POST /api/merge-preview` max 2/s, `POST /api/expertise-wizard/test-prompt` max 1/5s (per IP).
+
+**Temp IDs:** `__wizard_${crypto.randomUUID()}` — collision-proof, nikdy se neukladaji.
+
+**5 modularnich komponent:**
+
+| Modul | Radku | Ucel |
+|-------|-------|------|
+| `wizard-helpers.js` | 110 | API komunikace (fetchSchema, fetchPreview, sendTestPrompt, debounce) |
+| `wizard-basic.js` | 122 | Zakladni udaje formulare |
+| `wizard-capabilities.js` | 59 | 5D slidery s barevnymi gradienty |
+| `wizard-modules.js` | 135 | 6 section editors + inheritance badges |
+| `wizard-preview.js` | 106 | Live preview + LLM test |
 
 ### Token Budget
 
@@ -267,21 +337,61 @@ merge_audit_log:
 
 **Legacy kompatibilita (🟡4):** Kdyz se nastavi `conversation_expertises`, automaticky se smaze zaznam z `conversation_experts`.
 
-### API Endpoint
+### API Endpointy
 
 ```
 GET /api/merge-preview?expertises=developer,analyst&weight_developer=0.7&weight_analyst=0.3
     → 200: { activeExpertises, tone, temperature, tokenCount, compatibility, promptPreview, enforcement }
     → 400: neplatna vaha nebo neznamy expert (🟡6)
     → 409: HARD_BLOCK (nekompatibilni kombinace)
+
+GET /api/expertise-schema                              (v63.1 — anti-drift 🔴1)
+    → 200: { moduleSections, limits, capabilityDimensions, inheritanceModes, toneOptions, severityLevels }
+
+POST /api/merge-preview                                (v63.1 — inline config preview)
+    Body: { expertises: [{...config, weight}] }
+    Rate limit: 2/s per IP
+    → 200: { tone, temperature, tokenCount, compatibility, promptPreview, enforcement }
+    → 409: HARD_BLOCK
+
+POST /api/expertise-wizard/test-prompt                 (v63.1 — LLM test)
+    Body: { expertiseConfig, question }
+    Rate limit: 1/5s per IP
+    → 200: { response, model, duration, tokenCount, compatibility }
+    → 429: Too Many Requests
 ```
+
+### Expert Sandbox (v63.1)
+
+Offline simulace bez LLM volani — pro testovani expertiz pred nasazenim.
+
+```javascript
+import { runSimulation, runMultiSimulation, compareBaseline } from './expert-sandbox.js';
+
+// Simulace jednoho experta
+const metrics = runSimulation(expertConfig, { userContext: '...' });
+// → { tokenCount, promptLength, instructionCount, temperature, tone,
+//    safetyScore, verbosityEstimate, capabilityWarnings }
+
+// Multi-expert simulace (1-3)
+const multi = runMultiSimulation([config1, config2], { weights: [0.7, 0.3] });
+
+// Baseline drift detekce
+const drift = compareBaseline(currentMetrics, baselineMetrics);
+// → { drifts: [{ dimension, severity, current, baseline, delta }], hasCritical }
+```
+
+**Drift severity:** `>50%` zmena = CRITICAL, `>25%` = WARNING, else OK.
 
 ### Testy
 
 | Soubor | Pocet testu | Pokryva |
 |--------|-------------|---------|
-| `merge-engine.test.js` | 30 | Merge, pure function, temperature, tone, trim, inheritance, enforcement, context, specialist, audit |
+| `merge-engine.test.js` | 34 | Merge, pure function, temperature, tone, trim, inheritance, enforcement, context, specialist, audit, **comutativita** |
 | `merge-compatibility.test.js` | 16 | Pairwise 5D, edge cases, built-in assertions (vsech 15 ma modules+capabilities) |
+| `merge-enforcement-integration.test.js` | 15 | Merge→enforcement integrace, quickCheck, retry, disclaimer dedup (🔴3) |
+| `capability-sandbox.test.js` | 35 | Capability modifikatory, normalizace, sandbox simulace, baseline drift |
+| `expertise-wizard.test.js` | 38 | Validace modules/capabilities/inheritance, full config, edge cases |
 
 ## Expert-Konverzace Vazby
 
@@ -355,6 +465,10 @@ Intent-based fallback: `LONG_FORM_CREATION` → writer
 | `/api/experts` | POST | Vytvoreni custom experta |
 | `/api/experts/:id` | PUT | Uprava custom experta |
 | `/api/experts/:id` | DELETE | Smazani (pouze custom) |
+| `/api/merge-preview` | GET | Preview merge s existujicimi experty |
+| `/api/merge-preview` | POST | **v63.1** Preview s inline config (wizard) |
+| `/api/expertise-schema` | GET | **v63.1** Schema pro wizard (anti-drift) |
+| `/api/expertise-wizard/test-prompt` | POST | **v63.1** LLM test s inline config |
 
 ## Database Schema
 
@@ -951,12 +1065,17 @@ Automaticky generovane pokyny pro LLM podle domeny experta:
 
 | Test suite | Soubor | Pocet testu | Stav |
 |-----------|--------|-------------|------|
-| Expert CRUD | `tests/expert-system.test.js` | ~36 | PASS |
-| Expert integrace | `tests/expert-integration.test.js` | ~20 | PASS |
+| Expert CRUD | `tests/expert-system.test.js` | 40 | PASS |
+| Expert integrace | `tests/expert-integration.test.js` | 10 | PASS |
+| Merge Engine | `tests/merge-engine.test.js` | 34 | PASS |
+| Merge Compatibility | `tests/merge-compatibility.test.js` | 16 | PASS |
+| Merge→Enforcement | `tests/merge-enforcement-integration.test.js` | 15 | PASS |
+| Capability & Sandbox | `tests/capability-sandbox.test.js` | 35 | PASS |
+| Expertise Wizard | `tests/expertise-wizard.test.js` | 38 | PASS |
 | Ucetni nastroje | `tests/accountant-tools.test.js` | ~77 | PASS |
 | Ucetni E2E | `tests/accountant-e2e.test.js` | ~30 | PASS |
 | Tool enforcement | `tests/tool-enforcement.test.js` | ~25 | PASS |
-| **Celkem** | | **~188** | **PASS** |
+| **Celkem** | | **~320** | **PASS** |
 
 ---
 
@@ -964,9 +1083,14 @@ Automaticky generovane pokyny pro LLM podle domeny experta:
 
 ```
 src/experts/
-├── expert-layer.js              1 317 radku  Expert definice, registry, routing, presety
-├── expert-store.js                705 radku  DB persistence, CRUD, pamet, vazby
+├── expert-layer.js              1 760 radku  Expert definice, registry, routing, presety, modules, capabilities
+├── expert-store.js                917 radku  DB persistence, CRUD, pamet, vazby, validateExpertConfig (modules/caps/inheritance)
 ├── expert-enforcement.js          341 radku  Forbidden phrases, delka, retry
+├── merge-types.js                 195 radku  v63.0 — konstanty, CompatibilityBlockError, token utility
+├── merge-compatibility.js         189 radku  v63.0 — 5D pairwise conflict detection
+├── merge-engine.js                568 radku  v63.1 — mergeExpertisePrompt() 15.5-krokovy algoritmus
+├── capability-mapping.js          267 radku  v63.1 — 5D → runtime modifikatory (teplota, instrukce, delka)
+├── expert-sandbox.js              299 radku  v63.1 — offline simulace + baseline drift comparison
 ├── experts.html                   889 radku  Web UI pro spravu expertu
 ├── guards/
 │   └── tool-enforcement.js        365 radku  Overeni ciselnych tvrzeni
@@ -980,20 +1104,40 @@ src/experts/
     └── deadline-checker.js        277 radku  Danove lhuty
 
 src/chat/handlers/
-└── expert.js                      484 radku  Expert handler (routing, tool intercepce)
+└── expert.js                      655 radku  Expert handler (routing, merge flow, tool intercepce, disclaimer dedup)
+
+c3-ide/extensions/
+├── c3-center-views/lib/browser/
+│   ├── center-views-module.js     473 radku  v63.1 — expert grid + wizard integration
+│   ├── styles/c3-center.css       467 radku  v63.1 — grid + wizard CSS
+│   └── wizard/
+│       ├── wizard-helpers.js      110 radku  v63.1 — fetchSchema, fetchPreview, sendTestPrompt, debounce
+│       ├── wizard-basic.js        122 radku  v63.1 — name, domain, icon, desc, systemPrompt, tone, temp
+│       ├── wizard-capabilities.js  59 radku  v63.1 — 5 slideru s LOW/MEDIUM/HIGH gradient hinty
+│       ├── wizard-modules.js      135 radku  v63.1 — 6 section editors + inheritance badges
+│       └── wizard-preview.js      106 radku  v63.1 — compatibility, tokens, prompt, enforcement, test
+└── c3-detail-panel/lib/browser/
+    ├── detail-panel-module.js     190 radku  v63.1 — capability bars, modules summary, edit wiring
+    └── styles/c3-detail.css       134 radku  v63.1 — capability bar + detail styly
 
 tests/
-├── expert-system.test.js          587 radku  Unit testy expert system
-├── expert-integration.test.js     300 radku  Integracni testy
+├── expert-system.test.js          587 radku  Unit testy expert system (40 testu)
+├── expert-integration.test.js     300 radku  Integracni testy (10 testu)
+├── merge-engine.test.js           476 radku  v63.1 — merge, comutativita (34 testu)
+├── merge-compatibility.test.js    224 radku  v63.0 — 5D kompatibilita (16 testu)
+├── merge-enforcement-integration.test.js 288 radku  v63.0 — merge→enforcement (15 testu)
+├── capability-sandbox.test.js     462 radku  v63.1 — capability + sandbox (35 testu)
+├── expertise-wizard.test.js       436 radku  v63.1 — wizard validace (38 testu)
 ├── accountant-tools.test.js       718 radku  Testy ucetnich nastroju
 ├── accountant-e2e.test.js         387 radku  End-to-end ucetni
 └── tool-enforcement.test.js       339 radku  Testy enforcement guardu
 ```
 
-**Celkem src:** 5 142 radku
-**Celkem testy:** 2 331 radku
-**Celkem UI:** 889 radku
-**Grand total:** 8 362 radku
+**Celkem experts src:** 7 585 radku
+**Celkem IDE extensions (wizard + detail):** 1 796 radku
+**Celkem testy:** 4 217 radku
+**Celkem UI (experts.html):** 889 radku
+**Grand total (experti subsystem):** 14 487 radku
 
 ---
 
@@ -1001,15 +1145,20 @@ tests/
 
 | Polozka | Odhad | Priorita | Popis |
 |---------|-------|----------|-------|
+| ~~Multi-expert spoluprace~~ | ~~2-3 dny~~ | ~~P3~~ | **HOTOVO v63.0** — Merge Engine v2 |
+| ~~Capability runtime~~ | ~~1-2 dny~~ | ~~P2~~ | **HOTOVO v63.1** — 5D → runtime modifikatory |
+| ~~Expert wizard UI~~ | ~~2-3 dny~~ | ~~P2~~ | **HOTOVO v63.1** — 5 modularnich komponent |
+| ~~Expert sandbox~~ | ~~1 den~~ | ~~P3~~ | **HOTOVO v63.1** — offline simulace + drift |
 | Specialist Runtime | 6-8 tydnu | P2 | Dlouhodobe behy, rutiny, on-demand agenti |
 | Knowledge Base | 3-5 dnu | P2 | Propojeni expertu s domenovymi DB |
-| ~~Multi-expert spoluprace~~ | ~~2-3 dny~~ | ~~P3~~ | **HOTOVO v63.0** — Merge Engine v2 |
+| Parent modules resolution | 0.5 dne | P3 | Wizard: resolve parent modules z parent pickeru |
+| DB migrace (conversation_expertises) | 0.5 dne | P2 | Aktualne in-memory fallback, schema pripraveno |
 | Expert sablony | 1 den | P3 | UI pro vytvareni z sablon |
 | Expert analytika | 1 den | P3 | Sledovani pouziti, kvalita |
 | Realtime sazby (worker) | 1 den | P2 | Agent pro monitoring zmen sazeb |
 | Interaktivni scenare | 2-3 dny | P3 | "Co kdyby..." optimalizace |
 
-**Roadmapa v4 hodnoceni: 45% hotovo (Expert Layer + Accountant pilot + Merge Engine v2)**
+**Roadmapa v4 hodnoceni: 65% hotovo (Expert Layer + Accountant pilot + Merge Engine v2 + Capability Runtime + Wizard UI + Sandbox)**
 
 ---
 ---

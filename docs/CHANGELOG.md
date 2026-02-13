@@ -1,3 +1,44 @@
+# C3 Changelog
+
+---
+
+## v62.2d — E2E Quality Deep Final Fixes (2026-02-13)
+
+**Skóre:** 34/36 (94% peak), ~33/36 (92% avg)
+
+- CRE: `/hledám/i` přidáno do SEARCH_PATTERNS
+- CRE: ITEM_LOOKUP pattern pro "hledám + typ nemovitosti/zboží" (bez čísla)
+- Search sanitizer: odstraněn "kurz" z německých stop words (CZ "kurz" = směnný kurz)
+- FACTUAL_NUMERIC: instrukce pro přibližné odhady z tréninkových dat
+- SK→CZ: +20 nových párů (pre→pro, čo→co, aspoň→alespoň, uistite→ujistěte, ...)
+- Test: opraveny isSlovak false positives (takže, každý → validní CZ)
+- Test: rozšířeny validátory (počasí, motorky, developer koncepty, EUR/CZK)
+
+## v62.2c — Language Enforcement Hardening (2026-02-13)
+
+**Skóre:** 32/36 (89%), z 26/36 (72%)
+
+- Hard language gate: mechanický SK→CZ překlad (50+ regex párů, 0ms)
+- EN detekce: EN_THRESHOLD 3→2, diacritics ratio 0.6→0.4
+- Language instrukce na PRVNÍ pozici v synthesis system promptu
+- Source URL extraction: fallback na všechny toolResults
+- ITEM_LOOKUP: přidán chybějící searchSubType='CLASSIFIED'
+- Synthesis MAX_RETRIES 2→1 (úspora ~30s/request)
+- Test timeout 90s→150s pro local LLM
+
+## v63.0 — Merge Engine v2 (2026-02-13)
+
+- Multi-expertise prompt composition
+- Merge→enforcement integration test
+
+## v62.2 — IDE V4 + SEARCH Sub-types (2026-02-12)
+
+- IDE: sidebar collapse, split bottom panel, live backend data, card actions
+- SEARCH sub-type system: NEWS/SPEC/COMPARISON/FACTUAL_NUMERIC/PERSON/CLASSIFIED
+- Syntax-only output gates (check structure, not semantics)
+
+---
+
 # C3 v56.2 — Sprint A + B + C1 + C2 + D + Hotfix (COMPLETE)
 ## All 13 Issues Fixed + 2 Runtime Bugs + Multilingual i18n
 
