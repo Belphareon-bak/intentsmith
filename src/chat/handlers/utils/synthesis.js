@@ -14,13 +14,45 @@ import { Structure, FollowUpStyle } from '../../../memory/preferences.js';
 import { detectFluff, buildFluffRetryPrompt } from './quality.js';
 import { enforceOutputContract, buildOutputGateRetryPrompt } from './output-gate.js';
 import { getLanguageContext } from './language.js';
-import { buildStrictLanguageInstruction } from './language-enforcement.js';
+import { buildStrictLanguageInstruction, validateResponseLanguage, buildLanguageRetryInstruction, mechanicalSlovakToCzech, detectSlovakContamination } from './language-enforcement.js';
 import {
   filterToolResults,
   annotateWithTrust,
   calculateAnswerConfidence,
   getConfidenceSynthesisInstructions,
 } from '../../quality/index.js';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v62.2: SOURCE URL EXTRACTION
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Extract source URLs from tool execution data for explicit LLM reference.
+ * Walks through all tool results and collects { title, url } pairs.
+ */
+function extractSourceUrls(data) {
+  const urls = [];
+  const seen = new Set();
+  if (!data || !Array.isArray(data)) return urls;
+
+  for (const item of data) {
+    // Search results: { type: 'search', data: { results: [{ title, url, snippet }] } }
+    if (item?.data?.results && Array.isArray(item.data.results)) {
+      for (const r of item.data.results) {
+        if (r?.url && !seen.has(r.url)) {
+          seen.add(r.url);
+          urls.push({ title: r.title || '', url: r.url });
+        }
+      }
+    }
+    // Scrape results: { type: 'scrape', data: { url, title, content } }
+    if (item?.data?.url && !seen.has(item.data.url)) {
+      seen.add(item.data.url);
+      urls.push({ title: item.data.title || '', url: item.data.url });
+    }
+  }
+  return urls.slice(0, 10); // Cap at 10 sources
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // QUERY TYPE DETECTION
@@ -165,7 +197,7 @@ export function applyAdaptiveResultCount(data, query, intent) {
  * Build the prompt for LLM synthesis
  * v45.0 Phase 3: Added expertHints support
  */
-export function buildSynthesisPrompt({ query, intent, data, failures, userPreferences, expertHints = null, conversationContext = null }) {
+export function buildSynthesisPrompt({ query, intent, data, failures, userPreferences, expertHints = null, conversationContext = null, allToolResults = null }) {
   let prompt = `User query: "${query}"\n\n`;
 
   // v56.2 Sprint C2: Inject conversation context so LLM knows what pronouns refer to
@@ -188,6 +220,20 @@ export function buildSynthesisPrompt({ query, intent, data, failures, userPrefer
   prompt += '```json\n';
   prompt += JSON.stringify(adaptedData, null, 2);
   prompt += '\n```\n\n';
+
+  // v62.2b: Pre-extract source URLs — try adapted data first, fallback to ALL tool results
+  // This ensures URLs are always available even when relevance filter removes search results
+  let sourceUrls = extractSourceUrls(adaptedData);
+  if (sourceUrls.length === 0 && allToolResults) {
+    sourceUrls = extractSourceUrls(allToolResults);
+  }
+  if (sourceUrls.length > 0) {
+    prompt += `\n═══ AVAILABLE SOURCE URLs (MANDATORY — include at least 2 in your response) ═══\n`;
+    sourceUrls.forEach((src, i) => {
+      prompt += `[${i + 1}] ${src.title || src.url} — ${src.url}\n`;
+    });
+    prompt += `═══ END SOURCE URLs — USE FULL URLs like https://... in your response ═══\n\n`;
+  }
 
   if (failures.length > 0) {
     prompt += `Note: Some tools failed:\n`;
@@ -226,8 +272,16 @@ export function buildSynthesisPrompt({ query, intent, data, failures, userPrefer
  * v45.0 Phase 3: Added expertHints and responseIntent support
  * v55.2: Added languageInstruction for language consistency
  */
-export function buildSynthesisSystemPrompt(intent, userPreferences, expertHints = null, responseIntent = null, languageInstruction = '', lang = 'cs') {
-  let basePrompt = `You are a response synthesizer. Your job is to take tool execution data and create a helpful, well-structured response for the user.
+export function buildSynthesisSystemPrompt(intent, userPreferences, expertHints = null, responseIntent = null, languageInstruction = '', lang = 'cs', searchSubType = null) {
+  // v62.2b: Language instruction FIRST — prevents EN contamination at source
+  // The LLM reads system prompt top-to-bottom; language rule must come before anything else
+  let basePrompt = '';
+  basePrompt += buildStrictLanguageInstruction(lang);
+  if (languageInstruction) {
+    basePrompt += languageInstruction;
+  }
+
+  basePrompt += `\n\nYou are a response synthesizer. Your job is to take tool execution data and create a helpful, well-structured response for the user.
 
 CRITICAL RULES:
 1. ONLY use information from the provided tool data - do not make up facts
@@ -235,6 +289,7 @@ CRITICAL RULES:
 3. Use markdown formatting for readability
 4. If data is limited, acknowledge it but still provide what you can
 5. NEVER say "I cannot access" or "I don't have access" - you have the data!
+6. RESPOND IN THE USER'S LANGUAGE — if user writes in Czech, respond ENTIRELY in Czech
 
 FORBIDDEN PHRASES (never use these):
 ${FORBIDDEN_PHRASES.slice(0, 5).map(p => `- "${p}"`).join('\n')}`;
@@ -276,6 +331,14 @@ ${FORBIDDEN_PHRASES.slice(0, 5).map(p => `- "${p}"`).join('\n')}`;
     basePrompt += intentPrompts[intent];
   }
 
+  // v62.2: SEARCH sub-type specific instructions
+  if (searchSubType) {
+    const subTypeInstructions = getSearchSubTypeInstructions();
+    if (subTypeInstructions[searchSubType]) {
+      basePrompt += subTypeInstructions[searchSubType];
+    }
+  }
+
   // Response intent formatting
   if (responseIntent) {
     const responseIntentInstructions = getResponseIntentInstructions();
@@ -291,13 +354,11 @@ ${responseIntentInstructions[responseIntent]}
   // Strict preference enforcement
   basePrompt += buildStrictPreferencesPrompt(userPreferences);
 
-  // v55.2: Language enforcement (MUST be last — highest priority)
-  if (languageInstruction) {
-    basePrompt += languageInstruction;
+  // v62.2b: Language instructions already at TOP of prompt (moved from here)
+  // Add a final reminder at the end as well (belt + suspenders)
+  if (lang === 'cs') {
+    basePrompt += `\n\n⚠️ ZÁVĚREČNÉ PŘIPOMENUTÍ: Celá odpověď MUSÍ být v češtině. Žádná angličtina, žádná slovenština.`;
   }
-
-  // Q1: Strict language enforcement — prevents SK/RU/CN contamination
-  basePrompt += buildStrictLanguageInstruction(lang);
 
   return basePrompt;
 }
@@ -315,19 +376,27 @@ SEARCH RESPONSE CONTRACT — FOLLOW EXACTLY
 STRUCTURE:
 1. FIRST SENTENCE: Direct answer to the question (not "Vyhledal jsem..." or "Našel jsem...")
 2. SUPPORTING DETAIL: 2-3 sentences with specific facts (numbers, dates, names)
-3. SOURCES: At end as footnotes [1], [2] — NOT inline URLs in text
+3. SOURCES: At end, formatted as numbered footnotes with FULL URLs from tool data
+
+SOURCE FORMAT (MANDATORY — always include at least 1 source):
+[1] [Title](https://example.com/page)
+[2] [Title](https://other.com/page)
+
+Extract URLs from the "url" fields in tool execution data. EVERY response MUST end with at least one [N] source footnote containing a real URL from the data.
 
 ABSOLUTELY FORBIDDEN:
 - ❌ Starting with "Vyhledal jsem pro vás..."
 - ❌ Starting with "Našel jsem tyto výsledky..."
 - ❌ Starting with "Zde jsou výsledky..."
-- ❌ Listing URLs without context
-- ❌ Generic filler: "Na internetu najdete..."
+- ❌ Empty footnotes like "[1]" without URL
+- ❌ Generic filler: "Na internetu najdete...", "Doporučuji zkontrolovat..."
+- ❌ Saying "potřeboval bych vyhledávání" or "nemám aktuální data"
 
 REQUIRED:
 - ✅ Start with the ANSWER, not the search process
 - ✅ Include at least ONE concrete fact (number, date, name, price)
 - ✅ If multiple results: synthesize, don't list
+- ✅ End with [1], [2] source footnotes with FULL URLs
 ═══════════════════════════════════════════════════════════════════════════════`,
 
     REPORT: `
@@ -353,7 +422,7 @@ REQUIRED OUTPUT:
 - ✅ Key points organized with bullet points or sections
 - ✅ Specific facts, numbers, dates when available
 - ✅ At least 3 concrete data points (names, numbers, dates)
-- ✅ Sources only as footnote reference`,
+- ✅ Sources as numbered footnotes with FULL URLs: [1] [Title](https://...)`,
 
     FACTUAL: `
 ═══════════════════════════════════════════════════════════════════════════════
@@ -365,12 +434,13 @@ STRUCTURE:
    GOOD: "Lhůta pro podání DPFO je 1. dubna 2025."
    BAD:  "Podle dostupných informací existuje několik termínů..."
 2. BRIEF EXPLANATION: 1-2 sentences max. Only if it adds value.
-3. SOURCE: One footnote [1] if available.
+3. SOURCE: One footnote [1] with FULL URL from tool data: [1] [Title](https://...)
 
 RULES:
 - Maximum 3 sentences total
 - MUST contain at least one concrete datum (number, date, name)
-- If uncertain, say "Přesný údaj se mi nepodařilo ověřit" — do NOT waffle
+- Extract concrete data from tool results — numbers, prices, dates, names
+- If data is in the tool results, USE IT — do not say "nepodařilo se ověřit"
 - NEVER start with hedging phrases for factual answers
 ═══════════════════════════════════════════════════════════════════════════════`,
 
@@ -445,6 +515,74 @@ RESPONSE STYLE: MINIMAL
 - Absolute minimum words needed
 - Just the answer: number, date, yes/no, name
 - No explanation, no context, no sources`,
+  };
+}
+
+/**
+ * v62.2: Get SEARCH sub-type specific instructions.
+ * Tailors synthesis for NEWS, SPEC, COMPARISON, FACTUAL_NUMERIC, PERSON, CLASSIFIED queries.
+ */
+function getSearchSubTypeInstructions() {
+  return {
+    NEWS: `
+
+SEARCH SUB-TYPE: NEWS — CURRENT EVENTS
+- Extract SPECIFIC headlines, events, and dates from the data
+- Each news item must have: headline, 1-sentence summary, source URL
+- Minimum 3 concrete news items if data is available
+- NEVER say "informace jsou omezené" if data contains actual articles
+- Organize chronologically or by importance`,
+
+    SPEC: `
+
+SEARCH SUB-TYPE: TECH SPECIFICATIONS
+- Present specs in STRUCTURED format (bullet list or table)
+- Required fields where available: display, processor/chip, RAM, battery, camera, dimensions, weight
+- Include specific NUMBERS (MHz, mAh, MP, mm, g)
+- Source URL is MANDATORY
+- NEVER use prose paragraphs for specs — use structured bullets`,
+
+    COMPARISON: `
+
+SEARCH SUB-TYPE: COMPARISON
+- Present BOTH/ALL items being compared with equal detail
+- Use parallel structure (same attributes for each item)
+- Include specific numbers for key metrics
+- End with a brief recommendation/summary of differences
+- Table or side-by-side format preferred`,
+
+    FACTUAL_NUMERIC: `
+
+SEARCH SUB-TYPE: FACTUAL/NUMERIC DATA
+- The answer MUST contain at least one concrete number (price, rate, temperature, percentage)
+- Extract the actual value from search results — do NOT just link to websites
+- If the exact number is in the search snippets or page titles, USE IT
+- If the snippet says "25.12 Kč" or "3°C" — PUT THAT NUMBER in your response
+- Format: "Aktuální kurz: XX.XX Kč/EUR [1]" or "Teplota: X°C [1]"
+- NEVER say "podívejte se na stránky" or "nebyly přesně uvedeny" if ANY numbers appear in the data
+- NEVER refuse to give the number — even approximate values are better than no answer
+- Look for numbers in: titles, snippets, URLs, page content — extract them ALL`,
+
+    PERSON: `
+
+SEARCH SUB-TYPE: PERSON LOOKUP
+- Start with: "[Name] je [current role/occupation]."
+- Include at least 3 key facts about the person
+- Use CURRENT information from search results, not outdated training data
+- Source URL is MANDATORY`,
+
+    CLASSIFIED: `
+
+SEARCH SUB-TYPE: CLASSIFIED LISTINGS
+- Each item MUST have a clickable URL — use the FULL https://... URL from the source list above
+- Include: title, price, location, key details
+- Present items as numbered list
+- FORMAT each item EXACTLY like this:
+  1. **[Title]** — [price] | [location]
+     [Brief description]
+     🔗 [Source name](https://full-url-from-source-list)
+- If individual listing URLs are not available, use the search/category page URL
+- ALWAYS include at least 2 source URLs from the "AVAILABLE SOURCE URLs" section above`,
   };
 }
 
@@ -573,6 +711,7 @@ export async function synthesizeWithLLM({
   responseIntent = null,
   creDecisionEngine = null,
   conversationContext = null,  // v56.2 Sprint C2: previous turns for reference resolution
+  searchSubType = null,       // v62.2: NEWS/SPEC/COMPARISON/FACTUAL_NUMERIC/PERSON/CLASSIFIED/GENERAL
 }) {
   // Extract successful results
   const successfulData = toolResults
@@ -610,6 +749,7 @@ export async function synthesizeWithLLM({
     query, intent, data: relevantItems.length > 0 ? relevantItems : successfulData,
     failures, userPreferences, expertHints,
     conversationContext,  // v56.2 Sprint C2
+    allToolResults: successfulData,  // v62.2b: Pass ALL results for URL extraction fallback
   });
 
   // v61.2: When scrapes failed, instruct LLM to maximize snippet extraction
@@ -621,10 +761,10 @@ export async function synthesizeWithLLM({
   }
   // v55.2: Detect language and inject instruction
   const langCtx = getLanguageContext(query);
-  const systemPrompt = buildSynthesisSystemPrompt(intent, userPreferences, expertHints, responseIntent, langCtx.instruction, langCtx.language)
+  const systemPrompt = buildSynthesisSystemPrompt(intent, userPreferences, expertHints, responseIntent, langCtx.instruction, langCtx.language, searchSubType)
     + (confidenceInstructions ? `\n\n${confidenceInstructions}` : '');
 
-  const MAX_RETRIES = 1;
+  const MAX_RETRIES = 1;  // v62.2b: back to 1 — extra retries are too slow, controller gate handles the rest
   let retryCount = 0;
 
   try {
@@ -701,6 +841,27 @@ export async function synthesizeWithLLM({
       }
       // ─── End D6 Output Quality Gate ────────────────────────────────────
 
+      // ─── v62.2: Language Validation Gate ──────────────────────────────
+      // Catches SK/EN contamination in synthesis path (same as decisions.js ANSWER path)
+      const langValidation = validateResponseLanguage(result.content, langCtx.language);
+      if (!langValidation.clean && retryCount < MAX_RETRIES) {
+        logger.warn('Synthesis', 'Language validation failed, retrying', {
+          issues: langValidation.issues,
+          language: langCtx.language,
+          retryCount,
+        });
+        synthesisPrompt = buildLanguageRetryInstruction(langCtx.language, langValidation.issues)
+          + '\n\n' + synthesisPrompt;
+        retryCount++;
+        continue;
+      }
+      if (!langValidation.clean) {
+        logger.warn('Synthesis', 'Language validation failed but max retries reached', {
+          issues: langValidation.issues,
+        });
+      }
+      // ─── End Language Validation Gate ─────────────────────────────────
+
       // ─── Tool-Only Numeric Enforcement (expert opt-in, v57.2) ────────
       if (expertHints?.toolEnforcement && retryCount < MAX_RETRIES) {
         const guard = await import('../../../experts/guards/tool-enforcement.js');
@@ -759,6 +920,18 @@ export async function synthesizeWithLLM({
       // v59.0 IDE Bridge: Notify LLM synthesis done
       if (typeof context.onLLMDone === 'function') {
         try { context.onLLMDone(finalContent.length, result.duration); } catch { /* */ }
+      }
+
+      // v62.2b: Apply mechanical Slovak→Czech replacement as final step
+      // Fast (0ms) and catches common SK words that survive LLM retries
+      if (langCtx.language === 'cs') {
+        const skCheck = detectSlovakContamination(finalContent);
+        if (skCheck.contaminated) {
+          logger.info('Synthesis', 'Applying mechanical SK→CZ replacement', {
+            markers: skCheck.markers.slice(0, 3),
+          });
+          finalContent = mechanicalSlovakToCzech(finalContent);
+        }
       }
 
       return {

@@ -15,7 +15,7 @@ import { logger } from '../core/logger.js';
 import { SafetyEngine } from './safety/engine.js';
 import { getConversationStore, TurnRole } from './conversation-store.js';
 import { getLTMContextForSynthesis } from './ltm-context.js';
-import { validateResponseLanguage, buildLanguageRetryInstruction } from './handlers/utils/language-enforcement.js';
+import { validateResponseLanguage, mechanicalSlovakToCzech, detectSlovakContamination } from './handlers/utils/language-enforcement.js';
 import { sanitizeResponse } from './handlers/utils/response-sanitizer.js';
 import { getLanguageContext } from './handlers/utils/language.js';
 
@@ -584,25 +584,55 @@ export class ChatController {
 
       // ── Q5: Sanitize response (JSON leak, empty, etc.) ──────────────────
       // ── Q1: Post-response language validation ───────────────────────────
+      // ── v62.2b: HARD LANGUAGE GATE — rewrite contaminated responses ────
       try {
         const langCtx = getLanguageContext(input);
         const lang = langCtx?.language || 'cs';
         const content = taggedResponse?.content;
 
+        logger.debug('LanguageGate', 'Gate entry', {
+          hasContent: typeof content === 'string',
+          contentLen: content?.length || 0,
+          lang,
+          sessionId: this.#sessionId,
+        });
+
         if (typeof content === 'string' && content.length > 0) {
-          const sanitized = sanitizeResponse(content, lang);
+          let sanitized = sanitizeResponse(content, lang);
+
+          // v62.2b: Apply mechanical Slovak→Czech replacement BEFORE validation
+          // This catches the most common SK words without needing LLM rewrite
+          if (lang === 'cs') {
+            const skCheck = detectSlovakContamination(sanitized);
+            if (skCheck.contaminated) {
+              logger.info('LanguageGate', 'Applying mechanical SK→CZ replacement', {
+                markers: skCheck.markers.slice(0, 5),
+                count: skCheck.count,
+              });
+              sanitized = mechanicalSlovakToCzech(sanitized);
+            }
+          }
+
           const langCheck = validateResponseLanguage(sanitized, lang);
 
+          logger.debug('LanguageGate', 'Validation result', {
+            clean: langCheck.clean,
+            issues: langCheck.issues,
+          });
+
           if (!langCheck.clean) {
-            logger.warn('LanguageEnforcement', 'Language contamination detected', {
+            // v62.2b: Log contamination but DON'T do expensive LLM rewrite
+            // Mechanical SK→CZ replacement was already applied above
+            // For EN contamination, accept the result — LLM retries in synthesis already tried
+            logger.warn('LanguageGate', 'Language contamination persists after mechanical fix', {
               issues: langCheck.issues,
               sessionId: this.#sessionId,
               input: input.substring(0, 50),
             });
-          }
-
-          // Apply sanitized content if it changed
-          if (sanitized !== content) {
+            // Still use the mechanically fixed version (it's better than raw)
+            taggedResponse = this.#ensureTagged(sanitized, targetMode, pendingConfirmation);
+          } else if (sanitized !== content) {
+            // No language issues, but sanitization/mechanical fix changed content
             taggedResponse = this.#ensureTagged(sanitized, targetMode, pendingConfirmation);
           }
         }

@@ -48,7 +48,66 @@ export const SK_THRESHOLD = 2;
 const CYRILLIC_RE = /[\u0400-\u04FF]/;
 const CJK_RE = /[\u4E00-\u9FFF\u3400-\u4DBF]/;
 
+// ─── v62.2: English contamination detection ────────────────────────────────
+// Detects when LLM switches to English mid-response for non-English queries.
+// Uses English-only structural phrases that don't appear in Czech/Slovak text.
+const EN_MARKERS = [
+  /\bBased on the provided\b/i,
+  /\bHere is a\b/i,
+  /\bHere are the\b/i,
+  /\bAccording to\b/i,
+  /\bIn summary\b/i,
+  /\bOverview of\b/i,
+  /\bKey Points:/i,
+  /\bKey Takeaways/i,
+  /\bThe following\b/i,
+  /\bAs of\s+\d{4}/i,
+  /\bIt is worth noting\b/i,
+  /\bIn conclusion\b/i,
+  /\bHowever,\s+it\b/i,
+  /\bAdditionally,\s+/i,
+  /\bFurthermore,\s+/i,
+  /\bThis means that\b/i,
+];
+
+const EN_THRESHOLD = 2;  // v62.2b: lowered from 3 → 2 markers sufficient to flag
+
 // ─── Language enforcement functions ──────────────────────────────────────────
+
+/**
+ * Detect if response is predominantly in English when it shouldn't be.
+ * Two-layer detection:
+ *   1. Marker-based: specific English structural phrases (threshold: 3)
+ *   2. Diacritics-ratio: if >60% of sentences lack Czech diacritics in a 200+ char response
+ * Returns { contaminated: boolean, markers: string[], count: number }
+ */
+export function detectEnglishContamination(text) {
+  const markers = [];
+  for (const re of EN_MARKERS) {
+    const match = text.match(re);
+    if (match) markers.push(match[0]);
+  }
+
+  // Layer 2: Diacritics ratio check for longer responses
+  // Czech text naturally contains ěščřžýáíéúůďťň — English has none
+  if (text.length > 200) {
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 10);
+    if (sentences.length >= 3) {
+      const CZ_DIACRITICS = /[ěščřžýáíéúůďťňĚŠČŘŽÝÁÍÉÚŮĎŤŇ]/;
+      const noDiacriticsSentences = sentences.filter(s => !CZ_DIACRITICS.test(s));
+      const ratio = noDiacriticsSentences.length / sentences.length;
+      if (ratio > 0.4) {  // v62.2b: lowered from 0.6 → 0.4 (40% English sentences = contaminated)
+        markers.push(`diacritics_ratio(${Math.round(ratio * 100)}%)`);
+      }
+    }
+  }
+
+  return {
+    contaminated: markers.length >= EN_THRESHOLD || markers.some(m => m.startsWith('diacritics_ratio')),
+    markers,
+    count: markers.length,
+  };
+}
 
 /**
  * Detect if response contains Slovak contamination.
@@ -89,6 +148,15 @@ export function validateResponseLanguage(text, expectedLang = 'cs') {
     const sk = detectSlovakContamination(text);
     if (sk.contaminated) {
       issues.push(`slovak_contamination(${sk.count}): ${sk.markers.slice(0, 3).join(', ')}`);
+    }
+  }
+
+  // v62.2: Check for English contamination when expecting non-English
+  // Detects when LLM switches to English mid-response for CZ/SK/DE queries
+  if (expectedLang !== 'en') {
+    const enContamination = detectEnglishContamination(text);
+    if (enContamination.contaminated) {
+      issues.push(`english_contamination(${enContamination.count}): ${enContamination.markers.slice(0, 3).join(', ')}`);
     }
   }
 
@@ -148,22 +216,93 @@ JAZYKOVÉ PRAVIDLO (KRITICKÉ):
  */
 export function buildLanguageRetryInstruction(lang, issues) {
   if (lang === 'cs') {
-    return `CHYBA: Tvá předchozí odpověď obsahovala slovenské/cizojazyčné výrazy (${issues.join(', ')}).
-OPRAV TO. Odpověz ZNOVU, tentokrát ČISTĚ ČESKY.
-Žádné slovenské výrazy. Žádná cyrilice. Žádné čínské znaky.
-Kontroluj každé slovo — "jsou" ne "sú", "který" ne "ktorý", "protože" ne "pretože".`;
+    const hasEnglish = issues.some(i => i.includes('english'));
+    const hasSlovak = issues.some(i => i.includes('slovak'));
+    let instruction = `CHYBA: Tvá předchozí odpověď obsahovala cizojazyčné výrazy (${issues.join(', ')}).
+OPRAV TO. Odpověz ZNOVU, tentokrát ČISTĚ ČESKY.`;
+    if (hasSlovak) {
+      instruction += `\nŽádné slovenské výrazy. Kontroluj každé slovo — "jsou" ne "sú", "který" ne "ktorý", "protože" ne "pretože".`;
+    }
+    if (hasEnglish) {
+      instruction += `\nCELÁ odpověď musí být ČESKY. Žádné anglické věty, fráze ani nadpisy. Přelož vše do češtiny.`;
+    }
+    instruction += `\nŽádná cyrilice. Žádné čínské znaky.`;
+    return instruction;
   }
   return `ERROR: Your previous response contained non-${lang} language (${issues.join(', ')}).
 Respond AGAIN, this time EXCLUSIVELY in ${lang}. No other languages.`;
 }
 
+// ─── v62.2b: Mechanical Slovak→Czech word replacement ─────────────────────────
+// Last-resort fallback when LLM rewrite also produces Slovak.
+// Covers the most common SK→CZ word pairs that qwen2.5:32b produces.
+const SK_TO_CZ_MAP = [
+  [/\bsú\b/gi, 'jsou'],
+  [/\bktorý/gi, 'který'], [/\bktorá/gi, 'která'], [/\bktoré/gi, 'které'], [/\bktorú/gi, 'kterou'],
+  [/\bpretože/gi, 'protože'],
+  [/\bveľmi/gi, 'velmi'], [/\bveľa/gi, 'hodně'],
+  [/\bmôže/gi, 'může'], [/\bmôžu/gi, 'mohou'], [/\bmôžete/gi, 'můžete'],
+  [/\bešte/gi, 'ještě'],
+  [/\bniekoľko/gi, 'několik'],
+  [/\bprípad/gi, 'případ'], [/\bprípadov/gi, 'případů'], [/\bprípadoch/gi, 'případech'],
+  [/\bzaujímav/gi, 'zajímav'],
+  [/\bvýskum/gi, 'výzkum'],
+  [/\bspoloč/gi, 'společ'],
+  [/\bpovedať/gi, 'říct'],
+  [/\bosobné/gi, 'osobní'],
+  [/\bhistóri/gi, 'histori'],
+  [/\bzdravotn[ií]ctv/gi, 'zdravotnictv'],
+  [/\bodvetvi/gi, 'odvětví'],
+  [/\bnajdôležit/gi, 'nejdůležit'],
+  [/\bnajlepš/gi, 'nejlepš'],
+  [/\bnajviac/gi, 'nejvíce'],
+  [/\bnapríklad/gi, 'například'],
+  [/\bniekto/gi, 'někdo'],
+  [/\bniečo/gi, 'něco'],
+  [/\bdôležit/gi, 'důležit'],
+  [/\bpotrebu/gi, 'potřebu'],
+  [/\bpotrebov/gi, 'potřebov'],
+  [/\bpotrebuj/gi, 'potřebuj'],
+  [/\balebo/gi, 'nebo'],
+  [/\bako\b/gi, 'jak'],
+  [/\btiež/gi, 'také'],
+  [/\bpreto\b/gi, 'proto'],
+  [/\bvšak\b/gi, 'však'],
+  [/\bvždy/gi, 'vždy'],  // same in CZ
+  [/\bteraz/gi, 'teď'],
+  [/\bstále/gi, 'stále'],  // same in CZ
+  [/\bmedzi/gi, 'mezi'],
+  [/\bpríliš/gi, 'příliš'],
+  [/\bpráve/gi, 'právě'],
+  [/\bodporúča/gi, 'doporuču'],
+  [/ôž/g, 'ůž'], [/ôl/g, 'ůl'],  // môže→může pattern
+  [/ľ/g, 'l'],  // Slovak ľ has no Czech equivalent — just use l
+  [/ô/g, 'ů'],  // Common mapping: ô→ů
+];
+
+/**
+ * Mechanically replace common Slovak words with Czech equivalents.
+ * This is a LAST RESORT — not perfect, but better than pure Slovak output.
+ */
+export function mechanicalSlovakToCzech(text) {
+  let result = text;
+  for (const [pattern, replacement] of SK_TO_CZ_MAP) {
+    result = result.replace(pattern, replacement);
+  }
+  return result;
+}
+
 export default {
   detectSlovakContamination,
+  detectEnglishContamination,
   validateResponseLanguage,
   buildStrictLanguageInstruction,
   buildLanguageRetryInstruction,
+  mechanicalSlovakToCzech,
   SK_MARKERS,
   SK_THRESHOLD,
+  EN_MARKERS,
+  EN_THRESHOLD,
   CYRILLIC_RE,
   CJK_RE,
 };

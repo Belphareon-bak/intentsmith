@@ -674,6 +674,7 @@ async function handleToolCallDecision(input, decision, context) {
       expertHints,
       responseIntent,
       conversationContext,  // v56.2 C2
+      searchSubType: 'CLASSIFIED',  // v62.2b: Force CLASSIFIED sub-type for ITEM_LOOKUP
     });
 
     logger.info('HandleToolCall', 'ITEM_LOOKUP synthesis complete', {
@@ -873,6 +874,7 @@ async function handleToolCallDecision(input, decision, context) {
     },
     responseIntent,  // v45.0 KOLO 3: Pass detected responseIntent
     conversationContext,  // v56.2 C2
+    searchSubType: decision.metadata?.searchSubType,  // v62.2: NEWS/SPEC/COMPARISON/etc.
   });
 
   // v45.0 FIX 1.4: Save tool results for FORMAT_CHANGE follow-ups
@@ -1159,13 +1161,14 @@ async function handleAnswerDecision(input, decision, context) {
     const langCtx = getLanguageContext(input);
 
     const CONVERSATIONAL_SYSTEM_PROMPTS = {
+      // v62.2: Removed "řekni mu, že potřebuješ provést vyhledávání" — caused meta-refusal loop
       cs: `Jsi užitečný AI asistent v konverzačním režimu.
 
 PRAVIDLA:
-- Zpracováváš pouze běžnou konverzaci (pozdravy, názory, obecné znalosti)
-- NEMŮŽEŠ vyhledávat na webu — pokud uživatel potřebuje konkrétní data, řekni mu, že potřebuješ provést vyhledávání
-- NEMŮŽEŠ přistupovat k URL — pokud dostaneš URL, řekni, že potřebuješ ji načíst
-- NIKDY neříkej "nemám přístup", "nemohu vyhledávat" — místo toho řekni, jaká AKCE je potřeba
+- Zpracováváš běžnou konverzaci, názory a obecné znalosti
+- Odpovídej na základě svých znalostí — NIKDY neříkej "potřeboval bych vyhledávání"
+- NIKDY neříkej "nemám přístup", "nemohu vyhledávat", "nemám aktuální data"
+- Pokud si nejsi jistý, odpověz co nejlépe na základě svých znalostí
 - Odpovídej VÝHRADNĚ ČESKY, nikdy nepřepínej do jiného jazyka
 
 POVOLENO:
@@ -1190,10 +1193,9 @@ ${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
       en: `You are a helpful AI assistant in CONVERSATIONAL mode.
 
 CRITICAL RULES:
-- You are ONLY handling casual conversation (greetings, opinions, small talk)
-- You CANNOT search the web - if asked about facts, say you need to search first
-- You CANNOT access URLs - if given a URL, say you need to fetch it first
-- NEVER say "nemám přístup", "nemohu vyhledávat", etc. - instead say what ACTION is needed
+- You handle conversation, opinions, and general knowledge
+- Answer based on your training knowledge — NEVER say "I would need to search" or "I cannot access"
+- If unsure, answer to the best of your knowledge
 - Respond EXCLUSIVELY IN ENGLISH
 
 ALLOWED:

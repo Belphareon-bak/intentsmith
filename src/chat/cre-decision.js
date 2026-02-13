@@ -1129,7 +1129,7 @@ const LOCAL_DETERMINISTIC_PATTERNS = [
   /kolik.*(hodin|dn[ií]|t[ýy]dn|m[eě]s[ií]c)/i,  // "za kolik dní/dni"
   /kdy.*bude.*([úu]pln[eě]k|nov|m[eě]s[ií]c)/i,  // "kdy bude úplněk/uplnek"
   /kdy.*uplnek/i,                         // "kdy bude uplnek" (without diacritics)
-  /jak[ýyéae].*(den|datum|rok|m[eě]s[ií]c)/i,     // "jaký/jaky je dnes den"
+  /jak[ýyéae].*(\bden\b|\bdatum\b|\brok\b|m[eě]s[ií]c)/i, // "jaký/jaky je dnes den" (v62.2: \b prevents "kroky"→"rok" false match)
   /dnes.*datum/i,                          // "jaké je dnes datum"
   /kolik[áa]t[ée]ho/i,                    // "kolikátého/kolikateho je"
   /what\s+(is\s+(the\s+)?)?\bday\b/i, /what.*\bdate\b/i, /what.*\btime\b/i,
@@ -1140,8 +1140,11 @@ const LOCAL_DETERMINISTIC_PATTERNS = [
   /[úu]pln[eě]k/i, /uplnek/i,            // "kdy bude úplněk" direct match
   /nov[ýéě]h?o?\s+měsíc/i,                // "nový měsíc", "nového měsíce" (NOT "novinek za měsíc")
   // Math calculations
-  /kolik je \d+/i, /\d+\s*[+\-*/]\s*\d+/,     // "kolik je 5+3", "5+3", "5 + 3"
-  /vypočítej/i, /spočítej/i, /calculate\s+\d/i,
+  // v62.2: Bare /\d+[+\-*/]\d+/ removed — catches "byt 2+1", "i7-14700K" as math.
+  // Standalone math ("5+3") handled by anchored pattern; explicit intent by keywords.
+  /kolik je \d+/i,                                    // "kolik je 5+3"
+  /^\s*\d+[\s()]*[+\-*/][\s()]*\d+[\s()=?]*\s*$/,   // ONLY standalone: "5+3", "100/4" (entire input IS the expression)
+  /vypočítej/i, /spočítej/i, /vypocitej/i, /spocitej/i, /calculate\s+\d/i,
   // v44.7 FIX 3: Additional LOCAL patterns
   /napi[sš]\s*(mi\s+)?č[ií]slo/i,         // "napiš číslo", "napiš mi číslo"
   /bez\s*odkaz[ůu]/i,                     // "bez odkazů"
@@ -1785,7 +1788,7 @@ export class CREDecisionEngine {
       // Everything else = LLM knowledge (CONVERSATIONAL)
       const hasFreshSignal =
         // CZ temporal keywords (no \b — diacritics break it)
-        /aktu[áa]ln|sou[čc]asn|dne[sš]|te[ďd](?:\s|$|[?!.,;])|nyn[ií]|nyn[eě]j[šs]|tento rok|letos/i.test(text) ||
+        /aktu[áa]ln|sou[čc]asn|dne[sš]|te[ďd](?:\s|$|[?!.,;])|nyn[ií]|nyn[eě]j[šs]|tento rok|letos|leto[šs]n/i.test(text) ||
         // EN temporal keywords (\b safe — ASCII only)
         /\b(current|today|now|latest|this year|right now|live|real.?time)\b/i.test(text) ||
         // Price / cost / financial (inherently temporal)
@@ -1794,6 +1797,8 @@ export class CREDecisionEngine {
         /po[čc]as[ií]|weather|forecast|zpr[áa]v|news|novinky/i.test(text) ||
         // Score / results / status
         /\b(score|status|result)\b|sk[oó]re|v[ýy]sledek|stav(?:\s|$|[?!.,;])/i.test(text) ||
+        // v62.2: Product specifications / tech specs (inherently version-dependent fresh data)
+        /specifikac|parametr[yů]|spot[rř]eb[auy]|specs|specification/i.test(text) ||
         // Location services (opening hours, address, nearest)
         /otev[rř]en|otev[ií]rac|opening.?hour|\baddress\b|adresa/i.test(text) ||
         // Proximity / "nearest" queries (location-dependent, inherently fresh)
@@ -1868,8 +1873,8 @@ export class CREDecisionEngine {
         if (/datum|den|hodin|time|date/i.test(input)) {
           return [ToolType.LOCAL_DATE];
         }
-        if (/\d+.*[+\-*/].*\d+|vypočít|spočít|calculate/i.test(input)) {
-          return [ToolType.LOCAL_MATH];
+        if (/kolik\s+je\s+\d|^\s*\d+\s*[+\-*/]\s*\d+|vypočít|spočít|vypocit|spocit|calculate/i.test(input)) {
+          return [ToolType.LOCAL_MATH];  // v62.2: tightened math detection
         }
         return [ToolType.LOCAL_DATE]; // Default to date
 
@@ -2071,9 +2076,9 @@ export class CREDecisionEngine {
       let handler = 'local.date'; // default
       if (/měsíc|úplněk|uplnek|nov|moon|fáze/i.test(input)) {
         handler = 'local.calendar';
-      } else if (/\d+.*[+\-*/].*\d+|vypočít|spočít|calculate/i.test(input)) {
-        handler = 'local.math';
-      } else if (/datum|den|hodin|time|date/i.test(input)) {
+      } else if (/kolik\s+je\s+\d|^\s*\d+\s*[+\-*/]\s*\d+|vypočít|spočít|vypocit|spocit|calculate/i.test(input)) {
+        handler = 'local.math';  // v62.2: tightened — no longer catches "i7-14700K"
+      } else if (/datum|\bden\b|hodin|time|date/i.test(input)) {
         handler = 'local.date';
       }
 
@@ -2161,6 +2166,24 @@ export class CREDecisionEngine {
     // INVARIANT 2: SEARCH/FACT/REPORT/ITEM_LOOKUP = TOOL_CALL first
     // v45.0: Added ITEM_LOOKUP - requires web search to find specific items
     if ([IntentType.SEARCH, IntentType.FACTUAL, IntentType.REPORT, IntentType.ITEM_LOOKUP].includes(intent)) {
+      // v62.2: Classify SEARCH sub-type for targeted synthesis prompts
+      let searchSubType = 'GENERAL';
+      if (intent === IntentType.SEARCH || intent === IntentType.FACTUAL) {
+        if (/zpr[áa]v|novin|news|aktu[áa]ln[ií].*situac|co se d[eě]je/i.test(input)) {
+          searchSubType = 'NEWS';
+        } else if (/specifikac|parametr|specs|specification|spot[rř]eb/i.test(input)) {
+          searchSubType = 'SPEC';
+        } else if (/porovn[eě]j|srovn[eě]j|vs\.?(?:\s|$)|versus|\bvs\b/i.test(input)) {
+          searchSubType = 'COMPARISON';
+        } else if (/kurz|po[čc]as[ií]|weather|teplota|předpov[eě]ď|forecast/i.test(input)) {
+          searchSubType = 'FACTUAL_NUMERIC';
+        } else if (/kdo\s+je|who\s+is|prezident|president/i.test(input)) {
+          searchSubType = 'PERSON';
+        }
+      } else if (intent === IntentType.ITEM_LOOKUP) {
+        searchSubType = 'CLASSIFIED';
+      }
+
       return new CREDecision({
         type: DecisionType.TOOL_CALL,
         intent,
@@ -2171,6 +2194,7 @@ export class CREDecisionEngine {
           inputPreview: input.substring(0, 100),
           intentContinuity: lastIntent === intent,
           retryCount,
+          searchSubType,  // v62.2: NEWS/SPEC/COMPARISON/FACTUAL_NUMERIC/PERSON/CLASSIFIED/GENERAL
           // v44.3 - Project scope for all decisions when project is active
           projectScope,
           projectDominant: !!hasActiveProject,
