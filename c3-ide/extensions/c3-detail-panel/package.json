@@ -1,0 +1,13 @@
+{
+  "name": "@c3-ide/c3-detail-panel",
+  "version": "0.1.0",
+  "description": "C3 Studio — Detail panel",
+  "license": "MIT",
+  "main": "lib/browser/detail-panel-module",
+  "theiaExtensions": [
+    { "frontend": "lib/browser/detail-panel-module" }
+  ],
+  "dependencies": {
+    "@theia/core": "*"
+  }
+}

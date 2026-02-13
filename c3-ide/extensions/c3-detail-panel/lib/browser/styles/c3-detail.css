@@ -1,0 +1,134 @@
+/* C3 Detail Panel — v7 */
+.c3-detail-widget { overflow: hidden !important; }
+
+.c3-det {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--c3-bg-1);
+  font-family: var(--c3-font);
+}
+.c3-det-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--c3-tx-4);
+  font-size: 12px;
+}
+.c3-det-head {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--c3-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.c3-det-head h3 {
+  font-size: 13.5px;
+  font-weight: 700;
+  flex: 1;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--c3-tx-1);
+}
+.c3-det-close { width: 24px; height: 24px; }
+.c3-det-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+}
+.c3-det-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  font-size: 12px;
+  border-bottom: 1px solid var(--c3-border);
+}
+.c3-det-row span:first-child { color: var(--c3-tx-3); }
+.c3-det-row span:last-child { color: var(--c3-tx-2); font-family: var(--c3-mono); font-size: 11px; }
+.c3-det-section { margin-top: 12px; }
+.c3-det-section h4 {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--c3-tx-4);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 6px;
+}
+.c3-det-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.c3-det-tag {
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--c3-bg-4);
+  font-size: 10px;
+  color: var(--c3-tx-2);
+}
+.c3-det-actions {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.c3-det-btn {
+  padding: 5px 12px;
+  border-radius: var(--c3-r-xs);
+  border: 1px solid var(--c3-border-2);
+  background: var(--c3-bg-3);
+  color: var(--c3-tx-2);
+  font-family: var(--c3-font);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+.c3-det-btn:hover {
+  border-color: var(--c3-accent);
+  color: var(--c3-accent-text);
+  background: var(--c3-accent-bg);
+}
+.c3-det-btn.primary {
+  background: var(--c3-accent);
+  color: #fff;
+  border-color: transparent;
+}
+.c3-det-btn.primary:hover {
+  background: var(--c3-accent-dim);
+}
+
+/* v63.0: Capability bars */
+.c3-det-cap-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+.c3-det-cap-bar label {
+  width: 80px;
+  font-size: 10px;
+  color: var(--c3-tx-3);
+  flex-shrink: 0;
+}
+.c3-det-cap-bar .bar {
+  flex: 1;
+  height: 4px;
+  background: var(--c3-bg-4);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.c3-det-cap-bar .bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--c3-accent);
+  transition: width 0.3s ease;
+}
+.c3-det-cap-bar .bar-val {
+  width: 24px;
+  text-align: right;
+  font-size: 10px;
+  font-family: var(--c3-mono);
+  color: var(--c3-tx-2);
+}

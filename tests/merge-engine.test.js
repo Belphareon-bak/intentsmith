@@ -272,10 +272,12 @@ describe('T-ME7: Enforcement merge', async () => {
     assert.ok(count >= 4, `forbiddenPhrases should be >= 4 (baseline), got ${count}`);
   });
 
-  await it('uses MAX for minResponseLength', () => {
-    // analyst has minResponseLength: 100, developer has 50
+  await it('uses MAX for minResponseLength + capability modifier', () => {
+    // analyst has minResponseLength: 100, developer has 50 → MAX = 100
+    // Capability modifier: weighted riskTolerance(dev:30,analyst:20) = 27 < 30 (LOW) → +50
+    // Final: 100 + 50 = 150
     const result = mergeExpertisePrompt([expert('developer', 0.7), expert('analyst', 0.3)]);
-    assert.strictEqual(result.enforcement.minResponseLength, 100);
+    assert.strictEqual(result.enforcement.minResponseLength, 150);
   });
 
   await it('collects disclaimers from modules', () => {
@@ -389,6 +391,66 @@ describe('T-ME11: Compatibility block', async () => {
       assert.ok(e.compatibility.conflicts.length > 0, 'should have conflict details');
       const detail = e.compatibility.conflicts[0].conflicts[0].detail;
       assert.ok(detail.includes('creative') || detail.includes('deterministic'));
+    }
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// T-ME11: COMMUTATIVITY (🔴 from review)
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('T-ME11: Merge commutativity', async () => {
+  await it('merge(A, B) == merge(B, A) when weights differ', () => {
+    // Different weights → sort by weight is deterministic regardless of input order
+    const resultAB = mergeExpertisePrompt([expert('developer', 0.7), expert('analyst', 0.3)]);
+    const resultBA = mergeExpertisePrompt([expert('analyst', 0.3), expert('developer', 0.7)]);
+
+    // Prompt content should be identical
+    assert.strictEqual(resultAB.prompt, resultBA.prompt, 'prompts should be identical');
+    // Metadata should be identical
+    assert.strictEqual(resultAB.metadata.tone, resultBA.metadata.tone, 'tone should be identical');
+    assert.strictEqual(resultAB.metadata.temperature, resultBA.metadata.temperature, 'temperature should be identical');
+    assert.strictEqual(resultAB.metadata.tokenCount, resultBA.metadata.tokenCount, 'tokenCount should be identical');
+    // Expertise IDs should be in same order (sorted by weight)
+    assert.deepStrictEqual(resultAB.metadata.expertiseIds, resultBA.metadata.expertiseIds, 'expertiseIds should match');
+  });
+
+  await it('merge(A, B, C) == merge(C, A, B) when weights differ', () => {
+    const resultABC = mergeExpertisePrompt([
+      expert('developer', 0.6), expert('analyst', 0.3), expert('ai_expert', 0.1),
+    ]);
+    const resultCAB = mergeExpertisePrompt([
+      expert('ai_expert', 0.1), expert('developer', 0.6), expert('analyst', 0.3),
+    ]);
+
+    assert.strictEqual(resultABC.prompt, resultCAB.prompt, 'prompts should be identical');
+    assert.deepStrictEqual(resultABC.metadata.expertiseIds, resultCAB.metadata.expertiseIds);
+    assert.strictEqual(resultABC.metadata.temperature, resultCAB.metadata.temperature);
+  });
+
+  await it('merge(A, B) with equal weights: position is tie-breaker', () => {
+    // With equal weights, position (input order) determines tie-breaking
+    // This is by design: first-added expertise wins ties
+    const A = { ...BUILTIN_EXPERTS['developer'], weight: 0.5, position: 0 };
+    const B = { ...BUILTIN_EXPERTS['analyst'], weight: 0.5, position: 1 };
+    const resultAB = mergeExpertisePrompt([A, B]);
+    const resultBA = mergeExpertisePrompt([B, A]);
+
+    // With explicit positions, both should produce same result (A first via position)
+    assert.strictEqual(resultAB.metadata.tone, resultBA.metadata.tone,
+      'with explicit positions, tone should be deterministic');
+    assert.strictEqual(resultAB.prompt, resultBA.prompt,
+      'with explicit positions, prompts should be identical');
+  });
+
+  await it('deterministic: same input = same output (100 runs)', () => {
+    const input = [expert('developer', 0.7), expert('analyst', 0.3)];
+    const baseline = mergeExpertisePrompt(input);
+
+    for (let i = 0; i < 100; i++) {
+      const result = mergeExpertisePrompt([expert('developer', 0.7), expert('analyst', 0.3)]);
+      assert.strictEqual(result.prompt, baseline.prompt,
+        `run ${i}: prompt diverged from baseline`);
     }
   });
 });

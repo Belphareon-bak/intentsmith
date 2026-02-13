@@ -129,10 +129,11 @@ describe('T-EI1: Merged enforcement detects violations', async () => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 describe('T-EI2: minResponseLength uses MAX from both experts', async () => {
-  await it('merged minResponseLength = MAX(developer=50, analyst=100) = 100', () => {
+  await it('merged minResponseLength = MAX(developer=50, analyst=100) + capability modifier', () => {
     const mergeResult = mergeExpertisePrompt([expert('developer', 0.7), expert('analyst', 0.3)]);
-    assert.strictEqual(mergeResult.enforcement.minResponseLength, 100,
-      'should use MAX of both experts');
+    // Base: MAX(50, 100) = 100, then +50 from riskTolerance LOW capability modifier (weighted avg < 30)
+    assert.strictEqual(mergeResult.enforcement.minResponseLength, 150,
+      'should use MAX of both experts + capability modifier');
   });
 
   await it('short response fails merged length check', () => {
@@ -260,7 +261,7 @@ describe('T-EI5: quickCheck with merged config', async () => {
     const mergeResult = mergeExpertisePrompt([expert('developer', 0.7), expert('analyst', 0.3)]);
     const synthetic = buildSyntheticExpert(mergeResult, [BUILTIN_EXPERTS.developer, BUILTIN_EXPERTS.analyst]);
 
-    const cleanResponse = 'Na základě analýzy zdrojového kódu a dostupných dat doporučuji optimalizovat databázové dotazy pomocí indexů a prepared statements pro lepší výkon.';
+    const cleanResponse = 'Na základě analýzy zdrojového kódu a dostupných dat doporučuji optimalizovat databázové dotazy pomocí indexů a prepared statements pro lepší výkon. Tato změna výrazně zlepší odezvu celého systému.';
     const result = quickCheck(cleanResponse, synthetic);
     assert.ok(result.passed, `quickCheck should pass clean response, violations: ${result.violations}`);
   });

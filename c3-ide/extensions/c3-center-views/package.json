@@ -1,0 +1,13 @@
+{
+  "name": "@c3-ide/c3-center-views",
+  "version": "0.1.0",
+  "description": "C3 Studio — Center views (grids, settings)",
+  "license": "MIT",
+  "main": "lib/browser/center-views-module",
+  "theiaExtensions": [
+    { "frontend": "lib/browser/center-views-module" }
+  ],
+  "dependencies": {
+    "@theia/core": "*"
+  }
+}

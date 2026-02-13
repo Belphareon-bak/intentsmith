@@ -553,13 +553,22 @@ async function handleMergedExpertises(input, context) {
     const enforcer = new ExpertEnforcer(syntheticExpert, regenerateFn);
     const enforcement = await enforcer.enforce(result.content, input);
 
-    // Step 4: Append disclaimers (deduplicated)
+    // Step 4: Append disclaimers (deduplicated — 🟡6)
     let finalContent = enforcement.response;
     const disclaimers = mergeResult.enforcement.disclaimers || [];
     if (disclaimers.length > 0) {
-      finalContent += '\n\n---\n';
-      for (const d of disclaimers) {
-        finalContent += `*${d}*\n`;
+      const seen = new Set();
+      const uniqueDisclaimers = disclaimers.filter(d => {
+        const normalized = d.trim().toLowerCase();
+        if (seen.has(normalized)) return false;
+        seen.add(normalized);
+        return true;
+      });
+      if (uniqueDisclaimers.length > 0) {
+        finalContent += '\n\n---\n';
+        for (const d of uniqueDisclaimers) {
+          finalContent += `*${d}*\n`;
+        }
       }
     }
 

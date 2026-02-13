@@ -7,8 +7,23 @@
 // CONTRACT:
 //   - Pure function: no side effects, no DB, no I/O
 //   - Deterministic: same input → same output
+//   - Commutative: merge(A,B) == merge(B,A) when weights differ
 //   - Returns Object.freeze(result)
 //   - Input is NOT mutated
+//
+// PRECEDENCE RULES:
+//   Conflict              │ Resolution
+//   ──────────────────────┼──────────────────────────────────
+//   tone clash            │ highest weight wins (sorted[0])
+//   temperature clash     │ dominant (>0.6) wins; else weighted avg
+//   module conflict       │ per-section: 'extend' = dedup merge, 'replace' = child only
+//   disclaimer conflict   │ UNION (all unique, never trimmed)
+//   capability conflict   │ used for compatibility check, not merged
+//   constraints conflict  │ UNION (never trimmed)
+//   antipatterns conflict │ UNION (never trimmed)
+//   forbiddenPhrases      │ UNION of all (regex + string)
+//   minResponseLength     │ MAX across all expertises
+//   equal weight tie      │ position field is tie-breaker (lower = higher priority)
 //
 // v63.0 — Merge Engine v2
 // ══════════════════════════════════════════════════════════════════════════════
@@ -26,6 +41,10 @@ import {
 } from './merge-types.js';
 import { checkCompatibility } from './merge-compatibility.js';
 import { resolveInheritance } from './expert-layer.js';
+import {
+  computeCapabilityModifiers,
+  applyCapabilityModifiers as applyCapMods,
+} from './capability-mapping.js';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Internal Helpers
@@ -391,6 +410,7 @@ function buildAuditLog(data) {
     trimmedItems: data.trimmedItems,
     specialistId: data.specialistId || null,
     userContextTokens: data.userContextTokens || 0,
+    capabilityModifiers: data.capabilityModifiers || null,
   };
 }
 
@@ -466,7 +486,7 @@ export function mergeExpertisePrompt(expertises, specialistOverride = null, user
   const tone = specialistOverride?.tone || deriveTone(resolved);
 
   // Step 8: Derive temperature
-  const tempResult = specialistOverride?.temperature != null
+  let tempResult = specialistOverride?.temperature != null
     ? { temperature: specialistOverride.temperature, method: 'specialist_override' }
     : deriveTemperature(resolved);
 
@@ -500,7 +520,14 @@ export function mergeExpertisePrompt(expertises, specialistOverride = null, user
   }
 
   // Step 13: Merge enforcement
-  const enforcement = mergeEnforcement(resolved, specialistOverride);
+  let enforcement = mergeEnforcement(resolved, specialistOverride);
+
+  // Step 13.5: Apply capability modifiers (v63.0 — real behavior, not cosmetic)
+  const capModifiers = computeCapabilityModifiers(resolved);
+  const capApplied = applyCapMods(capModifiers, prompt, tempResult, enforcement);
+  prompt = capApplied.prompt;
+  tempResult = capApplied.tempResult;
+  enforcement = capApplied.enforcement;
 
   // Step 14: Build audit log
   const tokensAfter = estimateTokens(prompt);
@@ -518,6 +545,7 @@ export function mergeExpertisePrompt(expertises, specialistOverride = null, user
     trimmedItems: trimResult.removed,
     specialistId: specialistOverride?.id || null,
     userContextTokens: contextTokens,
+    capabilityModifiers: capModifiers, // audit the applied modifiers
   });
 
   // Step 15: Freeze and return
@@ -532,8 +560,9 @@ export function mergeExpertisePrompt(expertises, specialistOverride = null, user
       tokenCount: tokensAfter,
       compatibility: compatibility.severity,
       requiresConfirmation: compatibility.requiresConfirmation,
+      capabilityVector: capModifiers.capabilityVector,
     }),
-    enforcement,
+    enforcement: Object.freeze(enforcement),
     audit,
   });
 }

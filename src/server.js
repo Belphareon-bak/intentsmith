@@ -4,6 +4,7 @@
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
+import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 import { config } from './config.js';
 import { logger } from './core/logger.js';
@@ -396,6 +397,16 @@ architectCleanupInterval.unref(); // Don't prevent process exit
 // ║  Put it in handlers/ modules or CRE. That's what they're for.                   ║
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 //
+
+// v63.0: Wizard-specific rate limiter (🔴2)
+const _wizardRateLimits = new Map();
+function checkWizardRateLimit(key, intervalMs) {
+  const now = Date.now();
+  const last = _wizardRateLimits.get(key) || 0;
+  if (now - last < intervalMs) return false;
+  _wizardRateLimits.set(key, now);
+  return true;
+}
 
 const routes = {
   // Health check
@@ -1597,6 +1608,159 @@ const routes = {
           conflicts: err.compatibility?.conflicts || [],
         });
       }
+      sendJSON(res, 500, safeError(err));
+    }
+  },
+
+  // v63.0 — Expertise Schema endpoint (🔴1 — anti-drift, constants from backend)
+  'GET /api/expertise-schema': async (req, res) => {
+    try {
+      const { MODULE_SECTIONS, MERGE_LIMITS, CompatibilitySeverity } = await import('./experts/merge-types.js');
+
+      sendJSON(res, 200, {
+        moduleSections: MODULE_SECTIONS,
+        limits: {
+          maxActiveExpertises: MERGE_LIMITS.MAX_ACTIVE_EXPERTISES,
+          maxDomainRules: MERGE_LIMITS.MAX_DOMAIN_RULES,
+          maxEmphasis: MERGE_LIMITS.MAX_EMPHASIS,
+          maxConstraints: MERGE_LIMITS.MAX_CONSTRAINTS,
+          maxVocabulary: MERGE_LIMITS.MAX_VOCABULARY,
+          maxAntipatterns: MERGE_LIMITS.MAX_ANTIPATTERNS,
+          maxDisclaimers: MERGE_LIMITS.MAX_DISCLAIMERS,
+          maxTotalTokens: MERGE_LIMITS.MAX_TOTAL_TOKENS,
+          effectiveTokenBudget: MERGE_LIMITS.EFFECTIVE_TOKEN_BUDGET,
+          maxUserContextTokens: MERGE_LIMITS.MAX_USER_CONTEXT_TOKENS,
+          minWeight: MERGE_LIMITS.MIN_WEIGHT,
+          maxWeight: MERGE_LIMITS.MAX_WEIGHT,
+        },
+        capabilityDimensions: ['reasoning', 'creativity', 'determinism', 'riskTolerance', 'verbosity'],
+        inheritanceModes: ['extend', 'replace'],
+        toneOptions: ['professional', 'casual', 'academic', 'empathetic', 'assertive', 'neutral'],
+        severityLevels: Object.values(CompatibilitySeverity),
+      });
+    } catch (err) {
+      sendJSON(res, 500, safeError(err));
+    }
+  },
+
+  // v63.0 — POST Merge Preview (inline config, for wizard — no registry lookup)
+  'POST /api/merge-preview': async (req, res) => {
+    try {
+      const clientIp = req.socket.remoteAddress || 'unknown';
+      if (!checkWizardRateLimit(clientIp + ':preview', 500)) {
+        return sendJSON(res, 429, { error: 'Too many requests. Max 2 previews/second.' });
+      }
+
+      const body = await parseBody(req);
+      if (!body.expertises || !Array.isArray(body.expertises) || body.expertises.length === 0) {
+        return sendJSON(res, 400, { error: 'Missing "expertises" array (1-3 inline configs)' });
+      }
+      if (body.expertises.length > 3) {
+        return sendJSON(res, 400, { error: 'Max 3 expertises allowed' });
+      }
+
+      const { mergeExpertisePrompt } = await import('./experts/merge-engine.js');
+
+      // Build expertise objects with temp IDs (🟡5)
+      const expertises = body.expertises.map((cfg, idx) => ({
+        id: cfg.id || `__wizard_${randomUUID()}_${idx}`,
+        name: cfg.name || `Wizard Expert ${idx + 1}`,
+        modules: cfg.modules || null,
+        capabilities: cfg.capabilities || null,
+        systemPrompt: cfg.systemPrompt || '',
+        temperature: cfg.temperature ?? 0.5,
+        tone: cfg.tone || 'professional',
+        styleRules: cfg.styleRules || {},
+        weight: Math.max(0.1, Math.min(1.0, parseFloat(cfg.weight) || 0.5)),
+      }));
+
+      const result = mergeExpertisePrompt(expertises);
+
+      sendJSON(res, 200, {
+        activeExpertises: result.metadata.expertiseIds,
+        weights: result.metadata.weights,
+        tone: result.metadata.tone,
+        temperature: result.metadata.temperature,
+        temperatureMethod: result.metadata.temperatureMethod,
+        tokenCount: result.metadata.tokenCount,
+        compatibility: result.metadata.compatibility,
+        requiresConfirmation: result.metadata.requiresConfirmation,
+        promptPreview: result.prompt.substring(0, 500) + (result.prompt.length > 500 ? '...' : ''),
+        enforcement: {
+          forbiddenPhrasesCount: result.enforcement.forbiddenPhrases.length,
+          minResponseLength: result.enforcement.minResponseLength,
+          disclaimers: result.enforcement.disclaimers,
+        },
+      });
+    } catch (err) {
+      if (err.name === 'CompatibilityBlockError') {
+        return sendJSON(res, 409, {
+          error: 'Incompatible expertise combination',
+          severity: err.compatibility?.severity || 'hard_block',
+          conflicts: err.compatibility?.conflicts || [],
+        });
+      }
+      sendJSON(res, 500, safeError(err));
+    }
+  },
+
+  // v63.0 — Wizard Test Prompt (LLM call with inline config)
+  'POST /api/expertise-wizard/test-prompt': async (req, res) => {
+    try {
+      const clientIp = req.socket.remoteAddress || 'unknown';
+      if (!checkWizardRateLimit(clientIp + ':test', 5000)) {
+        return sendJSON(res, 429, { error: 'Too many requests. Max 1 test/5 seconds.', retryAfter: 5 });
+      }
+
+      const body = await parseBody(req);
+      if (!body.expertiseConfig) {
+        return sendJSON(res, 400, { error: 'Missing "expertiseConfig" object' });
+      }
+      if (!body.question || typeof body.question !== 'string') {
+        return sendJSON(res, 400, { error: 'Missing "question" string' });
+      }
+
+      // Validate config
+      const { validateExpertConfig } = await import('./experts/expert-store.js');
+      const validation = validateExpertConfig(body.expertiseConfig);
+      if (!validation.valid) {
+        return sendJSON(res, 400, { error: 'Invalid config', details: validation.errors });
+      }
+
+      // Build single-expertise merge for system prompt
+      const { mergeExpertisePrompt } = await import('./experts/merge-engine.js');
+      const cfg = body.expertiseConfig;
+      const expertise = {
+        id: `__wizard_${randomUUID()}`,
+        name: cfg.name || 'Test Expert',
+        modules: cfg.modules || null,
+        capabilities: cfg.capabilities || null,
+        systemPrompt: cfg.systemPrompt || '',
+        temperature: cfg.temperature ?? 0.5,
+        tone: cfg.tone || 'professional',
+        styleRules: cfg.styleRules || {},
+        weight: 1.0,
+      };
+
+      const mergeResult = mergeExpertisePrompt([expertise]);
+
+      // Call LLM
+      const startTime = Date.now();
+      const token = createAuthToken({ role: LLMCallerRole.CHAT });
+      const llmResult = await callWithAuth(token, body.question, {
+        systemPrompt: mergeResult.prompt,
+        temperature: mergeResult.metadata.temperature,
+      });
+      const duration = Date.now() - startTime;
+
+      sendJSON(res, 200, {
+        response: llmResult.content || llmResult.response || '',
+        model: llmResult.model || 'unknown',
+        duration,
+        tokenCount: mergeResult.metadata.tokenCount,
+        compatibility: mergeResult.metadata.compatibility,
+      });
+    } catch (err) {
       sendJSON(res, 500, safeError(err));
     }
   },

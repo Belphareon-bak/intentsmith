@@ -16,7 +16,8 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { logger } from '../core/logger.js';
-import { MERGE_LIMITS } from './merge-types.js';
+import { MERGE_LIMITS, MODULE_SECTIONS } from './merge-types.js';
+import { checkCapabilityNormalization } from './capability-mapping.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Expert Lifecycle States
@@ -67,6 +68,26 @@ const VALIDATION_RULES = {
   forbiddenPhrases: {
     maxItems: 50,
     maxItemLength: 200,
+  },
+  // v63.0: Merge Engine v2 — modules, capabilities, inheritance
+  modules: {
+    validSections: MODULE_SECTIONS,
+    maxItemLength: 500,
+    sectionLimits: {
+      domain_rules: MERGE_LIMITS.MAX_DOMAIN_RULES,
+      emphasis: MERGE_LIMITS.MAX_EMPHASIS,
+      constraints: MERGE_LIMITS.MAX_CONSTRAINTS,
+      vocabulary: MERGE_LIMITS.MAX_VOCABULARY,
+      antipatterns: MERGE_LIMITS.MAX_ANTIPATTERNS,
+    },
+  },
+  capabilities: {
+    validDimensions: ['reasoning', 'creativity', 'determinism', 'riskTolerance', 'verbosity'],
+    min: 0,
+    max: 100,
+  },
+  inheritance: {
+    validModes: ['extend', 'replace'],
   },
 };
 
@@ -146,9 +167,88 @@ export function validateExpertConfig(config) {
     }
   }
 
+  // v63.0: Modules validation
+  if (config.modules !== undefined && config.modules !== null) {
+    if (typeof config.modules !== 'object' || Array.isArray(config.modules)) {
+      errors.push('modules must be an object');
+    } else {
+      const validSections = VALIDATION_RULES.modules.validSections;
+      const sectionLimits = VALIDATION_RULES.modules.sectionLimits;
+      for (const key of Object.keys(config.modules)) {
+        if (!validSections.includes(key)) {
+          errors.push(`modules: unknown section '${key}', valid: ${validSections.join(', ')}`);
+          continue;
+        }
+        if (key === 'disclaimer') {
+          // disclaimer is string|null, not array
+          if (config.modules[key] !== null && typeof config.modules[key] !== 'string') {
+            errors.push('modules.disclaimer must be a string or null');
+          }
+        } else {
+          if (!Array.isArray(config.modules[key])) {
+            errors.push(`modules.${key} must be an array`);
+          } else {
+            const limit = sectionLimits[key];
+            if (limit && config.modules[key].length > limit) {
+              errors.push(`modules.${key} exceeds limit of ${limit} items (got ${config.modules[key].length})`);
+            }
+            for (let i = 0; i < config.modules[key].length; i++) {
+              if (typeof config.modules[key][i] !== 'string') {
+                errors.push(`modules.${key}[${i}] must be a string`);
+              } else if (config.modules[key][i].length > VALIDATION_RULES.modules.maxItemLength) {
+                errors.push(`modules.${key}[${i}] exceeds max length of ${VALIDATION_RULES.modules.maxItemLength}`);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // v63.0: Capabilities validation
+  if (config.capabilities !== undefined && config.capabilities !== null) {
+    if (typeof config.capabilities !== 'object' || Array.isArray(config.capabilities)) {
+      errors.push('capabilities must be an object');
+    } else {
+      const validDims = VALIDATION_RULES.capabilities.validDimensions;
+      for (const key of Object.keys(config.capabilities)) {
+        if (!validDims.includes(key)) {
+          errors.push(`capabilities: unknown dimension '${key}', valid: ${validDims.join(', ')}`);
+          continue;
+        }
+        const val = config.capabilities[key];
+        if (typeof val !== 'number' || isNaN(val) || val < VALIDATION_RULES.capabilities.min || val > VALIDATION_RULES.capabilities.max) {
+          errors.push(`capabilities.${key} must be a number between ${VALIDATION_RULES.capabilities.min} and ${VALIDATION_RULES.capabilities.max}`);
+        }
+      }
+    }
+  }
+
+  // v63.0: Inheritance validation
+  if (config.inheritance !== undefined && config.inheritance !== null) {
+    if (typeof config.inheritance !== 'object' || Array.isArray(config.inheritance)) {
+      errors.push('inheritance must be an object');
+    } else {
+      const validModes = VALIDATION_RULES.inheritance.validModes;
+      for (const [key, mode] of Object.entries(config.inheritance)) {
+        if (!validModes.includes(mode)) {
+          errors.push(`inheritance.${key}: invalid mode '${mode}', valid: ${validModes.join(', ')}`);
+        }
+      }
+    }
+  }
+
+  // v63.0: Capability normalization warnings (soft, not blocking)
+  const warnings = [];
+  if (config.capabilities && typeof config.capabilities === 'object' && !Array.isArray(config.capabilities)) {
+    const normalization = checkCapabilityNormalization(config.capabilities);
+    warnings.push(...normalization.warnings);
+  }
+
   return {
     valid: errors.length === 0,
     errors,
+    warnings,
   };
 }
 
