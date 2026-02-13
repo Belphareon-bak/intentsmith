@@ -15,9 +15,20 @@ import {
   handleRefuseDecision,
 } from './decisions.js';
 import { ExpertEnforcer, quickCheck } from '../../experts/expert-enforcement.js';
+import { mergeExpertisePrompt } from '../../experts/merge-engine.js';
+import { CompatibilityBlockError } from '../../experts/merge-types.js';
 
 export async function expertHandler(input, context) {
   const { sessionId, expert, sessionState } = context;
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // CASE 0: Multiple expertises active — delegate to merge handler
+  // v63.0 — Merge Engine v2
+  // ════════════════════════════════════════════════════════════════════════════
+
+  if (context.activeExpertises && context.activeExpertises.length > 1) {
+    return await handleMergedExpertises(input, context);
+  }
 
   // ════════════════════════════════════════════════════════════════════════════
   // CASE 1: Expert IS selected - use CRE then apply expert persona
@@ -481,4 +492,155 @@ async function executeAccountantTool(input, toolMatch, expert, context) {
   return await wrapWithExpertPersona(input, rawResponse, expert, context);
 }
 
-export { generateExpertResponse, wrapWithExpertPersona, buildExpertSystemPrompt };
+/**
+ * v63.0 — Handle merged expertises flow.
+ * Uses mergeExpertisePrompt() pure function to combine multiple expertises,
+ * then uses the merged prompt + enforcement for LLM call.
+ */
+async function handleMergedExpertises(input, context) {
+  const { sessionId, activeExpertises } = context;
+
+  try {
+    logger.info('ExpertHandler', `Merged expertise flow: ${activeExpertises.length} expertises`, {
+      expertises: activeExpertises.map(e => e.id),
+    });
+
+    // Step 1: Call pure merge function
+    const mergeResult = mergeExpertisePrompt(
+      activeExpertises,
+      context.specialistOverride || null,
+      context.userContext || null,
+      { registry: context.expertRegistry || {} },
+    );
+
+    // Step 2: Call LLM with merged prompt
+    const creBridge = await import('../../llm/cre-bridge.js');
+
+    let prompt = input;
+    if (context.history?.length > 0) {
+      const historyContext = context.history
+        .slice(-5)
+        .map(h => `${h.response?.tag?.speaker || 'user'}: ${h.response?.content?.substring(0, 200) || ''}`)
+        .join('\n');
+      prompt = `Previous context:\n${historyContext}\n\nUser question: ${input}`;
+    }
+
+    const result = await creBridge.generateChatResponse(prompt, mergeResult.prompt, {
+      sessionId: `merged-${sessionId}`,
+      temperature: mergeResult.metadata.temperature,
+    });
+
+    // Step 3: Enforce with merged config
+    const syntheticExpert = {
+      id: '_merged',
+      name: activeExpertises.map(e => e.name || e.id).join(' + '),
+      domain: 'merged',
+      styleRules: {
+        forbiddenPhrases: mergeResult.enforcement.forbiddenPhrases,
+        minResponseLength: mergeResult.enforcement.minResponseLength,
+        toolEnforcement: mergeResult.enforcement.toolEnforcement,
+      },
+    };
+
+    const regenerateFn = async (retryPrompt) => {
+      const retryResult = await creBridge.generateChatResponse(retryPrompt, mergeResult.prompt, {
+        sessionId: `merged-${sessionId}-retry`,
+        temperature: Math.max(0.2, mergeResult.metadata.temperature - 0.1),
+      });
+      return retryResult.content;
+    };
+
+    const enforcer = new ExpertEnforcer(syntheticExpert, regenerateFn);
+    const enforcement = await enforcer.enforce(result.content, input);
+
+    // Step 4: Append disclaimers (deduplicated)
+    let finalContent = enforcement.response;
+    const disclaimers = mergeResult.enforcement.disclaimers || [];
+    if (disclaimers.length > 0) {
+      finalContent += '\n\n---\n';
+      for (const d of disclaimers) {
+        finalContent += `*${d}*\n`;
+      }
+    }
+
+    // Step 5: Build response tag
+    const tag = new ResponseTag({
+      speaker: ResponseSpeaker.EXPERT,
+      mode: ChatMode.EXPERT,
+      confidence: enforcement.passed ? 0.9 : 0.7,
+      canExecute: false,
+      metadata: {
+        merged: true,
+        expertises: mergeResult.metadata.expertiseIds,
+        weights: mergeResult.metadata.weights,
+        tone: mergeResult.metadata.tone,
+        temperature: mergeResult.metadata.temperature,
+        temperatureMethod: mergeResult.metadata.temperatureMethod,
+        tokenCount: mergeResult.metadata.tokenCount,
+        compatibility: mergeResult.metadata.compatibility,
+        model: result.model,
+        duration: result.duration,
+        enforcement: {
+          passed: enforcement.passed,
+          attempts: enforcement.attempts,
+          wasRetried: enforcement.wasRetried,
+        },
+      },
+    });
+
+    // Step 6: Audit log (in debug mode)
+    if (context.debug) {
+      logger.debug('ExpertHandler', 'Merge audit', mergeResult.audit);
+    }
+
+    return new TaggedResponse({ content: finalContent, tag });
+
+  } catch (err) {
+    if (err instanceof CompatibilityBlockError) {
+      logger.warn('ExpertHandler', `Merge blocked: ${err.message}`);
+
+      const tag = new ResponseTag({
+        speaker: ResponseSpeaker.SYSTEM,
+        mode: ChatMode.EXPERT,
+        confidence: 1.0,
+        canExecute: false,
+        metadata: {
+          error: true,
+          errorType: 'MERGE_COMPATIBILITY_BLOCK',
+          compatibility: err.compatibility,
+        },
+      });
+
+      const conflictDetails = err.compatibility.conflicts
+        .flatMap(c => c.conflicts?.map(cc => cc.detail) || [])
+        .join('\n- ');
+
+      return new TaggedResponse({
+        content: `⚠️ **Nekompatibilní kombinace expertiz**\n\n` +
+                 `Vybrané expertízy nelze zkombinovat:\n- ${conflictDetails}\n\n` +
+                 `Zkuste jinou kombinaci nebo snižte počet expertíz.`,
+        tag,
+      });
+    }
+
+    logger.error('ExpertHandler', `Merge failed: ${err.message}`);
+
+    const tag = new ResponseTag({
+      speaker: ResponseSpeaker.SYSTEM,
+      mode: ChatMode.EXPERT,
+      confidence: 1.0,
+      canExecute: false,
+      metadata: {
+        error: true,
+        errorType: 'MERGE_FAILED',
+      },
+    });
+
+    return new TaggedResponse({
+      content: `⚠️ **Chyba při slučování expertíz**\n\n${err.message}`,
+      tag,
+    });
+  }
+}
+
+export { generateExpertResponse, wrapWithExpertPersona, buildExpertSystemPrompt, handleMergedExpertises };

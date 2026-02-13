@@ -16,6 +16,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { logger } from '../core/logger.js';
+import { MERGE_LIMITS } from './merge-types.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Expert Lifecycle States
@@ -182,6 +183,7 @@ export class ExpertStore {
     if (!db) {
       this._memExperts = new Map();
       this._memBindings = new Map();
+      this._memExpertises = new Map(); // v63.0: multi-expertise bindings
     }
   }
 
@@ -432,6 +434,116 @@ export class ExpertStore {
       return;
     }
     this._memBindings.delete(conversationId);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // v63.0: Multi-Expertise Bindings (Merge Engine v2)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Set multiple expertises for a conversation (max 3).
+   * Replaces all existing expertise bindings.
+   * Also clears legacy single-expert binding from conversation_experts (🟡4).
+   *
+   * @param {string} conversationId
+   * @param {Array<{expertiseId: string, weight?: number, position?: number}>} expertises
+   */
+  setExpertisesForConversation(conversationId, expertises) {
+    if (!conversationId) {
+      throw new Error('ExpertStore: conversationId is required');
+    }
+    if (!Array.isArray(expertises) || expertises.length === 0) {
+      throw new Error('ExpertStore: expertises must be a non-empty array');
+    }
+    if (expertises.length > MERGE_LIMITS.MAX_ACTIVE_EXPERTISES) {
+      throw new Error(`ExpertStore: max ${MERGE_LIMITS.MAX_ACTIVE_EXPERTISES} expertises allowed, got ${expertises.length}`);
+    }
+
+    // Normalize entries
+    const normalized = expertises.map((e, idx) => ({
+      expertiseId: e.expertiseId,
+      weight: Math.max(MERGE_LIMITS.MIN_WEIGHT, Math.min(MERGE_LIMITS.MAX_WEIGHT, e.weight ?? 0.5)),
+      position: e.position ?? idx,
+    }));
+
+    if (this.#db) {
+      try {
+        // Use the setExpertises transaction from DB
+        this.#db.conversationExpertises.setExpertises(conversationId, normalized);
+        // 🟡4: Clear legacy single-expert binding
+        try {
+          this.#db.conversationExperts.clearExpert(conversationId);
+        } catch {
+          // Legacy table might not exist, ignore
+        }
+        logger.info('ExpertStore', `Set ${normalized.length} expertises for conversation`, {
+          conversationId: conversationId.substring(0, 12),
+          expertises: normalized.map(e => e.expertiseId),
+        });
+      } catch (err) {
+        logger.error('ExpertStore', `Failed to set expertises: ${err.message}`);
+        throw err;
+      }
+      return;
+    }
+
+    // In-memory mode
+    this._memExpertises.set(conversationId, normalized.map(e => ({
+      conversation_id: conversationId,
+      expertise_id: e.expertiseId,
+      weight: e.weight,
+      position: e.position,
+      created_at: new Date().toISOString(),
+    })));
+    // 🟡4: Clear legacy
+    this._memBindings.delete(conversationId);
+  }
+
+  /**
+   * Get expertises for a conversation.
+   * Returns sorted by weight desc, position as tie-breaker (🟡5).
+   *
+   * @param {string} conversationId
+   * @returns {Array<{expertiseId: string, weight: number, position: number}>}
+   */
+  getExpertises(conversationId) {
+    if (!conversationId) return [];
+
+    if (this.#db) {
+      try {
+        return this.#db.conversationExpertises.getExpertises(conversationId);
+      } catch (err) {
+        logger.error('ExpertStore', `Failed to get expertises: ${err.message}`);
+        return [];
+      }
+    }
+
+    // In-memory mode
+    const entries = this._memExpertises.get(conversationId) || [];
+    return entries
+      .map(e => ({
+        expertiseId: e.expertise_id,
+        weight: e.weight,
+        position: e.position,
+      }))
+      .sort((a, b) => b.weight - a.weight || a.position - b.position);
+  }
+
+  /**
+   * Clear all expertises for a conversation.
+   *
+   * @param {string} conversationId
+   */
+  clearExpertises(conversationId) {
+    if (this.#db) {
+      try {
+        this.#db.conversationExpertises.deleteAll(conversationId);
+      } catch (err) {
+        logger.error('ExpertStore', `Failed to clear expertises: ${err.message}`);
+      }
+      return;
+    }
+    this._memExpertises.delete(conversationId);
   }
 
   // ─────────────────────────────────────────────────────────────────────────

@@ -1527,6 +1527,80 @@ const routes = {
     }
   },
   
+  // v63.0 — Merge Preview endpoint
+  'GET /api/merge-preview': async (req, res) => {
+    try {
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const expertiseIds = url.searchParams.get('expertises');
+
+      if (!expertiseIds) {
+        return sendJSON(res, 400, { error: 'Missing "expertises" query parameter (comma-separated IDs)' });
+      }
+
+      const ids = expertiseIds.split(',').map(s => s.trim()).filter(Boolean);
+      if (ids.length === 0 || ids.length > 3) {
+        return sendJSON(res, 400, { error: 'Provide 1-3 expertise IDs' });
+      }
+
+      // Lazy-load dependencies
+      const { BUILTIN_EXPERTS, expertRegistry } = await import('./experts/expert-layer.js');
+      const { mergeExpertisePrompt } = await import('./experts/merge-engine.js');
+      const { CompatibilityBlockError } = await import('./experts/merge-types.js');
+
+      // Resolve expertises with weights from query params (🟡6: validation)
+      const expertises = [];
+      for (const id of ids) {
+        const expert = BUILTIN_EXPERTS[id] || expertRegistry.get(id)?.toJSON?.() || null;
+        if (!expert) {
+          return sendJSON(res, 400, { error: `Unknown expertise: ${id}` });
+        }
+
+        // Parse and validate weight (🟡6)
+        const rawWeight = url.searchParams.get(`weight_${id}`);
+        let weight = 0.5;
+        if (rawWeight !== null) {
+          const parsed = parseFloat(rawWeight);
+          if (isNaN(parsed)) {
+            return sendJSON(res, 400, { error: `Invalid weight for ${id}: "${rawWeight}" (must be 0.1-1.0)` });
+          }
+          weight = Math.max(0.1, Math.min(1.0, parsed));
+        }
+
+        expertises.push({ ...expert, weight });
+      }
+
+      // Call pure merge function
+      const result = mergeExpertisePrompt(expertises, null, null, { registry: expertRegistry });
+
+      sendJSON(res, 200, {
+        activeExpertises: result.metadata.expertiseIds,
+        weights: result.metadata.weights,
+        tone: result.metadata.tone,
+        temperature: result.metadata.temperature,
+        temperatureMethod: result.metadata.temperatureMethod,
+        tokenCount: result.metadata.tokenCount,
+        compatibility: result.metadata.compatibility,
+        requiresConfirmation: result.metadata.requiresConfirmation,
+        promptPreview: result.prompt.substring(0, 500) + (result.prompt.length > 500 ? '...' : ''),
+        enforcement: {
+          forbiddenPhrasesCount: result.enforcement.forbiddenPhrases.length,
+          minResponseLength: result.enforcement.minResponseLength,
+          disclaimers: result.enforcement.disclaimers,
+        },
+      });
+
+    } catch (err) {
+      if (err.name === 'CompatibilityBlockError') {
+        return sendJSON(res, 409, {
+          error: 'Incompatible expertise combination',
+          severity: err.compatibility?.severity || 'hard_block',
+          conflicts: err.compatibility?.conflicts || [],
+        });
+      }
+      sendJSON(res, 500, safeError(err));
+    }
+  },
+
   // Storage info
   'GET /api/storage/info': async (req, res) => {
     try {

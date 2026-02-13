@@ -301,6 +301,27 @@ CREATE TABLE IF NOT EXISTS expert_memory (
     UNIQUE(expert_id, key)
 );
 
+-- v63: Multi-expertise support (Merge Engine v2)
+-- Allows N:M binding of expertises to conversations (max 3 per conversation)
+CREATE TABLE IF NOT EXISTS conversation_expertises (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    expertise_id TEXT NOT NULL,
+    weight REAL DEFAULT 0.5 CHECK(weight >= 0.1 AND weight <= 1.0),
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(conversation_id, expertise_id)
+);
+
+-- v63: Merge audit log (structured JSON, populated in debug mode only)
+CREATE TABLE IF NOT EXISTS merge_audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation_id TEXT,
+    timestamp TEXT NOT NULL,
+    data TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- v61: Project Lifecycles (Phase C — Collaborative Milestone Execution)
 CREATE TABLE IF NOT EXISTS project_lifecycles (
     id TEXT PRIMARY KEY,
@@ -391,6 +412,11 @@ CREATE INDEX IF NOT EXISTS idx_attachments_project ON attachments(project_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_experts_conv ON conversation_experts(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_experts_domain ON experts(domain);
 CREATE INDEX IF NOT EXISTS idx_expert_memory_expert ON expert_memory(expert_id);
+
+-- v63: Merge Engine indexes
+CREATE INDEX IF NOT EXISTS idx_conv_expertises_conv ON conversation_expertises(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_conv_expertises_expertise ON conversation_expertises(expertise_id);
+CREATE INDEX IF NOT EXISTS idx_merge_audit_conv ON merge_audit_log(conversation_id);
 
 -- v61: Lifecycle indexes
 CREATE INDEX IF NOT EXISTS idx_lifecycles_project ON project_lifecycles(project_id);
@@ -1128,6 +1154,88 @@ export const conversationExperts = {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
+// v63: MULTI-EXPERTISE REPOSITORIES (Merge Engine v2)
+// ════════════════════════════════════════════════════════════════════════════
+
+// Conversation Expertises (multi-expertise N:M, max 3)
+export const conversationExpertises = {
+  add: db.prepare(`
+    INSERT INTO conversation_expertises (conversation_id, expertise_id, weight, position)
+    VALUES (?, ?, ?, ?)
+  `),
+
+  findByConversation: db.prepare(`
+    SELECT * FROM conversation_expertises
+    WHERE conversation_id = ? ORDER BY position ASC
+  `),
+
+  deleteOne: db.prepare(`
+    DELETE FROM conversation_expertises
+    WHERE conversation_id = ? AND expertise_id = ?
+  `),
+
+  deleteAll: db.prepare(`
+    DELETE FROM conversation_expertises WHERE conversation_id = ?
+  `),
+
+  updateWeight: db.prepare(`
+    UPDATE conversation_expertises SET weight = ?
+    WHERE conversation_id = ? AND expertise_id = ?
+  `),
+
+  count: db.prepare(`
+    SELECT COUNT(*) as cnt FROM conversation_expertises WHERE conversation_id = ?
+  `),
+
+  /**
+   * Replace all expertises for a conversation.
+   * @param {string} conversationId
+   * @param {Array<{id: string, weight: number, position?: number}>} expertises
+   */
+  setExpertises(conversationId, expertises) {
+    const tx = db.transaction(() => {
+      this.deleteAll.run(conversationId);
+      for (const e of expertises) {
+        this.add.run(conversationId, e.id, e.weight, e.position ?? 0);
+      }
+    });
+    tx();
+  },
+
+  /**
+   * @param {string} conversationId
+   * @returns {Array<{expertise_id: string, weight: number, position: number}>}
+   */
+  getExpertises(conversationId) {
+    return this.findByConversation.all(conversationId);
+  },
+};
+
+// Merge Audit Log
+export const mergeAuditLog = {
+  add: db.prepare(`
+    INSERT INTO merge_audit_log (conversation_id, timestamp, data)
+    VALUES (?, ?, ?)
+  `),
+
+  findByConversation: db.prepare(`
+    SELECT * FROM merge_audit_log
+    WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 10
+  `),
+
+  /**
+   * @param {string} conversationId
+   * @param {Object} auditData
+   */
+  log(conversationId, auditData) {
+    const timestamp = new Date().toISOString();
+    const dataStr = typeof auditData === 'string'
+      ? auditData : JSON.stringify(auditData);
+    this.add.run(conversationId, timestamp, dataStr);
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
 // v61: LIFECYCLE REPOSITORIES (Phase C — Collaborative Milestone Execution)
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -1502,6 +1610,9 @@ export default {
   // v57 Experts
   experts,
   conversationExperts,
+  // v63 Merge Engine
+  conversationExpertises,
+  mergeAuditLog,
   // v61 Lifecycle
   lifecycles,
   roadmapVersions,

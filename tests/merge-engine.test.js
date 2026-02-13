@@ -1,0 +1,414 @@
+// C3-Agent v63.0 — Merge Engine Tests
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// T-ME1:  Basic merge (2 expertises, 3 expertises, >3 rejects, empty rejects, single)
+// T-ME2:  Pure function contract (determinism, frozen result, input immutability)
+// T-ME3:  Temperature dominance (>0.6 dominant, weighted avg, specialist override)
+// T-ME4:  Tone derivation (highest weight wins, specialist override)
+// T-ME5:  Token budget trimming (under budget = no trim, constraints never trimmed)
+// T-ME6:  Inheritance resolution (extend, replace, no parent, no modules)
+// T-ME7:  Enforcement merge (forbiddenPhrases UNION, minResponseLength MAX, disclaimers UNION)
+// T-ME8:  User context (appended, null = no section)
+// T-ME9:  Specialist override (adds rules, disclaimer prepended)
+// T-ME10: Audit log (required fields)
+//
+// Spuštění: node tests/merge-engine.test.js
+//
+// ══════════════════════════════════════════════════════════════════════════════
+
+import { strict as assert } from 'assert';
+
+// ─── Test Infrastructure ─────────────────────────────────────────────────────
+
+let passed = 0;
+let failed = 0;
+const failures = [];
+const pendingTests = [];
+
+function describe(name, fn) {
+  pendingTests.push(async () => {
+    console.log(`\n${'═'.repeat(70)}`);
+    console.log(`  ${name}`);
+    console.log(`${'═'.repeat(70)}`);
+    await fn();
+  });
+}
+
+async function it(name, fn) {
+  try {
+    await fn();
+    passed++;
+    console.log(`  ✅ ${name}`);
+  } catch (err) {
+    failed++;
+    failures.push({ name, error: err.message });
+    console.log(`  ❌ ${name}`);
+    console.log(`     ${err.message}`);
+  }
+}
+
+// ─── Imports ─────────────────────────────────────────────────────────────────
+
+import { mergeExpertisePrompt } from '../src/experts/merge-engine.js';
+import { BUILTIN_EXPERTS, expertRegistry, resolveInheritance } from '../src/experts/expert-layer.js';
+import { CompatibilityBlockError, MERGE_LIMITS } from '../src/experts/merge-types.js';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function expert(id, weight = 0.5) {
+  return { ...BUILTIN_EXPERTS[id], weight };
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// T-ME1: BASIC MERGE
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('T-ME1: Basic merge', async () => {
+  await it('merges 2 compatible expertises', () => {
+    const result = mergeExpertisePrompt([expert('developer', 0.7), expert('analyst', 0.3)]);
+    assert.ok(result.prompt.length > 0, 'prompt should not be empty');
+    assert.deepStrictEqual(result.metadata.expertiseIds, ['developer', 'analyst']);
+    assert.ok(result.metadata.tokenCount > 0, 'tokenCount should be > 0');
+  });
+
+  await it('merges 3 compatible expertises', () => {
+    const result = mergeExpertisePrompt([
+      expert('developer', 0.5), expert('analyst', 0.3), expert('ai_expert', 0.2),
+    ]);
+    assert.strictEqual(result.metadata.expertiseIds.length, 3);
+    assert.ok(result.prompt.includes('Pravidla domény'));
+  });
+
+  await it('rejects >3 expertises', () => {
+    assert.throws(
+      () => mergeExpertisePrompt([
+        expert('developer'), expert('analyst'), expert('ai_expert'), expert('trader'),
+      ]),
+      /max 3/,
+    );
+  });
+
+  await it('rejects empty array', () => {
+    assert.throws(() => mergeExpertisePrompt([]), /at least 1/);
+  });
+
+  await it('handles single expertise', () => {
+    const result = mergeExpertisePrompt([expert('writer', 1.0)]);
+    assert.strictEqual(result.metadata.expertiseIds.length, 1);
+    assert.strictEqual(result.metadata.tone, 'creative');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// T-ME2: PURE FUNCTION CONTRACT
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('T-ME2: Pure function contract', async () => {
+  await it('returns frozen result', () => {
+    const result = mergeExpertisePrompt([expert('developer', 0.7), expert('analyst', 0.3)]);
+    assert.ok(Object.isFrozen(result), 'result should be frozen');
+    assert.ok(Object.isFrozen(result.metadata), 'metadata should be frozen');
+    assert.ok(Object.isFrozen(result.enforcement), 'enforcement should be frozen');
+  });
+
+  await it('is deterministic (same input → same output)', () => {
+    const input = [expert('developer', 0.7), expert('analyst', 0.3)];
+    const r1 = mergeExpertisePrompt(input);
+    const r2 = mergeExpertisePrompt(input);
+    assert.strictEqual(r1.prompt, r2.prompt);
+    assert.strictEqual(r1.metadata.temperature, r2.metadata.temperature);
+    assert.strictEqual(r1.metadata.tone, r2.metadata.tone);
+  });
+
+  await it('does not mutate input', () => {
+    const dev = expert('developer', 0.7);
+    const originalModules = JSON.stringify(dev.modules);
+    mergeExpertisePrompt([dev]);
+    assert.strictEqual(JSON.stringify(dev.modules), originalModules, 'input modules should not be mutated');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// T-ME3: TEMPERATURE DOMINANCE
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('T-ME3: Temperature dominance', async () => {
+  await it('uses dominant temperature when weight > 0.6 ratio', () => {
+    const result = mergeExpertisePrompt([
+      expert('developer', 0.8),  // temp 0.3, 80% of total
+      expert('ai_expert', 0.2),  // temp 0.4
+    ]);
+    assert.strictEqual(result.metadata.temperature, 0.3, 'should use dominant (developer) temp');
+    assert.strictEqual(result.metadata.temperatureMethod, 'dominant');
+  });
+
+  await it('uses weighted average when no clear dominant', () => {
+    const result = mergeExpertisePrompt([
+      expert('developer', 0.5),  // temp 0.3
+      expert('ai_expert', 0.5),  // temp 0.4
+    ]);
+    assert.strictEqual(result.metadata.temperatureMethod, 'weighted_avg');
+    // Weighted avg: (0.3*0.5 + 0.4*0.5) / 1.0 = 0.35
+    assert.strictEqual(result.metadata.temperature, 0.35);
+  });
+
+  await it('specialist override takes precedence', () => {
+    const specialist = { id: 'spec', temperature: 0.9, tone: 'creative' };
+    const result = mergeExpertisePrompt(
+      [expert('developer', 0.7), expert('analyst', 0.3)],
+      specialist,
+    );
+    assert.strictEqual(result.metadata.temperature, 0.9);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// T-ME4: TONE DERIVATION
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('T-ME4: Tone derivation', async () => {
+  await it('highest weight wins tone', () => {
+    const result = mergeExpertisePrompt([
+      expert('developer', 0.7),  // tone: concise
+      expert('analyst', 0.3),    // tone: professional
+    ]);
+    assert.strictEqual(result.metadata.tone, 'concise');
+  });
+
+  await it('specialist override wins tone', () => {
+    const specialist = { id: 'spec', tone: 'creative' };
+    const result = mergeExpertisePrompt(
+      [expert('developer', 0.7), expert('analyst', 0.3)],
+      specialist,
+    );
+    assert.strictEqual(result.metadata.tone, 'creative');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// T-ME5: TOKEN BUDGET TRIMMING
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('T-ME5: Token budget trimming', async () => {
+  await it('does not trim when under budget', () => {
+    const result = mergeExpertisePrompt([expert('developer', 0.7), expert('analyst', 0.3)]);
+    assert.ok(result.metadata.tokenCount < MERGE_LIMITS.EFFECTIVE_TOKEN_BUDGET,
+      'normal merge should be under budget');
+  });
+
+  await it('prompt contains constraints section (never trimmed)', () => {
+    const result = mergeExpertisePrompt([expert('developer', 0.7), expert('analyst', 0.3)]);
+    assert.ok(result.prompt.includes('Omezení'), 'constraints section should be present');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// T-ME6: INHERITANCE RESOLUTION
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('T-ME6: Inheritance resolution', async () => {
+  await it('no parent returns own modules', () => {
+    const dev = BUILTIN_EXPERTS.developer;
+    const resolved = resolveInheritance(dev, expertRegistry);
+    assert.ok(resolved.domain_rules.length > 0);
+    assert.deepStrictEqual(resolved.domain_rules, dev.modules.domain_rules);
+  });
+
+  await it('missing parent returns own modules', () => {
+    const custom = { id: 'custom', parent: 'nonexistent', modules: { domain_rules: ['Rule 1'] } };
+    const resolved = resolveInheritance(custom, expertRegistry);
+    assert.deepStrictEqual(resolved.domain_rules, ['Rule 1']);
+  });
+
+  await it('no modules returns empty object (merge engine handles missing sections)', () => {
+    const bare = { id: 'bare' };
+    const resolved = resolveInheritance(bare, expertRegistry);
+    assert.ok(typeof resolved === 'object', 'should return an object');
+    assert.strictEqual(Object.keys(resolved).length, 0, 'bare expertise with no modules returns {}');
+  });
+
+  await it('extend mode deduplicates and merges', () => {
+    const parent = {
+      id: 'parent',
+      modules: { domain_rules: ['A', 'B'], emphasis: ['X'] },
+    };
+    const child = {
+      id: 'child',
+      parent: 'parent',
+      modules: { domain_rules: ['B', 'C'], emphasis: ['Y'] },
+    };
+    const registry = { parent };
+    const resolved = resolveInheritance(child, { get: (id) => registry[id] });
+    assert.deepStrictEqual(resolved.domain_rules, ['B', 'C', 'A']); // child first, parent deduped
+    assert.deepStrictEqual(resolved.emphasis, ['Y', 'X']);
+  });
+
+  await it('replace mode uses child only', () => {
+    const parent = {
+      id: 'parent',
+      modules: { domain_rules: ['A', 'B'] },
+    };
+    const child = {
+      id: 'child',
+      parent: 'parent',
+      inheritance: { domain_rules: 'replace' },
+      modules: { domain_rules: ['C'] },
+    };
+    const registry = { parent };
+    const resolved = resolveInheritance(child, { get: (id) => registry[id] });
+    assert.deepStrictEqual(resolved.domain_rules, ['C']);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// T-ME7: ENFORCEMENT MERGE
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('T-ME7: Enforcement merge', async () => {
+  await it('merges forbiddenPhrases as UNION', () => {
+    const result = mergeExpertisePrompt([expert('developer', 0.7), expert('analyst', 0.3)]);
+    const count = result.enforcement.forbiddenPhrases.length;
+    // Should include DEFAULT_FORBIDDEN_PHRASES + both experts' phrases
+    assert.ok(count >= 4, `forbiddenPhrases should be >= 4 (baseline), got ${count}`);
+  });
+
+  await it('uses MAX for minResponseLength', () => {
+    // analyst has minResponseLength: 100, developer has 50
+    const result = mergeExpertisePrompt([expert('developer', 0.7), expert('analyst', 0.3)]);
+    assert.strictEqual(result.enforcement.minResponseLength, 100);
+  });
+
+  await it('collects disclaimers from modules', () => {
+    // lawyer + doctor both have disclaimers — but they HARD_BLOCK together
+    // Use lawyer + political_analyst (no disclaimer on political_analyst)
+    const result = mergeExpertisePrompt([expert('lawyer', 0.7), expert('political_analyst', 0.3)]);
+    assert.ok(result.enforcement.disclaimers.length >= 1, 'should have at least 1 disclaimer');
+    assert.ok(result.enforcement.disclaimers[0].includes('advokáta'));
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// T-ME8: USER CONTEXT
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('T-ME8: User context', async () => {
+  await it('appends user context to prompt', () => {
+    const result = mergeExpertisePrompt(
+      [expert('developer', 0.7), expert('analyst', 0.3)],
+      null,
+      'Pracuji na projektu v Node.js, preferuji TypeScript',
+    );
+    assert.ok(result.prompt.includes('Uživatelský kontext'), 'should contain user context section');
+    assert.ok(result.prompt.includes('Node.js'), 'should contain actual context');
+  });
+
+  await it('null context = no section', () => {
+    const result = mergeExpertisePrompt([expert('developer', 0.7), expert('analyst', 0.3)]);
+    assert.ok(!result.prompt.includes('Uživatelský kontext'), 'should not contain context section');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// T-ME9: SPECIALIST OVERRIDE
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('T-ME9: Specialist override', async () => {
+  await it('specialist adds domain rules', () => {
+    const specialist = {
+      id: 'spec',
+      modules: {
+        domain_rules: ['Specialist rule 1'],
+        constraints: ['Specialist constraint'],
+      },
+    };
+    const result = mergeExpertisePrompt(
+      [expert('developer', 0.7), expert('analyst', 0.3)],
+      specialist,
+    );
+    assert.ok(result.prompt.includes('Specialist rule 1'), 'should contain specialist rule');
+    assert.ok(result.prompt.includes('Specialist constraint'), 'should contain specialist constraint');
+  });
+
+  await it('specialist disclaimer is prepended', () => {
+    const specialist = {
+      id: 'spec',
+      modules: {
+        disclaimer: 'Specialist disclaimer text',
+      },
+    };
+    const result = mergeExpertisePrompt(
+      [expert('developer', 0.7), expert('analyst', 0.3)],
+      specialist,
+    );
+    assert.ok(result.prompt.includes('Specialist disclaimer text'));
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// T-ME10: AUDIT LOG
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('T-ME10: Audit log', async () => {
+  await it('audit log has required fields', () => {
+    const result = mergeExpertisePrompt([expert('developer', 0.7), expert('analyst', 0.3)]);
+    const audit = result.audit;
+    assert.ok(audit.timestamp, 'should have timestamp');
+    assert.ok(Array.isArray(audit.expertiseIds), 'should have expertiseIds');
+    assert.ok(Array.isArray(audit.weights), 'should have weights');
+    assert.ok(audit.compatibility, 'should have compatibility');
+    assert.ok(audit.tone, 'should have tone');
+    assert.ok(audit.temperature, 'should have temperature');
+    assert.ok(typeof audit.tokensBefore === 'number', 'should have tokensBefore');
+    assert.ok(typeof audit.tokensAfter === 'number', 'should have tokensAfter');
+    assert.ok(Array.isArray(audit.trimmedItems), 'should have trimmedItems');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// T-ME11: COMPATIBILITY BLOCK (writer + accountant)
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('T-ME11: Compatibility block', async () => {
+  await it('throws CompatibilityBlockError for writer+accountant', () => {
+    assert.throws(
+      () => mergeExpertisePrompt([expert('writer', 0.5), expert('accountant', 0.5)]),
+      (err) => {
+        return err instanceof CompatibilityBlockError
+          && err.compatibility.severity === 'hard_block'
+          && err.compatibility.blocked === true;
+      },
+      'should throw CompatibilityBlockError with hard_block',
+    );
+  });
+
+  await it('error has compatibility details', () => {
+    try {
+      mergeExpertisePrompt([expert('writer', 0.5), expert('accountant', 0.5)]);
+      assert.fail('should have thrown');
+    } catch (e) {
+      assert.ok(e.compatibility.conflicts.length > 0, 'should have conflict details');
+      const detail = e.compatibility.conflicts[0].conflicts[0].detail;
+      assert.ok(detail.includes('creative') || detail.includes('deterministic'));
+    }
+  });
+});
+
+// ─── Run All Tests ────────────────────────────────────────────────────────────
+
+console.log('\n🔬 C3 Merge Engine v2 — Test Suite');
+console.log('═'.repeat(70));
+
+for (const test of pendingTests) {
+  await test();
+}
+
+console.log(`\n${'═'.repeat(70)}`);
+console.log(`  Results: ${passed} passed, ${failed} failed`);
+console.log(`${'═'.repeat(70)}`);
+
+if (failures.length > 0) {
+  console.log('\n❌ Failures:');
+  failures.forEach(f => console.log(`  - ${f.name}: ${f.error}`));
+}
+
+process.exit(failed > 0 ? 1 : 0);
