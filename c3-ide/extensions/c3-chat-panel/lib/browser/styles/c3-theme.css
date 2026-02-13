@@ -4,7 +4,7 @@
 
 :root {
   --c3-bg0:#0c0c0f;--c3-bg1:#111114;--c3-bg2:#18181c;--c3-bg3:#1f2025;--c3-bg4:#27282e;--c3-bg5:#2f3038;
-  --c3-tx1:#ececef;--c3-tx2:#a1a1aa;--c3-tx3:#71717a;--c3-tx4:#52525b;
+  --c3-tx1:#ececef;--c3-tx2:#a1a1aa;--c3-tx3:#5e8a6d;--c3-tx4:#436b52;
   --c3-accent:#22c55e;--c3-accent-dim:#16a34a;--c3-accent-bg:rgba(34,197,94,0.08);--c3-accent-text:#4ade80;
   --c3-border:rgba(255,255,255,0.06);--c3-border2:rgba(255,255,255,0.1);
 }
@@ -98,50 +98,73 @@ body, .theia-ApplicationShell {
 #theia-right-side-panel > .theia-sidepanel-toolbar,
 #theia-left-side-panel > .p-TabBar,
 #theia-right-side-panel > .p-TabBar,
-#theia-bottom-content-panel > .p-TabBar {
+#theia-bottom-content-panel > .p-TabBar,
+#theia-left-side-panel > .lm-TabBar,
+#theia-right-side-panel > .lm-TabBar,
+#theia-bottom-content-panel > .lm-TabBar,
+/* Broader descendant selectors — catch nested tab bars Theia may inject */
+#theia-left-side-panel .p-TabBar,
+#theia-left-side-panel .lm-TabBar,
+#theia-left-side-panel .theia-sidepanel-toolbar,
+#theia-right-side-panel .p-TabBar,
+#theia-right-side-panel .lm-TabBar,
+#theia-right-side-panel .theia-sidepanel-toolbar,
+#theia-bottom-content-panel .lm-TabBar,
+#theia-bottom-content-panel .theia-sidepanel-toolbar {
   display: none !important;
   height: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  min-height: 0 !important;
 }
 
 /* Disable drag & drop on right and bottom panels */
 #theia-right-side-panel .p-SplitPanel-handle,
-#theia-bottom-content-panel .p-SplitPanel-handle {
+#theia-bottom-content-panel .p-SplitPanel-handle,
+#theia-right-side-panel .lm-SplitPanel-handle,
+#theia-bottom-content-panel .lm-SplitPanel-handle {
   pointer-events: none !important;
   cursor: default !important;
 }
 #theia-right-side-panel .p-TabBar-tab,
-#theia-bottom-content-panel .p-TabBar-tab {
+#theia-bottom-content-panel .p-TabBar-tab,
+#theia-right-side-panel .lm-TabBar-tab,
+#theia-bottom-content-panel .lm-TabBar-tab {
   -webkit-user-drag: none !important;
   cursor: default !important;
 }
 
 /* ─── Editor Tabs ─── */
-.p-TabBar-tab {
+.p-TabBar-tab, .lm-TabBar-tab {
   background: var(--c3-bg1) !important;
   color: var(--c3-tx3) !important;
   border: none !important;
   border-right: 1px solid var(--c3-border) !important;
   font-size: 12px !important;
 }
-.p-TabBar-tab:hover {
+.p-TabBar-tab:hover, .lm-TabBar-tab:hover {
   background: var(--c3-bg2) !important;
   color: var(--c3-tx2) !important;
 }
-.p-TabBar-tab.p-mod-current {
+.p-TabBar-tab.p-mod-current, .lm-TabBar-tab.lm-mod-current {
   background: var(--c3-bg2) !important;
   color: var(--c3-tx1) !important;
   border-bottom: 2px solid var(--c3-accent) !important;
 }
-.p-TabBar {
+.p-TabBar, .lm-TabBar {
   background: var(--c3-bg1) !important;
   border-bottom: 1px solid var(--c3-border) !important;
 }
-.p-TabBar-tab .p-TabBar-tabCloseIcon:hover {
+.p-TabBar-tab .p-TabBar-tabCloseIcon:hover,
+.lm-TabBar-tab .lm-TabBar-tabCloseIcon:hover {
   color: var(--c3-accent-text) !important;
 }
 
 /* ─── Editor Area ─── */
-.p-DockPanel, .p-DockPanel-widget {
+.p-DockPanel, .p-DockPanel-widget, .lm-DockPanel, .lm-DockPanel-widget {
   background: var(--c3-bg0) !important;
 }
 
@@ -197,10 +220,10 @@ button.theia-button.main {
 }
 
 /* ─── Split handles ─── */
-.p-SplitPanel-handle {
+.p-SplitPanel-handle, .lm-SplitPanel-handle {
   background: transparent !important;
 }
-.p-SplitPanel-handle:hover {
+.p-SplitPanel-handle:hover, .lm-SplitPanel-handle:hover {
   background: var(--c3-accent) !important;
 }
 
