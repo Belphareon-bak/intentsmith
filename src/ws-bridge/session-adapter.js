@@ -60,8 +60,9 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
    * Enforces max-1-concurrent-turn. Injects event hooks into request context.
    *
    * @param {string} content — User message text
+   * @param {Object} [options] — { editMode, conversationId }
    */
-  async function processChat(content) {
+  async function processChat(content, options = {}) {
     if (!content || typeof content !== 'string') return;
 
     // Max 1 concurrent turn
@@ -95,9 +96,11 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
       const request = {
         message: content,
         sessionId: sid,
+        conversationId: options.conversationId || null,
         context: {
           turnId,
           signal: abortController.signal,
+          editMode: options.editMode || 'auto',
 
           // Hook: CRE decision (called in ChatController.process after mode detection)
           onCREDecision: (decision) => {
@@ -213,9 +216,18 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
       });
 
     } finally {
+      // Broadcast real context % estimate based on turn count
+      const estimatedTokens = turnCounter * 800; // rough estimate per turn
+      const tokenBudget = 32000;
+      const contextPercent = Math.min(95, Math.round((estimatedTokens / tokenBudget) * 100));
+
       currentTurnId = null;
       abortController = null;
-      sendStatus();
+
+      sendChannel(Channel.STATUS, {
+        agentStatus: 'idle',
+        contextPercent: contextPercent,
+      });
     }
   }
 

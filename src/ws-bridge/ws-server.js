@@ -80,11 +80,13 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
             return;
           }
 
-          safeSend(buildHelloAck());
+          const clientFeatures = Array.isArray(msg.features) ? msg.features : [];
+          safeSend(buildHelloAck(clientFeatures));
           handshakeDone = true;
 
           logger.info('WSBridge', 'Handshake OK', {
             ideVersion: msg.ideVersion,
+            features: clientFeatures,
             ip: clientIP,
           });
 
@@ -110,11 +112,29 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
 
       switch (msg.channel) {
         case 'chat':
-          session.processChat(msg.data?.content);
+          session.processChat(msg.data?.content, {
+            editMode: msg.data?.editMode,
+            conversationId: msg.data?.conversationId,
+          });
           break;
 
         case 'control':
-          session.handleControl(msg.data || {});
+          if (msg.data?.action === 'rehydrate') {
+            // IDE reconnected — validate conversation IDs
+            const convIds = msg.data.conversationIds || [];
+            logger.info('WSBridge', 'Rehydrate request', { conversationIds: convIds });
+            // For now, acknowledge all — full DB validation in Phase 1.2
+            safeSend(JSON.stringify({
+              channel: 'control',
+              data: { action: 'rehydrate_ack', validIds: convIds }
+            }));
+          } else if (msg.data?.action === 'edit_approve' || msg.data?.action === 'edit_reject') {
+            // Edit ACK from IDE
+            logger.info('WSBridge', `Edit ${msg.data.action}`, { requestId: msg.data.requestId });
+            session.handleControl(msg.data);
+          } else {
+            session.handleControl(msg.data || {});
+          }
           break;
 
         case 'terminal':

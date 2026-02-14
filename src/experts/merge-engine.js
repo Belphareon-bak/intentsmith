@@ -468,13 +468,18 @@ export function mergeExpertisePrompt(expertises, specialistOverride = null, user
     return (a.position ?? 0) - (b.position ?? 0);
   });
 
-  // Step 4: Resolve inheritance for each
+  // Step 4: Resolve inheritance for each (v63.2: capabilities + enforcement too)
   const registry = options.registry || {};
-  const resolved = sorted.map(e => ({
-    ...e,
-    weight: e.weight ?? 0.5,
-    modules: resolveInheritance(e, registry),
-  }));
+  const resolved = sorted.map(e => {
+    const inherited = resolveInheritance(e, registry);
+    return {
+      ...e,
+      weight: e.weight ?? 0.5,
+      modules: inherited.modules,
+      capabilities: inherited.capabilities,
+      styleRules: inherited.styleRules,
+    };
+  });
 
   // Step 5: Merge modules (tagged items, dedup, sort by weight)
   let merged = mergeModulesTagged(resolved);

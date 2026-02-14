@@ -199,11 +199,11 @@ function checkIntentAlignment(content, intent, responseIntent) {
   // v58.0: For DESIGN intent: must not contain hedging, must have structure
   if (intent === 'DESIGN') {
     // Hedging phrases that indicate chatbot mode, not architect mode
+    // v62.2e: removed "existuje mnoho možností" — too generic for Czech tech responses
     const DESIGN_HEDGING = [
       /informace (jsou|byly) omezené/i,
       /doporučuji konzultovat/i,
       /záleží na (kontextu|požadavcích|vašich)/i,
-      /existuje (více|mnoho|řada) možností/i,
       /limited information/i,
       /it depends on/i,
       /consult with/i,

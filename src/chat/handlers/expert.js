@@ -14,12 +14,62 @@ import {
   handleAskUserDecision,
   handleRefuseDecision,
 } from './decisions.js';
+import { randomUUID, createHash } from 'crypto';
 import { ExpertEnforcer, quickCheck } from '../../experts/expert-enforcement.js';
+import { enforceCapabilities } from '../../experts/capability-enforcer.js';
 import { mergeExpertisePrompt } from '../../experts/merge-engine.js';
 import { CompatibilityBlockError } from '../../experts/merge-types.js';
 
+// v63.2: Capability drift logging — always log, not just on failure
+// v63.3: executionTraceId + executionStep for cross-layer tracing
+async function logCapabilityDrift(conversationId, expertId, capabilityProfile, response, executionTraceId = null, executionStep = 'CAPABILITY') {
+  if (!capabilityProfile || !response) return null;
+  try {
+    const result = enforceCapabilities(response, capabilityProfile);
+    // Lazy import DB to avoid circular deps
+    const { capabilityDriftLog } = await import('../../db/database.js');
+    if (capabilityDriftLog?.log) {
+      capabilityDriftLog.log({
+        conversationId,
+        executionTraceId,
+        expertId,
+        mergedPromptHash: null, // populated by merge path
+        expectedProfile: capabilityProfile,
+        observedScores: result.scores,
+        driftScore: result.driftScore,
+        violations: result.violations.length > 0 ? result.violations : null,
+        executionStep,
+      });
+    }
+    return result;
+  } catch (err) {
+    logger.debug('ExpertHandler', `Capability drift log failed: ${err.message}`);
+    return null;
+  }
+}
+
+// v63.3: Prompt hash for determinism analysis (never store the prompt itself)
+function hashPrompt(prompt) {
+  return createHash('sha256').update(prompt).digest('hex');
+}
+
+// v63.3: LLM execution step logging — model, temperature, latency, tokens
+async function logLlmExecution(entry) {
+  try {
+    const { llmExecutionLog } = await import('../../db/database.js');
+    if (llmExecutionLog?.log) {
+      llmExecutionLog.log(entry);
+    }
+  } catch (err) {
+    logger.debug('ExpertHandler', `LLM execution log failed: ${err.message}`);
+  }
+}
+
 export async function expertHandler(input, context) {
   const { sessionId, expert, sessionState } = context;
+
+  // v63.3: ExecutionTrace ID — one UUID per user turn, shared across all audit layers
+  const executionTraceId = randomUUID();
 
   // ════════════════════════════════════════════════════════════════════════════
   // CASE 0: Multiple expertises active — delegate to merge handler
@@ -27,7 +77,7 @@ export async function expertHandler(input, context) {
   // ════════════════════════════════════════════════════════════════════════════
 
   if (context.activeExpertises && context.activeExpertises.length > 1) {
-    return await handleMergedExpertises(input, context);
+    return await handleMergedExpertises(input, context, executionTraceId);
   }
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -177,22 +227,54 @@ async function generateExpertResponse(input, expert, context) {
     const synthesisHints = expert.getSynthesisHints ? expert.getSynthesisHints() : null;
 
     // Create regeneration function for enforcement
-    const regenerateFn = async (retryPrompt, violations) => {
+    // v63.2: Accept retryOptions for temperature decay + seed
+    const regenerateFn = async (retryPrompt, violations, retryOptions) => {
+      const decay = retryOptions?.temperatureDecay || 0.1;
+      const retryTemp = Math.max(0.1, temperature - decay); // floor 0.1
       const retryResult = await creBridge.generateChatResponse(retryPrompt, expertSystemPrompt, {
         sessionId: `expert-${sessionId}-retry`,
-        temperature: Math.max(0.2, temperature - 0.1), // Slightly lower temp for retry
+        temperature: retryTemp,
+        seed: retryOptions?.seed,
       });
       return retryResult.content;
     };
 
     // Call LLM with expert persona
+    // v63.3: Capture timing for LLM execution log (performance.now() for sub-ms precision)
+    const llmStart = performance.now();
     const result = await creBridge.generateChatResponse(prompt, expertSystemPrompt, {
       sessionId: `expert-${sessionId}`,
       temperature,
     });
+    const llmLatency = Math.round(performance.now() - llmStart);
+
+    // v63.3: Log LLM execution step
+    const singleTokenSource = result.promptTokens != null ? 'provider' : 'estimated';
+    logLlmExecution({
+      executionTraceId,
+      conversationId: sessionId,
+      executionStep: 'LLM',
+      expertId: expert.id,
+      model: result.model || null,
+      temperature,
+      promptHash: hashPrompt(prompt + expertSystemPrompt),
+      promptTokens: result.promptTokens ?? null,
+      completionTokens: result.completionTokens ?? null,
+      latencyMs: llmLatency,
+      tokenSource: singleTokenSource,
+      metadata: {
+        promptLength: prompt.length,
+        systemPromptLength: expertSystemPrompt.length,
+      },
+    });
 
     // v57.0 - ENFORCE: Check response against expert rules with retry
-    const enforcer = new ExpertEnforcer(expert, regenerateFn);
+    // v63.2: Strict mode for experts with toolEnforcement (e.g. accountant)
+    // v63.3: Pass executionTraceId for retry audit trail
+    const enforcer = new ExpertEnforcer(expert, regenerateFn, {
+      strict: !!expert.styleRules?.strictToolEnforcement,
+      executionTraceId,
+    });
     const enforcement = await enforcer.enforce(result.content, input);
 
     // Log enforcement results
@@ -200,6 +282,37 @@ async function generateExpertResponse(input, expert, context) {
       logger.info('ExpertHandler', `Response regenerated after ${enforcement.attempts} attempts`, {
         expert: expert.id,
         passed: enforcement.passed,
+      });
+    }
+
+    // v63.2: Hard fail — strict enforcement suppressed the response
+    if (enforcement.hardFail) {
+      logger.warn('ExpertHandler', 'Strict enforcement hard fail', {
+        expert: expert.id,
+        violations: enforcement.violations,
+        attempts: enforcement.attempts,
+        executionTraceId,
+      });
+      const failTag = new ResponseTag({
+        speaker: ResponseSpeaker.EXPERT,
+        mode: ChatMode.EXPERT,
+        confidence: 0.0,
+        canExecute: false,
+        metadata: {
+          ...(context.debug ? { executionTraceId } : {}),
+          expert: { id: expert.id, name: expert.name, domain: expert.domain },
+          hardFail: true,
+          enforcement: {
+            passed: false,
+            attempts: enforcement.attempts,
+            violations: enforcement.violations,
+            retryAudit: enforcement.retryAudit,
+          },
+        },
+      });
+      return new TaggedResponse({
+        content: 'Omlouvám se, odpověď nesplnila požadavky kvality a byla zamítnuta. Zkuste prosím otázku přeformulovat.',
+        tag: failTag,
       });
     }
 
@@ -223,6 +336,7 @@ async function generateExpertResponse(input, expert, context) {
       confidence: enforcement.passed ? 0.9 : 0.7,
       canExecute: false,
       metadata: {
+        ...(context.debug ? { executionTraceId } : {}),
         expert: {
           id: expert.id,
           name: expert.name,
@@ -253,6 +367,12 @@ async function generateExpertResponse(input, expert, context) {
         violations: enforcement.violations,
       });
       // Don't show warning to user, just log it
+    }
+
+    // v63.2: Capability drift logging — ALWAYS log, not just on failure
+    // v63.3: Pass executionTraceId for cross-layer tracing
+    if (expert.capabilities && finalContent) {
+      logCapabilityDrift(sessionId, expert.id, expert.capabilities, finalContent, executionTraceId);
     }
 
     return new TaggedResponse({
@@ -496,8 +616,9 @@ async function executeAccountantTool(input, toolMatch, expert, context) {
  * v63.0 — Handle merged expertises flow.
  * Uses mergeExpertisePrompt() pure function to combine multiple expertises,
  * then uses the merged prompt + enforcement for LLM call.
+ * v63.3: executionTraceId propagated from expertHandler entry point.
  */
-async function handleMergedExpertises(input, context) {
+async function handleMergedExpertises(input, context, executionTraceId) {
   const { sessionId, activeExpertises } = context;
 
   try {
@@ -525,12 +646,44 @@ async function handleMergedExpertises(input, context) {
       prompt = `Previous context:\n${historyContext}\n\nUser question: ${input}`;
     }
 
+    // v63.3: Capture timing for LLM execution log (performance.now() for sub-ms precision)
+    const llmStart = performance.now();
     const result = await creBridge.generateChatResponse(prompt, mergeResult.prompt, {
       sessionId: `merged-${sessionId}`,
       temperature: mergeResult.metadata.temperature,
     });
+    const llmLatency = Math.round(performance.now() - llmStart);
+
+    // v63.3: Log LLM execution step for merged expertises
+    const mergeTokenSource = result.promptTokens != null ? 'provider' : 'estimated';
+    logLlmExecution({
+      executionTraceId,
+      conversationId: sessionId,
+      executionStep: 'LLM',
+      expertId: mergeResult.metadata.expertiseIds.join('+'),
+      model: result.model || null,
+      temperature: mergeResult.metadata.temperature,
+      promptHash: hashPrompt(prompt + mergeResult.prompt),
+      promptTokens: result.promptTokens ?? null,
+      completionTokens: result.completionTokens ?? null,
+      latencyMs: llmLatency,
+      tokenSource: mergeTokenSource,
+      metadata: {
+        merged: true,
+        expertiseCount: activeExpertises.length,
+        promptLength: prompt.length,
+        mergedPromptLength: mergeResult.prompt.length,
+        tone: mergeResult.metadata.tone,
+        temperatureMethod: mergeResult.metadata.temperatureMethod,
+      },
+    });
 
     // Step 3: Enforce with merged config
+    // v63.2: Propagate strict mode if ANY active expertise has it
+    const hasStrictExpertise = activeExpertises.some(
+      e => e.styleRules?.strictToolEnforcement
+    );
+
     const syntheticExpert = {
       id: '_merged',
       name: activeExpertises.map(e => e.name || e.id).join(' + '),
@@ -539,19 +692,57 @@ async function handleMergedExpertises(input, context) {
         forbiddenPhrases: mergeResult.enforcement.forbiddenPhrases,
         minResponseLength: mergeResult.enforcement.minResponseLength,
         toolEnforcement: mergeResult.enforcement.toolEnforcement,
+        strictToolEnforcement: hasStrictExpertise,
       },
     };
 
-    const regenerateFn = async (retryPrompt) => {
+    const regenerateFn = async (retryPrompt, violations, retryOptions) => {
+      const decay = retryOptions?.temperatureDecay || 0.1;
+      const retryTemp = Math.max(0.1, mergeResult.metadata.temperature - decay); // floor 0.1
       const retryResult = await creBridge.generateChatResponse(retryPrompt, mergeResult.prompt, {
         sessionId: `merged-${sessionId}-retry`,
-        temperature: Math.max(0.2, mergeResult.metadata.temperature - 0.1),
+        temperature: retryTemp,
+        seed: retryOptions?.seed,
       });
       return retryResult.content;
     };
 
-    const enforcer = new ExpertEnforcer(syntheticExpert, regenerateFn);
+    const enforcer = new ExpertEnforcer(syntheticExpert, regenerateFn, {
+      strict: hasStrictExpertise,
+      executionTraceId,
+    });
     const enforcement = await enforcer.enforce(result.content, input);
+
+    // v63.2: Hard fail — strict enforcement suppressed the response
+    if (enforcement.hardFail) {
+      logger.warn('ExpertHandler', 'Merged enforcement hard fail', {
+        expertises: activeExpertises.map(e => e.id),
+        violations: enforcement.violations,
+        attempts: enforcement.attempts,
+        executionTraceId,
+      });
+      const failTag = new ResponseTag({
+        speaker: ResponseSpeaker.EXPERT,
+        mode: ChatMode.EXPERT,
+        confidence: 0.0,
+        canExecute: false,
+        metadata: {
+          ...(context.debug ? { executionTraceId } : {}),
+          merged: true,
+          hardFail: true,
+          enforcement: {
+            passed: false,
+            attempts: enforcement.attempts,
+            violations: enforcement.violations,
+            retryAudit: enforcement.retryAudit,
+          },
+        },
+      });
+      return new TaggedResponse({
+        content: 'Omlouvám se, odpověď nesplnila požadavky kvality a byla zamítnuta. Zkuste prosím otázku přeformulovat.',
+        tag: failTag,
+      });
+    }
 
     // Step 4: Append disclaimers (deduplicated — 🟡6)
     let finalContent = enforcement.response;
@@ -579,6 +770,7 @@ async function handleMergedExpertises(input, context) {
       confidence: enforcement.passed ? 0.9 : 0.7,
       canExecute: false,
       metadata: {
+        ...(context.debug ? { executionTraceId } : {}),
         merged: true,
         expertises: mergeResult.metadata.expertiseIds,
         weights: mergeResult.metadata.weights,
@@ -598,8 +790,30 @@ async function handleMergedExpertises(input, context) {
     });
 
     // Step 6: Audit log (in debug mode)
+    // v63.3: Include executionTraceId in merge audit
     if (context.debug) {
-      logger.debug('ExpertHandler', 'Merge audit', mergeResult.audit);
+      logger.debug('ExpertHandler', 'Merge audit', { ...mergeResult.audit, executionTraceId });
+      try {
+        const { mergeAuditLog } = await import('../../db/database.js');
+        if (mergeAuditLog?.log) {
+          mergeAuditLog.log(sessionId, { ...mergeResult.audit, executionTraceId }, executionTraceId);
+        }
+      } catch {
+        // Non-critical — audit log failure doesn't block response
+      }
+    }
+
+    // v63.2: Capability drift logging — ALWAYS log for merged expertises
+    // v63.3: Pass executionTraceId + step='CAPABILITY' for cross-layer tracing
+    if (mergeResult.metadata.capabilityVector && finalContent) {
+      logCapabilityDrift(
+        sessionId,
+        mergeResult.metadata.expertiseIds.join('+'),
+        mergeResult.metadata.capabilityVector,
+        finalContent,
+        executionTraceId,
+        'CAPABILITY',
+      );
     }
 
     return new TaggedResponse({ content: finalContent, tag });

@@ -210,21 +210,22 @@ describe('T-ME6: Inheritance resolution', async () => {
   await it('no parent returns own modules', () => {
     const dev = BUILTIN_EXPERTS.developer;
     const resolved = resolveInheritance(dev, expertRegistry);
-    assert.ok(resolved.domain_rules.length > 0);
-    assert.deepStrictEqual(resolved.domain_rules, dev.modules.domain_rules);
+    assert.ok(resolved.modules.domain_rules.length > 0);
+    assert.deepStrictEqual(resolved.modules.domain_rules, dev.modules.domain_rules);
   });
 
   await it('missing parent returns own modules', () => {
     const custom = { id: 'custom', parent: 'nonexistent', modules: { domain_rules: ['Rule 1'] } };
     const resolved = resolveInheritance(custom, expertRegistry);
-    assert.deepStrictEqual(resolved.domain_rules, ['Rule 1']);
+    assert.deepStrictEqual(resolved.modules.domain_rules, ['Rule 1']);
   });
 
-  await it('no modules returns empty object (merge engine handles missing sections)', () => {
+  await it('no modules returns empty modules object', () => {
     const bare = { id: 'bare' };
     const resolved = resolveInheritance(bare, expertRegistry);
     assert.ok(typeof resolved === 'object', 'should return an object');
-    assert.strictEqual(Object.keys(resolved).length, 0, 'bare expertise with no modules returns {}');
+    assert.ok(typeof resolved.modules === 'object', 'should have modules property');
+    assert.strictEqual(Object.keys(resolved.modules).length, 0, 'bare expertise with no modules returns {}');
   });
 
   await it('extend mode deduplicates and merges', () => {
@@ -239,8 +240,8 @@ describe('T-ME6: Inheritance resolution', async () => {
     };
     const registry = { parent };
     const resolved = resolveInheritance(child, { get: (id) => registry[id] });
-    assert.deepStrictEqual(resolved.domain_rules, ['B', 'C', 'A']); // child first, parent deduped
-    assert.deepStrictEqual(resolved.emphasis, ['Y', 'X']);
+    assert.deepStrictEqual(resolved.modules.domain_rules, ['B', 'C', 'A']); // child first, parent deduped
+    assert.deepStrictEqual(resolved.modules.emphasis, ['Y', 'X']);
   });
 
   await it('replace mode uses child only', () => {
@@ -256,7 +257,179 @@ describe('T-ME6: Inheritance resolution', async () => {
     };
     const registry = { parent };
     const resolved = resolveInheritance(child, { get: (id) => registry[id] });
-    assert.deepStrictEqual(resolved.domain_rules, ['C']);
+    assert.deepStrictEqual(resolved.modules.domain_rules, ['C']);
+  });
+
+  // v63.2: Capability inheritance
+  await it('child explicit capability overrides parent', () => {
+    const parent = {
+      id: 'parent',
+      capabilities: { reasoning: 90, creativity: 20, determinism: 80 },
+      modules: {},
+    };
+    const child = {
+      id: 'child',
+      parent: 'parent',
+      capabilities: { reasoning: 60 }, // explicit override
+      modules: {},
+    };
+    const registry = { parent };
+    const resolved = resolveInheritance(child, { get: (id) => registry[id] });
+    assert.strictEqual(resolved.capabilities.reasoning, 60, 'child explicit overrides parent');
+    assert.strictEqual(resolved.capabilities.creativity, 20, 'undefined inherits parent');
+    assert.strictEqual(resolved.capabilities.determinism, 80, 'undefined inherits parent');
+  });
+
+  // v63.2: Enforcement inheritance — UNION, child cannot weaken
+  await it('enforcement UNION: forbiddenPhrases merged, minResponseLength MAX', () => {
+    const parent = {
+      id: 'parent',
+      modules: {},
+      styleRules: {
+        forbiddenPhrases: ['foo', 'bar'],
+        minResponseLength: 100,
+        toolEnforcement: true,
+      },
+    };
+    const child = {
+      id: 'child',
+      parent: 'parent',
+      modules: {},
+      styleRules: {
+        forbiddenPhrases: ['bar', 'baz'], // 'bar' deduped
+        minResponseLength: 50, // cannot lower parent's 100
+      },
+    };
+    const registry = { parent };
+    const resolved = resolveInheritance(child, { get: (id) => registry[id] });
+    assert.deepStrictEqual(resolved.styleRules.forbiddenPhrases, ['bar', 'baz', 'foo']);
+    assert.strictEqual(resolved.styleRules.minResponseLength, 100, 'MAX(parent, child)');
+    assert.strictEqual(resolved.styleRules.toolEnforcement, true, 'parent boolean cannot be turned off');
+  });
+
+  await it('enforcement override flag allows child to weaken', () => {
+    const parent = {
+      id: 'parent',
+      modules: {},
+      styleRules: { toolEnforcement: true, minResponseLength: 100 },
+    };
+    const child = {
+      id: 'child',
+      parent: 'parent',
+      overrideParentEnforcement: true,
+      modules: {},
+      styleRules: { toolEnforcement: false, minResponseLength: 50 },
+    };
+    const registry = { parent };
+    const resolved = resolveInheritance(child, { get: (id) => registry[id] });
+    assert.strictEqual(resolved.styleRules.toolEnforcement, false, 'override flag allows weakening');
+    assert.strictEqual(resolved.styleRules.minResponseLength, 50, 'override flag allows lower minLen');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// T-ME6b: INHERITANCE EDGE CASES (v63.2 review)
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('T-ME6b: Inheritance edge cases', async () => {
+  await it('3-level inheritance: grandparent → parent → child', () => {
+    const grandparent = {
+      id: 'gp',
+      modules: { domain_rules: ['GP1'], emphasis: ['GPE'] },
+      capabilities: { reasoning: 90 },
+      styleRules: { forbiddenPhrases: ['gp-bad'], minResponseLength: 50 },
+    };
+    const parent = {
+      id: 'parent',
+      parent: 'gp',
+      modules: { domain_rules: ['P1'] },
+      capabilities: { creativity: 80 }, // adds creativity, inherits reasoning
+      styleRules: { forbiddenPhrases: ['p-bad'], minResponseLength: 100 },
+    };
+    const child = {
+      id: 'child',
+      parent: 'parent',
+      modules: { domain_rules: ['C1'] },
+      capabilities: { reasoning: 60 }, // overrides grandparent's reasoning
+      styleRules: { forbiddenPhrases: ['c-bad'] },
+    };
+    const registry = { gp: grandparent, parent };
+    const resolved = resolveInheritance(child, { get: (id) => registry[id] });
+
+    // Modules: extend chain → C1, P1, GP1 (child first, dedup)
+    assert.deepStrictEqual(resolved.modules.domain_rules, ['C1', 'P1', 'GP1']);
+    assert.deepStrictEqual(resolved.modules.emphasis, ['GPE']); // inherited from gp via parent
+
+    // Capabilities: child explicit (60) overrides gp (90), parent's creativity (80) inherited
+    assert.strictEqual(resolved.capabilities.reasoning, 60, 'child overrides grandparent');
+    assert.strictEqual(resolved.capabilities.creativity, 80, 'inherited from parent');
+
+    // Enforcement: UNION, minResponseLength MAX(100, 50, child=0) = 100
+    assert.ok(resolved.styleRules.forbiddenPhrases.includes('c-bad'));
+    assert.ok(resolved.styleRules.forbiddenPhrases.includes('p-bad'));
+    assert.ok(resolved.styleRules.forbiddenPhrases.includes('gp-bad'));
+    assert.strictEqual(resolved.styleRules.minResponseLength, 100);
+  });
+
+  await it('merge two children with same parent', () => {
+    const parent = {
+      id: 'shared-parent',
+      modules: { domain_rules: ['shared-rule'] },
+      capabilities: { reasoning: 80, creativity: 40 },
+    };
+    const childA = {
+      id: 'childA', parent: 'shared-parent', weight: 0.6,
+      modules: { domain_rules: ['A-rule'] },
+      capabilities: { creativity: 70 }, // overrides parent's 40
+      styleRules: {},
+      tone: 'professional', temperature: 0.3,
+    };
+    const childB = {
+      id: 'childB', parent: 'shared-parent', weight: 0.4,
+      modules: { domain_rules: ['B-rule'] },
+      capabilities: { reasoning: 60 }, // overrides parent's 80
+      styleRules: {},
+      tone: 'friendly', temperature: 0.6,
+    };
+    const registry = { 'shared-parent': parent };
+    const opts = { registry: { get: (id) => registry[id] } };
+
+    // Merge resolves inheritance per-child, then merges
+    const result = mergeExpertisePrompt([childA, childB], null, null, opts);
+    assert.ok(result.prompt.includes('A-rule'), 'childA rules in prompt');
+    assert.ok(result.prompt.includes('B-rule'), 'childB rules in prompt');
+    assert.ok(result.prompt.includes('shared-rule'), 'parent rules inherited');
+  });
+
+  await it('capability inheritance does not leak across siblings', () => {
+    const parent = {
+      id: 'cap-parent',
+      capabilities: { reasoning: 50, creativity: 50, determinism: 50, riskTolerance: 50, verbosity: 50 },
+      modules: {},
+    };
+    const childA = {
+      id: 'sibA', parent: 'cap-parent',
+      capabilities: { reasoning: 90 },
+      modules: {},
+    };
+    const childB = {
+      id: 'sibB', parent: 'cap-parent',
+      capabilities: { creativity: 90 },
+      modules: {},
+    };
+    const registry = { 'cap-parent': parent };
+    const get = (id) => registry[id];
+
+    const resolvedA = resolveInheritance(childA, { get });
+    const resolvedB = resolveInheritance(childB, { get });
+
+    // childA has reasoning=90 (own), creativity=50 (parent). NOT 90.
+    assert.strictEqual(resolvedA.capabilities.reasoning, 90);
+    assert.strictEqual(resolvedA.capabilities.creativity, 50);
+
+    // childB has creativity=90 (own), reasoning=50 (parent). NOT 90.
+    assert.strictEqual(resolvedB.capabilities.creativity, 90);
+    assert.strictEqual(resolvedB.capabilities.reasoning, 50);
   });
 });
 

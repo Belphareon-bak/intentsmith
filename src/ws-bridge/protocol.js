@@ -87,11 +87,23 @@ export function buildAgentEvent(seq, type, turnId, payload) {
  * Build handshake ack message.
  * @returns {string} JSON string
  */
-export function buildHelloAck() {
+/**
+ * Build handshake ack message with feature negotiation.
+ * @param {string[]} [clientFeatures] — Features requested by client
+ * @returns {string} JSON string
+ */
+export function buildHelloAck(clientFeatures = []) {
+  const serverFeatures = ['workspace', 'terminal', 'merge-preview', 'edit-ask', 'audit'];
+  const negotiated = clientFeatures.length > 0
+    ? serverFeatures.filter(f => clientFeatures.includes(f))
+    : serverFeatures;
+
   return JSON.stringify({
     type: 'hello_ack',
     protocolVersion: PROTOCOL_VERSION,
     backendVersion: BACKEND_VERSION,
+    serverVersion: BACKEND_VERSION,
+    features: negotiated,
   });
 }
 

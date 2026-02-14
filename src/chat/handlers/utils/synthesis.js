@@ -290,6 +290,7 @@ CRITICAL RULES:
 4. If data is limited, acknowledge it but still provide what you can
 5. NEVER say "I cannot access" or "I don't have access" - you have the data!
 6. RESPOND IN THE USER'S LANGUAGE — if user writes in Czech, respond ENTIRELY in Czech
+7. START WITH SUBSTANCE — first sentence must directly answer the question or present a fact. NEVER start with meta-phrases like "Na základě dostupných informací", "Zde je přehled", "Po prozkoumání", "Based on the search results"
 
 FORBIDDEN PHRASES (never use these):
 ${FORBIDDEN_PHRASES.slice(0, 5).map(p => `- "${p}"`).join('\n')}`;
@@ -935,6 +936,28 @@ export async function synthesizeWithLLM({
             markers: skCheck.markers.slice(0, 3),
           });
           finalContent = mechanicalSlovakToCzech(finalContent);
+        }
+      }
+
+      // v62.2e: LinkGuard — force-append source URLs when SEARCH response lacks links
+      // Deterministic fix: never let LLM decide whether to cite sources
+      if ((intent === 'SEARCH' || searchSubType) && finalContent.length > 100) {
+        const linkCount = (finalContent.match(/https?:\/\/\S+/g) || []).length;
+        if (linkCount < 2) {
+          let sourceUrls = extractSourceUrls(successfulData);
+          if (sourceUrls.length === 0) {
+            sourceUrls = extractSourceUrls(toolResults);
+          }
+          if (sourceUrls.length > 0) {
+            const urlBlock = sourceUrls.slice(0, 5).map((u, i) =>
+              `[${i + 1}] [${u.title || 'Zdroj'}](${u.url})`
+            ).join('\n');
+            finalContent += `\n\n**Zdroje:**\n${urlBlock}`;
+            logger.info('Synthesis', 'LinkGuard: force-appended source URLs', {
+              appended: Math.min(sourceUrls.length, 5),
+              existing: linkCount,
+            });
+          }
         }
       }
 

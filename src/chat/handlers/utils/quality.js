@@ -202,10 +202,11 @@ export function detectFluff(content, successfulData = []) {
           confidence: 0.4,
         };
       }
-      // Fluff intro + some content = mild fluff, still worth flagging
+      // v62.2e: Fluff intro + substantive content = tolerable — don't trigger retry
+      // Retrying for mild preamble often produces same or worse output
       return {
-        isFluff: true,
-        reason: `Fluff preamble detected: ${pattern.source.substring(0, 40)}`,
+        isFluff: false,
+        reason: `Mild fluff preamble (tolerated): ${pattern.source.substring(0, 40)}`,
         confidence: 0.65,
       };
     }

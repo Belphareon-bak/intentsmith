@@ -13,6 +13,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { logger } from '../core/logger.js';
+import { randomUUID } from 'crypto';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Enforcement Configuration
@@ -21,6 +22,8 @@ import { logger } from '../core/logger.js';
 const ENFORCEMENT_CONFIG = {
   maxRetries: 2,               // Max retry attempts on violation
   minResponseLength: 20,       // Minimum response length (characters)
+  retryTemperatureDecay: 0.1,  // v63.2: Reduce temperature by this on each retry
+  retryTopPDecay: 0.05,        // v63.2: Reduce top_p by this on each retry
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -159,18 +162,27 @@ export class ExpertEnforcer {
   #expert;
   #regenerateFn;
   #maxRetries;
+  #strictMode;
+  #retryAudit;
+  #executionTraceId;
 
   /**
    * @param {Object} expert - Expert instance with styleRules.forbiddenPhrases
    * @param {Function} regenerateFn - Async function to regenerate response
-   *                                  Takes (prompt, violations) => Promise<string>
+   *                                  Takes (prompt, violations, retryOptions) => Promise<string>
+   *                                  retryOptions: { temperatureDecay, topPDecay, attempt, seed }
    * @param {Object} [options]
    * @param {number} [options.maxRetries] - Max retry attempts
+   * @param {boolean} [options.strict] - v63.2: Strict mode — violations are hard failures (no fallback)
+   * @param {string} [options.executionTraceId] - v63.3: Execution trace UUID (one per user turn)
    */
   constructor(expert, regenerateFn, options = {}) {
     this.#expert = expert;
     this.#regenerateFn = regenerateFn;
     this.#maxRetries = options.maxRetries ?? ENFORCEMENT_CONFIG.maxRetries;
+    this.#strictMode = options.strict ?? false;
+    this.#retryAudit = [];
+    this.#executionTraceId = options.executionTraceId || null;
   }
 
   /**
@@ -216,17 +228,35 @@ export class ExpertEnforcer {
       violations: allViolations,
     });
 
-    // Retry loop
+    // v63.2: Reset retry audit trail
+    // v63.3: Include executionTraceId + executionStep
+    this.#retryAudit = [{
+      attempt: 1,
+      executionTraceId: this.#executionTraceId,
+      executionStep: 'ENFORCER',
+      violations: [...allViolations],
+      timestamp: Date.now(),
+    }];
+
+    // Retry loop with temperature decay (v63.2)
     while (attempts <= this.#maxRetries && this.#regenerateFn) {
       attempts++;
       wasRetried = true;
 
-      try {
-        // Build retry prompt with violation context
-        const retryPrompt = this.#buildRetryPrompt(originalPrompt, allViolations);
+      // v63.2: Compute retry modifiers — temperature decay + seed randomization
+      const retryOptions = {
+        temperatureDecay: ENFORCEMENT_CONFIG.retryTemperatureDecay * (attempts - 1),
+        topPDecay: ENFORCEMENT_CONFIG.retryTopPDecay * (attempts - 1),
+        attempt: attempts,
+        seed: randomUUID(),
+      };
 
-        // Regenerate
-        currentResponse = await this.#regenerateFn(retryPrompt, allViolations);
+      try {
+        // Build retry prompt with violation context + stricter injection
+        const retryPrompt = this.#buildRetryPrompt(originalPrompt, allViolations, attempts);
+
+        // Regenerate with retry options
+        currentResponse = await this.#regenerateFn(retryPrompt, allViolations, retryOptions);
 
         // Check again
         phraseCheck = checkForbiddenPhrases(currentResponse, forbiddenPhrases);
@@ -237,12 +267,24 @@ export class ExpertEnforcer {
             expert: this.#expert?.id,
           });
 
+          // v63.2: Log successful retry to audit
+          this.#retryAudit.push({
+            attempt: attempts,
+            executionTraceId: this.#executionTraceId,
+            executionStep: 'ENFORCER',
+            violations: [],
+            passed: true,
+            retryOptions,
+            timestamp: Date.now(),
+          });
+
           return {
             passed: true,
             response: currentResponse,
             attempts,
             violations: [],
             wasRetried: true,
+            retryAudit: this.#retryAudit,
           };
         }
 
@@ -252,18 +294,49 @@ export class ExpertEnforcer {
           allViolations.push(lengthCheck.reason);
         }
 
+        // v63.2: Log retry to audit
+        this.#retryAudit.push({
+          attempt: attempts,
+          executionTraceId: this.#executionTraceId,
+          executionStep: 'ENFORCER',
+          violations: [...allViolations],
+          retryOptions,
+          timestamp: Date.now(),
+        });
+
       } catch (err) {
         logger.error('ExpertEnforcer', `Regeneration failed: ${err.message}`);
+        this.#retryAudit.push({
+          attempt: attempts,
+          executionTraceId: this.#executionTraceId,
+          executionStep: 'ENFORCER',
+          error: err.message,
+          timestamp: Date.now(),
+        });
         break;
       }
     }
 
-    // All retries exhausted — return with warning
+    // All retries exhausted
     logger.warn('ExpertEnforcer', 'Enforcement failed after all retries', {
       expert: this.#expert?.id,
       attempts,
       violations: allViolations,
     });
+
+    // v63.2: Strict mode — hard fail, do NOT return the response
+    if (this.#strictMode) {
+      return {
+        passed: false,
+        response: null,
+        attempts,
+        violations: allViolations,
+        wasRetried,
+        hardFail: true,
+        retryAudit: this.#retryAudit,
+        warning: `STRICT: Expert response failed enforcement after ${attempts} attempts. Response suppressed.`,
+      };
+    }
 
     return {
       passed: false,
@@ -271,6 +344,7 @@ export class ExpertEnforcer {
       attempts,
       violations: allViolations,
       wasRetried,
+      retryAudit: this.#retryAudit,
       warning: `Expert response had quality issues: ${allViolations.join(', ')}`,
     };
   }
@@ -279,12 +353,17 @@ export class ExpertEnforcer {
    * Build a retry prompt that includes violation context.
    * @private
    */
-  #buildRetryPrompt(originalPrompt, violations) {
+  #buildRetryPrompt(originalPrompt, violations, attempt = 2) {
     const violationList = violations.map(v => `- ${v}`).join('\n');
+
+    // v63.2: Escalating strictness on subsequent retries
+    const strictness = attempt > 2
+      ? '\nSTRIKTNĚ dodržuj VŠECHNA pravidla. Toto je POSLEDNÍ pokus.'
+      : '';
 
     return `Previous response violated expert quality rules:
 ${violationList}
-
+${strictness}
 Please provide a new response that avoids these issues.
 
 Original question: ${originalPrompt}`;

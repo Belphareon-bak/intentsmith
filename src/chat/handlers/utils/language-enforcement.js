@@ -70,7 +70,28 @@ const EN_MARKERS = [
   /\bThis means that\b/i,
 ];
 
-const EN_THRESHOLD = 2;  // v62.2b: lowered from 3 → 2 markers sufficient to flag
+const EN_THRESHOLD = 3;  // v62.2e: raised 2→3 — less aggressive, reduce false retries
+
+// v62.2e: Technology/proper noun terms — excluded from diacritics ratio check
+// These words naturally have no Czech diacritics but aren't English contamination
+const TECH_TERMS = new Set([
+  'react', 'angular', 'vue', 'svelte', 'next', 'nuxt', 'remix',
+  'javascript', 'typescript', 'python', 'java', 'kotlin', 'swift', 'rust', 'go', 'ruby', 'dart',
+  'docker', 'kubernetes', 'nginx', 'apache', 'redis', 'kafka',
+  'postgresql', 'mongodb', 'mysql', 'sqlite', 'graphql', 'rest', 'api', 'http', 'https',
+  'linux', 'windows', 'macos', 'android', 'ios', 'ubuntu', 'debian',
+  'github', 'gitlab', 'bitbucket', 'npm', 'yarn', 'pip', 'cargo',
+  'cpu', 'gpu', 'ram', 'ssd', 'hdd', 'nvme', 'wifi', 'bluetooth', 'usb', 'ethernet',
+  'html', 'css', 'sass', 'webpack', 'vite', 'babel', 'eslint',
+  'node', 'express', 'django', 'flask', 'spring', 'laravel', 'rails',
+  'aws', 'azure', 'gcp', 'firebase', 'vercel', 'netlify',
+  'tesla', 'spacex', 'paypal', 'neuralink', 'openai',
+  'amd', 'intel', 'nvidia', 'ryzen', 'core', 'geforce', 'radeon',
+  'iphone', 'samsung', 'pixel', 'macbook', 'thinkpad',
+  'xss', 'csrf', 'sql', 'injection', 'oauth', 'jwt', 'cors',
+  'flutter', 'ci', 'cd', 'devops', 'agile', 'scrum', 'kanban',
+  'websocket', 'tcp', 'udp', 'dns', 'ssl', 'tls', 'ssh', 'ftp',
+]);
 
 // ─── Language enforcement functions ──────────────────────────────────────────
 
@@ -78,7 +99,8 @@ const EN_THRESHOLD = 2;  // v62.2b: lowered from 3 → 2 markers sufficient to f
  * Detect if response is predominantly in English when it shouldn't be.
  * Two-layer detection:
  *   1. Marker-based: specific English structural phrases (threshold: 3)
- *   2. Diacritics-ratio: if >60% of sentences lack Czech diacritics in a 200+ char response
+ *   2. Diacritics-ratio: if >50% of non-tech sentences lack Czech diacritics
+ * v62.2e: Tech term filtering + diacritics_ratio alone no longer triggers contamination
  * Returns { contaminated: boolean, markers: string[], count: number }
  */
 export function detectEnglishContamination(text) {
@@ -90,20 +112,33 @@ export function detectEnglishContamination(text) {
 
   // Layer 2: Diacritics ratio check for longer responses
   // Czech text naturally contains ěščřžýáíéúůďťň — English has none
+  // v62.2e: Filter out sentences dominated by tech terms (React, Docker, PostgreSQL etc.)
+  let hasDiacriticsIssue = false;
   if (text.length > 200) {
     const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 10);
     if (sentences.length >= 3) {
       const CZ_DIACRITICS = /[ěščřžýáíéúůďťňĚŠČŘŽÝÁÍÉÚŮĎŤŇ]/;
-      const noDiacriticsSentences = sentences.filter(s => !CZ_DIACRITICS.test(s));
+      const noDiacriticsSentences = sentences.filter(s => {
+        if (CZ_DIACRITICS.test(s)) return false;  // Has Czech diacritics — fine
+        // v62.2e: Skip sentences with >40% tech terms (no diacritics expected)
+        const words = s.trim().toLowerCase().split(/\s+/);
+        const techCount = words.filter(w => TECH_TERMS.has(w.replace(/[^a-z0-9]/g, ''))).length;
+        if (words.length > 0 && techCount / words.length > 0.4) return false;
+        return true;
+      });
       const ratio = noDiacriticsSentences.length / sentences.length;
-      if (ratio > 0.4) {  // v62.2b: lowered from 0.6 → 0.4 (40% English sentences = contaminated)
+      if (ratio > 0.5) {  // v62.2e: raised from 0.4 → 0.5
+        hasDiacriticsIssue = true;
         markers.push(`diacritics_ratio(${Math.round(ratio * 100)}%)`);
       }
     }
   }
 
+  // v62.2e: diacritics_ratio alone does NOT trigger contamination
+  // Require: >=3 real EN structural markers, OR (>=2 real markers AND diacritics issue)
+  const realMarkerCount = markers.filter(m => !m.startsWith('diacritics_ratio')).length;
   return {
-    contaminated: markers.length >= EN_THRESHOLD || markers.some(m => m.startsWith('diacritics_ratio')),
+    contaminated: realMarkerCount >= EN_THRESHOLD || (realMarkerCount >= 2 && hasDiacriticsIssue),
     markers,
     count: markers.length,
   };
@@ -236,20 +271,27 @@ Respond AGAIN, this time EXCLUSIVELY in ${lang}. No other languages.`;
 // ─── v62.2b: Mechanical Slovak→Czech word replacement ─────────────────────────
 // Last-resort fallback when LLM rewrite also produces Slovak.
 // Covers the most common SK→CZ word pairs that qwen2.5:32b produces.
+// v62.2e: Unicode-safe word boundaries for non-ASCII characters
+// JS \b fails with č,š,ž,ř,ť,ď,ň,ľ,ô,á,é,í,ó,ú,ý,ů — they're not \w
+// Use (?<=^|\s) for word start with non-ASCII, (?=\s|[.,;:!?]|$) for word end
+const _S = '(?<=^|\\s)';  // Unicode-safe word START boundary
+const _E = '(?=\\s|[.,;:!?]|$)';  // Unicode-safe word END boundary
+
 const SK_TO_CZ_MAP = [
-  [/\bsú\b/gi, 'jsou'],
+  // ── High-frequency words (fix \b issues for non-ASCII) ──
+  [new RegExp(`${_S}sú${_E}`, 'gi'), 'jsou'],
   [/\bktorý/gi, 'který'], [/\bktorá/gi, 'která'], [/\bktoré/gi, 'které'], [/\bktorú/gi, 'kterou'],
   [/\bpretože/gi, 'protože'],
   [/\bveľmi/gi, 'velmi'], [/\bveľa/gi, 'hodně'],
   [/\bmôže/gi, 'může'], [/\bmôžu/gi, 'mohou'], [/\bmôžete/gi, 'můžete'],
-  [/\bešte/gi, 'ještě'],
+  [new RegExp(`${_S}ešte${_E}`, 'gi'), 'ještě'],
   [/\bniekoľko/gi, 'několik'],
   [/\bprípad/gi, 'případ'], [/\bprípadov/gi, 'případů'], [/\bprípadoch/gi, 'případech'],
   [/\bzaujímav/gi, 'zajímav'],
   [/\bvýskum/gi, 'výzkum'],
   [/\bspoloč/gi, 'společ'],
   [/\bpovedať/gi, 'říct'],
-  [/\bosobné/gi, 'osobní'],
+  [new RegExp(`${_S}osobné${_E}`, 'gi'), 'osobní'],
   [/\bhistóri/gi, 'histori'],
   [/\bzdravotn[ií]ctv/gi, 'zdravotnictv'],
   [/\bodvetvi/gi, 'odvětví'],
@@ -265,39 +307,60 @@ const SK_TO_CZ_MAP = [
   [/\bpotrebuj/gi, 'potřebuj'],
   [/\balebo/gi, 'nebo'],
   [/\bako\b/gi, 'jak'],
-  [/\btiež/gi, 'také'],
+  [new RegExp(`${_S}tiež${_E}`, 'gi'), 'také'],
   [/\bpreto\b/gi, 'proto'],
   [/\bvšak\b/gi, 'však'],
-  [/\bvždy/gi, 'vždy'],  // same in CZ
   [/\bteraz/gi, 'teď'],
-  [/\bstále/gi, 'stále'],  // same in CZ
   [/\bmedzi/gi, 'mezi'],
   [/\bpríliš/gi, 'příliš'],
   [/\bpráve/gi, 'právě'],
   [/\bodporúča/gi, 'doporuču'],
-  // v62.2d: Additional high-frequency SK→CZ pairs (seen in fully-Slovak R3/T5 responses)
-  [/\bpre\b/gi, 'pro'],            // SK "pre" = CZ "pro" (for)
-  [/\bčo\b/gi, 'co'],              // SK "čo" = CZ "co" (what)
-  [/\bich\b/gi, 'je'],             // SK "ich" = CZ "je/jich" (their)
-  [/\buistite/gi, 'ujistěte'],     // SK "uistite" = CZ "ujistěte"
-  [/\bštandardn/gi, 'standardn'],  // SK "štandardný" = CZ "standardní"
-  [/\brozmysl/gi, 'rozmysl'],      // Same base, different conjugation
-  [/\bpodporu/gi, 'podporu'],      // Same in both, but "podporuje" is CZ too
-  [/\baspoň/gi, 'alespoň'],       // SK "aspoň" = CZ "alespoň"
+  // v62.2d: Additional high-frequency SK→CZ pairs
+  [/\bpre\b/gi, 'pro'],
+  [new RegExp(`${_S}čo${_E}`, 'gi'), 'co'],              // \bčo\b fails — č is non-ASCII
+  [/\bich\b/gi, 'je'],
+  [/\buistite/gi, 'ujistěte'],
+  [new RegExp(`${_S}štandardn`, 'gi'), 'standardn'],      // š is non-ASCII
+  [/\brozmysl/gi, 'rozmysl'],
+  [/\baspoň/gi, 'alespoň'],
   [/\bsamozrejme/gi, 'samozřejmě'],
-  [/\bsamozrejmé/gi, 'samozřejmé'],
-  [/\bvýhodn/gi, 'výhodn'],        // Same in both
-  [/\bvýhod/gi, 'výhod'],          // Same in both
-  [/\bzahrňuj/gi, 'zahrnuj'],      // SK "zahrňuje" = CZ "zahrnuje"
-  [/\bpríprav/gi, 'příprav'],      // SK "príprava" = CZ "příprava"
-  [/\bstav[iť]/gi, (m) => m.replace('ť', 't')],  // infinitive -ť → -t
+  [new RegExp(`${_S}samozrejmé${_E}`, 'gi'), 'samozřejmé'],
+  [/\bzahrňuj/gi, 'zahrnuj'],
+  [/\bpríprav/gi, 'příprav'],
   [/\bvyber[aá]ť/gi, 'vybírat'],
   [/\bpostaviť/gi, 'postavit'],
   [/\bkúpiť/gi, 'koupit'],
-  [/\bpoužív/gi, 'používa'],       // SK conjugation forms
   [/\bspúšťa/gi, 'spouští'],
-  [/\bspouště/gi, 'spouště'],
-  [/\bspustit/gi, 'spustit'],
+  // v62.2e: Gaming PC / HW terms (R3 Slovak drift)
+  [new RegExp(`${_S}základná`, 'gi'), 'základní'],
+  [new RegExp(`${_S}hlavná`, 'gi'), 'hlavní'],
+  [/\bdoska\b/gi, 'deska'],
+  [/\bpamäť/gi, 'paměť'],
+  [/\bvýber/gi, 'výběr'],
+  [/\bponúka/gi, 'nabíz'],
+  [/\bhrať/gi, 'hrát'],
+  [/\bzvážiť/gi, 'zvážit'],
+  [/\blacn/gi, 'levn'],
+  [/\bsúčasn/gi, 'současn'],
+  [/\bpribližn/gi, 'přibližn'],
+  [new RegExp(`${_S}úspech`, 'gi'), 'úspěch'],            // ú is non-ASCII
+  [/\bdosiahn/gi, 'dosáhn'],
+  // v62.2e: Sports / Olympics terms (F7 Slovak drift)
+  [new RegExp(`${_S}športov`, 'gi'), 'sportov'],           // š is non-ASCII
+  [/\bpreteky/gi, 'závody'],
+  [/\bvíťaz/gi, 'vítěz'],
+  [new RegExp(`${_S}účastn`, 'gi'), 'účastn'],             // ú is non-ASCII
+  [/\breprezent/gi, 'reprezent'],
+  // v62.2e: Additional common SK words
+  [/\bbol\b/gi, 'byl'],               // bol → byl (was)
+  [/\bbola\b/gi, 'byla'],             // bola → byla
+  [/\bboli\b/gi, 'byli'],             // boli → byli
+  [/\btreba\b/gi, 'třeba'],           // treba → třeba
+  [/\bpretek/gi, 'závod'],            // preteky/pretekov → závody/závodů
+  [new RegExp(`${_S}ďalej${_E}`, 'gi'), 'dále'],  // ďalej → dále
+  [new RegExp(`${_S}ďalší`, 'gi'), 'další'],       // ďalší → další
+  // v62.2e: Generic Slovak infinitive -ť → Czech -t (broad catch-all)
+  [/([aeiouáéíóúý])ť(?=\s|[.,;:!?]|$)/gi, '$1t'],
   // Character-level transformations (must be LAST — catches remaining)
   [/ôž/g, 'ůž'], [/ôl/g, 'ůl'],  // môže→může pattern
   [/ľ/g, 'l'],  // Slovak ľ has no Czech equivalent — just use l
@@ -313,6 +376,10 @@ export function mechanicalSlovakToCzech(text) {
   for (const [pattern, replacement] of SK_TO_CZ_MAP) {
     result = result.replace(pattern, replacement);
   }
+  // v62.2e: Re-capitalize sentence starts (lookbehind replacements can lowercase them)
+  result = result.replace(/(^|[.!?]\s+)([a-záéíóúůýčďěňřšťž])/gm,
+    (_, pre, ch) => pre + ch.toUpperCase()
+  );
   return result;
 }
 

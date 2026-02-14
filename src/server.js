@@ -2065,11 +2065,62 @@ const routes = {
   },
   
   'GET /api/health': (req, res) => {
-    sendJSON(res, 200, { 
-      status: 'ok', 
+    sendJSON(res, 200, {
+      status: 'ok',
       version: '34.4.2',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      llm: true
     });
+  },
+
+  /* ─── IDE stub endpoints ─────────────────────────────────────────── */
+
+  'POST /api/autocomplete': (req, res) => {
+    // Stub — returns null suggestion. Real LLM autocomplete in Blok D.
+    sendJSON(res, 200, { suggestion: null });
+  },
+
+  'POST /api/context': (req, res) => {
+    // Stub — rough estimate based on message count
+    let body = '';
+    req.on('data', c => { body += c; });
+    req.on('end', () => {
+      try {
+        const data = JSON.parse(body);
+        const msgCount = data.messageCount || 0;
+        const percent = Math.min(95, Math.round((msgCount * 800 / 32000) * 100));
+        sendJSON(res, 200, { percent });
+      } catch {
+        sendJSON(res, 200, { percent: 0 });
+      }
+    });
+  },
+
+  'GET /api/audit': async (req, res) => {
+    try {
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const convId = url.searchParams.get('conversation_id');
+      const limit = Math.min(parseInt(url.searchParams.get('limit') || '100'), 500);
+
+      let auditLogs = [];
+      let driftLogs = [];
+
+      try {
+        auditLogs = convId
+          ? db.db.prepare('SELECT * FROM merge_audit_log WHERE conversation_id=? ORDER BY created_at DESC LIMIT ?').all(convId, limit)
+          : db.db.prepare('SELECT * FROM merge_audit_log ORDER BY created_at DESC LIMIT ?').all(limit);
+      } catch { /* table may not exist yet */ }
+
+      try {
+        driftLogs = convId
+          ? db.db.prepare('SELECT * FROM capability_drift_log WHERE conversation_id=? ORDER BY created_at DESC LIMIT ?').all(convId, limit)
+          : db.db.prepare('SELECT * FROM capability_drift_log ORDER BY created_at DESC LIMIT ?').all(limit);
+      } catch { /* table may not exist yet */ }
+
+      sendJSON(res, 200, { audit: auditLogs, drift: driftLogs });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
   },
   
   'GET /api/logs': async (req, res) => {

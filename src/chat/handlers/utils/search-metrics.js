@@ -231,7 +231,8 @@ export function scoreScrapeContent(content, query) {
   }
 
   // Too short to be useful
-  if (contentLength < 100) {
+  // v62.2e: lowered 100→50 — short snippets with title/meta can still be useful for synthesis
+  if (contentLength < 50) {
     return { usable: false, reason: 'TOO_SHORT', contentLength, relevance: 0, grade: 'EMPTY' };
   }
 

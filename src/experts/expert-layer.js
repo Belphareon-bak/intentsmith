@@ -560,6 +560,7 @@ NIKDY:
       tone: 'professional',
       minResponseLength: 100,
       toolEnforcement: true,
+      strictToolEnforcement: true,  // v63.2: Hard fail after retries exhausted
       forbiddenPhrases: [
         'odhaduji',
         'přibližně',
@@ -1492,25 +1493,39 @@ export class ExpertAgent {
 }
 
 /**
- * v63.0 - Resolve inheritance chain for an expertise.
- * Recursively merges parent modules into child modules.
+ * v63.0/v63.2 - Resolve inheritance chain for an expertise.
+ * Recursively merges parent modules, capabilities, and enforcement into child.
+ *
+ * Inheritance rules (v63.2):
+ *   - Modules: per-section 'extend' (dedup concat) or 'replace' (child only)
+ *   - Capabilities: child explicit value → always overrides, child undefined → inherit parent
+ *   - Enforcement (styleRules): UNION — forbiddenPhrases dedup, minResponseLength MAX, booleans OR
+ *     Child CANNOT weaken parent enforcement unless expertise.overrideParentEnforcement === true
  *
  * @param {Object} expertise - ExpertAgent instance or config with modules/parent
  * @param {ExpertRegistry|Map|Object} registry - Registry to look up parents
  * @param {number} [depth=0] - Current recursion depth
- * @returns {Object} Resolved modules object with all inherited content merged
+ * @returns {{ modules: Object, capabilities: Object, styleRules: Object }} Resolved inheritance
  */
 export function resolveInheritance(expertise, registry, depth = 0) {
   if (depth > MAX_INHERITANCE_DEPTH) {
     throw new Error(`Inheritance depth exceeded (max ${MAX_INHERITANCE_DEPTH}): ${expertise.id || 'unknown'}`);
   }
 
-  // Get this expertise's modules (or empty)
-  const ownModules = expertise.modules || {};
+  const CAPABILITY_DIMS = ['reasoning', 'creativity', 'determinism', 'riskTolerance', 'verbosity'];
 
-  // No parent → return own modules as-is
+  // Get this expertise's own values
+  const ownModules = expertise.modules || {};
+  const ownCapabilities = expertise.capabilities || {};
+  const ownStyleRules = expertise.styleRules || {};
+
+  // No parent → return own values as-is
   if (!expertise.parent) {
-    return { ...ownModules };
+    return {
+      modules: { ...ownModules },
+      capabilities: { ...ownCapabilities },
+      styleRules: { ...ownStyleRules },
+    };
   }
 
   // Look up parent
@@ -1519,33 +1534,33 @@ export function resolveInheritance(expertise, registry, depth = 0) {
     : registry[expertise.parent] || null;
 
   if (!parent) {
-    // Parent not found → return own modules only
-    return { ...ownModules };
+    // Parent not found → return own values only
+    return {
+      modules: { ...ownModules },
+      capabilities: { ...ownCapabilities },
+      styleRules: { ...ownStyleRules },
+    };
   }
 
   // Recursively resolve parent first
-  const parentModules = resolveInheritance(parent, registry, depth + 1);
+  const parentResolved = resolveInheritance(parent, registry, depth + 1);
 
-  // Get inheritance config (per-section modes)
+  // ── Modules Inheritance ──────────────────────────────────────────────
   const inheritanceModes = expertise.inheritance || {};
-
-  // Merge each section
-  const resolved = {};
+  const resolvedModules = {};
   for (const section of MODULE_SECTIONS) {
     const mode = inheritanceModes[section] || DEFAULT_INHERITANCE_MODE;
-    const parentItems = parentModules[section] || (section === 'disclaimer' ? null : []);
+    const parentItems = parentResolved.modules[section] || (section === 'disclaimer' ? null : []);
     const childItems = ownModules[section] || (section === 'disclaimer' ? null : []);
 
     if (section === 'disclaimer') {
-      // Disclaimer: child overrides parent (replace), or inherit parent if child is null
       if (mode === 'replace' || childItems !== null) {
-        resolved[section] = childItems;
+        resolvedModules[section] = childItems;
       } else {
-        resolved[section] = parentItems;
+        resolvedModules[section] = parentItems;
       }
     } else if (mode === 'replace') {
-      // Replace: child only (or parent if child is empty)
-      resolved[section] = childItems.length > 0 ? [...childItems] : [...(parentItems || [])];
+      resolvedModules[section] = childItems.length > 0 ? [...childItems] : [...(parentItems || [])];
     } else {
       // Extend (default): deduplicated concat, child items first
       const combined = [...(childItems || [])];
@@ -1554,11 +1569,74 @@ export function resolveInheritance(expertise, registry, depth = 0) {
           combined.push(item);
         }
       }
-      resolved[section] = combined;
+      resolvedModules[section] = combined;
     }
   }
 
-  return resolved;
+  // ── Capabilities Inheritance ─────────────────────────────────────────
+  // Child explicit value → overrides. Child undefined → inherit parent.
+  const resolvedCapabilities = {};
+  for (const dim of CAPABILITY_DIMS) {
+    if (ownCapabilities[dim] !== undefined) {
+      resolvedCapabilities[dim] = ownCapabilities[dim];
+    } else if (parentResolved.capabilities[dim] !== undefined) {
+      resolvedCapabilities[dim] = parentResolved.capabilities[dim];
+    }
+    // If neither has it, don't set — merge engine defaults to 50
+  }
+
+  // ── Enforcement (styleRules) Inheritance ─────────────────────────────
+  // UNION: child cannot weaken parent unless overrideParentEnforcement flag
+  const canOverride = expertise.overrideParentEnforcement === true;
+  const parentRules = parentResolved.styleRules || {};
+  const resolvedStyleRules = { ...ownStyleRules };
+
+  // forbiddenPhrases: UNION (dedup by string representation)
+  const parentPhrases = parentRules.forbiddenPhrases || [];
+  const childPhrases = ownStyleRules.forbiddenPhrases || [];
+  if (parentPhrases.length > 0 || childPhrases.length > 0) {
+    const seen = new Set();
+    const unionPhrases = [];
+    for (const phrase of [...childPhrases, ...parentPhrases]) {
+      const key = phrase instanceof RegExp ? phrase.source : String(phrase);
+      if (!seen.has(key)) {
+        seen.add(key);
+        unionPhrases.push(phrase);
+      }
+    }
+    resolvedStyleRules.forbiddenPhrases = unionPhrases;
+  }
+
+  // minResponseLength: MAX(parent, child) — child cannot lower
+  const parentMinLen = parentRules.minResponseLength || 0;
+  const childMinLen = ownStyleRules.minResponseLength || 0;
+  if (canOverride) {
+    resolvedStyleRules.minResponseLength = childMinLen || parentMinLen;
+  } else {
+    resolvedStyleRules.minResponseLength = Math.max(parentMinLen, childMinLen);
+  }
+
+  // Boolean flags: OR — parent true → stays true (child cannot turn off)
+  for (const flag of ['toolEnforcement', 'strictToolEnforcement', 'numericVerification']) {
+    if (parentRules[flag] === true) {
+      if (canOverride && ownStyleRules[flag] === false) {
+        resolvedStyleRules[flag] = false;
+      } else {
+        resolvedStyleRules[flag] = true;
+      }
+    }
+  }
+
+  // tone: child overrides, or inherit parent
+  if (!resolvedStyleRules.tone && parentRules.tone) {
+    resolvedStyleRules.tone = parentRules.tone;
+  }
+
+  return {
+    modules: resolvedModules,
+    capabilities: resolvedCapabilities,
+    styleRules: resolvedStyleRules,
+  };
 }
 
 /**

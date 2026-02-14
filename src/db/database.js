@@ -314,11 +314,47 @@ CREATE TABLE IF NOT EXISTS conversation_expertises (
 );
 
 -- v63: Merge audit log (structured JSON, populated in debug mode only)
+-- v63.3: execution_trace_id — one UUID per user turn, links all audit layers
 CREATE TABLE IF NOT EXISTS merge_audit_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     conversation_id TEXT,
+    execution_trace_id TEXT,
     timestamp TEXT NOT NULL,
     data TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- v63.2: Capability drift log (per-response drift tracking)
+-- v63.3: execution_trace_id — one UUID per user turn, links all audit layers
+CREATE TABLE IF NOT EXISTS capability_drift_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation_id TEXT,
+    execution_trace_id TEXT,
+    expert_id TEXT NOT NULL,
+    merged_prompt_hash TEXT,
+    expected_profile TEXT NOT NULL,
+    observed_scores TEXT NOT NULL,
+    drift_score REAL NOT NULL DEFAULT 0,
+    violations TEXT,
+    execution_step TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- v63.3: LLM execution log (per-call audit — model, temperature, latency, tokens)
+CREATE TABLE IF NOT EXISTS llm_execution_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    execution_trace_id TEXT,
+    conversation_id TEXT,
+    execution_step TEXT NOT NULL DEFAULT 'LLM',
+    expert_id TEXT,
+    model TEXT,
+    temperature REAL,
+    prompt_hash TEXT,
+    prompt_tokens INTEGER,
+    completion_tokens INTEGER,
+    latency_ms INTEGER,
+    token_source TEXT DEFAULT 'estimated',
+    metadata TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -417,6 +453,12 @@ CREATE INDEX IF NOT EXISTS idx_expert_memory_expert ON expert_memory(expert_id);
 CREATE INDEX IF NOT EXISTS idx_conv_expertises_conv ON conversation_expertises(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_conv_expertises_expertise ON conversation_expertises(expertise_id);
 CREATE INDEX IF NOT EXISTS idx_merge_audit_conv ON merge_audit_log(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_merge_audit_trace ON merge_audit_log(execution_trace_id);
+CREATE INDEX IF NOT EXISTS idx_cap_drift_conv ON capability_drift_log(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_cap_drift_expert ON capability_drift_log(expert_id);
+CREATE INDEX IF NOT EXISTS idx_cap_drift_trace ON capability_drift_log(execution_trace_id);
+CREATE INDEX IF NOT EXISTS idx_llm_exec_trace ON llm_execution_log(execution_trace_id);
+CREATE INDEX IF NOT EXISTS idx_llm_exec_conv ON llm_execution_log(conversation_id);
 
 -- v61: Lifecycle indexes
 CREATE INDEX IF NOT EXISTS idx_lifecycles_project ON project_lifecycles(project_id);
@@ -515,6 +557,23 @@ try {
   db.exec('ALTER TABLE project_lifecycles ADD COLUMN active_session_id TEXT');
 } catch {
   // Column already exists — expected on subsequent starts
+}
+
+// v63.3: Add execution_trace_id to merge_audit_log and capability_drift_log
+try {
+  db.exec('ALTER TABLE merge_audit_log ADD COLUMN execution_trace_id TEXT');
+} catch {
+  // Column already exists — expected on subsequent starts
+}
+try {
+  db.exec('ALTER TABLE capability_drift_log ADD COLUMN execution_trace_id TEXT');
+} catch {
+  // Column already exists
+}
+try {
+  db.exec('ALTER TABLE capability_drift_log ADD COLUMN execution_step TEXT');
+} catch {
+  // Column already exists
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1196,7 +1255,8 @@ export const conversationExpertises = {
     const tx = db.transaction(() => {
       this.deleteAll.run(conversationId);
       for (const e of expertises) {
-        this.add.run(conversationId, e.id, e.weight, e.position ?? 0);
+        const eid = e.expertiseId || e.id;
+        this.add.run(conversationId, eid, e.weight, e.position ?? 0);
       }
     });
     tx();
@@ -1214,8 +1274,8 @@ export const conversationExpertises = {
 // Merge Audit Log
 export const mergeAuditLog = {
   add: db.prepare(`
-    INSERT INTO merge_audit_log (conversation_id, timestamp, data)
-    VALUES (?, ?, ?)
+    INSERT INTO merge_audit_log (conversation_id, execution_trace_id, timestamp, data)
+    VALUES (?, ?, ?, ?)
   `),
 
   findByConversation: db.prepare(`
@@ -1223,15 +1283,113 @@ export const mergeAuditLog = {
     WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 10
   `),
 
+  findByTraceId: db.prepare(`
+    SELECT * FROM merge_audit_log
+    WHERE execution_trace_id = ? ORDER BY created_at ASC
+  `),
+
   /**
    * @param {string} conversationId
    * @param {Object} auditData
+   * @param {string} [executionTraceId]
    */
-  log(conversationId, auditData) {
+  log(conversationId, auditData, executionTraceId = null) {
     const timestamp = new Date().toISOString();
     const dataStr = typeof auditData === 'string'
       ? auditData : JSON.stringify(auditData);
-    this.add.run(conversationId, timestamp, dataStr);
+    this.add.run(conversationId, executionTraceId, timestamp, dataStr);
+  },
+};
+
+// Capability Drift Log (v63.2 — per-response drift tracking)
+// v63.3: execution_trace_id + execution_step for cross-layer tracing
+export const capabilityDriftLog = {
+  add: db.prepare(`
+    INSERT INTO capability_drift_log (conversation_id, execution_trace_id, expert_id, merged_prompt_hash, expected_profile, observed_scores, drift_score, violations, execution_step)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `),
+
+  findByConversation: db.prepare(`
+    SELECT * FROM capability_drift_log
+    WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 20
+  `),
+
+  findByExpert: db.prepare(`
+    SELECT * FROM capability_drift_log
+    WHERE expert_id = ? ORDER BY created_at DESC LIMIT 50
+  `),
+
+  findByTraceId: db.prepare(`
+    SELECT * FROM capability_drift_log
+    WHERE execution_trace_id = ? ORDER BY created_at ASC
+  `),
+
+  avgDriftByExpert: db.prepare(`
+    SELECT expert_id, AVG(drift_score) as avg_drift, COUNT(*) as sample_count
+    FROM capability_drift_log
+    WHERE created_at > datetime('now', '-30 days')
+    GROUP BY expert_id
+    ORDER BY avg_drift DESC
+  `),
+
+  /**
+   * @param {Object} entry
+   */
+  log(entry) {
+    this.add.run(
+      entry.conversationId || null,
+      entry.executionTraceId || null,
+      entry.expertId,
+      entry.mergedPromptHash || null,
+      JSON.stringify(entry.expectedProfile),
+      JSON.stringify(entry.observedScores),
+      entry.driftScore,
+      entry.violations ? JSON.stringify(entry.violations) : null,
+      entry.executionStep || null,
+    );
+  },
+};
+
+// LLM Execution Log (v63.3 — per-call audit with execution trace)
+export const llmExecutionLog = {
+  add: db.prepare(`
+    INSERT INTO llm_execution_log (execution_trace_id, conversation_id, execution_step, expert_id, model, temperature, prompt_hash, prompt_tokens, completion_tokens, latency_ms, token_source, metadata)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `),
+
+  findByTraceId: db.prepare(`
+    SELECT * FROM llm_execution_log
+    WHERE execution_trace_id = ? ORDER BY created_at ASC
+  `),
+
+  findByConversation: db.prepare(`
+    SELECT * FROM llm_execution_log
+    WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 20
+  `),
+
+  findByPromptHash: db.prepare(`
+    SELECT * FROM llm_execution_log
+    WHERE prompt_hash = ? ORDER BY created_at DESC LIMIT 10
+  `),
+
+  /**
+   * @param {Object} entry
+   */
+  log(entry) {
+    this.add.run(
+      entry.executionTraceId || null,
+      entry.conversationId || null,
+      entry.executionStep || 'LLM',
+      entry.expertId || null,
+      entry.model || null,
+      entry.temperature ?? null,
+      entry.promptHash || null,
+      entry.promptTokens ?? null,
+      entry.completionTokens ?? null,
+      entry.latencyMs ?? null,
+      entry.tokenSource || 'estimated',
+      entry.metadata ? JSON.stringify(entry.metadata) : null,
+    );
   },
 };
 
@@ -1613,6 +1771,9 @@ export default {
   // v63 Merge Engine
   conversationExpertises,
   mergeAuditLog,
+  // v63.3 Observability
+  capabilityDriftLog,
+  llmExecutionLog,
   // v61 Lifecycle
   lifecycles,
   roadmapVersions,
