@@ -102,8 +102,15 @@ src/
 │   ├── long-term.js             # Long-term memory store
 │   └── policy.js                # Memory retention policies
 │
-├── experts/                     # Sdílené: Expert personas
-│   ├── expert-layer.js          # Expert personality layer
+├── experts/                     # Expert System (v63) — 15 built-in experts
+│   ├── expert-layer.js          # ExpertAgent class, 15 built-in experts, resolveInheritance()
+│   ├── expert-store.js          # Expert config persistence + validation (modules, capabilities)
+│   ├── expert-enforcement.js    # ExpertEnforcer: forbidden phrases, retry with decay, strict mode
+│   ├── merge-engine.js          # mergeExpertisePrompt() — 15.5-step pure function (max 3 expertises)
+│   ├── merge-types.js           # MERGE_LIMITS, MODULE_SECTIONS, CompatibilityBlockError
+│   ├── merge-compatibility.js   # checkCompatibility() — 5D pairwise conflict detection
+│   ├── capability-enforcer.js   # Post-response 5D capability drift validation (deterministic)
+│   ├── capability-mapping.js    # Capability vector → prompt/temperature/enforcement modifiers
 │   └── guards/                  # Post-synthesis guards
 │       └── tool-enforcement.js  # Tool-only numeric enforcement (v57.2)
 │

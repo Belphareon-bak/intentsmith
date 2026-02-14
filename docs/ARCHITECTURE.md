@@ -1,7 +1,7 @@
-# C.3 Agent Platform — Architecture v62
+# C.3 Agent Platform — Architecture v63.3
 
-**Version:** v62 (B6 Multi-source)
-**Status:** Production-ready, ~82% complete
+**Version:** v63.3 (Merge Engine + Execution Observability)
+**Status:** Production-ready, ~90% complete
 **Date:** February 2026
 
 ---
@@ -13,7 +13,7 @@ C.3 is a conversational AI platform combining:
 1. **CRE (Conversational Reasoning Engine)** — Authoritative dialog management, intent classification, epistemic correctness
 2. **Agent Platform** — Deterministic worker agents with source fetching, conditions, triggers, notifications
 3. **Project Lifecycle** — Milestone-based project management with crash recovery
-4. **Expert System** — Domain-specialist routing (accountant, lawyer, architect)
+4. **Expert System** — 15 domain specialists with 5D capability profiles, multi-expertise merge engine, enforcement pipeline
 5. **Notification Pipeline** — Multi-channel delivery (email, Telegram, ntfy.sh push)
 
 All decisions flow through CRE — LLM is the text generator, never the authority.
@@ -43,9 +43,10 @@ All decisions flow through CRE — LLM is the text generator, never the authorit
 │              │                                   │                   │
 │   ┌──────────▼──────────┐           ┌────────────▼────────────┐     │
 │   │  Expert System      │           │  Notification Pipeline  │     │
-│   │  (Phase D)          │           │                         │     │
-│   │  Domain specialists │           │  Policy → Router        │     │
-│   └─────────────────────┘           │  → Channel → Delivery   │     │
+│   │  (v63 Merge Engine) │           │                         │     │
+│   │  15 experts, 5D cap │           │  Policy → Router        │     │
+│   │  Merge + Enforce    │           │  → Channel → Delivery   │     │
+│   └─────────────────────┘           │                         │     │
 │                                     │  → Trust Feedback       │     │
 │              ┌──────────────────────┘────────────────────────┐      │
 │              │         Project Lifecycle (Phase C)            │      │
@@ -121,9 +122,15 @@ src/
 │   ├── lifecycle-build.js       #   BUILD phase implementation
 │   ├── progress-tracker.js      #   Milestone tracking
 │   └── project-context.js       #   Project metadata
-├── experts/                     # Phase D: Specialist system
-│   ├── expert-layer.js          #   Expert routing & dispatch
-│   └── expert-store.js          #   Expert config persistence
+├── experts/                     # Phase D: Expert System (v63)
+│   ├── expert-layer.js          #   15 built-in experts, ExpertAgent class, resolveInheritance
+│   ├── expert-store.js          #   Expert config persistence + validation
+│   ├── expert-enforcement.js    #   ExpertEnforcer: forbidden phrases, retry with decay, strict mode
+│   ├── merge-engine.js          #   mergeExpertisePrompt() — 15.5-step pure function
+│   ├── merge-types.js           #   MERGE_LIMITS, MODULE_SECTIONS, CompatibilityBlockError
+│   ├── merge-compatibility.js   #   checkCompatibility() — 5D pairwise conflict detection
+│   ├── capability-enforcer.js   #   Post-response 5D capability drift validation
+│   └── capability-mapping.js    #   Capability vector → prompt/temperature/enforcement modifiers
 ├── llm/                         # LLM subsystem
 │   ├── gateway.js               #   Token-based routing, timeouts
 │   ├── client.js                #   Ollama HTTP client
@@ -133,7 +140,7 @@ src/
 │   ├── circuit-breaker.js       #   Failure isolation
 │   └── shell-security.js        #   Shell sandboxing
 ├── db/
-│   └── database.js              #   SQLite schema (23 tables)
+│   └── database.js              #   SQLite schema (28+ tables)
 ├── core/
 │   ├── error-handler.js         #   Global error handlers
 │   └── logger.js                #   Structured logging
@@ -254,7 +261,48 @@ SPEC → BUILD → REVIEW → next milestone or COMPLETED
 
 **Multi-session (C4):** New session auto-detects active lifecycle for same project via `active_session_id`.
 
-### 5. Channel Adapters
+### 5. Expert System (v63 — Merge Engine)
+
+15 built-in domain experts with 5D capability profiles, multi-expertise merge, and enforcement pipeline.
+
+```
+User Input → Expert Handler
+  │
+  ├─ Single expert? → systemPrompt + LLM
+  │
+  └─ Multiple expertises (max 3)?
+       │
+       ├─ STEP 1: checkCompatibility() — 5D pairwise conflict detection
+       ├─ STEP 2: resolveInheritance() — parent chain (max depth 4)
+       ├─ STEP 3: mergeExpertisePrompt() — 15.5-step pure function
+       │    └─ validate → sort → inherit → merge modules → specialist
+       │       → tone → temperature → trim tokens → build prompt → enforce
+       ├─ STEP 4: LLM generation (with merged prompt + temperature)
+       ├─ STEP 5: ExpertEnforcer — forbidden phrases, min length, retry with decay
+       ├─ STEP 6: enforceCapabilities() — 5D drift detection (deterministic, no LLM)
+       └─ STEP 7: logLlmExecution() — model, latency, prompt hash, token source
+```
+
+**5D Capability Vector** (per expert, 0-100):
+- `reasoning` — analytical depth
+- `creativity` — generative freedom
+- `determinism` — answer consistency
+- `riskTolerance` — caveat/disclaimer density
+- `verbosity` — response length
+
+**Enforcement Pipeline:**
+- `ExpertEnforcer` — forbidden phrase check, retry with temperature decay (0.1/attempt), strict mode (hardFail)
+- `enforceCapabilities()` — hedging ratio, caveat density, verbosity, structure scoring
+- `computeCapabilityDrift()` — per-dimension delta vs expected profile, violation threshold 40
+
+**ExecutionTrace (v63.3):**
+- One `executionTraceId` (UUID) per user turn
+- Connects: `llm_execution_log` → `ExpertEnforcer.retryAudit` → `capability_drift_log` → `merge_audit_log`
+- Prompt SHA-256 hash for determinism analysis
+- `token_source: 'provider' | 'estimated'`
+- `performance.now()` for sub-ms latency
+
+### 6. Channel Adapters
 
 Normalize input from any source into `C3InputEvent`:
 
@@ -274,7 +322,7 @@ Supported: CLI, Web, Slack, Discord, API. Each with capability presets (max mess
 
 ## Database Schema
 
-23 tables in SQLite (better-sqlite3):
+28+ tables in SQLite (better-sqlite3):
 
 | Group | Tables |
 |-------|--------|
@@ -282,7 +330,8 @@ Supported: CLI, Web, Slack, Discord, API. Each with capability presets (max mess
 | Agents | agents_v33, agent_runs_v33, agent_notifications_v33, agent_data_v33, agent_seen_items_v57, agent_schedule_v33 |
 | Projects | projects, project_lifecycles, milestones, change_requests, drift_checks |
 | Lifecycle | lifecycle_handoff_state (crash recovery) |
-| Experts | experts, conversation_experts, expert_memory |
+| Experts | experts, conversation_experts, expert_memory, conversation_expertises (v63 N:M max 3) |
+| Expert Audit | merge_audit_log, capability_drift_log, llm_execution_log (v63.3) |
 | Memory | global_memory, user_memory, project_memory |
 | Workflows | workflow_sessions |
 | Config | user_settings, learned_patterns, logs, drafts |
@@ -331,7 +380,7 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 
 ## Test Suite
 
-221+ agent/notification tests, 913+ total:
+1100+ tests total:
 
 | Suite | Tests | Focus |
 |-------|-------|-------|
@@ -342,10 +391,18 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 | Lifecycle E2E | 60 | Phase C lifecycle |
 | RSS sources | 47 | RSS/Atom parsing |
 | Workflow | 42 | Planner workflow |
+| **Merge engine** | **40** | **Multi-expertise composition, token budget, inheritance** |
+| Expert system | 40 | Single expert flow, built-in experts |
+| **Expertise wizard** | **38** | **Validation, modules, capabilities** |
+| **Capability enforcer** | **38** | **5D evaluators, drift, strict, retry, trace** |
 | Trust feedback | 34 | Auto-degrade/mute |
+| **Execution trace stress** | **20** | **3-expert merge + strict + drift + trace reconstruction** |
+| Merge compatibility | 16 | 5D pairwise conflict detection |
+| Merge-enforcement integration | 15 | Merge → ExpertEnforcer pipeline |
+| Multi-source integration | 14 | RSS+HTTP, _merged, partial failure |
+| Expert integration | 10 | Expert + DB + handler pipeline |
 | Agent runner | 20 | HUNTER, mark_seen |
-| **Multi-source integration** | **14** | **RSS+HTTP, _merged, partial failure** |
-| + 60 more suites | ~61 | Various subsystems |
+| + 50 more suites | ~50 | Various subsystems |
 
 ---
 
@@ -388,12 +445,13 @@ All notification channels use JSON body (not HTTP headers) to support Czech diac
 | B (Workers) | 80% | Runner, scheduler, sources, notifications, multi-source |
 | C (Lifecycle) | 95% | Milestones, crash recovery, multi-session |
 | D-int (Integration) | 100% | Rate monitor auto-registration |
-| D (Experts) | Planned | Expert layer, specialist routing |
-| E (IDE) | Planned | Theia runtime, WS bridge |
+| D (Experts) | **95%** | 15 built-in experts, merge engine, 5D capabilities, enforcement, wizard UI |
+| D-obs (Observability) | **100%** | ExecutionTrace ID, LLM execution log, capability drift log |
+| E (IDE) | **70%** | C3 Studio IDE (Theia 1.65.2), linked sessions, transport layer |
 | F (Packaging) | Planned | Docker, licensing, auto-updater |
 
-**Overall: ~82% complete**
+**Overall: ~90% complete**
 
 ---
 
-*This document reflects C.3 Agent Platform v62 architecture (2026-02-12).*
+*This document reflects C.3 Agent Platform v63.3 architecture (2026-02-14).*

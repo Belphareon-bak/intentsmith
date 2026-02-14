@@ -26,10 +26,81 @@
 - Synthesis MAX_RETRIES 2→1 (úspora ~30s/request)
 - Test timeout 90s→150s pro local LLM
 
+## C3 Studio IDE — Modular Transport Layer (2026-02-14)
+
+- **event-bus.js:** centralizovaný `C3Bus` (on/off/emit) — decoupling transport od UI
+- **ws-client.js:** WS handshake s feature negotiation, exponential backoff reconnect, session routing via `conversationId`, rehydration, edit ACK
+- **agent-client.js:** formátuje `AgentEventType` do čitelných log entries
+- **terminal-client.js:** terminal handler s execution lock proti spamu
+
+## C3 Studio IDE — Linked Sessions + Autocomplete (2026-02-13)
+
+- **Shared session architektura:** chat + bottom panel propojené (1-3 sessions)
+- **Bottom panel:** 4 modes (Split/Mix/Terminal/Log) per session
+- **Chat panel:** nezávislé panes s vlastním feed, expert, attachments
+- **Autocomplete:** Tab → `POST /api/autocomplete`, ghost text, accept
+- **Edit mode toggle:** Auto/Ask posíláno s chat payloadem
+- **Context meter:** polls `/api/context` + reaguje na WS `context_update`
+- **Working tree:** collapse/expand, git status badges, toolbar
+- **Center view:** session picker, "+ Nový" pro všechny sekce, list zoom
+- **Dokumentace:** C3-STUDIO-IDE.md + C3-STUDIO-ROADMAP.md
+
+## v63.3 — ExecutionTrace ID + LLM Step Logging (2026-02-14)
+
+**Testy:** 217 passing / 8 suites
+
+Execution observability — jeden UUID per user turn propojuje všechny audit vrstvy.
+
+- **ExecutionTrace ID:** `randomUUID()` per user turn, propaguje se přes LLM → ENFORCER → CAPABILITY → MERGE
+- **DB:** `execution_trace_id` column na `merge_audit_log`, `capability_drift_log`
+- **DB:** `execution_step` column na `capability_drift_log`
+- **DB:** nová tabulka `llm_execution_log` (model, temperature, prompt_hash, prompt_tokens, completion_tokens, latency_ms, token_source)
+- **Prompt SHA-256 hash:** `crypto.createHash('sha256')` pro determinism analýzu — top-level DB column
+- **Token source classification:** `'provider'` | `'estimated'` — rozlišuje skutečné vs odhadnuté token counts
+- **`performance.now()`** pro sub-ms latency přesnost (místo `Date.now()`)
+- **traceId v ResponseTag metadata** gated za `context.debug` flag (není v produkčním API)
+- **Stress test:** 3-expert merge + strict + capability drift + retry + inheritance chain + trace reconstruction + prompt hash determinism
+
+## v63.2 — Capability Enforcer Runtime + Strict Mode (2026-02-14)
+
+**Testy:** 38 capability-enforcer tests
+
+Post-response validation na bázi 5D capability profilu — deterministické, bez LLM, bez side effects.
+
+- **Capability enforcer pipeline:** `evaluateDeterminism`, `evaluateRiskTolerance`, `evaluateVerbosity`, `evaluateStructure`, `computeCapabilityDrift`
+- **Drift detection:** per-dimension delta, `DRIFT_VIOLATION_THRESHOLD=40`, `DRIFT_WARNING_THRESHOLD=25`
+- **Wired into runtime:** `enforceCapabilities()` volaná po každém LLM response v expert handleru
+- **Capability-driven modifiers:** `capability-mapping.js` — temperature bias, minResponseLength modifier, prompt instructions
+- **ExpertEnforcer retry decay:** `retryTemperatureDecay=0.1`, `retryTopPDecay=0.05` per attempt
+- **Strict enforcement mode:** `hardFail=true` — response suppressed po vyčerpání retries
+- **Single-expert regenerateFn:** akceptuje `retryOptions` (temperatureDecay, topPDecay, attempt, seed)
+- **Temperature floor 0.1** v obou pathech (single + merge)
+
+## v63.1 — Expertise Wizard UI + Capability Sandbox (2026-02-13)
+
+- **Wizard UI:** center-views s 5 moduly (wizard-basic, wizard-capabilities, wizard-modules, wizard-preview, wizard-helpers)
+- **`GET /api/expertise-schema`** endpoint — anti-drift (žádné hardcoded konstanty ve frontendu)
+- **`POST /api/merge-preview`** s inline config — live preview pro create mode
+- **`POST /api/expertise-wizard/test-prompt`** — LLM test s rate limitem (1/5s)
+- **Detail panel:** capability bars (5D), modules summary, tone + temperature
+- **`validateExpertConfig()`** rozšířen o modules, capabilities, inheritance validaci
+- **Capability sandbox:** `checkCapabilityNormalization()` — extreme profile warnings
+
 ## v63.0 — Merge Engine v2 (2026-02-13)
 
-- Multi-expertise prompt composition
-- Merge→enforcement integration test
+**Testy:** 111 passing / 4 suites (merge-engine 30, merge-compatibility 16, merge-enforcement-integration 15, expert-system 40 + expert-integration 10)
+
+Kompletní multi-expertise prompt composition engine — čistá funkce, frozen výstupy, deterministické.
+
+- **`mergeExpertisePrompt()`** — 15.5-kroková čistá funkce (validate → compatibility → sort → inherit → merge → trim → build → enforce → freeze)
+- **`checkCompatibility()`** — 5D pairwise conflict detection (creativity↔determinism, risk gap, verbosity gap)
+- **`resolveInheritance()`** — rekurzivní parent chain (max depth 4), per-module extend/replace
+- **15 built-in expertů** s `modules` (6 sekcí) + `capabilities` (5D vector)
+- **Token budget:** `estimateTokens()` (chars / 3.5), `EFFECTIVE_TOKEN_BUDGET=1800` (10% rezerva)
+- **Enforcement merge:** forbiddenPhrases=UNION, minResponseLength=MAX, disclaimers=UNION (dedup)
+- **DB:** `conversation_expertises` tabulka (N:M, max 3), `merge_audit_log`
+- **`/api/merge-preview`** endpoint
+- **ExpertStore:** `setExpertisesForConversation()`, `getExpertises()`, `clearExpertises()`
 
 ## v62.2 — IDE V4 + SEARCH Sub-types (2026-02-12)
 
