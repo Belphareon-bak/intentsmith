@@ -62,18 +62,9 @@ function initTerminalClient() {
     var s = sessions[sessionIdx];
     if (!s) return;
 
-    /* exec_start — command echo from backend */
+    /* exec_start — backend confirms execution (no duplicate echo) */
     if (d.type === 'exec_start') {
-      var startEntry = {
-        text: '$ ' + (d.command || ''),
-        ts: d.timestamp || new Date().toISOString(),
-        accent: false,
-        type: 'exec_start',
-        reqId: d.reqId
-      };
-      s.term.push(startEntry);
       _termExecuting[sessionIdx] = true;
-      C3Bus.emit('terminal:line', { sessionIdx: sessionIdx, entry: startEntry });
       return;
     }
 
@@ -121,6 +112,7 @@ function initTerminalClient() {
 
       _termExecuting[sessionIdx] = false;
       C3Bus.emit('terminal:line', { sessionIdx: sessionIdx, entry: null, done: true });
+      if (typeof renderAgent === 'function') renderAgent();
       return;
     }
 
@@ -137,6 +129,7 @@ function initTerminalClient() {
 
       _termExecuting[sessionIdx] = false;
       C3Bus.emit('terminal:line', { sessionIdx: sessionIdx, entry: errEntry2, done: true });
+      if (typeof renderAgent === 'function') renderAgent();
       return;
     }
 

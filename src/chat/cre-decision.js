@@ -889,7 +889,9 @@ const SHELL_COMMAND_PATTERNS = [
   /^\s*(run|execute|exec)\s+(.+)/i,
   // Bare well-known commands (ls, cat, pwd, mkdir, cd, docker, make, curl, etc.)
   // v65.1: negative lookahead — exclude comparison/discussion words (Python vs JS, Node je...)
-  /^\s*(ls|cat|pwd|mkdir|rmdir|cp|mv|touch|head|tail|grep|find|curl|wget|docker|docker-compose|make|cmake|python|node|deno|cargo|go\s+run|go\s+build|rustc|gcc|g\+\+)\s+(?!vs\b|versus\b|nebo\b|oproti\b|or\b|and\b|je\b|jsou\b|nen[ií]\b|a\s)/i,
+  /^\s*(ls|cat|pwd|mkdir|rmdir|cp|mv|touch|head|tail|grep|curl|wget|docker|docker-compose|make|cmake|python|node|deno|cargo|go\s+run|go\s+build|rustc|gcc|g\+\+)\s+(?!vs\b|versus\b|nebo\b|oproti\b|or\b|and\b|je\b|jsou\b|nen[ií]\b|a\s)/i,
+  // find requires filesystem-like args (., /, -name, -type, -exec)
+  /^\s*find\s+([.\/~]|.*-(?:name|type|exec|perm|mtime|iname|maxdepth))/i,
   /^\s*(ls|pwd|whoami|hostname|uname|uptime|df|du|free|top|htop|ps|env|printenv)\s*$/i,
 ];
 

@@ -36,6 +36,17 @@ const ALLOWED_COMMANDS = new Set([
   'docker', 'diff', 'patch', 'tar', 'gzip', 'gunzip', 'zip', 'unzip',
   'curl', 'wget',
   'echo', 'printf', 'true', 'false', 'test', 'env', 'which', 'whoami',
+
+  // System info
+  'pwd', 'hostname', 'uname', 'date', 'uptime', 'free', 'id', 'groups',
+  'printenv', 'locale', 'lsb_release', 'arch', 'nproc', 'lscpu',
+
+  // Process inspection
+  'ps', 'top', 'htop', 'kill', 'pgrep', 'pidof', 'lsof', 'ss', 'netstat',
+
+  // Text processing
+  'less', 'more', 'xargs', 'comm', 'expand', 'fmt', 'fold', 'nl',
+  'md5sum', 'sha256sum', 'base64',
 ]);
 
 /**

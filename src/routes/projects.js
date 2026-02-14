@@ -28,6 +28,17 @@ export function createProjectRoutes(deps) {
     // Projects CRUD
     // ══════════════════════════════════════════════════════════════════════════
 
+    'GET /api/projects/defaults': async (req, res) => {
+      try {
+        const pathModule = await import('path');
+        const { config } = await import('../config.js');
+        const defaultDir = pathModule.resolve(config.projects.defaultDir);
+        sendJSON(res, 200, { defaultDir });
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
     'GET /api/projects': async (req, res) => {
       const url = new URL(req.url, `http://${req.headers.host}`);
       const limit = parseInt(url.searchParams.get('limit')) || 10;
@@ -42,7 +53,7 @@ export function createProjectRoutes(deps) {
 
     'POST /api/projects': async (req, res) => {
       const body = await parseBody(req);
-      const { name, description } = body;
+      const { name, description, type, path: customPath, autoPath } = body;
 
       if (!name) {
         return sendJSON(res, 400, { error: 'name is required' });
@@ -51,20 +62,114 @@ export function createProjectRoutes(deps) {
       try {
         const fs = await import('fs/promises');
         const pathModule = await import('path');
+        const { config } = await import('../config.js');
+        const { execFile } = await import('child_process');
+        const { promisify } = await import('util');
+        const execFileAsync = promisify(execFile);
 
-        // Create project directory
-        const projectsDir = pathModule.join(process.cwd(), 'projects');
-        await fs.mkdir(projectsDir, { recursive: true });
+        // Resolve project path
+        const slug = name.replace(/[^a-zA-Z0-9-_]/g, '-').toLowerCase();
+        let projectPath;
+        if (customPath && customPath.trim()) {
+          projectPath = pathModule.resolve(customPath.trim());
+        } else {
+          const projectsDir = pathModule.resolve(config.projects.defaultDir);
+          await fs.mkdir(projectsDir, { recursive: true });
+          projectPath = pathModule.join(projectsDir, slug);
+        }
 
-        const projectPath = pathModule.join(projectsDir, name.replace(/[^a-zA-Z0-9-_]/g, '-'));
+        // Create directory structure
         await fs.mkdir(projectPath, { recursive: true });
         await fs.mkdir(pathModule.join(projectPath, '.c3'), { recursive: true });
-        await fs.mkdir(pathModule.join(projectPath, 'chat'), { recursive: true });
 
-        // Create in DB
+        // Scaffolding per project type
+        const projectType = type || 'general';
+        const scaffoldLog = [];
+
+        // git init (all types)
+        try {
+          await execFileAsync('git', ['init'], { cwd: projectPath, timeout: 10000 });
+          await fs.writeFile(pathModule.join(projectPath, '.gitignore'), 'node_modules/\n.env\n.c3/\ndist/\nbuild/\n*.log\n');
+          scaffoldLog.push('git init');
+        } catch (e) { scaffoldLog.push('git init skipped: ' + e.message); }
+
+        // Type-specific scaffolding
+        if (projectType === 'webapp' || projectType === 'api') {
+          // npm init + basic package.json
+          const pkg = {
+            name: slug,
+            version: '0.1.0',
+            description: description || '',
+            type: 'module',
+            scripts: {
+              start: projectType === 'webapp' ? 'vite dev' : 'node src/index.js',
+              build: projectType === 'webapp' ? 'vite build' : 'echo "no build step"',
+              test: 'echo "no tests yet" && exit 0',
+              dev: projectType === 'webapp' ? 'vite dev' : 'node --watch src/index.js',
+            },
+            dependencies: {},
+            devDependencies: {},
+          };
+          await fs.writeFile(pathModule.join(projectPath, 'package.json'), JSON.stringify(pkg, null, 2) + '\n');
+          scaffoldLog.push('package.json');
+
+          if (projectType === 'webapp') {
+            await fs.mkdir(pathModule.join(projectPath, 'src'), { recursive: true });
+            await fs.mkdir(pathModule.join(projectPath, 'public'), { recursive: true });
+            await fs.writeFile(pathModule.join(projectPath, 'src', 'index.js'), '// Entry point\nconsole.log("Hello from ' + name + '");\n');
+            await fs.writeFile(pathModule.join(projectPath, 'public', 'index.html'), '<!DOCTYPE html>\n<html lang="cs"><head><meta charset="UTF-8"><title>' + name + '</title></head><body><div id="app"></div><script type="module" src="/src/index.js"></script></body></html>\n');
+            scaffoldLog.push('src/ + public/');
+          } else {
+            await fs.mkdir(pathModule.join(projectPath, 'src'), { recursive: true });
+            await fs.writeFile(pathModule.join(projectPath, 'src', 'index.js'), '// ' + name + ' — API server\nimport http from "http";\nconst server = http.createServer((req, res) => { res.writeHead(200); res.end("OK"); });\nserver.listen(3000, () => console.log("Listening on :3000"));\n');
+            scaffoldLog.push('src/index.js (API)');
+          }
+        } else if (projectType === 'automation') {
+          await fs.mkdir(pathModule.join(projectPath, 'scripts'), { recursive: true });
+          const pkg = { name: slug, version: '0.1.0', type: 'module', scripts: { start: 'node scripts/main.js' }, dependencies: {} };
+          await fs.writeFile(pathModule.join(projectPath, 'package.json'), JSON.stringify(pkg, null, 2) + '\n');
+          await fs.writeFile(pathModule.join(projectPath, 'scripts', 'main.js'), '// ' + name + ' — automation entry\nconsole.log("Running...");\n');
+          scaffoldLog.push('package.json + scripts/main.js');
+        } else if (projectType === 'data') {
+          await fs.mkdir(pathModule.join(projectPath, 'data'), { recursive: true });
+          await fs.mkdir(pathModule.join(projectPath, 'notebooks'), { recursive: true });
+          await fs.mkdir(pathModule.join(projectPath, 'src'), { recursive: true });
+          const pkg = { name: slug, version: '0.1.0', type: 'module', scripts: { start: 'node src/pipeline.js' }, dependencies: {} };
+          await fs.writeFile(pathModule.join(projectPath, 'package.json'), JSON.stringify(pkg, null, 2) + '\n');
+          await fs.writeFile(pathModule.join(projectPath, 'src', 'pipeline.js'), '// ' + name + ' — data pipeline\nconsole.log("Pipeline start");\n');
+          scaffoldLog.push('package.json + data/ + notebooks/ + src/pipeline.js');
+        } else {
+          // general
+          const pkg = { name: slug, version: '0.1.0', type: 'module', scripts: {}, dependencies: {} };
+          await fs.writeFile(pathModule.join(projectPath, 'package.json'), JSON.stringify(pkg, null, 2) + '\n');
+          scaffoldLog.push('package.json (general)');
+        }
+
+        // Write .c3/project.json metadata
+        const meta = { name, type: projectType, description: description || '', created: new Date().toISOString(), lifecycle: 'SPEC' };
+        await fs.writeFile(pathModule.join(projectPath, '.c3', 'project.json'), JSON.stringify(meta, null, 2) + '\n');
+        scaffoldLog.push('.c3/project.json');
+
+        // README.md
+        await fs.writeFile(pathModule.join(projectPath, 'README.md'), '# ' + name + '\n\n' + (description || '') + '\n\n> Vytvořeno v C3 Studio\n');
+        scaffoldLog.push('README.md');
+
+        // Create in DB with lifecycle SPEC
         const project = db.projects.getOrCreate(name, projectPath, description || '');
 
-        sendJSON(res, 201, { project });
+        // Set lifecycle phase to SPEC
+        if (project && project.id) {
+          try { db.run('UPDATE projects SET status = ? WHERE id = ?', ['SPEC', project.id]); } catch (e) { /* column may not exist */ }
+        }
+
+        sendJSON(res, 201, {
+          id: project?.id,
+          project,
+          path: projectPath,
+          type: projectType,
+          lifecycle: 'SPEC',
+          scaffold: scaffoldLog,
+        });
       } catch (err) {
         sendJSON(res, 500, safeError(err));
       }
@@ -91,6 +196,52 @@ export function createProjectRoutes(deps) {
       try {
         const conversations = db.conversations.listRecentByProject.all(safeParseInt(params.id), limit);
         sendJSON(res, 200, { conversations });
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // v65: Start lifecycle for a project (called from IDE wizard)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    'POST /api/projects/lifecycle/start': async (req, res) => {
+      const body = await parseBody(req);
+      const { projectId, projectPath, projectName, description, type, sessionId } = body;
+
+      if (!sessionId) {
+        return sendJSON(res, 400, { error: 'sessionId is required' });
+      }
+
+      try {
+        const { setLcState } = await import('../chat/handlers/lifecycle-state.js');
+
+        // Activate lifecycle on session — phase SPEC
+        setLcState(sessionId, {
+          phase: 'SPEC',
+          lifecycleId: null,
+          currentMilestoneId: null,
+          originalRequest: description || ('Nový projekt: ' + (projectName || '')),
+          projectId: projectId || null,
+          projectPath: projectPath || null,
+        });
+
+        // Also create lifecycle record in DB if possible
+        try {
+          const specData = { name: projectName, type: type || 'general', description: description || '', goals: [], requirements: [] };
+          db.run(
+            'INSERT OR IGNORE INTO project_lifecycles (project_id, phase, spec, config, active_session_id) VALUES (?, ?, ?, ?, ?)',
+            [projectId || null, 'SPEC', JSON.stringify(specData), '{}', sessionId]
+          );
+        } catch (e) { /* table may not exist yet */ }
+
+        logger.info('Projects', `Lifecycle started for project ${projectName} (session: ${sessionId})`);
+
+        sendJSON(res, 200, {
+          ok: true,
+          phase: 'SPEC',
+          message: 'Lifecycle aktivován. Popište specifikaci projektu.',
+        });
       } catch (err) {
         sendJSON(res, 500, safeError(err));
       }

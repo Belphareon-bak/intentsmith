@@ -99,6 +99,11 @@ export const config = {
     path: process.env.C3_DB_PATH || './data/c3.db',
   },
 
+  // Projects
+  projects: {
+    defaultDir: process.env.C3_PROJECTS_DIR || './projects',
+  },
+
   // v61: Project Lifecycle (Phase C — Collaborative Milestone Execution)
   lifecycle: {
     // How often to trigger PROJECT_REVIEW (every N milestones)
