@@ -961,7 +961,13 @@ d.actions?h('div',{style:{marginTop:12}},h('div',{style:{fontSize:10,fontWeight:
         if(exp){c3.setExpert(exp.name);c3.chatMsg('🎓 Expert změněn na: '+exp.name);}
         var conv=CONVERSATIONS.find(function(c){return c.title===d.name;});
         if(conv){c3.chatMsg('📂 Načítám konverzaci: '+conv.title+'...');c3.setExpert(conv.expert);
-          if(conv.id){_ts._convId=conv.id;_persistSessionState();fetch(_backendBase+'/api/conversations/'+conv.id+'/messages',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(msgs){
+          if(conv.id){_ts._convId=conv.id;_persistSessionState();
+            /* G1: Restore agentId from conversation metadata */
+            fetch(_backendBase+'/api/conversations/'+conv.id,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(cd){
+              var meta={};try{meta=JSON.parse(cd.metadata||'{}');}catch(ex){}
+              if(meta.agentId){_ts._agentId=meta.agentId;_persistSessionState();renderChat();}
+            }).catch(function(){});
+            fetch(_backendBase+'/api/conversations/'+conv.id+'/messages',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(msgs){
             var items=Array.isArray(msgs)?msgs:(msgs.messages||[]);if(items.length>0){_ts.chat.msgs=[{role:'system',text:'📂 Konverzace: '+conv.title}];items.forEach(function(m){var meta=null;try{meta=m.metadata?JSON.parse(m.metadata):null;}catch(e){}_ts.chat.msgs.push({role:m.role||'user',text:m.content||m.text||'',tag:(meta&&meta.mode)||undefined});});renderChat();_chatScrollPane(_ti);}}).catch(function(){});}
         }
         var proj=PROJECTS.find(function(p){return p.name===d.name;});

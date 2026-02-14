@@ -107,6 +107,16 @@ function _wsConnect() {
   _chatWs.onclose = function() {
     var wasReady = _wsReady;
     _wsReady = false;
+
+    /* Clear stale pending edits — backend session is gone */
+    Object.keys(_pendingEdits).forEach(function(k) {
+      if (!_pendingEdits[k].resolved) {
+        _pendingEdits[k].resolved = true;
+        C3Bus.emit('edit:resolved', { reqId: k, action: 'disconnect' });
+      }
+    });
+    _pendingEdits = {};
+
     C3Bus.emit('ws:disconnected', { wasReady: wasReady });
 
     /* Exponential backoff reconnect */

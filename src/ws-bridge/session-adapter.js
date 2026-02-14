@@ -254,18 +254,23 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
       });
 
     } finally {
-      // Broadcast real context % estimate based on turn count
-      const estimatedTokens = turnCounter * 800; // rough estimate per turn
-      const tokenBudget = 32000;
-      const contextPercent = Math.min(95, Math.round((estimatedTokens / tokenBudget) * 100));
-
+      // Reset state FIRST — before any IO that could throw
       currentTurnId = null;
       abortController = null;
 
-      sendChannel(Channel.STATUS, {
-        agentStatus: 'idle',
-        contextPercent: contextPercent,
-      });
+      try {
+        // Broadcast real context % estimate based on turn count
+        const estimatedTokens = turnCounter * 800; // rough estimate per turn
+        const tokenBudget = 32000;
+        const contextPercent = Math.min(95, Math.round((estimatedTokens / tokenBudget) * 100));
+
+        sendChannel(Channel.STATUS, {
+          agentStatus: 'idle',
+          contextPercent: contextPercent,
+        });
+      } catch (finallyErr) {
+        logger.error('WSSession', `Finally block error: ${finallyErr.message}`, { sessionId: sid });
+      }
     }
   }
 
@@ -406,7 +411,9 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
             logger.error('WSSession', `Edit write error: ${err.message}`, { sessionId: sid });
             pending.reject(err);
           }
-        })();
+        })().catch(err => {
+          logger.error('WSSession', `Unhandled edit_approve error: ${err.message}`, { sessionId: sid });
+        });
         break;
       }
 

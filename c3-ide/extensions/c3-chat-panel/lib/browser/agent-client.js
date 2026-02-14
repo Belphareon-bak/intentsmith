@@ -207,6 +207,11 @@ function initAgentClient() {
       _isExecuting[si] = (ev.data.agentStatus === 'executing');
     }
   });
+
+  /* Reset all executing state on WS disconnect — prevents dead state */
+  C3Bus.on('ws:disconnected', function() {
+    _isExecuting = {};
+  });
 }
 
 /* ─── Helpers ─────────────────────────────────────────────────────────── */
