@@ -16,6 +16,7 @@ import { enforceOutputContract, buildOutputGateRetryPrompt } from './output-gate
 import { getLanguageContext } from './language.js';
 import { buildStrictLanguageInstruction, validateResponseLanguage, buildLanguageRetryInstruction } from './language-enforcement.js';
 import { runQualityPipeline } from '../../quality/quality-pipeline.js';
+import { runQualityGateV2 } from '../../quality/quality-gate-v2.js';
 import {
   filterToolResults,
   annotateWithTrust,
@@ -782,9 +783,16 @@ export async function synthesizeWithLLM({
     }
 
     while (retryCount <= MAX_RETRIES) {
+      // v63.0: Check for cancel signal before LLM call
+      if (context.signal?.aborted) {
+        logger.info('Synthesis', 'Cancelled before LLM call (retry #' + retryCount + ')');
+        break;
+      }
+
       const result = await creBridge.generateChatResponse(synthesisPrompt, systemPrompt, {
         sessionId: `synth-${context.sessionId || 'default'}`,
         temperature: retryCount === 0 ? 0.4 : 0.5,
+        signal: context.signal,  // v63.0: propagate cancel signal to LLM
       });
 
       // Validate response
@@ -797,6 +805,27 @@ export async function synthesizeWithLLM({
           });
         }
       }
+
+      // ─── v62.3: SEARCH link enforcement (hard check, before fluff) ────
+      // If SEARCH response has <2 links, retry with stronger URL instruction.
+      // This is the HARD enforcement — QGv2 LinkGuard is the fallback.
+      if ((intent === 'SEARCH' || searchSubType) && retryCount < MAX_RETRIES) {
+        const searchLinkCount = (result.content.match(/https?:\/\/\S+/g) || []).length;
+        if (searchLinkCount < 2 && result.content.length > 100) {
+          logger.warn('Synthesis', 'SEARCH response missing links, retrying', {
+            linkCount: searchLinkCount,
+            retryCount,
+          });
+          synthesisPrompt += `\n\n═══════════════════════════════════════════════════════════════\n` +
+            `⚠️ PŘEDCHOZÍ ODPOVĚĎ NEMÁ ZDROJE. SEARCH odpověď MUSÍ obsahovat minimálně 2 URL odkazy.\n` +
+            `Použij URL adresy z "AVAILABLE SOURCE URLs" sekce výše.\n` +
+            `Formát: [1] [Název](https://url...) na konci odpovědi.\n` +
+            `═══════════════════════════════════════════════════════════════`;
+          retryCount++;
+          continue;
+        }
+      }
+      // ─── End SEARCH link enforcement ──────────────────────────────────
 
       // Check for fluff
       const fluffCheck = detectFluff(result.content, successfulData);
@@ -895,6 +924,64 @@ export async function synthesizeWithLLM({
       }
       // ─── End Tool Enforcement ────────────────────────────────────────
 
+      // ─── v62.4: QG score-based forced retry ────────────────────────────
+      // Uses score (issues only, not fix penalties) — if QG can fix it, no retry.
+      // Only retries for unfixable issues: zombie, sparse, missing sources.
+      // Thresholds: >30 retry, >60 hard retry prompt, >80 abort (return degraded).
+      if (retryCount < MAX_RETRIES) {
+        const qgPreCheck = runQualityGateV2(result.content, {
+          lang: langCtx.language, intent, searchSubType,
+        });
+
+        if (qgPreCheck.score > 80) {
+          // Critically bad — abort, don't waste another LLM call
+          logger.error('Synthesis', 'QG score critically high, aborting retry', {
+            score: qgPreCheck.score,
+            scoreRaw: qgPreCheck.scoreRaw,
+            issues: qgPreCheck.issuesDetected.map(i => i.type),
+            retryCount,
+          });
+          // Fall through — return degraded response with low confidence
+        } else if (qgPreCheck.score > 30) {
+          const issueTypes = qgPreCheck.issuesDetected.map(i => i.type);
+          logger.warn('Synthesis', 'QG score above threshold, retrying', {
+            score: qgPreCheck.score,
+            scoreRaw: qgPreCheck.scoreRaw,
+            issues: issueTypes,
+            retryCount,
+          });
+
+          // Build issue-specific retry guidance
+          const issueHints = [];
+          if (issueTypes.includes('zombie_detected')) {
+            issueHints.push('NEPSAT "Jako jazykový model" ani "Omlouvám se, nemohu". Odpověz PŘÍMO na otázku.');
+          }
+          if (issueTypes.includes('sparse_content')) {
+            issueHints.push('Odpověď je příliš krátká. Poskytni PODROBNOU a UŽITEČNOU odpověď.');
+          }
+          if (issueTypes.includes('search_no_sources')) {
+            issueHints.push('MUSÍŠ uvést zdroje s URL odkazy. Formát: [1] [Název](https://url...)');
+          }
+          if (issueTypes.includes('factual_no_number')) {
+            issueHints.push('Odpověď na faktický dotaz MUSÍ obsahovat konkrétní čísla/data.');
+          }
+          if (issueTypes.includes('report_too_short')) {
+            issueHints.push('Report je příliš krátký. Rozšiř odpověď o detaily a strukturu.');
+          }
+
+          if (issueHints.length > 0) {
+            synthesisPrompt += `\n\n═══════════════════════════════════════════════════════════════\n` +
+              `⚠️ KVALITA ODPOVĚDI JE NEDOSTATEČNÁ (score: ${qgPreCheck.score}/100)\n` +
+              issueHints.map(h => `• ${h}`).join('\n') + '\n' +
+              `═══════════════════════════════════════════════════════════════`;
+          }
+
+          retryCount++;
+          continue;
+        }
+      }
+      // ─── End QG score-based retry ──────────────────────────────────────
+
       // ─── v55.2 Sprint 2.4: Confidence-based response styling ─────────
       const finalConfidence = fluffCheck.isFluff ? 0.6 : (gateVerdict.ok ? 0.85 : 0.55);
       let finalContent = result.content;
@@ -930,6 +1017,7 @@ export async function synthesizeWithLLM({
 
       // v62.3: QGv2 — Centralized deterministic post-processing pipeline
       // Replaces scattered SK→CZ + LinkGuard + JSON strip logic
+      let qgResult;
       {
         let pipelineSourceUrls = extractSourceUrls(successfulData);
         if (pipelineSourceUrls.length === 0) {
@@ -943,6 +1031,7 @@ export async function synthesizeWithLLM({
           sessionId: context.sessionId,
         });
         finalContent = pipelineResult.text;
+        qgResult = pipelineResult.gateResult;
       }
 
       return {
@@ -953,6 +1042,15 @@ export async function synthesizeWithLLM({
         retried: retryCount > 0,
         gateVerdict: gateVerdict.ok ? undefined : gateVerdict,
         confidenceLevel: confidenceInfo?.level,
+        // v62.4: Structured QGv2 result — dual scoring (score=output, scoreRaw=input dirtiness)
+        qualityGate: qgResult ? {
+          fixes: qgResult.fixesApplied,
+          issues: qgResult.issuesDetected,
+          severity: qgResult.severity,
+          score: qgResult.score,
+          scoreRaw: qgResult.scoreRaw,
+          flags: qgResult.qualityFlags,
+        } : undefined,
       };
     }
 

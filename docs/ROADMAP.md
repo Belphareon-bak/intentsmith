@@ -75,22 +75,21 @@ Shell sandbox + secrets auth. Chybí installer, licence, auto-update.
 
 ---
 
-## 🔴 FÁZE H — HARDENING (code review nálezy)
+## FÁZE H — HARDENING (code review nálezy)
 
-**Status:** Identifikováno v v62 code review. 3 CRITICAL + 6 WARNING.
-Žádný neblokuje vývoj, ale všechny musí být opraveny před remote přístupem.
+**Status:** 7/9 DONE, 1 částečně, 1 odloženo (P2). Všechny CRITICAL opraveny.
 
 | # | Úkol | Effort | Priorita | Status |
 |---|------|--------|----------|--------|
-| H1 | Error message sanitization | 0.5d | 🔴 P0 | ❌ |
-| H2 | Security headers (CSP, X-Frame) | 0.5d | 🔴 P0 | ❌ |
-| H3 | Architect session memory leak | 0.5d | 🔴 P0 | ❌ |
-| H4 | parseBody JSON error handling | 0.25d | 🟡 P1 | ❌ |
-| H5 | Path traversal guard | 0.25d | 🟡 P1 | ❌ |
-| H6 | Memory API konsolidace | 0.5d | 🟡 P1 | ❌ |
-| H7 | safeParseInt helper | 0.25d | 🟡 P1 | ❌ |
-| H8 | Smazat integration-patches.js | 5min | 🟡 P1 | ❌ |
-| H9 | server.js route split | 1d | ⚪ P2 | ❌ |
+| H1 | Error message sanitization (`safeError()`) | 0.5d | 🔴 P0 | ✅ |
+| H2 | Security headers (CSP, X-Frame, X-XSS) | 0.5d | 🔴 P0 | ✅ |
+| H3 | Architect session TTL + LRU (max 20, 4h, 30min cleanup) | 0.5d | 🔴 P0 | ✅ |
+| H4 | parseBody JSON error handling (reject, ne raw) | 0.25d | 🟡 P1 | ✅ |
+| H5 | Path traversal guard v sendStaticFile() | 0.25d | 🟡 P1 | ✅ |
+| H6 | Memory API konsolidace | 0.5d | 🟡 P1 | ⚠️ `/api/global-memory` existuje, `/memory` deprecated ale neodebrán |
+| H7 | safeParseInt helper (12+ usage sites) | 0.25d | 🟡 P1 | ✅ |
+| H8 | Smazat integration-patches.js | 5min | 🟡 P1 | ✅ |
+| H9 | server.js route split | 1d | ⚪ P2 | ❌ (odloženo, 3345 řádků) |
 
 ---
 
@@ -102,7 +101,7 @@ Fáze A: CHAT       ████████████████████
 Fáze C: PROJEKTY   ████████████████████████████████████████░░  95% → téměř DONE
 Fáze D-int: ÚČETNÍ ██████████████████████████████████████████  100% → DONE
 Fáze B: WORKERI    ████████████████████████████░░░░░░░░░░░░░░  80% (B0-B6 done)
-Fáze H: HARDENING  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  0%
+Fáze H: HARDENING  ██████████████████████████████████░░░░░░░░  85% (7/9 done, H6 partial, H9 P2)
 Fáze D: SPECIALISTÉ████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░  40% (expert+merge+wizard)
 Fáze E: IDE        ████████████████████████████░░░░░░░░░░░░░░  70% (Sprint 1-7 done)
 Fáze F: BALÍČKOVÁNÍ██░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  5%
@@ -112,26 +111,12 @@ Fáze F: BALÍČKOVÁNÍ██░░░░░░░░░░░░░░░░�
 
 ## Doporučené pořadí práce
 
-### Sprint 1 — Hardening + Worker dokončení (~1 týden)
+### Sprint 1 — Workers (~1 týden)
 
-**Den 1–2: Phase H — Critical fixes**
-```
-✅→ H1. Error message sanitization (0.5d)
-✅→ H2. Security headers (0.5d)
-✅→ H3. Architect session cleanup (0.5d)
-✅→ H8. Smazat integration-patches.js (5 min)
-```
+Phase H je téměř hotová (7/9). Focus se přesouvá na workery.
 
-**Den 3: Phase H — Warnings**
 ```
-✅→ H4. parseBody() JSON error handling (0.25d)
-✅→ H5. Path traversal guard (0.25d)
-✅→ H7. safeParseInt helper (0.25d)
-✅→ H6. Memory API konsolidace (0.5d)
-```
-
-**Den 4–5: Phase B — Worker reálný provoz**
-```
+⚠️→ H6. Memory API — odebrat deprecated /memory endpoint (0.5d)
 ❌→ B8. Worker: počasí → Telegram/push (1d)
 ❌→ B8. Worker: zprávy RSS → digest email (1d)
 ```
@@ -148,7 +133,8 @@ Fáze F: BALÍČKOVÁNÍ██░░░░░░░░░░░░░░░░�
 
 - Fáze D: SPECIALISTÉ — Specialist Runtime, knowledge base (~6 týdnů)
 - Fáze E: IDE — zbývající IDE sprinty (~3-4 sprinty)
-- Fáze F: BALÍČKOVÁNÍ (2–3 týdny) — závisí na H1-H3
+- Fáze F: BALÍČKOVÁNÍ (2–3 týdny) — H1-H3 jsou hotové, nic neblokuje
+- H9: server.js route split — kvalitativní (P2, kdykoli)
 
 ---
 
@@ -156,15 +142,15 @@ Fáze F: BALÍČKOVÁNÍ██░░░░░░░░░░░░░░░░�
 
 | # | Fáze | Úkol | Effort | Priorita | Status |
 |---|------|------|--------|----------|--------|
-| 1 | **H** | **H1. Error message sanitization** | 0.5d | 🔴 P0 | ❌ |
-| 2 | **H** | **H2. Security headers (CSP, X-Frame)** | 0.5d | 🔴 P0 | ❌ |
-| 3 | **H** | **H3. Architect session memory leak** | 0.5d | 🔴 P0 | ❌ |
-| 4 | **H** | **H8. Smazat integration-patches.js** | 5min | 🟡 P1 | ❌ |
-| 5 | **H** | H4. parseBody JSON error handling | 0.25d | 🟡 P1 | ❌ |
-| 6 | **H** | H5. Path traversal guard | 0.25d | 🟡 P1 | ❌ |
-| 7 | **H** | H7. safeParseInt helper | 0.25d | 🟡 P1 | ❌ |
-| 8 | **H** | H6. Memory API konsolidace | 0.5d | 🟡 P1 | ❌ |
-| 9 | **H** | H9. server.js route split | 1d | ⚪ P2 | ❌ |
+| 1 | H | H1. Error message sanitization | 0.5d | 🔴 P0 | ✅ |
+| 2 | H | H2. Security headers (CSP, X-Frame) | 0.5d | 🔴 P0 | ✅ |
+| 3 | H | H3. Architect session memory leak | 0.5d | 🔴 P0 | ✅ |
+| 4 | H | H4. parseBody JSON error handling | 0.25d | 🟡 P1 | ✅ |
+| 5 | H | H5. Path traversal guard | 0.25d | 🟡 P1 | ✅ |
+| 6 | H | H6. Memory API konsolidace | 0.5d | 🟡 P1 | ⚠️ |
+| 7 | H | H7. safeParseInt helper | 0.25d | 🟡 P1 | ✅ |
+| 8 | H | H8. Smazat integration-patches.js | 5min | 🟡 P1 | ✅ |
+| 9 | H | H9. server.js route split | 1d | ⚪ P2 | ❌ |
 | 10 | C | C3. Reálný LLM test lifecycle | průběžně | 🟡 P1 | ❌ |
 | 11 | B | B8. Worker: počasí → push/Telegram | 1d | 🟡 P1 | ❌ |
 | 12 | B | B8. Worker: zprávy RSS → digest | 1d | 🟡 P1 | ❌ |
@@ -178,18 +164,19 @@ Fáze F: BALÍČKOVÁNÍ██░░░░░░░░░░░░░░░░�
 
 ## Celkový progres
 
-**Hotovo:** ~85% celkové vize (upgrade z 82% ve v4)
-**Nové od v4:** CRE Gatekeeper (v64.0), 5D capability system, merge engine, expertise wizard, IDE Sprint 1-7
+**Hotovo:** ~88% celkové vize (upgrade z 85%)
+**Nové:** Phase H téměř dokončena (7/9), CRE Gatekeeper (v64.0), 5D capability system, merge engine, expertise wizard, IDE Sprint 1-7
 
 ```
-Celkem zbývajících úkolů:  17
-  🔴 Critical (H1-H3):     3  (~1.5 dne)
-  🟡 Important (H4-H8,B,C): 9  (~8 dní)
-  ⚪ Future (D,E,F,H9):     5  (~2.5 měsíce)
+Celkem zbývajících úkolů:  10
+  🔴 Critical:              0  (všechny H1-H3 hotové!)
+  🟡 Important (H6,B,C):   6  (~7 dní)
+  ⚪ Future (D,E,F,H9):     4  (~2.5 měsíce)
 ```
 
 ---
 
 *Tento dokument nahrazuje C3-Agent-Roadmapa-v4.md (v4, 2026-02-12).
-Nové ve v5: CRE Gatekeeper (v64.0), aktualizovaný progres pilířů (Chat 97%, Specialisté 40%, IDE 70%),
+Nové ve v5: CRE Gatekeeper (v64.0), Phase H téměř hotová (7/9 verified),
+aktualizovaný progres pilířů (Chat 97%, Specialisté 40%, IDE 70%),
 schema migrations, 5D capability system, merge engine v2, expertise wizard.*

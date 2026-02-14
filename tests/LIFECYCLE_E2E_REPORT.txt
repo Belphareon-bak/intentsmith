@@ -1,0 +1,433 @@
+══════════════════════════════════════════════════════════════════════════════
+  C3 LIFECYCLE SYSTEM — FULL TEST REPORT
+  Generated: 2026-02-12
+══════════════════════════════════════════════════════════════════════════════
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PART 1: TEST SUITE RESULTS (581 tests, 0 failures)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  #  Test Suite                          Tests   Status
+  ── ──────────────────────────────────  ──────  ──────
+  1  lifecycle.test.js                     103   PASS
+     (Enums, state machine, spec validation, roadmap versioning,
+      milestone lifecycle, session resume, git auto-init)
+
+  2  lifecycle-handoff.test.js              83   PASS
+     (Chat routing: PROPOSED→SPEC→PLANNING→BUILD→REVIEW→CHANGE→DONE,
+      isProjectScopeBuild heuristics, cancel/pause, quick build regression)
+
+  3  lifecycle-e2e.test.js                 138   PASS
+     (DB-level integration: full SPEC→PLANNING→BUILD chain,
+      milestone execution, scope enforcement, health scores,
+      change requests, drift detection, roadmap versioning)
+
+  4  lifecycle-build.test.js                50   PASS
+     (BUILD phase: startNextMilestone, dependency checking,
+      approveMilestonePlan, scope violations, retry logic,
+      milestone blocking, skip, health score computation)
+
+  5  lifecycle-review-change.test.js        43   PASS
+     (REVIEW: 4 drift checks, aggregate health, trend detection
+      CHANGE: propose, analyze, apply, reject, preservation validation)
+
+  6  milestone-size.test.js                 40   PASS
+     (Context budget: LOC/file limits, split suggestions,
+      token estimation, oversized milestone warnings)
+
+  7  lifecycle-db.test.js                   71   PASS
+     (Schema: 5 tables, repository CRUD, foreign keys,
+      JSON serialization, prepared statements, indexes)
+
+  8  lifecycle-conversation-e2e.test.js     53   PASS
+     (Full conversation flow with fakeLLM + fakeExecutor:
+      22 turns, real files on disk, real git commits,
+      scope violation + retry, change management, drift checks)
+
+  TOTAL: 581 passed, 0 failed
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PART 2: CONVERSATION E2E — FULL TRANSCRIPT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Vzorový projekt: Task Manager CLI (Node.js + SQLite)
+  3 milníky: Setup+DB → CLI Commands → Output Formatting
+  LLM: fakeLLM (předpřipravené JSON odpovědi, žádné GPU)
+  Executor: fakeExecutor (zapisuje reálné soubory + git commit)
+
+  ── FÁZE 1: Detekce + Návrh ─────────────────────────────────────────────
+
+  [TURN 1] USER:
+    "Chci postavit kompletní CLI task manager s SQLite databází,
+     příkazy pro správu úkolů a formátovaným výstupem"
+
+  [TURN 2] SYSTEM (phase: PROPOSED):
+    Detekován rozsáhlý projekt. Navrhuji lifecycle přístup:
+      1. SPEC — specifikace (cíle, požadavky, tech stack)
+      2. PLANNING — roadmapa rozdělená na milníky
+      3. BUILD — postupné budování s checkpointy
+      4. REVIEW — kontroly driftu a kvality
+      5. CHANGE — řízení změn bez ztráty práce
+    Chceš začít lifecycle? (ano/ne)
+
+  ── FÁZE 2: Specifikace ─────────────────────────────────────────────────
+
+  [TURN 3] USER:
+    "ano"
+
+  [TURN 4] SYSTEM (phase: SPEC):
+    Specifikační fáze — 5 upřesňujících otázek:
+      1. Jaký formát výstupu preferuješ? (tabulka/prostý text)
+      2. Chceš podporu priorit úkolů?
+      3. Má být databáze v aktuálním adresáři nebo konfigurovatelná?
+      4. Potřebuješ export/import úkolů?
+      5. Jakou verzi Node.js cílíš?
+
+  [TURN 5] USER:
+    "Tabulkový výstup. Bez priorit. DB v aktuálním adresáři.
+     Bez exportu. Node 20+."
+
+  [TURN 6] SYSTEM (phase: SPEC_REVIEW):
+    Specifikace projektu "Task Manager CLI":
+      Cíle: Manage tasks via CLI, Persist in SQLite, Formatted tables
+      Požadavky: add, list, done commands, SQLite persistence, table output
+      Tech stack: JavaScript, Node.js CLI, better-sqlite3
+      Rizika: SQLite file locking (LOW)
+    Schválíš specifikaci?
+
+    ⚠️ BUG: Cíle/požadavky zobrazeny jako [object Object]
+       → formatSpec() v lifecycle-formatters.js neparsuje .description
+
+  ── FÁZE 3: Plánování ───────────────────────────────────────────────────
+
+  [TURN 7] USER:
+    "schvaluji"
+
+  [TURN 8] SYSTEM (phase: PLAN_REVIEW):
+    Roadmapa projektu — 3 milníky:
+      1. Project Setup + DB     (~120 LOC, 2 soubory)
+      2. CLI Commands            (~200 LOC, 2 soubory)
+      3. Output Formatting       (~80 LOC, 1 soubor)
+    Schválíš roadmapu?
+
+    ⚠️ BUG: Pořadí milníků zobrazeno jako "?." místo "1."
+       → formatRoadmap() neparsuje ms.id pro sequence číslo
+
+  ── FÁZE 4: BUILD — Milník 1 (Project Setup + DB) ───────────────────────
+
+  [TURN 9] USER:
+    "schvaluji"   ← schvaluje roadmapu → spouští BUILD
+
+  [TURN 10] SYSTEM (phase: BUILD_MILESTONE_REVIEW):
+    Milník: Project Setup + DB
+    Scope soubory: package.json, src/db.js
+    Schválíš plán a spustíš build?
+
+  [TURN 11] USER:
+    "ano"   ← schvaluje plán ms-1 → fakeExecutor zapisuje soubory
+
+  [TURN 12] SYSTEM (phase: BUILD, ms-1 PASSED):
+    → ms-1 PASS, auto-advance na ms-2 plán
+    Milník: CLI Commands
+    Scope soubory: src/commands.js, src/index.js
+
+    Výsledek ms-1:
+      ✅ package.json zapsán na disk
+      ✅ src/db.js zapsán na disk
+      ✅ git commit "executor: ms-1"
+      ✅ health score: scope=0.95, tests=0.80, complexity=0.10, debt=0.05
+
+  ── FÁZE 5: BUILD — Milník 2 (CLI Commands) ─────────────────────────────
+
+  [TURN 13] USER:
+    "ano"   ← schvaluje plán ms-2 → fakeExecutor zapisuje soubory
+
+  [TURN 14] SYSTEM (phase: BUILD, ms-2 PASSED):
+    → ms-2 PASS, auto-advance na ms-3 plán
+    Milník: Output Formatting
+    Scope soubory: src/format.js
+
+    Výsledek ms-2:
+      ✅ src/commands.js zapsán na disk
+      ✅ src/index.js zapsán na disk
+      ✅ git commit "executor: ms-2"
+      ✅ health score: scope=0.95, tests=0.80, complexity=0.10, debt=0.05
+
+  ── FÁZE 6: Change Management ───────────────────────────────────────────
+
+  [TURN 15] USER:
+    "změna: přidat deadline support do úkolů"
+
+  [TURN 16] SYSTEM (phase: CHANGE):
+    Návrh změny: přidat deadline support
+    Dopad: LOW risk
+    Affected milestones: ms-3
+    Schválíš změnu?
+
+  [TURN 17] USER:
+    "ne"   ← odmítá změnu
+
+  [TURN 18] SYSTEM (phase: BUILD):
+    Změna zamítnuta. Pokračuji v BUILD fázi.
+    → change_request: REJECTED
+    → roadmap version: stále 1 (nezměněna)
+
+  ── FÁZE 7: BUILD — Milník 3 (Scope Enforcement) ────────────────────────
+
+  [TURN 19] USER:
+    "ano"   ← schvaluje plán ms-3
+
+    → fakeExecutor záměrně zapíše README.md MIMO scope (test!)
+    → systém detekuje scope violation: ["README.md"]
+    → milestone FAIL → automatický retry (1/3)
+
+  [TURN 20] SYSTEM (phase: BUILD, ms-3 RETRY):
+    Milník se staví... Status: RETRY
+
+    ⚠️ SCOPE VIOLATION detekován:
+      - scope_files: ["src/format.js"]
+      - actual files: ["src/format.js", "README.md"]
+      - violation: README.md (mimo scope)
+      → drift_check: SCOPE_VIOLATION = FAIL
+
+  [TURN 21] USER:
+    "ano"   ← schvaluje retry ms-3
+
+    → fakeExecutor tentokrát zapíše jen src/format.js (clean)
+    → checkpoint PASS → health score computed → ms-3 PASSED
+
+  [TURN 22] SYSTEM (phase: REVIEW):
+    Project Review (triggered after ms-3, all milestones done):
+      Celkové zdraví: GREEN
+      Drift checks:
+        ✅ SPEC_ALIGNMENT: WARN (G3 not yet fully addressed at review time)
+        ✅ SCOPE_CREEP: PASS (severity: NONE)
+        ✅ ARCHITECTURE_CONSISTENCY: PASS (consistent: true)
+        ✅ TECH_DEBT: PASS (trend: STABLE)
+      Doporučení: "Consider adding input validation to commands"
+      Milníky: 3/3
+
+    ⚠️ BUG: Drift check detaily zobrazeny jako "?" místo PASS/WARN
+       → formatReview() neparsuje checkResult.result
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PART 3: VYTVOŘENÝ PROJEKT — Task Manager CLI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Umístění: /tmp/lc-conv-e2e-1770886648337/
+
+  ── Souborová struktura ──────────────────────────────────────────────────
+
+    task-manager-cli/
+    ├── CONVERSATION.md       ← transcript (auto-generated)
+    ├── README.md             ← scope violation artifact (ms-3 attempt 1)
+    ├── package.json          ← ms-1
+    └── src/
+        ├── db.js             ← ms-1
+        ├── commands.js       ← ms-2
+        ├── index.js          ← ms-2
+        └── format.js         ← ms-3
+
+  ── package.json ─────────────────────────────────────────────────────────
+
+    {
+      "name": "task-manager-cli",
+      "version": "1.0.0",
+      "type": "module",
+      "main": "src/index.js",
+      "dependencies": {
+        "better-sqlite3": "^9.0.0"
+      }
+    }
+
+  ── src/db.js ────────────────────────────────────────────────────────────
+
+    import Database from 'better-sqlite3';
+
+    const db = new Database('tasks.db');
+
+    db.exec(`CREATE TABLE IF NOT EXISTS tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      done INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`);
+
+    export function addTask(title) {
+      return db.prepare('INSERT INTO tasks (title) VALUES (?)').run(title);
+    }
+
+    export function getTasks() {
+      return db.prepare('SELECT * FROM tasks ORDER BY id').all();
+    }
+
+    export function markDone(id) {
+      return db.prepare('UPDATE tasks SET done = 1 WHERE id = ?').run(id);
+    }
+
+    export default { addTask, getTasks, markDone };
+
+  ── src/commands.js ──────────────────────────────────────────────────────
+
+    import { addTask, getTasks, markDone } from './db.js';
+
+    export function cmdAdd(title) {
+      if (!title) { console.error('Usage: task add <title>'); return; }
+      const result = addTask(title);
+      console.log(`Task #${result.lastInsertRowid} created: ${title}`);
+    }
+
+    export function cmdList() {
+      const tasks = getTasks();
+      if (tasks.length === 0) { console.log('No tasks.'); return; }
+      for (const t of tasks) {
+        const status = t.done ? '[x]' : '[ ]';
+        console.log(`  ${t.id}. ${status} ${t.title}`);
+      }
+    }
+
+    export function cmdDone(id) {
+      if (!id) { console.error('Usage: task done <id>'); return; }
+      markDone(Number(id));
+      console.log(`Task #${id} marked as done.`);
+    }
+
+  ── src/index.js ─────────────────────────────────────────────────────────
+
+    #!/usr/bin/env node
+    import { cmdAdd, cmdList, cmdDone } from './commands.js';
+
+    const [,, command, ...args] = process.argv;
+
+    switch (command) {
+      case 'add':  cmdAdd(args.join(' ')); break;
+      case 'list': cmdList(); break;
+      case 'done': cmdDone(args[0]); break;
+      default:     console.log('Usage: task <add|list|done> [args]');
+    }
+
+  ── src/format.js ────────────────────────────────────────────────────────
+
+    export function formatTable(tasks) {
+      if (!tasks || tasks.length === 0) return 'No tasks.';
+
+      const header = '| ID | Status | Title | Created |';
+      const sep    = '|----|--------|-------|---------|';
+      const rows = tasks.map(t => {
+        const status = t.done ? '✅' : '⬜';
+        return `| ${t.id} | ${status} | ${t.title} | ${t.created_at || '-'} |`;
+      });
+
+      return [header, sep, ...rows].join('\n');
+    }
+
+    export default { formatTable };
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PART 4: GIT HISTORIE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    584d038 (HEAD -> master) executor: ms-3        ← retry (clean)
+    772e9cf executor: ms-3                         ← scope violation attempt
+    36e31cf executor: ms-2                         ← CLI Commands
+    d38f09f executor: ms-1                         ← Setup + DB
+    40f7269 init                                   ← git init
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PART 5: DB STAV
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Lifecycle: lc-1770886648354-wh77 — phase: BUILD
+
+  Milníky:
+    ✅ ms-1: Project Setup + DB     [PASSED]  health: scope=0.95 tests=0.80 complex=0.10 debt=0.05
+    ✅ ms-2: CLI Commands            [PASSED]  health: scope=0.95 tests=0.80 complex=0.10 debt=0.05
+    ✅ ms-3: Output Formatting       [PASSED]  health: scope=0.95 tests=0.80 complex=0.10 debt=0.05
+
+  Roadmap: verze 1 (change request zamítnut → verze nezměněna)
+
+  Change Requests:
+    cr-1770886648411-juw1 — REJECTED — "přidat deadline support do úkolů"
+
+  Drift Checks (9 celkem):
+    ✅ MILESTONE_CHECKPOINT: PASS  (ms-1)
+    ✅ MILESTONE_CHECKPOINT: PASS  (ms-2)
+    ❌ SCOPE_VIOLATION: FAIL       (ms-3, attempt 1 — README.md mimo scope)
+    ✅ MILESTONE_CHECKPOINT: PASS  (ms-3, retry)
+    ⚠️ SPEC_ALIGNMENT: WARN       (G3 not yet fully covered at review time)
+    ✅ SCOPE_CREEP: PASS           (severity: NONE)
+    ✅ ARCHITECTURE_CONSISTENCY: PASS (consistent: true)
+    ✅ TECH_DEBT: PASS             (trend: STABLE)
+
+  Progress Display:
+    [████████████████████] 100%
+    ✅ 3/3 milníků hotovo
+
+  Health Score History:
+    | Milník             | Scope | Tests | Complexity | Debt |
+    |--------------------|-------|-------|------------|------|
+    | Project Setup + DB | 0.95  | 0.80  | 0.10       | 0.05 |
+    | CLI Commands       | 0.95  | 0.80  | 0.10       | 0.05 |
+    | Output Formatting  | 0.95  | 0.80  | 0.10       | 0.05 |
+
+    Trendy: Scope → stabilní, Testy → stabilní, Debt → stabilní
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PART 6: NALEZENÉ FORMÁTOVACÍ BUGY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Pipeline logika (routing, DB, git, state machine) funguje korektně.
+  Všechny fáze proběhnou správně, data se uloží, soubory vzniknou.
+
+  Nalezeny 3 formátovací bugy v lifecycle-formatters.js:
+
+  1. formatSpec() — Cíle a požadavky zobrazeny jako "[object Object]"
+     Příčina: goals/requirements jsou objekty {id, description, ...},
+              ale formátovač je vkládá do stringu bez .description
+     Oprava: mapovat přes g.description / r.description
+
+  2. formatRoadmap() — Pořadí milníků zobrazeno jako "?." místo "1."
+     Příčina: sequence číslo se neparsuje z ms.id (nebo chybí index)
+     Oprava: parsovat z ms.id ("ms-1" → 1) nebo použít index+1
+
+  3. formatReview() — Drift check výsledky zobrazeny jako "?"
+     Příčina: drift check objekt má .result (PASS/WARN/FAIL),
+              ale formátovač neextrahuje toto pole
+     Oprava: zobrazit check.result || assessResult(check)
+
+  Žádný z těchto bugů neovlivňuje funkčnost — jsou to čistě
+  zobrazovací problémy v user-facing textu.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PART 7: POZNÁMKA O LLM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Tento test používá Dependency Injection pro nahrazení LLM:
+
+    lifecycle.callLLM = fakeLLM;     ← vrací předpřipravený JSON
+    lifecycle.executor = fakeExecutor; ← zapisuje soubory + git
+
+  Díky DI patternu (const llm = lifecycle.callLLM || callLLM) stačí
+  při reálném běhu NEPŘEDAT callLLM v kontextu a systém automaticky
+  použije skutečný callLLM z workflow.js, který volá API backend.
+
+  11 call sites ve 5 sub-modulech:
+    lifecycle-spec.js:     3 (startSpec, answerSpecQuestions, reviseSpec)
+    lifecycle-planning.js: 2 (generateRoadmap, reviseRoadmap)
+    lifecycle-build.js:    3 (startNextMilestone, checkpoint, healthScore)
+    lifecycle-review.js:   1 (triggerProjectReview)
+    lifecycle-change.js:   2 (proposeChange, applyChange)
+
+  Pro reálný běh s LLM: spustit přes chat bez DI overrides.
+
+
+══════════════════════════════════════════════════════════════════════════════
+  KONEC REPORTU — 581 testů, 0 failures, 3 formátovací bugy k opravě
+══════════════════════════════════════════════════════════════════════════════

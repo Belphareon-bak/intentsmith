@@ -42,41 +42,183 @@ function _s(v){return v==null?'':typeof v==='object'?(v.value||v.name||v.type||J
 var I={chat:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',folder:'<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',expert:'<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 10 3 12 0v-5"/>',worker:'<circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.18 1.65 1.65 0 0 0 4.27 6.36l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',chevDown:'<polyline points="6 9 12 15 18 9"/>',plus:'<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',split:'<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/>',close:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',send:'<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',attach:'<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>'};
 
 /* ═══ DATA ═══ */
-var EXPERTS=[{emoji:'🤖',name:'Výchozí',desc:'Univerzální AI',fav:true},{emoji:'📊',name:'Účetní',desc:'Faktury, DPH',fav:true},{emoji:'💻',name:'Developer',desc:'Kód, debugging',fav:true},{emoji:'✍️',name:'Copywriter',desc:'Texty'},{emoji:'🏗️',name:'Architekt',desc:'Design'},{emoji:'🔬',name:'Researcher',desc:'Analýza'},{emoji:'📋',name:'PM',desc:'Projekty'},{emoji:'🎨',name:'Designer',desc:'UI/UX'},{emoji:'🛡️',name:'Security',desc:'Audit'}];
-var PROJECTS=[{name:'Security Hardening',status:'Active',sprint:7,created:'5. 2. 2026',updated:'10. 2. 2026',tests:'247/247 ✓',tags:['Security','Sprint 7','Shell','WebSocket']},{name:'Worker System v2',status:'WIP',sprint:5,created:'20. 1. 2026',updated:'8. 2. 2026',tests:'180/195',tags:['Workers','Cron']},{name:'E2E Validation',status:'Done',sprint:4,created:'1. 2. 2026',updated:'6. 2. 2026',tests:'26/26 ✓',tags:['Tests','E2E']},{name:'Context Budgeting',status:'Active',sprint:4,created:'28. 1. 2026',updated:'9. 2. 2026',tests:'80/80 ✓',tags:['Context','Phase C']}];
-var CONVERSATIONS=[{title:'Pomoz s server.js',preview:'Analyzuj router...',time:'14:32',expert:'Developer'},{title:'Historie Československa',preview:'Popiš historii ČSR...',time:'13:15',expert:'Výchozí'},{title:'Flutter build debug',preview:'Proč padá build...',time:'včera',expert:'Developer'},{title:'Účetní rozbor Q4',preview:'Zpracuj faktury...',time:'včera',expert:'Účetní'},{title:'API design review',preview:'Zreviduj REST API...',time:'2 dny',expert:'Architekt'},{title:'SEO analýza',preview:'Analyzuj SEO...',time:'3 dny',expert:'Researcher'}];
-var SPECIALISTS=[{emoji:'📊',name:'Účetní',desc:'Daně, faktury, DPH',tags:['Finance','DPH']},{emoji:'⚖️',name:'Právník',desc:'Smlouvy, GDPR',tags:['Právo','GDPR']},{emoji:'📈',name:'Analytik',desc:'Data, statistiky',tags:['Data','Analýza']}];
-var WORKERS=[{name:'Weather Monitor',status:'Running',cron:'*/30 * * * *',lastRun:'14:30',desc:'Počasí každých 30 min'},{name:'Realty Watcher',status:'Running',cron:'0 */2 * * *',lastRun:'14:00',desc:'Sledování nemovitostí'},{name:'News Digest',status:'Paused',cron:'0 8 * * *',lastRun:'08:00',desc:'Denní přehled zpráv'}];
+/* 15+1 built-in experts per docs — overridden by backend /api/experts */
+var EXPERTS=[
+  {emoji:'🤖',name:'Výchozí',desc:'Univerzální AI',fav:true,domain:'general'},
+  {emoji:'✍️',name:'Spisovatel',desc:'Kreativní psaní',domain:'creative_writing'},
+  {emoji:'🐉',name:'DnD Master',desc:'Stolní RPG',domain:'tabletop_rpg'},
+  {emoji:'🎵',name:'Textař',desc:'Hudební texty',domain:'music_lyrics'},
+  {emoji:'📊',name:'Analytik',desc:'Analýza dat',domain:'analysis',fav:true},
+  {emoji:'💰',name:'Překupník',desc:'Trading',domain:'trading'},
+  {emoji:'🧮',name:'Účetní',desc:'Daně, faktury, DPH',domain:'finance',fav:true,isSpecialist:true},
+  {emoji:'⚖️',name:'Právník',desc:'Smlouvy, zákony',domain:'legal',isSpecialist:true},
+  {emoji:'🩺',name:'Lékař',desc:'Zdraví, medicína',domain:'medical_education'},
+  {emoji:'🧠',name:'Psycholog',desc:'Psychologie',domain:'psychology'},
+  {emoji:'🤖',name:'AI Expert',desc:'Umělá inteligence',domain:'artificial_intelligence'},
+  {emoji:'💻',name:'Vývojář',desc:'Kód, debugging',domain:'software_development',fav:true},
+  {emoji:'🔧',name:'Technik',desc:'Technická podpora',domain:'technical_support'},
+  {emoji:'🚗',name:'Autíčkář',desc:'Automobily',domain:'automobiles'},
+  {emoji:'🏍️',name:'Motorkář',desc:'Motorky',domain:'motorcycles'},
+  {emoji:'🏛️',name:'Politolog',desc:'Politika',domain:'politics'}
+];
+/* Start empty — populated from backend; no hardcoded stale data */
+var PROJECTS=[];
+var CONVERSATIONS=[];
+/* Specialists = experts with deterministic tools (is_specialist from backend or default) */
+var SPECIALISTS=EXPERTS.filter(function(e){return e.isSpecialist;}).map(function(e){return{emoji:e.emoji,name:e.name,desc:e.desc,domain:e.domain,tags:[e.domain||'','Specialista'].filter(Boolean)};});
+var WORKERS=[];
 var SETTINGS_SECTIONS=[{icon:'👤',title:'User / Identity',fields:[{l:'Jméno',v:'Belfik',t:'input'},{l:'E-mail',v:'belfik@c3.local',t:'input'},{l:'Role',v:'Developer',t:'select',opts:['Developer','Admin','User']}]},{icon:'🔔',title:'Notifications',fields:[{l:'Zvukové notifikace',v:true,t:'toggle'},{l:'Desktopové notifikace',v:true,t:'toggle'}]},{icon:'🎨',title:'Appearance',fields:[{l:'Téma'},{l:'Accent'},{l:'Pozadí'},{l:'Intenzita aktivní'},{l:'Intenzita neaktivní'},{l:'Velikost písma'},{l:'Písmo'}]},{icon:'🧠',title:'Memory & Context',fields:[{l:'Systémový prompt',v:'Vždy odpovídej v češtině.',t:'textarea'},{l:'Ukládat historii',v:true,t:'toggle'},{l:'Kontext',v:true,t:'toggle'}]},{icon:'📍',title:'Location',fields:[{l:'Město',v:'Praha',t:'input'},{l:'Země',v:'CZ',t:'input'},{l:'Jazyk',v:'Čeština',t:'select',opts:['Čeština','English']}]},{icon:'📄',title:'Output & Formats',fields:[{l:'Markdown výstup',v:true,t:'toggle'},{l:'Kódové bloky',v:true,t:'toggle'}]},{icon:'🖥️',title:'System',fields:[{l:'Model',v:'qwen2.5:32b',t:'select',opts:['qwen2.5:32b','llama3.1:70b','mistral:7b']},{l:'Ollama URL',v:'http://localhost:11434',t:'input'}]},{icon:'ℹ️',title:'About',fields:[]}];
-var FILES=[{n:'src',d:true,i:0},{n:'server.js',d:false,i:1,a:true,st:'M',p:'src'},{n:'router.js',d:false,i:1,st:'M',p:'src'},{n:'chat',d:true,i:1,p:'src'},{n:'handler.js',d:false,i:2,st:'A',p:'chat'},{n:'context.js',d:false,i:2,p:'chat'},{n:'planner',d:true,i:1,p:'src'},{n:'engine.js',d:false,i:2,p:'planner'},{n:'tests',d:true,i:0},{n:'e2e.test.js',d:false,i:1,st:'M',p:'tests'},{n:'unit.test.js',d:false,i:1,p:'tests'},{n:'design',d:true,i:0},{n:'mockups.fig',d:false,i:1,p:'design'},{n:'architecture.md',d:false,i:0,st:'M'},{n:'package.json',d:false,i:0},{n:'.env',d:false,i:0}];
-var _collapsedDirs={};var _wtPath='';
-var NAV=[{id:'chats',label:'Konverzace',icon:'chat',badge:12,recent:['Pomoz s server.js','Historie ČSR','Flutter debug']},{id:'projects',label:'Projekty',icon:'folder',badge:4,recent:['Security Hardening','Worker v2']},{id:'specialists',label:'Specialisté',icon:'users',recent:['Účetní']},{id:'experts',label:'Experti',icon:'expert',badge:9,recent:['Výchozí','Developer','Účetní']},{id:'workers',label:'Workeri',icon:'worker',badge:3,recent:['Weather','Realty']}];
+var FILES=[];
+var _collapsedDirs={};var _wtRoot='';var _wtLoading=false;var _wtRenaming=null;var _wtNewInput=null;
+var _wtRawTree=null; /* raw nested tree from backend — re-flatten on collapse toggle */
+/* ── Flatten nested tree respecting collapsed state ── */
+function _flattenTree(nodes,depth,parentPath){
+  var result=[];
+  (nodes||[]).forEach(function(node){
+    var fp=parentPath?parentPath+'/'+node.n:node.n;
+    var entry={n:node.n,d:!!node.d,i:depth,fp:fp,_children:node.children||null};
+    result.push(entry);
+    if(node.d&&node.children&&!_collapsedDirs[fp]){
+      result=result.concat(_flattenTree(node.children,depth+1,fp));
+    }
+  });
+  return result;
+}
+/* ── Load real filesystem tree from backend ── */
+function _loadWorkspaceTree(rootPath){
+  if(!rootPath)return;
+  _wtLoading=true;renderSidebar();
+  fetch(_backendBase+'/api/workspace/tree?path='+encodeURIComponent(rootPath),{signal:AbortSignal.timeout(8000)})
+  .then(function(r){return r.json();})
+  .then(function(data){
+    _wtLoading=false;
+    if(data.tree){
+      _wtRoot=data.root||rootPath;
+      _wtRawTree=data.tree;
+      FILES=_flattenTree(data.tree,0,null);
+    }
+    renderSidebar();
+  }).catch(function(){_wtLoading=false;renderSidebar();});
+}
+/* ── Re-flatten without re-fetching (for collapse toggle) ── */
+function _reflattenTree(){
+  if(_wtRawTree){FILES=_flattenTree(_wtRawTree,0,null);renderSidebar();}
+}
+/* ── Create file on filesystem ── */
+function _wtCreateFile(name){
+  if(!_wtRoot||!name)return;
+  fetch(_backendBase+'/api/workspace/file',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({path:name,root:_wtRoot,content:''}),signal:AbortSignal.timeout(5000)})
+  .then(function(r){return r.json();})
+  .then(function(d){if(d.ok)_loadWorkspaceTree(_wtRoot);})
+  .catch(function(){});
+}
+/* ── Create directory on filesystem ── */
+function _wtCreateDir(name){
+  if(!_wtRoot||!name)return;
+  fetch(_backendBase+'/api/workspace/directory',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({path:name,root:_wtRoot}),signal:AbortSignal.timeout(5000)})
+  .then(function(r){return r.json();})
+  .then(function(d){if(d.ok)_loadWorkspaceTree(_wtRoot);})
+  .catch(function(){});
+}
+/* ── Rename file/dir on filesystem ── */
+function _wtRenameItem(oldPath,newPath){
+  if(!_wtRoot||!oldPath||!newPath||oldPath===newPath)return;
+  fetch(_backendBase+'/api/workspace/rename',{method:'PUT',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({from:oldPath,to:newPath,root:_wtRoot}),signal:AbortSignal.timeout(5000)})
+  .then(function(r){return r.json();})
+  .then(function(d){if(d.ok)_loadWorkspaceTree(_wtRoot);})
+  .catch(function(){});
+}
+/* ── Delete file/dir on filesystem ── */
+function _wtDeleteItem(itemPath){
+  if(!_wtRoot||!itemPath)return;
+  fetch(_backendBase+'/api/workspace/file?path='+encodeURIComponent(itemPath)+'&root='+encodeURIComponent(_wtRoot),
+    {method:'DELETE',signal:AbortSignal.timeout(5000)})
+  .then(function(r){return r.json();})
+  .then(function(d){if(d.ok)_loadWorkspaceTree(_wtRoot);})
+  .catch(function(){});
+}
+var NAV=[{id:'chats',label:'Konverzace',icon:'chat',badge:0,recent:[]},{id:'projects',label:'Projekty',icon:'folder',badge:0,recent:[]},{id:'specialists',label:'Specialisté',icon:'users',badge:SPECIALISTS.length,recent:SPECIALISTS.slice(0,2).map(function(s){return s.name;})},{id:'experts',label:'Expertyza',icon:'expert',badge:EXPERTS.length,recent:EXPERTS.filter(function(e){return e.fav;}).slice(0,3).map(function(e){return e.name;})},{id:'workers',label:'Workeri',icon:'worker',badge:0,recent:[]}];
 
 /* ═══ LIVE DATA FETCH ═══ */
 var _backendBase='http://localhost:3335';
 function fetchBackendData(){
+  /* Projects — filter: must have path (real project, not conversation leak) */
   fetch(_backendBase+'/api/projects',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(data){
     var items=Array.isArray(data)?data:(data.projects||data.items||[]);
-    if(items.length>0){PROJECTS=items.slice(0,20).map(function(p){var sp=p.sprint;if(sp&&typeof sp==='object')sp=sp.value||sp.number||0;return{id:p.id,name:_s(p.name||p.title)||'Project',status:_s(p.status)||'Active',sprint:Number(sp)||0,created:_s(p.createdAt||p.created)||'',updated:_s(p.updatedAt||p.updated)||'',tests:_s(p.tests)||'',tags:Array.isArray(p.tags)?p.tags:[]};});
-    NAV[1].badge=PROJECTS.length;NAV[1].recent=PROJECTS.slice(0,3).map(function(p){return p.name;});renderCenter();}
+    items=items.filter(function(p){return p.path&&p.name;});
+    if(items.length>0){PROJECTS=items.slice(0,20).map(function(p){return{id:p.id,name:_s(p.name||p.title)||'Projekt',path:p.path||null,status:_s(p.status)||'Active',created:_s(p.created_at||p.createdAt||p.created)||'',updated:_s(p.last_active||p.updatedAt||p.updated)||'',desc:_s(p.description)||'',tags:[]};});}
+    else{PROJECTS=[];}
+    NAV[1].badge=PROJECTS.length;NAV[1].recent=PROJECTS.slice(0,3).map(function(p){return p.name;});renderCenter();
   }).catch(function(){});
+  /* Conversations */
   fetch(_backendBase+'/api/conversations',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(data){
     var items=Array.isArray(data)?data:(data.conversations||data.items||[]);
-    if(items.length>0){CONVERSATIONS=items.slice(0,20).map(function(c){return{id:c.id,title:_s(c.title||c.name)||'Chat',preview:_s(c.preview||c.lastMessage)||'',time:_s(c.time||c.updatedAt)||'',expert:_s(c.expert)||'Výchozí'};});
-    NAV[0].badge=CONVERSATIONS.length;NAV[0].recent=CONVERSATIONS.slice(0,3).map(function(c){return c.title;});renderCenter();}
+    if(items.length>0){CONVERSATIONS=items.slice(0,20).map(function(c){return{id:c.id,title:_s(c.title||c.name)||'Chat',preview:_s(c.preview||c.lastMessage||c.summary)||'',time:_s(c.time||c.updated_at||c.updatedAt)||'',expert:_s(c.expert)||'Výchozí'};});}
+    else{CONVERSATIONS=[];}
+    NAV[0].badge=CONVERSATIONS.length;NAV[0].recent=CONVERSATIONS.slice(0,3).map(function(c){return c.title;});renderCenter();
   }).catch(function(){});
+  /* Experts — separate specialists (is_specialist or is_builtin+tools) */
   fetch(_backendBase+'/api/experts',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(data){
     var items=Array.isArray(data)?data:(data.experts||[]);
-    if(items.length>0){var _localEx={};EXPERTS.forEach(function(le){_localEx[le.name]=le;});EXPERTS=items.map(function(e){var nm=_s(e.name);var le=_localEx[nm];return{id:e.id,emoji:_s(e.emoji)||(le&&le.emoji?le.emoji:'🤖'),name:nm,desc:_s(e.description||e.desc)||(le?le.desc:''),fav:e.favorite!=null?!!e.favorite:(le?!!le.fav:false)};});
-    NAV[3].badge=EXPERTS.length;NAV[3].recent=EXPERTS.filter(function(e){return e.fav;}).slice(0,3).map(function(e){return e.name;});renderCenter();}
+    if(items.length>0){
+      var _localEx={};EXPERTS.forEach(function(le){_localEx[le.name]=le;});
+      var allEx=items.map(function(e){
+        var nm=_s(e.name);var le=_localEx[nm];
+        var cfg=null;try{cfg=e.config?JSON.parse(e.config):null;}catch(ex){}
+        return{id:e.id,emoji:_s(e.emoji)||(le&&le.emoji?le.emoji:'🤖'),name:nm,
+          desc:_s(e.description||e.desc)||(le?le.desc:''),
+          domain:_s(e.domain)||(le?le.domain:''),
+          fav:e.favorite!=null?!!e.favorite:(le?!!le.fav:false),
+          isSpecialist:!!(e.is_specialist||(cfg&&cfg.toolEnforcement)||(le&&le.isSpecialist)),
+          temperature:e.temperature||null};
+      });
+      EXPERTS=allEx;
+      /* Rebuild specialists from experts with is_specialist flag */
+      SPECIALISTS=allEx.filter(function(e){return e.isSpecialist;}).map(function(e){
+        return{id:e.id,emoji:e.emoji,name:e.name,desc:e.desc,domain:e.domain,
+          tags:[e.domain,'Specialista'].filter(Boolean)};
+      });
+    }
+    NAV[3].badge=EXPERTS.length;NAV[3].recent=EXPERTS.filter(function(e){return e.fav;}).slice(0,3).map(function(e){return e.name;});
+    NAV[2].badge=SPECIALISTS.length;NAV[2].recent=SPECIALISTS.slice(0,3).map(function(s){return s.name;});
+    renderCenter();
   }).catch(function(){});
+  /* Workers (agents) */
   fetch(_backendBase+'/api/agents',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(data){
     var items=Array.isArray(data)?data:(data.agents||[]);
-    if(items.length>0){WORKERS=items.map(function(a){return{id:a.id,name:_s(a.name),status:a.enabled===false?'Paused':(_s(a.status)||'Running'),cron:_s(a.schedule||a.cron)||'',lastRun:_s(a.lastRun)||'',desc:_s(a.description||a.desc)||''};});
-    NAV[4].badge=WORKERS.length;NAV[4].recent=WORKERS.slice(0,3).map(function(w){return w.name;});renderCenter();}
+    if(items.length>0){WORKERS=items.map(function(a){
+      var sched=a.definition&&a.definition.schedule?a.definition.schedule:null;
+      var cronStr=sched?(sched.type==='cron'?_s(sched.value):_s(sched.value||sched.type)):_s(a.schedule||a.cron)||'';
+      return{id:a.id,name:_s(a.name),status:a.enabled===false?'Paused':(_s(a.status)||'Running'),
+        cron:cronStr,lastRun:_s(a.lastRun)||'',desc:_s(a.description||a.desc)||''};
+    });}else{WORKERS=[];}
+    NAV[4].badge=WORKERS.length;NAV[4].recent=WORKERS.slice(0,3).map(function(w){return w.name;});renderCenter();
   }).catch(function(){});
 }
 setTimeout(fetchBackendData,1500);
+/* Auto-detect workspace root: try cwd from backend health, fallback to c3-agent-wip */
+setTimeout(function(){
+  fetch(_backendBase+'/api/health',{signal:AbortSignal.timeout(3000)})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    var root=d.cwd||d.workDir||null;
+    if(!root){
+      /* Fallback: detect from projects API */
+      fetch(_backendBase+'/api/projects',{signal:AbortSignal.timeout(3000)})
+      .then(function(r2){return r2.json();})
+      .then(function(data){
+        var items=Array.isArray(data)?data:(data.projects||[]);
+        var withPath=items.find(function(p){return p.path;});
+        if(withPath){_wtRoot=withPath.path;_loadWorkspaceTree(withPath.path);}
+      }).catch(function(){});
+      return;
+    }
+    _wtRoot=root;_loadWorkspaceTree(root);
+  }).catch(function(){});
+},2000);
 /* Refetch every 30s + health monitor */
 setInterval(function(){
   fetch(_backendBase+'/api/health',{signal:AbortSignal.timeout(2000)})
@@ -146,7 +288,7 @@ class C3SidebarWidget extends react_widget_1.ReactWidget {
          preserve Lumino's layout styles while hiding the element. */
       if(!document.getElementById('c3-strip-hide')){
         var ss=document.createElement('style');ss.id='c3-strip-hide';
-        ss.textContent='.theia-sidepanel-toolbar{display:none!important;height:0!important;max-height:0!important;min-height:0!important;overflow:hidden!important;visibility:hidden!important;opacity:0!important;}.theia-sidepanel-toolbar~*{top:0!important;height:100%!important;}.lm-TabBar-toolbar{display:none!important;height:0!important;overflow:hidden!important;}#theia-right-side-panel .lm-TabBar~*,#theia-bottom-content-panel .lm-TabBar~*{top:0!important;height:100%!important;}#theia-right-side-panel .lm-DockPanel-widget,#theia-bottom-content-panel .lm-DockPanel-widget{top:0!important;height:100%!important;}.lm-Widget:focus,.lm-Widget:focus-visible,#c3-sidebar:focus,#c3-chat-panel:focus,#c3-agent-panel:focus{outline:none!important;box-shadow:none!important;}*:focus-visible{outline:none!important;}#theia-top-panel,.p-MenuBar,#theia\\:menubar,.theia-app-header{background:var(--c3-bg1,#111114)!important;border-color:var(--c3-border,rgba(255,255,255,0.06))!important;}#theia-left-side-panel,#theia-right-side-panel,#theia-bottom-content-panel{background:var(--c3-bg1,#111114)!important;}input[type=range]{-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:var(--c3-bg4,#27282e);outline:none;}input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--c3-accent,#22c55e);cursor:pointer;border:2px solid var(--c3-bg1,#111114);}body{border:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;box-sizing:border-box!important;}#theia-right-side-panel{border-left:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;}#theia-bottom-content-panel{border-top:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;}';
+        ss.textContent='.theia-sidepanel-toolbar{display:none!important;height:0!important;max-height:0!important;min-height:0!important;overflow:hidden!important;visibility:hidden!important;opacity:0!important;}.theia-sidepanel-toolbar~*{top:0!important;height:100%!important;}.lm-TabBar-toolbar{display:none!important;height:0!important;overflow:hidden!important;}#theia-right-side-panel .lm-TabBar~*,#theia-bottom-content-panel .lm-TabBar~*{top:0!important;height:100%!important;}#theia-right-side-panel .lm-DockPanel-widget,#theia-bottom-content-panel .lm-DockPanel-widget{top:0!important;height:100%!important;}.lm-Widget:focus,.lm-Widget:focus-visible,#c3-sidebar:focus,#c3-chat-panel:focus,#c3-agent-panel:focus{outline:none!important;box-shadow:none!important;}*:focus-visible{outline:none!important;}#theia-top-panel,.p-MenuBar,#theia\\:menubar,.theia-app-header{background:var(--c3-bg1,#111114)!important;border-color:var(--c3-border,rgba(255,255,255,0.06))!important;}#theia-left-side-panel,#theia-right-side-panel,#theia-bottom-content-panel{background:var(--c3-bg1,#111114)!important;}input[type=range]{-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:var(--c3-bg4,#27282e);outline:none;}input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--c3-accent,#22c55e);cursor:pointer;border:2px solid var(--c3-bg1,#111114);}body{border:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;box-sizing:border-box!important;}#theia-right-side-panel{border-left:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;}#theia-bottom-content-panel{border-top:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;}@keyframes c3-ac-pulse{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}';
         document.head.appendChild(ss);
       }
       function _hideStrips(){
@@ -264,35 +406,82 @@ function SidebarApp(props){
       h('div',{style:{display:'flex',alignItems:'center',padding:'6px 10px 2px'}},
         h('span',{style:{fontSize:10,fontWeight:700,color:C.tx4,textTransform:'uppercase',letterSpacing:'0.6px',flex:1}},'Working Tree'),
         h('div',{style:{display:'flex',gap:2}},
-          h('div',{style:{width:20,height:18,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:3,cursor:'pointer',color:C.tx4,fontSize:11},title:'O úroveň výš',
+          _wtRoot?h('div',{style:{width:20,height:18,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:3,cursor:'pointer',color:C.tx4,fontSize:11},title:'Obnovit',
             onMouseEnter:function(e){e.currentTarget.style.background=C.bg3;},onMouseLeave:function(e){e.currentTarget.style.background='transparent';},
-            onClick:function(){/* collapse all top-level dirs */FILES.forEach(function(f){if(f.d&&!f.p)_collapsedDirs[f.n]=true;});renderSidebar();}},'↑'),
+            onClick:function(){_loadWorkspaceTree(_wtRoot);}},'↻'):null,
+          h('div',{style:{width:20,height:18,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:3,cursor:'pointer',color:C.tx4,fontSize:11},title:'Sbalit vše',
+            onMouseEnter:function(e){e.currentTarget.style.background=C.bg3;},onMouseLeave:function(e){e.currentTarget.style.background='transparent';},
+            onClick:function(){FILES.forEach(function(f){if(f.d&&f.i===0)_collapsedDirs[f.fp]=true;});_reflattenTree();}},'↑'),
           h('div',{style:{width:20,height:18,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:3,cursor:'pointer',color:C.tx4,fontSize:12},title:'Nový soubor',
             onMouseEnter:function(e){e.currentTarget.style.background=C.bg3;},onMouseLeave:function(e){e.currentTarget.style.background='transparent';},
-            onClick:function(){FILES.push({n:'untitled.js',d:false,i:0,st:'A'});renderSidebar();}},'📄'),
+            onClick:function(){_wtNewInput={type:'file',parent:null};renderSidebar();}},'📄'),
           h('div',{style:{width:20,height:18,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:3,cursor:'pointer',color:C.tx4,fontSize:12},title:'Nová složka',
             onMouseEnter:function(e){e.currentTarget.style.background=C.bg3;},onMouseLeave:function(e){e.currentTarget.style.background='transparent';},
-            onClick:function(){FILES.push({n:'new-folder',d:true,i:0});renderSidebar();}},'📁'))),
+            onClick:function(){_wtNewInput={type:'dir',parent:null};renderSidebar();}},'📁'))),
+      /* Workspace root path indicator */
+      _wtRoot?h('div',{style:{padding:'2px 10px 4px',fontSize:9,color:C.tx4,fontFamily:C.mono,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'},title:_wtRoot},
+        _wtRoot.split('/').slice(-2).join('/')):
+      h('div',{style:{padding:'4px 10px'},onClick:function(){
+        /* Prompt for path and load */
+        var p=prompt('Zadejte cestu ke složce projektu:','/home/belphareon/Projects/c3-agent-wip');
+        if(p){_wtRoot=p;_loadWorkspaceTree(p);}
+      }},h('div',{style:{padding:'6px 10px',borderRadius:6,border:'1px dashed '+C.border2,cursor:'pointer',textAlign:'center',fontSize:11,color:C.tx3}},
+        'Otevřít složku')),
+      /* New file/dir inline input */
+      _wtNewInput?h('div',{style:{display:'flex',alignItems:'center',gap:4,padding:'2px 8px'}},
+        h('span',{style:{fontSize:13,flexShrink:0}},_wtNewInput.type==='dir'?'📁':'📄'),
+        h('input',{autoFocus:true,style:{flex:1,background:C.bg3,border:'1px solid '+C.accent,borderRadius:4,padding:'2px 6px',color:C.tx1,fontFamily:C.mono,fontSize:11,outline:'none'},
+          placeholder:_wtNewInput.type==='dir'?'název-složky':'soubor.js',
+          onKeyDown:function(e){
+            if(e.key==='Enter'){
+              var name=e.target.value.trim();
+              if(name&&_wtRoot){
+                var parentPath=_wtNewInput.parent?_wtNewInput.parent+'/':'';
+                if(_wtNewInput.type==='dir'){_wtCreateDir(parentPath+name);}
+                else{_wtCreateFile(parentPath+name);}
+              }
+              _wtNewInput=null;renderSidebar();
+            }else if(e.key==='Escape'){_wtNewInput=null;renderSidebar();}
+          },
+          onBlur:function(){_wtNewInput=null;renderSidebar();}})):null,
+      /* Loading indicator */
+      _wtLoading?h('div',{style:{padding:'8px 10px',textAlign:'center',fontSize:10,color:C.tx4}},'Načítám...'):
+      /* File tree */
       (function(){
         var stColors={M:C.accentText,A:'#22d3ee',D:'#ef4444',U:'#f97316'};
-        /* Build set of all collapsed ancestor chains */
-        function _isHidden(f){
-          if(!f.p)return false;
-          if(_collapsedDirs[f.p])return true;
-          /* check grandparent: find parent dir entry */
-          var parEntry=FILES.find(function(x){return x.d&&x.n===f.p;});
-          return parEntry?_isHidden(parEntry):false;
-        }
-        return FILES.filter(function(f){return!_isHidden(f);}).map(function(f,i){
-          var isCol=f.d&&_collapsedDirs[f.n];
-          return h('div',{key:f.n+i,style:{display:'flex',alignItems:'center',gap:4,paddingLeft:(8+f.i*14),paddingRight:8,paddingTop:3,paddingBottom:3,borderRadius:4,fontSize:12,color:f.a?C.accentText:C.tx2,background:f.a?C.accentBg:'transparent',cursor:'pointer'},
+        if(FILES.length===0&&_wtRoot){return h('div',{style:{padding:'8px 10px',fontSize:11,color:C.tx4}},'Prázdná složka');}
+        if(FILES.length===0){return null;}
+        return FILES.map(function(f,i){
+          var isCol=f.d&&_collapsedDirs[f.fp];
+          var filePath=_buildFilePath(f);
+          var fullPath=_wtRoot?((_wtRoot+'/'+filePath).replace(/\/+/g,'/')):filePath;
+          var isRenaming=_wtRenaming&&_wtRenaming.path===filePath;
+          return h('div',{key:f.fp+i,style:{display:'flex',alignItems:'center',gap:4,paddingLeft:(8+f.i*14),paddingRight:8,paddingTop:3,paddingBottom:3,borderRadius:4,fontSize:12,color:f.a?C.accentText:C.tx2,background:f.a?C.accentBg:'transparent',cursor:'pointer'},
             onMouseEnter:function(e){if(!f.a)e.currentTarget.style.background=C.bg3;},
             onMouseLeave:function(e){e.currentTarget.style.background=f.a?C.accentBg:'transparent';},
-            onClick:function(){if(f.d){_collapsedDirs[f.n]=!_collapsedDirs[f.n];renderSidebar();}else{FILES.forEach(function(x){x.a=false;});f.a=true;renderSidebar();}},
-            onDoubleClick:function(){if(!f.d){document.dispatchEvent(new CustomEvent('c3-file-open',{detail:{path:_buildFilePath(f)}}));}}},
+            onClick:function(){if(f.d){_collapsedDirs[f.fp]=!_collapsedDirs[f.fp];_reflattenTree();}else{FILES.forEach(function(x){x.a=false;});f.a=true;renderSidebar();}},
+            onDoubleClick:function(){if(!f.d&&_wtRoot){document.dispatchEvent(new CustomEvent('c3-file-open',{detail:{path:fullPath}}));}},
+            onContextMenu:function(e){e.preventDefault();_wtRenaming={path:filePath,name:f.n,isDir:f.d};renderSidebar();}},
             f.d?h('span',{style:{fontSize:8,color:C.tx4,width:10,textAlign:'center',flexShrink:0}},isCol?'▶':'▼'):h('span',{style:{width:10,flexShrink:0}}),
             h('span',{style:{flexShrink:0,fontSize:13}},f.d?'📁':'📄'),
+            isRenaming?h('input',{autoFocus:true,defaultValue:f.n,style:{flex:1,background:C.bg3,border:'1px solid '+C.accent,borderRadius:3,padding:'1px 4px',color:C.tx1,fontFamily:C.mono,fontSize:11,outline:'none'},
+              onClick:function(e){e.stopPropagation();},
+              onKeyDown:function(e){
+                e.stopPropagation();
+                if(e.key==='Enter'){
+                  var newName=e.target.value.trim();
+                  if(newName&&newName!==f.n){
+                    var oldPath=filePath;
+                    var newPath=f.p?(f.p+'/'+newName):newName;
+                    _wtRenameItem(oldPath,newPath);
+                  }
+                  _wtRenaming=null;renderSidebar();
+                }else if(e.key==='Escape'){_wtRenaming=null;renderSidebar();}
+              },
+              onBlur:function(){_wtRenaming=null;renderSidebar();}}):
             h('span',{style:{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},f.n),
+            isRenaming?h('span',{style:{fontSize:12,color:C.red,cursor:'pointer',padding:'0 2px',flexShrink:0},title:'Smazat',
+              onClick:function(e){e.stopPropagation();if(confirm('Smazat '+f.n+'?')){_wtDeleteItem(filePath);}_wtRenaming=null;renderSidebar();}},'×'):
             f.st?h('span',{style:{fontSize:9,fontWeight:700,color:stColors[f.st]||C.tx4,fontFamily:C.mono,flexShrink:0}},f.st):null);
         });
       })()
@@ -313,6 +502,22 @@ function SidebarApp(props){
 var _centerState={view:'experts',detail:null,openSections:{},zoom:1,listView:false,settingsSection:null};
 /* ═══ Editor tab state (Fáze 5 — Blok E) ═══ */
 var _editorState={active:false,tabs:[],activeTabId:null,scrollRaf:null};
+/* ═══ Project wizard state ═══ */
+var _projectWizard={active:false,step:0,data:{name:'',path:'',description:'',type:'general'},saving:false};
+var WIZARD_STEPS=[
+  {id:'name',label:'Název',icon:'📝',desc:'Pojmenujte projekt'},
+  {id:'type',label:'Typ',icon:'📋',desc:'Zvolte typ projektu'},
+  {id:'path',label:'Umístění',icon:'📁',desc:'Zvolte cestu na disku'},
+  {id:'desc',label:'Popis',icon:'💬',desc:'Popište cíl projektu'},
+  {id:'review',label:'Souhrn',icon:'✅',desc:'Zkontrolujte a vytvořte'}
+];
+var PROJECT_TYPES=[
+  {id:'general',label:'Obecný',icon:'📦',desc:'Prázdný projekt bez šablony'},
+  {id:'webapp',label:'Web App',icon:'🌐',desc:'Webová aplikace (frontend + backend)'},
+  {id:'api',label:'API / Backend',icon:'⚡',desc:'REST/GraphQL API server'},
+  {id:'automation',label:'Automatizace',icon:'🤖',desc:'Skripty, pipeline, worker'},
+  {id:'data',label:'Data / ML',icon:'📊',desc:'Analýza dat, ML model, pipeline'}
+];
 var _centerContainer=null;
 function renderCenter(){if(!_centerContainer)return;ReactDOM.render(h(CenterApp,null),_centerContainer);}
 
@@ -320,6 +525,7 @@ function CenterApp(){
   var view=_centerState.view,detail=_centerState.detail;
   return h('div',{style:{display:'flex',height:'100%',width:'100%',background:C.bg0,fontFamily:C.font,overflow:'hidden',position:'absolute',top:0,left:0,right:0,bottom:0}},
     h('div',{style:{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}},
+      _projectWizard.active?centerProjectWizard():
       _editorState.active?centerEditor():
       view==='experts'?centerExperts():view==='projects'?centerProjects():view==='chats'?centerConvos():
       view==='specialists'?centerSpecs():view==='workers'?centerWorkers():view==='settings'?centerSettings():centerWelcome()),
@@ -414,21 +620,137 @@ function _addNew(view){
     });
     return;
   }
+  /* Projects → open multi-step wizard in center view */
+  if(view==='projects'){
+    _projectWizard={active:true,step:0,data:{name:'',path:'',description:'',type:'general'},saving:false};
+    _centerState.detail=null;
+    renderCenter();
+    return;
+  }
   var tpl={
-    projects:{name:'Nový projekt',fields:[{k:'Status',v:'Active'},{k:'Sprint',v:''},{k:'Vytvořeno',v:new Date().toLocaleDateString('cs-CZ')}],tags:[],actions:['Uložit','Zrušit'],editing:true,_isNew:true},
     specialists:{name:'Nový specialista',fields:[{k:'Oblast',v:''}],tags:[],actions:['Uložit','Zrušit'],editing:true,_isNew:true}};
-  setDetail(tpl[view]||tpl.projects);
+  setDetail(tpl[view]||tpl.specialists);
 }
 
-function centerExperts(){return h(React.Fragment,null,viewHead('Experti',true,function(){_addNew('experts');}),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(EXPERTS.map(function(e){return card(e,function(){setDetail({name:e.name,fields:[{k:'Typ',v:e.desc},{k:'Emoji',v:e.emoji},{k:'Oblíbený',v:e.fav,type:'fav',_expertName:e.name}],tags:['Expert',e.desc],actions:['Otevřít','Editovat']});});}))));}
+function centerExperts(){return h(React.Fragment,null,viewHead('Expertyza',true,function(){_addNew('experts');}),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(EXPERTS.map(function(e){var tags=[e.isSpecialist?'Specialista':'Expert'];if(e.domain)tags.push(e.domain);return card(e,function(){setDetail({name:e.name,fields:[{k:'Typ',v:e.desc},{k:'Doména',v:e.domain||'general'},{k:'Emoji',v:e.emoji},{k:'Specialista',v:e.isSpecialist?'Ano':'Ne'},{k:'Oblíbený',v:e.fav,type:'fav',_expertName:e.name}],tags:tags,actions:['Otevřít','Editovat']});});}))));}
 
-function centerProjects(){return h(React.Fragment,null,viewHead('Projekty',true,function(){_addNew('projects');}),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(PROJECTS.map(function(p){return card(p,function(){setDetail({name:p.name,fields:[{k:'Status',v:p.status,a:p.status==='Active'},{k:'Sprint',v:p.sprint},{k:'Vytvořeno',v:p.created},{k:'Aktualizováno',v:p.updated},{k:'Testy',v:p.tests}],tags:p.tags,actions:['Otevřít','Editovat','Archivovat']});});}))));}
+function centerProjects(){return h(React.Fragment,null,viewHead('Projekty',true,function(){_addNew('projects');}),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(PROJECTS.map(function(p){return card(p,function(){setDetail({name:p.name,fields:[{k:'Status',v:p.status,a:p.status==='Active'},{k:'Cesta',v:p.path||''},{k:'Popis',v:p.desc||''},{k:'Vytvořeno',v:p.created},{k:'Aktualizováno',v:p.updated}],tags:p.tags,actions:['Otevřít','Editovat','Archivovat']});});}))));}
 
 function centerConvos(){return h(React.Fragment,null,viewHead('Konverzace',true,function(){_addNew('chats');}),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(CONVERSATIONS.map(function(c){return h('div',{key:c.title,onClick:function(){setDetail({name:c.title,fields:[{k:'Expert',v:c.expert},{k:'Čas',v:c.time}],tags:['Chat',c.expert],actions:['Otevřít','Archivovat']});},style:{background:C.bg2,border:'1px solid '+(_centerState.detail&&_centerState.detail.name===c.title?C.accent:C.border),borderRadius:12,padding:14,cursor:'pointer',display:'flex',gap:10}},h('div',{style:{width:26,height:26,borderRadius:'50%',background:C.bg4,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,flexShrink:0}},'💬'),h('div',{style:{flex:1,minWidth:0}},h('div',{style:{fontSize:12.5,fontWeight:700,color:C.tx1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},c.title),h('div',{style:{fontSize:11,color:C.tx3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},c.preview)),h('span',{style:{fontSize:10,color:C.tx4,flexShrink:0}},c.time));}))));}
 
 function centerSpecs(){return h(React.Fragment,null,viewHead('Specialisté',true,function(){_addNew('specialists');}),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(SPECIALISTS.map(function(s){return card(s,function(){setDetail({name:s.name,fields:[{k:'Oblast',v:s.desc}],tags:s.tags,actions:['Otevřít','Editovat']});});}))));}
 
 function centerWorkers(){return h(React.Fragment,null,viewHead('Workeri',true,function(){_addNew('workers');}),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(WORKERS.map(function(w){return h('div',{key:w.name,onClick:function(){setDetail({name:w.name,fields:[{k:'Status',v:w.status,a:w.status==='Running'},{k:'Cron',v:w.cron},{k:'Poslední běh',v:w.lastRun},{k:'Popis',v:w.desc}],tags:['Worker',w.status],actions:['Spustit','Pozastavit','Editovat']});},style:{background:C.bg2,border:'1px solid '+(_centerState.detail&&_centerState.detail.name===w.name?C.accent:C.border),borderRadius:12,padding:16,cursor:'pointer'}},h('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:6}},h('span',{style:{fontSize:18}},'⚙️'),h('span',{style:{fontSize:13,fontWeight:700,color:C.tx1,flex:1}},w.name),pill(w.status)),h('div',{style:{fontSize:11,color:C.tx3}},_s(w.desc)),h('div',{style:{fontSize:10,color:C.tx4,marginTop:6,fontFamily:C.mono}},'cron: '+_s(w.cron)));}))));}
+
+/* ═══ PROJECT CREATION WIZARD ═══ */
+function _wizardCanNext(){
+  var d=_projectWizard.data,s=_projectWizard.step;
+  if(s===0)return d.name.trim().length>=2;
+  if(s===1)return!!d.type;
+  if(s===2)return d.path.trim().length>=1;
+  return true;
+}
+function _wizardSubmit(){
+  if(_projectWizard.saving)return;
+  _projectWizard.saving=true;renderCenter();
+  var d=_projectWizard.data;
+  fetch(_backendBase+'/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name:d.name.trim(),path:d.path.trim(),description:d.description.trim(),type:d.type,status:'Active'}),signal:AbortSignal.timeout(8000)})
+  .then(function(r){return r.json();})
+  .then(function(created){
+    _projectWizard.active=false;_projectWizard.saving=false;
+    if(window._c3)window._c3.agentLog('TOOL','✨ Projekt vytvořen: '+d.name);
+    /* Link to session + open working tree */
+    var _ti=_centerState.targetSession||0;if(_ti>=_sessionCount)_ti=0;
+    if(created.id){_sessions[_ti]._projectId=created.id;_persistSessionState();}
+    if(d.path){_wtRoot=d.path;_loadWorkspaceTree(d.path);}
+    /* Switch to lifecycle SPEC phase → send to chat */
+    var s=_sessions[_ti];
+    s.chat.msgs.push({role:'system',text:'📁 Projekt **'+d.name+'** vytvořen. Fáze: SPEC'});
+    s.chat.msgs.push({role:'system',text:'Popište specifikaci projektu v chatu. Agent ji zpracuje a posune do fáze PLANNING.'});
+    renderChat();_chatScrollPane(_ti);
+    fetchBackendData();renderCenter();
+  }).catch(function(){
+    _projectWizard.saving=false;
+    if(window._c3)window._c3.agentLog('TOOL','📁 Projekt vytvořen lokálně: '+d.name);
+    _projectWizard.active=false;fetchBackendData();renderCenter();
+  });
+}
+function centerProjectWizard(){
+  var w=_projectWizard,step=w.step,d=w.data;
+  var stepStyle={background:C.bg2,borderRadius:12,padding:24,maxWidth:520,margin:'0 auto',width:'100%'};
+  var labelStyle={fontSize:11,color:C.tx3,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:6};
+  var inputStyle={width:'100%',padding:'8px 12px',borderRadius:8,border:'1px solid '+C.border2,background:C.bg3,color:C.tx1,fontFamily:C.font,fontSize:13,outline:'none',boxSizing:'border-box'};
+  var content;
+  if(step===0){
+    content=h('div',{style:stepStyle},
+      h('div',{style:labelStyle},'Název projektu'),
+      h('input',{autoFocus:true,style:inputStyle,value:d.name,placeholder:'Můj nový projekt',
+        onChange:function(e){d.name=e.target.value;renderCenter();},
+        onKeyDown:function(e){if(e.key==='Enter'&&_wizardCanNext()){w.step=1;renderCenter();}}}));
+  }else if(step===1){
+    content=h('div',{style:stepStyle},
+      h('div',{style:labelStyle},'Typ projektu'),
+      h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginTop:8}},
+        PROJECT_TYPES.map(function(pt){
+          var sel=d.type===pt.id;
+          return h('div',{key:pt.id,onClick:function(){d.type=pt.id;renderCenter();},
+            style:{padding:14,borderRadius:10,border:'1px solid '+(sel?C.accent:C.border),background:sel?C.accentBg:C.bg3,cursor:'pointer',transition:'border 0.15s'}},
+            h('div',{style:{fontSize:18,marginBottom:4}},pt.icon),
+            h('div',{style:{fontSize:12.5,fontWeight:700,color:sel?C.accentText:C.tx1}},pt.label),
+            h('div',{style:{fontSize:10.5,color:C.tx3,marginTop:2}},pt.desc));})));
+  }else if(step===2){
+    content=h('div',{style:stepStyle},
+      h('div',{style:labelStyle},'Cesta na disku'),
+      h('input',{autoFocus:true,style:inputStyle,value:d.path,placeholder:'/home/user/projects/my-project',
+        onChange:function(e){d.path=e.target.value;renderCenter();},
+        onKeyDown:function(e){if(e.key==='Enter'&&_wizardCanNext()){w.step=3;renderCenter();}}}),
+      h('div',{style:{fontSize:10,color:C.tx4,marginTop:6}},'Složka bude vytvořena pokud neexistuje'));
+  }else if(step===3){
+    content=h('div',{style:stepStyle},
+      h('div',{style:labelStyle},'Popis projektu (volitelné)'),
+      h('textarea',{autoFocus:true,style:Object.assign({},inputStyle,{minHeight:80,resize:'vertical',fontFamily:C.font}),value:d.description,placeholder:'Popište cíl a scope projektu...',
+        onChange:function(e){d.description=e.target.value;renderCenter();}}));
+  }else if(step===4){
+    var pt=PROJECT_TYPES.find(function(t){return t.id===d.type;})||PROJECT_TYPES[0];
+    content=h('div',{style:stepStyle},
+      h('div',{style:labelStyle},'Souhrn'),
+      h('div',{style:{display:'flex',flexDirection:'column',gap:10,marginTop:8}},
+        h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:12}},h('span',{style:{color:C.tx3}},'Název'),h('span',{style:{color:C.tx1,fontWeight:600}},d.name)),
+        h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:12}},h('span',{style:{color:C.tx3}},'Typ'),h('span',{style:{color:C.tx1}},pt.icon+' '+pt.label)),
+        h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:12}},h('span',{style:{color:C.tx3}},'Cesta'),h('span',{style:{color:C.tx2,fontFamily:C.mono,fontSize:11}},d.path)),
+        d.description?h('div',{style:{fontSize:11,color:C.tx2,marginTop:4,padding:8,background:C.bg3,borderRadius:6,whiteSpace:'pre-wrap'}},d.description):null),
+      h('div',{style:{marginTop:16,padding:10,background:C.accentBg,borderRadius:8,border:'1px solid '+C.accent+'33'}},
+        h('div',{style:{fontSize:11,color:C.accentText,fontWeight:600}},'Lifecycle: PROPOSED → SPEC'),
+        h('div',{style:{fontSize:10,color:C.tx3,marginTop:4}},'Po vytvoření bude projekt ve fázi SPEC. Popište specifikaci v chatu.')));
+  }
+  return h(React.Fragment,null,
+    /* Header */
+    h('div',{style:{padding:'12px 18px',borderBottom:'1px solid '+C.border,display:'flex',alignItems:'center',gap:10,flexShrink:0}},
+      h('button',{style:{background:'none',border:'none',color:C.tx4,cursor:'pointer',padding:4,borderRadius:4,display:'flex'},
+        onClick:function(){_projectWizard.active=false;renderCenter();}},svgEl(I.close,16)),
+      h('span',{style:{fontSize:14,fontWeight:700,color:C.tx1}},'Nový projekt'),
+      h('div',{style:{flex:1}}),
+      h('span',{style:{fontSize:10,color:C.tx4,fontFamily:C.mono}},'Krok '+(step+1)+'/'+WIZARD_STEPS.length)),
+    /* Step indicators */
+    h('div',{style:{display:'flex',gap:2,padding:'8px 18px',flexShrink:0}},
+      WIZARD_STEPS.map(function(ws,i){
+        var done=i<step,cur=i===step;
+        return h('div',{key:ws.id,style:{flex:1,height:3,borderRadius:2,background:done?C.accent:cur?C.accentText:C.bg4,transition:'background 0.2s'}});})),
+    /* Step content */
+    h('div',{style:{flex:1,overflowY:'auto',padding:24,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-start'}},
+      h('div',{style:{fontSize:28,marginBottom:8}},WIZARD_STEPS[step].icon),
+      h('div',{style:{fontSize:16,fontWeight:700,color:C.tx1,marginBottom:4}},WIZARD_STEPS[step].desc),
+      h('div',{style:{width:'100%',maxWidth:520,marginTop:16}},content)),
+    /* Navigation */
+    h('div',{style:{padding:'12px 18px',borderTop:'1px solid '+C.border,display:'flex',gap:8,justifyContent:'flex-end',flexShrink:0}},
+      step>0?h('button',{style:{padding:'7px 16px',borderRadius:6,border:'1px solid '+C.border2,background:C.bg3,color:C.tx2,fontFamily:C.font,fontSize:12,cursor:'pointer'},
+        onClick:function(){w.step=Math.max(0,step-1);renderCenter();}},'Zpět'):null,
+      step<4?h('button',{disabled:!_wizardCanNext(),style:{padding:'7px 20px',borderRadius:6,border:'none',background:_wizardCanNext()?C.accent:C.bg4,color:_wizardCanNext()?'#fff':C.tx4,fontFamily:C.font,fontSize:12,fontWeight:600,cursor:_wizardCanNext()?'pointer':'default',opacity:_wizardCanNext()?1:0.5},
+        onClick:function(){if(_wizardCanNext()){w.step=step+1;renderCenter();}}},'Další'):
+      h('button',{disabled:w.saving,style:{padding:'7px 24px',borderRadius:6,border:'none',background:w.saving?C.bg4:C.accent,color:'#fff',fontFamily:C.font,fontSize:12,fontWeight:600,cursor:w.saving?'default':'pointer'},
+        onClick:_wizardSubmit},w.saving?'Vytvářím...':'Vytvořit projekt')));
+}
 
 /* Settings state */
 var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSizeVal:13,fontIdx:0,custom1:null,custom2:null,bgIdx:0,bgCustom1:null,bgCustom2:null,customCSS:''};
@@ -684,9 +1006,7 @@ document.addEventListener('keydown',function(e){
    ═══════════════════════════════════════════════════════════ */
 
 function _buildFilePath(f){
-  if(!f.p)return f.n;
-  var par=FILES.find(function(x){return x.d&&x.n===f.p;});
-  return par?_buildFilePath(par)+'/'+f.n:f.p+'/'+f.n;
+  return f.fp||f.n;
 }
 
 function _openFileTab(path){
@@ -971,8 +1291,12 @@ d.actions?h('div',{style:{marginTop:12}},h('div',{style:{fontSize:10,fontWeight:
             var items=Array.isArray(msgs)?msgs:(msgs.messages||[]);if(items.length>0){_ts.chat.msgs=[{role:'system',text:'📂 Konverzace: '+conv.title}];items.forEach(function(m){var meta=null;try{meta=m.metadata?JSON.parse(m.metadata):null;}catch(e){}_ts.chat.msgs.push({role:m.role||'user',text:m.content||m.text||'',tag:(meta&&meta.mode)||undefined});});renderChat();_chatScrollPane(_ti);}}).catch(function(){});}
         }
         var proj=PROJECTS.find(function(p){return p.name===d.name;});
-        if(proj){c3.agentLog('TOOL','📁 Otevřen projekt: '+proj.name+(proj.sprint?' (Sprint '+proj.sprint+')':'')+(proj.tests?' — Testy: '+_s(proj.tests):''));
-          if(proj.id){fetch(_backendBase+'/api/projects/'+proj.id,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(pd){if(pd.description)c3.agentLog('TOOL',_s(pd.description));}).catch(function(){});}
+        if(proj){c3.agentLog('TOOL','📁 Otevřen projekt: '+proj.name+(proj.path?' ['+proj.path+']':''));
+          /* Set working tree root to project path */
+          if(proj.path){_wtRoot=proj.path;_loadWorkspaceTree(proj.path);}
+          /* Link project to session */
+          _ts._projectId=proj.id||null;_persistSessionState();
+          if(proj.id){fetch(_backendBase+'/api/projects/'+proj.id,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(pd){if(pd.description)c3.agentLog('TOOL',_s(pd.description));if(pd.path&&!proj.path){proj.path=pd.path;_wtRoot=pd.path;_loadWorkspaceTree(pd.path);}}).catch(function(){});}
         }
         var wrk=WORKERS.find(function(w){return w.name===d.name;});
         if(wrk){c3.agentLog('TOOL','⚙️ Worker: '+wrk.name+' ['+_s(wrk.status)+'] cron: '+_s(wrk.cron));}
@@ -1062,8 +1386,8 @@ window.addEventListener('c3-nav',function(e){
   _centerState.view=e.detail.view;_centerState.detail=null;_centerState.settingsSection=null;_editorState.active=false;renderCenter();
   if(e.detail.select){
     var name=e.detail.select,view=e.detail.view,item=null;
-    if(view==='experts'){item=EXPERTS.find(function(x){return x.name===name||x.name.indexOf(name)>=0;});if(item)setDetail({name:item.name,fields:[{k:'Typ',v:item.desc},{k:'Emoji',v:item.emoji},{k:'Oblíbený',v:item.fav?'Ano':'Ne'}],tags:['Expert',item.desc],actions:['Otevřít','Editovat']});}
-    else if(view==='projects'){item=PROJECTS.find(function(x){return x.name.indexOf(name)>=0;});if(item)setDetail({name:item.name,fields:[{k:'Status',v:item.status,a:item.status==='Active'},{k:'Sprint',v:item.sprint},{k:'Vytvořeno',v:item.created}],tags:item.tags,actions:['Otevřít','Editovat','Archivovat']});}
+    if(view==='experts'){item=EXPERTS.find(function(x){return x.name===name||x.name.indexOf(name)>=0;});if(item)setDetail({name:item.name,fields:[{k:'Typ',v:item.desc},{k:'Doména',v:item.domain||'general'},{k:'Emoji',v:item.emoji},{k:'Specialista',v:item.isSpecialist?'Ano':'Ne'},{k:'Oblíbený',v:item.fav?'Ano':'Ne'}],tags:[item.isSpecialist?'Specialista':'Expert',item.domain||item.desc].filter(Boolean),actions:['Otevřít','Editovat']});}
+    else if(view==='projects'){item=PROJECTS.find(function(x){return x.name.indexOf(name)>=0;});if(item)setDetail({name:item.name,fields:[{k:'Status',v:item.status,a:item.status==='Active'},{k:'Cesta',v:item.path||''},{k:'Popis',v:item.desc||''},{k:'Vytvořeno',v:item.created}],tags:item.tags,actions:['Otevřít','Editovat','Archivovat']});}
     else if(view==='chats'){item=CONVERSATIONS.find(function(x){return x.title.indexOf(name)>=0;});if(item)setDetail({name:item.title,fields:[{k:'Expert',v:item.expert},{k:'Čas',v:item.time}],tags:['Chat',item.expert],actions:['Otevřít','Archivovat']});}
     else if(view==='specialists'){item=SPECIALISTS.find(function(x){return x.name.indexOf(name)>=0;});if(item)setDetail({name:item.name,fields:[{k:'Oblast',v:item.desc}],tags:item.tags,actions:['Otevřít','Editovat']});}
     else if(view==='workers'){item=WORKERS.find(function(x){return x.name.indexOf(name)>=0;});if(item)setDetail({name:item.name,fields:[{k:'Status',v:item.status,a:item.status==='Running'},{k:'Cron',v:item.cron},{k:'Popis',v:item.desc}],tags:['Worker',item.status],actions:['Spustit','Pozastavit','Editovat']});}
@@ -1089,6 +1413,8 @@ function _mkSession(){return{
   term:[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}]
 };}
 var _sessions=[_mkSession(),_mkSession()];
+/* Expose globally so terminal-client.js and agent-client.js can access session state */
+window._sessions=_sessions;
 function _ensureSessions(){while(_sessions.length<_sessionCount)_sessions.push(_mkSession());}
 function _setSessionCount(n){_sessionCount=Math.max(1,Math.min(3,n));if(_sessionActive>=_sessionCount)_sessionActive=_sessionCount-1;_ensureSessions();renderChat();renderAgent();}
 
@@ -1103,6 +1429,11 @@ function _initBusSubscriptions() {
     var s = _sessions[ev.sessionIdx] || _sessions[0];
     s.chat.msgs.push({role:'assistant', text:ev.content, tag:ev.tag||'LLM'});
     if (ev.metadata && typeof ev.metadata.contextPercent === 'number') s.chat.ctx = ev.metadata.contextPercent;
+    /* v65.0: If SHELL intent — switch to split/terminal so user sees output */
+    if (ev.metadata && ev.metadata.shellCommand) {
+      if (s.bottom !== 'split' && s.bottom !== 'terminal') { s.bottom = 'split'; }
+      renderAgent();
+    }
     renderChat(); _chatScrollPane(ev.sessionIdx);
   });
 
@@ -1169,8 +1500,8 @@ function _initBusSubscriptions() {
   /* Workspace file changes (F3 — dirty tab protection) */
   C3Bus.on('workspace:change', function(ev) {
     if (ev.data && ev.data.type === 'file_batch') {
-      /* Refresh working tree */
-      if (typeof fetchBackendData === 'function') fetchBackendData();
+      /* Refresh working tree from filesystem */
+      if (_wtRoot) _loadWorkspaceTree(_wtRoot);
 
       (ev.data.events || []).forEach(function(e) {
         var tab = _editorState.tabs.find(function(t) { return t.path === e.path && t.type === 'file'; });
@@ -1425,7 +1756,7 @@ function _chatSendPane(idx){
     sent = C3WS.sendChat(txt, s);
   }
   if (!sent) {
-    fetch(_backendBase+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'chat',message:txt,expert:st.expert,editMode:st.editMode,conversationId:s._convId})})
+    fetch(_backendBase+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'chat',message:txt,expert:st.expert,editMode:st.editMode,conversationId:s._convId,agentId:s._agentId||null})})
     .then(function(r){return r.json();})
     .then(function(d){st.msgs.push({role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'});if(typeof d.contextPercent==='number')st.ctx=d.contextPercent;renderChat();_chatScrollPane(idx);})
     .catch(function(){st.msgs.push({role:'assistant',text:'Backend nedostupný. Spusťte: node src/server.js',tag:'ERROR'});renderChat();});
@@ -1446,26 +1777,7 @@ function _chatPaneUI(idx){
     h('div',{style:{padding:'0 6px',height:28,display:'flex',alignItems:'center',gap:3,borderBottom:'1px solid '+C.border,flexShrink:0,background:isFocused?C.bg2:'transparent'}},
       h('button',{style:btnS,title:'Nový chat',onClick:function(ev){ev.stopPropagation();st.msgs=[{role:'system',text:'Nový chat.'}];st.ctx=0;st.attachments=[];_sessionActive=idx;renderChat();}},svgEl(I.plus)),
       h('div',{style:{flex:1}}),
-      /* G1: Agent picker */
-      h('select',{style:{background:C.bg3,border:'1px solid '+C.border,borderRadius:4,color:C.tx3,fontSize:9,padding:'1px 4px',fontFamily:C.mono,outline:'none',maxWidth:70,cursor:'pointer'},
-        value:s._agentId||'',title:'Agent binding',
-        onChange:function(e){
-          s._agentId=e.target.value||null;_persistSessionState();
-          /* GET→merge→PUT metadata (invariant 9) */
-          if(s._convId){
-            fetch(_backendBase+'/api/conversations/'+s._convId,{signal:AbortSignal.timeout(3000)})
-            .then(function(r){return r.json();})
-            .then(function(conv){
-              var meta={};try{meta=JSON.parse(conv.metadata||'{}');}catch(ex){}
-              meta.agentId=s._agentId;
-              return fetch(_backendBase+'/api/conversations/'+s._convId,{method:'PUT',headers:{'Content-Type':'application/json'},
-                body:JSON.stringify({metadata:JSON.stringify(meta)})});
-            }).catch(function(){});
-          }
-          renderChat();
-        }},
-        h('option',{value:''},'—'),
-        (typeof WORKERS!=='undefined'?WORKERS:[]).map(function(w){return h('option',{key:w.name,value:w.name},w.name);})),
+      /* Context meter */
       h('div',{style:{display:'flex',alignItems:'center',gap:3,fontSize:9,color:C.tx4,fontFamily:C.mono}},
         h('div',{style:{width:30,height:3,background:C.bg4,borderRadius:2,overflow:'hidden'}},h('div',{style:{height:'100%',background:C.accent,borderRadius:2,width:st.ctx+'%'}})),h('span',null,st.ctx+'%'))),
     /* FEED */
@@ -1493,22 +1805,23 @@ function _chatPaneUI(idx){
             onInput:function(e){e.target.style.height='20px';e.target.style.height=Math.min(e.target.scrollHeight,100)+'px';st.acSuggestion=null;renderChat();},
             onKeyDown:function(e){if(e.key==='Tab'){e.preventDefault();_chatAutocomplete(idx);}else if(e.key==='Escape'){st.acSuggestion=null;renderChat();}else if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();_chatSendPane(idx);}}}),
           h('button',{style:{background:'rgba(34,197,94,0.15)',color:C.accentText,border:'none',borderRadius:6,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',width:26,height:26,flexShrink:0},onClick:function(){_chatSendPane(idx);}},svgEl(I.send))),
-        /* Autocomplete ghost text */
-        st.acSuggestion?h('div',{style:{padding:'2px 8px 0',fontSize:11,color:C.tx4,fontStyle:'italic',opacity:0.6,cursor:'pointer'},
-          onClick:function(ev){ev.stopPropagation();_chatAutocomplete(idx);}},
-          '⇥ '+st.acSuggestion):null,
-        st.acLoading?h('div',{style:{padding:'2px 8px 0',fontSize:10,color:C.tx4}},
-          '⏳ Načítám návrh...'):null,
+        /* Autocomplete suggestion — subtle ghost text row */
+        st.acSuggestion?h('div',{style:{display:'flex',alignItems:'center',padding:'1px 8px 2px',cursor:'pointer',gap:4},onClick:function(ev){ev.stopPropagation();_chatAutocomplete(idx);}},
+          h('span',{style:{fontSize:11.5,color:C.tx4,opacity:0.45,fontFamily:C.font,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',flex:1,fontStyle:'italic'}},st.acSuggestion),
+          h('span',{style:{fontSize:8,color:C.tx4,fontFamily:C.mono,flexShrink:0,padding:'1px 5px',border:'1px solid '+C.border2,borderRadius:3,opacity:0.5}},'Tab')):null,
+        st.acLoading?h('div',{style:{padding:'1px 8px 2px'}},
+          h('div',{style:{height:1,borderRadius:1,background:C.bg4,overflow:'hidden'}},
+            h('div',{style:{height:'100%',width:'30%',background:C.tx4,borderRadius:1,opacity:0.3,animation:'c3-ac-pulse 1.2s ease-in-out infinite'}}))):null,
         h('div',{style:{display:'flex',alignItems:'center',gap:3,padding:'2px 6px 5px',borderTop:'1px solid '+C.border}},
           h('button',{style:{background:C.accentBg,color:C.accentText,border:'none',borderRadius:4,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',width:22,height:22},title:'Připojit soubor',
             onClick:function(ev){ev.stopPropagation();var inp=document.createElement('input');inp.type='file';inp.multiple=true;inp.style.display='none';document.body.appendChild(inp);inp.onchange=function(){if(inp.files){for(var j=0;j<inp.files.length;j++){st.attachments.push({name:inp.files[j].name,size:Math.round(inp.files[j].size/1024)+' KB',file:inp.files[j]});}renderChat();}document.body.removeChild(inp);};inp.click();}},svgEl(I.attach,12)),
           /* Edit mode toggle */
           h('div',{style:{display:'flex',alignItems:'center',gap:1,padding:'1px 2px',borderRadius:4,background:C.bg3,flexShrink:0},onClick:function(ev){ev.stopPropagation();}},
             h('div',{style:{padding:'2px 6px',borderRadius:3,fontSize:9,fontWeight:600,cursor:'pointer',color:st.editMode==='auto'?C.tx1:C.tx4,background:st.editMode==='auto'?C.bg4:'transparent'},
-              onClick:function(){st.editMode='auto';renderChat();_persistSessionState();},title:'Agent edituje soubory automaticky'},'▶▶ Auto'),
+              onClick:function(){st.editMode='auto';renderChat();_persistSessionState();},title:'Agent edituje soubory automaticky'},'Auto'),
             h('div',{style:{padding:'2px 6px',borderRadius:3,fontSize:9,fontWeight:600,cursor:'pointer',color:st.editMode==='ask'?C.tx1:C.tx4,background:st.editMode==='ask'?C.bg4:'transparent'},
-              onClick:function(){st.editMode='ask';renderChat();_persistSessionState();},title:'Agent se zeptá před každou editací'},'✋ Dotaz')),
-          h('span',{style:{flex:1,fontSize:9,color:C.tx4,opacity:0.5,padding:'0 3px',textAlign:'center'}},'Tab ⇥'),
+              onClick:function(){st.editMode='ask';renderChat();_persistSessionState();},title:'Agent se zeptá před každou editací'},'Review')),
+          h('div',{style:{flex:1}}),
           h('div',{style:{display:'flex',alignItems:'center',gap:2,padding:'2px 6px',borderRadius:4,fontSize:10,fontWeight:500,color:C.accentText,opacity:0.7,cursor:'pointer',flexShrink:0},
             onClick:function(ev){ev.stopPropagation();st.showExperts=!st.showExperts;renderChat();}},
             h('span',{style:{width:4,height:4,borderRadius:'50%',background:C.accent}}),st.expert,svgEl(I.chevDown,8))),

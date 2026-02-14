@@ -204,6 +204,15 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
         },
       });
 
+      // v65.0: Auto-execute shell command if CRE detected SHELL intent
+      if (response.metadata?.shellCommand) {
+        const shellCmd = response.metadata.shellCommand;
+        logger.info('WSSession', `Auto-executing shell command from SHELL intent: ${shellCmd}`, { turnId });
+        // Fire-and-forget — handleTerminal sends results via terminal channel
+        handleTerminal({ type: 'exec', command: shellCmd, reqId: `shell-${turnId}` })
+          .catch(err => logger.error('WSSession', `Shell auto-exec failed: ${err.message}`));
+      }
+
       // Turn end — success
       sendAgentEvent(AgentEventType.TURN_END, turnId, {
         status: 'ok',

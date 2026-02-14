@@ -99,6 +99,41 @@ const DATE_CORRECTION_PATTERNS = [
   /today'?s\s+date/i,
 ];
 
+/**
+ * v65.0: Handle SHELL decision — return response with shellCommand in metadata.
+ * Session adapter picks up shellCommand and auto-executes via terminal channel.
+ */
+function handleShellDecision(input, decision, context) {
+  const { sessionState } = context;
+  const command = decision.metadata?.shellCommand || input.trim();
+
+  if (sessionState) {
+    sessionState.recordDecision(decision, input);
+  }
+
+  logger.info('HandleShell', `Shell command detected`, { command, input: input.substring(0, 50) });
+
+  // Import ResponseTag/TaggedResponse from controller
+  const { ResponseTag, TaggedResponse, ResponseSpeaker, ChatMode } = require('../controller.js');
+
+  const tag = new ResponseTag({
+    speaker: ResponseSpeaker.SYSTEM,
+    mode: ChatMode.CONVERSATION,
+    confidence: decision.confidence,
+    canExecute: false,
+    metadata: {
+      decision: decision.toJSON(),
+      handler: 'shell.exec',
+      shellCommand: command,
+    },
+  });
+
+  return new TaggedResponse({
+    content: `⚡ Spouštím: \`${command}\``,
+    tag,
+  });
+}
+
 export async function conversationHandler(input, context) {
   const { sessionId, sessionState } = context;
 
@@ -718,6 +753,10 @@ export async function conversationHandler(input, context) {
     case DecisionType.LOCAL:
       if (decision.intent === IntentType.FILE_READ || decision.intent === IntentType.FILE_EXPLAIN) {
         return await handleFileDecision(input, decision, context);
+      }
+      // v65.0: SHELL intent → route to terminal execution
+      if (decision.intent === IntentType.SHELL) {
+        return handleShellDecision(input, decision, context);
       }
       return await handleLocalDecision(input, decision, context);
 

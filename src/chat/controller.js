@@ -1577,7 +1577,7 @@ const sessionManager = new ChatSessionManager();
  * @returns {Promise<{response: string, mode: string, confidence: number, metadata: Object}>}
  */
 ChatController.handle = async function(request) {
-  const { message, sessionId, userId, project, expert, context = {} } = request;
+  const { message, sessionId, userId, project, expert, signal, context = {} } = request;
 
   if (!message) {
     return {
@@ -1684,7 +1684,20 @@ ChatController.handle = async function(request) {
     ltmContext,
     // v56.0 Sprint 3 — ConversationStore reference
     conversationStore: store,
+    // v63.0: AbortSignal for cancel propagation (from server req.on('close'))
+    signal: signal || null,
   };
+
+  // v63.0: Check if client already disconnected before processing
+  if (signal?.aborted) {
+    logger.info('ChatController', 'Client disconnected before processing started');
+    return {
+      response: '',
+      mode: ChatMode.CONVERSATION,
+      confidence: 0,
+      metadata: { cancelled: true },
+    };
+  }
 
   // Process the message with full context
   const result = await controller.process(message, fullContext);

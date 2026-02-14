@@ -359,15 +359,29 @@ class LLMGateway {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
-        
+
+        // v63.0: Connect user cancel signal to LLM abort controller
+        // When the user disconnects (req.on('close')), abort the LLM call too
+        const userSignal = options.signal;
+        let userAbortHandler;
+        if (userSignal) {
+          if (userSignal.aborted) {
+            clearTimeout(timeoutId);
+            throw new Error('Request cancelled by user');
+          }
+          userAbortHandler = () => controller.abort();
+          userSignal.addEventListener('abort', userAbortHandler, { once: true });
+        }
+
         const response = await fetch(`${config.ollama?.baseUrl || 'http://127.0.0.1:11434'}/api/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
           signal: controller.signal
         });
-        
+
         clearTimeout(timeoutId);
+        if (userAbortHandler) userSignal.removeEventListener('abort', userAbortHandler);
         
         if (!response.ok) {
           throw new Error(`Ollama HTTP ${response.status}: ${await response.text()}`);
@@ -402,13 +416,37 @@ class LLMGateway {
         
       } catch (err) {
         lastError = err;
-        
+
+        // v63.0: Distinguish abort sources for proper handling
         if (err.name === 'AbortError') {
-          logger.warn('LLMGateway', `Timeout after ${timeout}ms (attempt ${attempt}/${maxRetries})`);
+          const userSignal = options.signal;
+          if (userSignal?.aborted) {
+            // User cancelled (frontend disconnect / cancel button)
+            logger.info('LLMGateway', `User cancelled LLM call (attempt ${attempt}/${maxRetries})`, {
+              abortSource: 'user_cancel',
+              sessionId: authToken?.auditContext?.sessionId,
+            });
+            // Don't retry on user cancel — break immediately
+            this.audit.log('LLM_CALL_CANCELLED', {
+              role: authToken?.role,
+              decisionId: authToken?.decisionId,
+              abortSource: 'user_cancel',
+            });
+            throw new Error('LLM call cancelled by user');
+          } else {
+            // Timeout — controller.abort() from setTimeout
+            logger.warn('LLMGateway', `Timeout after ${timeout}ms (attempt ${attempt}/${maxRetries})`, {
+              abortSource: 'timeout',
+            });
+          }
+        } else if (err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT') {
+          logger.warn('LLMGateway', `Network error (attempt ${attempt}/${maxRetries}): ${err.code}`, {
+            abortSource: 'network',
+          });
         } else {
           logger.warn('LLMGateway', `Error (attempt ${attempt}/${maxRetries}): ${err.message}`);
         }
-        
+
         if (attempt < maxRetries) {
           await this.sleep((config.ollama?.retryDelay || 1000) * attempt);
         }

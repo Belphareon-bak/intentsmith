@@ -90,23 +90,44 @@ const el = {
 // API
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function api(method, endpoint, data = null) {
+// v63.0: Active request AbortController for cancel support
+let activeRequestController = null;
+
+async function api(method, endpoint, data = null, { signal } = {}) {
   const options = {
     method,
     headers: { 'Content-Type': 'application/json' },
   };
-  
+
+  if (signal) options.signal = signal;
   if (data) options.body = JSON.stringify(data);
-  
+
   try {
     const res = await fetch(`${API_BASE}${endpoint}`, options);
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
     return json;
   } catch (err) {
+    if (err.name === 'AbortError') {
+      console.log(`[API] Request cancelled: ${method} ${endpoint}`);
+      throw err;
+    }
     console.error(`API Error [${method} ${endpoint}]:`, err);
     throw err;
   }
+}
+
+/**
+ * v63.0: Cancel the active chat request (if any).
+ * Called by the cancel button / keyboard shortcut.
+ */
+function cancelActiveRequest() {
+  if (activeRequestController) {
+    activeRequestController.abort();
+    activeRequestController = null;
+    return true;
+  }
+  return false;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -582,7 +603,11 @@ async function sendMessage(text = null) {
   
   const typingId = addTyping();
   setLoading(true);
-  
+
+  // v63.0: Create AbortController for this request
+  activeRequestController = new AbortController();
+  const { signal } = activeRequestController;
+
   try {
     const res = await api('POST', '/api/chat', {
       conversation_id: state.currentConversation.id,
@@ -593,7 +618,7 @@ async function sendMessage(text = null) {
       project: state.currentProject || null,
       // v45.0 - Include user-provided files from drag & drop
       userContext: typeof c3State !== 'undefined' ? c3State.userProvidedFiles : [],
-    });
+    }, { signal });
 
     removeMessage(typingId);
 
@@ -638,9 +663,15 @@ async function sendMessage(text = null) {
 
   } catch (err) {
     removeMessage(typingId);
-    addMessage('assistant', `❌ Error: ${err.message}`);
-    toast(`Error: ${err.message}`, 'error');
+    if (err.name === 'AbortError') {
+      // v63.0: User cancelled the request — don't show error
+      toast('Požadavek zrušen', 'info');
+    } else {
+      addMessage('assistant', `❌ Error: ${err.message}`);
+      toast(`Error: ${err.message}`, 'error');
+    }
   } finally {
+    activeRequestController = null;
     setLoading(false);
   }
 }
@@ -808,6 +839,8 @@ function handleToolFailureAction(actionId, actionType) {
   if (!structured) return;
 
   if (actionType === 'cancel') {
+    // v63.0: Abort active request + clear state
+    cancelActiveRequest();
     toast('Operace zrušena', 'info');
     state.pendingToolFailure = null;
     return;

@@ -74,6 +74,9 @@ export const IntentType = {
   // v63.0: FILE_EXPLAIN — user wants file content + LLM explanation
   // Reads file, then LLM summarizes/explains the content.
   FILE_EXPLAIN: 'FILE_EXPLAIN', // "vysvětli soubor X", "co dělá tento soubor?"
+  // v65.0: SHELL — user wants to execute a shell/terminal command
+  // TERMINAL: routes to terminal execution, NOT LLM. No web search.
+  SHELL: 'SHELL',             // "spusť npm test", "pusť ls -la", "runni git status"
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -109,6 +112,8 @@ export const ToolType = {
   LOCAL_DATE: 'local.date',           // Current date/time
   LOCAL_CALENDAR: 'local.calendar',   // Calendar calculations
   LOCAL_MATH: 'local.math',           // Mathematical calculations
+  // v65.0 - Shell/terminal execution
+  SHELL_EXEC: 'shell.exec',
   // v57.3 - Accountant expert tools (deterministic, no LLM)
   TAX_CALCULATOR: 'accountant.tax_calculator',
   VAT_CALCULATOR: 'accountant.vat_calculator',
@@ -863,6 +868,54 @@ const FILE_EXPLAIN_PATTERNS = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
+// v65.0: SHELL PATTERNS — user wants to execute a terminal/shell command
+// ─────────────────────────────────────────────────────────────────────────────
+// "spusť npm test", "pusť ls", "runni git status", "zavolej make"
+// TERMINAL: routes to terminal execution channel, NOT LLM.
+// ─────────────────────────────────────────────────────────────────────────────
+const SHELL_COMMAND_PATTERNS = [
+  // CZ: explicit execution verbs + command-like argument
+  /(?:^|\s)(spusť|spust|spustit|pusť|pust|pustit|runni|zavolej|proved|proveď|vykonej|exec)\s+(.+)/i,
+  // CZ: "dej/hoď do terminálu", "v terminálu spusť"
+  /(?:^|\s)(v\s+termin[áa]lu|do\s+termin[áa]lu|v\s+shellu|do\s+shellu)\s+(.+)/i,
+  /(?:^|\s)(.+)\s+(v\s+termin[áa]lu|do\s+termin[áa]lu|v\s+shellu)/i,
+  // CZ: "spusť testy", "pusť build", "runni linter"
+  /(?:^|\s)(spusť|spust|pusť|pust)\s+(testy|test[yů]?|build|lint|linter|server|docker|make)\b/i,
+  // CZ: "npm test", "npm install", "yarn build" — bare package manager commands
+  /^\s*(npm|yarn|pnpm|npx|bun)\s+(test|install|build|run|start|dev|lint|ci|exec)\b/i,
+  // CZ/EN: "git status", "git pull", "git push" — bare git commands
+  /^\s*git\s+(status|pull|push|commit|add|diff|log|branch|checkout|merge|stash|clone|fetch|rebase)\b/i,
+  // EN: "run npm test", "execute make build"
+  /^\s*(run|execute|exec)\s+(.+)/i,
+  // Bare well-known commands (ls, cat, pwd, mkdir, cd, docker, make, curl, etc.)
+  // v65.1: negative lookahead — exclude comparison/discussion words (Python vs JS, Node je...)
+  /^\s*(ls|cat|pwd|mkdir|rmdir|cp|mv|touch|head|tail|grep|find|curl|wget|docker|docker-compose|make|cmake|python|node|deno|cargo|go\s+run|go\s+build|rustc|gcc|g\+\+)\s+(?!vs\b|versus\b|nebo\b|oproti\b|or\b|and\b|je\b|jsou\b|nen[ií]\b|a\s)/i,
+  /^\s*(ls|pwd|whoami|hostname|uname|uptime|df|du|free|top|htop|ps|env|printenv)\s*$/i,
+];
+
+// Helper: extract the command from a shell intent input
+function extractShellCommand(input) {
+  const text = input.trim();
+  // Direct command patterns (npm test, git status, ls -la, etc.)
+  const directMatch = text.match(/^\s*(npm|yarn|pnpm|npx|bun|git|ls|cat|pwd|mkdir|rmdir|cp|mv|touch|head|tail|grep|find|curl|wget|docker|docker-compose|make|cmake|python|node|deno|cargo|go|rustc|gcc|g\+\+|whoami|hostname|uname|uptime|df|du|free|top|htop|ps|env|printenv)\b.*/i);
+  if (directMatch) return directMatch[0].trim();
+  // "spusť X" / "run X" — extract X
+  const verbMatch = text.match(/(?:spusť|spust|spustit|pusť|pust|pustit|runni|zavolej|proved|proveď|vykonej|exec|run|execute)\s+(.+)/i);
+  if (verbMatch) return verbMatch[1].trim();
+  // "v terminálu X" — extract X
+  const termMatch = text.match(/(?:v\s+termin[áa]lu|do\s+termin[áa]lu|v\s+shellu|do\s+shellu)\s+(.+)/i);
+  if (termMatch) return termMatch[1].trim();
+  // "X v terminálu"
+  const termMatch2 = text.match(/(.+)\s+(?:v\s+termin[áa]lu|do\s+termin[áa]lu|v\s+shellu)/i);
+  if (termMatch2) return termMatch2[1].trim();
+  // "spusť testy" → "npm test"
+  if (/spusť\s+test[yů]?|pusť\s+test[yů]?/i.test(text)) return 'npm test';
+  if (/spusť\s+build|pusť\s+build/i.test(text)) return 'npm run build';
+  if (/spusť\s+lint|pusť\s+lint/i.test(text)) return 'npm run lint';
+  return text;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // BUILD PATTERNS — multi-step project-level work (→ Planner handoff)
 // ─────────────────────────────────────────────────────────────────────────────
 // Distinction from CODE: BUILD = project-level goal, CODE = single function/fix
@@ -1007,11 +1060,15 @@ function extractFilePath(input) {
   const quoted = input.match(/["']([^"']+\.\w{1,10})["']/);
   if (quoted) return quoted[1];
 
-  // 2. Path with extension (last token matching *.ext pattern)
+  // 2. Path with extension (last token matching *.ext pattern) or dotfile
   const tokens = input.split(/\s+/);
   for (let i = tokens.length - 1; i >= 0; i--) {
     const t = tokens[i].replace(/[,;:!?]+$/, ''); // strip trailing punctuation
     if (/^[\w./-]+\.\w{1,10}$/.test(t) && !['mi', 'si', 'ti'].includes(t.toLowerCase())) {
+      return t;
+    }
+    // Dotfile: .env, .gitignore, .bashrc, .env.local (no extension required)
+    if (/^\.\w[\w.-]*$/.test(t)) {
       return t;
     }
   }
@@ -1019,6 +1076,10 @@ function extractFilePath(input) {
   // 3. Path after "soubor" / "file" keyword
   const afterKeyword = input.match(/(?:soubor|file)\s+["']?([^\s"']+\.\w{1,10})["']?/i);
   if (afterKeyword) return afterKeyword[1];
+
+  // 3b. Dotfile after keyword: "soubor .env"
+  const afterKeywordDotfile = input.match(/(?:soubor|file)\s+["']?(\.[\w.-]+)["']?/i);
+  if (afterKeywordDotfile) return afterKeywordDotfile[1];
 
   return null; // No file path found — handler will ask for clarification
 }
@@ -1922,6 +1983,14 @@ export class CREDecisionEngine {
     }
 
     // ════════════════════════════════════════════════════════════════════════
+    // v65.0: SHELL — user wants to execute a terminal command
+    // MUST be before BUILD — "spusť build" is SHELL, not BUILD
+    // ════════════════════════════════════════════════════════════════════════
+    if (SHELL_COMMAND_PATTERNS.some(p => p.test(text))) {
+      return IntentType.SHELL;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
     // BUILD — project-level goals (→ Planner pipeline, NOT Chat)
     // MUST be before CODE — "postav mi API" is BUILD, not CODE
     // ════════════════════════════════════════════════════════════════════════
@@ -2206,7 +2275,8 @@ export class CREDecisionEngine {
     // v45.0: Added ITEM_LOOKUP - explicit item requests must not be overridden by REPORT
     // v58.0: Added DESIGN - structured synthesis must not fall to SEARCH
     // v63.0: Added FILE_READ, FILE_EXPLAIN - file operations are terminal
-    const STRONG_INTENTS = [IntentType.LOCAL, IntentType.CONVERSATIONAL, IntentType.CREATIVE, IntentType.ITEM_LOOKUP, IntentType.DESIGN, IntentType.FILE_READ, IntentType.FILE_EXPLAIN];
+    // v65.0: Added SHELL - terminal commands are terminal
+    const STRONG_INTENTS = [IntentType.LOCAL, IntentType.CONVERSATIONAL, IntentType.CREATIVE, IntentType.ITEM_LOOKUP, IntentType.DESIGN, IntentType.FILE_READ, IntentType.FILE_EXPLAIN, IntentType.SHELL];
     const isStrongIntent = STRONG_INTENTS.includes(intent);
 
     // ════════════════════════════════════════════════════════════════════════
@@ -2417,6 +2487,29 @@ export class CREDecisionEngine {
           handler: 'file.explain',
           fileOperation: true,
           filePath: extractFilePath(input),
+          projectScope,
+        },
+      });
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // v65.0: SHELL is TERMINAL — execute command in terminal, no LLM
+    // ════════════════════════════════════════════════════════════════════════
+    // "spusť npm test", "git status", "ls -la"
+    // Routes to terminal execution channel. Backend executes, returns output.
+    // ════════════════════════════════════════════════════════════════════════
+    if (intent === IntentType.SHELL) {
+      const command = extractShellCommand(input);
+      return new CREDecision({
+        type: DecisionType.LOCAL,  // TERMINAL — like local.date
+        intent,
+        tools: [],                 // No external tools — terminal handles it
+        reason: 'SHELL is terminal - execute command in terminal',
+        confidence: 0.95,
+        metadata: {
+          inputPreview: input.substring(0, 100),
+          handler: 'shell.exec',
+          shellCommand: command,
           projectScope,
         },
       });
