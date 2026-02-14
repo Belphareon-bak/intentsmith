@@ -1,0 +1,671 @@
+/**
+ * C3 Studio — v7 Theme
+ * Design system: Dark green-black-white
+ * Font: Plus Jakarta Sans + JetBrains Mono
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ═══════════════════════════════════════════════════════════
+   1. DESIGN SYSTEM — CSS Variables
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  /* Background layers (darkest → lightest) */
+  --c3-bg-0: #0c0c0f;
+  --c3-bg-1: #111114;
+  --c3-bg-2: #18181c;
+  --c3-bg-3: #1f2025;
+  --c3-bg-4: #27282e;
+  --c3-bg-5: #2f3038;
+
+  /* Text (brightest → dimmest) */
+  --c3-tx-1: #ececef;
+  --c3-tx-2: #a1a1aa;
+  --c3-tx-3: #71717a;
+  --c3-tx-4: #52525b;
+
+  /* Accent — Green */
+  --c3-accent: #22c55e;
+  --c3-accent-dim: #16a34a;
+  --c3-accent-bg: rgba(34, 197, 94, 0.08);
+  --c3-accent-bg-hover: rgba(34, 197, 94, 0.18);
+  --c3-accent-text: #4ade80;
+  --c3-accent-ring: rgba(34, 197, 94, 0.05);
+
+  /* Semantic */
+  --c3-blue: #3b82f6;
+  --c3-blue-bg: rgba(59, 130, 246, 0.1);
+  --c3-amber: #f59e0b;
+  --c3-amber-bg: rgba(245, 158, 11, 0.1);
+  --c3-red: #ef4444;
+  --c3-red-bg: rgba(239, 68, 68, 0.08);
+  --c3-purple: #a855f7;
+  --c3-purple-bg: rgba(168, 85, 247, 0.1);
+  --c3-cyan: #22d3ee;
+  --c3-cyan-bg: rgba(34, 211, 238, 0.1);
+
+  /* Borders */
+  --c3-border: rgba(255, 255, 255, 0.06);
+  --c3-border-2: rgba(255, 255, 255, 0.1);
+
+  /* Radius */
+  --c3-r-lg: 16px;
+  --c3-r-md: 12px;
+  --c3-r-sm: 8px;
+  --c3-r-xs: 6px;
+
+  /* Typography */
+  --c3-font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --c3-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  /* Animation */
+  --c3-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   2. THEIA VARIABLE OVERRIDES
+   ═══════════════════════════════════════════════════════════ */
+
+body {
+  --theia-focusBorder: var(--c3-accent) !important;
+  --theia-selection-background: var(--c3-accent-bg) !important;
+  --theia-editor-background: var(--c3-bg-0) !important;
+  --theia-editor-foreground: var(--c3-tx-2) !important;
+  --theia-sideBar-background: var(--c3-bg-1) !important;
+  --theia-sideBarSectionHeader-background: var(--c3-bg-1) !important;
+  --theia-panel-background: var(--c3-bg-1) !important;
+  --theia-statusBar-background: var(--c3-bg-1) !important;
+  --theia-statusBar-foreground: var(--c3-tx-4) !important;
+  --theia-titleBar-activeBackground: var(--c3-bg-1) !important;
+  --theia-titleBar-activeForeground: var(--c3-tx-3) !important;
+  --theia-tab-activeBackground: var(--c3-bg-2) !important;
+  --theia-tab-activeForeground: var(--c3-tx-1) !important;
+  --theia-tab-inactiveBackground: var(--c3-bg-1) !important;
+  --theia-tab-inactiveForeground: var(--c3-tx-3) !important;
+  --theia-tab-activeBorder: var(--c3-accent) !important;
+  --theia-input-background: var(--c3-bg-3) !important;
+  --theia-input-foreground: var(--c3-tx-1) !important;
+  --theia-input-border: var(--c3-border-2) !important;
+  --theia-list-activeSelectionBackground: var(--c3-accent-bg) !important;
+  --theia-list-activeSelectionForeground: var(--c3-accent-text) !important;
+  --theia-list-hoverBackground: var(--c3-bg-3) !important;
+  --theia-menu-background: var(--c3-bg-2) !important;
+  --theia-menu-foreground: var(--c3-tx-2) !important;
+  --theia-menu-selectionBackground: var(--c3-accent-bg) !important;
+  --theia-menu-selectionForeground: var(--c3-accent-text) !important;
+  --theia-menu-separatorBackground: var(--c3-border) !important;
+  --theia-scrollbar-shadow: transparent !important;
+  --theia-scrollbarSlider-background: var(--c3-bg-5) !important;
+  --theia-scrollbarSlider-hoverBackground: rgba(255,255,255,0.12) !important;
+  --theia-scrollbarSlider-activeBackground: rgba(255,255,255,0.18) !important;
+  --theia-widget-shadow: 0 4px 16px rgba(0,0,0,0.3) !important;
+  --theia-badge-background: var(--c3-accent) !important;
+  --theia-badge-foreground: #fff !important;
+  --theia-activityBar-background: var(--c3-bg-1) !important;
+  --theia-activityBar-foreground: var(--c3-tx-2) !important;
+  --theia-activityBar-activeBorder: var(--c3-accent) !important;
+
+  font-family: var(--c3-font) !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   3. GLOBAL CHROME OVERRIDES
+   ═══════════════════════════════════════════════════════════ */
+
+/* --- Scrollbars --- */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--c3-bg-5); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* --- Menu Bar --- */
+.p-MenuBar {
+  background: var(--c3-bg-1) !important;
+  border-bottom: 1px solid var(--c3-border) !important;
+  font-family: var(--c3-font) !important;
+  font-size: 12px !important;
+  height: 30px !important;
+}
+.p-MenuBar-item {
+  padding: 2px 8px !important;
+  border-radius: 3px !important;
+  color: var(--c3-tx-3) !important;
+}
+.p-MenuBar-item:hover,
+.p-MenuBar-item.p-mod-active {
+  background: var(--c3-bg-3) !important;
+  color: var(--c3-tx-2) !important;
+}
+
+/* --- Drop-down Menus --- */
+.p-Menu {
+  background: var(--c3-bg-2) !important;
+  border: 1px solid var(--c3-border-2) !important;
+  border-radius: var(--c3-r-sm) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;
+  font-family: var(--c3-font) !important;
+  padding: 4px !important;
+}
+.p-Menu-item {
+  border-radius: 4px !important;
+  padding: 4px 8px !important;
+}
+.p-Menu-item.p-mod-active {
+  background: var(--c3-accent-bg) !important;
+  color: var(--c3-accent-text) !important;
+}
+.p-Menu-itemMnemonic { text-decoration: none !important; }
+
+/* --- Tab Bars --- */
+.p-TabBar {
+  background: var(--c3-bg-1) !important;
+  border-bottom: 1px solid var(--c3-border) !important;
+  font-family: var(--c3-font) !important;
+}
+.p-TabBar-tab {
+  border-right: 1px solid var(--c3-border) !important;
+  font-size: 12px !important;
+  transition: all 0.1s !important;
+}
+.p-TabBar-tab:hover {
+  background: var(--c3-bg-2) !important;
+}
+.p-TabBar-tab.p-mod-current {
+  background: var(--c3-bg-2) !important;
+  color: var(--c3-tx-1) !important;
+}
+.p-TabBar-tab.p-mod-current::after,
+.theia-tabBar-tab-row::after {
+  background: var(--c3-accent) !important;
+}
+
+/* --- Side Panels --- */
+.theia-side-panel {
+  background: var(--c3-bg-1) !important;
+}
+.theia-sidepanel-toolbar {
+  background: var(--c3-bg-1) !important;
+  border-bottom: 1px solid var(--c3-border) !important;
+}
+
+/* --- Activity Bar (left icon strip) --- */
+#theia-left-content-panel .theia-app-sidebar {
+  background: var(--c3-bg-1) !important;
+  border-right: 1px solid var(--c3-border) !important;
+}
+.theia-app-sidebar .p-TabBar-tab {
+  border-bottom: none !important;
+  border-right: none !important;
+}
+.theia-app-sidebar .p-TabBar-tab.p-mod-current {
+  background: var(--c3-accent-bg) !important;
+}
+.theia-app-sidebar .p-TabBar-tab.p-mod-current .theia-tab-icon-label {
+  color: var(--c3-accent-text) !important;
+}
+
+/* --- Status Bar --- */
+#theia-statusBar {
+  background: var(--c3-bg-1) !important;
+  border-top: 1px solid var(--c3-border) !important;
+  height: 24px !important;
+  font-family: var(--c3-font) !important;
+  font-size: 10.5px !important;
+}
+#theia-statusBar::before {
+  content: 'C3';
+  font-weight: 800;
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--c3-accent-text);
+  opacity: 0.6;
+  margin-right: 8px;
+  padding-left: 8px;
+}
+
+/* --- Editor Area --- */
+.theia-editor {
+  background: var(--c3-bg-0) !important;
+}
+.monaco-editor,
+.monaco-editor .margin,
+.monaco-editor-background {
+  background: var(--c3-bg-0) !important;
+}
+
+/* --- Buttons --- */
+.theia-button {
+  background: var(--c3-accent-dim) !important;
+  border: none !important;
+  border-radius: var(--c3-r-xs) !important;
+  font-family: var(--c3-font) !important;
+  font-weight: 600 !important;
+  transition: background 0.15s !important;
+}
+.theia-button:hover {
+  background: var(--c3-accent) !important;
+}
+
+/* --- Inputs --- */
+.theia-input,
+input[type="text"],
+textarea {
+  background: var(--c3-bg-3) !important;
+  border: 1px solid var(--c3-border-2) !important;
+  border-radius: var(--c3-r-xs) !important;
+  color: var(--c3-tx-1) !important;
+  font-family: var(--c3-font) !important;
+  outline: none !important;
+  transition: border-color 0.15s !important;
+}
+.theia-input:focus,
+input[type="text"]:focus,
+textarea:focus {
+  border-color: rgba(34, 197, 94, 0.4) !important;
+  box-shadow: 0 0 0 2px var(--c3-accent-ring) !important;
+}
+
+/* --- Panels & Borders --- */
+.p-DockPanel-handle,
+.p-SplitPanel-handle {
+  background: var(--c3-border) !important;
+}
+.p-DockPanel-handle:hover,
+.p-SplitPanel-handle:hover {
+  background: var(--c3-accent) !important;
+}
+
+/* --- Title Area --- */
+.theia-title-area {
+  font-weight: 500 !important;
+  font-family: var(--c3-font) !important;
+}
+
+/* --- Bottom Panel --- */
+#theia-bottom-content-panel {
+  background: var(--c3-bg-1) !important;
+  border-top: 1px solid var(--c3-border) !important;
+}
+#theia-bottom-content-panel .p-TabBar {
+  background: var(--c3-bg-1) !important;
+}
+#theia-bottom-content-panel .p-TabBar-tab {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+}
+
+/* --- Notifications --- */
+.theia-notification-list {
+  background: var(--c3-bg-2) !important;
+  border: 1px solid var(--c3-border-2) !important;
+  border-radius: var(--c3-r-md) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3) !important;
+}
+
+/* --- Quick Open / Command Palette --- */
+.quick-open-overlay .monaco-inputbox {
+  background: var(--c3-bg-2) !important;
+  border: 1px solid var(--c3-border-2) !important;
+  border-radius: var(--c3-r-sm) !important;
+}
+
+/* --- View Headers --- */
+.theia-sidepanel-title {
+  font-family: var(--c3-font) !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.8px !important;
+  color: var(--c3-accent-text) !important;
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   4. GREEN TINT — Interactive Elements
+   ═══════════════════════════════════════════════════════════ */
+
+/* All icon buttons in C3 panels get subtle green tint */
+.c3-btn {
+  background: var(--c3-accent-bg);
+  color: var(--c3-accent-text);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s;
+  padding: 0;
+}
+.c3-btn:hover {
+  background: var(--c3-accent-bg-hover);
+  color: var(--c3-accent);
+}
+
+/* Send button — more prominent green */
+.c3-btn-send {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--c3-accent-text);
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.c3-btn-send:hover {
+  background: var(--c3-accent);
+  color: #fff;
+}
+
+/* Pill badges */
+.c3-pill {
+  display: inline-flex;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-family: var(--c3-mono);
+}
+.c3-pill-green { background: rgba(34,197,94,0.1); color: var(--c3-accent-text); }
+.c3-pill-blue { background: var(--c3-blue-bg); color: var(--c3-blue); }
+.c3-pill-amber { background: var(--c3-amber-bg); color: var(--c3-amber); }
+.c3-pill-red { background: var(--c3-red-bg); color: var(--c3-red); }
+.c3-pill-purple { background: var(--c3-purple-bg); color: var(--c3-purple); }
+
+
+/* ═══════════════════════════════════════════════════════════
+   5. CARD SYSTEM — Reusable card components
+   ═══════════════════════════════════════════════════════════ */
+
+.c3-card {
+  background: var(--c3-bg-2);
+  border: 1px solid var(--c3-border);
+  border-radius: var(--c3-r-md);
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s var(--c3-ease);
+  position: relative;
+  overflow: hidden;
+}
+.c3-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: transparent;
+  transition: background 0.2s;
+}
+.c3-card:hover {
+  border-color: var(--c3-border-2);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+}
+.c3-card:hover::before {
+  background: var(--c3-accent);
+}
+.c3-card.selected {
+  border-color: var(--c3-accent);
+}
+.c3-card h4 {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 3px;
+  color: var(--c3-tx-1);
+}
+.c3-card p {
+  font-size: 11px;
+  color: var(--c3-tx-3);
+  line-height: 1.4;
+  margin: 0 0 10px;
+}
+
+/* Expert card variant */
+.c3-card-expert {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.c3-card-expert.favorite {
+  border-color: var(--c3-accent);
+}
+.c3-card-expert .star {
+  margin-left: auto;
+  font-size: 14px;
+  color: var(--c3-tx-4);
+}
+.c3-card-expert.favorite .star {
+  color: var(--c3-accent-text);
+}
+
+/* Card zoom levels */
+.c3-grid[data-zoom="0"] .c3-card { width: calc(20% - 10px); min-width: 150px; }
+.c3-grid[data-zoom="1"] .c3-card { width: calc(33.33% - 8px); min-width: 200px; }
+.c3-grid[data-zoom="2"] .c3-card { width: calc(50% - 6px); min-width: 280px; }
+
+
+/* ═══════════════════════════════════════════════════════════
+   6. SECTION HEADERS & VIEW BARS
+   ═══════════════════════════════════════════════════════════ */
+
+.c3-view-bar {
+  display: flex;
+  align-items: center;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--c3-border);
+  gap: 10px;
+  cursor: grab;
+}
+.c3-view-bar:active { cursor: grabbing; }
+.c3-view-bar h2 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--c3-tx-1);
+}
+
+/* Zoom slider */
+.c3-zoom {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.c3-zoom svg { width: 13px; height: 13px; color: var(--c3-tx-4); }
+.c3-zoom input[type=range] { width: 50px; accent-color: var(--c3-accent); height: 3px; }
+
+/* View toggle (grid/list) */
+.c3-view-toggle {
+  display: flex;
+  gap: 1px;
+  background: var(--c3-bg-3);
+  border-radius: var(--c3-r-xs);
+  padding: 2px;
+}
+.c3-view-toggle button {
+  padding: 3px 6px;
+  border: none;
+  background: transparent;
+  color: var(--c3-tx-4);
+  cursor: pointer;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  transition: all 0.1s;
+}
+.c3-view-toggle button svg { width: 13px; height: 13px; }
+.c3-view-toggle button.active {
+  background: var(--c3-bg-5);
+  color: var(--c3-tx-1);
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   7. SETTINGS — Flat accordion sections
+   ═══════════════════════════════════════════════════════════ */
+
+.c3-settings-page {
+  padding: 20px;
+  width: 100%;
+  overflow-y: auto;
+}
+.c3-settings-page h1 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 3px;
+  color: var(--c3-tx-1);
+}
+
+.c3-sec {
+  border-bottom: 1px solid var(--c3-border);
+}
+.c3-sec-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 2px;
+  cursor: pointer;
+  user-select: none;
+  border-radius: var(--c3-r-xs);
+  transition: background 0.1s;
+}
+.c3-sec-head:hover { background: var(--c3-bg-2); }
+.c3-sec-title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c3-tx-1);
+}
+.c3-sec-chev {
+  width: 13px; height: 13px;
+  color: var(--c3-tx-4);
+  transition: transform 0.2s var(--c3-ease);
+}
+.c3-sec.open .c3-sec-chev { transform: rotate(180deg); }
+.c3-sec-body {
+  display: none;
+  padding: 2px 2px 12px 26px;
+}
+.c3-sec.open .c3-sec-body { display: block; }
+
+/* Form elements */
+.c3-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--c3-tx-2);
+  margin: 8px 0 4px;
+  display: block;
+}
+.c3-input {
+  width: 100%;
+  background: var(--c3-bg-3);
+  border: 1px solid var(--c3-border-2);
+  border-radius: var(--c3-r-xs);
+  padding: 6px 9px;
+  color: var(--c3-tx-1);
+  font-family: var(--c3-font);
+  font-size: 12px;
+  outline: none;
+}
+.c3-input:focus { border-color: rgba(34,197,94,0.4); }
+.c3-select {
+  width: 100%;
+  background: var(--c3-bg-3);
+  border: 1px solid var(--c3-border-2);
+  border-radius: var(--c3-r-xs);
+  padding: 6px 9px;
+  color: var(--c3-tx-1);
+  font-family: var(--c3-font);
+  font-size: 12px;
+  outline: none;
+  appearance: none;
+  cursor: pointer;
+}
+.c3-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--c3-tx-2);
+}
+.c3-toggle input { display: none; }
+.c3-toggle-track {
+  width: 30px; height: 16px;
+  background: var(--c3-bg-4);
+  border-radius: 8px;
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.c3-toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 12px; height: 12px;
+  background: var(--c3-tx-3);
+  border-radius: 50%;
+  transition: all 0.2s var(--c3-ease);
+}
+.c3-toggle input:checked + .c3-toggle-track { background: var(--c3-accent); }
+.c3-toggle input:checked + .c3-toggle-track::after { left: 16px; background: #fff; }
+
+
+/* ═══════════════════════════════════════════════════════════
+   8. RESIZE HANDLES
+   ═══════════════════════════════════════════════════════════ */
+
+.c3-resize-handle {
+  width: 4px;
+  background: transparent;
+  cursor: col-resize;
+  flex-shrink: 0;
+  position: relative;
+  transition: background 0.15s;
+}
+.c3-resize-handle:hover,
+.c3-resize-handle:active {
+  background: var(--c3-accent);
+}
+.c3-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px; height: 32px;
+  background: var(--c3-bg-5);
+  border-radius: 1px;
+  transition: background 0.15s;
+}
+.c3-resize-handle:hover::after {
+  background: var(--c3-accent);
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   9. ANIMATIONS
+   ═══════════════════════════════════════════════════════════ */
+
+@keyframes c3-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes c3-slide-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes c3-blink {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}

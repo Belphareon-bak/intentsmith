@@ -1,0 +1,100 @@
+/* C3 Agent Log — v7 */
+.c3-agent-widget { overflow: hidden !important; }
+
+.c3-al {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--c3-bg-1);
+  font-family: var(--c3-font);
+}
+.c3-al-tabs {
+  height: 28px;
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--c3-border);
+  flex-shrink: 0;
+  cursor: grab;
+}
+.c3-al-tabs:active { cursor: grabbing; }
+.c3-al-tab {
+  padding: 0 10px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--c3-tx-4);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.1s;
+}
+.c3-al-tab:hover { color: var(--c3-tx-2); }
+.c3-al-tab.active {
+  color: var(--c3-tx-1);
+  border-bottom-color: var(--c3-accent);
+}
+.c3-al-cnt {
+  font-size: 8px;
+  background: var(--c3-bg-4);
+  padding: 0 4px;
+  border-radius: 5px;
+  color: var(--c3-tx-3);
+}
+.c3-al-panel {
+  flex: 1;
+  overflow-y: auto;
+}
+.c3-al-entry {
+  display: flex;
+  gap: 6px;
+  padding: 3px 10px;
+  font-family: var(--c3-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  border-left: 3px solid transparent;
+}
+.c3-al-entry:hover { background: rgba(255,255,255,0.02); }
+.c3-al-entry.active {
+  border-left-color: var(--c3-accent);
+  background: rgba(34,197,94,0.03);
+}
+.c3-al-time {
+  color: var(--c3-tx-4);
+  flex-shrink: 0;
+  min-width: 58px;
+  font-variant-numeric: tabular-nums;
+}
+.c3-al-type {
+  font-weight: 600;
+  min-width: 60px;
+  flex-shrink: 0;
+}
+.c3-al-type.cre  { color: var(--c3-cyan); }
+.c3-al-type.llm  { color: var(--c3-purple); }
+.c3-al-type.tool { color: var(--c3-amber); }
+.c3-al-type.gate { color: var(--c3-accent-text); }
+.c3-al-type.turn { color: var(--c3-blue); }
+.c3-al-type.info { color: var(--c3-tx-3); }
+.c3-al-text { color: var(--c3-tx-2); }
+
+/* Terminal */
+.c3-al-term {
+  padding: 5px 10px;
+  font-family: var(--c3-mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--c3-tx-2);
+}
+.c3-term-prompt { color: var(--c3-accent-text); }
+.c3-term-ok { color: var(--c3-accent-text); }
+.c3-term-cursor {
+  border-right: 2px solid var(--c3-accent);
+  animation: c3-blink 1s infinite;
+  margin-left: 2px;
+}
+.c3-al-empty {
+  padding: 10px;
+  color: var(--c3-tx-4);
+  font-size: 11px;
+}

@@ -1,0 +1,13 @@
+{
+  "name": "@c3-ide/c3-sidebar",
+  "version": "0.1.0",
+  "description": "C3 Studio — Sidebar navigation",
+  "license": "MIT",
+  "main": "lib/browser/sidebar-module",
+  "theiaExtensions": [
+    { "frontend": "lib/browser/sidebar-module" }
+  ],
+  "dependencies": {
+    "@theia/core": "*"
+  }
+}
