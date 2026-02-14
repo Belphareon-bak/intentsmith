@@ -77,7 +77,7 @@ Shell sandbox + secrets auth. Chybí installer, licence, auto-update.
 
 ## FÁZE H — HARDENING (code review nálezy)
 
-**Status:** 7/9 DONE, 1 částečně, 1 odloženo (P2). Všechny CRITICAL opraveny.
+**Status:** 9/9 DONE. Všechny CRITICAL opraveny.
 
 | # | Úkol | Effort | Priorita | Status |
 |---|------|--------|----------|--------|
@@ -86,10 +86,10 @@ Shell sandbox + secrets auth. Chybí installer, licence, auto-update.
 | H3 | Architect session TTL + LRU (max 20, 4h, 30min cleanup) | 0.5d | 🔴 P0 | ✅ |
 | H4 | parseBody JSON error handling (reject, ne raw) | 0.25d | 🟡 P1 | ✅ |
 | H5 | Path traversal guard v sendStaticFile() | 0.25d | 🟡 P1 | ✅ |
-| H6 | Memory API konsolidace | 0.5d | 🟡 P1 | ⚠️ `/api/global-memory` existuje, `/memory` deprecated ale neodebrán |
+| H6 | Memory API konsolidace | 0.5d | 🟡 P1 | ✅ `/memory` odstraněn, `/api/global-memory` canonical |
 | H7 | safeParseInt helper (12+ usage sites) | 0.25d | 🟡 P1 | ✅ |
 | H8 | Smazat integration-patches.js | 5min | 🟡 P1 | ✅ |
-| H9 | server.js route split | 1d | ⚪ P2 | ❌ (odloženo, 3345 řádků) |
+| H9 | server.js route split | 1d | ⚪ P2 | ✅ 7 route modulů v src/routes/, server.js 854 řádků |
 
 ---
 
@@ -101,7 +101,7 @@ Fáze A: CHAT       ████████████████████
 Fáze C: PROJEKTY   ████████████████████████████████████████░░  95% → téměř DONE
 Fáze D-int: ÚČETNÍ ██████████████████████████████████████████  100% → DONE
 Fáze B: WORKERI    ████████████████████████████░░░░░░░░░░░░░░  80% (B0-B6 done)
-Fáze H: HARDENING  ██████████████████████████████████░░░░░░░░  85% (7/9 done, H6 partial, H9 P2)
+Fáze H: HARDENING  ██████████████████████████████████████████  100% (9/9 DONE)
 Fáze D: SPECIALISTÉ████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░  40% (expert+merge+wizard)
 Fáze E: IDE        ████████████████████████████░░░░░░░░░░░░░░  70% (Sprint 1-7 done)
 Fáze F: BALÍČKOVÁNÍ██░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  5%
@@ -113,10 +113,11 @@ Fáze F: BALÍČKOVÁNÍ██░░░░░░░░░░░░░░░░�
 
 ### Sprint 1 — Workers (~1 týden)
 
-Phase H je téměř hotová (7/9). Focus se přesouvá na workery.
+Phase H je KOMPLETNÍ (9/9). Focus se přesouvá na workery.
 
 ```
-⚠️→ H6. Memory API — odebrat deprecated /memory endpoint (0.5d)
+✅→ H6. Memory API — DONE (/memory odstraněn)
+✅→ H9. server.js route split — DONE (3325→854 řádků, 7 modulů)
 ❌→ B8. Worker: počasí → Telegram/push (1d)
 ❌→ B8. Worker: zprávy RSS → digest email (1d)
 ```
@@ -134,7 +135,7 @@ Phase H je téměř hotová (7/9). Focus se přesouvá na workery.
 - Fáze D: SPECIALISTÉ — Specialist Runtime, knowledge base (~6 týdnů)
 - Fáze E: IDE — zbývající IDE sprinty (~3-4 sprinty)
 - Fáze F: BALÍČKOVÁNÍ (2–3 týdny) — H1-H3 jsou hotové, nic neblokuje
-- H9: server.js route split — kvalitativní (P2, kdykoli)
+- ~~H9: server.js route split~~ — DONE
 
 ---
 
@@ -147,10 +148,10 @@ Phase H je téměř hotová (7/9). Focus se přesouvá na workery.
 | 3 | H | H3. Architect session memory leak | 0.5d | 🔴 P0 | ✅ |
 | 4 | H | H4. parseBody JSON error handling | 0.25d | 🟡 P1 | ✅ |
 | 5 | H | H5. Path traversal guard | 0.25d | 🟡 P1 | ✅ |
-| 6 | H | H6. Memory API konsolidace | 0.5d | 🟡 P1 | ⚠️ |
+| 6 | H | H6. Memory API konsolidace | 0.5d | 🟡 P1 | ✅ |
 | 7 | H | H7. safeParseInt helper | 0.25d | 🟡 P1 | ✅ |
 | 8 | H | H8. Smazat integration-patches.js | 5min | 🟡 P1 | ✅ |
-| 9 | H | H9. server.js route split | 1d | ⚪ P2 | ❌ |
+| 9 | H | H9. server.js route split | 1d | ⚪ P2 | ✅ |
 | 10 | C | C3. Reálný LLM test lifecycle | průběžně | 🟡 P1 | ❌ |
 | 11 | B | B8. Worker: počasí → push/Telegram | 1d | 🟡 P1 | ❌ |
 | 12 | B | B8. Worker: zprávy RSS → digest | 1d | 🟡 P1 | ❌ |
@@ -164,19 +165,20 @@ Phase H je téměř hotová (7/9). Focus se přesouvá na workery.
 
 ## Celkový progres
 
-**Hotovo:** ~88% celkové vize (upgrade z 85%)
-**Nové:** Phase H téměř dokončena (7/9), CRE Gatekeeper (v64.0), 5D capability system, merge engine, expertise wizard, IDE Sprint 1-7
+**Hotovo:** ~90% celkové vize (upgrade z 88%)
+**Nové:** Phase H KOMPLETNÍ (9/9), H6 Memory API konsolidace, H9 server.js route split (3325→854 řádků)
 
 ```
-Celkem zbývajících úkolů:  10
+Celkem zbývajících úkolů:  8
   🔴 Critical:              0  (všechny H1-H3 hotové!)
-  🟡 Important (H6,B,C):   6  (~7 dní)
-  ⚪ Future (D,E,F,H9):     4  (~2.5 měsíce)
+  🟡 Important (B,C):       5  (~7 dní)
+  ⚪ Future (D,E,F):         3  (~2.5 měsíce)
 ```
 
 ---
 
 *Tento dokument nahrazuje C3-Agent-Roadmapa-v4.md (v4, 2026-02-12).
-Nové ve v5: CRE Gatekeeper (v64.0), Phase H téměř hotová (7/9 verified),
+Nové ve v5.1: Phase H KOMPLETNÍ (9/9 — H6 Memory API, H9 route split),
+CRE Gatekeeper (v64.0), Phase H téměř hotová (7/9 verified),
 aktualizovaný progres pilířů (Chat 97%, Specialisté 40%, IDE 70%),
 schema migrations, 5D capability system, merge engine v2, expertise wizard.*

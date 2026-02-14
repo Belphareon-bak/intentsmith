@@ -1,14 +1,24 @@
-# C3-Agent v64.0
+# C3-Agent v65.0
 
-Conversational AI platforma s CRE decision enginem, CRE Gatekeeper audit trail, 15 domain experty s 5D capability profily, multi-expertise merge enginem, enforcement pipeline, execution trace observability a C3 Studio IDE (Theia 1.65.2).
+Conversational AI platforma s CRE decision enginem, CRE Gatekeeper audit trail, 15 domain experty s 5D capability profily, multi-expertise merge enginem, enforcement pipeline, execution trace observability, SHELL intent pro terminal a C3 Studio IDE (Theia 1.65.2).
 
 ## Spusteni
 
 ```bash
-# Backend (Express + Ollama)
+# 1. Instalace zavislosti
+npm install
+
+# 2. Konfigurace (volitelne — defaulty funguji out-of-the-box)
+cp .env.example .env
+# Uprav .env podle potreby (modely, porty, notifikace...)
+
+# 3. Spusteni backendu
 node src/server.js
 # → http://127.0.0.1:3335
 # → Chat UI: http://127.0.0.1:3335/architect
+
+# 4. Spusteni IDE (volitelne)
+cd c3-ide && yarn build && yarn start
 ```
 
 ### Prerekvizity
@@ -16,6 +26,22 @@ node src/server.js
 - Node.js 18+
 - Ollama s modelem `qwen2.5:32b` na `http://127.0.0.1:11434`
 - SQLite (better-sqlite3 — `npm install`)
+
+### Konfigurace (.env)
+
+Vsechny promenne se nacitaji z `.env` souboru pres `dotenv`. Viz `.env.example` pro kompletni referenci.
+
+| Skupina | Promenne | Popis |
+|---------|----------|-------|
+| Server | `C3_PORT`, `C3_HOST`, `C3_CORS_ORIGINS` | HTTP server |
+| Modely | `C3_MODEL_D1`, `C3_MODEL_D2`, `C3_MODEL_CODE`, `C3_MODEL_R1`, `C3_MODEL_R2`, `C3_MODEL_CHAT`, `C3_MODEL_VISION` | Ollama modely pro jednotlive role |
+| Ollama | `OLLAMA_URL` | Adresa Ollama serveru |
+| Features | `C3_ENABLE_AGENTS`, `C3_ENABLE_LIFECYCLE`, `C3_ENABLE_EXPERTS` | Zapnuti/vypnuti modulu |
+| Databaze | `C3_DB_PATH` | Cesta k SQLite souboru |
+| Lifecycle | `C3_LIFECYCLE_REVIEW_FREQ`, `C3_MAX_MILESTONE_LOC`, `C3_MAX_MILESTONE_FILES` | Nastaveni projektu |
+| Notifikace | `C3_SMTP_*`, `C3_TELEGRAM_*`, `C3_NTFY_*` | Email, Telegram, push kanaly |
+| Security | `C3_ADMIN_TOKEN`, `C3_LICENSE_KEY` | Autentizace a licence |
+| Debug | `C3_LOG_LEVEL`, `C3_TRACE` | Logovani a trasovani |
 
 ---
 
@@ -145,6 +171,10 @@ c3-agent-wip/
 | CREATIVE | Kreativni obsah | "napis basnicku", "vymysli pribeh" |
 | BUILD | Stavba projektu | "postav mi webovou aplikaci" |
 | CODE | Inline kod | "napis funkci na X" |
+| SHELL | Prikaz v terminalu | "spust npm test", "git status" |
+| FILE_READ | Cteni souboru | "precti package.json" |
+| FILE_EXPLAIN | Vysvetleni souboru | "vysvetli co dela server.js" |
+| ITEM_LOOKUP | Vyhledani entity | "najdi experta na React" |
 
 ## Testy
 
@@ -178,4 +208,4 @@ OLLAMA_URL=http://127.0.0.1:11434 node tests/conv-czech-nodiacritics.test.js
 
 ---
 
-*Posledni aktualizace: v64.0 (2026-02-14)*
+*Posledni aktualizace: v65.0 (2026-02-14)*

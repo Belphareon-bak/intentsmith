@@ -1,6 +1,6 @@
-# C.3 Agent Platform — Architecture v64.0
+# C.3 Agent Platform — Architecture v65.0
 
-**Version:** v64.0 (CRE Gatekeeper + Single Authority Enforcement)
+**Version:** v65.0 (SHELL intent, dotenv config, Project Wizard)
 **Status:** Production-ready, ~90% complete
 **Date:** February 2026
 
@@ -345,7 +345,10 @@ Supported: CLI, Web, Slack, Discord, API. Each with capability presets (max mess
 
 ### Feature Flags
 
+Vsechny promenne se nacitaji z `.env` souboru (`dotenv`). Viz `.env.example` pro uplny seznam.
+
 ```javascript
+// src/config.js — cte process.env s defaulty
 features: {
   agents:    process.env.C3_ENABLE_AGENTS !== 'false',     // Phase B
   lifecycle: process.env.C3_ENABLE_LIFECYCLE !== 'false',  // Phase C
