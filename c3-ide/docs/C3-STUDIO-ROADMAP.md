@@ -157,8 +157,12 @@ Fáze 1 (Data) ──┬── Fáze 2 (Working Tree)
 | Edit mode toggle | ✅ Hotovo | Auto/Ask v UI, posílá se s payload |
 | Context meter | ✅ Hotovo | UI + polling + WS events |
 | Working tree | ✅ Hotovo | Collapse, git status, toolbar |
-| Backend CRUD | 🔲 Fáze 1 | Endpointy existují, data zatím mock |
-| Reálný workspace | 🔲 Fáze 2 | Soubory jsou mock, potřeba fs bridge |
-| Agent terminal | 🔲 Fáze 3 | PTY backend chybí |
-| Wizard napojení | 🔲 Fáze 4 | Wizardy existují v docs, UI nový |
+| Backend CRUD | ✅ Hotovo | REST PUT/POST, data z backendu, PATCH→PUT fix |
+| WS transport | ✅ Hotovo | Event bus, handshake, reconnect, channel routing |
+| Session persistence | ✅ Hotovo | localStorage crash recovery, convId routing |
+| Health monitor | ✅ Hotovo | 30s polling, zelená/žlutá/červená tečka |
+| Edit ACK | ✅ Hotovo | Idempotency guard, 30s timeout, approve/reject |
+| Reálný workspace | ✅ Hotovo | 7 API routes, git status+branch, path security |
+| Agent terminal | ✅ Hotovo | Input field, exec lock, STOP button, cancel |
+| Wizard napojení | ✅ Hotovo | Expert wizard event, conversation POST, worker chat |
 | Diff review | 🔲 Fáze 5 | — |

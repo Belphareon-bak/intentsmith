@@ -2123,6 +2123,228 @@ const routes = {
     }
   },
   
+  /* ─── Workspace API (C1) ──────────────────────────────────────────── */
+
+  'GET /api/workspace/tree': async (req, res) => {
+    try {
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const projectId = url.searchParams.get('project_id');
+      let projectPath = url.searchParams.get('path');
+
+      if (projectId) {
+        const proj = db.projects.get(projectId);
+        if (proj) projectPath = proj.path;
+      }
+      if (!projectPath) {
+        sendJSON(res, 400, { error: 'Missing project_id or path parameter' });
+        return;
+      }
+
+      const fsP = await import('fs/promises');
+
+      async function readTree(dir, depth, maxDepth) {
+        if (depth > maxDepth) return [];
+        const entries = await fsP.readdir(dir, { withFileTypes: true });
+        const result = [];
+        for (const entry of entries) {
+          if (['node_modules', '.git', '.c3', '__pycache__', '.next'].includes(entry.name)) continue;
+          const fullPath = path.join(dir, entry.name);
+          const relPath = path.relative(projectPath, fullPath);
+          if (entry.isDirectory()) {
+            const children = await readTree(fullPath, depth + 1, maxDepth);
+            result.push({ n: entry.name, d: true, i: depth, p: path.dirname(relPath) === '.' ? undefined : path.dirname(relPath), children });
+          } else {
+            result.push({ n: entry.name, d: false, i: depth, p: path.dirname(relPath) === '.' ? undefined : path.dirname(relPath) });
+          }
+        }
+        return result.sort((a, b) => (b.d ? 1 : 0) - (a.d ? 1 : 0) || a.n.localeCompare(b.n));
+      }
+
+      const tree = await readTree(projectPath, 0, 5);
+      sendJSON(res, 200, { tree, root: projectPath });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
+  'GET /api/workspace/file': async (req, res) => {
+    try {
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const filePath = url.searchParams.get('path');
+      const projectRoot = url.searchParams.get('root');
+      if (!filePath) { sendJSON(res, 400, { error: 'Missing path' }); return; }
+
+      const resolved = path.resolve(projectRoot || '.', filePath);
+      if (projectRoot && !resolved.startsWith(path.resolve(projectRoot) + path.sep) && resolved !== path.resolve(projectRoot)) {
+        sendJSON(res, 403, { error: 'Path traversal blocked' }); return;
+      }
+
+      const fsP = await import('fs/promises');
+      const stat = await fsP.stat(resolved);
+      if (stat.size > 2 * 1024 * 1024) { sendJSON(res, 413, { error: 'File too large (max 2MB)' }); return; }
+
+      const content = await fsP.readFile(resolved, 'utf-8');
+      const { createHash } = await import('crypto');
+      const hash = createHash('sha256').update(content).digest('hex').substring(0, 16);
+
+      sendJSON(res, 200, { content, hash, path: filePath });
+    } catch (err) {
+      sendJSON(res, err.code === 'ENOENT' ? 404 : 500, { error: err.message });
+    }
+  },
+
+  'POST /api/workspace/file': async (req, res) => {
+    let body = '';
+    req.on('data', c => { body += c; if (body.length > 3 * 1024 * 1024) { req.destroy(); } });
+    req.on('end', async () => {
+      try {
+        const data = JSON.parse(body);
+        if (!data.path) { sendJSON(res, 400, { error: 'Missing path' }); return; }
+
+        const resolved = path.resolve(data.root || '.', data.path);
+        if (data.root && !resolved.startsWith(path.resolve(data.root) + path.sep)) {
+          sendJSON(res, 403, { error: 'Path traversal blocked' }); return;
+        }
+
+        const fsP = await import('fs/promises');
+
+        /* Optimistic locking */
+        if (data.expectedHash) {
+          try {
+            const current = await fsP.readFile(resolved, 'utf-8');
+            const { createHash } = await import('crypto');
+            const currentHash = createHash('sha256').update(current).digest('hex').substring(0, 16);
+            if (currentHash !== data.expectedHash) {
+              sendJSON(res, 409, { error: 'File modified externally', currentContent: current, currentHash, yourHash: data.expectedHash });
+              return;
+            }
+          } catch { /* file doesn't exist yet — ok */ }
+        }
+
+        await fsP.mkdir(path.dirname(resolved), { recursive: true });
+        await fsP.writeFile(resolved, data.content || '', 'utf-8');
+        sendJSON(res, 200, { ok: true, path: data.path });
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    });
+  },
+
+  'POST /api/workspace/directory': async (req, res) => {
+    let body = '';
+    req.on('data', c => { body += c; });
+    req.on('end', async () => {
+      try {
+        const data = JSON.parse(body);
+        if (!data.path) { sendJSON(res, 400, { error: 'Missing path' }); return; }
+        const resolved = path.resolve(data.root || '.', data.path);
+        if (data.root && !resolved.startsWith(path.resolve(data.root) + path.sep)) {
+          sendJSON(res, 403, { error: 'Path traversal blocked' }); return;
+        }
+        const fsP = await import('fs/promises');
+        await fsP.mkdir(resolved, { recursive: true });
+        sendJSON(res, 200, { ok: true, path: data.path });
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    });
+  },
+
+  'PUT /api/workspace/rename': async (req, res) => {
+    let body = '';
+    req.on('data', c => { body += c; });
+    req.on('end', async () => {
+      try {
+        const data = JSON.parse(body);
+        if (!data.from || !data.to) { sendJSON(res, 400, { error: 'Missing from/to' }); return; }
+        const root = data.root || '.';
+        const fromResolved = path.resolve(root, data.from);
+        const toResolved = path.resolve(root, data.to);
+        const absRoot = path.resolve(root);
+        if (!fromResolved.startsWith(absRoot + path.sep) || !toResolved.startsWith(absRoot + path.sep)) {
+          sendJSON(res, 403, { error: 'Path traversal blocked' }); return;
+        }
+        const fsP = await import('fs/promises');
+        await fsP.rename(fromResolved, toResolved);
+        sendJSON(res, 200, { ok: true, from: data.from, to: data.to });
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    });
+  },
+
+  'DELETE /api/workspace/file': async (req, res) => {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const filePath = url.searchParams.get('path');
+    const root = url.searchParams.get('root') || '.';
+    if (!filePath) { sendJSON(res, 400, { error: 'Missing path' }); return; }
+
+    const resolved = path.resolve(root, filePath);
+    if (!resolved.startsWith(path.resolve(root) + path.sep)) {
+      sendJSON(res, 403, { error: 'Path traversal blocked' }); return;
+    }
+
+    try {
+      const fsP = await import('fs/promises');
+      const stat = await fsP.stat(resolved);
+      if (stat.isDirectory()) {
+        await fsP.rm(resolved, { recursive: true });
+      } else {
+        await fsP.unlink(resolved);
+      }
+      sendJSON(res, 200, { ok: true, path: filePath });
+    } catch (err) {
+      sendJSON(res, err.code === 'ENOENT' ? 404 : 500, { error: err.message });
+    }
+  },
+
+  'GET /api/workspace/git-status': async (req, res) => {
+    try {
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const projectId = url.searchParams.get('project_id');
+      let projectPath = url.searchParams.get('path');
+
+      if (projectId) {
+        const proj = db.projects.get(projectId);
+        if (proj) projectPath = proj.path;
+      }
+      if (!projectPath) { sendJSON(res, 400, { error: 'Missing project_id or path' }); return; }
+
+      const { spawn } = await import('child_process');
+
+      const results = await Promise.allSettled([
+        new Promise((resolve, reject) => {
+          let out = '';
+          const p = spawn('git', ['status', '--porcelain'], { cwd: projectPath });
+          const timer = setTimeout(() => { p.kill('SIGTERM'); reject(new Error('timeout')); }, 1500);
+          p.stdout.on('data', d => { out += d; });
+          p.on('close', () => { clearTimeout(timer); resolve(out); });
+          p.on('error', reject);
+        }),
+        new Promise((resolve, reject) => {
+          let out = '';
+          const p = spawn('git', ['branch', '--show-current'], { cwd: projectPath });
+          const timer = setTimeout(() => { p.kill('SIGTERM'); reject(new Error('timeout')); }, 1500);
+          p.stdout.on('data', d => { out += d; });
+          p.on('close', () => { clearTimeout(timer); resolve(out.trim()); });
+          p.on('error', reject);
+        })
+      ]);
+
+      const files = {};
+      if (results[0].status === 'fulfilled') {
+        results[0].value.split('\n').filter(Boolean).forEach(line => {
+          files[line.substring(3)] = line.substring(0, 2).trim();
+        });
+      }
+      const branch = results[1].status === 'fulfilled' ? results[1].value : null;
+
+      sendJSON(res, 200, { files, branch });
+    } catch (err) {
+      sendJSON(res, 500, { error: err.message });
+    }
+  },
+
   'GET /api/logs': async (req, res) => {
     try {
       const logs = db.db.prepare(`

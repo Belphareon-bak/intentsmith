@@ -85,36 +85,60 @@ _sessions = [{
 - **Expert picker**: Oblíbení nahoře, "Zobrazit vše" pro kompletní seznam
 - **Přílohy**: Drag & drop nebo klik na 📎, souborové chipy s odebíráním
 
-### WebSocket protokol (`ws://localhost:3335/ws`)
+### WebSocket protokol v1 (`ws://localhost:3335/c3/ws`)
 
-**Klient → Server:**
+**Handshake:**
 ```json
-{
-  "type": "chat",
-  "message": "text zprávy",
-  "expert": "Developer",
-  "editMode": "auto",
-  "sessionId": 0
-}
+// IDE → Backend
+{"type": "hello", "protocolVersion": 1, "ideVersion": "c3-studio-1.0", "features": ["workspace","terminal","merge-preview","edit-ask","audit"]}
+
+// Backend → IDE (úspěch)
+{"type": "hello_ack", "protocolVersion": 1, "backendVersion": "59.0", "serverVersion": "59.0", "features": ["workspace","terminal","edit-ask","audit"]}
+
+// Backend → IDE (chyba)
+{"type": "hello_reject", "reason": "Protocol mismatch", "requiredProtocol": 1}
 ```
 
-**Server → Klient:**
+**Post-handshake — kanálové zprávy:**
+
 ```json
-// Chat odpověď
-{"type": "chat_response", "text": "...", "tag": "LLM", "contextPercent": 42, "sessionId": 0}
+// Klient → Server: chat
+{"channel": "chat", "data": {"content": "text", "conversationId": "conv-123", "editMode": "auto"}}
 
-// Agent log
-{"type": "agent_log", "logType": "TOOL", "text": "...", "sessionId": 0}
+// Klient → Server: terminal
+{"channel": "terminal", "data": {"type": "exec", "command": "npm test", "reqId": "term-1234"}}
 
-// Terminálový výstup
-{"type": "terminal", "text": "~/c3 $ npm test", "accent": false, "sessionId": 0}
+// Klient → Server: control
+{"channel": "control", "data": {"action": "cancel"}}
+{"channel": "control", "data": {"action": "edit_approve", "requestId": "er-123"}}
+{"channel": "control", "data": {"action": "rehydrate", "conversationIds": ["conv-1","conv-2"]}}
 
-// Aktualizace kontextu
-{"type": "context_update", "percent": 55, "sessionId": 0}
+// Server → Klient: chat
+{"channel": "chat", "data": {"type": "assistant", "content": "...", "metadata": {"mode": "CONV"}}}
 
-// Žádost o schválení editace (edit_mode=ask)
-{"type": "edit_request", "file": "src/server.js", "diff": "...", "sessionId": 0}
+// Server → Klient: agent (event stream)
+{"channel": "agent", "data": {"type": "turn_start", "payload": {...}}}
+{"channel": "agent", "data": {"type": "cre_decision", "payload": {"intent": "CONV", "confidence": 0.94}}}
+{"channel": "agent", "data": {"type": "tool_call", "payload": {"tool": "shell", "args": {...}}}}
+{"channel": "agent", "data": {"type": "gate_verdict", "payload": {"passed": true, "score": 0.91}}}
+
+// Server → Klient: terminal
+{"channel": "terminal", "data": {"type": "exec_result", "stdout": "...", "exitCode": 0}}
+
+// Server → Klient: status
+{"channel": "status", "data": {"agentStatus": "idle", "contextPercent": 42}}
 ```
+
+### Transport architektura
+
+```
+event-bus.js    → C3Bus (on/off/emit) — centrální event bus
+ws-client.js    → C3WS (connect, send, handshake, reconnect, channel routing)
+agent-client.js → C3Agent (formatEvent, isExecuting)
+terminal-client.js → C3Terminal (send, cancel, isExecuting)
+```
+
+Transport emituje na bus, UI subscribuje. Žádné přímé renderXXX() volání z transportu.
 
 ---
 
@@ -195,25 +219,33 @@ Všechna nastavení se ukládají do `localStorage['c3-settings']` a načítají
 
 ---
 
-## Backend API (očekávané endpointy)
+## Backend API
 
 | Endpoint | Method | Popis |
 |---|---|---|
-| `/chat` | POST | Odeslání zprávy (fallback pro WS) |
-| `/api/autocomplete` | POST | Autocomplete návrh |
+| `/chat` | POST | Odeslání zprávy (HTTP fallback pro WS) |
+| `/api/autocomplete` | POST | Autocomplete návrh (stub, Blok D) |
 | `/api/context` | POST | Dotaz na zaplnění kontextu |
-| `/api/projects` | GET | Seznam projektů |
-| `/api/projects/:id` | PATCH/DELETE | Editace/archivace projektu |
-| `/api/experts` | GET | Seznam expertů |
-| `/api/experts/:id` | PATCH | Editace experta |
-| `/api/conversations` | GET | Seznam konverzací |
+| `/api/projects` | GET/POST | Seznam / vytvoření projektu |
+| `/api/projects/:id` | PUT/DELETE | Editace/archivace projektu |
+| `/api/experts` | GET/POST | Seznam / vytvoření experta |
+| `/api/experts/:id` | PUT | Editace experta |
+| `/api/conversations` | GET/POST | Seznam / vytvoření konverzace |
 | `/api/conversations/:id` | GET/DELETE | Detail/archivace konverzace |
 | `/api/conversations/:id/messages` | GET | Zprávy konverzace |
-| `/api/agents` | GET | Seznam workerů |
+| `/api/agents` | GET/POST | Seznam / vytvoření workeru |
+| `/api/agents/:id` | PUT | Editace workeru |
 | `/api/agents/:id/run` | POST | Spuštění workeru |
 | `/api/agents/:id/disable` | POST | Pozastavení workeru |
-| `/health` | GET | Health check |
-| `ws://localhost:3335/ws` | WS | Real-time komunikace |
+| `/api/health` | GET | Health check |
+| `/api/audit` | GET | Merge audit + capability drift logy |
+| `/api/workspace/tree` | GET | Strom souborů projektu |
+| `/api/workspace/file` | GET/POST | Čtení/zápis souboru (optimistic lock) |
+| `/api/workspace/directory` | POST | Vytvoření adresáře |
+| `/api/workspace/rename` | PUT | Přejmenování souboru/adresáře |
+| `/api/workspace/file` | DELETE | Smazání souboru/adresáře |
+| `/api/workspace/git-status` | GET | Git status + branch (async) |
+| `ws://localhost:3335/c3/ws` | WS | Real-time komunikace (protocol v1) |
 
 ---
 

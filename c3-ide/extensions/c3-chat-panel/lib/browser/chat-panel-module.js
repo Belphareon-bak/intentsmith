@@ -376,12 +376,44 @@ function grid(items){
 function setDetail(d){_centerState.detail=d;renderCenter();}
 
 function _addNew(view){
-  var tpl={experts:{name:'Nový expert',fields:[{k:'Typ',v:''},{k:'Emoji',v:'🆕'}],tags:['Expert'],actions:['Uložit','Zrušit'],editing:true,_isNew:true},
+  /* Experts → dispatch wizard open event (center-views-module.js listens) */
+  if(view==='experts'){
+    try{document.dispatchEvent(new CustomEvent('c3-wizard-open',{detail:{mode:'create'}}));}catch(e){}
+    return;
+  }
+  /* Workers → inject wizard trigger into chat */
+  if(view==='workers'){
+    var s=_sessions[_sessionActive]||_sessions[0];
+    s.chat.msgs.push({role:'system',text:'🛠️ Spouštím průvodce vytvořením workeru...'});
+    if(typeof C3WS!=='undefined'&&C3WS.isReady()){C3WS.sendChat('/new-agent',s);}
+    renderChat();_chatScrollPane(_sessionActive);
+    return;
+  }
+  /* Conversations → create via API, link to session */
+  if(view==='chats'){
+    var _ti=_centerState.targetSession||0;if(_ti>=_sessionCount)_ti=0;
+    fetch(_backendBase+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'Nová konverzace',expert:'Výchozí'}),signal:AbortSignal.timeout(5000)})
+    .then(function(r){return r.json();})
+    .then(function(created){
+      if(created.id){
+        _sessions[_ti]._convId=created.id;
+        _sessions[_ti].chat.msgs=[{role:'system',text:'📂 Nová konverzace vytvořena.'}];
+        _sessions[_ti].chat.ctx=0;
+        _persistSessionState();renderChat();_chatScrollPane(_ti);
+      }
+      fetchBackendData();
+    }).catch(function(){
+      /* Fallback: local only */
+      _sessions[_ti].chat.msgs=[{role:'system',text:'📂 Nová konverzace (lokální).'}];
+      _sessions[_ti].chat.ctx=0;
+      renderChat();
+    });
+    return;
+  }
+  var tpl={
     projects:{name:'Nový projekt',fields:[{k:'Status',v:'Active'},{k:'Sprint',v:''},{k:'Vytvořeno',v:new Date().toLocaleDateString('cs-CZ')}],tags:[],actions:['Uložit','Zrušit'],editing:true,_isNew:true},
-    chats:{name:'Nová konverzace',fields:[{k:'Expert',v:'Výchozí'}],tags:['Chat'],actions:['Uložit','Zrušit'],editing:true,_isNew:true},
-    specialists:{name:'Nový specialista',fields:[{k:'Oblast',v:''}],tags:[],actions:['Uložit','Zrušit'],editing:true,_isNew:true},
-    workers:{name:'Nový worker',fields:[{k:'Status',v:'Paused'},{k:'Cron',v:''},{k:'Popis',v:''}],tags:['Worker'],actions:['Uložit','Zrušit'],editing:true,_isNew:true}};
-  setDetail(tpl[view]||tpl.experts);
+    specialists:{name:'Nový specialista',fields:[{k:'Oblast',v:''}],tags:[],actions:['Uložit','Zrušit'],editing:true,_isNew:true}};
+  setDetail(tpl[view]||tpl.projects);
 }
 
 function centerExperts(){return h(React.Fragment,null,viewHead('Experti',true,function(){_addNew('experts');}),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(EXPERTS.map(function(e){return card(e,function(){setDetail({name:e.name,fields:[{k:'Typ',v:e.desc},{k:'Emoji',v:e.emoji},{k:'Oblíbený',v:e.fav,type:'fav',_expertName:e.name}],tags:['Expert',e.desc],actions:['Otevřít','Editovat']});});}))));}
@@ -595,8 +627,8 @@ d.actions?h('div',{style:{marginTop:12}},h('div',{style:{fontSize:10,fontWeight:
         if(exp){c3.setExpert(exp.name);c3.chatMsg('🎓 Expert změněn na: '+exp.name);}
         var conv=CONVERSATIONS.find(function(c){return c.title===d.name;});
         if(conv){c3.chatMsg('📂 Načítám konverzaci: '+conv.title+'...');c3.setExpert(conv.expert);
-          if(conv.id){fetch(_backendBase+'/api/conversations/'+conv.id+'/messages',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(msgs){
-            var items=Array.isArray(msgs)?msgs:(msgs.messages||[]);if(items.length>0){_ts.chat.msgs=[{role:'system',text:'📂 Konverzace: '+conv.title}];items.forEach(function(m){_ts.chat.msgs.push({role:m.role||'user',text:m.content||m.text||''});});renderChat();_chatScrollPane(_ti);}}).catch(function(){});}
+          if(conv.id){_ts._convId=conv.id;_persistSessionState();fetch(_backendBase+'/api/conversations/'+conv.id+'/messages',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(msgs){
+            var items=Array.isArray(msgs)?msgs:(msgs.messages||[]);if(items.length>0){_ts.chat.msgs=[{role:'system',text:'📂 Konverzace: '+conv.title}];items.forEach(function(m){var meta=null;try{meta=m.metadata?JSON.parse(m.metadata):null;}catch(e){}_ts.chat.msgs.push({role:m.role||'user',text:m.content||m.text||'',tag:(meta&&meta.mode)||undefined});});renderChat();_chatScrollPane(_ti);}}).catch(function(){});}
         }
         var proj=PROJECTS.find(function(p){return p.name===d.name;});
         if(proj){c3.agentLog('TOOL','📁 Otevřen projekt: '+proj.name+(proj.sprint?' (Sprint '+proj.sprint+')':'')+(proj.tests?' — Testy: '+_s(proj.tests):''));
@@ -613,7 +645,26 @@ d.actions?h('div',{style:{marginTop:12}},h('div',{style:{fontSize:10,fontWeight:
         else if(view==='workers'){var w4=WORKERS.find(function(w){return w.name===d.name;});if(w4)itemId=w4.id;}
         var upd={};d.fields.forEach(function(f){upd[f.k]=f.v;});
         var ep=view==='projects'?'/api/projects/':view==='experts'?'/api/experts/':view==='workers'?'/api/agents/':null;
-        if(itemId&&ep){fetch(_backendBase+ep+itemId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(upd),signal:AbortSignal.timeout(3000)}).then(function(){c3.agentLog('TOOL','💾 Uloženo: '+d.name);fetchBackendData();}).catch(function(){c3.agentLog('TOOL','💾 Uloženo lokálně: '+d.name);});}
+        if(d._isNew&&ep){
+          /* POST new entity */
+          upd.name=d.name;
+          var postEp=view==='chats'?'/api/conversations':ep.slice(0,-1);/* remove trailing / */
+          fetch(_backendBase+postEp,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(upd),signal:AbortSignal.timeout(5000)})
+          .then(function(r){return r.json();})
+          .then(function(created){
+            c3.agentLog('TOOL','✨ Vytvořeno: '+d.name);
+            /* Link conversation to session */
+            if(view==='chats'&&created.id){
+              var _ti2=_centerState.targetSession||0;if(_ti2>=_sessionCount)_ti2=0;
+              _sessions[_ti2]._convId=created.id;
+              _sessions[_ti2].chat.expert=upd.Expert||upd.expert||'Výchozí';
+              _sessions[_ti2].chat.msgs=[{role:'system',text:'📂 Nová konverzace: '+d.name}];
+              _persistSessionState();renderChat();
+            }
+            fetchBackendData();
+          }).catch(function(){c3.agentLog('TOOL','✨ Vytvořeno lokálně: '+d.name);});
+          delete d._isNew;
+        }else if(itemId&&ep){fetch(_backendBase+ep+itemId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(upd),signal:AbortSignal.timeout(3000)}).then(function(){c3.agentLog('TOOL','💾 Uloženo: '+d.name);fetchBackendData();}).catch(function(){c3.agentLog('TOOL','💾 Uloženo lokálně: '+d.name);});}
         else{c3.agentLog('TOOL','💾 Uloženo: '+d.name);}
         d.actions=d._origActions||['Otevřít','Editovat'];delete d.editing;delete d._orig;delete d._origActions;renderCenter();
       }else if(a==='Zrušit'){
@@ -1028,12 +1079,22 @@ function _agentLogContent(s){
       h('span',{style:{fontWeight:600,minWidth:60,flexShrink:0,color:TC[e.cls]||C.tx3}},e.type),
       h('span',{style:{color:C.tx2}},e.text));}));
 }
-function _terminalContent(s){
-  return h('div',{style:{flex:1,overflowY:'auto',padding:'5px 10px',fontFamily:C.mono,fontSize:11.5,lineHeight:'1.6',color:C.tx2}},
-    s.term.map(function(t,i){
-      return h('div',{key:i},t.accent?h('span',{style:{color:C.accentText}},t.text):h('span',null,
-        t.text.indexOf('$ ')>=0?[h('span',{key:'p',style:{color:C.accentText}},t.text.slice(0,t.text.indexOf('$ ')+2)),t.text.slice(t.text.indexOf('$ ')+2)]:t.text));
-    }));
+function _terminalContent(s,idx){
+  var isExec=typeof C3Terminal!=='undefined'&&C3Terminal.isExecuting(idx);
+  return h('div',{style:{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}},
+    h('div',{style:{flex:1,overflowY:'auto',padding:'5px 10px',fontFamily:C.mono,fontSize:11.5,lineHeight:'1.6',color:C.tx2}},
+      s.term.map(function(t,i){
+        return h('div',{key:i},t.accent?h('span',{style:{color:C.accentText}},t.text):h('span',null,
+          t.text.indexOf('$ ')>=0?[h('span',{key:'p',style:{color:C.accentText}},t.text.slice(0,t.text.indexOf('$ ')+2)),t.text.slice(t.text.indexOf('$ ')+2)]:t.text));
+      })),
+    /* Terminal input */
+    h('div',{style:{display:'flex',alignItems:'center',gap:4,padding:'3px 6px',borderTop:'1px solid '+C.border,background:C.bg2,flexShrink:0}},
+      h('span',{style:{color:C.accentText,fontFamily:C.mono,fontSize:11,flexShrink:0}},'$'),
+      h('input',{id:'c3-term-input-'+idx,style:{flex:1,background:'none',border:'none',outline:'none',color:C.tx1,fontFamily:C.mono,fontSize:11.5},
+        placeholder:isExec?'Čekám na dokončení...':'Zadej příkaz...',disabled:isExec,
+        onKeyDown:function(e){if(e.key==='Enter'){var v=e.target.value.trim();if(v&&typeof C3Terminal!=='undefined'){C3Terminal.send(idx,v);e.target.value='';renderAgent();}}}}),
+      isExec?h('button',{style:{background:C.redBg,color:C.red,border:'none',borderRadius:4,cursor:'pointer',fontSize:9,fontWeight:600,padding:'2px 6px',flexShrink:0},
+        onClick:function(){_cancelExecution(idx);}},'STOP'):null));
 }
 function _mixedContent(s){
   /* Interleave log entries + terminal lines sorted by timestamp */
@@ -1051,11 +1112,23 @@ function _mixedContent(s){
         t.text.indexOf('$ ')>=0?[h('span',{key:'p',style:{color:C.accentText}},t.text.slice(0,t.text.indexOf('$ ')+2)),t.text.slice(t.text.indexOf('$ ')+2)]:t.text));
   }));
 }
+/* ── Cancel execution (LLM + terminal) ── */
+function _cancelExecution(idx) {
+  if (typeof C3WS !== 'undefined') C3WS.sendCancel();
+  if (typeof C3Terminal !== 'undefined') C3Terminal.cancel(idx);
+  var s = _sessions[idx];
+  if (s) {
+    s.log.forEach(function(l) { l.active = false; });
+    s.log.push({time:new Date().toLocaleTimeString('cs-CZ'),type:'CANCEL',cls:'error',text:'Zrušeno uživatelem',active:true,ts:new Date().toISOString()});
+  }
+  renderAgent(); renderChat();
+}
+
 /* split mode: agent log left, terminal right */
-function _splitContent(s){
+function _splitContent(s,idx){
   return h('div',{style:{display:'flex',flex:1,overflow:'hidden'}},
     h('div',{style:{flex:1,borderRight:'1px solid '+C.border,overflow:'hidden',display:'flex'}},_agentLogContent(s)),
-    h('div',{style:{flex:1,overflow:'hidden',display:'flex'}},_terminalContent(s)));
+    h('div',{style:{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}},_terminalContent(s,idx)));
 }
 
 function _bottomPane(idx){
@@ -1077,9 +1150,13 @@ function _bottomPane(idx){
       h('div',{style:{width:10}}),/* gap between groups */
       grpB.map(function(m,mi){return _tab(m,mi);}),
       h('div',{style:{flex:1}}),
+      /* STOP button — visible when executing */
+      (typeof C3Agent!=='undefined'&&C3Agent.isExecuting(idx))||(typeof C3Terminal!=='undefined'&&C3Terminal.isExecuting(idx))?
+        h('button',{style:{background:C.redBg,color:C.red,border:'none',borderRadius:3,cursor:'pointer',fontSize:8,fontWeight:700,padding:'2px 6px',margin:'0 4px',alignSelf:'center'},
+          onClick:function(){_cancelExecution(idx);}},'■ STOP'):null,
       h('span',{style:{fontSize:9,color:C.tx4,padding:'0 6px',alignSelf:'center'}},''+(idx+1))),
     /* Panel content */
-    mode==='split'?_splitContent(s):mode==='agent'?_agentLogContent(s):mode==='terminal'?_terminalContent(s):_mixedContent(s));
+    mode==='split'?_splitContent(s,idx):mode==='agent'?_agentLogContent(s):mode==='terminal'?_terminalContent(s,idx):_mixedContent(s));
 }
 
 function AgentApp(){
