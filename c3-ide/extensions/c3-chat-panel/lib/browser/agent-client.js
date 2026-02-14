@@ -1,0 +1,201 @@
+// C3 Studio — Agent Client
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// Agent event processing: formats raw agent channel events into displayable
+// log entries with type classification and CSS classes.
+//
+// Subscribes to C3Bus 'agent:event', emits 'agent:log' with formatted entry.
+// Tracks per-session executing state.
+//
+// AgentEventType (from protocol.js):
+//   turn_start, turn_end, cre_decision, tool_call, tool_result,
+//   llm_start, llm_token, llm_done, gate_verdict, error, status_change
+//
+// ══════════════════════════════════════════════════════════════════════════════
+
+"use strict";
+
+/* Globals expected: C3Bus (from event-bus.js), _sessions */
+
+var _isExecuting = {};  // sessionIdx → boolean
+
+/* ─── Event type → display mapping ────────────────────────────────────── */
+
+var _eventMap = {
+  'turn_start':    { type: 'TURN',  cls: 'info',    label: 'Začátek tahu' },
+  'turn_end':      { type: 'TURN',  cls: 'info',    label: 'Konec tahu' },
+  'cre_decision':  { type: 'CRE',   cls: 'cre',     label: 'CRE rozhodnutí' },
+  'tool_call':     { type: 'TOOL',  cls: 'tool',    label: 'Volání nástroje' },
+  'tool_result':   { type: 'TOOL',  cls: 'tool',    label: 'Výsledek nástroje' },
+  'llm_start':     { type: 'LLM',   cls: 'llm',     label: 'LLM start' },
+  'llm_token':     { type: 'LLM',   cls: 'llm',     label: null },  // skip — too noisy
+  'llm_done':      { type: 'LLM',   cls: 'llm',     label: 'LLM dokončen' },
+  'gate_verdict':  { type: 'GATE',  cls: 'gate',    label: 'Gate verdict' },
+  'error':         { type: 'ERROR', cls: 'error',   label: 'Chyba' },
+  'status_change': { type: 'STATUS',cls: 'info',    label: 'Stav' },
+  'edit_request':  { type: 'EDIT',  cls: 'edit',    label: 'Žádost o editaci' }
+};
+
+/* ─── Format agent event → log entry ──────────────────────────────────── */
+
+function formatAgentEvent(event) {
+  var mapping = _eventMap[event.type] || { type: 'UNKNOWN', cls: 'info', label: event.type };
+
+  /* Skip llm_token — too noisy for log */
+  if (event.type === 'llm_token') return null;
+
+  var text = '';
+  var payload = event.payload || {};
+
+  switch (event.type) {
+    case 'turn_start':
+      text = 'Tah #' + (payload.turnNumber || '?') + ' zahájen';
+      if (payload.message) text += ': ' + _truncate(payload.message, 80);
+      break;
+
+    case 'turn_end':
+      text = 'Tah dokončen';
+      if (payload.status === 'cancelled_by_user') {
+        text = 'Tah zrušen uživatelem';
+        mapping = { type: 'CANCEL', cls: 'error', label: 'Zrušeno' };
+      } else if (payload.status) {
+        text += ' — ' + payload.status;
+      }
+      if (payload.tokensUsed) text += ' (' + payload.tokensUsed + ' tokenů)';
+      break;
+
+    case 'cre_decision':
+      text = (payload.handler || 'neznámý') + ' → ' + (payload.reason || '');
+      if (payload.confidence) text += ' (' + Math.round(payload.confidence * 100) + '%)';
+      break;
+
+    case 'tool_call':
+      text = (payload.tool || payload.name || 'nástroj') + '(' + _truncate(JSON.stringify(payload.args || payload.input || {}), 60) + ')';
+      break;
+
+    case 'tool_result':
+      var resultText = payload.result || payload.output || '';
+      if (typeof resultText === 'object') resultText = JSON.stringify(resultText);
+      text = (payload.tool || payload.name || 'nástroj') + ' → ' + _truncate(String(resultText), 100);
+      if (payload.exitCode !== undefined) text += ' [exit ' + payload.exitCode + ']';
+      break;
+
+    case 'llm_start':
+      text = 'Model: ' + (payload.model || '?');
+      if (payload.temperature !== undefined) text += ' temp=' + payload.temperature;
+      break;
+
+    case 'llm_done':
+      text = 'Odpověď dokončena';
+      if (payload.tokens) text += ' (' + payload.tokens + ' tokenů)';
+      if (payload.duration) text += ' za ' + payload.duration + 'ms';
+      break;
+
+    case 'gate_verdict':
+      text = (payload.passed ? '✓ Schváleno' : '✗ Zamítnuto');
+      if (payload.reason) text += ' — ' + payload.reason;
+      if (payload.score !== undefined) text += ' (skóre: ' + payload.score + ')';
+      break;
+
+    case 'error':
+      text = payload.message || payload.error || 'Neznámá chyba';
+      if (payload.code) text = '[' + payload.code + '] ' + text;
+      break;
+
+    case 'status_change':
+      text = (payload.from || '?') + ' → ' + (payload.to || '?');
+      break;
+
+    case 'edit_request':
+      text = (payload.file || '?') + ' — čeká na schválení';
+      break;
+
+    default:
+      text = JSON.stringify(payload).substring(0, 120);
+  }
+
+  return {
+    time: _formatTime(event.timestamp),
+    ts: event.timestamp || new Date().toISOString(),
+    type: mapping.type,
+    cls: mapping.cls,
+    text: text,
+    active: true,
+    seq: event.seq || 0,
+    turnId: event.turnId || null,
+    eventId: event.id || null
+  };
+}
+
+/* ─── Bus subscriber ──────────────────────────────────────────────────── */
+
+function initAgentClient() {
+  if (typeof C3Bus === 'undefined') {
+    console.error('[C3 Agent] C3Bus not available');
+    return;
+  }
+
+  C3Bus.on('agent:event', function(ev) {
+    var sessionIdx = ev.sessionIdx;
+    var event = ev.event || {};
+
+    /* Track executing state */
+    if (event.type === 'turn_start') {
+      _isExecuting[sessionIdx] = true;
+    } else if (event.type === 'turn_end' || event.type === 'error') {
+      _isExecuting[sessionIdx] = false;
+    }
+
+    /* Format and emit */
+    var logEntry = formatAgentEvent(event);
+    if (logEntry) {
+      C3Bus.emit('agent:log', { sessionIdx: sessionIdx, entry: logEntry });
+    }
+  });
+
+  /* Status updates can also affect executing state */
+  C3Bus.on('status:update', function(ev) {
+    if (ev.data && ev.data.agentStatus) {
+      var si = ev.sessionIdx !== undefined ? ev.sessionIdx : 0;
+      _isExecuting[si] = (ev.data.agentStatus === 'executing');
+    }
+  });
+}
+
+/* ─── Helpers ─────────────────────────────────────────────────────────── */
+
+function _truncate(str, maxLen) {
+  if (!str) return '';
+  if (str.length <= maxLen) return str;
+  return str.substring(0, maxLen - 1) + '…';
+}
+
+function _formatTime(isoStr) {
+  if (!isoStr) return new Date().toLocaleTimeString('cs-CZ');
+  try {
+    return new Date(isoStr).toLocaleTimeString('cs-CZ');
+  } catch (e) {
+    return isoStr;
+  }
+}
+
+function isAgentExecuting(sessionIdx) {
+  return !!_isExecuting[sessionIdx];
+}
+
+/* ─── Exports ─────────────────────────────────────────────────────────── */
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    initAgentClient: initAgentClient,
+    formatAgentEvent: formatAgentEvent,
+    isAgentExecuting: isAgentExecuting
+  };
+}
+if (typeof window !== 'undefined') {
+  window.C3Agent = {
+    init: initAgentClient,
+    formatEvent: formatAgentEvent,
+    isExecuting: isAgentExecuting
+  };
+}
