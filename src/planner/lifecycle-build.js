@@ -28,6 +28,8 @@ import {
 } from './lifecycle-prompts.js';
 import { checkDependencies } from './lifecycle-planning.js';
 import { MilestoneStatus } from './lifecycle.js';
+import { C3ToolExecutor } from '../executor/c3-tool-executor.js';
+import { validateMilestoneSize } from './milestone-size.js';
 
 // ─── Start Next Milestone ────────────────────────────────────────────────────
 
@@ -136,11 +138,49 @@ export async function approveMilestonePlan(lifecycle, milestoneId) {
  * @returns {Promise<Object>} Result with status, health score, etc.
  */
 async function executeMilestone(lifecycle, milestone) {
+  // ─── Pre-execution: hard limit on milestone size ───────────────────────
+  const sizeCheck = validateMilestoneSize(milestone, {
+    maxLOC: lifecycle.config.maxMilestoneLOC,
+    maxFiles: lifecycle.config.maxMilestoneFiles,
+  });
+
+  if (!sizeCheck.fits) {
+    logger.error('LifecycleBuild', 'Milestone exceeds size limits — BLOCKED', {
+      milestoneId: milestone.id,
+      issues: sizeCheck.issues,
+    });
+    msRepo.updateStatus.run(MilestoneStatus.BLOCKED, milestone.id);
+    return {
+      milestoneId: milestone.id,
+      status: MilestoneStatus.BLOCKED,
+      reason: `Size limit exceeded: ${sizeCheck.issues.join('; ')}`,
+      sizeCheck,
+      options: ['retry', 'skip', 'modify'],
+    };
+  }
+
+  if (sizeCheck.warnings.length > 0) {
+    logger.warn('LifecycleBuild', 'Milestone size warnings', {
+      milestoneId: milestone.id,
+      warnings: sizeCheck.warnings,
+    });
+  }
+
+  // ─── Pre-execution: scope file validation ──────────────────────────────
+  const scopeFiles = milestone.scope_files || [];
+  if (scopeFiles.length === 0) {
+    logger.warn('LifecycleBuild', 'No scope_files defined — scope enforcement will be skipped', {
+      milestoneId: milestone.id,
+    });
+  }
+
   msRepo.updateStatus.run(MilestoneStatus.EXECUTING, milestone.id);
 
   logger.info('LifecycleBuild', 'Executing milestone', {
     milestoneId: milestone.id,
     title: milestone.title,
+    scopeFiles: scopeFiles.length,
+    estimatedLOC: milestone.estimated_loc || 'unknown',
   });
 
   try {
@@ -284,20 +324,82 @@ async function runTests(lifecycle, milestone) {
     return { allPassed: null, summary: 'No test strategy defined', results: [] };
   }
 
-  // For now, report test strategy as advisory — actual test execution
-  // would require shell access which depends on project setup.
-  // The checkpoint prompt will evaluate test coverage from the implementation.
-  logger.info('LifecycleBuild', 'Test phase (advisory)', {
+  // Determine test command from strategy or default to npm test
+  const testCommand = testStrategy.command || testStrategy.run || 'npm test';
+
+  logger.info('LifecycleBuild', 'Running tests', {
     milestoneId: milestone.id,
-    strategy: testStrategy.type || 'unknown',
+    command: testCommand,
   });
 
-  return {
-    allPassed: null, // null = not executed (advisory)
-    summary: `Test strategy: ${testStrategy.type || 'unknown'} — ${testStrategy.description || 'no description'}`,
-    expectedTests: testStrategy.expected_test_count || 0,
-    strategy: testStrategy,
-  };
+  try {
+    const executor = new C3ToolExecutor();
+    const result = await executor.execute({
+      correlationId: `test-${milestone.id}-${Date.now()}`,
+      tool: 'shell',
+      args: {
+        command: testCommand,
+        cwd: lifecycle.projectPath,
+      },
+      timeoutMs: 120000, // 2 min for tests
+    });
+
+    if (result.status === 'timeout') {
+      return {
+        allPassed: false,
+        exitCode: -1,
+        summary: `Tests timed out after 120s (${testCommand})`,
+        command: testCommand,
+        strategy: testStrategy,
+      };
+    }
+
+    if (result.status === 'cancelled') {
+      return {
+        allPassed: null,
+        exitCode: -1,
+        summary: 'Test execution cancelled',
+        command: testCommand,
+        strategy: testStrategy,
+      };
+    }
+
+    const stdout = result.output?.stdout || '';
+    const stderr = result.output?.stderr || '';
+    const exitCode = result.output?.exitCode ?? (result.status === 'ok' ? 0 : 1);
+
+    logger.info('LifecycleBuild', `Tests ${exitCode === 0 ? 'PASSED' : 'FAILED'}`, {
+      milestoneId: milestone.id,
+      exitCode,
+      stdoutLen: stdout.length,
+      stderrLen: stderr.length,
+    });
+
+    return {
+      allPassed: exitCode === 0,
+      exitCode,
+      summary: exitCode === 0
+        ? `Tests passed (${testCommand})`
+        : `Tests failed with exit code ${exitCode}`,
+      stdout: stdout.slice(-2000), // last 2000 chars to keep context manageable
+      stderr: stderr.slice(-1000),
+      command: testCommand,
+      strategy: testStrategy,
+    };
+  } catch (err) {
+    logger.error('LifecycleBuild', 'Test execution error', {
+      milestoneId: milestone.id,
+      error: err.message,
+    });
+
+    return {
+      allPassed: false,
+      exitCode: -1,
+      summary: `Test execution error: ${err.message}`,
+      command: testCommand,
+      strategy: testStrategy,
+    };
+  }
 }
 
 // ─── Milestone Checkpoint ────────────────────────────────────────────────────
@@ -317,10 +419,10 @@ async function milestoneCheckpoint(lifecycle, milestone, wfResult, testResults) 
   const checkpoint = parseJSON(result.content);
 
   if (!checkpoint) {
-    logger.warn('LifecycleBuild', 'Checkpoint parse failed — treating as PASS', {
+    logger.warn('LifecycleBuild', 'Checkpoint parse failed — treating as FAIL (safe default)', {
       milestoneId: milestone.id,
     });
-    return { passed: true, raw: result.content };
+    return { passed: false, raw: result.content, reason: 'Checkpoint response was not valid JSON' };
   }
 
   // Store checkpoint as drift check

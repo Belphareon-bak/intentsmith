@@ -1,6 +1,6 @@
-# C.3 Agent Platform — Architecture v65.0
+# C.3 Agent Platform — Architecture v65.2
 
-**Version:** v65.0 (SHELL intent, dotenv config, Project Wizard)
+**Version:** v65.2 (Lifecycle BUILD hardening, SK→CZ v63.0, Expert Wizard v64.1)
 **Status:** Production-ready, ~90% complete
 **Date:** February 2026
 
@@ -251,7 +251,7 @@ Trust Feedback Loop:
 
 ### 4. Project Lifecycle (Phase C)
 
-Milestone-based project management with crash recovery.
+Milestone-based project management with crash recovery and hardened BUILD phase.
 
 ```
 SPEC → BUILD → REVIEW → next milestone or COMPLETED
@@ -260,6 +260,12 @@ SPEC → BUILD → REVIEW → next milestone or COMPLETED
       (lifecycle_handoff_state table,
        DB write-through, preload on restart)
 ```
+
+**BUILD phase (v65.2):**
+- Real test execution via `C3ToolExecutor` (shell sandbox, timeout 120s)
+- Pre-execution hard limit on milestone size (`validateMilestoneSize` — BLOCKED if LOC/files exceed config)
+- Checkpoint FAIL default on parse error (safe default, not PASS)
+- Scope enforcement: pre-execution warning + post-execution git diff check
 
 **Multi-session (C4):** New session auto-detects active lifecycle for same project via `active_session_id`.
 
@@ -394,7 +400,9 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 | v583 tier1 | 94 | Core CRE regression |
 | Phase B workers | 73 | B0/B4/B6/B8/B9 |
 | Notifications | 67 | Channels, routing, policy |
-| Lifecycle E2E | 60 | Phase C lifecycle |
+| Lifecycle E2E | 138 | Phase C lifecycle (12 phases, disk I/O, git) |
+| Lifecycle unit | 103 | State machine, persistence, deps |
+| Milestone size | 40 | Size validation, split suggestions |
 | RSS sources | 47 | RSS/Atom parsing |
 | Workflow | 42 | Planner workflow |
 | **Merge engine** | **40** | **Multi-expertise composition, token budget, inheritance** |
@@ -449,7 +457,7 @@ All notification channels use JSON body (not HTTP headers) to support Czech diac
 |-------|-----------|----------------|
 | A (CRE) | 100% | Intent classification, decision matrix, quality gate |
 | B (Workers) | 80% | Runner, scheduler, sources, notifications, multi-source |
-| C (Lifecycle) | 95% | Milestones, crash recovery, multi-session |
+| C (Lifecycle) | **98%** | Milestones, crash recovery, multi-session, real test exec, hard size limits |
 | D-int (Integration) | 100% | Rate monitor auto-registration |
 | D (Experts) | **95%** | 15 built-in experts, merge engine, 5D capabilities, enforcement, wizard UI |
 | D-obs (Observability) | **100%** | ExecutionTrace ID, LLM execution log, capability drift log |
@@ -460,4 +468,4 @@ All notification channels use JSON body (not HTTP headers) to support Czech diac
 
 ---
 
-*This document reflects C.3 Agent Platform v63.3 architecture (2026-02-14).*
+*This document reflects C.3 Agent Platform v65.2 architecture (2026-02-14).*

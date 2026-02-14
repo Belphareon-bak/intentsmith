@@ -1,6 +1,6 @@
-# C3-Agent v65.0
+# C3-Agent v65.2
 
-Conversational AI platforma s CRE decision enginem, CRE Gatekeeper audit trail, 15 domain experty s 5D capability profily, multi-expertise merge enginem, enforcement pipeline, execution trace observability, SHELL intent pro terminal a C3 Studio IDE (Theia 1.65.2).
+Conversational AI platforma s CRE decision enginem, CRE Gatekeeper audit trail, 15 domain experty s 5D capability profily, multi-expertise merge enginem, enforcement pipeline, execution trace observability, SHELL intent pro terminal, Project Lifecycle s real test execution a C3 Studio IDE (Theia 1.65.2).
 
 ## Spusteni
 
@@ -51,7 +51,7 @@ Vsechny promenne se nacitaji z `.env` souboru pres `dotenv`. Viz `.env.example` 
 
 | Dokument | Popis |
 |----------|-------|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Kompletni architektura platformy (v64.0) |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Kompletni architektura platformy (v65.2) |
 | [AUTHORITY.md](AUTHORITY.md) | Authority chain: User > HumanGate > CRE > Planner > Executor > Tool |
 | [OPERABILITY.md](OPERABILITY.md) | Operacni kontrakty: immutabilita, determinismus, replay |
 
@@ -208,4 +208,4 @@ OLLAMA_URL=http://127.0.0.1:11434 node tests/conv-czech-nodiacritics.test.js
 
 ---
 
-*Posledni aktualizace: v65.0 (2026-02-14)*
+*Posledni aktualizace: v65.2 (2026-02-14)*

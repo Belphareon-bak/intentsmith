@@ -38,6 +38,15 @@ const SK_MARKERS = [
   /histór/i,                           // história (CZ: historie)
   /zdravotn[ií]c/i,                    // zdravotníctvo (CZ: zdravotnictví)
   /odvetv/i,                           // odvetvia (CZ: odvětví)
+  // v63.0: Additional markers for heavy contamination detection
+  /(?:^|\s)všetk[oiy]/i,              // všetko/všetci/všetkých (CZ: všechno/všichni)
+  /(?:^|\s)doska\b/i,                 // doska (CZ: deska — motherboard context)
+  /(?:^|\s)sa\s/i,                     // reflexive "sa" (CZ: "se")
+  /(?:^|\s)pri\s/i,                    // preposition "pri" (CZ: "při")
+  /nejaký/i,                           // nejaký (CZ: nějaký)
+  /hranie/i,                           // hranie (CZ: hraní)
+  /ponúka/i,                           // ponúka (CZ: nabízí)
+  /(?:^|\s)podľa/i,                    // podľa (CZ: podle)
 ];
 
 // Minimum markers to flag as Slovak contamination
@@ -314,7 +323,10 @@ const SK_TO_CZ_MAP = [
   [/\bmedzi/gi, 'mezi'],
   [/\bpríliš/gi, 'příliš'],
   [/\bpráve/gi, 'právě'],
-  [/\bodporúča/gi, 'doporuču'],
+  [/\bodporúčam(?=\s|[.,;:!?]|$)/gi, 'doporučuji'],
+  [/\bodporúčame/gi, 'doporučujeme'],
+  [/\bodporúčaný/gi, 'doporučený'],  [/\bodporúčaná/gi, 'doporučená'],
+  [/\bodporúča(?=\s|[.,;:!?]|$)/gi, 'doporučuje'],
   // v62.2d: Additional high-frequency SK→CZ pairs
   [/\bpre\b/gi, 'pro'],
   [new RegExp(`${_S}čo${_E}`, 'gi'), 'co'],              // \bčo\b fails — č is non-ASCII
@@ -359,6 +371,124 @@ const SK_TO_CZ_MAP = [
   [/\bpretek/gi, 'závod'],            // preteky/pretekov → závody/závodů
   [new RegExp(`${_S}ďalej${_E}`, 'gi'), 'dále'],  // ďalej → dále
   [new RegExp(`${_S}ďalší`, 'gi'), 'další'],       // ďalší → další
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // v63.0: Comprehensive SK→CZ expansion (R3 gaming PC fix)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ── Critical: isSlovak() escape rules ──
+  // These SK forms trigger test failure — MUST be converted
+  [new RegExp(`${_S}nie je${_E}`, 'gi'), 'není'],
+  [new RegExp(`${_S}nie sú${_E}`, 'gi'), 'nejsou'],
+  [new RegExp(`${_S}možno${_E}`, 'gi'), 'možná'],
+  [/\bnejaký/gi, 'nějaký'], [/\bnejakú/gi, 'nějakou'], [/\bnejaké/gi, 'nějaké'],
+  [/\bnejakej/gi, 'nějaké'], [/\bnejakým/gi, 'nějakým'],
+  [new RegExp(`${_S}ďakujem${_E}`, 'gi'), 'děkuji'],
+  [new RegExp(`${_S}ďakujeme${_E}`, 'gi'), 'děkujeme'],
+
+  // ── Reflexive pronoun (extremely common in SK) ──
+  [new RegExp(`${_S}sa${_E}`, 'gi'), 'se'],
+
+  // ── Prepositions ──
+  [new RegExp(`${_S}pri${_E}`, 'gi'), 'při'],
+  [new RegExp(`${_S}podľa${_E}`, 'gi'), 'podle'],
+  [new RegExp(`${_S}okrem${_E}`, 'gi'), 'kromě'],
+  [new RegExp(`${_S}vďaka${_E}`, 'gi'), 'díky'],
+  [new RegExp(`${_S}napriek${_E}`, 'gi'), 'navzdory'],
+
+  // ── Pronouns ──
+  [new RegExp(`${_S}všetko${_E}`, 'gi'), 'všechno'],
+  [new RegExp(`${_S}všetci${_E}`, 'gi'), 'všichni'],
+  [new RegExp(`${_S}všetkých${_E}`, 'gi'), 'všech'],
+  [new RegExp(`${_S}všetkým${_E}`, 'gi'), 'všem'],
+  [new RegExp(`${_S}nikto${_E}`, 'gi'), 'nikdo'],
+
+  // ── Conjunctions / adverbs ──
+  [new RegExp(`${_S}prípadne${_E}`, 'gi'), 'případně'],
+  [new RegExp(`${_S}taktiež${_E}`, 'gi'), 'také'],
+  [new RegExp(`${_S}dokonca${_E}`, 'gi'), 'dokonce'],
+  [new RegExp(`${_S}väčšinou${_E}`, 'gi'), 'většinou'],
+  [new RegExp(`${_S}rovnako${_E}`, 'gi'), 'stejně'],
+  [new RegExp(`${_S}akonáhle${_E}`, 'gi'), 'jakmile'],
+  [new RegExp(`${_S}hoci${_E}`, 'gi'), 'ačkoli'],
+  [new RegExp(`${_S}pokiaľ${_E}`, 'gi'), 'pokud'],
+  [new RegExp(`${_S}aj${_E}`, 'gi'), 'i'],
+
+  // ── Verbs: stem changes (NOT caught by ť→t rule) ──
+  [/\bspraviť/gi, 'udělat'], [/\bspravte/gi, 'udělejte'],
+  [/\bpozrieť/gi, 'podívat'], [/\bpozrite/gi, 'podívejte'],
+  [/\bzistiť/gi, 'zjistit'],
+  [new RegExp(`${_S}riešiť${_E}`, 'gi'), 'řešit'],
+  [new RegExp(`${_S}riešen`, 'gi'), 'řešen'],
+  [/\bhovorí(?=\s|[.,;:!?]|$)/gi, 'říká'],
+  [/\bhovoríme/gi, 'říkáme'],
+  [/\brobí(?=\s|[.,;:!?]|$)/gi, 'dělá'],
+  [/\brobiť/gi, 'dělat'],
+  [/\bvyhnúť/gi, 'vyhnout'],
+  [/\bdosiahnuť/gi, 'dosáhnout'],
+  [/\bdosiahne/gi, 'dosáhne'],
+  [new RegExp(`${_S}pomôcť${_E}`, 'gi'), 'pomoci'],
+  [/\bzaistiť/gi, 'zajistit'],
+  [new RegExp(`${_S}ponúkať${_E}`, 'gi'), 'nabízet'],
+  [new RegExp(`${_S}ponúka${_E}`, 'gi'), 'nabízí'],
+  [/\bdajte/gi, 'dejte'],
+  [/\bpoužívať/gi, 'používat'],
+  [/\bpotrebujete/gi, 'potřebujete'],
+
+  // ── Verb conjugations: -jú → -jí (3rd person plural) ──
+  [/\bmajú/gi, 'mají'],
+  [/\bpracujú/gi, 'pracují'],
+  [/\bpoužívajú/gi, 'používají'],
+  [/\bvyužívajú/gi, 'využívají'],
+  [/\bponúkajú/gi, 'nabízejí'],
+  [/\bexistujú/gi, 'existují'],
+
+  // ── Nouns (common SK→CZ) ──
+  [new RegExp(`${_S}riešenie${_E}`, 'gi'), 'řešení'],
+  [new RegExp(`${_S}riešení${_E}`, 'gi'), 'řešení'],
+  [/\bzariadeni/gi, 'zařízení'],
+  [/\bprostredi/gi, 'prostředí'],
+  [new RegExp(`${_S}nastaveni[ea]${_E}`, 'gi'), 'nastavení'],
+  [/\bpripojeni/gi, 'připojení'],
+  [/\bchladeni/gi, 'chlazení'],
+  [new RegExp(`${_S}správani[ea]${_E}`, 'gi'), 'chování'],
+  [/\bvýrobca/gi, 'výrobce'], [/\bvýrobcov/gi, 'výrobců'],
+  [new RegExp(`${_S}množstvo${_E}`, 'gi'), 'množství'],
+  [new RegExp(`${_S}napätie${_E}`, 'gi'), 'napětí'],
+  [new RegExp(`${_S}priestor`, 'gi'), 'prostor'],
+  [/\bprostriedok/gi, 'prostředek'], [/\bprostriedky/gi, 'prostředky'],
+  [new RegExp(`${_S}skúsenosť${_E}`, 'gi'), 'zkušenost'],
+  [new RegExp(`${_S}skúsenosti${_E}`, 'gi'), 'zkušenosti'],
+  [/\bspotreba/gi, 'spotřeba'], [/\bspotreby/gi, 'spotřeby'],
+  [new RegExp(`${_S}funkčnosť${_E}`, 'gi'), 'funkčnost'],
+  [new RegExp(`${_S}súčasť${_E}`, 'gi'), 'součást'],
+  [new RegExp(`${_S}súčasti${_E}`, 'gi'), 'součásti'],
+  [new RegExp(`${_S}súbor`, 'gi'), 'soubor'],
+  [/\bhranie/gi, 'hraní'],
+  [/\bvideohier/gi, 'videoher'],
+  [new RegExp(`${_S}úložisko${_E}`, 'gi'), 'úložiště'],
+  [new RegExp(`${_S}úložiska${_E}`, 'gi'), 'úložiště'],
+
+  // ── Adjectives ──
+  [/\bkvalitn[ýáé]/gi, 'kvalitní'],
+  [/\bhern[ýáé]/gi, 'herní'],
+  [new RegExp(`${_S}dostatočn`, 'gi'), 'dostatečn'],
+  [new RegExp(`${_S}ideáln[ýáé]${_E}`, 'gi'), 'ideální'],
+  [new RegExp(`${_S}minimáln[ýáé]${_E}`, 'gi'), 'minimální'],
+  [new RegExp(`${_S}väčší${_E}`, 'gi'), 'větší'],
+  [new RegExp(`${_S}rýchlejší${_E}`, 'gi'), 'rychlejší'],
+  [new RegExp(`${_S}lacnejší${_E}`, 'gi'), 'levnější'],
+  [new RegExp(`${_S}drahší${_E}`, 'gi'), 'dražší'],
+  [new RegExp(`${_S}rôzn`, 'gi'), 'různ'],
+  [new RegExp(`${_S}žiadn[ýáé]${_E}`, 'gi'), 'žádný'],
+  [new RegExp(`${_S}potrebn[ýáé]${_E}`, 'gi'), 'potřebný'],
+  [new RegExp(`${_S}operačn[ýáé]${_E}`, 'gi'), 'operační'],
+  [new RegExp(`${_S}grafick[ýáé]${_E}`, 'gi'), 'grafická'],
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // End v63.0 expansion
+  // ═══════════════════════════════════════════════════════════════════════════
+
   // v62.2e: Generic Slovak infinitive -ť → Czech -t (broad catch-all)
   [/([aeiouáéíóúý])ť(?=\s|[.,;:!?]|$)/gi, '$1t'],
   // Character-level transformations (must be LAST — catches remaining)
@@ -367,14 +497,44 @@ const SK_TO_CZ_MAP = [
   [/ô/g, 'ů'],  // Common mapping: ô→ů
 ];
 
+// ─── v63.0: Aggressive suffix patterns (heavy contamination only, ≥3 markers) ──
+// These are productive morphological patterns that are too broad for light
+// contamination but safe when the text is predominantly Slovak.
+const SK_TO_CZ_AGGRESSIVE_MAP = [
+  // 3rd person plural suffix: -jú → -jí (generic, catches all remaining -jú verbs)
+  [/jú(?=\s|[.,;:!?]|$)/gi, 'jí'],
+  // Verbal noun suffix: -enie → -ení (nastavenie→nastavení, pripojenie→připojení)
+  [/enie(?=\s|[.,;:!?]|$)/gi, 'ení'],
+  // Verbal noun suffix: -anie → -ání (písanie→psaní, čítanie→čtení — not always right but close)
+  [/anie(?=\s|[.,;:!?]|$)/gi, 'ání'],
+  // Verbal noun suffix: -nie → -ní (hranie→hraní, tvrdenie→tvrzení)
+  [/nie(?=\s|[.,;:!?]|$)/gi, 'ní'],
+  // Adjective suffix: -ový/-ová/-ové (same in both, but catches -ovej→-ové)
+  [/ovej(?=\s|[.,;:!?]|$)/gi, 'ové'],
+  // Past participle: -ený → -ený (same, but -ený can come from SK -ený with different stem)
+  // Comparative: -ejší → -ější (rýchlejší→rychlejší pattern)
+  [/ejší/gi, 'ější'],
+];
+
 /**
  * Mechanically replace common Slovak words with Czech equivalents.
  * This is a LAST RESORT — not perfect, but better than pure Slovak output.
+ *
+ * @param {string} text - Input text (possibly Slovak-contaminated)
+ * @param {boolean} aggressive - When true, also apply broad suffix patterns
+ *   (safe only for heavily-contaminated text with ≥3 SK markers)
+ * @returns {string} Text with Slovak words replaced by Czech equivalents
  */
-export function mechanicalSlovakToCzech(text) {
+export function mechanicalSlovakToCzech(text, aggressive = false) {
   let result = text;
   for (const [pattern, replacement] of SK_TO_CZ_MAP) {
     result = result.replace(pattern, replacement);
+  }
+  // v63.0: Aggressive suffix patterns for heavy contamination
+  if (aggressive) {
+    for (const [pattern, replacement] of SK_TO_CZ_AGGRESSIVE_MAP) {
+      result = result.replace(pattern, replacement);
+    }
   }
   // v62.2e: Re-capitalize sentence starts (lookbehind replacements can lowercase them)
   result = result.replace(/(^|[.!?]\s+)([a-záéíóúůýčďěňřšťž])/gm,

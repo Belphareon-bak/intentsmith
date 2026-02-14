@@ -504,6 +504,8 @@ var _centerState={view:'experts',detail:null,openSections:{},zoom:1,listView:fal
 var _editorState={active:false,tabs:[],activeTabId:null,scrollRaf:null};
 /* ═══ Project wizard state ═══ */
 var _projectWizard={active:false,step:0,data:{name:'',path:'',description:'',type:'general',pathMode:'auto'},saving:false,defaultDir:''};
+/* ═══ Expert wizard state (v64.1) ═══ */
+var _expertWizard={active:false,mode:'create',data:null,schema:null,preview:null,testResult:null,testLoading:false,testError:null,openSections:{basic:true},editId:null,saving:false};
 var WIZARD_STEPS=[
   {id:'name',label:'Název',icon:'📝',desc:'Pojmenujte projekt'},
   {id:'type',label:'Typ',icon:'📋',desc:'Zvolte typ projektu'},
@@ -525,6 +527,7 @@ function CenterApp(){
   var view=_centerState.view,detail=_centerState.detail;
   return h('div',{style:{display:'flex',height:'100%',width:'100%',background:C.bg0,fontFamily:C.font,overflow:'hidden',position:'absolute',top:0,left:0,right:0,bottom:0}},
     h('div',{style:{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}},
+      _expertWizard.active?centerExpertWizard():
       _projectWizard.active?centerProjectWizard():
       _editorState.active?centerEditor():
       view==='experts'?centerExperts():view==='projects'?centerProjects():view==='chats'?centerConvos():
@@ -588,7 +591,7 @@ function setDetail(d){_centerState.detail=d;renderCenter();}
 function _addNew(view){
   /* Experts → dispatch wizard open event (center-views-module.js listens) */
   if(view==='experts'){
-    try{document.dispatchEvent(new CustomEvent('c3-wizard-open',{detail:{mode:'create'}}));}catch(e){}
+    _ewOpen('create',null,null);
     return;
   }
   /* Workers → inject wizard trigger into chat */
@@ -787,6 +790,176 @@ function centerProjectWizard(){
         onClick:function(){if(_wizardCanNext()){w.step=step+1;renderCenter();}}},'Další'):
       h('button',{disabled:w.saving,style:{padding:'7px 24px',borderRadius:6,border:'none',background:w.saving?C.bg4:C.accent,color:'#fff',fontFamily:C.font,fontSize:12,fontWeight:600,cursor:w.saving?'default':'pointer'},
         onClick:_wizardSubmit},w.saving?'Vytvářím...':'Vytvořit projekt')));
+}
+
+/* ═══ EXPERT CREATION/EDIT WIZARD (v64.1) ═══ */
+var _ewDebounce=null;
+function _ewPreview(){
+  if(_ewDebounce)clearTimeout(_ewDebounce);
+  _ewDebounce=setTimeout(function(){
+    var d=_expertWizard.data;if(!d||!d.name)return;
+    fetch(_backendBase+'/api/merge-preview',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({expertises:[{id:'__wizard_'+Date.now(),name:d.name,modules:d.modules,capabilities:d.capabilities,systemPrompt:d.systemPrompt,temperature:d.temperature,tone:d.tone,weight:1.0,styleRules:d.styleRules}]}),
+      signal:AbortSignal.timeout(5000)})
+    .then(function(r){return r.json();}).then(function(p){_expertWizard.preview=p;renderCenter();}).catch(function(){});
+  },500);
+}
+function _ewTest(question){
+  if(_expertWizard.testLoading)return;
+  _expertWizard.testLoading=true;_expertWizard.testError=null;_expertWizard.testResult=null;renderCenter();
+  fetch(_backendBase+'/api/expertise-wizard/test-prompt',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({expertiseConfig:_expertWizard.data,question:question}),signal:AbortSignal.timeout(60000)})
+  .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+  .then(function(res){_expertWizard.testResult=res;_expertWizard.testLoading=false;renderCenter();})
+  .catch(function(err){_expertWizard.testError=err.message;_expertWizard.testLoading=false;renderCenter();});
+}
+function _ewSave(){
+  if(_expertWizard.saving||!_expertWizard.data||!_expertWizard.data.name)return;
+  _expertWizard.saving=true;renderCenter();
+  var d=_expertWizard.data;var method=_expertWizard.editId?'PUT':'POST';
+  var url=_expertWizard.editId?(_backendBase+'/api/experts/'+_expertWizard.editId):(_backendBase+'/api/experts');
+  fetch(url,{method:method,headers:{'Content-Type':'application/json'},body:JSON.stringify(d),signal:AbortSignal.timeout(5000)})
+  .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+  .then(function(){
+    _expertWizard.active=false;_expertWizard.saving=false;
+    if(window._c3)window._c3.agentLog('TOOL','✨ Expert '+(method==='PUT'?'upraven':'vytvořen')+': '+d.name);
+    fetchBackendData();renderCenter();
+  }).catch(function(err){
+    _expertWizard.saving=false;_expertWizard.testError='Uložení selhalo: '+err.message;
+    if(window._c3)window._c3.agentLog('TOOL','❌ Chyba: '+err.message);renderCenter();
+  });
+}
+function _ewToggle(secId){_expertWizard.openSections[secId]=!_expertWizard.openSections[secId];renderCenter();}
+function _ewAddModItem(section){
+  var el=document.getElementById('ew-mod-'+section);if(!el||!el.value.trim())return;
+  var d=_expertWizard.data;if(!d.modules[section])d.modules[section]=[];
+  d.modules[section].push(el.value.trim());el.value='';_ewPreview();renderCenter();
+}
+function _ewRemModItem(section,idx){
+  var d=_expertWizard.data;if(d.modules[section])d.modules[section].splice(idx,1);
+  _ewPreview();renderCenter();
+}
+function _ewDefaultData(){
+  return{name:'',description:'',domain:'',icon:'👤',systemPrompt:'',tone:'professional',temperature:0.5,
+    capabilities:{reasoning:50,creativity:50,determinism:50,riskTolerance:50,verbosity:50},
+    modules:{domain_rules:[],emphasis:[],constraints:[],vocabulary:[],antipatterns:[],disclaimer:null},
+    parent:null,inheritance:{},styleRules:{forbiddenPhrases:[]}};
+}
+function _ewOpen(mode,editId,data){
+  _expertWizard={active:true,mode:mode,data:data||_ewDefaultData(),schema:null,preview:null,testResult:null,testLoading:false,testError:null,openSections:{basic:true},editId:editId||null,saving:false};
+  _centerState.detail=null;
+  fetch(_backendBase+'/api/expertise-schema',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(s){_expertWizard.schema=s;renderCenter();}).catch(function(){});
+  renderCenter();
+}
+function centerExpertWizard(){
+  var w=_expertWizard,d=w.data,schema=w.schema,isCreate=w.mode==='create',SS=w.openSections;
+  var secHeadS={display:'flex',alignItems:'center',gap:8,padding:'10px 14px',cursor:'pointer',borderBottom:'1px solid '+C.border,userSelect:'none'};
+  var labelS={fontSize:11,color:C.tx3,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.4px',marginBottom:4};
+  var inputS={width:'100%',padding:'7px 11px',borderRadius:7,border:'1px solid '+C.border2,background:C.bg3,color:C.tx1,fontFamily:C.font,fontSize:12.5,outline:'none',boxSizing:'border-box'};
+  var taS={width:'100%',padding:'7px 11px',borderRadius:7,border:'1px solid '+C.border2,background:C.bg3,color:C.tx1,fontFamily:C.mono,fontSize:12,outline:'none',boxSizing:'border-box',minHeight:60,resize:'vertical'};
+  function sec(id,icon,title,content){
+    return h('div',{key:id,style:{background:C.bg2,borderRadius:10,marginBottom:8,border:'1px solid '+C.border,overflow:'hidden'}},
+      h('div',{style:secHeadS,onClick:function(){_ewToggle(id);}},
+        h('span',{style:{fontSize:14}},icon),
+        h('span',{style:{fontSize:12.5,fontWeight:700,color:C.tx1,flex:1}},title),
+        h('span',{style:{fontSize:10,color:C.tx4,transform:SS[id]?'rotate(180deg)':'none',transition:'transform 0.15s'}},'▼')),
+      SS[id]?h('div',{style:{padding:'14px 18px'}},content):null);
+  }
+  /* Section 1: Basic info */
+  var basicContent=h('div',null,
+    h('div',{style:{display:'flex',gap:8,marginBottom:8}},
+      h('div',{style:{flex:1}},h('div',{style:labelS},'Název'),h('input',{style:inputS,value:d.name||'',placeholder:'Název experta',onChange:function(e){d.name=e.target.value;renderCenter();}})),
+      h('div',{style:{width:60}},h('div',{style:labelS},'Ikona'),h('input',{style:Object.assign({},inputS,{textAlign:'center',fontSize:18,padding:'4px'}),value:d.icon||'',maxLength:4,onChange:function(e){d.icon=e.target.value;renderCenter();}}))),
+    h('div',{style:{marginBottom:8}},h('div',{style:labelS},'Doména'),h('input',{style:inputS,value:d.domain||'',placeholder:'nazev_domeny',onChange:function(e){d.domain=e.target.value;renderCenter();}})),
+    h('div',{style:{marginBottom:8}},h('div',{style:labelS},'Popis'),h('textarea',{style:Object.assign({},taS,{minHeight:40,fontFamily:C.font}),value:d.description||'',placeholder:'Stručný popis',onChange:function(e){d.description=e.target.value;renderCenter();}})),
+    h('div',{style:{marginBottom:8}},h('div',{style:labelS},'System Prompt'),h('textarea',{style:Object.assign({},taS,{minHeight:80}),value:d.systemPrompt||'',placeholder:'Systémový prompt...',onChange:function(e){d.systemPrompt=e.target.value;_ewPreview();renderCenter();}})),
+    h('div',{style:{display:'flex',gap:12}},
+      h('div',{style:{flex:1}},h('div',{style:labelS},'Tón'),
+        h('select',{style:Object.assign({},inputS,{padding:'6px 10px'}),value:d.tone||'professional',onChange:function(e){d.tone=e.target.value;_ewPreview();renderCenter();}},
+          ['professional','casual','academic','empathetic','assertive','neutral'].map(function(t){return h('option',{key:t,value:t},t);}))),
+      h('div',{style:{flex:1}},h('div',{style:labelS},'Teplota: '+(d.temperature!=null?d.temperature:0.5)),
+        h('input',{type:'range',min:0,max:1,step:0.05,value:d.temperature!=null?d.temperature:0.5,style:{width:'100%',accentColor:C.accent},onChange:function(e){d.temperature=parseFloat(e.target.value);_ewPreview();renderCenter();}}))));
+  /* Section 2: Capabilities */
+  var capDims=[{k:'reasoning',l:'Reasoning'},{k:'creativity',l:'Kreativita'},{k:'determinism',l:'Determinismus'},{k:'riskTolerance',l:'Risk Tolerance'},{k:'verbosity',l:'Verbozita'}];
+  var capsContent=h('div',null,capDims.map(function(dim){
+    var v=(d.capabilities&&d.capabilities[dim.k]!=null)?d.capabilities[dim.k]:50;
+    var hint=v<=30?'LOW':v>70?'HIGH':'MEDIUM';
+    var hintC=v<=30?'#ef4444':v>70?'#22c55e':'#eab308';
+    return h('div',{key:dim.k,style:{display:'flex',alignItems:'center',gap:8,marginBottom:10}},
+      h('span',{style:{width:105,fontSize:11,color:C.tx2}},dim.l),
+      h('input',{type:'range',min:0,max:100,value:v,style:{flex:1,accentColor:C.accent},onChange:function(e){if(!d.capabilities)d.capabilities={};d.capabilities[dim.k]=parseInt(e.target.value);_ewPreview();renderCenter();}}),
+      h('span',{style:{width:28,fontSize:12,fontFamily:C.mono,color:C.tx1,textAlign:'right'}},String(v)),
+      h('span',{style:{fontSize:9,fontWeight:700,color:hintC,width:44,textAlign:'center',padding:'1px 4px',borderRadius:4,background:hintC+'18'}},hint));
+  }));
+  /* Section 3: Modules */
+  var modSecs=['domain_rules','emphasis','constraints','vocabulary','antipatterns'];
+  var modLabels={domain_rules:'Domain Rules',emphasis:'Emphasis',constraints:'Constraints',vocabulary:'Vocabulary',antipatterns:'Antipatterns'};
+  var modLimits=schema&&schema.limits?{domain_rules:schema.limits.MAX_DOMAIN_RULES||15,emphasis:schema.limits.MAX_EMPHASIS||10,constraints:schema.limits.MAX_CONSTRAINTS||15,vocabulary:schema.limits.MAX_VOCABULARY||30,antipatterns:schema.limits.MAX_ANTIPATTERNS||10}:{domain_rules:15,emphasis:10,constraints:15,vocabulary:30,antipatterns:10};
+  var modsContent=h('div',null,
+    modSecs.map(function(s){
+      var items=(d.modules&&d.modules[s])||[];var lim=modLimits[s]||15;
+      return h('div',{key:s,style:{marginBottom:10,background:C.bg3,borderRadius:8,padding:'8px 12px'}},
+        h('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:5}},
+          h('span',{style:{fontSize:11,fontWeight:700,color:C.tx2}},modLabels[s]||s),
+          h('span',{style:{fontSize:10,color:C.tx4,fontFamily:C.mono}},items.length+' / '+lim)),
+        items.map(function(item,idx){
+          return h('div',{key:idx,style:{display:'flex',alignItems:'center',gap:4,marginBottom:3}},
+            h('span',{style:{flex:1,fontSize:11,color:C.tx1,padding:'2px 6px',background:C.bg4,borderRadius:4,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},item),
+            h('button',{style:{background:'none',border:'none',color:C.tx4,cursor:'pointer',fontSize:13,padding:'0 4px',lineHeight:1},onClick:function(){_ewRemModItem(s,idx);}},'×'));
+        }),
+        items.length<lim?h('div',{style:{display:'flex',gap:4,marginTop:4}},
+          h('input',{id:'ew-mod-'+s,style:Object.assign({},inputS,{fontSize:11,padding:'4px 8px'}),placeholder:'Přidat...',onKeyDown:function(e){if(e.key==='Enter')_ewAddModItem(s);}}),
+          h('button',{style:{background:C.accent,color:'#fff',border:'none',borderRadius:5,padding:'3px 10px',fontSize:11,cursor:'pointer'},onClick:function(){_ewAddModItem(s);}},'+')
+        ):null);
+    }),
+    h('div',{style:{marginBottom:8,background:C.bg3,borderRadius:8,padding:'8px 12px'}},
+      h('div',{style:{fontSize:11,fontWeight:700,color:C.tx2,marginBottom:5}},'Disclaimer'),
+      h('textarea',{style:Object.assign({},taS,{minHeight:36,fontSize:11}),value:(d.modules&&d.modules.disclaimer)||'',placeholder:'Volitelný disclaimer...',onChange:function(e){if(!d.modules)d.modules={};d.modules.disclaimer=e.target.value||null;_ewPreview();renderCenter();}})));
+  /* Section 4: Preview & Test */
+  var pr=w.preview;
+  var previewContent=h('div',null,
+    pr?h('div',null,
+      h('div',{style:{display:'flex',gap:8,marginBottom:8,flexWrap:'wrap'}},
+        h('span',{style:{padding:'2px 8px',borderRadius:10,fontSize:10,fontWeight:700,
+          background:pr.compatibility==='ok'?'rgba(34,197,94,0.15)':pr.compatibility==='warning'?'rgba(234,179,8,0.15)':pr.compatibility==='soft_block'?'rgba(249,115,22,0.15)':'rgba(239,68,68,0.15)',
+          color:pr.compatibility==='ok'?'#22c55e':pr.compatibility==='warning'?'#eab308':pr.compatibility==='soft_block'?'#f97316':'#ef4444'}},
+          String(pr.compatibility||'?').toUpperCase()),
+        pr.tokenCount!=null?h('span',{style:{fontSize:10,color:C.tx3,fontFamily:C.mono}},pr.tokenCount+' tokenů'):null,
+        pr.tone?h('span',{style:{fontSize:10,color:C.tx3}},'tón: '+pr.tone):null,
+        pr.temperature!=null?h('span',{style:{fontSize:10,color:C.tx3}},'temp: '+pr.temperature):null),
+      pr.promptPreview?h('pre',{style:{background:C.bg3,borderRadius:6,padding:8,fontSize:10,fontFamily:C.mono,color:C.tx2,maxHeight:160,overflowY:'auto',whiteSpace:'pre-wrap',border:'1px solid '+C.border}},pr.promptPreview):null,
+      pr.enforcement?h('div',{style:{display:'flex',gap:10,marginTop:8,fontSize:10,color:C.tx3}},
+        h('span',null,'Forbidden: '+(pr.enforcement.forbiddenCount||0)),
+        h('span',null,'MinLen: '+(pr.enforcement.minResponseLength||0)),
+        h('span',null,'Disclaimers: '+(pr.enforcement.disclaimerCount||0))):null
+    ):h('p',{style:{fontSize:11,color:C.tx4,margin:0}},'Vyplňte název a system prompt pro preview.'),
+    h('div',{style:{marginTop:12,borderTop:'1px solid '+C.border,paddingTop:10}},
+      h('div',{style:labelS},'Test prompt'),
+      h('div',{style:{display:'flex',gap:6}},
+        h('input',{id:'ew-test-q',style:Object.assign({},inputS,{fontSize:11}),placeholder:'Testovací otázka...',disabled:w.testLoading,
+          onKeyDown:function(e){if(e.key==='Enter'){var el=document.getElementById('ew-test-q');if(el&&el.value.trim())_ewTest(el.value.trim());}}}),
+        h('button',{disabled:w.testLoading,style:{background:w.testLoading?C.bg4:C.accent,color:'#fff',border:'none',borderRadius:6,padding:'5px 14px',fontSize:11,fontWeight:600,cursor:w.testLoading?'default':'pointer',flexShrink:0},
+          onClick:function(){var el=document.getElementById('ew-test-q');if(el&&el.value.trim())_ewTest(el.value.trim());}},w.testLoading?'Čekám...':'Test')),
+      w.testError?h('div',{style:{color:'#ef4444',fontSize:11,marginTop:6}},w.testError):null,
+      w.testResult?h('div',{style:{marginTop:8,background:C.bg3,borderRadius:6,padding:10,border:'1px solid '+C.border}},
+        h('div',{style:{fontSize:11,color:C.tx1,whiteSpace:'pre-wrap',lineHeight:'1.5'}},w.testResult.response||''),
+        h('div',{style:{display:'flex',gap:8,marginTop:6,fontSize:9,color:C.tx4}},
+          w.testResult.model?h('span',null,w.testResult.model):null,
+          w.testResult.duration?h('span',null,w.testResult.duration+'ms'):null,
+          w.testResult.tokenCount?h('span',null,w.testResult.tokenCount+' tok'):null)):null));
+  /* Full wizard layout */
+  return h('div',{style:{display:'flex',flexDirection:'column',height:'100%'}},
+    h('div',{style:{padding:'10px 18px',borderBottom:'1px solid '+C.border,display:'flex',alignItems:'center',gap:8,flexShrink:0}},
+      h('span',{style:{fontSize:15,fontWeight:700,color:C.tx1,flex:1}},isCreate?'+ Nový expert':'✏️ Editace: '+(d.name||'?')),
+      h('button',{style:{padding:'5px 12px',borderRadius:6,border:'1px solid '+C.border2,background:C.bg3,color:C.tx2,fontFamily:C.font,fontSize:11,cursor:'pointer'},
+        onClick:function(){_expertWizard.active=false;renderCenter();}},'Zrušit'),
+      h('button',{disabled:!d.name||w.saving,style:{padding:'5px 16px',borderRadius:6,border:'none',background:(!d.name||w.saving)?C.bg4:C.accent,color:'#fff',fontFamily:C.font,fontSize:11,fontWeight:600,cursor:(!d.name||w.saving)?'default':'pointer'},
+        onClick:_ewSave},w.saving?'Ukládám...':'Uložit')),
+    h('div',{style:{flex:1,overflowY:'auto',padding:14}},
+      sec('basic','📝','Základní údaje',basicContent),
+      sec('capabilities','📊','Capabilities (5D)',capsContent),
+      sec('modules','📦','Modules',modsContent),
+      sec('preview','👁️','Preview & Test',previewContent)));
 }
 
 /* Settings state */
@@ -1338,6 +1511,24 @@ d.actions?h('div',{style:{marginTop:12}},h('div',{style:{fontSize:10,fontWeight:
         var wrk=WORKERS.find(function(w){return w.name===d.name;});
         if(wrk){c3.agentLog('TOOL','⚙️ Worker: '+wrk.name+' ['+_s(wrk.status)+'] cron: '+_s(wrk.cron));}
       }else if(a==='Editovat'){
+        /* v64.1: Expert edit → open wizard with full config from backend */
+        if(_centerState.view==='experts'){
+          var _exItem=EXPERTS.find(function(e){return e.name===d.name;});
+          if(_exItem&&_exItem.id){
+            fetch(_backendBase+'/api/experts/'+_exItem.id,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(full){
+              var cfg=null;try{cfg=full.config?JSON.parse(full.config):null;}catch(ex){}
+              var wizData={name:full.name||d.name,description:full.description||_exItem.desc||'',domain:full.domain||_exItem.domain||'',
+                icon:full.emoji||_exItem.emoji||'👤',systemPrompt:(cfg&&cfg.systemPrompt)||'',
+                tone:(cfg&&cfg.tone)||'professional',temperature:full.temperature||(cfg&&cfg.temperature)||0.5,
+                capabilities:(cfg&&cfg.capabilities)||{reasoning:50,creativity:50,determinism:50,riskTolerance:50,verbosity:50},
+                modules:(cfg&&cfg.modules)||{domain_rules:[],emphasis:[],constraints:[],vocabulary:[],antipatterns:[],disclaimer:null},
+                parent:(cfg&&cfg.parent)||null,inheritance:(cfg&&cfg.inheritance)||{},
+                styleRules:(cfg&&cfg.styleRules)||{forbiddenPhrases:[]}};
+              _ewOpen('edit',_exItem.id,wizData);
+            }).catch(function(){_ewOpen('edit',_exItem.id,{name:d.name,description:_exItem.desc||'',domain:_exItem.domain||'',icon:_exItem.emoji||'👤',systemPrompt:'',tone:'professional',temperature:_exItem.temperature||0.5,capabilities:{reasoning:50,creativity:50,determinism:50,riskTolerance:50,verbosity:50},modules:{domain_rules:[],emphasis:[],constraints:[],vocabulary:[],antipatterns:[],disclaimer:null},parent:null,inheritance:{},styleRules:{forbiddenPhrases:[]}});});
+            return;
+          }
+        }
         _centerState.detail.editing=true;_centerState.detail._orig=d.fields.map(function(f){return{k:f.k,v:f.v};});_centerState.detail._origActions=d.actions.slice();_centerState.detail.actions=['Uložit','Zrušit'];c3.agentLog('TOOL','✏️ Editace: '+d.name);renderCenter();
       }else if(a==='Uložit'){
         var view=_centerState.view;var itemId=null;

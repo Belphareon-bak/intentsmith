@@ -90,17 +90,19 @@ function languageFix(text, context, fixes, issues) {
   if (lang !== 'cs') return result;
 
   // 2a. Mechanical Slovak→Czech replacement
+  // v63.0: Frequency trigger — ≥3 markers = aggressive mode (broad suffix patterns)
   const skCheck = detectSlovakContamination(result);
   if (skCheck.contaminated) {
+    const aggressive = skCheck.count >= 3;
     const before = result;
-    result = mechanicalSlovakToCzech(result);
+    result = mechanicalSlovakToCzech(result, aggressive);
     // Count actual character-level changes for stats
     let changeCount = 0;
     for (let i = 0; i < Math.min(before.length, result.length); i++) {
       if (before[i] !== result[i]) changeCount++;
     }
     changeCount += Math.abs(before.length - result.length);
-    fixes.push(`language:sk_to_cz(${skCheck.count} markers, ${changeCount} chars changed)`);
+    fixes.push(`language:sk_to_cz(${skCheck.count} markers${aggressive ? '/aggressive' : ''}, ${changeCount} chars changed)`);
   }
 
   // 2b. Detect remaining language issues (EN, Cyrillic) — flag only, can't fix mechanically
