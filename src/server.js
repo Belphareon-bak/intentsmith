@@ -564,6 +564,15 @@ const routes = {
       return sendJSON(res, 400, { error: 'message is required' });
     }
 
+    // v63.0: AbortController for client disconnect detection
+    const abortController = new AbortController();
+    req.on('close', () => {
+      if (!res.writableEnded) {
+        logger.info('Server', '[POST /chat] Client disconnected mid-processing');
+        abortController.abort();
+      }
+    });
+
     try {
       // v56.0 Sprint 3: Use provided session_id or create a proper one
       const sessionId = session_id || `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -572,10 +581,13 @@ const routes = {
         message,
         sessionId,
         userId: null,
+        signal: abortController.signal,  // v63.0: propagate cancel signal
         context: {
           hasActiveProject: false,
         },
       });
+
+      if (abortController.signal.aborted) return; // Client gone — don't send response
 
       sendJSON(res, 200, {
         response: result.response,
@@ -585,6 +597,7 @@ const routes = {
       });
 
     } catch (err) {
+      if (abortController.signal.aborted) return; // Client gone
       logger.error('Server', `Chat error: ${err.message}`);
       sendJSON(res, 500, safeError(err));
     }
@@ -1467,6 +1480,15 @@ const routes = {
       return sendJSON(res, 400, { error: 'conversation_id and message are required' });
     }
 
+    // v63.0: AbortController for client disconnect detection
+    const abortController = new AbortController();
+    req.on('close', () => {
+      if (!res.writableEnded) {
+        logger.info('Server', `[POST /api/chat] Client disconnected mid-processing (conv: ${conversation_id})`);
+        abortController.abort();
+      }
+    });
+
     try {
       // v56.0: No manual DB writes here — ChatController.handle persists via ConversationStore
       logger.info('Server', `[ChatController] Processing: "${message.substring(0, 50)}..."`);
@@ -1475,11 +1497,14 @@ const routes = {
         message,
         sessionId: conversation_id,
         userId: body.userId || null,
+        signal: abortController.signal,  // v63.0: propagate cancel signal
         context: {
           projectId: project_id,
           hasActiveProject: !!project_id,
         },
       });
+
+      if (abortController.signal.aborted) return; // Client gone
 
       logger.info('Server', `[ChatController] Mode: ${result.mode}, Confidence: ${result.confidence.toFixed(2)}`);
 
@@ -1491,6 +1516,7 @@ const routes = {
       });
 
     } catch (err) {
+      if (abortController.signal.aborted) return; // Client gone
       logger.error('Server', `Chat error: ${err.message}`);
       sendJSON(res, 500, safeError(err));
     }
@@ -2069,7 +2095,8 @@ const routes = {
       status: 'ok',
       version: '34.4.2',
       timestamp: new Date().toISOString(),
-      llm: true
+      llm: true,
+      cwd: process.cwd()
     });
   },
 
@@ -3231,6 +3258,16 @@ server.listen(config.server.port, config.server.host, async () => {
     if (lcCount > 0) logger.info('Server', `Preloaded ${lcCount} active lifecycle handoff states`);
   } catch (err) {
     logger.debug('Server', `Lifecycle handoff preload skipped: ${err.message}`);
+  }
+
+  // v64.0: Bind CRE Gatekeeper audit DB
+  try {
+    const { creOverrideLog } = await import('./db/database.js');
+    const { creDecisionEngine } = await import('./chat/cre-decision.js');
+    creDecisionEngine.bindAuditDb(creOverrideLog);
+    logger.info('Server', 'CRE Gatekeeper audit DB bound');
+  } catch (err) {
+    logger.debug('Server', `CRE audit DB bind skipped: ${err.message}`);
   }
 
   logger.info('Server', `p(AI)assistant v57.0 started`);

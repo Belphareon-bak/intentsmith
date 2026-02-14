@@ -1,13 +1,5 @@
-// CRE v56.2 Sprint A — Decision Engine (Intent Routing Fixes)
+// CRE v64.0 — Decision Engine + Gatekeeper (Single Authority Enforcement)
 // ══════════════════════════════════════════════════════════════════════════════
-//
-// v56.2 Sprint A changes:
-//   - SELF_REFERENCE_PATTERNS → CONVERSATIONAL ("Jak se jmenuju?" no longer web-searched)
-//   - STATEMENT_PATTERNS → CONVERSATIONAL ("Moje jméno je X" no longer AMBIGUOUS)
-//   - KNOWLEDGE_PATTERNS → SEARCH ("Řekni mi o X" now triggers web search)
-//   - Two-tier catch-all: compound phrases (tier1) + length-gated question words (tier2)
-//   - Bare "Opravdu?", "Proč?", "Co?" → AMBIGUOUS (not SEARCH)
-//   - \b replaced with (?:^|\s) for Czech diacritics compatibility
 //
 // Tool-first decision logic for CRE.
 //
@@ -20,8 +12,12 @@
 // 6. CREATIVE follow-ups stay in CREATIVE mode (v44.9)
 // 7. CREATIVE responses validated for quality (v44.10)
 // 8. REPORT = SEARCH first, then SCRAPE URLs (v45.0) — NEVER scrape without URL!
+// 9. No decision created outside decide() or overrideDecision() (v64.0 Gatekeeper)
 //
 // CHANGELOG:
+// v64.0 - CRE GATEKEEPER: overrideDecision(), logIntercept(), bindAuditDb(),
+//         cre_override_log table, all bypass points fixed (single authority)
+// v56.2 - SELF_REFERENCE/STATEMENT/KNOWLEDGE pattern fixes, Czech diacritics
 // v45.0 - REPORT pipeline fix (SEARCH→SCRAPE orchestration, URL guard, fallback)
 // v44.10 - Response quality gate, expert style contract
 // v44.9 - CREATIVE follow-up lock (FIX A), vague input first-turn blocking (FIX B)
@@ -72,6 +68,12 @@ export const IntentType = {
   // v58.0: DESIGN — structured synthesis from LLM knowledge (architecture, roadmap, plan)
   // NEVER uses web search. ANSWER only. Opinionated, structured output.
   DESIGN: 'DESIGN',           // User wants tech plan, roadmap, architecture, sprint breakdown
+  // v63.0: FILE_READ — user wants to read/view/open a file
+  // TERMINAL: reads from filesystem, no LLM, no web search.
+  FILE_READ: 'FILE_READ',     // "otevři soubor", "přečti soubor X", "ukaž mi obsah"
+  // v63.0: FILE_EXPLAIN — user wants file content + LLM explanation
+  // Reads file, then LLM summarizes/explains the content.
+  FILE_EXPLAIN: 'FILE_EXPLAIN', // "vysvětli soubor X", "co dělá tento soubor?"
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -819,6 +821,48 @@ const CODE_PATTERNS = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
+// v63.0: FILE_READ PATTERNS — user wants to read/view/open a file
+// ─────────────────────────────────────────────────────────────────────────────
+// "otevři soubor X", "přečti soubor", "ukaž mi obsah souboru"
+// TERMINAL: filesystem read, no web search, no LLM (unless FILE_EXPLAIN)
+// ─────────────────────────────────────────────────────────────────────────────
+const FILE_READ_PATTERNS = [
+  // CZ: "otevři/otevřít soubor", "přečti soubor", "načti soubor"
+  /(?:^|\s)(otev[rř]i|otev[rř][ií]t)\s+(soubor|file)/i,
+  /(?:^|\s)(p[rř]e[cč]ti|p[rř]e[cč][ií]st)\s+(soubor|file|obsah)/i,
+  /(?:^|\s)(na[cč]ti|na[cč][ií]st)\s+(soubor|file)/i,
+  /(?:^|\s)uka[zž]\s+(mi\s+)?(soubor|file|obsah)/i,
+  /(?:^|\s)zobraz\s+(mi\s+)?(soubor|file|obsah)/i,
+  // CZ: "co je v souboru X", "co obsahuje soubor"
+  /co\s+(je\s+)?(v\s+)?soubor/i,
+  /co\s+obsahuje\s+(soubor|file)/i,
+  // CZ: "otevři X.js", "přečti config.json" — filename with extension
+  /(?:^|\s)(otev[rř]i|p[rř]e[cč]ti|na[cč]ti|uka[zž]|zobraz)\s+(mi\s+)?[\w./-]+\.\w{1,10}\s*$/i,
+  // EN: "open file", "read file", "show file", "cat file"
+  /(?:^|\s)(open|read|show|display|cat)\s+(the\s+)?(file|content)/i,
+  /(?:^|\s)(open|read|show|display|cat)\s+(the\s+)?[\w./-]+\.\w{1,10}\s*$/i,
+];
+
+// v63.0: FILE_EXPLAIN PATTERNS — user wants file read + LLM explanation
+const FILE_EXPLAIN_PATTERNS = [
+  // CZ: "vysvětli soubor", "co dělá soubor X", "analyzuj soubor"
+  /vysv[eě]tli\s+(mi\s+)?(soubor|file|k[oó]d|obsah)/i,
+  /analyzuj\s+(mi\s+)?(soubor|file|k[oó]d)/i,
+  /co\s+d[eě]l[áa]\s+(tento\s+|tenhle\s+|ten\s+)?(soubor|file|k[oó]d|skript)/i,
+  /popiš\s+(mi\s+)?(soubor|file|k[oó]d)/i,
+  // CZ: "vysvětli X.js", "analyzuj config.json" (direct file ref)
+  /(?:^|\s)(vysv[eě]tli|analyzuj|popiš)\s+(mi\s+)?[\w./-]+\.\w{1,10}\s*$/i,
+  // CZ: "vysvětli mi co dělá X.js" — explain + "co dělá" + file path
+  /(?:^|\s)(vysv[eě]tli|analyzuj|popiš)\s+(mi\s+)?(co\s+d[eě]l[áa]\s+)?[\w./-]+\.\w{1,10}\s*$/i,
+  // EN: "explain file", "what does file X do", "analyze file"
+  /(?:^|\s)(explain|analyze|describe)\s+(the\s+)?(file|code|script|content)/i,
+  /what\s+does\s+(this\s+|the\s+)?(file|code|script)\s+do/i,
+  /(?:^|\s)(explain|analyze|describe)\s+(the\s+)?[\w./-]+\.\w{1,10}\s*$/i,
+  // EN: "explain what X.js does"
+  /(?:^|\s)(explain|analyze|describe)\s+(what\s+)?[\w./-]+\.\w{1,10}\s+(does|contains|is)/i,
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
 // BUILD PATTERNS — multi-step project-level work (→ Planner handoff)
 // ─────────────────────────────────────────────────────────────────────────────
 // Distinction from CODE: BUILD = project-level goal, CODE = single function/fix
@@ -954,6 +998,29 @@ export function normalizeForClassification(text) {
     normalized = normalized.replace(pattern, replacement);
   }
   return normalized;
+}
+
+// v63.0: Extract file path from user input
+// Looks for quoted paths, paths with extensions, or common filename patterns
+function extractFilePath(input) {
+  // 1. Quoted path: "soubor.js", 'config.json'
+  const quoted = input.match(/["']([^"']+\.\w{1,10})["']/);
+  if (quoted) return quoted[1];
+
+  // 2. Path with extension (last token matching *.ext pattern)
+  const tokens = input.split(/\s+/);
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    const t = tokens[i].replace(/[,;:!?]+$/, ''); // strip trailing punctuation
+    if (/^[\w./-]+\.\w{1,10}$/.test(t) && !['mi', 'si', 'ti'].includes(t.toLowerCase())) {
+      return t;
+    }
+  }
+
+  // 3. Path after "soubor" / "file" keyword
+  const afterKeyword = input.match(/(?:soubor|file)\s+["']?([^\s"']+\.\w{1,10})["']?/i);
+  if (afterKeyword) return afterKeyword[1];
+
+  return null; // No file path found — handler will ask for clarification
 }
 
 // v58.3: Anti-DESIGN exclusions — "navrhni" + these = NOT architecture
@@ -1561,6 +1628,192 @@ export class CREDecisionEngine {
   constructor(options = {}) {
     this.strictMode = options.strictMode ?? true;
     this.availableTools = options.availableTools || Object.values(ToolType);
+    // v64.0: CRE Gatekeeper audit counters
+    this._overrideCount = 0;
+    this._interceptCount = 0;
+    this._overrideLog = [];   // last N overrides for diagnostics
+    this._interceptLog = [];  // last N intercepts for diagnostics
+    this._maxLogEntries = 50;
+    this._db = null;          // optional DB handle for persistent audit
+  }
+
+  /**
+   * Bind a DB prepared statement set for persistent override/intercept logging.
+   * Called from server.js after DB init.
+   *
+   * @param {{ insert: import('better-sqlite3').Statement }} db
+   *   db.insert should accept (event_type, source, reason, decision_type,
+   *   decision_intent, original_type, original_intent, confidence, metadata,
+   *   execution_trace_id, conversation_id, session_id)
+   */
+  bindAuditDb(db) {
+    this._db = db;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // v64.0: CRE GATEKEEPER — Single Authority Enforcement
+  // ═══════════════════════════════════════════════════════════════════════════
+  //
+  // RULE: No decision may be created outside of:
+  //   1. decide() — normal CRE classification + decision
+  //   2. overrideDecision() — explicit, logged override with reason
+  //
+  // Pre-CRE intercepts (session resume, lifecycle, wizard) that return
+  // responses without creating decisions must call logIntercept().
+  //
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Create an override decision — the ONLY way to create decisions outside decide().
+   *
+   * Use this when a handler needs to:
+   *   - Replace what CRE decided (first-turn override, vague input)
+   *   - Create a decision for a replayed intent (reformulation)
+   *   - Create a decision for a stateful continuation (design continue)
+   *
+   * All overrides are logged with reason and source for full audit trail.
+   *
+   * @param {Object} config
+   * @param {string} config.type - DecisionType
+   * @param {string} config.intent - IntentType
+   * @param {string[]} [config.tools] - Tools array
+   * @param {string[]} [config.slots] - Missing info slots
+   * @param {string} config.source - Who is overriding (e.g. 'first_turn_override', 'reformulation')
+   * @param {string} config.reason - Why the override is needed
+   * @param {number} [config.confidence] - Confidence (0-1)
+   * @param {Object} [config.originalDecision] - The original CRE decision being overridden (if any)
+   * @param {Object} [config.metadata] - Additional metadata
+   * @returns {CREDecision}
+   */
+  overrideDecision({ type, intent, tools = [], slots = [], source, reason, confidence = 0.85, originalDecision = null, metadata = {} }) {
+    const decision = new CREDecision({
+      type,
+      intent,
+      tools,
+      slots,
+      reason,
+      confidence,
+      metadata: {
+        ...metadata,
+        override: true,
+        overrideSource: source,
+        overrideReason: reason,
+        originalDecision: originalDecision?.toJSON?.() || originalDecision || null,
+      },
+    });
+
+    this._logOverride(decision, source, reason, originalDecision);
+    return decision;
+  }
+
+  /**
+   * Log a pre-CRE intercept — when a handler bypasses CRE entirely.
+   *
+   * Use this for stateful intercepts where the system is in a known state
+   * (active wizard, active lifecycle, session resume) and returns a response
+   * without creating a CRE decision.
+   *
+   * @param {string} source - Intercept source (e.g. 'session_resume', 'lifecycle_handoff')
+   * @param {string} reason - Why CRE was bypassed
+   * @param {Object} [metadata] - Additional context
+   */
+  logIntercept(source, reason, metadata = {}) {
+    this._interceptCount++;
+    const entry = {
+      source,
+      reason,
+      timestamp: Date.now(),
+      ...metadata,
+    };
+
+    this._interceptLog.push(entry);
+    if (this._interceptLog.length > this._maxLogEntries) {
+      this._interceptLog.shift();
+    }
+
+    logger.info('CRE:Intercept', `Pre-CRE intercept: ${source}`, {
+      reason,
+      source,
+      ...metadata,
+    });
+
+    // Persist to DB if available
+    if (this._db?.insert) {
+      try {
+        this._db.insert.run(
+          'intercept',
+          source,
+          reason,
+          null,  // decision_type
+          null,  // decision_intent
+          null,  // original_type
+          null,  // original_intent
+          null,  // confidence
+          JSON.stringify(metadata),
+          metadata.executionTraceId || null,
+          metadata.conversationId || null,
+          metadata.sessionId || null,
+        );
+      } catch (err) {
+        logger.debug('CRE:Intercept', `DB persist failed: ${err.message}`);
+      }
+    }
+  }
+
+  /**
+   * Get CRE Gatekeeper audit stats.
+   * @returns {{ overrideCount: number, interceptCount: number, recentOverrides: Object[], recentIntercepts: Object[] }}
+   */
+  getAuditStats() {
+    return {
+      overrideCount: this._overrideCount,
+      interceptCount: this._interceptCount,
+      recentOverrides: [...this._overrideLog],
+      recentIntercepts: [...this._interceptLog],
+    };
+  }
+
+  /** @private */
+  _logOverride(decision, source, reason, originalDecision) {
+    this._overrideCount++;
+    const entry = {
+      type: decision.type,
+      intent: decision.intent,
+      source,
+      reason,
+      originalIntent: originalDecision?.intent || null,
+      originalType: originalDecision?.type || null,
+      timestamp: Date.now(),
+    };
+
+    this._overrideLog.push(entry);
+    if (this._overrideLog.length > this._maxLogEntries) {
+      this._overrideLog.shift();
+    }
+
+    logger.info('CRE:Override', `Decision override: ${source}`, entry);
+
+    // Persist to DB if available
+    if (this._db?.insert) {
+      try {
+        this._db.insert.run(
+          'override',
+          source,
+          reason,
+          decision.type,
+          decision.intent,
+          originalDecision?.type || null,
+          originalDecision?.intent || null,
+          decision.confidence,
+          JSON.stringify(decision.metadata || {}),
+          decision.metadata?.executionTraceId || null,
+          decision.metadata?.conversationId || null,
+          decision.metadata?.sessionId || null,
+        );
+      } catch (err) {
+        logger.debug('CRE:Override', `DB persist failed: ${err.message}`);
+      }
+    }
   }
 
   /**
@@ -1601,6 +1854,23 @@ export class CREDecisionEngine {
     // ════════════════════════════════════════════════════════════════════════
     if (isGratitudeOrFarewell(text)) {
       return IntentType.CONVERSATIONAL;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // v63.0: FILE_EXPLAIN → FILE_EXPLAIN (before CODE catches "explain code")
+    // "vysvětli soubor X", "co dělá tento soubor?" → FILE_EXPLAIN
+    // Must be BEFORE FILE_READ (more specific) and before CODE
+    // ════════════════════════════════════════════════════════════════════════
+    if (FILE_EXPLAIN_PATTERNS.some(p => p.test(text))) {
+      return IntentType.FILE_EXPLAIN;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // v63.0: FILE_READ → FILE_READ (before CODE and SEARCH)
+    // "otevři soubor", "přečti config.json", "ukaž mi obsah"
+    // ════════════════════════════════════════════════════════════════════════
+    if (FILE_READ_PATTERNS.some(p => p.test(text))) {
+      return IntentType.FILE_READ;
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -1880,6 +2150,12 @@ export class CREDecisionEngine {
         }
         return [ToolType.LOCAL_DATE]; // Default to date
 
+      // v63.0: FILE_READ/FILE_EXPLAIN — filesystem only, no web
+      case IntentType.FILE_READ:
+        return [ToolType.FILE_READ];
+      case IntentType.FILE_EXPLAIN:
+        return [ToolType.FILE_READ];
+
       case IntentType.CODE:
         // Code might need file operations
         return [ToolType.FILE_READ, ToolType.FILE_WRITE];
@@ -1929,7 +2205,8 @@ export class CREDecisionEngine {
     // v44.8: Added CREATIVE - ideation requests must not be overridden by sticky SEARCH
     // v45.0: Added ITEM_LOOKUP - explicit item requests must not be overridden by REPORT
     // v58.0: Added DESIGN - structured synthesis must not fall to SEARCH
-    const STRONG_INTENTS = [IntentType.LOCAL, IntentType.CONVERSATIONAL, IntentType.CREATIVE, IntentType.ITEM_LOOKUP, IntentType.DESIGN];
+    // v63.0: Added FILE_READ, FILE_EXPLAIN - file operations are terminal
+    const STRONG_INTENTS = [IntentType.LOCAL, IntentType.CONVERSATIONAL, IntentType.CREATIVE, IntentType.ITEM_LOOKUP, IntentType.DESIGN, IntentType.FILE_READ, IntentType.FILE_EXPLAIN];
     const isStrongIntent = STRONG_INTENTS.includes(intent);
 
     // ════════════════════════════════════════════════════════════════════════
@@ -2094,6 +2371,52 @@ export class CREDecisionEngine {
           inputPreview: input.substring(0, 100),
           handler,                 // Which local handler to use
           localComputation: true,
+          projectScope,
+        },
+      });
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // v63.0: FILE_READ is TERMINAL — filesystem read, no web search
+    // ════════════════════════════════════════════════════════════════════════
+    // "otevři soubor X", "přečti config.json"
+    // Reads file from project sandbox and returns content.
+    // ════════════════════════════════════════════════════════════════════════
+    if (intent === IntentType.FILE_READ) {
+      return new CREDecision({
+        type: DecisionType.LOCAL,  // TERMINAL — like local.date
+        intent,
+        tools: [],                 // No external tools
+        reason: 'FILE_READ is terminal - filesystem read, no web search',
+        confidence: 0.95,
+        metadata: {
+          inputPreview: input.substring(0, 100),
+          handler: 'file.read',
+          fileOperation: true,
+          filePath: extractFilePath(input),
+          projectScope,
+        },
+      });
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // v63.0: FILE_EXPLAIN is TERMINAL — read file + LLM explain
+    // ════════════════════════════════════════════════════════════════════════
+    // "vysvětli soubor X", "co dělá tento soubor?"
+    // Reads file, then LLM explains/summarizes the content.
+    // ════════════════════════════════════════════════════════════════════════
+    if (intent === IntentType.FILE_EXPLAIN) {
+      return new CREDecision({
+        type: DecisionType.LOCAL,  // TERMINAL — file read + LLM synthesis
+        intent,
+        tools: [],
+        reason: 'FILE_EXPLAIN is terminal - file read + LLM explanation',
+        confidence: 0.9,
+        metadata: {
+          inputPreview: input.substring(0, 100),
+          handler: 'file.explain',
+          fileOperation: true,
+          filePath: extractFilePath(input),
           projectScope,
         },
       });
@@ -2369,11 +2692,13 @@ export function assertDecision(decision) {
     );
   }
 
-  // v44.7 INVARIANT: LOCAL decision must have LOCAL intent
-  if (decision.type === DecisionType.LOCAL && decision.intent !== IntentType.LOCAL) {
+  // v44.7 INVARIANT: LOCAL decision must have LOCAL or FILE intent
+  // v63.0: FILE_READ and FILE_EXPLAIN are also terminal (no web, no tools)
+  const LOCAL_VALID_INTENTS = [IntentType.LOCAL, IntentType.FILE_READ, IntentType.FILE_EXPLAIN];
+  if (decision.type === DecisionType.LOCAL && !LOCAL_VALID_INTENTS.includes(decision.intent)) {
     throw new Error(
       `INVALID_DECISION_FLOW: LOCAL decision for non-LOCAL intent "${decision.intent}". ` +
-      `LOCAL decision type is only for LOCAL intent.`
+      `LOCAL decision type is only for LOCAL/FILE_READ/FILE_EXPLAIN intents.`
     );
   }
 

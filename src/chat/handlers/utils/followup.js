@@ -5,10 +5,13 @@
 // Contains:
 // - Follow-up type detection (FORMAT_CHANGE, REFINEMENT, etc.)
 // - Clarification resolution
+//
+// v64.0: All decisions routed through CRE Gatekeeper overrideDecision()
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { logger } from '../../../core/logger.js';
 import { CLARIFICATION_KEYWORDS } from './intent.js';
+import { creDecisionEngine } from '../../cre-decision.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FOLLOW-UP TYPE
@@ -227,30 +230,28 @@ export function tryResolveClarification(input, sessionState, context, options = 
     });
     sessionState.clearPendingDecision();
 
-    return {
+    return creDecisionEngine.overrideDecision({
       type: DecisionType?.ANSWER || 'ANSWER',
       intent: IntentType?.CONVERSATIONAL || 'CONVERSATIONAL',
-      tools: [],
-      confidence: 0.5,
+      source: 'clarification_max_attempts',
       reason: 'Max clarification attempts reached - processing as conversational',
+      confidence: 0.5,
       metadata: { maxAttemptsReached: true, originalInput: input },
-      toJSON() { return this; },
-    };
+    });
   }
 
   // FIX 5: CLARIFICATION CONTENT RESPECTING
   if (/datum|číslo|jen datum|bez odkazů|no links|just.*date/i.test(input)) {
     logger.info('Clarification', 'User requested local/direct response');
     sessionState.clearPendingDecision();
-    return {
+    return creDecisionEngine.overrideDecision({
       type: DecisionType?.LOCAL || 'LOCAL',
       intent: IntentType?.LOCAL || 'LOCAL',
-      tools: [],
-      confidence: 0.9,
+      source: 'clarification_local_request',
       reason: 'User explicitly requested local/direct response',
+      confidence: 0.9,
       metadata: { handler: 'local.date', localComputation: true },
-      toJSON() { return this; },
-    };
+    });
   }
 
   const normalizedInput = input.toLowerCase().trim();
@@ -273,27 +274,27 @@ export function tryResolveClarification(input, sessionState, context, options = 
   if (awaitingSlots?.includes('source')) {
     const urlMatch = input.match(/https?:\/\/[^\s]+/i);
     if (urlMatch) {
-      return {
+      return creDecisionEngine.overrideDecision({
         type: DecisionType?.TOOL_CALL || 'TOOL_CALL',
         intent: pendingDecision.intent || IntentType?.SEARCH || 'SEARCH',
         tools: ['web.scrape'],
-        params: { url: urlMatch[0] },
-        confidence: 0.9,
+        source: 'clarification_source_url',
         reason: 'User provided URL for source clarification',
-        toJSON() { return this; },
-      };
+        confidence: 0.9,
+        metadata: { params: { url: urlMatch[0] } },
+      });
     }
 
     if (normalizedInput.length > 2) {
-      return {
+      return creDecisionEngine.overrideDecision({
         type: DecisionType?.TOOL_CALL || 'TOOL_CALL',
         intent: pendingDecision.intent || IntentType?.SEARCH || 'SEARCH',
         tools: ['web.search'],
-        params: { query: input },
-        confidence: 0.85,
+        source: 'clarification_source_topic',
         reason: 'User provided search topic',
-        toJSON() { return this; },
-      };
+        confidence: 0.85,
+        metadata: { params: { query: input } },
+      });
     }
   }
 
@@ -301,26 +302,28 @@ export function tryResolveClarification(input, sessionState, context, options = 
   if (awaitingSlots?.includes('project_context') || awaitingSlots?.includes('file_path')) {
     const generalPhrases = ['obecná', 'obecne', 'obecný', 'general', 'žádný projekt'];
     if (generalPhrases.some(p => normalizedInput.includes(p))) {
-      return {
+      // v64.0: CONVERSATIONAL (not FACTUAL) — user declined project context,
+      // answering directly without tools is CONVERSATIONAL behavior.
+      return creDecisionEngine.overrideDecision({
         type: DecisionType?.ANSWER || 'ANSWER',
-        intent: IntentType?.FACTUAL || 'FACTUAL',
+        intent: IntentType?.CONVERSATIONAL || 'CONVERSATIONAL',
+        source: 'clarification_general_question',
+        reason: 'User indicated general question (no project context)',
         confidence: 0.85,
-        reason: 'User indicated general question',
-        toJSON() { return this; },
-      };
+      });
     }
 
     const filePathMatch = input.match(/[./\\][\w./\\-]+\.\w+/);
     if (filePathMatch) {
-      return {
+      return creDecisionEngine.overrideDecision({
         type: DecisionType?.TOOL_CALL || 'TOOL_CALL',
         intent: IntentType?.CODE || 'CODE',
         tools: ['file.read'],
-        params: { path: filePathMatch[0] },
-        confidence: 0.85,
+        source: 'clarification_file_path',
         reason: 'User provided file path',
-        toJSON() { return this; },
-      };
+        confidence: 0.85,
+        metadata: { params: { path: filePathMatch[0] } },
+      });
     }
   }
 
@@ -329,28 +332,30 @@ export function tryResolveClarification(input, sessionState, context, options = 
     const failedDecision = pendingDecision;
 
     if (/znovu|retry|opakovat|zkus/i.test(normalizedInput)) {
-      return {
+      return creDecisionEngine.overrideDecision({
         type: DecisionType?.TOOL_CALL || 'TOOL_CALL',
         intent: failedDecision.intent || IntentType?.SEARCH || 'SEARCH',
         tools: failedDecision.failedTools || ['web.search'],
-        params: { query: failedDecision.originalInput || lastUserInput },
-        confidence: 0.8,
+        source: 'clarification_retry',
         reason: 'User requested retry after failure',
-        toJSON() { return this; },
-      };
+        confidence: 0.8,
+        originalDecision: failedDecision,
+        metadata: { params: { query: failedDecision.originalInput || lastUserInput } },
+      });
     }
 
     const urlMatch = input.match(/https?:\/\/[^\s]+/i);
     if (urlMatch) {
-      return {
+      return creDecisionEngine.overrideDecision({
         type: DecisionType?.TOOL_CALL || 'TOOL_CALL',
         intent: failedDecision.intent || IntentType?.SEARCH || 'SEARCH',
         tools: ['web.scrape'],
-        params: { url: urlMatch[0] },
-        confidence: 0.85,
+        source: 'clarification_alt_url',
         reason: 'User provided alternative URL',
-        toJSON() { return this; },
-      };
+        confidence: 0.85,
+        originalDecision: failedDecision,
+        metadata: { params: { url: urlMatch[0] } },
+      });
     }
   }
 
@@ -359,56 +364,62 @@ export function tryResolveClarification(input, sessionState, context, options = 
 }
 
 /**
- * Build a resolved decision based on intent
+ * Build a resolved decision based on intent.
+ * v64.0: Routes through CRE Gatekeeper overrideDecision() for audit trail.
  */
 function buildResolvedDecision(intent, originalInput, context, options = {}) {
   const { DecisionType, IntentType } = options;
-  
-  const decision = {
-    intent,
-    confidence: 0.85,
-    reason: `Clarified intent: ${intent}`,
-    toJSON() { return this; },
-  };
 
-  switch (intent) {
+  const intentStr = intent || 'CONVERSATIONAL';
+
+  switch (intentStr) {
     case IntentType?.SEARCH:
     case 'SEARCH':
-      return {
-        ...decision,
+      return creDecisionEngine.overrideDecision({
         type: DecisionType?.TOOL_CALL || 'TOOL_CALL',
+        intent: intentStr,
         tools: ['web.search'],
-        params: { query: originalInput },
-      };
+        source: 'clarification_resolved',
+        reason: `Clarified intent: ${intentStr}`,
+        metadata: { params: { query: originalInput } },
+      });
 
     case IntentType?.REPORT:
     case 'REPORT':
-      return {
-        ...decision,
+      return creDecisionEngine.overrideDecision({
         type: DecisionType?.TOOL_CALL || 'TOOL_CALL',
+        intent: intentStr,
         tools: ['web.search', 'web.scrape'],
-        params: { query: originalInput },
-      };
+        source: 'clarification_resolved',
+        reason: `Clarified intent: ${intentStr}`,
+        metadata: { params: { query: originalInput } },
+      });
 
     case IntentType?.CODE:
     case 'CODE':
-      return {
-        ...decision,
+      return creDecisionEngine.overrideDecision({
         type: DecisionType?.ANSWER || 'ANSWER',
-      };
+        intent: intentStr,
+        source: 'clarification_resolved',
+        reason: `Clarified intent: ${intentStr}`,
+      });
 
     case IntentType?.CONVERSATIONAL:
     case 'CONVERSATIONAL':
-      return {
-        ...decision,
+      return creDecisionEngine.overrideDecision({
         type: DecisionType?.ANSWER || 'ANSWER',
-      };
+        intent: intentStr,
+        source: 'clarification_resolved',
+        reason: `Clarified intent: ${intentStr}`,
+      });
 
     default:
-      return {
-        ...decision,
+      return creDecisionEngine.overrideDecision({
         type: DecisionType?.ANSWER || 'ANSWER',
-      };
+        intent: intentStr,
+        source: 'clarification_resolved',
+        reason: `Clarified intent: ${intentStr} (default)`,
+      });
   }
 }
 

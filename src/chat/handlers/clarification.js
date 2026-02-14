@@ -1,6 +1,7 @@
 // handlers/clarification.js — Clarification resolution & goal alignment
 // ══════════════════════════════════════════════════════════════════════════════
 // v44.2+ - Handles pending clarifications, intent resolution, goal drift
+// v64.0  - All decisions routed through CRE Gatekeeper overrideDecision()
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { DecisionType, IntentType } from '../cre-decision.js';
@@ -61,18 +62,14 @@ export function tryResolveClarification(input, sessionState, context) {
     });
     sessionState.clearPendingDecision();
 
-    return {
+    return creDecisionEngine.overrideDecision({
       type: DecisionType.ANSWER,
       intent: IntentType.CONVERSATIONAL,
-      tools: [],
-      confidence: 0.5,
+      source: 'clarification_max_attempts',
       reason: 'Max clarification attempts reached - processing as conversational',
-      metadata: {
-        maxAttemptsReached: true,
-        originalInput: input,
-      },
-      toJSON() { return this; },
-    };
+      confidence: 0.5,
+      metadata: { maxAttemptsReached: true, originalInput: input },
+    });
   }
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -83,18 +80,14 @@ export function tryResolveClarification(input, sessionState, context) {
       input: input.substring(0, 50),
     });
     sessionState.clearPendingDecision();
-    return {
+    return creDecisionEngine.overrideDecision({
       type: DecisionType.LOCAL,
       intent: IntentType.LOCAL,
-      tools: [],
-      confidence: 0.9,
+      source: 'clarification_local_request',
       reason: 'User explicitly requested local/direct response (datum/bez odkazů)',
-      metadata: {
-        handler: 'local.date',
-        localComputation: true,
-      },
-      toJSON() { return this; },
-    };
+      confidence: 0.9,
+      metadata: { handler: 'local.date', localComputation: true },
+    });
   }
 
   const normalizedInput = input.toLowerCase().trim();
@@ -124,27 +117,27 @@ export function tryResolveClarification(input, sessionState, context) {
   if (awaitingSlots.includes('source')) {
     const urlMatch = input.match(/https?:\/\/[^\s]+/i);
     if (urlMatch) {
-      return {
+      return creDecisionEngine.overrideDecision({
         type: DecisionType.TOOL_CALL,
         intent: pendingDecision.intent || IntentType.SEARCH,
         tools: ['web.scrape'],
-        params: { url: urlMatch[0] },
-        confidence: 0.9,
+        source: 'clarification_source_url',
         reason: 'User provided URL for source clarification',
-        toJSON() { return this; },
-      };
+        confidence: 0.9,
+        metadata: { params: { url: urlMatch[0] } },
+      });
     }
 
     if (normalizedInput.length > 2) {
-      return {
+      return creDecisionEngine.overrideDecision({
         type: DecisionType.TOOL_CALL,
         intent: pendingDecision.intent || IntentType.SEARCH,
         tools: ['web.search'],
-        params: { query: input },
-        confidence: 0.85,
+        source: 'clarification_source_topic',
         reason: 'User provided search topic for source clarification',
-        toJSON() { return this; },
-      };
+        confidence: 0.85,
+        metadata: { params: { query: input } },
+      });
     }
   }
 
@@ -155,26 +148,28 @@ export function tryResolveClarification(input, sessionState, context) {
   if (awaitingSlots.includes('project_context') || awaitingSlots.includes('file_path')) {
     const generalPhrases = ['obecná', 'obecne', 'obecný', 'general', 'žádný projekt', 'zadny projekt'];
     if (generalPhrases.some(p => normalizedInput.includes(p))) {
-      return {
+      // v64.0: CONVERSATIONAL (not FACTUAL) — user declined project context,
+      // answering directly without tools is CONVERSATIONAL behavior.
+      return creDecisionEngine.overrideDecision({
         type: DecisionType.ANSWER,
-        intent: IntentType.FACTUAL,
-        confidence: 0.85,
+        intent: IntentType.CONVERSATIONAL,
+        source: 'clarification_general_question',
         reason: 'User indicated general question, not project-specific',
-        toJSON() { return this; },
-      };
+        confidence: 0.85,
+      });
     }
 
     const filePathMatch = input.match(/[./\\][\w./\\-]+\.\w+/);
     if (filePathMatch) {
-      return {
+      return creDecisionEngine.overrideDecision({
         type: DecisionType.TOOL_CALL,
         intent: IntentType.CODE,
         tools: ['file.read'],
-        params: { path: filePathMatch[0] },
-        confidence: 0.85,
+        source: 'clarification_file_path',
         reason: 'User provided file path',
-        toJSON() { return this; },
-      };
+        confidence: 0.85,
+        metadata: { params: { path: filePathMatch[0] } },
+      });
     }
   }
 
@@ -186,50 +181,53 @@ export function tryResolveClarification(input, sessionState, context) {
     const failedDecision = pendingDecision;
 
     if (/znovu|retry|opakovat|zkus/i.test(normalizedInput)) {
-      return {
+      return creDecisionEngine.overrideDecision({
         type: DecisionType.TOOL_CALL,
         intent: failedDecision.intent || IntentType.SEARCH,
         tools: failedDecision.failedTools || ['web.search'],
-        params: { query: failedDecision.originalInput || lastUserInput },
-        confidence: 0.8,
+        source: 'clarification_retry',
         reason: 'User requested retry after failure',
-        toJSON() { return this; },
-      };
+        confidence: 0.8,
+        originalDecision: failedDecision,
+        metadata: { params: { query: failedDecision.originalInput || lastUserInput } },
+      });
     }
 
     const urlMatch = input.match(/https?:\/\/[^\s]+/i);
     if (urlMatch) {
-      return {
+      return creDecisionEngine.overrideDecision({
         type: DecisionType.TOOL_CALL,
         intent: failedDecision.intent || IntentType.SEARCH,
         tools: ['web.scrape'],
-        params: { url: urlMatch[0] },
-        confidence: 0.9,
+        source: 'clarification_alt_url',
         reason: 'User provided alternative URL after failure',
-        toJSON() { return this; },
-      };
+        confidence: 0.9,
+        originalDecision: failedDecision,
+        metadata: { params: { url: urlMatch[0] } },
+      });
     }
 
     if (normalizedInput.length > 3 && !/^(ne|no|cancel|zrušit)$/i.test(normalizedInput)) {
-      return {
+      return creDecisionEngine.overrideDecision({
         type: DecisionType.TOOL_CALL,
         intent: failedDecision.intent || IntentType.SEARCH,
         tools: ['web.search'],
-        params: { query: input },
-        confidence: 0.85,
+        source: 'clarification_reformulated',
         reason: 'User provided reformulated query after failure',
-        toJSON() { return this; },
-      };
+        confidence: 0.85,
+        originalDecision: failedDecision,
+        metadata: { params: { query: input } },
+      });
     }
 
     if (/^(ne|no|cancel|zrušit|stop)$/i.test(normalizedInput)) {
-      return {
+      return creDecisionEngine.overrideDecision({
         type: DecisionType.ANSWER,
         intent: IntentType.CONVERSATIONAL,
-        confidence: 0.9,
+        source: 'clarification_cancelled',
         reason: 'User cancelled after failure',
-        toJSON() { return this; },
-      };
+        confidence: 0.9,
+      });
     }
   }
 
@@ -244,30 +242,30 @@ export function tryResolveClarification(input, sessionState, context) {
       if (sessionState?.resetDriftCount) {
         sessionState.resetDriftCount();
       }
-      return {
+      return creDecisionEngine.overrideDecision({
         type: DecisionType.TOOL_CALL,
         intent: driftDecision.intent,
         tools: driftDecision.tools,
-        params: { query: driftDecision.originalInput || lastUserInput },
-        confidence: 0.9,
+        source: 'clarification_drift_confirmed',
         reason: 'User confirmed goal drift - proceeding',
-        metadata: { goalDriftConfirmed: true },
-        toJSON() { return this; },
-      };
+        confidence: 0.9,
+        originalDecision: driftDecision,
+        metadata: { goalDriftConfirmed: true, params: { query: driftDecision.originalInput || lastUserInput } },
+      });
     }
 
     if (/^(ne|no|cancel|zrušit|stop|zpět)/i.test(normalizedInput)) {
       if (sessionState?.resetDriftCount) {
         sessionState.resetDriftCount();
       }
-      return {
+      return creDecisionEngine.overrideDecision({
         type: DecisionType.ANSWER,
         intent: IntentType.CONVERSATIONAL,
-        confidence: 0.9,
+        source: 'clarification_drift_declined',
         reason: 'User declined goal drift - returning to project goal',
+        confidence: 0.9,
         metadata: { returnToGoal: true },
-        toJSON() { return this; },
-      };
+      });
     }
   }
 
@@ -286,18 +284,16 @@ export function tryResolveClarification(input, sessionState, context) {
 
     if (pendingDecision.type === DecisionType.TOOL_CALL ||
         pendingDecision.type === 'TOOL_CALL_FAILED') {
-      return {
+      return creDecisionEngine.overrideDecision({
         type: DecisionType.TOOL_CALL,
         intent: pendingIntent,
         tools: pendingDecision.tools || ['web.search'],
-        params: {
-          query: pendingDecision.originalInput || lastUserInput,
-          clarification: input,
-        },
-        confidence: 0.8,
+        source: 'clarification_pending_fallback',
         reason: 'Resolved from pendingDecision with clarification input',
-        toJSON() { return this; },
-      };
+        confidence: 0.8,
+        originalDecision: pendingDecision,
+        metadata: { params: { query: pendingDecision.originalInput || lastUserInput, clarification: input } },
+      });
     }
 
     return buildResolvedDecision(pendingIntent, lastUserInput || input, context);
@@ -317,42 +313,42 @@ export function buildResolvedDecision(intent, originalInput, context) {
     [IntentType.SEARCH]: ['web.search'],
     [IntentType.REPORT]: ['web.search', 'web.scrape'],
     [IntentType.FACTUAL]: ['web.search'],
-    [IntentType.CODE]: context.hasActiveProject ? ['file.read', 'file.write'] : [],
+    [IntentType.CODE]: context?.hasActiveProject ? ['file.read', 'file.write'] : [],
     [IntentType.CONVERSATIONAL]: [],
   };
 
   const tools = toolMapping[intent] || ['web.search'];
 
   if (intent === IntentType.CONVERSATIONAL) {
-    return {
+    return creDecisionEngine.overrideDecision({
       type: DecisionType.ANSWER,
       intent,
-      confidence: 0.9,
+      source: 'clarification_resolved',
       reason: 'Resolved to CONVERSATIONAL - direct answer allowed',
-      toJSON() { return this; },
-    };
+      confidence: 0.9,
+    });
   }
 
   if (intent === IntentType.CODE && tools.length === 0) {
-    return {
+    return creDecisionEngine.overrideDecision({
       type: DecisionType.ASK_USER,
       intent,
       slots: ['project_context'],
-      confidence: 0.7,
+      source: 'clarification_resolved',
       reason: 'CODE intent requires project context',
-      toJSON() { return this; },
-    };
+      confidence: 0.7,
+    });
   }
 
-  return {
+  return creDecisionEngine.overrideDecision({
     type: DecisionType.TOOL_CALL,
     intent,
     tools,
-    params: { query: originalInput },
-    confidence: 0.9,
+    source: 'clarification_resolved',
     reason: `Clarification resolved: ${intent} → TOOL_CALL`,
-    toJSON() { return this; },
-  };
+    confidence: 0.9,
+    metadata: { params: { query: originalInput } },
+  });
 }
 
 /**

@@ -13,6 +13,7 @@ import { logger } from '../../core/logger.js';
 import { isVagueInput } from './utils/intent.js';
 import { tryResolveClarification, buildResolvedDecision, assessGoalAlignment } from './clarification.js';
 import { handleLocalDecision, computeCalendar, computeDate } from './local.js';
+import { handleFileDecision } from './file.js';
 import {
   handleToolCallDecision,
   handleAskUserDecision,
@@ -107,6 +108,9 @@ export async function conversationHandler(input, context) {
   const resumeIntent = detectResumeIntent ? detectResumeIntent(input) : null;
 
   if (resumeIntent === 'resume') {
+    creDecisionEngine.logIntercept('session_resume', 'User requesting session resume — routing to resume handler', {
+      sessionId,
+    });
     const result = await handleResumeRequest(input, context, setHandoffState);
     if (result.handled) {
       if (result.pendingChoice) {
@@ -127,6 +131,9 @@ export async function conversationHandler(input, context) {
   }
 
   if (resumeIntent === 'progress') {
+    creDecisionEngine.logIntercept('progress_inquiry', 'User asking about progress — routing to progress handler', {
+      sessionId,
+    });
     const result = handleProgressRequest();
     if (result.handled) {
       return {
@@ -173,6 +180,9 @@ export async function conversationHandler(input, context) {
   // ════════════════════════════════════════════════════════════════════════════
   const activeHandoff = getActiveBuildHandoff ? getActiveBuildHandoff(sessionId) : null;
   if (activeHandoff) {
+    creDecisionEngine.logIntercept('build_handoff', `Active build handoff (phase: ${activeHandoff.phase}) — routing to build handler`, {
+      sessionId, phase: activeHandoff.phase,
+    });
     // Cancel command
     if (/^(zrušit?|cancel|stop|zpět|back)\s*[!.]?$/i.test(input.trim())) {
       cancelBuildHandoff(sessionId);
@@ -250,6 +260,9 @@ export async function conversationHandler(input, context) {
   // ════════════════════════════════════════════════════════════════════════════
   const activeLifecycle = getActiveLifecycleHandoff ? getActiveLifecycleHandoff(sessionId) : null;
   if (activeLifecycle) {
+    creDecisionEngine.logIntercept('lifecycle_handoff', 'Active lifecycle handoff — routing to lifecycle handler', {
+      sessionId, phase: activeLifecycle.phase,
+    });
     // Cancel command
     if (/^(zru[sš]it?|cancel|stop)\s*[!.]?$/i.test(input.trim())) {
       cancelLifecycleHandoff(sessionId);
@@ -272,6 +285,9 @@ export async function conversationHandler(input, context) {
   // ════════════════════════════════════════════════════════════════════════════
   const activeWizard = getActiveWizard ? getActiveWizard(sessionId) : null;
   if (activeWizard) {
+    creDecisionEngine.logIntercept('agent_wizard', 'Active agent wizard — routing to wizard handler', {
+      sessionId, wizardStep: activeWizard.step,
+    });
     if (/^(zru[sš]it?|cancel|stop|zp[eě]t|back)\s*[!.]?$/i.test(input.trim())) {
       cancelWizard(sessionId);
       return {
@@ -348,7 +364,7 @@ export async function conversationHandler(input, context) {
     const previousDecision = sessionState.lastDecision;
     const previousInput = sessionState.lastUserInput || '';
 
-    logger.info('ConversationHandler', 'Date correction detected', {
+    creDecisionEngine.logIntercept('date_correction', 'User correcting date — replaying LOCAL computation', {
       input: input.substring(0, 50),
       previousIntent: previousDecision.intent,
     });
@@ -417,12 +433,14 @@ export async function conversationHandler(input, context) {
     const effectiveInput = previousInput;
 
     if (replayTools.length > 0) {
-      const replayDecision = new (await import('../cre-decision.js')).CREDecision({
+      const replayDecision = creDecisionEngine.overrideDecision({
         type: DecisionType.TOOL_CALL,
         intent: replayIntent,
         tools: replayTools,
+        source: 'reformulation',
         reason: `Reformulation of previous ${replayIntent} intent`,
         confidence: 0.85,
+        originalDecision: previousDecision,
         metadata: { reformulation: true, originalInput: effectiveInput },
       });
       return await handleToolCallDecision(effectiveInput, replayDecision, context);
@@ -432,11 +450,13 @@ export async function conversationHandler(input, context) {
       const resolvedIntent = replayIntent === IntentType.CREATIVE ? IntentType.CREATIVE
         : replayIntent === IntentType.DESIGN ? IntentType.DESIGN
         : IntentType.CONVERSATIONAL;
-      const replayDecision = new (await import('../cre-decision.js')).CREDecision({
+      const replayDecision = creDecisionEngine.overrideDecision({
         type: DecisionType.ANSWER,
         intent: resolvedIntent,
+        source: 'reformulation',
         reason: `Reformulation of previous ${replayIntent} intent`,
         confidence: 0.85,
+        originalDecision: previousDecision,
         metadata: { reformulation: true, originalInput: effectiveInput },
       });
       if (resolvedIntent === IntentType.DESIGN) {
@@ -563,15 +583,14 @@ export async function conversationHandler(input, context) {
         turnCount: sessionState.activeDesignProject.turnCount,
       });
 
-      const designDecision = {
+      const designDecision = creDecisionEngine.overrideDecision({
         type: DecisionType.ANSWER,
         intent: IntentType.DESIGN,
-        tools: [],
+        source: 'design_continue',
         reason: 'DESIGN_CONTINUE — active project follow-up',
         confidence: 0.9,
         metadata: { designContinue: true },
-        toJSON() { return this; },
-      };
+      });
       return await handleDesignContinue(input, designDecision, context);
     } else if (isExplicitBreak) {
       const closedProject = typeof sessionState.closeDesignProject === 'function'
@@ -630,21 +649,19 @@ export async function conversationHandler(input, context) {
       input: input.substring(0, 50),
     });
 
-    decision = {
+    decision = creDecisionEngine.overrideDecision({
       type: DecisionType.ANSWER,
       intent: IntentType.CONVERSATIONAL,
-      tools: [],
-      confidence: 0.6,
+      source: 'first_turn_vague_input',
       reason: 'First turn vague input - optimistic conversational response instead of SEARCH',
-      slots: [],
+      confidence: 0.6,
+      originalDecision: decision,
       metadata: {
         firstTurnOverride: true,
         vagueInputBlocked: true,
-        originalIntent: decision.intent,
         inputPreview: input.substring(0, 100),
       },
-      toJSON() { return this; },
-    };
+    });
   }
 
   if (isFirstTurn && decision.type === DecisionType.ASK_USER) {
@@ -656,20 +673,18 @@ export async function conversationHandler(input, context) {
     // Force CREATIVE if it looks like an ideation request, otherwise CONVERSATIONAL
     const isIdeation = /vymyslet|navrh|nápad|inspirac|kampaň|kampan|příběh|pribeh/i.test(input);
 
-    decision = {
+    decision = creDecisionEngine.overrideDecision({
       type: DecisionType.ANSWER,
       intent: isIdeation ? IntentType.CREATIVE : IntentType.CONVERSATIONAL,
-      tools: [],
-      confidence: 0.7,
+      source: 'first_turn_ask_user',
       reason: 'First turn - optimistic answer instead of ASK_USER',
-      slots: [],
+      confidence: 0.7,
+      originalDecision: decision,
       metadata: {
         firstTurnOverride: true,
-        originalIntent: decision.intent,
         inputPreview: input.substring(0, 100),
       },
-      toJSON() { return this; },
-    };
+    });
   }
 
   logger.info('ConversationHandler', `CRE Decision: ${decision.type}`, {
@@ -680,7 +695,9 @@ export async function conversationHandler(input, context) {
 
   // v59.0 - Check for agent wizard trigger BEFORE standard routing (optional — Phase B)
   if (isWizardTrigger && isWizardTrigger(input) && !getActiveWizard(sessionId)) {
-    logger.info('ConversationHandler', 'Agent wizard trigger detected', { input: input.substring(0, 80) });
+    creDecisionEngine.logIntercept('agent_wizard_trigger', 'Agent wizard trigger detected post-CRE — overriding routing', {
+      input: input.substring(0, 80), originalDecision: decision?.toJSON?.() || decision,
+    });
     return handleAgentWizardDetected(input, context);
   }
 
@@ -696,8 +713,12 @@ export async function conversationHandler(input, context) {
 
     // ════════════════════════════════════════════════════════════════════════
     // v44.7 FIX 1: LOCAL is TERMINAL - direct computation, no tools
+    // v63.0: FILE_READ/FILE_EXPLAIN also route through LOCAL (terminal)
     // ════════════════════════════════════════════════════════════════════════
     case DecisionType.LOCAL:
+      if (decision.intent === IntentType.FILE_READ || decision.intent === IntentType.FILE_EXPLAIN) {
+        return await handleFileDecision(input, decision, context);
+      }
       return await handleLocalDecision(input, decision, context);
 
     case DecisionType.TOOL_CALL:
