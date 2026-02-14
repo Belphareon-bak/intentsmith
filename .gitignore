@@ -1,4 +1,6 @@
 node_modules
+pnpm-lock.yaml
+pnpm-workspace.yaml
 data/*.db
 data/*.db-shm
 data/*.db-wal
