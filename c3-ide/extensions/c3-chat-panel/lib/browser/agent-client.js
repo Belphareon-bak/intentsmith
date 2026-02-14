@@ -18,6 +18,19 @@
 /* Globals expected: C3Bus (from event-bus.js), _sessions */
 
 var _isExecuting = {};  // sessionIdx → boolean
+var _lastTurnTools = []; // H2: track tools used in current turn
+var _suggestionShownForTurn = false; // H2: dedup per turn
+
+/* G2: Hash-based hue for stable agent color */
+function _getAgentColor(agentId) {
+  var hash = 0;
+  for (var i = 0; i < agentId.length; i++) {
+    hash = ((hash << 5) - hash) + agentId.charCodeAt(i);
+    hash |= 0;
+  }
+  var hue = Math.abs(hash) % 360;
+  return 'hsl(' + hue + ', 70%, 60%)';
+}
 
 /* ─── Event type → display mapping ────────────────────────────────────── */
 
@@ -123,7 +136,8 @@ function formatAgentEvent(event) {
     active: true,
     seq: event.seq || 0,
     turnId: event.turnId || null,
-    eventId: event.id || null
+    eventId: event.id || null,
+    agent: event.agentId || null  // G2: agent badge
   };
 }
 
@@ -142,8 +156,41 @@ function initAgentClient() {
     /* Track executing state */
     if (event.type === 'turn_start') {
       _isExecuting[sessionIdx] = true;
+      _lastTurnTools = [];
+      _suggestionShownForTurn = false;
     } else if (event.type === 'turn_end' || event.type === 'error') {
       _isExecuting[sessionIdx] = false;
+
+      /* H2: Smart suggestion — if file was edited and package.json has test script */
+      if (event.type === 'turn_end' && !_suggestionShownForTurn) {
+        var hadEdit = _lastTurnTools.some(function(t) { return t === 'fs.write' || t === 'fs.patch'; });
+        if (hadEdit) {
+          _suggestionShownForTurn = true;
+          var _base = (typeof _backendBase !== 'undefined') ? _backendBase : 'http://localhost:3335';
+          fetch(_base + '/api/workspace/file?path=package.json', { signal: AbortSignal.timeout(2000) })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            try {
+              var pkg = JSON.parse(data.content);
+              if (pkg.scripts && pkg.scripts.test) {
+                C3Bus.emit('suggestion:show', {
+                  sessionIdx: sessionIdx,
+                  text: 'Spustit testy? (' + pkg.scripts.test.substring(0, 30) + ')',
+                  action: function() {
+                    if (typeof C3Terminal !== 'undefined') C3Terminal.send(sessionIdx, 'npm test');
+                  }
+                });
+              }
+            } catch (ex) {}
+          }).catch(function() {});
+        }
+      }
+      _lastTurnTools = [];
+    }
+
+    /* H2: Track tools used in current turn */
+    if (event.type === 'tool_call' && event.payload) {
+      _lastTurnTools.push(event.payload.tool || event.payload.name || '');
     }
 
     /* Format and emit */
@@ -189,13 +236,15 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     initAgentClient: initAgentClient,
     formatAgentEvent: formatAgentEvent,
-    isAgentExecuting: isAgentExecuting
+    isAgentExecuting: isAgentExecuting,
+    getAgentColor: _getAgentColor
   };
 }
 if (typeof window !== 'undefined') {
   window.C3Agent = {
     init: initAgentClient,
     formatEvent: formatAgentEvent,
-    isExecuting: isAgentExecuting
+    isExecuting: isAgentExecuting,
+    getAgentColor: _getAgentColor
   };
 }

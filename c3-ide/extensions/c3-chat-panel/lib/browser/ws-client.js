@@ -198,7 +198,8 @@ function wsSendChat(content, session) {
   return wsSend('chat', {
     content: content,
     conversationId: session._convId || null,
-    editMode: session.chat.editMode || 'auto'
+    editMode: session.chat.editMode || 'auto',
+    agentId: session._agentId || null
   });
 }
 

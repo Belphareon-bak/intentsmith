@@ -465,3 +465,23 @@
   color: var(--c3-tx-4);
   margin-top: 2px;
 }
+
+/* ═══ Fáze 5: Editor / Diff View ═══ */
+
+.c3-editor-content {
+  scrollbar-width: thin;
+  scrollbar-color: var(--c3-bg-4) transparent;
+}
+.c3-editor-content::-webkit-scrollbar { width: 8px; height: 8px; }
+.c3-editor-content::-webkit-scrollbar-track { background: transparent; }
+.c3-editor-content::-webkit-scrollbar-thumb { background: var(--c3-bg-4); border-radius: 4px; }
+.c3-editor-content::-webkit-scrollbar-thumb:hover { background: var(--c3-bg-5); }
+
+.c3-editor-content table tr:hover {
+  background: rgba(255,255,255,0.02);
+}
+
+.c3-editor-content pre {
+  margin: 0;
+  tab-size: 4;
+}

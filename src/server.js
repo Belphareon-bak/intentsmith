@@ -2075,9 +2075,37 @@ const routes = {
 
   /* ─── IDE stub endpoints ─────────────────────────────────────────── */
 
-  'POST /api/autocomplete': (req, res) => {
-    // Stub — returns null suggestion. Real LLM autocomplete in Blok D.
-    sendJSON(res, 200, { suggestion: null });
+  'POST /api/autocomplete': async (req, res) => {
+    const body = await parseBody(req);
+    const prefix = (body.partial || '').trim();
+    if (prefix.length < 3) return sendJSON(res, 200, { suggestion: null });
+
+    try {
+      const token = createAuthToken({
+        role: LLMCallerRole.SYNTHESIZER,
+        decisionId: `autocomplete_${Date.now()}`,
+        auditContext: { sessionId: 'ide-autocomplete' },
+        maxTokens: 80,
+      });
+      const context = (body.context || []).map(m => ({
+        role: m.role === 'system' ? 'system' : m.role === 'user' ? 'user' : 'assistant',
+        content: m.text || '',
+      }));
+      const messages = [
+        ...context.slice(-4),
+        { role: 'user', content: prefix },
+      ];
+      const result = await callWithAuth(token, '', {
+        systemPrompt: 'Dokonči uživatelovu zprávu. Vrať POUZE doplnění textu, nic dalšího. Odpovídej v češtině.',
+        messages,
+        temperature: 0.3,
+      });
+      const suggestion = (result.content || '').trim();
+      sendJSON(res, 200, { suggestion: suggestion || null });
+    } catch (err) {
+      logger.debug('Server', `Autocomplete error: ${err.message}`);
+      sendJSON(res, 200, { suggestion: null });
+    }
   },
 
   'POST /api/context': (req, res) => {

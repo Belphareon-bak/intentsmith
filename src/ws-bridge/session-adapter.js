@@ -35,6 +35,9 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
   let currentTurnId = null;
   let abortController = null;
 
+  // Fáze 5 — E4: Pending edit approvals (reqId → {resolve, reject, timer})
+  const editPending = new Map();
+
   const sid = sessionId || `ws-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   // ─── Internal helpers ──────────────────────────────────────────────
@@ -113,9 +116,44 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
             });
           },
 
-          // Hook: Tool call start (called in handleToolCallDecision before execute)
-          onToolCall: (tool, args) => {
+          // Hook: Tool call start (ASYNC — edit interception in ask mode)
+          onToolCall: async (tool, args) => {
             sendAgentEvent(AgentEventType.TOOL_CALL, turnId, { tool, args });
+
+            // E4: Intercept fs.write in ask mode → send diff to IDE, wait for approve/reject
+            if (tool === 'fs.write' && options.editMode === 'ask') {
+              const reqId = `er-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+              const filePath = args.path;
+
+              // Read current file content for diff
+              const fs = await import('fs/promises');
+              let oldContent = '';
+              let baseHash = null; // null = new file
+              try {
+                oldContent = await fs.readFile(filePath, 'utf-8');
+                const { createHash } = await import('crypto');
+                baseHash = createHash('sha256').update(oldContent).digest('hex').substring(0, 16);
+              } catch { /* new file — baseHash stays null */ }
+
+              // Send edit_request with old + new + baseHash
+              sendAgentEvent('edit_request', turnId, {
+                reqId,
+                file: filePath,
+                oldContent,
+                newContent: args.content,
+                baseHash,
+              });
+
+              // Wait for approve/reject from IDE (30s timeout — invariant 14)
+              return new Promise((resolve, reject) => {
+                const timer = setTimeout(() => {
+                  editPending.delete(reqId);
+                  sendAgentEvent('edit_timeout', turnId, { reqId, file: filePath });
+                  reject(new Error('Edit request timeout (30s)'));
+                }, 30000);
+                editPending.set(reqId, { resolve, reject, timer, filePath, newContent: args.content, baseHash });
+              });
+            }
           },
 
           // Hook: Tool call result (called in handleToolCallDecision after execute)
@@ -320,6 +358,68 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
       case 'ping':
         sendChannel(Channel.CONTROL, { action: 'pong', success: true });
         break;
+
+      // E4: Edit approve — hash guard, write file, broadcast new hash
+      case 'edit_approve': {
+        const pending = editPending.get(data.requestId);
+        if (!pending) break;
+        clearTimeout(pending.timer);
+        editPending.delete(data.requestId);
+
+        // Hash guard + write (async IIFE)
+        (async () => {
+          try {
+            const fs = await import('fs/promises');
+            const { createHash } = await import('crypto');
+
+            // Verify file hasn't changed since baseHash
+            if (pending.baseHash !== null) {
+              let currentHash = null;
+              try {
+                const currentContent = await fs.readFile(pending.filePath, 'utf-8');
+                currentHash = createHash('sha256').update(currentContent).digest('hex').substring(0, 16);
+              } catch { /* file deleted? */ }
+
+              if (currentHash !== pending.baseHash) {
+                sendAgentEvent('edit_conflict', currentTurnId, {
+                  reqId: data.requestId,
+                  file: pending.filePath,
+                  message: 'Soubor byl změněn od doby vytvoření diffu.',
+                });
+                pending.reject(new Error('Edit conflict: file changed'));
+                return;
+              }
+            }
+
+            // Safe write
+            await fs.writeFile(pending.filePath, pending.newContent, 'utf-8');
+            const newHash = createHash('sha256').update(pending.newContent).digest('hex').substring(0, 16);
+
+            // Broadcast for file watcher / tree refresh
+            sendChannel(Channel.STATUS, {
+              fileWritten: { path: pending.filePath, hash: newHash },
+            });
+
+            logger.info('WSSession', `Edit approved: ${pending.filePath}`, { sessionId: sid });
+            pending.resolve({ approved: true });
+          } catch (err) {
+            logger.error('WSSession', `Edit write error: ${err.message}`, { sessionId: sid });
+            pending.reject(err);
+          }
+        })();
+        break;
+      }
+
+      // E4: Edit reject
+      case 'edit_reject': {
+        const pending = editPending.get(data.requestId);
+        if (!pending) break;
+        clearTimeout(pending.timer);
+        editPending.delete(data.requestId);
+        logger.info('WSSession', `Edit rejected: ${pending.filePath}`, { sessionId: sid });
+        pending.reject(new Error('Edit rejected by user'));
+        break;
+      }
     }
   }
 
@@ -329,6 +429,12 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
     if (abortController) {
       abortController.abort();
     }
+    // Reject all pending edits on disconnect
+    for (const [reqId, pending] of editPending) {
+      clearTimeout(pending.timer);
+      pending.reject(new Error('Session disconnected'));
+    }
+    editPending.clear();
     logger.info('WSSession', 'Session cleaned up', { sessionId: sid });
   }
 

@@ -288,7 +288,8 @@ function SidebarApp(props){
           return h('div',{key:f.n+i,style:{display:'flex',alignItems:'center',gap:4,paddingLeft:(8+f.i*14),paddingRight:8,paddingTop:3,paddingBottom:3,borderRadius:4,fontSize:12,color:f.a?C.accentText:C.tx2,background:f.a?C.accentBg:'transparent',cursor:'pointer'},
             onMouseEnter:function(e){if(!f.a)e.currentTarget.style.background=C.bg3;},
             onMouseLeave:function(e){e.currentTarget.style.background=f.a?C.accentBg:'transparent';},
-            onClick:function(){if(f.d){_collapsedDirs[f.n]=!_collapsedDirs[f.n];renderSidebar();}else{FILES.forEach(function(x){x.a=false;});f.a=true;renderSidebar();}}},
+            onClick:function(){if(f.d){_collapsedDirs[f.n]=!_collapsedDirs[f.n];renderSidebar();}else{FILES.forEach(function(x){x.a=false;});f.a=true;renderSidebar();}},
+            onDoubleClick:function(){if(!f.d){document.dispatchEvent(new CustomEvent('c3-file-open',{detail:{path:_buildFilePath(f)}}));}}},
             f.d?h('span',{style:{fontSize:8,color:C.tx4,width:10,textAlign:'center',flexShrink:0}},isCol?'▶':'▼'):h('span',{style:{width:10,flexShrink:0}}),
             h('span',{style:{flexShrink:0,fontSize:13}},f.d?'📁':'📄'),
             h('span',{style:{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},f.n),
@@ -310,6 +311,8 @@ function SidebarApp(props){
    2. CENTER VIEW (ReactDOM.render into main panel)
    ═══════════════════════════════════════════════════════════ */
 var _centerState={view:'experts',detail:null,openSections:{},zoom:1,listView:false,settingsSection:null};
+/* ═══ Editor tab state (Fáze 5 — Blok E) ═══ */
+var _editorState={active:false,tabs:[],activeTabId:null,scrollRaf:null};
 var _centerContainer=null;
 function renderCenter(){if(!_centerContainer)return;ReactDOM.render(h(CenterApp,null),_centerContainer);}
 
@@ -317,9 +320,10 @@ function CenterApp(){
   var view=_centerState.view,detail=_centerState.detail;
   return h('div',{style:{display:'flex',height:'100%',width:'100%',background:C.bg0,fontFamily:C.font,overflow:'hidden',position:'absolute',top:0,left:0,right:0,bottom:0}},
     h('div',{style:{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}},
+      _editorState.active?centerEditor():
       view==='experts'?centerExperts():view==='projects'?centerProjects():view==='chats'?centerConvos():
       view==='specialists'?centerSpecs():view==='workers'?centerWorkers():view==='settings'?centerSettings():centerWelcome()),
-    detail?centerDetail():null);
+    detail&&!_editorState.active?centerDetail():null);
 }
 
 function viewHead(t,showZoom,onAdd){
@@ -427,7 +431,13 @@ function centerSpecs(){return h(React.Fragment,null,viewHead('Specialisté',true
 function centerWorkers(){return h(React.Fragment,null,viewHead('Workeri',true,function(){_addNew('workers');}),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(WORKERS.map(function(w){return h('div',{key:w.name,onClick:function(){setDetail({name:w.name,fields:[{k:'Status',v:w.status,a:w.status==='Running'},{k:'Cron',v:w.cron},{k:'Poslední běh',v:w.lastRun},{k:'Popis',v:w.desc}],tags:['Worker',w.status],actions:['Spustit','Pozastavit','Editovat']});},style:{background:C.bg2,border:'1px solid '+(_centerState.detail&&_centerState.detail.name===w.name?C.accent:C.border),borderRadius:12,padding:16,cursor:'pointer'}},h('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:6}},h('span',{style:{fontSize:18}},'⚙️'),h('span',{style:{fontSize:13,fontWeight:700,color:C.tx1,flex:1}},w.name),pill(w.status)),h('div',{style:{fontSize:11,color:C.tx3}},_s(w.desc)),h('div',{style:{fontSize:10,color:C.tx4,marginTop:6,fontFamily:C.mono}},'cron: '+_s(w.cron)));}))));}
 
 /* Settings state */
-var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSizeVal:13,fontIdx:0,custom1:null,custom2:null,bgIdx:0,bgCustom1:null,bgCustom2:null};
+var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSizeVal:13,fontIdx:0,custom1:null,custom2:null,bgIdx:0,bgCustom1:null,bgCustom2:null,customCSS:''};
+/* I2: Custom CSS injection — scoped under .c3-root */
+var _customStyleEl=null;
+function _injectCustomCSS(css){
+  if(!_customStyleEl){_customStyleEl=document.createElement('style');_customStyleEl.id='c3-custom-css';document.head.appendChild(_customStyleEl);}
+  _customStyleEl.textContent='.c3-root {\n'+(css||'')+'\n}';
+}
 var _accentPalettes=[
   {accent:'#22c55e',text:'#4ade80',dim:'#16a34a'},
   {accent:'#3b82f6',text:'#60a5fa',dim:'#2563eb'},
@@ -489,13 +499,14 @@ function _applyFont(){
   C.font=ff.val;
   document.documentElement.style.setProperty('--c3-font-size',fs+'px');
   document.documentElement.style.setProperty('--c3-font-family',ff.val);
+  document.documentElement.style.setProperty('--c3-mono',C.mono);
   document.body.style.fontSize=fs+'px';document.body.style.fontFamily=ff.val;
   ['c3-center-mount','c3-sidebar','c3-chat-panel','c3-agent-panel'].forEach(function(id){
     var el=document.getElementById(id);if(el){el.style.zoom='';el.style.fontFamily=ff.val;}});
 }
-function _applyAllSettings(){_applyTheme();_applyAccent();_applyFont();renderCenter();renderChat();renderAgent();if(typeof renderSidebar==='function')renderSidebar();}
+function _applyAllSettings(){_applyTheme();_applyAccent();_applyFont();_injectCustomCSS(_settingsVals.customCSS);renderCenter();renderChat();renderAgent();if(typeof renderSidebar==='function')renderSidebar();}
 /* Apply saved settings on load */
-_applyTheme();_applyAccent();setTimeout(function(){_applyFont();_applyAllSettings();},600);
+_applyTheme();_applyAccent();setTimeout(function(){_applyFont();_injectCustomCSS(_settingsVals.customCSS);_applyAllSettings();},600);
 
 function centerSettings(){
   var selSi=_centerState.settingsSection;
@@ -604,10 +615,333 @@ function settingsAppearance(){
       return h('div',{key:i,onClick:function(){sv.fontIdx=i;_saveSV();_applyAllSettings();},
         style:{padding:'8px 10px',borderRadius:8,border:'2px solid '+(sel?C.accent:C.border),background:sel?C.accentBg:C.bg3,cursor:'pointer',display:'flex',alignItems:'center',gap:8}},
         h('div',{style:{width:16,height:16,borderRadius:'50%',border:'2px solid '+(sel?C.accent:C.border2),background:sel?C.accent:'transparent',flexShrink:0}}),
-        h('span',{style:{fontSize:12,fontFamily:ff.val,color:sel?C.accentText:C.tx2}},ff.label));})));
+        h('span',{style:{fontSize:12,fontFamily:ff.val,color:sel?C.accentText:C.tx2}},ff.label));})),
+    /* I2: Custom CSS */
+    h('div',{style:{fontSize:11,fontWeight:600,color:C.tx2,marginBottom:6,marginTop:16}},'Vlastní CSS'),
+    h('div',{style:{fontSize:10,color:C.tx4,marginBottom:6}},'Scope: .c3-root — globální selektory nejsou podporované'),
+    h('textarea',{value:sv.customCSS||'',
+      onChange:function(e){sv.customCSS=e.target.value;_injectCustomCSS(e.target.value);_saveSV();},
+      style:{width:'100%',height:80,fontFamily:C.mono,fontSize:11,background:C.bg3,color:C.tx2,border:'1px solid '+C.border2,borderRadius:6,padding:'7px 9px',outline:'none',resize:'vertical',lineHeight:'1.4',boxSizing:'border-box'},
+      placeholder:'.c3-card { border-radius: 12px; }'}));
 }
 
 function centerWelcome(){return h('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:12}},h('div',{style:{width:48,height:48,background:'linear-gradient(135deg,#22c55e,#16a34a)',borderRadius:14,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:20,color:'#fff'}},'C3'),h('div',{style:{fontSize:16,fontWeight:700,color:C.tx1}},'C3 Studio'),h('div',{style:{fontSize:12,color:C.tx3}},'Vyber sekci v levém panelu'));}
+
+/* ═══════════════════════════════════════════════════════════
+   I3: KEYBOARD SHORTCUTS — scoped, no collisions
+   ═══════════════════════════════════════════════════════════ */
+
+function _isC3Focused(){
+  var el=document.activeElement;
+  while(el){
+    if(el.classList&&(el.classList.contains('c3-chat-widget')||
+      el.classList.contains('c3-center-widget')||
+      el.classList.contains('c3-agent-widget')||
+      el.id==='c3-center-mount'||el.id==='c3-chat-panel'||
+      el.id==='c3-agent-panel'||el.id==='c3-sidebar'))return true;
+    el=el.parentElement;
+  }
+  return false;
+}
+
+document.addEventListener('keydown',function(e){
+  if(!_isC3Focused())return;
+
+  var key='';
+  if(e.ctrlKey||e.metaKey)key+='Ctrl+';
+  if(e.shiftKey)key+='Shift+';
+  if(e.altKey)key+='Alt+';
+  key+=e.key;
+
+  switch(key){
+    case 'Ctrl+Shift+L':
+      /* Toggle bottom pane: agent ↔ split */
+      e.preventDefault();e.stopPropagation();
+      var cs=_sessions[_sessionActive];
+      if(cs){cs.bottom=cs.bottom==='agent'?'split':'agent';renderChat();renderAgent();}
+      break;
+    case 'Ctrl+Shift+E':
+      /* Toggle edit mode auto ↔ ask */
+      e.preventDefault();e.stopPropagation();
+      var es=_sessions[_sessionActive];
+      if(es){es.chat.editMode=es.chat.editMode==='ask'?'auto':'ask';renderChat();}
+      break;
+    case 'Escape':
+      /* Cancel execution or clear autocomplete */
+      if(_sessions[_sessionActive]&&_sessions[_sessionActive].chat.acSuggestion){
+        _sessions[_sessionActive].chat.acSuggestion=null;renderChat();
+        e.preventDefault();
+      }else if(typeof C3WS!=='undefined'&&C3WS.isReady()){
+        C3WS.sendCancel();e.preventDefault();
+      }
+      break;
+    /* Excluded: Ctrl+W (close window), Ctrl+T (new tab), Ctrl+S (Theia save) */
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   EDITOR / DIFF TAB SYSTEM (Fáze 5 — Blok E)
+   ═══════════════════════════════════════════════════════════ */
+
+function _buildFilePath(f){
+  if(!f.p)return f.n;
+  var par=FILES.find(function(x){return x.d&&x.n===f.p;});
+  return par?_buildFilePath(par)+'/'+f.n:f.p+'/'+f.n;
+}
+
+function _openFileTab(path){
+  var existing=_editorState.tabs.find(function(t){return t.path===path&&t.type==='file';});
+  if(existing){_setActiveTab(existing.id);return;}
+  fetch(_backendBase+'/api/workspace/file?path='+encodeURIComponent(path),{signal:AbortSignal.timeout(5000)})
+  .then(function(r){return r.json();})
+  .then(function(data){
+    if(data.error)return;
+    var tab={id:'file-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),type:'file',path:path,
+      label:path.split('/').pop(),content:data.content||'',hash:data.hash||null,
+      dirty:false,scrollTop:0,deleted:false,externalChange:false};
+    _editorState.tabs.push(tab);
+    _editorState.activeTabId=tab.id;
+    _editorState.active=true;
+    renderCenter();_persistEditorState();
+  }).catch(function(){});
+}
+
+function _closeTab(tabId){
+  var tab=_editorState.tabs.find(function(t){return t.id===tabId;});
+  if(!tab)return;
+  if(tab.dirty&&!confirm('Neuložené změny v '+tab.label+'. Zavřít?'))return;
+  var idx=_editorState.tabs.indexOf(tab);
+  _editorState.tabs.splice(idx,1);
+  if(_editorState.activeTabId===tabId){
+    if(_editorState.tabs.length>0){
+      _editorState.activeTabId=_editorState.tabs[Math.min(idx,_editorState.tabs.length-1)].id;
+    }else{_editorState.activeTabId=null;_editorState.active=false;}
+  }
+  renderCenter();_persistEditorState();
+}
+
+function _setActiveTab(tabId){
+  var cur=_editorState.tabs.find(function(t){return t.id===_editorState.activeTabId;});
+  if(cur){var el=document.getElementById('c3-editor-scroll');if(el)cur.scrollTop=el.scrollTop;}
+  _editorState.activeTabId=tabId;_editorState.active=true;
+  renderCenter();
+  var nxt=_editorState.tabs.find(function(t){return t.id===tabId;});
+  if(nxt&&nxt.scrollTop){setTimeout(function(){var el=document.getElementById('c3-editor-scroll');if(el)el.scrollTop=nxt.scrollTop;},50);}
+}
+
+function _backToGrid(){_editorState.active=false;renderCenter();}
+
+function _persistEditorState(){
+  try{localStorage.setItem('c3-editor-state',JSON.stringify({
+    openFiles:_editorState.tabs.filter(function(t){return t.type==='file';}).map(function(t){return{path:t.path};}),
+    activeTab:_editorState.activeTabId
+  }));}catch(e){}
+}
+
+function _refreshFileTab(tab){
+  fetch(_backendBase+'/api/workspace/file?path='+encodeURIComponent(tab.path),{signal:AbortSignal.timeout(5000)})
+  .then(function(r){return r.json();})
+  .then(function(data){
+    if(data.error)return;
+    if(data.hash&&data.hash===tab.hash)return;
+    tab.content=data.content||'';tab.hash=data.hash||null;
+    tab.dirty=false;tab.externalChange=false;
+    renderCenter();
+  }).catch(function(){});
+}
+
+/* ── Syntax highlighting (regex colorizer) ── */
+function _highlightLine(line){
+  if(!line)return '';
+  var parts=[],last=0,m;
+  var re=/('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`)|\/\/.*/g;
+  while((m=re.exec(line))!==null){
+    if(m.index>last)parts.push({t:'c',v:line.substring(last,m.index)});
+    parts.push({t:m[0].charAt(0)==='/'?'cm':'st',v:m[0]});
+    last=re.lastIndex;
+  }
+  if(last<line.length)parts.push({t:'c',v:line.substring(last)});
+  if(parts.length===0)return line;
+  var kw=/\b(function|const|var|let|import|export|if|else|return|class|async|await|for|while|new|this|try|catch|finally|throw|typeof|switch|case|break|default|null|undefined|true|false)\b/g;
+  return parts.map(function(p,i){
+    if(p.t==='st')return h('span',{key:i,style:{color:'#ce9178'}},p.v);
+    if(p.t==='cm')return h('span',{key:i,style:{color:'#6a9955'}},p.v);
+    var segs=[],l2=0,m2;kw.lastIndex=0;
+    while((m2=kw.exec(p.v))!==null){
+      if(m2.index>l2)segs.push(p.v.substring(l2,m2.index));
+      segs.push(h('span',{key:'k'+segs.length,style:{color:'#569cd6'}},m2[0]));
+      l2=m2.index+m2[0].length;
+    }
+    if(l2<p.v.length)segs.push(p.v.substring(l2));
+    return segs.length>1?h('span',{key:i},segs):(segs[0]||'');
+  });
+}
+
+/* ── Diff algorithm (LCS with prefix/suffix skip) ── */
+function computeLineDiff(oldText,newText){
+  var oL=(oldText||'').split('\n'),nL=(newText||'').split('\n');
+  var pL=0;while(pL<oL.length&&pL<nL.length&&oL[pL]===nL[pL])pL++;
+  var sL=0;while(sL<oL.length-pL&&sL<nL.length-pL&&oL[oL.length-1-sL]===nL[nL.length-1-sL])sL++;
+  var oM=oL.slice(pL,oL.length-sL),nM=nL.slice(pL,nL.length-sL);
+  var m=oM.length,n=nM.length;
+  /* OOM guard: if middle section too large, skip LCS */
+  if(m*n>4000000){
+    var simple=[];
+    for(var i=0;i<pL;i++)simple.push({type:'same',text:oL[i],oldNo:i+1,newNo:i+1});
+    oM.forEach(function(l,i){simple.push({type:'remove',text:l,oldNo:pL+i+1,newNo:null});});
+    nM.forEach(function(l,i){simple.push({type:'add',text:l,oldNo:null,newNo:pL+i+1});});
+    for(var i=0;i<sL;i++)simple.push({type:'same',text:oL[oL.length-sL+i],oldNo:oL.length-sL+i+1,newNo:nL.length-sL+i+1});
+    return _groupHunks(simple);
+  }
+  var dp=[];
+  for(var i=0;i<=m;i++){dp[i]=new Array(n+1);dp[i][0]=0;}
+  for(var j=0;j<=n;j++)dp[0][j]=0;
+  for(var i=1;i<=m;i++)for(var j=1;j<=n;j++){
+    dp[i][j]=oM[i-1]===nM[j-1]?dp[i-1][j-1]+1:Math.max(dp[i-1][j],dp[i][j-1]);
+  }
+  var result=[],ci=m,cj=n;
+  while(ci>0||cj>0){
+    if(ci>0&&cj>0&&oM[ci-1]===nM[cj-1]){result.unshift({type:'same',text:oM[ci-1],oldNo:pL+ci,newNo:pL+cj});ci--;cj--;}
+    else if(cj>0&&(ci===0||dp[ci][cj-1]>=dp[ci-1][cj])){result.unshift({type:'add',text:nM[cj-1],oldNo:null,newNo:pL+cj});cj--;}
+    else{result.unshift({type:'remove',text:oM[ci-1],oldNo:pL+ci,newNo:null});ci--;}
+  }
+  var all=[];
+  for(var i=0;i<pL;i++)all.push({type:'same',text:oL[i],oldNo:i+1,newNo:i+1});
+  all=all.concat(result);
+  for(var i=0;i<sL;i++){var oi=oL.length-sL+i,ni=nL.length-sL+i;all.push({type:'same',text:oL[oi],oldNo:oi+1,newNo:ni+1});}
+  return _groupHunks(all);
+}
+
+function _groupHunks(allLines){
+  var ci=[];allLines.forEach(function(l,i){if(l.type!=='same')ci.push(i);});
+  if(ci.length===0)return[{startOld:1,startNew:1,oldCount:allLines.length,newCount:allLines.length,lines:allLines}];
+  var CTX=3,groups=[],cur=[ci[0]];
+  for(var i=1;i<ci.length;i++){
+    if(ci[i]-ci[i-1]<=CTX*2)cur.push(ci[i]);
+    else{groups.push(cur);cur=[ci[i]];}
+  }
+  groups.push(cur);
+  return groups.map(function(g){
+    var s=Math.max(0,g[0]-CTX),e=Math.min(allLines.length-1,g[g.length-1]+CTX);
+    var lines=allLines.slice(s,e+1),f=lines[0];
+    return{startOld:f.oldNo||1,startNew:f.newNo||1,
+      oldCount:lines.filter(function(l){return l.type!=='add';}).length,
+      newCount:lines.filter(function(l){return l.type!=='remove';}).length,
+      lines:lines};
+  });
+}
+
+/* ── Editor renderer ── */
+function centerEditor(){
+  var tabs=_editorState.tabs;
+  var at=tabs.find(function(t){return t.id===_editorState.activeTabId;});
+  return h(React.Fragment,null,
+    /* Tab bar */
+    h('div',{style:{display:'flex',alignItems:'center',height:32,borderBottom:'1px solid '+C.border,flexShrink:0,background:C.bg2,overflow:'hidden'}},
+      /* Back button */
+      h('div',{style:{padding:'0 10px',height:'100%',display:'flex',alignItems:'center',cursor:'pointer',color:C.tx4,fontSize:12,flexShrink:0,borderRight:'1px solid '+C.border,gap:4},
+        onMouseEnter:function(e){e.currentTarget.style.background=C.bg3;},onMouseLeave:function(e){e.currentTarget.style.background='transparent';},
+        onClick:_backToGrid},svgEl('<polyline points="15 18 9 12 15 6"/>',14),'Grid'),
+      /* Tabs */
+      h('div',{style:{display:'flex',flex:1,overflow:'hidden'}},
+        tabs.map(function(tab){
+          var isA=tab.id===_editorState.activeTabId;
+          return h('div',{key:tab.id,style:{display:'flex',alignItems:'center',gap:4,padding:'0 10px',height:32,cursor:'pointer',borderRight:'1px solid '+C.border,background:isA?C.bg1:'transparent',color:isA?C.tx1:C.tx3,fontSize:11.5,fontWeight:isA?600:400,maxWidth:160,flexShrink:0},
+            onClick:function(){_setActiveTab(tab.id);}},
+            tab.type==='diff'?h('span',{style:{color:C.amber,fontSize:10}},'~'):h('span',{style:{fontSize:10}},'📄'),
+            h('span',{style:{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}},tab.label+(tab.dirty?' •':'')),
+            h('span',{style:{fontSize:14,color:C.tx4,padding:'0 2px',flexShrink:0,lineHeight:'1'},
+              onMouseEnter:function(e){e.currentTarget.style.color=C.tx1;},onMouseLeave:function(e){e.currentTarget.style.color=C.tx4;},
+              onClick:function(e){e.stopPropagation();_closeTab(tab.id);}},'×'));
+        })),
+      h('div',{style:{flex:1}})),
+    /* Content */
+    h('div',{style:{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}},
+      at?(
+        at.deleted?h('div',{style:{padding:20,textAlign:'center'}},
+          h('div',{style:{background:C.redBg,color:C.red,padding:'8px 12px',borderRadius:6,fontSize:12,display:'inline-block'}},'Soubor byl smazán.'),
+          h('button',{style:{marginTop:8,padding:'4px 12px',borderRadius:6,border:'1px solid '+C.border2,background:C.bg3,color:C.tx2,cursor:'pointer',fontSize:11},onClick:function(){_closeTab(at.id);}},'Zavřít tab')):
+        at.type==='file'?_renderFileContent(at):
+        at.type==='diff'?_renderDiffContent(at):
+        h('div',{style:{padding:20,color:C.tx4,fontSize:12}},'Neznámý typ tabu')
+      ):h('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:C.tx4,fontSize:12}},'Dvojklik na soubor ve Working Tree pro otevření')));
+}
+
+function _renderFileContent(tab){
+  var lines=(tab.content||'').split('\n');
+  return h(React.Fragment,null,
+    /* External change banner */
+    tab.externalChange?h('div',{style:{display:'flex',alignItems:'center',gap:8,padding:'6px 12px',background:C.amberBg,borderBottom:'1px solid '+C.border,fontSize:11,flexShrink:0}},
+      h('span',{style:{color:C.amber,flex:1}},'Soubor byl změněn externě.'),
+      h('button',{style:{padding:'2px 8px',borderRadius:4,border:'1px solid '+C.amber,background:'transparent',color:C.amber,cursor:'pointer',fontSize:10},
+        onClick:function(){_refreshFileTab(tab);}},'Načíst z disku'),
+      h('button',{style:{padding:'2px 8px',borderRadius:4,border:'1px solid '+C.border2,background:'transparent',color:C.tx3,cursor:'pointer',fontSize:10},
+        onClick:function(){tab.externalChange=false;renderCenter();}},'Ignorovat')):null,
+    /* Code view */
+    h('div',{id:'c3-editor-scroll',style:{flex:1,overflow:'auto',background:C.bg0},
+      onScroll:function(e){tab.scrollTop=e.target.scrollTop;}},
+      h('table',{style:{borderCollapse:'collapse',width:'100%',fontFamily:C.mono,fontSize:12,lineHeight:'1.6'}},
+        h('tbody',null,lines.map(function(line,i){
+          return h('tr',{key:i},
+            h('td',{style:{color:C.tx4,textAlign:'right',paddingRight:12,paddingLeft:8,userSelect:'none',width:48,verticalAlign:'top',fontSize:11,opacity:0.6}},i+1),
+            h('td',{style:{whiteSpace:'pre',color:C.tx1,paddingRight:16}},_highlightLine(line)));
+        })))));
+}
+
+function _renderDiffContent(tab){
+  if(tab.tooLarge){
+    return h('div',{style:{padding:24,textAlign:'center'}},
+      h('div',{style:{fontSize:13,color:C.tx2,marginBottom:12}},'Soubor příliš velký pro inline diff.'),
+      h('div',{style:{display:'flex',gap:8,justifyContent:'center'}},
+        h('button',{style:{padding:'6px 16px',borderRadius:6,border:'none',background:C.accent,color:'#fff',cursor:'pointer',fontSize:12,fontWeight:600},onClick:function(){_approveAll(tab.reqId);}},'Schválit bez review'),
+        h('button',{style:{padding:'6px 16px',borderRadius:6,border:'1px solid '+C.red,background:'transparent',color:C.red,cursor:'pointer',fontSize:12},onClick:function(){_rejectAll(tab.reqId);}},'Odmítnout')));
+  }
+  if(!tab.diffData||!tab.diffData.hunks)return h('div',{style:{padding:20,color:C.tx4}},'Žádný diff k zobrazení');
+  var hunks=tab.diffData.hunks;
+  var totalLines=hunks.reduce(function(s,hk){return s+hk.lines.length;},0);
+  return h('div',{style:{display:'flex',flexDirection:'column',flex:1,overflow:'hidden'}},
+    h('div',{id:'c3-editor-scroll',style:{flex:1,overflow:'auto',background:C.bg0},
+      onScroll:function(e){
+        tab.scrollTop=e.target.scrollTop;
+        if(totalLines>200&&!_editorState.scrollRaf){
+          _editorState.scrollRaf=requestAnimationFrame(function(){_editorState.scrollRaf=null;renderCenter();});
+        }
+      }},
+      hunks.map(function(hunk,hi){
+        return h('div',{key:hi,style:{marginBottom:8}},
+          h('div',{style:{padding:'4px 12px',background:C.bg3,color:C.tx4,fontFamily:C.mono,fontSize:10.5,borderBottom:'1px solid '+C.border}},
+            '@@ -'+hunk.startOld+','+hunk.oldCount+' +'+hunk.startNew+','+hunk.newCount+' @@'),
+          hunk.lines.map(function(line,li){
+            var bg=line.type==='add'?'rgba(34,197,94,0.08)':line.type==='remove'?'rgba(239,68,68,0.08)':'transparent';
+            var sign=line.type==='add'?'+':line.type==='remove'?'-':' ';
+            var sc=line.type==='add'?C.accentText:line.type==='remove'?C.red:C.tx4;
+            return h('div',{key:li,style:{display:'flex',fontFamily:C.mono,fontSize:12,lineHeight:'1.6',background:bg}},
+              h('span',{style:{color:C.tx4,width:40,textAlign:'right',paddingRight:4,flexShrink:0,fontSize:11,opacity:0.5,userSelect:'none'}},line.oldNo||''),
+              h('span',{style:{color:C.tx4,width:40,textAlign:'right',paddingRight:8,flexShrink:0,fontSize:11,opacity:0.5,userSelect:'none'}},line.newNo||''),
+              h('span',{style:{color:sc,width:16,textAlign:'center',flexShrink:0,fontWeight:600}},sign),
+              h('pre',{style:{margin:0,color:C.tx1,whiteSpace:'pre',flex:1}},_highlightLine(line.text)));
+          }));
+      })),
+    /* Bottom toolbar — approve/reject */
+    tab.reqId?h('div',{style:{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',borderTop:'1px solid '+C.border,background:C.bg2,flexShrink:0}},
+      h('span',{style:{fontSize:10,color:C.tx4,flex:1}},'Schválení se vztahuje na celý soubor: '+(tab.path||'')),
+      h('button',{style:{padding:'6px 16px',borderRadius:6,border:'none',background:C.accent,color:'#fff',cursor:'pointer',fontSize:12,fontWeight:600},onClick:function(){_approveAll(tab.reqId);}},'Schválit'),
+      h('button',{style:{padding:'6px 16px',borderRadius:6,border:'1px solid '+C.red,background:'transparent',color:C.red,cursor:'pointer',fontSize:12,fontWeight:600},onClick:function(){_rejectAll(tab.reqId);}},'Odmítnout')):null);
+}
+
+function _approveAll(reqId){
+  if(!reqId)return;
+  if(typeof C3WS!=='undefined')C3WS.approveEdit(reqId);
+  var tab=_editorState.tabs.find(function(t){return t.reqId===reqId;});
+  if(tab)_closeTab(tab.id);
+}
+
+function _rejectAll(reqId){
+  if(!reqId)return;
+  if(typeof C3WS!=='undefined')C3WS.rejectEdit(reqId);
+  var tab=_editorState.tabs.find(function(t){return t.reqId===reqId;});
+  if(tab)_closeTab(tab.id);
+}
 
 function centerDetail(){var d=_centerState.detail;return h('div',{style:{width:280,background:C.bg1,borderLeft:'1px solid '+C.border,display:'flex',flexDirection:'column',flexShrink:0,overflow:'hidden'}},h('div',{style:{padding:'10px 14px',borderBottom:'1px solid '+C.border,display:'flex',alignItems:'center',gap:8,flexShrink:0}},h('span',{style:{fontSize:13.5,fontWeight:700,flex:1,color:C.tx1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},d.name),h('button',{style:{background:'none',border:'none',color:C.tx4,cursor:'pointer',padding:2,borderRadius:4,display:'flex'},onClick:function(){_centerState.detail=null;renderCenter();}},svgEl(I.close,15))),h('div',{style:{flex:1,overflowY:'auto',padding:'12px 14px'}},(d.fields||[]).map(function(f,i){return h('div',{key:i,style:{display:'flex',justifyContent:'space-between',padding:'5px 0',fontSize:12,borderBottom:'1px solid '+C.border}},h('span',{style:{color:C.tx3}},f.k),f.type==='fav'?h('span',{style:{fontSize:16,cursor:'pointer',color:f.v?C.accentText:C.tx4,userSelect:'none'},onClick:function(ev){ev.stopPropagation();f.v=!f.v;var ex=EXPERTS.find(function(e){return e.name===f._expertName;});if(ex){ex.fav=f.v;if(ex.id){fetch(_backendBase+'/api/experts/'+ex.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({favorite:f.v}),signal:AbortSignal.timeout(3000)}).catch(function(){});}}renderCenter();}},f.v?'★':'☆'):d.editing?h('input',{defaultValue:_s(f.v),onChange:function(e){f.v=e.target.value;},style:{background:C.bg3,border:'1px solid '+C.border2,borderRadius:4,padding:'2px 6px',color:C.tx1,fontFamily:C.mono,fontSize:11,width:110,textAlign:'right',outline:'none',boxSizing:'border-box'}}):h('span',{style:{color:f.a?C.accentText:C.tx2,fontFamily:C.mono,fontSize:11}},_s(f.v)));}),d.tags?h('div',{style:{marginTop:12}},h('div',{style:{fontSize:10,fontWeight:700,color:C.tx4,textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:6}},'TAGY'),h('div',{style:{display:'flex',flexWrap:'wrap',gap:4}},(d.tags||[]).map(function(t){return h('span',{key:_s(t),style:{padding:'2px 8px',borderRadius:10,background:C.bg4,fontSize:10,color:C.tx2}},_s(t));}))):null,/* Session picker for Otevřít */
 _sessionCount>1?h('div',{style:{marginTop:12}},
@@ -687,9 +1021,39 @@ d.actions?h('div',{style:{marginTop:12}},h('div',{style:{fontSize:10,fontWeight:
       }
     }},a);}))):null));}
 
+/* ── File open / diff open event listeners (Blok E) ── */
+document.addEventListener('c3-file-open',function(e){
+  var path=e.detail&&e.detail.path;
+  if(path)_openFileTab(path);
+});
+document.addEventListener('c3-diff-open',function(e){
+  var d=e.detail;if(!d)return;
+  var totalLines=((d.oldContent||'').split('\n').length)+((d.newContent||'').split('\n').length);
+  var tab={id:'diff-'+(d.reqId||Date.now()),type:'diff',path:d.path||'',
+    label:'~ '+(d.path||'').split('/').pop(),reqId:d.reqId||null,baseHash:d.baseHash||null,
+    tooLarge:totalLines>4000,dirty:false,scrollTop:0,deleted:false,externalChange:false,
+    diffData:totalLines>4000?null:{hunks:computeLineDiff(d.oldContent,d.newContent)}};
+  _editorState.tabs.push(tab);
+  _editorState.activeTabId=tab.id;
+  _editorState.active=true;
+  renderCenter();
+});
+/* ── Dirty tab guard ── */
+window.addEventListener('beforeunload',function(e){
+  if(_editorState.tabs.some(function(t){return t.dirty;})){e.preventDefault();e.returnValue='Máte neuložené změny.';}
+});
+/* ── Restore editor tabs from localStorage (deferred to ws:ready — invariant 17) ── */
+if(typeof C3Bus!=='undefined'){
+  C3Bus.on('ws:ready',function(){
+    try{var saved=JSON.parse(localStorage.getItem('c3-editor-state')||'null');
+      if(saved&&saved.openFiles&&saved.openFiles.length>0){saved.openFiles.forEach(function(f){_openFileTab(f.path);});}
+    }catch(e){}
+  });
+}
+
 /* Nav event handler */
 window.addEventListener('c3-nav',function(e){
-  _centerState.view=e.detail.view;_centerState.detail=null;_centerState.settingsSection=null;renderCenter();
+  _centerState.view=e.detail.view;_centerState.detail=null;_centerState.settingsSection=null;_editorState.active=false;renderCenter();
   if(e.detail.select){
     var name=e.detail.select,view=e.detail.view,item=null;
     if(view==='experts'){item=EXPERTS.find(function(x){return x.name===name||x.name.indexOf(name)>=0;});if(item)setDetail({name:item.name,fields:[{k:'Typ',v:item.desc},{k:'Emoji',v:item.emoji},{k:'Oblíbený',v:item.fav?'Ano':'Ne'}],tags:['Expert',item.desc],actions:['Otevřít','Editovat']});}
@@ -712,6 +1076,7 @@ var _sessionActive=0;
 function _mkSession(){return{
   _convId:null,          /* conversationId — stable routing key */
   _projectId:null,       /* linked project */
+  _agentId:null,         /* G1: agent binding — persists with conversation metadata */
   chat:{msgs:[{role:'system',text:'C3 Studio připraven. Začni psát zprávu.'}],ctx:0,expert:'Výchozí',showExperts:false,showAllExperts:false,attachments:[],editMode:'auto',acSuggestion:null,acLoading:false},
   bottom:'split', /* 'agent' | 'terminal' | 'split' | 'mix' */
   log:[],
@@ -769,15 +1134,23 @@ function _initBusSubscriptions() {
     }
   });
 
-  /* Edit requests (ask mode) */
+  /* Edit requests (ask mode) — open diff tab in center editor */
   C3Bus.on('edit:request', function(ev) {
     var si = ev.sessionIdx;
     var s = _sessions[si] || _sessions[0];
     var d = ev.event || {};
+    var p = d.payload || d;
     if (s.chat.editMode === 'ask') {
-      var reqId = d.payload ? d.payload.requestId || d.id : d.requestId || ('er-' + Date.now());
-      if (typeof C3WS !== 'undefined') C3WS.trackEditRequest(reqId, d.payload ? d.payload.file : d.file, d.payload ? d.payload.diff : d.diff, si);
-      s.chat.msgs.push({role:'assistant', text:'✋ Chci editovat: ' + (d.payload ? d.payload.file : d.file) + '\n```\n' + (d.payload ? d.payload.diff : d.diff) + '\n```', tag:'EDIT', _editReqId: reqId});
+      var reqId = p.reqId || p.requestId || d.id || ('er-' + Date.now());
+      var file = p.file || '';
+      if (typeof C3WS !== 'undefined') C3WS.trackEditRequest(reqId, file, null, si);
+      /* Open diff tab in center editor */
+      if (p.oldContent !== undefined || p.newContent !== undefined) {
+        document.dispatchEvent(new CustomEvent('c3-diff-open', {
+          detail: { reqId: reqId, path: file, oldContent: p.oldContent || '', newContent: p.newContent || '', baseHash: p.baseHash || null }
+        }));
+      }
+      s.chat.msgs.push({role:'assistant', text:'✋ Editace: ' + file + ' — otevřen diff v centru', tag:'EDIT', _editReqId: reqId});
       renderChat(); _chatScrollPane(si);
     }
   });
@@ -785,6 +1158,29 @@ function _initBusSubscriptions() {
   /* Edit resolved */
   C3Bus.on('edit:resolved', function(ev) {
     renderChat(); renderAgent();
+  });
+
+  /* Workspace file changes (F3 — dirty tab protection) */
+  C3Bus.on('workspace:change', function(ev) {
+    if (ev.data && ev.data.type === 'file_batch') {
+      /* Refresh working tree */
+      if (typeof fetchBackendData === 'function') fetchBackendData();
+
+      (ev.data.events || []).forEach(function(e) {
+        var tab = _editorState.tabs.find(function(t) { return t.path === e.path && t.type === 'file'; });
+        if (!tab) return;
+        if (e.event === 'unlink') {
+          tab.deleted = true;
+        } else if (e.event === 'change') {
+          if (tab.dirty) {
+            tab.externalChange = true; /* sticky banner — NESMÍ přepsat dirty tab */
+          } else {
+            _refreshFileTab(tab);
+          }
+        }
+      });
+      renderCenter();
+    }
   });
 
   /* WS ready */
@@ -848,6 +1244,7 @@ function _persistSessionState() {
           return {
             convId: s._convId,
             projectId: s._projectId,
+            agentId: s._agentId,
             expertName: s.chat.expert,
             editMode: s.chat.editMode,
             bottomMode: s.bottom
@@ -870,6 +1267,7 @@ function _restoreSessionState() {
         if (_sessions[i]) {
           _sessions[i]._convId = ss.convId || null;
           _sessions[i]._projectId = ss.projectId || null;
+          _sessions[i]._agentId = ss.agentId || null;
           _sessions[i].chat.expert = ss.expertName || 'Výchozí';
           _sessions[i].chat.editMode = ss.editMode || 'auto';
           _sessions[i].bottom = ss.bottomMode || 'split';
@@ -914,17 +1312,53 @@ window._c3={
 };
 
 /* Autocomplete — Tab triggers backend completion */
+/* H1: AbortController + LRU cache */
+var _acAbort=null;
+var _acCache={};
+var _acOrder=[];
+var _acMaxCache=20;
+
 function _chatAutocomplete(idx){
   var ta=document.getElementById('c3-chat-ta-'+idx);
   var s=_sessions[idx];if(!s||!ta)return;var st=s.chat;
   var partial=ta.value;if(!partial.trim()){return;}
   /* If there's already a suggestion showing, accept it */
   if(st.acSuggestion){ta.value=partial+st.acSuggestion;st.acSuggestion=null;ta.style.height='20px';ta.style.height=Math.min(ta.scrollHeight,100)+'px';renderChat();return;}
+
+  /* H1: LRU cache hit */
+  if(_acCache[partial]){
+    st.acSuggestion=_acCache[partial];
+    _acOrder=_acOrder.filter(function(k){return k!==partial;});
+    _acOrder.push(partial);
+    renderChat();return;
+  }
+
+  /* H1: Abort previous request */
+  if(_acAbort){try{_acAbort.abort();}catch(e){}}
+  _acAbort=new AbortController();
+  var requestPrefix=partial;
+
   st.acLoading=true;renderChat();
-  fetch(_backendBase+'/api/autocomplete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({partial:partial,expert:st.expert,context:st.msgs.slice(-6).map(function(m){return{role:m.role,text:m.text};})}),signal:AbortSignal.timeout(5000)})
+  fetch(_backendBase+'/api/autocomplete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({partial:partial,expert:st.expert,context:st.msgs.slice(-6).map(function(m){return{role:m.role,text:m.text};})}),signal:_acAbort.signal})
   .then(function(r){return r.json();})
-  .then(function(d){st.acLoading=false;if(d.suggestion){st.acSuggestion=d.suggestion;renderChat();}else{renderChat();}})
-  .catch(function(){st.acLoading=false;renderChat();});
+  .then(function(d){
+    st.acLoading=false;
+    /* H1: Stale guard — check input hasn't changed */
+    var currentTa=document.getElementById('c3-chat-ta-'+idx);
+    if(currentTa&&currentTa.value!==requestPrefix){renderChat();return;}
+    if(d.suggestion){
+      /* H1: LRU cache store */
+      _acCache[requestPrefix]=d.suggestion;
+      _acOrder.push(requestPrefix);
+      while(_acOrder.length>_acMaxCache){var oldest=_acOrder.shift();delete _acCache[oldest];}
+      st.acSuggestion=d.suggestion;
+    }
+    renderChat();
+  })
+  .catch(function(e){
+    if(e&&e.name==='AbortError')return;/* expected */
+    st.acLoading=false;renderChat();
+  });
 }
 
 /* Context meter — poll real context usage from backend */
@@ -1006,6 +1440,26 @@ function _chatPaneUI(idx){
     h('div',{style:{padding:'0 6px',height:28,display:'flex',alignItems:'center',gap:3,borderBottom:'1px solid '+C.border,flexShrink:0,background:isFocused?C.bg2:'transparent'}},
       h('button',{style:btnS,title:'Nový chat',onClick:function(ev){ev.stopPropagation();st.msgs=[{role:'system',text:'Nový chat.'}];st.ctx=0;st.attachments=[];_sessionActive=idx;renderChat();}},svgEl(I.plus)),
       h('div',{style:{flex:1}}),
+      /* G1: Agent picker */
+      h('select',{style:{background:C.bg3,border:'1px solid '+C.border,borderRadius:4,color:C.tx3,fontSize:9,padding:'1px 4px',fontFamily:C.mono,outline:'none',maxWidth:70,cursor:'pointer'},
+        value:s._agentId||'',title:'Agent binding',
+        onChange:function(e){
+          s._agentId=e.target.value||null;_persistSessionState();
+          /* GET→merge→PUT metadata (invariant 9) */
+          if(s._convId){
+            fetch(_backendBase+'/api/conversations/'+s._convId,{signal:AbortSignal.timeout(3000)})
+            .then(function(r){return r.json();})
+            .then(function(conv){
+              var meta={};try{meta=JSON.parse(conv.metadata||'{}');}catch(ex){}
+              meta.agentId=s._agentId;
+              return fetch(_backendBase+'/api/conversations/'+s._convId,{method:'PUT',headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({metadata:JSON.stringify(meta)})});
+            }).catch(function(){});
+          }
+          renderChat();
+        }},
+        h('option',{value:''},'—'),
+        (typeof WORKERS!=='undefined'?WORKERS:[]).map(function(w){return h('option',{key:w.name,value:w.name},w.name);})),
       h('div',{style:{display:'flex',alignItems:'center',gap:3,fontSize:9,color:C.tx4,fontFamily:C.mono}},
         h('div',{style:{width:30,height:3,background:C.bg4,borderRadius:2,overflow:'hidden'}},h('div',{style:{height:'100%',background:C.accent,borderRadius:2,width:st.ctx+'%'}})),h('span',null,st.ctx+'%'))),
     /* FEED */
@@ -1104,8 +1558,11 @@ function renderAgent(){if(!_agentContainer)return;ReactDOM.render(h(AgentApp,nul
 
 function _agentLogContent(s){
   return h('div',{style:{flex:1,overflowY:'auto'}},s.log.map(function(e,i){
+    var agentColor=e.agent&&typeof C3Agent!=='undefined'?C3Agent.getAgentColor(e.agent):null;
     return h('div',{key:i,style:{display:'flex',gap:6,padding:'3px 10px',fontFamily:C.mono,fontSize:11,lineHeight:'1.5',borderLeft:e.active?'3px solid '+C.accent:'3px solid transparent',background:e.active?'rgba(34,197,94,0.03)':'transparent'}},
       h('span',{style:{color:C.tx4,flexShrink:0,minWidth:58}},e.time),
+      /* G2: Agent color badge */
+      e.agent?h('span',{style:{fontSize:9,padding:'1px 4px',borderRadius:3,background:agentColor+'22',color:agentColor,marginRight:2,flexShrink:0}},e.agent):null,
       h('span',{style:{fontWeight:600,minWidth:60,flexShrink:0,color:TC[e.cls]||C.tx3}},e.type),
       h('span',{style:{color:C.tx2}},e.text));}));
 }

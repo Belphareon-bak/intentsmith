@@ -112,25 +112,36 @@
 ## Fáze 5: Advanced features
 > Pokročilé funkce pro produktivitu
 
-### 5.1 Diff & Review
-- [ ] Agent generuje diff → zobrazení v center view jako side-by-side diff
-- [ ] Inline approve/reject per hunk
+### 5.1 Diff & Review (Blok E)
+- [x] Editor tabs — file viewer s line numbers + syntax highlighting
+- [x] Diff view — LCS algoritmus s OOM guardem, hunk view, hard limit 4000 řádků
+- [x] Edit flow — backend source of truth, hash guard, approve/reject přes WS
+- [x] Double-click soubor v tree → tab, dirty guard, beforeunload
 - [ ] Kumulativní commit tlačítko: "Schválit a commitovat"
 
-### 5.2 Multi-agent orchestrace
-- [ ] Každá relace může mít jiného agenta
-- [ ] Vizualizace agent interakcí v Mix view
+### 5.1b File Watcher (Blok F)
+- [x] chokidar backend wrapper s batch deduplikací
+- [x] WS broadcast workspace:change → IDE tree refresh
+- [x] Dirty tab ochrana — file watcher nepřepisuje dirty tab, sticky banner
+- [x] Watcher lifecycle — unwatchProject na disconnect
+
+### 5.2 Multi-agent orchestrace (Blok G)
+- [x] Každá relace může mít jiného agenta (picker + metadata binding)
+- [x] Vizualizace agent interakcí v logu — color badges per agent
+- [x] Agent ID pass-through přes WS do backendu
 - [ ] Delegace mezi agenty viditelná v logu
 
-### 5.3 Autocomplete intelligence
-- [ ] Kontextové návrhy na základě otevřeného souboru + konverzace
+### 5.3 Autocomplete intelligence (Blok H)
+- [x] LLM autocomplete s AbortController + LRU cache (20 položek)
 - [x] Slash commands: `/edit`, `/run`, `/test`, `/explain`, `/review`
-- [ ] Smart suggestions: "Spustit testy?" po editaci kódu
+- [x] Smart suggestions: "Spustit testy?" po editaci kódu (package.json check)
+- [x] Stale guard — kontrola input vs request prefix
 
-### 5.4 Theming & Customization
-- [ ] Uživatelské CSS injekce
+### 5.4 Theming & Customization (Blok I)
+- [x] CSS variables — všechny barvy injektované do :root
+- [x] Uživatelské CSS injekce — scoped pod .c3-root
 - [ ] Plugin system pro sidebar rozšíření
-- [ ] Keyboard shortcuts editor
+- [x] Keyboard shortcuts — scoped (Ctrl+Shift+L/E, Escape), bez kolizí s Theia
 
 ---
 
@@ -169,4 +180,10 @@ Fáze 1 (Data) ──┬── Fáze 2 (Working Tree)
 | Wizard napojení | ✅ Hotovo | Expert wizard event, conversation POST, worker chat |
 | Audit log panel | ✅ Hotovo | 5. tab v bottom panel, merge/drift logy, 30s cache |
 | Slash commands | ✅ Hotovo | /run, /test, /edit, /explain, /review |
-| Diff review | 🔲 Fáze 5 | — |
+| Editor tabs + diff | ✅ Hotovo | Tab system, file viewer, LCS diff, hash guard |
+| File watcher | ✅ Hotovo | chokidar, batch dedup, dirty tab ochrana |
+| Multi-agent | ✅ Hotovo | Picker, metadata binding, color badges |
+| LLM autocomplete | ✅ Hotovo | AbortController, LRU cache, stale guard |
+| Smart suggestions | ✅ Hotovo | Post-edit test suggestion, per-turn dedup |
+| Custom CSS | ✅ Hotovo | Scoped .c3-root, CSS variables na :root |
+| Keyboard shortcuts | ✅ Hotovo | Ctrl+Shift+L/E, Escape, scoped guard |

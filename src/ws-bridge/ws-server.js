@@ -22,6 +22,7 @@ import {
   buildHelloReject,
 } from './protocol.js';
 import { createSessionAdapter } from './session-adapter.js';
+import { watchProject, unwatchProject } from './file-watcher.js';
 
 /**
  * Attach a C3 WebSocket server to an existing HTTP server.
@@ -47,6 +48,20 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
     const clientIP = req.socket.remoteAddress;
     let handshakeDone = false;
     let session = null;
+    let activeWatchPath = null; // F2: file watcher lifecycle
+
+    function startWatching(projectPath) {
+      if (!projectPath || activeWatchPath === projectPath) return;
+      if (activeWatchPath) unwatchProject(activeWatchPath);
+      activeWatchPath = projectPath;
+      watchProject(projectPath, (events) => {
+        safeSend(JSON.stringify({
+          channel: 'workspace',
+          data: { type: 'file_batch', events },
+        }));
+      });
+      logger.info('WSBridge', `Watching: ${projectPath}`, { ip: clientIP });
+    }
 
     logger.info('WSBridge', 'New connection', { ip: clientIP });
 
@@ -99,6 +114,11 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
 
           // Send initial status
           session.sendStatus();
+
+          // F2: Start file watcher if workspace feature negotiated
+          if (clientFeatures.includes('workspace') && options.projectPath) {
+            startWatching(options.projectPath);
+          }
           return;
         }
 
@@ -115,6 +135,7 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
           session.processChat(msg.data?.content, {
             editMode: msg.data?.editMode,
             conversationId: msg.data?.conversationId,
+            agentId: msg.data?.agentId,
           });
           break;
 
@@ -149,6 +170,11 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
     // ─── Connection lifecycle ─────────────────────────────────────
 
     ws.on('close', (code, reason) => {
+      // F2: Stop file watcher on disconnect
+      if (activeWatchPath) {
+        unwatchProject(activeWatchPath);
+        activeWatchPath = null;
+      }
       if (session) {
         session.cleanup();
       }
