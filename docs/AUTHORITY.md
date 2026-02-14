@@ -91,6 +91,7 @@ The CRE (Cognitive Reasoning Engine) operates under a strict authority hierarchy
 3. **Plugin sandboxing**: Plugins receive PluginContext, not raw access
 4. **Trust inheritance**: Child operations inherit parent trust level
 5. **Audit trail**: All gate decisions are logged
+6. **CRE Gatekeeper (v64.0)**: No decision created outside `CRE.decide()` or `CRE.overrideDecision()`. All bypasses route through `overrideDecision()` (with audit trail) or `logIntercept()` (for pre-CRE stateful routes). Every override logged to `cre_override_log` table.
 
 ## Proactive Mode (v42.1)
 

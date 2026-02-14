@@ -1,6 +1,6 @@
 # CLAUDE.md - C.3 Agent Development Context
 
-**Verze:** v63.3
+**Verze:** v64.0
 **Datum:** 2026-02-14
 **Projekt:** ~/Projects/c3-agent-wip
 
@@ -9,7 +9,7 @@
 ## Aktualni stav
 
 C.3 Agent je plne funkcni conversational AI platforma s:
-- **CRE** (Conversational Reasoning Engine) — single-authority decision engine
+- **CRE** (Conversational Reasoning Engine) — single-authority decision engine s **CRE Gatekeeper** audit trail (v64.0)
 - **Expert System** (v63) — 15 built-in expertu s 5D capability profily, multi-expertise merge engine, enforcement pipeline, execution trace observability
 - **Agent Platform** — deterministicke worker agenty se zdroji, podminkami, triggery, notifikacemi
 - **Project Lifecycle** — milnikove rizeni projektu s crash recovery
@@ -22,6 +22,8 @@ C.3 Agent je plne funkcni conversational AI platforma s:
 | Sada | Pocet | Stav |
 |------|-------|------|
 | CRE Comprehensive | 401 | pass |
+| CRE Gatekeeper | 43 | pass |
+| Schema Migrations | 26 | pass |
 | Merge engine | 40 | pass |
 | Expert system | 40 | pass |
 | Expertise wizard | 38 | pass |
@@ -36,7 +38,7 @@ C.3 Agent je plne funkcni conversational AI platforma s:
 | Expert integration | 10 | pass |
 | E2E (framework) | 60 | pass |
 | IDE Sprint 1-7 | ~215 | pass |
-| **Celkem** | **~1130** | **pass** |
+| **Celkem** | **~1200** | **pass** |
 
 ---
 
@@ -84,15 +86,19 @@ Response (text + metadata + executionTraceId)
 ```
 src/chat/cre-decision.js          # ~2400 radku — klasifikace intentu, patterns, typo normalizace
 src/chat/cre-decision-types.js    # CREDecision ADT, DecisionType, IntentType
+  # v64.0: overrideDecision(), logIntercept(), bindAuditDb()
+  # cre_override_log tabulka — audit trail vsech bypassu
 ```
 
 ### Chat Pipeline
 ```
 src/chat/controller.js             # ChatController — vstupni bod pro chat
 src/chat/handlers/conversation.js  # ConversationHandler — routing, DESIGN session
+src/chat/handlers/clarification.js # Clarification resolution (v64.0 Gatekeeper)
 src/chat/handlers/expert.js        # Expert handler — single + merge path, enforcement, trace
 src/chat/handlers/decisions.js     # Shared decision sub-handlers
 src/chat/handlers/utils/synthesis.js  # LLM synteza + Output Gate (D6)
+src/chat/handlers/utils/followup.js   # Follow-up detection (v64.0 Gatekeeper)
 src/chat/handlers/utils/quality.js    # Quality evaluators (fluff, hedging, sections)
 src/chat/handlers/utils/language-enforcement.js  # SK→CZ preklad, EN detekce
 src/chat/conversation-store.js     # Session persistence (SQLite)
@@ -124,6 +130,8 @@ src/executor/tool-executor.js     # Tool executor
 src/db/database.js                # SQLite schema (28+ tables)
   # v63 tabulky: conversation_expertises, merge_audit_log,
   #              capability_drift_log, llm_execution_log
+  # v64.0: cre_override_log (Gatekeeper audit trail)
+src/db/migrations/                # 5 migracnich souboru (timestamp-based)
 ```
 
 ### IDE (C3 Studio)
@@ -155,6 +163,8 @@ tests/expertise-wizard.test.js       # 38 — validation, modules, capabilities
 tests/expert-system.test.js          # 40 — single expert flow, built-in experts
 tests/expert-integration.test.js     # 10 — expert + DB + handler pipeline
 tests/cre-comprehensive.test.js      # 401 — CRE klasifikace
+tests/cre-gatekeeper.test.js         # 43 — CRE Gatekeeper audit trail
+tests/schema-migrations.test.js      # 26 — DB schema migrations
 ```
 
 ---
@@ -176,6 +186,13 @@ node src/server.js
 
 ### Testy
 ```bash
+# CRE + Gatekeeper (444 testu)
+node tests/cre-comprehensive.test.js
+node tests/cre-gatekeeper.test.js
+
+# Schema migrations (26 testu)
+node tests/schema-migrations.test.js
+
 # Expert system + merge engine (217 testu)
 node tests/merge-engine.test.js
 node tests/merge-compatibility.test.js
@@ -185,9 +202,6 @@ node tests/execution-trace-stress.test.js
 node tests/expertise-wizard.test.js
 node tests/expert-system.test.js
 node tests/expert-integration.test.js
-
-# CRE + core
-node tests/cre-comprehensive.test.js
 node tests/notifications.test.js
 node tests/workflow.test.js
 node tests/trust-feedback.test.js
@@ -227,6 +241,11 @@ Kazda LLM odpoved projde quality gatem: fluff check, hedging check, language lea
 ### 7. ESM projekt
 `package.json` ma `"type": "module"`. IDE soubory jsou .cjs (CommonJS v Theia kontextu).
 
+### 8. CRE Gatekeeper (v64.0)
+Zadne rozhodnuti nevznika mimo `CRE.decide()` nebo `CRE.overrideDecision()`.
+Vsechny bypass pointy (35) routuji pres `overrideDecision()` (audit trail) nebo `logIntercept()` (pre-CRE stateful routes).
+Kazdy override logovan do `cre_override_log` tabulky.
+
 ---
 
 ## Poznamky pro pokracovani
@@ -239,4 +258,4 @@ Kazda LLM odpoved projde quality gatem: fluff check, hedging check, language lea
 
 ---
 
-*Posledni aktualizace: 2026-02-14*
+*Posledni aktualizace: v64.0 (2026-02-14)*

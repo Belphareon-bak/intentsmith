@@ -1,6 +1,6 @@
-# C.3 Agent Platform — Architecture v63.3
+# C.3 Agent Platform — Architecture v64.0
 
-**Version:** v63.3 (Merge Engine + Execution Observability)
+**Version:** v64.0 (CRE Gatekeeper + Single Authority Enforcement)
 **Status:** Production-ready, ~90% complete
 **Date:** February 2026
 
@@ -156,7 +156,9 @@ src/
 
 ### 1. CRE (Conversational Reasoning Engine)
 
-Single authority for all dialog decisions. Classifies user intent into 19 types:
+Single authority for all dialog decisions. v64.0 adds **CRE Gatekeeper** — all decision creation outside `decide()` now routes through `overrideDecision()` (with audit trail) or `logIntercept()` (for pre-CRE stateful routes). Every override persisted to `cre_override_log` table.
+
+Classifies user intent into 19 types:
 
 | Intent | Handler | Example |
 |--------|---------|---------|
@@ -322,7 +324,7 @@ Supported: CLI, Web, Slack, Discord, API. Each with capability presets (max mess
 
 ## Database Schema
 
-28+ tables in SQLite (better-sqlite3):
+28+ tables in SQLite (better-sqlite3), 5 migrations:
 
 | Group | Tables |
 |-------|--------|
@@ -332,6 +334,7 @@ Supported: CLI, Web, Slack, Discord, API. Each with capability presets (max mess
 | Lifecycle | lifecycle_handoff_state (crash recovery) |
 | Experts | experts, conversation_experts, expert_memory, conversation_expertises (v63 N:M max 3) |
 | Expert Audit | merge_audit_log, capability_drift_log, llm_execution_log (v63.3) |
+| CRE Audit | **cre_override_log** (v64.0 — Gatekeeper override/intercept audit trail) |
 | Memory | global_memory, user_memory, project_memory |
 | Workflows | workflow_sessions |
 | Config | user_settings, learned_patterns, logs, drafts |

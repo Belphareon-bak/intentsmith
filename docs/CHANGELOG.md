@@ -2,6 +2,32 @@
 
 ---
 
+## v64.0 — CRE Gatekeeper + Single Authority Enforcement (2026-02-14)
+
+**Testy:** 924 passing (43 novych gatekeeper + 26 schema-migrations)
+
+CRE Gatekeeper — vsechna rozhodnuti mimo `CRE.decide()` nyni prochazi `overrideDecision()` (s audit trail) nebo `logIntercept()` (pro stavove pre-CRE trasy). Eliminace 25+ raw decision object bypassu.
+
+- **`overrideDecision()`** — vytvari proper `CREDecision` s override metadaty (source, reason, originalDecision)
+- **`logIntercept()`** — loguje pre-CRE intercepts (session resume, lifecycle, wizard) bez vytvareni rozhodnuti
+- **`bindAuditDb()`** — volitelna DB persistence pro override/intercept audit trail
+- **`getAuditStats()`** — real-time statistiky overrides a intercepts
+- **Migration 005:** `cre_override_log` tabulka s 4 indexy (trace, conversation, source, type)
+- **conversation.js:** 9 bypass bodu presmerovano (first_turn, reformulation, design_continue, date_correction, session_resume, progress_inquiry, build_handoff, lifecycle_handoff)
+- **clarification.js:** 16 raw decision objektu presmerovano (max_attempts, local_request, source_url, drift_confirmed, atd.)
+- **followup.js:** 10 raw decision objektu presmerovano (buildResolvedDecision, tryResolveClarification)
+- **Fix:** FACTUAL+ANSWER invariant violation → CONVERSATIONAL+ANSWER (spravna kombinace)
+- **Test:** `cre-gatekeeper.test.js` (43 testu — overrideDecision, invarianty, logIntercept, auditStats, DB persist, source coverage, migration, toJSON)
+- **Test:** `schema-migrations.test.js` aktualizovano na 5 migraci
+
+### Stabilizacni sprint — Schema Migration Versioning (v64.0 Day 1)
+
+- **`src/db/migrate.js`** — Migration runner: `runMigrations(db)`, `getCurrentVersion(db)`, `listMigrations()`
+- **5 migracnich souboru** v `src/db/migrations/` (timestamp-based ordering)
+- **Test:** `schema-migrations.test.js` (26 testu — runner, idempotence, ordering, getCurrentVersion)
+
+---
+
 ## v62.2d — E2E Quality Deep Final Fixes (2026-02-13)
 
 **Skóre:** 34/36 (94% peak), ~33/36 (92% avg)
