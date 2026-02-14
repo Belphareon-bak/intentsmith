@@ -422,8 +422,8 @@ const routes = {
         'POST /planner/approve - Approve plan, start execution',
         'POST /planner/reject - Reject plan with feedback',
         'GET /planner/session?id= - Get workflow session status',
-        'GET /memory - List global memory',
-        'POST /memory - Set memory value',
+        'GET /api/global-memory - List global memory',
+        'POST /api/global-memory - Set memory value',
         'GET /architect - Architect Mode UI',
         'GET /experts - Expert Layer UI (v35)',
         'GET /agents - Agent Platform UI',
@@ -482,7 +482,7 @@ const routes = {
   },
   
   // ══════════════════════════════════════════════════════════════════════════
-  // GLOBAL MEMORY API (H6: canonical path is /api/global-memory, /memory kept for backward compat)
+  // GLOBAL MEMORY API (H6: consolidated to /api/global-memory)
   // ══════════════════════════════════════════════════════════════════════════
 
   'GET /api/global-memory': (req, res) => {
@@ -507,28 +507,7 @@ const routes = {
     sendJSON(res, 200, { success: true, deleted: params.key });
   },
 
-  // Deprecated: use /api/global-memory instead
-  'GET /memory': (req, res) => {
-    const memories = db.globalMemory.listAll.all();
-    sendJSON(res, 200, { memories });
-  },
-
-  'POST /memory': async (req, res) => {
-    const body = await parseBody(req);
-    const { key, value, category } = body;
-
-    if (!key || value === undefined) {
-      return sendJSON(res, 400, { error: 'key and value are required' });
-    }
-
-    db.globalMemory.setValue(key, value, category || 'general');
-    sendJSON(res, 200, { success: true, key });
-  },
-
-  'DELETE /memory/:key': (req, res, params) => {
-    db.globalMemory.delete.run(params.key);
-    sendJSON(res, 200, { success: true, deleted: params.key });
-  },
+  // H6: /memory removed — use /api/global-memory
   
   // ══════════════════════════════════════════════════════════════════════════
   // PROJECTS API
