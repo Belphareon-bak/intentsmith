@@ -1,15 +1,48 @@
-node_modules
+# Dependencies
+node_modules/
+
+# Package manager
 pnpm-lock.yaml
 pnpm-workspace.yaml
+
+# Database
 data/*.db
 data/*.db-shm
 data/*.db-wal
+
+# Generated artifacts
+data/artifacts/
 e2e-report.json
+e2e-latest.json
+e2e-quality-deep.json
 tests.zip
-c3-ide/node_modules
-c3-ide/applications/electron/lib
-c3-ide/applications/electron/src-gen
-c3-ide/yarn.lock
-*.tsbuildinfo
+src.zip
+*.zip
+
+# Temp files
+*.tmp
+*.tmp.*
+*.swp
+*.swo
+*~
+
+# Backups
+*-backup-*/
+*.ui-patch-backup-*/
+
+# IDE build artifacts
+c3-ide/node_modules/
+c3-ide/applications/electron/lib/
+c3-ide/applications/electron/src-gen/
 c3-ide/applications/electron/gen-webpack*.js
 c3-ide/applications/electron/webpack.config.js
+c3-ide/yarn.lock
+*.tsbuildinfo
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
