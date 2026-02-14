@@ -4,20 +4,22 @@
 > Všechna data se načítají z databáze, změny se ukládají zpět
 
 ### 1.1 CRUD entit přes REST API
-- [ ] **Experti**: GET/POST/PATCH/DELETE `/api/experts` — načtení do `EXPERTS[]`, vytvoření nového, editace, mazání
-- [ ] **Projekty**: GET/POST/PATCH/DELETE `/api/projects` — načtení do `PROJECTS[]`, CRUD
-- [ ] **Konverzace**: GET/POST/DELETE `/api/conversations` — načtení do `CONVERSATIONS[]`, vytvoření, archivace
-- [ ] **Specialisté**: GET/POST/PATCH/DELETE `/api/specialists` — načtení do `SPECIALISTS[]`, CRUD
-- [ ] **Workeri**: GET/POST/PATCH/DELETE `/api/agents` — načtení do `WORKERS[]`, CRUD
+- [x] **Experti**: GET/PUT `/api/experts` — načtení do `EXPERTS[]`, editace
+- [x] **Projekty**: GET/POST/PUT/DELETE `/api/projects` — načtení do `PROJECTS[]`, CRUD
+- [x] **Konverzace**: GET/POST/DELETE `/api/conversations` — načtení do `CONVERSATIONS[]`, vytvoření, archivace
+- [ ] **Specialisté**: GET/POST/PUT/DELETE `/api/specialists` — načtení do `SPECIALISTS[]`, CRUD
+- [x] **Workeri**: GET/POST/PUT `/api/agents` — načtení do `WORKERS[]`, CRUD
 
 ### 1.2 Real-time synchronizace
-- [ ] WebSocket eventy pro CRUD operace (`entity_created`, `entity_updated`, `entity_deleted`)
+- [x] WebSocket channel protocol v1 (hello handshake, 5 kanálů)
+- [x] Event bus (C3Bus) — transport emituje, UI subscribuje
+- [x] Exponential backoff reconnect + session rehydration
 - [ ] Optimistic UI updates + rollback při chybě
-- [ ] Polling fallback když WS není dostupný
 
 ### 1.3 Persistence nastavení na serveru
-- [ ] Uložení appearance settings do uživatelského profilu (ne jen localStorage)
-- [ ] Synchronizace across sessions
+- [x] Crash recovery — localStorage c3-session-state (convId, expert, editMode)
+- [x] Health monitor — 30s polling, zelená/žlutá/červená tečka
+- [ ] Synchronizace appearance settings across sessions
 
 ---
 
@@ -25,15 +27,16 @@
 > Reálná reflexe souborového systému
 
 ### 2.1 Načtení workspace
-- [ ] Při otevření projektu: GET `/api/workspace/tree` → naplnění `FILES[]`
-- [ ] Rekurzivní strom s lazy loading pro velké adresáře
+- [x] GET `/api/workspace/tree` → rekurzivní strom (max depth 5)
+- [x] Path traversal security (resolve + path.sep guard)
 - [ ] File watcher (WebSocket) pro live aktualizace při změnách na disku
 
 ### 2.2 Operace se soubory
-- [ ] **Nový soubor**: Klik na 📄 → inline input pro název → POST `/api/workspace/file`
-- [ ] **Nová složka**: Klik na 📁 → inline input pro název → POST `/api/workspace/directory`
-- [ ] **Přejmenování**: Double-click na název → inline editace → PATCH `/api/workspace/rename`
-- [ ] **Smazání**: Pravé tlačítko / klávesa Delete → potvrzení → DELETE `/api/workspace/file`
+- [x] GET `/api/workspace/file` — čtení souboru (max 2MB, SHA-256 hash)
+- [x] POST `/api/workspace/file` — zápis s optimistic locking (409 Conflict)
+- [x] POST `/api/workspace/directory` — vytvoření adresáře (recursive)
+- [x] PUT `/api/workspace/rename` — přejmenování (path security)
+- [x] DELETE `/api/workspace/file` — smazání souboru/adresáře
 
 ### 2.3 Editor v hlavním okně
 - [ ] Double-click na soubor → otevře v center view jako editor tab
@@ -42,8 +45,8 @@
 - [ ] Diff view pro zobrazení změn agenta
 
 ### 2.4 Git integrace
-- [ ] Real-time git status (M/A/D/U) z backendu
-- [ ] Git branch indicator v working tree header
+- [x] GET `/api/workspace/git-status` — async spawn s 1.5s timeout
+- [x] Git branch info (git branch --show-current)
 - [ ] Stage/Unstage soubory přímo v tree
 
 ---
@@ -52,25 +55,27 @@
 > Agent pracuje na základě konverzace, výstup viditelný v IDE
 
 ### 3.1 Terminálový backend
-- [ ] PTY (pseudo-terminal) process na serveru per relace
-- [ ] WebSocket streaming terminalového výstupu → `session.term[]`
-- [ ] Input do terminálu z IDE (interaktivní terminal)
+- [x] C3ToolExecutor — shell exec s whitelist, argv spawn, sanitized env
+- [x] WebSocket terminal channel (exec_start → exec_result)
+- [x] Input do terminálu z IDE (input field + Enter)
+- [x] Execution lock (_termExecuting) — prevent spam
 
 ### 3.2 Agent execution loop
-- [ ] Agent parsuje user intent z chatu → plánuje akce
-- [ ] Každá akce generuje `agent_log` event → zobrazí se v Log
-- [ ] Příkazy se spouští v přidělené PTY → výstup v Terminal
+- [x] Agent event stream (TURN_START/END, CRE, LLM, GATE, TOOL, ERROR)
+- [x] agent-client.js formatter → readable log entries
+- [x] Mix view — interleaved log + terminal sorted by timestamp
 - [ ] Soubory se editují → diff se zobrazí v center view
 
 ### 3.3 Edit mode: Auto vs Ask
-- [ ] **Auto**: Agent provede editaci → pošle `file_changed` event → IDE aktualizuje tree + otevřený soubor
-- [ ] **Ask**: Agent pošle `edit_request` s diff → uživatel schválí/odmítne v chatu → agent pokračuje/alternativa
-- [ ] Kumulativní schvalování: "Schválit vše" tlačítko pro batch approval
+- [x] Edit mode toggle (Auto/Ask) odesílá se přes WS channel
+- [x] Ask mode: edit_request → approve/reject v chatu
+- [x] Edit ACK — idempotency guard, 30s timeout auto-reject
+- [ ] Kumulativní schvalování: "Schválit vše" pro batch
 
 ### 3.4 Context management
-- [ ] Real-time `context_update` eventy po každém API callu
-- [ ] Vizualizace: kolik kontextu zabírají soubory, kolik konverzace
-- [ ] Auto-truncation upozornění při >80%
+- [x] Status channel broadcast — real context % po každém tahu
+- [x] Context meter UI + polling POST /api/context
+- [x] STOP button — cancel LLM + terminal + log entry
 
 ---
 
@@ -78,10 +83,9 @@
 > Napojení "Nový" tlačítek na existující wizard systém
 
 ### 4.1 Expert wizard
-- [ ] Klik "Nový" u Expertů → otevře wizard v center view
-- [ ] Základní údaje: name, domain, icon, desc, systemPrompt, tone, temperature
-- [ ] Capabilities (5D) — 5 sliderů s LOW/MEDIUM/HIGH gradient hinty
-- [ ] Uložení → POST `/api/experts` + reload seznamu
+- [x] Klik "Nový" u Expertů → dispatch `c3-wizard-open` event → wizard v center view
+- [x] Wizard existuje (center-views-module.js): name, domain, icon, capabilities
+- [ ] Uložení → POST `/api/experts` + reload seznamu (schema anti-drift)
 
 ### 4.2 Specialist wizard
 - [ ] Klik "Nový" u Specialistů → wizard s mapováním capabilities
@@ -89,21 +93,19 @@
 - [ ] Uložení → POST `/api/specialists`
 
 ### 4.3 Worker wizard
-- [ ] Klik "Nový" u Workerů → wizard s cron konfigurací
-- [ ] Výběr specialisty/experta pro workera
+- [x] Klik "Nový" u Workerů → inject `/new-agent` do chatu
+- [x] Chat-based wizard (agent-wizard.js na backendu)
 - [ ] Test run tlačítko
-- [ ] Uložení → POST `/api/agents`
 
 ### 4.4 Project wizard
-- [ ] Klik "Nový" u Projektů → wizard se sprint konfigurací
+- [x] Klik "Nový" u Projektů → detail editace s POST
 - [ ] Přiřazení expertů/workerů k projektu
 - [ ] Workspace path výběr
-- [ ] Uložení → POST `/api/projects`
 
 ### 4.5 Conversation wizard
-- [ ] Klik "Nový" u Konverzací → rovnou otevře nový chat v relaci
-- [ ] Výběr experta + systémového promptu
-- [ ] POST `/api/conversations` pro persistence
+- [x] Klik "Nový" → POST `/api/conversations` → link `_convId` na session
+- [x] Expert z aktuální relace se přenáší
+- [x] Otevření konverzace → fetch messages + link _convId + metadata parse
 
 ---
 
@@ -122,7 +124,7 @@
 
 ### 5.3 Autocomplete intelligence
 - [ ] Kontextové návrhy na základě otevřeného souboru + konverzace
-- [ ] Slash commands: `/edit`, `/run`, `/test`, `/explain`, `/review`
+- [x] Slash commands: `/edit`, `/run`, `/test`, `/explain`, `/review`
 - [ ] Smart suggestions: "Spustit testy?" po editaci kódu
 
 ### 5.4 Theming & Customization
@@ -165,4 +167,6 @@ Fáze 1 (Data) ──┬── Fáze 2 (Working Tree)
 | Reálný workspace | ✅ Hotovo | 7 API routes, git status+branch, path security |
 | Agent terminal | ✅ Hotovo | Input field, exec lock, STOP button, cancel |
 | Wizard napojení | ✅ Hotovo | Expert wizard event, conversation POST, worker chat |
+| Audit log panel | ✅ Hotovo | 5. tab v bottom panel, merge/drift logy, 30s cache |
+| Slash commands | ✅ Hotovo | /run, /test, /edit, /explain, /review |
 | Diff review | 🔲 Fáze 5 | — |

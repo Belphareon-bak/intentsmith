@@ -941,6 +941,36 @@ function _chatSendPane(idx){
   var s=_sessions[idx];if(!s)return;var st=s.chat;
   st.acSuggestion=null;/* clear autocomplete on send */
   var t=ta?ta.value.trim():'';if(!t&&st.attachments.length===0)return;
+
+  /* ── Slash commands ── */
+  if(t.charAt(0)==='/'){
+    var parts=t.split(/\s+/);var cmd=parts[0].toLowerCase();var arg=parts.slice(1).join(' ');
+    if(cmd==='/run'){
+      if(ta){ta.value='';ta.style.height='22px';}
+      st.msgs.push({role:'user',text:t});renderChat();
+      if(arg&&typeof C3Terminal!=='undefined'){C3Terminal.send(idx,arg);renderAgent();}
+      else{st.msgs.push({role:'system',text:'Použití: /run <příkaz>'});renderChat();}
+      return;
+    }
+    if(cmd==='/test'){
+      if(ta){ta.value='';ta.style.height='22px';}
+      st.msgs.push({role:'user',text:'/test'});renderChat();
+      if(typeof C3Terminal!=='undefined'){C3Terminal.send(idx,arg||'npm test');renderAgent();}
+      return;
+    }
+    if(cmd==='/edit'){
+      if(ta){ta.value='';ta.style.height='22px';}
+      st.editMode=st.editMode==='auto'?'ask':'auto';
+      st.msgs.push({role:'system',text:'Edit mode: '+(st.editMode==='auto'?'▶▶ Auto':'✋ Dotaz')});
+      _persistSessionState();renderChat();
+      return;
+    }
+    if(cmd==='/explain'||cmd==='/review'){
+      /* Prepend instruction and send as normal chat */
+      t=(cmd==='/explain'?'Vysvětli: ':'Zreviduj: ')+(arg||'předchozí kód');
+    }
+  }
+
   var hasFiles=st.attachments.length>0;
   var txt=t;
   if(hasFiles){txt=(t?t+'\n':'')+'📎 '+st.attachments.map(function(a){return a.name;}).join(', ');}
@@ -1131,12 +1161,43 @@ function _splitContent(s,idx){
     h('div',{style:{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}},_terminalContent(s,idx)));
 }
 
+/* ── Audit panel ── */
+var _auditCache={data:null,ts:0};
+function _auditContent(s){
+  /* Fetch audit data (cache 30s) */
+  if(!_auditCache.data||Date.now()-_auditCache.ts>30000){
+    var convId=s._convId;
+    var url=_backendBase+'/api/audit?limit=100'+(convId?'&conversation_id='+convId:'');
+    fetch(url,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){
+      _auditCache={data:d,ts:Date.now()};renderAgent();
+    }).catch(function(){});
+  }
+  var d=_auditCache.data||{audit:[],drift:[]};
+  var items=[];
+  (d.audit||[]).forEach(function(a){items.push({ts:a.created_at||'',src:'audit',d:a});});
+  (d.drift||[]).forEach(function(dr){items.push({ts:dr.created_at||'',src:'drift',d:dr});});
+  items.sort(function(a,b){return(b.ts||'').localeCompare(a.ts||'');});
+
+  return h('div',{style:{flex:1,overflowY:'auto',padding:'4px 0'}},
+    items.length===0?h('div',{style:{padding:20,textAlign:'center',color:C.tx4,fontSize:11}},'Žádné audit záznamy.'):
+    items.map(function(it,i){
+      if(it.src==='audit'){var a=it.d;return h('div',{key:'a'+i,style:{display:'flex',gap:6,padding:'3px 10px',fontFamily:C.mono,fontSize:10.5,lineHeight:'1.5',borderLeft:'3px solid '+(a.verdict==='ok'||a.passed?C.accent:a.verdict==='warning'?C.amber:C.red)}},
+        h('span',{style:{color:C.tx4,flexShrink:0,minWidth:70,fontSize:9.5}},a.created_at?(a.created_at.substring(11,19)||''):''),
+        h('span',{style:{fontWeight:600,minWidth:50,flexShrink:0,color:a.verdict==='ok'||a.passed?C.accentText:a.verdict==='warning'?C.amber:C.red}},'MERGE'),
+        h('span',{style:{color:C.tx2}},_s(a.expert_name||'')+' → '+(a.verdict||a.result||'')));}
+      var dr=it.d;return h('div',{key:'d'+i,style:{display:'flex',gap:6,padding:'3px 10px',fontFamily:C.mono,fontSize:10.5,lineHeight:'1.5',borderLeft:'3px solid '+C.amber}},
+        h('span',{style:{color:C.tx4,flexShrink:0,minWidth:70,fontSize:9.5}},dr.created_at?(dr.created_at.substring(11,19)||''):''),
+        h('span',{style:{fontWeight:600,minWidth:50,flexShrink:0,color:C.amber}},'DRIFT'),
+        h('span',{style:{color:C.tx2}},_s(dr.capability||'')+': '+(dr.drift_score||dr.value||'')));
+    }));
+}
+
 function _bottomPane(idx){
   var s=_sessions[idx];if(!s)return null;
   var mode=s.bottom||'split';
-  /* Split/Mix together, then gap, then Terminal/Log */
+  /* Split/Mix together, then gap, then Terminal/Log/Audit */
   var grpA=[{k:'split',l:'Split'},{k:'mix',l:'Mix'}];
-  var grpB=[{k:'terminal',l:'Terminal'},{k:'agent',l:'Log'}];
+  var grpB=[{k:'terminal',l:'Terminal'},{k:'agent',l:'Log'},{k:'audit',l:'Audit'}];
   function setMode(m){s.bottom=m;renderAgent();}
   function _tab(m,mi){var active=mode===m.k;return h(React.Fragment,{key:m.k},
     mi>0?h('div',{style:{width:1,background:C.border}}):null,
@@ -1156,7 +1217,7 @@ function _bottomPane(idx){
           onClick:function(){_cancelExecution(idx);}},'■ STOP'):null,
       h('span',{style:{fontSize:9,color:C.tx4,padding:'0 6px',alignSelf:'center'}},''+(idx+1))),
     /* Panel content */
-    mode==='split'?_splitContent(s,idx):mode==='agent'?_agentLogContent(s):mode==='terminal'?_terminalContent(s,idx):_mixedContent(s));
+    mode==='split'?_splitContent(s,idx):mode==='agent'?_agentLogContent(s):mode==='terminal'?_terminalContent(s,idx):mode==='audit'?_auditContent(s):_mixedContent(s));
 }
 
 function AgentApp(){

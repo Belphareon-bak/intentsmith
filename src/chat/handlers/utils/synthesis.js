@@ -14,7 +14,8 @@ import { Structure, FollowUpStyle } from '../../../memory/preferences.js';
 import { detectFluff, buildFluffRetryPrompt } from './quality.js';
 import { enforceOutputContract, buildOutputGateRetryPrompt } from './output-gate.js';
 import { getLanguageContext } from './language.js';
-import { buildStrictLanguageInstruction, validateResponseLanguage, buildLanguageRetryInstruction, mechanicalSlovakToCzech, detectSlovakContamination } from './language-enforcement.js';
+import { buildStrictLanguageInstruction, validateResponseLanguage, buildLanguageRetryInstruction } from './language-enforcement.js';
+import { runQualityPipeline } from '../../quality/quality-pipeline.js';
 import {
   filterToolResults,
   annotateWithTrust,
@@ -927,38 +928,21 @@ export async function synthesizeWithLLM({
         try { context.onLLMDone(finalContent.length, result.duration); } catch { /* */ }
       }
 
-      // v62.2b: Apply mechanical Slovak→Czech replacement as final step
-      // Fast (0ms) and catches common SK words that survive LLM retries
-      if (langCtx.language === 'cs') {
-        const skCheck = detectSlovakContamination(finalContent);
-        if (skCheck.contaminated) {
-          logger.info('Synthesis', 'Applying mechanical SK→CZ replacement', {
-            markers: skCheck.markers.slice(0, 3),
-          });
-          finalContent = mechanicalSlovakToCzech(finalContent);
+      // v62.3: QGv2 — Centralized deterministic post-processing pipeline
+      // Replaces scattered SK→CZ + LinkGuard + JSON strip logic
+      {
+        let pipelineSourceUrls = extractSourceUrls(successfulData);
+        if (pipelineSourceUrls.length === 0) {
+          pipelineSourceUrls = extractSourceUrls(toolResults);
         }
-      }
-
-      // v62.2e: LinkGuard — force-append source URLs when SEARCH response lacks links
-      // Deterministic fix: never let LLM decide whether to cite sources
-      if ((intent === 'SEARCH' || searchSubType) && finalContent.length > 100) {
-        const linkCount = (finalContent.match(/https?:\/\/\S+/g) || []).length;
-        if (linkCount < 2) {
-          let sourceUrls = extractSourceUrls(successfulData);
-          if (sourceUrls.length === 0) {
-            sourceUrls = extractSourceUrls(toolResults);
-          }
-          if (sourceUrls.length > 0) {
-            const urlBlock = sourceUrls.slice(0, 5).map((u, i) =>
-              `[${i + 1}] [${u.title || 'Zdroj'}](${u.url})`
-            ).join('\n');
-            finalContent += `\n\n**Zdroje:**\n${urlBlock}`;
-            logger.info('Synthesis', 'LinkGuard: force-appended source URLs', {
-              appended: Math.min(sourceUrls.length, 5),
-              existing: linkCount,
-            });
-          }
-        }
+        const pipelineResult = runQualityPipeline(finalContent, {
+          lang: langCtx.language,
+          intent,
+          searchSubType,
+          sourceUrls: pipelineSourceUrls,
+          sessionId: context.sessionId,
+        });
+        finalContent = pipelineResult.text;
       }
 
       return {
