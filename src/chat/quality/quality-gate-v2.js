@@ -105,7 +105,24 @@ function languageFix(text, context, fixes, issues) {
     fixes.push(`language:sk_to_cz(${skCheck.count} markers${aggressive ? '/aggressive' : ''}, ${changeCount} chars changed)`);
   }
 
-  // 2b. Detect remaining language issues (EN, Cyrillic) — flag only, can't fix mechanically
+  // 2b. Unconditional Slovak-only cleanup (runs even when full transliterator doesn't trigger)
+  // These are NEVER valid in Czech text — safe to replace unconditionally.
+  const beforeUnconditional = result;
+  // Characters: ľ and ô are Slovak-only
+  result = result.replace(/ľ/g, 'l').replace(/Ľ/g, 'L').replace(/ô/g, 'ů').replace(/Ô/g, 'Ů');
+  // Words: unambiguously Slovak forms that never appear in Czech
+  result = result.replace(/\bčo\b/gi, 'co');
+  result = result.replace(/\bnie je\b/gi, 'není');
+  result = result.replace(/\bnie sú\b/gi, 'nejsou');
+  result = result.replace(/\bpreto\b/gi, 'proto');
+  result = result.replace(/\bďakujem\b/gi, 'děkuji');
+  result = result.replace(/\bmožno\b/gi, 'možná');
+  result = result.replace(/\bnejaký\b/gi, 'nějaký');
+  result = result.replace(/\bnejakú\b/gi, 'nějakou');
+  result = result.replace(/\bnejaké\b/gi, 'nějaké');
+  if (result !== beforeUnconditional) fixes.push('language:sk_unconditional_strip');
+
+  // 2c. Detect remaining language issues (EN, Cyrillic) — flag only, can't fix mechanically
   const langValidation = validateResponseLanguage(result, lang);
   if (!langValidation.clean) {
     for (const issue of langValidation.issues) {
@@ -131,17 +148,24 @@ function intentGuarantees(text, context, fixes, issues) {
   const { intent, searchSubType, sourceUrls = [] } = context;
 
   // 3a. LinkGuard — SEARCH responses must have ≥2 source links
-  // Idempotent: skip if **Zdroje:** section already exists (previous pipeline run)
-  const hasSourcesSection = /\*\*Zdroje:\*\*/i.test(result);
-  if ((intent === 'SEARCH' || searchSubType) && result.length > 100 && !hasSourcesSection) {
+  // v63.0: Deterministic guarantee — count links in WHOLE text, not just non-Zdroje part.
+  // If Zdroje section exists but has <2 links, strip it and re-inject with full source URLs.
+  if ((intent === 'SEARCH' || searchSubType) && result.length > 100) {
     const linkCount = (result.match(/https?:\/\/\S+/g) || []).length;
-    if (linkCount < 2 && sourceUrls.length > 0) {
+
+    if (linkCount >= 2) {
+      // Already has ≥2 links — no fix needed (idempotent)
+    } else if (sourceUrls.length > 0) {
+      // Has source URLs from tool results — inject deterministically
+      // Strip existing partial Zdroje section (if LLM generated one with <2 links)
+      result = result.replace(/\n\n\*\*Zdroje:\*\*[\s\S]*$/, '');
       const urlBlock = sourceUrls.slice(0, 5).map((u, i) =>
         `[${i + 1}] [${u.title || 'Zdroj'}](${u.url})`
       ).join('\n');
       result += `\n\n**Zdroje:**\n${urlBlock}`;
       fixes.push(`intent:link_guard(+${Math.min(sourceUrls.length, 5)} urls)`);
-    } else if (linkCount < 2 && sourceUrls.length === 0) {
+    } else {
+      // No source URLs available — can't fix, record issue
       issues.push({ layer: 'intent', type: 'search_no_sources' });
     }
   } else if ((intent === 'SEARCH' || searchSubType) && result.length <= 100) {

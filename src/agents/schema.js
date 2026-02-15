@@ -519,10 +519,101 @@ export function applyDefaults(def) {
   return result;
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+// NORMALIZE DEFINITION
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Normalize agent definition — regenerate unique IDs, validate references,
+ * fill defaults, strip unknown keys. Idempotent.
+ * @param {object} def - Raw definition
+ * @returns {{ definition: object, errors: string[], warnings: string[] }}
+ */
+export function normalizeAgentDefinition(def) {
+  const errors = [];
+  const warnings = [];
+  const d = JSON.parse(JSON.stringify(def));
+
+  // 1. Regenerate source IDs (ensure uniqueness)
+  const sourceIdMap = {};
+  (d.sources || []).forEach((src, i) => {
+    const newId = 'src-' + (i + 1);
+    if (src.id && src.id !== newId) sourceIdMap[src.id] = newId;
+    src.id = newId;
+  });
+
+  // 2. Regenerate condition IDs + update field paths with new source IDs
+  const condIdMap = {};
+  (d.conditions || []).forEach((cond, i) => {
+    const newId = 'cond-' + (i + 1);
+    if (cond.id && cond.id !== newId) condIdMap[cond.id] = newId;
+    // Update field path: sources.OLD_ID.path → sources.NEW_ID.path
+    if (cond.field) {
+      for (const [oldId, newSrcId] of Object.entries(sourceIdMap)) {
+        cond.field = cond.field.replace('sources.' + oldId + '.', 'sources.' + newSrcId + '.');
+      }
+    }
+    cond.id = newId;
+  });
+
+  // 3. Regenerate trigger IDs + remap condition_id references
+  const trigIdMap = {};
+  const validCondIds = new Set((d.conditions || []).map(c => c.id));
+  (d.triggers || []).forEach((trig, i) => {
+    const newId = 'trig-' + (i + 1);
+    if (trig.id && trig.id !== newId) trigIdMap[trig.id] = newId;
+    // Remap condition_id if it was renamed
+    if (trig.condition_id && condIdMap[trig.condition_id]) {
+      trig.condition_id = condIdMap[trig.condition_id];
+    }
+    // Validate condition reference exists
+    if (trig.condition_id && !validCondIds.has(trig.condition_id)) {
+      errors.push('Trigger ' + (trig.id || newId) + ': condition_id "' + trig.condition_id + '" neexistuje');
+    }
+    trig.id = newId;
+    // Apply defaults + clamp
+    trig.cooldown = Math.max(LIMITS.min_cooldown, Math.min(LIMITS.max_cooldown, trig.cooldown || DEFAULTS.cooldown));
+    trig.max_fires_per_day = Math.max(1, Math.min(LIMITS.max_fires_per_day, trig.max_fires_per_day || DEFAULTS.max_fires_per_day));
+    if (!trig.edge) trig.edge = 'rising';
+  });
+
+  // 4. Update action trigger_id references
+  const validTrigIds = new Set((d.triggers || []).map(t => t.id));
+  (d.actions || []).forEach((act, i) => {
+    // Remap trigger_id if it was renamed
+    if (act.trigger_id && trigIdMap[act.trigger_id]) {
+      act.trigger_id = trigIdMap[act.trigger_id];
+    }
+    // Validate trigger reference
+    if (act.trigger_id && !validTrigIds.has(act.trigger_id)) {
+      errors.push('actions[' + i + ']: trigger_id "' + act.trigger_id + '" neexistuje');
+    }
+    // mark_seen: validate + remap source_id
+    if (act.type === 'mark_seen' && act.config) {
+      if (act.config.source_id && sourceIdMap[act.config.source_id]) {
+        act.config.source_id = sourceIdMap[act.config.source_id];
+      }
+      if (act.config.source_id) {
+        const srcExists = (d.sources || []).some(s => s.id === act.config.source_id);
+        if (!srcExists) {
+          errors.push('actions[' + i + '] mark_seen: source_id "' + act.config.source_id + '" neexistuje');
+        }
+      }
+    }
+  });
+
+  // 5. Fill defaults
+  if (!d.schedule) d.schedule = { type: 'manual' };
+  if (!d.params) d.params = [];
+
+  return { definition: d, errors, warnings };
+}
+
 export default {
   ALLOWED,
   LIMITS,
   DEFAULTS,
   validateAgentDefinition,
-  applyDefaults
+  applyDefaults,
+  normalizeAgentDefinition
 };

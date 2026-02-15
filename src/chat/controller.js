@@ -15,8 +15,6 @@ import { logger } from '../core/logger.js';
 import { SafetyEngine } from './safety/engine.js';
 import { getConversationStore, TurnRole } from './conversation-store.js';
 import { getLTMContextForSynthesis } from './ltm-context.js';
-import { getLanguageContext } from './handlers/utils/language.js';
-import { runQualityPipeline } from './quality/quality-pipeline.js';
 import { db } from '../db/database.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -125,7 +123,7 @@ export class ResponseTag {
   // ──── Static factory getters ────────────────────────────────────────────
   static get RESPONSE() {
     return new ResponseTag({
-      speaker: ResponseSpeaker.ASSISTANT,
+      speaker: ResponseSpeaker.SYSTEM,
       mode: ChatMode.CONVERSATION,
       confidence: 0.9,
       canExecute: false,
@@ -582,26 +580,9 @@ export class ChatController {
       // Ensure response is properly tagged
       let taggedResponse = this.#ensureTagged(response, targetMode, pendingConfirmation);
 
-      // ── v62.3: QGv2 — Centralized quality pipeline ─────────────────────
-      // Replaces scattered Q1/Q5 post-processing (sanitization, SK→CZ, language gate)
-      try {
-        const langCtx = getLanguageContext(input);
-        const lang = langCtx?.language || 'cs';
-        const content = taggedResponse?.content;
-
-        if (typeof content === 'string' && content.length > 0) {
-          const pipelineResult = runQualityPipeline(content, {
-            lang,
-            sessionId: this.#sessionId,
-          });
-
-          if (pipelineResult.text !== content) {
-            taggedResponse = this.#ensureTagged(pipelineResult.text, targetMode, pendingConfirmation);
-          }
-        }
-      } catch (postErr) {
-        logger.warn('PostProcessing', `QGv2 pipeline error: ${postErr.message}`);
-      }
+      // QGv2 runs inside synthesizeWithLLM() (synthesis.js) where it has
+      // full context (intent, searchSubType, sourceUrls). Running it again
+      // here would be redundant — synthesis.js is the single canonical call site.
 
       // Add to history
       this.#addToHistory(taggedResponse);

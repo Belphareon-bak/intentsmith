@@ -467,6 +467,12 @@ async function handleToolCallDecision(input, decision, context) {
       return buildReportFallback(input, decision, searchResult, context);
     }
 
+    // Abort check: user may have disconnected during search
+    if (context.signal?.aborted) {
+      logger.info('HandleToolCall', 'REPORT pipeline: aborted after search');
+      return buildReportFallback(input, decision, searchResult, context);
+    }
+
     // Step 2: Extract URLs from search results (max 5)
     const urls = searchData.data.results
       .filter(r => r.url && r.url.startsWith('http'))
@@ -495,16 +501,13 @@ async function handleToolCallDecision(input, decision, context) {
       scrapeResults = scrapeResult.toolResults || [];
     }
 
-    // Step 4: SYNTHESIZE with LLM (v45.0 FIX - REPORT must use LLM, not string concatenation!)
-    // ════════════════════════════════════════════════════════════════════════════
-    // CRITICAL: REPORT = SYNTHESIS, not data dump!
-    // LLM must:
-    //   1. Analyze the scraped content
-    //   2. Extract key points relevant to the query
-    //   3. Synthesize a coherent summary
-    //   4. NOT just list sources/links
-    // ════════════════════════════════════════════════════════════════════════════
+    // Abort check: user may have disconnected during scrape
+    if (context.signal?.aborted) {
+      logger.info('HandleToolCall', 'REPORT pipeline: aborted after scrape');
+      return buildReportFallback(input, decision, searchResult, context);
+    }
 
+    // Step 4: SYNTHESIZE with LLM
     // Prepare tool results for LLM synthesis
     const successfulScrapes = scrapeResults.filter(r => r.success);
     const allToolResults = [
@@ -628,6 +631,12 @@ async function handleToolCallDecision(input, decision, context) {
       return buildReportFallback(input, decision, searchResult, context);
     }
 
+    // Abort check: user may have disconnected during search
+    if (context.signal?.aborted) {
+      logger.info('HandleToolCall', 'ITEM_LOOKUP pipeline: aborted after search');
+      return buildReportFallback(input, decision, searchResult, context);
+    }
+
     // Step 2: Extract URLs - prioritize marketplace/listing sites
     const urls = searchData.data.results
       .filter(r => r.url && r.url.startsWith('http'))
@@ -654,6 +663,12 @@ async function handleToolCallDecision(input, decision, context) {
       });
 
       scrapeResults = scrapeResult.toolResults || [];
+    }
+
+    // Abort check: user may have disconnected during scrape
+    if (context.signal?.aborted) {
+      logger.info('HandleToolCall', 'ITEM_LOOKUP pipeline: aborted after scrape');
+      return buildReportFallback(input, decision, searchResult, context);
     }
 
     // Step 4: SYNTHESIZE with LLM - but with ITEM_LOOKUP prompt (extract items, not synthesize)

@@ -36,6 +36,9 @@ const PATTERNS = {
     /\b(je|jsou|byl|byla|bylo|být|jsem|jsi|jsme|jste)\b/i,
     /\b(najdi|vyhledej|hledej|zjisti|řekni|popiš|vysvětli)\b/i,
     /(?:^|\s)(co\s+je|jak\s+se|kde\s+je|kdy\s+je|kolik)(?:\s|[?!.,;]|$)/i,
+    // v63.0: CZ-unique standalone words for CS/SK disambiguation
+    // These exist ONLY in Czech (SK equivalents: ako, čo, podľa, prečo, zda→či)
+    /\b(jak|co|podle|proč|zda|dál|vůbec|ovšem|totiž|sice|vždyť)\b/i,
     /\b(chci|potřebuji|můžeš|mohl|mohla|bys)\b/i,
     /\b(ano|ne|jo|nechci|rozumím|chápu)\b/i,
     /\b(protože|aby|když|jestli|pokud|než|zatímco)\b/i,
@@ -47,7 +50,7 @@ const PATTERNS = {
     /\b(webu|stranky|stranek|stranka)\b/i,
     /\b(cesky|ceskem|cestine|ceskem\s+jazyce)\b/i,
     /\b(z\s+webu)\b/i,
-    /\b(mi|mne|nam|vas|tebe)\b/i,
+    /\b(mi|mne|si|nam|vas|tebe)\b/i,
     /\b(diky|dekuju|dekuji|prosim)\b/i,
     /\b(zkus|zkusit|zopakuj|zopakovat)\b/i,
     /\b(pomoc|pomoct|pomoz|pomoci|poradit|porad)\b/i,

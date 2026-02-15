@@ -2,6 +2,75 @@
 
 ---
 
+## v65.5 — Agent Builder Wizard (B9) (2026-02-15)
+
+**Testy:** ~1300 passing (805 ověřeno, žádné regrese)
+
+Agent Builder Wizard — kompletní UI pro tvorbu a editaci worker agentů v IDE. Backend single source of truth pro presety a validaci.
+
+- **`GET /api/agents/schema`** — nový endpoint vracející typy (MONITOR/HUNTER/TRACKER/DIGEST/SCOUT), typeDescriptions, allowed values, limits, a **presety** z backendu (ne hardcoded v FE)
+- **`normalizeAgentDefinition()`** — backend helper (~75 řádků): regeneruje unikátní ID (src→cond→trig), remapuje cross-reference (triggers→conditions→sources), validuje referenční integritu, clampuje cooldown/max_fires do limitů
+- **Dry-run normalizace** — `POST /api/agents/dry-run` nyní volá `normalizeAgentDefinition()` před `agentRunner.dryRun()`
+- **FE: `_agentWizard` state** — kompletní lifecycle: `_awOpen/Close/Save/DryRun/TestRun`, `_awApplyPreset(typeId)`
+- **FE: `centerAgentWizard()`** — dual-mode UI:
+  - **Simple mode** (3 kroky): Základ → Rozvrh & Zdroje → Podmínky & Akce
+  - **Advanced mode** (5 collapsible sekcí): Basic, Schedule, Conditions/Triggers, Actions, Preview/Test
+- **Auto dry-run před save** — `_awSave()` vždy volá dry-run; při `valid:false` zobrazí chyby a neuloží
+- **ID collision handling** — backend vrací 409 na duplicitní ID; FE připojí timestamp suffix a opakuje
+- **Integrace**: `_addNew('workers')` → wizard, Editovat handler pro workers → fetch + `_awOpen('edit',...)`
+
+### Soubory
+
+| Soubor | Změna |
+|--------|-------|
+| `src/routes/agents.js` | +`GET /api/agents/schema`, normalize v dry-run (~90 řádků) |
+| `src/agents/schema.js` | +`normalizeAgentDefinition()` (~75 řádků) |
+| `c3-ide/.../chat-panel-module.js` | +agent wizard state, funkce, rendering (~350 řádků) |
+
+---
+
+## v65.4 — Project Context Injection (2026-02-15)
+
+- **CRE hint `[[PROJECT_CONTEXT:...]]`** — projekt metadata injected do LLM pipeline
+- **`buildProjectContext()`** — sanitized system prompt s project info
+- **IDE→WS→BE→CRE→LLM pipeline** — `projectId` přenášen celým řetězcem
+
+---
+
+## v65.3 — Project Conversation Restore (2026-02-15)
+
+- **Lifecycle bind** při otevření projektu — automatická vazba konverzace na projekt
+- **Stale guard** — ochrana proti obnově zastaralých konverzací
+- **Scroll position** — zachování pozice scrollu při restore
+- **INSTALL.md** — kompletní instalační příručka (BE + IDE + Docker)
+
+---
+
+## v65.2 — QGv2 LinkGuard + Unconditional SK Strip (2026-02-15)
+
+**E2E Quality Deep:** 34-36/36 (94-100%), stabilní
+
+Deterministický post-processing pipeline (QGv2) s LinkGuard garanty a bezpodmínečným odstraněním slovenských artefaktů.
+
+- **QGv2 (Quality Gate v2)** — 4-vrstvý deterministický pipeline: structural → language → intent → content
+- **LinkGuard (Layer 3)** — SEARCH odpovědi musí mít ≥2 zdrojové linky; deterministická injekce z `sourceUrls`
+- **Unconditional SK strip (Layer 2b)** — ľ→l, ô→ů, čo→co, nie je→není, preto→proto (vždy, bez threshold)
+- **SK→CZ Transliterator (Layer 2a)** — rozšířen na ~160 regex pravidel + 6 agresivních suffix patterns
+- **Language validation (Layer 2c)** — CZ povinná pro `lang=cs` odpovědi
+- **E2E Quality Deep** — `tests/e2e-quality-deep.cjs`, 36 LLM testů ve 4 kategoriích (S/R/F/T)
+- **CLAUDE.md** — kompletní přepis na v65.2 (QGv2, E2E status, known problems, Node 22+)
+
+### Soubory
+
+| Soubor | Změna |
+|--------|-------|
+| `src/chat/quality/quality-gate-v2.js` | QGv2 4-layer pipeline, LinkGuard, unconditional SK strip |
+| `src/chat/handlers/utils/language-enforcement.js` | ~160 SK→CZ regex rules, 49 SK_MARKERS |
+| `tests/e2e-quality-deep.cjs` | 36 LLM quality tests |
+| `CLAUDE.md` | Kompletní update na v65.2 |
+
+---
+
 ## v64.0 — CRE Gatekeeper + Single Authority Enforcement (2026-02-14)
 
 **Testy:** 924 passing (43 novych gatekeeper + 26 schema-migrations)

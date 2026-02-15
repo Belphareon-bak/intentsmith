@@ -1,7 +1,7 @@
-# C.3 Agent Platform — Architecture v65.2
+# C.3 Agent Platform — Architecture v65.5
 
-**Version:** v65.2 (Lifecycle BUILD hardening, SK→CZ v63.0, Expert Wizard v64.1)
-**Status:** Production-ready, ~90% complete
+**Version:** v65.5 (Agent Builder Wizard, Project Context, Lifecycle BUILD hardening, Expert Wizard)
+**Status:** Production-ready, ~92% complete
 **Date:** February 2026
 
 ---
@@ -55,10 +55,10 @@ All decisions flow through CRE — LLM is the text generator, never the authorit
 │              └───────────────────────────────────────────────┘      │
 ├──────────────────────────────────────────────────────────────────────┤
 │                        Database (SQLite)                              │
-│                    23 tables, prepared statements                     │
+│                    28+ tables, prepared statements                    │
 ├──────────────────────────────────────────────────────────────────────┤
 │                     LLM Gateway (Ollama)                             │
-│              deepseek-r1:32b, qwen2.5-coder:32b, etc.               │
+│              qwen2.5:32b (CHAT), deepseek-r1:32b (D1/R1)            │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -78,7 +78,7 @@ src/
 │   ├── triggers.js              #   Edge detection (172 lines)
 │   ├── multi-source.js          #   Cross-source dedup, health tracking
 │   ├── worker-configs.js        #   Weather, realty, news templates
-│   ├── schema.js                #   Validation whitelist
+│   ├── schema.js                #   Validation whitelist + normalizeAgentDefinition()
 │   ├── sources/
 │   │   └── rss.js               #   RSS/Atom source adapter
 │   └── examples/                #   6 pre-built agent definitions
@@ -100,8 +100,11 @@ src/
 │   │   └── utils/
 │   │       ├── synthesis.js     #       LLM synthesis + Output Gate
 │   │       ├── output-gate.js   #       D6 response validation
-│   │       └── language.js      #       CZ/EN detection & switching
-│   └── quality/                 #   Quality gates
+│   │       ├── language.js      #       CZ/EN detection & switching
+│   │       └── language-enforcement.js #  SK→CZ transliterator (~160 rules)
+│   └── quality/                 #   Quality gates (QGv2)
+│       ├── quality-gate-v2.js   #     4-layer deterministic pipeline
+│       └── quality-pipeline.js  #     Pipeline orchestration
 ├── channels/                    # Channel adapters
 │   ├── types.js                 #   ChannelType, C3InputEvent, C3OutputEvent
 │   └── cli-adapter.js           #   CLI integration
@@ -310,7 +313,35 @@ User Input → Expert Handler
 - `token_source: 'provider' | 'estimated'`
 - `performance.now()` for sub-ms latency
 
-### 6. Channel Adapters
+### 6. Quality Gate v2 (QGv2) — Deterministic Post-Processing
+
+4-layer pipeline that runs after every LLM response. Pure functions, no LLM calls, deterministic.
+
+```
+LLM Response → QGv2 Pipeline
+  │
+  ├─ Layer 1: Structural
+  │    └─ Min length, max length, format validation
+  │
+  ├─ Layer 2: Language
+  │    ├─ 2a. SK→CZ transliterator (≥2 markers → ~160 regex rules)
+  │    ├─ 2b. Unconditional SK strip (ľ→l, ô→ů, čo→co, nie je→není, ...)
+  │    └─ 2c. Language validation (CZ required for lang=cs)
+  │
+  ├─ Layer 3: Intent Guarantees
+  │    └─ LinkGuard: SEARCH responses must have ≥2 source links
+  │       If linkCount < 2 && sourceUrls available → inject **Zdroje:** section
+  │
+  └─ Layer 4: Content
+       └─ Topic drift, completeness checks
+```
+
+**Key files:**
+- `quality-gate-v2.js` — Main pipeline (~200 lines)
+- `quality-pipeline.js` — Orchestration
+- `language-enforcement.js` — SK→CZ transliterator (~160 regex rules, 49 SK_MARKERS)
+
+### 7. Channel Adapters
 
 Normalize input from any source into `C3InputEvent`:
 
@@ -392,7 +423,7 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 
 ## Test Suite
 
-1100+ tests total:
+1300+ tests total:
 
 | Suite | Tests | Focus |
 |-------|-------|-------|
@@ -416,6 +447,7 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 | Multi-source integration | 14 | RSS+HTTP, _merged, partial failure |
 | Expert integration | 10 | Expert + DB + handler pipeline |
 | Agent runner | 20 | HUNTER, mark_seen |
+| **E2E Quality Deep** | **36** | **LLM output quality: S/R/F/T categories, SK detection, links** |
 | + 50 more suites | ~50 | Various subsystems |
 
 ---
@@ -448,6 +480,22 @@ Agents, lifecycle, and experts are independently toggleable. Disabled features a
 ### 6. UTF-8 First
 
 All notification channels use JSON body (not HTTP headers) to support Czech diacritics.
+
+### 7. Agent Builder Wizard (v65.5)
+
+Backend is single source of truth — `GET /api/agents/schema` returns types, presets, allowed values. FE never hardcodes agent schema.
+
+```
+User clicks "+ Worker" → _awOpen('create')
+  → FE fetches /api/agents/schema (presets from BE)
+  → User fills wizard (simple 3-step or advanced 5-section)
+  → _awSave() → auto dry-run (normalizeAgentDefinition + agentRunner.dryRun)
+    → valid:false? Show errors, DON'T save
+    → valid:true? POST /api/agents (with normalized definition)
+      → 409 collision? Append timestamp suffix, retry
+```
+
+`normalizeAgentDefinition()` in `schema.js`: deep clone → regenerate IDs (src-1, cond-1, trig-1) → remap cross-references → validate integrity → clamp defaults → return `{definition, errors[], warnings[]}`.
 
 ---
 

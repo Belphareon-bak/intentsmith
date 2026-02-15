@@ -10,8 +10,7 @@ import {
   DESIGN_CONTINUE_PATTERNS,
 } from '../cre-decision.js';
 import { logger } from '../../core/logger.js';
-import { isVagueInput } from './utils/intent.js';
-import { tryResolveClarification, buildResolvedDecision, assessGoalAlignment } from './clarification.js';
+import { tryResolveClarification, assessGoalAlignment } from './clarification.js';
 import { handleLocalDecision, computeCalendar, computeDate } from './local.js';
 import { handleFileDecision } from './file.js';
 import {
@@ -21,6 +20,7 @@ import {
   handleRefuseDecision,
 } from './decisions.js';
 import { buildProjectHint } from './utils/project-context-prompt.js';
+import { ResponseTag, TaggedResponse, ResponseSpeaker, ChatMode } from '../controller.js';
 // ─── Optional module imports (B/C/D) — lazy-loaded, null if feature disabled ──
 import { config } from '../../config.js';
 
@@ -100,6 +100,46 @@ const DATE_CORRECTION_PATTERNS = [
   /today'?s\s+date/i,
 ];
 
+// v58.3: DESIGN CLOSE — graceful "hotovo" / "díky, to stačí"
+const DESIGN_CLOSE_PATTERNS = [
+  /^hotovo[\s!.]*$/i,
+  /^to\s+(je\s+)?v[šs]e[\s!.]*$/i,           // "to je vše", "to vše"
+  /^d[ií]ky,?\s+(to\s+)?sta[čc][ií][\s!.]*$/i, // "díky, to stačí"
+  /^sta[čc][ií][\s!.]*$/i,                     // "stačí"
+  /^uzav[rř]i\s+(projekt|session|design)/i,   // "uzavři projekt"
+  /^ukon[čc]i\s+(design|n[áa]vrh|pl[áa]n)/i, // "ukonči design"
+  /^that'?s\s+(all|enough|it)[\s!.]*$/i,      // "that's all"
+  /^done[\s!.]*$/i,                            // "done"
+  /^we'?re\s+done/i,                          // "we're done"
+  /^close\s+(project|design|session)/i,       // "close project"
+];
+
+// v58.0 Sprint 3: BUILD TRANSITION — "jdeme stavět" closes DESIGN → BUILD
+const BUILD_TRANSITION_PATTERNS = [
+  /jdeme?\s+stav[eě]t/i,              // "jdeme stavět", "jdem stavět"
+  /jdi\s+stav[eě]t/i,                 // "jdi stavět"
+  /za[cč]ni\s+stav[eě]t/i,            // "začni stavět"
+  /za[cč]ni\s+implementovat/i,         // "začni implementovat"
+  /jdi\s+(do|na)\s+(implementac|k[oó]d|v[ýy]voj)/i,  // "jdi do implementace"
+  /p[rř]ejdi\s+(ke?\s+|na\s+|do\s+)(stav|implementac|k[oó]d|v[ýy]voj)/i,
+  /postav\s+(to|mi\s+to)/i,            // "postav to", "postav mi to"
+  /let'?s\s+build/i,                   // "let's build"
+  /start\s+(building|coding|implementing)/i,
+  /implement\s+this/i,
+  /go\s+ahead\s+and\s+build/i,
+];
+
+// v44.9 FIX B: Vague inputs that should NOT trigger SEARCH on first turn
+const VAGUE_INPUT_PATTERNS = [
+  /^něco$/i,                    // "něco"
+  /^hm+$/i,                     // "hm", "hmm", "hmmm"
+  /^idk$/i,                     // "idk"
+  /^nevím$/i,                   // "nevím"
+  /^test$/i,                    // "test"
+  /^[.!?]+$/,                   // just punctuation
+  /^.{1,3}$/,                   // 1-3 characters (too short)
+];
+
 /**
  * v65.0: Handle SHELL decision — return response with shellCommand in metadata.
  * Session adapter picks up shellCommand and auto-executes via terminal channel.
@@ -114,9 +154,7 @@ function handleShellDecision(input, decision, context) {
 
   logger.info('HandleShell', `Shell command detected`, { command, input: input.substring(0, 50) });
 
-  // Import ResponseTag/TaggedResponse from controller
-  const { ResponseTag, TaggedResponse, ResponseSpeaker, ChatMode } = require('../controller.js');
-
+  // ResponseTag/TaggedResponse imported at top-level from ../controller.js
   const tag = new ResponseTag({
     speaker: ResponseSpeaker.SYSTEM,
     mode: ChatMode.CONVERSATION,
@@ -520,21 +558,7 @@ export async function conversationHandler(input, context) {
     // Explicit break patterns (from cre-decision.js INTENT_BREAK_PATTERNS)
     const isExplicitBreak = /^(teď|ted|nyní|nyni|změň|zmen|přepni|prepni|něco|neco|dost|stačí|staci|konec)\s/i.test(input.trim());
 
-    // v58.3: DESIGN CLOSE — graceful "hotovo" / "díky, to stačí"
-    // ════════════════════════════════════════════════════════════════════════
-    const DESIGN_CLOSE_PATTERNS = [
-      /^hotovo[\s!.]*$/i,
-      /^to\s+(je\s+)?v[šs]e[\s!.]*$/i,           // "to je vše", "to vše"
-      /^d[ií]ky,?\s+(to\s+)?sta[čc][ií][\s!.]*$/i, // "díky, to stačí"
-      /^sta[čc][ií][\s!.]*$/i,                     // "stačí"
-      /^uzav[rř]i\s+(projekt|session|design)/i,   // "uzavři projekt"
-      /^ukon[čc]i\s+(design|n[áa]vrh|pl[áa]n)/i, // "ukonči design"
-      /^that'?s\s+(all|enough|it)[\s!.]*$/i,      // "that's all"
-      /^done[\s!.]*$/i,                            // "done"
-      /^we'?re\s+done/i,                          // "we're done"
-      /^close\s+(project|design|session)/i,       // "close project"
-    ];
-
+    // DESIGN_CLOSE_PATTERNS hoisted to module scope
     const isGracefulClose = DESIGN_CLOSE_PATTERNS.some(p => p.test(input.trim()));
 
     if (isGracefulClose) {
@@ -549,53 +573,22 @@ export async function conversationHandler(input, context) {
       });
 
       // Return immediate short confirmation — no CRE, no LLM call
-      const { ResponseTag, TaggedResponse, ResponseSpeaker, ChatMode } = await import('./utils/types.d.ts')
-        .catch(() => import('./utils/index.js'))
-        .catch(() => ({ ResponseTag: null, TaggedResponse: null }));
-
-      if (TaggedResponse) {
-        const closeLang = closedProject?.language === 'en'
-          ? `Design session closed. We can continue anytime.`
-          : `Projekt uzavřen. Kdykoliv můžeme pokračovat.`;
-        const tag = new ResponseTag({
-          speaker: ResponseSpeaker.SYSTEM,
-          mode: ChatMode.CONVERSATION,
-          confidence: 1.0,
-          canExecute: false,
-          metadata: { designClosed: true, closedProject: closedProject?.type },
-        });
-        return new TaggedResponse({ content: closeLang, tag });
-      }
-      // Fallback: return plain object
-      return {
-        content: closedProject?.language === 'en'
-          ? 'Design session closed. We can continue anytime.'
-          : 'Projekt uzavřen. Kdykoliv můžeme pokračovat.',
-        metadata: { designClosed: true },
-      };
+      // ResponseTag/TaggedResponse imported at top-level from ../controller.js
+      const closeLang = closedProject?.language === 'en'
+        ? `Design session closed. We can continue anytime.`
+        : `Projekt uzavřen. Kdykoliv můžeme pokračovat.`;
+      const tag = new ResponseTag({
+        speaker: ResponseSpeaker.SYSTEM,
+        mode: ChatMode.CONVERSATION,
+        confidence: 1.0,
+        canExecute: false,
+        metadata: { designClosed: true, closedProject: closedProject?.type },
+      });
+      return new TaggedResponse({ content: closeLang, tag });
     }
     // ════════════════════════════════════════════════════════════════════════
 
-    // ════════════════════════════════════════════════════════════════════════
-    // v58.0 Sprint 3: BUILD TRANSITION — "jdeme stavět" closes DESIGN → BUILD
-    // When user transitions from planning to execution, close the DESIGN project
-    // and let CRE classify as BUILD → Planner pipeline handoff.
-    // The design context can be passed as metadata to the Planner.
-    // ════════════════════════════════════════════════════════════════════════
-    const BUILD_TRANSITION_PATTERNS = [
-      /jdeme?\s+stav[eě]t/i,              // "jdeme stavět", "jdem stavět"
-      /jdi\s+stav[eě]t/i,                 // "jdi stavět"
-      /za[cč]ni\s+stav[eě]t/i,            // "začni stavět"
-      /za[cč]ni\s+implementovat/i,         // "začni implementovat"
-      /jdi\s+(do|na)\s+(implementac|k[oó]d|v[ýy]voj)/i,  // "jdi do implementace"
-      /p[rř]ejdi\s+(ke?\s+|na\s+|do\s+)(stav|implementac|k[oó]d|v[ýy]voj)/i,
-      /postav\s+(to|mi\s+to)/i,            // "postav to", "postav mi to"
-      /let'?s\s+build/i,                   // "let's build"
-      /start\s+(building|coding|implementing)/i,
-      /implement\s+this/i,
-      /go\s+ahead\s+and\s+build/i,
-    ];
-
+    // BUILD_TRANSITION_PATTERNS hoisted to module scope
     const isBuildTransition = BUILD_TRANSITION_PATTERNS.some(p => p.test(input.trim()));
 
     if (isBuildTransition) {
@@ -669,16 +662,7 @@ export async function conversationHandler(input, context) {
                       !sessionState?.pendingDecision &&
                       !wasClarificationFollowUp;
 
-  // v44.9 FIX B: Vague inputs that should NOT trigger SEARCH on first turn
-  const VAGUE_INPUT_PATTERNS = [
-    /^něco$/i,                    // "něco"
-    /^hm+$/i,                     // "hm", "hmm", "hmmm"
-    /^idk$/i,                     // "idk"
-    /^nevím$/i,                   // "nevím"
-    /^test$/i,                    // "test"
-    /^[.!?]+$/,                   // just punctuation
-    /^.{1,3}$/,                   // 1-3 characters (too short)
-  ];
+  // VAGUE_INPUT_PATTERNS hoisted to module scope
   const isVagueInput = VAGUE_INPUT_PATTERNS.some(p => p.test(input.trim()));
 
   // v44.9 FIX B: Block SEARCH/TOOL_CALL on first turn for vague inputs
