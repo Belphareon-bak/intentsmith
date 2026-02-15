@@ -39,6 +39,23 @@ export function getLcState(sessionId) {
   return lifecycleStates.get(sessionId) || null;
 }
 
+/**
+ * Find lifecycle state by projectId (iterates RAM Map).
+ * Used by project opener to detect active lifecycle for a project.
+ * @param {number|string} projectId
+ * @returns {{ sessionId: string, state: LifecycleHandoffState } | null}
+ */
+export function getLcStateByProject(projectId) {
+  if (!projectId) return null;
+  const pid = Number(projectId);
+  for (const [sessionId, state] of lifecycleStates) {
+    if (Number(state.projectId) === pid) {
+      return { sessionId, state };
+    }
+  }
+  return null;
+}
+
 export function setLcState(sessionId, state) {
   const enriched = { ...state, updatedAt: new Date().toISOString() };
   lifecycleStates.set(sessionId, enriched);

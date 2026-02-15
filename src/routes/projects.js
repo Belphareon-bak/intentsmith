@@ -202,6 +202,91 @@ export function createProjectRoutes(deps) {
     },
 
     // ══════════════════════════════════════════════════════════════════════════
+    // v65.2: Get active lifecycle state for a project (used by IDE project opener)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    'GET /api/projects/:id/lifecycle': async (req, res, params) => {
+      try {
+        const projectId = safeParseInt(params.id);
+        const lc = db.lifecycles.findActiveByProject.get(projectId);
+
+        if (!lc) {
+          return sendJSON(res, 200, { lifecycle: null });
+        }
+
+        // Count milestones by status
+        const statusRows = db.milestones.countByStatus.all(lc.id);
+        const milestones = { total: 0 };
+        for (const row of statusRows) {
+          milestones[row.status] = row.count;
+          milestones.total += row.count;
+        }
+
+        sendJSON(res, 200, {
+          lifecycle: {
+            id: lc.id,
+            phase: lc.phase,
+            activeSessionId: lc.active_session_id || null,
+            projectPath: lc.project_path || null,
+            milestones,
+          },
+        });
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    // v65.2: Bind session to active lifecycle (double-bind guard + COMPLETED guard)
+    'POST /api/projects/:id/lifecycle/bind': async (req, res, params) => {
+      const body = await parseBody(req);
+      const { sessionId } = body;
+
+      if (!sessionId) {
+        return sendJSON(res, 400, { error: 'sessionId is required' });
+      }
+
+      try {
+        const projectId = safeParseInt(params.id);
+        const { getLcStateByProject, bindSessionToLifecycle, setLcState } = await import('../chat/handlers/lifecycle-state.js');
+
+        // Guard: double bind — another session already owns this lifecycle
+        const existing = getLcStateByProject(projectId);
+        if (existing && existing.sessionId !== sessionId) {
+          return sendJSON(res, 409, { error: 'Lifecycle already bound', activeSession: existing.sessionId });
+        }
+
+        const lc = db.lifecycles.findActiveByProject.get(projectId);
+        if (!lc) {
+          return sendJSON(res, 200, { ok: false, reason: 'No active lifecycle' });
+        }
+
+        // Guard: COMPLETED/FAILED — no point binding
+        if (lc.phase === 'COMPLETED' || lc.phase === 'FAILED') {
+          return sendJSON(res, 200, { ok: false, reason: 'Lifecycle is ' + lc.phase });
+        }
+
+        // Bind session to lifecycle
+        bindSessionToLifecycle(sessionId, lc.id);
+
+        // Set lifecycle state in RAM for conversation handler
+        setLcState(sessionId, {
+          phase: lc.phase,
+          lifecycleId: lc.id,
+          currentMilestoneId: null,
+          originalRequest: '',
+          projectId,
+          projectPath: lc.project_path || null,
+        });
+
+        logger.info('Projects', `Lifecycle bound: session=${sessionId} lifecycle=${lc.id} phase=${lc.phase}`);
+
+        sendJSON(res, 200, { ok: true, phase: lc.phase, lifecycleId: lc.id });
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    // ══════════════════════════════════════════════════════════════════════════
     // v65: Start lifecycle for a project (called from IDE wizard)
     // ══════════════════════════════════════════════════════════════════════════
 
