@@ -28,6 +28,7 @@ import { preferenceEngine, Structure, FollowUpStyle } from '../../memory/prefere
 import { synthesizeWithLLM } from './utils/synthesis.js';
 import { getLanguageContext } from './utils/language.js';
 import { enforceOutputContract, buildOutputGateRetryPrompt } from './utils/output-gate.js';
+import { buildProjectContext } from './utils/project-context-prompt.js';
 import { styleWithConfidence, scoreToLevel } from './utils/confidence-styling.js';
 import { assertCreativeQuality } from './utils/quality.js';
 import { buildStrictLanguageInstruction, validateResponseLanguage, buildLanguageRetryInstruction } from './utils/language-enforcement.js';
@@ -1219,10 +1220,13 @@ ${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
 
     // Use detected language or fallback to Czech
     // v61.3: Fix operator precedence (|| vs +) and add strict language enforcement
-    const systemPrompt = (CONVERSATIONAL_SYSTEM_PROMPTS[langCtx.language]
+    let systemPrompt = (CONVERSATIONAL_SYSTEM_PROMPTS[langCtx.language]
       || CONVERSATIONAL_SYSTEM_PROMPTS.cs)
       + (langCtx.instruction || '')
       + buildStrictLanguageInstruction(langCtx.language);
+
+    // v65.4: Project context injection (sanitized, length-limited)
+    systemPrompt += buildProjectContext(context);
 
     // Call LLM via CRE bridge (authorized)
     // v55.2 Sprint 2: Retry loop with D6 gate + creative quality enforcement

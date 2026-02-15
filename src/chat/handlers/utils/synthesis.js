@@ -13,6 +13,7 @@ import { FORBIDDEN_PHRASES } from '../../cre-decision.js';
 import { Structure, FollowUpStyle } from '../../../memory/preferences.js';
 import { detectFluff, buildFluffRetryPrompt } from './quality.js';
 import { enforceOutputContract, buildOutputGateRetryPrompt } from './output-gate.js';
+import { buildProjectContext } from './project-context-prompt.js';
 import { getLanguageContext } from './language.js';
 import { buildStrictLanguageInstruction, validateResponseLanguage, buildLanguageRetryInstruction } from './language-enforcement.js';
 import { runQualityPipeline } from '../../quality/quality-pipeline.js';
@@ -769,7 +770,8 @@ export async function synthesizeWithLLM({
   // v55.2: Detect language and inject instruction
   const langCtx = getLanguageContext(query);
   const systemPrompt = buildSynthesisSystemPrompt(intent, userPreferences, expertHints, responseIntent, langCtx.instruction, langCtx.language, searchSubType)
-    + (confidenceInstructions ? `\n\n${confidenceInstructions}` : '');
+    + (confidenceInstructions ? `\n\n${confidenceInstructions}` : '')
+    + buildProjectContext(context);
 
   const MAX_RETRIES = 1;  // v62.2b: back to 1 — extra retries are too slow, controller gate handles the rest
   let retryCount = 0;

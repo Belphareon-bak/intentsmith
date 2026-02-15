@@ -74,10 +74,14 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
         id: messageId('sys'),
         type: 'system',
         content: 'Agent právě zpracovává předchozí zprávu. Počkejte prosím.',
+        conversationId: options.conversationId || null,
         timestamp: new Date().toISOString(),
       });
       return;
     }
+
+    // Preserve request conversationId for routing responses back to correct session
+    const requestConversationId = options.conversationId || null;
 
     // Start new turn
     turnCounter++;
@@ -100,10 +104,12 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
         message: content,
         sessionId: sid,
         conversationId: options.conversationId || null,
+        projectId: options.projectId || null,
         context: {
           turnId,
           signal: abortController.signal,
           editMode: options.editMode || 'auto',
+          projectId: options.projectId || null,
 
           // Hook: CRE decision (called in ChatController.process after mode detection)
           onCREDecision: (decision) => {
@@ -190,17 +196,20 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
 
       const response = await handleRequest(request);
 
-      // Send final response via chat channel
+      // Send final response via chat channel — include conversationId for session routing
+      const responseConvId = response.conversationId || requestConversationId;
       sendChannel(Channel.CHAT, {
         id: messageId('msg'),
         type: 'assistant',
         content: response.response,
+        conversationId: responseConvId,
         timestamp: new Date().toISOString(),
         metadata: {
           mode: response.mode,
           confidence: response.confidence,
           turnId,
           state: response.state,
+          conversationId: responseConvId,
         },
       });
 
@@ -252,13 +261,14 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
         });
       }
 
-      // Send error to chat
+      // Send error to chat — include conversationId for session routing
       sendChannel(Channel.CHAT, {
         id: messageId('err'),
         type: 'system',
         content: err.name === 'AbortError'
           ? 'Zpracování zrušeno.'
           : `Chyba: ${err.message}`,
+        conversationId: requestConversationId,
         timestamp: new Date().toISOString(),
       });
 

@@ -17,6 +17,7 @@ import { getConversationStore, TurnRole } from './conversation-store.js';
 import { getLTMContextForSynthesis } from './ltm-context.js';
 import { getLanguageContext } from './handlers/utils/language.js';
 import { runQualityPipeline } from './quality/quality-pipeline.js';
+import { db } from '../db/database.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Chat Mode Types
@@ -1637,6 +1638,22 @@ ChatController.handle = async function(request) {
       state.clearProject();
     } else if (project.id) {
       state.setProject(project);
+    }
+  }
+
+  // v65.4: Sync project from IDE — always update when projectId changes
+  const incomingProjectId = request.projectId || context.projectId;
+  if (incomingProjectId) {
+    const pid = Number(incomingProjectId);
+    if (state.project?.id !== pid) {
+      try {
+        const proj = db.projects.findById.get(pid);
+        if (proj) {
+          state.setProject({ id: proj.id, name: proj.name, path: proj.path, description: proj.description || '' });
+        }
+      } catch (err) {
+        logger.warn('ChatController', `Project lookup failed: ${err.message}`);
+      }
     }
   }
 

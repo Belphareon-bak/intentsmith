@@ -20,6 +20,7 @@ import {
   handleAnswerDecision,
   handleRefuseDecision,
 } from './decisions.js';
+import { buildProjectHint } from './utils/project-context-prompt.js';
 // ─── Optional module imports (B/C/D) — lazy-loaded, null if feature disabled ──
 import { config } from '../../config.js';
 
@@ -645,7 +646,10 @@ export async function conversationHandler(input, context) {
     }
   }
 
-  let decision = creDecisionEngine.decide(input, decisionContext);
+  // v65.4: Enrich CRE input with project hint for better intent classification
+  const projectHint = buildProjectHint(context);
+  const creInput = projectHint ? input + projectHint : input;
+  let decision = creDecisionEngine.decide(creInput, decisionContext);
 
   // STEP 1.5: Fail-fast assertion - catch bugs early
   assertDecision(decision);

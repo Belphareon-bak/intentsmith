@@ -23,6 +23,8 @@ var _wsRetryCount = 0;
 var _wsMaxRetry = 12;
 var _wsRetryTimer = null;
 var _chatWs = null;
+/* Track which session made the last WS request — reliable fallback for routing */
+var _lastSendSessionIdx = 0;
 
 /* ─── Session routing ─────────────────────────────────────────────────── */
 
@@ -33,9 +35,13 @@ function _routeToSession(data) {
     for (var i = 0; i < _sessions.length; i++) {
       if (_sessions[i]._convId === convId) return i;
     }
+    /* convId present but no session matched — update the sender session's convId */
+    if (typeof _sessions[_lastSendSessionIdx] !== 'undefined' && !_sessions[_lastSendSessionIdx]._convId) {
+      _sessions[_lastSendSessionIdx]._convId = convId;
+    }
   }
-  /* Fallback: active session */
-  return (typeof _sessionActive !== 'undefined') ? _sessionActive : 0;
+  /* Fallback: session that sent the last message (more reliable than _sessionActive) */
+  return _lastSendSessionIdx;
 }
 
 /* ─── Rehydration after reconnect ─────────────────────────────────────── */
@@ -204,12 +210,15 @@ function wsSend(channel, data) {
   return false;
 }
 
-function wsSendChat(content, session) {
+function wsSendChat(content, session, sessionIdx) {
+  /* Track sender session for reliable routing of response */
+  if (typeof sessionIdx === 'number') _lastSendSessionIdx = sessionIdx;
   return wsSend('chat', {
     content: content,
     conversationId: session._convId || null,
     editMode: session.chat.editMode || 'auto',
-    agentId: session._agentId || null
+    agentId: session._agentId || null,
+    projectId: session._projectId || null
   });
 }
 
