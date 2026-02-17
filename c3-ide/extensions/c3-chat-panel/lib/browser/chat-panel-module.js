@@ -17,7 +17,7 @@ try { require("./agent-client"); } catch(e) { console.warn('[C3] agent-client.js
 try { require("./terminal-client"); } catch(e) { console.warn('[C3] terminal-client.js not loaded:', e.message); }
 
 /* ═══ COLORS ═══ */
-var C={bg0:'#0c0c0f',bg1:'#111114',bg2:'#18181c',bg3:'#1f2025',bg4:'#27282e',bg5:'#2f3038',
+var _C_DEFAULT={bg0:'#0c0c0f',bg1:'#111114',bg2:'#18181c',bg3:'#1f2025',bg4:'#27282e',bg5:'#2f3038',
   tx1:'#ececef',tx2:'#a1a1aa',tx3:'#5e8a6d',tx4:'#436b52',
   accent:'#22c55e',accentText:'#4ade80',accentBg:'rgba(34,197,94,0.08)',
   red:'#f87171',redBg:'rgba(239,68,68,0.1)',amber:'#fbbf24',amberBg:'rgba(251,191,36,0.1)',
@@ -25,6 +25,244 @@ var C={bg0:'#0c0c0f',bg1:'#111114',bg2:'#18181c',bg3:'#1f2025',bg4:'#27282e',bg5
   cyan:'#22d3ee',cyanBg:'rgba(34,211,238,0.1)',
   border:'rgba(255,255,255,0.06)',border2:'rgba(255,255,255,0.1)',
   font:"'Plus Jakarta Sans',-apple-system,sans-serif",mono:"'JetBrains Mono','Fira Code',monospace"};
+var _C_THEMES={
+  clean:_C_DEFAULT,
+  matrix:{bg0:'#010208',bg1:'#020410',bg2:'#040818',bg3:'#06101e',bg4:'#0a1428',bg5:'#0e1a32',
+    tx1:'#b0ffb0',tx2:'#408050',tx3:'#22c55e',tx4:'#0d6832',
+    accent:'#00ff6a',accentText:'#66ffaa',accentBg:'rgba(0,255,106,0.1)',
+    red:'#ff4444',redBg:'rgba(255,68,68,0.12)',amber:'#ffaa00',amberBg:'rgba(255,170,0,0.1)',
+    blue:'#44aaff',blueBg:'rgba(68,170,255,0.1)',purple:'#bb66ff',purpleBg:'rgba(187,102,255,0.1)',
+    cyan:'#00ffcc',cyanBg:'rgba(0,255,204,0.1)',
+    border:'rgba(0,255,106,0.1)',border2:'rgba(0,255,106,0.22)',
+    font:"'Share Tech Mono','JetBrains Mono',monospace",mono:"'Share Tech Mono','JetBrains Mono',monospace"},
+  japanese:{bg0:'#050304',bg1:'#0a0406',bg2:'#120810',bg3:'#1c0c12',bg4:'#28121a',bg5:'#341822',
+    tx1:'#f5e8e8',tx2:'#b07070',tx3:'#cc3333',tx4:'#882222',
+    accent:'#dc2626',accentText:'#f87171',accentBg:'rgba(220,38,38,0.1)',
+    red:'#f87171',redBg:'rgba(248,113,113,0.12)',amber:'#fbbf24',amberBg:'rgba(251,191,36,0.1)',
+    blue:'#60a5fa',blueBg:'rgba(96,165,250,0.1)',purple:'#a78bfa',purpleBg:'rgba(167,139,250,0.1)',
+    cyan:'#22d3ee',cyanBg:'rgba(34,211,238,0.1)',
+    border:'rgba(220,38,38,0.15)',border2:'rgba(220,38,38,0.32)',
+    font:"'Zen Kaku Gothic Antique','Noto Sans JP',sans-serif",mono:"'JetBrains Mono','Fira Code',monospace"},
+  midnight:{bg0:'#030712',bg1:'#060a18',bg2:'#0a1026',bg3:'#101838',bg4:'#16204a',bg5:'#1c285c',
+    tx1:'#d8e8ff',tx2:'#6888b8',tx3:'#3b82f6',tx4:'#1d4ed8',
+    accent:'#60a5fa',accentText:'#93c5fd',accentBg:'rgba(96,165,250,0.1)',
+    red:'#fb7185',redBg:'rgba(251,113,133,0.1)',amber:'#fcd34d',amberBg:'rgba(252,211,77,0.1)',
+    blue:'#60a5fa',blueBg:'rgba(96,165,250,0.12)',purple:'#a78bfa',purpleBg:'rgba(167,139,250,0.1)',
+    cyan:'#22d3ee',cyanBg:'rgba(34,211,238,0.12)',
+    border:'rgba(100,160,255,0.12)',border2:'rgba(100,160,255,0.25)',
+    font:"'Inter','Plus Jakarta Sans',sans-serif",mono:"'JetBrains Mono','Fira Code',monospace"}
+};
+var C=Object.assign({},_C_DEFAULT);
+/* Glass background mappings for pro themes — used instead of solid hex for CSS vars */
+var _PRO_GLASS={
+  matrix:{bg0:'transparent',bg1:'rgba(2,4,16,0.90)',bg2:'rgba(4,8,24,0.88)',bg3:'rgba(6,16,32,0.85)',bg4:'rgba(10,20,40,0.82)',bg5:'rgba(14,26,50,0.80)'},
+  japanese:{bg0:'transparent',bg1:'rgba(10,4,6,0.88)',bg2:'rgba(18,8,12,0.85)',bg3:'rgba(28,12,18,0.82)',bg4:'rgba(40,18,26,0.78)',bg5:'rgba(52,24,34,0.75)'},
+  midnight:{bg0:'transparent',bg1:'rgba(6,10,24,0.78)',bg2:'rgba(10,16,38,0.75)',bg3:'rgba(16,24,52,0.72)',bg4:'rgba(22,32,66,0.68)',bg5:'rgba(28,40,80,0.65)'}
+};
+function _applyColorTheme(themeId){
+  var t=_C_THEMES[themeId]||_C_DEFAULT;
+  Object.keys(t).forEach(function(k){C[k]=t[k];});
+  /* For pro themes: overwrite C.bg* with glass (rgba) values.
+     This makes BOTH React inline styles AND CSS variables use transparent backgrounds,
+     so the background image shows through everything. */
+  var g=_PRO_GLASS[themeId];
+  if(g){C.bg0=g.bg0;C.bg1=g.bg1;C.bg2=g.bg2;C.bg3=g.bg3;C.bg4=g.bg4;C.bg5=g.bg5;}
+  var r=document.documentElement;
+  /* For pro themes: c3 CSS vars → transparent (structural wrappers must not add another glass layer).
+     Only React inline styles (C.bg*) provide the single glass layer.
+     For clean theme: c3 CSS vars = C.bg* (solid hex, normal behavior). */
+  if(g){
+    r.style.setProperty('--c3-bg0','transparent');r.style.setProperty('--c3-bg1','transparent');
+    r.style.setProperty('--c3-bg2','transparent');r.style.setProperty('--c3-bg3','transparent');
+    r.style.setProperty('--c3-bg4','transparent');r.style.setProperty('--c3-bg5','transparent');
+  } else {
+    r.style.setProperty('--c3-bg0',C.bg0);r.style.setProperty('--c3-bg1',C.bg1);
+    r.style.setProperty('--c3-bg2',C.bg2);r.style.setProperty('--c3-bg3',C.bg3);
+    r.style.setProperty('--c3-bg4',C.bg4);r.style.setProperty('--c3-bg5',C.bg5);
+  }
+  r.style.setProperty('--c3-tx1',C.tx1);r.style.setProperty('--c3-tx2',C.tx2);
+  r.style.setProperty('--c3-tx3',C.tx3);r.style.setProperty('--c3-tx4',C.tx4);
+  r.style.setProperty('--c3-accent',C.accent);r.style.setProperty('--c3-accent-dim',C.accent);
+  r.style.setProperty('--c3-accent-bg',C.accentBg);r.style.setProperty('--c3-accent-text',C.accentText);
+  r.style.setProperty('--c3-border',C.border);r.style.setProperty('--c3-border2',C.border2);
+  /* Override Theia CSS variables for pro themes.
+     Structural containers → transparent (our React panels provide the glass layer).
+     Leaf Theia components (editor, terminal, tabs, menus) → glass (no React inside). */
+  if(g){
+    var T='transparent';
+    /* Structural wrappers — transparent so only ONE glass layer exists */
+    r.style.setProperty('--theia-sideBar-background',T);
+    r.style.setProperty('--theia-activityBar-background',T);
+    r.style.setProperty('--theia-panel-background',T);
+    r.style.setProperty('--theia-titleBar-activeBackground',T);
+    r.style.setProperty('--theia-titleBar-inactiveBackground',T);
+    r.style.setProperty('--theia-editorGroupHeader-tabsBackground',T);
+    r.style.setProperty('--theia-editorGroupHeader-noTabsBackground',T);
+    r.style.setProperty('--theia-mainToolbar-background',T);
+    r.style.setProperty('--theia-sideBarSectionHeader-background',T);
+    r.style.setProperty('--theia-breadcrumb-background',T);
+    /* Leaf components — glass (these are pure Theia, no React glass inside) */
+    r.style.setProperty('--theia-editor-background',C.bg1);
+    r.style.setProperty('--theia-terminal-background',C.bg1);
+    r.style.setProperty('--theia-editorGutter-background',C.bg1);
+    r.style.setProperty('--theia-editorStickyScroll-background',C.bg1);
+    r.style.setProperty('--theia-tab-activeBackground',C.bg2);
+    r.style.setProperty('--theia-tab-inactiveBackground',C.bg1);
+    r.style.setProperty('--theia-tab-border',T);
+    r.style.setProperty('--theia-statusBar-background',C.bg2);
+    r.style.setProperty('--theia-statusBar-noFolderBackground',C.bg2);
+    r.style.setProperty('--theia-input-background',C.bg3);
+    r.style.setProperty('--theia-dropdown-background',C.bg3);
+    r.style.setProperty('--theia-menu-background',C.bg2);
+    r.style.setProperty('--theia-menu-selectionBackground',C.bg3);
+    r.style.setProperty('--theia-notifications-background',C.bg2);
+    r.style.setProperty('--theia-notificationCenterHeader-background',C.bg2);
+    r.style.setProperty('--theia-quickInput-background',C.bg2);
+    r.style.setProperty('--theia-editorWidget-background',C.bg2);
+    r.style.setProperty('--theia-editorHoverWidget-background',C.bg2);
+    r.style.setProperty('--theia-list-hoverBackground',C.bg3);
+    r.style.setProperty('--theia-list-activeSelectionBackground',C.bg3);
+    r.style.setProperty('--theia-list-inactiveSelectionBackground',C.bg3);
+    r.style.setProperty('--theia-peekViewTitle-background',C.bg2);
+    r.style.setProperty('--theia-peekViewResult-background',C.bg2);
+    r.style.setProperty('--theia-editorMarkerNavigation-background',C.bg2);
+    r.style.setProperty('--theia-settings-focusedRowBackground',C.bg3);
+  }
+}
+
+/* ═══ PRO THEME CSS INJECTION ═══ */
+function _injectProThemeCSS(themeId){
+  var sid='c3-pro-theme-css';var ex=document.getElementById(sid);
+  if(!ex){ex=document.createElement('style');ex.id=sid;document.head.appendChild(ex);}
+  if(!themeId||themeId==='clean'){ex.textContent='';return;}
+  /* Load Google Fonts for pro themes */
+  if(!document.getElementById('c3-pro-fonts')){
+    var lk=document.createElement('link');lk.id='c3-pro-fonts';lk.rel='stylesheet';
+    lk.href='https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;600;700&family=Zen+Kaku+Gothic+Antique:wght@300;400;500;700&family=Yuji+Boku&family=Inter:wght@300;400;500;600;700&display=swap';
+    document.head.appendChild(lk);
+  }
+  /* Targeted transparency on Theia wrapper containers only.
+     Background image goes on body directly. React inline styles (C.bg*) provide glass. */
+  function _pro(B,BLUR){return '\
+'+B+' .theia-ApplicationShell,\
+'+B+' .p-DockPanel,'+B+' .p-DockPanel-widget,'+B+' .lm-DockPanel,'+B+' .lm-DockPanel-widget,\
+'+B+' .p-SplitPanel,'+B+' .lm-SplitPanel,\
+'+B+' .theia-side-panel,\
+'+B+' #theia-left-side-panel,'+B+' #theia-right-side-panel,\
+'+B+' #theia-bottom-content-panel,\
+'+B+' .theia-app-sides,\
+'+B+' #theia-main-content-panel{background:transparent!important;}\n\
+'+B+' .p-TabBar,'+B+' .lm-TabBar{backdrop-filter:blur('+BLUR+'px);-webkit-backdrop-filter:blur('+BLUR+'px);}\n';}
+  var css='';
+  if(themeId==='matrix'){
+    var B='body.theme-pro-matrix';
+    css='\
+/* MATRIX THEME — image on body, overlays on ::before/::after */\n\
+'+B+'{background:url("themes/bg-matrix.jpg") center/cover fixed no-repeat!important;}\n\
+'+B+'::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;\n\
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,106,0.012) 2px,rgba(0,255,106,0.012) 4px);}\n\
+'+_pro(B,'20')+'\
+'+B+' *{font-family:"Share Tech Mono","JetBrains Mono",monospace!important;}\n\
+'+B+' .codicon,'+B+' .codicon *{font-family:"codicon"!important;}\n\
+'+B+' .p-MenuBar-content,'+B+' .p-MenuBar-content *{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif!important;}\n\
+'+B+' #theia-top-panel{background:rgba(2,4,16,0.95)!important;}\n\
+'+B+' #theia-left-side-panel{border-right:1px solid rgba(0,255,106,0.15)!important;}\n\
+'+B+' .p-MenuBar,'+B+' #theia\\:menubar{background:rgba(2,4,16,0.92)!important;backdrop-filter:blur(20px);border-bottom:1px solid rgba(0,255,106,0.1)!important;}\n\
+'+B+' .p-MenuBar-item{color:#408050!important;}\n\
+'+B+' .p-MenuBar-item:hover,'+B+' .p-MenuBar-item.p-mod-active{background:rgba(0,255,106,0.05)!important;color:#00ff6a!important;}\n\
+'+B+' .p-Menu{background:rgba(4,8,24,0.95)!important;backdrop-filter:blur(20px);border:1px solid rgba(0,255,106,0.15)!important;}\n\
+'+B+' .p-Menu-item:hover{background:rgba(0,255,106,0.05)!important;}\n\
+'+B+' .p-Menu-item .p-Menu-itemLabel{color:#b0ffb0!important;}\n\
+'+B+' #theia-statusBar{background:rgba(2,4,16,0.92)!important;border-top:1px solid rgba(0,255,106,0.1)!important;}\n\
+'+B+' .theia-statusBar .area .element{color:#408050!important;}\n\
+'+B+' .theia-statusBar .area.left .element:first-child{color:#00ff6a!important;text-shadow:0 0 8px rgba(0,255,106,0.4);}\n\
+'+B+' ::-webkit-scrollbar-thumb{background:rgba(0,255,106,0.15)!important;}\n\
+'+B+' ::-webkit-scrollbar-thumb:hover{background:rgba(0,255,106,0.3)!important;}\n\
+'+B+' .p-TabBar-tab.p-mod-current,'+B+' .lm-TabBar-tab.lm-mod-current{border-bottom:2px solid #00ff6a!important;}\n\
+';
+  } else if(themeId==='japanese'){
+    var B='body.theme-pro-japanese';
+    css='\
+/* JAPANESE THEME — image on body, glow on ::before */\n\
+'+B+'{background:url("themes/bg-japanese.jpg") center/cover fixed no-repeat!important;}\n\
+'+B+'::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;\n\
+  background:radial-gradient(ellipse 80% 40% at 50% 90%,rgba(180,20,20,0.15),transparent 70%),\n\
+  radial-gradient(ellipse 50% 20% at 30% 70%,rgba(255,30,30,0.08),transparent);opacity:0.7;}\n\
+'+_pro(B,'20')+'\
+'+B+' *{font-family:"Zen Kaku Gothic Antique","Noto Sans JP",sans-serif!important;}\n\
+'+B+' .codicon,'+B+' .codicon *{font-family:"codicon"!important;}\n\
+'+B+' .p-MenuBar-content,'+B+' .p-MenuBar-content *{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif!important;}\n\
+'+B+' #theia-top-panel{background:rgba(10,4,6,0.95)!important;}\n\
+'+B+' #theia-left-side-panel{border-right:1px solid rgba(220,38,38,0.2)!important;}\n\
+'+B+' h1,'+B+' h2,'+B+' h3{font-family:"Yuji Boku","Zen Kaku Gothic Antique",serif!important;}\n\
+'+B+' .p-MenuBar,'+B+' #theia\\:menubar{background:rgba(10,4,6,0.92)!important;backdrop-filter:blur(20px);border-bottom:1px solid rgba(220,38,38,0.15)!important;}\n\
+'+B+' .p-MenuBar-item{color:#b07070!important;}\n\
+'+B+' .p-MenuBar-item:hover,'+B+' .p-MenuBar-item.p-mod-active{background:rgba(220,38,38,0.08)!important;color:#f87171!important;}\n\
+'+B+' .p-Menu{background:rgba(10,4,6,0.95)!important;backdrop-filter:blur(20px);border:1px solid rgba(220,38,38,0.2)!important;}\n\
+'+B+' .p-Menu-item:hover{background:rgba(220,38,38,0.08)!important;}\n\
+'+B+' .p-Menu-item .p-Menu-itemLabel{color:#f5e8e8!important;}\n\
+'+B+' #theia-statusBar{background:rgba(10,4,6,0.92)!important;border-top:1px solid rgba(220,38,38,0.15)!important;}\n\
+'+B+' .theia-statusBar .area .element{color:#b07070!important;}\n\
+'+B+' .theia-statusBar .area.left .element:first-child{color:#f87171!important;text-shadow:0 0 8px rgba(220,38,38,0.4);}\n\
+'+B+' ::-webkit-scrollbar-thumb{background:rgba(220,38,38,0.2)!important;}\n\
+'+B+' ::-webkit-scrollbar-thumb:hover{background:rgba(220,38,38,0.35)!important;}\n\
+'+B+' .p-TabBar-tab.p-mod-current,'+B+' .lm-TabBar-tab.lm-mod-current{border-bottom:2px solid #dc2626!important;}\n\
+';
+  } else if(themeId==='midnight'){
+    var B='body.theme-pro-midnight';
+    css='\
+/* MIDNIGHT THEME — image on body, glow on ::before */\n\
+'+B+'{background:url("themes/bg-midnight.jpg") center/cover fixed no-repeat!important;}\n\
+'+B+'::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;\n\
+  background:radial-gradient(ellipse 60% 30% at 55% 90%,rgba(40,80,200,0.12),transparent 60%),\n\
+  radial-gradient(ellipse 40% 20% at 70% 20%,rgba(100,60,200,0.08),transparent);opacity:0.7;}\n\
+'+_pro(B,'30')+'\
+'+B+' *{font-family:"Inter","Plus Jakarta Sans",sans-serif!important;}\n\
+'+B+' .codicon,'+B+' .codicon *{font-family:"codicon"!important;}\n\
+'+B+' .p-MenuBar-content,'+B+' .p-MenuBar-content *{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,sans-serif!important;}\n\
+'+B+' #theia-top-panel{background:rgba(6,10,24,0.95)!important;}\n\
+'+B+' #theia-left-side-panel{border-right:1px solid rgba(100,160,255,0.15)!important;}\n\
+'+B+' .p-MenuBar,'+B+' #theia\\:menubar{background:rgba(6,10,24,0.85)!important;backdrop-filter:blur(30px);border-bottom:1px solid rgba(100,160,255,0.12)!important;}\n\
+'+B+' .p-MenuBar-item{color:#6888b8!important;}\n\
+'+B+' .p-MenuBar-item:hover,'+B+' .p-MenuBar-item.p-mod-active{background:rgba(96,165,250,0.07)!important;color:#93c5fd!important;}\n\
+'+B+' .p-Menu{background:rgba(6,10,24,0.95)!important;backdrop-filter:blur(30px);border:1px solid rgba(100,160,255,0.18)!important;border-radius:12px!important;}\n\
+'+B+' .p-Menu-item:hover{background:rgba(96,165,250,0.07)!important;}\n\
+'+B+' .p-Menu-item .p-Menu-itemLabel{color:#d8e8ff!important;}\n\
+'+B+' #theia-statusBar{background:rgba(6,10,24,0.85)!important;border-top:1px solid rgba(100,160,255,0.12)!important;}\n\
+'+B+' .theia-statusBar .area .element{color:#6888b8!important;}\n\
+'+B+' .theia-statusBar .area.left .element:first-child{color:#93c5fd!important;text-shadow:0 0 8px rgba(96,165,250,0.3);}\n\
+'+B+' ::-webkit-scrollbar-thumb{background:rgba(96,165,250,0.15)!important;}\n\
+'+B+' ::-webkit-scrollbar-thumb:hover{background:rgba(96,165,250,0.3)!important;}\n\
+'+B+' .p-TabBar-tab.p-mod-current,'+B+' .lm-TabBar-tab.lm-mod-current{border-bottom:2px solid #60a5fa!important;}\n\
+'+B+' .p-TabBar-tab,'+B+' .lm-TabBar-tab{border-radius:8px 8px 0 0!important;}\n\
+';
+  }
+  /* Common pro theme glass rules based on sliders */
+  if(css&&themeId&&themeId!=='clean'){
+    var svo=_settingsVals;
+    var bgDimAlpha=(svo.bgDim!=null?svo.bgDim:30)/100;
+    var tileAlpha=(svo.tileOpacity!=null?svo.tileOpacity:80)/100;
+    var panelAlpha=(svo.sidebarOpacity!=null?svo.sidebarOpacity:80)/100;
+    var tb=_C_THEMES[themeId]?_C_THEMES[themeId].bg0:'#000000';
+    var tbc=_hp(tb);
+    var pb=_C_THEMES[themeId]?_C_THEMES[themeId].bg1:'#111114';
+    var pbc=_hp(pb);
+    var B='body.theme-pro-'+themeId;
+    /* Background dimming — gradient layer composited onto background image (not an overlay that covers content) */
+    var _themeImgs={matrix:'bg-matrix.jpg',japanese:'bg-japanese.jpg',midnight:'bg-midnight.jpg'};
+    var imgFile=_themeImgs[themeId];
+    if(imgFile&&bgDimAlpha>0){
+      css+=B+'{background:linear-gradient(rgba('+tbc[0]+','+tbc[1]+','+tbc[2]+','+bgDimAlpha.toFixed(2)+'),rgba('+tbc[0]+','+tbc[1]+','+tbc[2]+','+bgDimAlpha.toFixed(2)+')),url("themes/'+imgFile+'") center/cover fixed no-repeat!important;}\n';
+    }
+    /* Card/tile transparency */
+    css+=B+' .c3-card{background:rgba('+pbc[0]+','+pbc[1]+','+pbc[2]+','+tileAlpha.toFixed(2)+')!important;}\n';
+    /* Sidebar/panel glass — target both outer container AND inner React div (which has inline background) */
+    var panelRgba='rgba('+pbc[0]+','+pbc[1]+','+pbc[2]+','+panelAlpha.toFixed(2)+')';
+    css+=B+' #c3-sidebar,'+B+' #c3-chat-panel,'+B+' #c3-agent-panel,'+B+' #theia-bottom-content-panel{background:'+panelRgba+'!important;backdrop-filter:blur(20px)!important;}\n';
+    css+=B+' #c3-sidebar>div,'+B+' #c3-chat-panel>div,'+B+' #c3-agent-panel>div{background:transparent!important;}\n';
+  }
+  ex.textContent=css;
+}
 
 /* Color interpolation for intensity sliders */
 function _hp(hex){var n=parseInt(hex.slice(1),16);return[(n>>16)&255,(n>>8)&255,n&255];}
@@ -39,7 +277,7 @@ function togSw(on,onChange){return h('div',{onClick:function(){if(onChange)onCha
 /* Safe stringify — prevents React error #31 when backend returns {type,value} objects */
 function _s(v){return v==null?'':typeof v==='object'?(v.value||v.name||v.type||JSON.stringify(v)):String(v);}
 
-var I={chat:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',folder:'<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',expert:'<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 10 3 12 0v-5"/>',worker:'<circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.18 1.65 1.65 0 0 0 4.27 6.36l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',chevDown:'<polyline points="6 9 12 15 18 9"/>',plus:'<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',split:'<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/>',close:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',send:'<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',attach:'<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>'};
+var I={chat:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',folder:'<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',expert:'<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 10 3 12 0v-5"/>',worker:'<circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.18 1.65 1.65 0 0 0 4.27 6.36l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',chevDown:'<polyline points="6 9 12 15 18 9"/>',plus:'<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',split:'<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/>',close:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',send:'<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',attach:'<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>'};
 
 /* ═══ DATA ═══ */
 /* 15+1 built-in experts per docs — overridden by backend /api/experts */
@@ -256,13 +494,13 @@ setInterval(function(){
     _serverHealth.lastCheck=Date.now();
     _serverHealth.wsConnected=(typeof C3WS!=='undefined'&&C3WS.isReady())||false;
     fetchBackendData();
-    renderSidebar();
+    renderSidebar();_updateStatusIndicator();
   })
   .catch(function(){
     _serverHealth.status='offline';
     _serverHealth.lastCheck=Date.now();
     _serverHealth.wsConnected=false;
-    renderSidebar();
+    renderSidebar();_updateStatusIndicator();
   });
 },30000);
 
@@ -383,7 +621,7 @@ function SidebarApp(props){
   var s=props.getState(),set=props.setState;
   /* ── Collapsed icon-only mode ── */
   if(s.collapsed){
-    return h('div',{style:{display:'flex',flexDirection:'column',width:48,maxWidth:48,height:'100%',background:C.bg1,fontFamily:C.font,borderRight:'1px solid '+C.border,overflow:'hidden',alignItems:'center',paddingTop:6}},
+    return h('div',{style:{display:'flex',flexDirection:'column',width:48,maxWidth:48,position:'absolute',top:0,left:0,bottom:0,background:C.bg1,fontFamily:C.font,borderRight:'1px solid '+C.border,overflow:'hidden',alignItems:'center',paddingTop:6}},
       h('div',{style:{cursor:'pointer',width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:6,color:C.tx3,marginBottom:2},title:'Rozbalit (Ctrl+B)',
         onMouseEnter:function(e){e.currentTarget.style.background=C.bg3;},onMouseLeave:function(e){e.currentTarget.style.background='transparent';},
         onClick:function(){set({collapsed:false});}},svgEl('<polyline points="9 18 15 12 9 6"/>',18)),
@@ -396,19 +634,18 @@ function SidebarApp(props){
           h('span',{style:{display:'flex'},dangerouslySetInnerHTML:{__html:svg(I[item.icon],18)}}));
       }),
       h('div',{style:{flex:1}}),
-      h('div',{title:'Nastavení',style:{width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:6,cursor:'pointer',color:s.active==='settings'?C.accentText:C.tx3,background:s.active==='settings'?C.accentBg:'transparent',marginBottom:14,transition:'background 0.12s, color 0.12s'},
+      h('div',{title:'Nastavení',style:{width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:6,cursor:'pointer',color:s.active==='settings'?C.accentText:C.tx3,background:s.active==='settings'?C.accentBg:'transparent',marginBottom:4,transition:'background 0.12s, color 0.12s'},
         onMouseEnter:function(e){if(s.active!=='settings'){e.currentTarget.style.background=C.bg3;e.currentTarget.style.color=C.tx2;}},
         onMouseLeave:function(e){e.currentTarget.style.background=s.active==='settings'?C.accentBg:'transparent';e.currentTarget.style.color=s.active==='settings'?C.accentText:C.tx3;},
         onClick:function(){set({active:'settings',dd:{}});window.dispatchEvent(new CustomEvent('c3-nav',{detail:{view:'settings'}}));}},
         svgEl(I.settings,18)));
   }
   /* ── Full expanded mode ── */
-  return h('div',{style:{display:'flex',flexDirection:'column',height:'100%',minWidth:200,background:C.bg1,fontFamily:C.font,borderRight:'1px solid '+C.border,overflow:'hidden'}},
+  return h('div',{style:{display:'flex',flexDirection:'column',position:'absolute',top:0,left:0,right:0,bottom:0,background:C.bg1,fontFamily:C.font,borderRight:'1px solid '+C.border,overflow:'hidden'}},
     /* Header with C3 Studio + collapse */
     h('div',{style:{display:'flex',alignItems:'center',padding:'6px 8px 2px',flexShrink:0}},
       h('div',{style:{width:22,height:22,background:'linear-gradient(135deg,'+C.accent+','+C.accentText+')',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:8,color:'#fff',flexShrink:0}},'C3'),
       h('span',{style:{fontSize:11,fontWeight:700,color:C.tx1,marginLeft:6,flex:1}},'C3 Studio'),
-      h('div',{style:{width:7,height:7,borderRadius:'50%',background:_serverHealth.status==='ok'&&_serverHealth.wsConnected?C.accent:_serverHealth.status==='ok'?C.amber:'#ef4444',flexShrink:0,marginRight:2},title:_serverHealth.status==='ok'?(_serverHealth.wsConnected?'Backend OK + WS':'Backend OK, WS odpojen'):'Backend offline'}),
       h('div',{style:{cursor:'pointer',padding:4,borderRadius:4,color:C.tx4},title:'Sbalit (Ctrl+B)',
         onMouseEnter:function(e){e.currentTarget.style.color=C.tx2;},onMouseLeave:function(e){e.currentTarget.style.color=C.tx4;},
         onClick:function(){set({collapsed:true});}},svgEl('<polyline points="15 18 9 12 15 6"/>',14))),
@@ -513,14 +750,14 @@ function SidebarApp(props){
             f.st?h('span',{style:{fontSize:9,fontWeight:700,color:stColors[f.st]||C.tx4,fontFamily:C.mono,flexShrink:0}},f.st):null);
         });
       })(),
-      /* Settings — inside nav area so it appears right below working tree */
-      h('div',{style:{padding:'10px 8px',borderTop:'1px solid '+C.border,marginTop:8}},
-        h('div',{style:{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderRadius:8,cursor:'pointer',color:s.active==='settings'?C.accentText:C.tx3,background:s.active==='settings'?C.accentBg:'transparent',transition:'background 0.12s, color 0.12s'},
-          onMouseEnter:function(e){if(s.active!=='settings'){e.currentTarget.style.background=C.bg3;e.currentTarget.style.color=C.tx2;}},
-          onMouseLeave:function(e){e.currentTarget.style.background=s.active==='settings'?C.accentBg:'transparent';e.currentTarget.style.color=s.active==='settings'?C.accentText:C.tx3;},
-          onClick:function(){set({active:'settings',dd:{}});window.dispatchEvent(new CustomEvent('c3-nav',{detail:{view:'settings'}}));}},
-          svgEl(I.settings,18),h('span',{style:{fontSize:13.5,fontWeight:600}},'Nastavení')))
-    ));
+    ),
+    /* Settings — pinned to bottom outside scroll area */
+    h('div',{style:{padding:'4px 8px 2px',borderTop:'1px solid '+C.border,flexShrink:0}},
+      h('div',{style:{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderRadius:8,cursor:'pointer',color:s.active==='settings'?C.accentText:C.tx3,background:s.active==='settings'?C.accentBg:'transparent',transition:'background 0.12s, color 0.12s'},
+        onMouseEnter:function(e){if(s.active!=='settings'){e.currentTarget.style.background=C.bg3;e.currentTarget.style.color=C.tx2;}},
+        onMouseLeave:function(e){e.currentTarget.style.background=s.active==='settings'?C.accentBg:'transparent';e.currentTarget.style.color=s.active==='settings'?C.accentText:C.tx3;},
+        onClick:function(){set({active:'settings',dd:{}});window.dispatchEvent(new CustomEvent('c3-nav',{detail:{view:'settings'}}));}},
+        svgEl(I.settings,18),h('span',{style:{fontSize:13.5,fontWeight:600}},'Nastavení'))));
 }
 
 
@@ -669,7 +906,7 @@ function card(item,onClick){
       body);
   }
   /* ═══ GRID — borders mode (card with bg, border, radius) ═══ */
-  return h('div',{key:item.name,onClick:onClick,
+  return h('div',{key:item.name,className:'c3-card',onClick:onClick,
     style:{background:C.bg2,border:'1px solid '+(sel?C.accent:C.border),borderRadius:12,padding:16,
       cursor:'pointer',position:'relative',overflow:'hidden',
       transition:'border-color 0.2s,box-shadow 0.2s',
@@ -1570,7 +1807,7 @@ function centerExpertWizard(){
 }
 
 /* Settings state */
-var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSizeVal:13,fontIdx:0,custom1:null,custom2:null,bgIdx:0,bgCustom1:null,bgCustom2:null,customCSS:'',visualMode:'borders'};
+var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSizeVal:13,fontIdx:0,custom1:null,custom2:null,bgIdx:0,bgCustom1:null,bgCustom2:null,customCSS:'',visualMode:'borders',tileOpacity:80,bgDim:30,sidebarOpacity:80};
 /* I2: Custom CSS injection — scoped under .c3-root */
 var _customStyleEl=null;
 function _injectCustomCSS(css){
@@ -1622,7 +1859,7 @@ function _applyTheme(){
   d.setProperty('--c3-border',C.border);d.setProperty('--c3-border2',C.border2);
 }
 function _applyAccent(){
-  var p=_getPalette();var ai=(_settingsVals.activeInt||100)/100;var pi=(_settingsVals.passiveInt!=null?_settingsVals.passiveInt:50)/100;
+  var _ctm=localStorage.getItem('c3-theme-mode');var p=(_ctm&&_ctm!=='clean'&&_C_THEMES[_ctm])?_mkPalette(_C_THEMES[_ctm].accent):_getPalette();var ai=(_settingsVals.activeInt||100)/100;var pi=(_settingsVals.passiveInt!=null?_settingsVals.passiveInt:50)/100;
   C.accent=_cl(p.dim,p.accent,ai);C.accentText=_cl(p.dim,p.text,ai);
   var ac=_hp(p.accent);C.accentBg='rgba('+ac[0]+','+ac[1]+','+ac[2]+','+(0.08*ai).toFixed(3)+')';
   /* Passive: lerp from grey toward accent text for stronger visibility */
@@ -1657,9 +1894,11 @@ function _applyFont(){
     ex.textContent=css;
   } else if(ex){ex.textContent='';}
 }
-function _applyAllSettings(){_applyTheme();_applyAccent();_applyFont();_injectCustomCSS(_settingsVals.customCSS);renderCenter();renderChat();renderAgent();if(typeof renderSidebar==='function')renderSidebar();}
+function _applyAllSettings(){_applyTheme();var _ctm=localStorage.getItem('c3-theme-mode');if(_ctm&&_ctm!=='clean'){_applyColorTheme(_ctm);}_applyAccent();_injectProThemeCSS(_ctm||'clean');_applyFont();_injectCustomCSS(_settingsVals.customCSS);renderCenter();renderChat();renderAgent();if(typeof renderSidebar==='function')renderSidebar();}
 /* Apply saved settings on load */
 _applyTheme();_applyAccent();setTimeout(function(){_applyFont();_injectCustomCSS(_settingsVals.customCSS);_applyAllSettings();},600);
+/* Restore Pro theme from localStorage */
+try{var _tm=localStorage.getItem('c3-theme-mode');if(_tm&&_tm!=='clean'){document.body.classList.add('theme-pro-'+_tm);_applyColorTheme(_tm);_injectProThemeCSS(_tm);}}catch(e){}
 
 function centerSettings(){
   var selSi=_centerState.settingsSection;
@@ -1674,7 +1913,7 @@ function centerSettings(){
             ?{padding:14,cursor:'pointer',borderBottom:'1px solid '+C.border,borderRight:'1px solid '+C.border,
               background:isSel?'rgba(34,197,94,0.05)':'transparent',transition:'background 0.15s'}
             :{background:C.bg2,border:'1px solid '+(isSel?C.accent:C.border),borderRadius:12,padding:16,cursor:'pointer',transition:'border-color 0.15s',position:'relative',overflow:'hidden'};
-          return h('div',{key:si,onClick:function(){_centerState.settingsSection=si;_centerState.detail=null;renderCenter();},style:sty,
+          return h('div',{key:si,className:'c3-card',onClick:function(){_centerState.settingsSection=si;_centerState.detail=null;renderCenter();},style:sty,
             onMouseEnter:function(e){if(!isSel)e.currentTarget.style.background=isLines?'rgba(255,255,255,0.025)':e.currentTarget.style.background;if(!isSel&&!isLines)e.currentTarget.style.borderColor=C.border2;},
             onMouseLeave:function(e){if(!isSel){e.currentTarget.style.background=isLines?'transparent':C.bg2;if(!isLines)e.currentTarget.style.borderColor=C.border;}}},
             !isLines?h('div',{style:{position:'absolute',top:0,left:0,right:0,height:3,background:isSel?C.accent:'transparent'}}):null,
@@ -1771,6 +2010,15 @@ function settingsAppearance(){
     h('div',{style:{marginBottom:10}},_sl(sv.activeInt,10,100,5,function(v){sv.activeInt=v;_saveSV();_applyAllSettings();},'%')),
     h('div',{style:{marginBottom:4}},h('span',{style:{fontSize:10,color:C.tx3}},'Neaktivní prvky')),
     h('div',{style:{marginBottom:16}},_sl(sv.passiveInt,0,100,5,function(v){sv.passiveInt=v;_saveSV();_applyAllSettings();},'%')),
+    /* Pro theme glass sliders (only visible for pro themes) */
+    (function(){var _ctm=localStorage.getItem('c3-theme-mode');if(!_ctm||_ctm==='clean')return null;return h(React.Fragment,null,
+      h('div',{style:{fontSize:11,fontWeight:600,color:C.tx2,marginBottom:8,marginTop:4}},'Průhlednost'),
+      h('div',{style:{marginBottom:4}},h('span',{style:{fontSize:10,color:C.tx3}},'Dlaždice')),
+      h('div',{style:{marginBottom:10}},_sl(sv.tileOpacity,0,100,5,function(v){sv.tileOpacity=v;_saveSV();_applyAllSettings();},'%')),
+      h('div',{style:{marginBottom:4}},h('span',{style:{fontSize:10,color:C.tx3}},'Ztlumení pozadí')),
+      h('div',{style:{marginBottom:10}},_sl(sv.bgDim,0,80,5,function(v){sv.bgDim=v;_saveSV();_applyAllSettings();},'%')),
+      h('div',{style:{marginBottom:4}},h('span',{style:{fontSize:10,color:C.tx3}},'Panely')),
+      h('div',{style:{marginBottom:16}},_sl(sv.sidebarOpacity,10,100,5,function(v){sv.sidebarOpacity=v;_saveSV();_applyAllSettings();},'%')));})(),
     /* Font size slider */
     h('div',{style:{fontSize:11,fontWeight:600,color:C.tx2,marginBottom:6}},'Velikost písma'),
     h('div',{style:{marginBottom:16}},_sl(sv.fontSizeVal,10,18,1,function(v){sv.fontSizeVal=v;_saveSV();_applyAllSettings();},'px')),
@@ -1791,6 +2039,28 @@ function settingsAppearance(){
           onClick:function(){sv.visualMode=vm.id;_saveSV();_applyAllSettings();}},
           h('div',{style:{fontSize:12,fontWeight:isSel?700:400,color:isSel?C.accentText:C.tx2,marginBottom:2}},vm.label),
           h('div',{style:{fontSize:9,color:C.tx4}},vm.desc));
+      })),
+    /* Pro Theme Styles (5 variants) */
+    h('div',{style:{fontSize:11,fontWeight:600,color:C.tx2,marginBottom:8,marginTop:16}},'Režim efektů'),
+    h('div',{style:{display:'flex',flexWrap:'wrap',gap:6,marginBottom:8}},
+      [{id:'clean',label:'Clean',desc:'Základní styl',clr:C.tx3},
+       {id:'matrix',label:'Matrix',desc:'Neon terminal',clr:'#00ff6a'},
+       {id:'japanese',label:'Japanese',desc:'Červená aurora',clr:'#f87171'},
+       {id:'midnight',label:'Midnight',desc:'Vesmírné sklo',clr:'#93c5fd'}
+      ].map(function(pm){
+        var current=localStorage.getItem('c3-theme-mode')||'clean';
+        var isSel=current===pm.id;
+        return h('div',{key:pm.id,style:{flex:'0 0 calc(50% - 3px)',padding:'8px 6px',borderRadius:8,border:'2px solid '+(isSel?pm.clr:'rgba(255,255,255,0.08)'),background:isSel?'rgba(255,255,255,0.05)':C.bg3,cursor:'pointer',textAlign:'center',transition:'all 0.2s ease'},
+          onClick:function(){
+            document.body.className=document.body.className.replace(/\btheme-pro[\w-]*/g,'').trim();
+            if(pm.id!=='clean'){document.body.classList.add('theme-pro-'+pm.id);}
+            localStorage.setItem('c3-theme-mode',pm.id);
+            if(pm.id==='clean'){Object.keys(_C_DEFAULT).forEach(function(k){C[k]=_C_DEFAULT[k];});}
+            else{_applyColorTheme(pm.id);}
+            _applyAllSettings();
+          }},
+          h('div',{style:{fontSize:11,fontWeight:isSel?700:500,color:isSel?pm.clr:C.tx2,marginBottom:1}},pm.label),
+          h('div',{style:{fontSize:8,color:C.tx4}},pm.desc));
       })),
     /* I2: Custom CSS */
     h('div',{style:{fontSize:11,fontWeight:600,color:C.tx2,marginBottom:6,marginTop:16}},'Vlastní CSS'),
@@ -2566,7 +2836,7 @@ function _initBusSubscriptions() {
     }
     if (ev.health) {
       _serverHealth = ev.health;
-      renderSidebar();
+      renderSidebar();_updateStatusIndicator();
     }
   });
 
@@ -2623,7 +2893,7 @@ function _initBusSubscriptions() {
   C3Bus.on('ws:ready', function(ev) {
     _serverHealth.wsConnected = true;
     _serverHealth.status = 'ok';
-    renderSidebar();
+    renderSidebar();_updateStatusIndicator();
   });
 
   /* WS disconnected */
@@ -2635,7 +2905,7 @@ function _initBusSubscriptions() {
       });
       renderChat();
     }
-    renderSidebar();
+    renderSidebar();_updateStatusIndicator();
   });
 
   /* WS reconnected */
@@ -2666,6 +2936,28 @@ function _initBusSubscriptions() {
 
 /* ── Health state ── */
 var _serverHealth = {status:'unknown', wsConnected:false, lastCheck:0};
+
+/* ── Status-bar health indicator (injected into Theia status bar) ── */
+function _updateStatusIndicator(){
+  var el=document.getElementById('c3-health-indicator');
+  if(!el){
+    var bar=document.querySelector('#theia-statusBar .area.left');
+    if(!bar)return;
+    el=document.createElement('div');
+    el.id='c3-health-indicator';
+    el.style.cssText='display:flex;align-items:center;gap:5px;padding:0 8px;height:100%;cursor:default;font-size:10px;';
+    bar.insertBefore(el,bar.firstChild);
+  }
+  var ok=_serverHealth.status==='ok';
+  var ws=_serverHealth.wsConnected;
+  var color=ok&&ws?'#22c55e':ok?'#f59e0b':'#ef4444';
+  var label=ok?(ws?'Online':'WS odpojen'):'Offline';
+  el.innerHTML='<span style="width:6px;height:6px;border-radius:50%;background:'+color+';display:inline-block;"></span><span style="color:'+color+';font-weight:600;letter-spacing:0.3px;">'+label+'</span>';
+  el.title=ok?(ws?'Backend OK + WebSocket':'Backend OK, WebSocket odpojen'):'Backend offline';
+}
+/* Kick-start indicator once Theia DOM is ready */
+setTimeout(_updateStatusIndicator,2000);
+setTimeout(_updateStatusIndicator,5000);
 
 /* ── Session persistence (crash recovery) ── */
 var _persistDebounce = null;

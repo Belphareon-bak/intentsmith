@@ -90,6 +90,12 @@ body, .theia-ApplicationShell {
   background: var(--c3-bg1) !important;
   border: none !important;
 }
+/* Force sidebar widget to fill full panel height (Theia layout manager
+   miscalculates when we hide the TabBar, leaving a gap at the bottom) */
+#theia-left-side-panel > .lm-DockPanel-widget {
+  top: 0 !important;
+  height: 100% !important;
+}
 .theia-side-panel {
   background: var(--c3-bg1) !important;
 }
@@ -189,7 +195,7 @@ body, .theia-ApplicationShell {
 .theia-statusBar .area .element:hover {
   background: var(--c3-bg3) !important;
 }
-.theia-statusBar .area.left .element:first-child {
+.theia-statusBar .area.left .element:first-of-type {
   font-weight: 800 !important;
   color: var(--c3-accent-text) !important;
   letter-spacing: 1px !important;
@@ -236,6 +242,27 @@ button.theia-button.main {
 /* ─── Widget sizing ─── */
 #c3-sidebar, #c3-chat-panel, #c3-agent-panel, #c3-center-view {
   background: var(--c3-bg1) !important;
+}
+
+/* ─── Pro Theme overrides: make Theia panels transparent for bg images ─── */
+body.theme-pro-matrix .theia-ApplicationShell,
+body.theme-pro-japanese .theia-ApplicationShell,
+body.theme-pro-midnight .theia-ApplicationShell {
+  background: transparent !important;
+}
+body.theme-pro-matrix .p-DockPanel,
+body.theme-pro-matrix .p-DockPanel-widget,
+body.theme-pro-japanese .p-DockPanel,
+body.theme-pro-japanese .p-DockPanel-widget,
+body.theme-pro-midnight .p-DockPanel,
+body.theme-pro-midnight .p-DockPanel-widget,
+body.theme-pro-matrix .lm-DockPanel,
+body.theme-pro-matrix .lm-DockPanel-widget,
+body.theme-pro-japanese .lm-DockPanel,
+body.theme-pro-japanese .lm-DockPanel-widget,
+body.theme-pro-midnight .lm-DockPanel,
+body.theme-pro-midnight .lm-DockPanel-widget {
+  background: transparent !important;
 }
 
 /* ─── Sidebar collapse/expand ─── */

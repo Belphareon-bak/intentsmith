@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 
 require("./styles/c3-center.css");
+require("./styles/c3-pro-theme.css");
 
 const inversify_1 = require("@theia/core/shared/inversify");
 const browser_1 = require("@theia/core/lib/browser");
@@ -108,6 +109,19 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
     this._wizardEditId = null;    // original ID when editing
 
     this._debouncedPreview = debounce(() => this._fetchWizardPreview(), 500);
+
+    // Pro theme: restore from localStorage
+    try {
+      if (localStorage.getItem('c3-theme-mode') === 'pro') {
+        document.body.classList.add('theme-pro');
+        if (!document.querySelector('.c3-pro-badge')) {
+          var badge = document.createElement('div');
+          badge.className = 'c3-pro-badge';
+          badge.textContent = 'PRO';
+          document.body.appendChild(badge);
+        }
+      }
+    } catch(e) {}
 
     // Listen for sidebar navigation events
     document.addEventListener('c3-view-change', (e) => {
@@ -264,6 +278,10 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
         ),
         h('label', { key: 'o', className: 'c3-label' }, 'Ollama URL'),
         h('input', { key: 'oi', className: 'c3-input', defaultValue: 'http://localhost:11434' })
+      ];
+      case 'appearance': return [
+        h('p', { key: 'td', style: { fontSize: 11, color: 'var(--c3-tx-4)' } },
+          'Nastavení vzhledu je v hlavním Appearance panelu.')
       ];
       case 'about': return [
         h('div', { key: 'a', style: { textAlign: 'center', padding: '8px 0' } },
