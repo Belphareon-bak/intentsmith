@@ -1,0 +1,144 @@
+/* ═══════════════════════════════════════════════════════════
+   C3 Studio — PRO Themes (5 variants)
+   Activated via body class: theme-pro-glass, theme-pro-neon,
+   theme-pro-aurora, theme-pro-frost, theme-pro-ember
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────
+   STYLE 1: GLASS — Subtle glassmorphism, blur, soft glow
+   ───────────────────────────────────────────────────────── */
+body.theme-pro-glass .c3-card {
+  background: rgba(255,255,255,0.03) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  transition: all 0.3s cubic-bezier(0.4,0,0.2,1) !important;
+}
+body.theme-pro-glass .c3-card:hover {
+  background: rgba(255,255,255,0.06) !important;
+  border-color: rgba(255,255,255,0.14) !important;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.35), 0 0 15px rgba(34,197,94,0.06);
+}
+body.theme-pro-glass .c3-card.selected {
+  border-color: rgba(34,197,94,0.35) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 20px rgba(34,197,94,0.12);
+}
+body.theme-pro-glass .c3-pill { backdrop-filter: blur(6px); border-radius: 20px !important; }
+body.theme-pro-glass .c3-pill-green { background: rgba(34,197,94,0.12) !important; box-shadow: 0 0 6px rgba(34,197,94,0.1); }
+body.theme-pro-glass .c3-msg { background: rgba(255,255,255,0.02) !important; backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.06) !important; border-radius: 12px !important; }
+body.theme-pro-glass .c3-msg.assistant { border-left: 2px solid rgba(34,197,94,0.35) !important; }
+body.theme-pro-glass ::-webkit-scrollbar-thumb { background: rgba(34,197,94,0.2) !important; border-radius: 10px; }
+body.theme-pro-glass ::-webkit-scrollbar-thumb:hover { background: rgba(34,197,94,0.35) !important; }
+body.theme-pro-glass .c3-btn-new { background: rgba(34,197,94,0.12) !important; border: 1px solid rgba(34,197,94,0.25) !important; border-radius: 10px !important; backdrop-filter: blur(6px); }
+body.theme-pro-glass .c3-btn-new:hover { background: rgba(34,197,94,0.22) !important; box-shadow: 0 0 12px rgba(34,197,94,0.2); }
+
+/* ─────────────────────────────────────────────────────────
+   STYLE 2: NEON — Vivid glow borders, neon accent shadows
+   ───────────────────────────────────────────────────────── */
+body.theme-pro-neon .c3-card {
+  background: rgba(0,0,0,0.4) !important;
+  border: 1px solid rgba(34,197,94,0.2) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 0 8px rgba(34,197,94,0.08), inset 0 0 20px rgba(0,0,0,0.2);
+  transition: all 0.25s ease !important;
+}
+body.theme-pro-neon .c3-card:hover {
+  border-color: rgba(34,197,94,0.5) !important;
+  box-shadow: 0 0 20px rgba(34,197,94,0.2), 0 0 40px rgba(34,197,94,0.08), inset 0 0 20px rgba(0,0,0,0.2);
+}
+body.theme-pro-neon .c3-card.selected {
+  border-color: rgba(34,197,94,0.6) !important;
+  box-shadow: 0 0 24px rgba(34,197,94,0.3), 0 0 48px rgba(34,197,94,0.1);
+}
+body.theme-pro-neon .c3-pill-green { background: rgba(34,197,94,0.15) !important; color: #4ade80 !important; box-shadow: 0 0 8px rgba(34,197,94,0.2); border: 1px solid rgba(34,197,94,0.3); }
+body.theme-pro-neon .c3-btn-new { background: transparent !important; border: 1px solid rgba(34,197,94,0.4) !important; color: #4ade80 !important; border-radius: 10px !important; box-shadow: 0 0 8px rgba(34,197,94,0.15); }
+body.theme-pro-neon .c3-btn-new:hover { background: rgba(34,197,94,0.1) !important; box-shadow: 0 0 16px rgba(34,197,94,0.3); }
+body.theme-pro-neon .c3-msg { border: 1px solid rgba(34,197,94,0.1) !important; border-radius: 10px !important; }
+body.theme-pro-neon .c3-msg.assistant { border-left: 2px solid #22c55e !important; box-shadow: -2px 0 8px rgba(34,197,94,0.15); }
+body.theme-pro-neon ::-webkit-scrollbar-thumb { background: rgba(34,197,94,0.25) !important; border-radius: 10px; box-shadow: 0 0 4px rgba(34,197,94,0.2); }
+body.theme-pro-neon .c3-sb-nav-item.active { box-shadow: inset 3px 0 12px rgba(34,197,94,0.15), 0 0 8px rgba(34,197,94,0.08); }
+
+/* ─────────────────────────────────────────────────────────
+   STYLE 3: AURORA — Gradient backgrounds, colorful accents
+   ───────────────────────────────────────────────────────── */
+body.theme-pro-aurora .c3-card {
+  background: linear-gradient(135deg, rgba(34,197,94,0.04), rgba(96,165,250,0.03), rgba(167,139,250,0.03)) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  transition: all 0.3s ease !important;
+}
+body.theme-pro-aurora .c3-card:hover {
+  background: linear-gradient(135deg, rgba(34,197,94,0.08), rgba(96,165,250,0.06), rgba(167,139,250,0.06)) !important;
+  border-color: rgba(255,255,255,0.14) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3), 0 0 20px rgba(34,197,94,0.06);
+}
+body.theme-pro-aurora .c3-card.selected {
+  border-image: linear-gradient(135deg, rgba(34,197,94,0.4), rgba(96,165,250,0.4)) 1;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2), 0 0 16px rgba(34,197,94,0.1);
+}
+body.theme-pro-aurora .c3-pill-green { background: linear-gradient(135deg, rgba(34,197,94,0.15), rgba(96,165,250,0.1)) !important; color: #86efac !important; }
+body.theme-pro-aurora .c3-btn-new { background: linear-gradient(135deg, rgba(34,197,94,0.15), rgba(96,165,250,0.1)) !important; border: 1px solid rgba(34,197,94,0.25) !important; border-radius: 10px !important; }
+body.theme-pro-aurora .c3-btn-new:hover { background: linear-gradient(135deg, rgba(34,197,94,0.25), rgba(96,165,250,0.18)) !important; }
+body.theme-pro-aurora .c3-msg { background: linear-gradient(135deg, rgba(255,255,255,0.02), rgba(167,139,250,0.02)) !important; border: 1px solid rgba(255,255,255,0.06) !important; border-radius: 12px !important; }
+body.theme-pro-aurora .c3-msg.assistant { border-left: 2px solid transparent !important; border-image: linear-gradient(180deg, #22c55e, #60a5fa) 1; }
+body.theme-pro-aurora ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, rgba(34,197,94,0.25), rgba(96,165,250,0.2)) !important; border-radius: 10px; }
+
+/* ─────────────────────────────────────────────────────────
+   STYLE 4: FROST — Cool blue tints, icy glass, crisp edges
+   ───────────────────────────────────────────────────────── */
+body.theme-pro-frost .c3-card {
+  background: rgba(147,197,253,0.04) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(147,197,253,0.12) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2), inset 0 1px 0 rgba(147,197,253,0.08);
+  transition: all 0.25s ease !important;
+}
+body.theme-pro-frost .c3-card:hover {
+  background: rgba(147,197,253,0.07) !important;
+  border-color: rgba(147,197,253,0.2) !important;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.3), 0 0 12px rgba(96,165,250,0.08);
+}
+body.theme-pro-frost .c3-card.selected {
+  border-color: rgba(96,165,250,0.4) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2), 0 0 16px rgba(96,165,250,0.15);
+}
+body.theme-pro-frost .c3-pill-green { background: rgba(96,165,250,0.15) !important; color: #93c5fd !important; border: 1px solid rgba(96,165,250,0.2); }
+body.theme-pro-frost .c3-btn-new { background: rgba(96,165,250,0.12) !important; border: 1px solid rgba(96,165,250,0.25) !important; color: #93c5fd !important; border-radius: 10px !important; }
+body.theme-pro-frost .c3-btn-new:hover { background: rgba(96,165,250,0.2) !important; box-shadow: 0 0 12px rgba(96,165,250,0.2); }
+body.theme-pro-frost .c3-msg { background: rgba(147,197,253,0.03) !important; border: 1px solid rgba(147,197,253,0.08) !important; border-radius: 10px !important; }
+body.theme-pro-frost .c3-msg.assistant { border-left: 2px solid rgba(96,165,250,0.4) !important; }
+body.theme-pro-frost ::-webkit-scrollbar-thumb { background: rgba(96,165,250,0.2) !important; border-radius: 10px; }
+body.theme-pro-frost ::-webkit-scrollbar-thumb:hover { background: rgba(96,165,250,0.35) !important; }
+
+/* ─────────────────────────────────────────────────────────
+   STYLE 5: EMBER — Warm amber/orange, cozy glow, fire theme
+   ───────────────────────────────────────────────────────── */
+body.theme-pro-ember .c3-card {
+  background: rgba(251,191,36,0.03) !important;
+  border: 1px solid rgba(251,191,36,0.1) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(251,191,36,0.05);
+  transition: all 0.3s ease !important;
+}
+body.theme-pro-ember .c3-card:hover {
+  background: rgba(251,191,36,0.06) !important;
+  border-color: rgba(251,191,36,0.2) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 0 16px rgba(251,191,36,0.08);
+}
+body.theme-pro-ember .c3-card.selected {
+  border-color: rgba(251,191,36,0.4) !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25), 0 0 20px rgba(251,191,36,0.15);
+}
+body.theme-pro-ember .c3-pill-green { background: rgba(251,191,36,0.15) !important; color: #fcd34d !important; border: 1px solid rgba(251,191,36,0.25); }
+body.theme-pro-ember .c3-btn-new { background: rgba(251,191,36,0.12) !important; border: 1px solid rgba(251,191,36,0.25) !important; color: #fcd34d !important; border-radius: 10px !important; }
+body.theme-pro-ember .c3-btn-new:hover { background: rgba(251,191,36,0.2) !important; box-shadow: 0 0 12px rgba(251,191,36,0.2); }
+body.theme-pro-ember .c3-msg { background: rgba(251,191,36,0.02) !important; border: 1px solid rgba(251,191,36,0.08) !important; border-radius: 12px !important; }
+body.theme-pro-ember .c3-msg.assistant { border-left: 2px solid rgba(251,191,36,0.4) !important; }
+body.theme-pro-ember ::-webkit-scrollbar-thumb { background: rgba(251,191,36,0.2) !important; border-radius: 10px; }
+body.theme-pro-ember ::-webkit-scrollbar-thumb:hover { background: rgba(251,191,36,0.35) !important; }
+body.theme-pro-ember .c3-sb-nav-item.active { background: rgba(251,191,36,0.08) !important; border-left-color: #fbbf24 !important; }
