@@ -131,6 +131,7 @@ function _applyColorTheme(themeId){
 }
 
 /* ═══ PRO THEME CSS INJECTION ═══ */
+var _themesUrl=(function(){try{return new URL('../../../../themes/',window.location.href).href;}catch(e){return 'themes/';}})();
 function _injectProThemeCSS(themeId){
   var sid='c3-pro-theme-css';var ex=document.getElementById(sid);
   if(!ex){ex=document.createElement('style');ex.id=sid;document.head.appendChild(ex);}
@@ -158,7 +159,7 @@ function _injectProThemeCSS(themeId){
     var B='body.theme-pro-matrix';
     css='\
 /* MATRIX THEME — image on body, overlays on ::before/::after */\n\
-'+B+'{background:url("themes/bg-matrix.jpg") center/cover fixed no-repeat!important;}\n\
+'+B+'{background:url("'+_themesUrl+'bg-matrix.jpg") center/cover fixed no-repeat!important;}\n\
 '+B+'::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;\n\
   background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,106,0.012) 2px,rgba(0,255,106,0.012) 4px);}\n\
 '+_pro(B,'20')+'\
@@ -184,7 +185,7 @@ function _injectProThemeCSS(themeId){
     var B='body.theme-pro-japanese';
     css='\
 /* JAPANESE THEME — image on body, glow on ::before */\n\
-'+B+'{background:url("themes/bg-japanese.jpg") center/cover fixed no-repeat!important;}\n\
+'+B+'{background:url("'+_themesUrl+'bg-japanese.jpg") center/cover fixed no-repeat!important;}\n\
 '+B+'::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;\n\
   background:radial-gradient(ellipse 80% 40% at 50% 90%,rgba(180,20,20,0.15),transparent 70%),\n\
   radial-gradient(ellipse 50% 20% at 30% 70%,rgba(255,30,30,0.08),transparent);opacity:0.7;}\n\
@@ -212,7 +213,7 @@ function _injectProThemeCSS(themeId){
     var B='body.theme-pro-midnight';
     css='\
 /* MIDNIGHT THEME — image on body, glow on ::before */\n\
-'+B+'{background:url("themes/bg-midnight.jpg") center/cover fixed no-repeat!important;}\n\
+'+B+'{background:url("'+_themesUrl+'bg-midnight.jpg") center/cover fixed no-repeat!important;}\n\
 '+B+'::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;\n\
   background:radial-gradient(ellipse 60% 30% at 55% 90%,rgba(40,80,200,0.12),transparent 60%),\n\
   radial-gradient(ellipse 40% 20% at 70% 20%,rgba(100,60,200,0.08),transparent);opacity:0.7;}\n\
@@ -252,7 +253,7 @@ function _injectProThemeCSS(themeId){
     var _themeImgs={matrix:'bg-matrix.jpg',japanese:'bg-japanese.jpg',midnight:'bg-midnight.jpg'};
     var imgFile=_themeImgs[themeId];
     if(imgFile&&bgDimAlpha>0){
-      css+=B+'{background:linear-gradient(rgba('+tbc[0]+','+tbc[1]+','+tbc[2]+','+bgDimAlpha.toFixed(2)+'),rgba('+tbc[0]+','+tbc[1]+','+tbc[2]+','+bgDimAlpha.toFixed(2)+')),url("themes/'+imgFile+'") center/cover fixed no-repeat!important;}\n';
+      css+=B+'{background:linear-gradient(rgba('+tbc[0]+','+tbc[1]+','+tbc[2]+','+bgDimAlpha.toFixed(2)+'),rgba('+tbc[0]+','+tbc[1]+','+tbc[2]+','+bgDimAlpha.toFixed(2)+')),url("'+_themesUrl+imgFile+'") center/cover fixed no-repeat!important;}\n';
     }
     /* Card/tile transparency */
     css+=B+' .c3-card{background:rgba('+pbc[0]+','+pbc[1]+','+pbc[2]+','+tileAlpha.toFixed(2)+')!important;}\n';
