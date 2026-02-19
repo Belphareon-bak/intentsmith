@@ -29,6 +29,13 @@ var _lastSendSessionIdx = 0;
 /* ─── Session routing ─────────────────────────────────────────────────── */
 
 function _routeToSession(data) {
+  /* Route by terminal reqId (most reliable for terminal responses) */
+  if (data.reqId && _termReqMap[data.reqId] !== undefined) {
+    var termIdx = _termReqMap[data.reqId];
+    /* Clean up on terminal completion */
+    if (data.type === 'exec_result' || data.type === 'error') delete _termReqMap[data.reqId];
+    return termIdx;
+  }
   /* Route by conversationId (stable across restarts) */
   var convId = data.conversationId || (data.metadata && data.metadata.conversationId);
   if (convId && typeof _sessions !== 'undefined') {
@@ -105,7 +112,7 @@ function _wsConnect() {
     _chatWs.send(JSON.stringify({
       type: 'hello',
       protocolVersion: 1,
-      ideVersion: 'c3-studio-1.0',
+      ideVersion: 'c3-studio-0.2.0',
       features: ['workspace', 'terminal', 'merge-preview', 'edit-ask', 'audit']
     }));
   };
@@ -222,11 +229,18 @@ function wsSendChat(content, session, sessionIdx) {
   });
 }
 
-function wsSendTerminal(command, session) {
+/* Track terminal reqId → sessionIdx for reliable response routing */
+var _termReqMap = {};  // reqId → sessionIdx
+
+function wsSendTerminal(command, session, sessionIdx) {
+  /* Track sender session (same pattern as wsSendChat) */
+  if (typeof sessionIdx === 'number') _lastSendSessionIdx = sessionIdx;
+  var reqId = 'term-' + Date.now();
+  if (typeof sessionIdx === 'number') _termReqMap[reqId] = sessionIdx;
   return wsSend('terminal', {
     type: 'exec',
     command: command,
-    reqId: 'term-' + Date.now(),
+    reqId: reqId,
     conversationId: session._convId || null
   });
 }

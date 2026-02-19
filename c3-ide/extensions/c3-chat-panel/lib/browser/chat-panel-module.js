@@ -1121,7 +1121,7 @@ function centerProjectWizard(){
   if(step===0){
     content=h('div',{style:Object.assign({},stepStyle,{maxWidth:480})},
       h('div',{style:{display:'flex',gap:12}},
-        h('div',{style:modeCardStyle(d.mode==='create'),onClick:function(){d.mode='create';renderCenter();}},
+        h('div',{style:modeCardStyle(d.mode==='create'),onClick:function(){d.mode='create';w.step=1;renderCenter();}},
           h('div',{style:{fontSize:_fs(32),marginBottom:8}},'📝'),
           h('div',{style:{fontSize:_fs(14),fontWeight:700,color:d.mode==='create'?C.accentText:C.tx1}},'Nový projekt'),
           h('div',{style:{fontSize:_fs(11),color:C.tx3,marginTop:4}},'Vytvořit od nuly se scaffoldingem')),
@@ -1978,7 +1978,7 @@ function centerSettings(){
             !isLines?h('div',{style:{position:'absolute',top:0,left:0,right:0,height:3,background:isSel?C.accent:'transparent'}}):null,
             h('div',{style:{fontSize:_fs(24),marginBottom:8}},sec.icon),
             h('div',{style:{fontSize:_fs(13),fontWeight:700,color:isSel?C.accentText:C.tx1,marginBottom:2}},sec.title),
-            h('div',{style:{fontSize:_fs(11),color:C.tx3}},sec.title==='About'?'C3 Studio v0.1.0':sec.fields.length+' nastavení'));
+            h('div',{style:{fontSize:_fs(11),color:C.tx3}},sec.title==='About'?'C3 Studio v0.2.0':sec.fields.length+' nastavení'));
         }))),
       selSec?settingsDetailPanel(selSec,selSi):null));
 }
@@ -1994,7 +1994,7 @@ function settingsDetailPanel(sec,si){
       sec.title==='About'?h('div',{style:{textAlign:'center',padding:'20px 0'}},
         h('div',{style:{width:48,height:48,background:'linear-gradient(135deg,#22c55e,#16a34a)',borderRadius:14,display:'inline-flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:_fs(20),color:'#fff',marginBottom:8}},'C3'),
         h('div',{style:{fontSize:_fs(14),fontWeight:700,color:C.tx1,marginBottom:2}},'C3 Studio'),
-        h('div',{style:{fontSize:_fs(11),color:C.tx3,marginBottom:12}},'v0.1.0'),
+        h('div',{style:{fontSize:_fs(11),color:C.tx3,marginBottom:12}},'v0.2.0'),
         h('div',{style:{fontSize:_fs(11),color:C.tx4}},'Made with ❤️ by Belfik')):
       sec.title==='Appearance'?settingsAppearance():
       sec.fields.map(function(f,fi){
@@ -2454,8 +2454,10 @@ function _rejectAll(reqId){
 function _detailActionHandler(d,a){
   var c3=window._c3;if(!c3)return;
   var _ti=_centerState.targetSession||0;if(_ti>=_sessionCount)_ti=0;
+  if(_ti!==_sessionActive)_saveTreeState(_sessionActive);
   _sessionActive=_ti;_ensureSessions();var _ts=_sessions[_ti];
   if(a==='Otevřít'){
+    _centerState.detail=null;_centerState.detailConversations=null;renderCenter();
     var exp=EXPERTS.find(function(e){return e.name===d.name;});
     if(exp){c3.setExpert(exp.name);c3.agentLog('TOOL','Expert změněn na: '+exp.name);}
     var conv=CONVERSATIONS.find(function(c){return c.title===d.name;});
@@ -3203,11 +3205,43 @@ function _pollContext(idx){
   .catch(function(){});
 }
 
+/* ── Message editing ── */
+function _chatStartEdit(paneIdx,msgIdx){
+  var s=_sessions[paneIdx];if(!s)return;var st=s.chat;
+  var m=st.msgs[msgIdx];if(!m||m.role!=='user')return;
+  st.editingIdx=msgIdx;st.editOriginalText=m.text;
+  var ta=document.getElementById('c3-chat-ta-'+paneIdx);
+  if(ta){ta.value=m.text;ta.style.height='20px';ta.style.height=Math.min(ta.scrollHeight,100)+'px';ta.focus();}
+  renderChat();
+}
+function _chatCancelEdit(paneIdx){
+  var s=_sessions[paneIdx];if(!s)return;
+  s.chat.editingIdx=null;s.chat.editOriginalText=null;
+  var ta=document.getElementById('c3-chat-ta-'+paneIdx);
+  if(ta){ta.value='';ta.style.height='20px';}
+  renderChat();
+}
+
 function _chatSendPane(idx){
   var ta=document.getElementById('c3-chat-ta-'+idx);
   var s=_sessions[idx];if(!s)return;var st=s.chat;
   st.acSuggestion=null;/* clear autocomplete on send */
   var t=ta?ta.value.trim():'';if(!t&&st.attachments.length===0)return;
+
+  /* ── Edit mode — replace message and resend (branch-from-here) ── */
+  if(st.editingIdx!==null&&st.editingIdx!==undefined){
+    var editIdx=st.editingIdx;
+    st.editingIdx=null;st.editOriginalText=null;
+    st.msgs[editIdx].text=t;
+    st.msgs.splice(editIdx+1);/* remove all after edited msg */
+    if(ta){ta.value='';ta.style.height='22px';}
+    renderChat();_chatScrollPane(idx);
+    var sent=false;
+    if(typeof C3WS!=='undefined'&&C3WS.isReady()){sent=C3WS.sendChat(t,s,idx);}
+    if(!sent){fetch(_backendBase+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'chat',message:t,expert:st.expert,editMode:st.editMode,conversationId:s._convId,agentId:s._agentId||null,projectId:s._projectId||null})}).then(function(r){return r.json();}).then(function(d){st.msgs.push({role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'});renderChat();_chatScrollPane(idx);}).catch(function(){st.msgs.push({role:'assistant',text:'Backend nedostupný.',tag:'ERROR'});renderChat();});}
+    setTimeout(function(){_pollContext(idx);},2000);
+    return;
+  }
 
   /* ── Slash commands ── */
   if(t.charAt(0)==='/'){
@@ -3241,7 +3275,7 @@ function _chatSendPane(idx){
   var hasFiles=st.attachments.length>0;
   var txt=t;
   if(hasFiles){txt=(t?t+'\n':'')+'📎 '+st.attachments.map(function(a){return a.name;}).join(', ');}
-  st.msgs.push({role:'user',text:txt});
+  st.msgs.push({role:'user',text:txt,id:'umsg-'+Date.now()});
   st.attachments=[];
   if(ta){ta.value='';ta.style.height='22px';}
   _sessionActive=idx;
@@ -3297,10 +3331,11 @@ function _chatPaneUI(idx){
     /* FEED */
     h('div',{id:'c3-chat-feed-'+idx,style:{flex:1,overflowY:'auto',overflowX:'hidden',padding:8,minWidth:0}},
       st.msgs.map(function(m,i){var u=m.role==='user',a=m.role==='assistant';var bub=_settingsVals.visualMode==='borders';
+        var isEditing=st.editingIdx===i;
         var wrapS=bub?{padding:'3px 6px',marginBottom:3,display:'flex',justifyContent:u?'flex-end':'flex-start'}
           :{padding:'6px 0',borderBottom:'1px solid '+C.border};
-        var msgS=bub?{background:u?C.bg4:a?C.bg2:C.bg3,borderRadius:u?'12px 12px 2px 12px':a?'12px 12px 12px 2px':'8px',padding:'6px 10px',maxWidth:'85%',minWidth:60}:{};
-        return h('div',{key:i,style:wrapS},
+        var msgS=bub?{background:u?C.bg4:a?C.bg2:C.bg3,borderRadius:u?'12px 12px 2px 12px':a?'12px 12px 12px 2px':'8px',padding:'6px 10px',maxWidth:'85%',minWidth:60,border:isEditing?'2px solid '+C.accent:'none'}:{border:isEditing?'2px solid '+C.accent:'none'};
+        return h('div',{key:i,style:Object.assign({},wrapS,u?{cursor:'pointer'}:{}),onClick:u?function(){_chatStartEdit(idx,i);}:undefined,title:u?'Klikni pro editaci':undefined},
           h('div',{style:msgS},
           h('div',{style:{display:'flex',alignItems:'center',gap:4,marginBottom:2}},
             h('div',{style:{width:18,height:18,borderRadius:'50%',background:u?C.bg4:a?'linear-gradient(135deg,#22c55e,#16a34a)':C.bg3,display:'flex',alignItems:'center',justifyContent:'center',fontSize:a?_fs(6):_fs(8),fontWeight:a?700:400,color:u?C.tx3:a?'#fff':C.tx4}},u?'👤':a?'C3':'⚡'),
@@ -3309,7 +3344,11 @@ function _chatPaneUI(idx){
           h('div',{style:{fontSize:_fs(12),lineHeight:'1.5',color:C.tx1,paddingLeft:22,wordBreak:'break-word',whiteSpace:'pre-wrap'}},m.text)));})),
     /* INPUT */
     h('div',{style:{padding:6,borderTop:'1px solid '+C.border,flexShrink:0},onClick:function(ev){ev.stopPropagation();}},
-      h('div',{style:{background:C.bg2,border:'1px solid '+C.border2,borderRadius:10,overflow:'visible',position:'relative'}},
+      h('div',{style:{background:C.bg2,border:'1px solid '+(st.editingIdx!==null?C.accent:C.border2),borderRadius:10,overflow:'visible',position:'relative'}},
+        /* Edit bar */
+        st.editingIdx!==null?h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'4px 8px',background:C.accentBg,borderBottom:'1px solid '+C.accent,borderRadius:'10px 10px 0 0',fontSize:_fs(10)}},
+          h('span',{style:{color:C.accentText,fontWeight:600}},'✏️ Editace zprávy'),
+          h('button',{style:{background:'none',border:'none',color:C.tx3,cursor:'pointer',fontSize:_fs(10),padding:'1px 6px'},onClick:function(ev){ev.stopPropagation();_chatCancelEdit(idx);}},'Zrušit (Esc)')):null,
         st.attachments.length>0?h('div',{style:{display:'flex',flexWrap:'wrap',gap:3,padding:'5px 8px 0'}},
           st.attachments.map(function(a,i){
             var isImg=/\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i.test(a.name);
@@ -3321,7 +3360,7 @@ function _chatPaneUI(idx){
           h('textarea',{id:'c3-chat-ta-'+idx,style:{flex:1,background:'none',border:'none',outline:'none',color:C.tx1,fontFamily:C.font,fontSize:_fs(12.5),lineHeight:'1.4',resize:'none',minHeight:20,maxHeight:100,overflow:'auto'},placeholder:'Napiš zprávu...',rows:1,
             onFocus:function(){_sessionActive=idx;renderChat();},
             onInput:function(e){e.target.style.height='20px';e.target.style.height=Math.min(e.target.scrollHeight,100)+'px';st.acSuggestion=null;renderChat();},
-            onKeyDown:function(e){if(e.key==='Tab'){e.preventDefault();_chatAutocomplete(idx);}else if(e.key==='Escape'){st.acSuggestion=null;renderChat();}else if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();_chatSendPane(idx);}}}),
+            onKeyDown:function(e){if(e.key==='Tab'){e.preventDefault();_chatAutocomplete(idx);}else if(e.key==='Escape'){if(st.editingIdx!==null){_chatCancelEdit(idx);}else{st.acSuggestion=null;renderChat();}}else if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();_chatSendPane(idx);}else if(e.key==='ArrowUp'&&!e.target.value.trim()){e.preventDefault();for(var j=st.msgs.length-1;j>=0;j--){if(st.msgs[j].role==='user'){_chatStartEdit(idx,j);break;}}}}}),
           h('button',{style:{background:'rgba(34,197,94,0.15)',color:C.accentText,border:'none',borderRadius:6,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',width:26,height:26,flexShrink:0},onClick:function(){_chatSendPane(idx);}},svgEl(I.send))),
         /* Autocomplete suggestion — subtle ghost text row */
         st.acSuggestion?h('div',{style:{display:'flex',alignItems:'center',padding:'1px 8px 2px',cursor:'pointer',gap:4},onClick:function(ev){ev.stopPropagation();_chatAutocomplete(idx);}},

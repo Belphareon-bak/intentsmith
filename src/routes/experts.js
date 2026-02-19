@@ -652,9 +652,9 @@ export function createLifecycleRoutes(deps) {
 
         // Action: 'continue' -> back to BUILD, 'change' -> CHANGE_MANAGEMENT
         if (action === 'change') {
-          lifecycle.transitionTo('CHANGE_MANAGEMENT');
+          await lifecycle.transitionTo('CHANGE_MANAGEMENT');
         } else {
-          lifecycle.transitionTo('BUILD');
+          await lifecycle.transitionTo('BUILD');
         }
 
         sendJSON(res, 200, { lifecycleId, phase: lifecycle.phase });

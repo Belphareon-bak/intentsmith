@@ -36,11 +36,11 @@ function termSend(sessionIdx, command) {
   s.term.push(entry);
   C3Bus.emit('terminal:line', { sessionIdx: sessionIdx, entry: entry });
 
-  /* Send via WS */
+  /* Send via WS (pass sessionIdx for routing) */
   if (typeof C3WS !== 'undefined') {
-    C3WS.sendTerminal(command, s);
+    C3WS.sendTerminal(command, s, sessionIdx);
   } else if (typeof wsSendTerminal === 'function') {
-    wsSendTerminal(command, s);
+    wsSendTerminal(command, s, sessionIdx);
   }
 
   return true;

@@ -15,7 +15,7 @@ import { logger } from '../core/logger.js';
 import { SafetyEngine } from './safety/engine.js';
 import { getConversationStore, TurnRole } from './conversation-store.js';
 import { getLTMContextForSynthesis } from './ltm-context.js';
-import { db } from '../db/database.js';
+import db from '../db/database.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Chat Mode Types
@@ -651,6 +651,9 @@ export class ChatController {
       timestamp: Date.now(),
     };
     this.#modeTransitions.push(transition);
+    if (this.#modeTransitions.length > 100) {
+      this.#modeTransitions = this.#modeTransitions.slice(-100);
+    }
     this.#currentMode = newMode;
   }
 
@@ -840,12 +843,22 @@ export class SessionState {
 
   /**
    * v58.0 - Close design project (e.g. on BUILD transition or explicit break)
+   * @param {string} [reason] - Close reason (graceful_close, build_transition, explicit_break)
    * @returns {Object|null} The closed project (for logging/handoff)
    */
-  closeDesignProject() {
+  closeDesignProject(reason) {
     const closed = this.#activeDesignProject;
     this.#activeDesignProject = null;
     this.#updatedAt = Date.now();
+    if (closed) {
+      closed.closeReason = reason || 'unknown';
+      closed.closedAt = Date.now();
+      logger.info('SessionState', 'Design project closed', {
+        type: closed.type,
+        reason: closed.closeReason,
+        turnCount: closed.turnCount,
+      });
+    }
     return closed;
   }
 
@@ -1269,15 +1282,15 @@ class ChatSessionManager {
     
     this.#cleanupTimer = setInterval(() => {
       this.#cleanupExpiredSessions();
-    }, SESSION_CONFIG.cleanupInterval);
-    
+    }, this.#config.cleanupInterval);
+
     // Don't prevent process exit
     if (this.#cleanupTimer.unref) {
       this.#cleanupTimer.unref();
     }
-    
+
     logger.debug('SessionManager', 'Cleanup timer started', {
-      interval: SESSION_CONFIG.cleanupInterval
+      interval: this.#config.cleanupInterval
     });
   }
 
@@ -1307,7 +1320,7 @@ class ChatSessionManager {
       const age = now - createdAt;
 
       // Check idle timeout
-      if (idleTime > SESSION_CONFIG.idleTimeout) {
+      if (idleTime > this.#config.idleTimeout) {
         logger.debug('SessionManager', `Expiring idle session: ${sessionId}`, {
           idleMinutes: Math.round(idleTime / 60000)
         });
@@ -1318,7 +1331,7 @@ class ChatSessionManager {
       }
 
       // Check max age
-      if (age > SESSION_CONFIG.maxAge) {
+      if (age > this.#config.maxAge) {
         logger.debug('SessionManager', `Expiring old session: ${sessionId}`, {
           ageHours: Math.round(age / 3600000)
         });
@@ -1329,8 +1342,8 @@ class ChatSessionManager {
     }
 
     // v55.1 - LRU eviction if still over limit
-    if (this.#sessions.size > SESSION_CONFIG.maxSessions) {
-      const toEvict = this.#sessions.size - SESSION_CONFIG.maxSessions;
+    if (this.#sessions.size > this.#config.maxSessions) {
+      const toEvict = this.#sessions.size - this.#config.maxSessions;
       const sorted = [...this.#lastActivity.entries()]
         .sort((a, b) => a[1] - b[1]); // Oldest first
       
@@ -1371,12 +1384,12 @@ class ChatSessionManager {
     }
 
     // v55.1 - Check session limit before creating new
-    if (this.#sessions.size >= SESSION_CONFIG.maxSessions) {
+    if (this.#sessions.size >= this.#config.maxSessions) {
       logger.warn('SessionManager', 'Session limit reached, triggering cleanup');
       this.#cleanupExpiredSessions();
-      
+
       // If still at limit, evict oldest
-      if (this.#sessions.size >= SESSION_CONFIG.maxSessions) {
+      if (this.#sessions.size >= this.#config.maxSessions) {
         const oldest = [...this.#lastActivity.entries()]
           .sort((a, b) => a[1] - b[1])[0];
         if (oldest) {
@@ -1509,7 +1522,7 @@ class ChatSessionManager {
         lastActivity: lastActivity ? new Date(lastActivity).toISOString() : null,
         idleMs: lastActivity ? now - lastActivity : null,
         ageMs: createdAt ? now - createdAt : null,
-        expiresIn: lastActivity ? Math.max(0, SESSION_CONFIG.idleTimeout - (now - lastActivity)) : null,
+        expiresIn: lastActivity ? Math.max(0, this.#config.idleTimeout - (now - lastActivity)) : null,
       } : null,
     };
   }
@@ -1529,9 +1542,9 @@ class ChatSessionManager {
     
     return {
       totalSessions: this.#sessions.size,
-      maxSessions: SESSION_CONFIG.maxSessions,
-      idleTimeoutMs: SESSION_CONFIG.idleTimeout,
-      maxAgeMs: SESSION_CONFIG.maxAge,
+      maxSessions: this.#config.maxSessions,
+      idleTimeoutMs: this.#config.idleTimeout,
+      maxAgeMs: this.#config.maxAge,
       oldestActivityAge: oldestActivity !== Infinity ? now - oldestActivity : null,
       newestActivityAge: newestActivity !== 0 ? now - newestActivity : null,
     };

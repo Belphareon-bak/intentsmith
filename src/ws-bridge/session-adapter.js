@@ -1,13 +1,13 @@
 // C3 WS Bridge — Session Adapter
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// v59.0 — Maps a WebSocket connection to a ChatController session.
+// v65.6 — Maps a WebSocket connection to a ChatController session.
 //
 // Responsibilities:
 //   1. Manage per-connection state (seq counter, turn ID, abort controller)
 //   2. Build ChatController.handle() requests with event hooks injected
 //   3. Forward intermediate events to WS client via send callback
-//   4. Enforce max-1-concurrent-turn execution model
+//   4. Enforce per-conversation turn mutex (different convs proceed in parallel)
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -32,8 +32,11 @@ import {
 export function createSessionAdapter({ send, handleRequest, logger, sessionId = null }) {
   let seq = 0;
   let turnCounter = 0;
-  let currentTurnId = null;
-  let abortController = null;
+
+  // Per-conversation MUTEX — each conversationId gets its own lock.
+  // Different conversations proceed in parallel (Ollama queues GPU internally).
+  // Same conversation: reject with "Počkejte" message.
+  const activeTurns = new Map(); // conversationId → { turnId, abortController, startTime }
 
   // Fáze 5 — E4: Pending edit approvals (reqId → {resolve, reject, timer})
   const editPending = new Map();
@@ -52,7 +55,7 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
 
   function sendStatus() {
     sendChannel(Channel.STATUS, {
-      agentStatus: currentTurnId ? 'executing' : 'idle',
+      agentStatus: activeTurns.size > 0 ? 'executing' : 'idle',
     });
   }
 
@@ -60,36 +63,45 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
 
   /**
    * Process a user chat message through ChatController.
-   * Enforces max-1-concurrent-turn. Injects event hooks into request context.
+   * Enforces per-conversation mutex. Injects event hooks into request context.
    *
    * @param {string} content — User message text
-   * @param {Object} [options] — { editMode, conversationId }
+   * @param {Object} [options] — { editMode, conversationId, projectId, agentId }
    */
   async function processChat(content, options = {}) {
     if (!content || typeof content !== 'string') return;
 
-    // Max 1 concurrent turn
-    if (currentTurnId) {
+    const convId = options.conversationId || '__default__';
+
+    // Per-conversation mutex: reject only if THIS conversation is busy
+    if (activeTurns.has(convId)) {
       sendChannel(Channel.CHAT, {
         id: messageId('sys'),
         type: 'system',
-        content: 'Agent právě zpracovává předchozí zprávu. Počkejte prosím.',
+        content: 'Agent právě zpracovává předchozí zprávu v této konverzaci. Počkejte prosím.',
         conversationId: options.conversationId || null,
         timestamp: new Date().toISOString(),
       });
       return;
     }
 
+    // Log if other conversations are active (GPU queueing at Ollama level)
+    if (activeTurns.size > 0) {
+      logger.info('WSSession', `Parallel turn — ${activeTurns.size} other conversation(s) active, GPU queued at Ollama level`, {
+        sessionId: sid, conversationId: convId,
+      });
+    }
+
     // Preserve request conversationId for routing responses back to correct session
     const requestConversationId = options.conversationId || null;
 
-    // Start new turn
+    // Start new turn — register in activeTurns
     turnCounter++;
-    currentTurnId = `t-${String(turnCounter).padStart(3, '0')}`;
-    const turnId = currentTurnId;
-    const turnStartTime = Date.now();
+    const turnId = `t-${String(turnCounter).padStart(3, '0')}`;
+    const ac = new AbortController();
+    activeTurns.set(convId, { turnId, abortController: ac, startTime: Date.now() });
 
-    abortController = new AbortController();
+    const turnStartTime = Date.now();
 
     sendAgentEvent(AgentEventType.TURN_START, turnId, { input: content });
 
@@ -107,7 +119,7 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
         projectId: options.projectId || null,
         context: {
           turnId,
-          signal: abortController.signal,
+          signal: ac.signal,
           editMode: options.editMode || 'auto',
           projectId: options.projectId || null,
 
@@ -218,7 +230,7 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
         const shellCmd = response.metadata.shellCommand;
         logger.info('WSSession', `Auto-executing shell command from SHELL intent: ${shellCmd}`, { turnId });
         // Fire-and-forget — handleTerminal sends results via terminal channel
-        handleTerminal({ type: 'exec', command: shellCmd, reqId: `shell-${turnId}` })
+        handleTerminal({ type: 'exec', command: shellCmd, reqId: `shell-${turnId}`, conversationId: requestConversationId })
           .catch(err => logger.error('WSSession', `Shell auto-exec failed: ${err.message}`));
       }
 
@@ -273,19 +285,15 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
       });
 
     } finally {
-      // Reset state FIRST — before any IO that could throw
-      currentTurnId = null;
-      abortController = null;
+      // Safe delete — only remove if turnId matches (future-proof against queue scenarios)
+      const entry = activeTurns.get(convId);
+      if (entry && entry.turnId === turnId) {
+        activeTurns.delete(convId);
+      }
 
       try {
-        // Broadcast real context % estimate based on turn count
-        const estimatedTokens = turnCounter * 800; // rough estimate per turn
-        const tokenBudget = 32000;
-        const contextPercent = Math.min(95, Math.round((estimatedTokens / tokenBudget) * 100));
-
         sendChannel(Channel.STATUS, {
-          agentStatus: 'idle',
-          contextPercent: contextPercent,
+          agentStatus: activeTurns.size > 0 ? 'executing' : 'idle',
         });
       } catch (finallyErr) {
         logger.error('WSSession', `Finally block error: ${finallyErr.message}`, { sessionId: sid });
@@ -306,6 +314,7 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
       sendChannel(Channel.TERMINAL, {
         type: 'error',
         reqId: data.reqId || null,
+        conversationId: data.conversationId || null,
         error: 'Invalid terminal request: type must be "exec" with a non-empty command string.',
       });
       return;
@@ -314,11 +323,12 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
     const reqId = data.reqId || `term-${Date.now()}`;
     const startTime = Date.now();
 
-    // Notify IDE that execution started
+    // Notify IDE that execution started (echo conversationId for multi-session routing)
     sendChannel(Channel.TERMINAL, {
       type: 'exec_start',
       reqId,
       command: data.command,
+      conversationId: data.conversationId || null,
       timestamp: new Date().toISOString(),
     });
 
@@ -335,12 +345,13 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
           cwd: data.cwd || undefined,
         },
         timeoutMs: 120000, // 2 minute default for interactive commands
-        signal: abortController?.signal,
+        // No signal — terminal commands are independent of chat turn cancellation
       });
 
       sendChannel(Channel.TERMINAL, {
         type: 'exec_result',
         reqId,
+        conversationId: data.conversationId || null,
         status: result.status,
         stdout: result.output?.stdout || '',
         stderr: result.output?.stderr || '',
@@ -353,6 +364,7 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
       sendChannel(Channel.TERMINAL, {
         type: 'exec_result',
         reqId,
+        conversationId: data.conversationId || null,
         status: 'error',
         stdout: '',
         stderr: err.message,
@@ -367,14 +379,24 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
 
   /**
    * Handle a control command (cancel, ping).
-   * @param {Object} data — { action: 'cancel' | 'ping' }
+   * @param {Object} data — { action: 'cancel' | 'ping', conversationId?: string }
    */
   function handleControl(data) {
     switch (data.action) {
       case 'cancel':
-        if (abortController) {
-          abortController.abort();
-          logger.info('WSSession', 'Execution cancelled by user', { sessionId: sid });
+        if (data.conversationId) {
+          // Cancel specific conversation
+          const turn = activeTurns.get(data.conversationId);
+          if (turn) {
+            turn.abortController.abort();
+            logger.info('WSSession', 'Cancelled by user', { sessionId: sid, conversationId: data.conversationId });
+          }
+        } else {
+          // No conversationId → cancel all active turns
+          for (const [cid, turn] of activeTurns) {
+            turn.abortController.abort();
+          }
+          logger.info('WSSession', 'Cancel all — no conversationId provided', { sessionId: sid, activeCount: activeTurns.size });
         }
         sendChannel(Channel.CONTROL, { action: 'cancel', success: true });
         break;
@@ -405,7 +427,7 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
               } catch { /* file deleted? */ }
 
               if (currentHash !== pending.baseHash) {
-                sendAgentEvent('edit_conflict', currentTurnId, {
+                sendAgentEvent('edit_conflict', null, {
                   reqId: data.requestId,
                   file: pending.filePath,
                   message: 'Soubor byl změněn od doby vytvoření diffu.',
@@ -452,9 +474,11 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
   // ─── Cleanup ───────────────────────────────────────────────────────
 
   function cleanup() {
-    if (abortController) {
-      abortController.abort();
+    // Abort all active turns on disconnect
+    for (const [cid, turn] of activeTurns) {
+      turn.abortController.abort();
     }
+    activeTurns.clear();
     // Reject all pending edits on disconnect
     for (const [reqId, pending] of editPending) {
       clearTimeout(pending.timer);
@@ -468,8 +492,8 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
 
   return {
     get sessionId() { return sid; },
-    get isExecuting() { return currentTurnId !== null; },
-    get currentTurnId() { return currentTurnId; },
+    get isExecuting() { return activeTurns.size > 0; },
+    get activeTurnCount() { return activeTurns.size; },
     processChat,
     handleTerminal,
     handleControl,

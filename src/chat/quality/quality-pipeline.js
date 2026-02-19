@@ -5,7 +5,7 @@
 // Single entry point for all deterministic output post-processing.
 // Called from:
 //   - synthesis.js (after LLM generation + retry loop)
-//   - controller.js (final gate before returning to user)
+//   - Single canonical call site — controller.js no longer calls this (v65.5)
 //
 // The pipeline is IDEMPOTENT — safe to call multiple times on the same text.
 // All operations are deterministic — no LLM calls, no randomness.

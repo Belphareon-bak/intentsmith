@@ -1,8 +1,8 @@
-# C.3 Agent Platform — Architecture v65.5
+# C.3 Agent Platform — Architecture v65.6
 
-**Version:** v65.5 (Agent Builder Wizard, Project Context, Lifecycle BUILD hardening, Expert Wizard)
+**Version:** v65.6 (Lifecycle Session Routing Fix, Agent Builder Wizard, Project Context, Expert Wizard)
 **Status:** Production-ready, ~92% complete
-**Date:** February 2026
+**Date:** 2026-02-19
 
 ---
 
@@ -55,7 +55,7 @@ All decisions flow through CRE — LLM is the text generator, never the authorit
 │              └───────────────────────────────────────────────┘      │
 ├──────────────────────────────────────────────────────────────────────┤
 │                        Database (SQLite)                              │
-│                    28+ tables, prepared statements                    │
+│                    53 tables, prepared statements                     │
 ├──────────────────────────────────────────────────────────────────────┤
 │                     LLM Gateway (Ollama)                             │
 │              qwen2.5:32b (CHAT), deepseek-r1:32b (D1/R1)            │
@@ -67,9 +67,17 @@ All decisions flow through CRE — LLM is the text generator, never the authorit
 ## Directory Structure
 
 ```
-src/
-├── server.js                    # Express HTTP server (port 3335), ~2500 lines
+src/                             # 73,706 lines / 188 files / 20 directories
+├── server.js                    # Express HTTP server (port 3335), 855 lines
 ├── config.js                    # Feature flags, model bindings, timeouts
+├── routes/                      # HTTP route handlers (split from server.js)
+│   ├── agents.js                #   Agent CRUD + schema + dry-run
+│   ├── projects.js              #   Projects + lifecycle/start
+│   ├── experts.js               #   Expert CRUD + merge-preview
+│   ├── notifications.js         #   Notification endpoints
+│   ├── memory.js                #   Memory/preferences
+│   ├── chat.js                  #   Chat REST endpoints
+│   └── system.js                #   Health, config, version
 ├── agents/                      # Phase B: Agent platform
 │   ├── runner.js                #   Execution engine (1339 lines)
 │   ├── scheduler.js             #   Cron/interval scheduling (282 lines)
@@ -89,13 +97,13 @@ src/
 │       └── weather-monitor.json     # 1x HTTP weather
 ├── chat/                        # Core: Conversational AI pipeline
 │   ├── controller.js            #   ChatController entry point
-│   ├── cre-decision.js          #   CRE intent classification (~2400 lines)
+│   ├── cre-decision.js          #   CRE intent classification (2897 lines)
 │   ├── conversation-store.js    #   Session persistence
 │   ├── handlers/                #   19 intent-specific processors
-│   │   ├── conversation.js      #     Main router, DESIGN sessions
+│   │   ├── conversation.js      #     Main router, DESIGN sessions (778 lines)
 │   │   ├── decisions.js         #     TOOL_CALL, ANSWER, REFUSE, LOCAL
 │   │   ├── lifecycle-router.js  #     Phase C lifecycle intercept
-│   │   ├── lifecycle-state.js   #     Handoff state (DB write-through)
+│   │   ├── lifecycle-state.js   #     Handoff state (DB write-through, 172 lines)
 │   │   ├── agent-wizard.js      #     Agent creation wizard (B9)
 │   │   └── utils/
 │   │       ├── synthesis.js     #       LLM synthesis + Output Gate
@@ -143,7 +151,8 @@ src/
 │   ├── circuit-breaker.js       #   Failure isolation
 │   └── shell-security.js        #   Shell sandboxing
 ├── db/
-│   └── database.js              #   SQLite schema (28+ tables)
+│   ├── database.js              #   SQLite schema (53 tables, 1328 lines)
+│   └── migrations/              #   5 migration files (timestamp-ordered)
 ├── core/
 │   ├── error-handler.js         #   Global error handlers
 │   └── logger.js                #   Structured logging
@@ -270,7 +279,7 @@ SPEC → BUILD → REVIEW → next milestone or COMPLETED
 - Checkpoint FAIL default on parse error (safe default, not PASS)
 - Scope enforcement: pre-execution warning + post-execution git diff check
 
-**Multi-session (C4):** New session auto-detects active lifecycle for same project via `active_session_id`.
+**Multi-session (C4):** New session auto-detects active lifecycle for same project. **v65.6 fix:** IDE lifecycle/start uses `session-0` but WS chat uses `ws-<random>` — resolved by RAM lookup via `getLcStateByProject(projectId)` which finds state under any sessionId and migrates it to the current WS session. DB fallback preserved as backup. Lifecycle/start now generates proper IDs (`lc-<timestamp>-<random>`) and stores them in RAM state.
 
 ### 5. Expert System (v63 — Merge Engine)
 
@@ -361,7 +370,7 @@ Supported: CLI, Web, Slack, Discord, API. Each with capability presets (max mess
 
 ## Database Schema
 
-28+ tables in SQLite (better-sqlite3), 5 migrations:
+53 tables in SQLite (better-sqlite3), 5 migrations:
 
 | Group | Tables |
 |-------|--------|
@@ -423,32 +432,33 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 
 ## Test Suite
 
-1300+ tests total:
+789+ verified deterministic tests, 41,480 lines across 91 test files:
 
 | Suite | Tests | Focus |
 |-------|-------|-------|
 | CRE comprehensive | 401 | Intent classification |
 | v583 tier1 | 94 | Core CRE regression |
-| Phase B workers | 73 | B0/B4/B6/B8/B9 |
-| Notifications | 67 | Channels, routing, policy |
-| Lifecycle E2E | 138 | Phase C lifecycle (12 phases, disk I/O, git) |
 | Lifecycle unit | 103 | State machine, persistence, deps |
-| Milestone size | 40 | Size validation, split suggestions |
+| Lifecycle E2E | 83 | Phase C lifecycle, crash recovery |
+| Phase B workers | 73 | B0/B4/B6/B8/B9 |
+| Lifecycle advanced | 71 | Multi-session, disk I/O, git |
+| Notifications | 67 | Channels, routing, policy |
 | RSS sources | 47 | RSS/Atom parsing |
 | Workflow | 42 | Planner workflow |
-| **Merge engine** | **40** | **Multi-expertise composition, token budget, inheritance** |
+| Milestone size | 40 | Size validation, split suggestions |
+| Merge engine | 40 | Multi-expertise composition, token budget, inheritance |
 | Expert system | 40 | Single expert flow, built-in experts |
-| **Expertise wizard** | **38** | **Validation, modules, capabilities** |
-| **Capability enforcer** | **38** | **5D evaluators, drift, strict, retry, trace** |
+| Expertise wizard | 38 | Validation, modules, capabilities |
+| Capability enforcer | 38 | 5D evaluators, drift, strict, retry, trace |
 | Trust feedback | 34 | Auto-degrade/mute |
-| **Execution trace stress** | **20** | **3-expert merge + strict + drift + trace reconstruction** |
+| Execution trace stress | 20 | 3-expert merge + strict + drift + trace reconstruction |
+| Agent runner | 20 | HUNTER, mark_seen |
 | Merge compatibility | 16 | 5D pairwise conflict detection |
 | Merge-enforcement integration | 15 | Merge → ExpertEnforcer pipeline |
 | Multi-source integration | 14 | RSS+HTTP, _merged, partial failure |
 | Expert integration | 10 | Expert + DB + handler pipeline |
-| Agent runner | 20 | HUNTER, mark_seen |
-| **E2E Quality Deep** | **36** | **LLM output quality: S/R/F/T categories, SK detection, links** |
-| + 50 more suites | ~50 | Various subsystems |
+| **E2E Quality Deep** | **36** | **LLM output quality: S/R/F/T categories (89% — 32/36)** |
+| + additional suites | ~50 | Various subsystems |
 
 ---
 
@@ -503,17 +513,17 @@ User clicks "+ Worker" → _awOpen('create')
 
 | Phase | Completion | Key Components |
 |-------|-----------|----------------|
-| A (CRE) | 100% | Intent classification, decision matrix, quality gate |
+| A (CRE) | 100% | Intent classification (19 types), decision matrix, QGv2 |
 | B (Workers) | 80% | Runner, scheduler, sources, notifications, multi-source |
-| C (Lifecycle) | **98%** | Milestones, crash recovery, multi-session, real test exec, hard size limits |
+| C (Lifecycle) | **99%** | Milestones, crash recovery, multi-session routing (v65.6), real test exec, hard size limits |
 | D-int (Integration) | 100% | Rate monitor auto-registration |
 | D (Experts) | **95%** | 15 built-in experts, merge engine, 5D capabilities, enforcement, wizard UI |
 | D-obs (Observability) | **100%** | ExecutionTrace ID, LLM execution log, capability drift log |
 | E (IDE) | **70%** | C3 Studio IDE (Theia 1.65.2), linked sessions, transport layer |
 | F (Packaging) | Planned | Docker, licensing, auto-updater |
 
-**Overall: ~90% complete**
+**Overall: ~92% complete**
 
 ---
 
-*This document reflects C.3 Agent Platform v65.2 architecture (2026-02-14).*
+*This document reflects C.3 Agent Platform v65.6 architecture (2026-02-19).*

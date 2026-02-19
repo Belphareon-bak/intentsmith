@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "c3-ide",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "C3 Studio — AI-powered IDE built on Eclipse Theia",
   "license": "MIT",
   "engines": {

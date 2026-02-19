@@ -2,6 +2,43 @@
 
 ---
 
+## v65.6 — Lifecycle Session Routing Fix + Conversation Hardening (2026-02-19)
+
+**Testy:** 789+ verified deterministic (23+58+52+43+45+94+125+92+103+83+71), 0 failures
+
+Oprava kritického bugu: lifecycle SPEC fáze nebyla routována správně kvůli sessionId mismatch mezi IDE lifecycle/start (`session-0`) a WS chat zprávami (`ws-<random>`). Doplněna robustní conversation handler hardening (Tier 1/2/3 fixes).
+
+### Lifecycle SessionId Mismatch Fix
+
+- **RAM lookup by projectId** — `getLcStateByProject(projectId)` najde lifecycle stav v RAM pod jakýmkoli sessionId a migruje ho na aktuální WS session
+- **Proper lifecycle ID generace** — lifecycle/start nyní generuje `lc-<timestamp>-<random>` místo NULL
+- **`bindSessionToLifecycle()`** — voláno při startu, správná vazba session→lifecycle
+- **DB fallback zachován** — když RAM nemá match, fallback na `project_lifecycles` tabulku
+
+### Conversation Handler Hardening (Tier 1/2/3)
+
+- **Tier 1:** 14 oprav v conversation.js — null safety, context propagation, error handling
+- **Tier 2:** Lifecycle intercept robustnost — auto-detect přes RAM + DB dual path
+- **Tier 3:** Edge case handling pro stale sessions a concurrent access
+
+### Dokumentace
+
+- **CLAUDE.md** — kompletní přepis: 73,706 lines / 188 files statistiky, API endpoint reference, contract #10
+- **ARCHITECTURE.md** — aktualizace: 53 DB tables, routes/ directory, lifecycle C4 session routing, test counts
+- **CHANGELOG.md** — v65.6 entry
+
+### Soubory
+
+| Soubor | Změna |
+|--------|-------|
+| `src/chat/handlers/conversation.js` | RAM lookup by projectId + state migration (lines 288-314) |
+| `src/routes/projects.js` | lifecycle/start: generovat lifecycle ID, uložit do RAM stavu (lines 301-321) |
+| `CLAUDE.md` | Kompletní přepis na v65.6 |
+| `docs/ARCHITECTURE.md` | Aktualizace na v65.6 |
+| `docs/CHANGELOG.md` | v65.6 entry |
+
+---
+
 ## v65.5 — Agent Builder Wizard (B9) (2026-02-15)
 
 **Testy:** ~1300 passing (805 ověřeno, žádné regrese)

@@ -408,23 +408,27 @@ async function handleToolCallDecision(input, decision, context) {
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  // v44.11 — REPORT PIPELINE ORCHESTRATION
+  // v44.11 — SEARCH-SCRAPE-SYNTHESIS PIPELINE (shared by REPORT + ITEM_LOOKUP)
   // ════════════════════════════════════════════════════════════════════════════
-  // REPORT is NOT a parallel tool call! It's a pipeline:
-  // 1. SEARCH → get URLs from search results
-  // 2. SCRAPE → fetch content from URLs (only if search succeeded)
-  // 3. SYNTHESIZE → build report from scraped content
-  //
-  // If SEARCH fails → return degraded fallback (no ASK_USER)
-  // If SEARCH returns 0 results → return degraded fallback
-  // NEVER call SCRAPE without URLs!
+  // Pipeline: SEARCH → SCRAPE → SYNTHESIZE (deterministic steps, no parallel)
+  // If SEARCH fails → degraded fallback. If aborted → early exit.
   // ════════════════════════════════════════════════════════════════════════════
-  if (decision.intent === IntentType.REPORT) {
-    logger.info('HandleToolCall', 'REPORT pipeline started', { input: input.substring(0, 50) });
+  const SEARCH_PIPELINE_CONFIG = {
+    REPORT:      { maxUrls: 5, defaultIntent: ResponseIntent.SUMMARY, searchSubType: null },
+    ITEM_LOOKUP: { maxUrls: 8, defaultIntent: ResponseIntent.BULLETS, searchSubType: 'CLASSIFIED' },
+  };
 
-    // v59.0 IDE Bridge: Notify search tool call
+  const pipelineIntent = decision.intent === IntentType.REPORT ? 'REPORT'
+    : decision.intent === IntentType.ITEM_LOOKUP ? 'ITEM_LOOKUP'
+    : null;
+
+  if (pipelineIntent) {
+    const pipelineCfg = SEARCH_PIPELINE_CONFIG[pipelineIntent];
+    logger.info('HandleToolCall', `${pipelineIntent} pipeline started`, { input: input.substring(0, 50) });
+
+    // IDE Bridge: Notify search tool call
     if (typeof context.onToolCall === 'function') {
-      try { context.onToolCall('web.search', { query: effectiveQuery, pipeline: 'REPORT' }); } catch { /* */ }
+      try { context.onToolCall('web.search', { query: effectiveQuery, pipeline: pipelineIntent }); } catch { /* */ }
     }
 
     // Step 1: Execute web.search
@@ -433,182 +437,15 @@ async function handleToolCallDecision(input, decision, context) {
       tools: ['web.search'],
     }, {
       input,
-      query: effectiveQuery,  // v56.2 C1: enriched follow-up
+      query: effectiveQuery,
       sessionId: context.sessionId,
       projectGoal,
       ...context,
     });
 
-    // v59.0 IDE Bridge: Notify search result
-    if (typeof context.onToolResult === 'function') {
-      const _sr = searchResult.toolResults?.find(r => r.type === 'search');
-      try {
-        context.onToolResult('web.search', {
-          success: !!(_sr?.success),
-          durationMs: searchResult.duration,
-          summary: `${_sr?.data?.results?.length || 0} results`,
-        });
-      } catch { /* */ }
-    }
-
-    // Check if search succeeded and returned results
-    // v45.0 FIX: ToolResult uses 'type', not 'tool'
-    const searchData = searchResult.toolResults?.find(r => r.type === 'search');
-    const hasResults = searchData?.success && searchData?.data?.results?.length > 0;
-
-    if (!hasResults) {
-      // Search failed or returned no results → return REPORT fallback
-      logger.warn('HandleToolCall', 'REPORT pipeline: search failed or no results', {
-        status: searchResult.status,
-        hasData: !!searchData,
-        resultCount: searchData?.data?.results?.length || 0,
-      });
-
-      return buildReportFallback(input, decision, searchResult, context);
-    }
-
-    // Abort check: user may have disconnected during search
-    if (context.signal?.aborted) {
-      logger.info('HandleToolCall', 'REPORT pipeline: aborted after search');
-      return buildReportFallback(input, decision, searchResult, context);
-    }
-
-    // Step 2: Extract URLs from search results (max 5)
-    const urls = searchData.data.results
-      .filter(r => r.url && r.url.startsWith('http'))
-      .slice(0, 5)
-      .map(r => r.url);
-
-    logger.info('HandleToolCall', 'REPORT pipeline: scraping URLs', {
-      urlCount: urls.length,
-      urls: urls.slice(0, 3),
-    });
-
-    // Step 3: Execute web.scrape with URLs (if we have any)
-    let scrapeResults = [];
-    if (urls.length > 0) {
-      const scrapeResult = await toolExecutor.execute({
-        ...decision,
-        tools: ['web.scrape'],
-      }, {
-        input,
-        urls,  // Pass URLs, not query!
-        sessionId: context.sessionId,
-        projectGoal,
-        ...context,
-      });
-
-      scrapeResults = scrapeResult.toolResults || [];
-    }
-
-    // Abort check: user may have disconnected during scrape
-    if (context.signal?.aborted) {
-      logger.info('HandleToolCall', 'REPORT pipeline: aborted after scrape');
-      return buildReportFallback(input, decision, searchResult, context);
-    }
-
-    // Step 4: SYNTHESIZE with LLM
-    // Prepare tool results for LLM synthesis
-    const successfulScrapes = scrapeResults.filter(r => r.success);
-    const allToolResults = [
-      searchData,
-      ...successfulScrapes,
-    ].filter(Boolean);
-
-    // v61.2: When scrapes mostly fail, log warning and hint synthesis to use snippets
-    const scrapeSuccessRate = urls.length > 0 ? successfulScrapes.length / urls.length : 0;
-    if (scrapeSuccessRate < 0.4 && urls.length > 0) {
-      logger.warn('HandleToolCall', 'REPORT pipeline: most scrapes failed — synthesis uses snippets only', {
-        attempted: urls.length,
-        succeeded: successfulScrapes.length,
-        rate: scrapeSuccessRate,
-      });
-    }
-
-    // Get user preferences and expert hints from context
-    const userPreferences = context.userPreferences || {};
-    const expertHints = context.expertHints || null;
-    const responseIntent = decision.responseIntent || ResponseIntent.SUMMARY;
-
-    // v61.2: When scrapes mostly failed, add hint to synthesis context
-    // so LLM extracts maximum info from search snippets
-    const synthesisContext = scrapeSuccessRate < 0.4 && urls.length > 0
-      ? { ...context, snippetOnlyMode: true }
-      : context;
-
-    // Call LLM for actual synthesis
-    const synthesisResult = await synthesizeWithLLM({
-      query: input,
-      intent: decision.intent,
-      toolResults: allToolResults,
-      context: synthesisContext,
-      userPreferences,
-      expertHints,
-      responseIntent,
-      conversationContext,  // v56.2 C2
-    });
-
-    logger.info('HandleToolCall', 'REPORT synthesis complete', {
-      query: input.substring(0, 50),
-      synthesisLength: synthesisResult.content?.length || 0,
-      confidence: synthesisResult.confidence,
-    });
-
-    const tag = new ResponseTag({
-      speaker: ResponseSpeaker.SYSTEM,
-      mode: ChatMode.CONVERSATION,
-      confidence: synthesisResult.confidence || decision.confidence,
-      canExecute: false,
-      metadata: {
-        decision: decision.toJSON(),
-        pipeline: 'REPORT',
-        searchResults: searchData?.data?.results?.length || 0,
-        scrapedUrls: urls.length,
-        synthesisModel: synthesisResult.model,
-      },
-    });
-
-    // Record successful decision
-    if (sessionState) {
-      sessionState.recordDecision(decision, input);
-    }
-
-    return new TaggedResponse({
-      content: synthesisResult.content,
-      tag,
-    });
-  }
-
-  // ════════════════════════════════════════════════════════════════════════════
-  // v45.0: ITEM_LOOKUP PIPELINE
-  // ════════════════════════════════════════════════════════════════════════════
-  // Similar to REPORT but output must be SPECIFIC ITEMS with links
-  // User asked for "4 inzeráty" → must return 4 actual listings
-  // ════════════════════════════════════════════════════════════════════════════
-  if (decision.intent === IntentType.ITEM_LOOKUP) {
-    logger.info('HandleToolCall', 'ITEM_LOOKUP pipeline started', { input: input.substring(0, 50) });
-
-    // v59.0 IDE Bridge: Notify search tool call
-    if (typeof context.onToolCall === 'function') {
-      try { context.onToolCall('web.search', { query: effectiveQuery, pipeline: 'ITEM_LOOKUP' }); } catch { /* */ }
-    }
-
-    // Step 1: Execute web.search
-    const searchResult = await toolExecutor.execute({
-      ...decision,
-      tools: ['web.search'],
-    }, {
-      input,
-      query: effectiveQuery,  // v56.2 C1: enriched follow-up
-      sessionId: context.sessionId,
-      projectGoal,
-      ...context,
-    });
-
-    // Check if search succeeded
     const searchData = searchResult.toolResults?.find(r => r.type === 'search');
 
-    // v59.0 IDE Bridge: Notify search result
+    // IDE Bridge: Notify search result
     if (typeof context.onToolResult === 'function') {
       try {
         context.onToolResult('web.search', {
@@ -622,28 +459,27 @@ async function handleToolCallDecision(input, decision, context) {
     const hasResults = searchData?.success && searchData?.data?.results?.length > 0;
 
     if (!hasResults) {
-      logger.warn('HandleToolCall', 'ITEM_LOOKUP pipeline: search failed or no results', {
+      logger.warn('HandleToolCall', `${pipelineIntent} pipeline: search failed or no results`, {
         status: searchResult.status,
         hasData: !!searchData,
         resultCount: searchData?.data?.results?.length || 0,
       });
-
       return buildReportFallback(input, decision, searchResult, context);
     }
 
     // Abort check: user may have disconnected during search
     if (context.signal?.aborted) {
-      logger.info('HandleToolCall', 'ITEM_LOOKUP pipeline: aborted after search');
+      logger.info('HandleToolCall', `${pipelineIntent} pipeline: aborted after search`);
       return buildReportFallback(input, decision, searchResult, context);
     }
 
-    // Step 2: Extract URLs - prioritize marketplace/listing sites
+    // Step 2: Extract URLs from search results
     const urls = searchData.data.results
       .filter(r => r.url && r.url.startsWith('http'))
-      .slice(0, 8) // More URLs for item lookup to find actual listings
+      .slice(0, pipelineCfg.maxUrls)
       .map(r => r.url);
 
-    logger.info('HandleToolCall', 'ITEM_LOOKUP pipeline: scraping URLs', {
+    logger.info('HandleToolCall', `${pipelineIntent} pipeline: scraping URLs`, {
       urlCount: urls.length,
       urls: urls.slice(0, 3),
     });
@@ -661,39 +497,49 @@ async function handleToolCallDecision(input, decision, context) {
         projectGoal,
         ...context,
       });
-
       scrapeResults = scrapeResult.toolResults || [];
     }
 
     // Abort check: user may have disconnected during scrape
     if (context.signal?.aborted) {
-      logger.info('HandleToolCall', 'ITEM_LOOKUP pipeline: aborted after scrape');
+      logger.info('HandleToolCall', `${pipelineIntent} pipeline: aborted after scrape`);
       return buildReportFallback(input, decision, searchResult, context);
     }
 
-    // Step 4: SYNTHESIZE with LLM - but with ITEM_LOOKUP prompt (extract items, not synthesize)
-    const allToolResults = [
-      searchData,
-      ...scrapeResults.filter(r => r.success),
-    ].filter(Boolean);
+    // Step 4: SYNTHESIZE with LLM
+    const successfulScrapes = scrapeResults.filter(r => r.success);
+    const allToolResults = [searchData, ...successfulScrapes].filter(Boolean);
 
-    const userPreferences = context.userPreferences || {};
-    const expertHints = context.expertHints || null;
-    const responseIntent = decision.responseIntent || ResponseIntent.BULLETS;
+    const scrapeSuccessRate = urls.length > 0 ? successfulScrapes.length / urls.length : 0;
+    if (scrapeSuccessRate < 0.4 && urls.length > 0) {
+      logger.warn('HandleToolCall', `${pipelineIntent} pipeline: most scrapes failed — snippets only`, {
+        attempted: urls.length,
+        succeeded: successfulScrapes.length,
+        rate: scrapeSuccessRate,
+      });
+    }
 
-    const synthesisResult = await synthesizeWithLLM({
+    const synthesisContext = scrapeSuccessRate < 0.4 && urls.length > 0
+      ? { ...context, snippetOnlyMode: true }
+      : context;
+
+    const synthesisOpts = {
       query: input,
-      intent: decision.intent, // ITEM_LOOKUP - will use the correct prompt
+      intent: decision.intent,
       toolResults: allToolResults,
-      context,
-      userPreferences,
-      expertHints,
-      responseIntent,
-      conversationContext,  // v56.2 C2
-      searchSubType: 'CLASSIFIED',  // v62.2b: Force CLASSIFIED sub-type for ITEM_LOOKUP
-    });
+      context: synthesisContext,
+      userPreferences: context.userPreferences || {},
+      expertHints: context.expertHints || null,
+      responseIntent: decision.responseIntent || pipelineCfg.defaultIntent,
+      conversationContext,
+    };
+    if (pipelineCfg.searchSubType) {
+      synthesisOpts.searchSubType = pipelineCfg.searchSubType;
+    }
 
-    logger.info('HandleToolCall', 'ITEM_LOOKUP synthesis complete', {
+    const synthesisResult = await synthesizeWithLLM(synthesisOpts);
+
+    logger.info('HandleToolCall', `${pipelineIntent} synthesis complete`, {
       query: input.substring(0, 50),
       synthesisLength: synthesisResult.content?.length || 0,
       confidence: synthesisResult.confidence,
@@ -706,7 +552,7 @@ async function handleToolCallDecision(input, decision, context) {
       canExecute: false,
       metadata: {
         decision: decision.toJSON(),
-        pipeline: 'ITEM_LOOKUP',
+        pipeline: pipelineIntent,
         searchResults: searchData?.data?.results?.length || 0,
         scrapedUrls: urls.length,
         synthesisModel: synthesisResult.model,
@@ -717,10 +563,7 @@ async function handleToolCallDecision(input, decision, context) {
       sessionState.recordDecision(decision, input);
     }
 
-    return new TaggedResponse({
-      content: synthesisResult.content,
-      tag,
-    });
+    return new TaggedResponse({ content: synthesisResult.content, tag });
   }
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -798,13 +641,15 @@ async function handleToolCallDecision(input, decision, context) {
           intent: decision.intent,
           input: input.substring(0, 60),
         });
-        const llmFallback = await handleAnswerDecision(input, {
-          ...decision,
+        const fallbackDecision = creDecisionEngine.overrideDecision({
           type: DecisionType.ANSWER,
           intent: IntentType.CONVERSATIONAL,
+          source: 'search_failure_fallback',
           reason: 'LLM fallback after search failure',
-          toJSON() { return { ...this, toJSON: undefined }; },
-        }, context);
+          confidence: decision.confidence,
+          originalDecision: decision,
+        });
+        const llmFallback = await handleAnswerDecision(input, fallbackDecision, context);
         // Tag it as degraded so we know it's not search-backed
         if (llmFallback?.content) {
           logger.info('HandleToolCall', 'LLM fallback succeeded', {

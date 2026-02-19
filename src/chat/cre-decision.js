@@ -644,7 +644,38 @@ export const KNOWLEDGE_EXPLANATION_PATTERNS = [
   /what\s+are\s+the\s+(benefits|risks|consequences|advantages|disadvantages|effects)/i,
   /why\s+do\s+(most|many|some|few)\s+/i,        // "why do most people quit..."
   /why\s+does\s+(the|a|an)\s+/i,                // "why does the body..."
+  // v65: analysis/summary imperative → knowledge explanation (without fresh-data context)
+  // "analyzuj resource Lotus Notes" → explain from LLM knowledge
+  // "shrň co víš o HTTP protokolu" → explain from LLM knowledge
+  // "porovnej SQL a NoSQL" → explain from LLM knowledge
+  /^analyzuj\s/i,                               // "analyzuj resource Lotus Notes"
+  /analyzuj\s+mi\s/i,                           // "analyzuj mi tento koncept"
+  /^shrň\s/i, /^shrn\s/i,                       // "shrň co víš o..."
+  /^porovnej\s/i,                                // "porovnej X a Y"
+  /^srovnej\s/i,                                 // "srovnej React a Angular"
 ];
+
+// ════════════════════════════════════════════════════════════════════════════════
+// v65: REPORT_SOFT_KEYWORDS — analysis/summary/comparison keywords that may or
+// may not need web data. These overlap with REPORT_PATTERNS but should only
+// trigger REPORT when accompanied by fresh-data context (temporal, web, market).
+//
+// Without fresh-data context:
+//   "analyzuj resource Lotus Notes" → CONVERSATIONAL (LLM knowledge)
+//   "shrň co víš o Pythonu" → CONVERSATIONAL
+//   "porovnej React a Vue" → CONVERSATIONAL
+//
+// With fresh-data context:
+//   "analyzuj trh za poslední měsíc" → REPORT (temporal)
+//   "shrnutí novinek za tento týden" → REPORT (news + temporal)
+//   "porovnej aktuální ceny GPU" → REPORT (current + prices)
+// ════════════════════════════════════════════════════════════════════════════════
+// Only analysis-family keywords are "soft" — other REPORT keywords (shrň, porovnej,
+// přehled, souhrn) stay hard because they're typically combined with explicit report
+// context ("dej mi souhrn", "give me overview", "přehled novinek za měsíc").
+const REPORT_SOFT_KEYWORDS = /(?:anal[ýy]z|analyzuj|analyza|analysis|analyze)/i;
+
+const REPORT_FRESH_CONTEXT = /(?:za\s+posledn|za\s+tento|za\s+minul|aktu[áa]ln|sou[čc]asn|current|latest|recent|dne[sš]|te[ďd]\b|today|now\b|live\b|real.?time|z\s+webu|novinky|news|zpráv|zprav|trh|market|cen[ay]|price|kurz|stock|akcie|krypto|bitcoin|po[čc]as[íi]|weather|report\b)/i;
 
 // ════════════════════════════════════════════════════════════════════════════════
 // v44.8 - CREATIVE/IDEATION patterns (MUST be checked BEFORE SEARCH!)
@@ -2030,8 +2061,17 @@ export class CREDecisionEngine {
     }
 
     // REPORT patterns
+    // v65: FreshDataSignal guard — bare analysis/summary/comparison keywords
+    // without fresh-data context are knowledge requests, not web reports.
     if (REPORT_PATTERNS.some(p => p.test(text))) {
-      return IntentType.REPORT;
+      if (REPORT_SOFT_KEYWORDS.test(text) && !REPORT_FRESH_CONTEXT.test(text)) {
+        logger.info('CRE', 'REPORT soft-keyword without fresh-data context — falling through to KNOWLEDGE', {
+          input: text.substring(0, 80),
+        });
+        // Fall through — let KNOWLEDGE_EXPLANATION_PATTERNS or catch-all handle it
+      } else {
+        return IntentType.REPORT;
+      }
     }
 
     // FACTUAL patterns

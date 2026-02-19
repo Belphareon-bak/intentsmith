@@ -140,6 +140,18 @@ const VAGUE_INPUT_PATTERNS = [
   /^.{1,3}$/,                   // 1-3 characters (too short)
 ];
 
+/** Build a quick system TaggedResponse (shorthand for intercept returns) */
+function systemResponse(content, metadata = {}, confidence = 1.0) {
+  const tag = new ResponseTag({
+    speaker: ResponseSpeaker.SYSTEM,
+    mode: ChatMode.CONVERSATION,
+    confidence,
+    canExecute: false,
+    metadata,
+  });
+  return new TaggedResponse({ content, tag });
+}
+
 /**
  * v65.0: Handle SHELL decision — return response with shellCommand in metadata.
  * Session adapter picks up shellCommand and auto-executes via terminal channel.
@@ -190,17 +202,10 @@ export async function conversationHandler(input, context) {
       if (result.pendingChoice) {
         context.sessionState.pendingResumeChoice = result.pendingChoice;
       }
-      return {
-        content: result.content,
-        tag: 'RESPONSE',
-        speaker: 'SYSTEM',
-        mode: context.mode || 'conversation',
-        confidence: 1.0,
-        metadata: {
-          sessionResume: true,
-          pendingChoice: result.pendingChoice || null,
-        },
-      };
+      return systemResponse(result.content, {
+        sessionResume: true,
+        pendingChoice: result.pendingChoice || null,
+      });
     }
   }
 
@@ -210,14 +215,7 @@ export async function conversationHandler(input, context) {
     });
     const result = handleProgressRequest();
     if (result.handled) {
-      return {
-        content: result.content,
-        tag: 'RESPONSE',
-        speaker: 'SYSTEM',
-        mode: context.mode || 'conversation',
-        confidence: 1.0,
-        metadata: { progressInquiry: true },
-      };
+      return systemResponse(result.content, { progressInquiry: true });
     }
   }
 
@@ -235,14 +233,7 @@ export async function conversationHandler(input, context) {
           setHandoffState,
         );
         delete context.sessionState.pendingResumeChoice;
-        return {
-          content: result.message,
-          tag: 'RESPONSE',
-          speaker: 'SYSTEM',
-          mode: context.mode || 'conversation',
-          confidence: 1.0,
-          metadata: { sessionResume: true },
-        };
+        return systemResponse(result.message, { sessionResume: true });
       }
     }
     delete context.sessionState.pendingResumeChoice;
@@ -260,13 +251,7 @@ export async function conversationHandler(input, context) {
     // Cancel command
     if (/^(zrušit?|cancel|stop|zpět|back)\s*[!.]?$/i.test(input.trim())) {
       cancelBuildHandoff(sessionId);
-      return {
-        content: 'Build zrušen. Jsem zpět v chat módu.',
-        tag: 'RESPONSE',
-        speaker: 'SYSTEM',
-        mode: context.mode || 'conversation',
-        confidence: 1.0,
-      };
+      return systemResponse('Build zrušen. Jsem zpět v chat módu.', { buildCancelled: true });
     }
 
     // Route based on handoff phase
@@ -278,17 +263,17 @@ export async function conversationHandler(input, context) {
         if (isYes) return await handleBuildConfirmed(input, context);
         if (isNo) {
           cancelBuildHandoff(sessionId);
-          return { content: 'OK, zůstáváme v chatu.', tag: 'RESPONSE', speaker: 'SYSTEM', mode: context.mode, confidence: 1.0 };
+          return systemResponse('OK, zůstáváme v chatu.', { buildCancelled: true });
         }
         // Ambiguous — remind user
-        return { content: 'Chceš spustit Planner pipeline? (ano/ne)', tag: 'RESPONSE', speaker: 'SYSTEM', mode: context.mode, confidence: 0.9 };
+        return systemResponse('Chceš spustit Planner pipeline? (ano/ne)', { buildConfirmation: true }, 0.9);
       }
       case 'CLARIFYING':
         return await handleClarificationAnswer(input, context);
       case 'PLAN_REVIEW':
         return await handlePlanVerdict(input, context);
       case 'EXECUTING':
-        return { content: 'Pipeline právě běží, počkej na výsledek...', tag: 'RESPONSE', speaker: 'SYSTEM', mode: context.mode, confidence: 0.9 };
+        return systemResponse('Pipeline právě běží, počkej na výsledek...', { pipelineRunning: true }, 0.9);
       default:
         // Unknown phase — clear and continue normally
         cancelBuildHandoff(sessionId);
@@ -304,23 +289,33 @@ export async function conversationHandler(input, context) {
     const projectId = context.project?.id || context.projectId;
     if (projectId && config.features.lifecycle !== false) {
       try {
-        const { lifecycles: lcRepo, lifecycleHandoffState: lhsRepo } = await import('../../db/database.js');
-        const activeLc = lcRepo.findActiveByProject.get(projectId);
-        if (activeLc && activeLc.phase !== 'COMPLETED' && activeLc.phase !== 'FAILED') {
-          const { setLcState: setLcS, bindSessionToLifecycle: bindS } = await import('./lifecycle-state.js');
-          // Try to restore previous handoff state from DB
-          const prev = activeLc.active_session_id && lhsRepo
-            ? lhsRepo.findBySession.get(activeLc.active_session_id) : null;
-          setLcS(sessionId, {
-            phase: activeLc.phase,
-            lifecycleId: activeLc.id,
-            currentMilestoneId: prev?.current_milestone_id || null,
-            originalRequest: prev?.original_request || '',
-            projectId: activeLc.project_id,
-            projectPath: context.project?.path || prev?.project_path,
-          });
-          bindS(sessionId, activeLc.id);
-          logger.info('Conversation', `C4: Auto-detected active lifecycle ${activeLc.id} for project ${projectId}`);
+        const { getLcStateByProject, setLcState: setLcS, bindSessionToLifecycle: bindS } =
+            await import('./lifecycle-state.js');
+
+        // A) RAM lookup by projectId — fast path (catches sessionId mismatch)
+        const existing = getLcStateByProject(projectId);
+        if (existing && existing.state.phase !== 'COMPLETED' && existing.state.phase !== 'FAILED') {
+          setLcS(sessionId, { ...existing.state });
+          if (existing.state.lifecycleId) bindS(sessionId, existing.state.lifecycleId);
+          logger.info('Conversation', `C4: Lifecycle state migrated from ${existing.sessionId} to ${sessionId} for project ${projectId}`);
+        } else {
+          // B) DB fallback — restore from DB when RAM has no match
+          const { lifecycles: lcRepo, lifecycleHandoffState: lhsRepo } = await import('../../db/database.js');
+          const activeLc = lcRepo.findActiveByProject.get(projectId);
+          if (activeLc && activeLc.phase !== 'COMPLETED' && activeLc.phase !== 'FAILED') {
+            const prev = activeLc.active_session_id && lhsRepo
+              ? lhsRepo.findBySession.get(activeLc.active_session_id) : null;
+            setLcS(sessionId, {
+              phase: activeLc.phase,
+              lifecycleId: activeLc.id,
+              currentMilestoneId: prev?.current_milestone_id || null,
+              originalRequest: prev?.original_request || '',
+              projectId: activeLc.project_id,
+              projectPath: context.project?.path || prev?.project_path,
+            });
+            bindS(sessionId, activeLc.id);
+            logger.info('Conversation', `C4: Auto-detected active lifecycle ${activeLc.id} for project ${projectId}`);
+          }
         }
       } catch (err) {
         logger.debug('Conversation', `Lifecycle auto-detect: ${err.message}`);
@@ -340,13 +335,7 @@ export async function conversationHandler(input, context) {
     // Cancel command
     if (/^(zru[sš]it?|cancel|stop)\s*[!.]?$/i.test(input.trim())) {
       cancelLifecycleHandoff(sessionId);
-      return {
-        content: 'Lifecycle zrušen. Jsem zpět v chat módu.',
-        tag: 'RESPONSE',
-        speaker: 'SYSTEM',
-        mode: context.mode || 'conversation',
-        confidence: 1.0,
-      };
+      return systemResponse('Lifecycle zrušen. Jsem zpět v chat módu.', { lifecycleCancelled: true });
     }
 
     const lcResult = await handleLifecycleInput(input, context);
@@ -364,13 +353,7 @@ export async function conversationHandler(input, context) {
     });
     if (/^(zru[sš]it?|cancel|stop|zp[eě]t|back)\s*[!.]?$/i.test(input.trim())) {
       cancelWizard(sessionId);
-      return {
-        content: 'Wizard zrusen. Jsem zpet v chat modu.',
-        tag: 'RESPONSE',
-        speaker: 'SYSTEM',
-        mode: context.mode || 'conversation',
-        confidence: 1.0,
-      };
+      return systemResponse('Wizard zrušen. Jsem zpět v chat módu.', { wizardCancelled: true });
     }
     return await handleWizardInput(input, context);
   }
@@ -470,13 +453,7 @@ export async function conversationHandler(input, context) {
         sessionState.recordDecision(previousDecision, input);
       }
 
-      return {
-        content: `📊 **${confirmationMsg}**`,
-        tag: 'RESPONSE',
-        speaker: 'SYSTEM',
-        mode: context.mode || 'conversation',
-        confidence: 0.95,
-      };
+      return systemResponse(`📊 **${confirmationMsg}**`, { dateCorrection: true }, 0.95);
     }
     // For non-LOCAL previous intents, fall through to normal processing
   }

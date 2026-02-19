@@ -84,7 +84,7 @@ import { driftGuard } from './drift-guard.js';
  * @param {Object} options - Pipeline options
  * @returns {Object} { results, instructions, confidence }
  */
-export function runQualityPipeline(toolResults, query, options = {}) {
+export function runPreSynthesisQuality(toolResults, query, options = {}) {
   const { turnCount = 0 } = options;
 
   // 1. Annotate with trust
@@ -139,5 +139,5 @@ export function runQualityPipeline(toolResults, query, options = {}) {
 }
 
 export default {
-  runQualityPipeline,
+  runPreSynthesisQuality,
 };

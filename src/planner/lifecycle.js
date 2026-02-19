@@ -65,7 +65,7 @@ const VALID_TRANSITIONS = {
   [ProjectPhase.BUILD]:             [ProjectPhase.PROJECT_REVIEW, ProjectPhase.CHANGE_MANAGEMENT, ProjectPhase.PAUSED, ProjectPhase.COMPLETED, ProjectPhase.FAILED],
   [ProjectPhase.PROJECT_REVIEW]:    [ProjectPhase.BUILD, ProjectPhase.CHANGE_MANAGEMENT, ProjectPhase.FAILED],
   [ProjectPhase.CHANGE_MANAGEMENT]: [ProjectPhase.BUILD, ProjectPhase.FAILED],
-  [ProjectPhase.PAUSED]:            [ProjectPhase.BUILD, ProjectPhase.CHANGE_MANAGEMENT, ProjectPhase.FAILED],
+  [ProjectPhase.PAUSED]:            [ProjectPhase.BUILD, ProjectPhase.CHANGE_MANAGEMENT, ProjectPhase.COMPLETED, ProjectPhase.FAILED],
   [ProjectPhase.COMPLETED]:         [], // terminal
   [ProjectPhase.FAILED]:            [], // terminal
 };

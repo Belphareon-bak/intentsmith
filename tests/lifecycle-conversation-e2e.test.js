@@ -39,6 +39,7 @@ import {
   changeRequests as crRepo,
   driftChecks,
   projects,
+  lifecycleHandoffState,
   db,
 } from '../src/db/database.js';
 
@@ -49,7 +50,9 @@ import {
   cancelLifecycleHandoff,
 } from '../src/chat/handlers/lifecycle-handoff.js';
 
-import { getLcState } from '../src/chat/handlers/lifecycle-state.js';
+import { getLcState, setLcState, clearLcState, initLifecycleStateDb } from '../src/chat/handlers/lifecycle-state.js';
+
+import { startNextMilestone } from '../src/planner/lifecycle-build.js';
 
 // ─── Transcript Collector ───────────────────────────────────────────────────
 
@@ -146,7 +149,6 @@ const SAMPLE_ROADMAP = {
       estimated_complexity: 'LOW',
       goals_addressed: ['G2'],
       requirements_addressed: ['R4'],
-      test_strategy: { type: 'unit', description: 'Test DB operations', expected_test_count: 5 },
       deliverables: ['package.json', 'src/db.js'],
     },
     {
@@ -159,7 +161,6 @@ const SAMPLE_ROADMAP = {
       estimated_complexity: 'MEDIUM',
       goals_addressed: ['G1'],
       requirements_addressed: ['R1', 'R2', 'R3'],
-      test_strategy: { type: 'integration', description: 'Test each command', expected_test_count: 8 },
       deliverables: ['src/commands.js', 'src/index.js'],
     },
     {
@@ -172,7 +173,6 @@ const SAMPLE_ROADMAP = {
       estimated_complexity: 'LOW',
       goals_addressed: ['G3'],
       requirements_addressed: ['R5'],
-      test_strategy: { type: 'unit', description: 'Test formatting output', expected_test_count: 4 },
       deliverables: ['src/format.js'],
     },
   ],
@@ -508,6 +508,7 @@ function cleanDB() {
   for (const t of tables) {
     try { db.prepare(`DELETE FROM ${t}`).run(); } catch { /* ignore */ }
   }
+  initLifecycleStateDb(lifecycleHandoffState, lifecycleRepo);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -673,7 +674,6 @@ async function runConversation() {
       'T7b: ms-3 plan was auto-shown after ms-2', `got: ${stateBeforeChange?.currentMilestoneId}`);
 
     // Force to BUILD so change management routing works
-    const { setLcState } = await import('../src/chat/handlers/lifecycle-state.js');
     setLcState(SESSION_ID, { ...stateBeforeChange, phase: 'BUILD' });
 
     const userMsg8 = userTurn('změna: přidat deadline support do úkolů');
@@ -744,7 +744,6 @@ async function runConversation() {
       // Retry: re-plan + approve ms-3
       currentMilestoneIdx = 2;
       ms3Attempt = 1; // will write clean files
-      const { startNextMilestone } = await import('../src/planner/lifecycle-build.js');
       const lifecycle = ProjectLifecycle.resume(state9.lifecycleId, projectPath);
       if (lifecycle) {
         lifecycle.callLLM = fakeLLM;
