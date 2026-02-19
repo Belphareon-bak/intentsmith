@@ -696,9 +696,10 @@ function SidebarApp(props){
       _wtRoot?h('div',{style:{padding:'2px 10px 4px',fontSize:_fs(9),color:C.tx4,fontFamily:C.mono,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'},title:_wtRoot},
         _wtRoot.split('/').slice(-2).join('/')):
       h('div',{style:{padding:'4px 10px'},onClick:function(){
-        /* Prompt for path and load */
-        var p=prompt('Zadejte cestu ke složce projektu:','/home/belphareon/Projects/c3-agent-wip');
-        if(p){_wtRoot=p;_loadWorkspaceTree(p);}
+        /* Native directory picker (Electron doesn't support prompt()) */
+        try{var inp=document.createElement('input');inp.type='file';inp.webkitdirectory=true;
+          inp.addEventListener('change',function(){if(inp.files&&inp.files.length>0){var fp=(inp.files[0].path||'').replace(/\\/g,'/').split('/');var dir=fp.slice(0,-1).join('/');if(dir){_wtRoot=dir;_loadWorkspaceTree(dir);}}});
+          inp.click();}catch(e){}
       }},h('div',{style:{padding:'6px 10px',borderRadius:6,border:'1px dashed '+C.border2,cursor:'pointer',textAlign:'center',fontSize:_fs(11),color:C.tx3}},
         'Otevřít složku')),
       /* New file/dir inline input */
@@ -1038,7 +1039,27 @@ function _wizardCanNext(){
   return true;
 }
 function _openExistingProject(){
-  var folderPath=prompt('Zadejte cestu ke složce projektu:','/home/'+((typeof process!=='undefined'&&process.env&&process.env.USER)||'user')+'/Projects/');
+  /* Electron doesn't support prompt() — use native directory picker */
+  try{
+    var inp=document.createElement('input');inp.type='file';inp.webkitdirectory=true;
+    inp.addEventListener('change',function(){
+      if(!inp.files||inp.files.length===0)return;
+      /* webkitdirectory returns files inside the folder — extract parent dir from first file's path */
+      var firstFile=inp.files[0];
+      var fp=firstFile.path||firstFile.webkitRelativePath||'';
+      if(!fp)return;
+      var parts=fp.replace(/\\/g,'/').split('/');
+      var folderPath=parts.slice(0,-1).join('/');
+      if(!folderPath)return;
+      _doOpenExistingProject(folderPath);
+    });
+    inp.click();
+  }catch(e){
+    /* Fallback: ask via simple input if file picker fails */
+    if(window._c3)window._c3.agentLog('TOOL','❌ Nelze otevřít dialog: '+(e.message||e));
+  }
+}
+function _doOpenExistingProject(folderPath){
   if(!folderPath||!folderPath.trim())return;
   folderPath=folderPath.trim();
   _projectWizard.saving=true;renderCenter();
@@ -2744,9 +2765,11 @@ document.addEventListener('c3-file-open',function(e){
 });
 /* ── File → Open Folder handler (Theia command override) ── */
 document.addEventListener('c3-open-folder',function(){
-  var folderPath=prompt('Otevřít složku:',_wtRoot||('/home/'+((typeof process!=='undefined'&&process.env&&process.env.USER)||'user')+'/Projects/'));
-  if(!folderPath||!folderPath.trim())return;
-  folderPath=folderPath.trim();
+  try{var inp=document.createElement('input');inp.type='file';inp.webkitdirectory=true;
+    inp.addEventListener('change',function(){if(!inp.files||!inp.files.length)return;var fp=(inp.files[0].path||'').replace(/\\/g,'/').split('/');var folderPath=fp.slice(0,-1).join('/');if(!folderPath)return;_c3OpenFolderDo(folderPath);});
+    inp.click();}catch(e){if(window._c3)window._c3.agentLog('TOOL','❌ Nelze otevřít dialog: '+(e.message||e));}
+});
+function _c3OpenFolderDo(folderPath){
   fetch(_backendBase+'/api/projects/open-folder',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({folderPath:folderPath}),signal:AbortSignal.timeout(15000)})
   .then(function(r){if(!r.ok)throw new Error('Server error '+r.status);return r.json();})
@@ -2760,7 +2783,7 @@ document.addEventListener('c3-open-folder',function(){
   }).catch(function(err){
     if(window._c3)window._c3.agentLog('TOOL','❌ Chyba: '+(err.message||err));
   });
-});
+}
 document.addEventListener('c3-diff-open',function(e){
   var d=e.detail;if(!d)return;
   var totalLines=((d.oldContent||'').split('\n').length)+((d.newContent||'').split('\n').length);
