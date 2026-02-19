@@ -639,14 +639,14 @@ function SidebarApp(props){
         var isA=s.active===item.id;
         return h('div',{key:item.id,title:item.label,style:{width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:6,cursor:'pointer',color:isA?C.accentText:C.tx3,background:isA?C.accentBg:'transparent',marginBottom:2},
           onMouseEnter:function(e){if(!isA)e.currentTarget.style.background=C.bg3;},onMouseLeave:function(e){e.currentTarget.style.background=isA?C.accentBg:'transparent';},
-          onClick:function(){set({active:item.id,dd:{}});window.dispatchEvent(new CustomEvent('c3-nav',{detail:{view:item.id}}));}},
+          onClick:function(){_wizardGuardNav(item.id,set);}},
           h('span',{style:{display:'flex'},dangerouslySetInnerHTML:{__html:svg(I[item.icon],18)}}));
       }),
       h('div',{style:{flex:1}}),
       h('div',{title:'Nastavení',style:{width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:6,cursor:'pointer',color:s.active==='settings'?C.accentText:C.tx3,background:s.active==='settings'?C.accentBg:'transparent',marginBottom:4,transition:'background 0.12s, color 0.12s'},
         onMouseEnter:function(e){if(s.active!=='settings'){e.currentTarget.style.background=C.bg3;e.currentTarget.style.color=C.tx2;}},
         onMouseLeave:function(e){e.currentTarget.style.background=s.active==='settings'?C.accentBg:'transparent';e.currentTarget.style.color=s.active==='settings'?C.accentText:C.tx3;},
-        onClick:function(){set({active:'settings',dd:{}});window.dispatchEvent(new CustomEvent('c3-nav',{detail:{view:'settings'}}));}},
+        onClick:function(){_wizardGuardNav('settings',set);}},
         svgEl(I.settings,18)));
   }
   /* ── Full expanded mode ── */
@@ -663,7 +663,7 @@ function SidebarApp(props){
       NAV.map(function(item){
         var isA=s.active===item.id,isO=s.dd[item.id],els=[];
         els.push(h('div',{key:item.id,style:{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderRadius:8,cursor:'pointer',color:isA?C.accentText:C.tx3,background:isA?C.accentBg:'transparent',marginBottom:2},
-          onClick:function(){set({active:item.id,dd:{}});window.dispatchEvent(new CustomEvent('c3-nav',{detail:{view:item.id}}));}},
+          onClick:function(){_wizardGuardNav(item.id,set);}},
           h('span',{style:{flexShrink:0,display:'flex'},dangerouslySetInnerHTML:{__html:svg(I[item.icon],20)}}),
           h('span',{style:{fontSize:_fs(13.5),fontWeight:600,flex:1}},item.label),
           item.badge?h('span',{style:{fontSize:_fs(9),fontFamily:C.mono,background:C.bg4,padding:'1px 6px',borderRadius:8,color:C.tx3}},item.badge):null,
@@ -672,7 +672,7 @@ function SidebarApp(props){
         if(isO&&item.recent)els.push(h('div',{key:item.id+'-dd',style:{padding:'2px 0 6px 34px'}},item.recent.map(function(r,i){
           return h('div',{key:i,style:{display:'flex',alignItems:'center',gap:6,padding:'4px 10px',borderRadius:4,fontSize:_fs(12),color:C.tx3,cursor:'pointer'},
             onMouseEnter:function(e){e.currentTarget.style.background=C.bg3;},onMouseLeave:function(e){e.currentTarget.style.background='transparent';},
-            onClick:function(){set({active:item.id,dd:{}});window.dispatchEvent(new CustomEvent('c3-nav',{detail:{view:item.id,select:r}}));}},
+            onClick:function(){_wizardGuardNav(item.id,set,{select:r});}},
             h('span',{style:{width:6,height:6,borderRadius:'50%',background:C.accent,flexShrink:0}}),r);})));
         return els;
       }),
@@ -766,7 +766,7 @@ function SidebarApp(props){
       h('div',{style:{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderRadius:8,cursor:'pointer',color:s.active==='settings'?C.accentText:C.tx3,background:s.active==='settings'?C.accentBg:'transparent',transition:'background 0.12s, color 0.12s'},
         onMouseEnter:function(e){if(s.active!=='settings'){e.currentTarget.style.background=C.bg3;e.currentTarget.style.color=C.tx2;}},
         onMouseLeave:function(e){e.currentTarget.style.background=s.active==='settings'?C.accentBg:'transparent';e.currentTarget.style.color=s.active==='settings'?C.accentText:C.tx3;},
-        onClick:function(){set({active:'settings',dd:{}});window.dispatchEvent(new CustomEvent('c3-nav',{detail:{view:'settings'}}));}},
+        onClick:function(){_wizardGuardNav('settings',set);}},
         svgEl(I.settings,18),h('span',{style:{fontSize:_fs(13.5),fontWeight:600}},'Nastavení'))));
 }
 
@@ -786,6 +786,17 @@ var _projectWizard={active:false,step:0,data:{name:'',path:'',description:'',typ
 var _expertWizard={active:false,mode:'create',data:null,schema:null,preview:null,testResult:null,testLoading:false,testError:null,openSections:{basic:true},editId:null,saving:false,advancedMode:false,confirmAdvanced:false};
 /* ═══ Agent wizard state (v65.5) ═══ */
 var _agentWizard={active:false,mode:'create',data:null,schema:null,preview:null,testResult:null,testLoading:false,testError:null,openSections:{basic:true},editId:null,saving:false,advancedMode:false,confirmAdvanced:false,simpleStep:1};
+/* ═══ Wizard navigation guard ═══ */
+function _wizardGuardNav(targetView,sidebarSet,extra){
+  var label=_projectWizard.active?'vytváření projektu':_expertWizard.active?'editaci expertýzy':_agentWizard.active?'vytváření workeru':null;
+  var det={view:targetView};if(extra)for(var k in extra)det[k]=extra[k];
+  if(!label){sidebarSet({active:targetView,dd:{}});window.dispatchEvent(new CustomEvent('c3-nav',{detail:det}));return;}
+  if(!confirm('Opravdu chcete ukončit '+label+'? Neuložené změny budou ztraceny.'))return;
+  _projectWizard.active=false;_projectWizard.saving=false;
+  _expertWizard.active=false;_agentWizard.active=false;
+  _savedCenterState=null;
+  sidebarSet({active:targetView,dd:{}});window.dispatchEvent(new CustomEvent('c3-nav',{detail:det}));
+}
 
 /* ═══ Domain → capability/module presets (v64.2) ═══ */
 var _DOMAIN_PRESETS={
@@ -2496,6 +2507,7 @@ function _detailActionHandler(d,a){
       if(proj.path){_wtRoot=proj.path;_loadWorkspaceTree(proj.path);}
       _ts._projectId=proj.id||null;
       _ts._lifecycleResumed=false;
+      _ts.log=[];_ts.term=[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}];
       _persistSessionState();
       var openToken=Date.now();
       _ts._openToken=openToken;
@@ -2525,8 +2537,8 @@ function _detailActionHandler(d,a){
             fetch(_backendBase+'/api/conversations/'+conv2.id+'/messages',{signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(msgs){
               if(_ts._openToken!==openToken)return;
               var items=Array.isArray(msgs)?msgs:(msgs.messages||[]);
+              _ts.chat.msgs=[{role:'system',text:'Projekt: '+proj.name}];
               if(items.length>0){
-                _ts.chat.msgs=[{role:'system',text:'Projekt: '+proj.name}];
                 items.forEach(function(m){var mt=null;try{mt=m.metadata?JSON.parse(m.metadata):null;}catch(e){}_ts.chat.msgs.push({role:m.role||'user',text:m.content||m.text||'',tag:(mt&&mt.mode)||undefined});});
               }
               var lc=lcData&&lcData.lifecycle;

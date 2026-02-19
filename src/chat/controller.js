@@ -1598,19 +1598,21 @@ ChatController.handle = async function(request) {
 
   // ════════════════════════════════════════════════════════════════════════════
   // v56.0 Sprint 3: CONVERSATION STORE — DB is the single source of truth
+  // v66.0: Use IDE's stable conversationId for DB key (not ephemeral WS sessionId)
   // ════════════════════════════════════════════════════════════════════════════
   const store = getConversationStore();
-  store.ensureConversation(sessionId, {
+  const dbConversationId = request.conversationId || sessionId;
+  store.ensureConversation(dbConversationId, {
     projectId: context.projectId || null,
   });
 
   // INVARIANT: Persist user turn BEFORE processing
-  store.appendTurn(sessionId, TurnRole.USER, message, {
+  store.appendTurn(dbConversationId, TurnRole.USER, message, {
     timestamp: Date.now(),
   });
 
   // Load history from DB (NOT from RAM)
-  const dbHistory = store.buildHandlerHistory(sessionId, 10);
+  const dbHistory = store.buildHandlerHistory(dbConversationId, 10);
 
   // v56.0: Build LTM context (read-only, never affects routing)
   let ltmContext = '';
@@ -1718,7 +1720,7 @@ ChatController.handle = async function(request) {
   // INVARIANT: Turn is persisted before response is returned to caller
   // ════════════════════════════════════════════════════════════════════════════
   try {
-    store.appendTurn(sessionId, TurnRole.ASSISTANT, result.content, {
+    store.appendTurn(dbConversationId, TurnRole.ASSISTANT, result.content, {
       mode: result.mode,
       confidence: result.confidence,
       model: result.tag?.metadata?.model,
@@ -1731,9 +1733,9 @@ ChatController.handle = async function(request) {
 
   // Auto-title conversation from first user message
   try {
-    const conv = store.getConversation(sessionId);
-    if (conv && !conv.title && store.getTurnCount(sessionId) <= 3) {
-      store.setTitle(sessionId, message.substring(0, 60));
+    const conv = store.getConversation(dbConversationId);
+    if (conv && !conv.title && store.getTurnCount(dbConversationId) <= 3) {
+      store.setTitle(dbConversationId, message.substring(0, 60));
     }
   } catch {
     // Non-critical — ignore
@@ -1749,6 +1751,8 @@ ChatController.handle = async function(request) {
     confidence: result.confidence,
     canExecute: result.canExecute,
     metadata: result.tag.metadata,
+    // v66.0: Return the DB conversation ID so WS bridge can echo it to IDE
+    conversationId: dbConversationId,
     // Include current state in response so UI can stay in sync
     state: {
       project: state.project,

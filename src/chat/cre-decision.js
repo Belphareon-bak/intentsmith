@@ -1076,6 +1076,9 @@ const TYPO_NORMALIZATIONS = [
   [/datvoy|daotvy/gi, 'datový'],
   // "rekurze"
   [/rekuzre|rekuzr\b/gi, 'rekurze'],
+  // "ulož" — missing háček
+  [/\buloz\b/gi, 'ulož'],
+  [/\bzapis\b/gi, 'zapiš'],
 ];
 
 export function normalizeForClassification(text) {
@@ -1281,6 +1284,14 @@ const CONVERSATIONAL_PATTERNS = [
   /přidej.*k/i,                                   // "přidej ke každému"
   /give.*example/i, /show.*example/i,             // English example patterns
   /still.*understand/i,                           // "I still don't understand"
+
+  // v65: Follow-up file-write actions — "ulož ho do souboru", "save it to a file"
+  // These are contextual follow-ups ("save IT") referring to previous output
+  /(?:^|\s)(ulo[žz]|uloz|uložit)\s+.{0,20}(do\s+souboru|do\s+file)/i,   // "ulož ho do souboru"
+  /(?:^|\s)(zapi[šs]|zapsat|zapisat)\s+.{0,20}(do\s+souboru|do\s+file)/i, // "zapiš to do souboru"
+  /(?:^|\s)save\s+.{0,10}(to\s+(?:a\s+)?file|to\s+disk)/i,               // "save it to a file"
+  /(?:^|\s)(ulo[žz]|uloz)\s+(to|ho|ji|je)\b/i,                           // "ulož to", "ulož ho"
+  /(?:^|\s)save\s+(it|this|that)\b/i,                                     // "save it", "save this"
 ];
 
 // v44.4 - Patterns for locally-answerable questions (no web search needed)
