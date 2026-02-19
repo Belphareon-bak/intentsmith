@@ -314,7 +314,7 @@ var CONVERSATIONS=[];
 /* Specialists = experts with deterministic tools (is_specialist from backend or default) */
 var SPECIALISTS=EXPERTS.filter(function(e){return e.isSpecialist;}).map(function(e){return{emoji:e.emoji,name:e.name,desc:e.desc,domain:e.domain,tags:[e.domain||'','Specialista'].filter(Boolean)};});
 var WORKERS=[];
-var SETTINGS_SECTIONS=[{icon:'👤',title:'User / Identity',fields:[{l:'Jméno',v:'Belfik',t:'input'},{l:'E-mail',v:'belfik@c3.local',t:'input'},{l:'Role',v:'Developer',t:'select',opts:['Developer','Admin','User']}]},{icon:'🔔',title:'Notifications',fields:[{l:'Zvukové notifikace',v:true,t:'toggle'},{l:'Desktopové notifikace',v:true,t:'toggle'}]},{icon:'🎨',title:'Appearance',fields:[{l:'Téma'},{l:'Accent'},{l:'Pozadí'},{l:'Intenzita aktivní'},{l:'Intenzita neaktivní'},{l:'Velikost písma'},{l:'Písmo'}]},{icon:'🧠',title:'Memory & Context',fields:[{l:'Systémový prompt',v:'Vždy odpovídej v češtině.',t:'textarea'},{l:'Ukládat historii',v:true,t:'toggle'},{l:'Kontext',v:true,t:'toggle'}]},{icon:'📍',title:'Location',fields:[{l:'Město',v:'Praha',t:'input'},{l:'Země',v:'CZ',t:'input'},{l:'Jazyk',v:'Čeština',t:'select',opts:['Čeština','English']}]},{icon:'📄',title:'Output & Formats',fields:[{l:'Markdown výstup',v:true,t:'toggle'},{l:'Kódové bloky',v:true,t:'toggle'}]},{icon:'🖥️',title:'System',fields:[{l:'Model',v:'qwen2.5:32b',t:'select',opts:['qwen2.5:32b','llama3.1:70b','mistral:7b']},{l:'Ollama URL',v:'http://localhost:11434',t:'input'}]},{icon:'ℹ️',title:'About',fields:[]}];
+var SETTINGS_SECTIONS=[{icon:'👤',title:'User / Identity',fields:[{l:'Jméno',v:'Belfik',t:'input'},{l:'E-mail',v:'belfik@c3.local',t:'input'},{l:'Role',v:'Developer',t:'select',opts:['Developer','Admin','User']}]},{icon:'🔔',title:'Notifications',fields:[{l:'Zvukové notifikace',v:true,t:'toggle'},{l:'Desktopové notifikace',v:true,t:'toggle'}]},{icon:'🎨',title:'Appearance',fields:[{l:'Téma'},{l:'Accent'},{l:'Pozadí'},{l:'Intenzita aktivní'},{l:'Intenzita neaktivní'},{l:'Velikost písma'},{l:'Písmo'}]},{icon:'🧠',title:'Memory & Context',fields:[{l:'Systémový prompt',v:'Vždy odpovídej v češtině.',t:'textarea'},{l:'Ukládat historii',v:true,t:'toggle'},{l:'Kontext',v:true,t:'toggle'}]},{icon:'📍',title:'Location',fields:[{l:'Město',v:'Praha',t:'input'},{l:'Země',v:'CZ',t:'input'},{l:'Jazyk',v:'Čeština',t:'select',opts:['Čeština','English']}]},{icon:'📄',title:'Output & Formats',fields:[{l:'Markdown výstup',v:true,t:'toggle'},{l:'Kódové bloky',v:true,t:'toggle'}]},{icon:'🖥️',title:'System',fields:[{l:'Model',v:'qwen2.5:32b',t:'select',opts:['qwen2.5:32b','llama3.1:70b','mistral:7b']},{l:'Ollama URL',v:'http://localhost:11434',t:'input'},{l:'Složka projektů',v:'',t:'projectsDir'}]},{icon:'ℹ️',title:'About',fields:[]}];
 var FILES=[];
 var _collapsedDirs={};var _wtRoot='';var _wtLoading=false;var _wtRenaming=null;var _wtNewInput=null;
 var _wtRawTree=null; /* raw nested tree from backend — re-flatten on collapse toggle */
@@ -988,10 +988,13 @@ function _addNew(view){
   /* Projects → open multi-step wizard in center view */
   if(view==='projects'){
     _wizardSaveLayout();
-    _projectWizard={active:true,step:0,data:{name:'',path:'',description:'',type:'general',pathMode:'auto',mode:'create'},saving:false,defaultDir:''};
-    fetch(_backendBase+'/api/projects/defaults',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(j){
-      if(j.defaultDir){_projectWizard.defaultDir=j.defaultDir;renderCenter();}
-    }).catch(function(){});
+    _projectWizard={active:true,step:0,data:{name:'',path:'',description:'',type:'general',pathMode:'auto',mode:'create'},saving:false,defaultDir:_settingsVals.projectsDir||''};
+    if(!_projectWizard.defaultDir){
+      /* First use or not configured — fetch from backend, offer to save */
+      fetch(_backendBase+'/api/projects/defaults',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(j){
+        if(j.defaultDir){_projectWizard.defaultDir=j.defaultDir;if(!_settingsVals.projectsDir){_settingsVals.projectsDir=j.defaultDir;_saveSV();}renderCenter();}
+      }).catch(function(){});
+    }
     renderCenter();
     return;
   }
@@ -1069,9 +1072,11 @@ function _wizardSubmit(){
   if(_projectWizard.saving)return;
   _projectWizard.saving=true;renderCenter();
   var d=_projectWizard.data;
+  var slug=d.name.replace(/[^a-zA-Z0-9-_]/g,'-').toLowerCase();
   var sendPath=d.pathMode==='custom'?d.path.trim():'';
+  if(!sendPath&&d.pathMode==='auto'&&_projectWizard.defaultDir){sendPath=_projectWizard.defaultDir+'/'+slug;}
   fetch(_backendBase+'/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({name:d.name.trim(),path:sendPath||null,description:d.description.trim(),type:d.type,autoPath:d.pathMode==='auto'}),signal:AbortSignal.timeout(15000)})
+    body:JSON.stringify({name:d.name.trim(),path:sendPath||null,description:d.description.trim(),type:d.type,autoPath:!sendPath}),signal:AbortSignal.timeout(15000)})
   .then(function(r){return r.json();})
   .then(function(created){
     _projectWizard.active=false;_projectWizard.saving=false;_wizardRestoreLayout();
@@ -1092,12 +1097,13 @@ function _wizardSubmit(){
     }).catch(function(e){
       if(window._c3)window._c3.agentLog('TOOL','⚠️ Lifecycle start: '+(e.message||e));
     });
-    /* Show lifecycle + scaffold info in chat */
+    /* Log to agent panel */
     var scaff=created.scaffold?created.scaffold.join(', '):'';
-    s.chat.msgs.push({role:'system',text:'📁 Projekt **'+d.name+'** vytvořen ('+d.type+')\n📍 '+realPath});
-    if(scaff)s.chat.msgs.push({role:'system',text:'🔧 Scaffolding: '+scaff});
-    s.chat.msgs.push({role:'system',text:'🔄 Lifecycle: **SPEC**\nPopište cíle, požadavky a technický stack projektu. Agent vám položí upřesňující otázky a vytvoří specifikaci.'});
-    renderChat();_chatScrollPane(_ti);
+    if(window._c3){
+      window._c3.agentLog('TOOL','📁 Projekt '+d.name+' vytvořen ('+d.type+') → '+realPath);
+      if(scaff)window._c3.agentLog('TOOL','🔧 Scaffolding: '+scaff);
+      window._c3.agentLog('TOOL','🔄 Lifecycle: SPEC — popište specifikaci v chatu');
+    }
     fetchBackendData();renderCenter();
   }).catch(function(err){
     _projectWizard.saving=false;
@@ -1154,7 +1160,7 @@ function centerProjectWizard(){
         isAuto?h('div',null,
           h('div',{style:{fontSize:_fs(12),color:C.tx2,marginBottom:6}},'Projekt bude vytvořen ve výchozí složce:'),
           h('div',{style:{fontFamily:C.mono,fontSize:_fs(12),color:C.accentText,padding:'6px 10px',background:C.bg2,borderRadius:6,border:'1px solid '+C.border,wordBreak:'break-all'}},autoDir),
-          h('div',{style:{fontSize:_fs(10),color:C.tx4,marginTop:8}},'Výchozí cesta: C3_PROJECTS_DIR v .env')):
+          h('div',{style:{fontSize:_fs(10),color:C.tx4,marginTop:8}},'Změnit: Nastavení → System → Složka projektů')):
         h('div',null,
           h('div',{style:{display:'flex',gap:6,alignItems:'center'}},
             h('input',{autoFocus:true,style:Object.assign({},inputStyle,{flex:1}),value:d.path,placeholder:'/home/user/projects/my-project',
@@ -1863,7 +1869,7 @@ function centerExpertWizard(){
 }
 
 /* Settings state */
-var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSizeVal:13,fontIdx:0,custom1:null,custom2:null,bgIdx:0,bgCustom1:null,bgCustom2:null,customCSS:'',visualMode:'borders',tileOpacity:80,bgDim:30,sidebarOpacity:80};
+var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSizeVal:13,fontIdx:0,custom1:null,custom2:null,bgIdx:0,bgCustom1:null,bgCustom2:null,customCSS:'',visualMode:'borders',tileOpacity:80,bgDim:30,sidebarOpacity:80,projectsDir:''};
 /* I2: Custom CSS injection — scoped under .c3-root */
 var _customStyleEl=null;
 function _injectCustomCSS(css){
@@ -2005,6 +2011,11 @@ function settingsDetailPanel(sec,si){
             return h('div',{key:o,onClick:function(){f.v=o.toLowerCase();renderCenter();},
               style:{flex:1,padding:'8px 6px',borderRadius:8,border:'2px solid '+(sel?C.accent:C.border),background:sel?C.accentBg:C.bg3,cursor:'pointer',textAlign:'center'}},
               h('div',{style:{fontSize:_fs(11),color:sel?C.accentText:C.tx2,fontWeight:sel?700:400}},o));})):
+          f.t==='projectsDir'?h('div',null,
+            h('input',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'6px 9px',color:C.tx1,fontFamily:C.mono,fontSize:_fs(12),outline:'none',boxSizing:'border-box'},
+              value:_settingsVals.projectsDir||'',placeholder:'/home/user/Projects',
+              onChange:function(e){_settingsVals.projectsDir=e.target.value;_saveSV();renderCenter();}}),
+            h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:4}},'Výchozí složka pro nové projekty. Prázdné = server default.')):
           null);
       })));
 }
@@ -2446,9 +2457,9 @@ function _detailActionHandler(d,a){
   _sessionActive=_ti;_ensureSessions();var _ts=_sessions[_ti];
   if(a==='Otevřít'){
     var exp=EXPERTS.find(function(e){return e.name===d.name;});
-    if(exp){c3.setExpert(exp.name);c3.chatMsg('Expert zmenen na: '+exp.name);}
+    if(exp){c3.setExpert(exp.name);c3.agentLog('TOOL','Expert změněn na: '+exp.name);}
     var conv=CONVERSATIONS.find(function(c){return c.title===d.name;});
-    if(conv){c3.chatMsg('Nacitam konverzaci: '+conv.title+'...');c3.setExpert(conv.expert);
+    if(conv){c3.agentLog('TOOL','Načítám konverzaci: '+conv.title+'...');c3.setExpert(conv.expert);
       if(conv.id){_ts._convId=conv.id;_persistSessionState();
         fetch(_backendBase+'/api/conversations/'+conv.id,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(cd){
           var meta={};try{meta=JSON.parse(cd.metadata||'{}');}catch(ex){}
@@ -2871,11 +2882,9 @@ function _initBusSubscriptions() {
     renderChat(); _chatScrollPane(ev.sessionIdx);
   });
 
-  /* System messages */
+  /* System messages → agent log */
   C3Bus.on('chat:system', function(ev) {
-    var s = _sessions[ev.sessionIdx] || _sessions[0];
-    s.chat.msgs.push({role:'system', text:ev.content});
-    renderChat(); _chatScrollPane(ev.sessionIdx);
+    if(window._c3)window._c3.agentLog('TOOL',ev.content);
   });
 
   /* Session changed (rehydration after WS reconnect) */
@@ -2976,20 +2985,15 @@ function _initBusSubscriptions() {
   C3Bus.on('ws:disconnected', function(ev) {
     _serverHealth.wsConnected = false;
     if (ev.wasReady) {
-      _sessions.forEach(function(s) {
-        s.chat.msgs.push({role:'system', text:'⚠️ Spojení s backendem ztraceno. Pokus o reconnect...'});
-      });
-      renderChat();
+      if(window._c3)window._c3.agentLog('TOOL','⚠️ Spojení s backendem ztraceno. Pokus o reconnect...');
     }
     renderSidebar();_updateStatusIndicator();
   });
 
   /* WS reconnected */
   C3Bus.on('ws:reconnected', function() {
-    _sessions.forEach(function(s) {
-      s.chat.msgs.push({role:'system', text:'✅ Spojení obnoveno.'});
-    });
-    renderChat(); renderSidebar();
+    if(window._c3)window._c3.agentLog('TOOL','✅ Spojení obnoveno.');
+    renderSidebar();
   });
 
   /* Session changed (e.g. after rehydration) */
@@ -3003,7 +3007,7 @@ function _initBusSubscriptions() {
     _sessions.forEach(function(s) {
       if (s._convId === ev.sessionId) {
         s._convId = null;
-        s.chat.msgs.push({role:'system', text:'⚠️ Konverzace již neexistuje na serveru.'});
+        if(window._c3)window._c3.agentLog('TOOL','⚠️ Konverzace již neexistuje na serveru.');
       }
     });
     renderChat();
@@ -3128,7 +3132,7 @@ function _chatScrollPane(idx){setTimeout(function(){var f=document.getElementByI
 
 /* Expose for cross-component communication */
 window._c3={
-  chatMsg:function(text){var s=_sessions[_sessionActive]||_sessions[0];s.chat.msgs.push({role:'system',text:text});renderChat();_chatScrollPane(_sessionActive);try{var cp=document.getElementById('c3-chat-panel');if(cp){cp.style.outline='2px solid '+C.accent;setTimeout(function(){cp.style.outline='';},1200);}}catch(e){}},
+  chatMsg:function(text){if(window._c3)window._c3.agentLog('TOOL',text);},
   setExpert:function(name){var s=_sessions[_sessionActive]||_sessions[0];s.chat.expert=name;renderChat();_persistSessionState();},
   getExpert:function(){return(_sessions[_sessionActive]||_sessions[0]).chat.expert;},
   renderChat:renderChat,

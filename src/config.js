@@ -101,7 +101,7 @@ export const config = {
 
   // Projects
   projects: {
-    defaultDir: process.env.C3_PROJECTS_DIR || (process.env.HOME || process.env.USERPROFILE || '.') + '/Projects',
+    defaultDir: process.env.C3_PROJECTS_DIR || './projects',
   },
 
   // v61: Project Lifecycle (Phase C — Collaborative Milestone Execution)
