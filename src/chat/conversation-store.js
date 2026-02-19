@@ -115,15 +115,44 @@ export class ConversationStore {
       throw new Error('ConversationStore: conversationId is required and must be a string');
     }
 
+    // Validate projectId FK before using it — avoids FOREIGN KEY constraint failed
+    let safeProjectId = opts.projectId || null;
+    if (safeProjectId && this.#db) {
+      try {
+        const project = this.#db.projects.findById.get(safeProjectId);
+        if (!project) {
+          logger.warn('ConversationStore', `projectId ${safeProjectId} not found in projects table, ignoring`, {
+            conversationId: conversationId.substring(0, 20),
+          });
+          safeProjectId = null;
+        }
+      } catch (err) {
+        logger.warn('ConversationStore', `projectId validation failed: ${err.message}`);
+        safeProjectId = null;
+      }
+    }
+
     if (this.#db) {
       // DB mode: use getOrCreate
       const existing = this.#db.conversations.findById.get(conversationId);
       if (existing) {
+        // Update project_id if provided and conversation doesn't have one yet
+        if (safeProjectId && !existing.project_id) {
+          try {
+            this.#db.conversations.assignToProject.run(safeProjectId, conversationId);
+            logger.info('ConversationStore', `Linked conversation to project`, {
+              conversationId: conversationId.substring(0, 20),
+              projectId: safeProjectId,
+            });
+          } catch (err) {
+            logger.warn('ConversationStore', `Failed to link conversation to project: ${err.message}`);
+          }
+        }
         return { id: conversationId, isNew: false };
       }
       this.#db.conversations.create.run(
         conversationId,
-        opts.projectId || null,
+        safeProjectId,
         opts.title || null,
         null
       );

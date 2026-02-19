@@ -2654,13 +2654,14 @@ function _detailActionHandler(d,a){
 function _assignConvToProject(convTitle,projectId){
   var conv=CONVERSATIONS.find(function(c){return c.title===convTitle;});
   if(!conv||!conv.id||!projectId)return;
-  fetch(_backendBase+'/api/conversations/'+conv.id,{method:'PUT',headers:{'Content-Type':'application/json'},
+  fetch(_backendBase+'/api/conversations/'+conv.id+'/assign',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({project_id:projectId}),signal:AbortSignal.timeout(5000)})
+  .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
   .then(function(){
     if(window._c3)window._c3.agentLog('TOOL','Konverzace "'+convTitle+'" přidána do projektu.');
     _centerState._projectPicker=null;fetchBackendData();renderCenter();
-  }).catch(function(){
-    if(window._c3)window._c3.agentLog('TOOL','Přiřazení selhalo.');
+  }).catch(function(err){
+    if(window._c3)window._c3.agentLog('TOOL','Chyba při přiřazení: '+(err.message||'neznámá chyba'));
     _centerState._projectPicker=null;renderCenter();
   });
 }

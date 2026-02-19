@@ -2155,6 +2155,8 @@ export class CREDecisionEngine {
     const hasCompoundQuestionForm =
     // CZ (ASCII-safe subset can use \b)
         /\b(co je|co jsou|co to je|kdo je|kdo byl|kde je|kde jsou|kdy bude|kdy je|kdy byl|jak funguje|jak fungují|jak se dělá|jak se tvoří|jak vzniká)\b/i.test(text) ||
+        // v65.5: CZ declensions of "co" — locative "o čem", dative "čemu", instrumental "čím"
+        /(?:^|\s)(o\s+[čc][eě]m\s+je|o\s+[čc][eě]m\s+jsou|[čc][eě]mu\s+se|[čc][ií]m\s+se)(?:\s|[?!.,;]|$)/i.test(text) ||
         /(?:^|\s)(proč je|proč jsou|proč se)(?:\s|[?!.,;]|$)/i.test(text) ||
         /(?:^|\s)(jak[áéý] je|jak[áéý] jsou|jak[áéý] byl[aoy]?|kolik je|kolik má|kolik stojí)(?:\s|[?!.,;]|$)/i.test(text) ||
     // SK (ľ, č, ý, ô etc. — must avoid \b)
@@ -2173,7 +2175,8 @@ export class CREDecisionEngine {
     // Tier 2: Bare question words in substantive text (>12 chars, 3+ words)
     // NOTE: Cannot use \b for Czech/Slovak words — č/ř/ž etc. are \W in JS regex.
     // v61.3: Added no-diacritics CZ variants (proc, jaky, jake, kolikatym...)
-    const hasQuestionWord = /(?:^|\s)(jak[áéýoui]?|jaky|jake|co|kdo|kde|kdy|proč|proc|kolik|čo|kto|ako|kedy|prečo|koľko|ak[áéý]|was|wer|wo|wann|wie|warum|welch|wieviel|jaki?e?|kto|gdzie|kiedy|dlaczego|ile|qu[eéi]|qui|où|quand|comment|combien|pourquoi|quel|qué|quién|dónde|cuándo|cómo|cuánto|por qué|how|what|who|where|when|why|which)(?:\s|[?!.,;]|$)/i.test(text);
+    // v65.5: Added CZ declensions of "co": čem (loc.), čemu (dat.), čeho (gen.), čím (instr.)
+    const hasQuestionWord = /(?:^|\s)(jak[áéýoui]?|jaky|jake|co|[čc][eě]m|[čc][eě]mu|[čc]eho|[čc][ií]m|kdo|kde|kdy|proč|proc|kolik|čo|kto|ako|kedy|prečo|koľko|ak[áéý]|was|wer|wo|wann|wie|warum|welch|wieviel|jaki?e?|kto|gdzie|kiedy|dlaczego|ile|qu[eéi]|qui|où|quand|comment|combien|pourquoi|quel|qué|quién|dónde|cuándo|cómo|cuánto|por qué|how|what|who|where|when|why|which)(?:\s|[?!.,;]|$)/i.test(text);
     const wordCount = text.split(/\s+/).length;
     const hasTier2Form = hasQuestionWord && text.length > 12 && wordCount >= 3;
 

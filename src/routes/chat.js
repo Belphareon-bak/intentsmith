@@ -222,6 +222,38 @@ export function createChatRoutes(deps) {
       }
     },
 
+    // Update conversation (project assignment, title, etc.)
+    'PUT /api/conversations/:id': async (req, res, params) => {
+      const body = await parseBody(req);
+
+      try {
+        const conversation = db.conversations.findById.get(params.id);
+        if (!conversation) {
+          return sendJSON(res, 404, { error: 'Conversation not found' });
+        }
+
+        if (body.project_id !== undefined) {
+          // Validate project exists before FK update
+          if (body.project_id !== null) {
+            const project = db.projects.findById.get(body.project_id);
+            if (!project) {
+              return sendJSON(res, 400, { error: 'Project not found', project_id: body.project_id });
+            }
+          }
+          db.conversations.assignToProject.run(body.project_id, params.id);
+        }
+
+        if (body.title !== undefined) {
+          db.conversations.updateTitle.run(body.title, params.id);
+        }
+
+        const updated = db.conversations.findById.get(params.id);
+        sendJSON(res, 200, { conversation: updated });
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
     // Delete conversation
     'DELETE /api/conversations/:id': async (req, res, params) => {
       try {

@@ -44,6 +44,10 @@ const PROJECT_SELF_PATTERNS = [
   /(?:shrň|shrnout|popiš) projekt/i,
   /(?:info|informace) o projektu/i,
   /co je (?:v |)(?:tomto |)projektu/i,
+  // v65.5: "o čem je (tento) projekt?" — locative form of "co"
+  /o\s+[čc][eě]m\s+je\s+(?:tento\s+|ten\s+|tenhle\s+)?projekt/i,
+  /[čc][eě]mu\s+se\s+(?:tento\s+|ten\s+|tenhle\s+)?projekt\s+v[eě]nuje/i,
+  /[čc][ií]m\s+se\s+(?:tento\s+|ten\s+|tenhle\s+)?projekt\s+zab[ýy]v[áa]/i,
   /aktivní soubor/i,
   /na jakém souboru/i,
   /(?:jaké|které) soubory/i,
