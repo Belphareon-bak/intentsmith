@@ -156,6 +156,19 @@ export class C3CommandPaletteContribution
 
   registerCommands(registry: CommandRegistry): void {
 
+    // ── Override Theia's File → Open Folder to use C3 workspace ──
+    for (const cmdId of ['workspace:openFolder', 'workspace:open']) {
+      try {
+        registry.registerHandler(cmdId, {
+          execute: () => {
+            document.dispatchEvent(new CustomEvent('c3-open-folder'));
+          },
+          isEnabled: () => true,
+          isVisible: () => true,
+        });
+      } catch (_e) { /* command may not exist */ }
+    }
+
     // ── Project commands (structured → bypass CRE) ─────
 
     registry.registerCommand(C3Commands.NEW_PROJECT, {

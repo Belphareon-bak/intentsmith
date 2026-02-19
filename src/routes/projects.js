@@ -139,10 +139,8 @@ export function createProjectRoutes(deps) {
           await fs.writeFile(pathModule.join(projectPath, 'src', 'pipeline.js'), '// ' + name + ' — data pipeline\nconsole.log("Pipeline start");\n');
           scaffoldLog.push('package.json + data/ + notebooks/ + src/pipeline.js');
         } else {
-          // general
-          const pkg = { name: slug, version: '0.1.0', type: 'module', scripts: {}, dependencies: {} };
-          await fs.writeFile(pathModule.join(projectPath, 'package.json'), JSON.stringify(pkg, null, 2) + '\n');
-          scaffoldLog.push('package.json (general)');
+          // general — empty project, no package.json
+          scaffoldLog.push('(prázdný projekt)');
         }
 
         // Write .c3/project.json metadata
@@ -159,7 +157,7 @@ export function createProjectRoutes(deps) {
 
         // Set lifecycle phase to SPEC
         if (project && project.id) {
-          try { db.run('UPDATE projects SET status = ? WHERE id = ?', ['SPEC', project.id]); } catch (e) { /* column may not exist */ }
+          try { db.db.prepare('UPDATE projects SET status = ? WHERE id = ?').run('SPEC', project.id); } catch (e) { /* column may not exist */ }
         }
 
         sendJSON(res, 201, {
@@ -184,6 +182,30 @@ export function createProjectRoutes(deps) {
         }
 
         sendJSON(res, 200, { project });
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    'PUT /api/projects/:id': async (req, res, params) => {
+      const body = await parseBody(req);
+      try {
+        const id = safeParseInt(params.id);
+        const project = db.projects.findById.get(id);
+        if (!project) return sendJSON(res, 404, { error: 'Project not found' });
+
+        const updates = [];
+        const values = [];
+        if (body.name !== undefined && body.name.trim()) { updates.push('name = ?'); values.push(body.name.trim()); }
+        if (body.path !== undefined && body.path.trim()) { updates.push('path = ?'); values.push(body.path.trim()); }
+        if (body.description !== undefined) { updates.push('description = ?'); values.push(body.description); }
+        if (updates.length === 0) return sendJSON(res, 400, { error: 'No fields to update' });
+
+        updates.push('last_active = CURRENT_TIMESTAMP');
+        db.db.prepare(`UPDATE projects SET ${updates.join(', ')} WHERE id = ?`).run(...values, id);
+
+        const updated = db.projects.findById.get(id);
+        sendJSON(res, 200, { project: updated });
       } catch (err) {
         sendJSON(res, 500, safeError(err));
       }
@@ -299,26 +321,29 @@ export function createProjectRoutes(deps) {
       }
 
       try {
-        const { setLcState } = await import('../chat/handlers/lifecycle-state.js');
+        const { setLcState, bindSessionToLifecycle } = await import('../chat/handlers/lifecycle-state.js');
 
-        // Activate lifecycle on session — phase SPEC
-        setLcState(sessionId, {
-          phase: 'SPEC',
-          lifecycleId: null,
-          currentMilestoneId: null,
-          originalRequest: description || ('Nový projekt: ' + (projectName || '')),
-          projectId: projectId || null,
-          projectPath: projectPath || null,
-        });
+        const lcId = `lc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
         // Also create lifecycle record in DB if possible
         try {
           const specData = { name: projectName, type: type || 'general', description: description || '', goals: [], requirements: [] };
           db.run(
-            'INSERT OR IGNORE INTO project_lifecycles (project_id, phase, spec, config, active_session_id) VALUES (?, ?, ?, ?, ?)',
-            [projectId || null, 'SPEC', JSON.stringify(specData), '{}', sessionId]
+            'INSERT OR IGNORE INTO project_lifecycles (id, project_id, phase, spec, config, active_session_id) VALUES (?, ?, ?, ?, ?, ?)',
+            [lcId, projectId || null, 'SPEC', JSON.stringify(specData), '{}', sessionId]
           );
         } catch (e) { /* table may not exist yet */ }
+
+        // Activate lifecycle on session — phase SPEC
+        setLcState(sessionId, {
+          phase: 'SPEC',
+          lifecycleId: lcId,
+          currentMilestoneId: null,
+          originalRequest: description || ('Nový projekt: ' + (projectName || '')),
+          projectId: projectId || null,
+          projectPath: projectPath || null,
+        });
+        bindSessionToLifecycle(sessionId, lcId);
 
         logger.info('Projects', `Lifecycle started for project ${projectName} (session: ${sessionId})`);
 
