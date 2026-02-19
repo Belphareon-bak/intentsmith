@@ -1,6 +1,6 @@
 # CLAUDE.md - C.3 Agent Development Context
 
-**Verze:** v65.7
+**Verze:** v65.8
 **Datum:** 2026-02-19
 **Projekt:** ~/Projects/c3-agent-wip
 
@@ -11,6 +11,7 @@
 C.3 Agent je plne funkcni conversational AI platforma s:
 - **CRE** (Conversational Reasoning Engine) — single-authority decision engine s **CRE Gatekeeper** audit trail (v64.0)
 - **Expert System** (v63) — 15 built-in expertu s 5D capability profily, multi-expertise merge engine, enforcement pipeline, execution trace observability
+- **Specialist Platform** (v65.8) — SpecialistRuntime (tool registry + intent detection + execution), KnowledgeBase (versioned facts, 96 seeded tax rates), ScenarioEngine (multi-step guided workflows)
 - **Quality Gate v2** (v62.3+) — deterministicky post-processing pipeline: structural fix, SK→CZ transliterator (~160 regexu), LinkGuard, content enforcement
 - **Agent Platform** — deterministicke worker agenty se zdroji, podminkami, triggery, notifikacemi + **Agent Builder Wizard (v65.5)**
 - **Project Lifecycle** — milnikove rizeni projektu s crash recovery + **project context injection (v65.4)** + **lifecycle session routing fix (v65.6)** + **real LLM E2E test (v65.7)**
@@ -25,7 +26,7 @@ C.3 Agent je plne funkcni conversational AI platforma s:
 | Adresar | Radky | Soubory | Popis |
 |---------|-------|---------|-------|
 | src/chat/ | 24,588 | 59 | Konverzacni pipeline (CRE, handlers, quality, synthesis) |
-| src/experts/ | 7,515 | 17 | Expert system (merge engine, 5D capabilities, enforcement) |
+| src/experts/ | 9,200+ | 20 | Expert system + specialist platform (runtime, knowledge base, scenarios) |
 | src/agents/ | 6,510 | 14 | Agent platform (runner, scheduler, conditions, triggers) |
 | src/planner/ | 4,754 | 13 | Project lifecycle (workflow, build, milestones) |
 | src/ui/ | 4,552 | 2 | Web UI (architect.js) |
@@ -45,7 +46,7 @@ C.3 Agent je plne funkcni conversational AI platforma s:
 
 ### Database
 
-54 tabulek (vcetne FTS), 5 migraci, prepared statements.
+57 tabulek (vcetne FTS + knowledge base), 7 migraci, prepared statements.
 
 ### Testovaci pokryti
 
@@ -65,11 +66,16 @@ C.3 Agent je plne funkcni conversational AI platforma s:
 | Lifecycle unit | 103 | pass |
 | Design Tests | 100 | pass |
 | Sprint D | 21 | pass |
+| Specialist Runtime | 23 | pass |
+| Knowledge Base | 35 | pass |
+| Scenario Engine | 42 | pass |
+| Accountant Tools | 81 | pass |
+| Tool Enforcement | 41 | pass |
 | Expert A/B (A7) | 5 (LLM) | pass (5/5 win/tie) |
 | Lifecycle Real LLM (C3) | 10 (LLM) | pass |
 | E2E Quality Deep | 36 (LLM) | 89-97% |
 | Chat Quality | 33 (LLM) | 32/33 |
-| **Deterministicke celkem** | **~1400+** | **pass** |
+| **Deterministicke celkem** | **~1500+** | **pass** |
 
 ### E2E Quality Deep — aktualni stav (2026-02-19)
 
@@ -97,8 +103,11 @@ ConversationHandler
   |     |-- getLcStateByProject() RAM lookup (v65.6 — sessionId mismatch fix)
   |     |-- DB fallback for state restoration
   |-- Agent Wizard intercept (B9)
+  |-- Scenario intercept (D3 — active scenario → ScenarioRunner.handleInput)
   |-- CRE classifyIntent() --> LOCAL | CONVERSATIONAL | SEARCH | DESIGN | CREATIVE | BUILD | CODE
   |-- Expert handler (single or merged multi-expertise)
+  |     |-- SpecialistRuntime.tryToolExecution() (D1 — detect + execute deterministic tool)
+  |     |-- ScenarioRegistry.detectTrigger() (D3 — multi-step guided workflow)
   |     |-- mergeExpertisePrompt() (pure function, max 3 expertises)
   |     |-- LLM generation (with merged prompt + temperature)
   |     |-- ExpertEnforcer (retry with temp decay, strict mode)

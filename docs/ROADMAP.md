@@ -62,9 +62,12 @@ Installer, licence, auto-update, setup wizard.
 - Notifikační pipeline: Email, Telegram, ntfy/push, rate limiting, digest, trust tracker
 - Zbývá: RSS digest worker — default channel je Telegram/ntfy, ne email (triviální fix)
 
-### Pilíř 4: SPECIALISTÉ — 40% ✅
+### Pilíř 4: SPECIALISTÉ — 65% ✅ (upgrade z 40%)
 Expert layer (15 experts) + accountant pilot + 5D capability system + merge engine v2 + expertise wizard UI.
-Chybí: Specialist Runtime + knowledge base + interaktivní scénáře.
+- v65.8: **D1 Specialist Runtime** — ToolRegistry, IntentDetector, ToolExecutor, SpecialistRuntime ✅
+- v65.8: **D2 Knowledge Base** — DB migration (3 tables), KnowledgeBase class, tax rates seed (96 facts) ✅
+- v65.8: **D3 Scenario Engine** — ScenarioRegistry, ScenarioRunner, accountant tax optimization scenario ✅
+- Zbývá: D4-D9 (specialist memory, multi-specialist routing, advanced scenarios)
 
 ### Pilíř 5: IDE — 73% ✅ (korekce z 80%)
 Theia 1.65.2, 33 custom extensions, fungující build (lib/ + src-gen/).
@@ -110,6 +113,9 @@ Theia 1.65.2, 33 custom extensions, fungující build (lib/ + src-gen/).
 | v65.7 | **F1: Setup Wizard wired** — first-run detection, /api/setup/* routes, createSetupRoutes(wizard, deps) |
 | v65.7 | **F2: Auto-updater wired** — startUpdateChecker() v server.listen(), stopUpdateChecker() v shutdown |
 | v65.7 | **F3: License system wired** — LicenseManager singleton, /api/license/status, FREE tier feature gates |
+| v65.8 | **D1: Specialist Runtime** — ToolRegistry, IntentDetector, ToolExecutor, SpecialistRuntime, accountant registered |
+| v65.8 | **D2: Knowledge Base** — 3 DB tables (knowledge_facts, knowledge_sources, knowledge_verification_log), KnowledgeBase class, seedTaxRates (96 facts) |
+| v65.8 | **D3: Scenario Engine** — ScenarioRegistry, ScenarioRunner, accountant tax optimization scenario (5 steps) |
 
 ---
 
@@ -140,7 +146,7 @@ Fáze C: PROJEKTY   ████████████████████
 Fáze D-int: ÚČETNÍ ██████████████████████████████████████████  100% → DONE
 Fáze B: WORKERI    ██████████████████████████████████████░░░░   95% (B0-B9 done, B8 template ✅)
 Fáze H: HARDENING  ██████████████████████████████████████████  100% (9/9 DONE)
-Fáze D: SPECIALISTÉ████████████████░░░░░░░░░░░░░░░░░░░░░░░░░░   40% (expert+merge+wizard)
+Fáze D: SPECIALISTÉ██████████████████████████░░░░░░░░░░░░░░░░   65% (D1-D3 done, v65.8)
 Fáze E: IDE        ██████████████████████████████░░░░░░░░░░░░   73% (Phase 1-5, 33 extensions)
 Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   25% (F1-F3 wired, v65.7)
 ```
@@ -166,9 +172,17 @@ Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░�
 ❌→ E2. IDE: Stage/Unstage v working tree (1d)
 ```
 
-### Sprint 3+ — Specialists, IDE, Packaging
+### Sprint 3 — Specialist Platform D1-D3 ✅ (DONE v65.8)
 
-- Fáze D: SPECIALISTÉ — Specialist Runtime, knowledge base (~6 týdnů)
+```
+✅→ D1. Specialist Runtime — ToolRegistry + IntentDetector + ToolExecutor (23 tests)
+✅→ D2. Knowledge Base — DB migration + KnowledgeBase class + seed (35 tests)
+✅→ D3. Scenario Engine — ScenarioRegistry + ScenarioRunner + accountant pilot (42 tests)
+```
+
+### Sprint 4+ — Remaining Specialists, IDE, Packaging
+
+- Fáze D: D4-D9 specialist memory, multi-specialist routing, advanced scenarios (~3 týdny)
 - Fáze E: IDE — zbývající items (~2-3 sprinty)
 - Fáze F: BALÍČKOVÁNÍ — Electron builder, installer (2–3 týdny)
 
@@ -188,26 +202,30 @@ Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░�
 | 8 | C | C3. Reálný LLM test lifecycle | průběžně | 🟡 P1 | ✅ DONE (v65.7) |
 | 9 | E | E1. IDE: Specialist CRUD wizard | 2-3d | ⚪ P2 | ❌ |
 | 10 | E | E2-E10. IDE: zbývající items (~10) | ~2 týd. | ⚪ P2 | ❌ |
-| 11 | D | D1–D9 Specialist platform | ~6 týd. | ⚪ P2 | ❌ |
-| 12 | F | F4–F6 Electron builder + installer | ~2 týd. | ⚪ P2 | ❌ |
+| 11 | D | D1. Specialist Runtime | 1d | ⚪ P2 | ✅ DONE (v65.8) |
+| 12 | D | D2. Knowledge Base | 1d | ⚪ P2 | ✅ DONE (v65.8) |
+| 13 | D | D3. Scenario Engine | 1d | ⚪ P2 | ✅ DONE (v65.8) |
+| 14 | D | D4–D9 Specialist advanced | ~3 týd. | ⚪ P2 | ❌ |
+| 15 | F | F4–F6 Electron builder + installer | ~2 týd. | ⚪ P2 | ❌ |
 
 ---
 
 ## Celkový progres
 
-**Hotovo:** ~96% celkové vize (upgrade z 95%)
-**Nové od v8:** v65.7 — F1-F3 integration, A7 Expert A/B test, C3 Real LLM lifecycle test
+**Hotovo:** ~97% celkové vize (upgrade z 96%)
+**Nové od v9:** v65.8 — D1 Specialist Runtime, D2 Knowledge Base, D3 Scenario Engine
 
 ```
 Celkem zbývajících úkolů:  4
   🔴 Critical:              0
   🟡 Important:             0  (všechny P1 hotové!)
-  ⚪ Future (D,E,F):         4  (~2.5 měsíce)
+  ⚪ Future (D4-D9,E,F):     4  (~2 měsíce)
 ```
 
 ---
 
-*Tento dokument nahrazuje Roadmapa v8 (v65.6).
-Nové ve v9: F1-F3 napojeny do server.js — Setup Wizard, Auto-updater, License system.
-A7 Expert A/B test (5 domén, expert win/tie 5/5). C3 Real LLM lifecycle test (10/10 PASS).
-Chat 100%, Projekty 100%, F 8%→25%. Celkový progres 96%. Všechny P1 úkoly hotové.*
+*Tento dokument nahrazuje Roadmapa v9 (v65.7).
+Nové ve v10: D1 Specialist Runtime (ToolRegistry + IntentDetector + ToolExecutor, 23 tests),
+D2 Knowledge Base (3 DB tables, KnowledgeBase class, 96 seeded tax facts, 35 tests),
+D3 Scenario Engine (ScenarioRegistry + ScenarioRunner, accountant tax optimization, 42 tests).
+Specialist 40%→65%. Celkový progres 97%.*

@@ -2,6 +2,53 @@
 
 ---
 
+## v65.8 — D1-D3 Specialist Platform: Runtime + Knowledge Base + Scenarios (2026-02-19)
+
+**Testy:** 401 CRE + 43 GK + 52 pipeline + 81 accountant + 41 enforcement + 23 specialist + 35 knowledge + 42 scenario + 125 quality + 100 design = 943+ PASS
+
+Phase D specialist platform: three new modules building the foundation for tool-augmented expert domains.
+
+### D1: Specialist Runtime
+
+- **ToolRegistry** — specialist → tools mapping with lazy module loading, module cache
+- **IntentDetector** — pattern-based routing: user input → tool match (priority-sorted)
+- **ToolExecutor** — deterministic tool execution, adapter support, knowledge base injection point
+- **SpecialistRuntime** — orchestrator: `tryToolExecution(expertId, input)` → detect → execute → result
+- **Accountant registered** — 5 tools (compare, VAT, salary, deadline, tax) with inline extractors
+- **expert.js integration** — replaced hardcoded `executeAccountantTool()` with generic `executeSpecialistTool()`
+
+### D2: Knowledge Base
+
+- **DB migration 007** — 3 new tables: `knowledge_facts`, `knowledge_sources`, `knowledge_verification_log`
+- **KnowledgeBase class** — `getFact()`, `getCategory()`, `getRatesForYear()`, `checkFreshness()`, `setFact()`, `bulkSetFacts()`
+- **Verification sources** — `setSource()`, `listSources()`, `logVerification()`
+- **seedTaxRates()** — imports 96 facts from static RATES constant (2024 + 2025)
+- **Freshness check** — detects stale/provisional facts with configurable tolerance
+
+### D3: Scenario Engine
+
+- **ScenarioRegistry** — stores scenario definitions, trigger detection per specialist
+- **ScenarioRunner** — state machine: INTRO → COLLECTING → COMPUTING → PRESENTING → RECOMMENDING → COMPLETED
+- **Phase handlers** — data collection with extraction/validation/skip/default, adjustment loop, cancel
+- **Accountant Tax Optimization** — 5-step guided workflow (income, entity, expenses, year, children)
+- **Tool integration** — `compute()` calls `calculateTax()` + `compareTaxEntities()`, `present()` formats markdown
+
+### Soubory
+
+| Soubor | Změna |
+|--------|-------|
+| `src/experts/specialist-runtime.js` | NEW — ToolRegistry, IntentDetector, ToolExecutor, SpecialistRuntime |
+| `src/experts/knowledge-base.js` | NEW — KnowledgeBase class, seedTaxRates, getKnowledgeBase singleton |
+| `src/experts/scenario-engine.js` | NEW — ScenarioRegistry, ScenarioRunner, accountant tax optimization |
+| `src/db/migrations/007_knowledge_base.js` | NEW — knowledge_facts, knowledge_sources, knowledge_verification_log |
+| `src/chat/handlers/expert.js` | Replaced hardcoded accountant routing with SpecialistRuntime |
+| `tests/specialist-runtime.test.js` | NEW — 23 tests (registry, intent, execution, custom) |
+| `tests/knowledge-base.test.js` | NEW — 35 tests (CRUD, seed, freshness, sources, bulk) |
+| `tests/scenario-engine.test.js` | NEW — 42 tests (registry, triggers, phases, E2E accountant) |
+| `docs/ROADMAP.md` | v10: D1-D3 DONE, Specialists 40%→65%, progres 97% |
+
+---
+
 ## v65.7 — F1-F3 Integration + A7 Expert A/B + C3 Lifecycle LLM Test (2026-02-19)
 
 **Testy:** 401 CRE + 43 GK + 52 pipeline + 58 fixes + 100 design + 45 quality + 21 sprint-D = 720 PASS, 0 failures

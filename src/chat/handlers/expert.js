@@ -113,30 +113,32 @@ export async function expertHandler(input, context) {
     });
 
     // ════════════════════════════════════════════════════════════════════════
-    // D-int2: Accountant tool interception
+    // D1: Specialist tool interception (generalized from D-int2)
     // ════════════════════════════════════════════════════════════════════════
-    // When accountant expert is active and CRE says ANSWER, check if input
-    // matches accounting patterns → execute deterministic tool directly,
+    // When a specialist expert is active and CRE says ANSWER, check if input
+    // matches specialist tool patterns → execute deterministic tool directly,
     // then wrap result with expert persona for human-readable formatting.
     // This ensures "kolik zaplatím z 850k" gets a precise calculation,
     // not an LLM estimate.
     // ════════════════════════════════════════════════════════════════════════
     if (expert.styleRules?.toolEnforcement && decision.type === DecisionType.ANSWER) {
-      const { detectAccountantTool } = await import('../../experts/tools/accountant-detector.js');
-      const toolMatch = detectAccountantTool(input);
+      const { specialistRuntime } = await import('../../experts/specialist-runtime.js');
 
-      if (toolMatch) {
-        logger.info('ExpertHandler', 'Accountant tool interception: ANSWER → TOOL_CALL', {
-          toolType: toolMatch.toolType,
-          params: toolMatch.params,
-          expert: expert.id,
-        });
-
+      if (specialistRuntime.isSpecialist(expert.id)) {
         try {
-          const toolResponse = await executeAccountantTool(input, toolMatch, expert, context);
-          return toolResponse;
+          const toolResult = await specialistRuntime.tryToolExecution(expert.id, input);
+
+          if (toolResult) {
+            logger.info('ExpertHandler', 'Specialist tool interception: ANSWER → TOOL_CALL', {
+              toolType: toolResult.toolType,
+              expert: expert.id,
+            });
+
+            const toolResponse = await executeSpecialistTool(input, toolResult, expert, context);
+            return toolResponse;
+          }
         } catch (err) {
-          logger.warn('ExpertHandler', `Accountant tool failed, falling back to LLM: ${err.message}`);
+          logger.warn('ExpertHandler', `Specialist tool failed, falling back to LLM: ${err.message}`);
           // Fall through to normal ANSWER path
         }
       }
@@ -538,59 +540,15 @@ IMPORTANT RULES:
 }
 
 /**
- * D-int2: Execute an accountant tool directly with extracted parameters.
- * Calls the deterministic tool function, formats result as JSON,
+ * D1: Execute a specialist tool using the SpecialistRuntime result.
+ * Takes the already-executed tool result, formats as TaggedResponse,
  * then wraps with expert persona via LLM for human-readable output.
  */
-async function executeAccountantTool(input, toolMatch, expert, context) {
-  const { toolType, params } = toolMatch;
-
-  // Lazy-load the appropriate tool function
-  let toolFn;
-  switch (toolType) {
-    case 'accountant.tax_calculator': {
-      const mod = await import('../../experts/tools/tax-calc.js');
-      toolFn = mod.calculateTax;
-      break;
-    }
-    case 'accountant.vat_calculator': {
-      const mod = await import('../../experts/tools/vat-calc.js');
-      toolFn = mod.calculateVAT;
-      break;
-    }
-    case 'accountant.salary_calculator': {
-      const mod = await import('../../experts/tools/salary-calc.js');
-      toolFn = mod.calculateSalary;
-      break;
-    }
-    case 'accountant.deadline_checker': {
-      const mod = await import('../../experts/tools/deadline-checker.js');
-      toolFn = mod.checkDeadlines;
-      break;
-    }
-    case 'accountant.compare_tax_entities': {
-      const mod = await import('../../experts/tools/tax-calc.js');
-      toolFn = (p) => mod.compareTaxEntities(p.gross_income, p);
-      break;
-    }
-    case 'accountant.compare_salaries': {
-      const mod = await import('../../experts/tools/salary-calc.js');
-      toolFn = (p) => mod.compareSalaries(p.gross_levels || [], p);
-      break;
-    }
-    default:
-      throw new Error(`Unknown accountant tool: ${toolType}`);
-  }
-
-  // Execute deterministic tool
-  const result = toolFn(params);
-
-  if (!result.success) {
-    throw new Error(result.error || 'Tool execution failed');
-  }
+async function executeSpecialistTool(input, toolResult, expert, context) {
+  const { toolType, result, params } = toolResult;
 
   // Format tool result as content string
-  const toolContent = JSON.stringify(result.result, null, 2);
+  const toolContent = JSON.stringify(result, null, 2);
 
   // Build TaggedResponse with tool data
   const rawTag = new ResponseTag({
@@ -600,8 +558,8 @@ async function executeAccountantTool(input, toolMatch, expert, context) {
     canExecute: false,
     metadata: {
       executionStatus: 'SUCCESS',
-      toolResults: [{ type: toolType, data: result.result }],
-      accountantTool: toolType,
+      toolResults: [{ type: toolType, data: result }],
+      specialistTool: toolType,
       extractedParams: params,
     },
   });
