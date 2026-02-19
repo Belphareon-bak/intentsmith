@@ -99,6 +99,27 @@ import { toolRegistry } from './tools/registry.js';
 import { getConversationStore } from './chat/conversation-store.js';
 getConversationStore(db);
 
+// v67.0: Initialize MemoryBank with DB
+import { getMemoryBank } from './memory/memory-bank.js';
+getMemoryBank(db);
+
+// F1: Setup Wizard — first-run detection + API routes
+import { SetupWizard, createSetupRoutes } from './setup/wizard.js';
+const setupWizard = new SetupWizard(config.db?.path ? path.dirname(config.db.path) : './data');
+setupWizard.load();
+const setupComplete = setupWizard.isComplete();
+if (!setupComplete) {
+  logger.info('Server', 'First run detected — setup wizard available at /api/setup/*');
+}
+
+// F2: Auto-updater — background version checker
+import { startUpdateChecker, stopUpdateChecker, getCurrentVersion } from './packaging/auto-updater.js';
+
+// F3: License system — feature gates
+import { licenseManager, TIERS } from './licensing/license.js';
+const licenseStatus = licenseManager.getStatus();
+logger.info('Server', `License: ${licenseStatus.tier} (${licenseStatus.valid ? 'valid' : licenseStatus.error || 'no key'})`);
+
 // v57.0: Initialize ExpertStore with DB (if experts enabled)
 if (getExpertStore) expertStore = getExpertStore(db);
 
@@ -434,8 +455,9 @@ const routes = {
   'GET /': (req, res) => {
     sendJSON(res, 200, {
       name: 'p(AI)assistant',
-      version: '57.0.0',
+      version: '65.6.0',
       status: 'ok',
+      setupComplete,
       endpoints: [
         'POST /chat',
         'POST /planner/start',
@@ -459,6 +481,21 @@ const routes = {
   ...createLifecycleRoutes(routeDeps),
   ...createProjectRoutes(routeDeps),
   ...createMiscRoutes(routeDeps),
+
+  // F1: Setup Wizard routes (always available — idempotent after completion)
+  ...createSetupRoutes(setupWizard, routeDeps),
+
+  // F3: License status API
+  'GET /api/license/status': (req, res) => {
+    const status = licenseManager.getStatus();
+    sendJSON(res, 200, {
+      tier: status.tier,
+      valid: status.valid,
+      features: status.features,
+      expiresAt: status.expiresAt || null,
+      owner: status.owner || null,
+    });
+  },
 };
 
 // ─── Guard agent routes if platform not loaded ──────────────────────────────
@@ -471,6 +508,23 @@ if (!agentRoutes) {
         key.includes('/api/sources/') || key.includes('/api/notifications') ||
         key.includes('/api/scheduler')) {
       routes[key] = notAvailable;
+    }
+  }
+}
+
+// F3: License feature gates — restrict PRO/ENTERPRISE features on FREE tier
+if (licenseStatus.tier === 'FREE') {
+  const proRequired = (req, res) => sendJSON(res, 403, {
+    error: 'PRO license required for this feature',
+    tier: 'FREE',
+    upgrade: 'Set C3_LICENSE_KEY in environment or use /api/setup/license',
+  });
+  for (const key of Object.keys(routes)) {
+    // Agents & workers require PRO
+    if (key.includes('/api/agents') || key === 'GET /agents' ||
+        key.includes('/api/sources/') || key.includes('/api/notifications') ||
+        key.includes('/api/scheduler')) {
+      routes[key] = proRequired;
     }
   }
 }
@@ -780,7 +834,16 @@ server.listen(config.server.port, config.server.host, async () => {
     logger.debug('Server', `CRE audit DB bind skipped: ${err.message}`);
   }
 
-  logger.info('Server', `p(AI)assistant v57.0 started`);
+  // F2: Start background update checker (only if repository configured)
+  if (process.env.C3_UPDATE_REPO) {
+    startUpdateChecker((update) => {
+      logger.info('Updater', `New version available: ${update.latestVersion} (current: ${update.currentVersion})`);
+      logger.info('Updater', `Release: ${update.releaseUrl}`);
+    });
+  }
+
+  const ver = getCurrentVersion() || '65.6.0';
+  logger.info('Server', `p(AI)assistant v${ver} started`);
   logger.info('Server', `Chat:   http://${config.server.host}:${config.server.port}/architect`);
   if (agentRoutes) logger.info('Server', `Agents: http://${config.server.host}:${config.server.port}/agents`);
   logger.info('Server', `API:    http://${config.server.host}:${config.server.port}`);
@@ -836,7 +899,10 @@ function gracefulShutdown(signal) {
   } catch (e) {
     // Ignore
   }
-  
+
+  // F2: Stop update checker
+  try { stopUpdateChecker(); } catch { /* ignore */ }
+
   // Close database
   try {
     db.close();

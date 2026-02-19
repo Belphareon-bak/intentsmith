@@ -20,6 +20,8 @@ import {
   handleRefuseDecision,
 } from './decisions.js';
 import { buildProjectHint } from './utils/project-context-prompt.js';
+import { getScriptSuggestion } from './utils/script-discovery.js';
+import { parseTodoCommand, handleTodo, handleDone } from './todo.js';
 import { ResponseTag, TaggedResponse, ResponseSpeaker, ChatMode } from '../controller.js';
 // ─── Optional module imports (B/C/D) — lazy-loaded, null if feature disabled ──
 import { config } from '../../config.js';
@@ -179,10 +181,19 @@ function handleShellDecision(input, decision, context) {
     },
   });
 
-  return new TaggedResponse({
-    content: `⚡ Spouštím: \`${command}\``,
-    tag,
-  });
+  // v67.0: Script discovery — check project scripts before ad-hoc execution
+  let content = `⚡ Spouštím: \`${command}\``;
+  try {
+    const projectPath = context.project?.path;
+    if (projectPath) {
+      const suggestion = getScriptSuggestion(projectPath, command);
+      if (suggestion) {
+        content += `\n\n${suggestion}`;
+      }
+    }
+  } catch { /* non-critical */ }
+
+  return new TaggedResponse({ content, tag });
 }
 
 export async function conversationHandler(input, context) {
@@ -239,6 +250,20 @@ export async function conversationHandler(input, context) {
     delete context.sessionState.pendingResumeChoice;
   }
   // ════════════════════════════════════════════════════════════════════════════
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // v67.0: TODO WORKFLOW — /todo and /done commands (deterministic, no LLM)
+  // ════════════════════════════════════════════════════════════════════════════
+  const todoCmd = parseTodoCommand(input);
+  if (todoCmd.type) {
+    const projectId = context.project?.id || null;
+    const result = todoCmd.type === 'todo'
+      ? handleTodo(todoCmd.text, projectId)
+      : handleDone(todoCmd.text, projectId);
+    if (result.handled) {
+      return systemResponse(result.content, { todoCommand: todoCmd.type });
+    }
+  }
 
   // ════════════════════════════════════════════════════════════════════════════
   // BUILD HANDOFF INTERCEPT — route messages during active Planner flow (optional — Phase C)

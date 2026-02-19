@@ -2,6 +2,58 @@
 
 ---
 
+## v65.7 — F1-F3 Integration + A7 Expert A/B + C3 Lifecycle LLM Test (2026-02-19)
+
+**Testy:** 401 CRE + 43 GK + 52 pipeline + 58 fixes + 100 design + 45 quality + 21 sprint-D = 720 PASS, 0 failures
+
+Napojení tří Phase F modulů (dříve dead code) do server.js. Všechny 3 moduly nyní aktivní.
+
+### F1: Setup Wizard Integration
+
+- **First-run detection** — `SetupWizard.isComplete()` na startup, log pokud setup není dokončen
+- **API routes** — `/api/setup/status`, `/api/setup/ollama`, `/api/setup/language`, `/api/setup/notifications`, `/api/setup/license`, `/api/setup/complete`
+- **Route handler fix** — `createSetupRoutes(wizard, deps)` nyní přijímá `deps` s `sendJSON`/`parseBody` (oprava signature mismatch)
+- **Health check** — `setupComplete` field v `GET /` response
+
+### F2: Auto-updater Integration
+
+- **Background checker** — `startUpdateChecker()` volán v `server.listen()` (jen pokud `C3_UPDATE_REPO` nastaveno)
+- **Update notification** — log nové verze s release URL
+- **Graceful shutdown** — `stopUpdateChecker()` v shutdown handleru
+- **Dynamic version** — `getCurrentVersion()` z package.json místo hardcoded stringu
+
+### F3: License System Integration
+
+- **LicenseManager singleton** — inicializace na startup, tier + valid log
+- **API endpoint** — `GET /api/license/status` — tier, features, expiry, owner
+- **Feature gates** — FREE tier blokuje agent/worker/scheduler routes (403 s upgrade hint)
+
+### Soubory
+
+| Soubor | Změna |
+|--------|-------|
+| `src/server.js` | F1 import+init+routes, F2 import+startChecker+stopChecker, F3 import+init+gates+API |
+| `src/setup/wizard.js` | `createSetupRoutes(wizard, deps)` — server.js compatible handlers |
+| `docs/ROADMAP.md` | v9: F1-F3 + A7 + C3 DONE, Chat 100%, Projekty 100%, progres 96% |
+| `docs/CHANGELOG.md` | v65.7 entry |
+| `tests/expert-ab-quality.test.js` | A7: Expert A/B quality test — 5 domén, Ollama E2E |
+| `tests/lifecycle-real-llm.test.js` | C3: Real LLM lifecycle E2E — 10/10 PASS |
+
+### A7: Expert A/B Quality Test
+
+- **5 domén** testovaných: writer, analyst, lawyer, developer, accountant
+- **Expert vs General** — each prompt sent to Ollama twice (expert system prompt vs generic)
+- **Scoring**: word count, domain keywords, Czech language, zombie/deflection, disclaimer presence
+- **Výsledek**: Expert win/tie **5/5** domén — expert nikdy neškodí, pomáhá u lawyer (disclaimer)
+
+### C3: Real LLM Lifecycle Test
+
+- **E2E proti běžícímu serveru** s reálnými Ollama voláními
+- **Testovaný flow**: project create → lifecycle start (SPEC) → provide requirements → state check → progress inquiry
+- **Výsledek**: 10/10 PASS — celý pipeline funkční s qwen2.5:32b
+
+---
+
 ## v65.6 — Lifecycle Session Routing Fix + Conversation Hardening (2026-02-19)
 
 **Testy:** 789+ verified deterministic (23+58+52+43+45+94+125+92+103+83+71), 0 failures

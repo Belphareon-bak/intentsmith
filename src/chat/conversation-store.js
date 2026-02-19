@@ -399,15 +399,116 @@ export class ConversationStore {
    * @returns {Array<{ response: { tag: { speaker: string }, content: string }, timestamp: number }>}
    */
   buildHandlerHistory(conversationId, maxTurns = 10) {
-    const turns = this.getRecentTurns(conversationId, maxTurns);
+    // v67.0: Incorporate summary — if exists, prepend as synthetic system turn
+    //        and only include turns after the summarized point.
+    const summaryData = this.getSummary(conversationId);
 
-    return turns.map(t => ({
+    let turns;
+    if (summaryData && summaryData.upToMsgId) {
+      turns = this.getTurnsAfterId(conversationId, summaryData.upToMsgId);
+      if (turns.length > maxTurns) {
+        turns = turns.slice(-maxTurns);
+      }
+    } else {
+      turns = this.getRecentTurns(conversationId, maxTurns);
+    }
+
+    const history = turns.map(t => ({
       response: {
         tag: { speaker: t.role === 'assistant' ? 'system' : t.role },
         content: t.content,
       },
       timestamp: new Date(t.created_at).getTime(),
     }));
+
+    // Prepend summary as synthetic system turn
+    if (summaryData) {
+      history.unshift({
+        response: {
+          tag: { speaker: 'system' },
+          content: `[Souhrn předchozí konverzace]\n${summaryData.summary}`,
+        },
+        timestamp: 0,
+        isSummary: true,
+      });
+    }
+
+    return history;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // v67.0 Auto-Compact Helpers
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Get estimated total tokens for a conversation.
+   * Uses the rough `Math.ceil(content.length / 4)` estimate stored per turn.
+   *
+   * @param {string} conversationId
+   * @returns {number}
+   */
+  getEstimatedTokens(conversationId) {
+    if (!conversationId) return 0;
+
+    if (this.#db) {
+      try {
+        const row = this.#db.db.prepare(
+          'SELECT COALESCE(SUM(tokens), 0) as total FROM messages WHERE conversation_id = ?'
+        ).get(conversationId);
+        return row?.total || 0;
+      } catch (err) {
+        logger.warn('ConversationStore', `getEstimatedTokens DB error: ${err.message}`);
+        return 0;
+      }
+    }
+
+    // In-memory
+    return this._memMessages
+      .filter(m => m.conversation_id === conversationId)
+      .reduce((sum, m) => sum + (m.tokens || 0), 0);
+  }
+
+  /**
+   * Get turns after a specific message ID (for post-summary context).
+   *
+   * @param {string} conversationId
+   * @param {number} afterMsgId — Return turns with id > afterMsgId
+   * @returns {Array<{ id: number, role: string, content: string, metadata: Object, created_at: string }>}
+   */
+  getTurnsAfterId(conversationId, afterMsgId) {
+    if (!conversationId) return [];
+
+    if (this.#db) {
+      try {
+        const rows = this.#db.db.prepare(
+          'SELECT id, role, content, tokens, metadata, created_at FROM messages WHERE conversation_id = ? AND id > ? ORDER BY id ASC'
+        ).all(conversationId, afterMsgId);
+        return (rows || []).map(row => ({
+          id: row.id,
+          role: row.role,
+          content: row.content,
+          tokens: row.tokens,
+          metadata: this.#parseMetadata(row.metadata),
+          created_at: row.created_at,
+        }));
+      } catch (err) {
+        logger.error('ConversationStore', `getTurnsAfterId DB error: ${err.message}`);
+        return [];
+      }
+    }
+
+    // In-memory
+    return this._memMessages
+      .filter(m => m.conversation_id === conversationId && m.id > afterMsgId)
+      .sort((a, b) => a.id - b.id)
+      .map(row => ({
+        id: row.id,
+        role: row.role,
+        content: row.content,
+        tokens: row.tokens,
+        metadata: this.#parseMetadata(row.metadata),
+        created_at: row.created_at,
+      }));
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -479,7 +580,7 @@ export class ConversationStore {
 
     if (this.#db) {
       try {
-        this.#db.prepare(
+        this.#db.db.prepare(
           'UPDATE conversations SET summary = ?, summary_up_to_msg_id = ? WHERE id = ?'
         ).run(summary, upToMsgId, conversationId);
         return;
@@ -504,7 +605,7 @@ export class ConversationStore {
   getSummary(conversationId) {
     if (this.#db) {
       try {
-        const row = this.#db.prepare(
+        const row = this.#db.db.prepare(
           'SELECT summary, summary_up_to_msg_id as upToMsgId FROM conversations WHERE id = ?'
         ).get(conversationId);
         if (row?.summary) {

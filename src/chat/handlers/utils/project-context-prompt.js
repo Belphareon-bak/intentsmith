@@ -44,6 +44,16 @@ export function buildProjectContext(context) {
   const goal = sanitize(context.projectGoal, MAX_GOAL);
   if (goal) ctx += '\n- Cíl: ' + goal;
 
+  // v67.0: Memory Bank — inject project-scoped persistent memories
+  if (context.memoryBankContext) {
+    ctx += '\n\n' + context.memoryBankContext;
+  }
+
+  // v67.0: Context Init — first-turn project scan (README, structure, stack)
+  if (context.contextInitBlock) {
+    ctx += '\n\n' + context.contextInitBlock;
+  }
+
   ctx += '\n\nTento projekt je aktuální kontext uživatele.';
   return ctx;
 }

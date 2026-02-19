@@ -1,6 +1,6 @@
 # CLAUDE.md - C.3 Agent Development Context
 
-**Verze:** v65.6
+**Verze:** v65.7
 **Datum:** 2026-02-19
 **Projekt:** ~/Projects/c3-agent-wip
 
@@ -13,7 +13,8 @@ C.3 Agent je plne funkcni conversational AI platforma s:
 - **Expert System** (v63) — 15 built-in expertu s 5D capability profily, multi-expertise merge engine, enforcement pipeline, execution trace observability
 - **Quality Gate v2** (v62.3+) — deterministicky post-processing pipeline: structural fix, SK→CZ transliterator (~160 regexu), LinkGuard, content enforcement
 - **Agent Platform** — deterministicke worker agenty se zdroji, podminkami, triggery, notifikacemi + **Agent Builder Wizard (v65.5)**
-- **Project Lifecycle** — milnikove rizeni projektu s crash recovery + **project context injection (v65.4)** + **lifecycle session routing fix (v65.6)**
+- **Project Lifecycle** — milnikove rizeni projektu s crash recovery + **project context injection (v65.4)** + **lifecycle session routing fix (v65.6)** + **real LLM E2E test (v65.7)**
+- **Product Modules** (v65.7) — Setup Wizard (first-run + API), Auto-updater (background checker), License system (3 tiers + feature gates)
 - **C3 Studio IDE** — Theia 1.65.2, custom panely, linked sessions, expertise wizard, agent builder wizard
 - **WebSocket Bridge** — IDE ↔ Backend WS bridge s feature negotiation, session routing, file watcher
 
@@ -62,9 +63,13 @@ C.3 Agent je plne funkcni conversational AI platforma s:
 | CRE Gatekeeper | 43 | pass |
 | Modules | 23 | pass |
 | Lifecycle unit | 103 | pass |
+| Design Tests | 100 | pass |
+| Sprint D | 21 | pass |
+| Expert A/B (A7) | 5 (LLM) | pass (5/5 win/tie) |
+| Lifecycle Real LLM (C3) | 10 (LLM) | pass |
 | E2E Quality Deep | 36 (LLM) | 89-97% |
 | Chat Quality | 33 (LLM) | 32/33 |
-| **Deterministicke celkem** | **~1300+** | **pass** |
+| **Deterministicke celkem** | **~1400+** | **pass** |
 
 ### E2E Quality Deep — aktualni stav (2026-02-19)
 
@@ -432,9 +437,25 @@ node tests/chat-quality.test.js      # ~32/33
 | POST | /api/build/start | Spustit build |
 | GET | /api/build/status | Status buildu |
 
+### Setup Wizard (v65.7)
+| Method | Path | Popis |
+|--------|------|-------|
+| GET | /api/setup/status | Stav setup wizardu |
+| POST | /api/setup/ollama | Nastavit + overit Ollama URL |
+| POST | /api/setup/language | Nastavit jazyk (cs/en) |
+| POST | /api/setup/notifications | Nastavit notifikacni kanal |
+| POST | /api/setup/license | Nastavit licencni klic |
+| POST | /api/setup/complete | Dokoncit setup |
+
+### License (v65.7)
+| Method | Path | Popis |
+|--------|------|-------|
+| GET | /api/license/status | Tier, features, expiry, owner |
+
 ### Misc
 | Method | Path | Popis |
 |--------|------|-------|
+| GET | / | Health check + version + setupComplete |
 | GET | /api/health | Health check |
 | GET | /api/logs | Aplikacni logy |
 | GET | /api/logs/export | Export logu |
@@ -494,6 +515,11 @@ Kazdy override logovan do `cre_override_log` tabulky.
 - `getLcStateByProject(projectId)` RAM lookup pri sessionId mismatch
 - State migrace z puvodniho sessionId na novy WS sessionId
 
+### 11. Product Modules (v65.7)
+- **Setup Wizard**: `SetupWizard` class v `src/setup/wizard.js`, first-run detection pres `isComplete()`, API routes pres `createSetupRoutes(wizard, deps)`
+- **Auto-updater**: `startUpdateChecker(callback)` v `src/packaging/auto-updater.js`, aktivni jen pri `C3_UPDATE_REPO` env var, `stopUpdateChecker()` v shutdown
+- **License**: `licenseManager` singleton v `src/licensing/license.js`, 3 tiers (FREE/PRO/ENTERPRISE), HW fingerprint, HMAC signing, FREE tier gatuje agent/worker routes (403)
+
 ---
 
 ## Zname problemy a omezeni
@@ -533,4 +559,4 @@ Kazdy override logovan do `cre_override_log` tabulky.
 
 ---
 
-*Posledni aktualizace: v65.6 (2026-02-19)*
+*Posledni aktualizace: v65.7 (2026-02-19)*

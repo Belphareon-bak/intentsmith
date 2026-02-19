@@ -15,6 +15,9 @@ import { logger } from '../core/logger.js';
 import { SafetyEngine } from './safety/engine.js';
 import { getConversationStore, TurnRole } from './conversation-store.js';
 import { getLTMContextForSynthesis } from './ltm-context.js';
+import { maybeCompact } from './context-compact.js';
+import { maybeInitContext } from './context-init.js';
+import { getMemoryBank } from '../memory/memory-bank.js';
 import db from '../db/database.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1624,6 +1627,32 @@ ChatController.handle = async function(request) {
     logger.warn('ChatController', `LTM context extraction failed: ${err.message}`);
   }
 
+  // v67.0: Build Memory Bank context (project-scoped persistent memory)
+  let memoryBankContext = '';
+  try {
+    const projectId = context.projectId || state.project?.id;
+    if (projectId) {
+      const bank = getMemoryBank(db);
+      if (bank) {
+        memoryBankContext = bank.buildContext(projectId);
+      }
+    }
+  } catch (err) {
+    logger.warn('ChatController', `Memory Bank context failed: ${err.message}`);
+  }
+
+  // v67.0: Context Init — hierarchical scan on first project turn
+  let contextInitBlock = '';
+  try {
+    const projectId = context.projectId || state.project?.id;
+    if (projectId && state.project?.path) {
+      const bank = getMemoryBank();
+      contextInitBlock = maybeInitContext(dbConversationId, state.project, bank);
+    }
+  } catch (err) {
+    logger.warn('ChatController', `Context Init failed: ${err.message}`);
+  }
+
   // ════════════════════════════════════════════════════════════════════════════
   // UPDATE SESSION STATE (v44.1 - persistent project/expert)
   // ════════════════════════════════════════════════════════════════════════════
@@ -1695,6 +1724,10 @@ ChatController.handle = async function(request) {
     dbHistory,
     // v56.0 Sprint 3 — LTM context for synthesis
     ltmContext,
+    // v67.0 — Memory Bank context for synthesis
+    memoryBankContext,
+    // v67.0 — Context Init block (first turn only)
+    contextInitBlock,
     // v56.0 Sprint 3 — ConversationStore reference
     conversationStore: store,
     // v63.0: AbortSignal for cancel propagation (from server req.on('close'))
@@ -1729,6 +1762,13 @@ ChatController.handle = async function(request) {
   } catch (err) {
     logger.error('ChatController', `Failed to persist assistant turn: ${err.message}`);
     // Continue — response is still valid even if persistence fails
+  }
+
+  // v67.0: Auto-Compact — fire background context compression if threshold exceeded
+  try {
+    maybeCompact(dbConversationId, store, sessionId);
+  } catch (err) {
+    logger.warn('ChatController', `Auto-compact trigger failed: ${err.message}`);
   }
 
   // Auto-title conversation from first user message

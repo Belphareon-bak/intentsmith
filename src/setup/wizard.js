@@ -335,54 +335,58 @@ export async function runInteractiveWizard(dataDir = './data') {
 
 /**
  * Create HTTP route handlers for setup API.
- * Add to server.js routes object.
+ * Compatible with server.js route convention: (req, res) handlers using sendJSON/parseBody from deps.
  */
-export function createSetupRoutes(wizard) {
+export function createSetupRoutes(wizard, deps = {}) {
+  const { sendJSON, parseBody } = deps;
   return {
     'GET /api/setup/status': (req, res) => {
-      const status = wizard.getStatus();
-      return { status: 200, data: status };
+      sendJSON(res, 200, wizard.getStatus());
     },
 
-    'POST /api/setup/ollama': async (req, body) => {
+    'POST /api/setup/ollama': async (req, res) => {
+      const body = await parseBody(req);
       const { url } = body;
-      if (!url) return { status: 400, error: 'url required' };
+      if (!url) return sendJSON(res, 400, { error: 'url required' });
 
       wizard.config.ollama.url = url;
       const result = await wizard.verifyOllama(url);
       if (result.ok) {
         const models = await wizard.checkModels(url);
-        return { status: 200, data: { ...result, ...models } };
+        return sendJSON(res, 200, { ...result, ...models });
       }
-      return { status: 200, data: result };
+      sendJSON(res, 200, result);
     },
 
-    'POST /api/setup/language': (req, body) => {
+    'POST /api/setup/language': async (req, res) => {
+      const body = await parseBody(req);
       const { language } = body;
-      if (!['cs', 'en'].includes(language)) return { status: 400, error: 'Invalid language' };
+      if (!['cs', 'en'].includes(language)) return sendJSON(res, 400, { error: 'Invalid language' });
       wizard.config.language = language;
-      return { status: 200, data: { language } };
+      sendJSON(res, 200, { language });
     },
 
-    'POST /api/setup/notifications': (req, body) => {
+    'POST /api/setup/notifications': async (req, res) => {
+      const body = await parseBody(req);
       const { channel, config: channelConfig } = body;
       if (!['telegram', 'email', 'ntfy'].includes(channel)) {
-        return { status: 400, error: 'Invalid channel' };
+        return sendJSON(res, 400, { error: 'Invalid channel' });
       }
       wizard.update('notifications', { [channel]: { enabled: true, ...channelConfig } });
-      return { status: 200, data: { channel, enabled: true } };
+      sendJSON(res, 200, { channel, enabled: true });
     },
 
-    'POST /api/setup/license': (req, body) => {
+    'POST /api/setup/license': async (req, res) => {
+      const body = await parseBody(req);
       const { key } = body;
       wizard.config.license.key = key || '';
-      return { status: 200, data: { hasKey: !!key } };
+      sendJSON(res, 200, { hasKey: !!key });
     },
 
-    'POST /api/setup/complete': (req, body) => {
+    'POST /api/setup/complete': async (req, res) => {
       wizard.complete();
       wizard.writeEnvFile();
-      return { status: 200, data: { completed: true } };
+      sendJSON(res, 200, { completed: true });
     },
   };
 }

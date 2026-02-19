@@ -63,10 +63,19 @@ export function setLcState(sessionId, state) {
   // Write-through to DB (non-fatal if DB not initialized)
   if (_handoffDb) {
     try {
+      // Validate lifecycle_id FK before write — avoids FOREIGN KEY constraint failed
+      let safeLifecycleId = state.lifecycleId || null;
+      if (safeLifecycleId && _lifecyclesDb) {
+        const lc = _lifecyclesDb.findById.get(safeLifecycleId);
+        if (!lc) {
+          logger.warn('LifecycleState', `lifecycleId ${safeLifecycleId} not in project_lifecycles, skipping DB write-through`);
+          return; // RAM state is set, skip DB write
+        }
+      }
       _handoffDb.upsert.run(
         sessionId,
         state.phase,
-        state.lifecycleId || null,
+        safeLifecycleId,
         state.currentMilestoneId || null,
         state.originalRequest || null,
         state.projectId || null,

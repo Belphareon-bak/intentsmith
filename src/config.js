@@ -94,6 +94,14 @@ export const config = {
     learningThreshold: 3,
   },
 
+  // Context auto-compact (background conversation compression)
+  compact: {
+    contextWindow: parseInt(process.env.C3_CONTEXT_WINDOW || '32768'),   // model context window in tokens
+    threshold: parseFloat(process.env.C3_COMPACT_THRESHOLD || '0.75'),   // trigger at 75% fill (safe margin)
+    keepTurns: parseInt(process.env.C3_COMPACT_KEEP_TURNS || '6'),       // keep last N turns uncompressed
+    summaryModel: process.env.C3_COMPACT_MODEL || null,                  // null = use CHAT model
+  },
+
   // Database
   db: {
     path: process.env.C3_DB_PATH || './data/c3.db',

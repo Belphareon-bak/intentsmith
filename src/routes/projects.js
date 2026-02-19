@@ -1,4 +1,6 @@
 // H9: Projects, Workspace & Attachments routes
+import { generateReadme, ensureReadme } from '../chat/handlers/utils/readme-generator.js';
+
 export function createProjectRoutes(deps) {
   const { db, parseBody, sendJSON, safeError, safeParseInt, sendStaticFile, logger, path } = deps;
 
@@ -148,8 +150,9 @@ export function createProjectRoutes(deps) {
         await fs.writeFile(pathModule.join(projectPath, '.c3', 'project.json'), JSON.stringify(meta, null, 2) + '\n');
         scaffoldLog.push('.c3/project.json');
 
-        // README.md
-        await fs.writeFile(pathModule.join(projectPath, 'README.md'), '# ' + name + '\n\n' + (description || '') + '\n\n> Vytvořeno v C3 Studio\n');
+        // v67.0: README-first — generate structured README.md
+        const readmeContent = generateReadme(projectPath, { name, description });
+        await fs.writeFile(pathModule.join(projectPath, 'README.md'), readmeContent);
         scaffoldLog.push('README.md');
 
         // Create in DB with lifecycle SPEC
@@ -325,14 +328,17 @@ export function createProjectRoutes(deps) {
 
         const lcId = `lc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-        // Also create lifecycle record in DB if possible
+        // Create lifecycle record in DB
         try {
           const specData = { name: projectName, type: type || 'general', description: description || '', goals: [], requirements: [] };
-          db.run(
-            'INSERT OR IGNORE INTO project_lifecycles (id, project_id, phase, spec, config, active_session_id) VALUES (?, ?, ?, ?, ?, ?)',
-            [lcId, projectId || null, 'SPEC', JSON.stringify(specData), '{}', sessionId]
-          );
-        } catch (e) { /* table may not exist yet */ }
+          // Validate projectId FK before insert
+          const safeProjectId = projectId ? (db.projects.findById.get(projectId) ? projectId : null) : null;
+          db.db.prepare(
+            'INSERT OR IGNORE INTO project_lifecycles (id, project_id, phase, spec, config, active_session_id) VALUES (?, ?, ?, ?, ?, ?)'
+          ).run(lcId, safeProjectId, 'SPEC', JSON.stringify(specData), '{}', sessionId);
+        } catch (e) {
+          logger.warn('Projects', `Lifecycle DB insert failed: ${e.message}`);
+        }
 
         // Activate lifecycle on session — phase SPEC
         setLcState(sessionId, {
@@ -985,5 +991,80 @@ export function createProjectRoutes(deps) {
         sendJSON(res, 500, { error: err.message });
       }
     },
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // v67.0: Memory Bank — Project-Scoped Persistent Memory
+    // ══════════════════════════════════════════════════════════════════════════
+
+    'GET /api/projects/:id/memory': (req, res) => {
+      const projectId = safeParseInt(req.params?.id);
+      if (!projectId) return sendJSON(res, 400, { error: 'Invalid project ID' });
+
+      const category = req.query?.category || null;
+      const entries = db.projectMemory.listByProject.all(projectId);
+      const filtered = category
+        ? entries.filter(e => e.category === category)
+        : entries;
+
+      sendJSON(res, 200, {
+        projectId,
+        entries: (filtered || []).map(e => ({
+          key: e.key,
+          value: _parseValue(e.value),
+          category: e.category,
+          updated_at: e.updated_at,
+        })),
+      });
+    },
+
+    'PUT /api/projects/:id/memory': async (req, res) => {
+      const projectId = safeParseInt(req.params?.id);
+      if (!projectId) return sendJSON(res, 400, { error: 'Invalid project ID' });
+
+      const body = await parseBody(req);
+      const { key, value, category } = body;
+      if (!key) return sendJSON(res, 400, { error: 'key is required' });
+
+      try {
+        db.projectMemory.setValue(projectId, key, value, category || 'general');
+        sendJSON(res, 200, { stored: true, key, category: category || 'general' });
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    // v67.0: README-first — generate/regenerate README.md for a project
+    'POST /api/projects/:id/readme': (req, res) => {
+      const projectId = safeParseInt(req.params?.id);
+      if (!projectId) return sendJSON(res, 400, { error: 'Invalid project ID' });
+
+      try {
+        const project = db.projects.findById.get(projectId);
+        if (!project || !project.path) return sendJSON(res, 404, { error: 'Project not found or has no path' });
+
+        const result = ensureReadme(project.path, { name: project.name, description: project.description || '' });
+        sendJSON(res, 200, result);
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    'DELETE /api/projects/:id/memory/:key': (req, res) => {
+      const projectId = safeParseInt(req.params?.id);
+      const key = req.params?.key;
+      if (!projectId || !key) return sendJSON(res, 400, { error: 'Invalid project ID or key' });
+
+      try {
+        db.projectMemory.delete.run(projectId, decodeURIComponent(key));
+        sendJSON(res, 200, { deleted: true, key });
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
   };
+}
+
+function _parseValue(raw) {
+  if (raw === null || raw === undefined) return null;
+  try { return JSON.parse(raw); } catch { return raw; }
 }

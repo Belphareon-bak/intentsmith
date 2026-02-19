@@ -411,7 +411,9 @@ class LLMGateway {
           content: output,
           model,
           duration,
-          role: authToken?.role || options.legacyRole
+          role: authToken?.role || options.legacyRole,
+          promptEvalCount: data.prompt_eval_count || null,
+          evalCount: data.eval_count || null,
         };
         
       } catch (err) {
