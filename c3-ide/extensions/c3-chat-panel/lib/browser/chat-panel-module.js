@@ -56,6 +56,11 @@ var C=Object.assign({},_C_DEFAULT);
 /* Font-size scaling — _fs(base) returns scaled px value, containers stay fixed */
 var _fsScale=1;
 function _fs(b){return Math.round(b*_fsScale*10)/10;}
+/* Load Google Fonts at startup — base fonts for settings + pro theme fonts */
+(function(){if(!document.getElementById('c3-base-fonts')){
+  var lk=document.createElement('link');lk.id='c3-base-fonts';lk.rel='stylesheet';
+  lk.href='https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Fira+Code:wght@400;500;600&display=swap';
+  document.head.appendChild(lk);}})();
 /* Glass background mappings for pro themes — used instead of solid hex for CSS vars */
 var _PRO_GLASS={
   matrix:{bg0:'transparent',bg1:'rgba(2,4,16,0.90)',bg2:'rgba(4,8,24,0.88)',bg3:'rgba(6,16,32,0.85)',bg4:'rgba(10,20,40,0.82)',bg5:'rgba(14,26,50,0.80)'},
@@ -1885,11 +1890,15 @@ function _applyFont(){
   ['c3-center-mount','c3-sidebar','c3-chat-panel','c3-agent-panel'].forEach(function(id){
     var el=document.getElementById(id);if(el){el.style.zoom='';el.style.fontFamily=ff.val;}});
   var sid='c3-font-override';var ex=document.getElementById(sid);
-  if(fs!==13){
-    var css='#c3-chat-panel .c3-chat-msg-text{font-size:'+fs+'px!important;}';
-    if(!ex){ex=document.createElement('style');ex.id=sid;document.head.appendChild(ex);}
-    ex.textContent=css;
-  } else if(ex){ex.textContent='';}
+  if(!ex){ex=document.createElement('style');ex.id=sid;document.head.appendChild(ex);}
+  var css='#c3-center-mount span,#c3-center-mount div,#c3-center-mount p,#c3-center-mount button,'+
+    '#c3-center-mount label,#c3-center-mount h3,#c3-center-mount h4,'+
+    '#c3-sidebar span,#c3-sidebar div,#c3-sidebar button,'+
+    '#c3-chat-panel span,#c3-chat-panel div,#c3-chat-panel textarea,#c3-chat-panel input,'+
+    '#c3-agent-panel span,#c3-agent-panel div{font-family:'+ff.val+';}\n'+
+    '.codicon,.codicon *{font-family:"codicon"!important;}\n';
+  if(fs!==13){css+='#c3-chat-panel .c3-chat-msg-text{font-size:'+fs+'px!important;}';}
+  ex.textContent=css;
 }
 function _applyAllSettings(){_applyTheme();var _ctm=localStorage.getItem('c3-theme-mode');if(_ctm&&_ctm!=='clean'){_applyColorTheme(_ctm);}_applyAccent();_injectProThemeCSS(_ctm||'clean');_applyFont();_injectCustomCSS(_settingsVals.customCSS);renderCenter();renderChat();renderAgent();if(typeof renderSidebar==='function')renderSidebar();}
 /* Apply saved settings on load */
