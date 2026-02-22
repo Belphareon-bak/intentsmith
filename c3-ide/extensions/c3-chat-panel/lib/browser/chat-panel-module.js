@@ -317,6 +317,8 @@ var WORKERS=[];
 var SETTINGS_SECTIONS=[{icon:'👤',title:'User / Identity',fields:[{l:'Jméno',v:'Belfik',t:'input'},{l:'E-mail',v:'belfik@c3.local',t:'input'},{l:'Role',v:'Developer',t:'select',opts:['Developer','Admin','User']}]},{icon:'🔔',title:'Notifications',fields:[{l:'Zvukové notifikace',v:true,t:'toggle'},{l:'Desktopové notifikace',v:true,t:'toggle'}]},{icon:'🎨',title:'Appearance',fields:[{l:'Téma'},{l:'Accent'},{l:'Pozadí'},{l:'Intenzita aktivní'},{l:'Intenzita neaktivní'},{l:'Velikost písma'},{l:'Písmo'}]},{icon:'🧠',title:'Memory & Context',fields:[{l:'Systémový prompt',v:'Vždy odpovídej v češtině.',t:'textarea'},{l:'Ukládat historii',v:true,t:'toggle'},{l:'Kontext',v:true,t:'toggle'}]},{icon:'📍',title:'Location',fields:[{l:'Město',v:'Praha',t:'input'},{l:'Země',v:'CZ',t:'input'},{l:'Jazyk',v:'Čeština',t:'select',opts:['Čeština','English']}]},{icon:'📄',title:'Output & Formats',fields:[{l:'Markdown výstup',v:true,t:'toggle'},{l:'Kódové bloky',v:true,t:'toggle'}]},{icon:'🖥️',title:'System',fields:[{l:'Model',v:'qwen2.5:32b',t:'select',opts:['qwen2.5:32b','llama3.1:70b','mistral:7b']},{l:'Ollama URL',v:'http://localhost:11434',t:'input'},{l:'Složka projektů',v:'',t:'projectsDir'}]},{icon:'ℹ️',title:'About',fields:[]}];
 var FILES=[];
 var _collapsedDirs={};var _wtRoot='';var _wtLoading=false;var _wtRenaming=null;var _wtNewInput=null;
+/* Expose _wtRoot on window so ws-client.js can send cwd with terminal commands */
+Object.defineProperty(window,'_wtRoot',{get:function(){return _wtRoot;},set:function(v){_wtRoot=v;}});
 var _wtRawTree=null; /* raw nested tree from backend — re-flatten on collapse toggle */
 /* ── Per-session working tree state (v64.3) ── */
 var _perSessionTree={}; /* sessionIdx → {wtRoot, collapsedDirs, rawTree, files} */
@@ -2917,6 +2919,44 @@ function _newChatDialogAction(choice){
   _newChatDialog=null;_sessionActive=idx;_persistSessionState();renderChat();
 }
 
+/* v70: Close-pane dialog state */
+var _closeDialog=null; /* null | {idx} */
+function _closeDialogAction(choice){
+  if(!_closeDialog)return;
+  var idx=_closeDialog.idx;var s=_sessions[idx];
+  _closeDialog=null;
+  if(!s){renderChat();return;}
+  if(choice==='conv'){
+    /* A) Close conversation only — reset pane to empty state */
+    s._convId=null;s._projectId=null;s._agentId=null;s._lifecycleResumed=false;
+    s.chat.msgs=[{role:'system',text:'C3 Studio připraven. Začni psát zprávu.'}];
+    s.chat.ctx=0;s.chat.expertise='Výchozí';s.chat.attachments=[];
+    _perSessionTree[idx]=null;
+    if(idx===_sessionActive){_wtRoot='';_wtRawTree=null;FILES=[];renderSidebar();}
+    _persistSessionState();
+  } else if(choice==='pane'){
+    /* B) Close conversation + reduce panel count */
+    s._convId=null;s._projectId=null;s._agentId=null;s._lifecycleResumed=false;
+    s.chat.msgs=[{role:'system',text:'C3 Studio připraven. Začni psát zprávu.'}];
+    s.chat.ctx=0;s.chat.expertise='Výchozí';s.chat.attachments=[];
+    _perSessionTree[idx]=null;
+    if(_sessionCount>1){
+      /* Swap closed pane with last pane if not already last, then reduce count */
+      if(idx<_sessionCount-1){
+        var last=_sessions[_sessionCount-1];_sessions[_sessionCount-1]=s;_sessions[idx]=last;
+        var tmpTree=_perSessionTree[_sessionCount-1];_perSessionTree[_sessionCount-1]=_perSessionTree[idx];_perSessionTree[idx]=tmpTree;
+        if(_sessionActive===_sessionCount-1)_sessionActive=idx;
+      }
+      _setSessionCount(_sessionCount-1);
+    }
+    _persistSessionState();
+    if(_sessionActive>=_sessionCount)_sessionActive=_sessionCount-1;
+    if(idx===_sessionActive||_sessionActive<0)_sessionActive=0;
+  }
+  /* choice==='cancel' → do nothing */
+  renderChat();
+}
+
 var _chatContainer=null;
 
 /* ── Bus subscriptions (transport → UI) ── */
@@ -3370,9 +3410,9 @@ function _chatPaneUI(idx){
       /* Context meter */
       h('div',{style:{display:'flex',alignItems:'center',gap:3,fontSize:_fs(9),color:C.tx4,fontFamily:C.mono}},
         h('div',{style:{width:30,height:3,background:C.bg4,borderRadius:2,overflow:'hidden'}},h('div',{style:{height:'100%',background:C.accent,borderRadius:2,width:st.ctx+'%'}})),h('span',null,st.ctx+'%')),
-      /* Close button — reset pane to empty state */
+      /* Close button — opens dialog with options */
       (s._convId||s._projectId)?h('button',{style:{background:'none',border:'none',color:C.tx4,cursor:'pointer',fontSize:_fs(13),padding:'0 2px',lineHeight:1,marginLeft:2},
-        title:'Zavřít konverzaci',onClick:function(ev){ev.stopPropagation();s._convId=null;s._projectId=null;s._agentId=null;s.chat.msgs=[{role:'system',text:'C3 Studio připraven. Začni psát zprávu.'}];s.chat.ctx=0;s.chat.expertise='Výchozí';_persistSessionState();renderChat();}},'×'):null),
+        title:'Zavřít',onClick:function(ev){ev.stopPropagation();_closeDialog={idx:idx};renderChat();}},'×'):null),
     /* NEW CHAT DIALOG (v64.4) */
     _newChatDialog&&_newChatDialog.idx===idx?h('div',{style:{position:'absolute',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.6)',zIndex:50,display:'flex',alignItems:'center',justifyContent:'center'},
       onClick:function(ev){ev.stopPropagation();_newChatDialogAction('cancel');}},
@@ -3386,6 +3426,18 @@ function _chatPaneUI(idx){
           onClick:function(){_newChatDialogAction('free');}},'B) Nová konverzace mimo projekt'),
         h('button',{style:{display:'block',width:'100%',padding:'8px 12px',background:'transparent',color:C.tx4,border:'1px solid '+C.border,borderRadius:6,fontSize:_fs(11),cursor:'pointer',textAlign:'left'},
           onClick:function(){_newChatDialogAction('cancel');}},'C) Zrušit'))):null,
+    /* CLOSE DIALOG (v70) */
+    _closeDialog&&_closeDialog.idx===idx?h('div',{style:{position:'absolute',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.6)',zIndex:50,display:'flex',alignItems:'center',justifyContent:'center'},
+      onClick:function(ev){ev.stopPropagation();_closeDialogAction('cancel');}},
+      h('div',{style:{background:C.bg2,border:'1px solid '+C.border2,borderRadius:12,padding:'16px 20px',minWidth:200,maxWidth:260,boxShadow:'0 12px 40px rgba(0,0,0,0.5)'},
+        onClick:function(ev){ev.stopPropagation();}},
+        h('div',{style:{fontSize:_fs(13),fontWeight:700,color:C.tx1,marginBottom:12}},'Zavřít'),
+        h('button',{style:{display:'block',width:'100%',padding:'8px 12px',marginBottom:6,background:C.accentBg,color:C.accentText,border:'1px solid '+C.accent,borderRadius:6,fontSize:_fs(11),fontWeight:600,cursor:'pointer',textAlign:'left'},
+          onClick:function(){_closeDialogAction('conv');}},'A) Zavřít konverzaci'),
+        _sessionCount>1?h('button',{style:{display:'block',width:'100%',padding:'8px 12px',marginBottom:6,background:C.bg3,color:C.tx2,border:'1px solid '+C.border2,borderRadius:6,fontSize:_fs(11),fontWeight:600,cursor:'pointer',textAlign:'left'},
+          onClick:function(){_closeDialogAction('pane');}},'B) Zavřít konverzaci i panel'):null,
+        h('button',{style:{display:'block',width:'100%',padding:'8px 12px',background:'transparent',color:C.tx4,border:'1px solid '+C.border,borderRadius:6,fontSize:_fs(11),cursor:'pointer',textAlign:'left'},
+          onClick:function(){_closeDialogAction('cancel');}},'C) Zrušit'))):null,
     /* FEED */
     h('div',{id:'c3-chat-feed-'+idx,style:{flex:1,overflowY:'auto',overflowX:'hidden',padding:8,minWidth:0}},
       st.msgs.map(function(m,i){var u=m.role==='user',a=m.role==='assistant';var bub=_settingsVals.visualMode==='borders';
@@ -3501,6 +3553,78 @@ function _agentLogContent(s){
       h('span',{style:{fontWeight:600,minWidth:60,flexShrink:0,color:TC[e.cls]||C.tx3}},e.type),
       h('span',{style:{color:C.tx2}},e.text));}));
 }
+/* ── Terminal command history (per-session) ── */
+var _termHistory={};   /* sessionIdx → [cmd1, cmd2, ...] */
+var _termHistIdx={};   /* sessionIdx → current browse position (-1 = new input) */
+var _termHistDraft={}; /* sessionIdx → draft text before browsing history */
+var _termTabAbort=null; /* AbortController for Tab completion */
+
+function _termExec(idx,v){
+  if(!v)return;
+  /* Save to history (dedup consecutive) */
+  if(!_termHistory[idx])_termHistory[idx]=[];
+  var hist=_termHistory[idx];
+  if(hist[hist.length-1]!==v)hist.push(v);
+  if(hist.length>100)hist.shift(); /* cap at 100 */
+  _termHistIdx[idx]=-1;
+  _termHistDraft[idx]='';
+  if(typeof C3Terminal!=='undefined')C3Terminal.send(idx,v);
+}
+
+function _termTabComplete(idx,el){
+  var val=el.value;if(!val)return;
+  /* Parse: extract last token (path-like) for completion */
+  var parts=val.split(/\s+/);
+  var lastToken=parts[parts.length-1]||'';
+  var prefix=parts.slice(0,-1).join(' ');
+  if(prefix)prefix+=' ';
+  /* Determine directory to list */
+  var cwd=window._wtRoot||'';
+  if(!cwd)return;
+  var dir=cwd;
+  var partial=lastToken;
+  /* If token has a slash, split into dir part + partial name */
+  var slashIdx=lastToken.lastIndexOf('/');
+  if(slashIdx>=0){
+    var tokenDir=lastToken.substring(0,slashIdx+1);
+    partial=lastToken.substring(slashIdx+1);
+    if(tokenDir.charAt(0)==='/')dir=tokenDir;
+    else dir=cwd+'/'+tokenDir;
+  }
+  /* Fetch directory listing from backend */
+  if(_termTabAbort)try{_termTabAbort.abort();}catch(e){}
+  _termTabAbort=new AbortController();
+  fetch(_backendBase+'/api/workspace/ls?path='+encodeURIComponent(dir)+'&prefix='+encodeURIComponent(partial),{signal:_termTabAbort.signal})
+  .then(function(r){return r.json();})
+  .then(function(d){
+    if(!d.entries||d.entries.length===0)return;
+    if(d.entries.length===1){
+      /* Single match — auto-complete */
+      var match=d.entries[0];
+      var completed=match.name+(match.isDir?'/':'');
+      if(slashIdx>=0){completed=lastToken.substring(0,slashIdx+1)+completed;}
+      el.value=prefix+completed;
+    }else{
+      /* Multiple matches — find common prefix and show options in terminal */
+      var names=d.entries.map(function(e){return e.name;});
+      var common=names[0];
+      for(var i=1;i<names.length;i++){
+        while(names[i].indexOf(common)!==0&&common.length>0)common=common.substring(0,common.length-1);
+      }
+      if(common.length>partial.length){
+        if(slashIdx>=0){common=lastToken.substring(0,slashIdx+1)+common;}
+        el.value=prefix+common;
+      }
+      /* Show options in terminal output */
+      var s=_sessions[idx];if(s){
+        s.term.push({text:names.map(function(n){return n;}).join('  '),ts:new Date().toISOString(),type:'output'});
+        s.term.push({text:'$ '+el.value,ts:new Date().toISOString(),type:'prompt'});
+        renderAgent();
+      }
+    }
+  }).catch(function(){/* ignore abort/network errors */});
+}
+
 function _terminalContent(s,idx){
   var isExec=typeof C3Terminal!=='undefined'&&C3Terminal.isExecuting(idx);
   return h('div',{style:{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}},
@@ -3512,9 +3636,50 @@ function _terminalContent(s,idx){
     /* Terminal input */
     h('div',{style:{display:'flex',alignItems:'center',gap:4,padding:'3px 6px',borderTop:'1px solid '+C.border,background:C.bg2,flexShrink:0}},
       h('span',{style:{color:C.accentText,fontFamily:C.mono,fontSize:_fs(11),flexShrink:0}},'$'),
-      h('input',{id:'c3-term-input-'+idx,style:{flex:1,background:'none',border:'none',outline:'none',color:C.tx1,fontFamily:C.mono,fontSize:_fs(11.5)},
+      h('input',{id:'c3-term-input-'+idx,key:'term-input-'+idx,autoFocus:true,
+        style:{flex:1,background:'none',border:'none',outline:'none',color:C.tx1,fontFamily:C.mono,fontSize:_fs(11.5)},
         placeholder:isExec?'Čekám na dokončení...':'Zadej příkaz...',disabled:isExec,
-        onKeyDown:function(e){if(e.key==='Enter'){var v=e.target.value.trim();if(v&&typeof C3Terminal!=='undefined'){C3Terminal.send(idx,v);e.target.value='';renderAgent();requestAnimationFrame(function(){var el=document.getElementById('c3-term-input-'+idx);if(el&&!el.disabled)el.focus();});}}}}),
+        ref:function(el){if(el&&!isExec)setTimeout(function(){el.focus();},50);},
+        onKeyDown:function(e){
+          /* Enter — execute command */
+          if(e.key==='Enter'){
+            var v=e.target.value.trim();
+            if(v){_termExec(idx,v);e.target.value='';renderAgent();
+              setTimeout(function(){var el=document.getElementById('c3-term-input-'+idx);if(el&&!el.disabled)el.focus();},100);}
+            return;
+          }
+          /* Tab — autocomplete file/dir names */
+          if(e.key==='Tab'){
+            e.preventDefault();
+            _termTabComplete(idx,e.target);
+            return;
+          }
+          /* ArrowUp — previous command in history */
+          if(e.key==='ArrowUp'){
+            e.preventDefault();
+            var hist=_termHistory[idx]||[];
+            if(hist.length===0)return;
+            var hi=_termHistIdx[idx];
+            if(hi==null||hi<0){_termHistDraft[idx]=e.target.value;hi=hist.length;}
+            hi--;
+            if(hi<0)hi=0;
+            _termHistIdx[idx]=hi;
+            e.target.value=hist[hi]||'';
+            return;
+          }
+          /* ArrowDown — next command in history */
+          if(e.key==='ArrowDown'){
+            e.preventDefault();
+            var hist2=_termHistory[idx]||[];
+            var hi2=_termHistIdx[idx];
+            if(hi2==null||hi2<0)return;
+            hi2++;
+            if(hi2>=hist2.length){_termHistIdx[idx]=-1;e.target.value=_termHistDraft[idx]||'';return;}
+            _termHistIdx[idx]=hi2;
+            e.target.value=hist2[hi2]||'';
+            return;
+          }
+        }}),
       isExec?h('button',{style:{background:C.redBg,color:C.red,border:'none',borderRadius:4,cursor:'pointer',fontSize:_fs(9),fontWeight:600,padding:'2px 6px',flexShrink:0},
         onClick:function(){_cancelExecution(idx);}},'STOP'):null));
 }

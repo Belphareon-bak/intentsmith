@@ -21,6 +21,8 @@ import {
 } from './decisions.js';
 import { handleFileDecision } from './file.js';
 import { handleLocalDecision } from './local.js';
+import { readdirSync } from 'fs';
+import { extname } from 'path';
 
 // ════════════════════════════════════════════════════════════════════════════════
 // v56.2 Sprint D: PROJECT_SELF_PATTERNS (#8)
@@ -53,7 +55,6 @@ const PROJECT_SELF_PATTERNS = [
   /[čc][ií]m\s+se\s+(?:tento\s+|ten\s+|tenhle\s+)?projekt\s+zab[ýy]v[áa]/i,
   /aktivní soubor/i,
   /na jakém souboru/i,
-  /(?:jaké|které) soubory/i,
   // English: project status/info queries
   /(?:what is |what's )(?:the )?(?:project |)status/i,
   /(?:what is |what's )(?:the )?(?:project |)goal/i,
@@ -132,6 +133,107 @@ function buildProjectStatusResponse(input, project, workingMemory, context) {
   });
 }
 
+// ════════════════════════════════════════════════════════════════════════════════
+// FILE INTENT HEURISTIC — dynamic detection (replaces static CRE phrases)
+// ════════════════════════════════════════════════════════════════════════════════
+// Instead of adding regex patterns for every Czech morphological form,
+// this matches user input tokens against ACTUAL files in the project directory.
+//
+//   "co je v readme?"  → token "readme" matches README.md → FILE_READ
+//   "co za soubory je v tomto projektu?" → file-signal + project ref → dir listing
+//   "najdi článek o AI" → no file match, no signal → falls through to CRE
+// ════════════════════════════════════════════════════════════════════════════════
+
+const _dirCache = new Map();
+const DIR_CACHE_TTL = 10000; // 10s
+
+function _getProjectFiles(projectPath) {
+  if (!projectPath) return [];
+  const cached = _dirCache.get(projectPath);
+  if (cached && Date.now() - cached.ts < DIR_CACHE_TTL) return cached.files;
+  try {
+    const entries = readdirSync(projectPath, { withFileTypes: true });
+    const files = entries.map(e => e.name);
+    _dirCache.set(projectPath, { files, ts: Date.now() });
+    return files;
+  } catch {
+    return [];
+  }
+}
+
+// Common words to skip when matching tokens against filenames
+const _SKIP_TOKENS = new Set([
+  // Czech
+  'a','i','v','k','z','o','u','s','na','do','ze','za','po','od',
+  'co','to','je','se','si','mi','ti','me','te','ho','mu','ji','ni',
+  'ja','ty','on','my','vy','ne','az','uz','by','ale','ani','tak','jak',
+  'pro','pri','pre','pod','nad','ten','tou','tom','tem','at',
+  'kde','kdy','kdo','kam','jen','jiz','pak','tam','sem','ted',
+  'ano','ok','hm','jeste','potom','proto','prece',
+  'tohoto','toho','teto','tento','tenhle','tomto',
+  'projektu','projekt','projektem','soubor','soubory','souboru',
+  'obsah','obsahuje','obsahem','otevri','ukaz','zobraz','precti',
+  'vysvetli','popis','adresari','adresar','slozka','slozku',
+  'jake','jaky','jaka','ktere','ktery','ktera',
+  // English
+  'the','is','in','it','of','to','and','or','but','for',
+  'this','that','with','from','not','are','was','has','have',
+  'what','how','why','when','where','who','can','do','does',
+  'show','list','open','read','file','files','display','tell','me',
+]);
+
+/**
+ * Detect file-related intent by matching input against actual project files.
+ * Dynamic — works with any project, any language form.
+ *
+ * @param {string} input
+ * @param {string} projectPath
+ * @returns {{ detected: boolean, filePath: string|null, reason: string|null }}
+ */
+function detectFileIntent(input, projectPath) {
+  // NFD normalize + strip diacritics for token matching
+  const stripped = input.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const tokens = stripped.split(/[\s,;:!?.()[\]{}"']+/).filter(Boolean);
+
+  // ── 1. Match tokens against actual project files ──────────────────────────
+  const files = _getProjectFiles(projectPath);
+  if (files.length > 0) {
+    const filesLower = files.map(f => f.toLowerCase());
+    const basenames = files.map(f => {
+      const ext = extname(f);
+      return ext ? f.slice(0, -ext.length).toLowerCase() : f.toLowerCase();
+    });
+
+    for (const token of tokens) {
+      if (token.length < 2 || _SKIP_TOKENS.has(token)) continue;
+
+      // Direct match: "package.json" → package.json
+      const di = filesLower.indexOf(token);
+      if (di >= 0) return { detected: true, filePath: files[di], reason: `token→file:${files[di]}` };
+
+      // Basename match: "readme" → README.md
+      const bi = basenames.indexOf(token);
+      if (bi >= 0) return { detected: true, filePath: files[bi], reason: `token→base:${files[bi]}` };
+    }
+  }
+
+  // ── 2. "list files/contents" + project reference → directory listing ──────
+  const hasFileSignal = /soubor|obsah|struktur|adres|slozk|files|directory|contents|folder|tree|listing/i.test(stripped);
+  const hasProjectRef = /projekt|project|tomto|tady|zde|here|this/i.test(stripped);
+
+  if (hasFileSignal && hasProjectRef) {
+    return { detected: true, filePath: '.', reason: 'file-signal+project-ref' };
+  }
+
+  // ── 3. "co je v" / "what's in" + project reference (no explicit file word) ─
+  if (/co\s+je|co\s+tam|what'?s?\s+in|ukaz|zobraz|show|list/i.test(stripped) &&
+      hasProjectRef && tokens.length <= 10) {
+    return { detected: true, filePath: '.', reason: 'content-query+project-ref' };
+  }
+
+  return { detected: false, filePath: null, reason: null };
+}
+
 export async function projectHandler(input, context) {
   const { sessionId, project } = context;
 
@@ -163,6 +265,45 @@ export async function projectHandler(input, context) {
         context.projectWorkingMemory || {},
         context
       );
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // FILE INTENT HEURISTIC — pre-CRE dynamic detection
+    // ════════════════════════════════════════════════════════════════════════
+    // Matches input tokens against actual files in the project directory.
+    // "co je v readme?" → "readme" matches README.md → FILE_READ.
+    // Runs BEFORE CRE to avoid misclassification of file queries.
+    // ════════════════════════════════════════════════════════════════════════
+    if (project.path) {
+      const fileDetect = detectFileIntent(input, project.path);
+      if (fileDetect.detected) {
+        logger.info('ProjectHandler', 'File intent detected by heuristic (bypassing CRE)', {
+          input: input.substring(0, 60),
+          filePath: fileDetect.filePath,
+          reason: fileDetect.reason,
+        });
+
+        const fileDecision = creDecisionEngine.overrideDecision({
+          type: DecisionType.LOCAL,
+          intent: IntentType.FILE_READ,
+          tools: ['file.read'],
+          source: 'project_file_heuristic',
+          reason: fileDetect.reason,
+          confidence: 0.9,
+          metadata: {
+            handler: 'file.read',
+            filePath: fileDetect.filePath,
+            projectScope: { projectPath: project.path },
+          },
+        });
+
+        return await handleFileDecision(input, fileDecision, {
+          ...context,
+          hasActiveProject: true,
+          project: project,
+          projectPath: project.path,
+        });
+      }
     }
 
     // Get CRE decision with project context

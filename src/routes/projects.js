@@ -814,6 +814,31 @@ export function createProjectRoutes(deps) {
       }
     },
 
+    // Terminal Tab-completion: list directory entries with optional prefix filter
+    'GET /api/workspace/ls': async (req, res) => {
+      try {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const dirPath = url.searchParams.get('path');
+        const prefix = url.searchParams.get('prefix') || '';
+        if (!dirPath) { sendJSON(res, 400, { error: 'Missing path' }); return; }
+
+        const fsP = await import('fs/promises');
+        const resolved = path.resolve(dirPath);
+        const entries = await fsP.readdir(resolved, { withFileTypes: true });
+
+        const filtered = entries
+          .filter(e => !prefix || e.name.startsWith(prefix))
+          .filter(e => !e.name.startsWith('.') || prefix.startsWith('.'))
+          .slice(0, 50)
+          .map(e => ({ name: e.name, isDir: e.isDirectory() }))
+          .sort((a, b) => (b.isDir ? 1 : 0) - (a.isDir ? 1 : 0) || a.name.localeCompare(b.name));
+
+        sendJSON(res, 200, { entries: filtered });
+      } catch (err) {
+        sendJSON(res, 200, { entries: [] }); // graceful: empty on error
+      }
+    },
+
     'GET /api/workspace/file': async (req, res) => {
       try {
         const url = new URL(req.url, `http://${req.headers.host}`);

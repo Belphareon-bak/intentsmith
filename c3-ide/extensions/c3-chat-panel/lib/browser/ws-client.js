@@ -237,11 +237,14 @@ function wsSendTerminal(command, session, sessionIdx) {
   if (typeof sessionIdx === 'number') _lastSendSessionIdx = sessionIdx;
   var reqId = 'term-' + Date.now();
   if (typeof sessionIdx === 'number') _termReqMap[reqId] = sessionIdx;
+  // Pass project cwd so terminal executes in project dir, not backend cwd
+  var cwd = (typeof window !== 'undefined' && window._wtRoot) ? window._wtRoot : undefined;
   return wsSend('terminal', {
     type: 'exec',
     command: command,
     reqId: reqId,
-    conversationId: session._convId || null
+    conversationId: session._convId || null,
+    cwd: cwd
   });
 }
 
