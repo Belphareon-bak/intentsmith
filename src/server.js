@@ -123,6 +123,17 @@ logger.info('Server', `License: ${licenseStatus.tier} (${licenseStatus.valid ? '
 // v57.0: Initialize ExpertStore with DB (if experts enabled)
 if (getExpertiseStore) expertiseStore = getExpertiseStore(db);
 
+// v74.0: Specialist Loader — discover, install, enable specialist packages
+import { getSpecialistLoader } from './specialists/specialist-loader.js';
+import { specialistRuntime } from './expertises/specialist-runtime.js';
+try {
+  const specialistLoader = getSpecialistLoader(db.db, specialistRuntime);
+  await specialistLoader.boot();
+  logger.info('Server', `Specialists: ${specialistLoader.getEnabled().length} enabled`);
+} catch (err) {
+  logger.warn('Server', `Specialist loader: ${err.message}`);
+}
+
 // Configure ChatController with default handlers
 ChatController.configure({
   handlers: getDefaultHandlers(),
