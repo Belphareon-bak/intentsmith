@@ -1,0 +1,32 @@
+{
+  "id": "dummy-logger",
+  "version": "1.0.0",
+  "name": "Dummy Logger",
+  "description": "Minimal specialist for platform integration testing. Logs events with timestamps.",
+  "author": "c3-core",
+  "domain": "utility",
+  "type": "utility",
+  "engine": ">=65.0.0",
+  "entry": "./index.js",
+
+  "tools": [
+    {
+      "id": "logger.format_entry",
+      "name": "Format Log Entry",
+      "module": "./tools/format-entry.js",
+      "function": "formatLogEntry"
+    }
+  ],
+
+  "expertises": ["logger"],
+
+  "knowledge_packs": [],
+
+  "migrations": ["001_create_event_log"],
+
+  "settings": {
+    "default_level": "info"
+  },
+
+  "enabledByDefault": true
+}

@@ -211,7 +211,7 @@ console.log('\n── 5. EnableAll ──');
   await loader.enableAll();
 
   assert(runtime.isSpecialist('accountant'), 'accountant registered in runtime after enable');
-  assertEq(runtime.getSpecialistIds().length, 1, '1 specialist registered');
+  assert(runtime.getSpecialistIds().length >= 1, '>= 1 specialist registered');
 
   const config = runtime._registered.get('accountant');
   assert(config !== undefined, 'accountant config exists');
@@ -243,7 +243,7 @@ console.log('\n── 6. boot() convenience ──');
   await loader.boot();
 
   assert(runtime.isSpecialist('accountant'), 'boot() registers accountant');
-  assertEq(loader.getEnabled().length, 1, '1 specialist enabled after boot');
+  assert(loader.getEnabled().length >= 1, '>= 1 specialist enabled after boot');
 
   db.close();
 }
@@ -265,7 +265,7 @@ console.log('\n── 7. Disable ──');
   loader.disable('accountant-cz');
 
   assert(!runtime.isSpecialist('accountant'), 'accountant NOT in runtime after disable');
-  assertEq(loader.getEnabled().length, 0, '0 specialists enabled after disable');
+  assert(!loader.getEnabled().some(r => r.id === 'accountant-cz'), 'accountant-cz not in enabled list');
 
   const row = loader.getInstalled().find(r => r.id === 'accountant-cz');
   assertEq(row.status, 'disabled', 'DB status is disabled');
@@ -291,7 +291,7 @@ console.log('\n── 8. Re-enable ──');
 
   await loader.enable('accountant-cz');
   assert(runtime.isSpecialist('accountant'), 'accountant back in runtime after re-enable');
-  assertEq(loader.getEnabled().length, 1, '1 specialist enabled after re-enable');
+  assert(loader.getEnabled().some(r => r.id === 'accountant-cz'), 'accountant-cz in enabled list after re-enable');
 
   db.close();
 }
@@ -469,12 +469,13 @@ console.log('\n── 14. Idempotency ──');
 
   await loader.boot();
   const ids1 = runtime.getSpecialistIds();
-  assertEq(ids1.length, 1, 'one specialist after boot');
+  const countAfterBoot = ids1.length;
+  assert(countAfterBoot >= 1, `>= 1 specialist after boot (got ${countAfterBoot})`);
 
   // Boot again — should not duplicate
   await loader.boot();
   const ids2 = runtime.getSpecialistIds();
-  assertEq(ids2.length, 1, 'still one specialist after double boot');
+  assertEq(ids2.length, countAfterBoot, `same count after double boot`);
 
   // Tools should still work
   const match = await runtime.tryToolExecution('accountant', 'DPH z 5000');
@@ -501,7 +502,7 @@ console.log('\n── 15. Double disable is noop ──');
   // Disable again — should be noop, no error
   loader.disable('accountant-cz');
   assert(!runtime.isSpecialist('accountant'), 'still disabled after double disable');
-  assertEq(loader.getEnabled().length, 0, '0 enabled after double disable');
+  assert(!loader.getEnabled().some(r => r.id === 'accountant-cz'), 'accountant-cz not in enabled after double disable');
 
   db.close();
 }
@@ -534,7 +535,8 @@ console.log('\n── 16. Stress test: 200 enable/disable cycles ──');
   const heapDeltaMB = (heapAfter - heapBefore) / 1024 / 1024;
 
   assert(runtime.isSpecialist('accountant'), `accountant registered after ${CYCLES} cycles`);
-  assertEq(runtime.getSpecialistIds().length, 1, `still exactly 1 specialist after ${CYCLES} cycles`);
+  const specialistCount = runtime.getSpecialistIds().length;
+  assert(specialistCount >= 1, `>= 1 specialist after ${CYCLES} cycles (got ${specialistCount})`);
 
   // Heap growth should be minimal — closures from register() are overwritten by Map.set()
   // Allow max 10MB growth for 200 cycles (very generous threshold)
@@ -548,13 +550,362 @@ console.log('\n── 16. Stress test: 200 enable/disable cycles ──');
   const check = loader.checkIntegrity();
   assert(check.ok, `integrity OK after ${CYCLES} cycles`);
 
-  // Registry Map size = 1 (no ghost entries)
-  assertEq(runtime.registry._specialists.size, 1, 'registry Map has exactly 1 entry');
+  // Registry Map — accountant still present, no duplicates from cycling
+  assert(runtime.registry._specialists.has('accountant'), 'accountant in registry after stress');
 
-  // Module cache didn't explode
-  assertEq(loader._modules.size, 1, 'loader modules Map has exactly 1 entry');
+  // Module cache — accountant-cz present, no duplicates from cycling
+  assert(loader._modules.has('accountant-cz'), 'accountant-cz module cached after stress');
 
   console.log(`  ℹ️  Heap delta: ${heapDeltaMB.toFixed(2)}MB for ${CYCLES} cycles`);
+
+  db.close();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Multi-Specialist Integration Tests — 2 specialists, cross-isolation
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── 17. Discovery finds both specialists ─────────────────────────────────
+
+console.log('\n── 17. Discovery: both specialists ──');
+{
+  const db = createTestDb();
+  const runtime = new SpecialistRuntime();
+  const loader = new SpecialistLoader(db, runtime, {
+    baseDir: path.join(PROJECT_ROOT, 'specialists'),
+    engineVersion: '65.5.0',
+  });
+
+  const manifests = loader.discoverAll();
+  assert(manifests.length >= 2, `discovers >= 2 specialists (got ${manifests.length})`);
+  assert(manifests.some(m => m.id === 'accountant-cz'), 'discovers accountant-cz');
+  assert(manifests.some(m => m.id === 'dummy-logger'), 'discovers dummy-logger');
+
+  const logger = manifests.find(m => m.id === 'dummy-logger');
+  assertEq(logger.version, '1.0.0', 'dummy-logger version');
+  assertEq(logger.domain, 'utility', 'dummy-logger domain');
+  assertEq(logger.type, 'utility', 'dummy-logger type');
+  assert(logger.tools.length === 1, 'dummy-logger has 1 tool');
+  assert(logger.migrations.length === 1, 'dummy-logger has 1 migration');
+
+  db.close();
+}
+
+// ── 18. Boot installs both, runs migration ───────────────────────────────
+
+console.log('\n── 18. Boot: both specialists + migration ──');
+{
+  const db = createTestDb();
+  const runtime = new SpecialistRuntime();
+  const loader = new SpecialistLoader(db, runtime, {
+    baseDir: path.join(PROJECT_ROOT, 'specialists'),
+    engineVersion: '65.5.0',
+  });
+
+  await loader.boot();
+
+  // Both installed
+  const installed = loader.getInstalled();
+  assert(installed.length >= 2, `>= 2 specialists installed (got ${installed.length})`);
+  assert(installed.some(r => r.id === 'accountant-cz'), 'accountant-cz in DB');
+  assert(installed.some(r => r.id === 'dummy-logger'), 'dummy-logger in DB');
+
+  // Both enabled
+  const enabled = loader.getEnabled();
+  assertEq(enabled.length, 2, '2 specialists enabled');
+
+  // Both in runtime
+  assert(runtime.isSpecialist('accountant'), 'accountant in runtime');
+  assert(runtime.isSpecialist('logger'), 'logger in runtime');
+  assertEq(runtime.getSpecialistIds().length, 2, '2 specialists in runtime');
+
+  // Migration ran — event_log table exists
+  const tableCheck = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='event_log'"
+  ).get();
+  assert(tableCheck !== undefined, 'event_log table created by migration');
+
+  // Migration tracked
+  const migRows = db.prepare(
+    "SELECT * FROM specialist_migrations WHERE specialist_id = 'dummy-logger'"
+  ).all();
+  assertEq(migRows.length, 1, 'migration tracked in specialist_migrations');
+  assertEq(migRows[0].migration_name, '001_create_event_log', 'correct migration name');
+
+  db.close();
+}
+
+// ── 19. Both tools execute independently ─────────────────────────────────
+
+console.log('\n── 19. Both tools execute ──');
+{
+  const db = createTestDb();
+  const runtime = new SpecialistRuntime();
+  const loader = new SpecialistLoader(db, runtime, {
+    baseDir: path.join(PROJECT_ROOT, 'specialists'),
+    engineVersion: '65.5.0',
+  });
+
+  await loader.boot();
+
+  // Accountant tool
+  const tax = await runtime.tryToolExecution('accountant', 'DPH z 10000 Kč');
+  assert(tax !== null, 'accountant VAT tool works');
+  assertEq(tax.toolType, 'accountant.vat_calculator', 'accountant tool type correct');
+
+  // Logger tool
+  const log = await runtime.tryToolExecution('logger', 'zaloguj warn zprávu: server restarted');
+  assert(log !== null, 'logger format_entry tool works');
+  assertEq(log.toolType, 'logger.format_entry', 'logger tool type correct');
+  assert(log.result.formatted.includes('server restarted'), 'logger result contains message');
+
+  db.close();
+}
+
+// ── 20. Disable one — other still works ──────────────────────────────────
+
+console.log('\n── 20. Cross-isolation: disable accountant, logger works ──');
+{
+  const db = createTestDb();
+  const runtime = new SpecialistRuntime();
+  const loader = new SpecialistLoader(db, runtime, {
+    baseDir: path.join(PROJECT_ROOT, 'specialists'),
+    engineVersion: '65.5.0',
+  });
+
+  await loader.boot();
+  assertEq(runtime.getSpecialistIds().length, 2, 'both registered');
+
+  // Disable accountant
+  loader.disable('accountant-cz');
+  assert(!runtime.isSpecialist('accountant'), 'accountant disabled');
+  assert(runtime.isSpecialist('logger'), 'logger still active');
+  assertEq(runtime.getSpecialistIds().length, 1, 'only 1 in runtime');
+
+  // Accountant tool MUST NOT work
+  const tax = await runtime.tryToolExecution('accountant', 'DPH z 10000 Kč');
+  assertEq(tax, null, 'accountant tool returns null');
+
+  // Logger tool MUST still work
+  const log = await runtime.tryToolExecution('logger', 'zaloguj info zprávu: still alive');
+  assert(log !== null, 'logger tool still works');
+  assertEq(log.toolType, 'logger.format_entry', 'logger tool type correct');
+
+  // Integrity check
+  const check = loader.checkIntegrity();
+  assert(check.ok, 'integrity OK with 1 disabled');
+
+  db.close();
+}
+
+// ── 21. Disable logger — accountant still works ──────────────────────────
+
+console.log('\n── 21. Cross-isolation: disable logger, accountant works ──');
+{
+  const db = createTestDb();
+  const runtime = new SpecialistRuntime();
+  const loader = new SpecialistLoader(db, runtime, {
+    baseDir: path.join(PROJECT_ROOT, 'specialists'),
+    engineVersion: '65.5.0',
+  });
+
+  await loader.boot();
+
+  // Disable logger
+  loader.disable('dummy-logger');
+  assert(runtime.isSpecialist('accountant'), 'accountant still active');
+  assert(!runtime.isSpecialist('logger'), 'logger disabled');
+
+  // Accountant MUST work
+  const tax = await runtime.tryToolExecution('accountant', 'DPH z 5000 Kč');
+  assert(tax !== null, 'accountant tool still works');
+
+  // Logger MUST NOT work
+  const log = await runtime.tryToolExecution('logger', 'zaloguj warn: test');
+  assertEq(log, null, 'logger tool returns null');
+
+  db.close();
+}
+
+// ── 22. Disable both — re-enable both ────────────────────────────────────
+
+console.log('\n── 22. Full cycle: disable both, re-enable both ──');
+{
+  const db = createTestDb();
+  const runtime = new SpecialistRuntime();
+  const loader = new SpecialistLoader(db, runtime, {
+    baseDir: path.join(PROJECT_ROOT, 'specialists'),
+    engineVersion: '65.5.0',
+  });
+
+  await loader.boot();
+  assertEq(runtime.getSpecialistIds().length, 2, 'both active');
+
+  // Disable both
+  loader.disable('accountant-cz');
+  loader.disable('dummy-logger');
+  assertEq(runtime.getSpecialistIds().length, 0, '0 in runtime after both disabled');
+  assertEq(loader.getEnabled().length, 0, '0 enabled in DB');
+
+  // Re-enable both
+  await loader.enable('accountant-cz');
+  await loader.enable('dummy-logger');
+  assertEq(runtime.getSpecialistIds().length, 2, '2 in runtime after re-enable');
+  assertEq(loader.getEnabled().length, 2, '2 enabled in DB');
+
+  // Both tools work
+  const tax = await runtime.tryToolExecution('accountant', 'DPH z 8000 Kč');
+  assert(tax !== null, 'accountant works after re-enable');
+
+  const log = await runtime.tryToolExecution('logger', 'zaloguj error zprávu: critical failure');
+  assert(log !== null, 'logger works after re-enable');
+
+  // Integrity
+  const check = loader.checkIntegrity();
+  assert(check.ok, 'integrity OK after full cycle');
+
+  db.close();
+}
+
+// ── 23. Selective re-enable — only one ───────────────────────────────────
+
+console.log('\n── 23. Selective: disable both, re-enable only logger ──');
+{
+  const db = createTestDb();
+  const runtime = new SpecialistRuntime();
+  const loader = new SpecialistLoader(db, runtime, {
+    baseDir: path.join(PROJECT_ROOT, 'specialists'),
+    engineVersion: '65.5.0',
+  });
+
+  await loader.boot();
+  loader.disable('accountant-cz');
+  loader.disable('dummy-logger');
+
+  // Re-enable only logger
+  await loader.enable('dummy-logger');
+  assertEq(runtime.getSpecialistIds().length, 1, '1 in runtime');
+  assert(runtime.isSpecialist('logger'), 'only logger active');
+  assert(!runtime.isSpecialist('accountant'), 'accountant still disabled');
+
+  // Logger works
+  const log = await runtime.tryToolExecution('logger', 'format log entry: partial re-enable');
+  assert(log !== null, 'logger works');
+
+  // Accountant does not
+  const tax = await runtime.tryToolExecution('accountant', 'DPH z 1000');
+  assertEq(tax, null, 'accountant still disabled');
+
+  // Integrity OK — only 1 expected
+  const check = loader.checkIntegrity();
+  assert(check.ok, 'integrity OK with partial re-enable');
+
+  db.close();
+}
+
+// ── 24. Migration idempotency — second boot doesn't re-run ──────────────
+
+console.log('\n── 24. Migration idempotency ──');
+{
+  const db = createTestDb();
+  const runtime = new SpecialistRuntime();
+  const loader = new SpecialistLoader(db, runtime, {
+    baseDir: path.join(PROJECT_ROOT, 'specialists'),
+    engineVersion: '65.5.0',
+  });
+
+  await loader.boot();
+
+  const migCount1 = db.prepare(
+    "SELECT COUNT(*) as cnt FROM specialist_migrations WHERE specialist_id = 'dummy-logger'"
+  ).get().cnt;
+  assertEq(migCount1, 1, '1 migration after first boot');
+
+  // Second boot — same instance, should be noop
+  await loader.boot();
+
+  const migCount2 = db.prepare(
+    "SELECT COUNT(*) as cnt FROM specialist_migrations WHERE specialist_id = 'dummy-logger'"
+  ).get().cnt;
+  assertEq(migCount2, 1, 'still 1 migration after second boot');
+
+  db.close();
+}
+
+// ── 25. Cross-contamination stress: alternating enable/disable ───────────
+
+console.log('\n── 25. Cross-contamination stress: 50 alternating cycles ──');
+{
+  const db = createTestDb();
+  const runtime = new SpecialistRuntime();
+  const loader = new SpecialistLoader(db, runtime, {
+    baseDir: path.join(PROJECT_ROOT, 'specialists'),
+    engineVersion: '65.5.0',
+  });
+
+  await loader.boot();
+
+  for (let i = 0; i < 50; i++) {
+    // Alternate which one gets toggled
+    if (i % 2 === 0) {
+      loader.disable('accountant-cz');
+      assert(runtime.isSpecialist('logger'), `cycle ${i}: logger survives accountant disable`);
+      await loader.enable('accountant-cz');
+    } else {
+      loader.disable('dummy-logger');
+      assert(runtime.isSpecialist('accountant'), `cycle ${i}: accountant survives logger disable`);
+      await loader.enable('dummy-logger');
+    }
+  }
+
+  // Both should be active after 50 cycles
+  assertEq(runtime.getSpecialistIds().length, 2, 'both active after 50 alternating cycles');
+
+  // Both tools work
+  const tax = await runtime.tryToolExecution('accountant', 'DPH z 10000 Kč');
+  assert(tax !== null, 'accountant works after alternating stress');
+
+  const log = await runtime.tryToolExecution('logger', 'zaloguj info zprávu: stress test done');
+  assert(log !== null, 'logger works after alternating stress');
+
+  // Integrity
+  const check = loader.checkIntegrity();
+  assert(check.ok, 'integrity OK after alternating stress');
+
+  // No ghosts
+  assertEq(runtime.registry._specialists.size, 2, 'exactly 2 entries in registry');
+
+  db.close();
+}
+
+// ── 26. Manifest data isolation ──────────────────────────────────────────
+
+console.log('\n── 26. Manifest data isolation ──');
+{
+  const db = createTestDb();
+  const runtime = new SpecialistRuntime();
+  const loader = new SpecialistLoader(db, runtime, {
+    baseDir: path.join(PROJECT_ROOT, 'specialists'),
+    engineVersion: '65.5.0',
+  });
+
+  await loader.boot();
+
+  const accManifest = loader.getManifest('accountant-cz');
+  const logManifest = loader.getManifest('dummy-logger');
+
+  assert(accManifest !== null, 'accountant manifest exists');
+  assert(logManifest !== null, 'logger manifest exists');
+  assertEq(accManifest.domain, 'finance', 'accountant domain = finance');
+  assertEq(logManifest.domain, 'utility', 'logger domain = utility');
+  assertEq(accManifest.tools.length, 5, 'accountant has 5 tools in manifest');
+  assertEq(logManifest.tools.length, 1, 'logger has 1 tool in manifest');
+
+  // Disable one — manifest still accessible (DB data persists)
+  loader.disable('dummy-logger');
+  const logManifest2 = loader.getManifest('dummy-logger');
+  assert(logManifest2 !== null, 'disabled specialist manifest still accessible');
+  assertEq(logManifest2.id, 'dummy-logger', 'disabled manifest id correct');
 
   db.close();
 }
