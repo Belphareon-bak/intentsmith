@@ -433,23 +433,81 @@ export class SpecialistLoader {
 
   /**
    * Disable a specific specialist by ID.
+   * Defensively cleans up ALL registrations (tools, scenarios).
    */
   disable(specialistId) {
     const row = this._stmts.getSpecialist.get(specialistId);
     if (!row) throw new Error(`Specialist not found: ${specialistId}`);
     if (row.status === 'disabled') return; // noop
 
-    // Unregister from runtime
+    // Let specialist do custom cleanup
     const mod = this._modules.get(specialistId);
     if (mod && typeof mod.unregister === 'function') {
-      mod.unregister({ runtime: this.runtime });
+      try {
+        mod.unregister({ runtime: this.runtime });
+      } catch (err) {
+        logger.warn('SpecialistLoader', `${specialistId} unregister() error: ${err.message}`);
+      }
     }
+
+    // Defensive cleanup — remove from all registries regardless of unregister()
+    const manifest = this._getManifestFromDiscovered(specialistId);
+    const expertiseId = this._resolveExpertiseId(specialistId, manifest);
+
+    // Tools
+    if (this.runtime.isSpecialist(expertiseId)) {
+      this.runtime.unregisterSpecialist(expertiseId);
+    }
+
+    // Scenarios (lazy import — only if module already loaded)
+    this._cleanupScenarios(expertiseId);
 
     this._modules.delete(specialistId);
 
     const now = new Date().toISOString();
     this._stmts.updateStatus.run('disabled', null, now, specialistId);
     logger.info('SpecialistLoader', `Disabled: ${specialistId}`);
+  }
+
+  /**
+   * Resolve the expertise ID used in runtime from specialist ID.
+   * accountant-cz manifest registers as 'accountant' in runtime.
+   */
+  _resolveExpertiseId(specialistId, manifest) {
+    // Check if the specialist registered under a different expertise ID
+    // by looking at manifest.expertises or the registered tools
+    if (manifest?.expertises?.length) {
+      return manifest.expertises[0]; // primary expertise ID
+    }
+    return specialistId;
+  }
+
+  _getManifestFromDiscovered(specialistId) {
+    const discovered = this._discovered.get(specialistId);
+    return discovered?.manifest || null;
+  }
+
+  /**
+   * Remove scenarios registered by a specialist.
+   */
+  _cleanupScenarios(expertiseId) {
+    try {
+      // Lazy: only cleanup if scenario-engine is already loaded
+      const scenarioMod = this._scenarioRegistry;
+      if (scenarioMod && typeof scenarioMod.unregisterBySpecialist === 'function') {
+        scenarioMod.unregisterBySpecialist(expertiseId);
+      }
+    } catch {
+      // scenario-engine not loaded — nothing to clean
+    }
+  }
+
+  /**
+   * Set scenario registry reference for cleanup during disable.
+   * @param {Object} registry - ScenarioRegistry instance
+   */
+  setScenarioRegistry(registry) {
+    this._scenarioRegistry = registry;
   }
 
   // ─── Query ──────────────────────────────────────────────────────────────
@@ -481,6 +539,47 @@ export class SpecialistLoader {
     }
   }
 
+  // ─── Integrity Check ─────────────────────────────────────────────────────
+
+  /**
+   * Verify runtime state matches DB state.
+   * Returns { ok: boolean, issues: string[] }
+   */
+  checkIntegrity() {
+    const issues = [];
+    const enabledRows = this._stmts.listEnabled.all();
+
+    for (const row of enabledRows) {
+      const manifest = this._getManifestFromDiscovered(row.id);
+      const expertiseId = this._resolveExpertiseId(row.id, manifest);
+
+      // Check tools registered
+      if (!this.runtime.isSpecialist(expertiseId)) {
+        issues.push(`${row.id}: enabled in DB but NOT registered in runtime`);
+      }
+
+      // Check module loaded
+      if (!this._modules.has(row.id)) {
+        issues.push(`${row.id}: enabled in DB but module NOT loaded`);
+      }
+    }
+
+    // Check for ghost registrations (in runtime but not in DB as enabled)
+    const runtimeIds = this.runtime.getSpecialistIds();
+    const enabledExpertiseIds = new Set(enabledRows.map(r => {
+      const manifest = this._getManifestFromDiscovered(r.id);
+      return this._resolveExpertiseId(r.id, manifest);
+    }));
+
+    for (const rid of runtimeIds) {
+      if (!enabledExpertiseIds.has(rid)) {
+        issues.push(`${rid}: registered in runtime but NOT enabled in DB (ghost)`);
+      }
+    }
+
+    return { ok: issues.length === 0, issues };
+  }
+
   // ─── Convenience: Full Boot ─────────────────────────────────────────────
 
   /**
@@ -491,6 +590,14 @@ export class SpecialistLoader {
     this.discoverAll();
     this.installPending();
     await this.enableAll();
+
+    // Post-boot integrity check
+    const integrity = this.checkIntegrity();
+    if (!integrity.ok) {
+      for (const issue of integrity.issues) {
+        logger.warn('SpecialistLoader', `Integrity: ${issue}`);
+      }
+    }
   }
 }
 

@@ -347,6 +347,165 @@ console.log('\n── 10. Tool paths ──');
   db.close();
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Runtime Isolation Tests — Real SpecialistRuntime, real tool execution
+// ═══════════════════════════════════════════════════════════════════════════
+
+const { SpecialistRuntime } = await import('../src/expertises/specialist-runtime.js');
+
+// ── 11. Runtime isolation: enable → detect → disable → detect → re-enable ──
+
+console.log('\n── 11. Runtime isolation: full cycle ──');
+{
+  const db = createTestDb();
+  const runtime = new SpecialistRuntime();
+  const loader = new SpecialistLoader(db, runtime, {
+    baseDir: path.join(PROJECT_ROOT, 'specialists'),
+    engineVersion: '65.5.0',
+  });
+
+  // Phase 1: Enable
+  await loader.boot();
+  assert(runtime.isSpecialist('accountant'), 'P1: accountant registered');
+
+  // Phase 2: Detect tool (tax query)
+  const match1 = await runtime.tryToolExecution('accountant', 'Kolik zaplatím daní z 850000 jako OSVČ za rok 2024?');
+  assert(match1 !== null, 'P2: tool detected for tax query');
+  assertEq(match1.toolType, 'accountant.tax_calculator', 'P2: correct tool matched');
+  assert(match1.result !== null && match1.result !== undefined, 'P2: tool returned result');
+
+  // Phase 3: Disable
+  loader.disable('accountant-cz');
+  assert(!runtime.isSpecialist('accountant'), 'P3: accountant NOT in runtime');
+
+  // Phase 4: Try to detect tool — MUST return null
+  const match2 = await runtime.tryToolExecution('accountant', 'Kolik zaplatím daní z 850000?');
+  assertEq(match2, null, 'P4: tool NOT detected after disable');
+
+  // Phase 5: Re-enable
+  await loader.enable('accountant-cz');
+  assert(runtime.isSpecialist('accountant'), 'P5: accountant re-registered');
+
+  // Phase 6: Detect tool again — MUST work (specify year for supported range)
+  const match3 = await runtime.tryToolExecution('accountant', 'Kolik zaplatím daní z 1000000 jako OSVČ za rok 2024?');
+  assert(match3 !== null, 'P6: tool detected after re-enable');
+  assertEq(match3.toolType, 'accountant.tax_calculator', 'P6: correct tool after re-enable');
+
+  db.close();
+}
+
+// ── 12. VAT tool lifecycle ──────────────────────────────────────────────────
+
+console.log('\n── 12. VAT tool isolation ──');
+{
+  const db = createTestDb();
+  const runtime = new SpecialistRuntime();
+  const loader = new SpecialistLoader(db, runtime, {
+    baseDir: path.join(PROJECT_ROOT, 'specialists'),
+    engineVersion: '65.5.0',
+  });
+
+  await loader.boot();
+
+  // VAT tool works
+  const vat1 = await runtime.tryToolExecution('accountant', 'DPH z 10000 Kč');
+  assert(vat1 !== null, 'VAT tool detected before disable');
+  assertEq(vat1.toolType, 'accountant.vat_calculator', 'VAT tool type correct');
+
+  // Disable
+  loader.disable('accountant-cz');
+  const vat2 = await runtime.tryToolExecution('accountant', 'DPH z 10000 Kč');
+  assertEq(vat2, null, 'VAT tool NOT detected after disable');
+
+  // Re-enable
+  await loader.enable('accountant-cz');
+  const vat3 = await runtime.tryToolExecution('accountant', 'DPH z 10000 Kč');
+  assert(vat3 !== null, 'VAT tool detected after re-enable');
+
+  db.close();
+}
+
+// ── 13. Integrity check ──────────────────────────────────────────────────────
+
+console.log('\n── 13. Integrity check ──');
+{
+  const db = createTestDb();
+  const runtime = new SpecialistRuntime();
+  const loader = new SpecialistLoader(db, runtime, {
+    baseDir: path.join(PROJECT_ROOT, 'specialists'),
+    engineVersion: '65.5.0',
+  });
+
+  await loader.boot();
+
+  // After clean boot — integrity should be OK
+  const check1 = loader.checkIntegrity();
+  assert(check1.ok, 'integrity OK after clean boot');
+  assertEq(check1.issues.length, 0, 'no integrity issues after boot');
+
+  // After disable — integrity should be OK (disabled = not expected in runtime)
+  loader.disable('accountant-cz');
+  const check2 = loader.checkIntegrity();
+  assert(check2.ok, 'integrity OK after disable');
+
+  // After re-enable — integrity should be OK
+  await loader.enable('accountant-cz');
+  const check3 = loader.checkIntegrity();
+  assert(check3.ok, 'integrity OK after re-enable');
+
+  db.close();
+}
+
+// ── 14. Double enable is idempotent ──────────────────────────────────────────
+
+console.log('\n── 14. Idempotency ──');
+{
+  const db = createTestDb();
+  const runtime = new SpecialistRuntime();
+  const loader = new SpecialistLoader(db, runtime, {
+    baseDir: path.join(PROJECT_ROOT, 'specialists'),
+    engineVersion: '65.5.0',
+  });
+
+  await loader.boot();
+  const ids1 = runtime.getSpecialistIds();
+  assertEq(ids1.length, 1, 'one specialist after boot');
+
+  // Boot again — should not duplicate
+  await loader.boot();
+  const ids2 = runtime.getSpecialistIds();
+  assertEq(ids2.length, 1, 'still one specialist after double boot');
+
+  // Tools should still work
+  const match = await runtime.tryToolExecution('accountant', 'DPH z 5000');
+  assert(match !== null, 'tool still works after double boot');
+
+  db.close();
+}
+
+// ── 15. Disable idempotent ───────────────────────────────────────────────────
+
+console.log('\n── 15. Double disable is noop ──');
+{
+  const db = createTestDb();
+  const runtime = new SpecialistRuntime();
+  const loader = new SpecialistLoader(db, runtime, {
+    baseDir: path.join(PROJECT_ROOT, 'specialists'),
+    engineVersion: '65.5.0',
+  });
+
+  await loader.boot();
+  loader.disable('accountant-cz');
+  assert(!runtime.isSpecialist('accountant'), 'disabled once');
+
+  // Disable again — should be noop, no error
+  loader.disable('accountant-cz');
+  assert(!runtime.isSpecialist('accountant'), 'still disabled after double disable');
+  assertEq(loader.getEnabled().length, 0, '0 enabled after double disable');
+
+  db.close();
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 
 console.log(`\n══════════════════════════════════════════════════`);

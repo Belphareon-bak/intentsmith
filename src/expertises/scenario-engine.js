@@ -88,6 +88,21 @@ export class ScenarioRegistry {
   }
 
   /**
+   * Unregister all scenarios for a specialist.
+   * @param {string} specialistId
+   */
+  unregisterBySpecialist(specialistId) {
+    const scenarios = this._bySpecialist.get(specialistId) || [];
+    for (const s of scenarios) {
+      this._scenarios.delete(s.id);
+    }
+    this._bySpecialist.delete(specialistId);
+    if (scenarios.length > 0) {
+      logger.debug('ScenarioEngine', `Unregistered ${scenarios.length} scenario(s) for ${specialistId}`);
+    }
+  }
+
+  /**
    * Get a scenario by ID.
    */
   getScenario(id) {
