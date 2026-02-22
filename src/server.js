@@ -39,34 +39,34 @@ if (config.features.agents !== false) {
 }
 
 // ─── Optional: Expert Layer v35 + v57 (Phase D) ─────────────────────────────
-let expertLayer = null;
-let expertStore = null;
-let getExpertStore = null;
-if (config.features.experts !== false) {
+let expertiseLayer = null;
+let expertiseStore = null;
+let getExpertiseStore = null;
+if (config.features.expertises !== false) {
   try {
-    const store = await import('./experts/expert-store.js');
-    getExpertStore = store.getExpertStore;
+    const store = await import('./expertises/expertise-store.js');
+    getExpertiseStore = store.getExpertiseStore;
   } catch (err) {
     logger.warn('Server', `Expert store not available: ${err.message}`);
   }
 
   const possiblePaths = [
-    './experts/expert-layer.js',
-    './expert-layer.js',
-    './src/experts/expert-layer.js',
+    './expertises/expertise-layer.js',
+    './expertise-layer.js',
+    './src/expertises/expertise-layer.js',
   ];
   for (const p of possiblePaths) {
     try {
-      expertLayer = await import(p);
+      expertiseLayer = await import(p);
       logger.info('Server', `Expert layer loaded from ${p}`);
       break;
     } catch (err) {
       logger.debug('Server', `Expert layer not at ${p}: ${err.code || err.message}`);
     }
   }
-  if (!expertLayer) logger.warn('Server', 'Expert layer not available - file not found');
+  if (!expertiseLayer) logger.warn('Server', 'Expert layer not available - file not found');
 } else {
-  logger.info('Server', 'Expert platform disabled (C3_ENABLE_EXPERTS=false)');
+  logger.info('Server', 'Expertise platform disabled (C3_ENABLE_EXPERTISES=false)');
 }
 
 // v36.9.1: LLM client routed through gateway with auth tokens
@@ -89,7 +89,7 @@ import { toolExecutor } from './executor/tool-executor.js';
 import { createPlannerRoutes } from './routes/planner.js';
 import { createArchitectRoutes } from './routes/architect.js';
 import { createAgentPlatformRoutes } from './routes/agents.js';
-import { createExpertRoutes, createLifecycleRoutes } from './routes/experts.js';
+import { createExpertiseRoutes, createLifecycleRoutes } from './routes/expertises.js';
 import { createProjectRoutes } from './routes/projects.js';
 import { createChatRoutes } from './routes/chat.js';
 import { createMiscRoutes } from './routes/misc.js';
@@ -121,7 +121,7 @@ const licenseStatus = licenseManager.getStatus();
 logger.info('Server', `License: ${licenseStatus.tier} (${licenseStatus.valid ? 'valid' : licenseStatus.error || 'no key'})`);
 
 // v57.0: Initialize ExpertStore with DB (if experts enabled)
-if (getExpertStore) expertStore = getExpertStore(db);
+if (getExpertiseStore) expertiseStore = getExpertiseStore(db);
 
 // Configure ChatController with default handlers
 ChatController.configure({
@@ -443,7 +443,7 @@ function checkWizardRateLimit(key, intervalMs) {
 const routeDeps = {
   db, parseBody, sendJSON, sendHTML, sendStaticFile, safeError, safeParseInt,
   logger, config, path, fs, randomUUID,
-  ChatController, expertLayer, expertStore,
+  ChatController, expertiseLayer, expertiseStore,
   callWithAuth, createAuthToken, LLMCallerRole,
   getArchitectSession, setArchitectSession, getArchitectUIHTML,
   createMockResponse, agentRoutes, agentRunner,
@@ -463,7 +463,7 @@ const routes = {
         'POST /planner/start',
         'GET /api/global-memory',
         'GET /architect',
-        'GET /experts',
+        'GET /expertises',
         'GET /agents',
         'GET /chat-ui',
         'POST /api/lifecycle/start',
@@ -477,7 +477,7 @@ const routes = {
   ...createPlannerRoutes(routeDeps),
   ...createArchitectRoutes(routeDeps),
   ...createAgentPlatformRoutes(routeDeps),
-  ...createExpertRoutes(routeDeps),
+  ...createExpertiseRoutes(routeDeps),
   ...createLifecycleRoutes(routeDeps),
   ...createProjectRoutes(routeDeps),
   ...createMiscRoutes(routeDeps),
@@ -584,10 +584,10 @@ if (process.env.C3_TRACE === '1' || globalThis.__c3_tracer) {
 // EXPERT PERSISTENCE HELPERS
 // ════════════════════════════════════════════════════════════════════════════
 
-// Create experts table if not exists
+// Create custom_expertises table if not exists (v69: renamed from custom_experts)
 try {
   db.db.exec(`
-    CREATE TABLE IF NOT EXISTS custom_experts (
+    CREATE TABLE IF NOT EXISTS custom_expertises (
       id TEXT PRIMARY KEY,
       config TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -595,18 +595,18 @@ try {
     )
   `);
 } catch (err) {
-  logger.warn('Server', `Could not create experts table: ${err.message}`);
+  logger.warn('Server', `Could not create custom_expertises table: ${err.message}`);
 }
 
 // Load custom experts on startup
-function loadCustomExperts() {
-  if (!expertLayer) return;
+function loadCustomExpertises() {
+  if (!expertiseLayer) return;
   
   try {
-    const rows = db.db.prepare('SELECT id, config FROM custom_experts').all();
+    const rows = db.db.prepare('SELECT id, config FROM custom_expertises').all();
     for (const row of rows) {
       const config = JSON.parse(row.config);
-      expertLayer.expertRegistry.addCustom(config);
+      expertiseLayer.expertiseRegistry.addCustom(config);
     }
     logger.info('Server', `Loaded ${rows.length} custom experts`);
   } catch (err) {
@@ -615,17 +615,17 @@ function loadCustomExperts() {
 }
 
 // Save custom experts
-function saveCustomExperts() {
-  if (!expertLayer) return;
+function saveCustomExpertises() {
+  if (!expertiseLayer) return;
   
   try {
-    const experts = expertLayer.expertRegistry.getCustom();
+    const experts = expertiseLayer.expertiseRegistry.getCustom();
     
     // Clear existing
-    db.db.exec('DELETE FROM custom_experts');
-    
+    db.db.exec('DELETE FROM custom_expertises');
+
     // Insert all
-    const insert = db.db.prepare('INSERT INTO custom_experts (id, config) VALUES (?, ?)');
+    const insert = db.db.prepare('INSERT INTO custom_expertises (id, config) VALUES (?, ?)');
     for (const expert of experts) {
       insert.run(expert.id, JSON.stringify(expert.toJSON()));
     }
@@ -637,7 +637,7 @@ function saveCustomExperts() {
 }
 
 // Load custom experts on startup
-loadCustomExperts();
+loadCustomExpertises();
 
 // ════════════════════════════════════════════════════════════════════════════
 // ROUTER

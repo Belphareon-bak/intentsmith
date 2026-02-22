@@ -1,4 +1,4 @@
-# C.3 Expert System
+# C.3 Expertise System
 
 **Verze:** v64.0 (2026-02-14)
 
@@ -8,24 +8,24 @@ Viz take: [SPECIALISTS.md](SPECIALISTS.md) | [WORKERS.md](WORKERS.md) | [README.
 
 ## Obsah
 
-1. [Expert Layer](#expert-layer) — 15 vestavenych expertu, routing, sila, presety
+1. [Expertise Layer](#expertise-layer) — 15 vestavenych expertyz, routing, sila, presety
 2. [Merge Engine v2](#merge-engine-v2) — multi-expertise kompozice (max 3)
 3. [5D Capability System](#5d-capability-system) — vektory, kompatibilita, runtime efekty
 4. [Enforcement Pipeline](#enforcement-pipeline) — forbidden phrases, retry, tool enforcement
-5. [Expertise Wizard UI](#expertise-wizard-ui) — IDE formular pro tvorbu expertiz
+5. [Expertise Wizard UI](#expertise-wizard-ui) — IDE formular pro tvorbu expertyz
 6. [API Endpointy](#api-endpointy)
 7. [Database Schema](#database-schema)
 8. [Testy](#testy)
 
 ---
 
-# Expert Layer
+# Expertise Layer
 
 ## Co to je
 
-Expert Layer je jadro celeho specialistickeho systemu. Definuje **15 vestavenych expertu** organizovanych do 5 kategorii, spravuje jejich registraci, routing (ktery expert se ma pouzit), silu vlivu na odpovedi a propojeni s konverzacemi.
+Expertise Layer je jadro celeho specialistickeho systemu. Definuje **15 vestavenych expertyz** organizovanych do 5 kategorii, spravuje jejich registraci, routing (ktera expertyza se ma pouzit), silu vlivu na odpovedi a propojeni s konverzacemi.
 
-**Klicovy princip:** Expert ovlivnuje STYL odpovedi (ton, hloubka, slovnik, opatrnost), NIKOLIV rozhodnuti CRE. CRE zustava autoritou pro intent klasifikaci — expert je "persona", ne "mozek".
+**Klicovy princip:** Expertyza ovlivnuje STYL odpovedi (ton, hloubka, slovnik, opatrnost), NIKOLIV rozhodnuti CRE. CRE zustava autoritou pro intent klasifikaci — expertyza je "persona", ne "mozek".
 
 ## Architektura
 
@@ -38,74 +38,74 @@ CRE.classifyIntent()  --- rozhodnuti o intentu (ANSWER, SEARCH, CODE, ...)
     v
 ConversationHandler.route()
     |
-    +--  Expert je aktivni?
+    +--  Expertyza je aktivni?
     |       |
-    |       +-- ANO --> expertHandler(input, context)
+    |       +-- ANO --> expertiseHandler(input, context)
     |       |               |
     |       |               +-- CASE 0: activeExpertises > 1?
     |       |               |       +-- mergeExpertisePrompt() -- 15-krokovy algoritmus
     |       |               |       +-- LLM s merged prompt + temperature
-    |       |               |       +-- ExpertEnforcer (synteticky config)
-    |       |               |       +-- Disclaimery z obou expertiz
+    |       |               |       +-- ExpertiseEnforcer (synteticky config)
+    |       |               |       +-- Disclaimery z obou expertyz
     |       |               |
-    |       |               +-- CASE 1: single expert
-    |       |               |       +-- routeToExpert() -- pattern matching
-    |       |               |       +-- buildExpertSystemPrompt() -- pamet + styl
-    |       |               |       +-- LLM generovani s expert.temperature
-    |       |               |       +-- ExpertEnforcer validace
-    |       |               |       +-- TaggedResponse s expert metadaty
+    |       |               +-- CASE 1: single expertise
+    |       |               |       +-- routeToExpertise() -- pattern matching
+    |       |               |       +-- buildExpertiseSystemPrompt() -- pamet + styl
+    |       |               |       +-- LLM generovani s expertise.temperature
+    |       |               |       +-- ExpertiseEnforcer validace
+    |       |               |       +-- TaggedResponse s expertise metadaty
     |       |               |
-    |       |               +-- CASE 2: no expert -- ASK_USER
+    |       |               +-- CASE 2: no expertise -- ASK_USER
     |       |
     |       +-- NE --> normalni handler (decisions.js)
     |
     v
-Synthesis s expertHints (styl, hloubka, slovnik, opatrnost)
+Synthesis s expertiseHints (styl, hloubka, slovnik, opatrnost)
 ```
 
-## Vestaven experti (15)
+## Vestavene expertyzy (15)
 
 ### A) Tvurci & Narativni
 
-| Expert | ID | Domena | Teplota | Capabilities (R,C,D,Ri,V) |
-|--------|-----|--------|---------|--------------------------|
+| Expertyza | ID | Domena | Teplota | Capabilities (R,C,D,Ri,V) |
+|-----------|-----|--------|---------|--------------------------|
 | Spisovatel | `writer` | creative_writing | 0.8 | 40,90,10,70,90 |
 | DnD Master | `dnd_master` | tabletop_rpg | 0.85 | 40,95,5,80,85 |
 | Textar | `songwriter` | music_lyrics | 0.8 | 35,85,10,75,60 |
 
 ### B) Analyticko-rozhodovaci
 
-| Expert | ID | Domena | Teplota | Capabilities (R,C,D,Ri,V) |
-|--------|-----|--------|---------|--------------------------|
+| Expertyza | ID | Domena | Teplota | Capabilities (R,C,D,Ri,V) |
+|-----------|-----|--------|---------|--------------------------|
 | Analytik | `analyst` | analysis | 0.4 | 90,20,80,20,60 |
 | Prekupnik | `trader` | trading | 0.4 | 70,20,60,50,40 |
 | Ucetni | `accountant` | finance | 0.2 | 75,5,95,5,50 |
 
 ### C) Normativni & Odpovednostni
 
-| Expert | ID | Domena | Teplota | Capabilities (R,C,D,Ri,V) | Disclaimer |
-|--------|-----|--------|---------|--------------------------|-----------|
+| Expertyza | ID | Domena | Teplota | Capabilities (R,C,D,Ri,V) | Disclaimer |
+|-----------|-----|--------|---------|--------------------------|-----------|
 | Pravnik | `lawyer` | legal | 0.3 | 80,10,90,5,70 | Konzultujte advokata |
 | Lekar | `doctor` | medical_education | 0.3 | 70,10,85,5,60 | Edukacni info, nikoli lekarska rada |
 | Psycholog | `psychologist` | psychology | 0.5 | 60,50,30,40,70 | Linka bezpeci 116 111 |
 
 ### D) Technicko-odborni
 
-| Expert | ID | Domena | Teplota | Capabilities (R,C,D,Ri,V) |
-|--------|-----|--------|---------|--------------------------|
-| AI Expert | `ai_expert` | artificial_intelligence | 0.4 | 85,35,65,30,55 |
+| Expertyza | ID | Domena | Teplota | Capabilities (R,C,D,Ri,V) |
+|-----------|-----|--------|---------|--------------------------|
+| AI Expertyza | `ai_expert` | artificial_intelligence | 0.4 | 85,35,65,30,55 |
 | Vyvojar | `developer` | software_development | 0.3 | 80,40,70,30,30 |
 | Technik | `technician` | technical_support | 0.3 | 65,15,80,15,50 |
 
 ### E) Domenovi znalci
 
-| Expert | ID | Domena | Teplota | Capabilities (R,C,D,Ri,V) |
-|--------|-----|--------|---------|--------------------------|
+| Expertyza | ID | Domena | Teplota | Capabilities (R,C,D,Ri,V) |
+|-----------|-----|--------|---------|--------------------------|
 | Autickar | `car_enthusiast` | automobiles | 0.5 | 55,20,50,40,50 |
 | Motorkar | `biker` | motorcycles | 0.5 | 50,20,45,35,50 |
 | Politolog | `political_analyst` | politics | 0.3 | 85,25,60,25,65 |
 
-## Expert Strength System
+## Expertise Strength System
 
 Kvantizovana sila — 5 pevnych urovni:
 
@@ -117,19 +117,19 @@ Kvantizovana sila — 5 pevnych urovni:
 | STRONG | 75 | 75% |
 | FULL | 100 | 100% |
 
-## Expert-Konverzace Vazby
+## Expertise-Konverzace Vazby
 
-Expert muze byt prirazen ke konverzaci. Lifecycle: INACTIVE → LOADED → LOCKED → APPLIED → ENFORCED.
+Expertyza muze byt prirazena ke konverzaci. Lifecycle: INACTIVE → LOADED → LOCKED → APPLIED → ENFORCED.
 
-## Expert Cross-Session Pamet
+## Expertise Cross-Session Pamet
 
-Expert si pamatuje fakta napruc konverzacemi (`expert_memory` tabulka). Max 50 polozek na experta, max 2000 znaku na hodnotu.
+Expertyza si pamatuje fakta napruc konverzacemi (`expertise_memory` tabulka). Max 50 polozek na expertyzu, max 2000 znaku na hodnotu.
 
 ---
 
 # Merge Engine v2
 
-Multi-expertise system — az 3 expertisy soucasne v jedne konverzaci.
+Multi-expertise system — az 3 expertyzy soucasne v jedne konverzaci.
 
 **v63.1:** Capability vektory realne ovlivnuji runtime chovani (teplota, instrukce, minResponseLength).
 
@@ -174,7 +174,7 @@ Frozen { prompt, metadata, enforcement, audit }
 
 ### Modules Format
 
-Kazdy z 15 built-in expertu ma rucne kuratovane moduly (ne parsovane ze systemPrompt):
+Kazda z 15 built-in expertyz ma rucne kuratovane moduly (ne parsovane ze systemPrompt):
 
 ```javascript
 modules: {
@@ -199,7 +199,7 @@ modules: {
 
 # 5D Capability System
 
-Kazdy expert ma 5-dimenzionalni vektor (0-100). Od v63.1 vektor aktivne ovlivnuje runtime chovani.
+Kazda expertyza ma 5-dimenzionalni vektor (0-100). Od v63.1 vektor aktivne ovlivnuje runtime chovani.
 
 | Dimenze | Popis | Runtime efekt |
 |---------|-------|-----------------------|
@@ -225,7 +225,7 @@ Priklad: `writer` (creativity=90) + `accountant` (determinism=95) → gap=85 →
 ### Capability Normalization
 
 Soft warnings (neblokuji, jen informuji):
-- **Sum > 350:** Expert bude prilis specializovany
+- **Sum > 350:** Expertyza bude prilis specializovana
 - **Kontradikce:** creativity > 70 && determinism > 70
 
 ---
@@ -234,21 +234,21 @@ Soft warnings (neblokuji, jen informuji):
 
 Post-synthesis validace s moznosti retry. Pokud odpoved porusuje pravidla, regeneruje se s kontextem o poruseni (max 2 pokusy).
 
-## ExpertEnforcer
+## ExpertiseEnforcer
 
 ```
-LLM generuje odpoved s expertnim promptem
+LLM generuje odpoved s expertise promptem
     |
     v
-ExpertEnforcer.enforce(response, expert)
+ExpertiseEnforcer.enforce(response, expertise)
     |
-    +-- 1. checkForbiddenPhrases(response, expert.styleRules.forbiddenPhrases)
+    +-- 1. checkForbiddenPhrases(response, expertise.styleRules.forbiddenPhrases)
     |       +-- Default: "nevim", "to zalezi", "jako jazykovy model", "nemohu pomoci"
     |       +-- Ucetni: "odhaduji", "priblizne", "muze byt kolem", "tipuji"
     |       +-- Analytik: "mozna", "asi", "nevim presne"
     |       +-- Vyvojar: "TODO.*later", "this is just an example"
     |
-    +-- 2. checkResponseLength(response, expert.styleRules.minResponseLength)
+    +-- 2. checkResponseLength(response, expertise.styleRules.minResponseLength)
     |       +-- Default: 50, Spisovatel: 200, DnD Master: 150, Ucetni: 100
     |
     +-- PORUSENI?
@@ -286,7 +286,7 @@ ExpertEnforcer.enforce(response, expert)
 
 # Expertise Wizard UI
 
-Formular pro vytvareni/editaci expertiz v IDE (center-views extension).
+Formular pro vytvareni/editaci expertyz v IDE (center-views extension).
 
 ```
 center-views: "+" button → wizard mode
@@ -297,7 +297,7 @@ center-views: "+" button → wizard mode
     +-- Preview & Test — live compatibility, token count, prompt preview, LLM test
     |
     v
-Save → POST /api/experts → expert se objevi v registru
+Save → POST /api/expertises → expertyza se objevi v registru
 ```
 
 **Anti-drift:** Wizard si nacte konstanty z `GET /api/expertise-schema` — zadne hardcoded hodnoty ve frontendu.
@@ -310,12 +310,12 @@ Save → POST /api/experts → expert se objevi v registru
 
 | Endpoint | Metoda | Ucel |
 |----------|--------|------|
-| `/api/experts` | GET | Seznam vsech expertu |
-| `/api/experts/:id` | GET | Detail |
-| `/api/experts` | POST | Vytvoreni custom experta |
-| `/api/experts/:id` | PUT | Uprava |
-| `/api/experts/:id` | DELETE | Smazani (pouze custom) |
-| `/api/merge-preview` | GET | Preview merge s existujicimi experty |
+| `/api/expertises` | GET | Seznam vsech expertyz |
+| `/api/expertises/:id` | GET | Detail |
+| `/api/expertises` | POST | Vytvoreni custom expertyzy |
+| `/api/expertises/:id` | PUT | Uprava |
+| `/api/expertises/:id` | DELETE | Smazani (pouze custom) |
+| `/api/merge-preview` | GET | Preview merge s existujicimi expertyzami |
 | `/api/merge-preview` | POST | Preview s inline config (wizard) |
 | `/api/expertise-schema` | GET | Schema pro wizard (anti-drift) |
 | `/api/expertise-wizard/test-prompt` | POST | LLM test s inline config |
@@ -325,8 +325,8 @@ Save → POST /api/experts → expert se objevi v registru
 # Database Schema
 
 ```sql
--- Definice expertu (custom)
-CREATE TABLE experts (
+-- Definice expertyz (custom)
+CREATE TABLE expertises (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     description TEXT,
@@ -339,10 +339,10 @@ CREATE TABLE experts (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Vazba expert-konverzace (single expert, legacy)
-CREATE TABLE conversation_experts (
+-- Vazba expertise-konverzace (single expertise, legacy)
+CREATE TABLE expertise_bindings (
     conversation_id TEXT PRIMARY KEY,
-    expert_id TEXT NOT NULL,
+    expertise_id TEXT NOT NULL,
     locked BOOLEAN DEFAULT 0,
     strength INTEGER DEFAULT 50,
     locked_at TIMESTAMP
@@ -357,14 +357,14 @@ CREATE TABLE conversation_expertises (
     UNIQUE(conversation_id, expertise_id)
 );
 
--- Pamet experta (cross-session)
-CREATE TABLE expert_memory (
-    expert_id TEXT NOT NULL,
+-- Pamet expertyzy (cross-session)
+CREATE TABLE expertise_memory (
+    expertise_id TEXT NOT NULL,
     key TEXT NOT NULL,
     value TEXT,
     previous_value TEXT,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (expert_id, key)
+    PRIMARY KEY (expertise_id, key)
 );
 
 -- Merge audit log
@@ -400,10 +400,10 @@ CREATE TABLE llm_execution_log (
 | `merge-compatibility.test.js` | 16 | 5D kompatibilita, edge cases |
 | `merge-enforcement-integration.test.js` | 15 | Merge→enforcement pipeline |
 | `capability-enforcer.test.js` | 38 | 5D evaluators, drift, strict, retry, trace |
-| `execution-trace-stress.test.js` | 20 | 3-expert merge + full trace |
+| `execution-trace-stress.test.js` | 20 | 3-expertise merge + full trace |
 | `expertise-wizard.test.js` | 38 | Validace modules, capabilities, inheritance |
-| `expert-system.test.js` | 40 | CRUD, validace, vazby, enforcement |
-| `expert-integration.test.js` | 10 | Expert + DB + handler pipeline |
+| `expertise-system.test.js` | 40 | CRUD, validace, vazby, enforcement |
+| `expertise-integration.test.js` | 10 | Expertise + DB + handler pipeline |
 | **Celkem** | **~217** | |
 
 ---
@@ -412,17 +412,17 @@ CREATE TABLE llm_execution_log (
 
 | Soubor | Radku | Ucel |
 |--------|-------|------|
-| `src/experts/expert-layer.js` | 1760 | Definice expertu, registry, routing, modules, capabilities |
-| `src/experts/expert-store.js` | 917 | DB persistence, CRUD, validace |
-| `src/experts/expert-enforcement.js` | 341 | Forbidden phrases, delka, retry |
-| `src/experts/merge-engine.js` | 568 | mergeExpertisePrompt() |
-| `src/experts/merge-types.js` | 195 | Konstanty, CompatibilityBlockError |
-| `src/experts/merge-compatibility.js` | 189 | 5D pairwise conflict detection |
-| `src/experts/capability-enforcer.js` | — | Post-response 5D drift validation |
-| `src/experts/capability-mapping.js` | 267 | 5D → runtime modifikatory |
-| `src/experts/expert-sandbox.js` | 299 | Offline simulace + baseline drift |
-| `src/experts/guards/tool-enforcement.js` | 365 | Overeni ciselnych tvrzeni |
-| `src/chat/handlers/expert.js` | 655 | Expert handler |
+| `src/expertises/expertise-layer.js` | 1760 | Definice expertyz, registry, routing, modules, capabilities |
+| `src/expertises/expertise-store.js` | 917 | DB persistence, CRUD, validace |
+| `src/expertises/expertise-enforcement.js` | 341 | Forbidden phrases, delka, retry |
+| `src/expertises/merge-engine.js` | 568 | mergeExpertisePrompt() |
+| `src/expertises/merge-types.js` | 195 | Konstanty, CompatibilityBlockError |
+| `src/expertises/merge-compatibility.js` | 189 | 5D pairwise conflict detection |
+| `src/expertises/capability-enforcer.js` | — | Post-response 5D drift validation |
+| `src/expertises/capability-mapping.js` | 267 | 5D → runtime modifikatory |
+| `src/expertises/expertise-sandbox.js` | 299 | Offline simulace + baseline drift |
+| `src/expertises/guards/tool-enforcement.js` | 365 | Overeni ciselnych tvrzeni |
+| `src/chat/handlers/expertise.js` | 655 | Expertise handler |
 
 ---
 

@@ -159,7 +159,7 @@ export interface ToolResult {
 /**
  * Expert hints for synthesis
  */
-export interface ExpertHints {
+export interface ExpertiseHints {
   active: boolean;
   expertName?: string;
   influence?: number;
@@ -215,7 +215,7 @@ export interface SynthesisOptions {
     [key: string]: unknown;
   };
   userPreferences?: UserPreferences;
-  expertHints?: ExpertHints | null;
+  expertiseHints?: ExpertiseHints | null;
   responseIntent?: ResponseIntent | null;
   creDecisionEngine?: unknown;
 }
@@ -234,7 +234,7 @@ export declare function buildSynthesisPrompt(options: {
   data: unknown[];
   failures: unknown[];
   userPreferences?: UserPreferences;
-  expertHints?: ExpertHints | null;
+  expertiseHints?: ExpertiseHints | null;
 }): string;
 
 /**
@@ -243,7 +243,7 @@ export declare function buildSynthesisPrompt(options: {
 export declare function buildSynthesisSystemPrompt(
   intent: IntentType,
   userPreferences?: UserPreferences,
-  expertHints?: ExpertHints | null,
+  expertiseHints?: ExpertiseHints | null,
   responseIntent?: ResponseIntent | null
 ): string;
 

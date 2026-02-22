@@ -198,9 +198,9 @@ export function applyAdaptiveResultCount(data, query, intent) {
 
 /**
  * Build the prompt for LLM synthesis
- * v45.0 Phase 3: Added expertHints support
+ * v45.0 Phase 3: Added expertiseHints support
  */
-export function buildSynthesisPrompt({ query, intent, data, failures, userPreferences, expertHints = null, conversationContext = null, allToolResults = null }) {
+export function buildSynthesisPrompt({ query, intent, data, failures, userPreferences, expertiseHints = null, conversationContext = null, allToolResults = null }) {
   let prompt = `User query: "${query}"\n\n`;
 
   // v56.2 Sprint C2: Inject conversation context so LLM knows what pronouns refer to
@@ -258,10 +258,10 @@ export function buildSynthesisPrompt({ query, intent, data, failures, userPrefer
   }
 
   // Expert hints
-  if (expertHints?.active) {
-    prompt += `\nExpert mode: ${expertHints.expertName} (${Math.round(expertHints.influence * 100)}% intensity)\n`;
-    if (expertHints.systemAddition) {
-      prompt += `Expert guidance: ${expertHints.systemAddition}\n`;
+  if (expertiseHints?.active) {
+    prompt += `\nExpert mode: ${expertiseHints.expertName} (${Math.round(expertiseHints.influence * 100)}% intensity)\n`;
+    if (expertiseHints.systemAddition) {
+      prompt += `Expert guidance: ${expertiseHints.systemAddition}\n`;
     }
   }
 
@@ -272,10 +272,10 @@ export function buildSynthesisPrompt({ query, intent, data, failures, userPrefer
 
 /**
  * Build system prompt for synthesis based on intent
- * v45.0 Phase 3: Added expertHints and responseIntent support
+ * v45.0 Phase 3: Added expertiseHints and responseIntent support
  * v55.2: Added languageInstruction for language consistency
  */
-export function buildSynthesisSystemPrompt(intent, userPreferences, expertHints = null, responseIntent = null, languageInstruction = '', lang = 'cs', searchSubType = null) {
+export function buildSynthesisSystemPrompt(intent, userPreferences, expertiseHints = null, responseIntent = null, languageInstruction = '', lang = 'cs', searchSubType = null) {
   // v62.2b: Language instruction FIRST — prevents EN contamination at source
   // The LLM reads system prompt top-to-bottom; language rule must come before anything else
   let basePrompt = '';
@@ -299,33 +299,33 @@ FORBIDDEN PHRASES (never use these):
 ${FORBIDDEN_PHRASES.slice(0, 5).map(p => `- "${p}"`).join('\n')}`;
 
   // Expert style hints
-  if (expertHints?.active && expertHints.influence >= 0.25) {
-    basePrompt += `\n\nEXPERT MODE (${expertHints.expertName}):`;
+  if (expertiseHints?.active && expertiseHints.influence >= 0.25) {
+    basePrompt += `\n\nEXPERT MODE (${expertiseHints.expertName}):`;
     
-    switch (expertHints.style) {
+    switch (expertiseHints.style) {
       case 'creative': basePrompt += '\n- Use creative, expressive language'; break;
       case 'technical': basePrompt += '\n- Use precise technical terminology'; break;
       case 'formal': basePrompt += '\n- Maintain formal, professional tone'; break;
       case 'casual': basePrompt += '\n- Use friendly, approachable language'; break;
     }
     
-    switch (expertHints.depth) {
+    switch (expertiseHints.depth) {
       case 'deep': basePrompt += '\n- Provide thorough, detailed explanations'; break;
       case 'shallow': basePrompt += '\n- Keep explanations brief and focused'; break;
     }
     
-    if (expertHints.caution === 'high') {
+    if (expertiseHints.caution === 'high') {
       basePrompt += '\n- Include disclaimers and caveats where appropriate';
       basePrompt += '\n- Emphasize limitations and risks';
     }
     
-    if (expertHints.influence >= 0.5 && expertHints.systemAddition) {
-      basePrompt += `\n- ${expertHints.systemAddition}`;
+    if (expertiseHints.influence >= 0.5 && expertiseHints.systemAddition) {
+      basePrompt += `\n- ${expertiseHints.systemAddition}`;
     }
 
     // v57.1 A7: Domain-specific synthesis instructions
-    if (expertHints.domainSynthesis) {
-      basePrompt += `\n\n${expertHints.domainSynthesis}`;
+    if (expertiseHints.domainSynthesis) {
+      basePrompt += `\n\n${expertiseHints.domainSynthesis}`;
     }
   }
 
@@ -704,7 +704,7 @@ export function buildBasicSynthesis(query, intent, data) {
  * @param {Array} options.toolResults - Array of ToolResult objects
  * @param {Object} options.context - Handler context
  * @param {Object} options.userPreferences - User preferences
- * @param {Object} options.expertHints - Expert synthesis hints
+ * @param {Object} options.expertiseHints - Expert synthesis hints
  * @param {string} options.responseIntent - ResponseIntent
  * @param {Function} options.creDecisionEngine - CRE decision engine reference
  * @returns {Promise<{ content: string, confidence: number, model: string }>}
@@ -715,7 +715,7 @@ export async function synthesizeWithLLM({
   toolResults,
   context = {},
   userPreferences = {},
-  expertHints = null,
+  expertiseHints = null,
   responseIntent = null,
   creDecisionEngine = null,
   conversationContext = null,  // v56.2 Sprint C2: previous turns for reference resolution
@@ -755,7 +755,7 @@ export async function synthesizeWithLLM({
   // Build prompts
   let synthesisPrompt = buildSynthesisPrompt({
     query, intent, data: relevantItems.length > 0 ? relevantItems : successfulData,
-    failures, userPreferences, expertHints,
+    failures, userPreferences, expertiseHints,
     conversationContext,  // v56.2 Sprint C2
     allToolResults: successfulData,  // v62.2b: Pass ALL results for URL extraction fallback
   });
@@ -769,7 +769,7 @@ export async function synthesizeWithLLM({
   }
   // v55.2: Detect language and inject instruction
   const langCtx = getLanguageContext(query);
-  const systemPrompt = buildSynthesisSystemPrompt(intent, userPreferences, expertHints, responseIntent, langCtx.instruction, langCtx.language, searchSubType)
+  const systemPrompt = buildSynthesisSystemPrompt(intent, userPreferences, expertiseHints, responseIntent, langCtx.instruction, langCtx.language, searchSubType)
     + (confidenceInstructions ? `\n\n${confidenceInstructions}` : '')
     + buildProjectContext(context);
 
@@ -900,8 +900,8 @@ export async function synthesizeWithLLM({
       // ─── End Language Validation Gate ─────────────────────────────────
 
       // ─── Tool-Only Numeric Enforcement (expert opt-in, v57.2) ────────
-      if (expertHints?.toolEnforcement && retryCount < MAX_RETRIES) {
-        const guard = await import('../../../experts/guards/tool-enforcement.js');
+      if (expertiseHints?.toolEnforcement && retryCount < MAX_RETRIES) {
+        const guard = await import('../../../expertises/guards/tool-enforcement.js');
         const numericVerdict = guard.verifyNumericClaims(result.content, successfulData);
 
         if (!numericVerdict.ok) {
@@ -915,8 +915,8 @@ export async function synthesizeWithLLM({
           continue;
         }
       }
-      if (expertHints?.toolEnforcement && retryCount >= MAX_RETRIES) {
-        const guard = await import('../../../experts/guards/tool-enforcement.js');
+      if (expertiseHints?.toolEnforcement && retryCount >= MAX_RETRIES) {
+        const guard = await import('../../../expertises/guards/tool-enforcement.js');
         const finalNumericVerdict = guard.verifyNumericClaims(result.content, successfulData);
         if (!finalNumericVerdict.ok) {
           logger.warn('Synthesis', 'Tool enforcement failed but max retries reached', {

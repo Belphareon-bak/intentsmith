@@ -7,8 +7,8 @@
 // T-CE4:  evaluateStructure — structural markers
 // T-CE5:  computeCapabilityDrift — per-dimension drift, violation thresholds
 // T-CE6:  enforceCapabilities — main entry point, aggregation
-// T-CE7:  ExpertEnforcer strict mode — hard fail after retries
-// T-CE8:  ExpertEnforcer retry decay — temperature/topP decay, seed, audit
+// T-CE7:  ExpertiseEnforcer strict mode — hard fail after retries
+// T-CE8:  ExpertiseEnforcer retry decay — temperature/topP decay, seed, audit
 // T-CE10: ExecutionTrace ID — propagation through retry audit trail
 //
 // Spuštění: node tests/capability-enforcer.test.js
@@ -56,13 +56,13 @@ import {
   computeCapabilityDrift,
   enforceCapabilities,
   CAPABILITY_ENFORCEMENT_CONFIG,
-} from '../src/experts/capability-enforcer.js';
+} from '../src/expertises/capability-enforcer.js';
 
 import {
-  ExpertEnforcer,
+  ExpertiseEnforcer,
   checkForbiddenPhrases,
   checkResponseLength,
-} from '../src/experts/expert-enforcement.js';
+} from '../src/expertises/expertise-enforcement.js';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // T-CE1: DETERMINISM EVALUATION
@@ -296,10 +296,10 @@ describe('T-CE6: enforceCapabilities', async () => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// T-CE7: STRICT MODE (ExpertEnforcer)
+// T-CE7: STRICT MODE (ExpertiseEnforcer)
 // ══════════════════════════════════════════════════════════════════════════════
 
-describe('T-CE7: ExpertEnforcer strict mode', async () => {
+describe('T-CE7: ExpertiseEnforcer strict mode', async () => {
   await it('strict mode returns hardFail when retries exhausted', async () => {
     const expert = {
       id: 'test-strict',
@@ -313,7 +313,7 @@ describe('T-CE7: ExpertEnforcer strict mode', async () => {
     // regenerateFn always returns violating response
     const regenerateFn = async () => 'odhaduji, že to bude 42 korun';
 
-    const enforcer = new ExpertEnforcer(expert, regenerateFn, { strict: true });
+    const enforcer = new ExpertiseEnforcer(expert, regenerateFn, { strict: true });
     const result = await enforcer.enforce('odhaduji, že to bude 100 korun', 'Kolik stojí?');
 
     assert.strictEqual(result.passed, false);
@@ -338,7 +338,7 @@ describe('T-CE7: ExpertEnforcer strict mode', async () => {
       return 'Daňový základ činí přesně 15 000 CZK dle výpočtu.'; // clean response
     };
 
-    const enforcer = new ExpertEnforcer(expert, regenerateFn, { strict: true });
+    const enforcer = new ExpertiseEnforcer(expert, regenerateFn, { strict: true });
     const result = await enforcer.enforce('odhaduji to na 15 000', 'Kolik?');
 
     assert.strictEqual(result.passed, true);
@@ -357,7 +357,7 @@ describe('T-CE7: ExpertEnforcer strict mode', async () => {
 
     const regenerateFn = async () => 'odhaduji, že to bude asi 42';
 
-    const enforcer = new ExpertEnforcer(expert, regenerateFn, { strict: false });
+    const enforcer = new ExpertiseEnforcer(expert, regenerateFn, { strict: false });
     const result = await enforcer.enforce('odhaduji, response here for testing', 'Kolik?');
 
     assert.strictEqual(result.passed, false);
@@ -367,10 +367,10 @@ describe('T-CE7: ExpertEnforcer strict mode', async () => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// T-CE8: RETRY DECAY (ExpertEnforcer)
+// T-CE8: RETRY DECAY (ExpertiseEnforcer)
 // ══════════════════════════════════════════════════════════════════════════════
 
-describe('T-CE8: ExpertEnforcer retry decay', async () => {
+describe('T-CE8: ExpertiseEnforcer retry decay', async () => {
   await it('regenerateFn receives retryOptions with temperatureDecay and seed', async () => {
     const expert = {
       id: 'test-decay',
@@ -386,7 +386,7 @@ describe('T-CE8: ExpertEnforcer retry decay', async () => {
       return 'BAD_WORD still here for retry testing';
     };
 
-    const enforcer = new ExpertEnforcer(expert, regenerateFn, { maxRetries: 2 });
+    const enforcer = new ExpertiseEnforcer(expert, regenerateFn, { maxRetries: 2 });
     await enforcer.enforce('BAD_WORD in initial response', 'Question');
 
     assert.ok(receivedOptions.length >= 1, 'should have retried');
@@ -412,7 +412,7 @@ describe('T-CE8: ExpertEnforcer retry decay', async () => {
       return 'BAD response again for testing';
     };
 
-    const enforcer = new ExpertEnforcer(expert, regenerateFn, { maxRetries: 3 });
+    const enforcer = new ExpertiseEnforcer(expert, regenerateFn, { maxRetries: 3 });
     await enforcer.enforce('BAD initial response here', 'Q');
 
     if (receivedOptions.length >= 2) {
@@ -434,7 +434,7 @@ describe('T-CE8: ExpertEnforcer retry decay', async () => {
 
     const regenerateFn = async () => 'VIOLATION still present in retry';
 
-    const enforcer = new ExpertEnforcer(expert, regenerateFn, { maxRetries: 2 });
+    const enforcer = new ExpertiseEnforcer(expert, regenerateFn, { maxRetries: 2 });
     const result = await enforcer.enforce('VIOLATION in initial text', 'Q');
 
     assert.ok(result.retryAudit, 'should have retryAudit');
@@ -467,7 +467,7 @@ describe('T-CE9: Cross-layer chaos tests', async () => {
       'Sazba daně je 15%. Výsledná daň činí 22 500 CZK. Konzultujte daňového poradce.';
 
     // Verify enforcement passes
-    const enforcer = new ExpertEnforcer(expert, null, { strict: true });
+    const enforcer = new ExpertiseEnforcer(expert, null, { strict: true });
     const enfResult = await enforcer.enforce(goodResponse, 'test');
     assert.strictEqual(enfResult.passed, true, 'should pass enforcement');
 
@@ -498,7 +498,7 @@ describe('T-CE9: Cross-layer chaos tests', async () => {
       return 'BANNED word still present in the response here for testing.';
     };
 
-    const enforcer = new ExpertEnforcer(expert, regenerateFn, { strict: true, maxRetries: 2 });
+    const enforcer = new ExpertiseEnforcer(expert, regenerateFn, { strict: true, maxRetries: 2 });
     const result = await enforcer.enforce('BANNED word in initial response text here.', 'Q');
 
     assert.strictEqual(result.hardFail, true, 'strict mode → hardFail');
@@ -547,7 +547,7 @@ describe('T-CE10: ExecutionTrace ID in retry audit', async () => {
       return 'Clean response without any violations. This is a proper answer with enough length.';
     };
 
-    const enforcer = new ExpertEnforcer(expert, regenerateFn, {
+    const enforcer = new ExpertiseEnforcer(expert, regenerateFn, {
       executionTraceId: traceId,
       maxRetries: 2,
     });
@@ -576,7 +576,7 @@ describe('T-CE10: ExecutionTrace ID in retry audit', async () => {
 
     const regenerateFn = async () => 'Good response without any violations, long enough text.';
 
-    const enforcer = new ExpertEnforcer(expert, regenerateFn, { maxRetries: 1 });
+    const enforcer = new ExpertiseEnforcer(expert, regenerateFn, { maxRetries: 1 });
     const result = await enforcer.enforce('BAD word in initial response text here.', 'Q');
 
     assert.strictEqual(result.passed, true, 'should pass');
@@ -598,7 +598,7 @@ describe('T-CE10: ExecutionTrace ID in retry audit', async () => {
 
     const regenerateFn = async () => 'NOPE still present in retry response text here.';
 
-    const enforcer = new ExpertEnforcer(expert, regenerateFn, {
+    const enforcer = new ExpertiseEnforcer(expert, regenerateFn, {
       executionTraceId: traceId,
       strict: true,
       maxRetries: 2,
@@ -622,7 +622,7 @@ describe('T-CE10: ExecutionTrace ID in retry audit', async () => {
       styleRules: { forbiddenPhrases: [], minResponseLength: 5 },
     };
 
-    const enforcer = new ExpertEnforcer(expert, null, { executionTraceId: traceId });
+    const enforcer = new ExpertiseEnforcer(expert, null, { executionTraceId: traceId });
     const result = await enforcer.enforce('Clean response, no issues at all.', 'Q');
 
     assert.strictEqual(result.passed, true);

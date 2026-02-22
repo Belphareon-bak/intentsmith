@@ -41,14 +41,14 @@ async function it(name, fn) {
 
 // ─── Imports ─────────────────────────────────────────────────────────────────
 
-import { checkCompatibility } from '../src/experts/merge-compatibility.js';
-import { CompatibilitySeverity } from '../src/experts/merge-types.js';
-import { BUILTIN_EXPERTS } from '../src/experts/expert-layer.js';
+import { checkCompatibility } from '../src/expertises/merge-compatibility.js';
+import { CompatibilitySeverity } from '../src/expertises/merge-types.js';
+import { BUILTIN_EXPERTISES } from '../src/expertises/expertise-layer.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function expert(id) {
-  return { ...BUILTIN_EXPERTS[id] };
+  return { ...BUILTIN_EXPERTISES[id] };
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -165,18 +165,18 @@ describe('T-MC2: Edge cases', async () => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 describe('T-MC3: All built-in experts have modules and capabilities', async () => {
-  const expertIds = Object.keys(BUILTIN_EXPERTS);
+  const expertIds = Object.keys(BUILTIN_EXPERTISES);
 
   await it(`all ${expertIds.length} built-in experts have modules !== null`, () => {
     for (const id of expertIds) {
-      assert.ok(BUILTIN_EXPERTS[id].modules !== null && BUILTIN_EXPERTS[id].modules !== undefined,
+      assert.ok(BUILTIN_EXPERTISES[id].modules !== null && BUILTIN_EXPERTISES[id].modules !== undefined,
         `${id} should have modules`);
     }
   });
 
   await it(`all ${expertIds.length} built-in experts have capabilities !== null`, () => {
     for (const id of expertIds) {
-      assert.ok(BUILTIN_EXPERTS[id].capabilities !== null && BUILTIN_EXPERTS[id].capabilities !== undefined,
+      assert.ok(BUILTIN_EXPERTISES[id].capabilities !== null && BUILTIN_EXPERTISES[id].capabilities !== undefined,
         `${id} should have capabilities`);
     }
   });
@@ -184,7 +184,7 @@ describe('T-MC3: All built-in experts have modules and capabilities', async () =
   await it('all capabilities have 5 dimensions', () => {
     const dims = ['reasoning', 'creativity', 'determinism', 'riskTolerance', 'verbosity'];
     for (const id of expertIds) {
-      const cap = BUILTIN_EXPERTS[id].capabilities;
+      const cap = BUILTIN_EXPERTISES[id].capabilities;
       for (const dim of dims) {
         assert.ok(typeof cap[dim] === 'number' && cap[dim] >= 0 && cap[dim] <= 100,
           `${id}.capabilities.${dim} should be 0-100, got ${cap[dim]}`);
@@ -195,7 +195,7 @@ describe('T-MC3: All built-in experts have modules and capabilities', async () =
   await it('all modules have required sections', () => {
     const sections = ['domain_rules', 'emphasis', 'constraints', 'vocabulary', 'antipatterns', 'disclaimer'];
     for (const id of expertIds) {
-      const mod = BUILTIN_EXPERTS[id].modules;
+      const mod = BUILTIN_EXPERTISES[id].modules;
       for (const section of sections) {
         assert.ok(section in mod, `${id}.modules should have ${section}`);
       }

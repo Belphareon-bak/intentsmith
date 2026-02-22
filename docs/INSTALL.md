@@ -339,7 +339,7 @@ Vsechny promenne se nacitaji z `.env` souboru v koreni projektu.
 |----------|---------|-------|
 | `C3_ENABLE_AGENTS` | true | Worker agenty |
 | `C3_ENABLE_LIFECYCLE` | true | Project Lifecycle |
-| `C3_ENABLE_EXPERTS` | true | Expert System |
+| `C3_ENABLE_EXPERTISES` | true | Expertise System |
 
 ### Lifecycle
 
@@ -382,10 +382,10 @@ node tests/cre-comprehensive.test.js      # 401 testu — CRE klasifikace
 node tests/cre-gatekeeper.test.js          # 43 testu — CRE Gatekeeper
 node tests/schema-migrations.test.js       # 26 testu — DB migrace
 
-# Expert system (nevyzaduje Ollama)
+# Expertise system (nevyzaduje Ollama)
 node tests/merge-engine.test.js            # 40 testu
 node tests/capability-enforcer.test.js     # 38 testu
-node tests/expert-system.test.js           # 40 testu
+node tests/expertise-system.test.js         # 40 testu
 
 # Lifecycle (nevyzaduje Ollama)
 node tests/lifecycle-unit.test.js          # 103 testu

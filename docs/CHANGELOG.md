@@ -2,6 +2,56 @@
 
 ---
 
+## v69.0 — Rename: expert → expertise (2026-02-22)
+
+Sjednocení terminologie: "expert" → "expertise/expertyza". Expertyza = dovednostní profil/persona overlay na LLM odpovědi. Specialist = komplexní doménový agent s tools, knowledge base, rutinami. Přejmenování odstraňuje záměnu obou pojmů.
+
+### Soubory a adresáře
+
+- `src/experts/` → `src/expertises/` (celý adresář včetně tools/, guards/)
+- `expert-layer.js` → `expertise-layer.js`, `expert-store.js` → `expertise-store.js`, `expert-enforcement.js` → `expertise-enforcement.js`, `expert-sandbox.js` → `expertise-sandbox.js`
+- `src/chat/handlers/expert.js` → `expertise.js`, `src/routes/experts.js` → `expertises.js`
+- `docs/EXPERTS.md` → `EXPERTISES.md`, `ExpertCardPro.tsx` → `ExpertiseCardPro.tsx`
+- 3 testové soubory přejmenovány (`expert-system`, `expert-integration`, `expert-ab-quality`)
+
+### Symboly (67 souborů, ~3200 řádků)
+
+- Exportované symboly: `ExpertAgent→ExpertiseAgent`, `ExpertStore→ExpertiseStore`, `ExpertEnforcer→ExpertiseEnforcer`, `BUILTIN_EXPERTS→BUILTIN_EXPERTISES`, `expertRegistry→expertiseRegistry`, `routeToExpert→routeToExpertise`, atd.
+- Enum klíče: `ChatMode.EXPERT→ChatMode.EXPERTISE` (string value `'expert'` zachována pro backward compat)
+- SessionState: `#expert→#expertise`, `setExpert→setExpertise`, `hasActiveExpert→hasActiveExpertise`
+- Config: `config.features.experts→config.features.expertises`
+- API endpointy: `/api/experts→/api/expertises` (+ 307 redirect aliasy pro backward compat)
+
+### DB migrace (soft — v69.0)
+
+- Nové tabulky: `expertises`, `expertise_bindings`, `expertise_memory`, `custom_expertises`
+- Nové sloupce: `capability_drift_log.expertise_id`, `llm_execution_log.expertise_id`
+- Data zkopírována z `experts`, `conversation_experts`, `expert_memory`, `custom_experts`
+- Staré tabulky ponechány jako fallback (drop v další major verzi)
+- Migrace: `src/db/migrations/2026_02_20_008_v69_expert_to_expertise.js`
+
+### Backward kompatibilita
+
+- `ChatMode.EXPERTISE` value = `'expert'` (persisted sessions, JSON logs, executionTrace)
+- `SessionState.fromJSON()`: `json.expertise ?? json.expert` fallback
+- `C3_ENABLE_EXPERTS` env var: deprecated s log warning, funkční
+- LLM prompt strings "Jsi expert na..." ponechány (přirozený jazyk)
+
+### Frontend/IDE (13 souborů)
+
+- chat-panel-module.js, center-views-module.js, sidebar-module.js, detail-panel-module.js
+- wizard-helpers.js, wizard-basic.js, ConversationCardPro.tsx, ExpertiseCardPro.tsx
+- architect.html/css/js, c3-visibility.css
+- CSS třídy: `.c3-card-expert→.c3-card-expertise`, `.c3-expert-emo→.c3-expertise-emo`
+
+### Testy (16 souborů)
+
+- Všechny import paths `../src/experts/` → `../src/expertises/`
+- Symboly aktualizovány: `ExpertStore→ExpertiseStore`, `ExpertEnforcer→ExpertiseEnforcer`, `BUILTIN_EXPERTS→BUILTIN_EXPERTISES`, `validateExpertConfig→validateExpertiseConfig`
+- ws-bridge.test.js: `setExpert→setExpertise`, `restored.expert→restored.expertise`
+
+---
+
 ## v65.8 — D1-D3 Specialist Platform: Runtime + Knowledge Base + Scenarios (2026-02-19)
 
 **Testy:** 401 CRE + 43 GK + 52 pipeline + 81 accountant + 41 enforcement + 23 specialist + 35 knowledge + 42 scenario + 125 quality + 100 design = 943+ PASS

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>C.3 Experts - Mistři v oboru</title>
+  <title>C.3 Expertises - Mistři v oboru</title>
   <style>
     :root {
       --bg-primary: #0f0f0f;
@@ -152,7 +152,7 @@
       color: white;
     }
 
-    /* Expert Grid */
+    /* Expertise Grid */
     .content-area {
       flex: 1;
       padding: 24px;
@@ -171,13 +171,13 @@
       font-weight: 600;
     }
 
-    .expert-grid {
+    .expertise-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
       gap: 16px;
     }
 
-    .expert-card {
+    .expertise-card {
       background: var(--bg-secondary);
       border: 1px solid var(--border-color);
       border-radius: 12px;
@@ -186,57 +186,57 @@
       transition: all 0.2s;
     }
 
-    .expert-card:hover {
+    .expertise-card:hover {
       border-color: var(--accent);
       transform: translateY(-2px);
     }
 
-    .expert-card.selected {
+    .expertise-card.selected {
       border-color: var(--accent);
       box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.3);
     }
 
-    .expert-header {
+    .expertise-header {
       display: flex;
       align-items: flex-start;
       gap: 16px;
       margin-bottom: 12px;
     }
 
-    .expert-icon {
+    .expertise-icon {
       font-size: 2.5rem;
       line-height: 1;
     }
 
-    .expert-info {
+    .expertise-info {
       flex: 1;
     }
 
-    .expert-name {
+    .expertise-name {
       font-size: 1.1rem;
       font-weight: 600;
       margin-bottom: 4px;
     }
 
-    .expert-domain {
+    .expertise-domain {
       font-size: 12px;
       color: var(--text-secondary);
     }
 
-    .expert-description {
+    .expertise-description {
       color: var(--text-secondary);
       font-size: 14px;
       line-height: 1.5;
       margin-bottom: 16px;
     }
 
-    .expert-tags {
+    .expertise-tags {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
     }
 
-    .expert-tag {
+    .expertise-tag {
       background: var(--bg-tertiary);
       padding: 4px 10px;
       border-radius: 6px;
@@ -244,9 +244,9 @@
       color: var(--text-secondary);
     }
 
-    .expert-tag.creative { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
-    .expert-tag.analytical { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
-    .expert-tag.conservative { background: rgba(234, 179, 8, 0.2); color: #fbbf24; }
+    .expertise-tag.creative { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
+    .expertise-tag.analytical { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+    .expertise-tag.conservative { background: rgba(234, 179, 8, 0.2); color: #fbbf24; }
 
     /* Detail Panel */
     .detail-panel {
@@ -487,10 +487,10 @@
       <a href="/architect" class="back-link">
         ← Zpět na chat
       </a>
-      <h1>🎓 Experts</h1>
+      <h1>🎓 Expertyzy</h1>
     </div>
     <button class="btn-primary" onclick="openCreateModal()">
-      + Vytvořit experta
+      + Vytvořit expertyzu
     </button>
   </header>
 
@@ -501,12 +501,12 @@
       <div id="categories"></div>
     </aside>
 
-    <!-- Expert Grid -->
+    <!-- Expertise Grid -->
     <main class="content-area">
       <div class="content-header">
-        <h2 id="content-title">Všichni experti</h2>
+        <h2 id="content-title">Všechny expertyzy</h2>
       </div>
-      <div class="expert-grid" id="expert-grid"></div>
+      <div class="expertise-grid" id="expertise-grid"></div>
     </main>
 
     <!-- Detail Panel -->
@@ -549,7 +549,7 @@
       </div>
 
       <div class="detail-actions">
-        <button class="btn-secondary" id="btn-edit" onclick="editExpert()">Upravit</button>
+        <button class="btn-secondary" id="btn-edit" onclick="editExpertise()">Upravit</button>
         <button class="btn-chat" onclick="startChat()">💬 Zahájit chat</button>
       </div>
     </aside>
@@ -559,35 +559,35 @@
   <div class="modal-overlay" id="modal-overlay">
     <div class="modal">
       <div class="modal-header">
-        <h3 id="modal-title">Vytvořit experta</h3>
+        <h3 id="modal-title">Vytvořit expertyzu</h3>
         <button class="modal-close" onclick="closeModal()">×</button>
       </div>
       <div class="modal-body">
         <div class="form-row">
           <div class="form-group">
             <label>Jméno</label>
-            <input type="text" id="expert-name" placeholder="Např. Spisovatel">
+            <input type="text" id="expertise-name" placeholder="Např. Spisovatel">
           </div>
           <div class="form-group">
             <label>Ikona (emoji)</label>
-            <input type="text" id="expert-icon" placeholder="✍️" maxlength="4">
+            <input type="text" id="expertise-icon" placeholder="✍️" maxlength="4">
           </div>
         </div>
         
         <div class="form-group">
           <label>Doména</label>
-          <input type="text" id="expert-domain" placeholder="Např. creative_writing">
+          <input type="text" id="expertise-domain" placeholder="Např. creative_writing">
         </div>
 
         <div class="form-group">
           <label>Popis</label>
-          <input type="text" id="expert-description" placeholder="Krátký popis co expert umí">
+          <input type="text" id="expertise-description" placeholder="Krátký popis co expertyza umí">
         </div>
 
         <div class="form-row">
           <div class="form-group">
             <label>Plánování</label>
-            <select id="expert-planning">
+            <select id="expertise-planning">
               <option value="none">Žádné</option>
               <option value="light">Lehké</option>
               <option value="deep">Hluboké</option>
@@ -595,7 +595,7 @@
           </div>
           <div class="form-group">
             <label>Revize</label>
-            <select id="expert-review">
+            <select id="expertise-review">
               <option value="none">Žádná</option>
               <option value="self">Samo-revize</option>
               <option value="iterative">Iterativní</option>
@@ -606,7 +606,7 @@
         <div class="form-row">
           <div class="form-group">
             <label>Použití dat</label>
-            <select id="expert-data">
+            <select id="expertise-data">
               <option value="forbidden">Zakázáno</option>
               <option value="evidence">Jako důkaz</option>
               <option value="controlled">Řízené</option>
@@ -614,7 +614,7 @@
           </div>
           <div class="form-group">
             <label>Styl výstupu</label>
-            <select id="expert-bias">
+            <select id="expertise-bias">
               <option value="creative">Kreativní</option>
               <option value="analytical">Analytický</option>
               <option value="conservative">Konzervativní</option>
@@ -624,65 +624,65 @@
 
         <div class="form-group">
           <label>Teplota (0.0 - 1.0)</label>
-          <input type="number" id="expert-temp" value="0.5" min="0" max="1" step="0.1">
+          <input type="number" id="expertise-temp" value="0.5" min="0" max="1" step="0.1">
         </div>
 
         <div class="form-group">
           <label>System Prompt</label>
-          <textarea id="expert-prompt" placeholder="Instrukce pro experta..."></textarea>
+          <textarea id="expertise-prompt" placeholder="Instrukce pro expertyzu..."></textarea>
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeModal()">Zrušit</button>
-        <button class="btn-primary" onclick="saveExpert()">Uložit</button>
+        <button class="btn-primary" onclick="saveExpertise()">Uložit</button>
       </div>
     </div>
   </div>
 
   <script>
     // State
-    let experts = [];
+    let expertises = [];
     let categories = [];
-    let selectedExpert = null;
+    let selectedExpertise = null;
     let selectedCategory = 'all';
-    let editingExpertId = null;
+    let editingExpertiseId = null;
 
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {
-      loadExperts();
+      loadExpertises();
     });
 
-    async function loadExperts() {
+    async function loadExpertises() {
       try {
-        const response = await fetch('/api/experts');
+        const response = await fetch('/api/expertises');
         const data = await response.json();
-        experts = data.experts || [];
+        expertises = data.expertises || [];
         categories = data.categories || [];
         renderCategories();
-        renderExperts();
+        renderExpertises();
       } catch (err) {
-        console.error('Failed to load experts:', err);
+        console.error('Failed to load expertises:', err);
       }
     }
 
     function renderCategories() {
       const container = document.getElementById('categories');
-      
-      // All experts
+
+      // All expertises
       let html = `
-        <div class="category-item ${selectedCategory === 'all' ? 'active' : ''}" 
+        <div class="category-item ${selectedCategory === 'all' ? 'active' : ''}"
              onclick="selectCategory('all')">
           <span class="category-icon">📚</span>
-          <span class="category-name">Všichni</span>
-          <span class="category-count">${experts.length}</span>
+          <span class="category-name">Všechny</span>
+          <span class="category-count">${expertises.length}</span>
         </div>
       `;
 
       // Built-in categories
       categories.forEach(cat => {
-        const count = cat.id === 'custom' 
-          ? experts.filter(e => e.isCustom).length
-          : cat.experts.filter(id => experts.find(e => e.id === id)).length;
+        const count = cat.id === 'custom'
+          ? expertises.filter(e => e.isCustom).length
+          : cat.expertises.filter(id => expertises.find(e => e.id === id)).length;
         
         html += `
           <div class="category-item ${selectedCategory === cat.id ? 'active' : ''}" 
@@ -700,24 +700,24 @@
     function selectCategory(catId) {
       selectedCategory = catId;
       renderCategories();
-      renderExperts();
-      
+      renderExpertises();
+
       const cat = categories.find(c => c.id === catId);
-      document.getElementById('content-title').textContent = 
-        catId === 'all' ? 'Všichni experti' : (cat?.name || catId);
+      document.getElementById('content-title').textContent =
+        catId === 'all' ? 'Všechny expertyzy' : (cat?.name || catId);
     }
 
-    function renderExperts() {
-      const container = document.getElementById('expert-grid');
-      
-      let filtered = experts;
+    function renderExpertises() {
+      const container = document.getElementById('expertise-grid');
+
+      let filtered = expertises;
       if (selectedCategory !== 'all') {
         const cat = categories.find(c => c.id === selectedCategory);
         if (cat) {
           if (cat.id === 'custom') {
-            filtered = experts.filter(e => e.isCustom);
+            filtered = expertises.filter(e => e.isCustom);
           } else {
-            filtered = experts.filter(e => cat.experts.includes(e.id));
+            filtered = expertises.filter(e => cat.expertises.includes(e.id));
           }
         }
       }
@@ -726,40 +726,40 @@
         container.innerHTML = `
           <div class="empty-state">
             <div class="empty-state-icon">🎓</div>
-            <p>Žádní experti v této kategorii</p>
+            <p>Žádné expertyzy v této kategorii</p>
           </div>
         `;
         return;
       }
 
-      container.innerHTML = filtered.map(expert => `
-        <div class="expert-card ${selectedExpert?.id === expert.id ? 'selected' : ''}" 
-             onclick="selectExpert('${expert.id}')">
-          <div class="expert-header">
-            <span class="expert-icon">${expert.icon}</span>
-            <div class="expert-info">
-              <div class="expert-name">
-                ${expert.name}
-                ${expert.isCustom ? '<span class="custom-badge">Custom</span>' : ''}
+      container.innerHTML = filtered.map(expertise => `
+        <div class="expertise-card ${selectedExpertise?.id === expertise.id ? 'selected' : ''}"
+             onclick="selectExpertise('${expertise.id}')">
+          <div class="expertise-header">
+            <span class="expertise-icon">${expertise.icon}</span>
+            <div class="expertise-info">
+              <div class="expertise-name">
+                ${expertise.name}
+                ${expertise.isCustom ? '<span class="custom-badge">Custom</span>' : ''}
               </div>
-              <div class="expert-domain">${expert.domain}</div>
+              <div class="expertise-domain">${expertise.domain}</div>
             </div>
           </div>
-          <p class="expert-description">${expert.description}</p>
-          <div class="expert-tags">
-            <span class="expert-tag ${expert.outputBias}">${expert.outputBias}</span>
-            <span class="expert-tag">${expert.planningDepth} planning</span>
-            <span class="expert-tag">temp: ${expert.temperature}</span>
+          <p class="expertise-description">${expertise.description}</p>
+          <div class="expertise-tags">
+            <span class="expertise-tag ${expertise.outputBias}">${expertise.outputBias}</span>
+            <span class="expertise-tag">${expertise.planningDepth} planning</span>
+            <span class="expertise-tag">temp: ${expertise.temperature}</span>
           </div>
         </div>
       `).join('');
     }
 
-    function selectExpert(id) {
-      selectedExpert = experts.find(e => e.id === id);
-      if (!selectedExpert) return;
+    function selectExpertise(id) {
+      selectedExpertise = expertises.find(e => e.id === id);
+      if (!selectedExpertise) return;
 
-      renderExperts();
+      renderExpertises();
       showDetailPanel();
     }
 
@@ -767,51 +767,51 @@
       const panel = document.getElementById('detail-panel');
       panel.classList.add('visible');
 
-      document.getElementById('detail-icon').textContent = selectedExpert.icon;
-      document.getElementById('detail-name').textContent = selectedExpert.name;
-      document.getElementById('detail-domain').textContent = selectedExpert.domain;
-      document.getElementById('detail-planning').textContent = selectedExpert.planningDepth;
-      document.getElementById('detail-review').textContent = selectedExpert.reviewPolicy;
-      document.getElementById('detail-data').textContent = selectedExpert.dataUsagePolicy;
-      document.getElementById('detail-bias').textContent = selectedExpert.outputBias;
-      document.getElementById('detail-temp').textContent = selectedExpert.temperature;
-      document.getElementById('detail-prompt').textContent = selectedExpert.systemPrompt;
+      document.getElementById('detail-icon').textContent = selectedExpertise.icon;
+      document.getElementById('detail-name').textContent = selectedExpertise.name;
+      document.getElementById('detail-domain').textContent = selectedExpertise.domain;
+      document.getElementById('detail-planning').textContent = selectedExpertise.planningDepth;
+      document.getElementById('detail-review').textContent = selectedExpertise.reviewPolicy;
+      document.getElementById('detail-data').textContent = selectedExpertise.dataUsagePolicy;
+      document.getElementById('detail-bias').textContent = selectedExpertise.outputBias;
+      document.getElementById('detail-temp').textContent = selectedExpertise.temperature;
+      document.getElementById('detail-prompt').textContent = selectedExpertise.systemPrompt;
 
-      // Show/hide edit button for custom experts
-      document.getElementById('btn-edit').style.display = 
-        selectedExpert.isCustom ? 'block' : 'none';
+      // Show/hide edit button for custom expertises
+      document.getElementById('btn-edit').style.display =
+        selectedExpertise.isCustom ? 'block' : 'none';
     }
 
     function startChat() {
-      if (!selectedExpert) return;
-      // Redirect to architect with expert context
-      window.location.href = `/architect?expert=${selectedExpert.id}`;
+      if (!selectedExpertise) return;
+      // Redirect to architect with expertise context
+      window.location.href = `/architect?expertise=${selectedExpertise.id}`;
     }
 
     function openCreateModal() {
-      editingExpertId = null;
-      document.getElementById('modal-title').textContent = 'Vytvořit experta';
+      editingExpertiseId = null;
+      document.getElementById('modal-title').textContent = 'Vytvořit expertyzu';
       clearForm();
       document.getElementById('modal-overlay').classList.add('visible');
     }
 
-    function editExpert() {
-      if (!selectedExpert || !selectedExpert.isCustom) return;
-      
-      editingExpertId = selectedExpert.id;
-      document.getElementById('modal-title').textContent = 'Upravit experta';
-      
-      document.getElementById('expert-name').value = selectedExpert.name;
-      document.getElementById('expert-icon').value = selectedExpert.icon;
-      document.getElementById('expert-domain').value = selectedExpert.domain;
-      document.getElementById('expert-description').value = selectedExpert.description;
-      document.getElementById('expert-planning').value = selectedExpert.planningDepth;
-      document.getElementById('expert-review').value = selectedExpert.reviewPolicy;
-      document.getElementById('expert-data').value = selectedExpert.dataUsagePolicy;
-      document.getElementById('expert-bias').value = selectedExpert.outputBias;
-      document.getElementById('expert-temp').value = selectedExpert.temperature;
-      document.getElementById('expert-prompt').value = selectedExpert.systemPrompt;
-      
+    function editExpertise() {
+      if (!selectedExpertise || !selectedExpertise.isCustom) return;
+
+      editingExpertiseId = selectedExpertise.id;
+      document.getElementById('modal-title').textContent = 'Upravit expertyzu';
+
+      document.getElementById('expertise-name').value = selectedExpertise.name;
+      document.getElementById('expertise-icon').value = selectedExpertise.icon;
+      document.getElementById('expertise-domain').value = selectedExpertise.domain;
+      document.getElementById('expertise-description').value = selectedExpertise.description;
+      document.getElementById('expertise-planning').value = selectedExpertise.planningDepth;
+      document.getElementById('expertise-review').value = selectedExpertise.reviewPolicy;
+      document.getElementById('expertise-data').value = selectedExpertise.dataUsagePolicy;
+      document.getElementById('expertise-bias').value = selectedExpertise.outputBias;
+      document.getElementById('expertise-temp').value = selectedExpertise.temperature;
+      document.getElementById('expertise-prompt').value = selectedExpertise.systemPrompt;
+
       document.getElementById('modal-overlay').classList.add('visible');
     }
 
@@ -821,53 +821,53 @@
     }
 
     function clearForm() {
-      document.getElementById('expert-name').value = '';
-      document.getElementById('expert-icon').value = '';
-      document.getElementById('expert-domain').value = '';
-      document.getElementById('expert-description').value = '';
-      document.getElementById('expert-planning').value = 'none';
-      document.getElementById('expert-review').value = 'none';
-      document.getElementById('expert-data').value = 'forbidden';
-      document.getElementById('expert-bias').value = 'analytical';
-      document.getElementById('expert-temp').value = '0.5';
-      document.getElementById('expert-prompt').value = '';
+      document.getElementById('expertise-name').value = '';
+      document.getElementById('expertise-icon').value = '';
+      document.getElementById('expertise-domain').value = '';
+      document.getElementById('expertise-description').value = '';
+      document.getElementById('expertise-planning').value = 'none';
+      document.getElementById('expertise-review').value = 'none';
+      document.getElementById('expertise-data').value = 'forbidden';
+      document.getElementById('expertise-bias').value = 'analytical';
+      document.getElementById('expertise-temp').value = '0.5';
+      document.getElementById('expertise-prompt').value = '';
     }
 
-    async function saveExpert() {
-      const expert = {
-        name: document.getElementById('expert-name').value,
-        icon: document.getElementById('expert-icon').value || '👤',
-        domain: document.getElementById('expert-domain').value,
-        description: document.getElementById('expert-description').value,
-        planningDepth: document.getElementById('expert-planning').value,
-        reviewPolicy: document.getElementById('expert-review').value,
-        dataUsagePolicy: document.getElementById('expert-data').value,
-        outputBias: document.getElementById('expert-bias').value,
-        temperature: parseFloat(document.getElementById('expert-temp').value),
-        systemPrompt: document.getElementById('expert-prompt').value
+    async function saveExpertise() {
+      const expertise = {
+        name: document.getElementById('expertise-name').value,
+        icon: document.getElementById('expertise-icon').value || '👤',
+        domain: document.getElementById('expertise-domain').value,
+        description: document.getElementById('expertise-description').value,
+        planningDepth: document.getElementById('expertise-planning').value,
+        reviewPolicy: document.getElementById('expertise-review').value,
+        dataUsagePolicy: document.getElementById('expertise-data').value,
+        outputBias: document.getElementById('expertise-bias').value,
+        temperature: parseFloat(document.getElementById('expertise-temp').value),
+        systemPrompt: document.getElementById('expertise-prompt').value
       };
 
-      if (!expert.name) {
+      if (!expertise.name) {
         alert('Jméno je povinné');
         return;
       }
 
       try {
-        const url = editingExpertId 
-          ? `/api/experts/${editingExpertId}`
-          : '/api/experts';
-        
-        const method = editingExpertId ? 'PUT' : 'POST';
-        
+        const url = editingExpertiseId
+          ? `/api/expertises/${editingExpertiseId}`
+          : '/api/expertises';
+
+        const method = editingExpertiseId ? 'PUT' : 'POST';
+
         const response = await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(expert)
+          body: JSON.stringify(expertise)
         });
 
         if (response.ok) {
           closeModal();
-          loadExperts();
+          loadExpertises();
         } else {
           const error = await response.json();
           alert(error.error || 'Chyba při ukládání');

@@ -529,7 +529,7 @@ async function handleToolCallDecision(input, decision, context) {
       toolResults: allToolResults,
       context: synthesisContext,
       userPreferences: context.userPreferences || {},
-      expertHints: context.expertHints || null,
+      expertiseHints: context.expertiseHints || null,
       responseIntent: decision.responseIntent || pipelineCfg.defaultIntent,
       conversationContext,
     };

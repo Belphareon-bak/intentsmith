@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════════════
-// Expert & Lifecycle Routes — extracted from server.js
+// Expertise & Lifecycle Routes — extracted from server.js
 // ════════════════════════════════════════════════════════════════════════════
 
 import { fileURLToPath } from 'node:url';
@@ -7,31 +7,31 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 
 /**
- * Creates expert-related routes (merge preview, expertise schema, wizard, CRUD).
+ * Creates expertise-related routes (merge preview, expertise schema, wizard, CRUD).
  * @param {object} deps
  */
-export function createExpertRoutes(deps) {
+export function createExpertiseRoutes(deps) {
   const {
     parseBody, sendJSON, safeError, safeParseInt, sendStaticFile,
     logger, config, path, fs, randomUUID,
-    expertLayer, expertStore, callWithAuth, createAuthToken, LLMCallerRole,
+    expertiseLayer, expertiseStore, callWithAuth, createAuthToken, LLMCallerRole,
     checkWizardRateLimit, db,
   } = deps;
 
   const __dirname = path.dirname(__filename);
   const srcDir = path.resolve(__dirname, '..');
 
-  function saveCustomExperts() {
-    if (!expertLayer) return;
+  function saveCustomExpertises() {
+    if (!expertiseLayer) return;
 
     try {
-      const experts = expertLayer.expertRegistry.getCustom();
+      const experts = expertiseLayer.expertiseRegistry.getCustom();
 
       // Clear existing
-      db.db.exec('DELETE FROM custom_experts');
+      db.db.exec('DELETE FROM custom_expertises');
 
       // Insert all
-      const insert = db.db.prepare('INSERT INTO custom_experts (id, config) VALUES (?, ?)');
+      const insert = db.db.prepare('INSERT INTO custom_expertises (id, config) VALUES (?, ?)');
       for (const expert of experts) {
         insert.run(expert.id, JSON.stringify(expert.toJSON()));
       }
@@ -59,14 +59,14 @@ export function createExpertRoutes(deps) {
         }
 
         // Lazy-load dependencies
-        const { BUILTIN_EXPERTS, expertRegistry } = await import('../experts/expert-layer.js');
-        const { mergeExpertisePrompt } = await import('../experts/merge-engine.js');
-        const { CompatibilityBlockError } = await import('../experts/merge-types.js');
+        const { BUILTIN_EXPERTISES, expertiseRegistry } = await import('../expertises/expertise-layer.js');
+        const { mergeExpertisePrompt } = await import('../expertises/merge-engine.js');
+        const { CompatibilityBlockError } = await import('../expertises/merge-types.js');
 
         // Resolve expertises with weights from query params
         const expertises = [];
         for (const id of ids) {
-          const expert = BUILTIN_EXPERTS[id] || expertRegistry.get(id)?.toJSON?.() || null;
+          const expert = BUILTIN_EXPERTISES[id] || expertiseRegistry.get(id)?.toJSON?.() || null;
           if (!expert) {
             return sendJSON(res, 400, { error: `Unknown expertise: ${id}` });
           }
@@ -86,7 +86,7 @@ export function createExpertRoutes(deps) {
         }
 
         // Call pure merge function
-        const result = mergeExpertisePrompt(expertises, null, null, { registry: expertRegistry });
+        const result = mergeExpertisePrompt(expertises, null, null, { registry: expertiseRegistry });
 
         sendJSON(res, 200, {
           activeExpertises: result.metadata.expertiseIds,
@@ -120,7 +120,7 @@ export function createExpertRoutes(deps) {
     // v63.0 — Expertise Schema endpoint
     'GET /api/expertise-schema': async (req, res) => {
       try {
-        const { MODULE_SECTIONS, MERGE_LIMITS, CompatibilitySeverity } = await import('../experts/merge-types.js');
+        const { MODULE_SECTIONS, MERGE_LIMITS, CompatibilitySeverity } = await import('../expertises/merge-types.js');
 
         sendJSON(res, 200, {
           moduleSections: MODULE_SECTIONS,
@@ -164,7 +164,7 @@ export function createExpertRoutes(deps) {
           return sendJSON(res, 400, { error: 'Max 3 expertises allowed' });
         }
 
-        const { mergeExpertisePrompt } = await import('../experts/merge-engine.js');
+        const { mergeExpertisePrompt } = await import('../expertises/merge-engine.js');
 
         // Build expertise objects with temp IDs
         const expertises = body.expertises.map((cfg, idx) => ({
@@ -226,14 +226,14 @@ export function createExpertRoutes(deps) {
         }
 
         // Validate config
-        const { validateExpertConfig } = await import('../experts/expert-store.js');
-        const validation = validateExpertConfig(body.expertiseConfig);
+        const { validateExpertiseConfig } = await import('../expertises/expertise-store.js');
+        const validation = validateExpertiseConfig(body.expertiseConfig);
         if (!validation.valid) {
           return sendJSON(res, 400, { error: 'Invalid config', details: validation.errors });
         }
 
         // Build single-expertise merge for system prompt
-        const { mergeExpertisePrompt } = await import('../experts/merge-engine.js');
+        const { mergeExpertisePrompt } = await import('../expertises/merge-engine.js');
         const cfg = body.expertiseConfig;
         const expertise = {
           id: `__wizard_${randomUUID()}`,
@@ -270,16 +270,16 @@ export function createExpertRoutes(deps) {
       }
     },
 
-    // Expert UI page
-    'GET /experts': async (req, res) => {
+    // Expertise UI page
+    'GET /expertises': async (req, res) => {
       try {
         // Try multiple possible locations (relative to server.js and cwd)
         const possiblePaths = [
-          path.join(srcDir, 'experts/experts.html'),             // Primary: src/experts/
-          path.join(srcDir, '..', 'src/experts/experts.html'),   // From parent
-          path.join(process.cwd(), 'src/experts/experts.html'),     // CWD fallback
-          path.join(process.cwd(), 'experts/experts.html'),
-          path.join(process.cwd(), 'experts.html')                  // Last resort
+          path.join(srcDir, 'expertises/expertises.html'),             // Primary: src/experts/
+          path.join(srcDir, '..', 'src/expertises/expertises.html'),   // From parent
+          path.join(process.cwd(), 'src/expertises/expertises.html'),     // CWD fallback
+          path.join(process.cwd(), 'expertises/expertises.html'),
+          path.join(process.cwd(), 'expertises.html')                  // Last resort
         ];
 
         let html = null;
@@ -289,12 +289,12 @@ export function createExpertRoutes(deps) {
             break;
           } catch (err) {
             // Expected: trying multiple paths
-            logger.debug('Server', `experts.html not at ${p}: ${err.code}`);
+            logger.debug('Server', `expertises.html not at ${p}: ${err.code}`);
           }
         }
 
         if (!html) {
-          throw new Error('experts.html not found in: ' + possiblePaths.join(', '));
+          throw new Error('expertises.html not found in: ' + possiblePaths.join(', '));
         }
 
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -305,15 +305,15 @@ export function createExpertRoutes(deps) {
       }
     },
 
-    // Expert CRUD
-    'GET /api/experts': async (req, res) => {
+    // Expertise CRUD
+    'GET /api/expertises': async (req, res) => {
       try {
-        if (!expertLayer) {
-          return sendJSON(res, 500, { error: 'Expert layer not loaded' });
+        if (!expertiseLayer) {
+          return sendJSON(res, 500, { error: 'Expertise layer not loaded' });
         }
 
-        const experts = expertLayer.expertRegistry.getAll().map(e => e.toJSON());
-        const categories = expertLayer.getExpertCategories();
+        const experts = expertiseLayer.expertiseRegistry.getAll().map(e => e.toJSON());
+        const categories = expertiseLayer.getExpertiseCategories();
 
         // Add custom experts to custom category
         const customExperts = experts.filter(e => e.isCustom).map(e => e.id);
@@ -328,15 +328,15 @@ export function createExpertRoutes(deps) {
       }
     },
 
-    'GET /api/experts/:id': async (req, res, params) => {
+    'GET /api/expertises/:id': async (req, res, params) => {
       try {
-        if (!expertLayer) {
-          return sendJSON(res, 500, { error: 'Expert layer not loaded' });
+        if (!expertiseLayer) {
+          return sendJSON(res, 500, { error: 'Expertise layer not loaded' });
         }
 
-        const expert = expertLayer.expertRegistry.get(params.id);
+        const expert = expertiseLayer.expertiseRegistry.get(params.id);
         if (!expert) {
-          return sendJSON(res, 404, { error: 'Expert not found' });
+          return sendJSON(res, 404, { error: 'Expertise not found' });
         }
 
         sendJSON(res, 200, expert.toJSON());
@@ -345,20 +345,20 @@ export function createExpertRoutes(deps) {
       }
     },
 
-    'POST /api/experts': async (req, res) => {
+    'POST /api/expertises': async (req, res) => {
       try {
-        if (!expertLayer) {
-          return sendJSON(res, 500, { error: 'Expert layer not loaded' });
+        if (!expertiseLayer) {
+          return sendJSON(res, 500, { error: 'Expertise layer not loaded' });
         }
 
         const body = await parseBody(req);
 
         // v57.0 - Validate config before saving
-        const { validateExpertConfig } = await import('../experts/expert-store.js');
-        const validation = validateExpertConfig(body);
+        const { validateExpertiseConfig } = await import('../expertises/expertise-store.js');
+        const validation = validateExpertiseConfig(body);
         if (!validation.valid) {
           return sendJSON(res, 400, {
-            error: 'Invalid expert configuration',
+            error: 'Invalid expertise configuration',
             details: validation.errors
           });
         }
@@ -370,11 +370,11 @@ export function createExpertRoutes(deps) {
           .substring(0, 32);
 
         // Check if exists
-        if (expertLayer.expertRegistry.get(id)) {
-          return sendJSON(res, 400, { error: 'Expert with this ID already exists' });
+        if (expertiseLayer.expertiseRegistry.get(id)) {
+          return sendJSON(res, 400, { error: 'Expertise with this ID already exists' });
         }
 
-        const expert = expertLayer.expertRegistry.addCustom({
+        const expert = expertiseLayer.expertiseRegistry.addCustom({
           id,
           ...body,
           primaryProblemTypes: body.primaryProblemTypes || ['procedural'],
@@ -383,7 +383,7 @@ export function createExpertRoutes(deps) {
         });
 
         // Save to database
-        saveCustomExperts();
+        saveCustomExpertises();
 
         sendJSON(res, 201, expert.toJSON());
       } catch (err) {
@@ -391,34 +391,34 @@ export function createExpertRoutes(deps) {
       }
     },
 
-    'PUT /api/experts/:id': async (req, res, params) => {
+    'PUT /api/expertises/:id': async (req, res, params) => {
       try {
-        if (!expertLayer) {
-          return sendJSON(res, 500, { error: 'Expert layer not loaded' });
+        if (!expertiseLayer) {
+          return sendJSON(res, 500, { error: 'Expertise layer not loaded' });
         }
 
         const body = await parseBody(req);
 
         // v57.0 - Validate config before updating
         // Only validate fields that are being updated
-        const { validateExpertConfig } = await import('../experts/expert-store.js');
+        const { validateExpertiseConfig } = await import('../expertises/expertise-store.js');
         const configToValidate = { name: body.name || 'placeholder', ...body };
-        const validation = validateExpertConfig(configToValidate);
+        const validation = validateExpertiseConfig(configToValidate);
         if (!validation.valid) {
           return sendJSON(res, 400, {
-            error: 'Invalid expert configuration',
+            error: 'Invalid expertise configuration',
             details: validation.errors
           });
         }
 
-        const expert = expertLayer.expertRegistry.updateCustom(params.id, body);
+        const expert = expertiseLayer.expertiseRegistry.updateCustom(params.id, body);
 
         if (!expert) {
-          return sendJSON(res, 404, { error: 'Custom expert not found' });
+          return sendJSON(res, 404, { error: 'Custom expertise not found' });
         }
 
         // Save to database
-        saveCustomExperts();
+        saveCustomExpertises();
 
         sendJSON(res, 200, expert.toJSON());
       } catch (err) {
@@ -426,20 +426,20 @@ export function createExpertRoutes(deps) {
       }
     },
 
-    'DELETE /api/experts/:id': async (req, res, params) => {
+    'DELETE /api/expertises/:id': async (req, res, params) => {
       try {
-        if (!expertLayer) {
-          return sendJSON(res, 500, { error: 'Expert layer not loaded' });
+        if (!expertiseLayer) {
+          return sendJSON(res, 500, { error: 'Expertise layer not loaded' });
         }
 
-        const deleted = expertLayer.expertRegistry.removeCustom(params.id);
+        const deleted = expertiseLayer.expertiseRegistry.removeCustom(params.id);
 
         if (!deleted) {
-          return sendJSON(res, 404, { error: 'Custom expert not found' });
+          return sendJSON(res, 404, { error: 'Custom expertise not found' });
         }
 
         // Save to database
-        saveCustomExperts();
+        saveCustomExpertises();
 
         sendJSON(res, 200, { success: true });
       } catch (err) {
@@ -447,14 +447,14 @@ export function createExpertRoutes(deps) {
       }
     },
 
-    'POST /api/experts/route': async (req, res) => {
+    'POST /api/expertises/route': async (req, res) => {
       try {
-        if (!expertLayer) {
-          return sendJSON(res, 500, { error: 'Expert layer not loaded' });
+        if (!expertiseLayer) {
+          return sendJSON(res, 500, { error: 'Expertise layer not loaded' });
         }
 
         const body = await parseBody(req);
-        const result = expertLayer.routeToExpert(body.message, body.intent);
+        const result = expertiseLayer.routeToExpert(body.message, body.intent);
 
         sendJSON(res, 200, {
           expertId: result.expert?.id || null,
@@ -478,7 +478,7 @@ export function createLifecycleRoutes(deps) {
   const {
     parseBody, sendJSON, safeError, safeParseInt, sendStaticFile,
     logger, config, path, fs, randomUUID,
-    expertLayer, expertStore, callWithAuth, createAuthToken, LLMCallerRole,
+    expertiseLayer, expertiseStore, callWithAuth, createAuthToken, LLMCallerRole,
     checkWizardRateLimit, db,
   } = deps;
 

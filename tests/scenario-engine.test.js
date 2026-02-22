@@ -8,7 +8,7 @@ import {
   ScenarioRegistry,
   ScenarioRunner,
   ScenarioPhase,
-} from '../src/experts/scenario-engine.js';
+} from '../src/expertises/scenario-engine.js';
 
 let passed = 0, failed = 0;
 const failures = [];

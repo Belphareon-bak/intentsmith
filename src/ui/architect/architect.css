@@ -523,14 +523,14 @@ html, body {
   display: none;
 }
 
-/* v44.2 - Expert Selector */
+/* v44.2 - Expertise Selector */
 /* v44.7 - Updated for input-bottom placement */
-.expert-selector-container {
+.expertise-selector-container {
   display: flex;
   align-items: center;
 }
 
-.expert-selector {
+.expertise-selector {
   background: var(--bg-tertiary);
   color: var(--text-primary);
   border: 1px solid var(--border);
@@ -545,32 +545,32 @@ html, body {
 }
 
 /* v44.7 - Compact style in input-bottom */
-.input-bottom .expert-selector-container {
+.input-bottom .expertise-selector-container {
   margin-right: 4px;
 }
 
-.input-bottom .expert-selector {
+.input-bottom .expertise-selector {
   height: 36px;
   padding: 4px 8px;
 }
 
-.expert-selector:hover {
+.expertise-selector:hover {
   background: var(--bg-hover);
   border-color: var(--border-light);
 }
 
-.expert-selector:focus {
+.expertise-selector:focus {
   outline: none;
   border-color: var(--accent-primary);
 }
 
-.expert-selector option {
+.expertise-selector option {
   background: var(--bg-secondary);
   color: var(--text-primary);
 }
 
-/* v44.4 - Expert Badge (visible indicator when expert is active) */
-.expert-badge {
+/* v44.4 - Expertise Badge (visible indicator when expert is active) */
+.expertise-badge {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -581,26 +581,26 @@ html, body {
   font-size: 12px;
   font-weight: 500;
   color: white;
-  animation: expertBadgeFadeIn 0.3s ease;
+  animation: expertiseBadgeFadeIn 0.3s ease;
 }
 
-@keyframes expertBadgeFadeIn {
+@keyframes expertiseBadgeFadeIn {
   from { opacity: 0; transform: translateX(-10px); }
   to { opacity: 1; transform: translateX(0); }
 }
 
-.expert-badge-icon {
+.expertise-badge-icon {
   font-size: 14px;
 }
 
-.expert-badge-name {
+.expertise-badge-name {
   max-width: 100px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.expert-badge-clear {
+.expertise-badge-clear {
   background: rgba(255,255,255,0.2);
   border: none;
   color: white;
@@ -616,22 +616,22 @@ html, body {
   transition: background 0.2s;
 }
 
-.expert-badge-clear:hover {
+.expertise-badge-clear:hover {
   background: rgba(255,255,255,0.4);
 }
 
-/* v44.5 - Expert Message Styling */
-.message.expert-message .message-avatar {
+/* v44.5 - Expertise Message Styling */
+.message.expertise-message .message-avatar {
   background: linear-gradient(135deg, var(--accent-primary), #9333ea);
   color: white;
 }
 
-.message.expert-message .message-role {
+.message.expertise-message .message-role {
   color: var(--accent-primary);
   font-weight: 600;
 }
 
-.message.expert-message .message-body {
+.message.expertise-message .message-body {
   border-left: 3px solid var(--accent-primary);
   padding-left: 12px;
 }

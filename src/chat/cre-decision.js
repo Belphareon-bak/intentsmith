@@ -872,11 +872,29 @@ const FILE_READ_PATTERNS = [
   // CZ: "co je v souboru X", "co obsahuje soubor"
   /co\s+(je\s+)?(v\s+)?soubor/i,
   /co\s+obsahuje\s+(soubor|file)/i,
+  // CZ: "co je v readme", "co je v .gitignore" — file ref by name (no "soubor" keyword)
+  /co\s+(je\s+)?v\s+[\w./-]+\.?\w*\s*$/i,
+  // CZ: "ukaž readme", "otevři readme", "přečti .gitignore" — known filenames without extension
+  /(?:^|\s)(otev[rř]i|p[rř]e[cč]ti|na[cč]ti|uka[zž]|zobraz)\s+(mi\s+)?(readme|makefile|dockerfile|\.?\w+ignore|\.env\w*|changelog|license|todo)\s*$/i,
+  // CZ: "co je součástí projektu", "jaké soubory jsou v projektu", "vypiš obsah projektu"
+  /(?:co|jak[ée])\s+(?:je\s+)?(?:sou[cč][áa]st[ií]|v)\s+(?:tohoto\s+|toho\s+)?projekt/i,
+  /vypi[sš]\s+(?:mi\s+)?(?:obsah|soubory|adres[áa][rř]|slo[zž]ku)\s*(?:projektu)?\s*$/i,
+  /(?:jak[ée]|kter[ée]|co\s+za)\s+soubory\s+(?:jsou\s+)?(?:v|tady|zde)/i,
+  // CZ: "jaké soubory obsahuje projekt", "co obsahuje projekt", "co má projekt za soubory"
+  /(?:jak[ée]|kter[ée])\s+soubory\s+(?:obsahuje|m[áa])\s+(?:tento\s+|ten\s+|tenhle\s+)?projekt/i,
+  /co\s+(?:obsahuje|m[áa])\s+(?:tento\s+|ten\s+|tenhle\s+)?projekt/i,
+  /co\s+(?:je\s+)?(?:v|uvnit[rř])\s+(?:tohoto?\s+|toho\s+)?projektu?/i,
+  // CZ: "ukaž strukturu projektu", "struktura projektu"
+  /(?:uka[zž]|zobraz)\s+(?:mi\s+)?(?:strukturu|obsah)\s+projektu/i,
+  /struktura\s+projektu/i,
   // CZ: "otevři X.js", "přečti config.json" — filename with extension
   /(?:^|\s)(otev[rř]i|p[rř]e[cč]ti|na[cč]ti|uka[zž]|zobraz)\s+(mi\s+)?[\w./-]+\.\w{1,10}\s*$/i,
   // EN: "open file", "read file", "show file", "cat file"
   /(?:^|\s)(open|read|show|display|cat)\s+(the\s+)?(file|content)/i,
   /(?:^|\s)(open|read|show|display|cat)\s+(the\s+)?[\w./-]+\.\w{1,10}\s*$/i,
+  // EN: "what's in the project", "list files", "show project files"
+  /(?:what'?s|what\s+is)\s+in\s+(?:the\s+)?project/i,
+  /(?:list|show)\s+(?:the\s+)?(?:project\s+)?files/i,
 ];
 
 // v63.0: FILE_EXPLAIN PATTERNS — user wants file read + LLM explanation
@@ -1092,6 +1110,20 @@ export function normalizeForClassification(text) {
 // v63.0: Extract file path from user input
 // Looks for quoted paths, paths with extensions, or common filename patterns
 function extractFilePath(input) {
+  // 0. Project-content queries → return "." for directory listing
+  if (/(?:co|jak[ée])\s+(?:je\s+)?(?:sou[cč][áa]st[ií]|v)\s+(?:tohoto\s+|toho\s+)?projekt/i.test(input) ||
+      /vypi[sš]\s+(?:mi\s+)?(?:obsah|soubory|adres[áa][rř]|slo[zž]ku)/i.test(input) ||
+      /(?:jak[ée]|kter[ée]|co\s+za)\s+soubory\s+(?:jsou\s+)?(?:v|tady|zde)/i.test(input) ||
+      /(?:jak[ée]|kter[ée])\s+soubory\s+(?:obsahuje|m[áa])\s+(?:tento\s+|ten\s+|tenhle\s+)?projekt/i.test(input) ||
+      /co\s+(?:obsahuje|m[áa])\s+(?:tento\s+|ten\s+|tenhle\s+)?projekt/i.test(input) ||
+      /co\s+(?:je\s+)?(?:v|uvnit[rř])\s+(?:tohoto?\s+|toho\s+)?projektu?/i.test(input) ||
+      /(?:uka[zž]|zobraz)\s+(?:mi\s+)?(?:strukturu|obsah)\s+projektu/i.test(input) ||
+      /struktura\s+projektu/i.test(input) ||
+      /(?:what'?s|what\s+is)\s+in\s+(?:the\s+)?project/i.test(input) ||
+      /(?:list|show)\s+(?:the\s+)?(?:project\s+)?files/i.test(input)) {
+    return '.';
+  }
+
   // 1. Quoted path: "soubor.js", 'config.json'
   const quoted = input.match(/["']([^"']+\.\w{1,10})["']/);
   if (quoted) return quoted[1];
@@ -1116,6 +1148,25 @@ function extractFilePath(input) {
   // 3b. Dotfile after keyword: "soubor .env"
   const afterKeywordDotfile = input.match(/(?:soubor|file)\s+["']?(\.[\w.-]+)["']?/i);
   if (afterKeywordDotfile) return afterKeywordDotfile[1];
+
+  // 4. Known filenames without extension (readme, makefile, dockerfile, license, etc.)
+  const KNOWN_FILENAMES = /^(readme|makefile|dockerfile|vagrantfile|gemfile|rakefile|procfile|changelog|license|todo|contributing|authors|codeowners)$/i;
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    const t = tokens[i].replace(/[,;:!?]+$/, '');
+    if (KNOWN_FILENAMES.test(t)) {
+      return t;
+    }
+  }
+
+  // 5. "co je v [name]" pattern — extract name after "v" preposition
+  const afterV = input.match(/co\s+(?:je\s+)?v\s+["']?([\w./-]+)["']?\s*[?!.]?\s*$/i);
+  if (afterV) {
+    const candidate = afterV[1];
+    // Only accept if it looks like a file (not a Czech word like "projektu", "adresáři")
+    if (!/^(projekt|adres|slo[zž]|tomto|toho|t[ée]to)/.test(candidate)) {
+      return candidate;
+    }
+  }
 
   return null; // No file path found — handler will ask for clarification
 }

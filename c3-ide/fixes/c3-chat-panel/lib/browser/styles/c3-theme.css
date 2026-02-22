@@ -429,21 +429,21 @@ textarea:focus {
   margin: 0 0 10px;
 }
 
-/* Expert card variant */
-.c3-card-expert {
+/* Expertise card variant */
+.c3-card-expertise {
   display: flex;
   align-items: center;
   gap: 12px;
 }
-.c3-card-expert.favorite {
+.c3-card-expertise.favorite {
   border-color: var(--c3-accent);
 }
-.c3-card-expert .star {
+.c3-card-expertise .star {
   margin-left: auto;
   font-size: 14px;
   color: var(--c3-tx-4);
 }
-.c3-card-expert.favorite .star {
+.c3-card-expertise.favorite .star {
   color: var(--c3-accent-text);
 }
 

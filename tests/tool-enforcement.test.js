@@ -11,7 +11,7 @@ import {
   fuzzyNumberMatch,
   verifyNumericClaims,
   buildToolEnforcementRetryPrompt,
-} from '../src/experts/guards/tool-enforcement.js';
+} from '../src/expertises/guards/tool-enforcement.js';
 
 let passed = 0, failed = 0;
 const failures = [];

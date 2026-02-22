@@ -10,7 +10,7 @@
 
 C.3 Agent je plne funkcni conversational AI platforma s:
 - **CRE** (Conversational Reasoning Engine) — single-authority decision engine s **CRE Gatekeeper** audit trail (v64.0)
-- **Expert System** (v63) — 15 built-in expertu s 5D capability profily, multi-expertise merge engine, enforcement pipeline, execution trace observability
+- **Expertise System** (v63) — 15 built-in expertyz s 5D capability profily, multi-expertise merge engine, enforcement pipeline, execution trace observability
 - **Specialist Platform** (v65.8) — SpecialistRuntime (tool registry + intent detection + execution), KnowledgeBase (versioned facts, 96 seeded tax rates), ScenarioEngine (multi-step guided workflows)
 - **Quality Gate v2** (v62.3+) — deterministicky post-processing pipeline: structural fix, SK→CZ transliterator (~160 regexu), LinkGuard, content enforcement
 - **Agent Platform** — deterministicke worker agenty se zdroji, podminkami, triggery, notifikacemi + **Agent Builder Wizard (v65.5)**
@@ -26,7 +26,7 @@ C.3 Agent je plne funkcni conversational AI platforma s:
 | Adresar | Radky | Soubory | Popis |
 |---------|-------|---------|-------|
 | src/chat/ | 24,588 | 59 | Konverzacni pipeline (CRE, handlers, quality, synthesis) |
-| src/experts/ | 9,200+ | 20 | Expert system + specialist platform (runtime, knowledge base, scenarios) |
+| src/expertises/ | 9,200+ | 20 | Expertise system + specialist platform (runtime, knowledge base, scenarios) |
 | src/agents/ | 6,510 | 14 | Agent platform (runner, scheduler, conditions, triggers) |
 | src/planner/ | 4,754 | 13 | Project lifecycle (workflow, build, milestones) |
 | src/ui/ | 4,552 | 2 | Web UI (architect.js) |
@@ -71,7 +71,7 @@ C.3 Agent je plne funkcni conversational AI platforma s:
 | Scenario Engine | 42 | pass |
 | Accountant Tools | 81 | pass |
 | Tool Enforcement | 41 | pass |
-| Expert A/B (A7) | 5 (LLM) | pass (5/5 win/tie) |
+| Expertise A/B (A7) | 5 (LLM) | pass (5/5 win/tie) |
 | Lifecycle Real LLM (C3) | 10 (LLM) | pass |
 | E2E Quality Deep | 36 (LLM) | 89-97% |
 | Chat Quality | 33 (LLM) | 32/33 |
@@ -105,12 +105,12 @@ ConversationHandler
   |-- Agent Wizard intercept (B9)
   |-- Scenario intercept (D3 — active scenario → ScenarioRunner.handleInput)
   |-- CRE classifyIntent() --> LOCAL | CONVERSATIONAL | SEARCH | DESIGN | CREATIVE | BUILD | CODE
-  |-- Expert handler (single or merged multi-expertise)
+  |-- Expertise handler (single or merged multi-expertise)
   |     |-- SpecialistRuntime.tryToolExecution() (D1 — detect + execute deterministic tool)
   |     |-- ScenarioRegistry.detectTrigger() (D3 — multi-step guided workflow)
   |     |-- mergeExpertisePrompt() (pure function, max 3 expertises)
   |     |-- LLM generation (with merged prompt + temperature)
-  |     |-- ExpertEnforcer (retry with temp decay, strict mode)
+  |     |-- ExpertiseEnforcer (retry with temp decay, strict mode)
   |     |-- enforceCapabilities() (5D drift detection)
   |     |-- logLlmExecution() (prompt hash, latency, tokens)
   |-- Tool execution (TOOL_CALL)
@@ -197,7 +197,7 @@ src/chat/cre-routing-patches.js   # CRE routing patches (SHELL negative lookahea
 src/chat/controller.js             # ChatController (~1870 radku) — vstupni bod pro chat
 src/chat/handlers/conversation.js  # ConversationHandler (~778 radku) — routing, lifecycle intercept, DESIGN session
 src/chat/handlers/clarification.js # Clarification resolution (v64.0 Gatekeeper)
-src/chat/handlers/expert.js        # Expert handler (~869 radku) — single + merge path, enforcement, trace
+src/chat/handlers/expertise.js     # Expertise handler (~869 radku) — single + merge path, enforcement, trace
 src/chat/handlers/decisions.js     # Shared decision sub-handlers (~1329 radku) — enrichSearchQuery, followup
 src/chat/handlers/lifecycle-router.js   # Lifecycle router (~672 radku) — SPEC/BUILD/REVIEW message handling
 src/chat/handlers/lifecycle-state.js    # Lifecycle state (~166 radku) — RAM map, getLcStateByProject(), preload
@@ -228,16 +228,16 @@ src/chat/quality/creative-depth.js     # Creative depth scoring
 src/chat/quality/index.js              # Quality module exports
 ```
 
-### Expert System (v63)
+### Expertise System (v63, v69 rename)
 ```
-src/experts/expert-layer.js        # 15 built-in experts (~1838 radku), ExpertAgent, resolveInheritance()
-src/experts/expert-store.js        # Expert config persistence + validation (~917 radku)
-src/experts/expert-enforcement.js  # ExpertEnforcer: forbidden phrases, retry, strict mode
-src/experts/merge-engine.js        # mergeExpertisePrompt() — 15.5-step pure function (~573 radku)
-src/experts/merge-types.js         # MERGE_LIMITS, MODULE_SECTIONS, CompatibilityBlockError
-src/experts/merge-compatibility.js # checkCompatibility() — 5D pairwise conflict detection
-src/experts/capability-enforcer.js # Post-response 5D capability drift validation
-src/experts/capability-mapping.js  # Capability vector → prompt/temperature/enforcement modifiers
+src/expertises/expertise-layer.js        # 15 built-in expertises (~1838 radku), ExpertiseAgent, resolveInheritance()
+src/expertises/expertise-store.js        # Expertise config persistence + validation (~917 radku)
+src/expertises/expertise-enforcement.js  # ExpertiseEnforcer: forbidden phrases, retry, strict mode
+src/expertises/merge-engine.js           # mergeExpertisePrompt() — 15.5-step pure function (~573 radku)
+src/expertises/merge-types.js            # MERGE_LIMITS, MODULE_SECTIONS, CompatibilityBlockError
+src/expertises/merge-compatibility.js    # checkCompatibility() — 5D pairwise conflict detection
+src/expertises/capability-enforcer.js    # Post-response 5D capability drift validation
+src/expertises/capability-mapping.js     # Capability vector → prompt/temperature/enforcement modifiers
 ```
 
 ### Agent Platform (Phase B)
@@ -269,7 +269,7 @@ src/executor/shell-security.js     # Shell command security (path traversal, inj
 ### Routes (HTTP API)
 ```
 src/routes/projects.js            # Project routes (~967 radku) — CRUD, lifecycle/start, lifecycle/bind
-src/routes/experts.js             # Expert routes (~788 radku) — CRUD, merge-preview, schema
+src/routes/expertises.js          # Expertise routes (~788 radku) — CRUD, merge-preview, schema
 src/routes/chat.js                # Chat routes — /api/chat, /api/conversations, export
 src/routes/agents.js              # Agent routes — CRUD, dry-run, schema
 src/routes/planner.js             # Planner routes — /api/planner, /api/build
@@ -282,7 +282,7 @@ src/routes/misc.js                # Misc routes — /api/health, /api/logs, /api
 src/db/database.js                # SQLite schema (~1328 radku), 54 tabulek (vcetne FTS)
 src/db/migrate.js                 # Migration runner — runMigrations(), getCurrentVersion()
 src/db/migrations/                # 5 migracnich souboru (timestamp-based)
-  # 001_baseline — core tables (projects, conversations, messages, agents, experts...)
+  # 001_baseline — core tables (projects, conversations, messages, agents, expertises...)
   # 002_v57 — agent_seen_items_v57, notification_trust_actions_v57
   # 003_v63 — conversation_expertises, merge_audit_log, capability_drift_log, llm_execution_log
   # 004_v63_3 — execution_trace_id columns, execution_step, prompt_hash
@@ -302,7 +302,7 @@ src/ws-bridge/index.js            # Public API exports
 ```
 src/server.js                     # Express HTTP server (~855 radku), port 3335
   # Route mounting, middleware, CORS, static files
-  # Feature flag gated lazy imports (agents, lifecycle, experts)
+  # Feature flag gated lazy imports (agents, lifecycle, expertises)
   # Scheduler init, preload active sessions + lifecycles
 src/config.js                     # Konfigurace (~142 radku) — server, ollama, modely, feature flags
 ```
@@ -418,17 +418,17 @@ node tests/chat-quality.test.js      # ~32/33
 | GET | /api/agents/schema | Agent schema (types, presets) |
 | POST | /api/agents/:id/run | Manualni spusteni |
 
-### Experts
+### Expertises (v69 rename)
 | Method | Path | Popis |
 |--------|------|-------|
-| GET | /api/experts | Seznam expertu |
-| POST | /api/experts | Vytvorit experta |
-| GET | /api/experts/:id | Detail experta |
-| PUT | /api/experts/:id | Update experta |
-| DELETE | /api/experts/:id | Smazat experta |
-| POST | /api/merge-preview | Preview merge dvou expertu |
-| GET | /api/expertise-schema | Expert schema (capabilities, modules) |
-| POST | /api/expertise-wizard/test-prompt | Test LLM s expert promptem |
+| GET | /api/expertises | Seznam expertyz |
+| POST | /api/expertises | Vytvorit expertyzu |
+| GET | /api/expertises/:id | Detail expertyzy |
+| PUT | /api/expertises/:id | Update expertyzy |
+| DELETE | /api/expertises/:id | Smazat expertyzu |
+| POST | /api/merge-preview | Preview merge dvou expertyz |
+| GET | /api/expertise-schema | Expertise schema (capabilities, modules) |
+| POST | /api/expertise-wizard/test-prompt | Test LLM s expertise promptem |
 
 ### Trust & Notifications
 | Method | Path | Popis |
@@ -486,13 +486,13 @@ Vsechny chat zpravy prochazi CRE klasifikaci. Zadny bypass.
 ### 2. mergeExpertisePrompt() je cista funkce
 15.5-krokovy algoritmus, frozen vystupy, zadne side effects. TraceId se pridava az v handleru pri persistenci.
 
-### 3. ExpertEnforcer retry kontrakt
+### 3. ExpertiseEnforcer retry kontrakt
 - Max 2 retries s temperature decay (0.1/attempt) a top_p decay (0.05/attempt)
 - Strict mode: `hardFail=true` → response = null po vycerpani retries
 - Retry audit trail s executionTraceId a executionStep
 
 ### 4. 5D Capability Vector
-Kazdy expert ma profil: `{reasoning, creativity, determinism, riskTolerance, verbosity}` (0-100).
+Kazda expertyza ma profil: `{reasoning, creativity, determinism, riskTolerance, verbosity}` (0-100).
 Merge engine pouziva weighted average pro capability modifiers.
 
 ### 5. ExecutionTrace kontrakt (v63.3)

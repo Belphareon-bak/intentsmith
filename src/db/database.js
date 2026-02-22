@@ -611,28 +611,28 @@ export const drafts = {
 // v57: EXPERT REPOSITORIES
 // ════════════════════════════════════════════════════════════════════════════
 
-// Custom Experts
-export const experts = {
+// Expertises (renamed from experts in v69)
+export const expertises = {
   create: db.prepare(`
-    INSERT INTO experts (id, name, description, domain, system_prompt, temperature, config)
+    INSERT INTO expertises (id, name, description, domain, system_prompt, temperature, config)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `),
 
-  findById: db.prepare(`SELECT * FROM experts WHERE id = ?`),
+  findById: db.prepare(`SELECT * FROM expertises WHERE id = ?`),
 
-  findByDomain: db.prepare(`SELECT * FROM experts WHERE domain = ?`),
+  findByDomain: db.prepare(`SELECT * FROM expertises WHERE domain = ?`),
 
-  listAll: db.prepare(`SELECT * FROM experts ORDER BY name`),
+  listAll: db.prepare(`SELECT * FROM expertises ORDER BY name`),
 
-  listCustom: db.prepare(`SELECT * FROM experts WHERE is_builtin = 0 ORDER BY name`),
+  listCustom: db.prepare(`SELECT * FROM expertises WHERE is_builtin = 0 ORDER BY name`),
 
   update: db.prepare(`
-    UPDATE experts
+    UPDATE expertises
     SET name = ?, description = ?, domain = ?, system_prompt = ?, temperature = ?, config = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
   `),
 
-  delete: db.prepare(`DELETE FROM experts WHERE id = ? AND is_builtin = 0`),
+  delete: db.prepare(`DELETE FROM expertises WHERE id = ? AND is_builtin = 0`),
 
   /**
    * Create or update an expert
@@ -661,31 +661,31 @@ export const experts = {
   }
 };
 
-// Conversation-Expert bindings (for lock state)
-export const conversationExperts = {
-  get: db.prepare(`SELECT * FROM conversation_experts WHERE conversation_id = ?`),
+// Expertise Bindings (renamed from conversation_experts in v69)
+export const expertiseBindings = {
+  get: db.prepare(`SELECT * FROM expertise_bindings WHERE conversation_id = ?`),
 
   create: db.prepare(`
-    INSERT INTO conversation_experts (conversation_id, expert_id, locked, strength, locked_at)
+    INSERT INTO expertise_bindings (conversation_id, expertise_id, locked, strength, locked_at)
     VALUES (?, ?, ?, ?, ?)
   `),
 
   update: db.prepare(`
-    UPDATE conversation_experts
-    SET expert_id = ?, locked = ?, strength = ?, locked_at = ?, updated_at = CURRENT_TIMESTAMP
+    UPDATE expertise_bindings
+    SET expertise_id = ?, locked = ?, strength = ?, locked_at = ?, updated_at = CURRENT_TIMESTAMP
     WHERE conversation_id = ?
   `),
 
-  delete: db.prepare(`DELETE FROM conversation_experts WHERE conversation_id = ?`),
+  delete: db.prepare(`DELETE FROM expertise_bindings WHERE conversation_id = ?`),
 
   lock: db.prepare(`
-    UPDATE conversation_experts
+    UPDATE expertise_bindings
     SET locked = 1, locked_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
     WHERE conversation_id = ?
   `),
 
   unlock: db.prepare(`
-    UPDATE conversation_experts
+    UPDATE expertise_bindings
     SET locked = 0, locked_at = NULL, updated_at = CURRENT_TIMESTAMP
     WHERE conversation_id = ?
   `),
@@ -693,16 +693,16 @@ export const conversationExperts = {
   /**
    * Set expert for conversation (creates or updates)
    */
-  setExpert(conversationId, expertId, options = {}) {
+  setExpertise(conversationId, expertiseId, options = {}) {
     const locked = options.locked ? 1 : 0;
     const strength = options.strength ?? 50;
     const lockedAt = locked ? new Date().toISOString() : null;
 
     const existing = this.get.get(conversationId);
     if (existing) {
-      this.update.run(expertId, locked, strength, lockedAt, conversationId);
+      this.update.run(expertiseId, locked, strength, lockedAt, conversationId);
     } else {
-      this.create.run(conversationId, expertId, locked, strength, lockedAt);
+      this.create.run(conversationId, expertiseId, locked, strength, lockedAt);
     }
   },
 
@@ -716,7 +716,7 @@ export const conversationExperts = {
   /**
    * Clear expert for conversation
    */
-  clearExpert(conversationId) {
+  clearExpertise(conversationId) {
     this.delete.run(conversationId);
   }
 };
@@ -814,7 +814,7 @@ export const mergeAuditLog = {
 // v63.3: execution_trace_id + execution_step for cross-layer tracing
 export const capabilityDriftLog = {
   add: db.prepare(`
-    INSERT INTO capability_drift_log (conversation_id, execution_trace_id, expert_id, merged_prompt_hash, expected_profile, observed_scores, drift_score, violations, execution_step)
+    INSERT INTO capability_drift_log (conversation_id, execution_trace_id, expertise_id, merged_prompt_hash, expected_profile, observed_scores, drift_score, violations, execution_step)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `),
 
@@ -823,9 +823,9 @@ export const capabilityDriftLog = {
     WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 20
   `),
 
-  findByExpert: db.prepare(`
+  findByExpertise: db.prepare(`
     SELECT * FROM capability_drift_log
-    WHERE expert_id = ? ORDER BY created_at DESC LIMIT 50
+    WHERE expertise_id = ? ORDER BY created_at DESC LIMIT 50
   `),
 
   findByTraceId: db.prepare(`
@@ -833,11 +833,11 @@ export const capabilityDriftLog = {
     WHERE execution_trace_id = ? ORDER BY created_at ASC
   `),
 
-  avgDriftByExpert: db.prepare(`
-    SELECT expert_id, AVG(drift_score) as avg_drift, COUNT(*) as sample_count
+  avgDriftByExpertise: db.prepare(`
+    SELECT expertise_id, AVG(drift_score) as avg_drift, COUNT(*) as sample_count
     FROM capability_drift_log
     WHERE created_at > datetime('now', '-30 days')
-    GROUP BY expert_id
+    GROUP BY expertise_id
     ORDER BY avg_drift DESC
   `),
 
@@ -848,7 +848,7 @@ export const capabilityDriftLog = {
     this.add.run(
       entry.conversationId || null,
       entry.executionTraceId || null,
-      entry.expertId,
+      entry.expertiseId,
       entry.mergedPromptHash || null,
       JSON.stringify(entry.expectedProfile),
       JSON.stringify(entry.observedScores),
@@ -862,7 +862,7 @@ export const capabilityDriftLog = {
 // LLM Execution Log (v63.3 — per-call audit with execution trace)
 export const llmExecutionLog = {
   add: db.prepare(`
-    INSERT INTO llm_execution_log (execution_trace_id, conversation_id, execution_step, expert_id, model, temperature, prompt_hash, prompt_tokens, completion_tokens, latency_ms, token_source, metadata)
+    INSERT INTO llm_execution_log (execution_trace_id, conversation_id, execution_step, expertise_id, model, temperature, prompt_hash, prompt_tokens, completion_tokens, latency_ms, token_source, metadata)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `),
 
@@ -889,7 +889,7 @@ export const llmExecutionLog = {
       entry.executionTraceId || null,
       entry.conversationId || null,
       entry.executionStep || 'LLM',
-      entry.expertId || null,
+      entry.expertiseId || null,
       entry.model || null,
       entry.temperature ?? null,
       entry.promptHash || null,
@@ -1305,9 +1305,9 @@ export default {
   messages,
   attachments,
   drafts,
-  // v57 Experts
-  experts,
-  conversationExperts,
+  // v57 Expertises
+  expertises,
+  expertiseBindings,
   // v63 Merge Engine
   conversationExpertises,
   mergeAuditLog,

@@ -50,7 +50,7 @@ async function it(name, fn) {
 
 // ─── Test DB Setup ───────────────────────────────────────────────────────────
 
-const TEST_DB_PATH = path.join(__dirname, 'test-expert-db.sqlite');
+const TEST_DB_PATH = path.join(__dirname, 'test-expertise-db.sqlite');
 
 // Clean up test DB before/after
 function cleanupTestDb() {
@@ -74,13 +74,13 @@ async function runTests() {
 
   try {
     // T11.1
-    await describe('T11.1: Expert tables created in DB', async () => {
-      await it('database module creates experts table', async () => {
+    await describe('T11.1: Expertise tables created in DB', async () => {
+      await it('database module creates expertises table', async () => {
         const Database = (await import('better-sqlite3')).default;
         const db = new Database(':memory:');
 
         db.exec(`
-          CREATE TABLE IF NOT EXISTS experts (
+          CREATE TABLE IF NOT EXISTS expertises (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             description TEXT,
@@ -94,21 +94,21 @@ async function runTests() {
           )
         `);
 
-        const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='experts'").get();
-        assert.ok(tables, 'experts table should exist');
+        const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='expertises'").get();
+        assert.ok(tables, 'expertises table should exist');
         db.close();
       });
 
-      await it('database module creates conversation_experts table', async () => {
+      await it('database module creates expertise_bindings table', async () => {
         const Database = (await import('better-sqlite3')).default;
         const db = new Database(':memory:');
 
         db.exec(`
           CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY);
-          CREATE TABLE IF NOT EXISTS conversation_experts (
+          CREATE TABLE IF NOT EXISTS expertise_bindings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-            expert_id TEXT NOT NULL,
+            expertise_id TEXT NOT NULL,
             locked INTEGER DEFAULT 0,
             strength INTEGER DEFAULT 50 CHECK(strength >= 0 AND strength <= 100),
             locked_at DATETIME,
@@ -118,20 +118,20 @@ async function runTests() {
           )
         `);
 
-        const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='conversation_experts'").get();
-        assert.ok(tables, 'conversation_experts table should exist');
+        const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='expertise_bindings'").get();
+        assert.ok(tables, 'expertise_bindings table should exist');
         db.close();
       });
     });
 
     // T11.2
-    await describe('T11.2: Custom expert persistence', async () => {
-      await it('custom expert survives DB operations', async () => {
+    await describe('T11.2: Custom expertise persistence', async () => {
+      await it('custom expertise survives DB operations', async () => {
         const Database = (await import('better-sqlite3')).default;
         let db = new Database(':memory:');
 
         db.exec(`
-          CREATE TABLE IF NOT EXISTS experts (
+          CREATE TABLE IF NOT EXISTS expertises (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             description TEXT,
@@ -142,28 +142,28 @@ async function runTests() {
         `);
 
         const insert = db.prepare(`
-          INSERT INTO experts (id, name, description, domain, temperature, config)
+          INSERT INTO expertises (id, name, description, domain, temperature, config)
           VALUES (?, ?, ?, ?, ?, ?)
         `);
         insert.run('persist_test', 'Persistence Test', 'Testing', 'testing', 0.6, '{}');
 
-        const expert = db.prepare('SELECT * FROM experts WHERE id = ?').get('persist_test');
-        assert.ok(expert, 'Expert should be inserted');
-        assert.equal(expert.name, 'Persistence Test');
-        assert.equal(expert.temperature, 0.6);
+        const expertise = db.prepare('SELECT * FROM expertises WHERE id = ?').get('persist_test');
+        assert.ok(expertise, 'Expertise should be inserted');
+        assert.equal(expertise.name, 'Persistence Test');
+        assert.equal(expertise.temperature, 0.6);
         db.close();
       });
 
-      await it('expert config JSON is stored correctly', async () => {
+      await it('expertise config JSON is stored correctly', async () => {
         const Database = (await import('better-sqlite3')).default;
         const db = new Database(':memory:');
 
-        db.exec(`CREATE TABLE IF NOT EXISTS experts (id TEXT PRIMARY KEY, name TEXT NOT NULL, config TEXT NOT NULL DEFAULT '{}')`);
+        db.exec(`CREATE TABLE IF NOT EXISTS expertises (id TEXT PRIMARY KEY, name TEXT NOT NULL, config TEXT NOT NULL DEFAULT '{}')`);
 
         const config = { icon: '🧪', styleRules: { forbiddenPhrases: ['test'] } };
-        db.prepare('INSERT INTO experts (id, name, config) VALUES (?, ?, ?)').run('json_test', 'JSON Test', JSON.stringify(config));
+        db.prepare('INSERT INTO expertises (id, name, config) VALUES (?, ?, ?)').run('json_test', 'JSON Test', JSON.stringify(config));
 
-        const row = db.prepare('SELECT config FROM experts WHERE id = ?').get('json_test');
+        const row = db.prepare('SELECT config FROM expertises WHERE id = ?').get('json_test');
         const parsed = JSON.parse(row.config);
         assert.equal(parsed.icon, '🧪');
         db.close();
@@ -171,24 +171,24 @@ async function runTests() {
     });
 
     // T11.3
-    await describe('T11.3: Conversation-expert binding persistence', async () => {
+    await describe('T11.3: Conversation-expertise binding persistence', async () => {
       await it('binding persists to DB', async () => {
         const Database = (await import('better-sqlite3')).default;
         const db = new Database(':memory:');
 
         db.exec(`
           CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY);
-          CREATE TABLE IF NOT EXISTS conversation_experts (
-            conversation_id TEXT PRIMARY KEY, expert_id TEXT NOT NULL, locked INTEGER DEFAULT 0, strength INTEGER DEFAULT 50
+          CREATE TABLE IF NOT EXISTS expertise_bindings (
+            conversation_id TEXT PRIMARY KEY, expertise_id TEXT NOT NULL, locked INTEGER DEFAULT 0, strength INTEGER DEFAULT 50
           );
         `);
 
         db.prepare('INSERT INTO conversations (id) VALUES (?)').run('conv-persist');
-        db.prepare('INSERT INTO conversation_experts (conversation_id, expert_id, locked, strength) VALUES (?, ?, ?, ?)').run('conv-persist', 'writer', 1, 75);
+        db.prepare('INSERT INTO expertise_bindings (conversation_id, expertise_id, locked, strength) VALUES (?, ?, ?, ?)').run('conv-persist', 'writer', 1, 75);
 
-        const binding = db.prepare('SELECT * FROM conversation_experts WHERE conversation_id = ?').get('conv-persist');
+        const binding = db.prepare('SELECT * FROM expertise_bindings WHERE conversation_id = ?').get('conv-persist');
         assert.ok(binding, 'Binding should exist');
-        assert.equal(binding.expert_id, 'writer');
+        assert.equal(binding.expertise_id, 'writer');
         assert.equal(binding.locked, 1);
         assert.equal(binding.strength, 75);
         db.close();
@@ -196,80 +196,80 @@ async function runTests() {
     });
 
     // T11.4
-    await describe('T11.4: Expert uses configured temperature', async () => {
-      await it('expert.temperature is used (not hard-coded)', async () => {
-        const { ExpertAgent } = await import('../src/experts/expert-layer.js');
-        const expert = new ExpertAgent({ id: 'temp_test', name: 'Temperature Test', temperature: 0.8 });
-        assert.equal(expert.temperature, 0.8);
-        assert.equal(expert.getLLMSettings().temperature, 0.8);
+    await describe('T11.4: Expertise uses configured temperature', async () => {
+      await it('expertise.temperature is used (not hard-coded)', async () => {
+        const { ExpertiseAgent } = await import('../src/expertises/expertise-layer.js');
+        const expertise = new ExpertiseAgent({ id: 'temp_test', name: 'Temperature Test', temperature: 0.8 });
+        assert.equal(expertise.temperature, 0.8);
+        assert.equal(expertise.getLLMSettings().temperature, 0.8);
       });
 
-      await it('builtin experts have varying temperatures', async () => {
-        const { expertRegistry } = await import('../src/experts/expert-layer.js');
-        const experts = expertRegistry.getBuiltIn();
-        const temperatures = new Set(experts.map(e => e.temperature));
+      await it('builtin expertises have varying temperatures', async () => {
+        const { expertiseRegistry } = await import('../src/expertises/expertise-layer.js');
+        const expertises = expertiseRegistry.getBuiltIn();
+        const temperatures = new Set(expertises.map(e => e.temperature));
         assert.ok(temperatures.size > 3, `Should have variety of temperatures, got ${temperatures.size}`);
       });
     });
 
     // T11.5
-    await describe('T11.5: Full expert lifecycle', async () => {
+    await describe('T11.5: Full expertise lifecycle', async () => {
       await it('lifecycle: LOAD → set → get → update → delete', async () => {
-        const { ExpertStore } = await import('../src/experts/expert-store.js');
-        const store = new ExpertStore(null);
+        const { ExpertiseStore } = await import('../src/expertises/expertise-store.js');
+        const store = new ExpertiseStore(null);
 
-        const createResult = store.saveCustomExpert({ name: 'Lifecycle Test', domain: 'lifecycle', temperature: 0.5 });
+        const createResult = store.saveCustomExpertise({ name: 'Lifecycle Test', domain: 'lifecycle', temperature: 0.5 });
         assert.equal(createResult.success, true);
         const expertId = createResult.expert.id;
 
-        let expert = store.getCustomExpert(expertId);
-        assert.equal(expert.name, 'Lifecycle Test');
+        let expertise = store.getCustomExpertise(expertId);
+        assert.equal(expertise.name, 'Lifecycle Test');
 
-        const updateResult = store.saveCustomExpert({ id: expertId, name: 'Lifecycle Test Updated', domain: 'lifecycle', temperature: 0.7 });
+        const updateResult = store.saveCustomExpertise({ id: expertId, name: 'Lifecycle Test Updated', domain: 'lifecycle', temperature: 0.7 });
         assert.equal(updateResult.success, true);
 
-        expert = store.getCustomExpert(expertId);
-        assert.equal(expert.name, 'Lifecycle Test Updated');
+        expertise = store.getCustomExpertise(expertId);
+        assert.equal(expertise.name, 'Lifecycle Test Updated');
 
-        const deleted = store.deleteCustomExpert(expertId);
+        const deleted = store.deleteCustomExpertise(expertId);
         assert.equal(deleted, true);
-        assert.equal(store.getCustomExpert(expertId), null);
+        assert.equal(store.getCustomExpertise(expertId), null);
       });
 
       await it('lifecycle: conversation binding LOAD → LOCK → UNLOCK → CLEAR', async () => {
-        const { ExpertStore } = await import('../src/experts/expert-store.js');
-        const store = new ExpertStore(null);
+        const { ExpertiseStore } = await import('../src/expertises/expertise-store.js');
+        const store = new ExpertiseStore(null);
 
-        store.setExpertForConversation('conv-lifecycle', 'writer', { strength: 50 });
-        let binding = store.getExpertBinding('conv-lifecycle');
+        store.setExpertiseForConversation('conv-lifecycle', 'writer', { strength: 50 });
+        let binding = store.getExpertiseBinding('conv-lifecycle');
         assert.equal(binding.locked, false);
 
-        store.lockExpert('conv-lifecycle');
-        binding = store.getExpertBinding('conv-lifecycle');
+        store.lockExpertise('conv-lifecycle');
+        binding = store.getExpertiseBinding('conv-lifecycle');
         assert.equal(binding.locked, true);
 
-        store.unlockExpert('conv-lifecycle');
-        binding = store.getExpertBinding('conv-lifecycle');
+        store.unlockExpertise('conv-lifecycle');
+        binding = store.getExpertiseBinding('conv-lifecycle');
         assert.equal(binding.locked, false);
 
-        store.clearExpert('conv-lifecycle');
-        assert.equal(store.getExpertBinding('conv-lifecycle'), null);
+        store.clearExpertise('conv-lifecycle');
+        assert.equal(store.getExpertiseBinding('conv-lifecycle'), null);
       });
 
-      await it('lifecycle: expert hints flow through correctly', async () => {
-        const { ExpertAgent, ExpertStrength } = await import('../src/experts/expert-layer.js');
-        const expert = new ExpertAgent({ id: 'hints_test', name: 'Hints Test', outputBias: 'creative' });
+      await it('lifecycle: expertise hints flow through correctly', async () => {
+        const { ExpertiseAgent, ExpertiseStrength } = await import('../src/expertises/expertise-layer.js');
+        const expertise = new ExpertiseAgent({ id: 'hints_test', name: 'Hints Test', outputBias: 'creative' });
 
-        expert.setStrength(ExpertStrength.OFF);
-        assert.equal(expert.getSynthesisHints().active, false);
+        expertise.setStrength(ExpertiseStrength.OFF);
+        assert.equal(expertise.getSynthesisHints().active, false);
 
-        expert.setStrength(ExpertStrength.LIGHT);
-        let hints = expert.getSynthesisHints();
+        expertise.setStrength(ExpertiseStrength.LIGHT);
+        let hints = expertise.getSynthesisHints();
         assert.equal(hints.active, true);
         assert.equal(hints.preset, 'light');
 
-        expert.setStrength(ExpertStrength.FULL);
-        hints = expert.getSynthesisHints();
+        expertise.setStrength(ExpertiseStrength.FULL);
+        hints = expertise.getSynthesisHints();
         assert.equal(hints.preset, 'deep');
         assert.equal(hints.influence, 1.0);
       });

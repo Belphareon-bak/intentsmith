@@ -10,7 +10,7 @@ const react_widget_1 = require("@theia/core/lib/browser/widgets/react-widget");
 const React = require("@theia/core/shared/react");
 
 // v63.0: Wizard modules
-const { fetchSchema, fetchExperts, fetchPreview, sendTestPrompt, saveExpert, debounce } = require('./wizard/wizard-helpers');
+const { fetchSchema, fetchExpertises, fetchPreview, sendTestPrompt, saveExpertise, debounce } = require('./wizard/wizard-helpers');
 const { renderBasicInfo } = require('./wizard/wizard-basic');
 const { renderCapabilities } = require('./wizard/wizard-capabilities');
 const { renderModules } = require('./wizard/wizard-modules');
@@ -49,7 +49,7 @@ const DATA = {
   specialists: [
     { id: 1, title: 'Účetní specialista', desc: 'Faktury, DPH, účetnictví', emoji: '📊', fav: true }
   ],
-  experts: [
+  expertises: [
     { id: 1, title: 'Výchozí', desc: 'Univerzální AI', emoji: '🤖', fav: true },
     { id: 2, title: 'Účetní', desc: 'Faktury, DPH', emoji: '📊', fav: true },
     { id: 3, title: 'Developer', desc: 'Kód, debugging', emoji: '💻', fav: true },
@@ -104,7 +104,7 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
     this._wizardTestResult = null;
     this._wizardTestLoading = false;
     this._wizardTestError = null;
-    this._wizardExperts = [];     // for parent picker
+    this._wizardExpertises = [];     // for parent picker
     this._wizardOpenSections = { basic: true };
     this._wizardEditId = null;    // original ID when editing
 
@@ -133,7 +133,7 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
 
     // v63.0: Listen for wizard-open events from detail panel
     document.addEventListener('c3-wizard-open', (e) => {
-      this._openWizard(e.detail.mode, e.detail.expertData);
+      this._openWizard(e.detail.mode, e.detail.expertiseData);
     });
   }
 
@@ -152,14 +152,14 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
   }
 
   _renderBar(h, view) {
-    const titles = { chats: 'Konverzace', projects: 'Projekty', specialists: 'Specialisté', experts: 'Experti', workers: 'Workeri' };
+    const titles = { chats: 'Konverzace', projects: 'Projekty', specialists: 'Specialisté', expertises: 'Expertyzy', workers: 'Workeri' };
     return h('div', { className: 'c3-view-bar' },
       h('h2', null, titles[view] || view),
-      // v63.0: New expert button
-      view === 'experts' && h('button', {
+      // v63.0: New expertise button
+      view === 'expertises' && h('button', {
         className: 'c3-btn-new',
         onClick: () => this._openWizard('create', null),
-      }, '+ Nový expert'),
+      }, '+ Nová expertyza'),
       h('div', { style: { flex: 1 } }),
       h('div', { className: 'c3-zoom' },
         ico(ZOOM_OUT),
@@ -180,7 +180,7 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
     return h('div', { className: 'c3-grid', 'data-zoom': this._zoom },
       items.map(item => {
         if (view === 'chats') return this._renderChatCard(h, item);
-        if (view === 'experts' || view === 'specialists') return this._renderExpertCard(h, item);
+        if (view === 'expertises' || view === 'specialists') return this._renderExpertiseCard(h, item);
         return this._renderProjectCard(h, item);
       })
     );
@@ -216,13 +216,13 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
     );
   }
 
-  _renderExpertCard(h, item) {
+  _renderExpertiseCard(h, item) {
     return h('div', {
       key: item.id,
-      className: 'c3-card c3-card-expert' + (item.fav ? ' favorite' : '') + (this._selectedItem === item.id ? ' selected' : ''),
-      onClick: () => this._selectItem(item.id, 'expert', item)
+      className: 'c3-card c3-card-expertise' + (item.fav ? ' favorite' : '') + (this._selectedItem === item.id ? ' selected' : ''),
+      onClick: () => this._selectItem(item.id, 'expertise', item)
     },
-      h('span', { className: 'c3-expert-emo' }, item.emoji),
+      h('span', { className: 'c3-expertise-emo' }, item.emoji),
       h('div', null,
         h('h4', null, item.title),
         h('p', { style: { margin: 0 } }, item.desc)
@@ -313,9 +313,9 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
     this._wizardOpenSections = { basic: true };
     this.update();
 
-    // Fetch schema and experts from backend (🔴1 — anti-drift)
+    // Fetch schema and expertises from backend (🔴1 — anti-drift)
     fetchSchema().then(schema => { this._wizardSchema = schema; this.update(); }).catch(() => {});
-    fetchExperts().then(experts => { this._wizardExperts = experts; this.update(); }).catch(() => {});
+    fetchExpertises().then(expertises => { this._wizardExpertises = expertises; this.update(); }).catch(() => {});
   }
 
   _closeWizard() {
@@ -328,7 +328,7 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
   async _saveWizard() {
     if (!this._wizardData || !this._wizardData.name) return;
     try {
-      await saveExpert(this._wizardData, this._wizardEditId);
+      await saveExpertise(this._wizardData, this._wizardEditId);
       this._closeWizard();
     } catch (err) {
       this._wizardTestError = `Uložení selhalo: ${err.message}`;
@@ -416,7 +416,7 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
     return h('div', { className: 'c3-cv' },
       // Toolbar
       h('div', { className: 'c3-wiz-toolbar' },
-        h('h3', null, isCreate ? '+ Nový expert' : `Editace: ${data.name || '?'}`),
+        h('h3', null, isCreate ? '+ Nová expertyza' : `Editace: ${data.name || '?'}`),
         h('button', { className: 'c3-btn-new', onClick: () => this._closeWizard() }, 'Zrušit'),
         h('button', {
           className: 'c3-btn-primary',

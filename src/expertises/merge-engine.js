@@ -40,7 +40,7 @@ import {
   truncateToTokens,
 } from './merge-types.js';
 import { checkCompatibility } from './merge-compatibility.js';
-import { resolveInheritance } from './expert-layer.js';
+import { resolveInheritance } from './expertise-layer.js';
 import {
   computeCapabilityModifiers,
   applyCapabilityModifiers as applyCapMods,

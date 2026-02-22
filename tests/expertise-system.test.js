@@ -1,7 +1,7 @@
 // C3-Agent v57.0 — Expert System Tests
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// T10.1: ExpertStore CRUD
+// T10.1: ExpertiseStore CRUD
 // T10.2: Expert config validation
 // T10.3: Expert-conversation bindings (lock state)
 // T10.4: ForbiddenPhrases enforcement
@@ -45,34 +45,34 @@ async function it(name, fn) {
 // ─── Imports ─────────────────────────────────────────────────────────────────
 
 import {
-  ExpertStore,
-  validateExpertConfig,
-  resetExpertStore,
-} from '../src/experts/expert-store.js';
+  ExpertiseStore,
+  validateExpertiseConfig,
+  resetExpertiseStore,
+} from '../src/expertises/expertise-store.js';
 
 import {
-  ExpertEnforcer,
+  ExpertiseEnforcer,
   checkForbiddenPhrases,
   checkResponseLength,
   quickCheck,
-} from '../src/experts/expert-enforcement.js';
+} from '../src/expertises/expertise-enforcement.js';
 
 import {
-  ExpertAgent,
-  expertRegistry,
-  BUILTIN_EXPERTS,
-  ExpertStrength,
-} from '../src/experts/expert-layer.js';
+  ExpertiseAgent,
+  expertiseRegistry,
+  BUILTIN_EXPERTISES,
+  ExpertiseStrength,
+} from '../src/expertises/expertise-layer.js';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // T10.1: EXPERT STORE CRUD
 // ══════════════════════════════════════════════════════════════════════════════
 
-describe('T10.1: ExpertStore CRUD', () => {
+describe('T10.1: ExpertiseStore CRUD', () => {
 
-  it('saveCustomExpert saves valid expert', async () => {
-    const store = new ExpertStore(null); // in-memory mode
-    const result = store.saveCustomExpert({
+  it('saveCustomExpertise saves valid expert', async () => {
+    const store = new ExpertiseStore(null); // in-memory mode
+    const result = store.saveCustomExpertise({
       id: 'test_expert_1',
       name: 'Test Expert',
       description: 'A test expert for unit testing',
@@ -85,9 +85,9 @@ describe('T10.1: ExpertStore CRUD', () => {
     assert.equal(result.expert.name, 'Test Expert');
   });
 
-  it('saveCustomExpert rejects invalid name', async () => {
-    const store = new ExpertStore(null);
-    const result = store.saveCustomExpert({
+  it('saveCustomExpertise rejects invalid name', async () => {
+    const store = new ExpertiseStore(null);
+    const result = store.saveCustomExpertise({
       name: 'X', // Too short (min 2 chars)
       description: 'Test',
     });
@@ -96,9 +96,9 @@ describe('T10.1: ExpertStore CRUD', () => {
     assert.ok(result.errors.some(e => e.includes('name')), 'Should have name error');
   });
 
-  it('saveCustomExpert generates ID from name', async () => {
-    const store = new ExpertStore(null);
-    const result = store.saveCustomExpert({
+  it('saveCustomExpertise generates ID from name', async () => {
+    const store = new ExpertiseStore(null);
+    const result = store.saveCustomExpertise({
       name: 'My Custom Expert',
       description: 'Test',
     });
@@ -107,41 +107,41 @@ describe('T10.1: ExpertStore CRUD', () => {
     assert.equal(result.expert.id, 'my_custom_expert');
   });
 
-  it('getCustomExpert retrieves saved expert', async () => {
-    const store = new ExpertStore(null);
-    store.saveCustomExpert({
+  it('getCustomExpertise retrieves saved expert', async () => {
+    const store = new ExpertiseStore(null);
+    store.saveCustomExpertise({
       id: 'retrieve_test',
       name: 'Retrieve Test',
     });
 
-    const expert = store.getCustomExpert('retrieve_test');
+    const expert = store.getCustomExpertise('retrieve_test');
     assert.ok(expert, 'Should find expert');
     assert.equal(expert.name, 'Retrieve Test');
   });
 
-  it('getCustomExpert returns null for non-existent', async () => {
-    const store = new ExpertStore(null);
-    const expert = store.getCustomExpert('nonexistent');
+  it('getCustomExpertise returns null for non-existent', async () => {
+    const store = new ExpertiseStore(null);
+    const expert = store.getCustomExpertise('nonexistent');
     assert.equal(expert, null);
   });
 
-  it('listCustomExperts returns all saved experts', async () => {
-    const store = new ExpertStore(null);
-    store.saveCustomExpert({ id: 'list_1', name: 'List Expert 1' });
-    store.saveCustomExpert({ id: 'list_2', name: 'List Expert 2' });
+  it('listCustomExpertises returns all saved experts', async () => {
+    const store = new ExpertiseStore(null);
+    store.saveCustomExpertise({ id: 'list_1', name: 'List Expert 1' });
+    store.saveCustomExpertise({ id: 'list_2', name: 'List Expert 2' });
 
-    const experts = store.listCustomExperts();
+    const experts = store.listCustomExpertises();
     assert.equal(experts.length, 2);
   });
 
-  it('deleteCustomExpert removes expert', async () => {
-    const store = new ExpertStore(null);
-    store.saveCustomExpert({ id: 'delete_test', name: 'Delete Test' });
+  it('deleteCustomExpertise removes expert', async () => {
+    const store = new ExpertiseStore(null);
+    store.saveCustomExpertise({ id: 'delete_test', name: 'Delete Test' });
 
-    const deleted = store.deleteCustomExpert('delete_test');
+    const deleted = store.deleteCustomExpertise('delete_test');
     assert.equal(deleted, true);
 
-    const expert = store.getCustomExpert('delete_test');
+    const expert = store.getCustomExpertise('delete_test');
     assert.equal(expert, null);
   });
 
@@ -154,34 +154,34 @@ describe('T10.1: ExpertStore CRUD', () => {
 describe('T10.2: Expert config validation', () => {
 
   it('validates minimum name length', async () => {
-    const result = validateExpertConfig({ name: 'A' });
+    const result = validateExpertiseConfig({ name: 'A' });
     assert.equal(result.valid, false);
     assert.ok(result.errors.some(e => e.includes('at least')));
   });
 
   it('validates maximum name length', async () => {
     const longName = 'A'.repeat(100);
-    const result = validateExpertConfig({ name: longName });
+    const result = validateExpertiseConfig({ name: longName });
     assert.equal(result.valid, false);
     assert.ok(result.errors.some(e => e.includes('at most')));
   });
 
   it('validates temperature range (0-1)', async () => {
-    const tooLow = validateExpertConfig({ name: 'Test', temperature: -0.5 });
+    const tooLow = validateExpertiseConfig({ name: 'Test', temperature: -0.5 });
     assert.equal(tooLow.valid, false);
 
-    const tooHigh = validateExpertConfig({ name: 'Test', temperature: 1.5 });
+    const tooHigh = validateExpertiseConfig({ name: 'Test', temperature: 1.5 });
     assert.equal(tooHigh.valid, false);
 
-    const valid = validateExpertConfig({ name: 'Test', temperature: 0.7 });
+    const valid = validateExpertiseConfig({ name: 'Test', temperature: 0.7 });
     assert.equal(valid.valid, true);
   });
 
   it('validates domain format (lowercase, underscores only)', async () => {
-    const invalid = validateExpertConfig({ name: 'Test', domain: 'My Domain!' });
+    const invalid = validateExpertiseConfig({ name: 'Test', domain: 'My Domain!' });
     assert.equal(invalid.valid, false);
 
-    const valid = validateExpertConfig({ name: 'Test', domain: 'my_domain' });
+    const valid = validateExpertiseConfig({ name: 'Test', domain: 'my_domain' });
     assert.equal(valid.valid, true);
   });
 
@@ -195,7 +195,7 @@ describe('T10.2: Expert config validation', () => {
     ];
 
     for (const injection of injections) {
-      const result = validateExpertConfig({
+      const result = validateExpertiseConfig({
         name: 'Test',
         systemPrompt: `Some text ${injection} more text`,
       });
@@ -205,7 +205,7 @@ describe('T10.2: Expert config validation', () => {
   });
 
   it('accepts valid complete config', async () => {
-    const result = validateExpertConfig({
+    const result = validateExpertiseConfig({
       name: 'Valid Expert',
       description: 'A valid expert for testing',
       domain: 'testing',
@@ -227,70 +227,70 @@ describe('T10.2: Expert config validation', () => {
 
 describe('T10.3: Expert-conversation bindings (lock state)', () => {
 
-  it('setExpertForConversation creates binding', async () => {
-    const store = new ExpertStore(null);
-    store.setExpertForConversation('conv-001', 'writer');
+  it('setExpertiseForConversation creates binding', async () => {
+    const store = new ExpertiseStore(null);
+    store.setExpertiseForConversation('conv-001', 'writer');
 
-    const binding = store.getExpertBinding('conv-001');
+    const binding = store.getExpertiseBinding('conv-001');
     assert.ok(binding, 'Should have binding');
     assert.equal(binding.expertId, 'writer');
     assert.equal(binding.locked, false);
   });
 
-  it('setExpertForConversation with locked option', async () => {
-    const store = new ExpertStore(null);
-    store.setExpertForConversation('conv-002', 'analyst', { locked: true });
+  it('setExpertiseForConversation with locked option', async () => {
+    const store = new ExpertiseStore(null);
+    store.setExpertiseForConversation('conv-002', 'analyst', { locked: true });
 
-    const binding = store.getExpertBinding('conv-002');
+    const binding = store.getExpertiseBinding('conv-002');
     assert.equal(binding.locked, true);
     assert.ok(binding.lockedAt, 'Should have lockedAt timestamp');
   });
 
-  it('setExpertForConversation with strength option', async () => {
-    const store = new ExpertStore(null);
-    store.setExpertForConversation('conv-003', 'developer', { strength: 75 });
+  it('setExpertiseForConversation with strength option', async () => {
+    const store = new ExpertiseStore(null);
+    store.setExpertiseForConversation('conv-003', 'developer', { strength: 75 });
 
-    const binding = store.getExpertBinding('conv-003');
+    const binding = store.getExpertiseBinding('conv-003');
     assert.equal(binding.strength, 75);
   });
 
-  it('lockExpert updates lock state', async () => {
-    const store = new ExpertStore(null);
-    store.setExpertForConversation('conv-004', 'writer');
+  it('lockExpertise updates lock state', async () => {
+    const store = new ExpertiseStore(null);
+    store.setExpertiseForConversation('conv-004', 'writer');
 
-    let binding = store.getExpertBinding('conv-004');
+    let binding = store.getExpertiseBinding('conv-004');
     assert.equal(binding.locked, false);
 
-    store.lockExpert('conv-004');
+    store.lockExpertise('conv-004');
 
-    binding = store.getExpertBinding('conv-004');
+    binding = store.getExpertiseBinding('conv-004');
     assert.equal(binding.locked, true);
   });
 
-  it('unlockExpert clears lock state', async () => {
-    const store = new ExpertStore(null);
-    store.setExpertForConversation('conv-005', 'writer', { locked: true });
+  it('unlockExpertise clears lock state', async () => {
+    const store = new ExpertiseStore(null);
+    store.setExpertiseForConversation('conv-005', 'writer', { locked: true });
 
-    store.unlockExpert('conv-005');
+    store.unlockExpertise('conv-005');
 
-    const binding = store.getExpertBinding('conv-005');
+    const binding = store.getExpertiseBinding('conv-005');
     assert.equal(binding.locked, false);
     assert.equal(binding.lockedAt, null);
   });
 
-  it('clearExpert removes binding completely', async () => {
-    const store = new ExpertStore(null);
-    store.setExpertForConversation('conv-006', 'writer');
+  it('clearExpertise removes binding completely', async () => {
+    const store = new ExpertiseStore(null);
+    store.setExpertiseForConversation('conv-006', 'writer');
 
-    store.clearExpert('conv-006');
+    store.clearExpertise('conv-006');
 
-    const binding = store.getExpertBinding('conv-006');
+    const binding = store.getExpertiseBinding('conv-006');
     assert.equal(binding, null);
   });
 
-  it('getExpertBinding returns null for no binding', async () => {
-    const store = new ExpertStore(null);
-    const binding = store.getExpertBinding('nonexistent-conv');
+  it('getExpertiseBinding returns null for no binding', async () => {
+    const store = new ExpertiseStore(null);
+    const binding = store.getExpertiseBinding('nonexistent-conv');
     assert.equal(binding, null);
   });
 
@@ -366,11 +366,11 @@ describe('T10.4: ForbiddenPhrases enforcement', () => {
 // T10.5: EXPERT ENFORCER WITH RETRY
 // ══════════════════════════════════════════════════════════════════════════════
 
-describe('T10.5: ExpertEnforcer with retry', () => {
+describe('T10.5: ExpertiseEnforcer with retry', () => {
 
   it('enforcer passes valid response immediately', async () => {
     const expert = { styleRules: { minResponseLength: 20 } };
-    const enforcer = new ExpertEnforcer(expert, null);
+    const enforcer = new ExpertiseEnforcer(expert, null);
 
     const result = await enforcer.enforce('This is a valid response that is long enough.', 'test prompt');
 
@@ -397,7 +397,7 @@ describe('T10.5: ExpertEnforcer with retry', () => {
       return 'This is a clean response without any issues that is long enough.';
     };
 
-    const enforcer = new ExpertEnforcer(expert, regenerateFn);
+    const enforcer = new ExpertiseEnforcer(expert, regenerateFn);
     const result = await enforcer.enforce('Initial bad phrase response', 'test prompt');
 
     assert.equal(result.passed, true);
@@ -415,7 +415,7 @@ describe('T10.5: ExpertEnforcer with retry', () => {
 
     const regenerateFn = async () => 'This always bad response never improves sufficiently.';
 
-    const enforcer = new ExpertEnforcer(expert, regenerateFn, { maxRetries: 2 });
+    const enforcer = new ExpertiseEnforcer(expert, regenerateFn, { maxRetries: 2 });
     const result = await enforcer.enforce('Initial always bad response here', 'test prompt');
 
     assert.equal(result.passed, false);
@@ -434,7 +434,7 @@ describe('T10.5: ExpertEnforcer with retry', () => {
       throw new Error('LLM unavailable');
     };
 
-    const enforcer = new ExpertEnforcer(expert, regenerateFn);
+    const enforcer = new ExpertiseEnforcer(expert, regenerateFn);
     const result = await enforcer.enforce('bad response', 'test prompt');
 
     // Should not throw, just return with failure
@@ -447,21 +447,21 @@ describe('T10.5: ExpertEnforcer with retry', () => {
 // T10.6: EXPERT AGENT CLASS
 // ══════════════════════════════════════════════════════════════════════════════
 
-describe('T10.6: ExpertAgent class', () => {
+describe('T10.6: ExpertiseAgent class', () => {
 
-  it('ExpertAgent has correct default values', async () => {
-    const agent = new ExpertAgent({
+  it('ExpertiseAgent has correct default values', async () => {
+    const agent = new ExpertiseAgent({
       id: 'test',
       name: 'Test Agent',
     });
 
     assert.equal(agent.temperature, 0.5);
-    assert.equal(agent.strength, ExpertStrength.MEDIUM);
+    assert.equal(agent.strength, ExpertiseStrength.MEDIUM);
     assert.ok(agent.weights, 'Should have weights');
   });
 
-  it('ExpertAgent.setStrength quantizes to valid levels', async () => {
-    const agent = new ExpertAgent({ id: 'test', name: 'Test' });
+  it('ExpertiseAgent.setStrength quantizes to valid levels', async () => {
+    const agent = new ExpertiseAgent({ id: 'test', name: 'Test' });
 
     assert.equal(agent.setStrength(12), 0);   // rounds to 0
     assert.equal(agent.setStrength(27), 25);  // rounds to 25
@@ -470,16 +470,16 @@ describe('T10.6: ExpertAgent class', () => {
     assert.equal(agent.setStrength(90), 100); // rounds to 100
   });
 
-  it('ExpertAgent.getSynthesisHints returns inactive when OFF', async () => {
-    const agent = new ExpertAgent({ id: 'test', name: 'Test' });
+  it('ExpertiseAgent.getSynthesisHints returns inactive when OFF', async () => {
+    const agent = new ExpertiseAgent({ id: 'test', name: 'Test' });
     agent.setStrength(0);
 
     const hints = agent.getSynthesisHints();
     assert.equal(hints.active, false);
   });
 
-  it('ExpertAgent.getSynthesisHints returns active hints when on', async () => {
-    const agent = new ExpertAgent({
+  it('ExpertiseAgent.getSynthesisHints returns active hints when on', async () => {
+    const agent = new ExpertiseAgent({
       id: 'test',
       name: 'Test',
       domain: 'testing',
@@ -493,8 +493,8 @@ describe('T10.6: ExpertAgent class', () => {
     assert.ok(hints.style, 'Should have style');
   });
 
-  it('ExpertAgent.toJSON serializes correctly', async () => {
-    const agent = new ExpertAgent({
+  it('ExpertiseAgent.toJSON serializes correctly', async () => {
+    const agent = new ExpertiseAgent({
       id: 'test',
       name: 'Test Agent',
       domain: 'testing',
@@ -516,11 +516,11 @@ describe('T10.6: ExpertAgent class', () => {
 
 describe('T10.7: Builtin experts', () => {
 
-  it('expertRegistry has all builtin experts', async () => {
-    const builtinIds = Object.keys(BUILTIN_EXPERTS);
+  it('expertiseRegistry has all builtin experts', async () => {
+    const builtinIds = Object.keys(BUILTIN_EXPERTISES);
 
     for (const id of builtinIds) {
-      const expert = expertRegistry.get(id);
+      const expert = expertiseRegistry.get(id);
       assert.ok(expert, `Should have builtin expert: ${id}`);
       assert.equal(expert.id, id);
     }
@@ -529,7 +529,7 @@ describe('T10.7: Builtin experts', () => {
   it('builtin experts have required properties', async () => {
     const requiredProps = ['id', 'name', 'domain', 'temperature', 'systemPrompt'];
 
-    for (const expert of expertRegistry.getBuiltIn()) {
+    for (const expert of expertiseRegistry.getBuiltIn()) {
       for (const prop of requiredProps) {
         assert.ok(expert[prop] !== undefined, `${expert.id} should have ${prop}`);
       }
@@ -537,14 +537,14 @@ describe('T10.7: Builtin experts', () => {
   });
 
   it('builtin experts have valid temperature range', async () => {
-    for (const expert of expertRegistry.getBuiltIn()) {
+    for (const expert of expertiseRegistry.getBuiltIn()) {
       assert.ok(expert.temperature >= 0 && expert.temperature <= 1,
         `${expert.id} temperature should be 0-1, got ${expert.temperature}`);
     }
   });
 
   it('some experts have forbiddenPhrases defined', async () => {
-    const expertsWithRules = expertRegistry.getBuiltIn()
+    const expertsWithRules = expertiseRegistry.getBuiltIn()
       .filter(e => e.styleRules?.forbiddenPhrases?.length > 0);
 
     assert.ok(expertsWithRules.length > 0, 'Should have some experts with forbiddenPhrases');

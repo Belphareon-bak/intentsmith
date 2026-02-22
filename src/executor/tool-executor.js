@@ -27,12 +27,12 @@ import { canonicalizeQuery } from './query-canonicalizer.js';
 // v57.3 — Accountant expert tools (lazy-loaded — Phase D optional)
 import { config } from '../config.js';
 let calculateTax, compareTaxEntities, calculateVAT, calculateSalary, compareSalaries, checkDeadlines;
-if (config.features.experts !== false) {
+if (config.features.expertises !== false) {
   try {
-    ({ calculateTax, compareTaxEntities } = await import('../experts/tools/tax-calc.js'));
-    ({ calculateVAT } = await import('../experts/tools/vat-calc.js'));
-    ({ calculateSalary, compareSalaries } = await import('../experts/tools/salary-calc.js'));
-    ({ checkDeadlines } = await import('../experts/tools/deadline-checker.js'));
+    ({ calculateTax, compareTaxEntities } = await import('../expertises/tools/tax-calc.js'));
+    ({ calculateVAT } = await import('../expertises/tools/vat-calc.js'));
+    ({ calculateSalary, compareSalaries } = await import('../expertises/tools/salary-calc.js'));
+    ({ checkDeadlines } = await import('../expertises/tools/deadline-checker.js'));
   } catch (err) {
     logger.warn('ToolExecutor', `Expert tools not available: ${err.message}`);
   }

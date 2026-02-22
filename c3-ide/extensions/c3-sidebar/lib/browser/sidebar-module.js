@@ -45,7 +45,7 @@ const NAV_ITEMS = [
     recent: [
       { label: 'Účetní', color: 'g' }
     ]},
-  { id: 'experts', label: 'Experti', icon: 'expert', badge: 9,
+  { id: 'expertises', label: 'Expertyzy', icon: 'expert', badge: 9,
     recent: [
       { label: 'Výchozí', color: 'g' },
       { label: 'Developer', color: 'g' },

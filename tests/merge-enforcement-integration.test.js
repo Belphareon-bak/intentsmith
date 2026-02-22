@@ -2,7 +2,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Critical test: merge 2 expertises → create synthetic enforcement config
-// → run through ExpertEnforcer → simulate LLM output → verify enforcement
+// → run through ExpertiseEnforcer → simulate LLM output → verify enforcement
 // works identically to single-expert flow.
 //
 // Verify:
@@ -48,14 +48,14 @@ async function it(name, fn) {
 
 // ─── Imports ─────────────────────────────────────────────────────────────────
 
-import { mergeExpertisePrompt } from '../src/experts/merge-engine.js';
-import { BUILTIN_EXPERTS } from '../src/experts/expert-layer.js';
-import { ExpertEnforcer, checkForbiddenPhrases, checkResponseLength, quickCheck } from '../src/experts/expert-enforcement.js';
+import { mergeExpertisePrompt } from '../src/expertises/merge-engine.js';
+import { BUILTIN_EXPERTISES } from '../src/expertises/expertise-layer.js';
+import { ExpertiseEnforcer, checkForbiddenPhrases, checkResponseLength, quickCheck } from '../src/expertises/expertise-enforcement.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function expert(id, weight = 0.5) {
-  return { ...BUILTIN_EXPERTS[id], weight };
+  return { ...BUILTIN_EXPERTISES[id], weight };
 }
 
 /**
@@ -83,7 +83,7 @@ describe('T-EI1: Merged enforcement detects violations', async () => {
   await it('forbiddenPhrases from developer expert work in merged config', () => {
     // developer has: /TODO.*later/i, /this is just an example/i, /you might want to/i
     const mergeResult = mergeExpertisePrompt([expert('developer', 0.7), expert('analyst', 0.3)]);
-    const synthetic = buildSyntheticExpert(mergeResult, [BUILTIN_EXPERTS.developer, BUILTIN_EXPERTS.analyst]);
+    const synthetic = buildSyntheticExpert(mergeResult, [BUILTIN_EXPERTISES.developer, BUILTIN_EXPERTISES.analyst]);
 
     // This response contains a phrase forbidden by developer
     const badResponse = 'Here is the code. TODO: fix this later when you have time. The analysis shows positive results.';
@@ -93,7 +93,7 @@ describe('T-EI1: Merged enforcement detects violations', async () => {
 
   await it('forbiddenPhrases from analyst expert work in merged config', () => {
     const mergeResult = mergeExpertisePrompt([expert('developer', 0.7), expert('analyst', 0.3)]);
-    const synthetic = buildSyntheticExpert(mergeResult, [BUILTIN_EXPERTS.developer, BUILTIN_EXPERTS.analyst]);
+    const synthetic = buildSyntheticExpert(mergeResult, [BUILTIN_EXPERTISES.developer, BUILTIN_EXPERTISES.analyst]);
 
     // analyst has: /možná/i, /asi/i, /nevím přesně/i, /obecně platí/i
     const badResponse = 'Na základě analýzy dat asi bude výsledek pozitivní. Kód je připraven k nasazení s tím, že obecně platí pravidlo kvality.';
@@ -103,7 +103,7 @@ describe('T-EI1: Merged enforcement detects violations', async () => {
 
   await it('DEFAULT_FORBIDDEN_PHRASES work in merged config', () => {
     const mergeResult = mergeExpertisePrompt([expert('developer', 0.7), expert('analyst', 0.3)]);
-    const synthetic = buildSyntheticExpert(mergeResult, [BUILTIN_EXPERTS.developer, BUILTIN_EXPERTS.analyst]);
+    const synthetic = buildSyntheticExpert(mergeResult, [BUILTIN_EXPERTISES.developer, BUILTIN_EXPERTISES.analyst]);
 
     // Default: /jako (velký )?jazykový model/i
     const badResponse = 'Jako velký jazykový model nemohu provádět skutečné výpočty, ale mohu vám poradit.';
@@ -115,7 +115,7 @@ describe('T-EI1: Merged enforcement detects violations', async () => {
     // Accountant has string-type forbidden phrases: 'odhaduji', 'přibližně', etc.
     // Use developer + ai_expert instead (both compatible, both have regex phrases)
     const mergeResult = mergeExpertisePrompt([expert('developer', 0.7), expert('ai_expert', 0.3)]);
-    const synthetic = buildSyntheticExpert(mergeResult, [BUILTIN_EXPERTS.developer, BUILTIN_EXPERTS.ai_expert]);
+    const synthetic = buildSyntheticExpert(mergeResult, [BUILTIN_EXPERTISES.developer, BUILTIN_EXPERTISES.ai_expert]);
 
     // Clean response should pass
     const goodResponse = 'Na základě analýzy kódu doporučuji refactoring modulu authentication. Transformer architektura je vhodná pro tento use case, protože umožňuje paralelní zpracování sekvencí.';
@@ -189,13 +189,13 @@ describe('T-EI3: Disclaimers do not duplicate', async () => {
 // T-EI4: ENFORCER RETRY WITH MERGED CONFIG
 // ══════════════════════════════════════════════════════════════════════════════
 
-describe('T-EI4: ExpertEnforcer retry with merged config', async () => {
+describe('T-EI4: ExpertiseEnforcer retry with merged config', async () => {
   await it('enforcer passes clean response immediately', async () => {
     const mergeResult = mergeExpertisePrompt([expert('developer', 0.7), expert('analyst', 0.3)]);
-    const synthetic = buildSyntheticExpert(mergeResult, [BUILTIN_EXPERTS.developer, BUILTIN_EXPERTS.analyst]);
+    const synthetic = buildSyntheticExpert(mergeResult, [BUILTIN_EXPERTISES.developer, BUILTIN_EXPERTISES.analyst]);
 
     const regenerateFn = async () => 'This should not be called';
-    const enforcer = new ExpertEnforcer(synthetic, regenerateFn);
+    const enforcer = new ExpertiseEnforcer(synthetic, regenerateFn);
 
     const cleanResponse = 'Na základě analýzy kódu doporučuji následující refaktorizaci: oddělte datovou vrstvu od prezentační logiky. Použijte dependency injection pro lepší testovatelnost.';
     const result = await enforcer.enforce(cleanResponse, 'Jak refaktorovat?');
@@ -206,7 +206,7 @@ describe('T-EI4: ExpertEnforcer retry with merged config', async () => {
 
   await it('enforcer retries on violation and uses regenerated response', async () => {
     const mergeResult = mergeExpertisePrompt([expert('developer', 0.7), expert('analyst', 0.3)]);
-    const synthetic = buildSyntheticExpert(mergeResult, [BUILTIN_EXPERTS.developer, BUILTIN_EXPERTS.analyst]);
+    const synthetic = buildSyntheticExpert(mergeResult, [BUILTIN_EXPERTISES.developer, BUILTIN_EXPERTISES.analyst]);
 
     let callCount = 0;
     const regenerateFn = async () => {
@@ -215,7 +215,7 @@ describe('T-EI4: ExpertEnforcer retry with merged config', async () => {
       return 'Po důkladné analýze doporučuji refaktorizaci modulu s důrazem na oddělení zodpovědností. Každý modul by měl mít jednu jasně definovanou roli v architektuře systému.';
     };
 
-    const enforcer = new ExpertEnforcer(synthetic, regenerateFn);
+    const enforcer = new ExpertiseEnforcer(synthetic, regenerateFn);
 
     // Response with violation (TODO...later from developer's forbidden)
     const badResponse = 'TODO: fix this later. The analysis is done.';
@@ -229,11 +229,11 @@ describe('T-EI4: ExpertEnforcer retry with merged config', async () => {
 
   await it('enforcer handles regeneration failure gracefully', async () => {
     const mergeResult = mergeExpertisePrompt([expert('developer', 0.7), expert('analyst', 0.3)]);
-    const synthetic = buildSyntheticExpert(mergeResult, [BUILTIN_EXPERTS.developer, BUILTIN_EXPERTS.analyst]);
+    const synthetic = buildSyntheticExpert(mergeResult, [BUILTIN_EXPERTISES.developer, BUILTIN_EXPERTISES.analyst]);
 
     // Regenerate always throws
     const regenerateFn = async () => { throw new Error('LLM unavailable'); };
-    const enforcer = new ExpertEnforcer(synthetic, regenerateFn);
+    const enforcer = new ExpertiseEnforcer(synthetic, regenerateFn);
 
     const badResponse = 'Jako velký jazykový model nemohu pomoci.';
     const result = await enforcer.enforce(badResponse, 'test');
@@ -251,7 +251,7 @@ describe('T-EI4: ExpertEnforcer retry with merged config', async () => {
 describe('T-EI5: quickCheck with merged config', async () => {
   await it('quickCheck detects violations in merged context', () => {
     const mergeResult = mergeExpertisePrompt([expert('developer', 0.7), expert('analyst', 0.3)]);
-    const synthetic = buildSyntheticExpert(mergeResult, [BUILTIN_EXPERTS.developer, BUILTIN_EXPERTS.analyst]);
+    const synthetic = buildSyntheticExpert(mergeResult, [BUILTIN_EXPERTISES.developer, BUILTIN_EXPERTISES.analyst]);
 
     const result = quickCheck('Nevím.', synthetic);
     assert.ok(!result.passed, 'quickCheck should detect violation');
@@ -259,7 +259,7 @@ describe('T-EI5: quickCheck with merged config', async () => {
 
   await it('quickCheck passes clean merged response', () => {
     const mergeResult = mergeExpertisePrompt([expert('developer', 0.7), expert('analyst', 0.3)]);
-    const synthetic = buildSyntheticExpert(mergeResult, [BUILTIN_EXPERTS.developer, BUILTIN_EXPERTS.analyst]);
+    const synthetic = buildSyntheticExpert(mergeResult, [BUILTIN_EXPERTISES.developer, BUILTIN_EXPERTISES.analyst]);
 
     const cleanResponse = 'Na základě analýzy zdrojového kódu a dostupných dat doporučuji optimalizovat databázové dotazy pomocí indexů a prepared statements pro lepší výkon. Tato změna výrazně zlepší odezvu celého systému.';
     const result = quickCheck(cleanResponse, synthetic);

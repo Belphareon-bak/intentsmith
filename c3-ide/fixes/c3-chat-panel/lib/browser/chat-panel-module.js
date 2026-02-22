@@ -48,7 +48,7 @@ class C3ChatPanelWidget extends react_widget_1.ReactWidget {
     this._inputValue = '';
     this._connected = false;
     this._contextPercent = 0;
-    this._activeExpert = 'Výchozí';
+    this._activeExpertise = 'Výchozí';
     this._ws = null;
     console.log('[C3] ChatPanelWidget created');
     this._initWS();
@@ -132,9 +132,9 @@ class C3ChatPanelWidget extends react_widget_1.ReactWidget {
           h('div', { className: 'c3-ch-bar' },
             h('button', { className: 'c3-btn c3-ch-attach', title: 'Přiložit' }, ico(ICO.attach, 13)),
             h('span', { className: 'c3-ch-autocomplete' }, 'Tab pro autocomplete'),
-            h('div', { className: 'c3-ch-expert' },
-              h('span', { className: 'c3-ch-expert-dot' }),
-              this._activeExpert,
+            h('div', { className: 'c3-ch-expertise' },
+              h('span', { className: 'c3-ch-expertise-dot' }),
+              this._activeExpertise,
               ico(ICO.chevDown, 9)
             )
           )
@@ -152,7 +152,7 @@ class C3ChatPanelWidget extends react_widget_1.ReactWidget {
     this._scrollBottom();
 
     if (this._ws && this._ws.readyState === WebSocket.OPEN) {
-      this._ws.send(JSON.stringify({ type: 'chat', message: text, expert: this._activeExpert }));
+      this._ws.send(JSON.stringify({ type: 'chat', message: text, expertise: this._activeExpertise }));
     } else {
       this._sendHTTP(text);
     }
@@ -163,7 +163,7 @@ class C3ChatPanelWidget extends react_widget_1.ReactWidget {
       const res = await fetch(BACKEND_URL + '/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, expert: this._activeExpert })
+        body: JSON.stringify({ message: text, expertise: this._activeExpertise })
       });
       const data = await res.json();
       this._messages.push({

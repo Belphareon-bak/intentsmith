@@ -51,21 +51,21 @@ export * from './utils/index.js';
 // These are re-exported only if the modules are available.
 // Consumer code should handle missing exports gracefully.
 
-let _expertHandler = null;
-let _generateExpertResponse = null;
-let _wrapWithExpertPersona = null;
-let _buildExpertSystemPrompt = null;
+let _expertiseHandler = null;
+let _generateExpertiseResponse = null;
+let _wrapWithExpertisePersona = null;
+let _buildExpertiseSystemPrompt = null;
 let _agentHandler = null;
 let _wizardExports = {};
 
 // Lazy-load optional modules at import time (top-level await)
-if (config.features.experts !== false) {
+if (config.features.expertises !== false) {
   try {
-    const mod = await import('./expert.js');
-    _expertHandler = mod.expertHandler;
-    _generateExpertResponse = mod.generateExpertResponse;
-    _wrapWithExpertPersona = mod.wrapWithExpertPersona;
-    _buildExpertSystemPrompt = mod.buildExpertSystemPrompt;
+    const mod = await import('./expertise.js');
+    _expertiseHandler = mod.expertiseHandler;
+    _generateExpertiseResponse = mod.generateExpertiseResponse;
+    _wrapWithExpertisePersona = mod.wrapWithExpertisePersona;
+    _buildExpertiseSystemPrompt = mod.buildExpertiseSystemPrompt;
   } catch (err) {
     logger.warn('handlers/index', `Expert handler not available: ${err.message}`);
   }
@@ -86,10 +86,10 @@ if (config.features.agents !== false) {
   }
 }
 
-export const expertHandler = _expertHandler;
-export const generateExpertResponse = _generateExpertResponse;
-export const wrapWithExpertPersona = _wrapWithExpertPersona;
-export const buildExpertSystemPrompt = _buildExpertSystemPrompt;
+export const expertiseHandler = _expertiseHandler;
+export const generateExpertiseResponse = _generateExpertiseResponse;
+export const wrapWithExpertisePersona = _wrapWithExpertisePersona;
+export const buildExpertiseSystemPrompt = _buildExpertiseSystemPrompt;
 export const agentHandler = _agentHandler;
 
 // Wizard exports — may be null if agents disabled
@@ -124,7 +124,7 @@ export function getDefaultHandlers() {
     [ChatMode.CONVERSATION]: conversationHandler,
     [ChatMode.PROJECT]: projectHandler,
   };
-  if (_expertHandler) handlers[ChatMode.EXPERT] = _expertHandler;
+  if (_expertiseHandler) handlers[ChatMode.EXPERTISE] = _expertiseHandler;
   if (_agentHandler) handlers[ChatMode.AGENT] = _agentHandler;
   return handlers;
 }
@@ -133,7 +133,7 @@ export function getDefaultHandlers() {
 export default {
   conversationHandler,
   projectHandler,
-  expertHandler: _expertHandler,
+  expertiseHandler: _expertiseHandler,
   agentHandler: _agentHandler,
   getDefaultHandlers,
   recordFeedback,

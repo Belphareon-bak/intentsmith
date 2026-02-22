@@ -72,7 +72,7 @@ function renderBasicInfo(h, data, schema, onChange) {
       h('textarea', {
         className: 'c3-textarea c3-textarea-lg',
         value: data.systemPrompt || '',
-        placeholder: 'Systémový prompt pro single-expert flow...',
+        placeholder: 'Systémový prompt pro single-expertise flow...',
         maxLength: 8000,
         rows: 5,
         onInput: (e) => onChange('systemPrompt', e.target.value),

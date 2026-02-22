@@ -25,7 +25,7 @@
           ▼                  ▼                   ▼
    ┌──────────────────────────────────────────────────────────┐
    │                    Sdílená infrastruktura                  │
-   │  llm/  memory/  experts/  tools/  db/  core/  planner/    │
+   │  llm/  memory/  expertises/  tools/  db/  core/  planner/  │
    └──────────────────────────────────────────────────────────┘
 ```
 
@@ -49,7 +49,7 @@ src/
 │   │   ├── index.js             # Barrel export + getDefaultHandlers()
 │   │   ├── conversation.js      # CONVERSATION mode
 │   │   ├── project.js           # PROJECT mode (+ project focus)
-│   │   ├── expert.js            # EXPERT mode (+ persona)
+│   │   ├── expertise.js          # EXPERTISE mode (+ persona)
 │   │   ├── agent.js             # AGENT mode (+ confirmation flow)
 │   │   ├── decisions.js         # Shared decision sub-handlers (993 ř.)
 │   │   ├── clarification.js     # Clarification resolution
@@ -102,10 +102,10 @@ src/
 │   ├── long-term.js             # Long-term memory store
 │   └── policy.js                # Memory retention policies
 │
-├── experts/                     # Expert System (v63) — 15 built-in experts
-│   ├── expert-layer.js          # ExpertAgent class, 15 built-in experts, resolveInheritance()
-│   ├── expert-store.js          # Expert config persistence + validation (modules, capabilities)
-│   ├── expert-enforcement.js    # ExpertEnforcer: forbidden phrases, retry with decay, strict mode
+├── expertises/                  # Expertise System (v63, v69 rename) — 15 built-in expertises
+│   ├── expertise-layer.js       # ExpertiseAgent class, 15 built-in expertises, resolveInheritance()
+│   ├── expertise-store.js       # Expertise config persistence + validation (modules, capabilities)
+│   ├── expertise-enforcement.js # ExpertiseEnforcer: forbidden phrases, retry with decay, strict mode
 │   ├── merge-engine.js          # mergeExpertisePrompt() — 15.5-step pure function (max 3 expertises)
 │   ├── merge-types.js           # MERGE_LIMITS, MODULE_SECTIONS, CompatibilityBlockError
 │   ├── merge-compatibility.js   # checkCompatibility() — 5D pairwise conflict detection

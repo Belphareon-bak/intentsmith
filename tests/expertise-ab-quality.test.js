@@ -16,10 +16,10 @@
 // Requires: Ollama running at 127.0.0.1:11434 with qwen2.5:32b
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { expertRegistry } from '../src/experts/expert-layer.js';
-import { buildExpertSystemPrompt } from '../src/chat/handlers/expert.js';
+import { expertiseRegistry } from '../src/expertises/expertise-layer.js';
+import { buildExpertiseSystemPrompt } from '../src/chat/handlers/expertise.js';
 import { generateChatResponse } from '../src/llm/cre-bridge.js';
-import { checkForbiddenPhrases } from '../src/experts/expert-enforcement.js';
+import { checkForbiddenPhrases } from '../src/expertises/expertise-enforcement.js';
 
 const GENERAL_SYSTEM_PROMPT = `Jsi užitečný AI asistent. Odpovídej přesně a srozumitelně v češtině.`;
 
@@ -159,7 +159,7 @@ async function runABTest() {
   let expertWins = 0, generalWins = 0, ties = 0;
 
   for (const test of AB_TESTS) {
-    const expert = expertRegistry.get(test.expertId);
+    const expert = expertiseRegistry.get(test.expertId);
     if (!expert) {
       console.log(`  ⚠️  Expert "${test.expertId}" not found — skipping`);
       continue;
@@ -169,7 +169,7 @@ async function runABTest() {
     console.log(`   Prompt: "${test.prompt.slice(0, 70)}..."`);
 
     // Build expert system prompt
-    const expertSystemPrompt = await buildExpertSystemPrompt(expert);
+    const expertSystemPrompt = await buildExpertiseSystemPrompt(expert);
     const expertTemp = expert.temperature || 0.5;
 
     // A) Expert arm

@@ -31,8 +31,8 @@
   color: var(--c3-tx-4);
 }
 
-/* Expert emoji */
-.c3-expert-emo { font-size: 22px; }
+/* Expertise emoji */
+.c3-expertise-emo { font-size: 22px; }
 
 /* Conversation card */
 .c3-card-conv {
@@ -121,7 +121,7 @@
 
 /* ═══ v63.0: Expertise Wizard ═══ */
 
-/* New expert button */
+/* New expertise button */
 .c3-btn-new {
   padding: 5px 14px;
   border-radius: var(--c3-r-xs);

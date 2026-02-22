@@ -4,13 +4,13 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // Run: node test/accountant-tools.test.js
 
-import { calculateTax, compareTaxEntities, fmtCZK } from '../src/experts/tools/tax-calc.js';
-import { calculateVAT, addVAT, removeVAT } from '../src/experts/tools/vat-calc.js';
-import { checkDeadlines } from '../src/experts/tools/deadline-checker.js';
-import { getRates, supportedYears, RATES } from '../src/experts/tools/tax-rates.js';
-import { checkStaleness, getStalenessWarnings, getVerificationTopics } from '../src/experts/tools/tax-rates.js';
-import { checkFreshness, getFreshnessWarnings, getVerificationStrategy, VERIFICATION_SOURCES, RATE_MONITOR_AGENT } from '../src/experts/tools/tax-rates-freshness.js';
-import { calculateSalary, compareSalaries } from '../src/experts/tools/salary-calc.js';
+import { calculateTax, compareTaxEntities, fmtCZK } from '../src/expertises/tools/tax-calc.js';
+import { calculateVAT, addVAT, removeVAT } from '../src/expertises/tools/vat-calc.js';
+import { checkDeadlines } from '../src/expertises/tools/deadline-checker.js';
+import { getRates, supportedYears, RATES } from '../src/expertises/tools/tax-rates.js';
+import { checkStaleness, getStalenessWarnings, getVerificationTopics } from '../src/expertises/tools/tax-rates.js';
+import { checkFreshness, getFreshnessWarnings, getVerificationStrategy, VERIFICATION_SOURCES, RATE_MONITOR_AGENT } from '../src/expertises/tools/tax-rates-freshness.js';
+import { calculateSalary, compareSalaries } from '../src/expertises/tools/salary-calc.js';
 
 let passed = 0, failed = 0;
 const failures = [];

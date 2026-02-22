@@ -170,7 +170,7 @@
   overflow: hidden;
   white-space: nowrap;
 }
-.c3-ch-expert {
+.c3-ch-expertise {
   display: flex;
   align-items: center;
   gap: 3px;
@@ -184,11 +184,11 @@
   transition: all 0.1s;
   flex-shrink: 0;
 }
-.c3-ch-expert:hover {
+.c3-ch-expertise:hover {
   background: rgba(34,197,94,0.1);
   opacity: 1;
 }
-.c3-ch-expert-dot {
+.c3-ch-expertise-dot {
   width: 4px; height: 4px;
   border-radius: 50%;
   background: var(--c3-accent);

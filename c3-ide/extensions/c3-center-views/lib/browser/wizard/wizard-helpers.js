@@ -15,14 +15,14 @@ async function fetchSchema() {
 }
 
 /**
- * Fetch all experts from backend (for parent picker).
- * @returns {Promise<Array>} Array of expert objects
+ * Fetch all expertises from backend (for parent picker).
+ * @returns {Promise<Array>} Array of expertise objects
  */
-async function fetchExperts() {
-  const res = await fetch(`${API_BASE}/api/experts`);
-  if (!res.ok) throw new Error(`Experts fetch failed: ${res.status}`);
+async function fetchExpertises() {
+  const res = await fetch(`${API_BASE}/api/expertises`);
+  if (!res.ok) throw new Error(`Expertises fetch failed: ${res.status}`);
   const data = await res.json();
-  return data.experts || [];
+  return data.expertises || [];
 }
 
 /**
@@ -66,14 +66,14 @@ async function sendTestPrompt(expertiseConfig, question) {
 }
 
 /**
- * Save expert (create or update).
- * @param {Object} config - Expert config
- * @param {string|null} existingId - If editing, the existing expert ID
- * @returns {Promise<Object>} Saved expert
+ * Save expertise (create or update).
+ * @param {Object} config - Expertise config
+ * @param {string|null} existingId - If editing, the existing expertise ID
+ * @returns {Promise<Object>} Saved expertise
  */
-async function saveExpert(config, existingId) {
+async function saveExpertise(config, existingId) {
   const method = existingId ? 'PUT' : 'POST';
-  const url = existingId ? `${API_BASE}/api/experts/${existingId}` : `${API_BASE}/api/experts`;
+  const url = existingId ? `${API_BASE}/api/expertises/${existingId}` : `${API_BASE}/api/expertises`;
   const res = await fetch(url, {
     method,
     headers: { 'Content-Type': 'application/json' },
@@ -102,9 +102,9 @@ function debounce(fn, ms) {
 
 module.exports = {
   fetchSchema,
-  fetchExperts,
+  fetchExpertises,
   fetchPreview,
   sendTestPrompt,
-  saveExpert,
+  saveExpertise,
   debounce,
 };

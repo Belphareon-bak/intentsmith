@@ -52,13 +52,13 @@ import {
   CAPABILITY_SUM_WARN_THRESHOLD,
   LOW,
   HIGH,
-} from '../src/experts/capability-mapping.js';
-import { mergeExpertisePrompt } from '../src/experts/merge-engine.js';
-import { BUILTIN_EXPERTS } from '../src/experts/expert-layer.js';
-import { runSimulation, runMultiSimulation, compareBaseline } from '../src/experts/expert-sandbox.js';
+} from '../src/expertises/capability-mapping.js';
+import { mergeExpertisePrompt } from '../src/expertises/merge-engine.js';
+import { BUILTIN_EXPERTISES } from '../src/expertises/expertise-layer.js';
+import { runSimulation, runMultiSimulation, compareBaseline } from '../src/expertises/expertise-sandbox.js';
 
 function expert(id, weight = 0.5) {
-  return { ...BUILTIN_EXPERTS[id], weight };
+  return { ...BUILTIN_EXPERTISES[id], weight };
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -221,8 +221,8 @@ describe('T-CM2: Capability normalization', async () => {
 
   await it('validateExpertConfig returns warnings for extreme capabilities', async () => {
     // Import from expert-store
-    const { validateExpertConfig } = await import('../src/experts/expert-store.js');
-    const result = validateExpertConfig({
+    const { validateExpertiseConfig } = await import('../src/expertises/expertise-store.js');
+    const result = validateExpertiseConfig({
       name: 'Extreme Expert',
       capabilities: {
         reasoning: 100, creativity: 100, determinism: 100, riskTolerance: 100, verbosity: 100,
@@ -263,7 +263,7 @@ describe('T-CM3: Expert sandbox simulation', async () => {
   });
 
   await it('built-in expert simulation works', () => {
-    const result = runSimulation(BUILTIN_EXPERTS['developer']);
+    const result = runSimulation(BUILTIN_EXPERTISES['developer']);
     assert.ok(result.success, `should succeed, got: ${result.error}`);
     assert.ok(result.metrics.tokenCount > 50, 'developer should have significant tokens');
     assert.ok(result.metrics.forbiddenPhrasesCount > 0, 'developer has forbidden phrases');
@@ -271,8 +271,8 @@ describe('T-CM3: Expert sandbox simulation', async () => {
 
   await it('multi-expert simulation works', () => {
     const result = runMultiSimulation([
-      { ...BUILTIN_EXPERTS['developer'], weight: 0.7 },
-      { ...BUILTIN_EXPERTS['analyst'], weight: 0.3 },
+      { ...BUILTIN_EXPERTISES['developer'], weight: 0.7 },
+      { ...BUILTIN_EXPERTISES['analyst'], weight: 0.3 },
     ]);
     assert.ok(result.success, `should succeed, got: ${result.error}`);
     assert.strictEqual(result.expertiseCount, 2);
@@ -388,8 +388,8 @@ describe('T-CM4: Baseline comparison', async () => {
   });
 
   await it('built-in experts produce stable baselines', () => {
-    const baseline1 = runSimulation(BUILTIN_EXPERTS['developer']);
-    const baseline2 = runSimulation(BUILTIN_EXPERTS['developer']);
+    const baseline1 = runSimulation(BUILTIN_EXPERTISES['developer']);
+    const baseline2 = runSimulation(BUILTIN_EXPERTISES['developer']);
     const comparison = compareBaseline(baseline1, baseline2);
     assert.ok(comparison.comparable);
     assert.strictEqual(comparison.driftCount, 0, 'same expert should have zero drift');

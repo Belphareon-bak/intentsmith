@@ -1,4 +1,4 @@
-// C.3 v57.0 — Expert Enforcement
+// C.3 v57.0 — Expertise Enforcement
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Post-synthesis validation and retry logic for expert responses.
@@ -149,16 +149,16 @@ function normalizePatterns(patterns) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * ExpertEnforcer — Validates and potentially regenerates expert responses.
+ * ExpertiseEnforcer — Validates and potentially regenerates expert responses.
  *
  * @example
- *   const enforcer = new ExpertEnforcer(expert, regenerateFn);
+ *   const enforcer = new ExpertiseEnforcer(expert, regenerateFn);
  *   const result = await enforcer.enforce(response);
  *   if (!result.passed) {
  *     // Response had violations but was kept (with warning)
  *   }
  */
-export class ExpertEnforcer {
+export class ExpertiseEnforcer {
   #expert;
   #regenerateFn;
   #maxRetries;
@@ -223,7 +223,7 @@ export class ExpertEnforcer {
       allViolations.push(lengthCheck.reason);
     }
 
-    logger.debug('ExpertEnforcer', 'Initial response violated rules', {
+    logger.debug('ExpertiseEnforcer', 'Initial response violated rules', {
       expert: this.#expert?.id,
       violations: allViolations,
     });
@@ -263,7 +263,7 @@ export class ExpertEnforcer {
         lengthCheck = checkResponseLength(currentResponse, minLength);
 
         if (phraseCheck.valid && lengthCheck.valid) {
-          logger.info('ExpertEnforcer', `Response passed on attempt ${attempts}`, {
+          logger.info('ExpertiseEnforcer', `Response passed on attempt ${attempts}`, {
             expert: this.#expert?.id,
           });
 
@@ -305,7 +305,7 @@ export class ExpertEnforcer {
         });
 
       } catch (err) {
-        logger.error('ExpertEnforcer', `Regeneration failed: ${err.message}`);
+        logger.error('ExpertiseEnforcer', `Regeneration failed: ${err.message}`);
         this.#retryAudit.push({
           attempt: attempts,
           executionTraceId: this.#executionTraceId,
@@ -318,7 +318,7 @@ export class ExpertEnforcer {
     }
 
     // All retries exhausted
-    logger.warn('ExpertEnforcer', 'Enforcement failed after all retries', {
+    logger.warn('ExpertiseEnforcer', 'Enforcement failed after all retries', {
       expert: this.#expert?.id,
       attempts,
       violations: allViolations,
@@ -404,14 +404,14 @@ export function quickCheck(response, expert) {
  *
  * @param {Object} expert
  * @param {Function} regenerateFn
- * @returns {ExpertEnforcer}
+ * @returns {ExpertiseEnforcer}
  */
 export function createEnforcer(expert, regenerateFn) {
-  return new ExpertEnforcer(expert, regenerateFn);
+  return new ExpertiseEnforcer(expert, regenerateFn);
 }
 
 export default {
-  ExpertEnforcer,
+  ExpertiseEnforcer,
   checkForbiddenPhrases,
   checkResponseLength,
   quickCheck,

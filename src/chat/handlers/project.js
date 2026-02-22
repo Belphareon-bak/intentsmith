@@ -9,6 +9,7 @@ import { ResponseTag, TaggedResponse, ResponseSpeaker, ChatMode } from '../contr
 import {
   creDecisionEngine,
   DecisionType,
+  IntentType,
   assertDecision,
 } from '../cre-decision.js';
 import { logger } from '../../core/logger.js';
@@ -18,6 +19,8 @@ import {
   handleAnswerDecision,
   handleRefuseDecision,
 } from './decisions.js';
+import { handleFileDecision } from './file.js';
+import { handleLocalDecision } from './local.js';
 
 // ════════════════════════════════════════════════════════════════════════════════
 // v56.2 Sprint D: PROJECT_SELF_PATTERNS (#8)
@@ -180,6 +183,20 @@ export async function projectHandler(input, context) {
 
     // Handle based on decision
     switch (decision.type) {
+      // ════════════════════════════════════════════════════════════════════
+      // LOCAL: FILE_READ, FILE_EXPLAIN, SHELL, date/calendar computations
+      // ════════════════════════════════════════════════════════════════════
+      case DecisionType.LOCAL:
+        if (decision.intent === IntentType.FILE_READ || decision.intent === IntentType.FILE_EXPLAIN) {
+          return await handleFileDecision(input, decision, {
+            ...context,
+            hasActiveProject: true,
+            project: project,
+            projectPath: project.path,
+          });
+        }
+        return await handleLocalDecision(input, decision, context);
+
       case DecisionType.TOOL_CALL:
         // v44.2 - Ensure project context is fully propagated for sandbox
         return await handleToolCallDecision(input, decision, {
@@ -195,6 +212,9 @@ export async function projectHandler(input, context) {
       case DecisionType.ANSWER:
         // In project mode, even CONVERSATIONAL gets project context
         return await handleAnswerDecision(input, decision, context);
+
+      case DecisionType.REFUSE:
+        return handleRefuseDecision(input, decision, context);
 
       default:
         return handleRefuseDecision(input, decision, context);

@@ -44,8 +44,8 @@ async function it(name, fn) {
 
 // ─── Imports ─────────────────────────────────────────────────────────────────
 
-import { validateExpertConfig } from '../src/experts/expert-store.js';
-import { MODULE_SECTIONS, MERGE_LIMITS } from '../src/experts/merge-types.js';
+import { validateExpertiseConfig } from '../src/expertises/expertise-store.js';
+import { MODULE_SECTIONS, MERGE_LIMITS } from '../src/expertises/merge-types.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -87,18 +87,18 @@ function validCapabilities() {
 
 describe('T-WZ1: Modules validation', async () => {
   await it('valid modules config passes', () => {
-    const result = validateExpertConfig(baseConfig({ modules: validModules() }));
+    const result = validateExpertiseConfig(baseConfig({ modules: validModules() }));
     assert.ok(result.valid, `Expected valid, got errors: ${result.errors.join(', ')}`);
   });
 
   await it('modules must be an object, not array', () => {
-    const result = validateExpertConfig(baseConfig({ modules: ['not', 'an', 'object'] }));
+    const result = validateExpertiseConfig(baseConfig({ modules: ['not', 'an', 'object'] }));
     assert.ok(!result.valid);
     assert.ok(result.errors.some(e => e.includes('must be an object')));
   });
 
   await it('unknown section name rejected', () => {
-    const result = validateExpertConfig(baseConfig({
+    const result = validateExpertiseConfig(baseConfig({
       modules: { unknown_section: ['item'] },
     }));
     assert.ok(!result.valid);
@@ -106,7 +106,7 @@ describe('T-WZ1: Modules validation', async () => {
   });
 
   await it('non-array section rejected (except disclaimer)', () => {
-    const result = validateExpertConfig(baseConfig({
+    const result = validateExpertiseConfig(baseConfig({
       modules: { domain_rules: 'not an array' },
     }));
     assert.ok(!result.valid);
@@ -114,21 +114,21 @@ describe('T-WZ1: Modules validation', async () => {
   });
 
   await it('disclaimer as string is valid', () => {
-    const result = validateExpertConfig(baseConfig({
+    const result = validateExpertiseConfig(baseConfig({
       modules: { ...validModules(), disclaimer: 'Konzultujte odborníka' },
     }));
     assert.ok(result.valid, `Expected valid, got errors: ${result.errors.join(', ')}`);
   });
 
   await it('disclaimer as null is valid', () => {
-    const result = validateExpertConfig(baseConfig({
+    const result = validateExpertiseConfig(baseConfig({
       modules: { ...validModules(), disclaimer: null },
     }));
     assert.ok(result.valid, `Expected valid, got errors: ${result.errors.join(', ')}`);
   });
 
   await it('disclaimer as array is rejected', () => {
-    const result = validateExpertConfig(baseConfig({
+    const result = validateExpertiseConfig(baseConfig({
       modules: { disclaimer: ['not', 'valid'] },
     }));
     assert.ok(!result.valid);
@@ -137,7 +137,7 @@ describe('T-WZ1: Modules validation', async () => {
 
   await it('exceeding section limit rejected', () => {
     const tooMany = Array.from({ length: MERGE_LIMITS.MAX_DOMAIN_RULES + 1 }, (_, i) => `Rule ${i}`);
-    const result = validateExpertConfig(baseConfig({
+    const result = validateExpertiseConfig(baseConfig({
       modules: { domain_rules: tooMany },
     }));
     assert.ok(!result.valid);
@@ -146,7 +146,7 @@ describe('T-WZ1: Modules validation', async () => {
 
   await it('item exceeding max length rejected', () => {
     const longItem = 'x'.repeat(501);
-    const result = validateExpertConfig(baseConfig({
+    const result = validateExpertiseConfig(baseConfig({
       modules: { emphasis: [longItem] },
     }));
     assert.ok(!result.valid);
@@ -154,7 +154,7 @@ describe('T-WZ1: Modules validation', async () => {
   });
 
   await it('non-string item in section rejected', () => {
-    const result = validateExpertConfig(baseConfig({
+    const result = validateExpertiseConfig(baseConfig({
       modules: { constraints: [42] },
     }));
     assert.ok(!result.valid);
@@ -162,12 +162,12 @@ describe('T-WZ1: Modules validation', async () => {
   });
 
   await it('empty modules object is valid', () => {
-    const result = validateExpertConfig(baseConfig({ modules: {} }));
+    const result = validateExpertiseConfig(baseConfig({ modules: {} }));
     assert.ok(result.valid, `Expected valid, got errors: ${result.errors.join(', ')}`);
   });
 
   await it('all 6 module sections accepted', () => {
-    const result = validateExpertConfig(baseConfig({ modules: validModules() }));
+    const result = validateExpertiseConfig(baseConfig({ modules: validModules() }));
     assert.ok(result.valid);
     // Verify all sections are in MODULE_SECTIONS
     for (const section of Object.keys(validModules())) {
@@ -182,18 +182,18 @@ describe('T-WZ1: Modules validation', async () => {
 
 describe('T-WZ2: Capabilities validation', async () => {
   await it('valid 5D capabilities passes', () => {
-    const result = validateExpertConfig(baseConfig({ capabilities: validCapabilities() }));
+    const result = validateExpertiseConfig(baseConfig({ capabilities: validCapabilities() }));
     assert.ok(result.valid, `Expected valid, got errors: ${result.errors.join(', ')}`);
   });
 
   await it('capabilities must be an object', () => {
-    const result = validateExpertConfig(baseConfig({ capabilities: [1, 2, 3] }));
+    const result = validateExpertiseConfig(baseConfig({ capabilities: [1, 2, 3] }));
     assert.ok(!result.valid);
     assert.ok(result.errors.some(e => e.includes('must be an object')));
   });
 
   await it('unknown dimension rejected', () => {
-    const result = validateExpertConfig(baseConfig({
+    const result = validateExpertiseConfig(baseConfig({
       capabilities: { ...validCapabilities(), charisma: 50 },
     }));
     assert.ok(!result.valid);
@@ -201,7 +201,7 @@ describe('T-WZ2: Capabilities validation', async () => {
   });
 
   await it('value below 0 rejected', () => {
-    const result = validateExpertConfig(baseConfig({
+    const result = validateExpertiseConfig(baseConfig({
       capabilities: { ...validCapabilities(), reasoning: -5 },
     }));
     assert.ok(!result.valid);
@@ -209,7 +209,7 @@ describe('T-WZ2: Capabilities validation', async () => {
   });
 
   await it('value above 100 rejected', () => {
-    const result = validateExpertConfig(baseConfig({
+    const result = validateExpertiseConfig(baseConfig({
       capabilities: { ...validCapabilities(), creativity: 150 },
     }));
     assert.ok(!result.valid);
@@ -217,7 +217,7 @@ describe('T-WZ2: Capabilities validation', async () => {
   });
 
   await it('non-number value rejected', () => {
-    const result = validateExpertConfig(baseConfig({
+    const result = validateExpertiseConfig(baseConfig({
       capabilities: { ...validCapabilities(), determinism: 'high' },
     }));
     assert.ok(!result.valid);
@@ -225,21 +225,21 @@ describe('T-WZ2: Capabilities validation', async () => {
   });
 
   await it('boundary values 0 and 100 are valid', () => {
-    const result = validateExpertConfig(baseConfig({
+    const result = validateExpertiseConfig(baseConfig({
       capabilities: { reasoning: 0, creativity: 100, determinism: 50, riskTolerance: 0, verbosity: 100 },
     }));
     assert.ok(result.valid, `Expected valid, got errors: ${result.errors.join(', ')}`);
   });
 
   await it('partial capabilities are valid (not all 5 required)', () => {
-    const result = validateExpertConfig(baseConfig({
+    const result = validateExpertiseConfig(baseConfig({
       capabilities: { reasoning: 70, creativity: 50 },
     }));
     assert.ok(result.valid, `Expected valid, got errors: ${result.errors.join(', ')}`);
   });
 
   await it('empty capabilities object is valid', () => {
-    const result = validateExpertConfig(baseConfig({ capabilities: {} }));
+    const result = validateExpertiseConfig(baseConfig({ capabilities: {} }));
     assert.ok(result.valid, `Expected valid, got errors: ${result.errors.join(', ')}`);
   });
 });
@@ -250,20 +250,20 @@ describe('T-WZ2: Capabilities validation', async () => {
 
 describe('T-WZ3: Inheritance validation', async () => {
   await it('valid inheritance modes pass', () => {
-    const result = validateExpertConfig(baseConfig({
+    const result = validateExpertiseConfig(baseConfig({
       inheritance: { domain_rules: 'extend', emphasis: 'replace' },
     }));
     assert.ok(result.valid, `Expected valid, got errors: ${result.errors.join(', ')}`);
   });
 
   await it('inheritance must be an object', () => {
-    const result = validateExpertConfig(baseConfig({ inheritance: 'extend' }));
+    const result = validateExpertiseConfig(baseConfig({ inheritance: 'extend' }));
     assert.ok(!result.valid);
     assert.ok(result.errors.some(e => e.includes('must be an object')));
   });
 
   await it('invalid mode rejected', () => {
-    const result = validateExpertConfig(baseConfig({
+    const result = validateExpertiseConfig(baseConfig({
       inheritance: { domain_rules: 'override' },
     }));
     assert.ok(!result.valid);
@@ -271,7 +271,7 @@ describe('T-WZ3: Inheritance validation', async () => {
   });
 
   await it('empty inheritance object is valid', () => {
-    const result = validateExpertConfig(baseConfig({ inheritance: {} }));
+    const result = validateExpertiseConfig(baseConfig({ inheritance: {} }));
     assert.ok(result.valid, `Expected valid, got errors: ${result.errors.join(', ')}`);
   });
 
@@ -280,7 +280,7 @@ describe('T-WZ3: Inheritance validation', async () => {
     for (const section of MODULE_SECTIONS) {
       inheritance[section] = 'extend';
     }
-    const result = validateExpertConfig(baseConfig({ inheritance }));
+    const result = validateExpertiseConfig(baseConfig({ inheritance }));
     assert.ok(result.valid, `Expected valid, got errors: ${result.errors.join(', ')}`);
   });
 
@@ -289,7 +289,7 @@ describe('T-WZ3: Inheritance validation', async () => {
     for (const section of MODULE_SECTIONS) {
       inheritance[section] = 'replace';
     }
-    const result = validateExpertConfig(baseConfig({ inheritance }));
+    const result = validateExpertiseConfig(baseConfig({ inheritance }));
     assert.ok(result.valid, `Expected valid, got errors: ${result.errors.join(', ')}`);
   });
 });
@@ -300,7 +300,7 @@ describe('T-WZ3: Inheritance validation', async () => {
 
 describe('T-WZ4: Full config with all v63 fields', async () => {
   await it('complete v63 config passes', () => {
-    const result = validateExpertConfig({
+    const result = validateExpertiseConfig({
       name: 'Full Expert',
       description: 'A fully configured expert with all v63 fields',
       domain: 'finance',
@@ -334,7 +334,7 @@ describe('T-WZ4: Full config with all v63 fields', async () => {
   });
 
   await it('config with only base fields (no v63 extensions) still passes', () => {
-    const result = validateExpertConfig({
+    const result = validateExpertiseConfig({
       name: 'Legacy Expert',
       description: 'Old-style config without modules/capabilities',
       domain: 'general',
@@ -345,7 +345,7 @@ describe('T-WZ4: Full config with all v63 fields', async () => {
   });
 
   await it('multiple v63 validation errors reported together', () => {
-    const result = validateExpertConfig({
+    const result = validateExpertiseConfig({
       name: 'Bad Expert',
       modules: { invalid_section: ['x'] },
       capabilities: { charisma: 200 },
@@ -362,28 +362,28 @@ describe('T-WZ4: Full config with all v63 fields', async () => {
 
 describe('T-WZ5: Edge cases', async () => {
   await it('modules: null is valid (skipped)', () => {
-    const result = validateExpertConfig(baseConfig({ modules: null }));
+    const result = validateExpertiseConfig(baseConfig({ modules: null }));
     assert.ok(result.valid, `Expected valid, got errors: ${result.errors.join(', ')}`);
   });
 
   await it('capabilities: null is valid (skipped)', () => {
-    const result = validateExpertConfig(baseConfig({ capabilities: null }));
+    const result = validateExpertiseConfig(baseConfig({ capabilities: null }));
     assert.ok(result.valid, `Expected valid, got errors: ${result.errors.join(', ')}`);
   });
 
   await it('inheritance: null is valid (skipped)', () => {
-    const result = validateExpertConfig(baseConfig({ inheritance: null }));
+    const result = validateExpertiseConfig(baseConfig({ inheritance: null }));
     assert.ok(result.valid, `Expected valid, got errors: ${result.errors.join(', ')}`);
   });
 
   await it('modules: undefined is valid (skipped)', () => {
-    const result = validateExpertConfig(baseConfig());
+    const result = validateExpertiseConfig(baseConfig());
     assert.ok(result.valid, `Expected valid, got errors: ${result.errors.join(', ')}`);
   });
 
   await it('section at exact limit passes', () => {
     const exactLimit = Array.from({ length: MERGE_LIMITS.MAX_DOMAIN_RULES }, (_, i) => `Rule ${i}`);
-    const result = validateExpertConfig(baseConfig({
+    const result = validateExpertiseConfig(baseConfig({
       modules: { domain_rules: exactLimit },
     }));
     assert.ok(result.valid, `Expected valid at exact limit ${MERGE_LIMITS.MAX_DOMAIN_RULES}, got errors: ${result.errors.join(', ')}`);
@@ -391,14 +391,14 @@ describe('T-WZ5: Edge cases', async () => {
 
   await it('item at exact max length passes', () => {
     const exactLength = 'x'.repeat(500);
-    const result = validateExpertConfig(baseConfig({
+    const result = validateExpertiseConfig(baseConfig({
       modules: { emphasis: [exactLength] },
     }));
     assert.ok(result.valid, `Expected valid at max length 500, got errors: ${result.errors.join(', ')}`);
   });
 
   await it('capabilities with NaN rejected', () => {
-    const result = validateExpertConfig(baseConfig({
+    const result = validateExpertiseConfig(baseConfig({
       capabilities: { reasoning: NaN },
     }));
     assert.ok(!result.valid);
@@ -407,7 +407,7 @@ describe('T-WZ5: Edge cases', async () => {
 
   await it('empty string items in modules rejected (not a string content error, but valid)', () => {
     // Empty strings are technically valid strings, they pass the type check
-    const result = validateExpertConfig(baseConfig({
+    const result = validateExpertiseConfig(baseConfig({
       modules: { domain_rules: [''] },
     }));
     // Empty string is still a string, so it passes

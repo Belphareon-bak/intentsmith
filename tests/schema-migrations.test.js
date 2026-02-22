@@ -70,15 +70,20 @@ function getColumnNames(db, table) {
   return db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
 }
 
-// Expected tables after baseline migration
+// Expected tables after all migrations (including v69 expert→expertise rename)
 const EXPECTED_TABLES = [
   'agents', 'agent_logs', 'attachments',
+  'calculation_runs',
   'capability_drift_log', 'change_requests', 'chat_fts', 'chat_messages', 'chat_sessions',
   'conversations', 'conversation_experts', 'conversation_expertises',
-  'cre_override_log',
+  'cre_override_log', 'custom_expertises',
   'drafts', 'drift_checks',
+  'entity_profiles', 'entry_history',
+  'expertise_bindings', 'expertise_memory', 'expertises',
   'expert_memory', 'experts',
+  'financial_entries',
   'global_memory',
+  'knowledge_facts', 'knowledge_sources', 'knowledge_verification_log',
   'learned_patterns', 'lifecycle_handoff_state', 'llm_execution_log', 'logs',
   'merge_audit_log', 'messages', 'messages_fts', 'milestones',
   'project_lifecycles', 'project_memory', 'projects',
@@ -93,10 +98,10 @@ const EXPECTED_TABLES = [
 // ══════════════════════════════════════════════════════════════════════════════
 
 describe('T-SM1: Fresh DB — all migrations applied', async () => {
-  await it('applies all 5 migrations on empty DB', async () => {
+  await it('applies all 9 migrations on empty DB', async () => {
     const db = freshDb();
     const result = await runMigrations(db);
-    assert.strictEqual(result.applied.length, 5, `Expected 5 applied, got ${result.applied.length}`);
+    assert.strictEqual(result.applied.length, 9, `Expected 9 applied, got ${result.applied.length}`);
     assert.strictEqual(result.skipped.length, 0, 'No skipped on fresh DB');
     db.close();
   });
@@ -110,6 +115,10 @@ describe('T-SM1: Fresh DB — all migrations applied', async () => {
       '2026_02_14_003_v62_active_session',
       '2026_02_14_004_v63_execution_trace',
       '2026_02_14_005_v64_cre_override_log',
+      '2026_02_18_006_v67_auto_compact',
+      '2026_02_19_007_v68_knowledge_base',
+      '2026_02_19_008_v69_ledger_core',
+      '2026_02_20_008_v69_expert_to_expertise',
     ]);
     db.close();
   });
@@ -125,7 +134,7 @@ describe('T-SM2: Idempotent — running twice changes nothing', async () => {
     await runMigrations(db);
     const result2 = await runMigrations(db);
     assert.strictEqual(result2.applied.length, 0, 'Nothing new applied');
-    assert.strictEqual(result2.skipped.length, 5, 'All 5 skipped');
+    assert.strictEqual(result2.skipped.length, 9, 'All 9 skipped');
     db.close();
   });
 
@@ -149,9 +158,9 @@ describe('T-SM3: schema_migrations table', async () => {
     const db = freshDb();
     await runMigrations(db);
     const rows = db.prepare('SELECT version, applied_at FROM schema_migrations ORDER BY version').all();
-    assert.strictEqual(rows.length, 5);
+    assert.strictEqual(rows.length, 9);
     assert.strictEqual(rows[0].version, '2026_02_14_001_baseline');
-    assert.strictEqual(rows[4].version, '2026_02_14_005_v64_cre_override_log');
+    assert.strictEqual(rows[8].version, '2026_02_20_008_v69_expert_to_expertise');
     db.close();
   });
 
@@ -182,7 +191,7 @@ describe('T-SM4: getCurrentVersion', async () => {
     const db = freshDb();
     await runMigrations(db);
     const ver = getCurrentVersion(db);
-    assert.strictEqual(ver, '2026_02_14_005_v64_cre_override_log');
+    assert.strictEqual(ver, '2026_02_20_008_v69_expert_to_expertise');
     db.close();
   });
 });
@@ -195,7 +204,7 @@ describe('T-SM5: listMigrations', async () => {
   await it('shows all as pending on empty DB', async () => {
     const db = freshDb();
     const list = await listMigrations(db);
-    assert.strictEqual(list.length, 5);
+    assert.strictEqual(list.length, 9);
     assert.ok(list.every(m => m.applied === false), 'All should be pending');
     db.close();
   });
@@ -204,7 +213,7 @@ describe('T-SM5: listMigrations', async () => {
     const db = freshDb();
     await runMigrations(db);
     const list = await listMigrations(db);
-    assert.strictEqual(list.length, 5);
+    assert.strictEqual(list.length, 9);
     assert.ok(list.every(m => m.applied === true), 'All should be applied');
     db.close();
   });
@@ -395,12 +404,16 @@ describe('T-SM9: Failed migration rolls back', async () => {
       INSERT INTO schema_migrations (version) VALUES ('2026_02_14_003_v62_active_session');
       INSERT INTO schema_migrations (version) VALUES ('2026_02_14_004_v63_execution_trace');
       INSERT INTO schema_migrations (version) VALUES ('2026_02_14_005_v64_cre_override_log');
+      INSERT INTO schema_migrations (version) VALUES ('2026_02_18_006_v67_auto_compact');
+      INSERT INTO schema_migrations (version) VALUES ('2026_02_19_007_v68_knowledge_base');
+      INSERT INTO schema_migrations (version) VALUES ('2026_02_19_008_v69_ledger_core');
+      INSERT INTO schema_migrations (version) VALUES ('2026_02_20_008_v69_expert_to_expertise');
     `);
 
-    // All 5 migrations are already "applied" — runMigrations should skip all
+    // All 9 migrations are already "applied" — runMigrations should skip all
     const result = await runMigrations(db);
     assert.strictEqual(result.applied.length, 0, 'All migrations already applied');
-    assert.strictEqual(result.skipped.length, 5, 'All 5 skipped');
+    assert.strictEqual(result.skipped.length, 9, 'All 9 skipped');
     db.close();
   });
 });

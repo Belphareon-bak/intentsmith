@@ -49,14 +49,14 @@ async function it(name, fn) {
 
 // ─── Imports ─────────────────────────────────────────────────────────────────
 
-import { mergeExpertisePrompt } from '../src/experts/merge-engine.js';
-import { BUILTIN_EXPERTS, expertRegistry, resolveInheritance } from '../src/experts/expert-layer.js';
-import { CompatibilityBlockError, MERGE_LIMITS } from '../src/experts/merge-types.js';
+import { mergeExpertisePrompt } from '../src/expertises/merge-engine.js';
+import { BUILTIN_EXPERTISES, expertiseRegistry, resolveInheritance } from '../src/expertises/expertise-layer.js';
+import { CompatibilityBlockError, MERGE_LIMITS } from '../src/expertises/merge-types.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function expert(id, weight = 0.5) {
-  return { ...BUILTIN_EXPERTS[id], weight };
+  return { ...BUILTIN_EXPERTISES[id], weight };
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -208,21 +208,21 @@ describe('T-ME5: Token budget trimming', async () => {
 
 describe('T-ME6: Inheritance resolution', async () => {
   await it('no parent returns own modules', () => {
-    const dev = BUILTIN_EXPERTS.developer;
-    const resolved = resolveInheritance(dev, expertRegistry);
+    const dev = BUILTIN_EXPERTISES.developer;
+    const resolved = resolveInheritance(dev, expertiseRegistry);
     assert.ok(resolved.modules.domain_rules.length > 0);
     assert.deepStrictEqual(resolved.modules.domain_rules, dev.modules.domain_rules);
   });
 
   await it('missing parent returns own modules', () => {
     const custom = { id: 'custom', parent: 'nonexistent', modules: { domain_rules: ['Rule 1'] } };
-    const resolved = resolveInheritance(custom, expertRegistry);
+    const resolved = resolveInheritance(custom, expertiseRegistry);
     assert.deepStrictEqual(resolved.modules.domain_rules, ['Rule 1']);
   });
 
   await it('no modules returns empty modules object', () => {
     const bare = { id: 'bare' };
-    const resolved = resolveInheritance(bare, expertRegistry);
+    const resolved = resolveInheritance(bare, expertiseRegistry);
     assert.ok(typeof resolved === 'object', 'should return an object');
     assert.ok(typeof resolved.modules === 'object', 'should have modules property');
     assert.strictEqual(Object.keys(resolved.modules).length, 0, 'bare expertise with no modules returns {}');
@@ -604,8 +604,8 @@ describe('T-ME11: Merge commutativity', async () => {
   await it('merge(A, B) with equal weights: position is tie-breaker', () => {
     // With equal weights, position (input order) determines tie-breaking
     // This is by design: first-added expertise wins ties
-    const A = { ...BUILTIN_EXPERTS['developer'], weight: 0.5, position: 0 };
-    const B = { ...BUILTIN_EXPERTS['analyst'], weight: 0.5, position: 1 };
+    const A = { ...BUILTIN_EXPERTISES['developer'], weight: 0.5, position: 0 };
+    const B = { ...BUILTIN_EXPERTISES['analyst'], weight: 0.5, position: 1 };
     const resultAB = mergeExpertisePrompt([A, B]);
     const resultBA = mergeExpertisePrompt([B, A]);
 

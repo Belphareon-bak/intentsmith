@@ -1,11 +1,11 @@
-// C.3 v57.0 — Expert Store
+// C.3 v57.0 — Expertise Store
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // SINGLE SOURCE OF TRUTH for expert state and persistence.
 //
 // Architecture:
 //   Expert definitions → experts table
-//   Expert-conversation bindings → conversation_experts table
+//   Expertise-conversation bindings → conversation_experts table
 //   Expert lifecycle: LOAD → LOCK → APPLY → ENFORCE
 //
 // Invariants:
@@ -20,10 +20,10 @@ import { MERGE_LIMITS, MODULE_SECTIONS } from './merge-types.js';
 import { checkCapabilityNormalization } from './capability-mapping.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Expert Lifecycle States
+// Expertise Lifecycle States
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const ExpertLifecycle = Object.freeze({
+export const ExpertiseLifecycle = Object.freeze({
   INACTIVE: 'inactive',   // No expert for this conversation
   LOADED: 'loaded',       // Expert loaded, not locked
   LOCKED: 'locked',       // Expert locked to conversation
@@ -32,7 +32,7 @@ export const ExpertLifecycle = Object.freeze({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Expert Config Validation
+// Expertise Config Validation
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -97,7 +97,7 @@ const VALIDATION_RULES = {
  * @param {Object} config - Expert config to validate
  * @returns {{ valid: boolean, errors: string[] }}
  */
-export function validateExpertConfig(config) {
+export function validateExpertiseConfig(config) {
   const errors = [];
 
   // Required fields
@@ -253,42 +253,42 @@ export function validateExpertConfig(config) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Expert Store
+// Expertise Store
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * ExpertStore — DB-backed expert state manager.
+ * ExpertiseStore — DB-backed expert state manager.
  *
  * Handles:
  * - Custom expert CRUD with validation
- * - Expert-conversation binding with lock state
+ * - Expertise-conversation binding with lock state
  * - Expert lifecycle management
  *
  * @example
- *   const store = new ExpertStore(db);
- *   store.saveCustomExpert({ id: 'my_expert', name: 'My Expert', ... });
- *   store.setExpertForConversation('conv-123', 'my_expert', { locked: true });
- *   const binding = store.getExpertBinding('conv-123');
+ *   const store = new ExpertiseStore(db);
+ *   store.saveCustomExpertise({ id: 'my_expert', name: 'My Expert', ... });
+ *   store.setExpertiseForConversation('conv-123', 'my_expert', { locked: true });
+ *   const binding = store.getExpertiseBinding('conv-123');
  */
-export class ExpertStore {
+export class ExpertiseStore {
   #db;
 
   /**
-   * @param {Object} db — Database module with { experts, conversationExperts } exports
+   * @param {Object} db — Database module with { expertises, expertiseBindings } exports
    */
   constructor(db = null) {
     this.#db = db;
 
     // In-memory fallback for tests
     if (!db) {
-      this._memExperts = new Map();
+      this._memExpertises = new Map();
       this._memBindings = new Map();
       this._memExpertises = new Map(); // v63.0: multi-expertise bindings
     }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Custom Expert CRUD
+  // Custom Expertise CRUD
   // ─────────────────────────────────────────────────────────────────────────
 
   /**
@@ -298,9 +298,9 @@ export class ExpertStore {
    * @param {Object} config - Expert configuration
    * @returns {{ success: boolean, expert?: Object, errors?: string[] }}
    */
-  saveCustomExpert(config) {
+  saveCustomExpertise(config) {
     // Validate first
-    const validation = validateExpertConfig(config);
+    const validation = validateExpertiseConfig(config);
     if (!validation.valid) {
       return { success: false, errors: validation.errors };
     }
@@ -332,7 +332,7 @@ export class ExpertStore {
 
     if (this.#db) {
       try {
-        this.#db.experts.upsert(
+        this.#db.expertises.upsert(
           expertData.id,
           expertData.name,
           expertData.description,
@@ -341,16 +341,16 @@ export class ExpertStore {
           expertData.temperature,
           JSON.stringify(expertData.config)
         );
-        logger.info('ExpertStore', `Saved custom expert: ${id}`);
+        logger.info('ExpertiseStore', `Saved custom expertise: ${id}`);
         return { success: true, expert: expertData };
       } catch (err) {
-        logger.error('ExpertStore', `Failed to save expert: ${err.message}`);
+        logger.error('ExpertiseStore', `Failed to save expertise: ${err.message}`);
         return { success: false, errors: [`Database error: ${err.message}`] };
       }
     }
 
     // In-memory mode
-    this._memExperts.set(id, expertData);
+    this._memExpertises.set(id, expertData);
     return { success: true, expert: expertData };
   }
 
@@ -360,11 +360,11 @@ export class ExpertStore {
    * @param {string} id - Expert ID
    * @returns {Object|null}
    */
-  getCustomExpert(id) {
+  getCustomExpertise(id) {
     if (this.#db) {
-      return this.#db.experts.getConfig(id);
+      return this.#db.expertises.getConfig(id);
     }
-    return this._memExperts.get(id) || null;
+    return this._memExpertises.get(id) || null;
   }
 
   /**
@@ -372,20 +372,20 @@ export class ExpertStore {
    *
    * @returns {Array<Object>}
    */
-  listCustomExperts() {
+  listCustomExpertises() {
     if (this.#db) {
       try {
-        const rows = this.#db.experts.listCustom.all();
+        const rows = this.#db.expertises.listCustom.all();
         return rows.map(row => ({
           ...row,
           config: this.#parseJSON(row.config),
         }));
       } catch (err) {
-        logger.error('ExpertStore', `Failed to list experts: ${err.message}`);
+        logger.error('ExpertiseStore', `Failed to list expertises: ${err.message}`);
         return [];
       }
     }
-    return [...this._memExperts.values()];
+    return [...this._memExpertises.values()];
   }
 
   /**
@@ -394,21 +394,21 @@ export class ExpertStore {
    * @param {string} id - Expert ID
    * @returns {boolean} - True if deleted
    */
-  deleteCustomExpert(id) {
+  deleteCustomExpertise(id) {
     if (this.#db) {
       try {
-        const result = this.#db.experts.delete.run(id);
+        const result = this.#db.expertises.delete.run(id);
         return result.changes > 0;
       } catch (err) {
-        logger.error('ExpertStore', `Failed to delete expert: ${err.message}`);
+        logger.error('ExpertiseStore', `Failed to delete expertise: ${err.message}`);
         return false;
       }
     }
-    return this._memExperts.delete(id);
+    return this._memExpertises.delete(id);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Expert-Conversation Bindings (Lock State)
+  // Expertise-Conversation Bindings (Lock State)
   // ─────────────────────────────────────────────────────────────────────────
 
   /**
@@ -420,21 +420,21 @@ export class ExpertStore {
    * @param {boolean} [options.locked] - Lock expert to conversation
    * @param {number} [options.strength] - Expert strength (0-100)
    */
-  setExpertForConversation(conversationId, expertId, options = {}) {
+  setExpertiseForConversation(conversationId, expertId, options = {}) {
     if (!conversationId || !expertId) {
-      throw new Error('ExpertStore: conversationId and expertId are required');
+      throw new Error('ExpertiseStore: conversationId and expertId are required');
     }
 
     if (this.#db) {
       try {
-        this.#db.conversationExperts.setExpert(conversationId, expertId, options);
-        logger.debug('ExpertStore', `Set expert for conversation`, {
+        this.#db.expertiseBindings.setExpertise(conversationId, expertId, options);
+        logger.debug('ExpertiseStore', `Set expertise for conversation`, {
           conversationId: conversationId.substring(0, 12),
           expertId,
           locked: options.locked || false,
         });
       } catch (err) {
-        logger.error('ExpertStore', `Failed to set expert: ${err.message}`);
+        logger.error('ExpertiseStore', `Failed to set expertise: ${err.message}`);
         throw err;
       }
       return;
@@ -443,7 +443,7 @@ export class ExpertStore {
     // In-memory mode
     this._memBindings.set(conversationId, {
       conversation_id: conversationId,
-      expert_id: expertId,
+      expertise_id: expertId,
       locked: options.locked ? 1 : 0,
       strength: options.strength ?? 50,
       locked_at: options.locked ? new Date().toISOString() : null,
@@ -456,21 +456,21 @@ export class ExpertStore {
    * @param {string} conversationId
    * @returns {{ expert_id: string, locked: boolean, strength: number }|null}
    */
-  getExpertBinding(conversationId) {
+  getExpertiseBinding(conversationId) {
     if (!conversationId) return null;
 
     if (this.#db) {
       try {
-        const binding = this.#db.conversationExperts.getBinding(conversationId);
+        const binding = this.#db.expertiseBindings.getBinding(conversationId);
         if (!binding) return null;
         return {
-          expertId: binding.expert_id,
+          expertId: binding.expertise_id,
           locked: binding.locked === 1,
           strength: binding.strength,
           lockedAt: binding.locked_at,
         };
       } catch (err) {
-        logger.error('ExpertStore', `Failed to get binding: ${err.message}`);
+        logger.error('ExpertiseStore', `Failed to get binding: ${err.message}`);
         return null;
       }
     }
@@ -478,7 +478,7 @@ export class ExpertStore {
     const binding = this._memBindings.get(conversationId);
     if (!binding) return null;
     return {
-      expertId: binding.expert_id,
+      expertId: binding.expertise_id,
       locked: binding.locked === 1,
       strength: binding.strength,
       lockedAt: binding.locked_at,
@@ -490,10 +490,10 @@ export class ExpertStore {
    *
    * @param {string} conversationId
    */
-  lockExpert(conversationId) {
+  lockExpertise(conversationId) {
     if (this.#db) {
-      this.#db.conversationExperts.lock.run(conversationId);
-      logger.debug('ExpertStore', `Locked expert for conversation: ${conversationId.substring(0, 12)}`);
+      this.#db.expertiseBindings.lock.run(conversationId);
+      logger.debug('ExpertiseStore', `Locked expertise for conversation: ${conversationId.substring(0, 12)}`);
       return;
     }
 
@@ -509,10 +509,10 @@ export class ExpertStore {
    *
    * @param {string} conversationId
    */
-  unlockExpert(conversationId) {
+  unlockExpertise(conversationId) {
     if (this.#db) {
-      this.#db.conversationExperts.unlock.run(conversationId);
-      logger.debug('ExpertStore', `Unlocked expert for conversation: ${conversationId.substring(0, 12)}`);
+      this.#db.expertiseBindings.unlock.run(conversationId);
+      logger.debug('ExpertiseStore', `Unlocked expertise for conversation: ${conversationId.substring(0, 12)}`);
       return;
     }
 
@@ -528,9 +528,9 @@ export class ExpertStore {
    *
    * @param {string} conversationId
    */
-  clearExpert(conversationId) {
+  clearExpertise(conversationId) {
     if (this.#db) {
-      this.#db.conversationExperts.clearExpert(conversationId);
+      this.#db.expertiseBindings.clearExpertise(conversationId);
       return;
     }
     this._memBindings.delete(conversationId);
@@ -550,13 +550,13 @@ export class ExpertStore {
    */
   setExpertisesForConversation(conversationId, expertises) {
     if (!conversationId) {
-      throw new Error('ExpertStore: conversationId is required');
+      throw new Error('ExpertiseStore: conversationId is required');
     }
     if (!Array.isArray(expertises) || expertises.length === 0) {
-      throw new Error('ExpertStore: expertises must be a non-empty array');
+      throw new Error('ExpertiseStore: expertises must be a non-empty array');
     }
     if (expertises.length > MERGE_LIMITS.MAX_ACTIVE_EXPERTISES) {
-      throw new Error(`ExpertStore: max ${MERGE_LIMITS.MAX_ACTIVE_EXPERTISES} expertises allowed, got ${expertises.length}`);
+      throw new Error(`ExpertiseStore: max ${MERGE_LIMITS.MAX_ACTIVE_EXPERTISES} expertises allowed, got ${expertises.length}`);
     }
 
     // Normalize entries
@@ -572,16 +572,16 @@ export class ExpertStore {
         this.#db.conversationExpertises.setExpertises(conversationId, normalized);
         // 🟡4: Clear legacy single-expert binding
         try {
-          this.#db.conversationExperts.clearExpert(conversationId);
+          this.#db.expertiseBindings.clearExpertise(conversationId);
         } catch {
           // Legacy table might not exist, ignore
         }
-        logger.info('ExpertStore', `Set ${normalized.length} expertises for conversation`, {
+        logger.info('ExpertiseStore', `Set ${normalized.length} expertises for conversation`, {
           conversationId: conversationId.substring(0, 12),
           expertises: normalized.map(e => e.expertiseId),
         });
       } catch (err) {
-        logger.error('ExpertStore', `Failed to set expertises: ${err.message}`);
+        logger.error('ExpertiseStore', `Failed to set expertises: ${err.message}`);
         throw err;
       }
       return;
@@ -613,7 +613,7 @@ export class ExpertStore {
       try {
         return this.#db.conversationExpertises.getExpertises(conversationId);
       } catch (err) {
-        logger.error('ExpertStore', `Failed to get expertises: ${err.message}`);
+        logger.error('ExpertiseStore', `Failed to get expertises: ${err.message}`);
         return [];
       }
     }
@@ -639,7 +639,7 @@ export class ExpertStore {
       try {
         this.#db.conversationExpertises.deleteAll(conversationId);
       } catch (err) {
-        logger.error('ExpertStore', `Failed to clear expertises: ${err.message}`);
+        logger.error('ExpertiseStore', `Failed to clear expertises: ${err.message}`);
       }
       return;
     }
@@ -647,7 +647,7 @@ export class ExpertStore {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // v57.1 A8: Expert Cross-Session Memory
+  // v57.1 A8: Expertise Cross-Session Memory
   // ─────────────────────────────────────────────────────────────────────────
   // Expert remembers facts/context across conversations.
   // Example: "accountant" remembers user's company type (s.r.o.),
@@ -669,7 +669,7 @@ export class ExpertStore {
     if (!expertId || !key) return false;
     if (typeof value !== 'string') value = JSON.stringify(value);
     if (value.length > 2000) {
-      logger.warn('ExpertStore', `Memory value too long for ${expertId}/${key}: ${value.length}`);
+      logger.warn('ExpertiseStore', `Memory value too long for ${expertId}/${key}: ${value.length}`);
       value = value.substring(0, 2000);
     }
 
@@ -679,21 +679,21 @@ export class ExpertStore {
     if (this.#db) {
       try {
         this.#db.run(
-          `INSERT OR REPLACE INTO expert_memory (expert_id, key, value, previous_value, updated_at)
+          `INSERT OR REPLACE INTO expertise_memory (expertise_id, key, value, previous_value, updated_at)
            VALUES (?, ?, ?, ?, datetime('now'))`,
           [expertId, key, value, previousValue]
         );
         if (previousValue !== null && previousValue !== value) {
-          logger.info('ExpertStore', `Memory changed: ${expertId}/${key}`, {
+          logger.info('ExpertiseStore', `Memory changed: ${expertId}/${key}`, {
             previous: previousValue.substring(0, 50),
             current: value.substring(0, 50),
           });
         } else {
-          logger.debug('ExpertStore', `Memory set: ${expertId}/${key}`);
+          logger.debug('ExpertiseStore', `Memory set: ${expertId}/${key}`);
         }
         return true;
       } catch (err) {
-        logger.error('ExpertStore', `Failed to set memory: ${err.message}`);
+        logger.error('ExpertiseStore', `Failed to set memory: ${err.message}`);
         return false;
       }
     }
@@ -719,11 +719,11 @@ export class ExpertStore {
     if (this.#db) {
       try {
         const row = this.#db.prepare(
-          `SELECT value FROM expert_memory WHERE expert_id = ? AND key = ?`
+          `SELECT value FROM expertise_memory WHERE expertise_id = ? AND key = ?`
         ).get(expertId, key);
         return row?.value || null;
       } catch (err) {
-        logger.error('ExpertStore', `Failed to get memory: ${err.message}`);
+        logger.error('ExpertiseStore', `Failed to get memory: ${err.message}`);
         return null;
       }
     }
@@ -744,11 +744,11 @@ export class ExpertStore {
       try {
         return this.#db.prepare(
           `SELECT key, value, updated_at as updatedAt
-           FROM expert_memory WHERE expert_id = ?
+           FROM expertise_memory WHERE expertise_id = ?
            ORDER BY updated_at DESC LIMIT 50`
         ).all(expertId) || [];
       } catch (err) {
-        logger.error('ExpertStore', `Failed to get all memory: ${err.message}`);
+        logger.error('ExpertiseStore', `Failed to get all memory: ${err.message}`);
         return [];
       }
     }
@@ -771,11 +771,11 @@ export class ExpertStore {
       try {
         return this.#db.prepare(
           `SELECT key, value, previous_value as previousValue, updated_at as updatedAt
-           FROM expert_memory WHERE expert_id = ?
+           FROM expertise_memory WHERE expertise_id = ?
            ORDER BY updated_at DESC LIMIT 50`
         ).all(expertId) || [];
       } catch (err) {
-        logger.error('ExpertStore', `Failed to get memory with history: ${err.message}`);
+        logger.error('ExpertiseStore', `Failed to get memory with history: ${err.message}`);
         return [];
       }
     }
@@ -803,11 +803,11 @@ export class ExpertStore {
     if (this.#db) {
       try {
         const result = this.#db.prepare(
-          `DELETE FROM expert_memory WHERE expert_id = ? AND key = ?`
+          `DELETE FROM expertise_memory WHERE expertise_id = ? AND key = ?`
         ).run(expertId, key);
         return result.changes > 0;
       } catch (err) {
-        logger.error('ExpertStore', `Failed to delete memory: ${err.message}`);
+        logger.error('ExpertiseStore', `Failed to delete memory: ${err.message}`);
         return false;
       }
     }
@@ -825,10 +825,10 @@ export class ExpertStore {
   clearMemory(expertId) {
     if (this.#db) {
       try {
-        this.#db.prepare(`DELETE FROM expert_memory WHERE expert_id = ?`).run(expertId);
+        this.#db.prepare(`DELETE FROM expertise_memory WHERE expertise_id = ?`).run(expertId);
         return true;
       } catch (err) {
-        logger.error('ExpertStore', `Failed to clear memory: ${err.message}`);
+        logger.error('ExpertiseStore', `Failed to clear memory: ${err.message}`);
         return false;
       }
     }
@@ -889,14 +889,14 @@ export class ExpertStore {
 let _instance = null;
 
 /**
- * Get the global ExpertStore instance.
+ * Get the global ExpertiseStore instance.
  *
  * @param {Object} [db] — Pass DB on first call to initialize.
- * @returns {ExpertStore}
+ * @returns {ExpertiseStore}
  */
-export function getExpertStore(db = null) {
+export function getExpertiseStore(db = null) {
   if (!_instance) {
-    _instance = new ExpertStore(db);
+    _instance = new ExpertiseStore(db);
   }
   return _instance;
 }
@@ -904,14 +904,14 @@ export function getExpertStore(db = null) {
 /**
  * Reset singleton (for tests).
  */
-export function resetExpertStore() {
+export function resetExpertiseStore() {
   _instance = null;
 }
 
 export default {
-  ExpertStore,
-  ExpertLifecycle,
-  validateExpertConfig,
-  getExpertStore,
-  resetExpertStore,
+  ExpertiseStore,
+  ExpertiseLifecycle,
+  validateExpertiseConfig,
+  getExpertiseStore,
+  resetExpertiseStore,
 };

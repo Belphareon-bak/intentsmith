@@ -77,8 +77,8 @@ class C3DetailPanelWidget extends react_widget_1.ReactWidget {
       ),
     ];
 
-    // v63.0: Capability bars for experts
-    if (this._type === 'expert' && item.capabilities) {
+    // v63.0: Capability bars for expertises
+    if (this._type === 'expertise' && item.capabilities) {
       const dims = ['reasoning', 'creativity', 'determinism', 'riskTolerance', 'verbosity'];
       const dimLabels = { reasoning: 'Reasoning', creativity: 'Kreativita', determinism: 'Determinismus', riskTolerance: 'Risk Tolerance', verbosity: 'Verbozita' };
       elements.push(
@@ -98,8 +98,8 @@ class C3DetailPanelWidget extends react_widget_1.ReactWidget {
       );
     }
 
-    // v63.0: Modules summary for experts
-    if (this._type === 'expert' && item.modules) {
+    // v63.0: Modules summary for expertises
+    if (this._type === 'expertise' && item.modules) {
       const mod = item.modules;
       const counts = ['domain_rules', 'emphasis', 'constraints', 'vocabulary', 'antipatterns']
         .filter(s => mod[s] && mod[s].length > 0)
@@ -117,8 +117,8 @@ class C3DetailPanelWidget extends react_widget_1.ReactWidget {
       }
     }
 
-    // v63.0: Tone + temperature for experts
-    if (this._type === 'expert') {
+    // v63.0: Tone + temperature for expertises
+    if (this._type === 'expertise') {
       const extraRows = [];
       if (item.tone) extraRows.push({ label: 'Tón', value: item.tone });
       if (item.temperature !== undefined) extraRows.push({ label: 'Teplota', value: String(item.temperature) });
@@ -147,10 +147,10 @@ class C3DetailPanelWidget extends react_widget_1.ReactWidget {
           h('button', {
             className: 'c3-det-btn',
             onClick: () => {
-              // v63.0: Emit wizard-open event for experts
-              if (this._type === 'expert') {
+              // v63.0: Emit wizard-open event for expertises
+              if (this._type === 'expertise') {
                 document.dispatchEvent(new CustomEvent('c3-wizard-open', {
-                  detail: { mode: 'edit', expertData: item },
+                  detail: { mode: 'edit', expertiseData: item },
                   bubbles: true,
                 }));
               }

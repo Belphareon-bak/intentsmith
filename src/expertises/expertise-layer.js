@@ -1,6 +1,6 @@
 import { MODULE_SECTIONS, DEFAULT_INHERITANCE_MODE, MAX_INHERITANCE_DEPTH } from './merge-types.js';
 
-// C.3 v45.0 - Expert Layer
+// C.3 v45.0 - Expertise Layer
 // ══════════════════════════════════════════════════════════════════════════════
 // Expert = řízený pracovní režim, který přebírá odpovědnost za JAK se úloha řeší
 //
@@ -15,10 +15,10 @@ import { MODULE_SECTIONS, DEFAULT_INHERITANCE_MODE, MAX_INHERITANCE_DEPTH } from
 // - jen jiný prompt
 // - data layer
 //
-// v45.0 - Expert Intensity (Phase 3)
-// - ExpertStrength quantized levels (0/25/50/75/100)
-// - Expert weight overrides (style, depth, vocabulary, caution)
-// - Expert influences synthesis style, NOT intent/tools/decisions
+// v45.0 - Expertise Intensity (Phase 3)
+// - ExpertiseStrength quantized levels (0/25/50/75/100)
+// - Expertise weight overrides (style, depth, vocabulary, caution)
+// - Expertise influences synthesis style, NOT intent/tools/decisions
 //
 // v44.10 - Added styleRules for response quality enforcement
 //
@@ -28,11 +28,11 @@ import { MODULE_SECTIONS, DEFAULT_INHERITANCE_MODE, MAX_INHERITANCE_DEPTH } from
 // - requiredElements: elements that MUST appear (for some experts)
 
 /**
- * v45.0 - Expert Strength (quantized, not continuous slider)
+ * v45.0 - Expertise Strength (quantized, not continuous slider)
  * User perception: people can't distinguish 63% from 65%
  */
-export const ExpertStrength = {
-  OFF: 0,          // Expert disabled
+export const ExpertiseStrength = {
+  OFF: 0,          // Expertise disabled
   LIGHT: 25,       // Subtle influence
   MEDIUM: 50,      // Default, balanced
   STRONG: 75,      // Dominant expert style
@@ -40,17 +40,17 @@ export const ExpertStrength = {
 };
 
 // ════════════════════════════════════════════════════════════════════════════════
-// v45.0 KOLO 4.3 — Expert Presets (replaces "dull slider")
+// v45.0 KOLO 4.3 — Expertise Presets (replaces "dull slider")
 // ════════════════════════════════════════════════════════════════════════════════
 //
 // CONTRACT:
 // - Slider (0-100%) maps to preset (light/balanced/deep)
 // - Preset defines weight configuration
-// - Expert cannot change intent or force tools
+// - Expertise cannot change intent or force tools
 //
 // ════════════════════════════════════════════════════════════════════════════════
 
-export const ExpertPreset = {
+export const ExpertisePreset = {
   LIGHT: 'light',       // 0-30%: Subtle influence, minimal depth
   BALANCED: 'balanced', // 31-60%: Normal influence
   DEEP: 'deep',         // 61-100%: Strong influence, max depth
@@ -60,9 +60,9 @@ export const ExpertPreset = {
  * Map slider value (0-100) to preset
  */
 export function strengthToPreset(strength) {
-  if (strength <= 30) return ExpertPreset.LIGHT;
-  if (strength <= 60) return ExpertPreset.BALANCED;
-  return ExpertPreset.DEEP;
+  if (strength <= 30) return ExpertisePreset.LIGHT;
+  if (strength <= 60) return ExpertisePreset.BALANCED;
+  return ExpertisePreset.DEEP;
 }
 
 /**
@@ -70,19 +70,19 @@ export function strengthToPreset(strength) {
  */
 export function getPresetWeights(preset, baseWeights = {}) {
   const presetConfigs = {
-    [ExpertPreset.LIGHT]: {
+    [ExpertisePreset.LIGHT]: {
       styleMultiplier: 0.3,   // 30% of expert style
       depthOverride: 'shallow',
       cautionMultiplier: 0.5,
       vocabularyMultiplier: 0.4,
     },
-    [ExpertPreset.BALANCED]: {
+    [ExpertisePreset.BALANCED]: {
       styleMultiplier: 0.6,   // 60% of expert style
       depthOverride: null,    // Use expert's default
       cautionMultiplier: 0.8,
       vocabularyMultiplier: 0.7,
     },
-    [ExpertPreset.DEEP]: {
+    [ExpertisePreset.DEEP]: {
       styleMultiplier: 1.0,   // Full expert style
       depthOverride: 'deep',  // Force deep
       cautionMultiplier: 1.0,
@@ -90,7 +90,7 @@ export function getPresetWeights(preset, baseWeights = {}) {
     },
   };
 
-  const config = presetConfigs[preset] || presetConfigs[ExpertPreset.BALANCED];
+  const config = presetConfigs[preset] || presetConfigs[ExpertisePreset.BALANCED];
 
   return {
     style: baseWeights.style || 'balanced',
@@ -106,18 +106,18 @@ export function getPresetWeights(preset, baseWeights = {}) {
  * v45.0 - Expert weight dimensions for synthesis influence
  * These are HINTS to synthesizeWithLLM(), NOT overrides!
  *
- * Expert CANNOT:
+ * Expertise CANNOT:
  * - Change intent (SEARCH stays SEARCH)
  * - Force tools (web.search stays web.search)
  * - Suppress LOCAL/CREATIVE decisions
  *
- * Expert CAN influence:
+ * Expertise CAN influence:
  * - style (formal/casual/creative)
  * - depth (shallow/balanced/deep)
  * - vocabulary (simple/technical/domain-specific)
  * - caution (low/medium/high - for normative experts)
  */
-export const ExpertWeights = {
+export const ExpertiseWeights = {
   // Style dimension
   STYLE_FORMAL: 'formal',
   STYLE_CASUAL: 'casual',
@@ -179,7 +179,7 @@ export const OUTPUT_BIAS = {
 /**
  * Built-in Expert definitions
  */
-export const BUILTIN_EXPERTS = {
+export const BUILTIN_EXPERTISES = {
   // ═══════════════════════════════════════════════════════════════════════════
   // A) TVŮRČÍ & NARATIVNÍ
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1157,7 +1157,7 @@ NIKDY:
 };
 
 /**
- * Expert Agent base class
+ * Expertise Agent base class
  */
 /**
  * Default style rules for experts without custom rules
@@ -1174,7 +1174,7 @@ const DEFAULT_STYLE_RULES = {
   requiredElements: [],
 };
 
-export class ExpertAgent {
+export class ExpertiseAgent {
   constructor(config) {
     this.id = config.id;
     this.name = config.name;
@@ -1196,7 +1196,7 @@ export class ExpertAgent {
     // v44.10 - Style rules with defaults
     this.styleRules = config.styleRules || { ...DEFAULT_STYLE_RULES };
     // v45.0 - Expert intensity and weights
-    this.strength = config.strength ?? ExpertStrength.MEDIUM;
+    this.strength = config.strength ?? ExpertiseStrength.MEDIUM;
     this.weights = config.weights || this._deriveDefaultWeights();
     // v63.0 - Merge Engine v2: modules, capabilities, inheritance
     this.modules = config.modules || null;
@@ -1212,37 +1212,37 @@ export class ExpertAgent {
    */
   _deriveDefaultWeights() {
     const weights = {
-      style: ExpertWeights.STYLE_FORMAL,
-      depth: ExpertWeights.DEPTH_BALANCED,
-      vocabulary: ExpertWeights.VOCAB_SIMPLE,
-      caution: ExpertWeights.CAUTION_MEDIUM,
+      style: ExpertiseWeights.STYLE_FORMAL,
+      depth: ExpertiseWeights.DEPTH_BALANCED,
+      vocabulary: ExpertiseWeights.VOCAB_SIMPLE,
+      caution: ExpertiseWeights.CAUTION_MEDIUM,
     };
 
     // Derive from outputBias
     switch (this.outputBias) {
       case OUTPUT_BIAS.CREATIVE:
-        weights.style = ExpertWeights.STYLE_CREATIVE;
-        weights.depth = ExpertWeights.DEPTH_DEEP;
+        weights.style = ExpertiseWeights.STYLE_CREATIVE;
+        weights.depth = ExpertiseWeights.DEPTH_DEEP;
         break;
       case OUTPUT_BIAS.ANALYTICAL:
-        weights.style = ExpertWeights.STYLE_TECHNICAL;
-        weights.vocabulary = ExpertWeights.VOCAB_TECHNICAL;
+        weights.style = ExpertiseWeights.STYLE_TECHNICAL;
+        weights.vocabulary = ExpertiseWeights.VOCAB_TECHNICAL;
         break;
       case OUTPUT_BIAS.CONSERVATIVE:
-        weights.caution = ExpertWeights.CAUTION_HIGH;
+        weights.caution = ExpertiseWeights.CAUTION_HIGH;
         break;
     }
 
     // Domain-specific adjustments
     if (['legal', 'medical_education'].includes(this.domain)) {
-      weights.caution = ExpertWeights.CAUTION_HIGH;
+      weights.caution = ExpertiseWeights.CAUTION_HIGH;
     }
     if (['software_development', 'artificial_intelligence'].includes(this.domain)) {
-      weights.vocabulary = ExpertWeights.VOCAB_TECHNICAL;
+      weights.vocabulary = ExpertiseWeights.VOCAB_TECHNICAL;
     }
     if (['creative_writing', 'tabletop_rpg', 'music_lyrics'].includes(this.domain)) {
-      weights.style = ExpertWeights.STYLE_CREATIVE;
-      weights.depth = ExpertWeights.DEPTH_DEEP;
+      weights.style = ExpertiseWeights.STYLE_CREATIVE;
+      weights.depth = ExpertiseWeights.DEPTH_DEEP;
     }
 
     return weights;
@@ -1286,7 +1286,7 @@ export class ExpertAgent {
     const strength = overrideStrength ?? this.strength;
 
     // If expert is OFF, return empty hints
-    if (strength === ExpertStrength.OFF) {
+    if (strength === ExpertiseStrength.OFF) {
       return { active: false };
     }
 
@@ -1377,28 +1377,28 @@ export class ExpertAgent {
    * @param {string} preset - Current preset (light/balanced/deep)
    * @private
    */
-  _getSystemAddition(preset = ExpertPreset.BALANCED) {
+  _getSystemAddition(preset = ExpertisePreset.BALANCED) {
     const additions = [];
 
     // Style additions (scaled by preset)
-    if (this.weights.style === ExpertWeights.STYLE_CREATIVE) {
-      if (preset === ExpertPreset.DEEP) {
+    if (this.weights.style === ExpertiseWeights.STYLE_CREATIVE) {
+      if (preset === ExpertisePreset.DEEP) {
         additions.push('Buď velmi kreativní a expresivní. Neboj se netradičních přístupů.');
-      } else if (preset === ExpertPreset.BALANCED) {
+      } else if (preset === ExpertisePreset.BALANCED) {
         additions.push('Buď kreativní a expresivní.');
       } else {
         additions.push('Přidej trochu kreativity.');
       }
-    } else if (this.weights.style === ExpertWeights.STYLE_FORMAL) {
-      if (preset === ExpertPreset.DEEP) {
+    } else if (this.weights.style === ExpertiseWeights.STYLE_FORMAL) {
+      if (preset === ExpertisePreset.DEEP) {
         additions.push('Používej striktně formální, profesionální tón. Žádná neformálnost.');
       } else {
         additions.push('Používej formální, profesionální tón.');
       }
-    } else if (this.weights.style === ExpertWeights.STYLE_TECHNICAL) {
-      if (preset === ExpertPreset.DEEP) {
+    } else if (this.weights.style === ExpertiseWeights.STYLE_TECHNICAL) {
+      if (preset === ExpertisePreset.DEEP) {
         additions.push('Používej plnou technickou terminologii. Předpokládej experta.');
-      } else if (preset === ExpertPreset.BALANCED) {
+      } else if (preset === ExpertisePreset.BALANCED) {
         additions.push('Používej technickou terminologii.');
       } else {
         additions.push('Zmiň klíčové technické termíny.');
@@ -1406,15 +1406,15 @@ export class ExpertAgent {
     }
 
     // Depth additions (preset-driven)
-    if (preset === ExpertPreset.DEEP) {
+    if (preset === ExpertisePreset.DEEP) {
       additions.push('Jdi do maximální hloubky, vysvětli všechny detaily.');
-    } else if (preset === ExpertPreset.LIGHT) {
+    } else if (preset === ExpertisePreset.LIGHT) {
       additions.push('Buď stručný, zaměř se na podstatu.');
     }
 
     // Caution additions
-    if (this.weights.caution === ExpertWeights.CAUTION_HIGH) {
-      if (preset === ExpertPreset.DEEP) {
+    if (this.weights.caution === ExpertiseWeights.CAUTION_HIGH) {
+      if (preset === ExpertisePreset.DEEP) {
         additions.push('Buď velmi opatrný, zdůrazni všechna omezení, rizika a disclaimery.');
       } else {
         additions.push('Buď opatrný, zdůrazni omezení a rizika.');
@@ -1502,8 +1502,8 @@ export class ExpertAgent {
  *   - Enforcement (styleRules): UNION — forbiddenPhrases dedup, minResponseLength MAX, booleans OR
  *     Child CANNOT weaken parent enforcement unless expertise.overrideParentEnforcement === true
  *
- * @param {Object} expertise - ExpertAgent instance or config with modules/parent
- * @param {ExpertRegistry|Map|Object} registry - Registry to look up parents
+ * @param {Object} expertise - ExpertiseAgent instance or config with modules/parent
+ * @param {ExpertiseRegistry|Map|Object} registry - Registry to look up parents
  * @param {number} [depth=0] - Current recursion depth
  * @returns {{ modules: Object, capabilities: Object, styleRules: Object }} Resolved inheritance
  */
@@ -1642,68 +1642,68 @@ export function resolveInheritance(expertise, registry, depth = 0) {
 /**
  * Expert Registry
  */
-class ExpertRegistry {
+class ExpertiseRegistry {
   constructor() {
-    this.experts = new Map();
-    this.customExperts = new Map();
+    this.expertises = new Map();
+    this.customExpertises = new Map();
     
     // Register built-in experts
-    for (const [id, config] of Object.entries(BUILTIN_EXPERTS)) {
-      this.register(new ExpertAgent(config));
+    for (const [id, config] of Object.entries(BUILTIN_EXPERTISES)) {
+      this.register(new ExpertiseAgent(config));
     }
   }
 
   register(expert) {
     if (expert.isCustom) {
-      this.customExperts.set(expert.id, expert);
+      this.customExpertises.set(expert.id, expert);
     } else {
-      this.experts.set(expert.id, expert);
+      this.expertises.set(expert.id, expert);
     }
   }
 
   get(id) {
-    return this.customExperts.get(id) || this.experts.get(id) || null;
+    return this.customExpertises.get(id) || this.expertises.get(id) || null;
   }
 
   getAll() {
-    return [...this.experts.values(), ...this.customExperts.values()];
+    return [...this.expertises.values(), ...this.customExpertises.values()];
   }
 
   getBuiltIn() {
-    return [...this.experts.values()];
+    return [...this.expertises.values()];
   }
 
   getCustom() {
-    return [...this.customExperts.values()];
+    return [...this.customExpertises.values()];
   }
 
   addCustom(config) {
-    const expert = new ExpertAgent({ ...config, isCustom: true });
-    this.customExperts.set(expert.id, expert);
+    const expert = new ExpertiseAgent({ ...config, isCustom: true });
+    this.customExpertises.set(expert.id, expert);
     return expert;
   }
 
   removeCustom(id) {
-    return this.customExperts.delete(id);
+    return this.customExpertises.delete(id);
   }
 
   updateCustom(id, config) {
-    const existing = this.customExperts.get(id);
+    const existing = this.customExpertises.get(id);
     if (!existing) return null;
     
-    const updated = new ExpertAgent({ ...existing.toJSON(), ...config, isCustom: true });
-    this.customExperts.set(id, updated);
+    const updated = new ExpertiseAgent({ ...existing.toJSON(), ...config, isCustom: true });
+    this.customExpertises.set(id, updated);
     return updated;
   }
 }
 
 // Global registry instance
-export const expertRegistry = new ExpertRegistry();
+export const expertiseRegistry = new ExpertiseRegistry();
 
 /**
  * Expert Router - routes tasks to appropriate expert
  */
-export function routeToExpert(message, intent = null) {
+export function routeToExpertise(message, intent = null) {
   const lower = message.toLowerCase();
   
   // Explicit expert mention patterns
@@ -1744,7 +1744,7 @@ export function routeToExpert(message, intent = null) {
   // Check for explicit mentions
   for (const [pattern, expertId] of Object.entries(expertMentions)) {
     if (lower.includes(pattern)) {
-      const expert = expertRegistry.get(expertId);
+      const expert = expertiseRegistry.get(expertId);
       if (expert) {
         return {
           expert,
@@ -1758,7 +1758,7 @@ export function routeToExpert(message, intent = null) {
   // Intent-based routing
   if (intent === 'LONG_FORM_CREATION') {
     return {
-      expert: expertRegistry.get('writer'),
+      expert: expertiseRegistry.get('writer'),
       confidence: 0.7,
       reason: 'Long-form content creation detected'
     };
@@ -1775,7 +1775,7 @@ export function routeToExpert(message, intent = null) {
 /**
  * Get expert categories for UI
  */
-export function getExpertCategories() {
+export function getExpertiseCategories() {
   return [
     {
       id: 'creative',
@@ -1821,16 +1821,16 @@ export default {
   REVIEW_POLICY,
   DATA_USAGE,
   OUTPUT_BIAS,
-  BUILTIN_EXPERTS,
-  ExpertAgent,
-  expertRegistry,
-  routeToExpert,
-  getExpertCategories,
+  BUILTIN_EXPERTISES,
+  ExpertiseAgent,
+  expertiseRegistry,
+  routeToExpertise,
+  getExpertiseCategories,
   // v45.0 - Expert intensity
-  ExpertStrength,
-  ExpertWeights,
+  ExpertiseStrength,
+  ExpertiseWeights,
   // v45.0 KOLO 4.3 - Expert presets
-  ExpertPreset,
+  ExpertisePreset,
   strengthToPreset,
   getPresetWeights,
   // v63.0 - Merge Engine v2

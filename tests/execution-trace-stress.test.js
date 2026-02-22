@@ -50,10 +50,10 @@ async function it(name, fn) {
 
 // ─── Imports ─────────────────────────────────────────────────────────────────
 
-import { mergeExpertisePrompt } from '../src/experts/merge-engine.js';
-import { ExpertEnforcer, checkForbiddenPhrases } from '../src/experts/expert-enforcement.js';
-import { enforceCapabilities } from '../src/experts/capability-enforcer.js';
-import { resolveInheritance } from '../src/experts/expert-layer.js';
+import { mergeExpertisePrompt } from '../src/expertises/merge-engine.js';
+import { ExpertiseEnforcer, checkForbiddenPhrases } from '../src/expertises/expertise-enforcement.js';
+import { enforceCapabilities } from '../src/expertises/capability-enforcer.js';
+import { resolveInheritance } from '../src/expertises/expertise-layer.js';
 
 // ─── Test Data ───────────────────────────────────────────────────────────────
 
@@ -130,7 +130,7 @@ const ANALYST = {
 };
 
 // Parent expert for inheritance testing
-const PARENT_EXPERT = {
+const PARENT_EXPERTISE = {
   id: 'finance_base',
   name: 'Finance Base',
   capabilities: { reasoning: 60, creativity: 10, determinism: 85, riskTolerance: 10, verbosity: 55 },
@@ -212,7 +212,7 @@ describe('T-ST1: 3-expert merge with strict accountant', async () => {
   });
 
   await it('strict propagation: accountant strict → merged strict', () => {
-    // Simulate what expert.js does
+    // Simulate what expertise.js does
     const hasStrict = [ACCOUNTANT, LAWYER, ANALYST].some(
       e => e.styleRules?.strictToolEnforcement,
     );
@@ -226,7 +226,7 @@ describe('T-ST1: 3-expert merge with strict accountant', async () => {
 
 describe('T-ST2: Inheritance chain + capability drift on merged output', async () => {
   await it('child inherits parent modules via extend', () => {
-    const registry = { finance_base: PARENT_EXPERT };
+    const registry = { finance_base: PARENT_EXPERTISE };
     const resolved = resolveInheritance(CHILD_WITH_PARENT, registry);
 
     // domain_rules: parent(2) + child(2) = 4 (deduplicated)
@@ -238,7 +238,7 @@ describe('T-ST2: Inheritance chain + capability drift on merged output', async (
   });
 
   await it('child inherits parent capabilities (undefined dims)', () => {
-    const registry = { finance_base: PARENT_EXPERT };
+    const registry = { finance_base: PARENT_EXPERTISE };
     const resolved = resolveInheritance(CHILD_WITH_PARENT, registry);
 
     // Child ACCOUNTANT has all 5 dims defined → should keep child values
@@ -247,7 +247,7 @@ describe('T-ST2: Inheritance chain + capability drift on merged output', async (
   });
 
   await it('enforcement: forbiddenPhrases UNION (parent + child)', () => {
-    const registry = { finance_base: PARENT_EXPERT };
+    const registry = { finance_base: PARENT_EXPERTISE };
     const resolved = resolveInheritance(CHILD_WITH_PARENT, registry);
 
     // parent: ['přibližně'], child: ['odhaduji', 'asi tak', /zhruba/i]
@@ -289,7 +289,7 @@ describe('T-ST3: Retry with temperature decay in strict merged enforcer', async 
   await it('strict merged enforcer: all retries fail → hardFail with full audit', async () => {
     const traceId = randomUUID();
 
-    // Build merged enforcement config (simulating what expert.js does)
+    // Build merged enforcement config (simulating what expertise.js does)
     const mergeResult = mergeExpertisePrompt(
       [ACCOUNTANT, LAWYER],
       null, null, {},
@@ -314,7 +314,7 @@ describe('T-ST3: Retry with temperature decay in strict merged enforcer', async 
       return 'Odhaduji asi tak zhruba 42000 CZK. To je jasné, bez pochyby.';
     };
 
-    const enforcer = new ExpertEnforcer(syntheticExpert, regenerateFn, {
+    const enforcer = new ExpertiseEnforcer(syntheticExpert, regenerateFn, {
       strict: true,
       executionTraceId: traceId,
       maxRetries: 2,
@@ -367,7 +367,7 @@ describe('T-ST3: Retry with temperature decay in strict merged enforcer', async 
       return 'Daňový základ činí přesně 150 000 CZK. Sazba daně je 15%. Výsledná daň činí 22 500 CZK.';
     };
 
-    const enforcer = new ExpertEnforcer(syntheticExpert, regenerateFn, {
+    const enforcer = new ExpertiseEnforcer(syntheticExpert, regenerateFn, {
       strict: true,
       executionTraceId: traceId,
       maxRetries: 2,
@@ -431,7 +431,7 @@ describe('T-ST4: Full execution trace reconstruction', async () => {
       },
     };
 
-    const enforcer = new ExpertEnforcer(syntheticExpert, null, {
+    const enforcer = new ExpertiseEnforcer(syntheticExpert, null, {
       executionTraceId: traceId,
     });
 

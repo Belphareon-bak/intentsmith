@@ -12,7 +12,7 @@
 ## Vize — 4+2 pilíře
 
 ### Pilíř 1: CHAT — náhrada ChatGPT
-Kvalitní konverzační AI s generováním dokumentů a expertní specializací.
+Kvalitní konverzační AI s generováním dokumentů a expertise specializací.
 
 ### Pilíř 2: PROJEKTY — stavění věcí
 Lifecycle engine: SPEC→PLANNING→BUILD→REVIEW→CHANGE→COMPLETED.
@@ -40,7 +40,7 @@ Installer, licence, auto-update, setup wizard.
 - `cre_override_log` tabulka s audit trail
 - v65.4: Project context injection — CRE hint `[[PROJECT_CONTEXT:...]]`, sanitized system prompt
 - v65.6: CZ pádové tvary v classifyIntent — lokativ, dativ, instrumentál ("o čem je projekt")
-- v65.7: A7 Expert A/B test ✅ — 5 domén (writer, analyst, lawyer, developer, accountant), expert win/tie 5/5
+- v65.7: A7 Expertise A/B test ✅ — 5 domén (writer, analyst, lawyer, developer, accountant), expertise win/tie 5/5
 
 ### Pilíř 2: PROJEKTY — 100% ✅
 **Status: PHASE C = DONE. Vše hotovo včetně C3 (v65.7).**
@@ -63,7 +63,7 @@ Installer, licence, auto-update, setup wizard.
 - Zbývá: RSS digest worker — default channel je Telegram/ntfy, ne email (triviální fix)
 
 ### Pilíř 4: SPECIALISTÉ — 65% ✅ (upgrade z 40%)
-Expert layer (15 experts) + accountant pilot + 5D capability system + merge engine v2 + expertise wizard UI.
+Expertise layer (15 expertises) + accountant pilot + 5D capability system + merge engine v2 + expertise wizard UI.
 - v65.8: **D1 Specialist Runtime** — ToolRegistry, IntentDetector, ToolExecutor, SpecialistRuntime ✅
 - v65.8: **D2 Knowledge Base** — DB migration (3 tables), KnowledgeBase class, tax rates seed (96 facts) ✅
 - v65.8: **D3 Scenario Engine** — ScenarioRegistry, ScenarioRunner, accountant tax optimization scenario ✅
@@ -72,7 +72,7 @@ Expert layer (15 experts) + accountant pilot + 5D capability system + merge engi
 ### Pilíř 5: IDE — 73% ✅ (korekce z 80%)
 Theia 1.65.2, 33 custom extensions, fungující build (lib/ + src-gen/).
 - Sprint 1-7 → ve skutečnosti Phase 1-5 dle IDE roadmapy
-- Hotovo: Chat panel, WS bridge, agent wizard, center views, expert wizard, audit trail, diff viewer, keybindings, git integrace
+- Hotovo: Chat panel, WS bridge, agent wizard, center views, expertise wizard, audit trail, diff viewer, keybindings, git integrace
 - v65.3: Project opener s conversation restore + lifecycle bind
 - v65.4: Project context pipeline (IDE→WS→BE→CRE→LLM)
 - v65.5: Agent Builder Wizard UI (centerAgentWizard, simple + advanced mode)
@@ -94,12 +94,12 @@ Theia 1.65.2, 33 custom extensions, fungující build (lib/ + src-gen/).
 | Verze | Změna |
 |-------|-------|
 | v63.0 | Merge Engine v2 — multi-expertise composition (max 3) |
-| v63.0 | 5D Capability System — per-expert vektory, kompatibilita |
+| v63.0 | 5D Capability System — per-expertise vektory, kompatibilita |
 | v63.0 | conversation_expertises tabulka (N:M, max 3) |
 | v63.1 | Capability modifiers — runtime vliv 5D vektoru |
-| v63.1 | Expertise Wizard UI — IDE formulář pro tvorbu expertiz |
+| v63.1 | Expertise Wizard UI — IDE formulář pro tvorbu expertyz |
 | v63.3 | ExecutionTrace — UUID per turn, LLM log, prompt hash |
-| v63.3 | Expert Sandbox — offline simulace |
+| v63.3 | Expertise Sandbox — offline simulace |
 | v64.0 | **CRE Gatekeeper** — single-authority enforcement |
 | v64.0 | Schema migrations (5 souborů, timestamp-based) |
 | v64.0 | cre_override_log tabulka |
@@ -161,7 +161,7 @@ Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░�
 ✅→ F1. Napojit Setup Wizard — first-run detection + /api/setup/* routes
 ✅→ F2. Napojit Auto-updater — startUpdateChecker() v server.listen()
 ✅→ F3. Napojit License system — feature gates na PRO/ENTERPRISE funkce
-✅→ A7. Expert A/B test — 5 domén, expert win/tie 5/5 (v65.7)
+✅→ A7. Expertise A/B test — 5 domén, expertise win/tie 5/5 (v65.7)
 ```
 
 ### Sprint 2 — IDE + Quality (~1 týden)
@@ -198,7 +198,7 @@ Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░�
 | 4 | F | F1. Napojit Setup Wizard do server.js | 2-4h | 🟡 P1 | ✅ DONE (v65.7) |
 | 5 | F | F2. Napojit Auto-updater do server.js | 2-4h | 🟡 P1 | ✅ DONE (v65.7) |
 | 6 | F | F3. Napojit License system (feature gates) | 1d | 🟡 P1 | ✅ DONE (v65.7) |
-| 7 | A | A7. Expert A/B kvalitativní test | 1d | 🟡 P1 | ✅ DONE (v65.7) |
+| 7 | A | A7. Expertise A/B kvalitativní test | 1d | 🟡 P1 | ✅ DONE (v65.7) |
 | 8 | C | C3. Reálný LLM test lifecycle | průběžně | 🟡 P1 | ✅ DONE (v65.7) |
 | 9 | E | E1. IDE: Specialist CRUD wizard | 2-3d | ⚪ P2 | ❌ |
 | 10 | E | E2-E10. IDE: zbývající items (~10) | ~2 týd. | ⚪ P2 | ❌ |

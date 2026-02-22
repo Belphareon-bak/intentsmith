@@ -75,15 +75,15 @@ class ToolRegistry {
   /**
    * Get specialist config by expert ID.
    */
-  getSpecialist(expertId) {
-    return this._specialists.get(expertId) || null;
+  getSpecialist(expertiseId) {
+    return this._specialists.get(expertiseId) || null;
   }
 
   /**
    * Check if an expert has specialist tools registered.
    */
-  isSpecialist(expertId) {
-    return this._specialists.has(expertId);
+  isSpecialist(expertiseId) {
+    return this._specialists.has(expertiseId);
   }
 
   /**
@@ -230,26 +230,26 @@ class SpecialistRuntime {
   /**
    * Check if an expert has specialist capabilities.
    */
-  isSpecialist(expertId) {
-    return this.registry.isSpecialist(expertId);
+  isSpecialist(expertiseId) {
+    return this.registry.isSpecialist(expertiseId);
   }
 
   /**
    * Try to detect and execute a tool for the given expert + input.
    * Returns null if no tool matched (caller should fall back to LLM).
    *
-   * @param {string} expertId - Expert ID
+   * @param {string} expertiseId - Expert ID
    * @param {string} input - User message
    * @returns {Promise<{ toolType: string, result: any, params: Object } | null>}
    */
-  async tryToolExecution(expertId, input) {
-    const specialist = this.registry.getSpecialist(expertId);
+  async tryToolExecution(expertiseId, input) {
+    const specialist = this.registry.getSpecialist(expertiseId);
     if (!specialist) return null;
 
     const match = this.detector.detect(input, specialist);
     if (!match) return null;
 
-    logger.info('SpecialistRuntime', `Tool match: ${match.tool.id} for specialist ${expertId}`, {
+    logger.info('SpecialistRuntime', `Tool match: ${match.tool.id} for specialist ${expertiseId}`, {
       toolId: match.tool.id,
       inputPreview: input.slice(0, 60),
     });
@@ -279,8 +279,8 @@ class SpecialistRuntime {
   /**
    * Get specialist config (for UI/API).
    */
-  getSpecialistConfig(expertId) {
-    const spec = this.registry.getSpecialist(expertId);
+  getSpecialistConfig(expertiseId) {
+    const spec = this.registry.getSpecialist(expertiseId);
     if (!spec) return null;
     return {
       id: spec.id,

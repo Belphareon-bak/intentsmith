@@ -7,7 +7,7 @@ import {
   ToolRegistry,
   IntentDetector,
   SpecialistRuntime,
-} from '../src/experts/specialist-runtime.js';
+} from '../src/expertises/specialist-runtime.js';
 
 let passed = 0, failed = 0;
 const failures = [];

@@ -3,7 +3,7 @@
 
 import { strict as assert } from 'assert';
 import Database from 'better-sqlite3';
-import { KnowledgeBase, seedTaxRates } from '../src/experts/knowledge-base.js';
+import { KnowledgeBase, seedTaxRates } from '../src/expertises/knowledge-base.js';
 
 let passed = 0, failed = 0;
 const failures = [];
@@ -148,7 +148,7 @@ up(seedDb);
 const seedKb = new KnowledgeBase(seedDb);
 
 // Import RATES constant
-const { RATES } = await import('../src/experts/tools/tax-rates.js');
+const { RATES } = await import('../src/expertises/tools/tax-rates.js');
 
 it('seedTaxRates imports successfully', () => {
   const count = seedTaxRates(seedKb, RATES);

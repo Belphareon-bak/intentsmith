@@ -792,15 +792,15 @@ test('T37: SessionState.loadFromStorage restores from ConversationStore', () => 
   // Save a state
   const original = new SessionState('test-37');
   original.setProject({ id: 'p2', name: 'Loaded Project' });
-  original.setExpert({ id: 'e1', name: 'Security' }, { locked: true });
+  original.setExpertise({ id: 'e1', name: 'Security' }, { locked: true });
   original.saveToStorage();
 
   // Load it back
   const restored = SessionState.loadFromStorage('test-37');
   assert.ok(restored, 'Should restore from DB');
   assert.equal(restored.project.id, 'p2');
-  assert.equal(restored.expert.id, 'e1');
-  assert.equal(restored.expertLocked, true);
+  assert.equal(restored.expertise.id, 'e1');
+  assert.equal(restored.expertiseLocked, true);
 });
 
 test('T38: SessionState.clearFromStorage removes from ConversationStore', () => {

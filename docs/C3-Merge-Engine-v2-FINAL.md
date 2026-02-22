@@ -693,7 +693,7 @@ GET /api/merge-preview?expertises=java-spring-dev,clean-code&specialist=null
  *
  * @param {ExpertiseDefinition[]} expertises - Max 3, each with weight
  * @param {SpecialistOverride|null} specialistOverride
- * @param {Object|null} userContext - key-value pairs from expert_memory
+ * @param {Object|null} userContext - key-value pairs from expertise_memory
  * @returns {Frozen<{ prompt, metadata, audit }>}
  */
 function mergeExpertisePrompt(expertises, specialistOverride, userContext) {
@@ -809,7 +809,7 @@ FÁZE 1: Foundations (4-5 dní)
   ├─ Modules format + JSDoc contract
   ├─ 5D Capability vector definition
   ├─ Migrovat 14 expertíz na modules formát + capabilities
-  ├─ ExpertiseAgent class (replaces ExpertAgent)
+  ├─ ExpertiseAgent class
   ├─ Inheritance: parentId, inheritanceMode, resolveInheritance()
   ├─ Expertise Registry v2 (categories, tags, parent, capabilities)
   └─ DB schema: conversation_expertises (N:M, max 3)

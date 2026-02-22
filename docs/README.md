@@ -1,6 +1,6 @@
 # C3-Agent v65.2
 
-Conversational AI platforma s CRE decision enginem, CRE Gatekeeper audit trail, 15 domain experty s 5D capability profily, multi-expertise merge enginem, enforcement pipeline, execution trace observability, SHELL intent pro terminal, Project Lifecycle s real test execution a C3 Studio IDE (Theia 1.65.2).
+Conversational AI platforma s CRE decision enginem, CRE Gatekeeper audit trail, 15 domain expertyzami s 5D capability profily, multi-expertise merge enginem, enforcement pipeline, execution trace observability, SHELL intent pro terminal, Project Lifecycle s real test execution a C3 Studio IDE (Theia 1.65.2).
 
 ## Spusteni
 
@@ -36,7 +36,7 @@ Vsechny promenne se nacitaji z `.env` souboru pres `dotenv`. Viz `.env.example` 
 | Server | `C3_PORT`, `C3_HOST`, `C3_CORS_ORIGINS` | HTTP server |
 | Modely | `C3_MODEL_D1`, `C3_MODEL_D2`, `C3_MODEL_CODE`, `C3_MODEL_R1`, `C3_MODEL_R2`, `C3_MODEL_CHAT`, `C3_MODEL_VISION` | Ollama modely pro jednotlive role |
 | Ollama | `OLLAMA_URL` | Adresa Ollama serveru |
-| Features | `C3_ENABLE_AGENTS`, `C3_ENABLE_LIFECYCLE`, `C3_ENABLE_EXPERTS` | Zapnuti/vypnuti modulu |
+| Features | `C3_ENABLE_AGENTS`, `C3_ENABLE_LIFECYCLE`, `C3_ENABLE_EXPERTISES` | Zapnuti/vypnuti modulu |
 | Databaze | `C3_DB_PATH` | Cesta k SQLite souboru |
 | Lifecycle | `C3_LIFECYCLE_REVIEW_FREQ`, `C3_MAX_MILESTONE_LOC`, `C3_MAX_MILESTONE_FILES` | Nastaveni projektu |
 | Notifikace | `C3_SMTP_*`, `C3_TELEGRAM_*`, `C3_NTFY_*` | Email, Telegram, push kanaly |
@@ -59,7 +59,7 @@ Vsechny promenne se nacitaji z `.env` souboru pres `dotenv`. Viz `.env.example` 
 
 | Dokument | Popis |
 |----------|-------|
-| [EXPERTS.md](EXPERTS.md) | Expert Layer — 15 expertu, 5D capability profily, Merge Engine v2, enforcement pipeline |
+| [EXPERTISES.md](EXPERTISES.md) | Expertise Layer — 15 expertyz, 5D capability profily, Merge Engine v2, enforcement pipeline |
 | [SPECIALISTS.md](SPECIALISTS.md) | Specialist system — Accountant (deterministicke nastroje), budouci specialiste |
 | [WORKERS.md](WORKERS.md) | Worker agenty — Runner, Scheduler, zdroje, podminky, triggery, notifikace |
 
@@ -112,17 +112,17 @@ c3-agent-wip/
 │   │   └── handlers/
 │   │       ├── conversation.js    # ConversationHandler — routing
 │   │       ├── clarification.js   # Clarification resolution (v64.0)
-│   │       ├── expert.js          # Expert handler — single + merge path
+│   │       ├── expertise.js        # Expertise handler — single + merge path
 │   │       ├── decisions.js       # Decision sub-handlers
 │   │       └── utils/
 │   │           ├── synthesis.js   # LLM synteza + Output Gate (D6)
 │   │           ├── followup.js    # Follow-up detection (v64.0)
 │   │           ├── quality.js     # Quality evaluators
 │   │           └── language-enforcement.js  # SK→CZ, EN detekce
-│   ├── experts/                   # Expert System (v63)
-│   │   ├── expert-layer.js        # 15 built-in experts, ExpertAgent, resolveInheritance()
-│   │   ├── expert-store.js        # Expert config persistence + validation
-│   │   ├── expert-enforcement.js  # ExpertEnforcer: retry, strict mode, audit trail
+│   ├── expertises/                # Expertise System (v63)
+│   │   ├── expertise-layer.js     # 15 built-in expertises, ExpertiseAgent, resolveInheritance()
+│   │   ├── expertise-store.js     # Expertise config persistence + validation
+│   │   ├── expertise-enforcement.js # ExpertiseEnforcer: retry, strict mode, audit trail
 │   │   ├── merge-engine.js        # mergeExpertisePrompt() — 15.5-step pure function
 │   │   ├── merge-types.js         # MERGE_LIMITS, MODULE_SECTIONS, errors
 │   │   ├── merge-compatibility.js # checkCompatibility() — 5D conflict detection
@@ -174,7 +174,7 @@ c3-agent-wip/
 | SHELL | Prikaz v terminalu | "spust npm test", "git status" |
 | FILE_READ | Cteni souboru | "precti package.json" |
 | FILE_EXPLAIN | Vysvetleni souboru | "vysvetli co dela server.js" |
-| ITEM_LOOKUP | Vyhledani entity | "najdi experta na React" |
+| ITEM_LOOKUP | Vyhledani entity | "najdi expertyzu na React" |
 
 ## Testy
 
@@ -183,15 +183,15 @@ c3-agent-wip/
 node tests/cre-comprehensive.test.js      # 401
 node tests/cre-gatekeeper.test.js          # 43
 
-# Expert system + merge engine (217 testu)
+# Expertise system + merge engine (217 testu)
 node tests/merge-engine.test.js            # 40
 node tests/merge-compatibility.test.js     # 16
 node tests/merge-enforcement-integration.test.js  # 15
 node tests/capability-enforcer.test.js     # 38
 node tests/execution-trace-stress.test.js  # 20
 node tests/expertise-wizard.test.js        # 38
-node tests/expert-system.test.js           # 40
-node tests/expert-integration.test.js      # 10
+node tests/expertise-system.test.js         # 40
+node tests/expertise-integration.test.js   # 10
 
 # Schema migrations
 node tests/schema-migrations.test.js       # 26

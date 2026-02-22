@@ -34,8 +34,8 @@ export const ChatMode = Object.freeze({
   CONVERSATION: 'conversation',
   /** Project-scoped work with focus locking */
   PROJECT: 'project',
-  /** Domain expert consultation */
-  EXPERT: 'expert',
+  /** Domain expertise consultation */
+  EXPERTISE: 'expert',
   /** Autonomous agent execution */
   AGENT: 'agent',
 });
@@ -48,8 +48,8 @@ export const ChatMode = Object.freeze({
 export const ResponseSpeaker = Object.freeze({
   /** Main CRE system */
   SYSTEM: 'system',
-  /** Domain expert */
-  EXPERT: 'expert',
+  /** Domain expertise */
+  EXPERTISE: 'expert',
   /** Autonomous agent */
   AGENT: 'agent',
   /** User (for echo/confirmation) */
@@ -263,11 +263,11 @@ export class ModeDetection {
 export class ModeDetector {
   #patterns;
   #projectContext;
-  #expertRegistry;
+  #expertiseRegistry;
 
-  constructor({ projectContext = null, expertRegistry = null } = {}) {
+  constructor({ projectContext = null, expertiseRegistry = null } = {}) {
     this.#projectContext = projectContext;
-    this.#expertRegistry = expertRegistry;
+    this.#expertiseRegistry = expertiseRegistry;
     this.#patterns = this.#initPatterns();
   }
 
@@ -309,7 +309,7 @@ export class ModeDetector {
     const scores = {
       [ChatMode.CONVERSATION]: 0,
       [ChatMode.PROJECT]: 0,
-      [ChatMode.EXPERT]: 0,
+      [ChatMode.EXPERTISE]: 0,
       [ChatMode.AGENT]: 0,
     };
 
@@ -329,9 +329,9 @@ export class ModeDetector {
       signals.push({ type: 'context', mode: ChatMode.PROJECT, reason: 'active_project' });
     }
 
-    if (context.requestedExpert) {
-      scores[ChatMode.EXPERT] += 3;
-      signals.push({ type: 'explicit', mode: ChatMode.EXPERT, expert: context.requestedExpert });
+    if (context.requestedExpertise) {
+      scores[ChatMode.EXPERTISE] += 3;
+      signals.push({ type: 'explicit', mode: ChatMode.EXPERTISE, expert: context.requestedExpertise });
     }
 
     if (context.requestedAgent) {
@@ -524,8 +524,8 @@ export class ChatController {
     // If auto-detected EXPERT but no expert is actually selected, fall back to
     // CONVERSATION. Prevents ExpertHandler from hijacking generic queries.
     // ════════════════════════════════════════════════════════════════════════════
-    if (targetMode === ChatMode.EXPERT && !context.expert?.id && !context.requestedExpert) {
-      logger.info('ModeGuard', 'EXPERT mode without active expert — falling back to CONVERSATION', {
+    if (targetMode === ChatMode.EXPERTISE && !context.expertise?.id && !context.requestedExpertise) {
+      logger.info('ModeGuard', 'EXPERTISE mode without active expertise — falling back to CONVERSATION', {
         input: input.substring(0, 60),
         detectedConfidence: detection?.confidence,
       });
@@ -533,8 +533,8 @@ export class ChatController {
       detection = new ModeDetection({
         mode: ChatMode.CONVERSATION,
         confidence: 0.8,
-        signals: [{ type: 'fallback', mode: ChatMode.CONVERSATION, reason: 'no_active_expert' }],
-        reason: 'Expert mode detected but no expert selected - falling back',
+        signals: [{ type: 'fallback', mode: ChatMode.CONVERSATION, reason: 'no_active_expertise' }],
+        reason: 'Expertise mode detected but no expertise selected - falling back',
       });
     }
 
@@ -637,9 +637,9 @@ export class ChatController {
       return ChatMode.PROJECT;
     }
 
-    // Expert mode is sticky when expert is active
-    if (context.hasActiveExpert && context.expert?.id) {
-      return ChatMode.EXPERT;
+    // Expertise mode is sticky when expertise is active
+    if (context.hasActiveExpertise && context.expertise?.id) {
+      return ChatMode.EXPERTISE;
     }
 
     // No sticky mode
@@ -751,7 +751,7 @@ export class ChatController {
 export class SessionState {
   #sessionId;
   #project;      // Active project { id, name, path, scope }
-  #expert;       // Active expert { id, name, domain }
+  #expertise;    // Active expertise { id, name, domain }
   #preferences;  // User preferences
   #updatedAt;
 
@@ -766,8 +766,8 @@ export class SessionState {
   // v44.2+ - Project working memory (contextual state)
   #projectWorkingMemory; // { goal, activeFile, lastArtifactId }
 
-  // v44.3 - Expert lock (CRE cannot override when locked)
-  #expertLocked;         // When true, CRE cannot auto-change expert
+  // v44.3 - Expertise lock (CRE cannot override when locked)
+  #expertiseLocked;      // When true, CRE cannot auto-change expertise
 
   // v58.0 - Active design project (DESIGN intent state)
   #activeDesignProject;  // { type, defaults, startedAt, phase, turnCount, language }
@@ -775,7 +775,7 @@ export class SessionState {
   constructor(sessionId) {
     this.#sessionId = sessionId;
     this.#project = null;
-    this.#expert = null;
+    this.#expertise = null;
     this.#preferences = {};
     this.#updatedAt = Date.now();
 
@@ -795,8 +795,8 @@ export class SessionState {
       driftCount: 0,        // v44.5 - Count of goal drift warnings (2nd+ = block)
     };
 
-    // v44.3 - Expert is not locked by default
-    this.#expertLocked = false;
+    // v44.3 - Expertise is not locked by default
+    this.#expertiseLocked = false;
 
     // v58.0 - No active design project by default
     this.#activeDesignProject = null;
@@ -804,12 +804,12 @@ export class SessionState {
 
   get sessionId() { return this.#sessionId; }
   get project() { return this.#project; }
-  get expert() { return this.#expert; }
+  get expertise() { return this.#expertise; }
   get preferences() { return { ...this.#preferences }; }
   get hasActiveProject() { return this.#project !== null && this.#project.id !== null; }
-  get hasActiveExpert() { return this.#expert !== null && this.#expert.id !== null; }
-  // v44.3 - Expert lock state
-  get expertLocked() { return this.#expertLocked; }
+  get hasActiveExpertise() { return this.#expertise !== null && this.#expertise.id !== null; }
+  // v44.3 - Expertise lock state
+  get expertiseLocked() { return this.#expertiseLocked; }
 
   // v44.2 - Conversation state getters
   get lastIntent() { return this.#lastIntent; }
@@ -894,60 +894,60 @@ export class SessionState {
   }
 
   /**
-   * Set active expert
+   * Set active expertise
    * v44.3 - Now supports locking (CRE cannot override when locked)
    *
-   * @param {Object|null} expert - { id, name, domain? }
+   * @param {Object|null} expertise - { id, name, domain? }
    * @param {Object} options - { locked?: boolean, force?: boolean }
    */
-  setExpert(expert, options = {}) {
+  setExpertise(expertise, options = {}) {
     const { locked = true, force = false } = options;
 
-    // v44.3 - Check if expert is locked and this isn't a forced change
-    if (this.#expertLocked && !force && expert?.id !== this.#expert?.id) {
-      // Expert is locked, cannot change without force
+    // v44.3 - Check if expertise is locked and this isn't a forced change
+    if (this.#expertiseLocked && !force && expertise?.id !== this.#expertise?.id) {
+      // Expertise is locked, cannot change without force
       return this;
     }
 
-    if (expert && !expert.id) {
-      throw new Error('Expert must have an id');
+    if (expertise && !expertise.id) {
+      throw new Error('Expertise must have an id');
     }
-    this.#expert = expert ? { ...expert } : null;
+    this.#expertise = expertise ? { ...expertise } : null;
 
-    // v44.3 - Lock expert when explicitly set by user (default)
-    // Unlock when expert is cleared
-    this.#expertLocked = expert ? locked : false;
+    // v44.3 - Lock expertise when explicitly set by user (default)
+    // Unlock when expertise is cleared
+    this.#expertiseLocked = expertise ? locked : false;
 
     this.#updatedAt = Date.now();
     return this;
   }
 
   /**
-   * v44.3 - Lock the current expert (prevent CRE from changing)
+   * v44.3 - Lock the current expertise (prevent CRE from changing)
    */
-  lockExpert() {
-    if (this.#expert) {
-      this.#expertLocked = true;
+  lockExpertise() {
+    if (this.#expertise) {
+      this.#expertiseLocked = true;
       this.#updatedAt = Date.now();
     }
     return this;
   }
 
   /**
-   * v44.3 - Unlock the expert (allow CRE to change)
+   * v44.3 - Unlock the expertise (allow CRE to change)
    */
-  unlockExpert() {
-    this.#expertLocked = false;
+  unlockExpertise() {
+    this.#expertiseLocked = false;
     this.#updatedAt = Date.now();
     return this;
   }
 
   /**
-   * v44.3 - Check if expert can be changed (for CRE)
-   * Returns true if expert is not set or not locked
+   * v44.3 - Check if expertise can be changed (for CRE)
+   * Returns true if expertise is not set or not locked
    */
-  canChangeExpert() {
-    return !this.#expert || !this.#expertLocked;
+  canChangeExpertise() {
+    return !this.#expertise || !this.#expertiseLocked;
   }
 
   /**
@@ -960,12 +960,12 @@ export class SessionState {
   }
 
   /**
-   * Clear expert
+   * Clear expertise
    * v44.3 - Also clears the lock
    */
-  clearExpert() {
-    this.#expert = null;
-    this.#expertLocked = false;
+  clearExpertise() {
+    this.#expertise = null;
+    this.#expertiseLocked = false;
     this.#updatedAt = Date.now();
     return this;
   }
@@ -1126,8 +1126,8 @@ export class SessionState {
     return {
       sessionId: this.#sessionId,
       project: this.#project,
-      expert: this.#expert,
-      expertLocked: this.#expertLocked, // v44.3
+      expertise: this.#expertise,
+      expertiseLocked: this.#expertiseLocked, // v44.3
       preferences: this.#preferences,
       updatedAt: this.#updatedAt,
       // v44.2 - Conversation state
@@ -1200,9 +1200,10 @@ export class SessionState {
   static fromJSON(json) {
     const state = new SessionState(json.sessionId);
     if (json.project) state.setProject(json.project);
-    // v44.3 - Restore expert with locked state
-    if (json.expert) {
-      state.setExpert(json.expert, { locked: json.expertLocked ?? true, force: true });
+    // v44.3 - Restore expertise with locked state (backward compat: fallback to old keys)
+    const expertiseData = json.expertise ?? json.expert ?? null;
+    if (expertiseData) {
+      state.setExpertise(expertiseData, { locked: json.expertiseLocked ?? json.expertLocked ?? true, force: true });
     }
     if (json.preferences) {
       for (const [key, value] of Object.entries(json.preferences)) {
@@ -1465,12 +1466,12 @@ class ChatSessionManager {
   }
 
   /**
-   * Set expert for a session
+   * Set expertise for a session
    * v44.3 - Now auto-saves to localStorage
    */
-  setExpert(sessionId, expert, options = {}) {
+  setExpertise(sessionId, expertise, options = {}) {
     const state = this.getState(sessionId);
-    state.setExpert(expert, options);
+    state.setExpertise(expertise, options);
     // v44.3 - Auto-save to localStorage
     state.saveToStorage();
     return state;
@@ -1570,12 +1571,12 @@ const sessionManager = new ChatSessionManager();
  * @param {string} request.sessionId - Session ID
  * @param {string} [request.userId] - User ID
  * @param {Object} [request.project] - Project to set/use { id, name, ... }
- * @param {Object} [request.expert] - Expert to set/use { id, name, ... }
+ * @param {Object} [request.expertise] - Expertise to set/use { id, name, ... }
  * @param {Object} [request.context] - Additional context
  * @returns {Promise<{response: string, mode: string, confidence: number, metadata: Object}>}
  */
 ChatController.handle = async function(request) {
-  const { message, sessionId, userId, project, expert, signal, context = {} } = request;
+  const { message, sessionId, userId, project, expertise, signal, context = {} } = request;
 
   if (!message) {
     return {
@@ -1682,12 +1683,12 @@ ChatController.handle = async function(request) {
     }
   }
 
-  // If expert provided in request, update state
-  if (expert !== undefined) {
-    if (expert === null) {
-      state.clearExpert();
-    } else if (expert.id) {
-      state.setExpert(expert);
+  // If expertise provided in request, update state
+  if (expertise !== undefined) {
+    if (expertise === null) {
+      state.clearExpertise();
+    } else if (expertise.id) {
+      state.setExpertise(expertise);
     }
   }
 
@@ -1700,13 +1701,13 @@ ChatController.handle = async function(request) {
     userId,
     // Persistent state from session (survives across requests)
     project: state.project,
-    expert: state.expert,
-    // v44.3 - Expert lock info for CRE
-    expertLocked: state.expertLocked,
-    canChangeExpert: state.canChangeExpert(),
+    expertise: state.expertise,
+    // v44.3 - Expertise lock info for CRE
+    expertiseLocked: state.expertiseLocked,
+    canChangeExpertise: state.canChangeExpertise(),
     // Convenience flags for handlers
     hasActiveProject: state.hasActiveProject,
-    hasActiveExpert: state.hasActiveExpert,
+    hasActiveExpertise: state.hasActiveExpertise,
     // v44.2 - Pass actual SessionState instance (not JSON) so handlers can call methods
     sessionState: state,
     // JSON version for debugging only
@@ -1796,8 +1797,8 @@ ChatController.handle = async function(request) {
     // Include current state in response so UI can stay in sync
     state: {
       project: state.project,
-      expert: state.expert,
-      expertLocked: state.expertLocked, // v44.3
+      expertise: state.expertise,
+      expertiseLocked: state.expertiseLocked, // v44.3
       // v44.2+ - Include working memory
       workingMemory: state.projectWorkingMemory,
     },
@@ -1829,14 +1830,14 @@ ChatController.setProject = function(sessionId, project) {
 };
 
 /**
- * Set expert for a session (v44.1)
+ * Set expertise for a session (v44.1)
  * v44.3 - Now supports locked option
  * @param {string} sessionId
- * @param {Object|null} expert - { id, name, domain? }
+ * @param {Object|null} expertise - { id, name, domain? }
  * @param {Object} [options] - { locked?: boolean, force?: boolean }
  */
-ChatController.setExpert = function(sessionId, expert, options = {}) {
-  return sessionManager.setExpert(sessionId, expert, options);
+ChatController.setExpertise = function(sessionId, expertise, options = {}) {
+  return sessionManager.setExpertise(sessionId, expertise, options);
 };
 
 /**

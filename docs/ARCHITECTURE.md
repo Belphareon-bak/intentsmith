@@ -1,6 +1,6 @@
 # C.3 Agent Platform — Architecture v65.6
 
-**Version:** v65.6 (Lifecycle Session Routing Fix, Agent Builder Wizard, Project Context, Expert Wizard)
+**Version:** v65.6 (Lifecycle Session Routing Fix, Agent Builder Wizard, Project Context, Expertise Wizard)
 **Status:** Production-ready, ~92% complete
 **Date:** 2026-02-19
 
@@ -13,7 +13,7 @@ C.3 is a conversational AI platform combining:
 1. **CRE (Conversational Reasoning Engine)** — Authoritative dialog management, intent classification, epistemic correctness
 2. **Agent Platform** — Deterministic worker agents with source fetching, conditions, triggers, notifications
 3. **Project Lifecycle** — Milestone-based project management with crash recovery
-4. **Expert System** — 15 domain specialists with 5D capability profiles, multi-expertise merge engine, enforcement pipeline
+4. **Expertise System** — 15 domain expertises with 5D capability profiles, multi-expertise merge engine, enforcement pipeline
 5. **Notification Pipeline** — Multi-channel delivery (email, Telegram, ntfy.sh push)
 
 All decisions flow through CRE — LLM is the text generator, never the authority.
@@ -42,9 +42,9 @@ All decisions flow through CRE — LLM is the text generator, never the authorit
 │   └──────────┬──────────┘           └────────────┬────────────┘     │
 │              │                                   │                   │
 │   ┌──────────▼──────────┐           ┌────────────▼────────────┐     │
-│   │  Expert System      │           │  Notification Pipeline  │     │
+│   │  Expertise System   │           │  Notification Pipeline  │     │
 │   │  (v63 Merge Engine) │           │                         │     │
-│   │  15 experts, 5D cap │           │  Policy → Router        │     │
+│   │  15 expertises,5D   │           │  Policy → Router        │     │
 │   │  Merge + Enforce    │           │  → Channel → Delivery   │     │
 │   └─────────────────────┘           │                         │     │
 │                                     │  → Trust Feedback       │     │
@@ -73,7 +73,7 @@ src/                             # 73,706 lines / 188 files / 20 directories
 ├── routes/                      # HTTP route handlers (split from server.js)
 │   ├── agents.js                #   Agent CRUD + schema + dry-run
 │   ├── projects.js              #   Projects + lifecycle/start
-│   ├── experts.js               #   Expert CRUD + merge-preview
+│   ├── expertises.js            #   Expertise CRUD + merge-preview
 │   ├── notifications.js         #   Notification endpoints
 │   ├── memory.js                #   Memory/preferences
 │   ├── chat.js                  #   Chat REST endpoints
@@ -133,10 +133,10 @@ src/                             # 73,706 lines / 188 files / 20 directories
 │   ├── lifecycle-build.js       #   BUILD phase implementation
 │   ├── progress-tracker.js      #   Milestone tracking
 │   └── project-context.js       #   Project metadata
-├── experts/                     # Phase D: Expert System (v63)
-│   ├── expert-layer.js          #   15 built-in experts, ExpertAgent class, resolveInheritance
-│   ├── expert-store.js          #   Expert config persistence + validation
-│   ├── expert-enforcement.js    #   ExpertEnforcer: forbidden phrases, retry with decay, strict mode
+├── expertises/                  # Phase D: Expertise System (v63)
+│   ├── expertise-layer.js       #   15 built-in expertises, ExpertiseAgent class, resolveInheritance
+│   ├── expertise-store.js       #   Expertise config persistence + validation
+│   ├── expertise-enforcement.js #   ExpertiseEnforcer: forbidden phrases, retry with decay, strict mode
 │   ├── merge-engine.js          #   mergeExpertisePrompt() — 15.5-step pure function
 │   ├── merge-types.js           #   MERGE_LIMITS, MODULE_SECTIONS, CompatibilityBlockError
 │   ├── merge-compatibility.js   #   checkCompatibility() — 5D pairwise conflict detection
@@ -281,14 +281,14 @@ SPEC → BUILD → REVIEW → next milestone or COMPLETED
 
 **Multi-session (C4):** New session auto-detects active lifecycle for same project. **v65.6 fix:** IDE lifecycle/start uses `session-0` but WS chat uses `ws-<random>` — resolved by RAM lookup via `getLcStateByProject(projectId)` which finds state under any sessionId and migrates it to the current WS session. DB fallback preserved as backup. Lifecycle/start now generates proper IDs (`lc-<timestamp>-<random>`) and stores them in RAM state.
 
-### 5. Expert System (v63 — Merge Engine)
+### 5. Expertise System (v63 — Merge Engine)
 
-15 built-in domain experts with 5D capability profiles, multi-expertise merge, and enforcement pipeline.
+15 built-in domain expertises with 5D capability profiles, multi-expertise merge, and enforcement pipeline.
 
 ```
-User Input → Expert Handler
+User Input → Expertise Handler
   │
-  ├─ Single expert? → systemPrompt + LLM
+  ├─ Single expertise? → systemPrompt + LLM
   │
   └─ Multiple expertises (max 3)?
        │
@@ -298,12 +298,12 @@ User Input → Expert Handler
        │    └─ validate → sort → inherit → merge modules → specialist
        │       → tone → temperature → trim tokens → build prompt → enforce
        ├─ STEP 4: LLM generation (with merged prompt + temperature)
-       ├─ STEP 5: ExpertEnforcer — forbidden phrases, min length, retry with decay
+       ├─ STEP 5: ExpertiseEnforcer — forbidden phrases, min length, retry with decay
        ├─ STEP 6: enforceCapabilities() — 5D drift detection (deterministic, no LLM)
        └─ STEP 7: logLlmExecution() — model, latency, prompt hash, token source
 ```
 
-**5D Capability Vector** (per expert, 0-100):
+**5D Capability Vector** (per expertise, 0-100):
 - `reasoning` — analytical depth
 - `creativity` — generative freedom
 - `determinism` — answer consistency
@@ -311,13 +311,13 @@ User Input → Expert Handler
 - `verbosity` — response length
 
 **Enforcement Pipeline:**
-- `ExpertEnforcer` — forbidden phrase check, retry with temperature decay (0.1/attempt), strict mode (hardFail)
+- `ExpertiseEnforcer` — forbidden phrase check, retry with temperature decay (0.1/attempt), strict mode (hardFail)
 - `enforceCapabilities()` — hedging ratio, caveat density, verbosity, structure scoring
 - `computeCapabilityDrift()` — per-dimension delta vs expected profile, violation threshold 40
 
 **ExecutionTrace (v63.3):**
 - One `executionTraceId` (UUID) per user turn
-- Connects: `llm_execution_log` → `ExpertEnforcer.retryAudit` → `capability_drift_log` → `merge_audit_log`
+- Connects: `llm_execution_log` → `ExpertiseEnforcer.retryAudit` → `capability_drift_log` → `merge_audit_log`
 - Prompt SHA-256 hash for determinism analysis
 - `token_source: 'provider' | 'estimated'`
 - `performance.now()` for sub-ms latency
@@ -378,8 +378,8 @@ Supported: CLI, Web, Slack, Discord, API. Each with capability presets (max mess
 | Agents | agents_v33, agent_runs_v33, agent_notifications_v33, agent_data_v33, agent_seen_items_v57, agent_schedule_v33 |
 | Projects | projects, project_lifecycles, milestones, change_requests, drift_checks |
 | Lifecycle | lifecycle_handoff_state (crash recovery) |
-| Experts | experts, conversation_experts, expert_memory, conversation_expertises (v63 N:M max 3) |
-| Expert Audit | merge_audit_log, capability_drift_log, llm_execution_log (v63.3) |
+| Expertises | expertises, expertise_bindings, expertise_memory, conversation_expertises (v63 N:M max 3) |
+| Expertise Audit | merge_audit_log, capability_drift_log, llm_execution_log (v63.3) |
 | CRE Audit | **cre_override_log** (v64.0 — Gatekeeper override/intercept audit trail) |
 | Memory | global_memory, user_memory, project_memory |
 | Workflows | workflow_sessions |
@@ -398,7 +398,7 @@ Vsechny promenne se nacitaji z `.env` souboru (`dotenv`). Viz `.env.example` pro
 features: {
   agents:    process.env.C3_ENABLE_AGENTS !== 'false',     // Phase B
   lifecycle: process.env.C3_ENABLE_LIFECYCLE !== 'false',  // Phase C
-  experts:   process.env.C3_ENABLE_EXPERTS !== 'false',    // Phase D
+  expertises: process.env.C3_ENABLE_EXPERTISES !== 'false', // Phase D (C3_ENABLE_EXPERTS deprecated)
 }
 ```
 
@@ -447,16 +447,16 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 | Workflow | 42 | Planner workflow |
 | Milestone size | 40 | Size validation, split suggestions |
 | Merge engine | 40 | Multi-expertise composition, token budget, inheritance |
-| Expert system | 40 | Single expert flow, built-in experts |
+| Expertise system | 40 | Single expertise flow, built-in expertises |
 | Expertise wizard | 38 | Validation, modules, capabilities |
 | Capability enforcer | 38 | 5D evaluators, drift, strict, retry, trace |
 | Trust feedback | 34 | Auto-degrade/mute |
-| Execution trace stress | 20 | 3-expert merge + strict + drift + trace reconstruction |
+| Execution trace stress | 20 | 3-expertise merge + strict + drift + trace reconstruction |
 | Agent runner | 20 | HUNTER, mark_seen |
 | Merge compatibility | 16 | 5D pairwise conflict detection |
-| Merge-enforcement integration | 15 | Merge → ExpertEnforcer pipeline |
+| Merge-enforcement integration | 15 | Merge → ExpertiseEnforcer pipeline |
 | Multi-source integration | 14 | RSS+HTTP, _merged, partial failure |
-| Expert integration | 10 | Expert + DB + handler pipeline |
+| Expertise integration | 10 | Expertise + DB + handler pipeline |
 | **E2E Quality Deep** | **36** | **LLM output quality: S/R/F/T categories (89% — 32/36)** |
 | + additional suites | ~50 | Various subsystems |
 
@@ -485,7 +485,7 @@ No LLM in the agent execution loop. Sources, conditions, triggers, and mark_seen
 
 ### 5. Feature Flags
 
-Agents, lifecycle, and experts are independently toggleable. Disabled features are never loaded (lazy import).
+Agents, lifecycle, and expertises are independently toggleable. Disabled features are never loaded (lazy import).
 
 ### 6. UTF-8 First
 
@@ -517,7 +517,7 @@ User clicks "+ Worker" → _awOpen('create')
 | B (Workers) | 80% | Runner, scheduler, sources, notifications, multi-source |
 | C (Lifecycle) | **99%** | Milestones, crash recovery, multi-session routing (v65.6), real test exec, hard size limits |
 | D-int (Integration) | 100% | Rate monitor auto-registration |
-| D (Experts) | **95%** | 15 built-in experts, merge engine, 5D capabilities, enforcement, wizard UI |
+| D (Expertises) | **95%** | 15 built-in expertises, merge engine, 5D capabilities, enforcement, wizard UI |
 | D-obs (Observability) | **100%** | ExecutionTrace ID, LLM execution log, capability drift log |
 | E (IDE) | **70%** | C3 Studio IDE (Theia 1.65.2), linked sessions, transport layer |
 | F (Packaging) | Planned | Docker, licensing, auto-updater |

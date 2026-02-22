@@ -30,7 +30,7 @@ import { logger } from '../core/logger.js';
 // HMAC secret — in production, embed a unique secret per build
 const LICENSE_SECRET = process.env.C3_LICENSE_SECRET || 'c3-agent-license-v1-default-secret';
 
-const TIERS = Object.freeze({
+export const TIERS = Object.freeze({
   FREE: 'FREE',
   PRO: 'PRO',
   ENTERPRISE: 'ENTERPRISE',

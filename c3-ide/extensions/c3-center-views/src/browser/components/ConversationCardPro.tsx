@@ -9,7 +9,7 @@ interface ConversationCardProProps {
     id: string;
     title: string;
     preview?: string;
-    expert?: string;
+    expertise?: string;
     messageCount?: number;
     timestamp?: Date;
     unread?: boolean;
@@ -39,9 +39,9 @@ export function ConversationCardPro({ conversation, onClick }: ConversationCardP
           <h3 className="text-base font-semibold text-c3-tx1 mb-1 line-clamp-1">
             {conversation.title}
           </h3>
-          {conversation.expert && (
+          {conversation.expertise && (
             <Badge variant="glass" className="text-xs">
-              {conversation.expert}
+              {conversation.expertise}
             </Badge>
           )}
         </div>

@@ -1,4 +1,4 @@
-// Expert Handler — extracted from handlers.js
+// Expertise Handler — extracted from handlers.js
 // v57.0 - Expert lifecycle with enforcement
 // Handles EXPERT mode - domain expertise
 
@@ -15,14 +15,14 @@ import {
   handleRefuseDecision,
 } from './decisions.js';
 import { randomUUID, createHash } from 'crypto';
-import { ExpertEnforcer, quickCheck } from '../../experts/expert-enforcement.js';
-import { enforceCapabilities } from '../../experts/capability-enforcer.js';
-import { mergeExpertisePrompt } from '../../experts/merge-engine.js';
-import { CompatibilityBlockError } from '../../experts/merge-types.js';
+import { ExpertiseEnforcer, quickCheck } from '../../expertises/expertise-enforcement.js';
+import { enforceCapabilities } from '../../expertises/capability-enforcer.js';
+import { mergeExpertisePrompt } from '../../expertises/merge-engine.js';
+import { CompatibilityBlockError } from '../../expertises/merge-types.js';
 
 // v63.2: Capability drift logging — always log, not just on failure
 // v63.3: executionTraceId + executionStep for cross-layer tracing
-async function logCapabilityDrift(conversationId, expertId, capabilityProfile, response, executionTraceId = null, executionStep = 'CAPABILITY') {
+async function logCapabilityDrift(conversationId, expertiseId, capabilityProfile, response, executionTraceId = null, executionStep = 'CAPABILITY') {
   if (!capabilityProfile || !response) return null;
   try {
     const result = enforceCapabilities(response, capabilityProfile);
@@ -32,7 +32,7 @@ async function logCapabilityDrift(conversationId, expertId, capabilityProfile, r
       capabilityDriftLog.log({
         conversationId,
         executionTraceId,
-        expertId,
+        expertiseId,
         mergedPromptHash: null, // populated by merge path
         expectedProfile: capabilityProfile,
         observedScores: result.scores,
@@ -65,8 +65,8 @@ async function logLlmExecution(entry) {
   }
 }
 
-export async function expertHandler(input, context) {
-  const { sessionId, expert, sessionState } = context;
+export async function expertiseHandler(input, context) {
+  const { sessionId, expertise, sessionState } = context;
 
   // v63.3: ExecutionTrace ID — one UUID per user turn, shared across all audit layers
   const executionTraceId = randomUUID();
@@ -84,10 +84,10 @@ export async function expertHandler(input, context) {
   // CASE 1: Expert IS selected - use CRE then apply expert persona
   // ════════════════════════════════════════════════════════════════════════════
 
-  if (expert && expert.id) {
-    logger.info('ExpertHandler', `Expert active: ${expert.name}`, {
-      expertId: expert.id,
-      domain: expert.domain || 'general',
+  if (expertise && expertise.id) {
+    logger.info('ExpertHandler', `Expertise active: ${expertise.name}`, {
+      expertiseId: expertise.id,
+      domain: expertise.domain || 'general',
     });
 
     // ════════════════════════════════════════════════════════════════════════
@@ -100,8 +100,8 @@ export async function expertHandler(input, context) {
     // v44.2+ - Use CRE decision engine WITH expert context
     const decision = creDecisionEngine.decide(input, {
       ...context,
-      hasActiveExpert: true,
-      expert: expert,
+      hasActiveExpertise: true,
+      expertise: expertise,
     });
 
     assertDecision(decision);
@@ -109,7 +109,7 @@ export async function expertHandler(input, context) {
     logger.info('ExpertHandler', `CRE Decision: ${decision.type}`, {
       intent: decision.intent,
       tools: decision.tools,
-      expert: expert.name,
+      expertise: expertise.name,
     });
 
     // ════════════════════════════════════════════════════════════════════════
@@ -121,20 +121,20 @@ export async function expertHandler(input, context) {
     // This ensures "kolik zaplatím z 850k" gets a precise calculation,
     // not an LLM estimate.
     // ════════════════════════════════════════════════════════════════════════
-    if (expert.styleRules?.toolEnforcement && decision.type === DecisionType.ANSWER) {
-      const { specialistRuntime } = await import('../../experts/specialist-runtime.js');
+    if (expertise.styleRules?.toolEnforcement && decision.type === DecisionType.ANSWER) {
+      const { specialistRuntime } = await import('../../expertises/specialist-runtime.js');
 
-      if (specialistRuntime.isSpecialist(expert.id)) {
+      if (specialistRuntime.isSpecialist(expertise.id)) {
         try {
-          const toolResult = await specialistRuntime.tryToolExecution(expert.id, input);
+          const toolResult = await specialistRuntime.tryToolExecution(expertise.id, input);
 
           if (toolResult) {
             logger.info('ExpertHandler', 'Specialist tool interception: ANSWER → TOOL_CALL', {
               toolType: toolResult.toolType,
-              expert: expert.id,
+              expertise: expertise.id,
             });
 
-            const toolResponse = await executeSpecialistTool(input, toolResult, expert, context);
+            const toolResponse = await executeSpecialistTool(input, toolResult, expertise, context);
             return toolResponse;
           }
         } catch (err) {
@@ -155,7 +155,7 @@ export async function expertHandler(input, context) {
 
         // If tool succeeded, wrap response with expert persona
         if (toolResult.tag?.metadata?.executionStatus === 'SUCCESS') {
-          return await wrapWithExpertPersona(input, toolResult, expert, context);
+          return await wrapWithExpertisePersona(input, toolResult, expertise, context);
         }
         return toolResult;
 
@@ -165,7 +165,7 @@ export async function expertHandler(input, context) {
       case DecisionType.ANSWER:
         // v44.6 - For CONVERSATIONAL, expert answers directly (no tools!)
         // This is the correct flow - expert uses their knowledge
-        return await generateExpertResponse(input, expert, context);
+        return await generateExpertiseResponse(input, expertise, context);
 
       default:
         return handleRefuseDecision(input, decision, context);
@@ -180,12 +180,12 @@ export async function expertHandler(input, context) {
 
   const tag = new ResponseTag({
     speaker: ResponseSpeaker.SYSTEM,
-    mode: ChatMode.EXPERT,
+    mode: ChatMode.EXPERTISE,
     confidence: 1.0,
     canExecute: false,
     metadata: {
       decision: { type: 'ASK_USER', reason: 'EXPERT_REQUIRED' },
-      slots: ['expert'],
+      slots: ['expertise'],
       awaitingSelection: true,
     },
   });
@@ -200,9 +200,9 @@ export async function expertHandler(input, context) {
 
 /**
  * v57.0 - Generate direct expert response with enforcement
- * Uses expert.temperature, expert.getSynthesisHints(), and forbiddenPhrases enforcement
+ * Uses expertise.temperature, expertise.getSynthesisHints(), and forbiddenPhrases enforcement
  */
-async function generateExpertResponse(input, expert, context) {
+async function generateExpertiseResponse(input, expertise, context) {
   const { sessionId } = context;
 
   try {
@@ -210,7 +210,7 @@ async function generateExpertResponse(input, expert, context) {
     const creBridge = await import('../../llm/cre-bridge.js');
 
     // v57.0 - Build expert system prompt with synthesis hints
-    const expertSystemPrompt = await buildExpertSystemPrompt(expert);
+    const expertiseSystemPrompt = await buildExpertiseSystemPrompt(expertise);
 
     // Build prompt with context
     let prompt = input;
@@ -222,18 +222,18 @@ async function generateExpertResponse(input, expert, context) {
       prompt = `Previous context:\n${historyContext}\n\nUser question: ${input}`;
     }
 
-    // v57.0 - Use expert.temperature instead of hard-coded 0.5
-    const temperature = expert.temperature ?? 0.5;
+    // v57.0 - Use expertise.temperature instead of hard-coded 0.5
+    const temperature = expertise.temperature ?? 0.5;
 
     // v57.0 - Get synthesis hints for metadata
-    const synthesisHints = expert.getSynthesisHints ? expert.getSynthesisHints() : null;
+    const synthesisHints = expertise.getSynthesisHints ? expertise.getSynthesisHints() : null;
 
     // Create regeneration function for enforcement
     // v63.2: Accept retryOptions for temperature decay + seed
     const regenerateFn = async (retryPrompt, violations, retryOptions) => {
       const decay = retryOptions?.temperatureDecay || 0.1;
       const retryTemp = Math.max(0.1, temperature - decay); // floor 0.1
-      const retryResult = await creBridge.generateChatResponse(retryPrompt, expertSystemPrompt, {
+      const retryResult = await creBridge.generateChatResponse(retryPrompt, expertiseSystemPrompt, {
         sessionId: `expert-${sessionId}-retry`,
         temperature: retryTemp,
         seed: retryOptions?.seed,
@@ -244,7 +244,7 @@ async function generateExpertResponse(input, expert, context) {
     // Call LLM with expert persona
     // v63.3: Capture timing for LLM execution log (performance.now() for sub-ms precision)
     const llmStart = performance.now();
-    const result = await creBridge.generateChatResponse(prompt, expertSystemPrompt, {
+    const result = await creBridge.generateChatResponse(prompt, expertiseSystemPrompt, {
       sessionId: `expert-${sessionId}`,
       temperature,
     });
@@ -256,25 +256,25 @@ async function generateExpertResponse(input, expert, context) {
       executionTraceId,
       conversationId: sessionId,
       executionStep: 'LLM',
-      expertId: expert.id,
+      expertiseId: expertise.id,
       model: result.model || null,
       temperature,
-      promptHash: hashPrompt(prompt + expertSystemPrompt),
+      promptHash: hashPrompt(prompt + expertiseSystemPrompt),
       promptTokens: result.promptTokens ?? null,
       completionTokens: result.completionTokens ?? null,
       latencyMs: llmLatency,
       tokenSource: singleTokenSource,
       metadata: {
         promptLength: prompt.length,
-        systemPromptLength: expertSystemPrompt.length,
+        systemPromptLength: expertiseSystemPrompt.length,
       },
     });
 
     // v57.0 - ENFORCE: Check response against expert rules with retry
     // v63.2: Strict mode for experts with toolEnforcement (e.g. accountant)
     // v63.3: Pass executionTraceId for retry audit trail
-    const enforcer = new ExpertEnforcer(expert, regenerateFn, {
-      strict: !!expert.styleRules?.strictToolEnforcement,
+    const enforcer = new ExpertiseEnforcer(expertise, regenerateFn, {
+      strict: !!expertise.styleRules?.strictToolEnforcement,
       executionTraceId,
     });
     const enforcement = await enforcer.enforce(result.content, input);
@@ -282,7 +282,7 @@ async function generateExpertResponse(input, expert, context) {
     // Log enforcement results
     if (enforcement.wasRetried) {
       logger.info('ExpertHandler', `Response regenerated after ${enforcement.attempts} attempts`, {
-        expert: expert.id,
+        expertise: expertise.id,
         passed: enforcement.passed,
       });
     }
@@ -290,19 +290,19 @@ async function generateExpertResponse(input, expert, context) {
     // v63.2: Hard fail — strict enforcement suppressed the response
     if (enforcement.hardFail) {
       logger.warn('ExpertHandler', 'Strict enforcement hard fail', {
-        expert: expert.id,
+        expertise: expertise.id,
         violations: enforcement.violations,
         attempts: enforcement.attempts,
         executionTraceId,
       });
       const failTag = new ResponseTag({
-        speaker: ResponseSpeaker.EXPERT,
-        mode: ChatMode.EXPERT,
+        speaker: ResponseSpeaker.EXPERTISE,
+        mode: ChatMode.EXPERTISE,
         confidence: 0.0,
         canExecute: false,
         metadata: {
           ...(context.debug ? { executionTraceId } : {}),
-          expert: { id: expert.id, name: expert.name, domain: expert.domain },
+          expertise: { id: expertise.id, name: expertise.name, domain: expertise.domain },
           hardFail: true,
           enforcement: {
             passed: false,
@@ -319,12 +319,12 @@ async function generateExpertResponse(input, expert, context) {
     }
 
     // v57.2 - Tool enforcement for direct expert responses (no tool data = all numbers unbacked)
-    if (expert.styleRules?.toolEnforcement) {
-      const guard = await import('../../experts/guards/tool-enforcement.js');
+    if (expertise.styleRules?.toolEnforcement) {
+      const guard = await import('../../expertises/guards/tool-enforcement.js');
       const numericVerdict = guard.verifyNumericClaims(enforcement.response, []);
       if (!numericVerdict.ok) {
         logger.warn('ExpertHandler', 'Direct expert response has unbacked numbers', {
-          expert: expert.id,
+          expertise: expertise.id,
           unbacked: numericVerdict.unbacked.length,
         });
         enforcement.response += '\n\n---\n*⚠️ Uvedená čísla nebyla ověřena z externích zdrojů.*';
@@ -333,17 +333,17 @@ async function generateExpertResponse(input, expert, context) {
 
     // Build response tag with enforcement metadata
     const tag = new ResponseTag({
-      speaker: ResponseSpeaker.EXPERT,
-      mode: ChatMode.EXPERT,
+      speaker: ResponseSpeaker.EXPERTISE,
+      mode: ChatMode.EXPERTISE,
       confidence: enforcement.passed ? 0.9 : 0.7,
       canExecute: false,
       metadata: {
         ...(context.debug ? { executionTraceId } : {}),
-        expert: {
-          id: expert.id,
-          name: expert.name,
-          domain: expert.domain,
-          strength: expert.strength,
+        expertise: {
+          id: expertise.id,
+          name: expertise.name,
+          domain: expertise.domain,
+          strength: expertise.strength,
         },
         model: result.model,
         duration: result.duration,
@@ -365,7 +365,7 @@ async function generateExpertResponse(input, expert, context) {
     let finalContent = enforcement.response;
     if (!enforcement.passed && enforcement.warning) {
       logger.warn('ExpertHandler', `Expert response kept despite violations`, {
-        expert: expert.id,
+        expertise: expertise.id,
         violations: enforcement.violations,
       });
       // Don't show warning to user, just log it
@@ -373,8 +373,8 @@ async function generateExpertResponse(input, expert, context) {
 
     // v63.2: Capability drift logging — ALWAYS log, not just on failure
     // v63.3: Pass executionTraceId for cross-layer tracing
-    if (expert.capabilities && finalContent) {
-      logCapabilityDrift(sessionId, expert.id, expert.capabilities, finalContent, executionTraceId);
+    if (expertise.capabilities && finalContent) {
+      logCapabilityDrift(sessionId, expertise.id, expertise.capabilities, finalContent, executionTraceId);
     }
 
     return new TaggedResponse({
@@ -387,19 +387,19 @@ async function generateExpertResponse(input, expert, context) {
 
     const tag = new ResponseTag({
       speaker: ResponseSpeaker.SYSTEM,
-      mode: ChatMode.EXPERT,
+      mode: ChatMode.EXPERTISE,
       confidence: 1.0,
       canExecute: false,
       metadata: {
         error: true,
         errorType: 'EXPERT_LLM_FAILED',
-        expert: expert.id,
+        expertise: expertise.id,
       },
     });
 
     return new TaggedResponse({
       content: `⚠️ **Chyba experta**\n\n` +
-               `Expert "${expert.name}" nemohl zpracovat dotaz.\n\n` +
+               `Expert "${expertise.name}" nemohl zpracovat dotaz.\n\n` +
                `**Důvod:** ${err.message}`,
       tag,
     });
@@ -409,12 +409,12 @@ async function generateExpertResponse(input, expert, context) {
 /**
  * v57.0 - Wrap tool execution result with expert persona
  * Takes raw tool results and has expert interpret them
- * Uses expert.temperature and enforcement
+ * Uses expertise.temperature and enforcement
  */
-async function wrapWithExpertPersona(input, toolResult, expert, context) {
+async function wrapWithExpertisePersona(input, toolResult, expertise, context) {
   try {
     const creBridge = await import('../../llm/cre-bridge.js');
-    const expertSystemPrompt = await buildExpertSystemPrompt(expert);
+    const expertiseSystemPrompt = await buildExpertiseSystemPrompt(expertise);
 
     // Build prompt that includes tool results
     const toolContent = toolResult.content || '';
@@ -425,30 +425,30 @@ ${toolContent}
 
 Based on these results, provide your expert analysis and response.`;
 
-    // v57.0 - Use expert.temperature
-    const temperature = expert.temperature ?? 0.5;
+    // v57.0 - Use expertise.temperature
+    const temperature = expertise.temperature ?? 0.5;
 
-    const result = await creBridge.generateChatResponse(prompt, expertSystemPrompt, {
+    const result = await creBridge.generateChatResponse(prompt, expertiseSystemPrompt, {
       sessionId: `expert-${context.sessionId}`,
       temperature,
     });
 
     // v57.0 - Quick check for forbidden phrases (no retry for wrapping)
-    const check = quickCheck(result.content, expert);
+    const check = quickCheck(result.content, expertise);
     if (!check.passed) {
       logger.warn('ExpertHandler', 'Expert wrap response had violations', {
-        expert: expert.id,
+        expertise: expertise.id,
         violations: check.violations,
       });
     }
 
     const tag = new ResponseTag({
-      speaker: ResponseSpeaker.EXPERT,
-      mode: ChatMode.EXPERT,
+      speaker: ResponseSpeaker.EXPERTISE,
+      mode: ChatMode.EXPERTISE,
       confidence: check.passed ? 0.9 : 0.75,
       canExecute: false,
       metadata: {
-        expert: { id: expert.id, name: expert.name, domain: expert.domain },
+        expertise: { id: expertise.id, name: expertise.name, domain: expertise.domain },
         toolResults: toolResult.tag?.metadata?.toolResults,
         model: result.model,
         temperature,
@@ -471,21 +471,21 @@ Based on these results, provide your expert analysis and response.`;
 /**
  * v57.0 - Build expert system prompt based on expert profile
  * D-int3: Now async — injects memory context for {{ memory_context }} placeholder
- * Uses expert.getSynthesisHints() for style guidance
+ * Uses expertise.getSynthesisHints() for style guidance
  */
-async function buildExpertSystemPrompt(expert) {
-  const basePrompt = `You are ${expert.name}, an expert in ${expert.domain || 'technology'}.
+async function buildExpertiseSystemPrompt(expertise) {
+  const basePrompt = `You are ${expertise.name}, an expert in ${expertise.domain || 'technology'}.
 
-Your expertise includes: ${expert.description || expert.domain || 'general software development'}
+Your expertise includes: ${expertise.description || expertise.domain || 'general software development'}
 
 IMPORTANT RULES:
-- Respond as ${expert.name}, using your domain expertise
+- Respond as ${expertise.name}, using your domain expertise
 - Be specific and technical when appropriate
 - If a question is outside your expertise, say so
 - Never claim you cannot access information - if you need data, explain what would be helpful`;
 
   // v57.0 - Add synthesis hints from expert
-  const hints = expert.getSynthesisHints ? expert.getSynthesisHints() : null;
+  const hints = expertise.getSynthesisHints ? expertise.getSynthesisHints() : null;
   let styleGuidance = '';
 
   if (hints && hints.active && hints.systemAddition) {
@@ -493,7 +493,7 @@ IMPORTANT RULES:
   }
 
   // v57.0 - Add forbidden phrases as explicit instructions
-  const forbiddenPhrases = expert.styleRules?.forbiddenPhrases || [];
+  const forbiddenPhrases = expertise.styleRules?.forbiddenPhrases || [];
   let qualityRules = '';
 
   if (forbiddenPhrases.length > 0) {
@@ -516,16 +516,16 @@ IMPORTANT RULES:
   // Combine all parts
   let fullPrompt = basePrompt + styleGuidance + qualityRules;
 
-  if (expert.systemPrompt) {
-    fullPrompt = `${fullPrompt}\n\n${expert.systemPrompt}`;
+  if (expertise.systemPrompt) {
+    fullPrompt = `${fullPrompt}\n\n${expertise.systemPrompt}`;
   }
 
   // D-int3: Inject memory context for {{ memory_context }} placeholder
   if (fullPrompt.includes('{{ memory_context }}')) {
     try {
-      const { ExpertStore } = await import('../../experts/expert-store.js');
-      const store = new ExpertStore();
-      const memoryContext = store.getMemoryContext(expert.id);
+      const { ExpertiseStore } = await import('../../expertises/expertise-store.js');
+      const store = new ExpertiseStore();
+      const memoryContext = store.getMemoryContext(expertise.id);
       fullPrompt = fullPrompt.replace(
         '{{ memory_context }}',
         memoryContext || 'Žádné uložené informace z předchozích relací.'
@@ -544,7 +544,7 @@ IMPORTANT RULES:
  * Takes the already-executed tool result, formats as TaggedResponse,
  * then wraps with expert persona via LLM for human-readable output.
  */
-async function executeSpecialistTool(input, toolResult, expert, context) {
+async function executeSpecialistTool(input, toolResult, expertise, context) {
   const { toolType, result, params } = toolResult;
 
   // Format tool result as content string
@@ -553,7 +553,7 @@ async function executeSpecialistTool(input, toolResult, expert, context) {
   // Build TaggedResponse with tool data
   const rawTag = new ResponseTag({
     speaker: ResponseSpeaker.SYSTEM,
-    mode: ChatMode.EXPERT,
+    mode: ChatMode.EXPERTISE,
     confidence: 0.95,
     canExecute: false,
     metadata: {
@@ -567,14 +567,14 @@ async function executeSpecialistTool(input, toolResult, expert, context) {
   const rawResponse = new TaggedResponse({ content: toolContent, tag: rawTag });
 
   // Wrap with expert persona for human-readable formatting
-  return await wrapWithExpertPersona(input, rawResponse, expert, context);
+  return await wrapWithExpertisePersona(input, rawResponse, expertise, context);
 }
 
 /**
  * v63.0 — Handle merged expertises flow.
  * Uses mergeExpertisePrompt() pure function to combine multiple expertises,
  * then uses the merged prompt + enforcement for LLM call.
- * v63.3: executionTraceId propagated from expertHandler entry point.
+ * v63.3: executionTraceId propagated from expertiseHandler entry point.
  */
 async function handleMergedExpertises(input, context, executionTraceId) {
   const { sessionId, activeExpertises } = context;
@@ -589,7 +589,7 @@ async function handleMergedExpertises(input, context, executionTraceId) {
       activeExpertises,
       context.specialistOverride || null,
       context.userContext || null,
-      { registry: context.expertRegistry || {} },
+      { registry: context.expertiseRegistry || {} },
     );
 
     // Step 2: Call LLM with merged prompt
@@ -618,7 +618,7 @@ async function handleMergedExpertises(input, context, executionTraceId) {
       executionTraceId,
       conversationId: sessionId,
       executionStep: 'LLM',
-      expertId: mergeResult.metadata.expertiseIds.join('+'),
+      expertiseId: mergeResult.metadata.expertiseIds.join('+'),
       model: result.model || null,
       temperature: mergeResult.metadata.temperature,
       promptHash: hashPrompt(prompt + mergeResult.prompt),
@@ -665,7 +665,7 @@ async function handleMergedExpertises(input, context, executionTraceId) {
       return retryResult.content;
     };
 
-    const enforcer = new ExpertEnforcer(syntheticExpert, regenerateFn, {
+    const enforcer = new ExpertiseEnforcer(syntheticExpert, regenerateFn, {
       strict: hasStrictExpertise,
       executionTraceId,
     });
@@ -680,8 +680,8 @@ async function handleMergedExpertises(input, context, executionTraceId) {
         executionTraceId,
       });
       const failTag = new ResponseTag({
-        speaker: ResponseSpeaker.EXPERT,
-        mode: ChatMode.EXPERT,
+        speaker: ResponseSpeaker.EXPERTISE,
+        mode: ChatMode.EXPERTISE,
         confidence: 0.0,
         canExecute: false,
         metadata: {
@@ -723,8 +723,8 @@ async function handleMergedExpertises(input, context, executionTraceId) {
 
     // Step 5: Build response tag
     const tag = new ResponseTag({
-      speaker: ResponseSpeaker.EXPERT,
-      mode: ChatMode.EXPERT,
+      speaker: ResponseSpeaker.EXPERTISE,
+      mode: ChatMode.EXPERTISE,
       confidence: enforcement.passed ? 0.9 : 0.7,
       canExecute: false,
       metadata: {
@@ -782,7 +782,7 @@ async function handleMergedExpertises(input, context, executionTraceId) {
 
       const tag = new ResponseTag({
         speaker: ResponseSpeaker.SYSTEM,
-        mode: ChatMode.EXPERT,
+        mode: ChatMode.EXPERTISE,
         confidence: 1.0,
         canExecute: false,
         metadata: {
@@ -808,7 +808,7 @@ async function handleMergedExpertises(input, context, executionTraceId) {
 
     const tag = new ResponseTag({
       speaker: ResponseSpeaker.SYSTEM,
-      mode: ChatMode.EXPERT,
+      mode: ChatMode.EXPERTISE,
       confidence: 1.0,
       canExecute: false,
       metadata: {
@@ -824,4 +824,4 @@ async function handleMergedExpertises(input, context, executionTraceId) {
   }
 }
 
-export { generateExpertResponse, wrapWithExpertPersona, buildExpertSystemPrompt, handleMergedExpertises };
+export { generateExpertiseResponse, wrapWithExpertisePersona, buildExpertiseSystemPrompt, handleMergedExpertises };

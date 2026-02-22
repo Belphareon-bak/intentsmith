@@ -25,13 +25,13 @@ import {
   SALARY_PATTERNS,
   DEADLINE_PATTERNS,
   COMPARE_PATTERNS,
-} from '../src/experts/tools/accountant-detector.js';
+} from '../src/expertises/tools/accountant-detector.js';
 
-import { calculateTax, compareTaxEntities } from '../src/experts/tools/tax-calc.js';
-import { calculateVAT } from '../src/experts/tools/vat-calc.js';
-import { calculateSalary } from '../src/experts/tools/salary-calc.js';
-import { checkDeadlines } from '../src/experts/tools/deadline-checker.js';
-import { ExpertStore } from '../src/experts/expert-store.js';
+import { calculateTax, compareTaxEntities } from '../src/expertises/tools/tax-calc.js';
+import { calculateVAT } from '../src/expertises/tools/vat-calc.js';
+import { calculateSalary } from '../src/expertises/tools/salary-calc.js';
+import { checkDeadlines } from '../src/expertises/tools/deadline-checker.js';
+import { ExpertiseStore } from '../src/expertises/expertise-store.js';
 
 let passed = 0;
 let failed = 0;
@@ -284,7 +284,7 @@ console.log('\n\u2500\u2500 4. Tool Execution \u2500\u2500');
 console.log('\n\u2500\u2500 5. Memory Change Awareness \u2500\u2500');
 
 {
-  const store = new ExpertStore();
+  const store = new ExpertiseStore();
 
   // Set initial value
   store.setMemory('accountant', 'company_type', 's.r.o.');

@@ -139,7 +139,7 @@ export interface HandlerContext {
   userId?: string;
   mode: ChatModeType;
   project?: ProjectInfo;
-  expert?: ExpertInfo;
+  expertise?: ExpertiseInfo;
   agent?: AgentInfo;
   sessionState?: SessionState;
   config?: Record<string, unknown>;
@@ -156,9 +156,9 @@ export interface ProjectInfo {
 }
 
 /**
- * Expert information
+ * Expertise information
  */
-export interface ExpertInfo {
+export interface ExpertiseInfo {
   id: string;
   name: string;
   intensity?: number;
@@ -200,8 +200,8 @@ export interface ProjectWorkingMemory {
 export declare class SessionState {
   readonly sessionId: string;
   project: ProjectInfo | null;
-  expert: ExpertInfo | null;
-  expertIntensity: number;
+  expertise: ExpertiseInfo | null;
+  expertiseIntensity: number;
   projectWorkingMemory: ProjectWorkingMemory;
   lastUserInput: string | null;
   lastDecision: unknown | null;
@@ -215,7 +215,7 @@ export declare class SessionState {
   constructor(sessionId: string);
 
   setProject(project: ProjectInfo | null): void;
-  setExpert(expert: ExpertInfo | null, options?: { intensity?: number }): void;
+  setExpertise(expertise: ExpertiseInfo | null, options?: { intensity?: number }): void;
   setProjectGoal(goal: string): void;
   setActiveFile(filePath: string): void;
   setLastArtifact(artifactId: string): void;
@@ -274,7 +274,7 @@ export interface ChatRequest {
   sessionId: string;
   userId?: string;
   project?: ProjectInfo;
-  expert?: ExpertInfo;
+  expertise?: ExpertiseInfo;
   context?: Record<string, unknown>;
 }
 
@@ -330,11 +330,11 @@ export declare class ChatController {
   static setProject(sessionId: string, project: ProjectInfo | null): SessionState;
 
   /**
-   * Set expert for session
+   * Set expertise for session
    */
-  static setExpert(
+  static setExpertise(
     sessionId: string,
-    expert: ExpertInfo | null,
+    expertise: ExpertiseInfo | null,
     options?: { intensity?: number }
   ): SessionState;
 

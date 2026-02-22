@@ -7,7 +7,13 @@ export const config = {
   features: {
     agents:    process.env.C3_ENABLE_AGENTS !== 'false',     // Phase B: Workers
     lifecycle: process.env.C3_ENABLE_LIFECYCLE !== 'false',  // Phase C: Project Lifecycle
-    experts:   process.env.C3_ENABLE_EXPERTS !== 'false',    // Phase D: Specialists
+    expertises: (() => {
+      const val = process.env.C3_ENABLE_EXPERTISES ?? process.env.C3_ENABLE_EXPERTS;
+      if (process.env.C3_ENABLE_EXPERTS && !process.env.C3_ENABLE_EXPERTISES) {
+        console.warn('[DEPRECATED] C3_ENABLE_EXPERTS → use C3_ENABLE_EXPERTISES');
+      }
+      return val !== 'false';
+    })(),  // Phase D: Expertises
   },
 
   // Server

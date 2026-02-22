@@ -2,7 +2,7 @@
 
 **Verze:** v64.0 (2026-02-14)
 
-Viz take: [EXPERTS.md](EXPERTS.md) | [WORKERS.md](WORKERS.md) | [README.md](README.md)
+Viz take: [EXPERTISES.md](EXPERTISES.md) | [WORKERS.md](WORKERS.md) | [README.md](README.md)
 
 ---
 
@@ -17,7 +17,7 @@ Viz take: [EXPERTS.md](EXPERTS.md) | [WORKERS.md](WORKERS.md) | [README.md](READ
 
 ## Co to je
 
-Accountant Specialist je **prvni plne implementovany domenovy specialista** v C.3. Na rozdil od ostatnich expertu, kteri jen upravuji styl LLM odpovedi, ucetni ma vlastni **deterministicke nastroje** pro ceske danove vypocty. LLM v roli ucetniho NIKDY nepocita — pouze formatuje vysledky nastroju do citelne formy.
+Accountant Specialist je **prvni plne implementovany domenovy specialista** v C.3. Na rozdil od ostatnich expertyz, ktere jen upravuji styl LLM odpovedi, ucetni ma vlastni **deterministicke nastroje** pro ceske danove vypocty. LLM v roli ucetniho NIKDY nepocita — pouze formatuje vysledky nastroju do citelne formy.
 
 **Klicovy princip:** Cisla pochazi z deterministickych vypoctu, ne z LLM. Tool enforcement kontroluje, ze kazde cislo v odpovedi je podlozene vysledkem nastroje.
 
@@ -32,7 +32,7 @@ Accountant Specialist je **prvni plne implementovany domenovy specialista** v C.
 | Tax Rates Registry | HOTOVO | v57 |
 | Tax Rates Freshness | HOTOVO | v57.3 |
 | Accountant Detector (NLP) | HOTOVO | D-int1 |
-| Expert Tool Interception | HOTOVO | D-int2 |
+| Expertise Tool Interception | HOTOVO | D-int2 |
 | Change-Aware Memory | HOTOVO | D-int4 |
 | Tool Enforcement Guard | HOTOVO | D-int5 |
 | **Realtime sazby (worker)** | **CHYBI** | — |
@@ -47,7 +47,7 @@ Uzivatel: "Kolik zaplatim z 850k jako OSVC za rok 2024?"
 CRE.classifyIntent() → ANSWER
     |
     v
-expertHandler() — expert 'accountant' je aktivni
+expertiseHandler() — expertise 'accountant' je aktivni
     |
     v
 detectAccountantTool(input) — D-int1
@@ -62,7 +62,7 @@ detectAccountantTool(input) — D-int1
 calculateTax(params) — deterministicky vypocet
     |
     v
-wrapWithExpertPersona() — LLM formatuje vysledek
+wrapWithExpertisePersona() — LLM formatuje vysledek
     |
     v
 Tool Enforcement Guard — overeni cisel
@@ -72,7 +72,7 @@ Tool Enforcement Guard — overeni cisel
     +-- Nepodlozena cisla → varovani
     |
     v
-TaggedResponse s metadaty { expert, enforcement, toolResults }
+TaggedResponse s metadaty { expertise, enforcement, toolResults }
 ```
 
 ## Nastroje
@@ -121,13 +121,13 @@ NLP detekce ucetnich dotazu: TAX, SALARY, VAT, COMPARE, DEADLINE. Extrakce caste
 
 | Soubor | Radku | Ucel |
 |--------|-------|------|
-| `src/experts/tools/tax-calc.js` | 449 | OSVC + s.r.o. danovy kalkulator |
-| `src/experts/tools/salary-calc.js` | 327 | Mzdovy kalkulator |
-| `src/experts/tools/vat-calc.js` | 125 | DPH kalkulator |
-| `src/experts/tools/tax-rates.js` | 352 | Registry sazeb (2024/2025) |
-| `src/experts/tools/tax-rates-freshness.js` | 229 | Overeni aktualnosti |
-| `src/experts/tools/accountant-detector.js` | 282 | NLP detekce dotazu |
-| `src/experts/tools/deadline-checker.js` | 277 | Danove lhuty |
+| `src/expertises/tools/tax-calc.js` | 449 | OSVC + s.r.o. danovy kalkulator |
+| `src/expertises/tools/salary-calc.js` | 327 | Mzdovy kalkulator |
+| `src/expertises/tools/vat-calc.js` | 125 | DPH kalkulator |
+| `src/expertises/tools/tax-rates.js` | 352 | Registry sazeb (2024/2025) |
+| `src/expertises/tools/tax-rates-freshness.js` | 229 | Overeni aktualnosti |
+| `src/expertises/tools/accountant-detector.js` | 282 | NLP detekce dotazu |
+| `src/expertises/tools/deadline-checker.js` | 277 | Danove lhuty |
 
 **Celkem ucetni kod: ~3 146 radku (tools + testy)**
 
@@ -158,4 +158,4 @@ Specialist Runtime je planovany subsystem pro komplexni on-demand agenty s nasle
 ---
 
 *Puvodni dokument: "EXPERTS, SPECIALISTS & WORKERS.md" (Subsystem 2)*
-*Viz take: [EXPERTS.md](EXPERTS.md) (Expert Layer, Merge Engine) | [WORKERS.md](WORKERS.md) (Agent Runner, Notifikace)*
+*Viz take: [EXPERTISES.md](EXPERTISES.md) (Expertise Layer, Merge Engine) | [WORKERS.md](WORKERS.md) (Agent Runner, Notifikace)*

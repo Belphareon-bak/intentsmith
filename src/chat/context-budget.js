@@ -42,7 +42,7 @@ export const INTENT_BUDGETS = Object.freeze({
   BUILD:          { history: 1000, search: 0,    ltm: 500  },
   // Future: PROJECT and EXPERT budgets
   _PROJECT:       { history: 4000, search: 2000, ltm: 500  },
-  _EXPERT:        { history: 3000, search: 2000, ltm: 1000 },
+  _EXPERTISE:     { history: 3000, search: 2000, ltm: 1000 },
 });
 
 /**
