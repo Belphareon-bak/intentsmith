@@ -506,6 +506,59 @@ console.log('\n── 15. Double disable is noop ──');
   db.close();
 }
 
+// ── 16. Stress test: 200× enable/disable cycle ──────────────────────────────
+
+console.log('\n── 16. Stress test: 200 enable/disable cycles ──');
+{
+  const db = createTestDb();
+  const runtime = new SpecialistRuntime();
+  const loader = new SpecialistLoader(db, runtime, {
+    baseDir: path.join(PROJECT_ROOT, 'specialists'),
+    engineVersion: '65.5.0',
+  });
+
+  await loader.boot();
+
+  const heapBefore = process.memoryUsage().heapUsed;
+  const CYCLES = 200;
+
+  for (let i = 0; i < CYCLES; i++) {
+    loader.disable('accountant-cz');
+    await loader.enable('accountant-cz');
+  }
+
+  // Force GC if available
+  if (global.gc) global.gc();
+
+  const heapAfter = process.memoryUsage().heapUsed;
+  const heapDeltaMB = (heapAfter - heapBefore) / 1024 / 1024;
+
+  assert(runtime.isSpecialist('accountant'), `accountant registered after ${CYCLES} cycles`);
+  assertEq(runtime.getSpecialistIds().length, 1, `still exactly 1 specialist after ${CYCLES} cycles`);
+
+  // Heap growth should be minimal — closures from register() are overwritten by Map.set()
+  // Allow max 10MB growth for 200 cycles (very generous threshold)
+  assert(heapDeltaMB < 10, `heap grew ${heapDeltaMB.toFixed(2)}MB in ${CYCLES} cycles (< 10MB OK)`);
+
+  // Tool still works
+  const match = await runtime.tryToolExecution('accountant', 'DPH z 10000 Kč');
+  assert(match !== null, `tool works after ${CYCLES} cycles`);
+
+  // Integrity OK
+  const check = loader.checkIntegrity();
+  assert(check.ok, `integrity OK after ${CYCLES} cycles`);
+
+  // Registry Map size = 1 (no ghost entries)
+  assertEq(runtime.registry._specialists.size, 1, 'registry Map has exactly 1 entry');
+
+  // Module cache didn't explode
+  assertEq(loader._modules.size, 1, 'loader modules Map has exactly 1 entry');
+
+  console.log(`  ℹ️  Heap delta: ${heapDeltaMB.toFixed(2)}MB for ${CYCLES} cycles`);
+
+  db.close();
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 
 console.log(`\n══════════════════════════════════════════════════`);
