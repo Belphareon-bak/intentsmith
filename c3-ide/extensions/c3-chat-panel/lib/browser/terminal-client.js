@@ -113,6 +113,7 @@ function initTerminalClient() {
       _termExecuting[sessionIdx] = false;
       C3Bus.emit('terminal:line', { sessionIdx: sessionIdx, entry: null, done: true });
       if (typeof renderAgent === 'function') renderAgent();
+      _refocusTermInput(sessionIdx);
       return;
     }
 
@@ -130,6 +131,7 @@ function initTerminalClient() {
       _termExecuting[sessionIdx] = false;
       C3Bus.emit('terminal:line', { sessionIdx: sessionIdx, entry: errEntry2, done: true });
       if (typeof renderAgent === 'function') renderAgent();
+      _refocusTermInput(sessionIdx);
       return;
     }
 
@@ -157,6 +159,15 @@ function initTerminalClient() {
       s.term.push(genericEntry);
       C3Bus.emit('terminal:line', { sessionIdx: sessionIdx, entry: genericEntry });
     }
+  });
+}
+
+/* ─── Focus Restoration ──────────────────────────────────────────────── */
+
+function _refocusTermInput(sessionIdx) {
+  requestAnimationFrame(function() {
+    var el = document.getElementById('c3-term-input-' + sessionIdx);
+    if (el && !el.disabled) el.focus();
   });
 }
 

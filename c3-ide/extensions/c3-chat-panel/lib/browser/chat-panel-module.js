@@ -3514,7 +3514,7 @@ function _terminalContent(s,idx){
       h('span',{style:{color:C.accentText,fontFamily:C.mono,fontSize:_fs(11),flexShrink:0}},'$'),
       h('input',{id:'c3-term-input-'+idx,style:{flex:1,background:'none',border:'none',outline:'none',color:C.tx1,fontFamily:C.mono,fontSize:_fs(11.5)},
         placeholder:isExec?'Čekám na dokončení...':'Zadej příkaz...',disabled:isExec,
-        onKeyDown:function(e){if(e.key==='Enter'){var v=e.target.value.trim();if(v&&typeof C3Terminal!=='undefined'){C3Terminal.send(idx,v);e.target.value='';renderAgent();}}}}),
+        onKeyDown:function(e){if(e.key==='Enter'){var v=e.target.value.trim();if(v&&typeof C3Terminal!=='undefined'){C3Terminal.send(idx,v);e.target.value='';renderAgent();requestAnimationFrame(function(){var el=document.getElementById('c3-term-input-'+idx);if(el&&!el.disabled)el.focus();});}}}}),
       isExec?h('button',{style:{background:C.redBg,color:C.red,border:'none',borderRadius:4,cursor:'pointer',fontSize:_fs(9),fontWeight:600,padding:'2px 6px',flexShrink:0},
         onClick:function(){_cancelExecution(idx);}},'STOP'):null));
 }
