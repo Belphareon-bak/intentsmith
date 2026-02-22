@@ -15,7 +15,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { logger } from '../core/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -122,6 +122,9 @@ export class SpecialistLoader {
 
     /** @type {Map<string, Object>} loaded module references */
     this._modules = new Map();
+
+    /** @type {Set<string>} specialists needing ESM cache bust on next enable */
+    this._needsCacheBust = new Set();
 
     this._prepareStatements();
   }
@@ -382,15 +385,32 @@ export class SpecialistLoader {
 
   /**
    * Enable a single specialist.
+   * Supports ESM cache busting for update flow.
    */
   async _enableOne(id, { manifest, dir }) {
-    if (this._modules.has(id)) {
+    const needsBust = this._needsCacheBust.has(id);
+
+    if (this._modules.has(id) && !needsBust) {
       logger.debug('SpecialistLoader', `${id} already loaded, skipping`);
       return;
     }
 
+    // Clear old module reference if cache busting
+    if (needsBust) {
+      this._modules.delete(id);
+    }
+
     const entryPath = path.join(dir, manifest.entry);
-    const mod = await import(entryPath);
+    let mod;
+    if (needsBust) {
+      // Cache bust: file URL with query param bypasses Node's ESM cache
+      const url = pathToFileURL(entryPath);
+      url.searchParams.set('v', Date.now());
+      mod = await import(url.href);
+      this._needsCacheBust.delete(id);
+    } else {
+      mod = await import(entryPath);
+    }
 
     if (typeof mod.register !== 'function') {
       throw new Error(`${id}/index.js must export register(ctx)`);
@@ -467,6 +487,100 @@ export class SpecialistLoader {
     const now = new Date().toISOString();
     this._stmts.updateStatus.run('disabled', null, now, specialistId);
     logger.info('SpecialistLoader', `Disabled: ${specialistId}`);
+  }
+
+  // ─── Update Flow ──────────────────────────────────────────────────────
+
+  /**
+   * Update a specialist to a new version discovered on disk.
+   * Flow: validate → disable → migrate → cache bust → re-enable.
+   *
+   * Requires discoverAll() to have been called first to pick up new manifest.
+   *
+   * @param {string} specialistId
+   * @returns {Promise<{ oldVersion: string, newVersion: string, wasEnabled: boolean } | null>}
+   */
+  async update(specialistId) {
+    const row = this._stmts.getSpecialist.get(specialistId);
+    if (!row) throw new Error(`Specialist not installed: ${specialistId}`);
+
+    const discovered = this._discovered.get(specialistId);
+    if (!discovered) throw new Error(`Specialist ${specialistId} not found on disk (call discoverAll() first)`);
+
+    const { manifest, dir } = discovered;
+    const oldVersion = row.version;
+    const newVersion = manifest.version;
+
+    // Version must be strictly newer
+    if (this._compareVersions(newVersion, oldVersion) <= 0) {
+      logger.debug('SpecialistLoader', `${specialistId}: disk v${newVersion} <= installed v${oldVersion}, skipping`);
+      return null;
+    }
+
+    // Validate manifest + engine
+    const validation = validateManifest(manifest);
+    if (!validation.valid) {
+      throw new Error(`Invalid manifest for ${specialistId}: ${validation.errors.join(', ')}`);
+    }
+    const compat = checkEngineCompat(manifest.engine, this.engineVersion);
+    if (!compat.compatible) {
+      throw new Error(`Engine incompatible for ${specialistId}: ${compat.error}`);
+    }
+
+    const wasEnabled = row.status === 'enabled';
+    const expertiseId = this._resolveExpertiseId(specialistId, manifest);
+
+    // Safety: don't update while tools are executing
+    if (wasEnabled && typeof this.runtime.isSpecialistBusy === 'function') {
+      if (this.runtime.isSpecialistBusy(expertiseId)) {
+        throw new Error(`Cannot update ${specialistId}: tools currently executing`);
+      }
+    }
+
+    logger.info('SpecialistLoader', `Updating: ${specialistId} v${oldVersion} → v${newVersion}`);
+
+    // 1. Clear tool module caches (before disable removes config)
+    if (wasEnabled && typeof this.runtime.clearModuleCache === 'function') {
+      this.runtime.clearModuleCache(expertiseId);
+    }
+
+    // 2. Disable if enabled
+    if (wasEnabled) {
+      this.disable(specialistId);
+    }
+
+    // 3. Mark for entry point cache bust
+    this._needsCacheBust.add(specialistId);
+
+    // 4. Run new migrations
+    this._runMigrations(specialistId, dir, manifest);
+    await this._executePendingMigrations();
+
+    // 5. Update DB version + manifest
+    this._stmts.updateVersion.run(newVersion, JSON.stringify(manifest), specialistId);
+
+    // 6. Re-enable if was enabled
+    if (wasEnabled) {
+      const now = new Date().toISOString();
+      this._stmts.updateStatus.run('enabled', now, null, specialistId);
+      await this._enableOne(specialistId, discovered);
+    }
+
+    logger.info('SpecialistLoader', `Updated: ${specialistId} v${oldVersion} → v${newVersion}`);
+    return { oldVersion, newVersion, wasEnabled };
+  }
+
+  /**
+   * Compare semver strings. Returns: 1 if a > b, -1 if a < b, 0 if equal.
+   */
+  _compareVersions(a, b) {
+    const pa = a.split('.').map(Number);
+    const pb = b.split('.').map(Number);
+    for (let i = 0; i < 3; i++) {
+      if ((pa[i] || 0) > (pb[i] || 0)) return 1;
+      if ((pa[i] || 0) < (pb[i] || 0)) return -1;
+    }
+    return 0;
   }
 
   /**

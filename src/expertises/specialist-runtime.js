@@ -15,6 +15,7 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
+import { pathToFileURL } from 'url';
 import { logger } from '../core/logger.js';
 
 // ─── Tool Definition ─────────────────────────────────────────────────────────
@@ -51,8 +52,10 @@ class ToolRegistry {
   constructor() {
     /** @type {Map<string, SpecialistConfig>} specialist ID → config */
     this._specialists = new Map();
-    /** @type {Map<string, Function>} tool module cache (path → module) */
+    /** @type {Map<string, Function>} tool module cache (path:fn → function) */
     this._moduleCache = new Map();
+    /** @type {Map<string, number>} cache-bust version per module path */
+    this._importVersions = new Map();
   }
 
   /**
@@ -104,7 +107,27 @@ class ToolRegistry {
   }
 
   /**
+   * Clear cached tool modules for a specialist.
+   * Sets cache-bust version so next import() bypasses Node's ESM cache.
+   * @param {string} specialistId
+   * @returns {number} Number of cache entries cleared
+   */
+  clearModuleCache(specialistId) {
+    const config = this._specialists.get(specialistId);
+    if (!config) return 0;
+    let cleared = 0;
+    for (const tool of config.tools) {
+      const key = `${tool.modulePath}:${tool.functionName}`;
+      if (this._moduleCache.delete(key)) cleared++;
+      const current = this._importVersions.get(tool.modulePath) || 0;
+      this._importVersions.set(tool.modulePath, current + 1);
+    }
+    return cleared;
+  }
+
+  /**
    * Lazy-load a tool's module and return the function.
+   * Uses cache-busted file URL when module was previously cleared.
    */
   async loadToolFunction(tool) {
     const cacheKey = `${tool.modulePath}:${tool.functionName}`;
@@ -112,7 +135,17 @@ class ToolRegistry {
       return this._moduleCache.get(cacheKey);
     }
 
-    const mod = await import(tool.modulePath);
+    const bustVersion = this._importVersions.get(tool.modulePath);
+    let mod;
+    if (bustVersion) {
+      // Cache bust: use file URL with query param to bypass Node's ESM cache
+      const url = pathToFileURL(tool.modulePath);
+      url.searchParams.set('v', String(bustVersion));
+      mod = await import(url.href);
+    } else {
+      mod = await import(tool.modulePath);
+    }
+
     const fn = mod[tool.functionName];
     if (typeof fn !== 'function') {
       throw new Error(`Tool ${tool.id}: ${tool.functionName} is not a function in ${tool.modulePath}`);
@@ -220,6 +253,8 @@ class SpecialistRuntime {
     this.registry = new ToolRegistry();
     this.detector = new IntentDetector();
     this.executor = new ToolExecutor(this.registry);
+    /** @type {Map<string, number>} execution counter per specialist */
+    this._executingCount = new Map();
   }
 
   /**
@@ -234,6 +269,20 @@ class SpecialistRuntime {
    */
   unregisterSpecialist(specialistId) {
     this.registry.unregisterSpecialist(specialistId);
+  }
+
+  /**
+   * Clear module caches for a specialist's tools.
+   */
+  clearModuleCache(specialistId) {
+    return this.registry.clearModuleCache(specialistId);
+  }
+
+  /**
+   * Check if a specialist has tools currently executing.
+   */
+  isSpecialistBusy(expertiseId) {
+    return (this._executingCount.get(expertiseId) || 0) > 0;
   }
 
   /**
@@ -271,19 +320,27 @@ class SpecialistRuntime {
       inputPreview: input.slice(0, 60),
     });
 
-    const execResult = await this.executor.execute(match.tool, match.params);
+    // Track execution for busy guard
+    this._executingCount.set(expertiseId, (this._executingCount.get(expertiseId) || 0) + 1);
+    try {
+      const execResult = await this.executor.execute(match.tool, match.params);
 
-    if (!execResult.success) {
-      logger.warn('SpecialistRuntime', `Tool ${match.tool.id} failed: ${execResult.error}`);
-      return null; // Fall back to LLM
+      if (!execResult.success) {
+        logger.warn('SpecialistRuntime', `Tool ${match.tool.id} failed: ${execResult.error}`);
+        return null; // Fall back to LLM
+      }
+
+      return {
+        toolType: execResult.toolType,
+        result: execResult.result,
+        params: execResult.params,
+        duration: execResult.duration,
+      };
+    } finally {
+      const count = (this._executingCount.get(expertiseId) || 1) - 1;
+      if (count <= 0) this._executingCount.delete(expertiseId);
+      else this._executingCount.set(expertiseId, count);
     }
-
-    return {
-      toolType: execResult.toolType,
-      result: execResult.result,
-      params: execResult.params,
-      duration: execResult.duration,
-    };
   }
 
   /**

@@ -7,6 +7,8 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import Database from 'better-sqlite3';
+import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -341,7 +343,6 @@ console.log('\n── 10. Tool paths ──');
     'tax_calculator modulePath points to package tools dir');
 
   // Verify the file actually exists at that path
-  const fs = await import('fs');
   assert(fs.existsSync(taxTool.modulePath), 'modulePath file exists on disk');
 
   db.close();
@@ -908,6 +909,464 @@ console.log('\n── 26. Manifest data isolation ──');
   assertEq(logManifest2.id, 'dummy-logger', 'disabled manifest id correct');
 
   db.close();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Update Flow Tests — Version upgrade with ESM cache busting
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Write a minimal specialist package to a temp directory.
+ * Tool returns a configurable value — used to verify cache busting works.
+ */
+function writeTempSpecialist(baseDir, name, version, outputValue, migrations = []) {
+  const dir = path.join(baseDir, name);
+  fs.mkdirSync(path.join(dir, 'tools'), { recursive: true });
+  if (migrations.length) {
+    fs.mkdirSync(path.join(dir, 'migrations'), { recursive: true });
+  }
+
+  fs.writeFileSync(path.join(dir, 'specialist.json'), JSON.stringify({
+    id: name,
+    version,
+    name: `Test ${name}`,
+    domain: 'test',
+    type: 'utility',
+    engine: '>=65.0.0',
+    entry: './index.js',
+    tools: [{ id: `${name}.echo`, name: 'Echo', module: './tools/echo.js', function: 'echo' }],
+    expertises: [name],
+    knowledge_packs: [],
+    migrations,
+    enabledByDefault: true,
+  }));
+
+  fs.writeFileSync(path.join(dir, 'tools', 'echo.js'),
+`export function echo(params) {
+  return { success: true, result: { value: '${outputValue}', version: '${version}' } };
+}
+`);
+
+  fs.writeFileSync(path.join(dir, 'index.js'),
+`import { fileURLToPath } from 'url';
+import path from 'path';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+export function register(ctx) {
+  ctx.runtime.registerSpecialist({
+    id: '${name}',
+    domain: 'test',
+    tools: [{
+      id: '${name}.echo',
+      name: 'Echo',
+      description: 'Echo test tool',
+      modulePath: path.join(__dirname, 'tools', 'echo.js'),
+      functionName: 'echo',
+      patterns: [{ priority: 5, patterns: [/echo .+/i] }],
+      extractParams: (input) => ({ message: input }),
+    }],
+  });
+}
+
+export function unregister(ctx) {
+  ctx.runtime.unregisterSpecialist('${name}');
+}
+`);
+
+  return dir;
+}
+
+function writeMigrationFile(baseDir, name, migrationName, sql) {
+  const dir = path.join(baseDir, name, 'migrations');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, `${migrationName}.js`),
+`export function up(db) {
+  db.exec(\`${sql}\`);
+}
+export function down(db) {}
+`);
+}
+
+// ── 27. Basic update: v1 → v1.0.1, tool returns new value ───────────────
+
+console.log('\n── 27. Update: v1.0.0 → v1.0.1 with cache bust ──');
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-update-'));
+
+  try {
+    const db = createTestDb();
+    const runtime = new SpecialistRuntime();
+
+    // Write v1
+    writeTempSpecialist(tempDir, 'updatable', '1.0.0', 'v1-output');
+
+    const loader = new SpecialistLoader(db, runtime, {
+      baseDir: tempDir,
+      engineVersion: '65.5.0',
+    });
+
+    // Boot with v1
+    await loader.boot();
+    assert(runtime.isSpecialist('updatable'), 'v1 registered');
+
+    // Execute tool — should return v1 output
+    const r1 = await runtime.tryToolExecution('updatable', 'echo hello world');
+    assert(r1 !== null, 'v1 tool executes');
+    assertEq(r1.result.value, 'v1-output', 'v1 returns v1-output');
+    assertEq(r1.result.version, '1.0.0', 'v1 reports version 1.0.0');
+
+    // Overwrite with v2
+    writeTempSpecialist(tempDir, 'updatable', '1.0.1', 'v2-output');
+
+    // Re-discover + update
+    loader.discoverAll();
+    const result = await loader.update('updatable');
+
+    assert(result !== null, 'update returned result');
+    assertEq(result.oldVersion, '1.0.0', 'update old version');
+    assertEq(result.newVersion, '1.0.1', 'update new version');
+    assertEq(result.wasEnabled, true, 'update wasEnabled');
+
+    // Execute tool — MUST return v2 output (cache bust verification)
+    const r2 = await runtime.tryToolExecution('updatable', 'echo hello again');
+    assert(r2 !== null, 'v2 tool executes');
+    assertEq(r2.result.value, 'v2-output', 'v2 returns v2-output (CACHE BUSTED)');
+    assertEq(r2.result.version, '1.0.1', 'v2 reports version 1.0.1');
+
+    // DB version updated
+    const row = loader.getInstalled().find(r => r.id === 'updatable');
+    assertEq(row.version, '1.0.1', 'DB version is 1.0.1');
+    assertEq(row.status, 'enabled', 'still enabled after update');
+
+    // Integrity
+    const check = loader.checkIntegrity();
+    assert(check.ok, 'integrity OK after update');
+
+    db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+// ── 28. Update with new migration ─────────────────────────────────────────
+
+console.log('\n── 28. Update with migration ──');
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-update-'));
+
+  try {
+    const db = createTestDb();
+    const runtime = new SpecialistRuntime();
+
+    // Write v1 (no migrations)
+    writeTempSpecialist(tempDir, 'migtest', '1.0.0', 'v1');
+
+    const loader = new SpecialistLoader(db, runtime, {
+      baseDir: tempDir,
+      engineVersion: '65.5.0',
+    });
+
+    await loader.boot();
+    assert(runtime.isSpecialist('migtest'), 'v1 registered');
+
+    // Overwrite with v1.1.0 + migration
+    writeTempSpecialist(tempDir, 'migtest', '1.1.0', 'v2', ['001_add_table']);
+    writeMigrationFile(tempDir, 'migtest', '001_add_table',
+      "CREATE TABLE IF NOT EXISTS migtest_data (id INTEGER PRIMARY KEY, value TEXT)");
+
+    loader.discoverAll();
+    const result = await loader.update('migtest');
+
+    assert(result !== null, 'update returned result');
+    assertEq(result.newVersion, '1.1.0', 'updated to 1.1.0');
+
+    // Migration ran
+    const table = db.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='migtest_data'"
+    ).get();
+    assert(table !== undefined, 'migration created migtest_data table');
+
+    // Migration tracked
+    const migRows = db.prepare(
+      "SELECT * FROM specialist_migrations WHERE specialist_id = 'migtest'"
+    ).all();
+    assertEq(migRows.length, 1, 'migration tracked');
+
+    // Tool returns v2
+    const r2 = await runtime.tryToolExecution('migtest', 'echo test');
+    assert(r2 !== null, 'v2 tool works');
+    assertEq(r2.result.value, 'v2', 'v2 output after migration update');
+
+    db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+// ── 29. Update when disabled — updates DB, does NOT re-enable ────────────
+
+console.log('\n── 29. Update when disabled ──');
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-update-'));
+
+  try {
+    const db = createTestDb();
+    const runtime = new SpecialistRuntime();
+
+    writeTempSpecialist(tempDir, 'disupd', '1.0.0', 'v1');
+
+    const loader = new SpecialistLoader(db, runtime, {
+      baseDir: tempDir,
+      engineVersion: '65.5.0',
+    });
+
+    await loader.boot();
+    loader.disable('disupd');
+    assert(!runtime.isSpecialist('disupd'), 'disabled before update');
+
+    // Overwrite with v2
+    writeTempSpecialist(tempDir, 'disupd', '2.0.0', 'v2');
+
+    loader.discoverAll();
+    const result = await loader.update('disupd');
+
+    assert(result !== null, 'update returned result');
+    assertEq(result.wasEnabled, false, 'wasEnabled = false');
+
+    // Still disabled — NOT re-enabled
+    assert(!runtime.isSpecialist('disupd'), 'still disabled after update');
+    const row = loader.getInstalled().find(r => r.id === 'disupd');
+    assertEq(row.status, 'disabled', 'DB status still disabled');
+    assertEq(row.version, '2.0.0', 'DB version updated to 2.0.0');
+
+    // Manually enable — should get v2 code
+    await loader.enable('disupd');
+    const r2 = await runtime.tryToolExecution('disupd', 'echo test');
+    assert(r2 !== null, 'v2 tool works after manual enable');
+    assertEq(r2.result.value, 'v2', 'v2 output after enable');
+
+    db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+// ── 30. Update one specialist, other unaffected ──────────────────────────
+
+console.log('\n── 30. Update one, other unaffected ──');
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-update-'));
+
+  try {
+    const db = createTestDb();
+    const runtime = new SpecialistRuntime();
+
+    // Two specialists
+    writeTempSpecialist(tempDir, 'alpha', '1.0.0', 'alpha-v1');
+    writeTempSpecialist(tempDir, 'beta', '1.0.0', 'beta-v1');
+
+    const loader = new SpecialistLoader(db, runtime, {
+      baseDir: tempDir,
+      engineVersion: '65.5.0',
+    });
+
+    await loader.boot();
+    assertEq(runtime.getSpecialistIds().length, 2, 'both registered');
+
+    // Update only alpha to v2
+    writeTempSpecialist(tempDir, 'alpha', '1.1.0', 'alpha-v2');
+
+    loader.discoverAll();
+    await loader.update('alpha');
+
+    // Alpha is v2
+    const ra = await runtime.tryToolExecution('alpha', 'echo test');
+    assert(ra !== null, 'alpha tool works');
+    assertEq(ra.result.value, 'alpha-v2', 'alpha returns v2');
+
+    // Beta unchanged
+    const rb = await runtime.tryToolExecution('beta', 'echo test');
+    assert(rb !== null, 'beta tool works');
+    assertEq(rb.result.value, 'beta-v1', 'beta still returns v1');
+
+    // Integrity
+    const check = loader.checkIntegrity();
+    assert(check.ok, 'integrity OK');
+
+    db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+// ── 31. Same version — update is noop ────────────────────────────────────
+
+console.log('\n── 31. Same version = noop ──');
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-update-'));
+
+  try {
+    const db = createTestDb();
+    const runtime = new SpecialistRuntime();
+
+    writeTempSpecialist(tempDir, 'noop', '1.0.0', 'v1');
+
+    const loader = new SpecialistLoader(db, runtime, {
+      baseDir: tempDir,
+      engineVersion: '65.5.0',
+    });
+
+    await loader.boot();
+
+    loader.discoverAll();
+    const result = await loader.update('noop');
+    assertEq(result, null, 'same version returns null (noop)');
+
+    // Tool still works
+    const r = await runtime.tryToolExecution('noop', 'echo test');
+    assert(r !== null, 'tool still works after noop update');
+    assertEq(r.result.value, 'v1', 'still v1');
+
+    db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+// ── 32. Downgrade rejected ───────────────────────────────────────────────
+
+console.log('\n── 32. Downgrade rejected ──');
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-update-'));
+
+  try {
+    const db = createTestDb();
+    const runtime = new SpecialistRuntime();
+
+    writeTempSpecialist(tempDir, 'nodown', '2.0.0', 'v2');
+
+    const loader = new SpecialistLoader(db, runtime, {
+      baseDir: tempDir,
+      engineVersion: '65.5.0',
+    });
+
+    await loader.boot();
+
+    // Execute tool to prime the module cache with v2
+    const r1 = await runtime.tryToolExecution('nodown', 'echo prime cache');
+    assertEq(r1.result.value, 'v2', 'v2 tool works before downgrade attempt');
+
+    // Overwrite with older version
+    writeTempSpecialist(tempDir, 'nodown', '1.0.0', 'v1');
+
+    loader.discoverAll();
+    const result = await loader.update('nodown');
+    assertEq(result, null, 'downgrade returns null');
+
+    // Still v2 — update was rejected, cache intact
+    const r2 = await runtime.tryToolExecution('nodown', 'echo test');
+    assertEq(r2.result.value, 'v2', 'still running v2 (cache intact)');
+
+    db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+// ── 33. Major version update ─────────────────────────────────────────────
+
+console.log('\n── 33. Major version update ──');
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-update-'));
+
+  try {
+    const db = createTestDb();
+    const runtime = new SpecialistRuntime();
+
+    writeTempSpecialist(tempDir, 'major', '1.0.0', 'v1');
+
+    const loader = new SpecialistLoader(db, runtime, {
+      baseDir: tempDir,
+      engineVersion: '65.5.0',
+    });
+
+    await loader.boot();
+
+    writeTempSpecialist(tempDir, 'major', '3.0.0', 'v3');
+
+    loader.discoverAll();
+    const result = await loader.update('major');
+
+    assert(result !== null, 'major update succeeds');
+    assertEq(result.oldVersion, '1.0.0', 'old = 1.0.0');
+    assertEq(result.newVersion, '3.0.0', 'new = 3.0.0');
+
+    const r = await runtime.tryToolExecution('major', 'echo test');
+    assertEq(r.result.value, 'v3', 'running v3 after major update');
+
+    db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+// ── 34. Update + disable + re-enable — cache bust persists ───────────────
+
+console.log('\n── 34. Update → disable → re-enable: still new code ──');
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-update-'));
+
+  try {
+    const db = createTestDb();
+    const runtime = new SpecialistRuntime();
+
+    writeTempSpecialist(tempDir, 'persist', '1.0.0', 'old');
+
+    const loader = new SpecialistLoader(db, runtime, {
+      baseDir: tempDir,
+      engineVersion: '65.5.0',
+    });
+
+    await loader.boot();
+
+    // Update to v2
+    writeTempSpecialist(tempDir, 'persist', '1.1.0', 'new');
+    loader.discoverAll();
+    await loader.update('persist');
+
+    const r1 = await runtime.tryToolExecution('persist', 'echo test');
+    assertEq(r1.result.value, 'new', 'new after update');
+
+    // Disable
+    loader.disable('persist');
+    assert(!runtime.isSpecialist('persist'), 'disabled');
+
+    // Re-enable — should still be new code, not old
+    await loader.enable('persist');
+    const r2 = await runtime.tryToolExecution('persist', 'echo test');
+    assert(r2 !== null, 'tool works after re-enable');
+    assertEq(r2.result.value, 'new', 'still new after disable+re-enable');
+
+    db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+// ── 35. isSpecialistBusy guard ───────────────────────────────────────────
+
+console.log('\n── 35. isSpecialistBusy ──');
+{
+  const runtime = new SpecialistRuntime();
+  assert(!runtime.isSpecialistBusy('accountant'), 'not busy by default');
+
+  // Simulate busy state
+  runtime._executingCount.set('accountant', 1);
+  assert(runtime.isSpecialistBusy('accountant'), 'busy when counter > 0');
+
+  runtime._executingCount.delete('accountant');
+  assert(!runtime.isSpecialistBusy('accountant'), 'not busy after clear');
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
