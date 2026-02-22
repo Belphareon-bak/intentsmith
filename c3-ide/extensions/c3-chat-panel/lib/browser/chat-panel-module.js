@@ -1117,17 +1117,32 @@ function _wizardSubmit(){
   .then(function(created){
     _projectWizard.active=false;_projectWizard.saving=false;_wizardRestoreLayout();
     var realPath=created.path||sendPath;
-    if(window._c3)window._c3.agentLog('TOOL','✨ Projekt vytvořen: '+d.name+' → '+realPath);
+    var projName=d.name.trim();
+    if(window._c3)window._c3.agentLog('TOOL','✨ Projekt vytvořen: '+projName+' → '+realPath);
     /* Link to session + open working tree */
     var _ti=_centerState.targetSession||0;if(_ti>=_sessionCount)_ti=0;
+    if(_ti!==_sessionActive)_saveTreeState(_sessionActive);
+    _sessionActive=_ti;_ensureSessions();var _ts=_sessions[_ti];
     var projId=created.id||(created.project&&created.project.id);
-    if(projId){_sessions[_ti]._projectId=projId;_persistSessionState();}
+    if(projId){_ts._projectId=projId;_persistSessionState();}
     if(realPath){_wtRoot=realPath;_loadWorkspaceTree(realPath);}
+    /* Reset session for new project */
+    _ts._lifecycleResumed=false;
+    _ts.log=[];_ts.term=[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}];
+    _ts.chat.msgs=[{role:'system',text:'Projekt: '+projName}];
+    /* Create conversation for the project */
+    if(projId){
+      fetch(_backendBase+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({project_id:projId,title:projName}),signal:AbortSignal.timeout(5000)})
+      .then(function(r){return r.json();}).then(function(cd){
+        var conv=cd.conversation||cd;
+        if(conv&&conv.id){_ts._convId=conv.id;_persistSessionState();renderChat();}
+      }).catch(function(){});
+    }
     /* Activate lifecycle on backend */
-    var s=_sessions[_ti];
-    var lcSessionId=s._agentId||s._convId||('session-'+_ti);
+    var lcSessionId=_ts._agentId||_ts._convId||('session-'+_ti);
     fetch(_backendBase+'/api/projects/lifecycle/start',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({projectId:projId,projectPath:realPath,projectName:d.name.trim(),description:d.description.trim(),type:d.type,sessionId:lcSessionId}),
+      body:JSON.stringify({projectId:projId,projectPath:realPath,projectName:projName,description:d.description.trim(),type:d.type,sessionId:lcSessionId}),
       signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(lc){
       if(window._c3)window._c3.agentLog('TOOL','🔄 Lifecycle aktivován: '+((lc&&lc.phase)||'SPEC'));
     }).catch(function(e){
@@ -1136,11 +1151,11 @@ function _wizardSubmit(){
     /* Log to agent panel */
     var scaff=created.scaffold?created.scaffold.join(', '):'';
     if(window._c3){
-      window._c3.agentLog('TOOL','📁 Projekt '+d.name+' vytvořen ('+d.type+') → '+realPath);
+      window._c3.agentLog('TOOL','📁 Projekt '+projName+' vytvořen ('+d.type+') → '+realPath);
       if(scaff)window._c3.agentLog('TOOL','🔧 Scaffolding: '+scaff);
       window._c3.agentLog('TOOL','🔄 Lifecycle: SPEC — popište specifikaci v chatu');
     }
-    fetchBackendData();renderCenter();
+    fetchBackendData();renderCenter();renderChat();
   }).catch(function(err){
     _projectWizard.saving=false;
     if(window._c3)window._c3.agentLog('TOOL','❌ Chyba při vytváření projektu: '+(err.message||err));
