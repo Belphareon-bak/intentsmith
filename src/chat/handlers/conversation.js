@@ -12,7 +12,7 @@ import {
 import { logger } from '../../core/logger.js';
 import { tryResolveClarification, assessGoalAlignment } from './clarification.js';
 import { handleLocalDecision, computeCalendar, computeDate } from './local.js';
-import { handleFileDecision } from './file.js';
+import { handleFileDecision, handleFileWriteDecision } from './file.js';
 import {
   handleToolCallDecision,
   handleAskUserDecision,
@@ -158,7 +158,7 @@ function systemResponse(content, metadata = {}, confidence = 1.0) {
  * v65.0: Handle SHELL decision — return response with shellCommand in metadata.
  * Session adapter picks up shellCommand and auto-executes via terminal channel.
  */
-function handleShellDecision(input, decision, context) {
+export function handleShellDecision(input, decision, context) {
   const { sessionState } = context;
   const command = decision.metadata?.shellCommand || input.trim();
 
@@ -644,7 +644,8 @@ export async function conversationHandler(input, context) {
   // v65.4: Enrich CRE input with project hint for better intent classification
   const projectHint = buildProjectHint(context);
   const creInput = projectHint ? input + projectHint : input;
-  let decision = creDecisionEngine.decide(creInput, decisionContext);
+  // v71: decide() is now async (LLM-first classification)
+  let decision = await creDecisionEngine.decide(creInput, decisionContext);
 
   // STEP 1.5: Fail-fast assertion - catch bugs early
   assertDecision(decision);
@@ -743,6 +744,10 @@ export async function conversationHandler(input, context) {
     case DecisionType.LOCAL:
       if (decision.intent === IntentType.FILE_READ || decision.intent === IntentType.FILE_EXPLAIN) {
         return await handleFileDecision(input, decision, context);
+      }
+      // v70: FILE_WRITE intent → write content to file
+      if (decision.intent === IntentType.FILE_WRITE) {
+        return await handleFileWriteDecision(input, decision, context);
       }
       // v65.0: SHELL intent → route to terminal execution
       if (decision.intent === IntentType.SHELL) {

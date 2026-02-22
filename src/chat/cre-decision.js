@@ -30,6 +30,8 @@
 
 import { logger } from '../core/logger.js';
 import { isGratitudeOrFarewell, isCodeRequest } from './cre-routing-patches.js';
+import { classifyIntent as llmClassify } from '../llm/cre-bridge.js';
+import { extractJSON } from '../llm/client.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Decision Types
@@ -77,6 +79,9 @@ export const IntentType = {
   // v65.0: SHELL — user wants to execute a shell/terminal command
   // TERMINAL: routes to terminal execution, NOT LLM. No web search.
   SHELL: 'SHELL',             // "spusť npm test", "pusť ls -la", "runni git status"
+  // v70: FILE_WRITE — user wants to save/write content to a file
+  // TERMINAL: writes to filesystem, no LLM.
+  FILE_WRITE: 'FILE_WRITE',   // "zapiš to do souboru", "ulož to do file.md", "save it to a file"
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -967,6 +972,48 @@ function extractShellCommand(input) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// v70→v71: FILE_WRITE PATTERNS — REGEX FALLBACK ONLY
+// ─────────────────────────────────────────────────────────────────────────────
+// v71: Primary classification is LLM-based (_llmClassifyIntent).
+// These patterns are ONLY used when the LLM is unavailable or returns
+// low confidence. The LLM handles semantic understanding of write intent
+// in any phrasing (Czech, English, mixed).
+// ─────────────────────────────────────────────────────────────────────────────
+const FILE_WRITE_PATTERNS = [
+  // CZ: "ulož/zapiš/napiš/dej ... do souboru"
+  /(?:^|\s)(ulo[žz]|uloz|ulo[žz]it|zapi[šs]|zapsat|napi[šs]|napsat|dej|vlo[žz])\s+.{0,20}(do\s+souboru|do\s+file)/i,
+  // CZ: "ulož/zapiš/napiš to/ho/ji/je" (short form)
+  /(?:^|\s)(ulo[žz]|uloz|zapi[šs]|napi[šs]|dej)\s+(to|ho|ji|je)\b/i,
+  // CZ: "vytvoř soubor X"
+  /(?:^|\s)(vytvo[rř]|vytvorit)\s+.{0,10}soubor\b/i,
+  // CZ: "ulož/zapiš to do plan.md" (explicit path)
+  /(?:^|\s)(ulo[žz]|uloz|save|zapi[šs]|napi[šs])\s+(?:to\s+)?(?:do|jako|into)\s+[\w./-]+/i,
+  // EN: "save it to a file / to disk"
+  /(?:^|\s)save\s+.{0,10}(to\s+(?:a\s+)?file|to\s+disk)/i,
+  // EN: "save it/this/that"
+  /(?:^|\s)save\s+(it|this|that)\b/i,
+  // EN: "create/write a file"
+  /(?:^|\s)(create|write)\s+(?:a\s+)?file\b/i,
+  // EN: "write to file X"
+  /(?:^|\s)write\s+(?:it\s+)?to\s+(?:file\s+)?[\w./-]+/i,
+];
+
+// v70: Extract file path from file-write input
+function extractWriteFilePath(input) {
+  // "ulož to do plan.md" → "plan.md"
+  const doMatch = input.match(/(?:do|jako|into|to)\s+["']?([\w./-]+\.[\w]{1,10})["']?\s*$/i);
+  if (doMatch) return doMatch[1];
+  // "ulož to do souboru plan.md" → "plan.md"
+  const afterSoubor = input.match(/(?:souboru?|file)\s+["']?([\w./-]+\.[\w]{1,10})["']?\s*$/i);
+  if (afterSoubor) return afterSoubor[1];
+  // "create file plan.md" → "plan.md"
+  const createFile = input.match(/(?:file|soubor)\s+["']?([\w./-]+\.[\w]{1,10})["']?\s*$/i);
+  if (createFile) return createFile[1];
+  // "zapiš to do souboru popisujici projekt" → no specific filename, auto-generate
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // BUILD PATTERNS — multi-step project-level work (→ Planner handoff)
 // ─────────────────────────────────────────────────────────────────────────────
 // Distinction from CODE: BUILD = project-level goal, CODE = single function/fix
@@ -1336,13 +1383,7 @@ const CONVERSATIONAL_PATTERNS = [
   /give.*example/i, /show.*example/i,             // English example patterns
   /still.*understand/i,                           // "I still don't understand"
 
-  // v65: Follow-up file-write actions — "ulož ho do souboru", "save it to a file"
-  // These are contextual follow-ups ("save IT") referring to previous output
-  /(?:^|\s)(ulo[žz]|uloz|uložit)\s+.{0,20}(do\s+souboru|do\s+file)/i,   // "ulož ho do souboru"
-  /(?:^|\s)(zapi[šs]|zapsat|zapisat)\s+.{0,20}(do\s+souboru|do\s+file)/i, // "zapiš to do souboru"
-  /(?:^|\s)save\s+.{0,10}(to\s+(?:a\s+)?file|to\s+disk)/i,               // "save it to a file"
-  /(?:^|\s)(ulo[žz]|uloz)\s+(to|ho|ji|je)\b/i,                           // "ulož to", "ulož ho"
-  /(?:^|\s)save\s+(it|this|that)\b/i,                                     // "save it", "save this"
+  // v65→v70: File-write patterns moved to FILE_WRITE_PATTERNS (separate intent)
 ];
 
 // v44.4 - Patterns for locally-answerable questions (no web search needed)
@@ -1972,10 +2013,141 @@ export class CREDecisionEngine {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // v71.0: LLM-ASSISTED STRUCTURED INTENT CLASSIFICATION
+  // ═══════════════════════════════════════════════════════════════════════════
+  //
+  // Hybrid model: LLM returns structured JSON intent classification.
+  // Replaces regex pattern matching for action intents (FILE_WRITE, SHELL, etc.)
+  //
+  // Flow:
+  //   1. Deterministic fast-path (LOCAL, gratitude) — no LLM needed
+  //   2. LLM structured classification — primary classifier
+  //   3. Regex classifyIntent() — fallback if LLM fails/unavailable
+  //
+  // LLM returns: { intent, confidence, fileTarget, shellCommand, reasoning }
+  // Deterministic guardrails validate AFTER LLM classification.
+  // ═══════════════════════════════════════════════════════════════════════════
+
   /**
-   * Classify the intent of user input
+   * LLM-based structured intent classifier.
+   * Asks the LLM to semantically classify user input into an intent category
+   * and extract structured metadata (file targets, commands, etc.)
+   *
+   * @param {string} input - User message
+   * @param {Object} context - Conversation context (history, project, session)
+   * @returns {Promise<{intent: string, confidence: number, fileTarget?: string, shellCommand?: string, reasoning?: string} | null>}
+   *          Parsed classification or null on failure
+   */
+  async _llmClassifyIntent(input, context = {}) {
+    const VALID_INTENTS = Object.values(IntentType);
+
+    // Build conversation snippet for context (last 2 turns max)
+    let conversationSnippet = '';
+    if (context.history?.length > 0) {
+      const recentTurns = context.history.slice(-2);
+      conversationSnippet = recentTurns
+        .map(t => {
+          const userMsg = t.input || t.userMessage || '';
+          const assistantMsg = t.response?.content || '';
+          return `USER: ${userMsg.substring(0, 200)}\nASSISTANT: ${assistantMsg.substring(0, 300)}`;
+        })
+        .join('\n---\n');
+    }
+
+    const systemPrompt = `Jsi klasifikátor záměrů uživatele v česko-anglickém AI asistentovi.
+Analyzuj zprávu uživatele a urči, co chce udělat.
+
+ZÁMĚRY (intent):
+- FILE_WRITE: uživatel chce uložit/zapsat/vytvořit soubor (např. "zapiš to do souboru", "ulož to jako plan.md", "save it to a file")
+- FILE_READ: uživatel chce přečíst/otevřít/zobrazit soubor (např. "otevři config.json", "ukaž mi obsah souboru")
+- FILE_EXPLAIN: uživatel chce vysvětlení obsahu souboru (např. "vysvětli ten soubor", "co dělá tento kód?")
+- SHELL: uživatel chce spustit příkaz v terminálu (např. "spusť npm test", "git status", "ls -la")
+- SEARCH: uživatel hledá aktuální informace na internetu
+- REPORT: uživatel chce analýzu/report vyžadující data
+- CODE: uživatel chce generování/pomoc s kódem
+- CONVERSATIONAL: běžný chat, pozdravy, názory, vysvětlení pojmů
+- CREATIVE: brainstorming, nápady, kreativní psaní
+- DESIGN: architektura, roadmapa, technické plánování
+- BUILD: vícekrokový projekt (postav mi API, vytvoř aplikaci)
+- LOCAL: datum/čas/matematika
+- AMBIGUOUS: nejasný záměr
+
+PRAVIDLA:
+- Pokud uživatel říká "zapiš/ulož/napiš to do souboru" nebo jakoukoliv variaci na uložení obsahu → FILE_WRITE
+- Pokud uživatel chce spustit terminálový příkaz → SHELL
+- Pokud uživatel chce číst soubor → FILE_READ
+- Rozlišuj mezi "napiš kód" (CODE) a "zapiš to do souboru" (FILE_WRITE)
+- Pokud má zpráva jasný soubor jako cíl (plan.md, config.json), extrahuj ho do fileTarget
+
+Vrať POUZE validní JSON:
+{
+  "intent": "INTENT_NAME",
+  "confidence": 0.0-1.0,
+  "fileTarget": "filename.ext nebo null",
+  "shellCommand": "příkaz nebo null",
+  "reasoning": "stručné zdůvodnění (max 20 slov)"
+}`;
+
+    const userPrompt = conversationSnippet
+      ? `PŘEDCHOZÍ KONVERZACE:\n${conversationSnippet}\n\nAKTUÁLNÍ ZPRÁVA: ${input}`
+      : input;
+
+    try {
+      const result = await llmClassify(userPrompt, systemPrompt, {
+        sessionId: context.sessionId || `cre-classify-${Date.now()}`,
+        format: 'json',
+        temperature: 0.1,
+        maxTokens: 200,
+      });
+
+      if (!result?.content) {
+        logger.warn('CRE:LLM', 'LLM classifier returned empty response');
+        return null;
+      }
+
+      const parsed = extractJSON(result.content);
+      if (!parsed || !parsed.intent) {
+        logger.warn('CRE:LLM', 'LLM classifier returned invalid JSON', {
+          raw: result.content.substring(0, 200),
+        });
+        return null;
+      }
+
+      // Validate intent is a known type
+      if (!VALID_INTENTS.includes(parsed.intent)) {
+        logger.warn('CRE:LLM', `LLM returned unknown intent: ${parsed.intent}`);
+        return null;
+      }
+
+      // Normalize confidence
+      parsed.confidence = Math.max(0, Math.min(1, Number(parsed.confidence) || 0.5));
+
+      logger.info('CRE:LLM', `LLM classified intent: ${parsed.intent} (${parsed.confidence})`, {
+        input: input.substring(0, 60),
+        intent: parsed.intent,
+        confidence: parsed.confidence,
+        fileTarget: parsed.fileTarget || null,
+        shellCommand: parsed.shellCommand || null,
+        reasoning: parsed.reasoning || '',
+        durationMs: result.duration || null,
+      });
+
+      return parsed;
+    } catch (err) {
+      logger.warn('CRE:LLM', `LLM intent classification failed: ${err.message}`, {
+        input: input.substring(0, 60),
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Classify the intent of user input (REGEX FALLBACK)
    * @param {string} input - User message
    * @returns {IntentType}
+   *
+   * v71.0: This is now the FALLBACK classifier. Primary is _llmClassifyIntent().
    *
    * v44.6 FIX 3: Priority order is CRITICAL:
    * 1. LOCAL (absolute priority - deterministic, no external API)
@@ -2075,6 +2247,14 @@ export class CREDecisionEngine {
     // ════════════════════════════════════════════════════════════════════════
     if (CREATIVE_IDEATION_PATTERNS.some(p => p.test(text))) {
       return IntentType.CREATIVE;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // v70: FILE_WRITE — user wants to save/write content to a file
+    // MUST be before SHELL — "zapiš to do souboru" is FILE_WRITE, not SHELL
+    // ════════════════════════════════════════════════════════════════════════
+    if (FILE_WRITE_PATTERNS.some(p => p.test(text))) {
+      return IntentType.FILE_WRITE;
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -2347,12 +2527,50 @@ export class CREDecisionEngine {
 
   /**
    * Make a decision based on user input
+   *
+   * v71.0: Now async — uses LLM-first classification with regex fallback.
+   *
    * @param {string} input - User message
    * @param {Object} context - Additional context
-   * @returns {CREDecision}
+   * @returns {Promise<CREDecision>}
    */
-  decide(input, context = {}) {
-    let intent = this.classifyIntent(input);
+  async decide(input, context = {}) {
+    // ════════════════════════════════════════════════════════════════════════
+    // v71.0: HYBRID INTENT CLASSIFICATION — LLM primary, regex fallback
+    // ════════════════════════════════════════════════════════════════════════
+    let intent;
+    let llmMeta = null;
+
+    // Phase 0: Deterministic fast-path — skip LLM for trivial inputs
+    const _text = input.trim();
+    const _norm = normalizeForClassification(_text);
+    const isDeterministic =
+      LOCAL_DETERMINISTIC_PATTERNS.some(p => p.test(_norm)) ||
+      isGratitudeOrFarewell(_text);
+
+    if (isDeterministic) {
+      intent = this.classifyIntent(input);
+    } else {
+      // Phase 1: LLM structured classification (primary)
+      const llmResult = await this._llmClassifyIntent(input, context);
+
+      if (llmResult && llmResult.confidence >= 0.7) {
+        intent = llmResult.intent;
+        llmMeta = llmResult;
+        logger.info('CRE', `v71 LLM classification: ${intent} (${llmResult.confidence})`, {
+          input: input.substring(0, 60),
+          reasoning: llmResult.reasoning,
+        });
+      } else {
+        // Phase 2: Regex fallback
+        intent = this.classifyIntent(input);
+        logger.info('CRE', `v71 LLM fallback → regex: ${intent}`, {
+          input: input.substring(0, 60),
+          llmIntent: llmResult?.intent || null,
+          llmConfidence: llmResult?.confidence || null,
+        });
+      }
+    }
 
     // ════════════════════════════════════════════════════════════════════════
     // v44.3 — INTENT CONTINUITY
@@ -2383,7 +2601,8 @@ export class CREDecisionEngine {
     // v58.0: Added DESIGN - structured synthesis must not fall to SEARCH
     // v63.0: Added FILE_READ, FILE_EXPLAIN - file operations are terminal
     // v65.0: Added SHELL - terminal commands are terminal
-    const STRONG_INTENTS = [IntentType.LOCAL, IntentType.CONVERSATIONAL, IntentType.CREATIVE, IntentType.ITEM_LOOKUP, IntentType.DESIGN, IntentType.FILE_READ, IntentType.FILE_EXPLAIN, IntentType.SHELL];
+    // v71: Added FILE_WRITE — LLM-classified action intents must not be overridden
+    const STRONG_INTENTS = [IntentType.LOCAL, IntentType.CONVERSATIONAL, IntentType.CREATIVE, IntentType.ITEM_LOOKUP, IntentType.DESIGN, IntentType.FILE_READ, IntentType.FILE_EXPLAIN, IntentType.SHELL, IntentType.FILE_WRITE];
     const isStrongIntent = STRONG_INTENTS.includes(intent);
 
     // ════════════════════════════════════════════════════════════════════════
@@ -2565,12 +2784,13 @@ export class CREDecisionEngine {
         intent,
         tools: [],                 // No external tools
         reason: 'FILE_READ is terminal - filesystem read, no web search',
-        confidence: 0.95,
+        confidence: llmMeta?.confidence || 0.95,
         metadata: {
           inputPreview: input.substring(0, 100),
           handler: 'file.read',
           fileOperation: true,
-          filePath: extractFilePath(input),
+          filePath: llmMeta?.fileTarget || extractFilePath(input),
+          classifiedBy: llmMeta ? 'llm' : 'regex',
           projectScope,
         },
       });
@@ -2588,12 +2808,13 @@ export class CREDecisionEngine {
         intent,
         tools: [],
         reason: 'FILE_EXPLAIN is terminal - file read + LLM explanation',
-        confidence: 0.9,
+        confidence: llmMeta?.confidence || 0.9,
         metadata: {
           inputPreview: input.substring(0, 100),
           handler: 'file.explain',
           fileOperation: true,
-          filePath: extractFilePath(input),
+          filePath: llmMeta?.fileTarget || extractFilePath(input),
+          classifiedBy: llmMeta ? 'llm' : 'regex',
           projectScope,
         },
       });
@@ -2606,17 +2827,39 @@ export class CREDecisionEngine {
     // Routes to terminal execution channel. Backend executes, returns output.
     // ════════════════════════════════════════════════════════════════════════
     if (intent === IntentType.SHELL) {
-      const command = extractShellCommand(input);
+      // v71: prefer LLM-extracted shellCommand, fallback to regex extraction
+      const command = llmMeta?.shellCommand || extractShellCommand(input);
       return new CREDecision({
         type: DecisionType.LOCAL,  // TERMINAL — like local.date
         intent,
         tools: [],                 // No external tools — terminal handles it
         reason: 'SHELL is terminal - execute command in terminal',
-        confidence: 0.95,
+        confidence: llmMeta?.confidence || 0.95,
         metadata: {
           inputPreview: input.substring(0, 100),
           handler: 'shell.exec',
           shellCommand: command,
+          classifiedBy: llmMeta ? 'llm' : 'regex',
+          projectScope,
+        },
+      });
+    }
+
+    // v71: FILE_WRITE is TERMINAL — write content to filesystem, no LLM
+    if (intent === IntentType.FILE_WRITE) {
+      // v71: prefer LLM-extracted fileTarget, fallback to regex extraction
+      const writePath = llmMeta?.fileTarget || extractWriteFilePath(input);
+      return new CREDecision({
+        type: DecisionType.LOCAL,
+        intent,
+        tools: [],
+        reason: 'FILE_WRITE is terminal - write content to file',
+        confidence: llmMeta?.confidence || 0.9,
+        metadata: {
+          inputPreview: input.substring(0, 100),
+          handler: 'file.write',
+          filePath: writePath,
+          classifiedBy: llmMeta ? 'llm' : 'regex',
           projectScope,
         },
       });
@@ -2892,13 +3135,15 @@ export function assertDecision(decision) {
     );
   }
 
-  // v44.7 INVARIANT: LOCAL decision must have LOCAL or FILE intent
+  // v44.7 INVARIANT: LOCAL decision must have LOCAL or FILE/SHELL intent
   // v63.0: FILE_READ and FILE_EXPLAIN are also terminal (no web, no tools)
-  const LOCAL_VALID_INTENTS = [IntentType.LOCAL, IntentType.FILE_READ, IntentType.FILE_EXPLAIN];
+  // v65.0: SHELL is terminal (execute in terminal)
+  // v70: FILE_WRITE is terminal (write to filesystem)
+  const LOCAL_VALID_INTENTS = [IntentType.LOCAL, IntentType.FILE_READ, IntentType.FILE_EXPLAIN, IntentType.SHELL, IntentType.FILE_WRITE];
   if (decision.type === DecisionType.LOCAL && !LOCAL_VALID_INTENTS.includes(decision.intent)) {
     throw new Error(
       `INVALID_DECISION_FLOW: LOCAL decision for non-LOCAL intent "${decision.intent}". ` +
-      `LOCAL decision type is only for LOCAL/FILE_READ/FILE_EXPLAIN intents.`
+      `LOCAL decision type is only for LOCAL/FILE_READ/FILE_EXPLAIN/SHELL/FILE_WRITE intents.`
     );
   }
 

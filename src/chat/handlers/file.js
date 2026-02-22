@@ -431,6 +431,137 @@ export async function handleFileDecision(input, decision, context) {
   });
 }
 
+// ─── v70: FILE_WRITE handler ──────────────────────────────────────────────────
+
+/**
+ * Handle FILE_WRITE decision — saves previous assistant output to a file.
+ * TERMINAL: writes to filesystem, returns confirmation.
+ */
+export async function handleFileWriteDecision(input, decision, context) {
+  const projectPath = decision.metadata?.projectScope?.projectPath
+    || context.project?.path
+    || process.cwd();
+
+  const langCtx = context.langCtx || getLanguageContext(input);
+  const lang = langCtx?.language || 'cs';
+
+  // 1. Determine file path
+  let filePath = decision.metadata?.filePath;
+  if (!filePath) {
+    // Try to extract from input
+    filePath = extractFilePathFromInput(input);
+  }
+  if (!filePath) {
+    // Auto-generate filename based on timestamp
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    filePath = `output-${ts}.md`;
+  }
+
+  // 2. Get content to write — last ASSISTANT message from conversation history
+  //    IMPORTANT: history contains both user and assistant turns.
+  //    User turns have speaker='user', assistant turns have speaker='system'.
+  //    The current user message is ALREADY in history (appended before handler),
+  //    so we MUST filter by speaker to avoid writing the user's own request.
+  let content = '';
+  if (context.history?.length > 0) {
+    for (let i = context.history.length - 1; i >= 0; i--) {
+      const entry = context.history[i];
+      // Skip user turns — only pick assistant (speaker='system') responses
+      if (entry.response?.tag?.speaker === 'user') continue;
+      const resp = entry.response?.content || entry.content;
+      if (resp) {
+        content = resp;
+        break;
+      }
+    }
+  }
+
+  if (!content) {
+    const msg = lang === 'cs'
+      ? '⚠️ Není co uložit — žádná předchozí odpověď v konverzaci.'
+      : '⚠️ Nothing to save — no previous response in conversation.';
+    return new TaggedResponse({
+      content: msg,
+      tag: new ResponseTag({
+        speaker: ResponseSpeaker.SYSTEM,
+        mode: ChatMode.CONVERSATION,
+        confidence: 0.9,
+        canExecute: false,
+        metadata: { decision: decision.toJSON(), handler: 'file.write', error: 'no_content' },
+      }),
+    });
+  }
+
+  // 3. Security validation — reuse existing validateFilePath
+  const validation = validateFilePath(filePath, projectPath);
+  if (!validation.safe) {
+    const msg = formatSecurityBlock(filePath, validation.reason, lang);
+    return new TaggedResponse({
+      content: msg,
+      tag: new ResponseTag({
+        speaker: ResponseSpeaker.SYSTEM,
+        mode: ChatMode.CONVERSATION,
+        confidence: 0.95,
+        canExecute: false,
+        metadata: { decision: decision.toJSON(), handler: 'file.write', securityBlocked: true, reason: validation.reason },
+      }),
+    });
+  }
+
+  // 4. Write the file
+  try {
+    // Ensure parent directory exists
+    const dir = path.dirname(validation.resolved);
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(validation.resolved, content, 'utf-8');
+
+    const sizeKB = Math.round(Buffer.byteLength(content, 'utf-8') / 1024) || '<1';
+    const lines = content.split('\n').length;
+    const msg = lang === 'cs'
+      ? `✅ Uloženo do **${filePath}** (${lines} řádků, ${sizeKB} KB)\n\nCesta: \`${validation.resolved}\``
+      : `✅ Saved to **${filePath}** (${lines} lines, ${sizeKB} KB)\n\nPath: \`${validation.resolved}\``;
+
+    logger.info('HandleFileWrite', `File written successfully`, {
+      filePath: validation.resolved,
+      size: Buffer.byteLength(content, 'utf-8'),
+      lines,
+    });
+
+    return new TaggedResponse({
+      content: msg,
+      tag: new ResponseTag({
+        speaker: ResponseSpeaker.SYSTEM,
+        mode: ChatMode.CONVERSATION,
+        confidence: 0.95,
+        canExecute: false,
+        metadata: {
+          decision: decision.toJSON(),
+          fileOperation: true,
+          handler: 'file.write',
+          filePath: validation.resolved,
+          fileSize: Buffer.byteLength(content, 'utf-8'),
+          fileLines: lines,
+        },
+      }),
+    });
+  } catch (err) {
+    logger.error('HandleFileWrite', `File write failed: ${err.message}`, { filePath: validation.resolved });
+    const msg = lang === 'cs'
+      ? `❌ Chyba při zápisu do **${filePath}**: ${err.message}`
+      : `❌ Error writing to **${filePath}**: ${err.message}`;
+    return new TaggedResponse({
+      content: msg,
+      tag: new ResponseTag({
+        speaker: ResponseSpeaker.SYSTEM,
+        mode: ChatMode.CONVERSATION,
+        confidence: 0.8,
+        canExecute: false,
+        metadata: { decision: decision.toJSON(), handler: 'file.write', error: err.message },
+      }),
+    });
+  }
+}
+
 // Testing exports
 export { validateFilePath, readFileSafe, extractFilePathFromInput };
 

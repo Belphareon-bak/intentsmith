@@ -19,8 +19,9 @@ import {
   handleAnswerDecision,
   handleRefuseDecision,
 } from './decisions.js';
-import { handleFileDecision } from './file.js';
+import { handleFileDecision, handleFileWriteDecision } from './file.js';
 import { handleLocalDecision } from './local.js';
+import { handleShellDecision } from './conversation.js';
 import { readdirSync } from 'fs';
 import { extname } from 'path';
 
@@ -307,7 +308,8 @@ export async function projectHandler(input, context) {
     }
 
     // Get CRE decision with project context
-    const decision = creDecisionEngine.decide(input, {
+    // v71: decide() is now async (LLM-first classification)
+    const decision = await creDecisionEngine.decide(input, {
       ...context,
       hasActiveProject: true,
       projectId: project.id,
@@ -335,6 +337,19 @@ export async function projectHandler(input, context) {
             project: project,
             projectPath: project.path,
           });
+        }
+        // v70: FILE_WRITE intent → write content to file
+        if (decision.intent === IntentType.FILE_WRITE) {
+          return await handleFileWriteDecision(input, decision, {
+            ...context,
+            hasActiveProject: true,
+            project: project,
+            projectPath: project.path,
+          });
+        }
+        // v70: SHELL intent → route to terminal execution
+        if (decision.intent === IntentType.SHELL) {
+          return handleShellDecision(input, decision, context);
         }
         return await handleLocalDecision(input, decision, context);
 

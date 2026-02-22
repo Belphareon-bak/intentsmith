@@ -98,7 +98,8 @@ export async function expertiseHandler(input, context) {
     // ════════════════════════════════════════════════════════════════════════
 
     // v44.2+ - Use CRE decision engine WITH expert context
-    const decision = creDecisionEngine.decide(input, {
+    // v71: decide() is now async (LLM-first classification)
+    const decision = await creDecisionEngine.decide(input, {
       ...context,
       hasActiveExpertise: true,
       expertise: expertise,

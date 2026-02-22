@@ -87,6 +87,16 @@ class ToolRegistry {
   }
 
   /**
+   * Unregister a specialist and its tools.
+   * @param {string} specialistId
+   */
+  unregisterSpecialist(specialistId) {
+    if (!this._specialists.has(specialistId)) return;
+    this._specialists.delete(specialistId);
+    logger.debug('SpecialistRuntime', `Unregistered specialist: ${specialistId}`);
+  }
+
+  /**
    * Get all registered specialist IDs.
    */
   getSpecialistIds() {
@@ -217,6 +227,13 @@ class SpecialistRuntime {
    */
   registerSpecialist(config) {
     this.registry.registerSpecialist(config);
+  }
+
+  /**
+   * Unregister a specialist.
+   */
+  unregisterSpecialist(specialistId) {
+    this.registry.unregisterSpecialist(specialistId);
   }
 
   /**
