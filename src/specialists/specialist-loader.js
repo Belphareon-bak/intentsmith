@@ -493,12 +493,15 @@ export class SpecialistLoader {
 
   /**
    * Update a specialist to a new version discovered on disk.
-   * Flow: validate → disable → migrate → cache bust → re-enable.
+   * Rollback-ready: DB version committed AFTER successful re-enable.
+   * If re-enable fails, migrations are rolled back via down().
+   *
+   * Flow: validate → snapshot → disable → migrate → re-enable → commit DB.
    *
    * Requires discoverAll() to have been called first to pick up new manifest.
    *
    * @param {string} specialistId
-   * @returns {Promise<{ oldVersion: string, newVersion: string, wasEnabled: boolean } | null>}
+   * @returns {Promise<{ oldVersion: string, newVersion: string, wasEnabled: boolean, reversible: boolean } | null>}
    */
   async update(specialistId) {
     const row = this._stmts.getSpecialist.get(specialistId);
@@ -537,37 +540,140 @@ export class SpecialistLoader {
       }
     }
 
-    logger.info('SpecialistLoader', `Updating: ${specialistId} v${oldVersion} → v${newVersion}`);
+    // Check migration reversibility
+    const reversible = await this._checkMigrationsReversible(specialistId, dir, manifest);
 
-    // 1. Clear tool module caches (before disable removes config)
+    logger.info('SpecialistLoader', `Updating: ${specialistId} v${oldVersion} → v${newVersion}` +
+      (reversible ? '' : ' (irreversible migrations)'));
+
+    // 1. Snapshot pre-update state
+    const snapshot = {
+      oldVersion,
+      oldManifest: row.manifest_json,
+      oldStatus: row.status,
+    };
+
+    // 2. Clear tool module caches (before disable removes config)
     if (wasEnabled && typeof this.runtime.clearModuleCache === 'function') {
       this.runtime.clearModuleCache(expertiseId);
     }
 
-    // 2. Disable if enabled
+    // 3. Disable if enabled
     if (wasEnabled) {
       this.disable(specialistId);
     }
 
-    // 3. Mark for entry point cache bust
+    // 4. Mark for entry point cache bust
     this._needsCacheBust.add(specialistId);
 
-    // 4. Run new migrations
+    // 5. Run new migrations
+    const migrationsApplied = [];
     this._runMigrations(specialistId, dir, manifest);
+    if (this._pendingMigrations?.length) {
+      // Track which migrations we apply for potential rollback
+      for (const pm of this._pendingMigrations) {
+        migrationsApplied.push(pm.migrationName);
+      }
+    }
     await this._executePendingMigrations();
 
-    // 5. Update DB version + manifest
-    this._stmts.updateVersion.run(newVersion, JSON.stringify(manifest), specialistId);
-
-    // 6. Re-enable if was enabled
+    // 6. Re-enable if was enabled — BEFORE DB version commit
     if (wasEnabled) {
-      const now = new Date().toISOString();
-      this._stmts.updateStatus.run('enabled', now, null, specialistId);
-      await this._enableOne(specialistId, discovered);
+      try {
+        const now = new Date().toISOString();
+        this._stmts.updateStatus.run('enabled', now, null, specialistId);
+        await this._enableOne(specialistId, discovered);
+      } catch (err) {
+        // Re-enable failed — rollback migrations if reversible
+        logger.error('SpecialistLoader', `Re-enable failed for ${specialistId}: ${err.message}`);
+
+        if (reversible && migrationsApplied.length > 0) {
+          await this._rollbackMigrations(specialistId, dir, manifest, migrationsApplied);
+        }
+
+        // Restore DB state to disabled (disable already set it, but status may have been changed)
+        const nowFail = new Date().toISOString();
+        this._stmts.updateStatus.run('disabled', null, nowFail, specialistId);
+        this._needsCacheBust.delete(specialistId);
+
+        throw new Error(`Update failed for ${specialistId}: re-enable failed after migration. ` +
+          (reversible ? 'Migrations rolled back.' : 'Migrations NOT rolled back (irreversible).') +
+          ` Original error: ${err.message}`);
+      }
     }
 
+    // 7. Commit DB version + manifest — ONLY after successful re-enable
+    this._stmts.updateVersion.run(newVersion, JSON.stringify(manifest), specialistId);
+
     logger.info('SpecialistLoader', `Updated: ${specialistId} v${oldVersion} → v${newVersion}`);
-    return { oldVersion, newVersion, wasEnabled };
+    return { oldVersion, newVersion, wasEnabled, reversible };
+  }
+
+  /**
+   * Check if all new migrations in a manifest have down() functions.
+   * @returns {Promise<boolean>} true if all migrations are reversible
+   */
+  async _checkMigrationsReversible(specialistId, dir, manifest) {
+    if (!manifest.migrations?.length) return true;
+
+    const migrationsDir = path.join(dir, 'migrations');
+    if (!fs.existsSync(migrationsDir)) return true;
+
+    const applied = new Set(
+      this._stmts.getMigrations.all(specialistId).map(r => r.migration_name)
+    );
+
+    for (const migrationName of manifest.migrations) {
+      if (applied.has(migrationName)) continue;
+
+      const migrationFile = path.join(migrationsDir, `${migrationName}.js`);
+      if (!fs.existsSync(migrationFile)) continue;
+
+      try {
+        const mod = await import(migrationFile);
+        if (typeof mod.down !== 'function') {
+          logger.debug('SpecialistLoader', `Migration ${migrationName} has no down() — irreversible`);
+          return false;
+        }
+      } catch {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Rollback applied migrations in reverse order via their down() functions.
+   */
+  async _rollbackMigrations(specialistId, dir, manifest, migrationsApplied) {
+    const migrationsDir = path.join(dir, 'migrations');
+
+    // Reverse order — last applied first
+    for (let i = migrationsApplied.length - 1; i >= 0; i--) {
+      const migrationName = migrationsApplied[i];
+      const migrationFile = path.join(migrationsDir, `${migrationName}.js`);
+
+      try {
+        const mod = await import(migrationFile);
+        if (typeof mod.down !== 'function') {
+          logger.warn('SpecialistLoader', `Cannot rollback ${migrationName}: no down()`);
+          continue;
+        }
+
+        const rollback = this.db.transaction(() => {
+          mod.down(this.db);
+          this.db.prepare(
+            'DELETE FROM specialist_migrations WHERE specialist_id = ? AND migration_name = ?'
+          ).run(specialistId, migrationName);
+        });
+
+        rollback();
+        logger.info('SpecialistLoader', `Rolled back migration: ${specialistId}/${migrationName}`);
+      } catch (err) {
+        logger.error('SpecialistLoader', `Rollback failed for ${specialistId}/${migrationName}: ${err.message}`);
+      }
+    }
   }
 
   /**

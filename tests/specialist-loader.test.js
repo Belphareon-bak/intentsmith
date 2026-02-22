@@ -1369,6 +1369,387 @@ console.log('\n── 35. isSpecialistBusy ──');
   assert(!runtime.isSpecialistBusy('accountant'), 'not busy after clear');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Rollback-Ready Update Tests — DB commit after re-enable, migration rollback
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Write a migration file with both up() and down() for rollback testing.
+ */
+function writeReversibleMigration(baseDir, name, migrationName, upSql, downSql) {
+  const dir = path.join(baseDir, name, 'migrations');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, `${migrationName}.js`),
+`export function up(db) {
+  db.exec(\`${upSql}\`);
+}
+export function down(db) {
+  db.exec(\`${downSql}\`);
+}
+`);
+}
+
+/**
+ * Write a migration file with only up() — no down() — irreversible.
+ */
+function writeIrreversibleMigration(baseDir, name, migrationName, sql) {
+  const dir = path.join(baseDir, name, 'migrations');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, `${migrationName}.js`),
+`export function up(db) {
+  db.exec(\`${sql}\`);
+}
+`);
+}
+
+/**
+ * Write a specialist whose index.js register() throws on enable.
+ * Used to simulate re-enable failure after migration.
+ */
+function writeBrokenSpecialist(baseDir, name, version, migrations = []) {
+  const dir = path.join(baseDir, name);
+  fs.mkdirSync(path.join(dir, 'tools'), { recursive: true });
+  if (migrations.length) {
+    fs.mkdirSync(path.join(dir, 'migrations'), { recursive: true });
+  }
+
+  fs.writeFileSync(path.join(dir, 'specialist.json'), JSON.stringify({
+    id: name,
+    version,
+    name: `Broken ${name}`,
+    domain: 'test',
+    type: 'utility',
+    engine: '>=65.0.0',
+    entry: './index.js',
+    tools: [{ id: `${name}.echo`, name: 'Echo', module: './tools/echo.js', function: 'echo' }],
+    expertises: [name],
+    knowledge_packs: [],
+    migrations,
+    enabledByDefault: true,
+  }));
+
+  fs.writeFileSync(path.join(dir, 'tools', 'echo.js'),
+`export function echo(params) {
+  return { success: true, result: { value: 'broken' } };
+}
+`);
+
+  // index.js that throws on register — simulates broken v2
+  fs.writeFileSync(path.join(dir, 'index.js'),
+`export function register(ctx) {
+  throw new Error('SIMULATED_REGISTER_FAILURE');
+}
+export function unregister(ctx) {}
+`);
+
+  return dir;
+}
+
+// ── 36. Update returns reversible=true when migrations have down() ────────
+
+console.log('\n── 36. Reversibility check: migrations with down() ──');
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-rollback-'));
+
+  try {
+    const db = createTestDb();
+    const runtime = new SpecialistRuntime();
+
+    writeTempSpecialist(tempDir, 'revcheck', '1.0.0', 'v1');
+
+    const loader = new SpecialistLoader(db, runtime, {
+      baseDir: tempDir,
+      engineVersion: '65.5.0',
+    });
+
+    await loader.boot();
+
+    // Update with reversible migration
+    writeTempSpecialist(tempDir, 'revcheck', '1.1.0', 'v2', ['001_add_data']);
+    writeReversibleMigration(tempDir, 'revcheck', '001_add_data',
+      "CREATE TABLE IF NOT EXISTS revcheck_data (id INTEGER PRIMARY KEY, val TEXT)",
+      "DROP TABLE IF EXISTS revcheck_data");
+
+    loader.discoverAll();
+    const result = await loader.update('revcheck');
+
+    assert(result !== null, 'update succeeded');
+    assertEq(result.reversible, true, 'reversible = true when down() exists');
+    assertEq(result.newVersion, '1.1.0', 'updated to 1.1.0');
+
+    // Table exists
+    const table = db.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='revcheck_data'"
+    ).get();
+    assert(table !== undefined, 'migration table created');
+
+    db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+// ── 37. Update returns reversible=false when migration lacks down() ───────
+
+console.log('\n── 37. Reversibility check: migration without down() ──');
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-rollback-'));
+
+  try {
+    const db = createTestDb();
+    const runtime = new SpecialistRuntime();
+
+    writeTempSpecialist(tempDir, 'irrev', '1.0.0', 'v1');
+
+    const loader = new SpecialistLoader(db, runtime, {
+      baseDir: tempDir,
+      engineVersion: '65.5.0',
+    });
+
+    await loader.boot();
+
+    // Update with irreversible migration
+    writeTempSpecialist(tempDir, 'irrev', '1.1.0', 'v2', ['001_no_down']);
+    writeIrreversibleMigration(tempDir, 'irrev', '001_no_down',
+      "CREATE TABLE IF NOT EXISTS irrev_data (id INTEGER PRIMARY KEY)");
+
+    loader.discoverAll();
+    const result = await loader.update('irrev');
+
+    assert(result !== null, 'update succeeded');
+    assertEq(result.reversible, false, 'reversible = false when no down()');
+
+    db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+// ── 38. Re-enable failure: reversible migration gets rolled back ──────────
+
+console.log('\n── 38. Re-enable failure: migration rollback ──');
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-rollback-'));
+
+  try {
+    const db = createTestDb();
+    const runtime = new SpecialistRuntime();
+
+    // Boot with working v1
+    writeTempSpecialist(tempDir, 'failover', '1.0.0', 'v1-ok');
+
+    const loader = new SpecialistLoader(db, runtime, {
+      baseDir: tempDir,
+      engineVersion: '65.5.0',
+    });
+
+    await loader.boot();
+    assert(runtime.isSpecialist('failover'), 'v1 registered');
+
+    const r1 = await runtime.tryToolExecution('failover', 'echo test');
+    assertEq(r1.result.value, 'v1-ok', 'v1 tool works');
+
+    // Prepare broken v2 with reversible migration
+    writeBrokenSpecialist(tempDir, 'failover', '2.0.0', ['001_add_fail_table']);
+    writeReversibleMigration(tempDir, 'failover', '001_add_fail_table',
+      "CREATE TABLE IF NOT EXISTS fail_table (id INTEGER PRIMARY KEY, data TEXT)",
+      "DROP TABLE IF EXISTS fail_table");
+
+    loader.discoverAll();
+
+    // Update should throw because register() fails
+    let updateError = null;
+    try {
+      await loader.update('failover');
+    } catch (err) {
+      updateError = err;
+    }
+
+    assert(updateError !== null, 'update threw error');
+    assert(updateError.message.includes('re-enable failed'), 'error mentions re-enable failure');
+    assert(updateError.message.includes('Migrations rolled back'), 'error mentions rollback');
+
+    // Migration should have been rolled back — table should NOT exist
+    const table = db.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='fail_table'"
+    ).get();
+    assertEq(table, undefined, 'fail_table rolled back (does not exist)');
+
+    // Migration tracking should be cleaned up
+    const migRows = db.prepare(
+      "SELECT * FROM specialist_migrations WHERE specialist_id = 'failover' AND migration_name = '001_add_fail_table'"
+    ).all();
+    assertEq(migRows.length, 0, 'rollback removed migration from tracking');
+
+    // DB state: specialist should be disabled, version still v1
+    const row = loader.getInstalled().find(r => r.id === 'failover');
+    assertEq(row.status, 'disabled', 'specialist disabled after failed update');
+    assertEq(row.version, '1.0.0', 'DB version still 1.0.0 (not committed)');
+
+    // Specialist should NOT be in runtime
+    assert(!runtime.isSpecialist('failover'), 'specialist not in runtime after failed update');
+
+    db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+// ── 39. Re-enable failure: irreversible migration NOT rolled back ─────────
+
+console.log('\n── 39. Re-enable failure: irreversible migration stays ──');
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-rollback-'));
+
+  try {
+    const db = createTestDb();
+    const runtime = new SpecialistRuntime();
+
+    writeTempSpecialist(tempDir, 'failirr', '1.0.0', 'v1-ok');
+
+    const loader = new SpecialistLoader(db, runtime, {
+      baseDir: tempDir,
+      engineVersion: '65.5.0',
+    });
+
+    await loader.boot();
+
+    // Broken v2 with irreversible migration
+    writeBrokenSpecialist(tempDir, 'failirr', '2.0.0', ['001_irrev_table']);
+    writeIrreversibleMigration(tempDir, 'failirr', '001_irrev_table',
+      "CREATE TABLE IF NOT EXISTS irrev_table (id INTEGER PRIMARY KEY)");
+
+    loader.discoverAll();
+
+    let updateError = null;
+    try {
+      await loader.update('failirr');
+    } catch (err) {
+      updateError = err;
+    }
+
+    assert(updateError !== null, 'update threw error');
+    assert(updateError.message.includes('NOT rolled back'), 'error mentions NOT rolled back');
+
+    // Migration table SHOULD still exist (irreversible — not rolled back)
+    const table = db.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='irrev_table'"
+    ).get();
+    assert(table !== undefined, 'irrev_table still exists (not rolled back)');
+
+    // DB version still v1 (not committed)
+    const row = loader.getInstalled().find(r => r.id === 'failirr');
+    assertEq(row.version, '1.0.0', 'DB version still 1.0.0');
+    assertEq(row.status, 'disabled', 'status is disabled');
+
+    db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+// ── 40. DB version committed ONLY after successful re-enable ──────────────
+
+console.log('\n── 40. DB version committed after re-enable, not before ──');
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-rollback-'));
+
+  try {
+    const db = createTestDb();
+    const runtime = new SpecialistRuntime();
+
+    writeTempSpecialist(tempDir, 'dborder', '1.0.0', 'v1');
+
+    const loader = new SpecialistLoader(db, runtime, {
+      baseDir: tempDir,
+      engineVersion: '65.5.0',
+    });
+
+    await loader.boot();
+
+    // Successful update to v2
+    writeTempSpecialist(tempDir, 'dborder', '2.0.0', 'v2');
+    loader.discoverAll();
+    const result = await loader.update('dborder');
+
+    assert(result !== null, 'update succeeded');
+    assertEq(result.newVersion, '2.0.0', 'updated to 2.0.0');
+
+    // DB version is 2.0.0 — committed after re-enable
+    const row = loader.getInstalled().find(r => r.id === 'dborder');
+    assertEq(row.version, '2.0.0', 'DB version is 2.0.0 after successful update');
+    assertEq(row.status, 'enabled', 'status is enabled');
+
+    // Tool returns v2 — re-enable happened before DB commit
+    const r2 = await runtime.tryToolExecution('dborder', 'echo test');
+    assertEq(r2.result.value, 'v2', 'tool returns v2');
+
+    db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+// ── 41. Recovery after failed update: can re-enable old v1 ────────────────
+
+console.log('\n── 41. Recovery: re-enable old code after failed update ──');
+{
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-rollback-'));
+
+  try {
+    const db = createTestDb();
+    const runtime = new SpecialistRuntime();
+
+    // Boot with v1
+    writeTempSpecialist(tempDir, 'recover', '1.0.0', 'v1-working');
+
+    const loader = new SpecialistLoader(db, runtime, {
+      baseDir: tempDir,
+      engineVersion: '65.5.0',
+    });
+
+    await loader.boot();
+    const r1 = await runtime.tryToolExecution('recover', 'echo test');
+    assertEq(r1.result.value, 'v1-working', 'v1 works');
+
+    // Write broken v2
+    writeBrokenSpecialist(tempDir, 'recover', '2.0.0', ['001_temp']);
+    writeReversibleMigration(tempDir, 'recover', '001_temp',
+      "CREATE TABLE IF NOT EXISTS recover_temp (id INTEGER PRIMARY KEY)",
+      "DROP TABLE IF EXISTS recover_temp");
+
+    loader.discoverAll();
+
+    let err = null;
+    try { await loader.update('recover'); } catch (e) { err = e; }
+    assert(err !== null, 'update failed as expected');
+
+    // Specialist is now disabled, version still v1
+    const row = loader.getInstalled().find(r => r.id === 'recover');
+    assertEq(row.version, '1.0.0', 'version still 1.0.0');
+    assertEq(row.status, 'disabled', 'status is disabled');
+
+    // Restore working v1 files
+    writeTempSpecialist(tempDir, 'recover', '1.0.0', 'v1-working');
+    loader.discoverAll();
+
+    // Re-enable should work — load the old (restored) code
+    await loader.enable('recover');
+    assert(runtime.isSpecialist('recover'), 'recovered: back in runtime');
+
+    const r2 = await runtime.tryToolExecution('recover', 'echo test');
+    assert(r2 !== null, 'recovered: tool works');
+
+    // Integrity OK
+    const check = loader.checkIntegrity();
+    assert(check.ok, 'integrity OK after recovery');
+
+    db.close();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 
 console.log(`\n══════════════════════════════════════════════════`);
