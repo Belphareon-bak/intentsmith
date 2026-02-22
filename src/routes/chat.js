@@ -178,7 +178,9 @@ export function createChatRoutes(deps) {
       const limit = parseInt(url.searchParams.get('limit')) || 10;
 
       try {
-        const conversations = db.conversations.listRecent.all(limit);
+        // v69.1: Only return global (non-project) conversations in chat list.
+        // Project conversations are accessed via GET /api/projects/:id/conversations.
+        const conversations = db.conversations.listRecentGlobal.all(limit);
         sendJSON(res, 200, { conversations });
       } catch (err) {
         sendJSON(res, 500, safeError(err));
