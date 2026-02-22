@@ -1,7 +1,7 @@
 # Accounting Engine — Roadmap
 ## OSVČ Cash-Based Daňová Evidence
 
-> Phase 1–4 implementovány (v69–v72). Tento dokument pokrývá celý plán od ledger core po compliance engine.
+> Phase 1–6 implementovány (v69–v74). Všechny fáze dokončeny — 218/218 testů.
 
 ---
 
@@ -12,10 +12,10 @@
 │                      Specialist Layer                           │
 │  (specialist-runtime.js → accountant tool routing)              │
 ├─────────────────────────────────────────────────────────────────┤
-│                      Report Engine              (Phase 6)       │
+│                      Report Engine              (Phase 6) ✅    │
 │  Přehledy, Přiznání, Přehled ČSSZ/VZP, Souhrnné výkazy        │
 ├─────────────────────────────────────────────────────────────────┤
-│                      Compliance Layer           (Phase 5)       │
+│                      Compliance Layer           (Phase 5) ✅    │
 │  Deadline agent, platební kontrola, validace povinností         │
 ├─────────────────────────────────────────────────────────────────┤
 │                      VAT Engine                 (Phase 4) ✅    │
@@ -236,54 +236,90 @@ computeVATPeriodSummary({ entries, rates, year, periodNumber, periodType }) → 
 
 ---
 
-## Phase 5: Compliance Layer
+## Phase 5: Compliance Layer ✅ (v73)
 
-**Cíl: Termíny, upomínky, validace povinností**
+**Stav: HOTOVO — 26/26 testů**
 
-### Úkoly
-- [ ] `compliance_rules` tabulka — definice povinností per entity_type
-- [ ] `compliance_checks` — výsledky kontroly (OK/WARNING/VIOLATION)
-- [ ] Integrace s deadline-checker.js — automatická kontrola blížících se termínů
-- [ ] Kontrola: podáno přiznání? Zaplaceno pojistné? Odeslán přehled?
-- [ ] Warning systém: upozornění N dní před deadlinem
-- [ ] `runComplianceCheck(entityId, year)` — souhrnná kontrola
+### DB změny
+- `compliance_checks` — výsledky compliance kontrol (upsert, status: ok/warning/violation/not_applicable)
+
+### Engine API (ledger-compliance.js)
+```
+getObligations(entity) → povinnosti OSVČ (filtrováno dle VAT registrace)
+getAnnualDeadlines(year) → DPFO, ČSSZ, VZP termíny (filing year = year+1)
+getMonthlyDeadlines(year, month) → zálohy SP/ZP s daty splatnosti
+getVATDeadlines(year, periodType) → DPH + KH termíny (monthly/quarterly)
+checkDeadlineStatus(deadlineDate, asOfDate, warningDays) → ok/warning/overdue
+runComplianceCheck({ entity, year, asOfDate, ... }) → results + summary
+```
+
+### Funkce
+- [x] OSVČ obligation definitions — zákonné povinnosti (DPFO, ČSSZ, VZP, zálohy, DPH, KH)
+- [x] Deadline proximity: OK → WARNING (14 dní) → OVERDUE
+- [x] Tax return check: period lock = proxy for filing
+- [x] Insurance advance monitoring: zaplaceno X/Y záloh
+- [x] VAT period check: otevřená/uzavřená DPH období
+- [x] Non-VAT entity skips VAT obligations
+- [x] Repository: upsert compliance check, query by year/rule
+- [x] 26 testů
+
+### Soubory
+- `src/db/migrations/2026_02_22_011_v73_compliance.js`
+- `src/expertises/ledger/ledger-compliance.js`
+- `src/expertises/ledger/ledger-repository.js` (rozšířeno)
+- `tests/ledger-compliance.test.js`
+
+### Zbývá (nepřidáno zatím)
+- [ ] Napojení na specialist-runtime jako `accountant.compliance_check` tool
 - [ ] Napojení na notification systém (agent_notifications)
-- [ ] 15+ testů: pravidla, kontroly, deadliny, warnings
-
-### Poznámky
-- Staví na existujícím `deadline-checker.js` (už v codebase)
-- Compliance nevynucuje (soft warnings), neblokuje
 
 ---
 
-## Phase 6: Report Engine
+## Phase 6: Report Engine ✅ (v74)
 
-**Cíl: Výkazy, přehledy, exporty**
+**Stav: HOTOVO — 21/21 testů**
 
-### Úkoly
-- [ ] `generateDPFOData(entityId, year)` — kompletní data pro Přílohu 1
-- [ ] `generateCSSZOverview(entityId, year)` — Přehled OSVČ pro ČSSZ
-- [ ] `generateVZPOverview(entityId, year)` — Přehled pro zdravotní pojišťovnu
-- [ ] `generateCashBook(entityId, year)` — Peněžní deník (daňová evidence)
-- [ ] `generateIncomeSummary(entityId, year)` — Přehled příjmů a výdajů
-- [ ] Markdown/JSON export (PDF generování = IDE extension scope)
-- [ ] Přehled záloh: co bylo zaplaceno vs. co mělo být
-- [ ] 10+ testů: formáty, kompletnost, edge cases
+### Engine API (ledger-reports.js)
+```
+generateDPFOReport({ entity, entries, rates, year, activeLosses }) → DPFO (25 5405/P1)
+generateCSSZReport({ entity, entries, rates, year, paidAdvances }) → Přehled ČSSZ
+generateVZPReport({ entity, entries, rates, year, paidAdvances }) → Přehled VZP
+generateCashBook({ entries, year }) → Peněžní deník (chronologický, running balance)
+generateIncomeSummary({ entity, entries, rates, year }) → Příjmy/výdaje by category
+generateAdvanceReport({ entity, entries, rates, year }) → Zálohy: schedule vs. paid
+formatReportAsMarkdown(report) → Markdown export
+```
+
+### Funkce
+- [x] DPFO report: wraps Phase 2 + form metadata
+- [x] ČSSZ/VZP reports: wraps Phase 3 overviews + report metadata
+- [x] Cash book: chronological entries, running balance
+- [x] Income summary: agregace by category, sorted by balance
+- [x] Advance report: schedule vs. paid, reconciliation, missed months
+- [x] Markdown export: tables, sections, formatted CZK amounts
+- [x] 21 testů
 
 ### Poznámky
-- PDF rendering je mimo scope engine — engine generuje data, IDE extension renderuje
-- Formuláře odpovídají oficiálním tiskopisům MFin (kódy 25 5405/P1)
+- PDF rendering mimo scope engine — engine generuje data/markdown
+- Report engine orchestruje Phase 1-4 engines, sám zůstává pure
+
+### Soubory
+- `src/expertises/ledger/ledger-reports.js`
+- `tests/ledger-reports.test.js`
+
+### Zbývá (nepřidáno zatím)
+- [ ] Napojení na specialist-runtime jako `accountant.generate_report` tool
 
 ---
 
 ## Závislosti mezi fázemi
 
 ```
-Phase 1 ✅ ─→ Phase 2 ✅ ─→ Phase 3 ✅ ─→ Phase 5
+Phase 1 ✅ ─→ Phase 2 ✅ ─→ Phase 3 ✅ ─→ Phase 5 ✅
                    │                      ↑
                    └──→ Phase 4 ✅ ───────┘
                                           │
-                                     Phase 6
+                                     Phase 6 ✅
 ```
 
 - Phase 2 závisí na Phase 1 (ledger + engine)
@@ -302,15 +338,15 @@ Phase 1 ✅ ─→ Phase 2 ✅ ─→ Phase 3 ✅ ─→ Phase 5
 | 2 ✅  | 44    | Period locking, guards, tax return DPFO, loss carryforward, edge cases |
 | 3 ✅  | 27    | Social/health přehledy, zálohy, nedoplatky, vedlejší činnost, reconciliation |
 | 4 ✅  | 46    | DPH přiznání, KH (A.4/A.5/B.2/B.3), rolling 12M, reverse charge, EU, validace |
-| 5     | ~15   | Compliance rules, deadline kontrola, warnings |
-| 6     | ~10   | Report formáty, kompletnost |
-| **Σ** | **~196** | |
+| 5 ✅  | 26    | Obligations, deadlines, status, comprehensive check, CRUD, edge cases |
+| 6 ✅  | 21    | DPFO, ČSSZ, VZP, cash book, income summary, advances, markdown, edge cases |
+| **Σ** | **218** | |
 
 ---
 
 ## DB Schema — celkový přehled
 
-### Existující (Phase 1 + 2 + 4)
+### Kompletní (Phase 1 + 2 + 4 + 5)
 - `entity_profiles` — tenant + profil
 - `financial_entries` — cash-based ledger (haléře, soft delete, VAT metadata)
 - `entry_history` — audit trail
@@ -318,10 +354,7 @@ Phase 1 ✅ ─→ Phase 2 ✅ ─→ Phase 3 ✅ ─→ Phase 5
 - `period_locks` — zamčená období
 - `tax_losses` — evidence daňových ztrát §34 ZDP
 - `vat_periods` — uzavřená DPH období (monthly/quarterly)
-
-### Plánované
-- `compliance_rules` — definice povinností (Phase 5)
-- `compliance_checks` — výsledky kontrol (Phase 5)
+- `compliance_checks` — výsledky compliance kontrol (Phase 5)
 
 ---
 
@@ -341,4 +374,4 @@ Nové accountant tools (postupně):
 
 ---
 
-*Dokument vytvořen: 2026-02-20, Phase 1 v69, Phase 2 v70, Phase 3 v71, Phase 4 v72 — 171/171 testů*
+*Dokument vytvořen: 2026-02-20, aktualizován: 2026-02-22. Phase 1 v69, Phase 2 v70, Phase 3 v71, Phase 4 v72, Phase 5 v73, Phase 6 v74 — 218/218 testů*

@@ -207,6 +207,27 @@ export class LedgerRepository {
         WHERE entity_id = ? AND period_start >= ? AND period_end <= ?
         ORDER BY period_start
       `),
+
+      // ── Compliance Checks ──
+      upsertCheck: db.prepare(`
+        INSERT INTO compliance_checks (entity_id, rule_code, year, period, status, detail_json)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(entity_id, rule_code, year, period) DO UPDATE SET
+          status = excluded.status, detail_json = excluded.detail_json,
+          checked_at = datetime('now')
+      `),
+
+      getChecksByYear: db.prepare(`
+        SELECT * FROM compliance_checks
+        WHERE entity_id = ? AND year = ?
+        ORDER BY rule_code
+      `),
+
+      getChecksByRule: db.prepare(`
+        SELECT * FROM compliance_checks
+        WHERE entity_id = ? AND rule_code = ?
+        ORDER BY year DESC, period DESC
+      `),
     };
 
     return this._stmts;
@@ -620,6 +641,41 @@ export class LedgerRepository {
     return this._prepare().getVATPeriodsByYear.all(
       entityId, `${year}-01-01`, `${year}-12-31`,
     );
+  }
+
+  // ─── Compliance Checks ─────────────────────────────────────────────────────
+
+  /**
+   * Save (upsert) a compliance check result.
+   * @param {string} entityId
+   * @param {{ rule_code: string, year: number, period?: string, status: string, detail?: string }} data
+   */
+  saveComplianceCheck(entityId, data) {
+    const { rule_code, year, period = 'annual', status, detail = null } = data;
+    this._prepare().upsertCheck.run(
+      entityId, rule_code, year, period, status,
+      detail ? JSON.stringify({ detail }) : null,
+    );
+  }
+
+  /**
+   * Get all compliance checks for entity + year.
+   * @param {string} entityId
+   * @param {number} year
+   * @returns {Object[]}
+   */
+  getComplianceChecks(entityId, year) {
+    return this._prepare().getChecksByYear.all(entityId, year);
+  }
+
+  /**
+   * Get compliance check history for a specific rule.
+   * @param {string} entityId
+   * @param {string} ruleCode
+   * @returns {Object[]}
+   */
+  getComplianceChecksByRule(entityId, ruleCode) {
+    return this._prepare().getChecksByRule.all(entityId, ruleCode);
   }
 
   // ─── Bulk Operations ────────────────────────────────────────────────────────

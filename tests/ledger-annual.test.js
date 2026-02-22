@@ -24,9 +24,8 @@ const db = new Database(':memory:');
 const { up: up1 } = await import('../src/db/migrations/2026_02_19_008_v69_ledger_core.js');
 const { up: up2 } = await import('../src/db/migrations/2026_02_20_009_v70_period_locks.js');
 const { up: up3 } = await import('../src/db/migrations/2026_02_22_010_v72_vat_engine.js');
-up1(db);
-up2(db);
-up3(db);
+const { up: up4 } = await import('../src/db/migrations/2026_02_22_011_v73_compliance.js');
+up1(db); up2(db); up3(db); up4(db);
 
 const repo = new LedgerRepository(db);
 
