@@ -217,9 +217,32 @@ class ToolExecutor {
    *
    * @param {ToolDefinition} tool - The matched tool definition
    * @param {Object} params - Extracted parameters
-   * @returns {Promise<{ success: boolean, result: any, toolType: string, params: Object }>}
+   * @returns {Promise<{ success: boolean, result: any, toolType: string, params: Object } | { status: 'clarify', missingParams: string[], toolType: string }>}
    */
   async execute(tool, params) {
+    // v75: ToolAdapter path — validate → normalize → execute
+    if (tool.toolAdapter) {
+      const startTime = Date.now();
+      const adapterResult = tool.toolAdapter.run(params);
+      const duration = Date.now() - startTime;
+
+      if (adapterResult.status === 'clarify') {
+        return { status: 'clarify', missingParams: adapterResult.missingParams, toolType: tool.id, params, duration };
+      }
+
+      if (adapterResult.status === 'error') {
+        return { success: false, error: adapterResult.message, toolType: tool.id, params, duration };
+      }
+
+      // status === 'ok'
+      logger.debug('SpecialistRuntime', `Tool ${tool.id} executed in ${duration}ms (adapter)`, {
+        toolId: tool.id, paramsKeys: Object.keys(params), success: true,
+      });
+
+      return { success: true, result: adapterResult.data, toolType: tool.id, params, duration };
+    }
+
+    // Legacy path (tools without toolAdapter)
     const fn = await this.registry.loadToolFunction(tool);
 
     // Apply adapter if present (transforms params before calling tool function)
@@ -324,6 +347,17 @@ class SpecialistRuntime {
     this._executingCount.set(expertiseId, (this._executingCount.get(expertiseId) || 0) + 1);
     try {
       const execResult = await this.executor.execute(match.tool, match.params);
+
+      // v75: Clarification — tool matched but needs more params
+      if (execResult.status === 'clarify') {
+        logger.info('SpecialistRuntime', `Tool ${match.tool.id} needs clarification: ${execResult.missingParams.join(', ')}`);
+        return {
+          status: 'clarify',
+          toolType: execResult.toolType,
+          missingParams: execResult.missingParams,
+          params: execResult.params,
+        };
+      }
 
       if (!execResult.success) {
         logger.warn('SpecialistRuntime', `Tool ${match.tool.id} failed: ${execResult.error}`);

@@ -4,10 +4,19 @@
 // Registers accountant tools into SpecialistRuntime.
 // Called by specialist-loader on enable().
 //
+// v75: ToolAdapter contract — validate → normalize → execute
+//
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { fileURLToPath } from 'url';
 import path from 'path';
+import {
+  TaxCalculatorAdapter,
+  VATCalculatorAdapter,
+  SalaryCalculatorAdapter,
+  DeadlineCheckerAdapter,
+  CompareAdapter,
+} from './adapters.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,18 +24,23 @@ const __dirname = path.dirname(__filename);
 // ─── Inline Extractors (synchronous, no import needed) ───────────────────────
 
 function extractAmountInline(input) {
-  let m = input.match(/(\d[\d\s,.]*\d)\s*[kK](?:[čc]|[Čč])?(?:\s|$|,|\.|;)/);
+  // "850k", "850K" → ×1000 (but NOT "850Kč" — that's currency, not thousand)
+  let m = input.match(/(\d[\d\s,.]*\d)\s*[kK](?![čcČC])(?:\s|$|,|\.|;)/);
   if (m) return parseFloat(m[1].replace(/[\s,]/g, '').replace(',', '.')) * 1000;
 
+  // "2M", "2m", "2mil"
   m = input.match(/(\d[\d\s,.]*\d?)\s*[mM](?:il)?(?:\s|$|,|\.|;)/);
   if (m) return parseFloat(m[1].replace(/[\s,]/g, '').replace(',', '.')) * 1000000;
 
+  // "850 tis", "850 tisíc"
   m = input.match(/(\d[\d\s,.]*\d?)\s*tis[ií]?c?(?:\s|$)/i);
   if (m) return parseFloat(m[1].replace(/[\s,]/g, '').replace(',', '.')) * 1000;
 
+  // Plain numbers: "850000", "850 000", "50000"
   m = input.match(/(\d{1,3}(?:\s\d{3})+|\d{4,})/);
   if (m) return parseInt(m[1].replace(/\s/g, ''));
 
+  // "z 50000", "ze 100000"
   m = input.match(/(?:z|ze|from)\s+(\d{3,})/);
   if (m) return parseInt(m[1]);
 
@@ -65,7 +79,7 @@ export function register(ctx) {
         description: 'Compare tax burden between sole proprietor and limited company',
         modulePath: path.join(toolsDir, 'tax-calc.js'),
         functionName: 'compareTaxEntities',
-        adapter: (p) => [p.gross_income, p],
+        toolAdapter: new CompareAdapter(),
         patterns: [{
           priority: 10,
           patterns: [
@@ -87,6 +101,7 @@ export function register(ctx) {
         description: 'Calculate VAT (add/remove) at Czech rates',
         modulePath: path.join(toolsDir, 'vat-calc.js'),
         functionName: 'calculateVAT',
+        toolAdapter: new VATCalculatorAdapter(),
         patterns: [{
           priority: 8,
           patterns: [
@@ -116,6 +131,7 @@ export function register(ctx) {
         description: 'Calculate net salary from gross (Czech social + health + tax)',
         modulePath: path.join(toolsDir, 'salary-calc.js'),
         functionName: 'calculateSalary',
+        toolAdapter: new SalaryCalculatorAdapter(),
         patterns: [{
           priority: 6,
           patterns: [
@@ -141,6 +157,7 @@ export function register(ctx) {
         description: 'Check Czech tax filing deadlines',
         modulePath: path.join(toolsDir, 'deadline-checker.js'),
         functionName: 'checkDeadlines',
+        toolAdapter: new DeadlineCheckerAdapter(),
         patterns: [{
           priority: 4,
           patterns: [
@@ -167,12 +184,14 @@ export function register(ctx) {
         description: 'Calculate income tax + social/health insurance for OSVČ/s.r.o.',
         modulePath: path.join(toolsDir, 'tax-calc.js'),
         functionName: 'calculateTax',
+        toolAdapter: new TaxCalculatorAdapter(),
         patterns: [{
           priority: 2,
           patterns: [
+            // Require computation verb OR amount alongside tax keyword
             /(?:kolik|jak[áa]|jakou|v[ýy][šs]e|celkov)\s*.{0,30}(?:da[ňn]|dan[ěe]|odvod|zaplat[ií]m)/i,
             /(?:da[ňn]|dan[ěe])\s*.{0,20}(?:z\s+p[řr][ií]jm|osv[čc]|s\.?\s?r\.?\s?o)/i,
-            /(?:zdan[ěe]n[ií]|da[ňn]ov[áa]\s+povinnost)/i,
+            /(?:zdan[ěe]n[ií]|da[ňn]ov[áa]\s+povinnost)\s*.{0,20}(?:\d|osv[čc]|s\.?\s?r\.?\s?o|[žz]ivnost)/i,
             /(?:odvody|dan[ěe])\s+(?:z|ze)\s+\d/i,
           ],
         }],

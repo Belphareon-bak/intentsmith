@@ -130,13 +130,28 @@ export async function expertiseHandler(input, context) {
           const toolResult = await specialistRuntime.tryToolExecution(expertise.id, input);
 
           if (toolResult) {
-            logger.info('ExpertHandler', 'Specialist tool interception: ANSWER → TOOL_CALL', {
-              toolType: toolResult.toolType,
-              expertise: expertise.id,
-            });
+            // v75: Clarification — tool matched but needs more params
+            if (toolResult.status === 'clarify') {
+              logger.info('ExpertHandler', `Specialist needs clarification: ${toolResult.missingParams.join(', ')}`, {
+                toolType: toolResult.toolType,
+                expertise: expertise.id,
+              });
+              // Inject structured context for LLM to ask for missing params
+              context.toolClarification = {
+                tool: toolResult.toolType,
+                missingParams: toolResult.missingParams,
+                extractedParams: toolResult.params,
+              };
+              // Fall through to LLM — it will ask for the specific missing params
+            } else {
+              logger.info('ExpertHandler', 'Specialist tool interception: ANSWER → TOOL_CALL', {
+                toolType: toolResult.toolType,
+                expertise: expertise.id,
+              });
 
-            const toolResponse = await executeSpecialistTool(input, toolResult, expertise, context);
-            return toolResponse;
+              const toolResponse = await executeSpecialistTool(input, toolResult, expertise, context);
+              return toolResponse;
+            }
           }
         } catch (err) {
           logger.warn('ExpertHandler', `Specialist tool failed, falling back to LLM: ${err.message}`);
@@ -221,6 +236,16 @@ async function generateExpertiseResponse(input, expertise, context) {
         .map(h => `${h.response?.tag?.speaker || 'user'}: ${h.response?.content?.substring(0, 200) || ''}`)
         .join('\n');
       prompt = `Previous context:\n${historyContext}\n\nUser question: ${input}`;
+    }
+
+    // v75: Tool clarification — inject structured context for LLM
+    if (context.toolClarification) {
+      const tc = context.toolClarification;
+      const missingList = tc.missingParams.map(p => `- ${p}`).join('\n');
+      const extractedList = Object.entries(tc.extractedParams || {})
+        .map(([k, v]) => `- ${k}: ${v}`)
+        .join('\n');
+      prompt += `\n\n[SYSTEM: Nástroj ${tc.tool} rozpoznal dotaz, ale chybí povinné parametry.\nChybí:\n${missingList}\nExtrahováno:\n${extractedList}\nZeptej se uživatele na chybějící parametry. Nepočítej sám — čekej na odpověď.]`;
     }
 
     // v57.0 - Use expertise.temperature instead of hard-coded 0.5
