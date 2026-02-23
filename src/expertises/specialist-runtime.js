@@ -269,6 +269,60 @@ class ToolExecutor {
   }
 }
 
+// ─── Session Param Cache ────────────────────────────────────────────────────
+
+/**
+ * In-memory cache of last successful tool execution params per session+specialist.
+ * Enables conversational follow-ups like:
+ *   Turn 1: "Kolik zaplatím daní z 850k?" → cache {gross_income: 850000}
+ *   Turn 2: "A co jako s.r.o.?" → merge cached + fresh → {gross_income: 850000, entity_type: 'sro'}
+ *
+ * Scoped: ${sessionId}:${expertiseId} — different specialists never bleed params.
+ * Volatile: resets with process. No DB persistence.
+ */
+class SessionParamCache {
+  /**
+   * @param {number} [ttlMs=1800000] — 30 min TTL
+   */
+  constructor(ttlMs = 30 * 60 * 1000) {
+    /** @type {Map<string, {toolId: string, params: Object, timestamp: number}>} */
+    this._cache = new Map();
+    this._ttl = ttlMs;
+  }
+
+  /**
+   * Save params from a successful tool execution.
+   */
+  save(sessionId, expertiseId, toolId, params) {
+    if (!sessionId) return;
+    this._cache.set(`${sessionId}:${expertiseId}`, {
+      toolId, params: { ...params }, timestamp: Date.now(),
+    });
+  }
+
+  /**
+   * Get cached params. Returns null if expired or missing.
+   */
+  get(sessionId, expertiseId) {
+    if (!sessionId) return null;
+    const key = `${sessionId}:${expertiseId}`;
+    const entry = this._cache.get(key);
+    if (!entry) return null;
+    if (Date.now() - entry.timestamp > this._ttl) {
+      this._cache.delete(key);
+      return null;
+    }
+    return entry;
+  }
+
+  /**
+   * Clear cached params for a session+specialist.
+   */
+  clear(sessionId, expertiseId) {
+    this._cache.delete(`${sessionId}:${expertiseId}`);
+  }
+}
+
 // ─── Specialist Runtime (orchestrator) ───────────────────────────────────────
 
 class SpecialistRuntime {
@@ -278,6 +332,8 @@ class SpecialistRuntime {
     this.executor = new ToolExecutor(this.registry);
     /** @type {Map<string, number>} execution counter per specialist */
     this._executingCount = new Map();
+    /** @type {SessionParamCache} session context for conversational follow-ups */
+    this._sessionCache = new SessionParamCache();
   }
 
   /**
@@ -327,20 +383,61 @@ class SpecialistRuntime {
    * Try to detect and execute a tool for the given expert + input.
    * Returns null if no tool matched (caller should fall back to LLM).
    *
+   * v76: Session context — merges cached params from previous turns.
+   * Merge priority: extractParams(current) > sessionCache > adapter.defaults
+   *
    * @param {string} expertiseId - Expert ID
    * @param {string} input - User message
+   * @param {{ sessionId?: string }} [options={}] - Session context options
    * @returns {Promise<{ toolType: string, result: any, params: Object } | null>}
    */
-  async tryToolExecution(expertiseId, input) {
+  async tryToolExecution(expertiseId, input, { sessionId } = {}) {
     const specialist = this.registry.getSpecialist(expertiseId);
     if (!specialist) return null;
 
-    const match = this.detector.detect(input, specialist);
+    // Step 1: Try normal pattern matching
+    let match = this.detector.detect(input, specialist);
+    let isContextual = false;
+
+    // Step 2: Merge session params (if normal match found)
+    if (match && sessionId) {
+      const cached = this._sessionCache.get(sessionId, expertiseId);
+      if (cached && cached.toolId === match.tool.id) {
+        // Cached params as fallback — fresh extraction overrides
+        match.params = { ...cached.params, ...match.params };
+        logger.debug('SpecialistRuntime', `Session context merged for ${match.tool.id}`, {
+          cachedKeys: Object.keys(cached.params),
+          freshKeys: Object.keys(match.params),
+        });
+      }
+    }
+
+    // Step 3: Contextual re-execution — no pattern match but cached tool exists
+    if (!match && sessionId) {
+      const cached = this._sessionCache.get(sessionId, expertiseId);
+      if (cached) {
+        const cachedTool = specialist.tools.find(t => t.id === cached.toolId);
+        if (cachedTool && cachedTool.extractParams) {
+          const freshParams = cachedTool.extractParams(input) || {};
+          // Guard: only re-execute if fresh extraction found something meaningful
+          if (Object.keys(freshParams).length > 0) {
+            match = { tool: cachedTool, params: { ...cached.params, ...freshParams } };
+            isContextual = true;
+            logger.info('SpecialistRuntime', `Contextual re-execution: ${cachedTool.id}`, {
+              freshParams: Object.keys(freshParams),
+              cachedParams: Object.keys(cached.params),
+            });
+          }
+        }
+      }
+    }
+
     if (!match) return null;
 
-    logger.info('SpecialistRuntime', `Tool match: ${match.tool.id} for specialist ${expertiseId}`, {
+    logger.info('SpecialistRuntime', `Tool match: ${match.tool.id} for specialist ${expertiseId}${isContextual ? ' (contextual)' : ''}`, {
       toolId: match.tool.id,
       inputPreview: input.slice(0, 60),
+      contextual: isContextual,
     });
 
     // Track execution for busy guard
@@ -362,6 +459,11 @@ class SpecialistRuntime {
       if (!execResult.success) {
         logger.warn('SpecialistRuntime', `Tool ${match.tool.id} failed: ${execResult.error}`);
         return null; // Fall back to LLM
+      }
+
+      // v76: Cache params on success for next turn
+      if (sessionId) {
+        this._sessionCache.save(sessionId, expertiseId, match.tool.id, match.params);
       }
 
       return {
@@ -411,5 +513,5 @@ export const specialistRuntime = new SpecialistRuntime();
 
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
-export { ToolRegistry, IntentDetector, ToolExecutor, SpecialistRuntime };
+export { ToolRegistry, IntentDetector, ToolExecutor, SpecialistRuntime, SessionParamCache };
 export default specialistRuntime;

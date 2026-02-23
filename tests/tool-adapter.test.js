@@ -269,6 +269,168 @@ console.log('\n── 10. Amount sanity cap ──');
   assertEq(r3.status, 'ok', 'sanity: 999M → ok (under cap)');
 }
 
+// ── 11. validateResult() base class ─────────────────────────────────────────
+console.log('\n── 11. validateResult() base class ──');
+
+{
+  // Default validateResult = always valid (noop)
+  const adapter = new ToolAdapter({});
+  const v = adapter.validateResult({}, { anything: true });
+  assertEq(v.valid, true, 'validateResult: default is always valid');
+  assertEq(Array.isArray(v.issues) ? v.issues.length : 0, 0, 'validateResult: default has no issues');
+
+  // run() with validateResult that returns warnings
+  class WarnAdapter extends ToolAdapter {
+    constructor() { super({}); }
+    execute() { return { success: true, result: { value: 42 } }; }
+    validateResult(params, result) {
+      return {
+        valid: false,
+        issues: [{ field: 'value', message: 'value is suspicious', severity: 'warn' }],
+      };
+    }
+  }
+  const warnResult = new WarnAdapter().run({});
+  assertEq(warnResult.status, 'ok', 'validateResult: warn → still ok');
+  assert(warnResult.meta !== undefined, 'validateResult: warn → has meta');
+  assert(Array.isArray(warnResult.meta?.warnings), 'validateResult: warn → meta.warnings is array');
+  assertEq(warnResult.meta.warnings.length, 1, 'validateResult: warn → 1 warning');
+  assertEq(warnResult.meta.warnings[0].severity, 'warn', 'validateResult: warn → severity is warn');
+
+  // run() with validateResult that returns error
+  class ErrorValidationAdapter extends ToolAdapter {
+    constructor() { super({}); }
+    execute() { return { success: true, result: { value: 999 } }; }
+    validateResult(params, result) {
+      return {
+        valid: false,
+        issues: [{ field: 'value', message: 'value way too high', severity: 'error' }],
+      };
+    }
+  }
+  const errResult = new ErrorValidationAdapter().run({});
+  assertEq(errResult.status, 'error', 'validateResult: error → status error');
+  assertEq(errResult.error, 'RESULT_SANITY_FAIL', 'validateResult: error code');
+  assert(errResult.message.includes('way too high'), 'validateResult: error message included');
+
+  // run() without validation issues → no meta
+  class CleanAdapter extends ToolAdapter {
+    constructor() { super({}); }
+    execute() { return { success: true, result: { value: 1 } }; }
+    validateResult() { return { valid: true }; }
+  }
+  const cleanResult = new CleanAdapter().run({});
+  assertEq(cleanResult.status, 'ok', 'validateResult: clean → ok');
+  assertEq(cleanResult.meta, undefined, 'validateResult: clean → no meta');
+}
+
+// ── 12. Adapter validateResult — real tool results ──────────────────────────
+console.log('\n── 12. Adapter validateResult() — real tools ──');
+
+{
+  // TaxCalculator: valid result passes validation
+  const tax = new TaxCalculatorAdapter();
+  const taxOk = tax.run({ gross_income: 850000 });
+  assertEq(taxOk.status, 'ok', 'tax validation: 850k → ok');
+  assertEq(taxOk.meta, undefined, 'tax validation: no warnings');
+
+  // TaxCalculator: net + tax = gross
+  const taxResult = taxOk.data;
+  if (taxResult.net_income && taxResult.total_tax_burden && taxResult.gross_income) {
+    const diff = Math.abs((taxResult.net_income + taxResult.total_tax_burden) - taxResult.gross_income);
+    assert(diff <= 1, `tax validation: net + tax ≈ gross (diff ${diff})`);
+  }
+
+  // VAT: valid result passes
+  const vat = new VATCalculatorAdapter();
+  const vatOk = vat.run({ amount: 10000, rate: '21', direction: 'add' });
+  assertEq(vatOk.status, 'ok', 'vat validation: passes');
+  assertEq(vatOk.meta, undefined, 'vat validation: no warnings');
+
+  // Salary: valid result passes
+  const salary = new SalaryCalculatorAdapter();
+  const salaryOk = salary.run({ gross_salary: 50000 });
+  assertEq(salaryOk.status, 'ok', 'salary validation: passes');
+  assertEq(salaryOk.meta, undefined, 'salary validation: no warnings');
+
+  // Deadline: valid result passes
+  const deadline = new DeadlineCheckerAdapter();
+  const deadlineOk = deadline.run({ entity_type: 'osvc' });
+  assertEq(deadlineOk.status, 'ok', 'deadline validation: passes');
+  assertEq(deadlineOk.meta, undefined, 'deadline validation: no warnings');
+
+  // Compare: valid result passes
+  const compare = new CompareAdapter();
+  const compareOk = compare.run({ gross_income: 1000000 });
+  assertEq(compareOk.status, 'ok', 'compare validation: passes');
+  assertEq(compareOk.meta, undefined, 'compare validation: no warnings');
+}
+
+// ── 13. Adapter validateResult — sanity check edge cases ────────────────────
+console.log('\n── 13. validateResult() edge cases ──');
+
+{
+  // Tax: direct validateResult with bad data
+  const tax = new TaxCalculatorAdapter();
+  const badSum = tax.validateResult(
+    { gross_income: 1000000 },
+    { net_income: 500000, total_tax_burden: 400000, gross_income: 1000000 }
+  );
+  assert(!badSum.valid, 'tax sanity: net + tax != gross → invalid');
+  assert(badSum.issues.some(i => i.field === 'sum'), 'tax sanity: sum issue reported');
+
+  // Tax: effective_rate > 80 → error (only for income >= 300k)
+  const badRate = tax.validateResult(
+    { gross_income: 500000 },
+    { effective_rate: 85, net_income: 75000, total_tax_burden: 425000, gross_income: 500000 }
+  );
+  assert(!badRate.valid, 'tax sanity: rate 85% (500k income) → invalid');
+  assert(badRate.issues.some(i => i.field === 'effective_rate' && i.severity === 'error'), 'tax sanity: rate 85% → error severity');
+
+  // Tax: effective_rate 65% → warn (for income >= 300k)
+  const warnRate = tax.validateResult(
+    { gross_income: 500000 },
+    { effective_rate: 65, net_income: 175000, total_tax_burden: 325000, gross_income: 500000 }
+  );
+  assert(!warnRate.valid, 'tax sanity: rate 65% (500k income) → invalid (has warning)');
+  assert(warnRate.issues.some(i => i.field === 'effective_rate' && i.severity === 'warn'), 'tax sanity: rate 65% → warn severity');
+
+  // Tax: effective_rate 90% for low income → OK (minimums dominate)
+  const lowIncomeHighRate = tax.validateResult(
+    { gross_income: 100000 },
+    { effective_rate: 90, net_income: 10000, total_tax_burden: 90000, gross_income: 100000 }
+  );
+  assert(lowIncomeHighRate.valid, 'tax sanity: rate 90% on 100k income → valid (minimums)');
+
+  // VAT: base + vat != total
+  const vat = new VATCalculatorAdapter();
+  const badVat = vat.validateResult({}, { base: 10000, vat: 2100, total: 13000 });
+  assert(!badVat.valid, 'vat sanity: sum mismatch → invalid');
+
+  // VAT: negative VAT
+  const negVat = vat.validateResult({}, { base: 10000, vat: -500, total: 9500 });
+  assert(!negVat.valid, 'vat sanity: negative vat → invalid');
+
+  // Salary: net >= gross
+  const salary = new SalaryCalculatorAdapter();
+  const badSalary = salary.validateResult({}, { net_salary: 55000, gross_salary: 50000 });
+  assert(!badSalary.valid, 'salary sanity: net >= gross → invalid');
+
+  // Deadline: empty deadlines
+  const deadline = new DeadlineCheckerAdapter();
+  const badDeadline = deadline.validateResult({}, { deadlines: [] });
+  assert(!badDeadline.valid, 'deadline sanity: empty → invalid');
+
+  // Compare: missing osvc
+  const compare = new CompareAdapter();
+  const badCompare = compare.validateResult({}, { sro: {}, comparison: { winner: 'sro' } });
+  assert(!badCompare.valid, 'compare sanity: missing osvc → invalid');
+
+  // Compare: invalid winner
+  const badWinner = compare.validateResult({}, { osvc: {}, sro: {}, comparison: { winner: 'abc' } });
+  assert(!badWinner.valid, 'compare sanity: invalid winner → invalid');
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // Summary
 console.log(`\n${'═'.repeat(60)}`);

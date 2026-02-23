@@ -127,7 +127,9 @@ export async function expertiseHandler(input, context) {
 
       if (specialistRuntime.isSpecialist(expertise.id)) {
         try {
-          const toolResult = await specialistRuntime.tryToolExecution(expertise.id, input);
+          const toolResult = await specialistRuntime.tryToolExecution(expertise.id, input, {
+            sessionId: context.sessionId,
+          });
 
           if (toolResult) {
             // v75: Clarification — tool matched but needs more params

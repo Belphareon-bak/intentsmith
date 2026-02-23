@@ -2,10 +2,11 @@
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Base class for specialist tool adapters.
-// Pipeline: validate → normalize → execute
+// Pipeline: validate → normalize → execute → validateResult
 //
 // Return statuses:
 //   { status: 'ok',      data: {...} }                     — success
+//   { status: 'ok',      data: {...}, meta: { warnings } } — success with warnings
 //   { status: 'clarify', missingParams: ['entity_type'] }  — needs user input
 //   { status: 'error',   error: '...', message: '...' }    — unrecoverable
 //
@@ -89,9 +90,21 @@ export class ToolAdapter {
   }
 
   /**
-   * Full pipeline: validate → normalize → execute.
+   * Post-execution sanity check. Override in subclass for tool-specific checks.
+   * Called after execute() with normalized params and raw result.
+   *
+   * @param {Object} params — normalized params used for execution
+   * @param {Object} result — unwrapped tool result data (after result?.result ?? result)
+   * @returns {{ valid: true } | { valid: false, issues: Array<{field: string, message: string, severity: 'warn'|'error'}> }}
+   */
+  validateResult(params, result) {
+    return { valid: true };
+  }
+
+  /**
+   * Full pipeline: validate → normalize → execute → validateResult.
    * @param {Object} params — raw extracted params
-   * @returns {{ status: 'ok', data: any } | { status: 'clarify', missingParams: string[] } | { status: 'error', error: string, message: string }}
+   * @returns {{ status: 'ok', data: any } | { status: 'ok', data: any, meta: { warnings } } | { status: 'clarify', missingParams: string[] } | { status: 'error', error: string, message: string }}
    */
   run(params) {
     // 1. Validate
@@ -116,10 +129,24 @@ export class ToolAdapter {
         return { status: 'error', error: result.error, message: result.error };
       }
 
-      return {
-        status: 'ok',
-        data: result?.result ?? result,
-      };
+      const data = result?.result ?? result;
+
+      // 4. Post-execution validation (sanity check)
+      const validation = this.validateResult(normalized, data);
+      if (!validation.valid) {
+        const critical = validation.issues.filter(i => i.severity === 'error');
+        if (critical.length > 0) {
+          return {
+            status: 'error',
+            error: 'RESULT_SANITY_FAIL',
+            message: critical.map(i => i.message).join('; '),
+          };
+        }
+        // Non-critical warnings: return ok with meta.warnings
+        return { status: 'ok', data, meta: { warnings: validation.issues } };
+      }
+
+      return { status: 'ok', data };
     } catch (err) {
       return { status: 'error', error: err.message, message: err.message };
     }
