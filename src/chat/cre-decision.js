@@ -2089,8 +2089,8 @@ SEARCH: hledat aktuální info na internetu
 REPORT: analýza/report vyžadující data
 CODE: generování/pomoc s kódem
 CONVERSATIONAL: chat, pozdravy, názory, vysvětlení
-CREATIVE: brainstorming, nápady, kreativní psaní
-DESIGN: architektura, roadmapa, plánování
+CREATIVE: brainstorming, nápady, kreativní psaní, itinerář, jídelníček, tréninkový plán
+DESIGN: SOFTWAROVÁ architektura, technická roadmapa, plánování IT projektu
 BUILD: vícekrokový projekt
 LOCAL: datum/čas/matematika
 AMBIGUOUS: nejasný záměr
@@ -2099,7 +2099,8 @@ PRAVIDLA:
 - "ulož/zapiš/hoď to do souboru" → FILE_WRITE
 - "napiš kód" → CODE (ne FILE_WRITE)
 - Soubor jako cíl → extrahuj do fileTarget (POUZE název, bez cest)
-- Český "rust" = růst → CONVERSATIONAL/SEARCH, ne CODE`;
+- Český "rust" = růst → CONVERSATIONAL/SEARCH, ne CODE
+- DESIGN = POUZE softwarová architektura/IT projekty. Itinerář, jídelníček, tréninkový plán, výlet → CREATIVE, ne DESIGN`;
 
     // v72: No conversation context — classify current message only
     const userPrompt = input;
@@ -2170,6 +2171,20 @@ PRAVIDLA:
       if (parsed.intent === IntentType.SHELL && parsed.confidence > 0.95) {
         // Cap SHELL confidence — extractShellCommand does the real work
         parsed.confidence = 0.9;
+      }
+
+      // GUARD 4: DESIGN requires deterministic pattern confirmation.
+      // v72: LLM over-classifies as DESIGN — "itinerary", "meal plan", "start a company"
+      // all get DESIGN because LLM sees "plan". But DESIGN = software architecture only.
+      // Solution: LLM proposes DESIGN → verify with DESIGN_PATTERNS. No match → CREATIVE.
+      if (parsed.intent === IntentType.DESIGN) {
+        const hasDesignPattern = DESIGN_PATTERNS.some(p => p.test(input));
+        if (!hasDesignPattern) {
+          logger.info('CRE:LLM:Guard', `DESIGN downgrade → CREATIVE (no deterministic pattern match)`, {
+            input: input.substring(0, 60),
+          });
+          parsed.intent = IntentType.CREATIVE;
+        }
       }
 
       logger.info('CRE:LLM', `LLM classified intent: ${parsed.intent} (${parsed.confidence})`, {

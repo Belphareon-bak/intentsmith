@@ -79,10 +79,10 @@ export function formatTime(date, lang = 'cs') {
 // ─── Response formatters ─────────────────────────────────────────────────────
 
 const LABELS = {
-  cs: { today: 'Dnes je', time: 'Aktuální čas', nextFullMoon: 'Příští úplněk bude za', days: 'dní', countedFrom: 'počítáno od' },
-  en: { today: 'Today is', time: 'Current time', nextFullMoon: 'Next full moon in', days: 'days', countedFrom: 'counting from' },
-  de: { today: 'Heute ist', time: 'Aktuelle Zeit', nextFullMoon: 'Nächster Vollmond in', days: 'Tagen', countedFrom: 'ab' },
-  sk: { today: 'Dnes je', time: 'Aktuálny čas', nextFullMoon: 'Ďalší spln bude za', days: 'dní', countedFrom: 'počítané od' },
+  cs: { today: 'Dnes je', time: 'Aktuální čas', nextFullMoon: 'Příští úplněk bude za', daysUntilChristmas: 'Do Vánoc zbývá', days: 'dní', countedFrom: 'počítáno od', fromDate: 'od' },
+  en: { today: 'Today is', time: 'Current time', nextFullMoon: 'Next full moon in', daysUntilChristmas: 'Days until Christmas:', days: 'days', countedFrom: 'counting from', fromDate: 'from' },
+  de: { today: 'Heute ist', time: 'Aktuelle Zeit', nextFullMoon: 'Nächster Vollmond in', daysUntilChristmas: 'Tage bis Weihnachten:', days: 'Tagen', countedFrom: 'ab', fromDate: 'ab' },
+  sk: { today: 'Dnes je', time: 'Aktuálny čas', nextFullMoon: 'Ďalší spln bude za', daysUntilChristmas: 'Do Vianoc zostáva', days: 'dní', countedFrom: 'počítané od', fromDate: 'od' },
 };
 
 /**
@@ -134,6 +134,19 @@ export function formatMoonResponse(daysUntil, moonDate, todayDate, lang = 'cs') 
 }
 
 /**
+ * Format "days until Christmas" response.
+ * @param {number} daysUntil
+ * @param {string} christmasDate - formatted date of Christmas
+ * @param {string} todayDate - formatted today's date
+ * @param {string} lang
+ * @returns {string}
+ */
+export function formatChristmasResponse(daysUntil, christmasDate, todayDate, lang = 'cs') {
+  const l = LABELS[lang] || LABELS['en'];
+  return `📊 **${l.daysUntilChristmas} ${daysUntil} ${l.days} (${christmasDate}), ${l.fromDate} ${todayDate}**`;
+}
+
+/**
  * Format a "yes/no today is [date]" confirmation response.
  * @param {string} lang
  * @returns {string}
@@ -153,6 +166,7 @@ export default {
   formatTimeResponse,
   formatMathResponse,
   formatMoonResponse,
+  formatChristmasResponse,
   formatDateConfirmation,
   DAY_NAMES,
   LABELS,

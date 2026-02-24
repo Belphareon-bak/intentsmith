@@ -140,9 +140,9 @@ function createFakeLLM() {
   return async function fakeLLM(role, prompt) {
     const p = typeof prompt === 'string' ? prompt : JSON.stringify(prompt);
 
-    if (p.includes('clarifying questions') || p.includes('analyzing a project request'))
+    if (p.includes('clarifying questions') || p.includes('## User Request') && p.includes('## Task'))
       return { content: JSON.stringify({ core_goal: 'Note taker', clarifying_questions: ['Format?'], initial_assessment: { estimated_complexity: 'LOW' } }) };
-    if (p.includes('structured project specification') || p.includes('creating a project specification'))
+    if (p.includes('structured project specification') || p.includes('thorough project specification') || p.includes('creating a project specification'))
       return { content: JSON.stringify(SPEC) };
     if (p.includes('creating a project roadmap') || p.includes('Break the project into milestones'))
       return { content: JSON.stringify(ROADMAP) };

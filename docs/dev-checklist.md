@@ -40,6 +40,15 @@ If you modified `src/chat/cre-v2.js` or decision types:
 - [ ] Verify decision invariants still hold
 - [ ] Update decision matrix documentation if needed
 
+### Did you change tool execution or resilience logic?
+
+If you modified `src/executor/tool-executor.js` or `src/executor/circuit-breaker.js`:
+
+- [ ] Run resilience tests: `node tests/e2e-resilience.test.js`
+- [ ] Verify circuit breaker state transitions still hold
+- [ ] Verify partial failure handling (successful results still reach synthesis)
+- [ ] Check per-session isolation (circuit breaker key format `toolType:sessionId`)
+
 ### Did you change LLM integration?
 
 If you modified `src/llm/`:
@@ -61,6 +70,9 @@ node tests/contracts/tool-call.test.js
 # All core tests
 npm run test
 
+# Resilience tests
+node tests/e2e-resilience.test.js
+
 # Full test suite
 npm run test:all
 ```
@@ -73,7 +85,9 @@ npm run test:all
 | `src/golden/` | golden-path.test.js |
 | `src/planner/` | planner.test.js, planner-v38.test.js |
 | `src/tools/` | tool-executor.test.js |
+| `src/executor/` | e2e-resilience.test.js |
 | `src/chat/cre-v2.js` | cre-v2.test.js |
+| `src/chat/cre-decision.js` | cre-comprehensive.test.js |
 | `src/llm/` | llm-gateway.test.js |
 
 ## Common Mistakes to Avoid

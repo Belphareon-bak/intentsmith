@@ -443,21 +443,35 @@ function createFakeLLM() {
   return async function fakeLLM(role, prompt) {
     const p = typeof prompt === 'string' ? prompt : JSON.stringify(prompt);
 
-    if (p.includes('analyzing a project request') || p.includes('clarifying questions')) {
+    if (p.includes('## User Request') && p.includes('## Task')) {
       return {
         content: JSON.stringify({
           core_goal: 'Build a mobile-dev specialist plugin for C3',
+          implicit_assumptions: ['C3 specialist plugin architecture', 'Node.js runtime'],
+          technical_decisions: [
+            {
+              decision: 'Framework detection approach',
+              alternatives: [
+                { option: 'AST parsing', pros: ['Accurate'], cons: ['Slow, complex'] },
+                { option: 'File pattern matching', pros: ['Fast, simple'], cons: ['False positives'] },
+              ],
+              recommendation: 'File pattern matching — sufficient for framework detection',
+            },
+          ],
           clarifying_questions: ['Jaké nástroje chceš?', 'Kolik toolů?', 'Jaký domain?'],
           initial_assessment: {
             estimated_complexity: 'MEDIUM',
-            key_risks: ['Pattern false positives'],
-            suggested_tech_stack: ['Node.js'],
+            key_risks: [
+              { risk: 'Pattern false positives', severity: 'MEDIUM', likelihood: 'MEDIUM', mitigation: 'Confidence scoring' },
+            ],
+            suggested_tech_stack: ['Node.js 22'],
+            tech_stack_rationale: 'C3 plugin system requires Node.js',
           },
         }),
       };
     }
 
-    if (p.includes('creating a project specification') || p.includes('structured project specification')) {
+    if (p.includes('thorough project specification') || p.includes('creating a project specification') || p.includes('structured project specification')) {
       return { content: JSON.stringify(SPEC) };
     }
 

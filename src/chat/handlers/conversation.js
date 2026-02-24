@@ -98,8 +98,8 @@ const DATE_CORRECTION_PATTERNS = [
   /dneska\s+(?:je|máme)\s+(?:ale\s+)?\d{1,2}\s*\.\s*\d{1,2}/i,
   /(?:ale\s+)?dnes\s+(?:je|máme)\s+\d{1,2}\s*\.\s*\d{1,2}/i,
   /(?:dnešní|dnesni|aktuální|aktualni)\s+datum/i,
-  /today\s+is\s+/i,
-  /today'?s\s+date/i,
+  /today\s+is\s+\w+\s*\d/i,               // "today is February 24" (actual correction with date)
+  // v72: REMOVED /today'?s\s+date/i — too broad, catches "What is today's date?" as correction
 ];
 
 // v58.3: DESIGN CLOSE — graceful "hotovo" / "díky, to stačí"

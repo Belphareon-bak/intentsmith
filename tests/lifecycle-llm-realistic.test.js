@@ -261,7 +261,7 @@ function createLLM() {
     llmCalls.push({ role, promptSnippet: p.substring(0, 80) });
 
     // SPEC: analyze
-    if (p.includes('analyzing a project request') || p.includes('clarifying questions')) {
+    if (p.includes('## User Request') && p.includes('## Task') || p.includes('clarifying questions')) {
       return { content: JSON.stringify({
         core_goal: 'Build an Expense Tracker REST API',
         clarifying_questions: [
@@ -274,7 +274,7 @@ function createLLM() {
     }
 
     // SPEC: document
-    if (p.includes('creating a project specification') || p.includes('structured project specification')) {
+    if (p.includes('thorough project specification') || p.includes('creating a project specification') || p.includes('structured project specification')) {
       return { content: JSON.stringify(SPEC) };
     }
 

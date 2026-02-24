@@ -349,8 +349,14 @@ export class ModeDetector {
     const confidence = totalScore > 0 ? maxScore / totalScore : 0.5;
 
     // Default to conversation if no signals
-    const finalMode = totalScore === 0 ? ChatMode.CONVERSATION : detectedMode;
+    let finalMode = totalScore === 0 ? ChatMode.CONVERSATION : detectedMode;
     const finalConfidence = totalScore === 0 ? 0.8 : Math.min(confidence + 0.2, 1);
+
+    // v72: PROJECT mode requires active project context — pattern-only match is not enough.
+    // Words like "function", "change" match project patterns but appear in general conversation.
+    if (finalMode === ChatMode.PROJECT && !context.hasActiveProject) {
+      finalMode = ChatMode.CONVERSATION;
+    }
 
     return new ModeDetection({
       mode: finalMode,

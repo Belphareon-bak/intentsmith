@@ -329,8 +329,24 @@ if (result.status === 'error' && result.retryable) {
 
 ---
 
-## Appendix B: Change Log
+## Appendix B: ToolExecutor (Enhanced Implementation)
+
+The production `ToolExecutor` (`src/executor/tool-executor.js`) extends the base contract with:
+
+| Feature | Description |
+|---------|-------------|
+| Auto-retry | Max 1 retry for retryable errors (`TIMEOUT`, `SOURCE_BLOCKED`, `SOURCE_UNAVAILABLE`) |
+| Circuit breaker | Per-session isolation via `toolType:sessionId` key. Opens after 5 failures/60s, resets after 30s |
+| Partial failure | `ExecutionStatus.PARTIAL` — successful results reach synthesis even if some tools fail |
+| Error classification | `classifyError()` maps exceptions to `ErrorCategory` with retryable flag |
+
+These additions are covered by `tests/e2e-resilience.test.js` (31 tests).
+
+---
+
+## Appendix C: Change Log
 
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2026-02-07 | Initial contract |
+| 1.1 | 2026-02-24 | Added Appendix B (ToolExecutor enhanced implementation) |

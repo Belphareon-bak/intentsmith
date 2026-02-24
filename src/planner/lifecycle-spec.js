@@ -43,15 +43,25 @@ export function validateSpec(spec) {
     }
   }
 
-  // Requirements: minimum 5
-  if (!Array.isArray(spec.requirements) || spec.requirements.length < 5) {
-    errors.push(`Requirements: minimum 5 required, got ${spec.requirements?.length || 0}`);
+  // Requirements: minimum 5 functional + minimum 3 non-functional
+  // Supports both flat array (legacy) and structured object format
+  const funcReqs = Array.isArray(spec.requirements)
+    ? spec.requirements
+    : (spec.requirements?.functional || []);
+  const nfReqs = spec.requirements?.non_functional || [];
+
+  if (funcReqs.length < 5) {
+    errors.push(`Functional requirements: minimum 5 required, got ${funcReqs.length}`);
   } else {
-    for (const req of spec.requirements) {
+    for (const req of funcReqs) {
       if (!req.id || !req.description) {
         errors.push(`Requirement missing id or description: ${JSON.stringify(req)}`);
       }
     }
+  }
+
+  if (!Array.isArray(spec.requirements) && nfReqs.length < 1) {
+    errors.push(`Non-functional requirements: minimum 1 required, got ${nfReqs.length}`);
   }
 
   // Tech stack: mandatory
@@ -63,9 +73,18 @@ export function validateSpec(spec) {
     }
   }
 
-  // Risks: minimum 1
+  // Risks: minimum 3 (upgraded from 1)
   if (!Array.isArray(spec.risks) || spec.risks.length < 1) {
     errors.push(`Risks: minimum 1 required, got ${spec.risks?.length || 0}`);
+  }
+
+  // Design decisions (optional but encouraged)
+  if (spec.design_decisions && Array.isArray(spec.design_decisions)) {
+    for (const dd of spec.design_decisions) {
+      if (dd.decision && !dd.rationale) {
+        errors.push(`Design decision "${dd.decision}" missing rationale`);
+      }
+    }
   }
 
   return { valid: errors.length === 0, errors };
@@ -94,12 +113,14 @@ export async function startSpec(lifecycle, request, context = {}) {
     throw new Error('D1 failed to produce structured spec analysis');
   }
 
-  // Store initial assessment in lifecycle
+  // Store initial assessment in lifecycle (including technical decisions)
   const specDraft = {
     _phase: 'ANALYZING',
     _request: request,
     _assessment: parsed.initial_assessment || {},
     _questions: parsed.clarifying_questions || [],
+    _technicalDecisions: parsed.technical_decisions || [],
+    _implicitAssumptions: parsed.implicit_assumptions || [],
   };
 
   lifecycleRepo.updateSpec.run(JSON.stringify(specDraft), lifecycle.id);
@@ -107,6 +128,8 @@ export async function startSpec(lifecycle, request, context = {}) {
   return {
     questions: parsed.clarifying_questions || [],
     assessment: parsed.initial_assessment || {},
+    technicalDecisions: parsed.technical_decisions || [],
+    implicitAssumptions: parsed.implicit_assumptions || [],
     coreGoal: parsed.core_goal || request,
   };
 }
@@ -126,8 +149,13 @@ export async function answerSpecQuestions(lifecycle, answers) {
     throw new Error('No spec draft found — call startSpec first');
   }
 
-  // Generate structured spec from request + answers + assessment
-  const prompt = specDocument(draft._request, answers, draft._assessment);
+  // Generate structured spec from request + answers + assessment (including technical decisions)
+  const fullAssessment = {
+    ...draft._assessment,
+    technical_decisions: draft._technicalDecisions || [],
+    implicit_assumptions: draft._implicitAssumptions || [],
+  };
+  const prompt = specDocument(draft._request, answers, fullAssessment);
   const llm = lifecycle.callLLM || callLLM;
   const result = await llm('D1', prompt);
   const spec = parseJSON(result.content);

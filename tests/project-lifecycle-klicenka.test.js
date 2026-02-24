@@ -421,7 +421,7 @@ function createFakeLLM() {
     const p = typeof prompt === 'string' ? prompt : JSON.stringify(prompt);
 
     // SPEC: analyze — capture projectContext for P3 verification
-    if (p.includes('analyzing a project request') || p.includes('clarifying questions')) {
+    if (p.includes('## User Request') && p.includes('## Task')) {
       // Capture the context section injected by P3 analyzer
       if (p.includes('Existing Project')) {
         capturedProjectContext = p;
@@ -429,6 +429,20 @@ function createFakeLLM() {
       return {
         content: JSON.stringify({
           core_goal: 'Build a secure credential keychain for C3',
+          implicit_assumptions: [
+            'Single-user desktop usage',
+            'Master password is the only auth factor',
+          ],
+          technical_decisions: [
+            {
+              decision: 'Encryption algorithm',
+              alternatives: [
+                { option: 'AES-256-GCM', pros: ['HW acceleration', 'NIST standard'], cons: ['Slower without AES-NI'] },
+                { option: 'ChaCha20-Poly1305', pros: ['Fast on all CPUs', 'No side-channel'], cons: ['Less adoption'] },
+              ],
+              recommendation: 'AES-256-GCM — standard, HW-accelerated on modern CPUs',
+            },
+          ],
           clarifying_questions: [
             'Jaký encryption algorithm?',
             'Jak se bude zadávat master password?',
@@ -436,15 +450,19 @@ function createFakeLLM() {
           ],
           initial_assessment: {
             estimated_complexity: 'MEDIUM',
-            key_risks: ['Key derivation performance', 'File corruption'],
-            suggested_tech_stack: ['Node.js', 'crypto (built-in)'],
+            key_risks: [
+              { risk: 'Key derivation performance', severity: 'MEDIUM', likelihood: 'HIGH', mitigation: 'Use Argon2id with tunable params' },
+              { risk: 'File corruption', severity: 'HIGH', likelihood: 'LOW', mitigation: 'Atomic write with temp file + rename' },
+            ],
+            suggested_tech_stack: ['Node.js 22', 'crypto (built-in)', 'better-sqlite3'],
+            tech_stack_rationale: 'Native crypto avoids external deps, SQLite for structured storage',
           },
         }),
       };
     }
 
     // SPEC: document
-    if (p.includes('creating a project specification') || p.includes('structured project specification')) {
+    if (p.includes('thorough project specification') || p.includes('creating a project specification') || p.includes('structured project specification')) {
       return { content: JSON.stringify(SPEC) };
     }
 
@@ -468,6 +486,10 @@ function createFakeLLM() {
           deliverables_check: [{ deliverable: 'Files', status: 'DONE', note: 'All present' }],
           scope_violations: [],
           test_summary: { total: 5, passed: 5, failed: 0 },
+          security_findings: [],
+          error_handling_gaps: [],
+          discovered_requirements: [],
+          quality_notes: [],
           overall_assessment: 'Milestone completed successfully',
         }),
       };

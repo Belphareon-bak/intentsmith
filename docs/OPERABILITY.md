@@ -256,11 +256,49 @@ assert(validation.valid === true);
 
 ---
 
+## 11. Resilience Guarantees
+
+### 11.1 Tool Execution Resilience
+- **Timeout enforcement**: Every tool execution has a 30s default timeout via `AbortController`
+- **Partial failure**: When multiple tools execute, successful results pass to synthesis even if some tools fail (`ExecutionStatus.PARTIAL`)
+- **Auto-retry**: Retryable errors (`TIMEOUT`, `SOURCE_BLOCKED`, `SOURCE_UNAVAILABLE`) get one automatic retry
+- **Exception isolation**: Unhandled tool exceptions are caught and classified, never crash the system
+
+### 11.2 Circuit Breaker
+- **Per-session isolation**: Key format `toolType:sessionId` — one session's failures don't cascade to others
+- **State machine**: `CLOSED → OPEN → HALF_OPEN → CLOSED`
+  - OPEN after 5 failures within 60s window
+  - HALF_OPEN after 30s reset timeout (tests recovery with up to 3 requests)
+  - CLOSED after 2 consecutive successes in HALF_OPEN
+- **Invariant**: Circuit breaker transitions are logged and metered
+
+### 11.3 Cancellation & Concurrency
+- **Per-conversation mutex**: `activeTurns` Map prevents concurrent processing on same conversation
+- **Cancel isolation**: Cancelling one conversation doesn't affect others
+- **Safe cleanup**: Turn deletion uses turnId matching to prevent race conditions
+- **AbortController propagation**: Created per turn, passed via `context.signal` to all downstream operations
+
+### 11.4 State Integrity
+- **Break clears sticky context**: Intent break resets continuity without corrupting session state
+- **Recovery after failure**: Failed tool executions don't corrupt state — subsequent calls succeed normally
+- **Session consistency**: `SessionState` fields remain coherent across success/failure sequences
+
+### 11.5 Testing
+Resilience guarantees are enforced by `tests/e2e-resilience.test.js` (31 tests):
+- Section I: Tool timeout, partial failure, exception handling, auto-retry
+- Section II: Cancel during tool, activeTurns lifecycle/mutex/isolation
+- Section III: State integrity — break during sticky, recovery after failure
+- Section IV: Multi-conversation parallelism, per-session circuit breaker isolation
+- Section V: Circuit breaker state machine, HALF_OPEN request limiting
+
+---
+
 ## Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0.0 | 2024-01 | Initial contract |
+| 1.1.0 | 2026-02 | Added resilience guarantees (§11) |
 
 ---
 

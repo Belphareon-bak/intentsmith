@@ -13,6 +13,7 @@ import {
   formatTimeResponse,
   formatMathResponse,
   formatMoonResponse,
+  formatChristmasResponse,
   formatDate,
 } from './utils/local-i18n.js';
 
@@ -98,6 +99,7 @@ export function computeCalendar(input) {
     const todayStr = now.toLocaleDateString('cs-CZ');
 
     return {
+      type: 'moon',
       answer: daysToFullMoon,
       unit: 'dní',
       date: nextFullMoon.toLocaleDateString('cs-CZ'),
@@ -115,6 +117,7 @@ export function computeCalendar(input) {
     const days = Math.ceil((christmas - now) / (1000 * 60 * 60 * 24));
     const todayStr = now.toLocaleDateString('cs-CZ');
     return {
+      type: 'christmas',
       answer: days,
       unit: 'dní',
       date: christmas.toLocaleDateString('cs-CZ'),
@@ -315,13 +318,17 @@ export function formatLocalResponse(input, result, handler, lang = 'cs') {
 
     case 'local.calendar':
       if (result.answer && result.date && result.today) {
-        const moonDate = lang !== 'cs'
+        const calDate = lang !== 'cs'
           ? formatDate(new Date(result.date.split('.').reverse().join('-')), lang)
           : result.date;
         const todayDate = lang !== 'cs'
           ? formatDate(new Date(result.today.split('.').reverse().join('-')), lang)
           : result.today;
-        return formatMoonResponse(result.answer, moonDate, todayDate, lang);
+        // v72: Distinguish moon vs christmas calendar results
+        if (result.type === 'christmas') {
+          return formatChristmasResponse(result.answer, calDate, todayDate, lang);
+        }
+        return formatMoonResponse(result.answer, calDate, todayDate, lang);
       }
       break;
   }
