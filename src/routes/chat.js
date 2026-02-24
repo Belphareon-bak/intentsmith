@@ -176,11 +176,18 @@ export function createChatRoutes(deps) {
     'GET /api/conversations': async (req, res) => {
       const url = new URL(req.url, `http://${req.headers.host}`);
       const limit = parseInt(url.searchParams.get('limit')) || 10;
+      const status = url.searchParams.get('status'); // active | archived | all
 
       try {
-        // v69.1: Only return global (non-project) conversations in chat list.
-        // Project conversations are accessed via GET /api/projects/:id/conversations.
-        const conversations = db.conversations.listRecentGlobal.all(limit);
+        let conversations;
+        if (status === 'archived') {
+          conversations = db.conversations.listArchived.all(limit);
+        } else if (status === 'all') {
+          conversations = db.conversations.listNotDeleted.all(limit);
+        } else {
+          // Default: active only
+          conversations = (db.conversations.listActive?.all(limit)) ?? db.conversations.listRecentGlobal.all(limit);
+        }
         sendJSON(res, 200, { conversations });
       } catch (err) {
         sendJSON(res, 500, safeError(err));
@@ -256,17 +263,55 @@ export function createChatRoutes(deps) {
       }
     },
 
-    // Delete conversation
+    // Archive conversation
+    'PATCH /api/conversations/:id/archive': async (req, res, params) => {
+      try {
+        const conv = db.conversations.findById.get(params.id);
+        if (!conv) return sendJSON(res, 404, { error: 'Conversation not found' });
+
+        db.conversations.archive.run(params.id);
+        sendJSON(res, 200, { success: true, status: 'archived' });
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    // Restore conversation from archive
+    'PATCH /api/conversations/:id/restore': async (req, res, params) => {
+      try {
+        const conv = db.conversations.findById.get(params.id);
+        if (!conv) return sendJSON(res, 404, { error: 'Conversation not found' });
+
+        db.conversations.restore.run(params.id);
+        sendJSON(res, 200, { success: true, status: 'active' });
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    // Delete conversation (soft by default, hard with ?hard=true)
     'DELETE /api/conversations/:id': async (req, res, params) => {
       try {
-        // Delete messages first (foreign key)
-        db.db.prepare('DELETE FROM messages WHERE conversation_id = ?').run(params.id);
-        // Delete attachments
-        db.db.prepare('DELETE FROM attachments WHERE conversation_id = ?').run(params.id);
-        // Delete conversation
-        db.db.prepare('DELETE FROM conversations WHERE id = ?').run(params.id);
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const hard = url.searchParams.get('hard') === 'true';
 
-        sendJSON(res, 200, { success: true });
+        const conv = db.conversations.findById.get(params.id);
+        if (!conv) return sendJSON(res, 404, { error: 'Conversation not found' });
+
+        if (hard) {
+          // Hard delete — only for already soft-deleted conversations
+          if (conv.state !== 'deleted') {
+            return sendJSON(res, 400, { error: 'Only soft-deleted conversations can be hard-deleted' });
+          }
+          db.db.prepare('DELETE FROM messages WHERE conversation_id = ?').run(params.id);
+          db.db.prepare('DELETE FROM attachments WHERE conversation_id = ?').run(params.id);
+          db.db.prepare('DELETE FROM conversations WHERE id = ?').run(params.id);
+          sendJSON(res, 200, { success: true, mode: 'hard' });
+        } else {
+          // Soft delete (default)
+          db.conversations.softDelete.run(params.id);
+          sendJSON(res, 200, { success: true, mode: 'soft' });
+        }
       } catch (err) {
         sendJSON(res, 500, safeError(err));
       }

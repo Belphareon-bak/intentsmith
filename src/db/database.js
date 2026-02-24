@@ -138,6 +138,32 @@ export const projects = {
 
   delete: db.prepare(`DELETE FROM projects WHERE id = ?`),
 
+  // Archive / Restore / Soft-delete
+  archive: db.prepare(`
+    UPDATE projects SET status = 'archived', archived_at = CURRENT_TIMESTAMP WHERE id = ?
+  `),
+
+  restore: db.prepare(`
+    UPDATE projects SET status = 'active', archived_at = NULL, deleted_at = NULL WHERE id = ?
+  `),
+
+  softDelete: db.prepare(`
+    UPDATE projects SET status = 'deleted', deleted_at = CURRENT_TIMESTAMP WHERE id = ?
+  `),
+
+  // Filtered listing (default = active only)
+  listActive: db.prepare(`
+    SELECT * FROM projects WHERE status = 'active' ORDER BY last_active DESC LIMIT ?
+  `),
+
+  listArchived: db.prepare(`
+    SELECT * FROM projects WHERE status = 'archived' ORDER BY archived_at DESC LIMIT ?
+  `),
+
+  listNotDeleted: db.prepare(`
+    SELECT * FROM projects WHERE status != 'deleted' ORDER BY last_active DESC LIMIT ?
+  `),
+
   getOrCreate(name, projectPath, description = '') {
     let project = this.findByPath.get(projectPath);
     if (!project) {
@@ -483,7 +509,49 @@ export const conversations = {
   `),
   
   delete: db.prepare(`DELETE FROM conversations WHERE id = ?`),
-  
+
+  // Archive / Restore / Soft-delete
+  archive: db.prepare(`
+    UPDATE conversations SET state = 'archived', archived_at = CURRENT_TIMESTAMP WHERE id = ?
+  `),
+
+  restore: db.prepare(`
+    UPDATE conversations SET state = 'active', archived_at = NULL, deleted_at = NULL WHERE id = ?
+  `),
+
+  softDelete: db.prepare(`
+    UPDATE conversations SET state = 'deleted', deleted_at = CURRENT_TIMESTAMP WHERE id = ?
+  `),
+
+  // Filtered listing (default = active only)
+  listActive: db.prepare(`
+    SELECT c.*, p.name as project_name
+    FROM conversations c
+    LEFT JOIN projects p ON c.project_id = p.id
+    WHERE c.state = 'active'
+    ORDER BY c.updated_at DESC LIMIT ?
+  `),
+
+  listArchived: db.prepare(`
+    SELECT c.*, p.name as project_name
+    FROM conversations c
+    LEFT JOIN projects p ON c.project_id = p.id
+    WHERE c.state = 'archived'
+    ORDER BY c.archived_at DESC LIMIT ?
+  `),
+
+  listNotDeleted: db.prepare(`
+    SELECT c.*, p.name as project_name
+    FROM conversations c
+    LEFT JOIN projects p ON c.project_id = p.id
+    WHERE c.state != 'deleted'
+    ORDER BY c.updated_at DESC LIMIT ?
+  `),
+
+  listActiveByProject: db.prepare(`
+    SELECT * FROM conversations WHERE project_id = ? AND state = 'active' ORDER BY updated_at DESC LIMIT ?
+  `),
+
   search: db.prepare(`
     SELECT DISTINCT c.*, p.name as project_name
     FROM conversations c

@@ -44,9 +44,18 @@ export function createProjectRoutes(deps) {
     'GET /api/projects': async (req, res) => {
       const url = new URL(req.url, `http://${req.headers.host}`);
       const limit = parseInt(url.searchParams.get('limit')) || 10;
+      const status = url.searchParams.get('status'); // active | archived | all
 
       try {
-        const projects = db.projects.listRecent.all(limit);
+        let projects;
+        if (status === 'archived') {
+          projects = db.projects.listArchived.all(limit);
+        } else if (status === 'all') {
+          projects = db.projects.listNotDeleted.all(limit);
+        } else {
+          // Default: active only (uses listActive if column exists, falls back to listRecent)
+          projects = (db.projects.listActive?.all(limit)) ?? db.projects.listRecent.all(limit);
+        }
         sendJSON(res, 200, { projects });
       } catch (err) {
         sendJSON(res, 500, safeError(err));
@@ -217,9 +226,17 @@ export function createProjectRoutes(deps) {
     'GET /api/projects/:id/conversations': async (req, res, params) => {
       const url = new URL(req.url, `http://${req.headers.host}`);
       const limit = parseInt(url.searchParams.get('limit')) || 10;
+      const status = url.searchParams.get('status'); // active | all
 
       try {
-        const conversations = db.conversations.listRecentByProject.all(safeParseInt(params.id), limit);
+        let conversations;
+        if (status === 'all') {
+          conversations = db.conversations.listRecentByProject.all(safeParseInt(params.id), limit);
+        } else {
+          // Default: active only
+          conversations = (db.conversations.listActiveByProject?.all(safeParseInt(params.id), limit))
+            ?? db.conversations.listRecentByProject.all(safeParseInt(params.id), limit);
+        }
         sendJSON(res, 200, { conversations });
       } catch (err) {
         sendJSON(res, 500, safeError(err));
@@ -495,17 +512,80 @@ export function createProjectRoutes(deps) {
       }
     },
 
-    'DELETE /api/projects/:id': async (req, res, params) => {
+    // Archive project (soft — read-only, hidden from default list)
+    'PATCH /api/projects/:id/archive': async (req, res, params) => {
       try {
         const project = db.projects.findById.get(safeParseInt(params.id));
-        if (!project) {
-          return sendJSON(res, 404, { error: 'Project not found' });
+        if (!project) return sendJSON(res, 404, { error: 'Project not found' });
+
+        db.projects.archive.run(safeParseInt(params.id));
+
+        // Also archive all active conversations in this project
+        const convs = db.conversations.findByProject.all(safeParseInt(params.id));
+        for (const c of convs) {
+          if (c.state === 'active') {
+            db.conversations.archive.run(c.id);
+          }
         }
 
-        // Delete project from DB (cascades to conversations, etc.)
-        db.projects.delete.run(safeParseInt(params.id));
+        sendJSON(res, 200, { success: true, status: 'archived', archivedConversations: convs.length });
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
 
-        sendJSON(res, 200, { success: true, deleted: params.id });
+    // Restore project from archive
+    'PATCH /api/projects/:id/restore': async (req, res, params) => {
+      try {
+        const project = db.projects.findById.get(safeParseInt(params.id));
+        if (!project) return sendJSON(res, 404, { error: 'Project not found' });
+
+        db.projects.restore.run(safeParseInt(params.id));
+
+        // Also restore archived conversations in this project
+        const convs = db.conversations.findByProject.all(safeParseInt(params.id));
+        for (const c of convs) {
+          if (c.state === 'archived') {
+            db.conversations.restore.run(c.id);
+          }
+        }
+
+        sendJSON(res, 200, { success: true, status: 'active', restoredConversations: convs.length });
+      } catch (err) {
+        sendJSON(res, 500, safeError(err));
+      }
+    },
+
+    // Soft-delete project (moves to trash, hard-deletable later)
+    'DELETE /api/projects/:id': async (req, res, params) => {
+      try {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const hard = url.searchParams.get('hard') === 'true';
+
+        const project = db.projects.findById.get(safeParseInt(params.id));
+        if (!project) return sendJSON(res, 404, { error: 'Project not found' });
+
+        if (hard) {
+          // Hard delete (irreversible) — only for already soft-deleted projects
+          if (project.status !== 'deleted') {
+            return sendJSON(res, 400, { error: 'Only soft-deleted projects can be hard-deleted. Use DELETE ?hard=true on a deleted project.' });
+          }
+          db.projects.delete.run(safeParseInt(params.id));
+          sendJSON(res, 200, { success: true, deleted: params.id, mode: 'hard' });
+        } else {
+          // Soft delete (default)
+          db.projects.softDelete.run(safeParseInt(params.id));
+
+          // Also soft-delete conversations in this project
+          const convs = db.conversations.findByProject.all(safeParseInt(params.id));
+          for (const c of convs) {
+            if (c.state !== 'deleted') {
+              db.conversations.softDelete.run(c.id);
+            }
+          }
+
+          sendJSON(res, 200, { success: true, deleted: params.id, mode: 'soft' });
+        }
       } catch (err) {
         sendJSON(res, 500, safeError(err));
       }
