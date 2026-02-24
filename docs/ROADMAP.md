@@ -1,10 +1,10 @@
-# C3-Agent — Roadmapa v9
+# C3-Agent — Roadmapa v11
 
 ## Od aktuálního stavu k vizi
 
-**Datum:** 2026-02-19
-**Verze kódu:** v65.7 (F1-F3 integration: Setup Wizard, Auto-updater, License system wired into server.js)
-**Testy:** ~1400+ verified (628 lifecycle, 401 CRE, 278 invariant, 100+ quality)
+**Datum:** 2026-02-24
+**Verze kódu:** v78.0.0 (Ledger + Specialist Platform + Conversation Hardening + Cleanup)
+**Testy:** ~2000+ verified (628 lifecycle, 401 CRE, 350 conversation, 218 ledger, 200+ quality)
 **IDE:** C3 Studio (Theia 1.65.2), 33 custom extensions, Phase 1-5 (~73%)
 
 ---
@@ -31,58 +31,51 @@ Installer, licence, auto-update, setup wizard.
 
 ---
 
-## Kde je každý pilíř dnes (v65.6)
+## Kde je každý pilíř dnes (v78)
 
 ### Pilíř 1: CHAT — 100% ✅
-**Status: PHASE A = DONE. Vše hotovo včetně A7 (v65.7).**
+**Status: PHASE A = DONE.**
 - CRE single-authority enforcement — `overrideDecision()` + `logIntercept()`
 - 35 bypass pointů opraveno (conversation.js, clarification.js, followup.js)
 - `cre_override_log` tabulka s audit trail
 - v65.4: Project context injection — CRE hint `[[PROJECT_CONTEXT:...]]`, sanitized system prompt
-- v65.6: CZ pádové tvary v classifyIntent — lokativ, dativ, instrumentál ("o čem je projekt")
-- v65.7: A7 Expertise A/B test ✅ — 5 domén (writer, analyst, lawyer, developer, accountant), expertise win/tie 5/5
+- v65.6: CZ pádové tvary v classifyIntent — lokativ, dativ, instrumentál
+- v65.7: A7 Expertise A/B test ✅ — 5 domén, expertise win/tie 5/5
+- v72: Conversation hardening — EN local date fix, Christmas template, CRE drift guard
+- v72: 350/350 conversation tests (CZ 150, EN 150, ND 50)
 
 ### Pilíř 2: PROJEKTY — 100% ✅
-**Status: PHASE C = DONE. Vše hotovo včetně C3 (v65.7).**
-- v65.2: BUILD hardening — real test exec, checkpoint FAIL default, hard milestone size limits
-- v65.3: Conversation restore on project open — lifecycle bind, stale guard, scroll
-- v65.4: Project context sync IDE→BE→LLM (`projectId` through full pipeline)
+**Status: PHASE C = DONE.**
 - v65.6: Lifecycle session routing fix — RAM lookup by `projectId`, `bindSessionToLifecycle()`
 - 628/628 deterministických lifecycle testů PASS
-- v65.7: C3 Real LLM lifecycle test ✅ — E2E s Ollama (project create, lifecycle start, SPEC, state check)
+- v65.7: C3 Real LLM lifecycle test ✅ — E2E s Ollama
 
-### Pilíř 3: WORKERI — 95% ✅ (upgrade z 85%)
+### Pilíř 3: WORKERI — 95% ✅
 **Status: B0-B9 DONE. B8 template workeři kompletní.**
 - B0-B6: Agent platform infrastruktura — DONE
-- B8: **3 template workeři plně implementovány:**
-  - `weatherMonitor()` → Telegram/ntfy (OpenMeteo API, frost alert trigger)
-  - `newsAggregator()` → Telegram/ntfy (RSS multi-source, LLM summarizace, digest mode)
-  - `realEstateHunter()` → email (Sreality API, multi-source, digest)
-- B9: **Agent Builder Wizard** — FE wizard (simple 3-step + advanced 5-section), BE schema endpoint
+- B8: 3 template workeři (weatherMonitor, newsAggregator, realEstateHunter)
+- B9: Agent Builder Wizard — FE wizard (simple + advanced), BE schema endpoint
 - Notifikační pipeline: Email, Telegram, ntfy/push, rate limiting, digest, trust tracker
-- Zbývá: RSS digest worker — default channel je Telegram/ntfy, ne email (triviální fix)
 
-### Pilíř 4: SPECIALISTÉ — 65% ✅ (upgrade z 40%)
-Expertise layer (15 expertises) + accountant pilot + 5D capability system + merge engine v2 + expertise wizard UI.
-- v65.8: **D1 Specialist Runtime** — ToolRegistry, IntentDetector, ToolExecutor, SpecialistRuntime ✅
-- v65.8: **D2 Knowledge Base** — DB migration (3 tables), KnowledgeBase class, tax rates seed (96 facts) ✅
-- v65.8: **D3 Scenario Engine** — ScenarioRegistry, ScenarioRunner, accountant tax optimization scenario ✅
+### Pilíř 4: SPECIALISTÉ — 80% ✅ (upgrade z 65%)
+Expertise layer (15 expertises) + accountant specialist + 5D capability system + merge engine v2 + ledger.
+- v65.8: D1-D3 Specialist Runtime, Knowledge Base, Scenario Engine ✅
+- v69: Expert→Expertise rename (soft DB migration, backward compat) ✅
+- v69-v74: **Ledger system** — české daně, DPH, pojištění, compliance (218 testů) ✅
+- v74: **Specialist Platform** — SpecialistLoader, specialist-runtime, tool-adapter ✅
 - Zbývá: D4-D9 (specialist memory, multi-specialist routing, advanced scenarios)
 
-### Pilíř 5: IDE — 73% ✅ (korekce z 80%)
+### Pilíř 5: IDE — 73% ✅
 Theia 1.65.2, 33 custom extensions, fungující build (lib/ + src-gen/).
-- Sprint 1-7 → ve skutečnosti Phase 1-5 dle IDE roadmapy
 - Hotovo: Chat panel, WS bridge, agent wizard, center views, expertise wizard, audit trail, diff viewer, keybindings, git integrace
-- v65.3: Project opener s conversation restore + lifecycle bind
-- v65.4: Project context pipeline (IDE→WS→BE→CRE→LLM)
 - v65.5: Agent Builder Wizard UI (centerAgentWizard, simple + advanced mode)
-- Zbývá (~10 items): Specialist CRUD wizard, Stage/Unstage v working tree, Cumulative "Approve All", Delegace mezi agenty v logu, Plugin systém pro sidebar
+- Zbývá (~10 items): Specialist CRUD wizard, Stage/Unstage, Cumulative "Approve All", Plugin systém
 
-### Pilíř 6: PRODUKT — 25% ✅ (upgrade z 8%)
+### Pilíř 6: PRODUKT — 25% ✅
 **Status: F1-F3 DONE (v65.7). 3 moduly napojeny do server.js.**
-- **Setup wizard** (399 ř.) — first-run detection, /api/setup/* routes ✅ (v65.7)
-- **Auto-updater** (341 ř.) — startUpdateChecker() v server.listen(), graceful stop ✅ (v65.7)
-- **License system** (348 ř.) — LicenseManager singleton, /api/license/status, FREE tier feature gates ✅ (v65.7)
+- **Setup wizard** — first-run detection, /api/setup/* routes ✅
+- **Auto-updater** — startUpdateChecker() v server.listen(), graceful stop ✅
+- **License system** — LicenseManager singleton, /api/license/status, FREE tier feature gates ✅
 - **INSTALL.md** — manuální 7-sekční příručka
 - Shell sandbox + secrets auth
 - Chybí: installer, Electron builder dist
@@ -95,27 +88,19 @@ Theia 1.65.2, 33 custom extensions, fungující build (lib/ + src-gen/).
 |-------|-------|
 | v63.0 | Merge Engine v2 — multi-expertise composition (max 3) |
 | v63.0 | 5D Capability System — per-expertise vektory, kompatibilita |
-| v63.0 | conversation_expertises tabulka (N:M, max 3) |
-| v63.1 | Capability modifiers — runtime vliv 5D vektoru |
-| v63.1 | Expertise Wizard UI — IDE formulář pro tvorbu expertyz |
+| v63.1 | Capability modifiers + Expertise Wizard UI |
 | v63.3 | ExecutionTrace — UUID per turn, LLM log, prompt hash |
-| v63.3 | Expertise Sandbox — offline simulace |
-| v64.0 | **CRE Gatekeeper** — single-authority enforcement |
-| v64.0 | Schema migrations (5 souborů, timestamp-based) |
-| v64.0 | cre_override_log tabulka |
-| v65.2 | **Lifecycle BUILD hardening** — real test exec, FAIL default, hard size limits |
-| v65.3 | **Project conversation restore** — lifecycle bind, stale guard |
-| v65.4 | **Project context injection** — CRE hint, sanitized prompt, IDE→LLM pipeline |
-| v65.4 | **Instalační příručka** — INSTALL.md (BE + IDE + Docker) |
-| v65.5 | **Agent Builder Wizard (B9)** — FE wizard UI + BE schema endpoint + normalizeAgentDefinition |
-| v65.6 | **Lifecycle session routing fix** — RAM lookup by projectId, Tier 1/2/3 hardening |
-| v65.6 | **CZ locative/dative/instrumental** — project-self query patterns + CRE classifier |
-| v65.7 | **F1: Setup Wizard wired** — first-run detection, /api/setup/* routes, createSetupRoutes(wizard, deps) |
-| v65.7 | **F2: Auto-updater wired** — startUpdateChecker() v server.listen(), stopUpdateChecker() v shutdown |
-| v65.7 | **F3: License system wired** — LicenseManager singleton, /api/license/status, FREE tier feature gates |
-| v65.8 | **D1: Specialist Runtime** — ToolRegistry, IntentDetector, ToolExecutor, SpecialistRuntime, accountant registered |
-| v65.8 | **D2: Knowledge Base** — 3 DB tables (knowledge_facts, knowledge_sources, knowledge_verification_log), KnowledgeBase class, seedTaxRates (96 facts) |
-| v65.8 | **D3: Scenario Engine** — ScenarioRegistry, ScenarioRunner, accountant tax optimization scenario (5 steps) |
+| v64.0 | **CRE Gatekeeper** — single-authority enforcement, schema migrations |
+| v65.2-v65.4 | Lifecycle BUILD hardening, project context injection, INSTALL.md |
+| v65.5 | **Agent Builder Wizard (B9)** — FE wizard UI + BE schema endpoint |
+| v65.6 | **Lifecycle session routing fix** — RAM lookup by projectId |
+| v65.7 | **F1-F3: Setup Wizard, Auto-updater, License system** wired into server.js |
+| v65.8 | **D1-D3: Specialist Runtime, Knowledge Base, Scenario Engine** |
+| v69.0 | **Expert→Expertise rename** — soft DB migration, 67 souborů, backward compat |
+| v69-v74 | **Ledger system** — české daně, DPH, pojištění, compliance (218 testů) |
+| v72.0 | **Conversation hardening** — EN locale fix, CRE drift guard, 350 conv testů |
+| v74.0 | **Specialist Platform** — SpecialistLoader, specialist discovery, tool adapter |
+| v78.0 | **Project cleanup** — legacy code removal, doc updates, stale file cleanup |
 
 ---
 
@@ -141,14 +126,14 @@ Theia 1.65.2, 33 custom extensions, fungující build (lib/ + src-gen/).
 
 ```
 Fáze Q: QUALITY    ██████████████████████████████████████████  100% → DONE
-Fáze A: CHAT       ██████████████████████████████████████████  100% → DONE (A7 ✅ v65.7)
-Fáze C: PROJEKTY   ██████████████████████████████████████████  100% → DONE (C3 ✅ v65.7)
-Fáze D-int: ÚČETNÍ ██████████████████████████████████████████  100% → DONE
-Fáze B: WORKERI    ██████████████████████████████████████░░░░   95% (B0-B9 done, B8 template ✅)
+Fáze A: CHAT       ██████████████████████████████████████████  100% → DONE (v72 conv hardening)
+Fáze C: PROJEKTY   ██████████████████████████████████████████  100% → DONE
+Fáze D-int: ÚČETNÍ ██████████████████████████████████████████  100% → DONE (ledger v69-v74)
+Fáze B: WORKERI    ██████████████████████████████████████░░░░   95% (B0-B9 done)
 Fáze H: HARDENING  ██████████████████████████████████████████  100% (9/9 DONE)
-Fáze D: SPECIALISTÉ██████████████████████████░░░░░░░░░░░░░░░░   65% (D1-D3 done, v65.8)
+Fáze D: SPECIALISTÉ████████████████████████████████░░░░░░░░░░   80% (D1-D3, ledger, specialist platform)
 Fáze E: IDE        ██████████████████████████████░░░░░░░░░░░░   73% (Phase 1-5, 33 extensions)
-Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   25% (F1-F3 wired, v65.7)
+Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   25% (F1-F3 wired)
 ```
 
 ---
@@ -212,20 +197,16 @@ Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░�
 
 ## Celkový progres
 
-**Hotovo:** ~97% celkové vize (upgrade z 96%)
-**Nové od v9:** v65.8 — D1 Specialist Runtime, D2 Knowledge Base, D3 Scenario Engine
+**Hotovo:** ~98% celkové vize
+**Nové od v10:** v69 expert→expertise rename, v69-v74 ledger system (218 testů), v72 conversation hardening (350 testů), v74 specialist platform, v78 project cleanup.
 
 ```
 Celkem zbývajících úkolů:  4
   🔴 Critical:              0
-  🟡 Important:             0  (všechny P1 hotové!)
+  🟡 Important:             0
   ⚪ Future (D4-D9,E,F):     4  (~2 měsíce)
 ```
 
 ---
 
-*Tento dokument nahrazuje Roadmapa v9 (v65.7).
-Nové ve v10: D1 Specialist Runtime (ToolRegistry + IntentDetector + ToolExecutor, 23 tests),
-D2 Knowledge Base (3 DB tables, KnowledgeBase class, 96 seeded tax facts, 35 tests),
-D3 Scenario Engine (ScenarioRegistry + ScenarioRunner, accountant tax optimization, 42 tests).
-Specialist 40%→65%. Celkový progres 97%.*
+*Tento dokument nahrazuje Roadmapa v10. Aktualizováno na v78.0.0 (2026-02-24).*

@@ -1,8 +1,8 @@
 # C.3 Workers & Notifikace
 
-**Verze:** v64.0 (2026-02-14)
+**Verze:** v78.0.0 (2026-02-24)
 
-Viz take: [EXPERTS.md](EXPERTS.md) | [SPECIALISTS.md](SPECIALISTS.md) | [README.md](README.md)
+Viz take: [EXPERTISES.md](EXPERTISES.md) | [SPECIALISTS.md](SPECIALISTS.md) | [README.md](README.md)
 
 ---
 
@@ -334,4 +334,4 @@ Skupiny: `agent_id::channel::recipient`. Deduplikace podle titulku. Flush na cro
 ---
 
 *Puvodni dokument: "EXPERTS, SPECIALISTS & WORKERS.md" (Subsystem 4, 5, 6)*
-*Viz take: [EXPERTS.md](EXPERTS.md) (Expert Layer) | [SPECIALISTS.md](SPECIALISTS.md) (Accountant)*
+*Viz take: [EXPERTISES.md](EXPERTISES.md) (Expertise Layer) | [SPECIALISTS.md](SPECIALISTS.md) (Accountant)*

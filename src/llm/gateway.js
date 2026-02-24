@@ -106,8 +106,7 @@ class LLMGateway {
       currentMinuteStart: Date.now()
     };
     
-    // v36.9: Strict mode is NOW DEFAULT
-    // ONLY authorized calls go through. Legacy calls require ALLOW_LEGACY_LLM env var.
+    // v36.9: Strict mode is NOW DEFAULT — all calls require auth tokens.
     this.strictMode = true;
   }
   
@@ -224,7 +223,6 @@ class LLMGateway {
    * @param {string} [options.model] - Model override
    * @param {number} [options.temperature] - Temperature
    * @param {number} [options.maxTokens] - Max tokens
-   * @param {string} [options.legacyRole] - Legacy role (for migration)
    * @returns {Promise<{content: string, model: string, duration: number}>}
    */
   async call(prompt, options = {}) {
@@ -244,37 +242,19 @@ class LLMGateway {
 
     if (!isAuthorizedCall) {
       if (this.strictMode) {
-        // v36.9: Check if LEGACY_DIRECT is allowed via env flag
-        if (options.legacyRole && process.env.ALLOW_LEGACY_LLM === '1') {
-          // Legacy allowed but LOUD
-          logger.warn('LLMGateway', `[DEPRECATED] LEGACY_DIRECT LLM call from role: ${options.legacyRole}. MIGRATE TO AUTH TOKENS.`, {
-            legacyRole: options.legacyRole,
-            promptLength: prompt.length,
-            stack: new Error().stack?.split('\n').slice(2, 5).join(' <- ')
-          });
-          this.audit.log('LEGACY_CALL_ALLOWED', {
-            legacyRole: options.legacyRole,
-            promptLength: prompt.length
-          });
-        } else {
-          // HARD BLOCK - no auth token, no env flag
-          this.audit.log('UNAUTHORIZED_CALL', {
-            promptPreview: prompt.substring(0, 100),
-            hasInlineToken: !!options._authToken,
-            hasSingletonAuth: !!this.currentAuth,
-            options: { ...options, _authToken: undefined },
-            stack: new Error().stack?.split('\n').slice(2, 5).join(' <- ')
-          });
-          throw new Error('LLM_CALL_OUTSIDE_CRE: No valid auth token. All LLM calls must go through CRE with proper authorization.');
-        }
+        this.audit.log('UNAUTHORIZED_CALL', {
+          promptPreview: prompt.substring(0, 100),
+          hasInlineToken: !!options._authToken,
+          hasSingletonAuth: !!this.currentAuth,
+          stack: new Error().stack?.split('\n').slice(2, 5).join(' <- ')
+        });
+        throw new Error('LLM_CALL_OUTSIDE_CRE: No valid auth token. All LLM calls must go through CRE with proper authorization.');
       } else {
         // Non-strict mode (only for tests)
-        logger.warn('LLMGateway', 'LEGACY CALL - No auth token (non-strict mode)', {
-          legacyRole: options.legacyRole,
+        logger.warn('LLMGateway', 'Unauthenticated LLM call (non-strict mode)', {
           promptLength: prompt.length
         });
-        this.audit.log('LEGACY_CALL', {
-          legacyRole: options.legacyRole,
+        this.audit.log('UNAUTHENTICATED_CALL', {
           promptLength: prompt.length
         });
       }
@@ -399,7 +379,7 @@ class LLMGateway {
         
         // Audit successful call
         this.audit.log('LLM_CALL_COMPLETE', {
-          role: authToken?.role || options.legacyRole || 'UNKNOWN',
+          role: authToken?.role || 'UNKNOWN',
           decisionId: authToken?.decisionId,
           sessionId: authToken?.auditContext?.sessionId,
           model,
@@ -413,7 +393,7 @@ class LLMGateway {
           content: output,
           model,
           duration,
-          role: authToken?.role || options.legacyRole,
+          role: authToken?.role,
           promptEvalCount: data.prompt_eval_count || null,
           evalCount: data.eval_count || null,
         };
@@ -518,22 +498,7 @@ export async function callWithAuth(token, prompt, options = {}) {
   });
 }
 
-/**
- * Legacy call - for migration period ONLY
- * This should be removed once all callers are migrated
- */
-export async function legacyCall(role, prompt, systemPrompt = '', options = {}) {
-  logger.warn('LLMGateway', `LEGACY CALL from role: ${role} - MIGRATE TO AUTH TOKENS`);
-  
-  return await llmGateway.call(prompt, {
-    ...options,
-    systemPrompt,
-    legacyRole: role
-  });
-}
-
 export default {
   llmGateway,
   callWithAuth,
-  legacyCall
 };

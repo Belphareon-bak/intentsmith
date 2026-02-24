@@ -1,6 +1,6 @@
 # C.3 Expertise System
 
-**Verze:** v64.0 (2026-02-14)
+**Verze:** v78.0.0 (2026-02-24)
 
 Viz take: [SPECIALISTS.md](SPECIALISTS.md) | [WORKERS.md](WORKERS.md) | [README.md](README.md)
 

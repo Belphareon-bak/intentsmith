@@ -1,8 +1,8 @@
-# C.3 Agent Platform — Architecture v65.6
+# C.3 Agent Platform — Architecture v78
 
-**Version:** v65.6 (Lifecycle Session Routing Fix, Agent Builder Wizard, Project Context, Expertise Wizard)
-**Status:** Production-ready, ~92% complete
-**Date:** 2026-02-19
+**Version:** v78.0.0 (Ledger, Specialist Platform, Conversation Hardening, Project Cleanup)
+**Status:** Production-ready, ~98% complete
+**Date:** 2026-02-24
 
 ---
 

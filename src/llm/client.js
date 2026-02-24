@@ -1,141 +1,18 @@
-// C.3 v36.7 LLM Client
+// C.3 LLM Client — Utilities
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// v36.7: All calls now go through LLMGateway
-// This file provides backward-compatible wrappers for legacy code.
-// 
-// MIGRATION: All direct callOllama() calls should migrate to using
-// auth tokens via llmGateway.authorize() / llmGateway.call()
+// v78: Cleaned up — legacy callOllama/callOllamaVision removed.
+// All LLM calls go through LLMGateway (gateway.js) with auth tokens.
+//
+// This file provides utility functions for LLM response parsing:
+//   - extractJSON()          — robust JSON extraction from LLM output
+//   - extractCodeBlocks()    — code block extraction with file paths
+//   - extractModifiedFiles() — file modification extraction (JSON + fallback)
+//   - hashQuestion()         — deterministic question hashing
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { config } from '../config.js';
 import { logger } from '../core/logger.js';
-import { legacyCall, llmGateway } from './gateway.js';
-
-// ════════════════════════════════════════════════════════════════════════════
-// LEGACY OLLAMA CLIENT (routes through Gateway)
-// ════════════════════════════════════════════════════════════════════════════
-
-/**
- * Call Ollama LLM (LEGACY - use llmGateway.call() with auth token instead)
- *
- * v36.9: This function is DEPRECATED. All LLM calls must use auth tokens.
- * Will throw unless ALLOW_LEGACY_LLM=1 environment variable is set.
- *
- * @deprecated Use llmGateway with auth token instead
- */
-export async function callOllama(role, prompt, systemPrompt = '', options = {}) {
-  // v36.9: LOUD deprecation warning
-  logger.warn('LLM', `[DEPRECATED] callOllama() called with role: ${role}. MIGRATE TO AUTH TOKENS.`);
-
-  // Route through gateway - gateway will enforce auth check
-  const result = await legacyCall(role, prompt, systemPrompt, {
-    ...options,
-    model: config.models?.[role] || config.models?.CHAT
-  });
-
-  return result;
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// OLLAMA VISION CLIENT
-// ════════════════════════════════════════════════════════════════════════════
-// NOTE: Vision uses /api/generate endpoint which is different from chat.
-// TODO v36.8: Route vision calls through gateway with special handling
-
-/**
- * Call Ollama vision model with image(s)
- *
- * v36.9: DEPRECATED - bypasses gateway. Requires ALLOW_LEGACY_LLM=1.
- *
- * @deprecated Migrate to gateway with vision support
- * @param {string} prompt - Text prompt
- * @param {string[]} images - Array of base64 encoded images (without data: prefix)
- * @param {string} systemPrompt - System prompt
- * @returns {Promise<{content: string, model: string, duration: number}>}
- */
-export async function callOllamaVision(prompt, images, systemPrompt = '') {
-  // v36.9: Hard guard - vision bypasses gateway, requires env flag
-  if (process.env.ALLOW_LEGACY_LLM !== '1') {
-    throw new Error('LLM_CALL_OUTSIDE_CRE: callOllamaVision() bypasses LLMGateway. Set ALLOW_LEGACY_LLM=1 to allow, or migrate to gateway with vision support.');
-  }
-
-  logger.warn('LLM', '[DEPRECATED] VISION CALL - bypasses gateway. MIGRATE TO AUTH TOKENS.');
-  
-  const model = config.models.VISION || 'llava:13b';
-  const timeout = config.timeouts.VISION || 60000;
-  
-  logger.info('LLM', `Calling VISION`, { model, imageCount: images.length });
-  
-  const timer = logger.time('LLM', `VISION (${model})`);
-  
-  const body = {
-    model,
-    prompt,
-    system: systemPrompt,
-    images, // Base64 encoded images
-    stream: false,
-    options: {
-      temperature: 0.3,
-      num_predict: 2048,
-    },
-  };
-  
-  let lastError;
-  
-  for (let attempt = 1; attempt <= config.ollama.retries; attempt++) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
-      
-      const response = await fetch(`${config.ollama.baseUrl}/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        // Check if model not found
-        if (errorText.includes('not found') || errorText.includes('does not exist')) {
-          throw new Error(`Vision model "${model}" not installed. Run: ollama pull ${model}`);
-        }
-        throw new Error(`Ollama HTTP ${response.status}: ${errorText}`);
-      }
-      
-      const data = await response.json();
-      const output = data.response || '';
-      
-      const duration = timer.end(`(${output.length} chars)`);
-      
-      return {
-        content: output,
-        model,
-        duration,
-        role: 'VISION',
-      };
-      
-    } catch (err) {
-      lastError = err;
-      
-      if (err.name === 'AbortError') {
-        logger.warn('LLM', `Vision timeout after ${timeout}ms (attempt ${attempt})`);
-      } else {
-        logger.warn('LLM', `Vision error (attempt ${attempt}): ${err.message}`);
-      }
-      
-      if (attempt < config.ollama.retries) {
-        await sleep(config.ollama.retryDelay * attempt);
-      }
-    }
-  }
-  
-  throw new Error(`Vision failed: ${lastError?.message}`);
-}
 
 // ════════════════════════════════════════════════════════════════════════════
 // JSON EXTRACTION (ROBUST)
@@ -372,10 +249,6 @@ export function extractModifiedFiles(text) {
 // HELPERS
 // ════════════════════════════════════════════════════════════════════════════
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 /**
  * Create a hash for learning system
  */
@@ -395,7 +268,6 @@ export function hashQuestion(question) {
 // ════════════════════════════════════════════════════════════════════════════
 
 export default {
-  callOllama,
   extractJSON,
   extractCodeBlocks,
   extractModifiedFiles,

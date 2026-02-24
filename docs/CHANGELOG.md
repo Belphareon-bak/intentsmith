@@ -2,6 +2,74 @@
 
 ---
 
+## v78.0 — Project Cleanup + Legacy Removal (2026-02-24)
+
+Celková hygiena projektu: odstranění mrtvého kódu, aktualizace dokumentace, sladění package.json s reálným stavem.
+
+### Změny
+
+- **package.json:** Verze 65.5.0 → 78.0.0, description aktualizován (Expertise Merge Engine + Specialist Platform + Ledger)
+- **package.json test scripts:** Kompletní přepis ~37 skriptů — staré referencovaly 50+ neexistujících souborů, nové mapují na 115 reálných testů
+- **.env.example:** `C3_ENABLE_EXPERTS` → `C3_ENABLE_EXPERTISES`
+- **LLM legacy removal:** Odstraněny `callOllama()`, `callOllamaVision()` z client.js, `legacyCall()` z gateway.js, `ALLOW_LEGACY_LLM` guard — vše šlo přes LLMGateway od v36.9
+- **client.js:** Zachovány aktivně používané utility: `extractJSON()`, `extractCodeBlocks()`, `extractModifiedFiles()`, `hashQuestion()`
+- **PATCH-*.js:** Odstraněny 3 instrukční PATCH soubory z rootu + 3 kopie z docs/ (nikde importované)
+- **chats/:** Označeno jako DEPRECATED (legacy pre-v36 standalone server)
+- **Dokumentace:** INSTALL.md, ROADMAP.md, EXPERTISES.md, CHANGELOG.md aktualizovány na v78
+
+### Soubory
+
+| Soubor | Změna |
+|--------|-------|
+| `package.json` | Verze + description + test scripts |
+| `.env.example` | Feature flag rename |
+| `src/llm/client.js` | Odstraněny callOllama, callOllamaVision, sleep; cleanup header |
+| `src/llm/gateway.js` | Odstraněn legacyCall, legacyRole path, ALLOW_LEGACY_LLM guard |
+| `PATCH-*.js` (×6) | SMAZÁNY |
+| `chats/DEPRECATED.md` | NOVÝ — deprecation notice |
+| `docs/INSTALL.md` | Verze v65.4 → v78.0.0 |
+| `docs/ROADMAP.md` | Verze v65.7 → v78, milníky v69-v78 |
+| `docs/EXPERTISES.md` | Verze v64.0 → v78.0.0 |
+| `docs/CHANGELOG.md` | v78.0 entry |
+
+---
+
+## v72.0 — Conversation Hardening (2026-02-23)
+
+**Testy:** 350/350 conversation tests PASS (CZ 150, EN 150, ND 50)
+
+14 oprav v konverzačním pipeline (v72 + v72.1):
+
+- **EN LOCAL date language leak** — local handler vždy vracel česky i v EN konverzaci
+- **Christmas template** — `formatChristmasResponse()` s i18n labels
+- **CODE without project** — router guard pro CODE intent bez aktivního projektu
+- **CRE drift into architect** — ANSWER intent se přepisoval na CODE/DESIGN v followup.js
+- **local-i18n.js** — nový modul s `formatDate()`, `formatTime()`, `formatTodayResponse()` atd. pro cs/en/de/sk
+- **QGv2 improvements** — response sanitization, SK→CZ transliteration hardening
+
+---
+
+## v74.0 — Specialist Platform (2026-02-22)
+
+- **SpecialistLoader** — auto-discovery z `specialists/` adresáře, manifest validation, hot-reload
+- **specialist-runtime.js** — rozšíření: `tryToolExecution()` s clarify status, pattern-based routing accuracy
+- **tool-adapter.js** — universální adapter pro specialist tools
+- **accountant-cz** — plně funkční specialist s 5 tools (tax, VAT, salary, deadline, compare)
+- **DB migration 012 (v74)** — `specialists` + `specialist_migrations` tabulky
+
+---
+
+## v69.0-v74.0 — Ledger System (2026-02-20 – 2026-02-22)
+
+- **Ledger core** — české daňové výpočty (DPFO, sociální, zdravotní pojištění)
+- **VAT engine** — DPH kalkulátor s metadata (v72 migration)
+- **Insurance module** — pojistné výpočty
+- **Compliance** — validace proti českým předpisům (v73 migration)
+- **Period locks** — uzamykání účetních období (v70 migration)
+- **218 ledger testů** (core, VAT, annual, insurance, compliance, reports)
+
+---
+
 ## v69.0 — Rename: expert → expertise (2026-02-22)
 
 Sjednocení terminologie: "expert" → "expertise/expertyza". Expertyza = dovednostní profil/persona overlay na LLM odpovědi. Specialist = komplexní doménový agent s tools, knowledge base, rutinami. Přejmenování odstraňuje záměnu obou pojmů.
