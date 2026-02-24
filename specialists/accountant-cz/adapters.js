@@ -60,8 +60,10 @@ export class TaxCalculatorAdapter extends ToolAdapter {
       }
     }
 
-    // net_income > 0 for positive gross
-    if (r.net_income != null && r.net_income <= 0 && r.gross_income > 0) {
+    // net_income > 0 for positive gross (only for income >= 300k)
+    // Note: For very low income (<300k), minimum insurance payments (~94k/year)
+    // can exceed gross income, producing legitimately negative net.
+    if (r.net_income != null && r.net_income <= 0 && r.gross_income != null && r.gross_income >= 300000) {
       issues.push({ field: 'net_income', message: 'net_income ≤ 0 despite positive gross', severity: 'error' });
     }
 

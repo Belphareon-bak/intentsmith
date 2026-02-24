@@ -78,7 +78,7 @@ function formatAgentEvent(event) {
       break;
 
     case 'cre_decision':
-      text = (payload.handler || 'neznámý') + ' → ' + (payload.reason || '');
+      text = (payload.intent || payload.handler || 'neznámý') + ' → ' + (payload.actionType || payload.reason || '');
       if (payload.confidence) text += ' (' + Math.round(payload.confidence * 100) + '%)';
       break;
 
@@ -105,8 +105,9 @@ function formatAgentEvent(event) {
       break;
 
     case 'gate_verdict':
-      text = (payload.passed ? '✓ Schváleno' : '✗ Zamítnuto');
-      if (payload.reason) text += ' — ' + payload.reason;
+      text = ((payload.ok !== undefined ? payload.ok : payload.passed) ? '✓ Schváleno' : '✗ Zamítnuto');
+      if (payload.dimension) text += ' — ' + payload.dimension;
+      else if (payload.reason) text += ' — ' + payload.reason;
       if (payload.score !== undefined) text += ' (skóre: ' + payload.score + ')';
       break;
 
