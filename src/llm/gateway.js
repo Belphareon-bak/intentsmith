@@ -343,7 +343,9 @@ class LLMGateway {
         temperature: options.temperature ?? 0.3,
         top_p: options.top_p ?? 0.75,
         repeat_penalty: options.repeat_penalty ?? 1.1,
-        num_predict: effectiveMaxTokens
+        num_predict: effectiveMaxTokens,
+        // v72: Allow callers to override context window size (e.g. 1024 for classification)
+        ...(options.num_ctx ? { num_ctx: options.num_ctx } : {}),
       }
     };
 

@@ -189,20 +189,20 @@ section('S3-5. Fact query escape hatch');
 
 // These should escape DESIGN follow-up lock
 {
-  const d1 = decide('kolik stojí Apple Developer Account', { lastIntent: IntentType.DESIGN });
+  const d1 = await decide('kolik stojí Apple Developer Account', { lastIntent: IntentType.DESIGN });
   assert('Price query escapes DESIGN → SEARCH/FACTUAL',
     d1.intent === IntentType.FACTUAL || d1.intent === IntentType.SEARCH);
 }
 
 {
-  const d2 = decide('najdi dokumentaci k WireGuard', { lastIntent: IntentType.DESIGN });
+  const d2 = await decide('najdi dokumentaci k WireGuard', { lastIntent: IntentType.DESIGN });
   assert('Search query escapes DESIGN → SEARCH',
     d2.intent === IntentType.SEARCH);
 }
 
 // These should NOT escape (they're DESIGN follow-ups)
 {
-  const d3 = decide('jak řešit bezpečnost', { lastIntent: IntentType.DESIGN });
+  const d3 = await decide('jak řešit bezpečnost', { lastIntent: IntentType.DESIGN });
   assert('"jak řešit bezpečnost" stays in DESIGN',
     d3.intent === IntentType.DESIGN);
 }
@@ -440,14 +440,14 @@ assert('REGRESSION: "najdi restauraci" → SEARCH',
 
 // Decision invariants
 assert('REGRESSION: DESIGN → ANSWER decision',
-  decide('navrhni architekturu systému').type === DecisionType.ANSWER);
+  (await decide('navrhni architekturu systému')).type === DecisionType.ANSWER);
 
 assert('REGRESSION: DESIGN → tools=[]',
-  decide('udělej roadmapu vývoje').tools.length === 0);
+  (await decide('udělej roadmapu vývoje')).tools.length === 0);
 
 // Follow-up lock
 assert('REGRESSION: "více podrobností" + lastIntent=DESIGN → DESIGN',
-  decide('více podrobností', { lastIntent: IntentType.DESIGN }).intent === IntentType.DESIGN);
+  (await decide('více podrobností', { lastIntent: IntentType.DESIGN })).intent === IntentType.DESIGN);
 
 // TOOL_CALL invariant
 {
@@ -463,21 +463,21 @@ section('S3+4-14. Edge cases');
 
 // DESIGN follow-up should work with no-diacritics Czech too
 assert('"vice podrobnosti" with lastIntent=DESIGN → DESIGN (no diacritics)',
-  decide('vice podrobnosti', { lastIntent: IntentType.DESIGN }).intent === IntentType.DESIGN);
+  (await decide('vice podrobnosti', { lastIntent: IntentType.DESIGN })).intent === IntentType.DESIGN);
 
 // Ambiguous input during DESIGN should stay in DESIGN if follow-up pattern
 assert('"detailneji" with lastIntent=DESIGN → DESIGN',
-  decide('detailneji', { lastIntent: IntentType.DESIGN }).intent === IntentType.DESIGN);
+  (await decide('detailneji', { lastIntent: IntentType.DESIGN })).intent === IntentType.DESIGN);
 
 // English follow-ups during DESIGN
 assert('"more detail" with lastIntent=DESIGN → DESIGN',
-  decide('more detail', { lastIntent: IntentType.DESIGN }).intent === IntentType.DESIGN);
+  (await decide('more detail', { lastIntent: IntentType.DESIGN })).intent === IntentType.DESIGN);
 
 assert('"what about testing" with lastIntent=DESIGN → DESIGN',
-  decide('what about testing', { lastIntent: IntentType.DESIGN }).intent === IntentType.DESIGN);
+  (await decide('what about testing', { lastIntent: IntentType.DESIGN })).intent === IntentType.DESIGN);
 
 assert('"next step" with lastIntent=DESIGN → DESIGN',
-  decide('next step', { lastIntent: IntentType.DESIGN }).intent === IntentType.DESIGN);
+  (await decide('next step', { lastIntent: IntentType.DESIGN })).intent === IntentType.DESIGN);
 
 // New DESIGN should override active DESIGN (fresh start)
 assert('"navrhni úplně jinou architekturu" → DESIGN (fresh)',

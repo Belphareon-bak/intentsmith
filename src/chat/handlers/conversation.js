@@ -759,6 +759,12 @@ export async function conversationHandler(input, context) {
       return await handleToolCallDecision(input, decision, context);
 
     case DecisionType.ASK_USER:
+      // v72: CODE intent without project → answer inline instead of asking for project
+      if (decision.intent === IntentType.CODE &&
+          (decision.slots?.includes('project_context') || decision.slots?.includes('file_path'))) {
+        logger.info('ConversationHandler', 'CODE without project → inline ANSWER', { input: input.substring(0, 60) });
+        return await handleAnswerDecision(input, { ...decision, type: DecisionType.ANSWER, toJSON() { return { ...this, toJSON: undefined }; } }, context);
+      }
       return handleAskUserDecision(input, decision, context);
 
     case DecisionType.ANSWER:

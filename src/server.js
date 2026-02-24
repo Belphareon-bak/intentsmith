@@ -835,6 +835,40 @@ server.listen(config.server.port, config.server.host, async () => {
     logger.debug('Server', `Lifecycle handoff preload skipped: ${err.message}`);
   }
 
+  // Auto-discover projects in default projects directory on startup
+  try {
+    const { projects: projectsRepo } = await import('./db/database.js');
+    const projectsDir = path.resolve(config.projects.defaultDir);
+
+    if (fs.existsSync(projectsDir)) {
+      const entries = fs.readdirSync(projectsDir, { withFileTypes: true });
+      let discovered = 0;
+
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const projectPath = path.join(projectsDir, entry.name);
+
+        // Read description from .c3/project.json if available
+        let desc = entry.name;
+        try {
+          const c3 = JSON.parse(fs.readFileSync(path.join(projectPath, '.c3', 'project.json'), 'utf8'));
+          desc = c3.description || c3.name || entry.name;
+        } catch { /* no .c3 metadata */ }
+
+        // getOrCreate registers new projects and fixes auto-generated names (lc-xxx) on existing ones
+        const before = projectsRepo.findByPath.get(projectPath);
+        projectsRepo.getOrCreate(entry.name, projectPath, desc);
+        if (!before) discovered++;
+      }
+
+      if (discovered > 0) {
+        logger.info('Server', `Auto-discovered ${discovered} project(s) in ${projectsDir}`);
+      }
+    }
+  } catch (err) {
+    logger.debug('Server', `Project auto-discovery skipped: ${err.message}`);
+  }
+
   // v64.0: Bind CRE Gatekeeper audit DB
   try {
     const { creOverrideLog } = await import('./db/database.js');

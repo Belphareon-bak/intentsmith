@@ -1108,13 +1108,17 @@ ${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
       });
 
       // CRITICAL: Validate response against forbidden phrases
-      const validation = creDecisionEngine.validateResponse(result.content);
-      if (!validation.valid) {
-        logger.error('ConversationHandler', 'LLM generated FORBIDDEN response', {
-          violations: validation.violations,
-          content: result.content.substring(0, 200),
-        });
-        return createForbiddenResponseError(input, validation.violations);
+      // v72: Skip for CONVERSATIONAL — farewell/gratitude naturally uses phrases like
+      // "feel free to ask" or "neváhejte se zeptat" which are NOT hedging
+      if (decision.intent !== IntentType.CONVERSATIONAL) {
+        const validation = creDecisionEngine.validateResponse(result.content);
+        if (!validation.valid) {
+          logger.error('ConversationHandler', 'LLM generated FORBIDDEN response', {
+            violations: validation.violations,
+            content: result.content.substring(0, 200),
+          });
+          return createForbiddenResponseError(input, validation.violations);
+        }
       }
 
       // ════════════════════════════════════════════════════════════════════════

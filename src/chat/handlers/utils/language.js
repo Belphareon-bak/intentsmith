@@ -77,6 +77,11 @@ const PATTERNS = {
     /\b(I|you|we|they|he|she|it)\b/i,
     /\b(my|your|our|their|his|her|its)\b/i,
     /\b(what|which|where|when|why|how)\b/i,
+    // v72: Extended EN coverage — short inputs like "Tell me a joke" were detected as 'unknown'→'cs'
+    /\b(is|are|was|were|am|been|being)\b/i,       // "to be" forms
+    /\b(can|will|have|has|had|does|did)\b/i,       // auxiliaries
+    /\b(tell|give|make|let|get|show|help|want|need|know|think)\b/i,  // common verbs
+    /\b(about|from|with|into|between|through|after|before)\b/i,      // prepositions
   ],
 
   de: [

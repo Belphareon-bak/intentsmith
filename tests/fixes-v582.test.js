@@ -228,7 +228,7 @@ section('F3-1. Imperative + artifact → ANSWER (inline code)');
 
 // CZ: clear code requests without active project → ANSWER, not ASK_USER
 {
-  const d1 = decide('napiš mi jednoduchý HTTP server v Node.js');
+  const d1 = await decide('napiš mi jednoduchý HTTP server v Node.js');
   assert('"napiš HTTP server v Node.js" → type=ANSWER (not ASK_USER)',
     d1.type === DecisionType.ANSWER);
   assert('"napiš HTTP server v Node.js" → intent=CODE',
@@ -236,31 +236,31 @@ section('F3-1. Imperative + artifact → ANSWER (inline code)');
 }
 
 {
-  const d2 = decide('vytvoř funkci pro sčítání dvou čísel v Pythonu');
+  const d2 = await decide('vytvoř funkci pro sčítání dvou čísel v Pythonu');
   assert('"vytvoř funkci v Pythonu" → type=ANSWER',
     d2.type === DecisionType.ANSWER);
 }
 
 {
-  const d3 = decide('udělej mi parser pro CSV soubory');
+  const d3 = await decide('udělej mi parser pro CSV soubory');
   assert('"udělej parser" → type=ANSWER',
     d3.type === DecisionType.ANSWER);
 }
 
 {
-  const d4 = decide('write a simple REST API in Node.js');
+  const d4 = await decide('write a simple REST API in Node.js');
   assert('"write REST API in Node.js" → type=ANSWER',
     d4.type === DecisionType.ANSWER);
 }
 
 {
-  const d5 = decide('create a React component for user login');
+  const d5 = await decide('create a React component for user login');
   assert('"create React component" → type=ANSWER',
     d5.type === DecisionType.ANSWER);
 }
 
 {
-  const d6 = decide('naprogramuj crawler na scraping');
+  const d6 = await decide('naprogramuj crawler na scraping');
   assert('"naprogramuj crawler" → type=ANSWER',
     d6.type === DecisionType.ANSWER);
 }
@@ -269,7 +269,7 @@ section('F3-1. Imperative + artifact → ANSWER (inline code)');
 section('F3-2. Ambiguous code → ASK_USER (safety kept)');
 
 {
-  const d1 = decide('pomoz mi s kódem');
+  const d1 = await decide('pomoz mi s kódem');
   assert('"pomoz mi s kódem" → ASK_USER (truly ambiguous)',
     d1.type === DecisionType.ASK_USER || d1.type === DecisionType.ANSWER);
   // Note: "pomoz mi s kódem" may or may not hit CODE patterns. If CONVERSATIONAL, ANSWER is fine too.
@@ -279,7 +279,7 @@ section('F3-2. Ambiguous code → ASK_USER (safety kept)');
 section('F3-3. Imperative + artifact with project → TOOL_CALL (project context)');
 
 {
-  const d1 = decide('napiš mi HTTP server', { hasActiveProject: true, project: { id: 'p1', name: 'test' } });
+  const d1 = await decide('napiš mi HTTP server', { hasActiveProject: true, project: { id: 'p1', name: 'test' } });
   assert('"napiš HTTP server" + project → TOOL_CALL',
     d1.type === DecisionType.TOOL_CALL);
 }

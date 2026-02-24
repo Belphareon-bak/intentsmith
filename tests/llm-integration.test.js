@@ -238,7 +238,7 @@ await testAsync('4.1 CONVERSATIONAL intent → LLM answer', async () => {
   assertEqual(intent, IntentType.CONVERSATIONAL, 'Expected CONVERSATIONAL intent');
 
   // Step 2: CRE makes decision
-  const decision = engine.decide(input, {});
+  const decision = await engine.decide(input, {});
   console.log(`     Decision: ${decision.type}`);
   assertEqual(decision.type, DecisionType.ANSWER, 'Expected ANSWER decision');
 
@@ -271,7 +271,7 @@ await testAsync('4.2 LOCAL intent → deterministic + no LLM', async () => {
   assertEqual(intent, IntentType.LOCAL, 'Expected LOCAL intent');
 
   // Decision should be LOCAL (no LLM call needed)
-  const decision = engine.decide(input, {});
+  const decision = await engine.decide(input, {});
   console.log(`     Decision: ${decision.type}`);
   assertEqual(decision.type, DecisionType.LOCAL, 'Expected LOCAL decision');
 
@@ -291,7 +291,7 @@ await testAsync('4.3 SEARCH intent → TOOL_CALL decision', async () => {
   const intent = engine.classifyIntent(input);
   console.log(`     Intent: ${intent}`);
 
-  const decision = engine.decide(input, {});
+  const decision = await engine.decide(input, {});
   console.log(`     Decision: ${decision.type}, tools: ${decision.tools?.join(', ') || 'none'}`);
   assertEqual(decision.type, DecisionType.TOOL_CALL, 'Expected TOOL_CALL for search query');
 });

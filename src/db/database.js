@@ -120,6 +120,10 @@ export const projects = {
     UPDATE projects SET description = ?, last_active = CURRENT_TIMESTAMP WHERE id = ?
   `),
 
+  updateNameDesc: db.prepare(`
+    UPDATE projects SET name = ?, description = ?, last_active = CURRENT_TIMESTAMP WHERE id = ?
+  `),
+
   list: db.prepare(`
     SELECT * FROM projects ORDER BY last_active DESC LIMIT ?
   `),
@@ -140,7 +144,18 @@ export const projects = {
       const result = this.create.run(name, projectPath, description);
       project = { id: result.lastInsertRowid, name, path: projectPath, description, is_external: 0 };
     } else {
-      this.updateLastActive.run(project.id);
+      // Update name/description if existing record has auto-generated name and caller provides a better one
+      const needsNameUpdate = name && project.name !== name && /^lc-\d+$/.test(project.name);
+      const needsDescUpdate = description && (!project.description || project.description === project.name);
+      if (needsNameUpdate || needsDescUpdate) {
+        const newName = needsNameUpdate ? name : project.name;
+        const newDesc = needsDescUpdate ? description : project.description;
+        this.updateNameDesc.run(newName, newDesc, project.id);
+        project.name = newName;
+        project.description = newDesc;
+      } else {
+        this.updateLastActive.run(project.id);
+      }
     }
     return project;
   },

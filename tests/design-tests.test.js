@@ -212,7 +212,7 @@ assert('"udělej roadmapu" → DESIGN (not REPORT)',
 section('3. DECISION: DESIGN → ANSWER with no tools');
 
 {
-  const d = decide('navrhni architekturu mobilní aplikace');
+  const d = await decide('navrhni architekturu mobilní aplikace');
   assert('DESIGN decide() → type=ANSWER', d.type === DecisionType.ANSWER);
   assert('DESIGN decide() → intent=DESIGN', d.intent === IntentType.DESIGN);
   assert('DESIGN decide() → tools=[]', d.tools.length === 0);
@@ -220,13 +220,13 @@ section('3. DECISION: DESIGN → ANSWER with no tools');
 }
 
 {
-  const d = decide('udělej mi roadmapu vývoje');
+  const d = await decide('udělej mi roadmapu vývoje');
   assert('Roadmap decide() → type=ANSWER', d.type === DecisionType.ANSWER);
   assert('Roadmap decide() → intent=DESIGN', d.intent === IntentType.DESIGN);
 }
 
 {
-  const d = decide('chci vytvořit mobilní aplikaci');
+  const d = await decide('chci vytvořit mobilní aplikaci');
   assert('Create app decide() → type=ANSWER', d.type === DecisionType.ANSWER);
   assert('Create app decide() → intent=DESIGN', d.intent === IntentType.DESIGN);
 }
@@ -258,14 +258,14 @@ section('4. INVARIANT: DESIGN + TOOL_CALL throws');
 section('5. STRONG: DESIGN overrides sticky SEARCH');
 
 {
-  const d = decide('navrhni architekturu aplikace', {
+  const d = await decide('navrhni architekturu aplikace', {
     lastIntent: IntentType.SEARCH,
   });
   assert('DESIGN with lastIntent=SEARCH → still DESIGN', d.intent === IntentType.DESIGN);
 }
 
 {
-  const d = decide('udělej roadmapu', {
+  const d = await decide('udělej roadmapu', {
     lastIntent: IntentType.REPORT,
   });
   assert('DESIGN with lastIntent=REPORT → still DESIGN', d.intent === IntentType.DESIGN);
@@ -277,49 +277,49 @@ section('5. STRONG: DESIGN overrides sticky SEARCH');
 section('6A. DESIGN follow-up lock');
 
 {
-  const d = decide('více podrobností', { lastIntent: IntentType.DESIGN });
+  const d = await decide('více podrobností', { lastIntent: IntentType.DESIGN });
   assert('"více podrobností" with lastIntent=DESIGN → DESIGN',
     d.intent === IntentType.DESIGN);
 }
 
 {
-  const d = decide('rozděl to na sprinty', { lastIntent: IntentType.DESIGN });
+  const d = await decide('rozděl to na sprinty', { lastIntent: IntentType.DESIGN });
   assert('"rozděl to na sprinty" with lastIntent=DESIGN → DESIGN',
     d.intent === IntentType.DESIGN);
 }
 
 {
-  const d = decide('podrobněji', { lastIntent: IntentType.DESIGN });
+  const d = await decide('podrobněji', { lastIntent: IntentType.DESIGN });
   assert('"podrobněji" with lastIntent=DESIGN → DESIGN',
     d.intent === IntentType.DESIGN);
 }
 
 {
-  const d = decide('jak řešit testy', { lastIntent: IntentType.DESIGN });
+  const d = await decide('jak řešit testy', { lastIntent: IntentType.DESIGN });
   assert('"jak řešit testy" with lastIntent=DESIGN → DESIGN',
     d.intent === IntentType.DESIGN);
 }
 
 {
-  const d = decide('co s deploymentem', { lastIntent: IntentType.DESIGN });
+  const d = await decide('co s deploymentem', { lastIntent: IntentType.DESIGN });
   assert('"co s deploymentem" with lastIntent=DESIGN → DESIGN',
     d.intent === IntentType.DESIGN);
 }
 
 {
-  const d = decide('změň stack na Kotlin', { lastIntent: IntentType.DESIGN });
+  const d = await decide('změň stack na Kotlin', { lastIntent: IntentType.DESIGN });
   assert('"změň stack na Kotlin" with lastIntent=DESIGN → DESIGN',
     d.intent === IntentType.DESIGN);
 }
 
 {
-  const d = decide('další krok', { lastIntent: IntentType.DESIGN });
+  const d = await decide('další krok', { lastIntent: IntentType.DESIGN });
   assert('"další krok" with lastIntent=DESIGN → DESIGN',
     d.intent === IntentType.DESIGN);
 }
 
 {
-  const d = decide('co dál', { lastIntent: IntentType.DESIGN });
+  const d = await decide('co dál', { lastIntent: IntentType.DESIGN });
   assert('"co dál" with lastIntent=DESIGN → DESIGN',
     d.intent === IntentType.DESIGN);
 }
@@ -329,14 +329,14 @@ section('6B. DESIGN escape hatch: FACTUAL query during DESIGN');
 {
   // FACTUAL should NOT be overridden by DESIGN follow-up lock
   // "kolik stojí bitcoin" has FACTUAL patterns → should escape
-  const d = decide('kolik stojí Apple Developer Account', { lastIntent: IntentType.DESIGN });
+  const d = await decide('kolik stojí Apple Developer Account', { lastIntent: IntentType.DESIGN });
   assert('"kolik stojí..." with lastIntent=DESIGN → escapes to FACTUAL (not locked)',
     d.intent === IntentType.FACTUAL || d.intent === IntentType.SEARCH);
 }
 
 {
   // LOCAL should always escape
-  const d = decide('kolik je 5+3', { lastIntent: IntentType.DESIGN });
+  const d = await decide('kolik je 5+3', { lastIntent: IntentType.DESIGN });
   assert('"5+3" with lastIntent=DESIGN → LOCAL (always escapes)',
     d.intent === IntentType.LOCAL);
 }
@@ -422,7 +422,7 @@ assert('BUG#3: "dej mi to roadmapu v českém jazyce, ideálně 3-4 úrovně" �
   classifyIntent('dej mi to roadmapu v českém jazyce') === IntentType.DESIGN);
 
 assert('BUG#4: "rozděl na sprinty" with lastIntent=DESIGN → DESIGN (was SEARCH)',
-  decide('chci mnohem vice podrobností, na sprinty to rozděl', { lastIntent: IntentType.DESIGN }).intent === IntentType.DESIGN);
+  (await decide('chci mnohem vice podrobností, na sprinty to rozděl', { lastIntent: IntentType.DESIGN })).intent === IntentType.DESIGN);
 
 // Additional regression: DESIGN must not break existing CREATIVE/BUILD
 assert('REGRESSION: "vymysli kampaň" still → CREATIVE',

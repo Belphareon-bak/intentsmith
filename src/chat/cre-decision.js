@@ -32,6 +32,7 @@ import { logger } from '../core/logger.js';
 import { isGratitudeOrFarewell, isCodeRequest } from './cre-routing-patches.js';
 import { classifyIntent as llmClassify } from '../llm/cre-bridge.js';
 import { extractJSON } from '../llm/client.js';
+import { config } from '../config.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Decision Types
@@ -778,6 +779,12 @@ const CREATIVE_FOLLOW_UP_PATTERNS = [
   /podobn[ěé]/i,                    // "podobně", "podobné"
   /variac[ie]/i,                    // "variace", "variaci" - explicit check
 
+  // v72: Style continuation patterns
+  /^similar\s+style/i,              // "similar style"
+  /^ve\s+stejn[ée]m\s+styl/i,      // "ve stejném stylu"
+  /^podobn[ýé]\s+styl/i,           // "podobný styl", "podobné styly"
+  /^stejn[ýé]\s+styl/i,            // "stejný styl"
+
   // English equivalents
   /what.*effect/i,
   /what.*impact/i,
@@ -791,6 +798,8 @@ const CREATIVE_FOLLOW_UP_PATTERNS = [
   /alternative/i,                   // "alternative version"
   /another.*version/i,              // "another version"
   /different.*take/i,               // "different take"
+  /similar.*style/i,                // "similar style", "in a similar style"
+  /same.*style/i,                   // "same style", "in the same style"
   /try.*darker/i,                   // "try darker"
   /try.*lighter/i,                  // "try lighter"
 ];
@@ -1390,7 +1399,7 @@ const CONVERSATIONAL_PATTERNS = [
 // v44.7 - Extended with more patterns for deterministic local computation
 const LOCAL_DETERMINISTIC_PATTERNS = [
   // Date/time questions
-  /kolik.*(hodin|dn[ií]|t[ýy]dn|m[eě]s[ií]c)/i,  // "za kolik dní/dni"
+  /kolik\s+(?:(?:je|to)\s+)?(?:hodin|dn[ií]|t[ýy]dn|m[eě]s[ií]c)/i,  // "kolik dní/hodin" (v72: tightened — won't match "kolik kalorií...za hodinu")
   /kdy.*bude.*([úu]pln[eě]k|nov|m[eě]s[ií]c)/i,  // "kdy bude úplněk/uplnek"
   /kdy.*uplnek/i,                         // "kdy bude uplnek" (without diacritics)
   /jak[ýyéae].*(\bden\b|\bdatum\b|\brok\b|m[eě]s[ií]c)/i, // "jaký/jaky je dnes den" (v62.2: \b prevents "kroky"→"rok" false match)
@@ -1403,11 +1412,21 @@ const LOCAL_DETERMINISTIC_PATTERNS = [
   /kolik dn[ií] do/i,                     // "kolik dní/dni do vánoc/vanoc"
   /[úu]pln[eě]k/i, /uplnek/i,            // "kdy bude úplněk" direct match
   /nov[ýéě]h?o?\s+měsíc/i,                // "nový měsíc", "nového měsíce" (NOT "novinek za měsíc")
+  // v72: EN moon/astronomy patterns — route to LOCAL computation (not LLM)
+  /full\s*moon/i,                          // "full moon", "next full moon"
+  /new\s*moon/i,                           // "new moon", "when is the new moon"
+  /next.*(?:full|new)\s*moon/i,            // "when is the next full moon"
   // Math calculations
   // v62.2: Bare /\d+[+\-*/]\d+/ removed — catches "byt 2+1", "i7-14700K" as math.
   // Standalone math ("5+3") handled by anchored pattern; explicit intent by keywords.
+  // v72: EN "days until" patterns (Christmas, etc.)
+  /(?:how\s+many\s+)?days?\s+(?:until|till|to)\s+(?:christmas|easter|new\s+year)/i,
+  /kolik\s+dn[ií]\s+do\s+(?:váno|vanoc|velikono|nového\s+roku)/i,  // CZ: "kolik dní do vánoc"
+  // Math calculations
   /kolik je \d+/i,                                    // "kolik je 5+3"
   /^\s*\d+[\s()]*[+\-*/][\s()]*\d+[\s()=?]*\s*$/,   // ONLY standalone: "5+3", "100/4" (entire input IS the expression)
+  /^\s*\d+\s*(?:\*\*|\^)\s*\d+\s*$/,                 // v72: standalone power: "2**10", "2^8"
+  /^\s*\d+\s*!\s*$/,                                  // v72: standalone factorial: "5!", "10!"
   /vypočítej/i, /spočítej/i, /vypocitej/i, /spocitej/i, /calculate\s+\d/i,
   // v44.7 FIX 3: Additional LOCAL patterns
   /napi[sš]\s*(mi\s+)?č[ií]slo/i,         // "napiš číslo", "napiš mi číslo"
@@ -1416,7 +1435,7 @@ const LOCAL_DETERMINISTIC_PATTERNS = [
   /pouze\s*datum/i,                       // "pouze datum"
   /rovnou\s*(č[ií]slo|datum|odpov)/i,    // "rovnou číslo", "rovnou odpověď"
   /přímou\s*odpověď/i,                    // "přímou odpověď"
-  /kolik.*hodin/i,                        // "kolik je hodin"
+  /kolik\s+(je\s+)?hodin/i,               // "kolik je hodin" (v72: tightened — won't match "za hodinu")
   /current.*time/i, /current.*date/i,    // English variants
 ];
 
@@ -2014,7 +2033,7 @@ export class CREDecisionEngine {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // v71.0: LLM-ASSISTED STRUCTURED INTENT CLASSIFICATION
+  // v71.0 → v71.1: LLM-ASSISTED STRUCTURED INTENT CLASSIFICATION
   // ═══════════════════════════════════════════════════════════════════════════
   //
   // Hybrid model: LLM returns structured JSON intent classification.
@@ -2023,82 +2042,82 @@ export class CREDecisionEngine {
   // Flow:
   //   1. Deterministic fast-path (LOCAL, gratitude) — no LLM needed
   //   2. LLM structured classification — primary classifier
-  //   3. Regex classifyIntent() — fallback if LLM fails/unavailable
+  //   3. Deterministic guard layer — validates/downgrades LLM decision
+  //   4. Regex classifyIntent() — fallback if LLM fails/unavailable
   //
-  // LLM returns: { intent, confidence, fileTarget, shellCommand, reasoning }
-  // Deterministic guardrails validate AFTER LLM classification.
+  // SECURITY INVARIANTS (v71.1):
+  //   - LLM NEVER generates shell commands (shellCommand removed from schema)
+  //   - Shell commands are extracted by deterministic extractShellCommand()
+  //   - LLM-suggested fileTarget is validated by deterministic guards
+  //   - FILE_WRITE without fileTarget → downgrade to CONVERSATIONAL
+  //   - Path traversal in fileTarget → reject, fallback to regex
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
    * LLM-based structured intent classifier.
    * Asks the LLM to semantically classify user input into an intent category
-   * and extract structured metadata (file targets, commands, etc.)
+   * and extract structured metadata (file targets only — NO shell commands).
+   *
+   * Uses fast MoE model (D2/qwen3-30b-a3b) for low latency classification.
    *
    * @param {string} input - User message
    * @param {Object} context - Conversation context (history, project, session)
-   * @returns {Promise<{intent: string, confidence: number, fileTarget?: string, shellCommand?: string, reasoning?: string} | null>}
+   * @returns {Promise<{intent: string, confidence: number, fileTarget?: string} | null>}
    *          Parsed classification or null on failure
    */
   async _llmClassifyIntent(input, context = {}) {
     const VALID_INTENTS = Object.values(IntentType);
 
-    // Build conversation snippet for context (last 2 turns max)
-    let conversationSnippet = '';
-    if (context.history?.length > 0) {
-      const recentTurns = context.history.slice(-2);
-      conversationSnippet = recentTurns
-        .map(t => {
-          const userMsg = t.input || t.userMessage || '';
-          const assistantMsg = t.response?.content || '';
-          return `USER: ${userMsg.substring(0, 200)}\nASSISTANT: ${assistantMsg.substring(0, 300)}`;
-        })
-        .join('\n---\n');
-    }
+    // v72: Conversation context REMOVED from classification prompt.
+    // Intent is a property of the CURRENT message, not conversation history.
+    // Anaphoric references ("udělej to znovu") are handled by continuity layer.
+    // This saves ~200-400 input tokens → measurable latency reduction.
 
-    const systemPrompt = `Jsi klasifikátor záměrů uživatele v česko-anglickém AI asistentovi.
-Analyzuj zprávu uživatele a urči, co chce udělat.
+    // v71.1: shellCommand REMOVED from schema — LLM must NOT generate commands.
+    // Shell command extraction stays in deterministic extractShellCommand().
+    // v72: Optimized classification prompt — ~40% fewer tokens than v71.
+    // Removed: examples in parentheses, verbose rule descriptions, JSON template.
+    // Kept: intent list, critical disambiguation rules, security constraint.
+    const systemPrompt = `Klasifikuj záměr uživatele. Vrať JSON: {"intent":"X","confidence":0.9,"fileTarget":null}
 
-ZÁMĚRY (intent):
-- FILE_WRITE: uživatel chce uložit/zapsat/vytvořit soubor (např. "zapiš to do souboru", "ulož to jako plan.md", "save it to a file")
-- FILE_READ: uživatel chce přečíst/otevřít/zobrazit soubor (např. "otevři config.json", "ukaž mi obsah souboru")
-- FILE_EXPLAIN: uživatel chce vysvětlení obsahu souboru (např. "vysvětli ten soubor", "co dělá tento kód?")
-- SHELL: uživatel chce spustit příkaz v terminálu (např. "spusť npm test", "git status", "ls -la")
-- SEARCH: uživatel hledá aktuální informace na internetu
-- REPORT: uživatel chce analýzu/report vyžadující data
-- CODE: uživatel chce generování/pomoc s kódem
-- CONVERSATIONAL: běžný chat, pozdravy, názory, vysvětlení pojmů
-- CREATIVE: brainstorming, nápady, kreativní psaní
-- DESIGN: architektura, roadmapa, technické plánování
-- BUILD: vícekrokový projekt (postav mi API, vytvoř aplikaci)
-- LOCAL: datum/čas/matematika
-- AMBIGUOUS: nejasný záměr
+ZÁMĚRY:
+FILE_WRITE: uložit/zapsat do souboru
+FILE_READ: přečíst/otevřít soubor
+FILE_EXPLAIN: vysvětlit obsah souboru
+SHELL: spustit terminálový příkaz
+SEARCH: hledat aktuální info na internetu
+REPORT: analýza/report vyžadující data
+CODE: generování/pomoc s kódem
+CONVERSATIONAL: chat, pozdravy, názory, vysvětlení
+CREATIVE: brainstorming, nápady, kreativní psaní
+DESIGN: architektura, roadmapa, plánování
+BUILD: vícekrokový projekt
+LOCAL: datum/čas/matematika
+AMBIGUOUS: nejasný záměr
 
 PRAVIDLA:
-- Pokud uživatel říká "zapiš/ulož/napiš to do souboru" nebo jakoukoliv variaci na uložení obsahu → FILE_WRITE
-- Pokud uživatel chce spustit terminálový příkaz → SHELL
-- Pokud uživatel chce číst soubor → FILE_READ
-- Rozlišuj mezi "napiš kód" (CODE) a "zapiš to do souboru" (FILE_WRITE)
-- Pokud má zpráva jasný soubor jako cíl (plan.md, config.json), extrahuj ho do fileTarget
+- "ulož/zapiš/hoď to do souboru" → FILE_WRITE
+- "napiš kód" → CODE (ne FILE_WRITE)
+- Soubor jako cíl → extrahuj do fileTarget (POUZE název, bez cest)
+- Český "rust" = růst → CONVERSATIONAL/SEARCH, ne CODE`;
 
-Vrať POUZE validní JSON:
-{
-  "intent": "INTENT_NAME",
-  "confidence": 0.0-1.0,
-  "fileTarget": "filename.ext nebo null",
-  "shellCommand": "příkaz nebo null",
-  "reasoning": "stručné zdůvodnění (max 20 slov)"
-}`;
-
-    const userPrompt = conversationSnippet
-      ? `PŘEDCHOZÍ KONVERZACE:\n${conversationSnippet}\n\nAKTUÁLNÍ ZPRÁVA: ${input}`
-      : input;
+    // v72: No conversation context — classify current message only
+    const userPrompt = input;
 
     try {
       const result = await llmClassify(userPrompt, systemPrompt, {
         sessionId: context.sessionId || `cre-classify-${Date.now()}`,
+        // v71.1: Use FAST model if available, otherwise CHAT (qwen2.5:32b).
+        // D2 (qwen3-30b-a3b MoE) doesn't handle format:'json' reliably.
+        // Set C3_MODEL_FAST env var to use a dedicated classification model.
+        model: config.models?.FAST || config.models?.CHAT,
         format: 'json',
         temperature: 0.1,
-        maxTokens: 200,
+        // v72: maxTokens 150→80 (actual output ~30-40 tokens without reasoning)
+        maxTokens: 80,
+        // v72: num_ctx 1024 — classification needs <500 tokens total.
+        // Default 32K context window wastes VRAM on KV-cache allocation.
+        num_ctx: 1024,
       });
 
       if (!result?.content) {
@@ -2123,14 +2142,45 @@ Vrať POUZE validní JSON:
       // Normalize confidence
       parsed.confidence = Math.max(0, Math.min(1, Number(parsed.confidence) || 0.5));
 
+      // ════════════════════════════════════════════════════════════════════
+      // v71.1: DETERMINISTIC GUARD LAYER — validates LLM output
+      // LLM proposes, system disposes. Never trust LLM blindly.
+      // ════════════════════════════════════════════════════════════════════
+
+      // GUARD 1: Strip shellCommand — LLM must NOT generate commands
+      delete parsed.shellCommand;
+
+      // GUARD 2: FILE_WRITE requires fileTarget OR recognizable write intent
+      if (parsed.intent === IntentType.FILE_WRITE) {
+        // Sanitize fileTarget — reject path traversal
+        if (parsed.fileTarget) {
+          if (/\.\./.test(parsed.fileTarget) ||
+              /^\//.test(parsed.fileTarget) ||
+              /[/\\]etc[/\\]/.test(parsed.fileTarget)) {
+            logger.warn('CRE:LLM:Guard', `PATH TRAVERSAL in fileTarget: ${parsed.fileTarget}`, {
+              input: input.substring(0, 60),
+            });
+            parsed.fileTarget = null;
+          }
+        }
+      }
+
+      // GUARD 3: SHELL must NOT have high confidence for ambiguous inputs
+      // (deterministic extractShellCommand will handle the actual command)
+      if (parsed.intent === IntentType.SHELL && parsed.confidence > 0.95) {
+        // Cap SHELL confidence — extractShellCommand does the real work
+        parsed.confidence = 0.9;
+      }
+
       logger.info('CRE:LLM', `LLM classified intent: ${parsed.intent} (${parsed.confidence})`, {
         input: input.substring(0, 60),
         intent: parsed.intent,
         confidence: parsed.confidence,
         fileTarget: parsed.fileTarget || null,
-        shellCommand: parsed.shellCommand || null,
-        reasoning: parsed.reasoning || '',
         durationMs: result.duration || null,
+        // v72: Token metrics from Ollama — key for latency analysis
+        promptTokens: result.promptEvalCount || null,
+        outputTokens: result.evalCount || null,
       });
 
       return parsed;
@@ -2140,6 +2190,53 @@ Vrať POUZE validní JSON:
       });
       return null;
     }
+  }
+
+  /**
+   * v71.1: Validate LLM classification result — required fields + sanity checks.
+   * Action intents need more than just confidence — they need valid metadata.
+   *
+   * @param {Object} llmResult - Parsed LLM classification
+   * @param {string} input - Original user input (for fallback extraction)
+   * @returns {boolean} true if LLM result is trustworthy
+   */
+  _validateLLMResult(llmResult, input) {
+    if (!llmResult || !llmResult.intent) return false;
+
+    const { intent, fileTarget } = llmResult;
+
+    // FILE_WRITE: needs fileTarget OR extractable path from input
+    if (intent === IntentType.FILE_WRITE) {
+      const hasTarget = fileTarget || extractWriteFilePath(input);
+      if (!hasTarget) {
+        // No target at all — but user might say "ulož to do souboru" (auto-generate)
+        // Only reject if the input doesn't even mention saving
+        const hasSaveSignal = /ulo[žz]|uloz|zapi[šs]|napi[šs]|save|write|hod[ˇ']?\s/i.test(input);
+        if (!hasSaveSignal) {
+          logger.info('CRE:LLM:Validate', 'FILE_WRITE rejected — no target and no save signal', {
+            input: input.substring(0, 60),
+          });
+          return false;
+        }
+      }
+    }
+
+    // SHELL: deterministic extractShellCommand must find something
+    if (intent === IntentType.SHELL) {
+      const command = extractShellCommand(input);
+      if (!command || command === input.trim()) {
+        // extractShellCommand couldn't extract a meaningful command
+        // Still allow if confidence is very high — LLM might understand context
+        if (llmResult.confidence < 0.85) {
+          logger.info('CRE:LLM:Validate', 'SHELL rejected — no extractable command and low confidence', {
+            input: input.substring(0, 60),
+          });
+          return false;
+        }
+      }
+    }
+
+    return true;
   }
 
   /**
@@ -2250,8 +2347,8 @@ Vrať POUZE validní JSON:
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    // v70: FILE_WRITE — user wants to save/write content to a file
-    // MUST be before SHELL — "zapiš to do souboru" is FILE_WRITE, not SHELL
+    // v71: FILE_WRITE — REGEX FALLBACK (primary is LLM in decide())
+    // Only reached when LLM classifier fails or returns low confidence.
     // ════════════════════════════════════════════════════════════════════════
     if (FILE_WRITE_PATTERNS.some(p => p.test(text))) {
       return IntentType.FILE_WRITE;
@@ -2537,29 +2634,55 @@ Vrať POUZE validní JSON:
   async decide(input, context = {}) {
     // ════════════════════════════════════════════════════════════════════════
     // v71.0: HYBRID INTENT CLASSIFICATION — LLM primary, regex fallback
+    // v72: Timing metrics — classificationTimeMs, decideTimeMs
     // ════════════════════════════════════════════════════════════════════════
+    const _decideStart = performance.now();
     let intent;
     let llmMeta = null;
+    let _classificationTimeMs = 0;
+
+    // v72: Helper — injects timing metrics into every decision
+    const _makeDecision = (config) => {
+      const decideTimeMs = Math.round(performance.now() - _decideStart);
+      config.metadata = {
+        ...config.metadata,
+        classificationTimeMs: _classificationTimeMs,
+        classifiedBy: llmMeta ? 'llm' : (isDeterministic ? 'deterministic' : 'regex'),
+        decideTimeMs,
+      };
+      return new CREDecision(config);
+    };
 
     // Phase 0: Deterministic fast-path — skip LLM for trivial inputs
     const _text = input.trim();
     const _norm = normalizeForClassification(_text);
     const isDeterministic =
       LOCAL_DETERMINISTIC_PATTERNS.some(p => p.test(_norm)) ||
-      isGratitudeOrFarewell(_text);
+      isGratitudeOrFarewell(_text) ||
+      // v72: ITEM_LOOKUP is purely pattern-based (count + thing) — skip LLM
+      ITEM_LOOKUP_PATTERNS.some(p => p.test(_text));
 
     if (isDeterministic) {
+      const _classStart = performance.now();
       intent = this.classifyIntent(input);
+      _classificationTimeMs = Math.round(performance.now() - _classStart);
     } else {
       // Phase 1: LLM structured classification (primary)
+      const _classStart = performance.now();
       const llmResult = await this._llmClassifyIntent(input, context);
+      _classificationTimeMs = Math.round(performance.now() - _classStart);
 
-      if (llmResult && llmResult.confidence >= 0.7) {
+      // v71.1: Confidence AND required fields validation
+      // LLM confidence alone is not enough — action intents need valid metadata.
+      const llmAccepted = llmResult && llmResult.confidence >= 0.7 &&
+        this._validateLLMResult(llmResult, input);
+
+      if (llmAccepted) {
         intent = llmResult.intent;
         llmMeta = llmResult;
         logger.info('CRE', `v71 LLM classification: ${intent} (${llmResult.confidence})`, {
           input: input.substring(0, 60),
-          reasoning: llmResult.reasoning,
+          classificationTimeMs: _classificationTimeMs,
         });
       } else {
         // Phase 2: Regex fallback
@@ -2568,6 +2691,8 @@ Vrať POUZE validní JSON:
           input: input.substring(0, 60),
           llmIntent: llmResult?.intent || null,
           llmConfidence: llmResult?.confidence || null,
+          rejectReason: llmResult ? (llmResult.confidence < 0.7 ? 'low_confidence' : 'validation_failed') : 'no_result',
+          classificationTimeMs: _classificationTimeMs,
         });
       }
     }
@@ -2681,6 +2806,25 @@ Vrať POUZE validní JSON:
       /\d+\s*(inzerát|nabíd|produkt|auto)/i,  // Explicit item request always breaks
     ];
 
+    // v72: Follow-up patterns for sticky continuity override.
+    // These detect short follow-up messages that the LLM classifies as CONVERSATIONAL
+    // but which are actually continuations of the previous tool-using intent.
+    const FOLLOW_UP_PATTERNS = [
+      /^a\s+(co|jak|kde|kdy|kdo|proč)/i,       // "a co dál?", "a jak to dopadlo?"
+      /^(ještě|jeste|víc|vic|více|vice)(\s|$)/i,  // "ještě něco?", "víc detailů"
+      /^co\s+(dál|dal|jiného)(\s|$|[?!])/i,     // "co dál?", "co jiného?"
+      /^(pokračuj|pokracuj)(\s|$)/i,             // "pokračuj"
+      /^(tell|show|find)\s+me\s+more/i,         // English follow-ups
+      /^(what|how)\s+(else|about|next)/i,        // "what else?", "how about..."
+      /^more\b/i,                                // "more"
+    ];
+
+    // v72: Intents where sticky continuation makes sense (tool-calling intents)
+    const STICKY_FOLLOW_UP_ALLOWED = new Set([
+      IntentType.SEARCH, IntentType.ITEM_LOOKUP, IntentType.REPORT,
+      IntentType.CREATIVE, IntentType.FACTUAL,
+    ]);
+
     // v44.7: Skip sticky intent if we have a strong intent (LOCAL, CONVERSATIONAL)
     // v45.0: Also skip if INTENT_BREAK_PATTERNS match (user starting new task)
     const isIntentBreak = INTENT_BREAK_PATTERNS.some(p => p.test(input.trim()));
@@ -2712,6 +2856,60 @@ Vrať POUZE validní JSON:
         });
         intent = lastIntent;
       }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // v72: FOLLOW-UP CONTINUITY OVERRIDE
+    // ════════════════════════════════════════════════════════════════════════
+    // Problem: LLM classifies short follow-ups ("a co dál?", "ještě něco?")
+    // as CONVERSATIONAL because they lack semantic content. The LLM is correct
+    // in isolation — but in context of a SEARCH/REPORT flow, the user wants
+    // continuation, not chat.
+    //
+    // This is a decision-layer fix, not a classification fix.
+    // Conditions: follow-up pattern + short input + allowed intent + previous
+    // turn used a tool (safety brake against false positives).
+    // ════════════════════════════════════════════════════════════════════════
+    const lastDecision = context.lastDecision;
+    const lastDecisionWasTool = lastDecision?.type === DecisionType.TOOL_CALL;
+
+    if (
+      intent === IntentType.CONVERSATIONAL &&
+      !isIntentBreak &&
+      input.trim().length < 40 &&
+      FOLLOW_UP_PATTERNS.some(p => p.test(input.trim())) &&
+      STICKY_FOLLOW_UP_ALLOWED.has(lastIntent) &&
+      lastDecisionWasTool
+    ) {
+      logger.info('CREDecision', `v72 follow-up override: CONVERSATIONAL → ${lastIntent}`, {
+        input: input.substring(0, 50),
+        lastIntent,
+        lastDecisionType: lastDecision?.type,
+      });
+      intent = lastIntent;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // v72: INTENT BREAK → CONVERSATIONAL OVERRIDE
+    // ════════════════════════════════════════════════════════════════════════
+    // Problem: "dost reportů" triggers isIntentBreak (good), but LLM still
+    // classifies as REPORT because "reportů" is a domain word. The break
+    // blocks sticky continuity but can't prevent fresh LLM classification
+    // from landing on the same intent.
+    //
+    // Fix: If break fired AND LLM re-classified to the SAME intent as
+    // lastIntent, the LLM was fooled by domain vocabulary in the break
+    // phrase. Override to CONVERSATIONAL.
+    //
+    // If break fired AND LLM classified to a DIFFERENT intent, that's a
+    // genuine topic change ("teď chci najít restauraci") — leave it alone.
+    // ════════════════════════════════════════════════════════════════════════
+    if (isIntentBreak && lastIntent && intent === lastIntent) {
+      logger.info('CREDecision', `v72 break override: ${intent} → CONVERSATIONAL (same as lastIntent)`, {
+        input: input.substring(0, 50),
+        lastIntent,
+      });
+      intent = IntentType.CONVERSATIONAL;
     }
 
     const tools = this.getRequiredTools(intent, input);
@@ -2749,15 +2947,16 @@ Vrať POUZE validní JSON:
     if (intent === IntentType.LOCAL) {
       // Determine which local handler to use
       let handler = 'local.date'; // default
-      if (/měsíc|úplněk|uplnek|nov|moon|fáze/i.test(input)) {
+      // v72: Added váno/christmas, days until → local.calendar
+      if (/měsíc|úplněk|uplnek|nov|moon|fáze|váno|vanoc|christmas|days?\s+until/i.test(input)) {
         handler = 'local.calendar';
-      } else if (/kolik\s+je\s+\d|^\s*\d+\s*[+\-*/]\s*\d+|vypočít|spočít|vypocit|spocit|calculate/i.test(input)) {
-        handler = 'local.math';  // v62.2: tightened — no longer catches "i7-14700K"
+      } else if (/kolik\s+je\s+\d|^\s*\d+\s*[+\-*/^]\s*\d+|\d+\s*\*\*\s*\d+|\d+\s*!|vypočít|spočít|vypocit|spocit|calculate/i.test(input)) {
+        handler = 'local.math';  // v72: added ** power, ^ power, ! factorial
       } else if (/datum|\bden\b|hodin|time|date/i.test(input)) {
         handler = 'local.date';
       }
 
-      return new CREDecision({
+      return _makeDecision({
         type: DecisionType.LOCAL,  // NOT TOOL_CALL!
         intent,
         tools: [],                 // No tools - direct computation
@@ -2779,7 +2978,7 @@ Vrať POUZE validní JSON:
     // Reads file from project sandbox and returns content.
     // ════════════════════════════════════════════════════════════════════════
     if (intent === IntentType.FILE_READ) {
-      return new CREDecision({
+      return _makeDecision({
         type: DecisionType.LOCAL,  // TERMINAL — like local.date
         intent,
         tools: [],                 // No external tools
@@ -2790,7 +2989,7 @@ Vrať POUZE validní JSON:
           handler: 'file.read',
           fileOperation: true,
           filePath: llmMeta?.fileTarget || extractFilePath(input),
-          classifiedBy: llmMeta ? 'llm' : 'regex',
+
           projectScope,
         },
       });
@@ -2803,7 +3002,7 @@ Vrať POUZE validní JSON:
     // Reads file, then LLM explains/summarizes the content.
     // ════════════════════════════════════════════════════════════════════════
     if (intent === IntentType.FILE_EXPLAIN) {
-      return new CREDecision({
+      return _makeDecision({
         type: DecisionType.LOCAL,  // TERMINAL — file read + LLM synthesis
         intent,
         tools: [],
@@ -2814,7 +3013,7 @@ Vrať POUZE validní JSON:
           handler: 'file.explain',
           fileOperation: true,
           filePath: llmMeta?.fileTarget || extractFilePath(input),
-          classifiedBy: llmMeta ? 'llm' : 'regex',
+
           projectScope,
         },
       });
@@ -2827,9 +3026,9 @@ Vrať POUZE validní JSON:
     // Routes to terminal execution channel. Backend executes, returns output.
     // ════════════════════════════════════════════════════════════════════════
     if (intent === IntentType.SHELL) {
-      // v71: prefer LLM-extracted shellCommand, fallback to regex extraction
-      const command = llmMeta?.shellCommand || extractShellCommand(input);
-      return new CREDecision({
+      // v71.1: ALWAYS use deterministic extractShellCommand — LLM never generates commands
+      const command = extractShellCommand(input);
+      return _makeDecision({
         type: DecisionType.LOCAL,  // TERMINAL — like local.date
         intent,
         tools: [],                 // No external tools — terminal handles it
@@ -2839,7 +3038,7 @@ Vrať POUZE validní JSON:
           inputPreview: input.substring(0, 100),
           handler: 'shell.exec',
           shellCommand: command,
-          classifiedBy: llmMeta ? 'llm' : 'regex',
+
           projectScope,
         },
       });
@@ -2849,7 +3048,7 @@ Vrať POUZE validní JSON:
     if (intent === IntentType.FILE_WRITE) {
       // v71: prefer LLM-extracted fileTarget, fallback to regex extraction
       const writePath = llmMeta?.fileTarget || extractWriteFilePath(input);
-      return new CREDecision({
+      return _makeDecision({
         type: DecisionType.LOCAL,
         intent,
         tools: [],
@@ -2859,7 +3058,7 @@ Vrať POUZE validní JSON:
           inputPreview: input.substring(0, 100),
           handler: 'file.write',
           filePath: writePath,
-          classifiedBy: llmMeta ? 'llm' : 'regex',
+
           projectScope,
         },
       });
@@ -2873,7 +3072,7 @@ Vrať POUZE validní JSON:
     // User wants IDEAS, INSPIRATION, DESIGN - not web search results!
     // ════════════════════════════════════════════════════════════════════════
     if (intent === IntentType.CREATIVE) {
-      return new CREDecision({
+      return _makeDecision({
         type: DecisionType.ANSWER,  // NOT TOOL_CALL! NEVER web.search!
         intent,
         tools: [],                  // No tools - LLM generates ideas directly
@@ -2895,7 +3094,7 @@ Vrať POUZE validní JSON:
     // DESIGN uses ANSWER (no tools), with specialized system prompt.
     // ════════════════════════════════════════════════════════════════════════
     if (intent === IntentType.DESIGN) {
-      return new CREDecision({
+      return _makeDecision({
         type: DecisionType.ANSWER,   // NOT TOOL_CALL! Pure LLM synthesis
         intent,
         tools: [],                    // EMPTY — no web.search, no scrape
@@ -2917,7 +3116,7 @@ Vrať POUZE validní JSON:
     // Chat Agent doesn't build — it hands off to Planner with confirmation
     // ════════════════════════════════════════════════════════════════════════
     if (intent === IntentType.BUILD) {
-      return new CREDecision({
+      return _makeDecision({
         type: DecisionType.PLAN,
         intent,
         tools: [],                  // No Chat tools — Planner has its own pipeline
@@ -2952,7 +3151,7 @@ Vrať POUZE validní JSON:
         searchSubType = 'CLASSIFIED';
       }
 
-      return new CREDecision({
+      return _makeDecision({
         type: DecisionType.TOOL_CALL,
         intent,
         tools,
@@ -2973,7 +3172,7 @@ Vrať POUZE validní JSON:
     // CODE intent - always needs context or clarification
     if (intent === IntentType.CODE) {
       if (hasActiveProject) {
-        return new CREDecision({
+        return _makeDecision({
           type: DecisionType.TOOL_CALL,
           intent,
           tools,
@@ -2998,7 +3197,7 @@ Vrať POUZE validní JSON:
       const IMPERATIVE_WITH_LANG = /(napi[sš]|vytvo[rř]|ud[eě]lej|write|create|implement)\s.{0,40}(python|node|javascript|typescript|java|c\+\+|rust|go|ruby|php|bash|sql|html|css|react|vue|angular|swift|kotlin)/i;
 
       if (IMPERATIVE_WITH_ARTIFACT.test(input) || IMPERATIVE_WITH_LANG.test(input)) {
-        return new CREDecision({
+        return _makeDecision({
           type: DecisionType.ANSWER,
           intent,
           reason: 'Code intent with clear imperative + artifact — inline code response (no project needed)',
@@ -3011,7 +3210,7 @@ Vrať POUZE validní JSON:
       }
 
       // Truly ambiguous CODE — need clarification
-      return new CREDecision({
+      return _makeDecision({
         type: DecisionType.ASK_USER,
         intent,
         slots: ['project_context', 'file_path'],
@@ -3022,7 +3221,7 @@ Vrať POUZE validní JSON:
 
     // AMBIGUOUS - need clarification
     if (intent === IntentType.AMBIGUOUS) {
-      return new CREDecision({
+      return _makeDecision({
         type: DecisionType.ASK_USER,
         intent,
         slots: ['intent_clarification'],
@@ -3033,7 +3232,7 @@ Vrať POUZE validní JSON:
 
     // CONVERSATIONAL - only case where direct ANSWER is allowed
     if (intent === IntentType.CONVERSATIONAL) {
-      return new CREDecision({
+      return _makeDecision({
         type: DecisionType.ANSWER,
         intent,
         reason: 'Pure conversational input - direct response allowed',
@@ -3042,7 +3241,7 @@ Vrať POUZE validní JSON:
     }
 
     // Default: ask for clarification
-    return new CREDecision({
+    return _makeDecision({
       type: DecisionType.ASK_USER,
       intent: IntentType.AMBIGUOUS,
       slots: ['intent_clarification'],
@@ -3104,6 +3303,14 @@ export const creDecisionEngine = new CREDecisionEngine();
 export function assertDecision(decision) {
   if (!decision) {
     throw new Error('INVALID_DECISION: Decision is null or undefined');
+  }
+
+  // v72: Runtime guard — catch forgotten `await` on async decide()
+  if (decision instanceof Promise || typeof decision?.then === 'function') {
+    throw new Error(
+      'ASYNC_DECIDE_NOT_AWAITED: decide() returned a Promise — you forgot `await`. ' +
+      'All callers must use `await creDecisionEngine.decide(...)` since v71.0.'
+    );
   }
 
   if (!decision.type || !DecisionType[decision.type]) {

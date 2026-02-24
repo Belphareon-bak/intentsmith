@@ -503,11 +503,12 @@ function createFakeExecutor(projectPath) {
 // ─── DB Cleanup ─────────────────────────────────────────────────────────────
 
 function cleanDB() {
-  const tables = ['project_lifecycles', 'roadmap_versions', 'milestones',
-                  'change_requests', 'drift_checks', 'projects'];
-  for (const t of tables) {
+  // Clean lifecycle data — NEVER wipe user projects/conversations
+  for (const t of ['lifecycle_handoff_state', 'drift_checks', 'change_requests',
+                    'milestones', 'roadmap_versions', 'project_lifecycles']) {
     try { db.prepare(`DELETE FROM ${t}`).run(); } catch { /* ignore */ }
   }
+  try { db.prepare(`DELETE FROM projects WHERE path LIKE '/tmp/%'`).run(); } catch { /* ignore */ }
   initLifecycleStateDb(lifecycleHandoffState, lifecycleRepo);
 }
 

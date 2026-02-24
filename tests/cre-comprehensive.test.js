@@ -53,11 +53,11 @@ function section(name) {
   console.log(`${'─'.repeat(60)}`);
 }
 
-function t(name, fn) {
+async function t(name, fn) {
   total++;
   sectionStats[currentSection].total++;
   try {
-    fn();
+    await fn();
     passed++;
     sectionStats[currentSection].passed++;
     console.log(`  \x1b[32m✅\x1b[0m ${name}`);
@@ -426,8 +426,8 @@ section('3A. DECISION: Tool-requiring intents → TOOL_CALL');
     ['dej mi 3 inzeráty na auta', IntentType.ITEM_LOOKUP, DecisionType.TOOL_CALL],
   ];
   for (const [input, expectedIntent, expectedDecision] of toolIntents) {
-    t(`"${input}" → ${expectedDecision}`, () => {
-      const d = decide(input);
+    await t(`"${input}" → ${expectedDecision}`, async () => {
+      const d = await decide(input);
       eq(d.intent, expectedIntent, `intent for "${input}"`);
       eq(d.type, expectedDecision, `decision for "${input}"`);
       ok(d.tools.length > 0, `must have tools for "${input}"`);
@@ -447,8 +447,8 @@ section('3B. DECISION: Terminal intents → ANSWER or LOCAL');
     ['napiš báseň', IntentType.CREATIVE, DecisionType.ANSWER],
   ];
   for (const [input, expectedIntent, expectedDecision] of terminalCases) {
-    t(`"${input}" → ${expectedDecision}`, () => {
-      const d = decide(input);
+    await t(`"${input}" → ${expectedDecision}`, async () => {
+      const d = await decide(input);
       eq(d.intent, expectedIntent, `intent for "${input}"`);
       eq(d.type, expectedDecision, `decision for "${input}"`);
     });
@@ -464,8 +464,8 @@ section('3C. DECISION: BUILD → PLAN (never TOOL_CALL/ANSWER)');
     'build me a REST API',
   ];
   for (const input of buildCases) {
-    t(`"${input}" → PLAN`, () => {
-      const d = decide(input);
+    await t(`"${input}" → PLAN`, async () => {
+      const d = await decide(input);
       eq(d.intent, IntentType.BUILD, `intent for "${input}"`);
       eq(d.type, DecisionType.PLAN, `decision for "${input}"`);
     });
@@ -481,7 +481,8 @@ section('3C. DECISION: BUILD → PLAN (never TOOL_CALL/ANSWER)');
 section('4A. CONTEXT: Sticky SEARCH intent on follow-ups');
 {
   // After SEARCH, ambiguous follow-ups should stick to SEARCH
-  const ctx = { lastIntent: IntentType.SEARCH };
+  // v72: lastDecision required — follow-up override needs to verify previous turn used a tool
+  const ctx = { lastIntent: IntentType.SEARCH, lastDecision: { type: 'TOOL_CALL' } };
   const followUps = [
     'a co dál?',
     'ještě něco?',
@@ -493,8 +494,8 @@ section('4A. CONTEXT: Sticky SEARCH intent on follow-ups');
     'alternativu',
   ];
   for (const f of followUps) {
-    t(`SEARCH → "${f}" stays SEARCH`, () => {
-      const d = decide(f, ctx);
+    await t(`SEARCH → "${f}" stays SEARCH`, async () => {
+      const d = await decide(f, ctx);
       eq(d.intent, IntentType.SEARCH, `sticky for "${f}"`);
     });
   }
@@ -518,8 +519,8 @@ section('4B. CONTEXT: CREATIVE follow-up stays CREATIVE');
     'similar style',
   ];
   for (const f of followUps) {
-    t(`CREATIVE → "${f}" stays CREATIVE`, () => {
-      const d = decide(f, ctx);
+    await t(`CREATIVE → "${f}" stays CREATIVE`, async () => {
+      const d = await decide(f, ctx);
       eq(d.intent, IntentType.CREATIVE, `creative follow-up "${f}"`);
     });
   }
@@ -535,8 +536,8 @@ section('4C. CONTEXT: Strong intents override sticky');
     ['vymysli mi příběh', IntentType.CREATIVE],
   ];
   for (const [input, expected] of strongCases) {
-    t(`SEARCH → "${input}" breaks to ${expected}`, () => {
-      const d = decide(input, ctx);
+    await t(`SEARCH → "${input}" breaks to ${expected}`, async () => {
+      const d = await decide(input, ctx);
       eq(d.intent, expected, `strong intent for "${input}"`);
     });
   }
@@ -553,8 +554,8 @@ section('4D. CONTEXT: Intent break patterns');
     'chci najít auto',
   ];
   for (const input of breakCases) {
-    t(`REPORT → "${input}" breaks sticky`, () => {
-      const d = decide(input, ctx);
+    await t(`REPORT → "${input}" breaks sticky`, async () => {
+      const d = await decide(input, ctx);
       ok(d.intent !== IntentType.REPORT, `should break from REPORT, got ${d.intent}`);
     });
   }
@@ -1057,8 +1058,8 @@ section('13. REGRESSION: Known bugs must not regress');
     eq(ci('Moje jméno je Alice'), IntentType.CONVERSATIONAL);
   });
 
-  t('LEGACY: "vymysli kampaň" → CREATIVE → ANSWER (not TOOL_CALL)', () => {
-    const d = decide('vymysli kampaň');
+  await t('LEGACY: "vymysli kampaň" → CREATIVE → ANSWER (not TOOL_CALL)', async () => {
+    const d = await decide('vymysli kampaň');
     eq(d.type, DecisionType.ANSWER);
     eq(d.intent, IntentType.CREATIVE);
   });

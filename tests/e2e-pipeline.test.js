@@ -30,14 +30,14 @@ import {
 suite('E2E — Full pipeline flow (mock)');
 // ═══════════════════════════════════════════════════════════════════════════════
 
-test('Step 1: User input → CRE → PLAN decision', () => {
-  const decision = creDecisionEngine.decide('postav mi REST API pro správu uživatelů', {});
+await testAsync('Step 1: User input → CRE → PLAN decision', async () => {
+  const decision = await creDecisionEngine.decide('postav mi REST API pro správu uživatelů', {});
   assertEqual(decision.type, DecisionType.PLAN);
   assertEqual(decision.intent, IntentType.BUILD);
 });
 
-test('Step 2: PLAN → handleBuildDetected → proposal', () => {
-  const decision = creDecisionEngine.decide('postav mi REST API', {});
+await testAsync('Step 2: PLAN → handleBuildDetected → proposal', async () => {
+  const decision = await creDecisionEngine.decide('postav mi REST API', {});
   const ctx = { sessionId: 'e2e-1', mode: 'conversation' };
   const response = handleBuildDetected('postav mi REST API', decision, ctx);
   
@@ -183,9 +183,9 @@ test('Session can transition to FAILED', () => {
   assertEqual(session.state, WorkflowState.FAILED);
 });
 
-test('Pipeline handles missing intent gracefully', () => {
+await testAsync('Pipeline handles missing intent gracefully', async () => {
   // Non-build input should not produce PLAN
-  const decision = creDecisionEngine.decide('ahoj', {});
+  const decision = await creDecisionEngine.decide('ahoj', {});
   assert(decision.type !== DecisionType.PLAN, 'Greeting should not route to PLAN');
 });
 

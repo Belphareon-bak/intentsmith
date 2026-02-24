@@ -1,7 +1,7 @@
 // tests/build-intent.test.js — BUILD intent detection + CRE invariants
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { suite, test, assert, assertEqual, assertThrows, summary } from './harness.js';
+import { suite, test, testAsync, assert, assertEqual, assertThrows, summary } from './harness.js';
 import {
   creDecisionEngine,
   DecisionType,
@@ -116,20 +116,20 @@ for (const [input, expected] of NOT_BUILD) {
 suite('CRE Decision: BUILD → PLAN routing');
 // ═══════════════════════════════════════════════════════════════════════════════
 
-test('BUILD intent produces PLAN decision', () => {
-  const decision = creDecisionEngine.decide('postav mi REST API', {});
+await testAsync('BUILD intent produces PLAN decision', async () => {
+  const decision = await creDecisionEngine.decide('postav mi REST API', {});
   assertEqual(decision.type, DecisionType.PLAN);
   assertEqual(decision.intent, IntentType.BUILD);
   assert(decision.tools.length === 0, 'PLAN should have no tools');
 });
 
-test('PLAN decision has buildRequest metadata', () => {
-  const decision = creDecisionEngine.decide('build me a project', {});
+await testAsync('PLAN decision has buildRequest metadata', async () => {
+  const decision = await creDecisionEngine.decide('build me a project', {});
   assert(decision.metadata?.buildRequest === true, 'Should have buildRequest metadata');
 });
 
-test('PLAN decision passes assertDecision', () => {
-  const decision = creDecisionEngine.decide('postav mi celý stack', {});
+await testAsync('PLAN decision passes assertDecision', async () => {
+  const decision = await creDecisionEngine.decide('postav mi celý stack', {});
   assert(assertDecision(decision) === true, 'assertDecision should return true');
 });
 

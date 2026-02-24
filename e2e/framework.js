@@ -238,8 +238,8 @@ export function assertIntent(input, expected, context) {
   return intent;
 }
 
-export function assertDecisionType(input, expectedType, context) {
-  const decision = engine.decide(input, context || {});
+export async function assertDecisionType(input, expectedType, context) {
+  const decision = await engine.decide(input, context || {});
   if (decision.type !== expectedType) {
     throw new Error(`Decision type "${decision.type}" !== "${expectedType}" for "${input.substring(0, 50)}"`);
   }
@@ -351,7 +351,7 @@ export class ConversationSimulator {
    * Classify intent + make decision for input. Does NOT call LLM.
    * Simulates the routing that conversationHandler does.
    */
-  send(input) {
+  async send(input) {
     const text = input.trim();
     const ss = this.sessionState;
     const decisionContext = {
@@ -429,7 +429,7 @@ export class ConversationSimulator {
 
     // ── Normal CRE classification ────────────────────────────────────
     const intent = engine.classifyIntent(input);
-    const decision = engine.decide(input, decisionContext);
+    const decision = await engine.decide(input, decisionContext);
 
     // ── v58.3-fix: DESIGN SESSION INVARIANT ──────────────────────────
     // During active DESIGN, non-escape intents = DESIGN_CONTINUE

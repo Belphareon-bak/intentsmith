@@ -73,17 +73,29 @@ export function handleLifecycleBuildDetected(input, decision, context) {
   });
 
   const content = [
-    `🏗️ **Detekován rozsáhlý projekt**`,
+    `**Detekován rozsáhlý projekt**`,
     ``,
-    `Toto vypadá jako víceúrovňový projekt. Navrhuji použít **lifecycle přístup**:`,
+    `Toto vypadá jako projekt, který vyžaduje strukturovaný přístup. Navrhuji použít **lifecycle engine**:`,
     ``,
-    `  1. **SPEC** — Společně vytvoříme specifikaci (cíle, požadavky, tech stack)`,
-    `  2. **PLANNING** — Vygeneruji roadmapu rozdělenou na milníky`,
-    `  3. **BUILD** — Postupné budování po milnících s checkpointy`,
-    `  4. **REVIEW** — Pravidelné kontroly driftu a kvality`,
-    `  5. **CHANGE** — Řízení změn bez ztráty hotové práce`,
+    `### Jak to funguje`,
     ``,
-    `Každý milník je autonomní, ale každý směr změny vyžaduje tvoje schválení.`,
+    `  1. **SPEC** — Společně definujeme cíle, požadavky a tech stack. Zeptám se na upřesňující otázky.`,
+    `  2. **PLANNING** — Vygeneruji roadmapu rozdělenou na milníky. Ty ji schválíš nebo upravíš.`,
+    `  3. **BUILD** — Postupné budování po milnících. Každý milník projde: plán → kód → testy → checkpoint.`,
+    `  4. **REVIEW** — Pravidelné kontroly kvality a scope driftu.`,
+    `  5. **CHANGE** — Kdykoliv můžeš změnit směr. Hotové milníky se zachovají, zbytek se přeplánuje.`,
+    ``,
+    `### Co se automaticky vytvoří`,
+    ``,
+    `  - **README.md** — Popis projektu, stack, struktura. Aktualizuje se po každém milníku.`,
+    `  - **ROADMAP.md** — Roadmapa s milníky, statusy a historií verzí. Aktualizuje se průběžně.`,
+    `  - **Git commit + tag** — Po každém dokončeném milníku automatický commit a tag.`,
+    ``,
+    `### Komunikace`,
+    ``,
+    `  - Každý krok vyžaduje tvoje schválení (spec, roadmapa, milestone plány).`,
+    `  - Kdykoli můžeš napsat **"pauza"** pro pozastavení nebo **"zrušit"** pro ukončení.`,
+    `  - Během BUILD fáze můžeš navrhnout změnu směru — engine přeplánuje zbylé milníky.`,
     ``,
     `Chceš začít lifecycle? (ano/ne)`,
     `Nebo napiš "quick build" pro rychlý build bez lifecycle.`,
@@ -196,10 +208,10 @@ async function handleProposedResponse(input, state, context) {
     const { projects } = await import('../../db/database.js');
     const { ProjectLifecycle } = await import('../../planner/lifecycle.js');
 
-    const projectName = `lc-${Date.now()}`;
-    const projectPath = context.projectPath || `/tmp/${projectName}`;
-    const result = projects.create.run(projectName, projectPath, state.originalRequest.substring(0, 200));
-    const projectId = Number(result.lastInsertRowid);
+    const projectPath = context.projectPath || `/tmp/lc-${Date.now()}`;
+    const projectName = context.projectName || projectPath.split('/').pop() || `lc-${Date.now()}`;
+    const project = projects.getOrCreate(projectName, projectPath, state.originalRequest.substring(0, 200));
+    const projectId = Number(project.id);
 
     const lifecycle = await ProjectLifecycle.create({
       projectId,
@@ -220,10 +232,20 @@ async function handleProposedResponse(input, state, context) {
     // C4: Bind this session as lifecycle owner
     bindSessionToLifecycle(sessionId, lifecycle.id);
 
+    // P3: Analyze existing project state for context injection
+    const { analyzeExistingProject } = await import('../../planner/lifecycle-analyzer.js');
+    let analysisDb = null;
+    try {
+      const dbMod = await import('../../db/database.js');
+      analysisDb = { conversations: dbMod.conversations, projectMemory: dbMod.projectMemory };
+    } catch { /* DB not available — analyzer works without it */ }
+    const projectContext = await analyzeExistingProject(projectPath, projectId, analysisDb);
+
     // Start spec analysis
     const { startSpec } = await import('../../planner/lifecycle-spec.js');
     const specResult = await startSpec(lifecycle, state.originalRequest, {
       designContext: context.designContext || null,
+      projectContext,
     });
 
     if (specResult.questions && specResult.questions.length > 0) {

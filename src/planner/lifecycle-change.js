@@ -27,7 +27,7 @@ import {
   analyzeChange as analyzeChangePrompt,
   rewriteRoadmap as rewriteRoadmapPrompt,
 } from './lifecycle-prompts.js';
-import { validateDependencies } from './lifecycle-planning.js';
+import { validateDependencies, writeRoadmapFile } from './lifecycle-planning.js';
 import { ProjectPhase } from './lifecycle.js';
 
 // ─── Propose Change ──────────────────────────────────────────────────────────
@@ -178,6 +178,9 @@ export async function applyChange(lifecycle, changeRequestId) {
   // ─── Update milestone DB records ───────────────────────────────────────
 
   syncMilestonesAfterRewrite(lifecycle, newRoadmap.milestones, completed, newVersion);
+
+  // Write ROADMAP.md to disk with updated milestones
+  await writeRoadmapFile(lifecycle.projectPath, lifecycle.id);
 
   // ─── Mark change request as APPLIED ────────────────────────────────────
 

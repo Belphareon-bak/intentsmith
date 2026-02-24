@@ -11,6 +11,8 @@
 //   Completed milestones preserved across versions.
 // ══════════════════════════════════════════════════════════════════════════════
 
+import { writeFile } from 'fs/promises';
+import { join } from 'path';
 import { logger } from '../core/logger.js';
 import { callLLM, parseJSON } from './workflow.js';
 import {
@@ -106,6 +108,9 @@ export async function generateRoadmap(lifecycle) {
       max_retries: lifecycle.config.maxMilestoneRetries,
     });
   }
+
+  // Write ROADMAP.md to disk (after milestones are in DB)
+  await writeRoadmapFile(lifecycle.projectPath, lifecycle.id);
 
   logger.info('LifecyclePlanning', `Roadmap v${newVersion} created`, {
     lifecycleId: lifecycle.id,
@@ -270,6 +275,9 @@ IMPORTANT: Do NOT modify or remove completed milestones. Adjust remaining milest
     }
   }
 
+  // Write ROADMAP.md to disk (after milestones are updated in DB)
+  await writeRoadmapFile(lifecycle.projectPath, lifecycle.id);
+
   // Ensure phase is PLANNING (may have been in PLAN_REVIEW)
   if (lifecycle.phase === ProjectPhase.PLAN_REVIEW) {
     await lifecycle.transitionTo(ProjectPhase.PLANNING);
@@ -391,10 +399,88 @@ export function checkDependencies(milestoneId, lifecycleId) {
   return { ready: blockedBy.length === 0, blockedBy };
 }
 
+// ─── ROADMAP.md File Writer ─────────────────────────────────────────────────
+
+const STATUS_LABELS = {
+  PASSED: 'DONE',
+  EXECUTING: 'IN PROGRESS',
+  TESTING: 'TESTING',
+  REVIEW: 'IN REVIEW',
+  PLANNING: 'PLANNING',
+  AWAITING_PLAN: 'AWAITING PLAN',
+  PENDING: 'PENDING',
+  BLOCKED: 'BLOCKED',
+  SKIPPED: 'SKIPPED',
+  FAILED: 'FAILED',
+};
+
+/**
+ * Write ROADMAP.md to disk — physical file reflecting current roadmap state.
+ * Called after: generateRoadmap(), reviseRoadmap(), milestone PASSED, change applied.
+ *
+ * @param {string} projectPath - Project root directory
+ * @param {string} lifecycleId - Lifecycle ID
+ */
+export async function writeRoadmapFile(projectPath, lifecycleId) {
+  if (!projectPath || !lifecycleId) return;
+
+  try {
+    const milestonesList = msRepo.listByLifecycle(lifecycleId);
+    const latestVersion = roadmapVersions.getLatestVersion(lifecycleId);
+    const versions = roadmapVersions.findByLifecycle.all(lifecycleId);
+
+    const lines = [];
+    lines.push('# ROADMAP');
+    lines.push('');
+    lines.push(`> C3 Lifecycle Engine — Roadmap v${latestVersion}`);
+    lines.push('');
+    lines.push('## Milestones');
+    lines.push('');
+    lines.push('| # | Milestone | Status | Commit |');
+    lines.push('|---|-----------|--------|--------|');
+
+    for (const ms of milestonesList) {
+      const seq = ms.sequence || '?';
+      const status = STATUS_LABELS[ms.status] || ms.status;
+      const commit = ms.commit_hash ? `\`${ms.commit_hash.substring(0, 7)}\`` : '—';
+      lines.push(`| ${seq} | ${ms.title} | ${status} | ${commit} |`);
+    }
+
+    if (versions.length > 0) {
+      lines.push('');
+      lines.push('## Version History');
+      lines.push('');
+      const sorted = [...versions].sort((a, b) => a.version - b.version);
+      for (const v of sorted) {
+        const date = v.created_at ? v.created_at.split('T')[0] : '?';
+        const reason = v.change_reason || 'No description';
+        lines.push(`- **v${v.version}** (${date}): ${reason}`);
+      }
+    }
+
+    lines.push('');
+
+    const filePath = join(projectPath, 'ROADMAP.md');
+    await writeFile(filePath, lines.join('\n'), 'utf-8');
+
+    logger.info('LifecyclePlanning', 'ROADMAP.md written', {
+      lifecycleId,
+      version: latestVersion,
+      milestones: milestonesList.length,
+    });
+  } catch (err) {
+    logger.warn('LifecyclePlanning', `Failed to write ROADMAP.md: ${err.message}`, {
+      lifecycleId,
+      projectPath,
+    });
+  }
+}
+
 export default {
   generateRoadmap,
   approveRoadmap,
   reviseRoadmap,
   validateDependencies,
   checkDependencies,
+  writeRoadmapFile,
 };

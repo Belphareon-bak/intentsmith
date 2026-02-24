@@ -266,7 +266,7 @@ await testAsync('9.2 REPORT intent classification (no-diacritics)', async () => 
 
   for (const { text, expectedIntent } of inputs) {
     const intent = engine.classifyIntent(text);
-    const decision = engine.decide(text, {});
+    const decision = await engine.decide(text, {});
     console.log(`     "${text}" → ${intent} / ${decision.type}`);
     assertEqual(intent, expectedIntent, `"${text}" should be ${expectedIntent}, got ${intent}`);
   }

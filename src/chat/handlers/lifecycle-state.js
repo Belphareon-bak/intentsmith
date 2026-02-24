@@ -96,6 +96,14 @@ export function clearLcState(sessionId) {
   }
 }
 
+/**
+ * Clear ALL RAM state without touching DB.
+ * Used to simulate process crash in tests.
+ */
+export function _clearAllRam() {
+  lifecycleStates.clear();
+}
+
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 /**

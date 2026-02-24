@@ -374,41 +374,41 @@ async function testT3_ConversationFlow() {
     // ─── Full decide() flow tests ───────────────────────────────────────
 
     it('decide("ahoj") → ANSWER/CONVERSATIONAL', async () => {
-      const d = engine.decide('ahoj');
+      const d = await engine.decide('ahoj');
       assert.equal(d.type, DecisionType.ANSWER);
       assert.equal(d.intent, IntentType.CONVERSATIONAL);
       assert.ok(d.confidence >= 0.8, `Confidence ${d.confidence} should be >= 0.8`);
     });
 
     it('decide("najdi informace o Praze") → TOOL_CALL/SEARCH', async () => {
-      const d = engine.decide('najdi informace o Praze');
+      const d = await engine.decide('najdi informace o Praze');
       assert.equal(d.type, DecisionType.TOOL_CALL);
       assert.equal(d.intent, IntentType.SEARCH);
       assert.ok(d.tools.length > 0, 'Should have tools assigned');
     });
 
     it('decide("vymysli kampaň pro kavárnu") → ANSWER/CREATIVE', async () => {
-      const d = engine.decide('vymysli kampaň pro kavárnu');
+      const d = await engine.decide('vymysli kampaň pro kavárnu');
       assert.equal(d.type, DecisionType.ANSWER);
       assert.equal(d.intent, IntentType.CREATIVE);
       assert.deepEqual(d.tools, [], 'CREATIVE should have no tools');
     });
 
     it('decide("kdy bude úplněk") → LOCAL (with calendar handler)', async () => {
-      const d = engine.decide('kdy bude úplněk');
+      const d = await engine.decide('kdy bude úplněk');
       assert.equal(d.type, DecisionType.LOCAL);
       assert.equal(d.intent, IntentType.LOCAL);
       assert.equal(d.metadata.handler, 'local.calendar');
     });
 
     it('decide("postav mi REST API") → PLAN/BUILD', async () => {
-      const d = engine.decide('postav mi REST API');
+      const d = await engine.decide('postav mi REST API');
       assert.equal(d.type, DecisionType.PLAN);
       assert.equal(d.intent, IntentType.BUILD);
     });
 
     it('decide("udělej souhrn o AI") → TOOL_CALL/REPORT', async () => {
-      const d = engine.decide('udělej souhrn o AI');
+      const d = await engine.decide('udělej souhrn o AI');
       assert.equal(d.type, DecisionType.TOOL_CALL);
       assert.equal(d.intent, IntentType.REPORT);
     });
@@ -416,14 +416,14 @@ async function testT3_ConversationFlow() {
     // ─── assertDecision passes for valid decisions ──────────────────────
 
     it('assertDecision passes for valid SEARCH decision', async () => {
-      const d = engine.decide('najdi restauraci');
+      const d = await engine.decide('najdi restauraci');
       // Should not throw
       assertDecision(d);
       assert.ok(true);
     });
 
     it('assertDecision passes for valid CONVERSATIONAL decision', async () => {
-      const d = engine.decide('ahoj jak se máš');
+      const d = await engine.decide('ahoj jak se máš');
       assertDecision(d);
       assert.ok(true);
     });
@@ -431,7 +431,7 @@ async function testT3_ConversationFlow() {
     // ─── Sticky intent with context ─────────────────────────────────────
 
     it('Sticky SEARCH: ambiguous follow-up maintains SEARCH intent', async () => {
-      const d = engine.decide('a co dál?', {
+      const d = await engine.decide('a co dál?', {
         lastIntent: IntentType.SEARCH,
       });
       assert.equal(d.intent, IntentType.SEARCH,
@@ -439,7 +439,7 @@ async function testT3_ConversationFlow() {
     });
 
     it('Strong intent overrides sticky: LOCAL beats sticky SEARCH', async () => {
-      const d = engine.decide('kolik je hodin', {
+      const d = await engine.decide('kolik je hodin', {
         lastIntent: IntentType.SEARCH,
       });
       assert.equal(d.intent, IntentType.LOCAL,
@@ -447,7 +447,7 @@ async function testT3_ConversationFlow() {
     });
 
     it('Intent break pattern resets sticky intent', async () => {
-      const d = engine.decide('teď chci něco jiného, vymysli mi logo', {
+      const d = await engine.decide('teď chci něco jiného, vymysli mi logo', {
         lastIntent: IntentType.REPORT,
       });
       assert.equal(d.intent, IntentType.CREATIVE,

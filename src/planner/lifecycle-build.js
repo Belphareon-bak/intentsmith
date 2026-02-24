@@ -26,8 +26,9 @@ import {
   milestoneCheckpoint as checkpointPrompt,
   healthScore as healthScorePrompt,
 } from './lifecycle-prompts.js';
-import { checkDependencies } from './lifecycle-planning.js';
+import { checkDependencies, writeRoadmapFile } from './lifecycle-planning.js';
 import { MilestoneStatus } from './lifecycle.js';
+import { ensureReadme } from '../chat/handlers/utils/readme-generator.js';
 import { C3ToolExecutor } from '../executor/c3-tool-executor.js';
 import { validateMilestoneSize } from './milestone-size.js';
 
@@ -292,6 +293,12 @@ async function postExecution(lifecycle, milestone, wfResult) {
 
   lifecycle.incrementCompleted();
 
+  // Update ROADMAP.md with new milestone status
+  await writeRoadmapFile(lifecycle.projectPath, lifecycle.id);
+
+  // Refresh README.md (updates stack, scripts, structure after code changes)
+  ensureReadme(lifecycle.projectPath);
+
   logger.info('LifecycleBuild', 'Milestone PASSED', {
     milestoneId: milestone.id,
     commitHash,
@@ -443,6 +450,9 @@ async function milestoneCheckpoint(lifecycle, milestone, wfResult, testResults) 
  * Enforce milestone scope: compare git diff --name-only against scope_files.
  * IMPORTANT: Works on REAL git diff, not orchestrator assumptions.
  */
+// Engine-managed files — always allowed, never scope violations
+const ENGINE_MANAGED_FILES = new Set(['ROADMAP.md', 'README.md', '.gitignore']);
+
 async function enforceMilestoneScope(lifecycle, milestone) {
   const scopeFiles = milestone.scope_files || [];
   if (scopeFiles.length === 0) {
@@ -457,6 +467,9 @@ async function enforceMilestoneScope(lifecycle, milestone) {
 
   const violations = [];
   for (const file of changedFiles) {
+    // Skip engine-managed files (ROADMAP.md, README.md)
+    if (ENGINE_MANAGED_FILES.has(file)) continue;
+
     // Check if file matches any scope pattern
     const inScope = scopeFiles.some(pattern => {
       // Exact match

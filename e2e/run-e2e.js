@@ -60,44 +60,44 @@ console.log('══════════════════════�
 runner.section('1. DESIGN — Structured Synthesis');
 
 // T-D1: Basic DESIGN — mobile app (CZ)
-await runner.test('T-D1: DESIGN mobile app (CZ) — intent + routing', () => {
+await runner.test('T-D1: DESIGN mobile app (CZ) — intent + routing', async () => {
   const input = 'Navrhni architekturu mobilní aplikace pro sdílení fotek';
   const intent = assertIntent(input, IntentType.DESIGN);
-  const decision = engine.decide(input, {});
+  const decision = await engine.decide(input, {});
   if (decision.type !== DecisionType.ANSWER) throw new Error(`Expected ANSWER, got ${decision.type}`);
   return { intent };
 });
 
 // T-D2: DESIGN — e-shop (CZ)
-await runner.test('T-D2: DESIGN e-shop roadmap (CZ) — intent', () => {
+await runner.test('T-D2: DESIGN e-shop roadmap (CZ) — intent', async () => {
   assertIntent('Udělej roadmapu pro e-shop s platebním systémem', IntentType.DESIGN);
 });
 
 // T-D3: DESIGN — CLI tool (EN)
-await runner.test('T-D3: DESIGN CLI Docker monitor (EN) — intent', () => {
+await runner.test('T-D3: DESIGN CLI Docker monitor (EN) — intent', async () => {
   assertIntent('Design architecture for a CLI tool that monitors Docker containers', IntentType.DESIGN);
 });
 
 // T-D4: DESIGN → CONTINUE (4 turns)
-await runner.test('T-D4: DESIGN 4-turn session — routing + state', () => {
+await runner.test('T-D4: DESIGN 4-turn session — routing + state', async () => {
   const sim = new ConversationSimulator('d4');
 
   // Turn 1: Initial DESIGN
-  sim.send('Navrhni architekturu REST API pro správu uživatelů');
+  await sim.send('Navrhni architekturu REST API pro správu uživatelů');
   if (sim.lastResult.intent !== IntentType.DESIGN) throw new Error(`T1: ${sim.lastResult.intent}`);
   if (!sim.sessionState.hasActiveDesignProject) throw new Error('T1: no active project');
 
   // Turn 2: Continue — data model
-  sim.send('Rozeber víc datový model');
+  await sim.send('Rozeber víc datový model');
   if (sim.lastResult.intent !== IntentType.DESIGN) throw new Error(`T2: ${sim.lastResult.intent}`);
   if (!sim.lastResult.metadata?.designContinue) throw new Error('T2: not CONTINUE');
 
   // Turn 3: Continue — auth
-  sim.send('Jak bude fungovat autentizace?');
+  await sim.send('Jak bude fungovat autentizace?');
   if (sim.lastResult.intent !== IntentType.DESIGN) throw new Error(`T3: ${sim.lastResult.intent}`);
 
   // Turn 4: Continue — error handling
-  sim.send('A co rate limiting a error handling?');
+  await sim.send('A co rate limiting a error handling?');
   if (sim.lastResult.intent !== IntentType.DESIGN) throw new Error(`T4: ${sim.lastResult.intent}`);
   if (sim.sessionState.activeDesignProject.turnCount !== 4) {
     throw new Error(`Turn count ${sim.sessionState.activeDesignProject.turnCount} !== 4`);
@@ -105,7 +105,7 @@ await runner.test('T-D4: DESIGN 4-turn session — routing + state', () => {
 });
 
 // T-D5: DESIGN 5-turn role lock
-await runner.test('T-D5: DESIGN 5-turn session — state tracking', () => {
+await runner.test('T-D5: DESIGN 5-turn session — state tracking', async () => {
   const sim = new ConversationSimulator('d5');
   const turns = [
     'Navrhni systém pro real-time chat',
@@ -114,7 +114,7 @@ await runner.test('T-D5: DESIGN 5-turn session — state tracking', () => {
     'Přidej monitoring a alerting',
     'Jak to nasadíme?',
   ];
-  for (const t of turns) sim.send(t);
+  for (const t of turns) await sim.send(t);
 
   if (sim.turnCount !== 5) throw new Error(`Turns: ${sim.turnCount} !== 5`);
   if (sim.sessionState.activeDesignProject.turnCount !== 5) {
@@ -129,7 +129,7 @@ await runner.test('T-D5: DESIGN 5-turn session — state tracking', () => {
 });
 
 // T-D6: Quality gate on mock output
-await runner.test('T-D6: DESIGN quality gate — assertDesignQuality', () => {
+await runner.test('T-D6: DESIGN quality gate — assertDesignQuality', async () => {
   // Good response
   const good = `0️⃣ Verdikt\nToto je REST API.\n1️⃣ Architektura\nMicroservices s Node.js.\n2️⃣ Stack\nTypeScript, Express, PostgreSQL.\n3️⃣ Datový model\nTabulky: users, orders, products.\n4️⃣ Sprinty\nSprint 1: auth. Sprint 2: CRUD.\n` + 'Detail '.repeat(60);
   const goodResult = assertDesignQuality(good, 'navrhni API');
@@ -149,55 +149,55 @@ await runner.test('T-D6: DESIGN quality gate — assertDesignQuality', () => {
 });
 
 // T-D7: Graceful close
-await runner.test('T-D7: DESIGN graceful close — "hotovo"', () => {
+await runner.test('T-D7: DESIGN graceful close — "hotovo"', async () => {
   const sim = new ConversationSimulator('d7');
-  sim.send('Navrhni architekturu mobilní aplikace');
+  await sim.send('Navrhni architekturu mobilní aplikace');
   if (!sim.sessionState.hasActiveDesignProject) throw new Error('No project after init');
 
-  sim.send('hotovo');
+  await sim.send('hotovo');
   if (sim.sessionState.hasActiveDesignProject) throw new Error('Project still active after close');
   if (sim.lastResult.intent !== 'DESIGN_CLOSE') throw new Error(`Intent: ${sim.lastResult.intent}`);
 
   // Turn 3: should be normal (no DESIGN_CONTINUE)
-  sim.send('Jak se máš?');
+  await sim.send('Jak se máš?');
   if (sim.lastResult.intent === IntentType.DESIGN) throw new Error('Still routing to DESIGN');
 });
 
 // T-D8: BUILD transition
-await runner.test('T-D8: DESIGN → BUILD transition', () => {
+await runner.test('T-D8: DESIGN → BUILD transition', async () => {
   const sim = new ConversationSimulator('d8');
-  sim.send('Navrhni architekturu CLI tool pro deployment');
+  await sim.send('Navrhni architekturu CLI tool pro deployment');
   if (!sim.sessionState.hasActiveDesignProject) throw new Error('No project');
 
-  sim.send('Jdeme stavět');
+  await sim.send('Jdeme stavět');
   if (sim.sessionState.hasActiveDesignProject) throw new Error('Project not closed');
   if (sim.lastResult.metadata?.buildTransition !== true) throw new Error('No build transition flag');
 });
 
 // T-D9: No-diacritics input
-await runner.test('T-D9: DESIGN with no-diacritics — "Navrhni architekturu aplikace pro spravu skladu"', () => {
+await runner.test('T-D9: DESIGN with no-diacritics — "Navrhni architekturu aplikace pro spravu skladu"', async () => {
   assertIntent('Navrhni architekturu aplikace pro spravu skladu', IntentType.DESIGN);
 });
 
 // T-D10: Escape hatch — fact query mid-session (5 turns)
-await runner.test('T-D10: DESIGN escape hatch — 5 turns with fact query', () => {
+await runner.test('T-D10: DESIGN escape hatch — 5 turns with fact query', async () => {
   const sim = new ConversationSimulator('d10');
 
   // T1: Start DESIGN
-  sim.send('Navrhni architekturu REST API pro uživatele');
+  await sim.send('Navrhni architekturu REST API pro uživatele');
   if (sim.lastResult.intent !== IntentType.DESIGN) throw new Error(`T1: ${sim.lastResult.intent}`);
 
   // T2: Fact query (escape hatch) — project stays active
-  sim.send('Kolik je 2+2?');
+  await sim.send('Kolik je 2+2?');
   if (sim.lastResult.intent !== IntentType.LOCAL) throw new Error(`T2: ${sim.lastResult.intent} !== LOCAL`);
   if (!sim.sessionState.hasActiveDesignProject) throw new Error('T2: project closed');
 
   // T3: Back to design
-  sim.send('A co autentizace?');
+  await sim.send('A co autentizace?');
   if (sim.lastResult.intent !== IntentType.DESIGN) throw new Error(`T3: ${sim.lastResult.intent}`);
 
   // T4: Knowledge escape
-  sim.send('Co je to OAuth?');
+  await sim.send('Co je to OAuth?');
   // OAuth is knowledge — should NOT go to DESIGN_CONTINUE
   // It should fall through to CRE, classified as CONVERSATIONAL (knowledge)
   if (sim.lastResult.intent === IntentType.DESIGN && sim.lastResult.metadata?.designContinue) {
@@ -207,17 +207,17 @@ await runner.test('T-D10: DESIGN escape hatch — 5 turns with fact query', () =
   if (!sim.sessionState.hasActiveDesignProject) throw new Error('T4: project closed');
 
   // T5: Back to design
-  sim.send('Přidej caching');
+  await sim.send('Přidej caching');
   if (!sim.sessionState.hasActiveDesignProject) throw new Error('T5: project closed');
 });
 
 // T-D11: Hedging on ambiguous topic
-await runner.test('T-D11: DESIGN AI agent — intent classification', () => {
+await runner.test('T-D11: DESIGN AI agent — intent classification', async () => {
   assertIntent('Navrhni systém pro AI agenta', IntentType.DESIGN);
 });
 
 // T-D12: EN language leak
-await runner.test('T-D12: DESIGN EN — classification', () => {
+await runner.test('T-D12: DESIGN EN — classification', async () => {
   assertIntent(
     'Design a microservice architecture for an e-commerce platform with payment processing',
     IntentType.DESIGN
@@ -225,7 +225,7 @@ await runner.test('T-D12: DESIGN EN — classification', () => {
 });
 
 // T-D13: Anti-DESIGN — creative naming (should NOT be DESIGN)
-await runner.test('T-D13: Anti-DESIGN — creative/non-architecture "navrhni"', () => {
+await runner.test('T-D13: Anti-DESIGN — creative/non-architecture "navrhni"', async () => {
   // "navrhni nápady" = creative, not architecture
   const r1 = engine.classifyIntent('Navrhni nápady na názvy aplikace pro fitness');
   if (r1 === IntentType.DESIGN) throw new Error(`"nápady na názvy" → DESIGN (should be CREATIVE)`);
@@ -242,7 +242,7 @@ await runner.test('T-D13: Anti-DESIGN — creative/non-architecture "navrhni"', 
 });
 
 // T-D14: Anti-DESIGN — brainstorming vs architecture
-await runner.test('T-D14: Anti-DESIGN — brainstorming vs architecture boundary', () => {
+await runner.test('T-D14: Anti-DESIGN — brainstorming vs architecture boundary', async () => {
   // This SHOULD be DESIGN (has "architekturu")
   assertIntent('Navrhni architekturu pro zlepšení výkonu aplikace', IntentType.DESIGN);
 
@@ -254,15 +254,15 @@ await runner.test('T-D14: Anti-DESIGN — brainstorming vs architecture boundary
 // T-D15: BUG FIX — imperative continuation during DESIGN session
 // BUG: "dobře, můžeš začít s prerekvizitami" → CODE → ASK_USER
 // EXPECTED: DESIGN_CONTINUE (active session invariant)
-await runner.test('T-D15: DESIGN imperative continue — "začni s prerekvizitami"', () => {
+await runner.test('T-D15: DESIGN imperative continue — "začni s prerekvizitami"', async () => {
   const sim = new ConversationSimulator('d15');
 
   // T1: Start DESIGN
-  sim.send('Chci vytvořit mobilní aplikaci přes kterou s tebou budu komunikovat');
+  await sim.send('Chci vytvořit mobilní aplikaci přes kterou s tebou budu komunikovat');
   if (sim.lastResult.intent !== IntentType.DESIGN) throw new Error(`T1: ${sim.lastResult.intent}`);
 
   // T2: Approval + imperative action (the exact bug scenario)
-  sim.send('dobre, tohle se mi libi, muzes zacit s prerekvizitami');
+  await sim.send('dobre, tohle se mi libi, muzes zacit s prerekvizitami');
   if (sim.lastResult.intent !== IntentType.DESIGN) {
     throw new Error(`T2: ${sim.lastResult.intent} (expected DESIGN via invariant, got ${sim.lastResult.metadata?.downgradedFrom || 'no-downgrade'})`);
   }
@@ -271,22 +271,22 @@ await runner.test('T-D15: DESIGN imperative continue — "začni s prerekvizitam
   }
 
   // T3: Sprint reference
-  sim.send('začni s implementací sprintu 1');
+  await sim.send('začni s implementací sprintu 1');
   if (sim.lastResult.intent !== IntentType.DESIGN) {
     throw new Error(`T3: ${sim.lastResult.intent}`);
   }
 
   // T4: Phase question
-  sim.send('můžeš začít s první fází?');
+  await sim.send('můžeš začít s první fází?');
   if (sim.lastResult.intent !== IntentType.DESIGN) {
     throw new Error(`T4: ${sim.lastResult.intent}`);
   }
 });
 
 // T-D16: DESIGN approval patterns → stay in session
-await runner.test('T-D16: DESIGN approval patterns — "to je super, pokračuj"', () => {
+await runner.test('T-D16: DESIGN approval patterns — "to je super, pokračuj"', async () => {
   const sim = new ConversationSimulator('d16');
-  sim.send('Navrhni architekturu REST API pro e-shop');
+  await sim.send('Navrhni architekturu REST API pro e-shop');
 
   // All these should stay in DESIGN session
   const approvals = [
@@ -297,7 +297,7 @@ await runner.test('T-D16: DESIGN approval patterns — "to je super, pokračuj"'
     'vypadá to dobře, přejdi k implementaci',
   ];
   for (const a of approvals) {
-    sim.send(a);
+    await sim.send(a);
     if (sim.lastResult.intent !== IntentType.DESIGN) {
       throw new Error(`"${a}" → ${sim.lastResult.intent} (expected DESIGN)`);
     }
@@ -314,7 +314,7 @@ await runner.test('T-D16: DESIGN approval patterns — "to je super, pokračuj"'
 runner.section('2. KNOWLEDGE vs SEARCH — Tier 1 Gate');
 
 // T-K1: CZ knowledge → CONVERSATIONAL (batch)
-await runner.test('T-K1: CZ knowledge questions → CONVERSATIONAL (5)', () => {
+await runner.test('T-K1: CZ knowledge questions → CONVERSATIONAL (5)', async () => {
   const inputs = [
     'Co je neuronová síť?',
     'Jak se dělá pivo?',
@@ -330,7 +330,7 @@ await runner.test('T-K1: CZ knowledge questions → CONVERSATIONAL (5)', () => {
 });
 
 // T-K2: CZ fresh-data → SEARCH/FACTUAL (batch)
-await runner.test('T-K2: CZ fresh-data questions → SEARCH or FACTUAL (3)', () => {
+await runner.test('T-K2: CZ fresh-data questions → SEARCH or FACTUAL (3)', async () => {
   const inputs = [
     'Jaká je aktuální verze Node.js?',
     'Kolik stojí iPhone 16?',
@@ -345,7 +345,7 @@ await runner.test('T-K2: CZ fresh-data questions → SEARCH or FACTUAL (3)', () 
 });
 
 // T-K3: EN knowledge → CONVERSATIONAL (batch)
-await runner.test('T-K3: EN knowledge questions → CONVERSATIONAL (5)', () => {
+await runner.test('T-K3: EN knowledge questions → CONVERSATIONAL (5)', async () => {
   const inputs = [
     'What is a neural network?',
     'How does gravity work?',
@@ -360,7 +360,7 @@ await runner.test('T-K3: EN knowledge questions → CONVERSATIONAL (5)', () => {
 });
 
 // T-K4: Boundary — "kdo je" living vs historical
-await runner.test('T-K4: "kdo je prezident" → SEARCH, "kdo byl Tesla" → flexible', () => {
+await runner.test('T-K4: "kdo je prezident" → SEARCH, "kdo byl Tesla" → flexible', async () => {
   const r1 = engine.classifyIntent('Kdo je prezident České republiky?');
   if (r1 !== IntentType.SEARCH && r1 !== IntentType.FACTUAL) {
     throw new Error(`"kdo je prezident" → ${r1} (expected SEARCH/FACTUAL)`);
@@ -373,7 +373,7 @@ await runner.test('T-K4: "kdo je prezident" → SEARCH, "kdo byl Tesla" → flex
 });
 
 // T-K5: Additional CZ knowledge
-await runner.test('T-K5: Additional CZ knowledge (5)', () => {
+await runner.test('T-K5: Additional CZ knowledge (5)', async () => {
   const knowledge = [
     ['Jak funguje gravitace?', IntentType.CONVERSATIONAL],
     ['Co jsou to černé díry?', IntentType.CONVERSATIONAL],
@@ -388,7 +388,7 @@ await runner.test('T-K5: Additional CZ knowledge (5)', () => {
 });
 
 // T-K6: DE/SK/PL/FR/ES knowledge
-await runner.test('T-K6: Multi-language knowledge → CONVERSATIONAL (6)', () => {
+await runner.test('T-K6: Multi-language knowledge → CONVERSATIONAL (6)', async () => {
   const inputs = [
     'was ist Photosynthese',
     'wie funktioniert Gravitation',
@@ -404,7 +404,7 @@ await runner.test('T-K6: Multi-language knowledge → CONVERSATIONAL (6)', () =>
 });
 
 // T-K7: DE/SK fresh-data → SEARCH
-await runner.test('T-K7: DE/SK fresh-data → SEARCH/FACTUAL (2)', () => {
+await runner.test('T-K7: DE/SK fresh-data → SEARCH/FACTUAL (2)', async () => {
   assertIntent('was ist der aktuelle Goldpreis', IntentType.SEARCH);
   // SK kurz → FACTUAL (kurz pattern)
   const r = engine.classifyIntent('aký je dnes kurz eura');
@@ -412,20 +412,20 @@ await runner.test('T-K7: DE/SK fresh-data → SEARCH/FACTUAL (2)', () => {
 });
 
 // T-K8: EN fresh-data
-await runner.test('T-K8: EN fresh-data → SEARCH (3)', () => {
+await runner.test('T-K8: EN fresh-data → SEARCH (3)', async () => {
   assertIntent('what is the current price of gold', IntentType.SEARCH);
   assertIntent('what is the latest version of Python', IntentType.SEARCH);
   assertIntent('where is the cheapest gas today', IntentType.SEARCH);
 });
 
 // T-K9: Tier 2 — bare question words in substantial text
-await runner.test('T-K9: Tier 2 — substantial without fresh signal → CONVERSATIONAL', () => {
+await runner.test('T-K9: Tier 2 — substantial without fresh signal → CONVERSATIONAL', async () => {
   assertIntent('kdo napsal Válku a mír', IntentType.CONVERSATIONAL);
   assertIntent('proč padají jablka ze stromů', IntentType.CONVERSATIONAL);
 });
 
 // T-K10: Tier 2 — with fresh signal
-await runner.test('T-K10: Tier 2 — with fresh signal → SEARCH', () => {
+await runner.test('T-K10: Tier 2 — with fresh signal → SEARCH', async () => {
   assertIntent('kdo vyhrál aktuální sezónu F1', IntentType.SEARCH);
 });
 
@@ -436,46 +436,46 @@ await runner.test('T-K10: Tier 2 — with fresh signal → SEARCH', () => {
 runner.section('3. CONVERSATIONAL — Chat Quality');
 
 // T-C1: Greeting
-await runner.test('T-C1: "Ahoj, jak se máš?" → CONVERSATIONAL', () => {
+await runner.test('T-C1: "Ahoj, jak se máš?" → CONVERSATIONAL', async () => {
   assertIntent('Ahoj, jak se máš?', IntentType.CONVERSATIONAL);
 });
 
 // T-C2: Opinion question
-await runner.test('T-C2: "Co si myslíš o budoucnosti AI?" → CONVERSATIONAL', () => {
+await runner.test('T-C2: "Co si myslíš o budoucnosti AI?" → CONVERSATIONAL', async () => {
   assertIntent('Co si myslíš o budoucnosti AI?', IntentType.CONVERSATIONAL);
 });
 
 // T-C3: Follow-up chain (3 turns)
-await runner.test('T-C3: Conversational follow-up 3-turn chain', () => {
+await runner.test('T-C3: Conversational follow-up 3-turn chain', async () => {
   const sim = new ConversationSimulator('c3');
-  sim.send('Co je to rekurze?');
+  await sim.send('Co je to rekurze?');
   if (sim.lastResult.intent === IntentType.SEARCH) throw new Error('T1 went to SEARCH');
 
   // After recording CONVERSATIONAL as lastIntent, follow-up should also be CONVERSATIONAL
   sim.sessionState._lastIntent = IntentType.CONVERSATIONAL;
-  sim.send('Vysvětli to jednodušeji');
+  await sim.send('Vysvětli to jednodušeji');
   // This may match various intents, but should NOT go to SEARCH
   if (sim.lastResult.intent === IntentType.SEARCH) throw new Error('T2 went to SEARCH');
 
-  sim.send('Dej příklad v Pythonu');
+  await sim.send('Dej příklad v Pythonu');
   // Should classify as CODE or CONVERSATIONAL but not SEARCH
   if (sim.lastResult.intent === IntentType.SEARCH) throw new Error('T3 went to SEARCH');
 });
 
 // T-C4: Short acknowledgment
-await runner.test('T-C4: "díky" → CONVERSATIONAL', () => {
+await runner.test('T-C4: "díky" → CONVERSATIONAL', async () => {
   assertIntent('díky', IntentType.CONVERSATIONAL);
-  const d = engine.decide('díky', {});
+  const d = await engine.decide('díky', {});
   if (d.type === DecisionType.TOOL_CALL) throw new Error('díky → TOOL_CALL');
 });
 
 // T-C5: Minimal input
-await runner.test('T-C5: "?" → AMBIGUOUS', () => {
+await runner.test('T-C5: "?" → AMBIGUOUS', async () => {
   assertIntent('?', IntentType.AMBIGUOUS);
 });
 
 // T-C6: Mixed language request
-await runner.test('T-C6: "Explain stack vs heap. Odpověz česky." → not SEARCH', () => {
+await runner.test('T-C6: "Explain stack vs heap. Odpověz česky." → not SEARCH', async () => {
   const intent = engine.classifyIntent('What is the difference between stack and heap? Odpověz česky.');
   if (intent === IntentType.SEARCH) throw new Error('Went to SEARCH');
 });
@@ -487,28 +487,28 @@ await runner.test('T-C6: "Explain stack vs heap. Odpověz česky." → not SEARC
 runner.section('4. CODE — Imperative Routing');
 
 // T-CODE1: Imperative + artifact → ANSWER
-await runner.test('T-CODE1: "Napiš HTTP server v Node.js" → ANSWER (not ASK_USER)', () => {
-  const decision = engine.decide('Napiš mi jednoduchý HTTP server v Node.js', {});
+await runner.test('T-CODE1: "Napiš HTTP server v Node.js" → ANSWER (not ASK_USER)', async () => {
+  const decision = await engine.decide('Napiš mi jednoduchý HTTP server v Node.js', {});
   if (decision.type === DecisionType.ASK_USER) throw new Error('Got ASK_USER (fix #3 regression)');
   if (decision.type !== DecisionType.ANSWER) throw new Error(`Got ${decision.type}`);
 });
 
 // T-CODE2: Imperative + language → ANSWER
-await runner.test('T-CODE2: "Vytvoř funkci v Pythonu" → ANSWER', () => {
-  const decision = engine.decide('Vytvoř funkci v Pythonu pro Fibonacciho posloupnost', {});
+await runner.test('T-CODE2: "Vytvoř funkci v Pythonu" → ANSWER', async () => {
+  const decision = await engine.decide('Vytvoř funkci v Pythonu pro Fibonacciho posloupnost', {});
   if (decision.type === DecisionType.ASK_USER) throw new Error('Got ASK_USER');
 });
 
 // T-CODE3: Ambiguous code → ASK_USER
-await runner.test('T-CODE3: "Pomoz mi s kódem" → ASK_USER or ANSWER', () => {
-  const decision = engine.decide('Pomoz mi s kódem', {});
+await runner.test('T-CODE3: "Pomoz mi s kódem" → ASK_USER or ANSWER', async () => {
+  const decision = await engine.decide('Pomoz mi s kódem', {});
   // Both ASK_USER and ANSWER are acceptable for truly ambiguous
   if (decision.type === DecisionType.TOOL_CALL) throw new Error('Ambiguous should not be TOOL_CALL without project');
 });
 
 // T-CODE4: Code with active project → TOOL_CALL
-await runner.test('T-CODE4: "Napiš HTTP server" + project → TOOL_CALL', () => {
-  const decision = engine.decide('Napiš mi HTTP server', {
+await runner.test('T-CODE4: "Napiš HTTP server" + project → TOOL_CALL', async () => {
+  const decision = await engine.decide('Napiš mi HTTP server', {
     hasActiveProject: true,
     project: { id: 'p1', name: 'test' },
   });
@@ -525,7 +525,7 @@ await runner.test('T-CODE4: "Napiš HTTP server" + project → TOOL_CALL', () =>
 runner.section('5. FORBIDDEN PHRASES — Enforcement');
 
 // T-F1: validateResponse catches forbidden
-await runner.test('T-F1: validateResponse catches "informace jsou omezené"', () => {
+await runner.test('T-F1: validateResponse catches "informace jsou omezené"', async () => {
   const result = engine.validateResponse('Bohužel, informace jsou omezené.');
   if (result.valid) throw new Error('Should be invalid');
   if (!result.violations.some(v => v.includes('informace jsou omezené'))) {
@@ -534,13 +534,13 @@ await runner.test('T-F1: validateResponse catches "informace jsou omezené"', ()
 });
 
 // T-F2: Polish leak detection
-await runner.test('T-F2: validateResponse catches Polish leak', () => {
+await runner.test('T-F2: validateResponse catches Polish leak', async () => {
   const result = engine.validateResponse('Informacje na ten temat są ograniczone.');
   if (result.valid) throw new Error('Polish leak not detected');
 });
 
 // T-F3: Hedging accumulation
-await runner.test('T-F3: assertDesignQuality catches 3 hedging phrases', () => {
+await runner.test('T-F3: assertDesignQuality catches 3 hedging phrases', async () => {
   const hedgy = 'Záleží na kontextu. Existuje více možností. Doporučuji konzultovat s odborníkem. ' + 'x'.repeat(500);
   const result = assertDesignQuality(hedgy, 'navrhni app');
   if (result.valid) throw new Error('Should detect hedging');
@@ -548,20 +548,20 @@ await runner.test('T-F3: assertDesignQuality catches 3 hedging phrases', () => {
 });
 
 // T-F4: Newly added forbidden phrase
-await runner.test('T-F4: "neváhejte se zeptat" detected as forbidden', () => {
+await runner.test('T-F4: "neváhejte se zeptat" detected as forbidden', async () => {
   const result = engine.validateResponse('Pro více informací neváhejte se zeptat.');
   if (result.valid) throw new Error('"neváhejte se zeptat" not caught');
 });
 
 // T-F5: Clean response passes all gates
-await runner.test('T-F5: Clean technical response passes validation', () => {
+await runner.test('T-F5: Clean technical response passes validation', async () => {
   const clean = 'REST API je architektonický styl pro webové služby. Využívá HTTP metody GET, POST, PUT, DELETE pro operace nad zdroji. Každý zdroj má unikátní URI.';
   const result = engine.validateResponse(clean);
   if (!result.valid) throw new Error(`Clean response invalid: ${result.violations?.join(', ')}`);
 });
 
 // T-F6: Language consistency check
-await runner.test('T-F6: FORBIDDEN_PHRASES contains PL/ES leak patterns', () => {
+await runner.test('T-F6: FORBIDDEN_PHRASES contains PL/ES leak patterns', async () => {
   const hasInformacje = FORBIDDEN_PHRASES.some(p => p.includes('informacje'));
   const hasOgraniczone = FORBIDDEN_PHRASES.some(p => p.includes('ograniczone'));
   const hasLoSiento = FORBIDDEN_PHRASES.some(p => p.includes('lo siento'));
@@ -579,20 +579,20 @@ await runner.test('T-F6: FORBIDDEN_PHRASES contains PL/ES leak patterns', () => 
 runner.section('6. LOCAL — Deterministic');
 
 // T-L1: Math
-await runner.test('T-L1: "Kolik je 47 * 23?" → LOCAL', () => {
+await runner.test('T-L1: "Kolik je 47 * 23?" → LOCAL', async () => {
   assertIntent('Kolik je 47 * 23?', IntentType.LOCAL);
   // Also verify "5 + 3" pure math
   assertIntent('5 + 3', IntentType.LOCAL);
 });
 
 // T-L2: Date
-await runner.test('T-L2: "Jaké je dnes datum?" → LOCAL', () => {
+await runner.test('T-L2: "Jaké je dnes datum?" → LOCAL', async () => {
   assertIntent('Jaké je dnes datum?', IntentType.LOCAL);
   assertIntent('what date is it', IntentType.LOCAL);
 });
 
 // T-L3: Moon phase
-await runner.test('T-L3: "Kdy bude příští úplněk?" → LOCAL', () => {
+await runner.test('T-L3: "Kdy bude příští úplněk?" → LOCAL', async () => {
   assertIntent('Kdy bude příští úplněk?', IntentType.LOCAL);
   assertIntent('kdy bude uplnek', IntentType.LOCAL);
 });
@@ -604,22 +604,22 @@ await runner.test('T-L3: "Kdy bude příští úplněk?" → LOCAL', () => {
 runner.section('7. TYPO TOLERANCE');
 
 // T-TYPO1: DESIGN with typos
-await runner.test('T-TYPO1: "moblni aplikace" → DESIGN', () => {
+await runner.test('T-TYPO1: "moblni aplikace" → DESIGN', async () => {
   // "Navrhni architekturu moblni aplikace" — typo in "mobilní"
   // Key words "Navrhni architekturu" + "aplikace" should still trigger DESIGN
   assertIntent('Navrhni architekturu moblni aplikace', IntentType.DESIGN);
 });
 
-await runner.test('T-TYPO1b: "webove apliakce" → DESIGN', () => {
+await runner.test('T-TYPO1b: "webove apliakce" → DESIGN', async () => {
   assertIntent('Navrhn architekturu webove apliakce', IntentType.DESIGN);
 });
 
-await runner.test('T-TYPO1c: "architekutru pro eshop" → DESIGN', () => {
+await runner.test('T-TYPO1c: "architekutru pro eshop" → DESIGN', async () => {
   assertIntent('navrhni architekutru pro eshop', IntentType.DESIGN);
 });
 
 // T-TYPO2: DESIGN_CONTINUE with typos
-await runner.test('T-TYPO2: "rozděl to na sprinty" variants → DESIGN_CONTINUE match', () => {
+await runner.test('T-TYPO2: "rozděl to na sprinty" variants → DESIGN_CONTINUE match', async () => {
   const patterns = DESIGN_CONTINUE_PATTERNS;
   // Standard form should match
   const standard = patterns.some(p => p.test('rozděl to na sprinty'));
@@ -631,19 +631,19 @@ await runner.test('T-TYPO2: "rozděl to na sprinty" variants → DESIGN_CONTINUE
 });
 
 // T-TYPO3: LOCAL with typos
-await runner.test('T-TYPO3: "kolik je hodin" without diacritics → LOCAL', () => {
+await runner.test('T-TYPO3: "kolik je hodin" without diacritics → LOCAL', async () => {
   assertIntent('kolik je hodin', IntentType.LOCAL);
   assertIntent('jake je dnes datum', IntentType.LOCAL);
 });
 
 // T-TYPO4: Knowledge with typos
-await runner.test('T-TYPO4: "co je to rekurze" → not SEARCH (knowledge)', () => {
+await runner.test('T-TYPO4: "co je to rekurze" → not SEARCH (knowledge)', async () => {
   const intent = engine.classifyIntent('co je to rekurze');
   if (intent === IntentType.SEARCH) throw new Error('Knowledge with typo → SEARCH');
 });
 
 // T-TYPO5: No-diacritics general
-await runner.test('T-TYPO5: No-diacritics intent classification (batch)', () => {
+await runner.test('T-TYPO5: No-diacritics intent classification (batch)', async () => {
   // These are common no-diacritics inputs that should still route correctly
   assertIntent('navrhni architekturu pro webovou aplikaci', IntentType.DESIGN);
   assertIntent('najdi mi restauraci', IntentType.SEARCH);
@@ -659,36 +659,36 @@ await runner.test('T-TYPO5: No-diacritics intent classification (batch)', () => 
 runner.section('8. STRESS — Cross-cutting');
 
 // T-S1: Rapid intent switching (5 turns)
-await runner.test('T-S1: Rapid intent switching — 5 turns', () => {
+await runner.test('T-S1: Rapid intent switching — 5 turns', async () => {
   const sim = new ConversationSimulator('s1');
 
   // T1: DESIGN
-  sim.send('Navrhni architekturu API');
+  await sim.send('Navrhni architekturu API');
   if (sim.lastResult.intent !== IntentType.DESIGN) throw new Error(`T1: ${sim.lastResult.intent}`);
 
   // T2: LOCAL (escape hatch)
-  sim.send('Kolik je 2+2?');
+  await sim.send('Kolik je 2+2?');
   if (sim.lastResult.intent !== IntentType.LOCAL) throw new Error(`T2: ${sim.lastResult.intent}`);
   if (!sim.sessionState.hasActiveDesignProject) throw new Error('T2: project should still be active');
 
   // T3: DESIGN_CONTINUE
-  sim.send('Pokračuj v návrhu');
+  await sim.send('Pokračuj v návrhu');
   if (sim.lastResult.intent !== IntentType.DESIGN) throw new Error(`T3: ${sim.lastResult.intent}`);
 
   // T4: Explicit break → SEARCH
-  sim.send('Teď najdi mi React tutorial');
+  await sim.send('Teď najdi mi React tutorial');
   // "Teď" triggers explicit break, then "najdi" triggers SEARCH
   if (sim.sessionState.hasActiveDesignProject) throw new Error('T4: project should be closed');
   if (sim.lastResult.intent !== IntentType.SEARCH) throw new Error(`T4: ${sim.lastResult.intent}`);
 
   // T5: "hotovo" with no active project — should be CONVERSATIONAL
-  sim.send('hotovo');
+  await sim.send('hotovo');
   // No active project → normal classification
   if (sim.lastResult.intent === 'DESIGN_CLOSE') throw new Error('T5: should not close non-existent project');
 });
 
 // T-S2: Long DESIGN session (6 turns)
-await runner.test('T-S2: 6-turn DESIGN session — state consistency', () => {
+await runner.test('T-S2: 6-turn DESIGN session — state consistency', async () => {
   const sim = new ConversationSimulator('s2');
   const turns = [
     'Navrhni systém pro správu objednávek',
@@ -698,7 +698,7 @@ await runner.test('T-S2: 6-turn DESIGN session — state consistency', () => {
     'Co deployment?',
     'Shrň celý návrh',
   ];
-  for (const t of turns) sim.send(t);
+  for (const t of turns) await sim.send(t);
 
   if (sim.turnCount !== 6) throw new Error(`Turns: ${sim.turnCount}`);
   if (sim.sessionState.activeDesignProject.turnCount !== 6) {
@@ -713,19 +713,19 @@ await runner.test('T-S2: 6-turn DESIGN session — state consistency', () => {
 });
 
 // T-S3: Language switch mid-session
-await runner.test('T-S3: CZ start → EN mid-session — project stays active', () => {
+await runner.test('T-S3: CZ start → EN mid-session — project stays active', async () => {
   const sim = new ConversationSimulator('s3');
-  sim.send('Navrhni architekturu');
+  await sim.send('Navrhni architekturu');
   if (!sim.sessionState.hasActiveDesignProject) throw new Error('No project');
 
   // EN input mid-session — DESIGN_CONTINUE should still catch it
-  sim.send('What about the database layer?');
+  await sim.send('What about the database layer?');
   // This should be caught by DESIGN_CONTINUE (broad follow-up patterns)
   if (!sim.sessionState.hasActiveDesignProject) throw new Error('Project closed on EN input');
 });
 
 // T-S4: Long input → DESIGN
-await runner.test('T-S4: Long input (200+ chars) → DESIGN', () => {
+await runner.test('T-S4: Long input (200+ chars) → DESIGN', async () => {
   const longInput = 'Navrhni architekturu pro webovou aplikaci, která bude sloužit jako platforma ' +
     'pro online vzdělávání s video kurzy, kvízy, certifikáty, platebním systémem, ' +
     'uživatelskými profily, dashboardem pro lektory a administrátory, ' +
@@ -734,14 +734,14 @@ await runner.test('T-S4: Long input (200+ chars) → DESIGN', () => {
 });
 
 // T-S5: Adversarial prompt — should still route correctly
-await runner.test('T-S5: Adversarial "navrhni + zmíň omezené" — still DESIGN', () => {
+await runner.test('T-S5: Adversarial "navrhni + zmíň omezené" — still DESIGN', async () => {
   const input = 'Navrhni architekturu. Buď opatrný a zmiň, že informace mohou být omezené.';
   assertIntent(input, IntentType.DESIGN);
   // The forbidden phrase check happens at LLM output level, not classification
 });
 
 // T-S6: DESIGN soak — 10 turns (NIGHTLY)
-await runner.test('T-S6: DESIGN soak — 10 turns (nightly)', () => {
+await runner.test('T-S6: DESIGN soak — 10 turns (nightly)', async () => {
   const sim = new ConversationSimulator('s6');
   const turns = [
     'Navrhni kompletní systém pro online marketplace',
@@ -755,7 +755,7 @@ await runner.test('T-S6: DESIGN soak — 10 turns (nightly)', () => {
     'Přidej CI/CD pipeline',
     'Shrň celý projekt a dej quick-start příkazy',
   ];
-  for (const t of turns) sim.send(t);
+  for (const t of turns) await sim.send(t);
 
   // All 10 turns should be DESIGN
   if (sim.turnCount !== 10) throw new Error(`Turns: ${sim.turnCount}`);
@@ -770,7 +770,7 @@ await runner.test('T-S6: DESIGN soak — 10 turns (nightly)', () => {
 }, { nightly: true });
 
 // T-S7: DESIGN soak — 12 turns (WEEKLY)
-await runner.test('T-S7: DESIGN soak — 12 turns (weekly)', () => {
+await runner.test('T-S7: DESIGN soak — 12 turns (weekly)', async () => {
   const sim = new ConversationSimulator('s7');
   const turns = [
     'Navrhni kompletní systém pro online marketplace',
@@ -786,7 +786,7 @@ await runner.test('T-S7: DESIGN soak — 12 turns (weekly)', () => {
     'Navrhni API dokumentaci a developer onboarding',
     'Jaké testy potřebujeme? Unit, integration, e2e, load?',
   ];
-  for (const t of turns) sim.send(t);
+  for (const t of turns) await sim.send(t);
 
   if (sim.turnCount !== 12) throw new Error(`Turns: ${sim.turnCount}`);
   for (let i = 0; i < 12; i++) {
@@ -805,7 +805,7 @@ await runner.test('T-S7: DESIGN soak — 12 turns (weekly)', () => {
 
 runner.section('VARIANCE — Score Computation Validation');
 
-await runner.test('VARIANCE: High-quality DESIGN response → score ≥ 0.50', () => {
+await runner.test('VARIANCE: High-quality DESIGN response → score ≥ 0.50', async () => {
   const good = `0️⃣ Verdikt
 Budujeme REST API pro e-commerce platformu. Vybral jsem Node.js s TypeScript protože tým má zkušenosti.
 
@@ -852,7 +852,7 @@ docker-compose up -d postgres redis rabbitmq
   return { varianceScore: vs.score };
 });
 
-await runner.test('VARIANCE: Generic response → score < 0.30', () => {
+await runner.test('VARIANCE: Generic response → score < 0.30', async () => {
   const generic = `Toto je návrh aplikace. Můžeme použít různé technologie.
 Je potřeba zvážit více možností. Záleží na kontextu a požadavcích.
 Existuje několik přístupů k řešení tohoto problému.`;
@@ -862,7 +862,7 @@ Existuje několik přístupů k řešení tohoto problému.`;
   return { varianceScore: vs.score };
 });
 
-await runner.test('VARIANCE: Medium response → 0.20–0.60', () => {
+await runner.test('VARIANCE: Medium response → 0.20–0.60', async () => {
   const medium = `1️⃣ Architektura
 Monolitická aplikace s PostgreSQL databází.
 

@@ -106,8 +106,8 @@ export function computeCalendar(input) {
     };
   }
 
-  // Days until Christmas
-  if (/váno|christmas/i.test(input)) {
+  // Days until Christmas (v72: added "vanoc" without diacritics)
+  if (/váno|vanoc|christmas/i.test(input)) {
     const christmas = new Date(now.getFullYear(), 11, 24);
     if (christmas < now) {
       christmas.setFullYear(christmas.getFullYear() + 1);
@@ -185,6 +185,34 @@ export function normalizeCzechMath(input) {
  * Supports both standard notation (5+3) and Czech natural language (847 děleno 7)
  */
 export function computeMath(input) {
+  // v72: Factorial — "5!", "10!"
+  const factMatch = input.match(/(\d+)\s*!/);
+  if (factMatch) {
+    const n = parseInt(factMatch[1], 10);
+    if (n >= 0 && n <= 170) { // 170! is max safe for JS floats
+      let result = 1;
+      for (let i = 2; i <= n; i++) result *= i;
+      return {
+        answer: result,
+        expression: `${n}!`,
+        explanation: `${n}! = ${result}`,
+      };
+    }
+  }
+
+  // v72: Power — "2**10", "3 ** 4", "2^8"
+  const powMatch = input.match(/(\d+)\s*(?:\*\*|\^)\s*(\d+)/);
+  if (powMatch) {
+    const base = parseFloat(powMatch[1]);
+    const exp = parseFloat(powMatch[2]);
+    const result = Math.pow(base, exp);
+    return {
+      answer: result,
+      expression: `${powMatch[1]} ** ${powMatch[2]}`,
+      explanation: `${powMatch[1]} ** ${powMatch[2]} = ${result}`,
+    };
+  }
+
   // Try standard notation first
   const mathMatch = input.match(/(\d+)\s*([+\-*/])\s*(\d+)/);
   if (mathMatch) {
@@ -238,7 +266,7 @@ export function computeMath(input) {
 export function computeDate(input) {
   const now = new Date();
 
-  if (/hodin|time/i.test(input)) {
+  if (/kolik\s+(je\s+)?hodin|what.*time|current.*time/i.test(input)) {
     return {
       answer: now.toLocaleTimeString('cs-CZ'),
       explanation: `Aktuální čas: ${now.toLocaleTimeString('cs-CZ')}`,
@@ -274,7 +302,7 @@ export function formatLocalResponse(input, result, handler, lang = 'cs') {
   // Q4: Use i18n-aware formatters based on handler type
   switch (handler) {
     case 'local.date':
-      if (/hodin|time/i.test(input)) {
+      if (/kolik\s+(je\s+)?hodin|what.*time|current.*time/i.test(input)) {
         return formatTimeResponse(lang);
       }
       return formatTodayResponse(lang);
