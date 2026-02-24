@@ -73,20 +73,34 @@ function check(condition, name, detail = '') {
 const SPEC = {
   title: 'Note Taker',
   goals: [
-    { id: 'G1', description: 'Create and list notes', priority: 'MUST' },
-    { id: 'G2', description: 'Search notes', priority: 'MUST' },
-    { id: 'G3', description: 'Tag notes', priority: 'SHOULD' },
+    { id: 'G1', description: 'Create and list notes', priority: 'MUST', success_criteria: 'Notes can be added and listed with no data loss' },
+    { id: 'G2', description: 'Search notes', priority: 'MUST', success_criteria: 'Keyword search returns all matching notes within 50ms' },
+    { id: 'G3', description: 'Tag notes', priority: 'SHOULD', success_criteria: 'Notes can be tagged and filtered by tag' },
   ],
   requirements: [
-    { id: 'R1', description: 'add note command', type: 'functional', goal_id: 'G1' },
-    { id: 'R2', description: 'list notes command', type: 'functional', goal_id: 'G1' },
-    { id: 'R3', description: 'search by keyword', type: 'functional', goal_id: 'G2' },
-    { id: 'R4', description: 'tag support', type: 'functional', goal_id: 'G3' },
-    { id: 'R5', description: 'JSON file storage', type: 'functional', goal_id: 'G1' },
+    { id: 'R1', description: 'add note command', type: 'functional', goal_id: 'G1', acceptance_test: 'Run add "Buy milk" and verify note appears in store' },
+    { id: 'R2', description: 'list notes command', type: 'functional', goal_id: 'G1', acceptance_test: 'Run list and verify all added notes are displayed' },
+    { id: 'R3', description: 'search by keyword', type: 'functional', goal_id: 'G2', acceptance_test: 'Run search "milk" and verify only matching notes returned' },
+    { id: 'R4', description: 'tag support', type: 'functional', goal_id: 'G3', acceptance_test: 'Add note with --tag shopping and filter by tag' },
+    { id: 'R5', description: 'JSON file storage', type: 'functional', goal_id: 'G1', acceptance_test: 'Verify notes.json file exists and contains valid JSON after add' },
   ],
   tech_stack: { languages: ['JavaScript'], frameworks: ['Node.js CLI'], tools: [] },
   architecture: { pattern: 'Modular CLI', components: ['store.js', 'commands.js', 'search.js'] },
   risks: [{ id: 'RISK1', description: 'File locking', severity: 'LOW', mitigation: 'Single user' }],
+  design_decisions: [
+    {
+      id: 'DD1',
+      decision: 'Storage format',
+      chosen: 'JSON file',
+      alternatives_considered: ['SQLite', 'YAML file'],
+      rationale: 'JSON is native to Node.js with zero dependencies for read/write',
+    },
+  ],
+  acceptance_criteria: [
+    'Notes can be added and retrieved without data loss',
+    'Search returns only notes matching the keyword',
+    'Tags can be assigned and used for filtering',
+  ],
 };
 
 const ROADMAP = {

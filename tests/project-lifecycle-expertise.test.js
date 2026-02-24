@@ -76,18 +76,18 @@ function check(condition, name, detail = '') {
 const SPEC = {
   title: 'Mobile-Dev Specialist Plugin',
   goals: [
-    { id: 'G1', description: 'Detect mobile frameworks from user queries', priority: 'MUST' },
-    { id: 'G2', description: 'Scaffold new mobile project structures', priority: 'MUST' },
-    { id: 'G3', description: 'Recommend libraries for mobile development', priority: 'MUST' },
+    { id: 'G1', description: 'Detect mobile frameworks from user queries', priority: 'MUST', success_criteria: 'Framework detection identifies React Native, Flutter, and native iOS/Android' },
+    { id: 'G2', description: 'Scaffold new mobile project structures', priority: 'MUST', success_criteria: 'Scaffolding generates valid project directory with required config files' },
+    { id: 'G3', description: 'Recommend libraries for mobile development', priority: 'MUST', success_criteria: 'Recommendations include at least 3 libraries per category' },
   ],
   requirements: [
-    { id: 'R1', description: 'specialist.json manifest with valid schema', type: 'functional', goal_id: 'G1' },
-    { id: 'R2', description: 'register/unregister exports in index.js', type: 'functional', goal_id: 'G1' },
-    { id: 'R3', description: 'Pattern-based intent detection for 3 tools', type: 'functional', goal_id: 'G1' },
-    { id: 'R4', description: 'Framework detection tool', type: 'functional', goal_id: 'G1' },
-    { id: 'R5', description: 'Project scaffolding tool', type: 'functional', goal_id: 'G2' },
-    { id: 'R6', description: 'Library recommendation tool', type: 'functional', goal_id: 'G3' },
-    { id: 'R7', description: 'Routing accuracy >= 80%', type: 'non-functional', goal_id: 'G1' },
+    { id: 'R1', description: 'specialist.json manifest with valid schema', type: 'functional', goal_id: 'G1', acceptance_test: 'Validate specialist.json against C3 specialist schema' },
+    { id: 'R2', description: 'register/unregister exports in index.js', type: 'functional', goal_id: 'G1', acceptance_test: 'Call register() and verify tools are available, unregister() cleans up' },
+    { id: 'R3', description: 'Pattern-based intent detection for 3 tools', type: 'functional', goal_id: 'G1', acceptance_test: 'Send 10 sample queries and verify correct tool is selected' },
+    { id: 'R4', description: 'Framework detection tool', type: 'functional', goal_id: 'G1', acceptance_test: 'Input "build iOS app" and verify React Native/Swift detected' },
+    { id: 'R5', description: 'Project scaffolding tool', type: 'functional', goal_id: 'G2', acceptance_test: 'Run scaffold for React Native and verify directory structure created' },
+    { id: 'R6', description: 'Library recommendation tool', type: 'functional', goal_id: 'G3', acceptance_test: 'Query "navigation library" and verify ranked list returned' },
+    { id: 'R7', description: 'Routing accuracy >= 80%', type: 'non-functional', goal_id: 'G1', metric: 'routing_accuracy_percent >= 80', acceptance_test: 'Run routing test suite of 20+ queries and verify >= 80% correct' },
   ],
   tech_stack: {
     languages: ['JavaScript'],
@@ -104,6 +104,20 @@ const SPEC = {
   ],
   constraints: ['Must be self-contained', 'No external dependencies'],
   out_of_scope: ['Actual mobile project generation'],
+  design_decisions: [
+    {
+      id: 'DD1',
+      decision: 'Intent detection approach',
+      chosen: 'Pattern-based regex matching',
+      alternatives_considered: ['LLM-based classification', 'Keyword lookup table'],
+      rationale: 'Deterministic pattern matching provides predictable routing without LLM latency',
+    },
+  ],
+  acceptance_criteria: [
+    'specialist.json validates against C3 specialist schema',
+    'All 3 tools execute and return structured output',
+    'Routing accuracy meets or exceeds 80% threshold',
+  ],
 };
 
 const ROADMAP = {

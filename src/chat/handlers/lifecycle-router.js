@@ -294,6 +294,15 @@ async function handleSpecInput(input, state, context) {
       });
     }
 
+    if (result.spec && result.needsMore) {
+      // Spec generated but failed validation — stay in SPEC, report errors
+      const errorList = (result.validationErrors || []).map(e => `- ${e}`).join('\n');
+      return lcResponse(
+        `Specifikace má problémy s kvalitou:\n${errorList}\n\nDoplň chybějící informace nebo napiš "doplň to za mě".`,
+        { phase: 'SPEC', lifecycleId: state.lifecycleId }
+      );
+    }
+
     if (result.spec) {
       await lifecycle.transitionTo('SPEC_REVIEW');
       setLcState(sessionId, { ...state, phase: 'SPEC_REVIEW' });
@@ -337,18 +346,21 @@ async function handleSpecReviewInput(input, state, context) {
       });
     }
 
-    // Revision feedback
+    // Revision feedback — reviseSpec transitions lifecycle to SPEC and returns {questions, assessment}
     const { reviseSpec } = await import('../../planner/lifecycle-spec.js');
     const result = await reviseSpec(lifecycle, input);
 
-    if (result.spec) {
-      return lcResponse(formatSpec(result.spec), {
-        phase: 'SPEC_REVIEW',
+    // Sync handoff state with lifecycle (reviseSpec transitions to SPEC)
+    setLcState(sessionId, { ...state, phase: 'SPEC' });
+
+    if (result.questions && result.questions.length > 0) {
+      return lcResponse(formatSpecQuestions(result.questions), {
+        phase: 'SPEC',
         lifecycleId: state.lifecycleId,
       });
     }
 
-    return lcResponse('Specifikace upravena. Zkontroluj a schval, nebo pošli další feedback.');
+    return lcResponse('Specifikace se reviduje. Pošli odpovědi na upřesňující otázky.');
   } catch (err) {
     logger.error('LifecycleHandoff', 'Spec review failed', { error: err.message });
     return lcResponse(`Chyba při review specifikace: ${err.message}`);
@@ -391,9 +403,10 @@ async function handlePlanReviewInput(input, state, context) {
       });
     }
 
-    // Revision
+    // Revision — reviseRoadmap transitions lifecycle to PLANNING, transition back to PLAN_REVIEW
     const { reviseRoadmap } = await import('../../planner/lifecycle-planning.js');
     const result = await reviseRoadmap(lifecycle, input);
+    await lifecycle.transitionTo('PLAN_REVIEW');
 
     return lcResponse(formatRoadmap(result), {
       phase: 'PLAN_REVIEW',
@@ -427,9 +440,15 @@ async function handleBuildInput(input, state, context) {
     return await initiateChange(input, state, context);
   }
 
+  // Continue building — start next milestone
+  if (/^(ano|jo|ok|yes|pokra[čc]ovat|continue|d[áa]l|next|jdi)\s*[!.]?$/i.test(input.trim())) {
+    return await startNextMilestoneOrComplete(state, context);
+  }
+
   // Default: acknowledge and continue
   return lcResponse(
     'Milestone se právě buduje. Můžeš:\n' +
+    '  - "ano" / "pokračovat" — spustit další milník\n' +
     '  - "status" — zobrazit aktuální stav\n' +
     '  - "změna: ..." — navrhnout změnu\n' +
     '  - "pauza" — pozastavit lifecycle\n' +
@@ -486,6 +505,11 @@ async function handleMilestoneReviewInput(input, state, context) {
       const { handleMilestoneBlocked } = await import('../../planner/lifecycle-build.js');
       await handleMilestoneBlocked(lifecycle, state.currentMilestoneId, 'skip');
       return await startNextMilestoneOrComplete(state, context);
+    }
+
+    // Change request during milestone review — allow user to propose changes
+    if (/^(zm[eě]n[ai]|change|upravit|p[rř]idat)\s*:?\s/i.test(input.trim())) {
+      return await initiateChange(input, state, context);
     }
 
     return lcResponse('Schválíš plán milníku? (ano/ne/skip, nebo napiš feedback pro úpravu)');

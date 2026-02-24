@@ -108,16 +108,16 @@ function saveTranscript(projectPath) {
 const SAMPLE_SPEC = {
   title: 'Task Manager CLI',
   goals: [
-    { id: 'G1', description: 'Manage tasks via CLI commands', priority: 'MUST' },
-    { id: 'G2', description: 'Persist tasks in SQLite database', priority: 'MUST' },
-    { id: 'G3', description: 'Display tasks in formatted tables', priority: 'SHOULD' },
+    { id: 'G1', description: 'Manage tasks via CLI commands', priority: 'MUST', success_criteria: 'Tasks can be added, listed, and marked done via CLI' },
+    { id: 'G2', description: 'Persist tasks in SQLite database', priority: 'MUST', success_criteria: 'Tasks survive process restart with no data loss' },
+    { id: 'G3', description: 'Display tasks in formatted tables', priority: 'SHOULD', success_criteria: 'Task list displays aligned columns with ID, title, and status' },
   ],
   requirements: [
-    { id: 'R1', description: 'add command creates a new task', type: 'functional', goal_id: 'G1' },
-    { id: 'R2', description: 'list command shows all tasks', type: 'functional', goal_id: 'G1' },
-    { id: 'R3', description: 'done command marks task complete', type: 'functional', goal_id: 'G1' },
-    { id: 'R4', description: 'SQLite persistence between runs', type: 'functional', goal_id: 'G2' },
-    { id: 'R5', description: 'Table output with columns and alignment', type: 'functional', goal_id: 'G3' },
+    { id: 'R1', description: 'add command creates a new task', type: 'functional', goal_id: 'G1', acceptance_test: 'Run add "Buy milk" and verify task appears in list' },
+    { id: 'R2', description: 'list command shows all tasks', type: 'functional', goal_id: 'G1', acceptance_test: 'Add 3 tasks then run list and verify all 3 displayed' },
+    { id: 'R3', description: 'done command marks task complete', type: 'functional', goal_id: 'G1', acceptance_test: 'Run done 1 and verify task 1 shows as complete' },
+    { id: 'R4', description: 'SQLite persistence between runs', type: 'functional', goal_id: 'G2', acceptance_test: 'Add task, restart process, run list and verify task exists' },
+    { id: 'R5', description: 'Table output with columns and alignment', type: 'functional', goal_id: 'G3', acceptance_test: 'Run list and verify output contains aligned ID, Title, Done columns' },
   ],
   tech_stack: {
     languages: ['JavaScript'],
@@ -135,6 +135,20 @@ const SAMPLE_SPEC = {
   ],
   constraints: ['No external HTTP dependencies'],
   out_of_scope: ['Web UI', 'Multi-user support'],
+  design_decisions: [
+    {
+      id: 'DD1',
+      decision: 'Database engine',
+      chosen: 'SQLite via better-sqlite3',
+      alternatives_considered: ['JSON file', 'LevelDB'],
+      rationale: 'SQLite provides ACID transactions and query capabilities with minimal setup',
+    },
+  ],
+  acceptance_criteria: [
+    'Tasks can be added, listed, and marked done via CLI',
+    'Data persists across process restarts via SQLite',
+    'Table output displays aligned columns with proper formatting',
+  ],
 };
 
 const SAMPLE_ROADMAP = {

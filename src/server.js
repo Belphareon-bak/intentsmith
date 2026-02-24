@@ -93,6 +93,7 @@ import { createExpertiseRoutes, createLifecycleRoutes } from './routes/expertise
 import { createProjectRoutes } from './routes/projects.js';
 import { createChatRoutes } from './routes/chat.js';
 import { createMiscRoutes } from './routes/misc.js';
+import { createSpecialistRoutes } from './routes/specialists.js';
 import { toolRegistry } from './tools/registry.js';
 
 // v56.0 Sprint 3: Initialize ConversationStore with DB
@@ -126,8 +127,9 @@ if (getExpertiseStore) expertiseStore = getExpertiseStore(db);
 // v74.0: Specialist Loader — discover, install, enable specialist packages
 import { getSpecialistLoader } from './specialists/specialist-loader.js';
 import { specialistRuntime } from './expertises/specialist-runtime.js';
+let specialistLoader = null;
 try {
-  const specialistLoader = getSpecialistLoader(db.db, specialistRuntime);
+  specialistLoader = getSpecialistLoader(db.db, specialistRuntime);
   await specialistLoader.boot();
   logger.info('Server', `Specialists: ${specialistLoader.getEnabled().length} enabled`);
 } catch (err) {
@@ -459,6 +461,7 @@ const routeDeps = {
   getArchitectSession, setArchitectSession, getArchitectUIHTML,
   createMockResponse, agentRoutes, agentRunner,
   checkWizardRateLimit,
+  specialistLoader, specialistRuntime,
 };
 
 const routes = {
@@ -492,6 +495,7 @@ const routes = {
   ...createLifecycleRoutes(routeDeps),
   ...createProjectRoutes(routeDeps),
   ...createMiscRoutes(routeDeps),
+  ...createSpecialistRoutes(routeDeps),
 
   // F1: Setup Wizard routes (always available — idempotent after completion)
   ...createSetupRoutes(setupWizard, routeDeps),

@@ -32,13 +32,16 @@ export function validateSpec(spec) {
     errors.push('Missing or empty title');
   }
 
-  // Goals: minimum 3
+  // Goals: minimum 3, each with success_criteria
   if (!Array.isArray(spec.goals) || spec.goals.length < 3) {
     errors.push(`Goals: minimum 3 required, got ${spec.goals?.length || 0}`);
   } else {
     for (const goal of spec.goals) {
       if (!goal.id || !goal.description) {
         errors.push(`Goal missing id or description: ${JSON.stringify(goal)}`);
+      }
+      if (!goal.success_criteria || typeof goal.success_criteria !== 'string' || goal.success_criteria.trim().length === 0) {
+        errors.push(`Goal ${goal.id || '?'} missing success_criteria`);
       }
     }
   }
@@ -57,11 +60,23 @@ export function validateSpec(spec) {
       if (!req.id || !req.description) {
         errors.push(`Requirement missing id or description: ${JSON.stringify(req)}`);
       }
+      if (!req.acceptance_test || typeof req.acceptance_test !== 'string' || req.acceptance_test.trim().length === 0) {
+        errors.push(`Requirement ${req.id || '?'} missing acceptance_test`);
+      }
     }
   }
 
   if (!Array.isArray(spec.requirements) && nfReqs.length < 1) {
     errors.push(`Non-functional requirements: minimum 1 required, got ${nfReqs.length}`);
+  }
+
+  // Non-functional requirements: each must have a measurable metric
+  if (!Array.isArray(spec.requirements) && nfReqs.length > 0) {
+    for (const nf of nfReqs) {
+      if (!nf.metric || typeof nf.metric !== 'string' || nf.metric.trim().length === 0) {
+        errors.push(`Non-functional requirement ${nf.id || '?'} missing measurable metric`);
+      }
+    }
   }
 
   // Tech stack: mandatory
@@ -78,13 +93,23 @@ export function validateSpec(spec) {
     errors.push(`Risks: minimum 1 required, got ${spec.risks?.length || 0}`);
   }
 
-  // Design decisions (optional but encouraged)
-  if (spec.design_decisions && Array.isArray(spec.design_decisions)) {
+  // Design decisions: minimum 1 required, each with rationale + alternatives
+  if (!Array.isArray(spec.design_decisions) || spec.design_decisions.length < 1) {
+    errors.push(`Design decisions: minimum 1 required, got ${spec.design_decisions?.length || 0}`);
+  } else {
     for (const dd of spec.design_decisions) {
       if (dd.decision && !dd.rationale) {
         errors.push(`Design decision "${dd.decision}" missing rationale`);
       }
+      if (!Array.isArray(dd.alternatives_considered) || dd.alternatives_considered.length < 2) {
+        errors.push(`Design decision "${dd.decision || dd.id || '?'}" missing alternatives_considered (minimum 2)`);
+      }
     }
+  }
+
+  // Acceptance criteria: project-level done conditions
+  if (!Array.isArray(spec.acceptance_criteria) || spec.acceptance_criteria.length < 1) {
+    errors.push(`Acceptance criteria: minimum 1 required, got ${spec.acceptance_criteria?.length || 0}`);
   }
 
   return { valid: errors.length === 0, errors };
@@ -174,8 +199,11 @@ export async function answerSpecQuestions(lifecycle, answers) {
     });
 
     // Store invalid spec for reference but report issues
+    // Preserve draft fields (_request, _assessment, etc.) so answerSpecQuestions can be retried
     const enrichedSpec = {
       ...spec,
+      _request: draft._request,
+      _assessment: draft._assessment,
       _validation: validation,
       _phase: 'VALIDATION_FAILED',
     };

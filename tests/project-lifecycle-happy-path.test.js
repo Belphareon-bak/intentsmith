@@ -70,16 +70,16 @@ function check(condition, name, detail = '') {
 const SPEC = {
   title: 'Greeting Service',
   goals: [
-    { id: 'G1', description: 'HTTP greeting endpoint', priority: 'MUST' },
-    { id: 'G2', description: 'Multiple language support', priority: 'MUST' },
-    { id: 'G3', description: 'Configurable port', priority: 'SHOULD' },
+    { id: 'G1', description: 'HTTP greeting endpoint', priority: 'MUST', success_criteria: 'GET /greet returns 200 with greeting in under 100ms' },
+    { id: 'G2', description: 'Multiple language support', priority: 'MUST', success_criteria: 'Greetings returned in at least 3 locales based on Accept-Language' },
+    { id: 'G3', description: 'Configurable port', priority: 'SHOULD', success_criteria: 'Server starts on port specified by PORT env variable' },
   ],
   requirements: [
-    { id: 'R1', description: 'GET /greet?name=X returns greeting', type: 'functional', goal_id: 'G1' },
-    { id: 'R2', description: 'Accept-Language header for locale', type: 'functional', goal_id: 'G2' },
-    { id: 'R3', description: 'PORT env variable support', type: 'functional', goal_id: 'G3' },
-    { id: 'R4', description: 'Health check endpoint GET /health', type: 'functional', goal_id: 'G1' },
-    { id: 'R5', description: 'JSON response format', type: 'functional', goal_id: 'G1' },
+    { id: 'R1', description: 'GET /greet?name=X returns greeting', type: 'functional', goal_id: 'G1', acceptance_test: 'GET /greet?name=World returns {greeting: "Hello, World!"}' },
+    { id: 'R2', description: 'Accept-Language header for locale', type: 'functional', goal_id: 'G2', acceptance_test: 'Request with Accept-Language: cs returns Czech greeting' },
+    { id: 'R3', description: 'PORT env variable support', type: 'functional', goal_id: 'G3', acceptance_test: 'PORT=4000 node server.js binds to port 4000' },
+    { id: 'R4', description: 'Health check endpoint GET /health', type: 'functional', goal_id: 'G1', acceptance_test: 'GET /health returns 200 with {status: "ok"}' },
+    { id: 'R5', description: 'JSON response format', type: 'functional', goal_id: 'G1', acceptance_test: 'Content-Type header is application/json for all endpoints' },
   ],
   tech_stack: {
     languages: ['JavaScript'],
@@ -96,6 +96,20 @@ const SPEC = {
   ],
   constraints: ['No external API calls'],
   out_of_scope: ['Authentication', 'Database'],
+  design_decisions: [
+    {
+      id: 'DD1',
+      decision: 'HTTP framework',
+      chosen: 'Express',
+      alternatives_considered: ['Fastify', 'Koa'],
+      rationale: 'Express is the most widely used Node.js HTTP framework with extensive middleware ecosystem',
+    },
+  ],
+  acceptance_criteria: [
+    'GET /greet?name=World returns 200 with JSON greeting',
+    'GET /health returns 200 with status ok',
+    'Server respects PORT environment variable',
+  ],
 };
 
 const ROADMAP = {

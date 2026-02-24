@@ -2663,6 +2663,7 @@ PRAVIDLA:
         ...config.metadata,
         classificationTimeMs: _classificationTimeMs,
         classifiedBy: llmMeta ? 'llm' : (isDeterministic ? 'deterministic' : 'regex'),
+        llmConfidence: llmMeta?.confidence ?? null,
         decideTimeMs,
       };
       return new CREDecision(config);

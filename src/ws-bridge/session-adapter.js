@@ -18,6 +18,8 @@ import {
   buildChannelMessage,
   messageId,
 } from './protocol.js';
+import { TurnTelemetry } from '../telemetry/turn-telemetry.js';
+import { config } from '../config.js';
 
 /**
  * Create a session adapter for a single WebSocket connection.
@@ -103,6 +105,11 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
 
     const turnStartTime = Date.now();
 
+    // Telemetry: create collector for this turn (if enabled)
+    const turnTelemetry = config.features.telemetry
+      ? new TurnTelemetry(turnId, sid, convId)
+      : null;
+
     sendAgentEvent(AgentEventType.TURN_START, turnId, { input: content });
 
     try {
@@ -122,6 +129,7 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
           signal: ac.signal,
           editMode: options.editMode || 'auto',
           projectId: options.projectId || null,
+          telemetry: turnTelemetry,
 
           // Hook: CRE decision (called in ChatController.process after mode detection)
           onCREDecision: (decision) => {
@@ -235,24 +243,35 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
       }
 
       // Turn end — success
+      const telemetrySnapshot = turnTelemetry?.finalize(turnStartTime) ?? null;
       sendAgentEvent(AgentEventType.TURN_END, turnId, {
         status: 'ok',
         durationMs: Date.now() - turnStartTime,
+        ...(telemetrySnapshot ? { telemetry: telemetrySnapshot } : {}),
       });
+      if (telemetrySnapshot) {
+        logger.info('TurnTelemetry', JSON.stringify(telemetrySnapshot));
+      }
 
     } catch (err) {
       const durationMs = Date.now() - turnStartTime;
 
       if (err.name === 'AbortError') {
+        turnTelemetry?.recordCancel('user');
+        const snap = turnTelemetry?.finalize(turnStartTime) ?? null;
         sendAgentEvent(AgentEventType.TURN_END, turnId, {
           status: 'cancelled_by_user',
           durationMs,
+          ...(snap ? { telemetry: snap } : {}),
         });
       } else if (err.message?.includes('timeout')) {
+        turnTelemetry?.recordCancel('timeout');
+        const snap = turnTelemetry?.finalize(turnStartTime) ?? null;
         sendAgentEvent(AgentEventType.TURN_END, turnId, {
           status: 'timeout',
           durationMs,
           error: err.message,
+          ...(snap ? { telemetry: snap } : {}),
         });
         sendAgentEvent(AgentEventType.ERROR, turnId, {
           code: 'TIMEOUT',
@@ -261,10 +280,12 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
         });
       } else {
         logger.error('WSSession', `Turn error: ${err.message}`, { turnId });
+        const snap = turnTelemetry?.finalize(turnStartTime) ?? null;
         sendAgentEvent(AgentEventType.TURN_END, turnId, {
           status: 'error',
           durationMs,
           error: err.message,
+          ...(snap ? { telemetry: snap } : {}),
         });
         sendAgentEvent(AgentEventType.ERROR, turnId, {
           code: 'UNEXPECTED',

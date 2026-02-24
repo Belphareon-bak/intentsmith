@@ -291,6 +291,56 @@ IMPORTANT: Do NOT modify or remove completed milestones. Adjust remaining milest
   };
 }
 
+// ─── Roadmap Validation ──────────────────────────────────────────────────────
+
+/**
+ * Validate a roadmap against quality requirements.
+ * @param {Object} roadmap - { milestones: [...], requirements_coverage?: {...} }
+ * @returns {{ valid: boolean, errors: string[] }}
+ */
+export function validateRoadmap(roadmap) {
+  const errors = [];
+
+  if (!roadmap) {
+    return { valid: false, errors: ['Roadmap is null or undefined'] };
+  }
+
+  if (!Array.isArray(roadmap.milestones) || roadmap.milestones.length === 0) {
+    return { valid: false, errors: ['Roadmap has no milestones'] };
+  }
+
+  for (const ms of roadmap.milestones) {
+    // acceptance_criteria required per milestone
+    if (!Array.isArray(ms.acceptance_criteria) || ms.acceptance_criteria.length === 0) {
+      errors.push(`Milestone ${ms.id || '?'} missing acceptance_criteria`);
+    }
+
+    // test_strategy required per milestone
+    if (!ms.test_strategy || typeof ms.test_strategy !== 'object') {
+      errors.push(`Milestone ${ms.id || '?'} missing test_strategy`);
+    }
+  }
+
+  // Dependencies
+  const depErrors = validateDependencies(roadmap.milestones);
+  errors.push(...depErrors);
+
+  // requirements_coverage: must exist and explain any gaps
+  if (!roadmap.requirements_coverage) {
+    errors.push('Roadmap missing requirements_coverage');
+  } else {
+    const uncovered = roadmap.requirements_coverage.uncovered || [];
+    if (uncovered.length > 0) {
+      const rationale = roadmap.requirements_coverage.rationale_for_uncovered || '';
+      if (!rationale || rationale.trim().length === 0) {
+        errors.push(`Roadmap has ${uncovered.length} uncovered requirements without rationale`);
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
 // ─── Dependency Validation ───────────────────────────────────────────────────
 
 /**
@@ -480,6 +530,7 @@ export default {
   generateRoadmap,
   approveRoadmap,
   reviseRoadmap,
+  validateRoadmap,
   validateDependencies,
   checkDependencies,
   writeRoadmapFile,

@@ -71,20 +71,34 @@ function check(condition, name, detail = '') {
 const SPEC = {
   title: 'Counter App',
   goals: [
-    { id: 'G1', description: 'Count up and down', priority: 'MUST' },
-    { id: 'G2', description: 'Persist count', priority: 'MUST' },
-    { id: 'G3', description: 'Reset to zero', priority: 'SHOULD' },
+    { id: 'G1', description: 'Count up and down', priority: 'MUST', success_criteria: 'Counter increments and decrements by 1 accurately' },
+    { id: 'G2', description: 'Persist count', priority: 'MUST', success_criteria: 'Counter value survives process restart' },
+    { id: 'G3', description: 'Reset to zero', priority: 'SHOULD', success_criteria: 'Reset sets counter to 0 regardless of current value' },
   ],
   requirements: [
-    { id: 'R1', description: 'increment command', type: 'functional', goal_id: 'G1' },
-    { id: 'R2', description: 'decrement command', type: 'functional', goal_id: 'G1' },
-    { id: 'R3', description: 'save to file', type: 'functional', goal_id: 'G2' },
-    { id: 'R4', description: 'reset command', type: 'functional', goal_id: 'G3' },
-    { id: 'R5', description: 'show current value', type: 'functional', goal_id: 'G1' },
+    { id: 'R1', description: 'increment command', type: 'functional', goal_id: 'G1', acceptance_test: 'Run inc from 0 and verify counter is 1' },
+    { id: 'R2', description: 'decrement command', type: 'functional', goal_id: 'G1', acceptance_test: 'Run dec from 5 and verify counter is 4' },
+    { id: 'R3', description: 'save to file', type: 'functional', goal_id: 'G2', acceptance_test: 'Run inc then verify count.json contains updated value' },
+    { id: 'R4', description: 'reset command', type: 'functional', goal_id: 'G3', acceptance_test: 'Run reset from 10 and verify counter is 0' },
+    { id: 'R5', description: 'show current value', type: 'functional', goal_id: 'G1', acceptance_test: 'Run show and verify output matches stored value' },
   ],
   tech_stack: { languages: ['JavaScript'], frameworks: ['Node.js CLI'], tools: [] },
   architecture: { pattern: 'Single file', components: ['counter.js', 'store.js'] },
   risks: [{ id: 'RISK1', description: 'File corruption', severity: 'LOW', mitigation: 'Atomic writes' }],
+  design_decisions: [
+    {
+      id: 'DD1',
+      decision: 'Persistence mechanism',
+      chosen: 'JSON file',
+      alternatives_considered: ['SQLite', 'localStorage'],
+      rationale: 'Simplest approach for single-value storage with no external dependencies',
+    },
+  ],
+  acceptance_criteria: [
+    'Counter increments and decrements correctly',
+    'Counter value persists across process restarts',
+    'Reset command sets counter to zero',
+  ],
 };
 
 const ROADMAP = {

@@ -40,6 +40,7 @@ const ROUTE_MODULES = [
   { file: 'src/routes/misc.js',         export: 'createMiscRoutes' },
   { file: 'src/routes/planner.js',      export: 'createPlannerRoutes' },
   { file: 'src/routes/projects.js',     export: 'createProjectRoutes' },
+  { file: 'src/routes/specialists.js',  export: 'createSpecialistRoutes' },
 ];
 
 // ─── Test 1: Module loads ────────────────────────────────────────────────────

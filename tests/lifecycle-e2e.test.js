@@ -85,16 +85,16 @@ const SAMPLE_SPEC = {
   title: 'TODO REST API',
   description: 'A simple REST API for managing TODO items with Express.js and SQLite.',
   goals: [
-    { id: 'G1', description: 'Provide CRUD operations for TODO items' },
-    { id: 'G2', description: 'Persist data in SQLite database' },
-    { id: 'G3', description: 'Input validation and error handling' },
+    { id: 'G1', description: 'Provide CRUD operations for TODO items', success_criteria: 'All 4 CRUD endpoints return correct status codes' },
+    { id: 'G2', description: 'Persist data in SQLite database', success_criteria: 'Data survives server restart' },
+    { id: 'G3', description: 'Input validation and error handling', success_criteria: 'Invalid input returns 400 with descriptive message' },
   ],
   requirements: [
-    { id: 'R1', description: 'GET /todos — list all items' },
-    { id: 'R2', description: 'POST /todos — create a new item' },
-    { id: 'R3', description: 'PUT /todos/:id — update an item' },
-    { id: 'R4', description: 'DELETE /todos/:id — delete an item' },
-    { id: 'R5', description: 'Input validation with clear error messages' },
+    { id: 'R1', description: 'GET /todos — list all items', acceptance_test: 'GET /todos → 200 with JSON array' },
+    { id: 'R2', description: 'POST /todos — create a new item', acceptance_test: 'POST /todos {title: "test"} → 201' },
+    { id: 'R3', description: 'PUT /todos/:id — update an item', acceptance_test: 'PUT /todos/1 {done: true} → 200' },
+    { id: 'R4', description: 'DELETE /todos/:id — delete an item', acceptance_test: 'DELETE /todos/1 → 204' },
+    { id: 'R5', description: 'Input validation with clear error messages', acceptance_test: 'POST /todos {} → 400 with error' },
   ],
   tech_stack: {
     languages: ['JavaScript'],
@@ -102,9 +102,13 @@ const SAMPLE_SPEC = {
     databases: ['SQLite'],
     tools: ['better-sqlite3'],
   },
+  design_decisions: [
+    { id: 'DD1', decision: 'Database engine', chosen: 'SQLite via better-sqlite3', alternatives_considered: ['PostgreSQL', 'SQLite via better-sqlite3'], rationale: 'Embedded, no server dependency, simpler deployment' },
+  ],
   risks: [
     'SQLite concurrency limitations under heavy load',
   ],
+  acceptance_criteria: ['All CRUD operations work end-to-end', 'Invalid input is rejected with clear errors'],
 };
 
 const SAMPLE_ROADMAP = {

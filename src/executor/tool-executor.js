@@ -578,6 +578,7 @@ export class ToolExecutor {
   async execute(decision, context = {}) {
     const startTime = Date.now();
     const retryCount = context.retryCount ?? 0;
+    const telemetry = context.telemetry ?? null;
 
     // Validate decision type
     if (decision.type !== DecisionType.TOOL_CALL) {
@@ -657,6 +658,7 @@ export class ToolExecutor {
           }));
         }
         const breaker = this.circuitBreakers.get(breakerKey);
+        const cbStateBefore = breaker.state;
 
         if (breaker.state === CircuitState.OPEN) {
           logger.warn('ToolExecutor', `Circuit OPEN for ${toolType}, skipping`, {
@@ -730,6 +732,21 @@ export class ToolExecutor {
               retryableFailures.push({ toolType, result });
             }
           }
+
+          // Telemetry: record tool invocation + circuit state
+          telemetry?.recordToolInvocation({
+            tool: toolType,
+            durationMs: result.meta?.latency ?? 0,
+            success: result.success,
+            retryCount,
+            errorType: result.success ? null : result.errorCode,
+            errorCode: result.errorCode ?? null,
+          });
+          telemetry?.recordCircuitState({
+            tool: toolType,
+            stateBefore: cbStateBefore,
+            stateAfter: breaker.state,
+          });
         } else {
           // Legacy fallback: wrap raw result in ToolResult
           if (result && result.success === false) {
@@ -774,6 +791,26 @@ export class ToolExecutor {
         if (errorInfo.retryable) {
           retryableFailures.push({ toolType, errorInfo, err });
         }
+
+        // Telemetry: record failed invocation + circuit state
+        telemetry?.recordToolInvocation({
+          tool: toolType,
+          durationMs: 0,
+          success: false,
+          retryCount,
+          errorType: errorInfo.code,
+          errorCode: errorInfo.code,
+        });
+        const breakerForTelemetry = this.circuitBreakers.get(
+          context.sessionId ? `${toolType}:${context.sessionId}` : `${toolType}:anonymous`
+        );
+        if (breakerForTelemetry) {
+          telemetry?.recordCircuitState({
+            tool: toolType,
+            stateBefore: 'CLOSED', // was at least CLOSED to get here
+            stateAfter: breakerForTelemetry.state,
+          });
+        }
       }
     }
 
@@ -811,6 +848,13 @@ export class ToolExecutor {
     }
 
     const duration = Date.now() - startTime;
+
+    // Telemetry: record execution summary
+    telemetry?.recordExecution({
+      executionTimeMs: duration,
+      status,
+      partialFailure: status === ExecutionStatus.PARTIAL,
+    });
 
     // v45.0: No summary - tools return DATA only
     // LLM synthesizes response via synthesizeWithLLM() in handlers

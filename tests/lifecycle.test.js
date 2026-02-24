@@ -127,7 +127,7 @@ console.log('\n── Spec Validation ──');
   assert(result.valid === false, 'empty spec is invalid');
   assert(result.errors.some(e => e.includes('title')), 'empty spec: missing title error');
   assert(result.errors.some(e => e.includes('Goals')), 'empty spec: missing goals error');
-  assert(result.errors.some(e => e.includes('Requirements')), 'empty spec: missing reqs error');
+  assert(result.errors.some(e => e.toLowerCase().includes('requirements')), 'empty spec: missing reqs error');
   assert(result.errors.some(e => e.includes('tech_stack')), 'empty spec: missing tech_stack error');
   assert(result.errors.some(e => e.includes('Risks')), 'empty spec: missing risks error');
 }
@@ -152,24 +152,28 @@ console.log('\n── Spec Validation ──');
   const result = validateSpec({
     title: 'E-shop',
     goals: [
-      { id: 'G1', description: 'User can browse products' },
-      { id: 'G2', description: 'User can add to cart' },
-      { id: 'G3', description: 'User can checkout' },
+      { id: 'G1', description: 'User can browse products', success_criteria: 'Product listing page renders 20+ items' },
+      { id: 'G2', description: 'User can add to cart', success_criteria: 'Cart badge shows correct count' },
+      { id: 'G3', description: 'User can checkout', success_criteria: 'Order confirmation page shown after payment' },
     ],
     requirements: [
-      { id: 'R1', description: 'Product listing page' },
-      { id: 'R2', description: 'Product detail page' },
-      { id: 'R3', description: 'Shopping cart' },
-      { id: 'R4', description: 'Checkout flow' },
-      { id: 'R5', description: 'Order confirmation' },
+      { id: 'R1', description: 'Product listing page', acceptance_test: 'GET /products returns 200 with items' },
+      { id: 'R2', description: 'Product detail page', acceptance_test: 'GET /products/:id returns product details' },
+      { id: 'R3', description: 'Shopping cart', acceptance_test: 'POST /cart/add → cart count increments' },
+      { id: 'R4', description: 'Checkout flow', acceptance_test: 'POST /checkout → order created in DB' },
+      { id: 'R5', description: 'Order confirmation', acceptance_test: 'GET /orders/:id shows order summary' },
     ],
     tech_stack: {
       languages: ['TypeScript'],
       frameworks: ['Next.js'],
     },
+    design_decisions: [
+      { id: 'DD1', decision: 'Payment gateway', chosen: 'Stripe', alternatives_considered: ['Stripe', 'PayPal'], rationale: 'Better developer experience and documentation' },
+    ],
     risks: [
       { id: 'RISK1', description: 'Payment integration complexity', severity: 'MEDIUM', mitigation: 'Use Stripe' },
     ],
+    acceptance_criteria: ['User can complete full purchase flow end-to-end'],
   });
   assert(result.valid === true, 'valid spec passes validation');
   assert(result.errors.length === 0, 'valid spec has no errors');

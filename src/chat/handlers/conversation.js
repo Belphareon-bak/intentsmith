@@ -199,6 +199,9 @@ export function handleShellDecision(input, decision, context) {
 export async function conversationHandler(input, context) {
   const { sessionId, sessionState } = context;
 
+  // Telemetry: pick up collector from context (created in session-adapter)
+  const telemetry = context.telemetry ?? null;
+
   // ════════════════════════════════════════════════════════════════════════════
   // PHASE C1: SESSION RESUME / PROGRESS INTERCEPT (optional — Phase C)
   // ════════════════════════════════════════════════════════════════════════════
@@ -646,6 +649,19 @@ export async function conversationHandler(input, context) {
   const creInput = projectHint ? input + projectHint : input;
   // v71: decide() is now async (LLM-first classification)
   let decision = await creDecisionEngine.decide(creInput, decisionContext);
+
+  // Telemetry: record CRE classification + decision timing
+  telemetry?.recordClassification({
+    intent: decision.intent,
+    classifiedBy: decision.metadata?.classifiedBy,
+    confidence: decision.confidence,
+    classificationTimeMs: decision.metadata?.classificationTimeMs,
+  });
+  telemetry?.recordDecision({
+    decideTimeMs: decision.metadata?.decideTimeMs,
+    overrideApplied: decision.metadata?.override === true,
+    overrideSource: decision.metadata?.overrideSource ?? null,
+  });
 
   // STEP 1.5: Fail-fast assertion - catch bugs early
   assertDecision(decision);

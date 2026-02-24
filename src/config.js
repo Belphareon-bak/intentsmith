@@ -14,6 +14,7 @@ export const config = {
       }
       return val !== 'false';
     })(),  // Phase D: Expertises
+    telemetry: process.env.C3_ENABLE_TELEMETRY !== 'false',  // Resilience telemetry
   },
 
   // Server

@@ -361,10 +361,43 @@ export function listChangeRequests(lifecycleId) {
   });
 }
 
+// ─── Change Impact Validation ─────────────────────────────────────────────────
+
+/**
+ * Validate a change impact analysis for completeness.
+ * @param {Object} analysis - LLM-generated impact analysis
+ * @returns {{ valid: boolean, errors: string[] }}
+ */
+export function validateChangeImpact(analysis) {
+  const errors = [];
+
+  if (!analysis) {
+    return { valid: false, errors: ['Change impact analysis is null or undefined'] };
+  }
+
+  // affected_milestones must exist and be non-empty
+  if (!Array.isArray(analysis.affected_milestones) || analysis.affected_milestones.length === 0) {
+    errors.push('Change impact has no affected_milestones');
+  }
+
+  // impact.risk_level required
+  if (!analysis.impact?.risk_level) {
+    errors.push('Change impact missing risk_level');
+  }
+
+  // feasibility required
+  if (!analysis.feasibility || typeof analysis.feasibility !== 'string') {
+    errors.push('Change impact missing feasibility assessment');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
 export default {
   proposeChange,
   applyChange,
   rejectChange,
   validatePreservation,
+  validateChangeImpact,
   listChangeRequests,
 };

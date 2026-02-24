@@ -98,19 +98,19 @@ const EXISTING_C3_CONFIG = {
 const SPEC = {
   title: 'Klíčenka — Secure Keychain for C3',
   goals: [
-    { id: 'G1', description: 'AES-256-GCM encryption/decryption', priority: 'MUST' },
-    { id: 'G2', description: 'File-based encrypted credential store', priority: 'MUST' },
-    { id: 'G3', description: 'CLI interface for credential management', priority: 'MUST' },
-    { id: 'G4', description: 'C3 config integration', priority: 'SHOULD' },
+    { id: 'G1', description: 'AES-256-GCM encryption/decryption', priority: 'MUST', success_criteria: 'Encrypt then decrypt roundtrip returns original plaintext' },
+    { id: 'G2', description: 'File-based encrypted credential store', priority: 'MUST', success_criteria: 'Store file contains only encrypted data, no plaintext credentials' },
+    { id: 'G3', description: 'CLI interface for credential management', priority: 'MUST', success_criteria: 'All CRUD commands execute successfully via CLI' },
+    { id: 'G4', description: 'C3 config integration', priority: 'SHOULD', success_criteria: 'C3 config resolves credentials from keychain store' },
   ],
   requirements: [
-    { id: 'R1', description: 'AES-256-GCM encrypt/decrypt with IV', type: 'functional', goal_id: 'G1' },
-    { id: 'R2', description: 'PBKDF2 key derivation from master password', type: 'functional', goal_id: 'G1' },
-    { id: 'R3', description: 'JSON-based encrypted store file', type: 'functional', goal_id: 'G2' },
-    { id: 'R4', description: 'CRUD operations: add, get, list, remove', type: 'functional', goal_id: 'G2' },
-    { id: 'R5', description: 'CLI commands: add, get, list, remove, export, import', type: 'functional', goal_id: 'G3' },
-    { id: 'R6', description: 'Export/import for backup', type: 'functional', goal_id: 'G3' },
-    { id: 'R7', description: 'C3 config reads credentials from store', type: 'functional', goal_id: 'G4' },
+    { id: 'R1', description: 'AES-256-GCM encrypt/decrypt with IV', type: 'functional', goal_id: 'G1', acceptance_test: 'Encrypt "secret" and decrypt; verify output equals "secret"' },
+    { id: 'R2', description: 'PBKDF2 key derivation from master password', type: 'functional', goal_id: 'G1', acceptance_test: 'Derive key from password and verify 256-bit key length' },
+    { id: 'R3', description: 'JSON-based encrypted store file', type: 'functional', goal_id: 'G2', acceptance_test: 'After add, verify store.json values are base64-encoded ciphertext' },
+    { id: 'R4', description: 'CRUD operations: add, get, list, remove', type: 'functional', goal_id: 'G2', acceptance_test: 'Add key, get it back, list shows it, remove deletes it' },
+    { id: 'R5', description: 'CLI commands: add, get, list, remove, export, import', type: 'functional', goal_id: 'G3', acceptance_test: 'Run each CLI command and verify exit code 0' },
+    { id: 'R6', description: 'Export/import for backup', type: 'functional', goal_id: 'G3', acceptance_test: 'Export store, delete it, import backup, verify data intact' },
+    { id: 'R7', description: 'C3 config reads credentials from store', type: 'functional', goal_id: 'G4', acceptance_test: 'C3 config getter resolves credential key to decrypted value' },
   ],
   tech_stack: {
     languages: ['JavaScript'],
@@ -129,6 +129,28 @@ const SPEC = {
   ],
   constraints: ['No external crypto libraries', 'Must work offline'],
   out_of_scope: ['GUI', 'Network sync', 'Multi-user'],
+  design_decisions: [
+    {
+      id: 'DD1',
+      decision: 'Encryption algorithm',
+      chosen: 'AES-256-GCM',
+      alternatives_considered: ['AES-256-CBC', 'ChaCha20-Poly1305'],
+      rationale: 'GCM provides authenticated encryption with built-in integrity verification',
+    },
+    {
+      id: 'DD2',
+      decision: 'Key derivation function',
+      chosen: 'PBKDF2',
+      alternatives_considered: ['scrypt', 'Argon2'],
+      rationale: 'PBKDF2 is available in Node.js crypto built-in without external dependencies',
+    },
+  ],
+  acceptance_criteria: [
+    'Encrypt/decrypt roundtrip preserves plaintext',
+    'Store file contains no plaintext credentials',
+    'All CLI commands execute with exit code 0',
+    'C3 config resolves credentials from store',
+  ],
 };
 
 const ROADMAP = {

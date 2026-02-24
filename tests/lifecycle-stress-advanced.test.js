@@ -111,7 +111,7 @@ const SPEC_V1 = {
     data_model: 'JSON file: { salt, entries: { key: { iv, ciphertext, tag } } }',
   },
   design_decisions: [
-    { id: 'DD1', decision: 'Encryption algorithm', chosen: 'AES-256-GCM', alternatives_considered: ['ChaCha20-Poly1305'], rationale: 'AES has HW acceleration on modern CPUs, GCM provides authenticated encryption' },
+    { id: 'DD1', decision: 'Encryption algorithm', chosen: 'AES-256-GCM', alternatives_considered: ['ChaCha20-Poly1305', 'XSalsa20-Poly1305'], rationale: 'AES has HW acceleration on modern CPUs, GCM provides authenticated encryption' },
     { id: 'DD2', decision: 'Key derivation', chosen: 'Argon2id', alternatives_considered: ['PBKDF2', 'scrypt'], rationale: 'Argon2id is memory-hard (resists GPU attacks), recommended by OWASP' },
     { id: 'DD3', decision: 'Storage format', chosen: 'JSON file', alternatives_considered: ['SQLite encrypted', 'Binary format'], rationale: 'JSON is human-debuggable, encryption at value level keeps structure inspectable' },
   ],
@@ -139,9 +139,9 @@ const SPEC_V1 = {
 const SPEC_V2 = {
   ...SPEC_V1,
   design_decisions: [
-    { id: 'DD1', decision: 'Encryption algorithm', chosen: 'AES-256-GCM', alternatives_considered: ['ChaCha20-Poly1305'], rationale: 'AES has HW acceleration, GCM provides authenticated encryption' },
+    { id: 'DD1', decision: 'Encryption algorithm', chosen: 'AES-256-GCM', alternatives_considered: ['ChaCha20-Poly1305', 'XSalsa20-Poly1305'], rationale: 'AES has HW acceleration, GCM provides authenticated encryption' },
     { id: 'DD2', decision: 'Key derivation', chosen: 'scrypt', alternatives_considered: ['Argon2id', 'PBKDF2'], rationale: 'User requires weak HW support — scrypt is memory-hard but has no native dependency, unlike argon2' },
-    { id: 'DD3', decision: 'Storage format', chosen: 'JSON file', alternatives_considered: ['SQLite encrypted'], rationale: 'JSON is human-debuggable' },
+    { id: 'DD3', decision: 'Storage format', chosen: 'JSON file', alternatives_considered: ['SQLite encrypted', 'Binary format'], rationale: 'JSON is human-debuggable' },
   ],
   tech_stack: {
     ...SPEC_V1.tech_stack,
@@ -551,9 +551,10 @@ main();
   };
 
   return {
-    async run(plan) {
-      const msId = plan?.milestone_id || 'ms-unknown';
-      const files = plan?.files || [];
+    async start(request, meta) {
+      const msId = meta?.milestoneId || 'ms-unknown';
+      const plan = MS_PLANS[msId] || {};
+      const files = plan.files || [];
       for (const f of files) {
         const fullPath = path.join(projectPath, f.path);
         fs.mkdirSync(path.dirname(fullPath), { recursive: true });
@@ -607,7 +608,11 @@ async function run() {
   execSync('git init', { cwd: projectPath, stdio: 'pipe' });
   execSync('git config user.email "test@test.com"', { cwd: projectPath, stdio: 'pipe' });
   execSync('git config user.name "Test"', { cwd: projectPath, stdio: 'pipe' });
-  execSync('git commit --allow-empty -m "init"', { cwd: projectPath, stdio: 'pipe' });
+  // Minimal package.json so engine's `npm test` passes during post-execution
+  fs.writeFileSync(path.join(projectPath, 'package.json'), JSON.stringify({
+    name: 'klicenka-stress-test', version: '0.0.1', scripts: { test: 'echo "ok"' },
+  }));
+  execSync('git add -A && git commit -m "init"', { cwd: projectPath, stdio: 'pipe' });
 
   // Register project + conversation
   const project = projects.getOrCreate('stress-test-klicenka', projectPath, 'Advanced stress test');
@@ -814,8 +819,8 @@ async function run() {
 
     // Verify roadmap V2 structurally differs from V1 (not just re-generated identical)
     if (rvAll.length >= 2) {
-      const rv1 = JSON.parse(rvAll[rvAll.length - 1].roadmap_json);
-      const rv2 = JSON.parse(rvAll[0].roadmap_json);
+      const rv1 = JSON.parse(rvAll[rvAll.length - 1].roadmap);
+      const rv2 = JSON.parse(rvAll[0].roadmap);
       const v1FirstMs = rv1.milestones?.[0]?.title;
       const v2FirstMs = rv2.milestones?.[0]?.title;
       check(v1FirstMs !== v2FirstMs,
@@ -909,22 +914,24 @@ async function run() {
         `before: ${totalMilestonesBeforeChange}, after: ${totalMilestonesAfterChange}`);
     }
 
-    // Continue building remaining milestones
+    // Continue building remaining milestones (handles both BUILD and BUILD_MILESTONE_REVIEW)
     let buildIter = 0;
     let currentState = getLcState(SESSION_ID);
-    while (currentState?.phase === 'BUILD' && buildIter < 20) {
+    const buildPhases = new Set(['BUILD', 'BUILD_MILESTONE_REVIEW']);
+    while (buildPhases.has(currentState?.phase) && buildIter < 20) {
       const rN = await handleLifecycleInput('ano', context);
       logTurn(`ano — build iter ${buildIter}`, rN);
       currentState = getLcState(SESSION_ID);
       buildIter++;
-      if (currentState?.phase !== 'BUILD') break;
+      if (!buildPhases.has(currentState?.phase)) break;
     }
 
     check(buildIter > 0, 'BLD.4: build iterations completed', `iterations: ${buildIter}`);
 
     const finalState = getLcState(SESSION_ID);
-    check(finalState?.phase === 'COMPLETED' || finalState?.phase === 'BUILD',
-      'BLD.5: reached COMPLETED or still building', `phase=${finalState?.phase}`);
+    const terminalPhases = new Set(['COMPLETED', 'BUILD', 'BUILD_MILESTONE_REVIEW', 'REVIEW']);
+    check(terminalPhases.has(finalState?.phase),
+      'BLD.5: reached COMPLETED, REVIEW, or still building', `phase=${finalState?.phase}`);
 
     // ═══════════════════════════════════════════════════════════════════════
     // PHASE 5: PRESSURE TEST — Product usability verification
