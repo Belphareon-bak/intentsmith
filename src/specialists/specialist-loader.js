@@ -68,6 +68,22 @@ function validateManifest(manifest) {
     errors.push('entry point is required');
   }
 
+  // D7: Validate dependencies format
+  if (manifest.dependencies) {
+    if (typeof manifest.dependencies !== 'object' || Array.isArray(manifest.dependencies)) {
+      errors.push('dependencies must be an object { id: ">=X.Y.Z" }');
+    } else {
+      for (const [depId, depVersion] of Object.entries(manifest.dependencies)) {
+        if (!ID_PATTERN.test(depId)) {
+          errors.push(`dependency id "${depId}" must match ${ID_PATTERN}`);
+        }
+        if (typeof depVersion !== 'string' || !depVersion.startsWith('>=')) {
+          errors.push(`dependency "${depId}" version must be ">=X.Y.Z" format`);
+        }
+      }
+    }
+  }
+
   return { valid: errors.length === 0, errors };
 }
 
@@ -356,6 +372,7 @@ export class SpecialistLoader {
 
   /**
    * Enable all specialists with status 'enabled' in DB.
+   * D7: Topological sort by dependencies — guarantees load order.
    * Loads index.js, calls register(), seeds knowledge.
    */
   async enableAll() {
@@ -363,9 +380,12 @@ export class SpecialistLoader {
     await this._executePendingMigrations();
 
     const enabledRows = this._stmts.listEnabled.all();
-    let count = 0;
 
-    for (const row of enabledRows) {
+    // D7: Sort by dependencies (Kahn's algorithm)
+    const sorted = this._topologicalSort(enabledRows);
+
+    let count = 0;
+    for (const row of sorted) {
       const discovered = this._discovered.get(row.id);
       if (!discovered) {
         logger.warn('SpecialistLoader', `Specialist ${row.id} enabled in DB but not found on disk`);
@@ -436,6 +456,7 @@ export class SpecialistLoader {
 
   /**
    * Enable a specific specialist by ID.
+   * D7: Checks that all dependencies are enabled first.
    */
   async enable(specialistId) {
     const row = this._stmts.getSpecialist.get(specialistId);
@@ -445,6 +466,15 @@ export class SpecialistLoader {
     const discovered = this._discovered.get(specialistId);
     if (!discovered) throw new Error(`Specialist ${specialistId} not on disk`);
 
+    // D7: Check dependencies are enabled
+    const manifest = discovered.manifest;
+    if (manifest.dependencies) {
+      const missing = this._checkDependencies(manifest.dependencies);
+      if (missing.length > 0) {
+        throw new Error(`Cannot enable ${specialistId}: missing/disabled dependencies: ${missing.join(', ')}`);
+      }
+    }
+
     await this._enableOne(specialistId, discovered);
 
     const now = new Date().toISOString();
@@ -453,12 +483,19 @@ export class SpecialistLoader {
 
   /**
    * Disable a specific specialist by ID.
+   * D7: Refuses if other specialists depend on this one.
    * Defensively cleans up ALL registrations (tools, scenarios).
    */
   disable(specialistId) {
     const row = this._stmts.getSpecialist.get(specialistId);
     if (!row) throw new Error(`Specialist not found: ${specialistId}`);
     if (row.status === 'disabled') return; // noop
+
+    // D7: Check dependents — refuse if other specialists depend on this one
+    const dependents = this.getDependents(specialistId);
+    if (dependents.length > 0) {
+      throw new Error(`Cannot disable ${specialistId}: required by: ${dependents.join(', ')}`);
+    }
 
     // Let specialist do custom cleanup
     const mod = this._modules.get(specialistId);
@@ -728,6 +765,105 @@ export class SpecialistLoader {
    */
   setScenarioRegistry(registry) {
     this._scenarioRegistry = registry;
+  }
+
+  // ─── D7: Dependency System ──────────────────────────────────────────────
+
+  /**
+   * Topological sort of specialist rows by dependencies (Kahn's algorithm).
+   * Specialists without dependencies come first.
+   * Falls back to original order if cycle detected (shouldn't happen with valid manifests).
+   * @param {Object[]} rows - DB rows with id field
+   * @returns {Object[]} sorted rows
+   */
+  _topologicalSort(rows) {
+    if (rows.length <= 1) return rows;
+
+    const rowMap = new Map(rows.map(r => [r.id, r]));
+    const inDegree = new Map(rows.map(r => [r.id, 0]));
+    const adjacency = new Map(rows.map(r => [r.id, []]));
+
+    // Build graph
+    for (const row of rows) {
+      const manifest = this._getManifestFromDiscovered(row.id);
+      if (!manifest?.dependencies) continue;
+      for (const depId of Object.keys(manifest.dependencies)) {
+        if (rowMap.has(depId)) {
+          // depId must load before row.id
+          adjacency.get(depId).push(row.id);
+          inDegree.set(row.id, (inDegree.get(row.id) || 0) + 1);
+        }
+      }
+    }
+
+    // Kahn's algorithm
+    const queue = rows.filter(r => inDegree.get(r.id) === 0).map(r => r.id);
+    const sorted = [];
+
+    while (queue.length > 0) {
+      const id = queue.shift();
+      sorted.push(rowMap.get(id));
+      for (const neighbor of (adjacency.get(id) || [])) {
+        const deg = inDegree.get(neighbor) - 1;
+        inDegree.set(neighbor, deg);
+        if (deg === 0) queue.push(neighbor);
+      }
+    }
+
+    if (sorted.length < rows.length) {
+      logger.warn('SpecialistLoader', 'Dependency cycle detected — using original order');
+      return rows;
+    }
+
+    return sorted;
+  }
+
+  /**
+   * Check that all dependencies are installed and enabled.
+   * @param {Object} dependencies - { specialistId: ">=X.Y.Z" }
+   * @returns {string[]} missing or disabled dependency IDs
+   */
+  _checkDependencies(dependencies) {
+    const missing = [];
+    for (const [depId, depVersion] of Object.entries(dependencies)) {
+      const row = this._stmts.getSpecialist.get(depId);
+      if (!row) {
+        missing.push(`${depId} (not installed)`);
+        continue;
+      }
+      if (row.status !== 'enabled') {
+        missing.push(`${depId} (${row.status})`);
+        continue;
+      }
+      // Version check (reuse checkEngineCompat)
+      const compat = checkEngineCompat(depVersion, row.version);
+      if (!compat.compatible) {
+        missing.push(`${depId} (requires ${depVersion}, installed ${row.version})`);
+      }
+    }
+    return missing;
+  }
+
+  /**
+   * Get list of specialist IDs that depend on this specialist.
+   * @param {string} specialistId
+   * @returns {string[]} dependent specialist IDs
+   */
+  getDependents(specialistId) {
+    const result = [];
+    const installed = this._stmts.listAll.all();
+    for (const row of installed) {
+      if (row.id === specialistId) continue;
+      try {
+        const manifest = JSON.parse(row.manifest_json);
+        if (manifest.dependencies && specialistId in manifest.dependencies) {
+          result.push(row.id);
+        }
+      } catch {
+        // Invalid manifest — skip
+      }
+    }
+    return result;
   }
 
   // ─── Query ──────────────────────────────────────────────────────────────

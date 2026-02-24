@@ -23,6 +23,7 @@ import {
 import { generateRoadmap as generateRoadmapPrompt } from './lifecycle-prompts.js';
 import { validateMilestoneSize, suggestMilestoneSplit } from './milestone-size.js';
 import { ProjectPhase } from './lifecycle.js';
+import { logRoadmapScore } from './quality-telemetry.js';
 
 // ─── PLANNING Phase Operations ───────────────────────────────────────────────
 
@@ -111,6 +112,9 @@ export async function generateRoadmap(lifecycle) {
 
   // Write ROADMAP.md to disk (after milestones are in DB)
   await writeRoadmapFile(lifecycle.projectPath, lifecycle.id);
+
+  // Quality telemetry — observational, never blocks
+  logRoadmapScore(lifecycle.id, roadmap, newVersion);
 
   logger.info('LifecyclePlanning', `Roadmap v${newVersion} created`, {
     lifecycleId: lifecycle.id,

@@ -334,6 +334,8 @@ class SpecialistRuntime {
     this._executingCount = new Map();
     /** @type {SessionParamCache} session context for conversational follow-ups */
     this._sessionCache = new SessionParamCache();
+    /** @type {import('./specialist-memory.js').SpecialistMemory|null} D4: persistent context */
+    this._memory = null;
   }
 
   /**
@@ -373,6 +375,14 @@ class SpecialistRuntime {
   }
 
   /**
+   * D4: Set persistent memory store for cross-session context.
+   * @param {import('./specialist-memory.js').SpecialistMemory} memory
+   */
+  setMemory(memory) {
+    this._memory = memory;
+  }
+
+  /**
    * Check if an expert has specialist capabilities.
    */
   isSpecialist(expertiseId) {
@@ -388,10 +398,10 @@ class SpecialistRuntime {
    *
    * @param {string} expertiseId - Expert ID
    * @param {string} input - User message
-   * @param {{ sessionId?: string }} [options={}] - Session context options
+   * @param {{ sessionId?: string, conversationId?: string }} [options={}] - Session context options
    * @returns {Promise<{ toolType: string, result: any, params: Object } | null>}
    */
-  async tryToolExecution(expertiseId, input, { sessionId } = {}) {
+  async tryToolExecution(expertiseId, input, { sessionId, conversationId } = {}) {
     const specialist = this.registry.getSpecialist(expertiseId);
     if (!specialist) return null;
 
@@ -464,6 +474,15 @@ class SpecialistRuntime {
       // v76: Cache params on success for next turn
       if (sessionId) {
         this._sessionCache.save(sessionId, expertiseId, match.tool.id, match.params);
+      }
+
+      // D4: Process explicit memoryWrites from tool result (opt-in)
+      if (conversationId && this._memory && execResult.result?.memoryWrites) {
+        try {
+          this._memory.processWrites(expertiseId, conversationId, execResult.result.memoryWrites);
+        } catch (err) {
+          logger.warn('SpecialistRuntime', `Memory write failed: ${err.message}`);
+        }
       }
 
       return {

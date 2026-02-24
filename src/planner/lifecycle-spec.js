@@ -12,6 +12,7 @@ import { callLLM, parseJSON } from './workflow.js';
 import { lifecycles as lifecycleRepo } from '../db/database.js';
 import { specAnalyze, specDocument } from './lifecycle-prompts.js';
 import { ProjectPhase } from './lifecycle.js';
+import { logSpecScore } from './quality-telemetry.js';
 
 // ─── Spec Validation ─────────────────────────────────────────────────────────
 
@@ -238,6 +239,9 @@ export async function approveSpec(lifecycle) {
   if (!validation.valid) {
     throw new Error(`Cannot approve invalid spec: ${validation.errors.join(', ')}`);
   }
+
+  // Quality telemetry — observational, never blocks
+  logSpecScore(lifecycle.id, spec);
 
   await lifecycle.transitionTo(ProjectPhase.PLANNING);
   logger.info('LifecycleSpec', 'Spec approved, transitioning to PLANNING', {

@@ -70,6 +70,8 @@ export async function expertiseHandler(input, context) {
 
   // v63.3: ExecutionTrace ID — one UUID per user turn, shared across all audit layers
   const executionTraceId = randomUUID();
+  // v79: Propagate via context so generateExpertiseResponse can access it
+  context.executionTraceId = executionTraceId;
 
   // ════════════════════════════════════════════════════════════════════════════
   // CASE 0: Multiple expertises active — delegate to merge handler
@@ -129,6 +131,7 @@ export async function expertiseHandler(input, context) {
         try {
           const toolResult = await specialistRuntime.tryToolExecution(expertise.id, input, {
             sessionId: context.sessionId,
+            conversationId: context.conversationId || context.sessionId,
           });
 
           if (toolResult) {
@@ -222,13 +225,17 @@ export async function expertiseHandler(input, context) {
  */
 async function generateExpertiseResponse(input, expertise, context) {
   const { sessionId } = context;
+  // v79: executionTraceId propagated via context from expertiseHandler
+  const executionTraceId = context.executionTraceId || null;
 
   try {
     // Lazy import CRE bridge for LLM calls
     const creBridge = await import('../../llm/cre-bridge.js');
 
     // v57.0 - Build expert system prompt with synthesis hints
-    const expertiseSystemPrompt = await buildExpertiseSystemPrompt(expertise);
+    // D4: Pass conversationId for specialist memory injection
+    const conversationId = context.conversationId || sessionId;
+    const expertiseSystemPrompt = await buildExpertiseSystemPrompt(expertise, conversationId);
 
     // Build prompt with context
     let prompt = input;
@@ -442,7 +449,8 @@ async function generateExpertiseResponse(input, expertise, context) {
 async function wrapWithExpertisePersona(input, toolResult, expertise, context) {
   try {
     const creBridge = await import('../../llm/cre-bridge.js');
-    const expertiseSystemPrompt = await buildExpertiseSystemPrompt(expertise);
+    const wrapConvId = context.conversationId || context.sessionId;
+    const expertiseSystemPrompt = await buildExpertiseSystemPrompt(expertise, wrapConvId);
 
     // Build prompt that includes tool results
     const toolContent = toolResult.content || '';
@@ -499,9 +507,12 @@ Based on these results, provide your expert analysis and response.`;
 /**
  * v57.0 - Build expert system prompt based on expert profile
  * D-int3: Now async — injects memory context for {{ memory_context }} placeholder
+ * D4: Injects specialist memory context for cross-session recall
  * Uses expertise.getSynthesisHints() for style guidance
+ * @param {Object} expertise
+ * @param {string} [conversationId] - D4: for specialist memory context injection
  */
-async function buildExpertiseSystemPrompt(expertise) {
+async function buildExpertiseSystemPrompt(expertise, conversationId) {
   const basePrompt = `You are ${expertise.name}, an expert in ${expertise.domain || 'technology'}.
 
 Your expertise includes: ${expertise.description || expertise.domain || 'general software development'}
@@ -561,6 +572,20 @@ IMPORTANT RULES:
     } catch (err) {
       logger.warn('ExpertHandler', `Failed to inject memory context: ${err.message}`);
       fullPrompt = fullPrompt.replace('{{ memory_context }}', 'Paměťový kontext nedostupný.');
+    }
+  }
+
+  // D4: Inject specialist memory context (cross-session persistent data)
+  if (conversationId && expertise.styleRules?.toolEnforcement) {
+    try {
+      const { getSpecialistMemory } = await import('../../expertises/specialist-memory.js');
+      const memory = getSpecialistMemory();
+      const memoryContext = memory.getContext(expertise.id, conversationId);
+      if (memoryContext) {
+        fullPrompt += `\n\nSPECIALIST MEMORY:\n${memoryContext}`;
+      }
+    } catch {
+      // Memory not initialized or table doesn't exist — skip silently
     }
   }
 

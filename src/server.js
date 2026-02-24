@@ -127,11 +127,15 @@ if (getExpertiseStore) expertiseStore = getExpertiseStore(db);
 // v74.0: Specialist Loader — discover, install, enable specialist packages
 import { getSpecialistLoader } from './specialists/specialist-loader.js';
 import { specialistRuntime } from './expertises/specialist-runtime.js';
+import { getSpecialistMemory } from './expertises/specialist-memory.js';
 let specialistLoader = null;
 try {
   specialistLoader = getSpecialistLoader(db.db, specialistRuntime);
   await specialistLoader.boot();
   logger.info('Server', `Specialists: ${specialistLoader.getEnabled().length} enabled`);
+  // D4: Initialize persistent specialist memory
+  const specialistMemory = getSpecialistMemory(db.db);
+  specialistRuntime.setMemory(specialistMemory);
 } catch (err) {
   logger.warn('Server', `Specialist loader: ${err.message}`);
 }

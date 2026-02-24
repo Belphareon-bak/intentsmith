@@ -29,6 +29,7 @@ import {
 } from './lifecycle-prompts.js';
 import { validateDependencies, writeRoadmapFile } from './lifecycle-planning.js';
 import { ProjectPhase } from './lifecycle.js';
+import { logChangeScore } from './quality-telemetry.js';
 
 // ─── Propose Change ──────────────────────────────────────────────────────────
 
@@ -88,6 +89,9 @@ export async function proposeChange(lifecycle, description) {
     analysis.impact?.milestones_to_add ? JSON.stringify(analysis) : null,
     crId
   );
+
+  // Quality telemetry — observational, never blocks
+  logChangeScore(lifecycle.id, analysis, crId);
 
   return {
     changeRequestId: crId,

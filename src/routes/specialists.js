@@ -145,16 +145,7 @@ export function createSpecialistRoutes(deps) {
       }
 
       try {
-        // D7: Check dependents before disabling
-        const dependents = getDependents(id);
-        if (dependents.length > 0) {
-          return sendJSON(res, 409, {
-            ok: false,
-            error: `Cannot disable ${id}: other specialists depend on it`,
-            dependents,
-          });
-        }
-
+        // D7: Loader.disable() checks dependents and throws if any exist
         specialistLoader.disable(id);
         sendJSON(res, 200, { ok: true, status: 'disabled' });
       } catch (err) {
@@ -256,22 +247,4 @@ export function createSpecialistRoutes(deps) {
       }
     },
   };
-
-  // ─── D7 Helper: Find specialists that depend on this one ────────────
-  function getDependents(specialistId) {
-    const result = [];
-    const installed = specialistLoader.getInstalled();
-    for (const row of installed) {
-      if (row.id === specialistId) continue;
-      try {
-        const manifest = JSON.parse(row.manifest_json);
-        if (manifest.dependencies && specialistId in manifest.dependencies) {
-          result.push(row.id);
-        }
-      } catch {
-        // Invalid manifest — skip
-      }
-    }
-    return result;
-  }
 }

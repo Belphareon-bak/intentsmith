@@ -65,6 +65,7 @@ export function createChatRoutes(deps) {
         const result = await ChatController.handle({
           message,
           sessionId,
+          expertise: body.expertise || undefined,  // v79: forward expertise for E2E testing
           userId: null,
           signal: abortController.signal,  // v63.0: propagate cancel signal
           context: {

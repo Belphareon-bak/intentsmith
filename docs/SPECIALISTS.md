@@ -1,6 +1,6 @@
 # C.3 Specialists
 
-**Verze:** v74.0 (2026-02-22)
+**Verze:** v79.0 (2026-02-24)
 
 Viz take: [SPECIALIST-LIFECYCLE.md](SPECIALIST-LIFECYCLE.md) | [EXPERTISES.md](EXPERTISES.md) | [WORKERS.md](WORKERS.md)
 
@@ -169,9 +169,11 @@ Formatuje strukturovany log entry s timestampem, levelem, source.
 | isSpecialistBusy guard | HOTOVO | v74 | 35 |
 | Stress test (200 cycles) | HOTOVO | v74 | 16 |
 | Cross-contamination stress (50 alternating cycles) | HOTOVO | v74 | 25 |
-| **REST API endpoints** | **CHYBI** | — | — |
+| REST API (7 endpoints) | HOTOVO | v79 | — |
+| Dependency system (minimal: topo sort, enable/disable guard) | HOTOVO | v79 | — |
+| Specialist Memory (persistent context, memoryWrites) | HOTOVO | v79 | — |
+| Scenario Branching (branchIf) | HOTOVO | v79 | — |
 | **Uninstall (purge)** | **CHYBI** | — | — |
-| **Dependency system** | **CHYBI** | — | — |
 | **Remote registry** | **CHYBI** | — | — |
 
 ## Accountant-cz
@@ -201,13 +203,13 @@ multi-specialist, update, rollback, stress tests
 
 # Budouci specialiste
 
-### Strategicka krizavatka (po rollback-ready)
+### Strategicka krizavatka (po v79)
 
 | Smer | Priorita | Popis |
 |------|----------|-------|
-| Dependency system | P1 | Specialist zavislosti, load order, capability sharing |
-| REST API | P1 | Enable/disable/update z IDE |
-| Remote registry | P2 | Git-based distribution, marketplace |
+| Multi-specialist routing (D5) | P1 | Scoring, priority, conflict resolution |
+| Remote registry (D9) | P2 | Git-based distribution, marketplace |
+| Uninstall (purge) | P2 | Full cleanup vcetne DB tables |
 | Novi specialiste | P2 | Viz nize |
 
 ### Planovani specialiste
@@ -220,5 +222,5 @@ multi-specialist, update, rollback, stress tests
 
 ---
 
-*Aktualizovano: 2026-02-22*
-*Engine: c3-agent v65.5.0*
+*Aktualizovano: 2026-02-24*
+*Engine: c3-agent v79.0.0*

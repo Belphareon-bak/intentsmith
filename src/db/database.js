@@ -1357,6 +1357,56 @@ export const creOverrideLog = {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
+// v80 QUALITY SCORES TELEMETRY
+// ════════════════════════════════════════════════════════════════════════════
+
+export const qualityScores = {
+  insert: db.prepare(`
+    INSERT INTO quality_scores (lifecycle_id, artifact_type, artifact_version, score, label, breakdown)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `),
+
+  findByLifecycle: db.prepare(`
+    SELECT * FROM quality_scores WHERE lifecycle_id = ? ORDER BY created_at DESC
+  `),
+
+  findByType: db.prepare(`
+    SELECT * FROM quality_scores WHERE lifecycle_id = ? AND artifact_type = ? ORDER BY created_at DESC
+  `),
+
+  findLatest: db.prepare(`
+    SELECT * FROM quality_scores WHERE lifecycle_id = ? AND artifact_type = ? ORDER BY created_at DESC LIMIT 1
+  `),
+
+  log(lifecycleId, artifactType, version, score, label, breakdown) {
+    const breakdownStr = typeof breakdown === 'string' ? breakdown : JSON.stringify(breakdown);
+    this.insert.run(lifecycleId, artifactType, version, score, label, breakdownStr);
+  },
+
+  getHistory(lifecycleId) {
+    return this.findByLifecycle.all(lifecycleId).map(parseQualityScoreJSON);
+  },
+
+  getByType(lifecycleId, artifactType) {
+    return this.findByType.all(lifecycleId, artifactType).map(parseQualityScoreJSON);
+  },
+
+  getLatest(lifecycleId, artifactType) {
+    const row = this.findLatest.get(lifecycleId, artifactType);
+    if (!row) return null;
+    return parseQualityScoreJSON(row);
+  },
+};
+
+function parseQualityScoreJSON(row) {
+  const parsed = { ...row };
+  if (parsed.breakdown && typeof parsed.breakdown === 'string') {
+    try { parsed.breakdown = JSON.parse(parsed.breakdown); } catch { /* keep string */ }
+  }
+  return parsed;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // UTILITIES
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -1406,6 +1456,8 @@ export default {
   // v64.0 CRE Gatekeeper
   creOverrideLog,
   lifecycleHandoffState,
+  // v80 Quality Scores
+  qualityScores,
   transaction,
   close,
 };

@@ -57,13 +57,14 @@ Installer, licence, auto-update, setup wizard.
 - B9: Agent Builder Wizard — FE wizard (simple + advanced), BE schema endpoint
 - Notifikační pipeline: Email, Telegram, ntfy/push, rate limiting, digest, trust tracker
 
-### Pilíř 4: SPECIALISTÉ — 80% ✅ (upgrade z 65%)
+### Pilíř 4: SPECIALISTÉ — 90% ✅ (upgrade z 80%)
 Expertise layer (15 expertises) + accountant specialist + 5D capability system + merge engine v2 + ledger.
 - v65.8: D1-D3 Specialist Runtime, Knowledge Base, Scenario Engine ✅
 - v69: Expert→Expertise rename (soft DB migration, backward compat) ✅
 - v69-v74: **Ledger system** — české daně, DPH, pojištění, compliance (218 testů) ✅
 - v74: **Specialist Platform** — SpecialistLoader, specialist-runtime, tool-adapter ✅
-- Zbývá: D4-D9 (specialist memory, multi-specialist routing, advanced scenarios)
+- v79: **D4+D6+D7+D8** — REST API, dependencies, scenario branching, specialist memory ✅
+- Zbývá: D5 (multi-specialist routing), D9 (marketplace)
 
 ### Pilíř 5: IDE — 73% ✅
 Theia 1.65.2, 33 custom extensions, fungující build (lib/ + src-gen/).
@@ -101,6 +102,7 @@ Theia 1.65.2, 33 custom extensions, fungující build (lib/ + src-gen/).
 | v72.0 | **Conversation hardening** — EN locale fix, CRE drift guard, 350 conv testů |
 | v74.0 | **Specialist Platform** — SpecialistLoader, specialist discovery, tool adapter |
 | v78.0 | **Project cleanup** — legacy code removal, doc updates, stale file cleanup |
+| v79.0 | **D4-D8: Specialist Advanced** — REST API, dependencies, memory, scenario branching |
 
 ---
 

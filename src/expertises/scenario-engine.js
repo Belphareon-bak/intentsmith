@@ -42,6 +42,7 @@ export const ScenarioPhase = Object.freeze({
  * @property {Function} [validate] - (value) => boolean
  * @property {string} [errorMessage] - Shown on validation failure
  * @property {Function} [skipIf]   - (collected) => boolean — skip this step
+ * @property {Function} [branchIf] - (collected) => boolean — show ONLY if true (pure, no side-effects)
  * @property {*} [default]         - Default value (or function returning default)
  */
 
@@ -470,6 +471,15 @@ export class ScenarioRunner {
     for (let i = state.currentStepIndex; i < scenario.steps.length; i++) {
       const step = scenario.steps[i];
       if (state.completedSteps.includes(step.id)) continue;
+      // D6: branchIf — show step ONLY if condition is true (inverse of skipIf)
+      // Must be a pure function without side-effects.
+      if (step.branchIf && !step.branchIf(state.collected)) {
+        if (step.default != null) {
+          state.collected[step.id] = typeof step.default === 'function' ? step.default() : step.default;
+        }
+        state.completedSteps.push(step.id);
+        continue;
+      }
       if (step.skipIf && step.skipIf(state.collected)) {
         // Apply default for skipped steps
         if (step.default != null) {
