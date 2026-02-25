@@ -1,7 +1,7 @@
 # CLAUDE.md - C.3 Agent Development Context
 
-**Verze:** v65.8
-**Datum:** 2026-02-19
+**Verze:** v81.0.0
+**Datum:** 2026-02-25
 **Projekt:** ~/Projects/c3-agent-wip
 
 ---
@@ -17,9 +17,12 @@ C.3 Agent je plne funkcni conversational AI platforma s:
 - **Project Lifecycle** — milnikove rizeni projektu s crash recovery + **project context injection (v65.4)** + **lifecycle session routing fix (v65.6)** + **real LLM E2E test (v65.7)**
 - **Product Modules** (v65.7) — Setup Wizard (first-run + API), Auto-updater (background checker), License system (3 tiers + feature gates)
 - **C3 Studio IDE** — Theia 1.65.2, custom panely, linked sessions, expertise wizard, agent builder wizard
+- **Resilience Layer** (v72) — ToolExecutor s circuit breaker (per-session), auto-retry, partial failure, AbortController cancel
+- **Telemetry** (v81) — TurnTelemetry per-turn data collector, SQLite persistence (telemetry_snapshots), startup retention pruning (30d)
+- **Quality Score** (v80) — deterministicky scoring engine (spec, roadmap, change, lifecycle aggregate), DB logging, trend queries
 - **WebSocket Bridge** — IDE ↔ Backend WS bridge s feature negotiation, session routing, file watcher
 
-### Branch: `master`
+### Branch: `rename-expert-to-expertise`
 
 ### Zdrojovy kod
 
@@ -31,11 +34,12 @@ C.3 Agent je plne funkcni conversational AI platforma s:
 | src/planner/ | 4,754 | 13 | Project lifecycle (workflow, build, milestones) |
 | src/ui/ | 4,552 | 2 | Web UI (architect.js) |
 | src/architect/ | 4,002 | 13 | Code generation pipeline |
-| src/executor/ | 3,438 | 8 | Tool execution (circuit breaker, shell security) |
+| src/executor/ | 3,438 | 8 | Tool execution (circuit breaker, auto-retry, partial failure) |
+| src/telemetry/ | 200+ | 1 | TurnTelemetry (per-turn resilience data collector) |
 | src/notifications/ | 2,956 | 16 | Notification pipeline (email, telegram, ntfy, trust) |
-| src/routes/ | 2,899 | 7 | HTTP API routes |
+| src/routes/ | 3,200+ | 8 | HTTP API routes (incl. quality, specialists) |
 | src/llm/ | 2,722 | 6 | LLM gateway, Ollama client, web search |
-| src/db/ | 2,056 | 7 | Database, migrations, schema |
+| src/db/ | 2,500+ | 22 | Database, 18 migrations, telemetry retention |
 | src/memory/ | 1,360 | 3 | Long-term memory, preferences |
 | src/domains/ | 1,179 | 7 | Domain recipes (CI/CD, monitoring, infra) |
 | src/ws-bridge/ | 913 | 5 | WebSocket bridge (IDE transport) |
@@ -46,7 +50,7 @@ C.3 Agent je plne funkcni conversational AI platforma s:
 
 ### Database
 
-57 tabulek (vcetne FTS + knowledge base), 7 migraci, prepared statements.
+58 tabulek (vcetne FTS + knowledge base + telemetry_snapshots), 18 migraci, prepared statements.
 
 ### Testovaci pokryti
 
@@ -71,11 +75,16 @@ C.3 Agent je plne funkcni conversational AI platforma s:
 | Scenario Engine | 42 | pass |
 | Accountant Tools | 81 | pass |
 | Tool Enforcement | 41 | pass |
+| E2E Resilience | 31 | pass |
+| Telemetry | 31 | pass |
+| Telemetry Soak (1000 turns) | 13 | pass |
+| Quality Score | 36 | pass |
+| Quality Telemetry | 34 | pass |
 | Expertise A/B (A7) | 5 (LLM) | pass (5/5 win/tie) |
 | Lifecycle Real LLM (C3) | 10 (LLM) | pass |
 | E2E Quality Deep | 36 (LLM) | 89-97% |
 | Chat Quality | 33 (LLM) | 32/33 |
-| **Deterministicke celkem** | **~1500+** | **pass** |
+| **Deterministicke celkem** | **~2100+** | **pass** |
 
 ### E2E Quality Deep — aktualni stav (2026-02-19)
 
@@ -275,18 +284,23 @@ src/routes/agents.js              # Agent routes — CRUD, dry-run, schema
 src/routes/planner.js             # Planner routes — /api/planner, /api/build
 src/routes/architect.js           # Architect routes — /api/architect
 src/routes/misc.js                # Misc routes — /api/health, /api/logs, /api/reset
+src/routes/specialists.js         # Specialist routes — CRUD, enable/disable, dependents
+src/routes/quality.js             # Quality routes — /api/quality/summary, /api/quality/project/:id
 ```
 
 ### Database
 ```
-src/db/database.js                # SQLite schema (~1328 radku), 54 tabulek (vcetne FTS)
+src/db/database.js                # SQLite schema (~1500 radku), 58 tabulek (vcetne FTS)
 src/db/migrate.js                 # Migration runner — runMigrations(), getCurrentVersion()
-src/db/migrations/                # 5 migracnich souboru (timestamp-based)
+src/db/telemetry-retention.js     # Startup pruning — pruneTelemetry(db, {maxAgeDays:30})
+src/db/migrations/                # 18 migracnich souboru (timestamp-based, v63 → v81)
   # 001_baseline — core tables (projects, conversations, messages, agents, expertises...)
-  # 002_v57 — agent_seen_items_v57, notification_trust_actions_v57
-  # 003_v63 — conversation_expertises, merge_audit_log, capability_drift_log, llm_execution_log
-  # 004_v63_3 — execution_trace_id columns, execution_step, prompt_hash
-  # 005_v64 — cre_override_log (Gatekeeper audit trail)
+  # 002-005 — v57-v64 (agent_seen_items, execution_trace, cre_override_log)
+  # 006-009 — v67-v69 (auto_compact, knowledge_base, ledger, expert_to_expertise rename)
+  # 010-012 — v70-v74 (period_locks, vat_engine, compliance, specialists)
+  # 013-015 — v78-v79 (archive_status, drop_old_expert_tables, specialist_memory)
+  # 016 — v80 quality_scores
+  # 017 — v81 telemetry_snapshots
 ```
 
 ### WebSocket Bridge
@@ -319,7 +333,7 @@ c3-ide/docs/C3-STUDIO-ROADMAP.md # 5-phase integration roadmap
 
 ### Testy
 ```
-# Deterministicke unit testy (bez Ollama) — 91 souborů, 41,480 radku
+# Deterministicke unit testy (bez Ollama) — 87+ souboru, ~2100+ testu
 tests/cre-comprehensive.test.js      # 401 — CRE klasifikace
 tests/quality-sprint-q.test.js       # 125 — Quality pipeline
 tests/v583-tier1.test.js             # 94 — CRE regression
@@ -331,6 +345,12 @@ tests/chat-pipeline.test.js          # 52 — Chat pipeline
 tests/chat-output-quality.test.js    # 45 — Output quality
 tests/cre-gatekeeper.test.js         # 43 — CRE Gatekeeper audit trail
 tests/lifecycle.test.js              # 103 — Lifecycle unit
+tests/e2e-resilience.test.js         # 31 — Tool timeout, partial failure, circuit breaker, cancel
+tests/telemetry.test.js              # 31 — TurnTelemetry (snapshot, finalize, safety)
+tests/telemetry-soak.test.js         # 13 — 1000-turn soak test (timing, distribution, outliers)
+tests/quality-score.test.js          # 36 — Deterministicky quality scoring
+tests/quality-telemetry.test.js      # 34 — Quality DB logging + queries
+tests/quality-report.test.js         # Quality report generation
 tests/modules.test.js                # 23 — Module imports
 
 # E2E testy (vyzaduji Ollama + GPU)
@@ -362,18 +382,18 @@ node src/server.js
 
 ### Testy
 ```bash
-# Vsechny deterministicke (789+ testu)
-node tests/modules.test.js
-node tests/chat-fixes.test.js
-node tests/chat-pipeline.test.js
-node tests/cre-gatekeeper.test.js
-node tests/chat-output-quality.test.js
-node tests/v583-tier1.test.js
-node tests/quality-sprint-q.test.js
-node tests/fixes-v582.test.js
-node tests/lifecycle.test.js
-node tests/lifecycle-handoff.test.js
-node tests/lifecycle-db.test.js
+# Vsechny deterministicke (~2100+ testu)
+npm test                              # Core suites
+npm run test:all                      # Full suite
+
+# Resilience + Telemetry (75 testu)
+node tests/e2e-resilience.test.js     # 31 — circuit breaker, retry, cancel
+node tests/telemetry.test.js          # 31 — TurnTelemetry unit
+C3_LOG_LEVEL=error node tests/telemetry-soak.test.js  # 13 — 1000-turn soak
+
+# Quality Score (70 testu)
+node tests/quality-score.test.js      # 36
+node tests/quality-telemetry.test.js  # 34
 
 # E2E (vyzaduje Ollama + GPU)
 node tests/e2e-quality-deep.cjs      # ~32-35/36 (89-97%), LLM-dependent
@@ -564,8 +584,8 @@ Kazdy override logovan do `cre_override_log` tabulky.
 5. **Merge engine nedotykej** — `merge-engine.js` je cista funkce, zmeny jen v handleru
 6. **Node.js 22+** — system node 18 nestaci, pouzij nvm: `export PATH="$HOME/.nvm/versions/node/v22.21.1/bin:$PATH"`
 7. **E2E testy** — `e2e-quality-deep.cjs` je LLM-dependent, ocekavej 89-97% pass rate (ne 100%)
-8. **package.json verze** — `"version": "65.5.0"` v package.json
+8. **package.json verze** — `"version": "78.0.0"` v package.json (hlavni cislování sleduje ROADMAP)
 
 ---
 
-*Posledni aktualizace: v65.7 (2026-02-19)*
+*Posledni aktualizace: v81.0.0 (2026-02-25)*
