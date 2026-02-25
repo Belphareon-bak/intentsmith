@@ -9,6 +9,7 @@ const TELEMETRY_TABLES = [
   'llm_execution_log',
   'quality_scores',
   'capability_drift_log',
+  'specialist_telemetry',  // v82
 ];
 
 const ROW_COUNT_WARNING_THRESHOLD = 200_000;

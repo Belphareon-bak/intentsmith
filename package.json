@@ -1,8 +1,8 @@
 {
   "name": "c3-agent",
-  "version": "78.0.0",
+  "version": "82.0.0",
   "type": "module",
-  "description": "C.3 Agent v78 — CRE + QGv2 + Expertise Merge Engine + Specialist Platform + Ledger + Theia IDE",
+  "description": "C.3 Agent v82 — CRE + QGv2 + Expertise Merge Engine + Specialist Platform + Ledger + Specialist Telemetry + Theia IDE",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

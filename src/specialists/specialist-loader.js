@@ -142,6 +142,9 @@ export class SpecialistLoader {
     /** @type {Set<string>} specialists needing ESM cache bust on next enable */
     this._needsCacheBust = new Set();
 
+    /** @type {import('../telemetry/specialist-telemetry.js').SpecialistTelemetry|null} v82: passive telemetry */
+    this._telemetry = options.telemetry || null;
+
     this._prepareStatements();
   }
 
@@ -479,6 +482,9 @@ export class SpecialistLoader {
 
     const now = new Date().toISOString();
     this._stmts.updateStatus.run('enabled', now, null, specialistId);
+
+    // v82: Telemetry
+    this._telemetry?.record('lifecycle.enable', { specialistId });
   }
 
   /**
@@ -524,6 +530,9 @@ export class SpecialistLoader {
     const now = new Date().toISOString();
     this._stmts.updateStatus.run('disabled', null, now, specialistId);
     logger.info('SpecialistLoader', `Disabled: ${specialistId}`);
+
+    // v82: Telemetry
+    this._telemetry?.record('lifecycle.disable', { specialistId });
   }
 
   // ─── Update Flow ──────────────────────────────────────────────────────
@@ -943,6 +952,7 @@ export class SpecialistLoader {
    * Single call for server.js integration.
    */
   async boot() {
+    const startTime = Date.now();
     this.discoverAll();
     this.installPending();
     await this.enableAll();
@@ -954,6 +964,12 @@ export class SpecialistLoader {
         logger.warn('SpecialistLoader', `Integrity: ${issue}`);
       }
     }
+
+    // v82: Telemetry — passive, never throws
+    this._telemetry?.record('lifecycle.boot', {
+      durationMs: Date.now() - startTime,
+      metadata: { enabled: this.getEnabled().length, total: this.getInstalled().length },
+    });
   }
 }
 

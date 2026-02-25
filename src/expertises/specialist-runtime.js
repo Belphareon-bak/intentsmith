@@ -336,6 +336,8 @@ class SpecialistRuntime {
     this._sessionCache = new SessionParamCache();
     /** @type {import('./specialist-memory.js').SpecialistMemory|null} D4: persistent context */
     this._memory = null;
+    /** @type {import('../telemetry/specialist-telemetry.js').SpecialistTelemetry|null} v82: passive telemetry */
+    this._telemetry = null;
   }
 
   /**
@@ -380,6 +382,14 @@ class SpecialistRuntime {
    */
   setMemory(memory) {
     this._memory = memory;
+  }
+
+  /**
+   * v82: Set passive telemetry for execution observability.
+   * @param {import('../telemetry/specialist-telemetry.js').SpecialistTelemetry} telemetry
+   */
+  setTelemetry(telemetry) {
+    this._telemetry = telemetry;
   }
 
   /**
@@ -450,6 +460,13 @@ class SpecialistRuntime {
       contextual: isContextual,
     });
 
+    // v82: Telemetry — tool pattern matched
+    this._telemetry?.record('tool.match', {
+      specialistId: expertiseId,
+      toolId: match.tool.id,
+      metadata: { contextual: isContextual },
+    });
+
     // Track execution for busy guard
     this._executingCount.set(expertiseId, (this._executingCount.get(expertiseId) || 0) + 1);
     try {
@@ -458,6 +475,12 @@ class SpecialistRuntime {
       // v75: Clarification — tool matched but needs more params
       if (execResult.status === 'clarify') {
         logger.info('SpecialistRuntime', `Tool ${match.tool.id} needs clarification: ${execResult.missingParams.join(', ')}`);
+        // v82: Telemetry — clarification needed
+        this._telemetry?.record('tool.clarify', {
+          specialistId: expertiseId,
+          toolId: match.tool.id,
+          metadata: { missingParams: execResult.missingParams },
+        });
         return {
           status: 'clarify',
           toolType: execResult.toolType,
@@ -468,6 +491,12 @@ class SpecialistRuntime {
 
       if (!execResult.success) {
         logger.warn('SpecialistRuntime', `Tool ${match.tool.id} failed: ${execResult.error}`);
+        // v82: Telemetry — tool execution failed
+        this._telemetry?.record('tool.fail', {
+          specialistId: expertiseId,
+          toolId: match.tool.id,
+          metadata: { error: execResult.error?.slice?.(0, 200) },
+        });
         return null; // Fall back to LLM
       }
 
@@ -484,6 +513,13 @@ class SpecialistRuntime {
           logger.warn('SpecialistRuntime', `Memory write failed: ${err.message}`);
         }
       }
+
+      // v82: Telemetry — tool execution succeeded
+      this._telemetry?.record('tool.success', {
+        specialistId: expertiseId,
+        toolId: match.tool.id,
+        durationMs: execResult.duration,
+      });
 
       return {
         toolType: execResult.toolType,

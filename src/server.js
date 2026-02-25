@@ -133,14 +133,23 @@ if (getExpertiseStore) expertiseStore = getExpertiseStore(db);
 import { getSpecialistLoader } from './specialists/specialist-loader.js';
 import { specialistRuntime } from './expertises/specialist-runtime.js';
 import { getSpecialistMemory } from './expertises/specialist-memory.js';
+// v82: Specialist telemetry — init BEFORE loader.boot() to capture lifecycle events
+import { getSpecialistTelemetry } from './telemetry/specialist-telemetry.js';
 let specialistLoader = null;
+let specialistTelemetry = null;
 try {
-  specialistLoader = getSpecialistLoader(db.db, specialistRuntime);
+  // v82: Telemetry init first — must exist before boot() fires lifecycle.boot
+  if (config.features.specialistTelemetry) {
+    specialistTelemetry = getSpecialistTelemetry(db.db);
+    specialistRuntime.setTelemetry(specialistTelemetry);
+  }
+  specialistLoader = getSpecialistLoader(db.db, specialistRuntime, { telemetry: specialistTelemetry });
   await specialistLoader.boot();
   logger.info('Server', `Specialists: ${specialistLoader.getEnabled().length} enabled`);
   // D4: Initialize persistent specialist memory
   const specialistMemory = getSpecialistMemory(db.db);
   specialistRuntime.setMemory(specialistMemory);
+  if (specialistTelemetry) specialistMemory.setTelemetry(specialistTelemetry);
 } catch (err) {
   logger.warn('Server', `Specialist loader: ${err.message}`);
 }
@@ -470,7 +479,7 @@ const routeDeps = {
   getArchitectSession, setArchitectSession, getArchitectUIHTML,
   createMockResponse, agentRoutes, agentRunner,
   checkWizardRateLimit,
-  specialistLoader, specialistRuntime,
+  specialistLoader, specialistRuntime, specialistTelemetry,
 };
 
 const routes = {
@@ -961,6 +970,9 @@ function gracefulShutdown(signal) {
 
   // F2: Stop update checker
   try { stopUpdateChecker(); } catch { /* ignore */ }
+
+  // v82: Flush specialist telemetry before DB close
+  try { specialistTelemetry?.shutdown(); } catch { /* ignore */ }
 
   // Close database
   try {

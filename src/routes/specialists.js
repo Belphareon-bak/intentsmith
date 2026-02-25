@@ -4,14 +4,43 @@
 // CRUD + lifecycle endpoints for specialist packages.
 // Wraps SpecialistLoader + SpecialistRuntime for IDE/CLI access.
 //
+// v82: withApiTelemetry wrapper for passive latency observability.
+//
 // ══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * v82: Wrap a route handler with passive API telemetry.
+ * Logs method, path (without query params), duration, and status.
+ * Never throws, never blocks.
+ */
+function withApiTelemetry(handler, telemetry) {
+  if (!telemetry) return handler;
+  return async (req, res, params) => {
+    const start = Date.now();
+    const path = (req.url || '').split('?')[0]; // strip query params — no PII
+    try {
+      const result = await handler(req, res, params);
+      telemetry.record('api.request', {
+        durationMs: Date.now() - start,
+        metadata: { method: req.method, path, status: 'ok' },
+      });
+      return result;
+    } catch (err) {
+      telemetry.record('api.request', {
+        durationMs: Date.now() - start,
+        metadata: { method: req.method, path, status: 'error' },
+      });
+      throw err;
+    }
+  };
+}
 
 /**
  * @param {object} deps
  * @returns {Object} route map { 'METHOD /path': handler }
  */
 export function createSpecialistRoutes(deps) {
-  const { specialistLoader, specialistRuntime, sendJSON, parseBody, logger } = deps;
+  const { specialistLoader, specialistRuntime, specialistTelemetry, sendJSON, parseBody, logger } = deps;
 
   // In-memory mutex per specialist — prevents concurrent enable/disable/update
   const _locks = new Map();
@@ -45,6 +74,9 @@ export function createSpecialistRoutes(deps) {
     return config?.tools || [];
   }
 
+  // Helper: wrap handler with telemetry
+  const t = (handler) => withApiTelemetry(handler, specialistTelemetry);
+
   // Guard: if loader not available, all endpoints 503
   if (!specialistLoader) {
     const notAvailable = (req, res) => {
@@ -58,12 +90,13 @@ export function createSpecialistRoutes(deps) {
       'POST /api/specialists/:id/update': notAvailable,
       'POST /api/specialists/discover': notAvailable,
       'GET /api/specialists/:id/integrity': notAvailable,
+      'GET /api/specialists/telemetry': notAvailable,
     };
   }
 
   return {
     // ─── List all installed specialists ─────────────────────────────────
-    'GET /api/specialists': (req, res) => {
+    'GET /api/specialists': t((req, res) => {
       try {
         const installed = specialistLoader.getInstalled();
         const result = installed.map(row => ({
@@ -82,10 +115,10 @@ export function createSpecialistRoutes(deps) {
         logger.error('SpecialistAPI', `GET /api/specialists failed: ${err.message}`);
         sendJSON(res, 500, { ok: false, error: err.message });
       }
-    },
+    }),
 
     // ─── Get specialist detail ──────────────────────────────────────────
-    'GET /api/specialists/:id': (req, res, params) => {
+    'GET /api/specialists/:id': t((req, res, params) => {
       try {
         const manifest = specialistLoader.getManifest(params.id);
         if (!manifest) {
@@ -112,10 +145,10 @@ export function createSpecialistRoutes(deps) {
         logger.error('SpecialistAPI', `GET /api/specialists/${params.id} failed: ${err.message}`);
         sendJSON(res, 500, { ok: false, error: err.message });
       }
-    },
+    }),
 
     // ─── Enable specialist ──────────────────────────────────────────────
-    'POST /api/specialists/:id/enable': async (req, res, params) => {
+    'POST /api/specialists/:id/enable': t(async (req, res, params) => {
       const id = params.id;
       if (!acquireLock(id)) {
         return sendJSON(res, 409, { ok: false, error: `Operation in progress for ${id}` });
@@ -135,10 +168,10 @@ export function createSpecialistRoutes(deps) {
       } finally {
         releaseLock(id);
       }
-    },
+    }),
 
     // ─── Disable specialist ─────────────────────────────────────────────
-    'POST /api/specialists/:id/disable': (req, res, params) => {
+    'POST /api/specialists/:id/disable': t((req, res, params) => {
       const id = params.id;
       if (!acquireLock(id)) {
         return sendJSON(res, 409, { ok: false, error: `Operation in progress for ${id}` });
@@ -154,10 +187,10 @@ export function createSpecialistRoutes(deps) {
       } finally {
         releaseLock(id);
       }
-    },
+    }),
 
     // ─── Update specialist ──────────────────────────────────────────────
-    'POST /api/specialists/:id/update': async (req, res, params) => {
+    'POST /api/specialists/:id/update': t(async (req, res, params) => {
       const id = params.id;
       if (!acquireLock(id)) {
         return sendJSON(res, 409, { ok: false, error: `Operation in progress for ${id}` });
@@ -198,10 +231,10 @@ export function createSpecialistRoutes(deps) {
       } finally {
         releaseLock(id);
       }
-    },
+    }),
 
     // ─── Re-scan disk for new specialists ───────────────────────────────
-    'POST /api/specialists/discover': async (req, res) => {
+    'POST /api/specialists/discover': t(async (req, res) => {
       try {
         const before = new Set(specialistLoader.getInstalled().map(r => r.id));
         const discovered = specialistLoader.discoverAll();
@@ -221,10 +254,10 @@ export function createSpecialistRoutes(deps) {
         logger.error('SpecialistAPI', `Discover failed: ${err.message}`);
         sendJSON(res, 500, { ok: false, error: err.message });
       }
-    },
+    }),
 
     // ─── Check integrity ────────────────────────────────────────────────
-    'GET /api/specialists/:id/integrity': (req, res, params) => {
+    'GET /api/specialists/:id/integrity': t((req, res, params) => {
       try {
         const manifest = specialistLoader.getManifest(params.id);
         if (!manifest) {
@@ -243,6 +276,20 @@ export function createSpecialistRoutes(deps) {
         });
       } catch (err) {
         logger.error('SpecialistAPI', `Integrity check failed: ${err.message}`);
+        sendJSON(res, 500, { ok: false, error: err.message });
+      }
+    }),
+
+    // ─── v82: Telemetry summary ─────────────────────────────────────────
+    'GET /api/specialists/telemetry': (req, res) => {
+      try {
+        const url = new URL(req.url, 'http://localhost');
+        const specialistId = url.searchParams.get('specialist') || undefined;
+        const since = url.searchParams.get('since') || undefined;
+        const summary = specialistTelemetry?.getSummary({ specialistId, since }) || { events: 0 };
+        sendJSON(res, 200, { ok: true, ...summary });
+      } catch (err) {
+        logger.error('SpecialistAPI', `Telemetry summary failed: ${err.message}`);
         sendJSON(res, 500, { ok: false, error: err.message });
       }
     },

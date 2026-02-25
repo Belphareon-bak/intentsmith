@@ -19,6 +19,16 @@ export class SpecialistMemory {
   constructor(db) {
     this.db = db;
     this._stmts = null;
+    /** @type {import('../telemetry/specialist-telemetry.js').SpecialistTelemetry|null} v82 */
+    this._telemetry = null;
+  }
+
+  /**
+   * v82: Set passive telemetry for memory observability.
+   * @param {import('../telemetry/specialist-telemetry.js').SpecialistTelemetry} telemetry
+   */
+  setTelemetry(telemetry) {
+    this._telemetry = telemetry;
   }
 
   /** Lazy-prepare all statements. */
@@ -77,6 +87,10 @@ export class SpecialistMemory {
    */
   get(specialistId, conversationId, key) {
     const row = this._prepare().get.get(specialistId, conversationId, key);
+    // v82: Telemetry — only op, never keys or values
+    this._telemetry?.record(row ? 'memory.hit' : 'memory.miss', {
+      specialistId, metadata: { op: 'get' },
+    });
     if (!row) return null;
     return this._parseValue(row.value, row.value_type);
   }
@@ -107,6 +121,10 @@ export class SpecialistMemory {
    */
   getContext(specialistId, conversationId) {
     const rows = this._prepare().getAll.all(specialistId, conversationId);
+    // v82: Telemetry — only op and count, never keys or values
+    this._telemetry?.record(rows.length > 0 ? 'memory.hit' : 'memory.miss', {
+      specialistId, metadata: { op: 'getContext', keyCount: rows.length },
+    });
     if (rows.length === 0) return null;
 
     const lines = ['Context for this conversation:'];
@@ -141,6 +159,11 @@ export class SpecialistMemory {
    */
   processWrites(specialistId, conversationId, writes) {
     if (!writes?.length) return;
+
+    // v82: Telemetry — only count, never keys or values
+    this._telemetry?.record('memory.write', {
+      specialistId, metadata: { count: writes.length },
+    });
 
     const runBulk = this.db.transaction(() => {
       for (const w of writes) {

@@ -3,7 +3,7 @@
 ## Od aktuálního stavu k vizi
 
 **Datum:** 2026-02-24
-**Verze kódu:** v80.0.0 (Quality Score + Telemetry + Specialist Memory)
+**Verze kódu:** v82.0.0 (Quality Score + Telemetry + Specialist Memory + Specialist Telemetry)
 **Testy:** ~2100+ verified (683 lifecycle+quality, 401 CRE, 350 conversation, 218 ledger, 270 specialist, 200+ quality)
 **IDE:** C3 Studio (Theia 1.65.2), 33 custom extensions, Phase 1-5 (~73%)
 
@@ -60,13 +60,14 @@ Installer, licence, auto-update, setup wizard.
 - B9: Agent Builder Wizard — FE wizard (simple + advanced), BE schema endpoint
 - Notifikační pipeline: Email, Telegram, ntfy/push, rate limiting, digest, trust tracker
 
-### Pilíř 4: SPECIALISTÉ — 90% ✅ (upgrade z 80%)
+### Pilíř 4: SPECIALISTÉ — 92% ✅ (upgrade z 90%)
 Expertise layer (15 expertises) + accountant specialist + 5D capability system + merge engine v2 + ledger.
 - v65.8: D1-D3 Specialist Runtime, Knowledge Base, Scenario Engine ✅
 - v69: Expert→Expertise rename (soft DB migration, backward compat) ✅
 - v69-v74: **Ledger system** — české daně, DPH, pojištění, compliance (218 testů) ✅
 - v74: **Specialist Platform** — SpecialistLoader, specialist-runtime, tool-adapter ✅
 - v79: **D4+D6+D7+D8** — REST API, dependencies, scenario branching, specialist memory ✅
+- v82: **Specialist Telemetry** — pasivní observability (tool/memory/lifecycle/API events, batch flush, NOOP sentinel) ✅
 - Zbývá: D5 (multi-specialist routing), D9 (marketplace)
 
 ### Pilíř 5: IDE — 73% ✅
@@ -180,6 +181,7 @@ Korelační analýza (po pilotu): spec_score vs build_success, roadmap_score vs 
 | v78.0 | **Project cleanup** — legacy code removal, doc updates, stale file cleanup |
 | v79.0 | **D4-D8: Specialist Advanced** — REST API, dependencies, memory, scenario branching |
 | v80.0 | **Quality Score + Telemetry** — deterministický scoring, DB logging, 70 testů |
+| v82.0 | **Specialist Telemetry** — pasivní observability (tool/memory/lifecycle/API events, batch flush) |
 
 ---
 
@@ -210,7 +212,7 @@ Fáze C: PROJEKTY   ████████████████████
 Fáze D-int: ÚČETNÍ ██████████████████████████████████████████  100% → DONE (ledger v69-v74)
 Fáze B: WORKERI    ██████████████████████████████████████░░░░   95% (B0-B9 done)
 Fáze H: HARDENING  ██████████████████████████████████████████  100% (9/9 DONE)
-Fáze D: SPECIALISTÉ██████████████████████████████████████░░░░   90% (D1-D8, ledger, specialist platform)
+Fáze D: SPECIALISTÉ██████████████████████████████████████░░░░   92% (D1-D8, ledger, specialist platform, telemetry)
 Fáze E: IDE        ██████████████████████████████░░░░░░░░░░░░   73% (Phase 1-5, 33 extensions)
 Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   25% (F1-F3 wired)
 ```
@@ -298,7 +300,7 @@ Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░�
 ## Celkový progres
 
 **Hotovo:** ~98% celkové vize
-**Nové od v11:** v79 specialist advanced (D4-D8), v80 quality score + telemetry (70 testů).
+**Nové od v11:** v79 specialist advanced (D4-D8), v80 quality score + telemetry (70 testů), v82 specialist telemetry.
 
 ```
 Celkem zbývajících úkolů:  6
@@ -309,4 +311,4 @@ Celkem zbývajících úkolů:  6
 
 ---
 
-*Tento dokument nahrazuje Roadmapa v11. Aktualizováno na v80.0.0 (2026-02-24).*
+*Tento dokument nahrazuje Roadmapa v11. Aktualizováno na v82.0.0 (2026-02-25).*

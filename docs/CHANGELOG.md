@@ -2,6 +2,58 @@
 
 ---
 
+## v82.0 — Specialist Telemetry (2026-02-25)
+
+Pasivní observability vrstva pro specialist execution subsystém. Sleduje tool match/success/fail, memory hit/miss, lifecycle eventy (boot/enable/disable) a API latenci. Best-effort — nikdy neblokuje, nikdy nethrowuje, nikdy nemění control flow.
+
+### Architektura
+
+- In-memory queue + periodic batch flush (30s interval, `setInterval().unref()`)
+- NOOP sentinel (`Object.freeze({...})`) eliminuje if-guardy na call sites
+- Event type whitelist (`VALID_EVENT_TYPES`) — neznámý typ = silent ignore
+- Backpressure: hard limit 2000 events, drop oldest při přetečení
+- Metadata: flat JSON, max 1KB, žádné citlivé hodnoty (klíče, PII, query params)
+- Duration vždy integer ms (`Math.round()`)
+- Retention: centralizovaný `telemetry-retention.js` (30d pruning, 200K warning)
+
+### Event Types
+
+```
+tool.match, tool.success, tool.fail, tool.clarify
+memory.hit, memory.miss, memory.write
+lifecycle.boot, lifecycle.enable, lifecycle.disable
+api.request
+```
+
+### Změny
+
+- **Migration 018:** `specialist_telemetry` tabulka + 3 indexy
+- **specialist-telemetry.js:** Nová třída (NOOP, whitelist, backpressure, batch flush, getSummary)
+- **Config:** `specialistTelemetry` feature flag (`C3_SPECIALIST_TELEMETRY`)
+- **Server wiring:** Init PŘED boot(), DI do loader/runtime/memory, graceful shutdown
+- **Loader:** lifecycle.boot/enable/disable instrumentace (DI přes options.telemetry)
+- **Runtime:** tool.match/success/fail/clarify instrumentace v tryToolExecution()
+- **Memory:** memory.hit/miss/write instrumentace (nikdy klíče/hodnoty)
+- **REST API:** `withApiTelemetry` wrapper (strip query params) + nový endpoint `GET /api/specialists/telemetry`
+- **docs/TELEMETRY.md:** Sjednocená telemetry konvence pro všech 5 tabulek
+
+### Soubory
+
+| Soubor | Změna |
+|--------|-------|
+| `src/db/migrations/2026_02_25_018_v82_specialist_telemetry.js` | NOVÝ — migration |
+| `src/db/telemetry-retention.js` | Přidáno do TELEMETRY_TABLES |
+| `src/telemetry/specialist-telemetry.js` | NOVÝ — core class |
+| `src/config.js` | Feature flag |
+| `src/server.js` | Init, routeDeps, shutdown |
+| `src/specialists/specialist-loader.js` | DI + 3 record calls |
+| `src/expertises/specialist-runtime.js` | Setter + 4 record calls |
+| `src/expertises/specialist-memory.js` | Setter + 3 record calls |
+| `src/routes/specialists.js` | Wrapper + telemetry endpoint |
+| `docs/TELEMETRY.md` | NOVÝ — konvence |
+
+---
+
 ## v78.0 — Project Cleanup + Legacy Removal (2026-02-24)
 
 Celková hygiena projektu: odstranění mrtvého kódu, aktualizace dokumentace, sladění package.json s reálným stavem.

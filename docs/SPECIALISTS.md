@@ -1,6 +1,6 @@
 # C.3 Specialists
 
-**Verze:** v79.0 (2026-02-24)
+**Verze:** v82.0 (2026-02-25)
 
 Viz take: [SPECIALIST-LIFECYCLE.md](SPECIALIST-LIFECYCLE.md) | [EXPERTISES.md](EXPERTISES.md) | [WORKERS.md](WORKERS.md)
 
@@ -169,10 +169,11 @@ Formatuje strukturovany log entry s timestampem, levelem, source.
 | isSpecialistBusy guard | HOTOVO | v74 | 35 |
 | Stress test (200 cycles) | HOTOVO | v74 | 16 |
 | Cross-contamination stress (50 alternating cycles) | HOTOVO | v74 | 25 |
-| REST API (7 endpoints) | HOTOVO | v79 | — |
+| REST API (8 endpoints) | HOTOVO | v82 | — |
 | Dependency system (minimal: topo sort, enable/disable guard) | HOTOVO | v79 | — |
 | Specialist Memory (persistent context, memoryWrites) | HOTOVO | v79 | — |
 | Scenario Branching (branchIf) | HOTOVO | v79 | — |
+| Specialist Telemetry (passive observability, batch flush) | HOTOVO | v82 | — |
 | **Uninstall (purge)** | **CHYBI** | — | — |
 | **Remote registry** | **CHYBI** | — | — |
 
@@ -222,5 +223,5 @@ multi-specialist, update, rollback, stress tests
 
 ---
 
-*Aktualizovano: 2026-02-24*
-*Engine: c3-agent v79.0.0*
+*Aktualizovano: 2026-02-25*
+*Engine: c3-agent v82.0.0*
