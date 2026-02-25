@@ -94,6 +94,7 @@ import { createProjectRoutes } from './routes/projects.js';
 import { createChatRoutes } from './routes/chat.js';
 import { createMiscRoutes } from './routes/misc.js';
 import { createSpecialistRoutes } from './routes/specialists.js';
+import { createQualityRoutes } from './routes/quality.js';
 import { toolRegistry } from './tools/registry.js';
 
 // v56.0 Sprint 3: Initialize ConversationStore with DB
@@ -103,6 +104,10 @@ getConversationStore(db);
 // v67.0: Initialize MemoryBank with DB
 import { getMemoryBank } from './memory/memory-bank.js';
 getMemoryBank(db);
+
+// v81: Telemetry retention — prune old observability rows at startup
+import { pruneTelemetry } from './db/telemetry-retention.js';
+pruneTelemetry(db.db);
 
 // F1: Setup Wizard — first-run detection + API routes
 import { SetupWizard, createSetupRoutes } from './setup/wizard.js';
@@ -500,6 +505,7 @@ const routes = {
   ...createProjectRoutes(routeDeps),
   ...createMiscRoutes(routeDeps),
   ...createSpecialistRoutes(routeDeps),
+  ...createQualityRoutes(routeDeps),
 
   // F1: Setup Wizard routes (always available — idempotent after completion)
   ...createSetupRoutes(setupWizard, routeDeps),

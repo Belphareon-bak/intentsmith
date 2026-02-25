@@ -21,6 +21,20 @@ import {
 import { TurnTelemetry } from '../telemetry/turn-telemetry.js';
 import { config } from '../config.js';
 
+// Telemetry persistence — lazy-loaded once per process
+let telemetryRepo = null;
+
+async function persistTelemetry(snapshot) {
+  if (!snapshot || !snapshot.turnId) return;
+  try {
+    if (!telemetryRepo) {
+      const db = await import('../db/database.js');
+      telemetryRepo = db.telemetrySnapshots;
+    }
+    telemetryRepo?.log(snapshot);
+  } catch (_) { /* telemetry persistence must never throw */ }
+}
+
 /**
  * Create a session adapter for a single WebSocket connection.
  *
@@ -252,6 +266,7 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
       if (telemetrySnapshot) {
         logger.info('TurnTelemetry', JSON.stringify(telemetrySnapshot));
       }
+      persistTelemetry(telemetrySnapshot);
 
     } catch (err) {
       const durationMs = Date.now() - turnStartTime;
@@ -264,6 +279,7 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
           durationMs,
           ...(snap ? { telemetry: snap } : {}),
         });
+        persistTelemetry(snap);
       } else if (err.message?.includes('timeout')) {
         turnTelemetry?.recordCancel('timeout');
         const snap = turnTelemetry?.finalize(turnStartTime) ?? null;
@@ -273,6 +289,7 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
           error: err.message,
           ...(snap ? { telemetry: snap } : {}),
         });
+        persistTelemetry(snap);
         sendAgentEvent(AgentEventType.ERROR, turnId, {
           code: 'TIMEOUT',
           message: err.message,
@@ -287,6 +304,7 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
           error: err.message,
           ...(snap ? { telemetry: snap } : {}),
         });
+        persistTelemetry(snap);
         sendAgentEvent(AgentEventType.ERROR, turnId, {
           code: 'UNEXPECTED',
           message: err.message,

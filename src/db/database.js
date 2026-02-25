@@ -1407,6 +1407,44 @@ function parseQualityScoreJSON(row) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// v81: TELEMETRY SNAPSHOTS (per-turn resilience observability)
+// ════════════════════════════════════════════════════════════════════════════
+
+const VALID_EXECUTION_STATUS = new Set(['SUCCESS', 'PARTIAL', 'FAILED', 'CANCELLED', null]);
+
+export const telemetrySnapshots = {
+  add: db.prepare(`
+    INSERT INTO telemetry_snapshots (
+      turn_id, session_id, conversation_id,
+      intent, classified_by, execution_status,
+      total_turn_time_ms, classification_time_ms, execution_time_ms,
+      retry_count, partial_failure, was_cancelled, circuit_opened,
+      snapshot_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `),
+
+  log(snapshot) {
+    const status = snapshot.execution?.status ?? null;
+    this.add.run(
+      snapshot.turnId,
+      snapshot.sessionId,
+      snapshot.conversationId,
+      snapshot.classification?.intent ?? null,
+      snapshot.classification?.classifiedBy ?? null,
+      VALID_EXECUTION_STATUS.has(status) ? status : null,
+      snapshot.timing?.totalTurnTimeMs ?? null,
+      snapshot.timing?.classificationTimeMs ?? null,
+      snapshot.timing?.executionTimeMs ?? null,
+      snapshot.execution?.retryCount ?? 0,
+      snapshot.execution?.partialFailure ? 1 : 0,
+      snapshot.execution?.wasCancelled ? 1 : 0,
+      snapshot.circuit?.anyOpened ? 1 : 0,
+      JSON.stringify(snapshot),
+    );
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
 // UTILITIES
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -1458,6 +1496,8 @@ export default {
   lifecycleHandoffState,
   // v80 Quality Scores
   qualityScores,
+  // v81 Telemetry
+  telemetrySnapshots,
   transaction,
   close,
 };
