@@ -977,6 +977,1311 @@ tools['base64.decode'] = {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
+// GIT — Full Suite
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['git.push'] = {
+  name: 'git.push',
+  description: 'Push commits to remote repository',
+  params: { required: [], optional: ['cwd', 'remote', 'branch', 'force', 'tags', 'setUpstream'] },
+  permissions: ['fs.write'],
+  async execute(params) {
+    const { cwd = '.', remote = 'origin', branch, force = false, tags = false, setUpstream = false } = params;
+    const { execSync } = await import('child_process');
+    try {
+      let cmd = `git push ${remote}`;
+      if (branch) cmd += ` ${branch}`;
+      if (force) cmd += ' --force-with-lease';
+      if (tags) cmd += ' --tags';
+      if (setUpstream) cmd += ' -u';
+      const output = execSync(cmd, { cwd, timeout: 30000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+      return { ok: true, output: output.trim() };
+    } catch (err) {
+      const out = (err.stdout || '') + (err.stderr || '');
+      if (out.includes('rejected')) return { error: 'Push rejected — pull first or use force', code: 'GIT_REJECTED', output: out };
+      return { error: err.message, code: 'GIT_ERROR', output: out };
+    }
+  },
+};
+
+tools['git.pull'] = {
+  name: 'git.pull',
+  description: 'Pull changes from remote repository',
+  params: { required: [], optional: ['cwd', 'remote', 'branch', 'rebase', 'ff'] },
+  permissions: ['fs.write'],
+  async execute(params) {
+    const { cwd = '.', remote = 'origin', branch, rebase = false, ff = true } = params;
+    const { execSync } = await import('child_process');
+    try {
+      let cmd = `git pull ${remote}`;
+      if (branch) cmd += ` ${branch}`;
+      if (rebase) cmd += ' --rebase';
+      if (!ff) cmd += ' --no-ff';
+      const output = execSync(cmd, { cwd, timeout: 60000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+      return { ok: true, output: output.trim() };
+    } catch (err) {
+      const out = (err.stdout || '') + (err.stderr || '');
+      if (out.includes('CONFLICT')) return { error: 'Merge conflict detected', code: 'GIT_CONFLICT', output: out };
+      return { error: err.message, code: 'GIT_ERROR', output: out };
+    }
+  },
+};
+
+tools['git.clone'] = {
+  name: 'git.clone',
+  description: 'Clone a git repository',
+  params: { required: ['url'], optional: ['dest', 'branch', 'depth', 'cwd'] },
+  permissions: ['fs.write'],
+  async execute(params) {
+    const { url, dest, branch, depth, cwd = '.' } = params;
+    const { execSync } = await import('child_process');
+    try {
+      let cmd = `git clone "${url}"`;
+      if (dest) cmd += ` "${dest}"`;
+      if (branch) cmd += ` -b ${branch}`;
+      if (depth) cmd += ` --depth ${depth}`;
+      execSync(cmd, { cwd, timeout: 120000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+      return { ok: true, url, dest: dest || url.split('/').pop().replace(/\.git$/, '') };
+    } catch (err) { return { error: err.message, code: 'GIT_ERROR', output: (err.stderr || '') }; }
+  },
+};
+
+tools['git.branch'] = {
+  name: 'git.branch',
+  description: 'Create, delete, list, or rename branches',
+  params: { required: ['action'], optional: ['cwd', 'name', 'newName', 'remote', 'force'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { action, cwd = '.', name, newName, remote = false, force = false } = params;
+    const { execSync } = await import('child_process');
+    try {
+      if (action === 'list') {
+        const flags = remote ? '-a' : '';
+        const out = execSync(`git branch ${flags} --format='%(refname:short) %(objectname:short) %(upstream:short)'`, { cwd, timeout: 5000, encoding: 'utf-8' });
+        const current = execSync('git branch --show-current', { cwd, timeout: 3000, encoding: 'utf-8' }).trim();
+        const branches = out.trim().split('\n').filter(Boolean).map(l => {
+          const [n, hash, upstream] = l.split(' ');
+          return { name: n, hash, upstream: upstream || null, current: n === current };
+        });
+        return { branches, current, count: branches.length };
+      }
+      if (action === 'create') {
+        execSync(`git branch "${name}"`, { cwd, timeout: 5000 });
+        return { ok: true, created: name };
+      }
+      if (action === 'delete') {
+        const flag = force ? '-D' : '-d';
+        execSync(`git branch ${flag} "${name}"`, { cwd, timeout: 5000, encoding: 'utf-8' });
+        return { ok: true, deleted: name };
+      }
+      if (action === 'rename') {
+        execSync(`git branch -m "${name}" "${newName}"`, { cwd, timeout: 5000 });
+        return { ok: true, renamed: { from: name, to: newName } };
+      }
+      return { error: `Unknown action: ${action}`, code: 'INVALID_ACTION' };
+    } catch (err) { return { error: err.message, code: 'GIT_ERROR' }; }
+  },
+};
+
+tools['git.checkout'] = {
+  name: 'git.checkout',
+  description: 'Switch branches or restore working tree files',
+  params: { required: ['target'], optional: ['cwd', 'create', 'force', 'files'] },
+  permissions: ['fs.write'],
+  async execute(params) {
+    const { target, cwd = '.', create = false, force = false, files } = params;
+    const { execSync } = await import('child_process');
+    try {
+      if (files?.length) {
+        execSync(`git checkout "${target}" -- ${files.map(f => `"${f}"`).join(' ')}`, { cwd, timeout: 10000, encoding: 'utf-8' });
+        return { ok: true, restored: files, from: target };
+      }
+      let cmd = create ? `git checkout -b "${target}"` : `git checkout "${target}"`;
+      if (force) cmd += ' -f';
+      const output = execSync(cmd, { cwd, timeout: 10000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+      return { ok: true, branch: target, output: (output || '').trim() };
+    } catch (err) { return { error: err.message, code: 'GIT_ERROR', output: (err.stderr || '') }; }
+  },
+};
+
+tools['git.merge'] = {
+  name: 'git.merge',
+  description: 'Merge a branch into the current branch',
+  params: { required: ['branch'], optional: ['cwd', 'noFf', 'squash', 'message', 'abort'] },
+  permissions: ['fs.write'],
+  async execute(params) {
+    const { branch, cwd = '.', noFf = false, squash = false, message, abort = false } = params;
+    const { execSync } = await import('child_process');
+    try {
+      if (abort) {
+        execSync('git merge --abort', { cwd, timeout: 5000 });
+        return { ok: true, aborted: true };
+      }
+      let cmd = `git merge "${branch}"`;
+      if (noFf) cmd += ' --no-ff';
+      if (squash) cmd += ' --squash';
+      if (message) cmd += ` -m "${message.replace(/"/g, '\\"')}"`;
+      const output = execSync(cmd, { cwd, timeout: 30000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+      return { ok: true, merged: branch, output: output.trim() };
+    } catch (err) {
+      const out = (err.stdout || '') + (err.stderr || '');
+      if (out.includes('CONFLICT')) {
+        const conflicts = out.match(/CONFLICT.*$/gm) || [];
+        return { error: 'Merge conflict', code: 'GIT_CONFLICT', conflicts, hint: 'Use git.merge({abort:true}) to abort or resolve manually' };
+      }
+      return { error: err.message, code: 'GIT_ERROR' };
+    }
+  },
+};
+
+tools['git.stash'] = {
+  name: 'git.stash',
+  description: 'Stash working directory changes (push, pop, list, drop, apply)',
+  params: { required: ['action'], optional: ['cwd', 'message', 'index', 'includeUntracked'] },
+  permissions: ['fs.write'],
+  async execute(params) {
+    const { action, cwd = '.', message, index = 0, includeUntracked = false } = params;
+    const { execSync } = await import('child_process');
+    try {
+      if (action === 'push' || action === 'save') {
+        let cmd = 'git stash push';
+        if (message) cmd += ` -m "${message.replace(/"/g, '\\"')}"`;
+        if (includeUntracked) cmd += ' -u';
+        const output = execSync(cmd, { cwd, timeout: 10000, encoding: 'utf-8' });
+        return { ok: true, output: output.trim() };
+      }
+      if (action === 'pop') {
+        const output = execSync(`git stash pop stash@{${index}}`, { cwd, timeout: 10000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+        return { ok: true, output: output.trim() };
+      }
+      if (action === 'apply') {
+        const output = execSync(`git stash apply stash@{${index}}`, { cwd, timeout: 10000, encoding: 'utf-8' });
+        return { ok: true, output: output.trim() };
+      }
+      if (action === 'drop') {
+        execSync(`git stash drop stash@{${index}}`, { cwd, timeout: 5000 });
+        return { ok: true, dropped: index };
+      }
+      if (action === 'list') {
+        const out = execSync('git stash list', { cwd, timeout: 5000, encoding: 'utf-8' });
+        const stashes = out.trim().split('\n').filter(Boolean).map((l, i) => ({ index: i, description: l }));
+        return { stashes, count: stashes.length };
+      }
+      if (action === 'clear') {
+        execSync('git stash clear', { cwd, timeout: 5000 });
+        return { ok: true, cleared: true };
+      }
+      return { error: `Unknown action: ${action}`, code: 'INVALID_ACTION' };
+    } catch (err) { return { error: err.message, code: 'GIT_ERROR' }; }
+  },
+};
+
+tools['git.tag'] = {
+  name: 'git.tag',
+  description: 'Create, list, or delete tags',
+  params: { required: ['action'], optional: ['cwd', 'name', 'message', 'commit', 'force'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { action, cwd = '.', name, message, commit, force = false } = params;
+    const { execSync } = await import('child_process');
+    try {
+      if (action === 'list') {
+        const out = execSync('git tag -l --sort=-v:refname', { cwd, timeout: 5000, encoding: 'utf-8' });
+        return { tags: out.trim().split('\n').filter(Boolean) };
+      }
+      if (action === 'create') {
+        let cmd = message ? `git tag -a "${name}" -m "${message.replace(/"/g, '\\"')}"` : `git tag "${name}"`;
+        if (commit) cmd += ` ${commit}`;
+        if (force) cmd += ' -f';
+        execSync(cmd, { cwd, timeout: 5000 });
+        return { ok: true, created: name };
+      }
+      if (action === 'delete') {
+        execSync(`git tag -d "${name}"`, { cwd, timeout: 5000 });
+        return { ok: true, deleted: name };
+      }
+      return { error: `Unknown action: ${action}`, code: 'INVALID_ACTION' };
+    } catch (err) { return { error: err.message, code: 'GIT_ERROR' }; }
+  },
+};
+
+tools['git.log'] = {
+  name: 'git.log',
+  description: 'Show detailed commit log with filters',
+  params: { required: [], optional: ['cwd', 'count', 'branch', 'author', 'since', 'until', 'path', 'grep', 'format', 'stat'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { cwd = '.', count = 10, branch, author, since, until, path, grep, format, stat = false } = params;
+    const { execSync } = await import('child_process');
+    try {
+      const fmt = format || '%H|%h|%an|%ae|%ai|%s';
+      let cmd = `git log --format="${fmt}" -${Math.min(count, 100)}`;
+      if (branch) cmd += ` ${branch}`;
+      if (author) cmd += ` --author="${author}"`;
+      if (since) cmd += ` --since="${since}"`;
+      if (until) cmd += ` --until="${until}"`;
+      if (grep) cmd += ` --grep="${grep}"`;
+      if (stat) cmd += ' --stat';
+      if (path) cmd += ` -- "${path}"`;
+      const out = execSync(cmd, { cwd, timeout: 10000, encoding: 'utf-8', maxBuffer: 1024 * 1024 });
+      if (stat || format) return { output: out.trim(), count: out.trim().split('\n').filter(Boolean).length };
+      const commits = out.trim().split('\n').filter(Boolean).map(l => {
+        const [hash, short, author, email, date, ...msg] = l.split('|');
+        return { hash, short, author, email, date, message: msg.join('|') };
+      });
+      return { commits, count: commits.length };
+    } catch (err) { return { error: err.message, code: 'GIT_ERROR' }; }
+  },
+};
+
+tools['git.remote'] = {
+  name: 'git.remote',
+  description: 'Manage remote repositories (list, add, remove, set-url)',
+  params: { required: ['action'], optional: ['cwd', 'name', 'url'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { action, cwd = '.', name, url } = params;
+    const { execSync } = await import('child_process');
+    try {
+      if (action === 'list') {
+        const out = execSync('git remote -v', { cwd, timeout: 5000, encoding: 'utf-8' });
+        const remotes = {};
+        out.trim().split('\n').filter(Boolean).forEach(l => {
+          const [n, u, type] = l.split(/\s+/);
+          if (!remotes[n]) remotes[n] = {};
+          remotes[n][type.replace(/[()]/g, '')] = u;
+        });
+        return { remotes };
+      }
+      if (action === 'add') {
+        execSync(`git remote add "${name}" "${url}"`, { cwd, timeout: 5000 });
+        return { ok: true, added: name, url };
+      }
+      if (action === 'remove') {
+        execSync(`git remote remove "${name}"`, { cwd, timeout: 5000 });
+        return { ok: true, removed: name };
+      }
+      if (action === 'set-url') {
+        execSync(`git remote set-url "${name}" "${url}"`, { cwd, timeout: 5000 });
+        return { ok: true, name, url };
+      }
+      return { error: `Unknown action: ${action}`, code: 'INVALID_ACTION' };
+    } catch (err) { return { error: err.message, code: 'GIT_ERROR' }; }
+  },
+};
+
+tools['git.reset'] = {
+  name: 'git.reset',
+  description: 'Reset HEAD to a commit (soft, mixed, or hard)',
+  params: { required: [], optional: ['cwd', 'commit', 'mode', 'files'] },
+  permissions: ['fs.write'],
+  async execute(params) {
+    const { cwd = '.', commit = 'HEAD', mode = 'mixed', files } = params;
+    const { execSync } = await import('child_process');
+    try {
+      if (files?.length) {
+        execSync(`git reset -- ${files.map(f => `"${f}"`).join(' ')}`, { cwd, timeout: 10000 });
+        return { ok: true, unstaged: files };
+      }
+      const validModes = ['soft', 'mixed', 'hard'];
+      if (!validModes.includes(mode)) return { error: `Invalid mode: ${mode}. Use: ${validModes.join(', ')}`, code: 'INVALID_INPUT' };
+      const output = execSync(`git reset --${mode} ${commit}`, { cwd, timeout: 10000, encoding: 'utf-8' });
+      return { ok: true, mode, commit, output: output.trim() };
+    } catch (err) { return { error: err.message, code: 'GIT_ERROR' }; }
+  },
+};
+
+tools['git.cherry-pick'] = {
+  name: 'git.cherry-pick',
+  description: 'Apply specific commits from another branch',
+  params: { required: ['commits'], optional: ['cwd', 'noCommit', 'abort'] },
+  permissions: ['fs.write'],
+  async execute(params) {
+    const { commits, cwd = '.', noCommit = false, abort = false } = params;
+    const { execSync } = await import('child_process');
+    try {
+      if (abort) { execSync('git cherry-pick --abort', { cwd, timeout: 5000 }); return { ok: true, aborted: true }; }
+      const commitList = Array.isArray(commits) ? commits.join(' ') : commits;
+      let cmd = `git cherry-pick ${commitList}`;
+      if (noCommit) cmd += ' --no-commit';
+      const output = execSync(cmd, { cwd, timeout: 30000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+      return { ok: true, output: output.trim() };
+    } catch (err) {
+      const out = (err.stdout || '') + (err.stderr || '');
+      if (out.includes('CONFLICT')) return { error: 'Cherry-pick conflict', code: 'GIT_CONFLICT', output: out };
+      return { error: err.message, code: 'GIT_ERROR' };
+    }
+  },
+};
+
+tools['git.rebase'] = {
+  name: 'git.rebase',
+  description: 'Rebase current branch onto another',
+  params: { required: [], optional: ['cwd', 'onto', 'abort', 'continue_'] },
+  permissions: ['fs.write'],
+  async execute(params) {
+    const { cwd = '.', onto, abort = false, continue_ = false } = params;
+    const { execSync } = await import('child_process');
+    try {
+      if (abort) { execSync('git rebase --abort', { cwd, timeout: 5000 }); return { ok: true, aborted: true }; }
+      if (continue_) { execSync('git rebase --continue', { cwd, timeout: 30000, encoding: 'utf-8' }); return { ok: true, continued: true }; }
+      if (!onto) return { error: 'onto is required for rebase', code: 'INVALID_INPUT' };
+      const output = execSync(`git rebase ${onto}`, { cwd, timeout: 60000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+      return { ok: true, onto, output: output.trim() };
+    } catch (err) {
+      const out = (err.stdout || '') + (err.stderr || '');
+      if (out.includes('CONFLICT')) return { error: 'Rebase conflict', code: 'GIT_CONFLICT', output: out, hint: 'Resolve conflicts, then git.rebase({continue_:true}) or git.rebase({abort:true})' };
+      return { error: err.message, code: 'GIT_ERROR' };
+    }
+  },
+};
+
+tools['git.init'] = {
+  name: 'git.init',
+  description: 'Initialize a new git repository',
+  params: { required: [], optional: ['cwd', 'bare', 'defaultBranch'] },
+  permissions: ['fs.write'],
+  async execute(params) {
+    const { cwd = '.', bare = false, defaultBranch = 'main' } = params;
+    const { execSync } = await import('child_process');
+    try {
+      let cmd = `git init -b ${defaultBranch}`;
+      if (bare) cmd += ' --bare';
+      execSync(cmd, { cwd, timeout: 5000 });
+      return { ok: true, path: cwd, bare, branch: defaultBranch };
+    } catch (err) { return { error: err.message, code: 'GIT_ERROR' }; }
+  },
+};
+
+tools['git.blame'] = {
+  name: 'git.blame',
+  description: 'Show line-by-line authorship of a file',
+  params: { required: ['file'], optional: ['cwd', 'startLine', 'endLine'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { file, cwd = '.', startLine, endLine } = params;
+    const { execSync } = await import('child_process');
+    try {
+      let cmd = `git blame --porcelain "${file}"`;
+      if (startLine && endLine) cmd = `git blame --porcelain -L ${startLine},${endLine} "${file}"`;
+      const out = execSync(cmd, { cwd, timeout: 15000, encoding: 'utf-8', maxBuffer: 2 * 1024 * 1024 });
+      const lines = [];
+      const chunks = out.split(/^([0-9a-f]{40})/gm).filter(Boolean);
+      for (let i = 0; i < chunks.length; i += 2) {
+        const hash = chunks[i];
+        const block = chunks[i + 1] || '';
+        const authorMatch = block.match(/^author (.+)$/m);
+        const timeMatch = block.match(/^author-time (\d+)$/m);
+        const lineMatch = block.match(/^\t(.*)$/m);
+        if (authorMatch && lineMatch) {
+          lines.push({ hash: hash.substring(0, 8), author: authorMatch[1], line: lineMatch[1] });
+        }
+      }
+      return { file, lines: lines.slice(0, 500), count: lines.length };
+    } catch (err) { return { error: err.message, code: 'GIT_ERROR' }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// FILESYSTEM — Extended Operations
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['fs.mkdir'] = {
+  name: 'fs.mkdir',
+  description: 'Create a directory (with parents)',
+  params: { required: ['path'], optional: ['recursive'] },
+  permissions: ['fs.write'],
+  async execute(params) {
+    const { path, recursive = true } = params;
+    const fsP = await import('fs/promises');
+    try { await fsP.mkdir(path, { recursive }); return { ok: true, path }; }
+    catch (err) { return { error: err.message, code: 'FS_ERROR' }; }
+  },
+};
+
+tools['fs.exists'] = {
+  name: 'fs.exists',
+  description: 'Check if a file or directory exists',
+  params: { required: ['path'], optional: [] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const fsP = await import('fs/promises');
+    try { const s = await fsP.stat(params.path); return { exists: true, isFile: s.isFile(), isDir: s.isDirectory(), size: s.size }; }
+    catch { return { exists: false }; }
+  },
+};
+
+tools['fs.head'] = {
+  name: 'fs.head',
+  description: 'Read the first N lines of a file',
+  params: { required: ['path'], optional: ['lines'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { path, lines = 20 } = params;
+    const fsP = await import('fs/promises');
+    try {
+      const content = await fsP.readFile(path, 'utf-8');
+      const allLines = content.split('\n');
+      const result = allLines.slice(0, Math.min(lines, 500));
+      return { lines: result, count: result.length, totalLines: allLines.length };
+    } catch (err) { return { error: err.message, code: 'FS_ERROR' }; }
+  },
+};
+
+tools['fs.tail'] = {
+  name: 'fs.tail',
+  description: 'Read the last N lines of a file',
+  params: { required: ['path'], optional: ['lines'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { path, lines = 20 } = params;
+    const fsP = await import('fs/promises');
+    try {
+      const content = await fsP.readFile(path, 'utf-8');
+      const allLines = content.split('\n');
+      const result = allLines.slice(-Math.min(lines, 500));
+      return { lines: result, count: result.length, totalLines: allLines.length };
+    } catch (err) { return { error: err.message, code: 'FS_ERROR' }; }
+  },
+};
+
+tools['fs.append'] = {
+  name: 'fs.append',
+  description: 'Append content to a file',
+  params: { required: ['path', 'content'], optional: ['newline'] },
+  permissions: ['fs.write'],
+  async execute(params) {
+    const { path, content, newline = true } = params;
+    const fsP = await import('fs/promises');
+    try {
+      await fsP.appendFile(path, newline ? content + '\n' : content);
+      const stat = await fsP.stat(path);
+      return { ok: true, path, size: stat.size };
+    } catch (err) { return { error: err.message, code: 'FS_ERROR' }; }
+  },
+};
+
+tools['fs.chmod'] = {
+  name: 'fs.chmod',
+  description: 'Change file permissions',
+  params: { required: ['path', 'mode'], optional: [] },
+  permissions: ['fs.write'],
+  async execute(params) {
+    const { path, mode } = params;
+    const fsP = await import('fs/promises');
+    try {
+      const numMode = typeof mode === 'string' ? parseInt(mode, 8) : mode;
+      await fsP.chmod(path, numMode);
+      return { ok: true, path, mode: numMode.toString(8) };
+    } catch (err) { return { error: err.message, code: 'FS_ERROR' }; }
+  },
+};
+
+tools['fs.symlink'] = {
+  name: 'fs.symlink',
+  description: 'Create a symbolic link',
+  params: { required: ['target', 'linkPath'], optional: ['type'] },
+  permissions: ['fs.write'],
+  async execute(params) {
+    const { target, linkPath, type = 'file' } = params;
+    const fsP = await import('fs/promises');
+    try { await fsP.symlink(target, linkPath, type); return { ok: true, target, link: linkPath }; }
+    catch (err) { return { error: err.message, code: 'FS_ERROR' }; }
+  },
+};
+
+tools['fs.readJson'] = {
+  name: 'fs.readJson',
+  description: 'Read and parse a JSON file',
+  params: { required: ['path'], optional: [] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const fsP = await import('fs/promises');
+    try {
+      const raw = await fsP.readFile(params.path, 'utf-8');
+      return { data: JSON.parse(raw), path: params.path, size: raw.length };
+    } catch (err) { return { error: err.message, code: err.message.includes('JSON') ? 'PARSE_ERROR' : 'FS_ERROR' }; }
+  },
+};
+
+tools['fs.writeJson'] = {
+  name: 'fs.writeJson',
+  description: 'Write data as formatted JSON file',
+  params: { required: ['path', 'data'], optional: ['indent'] },
+  permissions: ['fs.write'],
+  async execute(params) {
+    const { path, data, indent = 2 } = params;
+    const fsP = await import('fs/promises');
+    const pathM = await import('path');
+    try {
+      await fsP.mkdir(pathM.dirname(path), { recursive: true });
+      const content = JSON.stringify(data, null, indent) + '\n';
+      await fsP.writeFile(path, content);
+      return { ok: true, path, size: content.length };
+    } catch (err) { return { error: err.message, code: 'FS_ERROR' }; }
+  },
+};
+
+tools['fs.patch'] = {
+  name: 'fs.patch',
+  description: 'Apply line-based edits to a file (search & replace blocks)',
+  params: { required: ['path', 'edits'], optional: [] },
+  permissions: ['fs.write'],
+  async execute(params) {
+    const { path, edits } = params;
+    const fsP = await import('fs/promises');
+    try {
+      let content = await fsP.readFile(path, 'utf-8');
+      let applied = 0;
+      for (const edit of edits) {
+        if (edit.search && content.includes(edit.search)) {
+          content = content.replace(edit.search, edit.replace || '');
+          applied++;
+        } else if (edit.line && edit.replace !== undefined) {
+          const lines = content.split('\n');
+          if (edit.line > 0 && edit.line <= lines.length) {
+            lines[edit.line - 1] = edit.replace;
+            content = lines.join('\n');
+            applied++;
+          }
+        } else if (edit.insertAfter !== undefined) {
+          const idx = content.indexOf(edit.insertAfter);
+          if (idx !== -1) {
+            const end = idx + edit.insertAfter.length;
+            content = content.slice(0, end) + '\n' + edit.content + content.slice(end);
+            applied++;
+          }
+        }
+      }
+      await fsP.writeFile(path, content);
+      return { ok: true, path, editsApplied: applied, totalEdits: edits.length };
+    } catch (err) { return { error: err.message, code: 'FS_ERROR' }; }
+  },
+};
+
+tools['fs.find'] = {
+  name: 'fs.find',
+  description: 'Search files by name pattern and/or content (grep-like)',
+  params: { required: [], optional: ['dir', 'name', 'content', 'ext', 'maxResults', 'maxDepth'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { dir = '.', name, content, ext, maxResults = 50, maxDepth = 10 } = params;
+    const fsP = await import('fs/promises');
+    const pathM = await import('path');
+    try {
+      const results = [];
+      const skip = new Set(['node_modules', '.git', '.c3', 'dist', 'build', '.next', '__pycache__']);
+      async function walk(d, depth) {
+        if (depth > maxDepth || results.length >= maxResults) return;
+        let entries;
+        try { entries = await fsP.readdir(d, { withFileTypes: true }); } catch { return; }
+        for (const e of entries) {
+          if (skip.has(e.name)) continue;
+          const full = pathM.join(d, e.name);
+          const rel = pathM.relative(dir, full);
+          if (e.isDirectory()) { await walk(full, depth + 1); continue; }
+          if (name && !e.name.includes(name)) continue;
+          if (ext && !e.name.endsWith('.' + ext)) continue;
+          if (content) {
+            try {
+              const stat = await fsP.stat(full);
+              if (stat.size > 1024 * 1024) continue;
+              const text = await fsP.readFile(full, 'utf-8');
+              const re = new RegExp(content, 'gim');
+              const matches = [];
+              let m;
+              while ((m = re.exec(text)) !== null && matches.length < 5) {
+                const lineNum = text.substring(0, m.index).split('\n').length;
+                matches.push({ line: lineNum, text: text.split('\n')[lineNum - 1]?.trim().substring(0, 200) });
+              }
+              if (matches.length) results.push({ path: rel, matches });
+            } catch { continue; }
+          } else {
+            results.push({ path: rel });
+          }
+          if (results.length >= maxResults) return;
+        }
+      }
+      await walk(pathM.resolve(dir), 0);
+      return { results, count: results.length };
+    } catch (err) { return { error: err.message, code: 'FS_ERROR' }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// NPM / Package Management
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['npm.install'] = {
+  name: 'npm.install',
+  description: 'Install npm packages (with --ignore-scripts for safety)',
+  params: { required: [], optional: ['packages', 'cwd', 'dev', 'global', 'exact'] },
+  permissions: ['shell.exec', 'fs.write'],
+  async execute(params) {
+    const { packages, cwd = '.', dev = false, global: isGlobal = false, exact = false } = params;
+    const { execSync } = await import('child_process');
+    try {
+      let cmd = 'npm install --ignore-scripts';
+      if (packages?.length) cmd += ' ' + (Array.isArray(packages) ? packages.join(' ') : packages);
+      if (dev) cmd += ' --save-dev';
+      if (isGlobal) cmd += ' -g';
+      if (exact) cmd += ' --save-exact';
+      const output = execSync(cmd, { cwd, timeout: 120000, encoding: 'utf-8', maxBuffer: 2 * 1024 * 1024 });
+      return { ok: true, output: output.substring(0, 5000) };
+    } catch (err) { return { ok: false, error: err.message, output: (err.stdout || '') + (err.stderr || '') }; }
+  },
+};
+
+tools['npm.run'] = {
+  name: 'npm.run',
+  description: 'Run an npm script from package.json',
+  params: { required: ['script'], optional: ['cwd', 'args', 'timeout'] },
+  permissions: ['shell.exec'],
+  async execute(params) {
+    const { script, cwd = '.', args = '', timeout = 60000 } = params;
+    const { execSync } = await import('child_process');
+    try {
+      const cmd = args ? `npm run ${script} -- ${args}` : `npm run ${script}`;
+      const output = execSync(cmd, { cwd, timeout: Math.min(timeout, 300000), encoding: 'utf-8', maxBuffer: 2 * 1024 * 1024 });
+      return { ok: true, script, output: output.substring(0, 50000) };
+    } catch (err) {
+      return { ok: false, script, exitCode: err.status || 1, output: ((err.stdout || '') + (err.stderr || '')).substring(0, 50000) };
+    }
+  },
+};
+
+tools['npm.list'] = {
+  name: 'npm.list',
+  description: 'List installed npm packages',
+  params: { required: [], optional: ['cwd', 'depth', 'global', 'json'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { cwd = '.', depth = 0, global: isGlobal = false } = params;
+    const { execSync } = await import('child_process');
+    try {
+      let cmd = `npm list --depth=${depth} --json`;
+      if (isGlobal) cmd += ' -g';
+      const output = execSync(cmd, { cwd, timeout: 15000, encoding: 'utf-8', maxBuffer: 2 * 1024 * 1024 });
+      const data = JSON.parse(output);
+      const deps = data.dependencies || {};
+      return { packages: Object.entries(deps).map(([name, info]) => ({ name, version: info.version || '?' })), count: Object.keys(deps).length };
+    } catch (err) {
+      // npm list exits 1 with missing/extraneous deps — still parse output
+      try { const data = JSON.parse(err.stdout || '{}'); return { packages: Object.entries(data.dependencies || {}).map(([n, i]) => ({ name: n, version: i.version || '?' })), count: Object.keys(data.dependencies || {}).length, problems: data.problems }; }
+      catch { return { error: err.message, code: 'NPM_ERROR' }; }
+    }
+  },
+};
+
+tools['npm.outdated'] = {
+  name: 'npm.outdated',
+  description: 'Check for outdated npm packages',
+  params: { required: [], optional: ['cwd'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { cwd = '.' } = params;
+    const { execSync } = await import('child_process');
+    try {
+      const output = execSync('npm outdated --json', { cwd, timeout: 30000, encoding: 'utf-8' });
+      const data = JSON.parse(output || '{}');
+      const packages = Object.entries(data).map(([name, info]) => ({ name, current: info.current, wanted: info.wanted, latest: info.latest, type: info.type }));
+      return { packages, count: packages.length, upToDate: packages.length === 0 };
+    } catch (err) {
+      // npm outdated exits 1 if packages are outdated
+      try { const data = JSON.parse(err.stdout || '{}'); return { packages: Object.entries(data).map(([n, i]) => ({ name: n, current: i.current, wanted: i.wanted, latest: i.latest })), count: Object.keys(data).length }; }
+      catch { return { error: err.message, code: 'NPM_ERROR' }; }
+    }
+  },
+};
+
+tools['npm.audit'] = {
+  name: 'npm.audit',
+  description: 'Run npm security audit',
+  params: { required: [], optional: ['cwd', 'fix', 'production'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { cwd = '.', fix = false, production = false } = params;
+    const { execSync } = await import('child_process');
+    try {
+      let cmd = fix ? 'npm audit fix --json' : 'npm audit --json';
+      if (production) cmd += ' --production';
+      const output = execSync(cmd, { cwd, timeout: 60000, encoding: 'utf-8', maxBuffer: 2 * 1024 * 1024 });
+      const data = JSON.parse(output || '{}');
+      return {
+        vulnerabilities: data.metadata?.vulnerabilities || data.vulnerabilities || {},
+        totalDeps: data.metadata?.totalDependencies,
+        advisories: Object.values(data.advisories || {}).slice(0, 20).map(a => ({
+          title: a.title, severity: a.severity, module: a.module_name, url: a.url,
+        })),
+      };
+    } catch (err) {
+      try { return JSON.parse(err.stdout || '{}'); }
+      catch { return { error: err.message, code: 'NPM_ERROR' }; }
+    }
+  },
+};
+
+tools['npm.init'] = {
+  name: 'npm.init',
+  description: 'Initialize a new package.json',
+  params: { required: [], optional: ['cwd', 'name', 'version', 'description', 'main', 'type'] },
+  permissions: ['fs.write'],
+  async execute(params) {
+    const { cwd = '.', name, version = '1.0.0', description = '', main = 'index.js', type = 'module' } = params;
+    const fsP = await import('fs/promises');
+    const pathM = await import('path');
+    try {
+      const pkgName = name || pathM.basename(pathM.resolve(cwd));
+      const pkg = { name: pkgName, version, description, main, type, scripts: { test: 'echo "Error: no test specified" && exit 1' }, keywords: [], author: '', license: 'ISC' };
+      const pkgPath = pathM.join(pathM.resolve(cwd), 'package.json');
+      await fsP.writeFile(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+      return { ok: true, path: pkgPath, name: pkgName };
+    } catch (err) { return { error: err.message, code: 'NPM_ERROR' }; }
+  },
+};
+
+tools['npm.scripts'] = {
+  name: 'npm.scripts',
+  description: 'List available npm scripts from package.json',
+  params: { required: [], optional: ['cwd'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { cwd = '.' } = params;
+    const fsP = await import('fs/promises');
+    const pathM = await import('path');
+    try {
+      const raw = await fsP.readFile(pathM.join(pathM.resolve(cwd), 'package.json'), 'utf-8');
+      const pkg = JSON.parse(raw);
+      const scripts = pkg.scripts || {};
+      return { scripts, count: Object.keys(scripts).length, name: pkg.name, version: pkg.version };
+    } catch (err) { return { error: err.message, code: 'NPM_ERROR' }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// TEXT PROCESSING
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['text.search'] = {
+  name: 'text.search',
+  description: 'Search for text/regex in files (grep-like) across a directory',
+  params: { required: ['pattern'], optional: ['dir', 'ext', 'maxResults', 'caseSensitive', 'wholeWord'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { pattern, dir = '.', ext, maxResults = 50, caseSensitive = false, wholeWord = false } = params;
+    const fsP = await import('fs/promises');
+    const pathM = await import('path');
+    try {
+      const skip = new Set(['node_modules', '.git', 'dist', 'build', '.c3', '__pycache__']);
+      let flags = 'gm'; if (!caseSensitive) flags += 'i';
+      const searchPat = wholeWord ? `\\b${pattern}\\b` : pattern;
+      const re = new RegExp(searchPat, flags);
+      const results = [];
+      async function walk(d, depth) {
+        if (depth > 8 || results.length >= maxResults) return;
+        let entries; try { entries = await fsP.readdir(d, { withFileTypes: true }); } catch { return; }
+        for (const e of entries) {
+          if (skip.has(e.name) || e.name.startsWith('.')) continue;
+          const full = pathM.join(d, e.name);
+          if (e.isDirectory()) { await walk(full, depth + 1); continue; }
+          if (ext && !e.name.endsWith('.' + ext)) continue;
+          try {
+            const stat = await fsP.stat(full);
+            if (stat.size > 512 * 1024) continue;
+            const text = await fsP.readFile(full, 'utf-8');
+            const matches = [];
+            let m;
+            re.lastIndex = 0;
+            while ((m = re.exec(text)) !== null && matches.length < 10) {
+              const lineNum = text.substring(0, m.index).split('\n').length;
+              matches.push({ line: lineNum, col: m.index - text.lastIndexOf('\n', m.index - 1), text: text.split('\n')[lineNum - 1]?.substring(0, 200) });
+            }
+            if (matches.length) results.push({ file: pathM.relative(dir, full), matches, matchCount: matches.length });
+          } catch { continue; }
+          if (results.length >= maxResults) return;
+        }
+      }
+      await walk(pathM.resolve(dir), 0);
+      return { results, fileCount: results.length, totalMatches: results.reduce((s, r) => s + r.matchCount, 0) };
+    } catch (err) { return { error: err.message, code: 'TEXT_ERROR' }; }
+  },
+};
+
+tools['text.replace'] = {
+  name: 'text.replace',
+  description: 'Find and replace text in one or more files',
+  params: { required: ['pattern', 'replacement'], optional: ['files', 'dir', 'ext', 'regex', 'dryRun'] },
+  permissions: ['fs.write'],
+  async execute(params) {
+    const { pattern, replacement, files, dir, ext, regex = false, dryRun = false } = params;
+    const fsP = await import('fs/promises');
+    const pathM = await import('path');
+    try {
+      let targetFiles = files ? (Array.isArray(files) ? files : [files]) : [];
+      if (!targetFiles.length && dir) {
+        const found = await tools['fs.find'].execute({ dir, ext, content: pattern, maxResults: 50 });
+        targetFiles = (found.results || []).map(r => pathM.join(dir, r.path));
+      }
+      const results = [];
+      for (const file of targetFiles) {
+        try {
+          const content = await fsP.readFile(file, 'utf-8');
+          const re = regex ? new RegExp(pattern, 'g') : undefined;
+          const newContent = re ? content.replace(re, replacement) : content.split(pattern).join(replacement);
+          const changes = re ? (content.match(re) || []).length : content.split(pattern).length - 1;
+          if (changes > 0) {
+            if (!dryRun) await fsP.writeFile(file, newContent);
+            results.push({ file, changes });
+          }
+        } catch { continue; }
+      }
+      return { ok: true, dryRun, filesChanged: results.length, results, totalChanges: results.reduce((s, r) => s + r.changes, 0) };
+    } catch (err) { return { error: err.message, code: 'TEXT_ERROR' }; }
+  },
+};
+
+tools['text.count'] = {
+  name: 'text.count',
+  description: 'Count lines, words, characters, or pattern occurrences',
+  params: { required: ['input'], optional: ['inputType', 'pattern'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { input, inputType = 'file', pattern } = params;
+    const fsP = await import('fs/promises');
+    try {
+      const text = inputType === 'file' ? await fsP.readFile(input, 'utf-8') : input;
+      const result = { lines: text.split('\n').length, words: text.split(/\s+/).filter(Boolean).length, chars: text.length, bytes: Buffer.byteLength(text) };
+      if (pattern) {
+        const re = new RegExp(pattern, 'gm');
+        const matches = text.match(re);
+        result.patternMatches = matches ? matches.length : 0;
+      }
+      return result;
+    } catch (err) { return { error: err.message, code: 'TEXT_ERROR' }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// SYSTEM / PROCESS
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['system.info'] = {
+  name: 'system.info',
+  description: 'Get system information (OS, CPU, memory, uptime)',
+  params: { required: [], optional: [] },
+  permissions: [],
+  async execute() {
+    const os = await import('os');
+    return {
+      platform: os.platform(), arch: os.arch(), release: os.release(),
+      hostname: os.hostname(), uptime: os.uptime(),
+      cpus: { model: os.cpus()[0]?.model, count: os.cpus().length, speed: os.cpus()[0]?.speed },
+      memory: { total: os.totalmem(), free: os.freemem(), used: os.totalmem() - os.freemem(), usedPercent: Math.round((1 - os.freemem() / os.totalmem()) * 100) },
+      nodeVersion: process.version,
+      cwd: process.cwd(),
+    };
+  },
+};
+
+tools['system.disk'] = {
+  name: 'system.disk',
+  description: 'Show disk usage for a path',
+  params: { required: [], optional: ['path'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { path = '.' } = params;
+    const { execSync } = await import('child_process');
+    try {
+      const df = execSync(`df -h "${path}"`, { timeout: 5000, encoding: 'utf-8' });
+      const lines = df.trim().split('\n');
+      if (lines.length < 2) return { error: 'No data', code: 'SYSTEM_ERROR' };
+      const parts = lines[1].split(/\s+/);
+      return { filesystem: parts[0], size: parts[1], used: parts[2], available: parts[3], usePercent: parts[4], mountedOn: parts[5] };
+    } catch (err) { return { error: err.message, code: 'SYSTEM_ERROR' }; }
+  },
+};
+
+tools['process.list'] = {
+  name: 'process.list',
+  description: 'List running processes (optionally filter by name)',
+  params: { required: [], optional: ['filter', 'limit'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { filter, limit = 50 } = params;
+    const { execSync } = await import('child_process');
+    try {
+      const cmd = filter ? `ps aux | head -1 && ps aux | grep -i "${filter}" | grep -v grep` : `ps aux --sort=-%mem | head -${limit + 1}`;
+      const output = execSync(cmd, { timeout: 5000, encoding: 'utf-8' });
+      const lines = output.trim().split('\n');
+      const header = lines[0];
+      const processes = lines.slice(1).map(l => {
+        const parts = l.split(/\s+/);
+        return { user: parts[0], pid: parseInt(parts[1]), cpu: parseFloat(parts[2]), mem: parseFloat(parts[3]), command: parts.slice(10).join(' ').substring(0, 200) };
+      });
+      return { processes: processes.slice(0, limit), count: processes.length };
+    } catch (err) { return { error: err.message, code: 'SYSTEM_ERROR' }; }
+  },
+};
+
+tools['process.kill'] = {
+  name: 'process.kill',
+  description: 'Kill a process by PID',
+  params: { required: ['pid'], optional: ['signal'] },
+  permissions: ['shell.exec'],
+  async execute(params) {
+    const { pid, signal = 'SIGTERM' } = params;
+    try {
+      process.kill(parseInt(pid), signal);
+      return { ok: true, pid, signal };
+    } catch (err) { return { error: err.message, code: 'SYSTEM_ERROR' }; }
+  },
+};
+
+tools['system.which'] = {
+  name: 'system.which',
+  description: 'Check if a command/tool is available on the system',
+  params: { required: ['command'], optional: [] },
+  permissions: [],
+  async execute(params) {
+    const { execSync } = await import('child_process');
+    try {
+      const path = execSync(`which ${params.command}`, { timeout: 3000, encoding: 'utf-8' }).trim();
+      let version = null;
+      try { version = execSync(`${params.command} --version`, { timeout: 3000, encoding: 'utf-8' }).trim().split('\n')[0]; } catch {}
+      return { available: true, path, version };
+    } catch { return { available: false, command: params.command, suggestion: `Install with: apt install ${params.command} / brew install ${params.command}` }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// NETWORK
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['net.ping'] = {
+  name: 'net.ping',
+  description: 'Ping a host to check connectivity',
+  params: { required: ['host'], optional: ['count', 'timeout'] },
+  permissions: ['web.read'],
+  async execute(params) {
+    const { host, count = 3, timeout = 5 } = params;
+    const { execSync } = await import('child_process');
+    try {
+      const output = execSync(`ping -c ${Math.min(count, 10)} -W ${timeout} "${host}"`, { timeout: (timeout + 2) * count * 1000, encoding: 'utf-8' });
+      const stats = output.match(/(\d+) packets transmitted, (\d+) received/);
+      const rtt = output.match(/rtt min\/avg\/max\/mdev = ([\d.]+)\/([\d.]+)\/([\d.]+)\/([\d.]+)/);
+      return {
+        host, reachable: true,
+        transmitted: stats ? parseInt(stats[1]) : count,
+        received: stats ? parseInt(stats[2]) : 0,
+        loss: stats ? `${Math.round((1 - parseInt(stats[2]) / parseInt(stats[1])) * 100)}%` : '?',
+        rtt: rtt ? { min: parseFloat(rtt[1]), avg: parseFloat(rtt[2]), max: parseFloat(rtt[3]) } : null,
+      };
+    } catch (err) {
+      return { host, reachable: false, error: err.message };
+    }
+  },
+};
+
+tools['net.ports'] = {
+  name: 'net.ports',
+  description: 'Check if ports are open on a host (or list listening ports)',
+  params: { required: [], optional: ['host', 'ports', 'listening'] },
+  permissions: ['web.read'],
+  async execute(params) {
+    const { host, ports, listening = false } = params;
+    const { execSync } = await import('child_process');
+    try {
+      if (listening) {
+        const output = execSync('ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null', { timeout: 5000, encoding: 'utf-8' });
+        const lines = output.trim().split('\n').slice(1);
+        const portList = lines.map(l => {
+          const parts = l.split(/\s+/);
+          const addr = parts[3] || parts[2] || '';
+          const portMatch = addr.match(/:(\d+)$/);
+          return { address: addr, port: portMatch ? parseInt(portMatch[1]) : null, process: parts[parts.length - 1] || '' };
+        }).filter(p => p.port);
+        return { ports: portList, count: portList.length };
+      }
+      if (!host || !ports?.length) return { error: 'host and ports required (or use listening:true)', code: 'INVALID_INPUT' };
+      const net = await import('net');
+      const results = await Promise.all(ports.map(port => new Promise(resolve => {
+        const sock = new net.Socket();
+        sock.setTimeout(2000);
+        sock.on('connect', () => { sock.destroy(); resolve({ port, open: true }); });
+        sock.on('error', () => { sock.destroy(); resolve({ port, open: false }); });
+        sock.on('timeout', () => { sock.destroy(); resolve({ port, open: false }); });
+        sock.connect(port, host);
+      })));
+      return { host, results };
+    } catch (err) { return { error: err.message, code: 'NET_ERROR' }; }
+  },
+};
+
+tools['net.dns'] = {
+  name: 'net.dns',
+  description: 'DNS lookup for a hostname',
+  params: { required: ['hostname'], optional: ['type'] },
+  permissions: ['web.read'],
+  async execute(params) {
+    const { hostname, type } = params;
+    const dns = await import('dns');
+    const { promisify } = await import('util');
+    try {
+      if (type) {
+        const resolve = promisify(dns.resolve);
+        const records = await resolve(hostname, type);
+        return { hostname, type, records };
+      }
+      const lookup = promisify(dns.lookup);
+      const result = await lookup(hostname, { all: true });
+      return { hostname, addresses: result };
+    } catch (err) { return { error: err.message, code: 'DNS_ERROR' }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// DOCKER — Full Suite
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['docker.build'] = {
+  name: 'docker.build',
+  description: 'Build a Docker image from Dockerfile',
+  params: { required: ['tag'], optional: ['context', 'dockerfile', 'buildArgs', 'noCache'] },
+  permissions: ['shell.exec'],
+  async execute(params) {
+    const { tag, context = '.', dockerfile, buildArgs = {}, noCache = false } = params;
+    const { execSync } = await import('child_process');
+    try {
+      let cmd = `docker build -t "${tag}" ${context}`;
+      if (dockerfile) cmd += ` -f "${dockerfile}"`;
+      if (noCache) cmd += ' --no-cache';
+      Object.entries(buildArgs).forEach(([k, v]) => { cmd += ` --build-arg ${k}="${v}"`; });
+      const output = execSync(cmd, { timeout: 300000, encoding: 'utf-8', maxBuffer: 4 * 1024 * 1024 });
+      return { ok: true, tag, output: output.substring(output.length - 2000) };
+    } catch (err) { return { ok: false, error: err.message, output: ((err.stdout || '') + (err.stderr || '')).substring(0, 5000) }; }
+  },
+};
+
+tools['docker.ps'] = {
+  name: 'docker.ps',
+  description: 'List running Docker containers',
+  params: { required: [], optional: ['all', 'filter'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { all = false, filter } = params;
+    const { execSync } = await import('child_process');
+    try {
+      let cmd = `docker ps --format '{{json .}}'`;
+      if (all) cmd += ' -a';
+      if (filter) cmd += ` --filter "${filter}"`;
+      const output = execSync(cmd, { timeout: 10000, encoding: 'utf-8' });
+      const containers = output.trim().split('\n').filter(Boolean).map(l => {
+        try { return JSON.parse(l); } catch { return { raw: l }; }
+      });
+      return { containers, count: containers.length };
+    } catch (err) { return { error: err.message, code: 'DOCKER_ERROR' }; }
+  },
+};
+
+tools['docker.images'] = {
+  name: 'docker.images',
+  description: 'List Docker images',
+  params: { required: [], optional: ['filter'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { filter } = params;
+    const { execSync } = await import('child_process');
+    try {
+      let cmd = `docker images --format '{{json .}}'`;
+      if (filter) cmd += ` "${filter}"`;
+      const output = execSync(cmd, { timeout: 10000, encoding: 'utf-8' });
+      const images = output.trim().split('\n').filter(Boolean).map(l => {
+        try { return JSON.parse(l); } catch { return { raw: l }; }
+      });
+      return { images, count: images.length };
+    } catch (err) { return { error: err.message, code: 'DOCKER_ERROR' }; }
+  },
+};
+
+tools['docker.logs'] = {
+  name: 'docker.logs',
+  description: 'Show logs from a Docker container',
+  params: { required: ['container'], optional: ['tail', 'since', 'follow'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { container, tail = 100, since } = params;
+    const { execSync } = await import('child_process');
+    try {
+      let cmd = `docker logs --tail ${tail} "${container}"`;
+      if (since) cmd += ` --since "${since}"`;
+      const output = execSync(cmd, { timeout: 10000, encoding: 'utf-8', maxBuffer: 2 * 1024 * 1024 });
+      return { container, output: output.substring(0, 50000), lines: output.split('\n').length };
+    } catch (err) { return { error: err.message, code: 'DOCKER_ERROR' }; }
+  },
+};
+
+tools['docker.compose'] = {
+  name: 'docker.compose',
+  description: 'Run docker compose commands (up, down, ps, logs, build, restart)',
+  params: { required: ['action'], optional: ['cwd', 'services', 'file', 'detach', 'build'] },
+  permissions: ['shell.exec'],
+  async execute(params) {
+    const { action, cwd = '.', services = [], file, detach = true, build: doBuild = false } = params;
+    const { execSync } = await import('child_process');
+    try {
+      let cmd = 'docker compose';
+      if (file) cmd += ` -f "${file}"`;
+      cmd += ` ${action}`;
+      if (action === 'up') {
+        if (detach) cmd += ' -d';
+        if (doBuild) cmd += ' --build';
+      }
+      if (services.length) cmd += ' ' + services.join(' ');
+      const timeout = ['up', 'build'].includes(action) ? 300000 : 30000;
+      const output = execSync(cmd, { cwd, timeout, encoding: 'utf-8', maxBuffer: 2 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
+      return { ok: true, action, output: ((output || '') + '').substring(0, 10000) };
+    } catch (err) { return { ok: false, action, error: err.message, output: ((err.stdout || '') + (err.stderr || '')).substring(0, 5000) }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// SELF-CAPABILITY: Auto-detect, suggest, install missing tools/packages
+// ════════════════════════════════════════════════════════════════════════════
+
+const _TOOL_INSTALL_MAP = {
+  convert: { name: 'ImageMagick', apt: 'imagemagick', brew: 'imagemagick', npm: null },
+  ffmpeg: { name: 'FFmpeg', apt: 'ffmpeg', brew: 'ffmpeg', npm: null },
+  docker: { name: 'Docker', apt: 'docker.io', brew: 'docker', npm: null },
+  python3: { name: 'Python 3', apt: 'python3', brew: 'python3', npm: null },
+  pip3: { name: 'pip3', apt: 'python3-pip', brew: 'python3', npm: null },
+  gcc: { name: 'GCC', apt: 'gcc', brew: 'gcc', npm: null },
+  make: { name: 'Make', apt: 'make', brew: 'make', npm: null },
+  cmake: { name: 'CMake', apt: 'cmake', brew: 'cmake', npm: null },
+  jq: { name: 'jq', apt: 'jq', brew: 'jq', npm: null },
+  curl: { name: 'curl', apt: 'curl', brew: 'curl', npm: null },
+  wget: { name: 'wget', apt: 'wget', brew: 'wget', npm: null },
+  zip: { name: 'zip', apt: 'zip', brew: 'zip', npm: null },
+  unzip: { name: 'unzip', apt: 'unzip', brew: 'unzip', npm: null },
+  sqlite3: { name: 'SQLite3 CLI', apt: 'sqlite3', brew: 'sqlite', npm: null },
+  rsync: { name: 'rsync', apt: 'rsync', brew: 'rsync', npm: null },
+  htop: { name: 'htop', apt: 'htop', brew: 'htop', npm: null },
+  tree: { name: 'tree', apt: 'tree', brew: 'tree', npm: null },
+  typescript: { name: 'TypeScript', apt: null, brew: null, npm: 'typescript' },
+  eslint: { name: 'ESLint', apt: null, brew: null, npm: 'eslint' },
+  prettier: { name: 'Prettier', apt: null, brew: null, npm: 'prettier' },
+  jest: { name: 'Jest', apt: null, brew: null, npm: 'jest' },
+  vitest: { name: 'Vitest', apt: null, brew: null, npm: 'vitest' },
+  nodemon: { name: 'Nodemon', apt: null, brew: null, npm: 'nodemon' },
+  pm2: { name: 'PM2', apt: null, brew: null, npm: 'pm2' },
+};
+
+tools['tools.check'] = {
+  name: 'tools.check',
+  description: 'Check which external tools/commands are available on this system',
+  params: { required: [], optional: ['commands'] },
+  permissions: [],
+  async execute(params) {
+    const { commands } = params;
+    const { execSync } = await import('child_process');
+    const toCheck = commands || Object.keys(_TOOL_INSTALL_MAP);
+    const results = {};
+    for (const cmd of toCheck) {
+      try {
+        const path = execSync(`which ${cmd}`, { timeout: 2000, encoding: 'utf-8' }).trim();
+        results[cmd] = { available: true, path };
+      } catch {
+        results[cmd] = { available: false, install: _TOOL_INSTALL_MAP[cmd] || null };
+      }
+    }
+    const available = Object.entries(results).filter(([, v]) => v.available).map(([k]) => k);
+    const missing = Object.entries(results).filter(([, v]) => !v.available).map(([k, v]) => ({ command: k, ...(v.install || {}) }));
+    return { results, available, missing, summary: `${available.length} available, ${missing.length} missing` };
+  },
+};
+
+tools['tools.install'] = {
+  name: 'tools.install',
+  description: 'Install a missing tool/package (auto-detects package manager)',
+  params: { required: ['package'], optional: ['manager', 'global'] },
+  permissions: ['shell.exec'],
+  async execute(params) {
+    const { package: pkg, manager, global: isGlobal = true } = params;
+    const { execSync } = await import('child_process');
+    try {
+      // Auto-detect package manager
+      let mgr = manager;
+      if (!mgr) {
+        // Check what's available
+        const known = _TOOL_INSTALL_MAP[pkg];
+        try { execSync('which apt', { timeout: 2000 }); mgr = 'apt'; } catch {}
+        if (!mgr) { try { execSync('which brew', { timeout: 2000 }); mgr = 'brew'; } catch {} }
+        if (!mgr) { try { execSync('which dnf', { timeout: 2000 }); mgr = 'dnf'; } catch {} }
+        if (!mgr) { try { execSync('which pacman', { timeout: 2000 }); mgr = 'pacman'; } catch {} }
+        // If it's an npm package, use npm
+        if (known?.npm && !known.apt) mgr = 'npm';
+        if (!mgr) mgr = 'npm';
+      }
+      const pkgName = _TOOL_INSTALL_MAP[pkg]?.[mgr] || pkg;
+      let cmd;
+      if (mgr === 'npm') cmd = `npm install ${isGlobal ? '-g' : ''} ${pkgName}`;
+      else if (mgr === 'apt') cmd = `sudo apt install -y ${pkgName}`;
+      else if (mgr === 'brew') cmd = `brew install ${pkgName}`;
+      else if (mgr === 'dnf') cmd = `sudo dnf install -y ${pkgName}`;
+      else if (mgr === 'pacman') cmd = `sudo pacman -S --noconfirm ${pkgName}`;
+      else return { error: `Unknown package manager: ${mgr}`, code: 'UNSUPPORTED' };
+      const output = execSync(cmd, { timeout: 120000, encoding: 'utf-8', maxBuffer: 2 * 1024 * 1024 });
+      return { ok: true, package: pkgName, manager: mgr, output: output.substring(0, 3000) };
+    } catch (err) {
+      return { ok: false, error: err.message, output: ((err.stdout || '') + (err.stderr || '')).substring(0, 3000) };
+    }
+  },
+};
+
+tools['tools.suggest'] = {
+  name: 'tools.suggest',
+  description: 'Analyze an error and suggest what tool/package to install',
+  params: { required: ['error'], optional: ['context'] },
+  permissions: [],
+  async execute(params) {
+    const { error, context } = params;
+    const suggestions = [];
+    const errLower = error.toLowerCase();
+    // Common "command not found" patterns
+    const cmdMatch = error.match(/(?:command not found|not found|ENOENT).*?[: ]([a-z0-9_-]+)/i);
+    if (cmdMatch) {
+      const cmd = cmdMatch[1];
+      if (_TOOL_INSTALL_MAP[cmd]) suggestions.push({ type: 'install', ...{ command: cmd, ..._TOOL_INSTALL_MAP[cmd] } });
+      else suggestions.push({ type: 'install', command: cmd, hint: `Try: apt install ${cmd} or brew install ${cmd} or npm install -g ${cmd}` });
+    }
+    // Module not found
+    if (errLower.includes('cannot find module') || errLower.includes('module not found')) {
+      const modMatch = error.match(/(?:Cannot find module|Module not found)[: ]*['"]([^'"]+)['"]/);
+      if (modMatch) suggestions.push({ type: 'npm_install', package: modMatch[1], command: `npm install ${modMatch[1]}` });
+    }
+    // Python import error
+    if (errLower.includes('modulenotfounderror') || errLower.includes('no module named')) {
+      const pyMatch = error.match(/No module named '([^']+)'/i);
+      if (pyMatch) suggestions.push({ type: 'pip_install', package: pyMatch[1], command: `pip3 install ${pyMatch[1]}` });
+    }
+    // Permission denied
+    if (errLower.includes('permission denied') || errLower.includes('eacces')) {
+      suggestions.push({ type: 'permission', hint: 'Try: chmod +x <file> or run with sudo' });
+    }
+    // Port in use
+    if (errLower.includes('eaddrinuse') || errLower.includes('address already in use')) {
+      const portMatch = error.match(/port[: ]*(\d+)/i) || error.match(/:(\d+)/);
+      if (portMatch) suggestions.push({ type: 'port_conflict', port: portMatch[1], hint: `Port ${portMatch[1]} is in use. Find process: lsof -i :${portMatch[1]}` });
+    }
+    // Out of memory
+    if (errLower.includes('heap out of memory') || errLower.includes('enomem')) {
+      suggestions.push({ type: 'memory', hint: 'Increase Node memory: NODE_OPTIONS="--max-old-space-size=4096"' });
+    }
+    if (!suggestions.length) suggestions.push({ type: 'unknown', hint: 'No specific fix detected. Try searching the error message.' });
+    return { suggestions, errorSnippet: error.substring(0, 300), context };
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
 // TOOL REGISTRY
 // ════════════════════════════════════════════════════════════════════════════
 
