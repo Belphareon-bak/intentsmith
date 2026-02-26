@@ -82,6 +82,10 @@ export function generateReadme(projectPath, opts = {}) {
  * @returns {{ written: boolean, path: string }}
  */
 export function ensureReadme(projectPath, opts = {}) {
+  if (!projectPath || !path.isAbsolute(projectPath)) {
+    logger.warn('ReadmeGenerator', `Skipped: invalid projectPath (${projectPath})`);
+    return { written: false, path: null, reason: 'invalid_path' };
+  }
   const readmePath = path.join(projectPath, 'README.md');
 
   try {

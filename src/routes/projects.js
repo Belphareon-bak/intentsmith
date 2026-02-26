@@ -264,12 +264,14 @@ export function createProjectRoutes(deps) {
           milestones.total += row.count;
         }
 
+        // Resolve project path from projects table (project_lifecycles has no path column)
+        const proj = db.projects.findById.get(lc.project_id);
         sendJSON(res, 200, {
           lifecycle: {
             id: lc.id,
             phase: lc.phase,
             activeSessionId: lc.active_session_id || null,
-            projectPath: lc.project_path || null,
+            projectPath: proj?.path || null,
             milestones,
           },
         });
@@ -310,6 +312,9 @@ export function createProjectRoutes(deps) {
         // Bind session to lifecycle
         bindSessionToLifecycle(sessionId, lc.id);
 
+        // Resolve project path from projects table (project_lifecycles has no path column)
+        const proj = db.projects.findById.get(projectId);
+
         // Set lifecycle state in RAM for conversation handler
         setLcState(sessionId, {
           phase: lc.phase,
@@ -317,7 +322,7 @@ export function createProjectRoutes(deps) {
           currentMilestoneId: null,
           originalRequest: '',
           projectId,
-          projectPath: lc.project_path || null,
+          projectPath: proj?.path || null,
         });
 
         logger.info('Projects', `Lifecycle bound: session=${sessionId} lifecycle=${lc.id} phase=${lc.phase}`);

@@ -12,7 +12,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { writeFile } from 'fs/promises';
-import { join } from 'path';
+import { join, isAbsolute } from 'path';
 import { logger } from '../core/logger.js';
 import { callLLM, parseJSON } from './workflow.js';
 import {
@@ -477,6 +477,10 @@ const STATUS_LABELS = {
  */
 export async function writeRoadmapFile(projectPath, lifecycleId, context) {
   if (!projectPath || !lifecycleId) return;
+  if (!isAbsolute(projectPath)) {
+    logger.warn('LifecyclePlanning', `writeRoadmapFile: skipped — not absolute path (${projectPath})`);
+    return;
+  }
 
   try {
     const milestonesList = msRepo.listByLifecycle(lifecycleId);

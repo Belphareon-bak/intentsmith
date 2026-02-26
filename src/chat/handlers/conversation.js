@@ -328,18 +328,24 @@ export async function conversationHandler(input, context) {
           logger.info('Conversation', `C4: Lifecycle state migrated from ${existing.sessionId} to ${sessionId} for project ${projectId}`);
         } else {
           // B) DB fallback — restore from DB when RAM has no match
-          const { lifecycles: lcRepo, lifecycleHandoffState: lhsRepo } = await import('../../db/database.js');
+          const { lifecycles: lcRepo, lifecycleHandoffState: lhsRepo, projects: projRepo } = await import('../../db/database.js');
           const activeLc = lcRepo.findActiveByProject.get(projectId);
           if (activeLc && activeLc.phase !== 'COMPLETED' && activeLc.phase !== 'FAILED') {
             const prev = activeLc.active_session_id && lhsRepo
               ? lhsRepo.findBySession.get(activeLc.active_session_id) : null;
+            // Resolve path: context > handoff state > projects table
+            let resolvedPath = context.project?.path || prev?.project_path;
+            if (!resolvedPath) {
+              const proj = projRepo.findById.get(projectId);
+              if (proj?.path) resolvedPath = proj.path;
+            }
             setLcS(sessionId, {
               phase: activeLc.phase,
               lifecycleId: activeLc.id,
               currentMilestoneId: prev?.current_milestone_id || null,
               originalRequest: prev?.original_request || '',
               projectId: activeLc.project_id,
-              projectPath: context.project?.path || prev?.project_path,
+              projectPath: resolvedPath,
             });
             bindS(sessionId, activeLc.id);
             logger.info('Conversation', `C4: Auto-detected active lifecycle ${activeLc.id} for project ${projectId}`);

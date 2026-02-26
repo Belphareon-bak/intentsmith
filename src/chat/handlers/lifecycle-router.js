@@ -35,7 +35,17 @@ import {
  */
 async function resumeWithContext(state, context) {
   const { ProjectLifecycle } = await import('../../planner/lifecycle.js');
-  const projectPath = context.projectPath || state.projectPath;
+  let projectPath = context.projectPath || state.projectPath;
+
+  // Fallback: resolve path from projects table when state has projectId but no path
+  if (!projectPath && state.projectId) {
+    try {
+      const { projects } = await import('../../db/database.js');
+      const proj = projects.findById.get(state.projectId);
+      if (proj?.path) projectPath = proj.path;
+    } catch (_) {}
+  }
+
   const lifecycle = ProjectLifecycle.resume(state.lifecycleId, projectPath);
   if (!lifecycle) {
     throw new Error(`Lifecycle ${state.lifecycleId} not found in DB`);
