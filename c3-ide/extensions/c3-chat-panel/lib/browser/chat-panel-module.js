@@ -422,10 +422,11 @@ function fetchBackendData(){
   /* Projects — filter: must have path (real project, not conversation leak) */
   var projStatus=(_centerState.showArchivedProjects)?'all':'active';
   fetch(_backendBase+'/api/projects?limit=50&status='+projStatus,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(data){
-    var items=Array.isArray(data)?data:(data.projects||data.items||[]);
+    var items=Array.isArray(data)?data:(data.projects||[]);
     items=items.filter(function(p){return p.path&&p.name;});
     if(items.length>0){PROJECTS=items.slice(0,20).map(function(p){return{id:p.id,emoji:'📁',name:_s(p.name||p.title)||'Projekt',path:p.path||null,status:_s(p.status)||'Active',created:_s(p.created_at||p.createdAt||p.created)||'',updated:_s(p.last_active||p.updatedAt||p.updated)||'',desc:_s(p.description)||'',tags:[]};});}
     else{PROJECTS=[];}
+    if(typeof console!=='undefined')console.debug('[C3:fetchProjects]',PROJECTS.length,'items, raw:',items.length,'isArray:',Array.isArray(data),'keys:',data?Object.keys(data).join(','):'null');
     NAV[1].badge=PROJECTS.length;NAV[1].recent=PROJECTS.slice(0,3).map(function(p){return p.name;});renderCenter();
     /* v68: Sync working tree with active project after project data loads */
     var _as=_sessions[_sessionActive];
@@ -435,9 +436,10 @@ function fetchBackendData(){
   /* Conversations */
   var convStatus=(_centerState.showArchived)?'all':'active';
   fetch(_backendBase+'/api/conversations?limit=50&status='+convStatus,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(data){
-    var items=Array.isArray(data)?data:(data.conversations||data.items||[]);
+    var items=Array.isArray(data)?data:(data.conversations||[]);
     if(items.length>0){CONVERSATIONS=items.slice(0,20).map(function(c){return{id:c.id,title:_s(c.title||c.name)||'Chat',preview:_s(c.preview||c.lastMessage||c.summary)||'',time:_s(c.time||c.updated_at||c.updatedAt)||'',expertise:_s(c.expertise)||'Výchozí',status:_s(c.state||c.status)||'active'};});}
     else{CONVERSATIONS=[];}
+    if(typeof console!=='undefined')console.debug('[C3:fetchConversations]',CONVERSATIONS.length,'items, raw:',items.length,'isArray:',Array.isArray(data),'keys:',data?Object.keys(data).join(','):'null');
     NAV[0].badge=CONVERSATIONS.length;NAV[0].recent=CONVERSATIONS.slice(0,3).map(function(c){return c.title;});renderCenter();
   }).catch(function(){});
   /* Expertises — separate specialists (is_specialist or is_builtin+tools) */
@@ -510,6 +512,7 @@ setInterval(function(){
     _serverHealth.status=d.status||'ok';
     _serverHealth.lastCheck=Date.now();
     _serverHealth.wsConnected=(typeof C3WS!=='undefined'&&C3WS.isReady())||false;
+    if(d.version)_serverHealth.version=d.version;
     fetchBackendData();
     renderSidebar();_updateStatusIndicator();
   })
@@ -876,7 +879,7 @@ function CenterApp(){
   );
   var showDetail=detail&&!isOverlay;
   return h('div',{style:{display:'flex',height:'100%',width:'100%',background:C.bg0,fontFamily:C.font,overflow:'hidden',position:'absolute',top:0,left:0,right:0,bottom:0}},
-    h('div',{style:{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}},mainContent),
+    h('div',{key:'cv-'+(isOverlay?'overlay':view),style:{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}},mainContent),
     showDetail?h('div',{style:{width:'45%',maxWidth:480,minWidth:280,borderLeft:'1px solid '+C.border,display:'flex',flexDirection:'column',overflow:'hidden',background:C.bg1,flexShrink:0}},centerDetail()):null);
 }
 
@@ -1027,7 +1030,10 @@ function centerExpertises(){return h(React.Fragment,null,viewHead('Expertyzy',tr
 
 function centerProjects(){
   var showArchived=_centerState.showArchivedProjects||false;
-  var filtered=PROJECTS.filter(function(p){return showArchived?true:p.status!=='archived'&&p.status!=='Archived';});
+  /* v82: Defensive guard — only render items with emoji 📁 (projects). Log any contamination. */
+  var _contaminated=PROJECTS.filter(function(p){return p.emoji!=='📁';});
+  if(_contaminated.length>0&&typeof console!=='undefined'){console.warn('[C3:centerProjects] CONTAMINATION:',_contaminated.length,'non-project items in PROJECTS!',_contaminated.map(function(p){return p.name+'('+p.emoji+')';}));}
+  var filtered=PROJECTS.filter(function(p){return p.emoji==='📁'&&(showArchived?true:p.status!=='archived'&&p.status!=='Archived');});
   return h(React.Fragment,null,viewHead('Projekty',true,function(){_addNew('projects');}),
     h('div',{style:{padding:'4px 18px 0',display:'flex',gap:6}},
       h('button',{style:{background:!showArchived?C.bg4:'transparent',color:!showArchived?C.tx1:C.tx4,border:'none',borderRadius:4,padding:'3px 10px',fontSize:_fs(10),fontWeight:600,cursor:'pointer'},
@@ -1037,7 +1043,7 @@ function centerProjects(){
     h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(filtered.map(function(p){
       var isArchived=p.status==='archived'||p.status==='Archived';
       var actions=isArchived?['Otevřít','Obnovit','Smazat']:['Otevřít','Editovat','Archivovat'];
-      return card(p,function(){setDetail({name:p.name,fields:[{k:'Status',v:p.status||'active',a:!isArchived},{k:'Cesta',v:p.path||''},{k:'Popis',v:p.desc||''},{k:'Vytvořeno',v:p.created},{k:'Aktualizováno',v:p.updated}],tags:p.tags,actions:actions});});
+      return card(p,function(){setDetail({name:p.name,_itemId:p.id,fields:[{k:'Status',v:p.status||'active',a:!isArchived},{k:'Cesta',v:p.path||''},{k:'Popis',v:p.desc||''},{k:'Vytvořeno',v:p.created},{k:'Aktualizováno',v:p.updated}],tags:p.tags,actions:actions});});
     }))));
 }
 
@@ -1074,50 +1080,93 @@ function _wizardCanNext(){
   return true;
 }
 function _openExistingProject(){
-  /* Electron doesn't support prompt() — use native directory picker */
+  /* 1. Try Theia's electronTheiaFilesystem API (works in Theia Electron) */
+  if(window.electronTheiaFilesystem&&window.electronTheiaFilesystem.showOpenDialog){
+    window.electronTheiaFilesystem.showOpenDialog({
+      title:'Vyberte složku projektu',
+      openFolders:true,
+      openFiles:false,
+      selectMany:false,
+      modal:true
+    }).then(function(filePaths){
+      if(filePaths&&filePaths.length>0){
+        _doOpenExistingProject(filePaths[0]);
+      }
+    }).catch(function(e){
+      if(window._c3)window._c3.agentLog('TOOL','❌ Dialog selhal: '+(e.message||e));
+    });
+    return;
+  }
+
+  /* 2. Fallback: webkitdirectory file picker with Electron file.path */
   try{
     var inp=document.createElement('input');inp.type='file';inp.webkitdirectory=true;
     inp.addEventListener('change',function(){
       if(!inp.files||inp.files.length===0)return;
-      /* webkitdirectory returns files inside the folder — extract parent dir from first file's path */
-      var firstFile=inp.files[0];
-      var fp=firstFile.path||firstFile.webkitRelativePath||'';
-      if(!fp)return;
-      var parts=fp.replace(/\\/g,'/').split('/');
-      var folderPath=parts.slice(0,-1).join('/');
-      if(!folderPath)return;
-      _doOpenExistingProject(folderPath);
+      var fp=inp.files[0].path||'';
+      /* Validate absolute path (/ on Linux/Mac, drive letter on Windows) */
+      if(fp&&(fp.charAt(0)==='/'||/^[A-Z]:\\/i.test(fp))){
+        var parts=fp.replace(/\\/g,'/').split('/');
+        var folderPath=parts.slice(0,-1).join('/');
+        if(folderPath){_doOpenExistingProject(folderPath);return;}
+      }
+      if(window._c3)window._c3.agentLog('TOOL','❌ Nelze určit absolutní cestu. Použijte: /open <absolutní_cesta>');
     });
     inp.click();
   }catch(e){
-    /* Fallback: ask via simple input if file picker fails */
     if(window._c3)window._c3.agentLog('TOOL','❌ Nelze otevřít dialog: '+(e.message||e));
   }
 }
 function _doOpenExistingProject(folderPath){
-  if(!folderPath||!folderPath.trim())return;
+  if(!folderPath||!folderPath.trim()){if(window._c3)window._c3.agentLog('TOOL','❌ _doOpenExistingProject: prázdná cesta');return;}
   folderPath=folderPath.trim();
+  if(window._c3)window._c3.agentLog('TOOL','📂 Otevírám složku: '+folderPath+' (délka: '+folderPath.length+', první znak: '+JSON.stringify(folderPath.charAt(0))+')');
+  /* v82: Check if another project is already open — ask user */
+  var _ti=_centerState.targetSession||0;if(_ti>=_sessionCount)_ti=0;
+  var currentProj=_sessions[_ti]._projectId;
+  if(currentProj){
+    var curP=PROJECTS.find(function(p){return p.id===currentProj;});
+    var curName=curP?curP.name:'projekt';
+    if(!confirm('Projekt "'+curName+'" je právě otevřený.\n\nChcete ho nahradit novým projektem z:\n'+folderPath+'?'))return;
+  }
   _projectWizard.saving=true;renderCenter();
   fetch(_backendBase+'/api/projects/open-folder',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({folderPath:folderPath}),signal:AbortSignal.timeout(15000)})
-  .then(function(r){if(!r.ok)return r.json().then(function(e){throw new Error(e.error||'Server error '+r.status);});return r.json();})
+  .then(function(r){if(!r.ok)return r.json().then(function(e){throw new Error((e.error||'Server error '+r.status)+(e.details?' ['+e.details+']':''));});return r.json();})
   .then(function(res){
     _projectWizard.active=false;_projectWizard.saving=false;_wizardRestoreLayout();
     var proj=res.project;
     var realPath=(proj&&proj.path)||folderPath;
+    var projName=(proj&&proj.name)||folderPath.split('/').filter(Boolean).pop()||'Projekt';
     /* Open working tree */
     _wtRoot=realPath;_loadWorkspaceTree(realPath);
     /* Link to current session */
-    var _ti=_centerState.targetSession||0;if(_ti>=_sessionCount)_ti=0;
-    if(proj&&proj.id){_sessions[_ti]._projectId=proj.id;_persistSessionState();}
-    /* Log to agent panel, not chat */
+    var _ts=_sessions[_ti];
+    if(proj&&proj.id){
+      _ts._projectId=proj.id;
+      /* Reset session for new project context */
+      _ts._convId=null;_ts._agentId=null;_ts._lifecycleResumed=false;
+      _ts.chat.msgs=[{role:'system',text:'Projekt: '+projName}];
+      _ts.chat.ctx=0;
+      /* Create conversation for the project */
+      fetch(_backendBase+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({project_id:proj.id,title:projName}),signal:AbortSignal.timeout(5000)})
+      .then(function(r){return r.json();}).then(function(cd){
+        var conv=cd.conversation||cd;
+        if(conv&&conv.id){_ts._convId=conv.id;_persistSessionState();renderChat();}
+      }).catch(function(){});
+      _persistSessionState();
+    }
+    /* Log to agent panel + chat */
     if(window._c3){
-      window._c3.agentLog('TOOL','📂 Projekt otevřen: '+(proj?proj.name:folderPath));
+      window._c3.agentLog('TOOL','📂 Projekt otevřen: '+projName);
       window._c3.agentLog('TOOL','📍 '+realPath);
       if(res.metadata&&res.metadata.bootstrapped)window._c3.agentLog('TOOL','🔧 Metadata bootstrapped (.c3-architect)');
       if(res.status==='already_registered')window._c3.agentLog('TOOL','ℹ️ Projekt byl již registrován');
     }
-    fetchBackendData();renderCenter();
+    /* Switch view to chat so user sees the project linked */
+    _centerState.view='chats';_centerState.detail=null;
+    fetchBackendData();renderCenter();renderChat();
   }).catch(function(err){
     _projectWizard.saving=false;_projectWizard.active=false;_wizardRestoreLayout();
     if(window._c3)window._c3.agentLog('TOOL','❌ Chyba při otevírání: '+(err.message||err));
@@ -2049,7 +2098,7 @@ function centerSettings(){
             !isLines?h('div',{style:{position:'absolute',top:0,left:0,right:0,height:3,background:isSel?C.accent:'transparent'}}):null,
             h('div',{style:{fontSize:_fs(24),marginBottom:8}},sec.icon),
             h('div',{style:{fontSize:_fs(13),fontWeight:700,color:isSel?C.accentText:C.tx1,marginBottom:2}},sec.title),
-            h('div',{style:{fontSize:_fs(11),color:C.tx3}},sec.title==='About'?'C3 Studio v0.2.0':sec.fields.length+' nastavení'));
+            h('div',{style:{fontSize:_fs(11),color:C.tx3}},sec.title==='About'?'C3 Studio v'+(_serverHealth.version||'...'):sec.fields.length+' nastavení'));
         }))),
       selSec?settingsDetailPanel(selSec,selSi):null));
 }
@@ -2065,7 +2114,7 @@ function settingsDetailPanel(sec,si){
       sec.title==='About'?h('div',{style:{textAlign:'center',padding:'20px 0'}},
         h('div',{style:{width:48,height:48,background:'linear-gradient(135deg,#22c55e,#16a34a)',borderRadius:14,display:'inline-flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:_fs(20),color:'#fff',marginBottom:8}},'C3'),
         h('div',{style:{fontSize:_fs(14),fontWeight:700,color:C.tx1,marginBottom:2}},'C3 Studio'),
-        h('div',{style:{fontSize:_fs(11),color:C.tx3,marginBottom:12}},'v0.2.0'),
+        h('div',{style:{fontSize:_fs(11),color:C.tx3,marginBottom:12}},'v'+(_serverHealth.version||'...')),
         h('div',{style:{fontSize:_fs(11),color:C.tx4}},'Made with ❤️ by Belfik')):
       sec.title==='Appearance'?settingsAppearance():
       sec.fields.map(function(f,fi){
@@ -2635,8 +2684,8 @@ function _detailActionHandler(d,a){
     }
     _centerState.detail.editing=true;_centerState.detail._orig=d.fields.map(function(f){return{k:f.k,v:f.v};});_centerState.detail._origActions=d.actions.slice();_centerState.detail.actions=['Uložit','Zrušit'];c3.agentLog('TOOL','Editace: '+d.name);renderCenter();
   }else if(a==='Uložit'){
-    var view=_centerState.view;var itemId=null;
-    if(view==='projects'){var p2=PROJECTS.find(function(p){return p.name===d.name;});if(p2)itemId=p2.id;}
+    var view=_centerState.view;var itemId=d._itemId||null;
+    if(view==='projects'&&!itemId){var p2=PROJECTS.find(function(p){return p.name===d.name;});if(p2)itemId=p2.id;}
     else if(view==='expertises'){var e2=EXPERTISES.find(function(e){return e.name===d.name;});if(e2)itemId=e2.id;}
     else if(view==='workers'){var w4=WORKERS.find(function(w){return w.name===d.name;});if(w4)itemId=w4.id;}
     var upd={};
@@ -2664,6 +2713,7 @@ function _detailActionHandler(d,a){
       delete d._isNew;
     }else if(itemId&&ep){fetch(_backendBase+ep+itemId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(upd),signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(res){c3.agentLog('TOOL','Ulozeno: '+d.name);if(view==='projects'&&upd.path){_wtRoot=upd.path;_loadWorkspaceTree(upd.path);c3.agentLog('TOOL','📍 Working tree: '+upd.path);}fetchBackendData();}).catch(function(){c3.agentLog('TOOL','Ulozeno lokalne: '+d.name);});}
     else{c3.agentLog('TOOL','Ulozeno: '+d.name);}
+    if(view==='projects'&&itemId){var _pi=PROJECTS.find(function(p){return p.id===itemId;});if(_pi){if(upd.path!==undefined)_pi.path=upd.path;if(upd.description!==undefined)_pi.desc=upd.description;if(upd.status!==undefined)_pi.status=upd.status;}}
     d.actions=d._origActions||['Otevřít','Editovat'];delete d.editing;delete d._orig;delete d._origActions;renderCenter();
   }else if(a==='Zrušit'){
     if(d._orig){d.fields=d._orig;}d.actions=d._origActions||['Otevřít','Editovat'];delete d.editing;delete d._orig;delete d._origActions;c3.agentLog('TOOL','Editace zrusena');renderCenter();
@@ -2683,9 +2733,9 @@ function _detailActionHandler(d,a){
   }else if(a==='Smazat'){
     var cid4=null;var conv4=CONVERSATIONS.find(function(c){return c.title===d.name;});if(conv4&&conv4.id)cid4=conv4.id;
     var pid4=null;var proj4=PROJECTS.find(function(p){return p.name===d.name;});if(proj4&&proj4.id)pid4=proj4.id;
-    if(cid4){fetch(_backendBase+'/api/conversations/'+cid4,{method:'DELETE',signal:AbortSignal.timeout(3000)}).then(function(){c3.agentLog('TOOL','Konverzace '+d.name+' smazana.');fetchBackendData();}).catch(function(){c3.agentLog('TOOL',d.name+' smazano (lokalne).');});}
-    else if(pid4){fetch(_backendBase+'/api/projects/'+pid4,{method:'DELETE',signal:AbortSignal.timeout(3000)}).then(function(){c3.agentLog('TOOL','Projekt '+d.name+' smazan.');fetchBackendData();}).catch(function(){c3.agentLog('TOOL',d.name+' smazano (lokalne).');});}
-    _centerState.detail=null;renderCenter();
+    if(cid4){fetch(_backendBase+'/api/conversations/'+cid4,{method:'DELETE',signal:AbortSignal.timeout(3000)}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);c3.agentLog('TOOL','Konverzace '+d.name+' smazána.');fetchBackendData();}).catch(function(e){c3.agentLog('TOOL','❌ Chyba mazání: '+(e.message||e));fetchBackendData();});}
+    else if(pid4){fetch(_backendBase+'/api/projects/'+pid4,{method:'DELETE',signal:AbortSignal.timeout(3000)}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);c3.agentLog('TOOL','Projekt '+d.name+' smazán.');fetchBackendData();}).catch(function(e){c3.agentLog('TOOL','❌ Chyba mazání: '+(e.message||e));fetchBackendData();});}
+    _centerState.detail=null;_centerState.detailConversations=null;renderCenter();
   }else if(a==='Spustit'){
     var wid=null;var w2=WORKERS.find(function(w){return w.name===d.name;});if(w2&&w2.id)wid=w2.id;
     if(wid){fetch(_backendBase+'/api/agents/'+wid+'/run',{method:'POST',signal:AbortSignal.timeout(5000)}).then(function(){c3.agentLog('TOOL','Worker '+d.name+' spusten.');fetchBackendData();}).catch(function(){c3.agentLog('TOOL','Worker '+d.name+' — backend nedostupny.');});}
@@ -2875,11 +2925,11 @@ if(typeof C3Bus!=='undefined'){
 
 /* Nav event handler */
 window.addEventListener('c3-nav',function(e){
-  _centerState.view=e.detail.view;_centerState.detail=null;_centerState.settingsSection=null;_editorState.active=false;renderCenter();
+  _centerState.view=e.detail.view;_centerState.detail=null;_centerState.detailConversations=null;_centerState.settingsSection=null;_editorState.active=false;fetchBackendData();renderCenter();
   if(e.detail.select){
     var name=e.detail.select,view=e.detail.view,item=null;
     if(view==='expertises'){item=EXPERTISES.find(function(x){return x.name===name||x.name.indexOf(name)>=0;});if(item)setDetail({name:item.name,fields:[{k:'Typ',v:item.desc},{k:'Doména',v:item.domain||'general'},{k:'Emoji',v:item.emoji},{k:'Specialista',v:item.isSpecialist?'Ano':'Ne'},{k:'Oblíbený',v:item.fav?'Ano':'Ne'}],tags:[item.isSpecialist?'Specialista':'Expertyza',item.domain||item.desc].filter(Boolean),actions:['Otevřít','Editovat']});}
-    else if(view==='projects'){item=PROJECTS.find(function(x){return x.name.indexOf(name)>=0;});if(item)setDetail({name:item.name,fields:[{k:'Status',v:item.status,a:item.status==='Active'},{k:'Cesta',v:item.path||''},{k:'Popis',v:item.desc||''},{k:'Vytvořeno',v:item.created}],tags:item.tags,actions:['Otevřít','Editovat','Archivovat']});}
+    else if(view==='projects'){item=PROJECTS.find(function(x){return x.name.indexOf(name)>=0;});if(item)setDetail({name:item.name,_itemId:item.id,fields:[{k:'Status',v:item.status,a:item.status==='Active'},{k:'Cesta',v:item.path||''},{k:'Popis',v:item.desc||''},{k:'Vytvořeno',v:item.created}],tags:item.tags,actions:['Otevřít','Editovat','Archivovat']});}
     else if(view==='chats'){item=CONVERSATIONS.find(function(x){return x.title.indexOf(name)>=0;});if(item)setDetail({name:item.title,fields:[{k:'Expertyza',v:item.expertise},{k:'Čas',v:item.time}],tags:['Chat',item.expertise],actions:['Otevřít','Archivovat']});}
     else if(view==='specialists'){item=SPECIALISTS.find(function(x){return x.name.indexOf(name)>=0;});if(item)setDetail({name:item.name,fields:[{k:'Oblast',v:item.desc}],tags:item.tags,actions:['Otevřít','Editovat']});}
     else if(view==='workers'){item=WORKERS.find(function(x){return x.name.indexOf(name)>=0;});if(item)setDetail({name:item.name,fields:[{k:'Status',v:item.status,a:item.status==='Running'},{k:'Cron',v:item.cron},{k:'Popis',v:item.desc}],tags:['Worker',item.status],actions:['Spustit','Pozastavit','Editovat']});}
@@ -2901,7 +2951,7 @@ function _mkSession(){return{
   _agentId:null,         /* G1: agent binding — persists with conversation metadata */
   _openToken:null,       /* guard: project switch during async — stale responses ignored */
   _lifecycleResumed:false, /* guard: lifecycle resume message shown only once */
-  chat:{msgs:[{role:'system',text:'C3 Studio připraven. Začni psát zprávu.'}],ctx:0,expertise:'Výchozí',showExpertises:false,showAllExpertises:false,attachments:[],editMode:'ask',acSuggestion:null,acLoading:false},
+  chat:{msgs:[{role:'system',text:'C3 Studio připraven. Začni psát zprávu.'}],ctx:0,expertise:'Výchozí',showExpertises:false,showAllExpertises:false,attachments:[],editMode:'ask',editingIdx:null,editOriginalText:null,acSuggestion:null,acLoading:false},
   bottom:'split', /* 'agent' | 'terminal' | 'split' | 'mix' */
   log:[],
   term:[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}]
@@ -3142,7 +3192,7 @@ function _initBusSubscriptions() {
 }
 
 /* ── Health state ── */
-var _serverHealth = {status:'unknown', wsConnected:false, lastCheck:0};
+var _serverHealth = {status:'unknown', wsConnected:false, lastCheck:0, version:null};
 
 /* ── Status-bar health indicator (injected into Theia status bar) ── */
 function _updateStatusIndicator(){
@@ -3196,6 +3246,28 @@ function _persistSessionState() {
   }, 1000);
 }
 
+/* ── Flush session state synchronously before unload ── */
+window.addEventListener('beforeunload', function() {
+  clearTimeout(_persistDebounce);
+  try {
+    localStorage.setItem('c3-session-state', JSON.stringify({
+      sessionCount: _sessionCount, sessionActive: _sessionActive,
+      sessions: _sessions.map(function(s, i) {
+        var recentMsgs = (s.chat.msgs || []).slice(-20).map(function(m) {
+          return { role: m.role, text: m.text, tag: m.tag };
+        });
+        return {
+          convId: s._convId, projectId: s._projectId, agentId: s._agentId,
+          expertiseName: s.chat.expertise, editMode: s.chat.editMode,
+          bottomMode: s.bottom,
+          wtRoot: (_perSessionTree[i]&&_perSessionTree[i].wtRoot)||(i===_sessionActive?_wtRoot:''),
+          recentMsgs: recentMsgs
+        };
+      })
+    }));
+  } catch(e) {}
+});
+
 /* ── Restore session state from localStorage ── */
 function _restoreSessionState() {
   try {
@@ -3216,6 +3288,9 @@ function _restoreSessionState() {
           if(ss.wtRoot){_perSessionTree[i]={wtRoot:ss.wtRoot,collapsedDirs:{},rawTree:null,files:[]};}
           /* v64.4: Restore recent messages */
           if(ss.recentMsgs&&ss.recentMsgs.length>0){_sessions[i].chat.msgs=ss.recentMsgs;}
+          /* v81.2: Always clear editing state on restore — editing cannot survive restart */
+          _sessions[i].chat.editingIdx=null;
+          _sessions[i].chat.editOriginalText=null;
         }
       });
       /* Load active session's tree */
@@ -3347,6 +3422,54 @@ function _chatCancelEdit(paneIdx){
   renderChat();
 }
 
+/* ── Read file attachments before sending ── */
+var _TEXT_EXTS=/\.(js|ts|jsx|tsx|py|json|md|txt|css|html|yaml|yml|xml|csv|sql|sh|env|cfg|ini|log|toml|rs|go|java|c|cpp|h|rb|php|swift|kt|r|lua|pl|ex|erl|hs|ml|vue|svelte)$/i;
+var _IMG_EXTS=/\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i;
+var _MAX_TEXT_SIZE=50*1024;/* 50KB */
+var _MAX_IMG_SIZE=2*1024*1024;/* 2MB */
+
+/* Try Node.js fs (available in Electron renderer) */
+var _nodeFs=null;
+try{_nodeFs=window.require&&window.require('fs');}catch(e){}
+
+function _readAttachments(attachments,callback){
+  if(!attachments||attachments.length===0){callback([]);return;}
+  var results=[];var pending=attachments.length;
+  if(typeof console!=='undefined')console.debug('[C3:readAttachments]',attachments.length,'files, _nodeFs:',!!_nodeFs);
+  attachments.forEach(function(a,i){
+    var filePath=(a.file&&a.file.path)?a.file.path:null;
+    if(typeof console!=='undefined')console.debug('[C3:readAttachments] file',i,a.name,'hasFile:',!!a.file,'filePath:',filePath,'fileSize:',a.file?a.file.size:'N/A');
+    function _done(res){results[i]=res;if(typeof console!=='undefined')console.debug('[C3:readAttachments] result',i,a.name,'hasContent:',!!res.content,'contentLen:',res.content?res.content.length:0,'hasPath:',!!res.path);if(--pending===0)callback(results);}
+    /* ── TEXT FILES ── */
+    if(_TEXT_EXTS.test(a.name)&&a.file&&a.file.size<=_MAX_TEXT_SIZE){
+      /* Strategy A: FileReader (works in ALL contexts — standard Web API) */
+      var reader=new FileReader();
+      reader.onload=function(){
+        if(reader.result){_done({name:a.name,size:a.size,type:'text',content:reader.result,path:filePath});return;}
+        /* FileReader returned empty — fallback to path */
+        if(filePath){_done({name:a.name,size:a.size,type:'text',content:null,path:filePath});}
+        else{_done({name:a.name,size:a.size,type:'text',content:null,path:null});}
+      };
+      reader.onerror=function(){
+        if(typeof console!=='undefined')console.warn('[C3:readAttachments] FileReader failed for',a.name,reader.error);
+        /* FileReader failed — fallback to path-based backend reading */
+        if(filePath){_done({name:a.name,size:a.size,type:'text',content:null,path:filePath});}
+        else{_done({name:a.name,size:a.size,type:'text',content:null,path:null});}
+      };
+      reader.readAsText(a.file);return;
+    }
+    /* ── IMAGE FILES ── */
+    if(_IMG_EXTS.test(a.name)&&a.file&&a.file.size<=_MAX_IMG_SIZE){
+      var reader2=new FileReader();
+      reader2.onload=function(){_done({name:a.name,size:a.size,type:'image',content:reader2.result,path:filePath});};
+      reader2.onerror=function(){_done({name:a.name,size:a.size,type:'image',content:null,path:filePath});};
+      reader2.readAsDataURL(a.file);return;
+    }
+    /* ── UNKNOWN / BINARY / OVERSIZED ── */
+    _done({name:a.name,size:a.size,type:'binary',content:null,path:filePath});
+  });
+}
+
 function _chatSendPane(idx){
   var ta=document.getElementById('c3-chat-ta-'+idx);
   var s=_sessions[idx];if(!s)return;var st=s.chat;
@@ -3400,24 +3523,33 @@ function _chatSendPane(idx){
   var hasFiles=st.attachments.length>0;
   var txt=t;
   if(hasFiles){txt=(t?t+'\n':'')+'📎 '+st.attachments.map(function(a){return a.name;}).join(', ');}
+  var filesToRead=hasFiles?st.attachments.slice():[];
   st.msgs.push({role:'user',text:txt,id:'umsg-'+Date.now()});
   st.attachments=[];
   if(ta){ta.value='';ta.style.height='22px';}
   _sessionActive=idx;
   renderChat();_chatScrollPane(idx);
-  /* Send via WS (channel protocol) or HTTP fallback */
-  var sent = false;
-  if (typeof C3WS !== 'undefined' && C3WS.isReady()) {
-    sent = C3WS.sendChat(txt, s, idx);
-  }
-  if (!sent) {
-    fetch(_backendBase+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'chat',message:txt,expertise:st.expertise,editMode:st.editMode,conversationId:s._convId,agentId:s._agentId||null,projectId:s._projectId||null})})
-    .then(function(r){return r.json();})
-    .then(function(d){st.msgs.push({role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'});if(typeof d.contextPercent==='number')st.ctx=d.contextPercent;renderChat();_chatScrollPane(idx);})
-    .catch(function(){st.msgs.push({role:'assistant',text:'Backend nedostupný. Spusťte: node src/server.js',tag:'ERROR'});renderChat();});
-  }
-  /* Poll context after send */
-  setTimeout(function(){_pollContext(idx);},2000);
+
+  /* Read attachments then send */
+  _readAttachments(filesToRead,function(readFiles){
+    s.chat._pendingAttachments=readFiles.length>0?readFiles:null;
+    /* Send via WS (channel protocol) or HTTP fallback */
+    var sent = false;
+    if (typeof C3WS !== 'undefined' && C3WS.isReady()) {
+      sent = C3WS.sendChat(txt, s, idx);
+    }
+    if (!sent) {
+      var body={type:'chat',message:txt,expertise:st.expertise,editMode:st.editMode,conversationId:s._convId,agentId:s._agentId||null,projectId:s._projectId||null};
+      if(readFiles.length>0)body.attachments=readFiles;
+      fetch(_backendBase+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+      .then(function(r){return r.json();})
+      .then(function(d){st.msgs.push({role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'});if(typeof d.contextPercent==='number')st.ctx=d.contextPercent;renderChat();_chatScrollPane(idx);})
+      .catch(function(){st.msgs.push({role:'assistant',text:'Backend nedostupný. Spusťte: node src/server.js',tag:'ERROR'});renderChat();});
+    }
+    s.chat._pendingAttachments=null;
+    /* Poll context after send */
+    setTimeout(function(){_pollContext(idx);},2000);
+  });
 }
 
 function _chatPaneUI(idx){

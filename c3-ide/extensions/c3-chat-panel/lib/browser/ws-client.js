@@ -220,13 +220,15 @@ function wsSend(channel, data) {
 function wsSendChat(content, session, sessionIdx) {
   /* Track sender session for reliable routing of response */
   if (typeof sessionIdx === 'number') _lastSendSessionIdx = sessionIdx;
-  return wsSend('chat', {
+  var payload = {
     content: content,
     conversationId: session._convId || null,
     editMode: session.chat.editMode || 'auto',
     agentId: session._agentId || null,
     projectId: session._projectId || null
-  });
+  };
+  if (session.chat._pendingAttachments) payload.attachments = session.chat._pendingAttachments;
+  return wsSend('chat', payload);
 }
 
 /* Track terminal reqId → sessionIdx for reliable response routing */

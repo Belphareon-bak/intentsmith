@@ -138,6 +138,7 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
         sessionId: sid,
         conversationId: options.conversationId || null,
         projectId: options.projectId || null,
+        attachments: options.attachments || [],
         context: {
           turnId,
           signal: ac.signal,
@@ -224,6 +225,15 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
           // Hook: Output quality gate verdict (called after D6 gate check)
           onGateVerdict: (verdict) => {
             sendAgentEvent(AgentEventType.GATE_VERDICT, turnId, verdict);
+          },
+
+          // Hook: System step — structured internal operation detail
+          // level: 1 = key steps (default), 2 = verbose/debug
+          onSystemStep: (step, detail, level) => {
+            const maxLevel = config.features?.agentLogLevel || 1;
+            if ((level || 1) <= maxLevel) {
+              sendAgentEvent(AgentEventType.SYSTEM_STEP, turnId, { step, detail });
+            }
           },
         },
       };

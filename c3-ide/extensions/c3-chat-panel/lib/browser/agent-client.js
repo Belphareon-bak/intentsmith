@@ -46,7 +46,8 @@ var _eventMap = {
   'gate_verdict':  { type: 'GATE',  cls: 'gate',    label: 'Gate verdict' },
   'error':         { type: 'ERROR', cls: 'error',   label: 'Chyba' },
   'status_change': { type: 'STATUS',cls: 'info',    label: 'Stav' },
-  'edit_request':  { type: 'EDIT',  cls: 'edit',    label: 'Žádost o editaci' }
+  'edit_request':  { type: 'EDIT',  cls: 'edit',    label: 'Žádost o editaci' },
+  'system_step':   { type: 'SYS',  cls: 'sys',     label: 'Systém' }
 };
 
 /* ─── Format agent event → log entry ──────────────────────────────────── */
@@ -124,6 +125,10 @@ function formatAgentEvent(event) {
       text = (payload.file || '?') + ' — čeká na schválení';
       break;
 
+    case 'system_step':
+      text = (payload.step || '?') + ': ' + (payload.detail || '');
+      break;
+
     default:
       text = JSON.stringify(payload).substring(0, 120);
   }
@@ -138,7 +143,26 @@ function formatAgentEvent(event) {
     seq: event.seq || 0,
     turnId: event.turnId || null,
     eventId: event.id || null,
-    agent: event.agentId || null  // G2: agent badge
+    agent: event.agentId || null,  // G2: agent badge
+    _raw: {
+      eventType: event.type,
+      tool: payload.tool || payload.name || null,
+      args: payload.args || payload.input || null,
+      success: payload.success,
+      durationMs: payload.durationMs || payload.duration || null,
+      model: payload.model || null,
+      tokensIn: payload.tokensIn || null,
+      tokensOut: payload.tokensOut || payload.tokens || null,
+      intent: payload.intent || payload.handler || null,
+      confidence: payload.confidence || null,
+      input: payload.input || payload.message || null,
+      status: payload.status || null,
+      step: payload.step || null,
+      detail: payload.detail || null,
+      result: payload.result || payload.output || null,
+      timestamp: event.timestamp || new Date().toISOString(),
+      callId: payload.callId || null
+    }
   };
 }
 

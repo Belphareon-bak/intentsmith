@@ -32,7 +32,7 @@ import { logRoadmapScore } from './quality-telemetry.js';
  * @param {Object} lifecycle - ProjectLifecycle instance
  * @returns {Promise<{ roadmap: Object, milestones: Object[], sizeWarnings: Object[] }>}
  */
-export async function generateRoadmap(lifecycle) {
+export async function generateRoadmap(lifecycle, context) {
   logger.info('LifecyclePlanning', 'Generating roadmap', { lifecycleId: lifecycle.id });
 
   const spec = lifecycleRepo.getSpec(lifecycle.id);
@@ -111,7 +111,7 @@ export async function generateRoadmap(lifecycle) {
   }
 
   // Write ROADMAP.md to disk (after milestones are in DB)
-  await writeRoadmapFile(lifecycle.projectPath, lifecycle.id);
+  await writeRoadmapFile(lifecycle.projectPath, lifecycle.id, context);
 
   // Quality telemetry — observational, never blocks
   logRoadmapScore(lifecycle.id, roadmap, newVersion);
@@ -475,7 +475,7 @@ const STATUS_LABELS = {
  * @param {string} projectPath - Project root directory
  * @param {string} lifecycleId - Lifecycle ID
  */
-export async function writeRoadmapFile(projectPath, lifecycleId) {
+export async function writeRoadmapFile(projectPath, lifecycleId, context) {
   if (!projectPath || !lifecycleId) return;
 
   try {
@@ -516,6 +516,11 @@ export async function writeRoadmapFile(projectPath, lifecycleId) {
 
     const filePath = join(projectPath, 'ROADMAP.md');
     await writeFile(filePath, lines.join('\n'), 'utf-8');
+
+    // System step: file written
+    if (context && typeof context.onSystemStep === 'function') {
+      try { context.onSystemStep('file_written', 'ROADMAP.md \u2192 ' + filePath); } catch (_) {}
+    }
 
     logger.info('LifecyclePlanning', 'ROADMAP.md written', {
       lifecycleId,

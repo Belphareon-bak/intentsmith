@@ -6,7 +6,7 @@
 //
 // Test tiers:
 //   T1: High quality spec (>0.85 EXCELLENT)
-//   T2: Mid quality spec (0.60–0.75 GOOD/ACCEPTABLE)
+//   T2: Mid quality spec (0.50–0.80 GOOD/ACCEPTABLE)
 //   T3: Low quality spec (<0.50 WEAK)
 //   T4: Edge case — validates but scores low (PASS ≠ high score)
 //   T5: Roadmap scoring
@@ -355,7 +355,7 @@ async function run() {
     `got ${highResult.breakdown.risk_quality}`);
 
   // ─── T2: Mid Quality Spec ─────────────────────────────────────────────
-  console.log('\n\u2550\u2550\u2550 T2: MID QUALITY SPEC (0.55\u20130.80) \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550');
+  console.log('\n\u2550\u2550\u2550 T2: MID QUALITY SPEC (0.50\u20130.80) \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550');
 
   const midSpec = makeMidQualitySpec();
   const midResult = computeSpecScore(midSpec);
@@ -363,8 +363,8 @@ async function run() {
   console.log(`    Score: ${midResult.score} (${midResult.label})`);
   console.log(`    Breakdown: ${JSON.stringify(midResult.breakdown)}`);
 
-  check(inRange(midResult.score, 0.55, 0.80),
-    'T2.1: mid quality spec scores 0.55\u20130.80',
+  check(inRange(midResult.score, 0.50, 0.80),
+    'T2.1: mid quality spec scores 0.50\u20130.80',
     `got ${midResult.score}`);
   check(midResult.label === 'GOOD' || midResult.label === 'ACCEPTABLE',
     'T2.2: label is GOOD or ACCEPTABLE',

@@ -487,7 +487,7 @@ const routes = {
   'GET /': (req, res) => {
     sendJSON(res, 200, {
       name: 'p(AI)assistant',
-      version: '65.6.0',
+      version: getCurrentVersion(),
       status: 'ok',
       setupComplete,
       endpoints: [
@@ -910,7 +910,7 @@ server.listen(config.server.port, config.server.host, async () => {
     });
   }
 
-  const ver = getCurrentVersion() || '65.6.0';
+  const ver = getCurrentVersion();
   logger.info('Server', `p(AI)assistant v${ver} started`);
   logger.info('Server', `Chat:   http://${config.server.host}:${config.server.port}/architect`);
   if (agentRoutes) logger.info('Server', `Agents: http://${config.server.host}:${config.server.port}/agents`);

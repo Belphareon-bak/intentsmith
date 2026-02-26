@@ -137,6 +137,7 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
             conversationId: msg.data?.conversationId,
             agentId: msg.data?.agentId,
             projectId: msg.data?.projectId,
+            attachments: msg.data?.attachments || [],
           });
           break;
 

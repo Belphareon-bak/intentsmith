@@ -11,6 +11,7 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
+import fs from 'node:fs';
 import { logger } from '../core/logger.js';
 import { SafetyEngine } from './safety/engine.js';
 import { getConversationStore, TurnRole } from './conversation-store.js';
@@ -563,6 +564,11 @@ export class ChatController {
       } catch (e) {
         logger.warn('ChatController', `onCREDecision hook error: ${e.message}`);
       }
+    }
+
+    // System step: handler selected
+    if (typeof context.onSystemStep === 'function') {
+      try { context.onSystemStep('handler_selected', targetMode); } catch (_) {}
     }
 
     // Get handler
@@ -1582,7 +1588,35 @@ const sessionManager = new ChatSessionManager();
  * @returns {Promise<{response: string, mode: string, confidence: number, metadata: Object}>}
  */
 ChatController.handle = async function(request) {
-  const { message, sessionId, userId, project, expertise, signal, context = {} } = request;
+  let { message, sessionId, userId, project, expertise, signal, context = {} } = request;
+
+  // v82: Enrich message with file attachment content from IDE
+  // Supports both inline content (FileReader) and path-based reading (Electron contextIsolation)
+  if (request.attachments && request.attachments.length > 0) {
+    logger.info('ChatController', `Processing ${request.attachments.length} attachment(s)`, {
+      attachments: request.attachments.map(a => ({ name: a.name, size: a.size, hasContent: !!a.content, hasPath: !!a.path, path: a.path || null }))
+    });
+    for (const a of request.attachments) {
+      if (!a.content && a.path) {
+        try {
+          a.content = fs.readFileSync(a.path, 'utf-8');
+          logger.info('ChatController', `Read attachment from path: ${a.path} (${a.content.length} chars)`);
+        } catch (e) {
+          logger.warn('ChatController', `Failed to read attachment: ${a.path}`, { error: e.message });
+          a.content = `[Soubor nelze přečíst: ${e.message}]`;
+        }
+      }
+    }
+    const attachmentBlocks = request.attachments
+      .filter(a => a.content)
+      .map(a => `\n--- Příloha: ${a.name} (${a.size}) ---\n${a.content}\n---`);
+    if (attachmentBlocks.length > 0) {
+      message = message + attachmentBlocks.join('');
+      logger.info('ChatController', `Appended ${attachmentBlocks.length} attachment block(s) to message`);
+    } else {
+      logger.warn('ChatController', 'No attachment content available after processing');
+    }
+  }
 
   if (!message) {
     return {

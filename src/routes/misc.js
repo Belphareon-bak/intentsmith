@@ -1,3 +1,5 @@
+import { getCurrentVersion } from '../packaging/auto-updater.js';
+
 // H9: Settings, Health, Autocomplete, Audit, Logs routes
 export function createMiscRoutes(deps) {
   const { db, parseBody, sendJSON, safeError, logger, callWithAuth, createAuthToken, LLMCallerRole } = deps;
@@ -50,7 +52,7 @@ export function createMiscRoutes(deps) {
     'GET /api/health': (req, res) => {
       sendJSON(res, 200, {
         status: 'ok',
-        version: '34.4.2',
+        version: getCurrentVersion(),
         timestamp: new Date().toISOString(),
         llm: true,
         cwd: process.cwd()

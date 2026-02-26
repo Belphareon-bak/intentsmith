@@ -68,8 +68,11 @@ export function createChatRoutes(deps) {
           expertise: body.expertise || undefined,  // v79: forward expertise for E2E testing
           userId: null,
           signal: abortController.signal,  // v63.0: propagate cancel signal
+          attachments: body.attachments || [],  // v81.1: file attachments from IDE
+          conversationId: body.conversationId || null,
           context: {
             hasActiveProject: false,
+            projectId: body.projectId || null,
           },
         });
 

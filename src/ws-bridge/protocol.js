@@ -18,7 +18,8 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 export const PROTOCOL_VERSION = 1;
-export const BACKEND_VERSION = '59.0';
+import { getCurrentVersion } from '../packaging/auto-updater.js';
+export const BACKEND_VERSION = getCurrentVersion();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Channels
@@ -48,6 +49,7 @@ export const AgentEventType = Object.freeze({
   GATE_VERDICT: 'gate_verdict',
   ERROR: 'error',
   STATUS_CHANGE: 'status_change',
+  SYSTEM_STEP: 'system_step',
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -773,6 +773,11 @@ export async function synthesizeWithLLM({
     + (confidenceInstructions ? `\n\n${confidenceInstructions}` : '')
     + buildProjectContext(context);
 
+  // System step: prompt built
+  if (typeof context.onSystemStep === 'function') {
+    try { context.onSystemStep('prompt_built', synthesisPrompt.length + ' chars, system: ' + systemPrompt.length); } catch (_) {}
+  }
+
   const MAX_RETRIES = 1;  // v62.2b: back to 1 — extra retries are too slow, controller gate handles the rest
   let retryCount = 0;
 
@@ -875,6 +880,10 @@ export async function synthesizeWithLLM({
           dimension: gateVerdict.failDimension,
           reason: gateVerdict.reason,
         });
+      }
+      // System step: D6 quality gate result
+      if (typeof context.onSystemStep === 'function') {
+        try { context.onSystemStep('quality_d6', gateVerdict.ok ? '\u2705' : 'retry: ' + gateVerdict.failDimension); } catch (_) {}
       }
       // ─── End D6 Output Quality Gate ────────────────────────────────────
 

@@ -736,6 +736,11 @@ export async function conversationHandler(input, context) {
     reason: decision.reason,
   });
 
+  // System step: CRE decided
+  if (typeof context.onSystemStep === 'function') {
+    try { context.onSystemStep('cre_decided', decision.type + ' / ' + decision.intent); } catch (_) {}
+  }
+
   // v59.0 - Check for agent wizard trigger BEFORE standard routing (optional — Phase B)
   if (isWizardTrigger && isWizardTrigger(input) && !getActiveWizard(sessionId)) {
     creDecisionEngine.logIntercept('agent_wizard_trigger', 'Agent wizard trigger detected post-CRE — overriding routing', {

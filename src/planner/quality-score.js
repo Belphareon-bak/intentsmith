@@ -56,6 +56,68 @@ function hasTradeoffLanguage(text) {
   return markers.some(m => lower.includes(m));
 }
 
+const VAGUE_BLACKLIST = /(tbd|later|n\/a|to be decided|maybe|should work|etc\.|good enough|if possible|as needed)/i;
+
+/**
+ * Assess quality of an acceptance_test string.
+ * Returns 0.0–1.0 based on concreteness, not just presence.
+ */
+function assessTestQuality(text) {
+  if (!text || typeof text !== 'string') return 0;
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return 0;
+
+  // Vague blacklist — hard cap
+  if (VAGUE_BLACKLIST.test(trimmed)) return 0.2;
+
+  // Signal density: count concrete indicators
+  let signals = 0;
+  if (/\b(GET|POST|PUT|DELETE|PATCH)\b/.test(trimmed)) signals++;
+  if (/\b\d+\b/.test(trimmed)) signals++;
+  if (/→|expect|returns|assert/.test(trimmed)) signals++;
+  if (/'[^']+'|"[^"]+"/.test(trimmed)) signals++;
+  if (/--\w{2,}|\b(exit code|status|error|response)\b/i.test(trimmed)) signals++;
+
+  if (signals >= 2) return 1.0;
+  if (signals === 1 && trimmed.length > 30) return 0.9;
+  if (signals === 1) return 0.7;
+
+  // No signals — fall back to length
+  if (trimmed.length > 50) return 0.6;
+  if (trimmed.length > 20) return 0.4;
+  return 0.3;
+}
+
+/**
+ * Assess quality of a success_criteria string.
+ * Returns 0.0–1.0 based on concreteness.
+ */
+function assessCriteriaQuality(text) {
+  if (!text || typeof text !== 'string') return 0;
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return 0;
+
+  // Vague blacklist — hard cap
+  if (VAGUE_BLACKLIST.test(trimmed)) return 0.2;
+
+  // Signal density
+  let signals = 0;
+  if (/\b\d+\b/.test(trimmed)) signals++;
+  if (/\b(ms|MB|GB|KB|%|req\/|per\s)/i.test(trimmed)) signals++;
+  if (/\b(GET|POST|PUT|DELETE|PATCH)\b/.test(trimmed)) signals++;
+  if (/→|=>|assert|verified|tested/i.test(trimmed)) signals++;
+  if (/--\w{2,}|\/api\/|\bcli\b|\bcommand\b/i.test(trimmed)) signals++;
+
+  if (signals >= 2) return 1.0;
+  if (signals === 1 && trimmed.length > 40) return 0.9;
+  if (signals === 1) return 0.7;
+
+  // No signals — length only
+  if (trimmed.length > 60) return 0.6;
+  if (trimmed.length > 30) return 0.4;
+  return 0.3;
+}
+
 // ─── Spec Sub-metrics ───────────────────────────────────────────────────────
 
 /**
@@ -100,6 +162,16 @@ function scoreDecisionDepth(spec) {
   // Bonus for breadth (≥3 decisions)
   if (decisions.length >= 3) avg = Math.min(1, avg * 1.05);
 
+  // Density check: enough decisions for the scope?
+  const funcReqs = Array.isArray(spec.requirements)
+    ? spec.requirements
+    : (spec.requirements?.functional || []);
+  const reqCount = funcReqs.length;
+  const expectedDecisions = Math.max(1, Math.ceil(reqCount / 3));
+  if (decisions.length < expectedDecisions) {
+    avg *= 0.80 + 0.20 * (decisions.length / expectedDecisions);
+  }
+
   return clamp(avg);
 }
 
@@ -109,32 +181,36 @@ function scoreDecisionDepth(spec) {
 function scoreMeasurability(spec) {
   let score = 0;
 
-  // Goals with success_criteria (weight 0.35)
+  // Goals with success_criteria (weight 0.35) — quality-tiered
   const goals = Array.isArray(spec.goals) ? spec.goals : [];
   if (goals.length > 0) {
+    let totalCQ = 0;
+    for (const g of goals) {
+      totalCQ += assessCriteriaQuality(g.success_criteria);
+    }
+    score += 0.35 * (totalCQ / goals.length);
+
+    // Bonus for detailed criteria (avg length > 40)
     const withSC = goals.filter(
       g => g.success_criteria && typeof g.success_criteria === 'string'
         && g.success_criteria.trim().length > 0
     );
-    score += 0.35 * (withSC.length / goals.length);
-
-    // Bonus for detailed criteria (avg length > 40)
     if (withSC.length > 0) {
       const avgLen = withSC.reduce((s, g) => s + g.success_criteria.trim().length, 0) / withSC.length;
       if (avgLen > 40) score += 0.05;
     }
   }
 
-  // Functional requirements with acceptance_test (weight 0.35)
+  // Functional requirements with acceptance_test (weight 0.35) — quality-tiered
   const funcReqs = Array.isArray(spec.requirements)
     ? spec.requirements
     : (spec.requirements?.functional || []);
   if (funcReqs.length > 0) {
-    const withAT = funcReqs.filter(
-      r => r.acceptance_test && typeof r.acceptance_test === 'string'
-        && r.acceptance_test.trim().length > 0
-    );
-    score += 0.35 * (withAT.length / funcReqs.length);
+    let totalTQ = 0;
+    for (const r of funcReqs) {
+      totalTQ += assessTestQuality(r.acceptance_test);
+    }
+    score += 0.35 * (totalTQ / funcReqs.length);
   }
 
   // Non-functional requirements with metric (weight 0.25)
@@ -322,22 +398,47 @@ function scoreRiskQuality(spec) {
  */
 function scoreMilestoneCompleteness(roadmap) {
   const milestones = roadmap.milestones;
+  const CONCRETE_SIGNAL = /(endpoint|route|cli|file|module|schema|test|api|command|database|migration|auth)/i;
   let totalScore = 0;
 
   for (const ms of milestones) {
     let msScore = 0;
-    const checks = 8;
+    const slots = 8;
 
-    if (ms.title && ms.title.trim().length > 0) msScore++;
-    if (ms.description && ms.description.trim().length > 10) msScore++;
-    if (Array.isArray(ms.acceptance_criteria) && ms.acceptance_criteria.length > 0) msScore++;
-    if (ms.test_strategy && typeof ms.test_strategy === 'object') msScore++;
-    if (ms.estimated_loc && ms.estimated_loc > 0) msScore++;
-    if (ms.estimated_files && ms.estimated_files > 0) msScore++;
-    if (ms.estimated_complexity && typeof ms.estimated_complexity === 'string') msScore++;
-    if (Array.isArray(ms.dependencies)) msScore++;
+    // 1. title — binary
+    if (ms.title && ms.title.trim().length > 0) msScore += 1;
 
-    totalScore += msScore / checks;
+    // 2. description — gradient + concreteness gate
+    const descLen = (ms.description || '').trim().length;
+    if (descLen > 150 && CONCRETE_SIGNAL.test(ms.description)) msScore += 1.0;
+    else if (descLen > 150) msScore += 0.85;
+    else if (descLen > 80) msScore += 0.7;
+    else if (descLen > 10) msScore += 0.4;
+
+    // 3. acceptance_criteria — gradient by count
+    const acCount = Array.isArray(ms.acceptance_criteria) ? ms.acceptance_criteria.length : 0;
+    if (acCount >= 3) msScore += 1.0;
+    else if (acCount === 2) msScore += 0.7;
+    else if (acCount === 1) msScore += 0.4;
+
+    // 4. test_strategy — gradient by completeness
+    if (ms.test_strategy && typeof ms.test_strategy === 'object') {
+      const ts = ms.test_strategy;
+      const hasType = !!ts.type;
+      const hasDesc = !!(ts.description && ts.description.trim().length > 0);
+      const hasCount = !!(ts.expected_test_count && ts.expected_test_count > 0);
+      if (hasType && hasDesc && hasCount) msScore += 1.0;
+      else if (hasType && hasDesc) msScore += 0.7;
+      else if (hasType) msScore += 0.4;
+    }
+
+    // 5-8: binary (unchanged)
+    if (ms.estimated_loc && ms.estimated_loc > 0) msScore += 1;
+    if (ms.estimated_files && ms.estimated_files > 0) msScore += 1;
+    if (ms.estimated_complexity && typeof ms.estimated_complexity === 'string') msScore += 1;
+    if (Array.isArray(ms.dependencies)) msScore += 1;
+
+    totalScore += msScore / slots;
   }
 
   return clamp(totalScore / milestones.length);
@@ -489,18 +590,22 @@ function scoreImpactClarity(analysis) {
 function scoreChangeRiskArticulation(analysis) {
   let score = 0;
 
+  const riskLevel = (analysis.impact?.risk_level || '').toUpperCase();
   if (analysis.impact?.risk_level) {
     score += 0.40;
-    if (['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(
-      (analysis.impact.risk_level || '').toUpperCase()
-    )) {
+    if (['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].includes(riskLevel)) {
       score += 0.20;
     }
   }
 
+  const feasibility = (analysis.feasibility || '').toUpperCase();
   if (analysis.feasibility && typeof analysis.feasibility === 'string') {
     score += 0.40;
   }
+
+  // Risk/feasibility penalties — differentiate HIGH from MEDIUM
+  if (riskLevel === 'HIGH' || riskLevel === 'CRITICAL') score *= 0.85;
+  if (feasibility === 'CHALLENGING' || feasibility === 'DIFFICULT') score *= 0.90;
 
   return clamp(score);
 }
