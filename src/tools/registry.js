@@ -25,11 +25,22 @@ import { logger } from '../core/logger.js';
 // ════════════════════════════════════════════════════════════════════════════
 
 /**
+ * @typedef {Object} ToolMeta
+ * @property {boolean} sideEffects   - Does this tool modify external state?
+ * @property {boolean} idempotent    - Same input → same result, safe to retry?
+ * @property {boolean} destructive   - Can this tool cause data loss?
+ * @property {boolean} requiresConfirmation - Should autonomy layer ask user first?
+ * @property {'free'|'low'|'medium'|'high'} costLevel - Resource/time cost
+ * @property {'read'|'write'|'exec'|'net'|'pure'} category - Operation class
+ */
+
+/**
  * @typedef {Object} ToolDef
  * @property {string} name
  * @property {string} description
  * @property {{ required: string[], optional: string[] }} params
  * @property {string[]} permissions
+ * @property {ToolMeta} meta
  * @property {(params: Object, context?: Object) => Promise<any>} execute
  */
 
@@ -51,6 +62,7 @@ tools['web.search'] = {
     optional: ['maxResults', 'domain', 'language'],
   },
   permissions: ['web.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'medium', category: 'net' },
   async execute(params, context = {}) {
     const { query, maxResults = 5, domain, language = 'cs' } = params;
     const searchUrl = context.searchBaseUrl || 'https://www.googleapis.com/customsearch/v1';
@@ -100,6 +112,7 @@ tools['web.fetch'] = {
     optional: ['headers', 'method', 'body', 'timeout'],
   },
   permissions: ['web.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'medium', category: 'net' },
   async execute(params) {
     const { url, headers, method, body, timeout } = params;
 
@@ -135,6 +148,7 @@ tools['web.scrape'] = {
     optional: ['selector', 'format', 'timeout'],
   },
   permissions: ['web.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'medium', category: 'net' },
   async execute(params) {
     const { url, timeout } = params;
 
@@ -169,6 +183,7 @@ tools['data.parse'] = {
     optional: ['format'],
   },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { input, format = 'json' } = params;
 
@@ -210,6 +225,7 @@ tools['data.filter'] = {
     optional: ['limit'],
   },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { data, criteria, limit } = params;
 
@@ -250,6 +266,7 @@ tools['fs.read'] = {
     optional: ['encoding'],
   },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { path, encoding = 'utf-8' } = params;
     const { readFile } = await import('fs/promises');
@@ -275,6 +292,7 @@ tools['fs.write'] = {
     optional: ['encoding'],
   },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'write' },
   async execute(params) {
     const { path, content, encoding = 'utf-8' } = params;
     const { writeFile, mkdir } = await import('fs/promises');
@@ -302,6 +320,7 @@ tools['fs.list'] = {
     optional: ['pattern'],
   },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { path } = params;
     const { readdir } = await import('fs/promises');
@@ -332,6 +351,7 @@ tools['memory.store'] = {
     optional: ['ttl', 'source', 'tags'],
   },
   permissions: [],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'write' },
   async execute(params) {
     const { key, value, ttl, source, tags } = params;
     return memory.set(key, value, { ttl, source, tags });
@@ -350,6 +370,7 @@ tools['memory.recall'] = {
     optional: ['tag', 'prefix'],
   },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { key, tag, prefix } = params;
 
@@ -371,6 +392,7 @@ tools['fs.copy'] = {
   description: 'Copy a file or directory',
   params: { required: ['src', 'dest'], optional: ['recursive'] },
   permissions: ['fs.read', 'fs.write'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'write' },
   async execute(params) {
     const { src, dest, recursive = true } = params;
     const fsP = await import('fs/promises');
@@ -392,6 +414,7 @@ tools['fs.move'] = {
   description: 'Move or rename a file or directory',
   params: { required: ['src', 'dest'], optional: [] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: false, destructive: true, requiresConfirmation: true, costLevel: 'low', category: 'write' },
   async execute(params) {
     const { src, dest } = params;
     const fsP = await import('fs/promises');
@@ -413,6 +436,7 @@ tools['fs.delete'] = {
   description: 'Delete a file or directory',
   params: { required: ['path'], optional: ['recursive'] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: true, destructive: true, requiresConfirmation: true, costLevel: 'free', category: 'write' },
   async execute(params) {
     const { path, recursive = false } = params;
     const fsP = await import('fs/promises');
@@ -432,6 +456,7 @@ tools['fs.glob'] = {
   description: 'Find files matching a glob pattern',
   params: { required: ['pattern'], optional: ['cwd', 'maxResults'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'read' },
   async execute(params) {
     const { pattern, cwd = '.', maxResults = 100 } = params;
     const fsP = await import('fs/promises');
@@ -475,6 +500,7 @@ tools['fs.diff'] = {
   description: 'Compare two files and return differences',
   params: { required: ['fileA', 'fileB'], optional: [] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'read' },
   async execute(params) {
     const { fileA, fileB } = params;
     const fsP = await import('fs/promises');
@@ -500,6 +526,7 @@ tools['fs.stat'] = {
   description: 'Get file or directory metadata (size, dates, permissions)',
   params: { required: ['path'], optional: [] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { path } = params;
     const fsP = await import('fs/promises');
@@ -519,6 +546,7 @@ tools['git.status'] = {
   description: 'Get git status, branch, and recent log',
   params: { required: [], optional: ['cwd', 'log'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { cwd = '.', log = 5 } = params;
     const { execSync } = await import('child_process');
@@ -542,6 +570,7 @@ tools['git.commit'] = {
   description: 'Stage files and create a git commit',
   params: { required: ['message'], optional: ['cwd', 'files', 'all'] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: true, costLevel: 'low', category: 'write' },
   async execute(params) {
     const { message, cwd = '.', files, all = false } = params;
     const { execSync } = await import('child_process');
@@ -563,6 +592,7 @@ tools['git.diff'] = {
   description: 'Show git diff (staged or unstaged)',
   params: { required: [], optional: ['cwd', 'staged', 'file'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { cwd = '.', staged = false, file } = params;
     const { execSync } = await import('child_process');
@@ -584,6 +614,7 @@ tools['shell.exec'] = {
   description: 'Execute a shell command in the project sandbox',
   params: { required: ['command'], optional: ['cwd', 'timeout'] },
   permissions: ['shell.exec'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: true, costLevel: 'medium', category: 'exec' },
   async execute(params) {
     const { command, cwd = '.', timeout = 30000 } = params;
     const { execSync } = await import('child_process');
@@ -609,6 +640,7 @@ tools['http.request'] = {
   description: 'Full HTTP client — GET, POST, PUT, DELETE with headers/body',
   params: { required: ['url'], optional: ['method', 'headers', 'body', 'timeout', 'json'] },
   permissions: ['web.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'medium', category: 'net' },
   async execute(params) {
     const { url, method = 'GET', headers = {}, body, timeout = 15000, json = true } = params;
     try {
@@ -638,6 +670,7 @@ tools['archive.extract'] = {
   description: 'Extract a zip/tar/gz archive',
   params: { required: ['archive', 'dest'], optional: [] },
   permissions: ['fs.read', 'fs.write'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'medium', category: 'write' },
   async execute(params) {
     const { archive, dest } = params;
     const { execSync } = await import('child_process');
@@ -664,6 +697,7 @@ tools['archive.create'] = {
   description: 'Create a zip or tar.gz archive',
   params: { required: ['source', 'output'], optional: ['format'] },
   permissions: ['fs.read', 'fs.write'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'medium', category: 'write' },
   async execute(params) {
     const { source, output, format } = params;
     const { execSync } = await import('child_process');
@@ -687,6 +721,7 @@ tools['hash.checksum'] = {
   description: 'Compute hash of a file or string',
   params: { required: ['input'], optional: ['algorithm', 'inputType'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'pure' },
   async execute(params) {
     const { input, algorithm = 'sha256', inputType = 'file' } = params;
     const { createHash } = await import('crypto');
@@ -710,6 +745,7 @@ tools['json.transform'] = {
   description: 'Transform JSON — pick/omit fields, sort, flatten, unique',
   params: { required: ['data'], optional: ['pick', 'omit', 'sortBy', 'reverse', 'flatten', 'unique'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { data, pick, omit, sortBy, reverse, flatten, unique } = params;
     try {
@@ -739,6 +775,7 @@ tools['csv.convert'] = {
   description: 'Convert between CSV and JSON',
   params: { required: ['input', 'direction'], optional: ['delimiter', 'headers'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { input, direction, delimiter = ',', headers } = params;
     try {
@@ -769,6 +806,7 @@ tools['template.render'] = {
   description: 'Render a Mustache-style template with variables',
   params: { required: ['template', 'vars'], optional: [] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { template, vars } = params;
     try {
@@ -800,6 +838,7 @@ tools['env.get'] = {
   description: 'Read environment variable(s), hides secrets',
   params: { required: [], optional: ['key', 'prefix'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { key, prefix } = params;
     if (key) return { key, value: process.env[key] || null };
@@ -818,6 +857,7 @@ tools['env.set'] = {
   description: 'Set an environment variable for current session',
   params: { required: ['key', 'value'], optional: [] },
   permissions: ['shell.exec'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: true, costLevel: 'free', category: 'write' },
   async execute(params) { process.env[params.key] = params.value; return { ok: true, key: params.key }; },
 };
 
@@ -830,6 +870,7 @@ tools['docker.run'] = {
   description: 'Run a command in a Docker container (sandboxed)',
   params: { required: ['image', 'command'], optional: ['volumes', 'env', 'timeout', 'network'] },
   permissions: ['shell.exec'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: true, costLevel: 'high', category: 'exec' },
   async execute(params) {
     const { image, command, volumes = [], env = {}, timeout = 60000, network = 'none' } = params;
     const { execSync } = await import('child_process');
@@ -852,6 +893,7 @@ tools['image.info'] = {
   description: 'Get image metadata (dimensions, format, size)',
   params: { required: ['path'], optional: [] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const fsP = await import('fs/promises');
     try {
@@ -874,6 +916,7 @@ tools['image.resize'] = {
   description: 'Resize an image (requires ImageMagick or ffmpeg)',
   params: { required: ['input', 'output'], optional: ['width', 'height', 'quality'] },
   permissions: ['fs.read', 'fs.write'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'medium', category: 'write' },
   async execute(params) {
     const { input, output, width, height, quality = 85 } = params;
     const { execSync } = await import('child_process');
@@ -896,6 +939,7 @@ tools['db.query'] = {
   description: 'Execute SQL on a SQLite database',
   params: { required: ['dbPath', 'sql'], optional: ['params'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: true, costLevel: 'low', category: 'write' },
   async execute(toolParams) {
     const { dbPath, sql, params = [] } = toolParams;
     try {
@@ -920,6 +964,7 @@ tools['cron.schedule'] = {
   description: 'Schedule periodic tasks (in-memory, lost on restart)',
   params: { required: ['action'], optional: ['name', 'intervalMs', 'command'] },
   permissions: ['shell.exec'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: true, costLevel: 'low', category: 'exec' },
   async execute(params) {
     const { action, name, intervalMs, command } = params;
     if (action === 'list') return { jobs: [..._cronJobs.entries()].map(([n, j]) => ({ name: n, interval: j.interval, runs: j.runs, lastRun: j.lastRun })) };
@@ -952,6 +997,7 @@ tools['base64.encode'] = {
   description: 'Encode string or file to base64',
   params: { required: ['input'], optional: ['inputType'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { input, inputType = 'string' } = params;
     try {
@@ -966,6 +1012,7 @@ tools['base64.decode'] = {
   description: 'Decode base64 to string or file',
   params: { required: ['input'], optional: ['outputPath'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { input, outputPath } = params;
     try {
@@ -985,6 +1032,7 @@ tools['git.push'] = {
   description: 'Push commits to remote repository',
   params: { required: [], optional: ['cwd', 'remote', 'branch', 'force', 'tags', 'setUpstream'] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: true, costLevel: 'medium', category: 'net' },
   async execute(params) {
     const { cwd = '.', remote = 'origin', branch, force = false, tags = false, setUpstream = false } = params;
     const { execSync } = await import('child_process');
@@ -1009,6 +1057,7 @@ tools['git.pull'] = {
   description: 'Pull changes from remote repository',
   params: { required: [], optional: ['cwd', 'remote', 'branch', 'rebase', 'ff'] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: true, costLevel: 'medium', category: 'net' },
   async execute(params) {
     const { cwd = '.', remote = 'origin', branch, rebase = false, ff = true } = params;
     const { execSync } = await import('child_process');
@@ -1032,6 +1081,7 @@ tools['git.clone'] = {
   description: 'Clone a git repository',
   params: { required: ['url'], optional: ['dest', 'branch', 'depth', 'cwd'] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: true, costLevel: 'high', category: 'net' },
   async execute(params) {
     const { url, dest, branch, depth, cwd = '.' } = params;
     const { execSync } = await import('child_process');
@@ -1051,6 +1101,7 @@ tools['git.branch'] = {
   description: 'Create, delete, list, or rename branches',
   params: { required: ['action'], optional: ['cwd', 'name', 'newName', 'remote', 'force'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'write' },
   async execute(params) {
     const { action, cwd = '.', name, newName, remote = false, force = false } = params;
     const { execSync } = await import('child_process');
@@ -1088,6 +1139,7 @@ tools['git.checkout'] = {
   description: 'Switch branches or restore working tree files',
   params: { required: ['target'], optional: ['cwd', 'create', 'force', 'files'] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: true, costLevel: 'low', category: 'write' },
   async execute(params) {
     const { target, cwd = '.', create = false, force = false, files } = params;
     const { execSync } = await import('child_process');
@@ -1109,6 +1161,7 @@ tools['git.merge'] = {
   description: 'Merge a branch into the current branch',
   params: { required: ['branch'], optional: ['cwd', 'noFf', 'squash', 'message', 'abort'] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: true, costLevel: 'medium', category: 'write' },
   async execute(params) {
     const { branch, cwd = '.', noFf = false, squash = false, message, abort = false } = params;
     const { execSync } = await import('child_process');
@@ -1139,6 +1192,7 @@ tools['git.stash'] = {
   description: 'Stash working directory changes (push, pop, list, drop, apply)',
   params: { required: ['action'], optional: ['cwd', 'message', 'index', 'includeUntracked'] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'write' },
   async execute(params) {
     const { action, cwd = '.', message, index = 0, includeUntracked = false } = params;
     const { execSync } = await import('child_process');
@@ -1181,6 +1235,7 @@ tools['git.tag'] = {
   description: 'Create, list, or delete tags',
   params: { required: ['action'], optional: ['cwd', 'name', 'message', 'commit', 'force'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: true, costLevel: 'free', category: 'write' },
   async execute(params) {
     const { action, cwd = '.', name, message, commit, force = false } = params;
     const { execSync } = await import('child_process');
@@ -1210,6 +1265,7 @@ tools['git.log'] = {
   description: 'Show detailed commit log with filters',
   params: { required: [], optional: ['cwd', 'count', 'branch', 'author', 'since', 'until', 'path', 'grep', 'format', 'stat'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { cwd = '.', count = 10, branch, author, since, until, path, grep, format, stat = false } = params;
     const { execSync } = await import('child_process');
@@ -1239,6 +1295,7 @@ tools['git.remote'] = {
   description: 'Manage remote repositories (list, add, remove, set-url)',
   params: { required: ['action'], optional: ['cwd', 'name', 'url'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { action, cwd = '.', name, url } = params;
     const { execSync } = await import('child_process');
@@ -1275,6 +1332,7 @@ tools['git.reset'] = {
   description: 'Reset HEAD to a commit (soft, mixed, or hard)',
   params: { required: [], optional: ['cwd', 'commit', 'mode', 'files'] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: true, destructive: true, requiresConfirmation: true, costLevel: 'low', category: 'write' },
   async execute(params) {
     const { cwd = '.', commit = 'HEAD', mode = 'mixed', files } = params;
     const { execSync } = await import('child_process');
@@ -1296,6 +1354,7 @@ tools['git.cherry-pick'] = {
   description: 'Apply specific commits from another branch',
   params: { required: ['commits'], optional: ['cwd', 'noCommit', 'abort'] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: true, costLevel: 'medium', category: 'write' },
   async execute(params) {
     const { commits, cwd = '.', noCommit = false, abort = false } = params;
     const { execSync } = await import('child_process');
@@ -1319,6 +1378,7 @@ tools['git.rebase'] = {
   description: 'Rebase current branch onto another',
   params: { required: [], optional: ['cwd', 'onto', 'abort', 'continue_'] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: false, destructive: true, requiresConfirmation: true, costLevel: 'high', category: 'write' },
   async execute(params) {
     const { cwd = '.', onto, abort = false, continue_ = false } = params;
     const { execSync } = await import('child_process');
@@ -1341,6 +1401,7 @@ tools['git.init'] = {
   description: 'Initialize a new git repository',
   params: { required: [], optional: ['cwd', 'bare', 'defaultBranch'] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'write' },
   async execute(params) {
     const { cwd = '.', bare = false, defaultBranch = 'main' } = params;
     const { execSync } = await import('child_process');
@@ -1358,6 +1419,7 @@ tools['git.blame'] = {
   description: 'Show line-by-line authorship of a file',
   params: { required: ['file'], optional: ['cwd', 'startLine', 'endLine'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'read' },
   async execute(params) {
     const { file, cwd = '.', startLine, endLine } = params;
     const { execSync } = await import('child_process');
@@ -1391,6 +1453,7 @@ tools['fs.mkdir'] = {
   description: 'Create a directory (with parents)',
   params: { required: ['path'], optional: ['recursive'] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'write' },
   async execute(params) {
     const { path, recursive = true } = params;
     const fsP = await import('fs/promises');
@@ -1404,6 +1467,7 @@ tools['fs.exists'] = {
   description: 'Check if a file or directory exists',
   params: { required: ['path'], optional: [] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const fsP = await import('fs/promises');
     try { const s = await fsP.stat(params.path); return { exists: true, isFile: s.isFile(), isDir: s.isDirectory(), size: s.size }; }
@@ -1416,6 +1480,7 @@ tools['fs.head'] = {
   description: 'Read the first N lines of a file',
   params: { required: ['path'], optional: ['lines'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { path, lines = 20 } = params;
     const fsP = await import('fs/promises');
@@ -1433,6 +1498,7 @@ tools['fs.tail'] = {
   description: 'Read the last N lines of a file',
   params: { required: ['path'], optional: ['lines'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { path, lines = 20 } = params;
     const fsP = await import('fs/promises');
@@ -1450,6 +1516,7 @@ tools['fs.append'] = {
   description: 'Append content to a file',
   params: { required: ['path', 'content'], optional: ['newline'] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'write' },
   async execute(params) {
     const { path, content, newline = true } = params;
     const fsP = await import('fs/promises');
@@ -1466,6 +1533,7 @@ tools['fs.chmod'] = {
   description: 'Change file permissions',
   params: { required: ['path', 'mode'], optional: [] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: true, costLevel: 'free', category: 'write' },
   async execute(params) {
     const { path, mode } = params;
     const fsP = await import('fs/promises');
@@ -1482,6 +1550,7 @@ tools['fs.symlink'] = {
   description: 'Create a symbolic link',
   params: { required: ['target', 'linkPath'], optional: ['type'] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'write' },
   async execute(params) {
     const { target, linkPath, type = 'file' } = params;
     const fsP = await import('fs/promises');
@@ -1495,6 +1564,7 @@ tools['fs.readJson'] = {
   description: 'Read and parse a JSON file',
   params: { required: ['path'], optional: [] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const fsP = await import('fs/promises');
     try {
@@ -1509,6 +1579,7 @@ tools['fs.writeJson'] = {
   description: 'Write data as formatted JSON file',
   params: { required: ['path', 'data'], optional: ['indent'] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'write' },
   async execute(params) {
     const { path, data, indent = 2 } = params;
     const fsP = await import('fs/promises');
@@ -1527,6 +1598,7 @@ tools['fs.patch'] = {
   description: 'Apply line-based edits to a file (search & replace blocks)',
   params: { required: ['path', 'edits'], optional: [] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: true, costLevel: 'low', category: 'write' },
   async execute(params) {
     const { path, edits } = params;
     const fsP = await import('fs/promises');
@@ -1564,6 +1636,7 @@ tools['fs.find'] = {
   description: 'Search files by name pattern and/or content (grep-like)',
   params: { required: [], optional: ['dir', 'name', 'content', 'ext', 'maxResults', 'maxDepth'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'read' },
   async execute(params) {
     const { dir = '.', name, content, ext, maxResults = 50, maxDepth = 10 } = params;
     const fsP = await import('fs/promises');
@@ -1617,6 +1690,7 @@ tools['npm.install'] = {
   description: 'Install npm packages (with --ignore-scripts for safety)',
   params: { required: [], optional: ['packages', 'cwd', 'dev', 'global', 'exact'] },
   permissions: ['shell.exec', 'fs.write'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: true, costLevel: 'high', category: 'exec' },
   async execute(params) {
     const { packages, cwd = '.', dev = false, global: isGlobal = false, exact = false } = params;
     const { execSync } = await import('child_process');
@@ -1637,6 +1711,7 @@ tools['npm.run'] = {
   description: 'Run an npm script from package.json',
   params: { required: ['script'], optional: ['cwd', 'args', 'timeout'] },
   permissions: ['shell.exec'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: true, costLevel: 'medium', category: 'exec' },
   async execute(params) {
     const { script, cwd = '.', args = '', timeout = 60000 } = params;
     const { execSync } = await import('child_process');
@@ -1655,6 +1730,7 @@ tools['npm.list'] = {
   description: 'List installed npm packages',
   params: { required: [], optional: ['cwd', 'depth', 'global', 'json'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { cwd = '.', depth = 0, global: isGlobal = false } = params;
     const { execSync } = await import('child_process');
@@ -1678,6 +1754,7 @@ tools['npm.outdated'] = {
   description: 'Check for outdated npm packages',
   params: { required: [], optional: ['cwd'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'read' },
   async execute(params) {
     const { cwd = '.' } = params;
     const { execSync } = await import('child_process');
@@ -1699,6 +1776,7 @@ tools['npm.audit'] = {
   description: 'Run npm security audit',
   params: { required: [], optional: ['cwd', 'fix', 'production'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'read' },
   async execute(params) {
     const { cwd = '.', fix = false, production = false } = params;
     const { execSync } = await import('child_process');
@@ -1726,6 +1804,7 @@ tools['npm.init'] = {
   description: 'Initialize a new package.json',
   params: { required: [], optional: ['cwd', 'name', 'version', 'description', 'main', 'type'] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: true, costLevel: 'free', category: 'write' },
   async execute(params) {
     const { cwd = '.', name, version = '1.0.0', description = '', main = 'index.js', type = 'module' } = params;
     const fsP = await import('fs/promises');
@@ -1745,6 +1824,7 @@ tools['npm.scripts'] = {
   description: 'List available npm scripts from package.json',
   params: { required: [], optional: ['cwd'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { cwd = '.' } = params;
     const fsP = await import('fs/promises');
@@ -1767,6 +1847,7 @@ tools['text.search'] = {
   description: 'Search for text/regex in files (grep-like) across a directory',
   params: { required: ['pattern'], optional: ['dir', 'ext', 'maxResults', 'caseSensitive', 'wholeWord'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'read' },
   async execute(params) {
     const { pattern, dir = '.', ext, maxResults = 50, caseSensitive = false, wholeWord = false } = params;
     const fsP = await import('fs/promises');
@@ -1812,6 +1893,7 @@ tools['text.replace'] = {
   description: 'Find and replace text in one or more files',
   params: { required: ['pattern', 'replacement'], optional: ['files', 'dir', 'ext', 'regex', 'dryRun'] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: true, costLevel: 'low', category: 'write' },
   async execute(params) {
     const { pattern, replacement, files, dir, ext, regex = false, dryRun = false } = params;
     const fsP = await import('fs/promises');
@@ -1845,6 +1927,7 @@ tools['text.count'] = {
   description: 'Count lines, words, characters, or pattern occurrences',
   params: { required: ['input'], optional: ['inputType', 'pattern'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { input, inputType = 'file', pattern } = params;
     const fsP = await import('fs/promises');
@@ -1870,6 +1953,7 @@ tools['system.info'] = {
   description: 'Get system information (OS, CPU, memory, uptime)',
   params: { required: [], optional: [] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute() {
     const os = await import('os');
     return {
@@ -1888,6 +1972,7 @@ tools['system.disk'] = {
   description: 'Show disk usage for a path',
   params: { required: [], optional: ['path'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { path = '.' } = params;
     const { execSync } = await import('child_process');
@@ -1906,6 +1991,7 @@ tools['process.list'] = {
   description: 'List running processes (optionally filter by name)',
   params: { required: [], optional: ['filter', 'limit'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { filter, limit = 50 } = params;
     const { execSync } = await import('child_process');
@@ -1928,6 +2014,7 @@ tools['process.kill'] = {
   description: 'Kill a process by PID',
   params: { required: ['pid'], optional: ['signal'] },
   permissions: ['shell.exec'],
+  meta: { sideEffects: true, idempotent: true, destructive: true, requiresConfirmation: true, costLevel: 'free', category: 'exec' },
   async execute(params) {
     const { pid, signal = 'SIGTERM' } = params;
     try {
@@ -1942,6 +2029,7 @@ tools['system.which'] = {
   description: 'Check if a command/tool is available on the system',
   params: { required: ['command'], optional: [] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { execSync } = await import('child_process');
     try {
@@ -1962,6 +2050,7 @@ tools['net.ping'] = {
   description: 'Ping a host to check connectivity',
   params: { required: ['host'], optional: ['count', 'timeout'] },
   permissions: ['web.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'net' },
   async execute(params) {
     const { host, count = 3, timeout = 5 } = params;
     const { execSync } = await import('child_process');
@@ -1987,6 +2076,7 @@ tools['net.ports'] = {
   description: 'Check if ports are open on a host (or list listening ports)',
   params: { required: [], optional: ['host', 'ports', 'listening'] },
   permissions: ['web.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'net' },
   async execute(params) {
     const { host, ports, listening = false } = params;
     const { execSync } = await import('child_process');
@@ -2022,6 +2112,7 @@ tools['net.dns'] = {
   description: 'DNS lookup for a hostname',
   params: { required: ['hostname'], optional: ['type'] },
   permissions: ['web.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'net' },
   async execute(params) {
     const { hostname, type } = params;
     const dns = await import('dns');
@@ -2048,6 +2139,7 @@ tools['docker.build'] = {
   description: 'Build a Docker image from Dockerfile',
   params: { required: ['tag'], optional: ['context', 'dockerfile', 'buildArgs', 'noCache'] },
   permissions: ['shell.exec'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: true, costLevel: 'high', category: 'exec' },
   async execute(params) {
     const { tag, context = '.', dockerfile, buildArgs = {}, noCache = false } = params;
     const { execSync } = await import('child_process');
@@ -2067,6 +2159,7 @@ tools['docker.ps'] = {
   description: 'List running Docker containers',
   params: { required: [], optional: ['all', 'filter'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { all = false, filter } = params;
     const { execSync } = await import('child_process');
@@ -2088,6 +2181,7 @@ tools['docker.images'] = {
   description: 'List Docker images',
   params: { required: [], optional: ['filter'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { filter } = params;
     const { execSync } = await import('child_process');
@@ -2108,6 +2202,7 @@ tools['docker.logs'] = {
   description: 'Show logs from a Docker container',
   params: { required: ['container'], optional: ['tail', 'since', 'follow'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { container, tail = 100, since } = params;
     const { execSync } = await import('child_process');
@@ -2125,6 +2220,7 @@ tools['docker.compose'] = {
   description: 'Run docker compose commands (up, down, ps, logs, build, restart)',
   params: { required: ['action'], optional: ['cwd', 'services', 'file', 'detach', 'build'] },
   permissions: ['shell.exec'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: true, costLevel: 'high', category: 'exec' },
   async execute(params) {
     const { action, cwd = '.', services = [], file, detach = true, build: doBuild = false } = params;
     const { execSync } = await import('child_process');
@@ -2180,6 +2276,7 @@ tools['tools.check'] = {
   description: 'Check which external tools/commands are available on this system',
   params: { required: [], optional: ['commands'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'read' },
   async execute(params) {
     const { commands } = params;
     const { execSync } = await import('child_process');
@@ -2204,6 +2301,7 @@ tools['tools.install'] = {
   description: 'Install a missing tool/package (auto-detects package manager)',
   params: { required: ['package'], optional: ['manager', 'global'] },
   permissions: ['shell.exec'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: true, costLevel: 'high', category: 'exec' },
   async execute(params) {
     const { package: pkg, manager, global: isGlobal = true } = params;
     const { execSync } = await import('child_process');
@@ -2242,6 +2340,7 @@ tools['tools.suggest'] = {
   description: 'Analyze an error and suggest what tool/package to install',
   params: { required: ['error'], optional: ['context'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { error, context } = params;
     const suggestions = [];
@@ -2406,6 +2505,7 @@ tools['yaml.parse'] = {
   description: 'Parse YAML string to JSON object',
   params: { required: ['input'], optional: ['inputType'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { input, inputType = 'string' } = params;
     try {
@@ -2420,6 +2520,7 @@ tools['yaml.stringify'] = {
   description: 'Convert JSON object to YAML string',
   params: { required: ['data'], optional: ['outputPath'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { data, outputPath } = params;
     try {
@@ -2446,6 +2547,7 @@ tools['crypto.randomBytes'] = {
   description: 'Generate cryptographically secure random bytes (hex, base64, or raw)',
   params: { required: [], optional: ['length', 'encoding'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: false, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { length = 32, encoding = 'hex' } = params;
     const { randomBytes } = await import('crypto');
@@ -2459,6 +2561,7 @@ tools['crypto.generatePassword'] = {
   description: 'Generate a secure random password',
   params: { required: [], optional: ['length', 'uppercase', 'lowercase', 'digits', 'symbols'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: false, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { length = 20, uppercase = true, lowercase = true, digits = true, symbols = true } = params;
     const { randomBytes } = await import('crypto');
@@ -2480,6 +2583,7 @@ tools['crypto.encrypt'] = {
   description: 'Encrypt text using AES-256-GCM',
   params: { required: ['text', 'key'], optional: [] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { text, key } = params;
     const crypto = await import('crypto');
@@ -2500,6 +2604,7 @@ tools['crypto.decrypt'] = {
   description: 'Decrypt AES-256-GCM encrypted text',
   params: { required: ['encrypted', 'key', 'iv', 'tag'], optional: [] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { encrypted, key, iv, tag } = params;
     const crypto = await import('crypto');
@@ -2519,6 +2624,7 @@ tools['crypto.uuid'] = {
   description: 'Generate a UUID v4',
   params: { required: [], optional: ['count'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: false, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { count = 1 } = params;
     const { randomUUID } = await import('crypto');
@@ -2536,6 +2642,7 @@ tools['regex.test'] = {
   description: 'Test a regex pattern against text',
   params: { required: ['pattern', 'text'], optional: ['flags'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { pattern, text, flags = '' } = params;
     try {
@@ -2552,6 +2659,7 @@ tools['regex.extract'] = {
   description: 'Extract all matches of a regex pattern from text',
   params: { required: ['pattern', 'text'], optional: ['flags', 'limit'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { pattern, text, flags = 'g', limit = 100 } = params;
     try {
@@ -2572,6 +2680,7 @@ tools['regex.replace'] = {
   description: 'Replace matches using a regex pattern',
   params: { required: ['pattern', 'text', 'replacement'], optional: ['flags'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { pattern, text, replacement, flags = 'g' } = params;
     try {
@@ -2592,6 +2701,7 @@ tools['date.now'] = {
   description: 'Get current date/time in various formats',
   params: { required: [], optional: ['timezone', 'format'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: false, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { timezone, format } = params;
     const now = new Date();
@@ -2617,6 +2727,7 @@ tools['date.parse'] = {
   description: 'Parse a date string to structured components',
   params: { required: ['input'], optional: [] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { input } = params;
     try {
@@ -2637,6 +2748,7 @@ tools['date.diff'] = {
   description: 'Calculate difference between two dates',
   params: { required: ['from', 'to'], optional: ['unit'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { from, to, unit = 'auto' } = params;
     try {
@@ -2663,6 +2775,7 @@ tools['date.format'] = {
   description: 'Format a date with locale and timezone support',
   params: { required: ['input'], optional: ['locale', 'timezone', 'options'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { input, locale = 'en-US', timezone, options = {} } = params;
     try {
@@ -2684,6 +2797,7 @@ tools['math.eval'] = {
   description: 'Safely evaluate a mathematical expression',
   params: { required: ['expression'], optional: ['precision'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { expression, precision } = params;
     try {
@@ -2726,6 +2840,7 @@ tools['math.stats'] = {
   description: 'Calculate basic statistics on a dataset (mean, median, std, min, max, etc.)',
   params: { required: ['data'], optional: ['field'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { data, field } = params;
     try {
@@ -2752,6 +2867,7 @@ tools['math.convert'] = {
   description: 'Convert between units (length, weight, temperature, data size, time)',
   params: { required: ['value', 'from', 'to'], optional: [] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { value, from, to } = params;
     const conversions = {
@@ -2798,6 +2914,7 @@ tools['url.parse'] = {
   description: 'Parse a URL into its components',
   params: { required: ['url'], optional: [] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     try {
       const u = new URL(params.url);
@@ -2816,6 +2933,7 @@ tools['url.build'] = {
   description: 'Build a URL from components',
   params: { required: ['base'], optional: ['path', 'params', 'hash'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { base, path, params: queryParams, hash } = params;
     try {
@@ -2832,6 +2950,7 @@ tools['url.encode'] = {
   description: 'URL-encode a string',
   params: { required: ['input'], optional: ['component'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { input, component = true } = params;
     return { encoded: component ? encodeURIComponent(input) : encodeURI(input) };
@@ -2843,6 +2962,7 @@ tools['url.decode'] = {
   description: 'URL-decode a string',
   params: { required: ['input'], optional: ['component'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { input, component = true } = params;
     try { return { decoded: component ? decodeURIComponent(input) : decodeURI(input) }; }
@@ -2859,6 +2979,7 @@ tools['diff.create'] = {
   description: 'Create a unified diff between two texts or files',
   params: { required: ['a', 'b'], optional: ['inputType', 'nameA', 'nameB', 'context'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'read' },
   async execute(params) {
     const { a, b, inputType = 'string', nameA = 'a', nameB = 'b', context = 3 } = params;
     const fsP = await import('fs/promises');
@@ -2909,6 +3030,7 @@ tools['diff.apply'] = {
   description: 'Apply a unified diff patch to a file or text',
   params: { required: ['target', 'patch'], optional: ['inputType', 'dryRun'] },
   permissions: ['fs.write'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: true, costLevel: 'low', category: 'write' },
   async execute(params) {
     const { target, patch, inputType = 'file', dryRun = false } = params;
     const fsP = await import('fs/promises');
@@ -2950,6 +3072,7 @@ tools['test.detect'] = {
   description: 'Auto-detect test framework in a project',
   params: { required: [], optional: ['cwd'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { cwd = '.' } = params;
     const fsP = await import('fs/promises');
@@ -2992,6 +3115,7 @@ tools['test.run'] = {
   description: 'Run tests (auto-detects framework or uses specified command)',
   params: { required: [], optional: ['cwd', 'command', 'file', 'grep', 'timeout', 'coverage'] },
   permissions: ['shell.exec'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: false, costLevel: 'high', category: 'exec' },
   async execute(params) {
     const { cwd = '.', command, file, grep, timeout = 120000, coverage = false } = params;
     const { execSync } = await import('child_process');
@@ -3027,6 +3151,7 @@ tools['python.run'] = {
   description: 'Run a Python script or inline code',
   params: { required: ['input'], optional: ['inputType', 'cwd', 'args', 'timeout', 'venv'] },
   permissions: ['shell.exec'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: true, costLevel: 'medium', category: 'exec' },
   async execute(params) {
     const { input, inputType = 'file', cwd = '.', args = '', timeout = 30000, venv } = params;
     const { execSync } = await import('child_process');
@@ -3049,6 +3174,7 @@ tools['python.pip'] = {
   description: 'Install Python packages via pip',
   params: { required: ['packages'], optional: ['cwd', 'venv', 'upgrade'] },
   permissions: ['shell.exec'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: true, costLevel: 'high', category: 'exec' },
   async execute(params) {
     const { packages, cwd = '.', venv, upgrade = false } = params;
     const { execSync } = await import('child_process');
@@ -3069,6 +3195,7 @@ tools['python.venv'] = {
   description: 'Create or manage a Python virtual environment',
   params: { required: ['action'], optional: ['path', 'cwd'] },
   permissions: ['shell.exec', 'fs.write'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'write' },
   async execute(params) {
     const { action, path = '.venv', cwd = '.' } = params;
     const { execSync } = await import('child_process');
@@ -3102,6 +3229,7 @@ tools['code.analyze'] = {
   description: 'Analyze code metrics — LOC, file count, language breakdown',
   params: { required: [], optional: ['dir', 'ext', 'maxDepth'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'read' },
   async execute(params) {
     const { dir = '.', ext, maxDepth = 8 } = params;
     const fsP = await import('fs/promises');
@@ -3155,6 +3283,7 @@ tools['code.format'] = {
   description: 'Format code using project formatter (prettier, eslint --fix, black, etc.)',
   params: { required: [], optional: ['cwd', 'files', 'tool', 'check'] },
   permissions: ['shell.exec'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: true, costLevel: 'medium', category: 'exec' },
   async execute(params) {
     const { cwd = '.', files, tool, check = false } = params;
     const { execSync } = await import('child_process');
@@ -3185,6 +3314,7 @@ tools['code.lint'] = {
   description: 'Run linter and return issues',
   params: { required: [], optional: ['cwd', 'files', 'tool', 'fix'] },
   permissions: ['shell.exec'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'medium', category: 'exec' },
   async execute(params) {
     const { cwd = '.', files, tool, fix = false } = params;
     const { execSync } = await import('child_process');
@@ -3222,6 +3352,7 @@ tools['ssh.exec'] = {
   description: 'Execute a command on a remote host via SSH',
   params: { required: ['host', 'command'], optional: ['user', 'port', 'key', 'timeout'] },
   permissions: ['shell.exec'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: true, costLevel: 'medium', category: 'net' },
   async execute(params) {
     const { host, command, user, port = 22, key, timeout = 30000 } = params;
     const { execSync } = await import('child_process');
@@ -3244,6 +3375,7 @@ tools['ssh.copy'] = {
   description: 'Copy files to/from remote host via SCP',
   params: { required: ['source', 'dest'], optional: ['user', 'host', 'port', 'key', 'recursive'] },
   permissions: ['shell.exec', 'fs.write'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: true, costLevel: 'medium', category: 'net' },
   async execute(params) {
     const { source, dest, user, host, port = 22, key, recursive = false } = params;
     const { execSync } = await import('child_process');
@@ -3268,6 +3400,7 @@ tools['db.schema'] = {
   description: 'Show database schema (tables, columns, indices)',
   params: { required: ['dbPath'], optional: ['table'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { dbPath, table } = params;
     try {
@@ -3299,6 +3432,7 @@ tools['db.backup'] = {
   description: 'Create a backup of a SQLite database',
   params: { required: ['dbPath'], optional: ['outputPath'] },
   permissions: ['fs.read', 'fs.write'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'write' },
   async execute(params) {
     const { dbPath, outputPath } = params;
     const fsP = await import('fs/promises');
@@ -3319,6 +3453,7 @@ tools['db.migrate'] = {
   description: 'Run SQL migration files against a SQLite database',
   params: { required: ['dbPath', 'migrationsDir'], optional: ['dryRun'] },
   permissions: ['fs.read', 'fs.write'],
+  meta: { sideEffects: true, idempotent: false, destructive: true, requiresConfirmation: true, costLevel: 'high', category: 'write' },
   async execute(params) {
     const { dbPath, migrationsDir, dryRun = false } = params;
     const fsP = await import('fs/promises');
@@ -3359,6 +3494,7 @@ tools['log.tail'] = {
   description: 'Tail a log file with optional filtering',
   params: { required: ['path'], optional: ['lines', 'filter', 'level'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { path, lines = 50, filter, level } = params;
     const fsP = await import('fs/promises');
@@ -3385,6 +3521,7 @@ tools['log.analyze'] = {
   description: 'Analyze a log file — count errors, find patterns, summarize',
   params: { required: ['path'], optional: ['maxLines'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'read' },
   async execute(params) {
     const { path, maxLines = 10000 } = params;
     const fsP = await import('fs/promises');
@@ -3422,6 +3559,7 @@ tools['validate.json'] = {
   description: 'Validate JSON data — check syntax, optional field validation',
   params: { required: ['input'], optional: ['inputType', 'requiredFields', 'types'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { input, inputType = 'string', requiredFields, types } = params;
     const fsP = await import('fs/promises');
@@ -3452,6 +3590,7 @@ tools['validate.email'] = {
   description: 'Validate email address format',
   params: { required: ['email'], optional: [] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { email } = params;
     const re = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
@@ -3466,6 +3605,7 @@ tools['validate.url'] = {
   description: 'Validate URL format and accessibility',
   params: { required: ['url'], optional: ['checkReachable'] },
   permissions: ['web.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { url, checkReachable = false } = params;
     try {
@@ -3491,6 +3631,7 @@ tools['validate.semver'] = {
   description: 'Validate and compare semantic version strings',
   params: { required: ['version'], optional: ['compareTo'] },
   permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'pure' },
   async execute(params) {
     const { version, compareTo } = params;
     const re = /^v?(\d+)\.(\d+)\.(\d+)(?:-([\w.]+))?(?:\+([\w.]+))?$/;
@@ -3521,6 +3662,7 @@ tools['workspace.snapshot'] = {
   description: 'Create a snapshot of workspace state (file list + git status)',
   params: { required: [], optional: ['dir', 'name'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'write' },
   async execute(params) {
     const { dir = '.', name } = params;
     const fsP = await import('fs/promises');
@@ -3566,6 +3708,7 @@ tools['workspace.restore'] = {
   description: 'Restore workspace to a snapshot (via git checkout or file comparison)',
   params: { required: ['name'], optional: ['dir', 'dryRun'] },
   permissions: ['fs.read', 'fs.write'],
+  meta: { sideEffects: true, idempotent: false, destructive: true, requiresConfirmation: true, costLevel: 'high', category: 'write' },
   async execute(params) {
     const { name, dir = '.', dryRun = true } = params;
     const fsP = await import('fs/promises');
@@ -3611,6 +3754,7 @@ tools['workspace.snapshots'] = {
   description: 'List available workspace snapshots',
   params: { required: [], optional: ['dir'] },
   permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
   async execute(params) {
     const { dir = '.' } = params;
     const fsP = await import('fs/promises');
@@ -3698,6 +3842,7 @@ class ToolRegistry {
       description: tool.description,
       params: tool.params,
       permissions: tool.permissions,
+      meta: tool.meta || null,
     };
   }
 
@@ -3711,7 +3856,126 @@ class ToolRegistry {
       description: t.description,
       params: t.params,
       permissions: t.permissions,
+      meta: t.meta || null,
     }));
+  }
+
+  // ── Meta-aware query methods ──────────────────────────────────────────
+
+  /**
+   * Get tools safe for autonomous execution (no side effects + idempotent)
+   * @returns {string[]}
+   */
+  safeForAutoExec() {
+    return Object.values(this.tools)
+      .filter(t => t.meta && !t.meta.sideEffects && t.meta.idempotent)
+      .map(t => t.name);
+  }
+
+  /**
+   * Get tools that require user confirmation before execution
+   * @returns {string[]}
+   */
+  requiresConfirmation() {
+    return Object.values(this.tools)
+      .filter(t => t.meta?.requiresConfirmation)
+      .map(t => t.name);
+  }
+
+  /**
+   * Get destructive tools (can cause data loss)
+   * @returns {string[]}
+   */
+  destructive() {
+    return Object.values(this.tools)
+      .filter(t => t.meta?.destructive)
+      .map(t => t.name);
+  }
+
+  /**
+   * Filter tools by category
+   * @param {'read'|'write'|'exec'|'net'|'pure'} category
+   * @returns {string[]}
+   */
+  byCategory(category) {
+    return Object.values(this.tools)
+      .filter(t => t.meta?.category === category)
+      .map(t => t.name);
+  }
+
+  /**
+   * Filter tools by cost level
+   * @param {'free'|'low'|'medium'|'high'} costLevel
+   * @returns {string[]}
+   */
+  byCost(costLevel) {
+    return Object.values(this.tools)
+      .filter(t => t.meta?.costLevel === costLevel)
+      .map(t => t.name);
+  }
+
+  /**
+   * Check if a specific tool is safe to auto-execute
+   * @param {string} name
+   * @returns {boolean}
+   */
+  isSafe(name) {
+    const tool = this.tools[name];
+    if (!tool?.meta) return false;
+    return !tool.meta.sideEffects && tool.meta.idempotent && !tool.meta.destructive;
+  }
+
+  /**
+   * Get risk assessment for a tool
+   * @param {string} name
+   * @returns {{ risk: 'safe'|'low'|'medium'|'high'|'critical', reasons: string[] } | undefined}
+   */
+  riskAssessment(name) {
+    const tool = this.tools[name];
+    if (!tool?.meta) return undefined;
+    const m = tool.meta;
+    const reasons = [];
+    if (m.destructive) reasons.push('destructive — can cause data loss');
+    if (m.sideEffects) reasons.push('has side effects');
+    if (!m.idempotent) reasons.push('not idempotent — repeated calls may differ');
+    if (m.requiresConfirmation) reasons.push('requires user confirmation');
+    if (m.costLevel === 'high') reasons.push('high resource cost');
+
+    let risk = 'safe';
+    if (m.destructive) risk = 'critical';
+    else if (m.requiresConfirmation || m.costLevel === 'high') risk = 'high';
+    else if (m.sideEffects && !m.idempotent) risk = 'medium';
+    else if (m.sideEffects) risk = 'low';
+    return { risk, reasons, meta: m };
+  }
+
+  /**
+   * Get full capability summary for autonomy layer
+   * @returns {Object}
+   */
+  capabilitySummary() {
+    const all = Object.values(this.tools);
+    const withMeta = all.filter(t => t.meta);
+    return {
+      total: all.length,
+      withMeta: withMeta.length,
+      categories: {
+        pure: this.byCategory('pure').length,
+        read: this.byCategory('read').length,
+        write: this.byCategory('write').length,
+        exec: this.byCategory('exec').length,
+        net: this.byCategory('net').length,
+      },
+      costs: {
+        free: this.byCost('free').length,
+        low: this.byCost('low').length,
+        medium: this.byCost('medium').length,
+        high: this.byCost('high').length,
+      },
+      safeForAutoExec: this.safeForAutoExec().length,
+      requiresConfirmation: this.requiresConfirmation().length,
+      destructive: this.destructive().length,
+    };
   }
 }
 
