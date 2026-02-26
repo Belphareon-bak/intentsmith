@@ -38,11 +38,24 @@ Když LLM selže (prázdná odpověď), regex fallback dá alespoň REPORT (tool
 | "analyzuj soubory ze složky" | CONVERSATIONAL | FILE_EXPLAIN |
 | "udělej mi výtah z projektu z tohoto folderu" | AMBIGUOUS | FILE_READ (LLM) |
 
+### v84.1 — Directory Listing Detection Fix
+
+`detectFileIntent()` v project handleru neropoznal dotazy na výpis souborů:
+- "dej mi seznam souboru ve slozce" — `složce` (lokativ) nematchoval `slozk` pattern
+- "soubory ve workspace" — `workspace` nebylo v project-ref termínech
+
+**Opravy:**
+- `hasFileSignal`: `slozk` → `sloz` (všechny české pády), přidán `seznam`
+- `hasProjectRef`: přidáno `workspace`, `teto`/`tehle`/`tuhle` (české fem. ukazovací zájmena)
+- Nový `hasLocationRef`: "ve složce"/"v adresáři"/"z folderu" = implicitní reference na project folder
+- Check 4: "seznam souborů"/"obsah složky"/"list files" bez project-ref (jsme v project mode)
+
 ### Soubory
 
 | Soubor | Změna |
 |--------|-------|
 | `src/chat/cre-decision.js` | Project hint v `_llmClassifyIntent()`, project-scope v `REPORT_FRESH_CONTEXT` |
+| `src/chat/handlers/project.js` | `detectFileIntent()` — rozšířené file/project/location patterny + check 4 |
 
 ---
 
