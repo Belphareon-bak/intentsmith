@@ -248,7 +248,7 @@ if (AgentRepository) {
 // REQUEST HELPERS
 // ════════════════════════════════════════════════════════════════════════════
 
-const MAX_BODY_SIZE = 1 * 1024 * 1024; // 1MB
+const MAX_BODY_SIZE = 6 * 1024 * 1024; // 6MB (supports 1MB text + 5MB image attachments)
 
 // H1: Error sanitization — never leak internal error details to clients
 function safeError(err) {

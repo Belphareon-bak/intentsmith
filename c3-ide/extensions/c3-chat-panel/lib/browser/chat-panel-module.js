@@ -3462,10 +3462,10 @@ function _chatCancelEdit(paneIdx){
 }
 
 /* ── Read file attachments before sending ── */
-var _TEXT_EXTS=/\.(js|ts|jsx|tsx|py|json|md|txt|css|html|yaml|yml|xml|csv|sql|sh|env|cfg|ini|log|toml|rs|go|java|c|cpp|h|rb|php|swift|kt|r|lua|pl|ex|erl|hs|ml|vue|svelte)$/i;
-var _IMG_EXTS=/\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i;
-var _MAX_TEXT_SIZE=50*1024;/* 50KB */
-var _MAX_IMG_SIZE=2*1024*1024;/* 2MB */
+var _TEXT_EXTS=/\.(js|ts|jsx|tsx|mjs|cjs|py|pyw|json|jsonc|json5|md|mdx|txt|css|scss|sass|less|html|htm|yaml|yml|xml|xsl|csv|tsv|sql|sh|bash|zsh|fish|ps1|bat|cmd|env|cfg|ini|log|toml|rs|go|java|c|cpp|cc|cxx|h|hpp|hxx|cs|rb|php|swift|kt|kts|r|lua|pl|pm|ex|exs|erl|hs|ml|mli|fs|fsx|vue|svelte|astro|scala|clj|cljs|cljc|dart|groovy|gradle|graphql|gql|proto|tf|hcl|dockerfile|makefile|cmake|properties|conf|nginx|prisma|sol|zig|nim|v|wasm|wat|lock|editorconfig|gitignore|gitattributes|dockerignore|npmrc|nvmrc|eslintrc|prettierrc|babelrc|browserslistrc|stylelintrc|rst|adoc|tex|latex|org|nix|dhall|jsonnet|jsx2|pug|jade|ejs|hbs|handlebars|mustache|twig|liquid|erb|haml|slim|razor|cshtml|diff|patch)$/i;
+var _IMG_EXTS=/\.(png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff|tif|avif)$/i;
+var _MAX_TEXT_SIZE=1024*1024;/* 1MB */
+var _MAX_IMG_SIZE=5*1024*1024;/* 5MB */
 
 /* Try Node.js fs (available in Electron renderer) */
 var _nodeFs=null;

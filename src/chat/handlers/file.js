@@ -22,8 +22,8 @@ import path from 'path';
 
 // ─── Security constants ──────────────────────────────────────────────────────
 
-const MAX_FILE_SIZE = 512 * 1024; // 512 KB
-const MAX_DISPLAY_LINES = 200;    // Truncate display after this many lines
+const MAX_FILE_SIZE = 1024 * 1024; // 1 MB
+const MAX_DISPLAY_LINES = 500;    // Truncate display after this many lines
 const FORBIDDEN_PATHS = [
   '/etc', '/proc', '/sys', '/dev', '/root',
   '/boot', '/sbin', '/usr/sbin', '/var/log',
@@ -202,11 +202,27 @@ function formatFileReadResponse(filePath, result, lang = 'cs') {
 
   // Determine code fence language
   const langMap = {
-    js: 'javascript', ts: 'typescript', py: 'python', rb: 'ruby',
-    sh: 'bash', yml: 'yaml', md: 'markdown', json: 'json',
-    html: 'html', css: 'css', sql: 'sql', rs: 'rust', go: 'go',
-    java: 'java', cpp: 'cpp', c: 'c', jsx: 'jsx', tsx: 'tsx',
-    xml: 'xml', toml: 'toml', ini: 'ini', conf: 'conf',
+    js: 'javascript', mjs: 'javascript', cjs: 'javascript', jsx: 'jsx',
+    ts: 'typescript', tsx: 'tsx', mts: 'typescript',
+    py: 'python', pyw: 'python', rb: 'ruby', php: 'php',
+    sh: 'bash', bash: 'bash', zsh: 'bash', fish: 'fish', ps1: 'powershell', bat: 'batch', cmd: 'batch',
+    yml: 'yaml', yaml: 'yaml', md: 'markdown', mdx: 'mdx',
+    json: 'json', jsonc: 'jsonc', json5: 'json5',
+    html: 'html', htm: 'html', css: 'css', scss: 'scss', sass: 'sass', less: 'less',
+    sql: 'sql', rs: 'rust', go: 'go', java: 'java',
+    cpp: 'cpp', cc: 'cpp', cxx: 'cpp', c: 'c', h: 'c', hpp: 'cpp', hxx: 'cpp', cs: 'csharp',
+    swift: 'swift', kt: 'kotlin', kts: 'kotlin', scala: 'scala', groovy: 'groovy', gradle: 'groovy',
+    dart: 'dart', r: 'r', lua: 'lua', pl: 'perl', pm: 'perl',
+    ex: 'elixir', exs: 'elixir', erl: 'erlang', hs: 'haskell', ml: 'ocaml', mli: 'ocaml',
+    fs: 'fsharp', fsx: 'fsharp', clj: 'clojure', cljs: 'clojure',
+    vue: 'vue', svelte: 'svelte', astro: 'astro',
+    xml: 'xml', xsl: 'xml', toml: 'toml', ini: 'ini', conf: 'conf', properties: 'properties',
+    graphql: 'graphql', gql: 'graphql', proto: 'protobuf',
+    tf: 'hcl', hcl: 'hcl', dockerfile: 'dockerfile', makefile: 'makefile', cmake: 'cmake',
+    prisma: 'prisma', sol: 'solidity', zig: 'zig', nim: 'nim', nix: 'nix',
+    tex: 'latex', latex: 'latex', rst: 'rst',
+    pug: 'pug', jade: 'pug', ejs: 'ejs', hbs: 'handlebars',
+    diff: 'diff', patch: 'diff',
   };
   const codeLang = langMap[ext] || ext || '';
 
