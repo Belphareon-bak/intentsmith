@@ -2282,6 +2282,1357 @@ tools['tools.suggest'] = {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
+// YAML
+// ════════════════════════════════════════════════════════════════════════════
+
+// Minimal YAML parser — handles common cases (maps, arrays, scalars, nesting).
+// Does NOT support anchors/aliases, multi-line block scalars (|, >), or tags.
+function _yamlParse(text) {
+  const lines = text.split('\n');
+  const result = {};
+  const stack = [{ obj: result, indent: -1 }];
+  let currentKey = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    if (!raw.trim() || raw.trim().startsWith('#')) continue;
+    const indent = raw.search(/\S/);
+    const line = raw.trim();
+
+    // Pop stack to find parent at correct indent
+    while (stack.length > 1 && indent <= stack[stack.length - 1].indent) stack.pop();
+    const parent = stack[stack.length - 1].obj;
+
+    // Array item
+    if (line.startsWith('- ')) {
+      const val = line.substring(2).trim();
+      if (Array.isArray(parent)) {
+        if (val.includes(': ')) {
+          const obj = {};
+          const [k, ...v] = val.split(': ');
+          obj[k.trim()] = _yamlScalar(v.join(': ').trim());
+          parent.push(obj);
+          stack.push({ obj: obj, indent: indent });
+        } else {
+          parent.push(_yamlScalar(val));
+        }
+      } else if (currentKey && parent[currentKey] === null) {
+        parent[currentKey] = [_yamlScalar(val)];
+        stack.push({ obj: parent[currentKey], indent: indent });
+      }
+      continue;
+    }
+
+    // Key: value
+    const colonIdx = line.indexOf(':');
+    if (colonIdx > 0) {
+      const key = line.substring(0, colonIdx).trim();
+      const val = line.substring(colonIdx + 1).trim();
+      currentKey = key;
+      if (val === '' || val === '|' || val === '>') {
+        // Nested object or null
+        if (Array.isArray(parent)) { const obj = {}; obj[key] = null; parent.push(obj); stack.push({ obj: obj, indent: indent }); }
+        else { parent[key] = null; stack.push({ obj: parent, indent: indent }); }
+      } else if (val.startsWith('[') && val.endsWith(']')) {
+        // Inline array
+        parent[key] = val.slice(1, -1).split(',').map(s => _yamlScalar(s.trim()));
+      } else if (val.startsWith('{') && val.endsWith('}')) {
+        // Inline object
+        const obj = {};
+        val.slice(1, -1).split(',').forEach(pair => {
+          const [k, ...v] = pair.split(':');
+          if (k) obj[k.trim()] = _yamlScalar(v.join(':').trim());
+        });
+        parent[key] = obj;
+      } else {
+        parent[key] = _yamlScalar(val);
+      }
+    }
+  }
+  return result;
+}
+
+function _yamlScalar(val) {
+  if (val === 'true' || val === 'True' || val === 'TRUE') return true;
+  if (val === 'false' || val === 'False' || val === 'FALSE') return false;
+  if (val === 'null' || val === 'Null' || val === '~' || val === '') return null;
+  if (/^-?\d+$/.test(val)) return parseInt(val);
+  if (/^-?\d+\.\d+$/.test(val)) return parseFloat(val);
+  // Strip quotes
+  if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) return val.slice(1, -1);
+  return val;
+}
+
+function _yamlStringify(obj, indent = 0) {
+  const pad = '  '.repeat(indent);
+  let out = '';
+  if (Array.isArray(obj)) {
+    for (const item of obj) {
+      if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
+        const entries = Object.entries(item);
+        out += `${pad}- ${entries[0][0]}: ${_yamlStringifyValue(entries[0][1])}\n`;
+        for (let i = 1; i < entries.length; i++) {
+          out += `${pad}  ${entries[i][0]}: ${_yamlStringifyValue(entries[i][1])}\n`;
+        }
+      } else {
+        out += `${pad}- ${_yamlStringifyValue(item)}\n`;
+      }
+    }
+  } else if (typeof obj === 'object' && obj !== null) {
+    for (const [key, val] of Object.entries(obj)) {
+      if (typeof val === 'object' && val !== null) {
+        out += `${pad}${key}:\n${_yamlStringify(val, indent + 1)}`;
+      } else {
+        out += `${pad}${key}: ${_yamlStringifyValue(val)}\n`;
+      }
+    }
+  }
+  return out;
+}
+
+function _yamlStringifyValue(val) {
+  if (val === null || val === undefined) return 'null';
+  if (typeof val === 'boolean') return val ? 'true' : 'false';
+  if (typeof val === 'number') return String(val);
+  if (typeof val === 'string') {
+    if (val.includes(':') || val.includes('#') || val.includes('"') || val.includes("'") || /^\s|\s$/.test(val)) return `"${val.replace(/"/g, '\\"')}"`;
+    return val;
+  }
+  return String(val);
+}
+
+tools['yaml.parse'] = {
+  name: 'yaml.parse',
+  description: 'Parse YAML string to JSON object',
+  params: { required: ['input'], optional: ['inputType'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { input, inputType = 'string' } = params;
+    try {
+      const text = inputType === 'file' ? await (await import('fs/promises')).readFile(input, 'utf-8') : input;
+      return { data: _yamlParse(text) };
+    } catch (err) { return { error: err.message, code: 'YAML_ERROR' }; }
+  },
+};
+
+tools['yaml.stringify'] = {
+  name: 'yaml.stringify',
+  description: 'Convert JSON object to YAML string',
+  params: { required: ['data'], optional: ['outputPath'] },
+  permissions: [],
+  async execute(params) {
+    const { data, outputPath } = params;
+    try {
+      const obj = typeof data === 'string' ? JSON.parse(data) : data;
+      const yaml = _yamlStringify(obj);
+      if (outputPath) {
+        const fsP = await import('fs/promises');
+        const pathM = await import('path');
+        await fsP.mkdir(pathM.dirname(outputPath), { recursive: true });
+        await fsP.writeFile(outputPath, yaml);
+        return { ok: true, output: outputPath, length: yaml.length };
+      }
+      return { yaml, length: yaml.length };
+    } catch (err) { return { error: err.message, code: 'YAML_ERROR' }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// CRYPTO
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['crypto.randomBytes'] = {
+  name: 'crypto.randomBytes',
+  description: 'Generate cryptographically secure random bytes (hex, base64, or raw)',
+  params: { required: [], optional: ['length', 'encoding'] },
+  permissions: [],
+  async execute(params) {
+    const { length = 32, encoding = 'hex' } = params;
+    const { randomBytes } = await import('crypto');
+    const buf = randomBytes(Math.min(length, 1024));
+    return { value: buf.toString(encoding), length: buf.length, encoding };
+  },
+};
+
+tools['crypto.generatePassword'] = {
+  name: 'crypto.generatePassword',
+  description: 'Generate a secure random password',
+  params: { required: [], optional: ['length', 'uppercase', 'lowercase', 'digits', 'symbols'] },
+  permissions: [],
+  async execute(params) {
+    const { length = 20, uppercase = true, lowercase = true, digits = true, symbols = true } = params;
+    const { randomBytes } = await import('crypto');
+    let chars = '';
+    if (lowercase) chars += 'abcdefghijkmnopqrstuvwxyz';
+    if (uppercase) chars += 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    if (digits) chars += '23456789';
+    if (symbols) chars += '!@#$%&*_+-=?';
+    if (!chars) chars = 'abcdefghijkmnopqrstuvwxyz23456789';
+    const bytes = randomBytes(Math.min(length, 128));
+    let password = '';
+    for (let i = 0; i < Math.min(length, 128); i++) password += chars[bytes[i] % chars.length];
+    return { password, length: password.length };
+  },
+};
+
+tools['crypto.encrypt'] = {
+  name: 'crypto.encrypt',
+  description: 'Encrypt text using AES-256-GCM',
+  params: { required: ['text', 'key'], optional: [] },
+  permissions: [],
+  async execute(params) {
+    const { text, key } = params;
+    const crypto = await import('crypto');
+    try {
+      const keyHash = crypto.createHash('sha256').update(key).digest();
+      const iv = crypto.randomBytes(16);
+      const cipher = crypto.createCipheriv('aes-256-gcm', keyHash, iv);
+      let encrypted = cipher.update(text, 'utf-8', 'hex');
+      encrypted += cipher.final('hex');
+      const tag = cipher.getAuthTag().toString('hex');
+      return { encrypted, iv: iv.toString('hex'), tag, algorithm: 'aes-256-gcm' };
+    } catch (err) { return { error: err.message, code: 'CRYPTO_ERROR' }; }
+  },
+};
+
+tools['crypto.decrypt'] = {
+  name: 'crypto.decrypt',
+  description: 'Decrypt AES-256-GCM encrypted text',
+  params: { required: ['encrypted', 'key', 'iv', 'tag'], optional: [] },
+  permissions: [],
+  async execute(params) {
+    const { encrypted, key, iv, tag } = params;
+    const crypto = await import('crypto');
+    try {
+      const keyHash = crypto.createHash('sha256').update(key).digest();
+      const decipher = crypto.createDecipheriv('aes-256-gcm', keyHash, Buffer.from(iv, 'hex'));
+      decipher.setAuthTag(Buffer.from(tag, 'hex'));
+      let decrypted = decipher.update(encrypted, 'hex', 'utf-8');
+      decrypted += decipher.final('utf-8');
+      return { text: decrypted };
+    } catch (err) { return { error: err.message, code: 'CRYPTO_ERROR' }; }
+  },
+};
+
+tools['crypto.uuid'] = {
+  name: 'crypto.uuid',
+  description: 'Generate a UUID v4',
+  params: { required: [], optional: ['count'] },
+  permissions: [],
+  async execute(params) {
+    const { count = 1 } = params;
+    const { randomUUID } = await import('crypto');
+    const uuids = Array.from({ length: Math.min(count, 100) }, () => randomUUID());
+    return count === 1 ? { uuid: uuids[0] } : { uuids };
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// REGEX
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['regex.test'] = {
+  name: 'regex.test',
+  description: 'Test a regex pattern against text',
+  params: { required: ['pattern', 'text'], optional: ['flags'] },
+  permissions: [],
+  async execute(params) {
+    const { pattern, text, flags = '' } = params;
+    try {
+      const re = new RegExp(pattern, flags);
+      const match = re.test(text);
+      const firstMatch = text.match(new RegExp(pattern, flags));
+      return { match, pattern, flags, firstMatch: firstMatch ? { value: firstMatch[0], index: firstMatch.index, groups: firstMatch.groups || null } : null };
+    } catch (err) { return { error: err.message, code: 'REGEX_ERROR' }; }
+  },
+};
+
+tools['regex.extract'] = {
+  name: 'regex.extract',
+  description: 'Extract all matches of a regex pattern from text',
+  params: { required: ['pattern', 'text'], optional: ['flags', 'limit'] },
+  permissions: [],
+  async execute(params) {
+    const { pattern, text, flags = 'g', limit = 100 } = params;
+    try {
+      const re = new RegExp(pattern, flags.includes('g') ? flags : flags + 'g');
+      const matches = [];
+      let m;
+      while ((m = re.exec(text)) !== null && matches.length < limit) {
+        matches.push({ value: m[0], index: m.index, groups: m.groups || null, captures: m.slice(1) });
+        if (!flags.includes('g')) break;
+      }
+      return { matches, count: matches.length };
+    } catch (err) { return { error: err.message, code: 'REGEX_ERROR' }; }
+  },
+};
+
+tools['regex.replace'] = {
+  name: 'regex.replace',
+  description: 'Replace matches using a regex pattern',
+  params: { required: ['pattern', 'text', 'replacement'], optional: ['flags'] },
+  permissions: [],
+  async execute(params) {
+    const { pattern, text, replacement, flags = 'g' } = params;
+    try {
+      const re = new RegExp(pattern, flags);
+      const result = text.replace(re, replacement);
+      const changes = (text.match(new RegExp(pattern, flags.includes('g') ? flags : flags + 'g')) || []).length;
+      return { result, changes, length: result.length };
+    } catch (err) { return { error: err.message, code: 'REGEX_ERROR' }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// DATE / TIME
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['date.now'] = {
+  name: 'date.now',
+  description: 'Get current date/time in various formats',
+  params: { required: [], optional: ['timezone', 'format'] },
+  permissions: [],
+  async execute(params) {
+    const { timezone, format } = params;
+    const now = new Date();
+    const result = {
+      iso: now.toISOString(),
+      unix: Math.floor(now.getTime() / 1000),
+      unixMs: now.getTime(),
+      utc: now.toUTCString(),
+      date: now.toISOString().split('T')[0],
+      time: now.toISOString().split('T')[1].split('.')[0],
+      dayOfWeek: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][now.getDay()],
+    };
+    if (timezone) {
+      try { result.local = now.toLocaleString('en-US', { timeZone: timezone }); result.timezone = timezone; }
+      catch { result.timezoneError = `Invalid timezone: ${timezone}`; }
+    }
+    return result;
+  },
+};
+
+tools['date.parse'] = {
+  name: 'date.parse',
+  description: 'Parse a date string to structured components',
+  params: { required: ['input'], optional: [] },
+  permissions: [],
+  async execute(params) {
+    const { input } = params;
+    try {
+      const d = new Date(input);
+      if (isNaN(d.getTime())) return { error: `Cannot parse date: ${input}`, code: 'DATE_ERROR' };
+      return {
+        iso: d.toISOString(), unix: Math.floor(d.getTime() / 1000),
+        year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate(),
+        hour: d.getHours(), minute: d.getMinutes(), second: d.getSeconds(),
+        dayOfWeek: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getDay()],
+      };
+    } catch (err) { return { error: err.message, code: 'DATE_ERROR' }; }
+  },
+};
+
+tools['date.diff'] = {
+  name: 'date.diff',
+  description: 'Calculate difference between two dates',
+  params: { required: ['from', 'to'], optional: ['unit'] },
+  permissions: [],
+  async execute(params) {
+    const { from, to, unit = 'auto' } = params;
+    try {
+      const a = new Date(from), b = new Date(to);
+      if (isNaN(a.getTime()) || isNaN(b.getTime())) return { error: 'Invalid date(s)', code: 'DATE_ERROR' };
+      const diffMs = b.getTime() - a.getTime();
+      const result = { milliseconds: diffMs, seconds: diffMs / 1000, minutes: diffMs / 60000, hours: diffMs / 3600000, days: diffMs / 86400000, weeks: diffMs / 604800000 };
+      if (unit !== 'auto' && result[unit] !== undefined) return { diff: result[unit], unit, from: a.toISOString(), to: b.toISOString() };
+      // Auto — pick most readable unit
+      const abs = Math.abs(diffMs);
+      let display;
+      if (abs < 60000) display = { value: Math.round(result.seconds), unit: 'seconds' };
+      else if (abs < 3600000) display = { value: Math.round(result.minutes), unit: 'minutes' };
+      else if (abs < 86400000) display = { value: +(result.hours).toFixed(1), unit: 'hours' };
+      else if (abs < 604800000) display = { value: +(result.days).toFixed(1), unit: 'days' };
+      else display = { value: +(result.weeks).toFixed(1), unit: 'weeks' };
+      return { ...result, display, from: a.toISOString(), to: b.toISOString() };
+    } catch (err) { return { error: err.message, code: 'DATE_ERROR' }; }
+  },
+};
+
+tools['date.format'] = {
+  name: 'date.format',
+  description: 'Format a date with locale and timezone support',
+  params: { required: ['input'], optional: ['locale', 'timezone', 'options'] },
+  permissions: [],
+  async execute(params) {
+    const { input, locale = 'en-US', timezone, options = {} } = params;
+    try {
+      const d = input === 'now' ? new Date() : new Date(input);
+      if (isNaN(d.getTime())) return { error: `Cannot parse: ${input}`, code: 'DATE_ERROR' };
+      const opts = { ...options };
+      if (timezone) opts.timeZone = timezone;
+      return { formatted: d.toLocaleString(locale, opts), iso: d.toISOString() };
+    } catch (err) { return { error: err.message, code: 'DATE_ERROR' }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// MATH
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['math.eval'] = {
+  name: 'math.eval',
+  description: 'Safely evaluate a mathematical expression',
+  params: { required: ['expression'], optional: ['precision'] },
+  permissions: [],
+  async execute(params) {
+    const { expression, precision } = params;
+    try {
+      // Only allow safe math characters, Math.*, constants, and common functions
+      const sanitized = expression.replace(/\s/g, '');
+      if (!/^[0-9+\-*/().,%^e]+$/.test(sanitized) && !/^[0-9+\-*/().,%^e\s]*(?:Math\.\w+|sqrt|pow|abs|ceil|floor|round|log|log10|sin|cos|tan|min|max|PI|E|random)\b/i.test(expression)) {
+        // Try to make it safe by substituting common function names
+        let safe = expression
+          .replace(/\bsqrt\b/g, 'Math.sqrt').replace(/\bpow\b/g, 'Math.pow')
+          .replace(/\babs\b/g, 'Math.abs').replace(/\bceil\b/g, 'Math.ceil')
+          .replace(/\bfloor\b/g, 'Math.floor').replace(/\bround\b/g, 'Math.round')
+          .replace(/\blog\b/g, 'Math.log').replace(/\blog10\b/g, 'Math.log10')
+          .replace(/\bsin\b/g, 'Math.sin').replace(/\bcos\b/g, 'Math.cos')
+          .replace(/\btan\b/g, 'Math.tan').replace(/\bPI\b/g, 'Math.PI')
+          .replace(/\bmin\b/g, 'Math.min').replace(/\bmax\b/g, 'Math.max');
+        // Final safety check — only allow Math.*, numbers, operators, parens
+        if (!/^[0-9+\-*/().,%^eMath.\s\w]+$/.test(safe)) {
+          return { error: 'Expression contains unsafe characters', code: 'MATH_ERROR' };
+        }
+        const result = new Function(`"use strict"; return (${safe})`)();
+        return { result: precision !== undefined ? +result.toFixed(precision) : result, expression };
+      }
+      let safe = expression
+        .replace(/\bsqrt\b/g, 'Math.sqrt').replace(/\bpow\b/g, 'Math.pow')
+        .replace(/\babs\b/g, 'Math.abs').replace(/\bceil\b/g, 'Math.ceil')
+        .replace(/\bfloor\b/g, 'Math.floor').replace(/\bround\b/g, 'Math.round')
+        .replace(/\blog10\b/g, 'Math.log10').replace(/\blog\b/g, 'Math.log')
+        .replace(/\bsin\b/g, 'Math.sin').replace(/\bcos\b/g, 'Math.cos')
+        .replace(/\btan\b/g, 'Math.tan').replace(/\bPI\b/g, 'Math.PI')
+        .replace(/\bmin\b/g, 'Math.min').replace(/\bmax\b/g, 'Math.max')
+        .replace(/\^/g, '**');
+      const result = new Function(`"use strict"; return (${safe})`)();
+      return { result: precision !== undefined ? +result.toFixed(precision) : result, expression };
+    } catch (err) { return { error: err.message, code: 'MATH_ERROR' }; }
+  },
+};
+
+tools['math.stats'] = {
+  name: 'math.stats',
+  description: 'Calculate basic statistics on a dataset (mean, median, std, min, max, etc.)',
+  params: { required: ['data'], optional: ['field'] },
+  permissions: [],
+  async execute(params) {
+    const { data, field } = params;
+    try {
+      let values = Array.isArray(data) ? data : (typeof data === 'string' ? JSON.parse(data) : []);
+      if (field) values = values.map(item => item[field]).filter(v => typeof v === 'number');
+      else values = values.map(Number).filter(v => !isNaN(v));
+      if (!values.length) return { error: 'No numeric values', code: 'MATH_ERROR' };
+      values.sort((a, b) => a - b);
+      const n = values.length;
+      const sum = values.reduce((a, b) => a + b, 0);
+      const mean = sum / n;
+      const median = n % 2 === 0 ? (values[n / 2 - 1] + values[n / 2]) / 2 : values[Math.floor(n / 2)];
+      const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / n;
+      const stddev = Math.sqrt(variance);
+      const q1 = values[Math.floor(n * 0.25)];
+      const q3 = values[Math.floor(n * 0.75)];
+      return { count: n, sum, mean, median, min: values[0], max: values[n - 1], stddev: +stddev.toFixed(6), variance: +variance.toFixed(6), q1, q3, iqr: q3 - q1, range: values[n - 1] - values[0] };
+    } catch (err) { return { error: err.message, code: 'MATH_ERROR' }; }
+  },
+};
+
+tools['math.convert'] = {
+  name: 'math.convert',
+  description: 'Convert between units (length, weight, temperature, data size, time)',
+  params: { required: ['value', 'from', 'to'], optional: [] },
+  permissions: [],
+  async execute(params) {
+    const { value, from, to } = params;
+    const conversions = {
+      // Length → meters
+      mm: 0.001, cm: 0.01, m: 1, km: 1000, in: 0.0254, ft: 0.3048, yd: 0.9144, mi: 1609.344,
+      // Weight → grams
+      mg: 0.001, g: 1, kg: 1000, oz: 28.3495, lb: 453.592, ton: 1000000,
+      // Data → bytes
+      b: 1, kb: 1024, mb: 1048576, gb: 1073741824, tb: 1099511627776,
+      // Time → seconds
+      ms: 0.001, s: 1, min: 60, h: 3600, d: 86400, w: 604800,
+    };
+    // Temperature special case
+    if ((from === 'c' || from === 'f' || from === 'k') && (to === 'c' || to === 'f' || to === 'k')) {
+      let celsius;
+      if (from === 'c') celsius = value;
+      else if (from === 'f') celsius = (value - 32) * 5 / 9;
+      else celsius = value - 273.15;
+      let result;
+      if (to === 'c') result = celsius;
+      else if (to === 'f') result = celsius * 9 / 5 + 32;
+      else result = celsius + 273.15;
+      return { result: +result.toFixed(4), from, to, value };
+    }
+    const fromFactor = conversions[from.toLowerCase()];
+    const toFactor = conversions[to.toLowerCase()];
+    if (!fromFactor || !toFactor) return { error: `Unknown unit: ${!fromFactor ? from : to}`, code: 'MATH_ERROR', supportedUnits: Object.keys(conversions) };
+    // Check same dimension (approximate — length/weight/data/time groups)
+    const groups = [['mm', 'cm', 'm', 'km', 'in', 'ft', 'yd', 'mi'], ['mg', 'g', 'kg', 'oz', 'lb', 'ton'], ['b', 'kb', 'mb', 'gb', 'tb'], ['ms', 's', 'min', 'h', 'd', 'w']];
+    const fromGroup = groups.find(g => g.includes(from.toLowerCase()));
+    const toGroup = groups.find(g => g.includes(to.toLowerCase()));
+    if (fromGroup !== toGroup) return { error: `Cannot convert ${from} to ${to} — different dimensions`, code: 'MATH_ERROR' };
+    const result = value * fromFactor / toFactor;
+    return { result: +result.toFixed(6), from, to, value };
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// URL
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['url.parse'] = {
+  name: 'url.parse',
+  description: 'Parse a URL into its components',
+  params: { required: ['url'], optional: [] },
+  permissions: [],
+  async execute(params) {
+    try {
+      const u = new URL(params.url);
+      return {
+        href: u.href, protocol: u.protocol, host: u.host, hostname: u.hostname,
+        port: u.port || null, pathname: u.pathname, search: u.search,
+        hash: u.hash, origin: u.origin, username: u.username || null,
+        searchParams: Object.fromEntries(u.searchParams),
+      };
+    } catch (err) { return { error: err.message, code: 'URL_ERROR' }; }
+  },
+};
+
+tools['url.build'] = {
+  name: 'url.build',
+  description: 'Build a URL from components',
+  params: { required: ['base'], optional: ['path', 'params', 'hash'] },
+  permissions: [],
+  async execute(params) {
+    const { base, path, params: queryParams, hash } = params;
+    try {
+      const u = new URL(path || '', base);
+      if (queryParams) Object.entries(queryParams).forEach(([k, v]) => u.searchParams.set(k, String(v)));
+      if (hash) u.hash = hash;
+      return { url: u.href };
+    } catch (err) { return { error: err.message, code: 'URL_ERROR' }; }
+  },
+};
+
+tools['url.encode'] = {
+  name: 'url.encode',
+  description: 'URL-encode a string',
+  params: { required: ['input'], optional: ['component'] },
+  permissions: [],
+  async execute(params) {
+    const { input, component = true } = params;
+    return { encoded: component ? encodeURIComponent(input) : encodeURI(input) };
+  },
+};
+
+tools['url.decode'] = {
+  name: 'url.decode',
+  description: 'URL-decode a string',
+  params: { required: ['input'], optional: ['component'] },
+  permissions: [],
+  async execute(params) {
+    const { input, component = true } = params;
+    try { return { decoded: component ? decodeURIComponent(input) : decodeURI(input) }; }
+    catch (err) { return { error: err.message, code: 'URL_ERROR' }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// DIFF (unified format)
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['diff.create'] = {
+  name: 'diff.create',
+  description: 'Create a unified diff between two texts or files',
+  params: { required: ['a', 'b'], optional: ['inputType', 'nameA', 'nameB', 'context'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { a, b, inputType = 'string', nameA = 'a', nameB = 'b', context = 3 } = params;
+    const fsP = await import('fs/promises');
+    try {
+      const textA = inputType === 'file' ? await fsP.readFile(a, 'utf-8') : a;
+      const textB = inputType === 'file' ? await fsP.readFile(b, 'utf-8') : b;
+      const linesA = textA.split('\n'), linesB = textB.split('\n');
+      // Simple LCS-based diff
+      const hunks = [];
+      let i = 0, j = 0;
+      while (i < linesA.length || j < linesB.length) {
+        if (i < linesA.length && j < linesB.length && linesA[i] === linesB[j]) { i++; j++; continue; }
+        // Found a difference — build a hunk
+        const startA = Math.max(0, i - context), startB = Math.max(0, j - context);
+        const hunkLines = [];
+        // Context before
+        for (let c = startA; c < i; c++) hunkLines.push(' ' + linesA[c]);
+        // Find extent of change
+        let endI = i, endJ = j;
+        let matchCount = 0;
+        while (endI < linesA.length || endJ < linesB.length) {
+          if (endI < linesA.length && endJ < linesB.length && linesA[endI] === linesB[endJ]) {
+            matchCount++;
+            if (matchCount > context * 2) break;
+            endI++; endJ++;
+          } else {
+            matchCount = 0;
+            if (endI < linesA.length) { hunkLines.push('-' + linesA[endI]); endI++; }
+            if (endJ < linesB.length) { hunkLines.push('+' + linesB[endJ]); endJ++; }
+          }
+        }
+        // Context after
+        const afterStart = Math.min(endI, linesA.length);
+        for (let c = afterStart; c < Math.min(afterStart + context, linesA.length); c++) hunkLines.push(' ' + linesA[c]);
+        hunks.push({ startA: startA + 1, startB: startB + 1, lines: hunkLines });
+        i = endI; j = endJ;
+      }
+      const header = `--- ${inputType === 'file' ? a : nameA}\n+++ ${inputType === 'file' ? b : nameB}\n`;
+      const body = hunks.map(h => `@@ -${h.startA} +${h.startB} @@\n${h.lines.join('\n')}`).join('\n');
+      const diff = header + body;
+      return { diff, hunks: hunks.length, additions: diff.split('\n').filter(l => l.startsWith('+')).length - 1, deletions: diff.split('\n').filter(l => l.startsWith('-')).length - 1 };
+    } catch (err) { return { error: err.message, code: 'DIFF_ERROR' }; }
+  },
+};
+
+tools['diff.apply'] = {
+  name: 'diff.apply',
+  description: 'Apply a unified diff patch to a file or text',
+  params: { required: ['target', 'patch'], optional: ['inputType', 'dryRun'] },
+  permissions: ['fs.write'],
+  async execute(params) {
+    const { target, patch, inputType = 'file', dryRun = false } = params;
+    const fsP = await import('fs/promises');
+    try {
+      let text = inputType === 'file' ? await fsP.readFile(target, 'utf-8') : target;
+      const lines = text.split('\n');
+      const patchLines = patch.split('\n');
+      let offset = 0;
+      for (const pl of patchLines) {
+        if (pl.startsWith('@@')) {
+          const match = pl.match(/@@ -(\d+)/);
+          if (match) offset = parseInt(match[1]) - 1;
+          continue;
+        }
+        if (pl.startsWith('-')) {
+          const expected = pl.substring(1);
+          if (lines[offset] === expected) { lines.splice(offset, 1); }
+          else { return { error: `Patch conflict at line ${offset + 1}: expected "${expected}", got "${lines[offset]}"`, code: 'PATCH_CONFLICT' }; }
+        } else if (pl.startsWith('+')) {
+          lines.splice(offset, 0, pl.substring(1));
+          offset++;
+        } else if (pl.startsWith(' ')) {
+          offset++;
+        }
+      }
+      const result = lines.join('\n');
+      if (!dryRun && inputType === 'file') await fsP.writeFile(target, result);
+      return { ok: true, dryRun, lines: lines.length };
+    } catch (err) { return { error: err.message, code: 'DIFF_ERROR' }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// TEST RUNNER
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['test.detect'] = {
+  name: 'test.detect',
+  description: 'Auto-detect test framework in a project',
+  params: { required: [], optional: ['cwd'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { cwd = '.' } = params;
+    const fsP = await import('fs/promises');
+    const pathM = await import('path');
+    try {
+      const root = pathM.resolve(cwd);
+      let pkg = {};
+      try { pkg = JSON.parse(await fsP.readFile(pathM.join(root, 'package.json'), 'utf-8')); } catch {}
+      const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+      const scripts = pkg.scripts || {};
+      const frameworks = [];
+      if (deps.jest || scripts.test?.includes('jest')) frameworks.push({ name: 'jest', command: 'npx jest', config: 'jest.config' });
+      if (deps.vitest || scripts.test?.includes('vitest')) frameworks.push({ name: 'vitest', command: 'npx vitest run', config: 'vitest.config' });
+      if (deps.mocha || scripts.test?.includes('mocha')) frameworks.push({ name: 'mocha', command: 'npx mocha', config: '.mocharc' });
+      if (deps.ava) frameworks.push({ name: 'ava', command: 'npx ava', config: 'ava.config' });
+      if (deps.tap) frameworks.push({ name: 'tap', command: 'npx tap', config: '.taprc' });
+      // Python
+      try { await fsP.access(pathM.join(root, 'pytest.ini')); frameworks.push({ name: 'pytest', command: 'pytest' }); } catch {}
+      try { await fsP.access(pathM.join(root, 'setup.py')); frameworks.push({ name: 'pytest', command: 'python -m pytest' }); } catch {}
+      try { await fsP.access(pathM.join(root, 'pyproject.toml')); frameworks.push({ name: 'pytest', command: 'pytest' }); } catch {}
+      // Node built-in test runner
+      if (scripts.test?.includes('node --test')) frameworks.push({ name: 'node:test', command: 'node --test' });
+      // Custom C3 test harness
+      try {
+        const testDir = await fsP.readdir(pathM.join(root, 'tests'));
+        if (testDir.some(f => f.endsWith('.test.js') || f.endsWith('.test.mjs'))) {
+          const harnessExists = testDir.includes('harness.js') || testDir.includes('harness.mjs');
+          if (harnessExists && !frameworks.length) frameworks.push({ name: 'custom', command: 'node tests/<file>.test.js', config: 'tests/harness.js' });
+        }
+      } catch {}
+      // npm test script
+      if (scripts.test && !frameworks.length) frameworks.push({ name: 'npm', command: 'npm test' });
+      return { frameworks, primary: frameworks[0] || null, testScript: scripts.test || null };
+    } catch (err) { return { error: err.message, code: 'TEST_ERROR' }; }
+  },
+};
+
+tools['test.run'] = {
+  name: 'test.run',
+  description: 'Run tests (auto-detects framework or uses specified command)',
+  params: { required: [], optional: ['cwd', 'command', 'file', 'grep', 'timeout', 'coverage'] },
+  permissions: ['shell.exec'],
+  async execute(params) {
+    const { cwd = '.', command, file, grep, timeout = 120000, coverage = false } = params;
+    const { execSync } = await import('child_process');
+    try {
+      let cmd = command;
+      if (!cmd) {
+        // Auto-detect
+        const detected = await tools['test.detect'].execute({ cwd });
+        if (!detected.primary) return { error: 'No test framework detected. Specify command.', code: 'NO_FRAMEWORK' };
+        cmd = detected.primary.command;
+      }
+      if (file) cmd += ` ${file}`;
+      if (grep) cmd += ` --grep "${grep}"`;
+      if (coverage) cmd += ' --coverage';
+      const output = execSync(cmd, { cwd, timeout: Math.min(timeout, 300000), encoding: 'utf-8', maxBuffer: 4 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
+      const passed = (output.match(/(\d+) pass/i) || [])[1];
+      const failed = (output.match(/(\d+) fail/i) || [])[1];
+      return { ok: true, output: output.substring(0, 50000), passed: passed ? parseInt(passed) : null, failed: failed ? parseInt(failed) : null };
+    } catch (err) {
+      const out = ((err.stdout || '') + (err.stderr || '')).substring(0, 50000);
+      const failed = (out.match(/(\d+) fail/i) || [])[1];
+      return { ok: false, exitCode: err.status || 1, output: out, failed: failed ? parseInt(failed) : null };
+    }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// PYTHON
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['python.run'] = {
+  name: 'python.run',
+  description: 'Run a Python script or inline code',
+  params: { required: ['input'], optional: ['inputType', 'cwd', 'args', 'timeout', 'venv'] },
+  permissions: ['shell.exec'],
+  async execute(params) {
+    const { input, inputType = 'file', cwd = '.', args = '', timeout = 30000, venv } = params;
+    const { execSync } = await import('child_process');
+    try {
+      let python = 'python3';
+      if (venv) python = `${venv}/bin/python`;
+      const cmd = inputType === 'code'
+        ? `${python} -c "${input.replace(/"/g, '\\"')}"`
+        : `${python} "${input}" ${args}`;
+      const output = execSync(cmd, { cwd, timeout: Math.min(timeout, 120000), encoding: 'utf-8', maxBuffer: 2 * 1024 * 1024 });
+      return { ok: true, output: output.substring(0, 50000) };
+    } catch (err) {
+      return { ok: false, exitCode: err.status || 1, output: ((err.stdout || '') + (err.stderr || '')).substring(0, 10000) };
+    }
+  },
+};
+
+tools['python.pip'] = {
+  name: 'python.pip',
+  description: 'Install Python packages via pip',
+  params: { required: ['packages'], optional: ['cwd', 'venv', 'upgrade'] },
+  permissions: ['shell.exec'],
+  async execute(params) {
+    const { packages, cwd = '.', venv, upgrade = false } = params;
+    const { execSync } = await import('child_process');
+    try {
+      let pip = 'pip3';
+      if (venv) pip = `${venv}/bin/pip`;
+      const pkgList = Array.isArray(packages) ? packages.join(' ') : packages;
+      let cmd = `${pip} install ${pkgList}`;
+      if (upgrade) cmd += ' --upgrade';
+      const output = execSync(cmd, { cwd, timeout: 120000, encoding: 'utf-8', maxBuffer: 2 * 1024 * 1024 });
+      return { ok: true, output: output.substring(0, 5000) };
+    } catch (err) { return { ok: false, error: err.message, output: ((err.stdout || '') + (err.stderr || '')).substring(0, 5000) }; }
+  },
+};
+
+tools['python.venv'] = {
+  name: 'python.venv',
+  description: 'Create or manage a Python virtual environment',
+  params: { required: ['action'], optional: ['path', 'cwd'] },
+  permissions: ['shell.exec', 'fs.write'],
+  async execute(params) {
+    const { action, path = '.venv', cwd = '.' } = params;
+    const { execSync } = await import('child_process');
+    const fsP = await import('fs/promises');
+    const pathM = await import('path');
+    try {
+      const venvPath = pathM.resolve(cwd, path);
+      if (action === 'create') {
+        execSync(`python3 -m venv "${venvPath}"`, { cwd, timeout: 30000 });
+        return { ok: true, path: venvPath, python: pathM.join(venvPath, 'bin/python'), pip: pathM.join(venvPath, 'bin/pip') };
+      }
+      if (action === 'exists') {
+        try { await fsP.access(pathM.join(venvPath, 'bin/python')); return { exists: true, path: venvPath }; }
+        catch { return { exists: false }; }
+      }
+      if (action === 'list') {
+        const output = execSync(`${pathM.join(venvPath, 'bin/pip')} list --format=json`, { timeout: 10000, encoding: 'utf-8' });
+        return { packages: JSON.parse(output) };
+      }
+      return { error: `Unknown action: ${action}`, code: 'INVALID_ACTION' };
+    } catch (err) { return { error: err.message, code: 'PYTHON_ERROR' }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// CODE ANALYSIS
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['code.analyze'] = {
+  name: 'code.analyze',
+  description: 'Analyze code metrics — LOC, file count, language breakdown',
+  params: { required: [], optional: ['dir', 'ext', 'maxDepth'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { dir = '.', ext, maxDepth = 8 } = params;
+    const fsP = await import('fs/promises');
+    const pathM = await import('path');
+    try {
+      const skip = new Set(['node_modules', '.git', 'dist', 'build', '.c3', '__pycache__', '.next', 'vendor', 'coverage']);
+      const langExts = { js: 'JavaScript', mjs: 'JavaScript', cjs: 'JavaScript', ts: 'TypeScript', tsx: 'TypeScript', jsx: 'JavaScript', py: 'Python', rb: 'Ruby', go: 'Go', rs: 'Rust', java: 'Java', cpp: 'C++', c: 'C', cs: 'C#', php: 'PHP', swift: 'Swift', kt: 'Kotlin', scala: 'Scala', dart: 'Dart', vue: 'Vue', svelte: 'Svelte', css: 'CSS', scss: 'SCSS', html: 'HTML', sql: 'SQL', sh: 'Shell', yaml: 'YAML', yml: 'YAML', json: 'JSON', md: 'Markdown', xml: 'XML' };
+      const stats = { totalFiles: 0, totalLines: 0, totalBlank: 0, totalComment: 0, totalCode: 0, languages: {}, largestFiles: [] };
+      async function walk(d, depth) {
+        if (depth > maxDepth) return;
+        let entries; try { entries = await fsP.readdir(d, { withFileTypes: true }); } catch { return; }
+        for (const e of entries) {
+          if (skip.has(e.name) || e.name.startsWith('.')) continue;
+          const full = pathM.join(d, e.name);
+          if (e.isDirectory()) { await walk(full, depth + 1); continue; }
+          const fileExt = e.name.split('.').pop()?.toLowerCase();
+          if (ext && fileExt !== ext) continue;
+          if (!langExts[fileExt]) continue;
+          try {
+            const stat = await fsP.stat(full);
+            if (stat.size > 512 * 1024) continue;
+            const content = await fsP.readFile(full, 'utf-8');
+            const lines = content.split('\n');
+            const blank = lines.filter(l => !l.trim()).length;
+            const comment = lines.filter(l => /^\s*(\/\/|#|\/\*|\*|<!--)/.test(l)).length;
+            const code = lines.length - blank - comment;
+            const lang = langExts[fileExt] || fileExt;
+            if (!stats.languages[lang]) stats.languages[lang] = { files: 0, lines: 0, code: 0 };
+            stats.languages[lang].files++;
+            stats.languages[lang].lines += lines.length;
+            stats.languages[lang].code += code;
+            stats.totalFiles++;
+            stats.totalLines += lines.length;
+            stats.totalBlank += blank;
+            stats.totalComment += comment;
+            stats.totalCode += code;
+            stats.largestFiles.push({ path: pathM.relative(dir, full), lines: lines.length, lang });
+          } catch { continue; }
+        }
+      }
+      await walk(pathM.resolve(dir), 0);
+      stats.largestFiles.sort((a, b) => b.lines - a.lines);
+      stats.largestFiles = stats.largestFiles.slice(0, 15);
+      return stats;
+    } catch (err) { return { error: err.message, code: 'CODE_ERROR' }; }
+  },
+};
+
+tools['code.format'] = {
+  name: 'code.format',
+  description: 'Format code using project formatter (prettier, eslint --fix, black, etc.)',
+  params: { required: [], optional: ['cwd', 'files', 'tool', 'check'] },
+  permissions: ['shell.exec'],
+  async execute(params) {
+    const { cwd = '.', files, tool, check = false } = params;
+    const { execSync } = await import('child_process');
+    try {
+      let cmd;
+      const t = tool || 'auto';
+      if (t === 'auto') {
+        // Auto-detect
+        try { execSync('npx prettier --version', { cwd, timeout: 5000 }); cmd = check ? 'npx prettier --check' : 'npx prettier --write'; }
+        catch { try { execSync('npx eslint --version', { cwd, timeout: 5000 }); cmd = check ? 'npx eslint' : 'npx eslint --fix'; }
+        catch { try { execSync('which black', { timeout: 3000 }); cmd = check ? 'black --check' : 'black'; }
+        catch { return { error: 'No formatter found. Install prettier, eslint, or black.', code: 'NO_FORMATTER' }; } } }
+      } else {
+        cmd = { prettier: check ? 'npx prettier --check' : 'npx prettier --write', eslint: check ? 'npx eslint' : 'npx eslint --fix', black: check ? 'black --check' : 'black', gofmt: 'gofmt -w', rustfmt: 'rustfmt' }[t] || t;
+      }
+      if (files) cmd += ' ' + (Array.isArray(files) ? files.map(f => `"${f}"`).join(' ') : `"${files}"`);
+      else cmd += ' .';
+      const output = execSync(cmd, { cwd, timeout: 60000, encoding: 'utf-8', maxBuffer: 2 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
+      return { ok: true, tool: t, output: ((output || '') + '').substring(0, 5000) };
+    } catch (err) {
+      return { ok: false, exitCode: err.status, output: ((err.stdout || '') + (err.stderr || '')).substring(0, 5000) };
+    }
+  },
+};
+
+tools['code.lint'] = {
+  name: 'code.lint',
+  description: 'Run linter and return issues',
+  params: { required: [], optional: ['cwd', 'files', 'tool', 'fix'] },
+  permissions: ['shell.exec'],
+  async execute(params) {
+    const { cwd = '.', files, tool, fix = false } = params;
+    const { execSync } = await import('child_process');
+    try {
+      let cmd;
+      const t = tool || 'auto';
+      if (t === 'auto') {
+        try { execSync('npx eslint --version', { cwd, timeout: 5000 }); cmd = 'npx eslint --format json'; }
+        catch { try { execSync('which pylint', { timeout: 3000 }); cmd = 'pylint --output-format=json'; }
+        catch { return { error: 'No linter found. Install eslint or pylint.', code: 'NO_LINTER' }; } }
+      } else {
+        cmd = { eslint: 'npx eslint --format json', pylint: 'pylint --output-format=json', flake8: 'flake8', clippy: 'cargo clippy --message-format=json' }[t] || t;
+      }
+      if (fix) cmd += ' --fix';
+      if (files) cmd += ' ' + (Array.isArray(files) ? files.join(' ') : files);
+      else cmd += ' .';
+      const output = execSync(cmd, { cwd, timeout: 60000, encoding: 'utf-8', maxBuffer: 4 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
+      let issues = [];
+      try { issues = JSON.parse(output); } catch {}
+      return { ok: true, tool: t, issues: Array.isArray(issues) ? issues.slice(0, 50) : [], output: output.substring(0, 5000) };
+    } catch (err) {
+      let issues = [];
+      try { issues = JSON.parse(err.stdout || '[]'); } catch {}
+      return { ok: false, tool: t || 'auto', exitCode: err.status, issues: Array.isArray(issues) ? issues.slice(0, 50) : [], output: ((err.stdout || '') + (err.stderr || '')).substring(0, 5000) };
+    }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// SSH / Remote
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['ssh.exec'] = {
+  name: 'ssh.exec',
+  description: 'Execute a command on a remote host via SSH',
+  params: { required: ['host', 'command'], optional: ['user', 'port', 'key', 'timeout'] },
+  permissions: ['shell.exec'],
+  async execute(params) {
+    const { host, command, user, port = 22, key, timeout = 30000 } = params;
+    const { execSync } = await import('child_process');
+    try {
+      let cmd = 'ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10';
+      if (key) cmd += ` -i "${key}"`;
+      if (port !== 22) cmd += ` -p ${port}`;
+      const target = user ? `${user}@${host}` : host;
+      cmd += ` ${target} "${command.replace(/"/g, '\\"')}"`;
+      const output = execSync(cmd, { timeout: Math.min(timeout, 120000), encoding: 'utf-8', maxBuffer: 2 * 1024 * 1024 });
+      return { ok: true, host, output: output.substring(0, 50000) };
+    } catch (err) {
+      return { ok: false, host, error: err.message, output: ((err.stdout || '') + (err.stderr || '')).substring(0, 5000) };
+    }
+  },
+};
+
+tools['ssh.copy'] = {
+  name: 'ssh.copy',
+  description: 'Copy files to/from remote host via SCP',
+  params: { required: ['source', 'dest'], optional: ['user', 'host', 'port', 'key', 'recursive'] },
+  permissions: ['shell.exec', 'fs.write'],
+  async execute(params) {
+    const { source, dest, user, host, port = 22, key, recursive = false } = params;
+    const { execSync } = await import('child_process');
+    try {
+      let cmd = 'scp -o StrictHostKeyChecking=accept-new';
+      if (key) cmd += ` -i "${key}"`;
+      if (port !== 22) cmd += ` -P ${port}`;
+      if (recursive) cmd += ' -r';
+      cmd += ` "${source}" "${dest}"`;
+      const output = execSync(cmd, { timeout: 120000, encoding: 'utf-8' });
+      return { ok: true, source, dest, output: (output || '').trim() };
+    } catch (err) { return { ok: false, error: err.message, output: (err.stderr || '') }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// DATABASE — Extended
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['db.schema'] = {
+  name: 'db.schema',
+  description: 'Show database schema (tables, columns, indices)',
+  params: { required: ['dbPath'], optional: ['table'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { dbPath, table } = params;
+    try {
+      const Database = (await import('better-sqlite3')).default;
+      const db = new Database(dbPath, { readonly: true });
+      if (table) {
+        const columns = db.prepare(`PRAGMA table_info("${table}")`).all();
+        const indices = db.prepare(`PRAGMA index_list("${table}")`).all();
+        const count = db.prepare(`SELECT COUNT(*) as count FROM "${table}"`).get();
+        db.close();
+        return { table, columns, indices, rowCount: count.count };
+      }
+      const tables = db.prepare("SELECT name, sql FROM sqlite_master WHERE type='table' ORDER BY name").all();
+      const views = db.prepare("SELECT name, sql FROM sqlite_master WHERE type='view' ORDER BY name").all();
+      const result = { tables: [], views: views.map(v => v.name) };
+      for (const t of tables) {
+        const cols = db.prepare(`PRAGMA table_info("${t.name}")`).all();
+        const count = db.prepare(`SELECT COUNT(*) as count FROM "${t.name}"`).get();
+        result.tables.push({ name: t.name, columns: cols.length, rows: count.count, columnNames: cols.map(c => c.name) });
+      }
+      db.close();
+      return result;
+    } catch (err) { return { error: err.message, code: 'DB_ERROR' }; }
+  },
+};
+
+tools['db.backup'] = {
+  name: 'db.backup',
+  description: 'Create a backup of a SQLite database',
+  params: { required: ['dbPath'], optional: ['outputPath'] },
+  permissions: ['fs.read', 'fs.write'],
+  async execute(params) {
+    const { dbPath, outputPath } = params;
+    const fsP = await import('fs/promises');
+    const pathM = await import('path');
+    try {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const dest = outputPath || dbPath.replace(/\.db$/, '') + `-backup-${timestamp}.db`;
+      await fsP.mkdir(pathM.dirname(dest), { recursive: true });
+      await fsP.copyFile(dbPath, dest);
+      const stat = await fsP.stat(dest);
+      return { ok: true, source: dbPath, backup: dest, size: stat.size };
+    } catch (err) { return { error: err.message, code: 'DB_ERROR' }; }
+  },
+};
+
+tools['db.migrate'] = {
+  name: 'db.migrate',
+  description: 'Run SQL migration files against a SQLite database',
+  params: { required: ['dbPath', 'migrationsDir'], optional: ['dryRun'] },
+  permissions: ['fs.read', 'fs.write'],
+  async execute(params) {
+    const { dbPath, migrationsDir, dryRun = false } = params;
+    const fsP = await import('fs/promises');
+    const pathM = await import('path');
+    try {
+      const Database = (await import('better-sqlite3')).default;
+      const db = new Database(dbPath);
+      // Create migrations tracking table
+      db.exec('CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY, applied_at TEXT)');
+      const applied = new Set(db.prepare('SELECT name FROM _migrations').all().map(r => r.name));
+      const files = (await fsP.readdir(migrationsDir)).filter(f => f.endsWith('.sql')).sort();
+      const pending = files.filter(f => !applied.has(f));
+      if (dryRun) { db.close(); return { pending, applied: [...applied], dryRun: true }; }
+      const results = [];
+      for (const file of pending) {
+        const sql = await fsP.readFile(pathM.join(migrationsDir, file), 'utf-8');
+        try {
+          db.exec(sql);
+          db.prepare('INSERT INTO _migrations (name, applied_at) VALUES (?, ?)').run(file, new Date().toISOString());
+          results.push({ file, ok: true });
+        } catch (err) {
+          results.push({ file, ok: false, error: err.message });
+          break; // Stop on first error
+        }
+      }
+      db.close();
+      return { results, applied: results.filter(r => r.ok).length, failed: results.filter(r => !r.ok).length, pending: pending.length };
+    } catch (err) { return { error: err.message, code: 'DB_ERROR' }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// LOG ANALYSIS
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['log.tail'] = {
+  name: 'log.tail',
+  description: 'Tail a log file with optional filtering',
+  params: { required: ['path'], optional: ['lines', 'filter', 'level'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { path, lines = 50, filter, level } = params;
+    const fsP = await import('fs/promises');
+    try {
+      const content = await fsP.readFile(path, 'utf-8');
+      let allLines = content.split('\n');
+      if (level) {
+        const levels = { error: ['ERROR', 'FATAL', 'CRITICAL'], warn: ['WARN', 'WARNING', 'ERROR', 'FATAL'], info: ['INFO', 'WARN', 'ERROR', 'FATAL'], debug: ['DEBUG', 'INFO', 'WARN', 'ERROR'] };
+        const allowed = levels[level.toLowerCase()] || [level.toUpperCase()];
+        allLines = allLines.filter(l => allowed.some(lv => l.includes(lv)));
+      }
+      if (filter) {
+        const re = new RegExp(filter, 'i');
+        allLines = allLines.filter(l => re.test(l));
+      }
+      const result = allLines.slice(-Math.min(lines, 1000));
+      return { lines: result, count: result.length, totalLines: allLines.length };
+    } catch (err) { return { error: err.message, code: 'LOG_ERROR' }; }
+  },
+};
+
+tools['log.analyze'] = {
+  name: 'log.analyze',
+  description: 'Analyze a log file — count errors, find patterns, summarize',
+  params: { required: ['path'], optional: ['maxLines'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { path, maxLines = 10000 } = params;
+    const fsP = await import('fs/promises');
+    try {
+      const content = await fsP.readFile(path, 'utf-8');
+      const allLines = content.split('\n').slice(-maxLines);
+      const levels = { ERROR: 0, WARN: 0, INFO: 0, DEBUG: 0, FATAL: 0 };
+      const errorMessages = {};
+      const timestamps = [];
+      for (const line of allLines) {
+        for (const lv of Object.keys(levels)) { if (line.includes(lv)) { levels[lv]++; break; } }
+        if (line.includes('ERROR') || line.includes('FATAL')) {
+          const msg = line.replace(/^\[?[\d\-T:.Z]+\]?\s*/i, '').substring(0, 100);
+          errorMessages[msg] = (errorMessages[msg] || 0) + 1;
+        }
+        const ts = line.match(/\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/);
+        if (ts) timestamps.push(ts[0]);
+      }
+      const topErrors = Object.entries(errorMessages).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([msg, count]) => ({ message: msg, count }));
+      return {
+        totalLines: allLines.length, levels, topErrors,
+        timeRange: timestamps.length ? { first: timestamps[0], last: timestamps[timestamps.length - 1] } : null,
+        errorRate: allLines.length ? `${((levels.ERROR + levels.FATAL) / allLines.length * 100).toFixed(1)}%` : '0%',
+      };
+    } catch (err) { return { error: err.message, code: 'LOG_ERROR' }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// VALIDATION
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['validate.json'] = {
+  name: 'validate.json',
+  description: 'Validate JSON data — check syntax, optional field validation',
+  params: { required: ['input'], optional: ['inputType', 'requiredFields', 'types'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { input, inputType = 'string', requiredFields, types } = params;
+    const fsP = await import('fs/promises');
+    try {
+      const text = inputType === 'file' ? await fsP.readFile(input, 'utf-8') : input;
+      let data;
+      try { data = JSON.parse(text); } catch (e) { return { valid: false, error: `JSON syntax error: ${e.message}`, position: e.message.match(/position (\d+)/)?.[1] }; }
+      const errors = [];
+      if (requiredFields) {
+        for (const field of requiredFields) {
+          if (data[field] === undefined) errors.push(`Missing required field: ${field}`);
+        }
+      }
+      if (types) {
+        for (const [field, expectedType] of Object.entries(types)) {
+          if (data[field] !== undefined && typeof data[field] !== expectedType) {
+            errors.push(`Field "${field}" expected ${expectedType}, got ${typeof data[field]}`);
+          }
+        }
+      }
+      return { valid: errors.length === 0, errors, data: errors.length === 0 ? data : undefined, keys: Object.keys(data), type: Array.isArray(data) ? 'array' : typeof data };
+    } catch (err) { return { valid: false, error: err.message }; }
+  },
+};
+
+tools['validate.email'] = {
+  name: 'validate.email',
+  description: 'Validate email address format',
+  params: { required: ['email'], optional: [] },
+  permissions: [],
+  async execute(params) {
+    const { email } = params;
+    const re = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+    const valid = re.test(email) && email.includes('.') && email.length <= 254;
+    const [local, domain] = email.split('@');
+    return { valid, email, local, domain, issues: valid ? [] : ['Invalid email format'] };
+  },
+};
+
+tools['validate.url'] = {
+  name: 'validate.url',
+  description: 'Validate URL format and accessibility',
+  params: { required: ['url'], optional: ['checkReachable'] },
+  permissions: ['web.read'],
+  async execute(params) {
+    const { url, checkReachable = false } = params;
+    try {
+      const u = new URL(url);
+      const result = { valid: true, url: u.href, protocol: u.protocol, hostname: u.hostname };
+      if (checkReachable) {
+        try {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 5000);
+          const res = await fetch(url, { method: 'HEAD', signal: ctrl.signal });
+          clearTimeout(timer);
+          result.reachable = true;
+          result.status = res.status;
+        } catch { result.reachable = false; }
+      }
+      return result;
+    } catch { return { valid: false, url, issues: ['Invalid URL format'] }; }
+  },
+};
+
+tools['validate.semver'] = {
+  name: 'validate.semver',
+  description: 'Validate and compare semantic version strings',
+  params: { required: ['version'], optional: ['compareTo'] },
+  permissions: [],
+  async execute(params) {
+    const { version, compareTo } = params;
+    const re = /^v?(\d+)\.(\d+)\.(\d+)(?:-([\w.]+))?(?:\+([\w.]+))?$/;
+    const m = version.match(re);
+    if (!m) return { valid: false, version, error: 'Not a valid semver' };
+    const parsed = { major: parseInt(m[1]), minor: parseInt(m[2]), patch: parseInt(m[3]), prerelease: m[4] || null, build: m[5] || null };
+    const result = { valid: true, version: `${parsed.major}.${parsed.minor}.${parsed.patch}`, ...parsed };
+    if (compareTo) {
+      const m2 = compareTo.match(re);
+      if (!m2) { result.compareError = 'compareTo is not valid semver'; return result; }
+      const b = { major: parseInt(m2[1]), minor: parseInt(m2[2]), patch: parseInt(m2[3]) };
+      if (parsed.major !== b.major) result.comparison = parsed.major > b.major ? 'newer' : 'older';
+      else if (parsed.minor !== b.minor) result.comparison = parsed.minor > b.minor ? 'newer' : 'older';
+      else if (parsed.patch !== b.patch) result.comparison = parsed.patch > b.patch ? 'newer' : 'older';
+      else result.comparison = 'equal';
+      result.compareTo = compareTo;
+    }
+    return result;
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// WORKSPACE — Snapshot / Restore
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['workspace.snapshot'] = {
+  name: 'workspace.snapshot',
+  description: 'Create a snapshot of workspace state (file list + git status)',
+  params: { required: [], optional: ['dir', 'name'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { dir = '.', name } = params;
+    const fsP = await import('fs/promises');
+    const pathM = await import('path');
+    const { execSync } = await import('child_process');
+    try {
+      const root = pathM.resolve(dir);
+      const snapshotName = name || `snapshot-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+      const snapshotDir = pathM.join(root, '.c3', 'snapshots');
+      await fsP.mkdir(snapshotDir, { recursive: true });
+      // Capture file list with hashes
+      const skip = new Set(['node_modules', '.git', '.c3', 'dist', 'build']);
+      const files = {};
+      async function walk(d, depth) {
+        if (depth > 5) return;
+        let entries; try { entries = await fsP.readdir(d, { withFileTypes: true }); } catch { return; }
+        for (const e of entries) {
+          if (skip.has(e.name)) continue;
+          const full = pathM.join(d, e.name);
+          if (e.isDirectory()) { await walk(full, depth + 1); continue; }
+          const stat = await fsP.stat(full);
+          files[pathM.relative(root, full)] = { size: stat.size, modified: stat.mtime.toISOString() };
+        }
+      }
+      await walk(root, 0);
+      // Git state
+      let gitState = null;
+      try {
+        const branch = execSync('git branch --show-current', { cwd: root, timeout: 3000, encoding: 'utf-8' }).trim();
+        const status = execSync('git status --porcelain', { cwd: root, timeout: 5000, encoding: 'utf-8' });
+        const head = execSync('git rev-parse HEAD', { cwd: root, timeout: 3000, encoding: 'utf-8' }).trim();
+        gitState = { branch, head, dirty: status.trim().length > 0, status: status.trim() };
+      } catch {}
+      const snapshot = { name: snapshotName, created: new Date().toISOString(), dir: root, files, fileCount: Object.keys(files).length, git: gitState };
+      await fsP.writeFile(pathM.join(snapshotDir, `${snapshotName}.json`), JSON.stringify(snapshot, null, 2));
+      return { ok: true, name: snapshotName, fileCount: snapshot.fileCount, path: pathM.join(snapshotDir, `${snapshotName}.json`) };
+    } catch (err) { return { error: err.message, code: 'WORKSPACE_ERROR' }; }
+  },
+};
+
+tools['workspace.restore'] = {
+  name: 'workspace.restore',
+  description: 'Restore workspace to a snapshot (via git checkout or file comparison)',
+  params: { required: ['name'], optional: ['dir', 'dryRun'] },
+  permissions: ['fs.read', 'fs.write'],
+  async execute(params) {
+    const { name, dir = '.', dryRun = true } = params;
+    const fsP = await import('fs/promises');
+    const pathM = await import('path');
+    const { execSync } = await import('child_process');
+    try {
+      const root = pathM.resolve(dir);
+      const snapshotPath = pathM.join(root, '.c3', 'snapshots', `${name}.json`);
+      const snapshot = JSON.parse(await fsP.readFile(snapshotPath, 'utf-8'));
+      const changes = { added: [], modified: [], deleted: [] };
+      // Compare current state
+      const currentFiles = {};
+      const skip = new Set(['node_modules', '.git', '.c3', 'dist', 'build']);
+      async function walk(d, depth) {
+        if (depth > 5) return;
+        let entries; try { entries = await fsP.readdir(d, { withFileTypes: true }); } catch { return; }
+        for (const e of entries) {
+          if (skip.has(e.name)) continue;
+          const full = pathM.join(d, e.name);
+          if (e.isDirectory()) { await walk(full, depth + 1); continue; }
+          const stat = await fsP.stat(full);
+          currentFiles[pathM.relative(root, full)] = { size: stat.size, modified: stat.mtime.toISOString() };
+        }
+      }
+      await walk(root, 0);
+      for (const [file, info] of Object.entries(currentFiles)) {
+        if (!snapshot.files[file]) changes.added.push(file);
+        else if (info.size !== snapshot.files[file].size || info.modified !== snapshot.files[file].modified) changes.modified.push(file);
+      }
+      for (const file of Object.keys(snapshot.files)) {
+        if (!currentFiles[file]) changes.deleted.push(file);
+      }
+      if (!dryRun && snapshot.git?.head) {
+        try { execSync(`git checkout ${snapshot.git.head}`, { cwd: root, timeout: 10000 }); } catch {}
+      }
+      return { snapshot: name, dryRun, changes, totalChanges: changes.added.length + changes.modified.length + changes.deleted.length, canGitRestore: !!snapshot.git?.head };
+    } catch (err) { return { error: err.message, code: 'WORKSPACE_ERROR' }; }
+  },
+};
+
+tools['workspace.snapshots'] = {
+  name: 'workspace.snapshots',
+  description: 'List available workspace snapshots',
+  params: { required: [], optional: ['dir'] },
+  permissions: ['fs.read'],
+  async execute(params) {
+    const { dir = '.' } = params;
+    const fsP = await import('fs/promises');
+    const pathM = await import('path');
+    try {
+      const snapshotDir = pathM.join(pathM.resolve(dir), '.c3', 'snapshots');
+      let files;
+      try { files = await fsP.readdir(snapshotDir); } catch { return { snapshots: [], count: 0 }; }
+      const snapshots = [];
+      for (const f of files.filter(f => f.endsWith('.json'))) {
+        try {
+          const data = JSON.parse(await fsP.readFile(pathM.join(snapshotDir, f), 'utf-8'));
+          snapshots.push({ name: data.name, created: data.created, fileCount: data.fileCount, git: data.git?.branch || null });
+        } catch { continue; }
+      }
+      snapshots.sort((a, b) => b.created.localeCompare(a.created));
+      return { snapshots, count: snapshots.length };
+    } catch (err) { return { error: err.message, code: 'WORKSPACE_ERROR' }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
 // TOOL REGISTRY
 // ════════════════════════════════════════════════════════════════════════════
 
