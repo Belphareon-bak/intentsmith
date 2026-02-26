@@ -103,6 +103,25 @@ const ForbiddenPatterns = [
     ],
   },
 
+  // v82.1: Prompt injection — attempts to override system instructions
+  {
+    pattern: /\b(ignore|forget|disregard|override)\b.*\b(previous|all|system|prior)\b.*\b(instructions?|prompts?|rules?)\b/i,
+    reason_code: 'PROMPT_INJECTION',
+    template: 'Detekován pokus o prompt injection. Tento vstup byl zablokován.',
+    alternatives: [
+      'položit běžný dotaz',
+      'vysvětlit co potřebujete',
+    ],
+  },
+  {
+    pattern: /\breturn\s+["'].*["']\s*$/i,
+    reason_code: 'PROMPT_INJECTION',
+    template: 'Detekován pokus o prompt injection. Tento vstup byl zablokován.',
+    alternatives: [
+      'položit běžný dotaz',
+    ],
+  },
+
   // Drugs
   {
     pattern: /\bhow to (make|produce|synthesize|manufacture)\b.*\b(drugs|meth|cocaine|heroin|lsd)\b/i,

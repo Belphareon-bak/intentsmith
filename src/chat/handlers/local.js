@@ -186,8 +186,22 @@ export function normalizeCzechMath(input) {
 /**
  * Compute math expressions
  * Supports both standard notation (5+3) and Czech natural language (847 děleno 7)
+ * v82.1: DPH/VAT calculation — "DPH z 10000 při 21%" → 2100
  */
 export function computeMath(input) {
+  // v82.1: DPH/VAT — "DPH z 10000 Kč při sazbě 21%", "DPH z 5000 (15%)"
+  const dphMatch = input.match(/dph\s+(?:z\s+)?(?:částky\s+)?(\d[\d\s]*)\s*(?:kč\s*)?(?:při\s+(?:sazbě\s+)?)?(\d+)\s*%/i);
+  if (dphMatch) {
+    const base = parseFloat(dphMatch[1].replace(/\s/g, ''));
+    const rate = parseFloat(dphMatch[2]);
+    const vat = Math.round(base * rate / 100 * 100) / 100;
+    const total = base + vat;
+    return {
+      answer: vat,
+      expression: `DPH ${rate}% z ${base}`,
+      explanation: `Základ: ${base} Kč, DPH ${rate}%: ${vat} Kč, celkem s DPH: ${total} Kč`,
+    };
+  }
   // v72: Factorial — "5!", "10!"
   const factMatch = input.match(/(\d+)\s*!/);
   if (factMatch) {
@@ -310,6 +324,10 @@ export function formatLocalResponse(input, result, handler, lang = 'cs') {
 
     case 'local.math':
       if (result.expression && result.answer !== null) {
+        // v82.1: DPH results include richer explanation
+        if (result.explanation && /DPH|VAT/i.test(result.expression)) {
+          return `📊 **${result.explanation}**`;
+        }
         return formatMathResponse(result.expression, result.answer, lang);
       }
       break;

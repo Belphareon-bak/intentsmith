@@ -3092,8 +3092,8 @@ PRAVIDLA:
       // v72: Added váno/christmas, days until → local.calendar
       if (/měsíc|úplněk|uplnek|nov|moon|fáze|váno|vanoc|christmas|days?\s+until/i.test(input)) {
         handler = 'local.calendar';
-      } else if (/kolik\s+je\s+\d|^\s*\d+\s*[+\-*/^]\s*\d+|\d+\s*\*\*\s*\d+|\d+\s*!|vypočít|spočít|vypocit|spocit|calculate/i.test(input)) {
-        handler = 'local.math';  // v72: added ** power, ^ power, ! factorial
+      } else if (/kolik\s+je\s+\d|^\s*\d+\s*[+\-*/^]\s*\d+|\d+\s*\*\*\s*\d+|\d+\s*!|vypočít|spočít|vypocit|spocit|calculate|dph\s+z/i.test(input)) {
+        handler = 'local.math';  // v72: added ** power, ^ power, ! factorial; v82.1: DPH
       } else if (/datum|\bden\b|hodin|time|date/i.test(input)) {
         handler = 'local.date';
       }
