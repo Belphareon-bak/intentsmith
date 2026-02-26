@@ -2876,7 +2876,12 @@ function centerDetail(){
 /* ── File open / diff open event listeners (Blok E) ── */
 document.addEventListener('c3-file-open',function(e){
   var path=e.detail&&e.detail.path;
-  if(path)_openFileTab(path);
+  if(!path)return;
+  if(window._c3OpenFileInEditor){
+    window._c3OpenFileInEditor(path);
+  }else{
+    _openFileTab(path);
+  }
 });
 /* ── File → Open Folder handler (Theia command override) ── */
 document.addEventListener('c3-open-folder',function(){

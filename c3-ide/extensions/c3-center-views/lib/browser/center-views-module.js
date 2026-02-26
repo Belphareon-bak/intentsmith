@@ -8,6 +8,8 @@ const inversify_1 = require("@theia/core/shared/inversify");
 const browser_1 = require("@theia/core/lib/browser");
 const react_widget_1 = require("@theia/core/lib/browser/widgets/react-widget");
 const React = require("@theia/core/shared/react");
+const URI = require("@theia/core/lib/common/uri").default;
+const opener_service_1 = require("@theia/core/lib/browser/opener-service");
 
 // v63.0: Wizard modules
 const { fetchSchema, fetchExpertises, fetchPreview, sendTestPrompt, saveExpertise, debounce } = require('./wizard/wizard-helpers');
@@ -481,10 +483,29 @@ class C3CenterViewsContribution extends browser_1.AbstractViewContribution {
 /* ═══ DI Module ═══ */
 exports.default = new inversify_1.ContainerModule((bind) => {
   bind(C3CenterViewsWidget).toSelf();
-  bind(browser_1.WidgetFactory).toDynamicValue(ctx => ({
-    id: C3_CENTER_ID,
-    createWidget: () => ctx.container.get(C3CenterViewsWidget)
-  })).inSingletonScope();
+  bind(browser_1.WidgetFactory).toDynamicValue(ctx => {
+    // Expose OpenerService for vanilla JS (file editing via Monaco)
+    try {
+      var openerService = ctx.container.get(opener_service_1.OpenerService);
+      window._c3OpenFileInEditor = function(filePath) {
+        try {
+          var uri = new URI(filePath);
+          openerService.getOpener(uri).then(function(opener) {
+            return opener.open(uri, { mode: 'activate' });
+          });
+        } catch(err) {
+          console.warn('[C3] Editor open failed:', err);
+        }
+      };
+    } catch(e) {
+      console.warn('[C3] OpenerService not available:', e);
+    }
+
+    return {
+      id: C3_CENTER_ID,
+      createWidget: () => ctx.container.get(C3CenterViewsWidget)
+    };
+  }).inSingletonScope();
 
   browser_1.bindViewContribution(bind, C3CenterViewsContribution);
   bind(browser_1.FrontendApplicationContribution).toService(C3CenterViewsContribution);
