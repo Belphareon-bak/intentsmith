@@ -691,7 +691,9 @@ export const KNOWLEDGE_EXPLANATION_PATTERNS = [
 // context ("dej mi souhrn", "give me overview", "přehled novinek za měsíc").
 const REPORT_SOFT_KEYWORDS = /(?:anal[ýy]z|analyzuj|analyza|analysis|analyze)/i;
 
-const REPORT_FRESH_CONTEXT = /(?:za\s+posledn|za\s+tento|za\s+minul|aktu[áa]ln|sou[čc]asn|current|latest|recent|dne[sš]|te[ďd]\b|today|now\b|live\b|real.?time|z\s+webu|novinky|news|zpráv|zprav|trh|market|cen[ay]|price|kurz|stock|akcie|krypto|bitcoin|po[čc]as[íi]|weather|report\b)/i;
+// v84: Added project-scope terms (z projektu, v projektu, ze složky, z folderu).
+// "analyzuj X z projektu" = fresh-data context (project files), not LLM knowledge.
+const REPORT_FRESH_CONTEXT = /(?:za\s+posledn|za\s+tento|za\s+minul|aktu[áa]ln|sou[čc]asn|current|latest|recent|dne[sš]|te[ďd]\b|today|now\b|live\b|real.?time|z\s+webu|novinky|news|zpráv|zprav|trh|market|cen[ay]|price|kurz|stock|akcie|krypto|bitcoin|po[čc]as[íi]|weather|report\b|z\s+projektu|v\s+projektu|ze?\s+slo[žz]ky|z\s+fold|z\s+adres[áa][řr]|from\s+(the\s+)?project|from\s+(this\s+)?folder|z\s+tohoto\s+fold)/i;
 
 // ════════════════════════════════════════════════════════════════════════════════
 // v44.8 - CREATIVE/IDEATION patterns (MUST be checked BEFORE SEARCH!)
@@ -2104,6 +2106,13 @@ export class CREDecisionEngine {
     // v72: Optimized classification prompt — ~40% fewer tokens than v71.
     // Removed: examples in parentheses, verbose rule descriptions, JSON template.
     // Kept: intent list, critical disambiguation rules, security constraint.
+    // v84: Project context hint — when active project exists, LLM knows
+    // "z projektu"/"v projektu"/"z folderu" references project files, not LLM knowledge.
+    const hasProject = context.hasActiveProject || context.project?.id;
+    const projectHint = hasProject
+      ? `\n- Uživatel má AKTIVNÍ PROJEKT. "z projektu"/"v projektu"/"z tohoto folderu"/"ze složky" = soubory projektu. Analyzuj/shrň/vysvětli obsah → FILE_EXPLAIN. Přečti/projdi/zobraz/výtah → FILE_READ. NIKDY CONVERSATIONAL pro dotazy o projektu.`
+      : '';
+
     const systemPrompt = `Klasifikuj záměr uživatele. Vrať JSON: {"intent":"X","confidence":0.9,"fileTarget":null}
 
 ZÁMĚRY:
@@ -2126,7 +2135,7 @@ PRAVIDLA:
 - "napiš kód" → CODE (ne FILE_WRITE)
 - Soubor jako cíl → extrahuj do fileTarget (POUZE název, bez cest)
 - Český "rust" = růst → CONVERSATIONAL/SEARCH, ne CODE
-- DESIGN = POUZE softwarová architektura/IT projekty. Itinerář, jídelníček, tréninkový plán, výlet → CREATIVE, ne DESIGN`;
+- DESIGN = POUZE softwarová architektura/IT projekty. Itinerář, jídelníček, tréninkový plán, výlet → CREATIVE, ne DESIGN${projectHint}`;
 
     // v72: No conversation context — classify current message only
     const userPrompt = input;

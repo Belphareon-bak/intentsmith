@@ -2,6 +2,50 @@
 
 ---
 
+## v84.0 — Project-Aware CRE Classification (2026-02-26)
+
+LLM klasifikátor nyní zná kontext aktivního projektu. Dotazy typu "analyzuj X z projektu" nebo "udělej mi výtah z tohoto folderu" se správně klasifikují jako FILE_EXPLAIN/FILE_READ místo CONVERSATIONAL.
+
+### Problém
+
+Když uživatel napsal "Analyzuj a shrn mi parametry z projektu", CRE to klasifikovalo jako CONVERSATIONAL:
+1. LLM classifier vrátil prázdnou odpověď (Ollama issue) → regex fallback
+2. `REPORT_SOFT_KEYWORDS` zachytil "analyzuj" → ale `REPORT_FRESH_CONTEXT` nerozpoznal "z projektu" jako fresh-data kontext
+3. Propadlo do `KNOWLEDGE_EXPLANATION_PATTERNS` → CONVERSATIONAL (LLM knowledge místo čtení souborů)
+
+### Řešení (2 vrstvy)
+
+**1. LLM prompt — project context hint**
+
+Když `context.hasActiveProject` je true, systémový prompt pro LLM klasifikátor obsahuje:
+> Uživatel má AKTIVNÍ PROJEKT. "z projektu"/"v projektu"/"z tohoto folderu"/"ze složky" = soubory projektu. Analyzuj/shrň/vysvětli obsah → FILE_EXPLAIN. Přečti/projdi/zobraz/výtah → FILE_READ. NIKDY CONVERSATIONAL pro dotazy o projektu.
+
+Toto je primární fix — LLM rozhoduje kontextově, ne šablonou.
+
+**2. REPORT_FRESH_CONTEXT — regex fallback safety net**
+
+Přidány project-scope termy do `REPORT_FRESH_CONTEXT`:
+`z projektu`, `v projektu`, `ze složky`, `z fold*`, `z adresáře`, `from project`, `from folder`
+
+Když LLM selže (prázdná odpověď), regex fallback dá alespoň REPORT (tool use) místo CONVERSATIONAL.
+
+### Výsledek
+
+| Vstup | Před (v83) | Po (v84) |
+|-------|-----------|----------|
+| "analyzuj parametry z projektu" | CONVERSATIONAL | REPORT (regex) / FILE_EXPLAIN (LLM) |
+| "analyzuj resource lnotes v projektu" | CONVERSATIONAL | REPORT (regex) / FILE_EXPLAIN (LLM) |
+| "analyzuj soubory ze složky" | CONVERSATIONAL | FILE_EXPLAIN |
+| "udělej mi výtah z projektu z tohoto folderu" | AMBIGUOUS | FILE_READ (LLM) |
+
+### Soubory
+
+| Soubor | Změna |
+|--------|-------|
+| `src/chat/cre-decision.js` | Project hint v `_llmClassifyIntent()`, project-scope v `REPORT_FRESH_CONTEXT` |
+
+---
+
 ## v82.0 — Specialist Telemetry (2026-02-25)
 
 Pasivní observability vrstva pro specialist execution subsystém. Sleduje tool match/success/fail, memory hit/miss, lifecycle eventy (boot/enable/disable) a API latenci. Best-effort — nikdy neblokuje, nikdy nethrowuje, nikdy nemění control flow.
