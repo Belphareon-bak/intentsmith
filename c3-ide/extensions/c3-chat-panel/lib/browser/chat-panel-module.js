@@ -14,6 +14,7 @@ var h = React.createElement;
 try { require("./event-bus"); } catch(e) { console.warn('[C3] event-bus.js not loaded:', e.message); }
 try { require("./ws-client"); } catch(e) { console.warn('[C3] ws-client.js not loaded:', e.message); }
 try { require("./agent-client"); } catch(e) { console.warn('[C3] agent-client.js not loaded:', e.message); }
+try { require("./agent-log-renderer"); } catch(e) { console.warn('[C3] agent-log-renderer.js not loaded:', e.message); }
 try { require("./terminal-client"); } catch(e) { console.warn('[C3] terminal-client.js not loaded:', e.message); }
 
 /* ═══ COLORS ═══ */
@@ -3700,17 +3701,27 @@ inversify_1.decorate(inversify_1.injectable(),C3ChatWidget);
    4. AGENT LOG — pure DOM via ReactDOM.render
    ═══════════════════════════════════════════════════════════ */
 var C3_AGENT_ID='c3-agent-panel';
-var TC={cre:C.cyan,llm:C.purple,tool:C.amber,gate:C.accentText,turn:C.blue};
+var TC={cre:C.cyan,llm:C.purple,tool:C.amber,gate:C.accentText,turn:C.blue,sys:C.tx3};
 var _agentContainer=null;
+var _turnCollapsed={};
+var _scrollOnNewOnly=false;
 function renderAgent(){if(!_agentContainer)return;ReactDOM.render(h(AgentApp,null),_agentContainer);_agentScrollBottom();}
-function _agentScrollBottom(){setTimeout(function(){if(!_agentContainer)return;var divs=_agentContainer.querySelectorAll('div');for(var i=0;i<divs.length;i++){var d=divs[i];if(d.style.overflowY==='auto'&&d.scrollHeight>d.clientHeight+20){d.scrollTop=d.scrollHeight;}}},80);}
+function _agentScrollBottom(){if(_scrollOnNewOnly){_scrollOnNewOnly=false;return;}setTimeout(function(){if(!_agentContainer)return;var divs=_agentContainer.querySelectorAll('div');for(var i=0;i<divs.length;i++){var d=divs[i];if(d.style.overflowY==='auto'&&d.scrollHeight>d.clientHeight+20){d.scrollTop=d.scrollHeight;}}},80);}
 
 function _agentLogContent(s){
+  /* Use extracted renderer if available, fallback to flat list */
+  if(typeof AgentLogRenderer!=='undefined'){
+    return AgentLogRenderer.render(h,s,C,TC,_fs,_turnCollapsed,function(turnId){
+      _turnCollapsed[turnId]=!_turnCollapsed[turnId];
+      _scrollOnNewOnly=true;
+      renderAgent();
+    });
+  }
+  /* Fallback: flat log (backward compat if renderer not loaded) */
   return h('div',{style:{flex:1,overflowY:'auto'}},s.log.map(function(e,i){
     var agentColor=e.agent&&typeof C3Agent!=='undefined'?C3Agent.getAgentColor(e.agent):null;
     return h('div',{key:i,style:{display:'flex',gap:6,padding:'3px 10px',fontFamily:C.mono,fontSize:_fs(11),lineHeight:'1.5',borderLeft:e.active?'3px solid '+C.accent:'3px solid transparent',background:e.active?'rgba(34,197,94,0.03)':'transparent'}},
       h('span',{style:{color:C.tx4,flexShrink:0,minWidth:58}},e.time),
-      /* G2: Agent color badge */
       e.agent?h('span',{style:{fontSize:_fs(9),padding:'1px 4px',borderRadius:3,background:agentColor+'22',color:agentColor,marginRight:2,flexShrink:0}},e.agent):null,
       h('span',{style:{fontWeight:600,minWidth:60,flexShrink:0,color:TC[e.cls]||C.tx3}},e.type),
       h('span',{style:{color:C.tx2}},e.text));}));
