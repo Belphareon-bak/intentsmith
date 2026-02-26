@@ -1773,6 +1773,8 @@ ChatController.handle = async function(request) {
     conversationStore: store,
     // v63.0: AbortSignal for cancel propagation (from server req.on('close'))
     signal: signal || null,
+    // v82.1: Inline attachments for FILE handlers (avoids disk read for attached content)
+    attachments: request.attachments || [],
   };
 
   // v63.0: Check if client already disconnected before processing

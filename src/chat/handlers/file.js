@@ -307,8 +307,25 @@ export async function handleFileDecision(input, decision, context) {
     });
   }
 
-  // Read the file
-  const result = await readFileSafe(validation.resolved);
+  // v82.1: Check inline attachments before disk read
+  const basename = path.basename(validation.resolved);
+  const inlineAttachment = (context.attachments || []).find(
+    a => a.name === basename && a.content
+  );
+
+  let result;
+  if (inlineAttachment) {
+    logger.info('HandleFile', `Using inline attachment content for ${basename} (${inlineAttachment.content.length} chars)`);
+    result = {
+      content: inlineAttachment.content,
+      size: inlineAttachment.size || inlineAttachment.content.length,
+      lines: inlineAttachment.content.split('\n').length,
+      truncated: false,
+    };
+  } else {
+    // Read the file from disk
+    result = await readFileSafe(validation.resolved);
+  }
 
   // Record decision
   if (sessionState) {
@@ -372,25 +389,32 @@ export async function handleFileDecision(input, decision, context) {
       : `User asks about file "${filename}" (${ext}). Explain what the file does, its structure and purpose.\n\nFile content:\n\`\`\`${ext}\n${fileSnippet}\n\`\`\``;
 
     try {
-      const synthesized = await synthesizeWithLLM(
-        { content: explainPrompt },
-        {
-          ...decision,
-          intent: IntentType.FILE_EXPLAIN,
-          metadata: {
-            ...decision.metadata,
-            fileContent: fileSnippet,
-            fileName: filename,
-          },
-        },
-        {
+      const synthesized = await synthesizeWithLLM({
+        query: explainPrompt,
+        intent: IntentType.FILE_EXPLAIN,
+        toolResults: [{ type: 'file_read', success: true, data: { content: fileSnippet, fileName: filename, ext }, meta: { source: 'local' } }],
+        context: {
           ...context,
           langCtx,
           skipToolExecution: true,
         },
-      );
+      });
 
-      return synthesized;
+      return new TaggedResponse({
+        content: synthesized.content,
+        tag: new ResponseTag({
+          speaker: ResponseSpeaker.SYSTEM,
+          mode: ChatMode.CONVERSATION,
+          confidence: synthesized.confidence || 0.9,
+          canExecute: false,
+          metadata: {
+            decision: decision.toJSON(),
+            fileOperation: true,
+            handler: 'file.explain',
+            fileName: filename,
+          },
+        }),
+      });
     } catch (err) {
       logger.error('HandleFile', `FILE_EXPLAIN synthesis failed: ${err.message}`);
       // Fallback: return raw file content

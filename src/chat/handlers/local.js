@@ -216,27 +216,25 @@ export function computeMath(input) {
     };
   }
 
-  // Try standard notation first
-  const mathMatch = input.match(/(\d+)\s*([+\-*/])\s*(\d+)/);
-  if (mathMatch) {
-    const [, a, op, b] = mathMatch;
-    const numA = parseFloat(a);
-    const numB = parseFloat(b);
-    let result;
-
-    switch (op) {
-      case '+': result = numA + numB; break;
-      case '-': result = numA - numB; break;
-      case '*': result = numA * numB; break;
-      case '/': result = numB !== 0 ? numA / numB : NaN; break;
-      default: result = NaN;
+  // Try standard notation — extract full arithmetic expression from input
+  const exprMatch = input.match(/([\d]+(?:\s*[+\-*/]\s*[\d]+)+)/);
+  if (exprMatch) {
+    const expr = exprMatch[1].replace(/\s+/g, '');
+    // Safe eval: only digits and basic operators
+    if (/^[\d+\-*/().]+$/.test(expr)) {
+      try {
+        const result = Function('"use strict"; return (' + expr + ')')();
+        if (typeof result === 'number' && !isNaN(result)) {
+          return {
+            answer: result,
+            expression: expr,
+            explanation: `${expr} = ${result}`,
+          };
+        }
+      } catch {
+        // fall through to Czech normalization
+      }
     }
-
-    return {
-      answer: result,
-      expression: `${a} ${op} ${b}`,
-      explanation: `${a} ${op} ${b} = ${result}`,
-    };
   }
 
   // Try Czech natural language normalization
