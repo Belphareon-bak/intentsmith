@@ -3777,6 +3777,1153 @@ tools['workspace.snapshots'] = {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
+// PROFILING / OBSERVABILITY
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['profile.cpu'] = {
+  name: 'profile.cpu',
+  description: 'CPU profile a Node.js script via --prof and process the log',
+  params: { required: ['script'], optional: ['cwd', 'duration', 'args'] },
+  permissions: ['fs.read', 'process.exec'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: false, costLevel: 'high', category: 'exec' },
+  async execute(params) {
+    try {
+      const { execSync } = await import('node:child_process');
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      const cwd = params.cwd || process.cwd();
+      const script = params.script;
+      const args = params.args || '';
+      const dur = params.duration || 5;
+
+      // Run with --prof
+      execSync(`node --prof ${script} ${args}`, { cwd, timeout: (dur + 30) * 1000, stdio: 'pipe' });
+
+      // Find the latest isolate log
+      const logs = fs.readdirSync(cwd).filter(f => f.startsWith('isolate-') && f.endsWith('.log'));
+      if (!logs.length) return { error: 'No profiling log generated', code: 'PROFILE_ERROR' };
+      logs.sort((a, b) => fs.statSync(path.join(cwd, b)).mtimeMs - fs.statSync(path.join(cwd, a)).mtimeMs);
+      const logFile = logs[0];
+
+      // Process the log
+      const output = execSync(`node --prof-process ${logFile}`, { cwd, timeout: 30000, encoding: 'utf-8' });
+
+      // Cleanup
+      try { fs.unlinkSync(path.join(cwd, logFile)); } catch {}
+
+      // Parse summary
+      const lines = output.split('\n');
+      const summary = [];
+      let section = '';
+      for (const line of lines) {
+        if (line.includes('[Summary]')) { section = 'summary'; continue; }
+        if (line.includes('[C++]') || line.includes('[JavaScript]') || line.includes('[Bottom up')) { section = ''; }
+        if (section === 'summary' && line.trim()) summary.push(line.trim());
+      }
+
+      return { summary: summary.join('\n'), fullOutput: output.slice(0, 5000) };
+    } catch (err) { return { error: err.message, code: 'PROFILE_ERROR' }; }
+  },
+};
+
+tools['profile.heap'] = {
+  name: 'profile.heap',
+  description: 'Take a V8 heap snapshot of a running process or script',
+  params: { required: ['script'], optional: ['cwd', 'args'] },
+  permissions: ['fs.read', 'fs.write', 'process.exec'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: false, costLevel: 'high', category: 'exec' },
+  async execute(params) {
+    try {
+      const { execSync } = await import('node:child_process');
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      const cwd = params.cwd || process.cwd();
+      const script = params.script;
+      const args = params.args || '';
+
+      // Use --heap-prof to generate heap profile
+      execSync(`node --heap-prof --heap-prof-interval=512 ${script} ${args}`, { cwd, timeout: 60000, stdio: 'pipe' });
+
+      // Find the generated file
+      const files = fs.readdirSync(cwd).filter(f => f.endsWith('.heapprofile'));
+      if (!files.length) return { error: 'No heap profile generated', code: 'PROFILE_ERROR' };
+      files.sort((a, b) => fs.statSync(path.join(cwd, b)).mtimeMs - fs.statSync(path.join(cwd, a)).mtimeMs);
+      const profileFile = files[0];
+      const profilePath = path.join(cwd, profileFile);
+      const stats = fs.statSync(profilePath);
+
+      return {
+        file: profilePath,
+        size: stats.size,
+        sizeHuman: stats.size > 1048576 ? `${(stats.size / 1048576).toFixed(1)}MB` : `${(stats.size / 1024).toFixed(1)}KB`,
+        hint: 'Open in Chrome DevTools → Memory → Load profile',
+      };
+    } catch (err) { return { error: err.message, code: 'PROFILE_ERROR' }; }
+  },
+};
+
+tools['profile.eventloop'] = {
+  name: 'profile.eventloop',
+  description: 'Measure event loop lag and delays',
+  params: { required: [], optional: ['duration', 'interval'] },
+  permissions: [],
+  meta: { sideEffects: false, idempotent: false, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'read' },
+  async execute(params) {
+    const duration = (params.duration || 3) * 1000;
+    const interval = params.interval || 50;
+    const samples = [];
+    const start = Date.now();
+
+    return new Promise((resolve) => {
+      const timer = setInterval(() => {
+        const expected = interval;
+        const before = process.hrtime.bigint();
+        setImmediate(() => {
+          const actual = Number(process.hrtime.bigint() - before) / 1e6;
+          samples.push(actual);
+          if (Date.now() - start >= duration) {
+            clearInterval(timer);
+            samples.sort((a, b) => a - b);
+            const avg = samples.reduce((s, v) => s + v, 0) / samples.length;
+            resolve({
+              samples: samples.length,
+              min: samples[0].toFixed(2) + 'ms',
+              max: samples[samples.length - 1].toFixed(2) + 'ms',
+              avg: avg.toFixed(2) + 'ms',
+              p50: samples[Math.floor(samples.length * 0.5)].toFixed(2) + 'ms',
+              p95: samples[Math.floor(samples.length * 0.95)].toFixed(2) + 'ms',
+              p99: samples[Math.floor(samples.length * 0.99)].toFixed(2) + 'ms',
+              healthy: avg < 10,
+            });
+          }
+        });
+      }, interval);
+    });
+  },
+};
+
+tools['profile.benchmark'] = {
+  name: 'profile.benchmark',
+  description: 'Micro-benchmark a JS expression or function',
+  params: { required: ['code'], optional: ['iterations', 'warmup'] },
+  permissions: ['process.exec'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'medium', category: 'exec' },
+  async execute(params) {
+    try {
+      const code = params.code;
+      const iterations = params.iterations || 10000;
+      const warmup = params.warmup || 100;
+
+      const fn = new Function('return (' + code + ')')();
+      if (typeof fn !== 'function') return { error: 'Code must evaluate to a function', code: 'BENCH_ERROR' };
+
+      // Warmup
+      for (let i = 0; i < warmup; i++) fn();
+
+      // Benchmark
+      const times = [];
+      for (let i = 0; i < iterations; i++) {
+        const s = process.hrtime.bigint();
+        fn();
+        times.push(Number(process.hrtime.bigint() - s));
+      }
+
+      times.sort((a, b) => a - b);
+      const totalNs = times.reduce((s, v) => s + v, 0);
+      const avgNs = totalNs / times.length;
+
+      return {
+        iterations,
+        totalMs: (totalNs / 1e6).toFixed(2),
+        avgNs: avgNs.toFixed(0),
+        minNs: times[0],
+        maxNs: times[times.length - 1],
+        p50Ns: times[Math.floor(times.length * 0.5)],
+        p99Ns: times[Math.floor(times.length * 0.99)],
+        opsPerSec: Math.floor(1e9 / avgNs),
+      };
+    } catch (err) { return { error: err.message, code: 'BENCH_ERROR' }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// API / HTTP TESTING
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['api.request'] = {
+  name: 'api.request',
+  description: 'Make an HTTP request with full control (method, headers, body, auth)',
+  params: { required: ['url'], optional: ['method', 'headers', 'body', 'auth', 'timeout'] },
+  permissions: ['net.http'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'net' },
+  async execute(params) {
+    try {
+      const url = params.url;
+      const method = (params.method || 'GET').toUpperCase();
+      const headers = params.headers || {};
+      const timeout = params.timeout || 30000;
+
+      if (params.auth) {
+        if (params.auth.type === 'bearer') headers['Authorization'] = `Bearer ${params.auth.token}`;
+        else if (params.auth.type === 'basic') {
+          const cred = Buffer.from(`${params.auth.user}:${params.auth.pass}`).toString('base64');
+          headers['Authorization'] = `Basic ${cred}`;
+        }
+      }
+
+      const opts = { method, headers };
+      if (params.body && method !== 'GET') {
+        if (typeof params.body === 'object') {
+          opts.body = JSON.stringify(params.body);
+          if (!headers['Content-Type']) headers['Content-Type'] = 'application/json';
+        } else {
+          opts.body = params.body;
+        }
+      }
+
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeout);
+      opts.signal = controller.signal;
+
+      const start = Date.now();
+      const resp = await fetch(url, opts);
+      const elapsed = Date.now() - start;
+      clearTimeout(timer);
+
+      const contentType = resp.headers.get('content-type') || '';
+      let data;
+      if (contentType.includes('json')) {
+        data = await resp.json();
+      } else {
+        const text = await resp.text();
+        data = text.length > 10000 ? text.slice(0, 10000) + '...(truncated)' : text;
+      }
+
+      const respHeaders = {};
+      resp.headers.forEach((v, k) => { respHeaders[k] = v; });
+
+      return {
+        status: resp.status,
+        statusText: resp.statusText,
+        headers: respHeaders,
+        data,
+        elapsed: elapsed + 'ms',
+        size: respHeaders['content-length'] || null,
+      };
+    } catch (err) { return { error: err.message, code: 'API_ERROR' }; }
+  },
+};
+
+tools['api.latency'] = {
+  name: 'api.latency',
+  description: 'Measure endpoint latency over multiple requests',
+  params: { required: ['url'], optional: ['method', 'count', 'headers', 'body'] },
+  permissions: ['net.http'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'medium', category: 'net' },
+  async execute(params) {
+    try {
+      const url = params.url;
+      const method = params.method || 'GET';
+      const count = Math.min(params.count || 10, 100);
+      const headers = params.headers || {};
+      const body = params.body ? JSON.stringify(params.body) : undefined;
+      const times = [];
+      const statuses = [];
+
+      for (let i = 0; i < count; i++) {
+        const opts = { method, headers };
+        if (body && method !== 'GET') {
+          opts.body = body;
+          if (!headers['Content-Type']) headers['Content-Type'] = 'application/json';
+        }
+        const start = Date.now();
+        try {
+          const resp = await fetch(url, opts);
+          times.push(Date.now() - start);
+          statuses.push(resp.status);
+          await resp.text(); // consume body
+        } catch (err) {
+          times.push(Date.now() - start);
+          statuses.push('ERR');
+        }
+      }
+
+      times.sort((a, b) => a - b);
+      const avg = times.reduce((s, v) => s + v, 0) / times.length;
+      const statusCounts = {};
+      statuses.forEach(s => { statusCounts[s] = (statusCounts[s] || 0) + 1; });
+
+      return {
+        requests: count,
+        min: times[0] + 'ms',
+        max: times[times.length - 1] + 'ms',
+        avg: avg.toFixed(0) + 'ms',
+        p50: times[Math.floor(times.length * 0.5)] + 'ms',
+        p95: times[Math.floor(times.length * 0.95)] + 'ms',
+        p99: times[Math.floor(times.length * 0.99)] + 'ms',
+        statuses: statusCounts,
+      };
+    } catch (err) { return { error: err.message, code: 'API_ERROR' }; }
+  },
+};
+
+tools['api.validate'] = {
+  name: 'api.validate',
+  description: 'Validate API response against expected schema/status/headers',
+  params: { required: ['url'], optional: ['method', 'headers', 'body', 'expect'] },
+  permissions: ['net.http'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'net' },
+  async execute(params) {
+    try {
+      const url = params.url;
+      const method = params.method || 'GET';
+      const expect = params.expect || {};
+      const headers = params.headers || {};
+      const opts = { method, headers };
+      if (params.body && method !== 'GET') {
+        opts.body = typeof params.body === 'object' ? JSON.stringify(params.body) : params.body;
+        if (!headers['Content-Type']) headers['Content-Type'] = 'application/json';
+      }
+
+      const resp = await fetch(url, opts);
+      const contentType = resp.headers.get('content-type') || '';
+      let data;
+      if (contentType.includes('json')) data = await resp.json();
+      else data = await resp.text();
+
+      const results = [];
+      let pass = true;
+
+      // Status check
+      if (expect.status) {
+        const ok = resp.status === expect.status;
+        results.push({ check: 'status', expected: expect.status, actual: resp.status, pass: ok });
+        if (!ok) pass = false;
+      }
+
+      // Content-Type check
+      if (expect.contentType) {
+        const ok = contentType.includes(expect.contentType);
+        results.push({ check: 'contentType', expected: expect.contentType, actual: contentType, pass: ok });
+        if (!ok) pass = false;
+      }
+
+      // Header checks
+      if (expect.headers) {
+        for (const [k, v] of Object.entries(expect.headers)) {
+          const actual = resp.headers.get(k);
+          const ok = actual === v;
+          results.push({ check: `header:${k}`, expected: v, actual, pass: ok });
+          if (!ok) pass = false;
+        }
+      }
+
+      // Body field checks
+      if (expect.bodyFields && typeof data === 'object') {
+        for (const [field, expectedType] of Object.entries(expect.bodyFields)) {
+          const parts = field.split('.');
+          let val = data;
+          for (const p of parts) val = val?.[p];
+          const actualType = val === null ? 'null' : Array.isArray(val) ? 'array' : typeof val;
+          const ok = actualType === expectedType;
+          results.push({ check: `body:${field}`, expected: expectedType, actual: actualType, pass: ok });
+          if (!ok) pass = false;
+        }
+      }
+
+      return { pass, checks: results, status: resp.status };
+    } catch (err) { return { error: err.message, code: 'API_ERROR' }; }
+  },
+};
+
+tools['api.loadtest'] = {
+  name: 'api.loadtest',
+  description: 'Simple concurrent load test against an endpoint',
+  params: { required: ['url'], optional: ['method', 'concurrency', 'requests', 'headers', 'body'] },
+  permissions: ['net.http'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: true, costLevel: 'high', category: 'net' },
+  async execute(params) {
+    try {
+      const url = params.url;
+      const method = params.method || 'GET';
+      const concurrency = Math.min(params.concurrency || 5, 50);
+      const totalRequests = Math.min(params.requests || 50, 500);
+      const headers = params.headers || {};
+      const body = params.body ? JSON.stringify(params.body) : undefined;
+
+      const results = [];
+      let completed = 0;
+      let errors = 0;
+
+      const doRequest = async () => {
+        const opts = { method, headers };
+        if (body && method !== 'GET') {
+          opts.body = body;
+          if (!headers['Content-Type']) headers['Content-Type'] = 'application/json';
+        }
+        const start = Date.now();
+        try {
+          const resp = await fetch(url, opts);
+          await resp.text();
+          results.push({ status: resp.status, time: Date.now() - start });
+          completed++;
+        } catch (err) {
+          results.push({ status: 'ERR', time: Date.now() - start, error: err.message });
+          errors++;
+          completed++;
+        }
+      };
+
+      // Run in batches of concurrency
+      const startTime = Date.now();
+      for (let i = 0; i < totalRequests; i += concurrency) {
+        const batch = Math.min(concurrency, totalRequests - i);
+        await Promise.all(Array.from({ length: batch }, doRequest));
+      }
+      const totalTime = Date.now() - startTime;
+
+      const times = results.filter(r => r.status !== 'ERR').map(r => r.time).sort((a, b) => a - b);
+      const statusCounts = {};
+      results.forEach(r => { statusCounts[r.status] = (statusCounts[r.status] || 0) + 1; });
+
+      return {
+        totalRequests: completed,
+        concurrency,
+        totalTimeMs: totalTime,
+        rps: (completed / (totalTime / 1000)).toFixed(1),
+        errors,
+        statuses: statusCounts,
+        latency: times.length ? {
+          min: times[0] + 'ms',
+          max: times[times.length - 1] + 'ms',
+          avg: (times.reduce((s, v) => s + v, 0) / times.length).toFixed(0) + 'ms',
+          p50: times[Math.floor(times.length * 0.5)] + 'ms',
+          p95: times[Math.floor(times.length * 0.95)] + 'ms',
+        } : null,
+      };
+    } catch (err) { return { error: err.message, code: 'LOADTEST_ERROR' }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// CODE ANALYSIS / STRUCTURED REFACTORING
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['code.imports'] = {
+  name: 'code.imports',
+  description: 'Analyze import/require graph for a file or directory',
+  params: { required: ['path'], optional: ['depth', 'cwd'] },
+  permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'medium', category: 'read' },
+  async execute(params) {
+    try {
+      const fs = await import('node:fs');
+      const pathMod = await import('node:path');
+      const cwd = params.cwd || process.cwd();
+      const targetPath = pathMod.resolve(cwd, params.path);
+      const maxDepth = params.depth || 3;
+
+      const graph = {};
+      const visited = new Set();
+
+      const extractImports = (filePath) => {
+        if (visited.has(filePath) || visited.size > 200) return;
+        visited.add(filePath);
+        try {
+          const content = fs.readFileSync(filePath, 'utf-8');
+          const imports = [];
+
+          // ES imports: import X from 'Y', import { X } from 'Y', import 'Y'
+          const esRe = /import\s+(?:(?:\{[^}]*\}|[\w*]+)\s+from\s+)?['"]([^'"]+)['"]/g;
+          let m;
+          while ((m = esRe.exec(content))) imports.push(m[1]);
+
+          // Dynamic imports: import('X'), await import('X')
+          const dynRe = /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+          while ((m = dynRe.exec(content))) imports.push(m[1]);
+
+          // CJS require: require('X')
+          const cjsRe = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+          while ((m = cjsRe.exec(content))) imports.push(m[1]);
+
+          const resolved = [];
+          for (const imp of imports) {
+            if (imp.startsWith('.')) {
+              // Relative import — try to resolve
+              const dir = pathMod.dirname(filePath);
+              const candidates = [
+                pathMod.resolve(dir, imp),
+                pathMod.resolve(dir, imp + '.js'),
+                pathMod.resolve(dir, imp + '.ts'),
+                pathMod.resolve(dir, imp + '.mjs'),
+                pathMod.resolve(dir, imp, 'index.js'),
+                pathMod.resolve(dir, imp, 'index.ts'),
+              ];
+              const found = candidates.find(c => fs.existsSync(c));
+              resolved.push({ specifier: imp, resolved: found || null, type: 'local' });
+              if (found && visited.size < 200) extractImports(found);
+            } else {
+              resolved.push({ specifier: imp, type: imp.startsWith('@') ? 'scoped' : 'package' });
+            }
+          }
+
+          graph[filePath] = resolved;
+        } catch {}
+      };
+
+      const stat = fs.statSync(targetPath);
+      if (stat.isDirectory()) {
+        // Scan directory for JS/TS files
+        const scanDir = (dir, depth) => {
+          if (depth > maxDepth) return;
+          for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+            const full = pathMod.join(dir, entry.name);
+            if (entry.isDirectory()) scanDir(full, depth + 1);
+            else if (/\.(js|ts|mjs|cjs|jsx|tsx)$/.test(entry.name)) extractImports(full);
+          }
+        };
+        scanDir(targetPath, 0);
+      } else {
+        extractImports(targetPath);
+      }
+
+      // Compute stats
+      const allPackages = new Set();
+      let localCount = 0;
+      for (const deps of Object.values(graph)) {
+        for (const d of deps) {
+          if (d.type === 'local') localCount++;
+          else allPackages.add(d.specifier);
+        }
+      }
+
+      return {
+        files: Object.keys(graph).length,
+        localImports: localCount,
+        externalPackages: [...allPackages].sort(),
+        externalCount: allPackages.size,
+        graph,
+      };
+    } catch (err) { return { error: err.message, code: 'IMPORT_ERROR' }; }
+  },
+};
+
+tools['code.deadcode'] = {
+  name: 'code.deadcode',
+  description: 'Detect potentially unused exports in a JS/TS project',
+  params: { required: ['path'], optional: ['cwd'] },
+  permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'medium', category: 'read' },
+  async execute(params) {
+    try {
+      const fs = await import('node:fs');
+      const pathMod = await import('node:path');
+      const cwd = params.cwd || process.cwd();
+      const targetPath = pathMod.resolve(cwd, params.path);
+
+      const exports = new Map(); // symbol → { file, used: boolean }
+      const allImported = new Set(); // all imported symbol names
+
+      const scanFile = (filePath) => {
+        try {
+          const content = fs.readFileSync(filePath, 'utf-8');
+
+          // Named exports: export { x }, export const x, export function x, export class x
+          const namedRe = /export\s+(?:const|let|var|function|class|async\s+function)\s+(\w+)/g;
+          let m;
+          while ((m = namedRe.exec(content))) {
+            exports.set(`${filePath}::${m[1]}`, { file: filePath, symbol: m[1], used: false });
+          }
+
+          // Imported names
+          const importRe = /import\s+\{([^}]+)\}\s+from/g;
+          while ((m = importRe.exec(content))) {
+            const names = m[1].split(',').map(n => n.trim().split(/\s+as\s+/)[0].trim());
+            names.forEach(n => allImported.add(n));
+          }
+
+          // Default import names don't help (they can be renamed)
+          // But require destructure: const { x } = require(...)
+          const reqRe = /const\s+\{([^}]+)\}\s*=\s*require/g;
+          while ((m = reqRe.exec(content))) {
+            const names = m[1].split(',').map(n => n.trim().split(':')[0].trim());
+            names.forEach(n => allImported.add(n));
+          }
+        } catch {}
+      };
+
+      const walk = (dir, depth) => {
+        if (depth > 5) return;
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'dist' || entry.name === 'build') continue;
+          const full = pathMod.join(dir, entry.name);
+          if (entry.isDirectory()) walk(full, depth + 1);
+          else if (/\.(js|ts|mjs|cjs|jsx|tsx)$/.test(entry.name)) scanFile(full);
+        }
+      };
+
+      const stat = fs.statSync(targetPath);
+      if (stat.isDirectory()) walk(targetPath, 0);
+      else scanFile(targetPath);
+
+      // Mark used exports
+      for (const [key, info] of exports) {
+        if (allImported.has(info.symbol)) info.used = true;
+      }
+
+      const unused = [...exports.values()].filter(e => !e.used);
+      const used = [...exports.values()].filter(e => e.used);
+
+      return {
+        totalExports: exports.size,
+        usedExports: used.length,
+        unusedExports: unused.length,
+        unused: unused.map(e => ({ file: e.file, symbol: e.symbol })),
+        note: 'Heuristic analysis — may have false positives for dynamically accessed exports',
+      };
+    } catch (err) { return { error: err.message, code: 'DEADCODE_ERROR' }; }
+  },
+};
+
+tools['code.rename'] = {
+  name: 'code.rename',
+  description: 'Rename a symbol across all files in a project (text-based safe rename)',
+  params: { required: ['path', 'oldName', 'newName'], optional: ['cwd', 'dryRun', 'extensions'] },
+  permissions: ['fs.read', 'fs.write'],
+  meta: { sideEffects: true, idempotent: true, destructive: false, requiresConfirmation: true, costLevel: 'medium', category: 'write' },
+  async execute(params) {
+    try {
+      const fs = await import('node:fs');
+      const pathMod = await import('node:path');
+      const cwd = params.cwd || process.cwd();
+      const targetPath = pathMod.resolve(cwd, params.path);
+      const oldName = params.oldName;
+      const newName = params.newName;
+      const dryRun = params.dryRun !== false; // default true for safety
+      const extensions = params.extensions || ['.js', '.ts', '.mjs', '.cjs', '.jsx', '.tsx', '.json'];
+
+      // Word-boundary regex to avoid partial matches
+      const re = new RegExp(`\\b${oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g');
+
+      const changes = [];
+
+      const processFile = (filePath) => {
+        try {
+          const content = fs.readFileSync(filePath, 'utf-8');
+          const matches = content.match(re);
+          if (!matches || !matches.length) return;
+
+          const newContent = content.replace(re, newName);
+          changes.push({ file: filePath, occurrences: matches.length });
+
+          if (!dryRun) {
+            fs.writeFileSync(filePath, newContent, 'utf-8');
+          }
+        } catch {}
+      };
+
+      const walk = (dir, depth) => {
+        if (depth > 6) return;
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'dist') continue;
+          const full = pathMod.join(dir, entry.name);
+          if (entry.isDirectory()) walk(full, depth + 1);
+          else if (extensions.some(ext => entry.name.endsWith(ext))) processFile(full);
+        }
+      };
+
+      const stat = fs.statSync(targetPath);
+      if (stat.isDirectory()) walk(targetPath, 0);
+      else processFile(targetPath);
+
+      const totalOccurrences = changes.reduce((s, c) => s + c.occurrences, 0);
+
+      return {
+        dryRun,
+        filesChanged: changes.length,
+        totalOccurrences,
+        changes,
+        ...(dryRun ? { hint: 'Set dryRun: false to apply changes' } : {}),
+      };
+    } catch (err) { return { error: err.message, code: 'RENAME_ERROR' }; }
+  },
+};
+
+tools['code.duplicates'] = {
+  name: 'code.duplicates',
+  description: 'Detect duplicate/similar code blocks in a project',
+  params: { required: ['path'], optional: ['cwd', 'minLines', 'threshold'] },
+  permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'high', category: 'read' },
+  async execute(params) {
+    try {
+      const fs = await import('node:fs');
+      const pathMod = await import('node:path');
+      const cwd = params.cwd || process.cwd();
+      const targetPath = pathMod.resolve(cwd, params.path);
+      const minLines = params.minLines || 5;
+
+      const files = [];
+      const walk = (dir, depth) => {
+        if (depth > 5) return;
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'dist') continue;
+          const full = pathMod.join(dir, entry.name);
+          if (entry.isDirectory()) walk(full, depth + 1);
+          else if (/\.(js|ts|mjs|jsx|tsx|py|java|go|rs)$/.test(entry.name)) files.push(full);
+        }
+      };
+
+      const stat = fs.statSync(targetPath);
+      if (stat.isDirectory()) walk(targetPath, 0);
+      else files.push(targetPath);
+
+      // Extract normalized blocks
+      const blocks = new Map(); // hash → [{ file, startLine, lines }]
+
+      for (const file of files.slice(0, 100)) { // cap at 100 files
+        try {
+          const lines = fs.readFileSync(file, 'utf-8').split('\n');
+          for (let i = 0; i <= lines.length - minLines; i++) {
+            const block = lines.slice(i, i + minLines);
+            // Normalize: trim, collapse whitespace, skip if too short or all empty/comments
+            const normalized = block.map(l => l.trim().replace(/\s+/g, ' ')).join('\n');
+            if (normalized.length < minLines * 5) continue;
+            if (block.every(l => !l.trim() || l.trim().startsWith('//') || l.trim().startsWith('#'))) continue;
+
+            // Simple hash
+            let hash = 0;
+            for (let j = 0; j < normalized.length; j++) hash = ((hash << 5) - hash + normalized.charCodeAt(j)) | 0;
+            const key = hash.toString(36);
+
+            if (!blocks.has(key)) blocks.set(key, []);
+            blocks.get(key).push({ file, startLine: i + 1, preview: block[0].trim().slice(0, 80) });
+          }
+        } catch {}
+      }
+
+      // Find duplicates
+      const duplicates = [];
+      for (const [, locations] of blocks) {
+        if (locations.length < 2) continue;
+        // Skip same-file adjacent (sliding window overlap)
+        const unique = [];
+        const seen = new Set();
+        for (const loc of locations) {
+          const key = `${loc.file}:${Math.floor(loc.startLine / minLines)}`;
+          if (!seen.has(key)) { seen.add(key); unique.push(loc); }
+        }
+        if (unique.length >= 2) {
+          duplicates.push({ blockSize: minLines, locations: unique.slice(0, 5) });
+        }
+      }
+
+      // Sort by most occurrences
+      duplicates.sort((a, b) => b.locations.length - a.locations.length);
+
+      return {
+        filesScanned: files.length,
+        duplicatesFound: duplicates.length,
+        duplicates: duplicates.slice(0, 30),
+      };
+    } catch (err) { return { error: err.message, code: 'DUPLICATE_ERROR' }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// DEPENDENCY INTELLIGENCE
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['deps.tree'] = {
+  name: 'deps.tree',
+  description: 'Analyze transitive dependency tree with depth/size info',
+  params: { required: [], optional: ['cwd', 'depth', 'package'] },
+  permissions: ['fs.read', 'process.exec'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'medium', category: 'read' },
+  async execute(params) {
+    try {
+      const { execSync } = await import('node:child_process');
+      const fs = await import('node:fs');
+      const pathMod = await import('node:path');
+      const cwd = params.cwd || process.cwd();
+      const depth = params.depth || 3;
+
+      const args = params.package ? `${params.package}` : '';
+      const output = execSync(`npm ls --json --depth=${depth} ${args} 2>/dev/null || true`, {
+        cwd, encoding: 'utf-8', timeout: 30000,
+      });
+
+      let tree;
+      try { tree = JSON.parse(output); } catch { return { error: 'Could not parse npm ls output', code: 'DEPS_ERROR' }; }
+
+      // Count unique packages
+      const packages = new Set();
+      const countDeps = (node) => {
+        if (!node?.dependencies) return;
+        for (const [name, info] of Object.entries(node.dependencies)) {
+          packages.add(`${name}@${info.version || '?'}`);
+          countDeps(info);
+        }
+      };
+      countDeps(tree);
+
+      // Get node_modules size
+      const nmPath = pathMod.join(cwd, 'node_modules');
+      let nmSize = null;
+      try {
+        const du = execSync(`du -sh ${nmPath} 2>/dev/null`, { encoding: 'utf-8', timeout: 10000 });
+        nmSize = du.split('\t')[0].trim();
+      } catch {}
+
+      return {
+        name: tree.name,
+        version: tree.version,
+        totalPackages: packages.size,
+        nodeModulesSize: nmSize,
+        tree: tree.dependencies || {},
+      };
+    } catch (err) { return { error: err.message, code: 'DEPS_ERROR' }; }
+  },
+};
+
+tools['deps.licenses'] = {
+  name: 'deps.licenses',
+  description: 'Scan all dependency licenses and flag problematic ones',
+  params: { required: [], optional: ['cwd'] },
+  permissions: ['fs.read'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'medium', category: 'read' },
+  async execute(params) {
+    try {
+      const fs = await import('node:fs');
+      const pathMod = await import('node:path');
+      const cwd = params.cwd || process.cwd();
+      const nmPath = pathMod.join(cwd, 'node_modules');
+
+      if (!fs.existsSync(nmPath)) return { error: 'node_modules not found — run npm install first', code: 'DEPS_ERROR' };
+
+      const COPYLEFT = ['GPL-2.0', 'GPL-3.0', 'AGPL-3.0', 'LGPL-2.1', 'LGPL-3.0', 'SSPL-1.0', 'EUPL-1.2'];
+      const licenses = {};
+      const flagged = [];
+
+      const scanDir = (dir) => {
+        try {
+          for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            if (!entry.isDirectory()) continue;
+            const pkgDir = pathMod.join(dir, entry.name);
+            if (entry.name.startsWith('@')) {
+              // Scoped package — go one level deeper
+              scanDir(pkgDir);
+              continue;
+            }
+            const pkgPath = pathMod.join(pkgDir, 'package.json');
+            try {
+              const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+              const license = pkg.license || pkg.licenses?.[0]?.type || 'UNKNOWN';
+              const name = pkg.name || entry.name;
+              licenses[license] = (licenses[license] || 0) + 1;
+              if (license === 'UNKNOWN' || COPYLEFT.some(c => license.toUpperCase().includes(c))) {
+                flagged.push({ name, version: pkg.version, license });
+              }
+            } catch {}
+          }
+        } catch {}
+      };
+
+      scanDir(nmPath);
+
+      return {
+        summary: licenses,
+        totalPackages: Object.values(licenses).reduce((s, v) => s + v, 0),
+        flagged: flagged.length ? flagged : null,
+        flaggedCount: flagged.length,
+        clean: flagged.length === 0,
+      };
+    } catch (err) { return { error: err.message, code: 'DEPS_ERROR' }; }
+  },
+};
+
+tools['deps.size'] = {
+  name: 'deps.size',
+  description: 'Analyze size impact of each dependency',
+  params: { required: [], optional: ['cwd', 'top'] },
+  permissions: ['fs.read', 'process.exec'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'medium', category: 'read' },
+  async execute(params) {
+    try {
+      const { execSync } = await import('node:child_process');
+      const fs = await import('node:fs');
+      const pathMod = await import('node:path');
+      const cwd = params.cwd || process.cwd();
+      const top = params.top || 20;
+      const nmPath = pathMod.join(cwd, 'node_modules');
+
+      if (!fs.existsSync(nmPath)) return { error: 'node_modules not found', code: 'DEPS_ERROR' };
+
+      // Get sizes of top-level packages
+      const sizes = [];
+      const getDirSize = (dir) => {
+        let total = 0;
+        try {
+          for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            const full = pathMod.join(dir, entry.name);
+            if (entry.isDirectory()) total += getDirSize(full);
+            else total += fs.statSync(full).size;
+          }
+        } catch {}
+        return total;
+      };
+
+      for (const entry of fs.readdirSync(nmPath, { withFileTypes: true })) {
+        if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
+        const full = pathMod.join(nmPath, entry.name);
+        if (entry.name.startsWith('@')) {
+          // Scoped packages
+          for (const sub of fs.readdirSync(full, { withFileTypes: true })) {
+            if (!sub.isDirectory()) continue;
+            const scopedFull = pathMod.join(full, sub.name);
+            sizes.push({ name: `${entry.name}/${sub.name}`, size: getDirSize(scopedFull) });
+          }
+        } else {
+          sizes.push({ name: entry.name, size: getDirSize(full) });
+        }
+      }
+
+      sizes.sort((a, b) => b.size - a.size);
+      const totalSize = sizes.reduce((s, p) => s + p.size, 0);
+
+      return {
+        totalPackages: sizes.length,
+        totalSize: (totalSize / 1048576).toFixed(1) + 'MB',
+        top: sizes.slice(0, top).map(p => ({
+          name: p.name,
+          size: p.size > 1048576 ? (p.size / 1048576).toFixed(1) + 'MB' : (p.size / 1024).toFixed(0) + 'KB',
+          percent: (p.size / totalSize * 100).toFixed(1) + '%',
+        })),
+      };
+    } catch (err) { return { error: err.message, code: 'DEPS_ERROR' }; }
+  },
+};
+
+tools['deps.vuln'] = {
+  name: 'deps.vuln',
+  description: 'Run vulnerability audit and return structured results',
+  params: { required: [], optional: ['cwd', 'fix'] },
+  permissions: ['fs.read', 'process.exec'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'read' },
+  async execute(params) {
+    try {
+      const { execSync } = await import('node:child_process');
+      const cwd = params.cwd || process.cwd();
+
+      if (params.fix) {
+        const output = execSync('npm audit fix --json 2>/dev/null || true', { cwd, encoding: 'utf-8', timeout: 60000 });
+        try { return JSON.parse(output); } catch { return { output }; }
+      }
+
+      const output = execSync('npm audit --json 2>/dev/null || true', { cwd, encoding: 'utf-8', timeout: 30000 });
+      let audit;
+      try { audit = JSON.parse(output); } catch { return { error: 'Could not parse audit output', code: 'VULN_ERROR' }; }
+
+      const vulns = audit.vulnerabilities || {};
+      const summary = { critical: 0, high: 0, moderate: 0, low: 0, info: 0, total: 0 };
+      const details = [];
+
+      for (const [name, info] of Object.entries(vulns)) {
+        const sev = info.severity || 'info';
+        summary[sev] = (summary[sev] || 0) + 1;
+        summary.total++;
+        details.push({
+          name,
+          severity: sev,
+          title: info.via?.[0]?.title || info.via?.[0] || 'Unknown',
+          fixAvailable: !!info.fixAvailable,
+          range: info.range,
+        });
+      }
+
+      details.sort((a, b) => {
+        const order = { critical: 0, high: 1, moderate: 2, low: 3, info: 4 };
+        return (order[a.severity] || 5) - (order[b.severity] || 5);
+      });
+
+      return { summary, vulnerabilities: details.slice(0, 50), clean: summary.total === 0 };
+    } catch (err) { return { error: err.message, code: 'VULN_ERROR' }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// RESOURCE GUARDS
+// ════════════════════════════════════════════════════════════════════════════
+
+tools['guard.disk'] = {
+  name: 'guard.disk',
+  description: 'Check disk space and warn if running low',
+  params: { required: [], optional: ['path', 'thresholdPercent'] },
+  permissions: ['process.exec'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
+  async execute(params) {
+    try {
+      const { execSync } = await import('node:child_process');
+      const checkPath = params.path || '/';
+      const threshold = params.thresholdPercent || 90;
+
+      const output = execSync(`df -h ${checkPath} 2>/dev/null`, { encoding: 'utf-8', timeout: 5000 });
+      const lines = output.trim().split('\n');
+      if (lines.length < 2) return { error: 'Unexpected df output', code: 'GUARD_ERROR' };
+
+      const parts = lines[1].split(/\s+/);
+      const total = parts[1];
+      const used = parts[2];
+      const avail = parts[3];
+      const usePercent = parseInt(parts[4]);
+
+      return {
+        filesystem: parts[0],
+        total,
+        used,
+        available: avail,
+        usePercent: usePercent + '%',
+        warning: usePercent >= threshold,
+        critical: usePercent >= 95,
+        message: usePercent >= 95 ? 'CRITICAL: Disk almost full!' :
+                 usePercent >= threshold ? `WARNING: Disk usage above ${threshold}%` :
+                 'Disk space OK',
+      };
+    } catch (err) { return { error: err.message, code: 'GUARD_ERROR' }; }
+  },
+};
+
+tools['guard.memory'] = {
+  name: 'guard.memory',
+  description: 'Check system and process memory pressure',
+  params: { required: [], optional: ['thresholdPercent'] },
+  permissions: [],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
+  async execute(params) {
+    try {
+      const os = await import('node:os');
+      const threshold = params.thresholdPercent || 85;
+
+      const totalMem = os.totalmem();
+      const freeMem = os.freemem();
+      const usedMem = totalMem - freeMem;
+      const usePercent = (usedMem / totalMem * 100);
+
+      const processMemory = process.memoryUsage();
+
+      return {
+        system: {
+          total: (totalMem / 1073741824).toFixed(1) + 'GB',
+          used: (usedMem / 1073741824).toFixed(1) + 'GB',
+          free: (freeMem / 1073741824).toFixed(1) + 'GB',
+          usePercent: usePercent.toFixed(1) + '%',
+        },
+        process: {
+          rss: (processMemory.rss / 1048576).toFixed(1) + 'MB',
+          heapUsed: (processMemory.heapUsed / 1048576).toFixed(1) + 'MB',
+          heapTotal: (processMemory.heapTotal / 1048576).toFixed(1) + 'MB',
+          external: (processMemory.external / 1048576).toFixed(1) + 'MB',
+        },
+        warning: usePercent >= threshold,
+        critical: usePercent >= 95,
+        message: usePercent >= 95 ? 'CRITICAL: Memory almost exhausted!' :
+                 usePercent >= threshold ? `WARNING: Memory usage above ${threshold}%` :
+                 'Memory OK',
+      };
+    } catch (err) { return { error: err.message, code: 'GUARD_ERROR' }; }
+  },
+};
+
+tools['guard.fd'] = {
+  name: 'guard.fd',
+  description: 'Check open file descriptors for the process',
+  params: { required: [], optional: ['thresholdPercent'] },
+  permissions: ['process.exec'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
+  async execute(params) {
+    try {
+      const { execSync } = await import('node:child_process');
+      const fs = await import('node:fs');
+      const threshold = params.thresholdPercent || 80;
+      const pid = process.pid;
+
+      // Get open FDs for this process
+      let openFds = 0;
+      try {
+        const fds = fs.readdirSync(`/proc/${pid}/fd`);
+        openFds = fds.length;
+      } catch {
+        // Fallback: lsof
+        try {
+          const output = execSync(`lsof -p ${pid} 2>/dev/null | wc -l`, { encoding: 'utf-8', timeout: 5000 });
+          openFds = parseInt(output.trim()) || 0;
+        } catch { openFds = -1; }
+      }
+
+      // Get FD limit
+      let fdLimit = 1024;
+      try {
+        const output = execSync('ulimit -n 2>/dev/null', { encoding: 'utf-8', timeout: 5000 });
+        fdLimit = parseInt(output.trim()) || 1024;
+      } catch {}
+
+      const usePercent = openFds > 0 ? (openFds / fdLimit * 100) : 0;
+
+      return {
+        openFds,
+        fdLimit,
+        usePercent: usePercent.toFixed(1) + '%',
+        warning: usePercent >= threshold,
+        critical: usePercent >= 95,
+        message: usePercent >= 95 ? 'CRITICAL: FD limit almost reached!' :
+                 usePercent >= threshold ? `WARNING: FD usage above ${threshold}%` :
+                 'File descriptors OK',
+      };
+    } catch (err) { return { error: err.message, code: 'GUARD_ERROR' }; }
+  },
+};
+
+tools['guard.watchdog'] = {
+  name: 'guard.watchdog',
+  description: 'Run all resource guards and return combined health check',
+  params: { required: [], optional: ['diskPath', 'diskThreshold', 'memThreshold', 'fdThreshold'] },
+  permissions: ['process.exec'],
+  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'free', category: 'read' },
+  async execute(params) {
+    try {
+      const [disk, memory, fd] = await Promise.all([
+        tools['guard.disk'].execute({ path: params.diskPath, thresholdPercent: params.diskThreshold }),
+        tools['guard.memory'].execute({ thresholdPercent: params.memThreshold }),
+        tools['guard.fd'].execute({ thresholdPercent: params.fdThreshold }),
+      ]);
+
+      const warnings = [];
+      const criticals = [];
+
+      if (disk.warning) warnings.push('disk');
+      if (disk.critical) criticals.push('disk');
+      if (memory.warning) warnings.push('memory');
+      if (memory.critical) criticals.push('memory');
+      if (fd.warning) warnings.push('fd');
+      if (fd.critical) criticals.push('fd');
+
+      const status = criticals.length ? 'critical' : warnings.length ? 'warning' : 'healthy';
+
+      return {
+        status,
+        disk: { available: disk.available, usePercent: disk.usePercent, warning: disk.warning },
+        memory: { free: memory.system?.free, usePercent: memory.system?.usePercent, warning: memory.warning },
+        fd: { open: fd.openFds, limit: fd.fdLimit, warning: fd.warning },
+        warnings,
+        criticals,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (err) { return { error: err.message, code: 'GUARD_ERROR' }; }
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
 // TOOL REGISTRY
 // ════════════════════════════════════════════════════════════════════════════
 
