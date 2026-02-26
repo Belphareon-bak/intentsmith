@@ -321,8 +321,7 @@ export interface FollowUpDetectionResult {
  */
 export declare function detectFollowUpType(
   input: string,
-  sessionState: unknown,
-  options?: { IntentType?: Record<string, string> }
+  lastDecision: { intent: string; type: string; hasOutput?: boolean } | null,
 ): FollowUpDetectionResult;
 
 /**

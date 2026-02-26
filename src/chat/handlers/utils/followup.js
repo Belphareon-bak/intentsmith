@@ -55,98 +55,121 @@ const REFINEMENT_PATTERNS = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FOLLOW-UP DETECTION
+// FOLLOW-UP DETECTION — v73 Context-oriented redesign
+// ─────────────────────────────────────────────────────────────────────────────
+// Contract: docs/followup-contract-v2.md
+//
+// Follow-up answers: "Does current input reference the last system output?"
+// NOT: "Does it share words with the last user input?"
+//
+// 4 rules: R1 (anaphoric), R2 (processing request), R3 (new target), R4 (fallback)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// R1: Anaphoric references — pronouns that refer to previous output
+const ANAPHORIC_PATTERNS = [
+  /\bto\b/i,         // CZ: "co to dela", "shrn to", "vysvetli to"
+  /\btenhle\b/i,     // CZ: "tenhle soubor"
+  /\btohle\b/i,      // CZ: "tohle je zajimave"
+  /\bten\b/i,        // CZ: "ten kod"
+  /\bv\s+nich\b/i,   // CZ: "co je v nich"
+  /\bjich\b/i,       // CZ: "kolik jich je"
+  /\bthem\b/i,       // EN: "explain them"
+  /\bit\b/i,         // EN: "what does it do"
+  /\bthis\b/i,       // EN: "summarize this"
+  /\bthese\b/i,      // EN: "what do these do"
+];
+
+// R2: Processing requests — user wants transformation of existing output
+const PROCESSING_REQUEST_PATTERNS = [
+  // CZ
+  /(shrn|shrnout|shrň)/i,         // summarize
+  /(vysvětli|vysvetli|vysvětlit)/i, // explain
+  /(přehled|prehled)/i,            // overview
+  /(popi[šs]|popsat)/i,            // describe
+  /(vytah|výtah)/i,                // extract/summary
+  /(analyzuj|analýza|analyza)/i,   // analyze
+  /(rozbor)/i,                     // analysis
+  // EN
+  /(summarize|summary)/i,
+  /(explain|explanation)/i,
+  /(overview|describe|description)/i,
+  /(analyze|analysis)/i,
+];
+
+// R3: Topic shift signals — user is starting a new topic
+const TOPIC_SHIFT_PATTERNS = [
+  /^(teď|ted|nyní|nyni)\s/i,               // "teď chci...", "nyní najdi..."
+  /^(změň|zmen|přepni|prepni)\s/i,          // "změň téma"
+  /^(něco|neco)\s(jin|úplně|uplne)/i,       // "něco jiného"
+  /^(dost|stačí|staci|konec)\s/i,           // "dost", "stačí"
+  /^(now|switch|change)\s/i,                // EN: "now find...", "switch to..."
+  /https?:\/\//i,                            // URL
+  /\.\w{1,5}$/,                              // filename pattern (ends with .ext)
+];
+
+function hasAnaphoricReference(inputLower) {
+  return ANAPHORIC_PATTERNS.some(p => p.test(inputLower));
+}
+
 /**
- * Detect the type of follow-up based on current input and session context
+ * Detect the type of follow-up based on current input and last decision context.
  *
- * v45.0 FIX 1.4 - Distinguish between FORMAT_CHANGE, REFINEMENT, etc.
+ * v73 redesign — context-oriented, not lexically-oriented.
+ * See docs/followup-contract-v2.md for full contract.
  *
  * @param {string} input - Current user input
- * @param {Object} sessionState - Session state with history
- * @param {Object} options - Additional options
- * @param {string} options.IntentType - IntentType enum for comparison
- * @returns {{ type: string, confidence: number, reusePreviousData: boolean }}
+ * @param {Object} lastDecision - Previous turn's decision {intent, type, hasOutput}
+ * @returns {{ type: string, confidence: number, reusePreviousData: boolean, rule: string }}
  */
-export function detectFollowUpType(input, sessionState, options = {}) {
-  const { IntentType } = options;
-  const lastDecision = sessionState?.lastDecision;
-  const lastInput = sessionState?.lastUserInput;
-
-  // No history = definitely new query
-  if (!lastDecision || !lastInput) {
-    return { type: FollowUpType.NEW_QUERY, confidence: 1.0, reusePreviousData: false };
+export function detectFollowUpType(input, lastDecision) {
+  // No previous decision = definitely new query
+  if (!lastDecision) {
+    return { type: FollowUpType.NEW_QUERY, confidence: 1.0, reusePreviousData: false, rule: 'no_history' };
   }
+
+  // hasOutput: true for all completed turns (practically always true)
+  const hasOutput = lastDecision.hasOutput !== false;
 
   const inputLower = input.toLowerCase().trim();
+  const inputLen = inputLower.length;
+  const hasAnaphora = hasAnaphoricReference(inputLower);
 
-  // Pattern 1: FORMAT_CHANGE - user wants different presentation
-  if (FORMAT_CHANGE_PATTERNS.some(p => p.test(inputLower))) {
-    return {
-      type: FollowUpType.FORMAT_CHANGE,
-      confidence: 0.9,
-      reusePreviousData: true,
-    };
+  // ── R3: Explicit new target (checked FIRST — safety valve) ──────────
+  if (TOPIC_SHIFT_PATTERNS.some(p => p.test(inputLower))) {
+    return { type: FollowUpType.NEW_QUERY, confidence: 0.8, reusePreviousData: false, rule: 'R3_topic_shift' };
+  }
+  if (inputLen > 80 && !hasAnaphora) {
+    return { type: FollowUpType.NEW_QUERY, confidence: 0.8, reusePreviousData: false, rule: 'R3_long_no_anaphora' };
   }
 
-  // Pattern 2: REFINEMENT - narrowing down previous query
+  // ── R2: Processing request after output (FORMAT_CHANGE) ─────────────
+  // Includes existing FORMAT_CHANGE_PATTERNS + new PROCESSING_REQUEST_PATTERNS
+  if (hasOutput && inputLen < 50) {
+    if (FORMAT_CHANGE_PATTERNS.some(p => p.test(inputLower))) {
+      return { type: FollowUpType.FORMAT_CHANGE, confidence: 0.9, reusePreviousData: true, rule: 'R2_format_change' };
+    }
+    if (PROCESSING_REQUEST_PATTERNS.some(p => p.test(inputLower))) {
+      return { type: FollowUpType.FORMAT_CHANGE, confidence: 0.9, reusePreviousData: true, rule: 'R2_processing_request' };
+    }
+  }
+
+  // ── REFINEMENT (unchanged from v1) ──────────────────────────────────
   if (REFINEMENT_PATTERNS.some(p => p.test(inputLower))) {
-    return {
-      type: FollowUpType.REFINEMENT,
-      confidence: 0.85,
-      reusePreviousData: false,
-    };
+    return { type: FollowUpType.REFINEMENT, confidence: 0.85, reusePreviousData: false, rule: 'refinement' };
   }
 
-  // Pattern 3: CONTINUATION - discussing same topic
-  const isContinuation =
-    inputLower.length < 30 &&
-    (inputLower.includes('to') ||
-     inputLower.includes('tenhle') ||
-     inputLower.includes('tohle') ||
-     inputLower.includes('ten') ||
-     inputLower.includes('it') ||
-     inputLower.includes('this'));
-
-  if (isContinuation && IntentType && lastDecision.intent !== IntentType.CONVERSATIONAL) {
-    return {
-      type: FollowUpType.CONTINUATION,
-      confidence: 0.7,
-      reusePreviousData: true,
-    };
+  // ── R1: Anaphoric continuation ──────────────────────────────────────
+  if (hasOutput && hasAnaphora && inputLen < 40) {
+    return { type: FollowUpType.CONTINUATION, confidence: 0.85, reusePreviousData: true, rule: 'R1_anaphoric' };
   }
 
-  // Pattern 4: NEW_QUERY - detect topic change via keyword overlap
-  const lastWords = new Set(
-    lastInput.toLowerCase().split(/\s+/).filter(w => w.length > 3)
-  );
-  const currentWords = inputLower.split(/\s+/).filter(w => w.length > 3);
-  const sharedWords = currentWords.filter(w => lastWords.has(w));
-
-  if (sharedWords.length === 0 && currentWords.length >= 2) {
-    return {
-      type: FollowUpType.NEW_QUERY,
-      confidence: 0.8,
-      reusePreviousData: false,
-    };
+  // ── R4: Fallback — prefer continuation for short inputs after output ─
+  if (hasOutput && inputLen < 30) {
+    return { type: FollowUpType.CONTINUATION, confidence: 0.5, reusePreviousData: false, rule: 'R4_short_fallback' };
   }
 
-  // Default: continuation if keyword overlap
-  if (sharedWords.length > 0) {
-    return {
-      type: FollowUpType.CONTINUATION,
-      confidence: 0.6,
-      reusePreviousData: false,
-    };
-  }
-
-  // Fallback: new query
-  return {
-    type: FollowUpType.NEW_QUERY,
-    confidence: 0.5,
-    reusePreviousData: false,
-  };
+  // No match — new query
+  return { type: FollowUpType.NEW_QUERY, confidence: 0.5, reusePreviousData: false, rule: 'default_new_query' };
 }
 
 /**

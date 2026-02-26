@@ -225,7 +225,8 @@ async function handleToolCallDecision(input, decision, context) {
   // ════════════════════════════════════════════════════════════════════════════
   // Detect if this is a FORMAT_CHANGE (reuse previous data) or NEW_QUERY
   // ════════════════════════════════════════════════════════════════════════════
-  const followUp = detectFollowUpType(input, sessionState);
+  // v73: Context-oriented follow-up — pass lastDecision, not full sessionState
+  const followUp = detectFollowUpType(input, sessionState?.lastDecision);
 
   if (followUp.type === FollowUpType.FORMAT_CHANGE && followUp.reusePreviousData) {
     const previousData = getPreviousToolData(sessionState);

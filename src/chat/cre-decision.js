@@ -34,6 +34,16 @@ import { classifyIntent as llmClassify } from '../llm/cre-bridge.js';
 import { extractJSON } from '../llm/client.js';
 import { config } from '../config.js';
 
+// v73: Lazy import to avoid circular dependency (followup.js → intent.js → cre-decision.js)
+let _detectFollowUpType = null;
+async function _getDetectFollowUpType() {
+  if (!_detectFollowUpType) {
+    const mod = await import('./handlers/utils/followup.js');
+    _detectFollowUpType = mod.detectFollowUpType;
+  }
+  return _detectFollowUpType;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Decision Types
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2656,16 +2666,42 @@ PRAVIDLA:
     let llmMeta = null;
     let _classificationTimeMs = 0;
 
+    // v73: Diagnostic tracker — accumulates state through decide() for instrumentation
+    const _diag = {
+      initialIntent: null,       // Intent right after classification (before overrides)
+      isIntentBreak: false,
+      lastIntent: null,
+      followUpResult: null,      // detectFollowUpType() result
+      overrides: [],             // Array of override labels applied
+    };
+
     // v72: Helper — injects timing metrics into every decision
     const _makeDecision = (config) => {
       const decideTimeMs = Math.round(performance.now() - _decideStart);
+      const classifiedBy = llmMeta ? 'llm' : (isDeterministic ? 'deterministic' : 'regex');
       config.metadata = {
         ...config.metadata,
         classificationTimeMs: _classificationTimeMs,
-        classifiedBy: llmMeta ? 'llm' : (isDeterministic ? 'deterministic' : 'regex'),
+        classifiedBy,
         llmConfidence: llmMeta?.confidence ?? null,
         decideTimeMs,
       };
+
+      // v73: CRE Diagnostic log — captures full decision pipeline state
+      logger.info('CRE_DIAG', 'decide() trace', {
+        input: input.substring(0, 80),
+        classifiedBy,
+        initialIntent: _diag.initialIntent,
+        finalIntent: config.intent,
+        finalType: config.type,
+        isIntentBreak: _diag.isIntentBreak,
+        lastIntent: _diag.lastIntent,
+        followUp: _diag.followUpResult,
+        overrides: _diag.overrides,
+        confidence: config.confidence,
+        slots: config.slots || null,
+      });
+
       return new CREDecision(config);
     };
 
@@ -2713,6 +2749,20 @@ PRAVIDLA:
       }
     }
 
+    // v73: Capture initial intent before any overrides
+    _diag.initialIntent = intent;
+
+    // v73: Run detectFollowUpType for diagnostic purposes (lazy import to avoid circular dep)
+    const _lastDec = context.lastDecision;
+    if (_lastDec) {
+      try {
+        const _dft = await _getDetectFollowUpType();
+        _diag.followUpResult = _dft(input, _lastDec);
+      } catch (e) {
+        _diag.followUpResult = { error: e.message };
+      }
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     // v44.3 — INTENT CONTINUITY
     // v44.6 FIX 7 — Enhanced sticky SEARCH for follow-up queries
@@ -2729,6 +2779,7 @@ PRAVIDLA:
     // v45.0: Added ITEM_LOOKUP to sticky intents
     const STICKY_INTENTS = [IntentType.REPORT, IntentType.SEARCH, IntentType.FACTUAL, IntentType.ITEM_LOOKUP];
     const lastIntent = context.lastIntent || context.conversationState?.lastIntent;
+    _diag.lastIntent = lastIntent || null;
     const awaitingSlots = context.awaitingSlots || context.sessionState?.awaitingSlots || [];
     const retryCount = context.retryCount ?? 0;
 
@@ -2768,6 +2819,7 @@ PRAVIDLA:
           classifiedAs: intent,
           maintainingAs: IntentType.CREATIVE,
         });
+        _diag.overrides.push(`creative_followup:${intent}→CREATIVE`);
         intent = IntentType.CREATIVE;
       }
     }
@@ -2790,6 +2842,7 @@ PRAVIDLA:
           classifiedAs: intent,
           maintainingAs: IntentType.DESIGN,
         });
+        _diag.overrides.push(`design_followup:${intent}→DESIGN`);
         intent = IntentType.DESIGN;
       }
     }
@@ -2817,7 +2870,8 @@ PRAVIDLA:
       /^(změň|zmen|přepni|prepni)\s/i,        // "změň téma", "přepni na..."
       /^(něco|neco)\s(jin|úplně|uplne)/i,     // "něco jiného", "něco úplně jiného"
       /^(dost|stačí|staci|konec)\s/i,         // "dost reportů", "stačí"
-      /^(chci|potřebuju|potrebuju)\s/i,       // "chci najít...", "potřebuju..."
+      // v73: "chci" removed — not a topic shift by itself (see followup-contract-v2.md)
+      /^(potřebuju|potrebuju)\s/i,             // "potřebuju..." (stronger intent signal than "chci")
       /^(now|switch|change)\s/i,              // English: "now find...", "switch to..."
       /\d+\s*(inzerát|nabíd|produkt|auto)/i,  // Explicit item request always breaks
     ];
@@ -2844,6 +2898,7 @@ PRAVIDLA:
     // v44.7: Skip sticky intent if we have a strong intent (LOCAL, CONVERSATIONAL)
     // v45.0: Also skip if INTENT_BREAK_PATTERNS match (user starting new task)
     const isIntentBreak = INTENT_BREAK_PATTERNS.some(p => p.test(input.trim()));
+    _diag.isIntentBreak = isIntentBreak;
     if (isIntentBreak) {
       logger.info('CREDecision', 'Intent break detected - not applying sticky intent', {
         input: input.substring(0, 50),
@@ -2861,6 +2916,7 @@ PRAVIDLA:
           lastIntent,
           retryCount,
         });
+        _diag.overrides.push(`sticky:AMBIGUOUS→${lastIntent}`);
         intent = lastIntent;
       }
 
@@ -2870,6 +2926,7 @@ PRAVIDLA:
           input: input.substring(0, 50),
           pattern: 'SEARCH_CONTINUATION',
         });
+        _diag.overrides.push(`continuation:→${lastIntent}`);
         intent = lastIntent;
       }
     }
@@ -2902,6 +2959,7 @@ PRAVIDLA:
         lastIntent,
         lastDecisionType: lastDecision?.type,
       });
+      _diag.overrides.push(`v72_followup:CONVERSATIONAL→${lastIntent}`);
       intent = lastIntent;
     }
 
@@ -2925,6 +2983,7 @@ PRAVIDLA:
         input: input.substring(0, 50),
         lastIntent,
       });
+      _diag.overrides.push(`v72_break:${intent}→CONVERSATIONAL`);
       intent = IntentType.CONVERSATIONAL;
     }
 
