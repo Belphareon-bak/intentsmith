@@ -819,6 +819,9 @@ export async function synthesizeWithLLM({
       if ((intent === 'SEARCH' || searchSubType) && retryCount < MAX_RETRIES) {
         const searchLinkCount = (result.content.match(/https?:\/\/\S+/g) || []).length;
         if (searchLinkCount < 2 && result.content.length > 100) {
+          if (typeof context.onSystemStep === 'function') {
+            try { context.onSystemStep('quality_links', `found ${searchLinkCount} links`, 2); } catch (_) {}
+          }
           logger.warn('Synthesis', 'SEARCH response missing links, retrying', {
             linkCount: searchLinkCount,
             retryCount,
@@ -836,6 +839,9 @@ export async function synthesizeWithLLM({
 
       // Check for fluff
       const fluffCheck = detectFluff(result.content, successfulData);
+      if (typeof context.onSystemStep === 'function') {
+        try { context.onSystemStep('quality_fluff', fluffCheck.isFluff ? fluffCheck.reason : 'clean', 2); } catch (_) {}
+      }
 
       if (fluffCheck.isFluff && retryCount < MAX_RETRIES) {
         logger.warn('Synthesis', 'Fluff detected, retrying', {
@@ -890,6 +896,10 @@ export async function synthesizeWithLLM({
       // ─── v62.2: Language Validation Gate ──────────────────────────────
       // Catches SK/EN contamination in synthesis path (same as decisions.js ANSWER path)
       const langValidation = validateResponseLanguage(result.content, langCtx.language);
+      // System step: language validation result
+      if (typeof context.onSystemStep === 'function') {
+        try { context.onSystemStep('quality_lang', langValidation.clean ? 'clean' : langValidation.issues.join(','), 2); } catch (_) {}
+      }
       if (!langValidation.clean && retryCount < MAX_RETRIES) {
         logger.warn('Synthesis', 'Language validation failed, retrying', {
           issues: langValidation.issues,

@@ -208,6 +208,9 @@ export async function conversationHandler(input, context) {
   const resumeIntent = detectResumeIntent ? detectResumeIntent(input) : null;
 
   if (resumeIntent === 'resume') {
+    if (typeof context.onSystemStep === 'function') {
+      try { context.onSystemStep('session_resume', 'User requesting session resume', 2); } catch (_) {}
+    }
     creDecisionEngine.logIntercept('session_resume', 'User requesting session resume — routing to resume handler', {
       sessionId,
     });
@@ -273,6 +276,9 @@ export async function conversationHandler(input, context) {
   // ════════════════════════════════════════════════════════════════════════════
   const activeHandoff = getActiveBuildHandoff ? getActiveBuildHandoff(sessionId) : null;
   if (activeHandoff) {
+    if (typeof context.onSystemStep === 'function') {
+      try { context.onSystemStep('build_handoff', `phase: ${activeHandoff.phase}`, 2); } catch (_) {}
+    }
     creDecisionEngine.logIntercept('build_handoff', `Active build handoff (phase: ${activeHandoff.phase}) — routing to build handler`, {
       sessionId, phase: activeHandoff.phase,
     });
@@ -363,6 +369,9 @@ export async function conversationHandler(input, context) {
   // ════════════════════════════════════════════════════════════════════════════
   const activeLifecycle = getActiveLifecycleHandoff ? getActiveLifecycleHandoff(sessionId) : null;
   if (activeLifecycle) {
+    if (typeof context.onSystemStep === 'function') {
+      try { context.onSystemStep('lifecycle', `phase: ${activeLifecycle.phase}`, 2); } catch (_) {}
+    }
     creDecisionEngine.logIntercept('lifecycle_handoff', 'Active lifecycle handoff — routing to lifecycle handler', {
       sessionId, phase: activeLifecycle.phase,
     });
@@ -382,6 +391,9 @@ export async function conversationHandler(input, context) {
   // ════════════════════════════════════════════════════════════════════════════
   const activeWizard = getActiveWizard ? getActiveWizard(sessionId) : null;
   if (activeWizard) {
+    if (typeof context.onSystemStep === 'function') {
+      try { context.onSystemStep('agent_wizard', `step: ${activeWizard.step}`, 2); } catch (_) {}
+    }
     creDecisionEngine.logIntercept('agent_wizard', 'Active agent wizard — routing to wizard handler', {
       sessionId, wizardStep: activeWizard.step,
     });
@@ -756,6 +768,9 @@ export async function conversationHandler(input, context) {
   }
 
   // STEP 2: Handle based on decision type
+  if (typeof context.onSystemStep === 'function') {
+    try { context.onSystemStep('routing_switch', decision.type, 2); } catch (_) {}
+  }
   switch (decision.type) {
     // ════════════════════════════════════════════════════════════════════════
     // BUILD → PLAN: Handoff to Planner pipeline

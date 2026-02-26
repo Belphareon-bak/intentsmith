@@ -128,6 +128,9 @@ export async function expertiseHandler(input, context) {
       const { specialistRuntime } = await import('../../expertises/specialist-runtime.js');
 
       if (specialistRuntime.isSpecialist(expertise.id)) {
+        if (typeof context.onSystemStep === 'function') {
+          try { context.onSystemStep('specialist_dispatch', expertise.id, 1); } catch (_) {}
+        }
         try {
           const toolResult = await specialistRuntime.tryToolExecution(expertise.id, input, {
             sessionId: context.sessionId,

@@ -39,6 +39,10 @@ export async function generateRoadmap(lifecycle, context) {
   if (!spec) {
     throw new Error('No spec found — complete SPEC phase first');
   }
+  // System step: spec loaded for roadmap generation
+  if (typeof context?.onSystemStep === 'function') {
+    try { context.onSystemStep('spec_loaded', lifecycle.id, 2); } catch (_) {}
+  }
 
   const prompt = generateRoadmapPrompt(spec);
   const llm = lifecycle.callLLM || callLLM;
