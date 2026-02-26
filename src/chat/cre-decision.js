@@ -2932,6 +2932,40 @@ PRAVIDLA:
     }
 
     // ════════════════════════════════════════════════════════════════════════
+    // v73: WEAK-AMBIGUOUS OVERRIDE (L2 → L3 bridge)
+    // ════════════════════════════════════════════════════════════════════════
+    // When L1 returns AMBIGUOUS but L2 (detectFollowUpType) produced a
+    // strong contextual signal (R1 anaphoric or R2 processing request with
+    // confidence ≥ 0.85), trust L2 and upgrade intent to lastDecision.intent.
+    //
+    // This closes the gap where sticky intent already handled AMBIGUOUS→last
+    // but only for STICKY_INTENTS. The L2 bridge works for ANY lastIntent
+    // because R1/R2 confidence proves genuine follow-up context.
+    //
+    // Safety: Only fires when intent is still AMBIGUOUS after sticky (i.e.
+    // sticky didn't apply or lastIntent wasn't in STICKY_INTENTS).
+    // ════════════════════════════════════════════════════════════════════════
+    const _fuResult = _diag.followUpResult;
+    if (
+      intent === IntentType.AMBIGUOUS &&
+      !isIntentBreak &&
+      _fuResult &&
+      !_fuResult.error &&
+      (_fuResult.rule?.startsWith('R1') || _fuResult.rule?.startsWith('R2')) &&
+      _fuResult.confidence >= 0.85 &&
+      _lastDec?.intent
+    ) {
+      logger.info('CREDecision', `v73 L2 override: AMBIGUOUS → ${_lastDec.intent} (${_fuResult.rule}@${_fuResult.confidence})`, {
+        input: input.substring(0, 50),
+        rule: _fuResult.rule,
+        confidence: _fuResult.confidence,
+        targetIntent: _lastDec.intent,
+      });
+      _diag.overrides.push(`L2_strong_followup:AMBIGUOUS→${_lastDec.intent}(${_fuResult.rule})`);
+      intent = _lastDec.intent;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
     // v72: FOLLOW-UP CONTINUITY OVERRIDE
     // ════════════════════════════════════════════════════════════════════════
     // Problem: LLM classifies short follow-ups ("a co dál?", "ještě něco?")
