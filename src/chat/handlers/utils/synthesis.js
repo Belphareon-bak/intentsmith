@@ -398,7 +398,9 @@ ABSOLUTELY FORBIDDEN:
 
 REQUIRED:
 - ✅ Start with the ANSWER, not the search process
-- ✅ Include at least ONE concrete fact (number, date, name, price)
+- ✅ EXTRACT SPECIFIC DATA from tool results: numbers, percentages, dates, prices, names
+- ✅ If the tool data contains a number (e.g. "15%", "23%", "1000 Kč"), you MUST include it in your response
+- ✅ NEVER write vague summaries when concrete data is available in the tool results
 - ✅ If multiple results: synthesize, don't list
 - ✅ End with [1], [2] source footnotes with FULL URLs
 ═══════════════════════════════════════════════════════════════════════════════`,
@@ -836,6 +838,38 @@ export async function synthesizeWithLLM({
         }
       }
       // ─── End SEARCH link enforcement ──────────────────────────────────
+
+      // ─── v82.2: Numeric density gate (SEARCH queries expecting numbers) ─
+      // If query asks for rates/prices/percentages and response has no numbers,
+      // the model produced a vague summary instead of extracting concrete data.
+      if ((intent === 'SEARCH' || searchSubType) && retryCount < MAX_RETRIES) {
+        const numericQueryPattern = /sazb|kolik|procent|cen[auy]|kurz|dph|výše|hodnot|částk|poplatek|tarif|rate|price|percent|how\s+much/i;
+        if (numericQueryPattern.test(query)) {
+          // Check for concrete factual numbers — strip bare years (2020-2030) first
+          const contentNoYears = result.content.replace(/\b20[2-3]\d\b/g, '');
+          const hasNumber = /\d+[.,]?\d*\s*(%|Kč|CZK|EUR|USD|procent)/i.test(contentNoYears)
+            || /\b\d+\s*(mili[oó]n|tis[ií]c|mld|mrd)/i.test(contentNoYears)
+            || /\b[1-9]\d{2,}\b/.test(contentNoYears);
+          if (!hasNumber) {
+            if (typeof context.onSystemStep === 'function') {
+              try { context.onSystemStep('quality_numeric', 'missing numbers in numeric query', 2); } catch (_) {}
+            }
+            logger.warn('Synthesis', 'Numeric query but response has no concrete numbers, retrying', {
+              query: query.substring(0, 60),
+              retryCount,
+            });
+            synthesisPrompt += `\n\n═══════════════════════════════════════════════════════════════\n` +
+              `⚠️ PŘEDCHOZÍ ODPOVĚĎ NEOBSAHUJE ŽÁDNÁ KONKRÉTNÍ ČÍSLA.\n` +
+              `Dotaz se ptá na sazbu/cenu/procento — MUSÍŠ uvést konkrétní číselné hodnoty z dat.\n` +
+              `Extrahuj čísla (např. "15%", "23%", "1000 Kč") přímo z výsledků vyhledávání.\n` +
+              `NIKDY nepište vágní shrnutí jako "informace najdete na webu" — uveď konkrétní data.\n` +
+              `═══════════════════════════════════════════════════════════════`;
+            retryCount++;
+            continue;
+          }
+        }
+      }
+      // ─── End numeric density gate ──────────────────────────────────────
 
       // Check for fluff
       const fluffCheck = detectFluff(result.content, successfulData);

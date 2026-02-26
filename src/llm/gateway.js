@@ -418,12 +418,23 @@ class LLMGateway {
             });
             throw new Error('LLM call cancelled by user');
           } else {
-            // Timeout — controller.abort() from setTimeout
-            logger.warn('LLMGateway', `Timeout after ${timeout}ms (attempt ${attempt}/${maxRetries})`, {
+            // v82.2: Timeout — DON'T RETRY. The model is working, just slow.
+            // Retrying on timeout doubles the total time (60s+2s+60s > 90s test timeout).
+            // This was the root cause of 5 E2E test timeouts.
+            logger.warn('LLMGateway', `Timeout after ${timeout}ms — not retrying (model is working, just slow)`, {
               abortSource: 'timeout',
+              model,
             });
+            this.audit.log('LLM_CALL_TIMEOUT', {
+              role: authToken?.role,
+              decisionId: authToken?.decisionId,
+              timeout,
+              model,
+            });
+            throw new Error(`LLM timeout after ${timeout}ms (model: ${model})`);
           }
         } else if (err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT') {
+          // Network errors — retry makes sense (Ollama may be starting/restarting)
           logger.warn('LLMGateway', `Network error (attempt ${attempt}/${maxRetries}): ${err.code}`, {
             abortSource: 'network',
           });

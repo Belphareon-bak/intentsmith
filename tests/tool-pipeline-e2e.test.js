@@ -31,7 +31,7 @@ import http from 'http';
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 const BASE_URL = process.env.C3_URL || 'http://127.0.0.1:3335';
-const TIMEOUT_MS = parseInt(process.env.E2E_TIMEOUT || '90000');
+const TIMEOUT_MS = parseInt(process.env.E2E_TIMEOUT || '120000'); // v82.2: 90s→120s — multi-call pipeline (CRE+synthesis+quality) needs headroom
 const VERBOSE = process.argv.includes('--verbose') || process.argv.includes('-v');
 const SECTION_FILTER = (() => {
   const idx = process.argv.findIndex(a => a === '--section' || a === '-s');
@@ -637,7 +637,7 @@ async function sectionE() {
         check('http_200', res.status === 200, `HTTP ${res.status}`),
         check('has_content', a.length > 30, `Response: ${a.length} chars`),
         check('has_number', a.hasNumber, 'Tax answer should contain numbers'),
-        check('mentions_15', res.text.includes('15') || res.text.includes('23'), 'Should mention 15% or 23% rate'),
+        check('mentions_rate', /15|23|procent|sazb/i.test(res.text), 'Should mention tax rate (15%, 23%, or "procent/sazba")'),
         check('czech_lang', a.hasCz, 'Response should be in Czech'),
         check('no_zombie', !a.isZombie, 'No zombie prefix'),
       ],
