@@ -2688,19 +2688,27 @@ PRAVIDLA:
       };
 
       // v73: CRE Diagnostic log — captures full decision pipeline state
+      const _diagSnapshot = {
+        initialIntent: _diag.initialIntent,
+        finalIntent: config.intent,
+        isIntentBreak: _diag.isIntentBreak,
+        lastIntent: _diag.lastIntent,
+        followUp: _diag.followUpResult
+          ? { rule: _diag.followUpResult.rule, confidence: _diag.followUpResult.confidence, type: _diag.followUpResult.type }
+          : null,
+        overrides: _diag.overrides.length > 0 ? _diag.overrides : null,
+      };
+
       logger.info('CRE_DIAG', 'decide() trace', {
         input: input.substring(0, 80),
         classifiedBy,
-        initialIntent: _diag.initialIntent,
-        finalIntent: config.intent,
-        finalType: config.type,
-        isIntentBreak: _diag.isIntentBreak,
-        lastIntent: _diag.lastIntent,
-        followUp: _diag.followUpResult,
-        overrides: _diag.overrides,
+        ..._diagSnapshot,
         confidence: config.confidence,
         slots: config.slots || null,
       });
+
+      // v73: Attach diag to metadata for telemetry persistence
+      config.metadata.diag = _diagSnapshot;
 
       return new CREDecision(config);
     };

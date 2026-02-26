@@ -1,4 +1,4 @@
-// TurnTelemetry v1.0
+// TurnTelemetry v2.0
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Passive telemetry collector for a single turn.
@@ -13,7 +13,7 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
-const TELEMETRY_VERSION = 1;
+const TELEMETRY_VERSION = 2;
 
 export class TurnTelemetry {
   constructor(turnId, sessionId, conversationId) {
@@ -30,6 +30,9 @@ export class TurnTelemetry {
       overrideApplied: false,
       overrideSource: null,
     };
+
+    // v2: CRE diagnostic data (populated from decide() metadata.diag)
+    this.diag = null;
 
     // Decision timing
     this.decideTimeMs = null;
@@ -59,13 +62,24 @@ export class TurnTelemetry {
   /**
    * Record CRE classification result.
    */
-  recordClassification({ intent, classifiedBy, confidence, classificationTimeMs }) {
+  recordClassification({ intent, classifiedBy, confidence, classificationTimeMs, diag }) {
     if (this._finalized) return;
     try {
       this.classification.intent = intent ?? null;
       this.classification.classifiedBy = classifiedBy ?? null;
       this.classification.confidence = confidence ?? null;
       this.classification.classificationTimeMs = classificationTimeMs ?? null;
+      // v2: Whitelist CRE diagnostic fields for persistence
+      if (diag) {
+        this.diag = {
+          initialIntent: diag.initialIntent ?? null,
+          finalIntent: diag.finalIntent ?? null,
+          isIntentBreak: diag.isIntentBreak ?? false,
+          lastIntent: diag.lastIntent ?? null,
+          followUp: diag.followUp ?? null,      // {rule, confidence, type}
+          overrides: diag.overrides ?? null,     // string[] or null
+        };
+      }
     } catch (_) { /* telemetry must not throw */ }
   }
 
@@ -177,6 +191,8 @@ export class TurnTelemetry {
           confidence: this.classification.confidence,
           overrideApplied: this.classification.overrideApplied,
           overrideSource: this.classification.overrideSource,
+          // v2: CRE diagnostic snapshot
+          diag: this.diag ? Object.freeze(this.diag) : null,
         }),
 
         execution: Object.freeze({

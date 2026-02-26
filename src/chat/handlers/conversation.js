@@ -656,6 +656,7 @@ export async function conversationHandler(input, context) {
     classifiedBy: decision.metadata?.classifiedBy,
     confidence: decision.confidence,
     classificationTimeMs: decision.metadata?.classificationTimeMs,
+    diag: decision.metadata?.diag ?? null,
   });
   telemetry?.recordDecision({
     decideTimeMs: decision.metadata?.decideTimeMs,
