@@ -1861,6 +1861,8 @@ export class CREDecisionEngine {
     this._interceptLog = [];  // last N intercepts for diagnostics
     this._maxLogEntries = 50;
     this._db = null;          // optional DB handle for persistent audit
+    // v83: Autonomy — dynamic override threshold
+    this._overrideThreshold = 0.85;
   }
 
   /**
@@ -1874,6 +1876,20 @@ export class CREDecisionEngine {
    */
   bindAuditDb(db) {
     this._db = db;
+  }
+
+  /**
+   * v83: Autonomy — set the L2 override confidence threshold.
+   * Called by autonomy controller when tuning or restoring from DB.
+   * @param {number} value — clamped to [0.5, 1.0] for safety
+   */
+  setOverrideThreshold(value) {
+    if (typeof value !== 'number' || value < 0.5 || value > 1.0) return;
+    this._overrideThreshold = value;
+  }
+
+  getOverrideThreshold() {
+    return this._overrideThreshold;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2960,7 +2976,7 @@ PRAVIDLA:
       _fuResult &&
       !_fuResult.error &&
       (_fuResult.rule?.startsWith('R1') || _fuResult.rule?.startsWith('R2')) &&
-      _fuResult.confidence >= 0.85 &&
+      _fuResult.confidence >= this._overrideThreshold &&
       _lastDec?.intent
     ) {
       logger.info('CREDecision', `v73 L2 override: AMBIGUOUS → ${_lastDec.intent} (${_fuResult.rule}@${_fuResult.confidence})`, {

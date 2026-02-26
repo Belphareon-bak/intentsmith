@@ -16,6 +16,7 @@ export const config = {
     })(),  // Phase D: Expertises
     telemetry: process.env.C3_ENABLE_TELEMETRY !== 'false',  // Resilience telemetry
     specialistTelemetry: process.env.C3_SPECIALIST_TELEMETRY !== 'false',  // v82: Specialist execution observability
+    autonomy: process.env.C3_ENABLE_AUTONOMY === 'true',  // v83: Guarded autonomy (opt-IN, default OFF)
   },
 
   // Server
@@ -132,6 +133,27 @@ export const config = {
     maxMilestoneRetries: parseInt(process.env.C3_MAX_MILESTONE_RETRIES || '3'),
     // Auto-commit on milestone PASS
     autoCommit: (process.env.C3_LIFECYCLE_AUTO_COMMIT || 'true') === 'true',
+  },
+
+  // v83: Guarded Autonomy — self-tuning CRE parameters
+  autonomy: {
+    intervalMs: parseInt(process.env.C3_AUTONOMY_INTERVAL || '900000'),    // 15 min
+    minTurnsPerWindow: parseInt(process.env.C3_AUTONOMY_MIN_TURNS || '10'),
+    trustThreshold: 10,  // consecutive approvals before auto-apply
+    parameters: {
+      overrideThreshold: {
+        min: 0.75,
+        max: 0.90,
+        maxStep: 0.03,
+        default: 0.85,
+      },
+    },
+    rollbackGuards: {
+      askUserSpikePercent: 8.0,
+      breakSpikePercent: 5.0,
+      baselineWindows: 6,
+      cooldownWindows: 2,
+    },
   },
 
   // Logging

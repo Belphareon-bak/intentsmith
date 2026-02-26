@@ -95,6 +95,8 @@ import { createChatRoutes } from './routes/chat.js';
 import { createMiscRoutes } from './routes/misc.js';
 import { createSpecialistRoutes } from './routes/specialists.js';
 import { createQualityRoutes } from './routes/quality.js';
+import { createAutonomyRoutes } from './routes/autonomy.js';
+import { creDecisionEngine } from './chat/cre-decision.js';
 import { toolRegistry } from './tools/registry.js';
 
 // v56.0 Sprint 3: Initialize ConversationStore with DB
@@ -516,6 +518,11 @@ const routes = {
   ...createSpecialistRoutes(routeDeps),
   ...createQualityRoutes(routeDeps),
 
+  // v83: Autonomy routes (only when enabled)
+  ...(config.features.autonomy
+    ? createAutonomyRoutes({ ...routeDeps, creEngine: creDecisionEngine })
+    : {}),
+
   // F1: Setup Wizard routes (always available — idempotent after completion)
   ...createSetupRoutes(setupWizard, routeDeps),
 
@@ -900,6 +907,28 @@ server.listen(config.server.port, config.server.host, async () => {
     logger.info('Server', 'CRE Gatekeeper audit DB bound');
   } catch (err) {
     logger.debug('Server', `CRE audit DB bind skipped: ${err.message}`);
+  }
+
+  // v83: Autonomy background loop
+  if (config.features.autonomy) {
+    try {
+      const { restoreThreshold, runAutonomyCycle } = await import('./autonomy/controller.js');
+
+      // Restore last applied threshold from DB (survives restarts)
+      restoreThreshold(db, creDecisionEngine, logger);
+
+      const autonomyInterval = setInterval(() => {
+        try {
+          runAutonomyCycle(db, creDecisionEngine, logger);
+        } catch (err) {
+          logger.debug('Autonomy', `Cycle error: ${err.message}`);
+        }
+      }, config.autonomy.intervalMs);
+      autonomyInterval.unref();
+      logger.info('Server', `Autonomy loop started (${config.autonomy.intervalMs / 1000}s interval)`);
+    } catch (err) {
+      logger.debug('Server', `Autonomy init skipped: ${err.message}`);
+    }
   }
 
   // F2: Start background update checker (only if repository configured)

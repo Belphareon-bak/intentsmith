@@ -1445,6 +1445,88 @@ export const telemetrySnapshots = {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
+// v83: AUTONOMY (guarded self-tuning)
+// ════════════════════════════════════════════════════════════════════════════
+
+export const telemetryMetrics = {
+  add: db.prepare(`
+    INSERT INTO telemetry_metrics (
+      window_start, window_end, total_turns, ambiguous_count,
+      ask_user_count, break_count, override_count,
+      avg_confidence, override_threshold_at_time, rule_distribution
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `),
+
+  latest: db.prepare(`SELECT * FROM telemetry_metrics ORDER BY window_end DESC LIMIT 1`),
+
+  since: db.prepare(`SELECT * FROM telemetry_metrics WHERE window_start >= ? ORDER BY window_start ASC`),
+
+  // Baseline: AVG over last N windows (excludes low-volume)
+  baseline: db.prepare(`
+    SELECT AVG(ask_user_rate) as avg_ask_user_rate, AVG(break_rate) as avg_break_rate FROM (
+      SELECT (ask_user_count * 1.0 / total_turns) AS ask_user_rate,
+             (break_count * 1.0 / total_turns) AS break_rate
+      FROM telemetry_metrics WHERE total_turns >= ?
+      ORDER BY window_end DESC LIMIT ?
+    )
+  `),
+};
+
+export const telemetryAlerts = {
+  add: db.prepare(`
+    INSERT INTO telemetry_alerts (
+      alert_type, severity, metric_value, baseline_value,
+      threshold_at_time, message
+    ) VALUES (?, ?, ?, ?, ?, ?)
+  `),
+
+  unacknowledged: db.prepare(`SELECT * FROM telemetry_alerts WHERE acknowledged = 0 ORDER BY created_at DESC`),
+
+  acknowledge: db.prepare(`UPDATE telemetry_alerts SET acknowledged = 1 WHERE id = ?`),
+
+  recentByType: db.prepare(`
+    SELECT * FROM telemetry_alerts
+    WHERE alert_type = ? ORDER BY created_at DESC LIMIT ?
+  `),
+};
+
+export const telemetryImprovements = {
+  add: db.prepare(`
+    INSERT INTO telemetry_improvements (
+      parameter, old_value, new_value, reason,
+      status, trust_level, auto_applied
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+  `),
+
+  pending: db.prepare(`SELECT * FROM telemetry_improvements WHERE status = 'proposed' ORDER BY created_at DESC`),
+
+  findById: db.prepare(`SELECT * FROM telemetry_improvements WHERE id = ?`),
+
+  updateStatus: db.prepare(`
+    UPDATE telemetry_improvements
+    SET status = ?, applied_at = CASE WHEN ? = 'applied' THEN CURRENT_TIMESTAMP ELSE applied_at END
+    WHERE id = ?
+  `),
+
+  // Count consecutive applied improvements (for trust calculation)
+  consecutiveApplied: db.prepare(`
+    SELECT COUNT(*) as count FROM (
+      SELECT status FROM telemetry_improvements
+      WHERE parameter = ? AND status IN ('applied', 'rejected', 'rolled_back')
+      ORDER BY created_at DESC LIMIT ?
+    ) WHERE status = 'applied'
+  `),
+
+  latestByParam: db.prepare(`
+    SELECT * FROM telemetry_improvements WHERE parameter = ? ORDER BY created_at DESC LIMIT 1
+  `),
+
+  latestApplied: db.prepare(`
+    SELECT * FROM telemetry_improvements WHERE parameter = ? AND status = 'applied' ORDER BY applied_at DESC LIMIT 1
+  `),
+};
+
+// ════════════════════════════════════════════════════════════════════════════
 // UTILITIES
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -1498,6 +1580,10 @@ export default {
   qualityScores,
   // v81 Telemetry
   telemetrySnapshots,
+  // v83 Autonomy
+  telemetryMetrics,
+  telemetryAlerts,
+  telemetryImprovements,
   transaction,
   close,
 };
