@@ -38,24 +38,23 @@ Když LLM selže (prázdná odpověď), regex fallback dá alespoň REPORT (tool
 | "analyzuj soubory ze složky" | CONVERSATIONAL | FILE_EXPLAIN |
 | "udělej mi výtah z projektu z tohoto folderu" | AMBIGUOUS | FILE_READ (LLM) |
 
-### v84.1 — Directory Listing Detection Fix
+### v84.1 — FILE_READ bez souboru → directory listing
 
-`detectFileIntent()` v project handleru neropoznal dotazy na výpis souborů:
-- "dej mi seznam souboru ve slozce" — `složce` (lokativ) nematchoval `slozk` pattern
-- "soubory ve workspace" — `workspace` nebylo v project-ref termínech
+Architektonický fix: místo přidávání hardcoded frází do `detectFileIntent`, file handler sám defaultuje na directory listing ('.' = project root) když:
+- Intent je FILE_READ
+- Uživatel má aktivní projekt
+- Není specifikován konkrétní soubor
 
-**Opravy:**
-- `hasFileSignal`: `slozk` → `sloz` (všechny české pády), přidán `seznam`
-- `hasProjectRef`: přidáno `workspace`, `teto`/`tehle`/`tuhle` (české fem. ukazovací zájmena)
-- Nový `hasLocationRef`: "ve složce"/"v adresáři"/"z folderu" = implicitní reference na project folder
-- Check 4: "seznam souborů"/"obsah složky"/"list files" bez project-ref (jsme v project mode)
+Funguje pro **jakoukoliv formulaci** — stačí, aby LLM klasifikátor rozpoznal záměr jako FILE_READ v project kontextu. `readFileSafe` + `formatFileReadResponse` už directory listing podporují (📁/📄 výpis).
+
+Revertovány hardcoded pattern rozšíření z v84.1-draft (seznam, workspace, hasLocationRef, check 4) — nejsou potřeba.
 
 ### Soubory
 
 | Soubor | Změna |
 |--------|-------|
 | `src/chat/cre-decision.js` | Project hint v `_llmClassifyIntent()`, project-scope v `REPORT_FRESH_CONTEXT` |
-| `src/chat/handlers/project.js` | `detectFileIntent()` — rozšířené file/project/location patterny + check 4 |
+| `src/chat/handlers/file.js` | FILE_READ bez filePath v project mode → default `'.'` (directory listing) |
 
 ---
 

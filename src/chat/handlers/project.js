@@ -219,29 +219,17 @@ function detectFileIntent(input, projectPath) {
   }
 
   // ── 2. "list files/contents" + project reference → directory listing ──────
-  // v84: slozk→sloz (catches all Czech inflections: složka/složce/složek/složky)
-  //       Added: seznam (CZ "list"), workspace
-  const hasFileSignal = /soubor|obsah|struktur|adres|sloz|files|directory|contents|folder|tree|listing|seznam/i.test(stripped);
-  // v84: teto/tehle/tuhle = Czech fem/coll demonstrative "this" (tomto = masc only)
-  const hasProjectRef = /projekt|project|tomto|teto|tehle|tuhle|tady|zde|here|this|workspace/i.test(stripped);
-  // v84: "ve složce"/"v adresáři"/"z folderu" in project mode = implicit project folder
-  const hasLocationRef = /(ve?|ze?)\s+(sloz|fold|adres)/i.test(stripped);
+  const hasFileSignal = /soubor|obsah|struktur|adres|slozk|files|directory|contents|folder|tree|listing/i.test(stripped);
+  const hasProjectRef = /projekt|project|tomto|tady|zde|here|this/i.test(stripped);
 
-  if (hasFileSignal && (hasProjectRef || hasLocationRef)) {
+  if (hasFileSignal && hasProjectRef) {
     return { detected: true, filePath: '.', reason: 'file-signal+project-ref' };
   }
 
   // ── 3. "co je v" / "what's in" + project reference (no explicit file word) ─
-  // v84: Added seznam, vypis for Czech "list files" queries
-  if (/co\s+je|co\s+tam|what'?s?\s+in|ukaz|zobraz|show|list|seznam|vypis/i.test(stripped) &&
-      (hasProjectRef || hasLocationRef) && tokens.length <= 10) {
+  if (/co\s+je|co\s+tam|what'?s?\s+in|ukaz|zobraz|show|list/i.test(stripped) &&
+      hasProjectRef && tokens.length <= 10) {
     return { detected: true, filePath: '.', reason: 'content-query+project-ref' };
-  }
-
-  // ── 4. Bare file listing request (in project mode, no ref needed) ──────────
-  // v84: "seznam souborů", "list files" — already in project mode
-  if (/seznam\s+soubor|list\s+(of\s+)?files|vypis\s+soubor|obsah\s+sloz|obsah\s+adres|contents\s+(of\s+)?(the\s+)?fold/i.test(stripped)) {
-    return { detected: true, filePath: '.', reason: 'file-list-query' };
   }
 
   return { detected: false, filePath: null, reason: null };

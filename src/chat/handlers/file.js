@@ -253,7 +253,11 @@ function formatSecurityBlock(filePath, reason, lang = 'cs') {
 export async function handleFileDecision(input, decision, context) {
   const { sessionState } = context;
   const handler = decision.metadata?.handler || 'file.read';
-  const filePath = decision.metadata?.filePath;
+  // v84: When FILE_READ has no specific file in project mode → default to directory listing ('.')
+  // This removes the need for hardcoded phrase matching — any input the LLM classifies
+  // as FILE_READ in project context will fall back to listing the project root.
+  const filePath = decision.metadata?.filePath
+    || (decision.intent === IntentType.FILE_READ && context.hasActiveProject ? '.' : null);
   const projectPath = decision.metadata?.projectScope?.projectPath
     || context.project?.path
     || process.cwd();
