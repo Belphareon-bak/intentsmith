@@ -7,6 +7,7 @@ var inversify_1 = require("@theia/core/shared/inversify");
 var browser_1 = require("@theia/core/lib/browser");
 var react_widget_1 = require("@theia/core/lib/browser/widgets/react-widget");
 var ReactDOM = require("@theia/core/shared/react-dom");
+var _createRoot = (ReactDOM.createRoot || function(c){return{render:function(el){ReactDOM.render(el,c);}};});
 var React = require("@theia/core/shared/react");
 var h = React.createElement;
 
@@ -373,8 +374,37 @@ function _loadWorkspaceTree(rootPath){
       FILES=_flattenTree(data.tree,0,null);
     }
     renderSidebar();
+    _fetchGitStatus();
   }).catch(function(){_wtLoading=false;renderSidebar();});
 }
+/* ── Fetch git status and merge into file entries ── */
+var _gitStatusTimer=null;
+function _fetchGitStatus(){
+  if(!_wtRoot)return;
+  fetch(_backendBase+'/api/workspace/git-status?path='+encodeURIComponent(_wtRoot),{signal:AbortSignal.timeout(3000)})
+  .then(function(r){return r.json();})
+  .then(function(data){
+    if(!data.files)return;
+    FILES.forEach(function(f){
+      if(f.d)return;
+      var fp=f.fp;
+      /* git status uses path relative to repo root — try both fp and full constructions */
+      var st=data.files[fp]||data.files[f.p?(f.p+'/'+f.n):f.n]||null;
+      /* Map git porcelain codes: M=modified, A=added, D=deleted, ??=untracked, AM, MM etc */
+      if(st==='??')f.st='U';
+      else if(st)f.st=st.charAt(0)===' '?st.charAt(1):st.charAt(0);
+      else f.st=null;
+    });
+    renderSidebar();
+  }).catch(function(){});
+}
+/* ── Refresh git status after file save (Ctrl+S / Cmd+S) ── */
+document.addEventListener('keydown',function(e){
+  if((e.ctrlKey||e.metaKey)&&e.key==='s'){
+    clearTimeout(_gitStatusTimer);
+    _gitStatusTimer=setTimeout(_fetchGitStatus,800);
+  }
+});
 /* ── Re-flatten without re-fetching (for collapse toggle) ── */
 function _reflattenTree(){
   if(_wtRawTree){FILES=_flattenTree(_wtRawTree,0,null);renderSidebar();}
@@ -632,7 +662,8 @@ class C3SidebarWidget extends react_widget_1.ReactWidget {
   }
   _render(){
     var self=this;
-    ReactDOM.render(h(SidebarApp,{getState:function(){return{active:self._active,dd:self._dd,collapsed:self._collapsed};},setState:function(s){if(s.active!==undefined)self._active=s.active;if(s.dd!==undefined)self._dd=s.dd;if(s.collapsed!==undefined){self._collapsed=s.collapsed;try{var app=window._c3App;if(app&&app.shell&&typeof app.shell.resize==='function'){app.shell.resize(s.collapsed?48:240,'left');}}catch(ex){}}self._render();}}),this.node);
+    if(!this._root)this._root=_createRoot(this.node);
+    this._root.render(h(SidebarApp,{getState:function(){return{active:self._active,dd:self._dd,collapsed:self._collapsed};},setState:function(s){if(s.active!==undefined)self._active=s.active;if(s.dd!==undefined)self._dd=s.dd;if(s.collapsed!==undefined){self._collapsed=s.collapsed;try{var app=window._c3App;if(app&&app.shell&&typeof app.shell.resize==='function'){app.shell.resize(s.collapsed?48:240,'left');}}catch(ex){}}self._render();}}));
   }
 }
 inversify_1.decorate(inversify_1.injectable(),C3SidebarWidget);
@@ -864,7 +895,8 @@ var PROJECT_TYPES=[
   {id:'data',label:'Data / ML',icon:'📊',desc:'Analýza dat, ML model, pipeline'}
 ];
 var _centerContainer=null;
-function renderCenter(){if(!_centerContainer)return;ReactDOM.render(h(CenterApp,null),_centerContainer);}
+var _centerRoot=null;
+function renderCenter(){if(!_centerContainer)return;if(!_centerRoot)_centerRoot=_createRoot(_centerContainer);_centerRoot.render(h(CenterApp,null));}
 
 function CenterApp(){
   var view=_centerState.view,detail=_centerState.detail;
@@ -2358,7 +2390,7 @@ function _setActiveTab(tabId){
   if(nxt&&nxt.scrollTop){setTimeout(function(){var el=document.getElementById('c3-editor-scroll');if(el)el.scrollTop=nxt.scrollTop;},50);}
 }
 
-function _backToGrid(){_editorState.active=false;renderCenter();}
+function _backToGrid(){_editorState.active=false;if(_centerContainer)_centerContainer.style.display='';renderCenter();}
 
 function _persistEditorState(){
   try{localStorage.setItem('c3-editor-state',JSON.stringify({
@@ -2931,7 +2963,7 @@ if(typeof C3Bus!=='undefined'){
 
 /* Nav event handler */
 window.addEventListener('c3-nav',function(e){
-  _centerState.view=e.detail.view;_centerState.detail=null;_centerState.detailConversations=null;_centerState.settingsSection=null;_editorState.active=false;fetchBackendData();renderCenter();
+  _centerState.view=e.detail.view;_centerState.detail=null;_centerState.detailConversations=null;_centerState.settingsSection=null;_editorState.active=false;if(_centerContainer)_centerContainer.style.display='';fetchBackendData();renderCenter();
   if(e.detail.select){
     var name=e.detail.select,view=e.detail.view,item=null;
     if(view==='expertises'){item=EXPERTISES.find(function(x){return x.name===name||x.name.indexOf(name)>=0;});if(item)setDetail({name:item.name,fields:[{k:'Typ',v:item.desc},{k:'Doména',v:item.domain||'general'},{k:'Emoji',v:item.emoji},{k:'Specialista',v:item.isSpecialist?'Ano':'Ne'},{k:'Oblíbený',v:item.fav?'Ano':'Ne'}],tags:[item.isSpecialist?'Specialista':'Expertyza',item.domain||item.desc].filter(Boolean),actions:['Otevřít','Editovat']});}
@@ -3335,7 +3367,8 @@ function _initTransport() {
 /* Delayed init — give modules time to load */
 setTimeout(_initTransport, 200);
 
-function renderChat(){if(!_chatContainer)return;ReactDOM.render(h(ChatApp,null),_chatContainer);}
+var _chatRoot=null;
+function renderChat(){if(!_chatContainer)return;if(!_chatRoot)_chatRoot=_createRoot(_chatContainer);_chatRoot.render(h(ChatApp,null));}
 function _chatScrollPane(idx){setTimeout(function(){var f=document.getElementById('c3-chat-feed-'+idx);if(f)f.scrollTop=f.scrollHeight;},60);}
 
 /* Expose for cross-component communication */
@@ -3710,7 +3743,8 @@ var TC={cre:C.cyan,llm:C.purple,tool:C.amber,gate:C.accentText,turn:C.blue,sys:C
 var _agentContainer=null;
 var _turnCollapsed={};
 var _scrollOnNewOnly=false;
-function renderAgent(){if(!_agentContainer)return;ReactDOM.render(h(AgentApp,null),_agentContainer);_agentScrollBottom();}
+var _agentRoot=null;
+function renderAgent(){if(!_agentContainer)return;if(!_agentRoot)_agentRoot=_createRoot(_agentContainer);_agentRoot.render(h(AgentApp,null));_agentScrollBottom();}
 function _agentScrollBottom(){if(_scrollOnNewOnly){_scrollOnNewOnly=false;return;}setTimeout(function(){if(!_agentContainer)return;var divs=_agentContainer.querySelectorAll('div');for(var i=0;i<divs.length;i++){var d=divs[i];if(d.style.overflowY==='auto'&&d.scrollHeight>d.clientHeight+20){d.scrollTop=d.scrollHeight;}}},80);}
 
 function _agentLogContent(s){
@@ -4014,8 +4048,34 @@ inversify_1.decorate(inversify_1.injectable(),C3StatusContrib);
    ═══════════════════════════════════════════════════════════ */
 exports.default = new inversify_1.ContainerModule(function(bind){
   // Sidebar
+  var _URI = require("@theia/core/lib/common/uri").default;
   bind(C3SidebarWidget).toSelf();
-  bind(browser_1.WidgetFactory).toDynamicValue(function(ctx){return{id:C3_SIDEBAR_ID,createWidget:function(){return ctx.container.get(C3SidebarWidget);}};}).inSingletonScope();
+  bind(browser_1.WidgetFactory).toDynamicValue(function(ctx){
+    // Expose OpenerService for file editing via Monaco editor (runs when sidebar factory is resolved)
+    if(!window._c3OpenFileInEditor){
+      try{
+        var openerService=ctx.container.get(browser_1.OpenerService);
+        window._c3OpenFileInEditor=function(filePath){
+          try{
+            var uri=new _URI(filePath);
+            // Hide center container so Monaco editor is visible
+            if(_centerContainer)_centerContainer.style.display='none';
+            openerService.getOpener(uri).then(function(opener){
+              return opener.open(uri,{mode:'activate'});
+            }).catch(function(err){
+              console.error('[C3] Opener error:',err);
+              if(_centerContainer)_centerContainer.style.display='';
+            });
+          }catch(err){
+            console.warn('[C3] Editor open failed:',err);
+            if(_centerContainer)_centerContainer.style.display='';
+          }
+        };
+        console.log('[C3] OpenerService ready — file editing via Monaco enabled');
+      }catch(e){console.warn('[C3] OpenerService not available:',e);}
+    }
+    return{id:C3_SIDEBAR_ID,createWidget:function(){return ctx.container.get(C3SidebarWidget);}};
+  }).inSingletonScope();
   browser_1.bindViewContribution(bind,C3SidebarContrib);
   bind(browser_1.FrontendApplicationContribution).toService(C3SidebarContrib);
 

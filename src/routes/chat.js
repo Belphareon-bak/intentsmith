@@ -349,6 +349,7 @@ export function createChatRoutes(deps) {
           message,
           sessionId: conversation_id,
           userId: body.userId || null,
+          attachments: body.attachments || [],
           signal: abortController.signal,  // v63.0: propagate cancel signal
           context: {
             projectId: project_id,
