@@ -77,7 +77,7 @@ export const config = {
     R1: 120000,       // 120s — deep review (= D1)
     R2: 45000,        // 45s — quick review
 
-    CHAT: 60000,
+    CHAT: 90000,        // v82.2: 60s→90s — 32B synthesis routinely needs >60s for Czech
     VISION: 60000,
   },
 
@@ -154,6 +154,16 @@ export const config = {
       baselineWindows: 6,
       cooldownWindows: 2,
     },
+  },
+
+  // File handling limits
+  limits: {
+    maxFileSize: parseInt(process.env.C3_MAX_FILE_SIZE || String(1024 * 1024)),            // 1 MB
+    maxDisplayLines: parseInt(process.env.C3_MAX_DISPLAY_LINES || '500'),
+    maxTextAttachment: parseInt(process.env.C3_MAX_TEXT_ATTACHMENT || String(1024 * 1024)), // 1 MB
+    maxImageAttachment: parseInt(process.env.C3_MAX_IMAGE_ATTACHMENT || String(5242880)),   // 5 MB
+    maxBodySize: parseInt(process.env.C3_MAX_BODY_SIZE || String(6291456)),                 // 6 MB
+    maxTreeDepth: parseInt(process.env.C3_MAX_TREE_DEPTH || '5'),
   },
 
   // Logging

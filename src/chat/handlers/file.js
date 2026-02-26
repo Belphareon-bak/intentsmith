@@ -19,11 +19,12 @@ import { getLanguageContext } from './utils/language.js';
 import { synthesizeWithLLM } from './utils/synthesis.js';
 import fs from 'fs/promises';
 import path from 'path';
+import { config } from '../../config.js';
 
 // ─── Security constants ──────────────────────────────────────────────────────
 
-const MAX_FILE_SIZE = 1024 * 1024; // 1 MB
-const MAX_DISPLAY_LINES = 500;    // Truncate display after this many lines
+const MAX_FILE_SIZE = config.limits.maxFileSize;
+const MAX_DISPLAY_LINES = config.limits.maxDisplayLines;
 const FORBIDDEN_PATHS = [
   '/etc', '/proc', '/sys', '/dev', '/root',
   '/boot', '/sbin', '/usr/sbin', '/var/log',

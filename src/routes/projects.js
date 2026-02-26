@@ -2,7 +2,7 @@
 import { generateReadme, ensureReadme } from '../chat/handlers/utils/readme-generator.js';
 
 export function createProjectRoutes(deps) {
-  const { db, parseBody, sendJSON, safeError, safeParseInt, sendStaticFile, logger, path } = deps;
+  const { db, parseBody, sendJSON, safeError, safeParseInt, sendStaticFile, logger, path, config } = deps;
 
   return {
     // ══════════════════════════════════════════════════════════════════════════
@@ -892,7 +892,8 @@ export function createProjectRoutes(deps) {
           return result.sort((a, b) => (b.d ? 1 : 0) - (a.d ? 1 : 0) || a.n.localeCompare(b.n));
         }
 
-        const tree = await readTree(projectPath, 0, 5);
+        const maxDepth = config?.limits?.maxTreeDepth || 5;
+        const tree = await readTree(projectPath, 0, maxDepth);
         sendJSON(res, 200, { tree, root: projectPath });
       } catch (err) {
         sendJSON(res, 500, { error: err.message });
@@ -938,7 +939,8 @@ export function createProjectRoutes(deps) {
 
         const fsP = await import('fs/promises');
         const stat = await fsP.stat(resolved);
-        if (stat.size > 2 * 1024 * 1024) { sendJSON(res, 413, { error: 'File too large (max 2MB)' }); return; }
+        const maxSize = config?.limits?.maxFileSize || 1048576;
+        if (stat.size > maxSize) { sendJSON(res, 413, { error: `File too large (max ${Math.round(maxSize/1024/1024)}MB)` }); return; }
 
         const content = await fsP.readFile(resolved, 'utf-8');
         const { createHash } = await import('crypto');

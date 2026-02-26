@@ -248,7 +248,7 @@ if (AgentRepository) {
 // REQUEST HELPERS
 // ════════════════════════════════════════════════════════════════════════════
 
-const MAX_BODY_SIZE = 6 * 1024 * 1024; // 6MB (supports 1MB text + 5MB image attachments)
+const MAX_BODY_SIZE = config.limits.maxBodySize;
 
 // H1: Error sanitization — never leak internal error details to clients
 function safeError(err) {
@@ -274,7 +274,7 @@ async function parseBody(req) {
       size += chunk.length;
       if (size > MAX_BODY_SIZE) {
         req.destroy();
-        reject(new Error('Request body too large (max 1MB)'));
+        reject(new Error(`Request body too large (max ${Math.round(MAX_BODY_SIZE/1024/1024)}MB)`));
         return;
       }
       body += chunk;
@@ -492,6 +492,7 @@ const routes = {
       version: getCurrentVersion(),
       status: 'ok',
       setupComplete,
+      limits: config.limits,
       endpoints: [
         'POST /chat',
         'POST /planner/start',
@@ -505,6 +506,10 @@ const routes = {
       ],
     });
   },
+
+  // Health alias (frontend fetches /api/health)
+  'GET /api/health': (req, res) => routes['GET /'](req, res),
+  'GET /health': (req, res) => routes['GET /'](req, res),
 
   // H9: Spread route modules
   ...createChatRoutes(routeDeps),
@@ -788,8 +793,8 @@ const server = http.createServer(async (req, res) => {
   try {
     await route.handler(req, res, route.params);
   } catch (err) {
-    if (err.message === 'Request body too large (max 1MB)') {
-      return sendJSON(res, 413, { error: 'Request body too large (max 1MB)' });
+    if (err.message?.startsWith('Request body too large')) {
+      return sendJSON(res, 413, { error: err.message });
     }
     if (err.message === 'Invalid JSON in request body') {
       return sendJSON(res, 400, { error: 'Invalid JSON in request body' });
