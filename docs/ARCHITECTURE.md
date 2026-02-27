@@ -1,8 +1,8 @@
-# C.3 Agent Platform — Architecture v78
+# C.3 Agent Platform — Architecture v85
 
-**Version:** v78.0.0 (Ledger, Specialist Platform, Conversation Hardening, Project Cleanup)
+**Version:** v86.0.0 (Skills System, Runtime FeatureManager, Tool Registry 153 tools)
 **Status:** Production-ready, ~98% complete
-**Date:** 2026-02-24
+**Date:** 2026-02-27
 
 ---
 
@@ -15,6 +15,8 @@ C.3 is a conversational AI platform combining:
 3. **Project Lifecycle** — Milestone-based project management with crash recovery
 4. **Expertise System** — 15 domain expertises with 5D capability profiles, multi-expertise merge engine, enforcement pipeline
 5. **Notification Pipeline** — Multi-channel delivery (email, Telegram, ntfy.sh push)
+6. **Skills System** (v85) — Deterministic macro-recipes for repeating procedures (LLM, template, write, shell steps)
+7. **Guarded Autonomy** (v83) — Self-tuning CRE parameters via telemetry-driven drift detection
 
 All decisions flow through CRE — LLM is the text generator, never the authority.
 
@@ -46,16 +48,23 @@ All decisions flow through CRE — LLM is the text generator, never the authorit
 │   │  (v63 Merge Engine) │           │                         │     │
 │   │  15 expertises,5D   │           │  Policy → Router        │     │
 │   │  Merge + Enforce    │           │  → Channel → Delivery   │     │
-│   └─────────────────────┘           │                         │     │
-│                                     │  → Trust Feedback       │     │
-│              ┌──────────────────────┘────────────────────────┐      │
-│              │         Project Lifecycle (Phase C)            │      │
-│              │  SPEC → BUILD → REVIEW → milestones           │      │
-│              │  Crash recovery, multi-session                 │      │
-│              └───────────────────────────────────────────────┘      │
+│   └──────────┬──────────┘           │                         │     │
+│              │                      │  → Trust Feedback       │     │
+│   ┌──────────▼──────────┐           └─────────────────────────┘     │
+│   │  Skills System (v85)│                                           │
+│   │  Registry → Resolver│           ┌───────────────────────────┐   │
+│   │  → Runner → Steps   │           │  Guarded Autonomy (v83)   │   │
+│   │  (LLM,tmpl,write,sh)│           │  Aggregator → Drift Det. │   │
+│   └─────────────────────┘           │  → Controller → Threshold │   │
+│                                     └───────────────────────────┘   │
+│              ┌──────────────────────────────────────────────┐       │
+│              │         Project Lifecycle (Phase C)           │       │
+│              │  SPEC → BUILD → REVIEW → milestones          │       │
+│              │  Crash recovery, multi-session                │       │
+│              └──────────────────────────────────────────────┘       │
 ├──────────────────────────────────────────────────────────────────────┤
 │                        Database (SQLite)                              │
-│                    53 tables, prepared statements                     │
+│                    55 tables, prepared statements                     │
 ├──────────────────────────────────────────────────────────────────────┤
 │                     LLM Gateway (Ollama)                             │
 │              qwen2.5:32b (CHAT), deepseek-r1:32b (D1/R1)            │
@@ -146,6 +155,9 @@ src/                             # 73,706 lines / 188 files / 20 directories
 │   ├── gateway.js               #   Token-based routing, timeouts
 │   ├── client.js                #   Ollama HTTP client
 │   └── web-search.js            #   Brave Search integration
+├── tools/                       # Tool Registry (153 tools)
+│   ├── registry.js              #   Central catalog: 153 tools, metadata, risk API (~4500 lines)
+│   └── http-client.js           #   HTTP client wrapper
 ├── executor/                    # Tool execution
 │   ├── tool-executor.js         #   Main execution engine
 │   ├── circuit-breaker.js       #   Failure isolation
@@ -350,7 +362,54 @@ LLM Response → QGv2 Pipeline
 - `quality-pipeline.js` — Orchestration
 - `language-enforcement.js` — SK→CZ transliterator (~160 regex rules, 49 SK_MARKERS)
 
-### 7. Channel Adapters
+### 7. Tool Registry (153 tools)
+
+Central catalog of all executable tools (`src/tools/registry.js`). Each tool is a pure async function with typed parameters, capability metadata, and structured return values.
+
+**153 tools** across 35 categories:
+
+| Category | Count | Examples |
+|----------|-------|---------|
+| **fs** | 20 | read, write, list, glob, mkdir, readJson, writeJson, patch, find |
+| **git** | 18 | status, commit, diff, push, pull, clone, branch, merge, rebase, blame |
+| **code** | 7 | analyze, format, lint, imports, deadcode, rename, duplicates |
+| **npm** | 7 | install, run, list, outdated, audit, init, scripts |
+| **docker** | 6 | run, build, ps, images, logs, compose |
+| **crypto** | 5 | randomBytes, generatePassword, encrypt, decrypt, uuid |
+| **deps** | 4 | tree, licenses, size, vuln |
+| **guard** | 4 | disk, memory, fd, watchdog |
+| **profile** | 4 | cpu, heap, eventloop, benchmark |
+| **api** | 4 | request, latency, validate, loadtest |
+| **date/url/validate** | 4+4+4 | now, parse, diff, format / parse, build, encode, decode |
+| ... | 62 | math, regex, yaml, diff, test, python, ssh, web, workspace, ... |
+
+**Capability metadata** on every tool:
+
+```javascript
+meta: {
+  sideEffects: boolean,       // Modifies external state?
+  idempotent: boolean,        // Safe to retry?
+  destructive: boolean,       // Can cause data loss?
+  requiresConfirmation: bool, // Needs user approval?
+  costLevel: 'free'|'low'|'medium'|'high',
+  category: 'pure'|'read'|'write'|'exec'|'net'
+}
+```
+
+**Risk classification API:**
+- `safeForAutoExec()` → 91 tools safe for autonomous use
+- `requiresConfirmation()` → 37 tools needing user approval
+- `destructive()` → 7 tools that can cause data loss
+- `riskAssessment(name)` → `{ risk: 'safe'|'low'|'medium'|'high'|'critical', reasons, meta }`
+
+**Invariants:**
+1. `destructive: true` → `requiresConfirmation: true`
+2. `category: 'pure'` → `sideEffects: false`
+3. `category: 'read'` → `sideEffects: false`
+
+Full reference: [docs/tools/REGISTRY.md](tools/REGISTRY.md)
+
+### 8. Channel Adapters
 
 Normalize input from any source into `C3InputEvent`:
 

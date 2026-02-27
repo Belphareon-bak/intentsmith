@@ -350,3 +350,4 @@ These additions are covered by `tests/e2e-resilience.test.js` (31 tests).
 |---------|------|---------|
 | 1.0 | 2026-02-07 | Initial contract |
 | 1.1 | 2026-02-24 | Added Appendix B (ToolExecutor enhanced implementation) |
+| 1.2 | 2026-02-27 | Added cross-reference to Tool Registry (153 tools, see [REGISTRY.md](REGISTRY.md)) |

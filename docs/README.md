@@ -1,4 +1,4 @@
-# C3-Agent v81.0.0
+# C3-Agent v86.0.0
 
 Conversational AI platforma s CRE decision enginem, CRE Gatekeeper audit trail, 15 domain expertyzami s 5D capability profily, multi-expertise merge enginem, enforcement pipeline, resilience layer (circuit breaker, auto-retry, telemetry), quality score engine, Project Lifecycle a C3 Studio IDE (Theia 1.65.2).
 
@@ -65,6 +65,7 @@ Vsechny promenne se nacitaji z `.env` souboru pres `dotenv`. Viz `.env.example` 
 | [SPECIALIST-LIFECYCLE.md](SPECIALIST-LIFECYCLE.md) | Specialist plugin lifecycle |
 | [WORKERS.md](WORKERS.md) | Worker agenty — Runner, Scheduler, zdroje, podminky, triggery, notifikace |
 | [EXECUTOR_CONTRACT.md](tools/EXECUTOR_CONTRACT.md) | Tool executor kontrakt (circuit breaker, retry, partial failure) |
+| [REGISTRY.md](tools/REGISTRY.md) | Tool Registry — 153 nastroju, capability metadata, risk classification, API reference |
 
 ### Planovani & Vyvoj
 
@@ -199,6 +200,9 @@ C3_LOG_LEVEL=error node tests/telemetry-soak.test.js  # 13 (1000 turns)
 node tests/quality-score.test.js           # 36
 node tests/quality-telemetry.test.js       # 34
 
+# Tool Registry (75 testu)
+node tests/tool-registry-e2e.test.js       # 75
+
 # Schema migrations
 node tests/schema-migrations.test.js       # 26
 
@@ -214,4 +218,4 @@ OLLAMA_URL=http://127.0.0.1:11434 node tests/conv-czech-nodiacritics.test.js
 
 ---
 
-*Posledni aktualizace: v81.0.0 (2026-02-25)*
+*Posledni aktualizace: v86.0.0 (2026-02-27)*
