@@ -1,9 +1,9 @@
-# C3-Agent — Roadmapa v12
+# C3-Agent — Roadmapa v13
 
 ## Od aktuálního stavu k vizi
 
-**Datum:** 2026-02-24
-**Verze kódu:** v82.0.0 (Quality Score + Telemetry + Specialist Memory + Specialist Telemetry)
+**Datum:** 2026-02-26
+**Verze kódu:** v85.0.0 (Skills System + Runtime FeatureManager + Guarded Autonomy)
 **Testy:** ~2100+ verified (683 lifecycle+quality, 401 CRE, 350 conversation, 218 ledger, 270 specialist, 200+ quality)
 **IDE:** C3 Studio (Theia 1.65.2), 33 custom extensions, Phase 1-5 (~73%)
 
@@ -44,6 +44,9 @@ Installer, licence, auto-update, setup wizard.
 - v65.7: A7 Expertise A/B test ✅ — 5 domén, expertise win/tie 5/5
 - v72: Conversation hardening — EN local date fix, Christmas template, CRE drift guard
 - v72: 350/350 conversation tests (CZ 150, EN 150, ND 50)
+- v83: **Guarded Autonomy** — self-tuning override threshold (telemetry → drift detection → auto-adjust)
+- v85: **Skills System** — deterministic macro-recipes (registry, resolver, runner, 4 step types)
+- v85: **Runtime FeatureManager** — hot-toggle features z IDE Settings bez restartu serveru
 
 ### Pilíř 2: PROJEKTY — 100% ✅
 **Status: PHASE C = DONE. Quality Scoring layer přidán v80.**

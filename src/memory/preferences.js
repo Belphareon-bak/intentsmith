@@ -356,12 +356,26 @@ export class UserPreferences {
     const adjustment = adjustments[0];
     this[adjustment.axis] = adjustment.newValue;
 
+    // v86: Persist adjustment to LTM (survives restart)
+    if (this._ltm) {
+      try {
+        this._ltm.write({
+          kind: 'preference',
+          key: adjustment.axis,
+          value: adjustment.newValue,
+          source: 'inferred',
+          confidence: 0.7,
+        });
+      } catch (_) {}
+    }
+
     logger.debug('UserPreferences', 'Adjusted preference', {
       axis: adjustment.axis,
       from: adjustment.oldValue,
       to: adjustment.newValue,
       responseType: context.responseType,
       feedbackType,
+      persisted: !!this._ltm,
     });
 
     return adjustment;

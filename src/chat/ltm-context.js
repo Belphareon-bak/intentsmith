@@ -21,6 +21,7 @@
 
 import { logger } from '../core/logger.js';
 import { MemoryKind } from '../memory/long-term.js';
+import { rankForContext } from '../memory/injection-ranker.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LTM Context Extraction
@@ -37,12 +38,16 @@ import { MemoryKind } from '../memory/long-term.js';
  * @param {number} [opts.minConfidence=0.6] — Minimum confidence threshold
  * @param {number} [opts.maxFacts=10] — Maximum facts to include
  * @param {string[]} [opts.kinds] — Specific kinds to include (default: all relevant)
- * @returns {{ facts: Array<{ kind: string, key: string, value: any }>, count: number }}
+ * @param {string} [opts.input] — Current user input (for M2 ranked scoring)
+ * @param {string} [opts.intent] — Current CRE intent (for M2 ranked scoring)
+ * @returns {{ facts: Array<{ kind: string, key: string, value: any, score?: number }>, count: number }}
  */
 export function extractLTMContext(ltm, opts = {}) {
   const {
     minConfidence = 0.6,
     maxFacts = 10,
+    input = null,
+    intent = null,
     kinds = [
       MemoryKind.PREFERENCE,
       MemoryKind.STYLE,
@@ -67,6 +72,9 @@ export function extractLTMContext(ltm, opts = {}) {
             key: entry.key,
             value: entry.value,
             confidence: entry.confidence,
+            effectiveConfidence: entry.effectiveConfidence,
+            accessCount: entry.accessCount,
+            source: entry.source,
           });
         }
       }
@@ -76,10 +84,23 @@ export function extractLTMContext(ltm, opts = {}) {
     return { facts: [], count: 0 };
   }
 
-  // Sort by confidence (highest first), then limit
-  const sorted = allFacts
-    .sort((a, b) => (b.confidence || 0) - (a.confidence || 0))
-    .slice(0, maxFacts);
+  // v86 M2: Use ranked scoring when input + intent are available
+  let sorted;
+  if (input && intent) {
+    try {
+      sorted = rankForContext(allFacts, input, intent).slice(0, maxFacts);
+    } catch (err) {
+      logger.debug('LTMContext', `rankForContext failed, falling back to confidence sort: ${err.message}`);
+      sorted = allFacts
+        .sort((a, b) => (b.effectiveConfidence || b.confidence || 0) - (a.effectiveConfidence || a.confidence || 0))
+        .slice(0, maxFacts);
+    }
+  } else {
+    // Fallback: simple confidence sort (pre-M2 behavior)
+    sorted = allFacts
+      .sort((a, b) => (b.effectiveConfidence || b.confidence || 0) - (a.effectiveConfidence || a.confidence || 0))
+      .slice(0, maxFacts);
+  }
 
   return { facts: sorted, count: sorted.length };
 }
@@ -143,9 +164,12 @@ export function buildLTMPromptBlock(facts) {
  * Get LTM context string ready for prompt injection.
  *
  * Convenience function: extract + format in one call.
+ * v86 M2: Pass input + intent for ranked scoring.
  *
  * @param {LongTermMemory|null} ltm
  * @param {Object} [opts] — Options for extractLTMContext
+ * @param {string} [opts.input] — Current user input (for ranked scoring)
+ * @param {string} [opts.intent] — Current CRE intent (for ranked scoring)
  * @returns {string} — Formatted context block, or empty string
  */
 export function getLTMContextForSynthesis(ltm, opts = {}) {

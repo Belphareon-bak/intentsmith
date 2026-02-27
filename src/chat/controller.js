@@ -19,6 +19,8 @@ import { getLTMContextForSynthesis } from './ltm-context.js';
 import { maybeCompact } from './context-compact.js';
 import { maybeInitContext } from './context-init.js';
 import { getMemoryBank } from '../memory/memory-bank.js';
+import { longTermMemory } from '../memory/long-term.js';
+import { buildBudgetedContext } from './context-budget.js';
 import db from '../db/database.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1658,11 +1660,11 @@ ChatController.handle = async function(request) {
   // Load history from DB (NOT from RAM)
   const dbHistory = store.buildHandlerHistory(dbConversationId, 10);
 
-  // v56.0: Build LTM context (read-only, never affects routing)
+  // v86: Build LTM context from persistent singleton (read-only, never affects routing)
   let ltmContext = '';
   try {
-    if (context.ltm) {
-      ltmContext = getLTMContextForSynthesis(context.ltm);
+    if (longTermMemory.initialized) {
+      ltmContext = getLTMContextForSynthesis(longTermMemory);
     }
   } catch (err) {
     logger.warn('ChatController', `LTM context extraction failed: ${err.message}`);
@@ -1763,8 +1765,16 @@ ChatController.handle = async function(request) {
     lastTurnTopic: state.lastUserInput || null,
     // v56.0 Sprint 3 — DB-backed history replaces RAM
     dbHistory,
-    // v56.0 Sprint 3 — LTM context for synthesis
+    // v86 — LTM context for synthesis (now populated from persistent singleton)
     ltmContext,
+    // v86 — LTM singleton reference for reinforcement + writes
+    ltm: longTermMemory.initialized ? longTermMemory : null,
+    // v86 — Budget-aware context builder (call after CRE decides intent)
+    buildBudgetedContext: (intent) => buildBudgetedContext(dbConversationId, intent, {
+      store,
+      ltmContext,
+      summarizer: null, // TODO: wire LLM summarizer for on-demand summary
+    }),
     // v67.0 — Memory Bank context for synthesis
     memoryBankContext,
     // v67.0 — Context Init block (first turn only)

@@ -637,7 +637,7 @@ async function sectionE() {
         check('http_200', res.status === 200, `HTTP ${res.status}`),
         check('has_content', a.length > 30, `Response: ${a.length} chars`),
         check('has_number', a.hasNumber, 'Tax answer should contain numbers'),
-        check('mentions_rate', /15|23|procent|sazb/i.test(res.text), 'Should mention tax rate (15%, 23%, or "procent/sazba")'),
+        check('mentions_rate', /15\s*%|23\s*%/.test(res.text), 'Should mention 15% or 23% tax rate'),
         check('czech_lang', a.hasCz, 'Response should be in Czech'),
         check('no_zombie', !a.isZombie, 'No zombie prefix'),
       ],

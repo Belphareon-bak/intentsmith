@@ -35,6 +35,8 @@ import { buildStrictLanguageInstruction, validateResponseLanguage, buildLanguage
 import { FollowUpType, detectFollowUpType, getPreviousToolData } from './utils/followup.js';
 import { assessGoalAlignment } from './clarification.js';
 import { buildReportFallback } from './report.js';
+// v86 M2: Pattern tracking for cross-conversation learning
+import { patternTracker } from '../../memory/pattern-tracker.js';
 
 // ════════════════════════════════════════════════════════════════════════════════
 // v56.2 Sprint C1: Follow-up Search Query Enrichment (#2A/C)
@@ -211,8 +213,18 @@ function buildConversationContext(history) {
 async function handleToolCallDecision(input, decision, context) {
   const { sessionState } = context;
 
-  // v56.2 Sprint C2: Build conversation context for synthesis
-  const conversationContext = buildConversationContext(context.history);
+  // v86: Use budget-aware context when available — intent-specific history sizing
+  let conversationContext;
+  if (context.buildBudgetedContext) {
+    try {
+      const budgeted = await context.buildBudgetedContext(decision.intent);
+      conversationContext = buildConversationContext(budgeted.handlerHistory);
+    } catch (_) {
+      conversationContext = buildConversationContext(context.history);
+    }
+  } else {
+    conversationContext = buildConversationContext(context.history);
+  }
 
   logger.info('HandleToolCall', `Executing TOOL_CALL decision`, {
     tools: decision.tools,
@@ -709,6 +721,15 @@ async function handleToolCallDecision(input, decision, context) {
   if (sessionState) {
     sessionState.recordDecision(decision, input);
   }
+
+  // v86 M2: Track tool success for cross-conversation pattern learning
+  try {
+    const primaryTool = decision.tools?.[0];
+    const toolSuccess = executionResult.status !== ExecutionStatus.FAILED;
+    if (primaryTool) {
+      patternTracker.recordTurn(decision.intent, input, { tool: primaryTool, toolSuccess });
+    }
+  } catch (_) {}
 
   // ════════════════════════════════════════════════════════════════════════════
   // v45.0 — LLM SYNTHESIS: Tools returned DATA, now LLM generates RESPONSE

@@ -1,8 +1,13 @@
-// CRE v37.1 Long-Term Memory
+// CRE v86.0 Long-Term Memory
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Persistent, per-user memory backed by SQLite.
 // NOT a chat log. Stores structured facts with confidence, source, and kind.
+//
+// v86: Confidence Decay + Reinforcement
+//   effective_confidence = base_confidence * e^(-λ * age_days)
+//   On reuse: confidence += REINFORCE_BOOST (capped at 0.95), access_count++
+//   λ = 0.01 (half-life ~69 days — memory halves in ~2.5 months)
 //
 // MemoryKind types:
 //   preference  — user preferences ("no PDF", "verbose answers")
@@ -17,6 +22,15 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { logger } from '../core/logger.js';
+
+// ════════════════════════════════════════════════════════════════════════════
+// DECAY CONSTANTS
+// ════════════════════════════════════════════════════════════════════════════
+
+const DECAY_LAMBDA = 0.01;          // half-life ~69 days
+const REINFORCE_BOOST = 0.05;       // confidence bump on reuse
+const REINFORCE_CAP = 0.95;         // max confidence after reinforcement
+const MS_PER_DAY = 86_400_000;
 
 // ════════════════════════════════════════════════════════════════════════════
 // MEMORY KIND
@@ -95,6 +109,74 @@ export class LongTermMemory {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
+  // CONFIDENCE DECAY
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Calculate effective confidence with exponential time decay.
+   *
+   * Formula: effective = base * e^(-λ * ageDays)
+   *
+   * @param {number} baseConfidence - Stored confidence (0.0 to 1.0)
+   * @param {number} createdAt - Creation timestamp (ms)
+   * @returns {number} Effective confidence after decay
+   */
+  effectiveConfidence(baseConfidence, createdAt) {
+    const ageDays = (Date.now() - createdAt) / MS_PER_DAY;
+    if (ageDays <= 0) return baseConfidence;
+    return baseConfidence * Math.exp(-DECAY_LAMBDA * ageDays);
+  }
+
+  /**
+   * Reinforce a memory entry (bump confidence + access count on reuse).
+   *
+   * @param {string} kind - MemoryKind
+   * @param {string} key - Entry key
+   * @returns {{ reinforced: boolean, confidence?: number, accessCount?: number }}
+   */
+  reinforce(kind, key) {
+    const id = `mem_${this.userId}_${kind}_${key}`;
+    const entry = this.store.get(id);
+
+    if (!entry) {
+      // Try DB
+      if (this.db) {
+        try {
+          const row = this.db.prepare(
+            'SELECT confidence, access_count FROM memory WHERE id = ? AND user_id = ?'
+          ).get(id, this.userId);
+          if (row) {
+            const newConf = Math.min(REINFORCE_CAP, (row.confidence || 0.5) + REINFORCE_BOOST);
+            const newCount = (row.access_count || 0) + 1;
+            this.db.prepare(
+              'UPDATE memory SET confidence = ?, access_count = ?, last_accessed_at = CURRENT_TIMESTAMP WHERE id = ?'
+            ).run(newConf, newCount, id);
+            return { reinforced: true, confidence: newConf, accessCount: newCount };
+          }
+        } catch (err) {
+          logger.debug('LongTermMemory', `reinforce DB error: ${err.message}`);
+        }
+      }
+      return { reinforced: false, code: 'NOT_FOUND' };
+    }
+
+    // In-memory entry found
+    entry.confidence = Math.min(REINFORCE_CAP, (entry.confidence || 0.5) + REINFORCE_BOOST);
+    entry.accessCount = (entry.accessCount || 0) + 1;
+    entry.lastUsed = Date.now();
+
+    if (this.db) {
+      try {
+        this.db.prepare(
+          'UPDATE memory SET confidence = ?, access_count = ?, last_accessed_at = CURRENT_TIMESTAMP WHERE id = ?'
+        ).run(entry.confidence, entry.accessCount, id);
+      } catch (_) {}
+    }
+
+    return { reinforced: true, confidence: entry.confidence, accessCount: entry.accessCount };
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
   // WRITE
   // ──────────────────────────────────────────────────────────────────────────
 
@@ -129,14 +211,15 @@ export class LongTermMemory {
       source: opts.source || MemorySource.EXPLICIT,
       createdAt: Date.now(),
       lastUsed: null,
+      accessCount: 0,
       ttl: opts.ttl || null,
     };
 
     if (this.db) {
       try {
         const stmt = this.db.prepare(`
-          INSERT OR REPLACE INTO memory (id, user_id, kind, key, value, confidence, source, ttl)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT OR REPLACE INTO memory (id, user_id, kind, key, value, confidence, source, ttl, access_count, last_accessed_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)
         `);
         stmt.run(id, this.userId, opts.kind, opts.key, JSON.stringify(opts.value), entry.confidence, entry.source, entry.ttl);
       } catch (err) {
@@ -210,26 +293,34 @@ export class LongTermMemory {
       return { error: 'Entry expired', code: 'EXPIRED' };
     }
 
-    // Check confidence threshold
-    if (entry.confidence < minConf) {
-      return { error: `Confidence too low: ${entry.confidence} < ${minConf}`, code: 'LOW_CONFIDENCE' };
+    // v86: Apply confidence decay
+    const effConf = this.effectiveConfidence(entry.confidence, entry.createdAt);
+
+    // Check effective confidence threshold
+    if (effConf < minConf) {
+      return { error: `Effective confidence too low: ${effConf.toFixed(3)} < ${minConf}`, code: 'LOW_CONFIDENCE' };
     }
 
-    // Update lastUsed
+    // Update access tracking
     entry.lastUsed = Date.now();
+    entry.accessCount = (entry.accessCount || 0) + 1;
     if (this.db) {
       try {
-        this.db.prepare('UPDATE memory SET last_used = CURRENT_TIMESTAMP WHERE id = ?').run(id);
+        this.db.prepare(
+          'UPDATE memory SET last_used = CURRENT_TIMESTAMP, last_accessed_at = CURRENT_TIMESTAMP, access_count = COALESCE(access_count, 0) + 1 WHERE id = ?'
+        ).run(id);
       } catch (err) { /* non-critical */ }
     }
 
     return {
       value: entry.value,
       confidence: entry.confidence,
+      effectiveConfidence: effConf,
       source: entry.source,
       kind: entry.kind,
       key: entry.key,
       createdAt: entry.createdAt,
+      accessCount: entry.accessCount,
     };
   }
 
@@ -248,20 +339,32 @@ export class LongTermMemory {
   queryByKind(kind, opts = {}) {
     const minConf = opts.minConfidence ?? 0;
     const results = [];
+    const now = Date.now();
 
     if (this.db) {
       try {
+        // Fetch all entries for kind — decay filtering happens in JS
         const rows = this.db.prepare(
-          'SELECT * FROM memory WHERE user_id = ? AND kind = ? AND confidence >= ?'
-        ).all(this.userId, kind, minConf);
+          'SELECT * FROM memory WHERE user_id = ? AND kind = ?'
+        ).all(this.userId, kind);
         for (const row of rows) {
+          const createdAt = new Date(row.created_at).getTime();
+          // Check TTL
+          if (row.ttl && createdAt + (row.ttl * 1000) < now) continue;
+          // v86: Apply decay
+          const effConf = this.effectiveConfidence(row.confidence, createdAt);
+          if (effConf < minConf) continue;
           results.push({
             key: row.key,
             value: JSON.parse(row.value),
             confidence: row.confidence,
+            effectiveConfidence: effConf,
             source: row.source,
+            accessCount: row.access_count || 0,
           });
         }
+        // Sort by effective confidence (highest first)
+        results.sort((a, b) => b.effectiveConfidence - a.effectiveConfidence);
         return results;
       } catch (err) {
         logger.error('LongTermMemory', 'queryByKind SQLite error', { kind, error: err.message });
@@ -270,20 +373,24 @@ export class LongTermMemory {
 
     // In-memory fallback
     for (const entry of this.store.values()) {
-      if (entry.userId === this.userId && entry.kind === kind && entry.confidence >= minConf) {
+      if (entry.userId === this.userId && entry.kind === kind) {
         // Check TTL
-        if (entry.ttl && entry.createdAt + (entry.ttl * 1000) < Date.now()) {
-          continue;
-        }
+        if (entry.ttl && entry.createdAt + (entry.ttl * 1000) < now) continue;
+        // v86: Apply decay
+        const effConf = this.effectiveConfidence(entry.confidence, entry.createdAt);
+        if (effConf < minConf) continue;
         results.push({
           key: entry.key,
           value: entry.value,
           confidence: entry.confidence,
+          effectiveConfidence: effConf,
           source: entry.source,
+          accessCount: entry.accessCount || 0,
         });
       }
     }
 
+    results.sort((a, b) => b.effectiveConfidence - a.effectiveConfidence);
     return results;
   }
 
