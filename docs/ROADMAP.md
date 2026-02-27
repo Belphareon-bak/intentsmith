@@ -419,11 +419,19 @@ notification_providers/
 
 Každý provider implementuje: `init()`, `validate()`, `send()`, `test()`
 
+#### Webhook Security
+
+- **HMAC signature** — `X-C3-Signature: sha256=<hmac>` header
+- **Retry policy** — max 3 pokusy s exponential backoff (1s → 2s → 4s)
+- **Dead-letter queue** — failed notifications uloženy pro manuální review
+- **Trusted domains whitelist** — webhook URL musí odpovídat whitelist
+
 #### Centrální queue
 
 - Batch buffer s konfigurovatelným intervalem
 - Deduplikace (hash obsahu)
 - Provider-agnostický — queue neví o kanálech, jen routuje
+- Dead-letter pro opakovaně selhávající delivery
 
 #### Tichý režim
 
@@ -476,11 +484,19 @@ Každý provider implementuje: `init()`, `validate()`, `send()`, `test()`
 
 #### d3) Context Budget
 
-- Max tokens per request (slider, default z config)
+**Relativní limity (%):**
 - FS inclusion % — kolik context budgetu věnovat souborům (slider 0–50%)
 - Tool output inclusion % — výstup nástrojů (slider 0–30%)
 - Memory inclusion % — LTM + preferences (slider 0–20%)
 - Vizuální budget breakdown bar (stacked bar chart)
+
+**Hard caps (absolutní limity — ochrana proti runaway contextu):**
+- `hardMaxContextTokens` — absolutní max tokenů per request (default 8192)
+- `hardMaxFSTokens` — max tokenů pro filesystem kontext (default 3000)
+- `hardMaxToolTokens` — max tokenů pro tool output (default 2000)
+- `hardMaxMemoryTokens` — max tokenů pro LTM + preferences (default 1500)
+
+> Hard caps mají přednost před procentuálními limity. I když % dovoluje víc, hard cap nikdy nepřekročí.
 
 #### d4) Learning & Adaptation
 
@@ -517,8 +533,14 @@ Hardcoded reference map (ne LLM výstup):
 | 16 GB | 14B Q5_K_M |
 | 24 GB | 32B Q4_K_M |
 | 48 GB | 70B Q4_K_M |
+| CPU-only | 3B Q4_K_M (fallback) |
 
-Varování pokud vybraný model překračuje VRAM.
+Reálný odhad paměti: `model_size * 1.2` (kvůli KV cache overhead).
+
+- Varování pokud vybraný model překračuje VRAM
+- **CPU-only fallback** — pokud žádná dGPU detekována, nabídnout malé modely + upozornění na pomalost
+- **iGPU varování** — sdílená VRAM (Intel UHD, AMD APU) = reálná kapacita je nižší než reportovaná
+- Důležité pro instalátor (PHASE 4): auto-detect → doporučení → one-click install
 
 #### e3) Model parametry — Basic / Advanced mód
 
