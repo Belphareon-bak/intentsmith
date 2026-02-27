@@ -315,7 +315,7 @@ Celkem zbývajících úkolů:  6 + IDE Settings redesign
   🔴 Critical:              0
   🟡 Important:             1  (QS3 Quality Report — in progress)
   ⚪ Future (D5,D9,E,F):     5  (~2 měsíce)
-  📐 IDE Settings redesign:  8 sekcí (a-h) + backup/sync
+  📐 IDE Settings redesign:  11 sekcí (a-k) + backup/sync, 4 fáze
 ```
 
 ---
@@ -324,7 +324,12 @@ Celkem zbývajících úkolů:  6 + IDE Settings redesign
 
 ### Aktuální stav
 
-Nastavení v C3 Studiu má 8 sekcí (User/Identity, Notifications, Appearance, Memory & Context, Location, Output & Formats, System, About), ale většina sekcí má pouze placeholder obsah. Theia PreferenceSchema definuje 23 klíčů, ale custom Settings UI zobrazuje jen zlomek.
+Nastavení v C3 Studiu má 8 sekcí, ale většina má pouze placeholder. Theia PreferenceSchema definuje 23 klíčů, custom Settings UI zobrazuje jen zlomek. Redesign přidává 3 nové sekce (Security, Storage, Feature Flags), rozšiřuje stávající a strukturuje do 4 implementačních fází.
+
+**Oddělení vrstev:**
+- **Lokální desktop-only** (PHASE 1-2): vše běží offline, žádná cloud závislost
+- **Cloud-ready** (PHASE 3+): OAuth, online sync, mobilní push
+- **User profile vs Runtime profile**: Identity (kdo jsi) je oddělená od Runtime (jak se C3 chová)
 
 ### Známé bugy (P0)
 
@@ -336,113 +341,327 @@ Nastavení v C3 Studiu má 8 sekcí (User/Identity, Notifications, Appearance, M
 
 ---
 
+### Implementační fáze
+
+```
+PHASE 1 — Runtime stabilita (P0)
+  a) Account redesign (Identity + Local auth, BEZ social login)
+  e) LLM Settings (GPU detekce + model tuning + compatibility engine)
+  d) Memory & Context rozšíření (4 podsekce)
+  g) Output formats stabilizace (output profily)
+
+PHASE 2 — UX & Komfort (P1)
+  b) Notifications multi-channel (modulární providery + centrální queue)
+  c) Appearance polish (font, light theme, density, UI scale)
+  f) System lokalizace + diagnostika + runtime config
+  j) Storage management (velikosti, cleanup, prune)
+  Backup & Sync (lokální export/import)
+
+PHASE 3 — Ecosystem (P2)
+  a2) Social login (OAuth: Google, Apple, Microsoft)
+  b2) Mobilní notifikace (push)
+  Online sync (GitHub Gist)
+  i) Security sekce (tokens, encryption, audit)
+  k) Feature Flags UI (power users)
+  Getting Started / Tutorial
+
+PHASE 4 — Installer Intelligence
+  GPU detection wizard (first-run)
+  Model auto-download + kompatibilita
+  First-run auto-config
+  Diagnostics bundle export
+```
+
+---
+
 ### a) Account (User / Identity) — kompletní přepis
 
-**Cíl:** Plnohodnotný účet místo pouhého jména.
+**Cíl:** Plnohodnotný účet s jasným oddělením Identity vs Authentication.
 
-- Login s "pamatuj si mě" (persistent session)
-- Guest mode s omezeními (např. max konverzací, žádný export)
-- Social login: Google, Apple, Microsoft, telefon, email
-- Propojené účty pro notifikace: Discord, Telegram, Slack
-- Editovatelné oslovení/jméno (jak C3 oslovuje uživatele)
-- Odstranit pole "role" → nahradit polem "stručný popis" (kdo jsi, co děláš — pro kontext)
-- Profilový obrázek (upload nebo z propojeného účtu)
+#### a1) Identity (lokální profil) — PHASE 1
+
+- Jméno / oslovení (jak C3 oslovuje uživatele)
+- Stručný popis (kdo jsi, co děláš — kontextový profil pro model)
+- Avatar (upload nebo z propojeného účtu)
+- Lokální profil ID
+- Odstranit pole "role"
+
+#### a2) Authentication — PHASE 1 (základ) + PHASE 3 (OAuth)
+
+**PHASE 1 (desktop-only):**
+- Guest mode s omezeními (max konverzací, žádný export)
+- Local account (username + password hash, bcrypt)
+- Session persistence (encrypted token v Electron secure storage)
+- "Pamatuj si mě" checkbox
+
+**PHASE 3 (cloud-ready):**
+- OAuth providery (Google, Apple, Microsoft)
+- Propojené účty pro notifikace (Discord, Telegram, Slack)
+- Phone/email verification
+
+> **Bezpečnostní model:** Social login dramaticky rozšiřuje security surface (token storage, refresh flow, PKCE, callback URL). V první verzi neimplementovat — začít local account + guest. OAuth až po Security sekci (i).
 
 ### b) Notifications — multi-kanálové notifikace
 
-**Cíl:** Uživatel si vybere kanály + pravidla.
+**Cíl:** Modulární provider architektura s centrální queue.
 
-- Kanály: API callback, webhook, email, PC notifikace (Electron), mobilní push
-- Per-kanál enable/disable
-- Tichý režim s plánovačem (od-do, dny v týdnu)
-- Periodizace: okamžitě / batch (5min / 15min / 1h) / denní digest
+#### Kanálová architektura
+
+```
+notification_providers/
+  email.js          — SMTP/API
+  webhook.js        — POST s HMAC podpisem
+  discord.js        — webhook URL
+  telegram.js       — bot API
+  desktop.js        — Electron Notification API
+  mobile_push.js    — PHASE 3 (future)
+```
+
+Každý provider implementuje: `init()`, `validate()`, `send()`, `test()`
+
+#### Centrální queue
+
+- Batch buffer s konfigurovatelným intervalem
+- Deduplikace (hash obsahu)
+- Provider-agnostický — queue neví o kanálech, jen routuje
+
+#### Tichý režim
+
+- `quietHours: { from, to }` — timezone aware
+- Dny v týdnu (pondělí–neděle checkbox)
+- `priorityOverride: true` — ERROR vždy projde i v tichém režimu
+
+#### Periodizace
+
+- Okamžitě / batch (5min / 15min / 1h) / denní digest
+- Per-kanál konfigurace
+
+#### UI
+
+- Per-kanál enable/disable toggle
 - Prioritní filtry: jen ERROR, WARNING+, ALL
-- Test notifikace (tlačítko "Odeslat testovací notifikaci")
+- Test notifikace tlačítko per provider
 
-### c) Appearance — drobné opravy
+### c) Appearance — polish
 
-**Aktuální stav:** Většina funguje, ale:
+- **P0:** Opravit font (fallback na system font)
+- **P0:** Light theme kontrast a barvy
+- **P1:** Font size slider
+- **P1:** Compact density toggle (comfortable / compact / minimal)
+- **P1:** UI scale (1.0 / 1.1 / 1.25)
+- **P2:** Accent color picker (nejen green)
+- **P2:** Custom CSS injection (advanced toggle, skryto za "Advanced" expander)
 
-- Opravit font (fallback na system font nevypadá dobře)
-- Light theme potřebuje doladit kontrast a barvy
-- Zvážit: font size slider, compact mode toggle
-- Accent color picker (nejen green)
+### d) Memory & Context — 4 podsekce
 
-### d) Memory & Context — rozšířené nastavení
+**Cíl:** Granulární kontrola nad celým paměťovým systémem.
 
-**Cíl:** Uživatel kontroluje paměťový systém.
+#### d1) Conversation Memory
+
+- History retention (N dní, default 90)
+- Max messages per conversation (default 5000)
+- Auto-archive po N dnech neaktivity
+- Auto-delete po N dnech (volitelné, default OFF)
+
+#### d2) Long-Term Memory (LTM)
+
+- Enable/disable LTM toggle
+- Confidence threshold pro zobrazení v kontextu (slider 0.0–1.0, default 0.3)
+- Max LTM entries (default 500)
+- Eviction strategy výběr:
+  - FIFO (nejstarší pryč)
+  - LRU (nejméně přistupované)
+  - Least referenced (nejméně reinforced)
+  - Lowest confidence (nejnižší efektivní confidence)
+
+#### d3) Context Budget
+
+- Max tokens per request (slider, default z config)
+- FS inclusion % — kolik context budgetu věnovat souborům (slider 0–50%)
+- Tool output inclusion % — výstup nástrojů (slider 0–30%)
+- Memory inclusion % — LTM + preferences (slider 0–20%)
+- Vizuální budget breakdown bar (stacked bar chart)
+
+#### d4) Learning & Adaptation
 
 - **Skills toggle** — zapnout/vypnout skill systém (synced to backend)
-- **Agent Log verbosity** — minimal / normal / verbose
-- **LTM (Long-Term Memory):**
-  - Zapnout/vypnout
-  - Prahová hodnota confidence pro zobrazení v kontextu
-  - Auto-cleanup toggle + konfigurace metody (časový threshold, max položek)
-- **Filesystem fill threshold** — jak moc context budgetu věnovat souborům
-- **Preference tracking** — zapnout/vypnout automatické učení z korekcí
-- **Pattern detection** — zapnout/vypnout detekci opakujících se workflow vzorů
+- **Preference tracking** — automatické učení z korekcí
+- **Pattern detection** — detekce opakujících se workflow vzorů
+- **Skill auto-suggestion** — navrhovat skills z detekovaných vzorů
+- **Autonomy tuning** — level autonomie (conservative / balanced / aggressive)
 
-### e) LLM Settings (NOVÁ SEKCE)
+### e) LLM Settings — nejdůležitější sekce
 
-**Cíl:** Nastavení modelu ve stylu LM Studio — vizuální, informativní, s doporučeními.
+**Cíl:** LM Studio-level nastavení s GPU-aware doporučeními.
 
-- **GPU detekce** (bez potřeby LLM) — zobrazit VRAM, model GPU, CUDA/ROCm verzi
-- **Doporučení modelu** na základě HW:
-  - Tabulka: GPU → doporučené modely (32B pro 24GB VRAM, 7B pro 8GB, atd.)
-  - Varování pokud vybraný model neodpovídá HW
-- **Instalační wizard kompatibilita** — při first-run doporučit model
-- **Model parametry** (LM Studio styl):
-  - Context Length (slider + číslo)
-  - Temperature (slider 0.0–2.0)
-  - Top-P, Top-K
-  - Repeat Penalty
-  - GPU Offload Layers
-  - Batch Size
-  - Threads
-- **Model info karta:**
-  - Velikost na disku
-  - Kvantizace (Q4_K_M, Q5_K_M, ...)
-  - Maximální context window
-  - Popis modelu
-- **Ollama/LM Studio endpoint URL** — editovatelný
+#### e1) GPU Detekce (bez LLM)
 
-### f) System — lokalizace a systém
+```
+Linux:   nvidia-smi, lspci, rocm-smi
+Windows: wmic, nvidia-smi
+Mac:     system_profiler SPDisplaysDataType
+```
+
+Uložit do `system_profile`: `{ gpu_model, vram_mb, driver, cuda_version, rocm_version }`
+
+Auto-detect při startu + refresh tlačítko.
+
+#### e2) Model Compatibility Engine
+
+Hardcoded reference map (ne LLM výstup):
+
+| VRAM | Max doporučený model |
+|------|---------------------|
+| 8 GB | 7B Q4_K_M |
+| 12 GB | 13B Q4_K_M |
+| 16 GB | 14B Q5_K_M |
+| 24 GB | 32B Q4_K_M |
+| 48 GB | 70B Q4_K_M |
+
+Varování pokud vybraný model překračuje VRAM.
+
+#### e3) Model parametry — Basic / Advanced mód
+
+**Basic** (viditelné vždy):
+- Model selector (dropdown z Ollama API)
+- Context Length (slider + číslo)
+- Temperature (slider 0.0–2.0)
+- Ollama/LM Studio endpoint URL
+
+**Advanced** (za expanderem):
+- Top-P, Top-K
+- Repeat Penalty
+- GPU Offload Layers
+- Batch Size, Threads
+- Rope Scaling
+- KV Cache Quantization
+- mmap toggle, NUMA toggle
+- Flash Attention toggle
+
+#### e4) Model Info Card
+
+- Velikost na disku
+- Kvantizace (Q4_K_M, Q5_K_M, ...)
+- Maximální context window
+- Popis modelu
+- Estimated RAM usage
+- Recommended context size
+- Tokens/sec benchmark (pokud známý, z Ollama API)
+
+### f) System — lokalizace + runtime
 
 - **Jazyk:** výběr z podporovaných (nezobrazovat nepodporované)
 - **Lokace:** auto-detekce z IP/systému (s možností přepsat)
 - **Časová zóna** + formát data (DD.MM.YYYY vs MM/DD/YYYY vs ISO)
 - **Měna** — pro komunikaci s modelem (Kč, EUR, USD, ...)
-- **Cache management** — vyčistit cache, zobrazit velikost
-- **Diagnostika** — verze serveru, DB verze, počet migrací
+- **Worker threads count** — počet paralelních vláken
+- **Max parallel tool calls** — limit souběžných tool volání
+- **Autonomy interval** — interval kontroly (pokud autonomie zapnuta)
+- **Log retention** — N dní (default 30)
+- **DB vacuum** — tlačítko pro kompakci DB
+- **Diagnostika** — verze serveru, DB verze, počet migrací, uptime
 
-### g) Output & Formats — inteligentní výchozí formáty
+### g) Output & Formats — output profily
 
-**Cíl:** C3 automaticky volí vhodný formát podle účelu.
+**Cíl:** Pojmenované profily místo jednotlivých přepínačů.
 
-- Výchozí formáty pro různé typy výstupu:
-  - Dokumenty: MD / DOCX / PDF
-  - Kód: podle jazyka projektu
-  - Diagramy: Mermaid / PlantUML / DOT
-  - Data: JSON / CSV / XLSX
-- Editovatelné per-formát (uživatel může přepsat default)
+#### Output Profiles
+
+| Profil | Markdown | Code blocks | Diagram format | File export |
+|--------|----------|-------------|----------------|-------------|
+| Developer | ON | ON | Mermaid | MD |
+| Research | ON | OFF | PlantUML | PDF |
+| Report | ON | OFF | DOT→PNG | DOCX |
+| Minimal | OFF | OFF | — | TXT |
+
+- Uživatel může vytvořit custom profil
+- Default profil per expertise (developer expertise → Developer profil)
+- Každý profil definuje: markdown on/off, code blocks on/off, diagram format, file export default
+
+#### Formátové přepínače
+
+- Výchozí formáty pro různé typy výstupu (dokumenty, kód, diagramy, data)
 - Enable/disable per formát
 - Zobrazení všech podporovaných rozšíření a nástrojů
 - Export nastavení (kam se ukládá, jaký formát)
 
-### h) About — info + zpětná vazba
+### h) About — info + zpětná vazba + diagnostika
 
 - Ponechat aktuální design (logo + verze)
-- Přidat: tlačítko "Nahlásit chybu / Zpětná vazba"
-- Zvážit: interaktivní tutoriál / onboarding walkthrough
+- **Diagnostics bundle export** — zip s logy + system info + config (anonymizované)
+- **Open data folder** — tlačítko pro otevření datového adresáře
+- **Changelog viewer** — embedded changelog s verzemi
+- **Nahlásit chybu / Zpětná vazba** — formulář nebo link
+- Systémové info: Electron verze, Node verze, OS, GPU
 - Link na dokumentaci
-- Systémové info: Electron verze, Node verze, OS
+
+> **Getting Started / Tutorial** — implementovat jako oddělenou sekci, ne součást About. PHASE 3.
+
+---
+
+### i) Security (NOVÁ SEKCE) — PHASE 3
+
+**Cíl:** Centrální místo pro bezpečnostní nastavení. Nutné před OAuth.
+
+- **API token management** — generování, rotace, revokace
+- **Webhook secret** — HMAC klíč pro ověření webhook callbacků
+- **Local encryption key rotation** — rotace šifrovacího klíče pro lokální data
+- **DB encryption toggle** — šifrování SQLite at rest
+- **Auto-lock** — zamknout po N minutách neaktivity (default OFF)
+- **Audit log** — zobrazení posledních bezpečnostních událostí
+- **Trusted domains** — whitelist URL pro webhook/API volání
+
+### j) Storage (NOVÁ SEKCE) — PHASE 2
+
+**Cíl:** Přehled a správa úložiště.
+
+Zobrazit:
+- **DB size** — aktuální velikost + trend
+- **Snapshots size** — exporty, zálohy
+- **Logs size** — log soubory
+- **LLM models size** — modely stažené přes Ollama
+- **LTM entries count** — počet položek v dlouhodobé paměti
+
+Akce:
+- **Cleanup** — smazat staré logy, archivované konverzace
+- **Compress** — vacuum DB + gzip logy
+- **Prune models** — odebrat nepoužívané modely
+
+Vizuální breakdown (pie/bar chart)
+
+### k) Feature Flags (NOVÁ SEKCE) — PHASE 3
+
+**Cíl:** Centrální přehled všech runtime feature toggleů (pro power users).
+
+| Flag | Popis | Default |
+|------|-------|---------|
+| `skills` | Systém skillů (macro-recipes) | ON |
+| `autonomy` | Guarded autonomy mode | ON |
+| `patternDetection` | Detekce opakujících se workflow vzorů | ON |
+| `ltm` | Long-term memory | ON |
+| `feedbackLearning` | Učení z korekcí | ON |
+| `experimentalTools` | Experimentální nástroje | OFF |
+
+- Toggle switch pro každý flag
+- Sync to backend přes WebSocket (`c3.features.*`)
+- Warning při vypnutí kritického flagu
+- Reset to defaults tlačítko
+
+---
 
 ### Backup & Sync Settings
 
-- **Lokální záloha:** export/import settings jako JSON
-- **Online sync:** GitHub Gist / jiné úložiště
+#### Lokální záloha (PHASE 2)
+
+- Export/import settings jako JSON
 - Settings versioning (automatický changelog při změně)
+- Tlačítko: "Exportovat nastavení" / "Importovat nastavení"
+
+#### Online sync (PHASE 3)
+
+- GitHub Gist sync
 - Merge strategie: local wins / remote wins / manual
+- Auto-sync interval (volitelné)
 
 ---
 
