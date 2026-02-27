@@ -21,6 +21,7 @@ class C3DetailPanelWidget extends react_widget_1.ReactWidget {
     this.title.closable = true;
     this.addClass('c3-detail-widget');
     this.node.tabIndex = 0;
+    this.node.style.minWidth = '280px';
     this._item = null;
     this._type = null;
 

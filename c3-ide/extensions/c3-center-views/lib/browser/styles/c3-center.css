@@ -72,6 +72,17 @@
   flex-shrink: 0;
 }
 
+/* Settings page */
+.c3-settings-page {
+  padding: 16px 20px 24px;
+}
+.c3-settings-page h1 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: var(--c3-tx-1);
+}
+
 /* Settings scroll */
 .c3-settings-scroll {
   flex: 1;
@@ -117,6 +128,43 @@
   border-color: var(--c3-accent);
   background: var(--c3-accent-bg);
   color: var(--c3-accent-text);
+}
+
+/* Toggle row */
+.c3-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.c3-toggle {
+  width: 34px;
+  height: 18px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--c3-bg-4);
+  border-radius: 9px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.c3-toggle:checked { background: var(--c3-accent); }
+.c3-toggle::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+}
+.c3-toggle:checked::before { transform: translateX(16px); }
+.c3-toggle-label {
+  font-size: 11px;
+  color: var(--c3-tx-2);
 }
 
 /* ═══ v63.0: Expertise Wizard ═══ */

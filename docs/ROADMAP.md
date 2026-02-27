@@ -1,10 +1,10 @@
-# C3-Agent — Roadmapa v13
+# C3-Agent — Roadmapa v14
 
 ## Od aktuálního stavu k vizi
 
-**Datum:** 2026-02-26
-**Verze kódu:** v85.0.0 (Skills System + Runtime FeatureManager + Guarded Autonomy)
-**Testy:** ~2100+ verified (683 lifecycle+quality, 401 CRE, 350 conversation, 218 ledger, 270 specialist, 200+ quality)
+**Datum:** 2026-02-27
+**Verze kódu:** v86.0.0 (Memory System + Skills + Runtime FeatureManager + Guarded Autonomy)
+**Testy:** ~2200+ verified (683 lifecycle+quality, 401 CRE, 350 conversation, 218 ledger, 270 specialist, 200+ quality, 44 agent-log)
 **IDE:** C3 Studio (Theia 1.65.2), 33 custom extensions, Phase 1-5 (~73%)
 
 ---
@@ -185,6 +185,11 @@ Korelační analýza (po pilotu): spec_score vs build_success, roadmap_score vs 
 | v79.0 | **D4-D8: Specialist Advanced** — REST API, dependencies, memory, scenario branching |
 | v80.0 | **Quality Score + Telemetry** — deterministický scoring, DB logging, 70 testů |
 | v82.0 | **Specialist Telemetry** — pasivní observability (tool/memory/lifecycle/API events, batch flush) |
+| v85.0 | **Skills System MVP** — registry, resolver, runner, 7 step types (llm, template, write, shell, ask, review, validate) |
+| v85.0 | **Runtime FeatureManager** — hot-toggle features z IDE Settings bez restartu |
+| v85.0 | **Skill Detector** — automatická detekce opakujících se workflow vzorů |
+| v86.0 | **Memory System** — LTM, injection-ranker, feedback-detector, pattern-tracker, context-budget |
+| v86.0 | **Agent Log UX** — SYSTEM_STEP protocol, 15 hooks (5 key + 10 verbose), agent-log-renderer |
 
 ---
 
@@ -303,15 +308,142 @@ Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░�
 ## Celkový progres
 
 **Hotovo:** ~98% celkové vize
-**Nové od v11:** v79 specialist advanced (D4-D8), v80 quality score + telemetry (70 testů), v82 specialist telemetry.
+**Nové od v13:** v85 skills system (registry, resolver, runner, detector, 7 step types), v85 FeatureManager, v86 memory system (LTM, injection-ranker, feedback, patterns), v86 agent log UX.
 
 ```
-Celkem zbývajících úkolů:  6
+Celkem zbývajících úkolů:  6 + IDE Settings redesign
   🔴 Critical:              0
   🟡 Important:             1  (QS3 Quality Report — in progress)
   ⚪ Future (D5,D9,E,F):     5  (~2 měsíce)
+  📐 IDE Settings redesign:  8 sekcí (a-h) + backup/sync
 ```
 
 ---
 
-*Tento dokument nahrazuje Roadmapa v11. Aktualizováno na v82.0.0 (2026-02-25).*
+## IDE Settings — Kompletní redesign (v86+)
+
+### Aktuální stav
+
+Nastavení v C3 Studiu má 8 sekcí (User/Identity, Notifications, Appearance, Memory & Context, Location, Output & Formats, System, About), ale většina sekcí má pouze placeholder obsah. Theia PreferenceSchema definuje 23 klíčů, ale custom Settings UI zobrazuje jen zlomek.
+
+### Známé bugy (P0)
+
+| # | Bug | Status |
+|---|-----|--------|
+| S1 | Header overlap: záložka otevřeného souboru překrývá nadpis "Nastavení" | ✅ FIXED |
+| S2 | Skills toggle není viditelný v IDE nastavení (jen v Theia Preferences) | ✅ FIXED |
+| S3 | Detail card nelze zvětšit, výchozí šířka je příliš úzká | ✅ FIXED |
+
+---
+
+### a) Account (User / Identity) — kompletní přepis
+
+**Cíl:** Plnohodnotný účet místo pouhého jména.
+
+- Login s "pamatuj si mě" (persistent session)
+- Guest mode s omezeními (např. max konverzací, žádný export)
+- Social login: Google, Apple, Microsoft, telefon, email
+- Propojené účty pro notifikace: Discord, Telegram, Slack
+- Editovatelné oslovení/jméno (jak C3 oslovuje uživatele)
+- Odstranit pole "role" → nahradit polem "stručný popis" (kdo jsi, co děláš — pro kontext)
+- Profilový obrázek (upload nebo z propojeného účtu)
+
+### b) Notifications — multi-kanálové notifikace
+
+**Cíl:** Uživatel si vybere kanály + pravidla.
+
+- Kanály: API callback, webhook, email, PC notifikace (Electron), mobilní push
+- Per-kanál enable/disable
+- Tichý režim s plánovačem (od-do, dny v týdnu)
+- Periodizace: okamžitě / batch (5min / 15min / 1h) / denní digest
+- Prioritní filtry: jen ERROR, WARNING+, ALL
+- Test notifikace (tlačítko "Odeslat testovací notifikaci")
+
+### c) Appearance — drobné opravy
+
+**Aktuální stav:** Většina funguje, ale:
+
+- Opravit font (fallback na system font nevypadá dobře)
+- Light theme potřebuje doladit kontrast a barvy
+- Zvážit: font size slider, compact mode toggle
+- Accent color picker (nejen green)
+
+### d) Memory & Context — rozšířené nastavení
+
+**Cíl:** Uživatel kontroluje paměťový systém.
+
+- **Skills toggle** — zapnout/vypnout skill systém (synced to backend)
+- **Agent Log verbosity** — minimal / normal / verbose
+- **LTM (Long-Term Memory):**
+  - Zapnout/vypnout
+  - Prahová hodnota confidence pro zobrazení v kontextu
+  - Auto-cleanup toggle + konfigurace metody (časový threshold, max položek)
+- **Filesystem fill threshold** — jak moc context budgetu věnovat souborům
+- **Preference tracking** — zapnout/vypnout automatické učení z korekcí
+- **Pattern detection** — zapnout/vypnout detekci opakujících se workflow vzorů
+
+### e) LLM Settings (NOVÁ SEKCE)
+
+**Cíl:** Nastavení modelu ve stylu LM Studio — vizuální, informativní, s doporučeními.
+
+- **GPU detekce** (bez potřeby LLM) — zobrazit VRAM, model GPU, CUDA/ROCm verzi
+- **Doporučení modelu** na základě HW:
+  - Tabulka: GPU → doporučené modely (32B pro 24GB VRAM, 7B pro 8GB, atd.)
+  - Varování pokud vybraný model neodpovídá HW
+- **Instalační wizard kompatibilita** — při first-run doporučit model
+- **Model parametry** (LM Studio styl):
+  - Context Length (slider + číslo)
+  - Temperature (slider 0.0–2.0)
+  - Top-P, Top-K
+  - Repeat Penalty
+  - GPU Offload Layers
+  - Batch Size
+  - Threads
+- **Model info karta:**
+  - Velikost na disku
+  - Kvantizace (Q4_K_M, Q5_K_M, ...)
+  - Maximální context window
+  - Popis modelu
+- **Ollama/LM Studio endpoint URL** — editovatelný
+
+### f) System — lokalizace a systém
+
+- **Jazyk:** výběr z podporovaných (nezobrazovat nepodporované)
+- **Lokace:** auto-detekce z IP/systému (s možností přepsat)
+- **Časová zóna** + formát data (DD.MM.YYYY vs MM/DD/YYYY vs ISO)
+- **Měna** — pro komunikaci s modelem (Kč, EUR, USD, ...)
+- **Cache management** — vyčistit cache, zobrazit velikost
+- **Diagnostika** — verze serveru, DB verze, počet migrací
+
+### g) Output & Formats — inteligentní výchozí formáty
+
+**Cíl:** C3 automaticky volí vhodný formát podle účelu.
+
+- Výchozí formáty pro různé typy výstupu:
+  - Dokumenty: MD / DOCX / PDF
+  - Kód: podle jazyka projektu
+  - Diagramy: Mermaid / PlantUML / DOT
+  - Data: JSON / CSV / XLSX
+- Editovatelné per-formát (uživatel může přepsat default)
+- Enable/disable per formát
+- Zobrazení všech podporovaných rozšíření a nástrojů
+- Export nastavení (kam se ukládá, jaký formát)
+
+### h) About — info + zpětná vazba
+
+- Ponechat aktuální design (logo + verze)
+- Přidat: tlačítko "Nahlásit chybu / Zpětná vazba"
+- Zvážit: interaktivní tutoriál / onboarding walkthrough
+- Link na dokumentaci
+- Systémové info: Electron verze, Node verze, OS
+
+### Backup & Sync Settings
+
+- **Lokální záloha:** export/import settings jako JSON
+- **Online sync:** GitHub Gist / jiné úložiště
+- Settings versioning (automatický changelog při změně)
+- Merge strategie: local wins / remote wins / manual
+
+---
+
+*Tento dokument nahrazuje Roadmapa v11. Aktualizováno na v86.0.0 (2026-02-27).*

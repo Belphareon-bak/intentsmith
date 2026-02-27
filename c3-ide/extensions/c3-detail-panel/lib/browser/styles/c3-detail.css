@@ -1,5 +1,8 @@
-/* C3 Detail Panel — v7 */
-.c3-detail-widget { overflow: hidden !important; }
+/* C3 Detail Panel — v8 */
+.c3-detail-widget {
+  overflow: hidden !important;
+  min-width: 280px;
+}
 
 .c3-det {
   display: flex;

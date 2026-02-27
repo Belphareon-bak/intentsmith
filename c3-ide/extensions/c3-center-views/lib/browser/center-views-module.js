@@ -289,6 +289,30 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
           h('p', { style: { fontSize: 12, color: 'var(--c3-tx-3)', marginTop: 6 } }, 'v0.1.0 · Made with ❤️ by Belfik')
         )
       ];
+      case 'memory': return [
+        h('label', { key: 'sk', className: 'c3-label' }, 'Skills'),
+        h('div', { key: 'skd', className: 'c3-toggle-row' },
+          h('input', { type: 'checkbox', defaultChecked: true, className: 'c3-toggle',
+            onChange: (e) => {
+              try {
+                const ws = window.C3WS;
+                if (ws && typeof ws.syncSettings === 'function' && ws.isReady()) {
+                  ws.syncSettings({ 'c3.features.skills': e.target.checked });
+                }
+              } catch(_) {}
+            }
+          }),
+          h('span', { className: 'c3-toggle-label' }, 'Povolit systém skillů (automatické rozpoznání opakujících se postupů)')
+        ),
+        h('label', { key: 'al', className: 'c3-label' }, 'Agent Log'),
+        h('div', { key: 'ald', className: 'c3-radios' },
+          ['Minimální', 'Normální', 'Podrobný'].map(r =>
+            h('label', { key: r, className: 'c3-radio' },
+              h('input', { type: 'radio', name: 'agentVerbosity', defaultChecked: r === 'Normální' }), ' ', r
+            )
+          )
+        )
+      ];
       default: return h('p', { style: { fontSize: 11, color: 'var(--c3-tx-4)', padding: '4px 0' } }, 'Konfigurace bude doplněna.');
     }
   }
