@@ -128,6 +128,13 @@ export const C3_PREFERENCE_SCHEMA = {
       description: 'Zahrnout zdrojový kód do exportu.',
     },
 
+    // ─── Features ─────────────────────────────────────
+    'c3.features.skills': {
+      type: 'boolean',
+      default: C3_DEFAULTS['c3.features.skills'],
+      description: 'Povolit systém skillů — automatické rozpoznání a spouštění opakujících se postupů (v85).',
+    },
+
     // ─── UI ────────────────────────────────────────────
     'c3.language': {
       type: 'string',

@@ -33,6 +33,7 @@ import { isGratitudeOrFarewell, isCodeRequest } from './cre-routing-patches.js';
 import { classifyIntent as llmClassify } from '../llm/cre-bridge.js';
 import { extractJSON } from '../llm/client.js';
 import { config } from '../config.js';
+import { featureManager } from '../core/feature-manager.js';
 
 // v73: Lazy import to avoid circular dependency (followup.js → intent.js → cre-decision.js)
 let _detectFollowUpType = null;
@@ -57,6 +58,8 @@ export const DecisionType = {
   LOCAL: 'LOCAL',             // Deterministic local computation (date, math, calendar)
   // PLAN: route to Planner pipeline (D1→CODE→R2→R1)
   PLAN: 'PLAN',              // User wants to build something → handoff to Planner
+  // v85: SKILL — route to skill handler for resolution + execution
+  SKILL: 'SKILL',            // User wants a known skill/macro-recipe
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -93,6 +96,9 @@ export const IntentType = {
   // v70: FILE_WRITE — user wants to save/write content to a file
   // TERMINAL: writes to filesystem, no LLM.
   FILE_WRITE: 'FILE_WRITE',   // "zapiš to do souboru", "ulož to do file.md", "save it to a file"
+  // v85: SKILL — user wants to trigger a known deterministic skill/macro-recipe
+  // Routes to SkillHandler which resolves, confirms, and executes the skill.
+  SKILL: 'SKILL',             // "spusť skill X", "vytvoř expertizu pro Docker"
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2128,6 +2134,7 @@ CREATIVE: brainstorming, nápady, kreativní psaní, itinerář, jídelníček, 
 DESIGN: SOFTWAROVÁ architektura, technická roadmapa, plánování IT projektu
 BUILD: vícekrokový projekt
 LOCAL: datum/čas/matematika
+SKILL: spustit naučenou proceduru/recept/skill (existující definovaný postup)
 AMBIGUOUS: nejasný záměr
 
 PRAVIDLA:
@@ -2135,7 +2142,8 @@ PRAVIDLA:
 - "napiš kód" → CODE (ne FILE_WRITE)
 - Soubor jako cíl → extrahuj do fileTarget (POUZE název, bez cest)
 - Český "rust" = růst → CONVERSATIONAL/SEARCH, ne CODE
-- DESIGN = POUZE softwarová architektura/IT projekty. Itinerář, jídelníček, tréninkový plán, výlet → CREATIVE, ne DESIGN${projectHint}`;
+- DESIGN = POUZE softwarová architektura/IT projekty. Itinerář, jídelníček, tréninkový plán, výlet → CREATIVE, ne DESIGN
+- "spusť skill/recept/proceduru X" → SKILL. SKILL jen pokud uživatel explicitně zmiňuje skill/recept${projectHint}`;
 
     // v72: No conversation context — classify current message only
     const userPrompt = input;
@@ -2208,7 +2216,13 @@ PRAVIDLA:
         parsed.confidence = 0.9;
       }
 
-      // GUARD 4: DESIGN requires deterministic pattern confirmation.
+      // GUARD 4: SKILL requires feature flag
+      if (parsed.intent === IntentType.SKILL && !featureManager.isEnabled('skills')) {
+        logger.info('CRE:LLM:Guard', 'SKILL downgrade → CONVERSATIONAL (feature disabled)');
+        parsed.intent = IntentType.CONVERSATIONAL;
+      }
+
+      // GUARD 5: DESIGN requires deterministic pattern confirmation.
       // v72: LLM over-classifies as DESIGN — "itinerary", "meal plan", "start a company"
       // all get DESIGN because LLM sees "plan". But DESIGN = software architecture only.
       // Solution: LLM proposes DESIGN → verify with DESIGN_PATTERNS. No match → CREATIVE.
@@ -3267,6 +3281,25 @@ PRAVIDLA:
         metadata: {
           inputPreview: input.substring(0, 200),
           buildRequest: true,
+          projectScope,
+        },
+      });
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // SKILL: Route to Skill handler (v85)
+    // ════════════════════════════════════════════════════════════════════════
+    // Deterministic macro-recipe — resolver identifies skillId + params
+    // ════════════════════════════════════════════════════════════════════════
+    if (intent === IntentType.SKILL) {
+      return _makeDecision({
+        type: DecisionType.SKILL,
+        intent,
+        tools: [],
+        reason: 'SKILL intent detected — handoff to skill resolver',
+        confidence: 0.9,
+        metadata: {
+          inputPreview: input.substring(0, 200),
           projectScope,
         },
       });

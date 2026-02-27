@@ -34,6 +34,10 @@ export const LLMCallerRole = {
   WORKFLOW_CODER: 'WORKFLOW_CODER',
   WORKFLOW_REVIEWER: 'WORKFLOW_REVIEWER',
   
+  // v85: Skill system
+  SKILL_EXECUTOR: 'SKILL_EXECUTOR',
+  SKILL_RESOLVER: 'SKILL_RESOLVER',
+
   // Legacy support (will be removed)
   LEGACY_DIRECT: 'LEGACY_DIRECT'
 };
@@ -111,6 +115,18 @@ export const RoleCapabilities = {
     LLMCapability.REASONING
   ],
   
+  // v85: Skill system
+  [LLMCallerRole.SKILL_EXECUTOR]: [
+    LLMCapability.REASONING,
+    LLMCapability.CODE_GENERATION,
+    LLMCapability.JSON_OUTPUT,
+  ],
+
+  [LLMCallerRole.SKILL_RESOLVER]: [
+    LLMCapability.CLASSIFICATION,
+    LLMCapability.JSON_OUTPUT,
+  ],
+
   // Legacy - all capabilities (temporary)
   [LLMCallerRole.LEGACY_DIRECT]: Object.values(LLMCapability)
 };
@@ -130,6 +146,8 @@ export const RoleTokenLimits = {
   [LLMCallerRole.WORKFLOW_PLANNER]: 4000,
   [LLMCallerRole.WORKFLOW_CODER]: 8000,
   [LLMCallerRole.WORKFLOW_REVIEWER]: 3000,
+  [LLMCallerRole.SKILL_EXECUTOR]: 4096,
+  [LLMCallerRole.SKILL_RESOLVER]: 500,
   [LLMCallerRole.LEGACY_DIRECT]: 4096
 };
 

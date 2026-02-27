@@ -1,0 +1,59 @@
+{
+  "id": "create-skill",
+  "version": 1,
+  "description": "Vytvoří nový skill — definici workflow jako JSON soubor",
+  "parameters": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "description": "Krátký identifikátor skillu (slug, např. code-review, deploy-check)"
+    }
+  },
+  "steps": [
+    {
+      "id": "clarify",
+      "type": "ask",
+      "prompt": "Chci vytvořit skill **{{name}}**.\n\nUpřesni prosím:\n- Co přesně má skill dělat? (jaké kroky v jakém pořadí)\n- Jaké vstupní parametry bude potřebovat?\n- Co je fixní (vždy stejné) a co variabilní (závisí na vstupu)?\n- Jaká jsou kritéria úspěchu výsledku?"
+    },
+    {
+      "id": "generate",
+      "type": "llm",
+      "prompt": "Vytvoř JSON definici skillu.\n\nID: {{name}}\nPopis od uživatele: {{steps.clarify.output}}\n\nDostupné step typy:\n- llm: LLM generování (prompt, systemPrompt, temperature, maxTokens)\n- template: string substituce (template)\n- write: zápis souboru v sandboxu (path, content)\n- shell: whitelisted příkaz (command) — povoleno: dot, plantuml, mermaid, npx, node, cat, ls, wc, head, tail, echo\n- ask: interaktivní otázka — pauzne exekuci (prompt)\n- review: kontrolní checkpoint — uživatel schválí nebo opraví (content, prompt)\n- validate: LLM ověření proti kritériím (content, criteria, failMessage)\n\nSubstituce: {{paramName}} pro parametry, {{steps.X.output}} pro výstup kroku X.\n\nPravidla:\n1. Každý skill MUSÍ mít ask krok na začátku (upřesnění od uživatele)\n2. Každý skill MUSÍ mít review krok (uživatel kontroluje výsledek)\n3. Každý skill BY MĚL mít validate krok (ověření kvality)\n4. Vzor: clarify → draft → review → refine → validate → persist\n5. ID musí být slug (malá písmena, pomlčky)\n6. Version vždy 1 pro nový skill\n\nVrať POUZE validní JSON objekt, bez komentářů, bez markdown bloků.",
+      "systemPrompt": "Jsi expert na tvorbu skill definic. Generuj čistý JSON. Dodržuj vzor: clarify → draft → review → refine → validate → persist.",
+      "temperature": 0.3,
+      "maxTokens": 4096
+    },
+    {
+      "id": "review",
+      "type": "review",
+      "content": "{{steps.generate.output}}",
+      "prompt": "Zkontroluj definici nového skillu **{{name}}**.\n\nSchválit (ano) nebo popsat úpravy:"
+    },
+    {
+      "id": "refine",
+      "type": "llm",
+      "prompt": "Uprav JSON definici skillu podle zpětné vazby.\n\nZpětná vazba / schválený text:\n{{steps.review.output}}\n\nPůvodní definice:\n{{steps.generate.output}}\n\nPokud schváleno beze změn, vrať původní JSON.\nPokud jsou požadované změny, zapracuj je.\nVrať POUZE validní JSON bez komentářů.",
+      "systemPrompt": "Zapracuj zpětnou vazbu přesně. Vrať POUZE validní JSON.",
+      "temperature": 0.2,
+      "maxTokens": 4096
+    },
+    {
+      "id": "validate",
+      "type": "validate",
+      "content": "{{steps.refine.output}}",
+      "criteria": "Obsah musí být validní JSON. Musí obsahovat: id (string, slug formát), version (číslo), description (string), steps (pole s alespoň 2 kroky). Každý krok musí mít unikátní id (string) a type (jeden z: llm, template, write, shell, ask, review, validate). Musí obsahovat alespoň jeden ask krok a alespoň jeden review krok.",
+      "failMessage": "Vygenerovaná definice skillu není validní. Zkus znovu s jasnějším popisem."
+    },
+    {
+      "id": "save",
+      "type": "write",
+      "path": "skills/{{name}}.json",
+      "content": "{{steps.refine.output}}"
+    },
+    {
+      "id": "done",
+      "type": "template",
+      "template": "Skill **{{name}}** vytvořen a uložen do `skills/{{name}}.json`.\n\nRegistry bude automaticky reloadována."
+    }
+  ]
+}

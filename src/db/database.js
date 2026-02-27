@@ -1527,6 +1527,75 @@ export const telemetryImprovements = {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
+// v85: SKILLS (deterministic macro-recipes)
+// ════════════════════════════════════════════════════════════════════════════
+
+export const skillExecutions = {
+  add: db.prepare(`
+    INSERT INTO skill_executions (id, skill_id, skill_version, state, input, params, confidence, session_id, conversation_id, started_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `),
+
+  findById: db.prepare(`SELECT * FROM skill_executions WHERE id = ?`),
+
+  updateState: db.prepare(`
+    UPDATE skill_executions SET state = ?, current_step_id = ?, steps_output = ? WHERE id = ?
+  `),
+
+  confirm: db.prepare(`
+    UPDATE skill_executions SET state = 'EXECUTING', confirmed_at = CURRENT_TIMESTAMP WHERE id = ?
+  `),
+
+  complete: db.prepare(`
+    UPDATE skill_executions SET state = ?, completed_at = CURRENT_TIMESTAMP, error_message = ? WHERE id = ?
+  `),
+
+  findPending: db.prepare(`
+    SELECT * FROM skill_executions WHERE state = 'CONFIRMING' AND session_id = ? ORDER BY created_at DESC LIMIT 1
+  `),
+
+  findAwaitingInput: db.prepare(`
+    SELECT * FROM skill_executions WHERE state = 'AWAITING_INPUT' AND session_id = ? ORDER BY created_at DESC LIMIT 1
+  `),
+};
+
+export const skillSteps = {
+  add: db.prepare(`
+    INSERT INTO skill_steps (execution_id, step_id, step_type, status, error_type, output, output_hash, retryable, retry_count, duration_ms, error_message)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `),
+
+  findByExecution: db.prepare(`
+    SELECT * FROM skill_steps WHERE execution_id = ? ORDER BY created_at ASC
+  `),
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// v85.1: WORKFLOW PATTERN DETECTION
+// ════════════════════════════════════════════════════════════════════════════
+
+export const workflowPatterns = {
+  upsert: db.prepare(`
+    INSERT INTO workflow_patterns (pattern_hash, tool_sequence, count, last_seen, session_ids)
+    VALUES (?, ?, 1, ?, ?)
+    ON CONFLICT(pattern_hash) DO UPDATE SET
+      count = count + 1,
+      last_seen = excluded.last_seen,
+      session_ids = excluded.session_ids
+  `),
+
+  findByHash: db.prepare(`SELECT * FROM workflow_patterns WHERE pattern_hash = ?`),
+
+  findProposable: db.prepare(`
+    SELECT * FROM workflow_patterns WHERE count >= ? AND proposed = 0 ORDER BY count DESC LIMIT 1
+  `),
+
+  markProposed: db.prepare(`UPDATE workflow_patterns SET proposed = 1 WHERE pattern_hash = ?`),
+
+  resetCount: db.prepare(`UPDATE workflow_patterns SET count = 0, proposed = 0 WHERE pattern_hash = ?`),
+};
+
+// ════════════════════════════════════════════════════════════════════════════
 // UTILITIES
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -1584,6 +1653,9 @@ export default {
   telemetryMetrics,
   telemetryAlerts,
   telemetryImprovements,
+  // v85 Skills
+  skillExecutions,
+  skillSteps,
   transaction,
   close,
 };

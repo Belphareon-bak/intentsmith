@@ -2,6 +2,65 @@
 
 ---
 
+## v85.0 — Skills System MVP + Runtime FeatureManager (2026-02-26)
+
+Deterministický systém maker/receptů pro opakující se postupy. C3 automaticky rozpoznává, kdy uživatel chce spustit skill, a po potvrzení provede sekvenci kroků (LLM, template, write, shell).
+
+### Skills System
+
+- **Skill Registry** — Načítá definice z `skills/*.json`, validuje schéma, graceful empty load
+- **Skill Resolver** — LLM identifikuje skillId + parametry + confidence; post-validace (4 body)
+- **Skill Runner** — State machine (IDLE → CONFIRMING → EXECUTING → DONE/FAILED), retry pro transient chyby
+- **4 step typy**: `llm` (LLM volání), `template` (substituce), `write` (soubor se sandbox ochranou), `shell` (whitelist příkazů)
+- **CRE integrace** — SKILL intent + DecisionType + feature guard + handler dispatch
+- **Confirmation flow** — Resolver → confirm prompt → user ano/ne → execute/cancel
+- **REST API** — `GET /api/skills`, `GET /api/skills/:id`, execution status/confirm/cancel
+- **DB persistence** — `skill_executions` + `skill_steps` tabulky s audit trail
+
+### Runtime FeatureManager
+
+- **FeatureManager singleton** (`src/core/feature-manager.js`) — runtime hot-toggle feature flagů
+- **IDE Settings toggle** — `c3.features.skills` boolean v Theia Preferences
+- **WebSocket sync** — `sync_settings` control action pro okamžitou propagaci z IDE do backendu
+- **REST sync** — `POST /api/settings` automaticky aktualizuje FeatureManager
+- **CRE guard** — `featureManager.isEnabled('skills')` místo statického `config.features.skills`
+
+### Bezpečnost
+
+- Write step: `path.resolve()` + `fs.realpath()` (symlink ochrana), reject `..` a absolutní cesty
+- Shell step: whitelist povolených příkazů (`dot`, `plantuml`, `npx`, `node`, ...), 30s timeout
+- Resolver: validace skillId v registru, kontrola required params, strip extra params
+- Confidence < 0.6: explicitní zpráva "nejsem si jistý", ne tichý fallback
+
+### Soubory
+
+| Nové (13) | Popis |
+|-----------|-------|
+| `src/skills/registry.js` | Loader + validátor skill definic |
+| `src/skills/resolver.js` | LLM resolver (skillId + params) |
+| `src/skills/runner.js` | State machine + execution |
+| `src/skills/steps/{substitute,template,llm,write,shell}.js` | Step executory |
+| `src/chat/handlers/skill.js` | Handler (resolve, confirm, execute) |
+| `src/routes/skills.js` | REST API |
+| `src/core/feature-manager.js` | Runtime feature toggle |
+| `src/db/migrations/2026_02_26_020_v85_skills.js` | DB migrace |
+| `skills/create-expertise.json` | Ukázkový skill |
+| `docs/skills-v1.md` | Dokumentace |
+
+| Modifikované (9) | Změna |
+|-------------------|-------|
+| `src/chat/cre-decision.js` | SKILL intent/decision + guard + mapping |
+| `src/chat/handlers/conversation.js` | Lazy import + confirm intercept + switch case |
+| `src/llm/auth-types.js` | SKILL_EXECUTOR + SKILL_RESOLVER role |
+| `src/db/database.js` | skillExecutions + skillSteps repos |
+| `src/config.js` | `features.skills` flag |
+| `src/server.js` | Registry init + routes + FeatureManager init |
+| `src/ws-bridge/session-adapter.js` | sync_settings control |
+| `src/routes/misc.js` | POST /api/settings → FeatureManager |
+| `c3-ide/extensions/c3-settings/` | IDE preference toggle + sync listener |
+
+---
+
 ## v84.0 — Project-Aware CRE Classification (2026-02-26)
 
 LLM klasifikátor nyní zná kontext aktivního projektu. Dotazy typu "analyzuj X z projektu" nebo "udělej mi výtah z tohoto folderu" se správně klasifikují jako FILE_EXPLAIN/FILE_READ místo CONVERSATIONAL.

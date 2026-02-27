@@ -17,6 +17,7 @@ export const config = {
     telemetry: process.env.C3_ENABLE_TELEMETRY !== 'false',  // Resilience telemetry
     specialistTelemetry: process.env.C3_SPECIALIST_TELEMETRY !== 'false',  // v82: Specialist execution observability
     autonomy: process.env.C3_ENABLE_AUTONOMY === 'true',  // v83: Guarded autonomy (opt-IN, default OFF)
+    skills: process.env.C3_ENABLE_SKILLS !== 'false',  // v85: Skills system (default ON)
   },
 
   // Server

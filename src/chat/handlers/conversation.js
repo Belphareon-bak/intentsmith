@@ -73,6 +73,26 @@ if (config.features.lifecycle !== false) {
   }
 }
 
+// Phase D: Skills (v85)
+let handleSkillDecision, handleSkillConfirmation;
+let recordDecisionForDetector;
+if (config.features.skills !== false) {
+  try {
+    const sk = await import('./skill.js');
+    handleSkillDecision = sk.handleSkillDecision;
+    handleSkillConfirmation = sk.handleSkillConfirmation;
+  } catch (err) {
+    logger.warn('Conversation', `Skills handler not available: ${err.message}`);
+  }
+
+  try {
+    const det = await import('../../skills/detector.js');
+    recordDecisionForDetector = det.recordDecision;
+  } catch (err) {
+    logger.warn('Conversation', `Skill detector not available: ${err.message}`);
+  }
+}
+
 // Load Phase B modules
 if (config.features.agents !== false) {
   try {
@@ -91,6 +111,11 @@ import {
   handleDesignContinue,
   isExplicitFactQuery,
 } from './design.js';
+// v86 M2/M3: Feedback detection + pattern tracking + correction capture
+import { detectFeedback, classifyFeedback, FeedbackSignal } from '../../memory/feedback-detector.js';
+import { preferenceEngine } from '../../memory/preferences.js';
+import { longTermMemory, MemoryKind, MemorySource } from '../../memory/long-term.js';
+import { patternTracker } from '../../memory/pattern-tracker.js';
 
 // v57.3: Patterns for date-correction detection
 const DATE_CORRECTION_PATTERNS = [
@@ -201,6 +226,62 @@ export async function conversationHandler(input, context) {
 
   // Telemetry: pick up collector from context (created in session-adapter)
   const telemetry = context.telemetry ?? null;
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // v86 M3: FEEDBACK DETECTION — detect user's reaction to previous response
+  // Must run BEFORE any intercept or CRE classification.
+  // ════════════════════════════════════════════════════════════════════════════
+  if (sessionState?.lastDecision) {
+    try {
+      const feedback = detectFeedback(input, sessionState);
+
+      if (feedback.type !== FeedbackSignal.NEUTRAL) {
+        const feedbackClass = classifyFeedback(feedback.type);
+        const lastIntent = sessionState.lastIntent || 'unknown';
+
+        // Record to preference engine
+        if (feedbackClass === 'positive') {
+          preferenceEngine.recordPositiveFeedback({
+            responseType: lastIntent,
+            verbosity: preferenceEngine.preferences.verbosity,
+            structure: preferenceEngine.preferences.structure,
+            input: sessionState.lastUserInput,
+          });
+        } else if (feedbackClass === 'negative') {
+          preferenceEngine.recordNegativeFeedback({
+            responseType: lastIntent,
+            verbosity: preferenceEngine.preferences.verbosity,
+            structure: preferenceEngine.preferences.structure,
+            reason: feedback.signal,
+            input: sessionState.lastUserInput,
+          });
+        }
+
+        // M3: Store corrections in LTM
+        if (feedback.type === FeedbackSignal.CORRECTION && feedback.correctionData && longTermMemory.initialized) {
+          longTermMemory.write({
+            kind: MemoryKind.CORRECTION,
+            key: `corr_${Date.now()}`,
+            value: {
+              original: feedback.correctionData.original,
+              corrected: feedback.correctionData.corrected,
+              context: lastIntent,
+            },
+            confidence: 0.8,
+            source: MemorySource.CORRECTED,
+          });
+        }
+
+        logger.debug('Conversation', 'Feedback detected', {
+          type: feedback.type,
+          signal: feedback.signal,
+          confidence: feedback.confidence,
+        });
+      }
+    } catch (err) {
+      logger.debug('Conversation', `Feedback detection error: ${err.message}`);
+    }
+  }
 
   // ════════════════════════════════════════════════════════════════════════════
   // PHASE C1: SESSION RESUME / PROGRESS INTERCEPT (optional — Phase C)
@@ -404,6 +485,14 @@ export async function conversationHandler(input, context) {
     return await handleWizardInput(input, context);
   }
   // ════════════════════════════════════════════════════════════════════════════
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // v85 - SKILL CONFIRMATION INTERCEPT — check before CRE classify
+  // ════════════════════════════════════════════════════════════════════════════
+  if (handleSkillConfirmation) {
+    const skillResult = await handleSkillConfirmation(input, context);
+    if (skillResult) return skillResult;
+  }
 
   // ════════════════════════════════════════════════════════════════════════════
   // v44.2 - CHECK FOR PENDING CLARIFICATION
@@ -662,6 +751,46 @@ export async function conversationHandler(input, context) {
     }
   }
 
+  // ════════════════════════════════════════════════════════════════════════════
+  // v82.2: Deterministic attachment guard — BEFORE CRE classification
+  // Attachment presence is a HARD SIGNAL. LLM should not decide what is
+  // structurally obvious: if user sends a file + references its content,
+  // the intent is FILE_EXPLAIN. Period.
+  // ════════════════════════════════════════════════════════════════════════════
+  if (context.attachments && context.attachments.length > 0) {
+    // NOTE: Code-review patterns (najdi chyb, find bug) are deliberately EXCLUDED.
+    // Those need CRE routing → CODE/CREATIVE to produce code fix blocks.
+    const fileRefPattern = /analyzuj|vysvětli|vysvětl|rozbor|co\s+dělá|co\s+obsahuje|co\s+je\s+v|popi[sš]|shrň|závislost|identifikuj|explain|analy[zs]|what\s+does|what\s+is\s+(in|this)|descri|summar|look\s+at/i;
+    if (fileRefPattern.test(input)) {
+      const attachNames = context.attachments.map(a => a.name).join(', ');
+      logger.info('ConversationHandler', `Attachment guard → FILE_EXPLAIN (deterministic)`, {
+        input: input.substring(0, 60),
+        attachments: attachNames,
+      });
+      // System step for observability
+      if (typeof context.onSystemStep === 'function') {
+        try { context.onSystemStep('attachment_guard', `FILE_EXPLAIN ← ${attachNames}`); } catch (_) {}
+      }
+      // Set filePath from first attachment — file handler needs it to find inline content
+      const primaryAttachment = context.attachments[0];
+      const attachDecision = creDecisionEngine.overrideDecision({
+        type: DecisionType.LOCAL,
+        intent: IntentType.FILE_EXPLAIN,
+        source: 'attachment_guard',
+        reason: `Attachment present (${attachNames}) + file-reference query → deterministic FILE_EXPLAIN`,
+        confidence: 0.95,
+        metadata: {
+          hasAttachments: true,
+          attachmentCount: context.attachments.length,
+          attachmentNames: attachNames,
+          filePath: primaryAttachment.name,
+          handler: 'file.explain',
+        },
+      });
+      return await handleFileDecision(input, attachDecision, context);
+    }
+  }
+
   // v65.4: Enrich CRE input with project hint for better intent classification
   const projectHint = buildProjectHint(context);
   const creInput = projectHint ? input + projectHint : input;
@@ -684,6 +813,11 @@ export async function conversationHandler(input, context) {
 
   // STEP 1.5: Fail-fast assertion - catch bugs early
   assertDecision(decision);
+
+  // v86 M2: Record turn for pattern tracking (cross-conversation learning)
+  try {
+    patternTracker.recordTurn(decision.intent, input);
+  } catch (_) {}
 
   // ════════════════════════════════════════════════════════════════════════════
   // v44.8 FIX: NO ASK_USER ON FIRST TURN
@@ -767,6 +901,11 @@ export async function conversationHandler(input, context) {
     return handleAgentWizardDetected(input, context);
   }
 
+  // v85: Record decision type for workflow pattern detector
+  if (recordDecisionForDetector && sessionState) {
+    try { recordDecisionForDetector(sessionState, decision.type, sessionId); } catch (_) {}
+  }
+
   // STEP 2: Handle based on decision type
   if (typeof context.onSystemStep === 'function') {
     try { context.onSystemStep('routing_switch', decision.type, 2); } catch (_) {}
@@ -778,6 +917,17 @@ export async function conversationHandler(input, context) {
     case DecisionType.PLAN:
       if (handleBuildDetected) return handleBuildDetected(input, decision, context);
       // Phase C not loaded — fall through to ANSWER
+      return await handleAnswerDecision(input, decision, context);
+
+    // ════════════════════════════════════════════════════════════════════════
+    // v85: SKILL — resolve + confirm + execute deterministic macro-recipe
+    // ════════════════════════════════════════════════════════════════════════
+    case DecisionType.SKILL:
+      if (handleSkillDecision) {
+        const skillResult = await handleSkillDecision(input, decision, context);
+        if (skillResult) return skillResult;
+      }
+      // Skill handler not loaded or returned null — fall through to ANSWER
       return await handleAnswerDecision(input, decision, context);
 
     // ════════════════════════════════════════════════════════════════════════

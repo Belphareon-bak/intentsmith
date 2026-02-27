@@ -96,8 +96,14 @@ import { createMiscRoutes } from './routes/misc.js';
 import { createSpecialistRoutes } from './routes/specialists.js';
 import { createQualityRoutes } from './routes/quality.js';
 import { createAutonomyRoutes } from './routes/autonomy.js';
+import { createSkillRoutes } from './routes/skills.js';
+import { skillRegistry } from './skills/registry.js';
 import { creDecisionEngine } from './chat/cre-decision.js';
 import { toolRegistry } from './tools/registry.js';
+
+// v85: FeatureManager — runtime feature flags (hot-toggle from IDE)
+import { featureManager } from './core/feature-manager.js';
+featureManager.init(config.features);
 
 // v56.0 Sprint 3: Initialize ConversationStore with DB
 import { getConversationStore } from './chat/conversation-store.js';
@@ -107,9 +113,27 @@ getConversationStore(db);
 import { getMemoryBank } from './memory/memory-bank.js';
 getMemoryBank(db);
 
-// v81: Telemetry retention — prune old observability rows at startup
-import { pruneTelemetry } from './db/telemetry-retention.js';
-pruneTelemetry(db.db);
+// v86: Initialize LongTermMemory with DB (activates SQLite persistence)
+import { longTermMemory } from './memory/long-term.js';
+longTermMemory.db = db.db;
+longTermMemory.init();
+logger.info('Server', 'LongTermMemory initialized (SQLite)');
+
+// v86: Wire preferences engine to LTM for cross-session persistence
+import { preferenceEngine } from './memory/preferences.js';
+preferenceEngine.longTermMemory = longTermMemory;
+preferenceEngine.preferences._ltm = longTermMemory;
+preferenceEngine.loadFromMemory(longTermMemory);
+logger.info('Server', 'PreferenceEngine loaded from LTM');
+
+// v86 M2: Wire pattern tracker to LTM for cross-conversation learning
+import { patternTracker } from './memory/pattern-tracker.js';
+patternTracker.wire(longTermMemory);
+logger.info('Server', 'PatternTracker wired to LTM');
+
+// v86: Unified data retention — prune all accumulating tables at startup
+import { pruneAllData, compactDatabase } from './db/data-retention.js';
+pruneAllData(db.db);
 
 // F1: Setup Wizard — first-run detection + API routes
 import { SetupWizard, createSetupRoutes } from './setup/wizard.js';
@@ -154,6 +178,17 @@ try {
   if (specialistTelemetry) specialistMemory.setTelemetry(specialistTelemetry);
 } catch (err) {
   logger.warn('Server', `Specialist loader: ${err.message}`);
+}
+
+// v85: Initialize skill registry (graceful empty load)
+if (config.features.skills !== false) {
+  try {
+    const skillsPath = path.join(process.cwd(), 'skills');
+    skillRegistry.load(skillsPath, logger);
+    logger.info('Server', `Skills: ${skillRegistry.list().length} loaded from ${skillsPath}`);
+  } catch (err) {
+    logger.warn('Server', `Skill registry: ${err.message}`);
+  }
 }
 
 // Configure ChatController with default handlers
@@ -526,6 +561,11 @@ const routes = {
   // v83: Autonomy routes (only when enabled)
   ...(config.features.autonomy
     ? createAutonomyRoutes({ ...routeDeps, creEngine: creDecisionEngine })
+    : {}),
+
+  // v85: Skill routes (only when enabled)
+  ...(config.features.skills !== false
+    ? createSkillRoutes(routeDeps)
     : {}),
 
   // F1: Setup Wizard routes (always available — idempotent after completion)
@@ -935,6 +975,26 @@ server.listen(config.server.port, config.server.host, async () => {
       logger.debug('Server', `Autonomy init skipped: ${err.message}`);
     }
   }
+
+  // v86: Periodic data maintenance — adaptive schedule
+  // Daily: lightweight TTL check
+  // Weekly: full prune + conditional compact
+  const DAILY_MS = 24 * 60 * 60 * 1000;
+  const WEEKLY_MS = 7 * DAILY_MS;
+  const dailyRetention = setInterval(() => {
+    try { pruneAllData(db.db); } catch (_) {}
+  }, DAILY_MS);
+  dailyRetention.unref();
+  const weeklyCompact = setInterval(() => {
+    try {
+      const stats = pruneAllData(db.db);
+      if (stats.totalDeleted > 50 || stats.pressure !== 'normal') {
+        compactDatabase(db.db);
+      }
+    } catch (_) {}
+  }, WEEKLY_MS);
+  weeklyCompact.unref();
+  logger.info('Server', 'Data retention scheduled (daily prune + weekly compact)');
 
   // F2: Start background update checker (only if repository configured)
   if (process.env.C3_UPDATE_REPO) {

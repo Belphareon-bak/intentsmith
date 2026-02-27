@@ -1,0 +1,65 @@
+{
+  "id": "create-expertise",
+  "version": 2,
+  "description": "Vytvoří expertizu na zadané téma — s upřesněním, kontrolou a validací",
+  "parameters": {
+    "topic": {
+      "type": "string",
+      "required": true,
+      "description": "Téma expertizy (např. Docker, Kubernetes, Git)"
+    },
+    "filename": {
+      "type": "string",
+      "required": false,
+      "description": "Název výstupního souboru (výchozí: expertiza-{topic}.md)"
+    }
+  },
+  "successCriteria": "Expertiza musí obsahovat: úvod, minimálně 3 tematické sekce, praktické příklady s kódem nebo konfiguracemi, best practices, závěr s doporučením",
+  "steps": [
+    {
+      "id": "clarify",
+      "type": "ask",
+      "prompt": "Chystám se vytvořit expertizu na téma **{{topic}}**.\n\nUpřesni prosím:\n- Pro koho je expertiza určena? (začátečník / pokročilý / expert)\n- Jaký je účel? (interní dokumentace / školení / rozhodování)\n- Máš specifické požadavky na rozsah nebo zaměření?"
+    },
+    {
+      "id": "draft",
+      "type": "llm",
+      "prompt": "Vytvoř podrobnou expertizu na téma: {{topic}}.\n\nKontext od uživatele: {{steps.clarify.output}}\n\nExpertiza musí obsahovat:\n1. Úvod a přehled technologie\n2. Klíčové koncepty a principy\n3. Praktické použití a příklady (konkrétní kód/konfigurace)\n4. Best practices a doporučení\n5. Časté chyby a jak se jim vyhnout\n6. Závěr a další zdroje\n\nFormát: Markdown, strukturovaný s nadpisy ## a ###.\nPřizpůsob úroveň detailu kontextu od uživatele.",
+      "systemPrompt": "Jsi technický expert. Piš česky, jasně a strukturovaně. Používej konkrétní příklady.",
+      "temperature": 0.4,
+      "maxTokens": 4096
+    },
+    {
+      "id": "review",
+      "type": "review",
+      "content": "{{steps.draft.output}}",
+      "prompt": "Zkontroluj návrh expertizy. Pokud je v pořádku, napiš **ano**. Pokud chceš úpravy, popiš co změnit:"
+    },
+    {
+      "id": "refine",
+      "type": "llm",
+      "prompt": "Uprav expertizu na téma {{topic}} podle zpětné vazby.\n\nZpětná vazba / schválený text:\n{{steps.review.output}}\n\nPůvodní návrh:\n{{steps.draft.output}}\n\nPokud je zpětná vazba shodná s původním textem (uživatel schválil beze změn), vrať původní text.\nPokud jsou požadované změny, zapracuj je a vrať upravenou verzi.\n\nFormát: Markdown, zachovej strukturu ## a ###.",
+      "systemPrompt": "Jsi technický editor. Zapracuj zpětnou vazbu přesně. Piš česky.",
+      "temperature": 0.3,
+      "maxTokens": 4096
+    },
+    {
+      "id": "validate",
+      "type": "validate",
+      "content": "{{steps.refine.output}}",
+      "criteria": "Expertiza musí obsahovat: úvod, minimálně 3 tematické sekce, praktické příklady s kódem nebo konfiguracemi, best practices, závěr s doporučením",
+      "failMessage": "Expertiza nesplňuje požadovaná kritéria kvality. Zkus skill spustit znovu."
+    },
+    {
+      "id": "format",
+      "type": "template",
+      "template": "# Expertiza: {{topic}}\n\n_Vygenerováno automaticky — zkontrolováno uživatelem_\n\n---\n\n{{steps.refine.output}}"
+    },
+    {
+      "id": "save",
+      "type": "write",
+      "path": "expertiza-{{topic}}.md",
+      "content": "{{steps.format.output}}"
+    }
+  ]
+}

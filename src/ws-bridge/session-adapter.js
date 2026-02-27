@@ -20,6 +20,7 @@ import {
 } from './protocol.js';
 import { TurnTelemetry } from '../telemetry/turn-telemetry.js';
 import { config } from '../config.js';
+import { featureManager } from '../core/feature-manager.js';
 
 // Telemetry persistence — lazy-loaded once per process
 let telemetryRepo = null;
@@ -453,6 +454,21 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
       case 'ping':
         sendChannel(Channel.CONTROL, { action: 'pong', success: true });
         break;
+
+      // v85: Sync feature settings from IDE
+      case 'sync_settings': {
+        try {
+          const changed = featureManager.applySettings(data.settings || {});
+          sendChannel(Channel.CONTROL, { action: 'sync_settings', success: true, changed });
+          if (changed > 0) {
+            logger.info('WSSession', `Feature settings synced (${changed} changed)`, { sessionId: sid });
+          }
+        } catch (err) {
+          logger.error('WSSession', `sync_settings failed: ${err.message}`);
+          sendChannel(Channel.CONTROL, { action: 'sync_settings', success: false, error: err.message });
+        }
+        break;
+      }
 
       // E4: Edit approve — hash guard, write file, broadcast new hash
       case 'edit_approve': {

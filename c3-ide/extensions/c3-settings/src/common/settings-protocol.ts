@@ -37,6 +37,9 @@ export interface C3Settings {
   'c3.export.includeAgentLog': boolean;
   'c3.export.includeSrc': boolean;
 
+  // Features
+  'c3.features.skills': boolean;
+
   // UI
   'c3.language': 'cs' | 'en';
   'c3.theme': 'dark' | 'light';
@@ -65,6 +68,8 @@ export const C3_DEFAULTS: C3Settings = {
   'c3.export.includeChat': true,
   'c3.export.includeAgentLog': false,
   'c3.export.includeSrc': true,
+
+  'c3.features.skills': true,
 
   'c3.language': 'cs',
   'c3.theme': 'dark',

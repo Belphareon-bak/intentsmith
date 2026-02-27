@@ -3,11 +3,32 @@
  */
 
 import { ContainerModule } from '@theia/core/shared/inversify';
-import { PreferenceContribution } from '@theia/core/lib/browser';
+import {
+  PreferenceContribution,
+  PreferenceService,
+  FrontendApplicationContribution,
+} from '@theia/core/lib/browser';
 import { C3_PREFERENCE_SCHEMA } from './settings-contribution';
 
 export default new ContainerModule(bind => {
   bind(PreferenceContribution).toConstantValue({
     schema: C3_PREFERENCE_SCHEMA,
   });
+
+  // v85: Sync feature toggles to backend on preference change
+  bind(FrontendApplicationContribution).toDynamicValue(ctx => {
+    const prefs = ctx.container.get(PreferenceService);
+    return {
+      onStart(): void {
+        prefs.onPreferenceChanged(event => {
+          if (event.preferenceName.startsWith('c3.features.')) {
+            const ws = (window as any).C3WS;
+            if (ws && typeof ws.syncSettings === 'function' && ws.isReady()) {
+              ws.syncSettings({ [event.preferenceName]: event.newValue });
+            }
+          }
+        });
+      },
+    };
+  }).inSingletonScope();
 });

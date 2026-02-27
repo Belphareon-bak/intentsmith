@@ -1,4 +1,5 @@
 import { getCurrentVersion } from '../packaging/auto-updater.js';
+import { featureManager } from '../core/feature-manager.js';
 
 // H9: Settings, Health, Autocomplete, Audit, Logs routes
 export function createMiscRoutes(deps) {
@@ -43,7 +44,10 @@ export function createMiscRoutes(deps) {
           VALUES (1, ?, datetime('now'))
         `).run(JSON.stringify(body));
 
-        sendJSON(res, 200, { success: true });
+        // v85: Apply feature flag changes at runtime
+        const changed = featureManager.applySettings(body);
+
+        sendJSON(res, 200, { success: true, featuresChanged: changed || 0 });
       } catch (err) {
         sendJSON(res, 500, safeError(err));
       }

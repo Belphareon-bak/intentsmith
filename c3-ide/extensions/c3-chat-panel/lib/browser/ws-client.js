@@ -262,6 +262,11 @@ function wsSendEditReject(reqId) {
   return wsSend('control', { action: 'edit_reject', requestId: reqId });
 }
 
+// v85: Sync feature settings to backend (hot-toggle)
+function wsSendSyncSettings(settings) {
+  return wsSend('control', { action: 'sync_settings', settings: settings });
+}
+
 function wsIsReady() { return _wsReady; }
 function wsServerVersion() { return _serverVersion; }
 function wsServerFeatures() { return _serverFeatures; }
@@ -325,6 +330,7 @@ if (typeof module !== 'undefined' && module.exports) {
     wsSendChat: wsSendChat,
     wsSendTerminal: wsSendTerminal,
     wsSendCancel: wsSendCancel,
+    wsSendSyncSettings: wsSendSyncSettings,
     wsIsReady: wsIsReady,
     wsServerVersion: wsServerVersion,
     wsServerFeatures: wsServerFeatures,
@@ -343,6 +349,7 @@ if (typeof window !== 'undefined') {
     sendChat: wsSendChat,
     sendTerminal: wsSendTerminal,
     sendCancel: wsSendCancel,
+    syncSettings: wsSendSyncSettings,
     isReady: wsIsReady,
     serverVersion: wsServerVersion,
     serverFeatures: wsServerFeatures,
