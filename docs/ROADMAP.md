@@ -32,7 +32,7 @@ Installer, licence, auto-update, setup wizard.
 
 ---
 
-## Kde je každý pilíř dnes (v80)
+## Kde je každý pilíř dnes (v86)
 
 ### Pilíř 1: CHAT — 100% ✅
 **Status: PHASE A = DONE.**

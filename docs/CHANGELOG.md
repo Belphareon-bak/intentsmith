@@ -2,6 +2,65 @@
 
 ---
 
+## v86.0 — Memory System (LTM + Smart Ranking + Feedback Learning) (2026-02-27)
+
+Aktivace tří paměťových vrstev: LongTermMemory persistence, inteligentní context injection, a implicitní učení z uživatelského feedbacku.
+
+### M1 — LTM Stabilization
+
+- **LTM persistence** — `longTermMemory.db = db.db; .init()` v server.js; data přežijí restart
+- **Confidence decay** — `effective = base × e^(-0.01 × ageDays)`, half-life ~69 dní
+- **Reinforcement** — `reinforce(kind, key)` → +0.05 confidence (cap 0.95) + access_count++
+- **Preferences persistence** — adjustmenty → LTM write, startup → `loadFromMemory()`
+- **context-budget wiring** — `buildBudgetedContext(intent)` v `fullContext`, použit v `handleToolCallDecision`
+- **LTM→synthesis fix** — `context.ltm` byl vždy null, nyní populated ze singletonu
+
+### M2 — Intelligent Memory
+
+- **injection-ranker.js** — `rankForContext(entries, input, intent)`: score = effConf × relevance
+  - Relevance = 0.4×keywordOverlap + 0.45×intentAffinity + 0.15×recencyBonus
+  - Intent-kind affinity matrix (CODE→correction=0.9, CONVERSATIONAL→style=0.9, etc.)
+- **ltm-context.js** — ranked injection když je dostupný input+intent, fallback na confidence sort
+- **pattern-tracker.js** — cross-conversation learning přes LTM (kind: 'pattern')
+  - Intent sequences (SEARCH→CODE), topic affinity, tool success tracking
+
+### M3 — Learning System
+
+- **feedback-detector.js** — 6 signálů: POS/NEG × EXPLICIT/IMPLICIT + CORRECTION + NEUTRAL
+- **Conversation wiring** — `detectFeedback()` na začátku tahu, záznam do PreferenceEngine
+- **Correction capture** — CORRECTION signal → LTM write (kind: 'correction', source: 'corrected')
+- **Tool success tracking** — `patternTracker.recordTurn()` v decisions.js po tool execution
+
+### Data Retention
+
+- **data-retention.js** — tiered pruning: 30d telemetry, 60d logs, 90d conv_memory
+- **Archive-before-delete** — messages archived flag, soft-delete → hard-delete po 30d
+- **DB size pressure** — WAL checkpoint + ANALYZE po větším prune
+- **Migration 021** — indexy na created_at, messages.archived, memory.access_count/last_accessed_at
+- **Periodic maintenance** — daily prune + weekly compact (oba `.unref()`)
+
+### Soubory
+
+| Nové (5) | Popis |
+|----------|-------|
+| `src/memory/injection-ranker.js` | Smart LTM ranking pro context injection |
+| `src/memory/feedback-detector.js` | Sémantická detekce feedbacku (6 typů) |
+| `src/memory/pattern-tracker.js` | Cross-conversation pattern learning |
+| `src/db/data-retention.js` | Unified data retention (nahrazuje telemetry-retention) |
+| `src/db/migrations/2026_02_27_021_v86_memory_retention.js` | DB migrace |
+
+| Modifikované (7) | Změna |
+|-------------------|-------|
+| `src/memory/long-term.js` | Confidence decay, reinforcement, access tracking |
+| `src/memory/preferences.js` | Persist adjustmenty do LTM |
+| `src/chat/controller.js` | context.ltm fix, buildBudgetedContext wiring |
+| `src/chat/ltm-context.js` | Ranked injection s input+intent |
+| `src/chat/handlers/conversation.js` | Feedback detection, pattern tracking |
+| `src/chat/handlers/decisions.js` | Tool success tracking |
+| `src/server.js` | LTM init, PatternTracker wire, periodic maintenance |
+
+---
+
 ## v85.0 — Skills System MVP + Runtime FeatureManager (2026-02-26)
 
 Deterministický systém maker/receptů pro opakující se postupy. C3 automaticky rozpoznává, kdy uživatel chce spustit skill, a po potvrzení provede sekvenci kroků (LLM, template, write, shell).

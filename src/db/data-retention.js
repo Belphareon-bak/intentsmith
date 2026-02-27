@@ -227,8 +227,3 @@ export function getDbSizeMB(db) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Backward compat: pruneTelemetry alias
-// ─────────────────────────────────────────────────────────────────────────────
-
-export const pruneTelemetry = pruneAllData;

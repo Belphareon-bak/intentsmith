@@ -1,8 +1,8 @@
 {
   "name": "c3-agent",
-  "version": "82.0.0",
+  "version": "86.0.0",
   "type": "module",
-  "description": "C.3 Agent v82 — CRE + QGv2 + Expertise Merge Engine + Specialist Platform + Ledger + Specialist Telemetry + Theia IDE",
+  "description": "C.3 Agent v86 — CRE + Skills + Memory System + Expertise Platform + Specialist Telemetry + Theia IDE",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
