@@ -260,6 +260,11 @@ button.theia-button.main {
 .p-SplitPanel-handle:hover, .lm-SplitPanel-handle:hover {
   background: var(--c3-accent) !important;
 }
+/* Force overflow clipping on all split panel children — prevents content bleed */
+#theia-left-right-split-panel > .lm-SplitPanel-child,
+#theia-bottom-split-panel > .lm-SplitPanel-child {
+  overflow: hidden !important;
+}
 
 /* ─── Terminal ─── */
 .terminal-wrapper, .xterm {
