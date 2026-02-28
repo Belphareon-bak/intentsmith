@@ -4203,7 +4203,7 @@ inversify_1.decorate(inversify_1.injectable(),C3AgentWidget);
 
 /* ── Snap-collapse state ── */
 var _c3LastLeftW=240,_c3LastRightW=420;
-var _C3_MIN_LEFT=40,_C3_MIN_RIGHT=280;
+var _C3_MIN_LEFT=140,_C3_MIN_RIGHT=380;
 var _c3SnapLock=false;
 
 class C3SidebarContrib extends browser_1.AbstractViewContribution {
