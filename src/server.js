@@ -97,6 +97,7 @@ import { createSpecialistRoutes } from './routes/specialists.js';
 import { createQualityRoutes } from './routes/quality.js';
 import { createAutonomyRoutes } from './routes/autonomy.js';
 import { createSkillRoutes } from './routes/skills.js';
+import { createSystemRoutes } from './routes/system.js';
 import { skillRegistry } from './skills/registry.js';
 import { creDecisionEngine } from './chat/cre-decision.js';
 import { toolRegistry } from './tools/registry.js';
@@ -567,6 +568,9 @@ const routes = {
   ...(config.features.skills !== false
     ? createSkillRoutes(routeDeps)
     : {}),
+
+  // v87: System routes (GPU, model compatibility, diagnostics)
+  ...createSystemRoutes(routeDeps),
 
   // F1: Setup Wizard routes (always available — idempotent after completion)
   ...createSetupRoutes(setupWizard, routeDeps),

@@ -21,7 +21,9 @@ export default new ContainerModule(bind => {
     return {
       onStart(): void {
         prefs.onPreferenceChanged(event => {
-          if (event.preferenceName.startsWith('c3.features.')) {
+          // v87: Sync features, LLM, memory, system, account settings to backend
+          const syncPrefixes = ['c3.features.', 'c3.llm.', 'c3.memory.', 'c3.system.', 'c3.account.'];
+          if (syncPrefixes.some(p => event.preferenceName.startsWith(p))) {
             const ws = (window as any).C3WS;
             if (ws && typeof ws.syncSettings === 'function' && ws.isReady()) {
               ws.syncSettings({ [event.preferenceName]: event.newValue });

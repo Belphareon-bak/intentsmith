@@ -69,13 +69,12 @@ const DATA = {
 
 /* ═══ Settings sections ═══ */
 const SETTINGS = [
-  { id: 'user', icon: '👤', title: 'User / Identity' },
-  { id: 'notif', icon: '🔔', title: 'Notifications' },
-  { id: 'appearance', icon: '🎨', title: 'Appearance' },
+  { id: 'user', icon: '👤', title: 'Account / Identity' },
+  { id: 'llm', icon: '🤖', title: 'LLM Settings' },
   { id: 'memory', icon: '🧠', title: 'Memory & Context' },
-  { id: 'location', icon: '📍', title: 'Location' },
   { id: 'output', icon: '📄', title: 'Output & Formats' },
   { id: 'system', icon: '🖥️', title: 'System' },
+  { id: 'appearance', icon: '🎨', title: 'Appearance' },
   { id: 'about', icon: 'ℹ️', title: 'About' }
 ];
 
@@ -258,63 +257,280 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
   }
 
   _renderSettingsContent(h, secId) {
+    const _sync = (key, val) => {
+      try {
+        const ws = window.C3WS;
+        if (ws && typeof ws.syncSettings === 'function' && ws.isReady()) {
+          ws.syncSettings({ [key]: val });
+        }
+      } catch (_) {}
+    };
+    const _tog = (key, label, def = true) => h('div', { key, className: 'c3-toggle-row' },
+      h('input', { type: 'checkbox', defaultChecked: def, className: 'c3-toggle',
+        onChange: (e) => _sync(key, e.target.checked)
+      }),
+      h('span', { className: 'c3-toggle-label' }, label)
+    );
+    const _inp = (key, label, def, type = 'text', extra = {}) => [
+      h('label', { key: key + '-l', className: 'c3-label' }, label),
+      h('input', { key: key + '-i', className: 'c3-input', type, defaultValue: def,
+        onBlur: (e) => _sync(key, type === 'number' ? Number(e.target.value) : e.target.value), ...extra })
+    ];
+    const _sel = (key, label, options, def) => [
+      h('label', { key: key + '-l', className: 'c3-label' }, label),
+      h('select', { key: key + '-s', className: 'c3-select', defaultValue: def,
+        onChange: (e) => _sync(key, e.target.value) },
+        options.map(o => h('option', { key: o.value || o, value: o.value || o }, o.label || o))
+      )
+    ];
+    const _range = (key, label, def, min, max, step = 1, unit = '') => [
+      h('label', { key: key + '-l', className: 'c3-label' }, label),
+      h('div', { key: key + '-r', className: 'c3-range-row' },
+        h('input', { type: 'range', className: 'c3-range', min, max, step, defaultValue: def,
+          onInput: (e) => {
+            const span = e.target.parentElement.querySelector('.c3-range-val');
+            if (span) span.textContent = e.target.value + unit;
+          },
+          onChange: (e) => _sync(key, Number(e.target.value))
+        }),
+        h('span', { className: 'c3-range-val' }, def + unit)
+      )
+    ];
+
     switch (secId) {
+      // ═══ Account / Identity ═══
       case 'user': return [
-        h('label', { key: 'n', className: 'c3-label' }, 'Jméno'),
-        h('input', { key: 'ni', className: 'c3-input', defaultValue: 'Belfik' }),
-        h('label', { key: 's', className: 'c3-label' }, 'Session scope'),
-        h('div', { key: 'sr', className: 'c3-radios' },
-          ['Osobní', 'Pracovní', 'Anonymní'].map(r =>
-            h('label', { key: r, className: 'c3-radio' },
-              h('input', { type: 'radio', name: 'scope', defaultChecked: r === 'Osobní' }), ' ', r
-            )
-          )
-        )
+        ..._inp('c3.account.displayName', 'Jméno', 'Belfik'),
+        ..._inp('c3.account.description', 'Popis', '', 'text', { placeholder: 'Krátký popis pro personalizaci...' }),
+        ..._sel('c3.account.timezone', 'Časové pásmo', [
+          { value: 'Europe/Prague', label: 'Europe/Prague (CET)' },
+          { value: 'Europe/London', label: 'Europe/London (GMT)' },
+          { value: 'America/New_York', label: 'America/New_York (EST)' },
+          { value: 'Asia/Tokyo', label: 'Asia/Tokyo (JST)' },
+        ], 'Europe/Prague'),
+        ..._sel('c3.account.currency', 'Měna', [
+          { value: 'CZK', label: 'CZK (Kč)' },
+          { value: 'EUR', label: 'EUR (€)' },
+          { value: 'USD', label: 'USD ($)' },
+          { value: 'GBP', label: 'GBP (£)' },
+        ], 'CZK'),
+        ..._sel('c3.language', 'Jazyk rozhraní', [
+          { value: 'cs', label: 'Čeština' },
+          { value: 'en', label: 'English' },
+        ], 'cs'),
       ];
-      case 'system': return [
-        h('label', { key: 'm', className: 'c3-label' }, 'Model'),
-        h('select', { key: 'ms', className: 'c3-select' },
-          h('option', null, 'qwen2.5:32b')
-        ),
-        h('label', { key: 'o', className: 'c3-label' }, 'Ollama URL'),
-        h('input', { key: 'oi', className: 'c3-input', defaultValue: 'http://localhost:11434' })
-      ];
-      case 'appearance': return [
-        h('p', { key: 'td', style: { fontSize: 11, color: 'var(--c3-tx-4)' } },
-          'Nastavení vzhledu je v hlavním Appearance panelu.')
-      ];
-      case 'about': return [
-        h('div', { key: 'a', style: { textAlign: 'center', padding: '8px 0' } },
-          h('div', { style: { width: 32, height: 32, background: 'linear-gradient(135deg,#22c55e,#16a34a)', borderRadius: 9, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13, color: '#fff' } }, 'C3'),
-          h('p', { style: { fontSize: 12, color: 'var(--c3-tx-3)', marginTop: 6 } }, 'v0.1.0 · Made with ❤️ by Belfik')
-        )
-      ];
+
+      // ═══ LLM Settings ═══
+      case 'llm': {
+        // GPU info card — fetched dynamically
+        const gpuCard = h('div', { key: 'gpu-card', className: 'c3-gpu-card' },
+          h('div', { className: 'c3-gpu-card-head' },
+            h('span', { className: 'c3-gpu-icon' }, '🎮'),
+            h('span', null, 'GPU Detection')
+          ),
+          h('div', { className: 'c3-gpu-card-body', id: 'c3-gpu-info' },
+            h('p', { className: 'c3-gpu-loading' }, 'Detecting GPU...')
+          ),
+          h('button', { className: 'c3-btn-sm', onClick: () => this._fetchGpuInfo() }, 'Refresh')
+        );
+        // Trigger initial GPU fetch
+        setTimeout(() => this._fetchGpuInfo(), 100);
+
+        return [
+          gpuCard,
+          h('h4', { key: 'llm-models', className: 'c3-settings-h4' }, 'Models'),
+          ..._inp('c3.llm.ollamaUrl', 'Ollama URL', 'http://127.0.0.1:11434'),
+          h('label', { key: 'chat-m-l', className: 'c3-label' }, 'Chat model'),
+          h('select', { key: 'chat-m-s', className: 'c3-select', id: 'c3-llm-chat-model', defaultValue: 'qwen2.5:32b',
+            onChange: (e) => _sync('c3.llm.chatModel', e.target.value)
+          },
+            h('option', { value: 'qwen2.5:32b' }, 'qwen2.5:32b'),
+            h('option', { value: 'qwen2.5:14b' }, 'qwen2.5:14b'),
+            h('option', { value: 'qwen2.5:7b' }, 'qwen2.5:7b'),
+            h('option', { value: 'qwen2.5:3b' }, 'qwen2.5:3b')
+          ),
+          h('label', { key: 'code-m-l', className: 'c3-label' }, 'Code model'),
+          h('select', { key: 'code-m-s', className: 'c3-select', defaultValue: 'qwen2.5-coder:32b',
+            onChange: (e) => _sync('c3.llm.codeModel', e.target.value)
+          },
+            h('option', { value: 'qwen2.5-coder:32b' }, 'qwen2.5-coder:32b'),
+            h('option', { value: 'qwen2.5-coder:14b' }, 'qwen2.5-coder:14b'),
+            h('option', { value: 'qwen2.5-coder:7b' }, 'qwen2.5-coder:7b')
+          ),
+          h('button', { key: 'load-models', className: 'c3-btn-sm c3-mt-8', onClick: () => this._loadOllamaModels() }, 'Load from Ollama'),
+
+          h('h4', { key: 'llm-params', className: 'c3-settings-h4' }, 'Parameters'),
+          ..._range('c3.llm.temperature', 'Temperature', 0.7, 0, 2, 0.1),
+          ..._inp('c3.llm.contextWindow', 'Context window (tokens)', '32768', 'number', { min: 2048, max: 131072, step: 1024 }),
+          ..._inp('c3.llm.timeoutChat', 'Chat timeout (ms)', '90000', 'number', { min: 10000, max: 300000, step: 5000 }),
+          ..._inp('c3.llm.timeoutCode', 'Code timeout (ms)', '90000', 'number', { min: 10000, max: 300000, step: 5000 }),
+          ..._range('c3.llm.numGpu', 'GPU layers', -1, -1, 8, 1, ''),
+          h('p', { key: 'gpu-hint', className: 'c3-hint' }, '-1 = auto · 0 = CPU only'),
+        ];
+      }
+
+      // ═══ Memory & Context ═══
       case 'memory': return [
-        h('label', { key: 'sk', className: 'c3-label' }, 'Skills'),
-        h('div', { key: 'skd', className: 'c3-toggle-row' },
-          h('input', { type: 'checkbox', defaultChecked: true, className: 'c3-toggle',
-            onChange: (e) => {
-              try {
-                const ws = window.C3WS;
-                if (ws && typeof ws.syncSettings === 'function' && ws.isReady()) {
-                  ws.syncSettings({ 'c3.features.skills': e.target.checked });
-                }
-              } catch(_) {}
-            }
-          }),
-          h('span', { className: 'c3-toggle-label' }, 'Povolit systém skillů (automatické rozpoznání opakujících se postupů)')
-        ),
-        h('label', { key: 'al', className: 'c3-label' }, 'Agent Log'),
+        h('h4', { key: 'mem-conv', className: 'c3-settings-h4' }, 'Conversation Memory'),
+        ..._inp('c3.memory.conversationMaxTurns', 'Max turns', '500', 'number', { min: 50, max: 5000 }),
+        ..._range('c3.memory.compactThreshold', 'Compact threshold', 0.75, 0.3, 0.95, 0.05, ''),
+        ..._inp('c3.memory.compactKeepTurns', 'Keep turns (after compact)', '6', 'number', { min: 2, max: 20 }),
+
+        h('h4', { key: 'mem-ltm', className: 'c3-settings-h4' }, 'Long-Term Memory (LTM)'),
+        _tog('c3.memory.ltmEnabled', 'Povolit dlouhodobou paměť', true),
+        ..._inp('c3.memory.ltmMaxEntries', 'Max entries', '1000', 'number', { min: 100, max: 10000 }),
+        ..._inp('c3.memory.ltmDecayHalfLife', 'Decay half-life (days)', '69', 'number', { min: 7, max: 365 }),
+
+        h('h4', { key: 'mem-ctx', className: 'c3-settings-h4' }, 'Context Budget'),
+        ..._range('c3.memory.contextBudgetChat', 'Chat budget', 60, 10, 90, 5, '%'),
+        ..._range('c3.memory.contextBudgetCode', 'Code budget', 40, 10, 90, 5, '%'),
+        ..._inp('c3.memory.contextBudgetMaxTokens', 'Hard cap (tokens)', '24576', 'number', { min: 2048, max: 65536, step: 1024 }),
+        h('p', { key: 'cap-hint', className: 'c3-hint' }, 'Absolutní limit — ani vysoké procento nepřekročí tento cap.'),
+
+        h('h4', { key: 'mem-learn', className: 'c3-settings-h4' }, 'Learning & Adaptation'),
+        _tog('c3.memory.learningEnabled', 'Učení z preferencí', true),
+        _tog('c3.memory.feedbackDetection', 'Detekce zpětné vazby', true),
+        _tog('c3.memory.patternTracking', 'Sledování vzorců', true),
+
+        h('h4', { key: 'mem-feat', className: 'c3-settings-h4' }, 'Feature Toggles'),
+        _tog('c3.features.skills', 'Systém skillů (automatické opakující se postupy)', true),
+        h('label', { key: 'al', className: 'c3-label' }, 'Agent Log verbosity'),
         h('div', { key: 'ald', className: 'c3-radios' },
-          ['Minimální', 'Normální', 'Podrobný'].map(r =>
-            h('label', { key: r, className: 'c3-radio' },
-              h('input', { type: 'radio', name: 'agentVerbosity', defaultChecked: r === 'Normální' }), ' ', r
+          [{ v: 'minimal', l: 'Minimální' }, { v: 'normal', l: 'Normální' }, { v: 'verbose', l: 'Podrobný' }].map(r =>
+            h('label', { key: r.v, className: 'c3-radio' },
+              h('input', { type: 'radio', name: 'agentVerbosity', defaultChecked: r.v === 'normal',
+                onChange: () => _sync('c3.agent.verbosity', r.v)
+              }), ' ', r.l
             )
           )
+        ),
+      ];
+
+      // ═══ Output & Formats ═══
+      case 'output': return [
+        _tog('c3.output.codeBlocks', 'Code blocks ve výstupu', true),
+        _tog('c3.output.syntaxHighlight', 'Zvýrazňování syntaxe', true),
+        _tog('c3.output.markdownRendering', 'Markdown rendering', true),
+        ..._inp('c3.output.maxResponseLength', 'Max response length (tokens)', '8192', 'number', { min: 1024, max: 65536 }),
+      ];
+
+      // ═══ System ═══
+      case 'system':
+        setTimeout(() => this._fetchSystemInfo(), 100);
+        return [
+        ..._sel('c3.system.logLevel', 'Log level', [
+          { value: 'debug', label: 'Debug' },
+          { value: 'info', label: 'Info' },
+          { value: 'warn', label: 'Warning' },
+          { value: 'error', label: 'Error' },
+        ], 'info'),
+        ..._inp('c3.system.logRetentionDays', 'Retence logů (dny)', '30', 'number', { min: 7, max: 365 }),
+        ..._inp('c3.system.maxFileSize', 'Max file size (bytes)', '1048576', 'number', { min: 102400, max: 10485760 }),
+        ..._inp('c3.system.rateLimit', 'Rate limit (req/min)', '120', 'number', { min: 10, max: 1000 }),
+
+        h('h4', { key: 'sys-diag', className: 'c3-settings-h4' }, 'Diagnostics'),
+        h('div', { key: 'sys-info', className: 'c3-sys-info', id: 'c3-sys-info' },
+          h('p', { className: 'c3-gpu-loading' }, 'Loading system info...')
+        ),
+        h('div', { key: 'sys-actions', className: 'c3-sys-actions' },
+          h('button', { className: 'c3-btn-sm', onClick: () => this._fetchSystemInfo() }, 'Refresh'),
+          h('button', { className: 'c3-btn-sm c3-btn-danger', onClick: () => this._vacuumDb() }, 'Vacuum DB'),
+        ),
+      ];
+
+      // ═══ Appearance ═══
+      case 'appearance': return [
+        ..._sel('c3.theme', 'Barevné schéma', [
+          { value: 'dark', label: 'Dark' },
+          { value: 'light', label: 'Light' },
+        ], 'dark'),
+        ..._inp('c3.chat.fontSize', 'Velikost písma (chat)', '14', 'number', { min: 10, max: 24 }),
+        _tog('c3.chat.showTimestamps', 'Zobrazit časové značky', false),
+        _tog('c3.chat.showIntentBadges', 'Intent badges', true),
+        _tog('c3.agent.showTokenCounts', 'Token counts', false),
+      ];
+
+      // ═══ About ═══
+      case 'about': return [
+        h('div', { key: 'a', className: 'c3-about' },
+          h('div', { className: 'c3-about-logo' }, 'C3'),
+          h('p', { className: 'c3-about-ver' }, 'v87.0.0'),
+          h('p', { className: 'c3-about-sub' }, 'p(AI)assistant · Local LLM Runtime'),
+          h('p', { className: 'c3-about-cr' }, 'Made with care by Belfik')
         )
       ];
+
       default: return h('p', { style: { fontSize: 11, color: 'var(--c3-tx-4)', padding: '4px 0' } }, 'Konfigurace bude doplněna.');
     }
+  }
+
+  // ── v87: Settings helper methods ──────────────────────────────────────────
+
+  async _fetchGpuInfo() {
+    const el = document.getElementById('c3-gpu-info');
+    if (!el) return;
+    try {
+      const resp = await fetch('/api/system/gpu');
+      if (!resp.ok) throw new Error('API error');
+      const data = await resp.json();
+      const gpu = data.profile?.gpus?.[0] || {};
+      const rec = data.recommendation || {};
+      el.innerHTML = `
+        <div class="c3-gpu-row"><span>GPU</span><strong>${gpu.gpu_model || 'N/A'}</strong></div>
+        <div class="c3-gpu-row"><span>VRAM</span><strong>${gpu.vram_mb ? (gpu.vram_mb / 1024).toFixed(1) + ' GB' : 'N/A'}</strong></div>
+        ${gpu.driver ? `<div class="c3-gpu-row"><span>Driver</span><strong>${gpu.driver}</strong></div>` : ''}
+        ${gpu.cuda_version ? `<div class="c3-gpu-row"><span>CUDA</span><strong>${gpu.cuda_version}</strong></div>` : ''}
+        <div class="c3-gpu-row c3-gpu-rec"><span>Recommended</span><strong>${rec.model || 'N/A'} (${rec.params || ''})</strong></div>
+        ${rec.warnings?.length ? `<div class="c3-gpu-warn">${rec.warnings.join('<br>')}</div>` : ''}
+      `;
+    } catch (err) {
+      el.innerHTML = '<p class="c3-gpu-err">GPU detection unavailable (backend offline?)</p>';
+    }
+  }
+
+  async _loadOllamaModels() {
+    try {
+      const resp = await fetch('/api/system/models');
+      if (!resp.ok) throw new Error('API error');
+      const data = await resp.json();
+      const models = data.models || [];
+      const chatSel = document.getElementById('c3-llm-chat-model');
+      if (chatSel && models.length > 0) {
+        chatSel.innerHTML = models.map(m => `<option value="${m.name}">${m.name} (${(m.size / 1e9).toFixed(1)} GB)</option>`).join('');
+      }
+    } catch (_) {}
+  }
+
+  async _fetchSystemInfo() {
+    const el = document.getElementById('c3-sys-info');
+    if (!el) return;
+    try {
+      const resp = await fetch('/api/system/info');
+      if (!resp.ok) throw new Error('API error');
+      const data = await resp.json();
+      el.innerHTML = `
+        <div class="c3-gpu-row"><span>Version</span><strong>${data.version}</strong></div>
+        <div class="c3-gpu-row"><span>Platform</span><strong>${data.platform} ${data.arch}</strong></div>
+        <div class="c3-gpu-row"><span>Node</span><strong>${data.node_version}</strong></div>
+        <div class="c3-gpu-row"><span>Uptime</span><strong>${Math.round(data.uptime_seconds / 60)} min</strong></div>
+        <div class="c3-gpu-row"><span>RAM</span><strong>${data.memory?.process_mb} / ${data.memory?.total_mb} MB</strong></div>
+        <div class="c3-gpu-row"><span>DB size</span><strong>${data.db?.size_mb} MB</strong></div>
+        <div class="c3-gpu-row"><span>Messages</span><strong>${data.db?.tables?.messages || 0}</strong></div>
+        <div class="c3-gpu-row"><span>Sessions</span><strong>${data.db?.tables?.sessions || 0}</strong></div>
+        <div class="c3-gpu-row"><span>LTM entries</span><strong>${data.db?.tables?.memory || 0}</strong></div>
+        <div class="c3-gpu-row"><span>Chat model</span><strong>${data.config?.chat_model}</strong></div>
+      `;
+    } catch (err) {
+      el.innerHTML = '<p class="c3-gpu-err">System info unavailable (backend offline?)</p>';
+    }
+  }
+
+  async _vacuumDb() {
+    try {
+      const resp = await fetch('/api/system/vacuum', { method: 'POST' });
+      if (!resp.ok) throw new Error('Vacuum failed');
+      this._fetchSystemInfo();
+    } catch (_) {}
   }
 
   // ─── v63.0: Wizard Methods ──────────────────────────────────────────────

@@ -43,6 +43,49 @@ export interface C3Settings {
   // UI
   'c3.language': 'cs' | 'en';
   'c3.theme': 'dark' | 'light';
+
+  // ─── v87: LLM Settings ──────────────────────────────
+  'c3.llm.chatModel': string;
+  'c3.llm.codeModel': string;
+  'c3.llm.visionModel': string;
+  'c3.llm.ollamaUrl': string;
+  'c3.llm.temperature': number;
+  'c3.llm.contextWindow': number;
+  'c3.llm.timeoutChat': number;
+  'c3.llm.timeoutCode': number;
+  'c3.llm.numGpu': number;
+
+  // ─── v87: Memory & Context ──────────────────────────
+  'c3.memory.conversationMaxTurns': number;
+  'c3.memory.compactThreshold': number;
+  'c3.memory.compactKeepTurns': number;
+  'c3.memory.ltmEnabled': boolean;
+  'c3.memory.ltmMaxEntries': number;
+  'c3.memory.ltmDecayHalfLife': number;
+  'c3.memory.contextBudgetChat': number;
+  'c3.memory.contextBudgetCode': number;
+  'c3.memory.contextBudgetMaxTokens': number;
+  'c3.memory.learningEnabled': boolean;
+  'c3.memory.feedbackDetection': boolean;
+  'c3.memory.patternTracking': boolean;
+
+  // ─── v87: Account / Identity ────────────────────────
+  'c3.account.displayName': string;
+  'c3.account.description': string;
+  'c3.account.timezone': string;
+  'c3.account.currency': string;
+
+  // ─── v87: System ────────────────────────────────────
+  'c3.system.logLevel': 'debug' | 'info' | 'warn' | 'error';
+  'c3.system.logRetentionDays': number;
+  'c3.system.maxFileSize': number;
+  'c3.system.rateLimit': number;
+
+  // ─── v87: Output ────────────────────────────────────
+  'c3.output.codeBlocks': boolean;
+  'c3.output.syntaxHighlight': boolean;
+  'c3.output.markdownRendering': boolean;
+  'c3.output.maxResponseLength': number;
 }
 
 export const C3_DEFAULTS: C3Settings = {
@@ -73,4 +116,47 @@ export const C3_DEFAULTS: C3Settings = {
 
   'c3.language': 'cs',
   'c3.theme': 'dark',
+
+  // v87: LLM Settings
+  'c3.llm.chatModel': 'qwen2.5:32b',
+  'c3.llm.codeModel': 'qwen2.5-coder:32b',
+  'c3.llm.visionModel': 'llava:13b',
+  'c3.llm.ollamaUrl': 'http://127.0.0.1:11434',
+  'c3.llm.temperature': 0.7,
+  'c3.llm.contextWindow': 32768,
+  'c3.llm.timeoutChat': 90000,
+  'c3.llm.timeoutCode': 90000,
+  'c3.llm.numGpu': -1,
+
+  // v87: Memory & Context
+  'c3.memory.conversationMaxTurns': 500,
+  'c3.memory.compactThreshold': 0.75,
+  'c3.memory.compactKeepTurns': 6,
+  'c3.memory.ltmEnabled': true,
+  'c3.memory.ltmMaxEntries': 1000,
+  'c3.memory.ltmDecayHalfLife': 69,
+  'c3.memory.contextBudgetChat': 60,
+  'c3.memory.contextBudgetCode': 40,
+  'c3.memory.contextBudgetMaxTokens': 24576,
+  'c3.memory.learningEnabled': true,
+  'c3.memory.feedbackDetection': true,
+  'c3.memory.patternTracking': true,
+
+  // v87: Account / Identity
+  'c3.account.displayName': '',
+  'c3.account.description': '',
+  'c3.account.timezone': 'Europe/Prague',
+  'c3.account.currency': 'CZK',
+
+  // v87: System
+  'c3.system.logLevel': 'info',
+  'c3.system.logRetentionDays': 30,
+  'c3.system.maxFileSize': 1048576,
+  'c3.system.rateLimit': 120,
+
+  // v87: Output
+  'c3.output.codeBlocks': true,
+  'c3.output.syntaxHighlight': true,
+  'c3.output.markdownRendering': true,
+  'c3.output.maxResponseLength': 8192,
 };

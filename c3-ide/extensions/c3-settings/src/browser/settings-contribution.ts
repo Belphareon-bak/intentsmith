@@ -149,6 +149,217 @@ export const C3_PREFERENCE_SCHEMA = {
       enum: ['dark', 'light'],
       description: 'Barevné schéma C3 panelů.',
     },
+
+    // ─── v87: LLM Settings ────────────────────────────
+    'c3.llm.chatModel': {
+      type: 'string',
+      default: C3_DEFAULTS['c3.llm.chatModel'],
+      description: 'Hlavní model pro chat a syntézu.',
+    },
+    'c3.llm.codeModel': {
+      type: 'string',
+      default: C3_DEFAULTS['c3.llm.codeModel'],
+      description: 'Model pro generování kódu.',
+    },
+    'c3.llm.visionModel': {
+      type: 'string',
+      default: C3_DEFAULTS['c3.llm.visionModel'],
+      description: 'Model pro analýzu obrázků.',
+    },
+    'c3.llm.ollamaUrl': {
+      type: 'string',
+      default: C3_DEFAULTS['c3.llm.ollamaUrl'],
+      description: 'URL adresa Ollama serveru.',
+    },
+    'c3.llm.temperature': {
+      type: 'number',
+      default: C3_DEFAULTS['c3.llm.temperature'],
+      minimum: 0,
+      maximum: 2,
+      description: 'Teplota generování (0 = deterministický, 2 = kreativní).',
+    },
+    'c3.llm.contextWindow': {
+      type: 'number',
+      default: C3_DEFAULTS['c3.llm.contextWindow'],
+      minimum: 2048,
+      maximum: 131072,
+      description: 'Velikost kontextového okna modelu (tokeny).',
+    },
+    'c3.llm.timeoutChat': {
+      type: 'number',
+      default: C3_DEFAULTS['c3.llm.timeoutChat'],
+      minimum: 10000,
+      maximum: 300000,
+      description: 'Timeout pro chat volání (ms).',
+    },
+    'c3.llm.timeoutCode': {
+      type: 'number',
+      default: C3_DEFAULTS['c3.llm.timeoutCode'],
+      minimum: 10000,
+      maximum: 300000,
+      description: 'Timeout pro code generování (ms).',
+    },
+    'c3.llm.numGpu': {
+      type: 'number',
+      default: C3_DEFAULTS['c3.llm.numGpu'],
+      minimum: -1,
+      maximum: 8,
+      description: 'Počet GPU vrstev (-1 = auto, 0 = CPU only).',
+    },
+
+    // ─── v87: Memory & Context ────────────────────────
+    'c3.memory.conversationMaxTurns': {
+      type: 'number',
+      default: C3_DEFAULTS['c3.memory.conversationMaxTurns'],
+      minimum: 50,
+      maximum: 5000,
+      description: 'Maximální počet turnů v konverzaci.',
+    },
+    'c3.memory.compactThreshold': {
+      type: 'number',
+      default: C3_DEFAULTS['c3.memory.compactThreshold'],
+      minimum: 0.3,
+      maximum: 0.95,
+      description: 'Práh pro automatickou kompakci kontextu (0-1).',
+    },
+    'c3.memory.compactKeepTurns': {
+      type: 'number',
+      default: C3_DEFAULTS['c3.memory.compactKeepTurns'],
+      minimum: 2,
+      maximum: 20,
+      description: 'Počet posledních turnů uchovaných při kompakci.',
+    },
+    'c3.memory.ltmEnabled': {
+      type: 'boolean',
+      default: C3_DEFAULTS['c3.memory.ltmEnabled'],
+      description: 'Povolit dlouhodobou paměť (LTM).',
+    },
+    'c3.memory.ltmMaxEntries': {
+      type: 'number',
+      default: C3_DEFAULTS['c3.memory.ltmMaxEntries'],
+      minimum: 100,
+      maximum: 10000,
+      description: 'Maximální počet záznamů v LTM.',
+    },
+    'c3.memory.ltmDecayHalfLife': {
+      type: 'number',
+      default: C3_DEFAULTS['c3.memory.ltmDecayHalfLife'],
+      minimum: 7,
+      maximum: 365,
+      description: 'Poločas rozpadu důvěryhodnosti LTM (dny).',
+    },
+    'c3.memory.contextBudgetChat': {
+      type: 'number',
+      default: C3_DEFAULTS['c3.memory.contextBudgetChat'],
+      minimum: 10,
+      maximum: 90,
+      description: 'Budget kontextu pro chat (% z kontextového okna).',
+    },
+    'c3.memory.contextBudgetCode': {
+      type: 'number',
+      default: C3_DEFAULTS['c3.memory.contextBudgetCode'],
+      minimum: 10,
+      maximum: 90,
+      description: 'Budget kontextu pro kód (% z kontextového okna).',
+    },
+    'c3.memory.contextBudgetMaxTokens': {
+      type: 'number',
+      default: C3_DEFAULTS['c3.memory.contextBudgetMaxTokens'],
+      minimum: 2048,
+      maximum: 65536,
+      description: 'Absolutní hard cap pro kontext (tokeny). Chrání proti runaway kontextu.',
+    },
+    'c3.memory.learningEnabled': {
+      type: 'boolean',
+      default: C3_DEFAULTS['c3.memory.learningEnabled'],
+      description: 'Povolit učení z uživatelských preferencí.',
+    },
+    'c3.memory.feedbackDetection': {
+      type: 'boolean',
+      default: C3_DEFAULTS['c3.memory.feedbackDetection'],
+      description: 'Automatická detekce zpětné vazby v konverzaci.',
+    },
+    'c3.memory.patternTracking': {
+      type: 'boolean',
+      default: C3_DEFAULTS['c3.memory.patternTracking'],
+      description: 'Sledování vzorců napříč konverzacemi.',
+    },
+
+    // ─── v87: Account / Identity ──────────────────────
+    'c3.account.displayName': {
+      type: 'string',
+      default: C3_DEFAULTS['c3.account.displayName'],
+      description: 'Zobrazované jméno uživatele.',
+    },
+    'c3.account.description': {
+      type: 'string',
+      default: C3_DEFAULTS['c3.account.description'],
+      description: 'Popis/bio uživatele (pro personalizaci odpovědí).',
+    },
+    'c3.account.timezone': {
+      type: 'string',
+      default: C3_DEFAULTS['c3.account.timezone'],
+      description: 'Časové pásmo uživatele.',
+    },
+    'c3.account.currency': {
+      type: 'string',
+      default: C3_DEFAULTS['c3.account.currency'],
+      enum: ['CZK', 'EUR', 'USD', 'GBP'],
+      description: 'Výchozí měna pro finanční výpočty.',
+    },
+
+    // ─── v87: System ──────────────────────────────────
+    'c3.system.logLevel': {
+      type: 'string',
+      default: C3_DEFAULTS['c3.system.logLevel'],
+      enum: ['debug', 'info', 'warn', 'error'],
+      description: 'Úroveň logování.',
+    },
+    'c3.system.logRetentionDays': {
+      type: 'number',
+      default: C3_DEFAULTS['c3.system.logRetentionDays'],
+      minimum: 7,
+      maximum: 365,
+      description: 'Retence logů (dny).',
+    },
+    'c3.system.maxFileSize': {
+      type: 'number',
+      default: C3_DEFAULTS['c3.system.maxFileSize'],
+      minimum: 102400,
+      maximum: 10485760,
+      description: 'Maximální velikost souboru pro zpracování (bytes).',
+    },
+    'c3.system.rateLimit': {
+      type: 'number',
+      default: C3_DEFAULTS['c3.system.rateLimit'],
+      minimum: 10,
+      maximum: 1000,
+      description: 'Rate limit — maximální požadavky za minutu.',
+    },
+
+    // ─── v87: Output ──────────────────────────────────
+    'c3.output.codeBlocks': {
+      type: 'boolean',
+      default: C3_DEFAULTS['c3.output.codeBlocks'],
+      description: 'Zobrazovat code blocky ve výstupu.',
+    },
+    'c3.output.syntaxHighlight': {
+      type: 'boolean',
+      default: C3_DEFAULTS['c3.output.syntaxHighlight'],
+      description: 'Zvýrazňování syntaxe v code blocích.',
+    },
+    'c3.output.markdownRendering': {
+      type: 'boolean',
+      default: C3_DEFAULTS['c3.output.markdownRendering'],
+      description: 'Renderovat markdown ve výstupu.',
+    },
+    'c3.output.maxResponseLength': {
+      type: 'number',
+      default: C3_DEFAULTS['c3.output.maxResponseLength'],
+      minimum: 1024,
+      maximum: 65536,
+      description: 'Maximální délka odpovědi (tokeny).',
+    },
   },
 };
 

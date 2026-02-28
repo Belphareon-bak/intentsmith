@@ -167,6 +167,147 @@
   color: var(--c3-tx-2);
 }
 
+/* ═══ v87: Settings — GPU card, range, system info, about ═══ */
+
+.c3-settings-h4 {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c3-tx-2);
+  margin: 14px 0 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--c3-border-2);
+}
+
+/* GPU card */
+.c3-gpu-card {
+  background: var(--c3-bg-2);
+  border: 1px solid var(--c3-border-2);
+  border-radius: var(--c3-r-sm);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.c3-gpu-card-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c3-tx-1);
+  margin-bottom: 8px;
+}
+.c3-gpu-icon { font-size: 16px; }
+.c3-gpu-card-body { font-size: 11px; }
+.c3-gpu-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--c3-border-1);
+  font-size: 11px;
+  color: var(--c3-tx-3);
+}
+.c3-gpu-row strong { color: var(--c3-tx-1); font-weight: 500; }
+.c3-gpu-rec strong { color: var(--c3-accent-text); }
+.c3-gpu-warn {
+  margin-top: 6px;
+  padding: 4px 8px;
+  background: var(--c3-warn-bg, rgba(250,176,5,0.1));
+  border-radius: var(--c3-r-xs);
+  font-size: 10px;
+  color: var(--c3-warn-text, #fab005);
+}
+.c3-gpu-loading { font-size: 11px; color: var(--c3-tx-4); }
+.c3-gpu-err { font-size: 11px; color: var(--c3-err-text, #ff6b6b); }
+
+/* Range slider */
+.c3-range-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.c3-range {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--c3-bg-4);
+  border-radius: 2px;
+  outline: none;
+}
+.c3-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--c3-accent);
+  cursor: pointer;
+}
+.c3-range-val {
+  font-size: 11px;
+  color: var(--c3-tx-2);
+  min-width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hint text */
+.c3-hint {
+  font-size: 10px;
+  color: var(--c3-tx-4);
+  margin: 2px 0 6px;
+}
+
+/* Small button */
+.c3-btn-sm {
+  padding: 4px 10px;
+  border-radius: var(--c3-r-xs);
+  border: 1px solid var(--c3-border-2);
+  background: var(--c3-bg-3);
+  color: var(--c3-tx-2);
+  font-family: var(--c3-font);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.c3-btn-sm:hover { border-color: var(--c3-accent-dim); color: var(--c3-tx-1); }
+.c3-btn-danger { color: var(--c3-err-text, #ff6b6b); border-color: var(--c3-err-text, #ff6b6b44); }
+.c3-btn-danger:hover { background: rgba(255,107,107,0.1); }
+.c3-mt-8 { margin-top: 8px; }
+
+/* System info / diagnostics */
+.c3-sys-info {
+  background: var(--c3-bg-2);
+  border: 1px solid var(--c3-border-2);
+  border-radius: var(--c3-r-sm);
+  padding: 8px 12px;
+  margin-bottom: 8px;
+}
+.c3-sys-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* About */
+.c3-about {
+  text-align: center;
+  padding: 16px 0;
+}
+.c3-about-logo {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  border-radius: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 16px;
+  color: #fff;
+  margin-bottom: 8px;
+}
+.c3-about-ver { font-size: 13px; font-weight: 600; color: var(--c3-tx-1); margin: 4px 0 2px; }
+.c3-about-sub { font-size: 11px; color: var(--c3-tx-3); margin: 0; }
+.c3-about-cr { font-size: 10px; color: var(--c3-tx-4); margin: 8px 0 0; }
+
 /* ═══ v63.0: Expertise Wizard ═══ */
 
 /* New expertise button */
