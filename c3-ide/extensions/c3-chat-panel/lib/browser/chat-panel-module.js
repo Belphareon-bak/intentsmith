@@ -664,7 +664,7 @@ class C3SidebarWidget extends react_widget_1.ReactWidget {
   _render(){
     var self=this;
     if(!this._root)this._root=_createRoot(this.node);
-    this._root.render(h(SidebarApp,{getState:function(){return{active:self._active,dd:self._dd,collapsed:self._collapsed};},setState:function(s){if(s.active!==undefined)self._active=s.active;if(s.dd!==undefined)self._dd=s.dd;if(s.collapsed!==undefined){self._collapsed=s.collapsed;try{var app=window._c3App;if(app&&app.shell&&typeof app.shell.resize==='function'){app.shell.resize(s.collapsed?48:240,'left');}}catch(ex){}}self._render();}}));
+    this._root.render(h(SidebarApp,{getState:function(){return{active:self._active,dd:self._dd,collapsed:self._collapsed};},setState:function(s){if(s.active!==undefined)self._active=s.active;if(s.dd!==undefined)self._dd=s.dd;if(s.collapsed!==undefined){self._collapsed=s.collapsed;try{var app=window._c3App;if(app&&app.shell&&typeof app.shell.resize==='function'){_c3SnapLock=true;app.shell.resize(s.collapsed?48:240,'left');setTimeout(function(){_c3SnapLock=false;},600);}}catch(ex){}}self._render();}}));
   }
 }
 inversify_1.decorate(inversify_1.injectable(),C3SidebarWidget);
@@ -4203,7 +4203,8 @@ inversify_1.decorate(inversify_1.injectable(),C3AgentWidget);
 
 /* ── Snap-collapse state ── */
 var _c3LastLeftW=240,_c3LastRightW=420;
-var _C3_MIN_LEFT=160,_C3_MIN_RIGHT=280;
+var _C3_MIN_LEFT=40,_C3_MIN_RIGHT=280;
+var _c3SnapLock=false;
 
 class C3SidebarContrib extends browser_1.AbstractViewContribution {
   constructor(){super({widgetId:C3_SIDEBAR_ID,widgetName:'C3 Navigation',defaultWidgetOptions:{area:'left',rank:0},toggleCommandId:'c3:toggleSidebar',toggleKeybinding:'ctrlcmd+b'});}
@@ -4212,16 +4213,17 @@ class C3SidebarContrib extends browser_1.AbstractViewContribution {
     c.registerCommand({id:'c3:toggleSidebar',label:'C3: Toggle Sidebar',category:'C3'},{
       execute:function(){
         var app=window._c3App;if(!app)return;
+        _c3SnapLock=true;
         var n=document.getElementById('theia-left-content-panel');
         var w=n?n.offsetWidth:0;
         if(w<10){
-          /* Expand — restore last known width or sidebar's internal state */
           var tw=(_sidebarWidget&&_sidebarWidget._collapsed)?48:(_c3LastLeftW||240);
           app.shell.resize(tw,'left');
         }else{
           _c3LastLeftW=w;
           app.shell.resize(0,'left');
         }
+        setTimeout(function(){_c3SnapLock=false;},600);
       }
     });
   }
@@ -4239,39 +4241,46 @@ class C3SidebarContrib extends browser_1.AbstractViewContribution {
         var btSplit=mp&&mp.parent;
         if(btSplit&&btSplit.id==='theia-bottom-split-panel'){btSplit.spacing=4;}
       }catch(e){console.warn('[C3] Split spacing fix:',e);}
-      /* ── Snap-collapse: detect handle drag + snap panels below threshold ── */
+      /* ── Snap-collapse via ResizeObserver + expand tabs ── */
       try{
-        var _isDrag=false;
-        var lrEl=document.getElementById('theia-left-right-split-panel');
-        if(lrEl){
-          var hdls=lrEl.querySelectorAll(':scope > .lm-SplitPanel-handle, :scope > .p-SplitPanel-handle');
-          for(var i=0;i<hdls.length;i++){
-            hdls[i].addEventListener('mousedown',function(){_isDrag=true;});
+        var leftCP=document.getElementById('theia-left-content-panel');
+        var rightCP=document.getElementById('theia-right-content-panel');
+        var _leftSnapT=null,_rightSnapT=null;
+        /* Right panel: snap to 0 when below 280px */
+        if(rightCP){new ResizeObserver(function(entries){
+          if(_c3SnapLock)return;
+          var w=entries[0].contentRect.width;
+          if(w>0&&w<_C3_MIN_RIGHT){
+            if(!_rightSnapT){_rightSnapT=setTimeout(function(){
+              _rightSnapT=null;if(_c3SnapLock)return;
+              var rn=document.getElementById('theia-right-content-panel');
+              if(rn&&rn.offsetWidth>0&&rn.offsetWidth<_C3_MIN_RIGHT){
+                _c3SnapLock=true;a.shell.resize(0,'right');
+                setTimeout(function(){_c3SnapLock=false;},600);
+              }
+            },300);}
+          }else{if(_rightSnapT){clearTimeout(_rightSnapT);_rightSnapT=null;}
+            if(w>=_C3_MIN_RIGHT){_c3LastRightW=w;}
           }
-          document.addEventListener('mouseup',function(){
-            if(!_isDrag)return;
-            _isDrag=false;
-            requestAnimationFrame(function(){
-              try{
-                var ln=document.getElementById('theia-left-content-panel');
-                var rn=document.getElementById('theia-right-content-panel');
-                if(ln){
-                  var lw=ln.offsetWidth;
-                  if(lw>0&&lw<_C3_MIN_LEFT){a.shell.resize(0,'left');}
-                  else if(lw>=_C3_MIN_LEFT){_c3LastLeftW=lw;}
-                }
-                if(rn){
-                  var rw=rn.offsetWidth;
-                  if(rw>0&&rw<_C3_MIN_RIGHT){a.shell.resize(0,'right');}
-                  else if(rw>=_C3_MIN_RIGHT){_c3LastRightW=rw;}
-                }
-              }catch(e){}
-            });
-          });
-        }
-      }catch(e){console.warn('[C3] Snap-collapse setup:',e);}
-      /* ── Expand tabs — floating arrows at edges when panels are collapsed ── */
-      try{
+        }).observe(rightCP);}
+        /* Left panel: snap to 0 when below 40px (below icon mode) */
+        if(leftCP){new ResizeObserver(function(entries){
+          if(_c3SnapLock)return;
+          var w=entries[0].contentRect.width;
+          if(w>0&&w<_C3_MIN_LEFT){
+            if(!_leftSnapT){_leftSnapT=setTimeout(function(){
+              _leftSnapT=null;if(_c3SnapLock)return;
+              var ln=document.getElementById('theia-left-content-panel');
+              if(ln&&ln.offsetWidth>0&&ln.offsetWidth<_C3_MIN_LEFT){
+                _c3SnapLock=true;a.shell.resize(0,'left');
+                setTimeout(function(){_c3SnapLock=false;},600);
+              }
+            },300);}
+          }else{if(_leftSnapT){clearTimeout(_leftSnapT);_leftSnapT=null;}
+            if(w>=160){_c3LastLeftW=w;}
+          }
+        }).observe(leftCP);}
+        /* Expand tabs — floating arrows at edges when panels are at 0 */
         var _mkExpandTab=function(side){
           var el=document.createElement('div');
           var isLeft=side==='left';
@@ -4281,28 +4290,28 @@ class C3SidebarContrib extends browser_1.AbstractViewContribution {
           el.addEventListener('mouseenter',function(){el.style.background=C.bg4;el.style.width='32px';});
           el.addEventListener('mouseleave',function(){el.style.background=C.bg3;el.style.width='24px';});
           el.addEventListener('click',function(){
+            _c3SnapLock=true;
             if(isLeft){
               var tw=(_sidebarWidget&&_sidebarWidget._collapsed)?48:(_c3LastLeftW||240);
               a.shell.resize(tw,'left');
             }else{
               a.shell.resize(_c3LastRightW||420,'right');
             }
+            setTimeout(function(){_c3SnapLock=false;},600);
           });
           document.body.appendChild(el);
           return el;
         };
         var _leftTab=_mkExpandTab('left');
         var _rightTab=_mkExpandTab('right');
-        /* Show/hide tabs based on panel width via ResizeObserver */
-        var leftCP=document.getElementById('theia-left-content-panel');
-        var rightCP=document.getElementById('theia-right-content-panel');
+        /* Show/hide expand tabs — piggyback on same ResizeObservers */
         if(leftCP){new ResizeObserver(function(entries){
           _leftTab.style.display=entries[0].contentRect.width<10?'flex':'none';
         }).observe(leftCP);}
         if(rightCP){new ResizeObserver(function(entries){
           _rightTab.style.display=entries[0].contentRect.width<10?'flex':'none';
         }).observe(rightCP);}
-      }catch(e){console.warn('[C3] Expand tabs setup:',e);}
+      }catch(e){console.warn('[C3] Snap-collapse setup:',e);}
     },800);
   }
 }
@@ -4315,10 +4324,12 @@ class C3ChatContrib extends browser_1.AbstractViewContribution {
     c.registerCommand({id:'c3:toggleChat',label:'C3: Toggle Chat',category:'C3'},{
       execute:function(){
         var app=window._c3App;if(!app)return;
+        _c3SnapLock=true;
         var n=document.getElementById('theia-right-content-panel');
         var w=n?n.offsetWidth:0;
         if(w<10){app.shell.resize(_c3LastRightW||420,'right');}
         else{_c3LastRightW=w;app.shell.resize(0,'right');}
+        setTimeout(function(){_c3SnapLock=false;},600);
       }
     });
   }
