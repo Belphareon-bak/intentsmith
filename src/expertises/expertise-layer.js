@@ -196,6 +196,7 @@ export const BUILTIN_EXPERTISES = {
     reviewPolicy: REVIEW_POLICY.ITERATIVE,
     dataUsagePolicy: DATA_USAGE.FORBIDDEN,
     outputBias: OUTPUT_BIAS.CREATIVE,
+    creativeLock: true,
     preferredModels: ['qwen2.5:32b', 'mixtral', 'llama3'],
     temperature: 0.8,
     chunkingStrategy: 'chapters',
@@ -269,6 +270,7 @@ NIKDY:
     reviewPolicy: REVIEW_POLICY.ITERATIVE,
     dataUsagePolicy: DATA_USAGE.FORBIDDEN,
     outputBias: OUTPUT_BIAS.CREATIVE,
+    creativeLock: true,
     preferredModels: ['qwen2.5:32b'],
     temperature: 0.85,
     chunkingStrategy: 'sessions',
@@ -342,6 +344,7 @@ FORMÁT:
     reviewPolicy: REVIEW_POLICY.ITERATIVE,
     dataUsagePolicy: DATA_USAGE.FORBIDDEN,
     outputBias: OUTPUT_BIAS.CREATIVE,
+    creativeLock: true,
     preferredModels: ['qwen2.5:32b'],
     temperature: 0.9,
     // v63.0 — Merge Engine v2

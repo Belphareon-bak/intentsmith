@@ -2799,6 +2799,36 @@ PRAVIDLA:
     // v73: Capture initial intent before any overrides
     _diag.initialIntent = intent;
 
+    // ════════════════════════════════════════════════════════════════════════
+    // GUARD 6: CREATIVE OVERRIDE — when creative expertise is active,
+    // SEARCH and AMBIGUOUS should be downgraded to CREATIVE.
+    // v87: Bug fix — "Prokletý ostrov" during DnD session triggered SEARCH (Shutter Island film)
+    // instead of staying in creative domain. Creative expertises set creativeLock=true.
+    // AMBIGUOUS is also captured: under creative expertise, ambiguous queries should
+    // default to CREATIVE (the domain context), not trigger clarification.
+    // Explicit factual queries ("vyhledej", "najdi na internetu") bypass this guard.
+    // Placed in decide() to cover both LLM and regex classification paths.
+    // ════════════════════════════════════════════════════════════════════════
+    if ((intent === IntentType.SEARCH || intent === IntentType.AMBIGUOUS) && context.hasActiveExpertise) {
+      const _exp = context.expertise;
+      if (_exp && (_exp.outputBias === 'creative' || _exp.creativeLock)) {
+        const EXPLICIT_SEARCH = [
+          /vyhledej/i, /najdi na internetu/i, /ve? skutečnost/i,
+          /v reálném světě/i, /ve? wikipedi/i, /googl/i,
+          /faktick/i, /historick[áéý] fakta?/i,
+        ];
+        if (!EXPLICIT_SEARCH.some(p => p.test(input))) {
+          logger.info('CRE:Guard6', `${intent} downgrade → CREATIVE (creative expertise active: ${_exp.id})`, {
+            input: input.substring(0, 60),
+            expertise: _exp.id,
+            originalIntent: intent,
+          });
+          intent = IntentType.CREATIVE;
+          _diag.overrides.push('guard6_creative_override');
+        }
+      }
+    }
+
     // v73: Run detectFollowUpType for diagnostic purposes (lazy import to avoid circular dep)
     const _lastDec = context.lastDecision;
     if (_lastDec) {
