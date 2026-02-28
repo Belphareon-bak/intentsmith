@@ -6,6 +6,7 @@ import { recommend, checkCompatibility, getModelTiers, getVRAMRecommendations } 
 import { logger } from '../core/logger.js';
 import config from '../config.js';
 import os from 'os';
+import { getCurrentVersion } from '../packaging/auto-updater.js';
 
 /**
  * @param {{ db: import('better-sqlite3').Database, sendJSON: Function }} deps
@@ -200,7 +201,7 @@ export function createSystemRoutes({ db, sendJSON }) {
         } catch (_) {}
 
         sendJSON(res, 200, {
-          version: 'v87.2.0',
+          version: getCurrentVersion(),
           platform: os.platform(),
           arch: os.arch(),
           node_version: process.version,

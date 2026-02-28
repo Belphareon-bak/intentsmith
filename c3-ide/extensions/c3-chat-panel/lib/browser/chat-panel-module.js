@@ -2030,11 +2030,15 @@ function _loadBCfg(cb){if(_bCfg&&!_bCfgLoading){if(cb)cb();return;}_bCfgLoading=
 function _saveBCfg(){if(!_bCfg)return;clearTimeout(_bCfgSaveTimer);_bCfgSaveTimer=setTimeout(function(){fetch(_backendBase+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(_bCfg),signal:AbortSignal.timeout(3000)}).catch(function(){});},500);}
 function _bVal(key,def){return _bCfg&&_bCfg[key]!=null?_bCfg[key]:def;}
 function _bSet(key,val){if(!_bCfg)_bCfg={};_bCfg[key]=val;_saveBCfg();renderCenter();}
+/* v87.3: Info icon helper — native title tooltip on (i) badge */
+function _iI(text){return h('span',{style:{display:'inline-flex',alignItems:'center',justifyContent:'center',width:14,height:14,borderRadius:'50%',background:C.bg4,color:C.tx3,fontSize:'8px',fontWeight:700,cursor:'help',marginLeft:5,verticalAlign:'middle',flexShrink:0},title:text},'i');}
+function _lI(text,info){return h('span',{style:{display:'inline-flex',alignItems:'center'}},text,_iI(info));}
 /* v87.3: Backend config field helpers */
-function _cfgInput(label,key,def,type,hint){var v=_bVal(key,def);return h('div',{style:{marginBottom:12}},h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},label),type==='textarea'?h('textarea',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'7px 9px',color:C.tx1,fontFamily:C.font,fontSize:_fs(12),outline:'none',resize:'vertical',lineHeight:'1.5',minHeight:60,boxSizing:'border-box'},value:v||'',onChange:function(e){_bSet(key,e.target.value);}}):h('input',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'6px 9px',color:C.tx1,fontFamily:C.font,fontSize:_fs(12),outline:'none',boxSizing:'border-box'},value:v!=null?String(v):'',onChange:function(e){_bSet(key,type==='number'?parseFloat(e.target.value)||0:e.target.value);}}),hint?h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:3}},hint):null);}
-function _cfgSelect(label,key,def,opts){var v=_bVal(key,def);return h('div',{style:{marginBottom:12}},h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},label),h('select',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'6px 9px',color:C.tx1,fontFamily:C.font,fontSize:_fs(12),outline:'none',boxSizing:'border-box'},value:v,onChange:function(e){_bSet(key,e.target.value);}},opts.map(function(o){return h('option',{key:o,value:o},o);})));}
+function _cfgInput(label,key,def,type,hint){var v=_bVal(key,def);return h('div',{style:{marginBottom:12}},h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6,display:'flex',alignItems:'center'}},label),type==='textarea'?h('textarea',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'7px 9px',color:C.tx1,fontFamily:C.font,fontSize:_fs(12),outline:'none',resize:'vertical',lineHeight:'1.5',minHeight:60,boxSizing:'border-box'},value:v||'',onChange:function(e){_bSet(key,e.target.value);}}):h('input',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'6px 9px',color:C.tx1,fontFamily:C.font,fontSize:_fs(12),outline:'none',boxSizing:'border-box'},value:v!=null?String(v):'',onChange:function(e){_bSet(key,type==='number'?parseFloat(e.target.value)||0:e.target.value);}}),hint?h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:3}},hint):null);}
+function _cfgSelect(label,key,def,opts){var v=_bVal(key,def);return h('div',{style:{marginBottom:12}},h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6,display:'flex',alignItems:'center'}},label),h('select',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'6px 9px',color:C.tx1,fontFamily:C.font,fontSize:_fs(12),outline:'none',boxSizing:'border-box'},value:v,onChange:function(e){_bSet(key,e.target.value);}},opts.map(function(o){return h('option',{key:o,value:o},o);})));}
 function _cfgToggle(label,desc,key,def){return _settingsToggle(label,desc,!!_bVal(key,def),function(nv){_bSet(key,nv);});}
-function _cfgSlider(label,key,def,min,max,step,unit,hint){var v=_bVal(key,def);return h('div',{style:{marginBottom:12}},h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},label),h('div',{style:{display:'flex',alignItems:'center',gap:8}},h('input',{type:'range',min:min,max:max,step:step,value:v,onChange:function(e){_bSet(key,parseFloat(e.target.value));},style:{flex:1,cursor:'pointer',accentColor:C.accent}}),h('span',{style:{fontSize:_fs(11),color:C.tx3,minWidth:44,textAlign:'right',fontFamily:C.mono}},v+(unit||''))),hint?h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:3}},hint):null);}
+function _cfgSlider(label,key,def,min,max,step,unit,hint,fmt){var v=_bVal(key,def);var disp=fmt?fmt(v):v+(unit||'');return h('div',{style:{marginBottom:12}},h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6,display:'flex',alignItems:'center'}},label),h('div',{style:{display:'flex',alignItems:'center',gap:8}},h('input',{type:'range',min:min,max:max,step:step,value:v,onChange:function(e){_bSet(key,parseFloat(e.target.value));},style:{flex:1,cursor:'pointer',accentColor:C.accent}}),h('span',{style:{fontSize:_fs(11),color:C.tx3,minWidth:52,textAlign:'right',fontFamily:C.mono}},disp)),hint?h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:3}},hint):null);}
+var _backupMsg=null;var _notifChannels=null;
 /* I2: Custom CSS injection — scoped under .c3-root */
 var _customStyleEl=null;
 function _injectCustomCSS(css){
@@ -2289,15 +2293,13 @@ function settingsAppearance(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   v87.3: SETTINGS SECTION RENDERERS
+   v87.4: SETTINGS SECTION RENDERERS
    ═══════════════════════════════════════════════════════════ */
 function settingsAccount(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
   return h('div',null,
-    _cfgInput('Zobrazované jméno','c3.account.displayName',''),
-    _cfgInput('Popis / Bio','c3.account.description','','textarea'),
-    _cfgSelect('Časové pásmo','c3.account.timezone','Europe/Prague',['Europe/Prague','Europe/London','America/New_York','America/Los_Angeles','Asia/Tokyo','UTC']),
-    _cfgSelect('Měna','c3.account.currency','CZK',['CZK','EUR','USD','GBP']),
+    _cfgInput('Zobrazované jméno','c3.account.displayName','','input','Jak vás C3 oslovuje v konverzaci'),
+    _cfgInput('Popis / Bio','c3.account.description','','textarea','Kontext pro personalizaci odpovědí — např. role, zkušenosti, preference'),
     _cfgSelect('Jazyk UI','c3.language','cs',['cs','en']),
     h('div',{style:{marginBottom:12}},
       h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},'Složka projektů'),
@@ -2312,56 +2314,83 @@ function settingsLLM(){
   if(!_ollamaModels){fetch(_backendBase+'/api/system/models',{signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(d){_ollamaModels=d.models||d||[];renderCenter();}).catch(function(){_ollamaModels=[];});}
   var models=(_ollamaModels||[]).map(function(m){return typeof m==='string'?m:m.name||m.model||'';}).filter(Boolean);
   if(models.length===0)models=['qwen2.5:32b','qwen2.5-coder:32b','llava:13b','llama3.1:70b','mistral:7b'];
+  var gpus=_gpuInfo&&_gpuInfo.profile?_gpuInfo.profile.gpus:(_gpuInfo&&_gpuInfo.gpus?_gpuInfo.gpus:null);
+  var rec=_gpuInfo&&_gpuInfo.recommendation?_gpuInfo.recommendation:null;
   return h('div',null,
-    _gpuInfo&&!_gpuInfo.error?h('div',{style:{background:'linear-gradient(135deg,rgba(34,197,94,0.08),rgba(22,163,74,0.04))',border:'1px solid rgba(34,197,94,0.2)',borderRadius:8,padding:12,marginBottom:14}},
+    gpus?h('div',{style:{background:'linear-gradient(135deg,rgba(34,197,94,0.08),rgba(22,163,74,0.04))',border:'1px solid rgba(34,197,94,0.2)',borderRadius:8,padding:12,marginBottom:14}},
       h('div',{style:{fontSize:_fs(11),fontWeight:700,color:C.accent,marginBottom:6}},'GPU'),
-      (_gpuInfo.gpus||[_gpuInfo]).map(function(g,i){
+      gpus.map(function(g,i){
+        var name=g.gpu_model||g.name||'CPU-only';
+        var vram=g.vram_mb||g.vram||0;
         return h('div',{key:i,style:{fontSize:_fs(11),color:C.tx2,marginBottom:2}},
-          h('span',{style:{fontWeight:600}},g.name||'Neznámé'),
-          g.vram?h('span',{style:{color:C.tx3}},' — '+g.vram+' MB VRAM'):'');
-      })):null,
-    _cfgSelect('Chat model','c3.llm.chatModel','qwen2.5:32b',models),
-    _cfgSelect('Code model','c3.llm.codeModel','qwen2.5-coder:32b',models),
-    _cfgSelect('Vision model','c3.llm.visionModel','llava:13b',models),
-    _cfgInput('Ollama URL','c3.llm.ollamaUrl','http://127.0.0.1:11434'),
-    _cfgSlider('Temperature','c3.llm.temperature',0.7,0,2,0.1,'','0 = deterministický, 2 = kreativní'),
-    _cfgSlider('Context window','c3.llm.contextWindow',32768,2048,131072,1024,' tok'),
-    _cfgSlider('Timeout chat (ms)','c3.llm.timeoutChat',90000,10000,300000,5000,' ms'),
-    _cfgSlider('Timeout code (ms)','c3.llm.timeoutCode',90000,10000,300000,5000,' ms'),
-    _cfgSlider('GPU layers','c3.llm.numGpu',-1,-1,8,1,'','-1 = auto, 0 = CPU only'));
+          h('span',{style:{fontWeight:600}},name),
+          vram?h('span',{style:{color:C.tx3}},' — '+vram+' MB VRAM'):'',
+          g.driver?h('span',{style:{color:C.tx4,fontSize:_fs(9)}},' ('+g.driver+(g.cuda_version?' / CUDA '+g.cuda_version:'')+')'):null);
+      }),
+      rec&&rec.recommended_model?h('div',{style:{fontSize:_fs(9),color:C.accent,marginTop:6}},'Doporučený model: '+rec.recommended_model):null):null,
+    _cfgSelect(_lI('Chat model','Hlavní model pro konverzaci, syntézu a analýzu'),'c3.llm.chatModel','qwen2.5:32b',models),
+    _cfgSelect(_lI('Code model','Model optimalizovaný pro generování a editaci kódu'),'c3.llm.codeModel','qwen2.5-coder:32b',models),
+    _cfgSelect(_lI('Vision model','Model pro analýzu obrázků a vizuálního obsahu'),'c3.llm.visionModel','llava:13b',models),
+    _cfgInput('Ollama URL','c3.llm.ollamaUrl','http://127.0.0.1:11434','input','Adresa lokálního Ollama serveru'),
+    _cfgSlider(_lI('Temperature','Nízká = deterministické, konzistentní odpovědi. Vysoká = kreativnější, rozmanitější výstupy.'),'c3.llm.temperature',0.7,0,2,0.1,''),
+    _cfgSlider(_lI('Context window','Kolik tokenů si model pamatuje v rámci jedné konverzace. Větší okno = více kontextu, ale vyšší nároky na paměť.'),'c3.llm.contextWindow',32768,2048,131072,1024,'',null,function(v){return v>=1024?Math.round(v/1024)+'K tok':'v tok';}),
+    _cfgSlider(_lI('Timeout chat','Maximální doba čekání na odpověď chat modelu. Zvyšte při pomalých odpovědích.'),'c3.llm.timeoutChat',90000,10000,300000,5000,'',null,function(v){return Math.round(v/1000)+'s';}),
+    _cfgSlider(_lI('Timeout code','Maximální doba čekání na odpověď code modelu.'),'c3.llm.timeoutCode',90000,10000,300000,5000,'',null,function(v){return Math.round(v/1000)+'s';}),
+    _cfgSlider(_lI('GPU layers','Kolik vrstev modelu se načte do GPU. -1 = automaticky dle dostupné VRAM. 0 = vše na CPU.'),'c3.llm.numGpu',-1,-1,8,1,''));
 }
 function settingsMemory(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
   return h('div',null,
-    _cfgToggle('Dlouhodobá paměť (LTM)','Ukládání poznatků napříč konverzacemi','c3.memory.ltmEnabled',true),
-    _cfgToggle('Učení z preferencí','Adaptace na styl uživatele','c3.memory.learningEnabled',true),
-    _cfgToggle('Detekce zpětné vazby','Automatická detekce feedback signálů','c3.memory.feedbackDetection',true),
-    _cfgToggle('Sledování vzorců','Cross-konverzační pattern tracking','c3.memory.patternTracking',true),
-    _cfgSlider('Max turnů','c3.memory.conversationMaxTurns',500,50,5000,50,''),
-    _cfgSlider('Práh kompakce','c3.memory.compactThreshold',0.75,0.3,0.95,0.05,''),
-    _cfgSlider('Uchované turny','c3.memory.compactKeepTurns',6,2,20,1,'','Počet posledních turnů při kompakci'),
-    _cfgSlider('Max LTM záznamů','c3.memory.ltmMaxEntries',1000,100,10000,100,''),
-    _cfgSlider('Poločas LTM','c3.memory.ltmDecayHalfLife',69,7,365,7,' dní'),
-    _cfgSlider('Budget chat','c3.memory.contextBudgetChat',60,10,90,5,' %','% z kontextového okna'),
-    _cfgSlider('Budget code','c3.memory.contextBudgetCode',40,10,90,5,' %'),
-    _cfgSlider('Hard cap','c3.memory.contextBudgetMaxTokens',24576,2048,65536,1024,' tok'));
+    _cfgToggle('Dlouhodobá paměť (LTM)','C3 si pamatuje vaše preference, korekce a poznatky napříč konverzacemi','c3.memory.ltmEnabled',true),
+    _cfgToggle('Učení z preferencí','C3 se adaptuje na váš styl komunikace a pracovní postupy','c3.memory.learningEnabled',true),
+    _cfgToggle('Detekce zpětné vazby','Automaticky rozpozná pochvalu, kritiku nebo opravu v konverzaci a upraví své chování','c3.memory.feedbackDetection',true),
+    _cfgToggle('Sledování vzorců','Rozpoznává opakující se sekvence úloh a navrhuje efektivnější postupy','c3.memory.patternTracking',true),
+    h('div',{style:{borderTop:'1px solid '+C.border,margin:'10px 0'}}),
+    _cfgSlider(_lI('Max turnů','Maximální počet zpráv (uživatel+asistent) v jedné konverzaci před automatickým ořezáním'),'c3.memory.conversationMaxTurns',500,50,5000,50,''),
+    _cfgSlider(_lI('Práh kompakce','Když kontext dosáhne tohoto % kapacity, starší zprávy se automaticky zhuštní do shrnutí'),'c3.memory.compactThreshold',0.75,0.3,0.95,0.05,'',null,function(v){return Math.round(v*100)+'%';}),
+    _cfgSlider(_lI('Uchované turny','Kolik posledních zpráv zůstane v plném znění při kompakci — starší se zhuštění do shrnutí'),'c3.memory.compactKeepTurns',6,2,20,1,''),
+    _cfgSlider(_lI('Max LTM záznamů','Maximální kapacita dlouhodobé paměti. Staré záznamy s nízkou důvěryhodností se automaticky mažou.'),'c3.memory.ltmMaxEntries',1000,100,10000,100,''),
+    _cfgSlider(_lI('Poločas LTM','Za kolik dní klesne důvěryhodnost LTM záznamu na 50%. Delší = déle si pamatuje, ale může si pamatovat i neaktuální věci.'),'c3.memory.ltmDecayHalfLife',69,7,365,7,' d'),
+    _cfgSlider(_lI('Budget chat','Kolik % kontextového okna se vyhradí pro chat kontext (historii, LTM, systémové instrukce)'),'c3.memory.contextBudgetChat',60,10,90,5,' %'),
+    _cfgSlider(_lI('Budget code','Kolik % kontextového okna se vyhradí pro zdrojový kód při generování'),'c3.memory.contextBudgetCode',40,10,90,5,' %'),
+    _cfgSlider(_lI('Hard cap','Absolutní limit kontextu v tokenech — ochrana proti přetečení bez ohledu na procentuální budget'),'c3.memory.contextBudgetMaxTokens',24576,2048,65536,1024,'',null,function(v){return v>=1024?Math.round(v/1024)+'K':'v';}));
 }
 function settingsNotif(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
+  if(!_notifChannels){fetch(_backendBase+'/api/notifications/channels',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_notifChannels=d;renderCenter();}).catch(function(){_notifChannels={error:true};});}
+  var chs=_notifChannels&&!_notifChannels.error?(_notifChannels.channels||_notifChannels):null;
   return h('div',null,
-    _cfgToggle('Desktop notifikace','Systémové notifikace (Electron)','c3.notif.desktopEnabled',true),
-    _cfgToggle('Tichý režim','Potlačit notifikace v zadaném čase','c3.notif.quietEnabled',false),
+    _cfgToggle('Desktop notifikace','Systémové notifikace přes Electron (dokončení úloh, chyby agentů)','c3.notif.desktopEnabled',true),
+    _cfgToggle('Tichý režim','Potlačí všechny notifikace v nastaveném časovém rozmezí','c3.notif.quietEnabled',false),
     _bVal('c3.notif.quietEnabled',false)?h(React.Fragment,null,
       _cfgInput('Ticho od','c3.notif.quietFrom','22:00','input','Formát HH:MM'),
-      _cfgInput('Ticho do','c3.notif.quietTo','07:00','input','Formát HH:MM')):null);
+      _cfgInput('Ticho do','c3.notif.quietTo','07:00','input','Formát HH:MM')):null,
+    h('div',{style:{borderTop:'1px solid '+C.border,margin:'14px 0'}}),
+    h('div',{style:{fontSize:_fs(11),fontWeight:700,color:C.tx1,marginBottom:10}},'Kanály'),
+    h('div',{style:{display:'flex',flexDirection:'column',gap:6}},
+      [{id:'email',icon:'\u2709\ufe0f',label:'E-mail',desc:'Notifikace na e-mailovou adresu'},
+       {id:'telegram',icon:'\ud83d\udcac',label:'Telegram',desc:'Notifikace přes Telegram bota'},
+       {id:'webhook',icon:'\ud83d\udd17',label:'Webhook',desc:'HTTP POST na vlastní URL'},
+       {id:'push',icon:'\ud83d\udce4',label:'Push (ntfy)',desc:'Push notifikace přes ntfy.sh'}
+      ].map(function(ch){
+        var status=chs?chs.find(function(c){return c.name===ch.id||c.channel===ch.id;}):null;
+        var ok=status&&status.ok;
+        return h('div',{key:ch.id,style:{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',background:C.bg3,border:'1px solid '+C.border2,borderRadius:8}},
+          h('span',{style:{fontSize:_fs(16)}},ch.icon),
+          h('div',{style:{flex:1}},
+            h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx1}},ch.label),
+            h('div',{style:{fontSize:_fs(9),color:C.tx4}},ch.desc)),
+          h('span',{style:{fontSize:_fs(9),color:ok?C.accent:'#6b7280',fontWeight:600}},ok?'Aktivní':'Neaktivní'));
+      })),
+    h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:8}},'Konfigurace kanálů se nastavuje v backend konfiguraci (env proměnné).'));
 }
 function settingsOutput(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
   return h('div',null,
-    _cfgToggle('Code blocky','Zobrazovat code blocky ve výstupu','c3.output.codeBlocks',true),
-    _cfgToggle('Syntax highlighting','Zvýrazňování syntaxe v code blocích','c3.output.syntaxHighlight',true),
-    _cfgToggle('Markdown rendering','Renderovat markdown ve výstupu','c3.output.markdownRendering',true),
-    _cfgSlider('Max délka odpovědi','c3.output.maxResponseLength',8192,1024,65536,512,' tok'));
+    _cfgToggle('Code blocky','Výstup obsahuje formátované bloky se zdrojovým kódem','c3.output.codeBlocks',true),
+    _cfgToggle('Syntax highlighting','Zvýrazňování syntaxe v code blocích (barvy dle jazyka)','c3.output.syntaxHighlight',true),
+    _cfgToggle('Markdown rendering','Formátování textu — nadpisy, seznamy, tučné písmo, odkazy','c3.output.markdownRendering',true),
+    _cfgSlider(_lI('Max délka odpovědi','Maximální počet tokenů v jedné odpovědi. 1 token \u2248 4 znaky českého textu. 8K token \u2248 6 stran textu.'),'c3.output.maxResponseLength',8192,1024,65536,512,'',null,function(v){return v>=1024?Math.round(v/1024)+'K tok':v+' tok';}));
 }
 function settingsSystemPanel(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
@@ -2369,67 +2398,83 @@ function settingsSystemPanel(){
   return h('div',null,
     _sysInfo&&!_sysInfo.error?h('div',{style:{background:C.bg3,border:'1px solid '+C.border2,borderRadius:8,padding:12,marginBottom:14}},
       h('div',{style:{fontSize:_fs(11),fontWeight:700,color:C.tx1,marginBottom:6}},'Systémové info'),
-      h('div',{style:{fontSize:_fs(10),color:C.tx2,lineHeight:'1.6'}},
-        _sysInfo.platform?h('div',null,'OS: '+_sysInfo.platform+' '+(_sysInfo.arch||'')):null,
-        _sysInfo.nodeVersion?h('div',null,'Node: '+_sysInfo.nodeVersion):null,
-        _sysInfo.memoryUsage?h('div',null,'Heap: '+Math.round((_sysInfo.memoryUsage.heapUsed||0)/1048576)+' / '+Math.round((_sysInfo.memoryUsage.heapTotal||0)/1048576)+' MB'):null,
-        _sysInfo.uptime?h('div',null,'Uptime: '+Math.round(_sysInfo.uptime/60)+' min'):null)):null,
-    _cfgSelect('Log level','c3.system.logLevel','info',['debug','info','warn','error']),
-    _cfgSlider('Retence logů','c3.system.logRetentionDays',30,7,365,7,' dní'),
-    _cfgSlider('Max soubor','c3.system.maxFileSize',1048576,102400,10485760,102400,'','bytes'),
-    _cfgSlider('Rate limit','c3.system.rateLimit',120,10,1000,10,' /min'));
+      h('div',{style:{fontSize:_fs(10),color:C.tx2,lineHeight:'1.8'}},
+        h('div',null,'OS: '+(_sysInfo.platform||'?')+' '+(_sysInfo.arch||'')),
+        h('div',null,'Node: '+(_sysInfo.node_version||'?')),
+        _sysInfo.memory?h('div',null,'RAM: '+_sysInfo.memory.process_mb+' MB / '+_sysInfo.memory.total_mb+' MB'):null,
+        h('div',null,'Uptime: '+(_sysInfo.uptime_seconds?Math.round(_sysInfo.uptime_seconds/60)+' min':'?')),
+        _sysInfo.config?h('div',null,'Model: '+(_sysInfo.config.chat_model||'?')):null)):null,
+    _cfgSelect('Časové pásmo','c3.account.timezone','Europe/Prague',['Europe/Prague','Europe/London','America/New_York','America/Los_Angeles','Asia/Tokyo','UTC']),
+    _cfgSelect('Měna','c3.account.currency','CZK',['CZK','EUR','USD','GBP']),
+    _cfgSelect(_lI('Log level','Úroveň detailu v serverových logách. Debug = vše, Error = jen chyby.'),'c3.system.logLevel','info',['debug','info','warn','error']),
+    _cfgSlider(_lI('Retence logů','Po kolika dnech se automaticky mažou staré logy'),'c3.system.logRetentionDays',30,7,365,7,' d'),
+    _cfgSlider(_lI('Max velikost přílohy','Největší soubor který C3 zpracuje jako přílohu (text, kód). Větší soubory budou odmítnuty.'),'c3.system.maxFileSize',1048576,102400,10485760,102400,'',null,function(v){return v>=1048576?Math.round(v/1048576)+' MB':Math.round(v/1024)+' KB';}),
+    _cfgSlider(_lI('Rate limit','Maximální počet API požadavků za minutu — ochrana proti přetížení serveru'),'c3.system.rateLimit',120,10,1000,10,' /min'));
 }
 function settingsStoragePanel(){
-  if(!_storageInfo){fetch(_backendBase+'/api/system/storage',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_storageInfo=d;renderCenter();}).catch(function(){_storageInfo={error:true};});}
-  var info=_storageInfo;
-  function _fmtSize(b){return b>1048576?Math.round(b/1048576)+' MB':Math.round((b||0)/1024)+' KB';}
+  if(!_sysInfo){fetch(_backendBase+'/api/system/info',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_sysInfo=d;renderCenter();}).catch(function(){_sysInfo={error:true};});}
+  var db=_sysInfo&&_sysInfo.db?_sysInfo.db:null;
+  var tables=db&&db.tables?db.tables:null;
   return h('div',null,
-    info&&!info.error?h('div',{style:{background:C.bg3,border:'1px solid '+C.border2,borderRadius:8,padding:12,marginBottom:14}},
-      h('div',{style:{fontSize:_fs(11),fontWeight:700,color:C.tx1,marginBottom:6}},'Databáze'),
-      h('div',{style:{fontSize:_fs(10),color:C.tx2,lineHeight:'1.6'}},
-        info.dbSize!=null?h('div',null,'Velikost: '+_fmtSize(info.dbSize)):null,
-        info.messageCount!=null?h('div',null,'Zpráv: '+info.messageCount.toLocaleString()):null,
-        info.conversationCount!=null?h('div',null,'Konverzací: '+info.conversationCount):null)):
-      h('div',{style:{color:C.tx3,padding:8,fontSize:_fs(11)}},info?'Nepodařilo se načíst':'Načítám...'),
-    h('div',{style:{display:'flex',gap:8,marginTop:12}},
-      h('button',{style:{flex:1,background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'8px 12px',color:C.tx1,fontSize:_fs(11),cursor:'pointer',fontFamily:C.font},
-        onClick:function(){fetch(_backendBase+'/api/system/vacuum',{method:'POST',signal:AbortSignal.timeout(30000)}).then(function(){_storageInfo=null;renderCenter();}).catch(function(){});}},'Vacuum DB'),
-      h('button',{style:{flex:1,background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'8px 12px',color:C.tx1,fontSize:_fs(11),cursor:'pointer',fontFamily:C.font},
-        onClick:function(){_storageInfo=null;renderCenter();}},'Obnovit')));
+    db?h('div',{style:{background:C.bg3,border:'1px solid '+C.border2,borderRadius:8,padding:12,marginBottom:14}},
+      h('div',{style:{fontSize:_fs(11),fontWeight:700,color:C.tx1,marginBottom:8}},'SQLite databáze'),
+      h('div',{style:{fontSize:_fs(10),color:C.tx2,lineHeight:'1.8'}},
+        h('div',null,'Velikost: '+(db.size_mb||0)+' MB'),
+        h('div',null,'Migrace: '+(db.migrations||0))),
+      tables?h('div',{style:{marginTop:10}},
+        h('div',{style:{fontSize:_fs(10),fontWeight:600,color:C.tx2,marginBottom:4}},'Tabulky'),
+        h('div',{style:{fontSize:_fs(10),color:C.tx3,lineHeight:'1.8'}},
+          Object.keys(tables).map(function(t){return h('div',{key:t,style:{display:'flex',justifyContent:'space-between'}},h('span',null,t),h('span',{style:{fontFamily:C.mono}},tables[t].toLocaleString()+' zázn.'));}))):null):
+      h('div',{style:{color:C.tx3,padding:8,fontSize:_fs(11)}},_sysInfo?'Nepodařilo se načíst':'Načítám...'),
+    h('div',{style:{borderTop:'1px solid '+C.border,margin:'14px 0'}}),
+    h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},'Údržba'),
+    h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:10}},'Optimalizace databáze odstraní fragmentaci a zmenší soubor na disku. Doporučeno po smazání velkého množství dat.'),
+    h('button',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'8px 12px',color:C.tx1,fontSize:_fs(11),cursor:'pointer',fontFamily:C.font,marginBottom:8},
+      onClick:function(){fetch(_backendBase+'/api/system/vacuum',{method:'POST',signal:AbortSignal.timeout(30000)}).then(function(r){return r.json();}).then(function(d){_sysInfo=null;_storageInfo=null;renderCenter();alert(d.message||'Databáze optimalizována');}).catch(function(e){alert('Chyba: '+e.message);});}},'Optimalizovat databázi'),
+    h('button',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'8px 12px',color:C.tx1,fontSize:_fs(11),cursor:'pointer',fontFamily:C.font},
+      onClick:function(){_sysInfo=null;_storageInfo=null;renderCenter();}},'Aktualizovat info'));
 }
 function settingsBackupPanel(){
   return h('div',null,
-    h('div',{style:{fontSize:_fs(11),color:C.tx3,marginBottom:14}},'Export a import nastavení C3 Studia.'),
+    h('div',{style:{fontSize:_fs(11),color:C.tx3,marginBottom:14}},'Zálohujte svá nastavení nebo je obnovte ze souboru.'),
+    _backupMsg?h('div',{style:{padding:'8px 12px',borderRadius:6,marginBottom:10,fontSize:_fs(11),fontWeight:600,background:_backupMsg.ok?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)',color:_backupMsg.ok?C.accent:'#ef4444',border:'1px solid '+(_backupMsg.ok?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)')}},_backupMsg.text):null,
     h('button',{style:{width:'100%',background:C.accent,color:'#fff',border:'none',borderRadius:6,padding:'10px 14px',fontSize:_fs(12),fontWeight:600,cursor:'pointer',marginBottom:10,fontFamily:C.font},
       onClick:function(){fetch(_backendBase+'/api/settings',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){
         var blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
-        var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='c3-settings-'+new Date().toISOString().slice(0,10)+'.json';a.click();}).catch(function(){});}},'Exportovat nastavení'),
+        var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='c3-settings-'+new Date().toISOString().slice(0,10)+'.json';a.click();
+        _backupMsg={ok:true,text:'Nastavení exportována do souboru'};renderCenter();setTimeout(function(){_backupMsg=null;renderCenter();},4000);
+      }).catch(function(e){_backupMsg={ok:false,text:'Export selhal: '+e.message};renderCenter();});}},'Exportovat nastavení'),
     h('button',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'10px 14px',fontSize:_fs(12),cursor:'pointer',color:C.tx1,marginBottom:10,fontFamily:C.font},
       onClick:function(){
         var inp=document.createElement('input');inp.type='file';inp.accept='.json';
         inp.onchange=function(e){var f=e.target.files[0];if(!f)return;
           var reader=new FileReader();reader.onload=function(ev){try{var data=JSON.parse(ev.target.result);
             fetch(_backendBase+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),signal:AbortSignal.timeout(3000)})
-            .then(function(){_bCfg=data;renderCenter();}).catch(function(){});}catch(ex){}};reader.readAsText(f);};inp.click();}},'Importovat nastavení'),
+            .then(function(){_bCfg=data;_backupMsg={ok:true,text:'Nastavení importována z '+f.name};renderCenter();setTimeout(function(){_backupMsg=null;renderCenter();},4000);})
+            .catch(function(e){_backupMsg={ok:false,text:'Import selhal: '+e.message};renderCenter();});
+          }catch(ex){_backupMsg={ok:false,text:'Neplatný JSON soubor'};renderCenter();}};reader.readAsText(f);};inp.click();}},'Importovat nastavení'),
     h('div',{style:{borderTop:'1px solid '+C.border,paddingTop:14,marginTop:8}},
-      h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:8}},'Reset'),
+      h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:4}},'Reset'),
+      h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:8}},'Smaže všechna uživatelská nastavení a obnoví výchozí hodnoty.'),
       h('button',{style:{width:'100%',background:'transparent',border:'1px solid #ef4444',borderRadius:6,padding:'8px 14px',fontSize:_fs(11),cursor:'pointer',color:'#ef4444',fontFamily:C.font},
-        onClick:function(){if(!confirm('Opravdu obnovit výchozí nastavení?'))return;
+        onClick:function(){if(!confirm('Opravdu obnovit výchozí nastavení? Všechny změny budou ztraceny.'))return;
           fetch(_backendBase+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(3000)})
-          .then(function(){_bCfg={};renderCenter();}).catch(function(){});}},'Obnovit výchozí')));
+          .then(function(){_bCfg={};_backupMsg={ok:true,text:'Nastavení obnovena na výchozí'};renderCenter();setTimeout(function(){_backupMsg=null;renderCenter();},4000);}).catch(function(e){_backupMsg={ok:false,text:'Reset selhal: '+e.message};renderCenter();});}},'Obnovit výchozí')));
 }
 function settingsAboutPanel(){
   if(!_sysInfo){fetch(_backendBase+'/api/system/info',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_sysInfo=d;renderCenter();}).catch(function(){_sysInfo={error:true};});}
+  var ver=_sysInfo&&_sysInfo.version?_sysInfo.version:_serverHealth.version;
   return h('div',{style:{textAlign:'center',padding:'20px 0'}},
     h('div',{style:{width:56,height:56,background:'linear-gradient(135deg,#22c55e,#16a34a)',borderRadius:16,display:'inline-flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:_fs(22),color:'#fff',marginBottom:10}},'C3'),
     h('div',{style:{fontSize:_fs(15),fontWeight:700,color:C.tx1,marginBottom:2}},'C3 Studio'),
-    h('div',{style:{fontSize:_fs(12),color:C.accent,fontWeight:600,marginBottom:12}},'v'+(_serverHealth.version||'...')),
+    h('div',{style:{fontSize:_fs(12),color:C.accent,fontWeight:600,marginBottom:12}},'v'+(ver||'...')),
     h('div',{style:{fontSize:_fs(11),color:C.tx4,marginBottom:16}},'Made with \u2764\ufe0f by Belfik'),
-    _sysInfo&&!_sysInfo.error?h('div',{style:{textAlign:'left',background:C.bg3,borderRadius:8,padding:12,fontSize:_fs(10),color:C.tx3,lineHeight:'1.6'}},
-      _sysInfo.platform?h('div',null,'Platform: '+_sysInfo.platform+' '+(_sysInfo.arch||'')):null,
-      _sysInfo.nodeVersion?h('div',null,'Node: '+_sysInfo.nodeVersion):null,
-      _sysInfo.electronVersion?h('div',null,'Electron: '+_sysInfo.electronVersion):null,
-      _sysInfo.uptime?h('div',null,'Uptime: '+Math.round(_sysInfo.uptime/60)+' min'):null):null);
+    _sysInfo&&!_sysInfo.error?h('div',{style:{textAlign:'left',background:C.bg3,borderRadius:8,padding:12,fontSize:_fs(10),color:C.tx3,lineHeight:'1.8'}},
+      h('div',null,'Platform: '+(_sysInfo.platform||'?')+' '+(_sysInfo.arch||'')),
+      h('div',null,'Node: '+(_sysInfo.node_version||'?')),
+      _sysInfo.memory?h('div',null,'RAM: '+_sysInfo.memory.process_mb+' / '+_sysInfo.memory.total_mb+' MB'):null,
+      _sysInfo.db?h('div',null,'DB: '+(_sysInfo.db.size_mb||0)+' MB, '+(_sysInfo.db.migrations||0)+' migrací'):null,
+      h('div',null,'Uptime: '+(_sysInfo.uptime_seconds?Math.round(_sysInfo.uptime_seconds/60)+' min':'?'))):null);
 }
 
 function centerWelcome(){return h('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:12}},h('div',{style:{width:48,height:48,background:'linear-gradient(135deg,#22c55e,#16a34a)',borderRadius:14,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:_fs(20),color:'#fff'}},'C3'),h('div',{style:{fontSize:_fs(16),fontWeight:700,color:C.tx1}},'C3 Studio'),h('div',{style:{fontSize:_fs(12),color:C.tx3}},'Vyber sekci v levém panelu'));}
