@@ -12,6 +12,7 @@ import { getCurrentVersion } from '../packaging/auto-updater.js';
  * @param {{ db: import('better-sqlite3').Database, sendJSON: Function }} deps
  */
 export function createSystemRoutes({ db, sendJSON }) {
+  const rawDb = db.db || db; // unwrap: db wrapper → raw better-sqlite3 instance
 
   return {
     // ── GPU & System Profile ──────────────────────────────────────────────
@@ -174,8 +175,8 @@ export function createSystemRoutes({ db, sendJSON }) {
         // DB size
         let dbSizeMb = 0;
         try {
-          const pragma = db.pragma('page_count');
-          const pageSize = db.pragma('page_size');
+          const pragma = rawDb.pragma('page_count');
+          const pageSize = rawDb.pragma('page_size');
           if (pragma[0] && pageSize[0]) {
             dbSizeMb = Math.round((pragma[0].page_count * pageSize[0].page_size) / (1024 * 1024) * 100) / 100;
           }
@@ -187,7 +188,7 @@ export function createSystemRoutes({ db, sendJSON }) {
           const tables = ['messages', 'sessions', 'memory', 'skill_executions', 'workflow_patterns'];
           for (const table of tables) {
             try {
-              const row = db.prepare(`SELECT COUNT(*) as cnt FROM ${table}`).get();
+              const row = rawDb.prepare(`SELECT COUNT(*) as cnt FROM ${table}`).get();
               tableCounts[table] = row?.cnt || 0;
             } catch (_) {}
           }
@@ -196,7 +197,7 @@ export function createSystemRoutes({ db, sendJSON }) {
         // Migration count
         let migrationCount = 0;
         try {
-          const row = db.prepare('SELECT COUNT(*) as cnt FROM migrations').get();
+          const row = rawDb.prepare('SELECT COUNT(*) as cnt FROM migrations').get();
           migrationCount = row?.cnt || 0;
         } catch (_) {}
 
@@ -232,8 +233,8 @@ export function createSystemRoutes({ db, sendJSON }) {
       try {
         let dbSizeMb = 0;
         try {
-          const pragma = db.pragma('page_count');
-          const pageSize = db.pragma('page_size');
+          const pragma = rawDb.pragma('page_count');
+          const pageSize = rawDb.pragma('page_size');
           if (pragma[0] && pageSize[0]) {
             dbSizeMb = Math.round((pragma[0].page_count * pageSize[0].page_size) / (1024 * 1024) * 100) / 100;
           }
@@ -241,19 +242,19 @@ export function createSystemRoutes({ db, sendJSON }) {
 
         let ltmCount = 0;
         try {
-          const row = db.prepare("SELECT COUNT(*) as cnt FROM memory").get();
+          const row = rawDb.prepare("SELECT COUNT(*) as cnt FROM memory").get();
           ltmCount = row?.cnt || 0;
         } catch (_) {}
 
         let messageCount = 0;
         try {
-          const row = db.prepare("SELECT COUNT(*) as cnt FROM messages").get();
+          const row = rawDb.prepare("SELECT COUNT(*) as cnt FROM messages").get();
           messageCount = row?.cnt || 0;
         } catch (_) {}
 
         let sessionCount = 0;
         try {
-          const row = db.prepare("SELECT COUNT(*) as cnt FROM sessions").get();
+          const row = rawDb.prepare("SELECT COUNT(*) as cnt FROM sessions").get();
           sessionCount = row?.cnt || 0;
         } catch (_) {}
 
@@ -271,8 +272,8 @@ export function createSystemRoutes({ db, sendJSON }) {
     // DB Vacuum
     'POST /api/system/vacuum': (req, res) => {
       try {
-        db.pragma('wal_checkpoint(TRUNCATE)');
-        db.exec('VACUUM');
+        rawDb.pragma('wal_checkpoint(TRUNCATE)');
+        rawDb.exec('VACUUM');
         sendJSON(res, 200, { ok: true, message: 'Database vacuumed successfully' });
       } catch (err) {
         sendJSON(res, 500, { error: `Vacuum failed: ${err.message}` });

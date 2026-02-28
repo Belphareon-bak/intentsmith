@@ -2462,19 +2462,11 @@ function settingsBackupPanel(){
           .then(function(){_bCfg={};_backupMsg={ok:true,text:'Nastavení obnovena na výchozí'};renderCenter();setTimeout(function(){_backupMsg=null;renderCenter();},4000);}).catch(function(e){_backupMsg={ok:false,text:'Reset selhal: '+e.message};renderCenter();});}},'Obnovit výchozí')));
 }
 function settingsAboutPanel(){
-  if(!_sysInfo){fetch(_backendBase+'/api/system/info',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_sysInfo=d;renderCenter();}).catch(function(){_sysInfo={error:true};});}
-  var ver=_sysInfo&&_sysInfo.version?_sysInfo.version:_serverHealth.version;
-  return h('div',{style:{textAlign:'center',padding:'20px 0'}},
-    h('div',{style:{width:56,height:56,background:'linear-gradient(135deg,#22c55e,#16a34a)',borderRadius:16,display:'inline-flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:_fs(22),color:'#fff',marginBottom:10}},'C3'),
-    h('div',{style:{fontSize:_fs(15),fontWeight:700,color:C.tx1,marginBottom:2}},'C3 Studio'),
-    h('div',{style:{fontSize:_fs(12),color:C.accent,fontWeight:600,marginBottom:12}},'v'+(ver||'...')),
-    h('div',{style:{fontSize:_fs(11),color:C.tx4,marginBottom:16}},'Made with \u2764\ufe0f by Belfik'),
-    _sysInfo&&!_sysInfo.error?h('div',{style:{textAlign:'left',background:C.bg3,borderRadius:8,padding:12,fontSize:_fs(10),color:C.tx3,lineHeight:'1.8'}},
-      h('div',null,'Platform: '+(_sysInfo.platform||'?')+' '+(_sysInfo.arch||'')),
-      h('div',null,'Node: '+(_sysInfo.node_version||'?')),
-      _sysInfo.memory?h('div',null,'RAM: '+_sysInfo.memory.process_mb+' / '+_sysInfo.memory.total_mb+' MB'):null,
-      _sysInfo.db?h('div',null,'DB: '+(_sysInfo.db.size_mb||0)+' MB, '+(_sysInfo.db.migrations||0)+' migrací'):null,
-      h('div',null,'Uptime: '+(_sysInfo.uptime_seconds?Math.round(_sysInfo.uptime_seconds/60)+' min':'?'))):null);
+  return h('div',{style:{textAlign:'center',padding:'30px 0'}},
+    h('div',{style:{width:64,height:64,background:'linear-gradient(135deg,#22c55e,#16a34a)',borderRadius:18,display:'inline-flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:_fs(26),color:'#fff',marginBottom:14}},'C3'),
+    h('div',{style:{fontSize:_fs(17),fontWeight:700,color:C.tx1,marginBottom:4}},'C3 Studio'),
+    h('div',{style:{fontSize:_fs(13),color:C.accent,fontWeight:600,marginBottom:16}},'v'+(_serverHealth.version||'...')),
+    h('div',{style:{fontSize:_fs(11),color:C.tx4}},'Made with \u2764\ufe0f by Belfik'));
 }
 
 function centerWelcome(){return h('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:12}},h('div',{style:{width:48,height:48,background:'linear-gradient(135deg,#22c55e,#16a34a)',borderRadius:14,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:_fs(20),color:'#fff'}},'C3'),h('div',{style:{fontSize:_fs(16),fontWeight:700,color:C.tx1}},'C3 Studio'),h('div',{style:{fontSize:_fs(12),color:C.tx3}},'Vyber sekci v levém panelu'));}
