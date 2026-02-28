@@ -308,6 +308,11 @@
 .c3-about-sub { font-size: 11px; color: var(--c3-tx-3); margin: 0; }
 .c3-about-cr { font-size: 10px; color: var(--c3-tx-4); margin: 8px 0 0; }
 
+/* v87 Phase 2: Notification channel status */
+.c3-notif-channels { margin-bottom: 8px; }
+.c3-notif-on { color: var(--c3-accent-text, #22c55e); }
+.c3-notif-off { color: var(--c3-tx-4); }
+
 /* ═══ v63.0: Expertise Wizard ═══ */
 
 /* New expertise button */

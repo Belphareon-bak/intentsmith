@@ -6,6 +6,8 @@ export { NotificationChannel } from './channels/base.js';
 export { EmailChannel } from './channels/email.js';
 export { TelegramChannel } from './channels/telegram.js';
 export { PushChannel } from './channels/push.js';
+export { WebhookChannel } from './channels/webhook.js';
+export { DesktopChannel } from './channels/desktop.js';
 export { NotificationPolicy } from './policy.js';
 export { NotificationPipeline } from './pipeline.js';
 export { DigestAggregator } from './digest.js';

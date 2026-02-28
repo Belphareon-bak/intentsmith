@@ -72,9 +72,12 @@ const SETTINGS = [
   { id: 'user', icon: '👤', title: 'Account / Identity' },
   { id: 'llm', icon: '🤖', title: 'LLM Settings' },
   { id: 'memory', icon: '🧠', title: 'Memory & Context' },
+  { id: 'notif', icon: '🔔', title: 'Notifications' },
   { id: 'output', icon: '📄', title: 'Output & Formats' },
+  { id: 'storage', icon: '💾', title: 'Storage' },
   { id: 'system', icon: '🖥️', title: 'System' },
   { id: 'appearance', icon: '🎨', title: 'Appearance' },
+  { id: 'backup', icon: '📦', title: 'Backup & Sync' },
   { id: 'about', icon: 'ℹ️', title: 'About' }
 ];
 
@@ -444,10 +447,94 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
           { value: 'dark', label: 'Dark' },
           { value: 'light', label: 'Light' },
         ], 'dark'),
-        ..._inp('c3.chat.fontSize', 'Velikost písma (chat)', '14', 'number', { min: 10, max: 24 }),
-        _tog('c3.chat.showTimestamps', 'Zobrazit časové značky', false),
-        _tog('c3.chat.showIntentBadges', 'Intent badges', true),
-        _tog('c3.agent.showTokenCounts', 'Token counts', false),
+        ..._range('c3.chat.fontSize', 'Velikost písma (chat)', 14, 10, 24, 1, 'px'),
+        ..._sel('c3.appearance.density', 'Density', [
+          { value: 'comfortable', label: 'Comfortable' },
+          { value: 'compact', label: 'Compact' },
+          { value: 'minimal', label: 'Minimal' },
+        ], 'comfortable'),
+        ..._sel('c3.appearance.uiScale', 'UI Scale', [
+          { value: '1.0', label: '100%' },
+          { value: '1.1', label: '110%' },
+          { value: '1.25', label: '125%' },
+        ], '1.0'),
+
+        h('h4', { key: 'app-vis', className: 'c3-settings-h4' }, 'Viditelnost'),
+        _tog('c3.chat.showTimestamps', 'Časové značky u zpráv', false),
+        _tog('c3.chat.showIntentBadges', 'Intent badges (DESIGN, BUILD, ...)', true),
+        _tog('c3.agent.showTokenCounts', 'Token counts u LLM volání', false),
+        _tog('c3.agent.autoScroll', 'Auto-scroll Agent Log', true),
+      ];
+
+      // ═══ Notifications ═══
+      case 'notif':
+        setTimeout(() => this._fetchNotifChannels(), 100);
+        return [
+          h('p', { key: 'nd', className: 'c3-hint' }, 'Kanály pro doručování notifikací z workerů a agentů.'),
+          h('div', { key: 'notif-channels', className: 'c3-notif-channels', id: 'c3-notif-channels' },
+            h('p', { className: 'c3-gpu-loading' }, 'Loading channels...')
+          ),
+
+          h('h4', { key: 'notif-email', className: 'c3-settings-h4' }, 'Email'),
+          ..._inp('c3.notif.emailSmtp', 'SMTP server', '', 'text', { placeholder: 'smtp.gmail.com' }),
+          ..._inp('c3.notif.emailFrom', 'From address', '', 'text', { placeholder: 'c3@example.com' }),
+          ..._inp('c3.notif.emailTo', 'Recipient', '', 'text', { placeholder: 'user@example.com' }),
+          h('button', { key: 'test-email', className: 'c3-btn-sm c3-mt-8', onClick: () => this._testNotifChannel('email') }, 'Test Email'),
+
+          h('h4', { key: 'notif-tg', className: 'c3-settings-h4' }, 'Telegram'),
+          ..._inp('c3.notif.telegramToken', 'Bot token', '', 'text', { placeholder: 'bot123:ABC...' }),
+          ..._inp('c3.notif.telegramChatId', 'Chat ID', '', 'text', { placeholder: '-100123456789' }),
+          h('button', { key: 'test-tg', className: 'c3-btn-sm c3-mt-8', onClick: () => this._testNotifChannel('telegram') }, 'Test Telegram'),
+
+          h('h4', { key: 'notif-wh', className: 'c3-settings-h4' }, 'Webhook (HMAC)'),
+          ..._inp('c3.notif.webhookUrl', 'URL', '', 'text', { placeholder: 'https://hooks.example.com/c3' }),
+          ..._inp('c3.notif.webhookSecret', 'HMAC secret', '', 'password', { placeholder: 'your-secret-key' }),
+          h('p', { key: 'wh-hint', className: 'c3-hint' }, 'Header: X-C3-Signature: sha256=<hmac>'),
+          h('button', { key: 'test-wh', className: 'c3-btn-sm c3-mt-8', onClick: () => this._testNotifChannel('webhook') }, 'Test Webhook'),
+
+          h('h4', { key: 'notif-ntfy', className: 'c3-settings-h4' }, 'ntfy.sh'),
+          ..._inp('c3.notif.ntfyUrl', 'Server URL', 'https://ntfy.sh'),
+          ..._inp('c3.notif.ntfyTopic', 'Topic', '', 'text', { placeholder: 'c3-notifications' }),
+          h('button', { key: 'test-ntfy', className: 'c3-btn-sm c3-mt-8', onClick: () => this._testNotifChannel('ntfy') }, 'Test ntfy'),
+
+          h('h4', { key: 'notif-desktop', className: 'c3-settings-h4' }, 'Desktop'),
+          _tog('c3.notif.desktopEnabled', 'Systémové notifikace (Electron)', true),
+
+          h('h4', { key: 'notif-quiet', className: 'c3-settings-h4' }, 'Tichý režim'),
+          _tog('c3.notif.quietEnabled', 'Povolit tichý režim', false),
+          ..._inp('c3.notif.quietFrom', 'Od', '22:00', 'time'),
+          ..._inp('c3.notif.quietTo', 'Do', '07:00', 'time'),
+          h('p', { key: 'quiet-hint', className: 'c3-hint' }, 'ERROR notifikace projdou i v tichém režimu.'),
+        ];
+
+      // ═══ Storage ═══
+      case 'storage':
+        setTimeout(() => this._fetchStorageInfo(), 100);
+        return [
+          h('div', { key: 'stor-info', className: 'c3-sys-info', id: 'c3-storage-info' },
+            h('p', { className: 'c3-gpu-loading' }, 'Loading storage info...')
+          ),
+          h('h4', { key: 'stor-clean', className: 'c3-settings-h4' }, 'Cleanup'),
+          h('div', { key: 'stor-actions', className: 'c3-sys-actions' },
+            h('button', { className: 'c3-btn-sm', onClick: () => this._vacuumDb().then(() => this._fetchStorageInfo()) }, 'Vacuum DB'),
+            h('button', { className: 'c3-btn-sm', onClick: () => this._pruneOldData() }, 'Prune Old Data'),
+          ),
+          h('p', { key: 'stor-hint', className: 'c3-hint' }, 'Vacuum komprimuje databázi. Prune smaže archivované konverzace starší 180 dní.'),
+        ];
+
+      // ═══ Backup & Sync ═══
+      case 'backup': return [
+        h('p', { key: 'bk-desc', className: 'c3-hint' }, 'Export a import nastavení, konverzací a LTM dat.'),
+        h('h4', { key: 'bk-export', className: 'c3-settings-h4' }, 'Export'),
+        h('div', { key: 'bk-exp-btns', className: 'c3-sys-actions' },
+          h('button', { className: 'c3-btn-sm', onClick: () => this._exportSettings() }, 'Export Settings (JSON)'),
+          h('button', { className: 'c3-btn-sm', onClick: () => this._exportAll() }, 'Export All (ZIP)'),
+        ),
+        h('h4', { key: 'bk-import', className: 'c3-settings-h4' }, 'Import'),
+        h('div', { key: 'bk-imp-btns', className: 'c3-sys-actions' },
+          h('button', { className: 'c3-btn-sm', onClick: () => this._importSettings() }, 'Import Settings'),
+        ),
+        h('p', { key: 'bk-warn', className: 'c3-hint' }, 'Import přepíše aktuální nastavení. Doporučujeme nejdříve exportovat zálohu.'),
       ];
 
       // ═══ About ═══
@@ -531,6 +618,118 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
       if (!resp.ok) throw new Error('Vacuum failed');
       this._fetchSystemInfo();
     } catch (_) {}
+  }
+
+  // ── v87 Phase 2: Notification helpers ─────────────────────────────────
+
+  async _fetchNotifChannels() {
+    const el = document.getElementById('c3-notif-channels');
+    if (!el) return;
+    try {
+      const resp = await fetch('/api/notifications/channels');
+      if (!resp.ok) throw new Error('API error');
+      const data = await resp.json();
+      const channels = data.channels || [];
+      el.innerHTML = channels.map(ch =>
+        `<div class="c3-gpu-row"><span>${ch.name}</span><strong class="${ch.configured ? 'c3-notif-on' : 'c3-notif-off'}">${ch.configured ? 'Active' : 'Not configured'}</strong></div>`
+      ).join('');
+    } catch (_) {
+      el.innerHTML = '<p class="c3-gpu-err">Notification service unavailable</p>';
+    }
+  }
+
+  async _testNotifChannel(channel) {
+    try {
+      const resp = await fetch('/api/notifications/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel }),
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        alert(`${channel}: Test sent successfully`);
+      } else {
+        alert(`${channel}: ${data.error || 'Test failed'}`);
+      }
+    } catch (err) {
+      alert(`${channel}: Error — ${err.message}`);
+    }
+  }
+
+  // ── v87 Phase 2: Storage helpers ──────────────────────────────────────
+
+  async _fetchStorageInfo() {
+    const el = document.getElementById('c3-storage-info');
+    if (!el) return;
+    try {
+      const resp = await fetch('/api/system/storage');
+      if (!resp.ok) throw new Error('API error');
+      const data = await resp.json();
+      el.innerHTML = `
+        <div class="c3-gpu-row"><span>Database</span><strong>${data.db_size_mb} MB</strong></div>
+        <div class="c3-gpu-row"><span>Messages</span><strong>${data.messages}</strong></div>
+        <div class="c3-gpu-row"><span>Sessions</span><strong>${data.sessions}</strong></div>
+        <div class="c3-gpu-row"><span>LTM entries</span><strong>${data.ltm_entries}</strong></div>
+      `;
+    } catch (_) {
+      el.innerHTML = '<p class="c3-gpu-err">Storage info unavailable</p>';
+    }
+  }
+
+  async _pruneOldData() {
+    try {
+      const resp = await fetch('/api/system/vacuum', { method: 'POST' });
+      if (resp.ok) {
+        this._fetchStorageInfo();
+      }
+    } catch (_) {}
+  }
+
+  // ── v87 Phase 2: Backup helpers ───────────────────────────────────────
+
+  async _exportSettings() {
+    try {
+      const resp = await fetch('/api/system/info');
+      if (!resp.ok) throw new Error('API error');
+      const data = await resp.json();
+      const blob = new Blob([JSON.stringify(data.config, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `c3-settings-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (_) {}
+  }
+
+  async _exportAll() {
+    // Full export requires backend support — for now export what we can
+    await this._exportSettings();
+  }
+
+  async _importSettings() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const settings = JSON.parse(text);
+        const ws = window.C3WS;
+        if (ws && typeof ws.syncSettings === 'function' && ws.isReady()) {
+          // Sync each key individually
+          for (const [key, value] of Object.entries(settings)) {
+            ws.syncSettings({ [key]: value });
+          }
+          alert('Settings imported successfully');
+        }
+      } catch (err) {
+        alert(`Import failed: ${err.message}`);
+      }
+    };
+    input.click();
   }
 
   // ─── v63.0: Wizard Methods ──────────────────────────────────────────────

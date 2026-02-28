@@ -98,6 +98,10 @@ import { createQualityRoutes } from './routes/quality.js';
 import { createAutonomyRoutes } from './routes/autonomy.js';
 import { createSkillRoutes } from './routes/skills.js';
 import { createSystemRoutes } from './routes/system.js';
+import { createNotificationRoutes } from './routes/notifications.js';
+import { createNotificationRouter } from './notifications/index.js';
+import { WebhookChannel } from './notifications/channels/webhook.js';
+import { DesktopChannel } from './notifications/channels/desktop.js';
 import { skillRegistry } from './skills/registry.js';
 import { creDecisionEngine } from './chat/cre-decision.js';
 import { toolRegistry } from './tools/registry.js';
@@ -520,6 +524,11 @@ const routeDeps = {
   specialistLoader, specialistRuntime, specialistTelemetry,
 };
 
+// v87: Initialize notification system with webhook + desktop channels
+const notificationRouter = createNotificationRouter({ db });
+notificationRouter.registerChannel(new WebhookChannel({ logger }));
+notificationRouter.registerChannel(new DesktopChannel({ logger }));
+
 const routes = {
   // Health check (inline — small)
   'GET /': (req, res) => {
@@ -571,6 +580,9 @@ const routes = {
 
   // v87: System routes (GPU, model compatibility, diagnostics)
   ...createSystemRoutes(routeDeps),
+
+  // v87: Notification routes (channels, test, log)
+  ...createNotificationRoutes({ ...routeDeps, notificationRouter }),
 
   // F1: Setup Wizard routes (always available — idempotent after completion)
   ...createSetupRoutes(setupWizard, routeDeps),

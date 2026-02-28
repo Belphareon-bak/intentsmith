@@ -86,6 +86,16 @@ export interface C3Settings {
   'c3.output.syntaxHighlight': boolean;
   'c3.output.markdownRendering': boolean;
   'c3.output.maxResponseLength': number;
+
+  // ─── v87 P2: Appearance ───────────────────────────
+  'c3.appearance.density': 'comfortable' | 'compact' | 'minimal';
+  'c3.appearance.uiScale': string;
+
+  // ─── v87 P2: Notifications ────────────────────────
+  'c3.notif.desktopEnabled': boolean;
+  'c3.notif.quietEnabled': boolean;
+  'c3.notif.quietFrom': string;
+  'c3.notif.quietTo': string;
 }
 
 export const C3_DEFAULTS: C3Settings = {
@@ -159,4 +169,14 @@ export const C3_DEFAULTS: C3Settings = {
   'c3.output.syntaxHighlight': true,
   'c3.output.markdownRendering': true,
   'c3.output.maxResponseLength': 8192,
+
+  // v87 P2: Appearance
+  'c3.appearance.density': 'comfortable',
+  'c3.appearance.uiScale': '1.0',
+
+  // v87 P2: Notifications
+  'c3.notif.desktopEnabled': true,
+  'c3.notif.quietEnabled': false,
+  'c3.notif.quietFrom': '22:00',
+  'c3.notif.quietTo': '07:00',
 };

@@ -360,6 +360,42 @@ export const C3_PREFERENCE_SCHEMA = {
       maximum: 65536,
       description: 'Maximální délka odpovědi (tokeny).',
     },
+
+    // ─── v87 P2: Appearance ───────────────────────────
+    'c3.appearance.density': {
+      type: 'string',
+      default: C3_DEFAULTS['c3.appearance.density'],
+      enum: ['comfortable', 'compact', 'minimal'],
+      description: 'Hustota UI elementů.',
+    },
+    'c3.appearance.uiScale': {
+      type: 'string',
+      default: C3_DEFAULTS['c3.appearance.uiScale'],
+      enum: ['1.0', '1.1', '1.25'],
+      description: 'Škálování UI (100% / 110% / 125%).',
+    },
+
+    // ─── v87 P2: Notifications ────────────────────────
+    'c3.notif.desktopEnabled': {
+      type: 'boolean',
+      default: C3_DEFAULTS['c3.notif.desktopEnabled'],
+      description: 'Systémové desktop notifikace (Electron).',
+    },
+    'c3.notif.quietEnabled': {
+      type: 'boolean',
+      default: C3_DEFAULTS['c3.notif.quietEnabled'],
+      description: 'Tichý režim — potlačit notifikace v zadaném čase.',
+    },
+    'c3.notif.quietFrom': {
+      type: 'string',
+      default: C3_DEFAULTS['c3.notif.quietFrom'],
+      description: 'Začátek tichého režimu (HH:MM).',
+    },
+    'c3.notif.quietTo': {
+      type: 'string',
+      default: C3_DEFAULTS['c3.notif.quietTo'],
+      description: 'Konec tichého režimu (HH:MM).',
+    },
   },
 };
 
