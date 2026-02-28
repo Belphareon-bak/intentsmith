@@ -500,7 +500,7 @@ function fetchBackendData(){
     renderCenter();
   }).catch(function(){});
   /* Workers (agents) */
-  fetch(_backendBase+'/api/agents',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(data){
+  if(!_agentsForbidden){fetch(_backendBase+'/api/agents',{signal:AbortSignal.timeout(3000)}).then(function(r){if(r.status===403){_agentsForbidden=true;return{agents:[]};}if(!r.ok)return{agents:[]};return r.json();}).then(function(data){
     var items=Array.isArray(data)?data:(data.agents||[]);
     if(items.length>0){WORKERS=items.map(function(a){
       var sched=a.definition&&a.definition.schedule?a.definition.schedule:null;
@@ -509,7 +509,7 @@ function fetchBackendData(){
         cron:cronStr,lastRun:_s(a.lastRun)||'',desc:_s(a.description||a.desc)||''};
     });}else{WORKERS=[];}
     NAV[4].badge=WORKERS.length;NAV[4].recent=WORKERS.slice(0,3).map(function(w){return w.name;});renderCenter();
-  }).catch(function(){});
+  }).catch(function(){});}
 }
 setTimeout(fetchBackendData,1500);
 /* Auto-detect workspace root — ONLY if no session has a saved tree (don't overwrite restored state) */
@@ -2023,7 +2023,7 @@ function centerExpertiseWizard(){
 }
 
 /* Settings state */
-var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSizeVal:13,fontIdx:0,custom1:null,custom2:null,bgIdx:0,bgCustom1:null,bgCustom2:null,customCSS:'',visualMode:'borders',tileOpacity:80,bgDim:30,sidebarOpacity:80,projectsDir:''};
+var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSizeVal:13,fontIdx:0,custom1:null,custom2:null,bgIdx:0,bgCustom1:null,bgCustom2:null,customCSS:'',visualMode:'borders',tileOpacity:80,bgDim:30,sidebarOpacity:80,projectsDir:'',autoCollapse:true};
 /* v87.3: Backend config state — loaded from /api/settings */
 var _bCfg=null;var _bCfgLoading=false;var _gpuInfo=null;var _ollamaModels=null;var _sysInfo=null;var _storageInfo=null;var _bCfgSaveTimer=null;
 function _loadBCfg(cb){if(_bCfg&&!_bCfgLoading){if(cb)cb();return;}_bCfgLoading=true;fetch(_backendBase+'/api/settings',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_bCfg=d||{};_bCfgLoading=false;if(cb)cb();renderCenter();}).catch(function(){_bCfg=_bCfg||{};_bCfgLoading=false;if(cb)cb();});}
@@ -2251,6 +2251,15 @@ function settingsAppearance(){
         style:{padding:'8px 10px',borderRadius:8,border:'2px solid '+(sel?C.accent:C.border),background:sel?C.accentBg:C.bg3,cursor:'pointer',display:'flex',alignItems:'center',gap:8}},
         h('div',{style:{width:16,height:16,borderRadius:'50%',border:'2px solid '+(sel?C.accent:C.border2),background:sel?C.accent:'transparent',flexShrink:0}}),
         h('span',{style:{fontSize:_fs(12),fontFamily:ff.val,color:sel?C.accentText:C.tx2}},ff.label));})),
+    /* Auto-collapse toggle */
+    h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:8,marginTop:16}},'Automatické skrývání panelů'),
+    h('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:16,cursor:'pointer'},
+      onClick:function(){sv.autoCollapse=!sv.autoCollapse;_saveSV();renderCenter();}},
+      h('div',{style:{width:36,height:20,borderRadius:10,background:sv.autoCollapse?C.accent:C.bg4,transition:'background 0.2s',position:'relative',flexShrink:0}},
+        h('div',{style:{width:16,height:16,borderRadius:'50%',background:'#fff',position:'absolute',top:2,left:sv.autoCollapse?18:2,transition:'left 0.2s',boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}})),
+      h('div',null,
+        h('div',{style:{fontSize:_fs(12),color:sv.autoCollapse?C.tx1:C.tx3,fontWeight:500}},sv.autoCollapse?'Zapnuto':'Vypnuto'),
+        h('div',{style:{fontSize:_fs(10),color:C.tx4}},'Panely se automaticky skryjí při zúžení pod limit'))),
     /* Visual mode picker — global: borders vs lines */
     h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:8,marginTop:16}},'Vizuální režim'),
     h('div',{style:{display:'flex',gap:6,marginBottom:12}},
@@ -4205,6 +4214,7 @@ inversify_1.decorate(inversify_1.injectable(),C3AgentWidget);
 var _c3LastLeftW=240,_c3LastRightW=420;
 var _C3_MIN_LEFT=200,_C3_MIN_RIGHT=300;
 var _c3SnapLock=false;
+var _agentsForbidden=false;
 
 class C3SidebarContrib extends browser_1.AbstractViewContribution {
   constructor(){super({widgetId:C3_SIDEBAR_ID,widgetName:'C3 Navigation',defaultWidgetOptions:{area:'left',rank:0},toggleCommandId:'c3:toggleSidebar',toggleKeybinding:'ctrlcmd+b'});}
@@ -4239,8 +4249,8 @@ class C3SidebarContrib extends browser_1.AbstractViewContribution {
       }catch(e){console.warn('[C3] Split spacing fix:',e);}
       /* ── Snap-collapse via ResizeObserver + expand tabs ── */
       try{
-        window._c3SnapVersion='87.6.2';
-        console.log('[C3] Snap-collapse v87.6.2 init');
+        window._c3SnapVersion='87.6.5';
+        console.log('[C3] Snap-collapse v87.6.5 init');
         var _lph=a.shell.leftPanelHandler;
         var _rph=a.shell.rightPanelHandler;
         var leftCP=_lph&&_lph.container?_lph.container.node:null;
@@ -4261,9 +4271,9 @@ class C3SidebarContrib extends browser_1.AbstractViewContribution {
           try{handler.container.show();a.shell.resize(w,side);}catch(e){console.warn('[C3] show fail',e);}
           setTimeout(function(){_c3SnapLock=false;},600);
         }
-        /* Right panel: snap-hide when below 280px */
+        /* Right panel: snap-hide when below threshold */
         if(rightCP){new ResizeObserver(function(entries){
-          if(_c3SnapLock)return;
+          if(_c3SnapLock||!_settingsVals.autoCollapse)return;
           var w=entries[0].contentRect.width;
           if(w>0&&w<_C3_MIN_RIGHT){
             if(!_rightSnapT){_rightSnapT=setTimeout(function(){
@@ -4276,9 +4286,9 @@ class C3SidebarContrib extends browser_1.AbstractViewContribution {
             if(w>=_C3_MIN_RIGHT){_c3LastRightW=w;}
           }
         }).observe(rightCP);}
-        /* Left panel: snap-hide when below 40px (icon mode = 48px, below = unusable) */
+        /* Left panel: snap-hide when below threshold */
         if(leftCP){new ResizeObserver(function(entries){
-          if(_c3SnapLock)return;
+          if(_c3SnapLock||!_settingsVals.autoCollapse)return;
           var w=entries[0].contentRect.width;
           if(w>0&&w<_C3_MIN_LEFT){
             if(!_leftSnapT){_leftSnapT=setTimeout(function(){
