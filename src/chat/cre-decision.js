@@ -1181,6 +1181,35 @@ export function normalizeForClassification(text) {
   return normalized;
 }
 
+// v87: Negation detection — identifies intent types the user explicitly rejects.
+// Czech negation: "nechci kód", "nehledej", "žádný build", "neukládej do souboru"
+// Returns Set of negated IntentType values.
+// Used post-classification: if classifier returns a negated intent → downgrade.
+function _detectNegatedIntents(input) {
+  const negated = new Set();
+
+  // "nechci X" — explicit rejection of intent category
+  if (/nechci\s+(?:kód|code|programov)/i.test(input)) negated.add(IntentType.CODE);
+  if (/nechci\s+(?:nápady?|kreativ|brainstorm)/i.test(input)) negated.add(IntentType.CREATIVE);
+  if (/nechci\s+(?:report|analýz|zpráv)/i.test(input)) negated.add(IntentType.REPORT);
+  if (/nechci\s+(?:návrh|design|architekturu)/i.test(input)) negated.add(IntentType.DESIGN);
+
+  // Negated verbs (ne- prefix on verb stems)
+  if (/nehledej|nevyhledávej/i.test(input)) negated.add(IntentType.SEARCH);
+  if (/neukládej|nepiš\s+do\s+soubor|nesavuj/i.test(input)) negated.add(IntentType.FILE_WRITE);
+  if (/nečti|neotvírej\s+(?:ten\s+)?soubor/i.test(input)) negated.add(IntentType.FILE_READ);
+  if (/nespouštěj|nespusť|nerunuj/i.test(input)) negated.add(IntentType.SHELL);
+  if (/nestavěj|nebuildi|nebudu\s+(?:to\s+)?stavět/i.test(input)) negated.add(IntentType.BUILD);
+
+  // "žádný X" — explicit exclusion
+  if (/žádn[ýáé]\s+(?:build|stavb)/i.test(input)) negated.add(IntentType.BUILD);
+  if (/žádn[ýáé]\s+(?:report|analýz|zpráv)/i.test(input)) negated.add(IntentType.REPORT);
+  if (/žádn[ýáé]\s+(?:kód|code)/i.test(input)) negated.add(IntentType.CODE);
+  if (/žádn[ýáé]\s+(?:design|návrh)/i.test(input)) negated.add(IntentType.DESIGN);
+
+  return negated;
+}
+
 // v63.0: Extract file path from user input
 // Looks for quoted paths, paths with extensions, or common filename patterns
 function extractFilePath(input) {
@@ -2119,6 +2148,15 @@ export class CREDecisionEngine {
       ? `\n- Uživatel má AKTIVNÍ PROJEKT. "z projektu"/"v projektu"/"z tohoto folderu"/"ze složky" = soubory projektu. Analyzuj/shrň/vysvětli obsah → FILE_EXPLAIN. Přečti/projdi/zobraz/výtah → FILE_READ. NIKDY CONVERSATIONAL pro dotazy o projektu.`
       : '';
 
+    // v87: Expertise context — LLM knows active domain for better disambiguation.
+    // Skip for creativeLock expertises — GUARD 6 in decide() handles those.
+    // Adding the hint for creative expertises makes LLM avoid SEARCH (picks CONVERSATIONAL),
+    // which bypasses GUARD 6's SEARCH→CREATIVE override.
+    const _exp = context.expertise;
+    const expertiseHint = (_exp && !_exp.creativeLock)
+      ? `\n- Aktivní expertíza: ${_exp.id} (${_exp.outputBias || 'neutral'}). Při nejednoznačnosti preferuj CONVERSATIONAL interpretaci.`
+      : '';
+
     const systemPrompt = `Klasifikuj záměr uživatele. Vrať JSON: {"intent":"X","confidence":0.9,"fileTarget":null}
 
 ZÁMĚRY:
@@ -2143,7 +2181,7 @@ PRAVIDLA:
 - Soubor jako cíl → extrahuj do fileTarget (POUZE název, bez cest)
 - Český "rust" = růst → CONVERSATIONAL/SEARCH, ne CODE
 - DESIGN = POUZE softwarová architektura/IT projekty. Itinerář, jídelníček, tréninkový plán, výlet → CREATIVE, ne DESIGN
-- "spusť skill/recept/proceduru X" → SKILL. SKILL jen pokud uživatel explicitně zmiňuje skill/recept${projectHint}`;
+- "spusť skill/recept/proceduru X" → SKILL. SKILL jen pokud uživatel explicitně zmiňuje skill/recept${projectHint}${expertiseHint}`;
 
     // v72: No conversation context — classify current message only
     const userPrompt = input;
@@ -2823,6 +2861,23 @@ PRAVIDLA:
 
     // v73: Capture initial intent before any overrides
     _diag.initialIntent = intent;
+
+    // ════════════════════════════════════════════════════════════════════════
+    // v87: NEGATION OVERRIDE — user explicitly rejects an intent category.
+    // "Nechci kód, vysvětli mi princip" → CODE negated → downgrade to CONVERSATIONAL.
+    // Runs post-classification: detects negated intents, checks if classifier
+    // returned one of them, and downgrades if so.
+    // ════════════════════════════════════════════════════════════════════════
+    const _negatedIntents = _detectNegatedIntents(input);
+    if (_negatedIntents.size > 0 && _negatedIntents.has(intent)) {
+      logger.info('CRE:Negation', `${intent} downgrade → CONVERSATIONAL (user negated this intent)`, {
+        input: input.substring(0, 60),
+        negated: [..._negatedIntents],
+        originalIntent: intent,
+      });
+      intent = IntentType.CONVERSATIONAL;
+      _diag.overrides.push('negation_override');
+    }
 
     // ════════════════════════════════════════════════════════════════════════
     // GUARD 6: CREATIVE OVERRIDE — when creative expertise is active,
