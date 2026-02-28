@@ -3254,16 +3254,20 @@ function _closeDialogAction(choice){
   if(choice==='conv'){
     /* A) Close conversation only — reset pane to empty state */
     s._convId=null;s._projectId=null;s._agentId=null;s._lifecycleResumed=false;
-    s.chat.msgs=[{role:'system',text:'C3 Studio připraven. Začni psát zprávu.'}];
+    s.chat.msgs=[];
     s.chat.ctx=0;s.chat.expertise='Výchozí';s.chat.attachments=[];
+    var _now=new Date();
+    s.log=[{time:_now.toLocaleTimeString('cs-CZ'),type:'SYSTEM',cls:'system',text:'C3 Studio připraven. Začni psát zprávu.',active:true,ts:_now.toISOString()}];
+    s.term=[{text:'$ ',ts:_now.toISOString(),type:'prompt'}];
     _perSessionTree[idx]=null;
     if(idx===_sessionActive){_wtRoot='';_wtRawTree=null;FILES=[];renderSidebar();}
     _persistSessionState();
   } else if(choice==='pane'){
     /* B) Close conversation + reduce panel count */
     s._convId=null;s._projectId=null;s._agentId=null;s._lifecycleResumed=false;
-    s.chat.msgs=[{role:'system',text:'C3 Studio připraven. Začni psát zprávu.'}];
+    s.chat.msgs=[];
     s.chat.ctx=0;s.chat.expertise='Výchozí';s.chat.attachments=[];
+    s.log=[];s.term=[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}];
     _perSessionTree[idx]=null;
     if(_sessionCount>1){
       /* Swap closed pane with last pane if not already last, then reduce count */
@@ -3279,7 +3283,7 @@ function _closeDialogAction(choice){
     if(idx===_sessionActive||_sessionActive<0)_sessionActive=0;
   }
   /* choice==='cancel' → do nothing */
-  renderChat();
+  renderChat();renderAgent();
 }
 
 var _chatContainer=null;
