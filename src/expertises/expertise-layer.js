@@ -1703,77 +1703,7 @@ class ExpertiseRegistry {
 // Global registry instance
 export const expertiseRegistry = new ExpertiseRegistry();
 
-/**
- * Expert Router - routes tasks to appropriate expert
- */
-export function routeToExpertise(message, intent = null) {
-  const lower = message.toLowerCase();
-  
-  // Explicit expert mention patterns
-  const expertMentions = {
-    'spisovatel': 'writer',
-    'napsat knihu': 'writer',
-    'napsat povídku': 'writer',
-    'napsat příběh': 'writer',
-    'dnd': 'dnd_master',
-    'd&d': 'dnd_master',
-    'dungeon': 'dnd_master',
-    'kampaň': 'dnd_master',
-    'text písně': 'songwriter',
-    'napsat text': 'songwriter',
-    'analyzuj': 'analyst',
-    'srovnej': 'analyst',
-    'porovnej': 'analyst',
-    'koupit': 'trader',
-    'prodat': 'trader',
-    'účetnictví': 'accountant',
-    'rozpočet': 'accountant',
-    'právně': 'lawyer',
-    'zákon': 'lawyer',
-    'zdraví': 'doctor',
-    'psycholog': 'psychologist',
-    'ai': 'ai_expert',
-    'model': 'ai_expert',
-    'llm': 'ai_expert',
-    'kód': 'developer',
-    'naprogramuj': 'developer',
-    'opravit': 'technician',
-    'nefunguje': 'technician',
-    'auto': 'car_enthusiast',
-    'motorka': 'biker',
-    'politika': 'political_analyst'
-  };
-
-  // Check for explicit mentions
-  for (const [pattern, expertId] of Object.entries(expertMentions)) {
-    if (lower.includes(pattern)) {
-      const expert = expertiseRegistry.get(expertId);
-      if (expert) {
-        return {
-          expert,
-          confidence: 0.8,
-          reason: `Detected: "${pattern}"`
-        };
-      }
-    }
-  }
-
-  // Intent-based routing
-  if (intent === 'LONG_FORM_CREATION') {
-    return {
-      expert: expertiseRegistry.get('writer'),
-      confidence: 0.7,
-      reason: 'Long-form content creation detected'
-    };
-  }
-
-  // No expert match - use general chat
-  return {
-    expert: null,
-    confidence: 0,
-    reason: 'No specific expert match'
-  };
-}
+// v87: routeToExpertise() removed — replaced by autoSelectExpertise() in auto-select.js
 
 /**
  * Get expert categories for UI
@@ -1827,7 +1757,6 @@ export default {
   BUILTIN_EXPERTISES,
   ExpertiseAgent,
   expertiseRegistry,
-  routeToExpertise,
   getExpertiseCategories,
   // v45.0 - Expert intensity
   ExpertiseStrength,

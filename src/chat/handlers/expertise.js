@@ -382,6 +382,7 @@ async function generateExpertiseResponse(input, expertise, context) {
       canExecute: false,
       metadata: {
         ...(context.debug ? { executionTraceId } : {}),
+        expertiseSource: context.expertise?._source || 'manual', // v87
         expertise: {
           id: expertise.id,
           name: expertise.name,
@@ -492,6 +493,7 @@ Based on these results, provide your expert analysis and response.`;
       confidence: check.passed ? 0.9 : 0.75,
       canExecute: false,
       metadata: {
+        expertiseSource: context.expertise?._source || 'manual', // v87
         expertise: { id: expertise.id, name: expertise.name, domain: expertise.domain },
         toolResults: toolResult.tag?.metadata?.toolResults,
         model: result.model,
