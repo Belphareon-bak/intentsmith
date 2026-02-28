@@ -4023,7 +4023,7 @@ inversify_1.decorate(inversify_1.injectable(),C3AgentWidget);
 class C3SidebarContrib extends browser_1.AbstractViewContribution {
   constructor(){super({widgetId:C3_SIDEBAR_ID,widgetName:'C3 Navigation',defaultWidgetOptions:{area:'left',rank:0},toggleCommandId:'c3:toggleSidebar',toggleKeybinding:'ctrlcmd+b'});}
   async initializeLayout(a){await this.openView({activate:true,reveal:true});}
-  async onStart(a){window._c3App=a;try{await this.openView({activate:false,reveal:true});}catch(e){}setTimeout(function(){try{a.shell.resize(240,'left');}catch(e){}},800);}}
+  async onStart(a){window._c3App=a;try{await this.openView({activate:false,reveal:true});}catch(e){}setTimeout(function(){try{a.shell.resize(240,'left');}catch(e){}try{var lc=a.shell.leftPanelHandler.container;var lrSplit=lc&&lc.parent;if(lrSplit&&lrSplit.id==='theia-left-right-split-panel'){lrSplit.spacing=4;}var mp=a.shell.mainPanel;var btSplit=mp&&mp.parent;if(btSplit&&btSplit.id==='theia-bottom-split-panel'){btSplit.spacing=4;}}catch(e){console.warn('[C3] Split spacing fix:',e);}},800);}}
 inversify_1.decorate(inversify_1.injectable(),C3SidebarContrib);
 
 class C3ChatContrib extends browser_1.AbstractViewContribution {
