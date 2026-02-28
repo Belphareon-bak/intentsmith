@@ -200,7 +200,7 @@ export function createSystemRoutes({ db, sendJSON }) {
         } catch (_) {}
 
         sendJSON(res, 200, {
-          version: 'v86.0.0',
+          version: 'v87.2.0',
           platform: os.platform(),
           arch: os.arch(),
           node_version: process.version,

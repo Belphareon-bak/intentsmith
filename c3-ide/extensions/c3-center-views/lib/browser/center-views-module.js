@@ -541,7 +541,7 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
       case 'about': return [
         h('div', { key: 'a', className: 'c3-about' },
           h('div', { className: 'c3-about-logo' }, 'C3'),
-          h('p', { className: 'c3-about-ver' }, 'v87.0.0'),
+          h('p', { className: 'c3-about-ver' }, 'v87.2.0'),
           h('p', { className: 'c3-about-sub' }, 'p(AI)assistant · Local LLM Runtime'),
           h('p', { className: 'c3-about-cr' }, 'Made with care by Belfik')
         )
