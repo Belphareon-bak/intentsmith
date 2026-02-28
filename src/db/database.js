@@ -523,12 +523,12 @@ export const conversations = {
     UPDATE conversations SET state = 'deleted', deleted_at = CURRENT_TIMESTAMP WHERE id = ?
   `),
 
-  // Filtered listing (default = active only)
+  // Filtered listing (default = active only, excluding project conversations)
   listActive: db.prepare(`
     SELECT c.*, p.name as project_name
     FROM conversations c
     LEFT JOIN projects p ON c.project_id = p.id
-    WHERE c.state = 'active'
+    WHERE c.state = 'active' AND c.project_id IS NULL
     ORDER BY c.updated_at DESC LIMIT ?
   `),
 
@@ -536,7 +536,7 @@ export const conversations = {
     SELECT c.*, p.name as project_name
     FROM conversations c
     LEFT JOIN projects p ON c.project_id = p.id
-    WHERE c.state = 'archived'
+    WHERE c.state = 'archived' AND c.project_id IS NULL
     ORDER BY c.archived_at DESC LIMIT ?
   `),
 
@@ -544,7 +544,7 @@ export const conversations = {
     SELECT c.*, p.name as project_name
     FROM conversations c
     LEFT JOIN projects p ON c.project_id = p.id
-    WHERE c.state != 'deleted'
+    WHERE c.state != 'deleted' AND c.project_id IS NULL
     ORDER BY c.updated_at DESC LIMIT ?
   `),
 
