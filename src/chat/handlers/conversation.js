@@ -526,8 +526,19 @@ export async function conversationHandler(input, context) {
         return await handleToolCallDecision(input, resolvedDecision, enrichedContext);
       } else if (resolvedDecision.type === DecisionType.ANSWER) {
         return await handleAnswerDecision(input, resolvedDecision, context);
+      } else if (resolvedDecision.type === DecisionType.ASK_USER) {
+        // v87: Clarification resolved to ASK_USER (e.g. CODE without project context).
+        // Must handle here — falling through to CRE.decide() would reclassify the
+        // short input (e.g. "kod") as AMBIGUOUS, creating an infinite clarification loop.
+        return handleAskUserDecision(input, resolvedDecision, context);
+      } else if (resolvedDecision.type === DecisionType.PLAN) {
+        // v87: BUILD intent from clarification
+        if (handleBuildDetected) return handleBuildDetected(input, resolvedDecision, context);
+        return await handleAnswerDecision(input, resolvedDecision, context);
+      } else if (resolvedDecision.type === DecisionType.REFUSE) {
+        return handleRefuseDecision(input, resolvedDecision, context);
       }
-      // For other types, fall through to normal processing
+      // Unknown type — fall through to normal processing (should not happen)
     }
 
     // If clarification not resolved, continue with normal flow

@@ -351,6 +351,10 @@ export async function handleFileDecision(input, decision, context) {
   // Record decision
   if (sessionState) {
     sessionState.recordDecision(decision, input);
+    // v87: Track last active file for context continuity
+    if (!result.isDirectory && !result.error) {
+      sessionState.setActiveFile(validation.resolved);
+    }
   }
 
   // FILE_READ — return content directly (no LLM)
@@ -571,6 +575,11 @@ export async function handleFileWriteDecision(input, decision, context) {
       size: Buffer.byteLength(content, 'utf-8'),
       lines,
     });
+
+    // v87: Track last active file for context continuity
+    if (context.sessionState) {
+      context.sessionState.setActiveFile(validation.resolved);
+    }
 
     return new TaggedResponse({
       content: msg,

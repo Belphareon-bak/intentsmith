@@ -57,6 +57,11 @@ const PROJECT_SELF_PATTERNS = [
   /stav projektu/i,
   /(?:co|jaký|jaká) je cíl (?:tohoto |)projektu/i,
   /cíl projektu/i,
+  // v87: "v jaké fázi projektu jsme?" — lifecycle phase queries
+  /(?:v |)jak[ée] f[áa]zi (?:(?:tohoto |)projektu|jsme)/i,
+  /f[áa]z[ei] projektu/i,
+  /kde (?:jsme|se nach[áa]z[ií]me) (?:v |s |)projekt/i,
+  /(?:jak|kde) daleko jsme/i,
   /na čem (?:pracujeme|děláme|pracuji)/i,
   /(?:co|jak) (?:děláme|dělám) (?:v |na |)(?:tomto |)projekt/i,
   /(?:shrň|shrnout|popiš) projekt/i,
@@ -382,6 +387,21 @@ export async function projectHandler(input, context) {
         return await handleAnswerDecision(input, decision, context);
 
       case DecisionType.TOOL_CALL:
+        // v87: CODE intent without explicit file path → route to ANSWER (inline synthesis).
+        // Prevents "FILE_WRITE: No file path specified" error when user says
+        // "zacni s psanim kodu" without specifying a target file.
+        if (decision.intent === IntentType.CODE && !decision.metadata?.filePath) {
+          logger.info('ProjectHandler', 'CODE without file path → inline ANSWER', {
+            input: input.substring(0, 60),
+            projectId: project.id,
+          });
+          return await handleAnswerDecision(input, decision, {
+            ...context,
+            hasActiveProject: true,
+            project: project,
+            projectPath: project.path,
+          });
+        }
         // v44.2 - Ensure project context is fully propagated for sandbox
         return await handleToolCallDecision(input, decision, {
           ...context,
