@@ -2,6 +2,68 @@
 
 ---
 
+## v87.0–87.6 — IDE Settings Redesign + CRE Guards + BUILD Fix (2026-02-28)
+
+Kompletní přepis Settings UI v IDE (10 sekcí), CRE GUARD 6 (creative override), BUILD dead-end fix, LLM timeout hardening.
+
+### v87.3 — Settings UI Redesign
+
+- **10 nových sekcí**: Account, LLM, Memory, Notifications, Output, Appearance, System, Storage, Backup, About
+- **Backend config sync** — `_bCfg` stav: `GET/POST /api/settings` s debounced save (500ms)
+- **GPU detekce** — `GET /api/system/gpu` → karta s gpu_model, VRAM, driver, CUDA
+- **Ollama model selector** — dropdown z `GET /api/system/models`
+- **Notification channels** — 4 karty (email, telegram, webhook, ntfy) se statusem z backendu
+- **Backup export/import** — JSON download/upload s feedback hláškami
+- **Storage overview** — DB velikost, migrace, tabulky, vacuum + optimize
+
+### v87.4 — Settings UX Polish
+
+- **Info tooltipy** — `_iI(text)` + `_lI(text, info)` — ikony (i) s popisy u LLM a Memory polí
+- **GPU fix** — správné mapování `gpu_model`/`vram_mb` z `profile.gpus[]`
+- **Account zjednodušen** — odebrána měna a timezone (patří do System)
+- **Notification channels** — 4 provider karty se statusem (configured/not configured)
+- **Output** — jasné popisy, "1 token ≈ 4 znaky" u max response length
+- **System** — přesunuta měna/timezone, KB/MB formátování, diagnostika (node, uptime, RAM)
+- **Storage** — reálná DB data (size_mb, migrations, tables), "Optimalizovat databázi" s vysvětlením
+- **Backup** — zelené/červené feedback hlášky s auto-dismiss (4s)
+- **About** — verze z backendu (`getCurrentVersion()`)
+
+### v87.5 — DB Fix + About Simplification
+
+- **rawDb pattern** — `const rawDb = db.db || db;` v system.js — wrapper objekt vs raw better-sqlite3
+- **Storage** — nyní zobrazuje reálná data (size, migrace, počty tabulek)
+- **About** — zjednodušen na logo + verze + attribution (systémové info jen v System)
+
+### v87.6 — CRE GUARD 6 + BUILD Dead-end Fix
+
+- **GUARD 6 (Creative Override)** — `creativeLock`/`outputBias=creative` → SEARCH/AMBIGUOUS přesměrováno na CREATIVE
+  - Bypass pro explicitní search patterny (vyhledej, googl, ve skutečnosti, historická fakta)
+  - Řeší: DnD "Prokletý ostrov" → SEARCH → Shutter Island film
+- **BUILD dead-end fix** — `DecisionType.PLAN` přidán do project.js + expertise.js switch
+  - Řeší: 12× REFUSE při "začni s buildem" v PROJECT mode
+- **LLM Gateway timeout** — CHAT 60s→90s, no retry on AbortError, E2E timeout 90s→120s
+- **Synthesis numeric density** — SEARCH kontrakt "EXTRACT SPECIFIC DATA", regex gate pro čísla
+- **Attachment guard** — pre-CRE deterministic override: attachment + file-ref → FILE_EXPLAIN
+
+### Testy
+
+- `expertise-routing-correctness.test.js` — 43 assertions (GUARD 6)
+- `expertise-comparison-e2e.test.js` — 78 konverzačních turnů
+
+### Soubory
+
+| Nové/Modifikované | Popis |
+|-------------------|-------|
+| `chat-panel-module.js` | Kompletní přepis Settings UI (10 sekcí, ~800 řádků) |
+| `src/routes/system.js` | rawDb fix, getCurrentVersion() |
+| `src/chat/cre-decision.js` | GUARD 6 (creative override) |
+| `src/chat/handlers/conversation.js` | Attachment guard |
+| `src/planner/project.js` | PLAN case v switch |
+| `src/expertises/expertise-layer.js` | PLAN case v switch |
+| `src/llm/gateway.js` | Timeout + retry fix |
+
+---
+
 ## v86.0 — Memory System (LTM + Smart Ranking + Feedback Learning) (2026-02-27)
 
 Aktivace tří paměťových vrstev: LongTermMemory persistence, inteligentní context injection, a implicitní učení z uživatelského feedbacku.

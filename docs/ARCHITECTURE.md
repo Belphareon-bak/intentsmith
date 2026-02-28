@@ -1,8 +1,8 @@
-# C.3 Agent Platform — Architecture v85
+# C.3 Agent Platform — Architecture v87
 
-**Version:** v86.0.0 (Skills System, Runtime FeatureManager, Tool Registry 153 tools)
+**Version:** v87.6.0 (Settings UI Redesign, CRE GUARD 6, Memory System, Skills System, FeatureManager)
 **Status:** Production-ready, ~98% complete
-**Date:** 2026-02-27
+**Date:** 2026-02-28
 
 ---
 
@@ -17,6 +17,8 @@ C.3 is a conversational AI platform combining:
 5. **Notification Pipeline** — Multi-channel delivery (email, Telegram, ntfy.sh push)
 6. **Skills System** (v85) — Deterministic macro-recipes for repeating procedures (LLM, template, write, shell steps)
 7. **Guarded Autonomy** (v83) — Self-tuning CRE parameters via telemetry-driven drift detection
+8. **Memory System** (v86) — LTM persistence, injection ranking, feedback detection, pattern tracking
+9. **IDE Settings UI** (v87) — 10-section settings with backend sync, GPU detection, model selector
 
 All decisions flow through CRE — LLM is the text generator, never the authority.
 
@@ -425,11 +427,52 @@ C3InputEvent {
 
 Supported: CLI, Web, Slack, Discord, API. Each with capability presets (max message length, threading support, etc.)
 
+### 9. Memory System (v86)
+
+Three-layer memory: LTM persistence, smart context injection, and implicit feedback learning.
+
+```
+User Input → Feedback Detector (6 signal types)
+  │
+  ├─ PreferenceEngine — records corrections, adjustments
+  ├─ LongTermMemory — confidence decay (half-life 69d), reinforcement
+  └─ PatternTracker — cross-conversation intent sequences, topic affinity
+
+Context Assembly:
+  extractLTMContext() → InjectionRanker.rankForContext()
+    score = effectiveConfidence × relevance
+    relevance = 0.4×keyword + 0.45×intentAffinity + 0.15×recency
+  → buildBudgetedContext(intent) → token-limited prompt injection
+```
+
+**Key files:** `src/memory/` (long-term.js, injection-ranker.js, feedback-detector.js, pattern-tracker.js, preferences.js), `src/db/data-retention.js`
+
+### 10. IDE Settings UI (v87)
+
+10-section settings with dual storage: localStorage (appearance/UI) + backend REST (config).
+
+```
+Settings UI (chat-panel-module.js)
+  │
+  ├─ _settingsVals — localStorage (fontSize, theme, density, uiScale)
+  ├─ _bCfg — backend sync (GET/POST /api/settings, debounced 500ms)
+  │
+  ├─ Sections: Account, LLM, Memory, Notifications, Output,
+  │             Appearance, System, Storage, Backup, About
+  │
+  ├─ GPU Detection — GET /api/system/gpu → profile.gpus[]
+  ├─ Model Selector — GET /api/system/models (Ollama proxy)
+  ├─ Notification Channels — GET /api/notifications/channels
+  └─ Storage — GET /api/system/info (DB size, migrations, tables)
+```
+
+**Theia integration:** 60+ preference keys in `c3-settings` extension (`settings-protocol.ts`). WS sync for `c3.features.*`, `c3.llm.*`, `c3.memory.*` prefixes via `settings-module.ts`.
+
 ---
 
 ## Database Schema
 
-53 tables in SQLite (better-sqlite3), 5 migrations:
+55+ tables in SQLite (better-sqlite3), 21 migrations:
 
 | Group | Tables |
 |-------|--------|
@@ -440,7 +483,9 @@ Supported: CLI, Web, Slack, Discord, API. Each with capability presets (max mess
 | Expertises | expertises, expertise_bindings, expertise_memory, conversation_expertises (v63 N:M max 3) |
 | Expertise Audit | merge_audit_log, capability_drift_log, llm_execution_log (v63.3) |
 | CRE Audit | **cre_override_log** (v64.0 — Gatekeeper override/intercept audit trail) |
-| Memory | global_memory, user_memory, project_memory |
+| Memory | global_memory, user_memory, project_memory, memory (LTM v86) |
+| Skills | skill_executions, skill_steps, workflow_patterns (v85) |
+| Quality | quality_scores (v80) |
 | Workflows | workflow_sessions |
 | Config | user_settings, learned_patterns, logs, drafts |
 
@@ -457,8 +502,12 @@ Vsechny promenne se nacitaji z `.env` souboru (`dotenv`). Viz `.env.example` pro
 features: {
   agents:    process.env.C3_ENABLE_AGENTS !== 'false',     // Phase B
   lifecycle: process.env.C3_ENABLE_LIFECYCLE !== 'false',  // Phase C
-  expertises: process.env.C3_ENABLE_EXPERTISES !== 'false', // Phase D (C3_ENABLE_EXPERTS deprecated)
+  expertises: process.env.C3_ENABLE_EXPERTISES !== 'false', // Phase D
+  skills:    process.env.C3_ENABLE_SKILLS !== 'false',     // v85: Skills
 }
+// Runtime hot-toggle via FeatureManager singleton (v85)
+// IDE sync: c3.features.* → WS sync_settings → featureManager.setEnabled()
+
 ```
 
 ### Model Bindings (Ollama)
@@ -491,7 +540,7 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 
 ## Test Suite
 
-789+ verified deterministic tests, 41,480 lines across 91 test files:
+2400+ verified deterministic tests across 100+ test files:
 
 | Suite | Tests | Focus |
 |-------|-------|-------|
@@ -517,7 +566,12 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 | Multi-source integration | 14 | RSS+HTTP, _merged, partial failure |
 | Expertise integration | 10 | Expertise + DB + handler pipeline |
 | **E2E Quality Deep** | **36** | **LLM output quality: S/R/F/T categories (89% — 32/36)** |
-| + additional suites | ~50 | Various subsystems |
+| Skills system | 44 | Registry, resolver, runner, 7 step types |
+| Agent log UX | 44 | E2E: SYSTEM_STEP protocol, 15 hooks |
+| Expertise routing | 43 | GUARD 6 creative override correctness |
+| Expertise comparison | 78 turns | E2E: expertise vs non-expertise quality |
+| Memory system | ~50 | LTM, injection-ranker, feedback, patterns |
+| + additional suites | ~100 | Various subsystems |
 
 ---
 
@@ -572,17 +626,17 @@ User clicks "+ Worker" → _awOpen('create')
 
 | Phase | Completion | Key Components |
 |-------|-----------|----------------|
-| A (CRE) | 100% | Intent classification (19 types), decision matrix, QGv2 |
-| B (Workers) | 80% | Runner, scheduler, sources, notifications, multi-source |
-| C (Lifecycle) | **99%** | Milestones, crash recovery, multi-session routing (v65.6), real test exec, hard size limits |
+| A (CRE) | 100% | Intent classification (19 types), decision matrix, QGv2, GUARD 6, attachment guard |
+| B (Workers) | 95% | Runner, scheduler, sources, notifications, multi-source |
+| C (Lifecycle) | **100%** | Milestones, crash recovery, multi-session, quality scoring |
 | D-int (Integration) | 100% | Rate monitor auto-registration |
-| D (Expertises) | **95%** | 15 built-in expertises, merge engine, 5D capabilities, enforcement, wizard UI |
-| D-obs (Observability) | **100%** | ExecutionTrace ID, LLM execution log, capability drift log |
-| E (IDE) | **70%** | C3 Studio IDE (Theia 1.65.2), linked sessions, transport layer |
-| F (Packaging) | Planned | Docker, licensing, auto-updater |
+| D (Expertises) | **92%** | 15 built-in expertises, merge engine, 5D capabilities, enforcement, wizard UI |
+| D-obs (Observability) | **100%** | ExecutionTrace ID, LLM execution log, capability drift log, specialist telemetry |
+| E (IDE) | **78%** | C3 Studio (Theia 1.65.2), 33 extensions, Settings UI (10 sekcí), agent log UX |
+| F (Packaging) | **25%** | Setup wizard, auto-updater, license system |
 
-**Overall: ~92% complete**
+**Overall: ~98% complete**
 
 ---
 
-*This document reflects C.3 Agent Platform v65.6 architecture (2026-02-19).*
+*This document reflects C.3 Agent Platform v87.6.0 architecture (2026-02-28).*

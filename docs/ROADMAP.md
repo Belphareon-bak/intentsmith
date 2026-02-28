@@ -1,11 +1,11 @@
-# C3-Agent — Roadmapa v14
+# C3-Agent — Roadmapa v15
 
 ## Od aktuálního stavu k vizi
 
-**Datum:** 2026-02-27
-**Verze kódu:** v86.0.0 (Memory System + Skills + Runtime FeatureManager + Guarded Autonomy)
-**Testy:** ~2200+ verified (683 lifecycle+quality, 401 CRE, 350 conversation, 218 ledger, 270 specialist, 200+ quality, 44 agent-log)
-**IDE:** C3 Studio (Theia 1.65.2), 33 custom extensions, Phase 1-5 (~73%)
+**Datum:** 2026-02-28
+**Verze kódu:** v87.6.0 (Settings UI Redesign + CRE GUARD 6 + BUILD Fix + Memory System + Skills)
+**Testy:** ~2400+ verified (683 lifecycle+quality, 401 CRE, 350 conversation, 218 ledger, 270 specialist, 200+ quality, 44 agent-log, 43+78 expertise routing)
+**IDE:** C3 Studio (Theia 1.65.2), 33 custom extensions, Phase 1-5 (~78%)
 
 ---
 
@@ -47,6 +47,9 @@ Installer, licence, auto-update, setup wizard.
 - v83: **Guarded Autonomy** — self-tuning override threshold (telemetry → drift detection → auto-adjust)
 - v85: **Skills System** — deterministic macro-recipes (registry, resolver, runner, 4 step types)
 - v85: **Runtime FeatureManager** — hot-toggle features z IDE Settings bez restartu serveru
+- v87: **CRE GUARD 6** — creative override (creativeLock → SEARCH/AMBIGUOUS → CREATIVE)
+- v87: **Attachment guard** — pre-CRE deterministic FILE_EXPLAIN override
+- v87: **LLM timeout hardening** — no retry on AbortError, CHAT 90s
 
 ### Pilíř 2: PROJEKTY — 100% ✅
 **Status: PHASE C = DONE. Quality Scoring layer přidán v80.**
@@ -73,11 +76,13 @@ Expertise layer (15 expertises) + accountant specialist + 5D capability system +
 - v82: **Specialist Telemetry** — pasivní observability (tool/memory/lifecycle/API events, batch flush, NOOP sentinel) ✅
 - Zbývá: D5 (multi-specialist routing), D9 (marketplace)
 
-### Pilíř 5: IDE — 73% ✅
+### Pilíř 5: IDE — 78% ✅
 Theia 1.65.2, 33 custom extensions, fungující build (lib/ + src-gen/).
 - Hotovo: Chat panel, WS bridge, agent wizard, center views, expertise wizard, audit trail, diff viewer, keybindings, git integrace
 - v65.5: Agent Builder Wizard UI (centerAgentWizard, simple + advanced mode)
-- Zbývá (~10 items): Specialist CRUD wizard, Stage/Unstage, Cumulative "Approve All", Plugin systém
+- v87: **Settings UI Redesign** — 10 sekcí (Account, LLM, Memory, Notifications, Output, Appearance, System, Storage, Backup, About)
+- v87: GPU detekce karta, Ollama model selector, notification channel status, DB storage overview
+- Zbývá (~7 items): Specialist CRUD wizard, Stage/Unstage, Cumulative "Approve All", Plugin systém
 
 ### Pilíř 6: PRODUKT — 25% ✅
 **Status: F1-F3 DONE (v65.7). 3 moduly napojeny do server.js.**
@@ -190,6 +195,10 @@ Korelační analýza (po pilotu): spec_score vs build_success, roadmap_score vs 
 | v85.0 | **Skill Detector** — automatická detekce opakujících se workflow vzorů |
 | v86.0 | **Memory System** — LTM, injection-ranker, feedback-detector, pattern-tracker, context-budget |
 | v86.0 | **Agent Log UX** — SYSTEM_STEP protocol, 15 hooks (5 key + 10 verbose), agent-log-renderer |
+| v87.0–87.5 | **IDE Settings UI Redesign** — 10 sekcí, GPU detekce, model selector, notif channels, storage |
+| v87.6 | **CRE GUARD 6** — creative override (creativeLock bypass), BUILD dead-end fix (PLAN case) |
+| v87.6 | **LLM Gateway hardening** — timeout 90s, no retry on AbortError, numeric density gate |
+| v87.6 | **Attachment guard** — pre-CRE deterministic FILE_EXPLAIN override |
 
 ---
 
@@ -215,13 +224,13 @@ Korelační analýza (po pilotu): spec_score vs build_success, roadmap_score vs 
 
 ```
 Fáze Q: QUALITY    ██████████████████████████████████████████  100% → DONE
-Fáze A: CHAT       ██████████████████████████████████████████  100% → DONE (v72 conv hardening)
+Fáze A: CHAT       ██████████████████████████████████████████  100% → DONE (v87 GUARD 6 + attachment guard)
 Fáze C: PROJEKTY   ██████████████████████████████████████████  100% → DONE (v80 quality score)
 Fáze D-int: ÚČETNÍ ██████████████████████████████████████████  100% → DONE (ledger v69-v74)
 Fáze B: WORKERI    ██████████████████████████████████████░░░░   95% (B0-B9 done)
 Fáze H: HARDENING  ██████████████████████████████████████████  100% (9/9 DONE)
 Fáze D: SPECIALISTÉ██████████████████████████████████████░░░░   92% (D1-D8, ledger, specialist platform, telemetry)
-Fáze E: IDE        ██████████████████████████████░░░░░░░░░░░░   73% (Phase 1-5, 33 extensions)
+Fáze E: IDE        ████████████████████████████████░░░░░░░░░░   78% (Phase 1-5, 33 extensions, Settings UI v87)
 Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   25% (F1-F3 wired)
 ```
 
@@ -308,23 +317,24 @@ Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░�
 ## Celkový progres
 
 **Hotovo:** ~98% celkové vize
-**Nové od v13:** v85 skills system (registry, resolver, runner, detector, 7 step types), v85 FeatureManager, v86 memory system (LTM, injection-ranker, feedback, patterns), v86 agent log UX.
+**Nové od v14:** v87 IDE Settings UI redesign (10 sekcí, Phase 1+2 mostly done), v87 CRE GUARD 6, v87 BUILD dead-end fix, v87 LLM timeout hardening, v87 attachment guard.
 
 ```
-Celkem zbývajících úkolů:  6 + IDE Settings redesign
+Celkem zbývajících úkolů:  6 + IDE Settings Phase 3-4
   🔴 Critical:              0
   🟡 Important:             1  (QS3 Quality Report — in progress)
   ⚪ Future (D5,D9,E,F):     5  (~2 měsíce)
-  📐 IDE Settings redesign:  11 sekcí (a-k) + backup/sync, 4 fáze
+  📐 IDE Settings Phase 3:   Security, Feature Flags, Social login, Online sync
+  📐 IDE Settings Phase 4:   GPU wizard, Model auto-download, First-run, Diagnostics bundle
 ```
 
 ---
 
-## IDE Settings — Kompletní redesign (v86+)
+## IDE Settings — Kompletní redesign (v86+ → v87 implementace)
 
-### Aktuální stav
+### Aktuální stav (v87.6)
 
-Nastavení v C3 Studiu má 8 sekcí, ale většina má pouze placeholder. Theia PreferenceSchema definuje 23 klíčů, custom Settings UI zobrazuje jen zlomek. Redesign přidává 3 nové sekce (Security, Storage, Feature Flags), rozšiřuje stávající a strukturuje do 4 implementačních fází.
+Settings UI kompletně přepsáno v87.3–87.5. 10 funkčních sekcí s backend sync (`GET/POST /api/settings`). GPU detekce, Ollama model selector, notification channel status, DB storage overview. Theia PreferenceSchema rozšířen na 60+ klíčů.
 
 **Oddělení vrstev:**
 - **Lokální desktop-only** (PHASE 1-2): vše běží offline, žádná cloud závislost
@@ -338,26 +348,29 @@ Nastavení v C3 Studiu má 8 sekcí, ale většina má pouze placeholder. Theia 
 | S1 | Header overlap: záložka otevřeného souboru překrývá nadpis "Nastavení" | ✅ FIXED |
 | S2 | Skills toggle není viditelný v IDE nastavení (jen v Theia Preferences) | ✅ FIXED |
 | S3 | Detail card nelze zvětšit, výchozí šířka je příliš úzká | ✅ FIXED |
+| S4 | Storage 0 MB / 0 Migrace — db wrapper vs rawDb | ✅ FIXED (v87.5) |
+| S5 | GPU "Neznámé" — špatné mapování API fieldů | ✅ FIXED (v87.4) |
+| S6 | About zobrazuje v86.0.0 — hardcoded verze | ✅ FIXED (v87.4) |
 
 ---
 
 ### Implementační fáze
 
 ```
-PHASE 1 — Runtime stabilita (P0)
-  a) Account redesign (Identity + Local auth, BEZ social login)
-  e) LLM Settings (GPU detekce + model tuning + compatibility engine)
-  d) Memory & Context rozšíření (4 podsekce)
-  g) Output formats stabilizace (output profily)
+PHASE 1 — Runtime stabilita (P0)                   STATUS
+  a) Account redesign                               ✅ PARTIAL (identity done, auth/avatar Phase 3)
+  e) LLM Settings                                   ✅ MOSTLY DONE (GPU, models, temp, ctx, timeouts)
+  d) Memory & Context rozšíření                     ✅ MOSTLY DONE (LTM, budget, learning, patterns)
+  g) Output formats stabilizace                     ✅ PARTIAL (toggles done, profiles NOT YET)
 
 PHASE 2 — UX & Komfort (P1)
-  b) Notifications multi-channel (modulární providery + centrální queue)
-  c) Appearance polish (font, light theme, density, UI scale)
-  f) System lokalizace + diagnostika + runtime config
-  j) Storage management (velikosti, cleanup, prune)
-  Backup & Sync (lokální export/import)
+  b) Notifications multi-channel                    ✅ PARTIAL (4 channel cards + status)
+  c) Appearance polish                              ✅ DONE (density, uiScale, existing rich impl)
+  f) System lokalizace + diagnostika + runtime      ✅ PARTIAL (timezone, currency, log, diagnostika)
+  j) Storage management                             ✅ PARTIAL (DB info, vacuum, table counts)
+  Backup & Sync (lokální export/import)             ✅ PARTIAL (export/import done, versioning NOT YET)
 
-PHASE 3 — Ecosystem (P2)
+PHASE 3 — Ecosystem (P2)                           ❌ NOT STARTED
   a2) Social login (OAuth: Google, Apple, Microsoft)
   b2) Mobilní notifikace (push)
   Online sync (GitHub Gist)
@@ -365,7 +378,7 @@ PHASE 3 — Ecosystem (P2)
   k) Feature Flags UI (power users)
   Getting Started / Tutorial
 
-PHASE 4 — Installer Intelligence
+PHASE 4 — Installer Intelligence                   ❌ NOT STARTED
   GPU detection wizard (first-run)
   Model auto-download + kompatibilita
   First-run auto-config
@@ -687,4 +700,4 @@ Vizuální breakdown (pie/bar chart)
 
 ---
 
-*Tento dokument nahrazuje Roadmapa v11. Aktualizováno na v86.0.0 (2026-02-27).*
+*Tento dokument nahrazuje Roadmapa v14. Aktualizováno na v87.6.0 (2026-02-28).*
