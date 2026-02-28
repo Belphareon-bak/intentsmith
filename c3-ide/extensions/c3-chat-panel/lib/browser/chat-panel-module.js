@@ -4270,6 +4270,39 @@ class C3SidebarContrib extends browser_1.AbstractViewContribution {
           });
         }
       }catch(e){console.warn('[C3] Snap-collapse setup:',e);}
+      /* ── Expand tabs — floating arrows at edges when panels are collapsed ── */
+      try{
+        var _mkExpandTab=function(side){
+          var el=document.createElement('div');
+          var isLeft=side==='left';
+          el.style.cssText='position:fixed;'+(isLeft?'left:0':'right:0')+';top:50%;transform:translateY(-50%);width:24px;height:72px;display:none;align-items:center;justify-content:center;cursor:pointer;z-index:10000;border-radius:'+(isLeft?'0 8px 8px 0':'8px 0 0 8px')+';background:'+C.bg3+';border:1px solid '+C.border2+';'+(isLeft?'border-left:none':'border-right:none')+';transition:background 0.15s,width 0.15s;';
+          el.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="'+C.tx2+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'+(isLeft?'<polyline points="9 18 15 12 9 6"/>':'<polyline points="15 18 9 12 15 6"/>')+'</svg>';
+          el.title=isLeft?'Rozbalit sidebar':'Rozbalit chat panel';
+          el.addEventListener('mouseenter',function(){el.style.background=C.bg4;el.style.width='32px';});
+          el.addEventListener('mouseleave',function(){el.style.background=C.bg3;el.style.width='24px';});
+          el.addEventListener('click',function(){
+            if(isLeft){
+              var tw=(_sidebarWidget&&_sidebarWidget._collapsed)?48:(_c3LastLeftW||240);
+              a.shell.resize(tw,'left');
+            }else{
+              a.shell.resize(_c3LastRightW||420,'right');
+            }
+          });
+          document.body.appendChild(el);
+          return el;
+        };
+        var _leftTab=_mkExpandTab('left');
+        var _rightTab=_mkExpandTab('right');
+        /* Show/hide tabs based on panel width via ResizeObserver */
+        var leftCP=document.getElementById('theia-left-content-panel');
+        var rightCP=document.getElementById('theia-right-content-panel');
+        if(leftCP){new ResizeObserver(function(entries){
+          _leftTab.style.display=entries[0].contentRect.width<10?'flex':'none';
+        }).observe(leftCP);}
+        if(rightCP){new ResizeObserver(function(entries){
+          _rightTab.style.display=entries[0].contentRect.width<10?'flex':'none';
+        }).observe(rightCP);}
+      }catch(e){console.warn('[C3] Expand tabs setup:',e);}
     },800);
   }
 }
