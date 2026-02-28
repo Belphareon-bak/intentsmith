@@ -71,6 +71,7 @@ body, .theia-ApplicationShell {
 #theia-right-side-panel {
   display: block !important;
   min-width: 320px !important;
+  overflow: hidden !important;
 }
 
 /* Force SplitPanel children containing activity bars to collapse */
@@ -226,6 +227,33 @@ button.theia-button.main {
 }
 
 /* ─── Split handles ─── */
+/* Horizontal handles (left↔center↔right) — must have width to be grabbable */
+#theia-left-right-split-panel > .lm-SplitPanel-handle,
+#theia-left-right-split-panel > .p-SplitPanel-handle {
+  min-width: 4px !important;
+  width: 4px !important;
+  cursor: col-resize !important;
+  background: var(--c3-border) !important;
+  transition: background 0.15s ease !important;
+}
+#theia-left-right-split-panel > .lm-SplitPanel-handle:hover,
+#theia-left-right-split-panel > .p-SplitPanel-handle:hover {
+  background: var(--c3-accent) !important;
+}
+/* Vertical handles (center↔bottom) */
+#theia-bottom-split-panel > .lm-SplitPanel-handle,
+#theia-bottom-split-panel > .p-SplitPanel-handle {
+  min-height: 4px !important;
+  height: 4px !important;
+  cursor: row-resize !important;
+  background: var(--c3-border) !important;
+  transition: background 0.15s ease !important;
+}
+#theia-bottom-split-panel > .lm-SplitPanel-handle:hover,
+#theia-bottom-split-panel > .p-SplitPanel-handle:hover {
+  background: var(--c3-accent) !important;
+}
+/* All other handles — transparent default */
 .p-SplitPanel-handle, .lm-SplitPanel-handle {
   background: transparent !important;
 }
@@ -273,6 +301,11 @@ body.theme-pro-midnight .lm-DockPanel-widget {
 .lm-SplitPanel-child:has(#theia-left-side-panel) {
   transition: width 0.15s ease !important;
   min-width: 0 !important;
+}
+
+/* ─── Right panel collapse/expand (mirrors left panel) ─── */
+.lm-SplitPanel-child:has(#theia-right-side-panel) {
+  transition: width 0.15s ease !important;
 }
 
 /* ─── Hide Welcome tab ─── */
