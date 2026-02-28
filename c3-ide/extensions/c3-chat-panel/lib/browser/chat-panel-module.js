@@ -564,7 +564,7 @@ var C3_SIDEBAR_ID='c3-sidebar';
 class C3SidebarWidget extends react_widget_1.ReactWidget {
   constructor(){
     super();this.id=C3_SIDEBAR_ID;this.title.label='';this.title.iconClass='';this.title.closable=false;this.node.tabIndex=-1;this.node.style.outline='none';
-    this._active='chats';this._dd={};this._collapsed=false;
+    this._active='expertises';this._dd={};this._collapsed=false;
   }
   render(){return null;}
   onUpdateRequest(){/* block ReactWidget re-render */}
