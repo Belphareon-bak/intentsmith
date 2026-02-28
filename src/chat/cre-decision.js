@@ -2236,6 +2236,31 @@ PRAVIDLA:
         }
       }
 
+      // GUARD 7: BUILD false-positive correction for non-software plans.
+      // v87: LLM over-classifies personal plans as BUILD — "navrhni plán na zlepšení"
+      // gets BUILD because LLM sees "plan" + "3 steps". But BUILD = software build/deploy.
+      // Strategy: If LLM says BUILD but a MORE SPECIFIC pattern (DESIGN) positively matches,
+      // override to that. Don't downgrade when no pattern matches — trust LLM for
+      // legitimate BUILD requests that regex doesn't cover ("zacni s buildem").
+      if (parsed.intent === IntentType.BUILD) {
+        const hasBuildPattern = BUILD_PATTERNS.some(p => p.test(input));
+        if (!hasBuildPattern) {
+          const textNorm = normalizeForClassification(input);
+          const hasDesignPattern = DESIGN_PATTERNS.some(p => p.test(textNorm)) &&
+            !DESIGN_EXCLUSION_PATTERNS.some(p => p.test(textNorm));
+          if (hasDesignPattern) {
+            // Input matches DESIGN patterns (navrhni plán/roadmapu/architekturu)
+            // → it's about planning/design, not building. DESIGN is the correct intent.
+            parsed.intent = IntentType.DESIGN;
+            logger.info('CRE:LLM:Guard', `BUILD downgrade → DESIGN (DESIGN pattern match overrides LLM BUILD)`, {
+              input: input.substring(0, 60),
+            });
+          }
+          // Otherwise: no BUILD pattern AND no DESIGN pattern → trust LLM.
+          // Many BUILD requests don't match regex ("zacni s buildem", "prepni do build modu").
+        }
+      }
+
       logger.info('CRE:LLM', `LLM classified intent: ${parsed.intent} (${parsed.confidence})`, {
         input: input.substring(0, 60),
         intent: parsed.intent,
