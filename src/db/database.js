@@ -164,6 +164,10 @@ export const projects = {
     SELECT * FROM projects WHERE status != 'deleted' ORDER BY last_active DESC LIMIT ?
   `),
 
+  listDeleted: db.prepare(`
+    SELECT * FROM projects WHERE status = 'deleted' ORDER BY deleted_at DESC LIMIT ?
+  `),
+
   getOrCreate(name, projectPath, description = '') {
     let project = this.findByPath.get(projectPath);
     if (!project) {
@@ -546,6 +550,14 @@ export const conversations = {
     LEFT JOIN projects p ON c.project_id = p.id
     WHERE c.state != 'deleted' AND c.project_id IS NULL
     ORDER BY c.updated_at DESC LIMIT ?
+  `),
+
+  listDeleted: db.prepare(`
+    SELECT c.*, p.name as project_name
+    FROM conversations c
+    LEFT JOIN projects p ON c.project_id = p.id
+    WHERE c.state = 'deleted' AND c.project_id IS NULL
+    ORDER BY c.deleted_at DESC LIMIT ?
   `),
 
   listActiveByProject: db.prepare(`

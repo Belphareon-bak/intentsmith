@@ -180,12 +180,14 @@ export function createChatRoutes(deps) {
     'GET /api/conversations': async (req, res) => {
       const url = new URL(req.url, `http://${req.headers.host}`);
       const limit = parseInt(url.searchParams.get('limit')) || 10;
-      const status = url.searchParams.get('status'); // active | archived | all
+      const status = url.searchParams.get('status'); // active | archived | deleted | all
 
       try {
         let conversations;
         if (status === 'archived') {
           conversations = db.conversations.listArchived.all(limit);
+        } else if (status === 'deleted') {
+          conversations = db.conversations.listDeleted.all(limit);
         } else if (status === 'all') {
           conversations = db.conversations.listNotDeleted.all(limit);
         } else {
