@@ -2138,17 +2138,34 @@ function centerSettings(){
       h('div',{style:{flex:1,overflowY:'auto',padding:18}},
         grid(SETTINGS_SECTIONS.map(function(sec,si){
           var isSel=selSi===si;
+          var descText=sec.title==='About'?'v'+(_serverHealth.version||'...'):sec.desc||'';
+          var ell={whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'};
+          var _onClick=function(){_centerState.settingsSection=si;_centerState.detail=null;renderCenter();};
+          /* ═══ LIST VIEW — compact horizontal row (matches card() list layout) ═══ */
+          if(_centerState.listView){
+            var listS={display:'flex',alignItems:'center',gap:10,padding:'8px 16px',cursor:'pointer',transition:'background 0.15s',position:'relative'};
+            if(isLines){listS.borderBottom='1px solid '+C.border;listS.background=isSel?'rgba(34,197,94,0.05)':'transparent';}
+            else{listS.background=isSel?'rgba(34,197,94,0.06)':C.bg2;listS.border='1px solid '+(isSel?C.accent:C.border);listS.borderRadius=8;listS.marginBottom=4;}
+            return h('div',{key:si,onClick:_onClick,style:listS,
+              onMouseEnter:function(e){if(!isSel)e.currentTarget.style.background=isLines?'rgba(255,255,255,0.025)':'rgba(255,255,255,0.04)';},
+              onMouseLeave:function(e){if(!isSel)e.currentTarget.style.background=isLines?'transparent':(isSel?'rgba(34,197,94,0.06)':C.bg2);}},
+              isLines&&isSel?h('div',{style:{position:'absolute',left:0,top:0,bottom:0,width:3,background:C.accent,borderRadius:'0 2px 2px 0'}}):null,
+              h('span',{style:{fontSize:_fs(16),flexShrink:0,width:24,textAlign:'center'}},sec.icon),
+              h('div',{style:Object.assign({fontSize:_fs(12),fontWeight:600,color:isSel?C.accentText:C.tx1,width:130,flexShrink:0},ell)},sec.title),
+              h('div',{style:Object.assign({flex:1,fontSize:_fs(11),color:C.tx3,minWidth:0},ell)},descText));
+          }
+          /* ═══ GRID — same as before ═══ */
           var sty=isLines
             ?{padding:14,cursor:'pointer',borderBottom:'1px solid '+C.border,borderRight:'1px solid '+C.border,
               background:isSel?'rgba(34,197,94,0.05)':'transparent',transition:'background 0.15s'}
             :{background:C.bg2,border:'1px solid '+(isSel?C.accent:C.border),borderRadius:12,padding:16,cursor:'pointer',transition:'border-color 0.15s',position:'relative',overflow:'hidden'};
-          return h('div',{key:si,className:'c3-card',onClick:function(){_centerState.settingsSection=si;_centerState.detail=null;renderCenter();},style:sty,
+          return h('div',{key:si,className:'c3-card',onClick:_onClick,style:sty,
             onMouseEnter:function(e){if(!isSel)e.currentTarget.style.background=isLines?'rgba(255,255,255,0.025)':e.currentTarget.style.background;if(!isSel&&!isLines)e.currentTarget.style.borderColor=C.border2;},
             onMouseLeave:function(e){if(!isSel){e.currentTarget.style.background=isLines?'transparent':C.bg2;if(!isLines)e.currentTarget.style.borderColor=C.border;}}},
             !isLines?h('div',{style:{position:'absolute',top:0,left:0,right:0,height:3,background:isSel?C.accent:'transparent'}}):null,
             h('div',{style:{fontSize:_fs(24),marginBottom:8}},sec.icon),
             h('div',{style:{fontSize:_fs(13),fontWeight:700,color:isSel?C.accentText:C.tx1,marginBottom:2}},sec.title),
-            h('div',{style:{fontSize:_fs(11),color:C.tx3}},sec.title==='About'?'v'+(_serverHealth.version||'...'):sec.desc||''));
+            h('div',{style:{fontSize:_fs(11),color:C.tx3}},descText));
         }))),
       selSec?settingsDetailPanel(selSec,selSi):null));
 }
