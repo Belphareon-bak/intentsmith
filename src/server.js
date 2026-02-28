@@ -131,6 +131,10 @@ preferenceEngine.preferences._ltm = longTermMemory;
 preferenceEngine.loadFromMemory(longTermMemory);
 logger.info('Server', 'PreferenceEngine loaded from LTM');
 
+// v88: Wire SessionState to projectMemory DB for working memory persistence
+import { SessionState } from './chat/controller.js';
+SessionState.initProjectMemoryDb(db.projectMemory);
+
 // v86 M2: Wire pattern tracker to LTM for cross-conversation learning
 import { patternTracker } from './memory/pattern-tracker.js';
 patternTracker.wire(longTermMemory);

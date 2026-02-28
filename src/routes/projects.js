@@ -1,5 +1,5 @@
 // H9: Projects, Workspace & Attachments routes
-import { generateReadme, ensureReadme } from '../chat/handlers/utils/readme-generator.js';
+import { generateReadme, ensureReadme, ensureRoadmap } from '../chat/handlers/utils/readme-generator.js';
 
 export function createProjectRoutes(deps) {
   const { db, parseBody, sendJSON, safeError, safeParseInt, sendStaticFile, logger, path, config } = deps;
@@ -44,12 +44,14 @@ export function createProjectRoutes(deps) {
     'GET /api/projects': async (req, res) => {
       const url = new URL(req.url, `http://${req.headers.host}`);
       const limit = parseInt(url.searchParams.get('limit')) || 10;
-      const status = url.searchParams.get('status'); // active | archived | all
+      const status = url.searchParams.get('status'); // active | archived | deleted | all
 
       try {
         let projects;
         if (status === 'archived') {
           projects = db.projects.listArchived.all(limit);
+        } else if (status === 'deleted') {
+          projects = db.projects.listDeleted.all(limit);
         } else if (status === 'all') {
           projects = db.projects.listNotDeleted.all(limit);
         } else {
@@ -164,8 +166,25 @@ export function createProjectRoutes(deps) {
         await fs.writeFile(pathModule.join(projectPath, 'README.md'), readmeContent);
         scaffoldLog.push('README.md');
 
+        // v88: ROADMAP scaffold — lifecycle engine replaces after planning
+        const rmResult = ensureRoadmap(projectPath, { name, type: projectType });
+        if (rmResult.written) scaffoldLog.push('ROADMAP.md');
+
         // Create in DB with lifecycle SPEC
         const project = db.projects.getOrCreate(name, projectPath, description || '');
+
+        // v88: Analyze project state and persist to project_memory
+        try {
+          const { analyzeExistingProject } = await import('../planner/lifecycle-analyzer.js');
+          if (project?.id) {
+            const analysis = await analyzeExistingProject(projectPath, project.id, db);
+            if (analysis) {
+              db.projectMemory.set.run(project.id, 'last_analysis', analysis, 'system');
+            }
+          }
+        } catch (err) {
+          logger.warn('Projects', `Initial analysis failed (non-fatal): ${err.message}`);
+        }
 
         // Set lifecycle phase to SPEC
         if (project && project.id) {
@@ -500,6 +519,24 @@ export function createProjectRoutes(deps) {
 
         const { project, wasExisting } = db.projects.registerExternal(projectName, normalizedPath, description);
 
+        // v88: Ensure README + ROADMAP exist for opened projects
+        const readmeResult = ensureReadme(normalizedPath, { name: projectName, description });
+        const roadmapResult = ensureRoadmap(normalizedPath, { name: projectName });
+
+        // v88: Analyze existing project state and persist
+        let analysisContext = null;
+        try {
+          const { analyzeExistingProject } = await import('../planner/lifecycle-analyzer.js');
+          if (project?.id) {
+            analysisContext = await analyzeExistingProject(normalizedPath, project.id, db);
+            if (analysisContext) {
+              db.projectMemory.set.run(project.id, 'last_analysis', analysisContext, 'system');
+            }
+          }
+        } catch (err) {
+          logger.warn('Projects', `Open-folder analysis failed (non-fatal): ${err.message}`);
+        }
+
         sendJSON(res, 201, {
           project,
           status: 'registered',
@@ -507,7 +544,10 @@ export function createProjectRoutes(deps) {
             hasC3,
             hasC3Architect,
             bootstrapped,
-            state: metadataState
+            state: metadataState,
+            readmeCreated: readmeResult.written,
+            roadmapCreated: roadmapResult.written,
+            analysisAvailable: !!analysisContext,
           }
         });
 

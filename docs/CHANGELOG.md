@@ -2,6 +2,58 @@
 
 ---
 
+## v88.0 — Project Workflow Fix: Lifecycle Intercepts + State Persistence (2026-02-28)
+
+Oprava celého project creation/opening workflow. Lifecycle engine byl nedosažitelný z PROJECT mode — sticky routing obcházel intercepts v conversation handleru.
+
+### Backend — Lifecycle Intercepts v project.js
+- **Build handoff intercept** v `projectHandler` — mirror z conversation.js (PROPOSED/CONFIRMING/CLARIFYING/PLAN_REVIEW/EXECUTING)
+- **C4 lifecycle auto-detect** — RAM lookup `getLcStateByProject()` + DB fallback pro migraci session
+- **Lifecycle handoff intercept** — `getActiveLifecycleHandoff()` → `handleLifecycleInput()`
+- **systemResponse() helper** — `ChatMode.PROJECT` pro intercept returns
+
+### Frontend — Session ID Fix + Lifecycle Bind
+- **Wizard session ID fix** — `lifecycle/start` přesunuto dovnitř `.then()` callbacku conversation POST (fix `session-0` mismatch)
+- **Open-folder lifecycle bind** — `POST /api/projects/:id/lifecycle/bind` v `_doOpenExistingProject()` po conv POST
+- **Webpack rebuild** provedena
+
+### README + ROADMAP Guarantee
+- **`ensureRoadmap()`** — nová funkce v `readme-generator.js`, scaffold ROADMAP.md s fázovací tabulkou
+- **Nový projekt**: `ensureRoadmap()` voláno po `generateReadme()` v `POST /api/projects`
+- **Open folder**: `ensureReadme()` + `ensureRoadmap()` v `POST /api/projects/open-folder`
+- Nepřepisuje user-created ani lifecycle-generated soubory
+
+### Project State Analysis
+- **`analyzeExistingProject()`** voláno v obou project routes (new + open-folder)
+- Výsledek perzistován do `project_memory` (key: `last_analysis`, category: `system`)
+- Non-fatal — failure = log, ne crash
+
+### Working Memory DB Persistence
+- **`SessionState.initProjectMemoryDb()`** — statická init metoda pro DB referenci
+- **Write-through** v `setProjectGoal()`, `setActiveFile()`, `setLastArtifact()` → `project_memory` (category: `working_memory`)
+- **DB restore** po project sync v `ChatController.handle()` — načte `wm:*` entries z `project_memory`
+- **Null delete** — `setProjectGoal(null)` smaže z DB
+- Wired v `server.js`: `SessionState.initProjectMemoryDb(db.projectMemory)`
+
+### Tests
+- **13 nových testů** v `project-lifecycle-intercept.test.js`
+  - `ensureRoadmap()` — create, no-overwrite, reject invalid paths
+  - `SessionState` WM persistence — persist, delete, no-crash without DB/project
+  - Structural check — `projectHandler` export
+
+### Files Changed
+| File | Changes |
+|------|---------|
+| `src/chat/handlers/project.js` | Lifecycle/build intercepts, systemResponse helper |
+| `c3-ide/.../chat-panel-module.js` | Session ID fix, lifecycle bind in open-folder |
+| `src/chat/handlers/utils/readme-generator.js` | `ensureRoadmap()` function |
+| `src/routes/projects.js` | README/ROADMAP guarantee, project analysis |
+| `src/chat/controller.js` | WM DB persistence (write-through + restore) |
+| `src/server.js` | `SessionState.initProjectMemoryDb()` wiring |
+| `tests/project-lifecycle-intercept.test.js` | 13 new tests |
+
+---
+
 ## v87.0–87.6 — IDE Settings Redesign + CRE Guards + BUILD Fix (2026-02-28)
 
 Kompletní přepis Settings UI v IDE (10 sekcí), CRE GUARD 6 (creative override), BUILD dead-end fix, LLM timeout hardening.

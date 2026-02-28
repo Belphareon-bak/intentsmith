@@ -295,6 +295,12 @@ SPEC → BUILD → REVIEW → next milestone or COMPLETED
 
 **Multi-session (C4):** New session auto-detects active lifecycle for same project. **v65.6 fix:** IDE lifecycle/start uses `session-0` but WS chat uses `ws-<random>` — resolved by RAM lookup via `getLcStateByProject(projectId)` which finds state under any sessionId and migrates it to the current WS session. DB fallback preserved as backup. Lifecycle/start now generates proper IDs (`lc-<timestamp>-<random>`) and stores them in RAM state.
 
+**PROJECT mode intercepts (v88):** Sticky mode routes all project-scoped messages to `projectHandler`. Prior to v88, lifecycle/build intercepts existed only in `conversationHandler`, making the lifecycle engine unreachable in PROJECT mode. v88 mirrors 3 intercept blocks from conversation.js into project.js: (1) build handoff (PROPOSED/CONFIRMING/CLARIFYING/PLAN_REVIEW/EXECUTING), (2) C4 lifecycle auto-detect (RAM + DB fallback), (3) lifecycle handoff. Frontend fixes ensure correct session ID binding in wizard and open-folder flows.
+
+**Working memory persistence (v88):** `SessionState` working memory (goal, activeFile, lastArtifactId) now writes through to `project_memory` DB (category: `working_memory`). Restored on project sync in `ChatController.handle()`. Survives server restarts.
+
+**README + ROADMAP guarantee (v88):** Both `POST /api/projects` (new) and `POST /api/projects/open-folder` ensure README.md and ROADMAP.md exist. `ensureRoadmap()` creates a scaffold with phase table; lifecycle engine's `writeRoadmapFile()` replaces it after planning. Neither overwrites user-created files.
+
 ### 5. Expertise System (v63 — Merge Engine)
 
 15 built-in domain expertises with 5D capability profiles, multi-expertise merge, and enforcement pipeline.

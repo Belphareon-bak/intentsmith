@@ -108,6 +108,62 @@ export function ensureReadme(projectPath, opts = {}) {
   }
 }
 
+/**
+ * Ensure ROADMAP.md exists in the project directory.
+ * Creates a scaffold if missing; never overwrites user- or lifecycle-created roadmaps.
+ *
+ * @param {string} projectPath
+ * @param {Object} [opts]
+ * @param {string} [opts.name] — Project name
+ * @param {string} [opts.type] — Project type (webapp, api, automation, data, general)
+ * @returns {{ written: boolean, path: string }}
+ */
+export function ensureRoadmap(projectPath, opts = {}) {
+  if (!projectPath || !path.isAbsolute(projectPath)) {
+    logger.warn('ReadmeGenerator', `ensureRoadmap skipped: invalid path (${projectPath})`);
+    return { written: false, path: null, reason: 'invalid_path' };
+  }
+  const roadmapPath = path.join(projectPath, 'ROADMAP.md');
+
+  try {
+    if (fs.existsSync(roadmapPath)) {
+      return { written: false, path: roadmapPath, reason: 'roadmap_exists' };
+    }
+
+    const name = opts.name || path.basename(projectPath);
+    const content = generateRoadmapScaffold(name, opts.type);
+    fs.writeFileSync(roadmapPath, content, 'utf-8');
+    logger.info('ReadmeGenerator', 'ROADMAP.md scaffold written', { projectPath: projectPath.substring(0, 60) });
+    return { written: true, path: roadmapPath };
+  } catch (err) {
+    logger.warn('ReadmeGenerator', `Failed to write ROADMAP.md: ${err.message}`);
+    return { written: false, path: roadmapPath, error: err.message };
+  }
+}
+
+/**
+ * Generate scaffold ROADMAP.md content.
+ * Will be replaced by lifecycle engine's writeRoadmapFile() once planning completes.
+ */
+function generateRoadmapScaffold(name, type) {
+  const lines = [
+    `# ROADMAP — ${name}`,
+    '',
+    '> Automaticky vygenerováno C3 Studio. Lifecycle engine nahradí tento scaffold po dokončení plánovací fáze.',
+    '',
+    '## Fáze projektu',
+    '',
+    '| # | Fáze | Status |',
+    '|---|------|--------|',
+    '| 1 | Specifikace | ⏳ Probíhá |',
+    '| 2 | Plánování | ⬜ Čeká |',
+    '| 3 | Implementace | ⬜ Čeká |',
+    '| 4 | Review | ⬜ Čeká |',
+    '',
+  ];
+  return lines.join('\n');
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal helpers
 // ─────────────────────────────────────────────────────────────────────────────

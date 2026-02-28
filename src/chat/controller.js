@@ -652,7 +652,9 @@ export class ChatController {
     }
 
     // Expertise mode is sticky when expertise is active
+    // v87: Auto-selected expertise is NOT sticky — re-evaluate each turn
     if (context.hasActiveExpertise && context.expertise?.id) {
+      if (context.expertise._source === 'auto') return null;
       return ChatMode.EXPERTISE;
     }
 
@@ -763,6 +765,18 @@ export class ChatController {
  * - awaitingSlots: What information we need from user
  */
 export class SessionState {
+  // v88: Static DB reference for working memory persistence
+  static _projectMemoryDb = null;
+
+  /**
+   * v88: Initialize DB reference for working memory write-through.
+   * Called once from server.js after DB is ready.
+   * @param {Object} projectMemoryDb — db.projectMemory prepared statements
+   */
+  static initProjectMemoryDb(projectMemoryDb) {
+    SessionState._projectMemoryDb = projectMemoryDb;
+  }
+
   #sessionId;
   #project;      // Active project { id, name, path, scope }
   #expertise;    // Active expertise { id, name, domain }
@@ -998,12 +1012,32 @@ export class SessionState {
   // ─────────────────────────────────────────────────────────────────────────────
 
   /**
+   * v88: Write-through working memory field to DB (non-fatal).
+   * @param {string} field
+   * @param {*} value
+   */
+  _persistWorkingMemory(field, value) {
+    const db = SessionState._projectMemoryDb;
+    const pid = this.#project?.id;
+    if (!db || !pid) return;
+    try {
+      const key = `wm:${field}`;
+      if (value == null) {
+        db.delete.run(pid, key);
+      } else {
+        db.set.run(pid, key, String(value), 'working_memory');
+      }
+    } catch { /* non-fatal */ }
+  }
+
+  /**
    * Set current project goal
    * @param {string|null} goal - Current task/objective
    */
   setProjectGoal(goal) {
     this.#projectWorkingMemory.goal = goal;
     this.#updatedAt = Date.now();
+    this._persistWorkingMemory('goal', goal);
     return this;
   }
 
@@ -1014,6 +1048,7 @@ export class SessionState {
   setActiveFile(filePath) {
     this.#projectWorkingMemory.activeFile = filePath;
     this.#updatedAt = Date.now();
+    this._persistWorkingMemory('activeFile', filePath);
     return this;
   }
 
@@ -1024,6 +1059,7 @@ export class SessionState {
   setLastArtifact(artifactId) {
     this.#projectWorkingMemory.lastArtifactId = artifactId;
     this.#updatedAt = Date.now();
+    this._persistWorkingMemory('lastArtifactId', artifactId);
     return this;
   }
 
@@ -1215,8 +1251,9 @@ export class SessionState {
     const state = new SessionState(json.sessionId);
     if (json.project) state.setProject(json.project);
     // v44.3 - Restore expertise with locked state (backward compat: fallback to old keys)
+    // v87: Auto-selected expertise is NOT restored — will be re-evaluated from input
     const expertiseData = json.expertise ?? json.expert ?? null;
-    if (expertiseData) {
+    if (expertiseData && expertiseData._source !== 'auto') {
       state.setExpertise(expertiseData, { locked: json.expertiseLocked ?? json.expertLocked ?? true, force: true });
     }
     if (json.preferences) {
@@ -1725,12 +1762,79 @@ ChatController.handle = async function(request) {
     }
   }
 
+  // v88: Restore working memory from DB if project is active and WM is empty
+  if (state.hasActiveProject && !state.projectGoal) {
+    try {
+      const wmRows = db.projectMemory.listByCategory.all(state.project.id, 'working_memory');
+      if (wmRows && wmRows.length > 0) {
+        for (const row of wmRows) {
+          const field = row.key.replace('wm:', '');
+          if (field === 'goal' && row.value) state.setProjectGoal(row.value);
+          else if (field === 'activeFile' && row.value) state.setActiveFile(row.value);
+          else if (field === 'lastArtifactId' && row.value) state.setLastArtifact(row.value);
+        }
+      }
+    } catch { /* non-fatal */ }
+  }
+
+  // v87: Clear auto-selected expertise for re-evaluation each turn.
+  // Auto-selection is per-turn, not sticky — recalculated from current input.
+  if (state.expertise?._source === 'auto') {
+    state.clearExpertise();
+  }
+
   // If expertise provided in request, update state
   if (expertise !== undefined) {
     if (expertise === null) {
       state.clearExpertise();
     } else if (expertise.id) {
       state.setExpertise(expertise);
+    }
+  }
+
+  // v87: Auto-select expertise when none is manually active.
+  // Deterministic vocabulary matching — no LLM call, <1ms.
+  if (!state.hasActiveExpertise) {
+    try {
+      const { autoSelectExpertise } = await import('../expertises/auto-select.js');
+      const autoResult = autoSelectExpertise(message, {
+        previousAutoExpertiseId: state.preferences._lastAutoExpertiseId || null,
+      });
+      if (autoResult.expertiseId) {
+        const { BUILTIN_EXPERTISES: _EXPERTISES } = await import('../expertises/expertise-layer.js');
+        const exp = _EXPERTISES[autoResult.expertiseId];
+        if (exp) {
+          state.setExpertise(
+            { id: exp.id, name: exp.name, domain: exp.domain, _source: 'auto', _confidence: autoResult.confidence },
+            { locked: false },
+          );
+          state.setPreference('_lastAutoExpertiseId', exp.id);
+          logger.info('AutoExpertise', `Auto-selected: ${exp.name} (${autoResult.confidence.toFixed(2)})`, {
+            input: message.substring(0, 60),
+            reason: autoResult.reason,
+          });
+        }
+      } else {
+        state.setPreference('_lastAutoExpertiseId', null);
+      }
+
+      // Metrics logging (never throws)
+      try {
+        db.db.prepare(`
+          INSERT INTO auto_expertise_log (session_id, input_preview, selected_id, confidence, scores_json, reason, timestamp)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          sessionId,
+          message.substring(0, 100),
+          autoResult.expertiseId || null,
+          autoResult.confidence,
+          JSON.stringify(autoResult.scores),
+          autoResult.reason,
+          Date.now(),
+        );
+      } catch (_) { /* metrics never throw */ }
+    } catch (err) {
+      logger.warn('AutoExpertise', `Auto-select failed: ${err.message}`);
     }
   }
 
@@ -1851,6 +1955,7 @@ ChatController.handle = async function(request) {
       project: state.project,
       expertise: state.expertise,
       expertiseLocked: state.expertiseLocked, // v44.3
+      expertiseSource: state.expertise?._source || (state.expertise ? 'manual' : null), // v87
       // v44.2+ - Include working memory
       workingMemory: state.projectWorkingMemory,
     },

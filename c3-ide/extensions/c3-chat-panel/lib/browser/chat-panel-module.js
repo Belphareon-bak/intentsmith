@@ -451,7 +451,7 @@ var NAV=[{id:'chats',label:'Konverzace',icon:'chat',badge:0,recent:[]},{id:'proj
 var _backendBase='http://localhost:3335';
 function fetchBackendData(){
   /* Projects — filter: must have path (real project, not conversation leak) */
-  var projStatus=(_centerState.showArchivedProjects)?'all':'active';
+  var projStatus=_centerState.projectFilterMode||'active';
   fetch(_backendBase+'/api/projects?limit=50&status='+projStatus,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(data){
     var items=Array.isArray(data)?data:(data.projects||[]);
     items=items.filter(function(p){return p.path&&p.name;});
@@ -818,7 +818,7 @@ function SidebarApp(props){
 /* ═══════════════════════════════════════════════════════════
    2. CENTER VIEW (ReactDOM.render into main panel)
    ═══════════════════════════════════════════════════════════ */
-var _centerState={view:'expertises',detail:null,detailConversations:null,openSections:{},zoom:1,listView:false,settingsSection:null};
+var _centerState={view:'expertises',detail:null,detailConversations:null,openSections:{},zoom:1,listView:false,settingsSection:null,filterMode:'active',projectFilterMode:'active',_bulkMode:false,_bulkSelected:[]};
 var _savedCenterState=null; /* saved state before wizard opens */
 function _wizardSaveLayout(){_savedCenterState={zoom:_centerState.zoom,listView:_centerState.listView,detail:_centerState.detail,view:_centerState.view};_centerState.detail=null;_centerState.zoom=1;_centerState.listView=false;}
 function _wizardRestoreLayout(){if(_savedCenterState){_centerState.zoom=_savedCenterState.zoom;_centerState.listView=_savedCenterState.listView;_centerState.view=_savedCenterState.view;_savedCenterState=null;}}
@@ -1182,12 +1182,19 @@ function _doOpenExistingProject(folderPath){
       _ts._convId=null;_ts._agentId=null;_ts._lifecycleResumed=false;
       _ts.chat.msgs=[{role:'system',text:'Projekt: '+projName}];
       _ts.chat.ctx=0;
-      /* Create conversation for the project */
+      /* Create conversation for the project, then bind lifecycle (v88) */
       fetch(_backendBase+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({project_id:proj.id,title:projName}),signal:AbortSignal.timeout(5000)})
       .then(function(r){return r.json();}).then(function(cd){
         var conv=cd.conversation||cd;
         if(conv&&conv.id){_ts._convId=conv.id;_persistSessionState();renderChat();}
+        /* v88: Bind lifecycle after convId is available */
+        var bindSessionId=_ts._agentId||_ts._convId||('session-'+_ti);
+        fetch(_backendBase+'/api/projects/'+proj.id+'/lifecycle/bind',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({sessionId:bindSessionId}),signal:AbortSignal.timeout(5000)})
+        .then(function(r2){return r2.json();}).then(function(result){
+          if(result.ok){_ts._lifecycleResumed=true;if(window._c3)window._c3.agentLog('TOOL','Lifecycle obnoven: faze '+result.phase);}
+        }).catch(function(){});
       }).catch(function(){});
       _persistSessionState();
     }
@@ -1233,24 +1240,24 @@ function _wizardSubmit(){
     _ts._lifecycleResumed=false;
     _ts.log=[];_ts.term=[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}];
     _ts.chat.msgs=[{role:'system',text:'Projekt: '+projName}];
-    /* Create conversation for the project */
+    /* Create conversation for the project, THEN start lifecycle (v88: fix session ID mismatch) */
     if(projId){
       fetch(_backendBase+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({project_id:projId,title:projName}),signal:AbortSignal.timeout(5000)})
       .then(function(r){return r.json();}).then(function(cd){
         var conv=cd.conversation||cd;
         if(conv&&conv.id){_ts._convId=conv.id;_persistSessionState();renderChat();}
+        /* v88: Start lifecycle AFTER convId is available — prevents 'session-0' mismatch */
+        var lcSessionId=_ts._agentId||_ts._convId||('session-'+_ti);
+        fetch(_backendBase+'/api/projects/lifecycle/start',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({projectId:projId,projectPath:realPath,projectName:projName,description:d.description.trim(),type:d.type,sessionId:lcSessionId}),
+          signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(lc){
+          if(window._c3)window._c3.agentLog('TOOL','Lifecycle aktivovan: '+((lc&&lc.phase)||'SPEC'));
+        }).catch(function(e){
+          if(window._c3)window._c3.agentLog('TOOL','Lifecycle start: '+(e.message||e));
+        });
       }).catch(function(){});
     }
-    /* Activate lifecycle on backend */
-    var lcSessionId=_ts._agentId||_ts._convId||('session-'+_ti);
-    fetch(_backendBase+'/api/projects/lifecycle/start',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({projectId:projId,projectPath:realPath,projectName:projName,description:d.description.trim(),type:d.type,sessionId:lcSessionId}),
-      signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(lc){
-      if(window._c3)window._c3.agentLog('TOOL','🔄 Lifecycle aktivován: '+((lc&&lc.phase)||'SPEC'));
-    }).catch(function(e){
-      if(window._c3)window._c3.agentLog('TOOL','⚠️ Lifecycle start: '+(e.message||e));
-    });
     /* Log to agent panel */
     var scaff=created.scaffold?created.scaffold.join(', '):'';
     if(window._c3){
