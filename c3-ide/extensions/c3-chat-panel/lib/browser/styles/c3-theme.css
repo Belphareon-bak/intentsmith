@@ -67,10 +67,12 @@ body, .theia-ApplicationShell {
   flex: 0 0 0px !important;
   overflow: hidden !important;
 }
-/* Ensure right side panel (chat container) stays visible and sized */
+/* Ensure right side panel (chat container) stays visible and sized.
+   min-width: 0 allows snap-collapse to fully hide the panel.
+   Snap-collapse threshold (280px) is enforced via JS on handle drag. */
 #theia-right-side-panel {
   display: block !important;
-  min-width: 320px !important;
+  min-width: 0 !important;
   overflow: hidden !important;
 }
 

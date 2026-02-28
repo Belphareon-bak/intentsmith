@@ -4163,15 +4163,95 @@ inversify_1.decorate(inversify_1.injectable(),C3AgentWidget);
 /* ═══════════════════════════════════════════════════════════
    CONTRIBUTIONS
    ═══════════════════════════════════════════════════════════ */
+
+/* ── Snap-collapse state ── */
+var _c3LastLeftW=240,_c3LastRightW=420;
+var _C3_MIN_LEFT=160,_C3_MIN_RIGHT=280;
+
 class C3SidebarContrib extends browser_1.AbstractViewContribution {
   constructor(){super({widgetId:C3_SIDEBAR_ID,widgetName:'C3 Navigation',defaultWidgetOptions:{area:'left',rank:0},toggleCommandId:'c3:toggleSidebar',toggleKeybinding:'ctrlcmd+b'});}
   async initializeLayout(a){await this.openView({activate:true,reveal:true});}
-  async onStart(a){window._c3App=a;try{await this.openView({activate:false,reveal:true});}catch(e){}setTimeout(function(){try{a.shell.resize(240,'left');}catch(e){}try{var lc=a.shell.leftPanelHandler.container;var lrSplit=lc&&lc.parent;if(lrSplit&&lrSplit.id==='theia-left-right-split-panel'){lrSplit.spacing=4;}var mp=a.shell.mainPanel;var btSplit=mp&&mp.parent;if(btSplit&&btSplit.id==='theia-bottom-split-panel'){btSplit.spacing=4;}}catch(e){console.warn('[C3] Split spacing fix:',e);}},800);}}
+  registerCommands(c){
+    c.registerCommand({id:'c3:toggleSidebar',label:'C3: Toggle Sidebar',category:'C3'},{
+      execute:function(){
+        var app=window._c3App;if(!app)return;
+        var n=document.getElementById('theia-left-content-panel');
+        var w=n?n.offsetWidth:0;
+        if(w<10){
+          /* Expand — restore last known width or sidebar's internal state */
+          var tw=(_sidebarWidget&&_sidebarWidget._collapsed)?48:(_c3LastLeftW||240);
+          app.shell.resize(tw,'left');
+        }else{
+          _c3LastLeftW=w;
+          app.shell.resize(0,'left');
+        }
+      }
+    });
+  }
+  async onStart(a){
+    window._c3App=a;
+    try{await this.openView({activate:false,reveal:true});}catch(e){}
+    setTimeout(function(){
+      try{a.shell.resize(240,'left');}catch(e){}
+      /* ── Spacing fix ── */
+      try{
+        var lc=a.shell.leftPanelHandler.container;
+        var lrSplit=lc&&lc.parent;
+        if(lrSplit&&lrSplit.id==='theia-left-right-split-panel'){lrSplit.spacing=4;}
+        var mp=a.shell.mainPanel;
+        var btSplit=mp&&mp.parent;
+        if(btSplit&&btSplit.id==='theia-bottom-split-panel'){btSplit.spacing=4;}
+      }catch(e){console.warn('[C3] Split spacing fix:',e);}
+      /* ── Snap-collapse: detect handle drag + snap panels below threshold ── */
+      try{
+        var _isDrag=false;
+        var lrEl=document.getElementById('theia-left-right-split-panel');
+        if(lrEl){
+          var hdls=lrEl.querySelectorAll(':scope > .lm-SplitPanel-handle, :scope > .p-SplitPanel-handle');
+          for(var i=0;i<hdls.length;i++){
+            hdls[i].addEventListener('mousedown',function(){_isDrag=true;});
+          }
+          document.addEventListener('mouseup',function(){
+            if(!_isDrag)return;
+            _isDrag=false;
+            requestAnimationFrame(function(){
+              try{
+                var ln=document.getElementById('theia-left-content-panel');
+                var rn=document.getElementById('theia-right-content-panel');
+                if(ln){
+                  var lw=ln.offsetWidth;
+                  if(lw>0&&lw<_C3_MIN_LEFT){a.shell.resize(0,'left');}
+                  else if(lw>=_C3_MIN_LEFT){_c3LastLeftW=lw;}
+                }
+                if(rn){
+                  var rw=rn.offsetWidth;
+                  if(rw>0&&rw<_C3_MIN_RIGHT){a.shell.resize(0,'right');}
+                  else if(rw>=_C3_MIN_RIGHT){_c3LastRightW=rw;}
+                }
+              }catch(e){}
+            });
+          });
+        }
+      }catch(e){console.warn('[C3] Snap-collapse setup:',e);}
+    },800);
+  }
+}
 inversify_1.decorate(inversify_1.injectable(),C3SidebarContrib);
 
 class C3ChatContrib extends browser_1.AbstractViewContribution {
   constructor(){super({widgetId:C3_CHAT_ID,widgetName:'C3 Chat',defaultWidgetOptions:{area:'right',rank:100},toggleCommandId:'c3:toggleChat',toggleKeybinding:'ctrlcmd+shift+l'});}
   async initializeLayout(a){await this.openView({activate:true,reveal:true});}
+  registerCommands(c){
+    c.registerCommand({id:'c3:toggleChat',label:'C3: Toggle Chat',category:'C3'},{
+      execute:function(){
+        var app=window._c3App;if(!app)return;
+        var n=document.getElementById('theia-right-content-panel');
+        var w=n?n.offsetWidth:0;
+        if(w<10){app.shell.resize(_c3LastRightW||420,'right');}
+        else{_c3LastRightW=w;app.shell.resize(0,'right');}
+      }
+    });
+  }
   async onStart(a){try{await this.openView({activate:false,reveal:true});}catch(e){}}}
 inversify_1.decorate(inversify_1.injectable(),C3ChatContrib);
 
