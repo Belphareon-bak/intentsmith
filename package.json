@@ -1,8 +1,8 @@
 {
   "name": "c3-agent",
-  "version": "86.0.0",
+  "version": "87.3.0",
   "type": "module",
-  "description": "C.3 Agent v86 — CRE + Skills + Memory System + Expertise Platform + Specialist Telemetry + Theia IDE",
+  "description": "C.3 Agent v87 — CRE + Skills + Memory System + Expertise Platform + Specialist Telemetry + Theia IDE + Settings UI",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

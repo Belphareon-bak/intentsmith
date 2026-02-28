@@ -316,7 +316,7 @@ var CONVERSATIONS=[];
 /* Specialists = expertises with deterministic tools (is_specialist from backend or default) */
 var SPECIALISTS=EXPERTISES.filter(function(e){return e.isSpecialist;}).map(function(e){return{emoji:e.emoji,name:e.name,desc:e.desc,domain:e.domain,tags:[e.domain||'','Specialista'].filter(Boolean)};});
 var WORKERS=[];
-var SETTINGS_SECTIONS=[{icon:'👤',title:'User / Identity',fields:[{l:'Jméno',v:'Belfik',t:'input'},{l:'E-mail',v:'belfik@c3.local',t:'input'},{l:'Role',v:'Developer',t:'select',opts:['Developer','Admin','User']}]},{icon:'🔔',title:'Notifications',fields:[{l:'Zvukové notifikace',v:true,t:'toggle'},{l:'Desktopové notifikace',v:true,t:'toggle'}]},{icon:'🎨',title:'Appearance',fields:[{l:'Téma'},{l:'Accent'},{l:'Pozadí'},{l:'Intenzita aktivní'},{l:'Intenzita neaktivní'},{l:'Velikost písma'},{l:'Písmo'}]},{icon:'🧠',title:'Memory & Context',fields:[{l:'Systémový prompt',v:'Vždy odpovídej v češtině.',t:'textarea'},{l:'Ukládat historii',v:true,t:'toggle'},{l:'Kontext',v:true,t:'toggle'}]},{icon:'📍',title:'Location',fields:[{l:'Město',v:'Praha',t:'input'},{l:'Země',v:'CZ',t:'input'},{l:'Jazyk',v:'Čeština',t:'select',opts:['Čeština','English']}]},{icon:'📄',title:'Output & Formats',fields:[{l:'Markdown výstup',v:true,t:'toggle'},{l:'Kódové bloky',v:true,t:'toggle'}]},{icon:'🖥️',title:'System',fields:[{l:'Model',v:'qwen2.5:32b',t:'select',opts:['qwen2.5:32b','llama3.1:70b','mistral:7b']},{l:'Ollama URL',v:'http://localhost:11434',t:'input'},{l:'Složka projektů',v:'',t:'projectsDir'}]},{icon:'📦',title:'Limity souborů',fields:[{l:'Max text příloha (KB)',v:'1024',t:'input',k:'maxTextKB'},{l:'Max obrázek (KB)',v:'5120',t:'input',k:'maxImgKB'},{l:'Max zobrazení řádků',v:'500',t:'input',k:'maxLines'},{l:'Hloubka stromu',v:'5',t:'input',k:'treeDepth'}]},{icon:'ℹ️',title:'About',fields:[]}];
+var SETTINGS_SECTIONS=[{icon:'👤',title:'Account',desc:'Identita a profil'},{icon:'🤖',title:'LLM',desc:'Modely a inference'},{icon:'🧠',title:'Memory',desc:'Paměť a kontext'},{icon:'🔔',title:'Notifications',desc:'Upozornění'},{icon:'📄',title:'Output',desc:'Formátování výstupu'},{icon:'🎨',title:'Appearance',desc:'Vzhled a přizpůsobení'},{icon:'🖥️',title:'System',desc:'Systém a diagnostika'},{icon:'📦',title:'Storage',desc:'Data a úložiště'},{icon:'💾',title:'Backup',desc:'Zálohy a export'},{icon:'ℹ️',title:'About',desc:'O aplikaci'}];
 var FILES=[];
 var _collapsedDirs={};var _wtRoot='';var _wtLoading=false;var _wtRenaming=null;var _wtNewInput=null;
 /* Expose _wtRoot on window so ws-client.js can send cwd with terminal commands */
@@ -2024,6 +2024,17 @@ function centerExpertiseWizard(){
 
 /* Settings state */
 var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSizeVal:13,fontIdx:0,custom1:null,custom2:null,bgIdx:0,bgCustom1:null,bgCustom2:null,customCSS:'',visualMode:'borders',tileOpacity:80,bgDim:30,sidebarOpacity:80,projectsDir:''};
+/* v87.3: Backend config state — loaded from /api/settings */
+var _bCfg=null;var _bCfgLoading=false;var _gpuInfo=null;var _ollamaModels=null;var _sysInfo=null;var _storageInfo=null;var _bCfgSaveTimer=null;
+function _loadBCfg(cb){if(_bCfg&&!_bCfgLoading){if(cb)cb();return;}_bCfgLoading=true;fetch(_backendBase+'/api/settings',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_bCfg=d||{};_bCfgLoading=false;if(cb)cb();renderCenter();}).catch(function(){_bCfg=_bCfg||{};_bCfgLoading=false;if(cb)cb();});}
+function _saveBCfg(){if(!_bCfg)return;clearTimeout(_bCfgSaveTimer);_bCfgSaveTimer=setTimeout(function(){fetch(_backendBase+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(_bCfg),signal:AbortSignal.timeout(3000)}).catch(function(){});},500);}
+function _bVal(key,def){return _bCfg&&_bCfg[key]!=null?_bCfg[key]:def;}
+function _bSet(key,val){if(!_bCfg)_bCfg={};_bCfg[key]=val;_saveBCfg();renderCenter();}
+/* v87.3: Backend config field helpers */
+function _cfgInput(label,key,def,type,hint){var v=_bVal(key,def);return h('div',{style:{marginBottom:12}},h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},label),type==='textarea'?h('textarea',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'7px 9px',color:C.tx1,fontFamily:C.font,fontSize:_fs(12),outline:'none',resize:'vertical',lineHeight:'1.5',minHeight:60,boxSizing:'border-box'},value:v||'',onChange:function(e){_bSet(key,e.target.value);}}):h('input',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'6px 9px',color:C.tx1,fontFamily:C.font,fontSize:_fs(12),outline:'none',boxSizing:'border-box'},value:v!=null?String(v):'',onChange:function(e){_bSet(key,type==='number'?parseFloat(e.target.value)||0:e.target.value);}}),hint?h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:3}},hint):null);}
+function _cfgSelect(label,key,def,opts){var v=_bVal(key,def);return h('div',{style:{marginBottom:12}},h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},label),h('select',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'6px 9px',color:C.tx1,fontFamily:C.font,fontSize:_fs(12),outline:'none',boxSizing:'border-box'},value:v,onChange:function(e){_bSet(key,e.target.value);}},opts.map(function(o){return h('option',{key:o,value:o},o);})));}
+function _cfgToggle(label,desc,key,def){return _settingsToggle(label,desc,!!_bVal(key,def),function(nv){_bSet(key,nv);});}
+function _cfgSlider(label,key,def,min,max,step,unit,hint){var v=_bVal(key,def);return h('div',{style:{marginBottom:12}},h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},label),h('div',{style:{display:'flex',alignItems:'center',gap:8}},h('input',{type:'range',min:min,max:max,step:step,value:v,onChange:function(e){_bSet(key,parseFloat(e.target.value));},style:{flex:1,cursor:'pointer',accentColor:C.accent}}),h('span',{style:{fontSize:_fs(11),color:C.tx3,minWidth:44,textAlign:'right',fontFamily:C.mono}},v+(unit||''))),hint?h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:3}},hint):null);}
 /* I2: Custom CSS injection — scoped under .c3-root */
 var _customStyleEl=null;
 function _injectCustomCSS(css){
@@ -2117,6 +2128,7 @@ function centerSettings(){
   var selSi=_centerState.settingsSection;
   var selSec=selSi!=null?SETTINGS_SECTIONS[selSi]:null;
   var isLines=_settingsVals.visualMode==='lines';
+  if(!_bCfg&&!_bCfgLoading)_loadBCfg();
   return h(React.Fragment,null,viewHead('Nastavení',true),
     h('div',{style:{display:'flex',flex:1,overflow:'hidden'}},
       h('div',{style:{flex:1,overflowY:'auto',padding:18}},
@@ -2132,46 +2144,33 @@ function centerSettings(){
             !isLines?h('div',{style:{position:'absolute',top:0,left:0,right:0,height:3,background:isSel?C.accent:'transparent'}}):null,
             h('div',{style:{fontSize:_fs(24),marginBottom:8}},sec.icon),
             h('div',{style:{fontSize:_fs(13),fontWeight:700,color:isSel?C.accentText:C.tx1,marginBottom:2}},sec.title),
-            h('div',{style:{fontSize:_fs(11),color:C.tx3}},sec.title==='About'?'C3 Studio v'+(_serverHealth.version||'...'):sec.fields.length+' nastavení'));
+            h('div',{style:{fontSize:_fs(11),color:C.tx3}},sec.title==='About'?'v'+(_serverHealth.version||'...'):sec.desc||''));
         }))),
       selSec?settingsDetailPanel(selSec,selSi):null));
 }
 
 function settingsDetailPanel(sec,si){
-  return h('div',{style:{width:280,background:C.bg1,borderLeft:'1px solid '+C.border,display:'flex',flexDirection:'column',flexShrink:0,overflow:'hidden'}},
+  var panelBody=null;
+  switch(sec.title){
+    case 'Account':panelBody=settingsAccount();break;
+    case 'LLM':panelBody=settingsLLM();break;
+    case 'Memory':panelBody=settingsMemory();break;
+    case 'Notifications':panelBody=settingsNotif();break;
+    case 'Output':panelBody=settingsOutput();break;
+    case 'Appearance':panelBody=settingsAppearance();break;
+    case 'System':panelBody=settingsSystemPanel();break;
+    case 'Storage':panelBody=settingsStoragePanel();break;
+    case 'Backup':panelBody=settingsBackupPanel();break;
+    case 'About':panelBody=settingsAboutPanel();break;
+    default:panelBody=h('div',{style:{padding:12,color:C.tx3}},'Žádná nastavení.');
+  }
+  return h('div',{style:{width:320,background:C.bg1,borderLeft:'1px solid '+C.border,display:'flex',flexDirection:'column',flexShrink:0,overflow:'hidden'}},
     h('div',{style:{padding:'10px 14px',borderBottom:'1px solid '+C.border,display:'flex',alignItems:'center',gap:8,flexShrink:0}},
       h('span',{style:{fontSize:_fs(16)}},sec.icon),
       h('span',{style:{fontSize:_fs(13.5),fontWeight:700,flex:1,color:C.tx1}},sec.title),
       h('button',{style:{background:'none',border:'none',color:C.tx4,cursor:'pointer',padding:2,borderRadius:4,display:'flex'},
         onClick:function(){_centerState.settingsSection=null;renderCenter();}},svgEl(I.close,15))),
-    h('div',{style:{flex:1,overflowY:'auto',padding:'12px 14px'}},
-      sec.title==='About'?h('div',{style:{textAlign:'center',padding:'20px 0'}},
-        h('div',{style:{width:48,height:48,background:'linear-gradient(135deg,#22c55e,#16a34a)',borderRadius:14,display:'inline-flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:_fs(20),color:'#fff',marginBottom:8}},'C3'),
-        h('div',{style:{fontSize:_fs(14),fontWeight:700,color:C.tx1,marginBottom:2}},'C3 Studio'),
-        h('div',{style:{fontSize:_fs(11),color:C.tx3,marginBottom:12}},'v'+(_serverHealth.version||'...')),
-        h('div',{style:{fontSize:_fs(11),color:C.tx4}},'Made with ❤️ by Belfik')):
-      sec.title==='Appearance'?settingsAppearance():
-      sec.fields.map(function(f,fi){
-        return h('div',{key:fi,style:{marginBottom:12}},
-          h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},f.l),
-          f.t==='input'?h('input',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'6px 9px',color:C.tx1,fontFamily:C.font,fontSize:_fs(12),outline:'none',boxSizing:'border-box'},defaultValue:f.v}):
-          f.t==='textarea'?h('textarea',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'7px 9px',color:C.tx1,fontFamily:C.font,fontSize:_fs(12),outline:'none',resize:'vertical',lineHeight:'1.5',minHeight:60,boxSizing:'border-box'},defaultValue:f.v}):
-          f.t==='select'?h('select',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'6px 9px',color:C.tx1,fontFamily:C.font,fontSize:_fs(12),outline:'none',boxSizing:'border-box'},defaultValue:f.v},(f.opts||[]).map(function(o){return h('option',{key:o},o);})):
-          f.t==='toggle'?h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}},
-            h('span',{style:{fontSize:_fs(12),color:C.tx2}},f.l),
-            togSw(!!f.v,function(v){f.v=v;renderCenter();})):
-          f.t==='radio'?h('div',{style:{display:'flex',gap:6}},(f.opts||[]).map(function(o){
-            var sel=f.v===o.toLowerCase()||f.v===o;
-            return h('div',{key:o,onClick:function(){f.v=o.toLowerCase();renderCenter();},
-              style:{flex:1,padding:'8px 6px',borderRadius:8,border:'2px solid '+(sel?C.accent:C.border),background:sel?C.accentBg:C.bg3,cursor:'pointer',textAlign:'center'}},
-              h('div',{style:{fontSize:_fs(11),color:sel?C.accentText:C.tx2,fontWeight:sel?700:400}},o));})):
-          f.t==='projectsDir'?h('div',null,
-            h('input',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'6px 9px',color:C.tx1,fontFamily:C.mono,fontSize:_fs(12),outline:'none',boxSizing:'border-box'},
-              value:_settingsVals.projectsDir||'',placeholder:'/home/user/Projects',
-              onChange:function(e){_settingsVals.projectsDir=e.target.value;_saveSV();renderCenter();}}),
-            h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:4}},'Výchozí složka pro nové projekty. Prázdné = server default.')):
-          null);
-      })));
+    h('div',{style:{flex:1,overflowY:'auto',padding:'12px 14px'}},panelBody));
 }
 
 function _settingsToggle(label,desc,val,onChange){
@@ -2287,6 +2286,150 @@ function settingsAppearance(){
       onChange:function(e){sv.customCSS=e.target.value;_injectCustomCSS(e.target.value);_saveSV();},
       style:{width:'100%',height:80,fontFamily:C.mono,fontSize:_fs(11),background:C.bg3,color:C.tx2,border:'1px solid '+C.border2,borderRadius:6,padding:'7px 9px',outline:'none',resize:'vertical',lineHeight:'1.4',boxSizing:'border-box'},
       placeholder:'.c3-card { border-radius: 12px; }'}));
+}
+
+/* ═══════════════════════════════════════════════════════════
+   v87.3: SETTINGS SECTION RENDERERS
+   ═══════════════════════════════════════════════════════════ */
+function settingsAccount(){
+  if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
+  return h('div',null,
+    _cfgInput('Zobrazované jméno','c3.account.displayName',''),
+    _cfgInput('Popis / Bio','c3.account.description','','textarea'),
+    _cfgSelect('Časové pásmo','c3.account.timezone','Europe/Prague',['Europe/Prague','Europe/London','America/New_York','America/Los_Angeles','Asia/Tokyo','UTC']),
+    _cfgSelect('Měna','c3.account.currency','CZK',['CZK','EUR','USD','GBP']),
+    _cfgSelect('Jazyk UI','c3.language','cs',['cs','en']),
+    h('div',{style:{marginBottom:12}},
+      h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},'Složka projektů'),
+      h('input',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'6px 9px',color:C.tx1,fontFamily:C.mono,fontSize:_fs(12),outline:'none',boxSizing:'border-box'},
+        value:_settingsVals.projectsDir||'',placeholder:'/home/user/Projects',
+        onChange:function(e){_settingsVals.projectsDir=e.target.value;_saveSV();renderCenter();}}),
+      h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:3}},'Výchozí složka pro nové projekty')));
+}
+function settingsLLM(){
+  if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
+  if(!_gpuInfo){fetch(_backendBase+'/api/system/gpu',{signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(d){_gpuInfo=d;renderCenter();}).catch(function(){_gpuInfo={error:true};});}
+  if(!_ollamaModels){fetch(_backendBase+'/api/system/models',{signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(d){_ollamaModels=d.models||d||[];renderCenter();}).catch(function(){_ollamaModels=[];});}
+  var models=(_ollamaModels||[]).map(function(m){return typeof m==='string'?m:m.name||m.model||'';}).filter(Boolean);
+  if(models.length===0)models=['qwen2.5:32b','qwen2.5-coder:32b','llava:13b','llama3.1:70b','mistral:7b'];
+  return h('div',null,
+    _gpuInfo&&!_gpuInfo.error?h('div',{style:{background:'linear-gradient(135deg,rgba(34,197,94,0.08),rgba(22,163,74,0.04))',border:'1px solid rgba(34,197,94,0.2)',borderRadius:8,padding:12,marginBottom:14}},
+      h('div',{style:{fontSize:_fs(11),fontWeight:700,color:C.accent,marginBottom:6}},'GPU'),
+      (_gpuInfo.gpus||[_gpuInfo]).map(function(g,i){
+        return h('div',{key:i,style:{fontSize:_fs(11),color:C.tx2,marginBottom:2}},
+          h('span',{style:{fontWeight:600}},g.name||'Neznámé'),
+          g.vram?h('span',{style:{color:C.tx3}},' — '+g.vram+' MB VRAM'):'');
+      })):null,
+    _cfgSelect('Chat model','c3.llm.chatModel','qwen2.5:32b',models),
+    _cfgSelect('Code model','c3.llm.codeModel','qwen2.5-coder:32b',models),
+    _cfgSelect('Vision model','c3.llm.visionModel','llava:13b',models),
+    _cfgInput('Ollama URL','c3.llm.ollamaUrl','http://127.0.0.1:11434'),
+    _cfgSlider('Temperature','c3.llm.temperature',0.7,0,2,0.1,'','0 = deterministický, 2 = kreativní'),
+    _cfgSlider('Context window','c3.llm.contextWindow',32768,2048,131072,1024,' tok'),
+    _cfgSlider('Timeout chat (ms)','c3.llm.timeoutChat',90000,10000,300000,5000,' ms'),
+    _cfgSlider('Timeout code (ms)','c3.llm.timeoutCode',90000,10000,300000,5000,' ms'),
+    _cfgSlider('GPU layers','c3.llm.numGpu',-1,-1,8,1,'','-1 = auto, 0 = CPU only'));
+}
+function settingsMemory(){
+  if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
+  return h('div',null,
+    _cfgToggle('Dlouhodobá paměť (LTM)','Ukládání poznatků napříč konverzacemi','c3.memory.ltmEnabled',true),
+    _cfgToggle('Učení z preferencí','Adaptace na styl uživatele','c3.memory.learningEnabled',true),
+    _cfgToggle('Detekce zpětné vazby','Automatická detekce feedback signálů','c3.memory.feedbackDetection',true),
+    _cfgToggle('Sledování vzorců','Cross-konverzační pattern tracking','c3.memory.patternTracking',true),
+    _cfgSlider('Max turnů','c3.memory.conversationMaxTurns',500,50,5000,50,''),
+    _cfgSlider('Práh kompakce','c3.memory.compactThreshold',0.75,0.3,0.95,0.05,''),
+    _cfgSlider('Uchované turny','c3.memory.compactKeepTurns',6,2,20,1,'','Počet posledních turnů při kompakci'),
+    _cfgSlider('Max LTM záznamů','c3.memory.ltmMaxEntries',1000,100,10000,100,''),
+    _cfgSlider('Poločas LTM','c3.memory.ltmDecayHalfLife',69,7,365,7,' dní'),
+    _cfgSlider('Budget chat','c3.memory.contextBudgetChat',60,10,90,5,' %','% z kontextového okna'),
+    _cfgSlider('Budget code','c3.memory.contextBudgetCode',40,10,90,5,' %'),
+    _cfgSlider('Hard cap','c3.memory.contextBudgetMaxTokens',24576,2048,65536,1024,' tok'));
+}
+function settingsNotif(){
+  if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
+  return h('div',null,
+    _cfgToggle('Desktop notifikace','Systémové notifikace (Electron)','c3.notif.desktopEnabled',true),
+    _cfgToggle('Tichý režim','Potlačit notifikace v zadaném čase','c3.notif.quietEnabled',false),
+    _bVal('c3.notif.quietEnabled',false)?h(React.Fragment,null,
+      _cfgInput('Ticho od','c3.notif.quietFrom','22:00','input','Formát HH:MM'),
+      _cfgInput('Ticho do','c3.notif.quietTo','07:00','input','Formát HH:MM')):null);
+}
+function settingsOutput(){
+  if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
+  return h('div',null,
+    _cfgToggle('Code blocky','Zobrazovat code blocky ve výstupu','c3.output.codeBlocks',true),
+    _cfgToggle('Syntax highlighting','Zvýrazňování syntaxe v code blocích','c3.output.syntaxHighlight',true),
+    _cfgToggle('Markdown rendering','Renderovat markdown ve výstupu','c3.output.markdownRendering',true),
+    _cfgSlider('Max délka odpovědi','c3.output.maxResponseLength',8192,1024,65536,512,' tok'));
+}
+function settingsSystemPanel(){
+  if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
+  if(!_sysInfo){fetch(_backendBase+'/api/system/info',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_sysInfo=d;renderCenter();}).catch(function(){_sysInfo={error:true};});}
+  return h('div',null,
+    _sysInfo&&!_sysInfo.error?h('div',{style:{background:C.bg3,border:'1px solid '+C.border2,borderRadius:8,padding:12,marginBottom:14}},
+      h('div',{style:{fontSize:_fs(11),fontWeight:700,color:C.tx1,marginBottom:6}},'Systémové info'),
+      h('div',{style:{fontSize:_fs(10),color:C.tx2,lineHeight:'1.6'}},
+        _sysInfo.platform?h('div',null,'OS: '+_sysInfo.platform+' '+(_sysInfo.arch||'')):null,
+        _sysInfo.nodeVersion?h('div',null,'Node: '+_sysInfo.nodeVersion):null,
+        _sysInfo.memoryUsage?h('div',null,'Heap: '+Math.round((_sysInfo.memoryUsage.heapUsed||0)/1048576)+' / '+Math.round((_sysInfo.memoryUsage.heapTotal||0)/1048576)+' MB'):null,
+        _sysInfo.uptime?h('div',null,'Uptime: '+Math.round(_sysInfo.uptime/60)+' min'):null)):null,
+    _cfgSelect('Log level','c3.system.logLevel','info',['debug','info','warn','error']),
+    _cfgSlider('Retence logů','c3.system.logRetentionDays',30,7,365,7,' dní'),
+    _cfgSlider('Max soubor','c3.system.maxFileSize',1048576,102400,10485760,102400,'','bytes'),
+    _cfgSlider('Rate limit','c3.system.rateLimit',120,10,1000,10,' /min'));
+}
+function settingsStoragePanel(){
+  if(!_storageInfo){fetch(_backendBase+'/api/system/storage',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_storageInfo=d;renderCenter();}).catch(function(){_storageInfo={error:true};});}
+  var info=_storageInfo;
+  function _fmtSize(b){return b>1048576?Math.round(b/1048576)+' MB':Math.round((b||0)/1024)+' KB';}
+  return h('div',null,
+    info&&!info.error?h('div',{style:{background:C.bg3,border:'1px solid '+C.border2,borderRadius:8,padding:12,marginBottom:14}},
+      h('div',{style:{fontSize:_fs(11),fontWeight:700,color:C.tx1,marginBottom:6}},'Databáze'),
+      h('div',{style:{fontSize:_fs(10),color:C.tx2,lineHeight:'1.6'}},
+        info.dbSize!=null?h('div',null,'Velikost: '+_fmtSize(info.dbSize)):null,
+        info.messageCount!=null?h('div',null,'Zpráv: '+info.messageCount.toLocaleString()):null,
+        info.conversationCount!=null?h('div',null,'Konverzací: '+info.conversationCount):null)):
+      h('div',{style:{color:C.tx3,padding:8,fontSize:_fs(11)}},info?'Nepodařilo se načíst':'Načítám...'),
+    h('div',{style:{display:'flex',gap:8,marginTop:12}},
+      h('button',{style:{flex:1,background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'8px 12px',color:C.tx1,fontSize:_fs(11),cursor:'pointer',fontFamily:C.font},
+        onClick:function(){fetch(_backendBase+'/api/system/vacuum',{method:'POST',signal:AbortSignal.timeout(30000)}).then(function(){_storageInfo=null;renderCenter();}).catch(function(){});}},'Vacuum DB'),
+      h('button',{style:{flex:1,background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'8px 12px',color:C.tx1,fontSize:_fs(11),cursor:'pointer',fontFamily:C.font},
+        onClick:function(){_storageInfo=null;renderCenter();}},'Obnovit')));
+}
+function settingsBackupPanel(){
+  return h('div',null,
+    h('div',{style:{fontSize:_fs(11),color:C.tx3,marginBottom:14}},'Export a import nastavení C3 Studia.'),
+    h('button',{style:{width:'100%',background:C.accent,color:'#fff',border:'none',borderRadius:6,padding:'10px 14px',fontSize:_fs(12),fontWeight:600,cursor:'pointer',marginBottom:10,fontFamily:C.font},
+      onClick:function(){fetch(_backendBase+'/api/settings',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){
+        var blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
+        var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='c3-settings-'+new Date().toISOString().slice(0,10)+'.json';a.click();}).catch(function(){});}},'Exportovat nastavení'),
+    h('button',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'10px 14px',fontSize:_fs(12),cursor:'pointer',color:C.tx1,marginBottom:10,fontFamily:C.font},
+      onClick:function(){
+        var inp=document.createElement('input');inp.type='file';inp.accept='.json';
+        inp.onchange=function(e){var f=e.target.files[0];if(!f)return;
+          var reader=new FileReader();reader.onload=function(ev){try{var data=JSON.parse(ev.target.result);
+            fetch(_backendBase+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),signal:AbortSignal.timeout(3000)})
+            .then(function(){_bCfg=data;renderCenter();}).catch(function(){});}catch(ex){}};reader.readAsText(f);};inp.click();}},'Importovat nastavení'),
+    h('div',{style:{borderTop:'1px solid '+C.border,paddingTop:14,marginTop:8}},
+      h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:8}},'Reset'),
+      h('button',{style:{width:'100%',background:'transparent',border:'1px solid #ef4444',borderRadius:6,padding:'8px 14px',fontSize:_fs(11),cursor:'pointer',color:'#ef4444',fontFamily:C.font},
+        onClick:function(){if(!confirm('Opravdu obnovit výchozí nastavení?'))return;
+          fetch(_backendBase+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(3000)})
+          .then(function(){_bCfg={};renderCenter();}).catch(function(){});}},'Obnovit výchozí')));
+}
+function settingsAboutPanel(){
+  if(!_sysInfo){fetch(_backendBase+'/api/system/info',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_sysInfo=d;renderCenter();}).catch(function(){_sysInfo={error:true};});}
+  return h('div',{style:{textAlign:'center',padding:'20px 0'}},
+    h('div',{style:{width:56,height:56,background:'linear-gradient(135deg,#22c55e,#16a34a)',borderRadius:16,display:'inline-flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:_fs(22),color:'#fff',marginBottom:10}},'C3'),
+    h('div',{style:{fontSize:_fs(15),fontWeight:700,color:C.tx1,marginBottom:2}},'C3 Studio'),
+    h('div',{style:{fontSize:_fs(12),color:C.accent,fontWeight:600,marginBottom:12}},'v'+(_serverHealth.version||'...')),
+    h('div',{style:{fontSize:_fs(11),color:C.tx4,marginBottom:16}},'Made with \u2764\ufe0f by Belfik'),
+    _sysInfo&&!_sysInfo.error?h('div',{style:{textAlign:'left',background:C.bg3,borderRadius:8,padding:12,fontSize:_fs(10),color:C.tx3,lineHeight:'1.6'}},
+      _sysInfo.platform?h('div',null,'Platform: '+_sysInfo.platform+' '+(_sysInfo.arch||'')):null,
+      _sysInfo.nodeVersion?h('div',null,'Node: '+_sysInfo.nodeVersion):null,
+      _sysInfo.electronVersion?h('div',null,'Electron: '+_sysInfo.electronVersion):null,
+      _sysInfo.uptime?h('div',null,'Uptime: '+Math.round(_sysInfo.uptime/60)+' min'):null):null);
 }
 
 function centerWelcome(){return h('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:12}},h('div',{style:{width:48,height:48,background:'linear-gradient(135deg,#22c55e,#16a34a)',borderRadius:14,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:_fs(20),color:'#fff'}},'C3'),h('div',{style:{fontSize:_fs(16),fontWeight:700,color:C.tx1}},'C3 Studio'),h('div',{style:{fontSize:_fs(12),color:C.tx3}},'Vyber sekci v levém panelu'));}
