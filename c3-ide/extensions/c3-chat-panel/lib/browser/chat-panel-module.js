@@ -468,7 +468,7 @@ function fetchBackendData(){
   var convStatus=_centerState.filterMode||'active';
   fetch(_backendBase+'/api/conversations?limit=50&status='+convStatus,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(data){
     var items=Array.isArray(data)?data:(data.conversations||[]);
-    if(items.length>0){CONVERSATIONS=items.slice(0,20).map(function(c){return{id:c.id,title:_s(c.title||c.name)||'Chat',preview:_s(c.preview||c.lastMessage||c.summary)||'',time:_s(c.time||c.updated_at||c.updatedAt)||'',expertise:_s(c.expertise)||'Výchozí',status:_s(c.state||c.status)||'active'};});}
+    if(items.length>0){CONVERSATIONS=items.slice(0,20).map(function(c){return{id:c.id,title:_s(c.title||c.name)||'Chat',preview:_s(c.preview||c.lastMessage||c.summary)||'',time:_s(c.time||c.updated_at||c.updatedAt)||'',created_at:_s(c.created_at||c.createdAt)||'',updated_at:_s(c.updated_at||c.updatedAt||c.time)||'',expertise:_s(c.expertise)||'Výchozí',status:_s(c.state||c.status)||'active'};});}
     else{CONVERSATIONS=[];}
     if(typeof console!=='undefined')console.debug('[C3:fetchConversations]',CONVERSATIONS.length,'items, raw:',items.length,'isArray:',Array.isArray(data),'keys:',data?Object.keys(data).join(','):'null');
     NAV[0].badge=CONVERSATIONS.length;NAV[0].recent=CONVERSATIONS.slice(0,3).map(function(c){return c.title;});renderCenter();
@@ -957,9 +957,10 @@ function card(item,onClick){
       isLines&&sel&&!bSel?h('div',{style:{position:'absolute',left:0,top:0,bottom:0,width:3,background:C.accent,borderRadius:'0 2px 2px 0'}}):null,
       chkBox,
       item.emoji?h('span',{style:{fontSize:_fs(16),flexShrink:0,width:24,textAlign:'center'}},item.emoji):null,
-      h('div',{style:Object.assign({fontSize:_fs(12),fontWeight:bSel?700:600,color:bSel?C.accentText:sel?C.accentText:C.tx1,width:130,flexShrink:0},ell)},item.name),
+      h('div',{style:Object.assign({fontSize:_fs(12),fontWeight:bSel?700:600,color:bSel?C.accentText:sel?C.accentText:C.tx1,flex:'0 1 auto',maxWidth:'40%',minWidth:80},ell)},item.name),
       h('div',{style:Object.assign({flex:1,fontSize:_fs(11),color:C.tx3,minWidth:0},ell)},item.desc||''),
       item.status?pill(item.status):null,
+      item.age?h('span',{style:{fontSize:_fs(10),color:C.tx4,fontFamily:C.mono,flexShrink:0,minWidth:28,textAlign:'right'}},item.age):null,
       item.fav!==undefined?h('span',{style:{fontSize:_fs(14),color:item.fav?C.accentText:C.tx4,cursor:'pointer',padding:'0 2px',userSelect:'none',flexShrink:0},onClick:_favClick(item)},item.fav?'★':'☆'):null);
   }
   /* ═══ Shared grid card body — emoji+name header, desc, status ═══ */
@@ -968,6 +969,7 @@ function card(item,onClick){
     h('div',{key:'h',style:{display:'flex',alignItems:'center',gap:10,marginBottom:item.desc||item.status?6:0}},
       item.emoji?h('span',{style:{fontSize:_fs(22)}},item.emoji):null,
       h('div',{style:Object.assign({flex:1,fontSize:_fs(13),fontWeight:700,color:bSel?C.accentText:C.tx1,minWidth:0},ell)},item.name),
+      item.age?h('span',{style:{fontSize:_fs(10),color:C.tx4,fontFamily:C.mono,flexShrink:0}},item.age):null,
       item.fav!==undefined?h('span',{style:{fontSize:_fs(14),color:item.fav?C.accentText:C.tx4,cursor:'pointer',userSelect:'none'},onClick:_favClick(item)},item.fav?'★':'☆'):null),
     item.desc?h('div',{key:'d',style:Object.assign({fontSize:_fs(11),color:C.tx3,lineHeight:'1.4',marginBottom:item.status?6:0},ell)},item.desc):null,
     item.status?h('div',{key:'s'},pill(item.status)):null
@@ -998,6 +1000,30 @@ function card(item,onClick){
 }
 
 function pill(s){var st=_s(s);var m={Active:{b:'rgba(34,197,94,0.1)',c:C.accentText},Done:{b:C.blueBg,c:C.blue},WIP:{b:C.amberBg,c:C.amber},Running:{b:'rgba(34,197,94,0.1)',c:C.accentText},Paused:{b:C.amberBg,c:C.amber},Deleted:{b:C.redBg,c:C.red},Archived:{b:C.bg4,c:C.tx3}};var v=m[st]||{b:C.bg4,c:C.tx3};return h('span',{style:{display:'inline-flex',padding:'2px 7px',borderRadius:10,fontSize:_fs(9),fontWeight:600,textTransform:'uppercase',letterSpacing:'0.3px',fontFamily:C.mono,background:v.b,color:v.c}},st);}
+
+/* Relative age: "2h" / "3d" / "1t" (weeks) / "2m" */
+function _relAge(dateStr){
+  if(!dateStr)return '';
+  var d=new Date(dateStr);if(isNaN(d.getTime()))return '';
+  var ms=Date.now()-d.getTime();if(ms<0)return '';
+  var hrs=Math.floor(ms/3600000);
+  if(hrs<1)return '<1h';
+  if(hrs<24)return hrs+'h';
+  var days=Math.floor(hrs/24);
+  if(days<7)return days+'d';
+  var weeks=Math.floor(days/7);
+  if(weeks<5)return weeks+'t';
+  var months=Math.floor(days/30);
+  return months+'m';
+}
+/* Format ISO date for detail display: "28. 2. 2026, 14:30" */
+function _fmtDate(dateStr){
+  if(!dateStr)return '—';
+  var d=new Date(dateStr);if(isNaN(d.getTime()))return dateStr;
+  var day=d.getDate(),mon=d.getMonth()+1,yr=d.getFullYear();
+  var hh=String(d.getHours()).padStart(2,'0'),mm=String(d.getMinutes()).padStart(2,'0');
+  return day+'. '+mon+'. '+yr+', '+hh+':'+mm;
+}
 
 function grid(items){
   var zoomVal=_centerState.zoom||1;
@@ -1135,7 +1161,7 @@ function centerProjects(){
       var isDeleted=p.status==='deleted';
       var isArchived=p.status==='archived'||p.status==='Archived';
       var actions=isDeleted?['Obnovit','Smazat trvale']:isArchived?['Otevřít','Obnovit','Smazat']:['Otevřít','Editovat','Archivovat','Smazat'];
-      return card(p,function(){if(_centerState._bulkMode){_bulkToggleItem(p.id);return;}setDetail({name:p.name,_itemId:p.id,fields:[{k:'Status',v:p.status||'active',a:!isArchived&&!isDeleted},{k:'Cesta',v:p.path||''},{k:'Popis',v:p.desc||''},{k:'Vytvořeno',v:p.created},{k:'Aktualizováno',v:p.updated}],tags:p.tags,actions:actions});});
+      return card(Object.assign({},p,{age:_relAge(p.updated)}),function(){if(_centerState._bulkMode){_bulkToggleItem(p.id);return;}setDetail({name:p.name,_itemId:p.id,fields:[{k:'Status',v:p.status||'active',a:!isArchived&&!isDeleted},{k:'Cesta',v:p.path||''},{k:'Popis',v:p.desc||''},{k:'Vytvořeno',v:_fmtDate(p.created)},{k:'Poslední aktivita',v:_fmtDate(p.updated)}],tags:p.tags,actions:actions});});
     }))));
 }
 
@@ -1148,8 +1174,8 @@ function centerConvos(){
       var isDeleted=c.status==='deleted';
       var isArchived=c.status==='archived';
       var actions=isDeleted?['Obnovit','Smazat trvale']:isArchived?['Otevřít','Obnovit','Smazat']:['Otevřít','Přidat do projektu','Archivovat','Smazat'];
-      return card({name:c.title,emoji:'💬',desc:c.preview||c.expertise||'',status:isDeleted?'Deleted':isArchived?'Archived':null,_convData:c,_itemId:c.id},
-        function(){if(_centerState._bulkMode){_bulkToggleItem(c.id);return;}setDetail({name:c.title,fields:[{k:'Expertyza',v:c.expertise},{k:'Čas',v:c.time},{k:'Status',v:c.status||'active'}],tags:['Chat',c.expertise],actions:actions});});
+      return card({name:c.title,emoji:'💬',desc:c.preview||'',age:_relAge(c.updated_at||c.time),status:isDeleted?'Deleted':isArchived?'Archived':null,_convData:c,_itemId:c.id},
+        function(){if(_centerState._bulkMode){_bulkToggleItem(c.id);return;}setDetail({name:c.title,fields:[{k:'Vytvořeno',v:_fmtDate(c.created_at||c.time)},{k:'Poslední aktivita',v:_fmtDate(c.updated_at||c.time)},{k:'Status',v:c.status||'active'}],tags:['Chat'],actions:actions});});
     }))));
 }
 
