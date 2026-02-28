@@ -191,6 +191,11 @@ export async function expertiseHandler(input, context) {
         // This is the correct flow - expert uses their knowledge
         return await generateExpertiseResponse(input, expertise, context);
 
+      // v87: BUILD → PLAN — expert mode should not dead-end on BUILD requests.
+      // Fall through to expert response (expert can discuss building within their domain).
+      case DecisionType.PLAN:
+        return await generateExpertiseResponse(input, expertise, context);
+
       default:
         return handleRefuseDecision(input, decision, context);
     }

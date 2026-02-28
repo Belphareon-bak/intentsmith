@@ -22,8 +22,20 @@ import {
 import { handleFileDecision, handleFileWriteDecision } from './file.js';
 import { handleLocalDecision } from './local.js';
 import { handleShellDecision } from './conversation.js';
+import { config } from '../../config.js';
 import { readdirSync } from 'fs';
 import { extname } from 'path';
+
+// ─── Phase C: Build handoff (lazy-loaded, null if lifecycle disabled) ───────
+let handleBuildDetected = null;
+if (config.features.lifecycle !== false) {
+  try {
+    const bh = await import('./build-handoff.js');
+    handleBuildDetected = bh.handleBuildDetected;
+  } catch (err) {
+    logger.warn('ProjectHandler', `Build handoff not available: ${err.message}`);
+  }
+}
 
 // ════════════════════════════════════════════════════════════════════════════════
 // v56.2 Sprint D: PROJECT_SELF_PATTERNS (#8)
@@ -352,6 +364,22 @@ export async function projectHandler(input, context) {
           return handleShellDecision(input, decision, context);
         }
         return await handleLocalDecision(input, decision, context);
+
+      // ════════════════════════════════════════════════════════════════════
+      // v87: BUILD → PLAN: Handoff to Planner pipeline
+      // Previously missing → fell to default → REFUSE dead end
+      // ════════════════════════════════════════════════════════════════════
+      case DecisionType.PLAN:
+        if (handleBuildDetected) {
+          return handleBuildDetected(input, decision, {
+            ...context,
+            hasActiveProject: true,
+            project: project,
+            projectPath: project.path,
+          });
+        }
+        // Phase C not loaded — fall through to ANSWER with project context
+        return await handleAnswerDecision(input, decision, context);
 
       case DecisionType.TOOL_CALL:
         // v44.2 - Ensure project context is fully propagated for sandbox
