@@ -159,6 +159,24 @@ function buildProjectStatusResponse(input, project, workingMemory, context) {
     parts.push(`⚠️ **Drift count:** ${workingMemory.driftCount} (odchylky od cíle)`);
   }
 
+  // v88.2: Enrich with cached project analysis (structure, stack, git, etc.)
+  if (context.projectAnalysis) {
+    // Extract key sections from the analysis text for a concise summary
+    const analysis = context.projectAnalysis;
+    const structureMatch = analysis.match(/### Source Structure\n([\s\S]*?)(?=\n###|$)/);
+    const gitMatch = analysis.match(/### Git\n([\s\S]*?)(?=\n###|$)/);
+    const pkgMatch = analysis.match(/### package\.json\n([\s\S]*?)(?=\n###|$)/);
+
+    const analysisParts = [];
+    if (pkgMatch) analysisParts.push(pkgMatch[1].trim());
+    if (structureMatch) analysisParts.push(structureMatch[1].trim());
+    if (gitMatch) analysisParts.push(gitMatch[1].trim());
+
+    if (analysisParts.length > 0) {
+      parts.push(`\n📊 **Analýza projektu:**\n${analysisParts.join('\n')}`);
+    }
+  }
+
   // History summary if available
   const historyLen = context.history?.length || 0;
   if (historyLen > 0) {

@@ -28,9 +28,10 @@ const initializedConversations = new Set();
  * @param {string} conversationId
  * @param {Object} project — { id, name, path, description }
  * @param {Object} [memoryBank] — MemoryBank instance
+ * @param {Object} [db] — Database module (for project_memory lookup)
  * @returns {string} — Context block to inject, or empty string
  */
-export function maybeInitContext(conversationId, project, memoryBank) {
+export function maybeInitContext(conversationId, project, memoryBank, db) {
   if (!conversationId || !project?.path || !project?.id) return '';
   if (initializedConversations.has(conversationId)) return '';
 
@@ -38,7 +39,7 @@ export function maybeInitContext(conversationId, project, memoryBank) {
   initializedConversations.add(conversationId);
 
   try {
-    return buildInitContext(project, memoryBank);
+    return buildInitContext(project, memoryBank, db);
   } catch (err) {
     logger.warn('ContextInit', `Init failed: ${err.message}`, { projectId: project.id });
     return '';
@@ -50,9 +51,10 @@ export function maybeInitContext(conversationId, project, memoryBank) {
  *
  * @param {Object} project
  * @param {Object} [memoryBank]
+ * @param {Object} [db] — Database module (for project_memory lookup)
  * @returns {string}
  */
-function buildInitContext(project, memoryBank) {
+function buildInitContext(project, memoryBank, db) {
   const projectPath = project.path;
   const sections = [];
 
@@ -102,6 +104,23 @@ function buildInitContext(project, memoryBank) {
     if (mbContext) {
       sections.push(mbContext);
     }
+  }
+
+  // 6. Cached project analysis from DB (v88.2)
+  if (db && project.id) {
+    try {
+      const pmDb = db.projectMemory || db;
+      if (pmDb.get) {
+        const row = pmDb.get.get(project.id, 'last_analysis');
+        if (row?.value) {
+          // Truncate to ~1500 chars — the full analysis is already in fullContext.projectAnalysis
+          const truncated = row.value.length > 1500
+            ? row.value.substring(0, 1500) + '\n...[zkráceno]'
+            : row.value;
+          sections.push(`[Analýza projektu]\n${truncated}`);
+        }
+      }
+    } catch { /* non-critical */ }
   }
 
   if (sections.length === 0) return '';

@@ -295,6 +295,77 @@ test('getOrCreate returns conflict flag for duplicate active name', () => {
   projRepo.delete.run(proj.id);
 });
 
+// ─── Suite 6: v88.2 — context-init reads project_memory ─────────────────────
+
+suite('context-init — reads cached analysis from DB (v88.2)');
+
+const { maybeInitContext, resetContextInit } = await import('../src/chat/context-init.js');
+
+test('maybeInitContext injects analysis from DB when available', () => {
+  const convId = 'test-conv-analysis-' + Date.now();
+  const dir = path.join(tmpDir, 'proj-ctx-init');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'README.md'), '# Test Proj\nHello');
+
+  const fakeDb = {
+    projectMemory: {
+      get: {
+        get(projectId, key) {
+          if (key === 'last_analysis') {
+            return { value: '### Source Structure\nTotal files: 42\nCode files: 10' };
+          }
+          return null;
+        },
+      },
+    },
+  };
+
+  const result = maybeInitContext(convId, { id: 999, name: 'TestProj', path: dir }, null, fakeDb);
+  assert(result.includes('Analýza projektu'), `should contain analysis section, got: ${result.substring(0, 200)}`);
+  assert(result.includes('Total files: 42'), 'should contain analysis data');
+});
+
+test('maybeInitContext works without DB (backward compat)', () => {
+  const convId = 'test-conv-no-db-' + Date.now();
+  const dir = path.join(tmpDir, 'proj-ctx-no-db');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'README.md'), '# NoDBTest\nContent');
+
+  const result = maybeInitContext(convId, { id: 888, name: 'NoDBTest', path: dir }, null, null);
+  assert(result.includes('README.md'), 'should still contain README section');
+  assert(!result.includes('Analýza projektu'), 'should NOT contain analysis section without DB');
+});
+
+test('maybeInitContext skips analysis when DB has no last_analysis', () => {
+  const convId = 'test-conv-empty-db-' + Date.now();
+  const dir = path.join(tmpDir, 'proj-ctx-empty');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'README.md'), '# EmptyDB\nContent');
+
+  const fakeDb = {
+    projectMemory: {
+      get: {
+        get() { return null; },
+      },
+    },
+  };
+
+  const result = maybeInitContext(convId, { id: 777, name: 'EmptyDB', path: dir }, null, fakeDb);
+  assert(result.includes('README.md'), 'should still contain README');
+  assert(!result.includes('Analýza projektu'), 'should NOT contain analysis when DB returns null');
+});
+
+// ─── Suite 7: v88.2 — buildProjectStatusResponse enrichment ─────────────────
+
+suite('buildProjectStatusResponse — analysis enrichment (v88.2)');
+
+// We can't easily import the function since it's not exported, but we can test
+// the structural pattern — the function reads context.projectAnalysis
+test('project.js exports projectHandler function', async () => {
+  const mod = await import('../src/chat/handlers/project.js');
+  assert(typeof mod.projectHandler === 'function', 'should export projectHandler');
+});
+
 // ─── Cleanup ────────────────────────────────────────────────────────────────
 
 try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ok */ }

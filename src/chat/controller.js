@@ -1727,11 +1727,21 @@ ChatController.handle = async function(request) {
     const projectId = context.projectId || state.project?.id;
     if (projectId && state.project?.path) {
       const bank = getMemoryBank();
-      contextInitBlock = maybeInitContext(dbConversationId, state.project, bank);
+      contextInitBlock = maybeInitContext(dbConversationId, state.project, bank, db);
     }
   } catch (err) {
     logger.warn('ChatController', `Context Init failed: ${err.message}`);
   }
+
+  // v88.2: Load cached project analysis from project_memory
+  let projectAnalysis = '';
+  try {
+    const projectId = context.projectId || state.project?.id;
+    if (projectId) {
+      const row = db.projectMemory.get.get(projectId, 'last_analysis');
+      if (row?.value) projectAnalysis = row.value;
+    }
+  } catch { /* non-fatal */ }
 
   // ════════════════════════════════════════════════════════════════════════════
   // UPDATE SESSION STATE (v44.1 - persistent project/expert)
@@ -1883,6 +1893,8 @@ ChatController.handle = async function(request) {
     memoryBankContext,
     // v67.0 — Context Init block (first turn only)
     contextInitBlock,
+    // v88.2 — Cached project analysis (structure, stack, git, etc.)
+    projectAnalysis,
     // v56.0 Sprint 3 — ConversationStore reference
     conversationStore: store,
     // v63.0: AbortSignal for cancel propagation (from server req.on('close'))

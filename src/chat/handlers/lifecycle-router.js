@@ -242,14 +242,25 @@ async function handleProposedResponse(input, state, context) {
     // C4: Bind this session as lifecycle owner
     bindSessionToLifecycle(sessionId, lifecycle.id);
 
-    // P3: Analyze existing project state for context injection
-    const { analyzeExistingProject } = await import('../../planner/lifecycle-analyzer.js');
-    let analysisDb = null;
+    // P3: Use cached project analysis from DB if available, else analyze fresh
+    let projectContext = '';
     try {
       const dbMod = await import('../../db/database.js');
-      analysisDb = { conversations: dbMod.conversations, projectMemory: dbMod.projectMemory };
-    } catch { /* DB not available — analyzer works without it */ }
-    const projectContext = await analyzeExistingProject(projectPath, projectId, analysisDb);
+      const cached = dbMod.projectMemory?.get?.get(projectId, 'last_analysis');
+      if (cached?.value) {
+        projectContext = cached.value;
+        logger.info('LifecycleRouter', 'Using cached project analysis from DB', { projectId, len: projectContext.length });
+      }
+    } catch { /* DB not available */ }
+    if (!projectContext) {
+      const { analyzeExistingProject } = await import('../../planner/lifecycle-analyzer.js');
+      let analysisDb = null;
+      try {
+        const dbMod = await import('../../db/database.js');
+        analysisDb = { conversations: dbMod.conversations, projectMemory: dbMod.projectMemory };
+      } catch { /* DB not available — analyzer works without it */ }
+      projectContext = await analyzeExistingProject(projectPath, projectId, analysisDb);
+    }
 
     // Start spec analysis
     const { startSpec } = await import('../../planner/lifecycle-spec.js');
