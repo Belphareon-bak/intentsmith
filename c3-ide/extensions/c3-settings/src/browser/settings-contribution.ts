@@ -129,10 +129,40 @@ export const C3_PREFERENCE_SCHEMA = {
     },
 
     // ─── Features ─────────────────────────────────────
+    'c3.features.agents': {
+      type: 'boolean',
+      default: C3_DEFAULTS['c3.features.agents'],
+      description: 'Povolit autonomní agenty a monitorování.',
+    },
+    'c3.features.lifecycle': {
+      type: 'boolean',
+      default: C3_DEFAULTS['c3.features.lifecycle'],
+      description: 'Povolit lifecycle engine (SPEC→BUILD→REVIEW).',
+    },
+    'c3.features.expertises': {
+      type: 'boolean',
+      default: C3_DEFAULTS['c3.features.expertises'],
+      description: 'Povolit doménové expertízy a merge engine.',
+    },
+    'c3.features.telemetry': {
+      type: 'boolean',
+      default: C3_DEFAULTS['c3.features.telemetry'],
+      description: 'Povolit resilience telemetrii a metriky.',
+    },
+    'c3.features.specialistTelemetry': {
+      type: 'boolean',
+      default: C3_DEFAULTS['c3.features.specialistTelemetry'],
+      description: 'Povolit pasivní observabilitu specialistů.',
+    },
+    'c3.features.autonomy': {
+      type: 'boolean',
+      default: C3_DEFAULTS['c3.features.autonomy'],
+      description: 'Povolit guarded autonomy — self-tuning CRE.',
+    },
     'c3.features.skills': {
       type: 'boolean',
       default: C3_DEFAULTS['c3.features.skills'],
-      description: 'Povolit systém skillů — automatické rozpoznání a spouštění opakujících se postupů (v85).',
+      description: 'Povolit systém skillů — automatické rozpoznání a spouštění opakujících se postupů.',
     },
 
     // ─── UI ────────────────────────────────────────────

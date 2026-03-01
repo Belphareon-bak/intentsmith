@@ -1,5 +1,6 @@
 import { getCurrentVersion } from '../packaging/auto-updater.js';
 import { featureManager } from '../core/feature-manager.js';
+import config from '../config.js';
 
 // H9: Settings, Health, Autocomplete, Audit, Logs routes
 export function createMiscRoutes(deps) {
@@ -51,6 +52,26 @@ export function createMiscRoutes(deps) {
       } catch (err) {
         sendJSON(res, 500, safeError(err));
       }
+    },
+
+    // ── Feature Flags ───────────────────────────────────────────────────
+    'GET /api/features': (req, res) => {
+      sendJSON(res, 200, { features: featureManager.getAll() });
+    },
+
+    'POST /api/features/reset': (req, res) => {
+      featureManager.resetToDefaults(config.features);
+      sendJSON(res, 200, { ok: true, features: featureManager.getAll() });
+    },
+
+    'POST /api/features/:name': async (req, res, params) => {
+      const name = params.name;
+      if (!featureManager.has(name)) {
+        return sendJSON(res, 400, { error: `Unknown feature: ${name}` });
+      }
+      const body = await parseBody(req);
+      featureManager.set(name, !!body.enabled);
+      sendJSON(res, 200, { ok: true, features: featureManager.getAll() });
     },
 
     'GET /api/health': (req, res) => {

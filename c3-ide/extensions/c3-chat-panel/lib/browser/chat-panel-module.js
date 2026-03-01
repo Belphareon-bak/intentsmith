@@ -316,7 +316,7 @@ var CONVERSATIONS=[];
 /* Specialists = expertises with deterministic tools (is_specialist from backend or default) */
 var SPECIALISTS=EXPERTISES.filter(function(e){return e.isSpecialist;}).map(function(e){return{emoji:e.emoji,name:e.name,desc:e.desc,domain:e.domain,tags:[e.domain||'','Specialista'].filter(Boolean)};});
 var WORKERS=[];
-var SETTINGS_SECTIONS=[{icon:'👤',title:'Account',desc:'Identita a profil'},{icon:'🤖',title:'LLM',desc:'Modely a inference'},{icon:'🧠',title:'Memory',desc:'Paměť a kontext'},{icon:'🔔',title:'Notifications',desc:'Upozornění'},{icon:'📄',title:'Output',desc:'Formátování výstupu'},{icon:'🎨',title:'Appearance',desc:'Vzhled a přizpůsobení'},{icon:'🖥️',title:'System',desc:'Systém a diagnostika'},{icon:'📦',title:'Storage',desc:'Data a úložiště'},{icon:'💾',title:'Backup',desc:'Zálohy a export'},{icon:'ℹ️',title:'About',desc:'O aplikaci'}];
+var SETTINGS_SECTIONS=[{icon:'👤',title:'Account',desc:'Identita a profil'},{icon:'🤖',title:'LLM',desc:'Modely a inference'},{icon:'🧠',title:'Memory',desc:'Paměť a kontext'},{icon:'🔔',title:'Notifications',desc:'Upozornění'},{icon:'📄',title:'Output',desc:'Formátování výstupu'},{icon:'🎨',title:'Appearance',desc:'Vzhled a přizpůsobení'},{icon:'🖥️',title:'System',desc:'Systém a diagnostika'},{icon:'📦',title:'Storage',desc:'Data a úložiště'},{icon:'💾',title:'Backup',desc:'Zálohy a export'},{icon:'🎛️',title:'Feature Flags',desc:'Runtime přepínače'},{icon:'ℹ️',title:'About',desc:'O aplikaci'}];
 var FILES=[];
 var _collapsedDirs={};var _wtRoot='';var _wtLoading=false;var _wtRenaming=null;var _wtNewInput=null;
 /* Expose _wtRoot on window so ws-client.js can send cwd with terminal commands */
@@ -2121,10 +2121,16 @@ function centerExpertiseWizard(){
 var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSizeVal:13,fontIdx:0,custom1:null,custom2:null,bgIdx:0,bgCustom1:null,bgCustom2:null,customCSS:'',visualMode:'borders',tileOpacity:80,bgDim:30,sidebarOpacity:80,projectsDir:'',autoCollapse:true,restoreSession:true,lastView:''};
 /* v87.3: Backend config state — loaded from /api/settings */
 var _bCfg=null;var _bCfgLoading=false;var _gpuInfo=null;var _ollamaModels=null;var _sysInfo=null;var _storageInfo=null;var _bCfgSaveTimer=null;
+/* v91: Feature flags state — loaded from GET /api/features */
+var _featureFlags=null;var _ffLoading=false;
 function _loadBCfg(cb){if(_bCfg&&!_bCfgLoading){if(cb)cb();return;}_bCfgLoading=true;fetch(_backendBase+'/api/settings',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_bCfg=d||{};_bCfgLoading=false;if(cb)cb();renderCenter();}).catch(function(){_bCfg=_bCfg||{};_bCfgLoading=false;if(cb)cb();});}
 function _saveBCfg(){if(!_bCfg)return;clearTimeout(_bCfgSaveTimer);_bCfgSaveTimer=setTimeout(function(){fetch(_backendBase+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(_bCfg),signal:AbortSignal.timeout(3000)}).catch(function(){});},500);}
 function _bVal(key,def){return _bCfg&&_bCfg[key]!=null?_bCfg[key]:def;}
 function _bSet(key,val){if(!_bCfg)_bCfg={};_bCfg[key]=val;_saveBCfg();renderCenter();}
+/* v91: Feature flags loader */
+function _loadFeatureFlags(cb){if(_ffLoading)return;_ffLoading=true;fetch(_backendBase+'/api/features',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_featureFlags=d.features||{};_ffLoading=false;if(cb)cb();renderCenter();}).catch(function(){_ffLoading=false;if(cb)cb();});}
+function _toggleFeatureFlag(name,enabled){fetch(_backendBase+'/api/features/'+encodeURIComponent(name),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:enabled}),signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){if(d.features)_featureFlags=d.features;renderCenter();}).catch(function(){});}
+function _resetFeatureFlags(){fetch(_backendBase+'/api/features/reset',{method:'POST',signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){if(d.features)_featureFlags=d.features;renderCenter();}).catch(function(){});}
 /* v87.3: Info icon helper — native title tooltip on (i) badge */
 function _iI(text){return h('span',{style:{display:'inline-flex',alignItems:'center',justifyContent:'center',width:14,height:14,borderRadius:'50%',background:C.bg4,color:C.tx3,fontSize:'8px',fontWeight:700,cursor:'help',marginLeft:5,verticalAlign:'middle',flexShrink:0},title:text},'i');}
 function _lI(text,info){return h('span',{style:{display:'inline-flex',alignItems:'center'}},text,_iI(info));}
@@ -2277,6 +2283,7 @@ function settingsDetailPanel(sec,si){
     case 'System':panelBody=settingsSystemPanel();break;
     case 'Storage':panelBody=settingsStoragePanel();break;
     case 'Backup':panelBody=settingsBackupPanel();break;
+    case 'Feature Flags':panelBody=settingsFeatureFlags();break;
     case 'About':panelBody=settingsAboutPanel();break;
     default:panelBody=h('div',{style:{padding:12,color:C.tx3}},'Žádná nastavení.');
   }
@@ -2583,6 +2590,33 @@ function settingsBackupPanel(){
         onClick:function(){if(!confirm('Opravdu obnovit výchozí nastavení? Všechny změny budou ztraceny.'))return;
           fetch(_backendBase+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(3000)})
           .then(function(){_bCfg={};_backupMsg={ok:true,text:'Nastavení obnovena na výchozí'};renderCenter();setTimeout(function(){_backupMsg=null;renderCenter();},4000);}).catch(function(e){_backupMsg={ok:false,text:'Reset selhal: '+e.message};renderCenter();});}},'Obnovit výchozí')));
+}
+/* v91: Feature Flags panel */
+var _FF_META=[
+  {key:'agents',label:'Workeri',desc:'Autonomní agenti a monitorování',critical:true},
+  {key:'lifecycle',label:'Projekty',desc:'Lifecycle engine (SPEC→BUILD→REVIEW)',critical:true},
+  {key:'expertises',label:'Expertízy',desc:'Doménové expertízy a merge engine',critical:true},
+  {key:'telemetry',label:'Telemetrie',desc:'Resilience telemetrie a metriky',critical:false},
+  {key:'specialistTelemetry',label:'Specialist Telemetry',desc:'Pasivní observabilita specialistů',critical:false},
+  {key:'autonomy',label:'Autonomie',desc:'Guarded autonomy — self-tuning CRE',critical:false},
+  {key:'skills',label:'Skilly',desc:'Automatické makro-recepty',critical:false}
+];
+function settingsFeatureFlags(){
+  if(!_featureFlags&&!_ffLoading)_loadFeatureFlags();
+  if(!_featureFlags)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
+  var warnStyle={fontSize:_fs(9),color:'#e8a735',marginTop:3,display:'flex',alignItems:'center',gap:4};
+  return h('div',null,
+    h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:12,lineHeight:1.4}},
+      'Runtime přepínače subsystémů. Změny jsou okamžité a platí do restartu serveru.'),
+    _FF_META.map(function(ff){
+      var val=!!_featureFlags[ff.key];
+      return h('div',{key:ff.key,style:{marginBottom:2}},
+        _settingsToggle(ff.label,ff.desc,val,function(nv){_toggleFeatureFlag(ff.key,nv);}),
+        ff.critical&&val?null:ff.critical?h('div',{style:warnStyle},'⚠ ','Subsystém vypnut — některé funkce nebudou dostupné.'):null);
+    }),
+    h('div',{style:{marginTop:16,paddingTop:12,borderTop:'1px solid '+C.border}},
+      h('button',{style:{background:C.bg4,color:C.tx2,border:'1px solid '+C.border,borderRadius:6,padding:'6px 14px',cursor:'pointer',fontSize:_fs(11)},
+        onClick:function(){_resetFeatureFlags();}},'Obnovit výchozí')));
 }
 function settingsAboutPanel(){
   return h('div',{style:{textAlign:'center',padding:'30px 0'}},

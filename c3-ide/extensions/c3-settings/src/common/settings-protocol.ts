@@ -38,6 +38,12 @@ export interface C3Settings {
   'c3.export.includeSrc': boolean;
 
   // Features
+  'c3.features.agents': boolean;
+  'c3.features.lifecycle': boolean;
+  'c3.features.expertises': boolean;
+  'c3.features.telemetry': boolean;
+  'c3.features.specialistTelemetry': boolean;
+  'c3.features.autonomy': boolean;
   'c3.features.skills': boolean;
 
   // UI
@@ -122,6 +128,12 @@ export const C3_DEFAULTS: C3Settings = {
   'c3.export.includeAgentLog': false,
   'c3.export.includeSrc': true,
 
+  'c3.features.agents': true,
+  'c3.features.lifecycle': true,
+  'c3.features.expertises': true,
+  'c3.features.telemetry': true,
+  'c3.features.specialistTelemetry': true,
+  'c3.features.autonomy': false,
   'c3.features.skills': true,
 
   'c3.language': 'cs',

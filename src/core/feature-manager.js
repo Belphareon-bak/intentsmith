@@ -1,4 +1,4 @@
-// FeatureManager — runtime feature flag control (v85)
+// FeatureManager — runtime feature flag control (v91)
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Singleton that manages feature flags with hot-toggle support.
@@ -13,15 +13,24 @@
 //   featureManager.isEnabled('skills')    — returns boolean
 //
 // All features default to their env-based value from config.features.
-// Runtime changes are in-memory only (not persisted to env vars).
+// Runtime changes are IN-MEMORY ONLY — intentional design decision:
+//   - set() toggles flags at runtime for immediate effect
+//   - After restart, flags revert to env-based defaults (config.features)
+//   - This prevents runtime toggles from permanently altering production config
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { logger } from './logger.js';
 
-// Feature key → IDE setting key mapping
+// IDE setting key → feature flag name mapping
 const SETTING_KEY_MAP = {
   'c3.features.skills': 'skills',
+  'c3.features.agents': 'agents',
+  'c3.features.lifecycle': 'lifecycle',
+  'c3.features.expertises': 'expertises',
+  'c3.features.telemetry': 'telemetry',
+  'c3.features.specialistTelemetry': 'specialistTelemetry',
+  'c3.features.autonomy': 'autonomy',
 };
 
 class FeatureManager {
@@ -39,6 +48,15 @@ class FeatureManager {
       this._features.set(key, !!value);
     }
     logger.debug('FeatureManager', `Initialized with ${this._features.size} features`, Object.fromEntries(this._features));
+  }
+
+  /**
+   * Check if a feature name is known (registered via init).
+   * @param {string} name
+   * @returns {boolean}
+   */
+  has(name) {
+    return this._features.has(name);
   }
 
   /**
@@ -100,6 +118,27 @@ class FeatureManager {
    */
   onChange(fn) {
     this._listeners.push(fn);
+  }
+
+  /**
+   * Reset all flags to env-based defaults from config.features.
+   * Only calls set() for flags whose value actually differs from the default,
+   * so onChange listeners fire only for genuinely changed flags.
+   * @param {Object} configFeatures — e.g. config.features
+   */
+  resetToDefaults(configFeatures) {
+    if (!configFeatures || typeof configFeatures !== 'object') return;
+    let changed = 0;
+    for (const [key, value] of Object.entries(configFeatures)) {
+      const defaultVal = !!value;
+      if (this._features.get(key) !== defaultVal) {
+        this.set(key, defaultVal);
+        changed++;
+      }
+    }
+    if (changed > 0) {
+      logger.info('FeatureManager', `Reset ${changed} flag(s) to defaults`);
+    }
   }
 
   /**
