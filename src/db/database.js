@@ -139,17 +139,59 @@ export const projects = {
   delete: db.prepare(`DELETE FROM projects WHERE id = ?`),
 
   // Archive / Restore / Soft-delete
-  archive: db.prepare(`
-    UPDATE projects SET status = 'archived', archived_at = CURRENT_TIMESTAMP WHERE id = ?
+  // v88.1: Archive/delete add timestamp suffix to name; restore strips it
+  _archiveRaw: db.prepare(`
+    UPDATE projects SET status = 'archived', name = ?, archived_at = CURRENT_TIMESTAMP WHERE id = ?
+  `),
+  _restoreRaw: db.prepare(`
+    UPDATE projects SET status = 'active', name = ?, archived_at = NULL, deleted_at = NULL WHERE id = ?
+  `),
+  _softDeleteRaw: db.prepare(`
+    UPDATE projects SET status = 'deleted', name = ?, deleted_at = CURRENT_TIMESTAMP WHERE id = ?
+  `),
+  _updateName: db.prepare(`UPDATE projects SET name = ? WHERE id = ?`),
+
+  _findActiveByName: db.prepare(`
+    SELECT * FROM projects WHERE name = ? AND status = 'active'
   `),
 
-  restore: db.prepare(`
-    UPDATE projects SET status = 'active', archived_at = NULL, deleted_at = NULL WHERE id = ?
-  `),
+  archive: {
+    run(id) {
+      const proj = projects.findById.get(id);
+      if (!proj) return;
+      const suffix = `[archived-${Date.now()}]`;
+      const newName = `${proj.name} ${suffix}`;
+      projects._archiveRaw.run(newName, id);
+    }
+  },
 
-  softDelete: db.prepare(`
-    UPDATE projects SET status = 'deleted', deleted_at = CURRENT_TIMESTAMP WHERE id = ?
-  `),
+  restore: {
+    run(id) {
+      const proj = projects.findById.get(id);
+      if (!proj) return { conflict: false };
+      // Strip suffix: "MyApp [archived-1709...]" → "MyApp"
+      const originalName = proj.name.replace(/ \[(archived|deleted)-\d+\]$/, '');
+      // Check if the original name is now taken by an active project
+      const conflict = projects._findActiveByName.get(originalName);
+      if (conflict) {
+        // Keep a safe name — cannot restore to conflicting name
+        projects._restoreRaw.run(proj.name, id);
+        return { conflict: true, conflictWith: conflict.id, restoredName: proj.name, originalName };
+      }
+      projects._restoreRaw.run(originalName, id);
+      return { conflict: false, restoredName: originalName };
+    }
+  },
+
+  softDelete: {
+    run(id) {
+      const proj = projects.findById.get(id);
+      if (!proj) return;
+      const suffix = `[deleted-${Date.now()}]`;
+      const newName = `${proj.name} ${suffix}`;
+      projects._softDeleteRaw.run(newName, id);
+    }
+  },
 
   // Filtered listing (default = active only)
   listActive: db.prepare(`
@@ -171,8 +213,29 @@ export const projects = {
   getOrCreate(name, projectPath, description = '') {
     let project = this.findByPath.get(projectPath);
     if (!project) {
+      // v88.1: Check if name collides with an existing active project
+      const nameConflict = this._findActiveByName.get(name);
+      if (nameConflict) {
+        // Name taken — caller gets the conflict info
+        return { ...nameConflict, _nameConflict: true, _requestedName: name };
+      }
       const result = this.create.run(name, projectPath, description);
       project = { id: result.lastInsertRowid, name, path: projectPath, description, is_external: 0 };
+    } else if (project.status === 'archived' || project.status === 'deleted') {
+      // v88.1: Path exists but project was archived/deleted — reactivate it
+      const originalName = project.name.replace(/ \[(archived|deleted)-\d+\]$/, '');
+      // Use the new name if provided, otherwise restore original
+      const finalName = name || originalName;
+      // Check the final name doesn't conflict
+      const nameConflict = this._findActiveByName.get(finalName);
+      if (nameConflict && nameConflict.id !== project.id) {
+        return { ...nameConflict, _nameConflict: true, _requestedName: finalName };
+      }
+      this._restoreRaw.run(finalName, project.id);
+      if (description) this.updateDescription.run(description, project.id);
+      project.name = finalName;
+      project.status = 'active';
+      project.description = description || project.description;
     } else {
       // Update name/description if existing record has auto-generated name and caller provides a better one
       const needsNameUpdate = name && project.name !== name && /^lc-\d+$/.test(project.name);
@@ -198,14 +261,27 @@ export const projects = {
     // Check if already registered
     let project = this.findByPath.get(projectPath);
     if (project) {
+      if (project.status === 'archived' || project.status === 'deleted') {
+        // v88.1: Reactivate archived/deleted project at same path
+        const originalName = project.name.replace(/ \[(archived|deleted)-\d+\]$/, '');
+        const finalName = name || originalName;
+        const nameConflict = this._findActiveByName.get(finalName);
+        const safeName = nameConflict && nameConflict.id !== project.id
+          ? `${finalName} (${Date.now()})` : finalName;
+        this._restoreRaw.run(safeName, project.id);
+        if (description) this.updateDescription.run(description, project.id);
+        project.name = safeName;
+        project.status = 'active';
+        return { project, wasExisting: true, reactivated: true };
+      }
       this.updateLastActive.run(project.id);
       return { project, wasExisting: true };
     }
 
-    // Check name uniqueness and generate alternative if needed
+    // v88.1: Check name uniqueness only against active projects
     let finalName = name;
     let counter = 1;
-    while (this.findByName.get(finalName)) {
+    while (this._findActiveByName.get(finalName)) {
       finalName = `${name} (${counter++})`;
     }
 

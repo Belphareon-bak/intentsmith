@@ -173,6 +173,14 @@ export function createProjectRoutes(deps) {
         // Create in DB with lifecycle SPEC
         const project = db.projects.getOrCreate(name, projectPath, description || '');
 
+        // v88.1: Check for name collision
+        if (project._nameConflict) {
+          return sendJSON(res, 409, {
+            error: `Projekt s názvem "${name}" již existuje (id: ${project.id}).`,
+            existingProject: { id: project.id, name: project.name, path: project.path },
+          });
+        }
+
         // v88: Analyze project state and persist to project_memory
         try {
           const { analyzeExistingProject } = await import('../planner/lifecycle-analyzer.js');
@@ -558,6 +566,7 @@ export function createProjectRoutes(deps) {
     },
 
     // Archive project (soft — read-only, hidden from default list)
+    // v88.1: Adds timestamp suffix to name to free it for reuse
     'PATCH /api/projects/:id/archive': async (req, res, params) => {
       try {
         const project = db.projects.findById.get(safeParseInt(params.id));
@@ -580,12 +589,13 @@ export function createProjectRoutes(deps) {
     },
 
     // Restore project from archive
+    // v88.1: Strips suffix, warns on name collision
     'PATCH /api/projects/:id/restore': async (req, res, params) => {
       try {
         const project = db.projects.findById.get(safeParseInt(params.id));
         if (!project) return sendJSON(res, 404, { error: 'Project not found' });
 
-        db.projects.restore.run(safeParseInt(params.id));
+        const restoreResult = db.projects.restore.run(safeParseInt(params.id));
 
         // Also restore archived conversations in this project
         const convs = db.conversations.findByProject.all(safeParseInt(params.id));
@@ -595,7 +605,12 @@ export function createProjectRoutes(deps) {
           }
         }
 
-        sendJSON(res, 200, { success: true, status: 'active', restoredConversations: convs.length });
+        const response = { success: true, status: 'active', restoredConversations: convs.length };
+        if (restoreResult?.conflict) {
+          response.warning = `Název "${restoreResult.originalName}" je již obsazený jiným projektem. Projekt obnoven pod původním názvem "${restoreResult.restoredName}".`;
+          response.nameConflict = true;
+        }
+        sendJSON(res, 200, response);
       } catch (err) {
         sendJSON(res, 500, safeError(err));
       }

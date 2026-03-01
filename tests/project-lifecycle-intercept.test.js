@@ -195,6 +195,106 @@ await testAsync('project handler exports projectHandler function', async () => {
     'should export projectHandler function');
 });
 
+// ─── Suite 5: Archive/Delete name collision fix ────────────────────────────
+
+suite('projects DB — archive/delete name collision (v88.1)');
+
+const { projects: projRepo } = await import('../src/db/database.js');
+
+// Helper: clean up test projects
+function cleanupTestProject(name) {
+  try {
+    const p = projRepo.findByName.get(name);
+    if (p) projRepo.delete.run(p.id);
+  } catch { /* ok */ }
+}
+
+const testPath1 = '/tmp/c3-test-collision-' + Date.now() + '/proj1';
+const testPath2 = '/tmp/c3-test-collision-' + Date.now() + '/proj2';
+const testName = 'CollisionTest-' + Date.now();
+
+test('archive adds suffix to name', () => {
+  // Create project
+  const proj = projRepo.getOrCreate(testName, testPath1, 'test');
+  assert(proj.id, 'should create project');
+
+  // Archive it
+  projRepo.archive.run(proj.id);
+  const archived = projRepo.findById.get(proj.id);
+  assert(archived.status === 'archived', 'should be archived');
+  assert(archived.name.includes('[archived-'), `name should have suffix, got: ${archived.name}`);
+  assert(archived.name.startsWith(testName), 'should start with original name');
+});
+
+test('new project with same name succeeds after archive', () => {
+  // The original is archived with suffix, so the name is free
+  const proj2 = projRepo.getOrCreate(testName, testPath2, 'test2');
+  assert(proj2.id, 'should create project');
+  assert(!proj2._nameConflict, 'should NOT have name conflict');
+  assertEqual(proj2.name, testName);
+
+  // Cleanup
+  projRepo.delete.run(proj2.id);
+});
+
+test('restore strips suffix when no collision', () => {
+  // The archived project still exists from first test
+  const archived = projRepo.findByPath.get(testPath1);
+  assert(archived, 'archived project should exist');
+
+  const result = projRepo.restore.run(archived.id);
+  assert(!result.conflict, 'should not have conflict');
+
+  const restored = projRepo.findById.get(archived.id);
+  assertEqual(restored.name, testName);
+  assertEqual(restored.status, 'active');
+});
+
+test('softDelete adds suffix to name', () => {
+  const proj = projRepo.findByPath.get(testPath1);
+  assert(proj, 'project should exist');
+
+  projRepo.softDelete.run(proj.id);
+  const deleted = projRepo.findById.get(proj.id);
+  assert(deleted.status === 'deleted', 'should be deleted');
+  assert(deleted.name.includes('[deleted-'), `name should have suffix, got: ${deleted.name}`);
+});
+
+test('restore with name collision keeps suffixed name', () => {
+  // Create a new project with the same name
+  const proj2 = projRepo.getOrCreate(testName, testPath2, 'new one');
+  assert(proj2.id, 'new project created');
+
+  // Try to restore the deleted one — name is now taken
+  const deleted = projRepo.findByPath.get(testPath1);
+  const result = projRepo.restore.run(deleted.id);
+  assert(result.conflict, 'should have conflict');
+
+  const restored = projRepo.findById.get(deleted.id);
+  // Should still have the suffixed name since original is taken
+  assert(restored.name.includes('[deleted-'), `should keep suffix on conflict, got: ${restored.name}`);
+
+  // Cleanup
+  projRepo.delete.run(proj2.id);
+  projRepo.delete.run(deleted.id);
+});
+
+test('getOrCreate returns conflict flag for duplicate active name', () => {
+  const testPath3 = '/tmp/c3-test-collision-' + Date.now() + '/proj3';
+  const testPath4 = '/tmp/c3-test-collision-' + Date.now() + '/proj4';
+  const name3 = 'UniqueTest-' + Date.now();
+
+  const proj = projRepo.getOrCreate(name3, testPath3, 'first');
+  assert(proj.id, 'should create first project');
+
+  const dup = projRepo.getOrCreate(name3, testPath4, 'second');
+  assert(dup._nameConflict, 'should flag name conflict');
+  assertEqual(dup._requestedName, name3);
+
+  // Cleanup
+  projRepo.delete.run(proj.id);
+});
+
 // ─── Cleanup ────────────────────────────────────────────────────────────────
 
 try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ok */ }
