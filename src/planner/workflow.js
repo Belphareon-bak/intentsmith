@@ -292,17 +292,38 @@ RULES:
 // ─── JSON Parser (tolerant) ─────────────────────────────────────────────────
 
 function parseJSON(text) {
+  // Strip <think>...</think> reasoning blocks (deepseek-r1)
+  // Handle both closed and unclosed <think> blocks
+  let cleaned = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+  // If unclosed <think> remains, strip from <think> to end
+  if (cleaned.includes('<think>')) {
+    cleaned = cleaned.replace(/<think>[\s\S]*/g, '').trim();
+  }
+
   // Try direct parse
-  try { return JSON.parse(text); } catch {}
+  try { return JSON.parse(cleaned); } catch {}
   // Try extracting from markdown code block
-  const match = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const match = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (match) {
     try { return JSON.parse(match[1].trim()); } catch {}
   }
-  // Try finding first { ... } block
-  const braceMatch = text.match(/\{[\s\S]*\}/);
-  if (braceMatch) {
-    try { return JSON.parse(braceMatch[0]); } catch {}
+  // Try finding LAST complete { ... } block (more likely to be the JSON output)
+  const braceMatches = [...cleaned.matchAll(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g)];
+  if (braceMatches.length > 0) {
+    // Try from last to first (output is usually at the end)
+    for (let i = braceMatches.length - 1; i >= 0; i--) {
+      try { return JSON.parse(braceMatches[i][0]); } catch {}
+    }
+  }
+  // Greedy fallback: first { to last }
+  const greedyMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (greedyMatch) {
+    try { return JSON.parse(greedyMatch[0]); } catch {}
+  }
+  // Final fallback: try on original text
+  const origMatch = text.match(/\{[\s\S]*\}/);
+  if (origMatch) {
+    try { return JSON.parse(origMatch[0]); } catch {}
   }
   return null;
 }

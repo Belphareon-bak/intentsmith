@@ -96,7 +96,7 @@ Create a complete, structured project specification. Every section must be subst
 - non-functional requirements: minimum 3 (performance, security, usability, etc.)
 - tech_stack: specific versions/libraries, not just "Node.js" but "Node.js 22 + better-sqlite3"
 - architecture: component diagram with data flow, not just a pattern name
-- key design decisions: each with rationale explaining WHY (referencing trade-offs from assessment)
+- key design decisions: each with rationale explaining WHY + at least 2 alternatives_considered (MANDATORY — list what was NOT chosen)
 - risks: minimum 3 with concrete mitigation strategies
 - acceptance criteria: how do we know the project is DONE?
 
@@ -130,7 +130,7 @@ Create a complete, structured project specification. Every section must be subst
     "data_model": "string — schema/structure description"
   },
   "design_decisions": [
-    { "id": "DD1", "decision": "string", "chosen": "string", "alternatives_considered": ["string"], "rationale": "string — why this over alternatives" }
+    { "id": "DD1", "decision": "string", "chosen": "string", "alternatives_considered": ["alternative A", "alternative B"], "rationale": "string — why this over alternatives" }
   ],
   "security_model": {
     "threat_model": "string — key threats",

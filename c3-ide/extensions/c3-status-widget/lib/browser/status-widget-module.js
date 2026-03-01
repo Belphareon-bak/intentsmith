@@ -10,6 +10,11 @@ const browser_1 = require("@theia/core/lib/browser");
 let C3StatusBarContribution = class C3StatusBarContribution {
 
   onStart() {
+    // Lazy resolve — StatusBar from window.theia.container (set before onStart)
+    try {
+      var c = window.theia && window.theia.container;
+      if (c) this.statusBar = c.get(browser_1.StatusBar);
+    } catch (e) { /* ignore */ }
     if (!this.statusBar) {
       console.warn('[C3] StatusBar not available, skipping status items');
       return;
@@ -108,20 +113,13 @@ let C3StatusBarContribution = class C3StatusBarContribution {
   }
 };
 
-// Proper Theia DI decorators (compiled form)
-C3StatusBarContribution = inversify_1.decorate(inversify_1.injectable(), C3StatusBarContribution);
+// Proper Theia DI decorators (compiled form) — decorate() returns void, do NOT reassign
+inversify_1.decorate(inversify_1.injectable(), C3StatusBarContribution);
 
 /* ═══ DI Module ═══ */
+const _statusInstance = new C3StatusBarContribution();
 exports.default = new inversify_1.ContainerModule((bind) => {
-  bind(C3StatusBarContribution).toDynamicValue(ctx => {
-    const contrib = new C3StatusBarContribution();
-    // Inject StatusBar if available
-    try {
-      contrib.statusBar = ctx.container.get(browser_1.StatusBar);
-    } catch (e) {
-      console.warn('[C3] StatusBar service not found');
-    }
-    return contrib;
-  }).inSingletonScope();
+  // toConstantValue — no dynamic resolution, no circular dependency risk
+  bind(C3StatusBarContribution).toConstantValue(_statusInstance);
   bind(browser_1.FrontendApplicationContribution).toService(C3StatusBarContribution);
 });

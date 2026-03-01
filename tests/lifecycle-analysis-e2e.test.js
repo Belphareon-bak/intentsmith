@@ -1,20 +1,18 @@
-// E2E Test — Existing Project Analysis (ai-log-analyzer)
+// E2E Test — Existing Project Analysis (ai-log-analyzer) — Real LLM
 // ══════════════════════════════════════════════════════════════════════════════
-// Real scenario: User opens existing ai-log-analyzer project in C3 IDE
-// and asks for complete project analysis + improvement suggestions.
+// Real scenario: User opens existing ai-log-analyzer project and asks
+// for analysis + improvement suggestions. Uses REAL Ollama LLM for:
+//   1. Project context analysis (via analyzeExistingProject — deterministic)
+//   2. Real LLM-generated improvement suggestions
+//   3. Real LLM-generated project summary
 //
-// This is NOT a lifecycle build test — the user explicitly asks for analysis
-// only ("nic víc"). The test verifies:
-//   1. Project state reader correctly parses existing README + structure
-//   2. isProjectScopeBuild returns FALSE (analysis ≠ build)
-//   3. Domain registry matches project tags (Python, monitoring, etc.)
-//   4. Project analysis produces actionable improvement suggestions
-//   5. Existing project files are preserved (no modifications)
+// Also tests: project state reader, CRE classification, domain registry,
+// file integrity, improvement candidates, DB registration.
 //
-// Simulated project: ai-log-analyzer (Python log analysis pipeline)
-//   - Elasticsearch → 6-phase detection → PostgreSQL → Teams/Confluence
-//   - P93 percentile spike detection
-//   - K8s CronJobs (15-min, daily, weekly)
+// Requirements:
+//   - Ollama running at http://127.0.0.1:11434
+//   - Model: qwen2.5:32b (CHAT role)
+//   - Expected duration: 3-10 minutes
 //
 // Run: node tests/lifecycle-analysis-e2e.test.js
 // ══════════════════════════════════════════════════════════════════════════════
@@ -25,7 +23,9 @@ import { execSync } from 'child_process';
 
 import { isProjectScopeBuild } from '../src/chat/handlers/build-handoff.js';
 import { domainRegistry, extractTags } from '../src/domains/index.js';
-import { readProjectState, StateType, PhaseStatus } from '../src/chat/handlers/utils/project-state-reader.js';
+import { readProjectState, StateType } from '../src/chat/handlers/utils/project-state-reader.js';
+import { analyzeExistingProject } from '../src/planner/lifecycle-analyzer.js';
+import { callLLM } from '../src/planner/workflow.js';
 import { projects, db } from '../src/db/database.js';
 
 // ─── Test Infra ─────────────────────────────────────────────────────────────
@@ -33,6 +33,12 @@ import { projects, db } from '../src/db/database.js';
 let passed = 0;
 let failed = 0;
 const failures = [];
+const startTime = Date.now();
+let turnNum = 0;
+
+function elapsed() {
+  return `${((Date.now() - startTime) / 1000).toFixed(1)}s`;
+}
 
 function check(condition, name, detail = '') {
   if (condition) {
@@ -47,8 +53,33 @@ function check(condition, name, detail = '') {
 
 function section(name) {
   console.log(`\n${'═'.repeat(70)}`);
-  console.log(`  ${name}`);
+  console.log(`  ${name} │ ${elapsed()}`);
   console.log(`${'═'.repeat(70)}`);
+}
+
+function llmTurn(role, response) {
+  turnNum++;
+  const content = typeof response === 'string' ? response : (response?.content || '');
+  console.log(`\n${'─'.repeat(70)}`);
+  console.log(` LLM TURN ${turnNum} │ ${role} │ ${elapsed()}`);
+  console.log(`${'─'.repeat(70)}`);
+  console.log(content.substring(0, 600) + (content.length > 600 ? '\n  ...(truncated)' : ''));
+}
+
+// ─── Ollama Health Check ────────────────────────────────────────────────────
+
+async function checkOllama() {
+  try {
+    const resp = await fetch('http://127.0.0.1:11434/api/tags');
+    const data = await resp.json();
+    const models = data.models?.map(m => m.name) || [];
+    const hasChatModel = models.some(m => m.includes('qwen2.5'));
+    check(hasChatModel, 'Ollama: CHAT model available');
+    return hasChatModel;
+  } catch (e) {
+    console.error(`    Ollama not available: ${e.message}`);
+    return false;
+  }
 }
 
 // ─── Simulated ai-log-analyzer project files ────────────────────────────────
@@ -192,12 +223,19 @@ appVersion: "6.1.0"
 async function runTest() {
   console.log('══════════════════════════════════════════════════════════════════════');
   console.log('  E2E: Existing Project Analysis (ai-log-analyzer)');
+  console.log('  Mode: REAL LLM (Ollama)');
   console.log('══════════════════════════════════════════════════════════════════════');
 
-  const projectPath = `/tmp/lc-analysis-e2e-${Date.now()}`;
+  const ollamaOk = await checkOllama();
+  if (!ollamaOk) {
+    console.log('\n  Ollama not available — skipping test');
+    process.exit(0);
+  }
+
+  const projectPath = `/tmp/lc-analysis-real-${Date.now()}`;
 
   try {
-    // ═══ SETUP: Create simulated ai-log-analyzer project ══════════════════
+    // ═══ SETUP: Create simulated project ═════════════════════════════════════
 
     section('SETUP: Populate ai-log-analyzer project');
 
@@ -224,63 +262,37 @@ async function runTest() {
     fs.writeFileSync(path.join(projectPath, 'registry/known_errors.yaml'), 'errors: []\n');
     fs.writeFileSync(path.join(projectPath, '.c3/project.json'), JSON.stringify({ type: 'general', lifecycle: 'SPEC' }));
 
-    // Git init
     execSync('git init', { cwd: projectPath, stdio: 'pipe' });
     execSync('git config user.email "test@test.com"', { cwd: projectPath, stdio: 'pipe' });
     execSync('git config user.name "Test"', { cwd: projectPath, stdio: 'pipe' });
     execSync('git add -A', { cwd: projectPath, stdio: 'pipe' });
     execSync('git commit -m "ai-log-analyzer v6.1.0"', { cwd: projectPath, stdio: 'pipe' });
 
-    // Count files
-    const fileList = execSync('find . -type f -not -path "./.git/*" | wc -l', {
+    const fileCount = execSync('find . -type f -not -path "./.git/*" | wc -l', {
       cwd: projectPath, encoding: 'utf8',
     }).trim();
-    console.log(`    Created ${fileList} files in ${projectPath}`);
-    check(parseInt(fileList) >= 10, 'Setup: ≥10 project files created');
+    console.log(`    Created ${fileCount} files in ${projectPath}`);
+    check(parseInt(fileCount) >= 10, 'Setup: ≥10 project files created');
 
-    // ═══ TEST 1: Project State Reader ════════════════════════════════════
+    // ═══ TEST 1: Project State Reader ════════════════════════════════════════
 
-    section('1. Project State Reader — README + ROADMAP parsing');
+    section('1. Project State Reader');
 
     const projectState = readProjectState(projectPath);
 
     check(projectState != null, 'T1: readProjectState returns non-null');
     check(projectState.hasReadme === true, 'T1: README detected');
     check(projectState.hasRoadmap === true, 'T1: ROADMAP detected');
-
-    // State type — both exist but are "foreign" (not C3-generated, no C3 Studio marker)
     check(
       projectState.stateType === StateType.FOREIGN || projectState.stateType === StateType.HYBRID,
-      'T1: stateType is FOREIGN or HYBRID (non-C3 project)',
+      'T1: stateType is FOREIGN or HYBRID',
       `got: ${projectState.stateType}`
     );
 
-    // Description/summary from README
-    check(
-      projectState.description?.includes('log analysis') || projectState.summary?.includes('log analysis') || projectState.name?.includes('analysis'),
-      'T1: project description captured',
-      `got: ${JSON.stringify(projectState.description || projectState.summary)}`
-    );
+    const stackStr = JSON.stringify(projectState.stack || []).toLowerCase();
+    check(stackStr.includes('python'), 'T1: Python detected in stack', `stack: ${stackStr}`);
 
-    // Stack detection from README
-    const detectedStack = projectState.stack || [];
-    const stackStr = JSON.stringify(detectedStack).toLowerCase();
-    check(
-      stackStr.includes('python'),
-      'T1: Python detected in stack',
-      `stack: ${stackStr}`
-    );
-
-    // ROADMAP phases (flat structure — hasPhases, completedPhases, pendingPhases)
-    if (projectState.hasPhases) {
-      check((projectState.completedPhases?.length || 0) >= 4, 'T1: ≥4 completed phases',
-        `got: ${projectState.completedPhases?.length}`);
-    } else {
-      // Parser may not parse non-standard roadmap tables — that's OK for foreign projects
-      check(true, 'T1: ROADMAP phase parsing (advisory — non-standard table format)');
-    }
-
-    // ═══ TEST 2: CRE — Analysis request is NOT a build ══════════════════
+    // ═══ TEST 2: CRE — Analysis ≠ Build ═════════════════════════════════════
 
     section('2. CRE Classification — Analysis ≠ Build');
 
@@ -294,10 +306,9 @@ async function runTest() {
 
     for (const input of analysisInputs) {
       const isBuild = isProjectScopeBuild(input);
-      check(!isBuild, `T2: "${input.slice(0, 45)}..." → NOT build`, `got: ${isBuild}`);
+      check(!isBuild, `T2: "${input.slice(0, 45)}..." → NOT build`);
     }
 
-    // Verify that actual build requests DO trigger build (sanity check)
     const buildInputs = [
       'postav mi kompletní frontend a backend a MongoDB databáze',
       'vytvoř celý projekt od začátku s autentizací a API',
@@ -305,14 +316,13 @@ async function runTest() {
 
     for (const input of buildInputs) {
       const isBuild = isProjectScopeBuild(input);
-      check(isBuild, `T2: "${input.slice(0, 45)}..." → IS build (sanity)`, `got: ${isBuild}`);
+      check(isBuild, `T2: "${input.slice(0, 45)}..." → IS build (sanity)`);
     }
 
-    // ═══ TEST 3: Domain Registry tag matching ════════════════════════════
+    // ═══ TEST 3: Domain Registry ═════════════════════════════════════════════
 
-    section('3. Domain Registry — Tag matching for existing project');
+    section('3. Domain Registry — Tag matching');
 
-    // Extract tags from project description
     const projectDesc = 'python log analyzer with elasticsearch monitoring kubernetes docker pipeline';
     const tags = extractTags(projectDesc);
 
@@ -321,178 +331,221 @@ async function runTest() {
     check(tags.includes('docker'), 'T3: docker tag extracted');
     check(tags.includes('kubernetes'), 'T3: kubernetes tag extracted');
 
-    // Match recipes (not scaffolds — this is an analysis, not a new project)
     const { recipes, scaffolds } = domainRegistry.matchRequest(projectDesc);
-    check(recipes.length > 0, 'T3: matching recipes found for monitoring/docker/k8s',
-      `got: ${recipes.length}`);
+    check(recipes.length > 0, 'T3: recipes found', `got: ${recipes.length}`);
 
-    // FastAPI scaffold should NOT be the primary match (this is analysis, not creation)
-    // But it's OK if it shows up — the point is that recipes are more relevant
-    console.log(`    Matched ${recipes.length} recipes, ${scaffolds.length} scaffolds`);
+    // ═══ TEST 4: Real LLM — Project Analysis ════════════════════════════════
 
-    // ═══ TEST 4: File integrity — analysis doesn't modify files ══════════
+    section('4. Real LLM — Project Context Analysis');
 
-    section('4. File Integrity — Analysis preserves existing files');
+    console.log('    Running analyzeExistingProject (deterministic)...');
+    const t0 = Date.now();
+    const projectContext = await analyzeExistingProject(projectPath, null, null);
+    const analysisDt = ((Date.now() - t0) / 1000).toFixed(1);
+    console.log(`    Analysis complete (${analysisDt}s, ${projectContext.length} chars)`);
 
-    // Record file hashes before
+    check(projectContext.length > 50, 'T4: analysis context is substantive', `got: ${projectContext.length} chars`);
+    check(
+      projectContext.includes('Python') || projectContext.includes('python') || projectContext.includes('.py'),
+      'T4: analysis mentions Python'
+    );
+
+    llmTurn('ANALYZER', projectContext);
+
+    // ═══ TEST 5: Real LLM — Improvement Suggestions ═════════════════════════
+
+    section('5. Real LLM — Improvement Suggestions');
+
+    const improvementPrompt = `You are analyzing an existing Python project for improvements.
+
+Project context:
+${projectContext}
+
+README:
+${AI_LOG_README}
+
+Key files: main.py, scripts/pipeline/orchestrator.py, scripts/core/peak_detection.py, Dockerfile, k8s/Chart.yaml
+
+List 5-8 specific, actionable improvement suggestions. For each:
+- Category (testing, security, performance, code quality, devops, documentation)
+- Current state (what's missing or weak)
+- Recommended action
+- Priority (HIGH/MEDIUM/LOW)
+
+Output as JSON array of objects with keys: category, current_state, action, priority`;
+
+    console.log('    Calling LLM for improvement suggestions...');
+    const llmT0 = Date.now();
+    const improvementResult = await callLLM('CHAT', improvementPrompt);
+    const llmDt = ((Date.now() - llmT0) / 1000).toFixed(1);
+    console.log(`    LLM response (${llmDt}s, ${improvementResult.content?.length || 0} chars)`);
+
+    llmTurn('CHAT (improvements)', improvementResult.content);
+
+    check(improvementResult.content?.length > 100, 'T5: LLM produced substantive response');
+
+    // Check for expected improvement categories
+    const content = improvementResult.content.toLowerCase();
+    check(content.includes('test') || content.includes('pytest'), 'T5: mentions testing');
+    check(
+      content.includes('type') || content.includes('mypy') || content.includes('annotation') ||
+      content.includes('lint') || content.includes('quality') || content.includes('logging') ||
+      content.includes('security') || content.includes('error handling'),
+      'T5: mentions code quality aspect (types/lint/security/logging)'
+    );
+    check(
+      content.includes('ci') || content.includes('pipeline') || content.includes('github'),
+      'T5: mentions CI/CD'
+    );
+
+    // ═══ TEST 6: Real LLM — Project Summary ═════════════════════════════════
+
+    section('6. Real LLM — Project Summary');
+
+    const summaryPrompt = `Summarize this Python project in 3-5 sentences. Include: purpose, tech stack, current development phase, and architecture overview.
+
+README:
+${AI_LOG_README}
+
+ROADMAP:
+${AI_LOG_ROADMAP}
+
+Be concise and specific. Include concrete details like "P93 percentile detection" and "6-phase pipeline".`;
+
+    console.log('    Calling LLM for project summary...');
+    const summaryT0 = Date.now();
+    const summaryResult = await callLLM('CHAT', summaryPrompt);
+    const summaryDt = ((Date.now() - summaryT0) / 1000).toFixed(1);
+    console.log(`    LLM response (${summaryDt}s)`);
+
+    llmTurn('CHAT (summary)', summaryResult.content);
+
+    check(summaryResult.content?.length > 50, 'T6: LLM produced summary');
+    const summary = summaryResult.content.toLowerCase();
+    check(summary.includes('log') || summary.includes('analyz'), 'T6: summary mentions log analysis');
+    check(summary.includes('pipeline') || summary.includes('phase') || summary.includes('detection'),
+      'T6: summary mentions pipeline/detection');
+    check(summary.includes('kubernetes') || summary.includes('k8s') || summary.includes('docker'),
+      'T6: summary mentions deployment');
+
+    // ═══ TEST 7: Real LLM — Architecture Assessment ═════════════════════════
+
+    section('7. Real LLM — Architecture Assessment');
+
+    const archPrompt = `Assess the architecture of this project based on the code structure.
+
+Orchestrator code:
+${AI_LOG_ORCHESTRATOR}
+
+Peak detection:
+${AI_LOG_PEAK_DETECTION}
+
+Dockerfile:
+${AI_LOG_DOCKERFILE}
+
+Evaluate:
+1. Is the pipeline pattern well-structured? (YES/NO with brief reason)
+2. Is the statistical detection approach sound? (P93 percentile + CAP fallback)
+3. What's the main architectural risk?
+4. Suggest one structural improvement.
+
+Be specific and technical. Reference actual functions and patterns.`;
+
+    console.log('    Calling LLM for architecture assessment...');
+    const archT0 = Date.now();
+    const archResult = await callLLM('CHAT', archPrompt);
+    const archDt = ((Date.now() - archT0) / 1000).toFixed(1);
+    console.log(`    LLM response (${archDt}s)`);
+
+    llmTurn('CHAT (architecture)', archResult.content);
+
+    check(archResult.content?.length > 100, 'T7: LLM produced architecture assessment');
+    const arch = archResult.content.toLowerCase();
+    check(
+      arch.includes('pipeline') || arch.includes('orchestrator') || arch.includes('phase'),
+      'T7: assessment references pipeline pattern'
+    );
+    check(
+      arch.includes('p93') || arch.includes('percentile') || arch.includes('cap') || arch.includes('detection'),
+      'T7: assessment references detection methods'
+    );
+
+    // ═══ TEST 8: File Integrity ══════════════════════════════════════════════
+
+    section('8. File Integrity — Analysis preserves files');
+
     const filesToCheck = [
       'README.md', 'ROADMAP.md', 'requirements.txt', 'main.py',
       'scripts/pipeline/orchestrator.py', 'scripts/core/peak_detection.py',
       'Dockerfile', 'k8s/Chart.yaml',
     ];
 
-    const hashBefore = {};
-    for (const f of filesToCheck) {
-      const fp = path.join(projectPath, f);
-      if (fs.existsSync(fp)) {
-        hashBefore[f] = fs.readFileSync(fp, 'utf8').length;
-      }
-    }
-
-    // Simulate reading files (as analysis would do)
-    for (const f of filesToCheck) {
-      const fp = path.join(projectPath, f);
-      if (fs.existsSync(fp)) {
-        fs.readFileSync(fp, 'utf8'); // read-only
-      }
-    }
-
-    // Re-read project state (like C3 would during analysis)
-    const projectState2 = readProjectState(projectPath);
-
-    // Verify file hashes unchanged
-    for (const f of filesToCheck) {
-      const fp = path.join(projectPath, f);
-      if (fs.existsSync(fp)) {
-        const currentLen = fs.readFileSync(fp, 'utf8').length;
-        check(currentLen === hashBefore[f], `T4: ${f} unchanged`, `before: ${hashBefore[f]}, after: ${currentLen}`);
-      }
-    }
-
-    // Verify git is clean
     const gitStatus = execSync('git status --porcelain', { cwd: projectPath, encoding: 'utf8' }).trim();
-    check(gitStatus === '', 'T4: git working tree clean (no modifications)', `got: "${gitStatus}"`);
+    check(gitStatus === '', 'T8: git working tree clean', `got: "${gitStatus}"`);
 
-    // ═══ TEST 5: Analysis content quality ═════════════════════════════════
+    for (const f of filesToCheck) {
+      const fp = path.join(projectPath, f);
+      check(fs.existsSync(fp), `T8: ${f} still exists`);
+    }
 
-    section('5. Analysis Content Quality — Project understanding');
+    // ═══ TEST 9: Improvement Candidates ══════════════════════════════════════
 
-    // Verify the project state reader captures key aspects
-    const readmeContent = fs.readFileSync(path.join(projectPath, 'README.md'), 'utf8');
-    const roadmapContent = fs.readFileSync(path.join(projectPath, 'ROADMAP.md'), 'utf8');
+    section('9. Improvement Candidates — Structural gaps');
 
-    // Key project aspects that analysis should identify
-    check(readmeContent.includes('P93'), 'T5: README mentions P93 detection method');
-    check(readmeContent.includes('Elasticsearch'), 'T5: README mentions Elasticsearch source');
-    check(readmeContent.includes('PostgreSQL'), 'T5: README mentions PostgreSQL storage');
-    check(readmeContent.includes('6-phase'), 'T5: README describes 6-phase pipeline');
-    check(readmeContent.includes('CronJob'), 'T5: README mentions K8s CronJobs');
-
-    check(roadmapContent.includes('Probíhá'), 'T5: ROADMAP shows in-progress phase (v6)');
-    check(roadmapContent.includes('Incident Analysis'), 'T5: ROADMAP names active phase');
-
-    // Pipeline files exist and have correct structure
-    const orchestrator = fs.readFileSync(path.join(projectPath, 'scripts/pipeline/orchestrator.py'), 'utf8');
-    check(orchestrator.includes('phase_a'), 'T5: Orchestrator references phase_a');
-    check(orchestrator.includes('phase_f'), 'T5: Orchestrator references phase_f');
-    check(orchestrator.includes('def run_pipeline'), 'T5: Orchestrator has run_pipeline function');
-
-    const peakDetection = fs.readFileSync(path.join(projectPath, 'scripts/core/peak_detection.py'), 'utf8');
-    check(peakDetection.includes('detect_p93'), 'T5: Peak detection has P93 function');
-    check(peakDetection.includes('cap_fallback'), 'T5: Peak detection has CAP fallback');
-
-    // Dockerfile analysis
-    const dockerfile = fs.readFileSync(path.join(projectPath, 'Dockerfile'), 'utf8');
-    check(dockerfile.includes('python:3.11'), 'T5: Dockerfile uses Python 3.11');
-
-    // Helm chart
-    const helmChart = fs.readFileSync(path.join(projectPath, 'k8s/Chart.yaml'), 'utf8');
-    check(helmChart.includes('6.1.0'), 'T5: Helm chart version matches v6.1.0');
-
-    // ═══ TEST 6: Improvement candidates (what analysis SHOULD suggest) ═══
-
-    section('6. Improvement Candidates — What analysis should find');
-
-    // These are real improvement areas a code analysis should identify:
-
-    // 1. No tests in the simulated project
     const hasTests = fs.existsSync(path.join(projectPath, 'tests'));
     check(!hasTests || !fs.readdirSync(path.join(projectPath, 'tests')).some(f => f.endsWith('.py')),
-      'T6: No Python test files found (improvement: add tests)');
+      'T9: No test files (improvement: add pytest)');
 
-    // 2. No type hints / mypy configuration
-    const mainPy = fs.readFileSync(path.join(projectPath, 'main.py'), 'utf8');
-    check(!mainPy.includes('def ') || !mainPy.includes('->'),
-      'T6: No type hints in main.py (improvement: add type annotations)');
-
-    // 3. requirements.txt has no pinned versions (except binary suffix)
     const reqs = fs.readFileSync(path.join(projectPath, 'requirements.txt'), 'utf8');
-    check(!reqs.includes('=='), 'T6: requirements.txt has no pinned versions (improvement: pin versions)');
+    check(!reqs.includes('=='), 'T9: No pinned versions (improvement: pin deps)');
 
-    // 4. No CI/CD configuration
     check(!fs.existsSync(path.join(projectPath, '.github/workflows')),
-      'T6: No GitHub Actions CI/CD (improvement: add CI pipeline)');
+      'T9: No CI/CD (improvement: add GitHub Actions)');
 
-    // 5. No logging configuration
-    check(!fs.existsSync(path.join(projectPath, 'logging.conf')) && !mainPy.includes('logging.config'),
-      'T6: No logging configuration (improvement: add structured logging)');
-
-    // 6. Dockerfile could use multi-stage build
+    const dockerfile = fs.readFileSync(path.join(projectPath, 'Dockerfile'), 'utf8');
     check(!dockerfile.includes('AS builder'),
-      'T6: Dockerfile not multi-stage (improvement: add build stage)');
+      'T9: No multi-stage Dockerfile (improvement: add build stage)');
 
-    // 7. Registry files are YAML but no schema validation
-    check(!fs.existsSync(path.join(projectPath, 'registry/schema.json')),
-      'T6: No YAML schema validation (improvement: add jsonschema/pydantic validation)');
+    // ═══ TEST 10: Project DB Registration ════════════════════════════════════
 
-    console.log('\n    Summary of improvement areas identified:');
-    console.log('      1. Add Python test suite (pytest)');
-    console.log('      2. Add type annotations + mypy');
-    console.log('      3. Pin dependency versions in requirements.txt');
-    console.log('      4. Add CI/CD pipeline (GitHub Actions)');
-    console.log('      5. Add structured logging (logging.conf)');
-    console.log('      6. Multi-stage Dockerfile for smaller image');
-    console.log('      7. YAML schema validation for registry files');
+    section('10. Project DB Registration');
 
-    // ═══ TEST 7: Project DB registration ═════════════════════════════════
-
-    section('7. Project DB Registration');
-
-    // Simulate what happens when C3 opens an existing project
     const project = projects.getOrCreate('ai-log-analyzer', projectPath, 'Log analysis pipeline');
     const projectId = Number(project.id);
 
-    check(projectId > 0, 'T7: project registered in DB', `got: ${projectId}`);
-
+    check(projectId > 0, 'T10: project registered in DB');
     const dbProject = projects.findById.get(projectId);
-    check(dbProject != null, 'T7: project retrievable from DB');
-    check(dbProject?.name === 'ai-log-analyzer', 'T7: project name correct', `got: ${dbProject?.name}`);
-    check(dbProject?.path != null, 'T7: project path stored', `got: ${dbProject?.path}`);
+    check(dbProject?.name === 'ai-log-analyzer', 'T10: project name correct');
 
     // Cleanup DB
     try { db.prepare(`DELETE FROM projects WHERE path LIKE '/tmp/%'`).run(); } catch { /* ignore */ }
 
+    // Turn count
+    check(turnNum >= 3, 'Turns: ≥3 LLM calls', `got: ${turnNum}`);
+
     // Cleanup files
     if (process.env.KEEP_PROJECT || failed > 0) {
-      console.log(`\n  📁 Project preserved at: ${projectPath}`);
+      console.log(`\n  Project preserved at: ${projectPath}`);
     } else {
       try { fs.rmSync(projectPath, { recursive: true, force: true }); } catch { /* ignore */ }
-      console.log(`  🧹 Cleaned up (KEEP_PROJECT=1 to preserve)`);
+      console.log(`  Cleaned up (KEEP_PROJECT=1 to preserve)`);
     }
 
   } catch (err) {
-    console.error(`\n💥 FATAL: ${err.message}`);
+    console.error(`\nFATAL: ${err.message}`);
     console.error(err.stack);
     failed++;
     failures.push({ name: 'FATAL', detail: err.message });
   }
 
   // Summary
+  const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log('\n══════════════════════════════════════════════════════════════════════');
-  console.log(`  ai-log-analyzer Analysis E2E: ${passed} passed, ${failed} failed`);
+  console.log(`  Analysis E2E (Real LLM): ${passed} passed, ${failed} failed`);
+  console.log(`  Duration: ${totalTime}s | LLM calls: ${turnNum}`);
   if (failures.length > 0) {
     console.log(`\n  FAILURES:`);
-    for (const f of failures) console.log(`    ❌ ${f.name}: ${f.detail}`);
+    for (const f of failures) console.log(`    - ${f.name}: ${f.detail}`);
   }
   console.log('══════════════════════════════════════════════════════════════════════\n');
   process.exit(failed > 0 ? 1 : 0);

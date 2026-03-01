@@ -250,7 +250,12 @@ async function postExecution(lifecycle, milestone, wfResult) {
   // ─── REVIEW phase — Milestone Checkpoint ────────────────────────────────
   msRepo.updateStatus.run(MilestoneStatus.REVIEW, milestone.id);
 
-  const checkpointResult = await milestoneCheckpoint(lifecycle, milestone, wfResult, testResults);
+  // When test_strategy is null/deferred, tell R1 explicitly so it doesn't penalize
+  const testResultsForCheckpoint = testResults.allPassed === null
+    ? { ...testResults, note: 'Test execution deferred — no test_strategy defined for this milestone. Do NOT fail the checkpoint for missing tests.' }
+    : testResults;
+
+  const checkpointResult = await milestoneCheckpoint(lifecycle, milestone, wfResult, testResultsForCheckpoint);
 
   // ─── Scope enforcement ──────────────────────────────────────────────────
   const scopeResult = await enforceMilestoneScope(lifecycle, milestone);
@@ -426,11 +431,22 @@ async function milestoneCheckpoint(lifecycle, milestone, wfResult, testResults) 
   const checkpoint = parseJSON(result.content);
 
   if (!checkpoint) {
+    // Log first 500 chars of raw response for diagnosis
+    const raw = result.content || '';
     logger.warn('LifecycleBuild', 'Checkpoint parse failed — treating as FAIL (safe default)', {
       milestoneId: milestone.id,
+      rawPreview: raw.substring(0, 500),
     });
-    return { passed: false, raw: result.content, reason: 'Checkpoint response was not valid JSON' };
+    return { passed: false, raw, reason: 'Checkpoint response was not valid JSON' };
   }
+
+  // Log checkpoint verdict for diagnostics
+  logger.info('LifecycleBuild', `Checkpoint verdict: ${checkpoint.passed ? 'PASS' : 'FAIL'}`, {
+    milestoneId: milestone.id,
+    assessment: checkpoint.overall_assessment?.substring(0, 200),
+    securityFindings: checkpoint.security_findings?.length || 0,
+    errorGaps: checkpoint.error_handling_gaps?.length || 0,
+  });
 
   // Store checkpoint as drift check
   driftChecks.addCheck(

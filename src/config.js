@@ -51,7 +51,7 @@ export const config = {
   // ═══════════════════════════════════════════════════════
   models: {
     // D1: Deep deliberation — analysis, planning, final review, redesign
-    D1: process.env.C3_MODEL_D1 || 'deepseek-r1:32b',
+    D1: process.env.C3_MODEL_D1 || 'deepseek-r1-32b',
 
     // D2: Fix deliberation — focused fix reasoning
     D2: process.env.C3_MODEL_D2 || 'qwen3-30b-a3b',
@@ -60,7 +60,7 @@ export const config = {
     CODE: process.env.C3_MODEL_CODE || 'qwen2.5-coder:32b',
 
     // R1: Final deep review (= D1, same deep reasoning)
-    R1: process.env.C3_MODEL_R1 || 'deepseek-r1:32b',
+    R1: process.env.C3_MODEL_R1 || 'deepseek-r1-32b',
 
     // R2: Quick review — fast structural/logic check
     R2: process.env.C3_MODEL_R2 || 'qwen2.5:32b',
@@ -74,7 +74,7 @@ export const config = {
     // Workflow roles
     D1: 120000,       // 120s — deep deliberation needs time
     D2: 60000,        // 60s — fix deliberation, focused
-    CODE: 90000,      // 90s — code generation
+    CODE: 120000,     // 120s — code generation (complex files need >90s)
     R1: 120000,       // 120s — deep review (= D1)
     R2: 45000,        // 45s — quick review
 

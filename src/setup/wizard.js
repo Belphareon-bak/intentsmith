@@ -36,8 +36,8 @@ const DEFAULT_SETUP = {
     models: {
       CHAT: 'qwen2.5:32b',
       CODE: 'qwen2.5-coder:32b',
-      D1: 'deepseek-r1:32b',
-      R1: 'deepseek-r1:32b',
+      D1: 'deepseek-r1-32b',
+      R1: 'deepseek-r1-32b',
       R2: 'qwen2.5:32b',
       D2: 'qwen3-30b-a3b',
     },

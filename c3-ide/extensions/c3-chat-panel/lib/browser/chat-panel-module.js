@@ -3659,10 +3659,9 @@ window.addEventListener('beforeunload', function() {
 function _restoreSessionState() {
   try {
     /* Restore last view (from settings, independent of session state) */
-    if (_settingsVals.restoreSession && _settingsVals.lastView) {
-      _centerState.view = _settingsVals.lastView;
-      if (_sidebarWidget) _sidebarWidget._active = _settingsVals.lastView;
-    }
+    var _lastV = (_settingsVals.restoreSession && _settingsVals.lastView) ? _settingsVals.lastView : 'expertises';
+    _centerState.view = _lastV;
+    if (_sidebarWidget) _sidebarWidget._active = _lastV;
     var saved = JSON.parse(localStorage.getItem('c3-session-state') || 'null');
     if (saved) {
       _sessionCount = saved.sessionCount || 2;
@@ -3869,8 +3868,9 @@ function _readAttachments(attachments,callback){
 }
 
 function _chatSendPane(idx){
+  console.log('[C3:send] _chatSendPane idx='+idx);
   var ta=document.getElementById('c3-chat-ta-'+idx);
-  var s=_sessions[idx];if(!s)return;var st=s.chat;
+  var s=_sessions[idx];if(!s){console.warn('[C3:send] no session at idx='+idx);return;}var st=s.chat;
   st.acSuggestion=null;/* clear autocomplete on send */
   var t=ta?ta.value.trim():'';if(!t&&st.attachments.length===0)return;
 
@@ -4567,7 +4567,11 @@ class C3ChatContrib extends browser_1.AbstractViewContribution {
       }
     });
   }
-  async onStart(a){try{await this.openView({activate:false,reveal:true});}catch(e){}}}
+  async onStart(a){try{await this.openView({activate:false,reveal:true});
+    /* v90.1: Ensure right panel is visible and wide enough — prevent snap-collapse race */
+    _c3SnapLock=true;
+    setTimeout(function(){try{a.shell.resize(420,'right');}catch(e){}setTimeout(function(){_c3SnapLock=false;},1000);},500);
+  }catch(e){}}}
 inversify_1.decorate(inversify_1.injectable(),C3ChatContrib);
 
 class C3AgentContrib extends browser_1.AbstractViewContribution {
