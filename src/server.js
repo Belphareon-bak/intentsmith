@@ -98,6 +98,7 @@ import { createQualityRoutes } from './routes/quality.js';
 import { createAutonomyRoutes } from './routes/autonomy.js';
 import { createSkillRoutes } from './routes/skills.js';
 import { createSystemRoutes } from './routes/system.js';
+import { createSecurityRoutes } from './routes/security.js';
 import { createNotificationRoutes } from './routes/notifications.js';
 import { createNotificationRouter } from './notifications/index.js';
 import { WebhookChannel } from './notifications/channels/webhook.js';
@@ -584,6 +585,9 @@ const routes = {
 
   // v87: System routes (GPU, model compatibility, diagnostics)
   ...createSystemRoutes(routeDeps),
+
+  // v91: Security routes (auth guard, API tokens, audit, webhook)
+  ...createSecurityRoutes(routeDeps),
 
   // v87: Notification routes (channels, test, log)
   ...createNotificationRoutes({ ...routeDeps, notificationRouter }),

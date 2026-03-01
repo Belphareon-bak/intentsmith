@@ -316,7 +316,7 @@ var CONVERSATIONS=[];
 /* Specialists = expertises with deterministic tools (is_specialist from backend or default) */
 var SPECIALISTS=EXPERTISES.filter(function(e){return e.isSpecialist;}).map(function(e){return{emoji:e.emoji,name:e.name,desc:e.desc,domain:e.domain,tags:[e.domain||'','Specialista'].filter(Boolean)};});
 var WORKERS=[];
-var SETTINGS_SECTIONS=[{icon:'👤',title:'Account',desc:'Identita a profil'},{icon:'🤖',title:'LLM',desc:'Modely a inference'},{icon:'🧠',title:'Memory',desc:'Paměť a kontext'},{icon:'🔔',title:'Notifications',desc:'Upozornění'},{icon:'📄',title:'Output',desc:'Formátování výstupu'},{icon:'🎨',title:'Appearance',desc:'Vzhled a přizpůsobení'},{icon:'🖥️',title:'System',desc:'Systém a diagnostika'},{icon:'📦',title:'Storage',desc:'Data a úložiště'},{icon:'💾',title:'Backup',desc:'Zálohy a export'},{icon:'🎛️',title:'Feature Flags',desc:'Runtime přepínače'},{icon:'ℹ️',title:'About',desc:'O aplikaci'}];
+var SETTINGS_SECTIONS=[{icon:'👤',title:'Account',desc:'Identita a profil'},{icon:'🤖',title:'LLM',desc:'Modely a inference'},{icon:'🧠',title:'Memory',desc:'Paměť a kontext'},{icon:'🔔',title:'Notifications',desc:'Upozornění'},{icon:'📄',title:'Output',desc:'Formátování výstupu'},{icon:'🎨',title:'Appearance',desc:'Vzhled a přizpůsobení'},{icon:'🖥️',title:'System',desc:'Systém a diagnostika'},{icon:'📦',title:'Storage',desc:'Data a úložiště'},{icon:'💾',title:'Backup',desc:'Zálohy a export'},{icon:'🎛️',title:'Feature Flags',desc:'Runtime přepínače'},{icon:'🔒',title:'Security',desc:'Tokeny a audit log'},{icon:'ℹ️',title:'About',desc:'O aplikaci'}];
 var FILES=[];
 var _collapsedDirs={};var _wtRoot='';var _wtLoading=false;var _wtRenaming=null;var _wtNewInput=null;
 /* Expose _wtRoot on window so ws-client.js can send cwd with terminal commands */
@@ -2123,6 +2123,8 @@ var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSize
 var _bCfg=null;var _bCfgLoading=false;var _gpuInfo=null;var _ollamaModels=null;var _sysInfo=null;var _storageInfo=null;var _bCfgSaveTimer=null;
 /* v91: Feature flags state — loaded from GET /api/features */
 var _featureFlags=null;var _ffLoading=false;
+/* v91: Security state */
+var _secTokens=null;var _secAudit=null;var _secAuditType='all';var _secWebhook=null;var _secSessions=null;var _secNewToken=null;var _secLoading={};
 function _loadBCfg(cb){if(_bCfg&&!_bCfgLoading){if(cb)cb();return;}_bCfgLoading=true;fetch(_backendBase+'/api/settings',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_bCfg=d||{};_bCfgLoading=false;if(cb)cb();renderCenter();}).catch(function(){_bCfg=_bCfg||{};_bCfgLoading=false;if(cb)cb();});}
 function _saveBCfg(){if(!_bCfg)return;clearTimeout(_bCfgSaveTimer);_bCfgSaveTimer=setTimeout(function(){fetch(_backendBase+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(_bCfg),signal:AbortSignal.timeout(3000)}).catch(function(){});},500);}
 function _bVal(key,def){return _bCfg&&_bCfg[key]!=null?_bCfg[key]:def;}
@@ -2284,6 +2286,7 @@ function settingsDetailPanel(sec,si){
     case 'Storage':panelBody=settingsStoragePanel();break;
     case 'Backup':panelBody=settingsBackupPanel();break;
     case 'Feature Flags':panelBody=settingsFeatureFlags();break;
+    case 'Security':panelBody=settingsSecurityPanel();break;
     case 'About':panelBody=settingsAboutPanel();break;
     default:panelBody=h('div',{style:{padding:12,color:C.tx3}},'Žádná nastavení.');
   }
@@ -2617,6 +2620,90 @@ function settingsFeatureFlags(){
     h('div',{style:{marginTop:16,paddingTop:12,borderTop:'1px solid '+C.border}},
       h('button',{style:{background:C.bg4,color:C.tx2,border:'1px solid '+C.border,borderRadius:6,padding:'6px 14px',cursor:'pointer',fontSize:_fs(11)},
         onClick:function(){_resetFeatureFlags();}},'Obnovit výchozí')));
+}
+/* v91: Security panel */
+function _secFetch(path,opts){return fetch(_backendBase+path,Object.assign({signal:AbortSignal.timeout(5000)},opts||{}));}
+function _secLoadTokens(){_secLoading.tokens=true;_secFetch('/api/security/tokens').then(function(r){return r.json();}).then(function(d){_secTokens=d.tokens||[];_secLoading.tokens=false;renderCenter();}).catch(function(){_secLoading.tokens=false;});}
+function _secLoadAudit(type){_secAuditType=type||'all';_secLoading.audit=true;_secFetch('/api/security/audit?type='+encodeURIComponent(_secAuditType)+'&limit=50').then(function(r){return r.json();}).then(function(d){_secAudit=d.results||{};_secLoading.audit=false;renderCenter();}).catch(function(){_secLoading.audit=false;});}
+function _secLoadWebhook(){_secFetch('/api/security/webhook-secret').then(function(r){return r.json();}).then(function(d){_secWebhook=d;renderCenter();}).catch(function(){});}
+function _secLoadSessions(){_secFetch('/api/security/sessions').then(function(r){return r.json();}).then(function(d){_secSessions=d;renderCenter();}).catch(function(){});}
+function settingsSecurityPanel(){
+  if(!_secTokens&&!_secLoading.tokens)_secLoadTokens();
+  if(!_secAudit&&!_secLoading.audit)_secLoadAudit('all');
+  if(!_secWebhook)_secLoadWebhook();
+  if(!_secSessions)_secLoadSessions();
+  var secH={fontSize:_fs(12),fontWeight:600,color:C.tx2,marginTop:14,marginBottom:6};
+  var secSub={fontSize:_fs(10),color:C.tx4,marginBottom:8};
+  /* ── Audit Log ── */
+  var auditTabs=['all','cre','merge','drift','llm'];
+  var auditTabRow=h('div',{style:{display:'flex',gap:4,marginBottom:8,flexWrap:'wrap'}},auditTabs.map(function(t){
+    var active=_secAuditType===t;
+    return h('button',{key:t,style:{padding:'3px 8px',fontSize:_fs(10),border:'1px solid '+(active?C.accent:C.border),borderRadius:4,background:active?C.accent:'transparent',color:active?'#fff':C.tx3,cursor:'pointer'},
+      onClick:function(){_secLoadAudit(t);}},t.toUpperCase());
+  }));
+  var auditRows=[];
+  if(_secAudit){
+    var entries=[];
+    Object.keys(_secAudit).forEach(function(k){(_secAudit[k]||[]).forEach(function(e){entries.push(Object.assign({_type:k},e));});});
+    entries.sort(function(a,b){return(b.created_at||'').localeCompare(a.created_at||'');});
+    entries.slice(0,50).forEach(function(e,i){
+      var ts=e.created_at?new Date(e.created_at).toLocaleString('cs-CZ'):'?';
+      var preview=e.input_preview||e.intent||e.capability||e.model||JSON.stringify(e).substring(0,80);
+      auditRows.push(h('div',{key:i,style:{padding:'4px 0',borderBottom:'1px solid '+C.border,fontSize:_fs(10),color:C.tx3}},
+        h('span',{style:{color:C.tx4,marginRight:6}},ts),
+        h('span',{style:{background:C.bg4,borderRadius:3,padding:'1px 4px',marginRight:4,fontSize:_fs(9)}},e._type),
+        h('span',null,preview)));
+    });
+  }
+  /* ── API Tokens ── */
+  var tokenRows=[];
+  if(_secTokens){_secTokens.forEach(function(t,i){
+    var lastUsed=t.last_used_at?new Date(t.last_used_at).toLocaleString('cs-CZ'):'nikdy';
+    var expires=t.expires_at?new Date(t.expires_at).toLocaleString('cs-CZ'):'∞';
+    tokenRows.push(h('div',{key:t.id,style:{padding:'6px 0',borderBottom:'1px solid '+C.border,display:'flex',alignItems:'center',gap:6}},
+      h('div',{style:{flex:1}},
+        h('div',{style:{fontSize:_fs(11),color:C.tx1,fontWeight:500}},t.name),
+        h('div',{style:{fontSize:_fs(9),color:C.tx4}},'Použit: '+lastUsed+' | Expiruje: '+expires)),
+      h('button',{style:{background:'#c0392b',color:'#fff',border:'none',borderRadius:4,padding:'3px 8px',cursor:'pointer',fontSize:_fs(9)},
+        onClick:function(){if(!confirm('Odvolat token "'+t.name+'"?'))return;_secFetch('/api/security/tokens/'+t.id,{method:'DELETE'}).then(function(){_secLoadTokens();}).catch(function(){});}},
+        'Odvolat')));
+  });}
+  /* ── New Token Created ── */
+  var newTokenBanner=null;
+  if(_secNewToken){
+    newTokenBanner=h('div',{style:{background:'rgba(34,197,94,0.1)',border:'1px solid '+C.accent,borderRadius:6,padding:10,marginBottom:10}},
+      h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.accent,marginBottom:4}},'Token vytvořen — zkopírujte nyní (zobrazí se jen jednou):'),
+      h('div',{style:{fontFamily:C.mono,fontSize:_fs(10),color:C.tx1,wordBreak:'break-all',userSelect:'all',marginBottom:6}},_secNewToken),
+      h('button',{style:{background:C.accent,color:'#fff',border:'none',borderRadius:4,padding:'4px 10px',cursor:'pointer',fontSize:_fs(10)},
+        onClick:function(){navigator.clipboard.writeText(_secNewToken);_secNewToken=null;renderCenter();}},'Kopírovat & zavřít'));
+  }
+  /* ── Webhook ── */
+  var webhookInfo=null;
+  if(_secWebhook){
+    webhookInfo=h('div',{style:{fontSize:_fs(10),color:C.tx3}},
+      _secWebhook.configured
+        ?h('span',null,'Secret: ',h('code',{style:{fontFamily:C.mono,background:C.bg4,padding:'1px 4px',borderRadius:3}},_secWebhook.masked))
+        :h('span',{style:{color:C.tx4}},'Není nastaven'),
+      h('button',{style:{marginLeft:8,background:C.bg4,color:C.tx2,border:'1px solid '+C.border,borderRadius:4,padding:'2px 8px',cursor:'pointer',fontSize:_fs(9)},
+        onClick:function(){if(!confirm('Regenerovat webhook secret?'))return;_secFetch('/api/security/webhook-secret',{method:'POST'}).then(function(r){return r.json();}).then(function(d){_secWebhook=d.ok?{configured:true,masked:d.masked}:_secWebhook;renderCenter();}).catch(function(){});}},'Regenerovat'));
+  }
+  /* ── Sessions ── */
+  var sessInfo=_secSessions?h('div',{style:{fontSize:_fs(10),color:C.tx3}},'Aktivní relace: '+_secSessions.count+' | Uptime: '+Math.round((_secSessions.uptime_seconds||0)/60)+' min'):null;
+  return h('div',null,
+    h('div',{style:secH},'Audit Log'),h('div',{style:secSub},'Záznamy z CRE, merge, drift a LLM'),
+    auditTabRow,
+    _secLoading.audit?h('div',{style:{color:C.tx4,fontSize:_fs(10)}},'Načítám...'):
+      auditRows.length>0?h('div',{style:{maxHeight:200,overflowY:'auto'}},auditRows):h('div',{style:{color:C.tx4,fontSize:_fs(10)}},'Žádné záznamy.'),
+    h('div',{style:secH},'API Tokeny'),h('div',{style:secSub},'Přístupové tokeny pro API'),
+    newTokenBanner,
+    _secLoading.tokens?h('div',{style:{color:C.tx4,fontSize:_fs(10)}},'Načítám...'):
+      tokenRows.length>0?h('div',null,tokenRows):h('div',{style:{color:C.tx4,fontSize:_fs(10)}},'Žádné tokeny.'),
+    h('button',{style:{marginTop:6,background:C.accent,color:'#fff',border:'none',borderRadius:4,padding:'4px 12px',cursor:'pointer',fontSize:_fs(10)},
+      onClick:function(){var name=prompt('Název nového tokenu:');if(!name)return;_secFetch('/api/security/tokens',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name})}).then(function(r){return r.json();}).then(function(d){if(d.token){_secNewToken=d.token;_secLoadTokens();}}).catch(function(){});}},'Vytvořit nový token'),
+    h('div',{style:secH},'Webhook Secret'),h('div',{style:secSub},'HMAC podpis pro webhook notifikace'),
+    webhookInfo||h('div',{style:{color:C.tx4,fontSize:_fs(10)}},'Načítám...'),
+    h('div',{style:secH},'Aktivní relace'),
+    sessInfo||h('div',{style:{color:C.tx4,fontSize:_fs(10)}},'Načítám...'));
 }
 function settingsAboutPanel(){
   return h('div',{style:{textAlign:'center',padding:'30px 0'}},
