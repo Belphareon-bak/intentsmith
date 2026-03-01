@@ -1,11 +1,11 @@
-# C3-Agent — Roadmapa v15
+# C3-Agent — Roadmapa v16
 
 ## Od aktuálního stavu k vizi
 
 **Datum:** 2026-03-01
-**Verze kódu:** v90.0.0 (Smart Relay Management + Typing Indicator + Project Welcome + CRE GUARD 6 + Memory System + Skills)
+**Verze kódu:** v91.0.0 (Settings Phase 3 + Smart Relay + Typing Indicator + Project Welcome + CRE GUARD 6 + Memory System + Skills)
 **Testy:** ~2400+ verified (683 lifecycle+quality, 401 CRE, 350 conversation, 218 ledger, 270 specialist, 200+ quality, 44 agent-log, 43+78 expertise routing)
-**IDE:** C3 Studio (Theia 1.65.2), 33 custom extensions, Phase 1-5 (~78%)
+**IDE:** C3 Studio (Theia 1.65.2), 33 custom extensions, Phase 1-5 (~82%)
 
 ---
 
@@ -199,6 +199,9 @@ Korelační analýza (po pilotu): spec_score vs build_success, roadmap_score vs 
 | v87.6 | **CRE GUARD 6** — creative override (creativeLock bypass), BUILD dead-end fix (PLAN case) |
 | v87.6 | **LLM Gateway hardening** — timeout 90s, no retry on AbortError, numeric density gate |
 | v87.6 | **Attachment guard** — pre-CRE deterministic FILE_EXPLAIN override |
+| v88–89 | **Project Workflow** — lifecycle intercepts, project welcome, version unification |
+| v90.0 | **Smart Relay Management** — _smartRouteToRelay(), typing indicator |
+| v91.0 | **Settings Phase 3** — Feature Flags UI, Security (auth+tokens+audit), 5-step onboarding |
 
 ---
 
@@ -230,7 +233,7 @@ Fáze D-int: ÚČETNÍ ███████████████████
 Fáze B: WORKERI    ██████████████████████████████████████░░░░   95% (B0-B9 done)
 Fáze H: HARDENING  ██████████████████████████████████████████  100% (9/9 DONE)
 Fáze D: SPECIALISTÉ██████████████████████████████████████░░░░   92% (D1-D8, ledger, specialist platform, telemetry)
-Fáze E: IDE        ████████████████████████████████░░░░░░░░░░   78% (Phase 1-5, 33 extensions, Settings UI v87)
+Fáze E: IDE        █████████████████████████████████░░░░░░░░░   82% (Phase 1-5, 33 extensions, Settings Phase 3 v91)
 Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   25% (F1-F3 wired)
 ```
 
@@ -317,14 +320,14 @@ Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░�
 ## Celkový progres
 
 **Hotovo:** ~98% celkové vize
-**Nové od v14:** v87 IDE Settings UI redesign (10 sekcí, Phase 1+2 mostly done), v87 CRE GUARD 6, v87 BUILD dead-end fix, v87 LLM timeout hardening, v87 attachment guard.
+**Nové od v15:** v91 Settings Phase 3 (Feature Flags UI, Security section, 5-step onboarding), v90 Smart Relay Management, v89 Project Welcome.
 
 ```
-Celkem zbývajících úkolů:  6 + IDE Settings Phase 3-4
+Celkem zbývajících úkolů:  6 + IDE Settings Phase 3b-4
   🔴 Critical:              0
   🟡 Important:             1  (QS3 Quality Report — in progress)
   ⚪ Future (D5,D9,E,F):     5  (~2 měsíce)
-  📐 IDE Settings Phase 3:   Security, Feature Flags, Social login, Online sync
+  📐 IDE Settings Phase 3b:  Social login (OAuth), Online sync (GitHub Gist)
   📐 IDE Settings Phase 4:   GPU wizard, Model auto-download, First-run, Diagnostics bundle
 ```
 
@@ -370,13 +373,13 @@ PHASE 2 — UX & Komfort (P1)
   j) Storage management                             ✅ PARTIAL (DB info, vacuum, table counts)
   Backup & Sync (lokální export/import)             ✅ PARTIAL (export/import done, versioning NOT YET)
 
-PHASE 3 — Ecosystem (P2)                           ❌ NOT STARTED
-  a2) Social login (OAuth: Google, Apple, Microsoft)
-  b2) Mobilní notifikace (push)
-  Online sync (GitHub Gist)
-  i) Security sekce (tokens, encryption, audit)
-  k) Feature Flags UI (power users)
-  Getting Started / Tutorial
+PHASE 3 — Ecosystem (P2)                           🟡 PARTIAL (v91)
+  a2) Social login (OAuth: Google, Apple, Microsoft)   ❌ NOT STARTED (deferred to Phase 3b)
+  b2) Mobilní notifikace (push)                        ❌ NOT STARTED
+  Online sync (GitHub Gist)                            ❌ NOT STARTED (deferred to Phase 3b)
+  i) Security sekce (tokens, encryption, audit)        ✅ DONE (v91 — auth guard, API tokens, audit, webhook)
+  k) Feature Flags UI (power users)                    ✅ DONE (v91 — 7 toggles, reset, Theia prefs)
+  Getting Started / Tutorial                           ✅ DONE (v91 — 5-step onboarding, restart from About)
 
 PHASE 4 — Installer Intelligence                   ❌ NOT STARTED
   GPU detection wizard (first-run)

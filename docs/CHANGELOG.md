@@ -2,6 +2,32 @@
 
 ---
 
+## v91.0.0 — Settings Phase 3: Ecosystem Features (2026-03-01)
+
+### Item 1: Feature Flags UI
+- **FeatureManager**: `has()`, `resetToDefaults(configFeatures)`, SETTING_KEY_MAP pro 7 flagů
+- **API**: `GET /api/features`, `POST /api/features/:name` (s has() validací), `POST /api/features/reset`
+- **FE**: `settingsFeatureFlags()` — 7 toggleů, critical flag warning, reset button
+- **Theia**: `c3.features.*` preference keys pro agents, lifecycle, expertises, telemetry, specialistTelemetry, autonomy
+- `resetToDefaults()` volá `set()` jen pro flagy kde se hodnota liší → onChange listeners jen pro skutečné změny
+
+### Item 2: Security Section
+- **Auth guard**: `requireAuth()` — localhost bypass (dev only), `timingSafeEqual` pro `C3_ADMIN_TOKEN`
+- **Production fail-fast**: `process.exit(1)` pokud `NODE_ENV=production` a `C3_ADMIN_TOKEN` chybí
+- **API tokeny**: SHA-256 hash (includes `c3_` prefix), plaintext vrácen JEN JEDNOU, UNIQUE constraint
+- **Token validation**: `validateApiToken()` — expiry check (UTC), `last_used_at` update jen při úspěchu
+- **Audit**: unified view (CRE/merge/drift/LLM), server-side pagination (max 1000)
+- **Webhook secret**: masked display (`c3_abcd...wxyz`), regenerate s potvrzením
+- **FE**: `settingsSecurityPanel()` — 4 sekce (audit log s taby, API tokeny CRUD, webhook, sessions)
+- **Migration 024**: `api_tokens` table s UNIQUE(token_hash)
+
+### Item 3: Getting Started / Tutorial
+- **Onboarding**: 4→5 kroků — nový krok "Klíčové funkce" (4 pilíře: Chat, Projekty, Workeri, Expertízy)
+- **Flow**: Welcome → Connect → Features → Tour → Ready
+- **About panel**: "Spustit průvodce prvním spuštěním" button (reset `c3.onboarding.completed`)
+
+---
+
 ## v90.0.0 — Smart Relay Management + Typing Indicator (2026-03-01)
 
 ### Smart Relay Management

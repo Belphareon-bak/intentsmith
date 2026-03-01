@@ -1,8 +1,8 @@
 {
   "name": "c3-agent",
-  "version": "90.0.0",
+  "version": "91.0.0",
   "type": "module",
-  "description": "C.3 Agent v90 — Smart Relay Management + Typing Indicator + CRE + Skills + Memory System + Theia IDE",
+  "description": "C.3 Agent v91 — Settings Phase 3 + Smart Relay + CRE + Skills + Memory System + Theia IDE",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

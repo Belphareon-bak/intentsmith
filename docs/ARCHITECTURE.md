@@ -1,6 +1,6 @@
-# C.3 Agent Platform — Architecture v90.1
+# C.3 Agent Platform — Architecture v91
 
-**Version:** v90.1.0 (IDE Boot Fix, Right Panel Recovery, Executor Capabilities, Smart Relay Management, Typing Indicator, Project Welcome, CRE GUARD 6, Memory System, Skills System)
+**Version:** v91.0.0 (Settings Phase 3, Smart Relay Management, Typing Indicator, Project Welcome, CRE GUARD 6, Memory System, Skills System)
 **Status:** Production-ready, ~98% complete
 **Date:** 2026-03-01
 
@@ -18,8 +18,9 @@ C.3 is a conversational AI platform combining:
 6. **Skills System** (v85) — Deterministic macro-recipes for repeating procedures (LLM, template, write, shell steps)
 7. **Guarded Autonomy** (v83) — Self-tuning CRE parameters via telemetry-driven drift detection
 8. **Memory System** (v86) — LTM persistence, injection ranking, feedback detection, pattern tracking
-9. **IDE Settings UI** (v87) — 10-section settings with backend sync, GPU detection, model selector
+9. **IDE Settings UI** (v87-91) — 12-section settings with backend sync, GPU detection, model selector, feature flags, security
 10. **Smart Relay Management** (v90) — Auto-routing, label persistence, relay picker, thinking indicator
+11. **Security** (v91) — Auth guard, API token management (SHA-256), unified audit, webhook secret management
 
 All decisions flow through CRE — LLM is the text generator, never the authority.
 
@@ -511,26 +512,32 @@ Context Assembly:
 
 **Key files:** `src/memory/` (long-term.js, injection-ranker.js, feedback-detector.js, pattern-tracker.js, preferences.js), `src/db/data-retention.js`
 
-### 10. IDE Settings UI (v87)
+### 10. IDE Settings UI (v87-91)
 
-10-section settings with dual storage: localStorage (appearance/UI) + backend REST (config).
+12-section settings with dual storage: localStorage (appearance/UI) + backend REST (config).
 
 ```
 Settings UI (chat-panel-module.js)
   │
   ├─ _settingsVals — localStorage (fontSize, theme, density, uiScale)
   ├─ _bCfg — backend sync (GET/POST /api/settings, debounced 500ms)
+  ├─ _featureFlags — GET/POST /api/features (7 runtime toggles)
+  ├─ _sec* — GET /api/security/* (tokens, audit, webhook, sessions)
   │
   ├─ Sections: Account, LLM, Memory, Notifications, Output,
-  │             Appearance, System, Storage, Backup, About
+  │             Appearance, System, Storage, Backup, Feature Flags, Security, About
   │
   ├─ GPU Detection — GET /api/system/gpu → profile.gpus[]
   ├─ Model Selector — GET /api/system/models (Ollama proxy)
   ├─ Notification Channels — GET /api/notifications/channels
+  ├─ Feature Flags — GET/POST /api/features/:name (runtime toggle, in-memory only)
+  ├─ Security — Auth guard (requireAuth), API tokens (SHA-256), unified audit, webhook
   └─ Storage — GET /api/system/info (DB size, migrations, tables)
 ```
 
-**Theia integration:** 60+ preference keys in `c3-settings` extension (`settings-protocol.ts`). WS sync for `c3.features.*`, `c3.llm.*`, `c3.memory.*` prefixes via `settings-module.ts`.
+**Theia integration:** 67+ preference keys in `c3-settings` extension (`settings-protocol.ts`). WS sync for `c3.features.*`, `c3.llm.*`, `c3.memory.*` prefixes via `settings-module.ts`.
+
+**Security model (v91):** All `/api/security/*` routes require auth: localhost bypass (dev only) OR `C3_ADMIN_TOKEN` header (timing-safe comparison). Production without token → `process.exit(1)`. API tokens use SHA-256 hashing (raw token returned once at creation). `validateApiToken()` helper ready for middleware integration.
 
 ### 11. Smart Relay Management + Typing Indicator (v90)
 
@@ -760,7 +767,7 @@ User clicks "+ Worker" → _awOpen('create')
 | D-int (Integration) | 100% | Rate monitor auto-registration |
 | D (Expertises) | **92%** | 15 built-in expertises, merge engine, 5D capabilities, enforcement, wizard UI |
 | D-obs (Observability) | **100%** | ExecutionTrace ID, LLM execution log, capability drift log, specialist telemetry |
-| E (IDE) | **78%** | C3 Studio (Theia 1.65.2), 33 extensions, Settings UI (10 sekcí), agent log UX |
+| E (IDE) | **82%** | C3 Studio (Theia 1.65.2), 33 extensions, Settings UI (12 sekcí), security, agent log UX |
 | F (Packaging) | **25%** | Setup wizard, auto-updater, license system |
 
 **Overall: ~98% complete**
