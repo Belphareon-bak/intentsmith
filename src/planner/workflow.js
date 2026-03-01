@@ -299,31 +299,34 @@ function parseJSON(text) {
   if (cleaned.includes('<think>')) {
     cleaned = cleaned.replace(/<think>[\s\S]*/g, '').trim();
   }
+  // Strip orphaned </think> tags (no matching <think>)
+  cleaned = cleaned.replace(/<\/think>/g, '').trim();
+
+  // Helper: fix trailing commas in JSON (common LLM output issue)
+  function fixTrailingCommas(s) {
+    return s.replace(/,\s*([\]}])/g, '$1');
+  }
 
   // Try direct parse
   try { return JSON.parse(cleaned); } catch {}
+  try { return JSON.parse(fixTrailingCommas(cleaned)); } catch {}
   // Try extracting from markdown code block
   const match = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (match) {
     try { return JSON.parse(match[1].trim()); } catch {}
-  }
-  // Try finding LAST complete { ... } block (more likely to be the JSON output)
-  const braceMatches = [...cleaned.matchAll(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g)];
-  if (braceMatches.length > 0) {
-    // Try from last to first (output is usually at the end)
-    for (let i = braceMatches.length - 1; i >= 0; i--) {
-      try { return JSON.parse(braceMatches[i][0]); } catch {}
-    }
+    try { return JSON.parse(fixTrailingCommas(match[1].trim())); } catch {}
   }
   // Greedy fallback: first { to last }
   const greedyMatch = cleaned.match(/\{[\s\S]*\}/);
   if (greedyMatch) {
     try { return JSON.parse(greedyMatch[0]); } catch {}
+    try { return JSON.parse(fixTrailingCommas(greedyMatch[0])); } catch {}
   }
   // Final fallback: try on original text
   const origMatch = text.match(/\{[\s\S]*\}/);
   if (origMatch) {
     try { return JSON.parse(origMatch[0]); } catch {}
+    try { return JSON.parse(fixTrailingCommas(origMatch[0])); } catch {}
   }
   return null;
 }
