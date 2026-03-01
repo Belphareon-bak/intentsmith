@@ -1082,6 +1082,33 @@ const BUILD_PATTERNS = [
   /připrav\s+(mi\s+)?(prostředí|environment|stack|infra)/i,
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SKILL PATTERNS — v88: deterministic triggers for skill/expertise creation
+// ─────────────────────────────────────────────────────────────────────────────
+// "vytvořit expertizu", "spusť skill", "přidej expertizu" → SKILL
+// Needed because LLM prompt only triggers SKILL on "skill/recept/proceduru",
+// but "expertizu" is the natural user-facing term.
+// ─────────────────────────────────────────────────────────────────────────────
+const SKILL_PATTERNS = [
+  // CZ: create/add expertise
+  /vytvo[rř]\S*\s+.{0,15}experti[zs]/i,      // "vytvořit expertizu", "vytvoř expertízu"
+  /p[rř]id[eě]j\S*\s+.{0,15}experti[zs]/i,   // "přidej expertizu"
+  /nov[áaý]\S*\s+.{0,10}experti[zs]/i,        // "nová expertiza"
+  /chci\s+.{0,15}experti[zs]/i,               // "chci expertizu na..."
+
+  // CZ: explicit skill/recept/procedura mentions
+  /spus[tť]\S*\s+.{0,10}skill/i,              // "spusť skill X"
+  /vytvo[rř]\S*\s+.{0,10}skill/i,             // "vytvoř skill"
+  /spus[tť]\S*\s+.{0,10}recept/i,             // "spusť recept"
+  /spus[tť]\S*\s+.{0,10}procedur/i,           // "spusť proceduru"
+
+  // EN: explicit expertise/skill creation
+  /create\s+(a\s+)?(new\s+)?(expertise|expert\s+profile)/i,
+  /add\s+(a\s+)?(new\s+)?(expertise|expert\s+profile)/i,
+  /run\s+(the\s+)?(skill|recipe|procedure)\b/i,
+  /start\s+(the\s+)?(skill|recipe|procedure)\b/i,
+];
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // v58.0 — DESIGN PATTERNS: structured synthesis from LLM knowledge
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -2181,7 +2208,7 @@ PRAVIDLA:
 - Soubor jako cíl → extrahuj do fileTarget (POUZE název, bez cest)
 - Český "rust" = růst → CONVERSATIONAL/SEARCH, ne CODE
 - DESIGN = POUZE softwarová architektura/IT projekty. Itinerář, jídelníček, tréninkový plán, výlet → CREATIVE, ne DESIGN
-- "spusť skill/recept/proceduru X" → SKILL. SKILL jen pokud uživatel explicitně zmiňuje skill/recept${projectHint}${expertiseHint}`;
+- "spusť skill/recept/proceduru X" → SKILL. "vytvořit/přidat expertizu" → SKILL. SKILL = spuštění existujícího postupu nebo vytvoření nové expertizy${projectHint}${expertiseHint}`;
 
     // v72: No conversation context — classify current message only
     const userPrompt = input;
@@ -2450,6 +2477,14 @@ PRAVIDLA:
         /write.*(poem|story|tale|essay|letter)/i.test(text) ||
         /vytvoř.*(báseň|příběh|text)/i.test(text)) {
       return IntentType.CREATIVE;
+    }
+
+    // v88: SKILL — "vytvořit expertizu", "spusť skill" → SKILL
+    // MUST be BEFORE DESIGN — "chci vytvořit expertizu na mobilní" matches DESIGN
+    // patterns too (because of "mobilní"). SKILL is more specific.
+    // ════════════════════════════════════════════════════════════════════════
+    if (SKILL_PATTERNS.some(p => p.test(text))) {
+      return IntentType.SKILL;
     }
 
     // v58.0: DESIGN — structured synthesis (architecture, roadmap, plan)
@@ -2861,6 +2896,33 @@ PRAVIDLA:
 
     // v73: Capture initial intent before any overrides
     _diag.initialIntent = intent;
+
+    // ════════════════════════════════════════════════════════════════════════
+    // v88: GUARD 8 — SKILL deterministic upgrade + feature gate.
+    // "vytvořit expertizu" → SKILL, regardless of LLM classification.
+    // Also: SKILL from regex fallback → needs feature flag check (GUARD 4
+    // only runs on LLM path).
+    // ════════════════════════════════════════════════════════════════════════
+    if (featureManager.isEnabled('skills')) {
+      if (intent !== IntentType.SKILL) {
+        const hasSkillPattern = SKILL_PATTERNS.some(p => p.test(input));
+        if (hasSkillPattern) {
+          logger.info('CRE:Guard8', `${intent} upgrade → SKILL (deterministic pattern match)`, {
+            input: input.substring(0, 60),
+            originalIntent: intent,
+          });
+          intent = IntentType.SKILL;
+          _diag.overrides.push('guard8_skill_upgrade');
+        }
+      }
+    } else if (intent === IntentType.SKILL) {
+      // Feature disabled — downgrade (covers regex fallback path)
+      logger.info('CRE:Guard8', 'SKILL downgrade → CONVERSATIONAL (feature disabled)', {
+        input: input.substring(0, 60),
+      });
+      intent = IntentType.CONVERSATIONAL;
+      _diag.overrides.push('guard8_skill_disabled');
+    }
 
     // ════════════════════════════════════════════════════════════════════════
     // v87: NEGATION OVERRIDE — user explicitly rejects an intent category.
