@@ -605,7 +605,7 @@ D1 plan → CODE implement → BUILD_VERIFYING → R2 review → D2/R1 loop
 
 ## Database Schema
 
-55+ tables in SQLite (better-sqlite3), 21 migrations:
+56+ tables in SQLite (better-sqlite3), 24 migrations:
 
 | Group | Tables |
 |-------|--------|
@@ -620,6 +620,7 @@ D1 plan → CODE implement → BUILD_VERIFYING → R2 review → D2/R1 loop
 | Skills | skill_executions, skill_steps, workflow_patterns (v85) |
 | Quality | quality_scores (v80) |
 | Workflows | workflow_sessions |
+| Security | api_tokens (v91 — SHA-256 hashed, UNIQUE constraint) |
 | Config | user_settings, learned_patterns, logs, drafts |
 
 ---
