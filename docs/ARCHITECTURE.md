@@ -346,7 +346,7 @@ The welcome system consists of three layers:
 
 15 built-in domain expertises with 5D capability profiles, multi-expertise merge, auto-selection, enforcement pipeline, specialist tools, knowledge base, and scenario engine. Custom expertises via `create-expertise` skill.
 
-Full documentation: **[docs/expertise-v1.md](expertise-v1.md)**
+Full documentation: **[EXPERTISES.md](EXPERTISES.md)**
 
 ```
 User Input → Auto-Select (vocabulary-based, <1ms, no LLM)

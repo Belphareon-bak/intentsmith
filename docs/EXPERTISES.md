@@ -1,324 +1,638 @@
 # C.3 Expertise System
 
-**Verze:** v78.0.0 (2026-02-24)
+**Verze:** v90.1 (2026-03-01)
 
-Viz take: [SPECIALISTS.md](SPECIALISTS.md) | [WORKERS.md](WORKERS.md) | [README.md](README.md)
+Viz take: [ARCHITECTURE.md](ARCHITECTURE.md) | [skills-v1.md](skills-v1.md) | [WORKERS.md](WORKERS.md)
 
 ---
 
 ## Obsah
 
-1. [Expertise Layer](#expertise-layer) — 15 vestavenych expertyz, routing, sila, presety
-2. [Merge Engine v2](#merge-engine-v2) — multi-expertise kompozice (max 3)
-3. [5D Capability System](#5d-capability-system) — vektory, kompatibilita, runtime efekty
-4. [Enforcement Pipeline](#enforcement-pipeline) — forbidden phrases, retry, tool enforcement
-5. [Expertise Wizard UI](#expertise-wizard-ui) — IDE formular pro tvorbu expertyz
-6. [API Endpointy](#api-endpointy)
-7. [Database Schema](#database-schema)
-8. [Testy](#testy)
+1. [Prehled](#prehled) — co to je, co to neni
+2. [Architektura](#architektura) — flow od vstupu po odpoved
+3. [Vestavene expertyzy (15)](#vestavene-expertyzy-15) — 5 kategorii
+4. [ExpertiseAgent trida](#expertiseagent-trida) — vlastnosti, metody
+5. [Auto-Select](#auto-select) — vocabulary-based, <1ms, bez LLM
+6. [Merge Engine v2](#merge-engine-v2) — multi-expertise kompozice (max 3)
+7. [5D Capability System](#5d-capability-system) — vektory, kompatibilita, runtime efekty
+8. [Sila a presety (Strength)](#sila-a-presety) — kvantizovane urovne
+9. [Dedicnost (Inheritance)](#dedicnost) — custom expertyzy rozsirujici built-in
+10. [Enforcement Pipeline](#enforcement-pipeline) — forbidden phrases, retry, capability drift
+11. [Specialist Runtime (D1)](#specialist-runtime-d1) — tool-augmented framework
+12. [Knowledge Base (D2)](#knowledge-base-d2) — verzovany fact store
+13. [Scenario Engine (D3)](#scenario-engine-d3) — multi-step guided workflows
+14. [Tvorba custom expertyz](#tvorba-custom-expertyz) — create-expertise skill + wizard UI
+15. [CRE Integrace](#cre-integrace) — GUARD 6, handler routing
+16. [API Endpointy](#api-endpointy)
+17. [Database Schema](#database-schema)
+18. [Konfigurace](#konfigurace)
+19. [Testy](#testy)
+20. [Soubory](#soubory)
 
 ---
 
-# Expertise Layer
+# Prehled
 
-## Co to je
+Expertise System poskytuje **domenove dialogove rezimy** ovlivnujici JAK LLM odpovida — styl, hloubka, slovnik, opatrnost — bez zmeny rozhodnuti CRE o tom CO se dela.
 
-Expertise Layer je jadro celeho specialistickeho systemu. Definuje **15 vestavenych expertyz** organizovanych do 5 kategorii, spravuje jejich registraci, routing (ktera expertyza se ma pouzit), silu vlivu na odpovedi a propojeni s konverzacemi.
+**Klicovy princip:** Expertyza ovlivnuje syntezi (ton, hloubka, slovnik, opatrnost), NIKOLIV intent/nastroje/rozhodnuti. CRE zustava autoritou.
 
-**Klicovy princip:** Expertyza ovlivnuje STYL odpovedi (ton, hloubka, slovnik, opatrnost), NIKOLIV rozhodnuti CRE. CRE zustava autoritou pro intent klasifikaci — expertyza je "persona", ne "mozek".
+**Co to dela:**
+- 15 vestavenych expertyz v 5 kategoriich + neomezene custom expertyzy
+- Multi-expertise merge (max 3 soucasne) s 5D kompatibilitou
+- Auto-select na zaklade slovniku (bez LLM, <1ms)
+- Enforcement pipeline: forbidden phrases, min delka, retry s temperature decay
+- Specialist Runtime (D1): tool-augmented experti (napr. ucetni s danovymi kalkulackami)
+- Knowledge Base (D2): verzovany fact store (domena/kategorie/klic/rok)
+- Scenario Engine (D3): multi-step guided workflows (napr. danovy pruvodce)
+- Dedicnost pro custom expertyzy rozsirujici built-in
 
-## Architektura
+**Co to NEDELA:**
+- Nemeni CRE intent klasifikaci (SEARCH zustane SEARCH)
+- Nenutí pouziti nastroju
+- Nepotlacuje LOCAL/CREATIVE rozhodnuti
+- Neni background agent
+
+**Terminologie (D5):**
+- **Specialista** = persona/agent (ucetni, pravnik) — "kdo". Ma styl, nastroje, znalosti.
+- **Expertyza** = lehky knowledge modul na tema (kontrolni hlaseni, DPH, hypoteky) — "co umi".
+- Vztah: Specialista **vlastni kolekci** expertyz. Muze jich mit N.
+
+---
+
+# Architektura
 
 ```
 Uzivatelsky vstup
-    |
-    v
-CRE.classifyIntent()  --- rozhodnuti o intentu (ANSWER, SEARCH, CODE, ...)
-    |
-    v
-ConversationHandler.route()
-    |
-    +--  Expertyza je aktivni?
-    |       |
-    |       +-- ANO --> expertiseHandler(input, context)
-    |       |               |
-    |       |               +-- CASE 0: activeExpertises > 1?
-    |       |               |       +-- mergeExpertisePrompt() -- 15-krokovy algoritmus
-    |       |               |       +-- LLM s merged prompt + temperature
-    |       |               |       +-- ExpertiseEnforcer (synteticky config)
-    |       |               |       +-- Disclaimery z obou expertyz
-    |       |               |
-    |       |               +-- CASE 1: single expertise
-    |       |               |       +-- routeToExpertise() -- pattern matching
-    |       |               |       +-- buildExpertiseSystemPrompt() -- pamet + styl
-    |       |               |       +-- LLM generovani s expertise.temperature
-    |       |               |       +-- ExpertiseEnforcer validace
-    |       |               |       +-- TaggedResponse s expertise metadaty
-    |       |               |
-    |       |               +-- CASE 2: no expertise -- ASK_USER
-    |       |
-    |       +-- NE --> normalni handler (decisions.js)
-    |
-    v
-Synthesis s expertiseHints (styl, hloubka, slovnik, opatrnost)
+  |
+  v
+Auto-Select (auto-select.js, <1ms, bez LLM)
+  |  Tier 1: vocabulary overlap (modules.vocabulary[])
+  |  Tier 2: boost patterns (built-in only)
+  |  Anti-flip-flop: hysteresis pro stabilitu
+  |  Manualni vyber ma vzdy prioritu
+  |
+  v
+Expertise Handler (expertise.js)
+  |
+  +-- Single expertise aktivni
+  |     |
+  |     +-- CRE Decision (intent se nemeni)
+  |     +-- systemPrompt + getSynthesisHints() → LLM
+  |     +-- ExpertiseEnforcer (forbidden phrases, min delka)
+  |     +-- enforceCapabilities() (5D drift detection)
+  |     +-- logLlmExecution() (audit trail)
+  |
+  +-- Multiple expertises aktivni (max 3)
+        |
+        +-- STEP 1: checkCompatibility() — 5D pairwise conflict detection
+        +-- STEP 2: resolveInheritance() — parent chain (max depth 4)
+        +-- STEP 3: mergeExpertisePrompt() — 15-krokovy pure function
+        |     validate → sort → inherit → merge modules → specialist
+        |     → tone → temperature → trim tokens → build prompt → enforce
+        +-- STEP 4: LLM generovani (merged prompt + weighted temperature)
+        +-- STEP 5: ExpertiseEnforcer — forbidden phrases, retry s decay
+        +-- STEP 6: enforceCapabilities() — 5D drift detection
+        +-- STEP 7: logLlmExecution() — model, latency, prompt hash
 ```
 
-## Vestavene expertyzy (15)
+---
 
-### A) Tvurci & Narativni
+# Vestavene expertyzy (15)
+
+## A) Tvurci & Narativni
+
+| Expertyza | ID | Domena | Teplota | Capabilities (R,C,D,Ri,V) | creativeLock |
+|-----------|-----|--------|---------|--------------------------|-------------|
+| Spisovatel | `writer` | creative_writing | 0.8 | 40,90,10,70,90 | ano |
+| DnD Master | `dnd_master` | tabletop_rpg | 0.85 | 40,95,5,80,85 | ano |
+| Textar | `songwriter` | music_lyrics | 0.9 | 35,85,10,75,60 | ano |
+
+## B) Analyticko-rozhodovaci
 
 | Expertyza | ID | Domena | Teplota | Capabilities (R,C,D,Ri,V) |
 |-----------|-----|--------|---------|--------------------------|
-| Spisovatel | `writer` | creative_writing | 0.8 | 40,90,10,70,90 |
-| DnD Master | `dnd_master` | tabletop_rpg | 0.85 | 40,95,5,80,85 |
-| Textar | `songwriter` | music_lyrics | 0.8 | 35,85,10,75,60 |
-
-### B) Analyticko-rozhodovaci
-
-| Expertyza | ID | Domena | Teplota | Capabilities (R,C,D,Ri,V) |
-|-----------|-----|--------|---------|--------------------------|
-| Analytik | `analyst` | analysis | 0.4 | 90,20,80,20,60 |
+| Analytik | `analyst` | analysis | 0.3 | 90,20,80,20,60 |
 | Prekupnik | `trader` | trading | 0.4 | 70,20,60,50,40 |
 | Ucetni | `accountant` | finance | 0.2 | 75,5,95,5,50 |
 
-### C) Normativni & Odpovednostni
+`accountant` je **specialist** — ma registrovane nastroje (`tax_calculator`, `vat_calculator`, `deadline_checker`, `salary_calculator`) a `strictToolEnforcement: true`.
+
+## C) Normativni & Odpovednostni
 
 | Expertyza | ID | Domena | Teplota | Capabilities (R,C,D,Ri,V) | Disclaimer |
 |-----------|-----|--------|---------|--------------------------|-----------|
 | Pravnik | `lawyer` | legal | 0.3 | 80,10,90,5,70 | Konzultujte advokata |
-| Lekar | `doctor` | medical_education | 0.3 | 70,10,85,5,60 | Edukacni info, nikoli lekarska rada |
-| Psycholog | `psychologist` | psychology | 0.5 | 60,50,30,40,70 | Linka bezpeci 116 111 |
+| Lekar | `doctor` | medical_education | 0.3 | 70,10,85,5,60 | Nikoli lekarska rada |
+| Psycholog | `psychologist` | psychology | 0.6 | 60,50,30,40,70 | Linka bezpeci 116 111 |
 
-### D) Technicko-odborni
+Tyto maji `CAUTION_HIGH` a povinne disclaimery.
+
+## D) Technicko-odborni
 
 | Expertyza | ID | Domena | Teplota | Capabilities (R,C,D,Ri,V) |
 |-----------|-----|--------|---------|--------------------------|
-| AI Expertyza | `ai_expert` | artificial_intelligence | 0.4 | 85,35,65,30,55 |
+| AI Expert | `ai_expert` | artificial_intelligence | 0.4 | 85,35,65,30,55 |
 | Vyvojar | `developer` | software_development | 0.3 | 80,40,70,30,30 |
 | Technik | `technician` | technical_support | 0.3 | 65,15,80,15,50 |
 
-### E) Domenovi znalci
+## E) Domenovi znalci
 
 | Expertyza | ID | Domena | Teplota | Capabilities (R,C,D,Ri,V) |
 |-----------|-----|--------|---------|--------------------------|
 | Autickar | `car_enthusiast` | automobiles | 0.5 | 55,20,50,40,50 |
 | Motorkar | `biker` | motorcycles | 0.5 | 50,20,45,35,50 |
-| Politolog | `political_analyst` | politics | 0.3 | 85,25,60,25,65 |
+| Politicky analytik | `political_analyst` | politics | 0.4 | 85,25,60,25,65 |
 
-## Expertise Strength System
+## F) Vlastni experti
 
-Kvantizovana sila — 5 pevnych urovni:
+Vytvari se pres `create-expertise` skill nebo IDE wizard. Viz [Tvorba custom expertyz](#tvorba-custom-expertyz).
 
-| Uroven | Hodnota | Vliv na styl |
-|--------|---------|-------------|
-| OFF | 0 | 0% |
-| LIGHT | 25 | 30% |
-| MEDIUM | 50 | 60% |
-| STRONG | 75 | 75% |
-| FULL | 100 | 100% |
+---
 
-## Expertise-Konverzace Vazby
+# ExpertiseAgent trida
 
-Expertyza muze byt prirazena ke konverzaci. Lifecycle: INACTIVE → LOADED → LOCKED → APPLIED → ENFORCED.
+Kazda expertyza (built-in i custom) je instance `ExpertiseAgent`:
 
-## Expertise Cross-Session Pamet
+```javascript
+{
+  // Identita
+  id: string,                    // snake_case, unikatni
+  name: string,                  // Zobrazovany nazev (cesky)
+  icon: string,                  // Emoji
+  domain: string,                // Domena (snake_case)
+  description: string,           // Kratky popis
 
-Expertyza si pamatuje fakta napruc konverzacemi (`expertise_memory` tabulka). Max 50 polozek na expertyzu, max 2000 znaku na hodnotu.
+  // Chovani
+  primaryProblemTypes: string[],  // 'procedural', 'price_range', 'specification', 'consensus', 'availability'
+  allowedRepresentations: string[], // 'narrative', 'structured', 'report', 'tabular'
+  planningDepth: 'none' | 'light' | 'deep',
+  reviewPolicy: 'none' | 'self' | 'iterative',
+  dataUsagePolicy: 'forbidden' | 'evidence' | 'controlled',
+  outputBias: 'creative' | 'analytical' | 'conservative',
+  creativeLock: boolean,         // true → GUARD 6 overriduje SEARCH→CREATIVE
+  temperature: number,           // 0.0-1.0
+
+  // Sila vlivu (v45.0)
+  strength: 0|25|50|75|100,      // OFF/LIGHT/MEDIUM/STRONG/FULL
+  weights: { style, depth, vocabulary, caution },
+
+  // Merge Engine (v63.0)
+  capabilities: { reasoning, creativity, determinism, riskTolerance, verbosity }, // 0-100
+  modules: {
+    domain_rules: string[],      // Pravidla domeny
+    emphasis: string[],          // Duraz
+    constraints: string[],       // Co NEDELAT (nikdy se netrimi)
+    vocabulary: string[],        // Domenovy slovnik (auto-select)
+    antipatterns: string[],      // Typicke chyby (nikdy se netrimi)
+    disclaimer: string | null,   // Povinny disclaimer (nikdy se netrimi)
+  },
+  tone: string,                  // 'professional', 'creative', 'friendly', 'concise'
+
+  // Dedicnost
+  parent: string | null,         // ID rodicovske expertyzy
+  inheritance: { [section]: 'extend' | 'replace' },
+
+  // Enforcement (v44.10)
+  styleRules: {
+    tone: string,
+    minResponseLength: number,
+    forbiddenPhrases: (RegExp | string)[],
+    requiredElements: RegExp[],
+    toolEnforcement: boolean,        // Expert vyzaduje pouziti nastroju
+    strictToolEnforcement: boolean,  // Hard fail po vycerpani retries
+  },
+
+  // LLM
+  systemPrompt: string,          // Persona prompt (max 8000 znaku)
+  preferredModels: string[],
+  isCustom: boolean,
+}
+```
+
+**Klicove metody:**
+- `getSynthesisHints(overrideStrength?)` — Hinty pro LLM syntezi (styl, hloubka, slovnik, opatrnost)
+- `getLLMSettings()` — `{ model, temperature, top_p }`
+- `toJSON()` — Serializace pro API/DB
+
+---
+
+# Auto-Select
+
+Deterministicky vocabulary-based vyber expertyzy. Bezi pred CRE, <1ms na volani. Soubor: `auto-select.js`.
+
+## Algoritmus
+
+1. **Tier 1: Vocabulary overlap** — Match vstupu proti `modules.vocabulary[]` s ceskou stemizaci (inflexe: `kapitola`→`kapitolu`, `helma`→`helmu`).
+   - Single-word match: +1 bod
+   - Multi-word match: +2 body
+   - Sdilene termy (ve 2+ expertyzach): ×0.5 penalizace
+
+2. **Tier 2: Boost patterns** — Pouze built-in. High-confidence indikatory domeny.
+   - Priklad: `/\b(?:NPC|D&?D|DnD|dungeon)\b/i` → `dnd_master` (+3 body)
+   - Custom expertyzy pouzivaji jen Tier 1
+
+3. **Anti-flip-flop** — Hystereze: predchozi auto-select preferovan pokud >= 80% skore viteze.
+
+4. **Threshold** — Minimum 2.0 pro aktivaci. Remiza → null (ambiguous).
+
+**Pravidla:**
+- Manualni vyber ma VZDY prioritu
+- Nastavuje jen kontext, nikdy neoverriduje CRE intent
+- `recomputeSharedTerms()` po pridani custom expertyz
 
 ---
 
 # Merge Engine v2
 
-Multi-expertise system — az 3 expertyzy soucasne v jedne konverzaci.
+Pure function `mergeExpertisePrompt()` — slucuje N expertyz (max 3) do jednoho strukturovaneho promptu.
 
-**v63.1:** Capability vektory realne ovlivnuji runtime chovani (teplota, instrukce, minResponseLength).
+## Kontrakt
 
-### 15.5-krokovy algoritmus
+- **Pure function**: zadne side effects, zadne DB, zadne I/O
+- **Deterministicky**: stejny vstup → stejny vystup
+- **Komutativni**: merge(A,B) == merge(B,A) kdyz se vaha lisi
+- **Frozen output**: `Object.freeze(result)`
+- **Input se nemutuje**
+
+## 15-krokovy algoritmus
 
 ```
-mergeExpertisePrompt() -- CISTY algoritmus (no side effects)
-    |
-    +-- 1. Validate count (max 3)
-    +-- 2. checkCompatibility() -- 5D vektory, HARD_BLOCK/SOFT_BLOCK/WARNING/OK
-    +-- 3. Sort by weight desc (position jako tie-breaker)
-    +-- 4. resolveInheritance() -- parent chain (max depth 4)
-    +-- 5. mergeModulesTagged() -- tagged items {text, expertiseId, weight}, dedup
-    +-- 6. applySpecialistOverride() -- prida, nikdy neodstrani
-    +-- 7. deriveTone() -- nejvyssi vaha vyhrava
-    +-- 8. deriveTemperature() -- dominance (>0.6 ratio) nebo weighted avg
-    +-- 9. User context budget (max 300 tokenu)
-    +-- 10. trimToTokenBudget() -- budget 1800 tokenu, vocabulary>emphasis>domain_rules
-    +-- 11. buildStructuredPrompt() -- sekce: Pravidla, Duraz, Omezeni, Slovnik, Antipatterns
-    +-- 12. Append user context
-    +-- 13. mergeEnforcement() -- forbiddenPhrases=UNION, minResponseLength=MAX
-    +-- 13.5. computeCapabilityModifiers() + applyCapabilityModifiers()
-    +-- 14. buildAuditLog()
-    +-- 15. Object.freeze(result)
-    |
-    v
+mergeExpertisePrompt()
+  |
+  +-- 1. Validate count (max 3)
+  +-- 2. checkCompatibility() — 5D vektory, HARD_BLOCK/SOFT_BLOCK/WARNING/OK
+  +-- 3. Sort by weight desc (position jako tie-breaker)
+  +-- 4. resolveInheritance() — parent chain (max depth 4)
+  +-- 5. mergeModulesTagged() — tagged items {text, expertiseId, weight}, dedup
+  +-- 6. applySpecialistOverride() — prida, nikdy neodstrani
+  +-- 7. deriveTone() — nejvyssi vaha vyhrava
+  +-- 8. deriveTemperature() — dominance (>0.6 ratio) nebo weighted avg
+  +-- 9. User context budget (max 300 tokenu)
+  +-- 10. trimToTokenBudget() — budget 1800 tokenu, vocabulary>emphasis>domain_rules
+  +-- 11. buildStructuredPrompt() — sekce: Pravidla, Duraz, Omezeni, Slovnik, Antipatterns
+  +-- 12. Append user context
+  +-- 13. mergeEnforcement() — forbiddenPhrases=UNION, minResponseLength=MAX
+  +-- 13.5. computeCapabilityModifiers() + applyCapabilityModifiers()
+  +-- 14. buildAuditLog()
+  +-- 15. Object.freeze(result)
+  |
+  v
 Frozen { prompt, metadata, enforcement, audit }
 ```
 
-### Precedence Rules
+## Precedence Rules
 
 | Konflikt | Resoluce |
 |----------|----------|
-| specialist_override vs capability_bias | specialist_override WINS |
-| weight tie (A=0.5, B=0.5) | position je tie-breaker |
-| inheritance extend vs replace | per-section, child rozhoduje |
-| enforcement forbiddenPhrases | UNION |
-| enforcement minResponseLength | MAX + capability modifier |
-| disclaimers | UNION + dedup (case-insensitive) |
-| tone conflict | highest weight wins |
-| temperature conflict | dominance (>0.6) nebo weighted avg |
+| Ton | Nejvyssi vaha vyhrava |
+| Teplota | Dominance (>0.6) vyhrava; jinak weighted avg |
+| Moduly | Per-section: 'extend' = dedup merge, 'replace' = child only |
+| Disclaimery | UNION (vsechny unikatni, nikdy se netrimi) |
+| Capabilities | Pro compatibility check, ne pro merge |
+| Constraints | UNION (nikdy se netrimi) |
+| Antipatterns | UNION (nikdy se netrimi) |
+| Forbidden phrases | UNION vsech (regex + string) |
+| Min delka odpovedi | MAX napruc expertyzami |
+| Remiza vah | `position` field = tie-breaker |
 
-### Modules Format
+## Token Budget
 
-Kazda z 15 built-in expertyz ma rucne kuratovane moduly (ne parsovane ze systemPrompt):
+| Limit | Hodnota |
+|-------|---------|
+| Max total tokens | 2000 |
+| Effective budget | 1800 (10% rezerva) |
+| Max user context tokens | 300 |
 
-```javascript
-modules: {
-  domain_rules: ['...'],     // Pravidla domeny
-  emphasis: ['...'],         // Co zduraznit
-  constraints: ['...'],      // Co NIKDY nedelat
-  vocabulary: ['...'],       // Domenovy slovnik
-  antipatterns: ['...'],     // Cemu se vyhnout
-  disclaimer: '...' | null,  // Povinny disclaimer (nebo null)
-}
-```
+## Trim priorita
 
-### Token Budget
-
-- **MAX_TOTAL_TOKENS:** 2000 (externi API limit)
-- **EFFECTIVE_TOKEN_BUDGET:** 1800 (interni s 10% rezervou)
-- **MAX_USER_CONTEXT_TOKENS:** 300
-- **Trim order:** vocabulary → emphasis → domain_rules (lowest weight first)
-- **NIKDY se netrimi:** constraints, antipatterns, disclaimers
+| Priorita | Sekce | Trimmable |
+|----------|-------|-----------|
+| 1 | disclaimers | NIKDY |
+| 2 | constraints | NIKDY |
+| 3 | antipatterns | NIKDY |
+| 4 | domain_rules | Ano |
+| 5 | emphasis | Ano |
+| 6 | vocabulary | Ano |
 
 ---
 
 # 5D Capability System
 
-Kazda expertyza ma 5-dimenzionalni vektor (0-100). Od v63.1 vektor aktivne ovlivnuje runtime chovani.
+Kazda expertyza definuje 5-dimenzionalni vektor (0-100):
 
-| Dimenze | Popis | Runtime efekt |
-|---------|-------|-----------------------|
-| reasoning | Analyticky vs intuitivni | HIGH (>70): instrukce pro hlubsi analyzu |
-| creativity | Kreativni vs konzervativni | HIGH: temp bias +0.1, instrukce pro originalitu |
-| determinism | Deterministicky vs volny | HIGH: temp bias -0.2, instrukce pro presnost |
-| riskTolerance | Rizikovost | LOW (<30): minResponseLength +50, detailni instrukce |
-| verbosity | Usecny vs upovidany | HIGH: instrukce pro detailni odpovedi |
+| Dimenze | LOW (0-30) | MEDIUM (31-70) | HIGH (71-100) | Runtime efekt |
+|---------|-----------|-----------------|---------------|---------------|
+| reasoning | Jednoduche odpovedi | Vyvazena analyza | Hluboka analyza | HIGH: instrukce pro hlubsi rozbor |
+| creativity | Fakticke, bez prikras | Trochu tvurci | Plne generativni | HIGH: temp bias +0.1, originalita |
+| determinism | Variabilni | Prevazne konzistentni | Vysoce reprodukovatelne | HIGH: temp bias -0.2, presnost |
+| riskTolerance | Hodne vyhrady/disclaimery | Vyvazene | Primo, malo disclaimeru | LOW: minResponseLength +50 |
+| verbosity | Strucne | Stredni delka | Detailni, komplexni | HIGH: instrukce pro detaily |
 
-**Thresholds:** LOW = 0-30, MEDIUM = 31-70, HIGH = 71-100
-
-### Compatibility Severity
+## Compatibility Severity
 
 | Severity | Pravidlo | Vysledek |
 |----------|---------|---------|
-| HARD_BLOCK | maxGap >80 | Nelze zkombinovat |
+| HARD_BLOCK | maxGap >80 | Nelze zkombinovat, CompatibilityBlockError |
 | SOFT_BLOCK | maxGap >60 | Vyzaduje potvrzeni |
 | WARNING | maxGap >50 | Varovani |
 | OK | else | Bez problemu |
 
 Priklad: `writer` (creativity=90) + `accountant` (determinism=95) → gap=85 → **HARD_BLOCK**
 
-### Capability Normalization
+## Capability Normalization
 
-Soft warnings (neblokuji, jen informuji):
-- **Sum > 350:** Expertyza bude prilis specializovana
+Soft warnings (neblokuji):
+- **Sum > 350:** Prilis specializovana
 - **Kontradikce:** creativity > 70 && determinism > 70
+
+---
+
+# Sila a presety
+
+Kvantizovana sila — 5 urovni, mapovanych na presety:
+
+| Sila | Uroven | Preset | Style Multiplier | Depth |
+|------|--------|--------|------------------|-------|
+| 0 | OFF | — | 0% | — |
+| 1-30 | LIGHT | light | 30% | shallow |
+| 31-60 | MEDIUM | balanced | 60% | expert default |
+| 61-75 | STRONG | deep | 75% | deep (forced) |
+| 76-100 | FULL | deep | 100% | deep (forced) |
+
+Presety ovlivnuji `_getSystemAddition()` — pridavne prompt instrukce dle urovne.
+
+---
+
+# Dedicnost
+
+Custom expertyzy mohou rozsirovat built-in pres `parent` field.
+
+## Pravidla resoluce
+
+- **Max hloubka**: 4 urovne
+- **Moduly**: per-section `extend` (dedup concat, default) nebo `replace` (jen child)
+- **Capabilities**: child explicitni hodnota overriduje; child undefined → zdedi rodice
+- **Enforcement (styleRules)**: UNION — child NEMUZE oslabit rodice (pokud `overrideParentEnforcement !== true`)
+  - `forbiddenPhrases`: deduplikovana unie
+  - `minResponseLength`: MAX(rodic, child)
+  - Boolean flagy (`toolEnforcement` atd.): OR (rodic true → zustane true)
 
 ---
 
 # Enforcement Pipeline
 
-Post-synthesis validace s moznosti retry. Pokud odpoved porusuje pravidla, regeneruje se s kontextem o poruseni (max 2 pokusy).
+## 1. ExpertiseEnforcer
 
-## ExpertiseEnforcer
+Post-synthesis validace:
 
 ```
-LLM generuje odpoved s expertise promptem
-    |
-    v
-ExpertiseEnforcer.enforce(response, expertise)
-    |
-    +-- 1. checkForbiddenPhrases(response, expertise.styleRules.forbiddenPhrases)
-    |       +-- Default: "nevim", "to zalezi", "jako jazykovy model", "nemohu pomoci"
-    |       +-- Ucetni: "odhaduji", "priblizne", "muze byt kolem", "tipuji"
-    |       +-- Analytik: "mozna", "asi", "nevim presne"
-    |       +-- Vyvojar: "TODO.*later", "this is just an example"
-    |
-    +-- 2. checkResponseLength(response, expertise.styleRules.minResponseLength)
-    |       +-- Default: 50, Spisovatel: 200, DnD Master: 150, Ucetni: 100
-    |
-    +-- PORUSENI?
-    |       +-- ANO (pokus 1) -> Regenerace s kontextem poruseni
-    |       +-- ANO (pokus 2) -> Posledni pokus s explicitnim upozornenim
-    |       +-- ANO (pokus 3) -> Ponechat s varovanim
-    |       +-- NE -> Pokracovat na capability enforcement
-    |
-    +-- 3. enforceCapabilities() -- 5D drift detection (deterministicke, bez LLM)
-    |       +-- evaluateDeterminism, evaluateRiskTolerance, evaluateVerbosity, evaluateStructure
-    |       +-- computeCapabilityDrift() -- per-dimension delta, DRIFT_VIOLATION_THRESHOLD=40
-    |
-    +-- 4. Tool Enforcement (pouze kdyz toolEnforcement === true)
-            +-- extractNumericClaims(response)
-            +-- verifyNumericClaims() -- fuzzy tolerance ±1% pro cisla > 100
-            +-- Nepodlozena cisla → varovani
+LLM Response
+  |
+  +-- checkForbiddenPhrases(response, expert.styleRules.forbiddenPhrases)
+  |     Default: "nevim", "to zalezi", "jako jazykovy model", "nemohu pomoci"
+  |     Ucetni: "odhaduji", "priblizne", "muze byt kolem", "tipuji"
+  |     Analytik: "mozna", "asi", "nevim presne"
+  |
+  +-- checkResponseLength(response, expert.styleRules.minResponseLength)
+  |
+  +-- PORUSENI?
+  |     +-- ANO → Retry s:
+  |     |     - Kontext poruseni v promptu
+  |     |     - Temperature decay: -0.1/pokus
+  |     |     - Top_p decay: -0.05/pokus
+  |     |     - Max 2 retries
+  |     |
+  |     +-- Stale poruseni po retries?
+  |           +-- strictToolEnforcement: true → hard fail
+  |           +-- Normal mode → ponechat s varovanim
+  |
+  +-- enforceCapabilities() — 5D drift detection (deterministicke, bez LLM)
+        evaluateDeterminism, evaluateRiskTolerance, evaluateVerbosity, evaluateStructure
+        computeCapabilityDrift() — per-dimension delta, DRIFT_VIOLATION_THRESHOLD=40
 ```
 
-## Retry Parameters
+## 2. Tool Enforcement (specialiste)
 
-- **Temperature decay:** 0.1/attempt
-- **Top_p decay:** 0.05/attempt
-- **Temperature floor:** 0.1
-- **Strict mode:** `hardFail=true` → response = null po vycerpani retries
+Pouze kdyz `toolEnforcement === true`:
+- `extractNumericClaims(response)`
+- `verifyNumericClaims()` — fuzzy tolerance ±1% pro cisla > 100
+- Nepodlozena cisla → varovani
 
-## ExecutionTrace (v63.3)
+## 3. ExecutionTrace (v63.3)
 
-- Jeden `executionTraceId` (UUID) per user turn
-- Propojuje: `llm_execution_log` → `retryAudit` → `capability_drift_log` → `merge_audit_log`
-- Prompt SHA-256 hash pro determinism analyzu
+Jeden `executionTraceId` (UUID) per user turn. Propojuje:
+
+```
+llm_execution_log → ExpertiseEnforcer.retryAudit → capability_drift_log → merge_audit_log
+```
+
+- Prompt SHA-256 hash pro determinism analyzu (nikdy se neuklada samotny prompt)
 - `token_source: 'provider' | 'estimated'`
 - `performance.now()` pro sub-ms latency
 
 ---
 
-# Expertise Wizard UI
+# Specialist Runtime (D1)
 
-Formular pro vytvareni/editaci expertyz v IDE (center-views extension).
+Tool-augmented expert framework. Zobecnuje ucetni pattern (detector → tool → enforce → persona wrap) do znovupouzitelneho frameworku. Soubor: `specialist-runtime.js`.
+
+## Architektura
+
+```
+ToolRegistry → IntentDetector → ToolExecutor → SpecialistRuntime
+```
+
+1. **ToolRegistry** — Mapuje specialistu → nastroje (lazy-loaded moduly)
+2. **IntentDetector** — Pattern-based routing: vstup → tool match
+3. **ToolExecutor** — Spousti deterministicky nastroj, vraci structured result
+4. **SpecialistRuntime** — Orchestruje detect → execute → wrap pipeline
+
+## Pipeline
+
+```
+Uzivatel: "Kolik zaplatim z 850k jako OSVC za rok 2024?"
+    |
+    v
+expertiseHandler() — 'accountant' aktivni
+    |
+    v
+specialistRuntime.tryToolExecution('accountant', input)
+    |
+    +-- IntentDetector: pattern matching → match: accountant.tax_calculator
+    +-- extractParams(input) → { gross_income: 850000, entity_type: 'osvc', year: 2024 }
+    +-- ToolExecutor: lazy-load + calculateTax(params) → structured result
+    +-- Persona wrap: vysledek obalen ucetni personou
+    +-- ExpertiseEnforcer: overeni odpovedi
+```
+
+## Registrovani specialiste
+
+Aktualne: `accountant` se 4 nastroji (tax_calculator, vat_calculator, deadline_checker, salary_calculator).
+
+## Registrace noveho specialisty
+
+```javascript
+toolRegistry.registerSpecialist({
+  id: 'accountant',
+  domain: 'finance',
+  tools: [{
+    id: 'accountant.tax_calculator',
+    modulePath: './tools/tax-calc.js',
+    functionName: 'calculate',
+    patterns: [{ patterns: [/dan z prijmu/i], priority: 10 }],
+    extractParams: (input) => { /* extrakce parametru */ },
+  }],
+});
+```
+
+---
+
+# Knowledge Base (D2)
+
+Verzovany fact store nahrazujici hardcoded konstanty. DB-backed s provenance metadaty. Soubor: `knowledge-base.js`.
+
+## Struktura faktu
+
+```javascript
+kb.getFact('tax', 'income_tax', 'base_rate', 2025)
+// → { value: '15', value_type: 'percentage', source: 'Zakon 586/1992 Sb.', confidence: 0.95 }
+```
+
+**Scoping:** `domain` / `category` / `key` / `year` — rok muze byt null pro casove nezavisle fakty.
+
+**Provenance:** source, source_url, confidence (0-1), is_provisional, verified_at, verified_by, notes.
+
+**Integrace:** ToolExecutor injektuje KnowledgeBase handle do tool contextu — nastroje dotazuji fakty dynamicky misto importu statickych konstant.
+
+---
+
+# Scenario Engine (D3)
+
+Multi-step guided workflows pro specialisty. Interaktivni sber dat → spusteni nastroje → prezentace. Soubor: `scenario-engine.js`.
+
+## Faze
+
+```
+INTRO → COLLECTING → COMPUTING → PRESENTING → RECOMMENDING → ADJUSTING → COMPLETED
+                                                                          +→ CANCELLED
+```
+
+## Definice scenare
+
+```javascript
+{
+  id: 'income_tax_calc',
+  specialistId: 'accountant',
+  name: 'Vypocet dane z prijmu',
+  triggers: [/vypocitej.*dan/i, /dan z prijmu/i],
+  steps: [
+    { id: 'income', question: 'Jaky je tvuj rocni prijem?', extract: (input) => parseNumber(input) },
+    { id: 'type', question: 'OSVC nebo zamestnanec?', extract: (input) => ... },
+  ],
+  compute: async (collected) => taxCalculator.calculate(collected),
+  present: (results, collected) => formatTaxReport(results),
+}
+```
+
+## Integrace
+
+- `conversation.js` kontroluje `scenarioRunner.isActive(sessionId)` — aktivni → routuje na scenar
+- Neaktivni → expert handler kontroluje `scenarioRegistry.detectTrigger()` pro start
+- Kazda session muze mit jeden aktivni scenar
+
+---
+
+# Tvorba custom expertyz
+
+## create-expertise skill
+
+Skill (v3, privileged) s 7-krokovym guided workflow:
+
+```
+ask(clarify) → llm(draft JSON) → review(checkpoint) → llm(refine) → validate(schema) → template(format) → write(save)
+```
+
+**Parametry:** `topic` (povinny) — tema nebo domena.
+
+**Vystup:** JSON config ulozeny do `expertises/custom-{topic}.json`.
+
+## Wizard UI v IDE
 
 ```
 center-views: "+" button → wizard mode
-    |
-    +-- Zakladni udaje (name, domain, icon, desc, systemPrompt, tone, temperature)
-    +-- Capabilities (5D) — 5 slideru s LOW/MEDIUM/HIGH gradient hinty
-    +-- Modules — 6 section editors (add/remove items) + inheritance badges
-    +-- Preview & Test — live compatibility, token count, prompt preview, LLM test
-    |
-    v
-Save → POST /api/expertises → expertyza se objevi v registru
+  |
+  +-- Zakladni udaje (name, domain, icon, desc, systemPrompt, tone, temperature)
+  +-- Capabilities (5D) — 5 slideru s LOW/MEDIUM/HIGH gradient hinty
+  +-- Modules — 6 section editoru (add/remove) + inheritance badges
+  +-- Preview & Test — live kompatibilita, token count, prompt preview, LLM test
+  |
+  v
+Save → POST /api/expertises → expertyza v registru
 ```
 
-**Anti-drift:** Wizard si nacte konstanty z `GET /api/expertise-schema` — zadne hardcoded hodnoty ve frontendu.
+**Anti-drift:** Wizard nacte konstanty z `GET /api/expertise-schema` — zadne hardcoded hodnoty ve FE.
 
-**5 modularnich komponent:** wizard-helpers.js, wizard-basic.js, wizard-capabilities.js, wizard-modules.js, wizard-preview.js
+## Validacni pravidla
+
+| Pole | Pravidla |
+|------|---------|
+| `name` | Povinne, 2-64 znaku |
+| `description` | Max 500 znaku |
+| `domain` | Max 64 znaku, pattern: `[a-z0-9_]+` |
+| `systemPrompt` | Max 8000 znaku, forbidden: injection patterns |
+| `temperature` | 0.0-1.0 |
+| `forbiddenPhrases` | Max 50, max 200 znaku kazdy |
+| `modules` | Validni sekce, per-section limity |
+| `capabilities` | 5D dimenze, 0-100 |
+| `inheritance` | Validni mody: 'extend' / 'replace' |
+
+## Persistence
+
+- Custom expertyzy v `custom_expertises` tabulce (id, config JSON)
+- Nactene pri startu, hot-reload po skill create
+- `ExpertiseRegistry`: `expertises` (built-in) + `customExpertises` (user)
+- Custom lookup ma prioritu: `customExpertises.get(id) || expertises.get(id)`
+
+---
+
+# CRE Integrace
+
+## GUARD 6 — Creative Override (v87)
+
+Kdyz expertyza s `creativeLock: true` nebo `outputBias === 'creative'` je aktivni:
+- SEARCH/AMBIGUOUS intent → overriden na CREATIVE
+- **Bypass patterns**: explicitni search requesty (vyhledej, googl, ve skutecnosti, v realnem svete, ve wikipedii, faktick, historicka fakta)
+- Guard je v `decide()`, NE v `_llmClassifyIntent()` — regex fallback by LLM guardy preskocil
+
+## Handler Routing
+
+| Decision | Akce |
+|----------|------|
+| ANSWER | `generateExpertiseResponse()` — expert persona LLM call |
+| CREATIVE | `generateExpertiseResponse()` |
+| CODE | `generateExpertiseResponse()` (code-aware prompt) |
+| SEARCH | Web search + expert-domain synthesis |
+| TOOL_CALL | `handleToolCallDecision()` |
+| ASK_USER | `handleAskUserDecision()` |
+| PLAN | `generateExpertiseResponse()` (build planning) |
+| REFUSE | `handleRefuseDecision()` |
 
 ---
 
 # API Endpointy
 
-| Endpoint | Metoda | Ucel |
-|----------|--------|------|
-| `/api/expertises` | GET | Seznam vsech expertyz |
-| `/api/expertises/:id` | GET | Detail |
-| `/api/expertises` | POST | Vytvoreni custom expertyzy |
-| `/api/expertises/:id` | PUT | Uprava |
-| `/api/expertises/:id` | DELETE | Smazani (pouze custom) |
-| `/api/merge-preview` | GET | Preview merge s existujicimi expertyzami |
-| `/api/merge-preview` | POST | Preview s inline config (wizard) |
-| `/api/expertise-schema` | GET | Schema pro wizard (anti-drift) |
-| `/api/expertise-wizard/test-prompt` | POST | LLM test s inline config |
+| Metoda | Path | Ucel |
+|--------|------|------|
+| GET | `/api/expertises` | Seznam vsech expertyz |
+| GET | `/api/expertises/:id` | Detail expertyzy |
+| POST | `/api/expertises` | Vytvoreni custom |
+| PUT | `/api/expertises/:id` | Uprava custom |
+| DELETE | `/api/expertises/:id` | Smazani (pouze custom) |
+| GET | `/api/merge-preview?expertises=a,b` | Preview merge result |
+| POST | `/api/merge-preview` | Preview s inline config (wizard) |
+| GET | `/api/expertise-schema` | Schema pro wizard (anti-drift) |
+| POST | `/api/expertise-wizard/test-prompt` | LLM test s inline config |
 
 ---
 
@@ -327,31 +641,26 @@ Save → POST /api/expertises → expertyza se objevi v registru
 ```sql
 -- Definice expertyz (custom)
 CREATE TABLE expertises (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    description TEXT,
-    domain TEXT,
-    system_prompt TEXT,
-    temperature REAL,
-    config TEXT,
-    is_builtin BOOLEAN DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT,
+    domain TEXT, system_prompt TEXT, temperature REAL,
+    config TEXT, is_builtin BOOLEAN DEFAULT 0,
+    created_at TIMESTAMP, updated_at TIMESTAMP
 );
 
--- Vazba expertise-konverzace (single expertise, legacy)
+-- Custom expertyzy (zjednodusene uloziste)
+CREATE TABLE custom_expertises (
+    id TEXT PRIMARY KEY, config TEXT
+);
+
+-- Vazba expertise-konverzace (single, legacy)
 CREATE TABLE expertise_bindings (
-    conversation_id TEXT PRIMARY KEY,
-    expertise_id TEXT NOT NULL,
-    locked BOOLEAN DEFAULT 0,
-    strength INTEGER DEFAULT 50,
-    locked_at TIMESTAMP
+    conversation_id TEXT PRIMARY KEY, expertise_id TEXT NOT NULL,
+    locked BOOLEAN DEFAULT 0, strength INTEGER DEFAULT 50, locked_at TIMESTAMP
 );
 
 -- Multi-expertise vazby (v63.0, max 3)
 CREATE TABLE conversation_expertises (
-    conversation_id TEXT NOT NULL,
-    expertise_id TEXT NOT NULL,
+    conversation_id TEXT NOT NULL, expertise_id TEXT NOT NULL,
     weight REAL DEFAULT 0.5 CHECK(weight >= 0.1 AND weight <= 1.0),
     position INTEGER NOT NULL DEFAULT 0,
     UNIQUE(conversation_id, expertise_id)
@@ -359,36 +668,40 @@ CREATE TABLE conversation_expertises (
 
 -- Pamet expertyzy (cross-session)
 CREATE TABLE expertise_memory (
-    expertise_id TEXT NOT NULL,
-    key TEXT NOT NULL,
-    value TEXT,
-    previous_value TEXT,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expertise_id TEXT NOT NULL, key TEXT NOT NULL,
+    value TEXT, previous_value TEXT, updated_at TIMESTAMP,
     PRIMARY KEY (expertise_id, key)
 );
 
--- Merge audit log
-CREATE TABLE merge_audit_log (
-    conversation_id TEXT,
-    timestamp TEXT NOT NULL,
-    data TEXT NOT NULL
+-- Knowledge Base (D2)
+CREATE TABLE knowledge_facts (
+    domain TEXT, specialist_id TEXT, category TEXT, key TEXT,
+    value TEXT, value_type TEXT, valid_from TEXT, valid_to TEXT,
+    year INTEGER, source TEXT, source_url TEXT, confidence REAL,
+    is_provisional BOOLEAN, verified_at TEXT, verified_by TEXT, notes TEXT,
+    UNIQUE(domain, category, key, year)
 );
 
--- Capability drift log
-CREATE TABLE capability_drift_log (
-    execution_trace_id TEXT,
-    execution_step TEXT,
-    ...
-);
-
--- LLM execution log (v63.3)
-CREATE TABLE llm_execution_log (
-    model TEXT, temperature REAL,
-    prompt_hash TEXT, prompt_tokens INTEGER,
-    completion_tokens INTEGER, latency_ms REAL,
-    token_source TEXT
-);
+-- Audit tabulky
+CREATE TABLE merge_audit_log (conversation_id TEXT, execution_trace_id TEXT, timestamp TEXT, data TEXT);
+CREATE TABLE capability_drift_log (conversation_id TEXT, execution_trace_id TEXT, expertise_id TEXT, ...);
+CREATE TABLE llm_execution_log (model TEXT, temperature REAL, prompt_hash TEXT, ...);
 ```
+
+---
+
+# Konfigurace
+
+| Nastaveni | Default | Popis |
+|-----------|---------|-------|
+| `C3_ENABLE_EXPERTISES` env | `true` | Zapnout/vypnout system |
+| `c3.features.expertises` IDE | `true` | IDE Settings toggle |
+| Max aktivnich expertyz | 3 | Hard limit |
+| Max inheritance depth | 4 | Prevence nekonecne rekurze |
+| Max token budget | 2000 | Limit merged promptu |
+| Enforcement max retries | 2 | Temperature decay retries |
+| Temperature decay | 0.1/pokus | Snizeni nahodnosti pri retry |
+| Capability drift threshold | 40 | Nad = violation |
 
 ---
 
@@ -404,27 +717,28 @@ CREATE TABLE llm_execution_log (
 | `expertise-wizard.test.js` | 38 | Validace modules, capabilities, inheritance |
 | `expertise-system.test.js` | 40 | CRUD, validace, vazby, enforcement |
 | `expertise-integration.test.js` | 10 | Expertise + DB + handler pipeline |
-| **Celkem** | **~217** | |
+| `expertise-routing-correctness.test.js` | 43 | GUARD 6 creative override |
+| `expertise-comparison-e2e.test.js` | 78 turns | E2E: expertise vs non-expertise |
+| **Celkem** | **~338** | |
 
 ---
 
-## Soubory
+# Soubory
 
-| Soubor | Radku | Ucel |
-|--------|-------|------|
-| `src/expertises/expertise-layer.js` | 1760 | Definice expertyz, registry, routing, modules, capabilities |
-| `src/expertises/expertise-store.js` | 917 | DB persistence, CRUD, validace |
-| `src/expertises/expertise-enforcement.js` | 341 | Forbidden phrases, delka, retry |
-| `src/expertises/merge-engine.js` | 568 | mergeExpertisePrompt() |
-| `src/expertises/merge-types.js` | 195 | Konstanty, CompatibilityBlockError |
-| `src/expertises/merge-compatibility.js` | 189 | 5D pairwise conflict detection |
-| `src/expertises/capability-enforcer.js` | — | Post-response 5D drift validation |
-| `src/expertises/capability-mapping.js` | 267 | 5D → runtime modifikatory |
-| `src/expertises/expertise-sandbox.js` | 299 | Offline simulace + baseline drift |
-| `src/expertises/guards/tool-enforcement.js` | 365 | Overeni ciselnych tvrzeni |
-| `src/chat/handlers/expertise.js` | 655 | Expertise handler |
-
----
-
-*Puvodni dokument: "EXPERTS, SPECIALISTS & WORKERS.md" (Subsystem 1 + 3)*
-*Viz take: [SPECIALISTS.md](SPECIALISTS.md) (Accountant) | [WORKERS.md](WORKERS.md) (Agent Runner, Notifikace)*
+| Soubor | Ucel |
+|--------|------|
+| `src/expertises/expertise-layer.js` | 15 built-in, ExpertiseAgent, ExpertiseRegistry, resolveInheritance() |
+| `src/expertises/expertise-store.js` | Persistence, validace (60+ pravidel), lifecycle states |
+| `src/expertises/expertise-enforcement.js` | Post-synthesis forbidden phrase check, retry s decay |
+| `src/expertises/auto-select.js` | Vocabulary-based auto-select (<1ms, bez LLM) |
+| `src/expertises/merge-engine.js` | `mergeExpertisePrompt()` — 15-krokovy pure function |
+| `src/expertises/merge-types.js` | MERGE_LIMITS, MODULE_SECTIONS, CompatibilityBlockError |
+| `src/expertises/merge-compatibility.js` | 5D pairwise kompatibilita |
+| `src/expertises/capability-enforcer.js` | Post-response 5D drift detection |
+| `src/expertises/capability-mapping.js` | 5D → prompt/temperature modifikatory |
+| `src/expertises/specialist-runtime.js` | D1: Tool-augmented framework |
+| `src/expertises/knowledge-base.js` | D2: Verzovany fact store |
+| `src/expertises/scenario-engine.js` | D3: Multi-step guided workflows |
+| `src/chat/handlers/expertise.js` | Handler: CRE routing, merge delegace, enforcement |
+| `src/routes/expertises.js` | REST API: CRUD, merge-preview, schema |
+| `skills/create-expertise.json` | Skill: 7-step guided tvorba expertyz |
