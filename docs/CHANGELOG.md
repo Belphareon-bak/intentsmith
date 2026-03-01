@@ -2,6 +2,49 @@
 
 ---
 
+## v89.0.0 — Version Unification + Project Welcome (2026-02-28)
+
+### Version Unification
+- **Single source of truth**: `package.json` version → `getCurrentVersion()` → `/api/system/info`
+- **Status widget**: dynamicky čte verzi z backendu (fetch `/api/system/info` při health check)
+- **Snap-collapse**: odstraněn hardcoded version string
+- **Bump**: 87.6.4 → 89.0.0
+
+### Proactive Project Welcome (v89)
+- **`project-state-reader.js`**: deterministický parser README + ROADMAP → structured state
+  - `stateType`: FULL / HYBRID / FOREIGN / EMPTY
+  - `phaseStatus`: IN_PROGRESS / PENDING / COMPLETED / UNKNOWN
+  - Tolerantní regex, BOM strip, 50k size guard
+- **`welcome-generator.js`**: template-based welcome (5 variant, ≤600 chars)
+- **Backend**: `POST /api/projects` + `open-folder` vrací `welcomeMessage`
+- **Persist**: `POST /api/conversations` ukládá welcome jako první assistant turn
+- **Frontend**: zobrazení welcome v wizard i open-folder flow
+- **41 testů**
+
+---
+
+## v88.2 — Project Analysis Consumption (2026-02-28)
+
+Wire project analysis (`project_memory.last_analysis`) to 4 downstream consumers:
+- **`controller.js`**: `projectAnalysis` v fullContext
+- **`context-init.js`**: cached analysis v initial context block (s `db` parametrem)
+- **`lifecycle-router.js`**: cached analysis z DB (fallback na fresh `analyzeExistingProject()`)
+- **`project.js`**: `buildProjectStatusResponse()` obohacen o structure/git/pkg data
+
+### Tests
+- 4 nové testy v `project-lifecycle-intercept.test.js` (23 celkem)
+
+---
+
+## v88.1 — Project Name Collision Fix (2026-02-28)
+
+- **Archive/delete**: přidává suffix `[archived-xxx]`/`[deleted-xxx]` k názvu → uvolní jméno
+- **Restore**: stripne suffix pokud není kolize; při kolizi ponechá suffix
+- **`getOrCreate()`**: `_nameConflict` flag pro duplicitní aktivní jména
+- **7 testů** v `project-lifecycle-intercept.test.js`
+
+---
+
 ## v88.0 — Project Workflow Fix: Lifecycle Intercepts + State Persistence (2026-02-28)
 
 Oprava celého project creation/opening workflow. Lifecycle engine byl nedosažitelný z PROJECT mode — sticky routing obcházel intercepts v conversation handleru.

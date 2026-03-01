@@ -19,14 +19,14 @@ let C3StatusBarContribution = class C3StatusBarContribution {
       // C3 brand
       this.statusBar.setElement('c3-brand', {
         text: '$(c3) C3 Studio',
-        tooltip: 'C3 Studio v0.1.0',
+        tooltip: 'C3 Studio',
         alignment: browser_1.StatusBarAlignment.LEFT,
         priority: 1000
       });
 
-      // Version
+      // Version (placeholder — updated dynamically from backend)
       this.statusBar.setElement('c3-version', {
-        text: 'v0.1.0',
+        text: 'v...',
         tooltip: 'C3 Studio version',
         alignment: browser_1.StatusBarAlignment.LEFT,
         priority: 999
@@ -48,7 +48,7 @@ let C3StatusBarContribution = class C3StatusBarContribution {
         priority: 0
       });
 
-      // Monitor backend health
+      // Monitor backend health + fetch version
       this._checkBackend();
       setInterval(() => this._checkBackend(), 30000);
     } catch (err) {
@@ -68,6 +68,8 @@ let C3StatusBarContribution = class C3StatusBarContribution {
           priority: 1,
           className: 'c3-status-connected'
         });
+        // Fetch version from backend (single source of truth: package.json)
+        this._fetchVersion();
       }
     } catch (e) {
       this.statusBar.setElement('c3-backend', {
@@ -78,6 +80,31 @@ let C3StatusBarContribution = class C3StatusBarContribution {
         className: 'c3-status-disconnected'
       });
     }
+  }
+
+  async _fetchVersion() {
+    if (!this.statusBar || this._versionFetched) return;
+    try {
+      const res = await fetch('http://localhost:3335/api/system/info', { signal: AbortSignal.timeout(3000) });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.version) {
+          this._versionFetched = true;
+          this.statusBar.setElement('c3-version', {
+            text: 'v' + data.version,
+            tooltip: 'C3 Studio v' + data.version,
+            alignment: browser_1.StatusBarAlignment.LEFT,
+            priority: 999
+          });
+          this.statusBar.setElement('c3-brand', {
+            text: '$(c3) C3 Studio',
+            tooltip: 'C3 Studio v' + data.version,
+            alignment: browser_1.StatusBarAlignment.LEFT,
+            priority: 1000
+          });
+        }
+      }
+    } catch { /* non-critical */ }
   }
 };
 

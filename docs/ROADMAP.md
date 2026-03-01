@@ -3,7 +3,7 @@
 ## Od aktuálního stavu k vizi
 
 **Datum:** 2026-02-28
-**Verze kódu:** v87.6.0 (Settings UI Redesign + CRE GUARD 6 + BUILD Fix + Memory System + Skills)
+**Verze kódu:** v89.0.0 (Project Welcome + Settings UI Redesign + CRE GUARD 6 + Memory System + Skills)
 **Testy:** ~2400+ verified (683 lifecycle+quality, 401 CRE, 350 conversation, 218 ledger, 270 specialist, 200+ quality, 44 agent-log, 43+78 expertise routing)
 **IDE:** C3 Studio (Theia 1.65.2), 33 custom extensions, Phase 1-5 (~78%)
 

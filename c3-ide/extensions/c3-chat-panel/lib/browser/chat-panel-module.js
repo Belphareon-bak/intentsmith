@@ -1081,6 +1081,7 @@ function _addNew(view){
     .then(function(created){
       if(created.id){
         _sessions[_ti]._convId=created.id;
+        _sessions[_ti]._label='Nová konverzace';
         _sessions[_ti].chat.msgs=[{role:'system',text:'📂 Nová konverzace vytvořena.'}];
         _sessions[_ti].chat.ctx=0;
         _persistSessionState();renderChat();_chatScrollPane(_ti);
@@ -1269,7 +1270,7 @@ function _doOpenExistingProject(folderPath){
     /* Link to current session */
     var _ts=_sessions[_ti];
     if(proj&&proj.id){
-      _ts._projectId=proj.id;
+      _ts._projectId=proj.id;_ts._label=projName;
       /* Reset session for new project context */
       _ts._convId=null;_ts._agentId=null;_ts._lifecycleResumed=false;
       _ts.chat.msgs=[{role:'system',text:'Projekt: '+projName}];
@@ -1330,6 +1331,7 @@ function _wizardSubmit(){
     _sessionActive=_ti;_ensureSessions();var _ts=_sessions[_ti];
     var projId=created.id||(created.project&&created.project.id);
     if(projId){_ts._projectId=projId;_persistSessionState();}
+    _ts._label=projName;
     if(realPath){_wtRoot=realPath;_loadWorkspaceTree(realPath);}
     /* Reset session for new project */
     _ts._lifecycleResumed=false;
@@ -2928,7 +2930,7 @@ function _detailActionHandler(d,a){
     if(exp){c3.setExpertise(exp.name);c3.agentLog('TOOL','Expertyza změněna na: '+exp.name);}
     var conv=CONVERSATIONS.find(function(c){return c.title===d.name;});
     if(conv){c3.agentLog('TOOL','Načítám konverzaci: '+conv.title+'...');c3.setExpertise(conv.expertise);
-      if(conv.id){_ts._convId=conv.id;_persistSessionState();
+      if(conv.id){_ts._convId=conv.id;_ts._label=conv.title||'Konverzace';_persistSessionState();
         fetch(_backendBase+'/api/conversations/'+conv.id,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(cd){
           var meta={};try{meta=JSON.parse(cd.metadata||'{}');}catch(ex){}
           if(meta.agentId){_ts._agentId=meta.agentId;_persistSessionState();renderChat();}
@@ -2939,7 +2941,7 @@ function _detailActionHandler(d,a){
     var proj=PROJECTS.find(function(p){return p.name===d.name;});
     if(proj){c3.agentLog('TOOL','Otevren projekt: '+proj.name+(proj.path?' ['+proj.path+']':''));
       if(proj.path){_wtRoot=proj.path;_loadWorkspaceTree(proj.path);}
-      _ts._projectId=proj.id||null;
+      _ts._projectId=proj.id||null;_ts._label=proj.name||'Projekt';
       _ts._lifecycleResumed=false;
       _ts.log=[];_ts.term=[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}];
       _persistSessionState();
@@ -3308,7 +3310,8 @@ function _mkSession(){return{
   _agentId:null,         /* G1: agent binding — persists with conversation metadata */
   _openToken:null,       /* guard: project switch during async — stale responses ignored */
   _lifecycleResumed:false, /* guard: lifecycle resume message shown only once */
-  chat:{msgs:[{role:'system',text:'C3 Studio připraven. Začni psát zprávu.'}],ctx:0,expertise:'Výchozí',showExpertises:false,showAllExpertises:false,attachments:[],editMode:'ask',editingIdx:null,editOriginalText:null,acSuggestion:null,acLoading:false},
+  _label:'',             /* v90: snapshot label for relay header — persisted */
+  chat:{msgs:[{role:'system',text:'C3 Studio připraven. Začni psát zprávu.'}],ctx:0,expertise:'Výchozí',showExpertises:false,showAllExpertises:false,attachments:[],editMode:'ask',editingIdx:null,editOriginalText:null,acSuggestion:null,acLoading:false,_thinking:null},
   bottom:'split', /* 'agent' | 'terminal' | 'split' | 'mix' */
   log:[],
   term:[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}]
@@ -3319,6 +3322,19 @@ window._sessions=_sessions;
 function _ensureSessions(){while(_sessions.length<_sessionCount)_sessions.push(_mkSession());}
 function _setSessionCount(n){_sessionCount=Math.max(1,Math.min(3,n));if(_sessionActive>=_sessionCount)_sessionActive=_sessionCount-1;_ensureSessions();renderChat();renderAgent();}
 
+/* v90: Relay helpers */
+function _isSessionEmpty(s){return !s._convId&&!s._projectId&&(!s.chat||!s.chat.msgs||s.chat.msgs.length<=1);}
+function _findFreeRelay(excludeIdx){for(var i=0;i<_sessionCount;i++){if(i===excludeIdx)continue;if(_isSessionEmpty(_sessions[i]))return i;}return -1;}
+/* v90: Relay picker dialog state */
+var _relayPickDialog=null; /* null | {callback, action} */
+function _smartRouteToRelay(callback){
+  var free=_findFreeRelay(-1);
+  if(free>=0){_ensureSessions();_switchSession(free);callback(free);return;}
+  if(_sessionCount<3){_setSessionCount(_sessionCount+1);_ensureSessions();var ni=_sessionCount-1;_switchSession(ni);callback(ni);return;}
+  /* All 3 occupied → show picker */
+  _relayPickDialog={callback:callback};renderChat();
+}
+
 /* v64.4: New-chat dialog state */
 var _newChatDialog=null; /* null | {idx, projectId, projectName} */
 
@@ -3327,7 +3343,7 @@ function _newChatInProject(idx){
   var projId=s._projectId;
   var proj=projId?PROJECTS.find(function(p){return p.id===projId;}):null;
   if(!proj){/* No project — just reset */
-    s.chat.msgs=[{role:'system',text:'Nový chat.'}];s.chat.ctx=0;s.chat.attachments=[];s._convId=null;s._agentId=null;
+    s._label='';s.chat.msgs=[{role:'system',text:'Nový chat.'}];s.chat.ctx=0;s.chat.attachments=[];s._convId=null;s._agentId=null;
     _sessionActive=idx;_persistSessionState();renderChat();return;
   }
   /* Has project — show dialog */
@@ -3338,6 +3354,7 @@ function _newChatDialogAction(choice){
   var idx=_newChatDialog.idx;var s=_sessions[idx];if(!s){_newChatDialog=null;renderChat();return;}
   if(choice==='project'){
     /* New conversation in same project */
+    s._label=_newChatDialog.projectName;
     s.chat.msgs=[{role:'system',text:'📂 Nová konverzace v projektu: '+_newChatDialog.projectName}];
     s.chat.ctx=0;s.chat.attachments=[];s._convId=null;s._agentId=null;
     /* Create new conversation linked to project */
@@ -3346,6 +3363,7 @@ function _newChatDialogAction(choice){
     .then(function(r){return r.json();}).then(function(d){if(d.id||d.conversation){s._convId=(d.conversation||d).id;_persistSessionState();}}).catch(function(){});
   } else if(choice==='free'){
     /* New conversation outside project */
+    s._label='';
     s.chat.msgs=[{role:'system',text:'Nový chat.'}];s.chat.ctx=0;s.chat.attachments=[];
     s._convId=null;s._agentId=null;s._projectId=null;s._lifecycleResumed=false;
     /* Clear tree for this session */
@@ -3365,7 +3383,7 @@ function _closeDialogAction(choice){
   if(!s){renderChat();return;}
   if(choice==='conv'){
     /* A) Close conversation only — reset pane to empty state */
-    s._convId=null;s._projectId=null;s._agentId=null;s._lifecycleResumed=false;
+    s._convId=null;s._projectId=null;s._agentId=null;s._lifecycleResumed=false;s._label='';
     s.chat.msgs=[];
     s.chat.ctx=0;s.chat.expertise='Výchozí';s.chat.attachments=[];
     var _now=new Date();
@@ -3376,7 +3394,7 @@ function _closeDialogAction(choice){
     _persistSessionState();
   } else if(choice==='pane'){
     /* B) Close conversation + reduce panel count */
-    s._convId=null;s._projectId=null;s._agentId=null;s._lifecycleResumed=false;
+    s._convId=null;s._projectId=null;s._agentId=null;s._lifecycleResumed=false;s._label='';
     s.chat.msgs=[];
     s.chat.ctx=0;s.chat.expertise='Výchozí';s.chat.attachments=[];
     s.log=[];s.term=[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}];
@@ -3597,6 +3615,7 @@ function _persistSessionState() {
             convId: s._convId,
             projectId: s._projectId,
             agentId: s._agentId,
+            label: s._label,
             expertiseName: s.chat.expertise,
             editMode: s.chat.editMode,
             bottomMode: s.bottom,
@@ -3621,6 +3640,7 @@ window.addEventListener('beforeunload', function() {
         });
         return {
           convId: s._convId, projectId: s._projectId, agentId: s._agentId,
+          label: s._label,
           expertiseName: s.chat.expertise, editMode: s.chat.editMode,
           bottomMode: s.bottom,
           wtRoot: (_perSessionTree[i]&&_perSessionTree[i].wtRoot)||(i===_sessionActive?_wtRoot:''),
@@ -3653,6 +3673,7 @@ function _restoreSessionState() {
             _sessions[i]._convId = ss.convId || null;
             _sessions[i]._projectId = ss.projectId || null;
             _sessions[i]._agentId = ss.agentId || null;
+            _sessions[i]._label = ss.label || '';
             _sessions[i].chat.expertise = ss.expertiseName || 'Výchozí';
             _sessions[i].chat.editMode = ss.editMode || 'ask';
             _sessions[i].bottom = ss.bottomMode || 'split';
@@ -3939,8 +3960,9 @@ function _chatPaneUI(idx){
     /* PANE HEADER */
     h('div',{style:{padding:'0 6px',height:28,display:'flex',alignItems:'center',gap:3,borderBottom:'1px solid '+C.border,flexShrink:0,background:isFocused?C.bg2:'transparent'}},
       h('button',{style:btnS,title:'Nový chat',onClick:function(ev){ev.stopPropagation();_newChatInProject(idx);}},svgEl(I.plus)),
-      /* v64.3: Session label — project name or expertise */
-      (function(){var label='';if(s._projectId){var _pr=PROJECTS.find(function(p){return p.id===s._projectId;});if(_pr)label=_pr.name;}
+      /* v90: Session label — prefer persisted _label, fallback to lookup */
+      (function(){var label=s._label||'';
+        if(!label&&s._projectId){var _pr=PROJECTS.find(function(p){return p.id===s._projectId;});if(_pr)label=_pr.name;}
         if(!label&&s._convId){var _cv=CONVERSATIONS.find(function(c){return c.id===s._convId;});if(_cv)label=_cv.title;}
         if(!label&&st.expertise&&st.expertise!=='Výchozí')label=st.expertise;
         return label?h('span',{style:{fontSize:_fs(10),fontWeight:600,color:isFocused?C.tx1:C.tx3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:140},title:label},label):null;})(),
@@ -4396,8 +4418,7 @@ class C3SidebarContrib extends browser_1.AbstractViewContribution {
       }catch(e){console.warn('[C3] Split spacing fix:',e);}
       /* ── Snap-collapse via ResizeObserver + expand tabs ── */
       try{
-        window._c3SnapVersion='87.6.5';
-        console.log('[C3] Snap-collapse v87.6.5 init');
+        console.log('[C3] Snap-collapse init');
         var _lph=a.shell.leftPanelHandler;
         var _rph=a.shell.rightPanelHandler;
         var leftCP=_lph&&_lph.container?_lph.container.node:null;
