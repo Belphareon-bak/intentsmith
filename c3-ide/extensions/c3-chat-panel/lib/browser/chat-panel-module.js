@@ -618,7 +618,7 @@ class C3SidebarWidget extends react_widget_1.ReactWidget {
          preserve Lumino's layout styles while hiding the element. */
       if(!document.getElementById('c3-strip-hide')){
         var ss=document.createElement('style');ss.id='c3-strip-hide';
-        ss.textContent='.theia-sidepanel-toolbar{display:none!important;height:0!important;max-height:0!important;min-height:0!important;overflow:hidden!important;visibility:hidden!important;opacity:0!important;}.theia-sidepanel-toolbar~*{top:0!important;height:100%!important;}.lm-TabBar-toolbar{display:none!important;height:0!important;overflow:hidden!important;}#theia-right-side-panel .lm-TabBar~*,#theia-bottom-content-panel .lm-TabBar~*{top:0!important;height:100%!important;}#theia-right-side-panel .lm-DockPanel-widget,#theia-bottom-content-panel .lm-DockPanel-widget{top:0!important;height:100%!important;}.lm-Widget:focus,.lm-Widget:focus-visible,#c3-sidebar:focus,#c3-chat-panel:focus,#c3-agent-panel:focus{outline:none!important;box-shadow:none!important;}*:focus-visible{outline:none!important;}#theia-top-panel,.p-MenuBar,#theia\\:menubar,.theia-app-header{background:var(--c3-bg1,#111114)!important;border-color:var(--c3-border,rgba(255,255,255,0.06))!important;}#theia-left-side-panel,#theia-right-side-panel,#theia-bottom-content-panel{background:var(--c3-bg1,#111114)!important;}input[type=range]{-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:var(--c3-bg4,#27282e);outline:none;}input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--c3-accent,#22c55e);cursor:pointer;border:2px solid var(--c3-bg1,#111114);}body{border:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;box-sizing:border-box!important;}#theia-right-side-panel{border-left:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;}#theia-bottom-content-panel{border-top:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;}@keyframes c3-ac-pulse{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}';
+        ss.textContent='.theia-sidepanel-toolbar{display:none!important;height:0!important;max-height:0!important;min-height:0!important;overflow:hidden!important;visibility:hidden!important;opacity:0!important;}.theia-sidepanel-toolbar~*{top:0!important;height:100%!important;}.lm-TabBar-toolbar{display:none!important;height:0!important;overflow:hidden!important;}#theia-right-side-panel .lm-TabBar~*,#theia-bottom-content-panel .lm-TabBar~*{top:0!important;height:100%!important;}#theia-right-side-panel .lm-DockPanel-widget,#theia-bottom-content-panel .lm-DockPanel-widget{top:0!important;height:100%!important;}.lm-Widget:focus,.lm-Widget:focus-visible,#c3-sidebar:focus,#c3-chat-panel:focus,#c3-agent-panel:focus{outline:none!important;box-shadow:none!important;}*:focus-visible{outline:none!important;}#theia-top-panel,.p-MenuBar,#theia\\:menubar,.theia-app-header{background:var(--c3-bg1,#111114)!important;border-color:var(--c3-border,rgba(255,255,255,0.06))!important;}#theia-left-side-panel,#theia-right-side-panel,#theia-bottom-content-panel{background:var(--c3-bg1,#111114)!important;}input[type=range]{-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:var(--c3-bg4,#27282e);outline:none;}input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--c3-accent,#22c55e);cursor:pointer;border:2px solid var(--c3-bg1,#111114);}body{border:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;box-sizing:border-box!important;}#theia-right-side-panel{border-left:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;}#theia-bottom-content-panel{border-top:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;}@keyframes c3-ac-pulse{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}@keyframes c3-thinking-dot{0%,80%,100%{opacity:0.2;transform:scale(0.8)}40%{opacity:1;transform:scale(1)}}';
         document.head.appendChild(ss);
       }
       function _hideStrips(){
@@ -3420,6 +3420,7 @@ function _initBusSubscriptions() {
   /* Chat messages from assistant */
   C3Bus.on('chat:message', function(ev) {
     var s = _sessions[ev.sessionIdx] || _sessions[0];
+    s.chat._thinking = null; /* v90: response arrived — clear thinking indicator */
     s.chat.msgs.push({role:'assistant', text:ev.content, tag:ev.tag||'LLM'});
     /* Update session convId from backend response (new conversation or first message) */
     var respConvId = ev.metadata && ev.metadata.conversationId;
@@ -3456,6 +3457,11 @@ function _initBusSubscriptions() {
     var s = _sessions[ev.sessionIdx] || _sessions[0];
     s.log.forEach(function(l) { l.active = false; });
     s.log.push(ev.entry);
+    /* v90: Update thinking indicator text from agent steps */
+    if (s.chat._thinking && ev.entry && ev.entry.text) {
+      s.chat._thinking.text = ev.entry.text;
+      renderChat();
+    }
     renderAgent();
   });
 
@@ -3875,10 +3881,11 @@ function _chatSendPane(idx){
     st.msgs[editIdx].text=t;
     st.msgs.splice(editIdx+1);/* remove all after edited msg */
     if(ta){ta.value='';ta.style.height='22px';}
+    st._thinking={text:'Zpracovávám...', ts:Date.now()};
     renderChat();_chatScrollPane(idx);
     var sent=false;
     if(typeof C3WS!=='undefined'&&C3WS.isReady()){sent=C3WS.sendChat(t,s,idx);}
-    if(!sent){fetch(_backendBase+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'chat',message:t,expertise:st.expertise,editMode:st.editMode,conversationId:s._convId,agentId:s._agentId||null,projectId:s._projectId||null})}).then(function(r){return r.json();}).then(function(d){st.msgs.push({role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'});_maybeRefreshExpertises(d.metadata);renderChat();_chatScrollPane(idx);}).catch(function(){st.msgs.push({role:'assistant',text:'Backend nedostupný.',tag:'ERROR'});renderChat();});}
+    if(!sent){fetch(_backendBase+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'chat',message:t,expertise:st.expertise,editMode:st.editMode,conversationId:s._convId,agentId:s._agentId||null,projectId:s._projectId||null})}).then(function(r){return r.json();}).then(function(d){st._thinking=null;st.msgs.push({role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'});_maybeRefreshExpertises(d.metadata);renderChat();_chatScrollPane(idx);}).catch(function(){st._thinking=null;st.msgs.push({role:'assistant',text:'Backend nedostupný.',tag:'ERROR'});renderChat();});}
     setTimeout(function(){_pollContext(idx);},2000);
     return;
   }
@@ -3922,6 +3929,10 @@ function _chatSendPane(idx){
   _sessionActive=idx;
   renderChat();_chatScrollPane(idx);
 
+  /* v90: Start thinking indicator */
+  st._thinking={text:'Zpracovávám...', ts:Date.now()};
+  renderChat();
+
   /* Read attachments then send */
   _readAttachments(filesToRead,function(readFiles){
     s.chat._pendingAttachments=readFiles.length>0?readFiles:null;
@@ -3935,8 +3946,8 @@ function _chatSendPane(idx){
       if(readFiles.length>0)body.attachments=readFiles;
       fetch(_backendBase+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
       .then(function(r){return r.json();})
-      .then(function(d){st.msgs.push({role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'});if(typeof d.contextPercent==='number')st.ctx=d.contextPercent;_maybeRefreshExpertises(d.metadata);renderChat();_chatScrollPane(idx);})
-      .catch(function(){st.msgs.push({role:'assistant',text:'Backend nedostupný. Spusťte: node src/server.js',tag:'ERROR'});renderChat();});
+      .then(function(d){st._thinking=null;st.msgs.push({role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'});if(typeof d.contextPercent==='number')st.ctx=d.contextPercent;_maybeRefreshExpertises(d.metadata);renderChat();_chatScrollPane(idx);})
+      .catch(function(){st._thinking=null;st.msgs.push({role:'assistant',text:'Backend nedostupný. Spusťte: node src/server.js',tag:'ERROR'});renderChat();});
     }
     s.chat._pendingAttachments=null;
     /* Poll context after send */
@@ -4006,7 +4017,19 @@ function _chatPaneUI(idx){
             h('div',{style:{width:18,height:18,borderRadius:'50%',background:u?C.bg4:a?'linear-gradient(135deg,#22c55e,#16a34a)':C.bg3,display:'flex',alignItems:'center',justifyContent:'center',fontSize:a?_fs(6):_fs(8),fontWeight:a?700:400,color:u?C.tx3:a?'#fff':C.tx4}},u?'👤':a?'C3':'⚡'),
             h('span',{style:{fontSize:_fs(10),fontWeight:600,color:C.tx2}},u?'Ty':a?'C3':'System'),
             m.tag?h('span',{style:{fontSize:_fs(7.5),padding:'1px 3px',borderRadius:3,fontFamily:C.mono,textTransform:'uppercase',background:m.tag==='ERROR'?C.redBg:C.purpleBg,color:m.tag==='ERROR'?C.red:C.purple}},m.tag):null),
-          h('div',{style:{fontSize:_fs(12),lineHeight:'1.5',color:C.tx1,paddingLeft:22,wordBreak:'break-word',whiteSpace:'pre-wrap'}},m.text)));})),
+          h('div',{style:{fontSize:_fs(12),lineHeight:'1.5',color:C.tx1,paddingLeft:22,wordBreak:'break-word',whiteSpace:'pre-wrap'}},m.text)));}),
+      /* v90: Thinking indicator */
+      st._thinking?h('div',{key:'thinking',style:{padding:'3px 6px',marginBottom:3,display:'flex',justifyContent:'flex-start'}},
+        h('div',{style:{background:C.bg2,borderRadius:'12px 12px 12px 2px',padding:'6px 10px',maxWidth:'85%',minWidth:60}},
+          h('div',{style:{display:'flex',alignItems:'center',gap:4,marginBottom:2}},
+            h('div',{style:{width:18,height:18,borderRadius:'50%',background:'linear-gradient(135deg,#22c55e,#16a34a)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:_fs(6),fontWeight:700,color:'#fff'}},'C3'),
+            h('span',{style:{fontSize:_fs(10),fontWeight:600,color:C.tx2}},'C3')),
+          h('div',{style:{display:'flex',alignItems:'center',gap:6,paddingLeft:22}},
+            h('div',{style:{display:'flex',gap:3,alignItems:'center'}},
+              h('span',{style:{width:5,height:5,borderRadius:'50%',background:C.accent,display:'inline-block',animation:'c3-thinking-dot 1.2s ease-in-out infinite',animationDelay:'0s'}}),
+              h('span',{style:{width:5,height:5,borderRadius:'50%',background:C.accent,display:'inline-block',animation:'c3-thinking-dot 1.2s ease-in-out infinite',animationDelay:'0.15s'}}),
+              h('span',{style:{width:5,height:5,borderRadius:'50%',background:C.accent,display:'inline-block',animation:'c3-thinking-dot 1.2s ease-in-out infinite',animationDelay:'0.3s'}})),
+            h('span',{style:{fontSize:_fs(11),color:C.tx3,fontStyle:'italic',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:200}},st._thinking.text||'')))):null),
     /* INPUT */
     h('div',{style:{padding:6,borderTop:'1px solid '+C.border,flexShrink:0},onClick:function(ev){ev.stopPropagation();}},
       h('div',{style:{background:C.bg2,border:'1px solid '+(st.editingIdx!==null?C.accent:C.border2),borderRadius:10,overflow:'visible',position:'relative'}},
