@@ -2,10 +2,11 @@
  * Onboarding Step Components
  *
  * Steps:
- *   0. Welcome — "Vítej v C3 Studio!"
- *   1. Connect — Backend URL (auto-detect or manual)
- *   2. Tour    — Quick overview: Chat, Agent Log, Terminal
- *   3. Ready   — "Napiš 'Navrhni architekturu...' pro start"
+ *   0. Welcome  — "Vítej v C3 Studio!"
+ *   1. Connect  — Backend URL (auto-detect or manual)
+ *   2. Features — 4 pilíře: Chat, Projekty, Workeri, Expertízy
+ *   3. Tour     — Quick overview: Chat, Agent Log, Terminal
+ *   4. Ready    — "Napiš 'Navrhni architekturu...' pro start"
  */
 
 import * as React from 'react';
@@ -87,7 +88,56 @@ export const ConnectStep: React.FC<ConnectStepProps> = ({
   </div>
 );
 
-// ─── Step 2: Tour ────────────────────────────────────────
+// ─── Step 2: Key Features ───────────────────────────────
+
+interface FeaturePillar {
+  icon: string;
+  label: string;
+  description: string;
+}
+
+const FEATURE_PILLARS: FeaturePillar[] = [
+  {
+    icon: '💬',
+    label: 'Chat',
+    description: 'Piš česky nebo anglicky. Agent rozumí kontextu, hledá na webu i v kódu.',
+  },
+  {
+    icon: '📐',
+    label: 'Projekty',
+    description: 'Lifecycle engine — od specifikace přes build až po code review.',
+  },
+  {
+    icon: '🤖',
+    label: 'Workeri',
+    description: 'Autonomní agenti pro dlouhodobé úkoly. Monitoruj průběh v Agent Logu.',
+  },
+  {
+    icon: '🧠',
+    label: 'Expertízy',
+    description: '15 doménových expertíz — od účetnictví po DevOps. Agent vybere automaticky.',
+  },
+];
+
+export const FeaturesStep: React.FC = () => (
+  <div>
+    <div className="c3-onboarding-step-title">Klíčové funkce</div>
+    <div className="c3-onboarding-step-text" style={{ marginBottom: 12 }}>
+      C3 Studio stojí na 4 pilířích:
+    </div>
+    {FEATURE_PILLARS.map((item, i) => (
+      <div key={i} className="c3-onboarding-tour-item">
+        <div className="c3-onboarding-tour-icon">{item.icon}</div>
+        <div>
+          <div className="c3-onboarding-tour-label">{item.label}</div>
+          <div className="c3-onboarding-tour-desc">{item.description}</div>
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+// ─── Step 3: Tour ────────────────────────────────────────
 
 interface TourItem {
   icon: string;

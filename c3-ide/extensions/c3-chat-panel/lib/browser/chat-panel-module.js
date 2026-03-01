@@ -2710,7 +2710,10 @@ function settingsAboutPanel(){
     h('div',{style:{width:64,height:64,background:'linear-gradient(135deg,#22c55e,#16a34a)',borderRadius:18,display:'inline-flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:_fs(26),color:'#fff',marginBottom:14}},'C3'),
     h('div',{style:{fontSize:_fs(17),fontWeight:700,color:C.tx1,marginBottom:4}},'C3 Studio'),
     h('div',{style:{fontSize:_fs(13),color:C.accent,fontWeight:600,marginBottom:16}},'v'+(_serverHealth.version||'...')),
-    h('div',{style:{fontSize:_fs(11),color:C.tx4}},'Made with \u2764\ufe0f by Belfik'));
+    h('div',{style:{fontSize:_fs(11),color:C.tx4,marginBottom:20}},'Made with \u2764\ufe0f by Belfik'),
+    h('div',{style:{borderTop:'1px solid '+C.border,paddingTop:16}},
+      h('button',{style:{background:C.bg4,color:C.tx2,border:'1px solid '+C.border,borderRadius:6,padding:'6px 14px',cursor:'pointer',fontSize:_fs(11)},
+        onClick:function(){try{localStorage.removeItem('c3.onboarding.completed');}catch(_){}renderCenter();}},'Spustit pr\u016fvodce prvn\u00edm spu\u0161t\u011bn\u00edm')));
 }
 
 function centerWelcome(){return h('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:12}},h('div',{style:{width:48,height:48,background:'linear-gradient(135deg,#22c55e,#16a34a)',borderRadius:14,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:_fs(20),color:'#fff'}},'C3'),h('div',{style:{fontSize:_fs(16),fontWeight:700,color:C.tx1}},'C3 Studio'),h('div',{style:{fontSize:_fs(12),color:C.tx3}},'Vyber sekci v levém panelu'));}

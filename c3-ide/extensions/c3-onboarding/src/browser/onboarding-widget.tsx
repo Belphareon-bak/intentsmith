@@ -2,7 +2,7 @@
  * C3 Onboarding Widget
  *
  * First-run experience shown when no C3 session exists.
- * Steps: Welcome → Connect → Tour → Ready
+ * Steps: Welcome → Connect → Features → Tour → Ready
  *
  * Stores completion flag in localStorage: c3.onboarding.completed
  * Can be re-triggered via command "C3: Znovu spustit onboarding"
@@ -15,6 +15,7 @@ import { ILogger } from '@theia/core';
 import {
   WelcomeStep,
   ConnectStep,
+  FeaturesStep,
   TourStep,
   ReadyStep,
   ConnectionStatus,
@@ -23,7 +24,7 @@ import {
 import './styles/onboarding.css';
 
 const STORAGE_KEY = 'c3.onboarding.completed';
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 
 @injectable()
 export class C3OnboardingWidget extends ReactWidget {
@@ -235,8 +236,9 @@ export class C3OnboardingWidget extends ReactWidget {
           onTest={this.handleTestConnection}
         />
       );
-      case 2: return <TourStep />;
-      case 3: return <ReadyStep />;
+      case 2: return <FeaturesStep />;
+      case 3: return <TourStep />;
+      case 4: return <ReadyStep />;
       default: return null;
     }
   }
