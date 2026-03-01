@@ -1,4 +1,4 @@
-// Planner Workflow — D1/CODE/R2/D2/R1 Pipeline
+// Planner Workflow — D1/CODE/BUILD_VERIFY/R2/D2/R1 Pipeline (v90)
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // WORKFLOW:
@@ -10,16 +10,15 @@
 //        ↓ OK
 //   CODE (qwen2.5-coder) → Implement
 //        ↓
-//   R2 (qwen2.5:32b) → Quick Review
-//        ↓ FAIL                    ↓ PASS
-//   D2 (qwen3-30b) → Fix plan     R1 (deepseek-r1) → Final Review
-//        ↓                              ↓ FAIL (redesign)
-//   CODE → Apply Fix                   D1 → Redesign
-//        ↓                              ↓
-//        → R2 (loop)                   CODE → Re-implement → R2 (loop)
-//                                       ↓
-//                                  ↓ APPROVED
-//                                  ✅ DONE
+//   BUILD_VERIFY → Run build command (deterministic, no LLM)
+//        ↓ FAIL (max 3)            ↓ PASS (or no build script → skip)
+//   D2 → Diagnose errors           R2 (qwen2.5:32b) → Quick Review
+//   CODE → Fix                     ↓ FAIL                    ↓ PASS
+//        → BUILD_VERIFY (loop)     D2 → Fix plan     R1 (deepseek-r1) → Final
+//                                  CODE → Apply Fix          ↓ FAIL (redesign)
+//                                       → R2 (loop)         D1 → Redesign
+//                                                             ↓
+//                                                            ✅ DONE
 //
 // PERSISTENCE (v57.1 — Phase C):
 //   - Sessions persisted to workflow_sessions DB table after every state change
@@ -50,6 +49,7 @@ export const WorkflowState = Object.freeze({
   PLANNING: 'PLANNING',             // D1 creating plan
   AWAITING_APPROVAL: 'AWAITING_APPROVAL', // User must approve plan
   IMPLEMENTING: 'IMPLEMENTING',     // CODE implementing
+  BUILD_VERIFYING: 'BUILD_VERIFYING', // v90: deterministic build verification
   QUICK_REVIEWING: 'QUICK_REVIEWING', // R2 reviewing
   FIX_DELIBERATING: 'FIX_DELIBERATING', // D2 deliberating fix
   APPLYING_FIX: 'APPLYING_FIX',     // CODE applying fix
@@ -261,6 +261,20 @@ VERDICTS:
 - FAIL → needs minor fixes (back to D2→CODE→R2 loop): {"verdict": "FAIL", "issues": [...]}
 - REDESIGN → fundamental problems, needs D1 replanning: {"verdict": "REDESIGN", "reason": "...", "suggestions": "..."}`,
     prompt: `Final review of implementation against plan:\n\nPlan: ${JSON.stringify(plan)}\n\nImplementation:\n${typeof implementation === 'string' ? implementation : JSON.stringify(implementation)}\n\nRespond ONLY with JSON.`,
+  }),
+
+  // v90: Build error analysis — D2 diagnoses compiler/build errors
+  buildFix: (implementation, buildErrors) => ({
+    system: `You are D2 — a build error analyst. Given compiler/build output, identify:
+1. Root cause (missing dependency, syntax error, type error, config issue)
+2. Which files need fixing
+3. Minimal fix strategy — change as little as possible
+
+RULES:
+- Focus on the FIRST error (cascade errors are often caused by the first)
+- Be specific about file paths and line numbers
+- Output a fix plan, NOT the fix itself`,
+    prompt: `Build failed with these errors:\n\n${buildErrors}\n\nImplementation:\n${typeof implementation === 'string' ? implementation : JSON.stringify(implementation)}\n\nCreate a fix plan. Respond with JSON: {"fixes": [{"issue": "...", "solution": "...", "location": "..."}]}`,
   }),
 
   redesign: (request, plan, reviewFeedback) => ({
@@ -530,6 +544,7 @@ export class WorkflowOrchestrator {
       PLANNING: 15,
       AWAITING_APPROVAL: 20,
       IMPLEMENTING: 30 + implProgress,
+      BUILD_VERIFYING: 62,  // v90: between IMPLEMENTING and R2
       QUICK_REVIEWING: 65,
       FIX_DELIBERATING: 50,
       APPLYING_FIX: 55,
@@ -647,8 +662,160 @@ export class WorkflowOrchestrator {
     session.implementation = implementations;
     this._persist(session); // persist implementation blob
 
-    // ─── Enter review loop ──────────────────────────────────────────────
-    return this._reviewLoop(session);
+    // ─── v90: Build verification before review ──────────────────────────
+    return this._buildVerify(session);
+  }
+
+  // ─── v90: Build Verification Loop ───────────────────────────────────────
+  //
+  // Deterministic build verification: detect build command from implementation,
+  // execute it, parse errors. If no build script is detected → skip to R2.
+  // On failure: D2 diagnoses → CODE fixes → retry (max 3 build fix attempts).
+  //
+  async _buildVerify(session) {
+    const buildCmd = this._detectBuildCommand(session.implementation);
+
+    if (!buildCmd) {
+      logger.info('Workflow', 'No build command detected — skipping build verification', { sessionId: session.id });
+      return this._reviewLoop(session);
+    }
+
+    session.transition(WorkflowState.BUILD_VERIFYING);
+    session.buildFixAttempts = session.buildFixAttempts || 0;
+
+    logger.info('Workflow', 'Build verification', { sessionId: session.id, command: buildCmd, attempt: session.buildFixAttempts });
+
+    try {
+      // Lazy-load C3ToolExecutor to avoid circular dependency
+      const { C3ToolExecutor } = await import('../executor/c3-tool-executor.js');
+      const executor = new C3ToolExecutor();
+
+      const result = await executor.execute({
+        correlationId: `build-verify-${session.id}-${session.buildFixAttempts}`,
+        tool: 'shell',
+        args: { command: buildCmd, cwd: session.projectPath || process.cwd() },
+        timeoutMs: 180_000, // 3 minutes for builds
+      });
+
+      const exitCode = result.output?.exitCode ?? (result.status === 'ok' ? 0 : 1);
+      const stderr = result.output?.stderr || '';
+      const stdout = result.output?.stdout || '';
+
+      session.addStep(new StepResult({
+        step: `BUILD_VERIFY_${session.buildFixAttempts}`,
+        model: 'shell',
+        output: { command: buildCmd, exitCode, stderr: stderr.slice(0, 2000), stdout: stdout.slice(0, 500) },
+        verdict: exitCode === 0 ? 'PASS' : 'FAIL',
+        duration: result.executionTimeMs || 0,
+      }));
+
+      if (exitCode === 0) {
+        logger.info('Workflow', 'Build verification PASSED', { sessionId: session.id });
+        return this._reviewLoop(session);
+      }
+
+      // Build failed — parse errors and attempt fix
+      const buildErrors = this._parseBuildErrors(stderr || stdout);
+      logger.warn('Workflow', 'Build verification FAILED', { sessionId: session.id, errorCount: buildErrors.length, attempt: session.buildFixAttempts });
+
+      if (session.buildFixAttempts >= 3) {
+        logger.warn('Workflow', 'Max build fix attempts reached', { sessionId: session.id });
+        // Fall through to R2 review — let LLM reviewers catch it
+        return this._reviewLoop(session);
+      }
+
+      session.buildFixAttempts++;
+
+      // D2 diagnoses build errors
+      const d2Prompt = PROMPTS.buildFix(session.implementation, buildErrors.join('\n'));
+      const d2Result = await callLLM('D2', d2Prompt.prompt, d2Prompt.system);
+      const fixPlan = parseJSON(d2Result.content);
+
+      session.addStep(new StepResult({
+        step: `D2_BUILD_FIX_${session.buildFixAttempts}`,
+        model: d2Result.model,
+        output: fixPlan || d2Result.content,
+        duration: d2Result.duration,
+      }));
+
+      // CODE applies build fixes
+      const fixPrompt = PROMPTS.applyFix(session.implementation, fixPlan || d2Result.content);
+      const fixResult = await callLLM('CODE', fixPrompt.prompt, fixPrompt.system);
+      session.implementation = fixResult.content;
+
+      session.addStep(new StepResult({
+        step: `CODE_BUILD_FIX_${session.buildFixAttempts}`,
+        model: fixResult.model,
+        output: fixResult.content,
+        duration: fixResult.duration,
+      }));
+
+      this._persist(session);
+
+      // Retry build verification
+      return this._buildVerify(session);
+    } catch (err) {
+      logger.error('Workflow', `Build verification error: ${err.message}`, { sessionId: session.id });
+      // Non-fatal — fall through to LLM review
+      session.addStep(new StepResult({
+        step: `BUILD_VERIFY_ERROR`,
+        model: 'shell',
+        output: err.message,
+        verdict: 'ERROR',
+      }));
+      return this._reviewLoop(session);
+    }
+  }
+
+  /**
+   * Detect build command from implementation output.
+   * Searches for package.json "build" script, Makefile, Cargo.toml, go.mod.
+   * @returns {string|null} Build command or null if none detected.
+   */
+  _detectBuildCommand(implementation) {
+    // Collect all text from implementation (handles array of {output} or raw string)
+    let implText;
+    if (typeof implementation === 'string') {
+      implText = implementation;
+    } else if (Array.isArray(implementation)) {
+      implText = implementation.map(s => s.output || '').join('\n');
+    } else {
+      implText = JSON.stringify(implementation);
+    }
+
+    // Node.js: package.json with "build" script
+    if (/"build"\s*:\s*"/.test(implText)) return 'npm run build';
+    // Rust
+    if (/Cargo\.toml/.test(implText)) return 'cargo build';
+    // Go
+    if (/go\.mod/.test(implText)) return 'go build ./...';
+    // Make
+    if (/Makefile/.test(implText) && !/CMakeLists/.test(implText)) return 'make';
+    // CMake
+    if (/CMakeLists\.txt/.test(implText)) return 'cmake --build .';
+    // Flutter
+    if (/pubspec\.yaml/.test(implText)) return 'flutter build';
+    // Python: setup.py or pyproject.toml
+    if (/pyproject\.toml/.test(implText)) return 'pip install -e .';
+
+    return null;
+  }
+
+  /**
+   * Parse build errors from stderr/stdout output.
+   * Extracts lines containing error/Error/ERROR with meaningful content.
+   * @returns {string[]} Array of error lines (max 20).
+   */
+  _parseBuildErrors(output) {
+    if (!output) return ['(no output)'];
+    const errors = [];
+    for (const line of output.split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed.length > 10 && /error|Error|ERROR|failed|FAILED|fatal|FATAL/.test(trimmed)) {
+        errors.push(trimmed);
+      }
+    }
+    return errors.length > 0 ? errors.slice(0, 20) : [output.slice(0, 2000)];
   }
 
   async _reviewLoop(session) {
@@ -865,6 +1032,7 @@ export class WorkflowOrchestrator {
       PLANNING: 'D1',
       AWAITING_APPROVAL: 'approval',
       IMPLEMENTING: 'CODE',
+      BUILD_VERIFYING: 'BUILD',  // v90
       QUICK_REVIEWING: 'R2',
       FIX_DELIBERATING: 'D2',
       APPLYING_FIX: 'CODE',

@@ -45,6 +45,16 @@ async function _getDetectFollowUpType() {
   return _detectFollowUpType;
 }
 
+// v90: Lazy import — CODE→BUILD escalation uses isProjectScopeBuild from build-handoff
+let _isProjectScopeBuild = null;
+async function _getIsProjectScopeBuild() {
+  if (!_isProjectScopeBuild) {
+    const mod = await import('./handlers/build-handoff.js');
+    _isProjectScopeBuild = mod.isProjectScopeBuild;
+  }
+  return _isProjectScopeBuild;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Decision Types
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3519,6 +3529,28 @@ PRAVIDLA:
     // CODE intent - always needs context or clarification
     if (intent === IntentType.CODE) {
       if (hasActiveProject) {
+        // ════════════════════════════════════════════════════════════════════
+        // v90: CODE→BUILD escalation — multi-file project scope detected
+        // If the request mentions 3+ components or explicit project-scope
+        // patterns, escalate to BUILD pipeline (D1→CODE→BUILD_VERIFY→R2→R1)
+        // instead of single-file TOOL_CALL.
+        // ════════════════════════════════════════════════════════════════════
+        const isProjectScope = await _getIsProjectScopeBuild();
+        if (isProjectScope(input)) {
+          _diag.overrides.push('code_to_build_escalation');
+          return _makeDecision({
+            type: DecisionType.PLAN,
+            intent: IntentType.BUILD,
+            reason: 'CODE intent escalated to BUILD — multi-file project scope detected',
+            confidence: 0.85,
+            metadata: {
+              escalatedFromCode: true,
+              projectScope,
+              projectDominant: true,
+            },
+          });
+        }
+
         return _makeDecision({
           type: DecisionType.TOOL_CALL,
           intent,

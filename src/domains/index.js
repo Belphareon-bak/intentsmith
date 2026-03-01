@@ -1,4 +1,4 @@
-// Domain Capabilities — Phase 5
+// Domain Capabilities — Phase 5 (v90: expanded scaffolds)
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // ARCHITECTURE ROLE: Domain Knowledge Layer
@@ -10,7 +10,8 @@
 // Components:
 //   - DomainRegistry: central registry of all capabilities
 //   - Recipes: step-by-step infra/ops patterns (docker, k8s, monitoring, CI/CD)
-//   - Scaffolds: app templates (express-api, react-app, fullstack)
+//   - Scaffolds: app templates (8 total — express, react, fullstack, next,
+//                vue, fastapi, cli, flutter)
 //
 // Integration:
 //   D1's system prompt includes available domains → D1 selects applicable ones
@@ -25,6 +26,12 @@ import { monitoringRecipes } from './recipes/monitoring.js';
 import { expressApiScaffold } from './scaffolds/express-api.js';
 import { reactAppScaffold } from './scaffolds/react-app.js';
 import { fullstackScaffold } from './scaffolds/fullstack.js';
+// v90: New scaffold templates
+import { nextAppScaffold } from './scaffolds/next-app.js';
+import { vueAppScaffold } from './scaffolds/vue-app.js';
+import { pythonFastapiScaffold } from './scaffolds/python-fastapi.js';
+import { cliToolScaffold } from './scaffolds/cli-tool.js';
+import { flutterAppScaffold } from './scaffolds/flutter-app.js';
 
 // ─── Domain Registry ────────────────────────────────────────────────────────
 
@@ -49,10 +56,16 @@ export class DomainRegistry {
       this.recipes.set(recipe.id, recipe);
     }
 
-    // Scaffolds
+    // Scaffolds (8 total)
     this.scaffolds.set('express-api', expressApiScaffold);
     this.scaffolds.set('react-app', reactAppScaffold);
     this.scaffolds.set('fullstack', fullstackScaffold);
+    // v90: New scaffold templates
+    this.scaffolds.set('next-app', nextAppScaffold);
+    this.scaffolds.set('vue-app', vueAppScaffold);
+    this.scaffolds.set('python-fastapi', pythonFastapiScaffold);
+    this.scaffolds.set('cli-tool', cliToolScaffold);
+    this.scaffolds.set('flutter-app', flutterAppScaffold);
 
     logger.info('Domains', `Registered ${this.recipes.size} recipes, ${this.scaffolds.size} scaffolds`);
   }
@@ -210,12 +223,19 @@ const TAG_KEYWORDS = {
   node: ['node', 'nodejs', 'node.js'],
   typescript: ['typescript', 'ts'],
   python: ['python', 'flask', 'django', 'fastapi'],
+  // v90: New stack tags
+  next: ['next', 'nextjs', 'next.js'],
+  vue: ['vue', 'vuejs', 'vue.js'],
+  fastapi: ['fastapi', 'fast-api'],
+  flutter: ['flutter', 'dart'],
+  cli: ['cli', 'command-line', 'příkaz'],
+  mobile: ['mobile', 'mobilní', 'android', 'ios'],
 
   // Infra
   docker: ['docker', 'container', 'kontejner'],
   kubernetes: ['kubernetes', 'k8s', 'cluster'],
   nginx: ['nginx', 'reverse proxy'],
-  
+
   // DB
   postgres: ['postgres', 'postgresql', 'pg'],
   mongodb: ['mongodb', 'mongo'],
