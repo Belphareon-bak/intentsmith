@@ -564,7 +564,7 @@ var C3_SIDEBAR_ID='c3-sidebar';
 class C3SidebarWidget extends react_widget_1.ReactWidget {
   constructor(){
     super();this.id=C3_SIDEBAR_ID;this.title.label='';this.title.iconClass='';this.title.closable=false;this.node.tabIndex=-1;this.node.style.outline='none';
-    this._active='expertises';this._dd={};this._collapsed=false;
+    this._active=null;this._dd={};this._collapsed=false;
   }
   render(){return null;}
   onUpdateRequest(){/* block ReactWidget re-render */}
@@ -818,7 +818,7 @@ function SidebarApp(props){
 /* ═══════════════════════════════════════════════════════════
    2. CENTER VIEW (ReactDOM.render into main panel)
    ═══════════════════════════════════════════════════════════ */
-var _centerState={view:'expertises',detail:null,detailConversations:null,openSections:{},zoom:1,listView:false,settingsSection:null,filterMode:'active',projectFilterMode:'active',_bulkMode:false,_bulkSelected:[]};
+var _centerState={view:null,detail:null,detailConversations:null,openSections:{},zoom:1,listView:false,settingsSection:null,filterMode:'active',projectFilterMode:'active',_bulkMode:false,_bulkSelected:[]};
 var _savedCenterState=null; /* saved state before wizard opens */
 function _wizardSaveLayout(){_savedCenterState={zoom:_centerState.zoom,listView:_centerState.listView,detail:_centerState.detail,view:_centerState.view};_centerState.detail=null;_centerState.zoom=1;_centerState.listView=false;}
 function _wizardRestoreLayout(){if(_savedCenterState){_centerState.zoom=_savedCenterState.zoom;_centerState.listView=_savedCenterState.listView;_centerState.view=_savedCenterState.view;_savedCenterState=null;}}
@@ -2109,7 +2109,7 @@ function centerExpertiseWizard(){
 }
 
 /* Settings state */
-var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSizeVal:13,fontIdx:0,custom1:null,custom2:null,bgIdx:0,bgCustom1:null,bgCustom2:null,customCSS:'',visualMode:'borders',tileOpacity:80,bgDim:30,sidebarOpacity:80,projectsDir:'',autoCollapse:true};
+var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSizeVal:13,fontIdx:0,custom1:null,custom2:null,bgIdx:0,bgCustom1:null,bgCustom2:null,customCSS:'',visualMode:'borders',tileOpacity:80,bgDim:30,sidebarOpacity:80,projectsDir:'',autoCollapse:true,restoreSession:true,lastView:''};
 /* v87.3: Backend config state — loaded from /api/settings */
 var _bCfg=null;var _bCfgLoading=false;var _gpuInfo=null;var _ollamaModels=null;var _sysInfo=null;var _storageInfo=null;var _bCfgSaveTimer=null;
 function _loadBCfg(cb){if(_bCfg&&!_bCfgLoading){if(cb)cb();return;}_bCfgLoading=true;fetch(_backendBase+'/api/settings',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_bCfg=d||{};_bCfgLoading=false;if(cb)cb();renderCenter();}).catch(function(){_bCfg=_bCfg||{};_bCfgLoading=false;if(cb)cb();});}
@@ -2508,6 +2508,8 @@ function settingsSystemPanel(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
   if(!_sysInfo){fetch(_backendBase+'/api/system/info',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_sysInfo=d;renderCenter();}).catch(function(){_sysInfo={error:true};});}
   return h('div',null,
+    _settingsToggle('Obnovit poslední relaci','Při startu obnoví poslední otevřený pohled, konverzaci a projekt',_settingsVals.restoreSession,function(nv){_settingsVals.restoreSession=nv;_saveSV();renderCenter();}),
+    h('div',{style:{borderTop:'1px solid '+C.border,margin:'14px 0'}}),
     _sysInfo&&!_sysInfo.error?h('div',{style:{background:C.bg3,border:'1px solid '+C.border2,borderRadius:8,padding:12,marginBottom:14}},
       h('div',{style:{fontSize:_fs(11),fontWeight:700,color:C.tx1,marginBottom:6}},'Systémové info'),
       h('div',{style:{fontSize:_fs(10),color:C.tx2,lineHeight:'1.8'}},
@@ -3262,7 +3264,7 @@ if(typeof C3Bus!=='undefined'){
 
 /* Nav event handler */
 window.addEventListener('c3-nav',function(e){
-  _centerState.view=e.detail.view;_centerState.detail=null;_centerState.detailConversations=null;_centerState.settingsSection=null;_centerState._bulkMode=false;_centerState._bulkSelected=[];_editorState.active=false;if(_centerContainer)_centerContainer.style.display='';fetchBackendData();renderCenter();
+  _centerState.view=e.detail.view;_centerState.detail=null;_centerState.detailConversations=null;_centerState.settingsSection=null;_centerState._bulkMode=false;_centerState._bulkSelected=[];_editorState.active=false;if(_centerContainer)_centerContainer.style.display='';_settingsVals.lastView=e.detail.view||'';_saveSV();fetchBackendData();renderCenter();
   if(e.detail.select){
     var name=e.detail.select,view=e.detail.view,item=null;
     if(view==='expertises'){item=EXPERTISES.find(function(x){return x.name===name||x.name.indexOf(name)>=0;});if(item)setDetail({name:item.name,fields:[{k:'Typ',v:item.desc},{k:'Doména',v:item.domain||'general'},{k:'Emoji',v:item.emoji},{k:'Specialista',v:item.isSpecialist?'Ano':'Ne'},{k:'Oblíbený',v:item.fav?'Ano':'Ne'}],tags:[item.isSpecialist?'Specialista':'Expertyza',item.domain||item.desc].filter(Boolean),actions:['Otevřít','Editovat']});}
@@ -3606,12 +3608,20 @@ window.addEventListener('beforeunload', function() {
         };
       })
     }));
+    /* Flush settings (lastView) synchronously */
+    _settingsVals.lastView=_centerState.view||'';
+    localStorage.setItem('c3-settings',JSON.stringify(_settingsVals));
   } catch(e) {}
 });
 
 /* ── Restore session state from localStorage ── */
 function _restoreSessionState() {
   try {
+    /* Restore last view (from settings, independent of session state) */
+    if (_settingsVals.restoreSession && _settingsVals.lastView) {
+      _centerState.view = _settingsVals.lastView;
+      if (_sidebarWidget) _sidebarWidget._active = _settingsVals.lastView;
+    }
     var saved = JSON.parse(localStorage.getItem('c3-session-state') || 'null');
     if (saved) {
       _sessionCount = saved.sessionCount || 2;
@@ -3619,26 +3629,30 @@ function _restoreSessionState() {
       _ensureSessions();
       (saved.sessions || []).forEach(function(ss, i) {
         if (_sessions[i]) {
-          _sessions[i]._convId = ss.convId || null;
-          _sessions[i]._projectId = ss.projectId || null;
-          _sessions[i]._agentId = ss.agentId || null;
-          _sessions[i].chat.expertise = ss.expertiseName || 'Výchozí';
-          _sessions[i].chat.editMode = ss.editMode || 'ask';
-          _sessions[i].bottom = ss.bottomMode || 'split';
-          /* v64.3: Restore per-session tree root */
-          if(ss.wtRoot){_perSessionTree[i]={wtRoot:ss.wtRoot,collapsedDirs:{},rawTree:null,files:[]};}
-          /* v64.4: Restore recent messages */
-          if(ss.recentMsgs&&ss.recentMsgs.length>0){_sessions[i].chat.msgs=ss.recentMsgs;}
+          if (_settingsVals.restoreSession) {
+            _sessions[i]._convId = ss.convId || null;
+            _sessions[i]._projectId = ss.projectId || null;
+            _sessions[i]._agentId = ss.agentId || null;
+            _sessions[i].chat.expertise = ss.expertiseName || 'Výchozí';
+            _sessions[i].chat.editMode = ss.editMode || 'ask';
+            _sessions[i].bottom = ss.bottomMode || 'split';
+            /* v64.3: Restore per-session tree root */
+            if(ss.wtRoot){_perSessionTree[i]={wtRoot:ss.wtRoot,collapsedDirs:{},rawTree:null,files:[]};}
+            /* v64.4: Restore recent messages */
+            if(ss.recentMsgs&&ss.recentMsgs.length>0){_sessions[i].chat.msgs=ss.recentMsgs;}
+          }
           /* v81.2: Always clear editing state on restore — editing cannot survive restart */
           _sessions[i].chat.editingIdx=null;
           _sessions[i].chat.editOriginalText=null;
         }
       });
       /* Load active session's tree */
-      var act=_sessionActive||0;
-      if(_perSessionTree[act]&&_perSessionTree[act].wtRoot){
-        _wtRoot=_perSessionTree[act].wtRoot;
-        _loadWorkspaceTree(_wtRoot);
+      if (_settingsVals.restoreSession) {
+        var act=_sessionActive||0;
+        if(_perSessionTree[act]&&_perSessionTree[act].wtRoot){
+          _wtRoot=_perSessionTree[act].wtRoot;
+          _loadWorkspaceTree(_wtRoot);
+        }
       }
       /* v64.5: Schedule renderChat after widget is attached (container may not exist yet at 200ms) */
       var _restoreRenderAttempts=0;
