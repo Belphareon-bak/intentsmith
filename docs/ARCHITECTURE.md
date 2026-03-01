@@ -160,15 +160,19 @@ src/                             # 73,706 lines / 188 files / 20 directories
 │       ├── python-fastapi.js    #     FastAPI REST API (v90)
 │       ├── cli-tool.js          #     Node.js CLI (v90)
 │       └── flutter-app.js       #     Flutter mobile (v90)
-├── expertises/                  # Phase D: Expertise System (v63)
-│   ├── expertise-layer.js       #   15 built-in expertises, ExpertiseAgent class, resolveInheritance
-│   ├── expertise-store.js       #   Expertise config persistence + validation
+├── expertises/                  # Phase D: Expertise System (v63+)
+│   ├── expertise-layer.js       #   15 built-in expertises, ExpertiseAgent class, ExpertiseRegistry, resolveInheritance
+│   ├── expertise-store.js       #   Expertise config persistence + validation (60+ rules)
 │   ├── expertise-enforcement.js #   ExpertiseEnforcer: forbidden phrases, retry with decay, strict mode
-│   ├── merge-engine.js          #   mergeExpertisePrompt() — 15.5-step pure function
+│   ├── auto-select.js           #   Deterministic vocabulary-based expertise auto-selection (<1ms)
+│   ├── merge-engine.js          #   mergeExpertisePrompt() — 15-step pure function
 │   ├── merge-types.js           #   MERGE_LIMITS, MODULE_SECTIONS, CompatibilityBlockError
 │   ├── merge-compatibility.js   #   checkCompatibility() — 5D pairwise conflict detection
 │   ├── capability-enforcer.js   #   Post-response 5D capability drift validation
-│   └── capability-mapping.js    #   Capability vector → prompt/temperature/enforcement modifiers
+│   ├── capability-mapping.js    #   Capability vector → prompt/temperature/enforcement modifiers
+│   ├── specialist-runtime.js    #   D1: Tool-augmented expert framework (ToolRegistry, IntentDetector)
+│   ├── knowledge-base.js        #   D2: Versioned fact store (domain/category/key/year)
+│   └── scenario-engine.js       #   D3: Multi-step guided workflows (ScenarioRegistry, ScenarioRunner)
 ├── llm/                         # LLM subsystem
 │   ├── gateway.js               #   Token-based routing, timeouts
 │   ├── client.js                #   Ollama HTTP client
@@ -338,20 +342,27 @@ The welcome system consists of three layers:
 
 **v90+ direction:** `.c3/state.json` will become the machine-readable source of truth. `readProjectState()` will read it directly for C3-owned projects; ROADMAP parsing will only be needed for onboarding foreign projects.
 
-### 5. Expertise System (v63 — Merge Engine)
+### 5. Expertise System (v63+ — Merge Engine + Specialists)
 
-15 built-in domain expertises with 5D capability profiles, multi-expertise merge, and enforcement pipeline.
+15 built-in domain expertises with 5D capability profiles, multi-expertise merge, auto-selection, enforcement pipeline, specialist tools, knowledge base, and scenario engine. Custom expertises via `create-expertise` skill.
+
+Full documentation: **[docs/expertise-v1.md](expertise-v1.md)**
 
 ```
-User Input → Expertise Handler
+User Input → Auto-Select (vocabulary-based, <1ms, no LLM)
+  │              ↓
+  │         Best match → set context (never overrides manual selection)
   │
-  ├─ Single expertise? → systemPrompt + LLM
+  ▼
+Expertise Handler
   │
-  └─ Multiple expertises (max 3)?
+  ├─ Single expertise → systemPrompt + LLM + enforce
+  │
+  └─ Multiple expertises (max 3)
        │
        ├─ STEP 1: checkCompatibility() — 5D pairwise conflict detection
        ├─ STEP 2: resolveInheritance() — parent chain (max depth 4)
-       ├─ STEP 3: mergeExpertisePrompt() — 15.5-step pure function
+       ├─ STEP 3: mergeExpertisePrompt() — 15-step pure function
        │    └─ validate → sort → inherit → merge modules → specialist
        │       → tone → temperature → trim tokens → build prompt → enforce
        ├─ STEP 4: LLM generation (with merged prompt + temperature)
@@ -360,24 +371,34 @@ User Input → Expertise Handler
        └─ STEP 7: logLlmExecution() — model, latency, prompt hash, token source
 ```
 
-**5D Capability Vector** (per expertise, 0-100):
-- `reasoning` — analytical depth
-- `creativity` — generative freedom
-- `determinism` — answer consistency
-- `riskTolerance` — caveat/disclaimer density
-- `verbosity` — response length
+**15 Built-in Expertises** (5 categories):
+
+| Category | Expertises |
+|----------|-----------|
+| Tvurci & Narativni | Spisovatel, DnD Master, Textar |
+| Analyticko-rozhodovaci | Analytik, Prekupnik, Ucetni |
+| Normativni & Odpovednostni | Pravnik, Lekar, Psycholog |
+| Technicko-odborni | AI Expert, Vyvojar, Technik |
+| Domenovi znalci | Autickar, Motorkar, Politicky analytik |
+| Vlastni experti | Created via `create-expertise` skill |
+
+**Key Concepts:**
+- **5D Capability Vector** (0-100): reasoning, creativity, determinism, riskTolerance, verbosity
+- **Strength Presets**: LIGHT (0-30%), BALANCED (31-60%), DEEP (61-100%) — controls style/depth influence
+- **Auto-Select**: Tier 1 vocabulary overlap + Tier 2 boost patterns + hysteresis (no LLM, <1ms)
+- **Modules**: 6 sections (domain_rules, emphasis, constraints, vocabulary, antipatterns, disclaimer)
+- **Specialist Runtime** (D1): Tool-augmented experts (e.g. accountant with tax/VAT calculators)
+- **Knowledge Base** (D2): Versioned fact store (domain/category/key/year with provenance)
+- **Scenario Engine** (D3): Multi-step guided workflows (e.g. tax calculation wizard)
 
 **Enforcement Pipeline:**
-- `ExpertiseEnforcer` — forbidden phrase check, retry with temperature decay (0.1/attempt), strict mode (hardFail)
+- `ExpertiseEnforcer` — forbidden phrase check, retry with temperature decay (0.1/attempt), strict mode
 - `enforceCapabilities()` — hedging ratio, caveat density, verbosity, structure scoring
 - `computeCapabilityDrift()` — per-dimension delta vs expected profile, violation threshold 40
 
 **ExecutionTrace (v63.3):**
 - One `executionTraceId` (UUID) per user turn
 - Connects: `llm_execution_log` → `ExpertiseEnforcer.retryAudit` → `capability_drift_log` → `merge_audit_log`
-- Prompt SHA-256 hash for determinism analysis
-- `token_source: 'provider' | 'estimated'`
-- `performance.now()` for sub-ms latency
 
 ### 6. Quality Gate v2 (QGv2) — Deterministic Post-Processing
 
