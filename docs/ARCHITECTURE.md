@@ -1,6 +1,6 @@
-# C.3 Agent Platform — Architecture v90
+# C.3 Agent Platform — Architecture v90.1
 
-**Version:** v90.0.0 (Executor Capabilities, Smart Relay Management, Typing Indicator, Project Welcome, CRE GUARD 6, Memory System, Skills System)
+**Version:** v90.1.0 (IDE Boot Fix, Right Panel Recovery, Executor Capabilities, Smart Relay Management, Typing Indicator, Project Welcome, CRE GUARD 6, Memory System, Skills System)
 **Status:** Production-ready, ~98% complete
 **Date:** 2026-03-01
 
@@ -560,6 +560,18 @@ D1 plan → CODE implement → BUILD_VERIFYING → R2 review → D2/R1 loop
                               ├─ PASS → R2 review
                               └─ FAIL → parse errors → D2 diagnose → CODE fix (max 3)
 ```
+
+### 13. IDE Boot Fix + Right Panel Recovery (v90.1)
+
+**Status widget circular dependency:** `toDynamicValue` resolving `StatusBar` during binding created a circular deadlock (StatusBar -> FrontendApplicationContribution -> C3StatusBarContribution -> StatusBar). Fixed with `toConstantValue(_statusInstance)` and lazy `StatusBar` resolution in `onStart()` via `window.theia.container`.
+
+**`decorate()` void return bug:** `C3StatusBarContribution = inversify_1.decorate(...)` set class to `undefined` (decorate returns void). Masked by the deadlock. Fixed by calling `decorate()` without reassignment.
+
+**Right panel snap-collapse race:** After cache clear, Theia's default right panel width < 300px threshold. ResizeObserver immediately snap-hid the chat panel. Fixed with `_c3SnapLock=true` during startup + `a.shell.resize(420,'right')` in `onStart` with 500ms delay.
+
+**Center view null default:** v90 changed `_centerState.view` from `'expertises'` to `null`, showing blank welcome screen after cache clear. Fixed with fallback: `lastView || 'expertises'`.
+
+**Key files:** `c3-ide/extensions/c3-status-widget/lib/browser/status-widget-module.js`, `c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js`
 
 ---
 

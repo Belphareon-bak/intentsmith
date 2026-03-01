@@ -3868,9 +3868,8 @@ function _readAttachments(attachments,callback){
 }
 
 function _chatSendPane(idx){
-  console.log('[C3:send] _chatSendPane idx='+idx);
   var ta=document.getElementById('c3-chat-ta-'+idx);
-  var s=_sessions[idx];if(!s){console.warn('[C3:send] no session at idx='+idx);return;}var st=s.chat;
+  var s=_sessions[idx];if(!s)return;var st=s.chat;
   st.acSuggestion=null;/* clear autocomplete on send */
   var t=ta?ta.value.trim():'';if(!t&&st.attachments.length===0)return;
 
