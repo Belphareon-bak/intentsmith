@@ -1,8 +1,8 @@
-# C.3 Agent Platform — Architecture v89
+# C.3 Agent Platform — Architecture v90
 
-**Version:** v89.0.0 (Project Welcome, Settings UI Redesign, CRE GUARD 6, Memory System, Skills System, FeatureManager)
+**Version:** v90.0.0 (Smart Relay Management, Typing Indicator, Project Welcome, CRE GUARD 6, Memory System, Skills System)
 **Status:** Production-ready, ~98% complete
-**Date:** 2026-02-28
+**Date:** 2026-03-01
 
 ---
 
@@ -19,6 +19,7 @@ C.3 is a conversational AI platform combining:
 7. **Guarded Autonomy** (v83) — Self-tuning CRE parameters via telemetry-driven drift detection
 8. **Memory System** (v86) — LTM persistence, injection ranking, feedback detection, pattern tracking
 9. **IDE Settings UI** (v87) — 10-section settings with backend sync, GPU detection, model selector
+10. **Smart Relay Management** (v90) — Auto-routing, label persistence, relay picker, thinking indicator
 
 All decisions flow through CRE — LLM is the text generator, never the authority.
 
@@ -485,6 +486,31 @@ Settings UI (chat-panel-module.js)
 ```
 
 **Theia integration:** 60+ preference keys in `c3-settings` extension (`settings-protocol.ts`). WS sync for `c3.features.*`, `c3.llm.*`, `c3.memory.*` prefixes via `settings-module.ts`.
+
+### 11. Smart Relay Management + Typing Indicator (v90)
+
+**Relay routing:** Center-to-relay routing replaced `targetSession` (legacy manual picker) with `_smartRouteToRelay()` — automatic free-relay detection, expansion (up to 3), and picker dialog fallback.
+
+```
+_smartRouteToRelay(callback)
+  │
+  ├─ _findFreeRelay() → switch to empty relay
+  ├─ _sessionCount < 3 → expand + new relay
+  └─ All occupied → _relayPickDialog overlay → user picks
+
+"+" button (_newChatInProject):
+  1. Current pane empty → reset in-place
+  2. Has project → in-project/free choice dialog
+  3. Other relay empty → switch there
+  4. Can expand → add relay
+  5. All full → relay picker dialog
+```
+
+**Label persistence:** `_label` field on each session — snapshot at open time, persisted to localStorage, restored on crash recovery. Rendering prefers `_label`, falls back to `PROJECTS`/`CONVERSATIONS` lookup.
+
+**Thinking indicator:** Per-session `_thinking` state (`{text, ts}`) — set on send, cleared on `chat:message`, updated from `agent:log` events. Three animated dots (CSS `c3-thinking-dot` keyframes) + live status text showing what C3 is currently doing.
+
+**Key helpers:** `_isSessionEmpty(s)`, `_findFreeRelay(excludeIdx)`, `_smartRouteToRelay(callback)`, `_resetSessionToClean(s)`
 
 ---
 

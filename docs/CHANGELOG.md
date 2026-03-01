@@ -2,6 +2,28 @@
 
 ---
 
+## v90.0.0 — Smart Relay Management + Typing Indicator (2026-03-01)
+
+### Smart Relay Management
+- **`_smartRouteToRelay()`**: auto free-relay detection, expand to 3, picker dialog fallback
+- **`targetSession` removed**: all 8 usages replaced with smart routing
+- **Label persistence**: `_label` snapshot field on sessions, persisted to localStorage
+- **Label rendering**: prefer `_label`, fallback to PROJECTS/CONVERSATIONS lookup
+- **"+" button rewrite**: empty pane→reset, free relay→switch, expand→new, full→picker dialog
+- **Relay picker dialog**: overlay in ChatApp showing occupied relays + "Open in new relay"
+- **`_isSessionEmpty()`**: centralized empty-relay definition (no convId, no projectId, msgs ≤ 1)
+- **`_resetSessionToClean()`**: standardized session reset helper
+- **`_closeDialogAction` fix**: `_label` reset on both conv and pane close
+
+### Typing / Thinking Indicator
+- **`_thinking` state**: per-session `{text, ts}` — set on send, cleared on response
+- **Animated dots**: 3 CSS dots with `c3-thinking-dot` keyframes (staggered 0/0.15/0.3s delay)
+- **Live status text**: updates from `agent:log` events (shows what C3 is currently doing)
+- **Error safety**: thinking cleared on HTTP/WS error (no stuck indicator)
+- **Edit-mode support**: thinking indicator also works for edit/resend flow
+
+---
+
 ## v89.0.0 — Version Unification + Project Welcome (2026-02-28)
 
 ### Version Unification
