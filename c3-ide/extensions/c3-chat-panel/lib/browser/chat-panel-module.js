@@ -449,6 +449,42 @@ var NAV=[{id:'chats',label:'Konverzace',icon:'chat',badge:0,recent:[]},{id:'proj
 
 /* ═══ LIVE DATA FETCH ═══ */
 var _backendBase='http://localhost:3335';
+
+/* v88: Extracted expertise fetch — reusable for initial load + post-skill refresh */
+function _fetchExpertises(){
+  fetch(_backendBase+'/api/expertises',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(data){
+    var items=Array.isArray(data)?data:(data.expertises||[]);
+    if(items.length>0){
+      var _localEx={};EXPERTISES.forEach(function(le){_localEx[le.name]=le;});
+      var allEx=items.map(function(e){
+        var nm=_s(e.name);var le=_localEx[nm];
+        var cfg=null;try{cfg=e.config?JSON.parse(e.config):null;}catch(ex){}
+        return{id:e.id,emoji:_s(e.emoji)||(le&&le.emoji?le.emoji:'🤖'),name:nm,
+          desc:_s(e.description||e.desc)||(le?le.desc:''),
+          domain:_s(e.domain)||(le?le.domain:''),
+          fav:e.favorite!=null?!!e.favorite:(le?!!le.fav:false),
+          isSpecialist:!!(e.is_specialist||(cfg&&cfg.toolEnforcement)||(le&&le.isSpecialist)),
+          temperature:e.temperature||null};
+      });
+      EXPERTISES=allEx;
+      SPECIALISTS=allEx.filter(function(e){return e.isSpecialist;}).map(function(e){
+        return{id:e.id,emoji:e.emoji,name:e.name,desc:e.desc,domain:e.domain,
+          tags:[e.domain,'Specialista'].filter(Boolean)};
+      });
+    }
+    NAV[3].badge=EXPERTISES.length;NAV[3].recent=EXPERTISES.filter(function(e){return e.fav;}).slice(0,3).map(function(e){return e.name;});
+    NAV[2].badge=SPECIALISTS.length;NAV[2].recent=SPECIALISTS.slice(0,3).map(function(s){return s.name;});
+    renderCenter();
+  }).catch(function(){});
+}
+
+/* v88: Re-fetch expertises after create-expertise skill completes */
+function _maybeRefreshExpertises(metadata){
+  if(metadata&&metadata.completed&&metadata.skillId==='create-expertise'){
+    _fetchExpertises();
+  }
+}
+
 function fetchBackendData(){
   /* Projects — filter: must have path (real project, not conversation leak) */
   var projStatus=_centerState.projectFilterMode||'active';
@@ -474,31 +510,7 @@ function fetchBackendData(){
     NAV[0].badge=CONVERSATIONS.length;NAV[0].recent=CONVERSATIONS.slice(0,3).map(function(c){return c.title;});renderCenter();
   }).catch(function(){});
   /* Expertises — separate specialists (is_specialist or is_builtin+tools) */
-  fetch(_backendBase+'/api/expertises',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(data){
-    var items=Array.isArray(data)?data:(data.expertises||[]);
-    if(items.length>0){
-      var _localEx={};EXPERTISES.forEach(function(le){_localEx[le.name]=le;});
-      var allEx=items.map(function(e){
-        var nm=_s(e.name);var le=_localEx[nm];
-        var cfg=null;try{cfg=e.config?JSON.parse(e.config):null;}catch(ex){}
-        return{id:e.id,emoji:_s(e.emoji)||(le&&le.emoji?le.emoji:'🤖'),name:nm,
-          desc:_s(e.description||e.desc)||(le?le.desc:''),
-          domain:_s(e.domain)||(le?le.domain:''),
-          fav:e.favorite!=null?!!e.favorite:(le?!!le.fav:false),
-          isSpecialist:!!(e.is_specialist||(cfg&&cfg.toolEnforcement)||(le&&le.isSpecialist)),
-          temperature:e.temperature||null};
-      });
-      EXPERTISES=allEx;
-      /* Rebuild specialists from expertises with is_specialist flag */
-      SPECIALISTS=allEx.filter(function(e){return e.isSpecialist;}).map(function(e){
-        return{id:e.id,emoji:e.emoji,name:e.name,desc:e.desc,domain:e.domain,
-          tags:[e.domain,'Specialista'].filter(Boolean)};
-      });
-    }
-    NAV[3].badge=EXPERTISES.length;NAV[3].recent=EXPERTISES.filter(function(e){return e.fav;}).slice(0,3).map(function(e){return e.name;});
-    NAV[2].badge=SPECIALISTS.length;NAV[2].recent=SPECIALISTS.slice(0,3).map(function(s){return s.name;});
-    renderCenter();
-  }).catch(function(){});
+  _fetchExpertises();
   /* Workers (agents) */
   if(!_agentsForbidden){fetch(_backendBase+'/api/agents',{signal:AbortSignal.timeout(3000)}).then(function(r){if(r.status===403){_agentsForbidden=true;return{agents:[]};}if(!r.ok)return{agents:[]};return r.json();}).then(function(data){
     var items=Array.isArray(data)?data:(data.agents||[]);
@@ -3399,6 +3411,8 @@ function _initBusSubscriptions() {
       if (s.bottom !== 'split' && s.bottom !== 'terminal') { s.bottom = 'split'; }
       renderAgent();
     }
+    /* v88: Refresh expertises menu after create-expertise skill completes */
+    _maybeRefreshExpertises(ev.metadata);
     renderChat(); _chatScrollPane(ev.sessionIdx);
   });
 
@@ -3842,7 +3856,7 @@ function _chatSendPane(idx){
     renderChat();_chatScrollPane(idx);
     var sent=false;
     if(typeof C3WS!=='undefined'&&C3WS.isReady()){sent=C3WS.sendChat(t,s,idx);}
-    if(!sent){fetch(_backendBase+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'chat',message:t,expertise:st.expertise,editMode:st.editMode,conversationId:s._convId,agentId:s._agentId||null,projectId:s._projectId||null})}).then(function(r){return r.json();}).then(function(d){st.msgs.push({role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'});renderChat();_chatScrollPane(idx);}).catch(function(){st.msgs.push({role:'assistant',text:'Backend nedostupný.',tag:'ERROR'});renderChat();});}
+    if(!sent){fetch(_backendBase+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'chat',message:t,expertise:st.expertise,editMode:st.editMode,conversationId:s._convId,agentId:s._agentId||null,projectId:s._projectId||null})}).then(function(r){return r.json();}).then(function(d){st.msgs.push({role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'});_maybeRefreshExpertises(d.metadata);renderChat();_chatScrollPane(idx);}).catch(function(){st.msgs.push({role:'assistant',text:'Backend nedostupný.',tag:'ERROR'});renderChat();});}
     setTimeout(function(){_pollContext(idx);},2000);
     return;
   }
@@ -3899,7 +3913,7 @@ function _chatSendPane(idx){
       if(readFiles.length>0)body.attachments=readFiles;
       fetch(_backendBase+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
       .then(function(r){return r.json();})
-      .then(function(d){st.msgs.push({role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'});if(typeof d.contextPercent==='number')st.ctx=d.contextPercent;renderChat();_chatScrollPane(idx);})
+      .then(function(d){st.msgs.push({role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'});if(typeof d.contextPercent==='number')st.ctx=d.contextPercent;_maybeRefreshExpertises(d.metadata);renderChat();_chatScrollPane(idx);})
       .catch(function(){st.msgs.push({role:'assistant',text:'Backend nedostupný. Spusťte: node src/server.js',tag:'ERROR'});renderChat();});
     }
     s.chat._pendingAttachments=null;

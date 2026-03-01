@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — Automatic Expertise Selection v87
+// C3-Agent — Automatic Expertise Selection v88
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Deterministic, vocabulary-based expertise matcher. Runs <1ms per call.
@@ -7,17 +7,18 @@
 //
 // Algorithm:
 //   Tier 1: Vocabulary overlap (from expertise.modules.vocabulary[])
-//   Tier 2: Boost patterns (high-confidence domain indicators)
+//   Tier 2: Boost patterns (high-confidence domain indicators, built-in only)
 //   Anti-flip-flop: hysteresis for previous auto-selected expertise
 //
 // Design constraints:
 //   - No LLM calls — pure regex/string matching
 //   - Runs BEFORE CRE — only sets expertise context, never overrides intent
 //   - Manual selection always has priority (auto never activates when locked)
+//   - Custom expertises: Tier 1 only (vocabulary), no boost patterns
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { BUILTIN_EXPERTISES } from './expertise-layer.js';
+import { BUILTIN_EXPERTISES, expertiseRegistry } from './expertise-layer.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tier 2: Boost patterns — high-confidence domain indicators
@@ -43,21 +44,45 @@ const BOOST_PATTERNS = {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Precomputation: shared vocabulary terms (terms in 2+ expertises)
-// Built once at module load. Static across all calls.
+// Built once at module load for built-ins. Recomputed after custom additions.
 // ─────────────────────────────────────────────────────────────────────────────
 const _termCount = new Map(); // term → number of expertises containing it
 const _sharedTerms = new Set(); // terms appearing in 2+ expertises
 
-for (const exp of Object.values(BUILTIN_EXPERTISES)) {
-  const vocab = exp.modules?.vocabulary || [];
-  for (const term of vocab) {
-    const lower = term.toLowerCase();
-    _termCount.set(lower, (_termCount.get(lower) || 0) + 1);
+/**
+ * Get all expertises (built-in + custom) for scoring.
+ * Custom expertises are included with vocabulary only (no boost patterns).
+ */
+function _getAllExpertises() {
+  const all = { ...BUILTIN_EXPERTISES };
+  for (const expert of expertiseRegistry.getCustom()) {
+    const json = expert.toJSON ? expert.toJSON() : expert;
+    all[json.id] = json;
+  }
+  return all;
+}
+
+/**
+ * Recompute shared terms across all expertises (built-in + custom).
+ * Call after adding/removing custom expertises.
+ */
+export function recomputeSharedTerms() {
+  _termCount.clear();
+  _sharedTerms.clear();
+  for (const exp of Object.values(_getAllExpertises())) {
+    const vocab = exp.modules?.vocabulary || [];
+    for (const term of vocab) {
+      const lower = term.toLowerCase();
+      _termCount.set(lower, (_termCount.get(lower) || 0) + 1);
+    }
+  }
+  for (const [term, count] of _termCount) {
+    if (count >= 2) _sharedTerms.add(term);
   }
 }
-for (const [term, count] of _termCount) {
-  if (count >= 2) _sharedTerms.add(term);
-}
+
+// Initial computation at module load (built-ins only at this point)
+recomputeSharedTerms();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Czech stem matching — handles inflection (kapitola→kapitolu, helma→helmu)
@@ -102,9 +127,10 @@ export function autoSelectExpertise(input, options = {}) {
 
   const lower = input.toLowerCase();
   const scores = {};
+  const allExpertises = _getAllExpertises();
 
-  // Score each expertise
-  for (const [id, exp] of Object.entries(BUILTIN_EXPERTISES)) {
+  // Score each expertise (built-in + custom)
+  for (const [id, exp] of Object.entries(allExpertises)) {
     const vocab = exp.modules?.vocabulary || [];
     let vocabScore = 0;
 
@@ -119,7 +145,7 @@ export function autoSelectExpertise(input, options = {}) {
       }
     }
 
-    // Tier 2: Boost patterns
+    // Tier 2: Boost patterns (built-in only — custom expertises have no boost)
     let boostScore = 0;
     const patterns = BOOST_PATTERNS[id] || [];
     for (const p of patterns) {
@@ -198,4 +224,5 @@ export const _testInternals = {
   _sharedTerms,
   THRESHOLD,
   HYSTERESIS_RATIO,
+  _getAllExpertises,
 };

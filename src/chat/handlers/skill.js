@@ -322,8 +322,16 @@ async function _handleProposalResponse(input, proposal, context) {
 
 function _handleExecutionResult(result, executionId, context) {
   if (result.status === 'success') {
-    // Auto-reload registry if create-skill completed
+    // Auto-reload registries for meta-skills
     _maybeReloadRegistry(executionId);
+    _maybeReloadExpertise(executionId, result);
+
+    // Resolve skill_id for metadata
+    let completedSkillId = null;
+    try {
+      const exec = skillExecutions.findById.get(executionId);
+      if (exec) completedSkillId = exec.skill_id;
+    } catch (_) {}
 
     // Find the final output (last step)
     const outputs = result.output || {};
@@ -332,7 +340,7 @@ function _handleExecutionResult(result, executionId, context) {
 
     return skillResponse(
       `Skill dokončen.\n\n${lastOutput}`,
-      { skillExecution: executionId, completed: true }
+      { skillExecution: executionId, completed: true, skillId: completedSkillId }
     );
   }
 
@@ -378,5 +386,95 @@ function _maybeReloadRegistry(executionId) {
     }
   } catch (err) {
     logger.error('SkillHandler', `Auto-reload failed: ${err.message}`);
+  }
+}
+
+// ── Auto-register expertise after create-expertise ──────────────────────────
+
+async function _maybeReloadExpertise(executionId, result) {
+  try {
+    const exec = skillExecutions.findById.get(executionId);
+    if (!exec || exec.skill_id !== 'create-expertise') return;
+
+    // Get the JSON content from the format step output (or refine as fallback)
+    const outputs = result.output || {};
+    const jsonContent = outputs.format || outputs.refine;
+    if (!jsonContent || typeof jsonContent !== 'string') {
+      logger.warn('SkillHandler', 'create-expertise: no JSON content in output');
+      return;
+    }
+
+    // JSON parse guard
+    let config;
+    try {
+      // Strip markdown code fences if LLM wrapped them
+      const cleaned = jsonContent.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+      config = JSON.parse(cleaned);
+    } catch (parseErr) {
+      logger.error('SkillHandler', `create-expertise: JSON parse failed: ${parseErr.message}`);
+      return;
+    }
+
+    // Validate using existing validateExpertiseConfig
+    const { validateExpertiseConfig } = await import('../../expertises/expertise-store.js');
+    const validation = validateExpertiseConfig(config);
+    if (!validation.valid) {
+      logger.error('SkillHandler', `create-expertise: validation failed: ${validation.errors.join(', ')}`);
+      return;
+    }
+
+    // Import registry and auto-select
+    const { expertiseRegistry } = await import('../../expertises/expertise-layer.js');
+    const { recomputeSharedTerms } = await import('../../expertises/auto-select.js');
+    const { db } = await import('../../db/database.js');
+
+    const id = config.id;
+    if (!id || typeof id !== 'string') {
+      logger.error('SkillHandler', 'create-expertise: config missing id');
+      return;
+    }
+
+    // Idempotence: check existing
+    const existing = expertiseRegistry.get(id);
+
+    if (existing && !existing.isCustom) {
+      // Built-in expertise — REJECT
+      logger.warn('SkillHandler', `create-expertise: REJECT_BUILTIN — id "${id}" collides with built-in`);
+      return;
+    }
+
+    if (existing && existing.isCustom) {
+      // Custom already exists — UPDATE
+      expertiseRegistry.updateCustom(id, config);
+      logger.info('SkillHandler', `create-expertise: UPDATE — updated custom expertise "${id}"`);
+    } else {
+      // New — ADD
+      expertiseRegistry.addCustom({
+        ...config,
+        primaryProblemTypes: config.primaryProblemTypes || ['procedural'],
+        allowedRepresentations: config.allowedRepresentations || ['structured'],
+        preferredModels: config.preferredModels || ['qwen2.5:32b'],
+      });
+      logger.info('SkillHandler', `create-expertise: ADD — registered custom expertise "${id}"`);
+    }
+
+    // Persist all custom expertises to DB
+    try {
+      const experts = expertiseRegistry.getCustom();
+      db.db.exec('DELETE FROM custom_expertises');
+      const insert = db.db.prepare('INSERT INTO custom_expertises (id, config) VALUES (?, ?)');
+      for (const expert of experts) {
+        insert.run(expert.id, JSON.stringify(expert.toJSON()));
+      }
+      logger.debug('SkillHandler', `Saved ${experts.length} custom expertises to DB`);
+    } catch (dbErr) {
+      logger.error('SkillHandler', `create-expertise: DB persist failed: ${dbErr.message}`);
+    }
+
+    // Recompute shared terms for auto-select
+    recomputeSharedTerms();
+
+  } catch (err) {
+    logger.error('SkillHandler', `create-expertise reload failed: ${err.message}`);
   }
 }
