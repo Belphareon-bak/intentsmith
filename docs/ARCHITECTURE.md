@@ -1,6 +1,6 @@
-# C.3 Agent Platform — Architecture v87
+# C.3 Agent Platform — Architecture v89
 
-**Version:** v87.6.0 (Settings UI Redesign, CRE GUARD 6, Memory System, Skills System, FeatureManager)
+**Version:** v89.0.0 (Project Welcome, Settings UI Redesign, CRE GUARD 6, Memory System, Skills System, FeatureManager)
 **Status:** Production-ready, ~98% complete
 **Date:** 2026-02-28
 
@@ -120,7 +120,10 @@ src/                             # 73,706 lines / 188 files / 20 directories
 │   │       ├── synthesis.js     #       LLM synthesis + Output Gate
 │   │       ├── output-gate.js   #       D6 response validation
 │   │       ├── language.js      #       CZ/EN detection & switching
-│   │       └── language-enforcement.js #  SK→CZ transliterator (~160 rules)
+│   │       ├── language-enforcement.js #  SK→CZ transliterator (~160 rules)
+│   │       ├── project-state-reader.js # v89: Deterministic README+ROADMAP→state parser
+│   │       ├── welcome-generator.js    # v89: Template-based project welcome messages
+│   │       └── readme-generator.js     #  README/ROADMAP scaffold + detectStack()
 │   └── quality/                 #   Quality gates (QGv2)
 │       ├── quality-gate-v2.js   #     4-layer deterministic pipeline
 │       └── quality-pipeline.js  #     Pipeline orchestration
@@ -300,6 +303,15 @@ SPEC → BUILD → REVIEW → next milestone or COMPLETED
 **Working memory persistence (v88):** `SessionState` working memory (goal, activeFile, lastArtifactId) now writes through to `project_memory` DB (category: `working_memory`). Restored on project sync in `ChatController.handle()`. Survives server restarts.
 
 **README + ROADMAP guarantee (v88):** Both `POST /api/projects` (new) and `POST /api/projects/open-folder` ensure README.md and ROADMAP.md exist. `ensureRoadmap()` creates a scaffold with phase table; lifecycle engine's `writeRoadmapFile()` replaces it after planning. Neither overwrites user-created files.
+
+**Proactive Project Welcome (v89):** When a project is created or opened, the backend generates a context-aware welcome message and returns it in the API response. The frontend displays it as the first chat message and persists it via `POST /api/conversations` (with `welcomeMessage` parameter → stored as first assistant turn via ConversationStore).
+
+The welcome system consists of three layers:
+1. **`project-state-reader.js`** — Deterministic parser: README + ROADMAP + `.c3/project.json` → structured state (`stateType`: FULL/HYBRID/FOREIGN/EMPTY, `phaseStatus`: IN_PROGRESS/PENDING/COMPLETED/UNKNOWN, stack detection, summary extraction). Tolerant regex, BOM strip, 50k size guard. No LLM calls.
+2. **`welcome-generator.js`** — Template-based welcome messages per stateType variant (5+ templates). Max ~600 chars. Action suggestions (→ bullets) based on project state.
+3. **`projects.js` routes** — `POST /api/projects` calls `generateNewProjectWelcome()`, `POST /api/projects/open-folder` calls `readProjectState()` + `generateExistingProjectWelcome()`.
+
+**v90+ direction:** `.c3/state.json` will become the machine-readable source of truth. `readProjectState()` will read it directly for C3-owned projects; ROADMAP parsing will only be needed for onboarding foreign projects.
 
 ### 5. Expertise System (v63 — Merge Engine)
 
@@ -577,6 +589,7 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 | Expertise routing | 43 | GUARD 6 creative override correctness |
 | Expertise comparison | 78 turns | E2E: expertise vs non-expertise quality |
 | Memory system | ~50 | LTM, injection-ranker, feedback, patterns |
+| Project welcome | 41 | State reader, welcome generator, edge cases |
 | + additional suites | ~100 | Various subsystems |
 
 ---

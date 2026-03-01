@@ -144,21 +144,32 @@ export function ensureRoadmap(projectPath, opts = {}) {
 /**
  * Generate scaffold ROADMAP.md content.
  * Will be replaced by lifecycle engine's writeRoadmapFile() once planning completes.
+ *
+ * Status markers: ✅ Hotovo | ⏳ Probíhá | ⬜ Čeká
+ * These are parsed by project-state-reader.js to determine current phase.
  */
 function generateRoadmapScaffold(name, type) {
   const lines = [
     `# ROADMAP — ${name}`,
     '',
-    '> Automaticky vygenerováno C3 Studio. Lifecycle engine nahradí tento scaffold po dokončení plánovací fáze.',
+    '> Automaticky vygenerováno C3 Studio. Lifecycle engine aktualizuje po dokončení každé fáze.',
     '',
     '## Fáze projektu',
     '',
-    '| # | Fáze | Status |',
-    '|---|------|--------|',
-    '| 1 | Specifikace | ⏳ Probíhá |',
-    '| 2 | Plánování | ⬜ Čeká |',
-    '| 3 | Implementace | ⬜ Čeká |',
-    '| 4 | Review | ⬜ Čeká |',
+    '| # | Fáze | Status | Popis |',
+    '|---|------|--------|-------|',
+    '| 1 | Specifikace | ⏳ Probíhá | Definice požadavků, cílů a tech stacku |',
+    '| 2 | Plánování | ⬜ Čeká | Generování roadmapy s milníky |',
+    '| 3 | Implementace | ⬜ Čeká | Psaní kódu podle plánu |',
+    '| 4 | Review | ⬜ Čeká | Kontrola kvality a finalizace |',
+    '',
+    '## Milníky',
+    '',
+    '_(Budou vygenerovány po dokončení plánovací fáze)_',
+    '',
+    '## Poznámky',
+    '',
+    '_(Sem se zapisují důležité rozhodnutí a blokery)_',
     '',
   ];
   return lines.join('\n');
@@ -168,7 +179,7 @@ function generateRoadmapScaffold(name, type) {
 // Internal helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-function detectStack(projectPath) {
+export function detectStack(projectPath) {
   const stack = [];
   const checks = [
     ['package.json', 'Node.js'],

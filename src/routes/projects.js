@@ -1,5 +1,7 @@
 // H9: Projects, Workspace & Attachments routes
 import { generateReadme, ensureReadme, ensureRoadmap } from '../chat/handlers/utils/readme-generator.js';
+import { readProjectState } from '../chat/handlers/utils/project-state-reader.js';
+import { generateNewProjectWelcome, generateExistingProjectWelcome } from '../chat/handlers/utils/welcome-generator.js';
 
 export function createProjectRoutes(deps) {
   const { db, parseBody, sendJSON, safeError, safeParseInt, sendStaticFile, logger, path, config } = deps;
@@ -199,6 +201,12 @@ export function createProjectRoutes(deps) {
           try { db.db.prepare('UPDATE projects SET status = ? WHERE id = ?').run('SPEC', project.id); } catch (e) { /* column may not exist */ }
         }
 
+        // v89: Generate welcome message for new project
+        let welcomeMessage = null;
+        try {
+          welcomeMessage = generateNewProjectWelcome({ name, description, type: projectType });
+        } catch { /* non-fatal */ }
+
         sendJSON(res, 201, {
           id: project?.id,
           project,
@@ -206,6 +214,7 @@ export function createProjectRoutes(deps) {
           type: projectType,
           lifecycle: 'SPEC',
           scaffold: scaffoldLog,
+          welcomeMessage,
         });
       } catch (err) {
         sendJSON(res, 500, safeError(err));
@@ -545,9 +554,17 @@ export function createProjectRoutes(deps) {
           logger.warn('Projects', `Open-folder analysis failed (non-fatal): ${err.message}`);
         }
 
+        // v89: Generate welcome message for existing project
+        let welcomeMessage = null;
+        try {
+          const projectState = readProjectState(normalizedPath);
+          welcomeMessage = generateExistingProjectWelcome(projectState);
+        } catch { /* non-fatal */ }
+
         sendJSON(res, 201, {
           project,
           status: 'registered',
+          welcomeMessage,
           metadata: {
             hasC3,
             hasC3Architect,

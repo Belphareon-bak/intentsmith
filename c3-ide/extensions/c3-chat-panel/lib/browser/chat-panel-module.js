@@ -1263,6 +1263,7 @@ function _doOpenExistingProject(folderPath){
     var proj=res.project;
     var realPath=(proj&&proj.path)||folderPath;
     var projName=(proj&&proj.name)||folderPath.split('/').filter(Boolean).pop()||'Projekt';
+    var _welcomeMsg=res.welcomeMessage||null; /* v89: save welcome from BE */
     /* Open working tree */
     _wtRoot=realPath;_loadWorkspaceTree(realPath);
     /* Link to current session */
@@ -1275,10 +1276,12 @@ function _doOpenExistingProject(folderPath){
       _ts.chat.ctx=0;
       /* Create conversation for the project, then bind lifecycle (v88) */
       fetch(_backendBase+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({project_id:proj.id,title:projName}),signal:AbortSignal.timeout(5000)})
+        body:JSON.stringify({project_id:proj.id,title:projName,welcomeMessage:_welcomeMsg}),signal:AbortSignal.timeout(5000)})
       .then(function(r){return r.json();}).then(function(cd){
         var conv=cd.conversation||cd;
         if(conv&&conv.id){_ts._convId=conv.id;_persistSessionState();renderChat();}
+        /* v89: Display welcome message in chat */
+        if(_welcomeMsg){_ts.chat.msgs.push({role:'assistant',text:_welcomeMsg,tag:'PROJECT'});renderChat();_chatScrollPane(_ti);}
         /* v88: Bind lifecycle after convId is available */
         var bindSessionId=_ts._agentId||_ts._convId||('session-'+_ti);
         fetch(_backendBase+'/api/projects/'+proj.id+'/lifecycle/bind',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -1319,6 +1322,7 @@ function _wizardSubmit(){
     _projectWizard.active=false;_projectWizard.saving=false;_wizardRestoreLayout();
     var realPath=created.path||sendPath;
     var projName=d.name.trim();
+    var _welcomeMsg=created.welcomeMessage||null; /* v89: save welcome from BE */
     if(window._c3)window._c3.agentLog('TOOL','✨ Projekt vytvořen: '+projName+' → '+realPath);
     /* Link to session + open working tree */
     var _ti=_centerState.targetSession||0;if(_ti>=_sessionCount)_ti=0;
@@ -1334,10 +1338,12 @@ function _wizardSubmit(){
     /* Create conversation for the project, THEN start lifecycle (v88: fix session ID mismatch) */
     if(projId){
       fetch(_backendBase+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({project_id:projId,title:projName}),signal:AbortSignal.timeout(5000)})
+        body:JSON.stringify({project_id:projId,title:projName,welcomeMessage:_welcomeMsg}),signal:AbortSignal.timeout(5000)})
       .then(function(r){return r.json();}).then(function(cd){
         var conv=cd.conversation||cd;
         if(conv&&conv.id){_ts._convId=conv.id;_persistSessionState();renderChat();}
+        /* v89: Display welcome message in chat */
+        if(_welcomeMsg){_ts.chat.msgs.push({role:'assistant',text:_welcomeMsg,tag:'PROJECT'});renderChat();_chatScrollPane(_ti);}
         /* v88: Start lifecycle AFTER convId is available — prevents 'session-0' mismatch */
         var lcSessionId=_ts._agentId||_ts._convId||('session-'+_ti);
         fetch(_backendBase+'/api/projects/lifecycle/start',{method:'POST',headers:{'Content-Type':'application/json'},

@@ -202,11 +202,24 @@ export function createChatRoutes(deps) {
 
     'POST /api/conversations': async (req, res) => {
       const body = await parseBody(req);
-      const { project_id, title } = body;
+      const { project_id, title, welcomeMessage } = body;
 
       try {
         const id = `conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const conversation = db.conversations.getOrCreate(id, project_id || null, title || null);
+
+        // v89: Persist welcome message as first assistant turn
+        if (welcomeMessage && typeof welcomeMessage === 'string' && welcomeMessage.trim().length > 0) {
+          try {
+            const { ConversationStore, TurnRole } = await import('../chat/conversation-store.js');
+            const store = new ConversationStore(db);
+            store.appendTurn(id, TurnRole.ASSISTANT, welcomeMessage.trim(), {
+              mode: 'PROJECT',
+              intent: 'PROJECT_WELCOME',
+              projectWelcome: true,
+            });
+          } catch { /* non-fatal — welcome just won't persist */ }
+        }
 
         sendJSON(res, 201, { conversation });
       } catch (err) {
