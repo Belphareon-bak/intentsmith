@@ -1,6 +1,6 @@
 # C.3 Agent Platform — Architecture v90
 
-**Version:** v90.0.0 (Smart Relay Management, Typing Indicator, Project Welcome, CRE GUARD 6, Memory System, Skills System)
+**Version:** v90.0.0 (Executor Capabilities, Smart Relay Management, Typing Indicator, Project Welcome, CRE GUARD 6, Memory System, Skills System)
 **Status:** Production-ready, ~98% complete
 **Date:** 2026-03-01
 
@@ -143,11 +143,23 @@ src/                             # 73,706 lines / 188 files / 20 directories
 │       ├── push.js              #     ntfy.sh (JSON body, UTF-8)
 │       └── ntfy.js              #     ntfy.sh alternate
 ├── planner/                     # Phase C: Project lifecycle
-│   ├── workflow.js              #   Workflow orchestration
+│   ├── workflow.js              #   Workflow orchestration (BUILD_VERIFYING v90)
 │   ├── lifecycle.js             #   State machine (SPEC→BUILD→REVIEW)
 │   ├── lifecycle-build.js       #   BUILD phase implementation
 │   ├── progress-tracker.js      #   Milestone tracking
 │   └── project-context.js       #   Project metadata
+├── domains/                     # Phase 5: Domain capabilities (v90)
+│   ├── index.js                 #   DomainRegistry — 8 scaffolds, tag matching
+│   ├── recipes/                 #   Infra/ops recipes (docker, k8s, CI/CD)
+│   └── scaffolds/               #   8 app templates
+│       ├── express-api.js       #     Express REST API
+│       ├── react-app.js         #     React SPA
+│       ├── fullstack.js         #     Express + React
+│       ├── next-app.js          #     Next.js App Router (v90)
+│       ├── vue-app.js           #     Vue 3 + Vite (v90)
+│       ├── python-fastapi.js    #     FastAPI REST API (v90)
+│       ├── cli-tool.js          #     Node.js CLI (v90)
+│       └── flutter-app.js       #     Flutter mobile (v90)
 ├── expertises/                  # Phase D: Expertise System (v63)
 │   ├── expertise-layer.js       #   15 built-in expertises, ExpertiseAgent class, resolveInheritance
 │   ├── expertise-store.js       #   Expertise config persistence + validation
@@ -296,6 +308,18 @@ SPEC → BUILD → REVIEW → next milestone or COMPLETED
 - Pre-execution hard limit on milestone size (`validateMilestoneSize` — BLOCKED if LOC/files exceed config)
 - Checkpoint FAIL default on parse error (safe default, not PASS)
 - Scope enforcement: pre-execution warning + post-execution git diff check
+
+**Build Verification Loop (v90):**
+- `BUILD_VERIFYING` state inserted between CODE implementation and R2 LLM review
+- Auto-detects build command from implementation output (package.json `scripts.build`, Cargo.toml, go.mod, Makefile, pubspec.yaml, pyproject.toml)
+- Runs build via `C3ToolExecutor.executeShell()` (180s timeout)
+- On failure: parses compiler errors → D2 diagnoses → CODE fixes → retry (max 3 attempts)
+- Falls through to R2 review on success or max retries (non-blocking)
+
+**CODE→BUILD Escalation (v90):**
+- CRE `decide()` detects multi-file project scope in CODE intent (via `isProjectScopeBuild()`)
+- Escalates to PLAN/BUILD pipeline instead of single-file TOOL_CALL
+- Triggers on 3+ component indicators or explicit project-scope patterns
 
 **Multi-session (C4):** New session auto-detects active lifecycle for same project. **v65.6 fix:** IDE lifecycle/start uses `session-0` but WS chat uses `ws-<random>` — resolved by RAM lookup via `getLcStateByProject(projectId)` which finds state under any sessionId and migrates it to the current WS session. DB fallback preserved as backup. Lifecycle/start now generates proper IDs (`lc-<timestamp>-<random>`) and stores them in RAM state.
 
@@ -512,6 +536,31 @@ _smartRouteToRelay(callback)
 
 **Key helpers:** `_isSessionEmpty(s)`, `_findFreeRelay(excludeIdx)`, `_smartRouteToRelay(callback)`, `_resetSessionToClean(s)`
 
+### 12. Domain Capabilities + Executor Expansion (v90)
+
+**Domain Registry:** Tag-based matching of user requests to pre-built scaffolds and infra recipes. D1 planner receives matched domains in system prompt for informed plan generation.
+
+```
+DomainRegistry
+  ├─ 8 scaffolds (express-api, react-app, fullstack, next-app, vue-app,
+  │                python-fastapi, cli-tool, flutter-app)
+  ├─ Recipes (docker, k8s, nginx, CI/CD, monitoring)
+  └─ matchRequest(text) → { recipes[], scaffolds[] }
+      └─ extractTags() → keyword→tag mapping (26 tags)
+```
+
+**Skills shell whitelist (v90):** Expanded from 11 to 35+ commands. Covers package managers (npm, yarn, pnpm, pip), runtimes (python, deno, bun), build tools (tsc, eslint, cargo, go, flutter), git, docker, and filesystem ops. Timeout increased 30s → 120s.
+
+**Workflow pipeline (v90):**
+```
+D1 plan → CODE implement → BUILD_VERIFYING → R2 review → D2/R1 loop
+                              │
+                              ├─ detect build command (pkg.json, Cargo, go, Make)
+                              ├─ execute build (180s timeout)
+                              ├─ PASS → R2 review
+                              └─ FAIL → parse errors → D2 diagnose → CODE fix (max 3)
+```
+
 ---
 
 ## Database Schema
@@ -616,6 +665,7 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 | Expertise comparison | 78 turns | E2E: expertise vs non-expertise quality |
 | Memory system | ~50 | LTM, injection-ranker, feedback, patterns |
 | Project welcome | 41 | State reader, welcome generator, edge cases |
+| **Executor capabilities** | **85** | **Shell whitelist, BUILD_VERIFYING, scaffolds, CODE→BUILD** |
 | + additional suites | ~100 | Various subsystems |
 
 ---
@@ -684,4 +734,4 @@ User clicks "+ Worker" → _awOpen('create')
 
 ---
 
-*This document reflects C.3 Agent Platform v87.6.0 architecture (2026-02-28).*
+*This document reflects C.3 Agent Platform v90.0.0 architecture (2026-02-28).*
