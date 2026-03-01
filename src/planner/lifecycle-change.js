@@ -27,7 +27,7 @@ import {
   analyzeChange as analyzeChangePrompt,
   rewriteRoadmap as rewriteRoadmapPrompt,
 } from './lifecycle-prompts.js';
-import { validateDependencies, writeRoadmapFile } from './lifecycle-planning.js';
+import { validateDependencies, writeRoadmapFile, scopeId, rawId } from './lifecycle-planning.js';
 import { ProjectPhase } from './lifecycle.js';
 import { logChangeScore } from './quality-telemetry.js';
 
@@ -128,11 +128,14 @@ export async function applyChange(lifecycle, changeRequestId) {
   const currentRoadmap = roadmapVersions.getLatestRoadmap(lifecycle.id);
   const completed = msRepo.getCompleted(lifecycle.id);
 
+  // Unscope completed milestones for D1 prompt — D1 generates raw ms-N IDs
+  const unscopedCompleted = completed.map(m => ({ ...m, id: rawId(m.id) }));
+
   // Rewrite roadmap via D1
   const prompt = rewriteRoadmapPrompt(
     currentRoadmap.roadmap,
     cr,
-    completed
+    unscopedCompleted
   );
 
   const llm = lifecycle.callLLM || callLLM;
@@ -143,9 +146,17 @@ export async function applyChange(lifecycle, changeRequestId) {
     throw new Error('D1 failed to rewrite roadmap');
   }
 
+  // Scope all milestone IDs before any comparison with DB (scoped) records
+  for (const ms of newRoadmap.milestones) {
+    ms.id = scopeId(lifecycle.id, ms.id);
+    if (Array.isArray(ms.dependencies)) {
+      ms.dependencies = ms.dependencies.map(d => scopeId(lifecycle.id, d));
+    }
+  }
+
   // ─── Critical validations ──────────────────────────────────────────────
 
-  // 1. All PASSED milestones must be preserved
+  // 1. All PASSED milestones must be preserved (both scoped now)
   const preservationErrors = validatePreservation(completed, newRoadmap.milestones);
   if (preservationErrors.length > 0) {
     throw new Error(
@@ -166,20 +177,29 @@ export async function applyChange(lifecycle, changeRequestId) {
     throw new Error(`Roadmap rewrite has invalid dependencies: ${depErrors.join('; ')}`);
   }
 
-  // ─── Store new version ─────────────────────────────────────────────────
+  // ─── Store new version (unscoped for D1 prompts) ───────────────────────
 
   const newVersion = roadmapVersions.getLatestVersion(lifecycle.id) + 1;
   const diffSummary = newRoadmap.diff || newRoadmap.changes_summary || 'Change applied';
 
+  const unscopedRoadmap = {
+    ...newRoadmap,
+    milestones: newRoadmap.milestones.map(m => ({
+      ...m,
+      id: rawId(m.id),
+      dependencies: (m.dependencies || []).map(d => rawId(d)),
+    })),
+  };
+
   roadmapVersions.addVersion(
     lifecycle.id,
     newVersion,
-    newRoadmap,
+    unscopedRoadmap,
     `Change request ${changeRequestId}: ${cr.description.substring(0, 100)}`,
     typeof diffSummary === 'string' ? diffSummary : JSON.stringify(diffSummary)
   );
 
-  // ─── Update milestone DB records ───────────────────────────────────────
+  // ─── Update milestone DB records (scoped IDs) ──────────────────────────
 
   syncMilestonesAfterRewrite(lifecycle, newRoadmap.milestones, completed, newVersion);
 

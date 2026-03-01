@@ -28,6 +28,8 @@ import {
   milestones as msRepo,
   roadmapVersions,
   projects,
+  conversations,
+  messages as messagesRepo,
   lifecycleHandoffState,
   db,
 } from '../src/db/database.js';
@@ -49,6 +51,7 @@ let passed = 0;
 let failed = 0;
 const failures = [];
 const startTime = Date.now();
+let _convId = null; // set during test setup
 
 function elapsed() {
   return `${((Date.now() - startTime) / 1000).toFixed(1)}s`;
@@ -61,6 +64,7 @@ function userTurn(message) {
   console.log(` TURN ${turnNum} │ USER │ ${elapsed()}`);
   console.log(`${'─'.repeat(70)}`);
   console.log(message);
+  if (_convId) try { messagesRepo.addMessage(_convId, 'user', message); } catch {}
   return message;
 }
 
@@ -73,6 +77,7 @@ function systemTurn(phase, response) {
   console.log(`${'─'.repeat(70)}`);
   const maxLen = 800;
   console.log(content?.substring(0, maxLen) + (content?.length > maxLen ? '\n  ...(truncated)' : ''));
+  if (_convId) try { messagesRepo.addMessage(_convId, 'assistant', content); } catch {}
 }
 
 function check(condition, name, detail = '') {
@@ -195,12 +200,22 @@ Generate the COMPLETE file content. Output ONLY the raw file content (source cod
 
 // ─── DB Cleanup ─────────────────────────────────────────────────────────────
 
-function cleanDB() {
-  for (const t of ['lifecycle_handoff_state', 'drift_checks', 'change_requests',
-                    'milestones', 'roadmap_versions', 'project_lifecycles']) {
-    try { db.prepare(`DELETE FROM ${t}`).run(); } catch { /* ignore */ }
-  }
-  try { db.prepare(`DELETE FROM projects WHERE path LIKE '/tmp/%'`).run(); } catch { /* ignore */ }
+function cleanDB(projectPath) {
+  // Only clean lifecycle data for THIS project's path — don't wipe everything
+  try {
+    const proj = db.prepare(`SELECT id FROM projects WHERE path = ?`).get(projectPath);
+    if (proj) {
+      const lcIds = db.prepare(`SELECT id FROM project_lifecycles WHERE project_id = ?`).all(proj.id).map(r => r.id);
+      for (const lcId of lcIds) {
+        for (const t of ['milestones', 'roadmap_versions', 'drift_checks', 'change_requests']) {
+          try { db.prepare(`DELETE FROM ${t} WHERE lifecycle_id = ?`).run(lcId); } catch {}
+        }
+      }
+      try { db.prepare(`DELETE FROM project_lifecycles WHERE project_id = ?`).run(proj.id); } catch {}
+      try { db.prepare(`DELETE FROM lifecycle_handoff_state WHERE lifecycle_id IN (${lcIds.map(() => '?').join(',')})`)
+        .run(...lcIds); } catch {}
+    }
+  } catch { /* first run — no data */ }
   initLifecycleStateDb(lifecycleHandoffState, lifecycleRepo);
 }
 
@@ -235,15 +250,27 @@ async function runTest() {
     process.exit(0);
   }
 
-  cleanDB();
-
   const SESSION_ID = 'android-app-e2e-real';
-  const projectPath = `/tmp/lc-android-real-${Date.now()}`;
+  const projectPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../projects/FitTracker-E2E');
   fs.mkdirSync(projectPath, { recursive: true });
-  execSync('git init', { cwd: projectPath, stdio: 'pipe' });
-  execSync('git config user.email "test@test.com"', { cwd: projectPath, stdio: 'pipe' });
-  execSync('git config user.name "Test"', { cwd: projectPath, stdio: 'pipe' });
-  execSync('git commit --allow-empty -m "init"', { cwd: projectPath, stdio: 'pipe' });
+
+  cleanDB(projectPath);
+
+  // Init git if not already a repo
+  if (!fs.existsSync(path.join(projectPath, '.git'))) {
+    execSync('git init', { cwd: projectPath, stdio: 'pipe' });
+    execSync('git config user.email "test@test.com"', { cwd: projectPath, stdio: 'pipe' });
+    execSync('git config user.name "Test"', { cwd: projectPath, stdio: 'pipe' });
+    execSync('git commit --allow-empty -m "init"', { cwd: projectPath, stdio: 'pipe' });
+  }
+
+  // Register project + conversation in DB → visible in IDE
+  const PROJECT_NAME = 'FitTracker E2E';
+  const PROJECT_DESC = 'Flutter fitness tracker — E2E lifecycle test (real LLM)';
+  const project = projects.getOrCreate(PROJECT_NAME, projectPath, PROJECT_DESC);
+  const projectId = Number(project.id);
+  _convId = `e2e-android-${Date.now()}`;
+  conversations.getOrCreate(_convId, projectId, 'FitTracker — Full Lifecycle (Real LLM)');
 
   const executor = createRealLLMExecutor(projectPath);
   const context = { sessionId: SESSION_ID, executor, projectPath };
@@ -559,13 +586,8 @@ async function runTest() {
     // Turn count
     check(turnNum >= 15, 'Turns: ≥15 conversation turns', `got: ${turnNum}`);
 
-    // Cleanup
-    if (process.env.KEEP_PROJECT || failed > 0) {
-      console.log(`\n  Project preserved at: ${projectPath}`);
-    } else {
-      try { fs.rmSync(projectPath, { recursive: true, force: true }); } catch { /* ignore */ }
-      console.log(`  Cleaned up (KEEP_PROJECT=1 to preserve)`);
-    }
+    // Project preserved for IDE visibility
+    console.log(`\n  Project preserved at: ${projectPath}`);
 
   } catch (err) {
     console.error(`\nFATAL: ${err.message}`);

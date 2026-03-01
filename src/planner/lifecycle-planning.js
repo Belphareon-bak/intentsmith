@@ -25,6 +25,33 @@ import { validateMilestoneSize, suggestMilestoneSplit } from './milestone-size.j
 import { ProjectPhase } from './lifecycle.js';
 import { logRoadmapScore } from './quality-telemetry.js';
 
+// ─── Milestone ID Scoping ────────────────────────────────────────────────────
+// Milestone IDs from D1 are always "ms-1", "ms-2", etc. — global collisions
+// when multiple lifecycles coexist. Scope with lifecycle suffix before DB storage.
+
+/** "ms-1" + "lc-1772...-msh2" → "ms-1@msh2" */
+export function scopeId(lifecycleId, rawId) {
+  if (!rawId || rawId.includes('@')) return rawId; // already scoped or null
+  const suffix = lifecycleId.split('-').pop();
+  return `${rawId}@${suffix}`;
+}
+
+/** "ms-1@msh2" → "ms-1" */
+export function rawId(scopedId) {
+  if (!scopedId) return scopedId;
+  return scopedId.replace(/@[^@]+$/, '');
+}
+
+/** Scope all milestone IDs + dependency references in a roadmap's milestones array. */
+function _scopeRoadmapMilestones(milestones, lifecycleId) {
+  for (const ms of milestones) {
+    ms.id = scopeId(lifecycleId, ms.id);
+    if (Array.isArray(ms.dependencies)) {
+      ms.dependencies = ms.dependencies.map(d => scopeId(lifecycleId, d));
+    }
+  }
+}
+
 // ─── PLANNING Phase Operations ───────────────────────────────────────────────
 
 /**
@@ -88,6 +115,7 @@ export async function generateRoadmap(lifecycle, context) {
   const currentVersion = roadmapVersions.getLatestVersion(lifecycle.id);
   const newVersion = currentVersion + 1;
 
+  // Store raw (unscoped) roadmap in versions — D1 prompts reference this
   roadmapVersions.addVersion(
     lifecycle.id,
     newVersion,
@@ -96,13 +124,16 @@ export async function generateRoadmap(lifecycle, context) {
     null
   );
 
-  // Create milestone DB records
+  // Scope milestone IDs to prevent cross-lifecycle PK collisions
+  _scopeRoadmapMilestones(roadmap.milestones, lifecycle.id);
+
+  // Create milestone DB records (scoped IDs)
   for (const ms of roadmap.milestones) {
     msRepo.addMilestone({
       id: ms.id,
       lifecycle_id: lifecycle.id,
       roadmap_version: newVersion,
-      sequence: parseInt(ms.id.replace('ms-', ''), 10) || roadmap.milestones.indexOf(ms) + 1,
+      sequence: parseInt(rawId(ms.id).replace('ms-', ''), 10) || roadmap.milestones.indexOf(ms) + 1,
       title: ms.title,
       description: ms.description,
       dependencies: ms.dependencies || [],
@@ -193,7 +224,7 @@ export async function reviseRoadmap(lifecycle, feedback) {
   // Get completed milestones (must be preserved)
   const completed = msRepo.getCompleted(lifecycle.id);
 
-  // Re-generate with feedback
+  // Re-generate with feedback — use raw (unscoped) IDs in prompt so D1 produces standard ms-N format
   const enrichedPrompt = `${generateRoadmapPrompt(spec)}
 
 ## User Feedback on Previous Roadmap
@@ -203,7 +234,7 @@ ${feedback}
 ${JSON.stringify(currentRoadmap.roadmap, null, 2)}
 
 ## Completed Milestones (MUST be preserved as-is)
-${completed.map(m => `- ${m.id}: ${m.title} (PASSED, commit: ${m.commit_hash})`).join('\n') || 'None'}
+${completed.map(m => `- ${rawId(m.id)}: ${m.title} (PASSED, commit: ${m.commit_hash})`).join('\n') || 'None'}
 
 IMPORTANT: Do NOT modify or remove completed milestones. Adjust remaining milestones based on feedback.`;
 
@@ -214,6 +245,9 @@ IMPORTANT: Do NOT modify or remove completed milestones. Adjust remaining milest
   if (!newRoadmap || !newRoadmap.milestones) {
     throw new Error('D1 failed to revise roadmap');
   }
+
+  // Scope all IDs before comparison with DB (which has scoped IDs)
+  _scopeRoadmapMilestones(newRoadmap.milestones, lifecycle.id);
 
   // Verify completed milestones are preserved
   for (const comp of completed) {
@@ -239,25 +273,35 @@ IMPORTANT: Do NOT modify or remove completed milestones. Adjust remaining milest
     }
   }
 
-  // Store as new version
+  // Store raw (unscoped) version for D1 prompts
   const newVersion = roadmapVersions.getLatestVersion(lifecycle.id) + 1;
   const diffSummary = computeRoadmapDiff(currentRoadmap.roadmap, newRoadmap);
+
+  // Unscope for version storage (D1 prompts reference this)
+  const unscopedRoadmap = {
+    ...newRoadmap,
+    milestones: newRoadmap.milestones.map(m => ({
+      ...m,
+      id: rawId(m.id),
+      dependencies: (m.dependencies || []).map(d => rawId(d)),
+    })),
+  };
 
   roadmapVersions.addVersion(
     lifecycle.id,
     newVersion,
-    newRoadmap,
+    unscopedRoadmap,
     `User revision: ${feedback.substring(0, 100)}`,
     JSON.stringify(diffSummary)
   );
 
-  // Update milestone DB records for new/changed milestones
+  // Update milestone DB records for new/changed milestones (scoped IDs)
   // Keep completed milestones, re-create pending ones
   const existingMs = msRepo.listByLifecycle(lifecycle.id);
   const existingIds = new Set(existingMs.map(m => m.id));
 
   for (const ms of newRoadmap.milestones) {
-    // Skip completed milestones — already in DB
+    // Skip completed milestones — already in DB with scoped ID
     if (completed.some(c => c.id === ms.id)) continue;
 
     // Delete old pending version if exists
@@ -265,12 +309,12 @@ IMPORTANT: Do NOT modify or remove completed milestones. Adjust remaining milest
       // Update in place for existing non-completed
       msRepo.updateStatus.run('PENDING', ms.id);
     } else {
-      // Add new milestone
+      // Add new milestone (scoped ID)
       msRepo.addMilestone({
         id: ms.id,
         lifecycle_id: lifecycle.id,
         roadmap_version: newVersion,
-        sequence: parseInt(ms.id.replace('ms-', ''), 10) || newRoadmap.milestones.indexOf(ms) + 1,
+        sequence: parseInt(rawId(ms.id).replace('ms-', ''), 10) || newRoadmap.milestones.indexOf(ms) + 1,
         title: ms.title,
         description: ms.description,
         dependencies: ms.dependencies || [],
@@ -551,4 +595,6 @@ export default {
   validateDependencies,
   checkDependencies,
   writeRoadmapFile,
+  scopeId,
+  rawId,
 };

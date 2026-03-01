@@ -26,7 +26,7 @@ import { domainRegistry, extractTags } from '../src/domains/index.js';
 import { readProjectState, StateType } from '../src/chat/handlers/utils/project-state-reader.js';
 import { analyzeExistingProject } from '../src/planner/lifecycle-analyzer.js';
 import { callLLM } from '../src/planner/workflow.js';
-import { projects, db } from '../src/db/database.js';
+import { projects, conversations, messages as messagesRepo, db } from '../src/db/database.js';
 
 // ─── Test Infra ─────────────────────────────────────────────────────────────
 
@@ -35,6 +35,7 @@ let failed = 0;
 const failures = [];
 const startTime = Date.now();
 let turnNum = 0;
+let _convId = null; // set during test setup
 
 function elapsed() {
   return `${((Date.now() - startTime) / 1000).toFixed(1)}s`;
@@ -64,6 +65,7 @@ function llmTurn(role, response) {
   console.log(` LLM TURN ${turnNum} │ ${role} │ ${elapsed()}`);
   console.log(`${'─'.repeat(70)}`);
   console.log(content.substring(0, 600) + (content.length > 600 ? '\n  ...(truncated)' : ''));
+  if (_convId) try { messagesRepo.addMessage(_convId, 'assistant', content); } catch {}
 }
 
 // ─── Ollama Health Check ────────────────────────────────────────────────────
@@ -232,7 +234,7 @@ async function runTest() {
     process.exit(0);
   }
 
-  const projectPath = `/tmp/lc-analysis-real-${Date.now()}`;
+  const projectPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../projects/AI-Log-Analyzer-E2E');
 
   try {
     // ═══ SETUP: Create simulated project ═════════════════════════════════════
@@ -262,11 +264,22 @@ async function runTest() {
     fs.writeFileSync(path.join(projectPath, 'registry/known_errors.yaml'), 'errors: []\n');
     fs.writeFileSync(path.join(projectPath, '.c3/project.json'), JSON.stringify({ type: 'general', lifecycle: 'SPEC' }));
 
-    execSync('git init', { cwd: projectPath, stdio: 'pipe' });
-    execSync('git config user.email "test@test.com"', { cwd: projectPath, stdio: 'pipe' });
-    execSync('git config user.name "Test"', { cwd: projectPath, stdio: 'pipe' });
+    // Init git if not already a repo
+    if (!fs.existsSync(path.join(projectPath, '.git'))) {
+      execSync('git init', { cwd: projectPath, stdio: 'pipe' });
+      execSync('git config user.email "test@test.com"', { cwd: projectPath, stdio: 'pipe' });
+      execSync('git config user.name "Test"', { cwd: projectPath, stdio: 'pipe' });
+    }
     execSync('git add -A', { cwd: projectPath, stdio: 'pipe' });
-    execSync('git commit -m "ai-log-analyzer v6.1.0"', { cwd: projectPath, stdio: 'pipe' });
+    try { execSync('git commit -m "ai-log-analyzer v6.1.0"', { cwd: projectPath, stdio: 'pipe' }); } catch { /* already committed */ }
+
+    // Register project + conversation in DB → visible in IDE
+    const PROJECT_NAME = 'AI Log Analyzer E2E';
+    const PROJECT_DESC = 'Existing project analysis — E2E test (real LLM)';
+    const project = projects.getOrCreate(PROJECT_NAME, projectPath, PROJECT_DESC);
+    const projectId = Number(project.id);
+    _convId = `e2e-analysis-${Date.now()}`;
+    conversations.getOrCreate(_convId, projectId, 'AI Log Analyzer — Architecture Analysis (Real LLM)');
 
     const fileCount = execSync('find . -type f -not -path "./.git/*" | wc -l', {
       cwd: projectPath, encoding: 'utf8',
@@ -510,26 +523,15 @@ Be specific and technical. Reference actual functions and patterns.`;
 
     section('10. Project DB Registration');
 
-    const project = projects.getOrCreate('ai-log-analyzer', projectPath, 'Log analysis pipeline');
-    const projectId = Number(project.id);
-
-    check(projectId > 0, 'T10: project registered in DB');
     const dbProject = projects.findById.get(projectId);
-    check(dbProject?.name === 'ai-log-analyzer', 'T10: project name correct');
-
-    // Cleanup DB
-    try { db.prepare(`DELETE FROM projects WHERE path LIKE '/tmp/%'`).run(); } catch { /* ignore */ }
+    check(dbProject != null, 'T10: project registered in DB');
+    check(dbProject?.name === 'AI Log Analyzer E2E', 'T10: project name correct');
 
     // Turn count
     check(turnNum >= 3, 'Turns: ≥3 LLM calls', `got: ${turnNum}`);
 
-    // Cleanup files
-    if (process.env.KEEP_PROJECT || failed > 0) {
-      console.log(`\n  Project preserved at: ${projectPath}`);
-    } else {
-      try { fs.rmSync(projectPath, { recursive: true, force: true }); } catch { /* ignore */ }
-      console.log(`  Cleaned up (KEEP_PROJECT=1 to preserve)`);
-    }
+    // Project preserved for IDE visibility
+    console.log(`\n  Project preserved at: ${projectPath}`);
 
   } catch (err) {
     console.error(`\nFATAL: ${err.message}`);
