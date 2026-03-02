@@ -141,9 +141,32 @@ import { patternTracker } from './memory/pattern-tracker.js';
 patternTracker.wire(longTermMemory);
 logger.info('Server', 'PatternTracker wired to LTM');
 
-// v86: Unified data retention — prune all accumulating tables at startup
-import { pruneAllData, compactDatabase } from './db/data-retention.js';
-pruneAllData(db.db);
+// v92: Storage architecture — configurable retention, drain, auto-clean
+import { pruneAllData, compactDatabase, autoClean, getStorageConfig } from './db/data-retention.js';
+import { drainMessages, validateHistoryIntegrity } from './core/history-drain.js';
+import { createStateBackup, pruneBackups } from './core/db-backup.js';
+
+// Resolve data directory (parent of c3.db)
+const dataDir = config.db?.path ? path.dirname(path.resolve(config.db.path)) : path.resolve('./data');
+
+// Startup: integrity check → auto-clean → drain → backup
+try { validateHistoryIntegrity(dataDir); } catch (_) {}
+try {
+  const storageConfig = getStorageConfig(db.db);
+  autoClean(db.db, dataDir, { config: storageConfig });
+  if (storageConfig.drain.enabled) {
+    drainMessages(db.db, dataDir, { cutoffHours: storageConfig.drain.cutoff_hours });
+  }
+  if (storageConfig.backup.on_startup) {
+    createStateBackup(db.db, dataDir);
+    pruneBackups(dataDir, {
+      maxDaily: storageConfig.backup.max_daily,
+      maxWeekly: storageConfig.backup.max_weekly,
+    });
+  }
+} catch (err) {
+  logger.warn('Server', `Startup storage tasks: ${err.message}`);
+}
 
 // F1: Setup Wizard — first-run detection + API routes
 import { SetupWizard, createSetupRoutes } from './setup/wizard.js';
@@ -622,22 +645,7 @@ if (!agentRoutes) {
   }
 }
 
-// F3: License feature gates — restrict PRO/ENTERPRISE features on FREE tier
-if (licenseStatus.tier === 'FREE') {
-  const proRequired = (req, res) => sendJSON(res, 403, {
-    error: 'PRO license required for this feature',
-    tier: 'FREE',
-    upgrade: 'Set C3_LICENSE_KEY in environment or use /api/setup/license',
-  });
-  for (const key of Object.keys(routes)) {
-    // Agents & workers require PRO
-    if (key.includes('/api/agents') || key === 'GET /agents' ||
-        key.includes('/api/sources/') || key.includes('/api/notifications') ||
-        key.includes('/api/scheduler')) {
-      routes[key] = proRequired;
-    }
-  }
-}
+// F3: License feature gates — agents available on all tiers (v92.1)
 
 // ═══ Trust Feedback Loop API (v57.2) ═════════════════════════════════════════
 // Initialize trust tracker singleton with raw DB, then mount routes
@@ -1000,25 +1008,32 @@ server.listen(config.server.port, config.server.host, async () => {
     }
   }
 
-  // v86: Periodic data maintenance — adaptive schedule
-  // Daily: lightweight TTL check
-  // Weekly: full prune + conditional compact
-  const DAILY_MS = 24 * 60 * 60 * 1000;
-  const WEEKLY_MS = 7 * DAILY_MS;
-  const dailyRetention = setInterval(() => {
-    try { pruneAllData(db.db); } catch (_) {}
-  }, DAILY_MS);
-  dailyRetention.unref();
-  const weeklyCompact = setInterval(() => {
-    try {
-      const stats = pruneAllData(db.db);
-      if (stats.totalDeleted > 50 || stats.pressure !== 'normal') {
-        compactDatabase(db.db);
-      }
-    } catch (_) {}
-  }, WEEKLY_MS);
-  weeklyCompact.unref();
-  logger.info('Server', 'Data retention scheduled (daily prune + weekly compact)');
+  // v92: Configurable auto-clean + drain interval
+  {
+    const storageConfig = getStorageConfig(db.db);
+    const cleanIntervalMs = (storageConfig.clean.interval_hours || 24) * 60 * 60 * 1000;
+
+    if (storageConfig.clean.enabled) {
+      const cleanInterval = setInterval(() => {
+        try {
+          const cfg = getStorageConfig(db.db); // re-read for hot config changes
+          autoClean(db.db, dataDir, { config: cfg });
+          if (cfg.drain.enabled) {
+            drainMessages(db.db, dataDir, { cutoffHours: cfg.drain.cutoff_hours });
+          }
+        } catch (_) {}
+      }, cleanIntervalMs);
+      cleanInterval.unref();
+      logger.info('Server', `Auto-clean scheduled (every ${storageConfig.clean.interval_hours}h)`);
+    }
+
+    // Weekly compact (independent of auto-clean)
+    const WEEKLY_MS = 7 * 24 * 60 * 60 * 1000;
+    const weeklyCompact = setInterval(() => {
+      try { compactDatabase(db.db); } catch (_) {}
+    }, WEEKLY_MS);
+    weeklyCompact.unref();
+  }
 
   // F2: Start background update checker (only if repository configured)
   if (process.env.C3_UPDATE_REPO) {
@@ -1091,6 +1106,21 @@ function gracefulShutdown(signal) {
 
   // v82: Flush specialist telemetry before DB close
   try { specialistTelemetry?.shutdown(); } catch { /* ignore */ }
+
+  // v92: Drain + backup before shutdown
+  try {
+    const storageConfig = getStorageConfig(db.db);
+    if (storageConfig.drain.enabled) {
+      drainMessages(db.db, dataDir, { cutoffHours: storageConfig.drain.cutoff_hours });
+    }
+    if (storageConfig.backup.on_shutdown) {
+      createStateBackup(db.db, dataDir);
+      pruneBackups(dataDir, {
+        maxDaily: storageConfig.backup.max_daily,
+        maxWeekly: storageConfig.backup.max_weekly,
+      });
+    }
+  } catch { /* ignore */ }
 
   // Close database
   try {

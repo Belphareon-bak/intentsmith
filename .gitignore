@@ -17,6 +17,8 @@ data/*.db-wal
 
 # Generated artifacts
 data/artifacts/
+data/backups/
+data/history/
 e2e-report.json
 e2e-latest.json
 e2e-quality-deep.json

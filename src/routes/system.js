@@ -1,4 +1,4 @@
-// System Routes — GPU detection, model info, system diagnostics
+// System Routes — GPU detection, model info, system diagnostics, storage management
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { getSystemProfile } from '../system/gpu-detector.js';
@@ -6,13 +6,18 @@ import { recommend, checkCompatibility, getModelTiers, getVRAMRecommendations } 
 import { logger } from '../core/logger.js';
 import config from '../config.js';
 import os from 'os';
+import path from 'path';
 import { getCurrentVersion } from '../packaging/auto-updater.js';
+import { getStorageConfig, validateStorageConfig, autoClean } from '../db/data-retention.js';
+import { drainMessages, getHistoryStats } from '../core/history-drain.js';
+import { createStateBackup, listBackups, pruneBackups, getBackupStats } from '../core/db-backup.js';
 
 /**
- * @param {{ db: import('better-sqlite3').Database, sendJSON: Function }} deps
+ * @param {{ db: import('better-sqlite3').Database, sendJSON: Function, parseBody: Function }} deps
  */
-export function createSystemRoutes({ db, sendJSON }) {
+export function createSystemRoutes({ db, sendJSON, parseBody }) {
   const rawDb = db.db || db; // unwrap: db wrapper → raw better-sqlite3 instance
+  const dataDir = config.db?.path ? path.dirname(path.resolve(config.db.path)) : path.resolve('./data');
 
   return {
     // ── GPU & System Profile ──────────────────────────────────────────────
@@ -228,22 +233,14 @@ export function createSystemRoutes({ db, sendJSON }) {
       }
     },
 
-    // ── Storage Info ──────────────────────────────────────────────────────
+    // ── Storage Info (enhanced with history + backup stats) ───────────────
     'GET /api/system/storage': (req, res) => {
       try {
         let dbSizeMb = 0;
         try {
-          const pragma = rawDb.pragma('page_count');
-          const pageSize = rawDb.pragma('page_size');
-          if (pragma[0] && pageSize[0]) {
-            dbSizeMb = Math.round((pragma[0].page_count * pageSize[0].page_size) / (1024 * 1024) * 100) / 100;
-          }
-        } catch (_) {}
-
-        let ltmCount = 0;
-        try {
-          const row = rawDb.prepare("SELECT COUNT(*) as cnt FROM memory").get();
-          ltmCount = row?.cnt || 0;
+          const pageCount = rawDb.pragma('page_count', { simple: true });
+          const pageSize = rawDb.pragma('page_size', { simple: true });
+          dbSizeMb = Math.round((pageCount * pageSize) / (1024 * 1024) * 100) / 100;
         } catch (_) {}
 
         let messageCount = 0;
@@ -252,24 +249,166 @@ export function createSystemRoutes({ db, sendJSON }) {
           messageCount = row?.cnt || 0;
         } catch (_) {}
 
-        let sessionCount = 0;
-        try {
-          const row = rawDb.prepare("SELECT COUNT(*) as cnt FROM sessions").get();
-          sessionCount = row?.cnt || 0;
-        } catch (_) {}
+        const history = getHistoryStats(dataDir);
+        const backups = getBackupStats(dataDir);
 
         sendJSON(res, 200, {
           db_size_mb: dbSizeMb,
-          ltm_entries: ltmCount,
-          messages: messageCount,
-          sessions: sessionCount,
+          messages_in_db: messageCount,
+          history: {
+            total_mb: Math.round(history.totalBytes / (1024 * 1024) * 100) / 100,
+            conversations: history.conversations,
+            lifecycle: history.lifecycle,
+            memory: history.memory,
+          },
+          backups,
         });
       } catch (err) {
         sendJSON(res, 500, { error: 'Storage info failed' });
       }
     },
 
-    // DB Vacuum
+    // ── Storage Settings ─────────────────────────────────────────────────
+    'GET /api/system/storage/settings': (req, res) => {
+      try {
+        const storageConfig = getStorageConfig(rawDb);
+        sendJSON(res, 200, storageConfig);
+      } catch (err) {
+        sendJSON(res, 500, { error: 'Failed to read storage settings' });
+      }
+    },
+
+    'PUT /api/system/storage/settings': async (req, res) => {
+      try {
+        const body = await parseBody(req);
+        const validated = validateStorageConfig(body);
+
+        // Read current user_settings, merge storage section
+        let currentSettings = {};
+        try {
+          const row = rawDb.prepare('SELECT data FROM user_settings WHERE id = 1').get();
+          if (row) currentSettings = JSON.parse(row.data);
+        } catch (_) {}
+
+        currentSettings.storage = validated;
+
+        rawDb.prepare(
+          'INSERT OR REPLACE INTO user_settings (id, data, updated_at) VALUES (1, ?, datetime(\'now\'))'
+        ).run(JSON.stringify(currentSettings));
+
+        sendJSON(res, 200, validated);
+      } catch (err) {
+        sendJSON(res, 500, { error: `Failed to update storage settings: ${err.message}` });
+      }
+    },
+
+    // ── Manual Drain ─────────────────────────────────────────────────────
+    'POST /api/system/drain': (req, res) => {
+      try {
+        const storageConfig = getStorageConfig(rawDb);
+        const result = drainMessages(rawDb, dataDir, {
+          cutoffHours: storageConfig.drain.cutoff_hours,
+        });
+        sendJSON(res, 200, result);
+      } catch (err) {
+        sendJSON(res, 500, { error: `Drain failed: ${err.message}` });
+      }
+    },
+
+    // ── Manual Clean ─────────────────────────────────────────────────────
+    'POST /api/system/clean': (req, res) => {
+      try {
+        const storageConfig = getStorageConfig(rawDb);
+        const result = autoClean(rawDb, dataDir, { config: storageConfig });
+        sendJSON(res, 200, {
+          db_rows_pruned: result.db?.totalDeleted || 0,
+          history_files_pruned: result.history?.deleted || 0,
+          jsonl_cleaned: result.jsonlCleaned || 0,
+          pressure: result.db?.pressure || 'normal',
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: `Clean failed: ${err.message}` });
+      }
+    },
+
+    // ── Manual Backup ────────────────────────────────────────────────────
+    'POST /api/system/backup': (req, res) => {
+      try {
+        const result = createStateBackup(rawDb, dataDir);
+        if (result.error) {
+          return sendJSON(res, 500, { error: result.error });
+        }
+        // Prune old backups after creating new one
+        const storageConfig = getStorageConfig(rawDb);
+        pruneBackups(dataDir, {
+          maxDaily: storageConfig.backup.max_daily,
+          maxWeekly: storageConfig.backup.max_weekly,
+        });
+        sendJSON(res, 200, {
+          ok: true,
+          name: result.name,
+          files: result.files,
+          size_kb: Math.round(result.size / 1024),
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: `Backup failed: ${err.message}` });
+      }
+    },
+
+    // ── List Backups ─────────────────────────────────────────────────────
+    'GET /api/system/backups': (req, res) => {
+      try {
+        const backupList = listBackups(dataDir);
+        sendJSON(res, 200, {
+          backups: backupList.map(b => ({
+            name: b.name,
+            created_at: b.created_at,
+            version: b.version,
+            schema_version: b.schema_version,
+            db_size_mb: Math.round(b.db_size_bytes / (1024 * 1024) * 100) / 100,
+            total_size_mb: Math.round(b.total_size_bytes / (1024 * 1024) * 100) / 100,
+          })),
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: 'Failed to list backups' });
+      }
+    },
+
+    // ── Shutdown Backup (drain + backup — called from FE on IDE close) ──
+    'POST /api/system/shutdown-backup': (req, res) => {
+      try {
+        const storageConfig = getStorageConfig(rawDb);
+
+        // 1. Drain messages
+        let drainResult = { drained: 0 };
+        if (storageConfig.drain.enabled) {
+          drainResult = drainMessages(rawDb, dataDir, {
+            cutoffHours: storageConfig.drain.cutoff_hours,
+          });
+        }
+
+        // 2. State backup
+        let backupResult = { name: null, error: null };
+        if (storageConfig.backup.on_shutdown) {
+          backupResult = createStateBackup(rawDb, dataDir);
+          pruneBackups(dataDir, {
+            maxDaily: storageConfig.backup.max_daily,
+            maxWeekly: storageConfig.backup.max_weekly,
+          });
+        }
+
+        sendJSON(res, 200, {
+          ok: true,
+          drained: drainResult.drained,
+          backup: backupResult.name,
+          backup_error: backupResult.error,
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: `Shutdown backup failed: ${err.message}` });
+      }
+    },
+
+    // ── DB Vacuum ────────────────────────────────────────────────────────
     'POST /api/system/vacuum': (req, res) => {
       try {
         rawDb.pragma('wal_checkpoint(TRUNCATE)');
