@@ -40,6 +40,7 @@ export {
 export {
   ProjectPhase,
   MilestoneStatus,
+  CheckpointMode,
   ChangeRequestStatus,
   ProjectLifecycle,
 } from './lifecycle.js';

@@ -39,6 +39,8 @@ export const ChatMode = Object.freeze({
   PROJECT: 'project',
   /** Domain expertise consultation */
   EXPERTISE: 'expert',
+  /** D5: Specialist with expertise discovery + chaining */
+  SPECIALIST: 'specialist',
   /** Autonomous agent execution */
   AGENT: 'agent',
 });
@@ -651,6 +653,11 @@ export class ChatController {
       return ChatMode.PROJECT;
     }
 
+    // D5: Specialist mode is sticky when specialist is explicitly selected
+    if (context.hasActiveSpecialist && context.specialist?.id) {
+      return ChatMode.SPECIALIST;
+    }
+
     // Expertise mode is sticky when expertise is active
     // v87: Auto-selected expertise is NOT sticky — re-evaluate each turn
     if (context.hasActiveExpertise && context.expertise?.id) {
@@ -800,10 +807,14 @@ export class SessionState {
   // v58.0 - Active design project (DESIGN intent state)
   #activeDesignProject;  // { type, defaults, startedAt, phase, turnCount, language }
 
+  // v91 D5 - Active specialist (owns expertise collection)
+  #specialist;  // { id, name, domain, primaryExpertiseId }
+
   constructor(sessionId) {
     this.#sessionId = sessionId;
     this.#project = null;
     this.#expertise = null;
+    this.#specialist = null;
     this.#preferences = {};
     this.#updatedAt = Date.now();
 
@@ -836,6 +847,9 @@ export class SessionState {
   get preferences() { return { ...this.#preferences }; }
   get hasActiveProject() { return this.#project !== null && this.#project.id !== null; }
   get hasActiveExpertise() { return this.#expertise !== null && this.#expertise.id !== null; }
+  // v91 D5 - Specialist getters
+  get specialist() { return this.#specialist; }
+  get hasActiveSpecialist() { return this.#specialist !== null && this.#specialist.id !== null; }
   // v44.3 - Expertise lock state
   get expertiseLocked() { return this.#expertiseLocked; }
 
@@ -994,6 +1008,34 @@ export class SessionState {
   clearExpertise() {
     this.#expertise = null;
     this.#expertiseLocked = false;
+    this.#updatedAt = Date.now();
+    return this;
+  }
+
+  /**
+   * v91 D5 - Set active specialist
+   * When specialist is set, expertise is cleared (specialist manages its own collection)
+   * @param {Object|null} specialist - { id, name, domain, primaryExpertiseId }
+   */
+  setSpecialist(specialist) {
+    if (specialist && !specialist.id) {
+      throw new Error('Specialist must have an id');
+    }
+    this.#specialist = specialist ? { ...specialist } : null;
+    // Specialist mode replaces direct expertise selection
+    if (specialist) {
+      this.#expertise = null;
+      this.#expertiseLocked = false;
+    }
+    this.#updatedAt = Date.now();
+    return this;
+  }
+
+  /**
+   * v91 D5 - Clear specialist
+   */
+  clearSpecialist() {
+    this.#specialist = null;
     this.#updatedAt = Date.now();
     return this;
   }
@@ -1191,6 +1233,8 @@ export class SessionState {
       projectWorkingMemory: this.#projectWorkingMemory,
       // v58.0 - DESIGN project state
       activeDesignProject: this.#activeDesignProject,
+      // v91 D5 - Specialist
+      specialist: this.#specialist,
     };
   }
 
@@ -1280,6 +1324,10 @@ export class SessionState {
     // v58.0 - Restore active design project
     if (json.activeDesignProject) {
       state.setActiveDesignProject(json.activeDesignProject);
+    }
+    // v91 D5 - Restore specialist
+    if (json.specialist) {
+      state.setSpecialist(json.specialist);
     }
     return state;
   }
@@ -1524,6 +1572,16 @@ class ChatSessionManager {
     const state = this.getState(sessionId);
     state.setExpertise(expertise, options);
     // v44.3 - Auto-save to localStorage
+    state.saveToStorage();
+    return state;
+  }
+
+  /**
+   * v91 D5 - Set specialist for a session
+   */
+  setSpecialist(sessionId, specialist) {
+    const state = this.getState(sessionId);
+    state.setSpecialist(specialist);
     state.saveToStorage();
     return state;
   }
@@ -1852,6 +1910,22 @@ ChatController.handle = async function(request) {
   // BUILD CONTEXT WITH PERSISTENT STATE
   // ════════════════════════════════════════════════════════════════════════════
 
+  // v91 D5: Enrich specialist with expertise collection from DB
+  let specialistContext = state.specialist;
+  if (state.hasActiveSpecialist) {
+    try {
+      const { loadSpecialistExpertises } = await import('./handlers/specialist.js');
+      const expertiseCollection = await loadSpecialistExpertises(state.specialist.id);
+      specialistContext = {
+        ...state.specialist,
+        expertiseCollection,
+      };
+    } catch (err) {
+      logger.warn('ChatController', `Failed to load specialist expertises: ${err.message}`);
+      specialistContext = { ...state.specialist, expertiseCollection: [] };
+    }
+  }
+
   const fullContext = {
     ...context,
     userId,
@@ -1864,6 +1938,9 @@ ChatController.handle = async function(request) {
     // Convenience flags for handlers
     hasActiveProject: state.hasActiveProject,
     hasActiveExpertise: state.hasActiveExpertise,
+    // v91 D5: Specialist context (enriched with expertise collection)
+    specialist: specialistContext,
+    hasActiveSpecialist: state.hasActiveSpecialist,
     // v44.2 - Pass actual SessionState instance (not JSON) so handlers can call methods
     sessionState: state,
     // JSON version for debugging only
@@ -2007,6 +2084,15 @@ ChatController.setProject = function(sessionId, project) {
  */
 ChatController.setExpertise = function(sessionId, expertise, options = {}) {
   return sessionManager.setExpertise(sessionId, expertise, options);
+};
+
+/**
+ * v91 D5 - Set specialist for a session
+ * @param {string} sessionId
+ * @param {Object|null} specialist - { id, name, domain, primaryExpertiseId }
+ */
+ChatController.setSpecialist = function(sessionId, specialist) {
+  return sessionManager.setSpecialist(sessionId, specialist);
 };
 
 /**

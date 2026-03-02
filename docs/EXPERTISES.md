@@ -53,10 +53,13 @@ Expertise System poskytuje **domenove dialogove rezimy** ovlivnujici JAK LLM odp
 - Nepotlacuje LOCAL/CREATIVE rozhodnuti
 - Neni background agent
 
-**Terminologie (D5):**
+**Terminologie (D5 — implementovano v91):**
 - **Specialista** = persona/agent (ucetni, pravnik) — "kdo". Ma styl, nastroje, znalosti.
 - **Expertyza** = lehky knowledge modul na tema (kontrolni hlaseni, DPH, hypoteky) — "co umi".
 - Vztah: Specialista **vlastni kolekci** expertyz. Muze jich mit N.
+- **D5 flow:** Uzivatel vybere specialistu → `specialistHandler` → expertise discovery →
+  scoped vocabulary matching (`expertise-discovery.js`) → single/multi/gap → fallback.
+- Viz `docs/SPECIALISTS.md` pro detailni popis D5 pipeline.
 
 ---
 

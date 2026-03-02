@@ -91,6 +91,10 @@ export function createSpecialistRoutes(deps) {
       'POST /api/specialists/discover': notAvailable,
       'GET /api/specialists/:id/integrity': notAvailable,
       'GET /api/specialists/telemetry': notAvailable,
+      'GET /api/specialists/:id/expertises': notAvailable,
+      'POST /api/specialists/:id/expertises': notAvailable,
+      'DELETE /api/specialists/:id/expertises/:expertiseId': notAvailable,
+      'PATCH /api/specialists/:id/expertises/:expertiseId': notAvailable,
     };
   }
 
@@ -276,6 +280,118 @@ export function createSpecialistRoutes(deps) {
         });
       } catch (err) {
         logger.error('SpecialistAPI', `Integrity check failed: ${err.message}`);
+        sendJSON(res, 500, { ok: false, error: err.message });
+      }
+    }),
+
+    // ─── D5: Specialist ↔ Expertise binding ─────────────────────────────
+
+    // List all expertises bound to a specialist (with labels + priority)
+    'GET /api/specialists/:id/expertises': t(async (req, res, params) => {
+      try {
+        const manifest = specialistLoader.getManifest(params.id);
+        if (!manifest) {
+          return sendJSON(res, 404, { ok: false, error: `Specialist not found: ${params.id}` });
+        }
+
+        const db = (await import('../db/database.js')).default;
+        const rows = db.db.prepare(
+          'SELECT expertise_id, label, priority, added_at FROM specialist_expertises WHERE specialist_id = ? ORDER BY priority DESC, added_at ASC'
+        ).all(params.id);
+
+        sendJSON(res, 200, { ok: true, expertises: rows });
+      } catch (err) {
+        logger.error('SpecialistAPI', `GET expertises for ${params.id} failed: ${err.message}`);
+        sendJSON(res, 500, { ok: false, error: err.message });
+      }
+    }),
+
+    // Bind an expertise to a specialist
+    'POST /api/specialists/:id/expertises': t(async (req, res, params) => {
+      try {
+        const manifest = specialistLoader.getManifest(params.id);
+        if (!manifest) {
+          return sendJSON(res, 404, { ok: false, error: `Specialist not found: ${params.id}` });
+        }
+
+        const body = await parseBody(req);
+        if (!body.expertiseId) {
+          return sendJSON(res, 400, { ok: false, error: 'expertiseId is required' });
+        }
+
+        const db = (await import('../db/database.js')).default;
+        const existing = db.db.prepare(
+          'SELECT 1 FROM specialist_expertises WHERE specialist_id = ? AND expertise_id = ?'
+        ).get(params.id, body.expertiseId);
+
+        if (existing) {
+          return sendJSON(res, 409, { ok: false, error: `Expertise ${body.expertiseId} already bound to ${params.id}` });
+        }
+
+        db.db.prepare(
+          'INSERT INTO specialist_expertises (specialist_id, expertise_id, label, priority) VALUES (?, ?, ?, ?)'
+        ).run(params.id, body.expertiseId, body.label || null, body.priority ?? 0);
+
+        logger.info('SpecialistAPI', `Bound expertise ${body.expertiseId} → ${params.id}`, {
+          label: body.label || null,
+          priority: body.priority ?? 0,
+        });
+
+        sendJSON(res, 201, { ok: true, specialistId: params.id, expertiseId: body.expertiseId });
+      } catch (err) {
+        logger.error('SpecialistAPI', `POST expertise bind for ${params.id} failed: ${err.message}`);
+        sendJSON(res, 500, { ok: false, error: err.message });
+      }
+    }),
+
+    // Unbind an expertise from a specialist
+    'DELETE /api/specialists/:id/expertises/:expertiseId': t(async (req, res, params) => {
+      try {
+        const db = (await import('../db/database.js')).default;
+        const result = db.db.prepare(
+          'DELETE FROM specialist_expertises WHERE specialist_id = ? AND expertise_id = ?'
+        ).run(params.id, params.expertiseId);
+
+        if (result.changes === 0) {
+          return sendJSON(res, 404, { ok: false, error: `Binding not found: ${params.id} ↔ ${params.expertiseId}` });
+        }
+
+        logger.info('SpecialistAPI', `Unbound expertise ${params.expertiseId} from ${params.id}`);
+        sendJSON(res, 200, { ok: true });
+      } catch (err) {
+        logger.error('SpecialistAPI', `DELETE expertise binding failed: ${err.message}`);
+        sendJSON(res, 500, { ok: false, error: err.message });
+      }
+    }),
+
+    // Update label or priority of a specialist ↔ expertise binding
+    'PATCH /api/specialists/:id/expertises/:expertiseId': t(async (req, res, params) => {
+      try {
+        const body = await parseBody(req);
+
+        const sets = [];
+        const values = [];
+        if (body.label !== undefined) { sets.push('label = ?'); values.push(body.label); }
+        if (body.priority !== undefined) { sets.push('priority = ?'); values.push(body.priority); }
+
+        if (sets.length === 0) {
+          return sendJSON(res, 400, { ok: false, error: 'Nothing to update (provide label and/or priority)' });
+        }
+
+        values.push(params.id, params.expertiseId);
+
+        const db = (await import('../db/database.js')).default;
+        const result = db.db.prepare(
+          `UPDATE specialist_expertises SET ${sets.join(', ')} WHERE specialist_id = ? AND expertise_id = ?`
+        ).run(...values);
+
+        if (result.changes === 0) {
+          return sendJSON(res, 404, { ok: false, error: `Binding not found: ${params.id} ↔ ${params.expertiseId}` });
+        }
+
+        sendJSON(res, 200, { ok: true });
+      } catch (err) {
+        logger.error('SpecialistAPI', `PATCH expertise binding failed: ${err.message}`);
         sendJSON(res, 500, { ok: false, error: err.message });
       }
     }),

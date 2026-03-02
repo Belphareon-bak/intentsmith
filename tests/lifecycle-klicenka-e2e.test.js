@@ -1,13 +1,22 @@
-// Lifecycle E2E Test — Klíčenka (Credential Vault) — Real LLM
+// Lifecycle E2E Test — Klíčenka (Credential Vault) — Real LLM (v91)
 // ══════════════════════════════════════════════════════════════════════════════
-// Real scenario with REAL Ollama LLM calls. Full lifecycle WITH change management:
-//   PROPOSED → SPEC → SPEC_REVIEW → PLAN_REVIEW → BUILD (ms-1)
-//   → CHANGE (add CLI) → BUILD (ms-2, ms-3) → COMPLETED
+// Real scenario with REAL Ollama LLM calls. Full lifecycle WITH:
+//   - Spec revision (key rotation requirement)
+//   - Roadmap revision (milestone split)
+//   - Milestone rejection (prepared statements feedback)
+//   - Change management (add CLI)
+//   - Quality assertions (spec, roadmap, documentation)
+//
+// Flow:
+//   PROPOSED → SPEC → SPEC_REVIEW (revise → approve)
+//   → PLAN_REVIEW (revise → approve) → BUILD (reject → approve → ms-1)
+//   → CHANGE (add CLI) → BUILD (ms-2, ms-3, ...) → COMPLETED
+//   → Quality verification (spec, roadmap, docs, files, git)
 //
 // Requirements:
 //   - Ollama running at http://127.0.0.1:11434
 //   - Models: deepseek-r1:32b, qwen2.5-coder:32b, qwen2.5:32b
-//   - Expected duration: 15-30 minutes
+//   - Expected duration: 20-40 minutes
 //
 // Run: node tests/lifecycle-klicenka-e2e.test.js
 // ══════════════════════════════════════════════════════════════════════════════
@@ -329,31 +338,116 @@ async function runTest() {
       `got: ${getLcState(SESSION_ID)?.phase}`
     );
 
-    // ═══ PHASE 3: Approve Spec ══════════════════════════════════════════════
+    // ═══ PHASE 3: Spec Revision + Quality + Approve ══════════════════════════
 
-    console.log('\n\n═══ PHASE 3: Approve Spec ═══════════════════════════════════════════');
+    console.log('\n\n═══ PHASE 3: Spec Revision + Quality Assertions + Approve ══════════');
 
-    // Approve spec directly (no revision — klíčenka test focuses on change management)
     if (getLcState(SESSION_ID)?.phase === 'SPEC_REVIEW') {
-      const approveMsg = userTurn('schvaluji');
-      const approveResp = await handleLifecycleInput(approveMsg, context);
-      systemTurn('SPEC → PLAN_REVIEW', approveResp);
+      // 3a. Quality assertions on initial spec
+      const specBeforeRevision = lifecycleId ? lifecycleRepo.getSpec(lifecycleId) : null;
+      if (specBeforeRevision) {
+        check(
+          (specBeforeRevision.goals || []).length >= 2,
+          'T3-Q: spec has ≥2 goals',
+          `got: ${(specBeforeRevision.goals || []).length}`
+        );
+        const frs = specBeforeRevision.requirements?.functional || [];
+        check(frs.length >= 3, 'T3-Q: spec has ≥3 functional requirements', `got: ${frs.length}`);
+        const frIds = frs.map(fr => fr.id).filter(Boolean);
+        check(frIds.length === frs.length, 'T3-Q: every FR has an id', `${frIds.length}/${frs.length}`);
+        check(new Set(frIds).size === frIds.length, 'T3-Q: FR IDs are unique');
+        const dds = specBeforeRevision.design_decisions || [];
+        check(dds.length >= 1, 'T3-Q: spec has ≥1 design decision', `got: ${dds.length}`);
+        if (dds.length > 0) {
+          const hasAlts = dds.some(d => (d.alternatives_considered || d.alternatives || []).length >= 1);
+          check(hasAlts, 'T3-Q: at least one design decision has alternatives');
+        }
+      }
+
+      // 3b. Send revision feedback — request key rotation requirement
+      const revisionMsg = userTurn(
+        'Chybí mi podpora pro rotaci klíčů. Přidej požadavek na automatickou rotaci API klíčů každých 90 dní.'
+      );
+      const revisionResp = await handleLifecycleInput(revisionMsg, context);
+      systemTurn('SPEC revision', revisionResp);
+
+      const afterRevisionPhase = getLcState(SESSION_ID)?.phase;
+      check(
+        afterRevisionPhase === 'SPEC' || afterRevisionPhase === 'SPEC_REVIEW',
+        'T3-R: revision triggers SPEC or SPEC_REVIEW',
+        `got: ${afterRevisionPhase}`
+      );
+
+      // 3c. Answer revision questions until back at SPEC_REVIEW
+      let revisionRound = 0;
+      while (getLcState(SESSION_ID)?.phase === 'SPEC' && revisionRound < 4) {
+        const answer = userTurn(
+          'Ano, automatická rotace klíčů každých 90 dní. Starý klíč zůstane platný 24h po rotaci. ' +
+          'Notifikace přes callback URL při rotaci. Rotace jen pro namespace "api-keys".'
+        );
+        const resp = await handleLifecycleInput(answer, context);
+        systemTurn(`SPEC revision round ${revisionRound + 1}`, resp);
+        revisionRound++;
+      }
+
+      // 3d. Verify spec contains rotation requirement
+      const specAfterRevision = lifecycleId ? lifecycleRepo.getSpec(lifecycleId) : null;
+      if (specAfterRevision) {
+        const specStr = JSON.stringify(specAfterRevision).toLowerCase();
+        check(
+          specStr.includes('rotac') || specStr.includes('rotation') || specStr.includes('rotate'),
+          'T3-R: revised spec mentions key rotation'
+        );
+      }
+
+      // 3e. Approve revised spec
+      if (getLcState(SESSION_ID)?.phase === 'SPEC_REVIEW') {
+        const approveMsg = userTurn('schvaluji');
+        const approveResp = await handleLifecycleInput(approveMsg, context);
+        systemTurn('SPEC → PLAN_REVIEW', approveResp);
+      }
     }
 
-    // ═══ PHASE 4: Plan Review — Roadmap ══════════════════════════════════════
+    // ═══ PHASE 4: Plan Review — Roadmap Revision + Quality ══════════════════
 
-    console.log('\n\n═══ PHASE 4: PLAN_REVIEW — Real Roadmap ═════════════════════════════');
+    console.log('\n\n═══ PHASE 4: PLAN_REVIEW — Roadmap Revision + Quality ══════════════');
 
     const stateRoadmap = getLcState(SESSION_ID);
     check(stateRoadmap?.phase === 'PLAN_REVIEW', 'T4: reached PLAN_REVIEW', `got: ${stateRoadmap?.phase}`);
     lifecycleId = stateRoadmap?.lifecycleId || lifecycleId;
 
+    let milestonesBeforeRevision = 0;
+
     if (lifecycleId) {
       const milestones = msRepo.listByLifecycle(lifecycleId);
-      check(milestones.length >= 2, 'T4: roadmap has ≥2 milestones', `got: ${milestones.length}`);
-      console.log(`    Milestones:`);
+      milestonesBeforeRevision = milestones.length;
+      check(milestones.length >= 3, 'T4-Q: roadmap has ≥3 milestones (v91 minimum)', `got: ${milestones.length}`);
+      console.log(`    Milestones (initial):`);
       for (const m of milestones) {
         console.log(`      ${m.id}: ${m.title}`);
+      }
+
+      // 4a. Quality: check roadmap data
+      const roadmapRow = roadmapVersions.getLatestRoadmap(lifecycleId);
+      if (roadmapRow?.roadmap) {
+        const rm = roadmapRow.roadmap;
+        // Requirements coverage
+        if (rm.requirements_coverage) {
+          const coveredFRs = Object.keys(rm.requirements_coverage);
+          check(coveredFRs.length >= 1, 'T4-Q: requirements_coverage has entries', `got: ${coveredFRs.length}`);
+          console.log(`    Requirements coverage: ${coveredFRs.length} FRs mapped`);
+        }
+
+        // Last milestone covers testing/integration/docs
+        const lastMs = (rm.milestones || [])[rm.milestones.length - 1];
+        if (lastMs) {
+          const lastText = (lastMs.title + ' ' + (lastMs.description || '')).toLowerCase();
+          check(
+            /test|integr|doc|kvalit|final/.test(lastText),
+            'T4-Q: last milestone covers testing/integration/docs',
+            `got: "${lastMs.title}"`
+          );
+        }
       }
 
       // Clear test_strategy
@@ -362,34 +456,70 @@ async function runTest() {
       } catch { /* ignore */ }
     }
 
-    // Roadmap discussion turn (extra quality turn)
-    const discussMsg = userTurn(
-      'Jaké milníky zahrnuje roadmapa? Pokud crypto core + REST API jsou oddělené milníky, schvaluji.'
+    // 4b. Send roadmap revision — request split
+    const reviseRoadmapMsg = userTurn(
+      'Rozděl první milník na dva — zvlášť crypto core (šifrování, scrypt, vault) a zvlášť database layer (SQLite, schema, migrace).'
     );
-    const discussResp = await handleLifecycleInput(discussMsg, context);
-    systemTurn('PLAN discussion', discussResp);
+    const reviseRoadmapResp = await handleLifecycleInput(reviseRoadmapMsg, context);
+    systemTurn('PLAN revision', reviseRoadmapResp);
 
-    // If that was interpreted as revision, we might have a new roadmap
-    // If it stayed in PLAN_REVIEW, approve
+    // After revision, we should be back at PLAN_REVIEW with new roadmap
+    if (getLcState(SESSION_ID)?.phase === 'PLAN_REVIEW' && lifecycleId) {
+      const milestonesAfterRevision = msRepo.listByLifecycle(lifecycleId);
+      console.log(`    Milestones after revision: ${milestonesAfterRevision.length} (was: ${milestonesBeforeRevision})`);
+      for (const m of milestonesAfterRevision) {
+        console.log(`      ${m.id}: ${m.title}`);
+      }
+      check(
+        milestonesAfterRevision.length >= milestonesBeforeRevision,
+        'T4-R: revision has ≥ previous milestone count',
+        `before: ${milestonesBeforeRevision}, after: ${milestonesAfterRevision.length}`
+      );
+
+      // Clear test_strategy on new milestones
+      try {
+        db.prepare('UPDATE milestones SET test_strategy = NULL WHERE lifecycle_id = ?').run(lifecycleId);
+      } catch { /* ignore */ }
+    }
+
+    // 4c. Approve roadmap
     if (getLcState(SESSION_ID)?.phase === 'PLAN_REVIEW') {
       const approveRoadmapMsg = userTurn('schvaluji');
       const approveRoadmapResp = await handleLifecycleInput(approveRoadmapMsg, context);
       systemTurn('PLAN → BUILD', approveRoadmapResp);
     }
 
-    // ═══ PHASE 5: BUILD — ms-1 ══════════════════════════════════════════════
+    // ═══ PHASE 5: BUILD — ms-1 (with milestone rejection) ══════════════════
 
-    console.log('\n\n═══ PHASE 5: BUILD — First Milestone ════════════════════════════════');
+    console.log('\n\n═══ PHASE 5: BUILD — First Milestone (with rejection) ══════════════');
 
-    // Build first milestone (crypto core)
+    // 5a. Reject first milestone plan with feedback
+    let rejectedOnce = false;
     let builtFirstMs = false;
     let firstMsBuildRounds = 0;
-    while (firstMsBuildRounds < 10) {
+    while (firstMsBuildRounds < 12) {
       firstMsBuildRounds++;
       const state = getLcState(SESSION_ID);
       if (!state) break;
 
       if (state.phase === 'BUILD_MILESTONE_REVIEW') {
+        // First time seeing BUILD_MILESTONE_REVIEW → reject with feedback
+        if (!rejectedOnce) {
+          rejectedOnce = true;
+          const rejectMsg = userTurn('ne, chci aby to používalo prepared statements místo raw SQL queries');
+          const rejectResp = await handleLifecycleInput(rejectMsg, context);
+          systemTurn('BUILD rejection', rejectResp);
+
+          const afterReject = getLcState(SESSION_ID)?.phase;
+          check(
+            afterReject === 'BUILD_MILESTONE_REVIEW',
+            'T5-R: phase stays BUILD_MILESTONE_REVIEW after rejection',
+            `got: ${afterReject}`
+          );
+          continue; // Next loop iteration — approve on next round
+        }
+
+        // Subsequent BUILD_MILESTONE_REVIEW → approve
         const msg = userTurn('ano');
         const resp = await handleLifecycleInput(msg, context);
         systemTurn(`BUILD ${state.currentMilestoneId}`, resp);
@@ -413,6 +543,7 @@ async function runTest() {
       }
     }
 
+    check(rejectedOnce, 'T5-R: milestone rejection was tested');
     check(builtFirstMs, 'T6: first milestone completed');
 
     // Verify crypto files exist
@@ -521,11 +652,110 @@ async function runTest() {
 
     check(completedMilestones >= 2, 'BUILD: ≥2 milestones completed', `got: ${completedMilestones}`);
 
-    // ═══ PHASE 8: Final Verification ══════════════════════════════════════════
+    // ═══ PHASE 8: Final Verification + Quality Assertions ═══════════════════
 
-    console.log('\n\n═══ PHASE 8: Final Verification ══════════════════════════════════════');
+    console.log('\n\n═══ PHASE 8: Final Verification + Quality Assertions ═════════════════');
 
-    // DB
+    // ─── 8a. Spec Quality ───
+    console.log('\n  ─── Spec Quality ───');
+    if (lifecycleId) {
+      const finalSpec = lifecycleRepo.getSpec(lifecycleId);
+      if (finalSpec) {
+        const goals = finalSpec.goals || [];
+        check(goals.length >= 3, 'SPEC-Q: ≥3 goals', `got: ${goals.length}`);
+
+        const frs = finalSpec.requirements?.functional || [];
+        check(frs.length >= 5, 'SPEC-Q: ≥5 functional requirements', `got: ${frs.length}`);
+
+        const frIds = frs.map(fr => fr.id).filter(Boolean);
+        check(frIds.length === frs.length, 'SPEC-Q: every FR has an id', `${frIds.length}/${frs.length}`);
+        check(new Set(frIds).size === frIds.length, 'SPEC-Q: FR IDs are unique');
+
+        const dds = finalSpec.design_decisions || [];
+        check(dds.length >= 2, 'SPEC-Q: ≥2 design decisions', `got: ${dds.length}`);
+        const ddsWithAlts = dds.filter(d => (d.alternatives_considered || d.alternatives || []).length >= 2);
+        check(ddsWithAlts.length >= 1, 'SPEC-Q: ≥1 design decision with ≥2 alternatives', `got: ${ddsWithAlts.length}`);
+
+        // Check key rotation was added by revision
+        const specStr = JSON.stringify(finalSpec).toLowerCase();
+        check(
+          specStr.includes('rotac') || specStr.includes('rotation') || specStr.includes('rotate'),
+          'SPEC-Q: key rotation requirement present (from revision)'
+        );
+
+        console.log(`    Goals: ${goals.length}, FRs: ${frs.length}, DDs: ${dds.length}`);
+      } else {
+        check(false, 'SPEC-Q: spec exists in DB');
+      }
+    }
+
+    // ─── 8b. Roadmap Quality ───
+    console.log('\n  ─── Roadmap Quality ───');
+    if (lifecycleId) {
+      const roadmapRow = roadmapVersions.getLatestRoadmap(lifecycleId);
+      if (roadmapRow?.roadmap) {
+        const rm = roadmapRow.roadmap;
+        const rmMs = rm.milestones || [];
+        check(rmMs.length >= 3, 'ROAD-Q: ≥3 milestones in final roadmap', `got: ${rmMs.length}`);
+
+        // Requirements coverage
+        const coverage = rm.requirements_coverage || {};
+        const covKeys = Object.keys(coverage);
+        check(covKeys.length >= 1, 'ROAD-Q: requirements_coverage present', `got: ${covKeys.length} entries`);
+
+        // Each milestone has required fields
+        let missingFields = 0;
+        for (const m of rmMs) {
+          if (!m.title) missingFields++;
+          if (!m.description) missingFields++;
+        }
+        check(missingFields === 0, 'ROAD-Q: all milestones have title + description', `missing: ${missingFields}`);
+
+        console.log(`    Milestones: ${rmMs.length}, Coverage: ${covKeys.length} FRs, Version: ${roadmapRow.version}`);
+      }
+
+      const allMs = msRepo.listByLifecycle(lifecycleId);
+      console.log(`    DB milestones: ${allMs.length}`);
+      for (const m of allMs) {
+        console.log(`      ${m.id}: ${m.title} [${m.status}]`);
+      }
+    }
+
+    // ─── 8c. Documentation Quality ───
+    console.log('\n  ─── Documentation Quality ───');
+    const readmePath = path.join(projectPath, 'README.md');
+    const archPath = path.join(projectPath, 'ARCHITECTURE.md');
+
+    if (fs.existsSync(readmePath)) {
+      const readme = fs.readFileSync(readmePath, 'utf-8');
+      check(readme.length > 200, 'DOC-Q: README.md is substantive', `got: ${readme.length} chars`);
+      check(
+        /##\s*(Použití|Usage|Instalace|Installation|Spuštění|Getting Started)/i.test(readme),
+        'DOC-Q: README has usage/install section'
+      );
+      check(
+        /##\s*(Architektura|Architecture|Struktura|Components)/i.test(readme),
+        'DOC-Q: README has architecture section'
+      );
+      check(
+        /##\s*(Tech\s*[Ss]tack|Technologie)/i.test(readme),
+        'DOC-Q: README has tech stack section'
+      );
+      console.log(`    README.md: ${readme.length} chars`);
+    } else {
+      check(false, 'DOC-Q: README.md exists');
+    }
+
+    if (fs.existsSync(archPath)) {
+      const arch = fs.readFileSync(archPath, 'utf-8');
+      check(arch.length > 100, 'DOC-Q: ARCHITECTURE.md is substantive', `got: ${arch.length} chars`);
+      console.log(`    ARCHITECTURE.md: ${arch.length} chars`);
+    } else {
+      // Not a hard failure — depends on spec having architecture data
+      console.log('    ARCHITECTURE.md: not generated (spec may lack architecture data)');
+    }
+
+    // ─── 8d. DB Verification ───
     console.log('\n  ─── DB Verification ───');
     if (lifecycleId) {
       const lcDb = lifecycleRepo.findById.get(lifecycleId);
@@ -542,7 +772,7 @@ async function runTest() {
       check(passedMs.length >= 2, 'DB: ≥2 milestones PASSED', `got: ${passedMs.length}`);
     }
 
-    // Files
+    // ─── 8e. Files ───
     console.log('\n  ─── File Tree ───');
     const allFiles = walkFiles(projectPath);
     console.log(`    Generated ${allFiles.length} files:`);
@@ -569,7 +799,7 @@ async function runTest() {
       check(hasNoWeakAlgo, 'Security: no weak hash algorithms');
     }
 
-    // Git
+    // ─── 8f. Git ───
     console.log('\n  ─── Git ───');
     try {
       const gitLog = execSync('git log --oneline', { cwd: projectPath, encoding: 'utf8' });
@@ -580,8 +810,8 @@ async function runTest() {
       check(false, 'Git: log available', e.message);
     }
 
-    // Turn count
-    check(turnNum >= 18, 'Turns: ≥18 conversation turns', `got: ${turnNum}`);
+    // Turn count — higher now with revision rounds
+    check(turnNum >= 22, 'Turns: ≥22 conversation turns (incl. revisions)', `got: ${turnNum}`);
 
     // Project preserved for IDE visibility
     console.log(`\n  Project preserved at: ${projectPath}`);
@@ -605,7 +835,9 @@ async function runTest() {
   console.log('══════════════════════════════════════════════════════════════════════\n');
 
   try {
-    const transcriptPath = `/tmp/transcript-klicenka-${Date.now()}.json`;
+    const transcriptDir = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'test-transcripts');
+    fs.mkdirSync(transcriptDir, { recursive: true });
+    const transcriptPath = path.join(transcriptDir, `transcript-klicenka-${Date.now()}.json`);
     fs.writeFileSync(transcriptPath, JSON.stringify(transcript, null, 2));
     console.log(`  Transcript: ${transcriptPath}`);
   } catch { /* ignore */ }

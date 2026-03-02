@@ -344,6 +344,8 @@ function _switchSession(newIdx){
     var proj=PROJECTS.find(function(p){return p.id===s._projectId;});
     if(proj&&proj.path){_wtRoot=proj.path;_loadWorkspaceTree(proj.path);}
   }
+  /* v92: Sync focus mode class — layout derives from new session's specialist */
+  _syncFocusClass();renderCenter();renderChat();renderAgent();
 }
 /* ── Flatten nested tree respecting collapsed state ── */
 function _flattenTree(nodes,depth,parentPath){
@@ -592,6 +594,7 @@ class C3SidebarWidget extends react_widget_1.ReactWidget {
         _centerContainer.style.cssText='position:absolute;top:0;left:0;right:0;bottom:0;z-index:10;';
         main.style.position='relative';
         main.appendChild(_centerContainer);
+        _syncFocusClass();
         renderCenter();
         console.log('[C3] Center view mounted into main panel');
       }
@@ -620,6 +623,12 @@ class C3SidebarWidget extends react_widget_1.ReactWidget {
         var ss=document.createElement('style');ss.id='c3-strip-hide';
         ss.textContent='.theia-sidepanel-toolbar{display:none!important;height:0!important;max-height:0!important;min-height:0!important;overflow:hidden!important;visibility:hidden!important;opacity:0!important;}.theia-sidepanel-toolbar~*{top:0!important;height:100%!important;}.lm-TabBar-toolbar{display:none!important;height:0!important;overflow:hidden!important;}#theia-right-side-panel .lm-TabBar~*,#theia-bottom-content-panel .lm-TabBar~*{top:0!important;height:100%!important;}#theia-right-side-panel .lm-DockPanel-widget,#theia-bottom-content-panel .lm-DockPanel-widget{top:0!important;height:100%!important;}.lm-Widget:focus,.lm-Widget:focus-visible,#c3-sidebar:focus,#c3-chat-panel:focus,#c3-agent-panel:focus{outline:none!important;box-shadow:none!important;}*:focus-visible{outline:none!important;}#theia-top-panel,.p-MenuBar,#theia\\:menubar,.theia-app-header{background:var(--c3-bg1,#111114)!important;border-color:var(--c3-border,rgba(255,255,255,0.06))!important;}#theia-left-side-panel,#theia-right-side-panel,#theia-bottom-content-panel{background:var(--c3-bg1,#111114)!important;}input[type=range]{-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:var(--c3-bg4,#27282e);outline:none;}input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--c3-accent,#22c55e);cursor:pointer;border:2px solid var(--c3-bg1,#111114);}body{border:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;box-sizing:border-box!important;}#theia-right-side-panel{border-left:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;}#theia-bottom-content-panel{border-top:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;}@keyframes c3-ac-pulse{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}@keyframes c3-thinking-dot{0%,80%,100%{opacity:0.2;transform:scale(0.8)}40%{opacity:1;transform:scale(1)}}';
         document.head.appendChild(ss);
+      }
+      /* v92: Focus Mode CSS — layout override when specialist is active */
+      if(!document.getElementById('c3-focus-css')){
+        var fc=document.createElement('style');fc.id='c3-focus-css';
+        fc.textContent='body.c3-focus-mode .c3-bottom-mode-tabs{display:none!important;}';
+        document.head.appendChild(fc);
       }
       function _hideStrips(){
         document.querySelectorAll('.theia-sidepanel-toolbar').forEach(function(el){
@@ -684,12 +693,12 @@ var _sidebarWidget=null;function renderSidebar(){if(_sidebarWidget)_sidebarWidge
 
 function SidebarApp(props){
   var s=props.getState(),set=props.setState;
-  /* ── Collapsed icon-only mode ── */
-  if(s.collapsed){
+  /* ── Collapsed icon-only mode (also forced in specialist focus mode) ── */
+  if(s.collapsed||isFocusActive()){
     return h('div',{style:{display:'flex',flexDirection:'column',width:48,maxWidth:48,position:'absolute',top:0,left:0,bottom:0,background:C.bg1,fontFamily:C.font,borderRight:'1px solid '+C.border,overflow:'hidden',alignItems:'center',paddingTop:6}},
       h('div',{style:{cursor:'pointer',width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:6,color:C.tx3,marginBottom:2},title:'Rozbalit (Ctrl+B)',
         onMouseEnter:function(e){e.currentTarget.style.background=C.bg3;},onMouseLeave:function(e){e.currentTarget.style.background='transparent';},
-        onClick:function(){set({collapsed:false});}},svgEl('<polyline points="9 18 15 12 9 6"/>',18)),
+        onClick:function(){if(isFocusActive()){_focusExitDialog={pendingAction:function(){set({collapsed:false});}};renderCenter();return;}set({collapsed:false});}},svgEl('<polyline points="9 18 15 12 9 6"/>',18)),
       h('div',{style:{width:24,height:1,background:C.border,marginBottom:6}}),
       NAV.map(function(item){
         var isA=s.active===item.id;
@@ -844,6 +853,13 @@ var _expertiseWizard={active:false,mode:'create',data:null,schema:null,preview:n
 var _agentWizard={active:false,mode:'create',data:null,schema:null,preview:null,testResult:null,testLoading:false,testError:null,openSections:{basic:true},editId:null,saving:false,advancedMode:false,confirmAdvanced:false,simpleStep:1};
 /* ═══ Wizard navigation guard ═══ */
 function _wizardGuardNav(targetView,sidebarSet,extra){
+  /* v92: Focus mode intercept — show exit dialog instead of navigating */
+  if(isFocusActive()){
+    var det2={view:targetView};if(extra)for(var k2 in extra)det2[k2]=extra[k2];
+    _focusExitDialog={pendingAction:function(){sidebarSet({active:targetView,dd:{}});window.dispatchEvent(new CustomEvent('c3-nav',{detail:det2}));}};
+    renderCenter();
+    return;
+  }
   var label=_projectWizard.active?'vytváření projektu':_expertiseWizard.active?'editaci expertýzy':_agentWizard.active?'vytváření workeru':null;
   var det={view:targetView};if(extra)for(var k in extra)det[k]=extra[k];
   if(!label){sidebarSet({active:targetView,dd:{}});window.dispatchEvent(new CustomEvent('c3-nav',{detail:det}));return;}
@@ -912,6 +928,26 @@ var _centerRoot=null;
 function renderCenter(){if(!_centerContainer)return;if(!_centerRoot)_centerRoot=_createRoot(_centerContainer);_centerRoot.render(h(CenterApp,null));}
 
 function CenterApp(){
+  /* v92: Focus mode — full-width specialist chat in center */
+  if(isFocusActive()){
+    var _spec=(_sessions[_sessionActive]&&_sessions[_sessionActive].chat)?_sessions[_sessionActive].chat.specialist:null;
+    return h('div',{style:{display:'flex',height:'100%',width:'100%',background:C.bg0,fontFamily:C.font,position:'relative'}},
+      h('div',{key:'cv-focus',style:{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}},
+        _chatPaneUI(_sessionActive,{fullWidth:true})),
+      /* v92: Focus exit confirmation dialog */
+      _focusExitDialog?h('div',{style:{position:'absolute',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.55)',zIndex:80,display:'flex',alignItems:'center',justifyContent:'center'},
+        onClick:function(ev){ev.stopPropagation();_focusExitDialog=null;renderCenter();}},
+        h('div',{style:{background:C.bg2,border:'1px solid '+C.border2,borderRadius:12,padding:'20px 24px',minWidth:280,maxWidth:380,boxShadow:'0 12px 40px rgba(0,0,0,0.5)'},
+          onClick:function(ev){ev.stopPropagation();}},
+          h('div',{style:{fontSize:_fs(14),fontWeight:700,color:C.tx1,marginBottom:6}},'Ukončit režim specialisty?'),
+          _spec?h('div',{style:{fontSize:_fs(11),color:C.tx3,marginBottom:14}},
+            h('span',null,'Aktivní: '),h('span',{style:{fontWeight:600}},(_spec.emoji||'')+' '+(_spec.name||'Specialista'))):null,
+          h('div',{style:{display:'flex',gap:8,justifyContent:'flex-end'}},
+            h('button',{style:{background:'transparent',color:C.tx3,border:'1px solid '+C.border2,borderRadius:6,padding:'6px 16px',fontSize:_fs(11),fontWeight:600,cursor:'pointer'},
+              onClick:function(){_focusExitDialog=null;renderCenter();}},'Zůstat'),
+            h('button',{style:{background:'rgba(239,68,68,0.15)',color:'#f87171',border:'1px solid rgba(239,68,68,0.3)',borderRadius:6,padding:'6px 16px',fontSize:_fs(11),fontWeight:600,cursor:'pointer'},
+              onClick:function(){var pa=_focusExitDialog?_focusExitDialog.pendingAction:null;_focusExitDialog=null;if(window._c3)window._c3.clearSpecialist();if(pa)pa();}},'Ukončit')))):null);
+  }
   var view=_centerState.view,detail=_centerState.detail;
   var isOverlay=_expertiseWizard.active||_agentWizard.active||_projectWizard.active||_editorState.active;
   var mainContent=isOverlay?(
@@ -1193,7 +1229,13 @@ function centerConvos(){
     }))));
 }
 
-function centerSpecs(){return h(React.Fragment,null,viewHead('Specialisté',true,function(){_addNew('specialists');}),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(SPECIALISTS.map(function(s){return card(s,function(){setDetail({name:s.name,fields:[{k:'Oblast',v:s.desc}],tags:s.tags,actions:['Otevřít','Editovat']});});}))));}
+function centerSpecs(){
+  var activeSp=(_sessions[_sessionActive]||_sessions[0]).chat.specialist;
+  return h(React.Fragment,null,viewHead('Specialisté',true,function(){_addNew('specialists');}),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(SPECIALISTS.map(function(s){
+    var isActive=activeSp&&(activeSp.name===s.name||activeSp.id===s.id);
+    return card(Object.assign({},s,{status:isActive?'Aktivní':null}),function(){setDetail({name:s.name,fields:[{k:'Oblast',v:s.desc},{k:'Doména',v:s.domain||''},{k:'Status',v:isActive?'Aktivní':'Neaktivní'}],tags:s.tags,actions:isActive?['Deaktivovat']:['Otevřít','Editovat']});});
+  }))));
+}
 
 function centerWorkers(){return h(React.Fragment,null,viewHead('Workeri',true,function(){_addNew('workers');}),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(WORKERS.map(function(w){return card({name:w.name,emoji:'⚙️',desc:w.desc,status:w.status},function(){setDetail({name:w.name,fields:[{k:'Status',v:w.status,a:w.status==='Running'},{k:'Cron',v:w.cron},{k:'Poslední běh',v:w.lastRun},{k:'Popis',v:w.desc}],tags:['Worker',w.status],actions:['Spustit','Pozastavit','Editovat']});});}))));}
 
@@ -3034,12 +3076,18 @@ function _rejectAll(reqId){
 
 function _detailActionHandler(d,a){
   var c3=window._c3;if(!c3)return;
+  if(a==='Deaktivovat'){
+    _centerState.detail=null;renderCenter();
+    c3.clearSpecialist();c3.agentLog('TOOL','Specialista deaktivován');return;
+  }
   if(a==='Otevřít'){
     _centerState.detail=null;_centerState.detailConversations=null;renderCenter();
+    var spec=SPECIALISTS.find(function(x){return x.name===d.name;});
+    if(spec){c3.setSpecialist(spec);c3.agentLog('TOOL','Specialista aktivován: '+spec.name);return;}
     var exp=EXPERTISES.find(function(e){return e.name===d.name;});
     if(exp){c3.setExpertise(exp.name);c3.agentLog('TOOL','Expertyza změněna na: '+exp.name);}
     var conv=CONVERSATIONS.find(function(c){return c.title===d.name;});
-    if(conv){_smartRouteToRelay(function(_ti){
+    if(conv){_showOpenDialog('conv',conv,function(_ti){
       var _ts=_sessions[_ti];
       c3.agentLog('TOOL','Načítám konverzaci: '+conv.title+'...');c3.setExpertise(conv.expertise);
       if(conv.id){_ts._convId=conv.id;_ts._label=conv.title||'Konverzace';_persistSessionState();
@@ -3051,7 +3099,7 @@ function _detailActionHandler(d,a){
         var items=Array.isArray(msgs)?msgs:(msgs.messages||[]);if(items.length>0){_ts.chat.msgs=[{role:'system',text:'Konverzace: '+conv.title}];items.forEach(function(m){var meta=null;try{meta=m.metadata?JSON.parse(m.metadata):null;}catch(e){}_ts.chat.msgs.push({role:m.role||'user',text:m.content||m.text||'',tag:(meta&&meta.mode)||undefined});});renderChat();_chatScrollPane(_ti);}}).catch(function(){});}
     });}
     var proj=PROJECTS.find(function(p){return p.name===d.name;});
-    if(proj){_smartRouteToRelay(function(_ti){
+    if(proj){_showOpenDialog('proj',proj,function(_ti){
       var _ts=_sessions[_ti];
       c3.agentLog('TOOL','Otevren projekt: '+proj.name+(proj.path?' ['+proj.path+']':''));
       if(proj.path){_wtRoot=proj.path;_loadWorkspaceTree(proj.path);}
@@ -3420,16 +3468,38 @@ function _mkSession(){return{
   _openToken:null,       /* guard: project switch during async — stale responses ignored */
   _lifecycleResumed:false, /* guard: lifecycle resume message shown only once */
   _label:'',             /* v90: snapshot label for relay header — persisted */
-  chat:{msgs:[{role:'system',text:'C3 Studio připraven. Začni psát zprávu.'}],ctx:0,expertise:'Výchozí',showExpertises:false,showAllExpertises:false,attachments:[],editMode:'ask',editingIdx:null,editOriginalText:null,acSuggestion:null,acLoading:false,_thinking:null},
+  chat:{msgs:[{role:'system',text:'C3 Studio připraven. Začni psát zprávu.'}],ctx:0,expertise:'Výchozí',specialist:null,showExpertises:false,showAllExpertises:false,attachments:[],editMode:'ask',editingIdx:null,editOriginalText:null,acSuggestion:null,acLoading:false,_thinking:null},
   bottom:'split', /* 'agent' | 'terminal' | 'split' | 'mix' */
   log:[],
-  term:[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}]
+  term:[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}],
+  _focusFiles:[],  /* v92: files tracked during specialist focus mode */
+  _focusBulkMode:false,  /* v92: file selection mode */
+  _focusBulkSelected:[]  /* v92: selected file indices */
 };}
 var _sessions=[_mkSession(),_mkSession()];
 /* Expose globally so terminal-client.js and agent-client.js can access session state */
 window._sessions=_sessions;
 function _ensureSessions(){while(_sessions.length<_sessionCount)_sessions.push(_mkSession());}
 function _setSessionCount(n){_sessionCount=Math.max(1,Math.min(3,n));if(_sessionActive>=_sessionCount)_sessionActive=_sessionCount-1;_ensureSessions();renderChat();renderAgent();}
+
+/* ── Focus Mode (derived state — no snapshot, no _focusMode variable) ── */
+function isFocusActive(){var s=_sessions[_sessionActive];return !!(s&&s.chat&&s.chat.specialist);}
+var _focusExitDialog=null; /* v92: {pendingAction:fn|null} — confirmation dialog state */
+function _syncFocusClass(){
+  var wasFocus=document.body.classList.contains('c3-focus-mode');
+  var isFocus=isFocusActive();
+  document.body.classList.toggle('c3-focus-mode',isFocus);
+  /* Sidebar resize via shell API (same pattern as collapsed toggle, line 688) */
+  try{var app=window._c3App;if(app&&app.shell&&typeof app.shell.resize==='function'){
+    if(isFocus&&!wasFocus){_c3SnapLock=true;app.shell.resize(48,'left');setTimeout(function(){_c3SnapLock=false;},600);}
+    else if(!isFocus&&wasFocus){_c3SnapLock=true;app.shell.resize(240,'left');setTimeout(function(){_c3SnapLock=false;},600);}
+  }}catch(ex){}
+  /* Force Lumino relayout after CSS class change */
+  requestAnimationFrame(function(){window.dispatchEvent(new Event('resize'));});
+}
+function _renderAll(){_syncFocusClass();renderCenter();renderChat();renderAgent();renderSidebar();}
+function _focusFileExists(s,name,path){return s._focusFiles.some(function(x){return(path&&x.path&&x.path===path)||x.name===name;});}
+function _relativeTime(ts){if(!ts)return '';var d=Date.now()-ts;if(d<60000)return 'teď';if(d<3600000)return Math.round(d/60000)+' min';if(d<86400000)return Math.round(d/3600000)+' h';return Math.round(d/86400000)+' d';}
 
 /* v90: Relay helpers */
 function _isSessionEmpty(s){return !s._convId&&!s._projectId&&(!s.chat||!s.chat.msgs||s.chat.msgs.length<=1);}
@@ -3442,6 +3512,20 @@ function _smartRouteToRelay(callback){
   if(_sessionCount<3){_setSessionCount(_sessionCount+1);_ensureSessions();var ni=_sessionCount-1;_switchSession(ni);callback(ni);return;}
   /* All 3 occupied → show picker */
   _relayPickDialog={callback:callback};renderChat();
+}
+
+/* v91: Open-target dialog — replace current session vs open in new */
+var _openTargetDialog=null; /* null | {type:'conv'|'proj', data:Object, loadFn:Function} */
+function _showOpenDialog(type,data,loadFn){
+  var cur=_sessions[_sessionActive];
+  if(_isSessionEmpty(cur)){loadFn(_sessionActive);return;}
+  _openTargetDialog={type:type,data:data,loadFn:loadFn};renderChat();
+}
+function _openTargetDialogAction(choice){
+  if(!_openTargetDialog)return;var dlg=_openTargetDialog;_openTargetDialog=null;
+  if(choice==='replace'){var idx=_sessionActive;_sessions[idx]=_mkSession();_ensureSessions();dlg.loadFn(idx);}
+  else if(choice==='new'){_smartRouteToRelay(dlg.loadFn);}
+  renderChat();
 }
 
 /* v64.4: New-chat dialog state */
@@ -3742,10 +3826,12 @@ function _persistSessionState() {
             agentId: s._agentId,
             label: s._label,
             expertiseName: s.chat.expertise,
+            specialistData: s.chat.specialist,
             editMode: s.chat.editMode,
             bottomMode: s.bottom,
             wtRoot: (_perSessionTree[i]&&_perSessionTree[i].wtRoot)||(i===_sessionActive?_wtRoot:''),
-            recentMsgs: recentMsgs
+            recentMsgs: recentMsgs,
+            focusFiles: s._focusFiles||[]
           };
         })
       }));
@@ -3769,7 +3855,8 @@ window.addEventListener('beforeunload', function() {
           expertiseName: s.chat.expertise, editMode: s.chat.editMode,
           bottomMode: s.bottom,
           wtRoot: (_perSessionTree[i]&&_perSessionTree[i].wtRoot)||(i===_sessionActive?_wtRoot:''),
-          recentMsgs: recentMsgs
+          recentMsgs: recentMsgs,
+          focusFiles: s._focusFiles||[]
         };
       })
     }));
@@ -3799,12 +3886,15 @@ function _restoreSessionState() {
             _sessions[i]._agentId = ss.agentId || null;
             _sessions[i]._label = ss.label || '';
             _sessions[i].chat.expertise = ss.expertiseName || 'Výchozí';
+            _sessions[i].chat.specialist = ss.specialistData || null;
             _sessions[i].chat.editMode = ss.editMode || 'ask';
             _sessions[i].bottom = ss.bottomMode || 'split';
             /* v64.3: Restore per-session tree root */
             if(ss.wtRoot){_perSessionTree[i]={wtRoot:ss.wtRoot,collapsedDirs:{},rawTree:null,files:[]};}
             /* v64.4: Restore recent messages */
             if(ss.recentMsgs&&ss.recentMsgs.length>0){_sessions[i].chat.msgs=ss.recentMsgs;}
+            /* v92: Restore focus files */
+            _sessions[i]._focusFiles=ss.focusFiles||[];
           }
           /* v81.2: Always clear editing state on restore — editing cannot survive restart */
           _sessions[i].chat.editingIdx=null;
@@ -3825,7 +3915,7 @@ function _restoreSessionState() {
         _restoreRenderAttempts++;
         if(_chatContainer||_restoreRenderAttempts>20){
           clearInterval(_restoreRenderTimer);
-          renderChat();renderAgent();renderSidebar();
+          _renderAll();
         }
       },150);
     }
@@ -3858,6 +3948,11 @@ window._c3={
   chatMsg:function(text){if(window._c3)window._c3.agentLog('TOOL',text);},
   setExpertise:function(name){var s=_sessions[_sessionActive]||_sessions[0];s.chat.expertise=name;renderChat();_persistSessionState();},
   getExpertise:function(){return(_sessions[_sessionActive]||_sessions[0]).chat.expertise;},
+  setSpecialist:function(spec){var s=_sessions[_sessionActive]||_sessions[0];s.chat.specialist=spec||null;if(spec){s.chat.expertise=spec.name;}
+    _renderAll();_persistSessionState();if(spec&&spec.id){fetch(_backendBase+'/api/chat/specialist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({specialistId:spec.id,sessionId:s._convId}),signal:AbortSignal.timeout(3000)}).catch(function(){});}},
+  clearSpecialist:function(){var s=_sessions[_sessionActive]||_sessions[0];s.chat.specialist=null;s.chat.expertise='Výchozí';s._focusBulkMode=false;s._focusBulkSelected=[];
+    _renderAll();_persistSessionState();fetch(_backendBase+'/api/chat/specialist',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:s._convId}),signal:AbortSignal.timeout(3000)}).catch(function(){});},
+  getSpecialist:function(){return(_sessions[_sessionActive]||_sessions[0]).chat.specialist;},
   renderChat:renderChat,
   agentLog:function(type,text){var s=_sessions[_sessionActive]||_sessions[0];var now=new Date();s.log.forEach(function(e){e.active=false;});s.log.push({time:now.toLocaleTimeString('cs-CZ'),type:type,cls:type.toLowerCase(),text:text,active:true,ts:now.toISOString()});renderAgent();},
   renderCenter:function(){renderCenter();},
@@ -4008,7 +4103,7 @@ function _chatSendPane(idx){
     renderChat();_chatScrollPane(idx);
     var sent=false;
     if(typeof C3WS!=='undefined'&&C3WS.isReady()){sent=C3WS.sendChat(t,s,idx);}
-    if(!sent){fetch(_backendBase+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'chat',message:t,expertise:st.expertise,editMode:st.editMode,conversationId:s._convId,agentId:s._agentId||null,projectId:s._projectId||null})}).then(function(r){return r.json();}).then(function(d){st._thinking=null;st.msgs.push({role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'});_maybeRefreshExpertises(d.metadata);renderChat();_chatScrollPane(idx);}).catch(function(){st._thinking=null;st.msgs.push({role:'assistant',text:'Backend nedostupný.',tag:'ERROR'});renderChat();});}
+    if(!sent){fetch(_backendBase+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'chat',message:t,expertise:st.expertise,specialist:st.specialist?st.specialist.id||st.specialist.domain:null,editMode:st.editMode,conversationId:s._convId,agentId:s._agentId||null,projectId:s._projectId||null})}).then(function(r){return r.json();}).then(function(d){st._thinking=null;st.msgs.push({role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'});_maybeRefreshExpertises(d.metadata);renderChat();_chatScrollPane(idx);}).catch(function(){st._thinking=null;st.msgs.push({role:'assistant',text:'Backend nedostupný.',tag:'ERROR'});renderChat();});}
     setTimeout(function(){_pollContext(idx);},2000);
     return;
   }
@@ -4059,17 +4154,25 @@ function _chatSendPane(idx){
   /* Read attachments then send */
   _readAttachments(filesToRead,function(readFiles){
     s.chat._pendingAttachments=readFiles.length>0?readFiles:null;
+    /* v92: Track attachments in focus mode file list */
+    if(isFocusActive()&&filesToRead.length>0){
+      filesToRead.forEach(function(a){if(!_focusFileExists(s,a.name,null)){s._focusFiles.unshift({name:a.name,size:a.size||'',addedAt:Date.now(),type:'attachment'});}});
+      renderChat();
+    }
     /* Send via WS (channel protocol) or HTTP fallback */
     var sent = false;
     if (typeof C3WS !== 'undefined' && C3WS.isReady()) {
       sent = C3WS.sendChat(txt, s, idx);
     }
     if (!sent) {
-      var body={type:'chat',message:txt,expertise:st.expertise,editMode:st.editMode,conversationId:s._convId,agentId:s._agentId||null,projectId:s._projectId||null};
+      var body={type:'chat',message:txt,expertise:st.expertise,specialist:st.specialist?st.specialist.id||st.specialist.domain:null,editMode:st.editMode,conversationId:s._convId,agentId:s._agentId||null,projectId:s._projectId||null};
       if(readFiles.length>0)body.attachments=readFiles;
       fetch(_backendBase+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
       .then(function(r){return r.json();})
-      .then(function(d){st._thinking=null;st.msgs.push({role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'});if(typeof d.contextPercent==='number')st.ctx=d.contextPercent;_maybeRefreshExpertises(d.metadata);renderChat();_chatScrollPane(idx);})
+      .then(function(d){st._thinking=null;var msg={role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'};if(d.metadata&&d.metadata.awaitingGapChoice){msg._gapChoice=true;msg.tag='SPECIALIST';}st.msgs.push(msg);if(typeof d.contextPercent==='number')st.ctx=d.contextPercent;_maybeRefreshExpertises(d.metadata);
+        /* v92: Track backend output files in focus mode */
+        if(isFocusActive()&&d.metadata&&d.metadata.files){d.metadata.files.forEach(function(f){var nm=f.name||(f.path||'').split('/').pop();if(nm&&!_focusFileExists(s,nm,f.path)){s._focusFiles.unshift({name:nm,path:f.path,size:f.size||'',addedAt:Date.now(),type:'output'});}});}
+        renderChat();_chatScrollPane(idx);})
       .catch(function(){st._thinking=null;st.msgs.push({role:'assistant',text:'Backend nedostupný. Spusťte: node src/server.js',tag:'ERROR'});renderChat();});
     }
     s.chat._pendingAttachments=null;
@@ -4078,15 +4181,47 @@ function _chatSendPane(idx){
   });
 }
 
-function _chatPaneUI(idx){
+/* D5: Gap choice button handler — sends user's gap choice as chat message */
+function _chatGapChoice(idx,choice){
+  var s=_sessions[idx];if(!s)return;var st=s.chat;
+  var txt=choice==='create'?'Vytvoř expertízu':'Bez ní, odpověz rovnou';
+  st.msgs.push({role:'user',text:txt});
+  st._thinking={text:'Zpracovávám...', ts:Date.now()};
+  renderChat();_chatScrollPane(idx);
+  var sent=false;
+  if(typeof C3WS!=='undefined'&&C3WS.isReady()){sent=C3WS.sendChat(txt,s,idx);}
+  if(!sent){
+    var body={type:'chat',message:txt,expertise:st.expertise,specialist:st.specialist?st.specialist.id||st.specialist.domain:null,editMode:st.editMode,conversationId:s._convId,agentId:s._agentId||null,projectId:s._projectId||null};
+    fetch(_backendBase+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(function(r){return r.json();})
+    .then(function(d){st._thinking=null;st.msgs.push({role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'});if(typeof d.contextPercent==='number')st.ctx=d.contextPercent;_maybeRefreshExpertises(d.metadata);renderChat();_chatScrollPane(idx);})
+    .catch(function(){st._thinking=null;st.msgs.push({role:'assistant',text:'Backend nedostupný.',tag:'ERROR'});renderChat();});
+  }
+}
+
+function _chatPaneUI(idx,opts){
+  var inFocus=opts&&opts.fullWidth;
   var s=_sessions[idx];if(!s)return null;var st=s.chat;
   var isFocused=_sessionActive===idx;
   var btnS={background:C.accentBg,color:C.accentText,border:'none',borderRadius:5,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',width:24,height:24};
   return h('div',{style:{display:'flex',flexDirection:'column',height:'100%',width:'100%',minWidth:0,background:C.bg1,fontFamily:C.font,position:'relative',overflow:'hidden'},
-    onClick:function(){_switchSession(idx);
+    onClick:function(){if(!inFocus){_switchSession(idx);
       _sessions.forEach(function(ss,j){if(j!==idx)ss.chat.showExpertises=false;});
-      if(st.showExpertises){st.showExpertises=false;}renderChat();}},
-    /* PANE HEADER */
+      if(st.showExpertises){st.showExpertises=false;}renderChat();}}},
+    /* PANE HEADER — specialist focus header or normal header */
+    inFocus&&st.specialist?
+    h('div',{style:{padding:'6px 12px',height:36,display:'flex',alignItems:'center',gap:8,borderBottom:'1px solid '+C.border,flexShrink:0,background:C.bg2}},
+      h('span',{style:{fontSize:_fs(16)}},st.specialist.emoji||''),
+      h('span',{style:{fontSize:_fs(13),fontWeight:700,color:C.tx1}},st.specialist.name||''),
+      h('span',{style:{fontSize:_fs(10),color:C.tx3}},st.specialist.desc||st.specialist.domain||''),
+      h('div',{style:{flex:1}}),
+      /* Context meter */
+      h('div',{style:{display:'flex',alignItems:'center',gap:3,fontSize:_fs(9),color:C.tx4,fontFamily:C.mono}},
+        h('div',{style:{width:40,height:3,background:C.bg4,borderRadius:2,overflow:'hidden'}},h('div',{style:{height:'100%',background:C.accent,borderRadius:2,width:st.ctx+'%'}})),h('span',null,st.ctx+'%')),
+      h('button',{style:{background:'rgba(239,68,68,0.15)',color:'#f87171',border:'1px solid rgba(239,68,68,0.3)',borderRadius:6,padding:'3px 10px',fontSize:_fs(10),fontWeight:600,cursor:'pointer',marginLeft:6},
+        onMouseEnter:function(e){e.currentTarget.style.background='rgba(239,68,68,0.3)';},
+        onMouseLeave:function(e){e.currentTarget.style.background='rgba(239,68,68,0.15)';},
+        onClick:function(ev){ev.stopPropagation();_focusExitDialog={pendingAction:null};renderCenter();}},'Ukončit')):
     h('div',{style:{padding:'0 6px',height:28,display:'flex',alignItems:'center',gap:3,borderBottom:'1px solid '+C.border,flexShrink:0,background:isFocused?C.bg2:'transparent'}},
       h('button',{style:btnS,title:'Nový chat',onClick:function(ev){ev.stopPropagation();_newChatInProject(idx);}},svgEl(I.plus)),
       /* v90: Session label — prefer persisted _label, fallback to lookup */
@@ -4133,14 +4268,23 @@ function _chatPaneUI(idx){
         var isEditing=st.editingIdx===i;
         var wrapS=bub?{padding:'3px 6px',marginBottom:3,display:'flex',justifyContent:u?'flex-end':'flex-start'}
           :{padding:'6px 0',borderBottom:'1px solid '+C.border};
-        var msgS=bub?{background:u?C.bg4:a?C.bg2:C.bg3,borderRadius:u?'12px 12px 2px 12px':a?'12px 12px 12px 2px':'8px',padding:'6px 10px',maxWidth:'85%',minWidth:60,border:isEditing?'2px solid '+C.accent:'none'}:{border:isEditing?'2px solid '+C.accent:'none'};
+        var _mw=inFocus?'90%':'85%';
+        var msgS=bub?{background:u?C.bg4:a?C.bg2:C.bg3,borderRadius:u?'12px 12px 2px 12px':a?'12px 12px 12px 2px':'8px',padding:'6px 10px',maxWidth:_mw,minWidth:60,border:isEditing?'2px solid '+C.accent:'none'}:{border:isEditing?'2px solid '+C.accent:'none'};
         return h('div',{key:i,style:Object.assign({},wrapS,u?{cursor:'pointer'}:{}),onClick:u?function(){_chatStartEdit(idx,i);}:undefined,title:u?'Klikni pro editaci':undefined},
           h('div',{style:msgS},
           h('div',{style:{display:'flex',alignItems:'center',gap:4,marginBottom:2}},
             h('div',{style:{width:18,height:18,borderRadius:'50%',background:u?C.bg4:a?'linear-gradient(135deg,#22c55e,#16a34a)':C.bg3,display:'flex',alignItems:'center',justifyContent:'center',fontSize:a?_fs(6):_fs(8),fontWeight:a?700:400,color:u?C.tx3:a?'#fff':C.tx4}},u?'👤':a?'C3':'⚡'),
             h('span',{style:{fontSize:_fs(10),fontWeight:600,color:C.tx2}},u?'Ty':a?'C3':'System'),
             m.tag?h('span',{style:{fontSize:_fs(7.5),padding:'1px 3px',borderRadius:3,fontFamily:C.mono,textTransform:'uppercase',background:m.tag==='ERROR'?C.redBg:C.purpleBg,color:m.tag==='ERROR'?C.red:C.purple}},m.tag):null),
-          h('div',{style:{fontSize:_fs(12),lineHeight:'1.5',color:C.tx1,paddingLeft:22,wordBreak:'break-word',whiteSpace:'pre-wrap'}},m.text)));}),
+          h('div',{style:{fontSize:_fs(12),lineHeight:'1.5',color:C.tx1,paddingLeft:22,wordBreak:'break-word',whiteSpace:'pre-wrap'}},m.text),
+          /* D5: Gap choice inline buttons */
+          m._gapChoice&&!m._gapResolved?h('div',{style:{display:'flex',gap:6,paddingLeft:22,paddingTop:6}},
+            h('button',{style:{padding:'5px 12px',borderRadius:6,border:'1px solid #f59e0b',background:'rgba(245,158,11,0.1)',color:'#fbbf24',fontSize:_fs(11),fontWeight:600,cursor:'pointer'},
+              onClick:function(ev){ev.stopPropagation();m._gapResolved=true;_chatGapChoice(idx,'create');}},
+              '✨ Vytvořit expertízu'),
+            h('button',{style:{padding:'5px 12px',borderRadius:6,border:'1px solid '+C.border2,background:C.bg3,color:C.tx2,fontSize:_fs(11),fontWeight:600,cursor:'pointer'},
+              onClick:function(ev){ev.stopPropagation();m._gapResolved=true;_chatGapChoice(idx,'fallback');}},
+              '💬 Odpovědět bez ní')):null));}),
       /* v90: Thinking indicator */
       st._thinking?h('div',{key:'thinking',style:{padding:'3px 6px',marginBottom:3,display:'flex',justifyContent:'flex-start'}},
         h('div',{style:{background:C.bg2,borderRadius:'12px 12px 12px 2px',padding:'6px 10px',maxWidth:'85%',minWidth:60}},
@@ -4190,23 +4334,77 @@ function _chatPaneUI(idx){
             h('div',{style:{padding:'2px 6px',borderRadius:3,fontSize:_fs(9),fontWeight:600,cursor:'pointer',color:st.editMode==='ask'?C.tx1:C.tx4,background:st.editMode==='ask'?C.bg4:'transparent'},
               onClick:function(){st.editMode='ask';renderChat();_persistSessionState();},title:'Agent se zeptá před každou editací'},'Review')),
           h('div',{style:{flex:1}}),
+          /* D5: Specialist indicator or expertise dropdown */
+          st.specialist?h('div',{style:{display:'flex',alignItems:'center',gap:3,padding:'2px 6px',borderRadius:4,fontSize:_fs(10),fontWeight:600,flexShrink:0}},
+            h('span',{style:{width:5,height:5,borderRadius:'50%',background:'#f59e0b'}}),
+            h('span',{style:{color:'#fbbf24',cursor:'default'},title:'Aktivní specialista: '+st.specialist.name},st.specialist.emoji+' '+st.specialist.name),
+            h('span',{style:{fontSize:_fs(9),color:C.tx4,cursor:'pointer',marginLeft:2},title:'Deaktivovat specialistu',
+              onClick:function(ev){ev.stopPropagation();var c3=window._c3;if(c3)c3.clearSpecialist();}},'✕')):
           h('div',{style:{display:'flex',alignItems:'center',gap:2,padding:'2px 6px',borderRadius:4,fontSize:_fs(10),fontWeight:500,color:C.accentText,opacity:0.7,cursor:'pointer',flexShrink:0},
             onClick:function(ev){ev.stopPropagation();st.showExpertises=!st.showExpertises;renderChat();}},
             h('span',{style:{width:4,height:4,borderRadius:'50%',background:C.accent}}),st.expertise,svgEl(I.chevDown,8))),
-        st.showExpertises?(function(){var favs=EXPERTISES.filter(function(e){return e.fav;});var shown=st.showAllExpertises?EXPERTISES:favs.length>0?favs:EXPERTISES;return h('div',{style:{position:'absolute',bottom:'100%',right:6,marginBottom:3,background:C.bg3,border:'1px solid '+C.border2,borderRadius:8,padding:'4px 0',minWidth:160,maxHeight:240,overflowY:'auto',zIndex:100,boxShadow:'0 8px 24px rgba(0,0,0,0.5)'},onClick:function(ev){ev.stopPropagation();}},
+        st.showExpertises&&!st.specialist?(function(){var favs=EXPERTISES.filter(function(e){return e.fav;});var shown=st.showAllExpertises?EXPERTISES:favs.length>0?favs:EXPERTISES;return h('div',{style:{position:'absolute',bottom:'100%',right:6,marginBottom:3,background:C.bg3,border:'1px solid '+C.border2,borderRadius:8,padding:'4px 0',minWidth:160,maxHeight:240,overflowY:'auto',zIndex:100,boxShadow:'0 8px 24px rgba(0,0,0,0.5)'},onClick:function(ev){ev.stopPropagation();}},
           h('div',{style:{padding:'3px 10px 5px',fontSize:_fs(8.5),fontWeight:700,color:C.tx4,textTransform:'uppercase',letterSpacing:'0.5px'}},'VYBRAT EXPERTYZU'),
           shown.map(function(exp){
             return h('div',{key:exp.name,style:{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',fontSize:_fs(11),color:st.expertise===exp.name?C.accentText:C.tx2,background:st.expertise===exp.name?C.accentBg:'transparent',cursor:'pointer'},
               onMouseEnter:function(e){e.currentTarget.style.background=C.bg4;},
               onMouseLeave:function(e){e.currentTarget.style.background=st.expertise===exp.name?C.accentBg:'transparent';},
-              onClick:function(e){e.stopPropagation();st.expertise=exp.name;st.showExpertises=false;st.showAllExpertises=false;renderChat();}},
+              onClick:function(e){e.stopPropagation();st.expertise=exp.name;st.specialist=null;st.showExpertises=false;st.showAllExpertises=false;renderChat();}},
               h('span',null,exp.emoji),h('span',{style:{flex:1}},exp.name),
               h('span',{style:{fontSize:_fs(11),color:exp.fav?C.accentText:C.tx4,cursor:'pointer'},onClick:function(e){e.stopPropagation();exp.fav=!exp.fav;if(exp.id){fetch(_backendBase+'/api/expertises/'+exp.id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({favorite:exp.fav}),signal:AbortSignal.timeout(3000)}).catch(function(){});}renderChat();}},exp.fav?'★':'☆'));}),
           !st.showAllExpertises&&favs.length>0&&favs.length<EXPERTISES.length?h('div',{style:{padding:'4px 10px',fontSize:_fs(9.5),color:C.tx4,cursor:'pointer',borderTop:'1px solid '+C.border,marginTop:2},onClick:function(e){e.stopPropagation();st.showAllExpertises=true;renderChat();}},'Zobrazit vše ('+EXPERTISES.length+')'):null,
           st.showAllExpertises?h('div',{style:{padding:'4px 10px',fontSize:_fs(9.5),color:C.tx4,cursor:'pointer',borderTop:'1px solid '+C.border,marginTop:2},onClick:function(e){e.stopPropagation();st.showAllExpertises=false;renderChat();}},'Jen oblíbené'):null);}()):null)));
 }
 
+/* v92: Focus Mode file list — replaces chat in right panel when specialist active */
+function FocusFilesApp(){
+  var s=_sessions[_sessionActive];
+  if(!s)return null;
+  var files=((s._focusFiles)||[]).slice(0,100);
+  var bm=s._focusBulkMode;
+  var bs=s._focusBulkSelected;
+  function _toggleFocusBulk(){s._focusBulkMode=!s._focusBulkMode;s._focusBulkSelected=[];renderChat();}
+  function _toggleFocusItem(idx){var pos=bs.indexOf(idx);if(pos>=0){bs.splice(pos,1);}else{bs.push(idx);}renderChat();}
+  function _focusBulkDelete(){if(bs.length===0)return;var sorted=bs.slice().sort(function(a,b){return b-a;});for(var k=0;k<sorted.length;k++){s._focusFiles.splice(sorted[k],1);}s._focusBulkMode=false;s._focusBulkSelected=[];_persistSessionState();renderChat();}
+  var markBtnS={border:'none',borderRadius:4,padding:'3px 10px',fontSize:_fs(10),fontWeight:600,cursor:'pointer',background:bm?C.accent:'transparent',color:bm?'#fff':C.tx4,transition:'background 0.15s'};
+  return h('div',{style:{display:'flex',flexDirection:'column',height:'100%',width:'100%',background:C.bg1,fontFamily:C.font}},
+    h('div',{style:{height:22,display:'flex',alignItems:'center',padding:'0 10px',borderBottom:'1px solid '+C.border,flexShrink:0}},
+      h('span',{style:{fontSize:_fs(12),fontWeight:600,color:C.tx2,flex:1}},'Soubory'),
+      h('span',{style:{fontSize:_fs(9),fontFamily:C.mono,color:C.tx4,background:C.bg4,padding:'1px 5px',borderRadius:4}},files.length)),
+    /* v92: Bulk action bar — reuses pattern from conversations/projects */
+    files.length>0?h('div',{style:{padding:'3px 10px',display:'flex',alignItems:'center',gap:4,borderBottom:'1px solid '+C.border,flexShrink:0}},
+      h('button',{style:markBtnS,onClick:_toggleFocusBulk},bm?'Hotovo':'Vybrat'),
+      bm&&bs.length>0?h(React.Fragment,null,
+        h('button',{style:{border:'none',borderRadius:4,padding:'3px 10px',fontSize:_fs(10),fontWeight:600,cursor:'pointer',background:'rgba(239,68,68,0.1)',color:C.red},
+          onClick:_focusBulkDelete},'Odebrat ('+bs.length+')'),
+        h('button',{style:{border:'none',borderRadius:4,padding:'3px 6px',fontSize:_fs(10),cursor:'pointer',background:'transparent',color:C.tx4},
+          onClick:function(){s._focusBulkSelected=[];renderChat();}},'Zrušit')):null):null,
+    h('div',{style:{flex:1,overflowY:'auto',padding:6}},
+      files.length===0
+        ?h('div',{style:{padding:'30px 16px',textAlign:'center',color:C.tx4,fontSize:_fs(11)}},'Zatím žádné soubory.',h('br'),h('span',{style:{fontSize:_fs(10),opacity:0.7}},'Soubory se zobrazí po odeslání příloh.'))
+        :files.map(function(f,i){
+          var isImg=/\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i.test(f.name);
+          var bSel=bm&&bs.indexOf(i)>=0;
+          var rowBg=bSel?'rgba(34,197,94,0.15)':'transparent';
+          return h('div',{key:f.name+'-'+i,style:{display:'flex',alignItems:'center',gap:6,padding:'5px 8px',borderRadius:6,marginBottom:2,cursor:bm?'pointer':'default',background:rowBg,transition:'background 0.15s'},
+            onClick:bm?function(){_toggleFocusItem(i);}:undefined,
+            onMouseEnter:function(e){if(!bSel)e.currentTarget.style.background=C.bg3;},
+            onMouseLeave:function(e){e.currentTarget.style.background=bSel?'rgba(34,197,94,0.15)':'transparent';}},
+            bm?h('div',{style:{width:16,height:16,borderRadius:4,border:'2px solid '+(bSel?C.accent:C.tx4),background:bSel?C.accent:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all 0.15s'}},
+              bSel?h('svg',{width:10,height:10,viewBox:'0 0 24 24',fill:'none',stroke:'#fff',strokeWidth:3,strokeLinecap:'round',strokeLinejoin:'round'},h('polyline',{points:'20 6 9 17 4 12'})):null):null,
+            h('span',{style:{fontSize:_fs(13),flexShrink:0}},isImg?'🖼️':'📄'),
+            h('div',{style:{flex:1,minWidth:0}},
+              h('div',{style:{fontSize:_fs(11),fontWeight:bSel?700:600,color:bSel?C.accentText:C.tx1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},f.name),
+              h('div',{style:{fontSize:_fs(9),color:C.tx4}},f.size||'')),
+            h('span',{style:{fontSize:_fs(9),color:C.tx4,flexShrink:0}},_relativeTime(f.addedAt)),
+            !bm&&f.path?h('button',{style:{background:C.bg4,border:'none',borderRadius:4,padding:'2px 6px',cursor:'pointer',color:C.tx3,fontSize:_fs(10),flexShrink:0},
+              title:'Kopírovat cestu',onClick:function(){try{navigator.clipboard.writeText(f.path);}catch(e){}}},'📋'):null);
+        })));
+}
+
 function ChatApp(){
+  /* v92: Focus mode — right panel shows file list instead of chat */
+  if(isFocusActive())return FocusFilesApp();
   var sc=_sessionCount;_ensureSessions();
   return h('div',{style:{display:'flex',flexDirection:'column',height:'100%',width:'100%',background:C.bg1,fontFamily:C.font}},
     /* Top bar — split count on the right */
@@ -4224,6 +4422,25 @@ function ChatApp(){
       Array.from({length:sc},function(_,i){
         return h('div',{key:'cp'+i,style:{flex:1,display:'flex',borderRight:i<sc-1?'2px solid '+C.border2:'none',overflow:'hidden',minWidth:0}},_chatPaneUI(i));
       }),
+      /* v91: Open-target dialog — replace current vs new relay */
+      _openTargetDialog?h('div',{style:{position:'absolute',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.6)',zIndex:60,display:'flex',alignItems:'center',justifyContent:'center'},
+        onClick:function(ev){ev.stopPropagation();_openTargetDialogAction('cancel');}},
+        h('div',{style:{background:C.bg2,border:'1px solid '+C.border2,borderRadius:12,padding:'16px 20px',minWidth:220,maxWidth:320,boxShadow:'0 12px 40px rgba(0,0,0,0.5)'},
+          onClick:function(ev){ev.stopPropagation();}},
+          h('div',{style:{fontSize:_fs(13),fontWeight:700,color:C.tx1,marginBottom:4}},
+            'Otevřít '+(_openTargetDialog.type==='conv'?'konverzaci':'projekt')),
+          h('div',{style:{fontSize:_fs(11),color:C.tx3,marginBottom:12,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},
+            _openTargetDialog.data.name||_openTargetDialog.data.title||''),
+          h('button',{style:{display:'block',width:'100%',padding:'8px 12px',marginBottom:6,
+            background:C.accentBg,color:C.accentText,border:'1px solid '+C.accent,borderRadius:6,fontSize:_fs(11),fontWeight:600,cursor:'pointer',textAlign:'left'},
+            onClick:function(){_openTargetDialogAction('replace');}},
+            'Nahradit relaci '+(_sessionActive+1)+': '+(_sessions[_sessionActive]._label||'Relace')),
+          h('button',{style:{display:'block',width:'100%',padding:'8px 12px',marginBottom:6,
+            background:C.bg3,color:C.tx2,border:'1px solid '+C.border2,borderRadius:6,fontSize:_fs(11),fontWeight:600,cursor:'pointer',textAlign:'left'},
+            onClick:function(){_openTargetDialogAction('new');}},
+            'Otevřít v nové relaci'),
+          h('button',{style:{display:'block',width:'100%',padding:'8px 12px',background:'transparent',color:C.tx4,border:'1px solid '+C.border,borderRadius:6,fontSize:_fs(11),cursor:'pointer',textAlign:'left'},
+            onClick:function(){_openTargetDialogAction('cancel');}},'Zrušit'))):null,
       /* v90: Relay picker dialog overlay */
       _relayPickDialog?h('div',{style:{position:'absolute',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.6)',zIndex:60,display:'flex',alignItems:'center',justifyContent:'center'},
         onClick:function(ev){ev.stopPropagation();_relayPickDialog=null;renderChat();}},
@@ -4484,7 +4701,8 @@ function _auditContent(s){
 
 function _bottomPane(idx){
   var s=_sessions[idx];if(!s)return null;
-  var mode=s.bottom||'split';
+  /* v92: In focus mode, render log-only without mutating s.bottom */
+  var mode=isFocusActive()?'agent':(s.bottom||'split');
   /* Split/Mix together, then gap, then Terminal/Log/Audit */
   var grpA=[{k:'split',l:'Split'},{k:'mix',l:'Mix'}];
   var grpB=[{k:'terminal',l:'Terminal'},{k:'agent',l:'Log'},{k:'audit',l:'Audit'}];
@@ -4495,8 +4713,8 @@ function _bottomPane(idx){
       onClick:function(){setMode(m.k);}},
       m.l,m.k==='agent'?h('span',{style:{fontSize:_fs(8),background:C.bg4,padding:'0 3px',borderRadius:4,color:C.tx3}},s.log.length):null));}
   return h('div',{key:'bp'+idx,style:{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}},
-    /* Per-panel tab bar */
-    h('div',{style:{height:24,display:'flex',alignItems:'stretch',borderBottom:'1px solid '+C.border,flexShrink:0,background:C.bg2}},
+    /* Per-panel tab bar — hidden in focus mode via CSS class */
+    h('div',{className:'c3-bottom-mode-tabs',style:{height:24,display:'flex',alignItems:'stretch',borderBottom:'1px solid '+C.border,flexShrink:0,background:C.bg2}},
       grpA.map(function(m,mi){return _tab(m,mi);}),
       h('div',{style:{width:10}}),/* gap between groups */
       grpB.map(function(m,mi){return _tab(m,mi);}),

@@ -408,20 +408,8 @@ async function handlePlanReviewInput(input, state, context) {
       // Transition to BUILD — start first milestone
       setLcState(sessionId, { ...state, phase: 'BUILD' });
 
-      const { startNextMilestone } = await import('../../planner/lifecycle-build.js');
-      const msResult = await startNextMilestone(lifecycle);
-
-      setLcState(sessionId, {
-        ...state,
-        phase: 'BUILD_MILESTONE_REVIEW',
-        currentMilestoneId: msResult.milestoneId,
-      });
-
-      return lcResponse(formatMilestonePlan(msResult), {
-        phase: 'BUILD_MILESTONE_REVIEW',
-        lifecycleId: state.lifecycleId,
-        milestoneId: msResult.milestoneId,
-      });
+      // Start first milestone — reuse shared logic
+      return await startNextMilestoneOrComplete(state, context);
     }
 
     // Revision — reviseRoadmap transitions lifecycle to PLANNING, transition back to PLAN_REVIEW
@@ -461,6 +449,41 @@ async function handleBuildInput(input, state, context) {
     return await initiateChange(input, state, context);
   }
 
+  // Retry blocked milestone
+  if (/^retry\s*$/i.test(input.trim())) {
+    try {
+      const lifecycle = await resumeWithContext(state, context);
+      const { milestones: msRepo } = await import('../../db/database.js');
+      const blocked = msRepo.findByStatus.all(lifecycle.id, 'BLOCKED');
+      if (blocked.length > 0) {
+        const { handleMilestoneBlocked } = await import('../../planner/lifecycle-build.js');
+        await handleMilestoneBlocked(lifecycle, blocked[0].id, 'retry');
+        return await startNextMilestoneOrComplete(state, context);
+      }
+    } catch (err) {
+      return lcResponse(`Chyba při retry: ${err.message}`);
+    }
+  }
+
+  // Skip blocked milestone
+  if (/^skip\s*$/i.test(input.trim())) {
+    try {
+      const lifecycle = await resumeWithContext(state, context);
+      const { milestones: msRepo } = await import('../../db/database.js');
+      const blocked = msRepo.findByStatus.all(lifecycle.id, 'BLOCKED');
+      if (blocked.length > 0) {
+        const { handleMilestoneBlocked } = await import('../../planner/lifecycle-build.js');
+        const result = await handleMilestoneBlocked(lifecycle, blocked[0].id, 'skip');
+        if (result.status === 'CANNOT_SKIP') {
+          return lcResponse(`Nelze přeskočit — závisí na něm: ${result.reason}`);
+        }
+        return await startNextMilestoneOrComplete(state, context);
+      }
+    } catch (err) {
+      return lcResponse(`Chyba při skip: ${err.message}`);
+    }
+  }
+
   // Continue building — start next milestone
   if (/^(ano|jo|ok|yes|pokra[čc]ovat|continue|d[áa]l|next|jdi)\s*[!.]?$/i.test(input.trim())) {
     return await startNextMilestoneOrComplete(state, context);
@@ -471,6 +494,8 @@ async function handleBuildInput(input, state, context) {
     'Milestone se právě buduje. Můžeš:\n' +
     '  - "ano" / "pokračovat" — spustit další milník\n' +
     '  - "status" — zobrazit aktuální stav\n' +
+    '  - "retry" — zkusit blokovaný milník znovu\n' +
+    '  - "skip" — přeskočit blokovaný milník\n' +
     '  - "změna: ..." — navrhnout změnu\n' +
     '  - "pauza" — pozastavit lifecycle\n' +
     '  - "zrušit" — zrušit lifecycle'
@@ -648,6 +673,27 @@ async function startNextMilestoneOrComplete(state, context) {
 
     const { startNextMilestone } = await import('../../planner/lifecycle-build.js');
     const msResult = await startNextMilestone(lifecycle);
+
+    // All remaining milestones are dependency-blocked
+    if (msResult && msResult.status === 'ALL_BLOCKED') {
+      setLcState(sessionId, { ...state, phase: 'BUILD' });
+
+      const blockedList = msResult.blockedMilestones
+        .map(b => `  - **${b.title}** (${b.milestoneId}) — blokováno: ${b.blockedBy.join(', ')}`)
+        .join('\n');
+
+      return lcResponse(
+        `🚫 **Všechny zbývající milníky jsou blokované**\n\n` +
+        `Žádný další milník nelze spustit — jejich závislosti nejsou splněné:\n\n` +
+        `${blockedList}\n\n` +
+        `Co chceš udělat?\n` +
+        `  - "retry" — zkusit blokovaný milník znovu\n` +
+        `  - "skip" — přeskočit blokovaný milník\n` +
+        `  - "změna: ..." — upravit roadmapu\n` +
+        `  - "zrušit" — ukončit lifecycle`,
+        { phase: 'BUILD', lifecycleId: state.lifecycleId }
+      );
+    }
 
     if (!msResult || !msResult.milestoneId) {
       // No more milestones — project complete!

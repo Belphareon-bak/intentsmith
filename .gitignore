@@ -28,6 +28,9 @@ src.zip
 projects/*-E2E/
 projects/*-E2E
 
+# E2E test transcripts
+test-transcripts/
+
 # Temp files
 *.tmp
 *.tmp.*

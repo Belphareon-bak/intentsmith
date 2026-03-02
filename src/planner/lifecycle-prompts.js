@@ -165,14 +165,19 @@ ${specStr}
 ## Task
 Break the project into milestones. Each milestone is a self-contained, deliverable unit of work.
 
-## Rules:
+## MANDATORY Rules:
+- MINIMUM 3 milestones for any project. MINIMUM 4 milestones if spec has ≥5 functional requirements.
+- LAST milestone MUST be "Integration, Testing & Documentation" — it covers final integration, end-to-end testing, and documentation finalization.
 - Each milestone: max 2000 LOC, max 10 files
+- Each milestone MUST have ALL of: title, description, deliverables, acceptance_criteria
 - Dependencies: explain WHY a milestone depends on another (not just list IDs)
 - Test strategy: each milestone must define specific test cases, not just "unit tests"
 - Risk: each milestone must identify its biggest risk and how to mitigate it
 - Acceptance criteria: each milestone must define concrete, verifiable done conditions
+- checkpoint_mode: STRUCTURAL for early scaffolding, FUNCTIONAL for core implementation, SECURITY for the final integration/testing/security milestone
 - Order: from foundational to integration to polish
 - IDs: use "ms-1", "ms-2", etc.
+- requirements_coverage MUST map EVERY functional requirement ID to at least one milestone. No orphan requirements.
 
 ## Quality checks before outputting:
 1. Does every spec requirement (functional AND non-functional) appear in at least one milestone?
@@ -206,6 +211,7 @@ Break the project into milestones. Each milestone is a self-contained, deliverab
         "specific_tests": ["string — concrete test case descriptions"],
         "expected_test_count": 10
       },
+      "checkpoint_mode": "STRUCTURAL|FUNCTIONAL|SECURITY",
       "acceptance_criteria": ["string — specific, verifiable done conditions"],
       "deliverables": ["string — concrete output files/features"]
     }
@@ -281,14 +287,85 @@ Create a detailed implementation plan for THIS milestone only. Be specific enoug
 }
 
 /**
- * Milestone checkpoint — detailed comparison of output vs goals.
- * NOT just OK/NOT OK — uses concrete diff, file list, goals, test results.
- * Used in: lifecycle-build.js → _milestoneCheckpoint()
+ * Milestone checkpoint — mode-aware quality review.
+ * Checkpoint mode determines strictness level:
+ *   STRUCTURAL: file structure, syntax, imports — early scaffolding milestones
+ *   FUNCTIONAL: structural + logic correctness, API contracts — mid milestones
+ *   SECURITY:   full audit incl. security hardening — final/security milestones
+ *
+ * Used in: lifecycle-build.js → milestoneCheckpoint()
+ *
+ * @param {Object} milestone
+ * @param {string} gitDiff
+ * @param {string[]} changedFiles
+ * @param {Object} testResults
+ * @param {Object} [opts]
+ * @param {string} [opts.checkpointMode='FUNCTIONAL'] - STRUCTURAL|FUNCTIONAL|SECURITY
+ * @param {Object} [opts.previousFindings] - Findings from prior failed attempt (adaptive retry)
  */
-export function milestoneCheckpoint(milestone, gitDiff, changedFiles, testResults) {
+export function milestoneCheckpoint(milestone, gitDiff, changedFiles, testResults, opts = {}) {
   const msStr = typeof milestone === 'string' ? milestone : JSON.stringify(milestone, null, 2);
+  const mode = opts.checkpointMode || 'FUNCTIONAL';
+
+  // Mode-specific instructions
+  const modeInstructions = {
+    STRUCTURAL: `## Checkpoint Mode: STRUCTURAL (scaffolding milestone)
+You are checking STRUCTURAL quality only. This is an early milestone — code is being scaffolded.
+
+PASS if:
+- All planned files were created/modified
+- Code is syntactically correct (no obvious parse errors)
+- Imports and exports are consistent
+- Basic module structure follows the plan
+
+DO NOT fail for:
+- Missing tests (tests come in later milestones)
+- Security concerns (security hardening is a separate milestone)
+- Missing error handling (will be added incrementally)
+- Missing input validation (will be added later)
+- Code style or best-practice preferences
+
+Security findings should be listed as WARNINGS, not blockers.`,
+
+    FUNCTIONAL: `## Checkpoint Mode: FUNCTIONAL (implementation milestone)
+You are checking FUNCTIONAL quality. Code should work correctly for the planned use cases.
+
+PASS if:
+- All deliverables are produced (complete or reasonable partial)
+- Core logic is correct for the described functionality
+- APIs/interfaces match the plan
+- No obvious runtime errors in the happy path
+
+DO NOT fail for:
+- Missing tests IF test_strategy is null/deferred (noted in test results)
+- Enterprise-grade security (that's for SECURITY mode)
+- Edge-case error handling beyond what the milestone explicitly requires
+- Missing input validation unless the milestone explicitly requires it
+
+Security findings should be listed as WARNINGS unless they are critical (hardcoded secrets, SQL injection with user input).`,
+
+    SECURITY: `## Checkpoint Mode: SECURITY (hardening/final milestone)
+You are performing a FULL quality audit. This milestone is specifically about quality and security.
+
+FAIL if:
+- Any hardcoded secrets, API keys, or passwords
+- SQL injection, command injection, or XSS vulnerabilities with user input
+- Missing input validation on public APIs
+- Unhandled error paths that could crash the application
+- Missing tests for security-critical paths
+
+Security findings ARE blockers in this mode.`,
+  };
+
+  const previousFindingsSection = opts.previousFindings
+    ? `\n## Previous Attempt Findings (MUST be addressed)
+The code was already revised to fix these issues. Verify they are resolved:
+${JSON.stringify(opts.previousFindings, null, 2)}\n`
+    : '';
 
   return `You are reviewing a completed milestone against its defined goals.
+
+${modeInstructions[mode] || modeInstructions.FUNCTIONAL}
 
 ## Milestone Definition
 ${msStr}
@@ -303,23 +380,23 @@ ${Array.isArray(changedFiles) ? changedFiles.map(f => `- ${f}`).join('\n') : 'Un
 
 ## Test Results
 ${typeof testResults === 'string' ? testResults : JSON.stringify(testResults, null, 2)}
-
+${previousFindingsSection}
 ## Task
-Compare the actual output against the milestone goals. Be specific and critical — your review protects project quality.
+Compare the actual output against the milestone goals using the checkpoint mode rules above.
 
 ## Check:
 1. Were all deliverables produced? For each, is it complete or partial?
 2. Were all listed files created/modified as planned?
 3. Were any files changed OUTSIDE the milestone scope?
-4. Did tests pass? What's the actual coverage?
-5. Security review: any hardcoded secrets, injection vulnerabilities, unvalidated input?
-6. Error handling: are failure modes handled gracefully?
-7. New requirements discovered: during implementation, did new needs emerge that should be added to the backlog?
+4. Did tests pass? (Only relevant if test results are available)
+5. Security review (severity depends on checkpoint mode)
+6. Error handling (severity depends on checkpoint mode)
 
 ## Output (JSON only)
 \`\`\`json
 {
   "passed": true,
+  "checkpoint_mode": "${mode}",
   "deliverables_check": [
     { "deliverable": "string", "status": "DONE|PARTIAL|MISSING", "note": "string" }
   ],
@@ -330,11 +407,12 @@ Compare the actual output against the milestone goals. Be specific and critical 
     "failed": 0,
     "coverage_estimate": "string"
   },
-  "security_findings": ["string — any security concerns found"],
+  "security_findings": ["string — findings (WARNINGS in STRUCTURAL/FUNCTIONAL mode)"],
   "error_handling_gaps": ["string — unhandled failure modes"],
   "discovered_requirements": ["string — new requirements that emerged during build"],
   "quality_notes": ["string"],
-  "overall_assessment": "string — 1-2 sentence summary"
+  "overall_assessment": "string — 1-2 sentence summary",
+  "fix_instructions": ["string — specific fixes needed if passed=false"]
 }
 \`\`\``;
 }

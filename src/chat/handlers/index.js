@@ -55,6 +55,7 @@ let _expertiseHandler = null;
 let _generateExpertiseResponse = null;
 let _wrapWithExpertisePersona = null;
 let _buildExpertiseSystemPrompt = null;
+let _specialistHandler = null;
 let _agentHandler = null;
 let _wizardExports = {};
 
@@ -68,6 +69,16 @@ if (config.features.expertises !== false) {
     _buildExpertiseSystemPrompt = mod.buildExpertiseSystemPrompt;
   } catch (err) {
     logger.warn('handlers/index', `Expert handler not available: ${err.message}`);
+  }
+}
+
+// v91 D5: Specialist handler (requires expertises)
+if (config.features.expertises !== false) {
+  try {
+    const mod = await import('./specialist.js');
+    _specialistHandler = mod.specialistHandler;
+  } catch (err) {
+    logger.warn('handlers/index', `Specialist handler not available: ${err.message}`);
   }
 }
 
@@ -90,6 +101,7 @@ export const expertiseHandler = _expertiseHandler;
 export const generateExpertiseResponse = _generateExpertiseResponse;
 export const wrapWithExpertisePersona = _wrapWithExpertisePersona;
 export const buildExpertiseSystemPrompt = _buildExpertiseSystemPrompt;
+export const specialistHandler = _specialistHandler;
 export const agentHandler = _agentHandler;
 
 // Wizard exports — may be null if agents disabled
@@ -125,6 +137,7 @@ export function getDefaultHandlers() {
     [ChatMode.PROJECT]: projectHandler,
   };
   if (_expertiseHandler) handlers[ChatMode.EXPERTISE] = _expertiseHandler;
+  if (_specialistHandler) handlers[ChatMode.SPECIALIST] = _specialistHandler;
   if (_agentHandler) handlers[ChatMode.AGENT] = _agentHandler;
   return handlers;
 }
@@ -134,6 +147,7 @@ export default {
   conversationHandler,
   projectHandler,
   expertiseHandler: _expertiseHandler,
+  specialistHandler: _specialistHandler,
   agentHandler: _agentHandler,
   getDefaultHandlers,
   recordFeedback,

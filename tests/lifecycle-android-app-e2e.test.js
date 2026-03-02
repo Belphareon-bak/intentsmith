@@ -610,7 +610,9 @@ async function runTest() {
 
   // Write transcript
   try {
-    const transcriptPath = `/tmp/transcript-android-${Date.now()}.json`;
+    const transcriptDir = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'test-transcripts');
+    fs.mkdirSync(transcriptDir, { recursive: true });
+    const transcriptPath = path.join(transcriptDir, `transcript-android-${Date.now()}.json`);
     fs.writeFileSync(transcriptPath, JSON.stringify(transcript, null, 2));
     console.log(`  Transcript: ${transcriptPath}`);
   } catch { /* ignore */ }

@@ -30,21 +30,119 @@ const IGNORE = new Set([
  * @param {Object} [opts]
  * @param {string} [opts.name] — Project name (default: dirname)
  * @param {string} [opts.description] — Project description
+ * @param {Object} [opts.spec] — Lifecycle spec (goals, requirements, architecture, design_decisions)
  * @returns {string} — README.md content
  */
 export function generateReadme(projectPath, opts = {}) {
   const name = opts.name || path.basename(projectPath);
   const description = opts.description || '';
+  const spec = opts.spec || null;
 
   const sections = [];
   sections.push(`# ${name}\n`);
-  if (description) sections.push(`${description}\n`);
 
-  // Detect stack
-  const stack = detectStack(projectPath);
-  if (stack.length > 0) {
-    sections.push(`## Stack\n`);
-    sections.push(stack.map(s => `- ${s}`).join('\n') + '\n');
+  // ─── Spec-aware: rich description from goals ──────────────────────────
+  if (spec && spec.goals && spec.goals.length > 0) {
+    const goalsText = spec.goals
+      .map(g => typeof g === 'string' ? g : (g.description || g.goal || g.name || ''))
+      .filter(Boolean);
+    if (goalsText.length > 0) {
+      sections.push(`## Popis\n`);
+      sections.push(goalsText.join('. ') + '\n');
+    }
+  } else if (description) {
+    sections.push(`${description}\n`);
+  }
+
+  // ─── Spec-aware: Installation & Usage from tech_stack ─────────────────
+  if (spec) {
+    const installSteps = _generateInstallSection(projectPath, spec);
+    if (installSteps) {
+      sections.push(`## Instalace & spuštění\n`);
+      sections.push(installSteps + '\n');
+    }
+  }
+
+  // ─── Spec-aware: Architecture from spec.architecture ──────────────────
+  if (spec && spec.architecture) {
+    sections.push(`## Architektura\n`);
+    const arch = spec.architecture;
+    if (arch.description) sections.push(arch.description + '\n');
+    if (arch.components && arch.components.length > 0) {
+      sections.push('**Komponenty:**\n');
+      for (const comp of arch.components) {
+        const compName = typeof comp === 'string' ? comp : (comp.name || comp.component || '');
+        const compDesc = typeof comp === 'string' ? '' : (comp.description || comp.purpose || '');
+        sections.push(`- **${compName}**${compDesc ? ' — ' + compDesc : ''}`);
+      }
+      sections.push('');
+    }
+    if (arch.data_flow) {
+      sections.push('**Data flow:**\n');
+      sections.push(arch.data_flow + '\n');
+    }
+  }
+
+  // ─── Spec-aware: Tech stack table ─────────────────────────────────────
+  if (spec && spec.tech_stack) {
+    sections.push(`## Tech stack\n`);
+    const ts = spec.tech_stack;
+    if (ts.languages || ts.frameworks || ts.databases || ts.tools) {
+      const items = [
+        ...(ts.languages || []).map(l => typeof l === 'string' ? { name: l, type: 'Language' } : { ...l, type: 'Language' }),
+        ...(ts.frameworks || []).map(f => typeof f === 'string' ? { name: f, type: 'Framework' } : { ...f, type: 'Framework' }),
+        ...(ts.databases || []).map(d => typeof d === 'string' ? { name: d, type: 'Database' } : { ...d, type: 'Database' }),
+        ...(ts.tools || []).map(t => typeof t === 'string' ? { name: t, type: 'Tool' } : { ...t, type: 'Tool' }),
+      ];
+      if (items.length > 0) {
+        sections.push('| Technologie | Verze | Účel |');
+        sections.push('|-------------|-------|------|');
+        for (const item of items) {
+          const n = item.name || '';
+          const v = item.version || '—';
+          const p = item.purpose || item.type || '—';
+          sections.push(`| ${n} | ${v} | ${p} |`);
+        }
+        sections.push('');
+      }
+    } else {
+      // Flat tech stack (string or simple object)
+      const stackStr = typeof ts === 'string' ? ts : JSON.stringify(ts, null, 2);
+      sections.push(stackStr + '\n');
+    }
+  } else {
+    // Fallback: detect stack from files
+    const stack = detectStack(projectPath);
+    if (stack.length > 0) {
+      sections.push(`## Stack\n`);
+      sections.push(stack.map(s => `- ${s}`).join('\n') + '\n');
+    }
+  }
+
+  // ─── Spec-aware: Design decisions ─────────────────────────────────────
+  if (spec && spec.design_decisions && spec.design_decisions.length > 0) {
+    sections.push(`## Design decisions\n`);
+    for (const dd of spec.design_decisions) {
+      const ddName = dd.name || dd.decision || dd.area || 'Decision';
+      const ddChosen = dd.chosen || dd.choice || '';
+      const ddRationale = dd.rationale || dd.reason || '';
+      sections.push(`### ${ddName}`);
+      if (ddChosen) sections.push(`- **Zvoleno:** ${ddChosen}`);
+      if (ddRationale) sections.push(`- **Důvod:** ${ddRationale}`);
+      if (dd.alternatives_considered && dd.alternatives_considered.length > 0) {
+        sections.push('- **Alternativy:**');
+        for (const alt of dd.alternatives_considered) {
+          const altName = typeof alt === 'string' ? alt : (alt.name || alt.option || '');
+          const altPros = typeof alt === 'string' ? '' : (alt.pros || '');
+          const altCons = typeof alt === 'string' ? '' : (alt.cons || '');
+          let altLine = `  - ${altName}`;
+          if (altPros) altLine += ` — ✅ ${altPros}`;
+          if (altCons) altLine += ` / ❌ ${altCons}`;
+          sections.push(altLine);
+        }
+      }
+      sections.push('');
+    }
   }
 
   // Directory structure
@@ -68,9 +166,56 @@ export function generateReadme(projectPath, opts = {}) {
     sections.push(entries.map(e => `- \`${e}\``).join('\n') + '\n');
   }
 
-  sections.push(`---\n> Automaticky vygenerováno C3 Studio (v67.0)\n`);
+  sections.push(`---\n> Automaticky vygenerováno C3 Studio (v91.0)\n`);
 
   return sections.join('\n');
+}
+
+/**
+ * Generate installation section from spec and project files.
+ * Deterministic — no LLM call.
+ */
+function _generateInstallSection(projectPath, spec) {
+  const lines = [];
+  const ts = spec.tech_stack || {};
+
+  // Detect package manager
+  if (fs.existsSync(path.join(projectPath, 'package.json'))) {
+    lines.push('```bash');
+    lines.push('npm install');
+    const scripts = detectScripts(projectPath);
+    const startScript = scripts.find(s => s.name === 'npm run start' || s.name === 'npm run dev');
+    if (startScript) {
+      lines.push(startScript.name);
+    } else {
+      lines.push('npm start');
+    }
+    lines.push('```');
+  } else if (fs.existsSync(path.join(projectPath, 'requirements.txt'))) {
+    lines.push('```bash');
+    lines.push('pip install -r requirements.txt');
+    if (fs.existsSync(path.join(projectPath, 'main.py'))) {
+      lines.push('python main.py');
+    }
+    lines.push('```');
+  } else if (fs.existsSync(path.join(projectPath, 'Cargo.toml'))) {
+    lines.push('```bash');
+    lines.push('cargo build');
+    lines.push('cargo run');
+    lines.push('```');
+  } else if (fs.existsSync(path.join(projectPath, 'pubspec.yaml'))) {
+    lines.push('```bash');
+    lines.push('flutter pub get');
+    lines.push('flutter run');
+    lines.push('```');
+  } else if (fs.existsSync(path.join(projectPath, 'go.mod'))) {
+    lines.push('```bash');
+    lines.push('go build');
+    lines.push('go run .');
+    lines.push('```');
+  }
+
+  return lines.length > 0 ? lines.join('\n') : null;
 }
 
 /**
@@ -172,6 +317,186 @@ function generateRoadmapScaffold(name, type) {
     '_(Sem se zapisují důležité rozhodnutí a blokery)_',
     '',
   ];
+  return lines.join('\n');
+}
+
+/**
+ * Ensure ARCHITECTURE.md exists with spec-derived content.
+ * Generated at first milestone PASS from spec data — no LLM call.
+ *
+ * @param {string} projectPath
+ * @param {Object} spec — Lifecycle spec
+ * @returns {{ written: boolean, path: string }}
+ */
+export function ensureArchitectureDoc(projectPath, spec) {
+  if (!projectPath || !path.isAbsolute(projectPath) || !spec) {
+    return { written: false, path: null, reason: 'missing_input' };
+  }
+
+  const archPath = path.join(projectPath, 'ARCHITECTURE.md');
+
+  try {
+    // Don't overwrite user-created architecture docs
+    if (fs.existsSync(archPath)) {
+      const existing = fs.readFileSync(archPath, 'utf-8');
+      if (!existing.includes('Automaticky vygenerováno C3 Studio')) {
+        return { written: false, path: archPath, reason: 'user_doc_exists' };
+      }
+    }
+
+    const content = _generateArchitectureDoc(spec, path.basename(projectPath));
+    fs.writeFileSync(archPath, content, 'utf-8');
+    logger.info('ReadmeGenerator', 'ARCHITECTURE.md written', { projectPath: projectPath.substring(0, 60) });
+    return { written: true, path: archPath };
+  } catch (err) {
+    logger.warn('ReadmeGenerator', `Failed to write ARCHITECTURE.md: ${err.message}`);
+    return { written: false, path: archPath, error: err.message };
+  }
+}
+
+/**
+ * Append changelog entry to README.md after a milestone completes.
+ * Deterministic — no LLM call.
+ *
+ * @param {string} projectPath
+ * @param {Object} milestone — { id, title, sequence }
+ * @param {Object} [diffInfo] — { filesChanged, newFiles }
+ */
+export function appendReadmeChangelog(projectPath, milestone, diffInfo = {}) {
+  if (!projectPath || !path.isAbsolute(projectPath)) return;
+
+  const readmePath = path.join(projectPath, 'README.md');
+  try {
+    if (!fs.existsSync(readmePath)) return;
+
+    let content = fs.readFileSync(readmePath, 'utf-8');
+
+    // Find or create changelog section
+    const changelogHeader = '## Changelog';
+    if (!content.includes(changelogHeader)) {
+      // Insert before the footer
+      const footer = '---\n> Automaticky vygenerováno C3 Studio';
+      const footerIdx = content.indexOf(footer);
+      if (footerIdx >= 0) {
+        content = content.substring(0, footerIdx) + changelogHeader + '\n\n' + content.substring(footerIdx);
+      } else {
+        content += '\n' + changelogHeader + '\n\n';
+      }
+    }
+
+    // Build entry
+    const seq = milestone.sequence || parseInt(String(milestone.id).replace(/\D/g, ''), 10) || '?';
+    const title = milestone.title || milestone.id;
+    const files = diffInfo.filesChanged || 0;
+    const newFiles = diffInfo.newFiles || [];
+
+    let entry = `### Milestone ${seq}: ${title}\n`;
+    if (files > 0) entry += `- ${files} souborů změněno\n`;
+    if (newFiles.length > 0) entry += `- Nové: ${newFiles.slice(0, 5).join(', ')}${newFiles.length > 5 ? ` (+${newFiles.length - 5})` : ''}\n`;
+    entry += '\n';
+
+    // Insert after changelog header
+    const headerIdx = content.indexOf(changelogHeader);
+    const insertPoint = headerIdx + changelogHeader.length;
+    content = content.substring(0, insertPoint) + '\n\n' + entry + content.substring(insertPoint);
+
+    fs.writeFileSync(readmePath, content, 'utf-8');
+  } catch (err) {
+    logger.warn('ReadmeGenerator', `Failed to append changelog: ${err.message}`);
+  }
+}
+
+/**
+ * Generate ARCHITECTURE.md content from spec.
+ * Purely deterministic — extracts from spec JSON fields.
+ */
+function _generateArchitectureDoc(spec, projectName) {
+  const lines = [];
+  lines.push(`# Architecture — ${projectName}\n`);
+
+  // Architecture overview
+  if (spec.architecture) {
+    const arch = spec.architecture;
+    if (arch.description) {
+      lines.push(`## Overview\n`);
+      lines.push(arch.description + '\n');
+    }
+
+    if (arch.components && arch.components.length > 0) {
+      lines.push(`## Components\n`);
+      for (const comp of arch.components) {
+        if (typeof comp === 'string') {
+          lines.push(`- ${comp}`);
+        } else {
+          const name = comp.name || comp.component || 'Component';
+          const desc = comp.description || comp.purpose || '';
+          const deps = comp.dependencies || comp.depends_on || [];
+          lines.push(`### ${name}`);
+          if (desc) lines.push(desc);
+          if (deps.length > 0) lines.push(`\n**Závislosti:** ${deps.join(', ')}`);
+          lines.push('');
+        }
+      }
+    }
+
+    if (arch.data_flow) {
+      lines.push(`## Data Flow\n`);
+      lines.push(arch.data_flow + '\n');
+    }
+
+    if (arch.patterns) {
+      lines.push(`## Patterns\n`);
+      const patterns = Array.isArray(arch.patterns) ? arch.patterns : [arch.patterns];
+      for (const p of patterns) {
+        lines.push(`- ${typeof p === 'string' ? p : (p.name || JSON.stringify(p))}`);
+      }
+      lines.push('');
+    }
+  }
+
+  // Design decisions
+  if (spec.design_decisions && spec.design_decisions.length > 0) {
+    lines.push(`## Design Decisions\n`);
+    for (const dd of spec.design_decisions) {
+      const ddName = dd.name || dd.decision || dd.area || 'Decision';
+      const ddChosen = dd.chosen || dd.choice || '';
+      const ddRationale = dd.rationale || dd.reason || '';
+      lines.push(`### ${ddName}\n`);
+      if (ddChosen) lines.push(`**Zvoleno:** ${ddChosen}\n`);
+      if (ddRationale) lines.push(`**Důvod:** ${ddRationale}\n`);
+      if (dd.alternatives_considered && dd.alternatives_considered.length > 0) {
+        lines.push('**Alternativy:**\n');
+        lines.push('| Alternativa | Pros | Cons |');
+        lines.push('|-------------|------|------|');
+        for (const alt of dd.alternatives_considered) {
+          if (typeof alt === 'string') {
+            lines.push(`| ${alt} | — | — |`);
+          } else {
+            const n = alt.name || alt.option || '';
+            const pros = alt.pros || '—';
+            const cons = alt.cons || '—';
+            lines.push(`| ${n} | ${pros} | ${cons} |`);
+          }
+        }
+        lines.push('');
+      }
+    }
+  }
+
+  // Risks
+  if (spec.risks && spec.risks.length > 0) {
+    lines.push(`## Risks\n`);
+    for (const risk of spec.risks) {
+      const rName = typeof risk === 'string' ? risk : (risk.description || risk.name || '');
+      const severity = risk.severity || '';
+      const mitigation = risk.mitigation || '';
+      lines.push(`- **${rName}**${severity ? ` [${severity}]` : ''}`);
+      if (mitigation) lines.push(`  - Mitigace: ${mitigation}`);
+    }
+    lines.push('');
+  }
+
+  lines.push(`---\n> Automaticky vygenerováno C3 Studio (v91.0)\n`);
   return lines.join('\n');
 }
 

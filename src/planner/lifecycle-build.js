@@ -27,8 +27,8 @@ import {
   healthScore as healthScorePrompt,
 } from './lifecycle-prompts.js';
 import { checkDependencies, writeRoadmapFile } from './lifecycle-planning.js';
-import { MilestoneStatus } from './lifecycle.js';
-import { ensureReadme } from '../chat/handlers/utils/readme-generator.js';
+import { MilestoneStatus, CheckpointMode } from './lifecycle.js';
+import { ensureReadme, ensureArchitectureDoc, appendReadmeChangelog } from '../chat/handlers/utils/readme-generator.js';
 import { C3ToolExecutor } from '../executor/c3-tool-executor.js';
 import { validateMilestoneSize } from './milestone-size.js';
 
@@ -43,26 +43,41 @@ import { validateMilestoneSize } from './milestone-size.js';
  *   null if no more milestones
  */
 export async function startNextMilestone(lifecycle) {
-  // Find next PENDING milestone
-  const next = msRepo.findNext.get(lifecycle.id);
-  if (!next) {
+  // Find ALL pending milestones (not just first) to skip dependency-blocked ones
+  const allPending = msRepo.findByStatus.all(lifecycle.id, 'PENDING').map(r => msRepo.getMilestone(r.id));
+  if (allPending.length === 0) {
     logger.info('LifecycleBuild', 'No more pending milestones', { lifecycleId: lifecycle.id });
     return null;
   }
 
-  const milestone = msRepo.getMilestone(next.id);
+  // Try each pending milestone in sequence order — find first with satisfied deps
+  const blockedMilestones = [];
+  let milestone = null;
 
-  // Check dependencies
-  const depCheck = checkDependencies(milestone.id, lifecycle.id);
-  if (!depCheck.ready) {
-    logger.warn('LifecycleBuild', 'Milestone blocked by dependencies', {
-      milestoneId: milestone.id,
-      blockedBy: depCheck.blockedBy,
+  for (const candidate of allPending) {
+    const depCheck = checkDependencies(candidate.id, lifecycle.id);
+    if (!depCheck.ready) {
+      blockedMilestones.push({
+        milestoneId: candidate.id,
+        title: candidate.title,
+        blockedBy: depCheck.blockedBy,
+      });
+      continue;
+    }
+    milestone = candidate;
+    break;
+  }
+
+  if (!milestone) {
+    // ALL pending milestones are dependency-blocked
+    logger.warn('LifecycleBuild', 'All pending milestones are dependency-blocked', {
+      lifecycleId: lifecycle.id,
+      blocked: blockedMilestones,
     });
     return {
-      milestoneId: milestone.id,
-      status: 'BLOCKED_BY_DEPS',
-      blockedBy: depCheck.blockedBy,
+      milestoneId: null,
+      status: 'ALL_BLOCKED',
+      blockedMilestones,
     };
   }
 
@@ -88,6 +103,26 @@ export async function startNextMilestone(lifecycle) {
   if (!localPlan) {
     msRepo.updateStatus.run(MilestoneStatus.PENDING, milestone.id);
     throw new Error(`D1 failed to generate local plan for ${milestone.id}`);
+  }
+
+  // Validate milestone plan quality
+  const planCheck = validateMilestonePlan(localPlan);
+  if (!planCheck.valid) {
+    logger.warn('LifecycleBuild', 'Milestone plan validation failed, retrying D1', {
+      milestoneId: milestone.id,
+      errors: planCheck.errors,
+    });
+    // Retry once with explicit instruction
+    const retryPrompt = prompt + '\n\nIMPORTANT: Be more specific. Each implementation step MUST be actionable (use verbs like create, implement, add, configure). Minimum 3 concrete steps. Include target files.';
+    const retryResult = await llm('D1', retryPrompt);
+    const retryPlan = parseJSON(retryResult.content);
+    if (retryPlan) {
+      const retryCheck = validateMilestonePlan(retryPlan);
+      if (retryCheck.valid) {
+        Object.assign(localPlan, retryPlan);
+      }
+      // If still invalid, proceed with best effort — don't block
+    }
   }
 
   // Store local plan and scope files
@@ -255,7 +290,9 @@ async function postExecution(lifecycle, milestone, wfResult) {
     ? { ...testResults, note: 'Test execution deferred — no test_strategy defined for this milestone. Do NOT fail the checkpoint for missing tests.' }
     : testResults;
 
-  const checkpointResult = await milestoneCheckpoint(lifecycle, milestone, wfResult, testResultsForCheckpoint);
+  // Adaptive retry: pass previous findings from failed attempts
+  const previousFindings = milestone._lastCheckpointFindings || null;
+  const checkpointResult = await milestoneCheckpoint(lifecycle, milestone, wfResult, testResultsForCheckpoint, previousFindings);
 
   // ─── Scope enforcement ──────────────────────────────────────────────────
   const scopeResult = await enforceMilestoneScope(lifecycle, milestone);
@@ -274,6 +311,16 @@ async function postExecution(lifecycle, milestone, wfResult) {
       scopeResult.violations.length > 0 && `scope violations: ${scopeResult.violations.join(', ')}`,
       testResults.allPassed === false && 'tests failed',
     ].filter(Boolean).join('; ');
+
+    // Adaptive retry: store checkpoint findings so next attempt can address them
+    if (!checkpointResult.passed && checkpointResult.fix_instructions?.length > 0) {
+      milestone._lastCheckpointFindings = {
+        fix_instructions: checkpointResult.fix_instructions,
+        security_findings: checkpointResult.security_findings || [],
+        error_handling_gaps: checkpointResult.error_handling_gaps || [],
+        overall_assessment: checkpointResult.overall_assessment,
+      };
+    }
 
     return handleMilestoneFailure(lifecycle, milestone, reason);
   }
@@ -301,8 +348,23 @@ async function postExecution(lifecycle, milestone, wfResult) {
   // Update ROADMAP.md with new milestone status
   await writeRoadmapFile(lifecycle.projectPath, lifecycle.id);
 
-  // Refresh README.md (updates stack, scripts, structure after code changes)
-  ensureReadme(lifecycle.projectPath);
+  // Get spec for documentation generation
+  const spec = lifecycleRepo.getSpec(lifecycle.id);
+  const completedMs = msRepo.getCompleted(lifecycle.id);
+  const completedCount = completedMs.length; // already includes this milestone (status just set to PASSED)
+
+  // First milestone PASS: generate full README + ARCHITECTURE.md from spec
+  if (completedCount === 1 && spec) {
+    ensureReadme(lifecycle.projectPath, { spec });
+    ensureArchitectureDoc(lifecycle.projectPath, spec);
+  } else {
+    // Subsequent milestones: just update stack/scripts + append changelog
+    ensureReadme(lifecycle.projectPath, { spec });
+    appendReadmeChangelog(lifecycle.projectPath, milestone, {
+      filesChanged: (await getChangedFiles(lifecycle)).length,
+      newFiles: (await getChangedFiles(lifecycle)).filter(f => !f.startsWith('.')),
+    });
+  }
 
   logger.info('LifecycleBuild', 'Milestone PASSED', {
     milestoneId: milestone.id,
@@ -420,12 +482,43 @@ async function runTests(lifecycle, milestone) {
  * Detailed comparison of output vs goals.
  * Uses concrete git diff, file list, goals, test results.
  */
-async function milestoneCheckpoint(lifecycle, milestone, wfResult, testResults) {
+/**
+ * Determine checkpoint mode for a milestone.
+ * Priority: explicit checkpoint_mode on milestone > positional heuristic.
+ */
+function resolveCheckpointMode(milestone, lifecycle) {
+  // 1. Explicit mode set by roadmap generator
+  if (milestone.checkpoint_mode && CheckpointMode[milestone.checkpoint_mode]) {
+    return milestone.checkpoint_mode;
+  }
+
+  // 2. Heuristic: first ms = STRUCTURAL, last ms = SECURITY, rest = FUNCTIONAL
+  const allMs = msRepo.listByLifecycle(lifecycle.id);
+  const totalMs = allMs.length;
+  const seq = milestone.sequence || 1;
+
+  if (seq === 1) return CheckpointMode.STRUCTURAL;
+  if (seq >= totalMs) return CheckpointMode.SECURITY;
+  return CheckpointMode.FUNCTIONAL;
+}
+
+async function milestoneCheckpoint(lifecycle, milestone, wfResult, testResults, previousFindings = null) {
   // Get actual git diff
   const gitDiff = await getGitDiff(lifecycle);
   const changedFiles = await getChangedFiles(lifecycle);
 
-  const prompt = checkpointPrompt(milestone, gitDiff, changedFiles, testResults);
+  const checkpointMode = resolveCheckpointMode(milestone, lifecycle);
+
+  const prompt = checkpointPrompt(milestone, gitDiff, changedFiles, testResults, {
+    checkpointMode,
+    previousFindings,
+  });
+
+  logger.info('LifecycleBuild', `Checkpoint mode: ${checkpointMode}`, {
+    milestoneId: milestone.id,
+    explicit: !!milestone.checkpoint_mode,
+  });
+
   const llm = lifecycle.callLLM || callLLM;
   const result = await llm('R1', prompt);
   const checkpoint = parseJSON(result.content);
@@ -437,11 +530,14 @@ async function milestoneCheckpoint(lifecycle, milestone, wfResult, testResults) 
       milestoneId: milestone.id,
       rawPreview: raw.substring(0, 500),
     });
-    return { passed: false, raw, reason: 'Checkpoint response was not valid JSON' };
+    return { passed: false, raw, reason: 'Checkpoint response was not valid JSON', checkpointMode };
   }
 
+  // Store checkpoint mode on result
+  checkpoint.checkpointMode = checkpointMode;
+
   // Log checkpoint verdict for diagnostics
-  logger.info('LifecycleBuild', `Checkpoint verdict: ${checkpoint.passed ? 'PASS' : 'FAIL'}`, {
+  logger.info('LifecycleBuild', `Checkpoint verdict: ${checkpoint.passed ? 'PASS' : 'FAIL'} (${checkpointMode})`, {
     milestoneId: milestone.id,
     assessment: checkpoint.overall_assessment?.substring(0, 200),
     securityFindings: checkpoint.security_findings?.length || 0,
@@ -772,7 +868,7 @@ function buildMilestoneRequest(milestone, localPlan) {
   const steps = localPlan.implementation_steps || [];
   const stepsStr = steps.map(s => `${s.step}. ${s.action}`).join('\n');
 
-  return `Implement milestone "${milestone.title}":
+  let request = `Implement milestone "${milestone.title}":
 
 ${milestone.description || ''}
 
@@ -780,7 +876,56 @@ Implementation steps:
 ${stepsStr || 'Follow the local plan.'}
 
 Files to create/modify:
-${(localPlan.files || []).map(f => `- ${f.path} (${f.action}): ${f.purpose}`).join('\n') || 'As defined in plan.'}`;
+${(localPlan.files || []).map(f => `- ${f.path} (${f.action}): ${f.purpose}`).join('\n') || 'As defined in plan.'}
+
+Documentation:
+- Add JSDoc/docstrings to all public API functions
+- If adding API endpoints: include request/response examples in code comments
+- Include inline usage examples for key functions`;
+
+  // Adaptive retry: include checkpoint feedback from previous failed attempt
+  if (milestone._lastCheckpointFindings) {
+    const findings = milestone._lastCheckpointFindings;
+    request += `\n\nCRITICAL — Previous attempt FAILED checkpoint. You MUST fix these issues:`;
+    if (findings.fix_instructions?.length > 0) {
+      request += '\n' + findings.fix_instructions.map(f => `- ${f}`).join('\n');
+    }
+    if (findings.security_findings?.length > 0) {
+      request += '\nSecurity issues to fix:\n' + findings.security_findings.map(f => `- ${f}`).join('\n');
+    }
+    if (findings.error_handling_gaps?.length > 0) {
+      request += '\nError handling to add:\n' + findings.error_handling_gaps.map(f => `- ${f}`).join('\n');
+    }
+  }
+
+  return request;
+}
+
+/**
+ * Validate milestone plan quality — deterministický check.
+ * Ověří: min 3 kroky, akční slovesa, target soubory.
+ */
+function validateMilestonePlan(plan) {
+  const errors = [];
+  const steps = plan.implementation_steps || plan.steps || [];
+
+  if (steps.length < 3) {
+    errors.push(`Need ≥3 implementation steps, got ${steps.length}`);
+  }
+
+  const actionVerbs = /create|implement|add|write|configure|set\s*up|install|define|build|test|update|modify|extend|integrate|initialize|register|connect|validate|handle|parse|render|import|export|setup/i;
+  for (const step of steps) {
+    const text = step.action || step.description || (typeof step === 'string' ? step : '');
+    if (typeof text === 'string' && text.length > 5 && !actionVerbs.test(text)) {
+      errors.push(`Step "${text.substring(0, 50)}" lacks action verb`);
+    }
+  }
+
+  if (!plan.files?.length && !plan.scope_files?.length) {
+    errors.push('Plan has no target files');
+  }
+
+  return { valid: errors.length === 0, errors };
 }
 
 function clamp(value, min, max) {

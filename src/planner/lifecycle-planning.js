@@ -80,6 +80,41 @@ export async function generateRoadmap(lifecycle, context) {
     throw new Error('D1 failed to generate a roadmap with milestones');
   }
 
+  // Validate roadmap quality (min milestones, coverage, required fields)
+  const roadmapCheck = validateRoadmap(roadmap, spec);
+  if (!roadmapCheck.valid) {
+    logger.warn('LifecyclePlanning', 'Roadmap validation failed, retrying D1', {
+      lifecycleId: lifecycle.id,
+      errors: roadmapCheck.errors,
+    });
+
+    // Retry with explicit constraints + higher temperature
+    const frCount = (spec?.requirements?.functional || []).length;
+    const minMs = frCount >= 5 ? 4 : 3;
+    const retryPrompt = generateRoadmapPrompt(spec) +
+      `\n\nCRITICAL: Your previous attempt failed validation. Fix these issues:\n` +
+      roadmapCheck.errors.map(e => `- ${e}`).join('\n') +
+      `\n\nYou MUST generate at least ${minMs} milestones. The LAST milestone must cover integration, testing and documentation.`;
+
+    const retryResult = await llm('D1', retryPrompt);
+    const retryRoadmap = parseJSON(retryResult.content);
+
+    if (retryRoadmap?.milestones?.length > 0) {
+      const retryCheck = validateRoadmap(retryRoadmap, spec);
+      if (retryCheck.valid) {
+        Object.assign(roadmap, retryRoadmap);
+      } else {
+        logger.warn('LifecyclePlanning', 'Retry also failed validation, proceeding with best effort', {
+          retryErrors: retryCheck.errors,
+        });
+        // Use whichever has more milestones
+        if (retryRoadmap.milestones.length > roadmap.milestones.length) {
+          Object.assign(roadmap, retryRoadmap);
+        }
+      }
+    }
+  }
+
   // Validate each milestone size
   const sizeWarnings = [];
   for (const ms of roadmap.milestones) {
@@ -128,12 +163,17 @@ export async function generateRoadmap(lifecycle, context) {
   _scopeRoadmapMilestones(roadmap.milestones, lifecycle.id);
 
   // Create milestone DB records (scoped IDs)
-  for (const ms of roadmap.milestones) {
+  for (let i = 0; i < roadmap.milestones.length; i++) {
+    const ms = roadmap.milestones[i];
+    // Resolve checkpoint_mode: explicit from LLM > positional heuristic
+    const checkpointMode = ms.checkpoint_mode ||
+      (i === 0 ? 'STRUCTURAL' : i === roadmap.milestones.length - 1 ? 'SECURITY' : 'FUNCTIONAL');
+
     msRepo.addMilestone({
       id: ms.id,
       lifecycle_id: lifecycle.id,
       roadmap_version: newVersion,
-      sequence: parseInt(rawId(ms.id).replace('ms-', ''), 10) || roadmap.milestones.indexOf(ms) + 1,
+      sequence: parseInt(rawId(ms.id).replace('ms-', ''), 10) || i + 1,
       title: ms.title,
       description: ms.description,
       dependencies: ms.dependencies || [],
@@ -142,6 +182,7 @@ export async function generateRoadmap(lifecycle, context) {
       estimated_complexity: ms.estimated_complexity || 'MEDIUM',
       test_strategy: ms.test_strategy || null,
       max_retries: lifecycle.config.maxMilestoneRetries,
+      checkpoint_mode: checkpointMode,
     });
   }
 
@@ -300,7 +341,8 @@ IMPORTANT: Do NOT modify or remove completed milestones. Adjust remaining milest
   const existingMs = msRepo.listByLifecycle(lifecycle.id);
   const existingIds = new Set(existingMs.map(m => m.id));
 
-  for (const ms of newRoadmap.milestones) {
+  for (let i = 0; i < newRoadmap.milestones.length; i++) {
+    const ms = newRoadmap.milestones[i];
     // Skip completed milestones — already in DB with scoped ID
     if (completed.some(c => c.id === ms.id)) continue;
 
@@ -309,12 +351,16 @@ IMPORTANT: Do NOT modify or remove completed milestones. Adjust remaining milest
       // Update in place for existing non-completed
       msRepo.updateStatus.run('PENDING', ms.id);
     } else {
+      // Resolve checkpoint_mode: explicit from LLM > positional heuristic
+      const checkpointMode = ms.checkpoint_mode ||
+        (i === 0 ? 'STRUCTURAL' : i === newRoadmap.milestones.length - 1 ? 'SECURITY' : 'FUNCTIONAL');
+
       // Add new milestone (scoped ID)
       msRepo.addMilestone({
         id: ms.id,
         lifecycle_id: lifecycle.id,
         roadmap_version: newVersion,
-        sequence: parseInt(rawId(ms.id).replace('ms-', ''), 10) || newRoadmap.milestones.indexOf(ms) + 1,
+        sequence: parseInt(rawId(ms.id).replace('ms-', ''), 10) || i + 1,
         title: ms.title,
         description: ms.description,
         dependencies: ms.dependencies || [],
@@ -323,6 +369,7 @@ IMPORTANT: Do NOT modify or remove completed milestones. Adjust remaining milest
         estimated_complexity: ms.estimated_complexity || 'MEDIUM',
         test_strategy: ms.test_strategy || null,
         max_retries: lifecycle.config.maxMilestoneRetries,
+        checkpoint_mode: checkpointMode,
       });
     }
   }
@@ -350,7 +397,7 @@ IMPORTANT: Do NOT modify or remove completed milestones. Adjust remaining milest
  * @param {Object} roadmap - { milestones: [...], requirements_coverage?: {...} }
  * @returns {{ valid: boolean, errors: string[] }}
  */
-export function validateRoadmap(roadmap) {
+export function validateRoadmap(roadmap, spec = null) {
   const errors = [];
 
   if (!roadmap) {
@@ -361,23 +408,45 @@ export function validateRoadmap(roadmap) {
     return { valid: false, errors: ['Roadmap has no milestones'] };
   }
 
-  for (const ms of roadmap.milestones) {
-    // acceptance_criteria required per milestone
-    if (!Array.isArray(ms.acceptance_criteria) || ms.acceptance_criteria.length === 0) {
-      errors.push(`Milestone ${ms.id || '?'} missing acceptance_criteria`);
-    }
+  const ms = roadmap.milestones;
 
-    // test_strategy required per milestone
-    if (!ms.test_strategy || typeof ms.test_strategy !== 'object') {
-      errors.push(`Milestone ${ms.id || '?'} missing test_strategy`);
+  // ─── Minimum milestone count ──────────────────────────────────────────
+  const frCount = (spec?.requirements?.functional || []).length;
+  const minMs = frCount >= 5 ? 4 : 3;
+  if (ms.length < minMs) {
+    errors.push(`Need ≥${minMs} milestones, got ${ms.length}`);
+  }
+
+  // ─── Each milestone: required fields ──────────────────────────────────
+  for (const m of ms) {
+    if (!m.title) errors.push(`Milestone ${m.id || '?'}: missing title`);
+    if (!m.description) errors.push(`${m.id || '?'}: missing description`);
+
+    if (!Array.isArray(m.acceptance_criteria) || m.acceptance_criteria.length === 0) {
+      errors.push(`Milestone ${m.id || '?'} missing acceptance_criteria`);
+    }
+    if (!Array.isArray(m.deliverables) || m.deliverables.length === 0) {
+      errors.push(`${m.id || '?'}: missing deliverables`);
+    }
+    if (!m.test_strategy || typeof m.test_strategy !== 'object') {
+      errors.push(`Milestone ${m.id || '?'} missing test_strategy`);
     }
   }
 
-  // Dependencies
+  // ─── Last milestone: integration/testing/docs ─────────────────────────
+  if (ms.length > 0) {
+    const last = ms[ms.length - 1];
+    const lastText = (last.title || '') + ' ' + (last.description || '');
+    if (!/test|integr|doc|kvalit|final|verifi/i.test(lastText)) {
+      errors.push('Last milestone should cover integration/testing/documentation');
+    }
+  }
+
+  // ─── Dependencies ─────────────────────────────────────────────────────
   const depErrors = validateDependencies(roadmap.milestones);
   errors.push(...depErrors);
 
-  // requirements_coverage: must exist and explain any gaps
+  // ─── Requirements coverage ────────────────────────────────────────────
   if (!roadmap.requirements_coverage) {
     errors.push('Roadmap missing requirements_coverage');
   } else {
@@ -386,6 +455,34 @@ export function validateRoadmap(roadmap) {
       const rationale = roadmap.requirements_coverage.rationale_for_uncovered || '';
       if (!rationale || rationale.trim().length === 0) {
         errors.push(`Roadmap has ${uncovered.length} uncovered requirements without rationale`);
+      }
+    }
+  }
+
+  // ─── Spec-based FR coverage (if spec available) ───────────────────────
+  if (spec) {
+    const frIds = (spec.requirements?.functional || [])
+      .map(fr => fr.id || fr.name || '')
+      .filter(Boolean);
+
+    // FR ID uniqueness
+    if (frIds.length > 0 && new Set(frIds).size !== frIds.length) {
+      errors.push('Duplicate functional requirement IDs in spec');
+    }
+
+    // Check each FR appears in requirements_addressed of at least one milestone
+    for (const frId of frIds) {
+      const covered = ms.some(m =>
+        (m.requirements_addressed || []).includes(frId) ||
+        (m.goals_addressed || []).includes(frId)
+      );
+      if (!covered) {
+        // Also check requirements_coverage map
+        const covMap = roadmap.requirements_coverage || {};
+        const inMap = covMap[frId] || (covMap.covered || []).includes(frId);
+        if (!inMap) {
+          errors.push(`Requirement ${frId} not covered by any milestone`);
+        }
       }
     }
   }
@@ -493,7 +590,8 @@ export function checkDependencies(milestoneId, lifecycleId) {
   const blockedBy = [];
   for (const depId of deps) {
     const dep = msRepo.getMilestone(depId);
-    if (!dep || dep.status !== 'PASSED') {
+    // PASSED = completed, SKIPPED = user explicitly skipped (satisfies dependency)
+    if (!dep || (dep.status !== 'PASSED' && dep.status !== 'SKIPPED')) {
       blockedBy.push(depId);
     }
   }

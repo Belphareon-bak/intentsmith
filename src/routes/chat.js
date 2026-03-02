@@ -37,6 +37,50 @@ export function createChatRoutes(deps) {
       sendJSON(res, 200, { success: true, deleted: params.sessionId });
     },
 
+    // D5: Set active specialist for a chat session
+    'POST /api/chat/specialist': async (req, res) => {
+      try {
+        const body = await parseBody(req);
+        const sessionId = body.sessionId || 'session-0';
+        if (!body.specialistId) {
+          return sendJSON(res, 400, { error: 'specialistId is required' });
+        }
+        // Load specialist manifest
+        const { getSpecialistLoader } = await import('../specialists/specialist-loader.js');
+        const loader = getSpecialistLoader();
+        const manifest = loader.getManifest(body.specialistId);
+        if (!manifest) {
+          return sendJSON(res, 404, { error: `Specialist not found: ${body.specialistId}` });
+        }
+        ChatController.setSpecialist(sessionId, {
+          id: manifest.id,
+          name: manifest.name,
+          domain: manifest.domain,
+          description: manifest.description,
+          tools: manifest.tools,
+          primaryExpertiseId: manifest.expertises?.[0] || manifest.id,
+        });
+        sendJSON(res, 200, { ok: true, specialistId: manifest.id });
+      } catch (err) {
+        logger.error('ChatRoutes', `POST /api/chat/specialist failed: ${err.message}`);
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    // D5: Clear active specialist
+    'DELETE /api/chat/specialist': async (req, res) => {
+      try {
+        const body = await parseBody(req);
+        const sessionId = body.sessionId || 'session-0';
+        const state = ChatController.getState(sessionId);
+        if (state) state.clearSpecialist();
+        sendJSON(res, 200, { ok: true });
+      } catch (err) {
+        logger.error('ChatRoutes', `DELETE /api/chat/specialist failed: ${err.message}`);
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
     // ══════════════════════════════════════════════════════════════════════════
     // POST /chat, Chat UI, Export Pipeline
     // ══════════════════════════════════════════════════════════════════════════

@@ -1179,8 +1179,8 @@ export const milestones = {
   create: db.prepare(`
     INSERT INTO milestones (id, lifecycle_id, roadmap_version, sequence, title, description,
       status, dependencies, estimated_loc, estimated_files, estimated_complexity,
-      test_strategy, local_plan, scope_files, max_retries)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      test_strategy, local_plan, scope_files, max_retries, checkpoint_mode)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `),
 
   findById: db.prepare(`SELECT * FROM milestones WHERE id = ?`),
@@ -1240,7 +1240,8 @@ export const milestones = {
       data.estimated_loc || 0, data.estimated_files || 0,
       data.estimated_complexity || 'MEDIUM',
       testStr, planStr, scopeStr,
-      data.max_retries || 3
+      data.max_retries || 3,
+      data.checkpoint_mode || 'FUNCTIONAL'
     );
   },
 

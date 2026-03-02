@@ -452,7 +452,34 @@ export class SpecialistLoader {
     mod.register(ctx);
 
     this._modules.set(id, mod);
+
+    // D5: Auto-seed expertise bindings from manifest
+    this._seedExpertiseBindings(id, manifest);
+
     logger.info('SpecialistLoader', `Enabled: ${id} v${manifest.version}`);
+  }
+
+  /**
+   * D5: Ensure specialist's manifest expertises are in the binding table.
+   * Called on every enable — INSERT OR IGNORE makes it idempotent.
+   * Manifest entries get priority=1 (favorite).
+   */
+  _seedExpertiseBindings(specialistId, manifest) {
+    const expertises = manifest?.expertises;
+    if (!expertises?.length) return;
+
+    try {
+      const insert = this.db.prepare(
+        'INSERT OR IGNORE INTO specialist_expertises (specialist_id, expertise_id, priority) VALUES (?, ?, ?)'
+      );
+      for (const expId of expertises) {
+        insert.run(specialistId, expId, 1);
+      }
+      logger.debug('SpecialistLoader', `Seeded ${expertises.length} expertise binding(s) for ${specialistId}`);
+    } catch (err) {
+      // Non-fatal — table might not exist yet (migration not applied)
+      logger.debug('SpecialistLoader', `Expertise seed skipped for ${specialistId}: ${err.message}`);
+    }
   }
 
   // ─── Lifecycle API ──────────────────────────────────────────────────────

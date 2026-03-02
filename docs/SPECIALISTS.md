@@ -377,24 +377,48 @@ multi-specialist, update, rollback, stress tests
 
 # Budouci specialiste
 
-### D5 — Specialist Expertise Discovery + Chaining (P1)
+### D5 — Specialist Expertise Discovery + Chaining ✅ (v91)
 
-**Flow:**
-1. Uzivatel vybere specialistu (napr. Ucetni)
-2. Dotaz → specialista projde sve expertizy, vybere relevantni (label match = priorita)
-3. Ma expertizu → pouzije ji rovnou (vyssi kvalita odpovedi)
-4. Nema expertizu → 2 cesty:
-   a) Navrhne vytvoreni nove expertizy (skill `create-expertise` existuje) → pak pouzije
-   b) Fallback: web search + klasicky chat (vzdy funguje, jen nizsi kvalita)
-5. Slozity multi-topic dotaz → chain vice expertiz postupne
-6. Castecne chybi → zepta se: "Mam resit bez expertizy nebo ji vytvorit?"
+**Implementovano v91.** Specialist vlastni kolekci expertiz a automaticky vybira
+relevantni pri kazdem dotazu.
 
-**Implementacni kroky:**
-- Specialist ↔ Expertise binding (DB: `specialist_expertises` tabulka + labels)
-- Query → expertise matching (keyword/semantic lookup pres specialistovy expertizy)
-- Multi-expertise chaining (postupne pouziti pro complex queries)
-- Gap detection + user prompt (chybejici expertiza → nabidka)
-- Fallback vzdy funguje (klasicky chat / web search)
+**Pipeline (4 faze):**
+1. **Tool dispatch** — deterministicke nastroje (kalkulacky, lookup) maji prioritu
+2. **Expertise discovery** — scoped vocabulary matching pres `specialist_expertises`
+   - Single match → `generateExpertiseResponse()` (plna expertni odpoved)
+   - Multi-match (2-3) → `handleMergedExpertises()` (slozite dotazy)
+   - Label boost (+2) pro oznacene expertizy, priority jako tie-breaker
+3. **Gap detection** — zadna expertiza neodpovida → 2 moznosti:
+   - Vytvorit novou (trigger `create-expertise` skill → auto-bind)
+   - Fallback: odpovedet bez ni (CRE → ANSWER/SEARCH)
+4. **Fallback** — specialist persona bez specificke expertizy (LLM chat)
+
+**Architektura:**
+- `src/expertises/expertise-discovery.js` — pure function, <1ms, reuse z `auto-select.js`
+- `src/chat/handlers/specialist.js` — D5 handler (tool → discovery → gap → fallback)
+- `src/chat/controller.js` — `ChatMode.SPECIALIST`, sticky mode, context building
+- `src/db/migrations/025_v91_specialist_expertises.js` — binding tabulka
+- `src/specialists/specialist-loader.js` — `_seedExpertiseBindings()` pri boot
+
+**REST API:**
+| Endpoint | Popis |
+|----------|-------|
+| `GET /api/specialists/:id/expertises` | Seznam expertiz specialisty |
+| `POST /api/specialists/:id/expertises` | Pridej expertizu |
+| `DELETE /api/specialists/:id/expertises/:eid` | Odeber expertizu |
+| `PATCH /api/specialists/:id/expertises/:eid` | Uprav label/prioritu |
+| `POST /api/chat/specialist` | Aktivuj specialistu pro session |
+| `DELETE /api/chat/specialist` | Deaktivuj specialistu |
+
+**FE:**
+- Specialist indikator v chat headeru (zluta tecka + jmeno + ✕ pro deaktivaci)
+- Gap choice inline tlacitka ("Vytvorit expertizu" / "Odpovedet bez ni")
+- Detail panel: Aktivovat/Deaktivovat akce
+- Session persistence: specialist data v localStorage
+
+**Testy:**
+- `tests/expertise-discovery.test.js` — 23 testu (vocabulary, label, multi, gap, stem)
+- `tests/specialist-handler.test.js` — 20 testu (DB ops, seeding, gap patterns, ordering)
 
 ### Dalsi planovane smery
 
@@ -415,4 +439,4 @@ multi-specialist, update, rollback, stress tests
 ---
 
 *Aktualizovano: 2026-03-01*
-*Engine: c3-agent v90.0.0*
+*Engine: c3-agent v91.0.0*

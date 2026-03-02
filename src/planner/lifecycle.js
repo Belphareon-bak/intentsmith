@@ -47,6 +47,16 @@ export const MilestoneStatus = Object.freeze({
   SKIPPED:       'SKIPPED',
 });
 
+// Checkpoint strictness levels — each milestone declares its expected quality bar.
+// STRUCTURAL: file structure, imports, exports, syntax — early scaffolding milestones
+// FUNCTIONAL: structural + logic correctness, API contracts — mid milestones
+// SECURITY:   functional + security hardening, input validation — final/security milestones
+export const CheckpointMode = Object.freeze({
+  STRUCTURAL: 'STRUCTURAL',
+  FUNCTIONAL: 'FUNCTIONAL',
+  SECURITY:   'SECURITY',
+});
+
 export const ChangeRequestStatus = Object.freeze({
   PROPOSED: 'PROPOSED',
   ANALYZED: 'ANALYZED',

@@ -218,6 +218,17 @@ export function autoSelectExpertise(input, options = {}) {
   };
 }
 
+// Export matching primitives for reuse (D5: expertise-discovery.js)
+export { czStem, stemMatch, BOOST_PATTERNS };
+export const SCORE_CONSTANTS = {
+  BOOST_WEIGHT,
+  MULTI_WORD_WEIGHT,
+  SINGLE_WORD_WEIGHT,
+  SHARED_PENALTY,
+  THRESHOLD,
+  MAX_PLAUSIBLE_SCORE,
+};
+
 // Export internals for testing
 export const _testInternals = {
   BOOST_PATTERNS,
