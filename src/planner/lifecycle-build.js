@@ -563,7 +563,7 @@ async function milestoneCheckpoint(lifecycle, milestone, wfResult, testResults, 
  * IMPORTANT: Works on REAL git diff, not orchestrator assumptions.
  */
 // Engine-managed files — always allowed, never scope violations
-const ENGINE_MANAGED_FILES = new Set(['ROADMAP.md', 'README.md', '.gitignore']);
+const ENGINE_MANAGED_FILES = new Set(['ROADMAP.md', 'README.md', 'ARCHITECTURE.md', '.gitignore']);
 
 async function enforceMilestoneScope(lifecycle, milestone) {
   const scopeFiles = milestone.scope_files || [];
