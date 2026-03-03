@@ -54,8 +54,17 @@ export async function executeValidate(stepDef, context) {
       };
     }
 
-    const resolvedContent = substitute(content, context.params, context.stepsOutput);
+    let resolvedContent = substitute(content, context.params, context.stepsOutput);
     const resolvedCriteria = substitute(criteria, context.params, context.stepsOutput);
+
+    // Pre-clean content: strip residual <think> blocks and code fences
+    resolvedContent = resolvedContent
+      .replace(/<think>[\s\S]*?<\/think>/gi, '')
+      .replace(/<\/think>/gi, '')
+      .trim();
+    if (/^```(?:json)?\s*\n/i.test(resolvedContent)) {
+      resolvedContent = resolvedContent.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+    }
 
     const prompt = `## Obsah k validaci:\n\n${resolvedContent}\n\n## Kritéria:\n\n${resolvedCriteria}\n\nSplňuje obsah všechna kritéria?`;
 
@@ -85,10 +94,14 @@ export async function executeValidate(stepDef, context) {
       };
     }
 
-    const response = result.content.trim();
+    // Strip <think> blocks and orphaned tags (deepseek-r1)
+    let response = result.content
+      .replace(/<think>[\s\S]*?<\/think>/gi, '')
+      .replace(/<\/think>/gi, '')
+      .trim();
 
-    // Parse PASS/FAIL
-    if (response.startsWith('PASS')) {
+    // Parse PASS/FAIL — robust: check anywhere in response, not just startsWith
+    if (/^PASS\b/i.test(response) || /\bPASS\b/.test(response)) {
       return {
         status: 'success',
         output: resolvedContent,

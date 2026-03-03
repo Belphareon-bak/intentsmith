@@ -34,7 +34,20 @@ export async function executeWrite(stepDef, context) {
     }
 
     const workspace = context.workspace || process.cwd();
-    const rawPath = substitute(stepDef.path, context.params, context.stepsOutput);
+    let rawPath = substitute(stepDef.path, context.params, context.stepsOutput);
+
+    // Sanitize path segments: replace diacritics, spaces, and special chars
+    rawPath = rawPath.split(path.sep).map(segment => {
+      // Only sanitize non-directory segments that contain non-ASCII or spaces
+      if (/[^\x00-\x7F\s]/.test(segment) || /\s/.test(segment)) {
+        return segment
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip diacritics
+          .replace(/\s+/g, '-')                              // spaces → hyphens
+          .replace(/[^a-zA-Z0-9._-]/g, '')                   // strip remaining special chars
+          .toLowerCase();
+      }
+      return segment;
+    }).join(path.sep);
 
     // Security: reject absolute paths
     if (path.isAbsolute(rawPath)) {

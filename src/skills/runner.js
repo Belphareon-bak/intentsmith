@@ -286,6 +286,27 @@ async function _executeSteps(executionId, skill, params, stepsOutput, startIdx, 
     _recordStep(executionId, stepDef, result);
 
     if (result.status === 'error') {
+      // ── Validate-fail retry: rewind to prior LLM step (1 attempt) ──────
+      if (stepDef.type === 'validate' && result.errorType === 'validation' && !context._validateRetried) {
+        const priorLLMIdx = _findPriorLLMStep(skill.steps, i);
+        if (priorLLMIdx >= 0) {
+          context._validateRetried = true;
+          const priorStep = skill.steps[priorLLMIdx];
+          const failReason = result.output || result.errorMessage || 'validation failed';
+
+          logger.info('SkillRunner', `Validate failed — rewinding to step "${priorStep.id}" with fix context`, {
+            failReason: failReason.substring(0, 100),
+          });
+
+          // Inject failure context into the prior step's stepsOutput so the LLM sees it
+          stepsOutput._validateFailReason = failReason;
+
+          // Rewind: re-run from the prior LLM step
+          i = priorLLMIdx - 1; // -1 because the loop will i++
+          continue;
+        }
+      }
+
       const errMsg = result.errorMessage || `Step "${stepDef.id}" failed`;
       _failExecution(executionId, errMsg);
       return { status: 'error', output: stepsOutput, error: errMsg };
@@ -308,6 +329,16 @@ async function _executeSteps(executionId, skill, params, stepsOutput, startIdx, 
 }
 
 // ── Internal helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Find the index of the nearest preceding LLM step before the given index.
+ */
+function _findPriorLLMStep(steps, validateIdx) {
+  for (let j = validateIdx - 1; j >= 0; j--) {
+    if (steps[j].type === 'llm') return j;
+  }
+  return -1;
+}
 
 /**
  * Process user input on resume — determines step output based on step type.

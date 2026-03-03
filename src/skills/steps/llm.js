@@ -31,7 +31,22 @@ function cleanJSONOutput(raw) {
   s = s.trim();
   // Strip markdown code fences
   s = s.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
-  return s.trim();
+  s = s.trim();
+  // Fix trailing commas (deepseek-r1 quirk: ,] or ,})
+  s = s.replace(/,(\s*[}\]])/g, '$1');
+  return s;
+}
+
+/**
+ * Verify cleaned output is parseable JSON. Returns null if valid, error string if not.
+ */
+function validateJSON(s) {
+  try {
+    JSON.parse(s);
+    return null;
+  } catch (e) {
+    return e.message;
+  }
 }
 
 /**
@@ -54,10 +69,18 @@ export async function executeLLM(stepDef, context) {
       };
     }
 
-    const resolvedPrompt = substitute(prompt, context.params, context.stepsOutput);
+    let resolvedPrompt = substitute(prompt, context.params, context.stepsOutput);
     const resolvedSystem = stepDef.systemPrompt
       ? substitute(stepDef.systemPrompt, context.params, context.stepsOutput)
       : '';
+
+    // Inject validation failure context from retry loop (runner sets _validateFailReason)
+    const failReason = context.stepsOutput?._validateFailReason;
+    if (failReason) {
+      resolvedPrompt += `\n\nPŘEDCHOZÍ POKUS SELHAL PŘI VALIDACI: ${failReason}\nOprav výstup tak, aby splňoval všechna kritéria. Vrať POUZE opravený výstup.`;
+      // Clear after use so subsequent steps don't see it
+      delete context.stepsOutput._validateFailReason;
+    }
 
     const token = createAuthToken({
       role: LLMCallerRole.SKILL_EXECUTOR,
@@ -86,9 +109,34 @@ export async function executeLLM(stepDef, context) {
     }
 
     // Clean output when format is 'json' (strips <think> blocks, code fences)
-    const output = stepDef.format === 'json'
+    let output = stepDef.format === 'json'
       ? cleanJSONOutput(result.content)
       : result.content;
+
+    // JSON format: verify parseable, attempt one LLM repair if not
+    if (stepDef.format === 'json') {
+      const parseErr = validateJSON(output);
+      if (parseErr) {
+        // Try to extract JSON object from mixed prose+JSON response
+        const jsonMatch = output.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const extracted = jsonMatch[0].replace(/,(\s*[}\]])/g, '$1');
+          if (!validateJSON(extracted)) {
+            output = extracted;
+          }
+        }
+        // If still invalid, mark as retryable so _executeStepWithRetry can retry
+        if (validateJSON(output)) {
+          return {
+            status: 'error',
+            output: output, // preserve for diagnostics
+            retryable: true,
+            errorType: 'transient',
+            errorMessage: `LLM step "${stepDef.id}": format is json but output is not valid JSON: ${parseErr}`,
+          };
+        }
+      }
+    }
 
     return {
       status: 'success',
