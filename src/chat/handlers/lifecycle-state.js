@@ -163,6 +163,13 @@ export function preloadActiveLifecycles() {
         continue;
       }
 
+      // Skip orphaned states: non-PROPOSED phase but no lifecycle_id (broken state)
+      if (!row.lifecycle_id && row.phase !== 'PROPOSED') {
+        logger.warn('LifecycleState', `Pruning orphaned handoff state: session=${row.session_id}, phase=${row.phase}, lifecycle_id=null`);
+        _handoffDb.delete.run(row.session_id);
+        continue;
+      }
+
       lifecycleStates.set(row.session_id, {
         phase: row.phase,
         lifecycleId: row.lifecycle_id,

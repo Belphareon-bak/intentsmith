@@ -446,6 +446,26 @@ export async function conversationHandler(input, context) {
   // ════════════════════════════════════════════════════════════════════════════
 
   // ════════════════════════════════════════════════════════════════════════════
+  // v91: POST-LIFECYCLE CONTEXT — inject lifecycle summary for completed projects
+  // When a lifecycle is COMPLETED, the agent still needs project context.
+  // Load lifecycle_summary from project_memory into sessionState working memory.
+  // ════════════════════════════════════════════════════════════════════════════
+  if (context.hasActiveProject && context.project?.id) {
+    try {
+      const { projectMemory } = await import('../../db/database.js');
+      const lcPhase = projectMemory.get.get(context.project.id, 'lifecycle_phase');
+      if (lcPhase?.value === 'COMPLETED' && !context.sessionState?.projectGoal) {
+        const lcSummary = projectMemory.get.get(context.project.id, 'lifecycle_summary');
+        if (lcSummary?.value) {
+          context.sessionState.setProjectGoal('Dokončený lifecycle projekt. ' + lcSummary.value.slice(0, 500));
+          logger.debug('Conversation', `Post-lifecycle context injected for project ${context.project.id}`);
+        }
+      }
+    } catch (_) { /* non-fatal */ }
+  }
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // ════════════════════════════════════════════════════════════════════════════
   // v61: LIFECYCLE HANDOFF INTERCEPT — route messages during active lifecycle (optional — Phase C)
   // ════════════════════════════════════════════════════════════════════════════
   const activeLifecycle = getActiveLifecycleHandoff ? getActiveLifecycleHandoff(sessionId) : null;

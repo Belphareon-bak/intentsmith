@@ -39,6 +39,42 @@ const CONFIDENCE_THRESHOLD = 0.6;
 const CONFIRM_YES = /^(ano|yes|jo|jasn[eě]|ok|potvrdit|spust|spusť|sure|yeah|yep)\s*[!.]?$/i;
 const CONFIRM_NO = /^(ne|no|nechci|zru[sš]|cancel|stop|nene)\s*[!.]?$/i;
 
+// ── Deterministic meta-skill detection ──────────────────────────────────────
+// Explicit create patterns bypass LLM resolver for reliability.
+// Same principle as attachment guard: deterministic override before LLM.
+
+const META_SKILL_PATTERNS = [
+  {
+    // "chci expertyzu na X", "vytvoř expertizu pro X", "nová expertiza na X"
+    regex: /(?:chci|vytvo[rř]|ud[eě]lej|p[rř]idej|zaregistruj|nov[aáouyýé]{1,2})\s+expert[iyí]z[uyaá]?\s+(?:na|pro|o)\s+(.+)/i,
+    skillId: 'create-expertise',
+    paramKey: 'topic',
+  },
+  {
+    // "chci skill na X", "vytvoř skill pro X", "nový skill X"
+    regex: /(?:chci|vytvo[rř]|ud[eě]lej|p[rř]idej|nov[aáouyýé]{1,2})\s+skill\s+(?:na\s+|pro\s+)?(.+)/i,
+    skillId: 'create-skill',
+    paramKey: 'name',
+  },
+];
+
+export function detectMetaSkill(input) {
+  for (const pattern of META_SKILL_PATTERNS) {
+    const match = input.match(pattern.regex);
+    if (match && match[1]) {
+      const paramValue = match[1].trim().replace(/[.!?]+$/, '');
+      if (paramValue.length > 0 && skillRegistry.get(pattern.skillId)) {
+        return {
+          skillId: pattern.skillId,
+          params: { [pattern.paramKey]: paramValue },
+          confidence: 0.95,
+        };
+      }
+    }
+  }
+  return null;
+}
+
 function skillResponse(content, metadata = {}) {
   const tag = new ResponseTag({
     speaker: ResponseSpeaker.SYSTEM,
@@ -68,8 +104,14 @@ export async function handleSkillDecision(input, decision, context) {
     return null; // null = caller falls through to handleAnswerDecision
   }
 
-  // Resolve skill via LLM
-  const resolved = await resolveSkill(input, summaries, logger);
+  // Deterministic meta-skill detection (before LLM resolver)
+  const metaMatch = detectMetaSkill(input);
+  if (metaMatch) {
+    logger.info('SkillHandler', `Meta-skill detected: ${metaMatch.skillId}`, { params: metaMatch.params });
+  }
+
+  // Resolve skill: deterministic first, then LLM fallback
+  const resolved = metaMatch || await resolveSkill(input, summaries, logger);
 
   if (!resolved || !resolved.skillId) {
     logger.info('SkillHandler', 'Resolver returned no match', { input: input.substring(0, 80) });

@@ -2981,6 +2981,42 @@ PRAVIDLA:
       }
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // GUARD 9: META-PROJECT QUERY — prevent "o čem je tento projekt?" from
+    // being classified as FILE_READ. FILE_READ patterns broadly match on
+    // "projekt" keyword, but meta-project queries ask ABOUT the project
+    // (topic, purpose, summary) — they need LLM synthesis, not file listing.
+    // v91: Fixes lifecycle context loss — after lifecycle completion user asks
+    // about the project and gets "Nebyl zadán žádný soubor" from file handler.
+    // ════════════════════════════════════════════════════════════════════════
+    if ((intent === IntentType.FILE_READ || intent === IntentType.FILE_EXPLAIN) &&
+        (context.hasActiveProject || context.project?.id)) {
+      const META_PROJECT = [
+        /o\s+[cč][eě]m\s+(?:je\s+)?(?:ten(?:to|hle)?\s+)?projekt/i,
+        /co\s+(?:je\s+)?to\s+za\s+projekt/i,
+        /[rř]ekni\s+(?:mi\s+)?o\s+(?:tom(?:to)?\s+)?projekt/i,
+        /popiš\s+(?:mi\s+)?(?:ten(?:to|hle)?\s+)?projekt/i,
+        /jak[ýé]\s+(?:je\s+)?(?:ten(?:to|hle)?\s+)?projekt/i,
+        /shr[nň]\s+(?:mi\s+)?(?:ten(?:to|hle)?\s+)?projekt/i,
+        /co\s+(?:ten(?:to|hle)?\s+)?projekt\s+(?:d[eě]l[áa]|[rř]e[sš][ií]|umí)/i,
+        /k\s+[cč]emu\s+(?:ten(?:to|hle)?\s+)?projekt\s+slou[zž][ií]/i,
+        /(?:ten|projekt).*(?:otev[rř]en[ýé]|aktivn[ií])/i,
+        // EN
+        /what\s+(?:is|'s)\s+(?:this\s+)?project\s+(?:about|for)/i,
+        /tell\s+me\s+about\s+(?:this\s+|the\s+)?project/i,
+        /describe\s+(?:this\s+|the\s+)?project/i,
+        /summarize\s+(?:this\s+|the\s+)?project/i,
+      ];
+      if (META_PROJECT.some(p => p.test(input))) {
+        logger.info('CRE:Guard9', `${intent} downgrade → CONVERSATIONAL (meta-project query)`, {
+          input: input.substring(0, 60),
+          project: context.project?.id || context.project?.name || 'unknown',
+        });
+        intent = IntentType.CONVERSATIONAL;
+        _diag.overrides.push('guard9_meta_project');
+      }
+    }
+
     // v73: Run detectFollowUpType for diagnostic purposes (lazy import to avoid circular dep)
     const _lastDec = context.lastDecision;
     if (_lastDec) {

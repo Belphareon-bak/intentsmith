@@ -715,6 +715,10 @@ async function startNextMilestoneOrComplete(state, context) {
       // Build completion summary from spec + project files + README
       const completionInfo = await _buildCompletionInfo(state.lifecycleId, state.projectPath || context.projectPath);
 
+      // v91: Persist lifecycle summary into project_memory so post-lifecycle
+      // conversation turns retain project awareness (fixes context loss bug)
+      await _persistCompletionContext(state, completionInfo);
+
       clearLcState(sessionId);
       return lcResponse(formatProjectCompleted(progress, completionInfo), {
         phase: 'COMPLETED',
@@ -794,6 +798,46 @@ async function handleResume(state, context) {
     logger.error('LifecycleHandoff', 'Resume failed', { error: err.message });
     clearLcState(sessionId);
     return lcResponse(`Chyba při obnovení lifecycle: ${err.message}`);
+  }
+}
+
+// ─── Post-Completion Context Persistence ─────────────────────────────────
+
+/**
+ * v91: Persist lifecycle summary into project_memory so that subsequent
+ * conversation turns can answer questions about the completed project.
+ * Stores: spec summary, file list, project path, lifecycle phase.
+ */
+async function _persistCompletionContext(state, completionInfo) {
+  if (!state.projectId) return;
+  try {
+    const { projectMemory } = await import('../../db/database.js');
+    if (!projectMemory?.set) return;
+
+    // Build a concise summary for LLM context
+    const parts = [];
+    if (completionInfo.spec) {
+      const spec = typeof completionInfo.spec === 'string'
+        ? completionInfo.spec : JSON.stringify(completionInfo.spec);
+      parts.push('SPEC: ' + spec.slice(0, 1000));
+    }
+    if (completionInfo.projectFiles?.length > 0) {
+      parts.push('FILES: ' + completionInfo.projectFiles.slice(0, 50).join(', '));
+    }
+    if (completionInfo.readmeQuickStart) {
+      parts.push('QUICKSTART: ' + completionInfo.readmeQuickStart.slice(0, 500));
+    }
+    if (completionInfo.projectPath) {
+      parts.push('PATH: ' + completionInfo.projectPath);
+    }
+
+    const summary = parts.join('\n\n');
+    if (summary) {
+      projectMemory.set.run(state.projectId, 'lifecycle_summary', summary, 'lifecycle');
+    }
+    projectMemory.set.run(state.projectId, 'lifecycle_phase', 'COMPLETED', 'lifecycle');
+  } catch (err) {
+    logger.debug('LifecycleRouter', `Failed to persist completion context: ${err.message}`);
   }
 }
 
