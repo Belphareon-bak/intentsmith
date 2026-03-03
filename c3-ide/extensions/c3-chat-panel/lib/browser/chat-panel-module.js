@@ -2236,6 +2236,7 @@ var _featureFlags=null;var _ffLoading=false;
 /* v91: Security state */
 var _secTokens=null;var _secAudit=null;var _secAuditType='all';var _secWebhook=null;var _secSessions=null;var _secNewToken=null;var _secLoading={};
 var _fbCategory='other';var _fbMessage='';var _fbSending=false;var _fbSent=false;var _fbAttachLast=false;var _fbCooldown=0;
+var _fbFiles=[];var _fbAttachLogs=false;
 function _loadBCfg(cb){if(_bCfg&&!_bCfgLoading){if(cb)cb();return;}_bCfgLoading=true;fetch(_backendBase+'/api/settings',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_bCfg=d||{};_bCfgLoading=false;if(cb)cb();renderCenter();}).catch(function(){_bCfg=_bCfg||{};_bCfgLoading=false;if(cb)cb();});}
 function _saveBCfg(){if(!_bCfg)return;clearTimeout(_bCfgSaveTimer);_bCfgSaveTimer=setTimeout(function(){fetch(_backendBase+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(_bCfg),signal:AbortSignal.timeout(3000)}).catch(function(){});},500);}
 function _bVal(key,def){return _bCfg&&_bCfg[key]!=null?_bCfg[key]:def;}
@@ -2831,6 +2832,33 @@ function _fbCollectContext(){
   try{ctx.featureFlags=_featureFlags||null;}catch(_){}
   return ctx;
 }
+function _fbReadFile(file){
+  return new Promise(function(resolve,reject){
+    if(file.size>2*1024*1024){reject(new Error('File too large'));return;}
+    var reader=new FileReader();
+    reader.onload=function(){
+      var base64=reader.result.split(',')[1]||'';
+      resolve({name:file.name,type:file.type||'application/octet-stream',data:base64,size:file.size});
+    };
+    reader.onerror=function(){reject(reader.error);};
+    reader.readAsDataURL(file);
+  });
+}
+function _fbUploadAttachments(feedbackId,files){
+  var chain=Promise.resolve();
+  files.forEach(function(f){
+    chain=chain.then(function(){
+      return fetch(_apiBase+'/api/feedback/'+feedbackId+'/attach',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name,type:f.type,data:f.data})}).then(function(r){return r.json();});
+    });
+  });
+  return chain;
+}
+function _fbRemoveFile(idx){_fbFiles.splice(idx,1);renderCenter();}
+function _fbFormatSize(bytes){
+  if(bytes<1024)return bytes+' B';
+  if(bytes<1024*1024)return (bytes/1024).toFixed(1)+' KB';
+  return (bytes/(1024*1024)).toFixed(1)+' MB';
+}
 function settingsAboutPanel(){
   var catOpts=[{v:'bug',l:'Bug'},{v:'performance',l:'V\u00fdkon (pomal\u00e9)'},{v:'ux',l:'UX probl\u00e9m'},{v:'feature',l:'N\u00e1pad / Feature'},{v:'other',l:'Jin\u00e9'}];
   var selStyle={background:C.bg3,color:C.tx1,border:'1px solid '+C.border,borderRadius:4,padding:'4px 8px',fontSize:_fs(11),width:'100%'};
@@ -2838,6 +2866,16 @@ function settingsAboutPanel(){
   var charsLeft=2000-(_fbMessage||'').length;
   var cooldownActive=_fbCooldown>Date.now();
   var btnDisabled=_fbSending||cooldownActive;
+  var totalSize=0;_fbFiles.forEach(function(f){totalSize+=f.size||0;});
+  var fileListEls=_fbFiles.map(function(f,i){
+    var isImg=f.type&&f.type.indexOf('image/')===0;
+    return h('div',{key:i,style:{display:'flex',alignItems:'center',gap:6,padding:'4px 0',borderBottom:'1px solid '+C.border}},
+      isImg?h('div',{style:{width:24,height:24,borderRadius:3,background:'#333',backgroundImage:'url(data:'+f.type+';base64,'+f.data+')',backgroundSize:'cover',flexShrink:0}}):
+        h('div',{style:{width:24,height:24,borderRadius:3,background:C.bg4,display:'flex',alignItems:'center',justifyContent:'center',fontSize:_fs(9),flexShrink:0}},'\ud83d\udcc4'),
+      h('div',{style:{flex:1,fontSize:_fs(9),color:C.tx2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},f.name),
+      h('div',{style:{fontSize:_fs(8),color:C.tx4,flexShrink:0}},_fbFormatSize(f.size)),
+      h('button',{style:{background:'none',border:'none',color:'#ef4444',cursor:'pointer',fontSize:_fs(10),padding:'0 4px',flexShrink:0},onClick:function(){_fbRemoveFile(i);}},'\u00d7'));
+  });
   return h('div',{style:{padding:'30px 0'}},
     h('div',{style:{textAlign:'center'}},
       h('div',{style:{width:64,height:64,background:'linear-gradient(135deg,#22c55e,#16a34a)',borderRadius:18,display:'inline-flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:_fs(26),color:'#fff',marginBottom:14}},'C3'),
@@ -2858,9 +2896,49 @@ function settingsAboutPanel(){
         h('label',{style:{fontSize:_fs(10),color:C.tx3,marginBottom:2,display:'block'}},'Zpr\u00e1va'),
         h('textarea',{style:taStyle,value:_fbMessage,maxLength:2000,placeholder:'Co bys vylep\u0161il/a? Na\u0161el/\u0161la jsi chybu?',onChange:function(e){_fbMessage=e.target.value;renderCenter();}})),
       h('div',{style:{fontSize:_fs(9),color:charsLeft<200?'#f59e0b':C.tx4,marginBottom:8,textAlign:'right'}},charsLeft+' / 2000'),
-      h('label',{style:{display:'flex',alignItems:'center',gap:6,fontSize:_fs(10),color:C.tx3,marginBottom:10,cursor:'pointer'}},
+      h('label',{style:{display:'flex',alignItems:'center',gap:6,fontSize:_fs(10),color:C.tx3,marginBottom:6,cursor:'pointer'}},
         h('input',{type:'checkbox',checked:_fbAttachLast,onChange:function(){_fbAttachLast=!_fbAttachLast;renderCenter();}}),
         'P\u0159ilo\u017eit posledn\u00ed odpov\u011b\u010f asistenta'),
+      h('label',{style:{display:'flex',alignItems:'center',gap:6,fontSize:_fs(10),color:C.tx3,marginBottom:10,cursor:'pointer'}},
+        h('input',{type:'checkbox',checked:_fbAttachLogs,onChange:function(){_fbAttachLogs=!_fbAttachLogs;renderCenter();}}),
+        'P\u0159ilo\u017eit serverov\u00e9 logy'),
+      h('div',{style:{marginBottom:10}},
+        h('div',{style:{fontSize:_fs(10),color:C.tx3,marginBottom:4}},'P\u0159\u00edlohy (screenshoty, soubory)'),
+        h('div',{style:{display:'flex',gap:6,marginBottom:6}},
+          h('button',{style:{background:C.bg4,color:C.tx2,border:'1px solid '+C.border,borderRadius:4,padding:'4px 10px',cursor:'pointer',fontSize:_fs(10)},
+            onClick:function(){
+              var inp=document.createElement('input');inp.type='file';inp.accept='image/*,.png,.jpg,.jpeg,.gif,.webp,.log,.txt';inp.multiple=true;
+              inp.onchange=function(){
+                var promises=[];
+                for(var i=0;i<inp.files.length;i++){promises.push(_fbReadFile(inp.files[i]));}
+                Promise.all(promises).then(function(results){
+                  results.forEach(function(r){if(totalSize+r.size<=5*1024*1024){_fbFiles.push(r);totalSize+=r.size;}});
+                  renderCenter();
+                }).catch(function(){});
+              };
+              inp.click();
+            }},'\ud83d\udcce P\u0159idat soubor'),
+          h('button',{style:{background:C.bg4,color:C.tx2,border:'1px solid '+C.border,borderRadius:4,padding:'4px 10px',cursor:'pointer',fontSize:_fs(10)},
+            onClick:function(){
+              if(!navigator.clipboard||!navigator.clipboard.read)return;
+              navigator.clipboard.read().then(function(items){
+                for(var i=0;i<items.length;i++){
+                  var types=items[i].types||[];
+                  for(var t=0;t<types.length;t++){
+                    if(types[t].indexOf('image/')===0){
+                      items[i].getType(types[t]).then(function(blob){
+                        _fbReadFile(new File([blob],'screenshot_'+Date.now()+'.png',{type:blob.type})).then(function(r){
+                          if(totalSize+r.size<=5*1024*1024){_fbFiles.push(r);renderCenter();}
+                        });
+                      });
+                      return;
+                    }
+                  }
+                }
+              }).catch(function(){});
+            }},'\ud83d\udccb Vlo\u017eit ze schr\u00e1nky')),
+        _fbFiles.length>0?h('div',{style:{border:'1px solid '+C.border,borderRadius:6,padding:6,marginBottom:4}},fileListEls,
+          h('div',{style:{fontSize:_fs(8),color:C.tx4,marginTop:4,textAlign:'right'}},_fbFiles.length+' soubor'+(_fbFiles.length>1?'\u016f':'')+' \u2022 '+_fbFormatSize(totalSize)+' / 5 MB')):null),
       _fbSent?h('div',{style:{color:'#22c55e',fontSize:_fs(11),fontWeight:600,marginBottom:8}},'D\u011bkujeme za zp\u011btnou vazbu!'):null,
       cooldownActive?h('div',{style:{color:'#f59e0b',fontSize:_fs(10),marginBottom:8}},'Po\u010dkej 30s p\u0159ed dal\u0161\u00edm odesl\u00e1n\u00edm.'):null,
       h('button',{style:{background:btnDisabled?C.bg4:C.accent,color:'#fff',border:'none',borderRadius:6,padding:'6px 16px',cursor:btnDisabled?'default':'pointer',fontSize:_fs(11),opacity:btnDisabled?0.6:1},disabled:btnDisabled,
@@ -2869,9 +2947,25 @@ function settingsAboutPanel(){
           _fbSending=true;_fbSent=false;renderCenter();
           var payload={category:_fbCategory,message:_fbMessage.trim(),version:_serverHealth.version||null,context:_fbCollectContext()};
           if(_fbAttachLast){var lr=_fbGetLastAssistant();if(lr)payload.lastResponse=lr;}
-          fetch(_apiBase+'/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(function(r){return r.json();}).then(function(d){
-            if(d.ok){_fbMessage='';_fbSent=true;_fbCooldown=Date.now()+30000;_fbAttachLast=false;}
-            if(d.error&&d.error.indexOf('429')>=0||d.error==='Too many requests. Wait 30s.'){_fbCooldown=Date.now()+30000;}
+          /* Step 1: fetch logs if requested */
+          var logsPromise=_fbAttachLogs?fetch(_apiBase+'/api/logs/export').then(function(r){return r.text();}).then(function(txt){
+            var b64=btoa(unescape(encodeURIComponent(txt)));
+            return {name:'server-logs_'+Date.now()+'.log',type:'text/plain',data:b64,size:txt.length};
+          }).catch(function(){return null;}):Promise.resolve(null);
+          logsPromise.then(function(logFile){
+            var allFiles=_fbFiles.slice();
+            if(logFile)allFiles.push(logFile);
+            /* Step 2: submit feedback */
+            return fetch(_apiBase+'/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(function(r){return r.json();}).then(function(d){
+              if(!d.ok){if(d.error&&d.error.indexOf('Too many')>=0){_fbCooldown=Date.now()+30000;}return;}
+              var fbId=d.id;
+              _fbMessage='';_fbSent=true;_fbCooldown=Date.now()+30000;_fbAttachLast=false;_fbAttachLogs=false;
+              /* Step 3: upload attachments */
+              if(allFiles.length>0&&fbId){
+                _fbUploadAttachments(fbId,allFiles).catch(function(){});
+              }
+              _fbFiles=[];
+            });
           }).catch(function(){}).finally(function(){_fbSending=false;renderCenter();});
         }},_fbSending?'Odes\u00edl\u00e1m...':'Odeslat zp\u011btnou vazbu')));
 }

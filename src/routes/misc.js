@@ -1,6 +1,8 @@
 import { getCurrentVersion } from '../packaging/auto-updater.js';
 import { featureManager } from '../core/feature-manager.js';
 import config from '../config.js';
+import { writeFile, mkdir } from 'fs/promises';
+import { join } from 'path';
 
 // H9: Settings, Health, Autocomplete, Audit, Logs routes
 const _fbRateMap = new Map(); // IP → last feedback timestamp (rate limit)
@@ -229,12 +231,60 @@ export function createMiscRoutes(deps) {
       const context = body.context ? JSON.stringify(body.context) : null;
       const lastResponse = typeof body.lastResponse === 'string' ? body.lastResponse.slice(0, 4000) : null;
       try {
-        db.db.prepare(
+        const result = db.db.prepare(
           'INSERT INTO feedback (category, message, version, context, last_response) VALUES (?, ?, ?, ?, ?)'
         ).run(category, message, version, context, lastResponse);
-        sendJSON(res, 201, { ok: true });
+        sendJSON(res, 201, { ok: true, id: Number(result.lastInsertRowid) });
       } catch (err) {
         sendJSON(res, 500, { error: 'Failed to save feedback' });
+      }
+    },
+
+    'POST /api/feedback/:id/attach': async (req, res, params) => {
+      const feedbackId = parseInt(params.id);
+      if (!feedbackId) return sendJSON(res, 400, { error: 'Invalid feedback ID' });
+
+      // Verify feedback exists
+      const fb = db.db.prepare('SELECT id FROM feedback WHERE id = ?').get(feedbackId);
+      if (!fb) return sendJSON(res, 404, { error: 'Feedback not found' });
+
+      const body = await parseBody(req);
+      const name = (body.name || '').replace(/[^a-zA-Z0-9._-]/g, '_').replace(/\.{2,}/g, '.').replace(/^[._-]+/, '').slice(0, 100) || 'file';
+      const mimeType = body.type || 'application/octet-stream';
+      const data = body.data; // base64
+
+      if (!name || !data || typeof data !== 'string') {
+        return sendJSON(res, 400, { error: 'name and data (base64) required' });
+      }
+
+      // Decode base64
+      const buf = Buffer.from(data, 'base64');
+      if (buf.length > 2 * 1024 * 1024) {
+        return sendJSON(res, 400, { error: 'File too large (max 2MB)' });
+      }
+
+      // Check total attachments for this feedback (max 5MB)
+      try {
+        const total = db.db.prepare('SELECT COALESCE(SUM(size),0) as total FROM feedback_attachments WHERE feedback_id = ?').get(feedbackId);
+        if ((total?.total || 0) + buf.length > 5 * 1024 * 1024) {
+          return sendJSON(res, 400, { error: 'Total attachments too large (max 5MB)' });
+        }
+      } catch (_) { /* table may not exist yet */ }
+
+      // Write to disk
+      const dir = join(process.cwd(), 'data', 'feedback', String(feedbackId));
+      try {
+        await mkdir(dir, { recursive: true });
+        const filePath = join(dir, name);
+        await writeFile(filePath, buf);
+
+        db.db.prepare(
+          'INSERT INTO feedback_attachments (feedback_id, filename, mime_type, size, path) VALUES (?, ?, ?, ?, ?)'
+        ).run(feedbackId, name, mimeType, buf.length, filePath);
+
+        sendJSON(res, 201, { ok: true, filename: name, size: buf.length });
+      } catch (err) {
+        sendJSON(res, 500, { error: 'Failed to save attachment' });
       }
     },
 
@@ -243,6 +293,13 @@ export function createMiscRoutes(deps) {
         const rows = db.db.prepare(
           'SELECT id, category, message, version, context, created_at FROM feedback ORDER BY created_at DESC LIMIT 100'
         ).all();
+        // Attach attachment count per feedback
+        for (const row of rows) {
+          try {
+            const cnt = db.db.prepare('SELECT COUNT(*) as c FROM feedback_attachments WHERE feedback_id = ?').get(row.id);
+            row.attachments = cnt?.c || 0;
+          } catch (_) { row.attachments = 0; }
+        }
         sendJSON(res, 200, { feedback: rows });
       } catch (_) {
         sendJSON(res, 200, { feedback: [] });
