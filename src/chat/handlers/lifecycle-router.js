@@ -34,6 +34,13 @@ import {
  * @returns {Object} ProjectLifecycle instance with DI applied
  */
 async function resumeWithContext(state, context) {
+  // Guard: orphaned state with no lifecycle ID — auto-clear to prevent infinite error loop
+  if (!state.lifecycleId) {
+    if (context.sessionId) clearLcState(context.sessionId);
+    logger.warn('LifecycleHandoff', `Orphaned lifecycle state (phase=${state.phase}, no lifecycleId) — cleared`);
+    throw new Error('Lifecycle state is orphaned (no lifecycle ID). State cleared.');
+  }
+
   const { ProjectLifecycle } = await import('../../planner/lifecycle.js');
   let projectPath = context.projectPath || state.projectPath;
 
@@ -48,7 +55,10 @@ async function resumeWithContext(state, context) {
 
   const lifecycle = ProjectLifecycle.resume(state.lifecycleId, projectPath);
   if (!lifecycle) {
-    throw new Error(`Lifecycle ${state.lifecycleId} not found in DB`);
+    // Lifecycle record deleted from DB — auto-clear to prevent infinite error loop
+    if (context.sessionId) clearLcState(context.sessionId);
+    logger.warn('LifecycleHandoff', `Lifecycle ${state.lifecycleId} not found in DB — state cleared`);
+    throw new Error(`Lifecycle ${state.lifecycleId} not found in DB. State cleared.`);
   }
   if (context.callLLM) lifecycle.callLLM = context.callLLM;
   if (context.executor) lifecycle.executor = context.executor;
@@ -702,8 +712,11 @@ async function startNextMilestoneOrComplete(state, context) {
       const { getBuildProgress } = await import('../../planner/lifecycle-build.js');
       const progress = getBuildProgress(state.lifecycleId);
 
+      // Build completion summary from spec + project files + README
+      const completionInfo = await _buildCompletionInfo(state.lifecycleId, state.projectPath || context.projectPath);
+
       clearLcState(sessionId);
-      return lcResponse(formatProjectCompleted(progress), {
+      return lcResponse(formatProjectCompleted(progress, completionInfo), {
         phase: 'COMPLETED',
         lifecycleId: state.lifecycleId,
       });
@@ -782,4 +795,68 @@ async function handleResume(state, context) {
     clearLcState(sessionId);
     return lcResponse(`Chyba při obnovení lifecycle: ${err.message}`);
   }
+}
+
+// ─── Completion Info Builder ──────────────────────────────────────────────
+
+async function _buildCompletionInfo(lifecycleId, projectPath) {
+  const info = { projectPath };
+
+  try {
+    const { lifecycles: lifecycleRepo } = await import('../../db/database.js');
+    info.spec = lifecycleRepo.getSpec(lifecycleId);
+  } catch (_) {}
+
+  if (projectPath) {
+    try {
+      const fs = await import('fs');
+      const pathMod = await import('path');
+
+      // List project files (exclude .git, node_modules, __pycache__)
+      info.projectFiles = _walkProjectFiles(projectPath, fs.default || fs, pathMod.default || pathMod);
+
+      // Extract quick-start section from README
+      const readmePath = (pathMod.default || pathMod).join(projectPath, 'README.md');
+      if ((fs.default || fs).existsSync(readmePath)) {
+        const readme = (fs.default || fs).readFileSync(readmePath, 'utf-8');
+        info.readmeQuickStart = _extractReadmeSection(readme,
+          /##\s+(Instalace|Install|Použití|Usage|Spuštění|Getting\s+Started|Setup|Quick\s*Start|Prerequisit|Požadavk)/i
+        );
+      }
+    } catch (_) {}
+  }
+
+  return info;
+}
+
+function _walkProjectFiles(dir, fs, path, base = dir) {
+  const result = [];
+  try {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (e.name === '.git' || e.name === 'node_modules' || e.name === '__pycache__' || e.name === '.venv') continue;
+      const fp = path.join(dir, e.name);
+      if (e.isDirectory()) result.push(..._walkProjectFiles(fp, fs, path, base));
+      else result.push(path.relative(base, fp));
+    }
+  } catch { /* ignore */ }
+  return result;
+}
+
+function _extractReadmeSection(markdown, headerRegex) {
+  const lines = markdown.split('\n');
+  let capturing = false;
+  const result = [];
+
+  for (const line of lines) {
+    if (headerRegex.test(line)) {
+      capturing = true;
+      continue;
+    }
+    if (capturing && /^##\s/.test(line)) break; // next section
+    if (capturing) result.push(line);
+    if (result.length >= 12) break;
+  }
+
+  const text = result.join('\n').trim();
+  return text || null;
 }

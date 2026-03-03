@@ -250,7 +250,7 @@ export function formatChangeApplied(result) {
   ].filter(Boolean).join('\n');
 }
 
-export function formatProjectCompleted(progress) {
+export function formatProjectCompleted(progress, completionInfo = {}) {
   const lines = [
     `🎉 **Projekt dokončen!**`,
     ``,
@@ -258,6 +258,56 @@ export function formatProjectCompleted(progress) {
 
   if (progress) {
     lines.push(formatBuildProgress(progress));
+    lines.push('');
+  }
+
+  // ─── Project Summary ───
+  const { spec, projectPath, projectFiles, readmeQuickStart } = completionInfo;
+
+  if (spec) {
+    if (spec.title) lines.push(`## ${spec.title}`, ``);
+    if (spec.description) lines.push(spec.description, ``);
+
+    // Milestone summary from progress data
+    if (progress?.milestones?.length > 0) {
+      lines.push('**Co bylo vytvořeno:**');
+      for (const ms of progress.milestones) {
+        const icon = ms.status === 'PASSED' ? '✅' : ms.status === 'SKIPPED' ? '⏭️' : '🚫';
+        lines.push(`  ${icon} **${ms.title}**`);
+      }
+      lines.push('');
+    }
+
+    // Tech stack
+    const ts = spec.tech_stack;
+    if (ts) {
+      lines.push('**Tech stack:**');
+      if (ts.languages) lines.push(`  Jazyky: ${Array.isArray(ts.languages) ? ts.languages.join(', ') : ts.languages}`);
+      if (ts.frameworks) lines.push(`  Frameworky: ${Array.isArray(ts.frameworks) ? ts.frameworks.join(', ') : ts.frameworks}`);
+      if (ts.tools) lines.push(`  Nástroje: ${Array.isArray(ts.tools) ? ts.tools.join(', ') : ts.tools}`);
+      lines.push('');
+    }
+  }
+
+  // Quick-start from README (pre-extracted)
+  if (readmeQuickStart) {
+    lines.push('**Jak spustit:**');
+    lines.push(readmeQuickStart);
+    lines.push('');
+  }
+
+  // Project files
+  if (projectFiles && projectFiles.length > 0) {
+    lines.push(`**Soubory projektu** (${projectFiles.length}):`);
+    for (const f of projectFiles.slice(0, 15)) {
+      lines.push(`  📄 ${f}`);
+    }
+    if (projectFiles.length > 15) lines.push(`  ... a dalších ${projectFiles.length - 15}`);
+    lines.push('');
+  }
+
+  if (projectPath) {
+    lines.push(`📁 Projekt: \`${projectPath}\``);
     lines.push('');
   }
 

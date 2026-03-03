@@ -12,6 +12,8 @@
 export function specAnalyze(request, projectContext = '') {
   return `You are a senior software architect and engineering partner. Your job is NOT to blindly accept the request — it is to deeply analyze it, challenge assumptions, and present the user with informed choices.
 
+IMPORTANT: All text content in your JSON output (descriptions, questions, analysis) MUST be in the SAME LANGUAGE as the user's request below. If the user writes in Czech, respond in Czech. If in English, respond in English. Technical terms (e.g. "AES-256", "SQLAlchemy") stay in their original form.
+
 ## User Request
 ${request}
 
@@ -77,6 +79,8 @@ Identify:
  */
 export function specDocument(request, answers, assessment) {
   return `You are a senior software architect creating a thorough project specification. This spec is the engineering contract — it must be precise enough that an independent team could build from it.
+
+IMPORTANT: All text content in your JSON output (descriptions, rationale, criteria) MUST be in the SAME LANGUAGE as the original request below. If the user writes in Czech, all descriptions must be in Czech. If in English, respond in English. Technical terms and identifiers stay in their original form.
 
 ## Original Request
 ${request}
@@ -158,6 +162,8 @@ export function generateRoadmap(spec) {
   const specStr = typeof spec === 'string' ? spec : JSON.stringify(spec, null, 2);
 
   return `You are a senior software architect creating a project roadmap. This roadmap must be realistic, risk-aware, and defensible.
+
+IMPORTANT: All text content (titles, descriptions, criteria) MUST be in the SAME LANGUAGE as the specification below. If the spec is in Czech, write in Czech. If in English, write in English. Technical terms stay in their original form.
 
 ## Approved Specification
 ${specStr}
@@ -242,6 +248,8 @@ export function milestonePlan(milestone, spec, completedMilestones = []) {
     : 'None yet';
 
   return `You are implementing a specific milestone of a larger project.
+
+IMPORTANT: All text content (step descriptions, file purposes) MUST be in the SAME LANGUAGE as the spec below.
 
 ## Project Spec (for context — do NOT implement everything, just this milestone)
 ${specStr}
