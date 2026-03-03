@@ -1,4 +1,4 @@
-// Migration 027: Feedback table for user feedback from About panel
+// Migration 027: Feedback table with runtime context
 export default {
   id: '027_v91_feedback',
   up(db) {
@@ -8,6 +8,8 @@ export default {
         category TEXT NOT NULL DEFAULT 'other',
         message TEXT NOT NULL,
         version TEXT,
+        context TEXT,
+        last_response TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);

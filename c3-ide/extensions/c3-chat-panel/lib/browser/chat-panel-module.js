@@ -2235,7 +2235,7 @@ var _bCfg=null;var _bCfgLoading=false;var _gpuInfo=null;var _ollamaModels=null;v
 var _featureFlags=null;var _ffLoading=false;
 /* v91: Security state */
 var _secTokens=null;var _secAudit=null;var _secAuditType='all';var _secWebhook=null;var _secSessions=null;var _secNewToken=null;var _secLoading={};
-var _fbCategory='other';var _fbMessage='';var _fbSending=false;var _fbSent=false;
+var _fbCategory='other';var _fbMessage='';var _fbSending=false;var _fbSent=false;var _fbAttachLast=false;var _fbCooldown=0;
 function _loadBCfg(cb){if(_bCfg&&!_bCfgLoading){if(cb)cb();return;}_bCfgLoading=true;fetch(_backendBase+'/api/settings',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_bCfg=d||{};_bCfgLoading=false;if(cb)cb();renderCenter();}).catch(function(){_bCfg=_bCfg||{};_bCfgLoading=false;if(cb)cb();});}
 function _saveBCfg(){if(!_bCfg)return;clearTimeout(_bCfgSaveTimer);_bCfgSaveTimer=setTimeout(function(){fetch(_backendBase+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(_bCfg),signal:AbortSignal.timeout(3000)}).catch(function(){});},500);}
 function _bVal(key,def){return _bCfg&&_bCfg[key]!=null?_bCfg[key]:def;}
@@ -2816,10 +2816,28 @@ function settingsSecurityPanel(){
     h('div',{style:secH},'Aktivní relace'),
     sessInfo||h('div',{style:{color:C.tx4,fontSize:_fs(10)}},'Načítám...'));
 }
+function _fbGetLastAssistant(){
+  var msgs=_ts&&_ts.chat&&_ts.chat.msgs;if(!msgs)return null;
+  for(var i=msgs.length-1;i>=0;i--){if(msgs[i].role==='assistant')return msgs[i].text;}
+  return null;
+}
+function _fbCollectContext(){
+  var ctx={};
+  try{ctx.chatModel=_bVal('c3.llm.chatModel',null);}catch(_){}
+  try{ctx.codeModel=_bVal('c3.llm.codeModel',null);}catch(_){}
+  try{ctx.wsConnected=_serverHealth.wsConnected||false;}catch(_){}
+  var msgs=_ts&&_ts.chat&&_ts.chat.msgs;
+  if(msgs){for(var i=msgs.length-1;i>=0;i--){if(msgs[i].tag){ctx.lastIntent=msgs[i].tag;break;}}}
+  try{ctx.featureFlags=_featureFlags||null;}catch(_){}
+  return ctx;
+}
 function settingsAboutPanel(){
-  var catOpts=[{v:'bug',l:'Bug'},{v:'feature',l:'N\u00e1pad / Feature'},{v:'other',l:'Jin\u00e9'}];
+  var catOpts=[{v:'bug',l:'Bug'},{v:'performance',l:'V\u00fdkon (pomal\u00e9)'},{v:'ux',l:'UX probl\u00e9m'},{v:'feature',l:'N\u00e1pad / Feature'},{v:'other',l:'Jin\u00e9'}];
   var selStyle={background:C.bg3,color:C.tx1,border:'1px solid '+C.border,borderRadius:4,padding:'4px 8px',fontSize:_fs(11),width:'100%'};
   var taStyle={background:C.bg3,color:C.tx1,border:'1px solid '+C.border,borderRadius:6,padding:'8px 10px',fontSize:_fs(11),width:'100%',minHeight:80,resize:'vertical',fontFamily:'inherit',boxSizing:'border-box'};
+  var charsLeft=2000-(_fbMessage||'').length;
+  var cooldownActive=_fbCooldown>Date.now();
+  var btnDisabled=_fbSending||cooldownActive;
   return h('div',{style:{padding:'30px 0'}},
     h('div',{style:{textAlign:'center'}},
       h('div',{style:{width:64,height:64,background:'linear-gradient(135deg,#22c55e,#16a34a)',borderRadius:18,display:'inline-flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:_fs(26),color:'#fff',marginBottom:14}},'C3'),
@@ -2831,21 +2849,29 @@ function settingsAboutPanel(){
         onClick:function(){try{localStorage.removeItem('c3.onboarding.completed');}catch(_){}renderCenter();}},'Spustit pr\u016fvodce prvn\u00edm spu\u0161t\u011bn\u00edm')),
     h('div',{style:{borderTop:'1px solid '+C.border,paddingTop:16}},
       h('div',{style:{fontSize:_fs(13),fontWeight:700,color:C.tx1,marginBottom:4}},'Zp\u011btn\u00e1 vazba'),
-      h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:12}},'Napi\u0161 n\u00e1m co funguje, co ne, nebo co bys cht\u011bl/a p\u0159idat.'),
+      h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:12}},'Napi\u0161 n\u00e1m co funguje, co ne, nebo co bys cht\u011bl/a p\u0159idat. Runtime kontext se p\u0159ilo\u017e\u00ed automaticky.'),
       h('div',{style:{marginBottom:8}},
         h('label',{style:{fontSize:_fs(10),color:C.tx3,marginBottom:2,display:'block'}},'Kategorie'),
-        h('select',{style:selStyle,value:_fbCategory,onChange:function(e){_fbCategory=e.target.value;}},
+        h('select',{style:selStyle,value:_fbCategory,onChange:function(e){_fbCategory=e.target.value;renderCenter();}},
           catOpts.map(function(o){return h('option',{key:o.v,value:o.v},o.l);}))),
-      h('div',{style:{marginBottom:8}},
+      h('div',{style:{marginBottom:4}},
         h('label',{style:{fontSize:_fs(10),color:C.tx3,marginBottom:2,display:'block'}},'Zpr\u00e1va'),
-        h('textarea',{style:taStyle,value:_fbMessage,placeholder:'Co bys vylep\u0161il/a? Na\u0161el/\u0161la jsi chybu?',onChange:function(e){_fbMessage=e.target.value;}})),
+        h('textarea',{style:taStyle,value:_fbMessage,maxLength:2000,placeholder:'Co bys vylep\u0161il/a? Na\u0161el/\u0161la jsi chybu?',onChange:function(e){_fbMessage=e.target.value;renderCenter();}})),
+      h('div',{style:{fontSize:_fs(9),color:charsLeft<200?'#f59e0b':C.tx4,marginBottom:8,textAlign:'right'}},charsLeft+' / 2000'),
+      h('label',{style:{display:'flex',alignItems:'center',gap:6,fontSize:_fs(10),color:C.tx3,marginBottom:10,cursor:'pointer'}},
+        h('input',{type:'checkbox',checked:_fbAttachLast,onChange:function(){_fbAttachLast=!_fbAttachLast;renderCenter();}}),
+        'P\u0159ilo\u017eit posledn\u00ed odpov\u011b\u010f asistenta'),
       _fbSent?h('div',{style:{color:'#22c55e',fontSize:_fs(11),fontWeight:600,marginBottom:8}},'D\u011bkujeme za zp\u011btnou vazbu!'):null,
-      h('button',{style:{background:_fbSending?C.bg4:C.accent,color:'#fff',border:'none',borderRadius:6,padding:'6px 16px',cursor:_fbSending?'default':'pointer',fontSize:_fs(11),opacity:_fbSending?0.6:1},disabled:_fbSending,
+      cooldownActive?h('div',{style:{color:'#f59e0b',fontSize:_fs(10),marginBottom:8}},'Po\u010dkej 30s p\u0159ed dal\u0161\u00edm odesl\u00e1n\u00edm.'):null,
+      h('button',{style:{background:btnDisabled?C.bg4:C.accent,color:'#fff',border:'none',borderRadius:6,padding:'6px 16px',cursor:btnDisabled?'default':'pointer',fontSize:_fs(11),opacity:btnDisabled?0.6:1},disabled:btnDisabled,
         onClick:function(){
-          if(!_fbMessage.trim())return;
+          if(!_fbMessage.trim()||btnDisabled)return;
           _fbSending=true;_fbSent=false;renderCenter();
-          fetch(_apiBase+'/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({category:_fbCategory,message:_fbMessage.trim(),version:_serverHealth.version||null})}).then(function(r){return r.json();}).then(function(d){
-            if(d.ok){_fbMessage='';_fbSent=true;}
+          var payload={category:_fbCategory,message:_fbMessage.trim(),version:_serverHealth.version||null,context:_fbCollectContext()};
+          if(_fbAttachLast){var lr=_fbGetLastAssistant();if(lr)payload.lastResponse=lr;}
+          fetch(_apiBase+'/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(function(r){return r.json();}).then(function(d){
+            if(d.ok){_fbMessage='';_fbSent=true;_fbCooldown=Date.now()+30000;_fbAttachLast=false;}
+            if(d.error&&d.error.indexOf('429')>=0||d.error==='Too many requests. Wait 30s.'){_fbCooldown=Date.now()+30000;}
           }).catch(function(){}).finally(function(){_fbSending=false;renderCenter();});
         }},_fbSending?'Odes\u00edl\u00e1m...':'Odeslat zp\u011btnou vazbu')));
 }

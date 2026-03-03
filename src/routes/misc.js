@@ -3,6 +3,7 @@ import { featureManager } from '../core/feature-manager.js';
 import config from '../config.js';
 
 // H9: Settings, Health, Autocomplete, Audit, Logs routes
+const _fbRateMap = new Map(); // IP → last feedback timestamp (rate limit)
 export function createMiscRoutes(deps) {
   const { db, parseBody, sendJSON, safeError, logger, callWithAuth, createAuthToken, LLMCallerRole } = deps;
   return {
@@ -206,17 +207,31 @@ export function createMiscRoutes(deps) {
 
     // ── Feedback ──────────────────────────────────────────────────────────
     'POST /api/feedback': async (req, res) => {
+      // Rate limit: 1 per 30s per IP
+      const ip = req.socket?.remoteAddress || 'unknown';
+      const now = Date.now();
+      if (_fbRateMap.get(ip) > now - 30000) {
+        return sendJSON(res, 429, { error: 'Too many requests. Wait 30s.' });
+      }
+      _fbRateMap.set(ip, now);
+
       const body = await parseBody(req);
       const message = (body.message || '').trim();
       if (!message) {
         return sendJSON(res, 400, { error: 'Message is required' });
       }
-      const category = ['bug', 'feature', 'other'].includes(body.category) ? body.category : 'other';
+      if (message.length > 2000) {
+        return sendJSON(res, 400, { error: 'Message too long (max 2000 chars)' });
+      }
+      const VALID_CATS = ['bug', 'performance', 'ux', 'feature', 'other'];
+      const category = VALID_CATS.includes(body.category) ? body.category : 'other';
       const version = body.version || null;
+      const context = body.context ? JSON.stringify(body.context) : null;
+      const lastResponse = typeof body.lastResponse === 'string' ? body.lastResponse.slice(0, 4000) : null;
       try {
         db.db.prepare(
-          'INSERT INTO feedback (category, message, version) VALUES (?, ?, ?)'
-        ).run(category, message, version);
+          'INSERT INTO feedback (category, message, version, context, last_response) VALUES (?, ?, ?, ?, ?)'
+        ).run(category, message, version, context, lastResponse);
         sendJSON(res, 201, { ok: true });
       } catch (err) {
         sendJSON(res, 500, { error: 'Failed to save feedback' });
@@ -226,7 +241,7 @@ export function createMiscRoutes(deps) {
     'GET /api/feedback': (req, res) => {
       try {
         const rows = db.db.prepare(
-          'SELECT id, category, message, version, created_at FROM feedback ORDER BY created_at DESC LIMIT 100'
+          'SELECT id, category, message, version, context, created_at FROM feedback ORDER BY created_at DESC LIMIT 100'
         ).all();
         sendJSON(res, 200, { feedback: rows });
       } catch (_) {
