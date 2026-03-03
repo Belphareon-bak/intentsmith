@@ -118,7 +118,7 @@ export async function confirmAndExecute(executionId) {
     }
 
     const params = JSON.parse(exec.params || '{}');
-    return _executeSteps(executionId, skill, params, {}, 0);
+    return _executeSteps(executionId, skill, params, {}, 0, exec.input);
   } catch (err) {
     logger.error('SkillRunner', `confirmAndExecute() failed: ${err.message}`);
     _failExecution(executionId, err.message);
@@ -182,7 +182,7 @@ export async function resume(executionId, userInput) {
 
     // Transition back to EXECUTING and continue from next step
     skillExecutions.updateState.run('EXECUTING', null, JSON.stringify(stepsOutput), executionId);
-    return _executeSteps(executionId, skill, params, stepsOutput, awaitingIdx + 1);
+    return _executeSteps(executionId, skill, params, stepsOutput, awaitingIdx + 1, exec.input);
   } catch (err) {
     logger.error('SkillRunner', `resume() failed: ${err.message}`);
     _failExecution(executionId, err.message);
@@ -236,11 +236,14 @@ export function getStatus(executionId) {
 
 // ── Step execution loop (shared by confirmAndExecute + resume) ───────────────
 
-async function _executeSteps(executionId, skill, params, stepsOutput, startIdx) {
+async function _executeSteps(executionId, skill, params, stepsOutput, startIdx, originalInput) {
+  // Make original user input available as {{input}} in all step templates
+  const effectiveParams = originalInput ? { ...params, input: originalInput } : params;
+
   const context = {
     executionId,
     skillId: skill.id,
-    params,
+    params: effectiveParams,
     stepsOutput,
   };
 

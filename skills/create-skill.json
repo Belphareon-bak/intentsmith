@@ -13,7 +13,7 @@
     {
       "id": "clarify",
       "type": "ask",
-      "prompt": "Chci vytvořit skill **{{name}}**.\n\nUpřesni prosím:\n- Co přesně má skill dělat? (jaké kroky v jakém pořadí)\n- Jaké vstupní parametry bude potřebovat?\n- Co je fixní (vždy stejné) a co variabilní (závisí na vstupu)?\n- Jaká jsou kritéria úspěchu výsledku?"
+      "prompt": "Chci vytvořit skill **{{name}}**.\n\nPůvodní zadání: {{input}}\n\nPokud je z původního zadání jasné, co skill má dělat, potvrd krátkým shrnutím.\n\nPokud potřebuji upřesnit, odpověz na tyto body:\n- Co přesně má skill dělat? (jaké kroky v jakém pořadí)\n- Jaké vstupní parametry bude potřebovat?\n- Co je fixní (vždy stejné) a co variabilní (závisí na vstupu)?\n- Jaká jsou kritéria úspěchu výsledku?"
     },
     {
       "id": "generate",
