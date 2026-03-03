@@ -72,6 +72,7 @@ var _PRO_GLASS={
 function _applyColorTheme(themeId){
   var t=_C_THEMES[themeId]||_C_DEFAULT;
   Object.keys(t).forEach(function(k){C[k]=t[k];});
+  C._solidBg0=t.bg0; /* v93: Always store solid bg0 before glass override */
   /* For pro themes: overwrite C.bg* with glass (rgba) values.
      This makes BOTH React inline styles AND CSS variables use transparent backgrounds,
      so the background image shows through everything. */
@@ -621,7 +622,7 @@ class C3SidebarWidget extends react_widget_1.ReactWidget {
          preserve Lumino's layout styles while hiding the element. */
       if(!document.getElementById('c3-strip-hide')){
         var ss=document.createElement('style');ss.id='c3-strip-hide';
-        ss.textContent='.theia-sidepanel-toolbar{display:none!important;height:0!important;max-height:0!important;min-height:0!important;overflow:hidden!important;visibility:hidden!important;opacity:0!important;}.theia-sidepanel-toolbar~*{top:0!important;height:100%!important;}.lm-TabBar-toolbar{display:none!important;height:0!important;overflow:hidden!important;}#theia-right-side-panel .lm-TabBar~*,#theia-bottom-content-panel .lm-TabBar~*{top:0!important;height:100%!important;}#theia-right-side-panel .lm-DockPanel-widget,#theia-bottom-content-panel .lm-DockPanel-widget{top:0!important;height:100%!important;}.lm-Widget:focus,.lm-Widget:focus-visible,#c3-sidebar:focus,#c3-chat-panel:focus,#c3-agent-panel:focus{outline:none!important;box-shadow:none!important;}*:focus-visible{outline:none!important;}#theia-top-panel,.p-MenuBar,#theia\\:menubar,.theia-app-header{background:var(--c3-bg1,#111114)!important;border-color:var(--c3-border,rgba(255,255,255,0.06))!important;}#theia-left-side-panel,#theia-right-side-panel,#theia-bottom-content-panel{background:var(--c3-bg1,#111114)!important;}input[type=range]{-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:var(--c3-bg4,#27282e);outline:none;}input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--c3-accent,#22c55e);cursor:pointer;border:2px solid var(--c3-bg1,#111114);}body{border:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;box-sizing:border-box!important;}#theia-right-side-panel{border-left:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;}#theia-bottom-content-panel{border-top:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;}@keyframes c3-ac-pulse{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}@keyframes c3-thinking-dot{0%,80%,100%{opacity:0.2;transform:scale(0.8)}40%{opacity:1;transform:scale(1)}}';
+        ss.textContent='.theia-sidepanel-toolbar{display:none!important;height:0!important;max-height:0!important;min-height:0!important;overflow:hidden!important;visibility:hidden!important;opacity:0!important;}.theia-sidepanel-toolbar~*{top:0!important;height:100%!important;}.lm-TabBar-toolbar{display:none!important;height:0!important;overflow:hidden!important;}#theia-right-side-panel .lm-TabBar~*,#theia-bottom-content-panel .lm-TabBar~*{top:0!important;height:100%!important;}#theia-right-side-panel .lm-DockPanel-widget,#theia-bottom-content-panel .lm-DockPanel-widget{top:0!important;height:100%!important;}.lm-Widget:focus,.lm-Widget:focus-visible,#c3-sidebar:focus,#c3-chat-panel:focus,#c3-agent-panel:focus{outline:none!important;box-shadow:none!important;}*:focus-visible{outline:none!important;}#theia-top-panel,.p-MenuBar,#theia\\:menubar,.theia-app-header{background:var(--c3-bg1,#111114)!important;border-color:var(--c3-border,rgba(255,255,255,0.06))!important;}#theia-left-side-panel,#theia-right-side-panel,#theia-bottom-content-panel{background:var(--c3-bg1,#111114)!important;}input[type=range]{-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:var(--c3-bg4,#27282e);outline:none;}input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--c3-accent,#22c55e);cursor:pointer;border:2px solid var(--c3-bg1,#111114);}body{border:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;box-sizing:border-box!important;}#theia-right-side-panel{border-left:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;}#theia-bottom-content-panel{border-top:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;}@keyframes c3-ac-pulse{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}@keyframes c3-thinking-dot{0%,80%,100%{opacity:0.2;transform:scale(0.8)}40%{opacity:1;transform:scale(1)}}.lm-TabBar-tabCloseIcon,.lm-TabBar-tabCloseIcon::before,.p-TabBar-tabCloseIcon,.p-TabBar-tabCloseIcon::before{font-family:"codicon"!important;}';
         document.head.appendChild(ss);
       }
       /* v92: Focus Mode CSS — layout override when specialist is active */
@@ -853,6 +854,14 @@ var _expertiseWizard={active:false,mode:'create',data:null,schema:null,preview:n
 var _agentWizard={active:false,mode:'create',data:null,schema:null,preview:null,testResult:null,testLoading:false,testError:null,openSections:{basic:true},editId:null,saving:false,advancedMode:false,confirmAdvanced:false,simpleStep:1};
 /* ═══ Wizard navigation guard ═══ */
 function _wizardGuardNav(targetView,sidebarSet,extra){
+  /* v93: Toggle — same nav item clicked again → hide center, show editor */
+  if(targetView===_centerState.view&&!_projectWizard.active&&!_expertiseWizard.active&&!_agentWizard.active&&!_editorState.active){
+    _centerState.view=null;_centerState.detail=null;
+    if(_centerContainer)_centerContainer.style.display='none';
+    _settingsVals.lastView='';_saveSV();
+    sidebarSet({active:null,dd:{}});
+    return;
+  }
   /* v92: Focus mode intercept — show exit dialog instead of navigating */
   if(isFocusActive()){
     var det2={view:targetView};if(extra)for(var k2 in extra)det2[k2]=extra[k2];
@@ -960,7 +969,9 @@ function CenterApp(){
     view==='specialists'?centerSpecs():view==='workers'?centerWorkers():view==='settings'?centerSettings():centerWelcome()
   );
   var showDetail=detail&&!isOverlay;
-  return h('div',{style:{display:'flex',height:'100%',width:'100%',background:C.bg0,fontFamily:C.font,overflow:'hidden',position:'absolute',top:0,left:0,right:0,bottom:0}},
+  /* v93: Solid background when view/overlay active — prevents editor bleed-through on pro themes */
+  var bgColor=(view||isOverlay)?(C._solidBg0||C.bg0):C.bg0;
+  return h('div',{style:{display:'flex',height:'100%',width:'100%',background:bgColor,fontFamily:C.font,overflow:'hidden',position:'absolute',top:0,left:0,right:0,bottom:0}},
     h('div',{key:'cv-'+(isOverlay?'overlay':view),style:{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}},mainContent),
     showDetail?h('div',{style:{width:'45%',maxWidth:480,minWidth:280,borderLeft:'1px solid '+C.border,display:'flex',flexDirection:'column',overflow:'hidden',background:C.bg1,flexShrink:0}},centerDetail()):null);
 }
@@ -4083,8 +4094,15 @@ function _restoreSessionState() {
   try {
     /* Restore last view (from settings, independent of session state) */
     var _lastV = (_settingsVals.restoreSession && _settingsVals.lastView) ? _settingsVals.lastView : 'expertises';
-    _centerState.view = _lastV;
-    if (_sidebarWidget) _sidebarWidget._active = _lastV;
+    /* v93: If lastView was toggled off (empty string), keep center hidden to show editor */
+    if (_settingsVals.restoreSession && _settingsVals.lastView === '') {
+      _centerState.view = null;
+      if (_sidebarWidget) _sidebarWidget._active = null;
+      setTimeout(function(){ if(_centerContainer)_centerContainer.style.display='none'; },50);
+    } else {
+      _centerState.view = _lastV;
+      if (_sidebarWidget) _sidebarWidget._active = _lastV;
+    }
     var saved = JSON.parse(localStorage.getItem('c3-session-state') || 'null');
     if (saved) {
       _sessionCount = saved.sessionCount || 2;
