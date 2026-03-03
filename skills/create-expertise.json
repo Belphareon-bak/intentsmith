@@ -22,6 +22,7 @@
       "type": "llm",
       "prompt": "Vytvoř JSON konfiguraci pro novou C3 expertizu na téma: {{topic}}.\n\nPůvodní zadání uživatele: {{input}}\nUpřesnění od uživatele: {{steps.clarify.output}}\n\nVYGENERUJ PŘESNĚ tento JSON formát (nic jiného, žádný markdown, žádné komentáře):\n\n{\n  \"id\": \"snake_case_id\",\n  \"name\": \"Zobrazovaný název (česky, 2-64 znaků)\",\n  \"icon\": \"jeden emoji\",\n  \"domain\": \"snake_case_domain\",\n  \"description\": \"Krátký popis, 1-2 věty česky\",\n  \"tone\": \"professional|casual|creative|empathetic|technical\",\n  \"temperature\": 0.5,\n  \"outputBias\": \"analytical|creative|balanced\",\n  \"modules\": {\n    \"vocabulary\": [\"5-15 doménových termínů v češtině — klíčová slova oboru\"],\n    \"domain_rules\": [\"3-5 pravidel chování pro tuto roli\"],\n    \"emphasis\": [\"2-4 důrazy — co je priorita\"],\n    \"constraints\": [\"2-4 omezení — co NEDĚLAT\"],\n    \"antipatterns\": [\"2-4 antipatterns — typické chyby v odpovědích\"],\n    \"disclaimer\": \"disclaimer text nebo null\"\n  },\n  \"systemPrompt\": \"Jsi [role]. [Popis chování, max 2000 znaků, česky]\"\n}\n\nPravidla:\n- id: snake_case, pouze [a-z0-9_], max 32 znaků\n- domain: snake_case, pouze [a-z0-9_]\n- temperature: 0.3-0.9 podle kreativity role\n- vocabulary: přesně doménové termíny, které uživatel používá když chce tuto expertizu\n- systemPrompt: max 2000 znaků, role description, česky\n- ŽÁDNÉ capabilities pole — to je interní\n- Výstup MUSÍ být čistý JSON, žádný markdown code block",
       "systemPrompt": "Jsi expert na návrh AI expertíz. Generuješ POUZE čistý JSON bez markdown formátování. Piš česky.",
+      "format": "json",
       "temperature": 0.4,
       "maxTokens": 2048
     },
@@ -36,6 +37,7 @@
       "type": "llm",
       "prompt": "Uprav JSON konfiguraci expertizy na téma {{topic}} podle zpětné vazby.\n\nZpětná vazba / schválený text:\n{{steps.review.output}}\n\nPůvodní návrh:\n{{steps.draft.output}}\n\nPokud je zpětná vazba shodná s původním textem (uživatel schválil beze změn), vrať původní JSON.\nPokud jsou požadované změny, zapracuj je.\n\nVýstup MUSÍ být POUZE čistý JSON objekt — žádný markdown, žádné komentáře, žádný vysvětlující text.",
       "systemPrompt": "Jsi editor AI expertíz. Vrať POUZE čistý JSON. Piš česky.",
+      "format": "json",
       "temperature": 0.3,
       "maxTokens": 2048
     },

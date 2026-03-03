@@ -20,6 +20,7 @@
       "type": "llm",
       "prompt": "Vytvoř JSON definici skillu.\n\nID: {{name}}\nPopis od uživatele: {{steps.clarify.output}}\n\nDostupné step typy:\n- llm: LLM generování (prompt, systemPrompt, temperature, maxTokens)\n- template: string substituce (template)\n- write: zápis souboru v sandboxu (path, content)\n- shell: whitelisted příkaz (command) — povoleno: dot, plantuml, mermaid, npx, node, cat, ls, wc, head, tail, echo\n- ask: interaktivní otázka — pauzne exekuci (prompt)\n- review: kontrolní checkpoint — uživatel schválí nebo opraví (content, prompt)\n- validate: LLM ověření proti kritériím (content, criteria, failMessage)\n\nSubstituce: {{paramName}} pro parametry, {{steps.X.output}} pro výstup kroku X.\n\nPravidla:\n1. Každý skill MUSÍ mít ask krok na začátku (upřesnění od uživatele)\n2. Každý skill MUSÍ mít review krok (uživatel kontroluje výsledek)\n3. Každý skill BY MĚL mít validate krok (ověření kvality)\n4. Vzor: clarify → draft → review → refine → validate → persist\n5. ID musí být slug (malá písmena, pomlčky)\n6. Version vždy 1 pro nový skill\n\nVrať POUZE validní JSON objekt, bez komentářů, bez markdown bloků.",
       "systemPrompt": "Jsi expert na tvorbu skill definic. Generuj čistý JSON. Dodržuj vzor: clarify → draft → review → refine → validate → persist.",
+      "format": "json",
       "temperature": 0.3,
       "maxTokens": 4096
     },
@@ -34,6 +35,7 @@
       "type": "llm",
       "prompt": "Uprav JSON definici skillu podle zpětné vazby.\n\nZpětná vazba / schválený text:\n{{steps.review.output}}\n\nPůvodní definice:\n{{steps.generate.output}}\n\nPokud schváleno beze změn, vrať původní JSON.\nPokud jsou požadované změny, zapracuj je.\nVrať POUZE validní JSON bez komentářů.",
       "systemPrompt": "Zapracuj zpětnou vazbu přesně. Vrať POUZE validní JSON.",
+      "format": "json",
       "temperature": 0.2,
       "maxTokens": 4096
     },

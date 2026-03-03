@@ -16,6 +16,25 @@ import { config } from '../../config.js';
 import { substitute } from './substitute.js';
 
 /**
+ * Clean LLM output when format is 'json'.
+ * Strips <think> blocks, markdown code fences, and orphaned </think> tags.
+ * Same patterns as parseJSON in lifecycle — proven with deepseek-r1.
+ */
+function cleanJSONOutput(raw) {
+  if (!raw || typeof raw !== 'string') return raw;
+  let s = raw;
+  // Strip <think>...</think> blocks (deepseek-r1)
+  s = s.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  // Strip orphaned </think> tags
+  s = s.replace(/<\/think>/gi, '');
+  // Trim before fence detection (think removal may leave leading newlines)
+  s = s.trim();
+  // Strip markdown code fences
+  s = s.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
+  return s.trim();
+}
+
+/**
  * Execute an LLM step.
  *
  * @param {Object} stepDef - Step definition from skill JSON
@@ -66,9 +85,14 @@ export async function executeLLM(stepDef, context) {
       };
     }
 
+    // Clean output when format is 'json' (strips <think> blocks, code fences)
+    const output = stepDef.format === 'json'
+      ? cleanJSONOutput(result.content)
+      : result.content;
+
     return {
       status: 'success',
-      output: result.content,
+      output,
       retryable: false,
       errorType: null,
     };
