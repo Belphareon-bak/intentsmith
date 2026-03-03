@@ -203,5 +203,35 @@ export function createMiscRoutes(deps) {
         sendJSON(res, 500, safeError(err));
       }
     },
+
+    // ── Feedback ──────────────────────────────────────────────────────────
+    'POST /api/feedback': async (req, res) => {
+      const body = await parseBody(req);
+      const message = (body.message || '').trim();
+      if (!message) {
+        return sendJSON(res, 400, { error: 'Message is required' });
+      }
+      const category = ['bug', 'feature', 'other'].includes(body.category) ? body.category : 'other';
+      const version = body.version || null;
+      try {
+        db.db.prepare(
+          'INSERT INTO feedback (category, message, version) VALUES (?, ?, ?)'
+        ).run(category, message, version);
+        sendJSON(res, 201, { ok: true });
+      } catch (err) {
+        sendJSON(res, 500, { error: 'Failed to save feedback' });
+      }
+    },
+
+    'GET /api/feedback': (req, res) => {
+      try {
+        const rows = db.db.prepare(
+          'SELECT id, category, message, version, created_at FROM feedback ORDER BY created_at DESC LIMIT 100'
+        ).all();
+        sendJSON(res, 200, { feedback: rows });
+      } catch (_) {
+        sendJSON(res, 200, { feedback: [] });
+      }
+    },
   };
 }
