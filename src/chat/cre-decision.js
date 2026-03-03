@@ -1101,10 +1101,10 @@ const BUILD_PATTERNS = [
 // ─────────────────────────────────────────────────────────────────────────────
 const SKILL_PATTERNS = [
   // CZ: create/add expertise
-  /vytvo[rř]\S*\s+.{0,15}experti[zs]/i,      // "vytvořit expertizu", "vytvoř expertízu"
-  /p[rř]id[eě]j\S*\s+.{0,15}experti[zs]/i,   // "přidej expertizu"
-  /nov[áaý]\S*\s+.{0,10}experti[zs]/i,        // "nová expertiza"
-  /chci\s+.{0,15}experti[zs]/i,               // "chci expertizu na..."
+  /vytvo[rř]\S*\s+.{0,15}expert[iyíý][zs]/i,  // "vytvořit expertizu/expertýzu"
+  /p[rř]id[eě]j\S*\s+.{0,15}expert[iyíý][zs]/i, // "přidej expertizu/expertýzu"
+  /nov\S*\s+.{0,10}expert[iyíý][zs]/i,         // "nová/nový/novou expertiza/expertýza"
+  /chci\s+.{0,15}expert[iyíý][zs]/i,          // "chci expertizu/expertýzu na..."
 
   // CZ: explicit skill/recept/procedura mentions
   /spus[tť]\S*\s+.{0,10}skill/i,              // "spusť skill X"
