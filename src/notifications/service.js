@@ -112,6 +112,19 @@ export class NotificationRouter {
   }
 
   /**
+   * Update config on a registered channel at runtime.
+   * @param {string} channelName
+   * @param {object} config
+   */
+  updateChannelConfig(channelName, config) {
+    const channel = this.channels.get(channelName);
+    if (channel && typeof channel.updateConfig === 'function') {
+      channel.updateConfig(config);
+      this.logger.info('NotificationRouter', `Channel config updated: ${channelName}`);
+    }
+  }
+
+  /**
    * @returns {string[]} List of registered channel names
    */
   getAvailableChannels() {

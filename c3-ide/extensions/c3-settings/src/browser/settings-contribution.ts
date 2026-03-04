@@ -426,6 +426,55 @@ export const C3_PREFERENCE_SCHEMA = {
       default: C3_DEFAULTS['c3.notif.quietTo'],
       description: 'Konec tichého režimu (HH:MM).',
     },
+
+    // ─── v93: Email Notifications ────────────────────
+    'c3.notif.emailEnabled': {
+      type: 'boolean',
+      default: C3_DEFAULTS['c3.notif.emailEnabled'],
+      description: 'Povolit email notifikace (SMTP).',
+    },
+    'c3.notif.smtpHost': {
+      type: 'string',
+      default: C3_DEFAULTS['c3.notif.smtpHost'],
+      description: 'SMTP server (např. smtp.gmail.com).',
+    },
+    'c3.notif.smtpPort': {
+      type: 'number',
+      default: C3_DEFAULTS['c3.notif.smtpPort'],
+      minimum: 1,
+      maximum: 65535,
+      description: 'SMTP port (587 = STARTTLS, 465 = SSL, 25 = plain).',
+    },
+    'c3.notif.smtpUser': {
+      type: 'string',
+      default: C3_DEFAULTS['c3.notif.smtpUser'],
+      description: 'SMTP uživatelské jméno (email).',
+    },
+    'c3.notif.smtpPass': {
+      type: 'string',
+      default: C3_DEFAULTS['c3.notif.smtpPass'],
+      description: 'SMTP heslo nebo App Password. Uloženo lokálně v settings DB.',
+    },
+    'c3.notif.smtpFrom': {
+      type: 'string',
+      default: C3_DEFAULTS['c3.notif.smtpFrom'],
+      description: 'Adresa odesílatele (pokud prázdné, použije se smtpUser).',
+    },
+    'c3.notif.emailRecipient': {
+      type: 'string',
+      default: C3_DEFAULTS['c3.notif.emailRecipient'],
+      description: 'Email příjemce notifikací.',
+    },
+    'c3.notif.emailOnLifecycle': {
+      type: 'boolean',
+      default: C3_DEFAULTS['c3.notif.emailOnLifecycle'],
+      description: 'Email při lifecycle eventech (milestone PASS/FAIL/BLOCKED).',
+    },
+    'c3.notif.emailOnWorker': {
+      type: 'boolean',
+      default: C3_DEFAULTS['c3.notif.emailOnWorker'],
+      description: 'Email při worker eventech (agent error/complete).',
+    },
   },
 };
 

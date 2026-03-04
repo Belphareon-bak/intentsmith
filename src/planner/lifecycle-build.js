@@ -15,6 +15,10 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { logger } from '../core/logger.js';
+
+// v93: Notification emitter reference (set by server.js via setNotificationEmitter)
+let _notificationEmitter = null;
+export function setNotificationEmitter(emitter) { _notificationEmitter = emitter; }
 import { callLLM, parseJSON } from './workflow.js';
 import {
   lifecycles as lifecycleRepo,
@@ -47,6 +51,16 @@ export async function startNextMilestone(lifecycle) {
   const allPending = msRepo.findByStatus.all(lifecycle.id, 'PENDING').map(r => msRepo.getMilestone(r.id));
   if (allPending.length === 0) {
     logger.info('LifecycleBuild', 'No more pending milestones', { lifecycleId: lifecycle.id });
+
+    // v93: Email notification on lifecycle complete
+    if (_notificationEmitter) {
+      _notificationEmitter.emitLifecycleEvent({
+        type: 'lifecycle_complete',
+        projectName: lifecycle.id,
+        details: `Všechny milníky dokončeny.`,
+      }).catch(() => {});
+    }
+
     return null;
   }
 
@@ -74,6 +88,17 @@ export async function startNextMilestone(lifecycle) {
       lifecycleId: lifecycle.id,
       blocked: blockedMilestones,
     });
+
+    // v93: Email notification on ALL_BLOCKED
+    if (_notificationEmitter) {
+      _notificationEmitter.emitLifecycleEvent({
+        type: 'milestone_blocked',
+        projectName: lifecycle.id,
+        milestoneTitle: blockedMilestones.map(b => b.title).join(', '),
+        details: `Všechny pending milníky jsou dependency-blocked.`,
+      }).catch(() => {});
+    }
+
     return {
       milestoneId: null,
       status: 'ALL_BLOCKED',
@@ -372,6 +397,16 @@ async function postExecution(lifecycle, milestone, wfResult) {
     gitTag,
     health,
   });
+
+  // v93: Email notification on milestone PASS
+  if (_notificationEmitter) {
+    _notificationEmitter.emitLifecycleEvent({
+      type: 'milestone_pass',
+      projectName: spec?.name || lifecycle.id,
+      milestoneTitle: milestone.title,
+      details: `Commit: ${commitHash || 'N/A'}, Health: ${JSON.stringify(health)}`,
+    }).catch(() => {});
+  }
 
   return {
     milestoneId: milestone.id,
@@ -729,6 +764,17 @@ function handleMilestoneFailure(lifecycle, milestone, reason) {
     retries: currentRetry,
     reason,
   });
+
+  // v93: Email notification on milestone BLOCKED (retries exhausted)
+  if (_notificationEmitter) {
+    _notificationEmitter.emitLifecycleEvent({
+      type: 'milestone_fail',
+      projectName: lifecycle.id,
+      milestoneTitle: milestone.title,
+      details: `Důvod: ${reason}`,
+      retryCount: currentRetry,
+    }).catch(() => {});
+  }
 
   return {
     milestoneId: milestone.id,

@@ -76,6 +76,21 @@ export class EmailChannel extends NotificationChannel {
     }
   }
 
+  /**
+   * Update SMTP config at runtime (from IDE settings sync).
+   * Invalidates existing transporter so next send() creates a new one.
+   */
+  updateConfig({ host, port, user, pass, from }) {
+    if (!host) return; // minimum: host is required (relay/no-auth SMTP is valid)
+    this.config.host = host;
+    this.config.port = parseInt(port) || 587;
+    if (user !== undefined) this.config.user = user;
+    if (pass !== undefined) this.config.pass = pass;
+    this.config.from = from || user || this.config.user;
+    this.transporter = null; // force re-create on next send
+    this.logger.info('EmailChannel', `Config updated (host: ${host}, port: ${this.config.port})`);
+  }
+
   async verify() {
     if (!this.config.host || !this.config.user) {
       return { ok: false, error: 'SMTP not configured' };

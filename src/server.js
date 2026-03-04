@@ -19,6 +19,18 @@ const __dirname = path.dirname(__filename);
 // Global error handlers (Phase 1 — error-handler.js)
 installGlobalHandlers({ logger, exitOnUncaught: false });
 
+// ─── v93: Notification system init (before agent platform) ───────────────────
+initNotificationTables(db.db);
+const { pipeline: notificationPipeline, router: notificationRouter } = createNotificationPipeline({ db });
+// Register additional channels (Email, Telegram, Push already registered by factory)
+if (!notificationRouter.channels.has('webhook')) notificationRouter.registerChannel(new WebhookChannel({ logger }));
+if (!notificationRouter.channels.has('desktop')) notificationRouter.registerChannel(new DesktopChannel({ logger }));
+const notificationEmitter = new NotificationEmitter({ pipeline: notificationPipeline, db: db.db });
+setNotificationDeps({ notificationRouter, notificationEmitter });
+// Wire lifecycle hooks (lazy import — lifecycle-build may not be loaded yet)
+import('./planner/lifecycle-build.js').then(m => m.setNotificationEmitter(notificationEmitter)).catch(() => {});
+logger.info('Server', `Notification system initialized (channels: ${notificationRouter.getAvailableChannels().join(', ')})`);
+
 // ─── Optional: Agent Platform v33 (Phase B) ─────────────────────────────────
 let AgentRepository, AgentScheduler, AgentRunner, createAgentRoutes, LLMServices;
 if (config.features.agents !== false) {
@@ -82,6 +94,7 @@ import { ChatController, ChatMode } from './chat/controller.js';
 
 // v59.0: WebSocket bridge for IDE integration
 import { attachWebSocketServer } from './ws-bridge/index.js';
+import { setNotificationDeps } from './ws-bridge/session-adapter.js';
 import { getDefaultHandlers } from './chat/handlers/index.js';
 import { toolExecutor } from './executor/tool-executor.js';
 
@@ -100,9 +113,10 @@ import { createSkillRoutes } from './routes/skills.js';
 import { createSystemRoutes } from './routes/system.js';
 import { createSecurityRoutes } from './routes/security.js';
 import { createNotificationRoutes } from './routes/notifications.js';
-import { createNotificationRouter } from './notifications/index.js';
+import { createNotificationPipeline, initNotificationTables } from './notifications/index.js';
 import { WebhookChannel } from './notifications/channels/webhook.js';
 import { DesktopChannel } from './notifications/channels/desktop.js';
+import { NotificationEmitter } from './notifications/emitter.js';
 import { skillRegistry } from './skills/registry.js';
 import { creDecisionEngine } from './chat/cre-decision.js';
 import { toolRegistry } from './tools/registry.js';
@@ -299,7 +313,7 @@ if (AgentRepository) {
 
   agentRepository = new AgentRepository(db.db);
   const llmServices = new LLMServices({ llmClient: agentLLMClient });
-  agentRunner = new AgentRunner({ repository: agentRepository, llmServices });
+  agentRunner = new AgentRunner({ repository: agentRepository, llmServices, notificationRouter, notificationPipeline });
   agentScheduler = new AgentScheduler({ repository: agentRepository, runner: agentRunner });
   agentRoutes = createAgentRoutes({
     repository: agentRepository,
@@ -550,12 +564,10 @@ const routeDeps = {
   createMockResponse, agentRoutes, agentRunner,
   checkWizardRateLimit,
   specialistLoader, specialistRuntime, specialistTelemetry,
+  notificationRouter, notificationEmitter,
 };
 
-// v87: Initialize notification system with webhook + desktop channels
-const notificationRouter = createNotificationRouter({ db });
-notificationRouter.registerChannel(new WebhookChannel({ logger }));
-notificationRouter.registerChannel(new DesktopChannel({ logger }));
+// v93: notificationRouter + notificationPipeline initialized above (before agent platform)
 
 const routes = {
   // Health check (inline — small)

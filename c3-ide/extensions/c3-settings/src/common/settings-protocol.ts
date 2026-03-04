@@ -102,6 +102,17 @@ export interface C3Settings {
   'c3.notif.quietEnabled': boolean;
   'c3.notif.quietFrom': string;
   'c3.notif.quietTo': string;
+
+  // ─── v93: Email Notifications ─────────────────────
+  'c3.notif.emailEnabled': boolean;
+  'c3.notif.smtpHost': string;
+  'c3.notif.smtpPort': number;
+  'c3.notif.smtpUser': string;
+  'c3.notif.smtpPass': string;
+  'c3.notif.smtpFrom': string;
+  'c3.notif.emailRecipient': string;
+  'c3.notif.emailOnLifecycle': boolean;
+  'c3.notif.emailOnWorker': boolean;
 }
 
 export const C3_DEFAULTS: C3Settings = {
@@ -191,4 +202,15 @@ export const C3_DEFAULTS: C3Settings = {
   'c3.notif.quietEnabled': false,
   'c3.notif.quietFrom': '22:00',
   'c3.notif.quietTo': '07:00',
+
+  // v93: Email Notifications
+  'c3.notif.emailEnabled': false,
+  'c3.notif.smtpHost': '',
+  'c3.notif.smtpPort': 587,
+  'c3.notif.smtpUser': '',
+  'c3.notif.smtpPass': '',
+  'c3.notif.smtpFrom': '',
+  'c3.notif.emailRecipient': '',
+  'c3.notif.emailOnLifecycle': true,
+  'c3.notif.emailOnWorker': true,
 };

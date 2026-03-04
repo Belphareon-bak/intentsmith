@@ -22,6 +22,15 @@ import { TurnTelemetry } from '../telemetry/turn-telemetry.js';
 import { config } from '../config.js';
 import { featureManager } from '../core/feature-manager.js';
 
+// v93: Notification router reference (set by server.js via setNotificationDeps)
+let _notificationRouter = null;
+let _notificationEmitter = null;
+
+export function setNotificationDeps({ notificationRouter, notificationEmitter }) {
+  _notificationRouter = notificationRouter;
+  _notificationEmitter = notificationEmitter;
+}
+
 // Telemetry persistence — lazy-loaded once per process
 let telemetryRepo = null;
 
@@ -459,6 +468,20 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
       case 'sync_settings': {
         try {
           const changed = featureManager.applySettings(data.settings || {});
+
+          // v93: Sync SMTP notification settings to EmailChannel
+          if (_notificationRouter && 'c3.notif.smtpHost' in (data.settings || {})) {
+            _notificationRouter.updateChannelConfig('email', {
+              host: data.settings['c3.notif.smtpHost'],
+              port: data.settings['c3.notif.smtpPort'],
+              user: data.settings['c3.notif.smtpUser'],
+              pass: data.settings['c3.notif.smtpPass'],
+              from: data.settings['c3.notif.smtpFrom'],
+            });
+            if (_notificationEmitter) _notificationEmitter.invalidateCache();
+            logger.info('WSSession', 'SMTP notification config synced', { sessionId: sid });
+          }
+
           sendChannel(Channel.CONTROL, { action: 'sync_settings', success: true, changed });
           if (changed > 0) {
             logger.info('WSSession', `Feature settings synced (${changed} changed)`, { sessionId: sid });
