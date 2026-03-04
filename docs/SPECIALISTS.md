@@ -336,7 +336,7 @@ Vsechny wrappovane `withApiTelemetry()` pro pasivni latency observability.
 | Knowledge Base — D2 (versioned fact store) | HOTOVO | v79 | — |
 | REST API (8 endpoints) | HOTOVO | v82 | — |
 | Specialist Telemetry (passive observability, batch flush) | HOTOVO | v82 | — |
-| **D5 — Specialist ↔ Expertise discovery + chaining** | **CHYBI** | — | — |
+| **D5 — Specialist ↔ Expertise discovery + chaining** | **HOTOVO** | v91 | — |
 | **Uninstall (purge)** | **CHYBI** | — | — |
 | **Remote registry** | **CHYBI** | — | — |
 

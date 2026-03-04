@@ -777,4 +777,4 @@ User clicks "+ Worker" → _awOpen('create')
 
 ---
 
-*This document reflects C.3 Agent Platform v90.0.0 architecture (2026-02-28).*
+*This document reflects C.3 Agent Platform v93.0.0 architecture (2026-03-04).*

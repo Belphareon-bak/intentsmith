@@ -4,41 +4,42 @@ Use this checklist before committing changes to ensure consistency and avoid bre
 
 ## Before Every Commit
 
-### Did you change a contract?
-
-If you modified any file in `src/contracts/`:
-
-- [ ] Update the corresponding JSON Schema file
-- [ ] Update `src/contracts/validate.js` if new validation rules needed
-- [ ] Run contract tests: `node tests/contracts/planner-output.test.js`
-- [ ] Run contract tests: `node tests/contracts/tool-call.test.js`
-- [ ] Update any adapters that use the contract
-
-### Did you change the pipeline?
-
-If you modified `src/golden/` or `src/planner/`:
-
-- [ ] Run Golden Path tests: `node tests/golden-path.test.js`
-- [ ] Verify the flow still works end-to-end
-- [ ] Update `docs/golden-path.md` if flow changed
-
-### Did you add a new tool?
-
-If you added a tool to `src/tools/registry.js`:
-
-- [ ] Tool has `name`, `description`, `params.required`, `params.optional`
-- [ ] Tool has `permissions` array defined
-- [ ] Tool returns data or `{ error, code }` object
-- [ ] Add tool to planner system prompt if needed
-- [ ] Consider adding to `src/contracts/tool-call.schema.json` pattern
-
 ### Did you change CRE decision logic?
 
-If you modified `src/chat/cre-v2.js` or decision types:
+If you modified `src/chat/cre-decision.js`, `src/chat/cre-routing-patches.js`, or decision types:
 
-- [ ] Run CRE tests: `npm run test:cre`
-- [ ] Verify decision invariants still hold
-- [ ] Update decision matrix documentation if needed
+- [ ] Run CRE tests: `npm run test:core`
+- [ ] Verify decision invariants still hold (single authority, no bypass)
+- [ ] Check all handlers have case for new DecisionType (conversation.js, project.js, expertise.js)
+- [ ] Update AUTHORITY.md if gate logic changed
+
+### Did you change a handler?
+
+If you modified files in `src/chat/handlers/`:
+
+- [ ] Run chat tests: `npm run test:chat`
+- [ ] If lifecycle-related: `npm run test:lifecycle`
+- [ ] If expertise-related: `npm run test:expertises`
+- [ ] If sticky mode routing changed: verify intercepts are mirrored in project.js
+- [ ] Run E2E: `npm run test:e2e`
+
+### Did you change the expertise system?
+
+If you modified `src/expertises/`:
+
+- [ ] Run expertise tests: `npm run test:expertises`
+- [ ] Run merge tests: `npm run test:merge`
+- [ ] Run capability tests: `npm run test:capability`
+- [ ] If 5D vectors changed: verify capability-enforcer thresholds
+
+### Did you change the lifecycle engine?
+
+If you modified `src/planner/lifecycle*.js`:
+
+- [ ] Run lifecycle tests: `npm run test:lifecycle`
+- [ ] Run build tests: `npm run test:workflow`
+- [ ] If checkpoint logic changed: `node tests/lifecycle-build.test.js`
+- [ ] Verify CheckpointMode (STRUCTURAL/FUNCTIONAL/SECURITY) still works
 
 ### Did you change tool execution or resilience logic?
 
@@ -53,111 +54,150 @@ If you modified `src/executor/tool-executor.js` or `src/executor/circuit-breaker
 
 If you modified `src/llm/`:
 
-- [ ] Verify LLM Gateway authorization works
-- [ ] Run LLM tests: `npm run test:llm:mock`
-- [ ] Check that no direct LLM calls bypass gateway
+- [ ] Verify LLM Gateway timeout/retry logic (no retry on AbortError)
+- [ ] Check that no direct Ollama calls bypass gateway
+- [ ] Run: `npm run test:chat`
+
+### Did you add or change a specialist?
+
+If you modified `specialists/` or `src/expertises/specialist-*.js`:
+
+- [ ] Run specialist tests: `npm run test:specialists`
+- [ ] If ledger-related: `npm run test:ledger`
+- [ ] Verify specialist-loader.js handles new plugin format
+
+### Did you change the skills system?
+
+If you modified `src/skills/`:
+
+- [ ] Run: `node tests/modules.test.js` (skills included)
+- [ ] If step executors changed: verify sandboxing (write step: realpath, shell step: whitelist)
+- [ ] If state machine changed: verify resume flow works
+
+### Did you change the memory system?
+
+If you modified `src/memory/`:
+
+- [ ] Run: `node tests/modules.test.js`
+- [ ] If LTM changed: verify confidence decay formula
+- [ ] If feedback-detector changed: verify 6 signal types
+- [ ] If preferences changed: verify persistence to/from DB
+
+### Did you change the database schema?
+
+If you added a migration in `src/db/migrations/`:
+
+- [ ] Run: `npm run test:db`
+- [ ] Migration file follows naming convention: `YYYY_MM_DD_NNN_vVV_description.js`
+- [ ] Migration has both `up()` and rollback strategy documented
+- [ ] Prepared statements added to `database.js` for new tables
+
+### Did you change the frontend (chat-panel-module)?
+
+If you modified `c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js`:
+
+- [ ] Rebuild webpack: `cd c3-ide/applications/electron && npx webpack --config gen-webpack.config.js --mode development`
+- [ ] **NEVER run `tsc -b`** on c3-chat-panel (TS source would overwrite hand-written JS)
+- [ ] Test in Electron (not just browser)
 
 ## Quick Test Commands
 
 ```bash
-# Golden Path tests (fast)
-node tests/golden-path.test.js
+# Core tests (CRE, Gatekeeper, modules)
+npm run test:core
 
-# Contract tests (fast)
-node tests/contracts/planner-output.test.js
-node tests/contracts/tool-call.test.js
+# Chat pipeline
+npm run test:chat
 
-# All core tests
-npm run test
+# Expertise system
+npm run test:expertises
 
-# Resilience tests
+# Lifecycle engine
+npm run test:lifecycle
+
+# Full deterministic suite
+npm test
+
+# Full suite + specialists + agents + E2E
+npm run test:all
+
+# Resilience
 node tests/e2e-resilience.test.js
 
-# Full test suite
-npm run test:all
+# Conversation tests (requires Ollama + GPU)
+npm run test:conv
 ```
 
 ## File Reference
 
-| Changed This | Check These |
-|--------------|-------------|
-| `src/contracts/*.json` | Tests + adapters + validate.js |
-| `src/golden/` | golden-path.test.js |
-| `src/planner/` | planner.test.js, planner-v38.test.js |
-| `src/tools/` | tool-executor.test.js |
-| `src/executor/` | e2e-resilience.test.js |
-| `src/chat/cre-v2.js` | cre-v2.test.js |
-| `src/chat/cre-decision.js` | cre-comprehensive.test.js |
-| `src/llm/` | llm-gateway.test.js |
+| Changed This | Run These Tests |
+|--------------|-----------------|
+| `src/chat/cre-decision.js` | test:core (cre-comprehensive, cre-gatekeeper) |
+| `src/chat/handlers/conversation.js` | test:chat, test:e2e |
+| `src/chat/handlers/project.js` | test:chat, test:lifecycle |
+| `src/chat/handlers/lifecycle-*.js` | test:lifecycle |
+| `src/chat/handlers/expertise.js` | test:expertises |
+| `src/chat/handlers/utils/*.js` | test:chat |
+| `src/chat/quality/*.js` | test:quality |
+| `src/expertises/*.js` | test:expertises, test:merge, test:capability |
+| `src/expertises/ledger/*.js` | test:ledger |
+| `src/planner/lifecycle*.js` | test:lifecycle, test:workflow |
+| `src/planner/quality-score.js` | test:quality |
+| `src/executor/*.js` | e2e-resilience.test.js |
+| `src/skills/*.js` | modules.test.js |
+| `src/memory/*.js` | modules.test.js |
+| `src/agents/*.js` | test:agents |
+| `src/notifications/*.js` | test:notifications |
+| `src/llm/*.js` | test:chat, test:llm |
+| `src/db/database.js` | test:db |
+| `src/db/migrations/*.js` | test:db |
+| `src/ws-bridge/*.js` | test:ws |
 
 ## Common Mistakes to Avoid
 
-### Contract Violations
+### Missing DecisionType case
 
 ```javascript
-// BAD: ad-hoc object shape
-return { plan: steps, ok: true };
+// BAD: new DecisionType only handled in conversation.js
+case DecisionType.NEW_TYPE:
+  // ... only in conversation.js
 
-// GOOD: matches contract exactly
-return {
-  plan_id: uuid(),
-  goal: goal,
-  steps: steps,
-  requires_approval: true,
-  confidence: 0.8
-};
+// GOOD: also add to project.js and expertise.js
+// All 3 handlers need the case, otherwise → REFUSE dead-end
 ```
 
-### Skipping Validation
+### Skipping LLM JSON validation
 
 ```javascript
 // BAD: trust raw LLM output
-const plan = JSON.parse(llmResponse);
-execute(plan);
+const result = JSON.parse(llmResponse);
 
-// GOOD: validate first
-const plan = adaptPlannerOutput(llmResponse, goal);
-// adapter validates internally
-execute(plan);
+// GOOD: use parseJSON() which strips <think> blocks, fixes trailing commas
+const result = parseJSON(llmResponse);
 ```
 
-### Direct LLM Calls
+### Direct Ollama calls
 
 ```javascript
 // BAD: bypass gateway
 const response = await fetch(ollamaUrl, { ... });
 
-// GOOD: use gateway with auth
-const token = llmGateway.authorize({ role: 'PLANNER', ... });
-const response = await llmGateway.call(token, { ... });
+// GOOD: use gateway (handles timeout, retry, model routing)
+const response = await llmGateway.generate(model, prompt, options);
 ```
 
-### Optional Fields in Contracts
+### Frontend state mutation in focus mode
 
 ```javascript
-// BAD: adding "helpful" optional fields
-{
-  plan_id: '...',
-  goal: '...',
-  steps: [...],
-  requires_approval: true,
-  confidence: 0.8,
-  metadata: { ... },  // NOT IN CONTRACT
-  created_at: '...'   // NOT IN CONTRACT
-}
+// BAD: mutate session state for layout
+s.bottom = 'agent';
 
-// GOOD: exactly what contract specifies
-{
-  plan_id: '...',
-  goal: '...',
-  steps: [...],
-  requires_approval: true,
-  confidence: 0.8
-}
+// GOOD: derive at render-time, no state mutation
+const effectiveBottom = isFocusActive() ? 'agent' : s.bottom;
 ```
 
 ## When in Doubt
 
-1. Check the contract schema (`src/contracts/*.schema.json`)
-2. Run the Golden Path test
-3. Ask: "Would a new developer understand this?"
+1. Run `npm test` (core + chat + expertises + lifecycle)
+2. Check ARCHITECTURE.md for the module's design contract
+3. Ask: "Does this change affect all 3 handlers?" (conversation, project, expertise)

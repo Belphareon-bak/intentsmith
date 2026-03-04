@@ -1,6 +1,6 @@
 # CRE Operability Contract
 
-> System guarantees and operational contracts for CRE v40.x+
+> System guarantees and operational contracts for CRE v40+
 
 ## Overview
 
