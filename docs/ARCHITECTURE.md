@@ -1,8 +1,8 @@
-# C.3 Agent Platform — Architecture v91
+# C.3 Agent Platform — Architecture v93
 
-**Version:** v91.0.0 (Settings Phase 3, Smart Relay Management, Typing Indicator, Project Welcome, CRE GUARD 6, Memory System, Skills System)
+**Version:** v93.0.0 (Lifecycle E2E, Checkpoint Architecture, Specialist Focus, Project Workflow, IDE Polish)
 **Status:** Production-ready, ~98% complete
-**Date:** 2026-03-01
+**Date:** 2026-03-04
 
 ---
 
@@ -21,6 +21,8 @@ C.3 is a conversational AI platform combining:
 9. **IDE Settings UI** (v87-91) — 12-section settings with backend sync, GPU detection, model selector, feature flags, security
 10. **Smart Relay Management** (v90) — Auto-routing, label persistence, relay picker, thinking indicator
 11. **Security** (v91) — Auth guard, API token management (SHA-256), unified audit, webhook secret management
+12. **Checkpoint Architecture** (v92) — STRUCTURAL/FUNCTIONAL/SECURITY modes, adaptive retry, mode-specific prompts
+13. **Specialist Focus Mode** (v92) — CSS-driven layout transformation, derived state, file tracking, per-session focus
 
 All decisions flow through CRE — LLM is the text generator, never the authority.
 

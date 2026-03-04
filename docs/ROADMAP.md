@@ -2,10 +2,10 @@
 
 ## Od aktuálního stavu k vizi
 
-**Datum:** 2026-03-01
-**Verze kódu:** v91.0.0 (Settings Phase 3 + Smart Relay + Typing Indicator + Project Welcome + CRE GUARD 6 + Memory System + Skills)
-**Testy:** ~2400+ verified (683 lifecycle+quality, 401 CRE, 350 conversation, 218 ledger, 270 specialist, 200+ quality, 44 agent-log, 43+78 expertise routing)
-**IDE:** C3 Studio (Theia 1.65.2), 33 custom extensions, Phase 1-5 (~82%)
+**Datum:** 2026-03-04
+**Verze kódu:** v93.0.0 (Lifecycle E2E + Checkpoint Architecture + Specialist Focus + Project Workflow + IDE Polish)
+**Testy:** ~2600+ verified (683 lifecycle+quality, 401 CRE, 350 conversation, 218 ledger, 270 specialist, 200+ quality, 56 project-conversation, 44 agent-log, 43+78 expertise routing, 24 checkpoint)
+**IDE:** C3 Studio (Theia 1.65.2), 33 custom extensions, Phase 1-5 (~85%)
 
 ---
 

@@ -1,8 +1,8 @@
 {
   "name": "c3-agent",
-  "version": "91.0.0",
+  "version": "93.0.0",
   "type": "module",
-  "description": "C.3 Agent v91 — Settings Phase 3 + Smart Relay + CRE + Skills + Memory System + Theia IDE",
+  "description": "C.3 Agent v93 — Lifecycle E2E + Checkpoint Architecture + Specialist Focus + Project Workflow + IDE Polish",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -43,6 +43,8 @@
     "test:conv:nd": "node tests/conv-czech-nodiacritics.test.js",
     "test:conv": "npm run test:conv:cz && npm run test:conv:en && npm run test:conv:nd",
     "test:run-all": "node tests/run-all.js",
+    "report:quality": "node bin/quality-report.js",
+    "report:telemetry": "node bin/telemetry-analyzer.js",
     "agentd": "node bin/agentd.js"
   },
   "dependencies": {

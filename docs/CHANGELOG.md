@@ -2,6 +2,49 @@
 
 ---
 
+## v93.0.0 — Lifecycle E2E + Specialist Focus + IDE Polish (2026-03-04)
+
+### Checkpoint Architecture (v92)
+- **CheckpointMode**: STRUCTURAL / FUNCTIONAL / SECURITY — mode-specific validation
+- **Mode assignment**: explicit from roadmap LLM > positional heuristic (first=STRUCTURAL, last=SECURITY, rest=FUNCTIONAL)
+- **Adaptive retry**: checkpoint returns `fix_instructions[]` → fed back into next retry
+- **DB**: `milestones.checkpoint_mode` column (migration 026)
+
+### Specialist Focus Mode (v92)
+- **Derived state**: `isFocusActive()` = `!!session.specialist` — no snapshot/restore
+- **CSS-driven layout**: `body.c3-focus-mode` class, no Theia widget mutations
+- **Center**: full-width chat via `_chatPaneUI(idx, {fullWidth:true})`
+- **Right panel**: `FocusFilesApp()` — file list from attachments + backend metadata
+- **Bottom panel**: render-time override `effectiveBottom`, session state untouched
+- **File tracking**: `_focusFiles[]` — dedup, max 100, persisted to localStorage
+
+### Project Workflow Fix (v88)
+- **Lifecycle intercepts**: mirrored from conversation.js into project.js (build handoff, C4 auto-detect, lifecycle handoff)
+- **FE wizard fix**: `lifecycle/start` moved inside conv POST `.then()` (no session-0 mismatch)
+- **ensureRoadmap()**: scaffold ROADMAP.md, never overwrites existing
+- **WM persistence**: write-through to DB, restored on project sync
+
+### Lifecycle E2E Tests (v90–v93)
+- **Milestone ID scoping**: `scopeId(lifecycleId, 'ms-1')` prevents cross-lifecycle collision
+- **parseJSON hardening**: strip `<think>` blocks, fix trailing commas, greedy brace regex
+- **Project conversation E2E**: 56/56 pass (4 projects: Flask, Go, Svelte, resume-existing)
+- **Build loop improvements**: blocked-milestone skip detection, approval regex tuning
+
+### CRE Improvements (v87–v93)
+- **GUARD 6**: Creative override — SEARCH/AMBIGUOUS → CREATIVE when expertise is active
+- **GUARD 8**: SKILL deterministic upgrade — `expert[iyíý][zs]` for all Czech spelling variants
+- **GUARD 9**: Meta-skill detection + post-lifecycle context
+- **BUILD dead-end fix**: `DecisionType.PLAN` case added to project.js + expertise.js
+
+### IDE Polish (v93)
+- **Agent wizard overhaul**: expanded fallback schema, Czech labels, auto-propose, source/condition/action config, cron presets, validation checklist
+- **License gate removal**: FREE tier no longer blocks agent routes
+- **Center panel toggle**: sidebar nav click toggles view on/off (shows editor)
+- **Opaque background**: solid bg0 for active views on pro themes (no editor bleed-through)
+- **Codicon fix**: tab close icon forced to codicon font on pro themes
+
+---
+
 ## v91.0.0 — Settings Phase 3: Ecosystem Features (2026-03-01)
 
 ### Item 1: Feature Flags UI
