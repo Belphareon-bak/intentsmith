@@ -19,6 +19,7 @@ import { ExpertiseEnforcer, quickCheck } from '../../expertises/expertise-enforc
 import { enforceCapabilities } from '../../expertises/capability-enforcer.js';
 import { mergeExpertisePrompt } from '../../expertises/merge-engine.js';
 import { CompatibilityBlockError } from '../../expertises/merge-types.js';
+import { preHandle } from './pre-handler.js';
 
 // v63.2: Capability drift logging — always log, not just on failure
 // v63.3: executionTraceId + executionStep for cross-layer tracing
@@ -72,6 +73,10 @@ export async function expertiseHandler(input, context) {
   const executionTraceId = randomUUID();
   // v79: Propagate via context so generateExpertiseResponse can access it
   context.executionTraceId = executionTraceId;
+
+  // v93.1: Shared intercept chain
+  const pre = await preHandle(input, context, 'EXPERTISE');
+  if (pre.handled) return pre.response;
 
   // ════════════════════════════════════════════════════════════════════════════
   // CASE 0: Multiple expertises active — delegate to merge handler

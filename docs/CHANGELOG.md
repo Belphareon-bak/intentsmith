@@ -36,6 +36,16 @@
 - **GUARD 9**: Meta-skill detection + post-lifecycle context
 - **BUILD dead-end fix**: `DecisionType.PLAN` case added to project.js + expertise.js
 
+### Email Notifications (v93)
+- **Pipeline wiring**: nodemailer integration, lifecycle milestone/review hooks
+- **IDE settings**: notification channel configuration in Settings panel
+- **Lifecycle hooks**: auto-notify on milestone completion, review request, build failure
+
+### D5 — Specialist-Expertise Discovery (v91)
+- **REST API**: `GET/POST/DELETE/PATCH /api/specialists/:id/expertises` — bind/unbind expertises to specialists
+- **specialist-loader.js**: discovery + binding persistence
+- **Migration 025**: `specialist_expertises` table
+
 ### IDE Polish (v93)
 - **Agent wizard overhaul**: expanded fallback schema, Czech labels, auto-propose, source/condition/action config, cron presets, validation checklist
 - **License gate removal**: FREE tier no longer blocks agent routes

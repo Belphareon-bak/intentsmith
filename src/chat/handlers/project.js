@@ -25,48 +25,20 @@ import { handleShellDecision } from './conversation.js';
 import { config } from '../../config.js';
 import { readdirSync } from 'fs';
 import { extname } from 'path';
+import { preHandle } from './pre-handler.js';
 
-// ─── Phase C: Build handoff (lazy-loaded, null if lifecycle disabled) ───────
+// ─── Post-CRE modules (lazy-loaded, null if feature disabled) ──────────────
+// Only handleBuildDetected is needed for the PLAN case — shared intercepts
+// (build handoff, lifecycle handoff, C4 auto-detect) are in pre-handler.js.
 let handleBuildDetected = null;
-let handleBuildConfirmed, handleClarificationAnswer,
-    handlePlanVerdict, getActiveBuildHandoff, cancelBuildHandoff;
-
-// Phase C: Lifecycle handoff (project lifecycle)
-let getActiveLifecycleHandoff, cancelLifecycleHandoff, handleLifecycleInput;
 
 if (config.features.lifecycle !== false) {
   try {
     const bh = await import('./build-handoff.js');
     handleBuildDetected = bh.handleBuildDetected;
-    handleBuildConfirmed = bh.handleBuildConfirmed;
-    handleClarificationAnswer = bh.handleClarificationAnswer;
-    handlePlanVerdict = bh.handlePlanVerdict;
-    getActiveBuildHandoff = bh.getActiveBuildHandoff;
-    cancelBuildHandoff = bh.cancelBuildHandoff;
   } catch (err) {
     logger.warn('ProjectHandler', `Build handoff not available: ${err.message}`);
   }
-
-  try {
-    const lh = await import('./lifecycle-handoff.js');
-    getActiveLifecycleHandoff = lh.getActiveLifecycleHandoff;
-    cancelLifecycleHandoff = lh.cancelLifecycleHandoff;
-    handleLifecycleInput = lh.handleLifecycleInput;
-  } catch (err) {
-    logger.warn('ProjectHandler', `Lifecycle handoff not available: ${err.message}`);
-  }
-}
-
-/** Build a quick system TaggedResponse (shorthand for intercept returns) */
-function systemResponse(content, metadata = {}, confidence = 1.0) {
-  const tag = new ResponseTag({
-    speaker: ResponseSpeaker.SYSTEM,
-    mode: ChatMode.PROJECT,
-    confidence,
-    canExecute: false,
-    metadata,
-  });
-  return new TaggedResponse({ content, tag });
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -316,112 +288,11 @@ export async function projectHandler(input, context) {
     });
 
     // ════════════════════════════════════════════════════════════════════════
-    // v88: BUILD HANDOFF INTERCEPT — route messages during active Planner flow
-    // (mirrored from conversation.js — Phase C)
+    // v93.1: Shared intercept chain — build handoff, C4 lifecycle auto-detect,
+    // lifecycle handoff, feedback detection, session resume, attachment guard
     // ════════════════════════════════════════════════════════════════════════
-    const activeHandoff = getActiveBuildHandoff ? getActiveBuildHandoff(sessionId) : null;
-    if (activeHandoff) {
-      if (typeof context.onSystemStep === 'function') {
-        try { context.onSystemStep('build_handoff', `phase: ${activeHandoff.phase}`, 2); } catch (_) {}
-      }
-      creDecisionEngine.logIntercept('build_handoff', `Active build handoff (phase: ${activeHandoff.phase}) — routing to build handler [PROJECT]`, {
-        sessionId, phase: activeHandoff.phase,
-      });
-      if (/^(zrušit?|cancel|stop|zpět|back)\s*[!.]?$/i.test(input.trim())) {
-        cancelBuildHandoff(sessionId);
-        return systemResponse('Build zrušen. Jsem zpět v projektu.', { buildCancelled: true });
-      }
-      switch (activeHandoff.phase) {
-        case 'PROPOSED': {
-          const isYes = /^(ano|jo|ok|yes|jdi|jasně?|sure|build|stavět|start)\s*[!.]?$/i.test(input.trim());
-          const isNo = /^(ne|no|nechci|cancel|zrušit?)\s*[!.]?$/i.test(input.trim());
-          if (isYes) return await handleBuildConfirmed(input, context);
-          if (isNo) {
-            cancelBuildHandoff(sessionId);
-            return systemResponse('OK, zůstáváme v projektu.', { buildCancelled: true });
-          }
-          return systemResponse('Chceš spustit Planner pipeline? (ano/ne)', { buildConfirmation: true }, 0.9);
-        }
-        case 'CLARIFYING':
-          return await handleClarificationAnswer(input, context);
-        case 'PLAN_REVIEW':
-          return await handlePlanVerdict(input, context);
-        case 'EXECUTING':
-          return systemResponse('Pipeline právě běží, počkej na výsledek...', { pipelineRunning: true }, 0.9);
-        default:
-          cancelBuildHandoff(sessionId);
-          break;
-      }
-    }
-    // ════════════════════════════════════════════════════════════════════════
-
-    // ════════════════════════════════════════════════════════════════════════
-    // v88: C4 LIFECYCLE AUTO-DETECT — detect active lifecycle for this project
-    // (mirrored from conversation.js — fixes lifecycle unreachable from PROJECT mode)
-    // ════════════════════════════════════════════════════════════════════════
-    if (getActiveLifecycleHandoff && !getActiveLifecycleHandoff(sessionId)) {
-      if (config.features.lifecycle !== false) {
-        try {
-          const { getLcStateByProject, setLcState: setLcS, bindSessionToLifecycle: bindS } =
-              await import('./lifecycle-state.js');
-
-          // A) RAM lookup by projectId — fast path (catches sessionId mismatch)
-          const existing = getLcStateByProject(project.id);
-          if (existing && existing.state.phase !== 'COMPLETED' && existing.state.phase !== 'FAILED') {
-            setLcS(sessionId, { ...existing.state });
-            if (existing.state.lifecycleId) bindS(sessionId, existing.state.lifecycleId);
-            logger.info('ProjectHandler', `C4: Lifecycle state migrated from ${existing.sessionId} to ${sessionId} for project ${project.id}`);
-          } else {
-            // B) DB fallback — restore from DB when RAM has no match
-            const { lifecycles: lcRepo, lifecycleHandoffState: lhsRepo, projects: projRepo } = await import('../../db/database.js');
-            const activeLc = lcRepo.findActiveByProject.get(project.id);
-            if (activeLc && activeLc.phase !== 'COMPLETED' && activeLc.phase !== 'FAILED') {
-              const prev = activeLc.active_session_id && lhsRepo
-                ? lhsRepo.findBySession.get(activeLc.active_session_id) : null;
-              let resolvedPath = project.path || prev?.project_path;
-              if (!resolvedPath) {
-                const proj = projRepo.findById.get(project.id);
-                if (proj?.path) resolvedPath = proj.path;
-              }
-              setLcS(sessionId, {
-                phase: activeLc.phase,
-                lifecycleId: activeLc.id,
-                currentMilestoneId: prev?.current_milestone_id || null,
-                originalRequest: prev?.original_request || '',
-                projectId: activeLc.project_id,
-                projectPath: resolvedPath,
-              });
-              bindS(sessionId, activeLc.id);
-              logger.info('ProjectHandler', `C4: Auto-detected active lifecycle ${activeLc.id} for project ${project.id}`);
-            }
-          }
-        } catch (err) {
-          logger.debug('ProjectHandler', `Lifecycle auto-detect: ${err.message}`);
-        }
-      }
-    }
-    // ════════════════════════════════════════════════════════════════════════
-
-    // ════════════════════════════════════════════════════════════════════════
-    // v88: LIFECYCLE HANDOFF INTERCEPT — route messages during active lifecycle
-    // (mirrored from conversation.js — previously only reachable in CONVERSATION mode)
-    // ════════════════════════════════════════════════════════════════════════
-    const activeLifecycle = getActiveLifecycleHandoff ? getActiveLifecycleHandoff(sessionId) : null;
-    if (activeLifecycle) {
-      if (typeof context.onSystemStep === 'function') {
-        try { context.onSystemStep('lifecycle', `phase: ${activeLifecycle.phase}`, 2); } catch (_) {}
-      }
-      creDecisionEngine.logIntercept('lifecycle_handoff', 'Active lifecycle handoff — routing to lifecycle handler [PROJECT]', {
-        sessionId, phase: activeLifecycle.phase,
-      });
-      if (/^(zru[sš]it?|cancel|stop)\s*[!.]?$/i.test(input.trim())) {
-        cancelLifecycleHandoff(sessionId);
-        return systemResponse('Lifecycle zrušen. Jsem zpět v projektu.', { lifecycleCancelled: true });
-      }
-      const lcResult = await handleLifecycleInput(input, context);
-      if (lcResult) return lcResult;
-    }
-    // ════════════════════════════════════════════════════════════════════════
+    const pre = await preHandle(input, context, 'PROJECT');
+    if (pre.handled) return pre.response;
 
     // ════════════════════════════════════════════════════════════════════════
     // v56.2 Sprint D: PROJECT-SELF QUERY INTERCEPTOR (#8)

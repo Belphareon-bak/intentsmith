@@ -61,4 +61,6 @@ tests/
 | Q + A + D-int + B | 630 |
 | C (projects) | 80 |
 | **F (packaging)** | **100** |
-| **Celkem** | **810** |
+| **Celkem (v78)** | **810** |
+
+> **Pozn.:** Tabulka ukazuje stav k v78 kdy byl Phase F dokoncen. Aktualni celkovy pocet testu je 2600+ (v93).

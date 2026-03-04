@@ -21,70 +21,34 @@ import {
 } from './decisions.js';
 import { buildProjectHint } from './utils/project-context-prompt.js';
 import { getScriptSuggestion } from './utils/script-discovery.js';
-import { parseTodoCommand, handleTodo, handleDone } from './todo.js';
 import { ResponseTag, TaggedResponse, ResponseSpeaker, ChatMode } from '../controller.js';
-// ─── Optional module imports (B/C/D) — lazy-loaded, null if feature disabled ──
+// ─── v93.1: Shared intercepts via pre-handler ─────────────────────────────────
+import { preHandle } from './pre-handler.js';
 import { config } from '../../config.js';
 
-// Phase C: Build handoff (planner pipeline)
-let handleBuildDetected, handleBuildConfirmed, handleClarificationAnswer,
-    handlePlanVerdict, getActiveBuildHandoff, cancelBuildHandoff, setHandoffState;
+// ─── Post-CRE modules (lazy-loaded, null if feature disabled) ─────────────────
+// Only modules needed AFTER CRE decision — shared intercepts are in pre-handler.js.
+let handleBuildDetected;
+let handleSkillDecision;
+let isWizardTrigger, handleAgentWizardDetected, getActiveWizard;
+let recordDecisionForDetector;
 
-// Phase C: Lifecycle handoff (project lifecycle)
-let getActiveLifecycleHandoff, cancelLifecycleHandoff, handleLifecycleInput;
-
-// Phase C: Session resume (multi-session projects)
-let detectResumeIntent, handleResumeRequest, handleProgressRequest;
-
-// Phase B: Agent wizard
-let getActiveWizard, cancelWizard, handleWizardInput, handleAgentWizardDetected, isWizardTrigger;
-
-// Load Phase C modules
 if (config.features.lifecycle !== false) {
   try {
     const bh = await import('./build-handoff.js');
     handleBuildDetected = bh.handleBuildDetected;
-    handleBuildConfirmed = bh.handleBuildConfirmed;
-    handleClarificationAnswer = bh.handleClarificationAnswer;
-    handlePlanVerdict = bh.handlePlanVerdict;
-    getActiveBuildHandoff = bh.getActiveBuildHandoff;
-    cancelBuildHandoff = bh.cancelBuildHandoff;
-    setHandoffState = bh.setHandoffState;
   } catch (err) {
     logger.warn('Conversation', `Build handoff not available: ${err.message}`);
   }
-
-  try {
-    const lh = await import('./lifecycle-handoff.js');
-    getActiveLifecycleHandoff = lh.getActiveLifecycleHandoff;
-    cancelLifecycleHandoff = lh.cancelLifecycleHandoff;
-    handleLifecycleInput = lh.handleLifecycleInput;
-  } catch (err) {
-    logger.warn('Conversation', `Lifecycle handoff not available: ${err.message}`);
-  }
-
-  try {
-    const sr = await import('./session-resume.js');
-    detectResumeIntent = sr.detectResumeIntent;
-    handleResumeRequest = sr.handleResumeRequest;
-    handleProgressRequest = sr.handleProgressRequest;
-  } catch (err) {
-    logger.warn('Conversation', `Session resume not available: ${err.message}`);
-  }
 }
 
-// Phase D: Skills (v85)
-let handleSkillDecision, handleSkillConfirmation;
-let recordDecisionForDetector;
 if (config.features.skills !== false) {
   try {
     const sk = await import('./skill.js');
     handleSkillDecision = sk.handleSkillDecision;
-    handleSkillConfirmation = sk.handleSkillConfirmation;
   } catch (err) {
     logger.warn('Conversation', `Skills handler not available: ${err.message}`);
   }
-
   try {
     const det = await import('../../skills/detector.js');
     recordDecisionForDetector = det.recordDecision;
@@ -93,28 +57,23 @@ if (config.features.skills !== false) {
   }
 }
 
-// Load Phase B modules
 if (config.features.agents !== false) {
   try {
     const wiz = await import('./agent-wizard.js');
     getActiveWizard = wiz.getActiveWizard;
-    cancelWizard = wiz.cancelWizard;
-    handleWizardInput = wiz.handleWizardInput;
     handleAgentWizardDetected = wiz.handleAgentWizardDetected;
     isWizardTrigger = wiz.isWizardTrigger;
   } catch (err) {
     logger.warn('Conversation', `Agent wizard not available: ${err.message}`);
   }
 }
+
 import {
   handleDesignDecision,
   handleDesignContinue,
   isExplicitFactQuery,
 } from './design.js';
-// v86 M2/M3: Feedback detection + pattern tracking + correction capture
-import { detectFeedback, classifyFeedback, FeedbackSignal } from '../../memory/feedback-detector.js';
-import { preferenceEngine } from '../../memory/preferences.js';
-import { longTermMemory, MemoryKind, MemorySource } from '../../memory/long-term.js';
+// v86 M2: Pattern tracking (cross-conversation learning)
 import { patternTracker } from '../../memory/pattern-tracker.js';
 
 // v57.3: Patterns for date-correction detection
@@ -228,291 +187,13 @@ export async function conversationHandler(input, context) {
   const telemetry = context.telemetry ?? null;
 
   // ════════════════════════════════════════════════════════════════════════════
-  // v86 M3: FEEDBACK DETECTION — detect user's reaction to previous response
-  // Must run BEFORE any intercept or CRE classification.
+  // v93.1: Shared intercept chain — feedback, session resume, TODO, build handoff,
+  // lifecycle, agent wizard, skill confirmation, attachment guard
   // ════════════════════════════════════════════════════════════════════════════
-  if (sessionState?.lastDecision) {
-    try {
-      const feedback = detectFeedback(input, sessionState);
+  const pre = await preHandle(input, context, 'CONVERSATION');
+  if (pre.handled) return pre.response;
 
-      if (feedback.type !== FeedbackSignal.NEUTRAL) {
-        const feedbackClass = classifyFeedback(feedback.type);
-        const lastIntent = sessionState.lastIntent || 'unknown';
 
-        // Record to preference engine
-        if (feedbackClass === 'positive') {
-          preferenceEngine.recordPositiveFeedback({
-            responseType: lastIntent,
-            verbosity: preferenceEngine.preferences.verbosity,
-            structure: preferenceEngine.preferences.structure,
-            input: sessionState.lastUserInput,
-          });
-        } else if (feedbackClass === 'negative') {
-          preferenceEngine.recordNegativeFeedback({
-            responseType: lastIntent,
-            verbosity: preferenceEngine.preferences.verbosity,
-            structure: preferenceEngine.preferences.structure,
-            reason: feedback.signal,
-            input: sessionState.lastUserInput,
-          });
-        }
-
-        // M3: Store corrections in LTM
-        if (feedback.type === FeedbackSignal.CORRECTION && feedback.correctionData && longTermMemory.initialized) {
-          longTermMemory.write({
-            kind: MemoryKind.CORRECTION,
-            key: `corr_${Date.now()}`,
-            value: {
-              original: feedback.correctionData.original,
-              corrected: feedback.correctionData.corrected,
-              context: lastIntent,
-            },
-            confidence: 0.8,
-            source: MemorySource.CORRECTED,
-          });
-        }
-
-        logger.debug('Conversation', 'Feedback detected', {
-          type: feedback.type,
-          signal: feedback.signal,
-          confidence: feedback.confidence,
-        });
-      }
-    } catch (err) {
-      logger.debug('Conversation', `Feedback detection error: ${err.message}`);
-    }
-  }
-
-  // ════════════════════════════════════════════════════════════════════════════
-  // PHASE C1: SESSION RESUME / PROGRESS INTERCEPT (optional — Phase C)
-  // ════════════════════════════════════════════════════════════════════════════
-  const resumeIntent = detectResumeIntent ? detectResumeIntent(input) : null;
-
-  if (resumeIntent === 'resume') {
-    if (typeof context.onSystemStep === 'function') {
-      try { context.onSystemStep('session_resume', 'User requesting session resume', 2); } catch (_) {}
-    }
-    creDecisionEngine.logIntercept('session_resume', 'User requesting session resume — routing to resume handler', {
-      sessionId,
-    });
-    const result = await handleResumeRequest(input, context, setHandoffState);
-    if (result.handled) {
-      if (result.pendingChoice) {
-        context.sessionState.pendingResumeChoice = result.pendingChoice;
-      }
-      return systemResponse(result.content, {
-        sessionResume: true,
-        pendingChoice: result.pendingChoice || null,
-      });
-    }
-  }
-
-  if (resumeIntent === 'progress') {
-    creDecisionEngine.logIntercept('progress_inquiry', 'User asking about progress — routing to progress handler', {
-      sessionId,
-    });
-    const result = handleProgressRequest();
-    if (result.handled) {
-      return systemResponse(result.content, { progressInquiry: true });
-    }
-  }
-
-  // Handle numeric session selection after resume list was shown
-  if (context.sessionState?.pendingResumeChoice) {
-    const num = parseInt(input.trim());
-    if (!isNaN(num) && num >= 1) {
-      const choices = context.sessionState.pendingResumeChoice;
-      const idx = num - 1;
-      if (idx < choices.length) {
-        const { restoreSession } = await import('./session-resume.js');
-        const result = await restoreSession(
-          sessionId,
-          choices[idx].sessionId,
-          setHandoffState,
-        );
-        delete context.sessionState.pendingResumeChoice;
-        return systemResponse(result.message, { sessionResume: true });
-      }
-    }
-    delete context.sessionState.pendingResumeChoice;
-  }
-  // ════════════════════════════════════════════════════════════════════════════
-
-  // ════════════════════════════════════════════════════════════════════════════
-  // v67.0: TODO WORKFLOW — /todo and /done commands (deterministic, no LLM)
-  // ════════════════════════════════════════════════════════════════════════════
-  const todoCmd = parseTodoCommand(input);
-  if (todoCmd.type) {
-    const projectId = context.project?.id || null;
-    const result = todoCmd.type === 'todo'
-      ? handleTodo(todoCmd.text, projectId)
-      : handleDone(todoCmd.text, projectId);
-    if (result.handled) {
-      return systemResponse(result.content, { todoCommand: todoCmd.type });
-    }
-  }
-
-  // ════════════════════════════════════════════════════════════════════════════
-  // BUILD HANDOFF INTERCEPT — route messages during active Planner flow (optional — Phase C)
-  // ════════════════════════════════════════════════════════════════════════════
-  const activeHandoff = getActiveBuildHandoff ? getActiveBuildHandoff(sessionId) : null;
-  if (activeHandoff) {
-    if (typeof context.onSystemStep === 'function') {
-      try { context.onSystemStep('build_handoff', `phase: ${activeHandoff.phase}`, 2); } catch (_) {}
-    }
-    creDecisionEngine.logIntercept('build_handoff', `Active build handoff (phase: ${activeHandoff.phase}) — routing to build handler`, {
-      sessionId, phase: activeHandoff.phase,
-    });
-    // Cancel command
-    if (/^(zrušit?|cancel|stop|zpět|back)\s*[!.]?$/i.test(input.trim())) {
-      cancelBuildHandoff(sessionId);
-      return systemResponse('Build zrušen. Jsem zpět v chat módu.', { buildCancelled: true });
-    }
-
-    // Route based on handoff phase
-    switch (activeHandoff.phase) {
-      case 'PROPOSED': {
-        // Waiting for user to confirm "jít stavět?"
-        const isYes = /^(ano|jo|ok|yes|jdi|jasně?|sure|build|stavět|start)\s*[!.]?$/i.test(input.trim());
-        const isNo = /^(ne|no|nechci|cancel|zrušit?)\s*[!.]?$/i.test(input.trim());
-        if (isYes) return await handleBuildConfirmed(input, context);
-        if (isNo) {
-          cancelBuildHandoff(sessionId);
-          return systemResponse('OK, zůstáváme v chatu.', { buildCancelled: true });
-        }
-        // Ambiguous — remind user
-        return systemResponse('Chceš spustit Planner pipeline? (ano/ne)', { buildConfirmation: true }, 0.9);
-      }
-      case 'CLARIFYING':
-        return await handleClarificationAnswer(input, context);
-      case 'PLAN_REVIEW':
-        return await handlePlanVerdict(input, context);
-      case 'EXECUTING':
-        return systemResponse('Pipeline právě běží, počkej na výsledek...', { pipelineRunning: true }, 0.9);
-      default:
-        // Unknown phase — clear and continue normally
-        cancelBuildHandoff(sessionId);
-        break;
-    }
-  }
-  // ════════════════════════════════════════════════════════════════════════════
-
-  // ════════════════════════════════════════════════════════════════════════════
-  // v62: C4 LIFECYCLE AUTO-DETECT — new session for existing project with active lifecycle
-  // ════════════════════════════════════════════════════════════════════════════
-  if (getActiveLifecycleHandoff && !getActiveLifecycleHandoff(sessionId)) {
-    const projectId = context.project?.id || context.projectId;
-    if (projectId && config.features.lifecycle !== false) {
-      try {
-        const { getLcStateByProject, setLcState: setLcS, bindSessionToLifecycle: bindS } =
-            await import('./lifecycle-state.js');
-
-        // A) RAM lookup by projectId — fast path (catches sessionId mismatch)
-        const existing = getLcStateByProject(projectId);
-        if (existing && existing.state.phase !== 'COMPLETED' && existing.state.phase !== 'FAILED') {
-          setLcS(sessionId, { ...existing.state });
-          if (existing.state.lifecycleId) bindS(sessionId, existing.state.lifecycleId);
-          logger.info('Conversation', `C4: Lifecycle state migrated from ${existing.sessionId} to ${sessionId} for project ${projectId}`);
-        } else {
-          // B) DB fallback — restore from DB when RAM has no match
-          const { lifecycles: lcRepo, lifecycleHandoffState: lhsRepo, projects: projRepo } = await import('../../db/database.js');
-          const activeLc = lcRepo.findActiveByProject.get(projectId);
-          if (activeLc && activeLc.phase !== 'COMPLETED' && activeLc.phase !== 'FAILED') {
-            const prev = activeLc.active_session_id && lhsRepo
-              ? lhsRepo.findBySession.get(activeLc.active_session_id) : null;
-            // Resolve path: context > handoff state > projects table
-            let resolvedPath = context.project?.path || prev?.project_path;
-            if (!resolvedPath) {
-              const proj = projRepo.findById.get(projectId);
-              if (proj?.path) resolvedPath = proj.path;
-            }
-            setLcS(sessionId, {
-              phase: activeLc.phase,
-              lifecycleId: activeLc.id,
-              currentMilestoneId: prev?.current_milestone_id || null,
-              originalRequest: prev?.original_request || '',
-              projectId: activeLc.project_id,
-              projectPath: resolvedPath,
-            });
-            bindS(sessionId, activeLc.id);
-            logger.info('Conversation', `C4: Auto-detected active lifecycle ${activeLc.id} for project ${projectId}`);
-          }
-        }
-      } catch (err) {
-        logger.debug('Conversation', `Lifecycle auto-detect: ${err.message}`);
-      }
-    }
-  }
-  // ════════════════════════════════════════════════════════════════════════════
-
-  // ════════════════════════════════════════════════════════════════════════════
-  // v91: POST-LIFECYCLE CONTEXT — inject lifecycle summary for completed projects
-  // When a lifecycle is COMPLETED, the agent still needs project context.
-  // Load lifecycle_summary from project_memory into sessionState working memory.
-  // ════════════════════════════════════════════════════════════════════════════
-  if (context.hasActiveProject && context.project?.id) {
-    try {
-      const { projectMemory } = await import('../../db/database.js');
-      const lcPhase = projectMemory.get.get(context.project.id, 'lifecycle_phase');
-      if (lcPhase?.value === 'COMPLETED' && !context.sessionState?.projectGoal) {
-        const lcSummary = projectMemory.get.get(context.project.id, 'lifecycle_summary');
-        if (lcSummary?.value) {
-          context.sessionState.setProjectGoal('Dokončený lifecycle projekt. ' + lcSummary.value.slice(0, 500));
-          logger.debug('Conversation', `Post-lifecycle context injected for project ${context.project.id}`);
-        }
-      }
-    } catch (_) { /* non-fatal */ }
-  }
-  // ════════════════════════════════════════════════════════════════════════════
-
-  // ════════════════════════════════════════════════════════════════════════════
-  // v61: LIFECYCLE HANDOFF INTERCEPT — route messages during active lifecycle (optional — Phase C)
-  // ════════════════════════════════════════════════════════════════════════════
-  const activeLifecycle = getActiveLifecycleHandoff ? getActiveLifecycleHandoff(sessionId) : null;
-  if (activeLifecycle) {
-    if (typeof context.onSystemStep === 'function') {
-      try { context.onSystemStep('lifecycle', `phase: ${activeLifecycle.phase}`, 2); } catch (_) {}
-    }
-    creDecisionEngine.logIntercept('lifecycle_handoff', 'Active lifecycle handoff — routing to lifecycle handler', {
-      sessionId, phase: activeLifecycle.phase,
-    });
-    // Cancel command
-    if (/^(zru[sš]it?|cancel|stop)\s*[!.]?$/i.test(input.trim())) {
-      cancelLifecycleHandoff(sessionId);
-      return systemResponse('Lifecycle zrušen. Jsem zpět v chat módu.', { lifecycleCancelled: true });
-    }
-
-    const lcResult = await handleLifecycleInput(input, context);
-    if (lcResult) return lcResult;
-  }
-  // ════════════════════════════════════════════════════════════════════════════
-
-  // ════════════════════════════════════════════════════════════════════════════
-  // v59.0 - AGENT WIZARD INTERCEPT — route messages during active wizard flow (optional — Phase B)
-  // ════════════════════════════════════════════════════════════════════════════
-  const activeWizard = getActiveWizard ? getActiveWizard(sessionId) : null;
-  if (activeWizard) {
-    if (typeof context.onSystemStep === 'function') {
-      try { context.onSystemStep('agent_wizard', `step: ${activeWizard.step}`, 2); } catch (_) {}
-    }
-    creDecisionEngine.logIntercept('agent_wizard', 'Active agent wizard — routing to wizard handler', {
-      sessionId, wizardStep: activeWizard.step,
-    });
-    if (/^(zru[sš]it?|cancel|stop|zp[eě]t|back)\s*[!.]?$/i.test(input.trim())) {
-      cancelWizard(sessionId);
-      return systemResponse('Wizard zrušen. Jsem zpět v chat módu.', { wizardCancelled: true });
-    }
-    return await handleWizardInput(input, context);
-  }
-  // ════════════════════════════════════════════════════════════════════════════
-
-  // ════════════════════════════════════════════════════════════════════════════
-  // v85 - SKILL CONFIRMATION INTERCEPT — check before CRE classify
-  // ════════════════════════════════════════════════════════════════════════════
-  if (handleSkillConfirmation) {
-    const skillResult = await handleSkillConfirmation(input, context);
-    if (skillResult) return skillResult;
-  }
 
   // ════════════════════════════════════════════════════════════════════════════
   // v44.2 - CHECK FOR PENDING CLARIFICATION
@@ -779,46 +460,6 @@ export async function conversationHandler(input, context) {
         input: input.substring(0, 50),
       });
       // Fall through to CRE — project stays active
-    }
-  }
-
-  // ════════════════════════════════════════════════════════════════════════════
-  // v82.2: Deterministic attachment guard — BEFORE CRE classification
-  // Attachment presence is a HARD SIGNAL. LLM should not decide what is
-  // structurally obvious: if user sends a file + references its content,
-  // the intent is FILE_EXPLAIN. Period.
-  // ════════════════════════════════════════════════════════════════════════════
-  if (context.attachments && context.attachments.length > 0) {
-    // NOTE: Code-review patterns (najdi chyb, find bug) are deliberately EXCLUDED.
-    // Those need CRE routing → CODE/CREATIVE to produce code fix blocks.
-    const fileRefPattern = /analyzuj|vysvětli|vysvětl|rozbor|co\s+dělá|co\s+obsahuje|co\s+je\s+v|popi[sš]|shrň|závislost|identifikuj|explain|analy[zs]|what\s+does|what\s+is\s+(in|this)|descri|summar|look\s+at/i;
-    if (fileRefPattern.test(input)) {
-      const attachNames = context.attachments.map(a => a.name).join(', ');
-      logger.info('ConversationHandler', `Attachment guard → FILE_EXPLAIN (deterministic)`, {
-        input: input.substring(0, 60),
-        attachments: attachNames,
-      });
-      // System step for observability
-      if (typeof context.onSystemStep === 'function') {
-        try { context.onSystemStep('attachment_guard', `FILE_EXPLAIN ← ${attachNames}`); } catch (_) {}
-      }
-      // Set filePath from first attachment — file handler needs it to find inline content
-      const primaryAttachment = context.attachments[0];
-      const attachDecision = creDecisionEngine.overrideDecision({
-        type: DecisionType.LOCAL,
-        intent: IntentType.FILE_EXPLAIN,
-        source: 'attachment_guard',
-        reason: `Attachment present (${attachNames}) + file-reference query → deterministic FILE_EXPLAIN`,
-        confidence: 0.95,
-        metadata: {
-          hasAttachments: true,
-          attachmentCount: context.attachments.length,
-          attachmentNames: attachNames,
-          filePath: primaryAttachment.name,
-          handler: 'file.explain',
-        },
-      });
-      return await handleFileDecision(input, attachDecision, context);
     }
   }
 
