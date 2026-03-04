@@ -267,6 +267,8 @@ async function buildLoop(t, sessionId, context, opts = {}) {
   let round = 0;
   let completed = 0;
   let rejected = false;
+  let blockedSkips = 0;
+  let lastResponse = '';
 
   while (round < maxRounds) {
     round++;
@@ -276,16 +278,22 @@ async function buildLoop(t, sessionId, context, opts = {}) {
 
     console.log(`    [Build round ${round}] phase=${state.phase} ms=${state.currentMilestoneId || '-'}`);
 
+    // Detect blocked milestone loop — send "skip" instead of looping "pokračovat"
+    const isBlocked = typeof lastResponse === 'string' &&
+      (lastResponse.includes('milníky jsou blokované') || lastResponse.includes('Milník zablokován'));
+
     if (state.phase === 'BUILD_MILESTONE_REVIEW') {
       if (rejectFirst && !rejected) {
         rejected = true;
         const msg = t.userTurn(rejectMessage || 'Ne, tohle se mi nelíbí. Zkus to jinak.');
         const resp = await handleLifecycleInput(msg, context);
+        lastResponse = resp?.content || '';
         t.systemTurn('BUILD rejection', resp);
         continue;
       }
-      const msg = t.userTurn('ano, pokračuj');
+      const msg = t.userTurn('ano');
       const resp = await handleLifecycleInput(msg, context);
+      lastResponse = resp?.content || '';
       t.systemTurn(`BUILD ${state.currentMilestoneId || ''}`, resp);
       if (state.currentMilestoneId) {
         const msDb = msRepo.getMilestone(state.currentMilestoneId);
@@ -295,12 +303,23 @@ async function buildLoop(t, sessionId, context, opts = {}) {
         }
       }
     } else if (state.phase === 'BUILD') {
-      const msg = t.userTurn('pokračuj');
-      const resp = await handleLifecycleInput(msg, context);
-      t.systemTurn('BUILD continue', resp);
+      if (isBlocked) {
+        blockedSkips++;
+        console.log(`    [Build] Detected blocked milestone — sending "skip" (skip #${blockedSkips})`);
+        const msg = t.userTurn('skip');
+        const resp = await handleLifecycleInput(msg, context);
+        lastResponse = resp?.content || '';
+        t.systemTurn('BUILD skip blocked', resp);
+      } else {
+        const msg = t.userTurn('pokračovat');
+        const resp = await handleLifecycleInput(msg, context);
+        lastResponse = resp?.content || '';
+        t.systemTurn('BUILD continue', resp);
+      }
     } else if (state.phase === 'REVIEW') {
-      const msg = t.userTurn('hotovo, pokračuj dál');
+      const msg = t.userTurn('pokračovat');
       const resp = await handleLifecycleInput(msg, context);
+      lastResponse = resp?.content || '';
       t.systemTurn('REVIEW', resp);
     } else {
       console.log(`    Unexpected phase: ${state.phase} — breaking`);
@@ -363,11 +382,8 @@ async function testP1_MalyAlchymista() {
     t.systemTurn('PROPOSED', resp1);
     t.check(resp1?.content?.length > 20, 'T1: got substantive proposal');
 
-    // ── Turn 2: Confirmation with extra requirements ──
-    const msg2 = t.userTurn(
-      'Jo, do toho. Ale důležitý — chci mít full-text hledání přes názvy ingrediencí, ' +
-      'to je pro mě klíčový. A taky endpoint na export receptů do JSON souboru.'
-    );
+    // ── Turn 2: Confirm lifecycle (must be standalone "ano") ──
+    const msg2 = t.userTurn('jo');
     const resp2 = await handleLifecycleInput(msg2, context);
     t.systemTurn('SPEC', resp2);
 
@@ -375,8 +391,10 @@ async function testP1_MalyAlchymista() {
     t.check(state2?.phase === 'SPEC', 'T2: state is SPEC', `got: ${state2?.phase}`);
     lifecycleId = state2?.lifecycleId;
 
-    // ── Turns 3-5: Detailed spec answers (opinionated, pushback on decisions) ──
+    // ── Turns 3-6: Detailed spec answers (opinionated, pushback on decisions) ──
     const specRounds = await specLoop(t, SESSION_ID, context, [
+      'Důležitý — chci mít full-text hledání přes názvy ingrediencí, to je pro mě klíčový. ' +
+      'A taky endpoint na export receptů do JSON souboru. ' +
       'Takže: REST API s CRUD pro recepty (/api/potions) a ingredience (/api/ingredients). ' +
       'Každej recept má název, popis, difficulty (1-5), a list ingrediencí s množstvím a jednotkou. ' +
       'Ingredience: název, typ (bylina/minerál/tekutina/magická), popis, rarita (common/rare/legendary). ' +
@@ -420,7 +438,7 @@ async function testP1_MalyAlchymista() {
 
       // Approve spec
       if (getLcState(SESSION_ID)?.phase === 'SPEC_REVIEW') {
-        const msgApprove = t.userTurn('Paráda, schvaluji. Jdem na to.');
+        const msgApprove = t.userTurn('schvaluji');
         const respApprove = await handleLifecycleInput(msgApprove, context);
         t.systemTurn('SPEC → PLAN', respApprove);
       }
@@ -438,7 +456,7 @@ async function testP1_MalyAlchymista() {
       try { db.prepare('UPDATE milestones SET test_strategy = NULL WHERE lifecycle_id = ?').run(lifecycleId); } catch {}
 
       // Approve plan
-      const msgPlan = t.userTurn('Milníky vypadaj dobře, schvaluji plán. Jen makej.');
+      const msgPlan = t.userTurn('schvaluji');
       const respPlan = await handleLifecycleInput(msgPlan, context);
       t.systemTurn('PLAN → BUILD', respPlan);
     }
@@ -504,12 +522,8 @@ async function testP2_QuizMaster() {
     t.systemTurn('PROPOSED', resp1);
     t.check(resp1?.content?.length > 20, 'T1: got substantive proposal');
 
-    // ── Turn 2: Confirm but add constraint ──
-    const msg2 = t.userTurn(
-      'Yes, let\'s do it. But I have a strong preference: I want zero external ' +
-      'dependencies besides BoltDB. No Cobra, no Viper, no color libraries. ' +
-      'Pure stdlib for CLI parsing and output formatting. Keep it lean.'
-    );
+    // ── Turn 2: Confirm lifecycle (must be standalone) ──
+    const msg2 = t.userTurn('yes');
     const resp2 = await handleLifecycleInput(msg2, context);
     t.systemTurn('SPEC', resp2);
 
@@ -517,8 +531,10 @@ async function testP2_QuizMaster() {
     t.check(state2?.phase === 'SPEC', 'T2: state is SPEC', `got: ${state2?.phase}`);
     lifecycleId = state2?.lifecycleId;
 
-    // ── Turns 3-5: Spec with thoughtful detail ──
+    // ── Turns 3-6: Spec with thoughtful detail + constraint ──
     const specRounds = await specLoop(t, SESSION_ID, context, [
+      'Strong preference: I want zero external dependencies besides BoltDB. No Cobra, no Viper, ' +
+      'no color libraries. Pure stdlib for CLI parsing and output formatting. Keep it lean. ' +
       'For the quiz flow: player picks category → gets 10 questions → multiple choice (4 options) ' +
       '→ answer within time limit (configurable, default 15s) → streak bonus (3+ correct = 1.5x, ' +
       '5+ = 2x). Questions stored in YAML: question text, 4 options, correct index, difficulty ' +
@@ -544,10 +560,7 @@ async function testP2_QuizMaster() {
 
     // ── Turn 6: Approve spec with note ──
     if (getLcState(SESSION_ID)?.phase === 'SPEC_REVIEW') {
-      const msg6 = t.userTurn(
-        'This looks solid. I approve. One minor note for the roadmap: I\'d like the ' +
-        'YAML loader tested with malformed files early — don\'t leave validation to the last milestone.'
-      );
+      const msg6 = t.userTurn('approve');
       const resp6 = await handleLifecycleInput(msg6, context);
       t.systemTurn('SPEC → PLAN', resp6);
     }
@@ -562,9 +575,7 @@ async function testP2_QuizMaster() {
 
       try { db.prepare('UPDATE milestones SET test_strategy = NULL WHERE lifecycle_id = ?').run(lifecycleId); } catch {}
 
-      const msgPlan = t.userTurn(
-        'The milestone breakdown makes sense. Critical path looks right. Approve.'
-      );
+      const msgPlan = t.userTurn('approve');
       const respPlan = await handleLifecycleInput(msgPlan, context);
       t.systemTurn('PLAN → BUILD', respPlan);
     }
@@ -632,12 +643,8 @@ async function testP3_DetskyDenik() {
     t.systemTurn('PROPOSED', resp1);
     t.check(resp1?.content?.length > 20, 'T1: got substantive proposal');
 
-    // ── Turn 2: Confirm with UX concerns ──
-    const msg2 = t.userTurn(
-      'Ano! Ale pozor na UX — nechci žádný dark patterns, žádný gamifikaci, žádný ' +
-      'streaky nebo achievementy. Tohle má být safe space pro sebevyjádření, ne ' +
-      'engagement trap. Taky nechci žádný cloud storage — všechno lokální.'
-    );
+    // ── Turn 2: Confirm lifecycle (must be standalone) ──
+    const msg2 = t.userTurn('ano');
     const resp2 = await handleLifecycleInput(msg2, context);
     t.systemTurn('SPEC', resp2);
 
@@ -645,8 +652,10 @@ async function testP3_DetskyDenik() {
     t.check(state2?.phase === 'SPEC', 'T2: state is SPEC', `got: ${state2?.phase}`);
     lifecycleId = state2?.lifecycleId;
 
-    // ── Turns 3-5: Spec — UX-focused answers ──
+    // ── Turns 3-6: Spec — UX-focused answers ──
     const specRounds = await specLoop(t, SESSION_ID, context, [
+      'Pozor na UX — nechci žádný dark patterns, žádný gamifikaci, žádný streaky nebo achievementy. ' +
+      'Tohle má být safe space pro sebevyjádření, ne engagement trap. Žádný cloud storage — všechno lokální. ' +
       'Zápisky mají: datum (auto), mood emoji (volitelný), text (rich-text by bylo moc — ' +
       'plain text + bold/italic stačí), kreslení (HTML Canvas, save jako PNG), fotky (upload, ' +
       'max 2MB, resize na 800px). Archiv = timeline view (vertikální scroll, nejnovější nahoře). ' +
@@ -674,9 +683,7 @@ async function testP3_DetskyDenik() {
 
     // ── Turn 6: Approve spec with passion ──
     if (getLcState(SESSION_ID)?.phase === 'SPEC_REVIEW') {
-      const msg6 = t.userTurn(
-        'Krásný, přesně takhle jsem si to představoval! Schvaluji. Těším se na ten deník.'
-      );
+      const msg6 = t.userTurn('schvaluji');
       const resp6 = await handleLifecycleInput(msg6, context);
       t.systemTurn('SPEC → PLAN', resp6);
     }
@@ -701,7 +708,7 @@ async function testP3_DetskyDenik() {
       if (getLcState(SESSION_ID)?.phase === 'PLAN_REVIEW') {
         try { db.prepare('UPDATE milestones SET test_strategy = NULL WHERE lifecycle_id = ?').run(lifecycleId); } catch {}
 
-        const msgApprove = t.userTurn('Teď je to lepší. Schvaluji plán, jdeme buildovat.');
+        const msgApprove = t.userTurn('schvaluji');
         const respApprove = await handleLifecycleInput(msgApprove, context);
         t.systemTurn('PLAN → BUILD', respApprove);
       }
@@ -911,13 +918,8 @@ REST API for managing resumes and job applications.
     t.systemTurn('PROPOSED', resp1);
     t.check(resp1?.content?.length > 20, 'T1: got substantive proposal');
 
-    // ── Turn 2: Confirm — emphasize understanding existing code ──
-    const msg2 = t.userTurn(
-      'Jo, ale důležitý — nemaž co už tam je. Databázový schema je hotový, ' +
-      'src/db.js funguje. Potřebuju dopsat routes v src/routes/resumes.js, ' +
-      'přidat PDF upload endpoint, a job tracker. Existující README a ROADMAP ' +
-      'popisují co zbývá.'
-    );
+    // ── Turn 2: Confirm lifecycle (must be standalone) ──
+    const msg2 = t.userTurn('ano');
     const resp2 = await handleLifecycleInput(msg2, context);
     t.systemTurn('SPEC', resp2);
 
@@ -925,8 +927,11 @@ REST API for managing resumes and job applications.
     t.check(state2?.phase === 'SPEC', 'T2: state is SPEC', `got: ${state2?.phase}`);
     lifecycleId = state2?.lifecycleId;
 
-    // ── Turns 3-5: Spec answers — reference existing code ──
+    // ── Turns 3-6: Spec answers — reference existing code ──
     const specRounds = await specLoop(t, SESSION_ID, context, [
+      'Důležitý — nemaž co už tam je! Databázový schema je hotový, src/db.js funguje. ' +
+      'Potřebuju dopsat routes v src/routes/resumes.js, přidat PDF upload endpoint, a job tracker. ' +
+      'Existující README a ROADMAP popisují co zbývá. ' +
       'Existující kód: src/server.js (Express server, port 4000), src/db.js (SQLite schema ' +
       'pro resumes + experiences tabulky), src/routes/resumes.js (prázdný TODO). ' +
       'Co chybí: 1) CRUD routes pro resumes (GET/POST/PUT/DELETE /api/resumes, ' +
@@ -951,9 +956,7 @@ REST API for managing resumes and job applications.
 
     // ── Turn 6: Approve spec ──
     if (getLcState(SESSION_ID)?.phase === 'SPEC_REVIEW') {
-      const msg6 = t.userTurn(
-        'Vypadá to správně, zachovává to existující kód. Schvaluji specifikaci.'
-      );
+      const msg6 = t.userTurn('schvaluji');
       const resp6 = await handleLifecycleInput(msg6, context);
       t.systemTurn('SPEC → PLAN', resp6);
     }
@@ -968,10 +971,7 @@ REST API for managing resumes and job applications.
 
       try { db.prepare('UPDATE milestones SET test_strategy = NULL WHERE lifecycle_id = ?').run(lifecycleId); } catch {}
 
-      const msgPlan = t.userTurn(
-        'Plán dává smysl. Jen se ujisti, že první milník nevytváří nový server.js — ' +
-        'ten už existuje. Schvaluji.'
-      );
+      const msgPlan = t.userTurn('schvaluji');
       const respPlan = await handleLifecycleInput(msgPlan, context);
       t.systemTurn('PLAN → BUILD', respPlan);
     }
