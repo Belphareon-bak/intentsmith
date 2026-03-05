@@ -287,6 +287,173 @@ export async function buildCodeContext(projectPath, rankedFiles, opts = {}) {
   return { context, files: fileInfos, totalTokens };
 }
 
+// ─── Intent-Aware Context Strategies ──────────────────────────────────────────
+
+export const CONTEXT_STRATEGIES = {
+  debug: {
+    maxFiles: 8,
+    maxLinesPerFile: 250,   // More lines — need to see error handling, edge cases
+    maxTokens: 18000,
+    headerLines: 30,        // More imports context
+    matchContext: 15,        // Wider match window
+    prioritizeSmells: true,  // Include code smells in ranking boost
+    includeStackTraceFiles: true,
+    description: 'Debug — expanded context for error analysis',
+  },
+  refactor: {
+    maxFiles: 12,
+    maxLinesPerFile: 150,   // More files, less per file — breadth over depth
+    maxTokens: 15000,
+    headerLines: 25,
+    matchContext: 8,
+    includeCallGraph: true, // Show what calls what
+    includeDependencyChain: true,
+    description: 'Refactor — dependency-aware context',
+  },
+  architecture: {
+    maxFiles: 15,
+    maxLinesPerFile: 80,    // Many files, just structure — breadth
+    maxTokens: 12000,
+    headerLines: 40,        // Focus on imports and class declarations
+    matchContext: 5,
+    includeImportGraph: true,
+    includeModuleStructure: true,
+    description: 'Architecture — structural overview',
+  },
+  understand: {
+    maxFiles: 6,
+    maxLinesPerFile: 300,   // Fewer files, deep read
+    maxTokens: 18000,
+    headerLines: 20,
+    matchContext: 15,
+    description: 'Understand — deep read of key files',
+  },
+  review: {
+    maxFiles: 10,
+    maxLinesPerFile: 200,
+    maxTokens: 15000,
+    headerLines: 20,
+    matchContext: 10,
+    prioritizeSmells: true,
+    description: 'Review — balanced with smell detection',
+  },
+  general: {
+    maxFiles: 10,
+    maxLinesPerFile: 200,
+    maxTokens: 15000,
+    headerLines: 20,
+    matchContext: 10,
+    description: 'General — balanced analysis',
+  },
+};
+
+// ─── Import Graph Builder (for architecture strategy) ────────────────────────
+
+function buildImportGraph(fileInfos, projectPath) {
+  // Build a map of file → imports for architecture overview
+  const graph = [];
+  for (const info of fileInfos) {
+    if (info._imports && info._imports.length > 0) {
+      const deps = info._imports.slice(0, 8).join(', ');
+      const suffix = info._imports.length > 8 ? ` (+${info._imports.length - 8} more)` : '';
+      graph.push(`  ${info.path} → ${deps}${suffix}`);
+    }
+  }
+  if (graph.length === 0) return '';
+  return '\n\n---\n\n### Import Graph\n' + graph.join('\n');
+}
+
+// ─── Intent-Aware Context Builder ────────────────────────────────────────────
+
+/**
+ * Intent-aware context builder — varies context strategy based on analysis intent.
+ *
+ * @param {string} projectPath
+ * @param {Array<{file: string, score?: number}>} rankedFiles
+ * @param {Object} opts
+ * @param {string} opts.intent - 'debug'|'refactor'|'architecture'|'understand'|'review'|'general'
+ * @param {string[]} [opts.queryTerms=[]]
+ * @param {number} [opts.maxTokens=15000]
+ * @returns {Promise<{context: string, files: Array, totalTokens: number, strategy: string}>}
+ */
+export async function buildIntentAwareContext(projectPath, rankedFiles, opts = {}) {
+  const intentKey = opts.intent && CONTEXT_STRATEGIES[opts.intent] ? opts.intent : 'general';
+  const strategy = CONTEXT_STRATEGIES[intentKey];
+
+  // Override maxTokens from opts if provided
+  const maxTokens = opts.maxTokens || strategy.maxTokens;
+
+  // If strategy has prioritizeSmells, boost files with code smells in ranking
+  let files = [...rankedFiles];
+  if (strategy.prioritizeSmells && files.length > 0) {
+    // Read and analyze files to find smell counts, boost their score
+    const smellScores = new Map();
+    for (const entry of files) {
+      const absPath = path.join(projectPath, entry.file);
+      try {
+        const content = await readFile(absPath, 'utf8');
+        const lang = detectLanguage(entry.file);
+        const analysis = analyzeCodeStructure(content, lang);
+        const smellCount = analysis.codeSmells.length;
+        if (smellCount > 0) {
+          // Bonus: 0.1 per smell, capped at 0.5
+          smellScores.set(entry.file, Math.min(smellCount * 0.1, 0.5));
+        }
+      } catch {
+        // skip unreadable files
+      }
+    }
+
+    // Re-sort with smell bonus
+    if (smellScores.size > 0) {
+      files.sort((a, b) => {
+        const scoreA = (a.score || 0) + (smellScores.get(a.file) || 0);
+        const scoreB = (b.score || 0) + (smellScores.get(b.file) || 0);
+        return scoreB - scoreA;
+      });
+    }
+  }
+
+  // Call existing buildCodeContext with strategy params
+  const result = await buildCodeContext(projectPath, files, {
+    maxFiles: strategy.maxFiles,
+    maxTokens,
+    maxLinesPerFile: strategy.maxLinesPerFile,
+    queryTerms: opts.queryTerms || [],
+  });
+
+  let context = result.context;
+
+  // If strategy has includeImportGraph, append import graph summary
+  if (strategy.includeImportGraph) {
+    // Collect imports from each file for graph
+    const enrichedInfos = [];
+    for (const info of result.files) {
+      const absPath = path.join(projectPath, info.path);
+      try {
+        const content = await readFile(absPath, 'utf8');
+        const imports = extractImports(content, info.language);
+        enrichedInfos.push({ ...info, _imports: imports });
+      } catch {
+        enrichedInfos.push({ ...info, _imports: [] });
+      }
+    }
+    const graphSection = buildImportGraph(enrichedInfos, projectPath);
+    if (graphSection) {
+      context += graphSection;
+    }
+  }
+
+  const totalTokens = estimateTokens(context);
+
+  return {
+    context,
+    files: result.files,
+    totalTokens,
+    strategy: intentKey,
+  };
+}
+
 // ─── Code Analysis System Prompt ──────────────────────────────────────────────
 
 /**
@@ -324,4 +491,4 @@ ${codeContext}
 `;
 }
 
-export default { buildCodeContext, buildCodeAnalysisPrompt, estimateTokens, extractImports };
+export default { buildCodeContext, buildCodeAnalysisPrompt, estimateTokens, extractImports, buildIntentAwareContext, CONTEXT_STRATEGIES };
