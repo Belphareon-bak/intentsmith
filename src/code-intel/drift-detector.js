@@ -92,6 +92,58 @@ export class DriftDetector {
   }
 
   /**
+   * Create DriftDetector from architecture policy (v100).
+   * Uses policy as single source of truth instead of hardcoded defaults.
+   *
+   * @param {Object} policy - ArchitecturePolicy from architecture-policy.js
+   * @returns {DriftDetector}
+   */
+  static fromPolicy(policy) {
+    if (!policy?.layers || !policy?.rules) {
+      return new DriftDetector(); // fallback to defaults
+    }
+    // Lazy import to avoid circular dependency
+    let policyToLayers;
+    try {
+      // Dynamic import not possible in static sync method — inline conversion
+      const layers = policy.layers.map(name => {
+        const dirs = [];
+        if (policy.fileStructure?.[name]) {
+          const dir = policy.fileStructure[name].split('/').pop();
+          if (dir) dirs.push(dir);
+        }
+        // Known dir mappings
+        const KNOWN = {
+          ui:         ['components', 'views', 'pages', 'ui', 'templates', 'frontend'],
+          controller: ['controllers', 'handlers', 'routes', 'api', 'endpoints'],
+          service:    ['services', 'service', 'usecases', 'use-cases', 'business'],
+          repository: ['repositories', 'repository', 'repos', 'dao', 'data'],
+          model:      ['models', 'model', 'entities', 'entity', 'domain', 'types'],
+          infra:      ['infra', 'infrastructure', 'config', 'db', 'database', 'migrations'],
+          util:       ['utils', 'util', 'helpers', 'lib', 'shared', 'common'],
+        };
+        if (KNOWN[name]) {
+          for (const d of KNOWN[name]) {
+            if (!dirs.includes(d)) dirs.push(d);
+          }
+        }
+        if (dirs.length === 0) dirs.push(name);
+        return { name, dirs };
+      });
+
+      const allowed = {};
+      for (const layer of policy.layers) {
+        const rule = policy.rules.find(r => r.from === layer);
+        allowed[layer] = rule?.canImport ? [...rule.canImport] : [];
+      }
+
+      return new DriftDetector(layers, allowed);
+    } catch {
+      return new DriftDetector(); // fallback to defaults
+    }
+  }
+
+  /**
    * Run full drift detection on a project.
    *
    * @param {string} projectPath

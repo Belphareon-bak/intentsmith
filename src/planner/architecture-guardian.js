@@ -257,7 +257,24 @@ export function formatAuditForCheckpoint(auditResult) {
 
 async function _runIncrementalDrift(projectPath) {
   try {
-    const detector = new _DriftDetector();
+    // v100: Load architecture policy → policy-aware drift detection
+    let detector;
+    try {
+      const { loadPolicy } = await import('./architecture-policy.js');
+      const policy = await loadPolicy(projectPath, {
+        detectArchitecture: _detectArchitecture,
+      });
+      if (policy) {
+        detector = _DriftDetector.fromPolicy(policy);
+      }
+    } catch {
+      // Policy module not available — fallback to defaults
+    }
+
+    if (!detector) {
+      detector = new _DriftDetector();
+    }
+
     return await detector.analyze(projectPath, { maxFiles: 3000 });
   } catch (err) {
     logger.warn('ArchGuardian', `Drift detection failed: ${err.message}`);

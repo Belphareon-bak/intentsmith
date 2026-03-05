@@ -2,6 +2,84 @@
 
 ---
 
+## v100.0.0 — Architecture Intelligence Platform (2026-03-05)
+
+### Architecture Policy Engine (NEW)
+- **`architecture-policy.js`**: Unified declarative policy — single source of truth for architecture rules
+- **Load priority**: `.c3/architecture-policy.json` > `ARCHITECTURE.json` (ACF fallback) > auto-detect
+- **`generatePolicy()`**: Auto-generates policy from `detectArchitecture()` result
+- **`validatePolicy()`**: Schema validation, duplicate detection, circular rule check, boundary validation
+- **Bidirectional converters**: `policyToLayers()`, `policyToACF()`, `acfToPolicy()`
+- **`DriftDetector.fromPolicy()`**: Static factory replacing hardcoded `DEFAULT_LAYERS`/`ALLOWED_IMPORTS`
+- **`architecture-guardian.js`** updated: `_runIncrementalDrift()` now loads policy → `fromPolicy()`
+- **`lifecycle-planning.js`** updated: auto-generates `.c3/architecture-policy.json` alongside `ARCHITECTURE.json`
+
+### Incremental Context Engine (NEW)
+- **`context-engine.js`**: Symbol-aware context reduction (~70% token savings)
+- **`extractRelevantSections()`**: Extracts only functions/classes matching query symbols + context lines
+- **`compressContext()`**: Iterative removal of lowest-relevance sections until token budget met
+- **`buildIncrementalContext()`**: Impact set + graph expansion + architecture neighbors → compressed context
+- **`buildMilestoneContext()`**: Specialized for BUILD pipeline — extracts symbols from scope_files + title
+
+### Autonomous Refactor Agent (NEW)
+- **`refactor-agent.js`**: Detect smells → plan → risk gate → apply → verify
+- **6 smell types**: dead_code, duplicate_logic, god_class, layer_violation, circular_dep, missing_error_handling
+- **`detectSmells()`**: Aggregates from dead-code-detector + drift-detector + file analysis
+- **`generateRefactorPlan()`**: Safety gates — risk < 30 (LOW only), coverage required (except dead code)
+- **Deduplication by file+type**, severity-sorted (HIGH > MEDIUM > LOW)
+- **`formatRefactorReport()`**: Markdown report of safe/skipped/applied/failed steps
+
+### Regression Prediction (NEW)
+- **`regression-predictor.js`**: Composite risk scoring for changed files
+- **Formula**: `0.35×risk + 0.25×coverage + 0.20×centrality + 0.10×min(churn,30) + 0.10×coupling`
+- **Risk levels**: LOW (0-25), MEDIUM (26-50), HIGH (51-75), CRITICAL (76-100)
+- **`shouldBlock`**: true when CRITICAL — prevents checkpoint from passing without review
+- **`formatRegressionReport()`**: Actionable recommendations per risk factor
+
+### Runtime Feedback Loop (NEW)
+- **`runtime-feedback.js`**: Parse build/test output → cross-milestone pattern detection
+- **`parseTestOutput()`**: Jest, Mocha, pytest, go test, cargo test — extracts pass/fail/skip + failure details
+- **`parseBuildOutput()`**: tsc, eslint, go build, cargo — extracts errors with file:line + warnings
+- **`detectPatterns()`**: Recurring errors (2+ milestones), error-prone files → severity-sorted patterns
+- **`generateFixSuggestions()`**: Deterministic suggestions (import/syntax/refactor) from patterns
+- **`collectFeedback()`**: Aggregates test + build + checkpoint findings per milestone
+- **`formatFeedbackForPrompt()`**: Token-budgeted injection into next milestone request
+
+### Project Knowledge Base (NEW)
+- **`project-knowledge-base.js`**: Unified project snapshot (architecture + modules + hotspots + conventions)
+- **`getOrCreateSnapshot()`**: Main API — incremental by default, full build only on first call
+- **`updateSnapshot()`**: Re-scans only changed files + dependencies
+- **`formatSnapshotForPrompt()`**: Priority compression (architecture > hotspots > conventions)
+- **`diffSnapshots()`**: New/removed/changed modules between snapshots
+- In-memory cache with 5-minute TTL
+
+### Milestone Decomposer (NEW)
+- **`milestone-decomposer.js`**: Auto-splits large milestones into ordered subtasks
+- **`shouldDecompose()`**: Triggers on >1500 LOC, >8 files, or HIGH complexity
+- **`decomposeMilestone()`**: Groups scope_files by module, topologically sorts by layer dependency
+- **`executeSubtasks()`**: Sequential execution with fail-fast (completed list + failed ID)
+- Max 800 LOC per subtask, unique IDs (`ms-1-sub-0`)
+
+### Multi-Agent Build Loop (NEW)
+- **`multi-agent.js`**: 5-role pipeline (planner → builder → architect → critic → debugger)
+- **Feasibility Gate**: Pre-build validation (dependency check, LOC limit, layer span, scope size)
+- **Architect skip optimization**: Guardian PASS + <500 LOC → skip architect phase
+- **Critic retry loop**: Max 2 iterations (critic → debugger → critic)
+- **Role-specific models**: PLANNER (D1), BUILDER (CODE/0.1), ARCHITECT (D1), CRITIC (R1), DEBUGGER (D2)
+
+### Tests
+- architecture-policy: 31/31
+- context-engine: 15/15
+- regression-predictor: 11/11
+- runtime-feedback: 27/27
+- project-kb-decomposer: 25/25
+- refactor-agent: 22/22
+- multi-agent: 30/30
+- **Total v100**: 161 new tests, 0 failures
+- **Existing tests unaffected**: drift-detector 12/12, impact-analyzer 9/9, context-builder 16/16, knowledge-graph 17/17, architecture-governance 17/17
+
+---
+
 ## v98.0.0 — Architecture Governance + Cross-Milestone Consistency (2026-03-05)
 
 ### Architecture Guardian (NEW)

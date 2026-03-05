@@ -206,6 +206,18 @@ export async function generateRoadmap(lifecycle, context) {
         layers: archContract.layers.length,
         rules: archContract.rules.length,
       });
+
+      // v100: Also generate .c3/architecture-policy.json from ACF
+      try {
+        const { acfToPolicy, savePolicy } = await import('./architecture-policy.js');
+        const policy = acfToPolicy(archContract);
+        await savePolicy(lifecycle.projectPath, policy);
+        logger.info('LifecyclePlanning', 'Architecture policy generated from ACF', {
+          lifecycleId: lifecycle.id,
+        });
+      } catch (policyErr) {
+        logger.warn('LifecyclePlanning', 'Policy generation failed (non-blocking)', { error: policyErr.message });
+      }
     }
   } catch (err) {
     logger.warn('LifecyclePlanning', 'ARCHITECTURE.json generation failed (non-blocking)', { error: err.message });
