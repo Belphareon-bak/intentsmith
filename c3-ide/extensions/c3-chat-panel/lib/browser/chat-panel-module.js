@@ -4054,7 +4054,8 @@ function _persistSessionState() {
             bottomMode: s.bottom,
             wtRoot: (_perSessionTree[i]&&_perSessionTree[i].wtRoot)||(i===_sessionActive?_wtRoot:''),
             recentMsgs: recentMsgs,
-            focusFiles: s._focusFiles||[]
+            focusFiles: s._focusFiles||[],
+            lastAttachDir: s.chat._lastAttachDir||''
           };
         })
       }));
@@ -4079,7 +4080,8 @@ window.addEventListener('beforeunload', function() {
           bottomMode: s.bottom,
           wtRoot: (_perSessionTree[i]&&_perSessionTree[i].wtRoot)||(i===_sessionActive?_wtRoot:''),
           recentMsgs: recentMsgs,
-          focusFiles: s._focusFiles||[]
+          focusFiles: s._focusFiles||[],
+          lastAttachDir: s.chat._lastAttachDir||''
         };
       })
     }));
@@ -4125,6 +4127,8 @@ function _restoreSessionState() {
             if(ss.recentMsgs&&ss.recentMsgs.length>0){_sessions[i].chat.msgs=ss.recentMsgs;}
             /* v92: Restore focus files */
             _sessions[i]._focusFiles=ss.focusFiles||[];
+            /* v95: Restore last attach directory */
+            if(ss.lastAttachDir)_sessions[i].chat._lastAttachDir=ss.lastAttachDir;
           }
           /* v81.2: Always clear editing state on restore — editing cannot survive restart */
           _sessions[i].chat.editingIdx=null;
@@ -4529,7 +4533,13 @@ function _chatPaneUI(idx,opts){
             h('span',{style:{fontSize:_fs(11),color:C.tx3,fontStyle:'italic',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:200}},st._thinking.text||'')))):null),
     /* INPUT */
     h('div',{style:{padding:6,borderTop:'1px solid '+C.border,flexShrink:0},onClick:function(ev){ev.stopPropagation();}},
-      h('div',{style:{background:C.bg2,border:'1px solid '+(st.editingIdx!==null?C.accent:C.border2),borderRadius:10,overflow:'visible',position:'relative'}},
+      h('div',{style:{background:C.bg2,border:'1px solid '+(st._dragOver?C.accent:st.editingIdx!==null?C.accent:C.border2),borderRadius:10,overflow:'visible',position:'relative',transition:'border-color 0.15s'},
+        onDragOver:function(e){e.preventDefault();e.stopPropagation();e.dataTransfer.dropEffect='copy';if(!st._dragOver){st._dragOver=true;renderChat();}},
+        onDragLeave:function(e){e.preventDefault();e.stopPropagation();if(st._dragOver){st._dragOver=false;renderChat();}},
+        onDrop:function(e){e.preventDefault();e.stopPropagation();st._dragOver=false;if(e.dataTransfer&&e.dataTransfer.files){for(var j=0;j<e.dataTransfer.files.length;j++){st.attachments.push({name:e.dataTransfer.files[j].name,size:Math.round(e.dataTransfer.files[j].size/1024)+' KB',file:e.dataTransfer.files[j]});}renderChat();}}},
+        /* v95: Drop zone indicator */
+        st._dragOver?h('div',{style:{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,0.4)',borderRadius:10,zIndex:10,pointerEvents:'none'}},
+          h('span',{style:{color:C.accentText,fontSize:_fs(12),fontWeight:600,padding:'8px 16px',background:C.bg3,borderRadius:8,border:'2px dashed '+C.accent}},'Přetáhni soubory sem')):null,
         /* Edit bar */
         st.editingIdx!==null?h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'4px 8px',background:C.accentBg,borderBottom:'1px solid '+C.accent,borderRadius:'10px 10px 0 0',fontSize:_fs(10)}},
           h('span',{style:{color:C.accentText,fontWeight:600}},'✏️ Editace zprávy'),
@@ -4555,8 +4565,25 @@ function _chatPaneUI(idx,opts){
           h('div',{style:{height:1,borderRadius:1,background:C.bg4,overflow:'hidden'}},
             h('div',{style:{height:'100%',width:'30%',background:C.tx4,borderRadius:1,opacity:0.3,animation:'c3-ac-pulse 1.2s ease-in-out infinite'}}))):null,
         h('div',{style:{display:'flex',alignItems:'center',gap:3,padding:'2px 6px 5px',borderTop:'1px solid '+C.border}},
-          h('button',{style:{background:C.accentBg,color:C.accentText,border:'none',borderRadius:4,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',width:22,height:22},title:'Připojit soubor',
-            onClick:function(ev){ev.stopPropagation();var inp=document.createElement('input');inp.type='file';inp.multiple=true;inp.style.display='none';document.body.appendChild(inp);inp.onchange=function(){if(inp.files){for(var j=0;j<inp.files.length;j++){st.attachments.push({name:inp.files[j].name,size:Math.round(inp.files[j].size/1024)+' KB',file:inp.files[j]});}renderChat();}document.body.removeChild(inp);};inp.click();}},svgEl(I.attach,12)),
+          h('button',{style:{background:C.accentBg,color:C.accentText,border:'none',borderRadius:4,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',width:22,height:22},title:'Připojit soubor (nebo přetáhni)',
+            onClick:function(ev){ev.stopPropagation();
+              /* v95: Smart file picker — project folder default + remember last dir */
+              var defDir=st._lastAttachDir||'';
+              if(!defDir){var curSess=_sessions[_sessionActive];if(curSess&&curSess._projectId){var prj=PROJECTS.find(function(p){return p.id===curSess._projectId;});if(prj&&prj.path)defDir=prj.path;}}
+              if(window.electronTheiaFilesystem&&window.electronTheiaFilesystem.showOpenDialog){
+                window.electronTheiaFilesystem.showOpenDialog({title:'Připojit soubory',openFiles:true,openFolders:false,selectMany:true,defaultPath:defDir}).then(function(filePaths){
+                  if(filePaths&&filePaths.length>0){
+                    /* Remember last directory */
+                    var lastPath=filePaths[0].replace(/\\/g,'/');var slashIdx=lastPath.lastIndexOf('/');
+                    if(slashIdx>0){st._lastAttachDir=lastPath.substring(0,slashIdx);_persistSessionState();}
+                    for(var j=0;j<filePaths.length;j++){
+                      var fp=filePaths[j];var fn=fp.replace(/\\/g,'/').split('/').pop()||fp;
+                      st.attachments.push({name:fn,size:'soubor',file:{path:fp,size:1024}});}
+                    renderChat();}
+                }).catch(function(e){if(typeof console!=='undefined')console.warn('[C3:attach] showOpenDialog error:',e);});
+              }else{
+                var inp=document.createElement('input');inp.type='file';inp.multiple=true;inp.style.display='none';document.body.appendChild(inp);inp.onchange=function(){if(inp.files){for(var j=0;j<inp.files.length;j++){st.attachments.push({name:inp.files[j].name,size:Math.round(inp.files[j].size/1024)+' KB',file:inp.files[j]});}renderChat();}document.body.removeChild(inp);};inp.click();
+              }}},svgEl(I.attach,12)),
           /* Edit mode toggle */
           h('div',{style:{display:'flex',alignItems:'center',gap:1,padding:'1px 2px',borderRadius:4,background:C.bg3,flexShrink:0},onClick:function(ev){ev.stopPropagation();}},
             h('div',{style:{padding:'2px 6px',borderRadius:3,fontSize:_fs(9),fontWeight:600,cursor:'pointer',color:st.editMode==='auto'?C.tx1:C.tx4,background:st.editMode==='auto'?C.bg4:'transparent'},

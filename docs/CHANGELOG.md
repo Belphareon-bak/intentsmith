@@ -2,6 +2,37 @@
 
 ---
 
+## v95.0.0 — Code Intelligence + BUILD Context + IDE File Picker (2026-03-05)
+
+### Architecture Pattern Detector (NEW)
+- **`architecture-detector.js`** (186 lines): Heuristic detection of framework, layers, patterns, conventions
+- **24 framework signatures**: Express, Flask, Django, Spring, React, Svelte, NestJS, Angular, Gin, Axum, etc.
+- **10 layer patterns**: controller, service, repository, model, middleware, config, test, migration, view, util
+- **8 architecture patterns**: MVC, REST API, Repository, Middleware, Event-Driven, Pub-Sub, DI, ORM
+- **Convention detection**: export style (ESM/CJS/mixed), async patterns, test framework
+- `formatArchitectureForPrompt()` — BUILD-ready summary
+
+### BUILD Context Enrichment
+- **`lifecycle-build.js`**: `buildCodeContextForMilestone()` — enriches milestone requests with existing code context
+- **Pipeline**: `expandQuery(milestone) → searchCode(3 queries, max 20) → rankFiles() → buildCodeContext(5 files, 5K tokens) → detectArchitecture()`
+- Appends `## Existing Code Context` and `## Detected Architecture` sections to executor request
+- **Guard**: skips docs-only milestones (all scope files are .md/.txt/.rst)
+- **Lazy loading**: code-intel modules loaded on first BUILD call via `ensureCodeIntel()`
+- **Graceful degradation**: any failure → empty string, BUILD proceeds without context
+
+### IDE File Picker Improvements
+- **Smart file picker**: Uses `electronTheiaFilesystem.showOpenDialog` with `defaultPath` set to project folder
+- **Remember last directory**: `_lastAttachDir` persisted to session state (localStorage)
+- **Drag & drop**: Files can be dropped onto the chat input area
+- **Drop zone indicator**: Visual overlay with dashed border during drag
+- **Fallback**: Standard `<input type='file'>` when Electron API unavailable
+
+### Tests
+- architecture-detector: 35/35
+- tier1: 94/94, modules: 23/23, code-search: 14/14, code-analyzer: 41/41
+
+---
+
 ## v93.1.0 — Handler Refactor: Pre-handler Registry + decisions.js Split (2026-03-05)
 
 ### Pre-handler Intercept Registry (P2)

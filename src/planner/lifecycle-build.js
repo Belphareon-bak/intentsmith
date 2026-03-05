@@ -37,6 +37,34 @@ import { C3ToolExecutor } from '../executor/c3-tool-executor.js';
 import { validateMilestoneSize } from './milestone-size.js';
 import { runQualityGate } from './quality-gate.js';
 
+// v95: Code intelligence — lazy-loaded for BUILD context enrichment
+let _codeIntelLoaded = false;
+let _searchCode, _rankFiles, _buildCodeContext, _expandQuery, _detectArchitecture, _formatArchitectureForPrompt;
+
+async function ensureCodeIntel() {
+  if (_codeIntelLoaded) return true;
+  try {
+    const [search, discovery, context, expander, arch] = await Promise.all([
+      import('../code-intel/code-search.js'),
+      import('../code-intel/file-discovery.js'),
+      import('../code-intel/context-builder.js'),
+      import('../code-intel/query-expander.js'),
+      import('../code-intel/architecture-detector.js'),
+    ]);
+    _searchCode = search.searchCode;
+    _rankFiles = discovery.rankFiles;
+    _buildCodeContext = context.buildCodeContext;
+    _expandQuery = expander.expandQuery;
+    _detectArchitecture = arch.detectArchitecture;
+    _formatArchitectureForPrompt = arch.formatArchitectureForPrompt;
+    _codeIntelLoaded = true;
+    return true;
+  } catch (err) {
+    logger.warn('LifecycleBuild', `Code-intel modules not available: ${err.message}`);
+    return false;
+  }
+}
+
 // ─── Start Next Milestone ────────────────────────────────────────────────────
 
 /**
@@ -251,7 +279,13 @@ async function executeMilestone(lifecycle, milestone) {
 
     // Build request from local plan
     const localPlan = milestone.local_plan || {};
-    const request = buildMilestoneRequest(milestone, localPlan);
+    let request = buildMilestoneRequest(milestone, localPlan);
+
+    // v95: Enrich with existing code context + architecture detection
+    const codeContext = await buildCodeContextForMilestone(lifecycle.projectPath, milestone, localPlan);
+    if (codeContext) {
+      request += codeContext;
+    }
 
     const wfResult = await executor.start(request, {
       milestoneId: milestone.id,
@@ -935,6 +969,115 @@ async function getChangedFiles(lifecycle) {
     }
   } catch { /* ignore */ }
   return [];
+}
+
+// ─── Code Context for BUILD ──────────────────────────────────────────────────
+
+const DOCS_ONLY_EXTENSIONS = new Set(['.md', '.txt', '.rst', '.adoc', '.doc']);
+
+/**
+ * Build code context to inject into milestone request.
+ * Searches existing codebase for patterns relevant to the milestone scope.
+ *
+ * @param {string} projectPath - Absolute project path
+ * @param {Object} milestone - Milestone data
+ * @param {Object} localPlan - Local plan with files/steps
+ * @returns {Promise<string>} Context string to append to request (empty if N/A)
+ */
+async function buildCodeContextForMilestone(projectPath, milestone, localPlan) {
+  if (!await ensureCodeIntel()) return '';
+
+  // Guard: skip for docs-only milestones
+  const scopeFiles = milestone.scope_files || localPlan.files?.map(f => f.path) || [];
+  if (scopeFiles.length > 0 && scopeFiles.every(f => DOCS_ONLY_EXTENSIONS.has(f.substring(f.lastIndexOf('.'))))) {
+    logger.info('LifecycleBuild', 'Docs-only milestone — skipping code context', { milestoneId: milestone.id });
+    return '';
+  }
+
+  try {
+    // Extract search terms from milestone title + description + scope files
+    const searchText = [
+      milestone.title || '',
+      milestone.description || '',
+      ...scopeFiles.map(f => f.replace(/\.[^.]+$/, '').replace(/[/\\]/g, ' ')),
+    ].join(' ');
+
+    const expanded = _expandQuery(searchText);
+    const queryTerms = [...expanded.primary, ...expanded.secondary].slice(0, 8);
+
+    if (queryTerms.length === 0) return '';
+
+    // Search with top 3 queries, max 20 results each
+    let allResults = [];
+    for (const term of queryTerms.slice(0, 3)) {
+      const sr = await _searchCode(projectPath, term, { maxResults: 20, contextLines: 2 });
+      allResults.push(...sr.results);
+    }
+
+    // Dedup
+    const seen = new Set();
+    allResults = allResults.filter(r => {
+      const key = `${r.file}:${r.line}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    if (allResults.length === 0) return '';
+
+    // Rank files
+    const rankedFiles = await _rankFiles(allResults, queryTerms, { projectPath });
+
+    // Build compact code context (smaller budget than full CODE_ANALYSIS)
+    const codeCtx = await _buildCodeContext(projectPath, rankedFiles, {
+      maxFiles: 5,
+      maxTokens: 5000,
+      maxLinesPerFile: 100,
+      queryTerms,
+    });
+
+    // Architecture detection
+    const arch = _detectArchitecture(codeCtx.files.map(f => ({
+      file: f.path,
+      content: '', // files don't have content in fileInfos — detection uses path patterns
+    })));
+
+    // Also detect from ranked results (which have content hints)
+    const archFromResults = _detectArchitecture(allResults.slice(0, 30).map(r => ({
+      file: r.file,
+      content: r.content || '',
+    })));
+
+    // Merge frameworks and patterns
+    const mergedFrameworks = [...new Set([...arch.framework, ...archFromResults.framework])];
+    const mergedPatterns = [...new Set([...arch.patterns, ...archFromResults.patterns])];
+    const mergedArch = { ...archFromResults, framework: mergedFrameworks, patterns: mergedPatterns };
+
+    // Build prompt sections
+    const parts = [];
+
+    if (codeCtx.context) {
+      parts.push(`\n\n## Existing Code Context\nRelevant existing code from the project (${codeCtx.files.length} files, ${codeCtx.totalTokens} tokens):\n\n${codeCtx.context}`);
+    }
+
+    const archSection = _formatArchitectureForPrompt(mergedArch);
+    if (archSection) {
+      parts.push(`\n\n${archSection}`);
+    }
+
+    logger.info('LifecycleBuild', 'Code context enrichment complete', {
+      milestoneId: milestone.id,
+      files: codeCtx.files.length,
+      tokens: codeCtx.totalTokens,
+      frameworks: mergedFrameworks,
+      patterns: mergedPatterns,
+    });
+
+    return parts.join('');
+  } catch (err) {
+    logger.warn('LifecycleBuild', `Code context enrichment failed: ${err.message}`, { stack: err.stack });
+    return ''; // graceful degradation
+  }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

@@ -1,8 +1,8 @@
-# C.3 Agent Platform — Architecture v93
+# C.3 Agent Platform — Architecture v95
 
-**Version:** v93.0.0 (Lifecycle E2E, Checkpoint Architecture, Specialist Focus, Project Workflow, IDE Polish)
+**Version:** v95.0.0 (Code Intelligence, Architecture Detector, BUILD Context Enrichment, IDE File Picker)
 **Status:** Production-ready, ~98% complete
-**Date:** 2026-03-04
+**Date:** 2026-03-05
 
 ---
 
@@ -23,6 +23,7 @@ C.3 is a conversational AI platform combining:
 11. **Security** (v91) — Auth guard, API token management (SHA-256), unified audit, webhook secret management
 12. **Checkpoint Architecture** (v92) — STRUCTURAL/FUNCTIONAL/SECURITY modes, adaptive retry, mode-specific prompts
 13. **Specialist Focus Mode** (v92) — CSS-driven layout transformation, derived state, file tracking, per-session focus
+14. **Code Intelligence** (v95) — Multi-engine code search, symbol index, architecture detection, BUILD context enrichment
 
 All decisions flow through CRE — LLM is the text generator, never the authority.
 
@@ -199,6 +200,19 @@ src/                             # 73,706 lines / 188 files / 20 directories
 ├── memory/                      # Memory subsystem
 │   ├── long-term.js             #   Semantic search
 │   └── preferences.js           #   User preference tracking
+├── code-intel/                  # v95: Code Intelligence (12 modules)
+│   ├── code-search.js           #   Ripgrep/grep/Node.js fallback search
+│   ├── query-expander.js        #   CZ+EN stop words, camelCase split
+│   ├── file-discovery.js        #   Multi-signal file ranking (6 signals)
+│   ├── context-builder.js       #   Smart truncation + token budget
+│   ├── code-analyzer.js         #   Regex-based structure extraction
+│   ├── ast-analyzer.js          #   Tree-sitter AST (JS, Python, Go, Java)
+│   ├── architecture-detector.js #   v95: Framework/layer/pattern/convention detection
+│   ├── symbol-index.js          #   O(1) symbol lookup
+│   ├── index-builder.js         #   Background index builder
+│   ├── chunker.js               #   Semantic code chunking
+│   ├── semantic-index.js        #   Embedding-based similarity
+│   └── debug-agent.js           #   Debug analysis pipeline
 └── ws-bridge/                   # IDE WebSocket bridge
 ```
 
