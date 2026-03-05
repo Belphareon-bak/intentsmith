@@ -57,9 +57,11 @@ export class KnowledgeGraph {
     this._edges = [];            // [{ type, from, to, metadata? }]
     this._adjacency = new Map(); // nodeId → [{ edge, target }] (outgoing)
     this._reverse = new Map();   // nodeId → [{ edge, source }] (incoming)
+    this._fileIndex = new Map(); // relPath → Set<nodeId> — O(1) file→nodes lookup
     this._projectPath = null;
     this._buildTime = 0;
     this._building = false;
+    this._buildPromise = null;   // mutex for lazy build (prevents double concurrent builds)
   }
 
   // ─── Core Operations ────────────────────────────────────────────────
@@ -69,6 +71,14 @@ export class KnowledgeGraph {
     this._nodes.set(id, { id, type, name: metadata.name || id, ...metadata });
     if (!this._adjacency.has(id)) this._adjacency.set(id, []);
     if (!this._reverse.has(id)) this._reverse.set(id, []);
+
+    // Track in _fileIndex for O(1) file→nodes lookup
+    const file = metadata.file || (type === NodeType.FILE ? metadata.name : null);
+    if (file) {
+      let set = this._fileIndex.get(file);
+      if (!set) { set = new Set(); this._fileIndex.set(file, set); }
+      set.add(id);
+    }
   }
 
   addEdge(type, from, to, metadata = {}) {
@@ -213,147 +223,280 @@ export class KnowledgeGraph {
     return this.getEdges(id, EdgeType.DEFINES).map(a => this.getNode(a.target)).filter(Boolean);
   }
 
+  // ─── Incremental Update ────────────────────────────────────────────
+
+  /**
+   * Remove all nodes and edges belonging to a file.
+   *
+   * @param {string} relPath
+   */
+  removeFile(relPath) {
+    // Collect all node IDs belonging to this file
+    const nodeIds = new Set();
+    const indexSet = this._fileIndex.get(relPath);
+    if (indexSet) for (const id of indexSet) nodeIds.add(id);
+    const fid = fileNodeId(relPath);
+    nodeIds.add(fid);
+
+    if (nodeIds.size === 0 || (nodeIds.size === 1 && !this._nodes.has(fid))) return;
+
+    // Remove nodes
+    for (const id of nodeIds) this._nodes.delete(id);
+
+    // Remove adjacency/reverse for removed nodes
+    for (const id of nodeIds) {
+      this._adjacency.delete(id);
+      this._reverse.delete(id);
+    }
+
+    // Filter edges
+    this._edges = this._edges.filter(e => !nodeIds.has(e.from) && !nodeIds.has(e.to));
+
+    // Robust cross-ref cleanup: clean remaining adjacency/reverse entries
+    for (const [, arr] of this._adjacency) {
+      for (let i = arr.length - 1; i >= 0; i--) {
+        if (nodeIds.has(arr[i].target)) arr.splice(i, 1);
+      }
+    }
+    for (const [, arr] of this._reverse) {
+      for (let i = arr.length - 1; i >= 0; i--) {
+        if (nodeIds.has(arr[i].source)) arr.splice(i, 1);
+      }
+    }
+
+    // Remove from _fileIndex
+    this._fileIndex.delete(relPath);
+  }
+
+  /**
+   * Reindex a single file (incremental update without full rebuild).
+   * Does NOT rebuild cross-file REFERENCES edges (O(project) cost).
+   *
+   * @param {string} relPath
+   * @param {string} [content] - File content (read from disk if not provided)
+   * @returns {Promise<{nodesAdded: number, edgesAdded: number}>}
+   */
+  async reindexFile(relPath, content) {
+    if (this._building) return { nodesAdded: 0, edgesAdded: 0 };
+
+    this.removeFile(relPath);
+
+    if (!content && this._projectPath) {
+      try {
+        content = await readFile(path.join(this._projectPath, relPath), 'utf8');
+      } catch { /* file may have been deleted */ }
+    }
+
+    if (!content) return { nodesAdded: 0, edgesAdded: 0 };
+    if (content.length > MAX_FILE_SIZE) return { nodesAdded: 0, edgesAdded: 0 };
+
+    const knownFiles = [...this._fileIndex.keys()];
+    return await this._indexSingleFile(relPath, content, knownFiles);
+  }
+
+  /**
+   * Validate graph integrity (test/debug only — not for production paths).
+   *
+   * @returns {{valid: boolean, orphanedEdges: number, details: Array}}
+   */
+  validateGraph() {
+    const details = [];
+    for (let i = 0; i < this._edges.length; i++) {
+      const edge = this._edges[i];
+      if (!this._nodes.has(edge.from)) {
+        details.push({ index: i, edge, reason: `from node missing: ${edge.from}` });
+      }
+      if (!this._nodes.has(edge.to)) {
+        details.push({ index: i, edge, reason: `to node missing: ${edge.to}` });
+      }
+    }
+    return {
+      valid: details.length === 0,
+      orphanedEdges: details.length,
+      details,
+    };
+  }
+
   // ─── Build from Project ─────────────────────────────────────────────
 
   async buildFromProject(projectPath, opts = {}) {
     if (this._building) {
+      if (this._buildPromise) return this._buildPromise;
       return { nodeCount: this._nodes.size, edgeCount: this._edges.length, buildTime: this._buildTime };
     }
 
     this._building = true;
-    this._projectPath = projectPath;
+    this._buildPromise = this._doBuild(projectPath, opts).finally(() => {
+      this._building = false;
+      this._buildPromise = null;
+    });
+    return this._buildPromise;
+  }
+
+  async _doBuild(projectPath, opts = {}) {
     const start = Date.now();
+    this.clear();
+    this._projectPath = projectPath;
 
-    try {
-      this.clear();
+    // Step 1: Collect files
+    const files = await collectCodeFiles(projectPath, opts.maxFiles || 5000);
 
-      // Step 1: Collect files
-      const files = await collectCodeFiles(projectPath, opts.maxFiles || 5000);
+    // Step 2: Add file nodes, read content
+    const fileContents = new Map(); // relPath → content
+    for (const relPath of files) {
+      const fid = fileNodeId(relPath);
+      this.addNode(fid, NodeType.FILE, { name: relPath, file: relPath });
 
-      // Step 2+3: Add file nodes, extract symbols and imports
-      const fileContents = new Map(); // relPath → content
-      const allSymbolNames = [];
+      const absPath = path.join(projectPath, relPath);
+      try {
+        const content = await readFile(absPath, 'utf8');
+        if (content.length <= MAX_FILE_SIZE) fileContents.set(relPath, content);
+      } catch { /* skip */ }
+    }
 
-      for (const relPath of files) {
-        const fid = fileNodeId(relPath);
-        this.addNode(fid, NodeType.FILE, { name: relPath, file: relPath });
+    // Step 3: Index each file (symbols, imports, extends/implements)
+    const allSymbolNames = [];
+    for (const [relPath, content] of fileContents) {
+      const result = await this._indexSingleFile(relPath, content, files);
+      // Collect symbol names for REFERENCES pass
+      const fid = fileNodeId(relPath);
+      const defined = this.getEdges(fid, EdgeType.DEFINES);
+      for (const { target } of defined) {
+        const node = this.getNode(target);
+        if (node) allSymbolNames.push({ name: node.name, file: relPath });
+      }
+    }
 
-        const absPath = path.join(projectPath, relPath);
-        let content;
+    // Step 4: Build REFERENCES edges (capped at 50 symbols)
+    const symbolsToScan = allSymbolNames.slice(0, 50);
+    for (const { name, file: defFile } of symbolsToScan) {
+      for (const [relPath] of fileContents) {
+        if (relPath === defFile) continue;
         try {
-          content = await readFile(absPath, 'utf8');
-          if (content.length > MAX_FILE_SIZE) continue;
-          fileContents.set(relPath, content);
-        } catch { continue; }
-
-        // Extract symbols
-        try {
-          const symbols = await extractFileSymbols(projectPath, relPath);
-          for (const sym of symbols) {
-            const sid = symbolNodeId(sym.name, relPath);
-            this.addNode(sid, sym.type || NodeType.FUNCTION, {
-              name: sym.name,
-              file: relPath,
-              line: sym.line,
-              exported: sym.exported,
-              params: sym.params,
-            });
-            this.addEdge(EdgeType.DEFINES, fid, sid);
-            allSymbolNames.push({ name: sym.name, file: relPath });
+          const refs = await findReferencesInFile(projectPath, relPath, name);
+          if (refs.length > 0) {
+            const fromFid = fileNodeId(relPath);
+            const toSid = symbolNodeId(name, defFile);
+            if (this._nodes.has(toSid)) {
+              this.addEdge(EdgeType.REFERENCES, fromFid, toSid);
+            }
           }
         } catch { /* skip */ }
-
-        // Extract imports → IMPORTS edges
-        const language = detectLanguage(relPath);
-        const imports = extractImports(content, language);
-        for (const imp of imports) {
-          const resolved = resolveImport(relPath, imp, files);
-          if (resolved) {
-            const targetFid = fileNodeId(resolved);
-            if (!this._nodes.has(targetFid)) {
-              this.addNode(targetFid, NodeType.FILE, { name: resolved, file: resolved });
-            }
-            this.addEdge(EdgeType.IMPORTS, fid, targetFid);
-          } else if (!imp.startsWith('.') && !imp.startsWith('/')) {
-            // External module
-            const mid = moduleNodeId(imp);
-            if (!this._nodes.has(mid)) {
-              this.addNode(mid, NodeType.MODULE, { name: imp });
-            }
-            this.addEdge(EdgeType.IMPORTS, fid, mid);
-          }
-        }
-
-        // Detect extends/implements
-        const extendsMatches = content.matchAll(/class\s+(\w+)\s+extends\s+(\w+)/g);
-        for (const m of extendsMatches) {
-          const childSid = symbolNodeId(m[1], relPath);
-          // Find parent — might be in same file or another
-          const parentSid = findSymbolNode(this._nodes, m[2]);
-          if (parentSid) {
-            this.addEdge(EdgeType.EXTENDS, childSid, parentSid);
-          }
-        }
-
-        const implMatches = content.matchAll(/class\s+(\w+).*?implements\s+([\w,\s]+)/g);
-        for (const m of implMatches) {
-          const childSid = symbolNodeId(m[1], relPath);
-          const ifaces = m[2].split(',').map(s => s.trim()).filter(Boolean);
-          for (const iface of ifaces) {
-            const ifaceSid = findSymbolNode(this._nodes, iface);
-            if (ifaceSid) {
-              this.addEdge(EdgeType.IMPLEMENTS, childSid, ifaceSid);
-            }
-          }
-        }
       }
-
-      // Step 4: Build REFERENCES edges (capped at 50 symbols)
-      const symbolsToScan = allSymbolNames.slice(0, 50);
-      for (const { name, file: defFile } of symbolsToScan) {
-        for (const [relPath] of fileContents) {
-          if (relPath === defFile) continue;
-          try {
-            const refs = await findReferencesInFile(projectPath, relPath, name);
-            if (refs.length > 0) {
-              const fromFid = fileNodeId(relPath);
-              const toSid = symbolNodeId(name, defFile);
-              if (this._nodes.has(toSid)) {
-                this.addEdge(EdgeType.REFERENCES, fromFid, toSid);
-              }
-            }
-          } catch { /* skip */ }
-        }
-      }
-
-      // Step 5: Test relationships
-      for (const relPath of files) {
-        if (!TEST_DIR_RE.test(relPath)) continue;
-        const content = fileContents.get(relPath);
-        if (!content) continue;
-
-        const language = detectLanguage(relPath);
-        const imports = extractImports(content, language);
-        for (const imp of imports) {
-          const resolved = resolveImport(relPath, imp, files);
-          if (resolved && !TEST_DIR_RE.test(resolved)) {
-            // Test file imports a source file
-            const testFid = fileNodeId(relPath);
-            const srcFid = fileNodeId(resolved);
-            this.addEdge(EdgeType.TESTED_BY, srcFid, testFid);
-          }
-        }
-      }
-
-      this._buildTime = Date.now() - start;
-
-      const stats = this.getStats();
-      logger.info('KnowledgeGraph', `Graph built: ${stats.nodeCount} nodes, ${stats.edgeCount} edges (${this._buildTime}ms)`);
-
-      return { nodeCount: stats.nodeCount, edgeCount: stats.edgeCount, buildTime: this._buildTime };
-    } finally {
-      this._building = false;
     }
+
+    // Step 5: Test relationships
+    for (const relPath of files) {
+      if (!TEST_DIR_RE.test(relPath)) continue;
+      const content = fileContents.get(relPath);
+      if (!content) continue;
+
+      const language = detectLanguage(relPath);
+      const imports = extractImports(content, language);
+      for (const imp of imports) {
+        const resolved = resolveImport(relPath, imp, files);
+        if (resolved && !TEST_DIR_RE.test(resolved)) {
+          const testFid = fileNodeId(relPath);
+          const srcFid = fileNodeId(resolved);
+          this.addEdge(EdgeType.TESTED_BY, srcFid, testFid);
+        }
+      }
+    }
+
+    this._buildTime = Date.now() - start;
+
+    const stats = this.getStats();
+    logger.info('KnowledgeGraph', `Graph built: ${stats.nodeCount} nodes, ${stats.edgeCount} edges (${this._buildTime}ms)`);
+
+    return { nodeCount: stats.nodeCount, edgeCount: stats.edgeCount, buildTime: this._buildTime };
+  }
+
+  /**
+   * Index a single file: symbols, imports, extends/implements.
+   * Shared by buildFromProject() and reindexFile().
+   *
+   * @param {string} relPath
+   * @param {string} content
+   * @param {string[]} knownFiles - All known file paths for import resolution
+   * @returns {Promise<{nodesAdded: number, edgesAdded: number}>}
+   */
+  async _indexSingleFile(relPath, content, knownFiles) {
+    let nodesAdded = 0;
+    let edgesAdded = 0;
+
+    const fid = fileNodeId(relPath);
+    if (!this._nodes.has(fid)) {
+      this.addNode(fid, NodeType.FILE, { name: relPath, file: relPath });
+      nodesAdded++;
+    }
+
+    // Extract symbols
+    try {
+      const symbols = await extractFileSymbols(this._projectPath, relPath);
+      for (const sym of symbols) {
+        const sid = symbolNodeId(sym.name, relPath);
+        this.addNode(sid, sym.type || NodeType.FUNCTION, {
+          name: sym.name,
+          file: relPath,
+          line: sym.line,
+          exported: sym.exported,
+          params: sym.params,
+        });
+        this.addEdge(EdgeType.DEFINES, fid, sid);
+        nodesAdded++;
+        edgesAdded++;
+      }
+    } catch { /* skip */ }
+
+    // Extract imports → IMPORTS edges
+    const language = detectLanguage(relPath);
+    const imports = extractImports(content, language);
+    for (const imp of imports) {
+      const resolved = resolveImport(relPath, imp, knownFiles);
+      if (resolved) {
+        const targetFid = fileNodeId(resolved);
+        if (!this._nodes.has(targetFid)) {
+          this.addNode(targetFid, NodeType.FILE, { name: resolved, file: resolved });
+          nodesAdded++;
+        }
+        this.addEdge(EdgeType.IMPORTS, fid, targetFid);
+        edgesAdded++;
+      } else if (!imp.startsWith('.') && !imp.startsWith('/')) {
+        const mid = moduleNodeId(imp);
+        if (!this._nodes.has(mid)) {
+          this.addNode(mid, NodeType.MODULE, { name: imp });
+          nodesAdded++;
+        }
+        this.addEdge(EdgeType.IMPORTS, fid, mid);
+        edgesAdded++;
+      }
+    }
+
+    // Detect extends/implements
+    const extendsMatches = content.matchAll(/class\s+(\w+)\s+extends\s+(\w+)/g);
+    for (const m of extendsMatches) {
+      const childSid = symbolNodeId(m[1], relPath);
+      const parentSid = findSymbolNode(this._nodes, m[2]);
+      if (parentSid) {
+        this.addEdge(EdgeType.EXTENDS, childSid, parentSid);
+        edgesAdded++;
+      }
+    }
+
+    const implMatches = content.matchAll(/class\s+(\w+).*?implements\s+([\w,\s]+)/g);
+    for (const m of implMatches) {
+      const childSid = symbolNodeId(m[1], relPath);
+      const ifaces = m[2].split(',').map(s => s.trim()).filter(Boolean);
+      for (const iface of ifaces) {
+        const ifaceSid = findSymbolNode(this._nodes, iface);
+        if (ifaceSid) {
+          this.addEdge(EdgeType.IMPLEMENTS, childSid, ifaceSid);
+          edgesAdded++;
+        }
+      }
+    }
+
+    return { nodesAdded, edgesAdded };
   }
 
   // ─── Stats & Clear ──────────────────────────────────────────────────
@@ -384,6 +527,7 @@ export class KnowledgeGraph {
     this._edges = [];
     this._adjacency.clear();
     this._reverse.clear();
+    this._fileIndex.clear();
     this._projectPath = null;
     this._buildTime = 0;
   }

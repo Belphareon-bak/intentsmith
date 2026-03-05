@@ -11,6 +11,7 @@ import { searchCode } from '../../code-intel/code-search.js';
 import { rankFiles } from '../../code-intel/file-discovery.js';
 import { buildCodeContext, buildCodeAnalysisPrompt } from '../../code-intel/context-builder.js';
 import { symbolIndex } from '../../code-intel/symbol-index.js';
+import { knowledgeGraph } from '../../code-intel/knowledge-graph.js';
 import { ResponseTag, TaggedResponse, ResponseSpeaker } from '../controller.js';
 
 // ─── Project Info Builder ─────────────────────────────────────────────────────
@@ -123,9 +124,31 @@ export async function handleCodeAnalysisDecision(input, decision, context) {
     }
 
     // ─── Step 3: Rank files (smart multi-signal ranking) ────────────
-    const rankedFiles = await rankFiles(allResults, [...expanded.primary, ...expanded.secondary], {
+    let rankedFiles = await rankFiles(allResults, [...expanded.primary, ...expanded.secondary], {
       projectPath,
     });
+
+    // ─── Step 3.5: Graph expansion ────────────────────────────────────
+    let graphContext = '';
+    if (knowledgeGraph._nodes.size > 0) {
+      try {
+        const { expandWithGraph, buildDependencyContext, mergeAndResort } = await import('../../code-intel/graph-retrieval.js');
+        const graphFiles = expandWithGraph(rankedFiles, knowledgeGraph, { maxExpansion: 5 });
+        if (graphFiles.length > 0) rankedFiles = mergeAndResort(rankedFiles, graphFiles);
+        const depParts = rankedFiles.slice(0, 3)
+          .map(f => buildDependencyContext(f.file, knowledgeGraph)).filter(Boolean);
+        if (depParts.length > 0) graphContext = '\n\n## Structural Context\n' + depParts.join('\n');
+      } catch (err) {
+        logger.warn('CodeAnalysis', `Graph expansion failed: ${err.message}`);
+      }
+    } else if (projectPath) {
+      // Lazy graph build with mutex
+      if (knowledgeGraph._buildPromise) {
+        try { await knowledgeGraph._buildPromise; } catch (_) {}
+      } else {
+        try { await knowledgeGraph.buildFromProject(projectPath); } catch (_) {}
+      }
+    }
 
     if (typeof context.onSystemStep === 'function') {
       try { context.onSystemStep('code_analysis_context', `Building context from ${rankedFiles.length} files`, 2); } catch (_) {}
@@ -141,7 +164,7 @@ export async function handleCodeAnalysisDecision(input, decision, context) {
 
     // ─── Step 5: LLM synthesis ───────────────────────────────────────
     const projectInfo = buildProjectInfo(context);
-    const analysisPrompt = buildCodeAnalysisPrompt(input, codeContext.context, projectInfo);
+    const analysisPrompt = buildCodeAnalysisPrompt(input, codeContext.context + graphContext, projectInfo);
 
     if (typeof context.onSystemStep === 'function') {
       try { context.onSystemStep('code_analysis_llm', `LLM synthesis (${codeContext.totalTokens} tokens context)`, 2); } catch (_) {}

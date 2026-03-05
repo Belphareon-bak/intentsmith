@@ -11,6 +11,7 @@
 
 import { logger } from '../core/logger.js';
 import { collectCodeFiles, extractFileSymbols, findReferencesInFile } from './index-builder.js';
+import { knowledgeGraph } from './knowledge-graph.js';
 
 export class SymbolIndex {
   constructor() {
@@ -126,6 +127,12 @@ export class SymbolIndex {
       }
     } catch (err) {
       logger.warn('SymbolIndex', `Reindex failed for ${filePath}: ${err.message}`);
+    }
+
+    // Trigger graph sync if graph is populated
+    if (knowledgeGraph._nodes.size > 0) {
+      try { await knowledgeGraph.reindexFile(filePath); }
+      catch (err) { logger.warn('SymbolIndex', `Graph reindex failed: ${err.message}`); }
     }
   }
 
