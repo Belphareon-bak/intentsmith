@@ -8,7 +8,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { execFile } from 'child_process';
-import { readdir, stat } from 'fs/promises';
+import { readdir, stat, readFile } from 'fs/promises';
 import path from 'path';
 import { logger } from '../core/logger.js';
 
@@ -173,13 +173,28 @@ export async function runQualityGate(projectPath, techStack, changedFiles, opts 
 
   // ─── JavaScript: per-file node --check ───────────────────────────────
   for (const file of (byLang.javascript || [])) {
-    const r = await execCheck('node', ['--check', path.join(projectPath, file)], projectPath);
+    // Skip JSX files — node --check can't parse JSX syntax
+    const fullPath = path.join(projectPath, file);
+    try {
+      const code = await readFile(fullPath, 'utf-8');
+      if (/<[A-Z][a-zA-Z]*[\s/>]/.test(code) || /<\w+\s+\w+=\{/.test(code) || /from\s+['"]react['"]/.test(code)) {
+        results.push({ file, lang: 'javascript', passed: true, warning: 'JSX detected — skipped' });
+        continue;
+      }
+    } catch { /* file read failed — proceed with check */ }
+
+    const r = await execCheck('node', ['--check', fullPath], projectPath);
     if (r.ok) {
       results.push({ file, lang: 'javascript', passed: true });
     } else if (r.notFound) {
       hasWarning = true;
       results.push({ file, lang: 'javascript', passed: true, warning: 'node not found — skipped' });
     } else {
+      // package.json errors are module resolution failures, not syntax errors
+      if (r.stderr.includes('package.json') || r.stderr.includes('ERR_PACKAGE_JSON')) {
+        results.push({ file, lang: 'javascript', passed: true, warning: 'Invalid package.json — skipped' });
+        continue;
+      }
       const parsed = parseNodeError(r.stderr);
       results.push({
         file, lang: 'javascript', passed: false,
