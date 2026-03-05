@@ -2,6 +2,33 @@
 
 ---
 
+## v93.1.0 — Handler Refactor: Pre-handler Registry + decisions.js Split (2026-03-05)
+
+### Pre-handler Intercept Registry (P2)
+- **`pre-handler.js`** (526 lines): centralized intercept chain shared by all 3 handlers
+- **10 intercepts**: feedback detection, session resume, TODO, build handoff, C4 lifecycle, lifecycle handoff, agent wizard, skill confirmation, attachment guard, specialist routing
+- **Mode filtering**: each intercept declares `modes: ['*']` or specific `['CONVERSATION', 'PROJECT']`
+- **conversation.js**: 778 → 679 lines (10 inline intercept blocks → single `preHandle()` call)
+- **project.js**: 614 → 485 lines (3 mirrored intercept blocks → single `preHandle()` call)
+- **expertise.js**: wired with `preHandle(input, context, 'EXPERTISE')`
+
+### decisions.js Split (P6)
+- **decisions.js**: 1355 → 1054 lines (-301)
+- **`ask-user.js`** (119 lines): `handleAskUserDecision`, `formatClarificationRequest`
+- **`utils/search-enrichment.js`** (164 lines): `enrichSearchQuery`, `isMetaContinuation`, `buildConversationContext`
+- Barrel re-export from decisions.js for backward compatibility (zero consumer changes)
+
+### Documentation (P1 + P3)
+- **`API-REFERENCE.md`**: ~180 REST endpoints across 13 route modules (auth, shapes, side-effects)
+- **`MEMORY.md`**: 7 memory modules (~2,100 lines), three-tier memory system
+- **`WS-PROTOCOL.md`**: Protocol v1, 5 channels, backend + client architecture
+- **`NOTIFICATIONS.md`**: 6 channels, trust-aware delivery with auto-mute
+
+### Tests
+- tier1: 94/94, modules: 23/23, gatekeeper: 43/43
+
+---
+
 ## v93.0.0 — Lifecycle E2E + Specialist Focus + IDE Polish (2026-03-04)
 
 ### Checkpoint Architecture (v92)

@@ -116,13 +116,16 @@ src/                             # 73,706 lines / 188 files / 20 directories
 │   ├── conversation-store.js    #   Session persistence
 │   ├── handlers/                #   19 intent-specific processors
 │   │   ├── conversation.js      #     Main router, DESIGN sessions (778 lines)
-│   │   ├── decisions.js         #     TOOL_CALL, ANSWER, REFUSE, LOCAL
+│   │   ├── decisions.js         #     TOOL_CALL, ANSWER, REFUSE (1054 lines)
+│   │   ├── ask-user.js          #     v93.1: ASK_USER handler + clarification templates
+│   │   ├── pre-handler.js       #     v93.1: Shared intercept registry (10 intercepts)
 │   │   ├── lifecycle-router.js  #     Phase C lifecycle intercept
 │   │   ├── lifecycle-state.js   #     Handoff state (DB write-through, 172 lines)
 │   │   ├── agent-wizard.js      #     Agent creation wizard (B9)
 │   │   └── utils/
 │   │       ├── synthesis.js     #       LLM synthesis + Output Gate
 │   │       ├── output-gate.js   #       D6 response validation
+│   │       ├── search-enrichment.js #   v93.1: Follow-up query enrichment + meta-continuation
 │   │       ├── language.js      #       CZ/EN detection & switching
 │   │       ├── language-enforcement.js #  SK→CZ transliterator (~160 rules)
 │   │       ├── project-state-reader.js # v89: Deterministic README+ROADMAP→state parser
