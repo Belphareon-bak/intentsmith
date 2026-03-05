@@ -48,6 +48,7 @@ export {
 export { validateSpec } from './lifecycle-spec.js';
 export { validateDependencies, checkDependencies } from './lifecycle-planning.js';
 export { validateMilestoneSize, suggestMilestoneSplit, estimateContextTokens } from './milestone-size.js';
+export { runQualityGate } from './quality-gate.js';
 export { startNextMilestone, approveMilestonePlan, handleMilestoneBlocked, getBuildProgress } from './lifecycle-build.js';
 export { DriftCheckType, getDriftHistory, getAggregateHealth } from './lifecycle-review.js';
 export { validatePreservation, rejectChange, listChangeRequests } from './lifecycle-change.js';

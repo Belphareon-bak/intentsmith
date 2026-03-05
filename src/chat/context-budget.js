@@ -40,6 +40,8 @@ export const INTENT_BUDGETS = Object.freeze({
   COMMAND:        { history: 300,  search: 0,    ltm: 0    },
   AMBIGUOUS:      { history: 1000, search: 0,    ltm: 300  },
   BUILD:          { history: 1000, search: 0,    ltm: 500  },
+  // v94: CODE_ANALYSIS — large code context budget, minimal history
+  CODE_ANALYSIS:  { history: 500,  search: 0,    ltm: 300  },
   // Future: PROJECT and EXPERT budgets
   _PROJECT:       { history: 4000, search: 2000, ltm: 500  },
   _EXPERTISE:     { history: 3000, search: 2000, ltm: 1000 },

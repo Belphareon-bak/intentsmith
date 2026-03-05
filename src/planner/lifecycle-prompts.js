@@ -371,6 +371,10 @@ The code was already revised to fix these issues. Verify they are resolved:
 ${JSON.stringify(opts.previousFindings, null, 2)}\n`
     : '';
 
+  const compileStatusSection = opts.qualityGateResult
+    ? `\n## Compile Status\n${opts.qualityGateResult.passed ? `All files passed syntax/compile checks: ${opts.qualityGateResult.summary}` : `COMPILE ERRORS detected:\n${opts.qualityGateResult.summary}`}\n`
+    : '';
+
   return `You are reviewing a completed milestone against its defined goals.
 
 ${modeInstructions[mode] || modeInstructions.FUNCTIONAL}
@@ -388,7 +392,7 @@ ${Array.isArray(changedFiles) ? changedFiles.map(f => `- ${f}`).join('\n') : 'Un
 
 ## Test Results
 ${typeof testResults === 'string' ? testResults : JSON.stringify(testResults, null, 2)}
-${previousFindingsSection}
+${compileStatusSection}${previousFindingsSection}
 ## Task
 Compare the actual output against the milestone goals using the checkpoint mode rules above.
 

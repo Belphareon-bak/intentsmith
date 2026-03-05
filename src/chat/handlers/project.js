@@ -370,6 +370,18 @@ export async function projectHandler(input, context) {
       tools: decision.tools,
     });
 
+    // v94: CODE_ANALYSIS priority override — BEFORE switch
+    // Runs its own pipeline (search→context→LLM), does not need standard tool routing
+    if (decision.intent === IntentType.CODE_ANALYSIS) {
+      const { handleCodeAnalysisDecision } = await import('./code-analysis.js');
+      return await handleCodeAnalysisDecision(input, decision, {
+        ...context,
+        hasActiveProject: true,
+        project: project,
+        projectPath: project.path,
+      });
+    }
+
     // Handle based on decision
     switch (decision.type) {
       // ════════════════════════════════════════════════════════════════════

@@ -35,6 +35,7 @@ import { MilestoneStatus, CheckpointMode } from './lifecycle.js';
 import { ensureReadme, ensureArchitectureDoc, appendReadmeChangelog } from '../chat/handlers/utils/readme-generator.js';
 import { C3ToolExecutor } from '../executor/c3-tool-executor.js';
 import { validateMilestoneSize } from './milestone-size.js';
+import { runQualityGate } from './quality-gate.js';
 
 // ─── Start Next Milestone ────────────────────────────────────────────────────
 
@@ -307,6 +308,34 @@ async function postExecution(lifecycle, milestone, wfResult) {
 
   const testResults = await runTests(lifecycle, milestone);
 
+  // ─── QUALITY GATE — Compile/Syntax Check ──────────────────────────────
+  const changedFiles = await getChangedFiles(lifecycle);
+  const spec = lifecycleRepo.getSpec(lifecycle.id);
+
+  let qualityGateResult = await runQualityGate(
+    lifecycle.projectPath, spec?.tech_stack || {}, changedFiles
+  );
+
+  // Fallback: if changedFiles check failed, try full project scan
+  if (!qualityGateResult.passed) {
+    const fullScan = await runQualityGate(
+      lifecycle.projectPath, spec?.tech_stack || {}, null, { mode: 'full-project' }
+    );
+    qualityGateResult = fullScan;
+  }
+
+  driftChecks.addCheck(lifecycle.id, milestone.id, 'QUALITY_GATE',
+    qualityGateResult.status, qualityGateResult);
+
+  // Short-circuit: skip R1 checkpoint if compile failed (saves 60+s LLM call)
+  if (!qualityGateResult.passed) {
+    milestone._lastCompileErrors = qualityGateResult.results
+      .filter(r => !r.passed)
+      .map(r => `${r.file}:${r.line || '?'} ${r.message || r.error}`);
+    return handleMilestoneFailure(lifecycle, milestone,
+      `compile errors: ${milestone._lastCompileErrors.join('; ')}`);
+  }
+
   // ─── REVIEW phase — Milestone Checkpoint ────────────────────────────────
   msRepo.updateStatus.run(MilestoneStatus.REVIEW, milestone.id);
 
@@ -317,7 +346,7 @@ async function postExecution(lifecycle, milestone, wfResult) {
 
   // Adaptive retry: pass previous findings from failed attempts
   const previousFindings = milestone._lastCheckpointFindings || null;
-  const checkpointResult = await milestoneCheckpoint(lifecycle, milestone, wfResult, testResultsForCheckpoint, previousFindings);
+  const checkpointResult = await milestoneCheckpoint(lifecycle, milestone, wfResult, testResultsForCheckpoint, previousFindings, qualityGateResult);
 
   // ─── Scope enforcement ──────────────────────────────────────────────────
   const scopeResult = await enforceMilestoneScope(lifecycle, milestone);
@@ -373,8 +402,7 @@ async function postExecution(lifecycle, milestone, wfResult) {
   // Update ROADMAP.md with new milestone status
   await writeRoadmapFile(lifecycle.projectPath, lifecycle.id);
 
-  // Get spec for documentation generation
-  const spec = lifecycleRepo.getSpec(lifecycle.id);
+  // spec already fetched above (quality gate section)
   const completedMs = msRepo.getCompleted(lifecycle.id);
   const completedCount = completedMs.length; // already includes this milestone (status just set to PASSED)
 
@@ -537,7 +565,7 @@ function resolveCheckpointMode(milestone, lifecycle) {
   return CheckpointMode.FUNCTIONAL;
 }
 
-async function milestoneCheckpoint(lifecycle, milestone, wfResult, testResults, previousFindings = null) {
+async function milestoneCheckpoint(lifecycle, milestone, wfResult, testResults, previousFindings = null, qualityGateResult = null) {
   // Get actual git diff
   const gitDiff = await getGitDiff(lifecycle);
   const changedFiles = await getChangedFiles(lifecycle);
@@ -547,6 +575,7 @@ async function milestoneCheckpoint(lifecycle, milestone, wfResult, testResults, 
   const prompt = checkpointPrompt(milestone, gitDiff, changedFiles, testResults, {
     checkpointMode,
     previousFindings,
+    qualityGateResult,
   });
 
   logger.info('LifecycleBuild', `Checkpoint mode: ${checkpointMode}`, {
@@ -942,6 +971,15 @@ Documentation:
     if (findings.error_handling_gaps?.length > 0) {
       request += '\nError handling to add:\n' + findings.error_handling_gaps.map(f => `- ${f}`).join('\n');
     }
+  }
+
+  // Quality Gate: compile errors from previous attempt
+  if (milestone._lastCompileErrors?.length) {
+    request += '\n\n⚠️ COMPILE ERRORS from previous attempt (MUST FIX):\n';
+    for (const err of milestone._lastCompileErrors) {
+      request += `- ${err}\n`;
+    }
+    request += '\nFix ALL compile errors. Each error shows file:line and the error message.\n';
   }
 
   return request;

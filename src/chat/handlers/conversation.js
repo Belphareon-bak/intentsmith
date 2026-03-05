@@ -621,6 +621,11 @@ export async function conversationHandler(input, context) {
       return await handleLocalDecision(input, decision, context);
 
     case DecisionType.TOOL_CALL:
+      // v94: CODE_ANALYSIS — code search + context + LLM (own pipeline)
+      if (decision.intent === IntentType.CODE_ANALYSIS) {
+        const { handleCodeAnalysisDecision } = await import('./code-analysis.js');
+        return await handleCodeAnalysisDecision(input, decision, context);
+      }
       return await handleToolCallDecision(input, decision, context);
 
     case DecisionType.ASK_USER:
@@ -636,7 +641,7 @@ export async function conversationHandler(input, context) {
       // v44.8: ANSWER is valid for CONVERSATIONAL, CREATIVE, DESIGN, and CODE intents
       // v58.0: Added DESIGN — structured synthesis from LLM knowledge
       // v58.2: Added CODE — imperative code requests get inline answer
-      const ANSWER_VALID_INTENTS = [IntentType.CONVERSATIONAL, IntentType.CREATIVE, IntentType.DESIGN, IntentType.CODE];
+      const ANSWER_VALID_INTENTS = [IntentType.CONVERSATIONAL, IntentType.CREATIVE, IntentType.DESIGN, IntentType.CODE, IntentType.CODE_ANALYSIS];
       if (!ANSWER_VALID_INTENTS.includes(decision.intent)) {
         logger.warn('ConversationHandler', 'BLOCKED: ANSWER decision for non-valid intent', {
           intent: decision.intent,

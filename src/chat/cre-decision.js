@@ -109,6 +109,9 @@ export const IntentType = {
   // v85: SKILL — user wants to trigger a known deterministic skill/macro-recipe
   // Routes to SkillHandler which resolves, confirms, and executes the skill.
   SKILL: 'SKILL',             // "spusť skill X", "vytvoř expertizu pro Docker"
+  // v94: CODE_ANALYSIS — user wants code analysis, debugging, code review
+  // Routes to CodeAnalysisHandler: search → context → LLM → structured answer
+  CODE_ANALYSIS: 'CODE_ANALYSIS', // "analyzuj kód", "najdi bug", "proč to padá", "explain this code"
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -867,6 +870,24 @@ const FACTUAL_PATTERNS = [
   /\bvýsledk[yů]/i, /\bvysledk/i, /\bresults\b/i, /\bscore\b/i,
   /\bstatistik/i, /\bstatistic/i,
   /\bnovinky\b/i,                                // v57.3: "novinky" (Czech news)
+];
+
+// v94: CODE_ANALYSIS — code analysis, debugging, code review, explanation
+// MUST be before CODE_PATTERNS — "analyzuj kód" is analysis, not code generation
+const CODE_ANALYSIS_PATTERNS = [
+  /analyz[uj].*(?:kód|code|modul|tříd|class)/i,
+  /(?:najd[iěte]|find|hledej).*(?:bug|chyb[uya]|error|problém)/i,
+  /(?:why|proč).*(?:fail|padá|nefunguje|crash|error|chyb)/i,
+  /(?:explain|vysvětli).*(?:code|kód|modul|funkc|metod|class|tříd)/i,
+  /(?:debug|ladění|stacktrace|exception|traceback)/i,
+  /(?:root.?cause|příčin)/i,
+  /(?:code.?review|review.*(?:kód|code))/i,
+  /(?:how.*work|jak.*funguje).*(?:code|kód|modul|systém)/i,
+  /(?:what.*does|co.*dělá).*(?:this|tato|ten|tento).*(?:code|kód|funkce|metoda)/i,
+  /(?:analyze|propose.*solution|navrhni.*řešení)/i,
+  /analyzuj.*(?:projekt|codebase|zdrojov)/i,
+  /(?:kde|where).*(?:se.*volá|is.*called|se.*používá|is.*used)/i,
+  /(?:projdi|prohledej|scan|inspect).*(?:kód|code|projekt|zdrojov|source)/i,
 ];
 
 const CODE_PATTERNS = [
@@ -2446,6 +2467,15 @@ PRAVIDLA:
     }
 
     // ════════════════════════════════════════════════════════════════════════
+    // v94: CODE_ANALYSIS — MUST be BEFORE FILE_EXPLAIN
+    // "analyzuj kód" = code analysis (project-wide), NOT file-explain
+    // "analyzuj soubor X.js" = file-explain (specific file) — falls through
+    // ════════════════════════════════════════════════════════════════════════
+    if (CODE_ANALYSIS_PATTERNS.some(p => p.test(text))) {
+      return IntentType.CODE_ANALYSIS;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
     // v63.0: FILE_EXPLAIN → FILE_EXPLAIN (before CODE catches "explain code")
     // "vysvětli soubor X", "co dělá tento soubor?" → FILE_EXPLAIN
     // Must be BEFORE FILE_READ (more specific) and before CODE
@@ -3059,7 +3089,7 @@ PRAVIDLA:
     // v63.0: Added FILE_READ, FILE_EXPLAIN - file operations are terminal
     // v65.0: Added SHELL - terminal commands are terminal
     // v71: Added FILE_WRITE — LLM-classified action intents must not be overridden
-    const STRONG_INTENTS = [IntentType.LOCAL, IntentType.CONVERSATIONAL, IntentType.CREATIVE, IntentType.ITEM_LOOKUP, IntentType.DESIGN, IntentType.FILE_READ, IntentType.FILE_EXPLAIN, IntentType.SHELL, IntentType.FILE_WRITE];
+    const STRONG_INTENTS = [IntentType.LOCAL, IntentType.CONVERSATIONAL, IntentType.CREATIVE, IntentType.ITEM_LOOKUP, IntentType.DESIGN, IntentType.FILE_READ, IntentType.FILE_EXPLAIN, IntentType.SHELL, IntentType.FILE_WRITE, IntentType.CODE_ANALYSIS];
     const isStrongIntent = STRONG_INTENTS.includes(intent);
 
     // ════════════════════════════════════════════════════════════════════════
@@ -3558,6 +3588,22 @@ PRAVIDLA:
           // v44.3 - Project scope for all decisions when project is active
           projectScope,
           projectDominant: !!hasActiveProject,
+        },
+      });
+    }
+
+    // v94: CODE_ANALYSIS — search code, build context, LLM analysis
+    if (intent === IntentType.CODE_ANALYSIS) {
+      return _makeDecision({
+        type: DecisionType.TOOL_CALL,
+        intent,
+        tools: [],  // Handler manages its own pipeline (search→context→LLM)
+        reason: 'CODE_ANALYSIS — code search + multi-file context + LLM analysis',
+        confidence: llmMeta?.confidence || 0.9,
+        metadata: {
+          inputPreview: input.substring(0, 100),
+          handler: 'code_analysis',
+          projectScope,
         },
       });
     }
