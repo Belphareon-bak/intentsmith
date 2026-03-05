@@ -123,6 +123,61 @@
 
 ---
 
+## v99.0.0 — Graph Extensions (2026-03-05)
+
+Inkrementální synchronizace knowledge graph (file-level remove + reindex), BFS graph expansion pro obohacení search výsledků, a 3-signálový risk analyzér.
+
+### Graph Sync — Knowledge Graph Extensions
+- **`_fileIndex: Map<relPath, Set<nodeId>>`**: O(1) lookup file → all nodes (symbols, file node)
+- **`_buildPromise` mutex**: `finally` reset — zabrání deadlocku při selhání buildu
+- **`removeFile(relPath)`**: Robustní cross-ref cleanup — smaže nodes, edges, adjacency/reverse entries; iteruje jen nodes daného souboru (ne celý graf)
+- **`reindexFile(relPath)`**: `removeFile()` → re-parse → re-add (atomický update)
+- **`validateGraph()`**: Kontrola konzistence — orphan edges, missing nodes, duplicate edges
+- **`clear()`**: Reset `_projectPath=null` — **musí se nastavit PO `clear()` v `_doBuild()`** (bug fix)
+
+### Graph Retrieval (NEW)
+- **`graph-retrieval.js`** (190 lines): BFS expansion z ranked search výsledků přes KG edges
+- **`expandWithGraph(rankedFiles, graph)`**: Seed top-N → BFS přes IMPORTS/CALLS (outgoing) + reverse IMPORTS (incoming)
+- **Visited guard + hard limit 500**: Zabrání cyklům a explozi u velkých grafů
+- **`buildDependencyContext(relPath, graph)`**: Markdown kontext (imports, imported-by, defines) pro LLM prompt
+- **`mergeAndResort(existing, graphFiles)`**: Sloučení keyword + graph výsledků, re-sort by score
+- **TESTED_BY edges**: Outgoing z source souboru — `getEdges()`, ne `getIncoming()`
+
+### Risk Analyzer (NEW)
+- **`risk-analyzer.js`** (291 lines): Composite risk score z 3 signálů
+- **Formula**: `0.4 × impact + 0.35 × coverage + 0.25 × centrality`
+- **Impact** (impact-analyzer): Počet affected souborů v ripple effect BFS
+- **Coverage** (test-coverage-explorer): Inverzní — nízké pokrytí = vyšší risk
+- **Centrality** (knowledge-graph): In-degree + out-degree normalizované
+- **Risk levels**: LOW (0-25), MEDIUM (26-50), HIGH (51-75), CRITICAL (76+)
+- **`analyzeRisk(changedFiles)`**: Vrací per-file risk + agregovaný project risk
+
+### Code Analysis Integration
+- **`code-analysis.js`** (+27 lines): Step 3.5 — graph expansion wiring
+- **Pipeline**: `searchCode() → rankFiles() → expandWithGraph() → buildCodeContext()`
+- **Graceful fallback**: Pokud KG není populated, přeskočí graph expansion
+
+### Tests
+- graph-sync: 24/24
+- graph-retrieval: 21/21
+- risk-analyzer: 18/18
+- **Total v99**: 63 tests, 0 failures
+- **Existing unaffected**: knowledge-graph 17/17, code-analysis 41/41
+
+### Soubory
+
+| Nové (2) | Popis |
+|----------|-------|
+| `src/code-intel/graph-retrieval.js` | BFS expansion + dependency context + merge |
+| `src/code-intel/risk-analyzer.js` | 3-signal composite risk scoring |
+
+| Modifikované (2) | Změna |
+|-------------------|-------|
+| `src/code-intel/knowledge-graph.js` | _fileIndex, _buildPromise, removeFile, reindexFile, validateGraph (+127 lines) |
+| `src/code-intel/code-analysis.js` | Step 3.5 graph expansion wiring (+27 lines) |
+
+---
+
 ## v98.0.0 — Architecture Governance + Cross-Milestone Consistency (2026-03-05)
 
 ### Architecture Guardian (NEW)
@@ -167,6 +222,139 @@
 - architecture-governance (patterns + risk): 17/17
 - architecture-detector: 35/35 (existing, still pass)
 - modules: 23/23 (existing, still pass)
+
+---
+
+## v97.0.0 — Code Generation Reliability (2026-03-05)
+
+3-tier AST-guided repair pipeline pro čištění LLM výstupů, Architecture Conformance Framework (ACF) pro automatickou validaci vrstev, a dead-end loop fix pro lifecycle BUILD.
+
+### Code Cleaner (NEW)
+- **`code-cleaner.js`** (342 lines): `stripCodeFences()`, `stripTypeAnnotations()`, 3-tier AST-guided repair
+- **Tier 1 — Snippet repair**: ±10 lines kolem chyby, 2 pokusy, temp 0, length guard 2× (výstup nesmí být >2× delší než vstup)
+- **Tier 2 — Full-file repair**: 1 pokus, temp 0, celý soubor
+- **Tier 3 — Accept as-is**: Pokud repair selže, přijmout a pokračovat
+- **`languagePromptSuffix(ext)`**: Per-language instrukce ("NO markdown fences, NO TypeScript annotations" pro .js/.py)
+- **Wired into BUILD**: `actions.js` volá cleaner na každý vygenerovaný soubor před zápisem
+
+### Architecture Conformance Framework (NEW)
+- **`architecture-check.js`** (282 lines): `scanImports()`, `mapFileToLayer()`, `validateArchitecture()`
+- **Auto-generate `ARCHITECTURE.json`**: V PLAN fázi (lifecycle-planning.js) se generuje z detekované architektury
+- **Post-milestone validation**: Po každém milníku se kontrolují layer violations (controller→service OK, service→controller FAIL)
+- **`formatViolationsForCheckpoint()`**: Injekce do checkpoint promptu — R1 vidí porušení vrstev
+- **Supports**: JS/TS (import/require), Python (import/from), Go (import), Java (import)
+
+### Dead-End Loop Fix
+- **Problém**: BUILD mohl skončit v nekonečné smyčce retry, pokud milestone opakovaně FAIL na stejné chybě
+- **Fix**: `lifecycle-build.js` — force-skip kaskáda po 3 retries se stejným failure type
+- **`lifecycle-router.js`**: Detekce looping pattern + automatický skip s poznámkou do logu
+
+### E2E Test Harness (NEW)
+- **`e2e-harness.js`** (422 lines): Orchestration pro end-to-end lifecycle testy
+- **Supports**: Sequential milestone execution, checkpoint verification, transcript capture
+
+### v97.1 Bugfixes
+- `__pycache__` scope: Excluded z code-cleaner (binární soubory)
+- JSX detection: `.jsx`/`.tsx` soubory nefiltrovány jako TypeScript
+- `package.json` errors: Cleaner přeskakuje JSON soubory
+- `sessionId` undefined: Guard v lifecycle-router.js
+
+### Soubory
+
+| Nové (3) | Popis |
+|----------|-------|
+| `src/planner/code-cleaner.js` | 3-tier AST repair pipeline |
+| `src/planner/architecture-check.js` | ACF — import scan + layer validation |
+| `tests/e2e-harness.js` | E2E lifecycle test orchestration |
+
+| Modifikované (5) | Změna |
+|-------------------|-------|
+| `src/planner/actions.js` | Code cleaner wiring na file write |
+| `src/planner/lifecycle-build.js` | Dead-end loop detection + force-skip |
+| `src/planner/lifecycle-planning.js` | Auto-generate ARCHITECTURE.json |
+| `src/planner/workflow.js` | ACF validation po milestone |
+| `src/planner/lifecycle-router.js` | Looping pattern detection, sessionId guard |
+
+---
+
+## v96.0.0 — Code Intelligence Extensions (2026-03-05)
+
+8 nových analytických modulů rozšiřujících code-intel subsystém + intent-aware kontext strategie v context-builder.
+
+### Dead Code Detector (NEW)
+- **`dead-code-detector.js`** (304 lines): Detekce nepoužívaných exportů, unreachable kódu, unused importů
+- **3 scan typy**: `detectUnusedExports()`, `detectUnreachableCode()`, `detectUnusedImports()`
+- **Cross-reference**: Využívá symbolIndex pro kontrolu, zda export má konzumenty
+
+### Knowledge Graph (NEW)
+- **`knowledge-graph.js`** (427 lines): Grafová reprezentace codebase — nodes (file, symbol, module) + edges (IMPORTS, CALLS, EXTENDS, IMPLEMENTS, TESTED_BY, DEFINES, BELONGS_TO, REFERENCES)
+- **`buildFromProject()`**: Indexace celého projektu z file systému
+- **`getDependencies()`, `getDependents()`, `getCallers()`, `getCallees()`**: Graph traversal API
+- **`getFileSymbols()`, `getStats()`, `validateGraph()`**: Introspekce + diagnostika
+- **`_fileIndex: Map<relPath, Set<nodeId>>`**: Rychlý lookup file → nodes
+
+### Impact Analyzer (NEW)
+- **`impact-analyzer.js`** (247 lines): `analyzeImpact(changedFiles)` — ripple effect analýza
+- **Impact set**: BFS přes IMPORTS/CALLS edges (max depth 3)
+- **`computeRiskScore()`**: `dependencyFactor × (1 - coverageFactor)` s test gap detekcí
+
+### Execution Graph (NEW)
+- **`execution-graph.js`** (327 lines): Runtime call graph reconstruction z AST
+- **`buildExecutionPaths()`**: Traces execution from entry points (main, handlers, exports)
+- **`findDeadPaths()`**: Paths s 0 callers (unreachable code)
+
+### Test Coverage Explorer (NEW)
+- **`test-coverage-explorer.js`** (215 lines): Mapování test→source coverage bez runtime dat
+- **`mapTestToSource()`**: Heuristika — test file name + import analysis
+- **`findUncoveredFiles()`**: Soubory bez odpovídajícího testu
+
+### Code Evolution (NEW)
+- **`code-evolution.js`** (330 lines): Churn analýza a historické metriky (git-based)
+- **`analyzeChurn()`**: Počet commitů, frekvence změn, hotspot detekce
+- **`getFileHistory()`**: Timeline změn pro konkrétní soubor
+
+### Drift Detector (NEW)
+- **`drift-detector.js`** (316 lines): Detekce architektonických odchylek od definovaných pravidel
+- **`detectDrift()`**: Layer violations, circular dependencies, naming convention breaks
+- **`DEFAULT_LAYERS` + `ALLOWED_IMPORTS`**: Výchozí pravidla (controller→service→repository)
+
+### Exploration Agent (NEW)
+- **`exploration-agent.js`** (304 lines): Autonomní průzkum codebase s multi-step strategií
+- **`explore(query)`**: Query → expand → search → rank → context build → answer
+- **Intent-aware**: Přizpůsobuje hloubku a šířku průzkumu podle intent typu
+
+### Context Builder Extensions
+- **`context-builder.js`** (+169 lines): 6 `CONTEXT_STRATEGIES` — intent-aware výběr kontextu
+- **Strategies**: CODE_ANALYSIS (15K tokens, deep), CONVERSATIONAL (5K, shallow), BUILD (10K, focused), SEARCH (3K, minimal), FILE_EXPLAIN (8K, single-file), CREATIVE (2K, minimal)
+
+### Tests
+- knowledge-graph: 17/17
+- dead-code-detector: 12/12
+- impact-analyzer: 9/9
+- drift-detector: 12/12
+- execution-graph: 11/11
+- test-coverage-explorer: 8/8
+- code-evolution: 9/9
+- exploration-agent: 5/5
+- context-builder: 16/16
+- **Total v96**: 99 tests, 0 failures
+
+### Soubory
+
+| Nové (8) | Popis |
+|----------|-------|
+| `src/code-intel/dead-code-detector.js` | Unused exports/imports/unreachable code |
+| `src/code-intel/knowledge-graph.js` | Graph nodes + edges + traversal API |
+| `src/code-intel/impact-analyzer.js` | Change ripple effect + risk scoring |
+| `src/code-intel/execution-graph.js` | Runtime call graph reconstruction |
+| `src/code-intel/test-coverage-explorer.js` | Test→source coverage mapping |
+| `src/code-intel/code-evolution.js` | Git-based churn + hotspot analysis |
+| `src/code-intel/drift-detector.js` | Architecture rule violation detection |
+| `src/code-intel/exploration-agent.js` | Autonomous multi-step codebase explorer |
+
+| Modifikované (1) | Změna |
+|-------------------|-------|
+| `src/code-intel/context-builder.js` | 6 intent-aware CONTEXT_STRATEGIES (+169 lines) |
 
 ---
 
@@ -657,6 +845,52 @@ Revertovány hardcoded pattern rozšíření z v84.1-draft (seznam, workspace, h
 |--------|-------|
 | `src/chat/cre-decision.js` | Project hint v `_llmClassifyIntent()`, project-scope v `REPORT_FRESH_CONTEXT` |
 | `src/chat/handlers/file.js` | FILE_READ bez filePath v project mode → default `'.'` (directory listing) |
+
+---
+
+## v83.0 — Guarded Autonomy (2026-02-26)
+
+Self-tuning CRE override threshold via telemetry drift detection. Autonomní režim s trust-gated auto-apply — po 10 po sobě jdoucích approval se akce aplikují automaticky. Opt-in přes `C3_ENABLE_AUTONOMY=true`.
+
+### Autonomy Controller (NEW)
+- **`autonomy/controller.js`** (253 lines): Řídí override threshold + trust gate + safety layers
+- **Self-tuning threshold**: `setOverrideThreshold()` v cre-decision.js — CRE přizpůsobuje práh na základě telemetrie
+- **Guard band** `[0.75, 0.90]`: Threshold nikdy neklesne pod 0.75 ani nepřekročí 0.90
+- **Max step 0.03**: Maximální změna prahu za jedno okno (zabraňuje náhlým skokům)
+- **Cooldown**: 2 okna po drift detekci — threshold se nemění
+- **Trust gate**: 10 po sobě jdoucích approvals → auto-apply (reset při jakémkoliv deny)
+- **10 safety layers**: Žádný override na REFUSE, FILE_READ, SKILL; max 5 auto-applies za session; always-confirm pro destruktivní akce
+
+### Telemetry Aggregator (NEW)
+- **`autonomy/aggregator.js`** (141 lines): Periodická agregace telemetrie do sliding windows
+- **Sliding window**: 15-minutové intervaly, exponenciální vyhlazení
+- **Metriky**: override_accuracy, intent_stability, response_quality, user_satisfaction
+
+### Drift Detector (NEW)
+- **`autonomy/drift-detector.js`** (147 lines): Detekuje změny v override accuracy
+- **Z-score**: Porovnává aktuální okno vs. historický průměr (σ > 2.0 = drift)
+- **Alert**: Při driftu → cooldown aktivován, threshold rollback
+
+### REST API + DB
+- **`routes/autonomy.js`** (128 lines): `GET /api/autonomy/status`, `POST /api/autonomy/toggle`, `GET /api/autonomy/history`
+- **Migration 019**: 3 tabulky — `telemetry_metrics`, `telemetry_alerts`, `telemetry_improvements`
+
+### Soubory
+
+| Nové (7) | Popis |
+|----------|-------|
+| `src/autonomy/controller.js` | Override threshold + trust gate + safety |
+| `src/autonomy/aggregator.js` | Sliding window telemetry aggregation |
+| `src/autonomy/drift-detector.js` | Z-score drift detection + cooldown |
+| `src/routes/autonomy.js` | REST API pro autonomy management |
+| `src/db/migrations/2026_02_26_019_v83_autonomy.js` | DB migrace (3 tabulky) |
+| `docs/autonomy-v1.md` | Dokumentace autonomního režimu |
+
+| Modifikované (3) | Změna |
+|-------------------|-------|
+| `src/config.js` | `C3_ENABLE_AUTONOMY` flag |
+| `src/chat/cre-decision.js` | `setOverrideThreshold()` API |
+| `src/server.js` | Controller + aggregator init, routes mount |
 
 ---
 
