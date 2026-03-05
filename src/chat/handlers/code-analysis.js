@@ -8,33 +8,10 @@
 import { logger } from '../../core/logger.js';
 import { expandQuery, buildSearchQueries } from '../../code-intel/query-expander.js';
 import { searchCode } from '../../code-intel/code-search.js';
+import { rankFiles } from '../../code-intel/file-discovery.js';
 import { buildCodeContext, buildCodeAnalysisPrompt } from '../../code-intel/context-builder.js';
+import { symbolIndex } from '../../code-intel/symbol-index.js';
 import { ResponseTag, TaggedResponse, ResponseSpeaker } from '../controller.js';
-
-// ─── File Ranking (basic — Phase 2 will add smart discovery) ──────────────────
-
-function basicRankFiles(searchResults) {
-  // Group results by file, count matches
-  const fileMap = new Map();
-
-  for (const r of searchResults) {
-    const entry = fileMap.get(r.file) || { file: r.file, matchCount: 0, lines: [] };
-    entry.matchCount++;
-    entry.lines.push(r.line);
-    fileMap.set(r.file, entry);
-  }
-
-  // Sort by match count (most matches first)
-  const ranked = [...fileMap.values()].sort((a, b) => b.matchCount - a.matchCount);
-
-  // Score based on rank position and match count
-  return ranked.map((f, idx) => ({
-    file: f.file,
-    score: 1 - (idx / Math.max(ranked.length, 1)),
-    matchCount: f.matchCount,
-    matchLines: f.lines,
-  }));
-}
 
 // ─── Project Info Builder ─────────────────────────────────────────────────────
 
@@ -93,12 +70,31 @@ export async function handleCodeAnalysisDecision(input, decision, context) {
       queries: queries.slice(0, 5),
     });
 
+    // ─── Step 1.5: Symbol Index lookup (O(1), if index built) ────────
+    let symbolHits = [];
+    if (symbolIndex.symbolCount > 0) {
+      for (const term of expanded.primary) {
+        const symbols = symbolIndex.findSymbol(term);
+        if (symbols && symbols.length > 0) {
+          for (const sym of symbols) {
+            symbolHits.push({
+              file: sym.file,
+              line: sym.line,
+              content: `[symbol:${sym.type}] ${sym.name}`,
+            });
+          }
+          logger.info('CodeAnalysis', `Symbol index hit: ${term} → ${symbols.length} definitions`);
+        }
+      }
+    }
+
     if (typeof context.onSystemStep === 'function') {
-      try { context.onSystemStep('code_analysis_search', `Searching: ${queries.slice(0, 3).join(', ')}`, 2); } catch (_) {}
+      const indexNote = symbolHits.length > 0 ? ` (${symbolHits.length} index hits)` : '';
+      try { context.onSystemStep('code_analysis_search', `Searching: ${queries.slice(0, 3).join(', ')}${indexNote}`, 2); } catch (_) {}
     }
 
     // ─── Step 2: Search code with all queries ────────────────────────
-    let allResults = [];
+    let allResults = [...symbolHits]; // Start with symbol index results
 
     for (const query of queries.slice(0, 5)) { // Max 5 search queries
       const searchResult = await searchCode(projectPath, query, {
@@ -126,8 +122,10 @@ export async function handleCodeAnalysisDecision(input, decision, context) {
       return await handleAnswerDecision(input, decision, context);
     }
 
-    // ─── Step 3: Rank files ──────────────────────────────────────────
-    const rankedFiles = basicRankFiles(allResults);
+    // ─── Step 3: Rank files (smart multi-signal ranking) ────────────
+    const rankedFiles = await rankFiles(allResults, [...expanded.primary, ...expanded.secondary], {
+      projectPath,
+    });
 
     if (typeof context.onSystemStep === 'function') {
       try { context.onSystemStep('code_analysis_context', `Building context from ${rankedFiles.length} files`, 2); } catch (_) {}

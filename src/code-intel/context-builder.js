@@ -9,6 +9,7 @@
 import { readFile, stat } from 'fs/promises';
 import path from 'path';
 import { logger } from '../core/logger.js';
+import { analyzeCodeStructure, buildAnalysisSummary } from './code-analyzer.js';
 
 const MAX_FILE_SIZE = 512 * 1024; // 512KB (matches file handler limit)
 const DEFAULT_MAX_FILES = 10;
@@ -239,6 +240,10 @@ export async function buildCodeContext(projectPath, rankedFiles, opts = {}) {
     // Smart truncation
     const truncated = smartTruncate(lines, queryTerms, maxLinesPerFile);
 
+    // Deep analysis (structure + smells + config)
+    const analysis = analyzeCodeStructure(content, language);
+    const analysisSummary = buildAnalysisSummary(analysis);
+
     // Build file section
     const header = `### File: ${relPath} (${lines.length} lines, modified ${modified})`;
     const importLine = imports.length > 0
@@ -247,7 +252,7 @@ export async function buildCodeContext(projectPath, rankedFiles, opts = {}) {
 
     const codeFence = '```' + language + '\n' + truncated.content + '\n```';
 
-    const section = [header, importLine, '', codeFence].filter(Boolean).join('\n');
+    const section = [header, importLine, analysisSummary, '', codeFence].filter(Boolean).join('\n');
     const sectionTokens = estimateTokens(section);
 
     if (totalTokens + sectionTokens > maxTokens && fileInfos.length > 0) {
@@ -264,6 +269,12 @@ export async function buildCodeContext(projectPath, rankedFiles, opts = {}) {
       keptLines: truncated.keptLines,
       language,
       tokens: sectionTokens,
+      analysis: {
+        classes: analysis.classes.length,
+        functions: analysis.functions.length,
+        codeSmells: analysis.codeSmells.length,
+        configValues: analysis.configValues.length,
+      },
     });
   }
 

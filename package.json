@@ -1,8 +1,8 @@
 {
   "name": "c3-agent",
-  "version": "93.0.0",
+  "version": "95.0.0",
   "type": "module",
-  "description": "C.3 Agent v93 — Lifecycle E2E + Checkpoint Architecture + Specialist Focus + Project Workflow + IDE Polish",
+  "description": "C.3 Agent v95 — Full Code Intelligence (7 phases: search, file discovery, analyzer, AST, symbol index, semantic index, debug agent)",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -28,6 +28,7 @@
     "test:workflow": "node tests/workflow.test.js && node tests/workflow-orchestrator.test.js && node tests/build-patterns.test.js && node tests/build-handoff.test.js && node tests/build-intent.test.js",
     "test:design": "node tests/design-tests.test.js && node tests/design-sprint34.test.js",
     "test:quality": "node tests/quality-sprint-q.test.js && node tests/qg-idempotence.test.js && node tests/output-gate.js",
+    "test:code-intel": "node tests/query-expander.test.js && node tests/code-search.test.js && node tests/context-builder.test.js && node tests/file-discovery.test.js && node tests/code-analyzer.test.js && node tests/ast-analyzer.test.js && node tests/symbol-index.test.js && node tests/chunker.test.js && node tests/semantic-index.test.js && node tests/debug-agent.test.js",
     "test:notifications": "node tests/notifications.test.js && node tests/push-channel.test.js && node tests/trust-feedback.test.js",
     "test:db": "node tests/schema-migrations.test.js && node tests/execution-trace-stress.test.js && node tests/session-context.test.js && node tests/archive-lifecycle.test.js",
     "test:e2e": "node tests/e2e-pipeline.test.js && node tests/e2e-complex.test.js && node tests/e2e-resilience.test.js && node tests/e2e-workers.test.js && node tests/e2e-notifications.test.js && node tests/e2e-specialists.test.js",
@@ -55,6 +56,11 @@
     "exceljs": "^4.4.0",
     "nodemailer": "^8.0.1",
     "puppeteer": "^24.0.0",
+    "tree-sitter": "^0.25.0",
+    "tree-sitter-go": "^0.25.0",
+    "tree-sitter-java": "^0.23.5",
+    "tree-sitter-javascript": "^0.25.0",
+    "tree-sitter-python": "^0.25.0",
     "ws": "^8.0.0"
   }
 }

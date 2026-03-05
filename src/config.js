@@ -69,18 +69,19 @@ export const config = {
     VISION: process.env.C3_MODEL_VISION || 'llava:13b',
   },
 
-  // Timeouts per role (ms)
-  timeouts: {
-    // Workflow roles
-    D1: 120000,       // 120s — deep deliberation needs time
-    D2: 60000,        // 60s — fix deliberation, focused
-    CODE: 120000,     // 120s — code generation (complex files need >90s)
-    R1: 120000,       // 120s — deep review (= D1)
-    R2: 45000,        // 45s — quick review
-
-    CHAT: 90000,        // v82.2: 60s→90s — 32B synthesis routinely needs >60s for Czech
-    VISION: 60000,
-  },
+  // Timeouts per role (ms) — multiply via C3_TIMEOUT_SCALE env (default 1)
+  timeouts: (() => {
+    const scale = parseFloat(process.env.C3_TIMEOUT_SCALE) || 1;
+    return {
+      D1: 120000 * scale,
+      D2: 60000 * scale,
+      CODE: 120000 * scale,
+      R1: 120000 * scale,
+      R2: 45000 * scale,
+      CHAT: 90000 * scale,
+      VISION: 60000 * scale,
+    };
+  })(),
 
   // Workflow configuration
   workflow: {
