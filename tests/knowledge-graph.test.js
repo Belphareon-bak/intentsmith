@@ -250,7 +250,7 @@ class Dog extends Animal {
     await g.buildFromProject(dir);
 
     // Check for EXTENDS edge
-    const extendsEdges = g._edges.filter(e => e.type === EdgeType.EXTENDS);
+    const extendsEdges = [...g._edges.values()].filter(e => e.type === EdgeType.EXTENDS);
     // The extends edge might not be found if Animal isn't in the same file
     // and findSymbolNode doesn't match across files — this is fine, test the mechanism
     assert(g._nodes.size > 0, 'should have nodes');
@@ -283,7 +283,7 @@ await testAsync('clear resets graph', async () => {
 
     g.clear();
     assertEqual(g._nodes.size, 0);
-    assertEqual(g._edges.length, 0);
+    assertEqual(g._edges.size, 0);
   } finally { cleanup(dir); }
 });
 

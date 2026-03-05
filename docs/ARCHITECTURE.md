@@ -1,6 +1,6 @@
-# C.3 Agent Platform — Architecture v100
+# C.3 Agent Platform — Architecture v101
 
-**Version:** v100.0.0 (Architecture Intelligence Platform)
+**Version:** v101.0.0 (Large Project Scaling)
 **Status:** Production-ready
 **Date:** 2026-03-05
 
@@ -26,6 +26,7 @@ C.3 is a conversational AI platform combining:
 14. **Code Intelligence** (v95) — Multi-engine code search, symbol index, architecture detection, BUILD context enrichment
 15. **Architecture Governance** (v98) — Cross-milestone drift enforcement, API contract tracking, critic/repair agent
 16. **Architecture Intelligence** (v100) — Policy engine, incremental context, regression prediction, runtime feedback, project KB, milestone decomposer, multi-agent build, refactor agent
+17. **Large Project Scaling** (v101) — Map-based graph storage, module-level queries, priority BFS with edge weights, streaming reactive indexer, persistent project snapshots
 
 All decisions flow through CRE — LLM is the text generator, never the authority.
 

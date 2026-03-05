@@ -2,6 +2,49 @@
 
 ---
 
+## v101.0.0 — Large Project Scaling (2026-03-05)
+
+### Graph Storage Refactor (K1)
+- **`_edges: Array` → `_edges: Map<id, edge>`**: O(1) edge add/delete (was O(E) filter in `removeFile()`)
+- **`_edgesByType: Map<type, Set<edgeId>>`**: Type index for fast edge filtering (CALLS, IMPORTS, etc.)
+- **Lighter adjacency entries**: `{ edgeId, target }` instead of `{ edge, target }` — edge fetched from Map on demand
+- **O(F) `removeFile()`**: Only processes edges touching the removed file's nodes (counterpart cleanup), not all edges
+- **`addEdge()` returns numeric ID**: Monotonic `_edgeCounter` for stable edge references
+
+### Multi-Level Graph (K2)
+- **`_moduleIndex: Map<modulePath, Set<relPath>>`**: Module-level grouping (lazy-filled from `_fileIndex`)
+- **`getModuleDependencies(modulePath)`**: Cross-module dep analysis with cached `_moduleDepCache`
+- **`getModules()`, `getModuleFiles()`, `getFileDependencies()`, `getSymbolDependencies()`**: 3-level query API
+- **Auto-maintained**: `addNode()` updates module index, `removeFile()` cleans + invalidates cache
+
+### Priority BFS (K3)
+- **`MaxHeap` class**: Binary heap priority queue replacing flat FIFO `queue.shift()`
+- **Edge weights**: `CALLS=2.0, IMPORTS=1.0, REFERENCES=0.5, EXTENDS/IMPLEMENTS=1.5, TESTED_BY=0.3`
+- **Score formula**: `parentScore × edgeWeight × depthDecay` (default depthDecay=0.7)
+- **Dynamic cutoff**: Stops expansion when top-of-heap score < minScore threshold
+- **`maxDepth=3` hard limit** (was 2): Deeper but quality-gated traversal
+
+### Streaming Indexer (K4)
+- **`streaming-indexer.js` (NEW)**: Reactive index updates via chokidar file watcher
+- **Per-file lock** (`_fileLocks: Map<relPath, Promise>`): Prevents concurrent removeFile + reindexFile race
+- **200ms debounce** on top of chokidar's 300ms `awaitWriteFinish` + 100ms batch
+- **Cascading reindex**: `symbolIndex.reindexFile()` → `knowledgeGraph.reindexFile()` automatically
+- **`file-watcher.js` multi-callback**: `watchers` Map stores `{ watcher, callbacks: Set }`, `removeCallback()` API
+
+### Snapshot Persistence (K5)
+- **`.c3/snapshot.json`**: Persists project snapshot to disk (survived server restarts)
+- **`SNAPSHOT_SCHEMA_VERSION=1`**: Migration-safe — wrong version forces full rebuild
+- **Policy-aware invalidation**: If `.c3/architecture-policy.json` mtime > snapshot timestamp → invalidate
+- **`getOrCreateSnapshot()` 4-path**: in-memory cache → disk load → incremental update → full build
+
+### Tests
+- **35 new tests** in `large-project-scaling.test.js` (6 suites)
+- **Stress test**: 1000 nodes + 5000 edges → removeFile < 50ms, expandWithGraph < 100ms
+- **5 existing test lines updated** for Map-based `_edges` + new score formula
+- **0 regressions**: All 122 existing affected tests pass
+
+---
+
 ## v100.0.0 — Architecture Intelligence Platform (2026-03-05)
 
 ### Architecture Policy Engine (NEW)

@@ -96,10 +96,10 @@ test('score decay is correct', () => {
 
   const result = expandWithGraph(ranked, g, { maxDepth: 2 });
 
-  // b.js at depth 1 → score 1.0 × 0.8 = 0.8
+  // b.js at depth 1 → score 1.0 × 1.0 (IMPORTS weight) × 0.7 (depthDecay) = 0.7
   const bItem = result.find(r => r.file === 'src/b.js');
   if (bItem) {
-    assertEqual(bItem.score, 0.8);
+    assertEqual(bItem.score, 0.7);
   }
 });
 
@@ -153,7 +153,7 @@ test('minimum threshold filters low scores', () => {
 
   const result = expandWithGraph(ranked, g, { minScore: 0.05 });
 
-  // depth 1 = 0.05 × 0.8 = 0.04 < 0.05 threshold → filtered
+  // depth 1 = 0.05 × 1.0 × 0.7 = 0.035 < 0.05 threshold → filtered
   assertEqual(result.length, 0);
 });
 

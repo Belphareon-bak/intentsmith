@@ -114,7 +114,7 @@ test('removeFile removes edges', () => {
 
   g.removeFile('src/a.js');
 
-  assertEqual(g._edges.length, 0);
+  assertEqual(g._edges.size, 0);
 });
 
 test('removeFile cleans adjacency', () => {
@@ -269,7 +269,7 @@ test('orphaned edge detected', () => {
   const g = new KnowledgeGraph();
   g.addNode('file:a.js', NodeType.FILE, { name: 'a.js' });
   // Manually push edge with missing target
-  g._edges.push({ type: EdgeType.DEFINES, from: 'file:a.js', to: 'sym:ghost@a.js' });
+  g._edges.set(++g._edgeCounter, { id: g._edgeCounter, type: EdgeType.DEFINES, from: 'file:a.js', to: 'sym:ghost@a.js' });
 
   const result = g.validateGraph();
   assert(!result.valid, 'should be invalid');

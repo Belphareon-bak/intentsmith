@@ -12,21 +12,28 @@
 import chokidar from 'chokidar';
 import path from 'path';
 
-const watchers = new Map();
+const watchers = new Map(); // projectPath → { watcher, callbacks: Set<Function> }
 
 /**
  * Watch a project directory for file changes.
  * Events are batched (100ms debounce) and deduplicated per batch.
+ * Multiple callbacks can be registered for the same project.
  *
  * @param {string} projectPath — Absolute path to project root
  * @param {Function} onChange — (events: Array<{event, path}>) => void
  */
 export function watchProject(projectPath, onChange) {
-  if (watchers.has(projectPath)) return;
+  const existing = watchers.get(projectPath);
+  if (existing) {
+    // Add callback to existing watcher
+    existing.callbacks.add(onChange);
+    return;
+  }
 
   let batch = [];
   let timer = null;
   const seen = new Set();
+  const callbacks = new Set([onChange]);
 
   const watcher = chokidar.watch(projectPath, {
     ignored: [/node_modules/, /\.git/, /\.c3/],
@@ -44,23 +51,43 @@ export function watchProject(projectPath, onChange) {
     batch.push({ event, path: rel });
     clearTimeout(timer);
     timer = setTimeout(() => {
-      onChange([...batch]);
+      const events = [...batch];
       batch = [];
       seen.clear();
+      for (const cb of callbacks) {
+        try { cb(events); } catch { /* non-blocking */ }
+      }
     }, 100);
   });
 
-  watchers.set(projectPath, watcher);
+  watchers.set(projectPath, { watcher, callbacks });
 }
 
 /**
- * Stop watching a specific project.
+ * Remove a specific callback from a project's watcher.
+ * Closes the watcher if no callbacks remain.
+ *
+ * @param {string} projectPath
+ * @param {Function} onChange
+ */
+export function removeCallback(projectPath, onChange) {
+  const entry = watchers.get(projectPath);
+  if (!entry) return;
+  entry.callbacks.delete(onChange);
+  if (entry.callbacks.size === 0) {
+    entry.watcher.close();
+    watchers.delete(projectPath);
+  }
+}
+
+/**
+ * Stop watching a specific project (closes watcher + all callbacks).
  * @param {string} projectPath
  */
 export function unwatchProject(projectPath) {
-  const w = watchers.get(projectPath);
-  if (w) {
-    w.close();
+  const entry = watchers.get(projectPath);
+  if (entry) {
+    entry.watcher.close();
     watchers.delete(projectPath);
   }
 }
@@ -69,8 +96,8 @@ export function unwatchProject(projectPath) {
  * Stop all watchers (cleanup on server shutdown).
  */
 export function unwatchAll() {
-  for (const [, w] of watchers) {
-    w.close();
+  for (const [, entry] of watchers) {
+    entry.watcher.close();
   }
   watchers.clear();
 }

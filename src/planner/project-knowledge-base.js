@@ -12,6 +12,8 @@
 
 import { logger } from '../core/logger.js';
 import { estimateTokens } from '../code-intel/context-builder.js';
+import { readFile, writeFile, mkdir, stat } from 'fs/promises';
+import path from 'path';
 
 // ─── Lazy-loaded modules ────────────────────────────────────────────────────
 
@@ -44,6 +46,46 @@ async function _ensureModules() {
 
 const _snapshotCache = new Map(); // projectPath → { snapshot, timestamp }
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// ─── Snapshot Persistence ───────────────────────────────────────────────────
+
+const SNAPSHOT_FILE = '.c3/snapshot.json';
+const SNAPSHOT_SCHEMA_VERSION = 1;
+
+async function _saveToFile(projectPath, snapshot) {
+  try {
+    const dir = path.join(projectPath, '.c3');
+    await mkdir(dir, { recursive: true });
+    const data = { schemaVersion: SNAPSHOT_SCHEMA_VERSION, ...snapshot };
+    await writeFile(path.join(projectPath, SNAPSHOT_FILE), JSON.stringify(data), 'utf8');
+  } catch (err) {
+    logger.warn('ProjectKB', `Failed to save snapshot: ${err.message}`);
+  }
+}
+
+async function _loadFromFile(projectPath) {
+  try {
+    const raw = await readFile(path.join(projectPath, SNAPSHOT_FILE), 'utf8');
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== 'object') return null;
+    if (data.schemaVersion !== SNAPSHOT_SCHEMA_VERSION) return null;
+
+    // Invalidate if architecture policy is newer than snapshot
+    try {
+      const policyPath = path.join(projectPath, '.c3/architecture-policy.json');
+      const policyStat = await stat(policyPath);
+      if (data.timestamp && policyStat.mtime > new Date(data.timestamp)) {
+        logger.info('ProjectKB', 'Snapshot invalidated: architecture policy is newer');
+        return null;
+      }
+    } catch { /* no policy file — fine */ }
+
+    const { schemaVersion, ...snapshot } = data;
+    return snapshot;
+  } catch {
+    return null; // file missing or corrupted
+  }
+}
 
 // ─── Build Project Snapshot (Full) ──────────────────────────────────────────
 
@@ -107,8 +149,9 @@ export async function buildProjectSnapshot(projectPath, opts = {}) {
     snapshot.moduleMap = _buildModuleMap(opts.files);
   }
 
-  // Cache
+  // Cache + persist
   _snapshotCache.set(projectPath, { snapshot, timestamp: Date.now() });
+  await _saveToFile(projectPath, snapshot);
 
   logger.info('ProjectKB', `Full snapshot built (${Date.now() - start}ms)`, {
     architecture: !!snapshot.architecture,
@@ -164,8 +207,9 @@ export async function updateSnapshot(projectPath, changedFiles, existingSnapshot
     } catch { /* keep existing */ }
   }
 
-  // Cache
+  // Cache + persist
   _snapshotCache.set(projectPath, { snapshot: updated, timestamp: Date.now() });
+  await _saveToFile(projectPath, updated);
 
   logger.info('ProjectKB', `Snapshot incrementally updated (v${updated.version})`, {
     changedFiles: changedFiles.length,
@@ -186,7 +230,7 @@ export async function updateSnapshot(projectPath, changedFiles, existingSnapshot
  * @returns {Promise<Object>} ProjectSnapshot
  */
 export async function getOrCreateSnapshot(projectPath, changedFiles = null, opts = {}) {
-  // Check cache
+  // 1. In-memory cache (TTL valid)
   const cached = _snapshotCache.get(projectPath);
   if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
     if (changedFiles && changedFiles.length > 0) {
@@ -195,12 +239,21 @@ export async function getOrCreateSnapshot(projectPath, changedFiles = null, opts
     return cached.snapshot;
   }
 
-  // No cache — full build
+  // 2. No in-memory cache → try loading from disk
   if (!cached?.snapshot) {
+    const diskSnapshot = await _loadFromFile(projectPath);
+    if (diskSnapshot) {
+      _snapshotCache.set(projectPath, { snapshot: diskSnapshot, timestamp: Date.now() });
+      if (changedFiles && changedFiles.length > 0) {
+        return updateSnapshot(projectPath, changedFiles, diskSnapshot);
+      }
+      return diskSnapshot;
+    }
+    // 3. No disk → full build
     return buildProjectSnapshot(projectPath, opts);
   }
 
-  // Stale cache — incremental update
+  // 4. Stale cache — incremental update
   return updateSnapshot(projectPath, changedFiles || [], cached.snapshot);
 }
 
@@ -320,10 +373,14 @@ function _buildModuleMap(files) {
 
 // ─── Exports ────────────────────────────────────────────────────────────────
 
+export { _saveToFile, _loadFromFile, SNAPSHOT_SCHEMA_VERSION };
+
 export default {
   buildProjectSnapshot,
   updateSnapshot,
   getOrCreateSnapshot,
   formatSnapshotForPrompt,
   diffSnapshots,
+  _saveToFile,
+  _loadFromFile,
 };
