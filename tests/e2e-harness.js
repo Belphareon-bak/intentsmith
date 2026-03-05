@@ -273,6 +273,11 @@ export function cleanDB(projectPath) {
 
 export function initProjectDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
+  // Clean stale files from previous runs (preserve .git)
+  for (const entry of fs.readdirSync(dirPath)) {
+    if (entry === '.git') continue;
+    fs.rmSync(path.join(dirPath, entry), { recursive: true, force: true });
+  }
   if (!fs.existsSync(path.join(dirPath, '.git'))) {
     execSync('git init', { cwd: dirPath, stdio: 'pipe' });
     execSync('git config user.email "test@test.com"', { cwd: dirPath, stdio: 'pipe' });
