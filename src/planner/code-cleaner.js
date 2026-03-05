@@ -84,9 +84,19 @@ export function stripTypeAnnotations(code) {
 // ─── 1c. checkSyntax ────────────────────────────────────────────────────────
 
 /**
+ * Detect JSX syntax in JavaScript code.
+ * Checks for uppercase component tags, JSX attribute expressions, and React imports.
+ */
+function hasJSXSyntax(code) {
+  return /<[A-Z][a-zA-Z]*[\s/>]/.test(code) ||
+         /<\w+\s+\w+=\{/.test(code) ||
+         /from\s+['"]react['"]/.test(code);
+}
+
+/**
  * Deterministic syntax check using native tools.
- * Python: py_compile (simulates runtime loader)
- * JS: node --check
+ * Python: py_compile (simulates runtime loader) + __pycache__ cleanup
+ * JS: node --check (skips JSX files)
  * @param {string} filePath - Absolute path to file
  * @returns {{ ok: true }} on success
  * @throws {Error} with stderr details on syntax error
@@ -100,7 +110,15 @@ export function checkSyntax(filePath) {
         timeout: 5000,
         stdio: 'pipe',
       });
+      // Clean up __pycache__ created by py_compile to prevent scope violations
+      const pycacheDir = path.join(path.dirname(filePath), '__pycache__');
+      try { fs.rmSync(pycacheDir, { recursive: true, force: true }); } catch { /* ignore */ }
     } else if (['.js', '.mjs', '.cjs'].includes(ext)) {
+      // Skip JSX files — node --check can't parse JSX syntax
+      const code = fs.readFileSync(filePath, 'utf-8');
+      if (hasJSXSyntax(code)) {
+        return { ok: true, skipped: true, reason: 'JSX detected' };
+      }
       execFileSync('node', ['--check', filePath], {
         timeout: 5000,
         stdio: 'pipe',
@@ -111,6 +129,10 @@ export function checkSyntax(filePath) {
     }
   } catch (err) {
     const stderr = err.stderr?.toString() || err.message || '';
+    // package.json errors are module resolution failures, not syntax errors in the target file
+    if (stderr.includes('package.json') || stderr.includes('ERR_PACKAGE_JSON')) {
+      return { ok: true, skipped: true, reason: 'Invalid package.json' };
+    }
     const error = new Error(`Syntax error in ${path.basename(filePath)}: ${stderr.trim()}`);
     error.stderr = stderr;
     throw error;

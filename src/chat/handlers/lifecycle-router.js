@@ -440,6 +440,8 @@ async function handlePlanReviewInput(input, state, context) {
 // ─── BUILD phase ────────────────────────────────────────────────────────────
 
 async function handleBuildInput(input, state, context) {
+  const { sessionId } = context;
+
   // Status check
   if (/^(status|stav|progress|jak\s+to\s+jde)\s*[?!.]?$/i.test(input.trim())) {
     try {

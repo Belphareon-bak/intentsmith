@@ -792,6 +792,9 @@ async function milestoneCheckpoint(lifecycle, milestone, wfResult, testResults, 
 // Engine-managed files — always allowed, never scope violations
 const ENGINE_MANAGED_FILES = new Set(['ROADMAP.md', 'README.md', 'ARCHITECTURE.md', '.gitignore']);
 
+// Generated/artifact directories — always ignored in scope check
+const SCOPE_IGNORE_DIRS = ['__pycache__', '.pytest_cache', 'node_modules', '.git', '.venv', '__pypackages__', '.mypy_cache'];
+
 async function enforceMilestoneScope(lifecycle, milestone) {
   const scopeFiles = milestone.scope_files || [];
   if (scopeFiles.length === 0) {
@@ -808,6 +811,9 @@ async function enforceMilestoneScope(lifecycle, milestone) {
   for (const file of changedFiles) {
     // Skip engine-managed files (ROADMAP.md, README.md)
     if (ENGINE_MANAGED_FILES.has(file)) continue;
+
+    // Skip generated/artifact directories (__pycache__, node_modules, etc.)
+    if (SCOPE_IGNORE_DIRS.some(d => file === d || file.startsWith(d + '/') || file.includes('/' + d + '/'))) continue;
 
     // Check if file matches any scope pattern
     const inScope = scopeFiles.some(pattern => {
