@@ -2,7 +2,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { suite, test, assert, assertEqual, summary } from './harness.js';
-import { expandWithGraph, buildDependencyContext, mergeAndResort } from '../src/code-intel/graph-retrieval.js';
+import { expandWithGraph, buildDependencyContext, mergeAndResort, computeHubPenalty, computeNamespaceBoost } from '../src/code-intel/graph-retrieval.js';
 import { KnowledgeGraph, NodeType, EdgeType, fileNodeId } from '../src/code-intel/knowledge-graph.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -166,6 +166,126 @@ test('all results have source: graph', () => {
   for (const r of result) {
     assertEqual(r.source, 'graph');
   }
+});
+
+// ─── Hub Penalty ─────────────────────────────────────────────────────────────
+
+suite('GraphRetrieval — Hub Penalty');
+
+test('low-degree node gets no penalty', () => {
+  const g = new KnowledgeGraph();
+  g.addNode('file:src/a.js', NodeType.FILE, { name: 'src/a.js', file: 'src/a.js' });
+  g.addNode('file:src/b.js', NodeType.FILE, { name: 'src/b.js', file: 'src/b.js' });
+  g.addEdge(EdgeType.IMPORTS, 'file:src/a.js', 'file:src/b.js');
+
+  const penalty = computeHubPenalty(g, 'file:src/a.js');
+  assertEqual(penalty, 1.0);
+});
+
+test('hub node (degree > 15) gets penalized', () => {
+  const g = new KnowledgeGraph();
+  // Create a hub: utils/logger.js imported by 30 files
+  g.addNode('file:src/utils/logger.js', NodeType.FILE, { name: 'src/utils/logger.js', file: 'src/utils/logger.js' });
+  for (let i = 0; i < 30; i++) {
+    const f = `src/mod${i}/file${i}.js`;
+    g.addNode(fileNodeId(f), NodeType.FILE, { name: f, file: f });
+    g.addEdge(EdgeType.IMPORTS, fileNodeId(f), 'file:src/utils/logger.js');
+  }
+
+  const penalty = computeHubPenalty(g, 'file:src/utils/logger.js');
+  assert(penalty < 1.0, `hub should be penalized, got ${penalty}`);
+  assert(penalty >= 0.1, `penalty should not go below floor, got ${penalty}`);
+});
+
+test('penalty has safety floor at 0.1', () => {
+  const g = new KnowledgeGraph();
+  g.addNode('file:hub.js', NodeType.FILE, { name: 'hub.js', file: 'hub.js' });
+  // Create extreme hub: 2000 edges
+  for (let i = 0; i < 2000; i++) {
+    const f = `src/f${i}.js`;
+    g.addNode(fileNodeId(f), NodeType.FILE, { name: f, file: f });
+    g.addEdge(EdgeType.IMPORTS, fileNodeId(f), 'file:hub.js');
+  }
+
+  const penalty = computeHubPenalty(g, 'file:hub.js');
+  assertEqual(penalty, 0.1);
+});
+
+test('hub node gets lower BFS score than normal node', () => {
+  const g = new KnowledgeGraph();
+  // seed → normalFile (IMPORTS, low degree)
+  // seed → hubFile (IMPORTS, high degree)
+  g.addNode(fileNodeId('src/auth/seed.js'), NodeType.FILE, { name: 'src/auth/seed.js', file: 'src/auth/seed.js' });
+  g.addNode(fileNodeId('src/auth/normal.js'), NodeType.FILE, { name: 'src/auth/normal.js', file: 'src/auth/normal.js' });
+  g.addNode(fileNodeId('src/utils/hub.js'), NodeType.FILE, { name: 'src/utils/hub.js', file: 'src/utils/hub.js' });
+
+  g.addEdge(EdgeType.IMPORTS, fileNodeId('src/auth/seed.js'), fileNodeId('src/auth/normal.js'));
+  g.addEdge(EdgeType.IMPORTS, fileNodeId('src/auth/seed.js'), fileNodeId('src/utils/hub.js'));
+
+  // Make hub.js a hub: 25 additional incoming edges
+  for (let i = 0; i < 25; i++) {
+    const f = `src/other/f${i}.js`;
+    g.addNode(fileNodeId(f), NodeType.FILE, { name: f, file: f });
+    g.addEdge(EdgeType.IMPORTS, fileNodeId(f), fileNodeId('src/utils/hub.js'));
+  }
+
+  const ranked = [{ file: 'src/auth/seed.js', score: 1.0 }];
+  const result = expandWithGraph(ranked, g, { maxExpansion: 10 });
+
+  const normalItem = result.find(r => r.file === 'src/auth/normal.js');
+  const hubItem = result.find(r => r.file === 'src/utils/hub.js');
+
+  assert(normalItem, 'should discover normal.js');
+  assert(hubItem, 'should discover hub.js');
+  assert(normalItem.score > hubItem.score,
+    `normal (${normalItem.score}) should score higher than hub (${hubItem.score})`);
+});
+
+// ─── Namespace Boost ─────────────────────────────────────────────────────────
+
+suite('GraphRetrieval — Namespace Boost');
+
+test('same-module file gets boosted', () => {
+  const seedModules = new Set(['src/auth']);
+  const boost = computeNamespaceBoost(seedModules, 'src/auth/session.js');
+  assertEqual(boost, 1.5);
+});
+
+test('different-module file gets no boost', () => {
+  const seedModules = new Set(['src/auth']);
+  const boost = computeNamespaceBoost(seedModules, 'src/api/handler.js');
+  assertEqual(boost, 1.0);
+});
+
+test('null target returns 1.0', () => {
+  const seedModules = new Set(['src/auth']);
+  assertEqual(computeNamespaceBoost(seedModules, null), 1.0);
+});
+
+test('empty seedModules returns 1.0', () => {
+  assertEqual(computeNamespaceBoost(new Set(), 'src/auth/login.js'), 1.0);
+});
+
+test('same-module file scores higher in BFS', () => {
+  const g = new KnowledgeGraph();
+  // seed in src/auth → imports two files: one in same module, one in different
+  g.addNode(fileNodeId('src/auth/login.js'), NodeType.FILE, { name: 'src/auth/login.js', file: 'src/auth/login.js' });
+  g.addNode(fileNodeId('src/auth/session.js'), NodeType.FILE, { name: 'src/auth/session.js', file: 'src/auth/session.js' });
+  g.addNode(fileNodeId('src/api/handler.js'), NodeType.FILE, { name: 'src/api/handler.js', file: 'src/api/handler.js' });
+
+  g.addEdge(EdgeType.IMPORTS, fileNodeId('src/auth/login.js'), fileNodeId('src/auth/session.js'));
+  g.addEdge(EdgeType.IMPORTS, fileNodeId('src/auth/login.js'), fileNodeId('src/api/handler.js'));
+
+  const ranked = [{ file: 'src/auth/login.js', score: 1.0 }];
+  const result = expandWithGraph(ranked, g, { maxExpansion: 10 });
+
+  const sameModule = result.find(r => r.file === 'src/auth/session.js');
+  const diffModule = result.find(r => r.file === 'src/api/handler.js');
+
+  assert(sameModule, 'should discover same-module file');
+  assert(diffModule, 'should discover different-module file');
+  assert(sameModule.score > diffModule.score,
+    `same-module (${sameModule.score}) should score higher than cross-module (${diffModule.score})`);
 });
 
 // ─── buildDependencyContext ──────────────────────────────────────────────────

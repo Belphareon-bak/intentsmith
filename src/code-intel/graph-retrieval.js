@@ -1,9 +1,11 @@
-// Graph-Based Retrieval v1 — Enrich search results with structural relationships
+// Graph-Based Retrieval v2 — Enrich search results with structural relationships
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Uses KnowledgeGraph edges to discover related files that grep/keyword
 // search would miss:
-//   - BFS expansion from ranked files (IMPORTS/CALLS edges + reverse IMPORTS)
+//   - Priority BFS from ranked files (MaxHeap + edge weights + depthDecay)
+//   - Hub penalty: high-degree nodes (utils, config, types) get lower scores
+//   - Namespace boost: same-module files get higher scores
 //   - Dependency context for LLM prompt enrichment
 //
 // ══════════════════════════════════════════════════════════════════════════════
@@ -22,6 +24,50 @@ export const EDGE_WEIGHT = Object.freeze({
   [EdgeType.DEFINES]: 0.8,
   [EdgeType.BELONGS_TO]: 0.3,
 });
+
+// ─── Hub Penalty ─────────────────────────────────────────────────────────────
+
+const HUB_DEGREE_THRESHOLD = 15;
+
+/**
+ * Compute hub penalty for a node based on its degree (in + out edges).
+ * Nodes with degree <= threshold get no penalty (1.0).
+ * High-degree hubs (utils, config, types) get penalized to prevent
+ * them from dominating retrieval results.
+ *
+ * @param {KnowledgeGraph} graph
+ * @param {string} nodeId
+ * @returns {number} penalty factor in [0.1, 1.0]
+ */
+export function computeHubPenalty(graph, nodeId) {
+  const out = graph._adjacency.get(nodeId)?.length || 0;
+  const inp = graph._reverse.get(nodeId)?.length || 0;
+  const degree = out + inp;
+  if (degree <= HUB_DEGREE_THRESHOLD) return 1.0;
+  return Math.max(0.1, 1 / Math.log2(2 + degree));
+}
+
+// ─── Namespace Boost ─────────────────────────────────────────────────────────
+
+function _moduleForFile(relPath) {
+  const parts = relPath.split('/');
+  return parts.length >= 2 ? parts.slice(0, 2).join('/') : null;
+}
+
+/**
+ * Boost score for files in the same module as the query seeds.
+ * Same module = first 2 path segments match (e.g. "src/auth").
+ *
+ * @param {Set<string>} seedModules - Modules of seed files
+ * @param {string|null} targetFile - File path of target node
+ * @returns {number} boost factor (1.5 for same module, 1.0 otherwise)
+ */
+export function computeNamespaceBoost(seedModules, targetFile) {
+  if (!targetFile || !seedModules || seedModules.size === 0) return 1.0;
+  const targetMod = _moduleForFile(targetFile);
+  if (targetMod && seedModules.has(targetMod)) return 1.5;
+  return 1.0;
+}
 
 // ─── MaxHeap (priority queue) ───────────────────────────────────────────────
 
@@ -75,7 +121,7 @@ export class MaxHeap {
  * Expand ranked search results with structurally related files from the graph.
  *
  * Priority BFS from top N ranked files using MaxHeap + edge weights.
- * Score = parentScore × edgeWeight × depthDecay.
+ * Score = parentScore × edgeWeight × depthDecay × hubPenalty × namespaceBoost.
  *
  * @param {Array<{file: string, score: number}>} rankedFiles
  * @param {KnowledgeGraph} graph
@@ -104,13 +150,16 @@ export function expandWithGraph(rankedFiles, graph, opts = {}) {
   const visited = new Set();    // BFS cycle guard
   const heap = new MaxHeap();
 
-  // Seed top-N files into the heap
+  // Seed top-N files into the heap + compute seed modules for namespace boost
   const seeds = rankedFiles.slice(0, topN);
+  const seedModules = new Set();
   for (const seed of seeds) {
     const fid = fileNodeId(seed.file);
     if (!graph.getNode(fid)) continue;
     heap.push({ nodeId: fid, depth: 0, score: seed.score });
     visited.add(fid);
+    const mod = _moduleForFile(seed.file);
+    if (mod) seedModules.add(mod);
   }
 
   while (heap.size > 0 && visited.size < MAX_VISITED) {
@@ -133,11 +182,13 @@ export function expandWithGraph(rankedFiles, graph, opts = {}) {
       visited.add(target);
 
       const edgeWeight = EDGE_WEIGHT[edge?.type] ?? 1.0;
-      const nextScore = score * edgeWeight * depthDecay;
+      const hubPen = computeHubPenalty(graph, target);
+      const targetNode = graph.getNode(target);
+      const nsBst = computeNamespaceBoost(seedModules, targetNode?.file);
+      const nextScore = score * edgeWeight * depthDecay * hubPen * nsBst;
 
       if (nextScore < minScore) continue;
 
-      const targetNode = graph.getNode(target);
       if (targetNode && targetNode.type === 'file' && targetNode.file) {
         if (!existingFiles.has(targetNode.file)) {
           const existing = discovered.get(targetNode.file) || 0;
@@ -155,11 +206,13 @@ export function expandWithGraph(rankedFiles, graph, opts = {}) {
       visited.add(source);
 
       const edgeWeight = EDGE_WEIGHT[edge?.type] ?? 1.0;
-      const nextScore = score * edgeWeight * depthDecay;
+      const hubPen = computeHubPenalty(graph, source);
+      const sourceNode = graph.getNode(source);
+      const nsBst = computeNamespaceBoost(seedModules, sourceNode?.file);
+      const nextScore = score * edgeWeight * depthDecay * hubPen * nsBst;
 
       if (nextScore < minScore) continue;
 
-      const sourceNode = graph.getNode(source);
       if (sourceNode && sourceNode.type === 'file' && sourceNode.file) {
         if (!existingFiles.has(sourceNode.file)) {
           const existing = discovered.get(sourceNode.file) || 0;
@@ -167,9 +220,7 @@ export function expandWithGraph(rankedFiles, graph, opts = {}) {
         }
       }
 
-      if (nextScore >= minScore) {
-        heap.push({ nodeId: source, depth: nextDepth, score: nextScore });
-      }
+      heap.push({ nodeId: source, depth: nextDepth, score: nextScore });
     }
   }
 
@@ -258,4 +309,4 @@ export function mergeAndResort(existingRanked, graphFiles) {
   return [...merged.values()].sort((a, b) => b.score - a.score);
 }
 
-export default { expandWithGraph, buildDependencyContext, mergeAndResort };
+export default { expandWithGraph, buildDependencyContext, mergeAndResort, computeHubPenalty, computeNamespaceBoost };

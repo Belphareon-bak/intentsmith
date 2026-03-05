@@ -8,6 +8,41 @@
 
 ---
 
+## v102.0 — Graph Relevance Stabilization (2026-03-05)
+
+Hub penalty a namespace boost pro graph retrieval — zabraňuje high-degree utility nodes (logger, config, types) dominovat výsledkům a zvýhodňuje soubory ve stejném modulu jako query seeds.
+
+### Hub Penalty
+- **`computeHubPenalty(graph, nodeId)`**: `1 / log2(2 + degree)`, clamped to [0.1, 1.0]
+- **Threshold 15**: Nodes s degree ≤ 15 dostávají penalty 1.0 (bez penalizace)
+- **Efekt**: `utils/logger.js` (degree 300) → penalty ≈ 0.12, vypadne z top výsledků
+- **Safety floor 0.1**: I extrémní hub (degree 2000+) zůstane dosažitelný
+
+### Namespace Boost
+- **`computeNamespaceBoost(seedModules, targetFile)`**: 1.5× pro soubory ve stejném modulu jako seed
+- **Module = první 2 path segmenty** (`src/auth/login.js` → `src/auth`)
+- **Seed modules**: Computed z top-N seed files → `Set<string>`
+- **Efekt**: `src/auth/session.js` dostane 1.5× boost při query z `src/auth/login.js`
+
+### Score Formula
+- **Před**: `parentScore × edgeWeight × depthDecay`
+- **Po**: `parentScore × edgeWeight × depthDecay × hubPenalty × namespaceBoost`
+- **Backward compatible**: Nodes s degree ≤ 15 a v jiném modulu → oba faktory = 1.0 → beze změny
+
+### Tests
+- graph-retrieval: 30/30 (9 nových: 4 hub penalty + 5 namespace boost)
+- knowledge-graph: 17/17, graph-sync: 24/24, large-project-scaling: 35/35
+- **0 regressions** — existující testy nezměněny (degree < threshold, different modules)
+
+### Soubory
+
+| Soubor | Změna |
+|--------|-------|
+| `src/code-intel/graph-retrieval.js` | +`computeHubPenalty()`, +`computeNamespaceBoost()`, score formula update (+42 lines) |
+| `tests/graph-retrieval.test.js` | 9 nových testů (hub penalty + namespace boost) |
+
+---
+
 ## v101.0.0 — Large Project Scaling (2026-03-05)
 
 ### Graph Storage Refactor (K1)
