@@ -2,6 +2,53 @@
 
 ---
 
+## v98.0.0 — Architecture Governance + Cross-Milestone Consistency (2026-03-05)
+
+### Architecture Guardian (NEW)
+- **`architecture-guardian.js`**: Cross-milestone architecture governance orchestrator
+- **PRE-milestone**: `buildArchitectureBrief()` — injects architecture context (patterns, rules, API surface, known issues) into milestone request
+- **POST-milestone**: `postMilestoneAudit()` — audits architecture state, detects regressions (layer violations, circular deps, ACF score drops)
+- **Duplicate logic detection**: Flags same export name in multiple files across milestones
+- **State tracking**: `architecture_state` table records pre/post state per milestone (migration 029)
+- **`formatAuditForCheckpoint()`**: Enriches checkpoint prompt with cross-milestone architecture state
+
+### API Contract Registry (NEW)
+- **`api-contract-registry.js`**: Tracks API surface (exports) across milestones
+- **Export extraction**: JS/TS (`export function/class/const`, `module.exports`), Python (`def/class`), Go (capitalized `func/type`)
+- **`scanAndDiff()`**: Detects ADDED, MODIFIED, REMOVED exports; flags BREAKING CHANGES when consumers exist
+- **`consumer_count`**: Tracks how many files import each export — risk estimation for signature changes
+- **`updateConsumerCounts()`**: Periodic scan to refresh consumer usage data
+- **`api_contracts` table** (migration 029): lifecycle_id, milestone_id, file_path, export_name, signature, kind, consumer_count
+
+### Critic/Repair Agent (NEW)
+- **`critic-agent.js`**: Targeted repair after checkpoint FAIL (not generic full re-execution)
+- **6 failure types**: COMPILE, ARCHITECTURE, LOGIC, SECURITY, SCOPE, TEST
+- **`classifyFailure()`**: Determines failure type from checkpoint result + audit + quality gate
+- **`analyzeFailure()`**: Produces structured FixPlan with targeted instructions + affected files
+- **`generateRepairRequest()`**: Builds focused repair prompt (much shorter than full milestone request)
+- **Integration**: On retry, executor receives targeted repair request instead of full milestone rebuild
+
+### Lifecycle Pipeline Integration
+- **`executeMilestone()`**: Architecture brief injected between code context and executor.start()
+- **`postExecution()`**: Guardian audit + API diff run before checkpoint; results enriched into checkpoint prompt
+- **`milestoneCheckpoint()`**: New `archContext` parameter — R1 now sees cross-milestone state
+- **Retry path**: Critic agent generates targeted FixPlan → `_lastFixPlan` stored on milestone → next execution uses repair request
+
+### Code Intelligence Extensions
+- **Pattern Mining** (`architecture-detector.js`): `minePatterns()` — detects recurring structural patterns (controller, error-handling, logging, middleware, auth, validation, DB query, test)
+- **`formatPatternsForPrompt()`**: Includes pattern examples for BUILD guidance
+- **Hierarchical Context** (`context-builder.js`): `buildHierarchicalContext()` — project→subsystem→module→file hierarchy for architecture-aware prompts
+- **Risk Scoring** (`impact-analyzer.js`): `computeRiskScore()` — riskScore = dependencyFactor × (1 - coverageFactor), with testGaps and breakingChanges detection
+
+### Tests
+- api-contract-registry: 20/20
+- critic-agent: 20/20
+- architecture-governance (patterns + risk): 17/17
+- architecture-detector: 35/35 (existing, still pass)
+- modules: 23/23 (existing, still pass)
+
+---
+
 ## v95.0.0 — Code Intelligence + BUILD Context + IDE File Picker (2026-03-05)
 
 ### Architecture Pattern Detector (NEW)

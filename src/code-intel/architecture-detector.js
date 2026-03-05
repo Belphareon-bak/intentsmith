@@ -253,4 +253,88 @@ export function formatArchitectureForPrompt(arch) {
   return parts.join('\n');
 }
 
-export default { detectArchitecture, formatArchitectureForPrompt };
+// ─── Pattern Mining ──────────────────────────────────────────────────────────
+
+// Structural pattern signatures to mine from code
+const STRUCTURAL_PATTERNS = [
+  { name: 'controller', signature: /(?:app\.(get|post|put|delete|patch)\s*\(|@(?:Get|Post|Put|Delete|Patch|RequestMapping)|router\.)/, fileHint: /controller|handler|route/i },
+  { name: 'error-handling', signature: /(?:catch\s*\(|\.catch\s*\(|except\s+\w+|try\s*\{)/, fileHint: null },
+  { name: 'logging', signature: /(?:logger\.\w+\(|console\.\w+\(|log\.\w+\(|logging\.\w+\()/, fileHint: null },
+  { name: 'middleware', signature: /(?:app\.use\s*\(|@Middleware|@UseGuards|\.use\s*\()/, fileHint: /middleware/i },
+  { name: 'validation', signature: /(?:validate|Joi\.|zod\.|z\.\w+\(\)|@IsString|@IsNotEmpty|schema\.validate)/, fileHint: /valid/i },
+  { name: 'authentication', signature: /(?:jwt|passport|auth|token|Bearer|bcrypt|argon2)/i, fileHint: /auth/i },
+  { name: 'database-query', signature: /(?:\.query\s*\(|\.exec\s*\(|\.findOne\(|\.findMany\(|SELECT\s|INSERT\s|UPDATE\s|DELETE\s)/i, fileHint: /repo|dao|data/i },
+  { name: 'test', signature: /(?:describe\s*\(|it\s*\(|test\s*\(|expect\s*\(|assert[.(])/, fileHint: /test|spec/i },
+];
+
+/**
+ * Mine recurring structural patterns from codebase files.
+ * Returns pattern name → examples with frequency.
+ *
+ * @param {Array<{file: string, content?: string}>} files
+ * @returns {Array<{patternName: string, examples: Array<{file: string, snippet: string}>, frequency: number}>}
+ */
+export function minePatterns(files) {
+  if (!files || files.length === 0) return [];
+
+  const patternResults = new Map();
+
+  for (const f of files) {
+    const content = f.content || '';
+    if (!content) continue;
+
+    for (const sp of STRUCTURAL_PATTERNS) {
+      const sigMatch = sp.signature.test(content);
+      const fileMatch = sp.fileHint ? sp.fileHint.test(f.file) : false;
+
+      if (sigMatch || fileMatch) {
+        if (!patternResults.has(sp.name)) {
+          patternResults.set(sp.name, { patternName: sp.name, examples: [], frequency: 0 });
+        }
+        const pr = patternResults.get(sp.name);
+        pr.frequency++;
+
+        // Extract a snippet showing the pattern (first match + context)
+        if (pr.examples.length < 3) {
+          const lines = content.split('\n');
+          for (let i = 0; i < lines.length; i++) {
+            if (sp.signature.test(lines[i])) {
+              const snippet = lines.slice(Math.max(0, i - 1), Math.min(lines.length, i + 4)).join('\n');
+              pr.examples.push({ file: f.file, snippet: snippet.substring(0, 300) });
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Sort by frequency, filter out rare patterns (< 2 occurrences)
+  return [...patternResults.values()]
+    .filter(p => p.frequency >= 2)
+    .sort((a, b) => b.frequency - a.frequency);
+}
+
+/**
+ * Format mined patterns for BUILD prompt injection.
+ * @param {Array} patterns - From minePatterns()
+ * @returns {string}
+ */
+export function formatPatternsForPrompt(patterns) {
+  if (!patterns || patterns.length === 0) return '';
+
+  const parts = ['### Detected Code Patterns'];
+  for (const p of patterns.slice(0, 5)) {
+    parts.push(`\n**${p.patternName}** (${p.frequency} occurrences):`);
+    for (const ex of p.examples.slice(0, 2)) {
+      parts.push(`\`${ex.file}\`:`);
+      parts.push('```');
+      parts.push(ex.snippet);
+      parts.push('```');
+    }
+  }
+  parts.push('\nFollow these existing patterns for consistency.');
+  return parts.join('\n');
+}
+
+export default { detectArchitecture, formatArchitectureForPrompt, minePatterns, formatPatternsForPrompt };

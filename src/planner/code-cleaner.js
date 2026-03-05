@@ -25,7 +25,8 @@ const CODE_START_PATTERN = /^(import |from |#!|const |let |var |function |class 
  */
 export function stripCodeFences(content, fileExt) {
   if (!content) return '';
-  let c = content;
+  // Guard: content might be array (Ollama response) or object
+  let c = typeof content === 'string' ? content : String(content);
 
   // Remove all markdown fences (```lang and ```)
   c = c.replace(/```[\w]*\n?/g, '');
@@ -233,7 +234,8 @@ Do not include markdown fences or explanations.`;
 
     try {
       const result = await callLLM('CODE', repairPrompt, null, { temperature: 0 });
-      const patchedSnippet = stripCodeFences(result.content || '', ext);
+      const rawPatch = typeof result.content === 'string' ? result.content : (result.content || '').toString();
+      const patchedSnippet = stripCodeFences(rawPatch, ext);
 
       // Snippet length guard: reject if > 2× original length
       const patchLineCount = patchedSnippet.split('\n').length;
@@ -273,7 +275,8 @@ Do not include markdown fences or explanations.
 ${content}`;
 
     const result = await callLLM('CODE', fullRepairPrompt, null, { temperature: 0 });
-    content = stripCodeFences(result.content || '', ext);
+    const rawContent = typeof result.content === 'string' ? result.content : (result.content || '').toString();
+    content = stripCodeFences(rawContent, ext);
     fs.writeFileSync(filePath, content);
 
     checkSyntax(filePath);

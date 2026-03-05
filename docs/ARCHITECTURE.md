@@ -1,6 +1,6 @@
-# C.3 Agent Platform — Architecture v95
+# C.3 Agent Platform — Architecture v98
 
-**Version:** v95.0.0 (Code Intelligence, Architecture Detector, BUILD Context Enrichment, IDE File Picker)
+**Version:** v98.0.0 (Architecture Governance, API Contract Registry, Critic/Repair Agent)
 **Status:** Production-ready, ~98% complete
 **Date:** 2026-03-05
 
@@ -24,6 +24,7 @@ C.3 is a conversational AI platform combining:
 12. **Checkpoint Architecture** (v92) — STRUCTURAL/FUNCTIONAL/SECURITY modes, adaptive retry, mode-specific prompts
 13. **Specialist Focus Mode** (v92) — CSS-driven layout transformation, derived state, file tracking, per-session focus
 14. **Code Intelligence** (v95) — Multi-engine code search, symbol index, architecture detection, BUILD context enrichment
+15. **Architecture Governance** (v98) — Cross-milestone drift enforcement, API contract tracking, critic/repair agent
 
 All decisions flow through CRE — LLM is the text generator, never the authority.
 
@@ -153,6 +154,11 @@ src/                             # 73,706 lines / 188 files / 20 directories
 │   ├── workflow.js              #   Workflow orchestration (BUILD_VERIFYING v90)
 │   ├── lifecycle.js             #   State machine (SPEC→BUILD→REVIEW)
 │   ├── lifecycle-build.js       #   BUILD phase implementation
+│   ├── architecture-guardian.js #   v98: Cross-milestone architecture enforcement
+│   ├── api-contract-registry.js #   v98: API surface tracking across milestones
+│   ├── critic-agent.js          #   v98: Targeted repair after checkpoint FAIL
+│   ├── architecture-check.js    #   v97: ACF — ARCHITECTURE.json validation
+│   ├── code-cleaner.js          #   v97: Code fence strip + AST repair
 │   ├── progress-tracker.js      #   Milestone tracking
 │   └── project-context.js       #   Project metadata
 ├── domains/                     # Phase 5: Domain capabilities (v90)
@@ -193,25 +199,33 @@ src/                             # 73,706 lines / 188 files / 20 directories
 │   └── shell-security.js        #   Shell sandboxing
 ├── db/
 │   ├── database.js              #   SQLite schema (53 tables, 1328 lines)
-│   └── migrations/              #   5 migration files (timestamp-ordered)
+│   └── migrations/              #   29 migration files (timestamp-ordered)
 ├── core/
 │   ├── error-handler.js         #   Global error handlers
 │   └── logger.js                #   Structured logging
 ├── memory/                      # Memory subsystem
 │   ├── long-term.js             #   Semantic search
 │   └── preferences.js           #   User preference tracking
-├── code-intel/                  # v95: Code Intelligence (12 modules)
+├── code-intel/                  # v95-98: Code Intelligence (22 modules)
 │   ├── code-search.js           #   Ripgrep/grep/Node.js fallback search
 │   ├── query-expander.js        #   CZ+EN stop words, camelCase split
 │   ├── file-discovery.js        #   Multi-signal file ranking (6 signals)
-│   ├── context-builder.js       #   Smart truncation + token budget
+│   ├── context-builder.js       #   Smart truncation + token budget + hierarchical context
 │   ├── code-analyzer.js         #   Regex-based structure extraction
 │   ├── ast-analyzer.js          #   Tree-sitter AST (JS, Python, Go, Java)
-│   ├── architecture-detector.js #   v95: Framework/layer/pattern/convention detection
+│   ├── architecture-detector.js #   Framework/layer/pattern/convention detection + pattern mining
 │   ├── symbol-index.js          #   O(1) symbol lookup
 │   ├── index-builder.js         #   Background index builder
 │   ├── chunker.js               #   Semantic code chunking
 │   ├── semantic-index.js        #   Embedding-based similarity
+│   ├── knowledge-graph.js       #   v96: 9 edge types, dependency graph
+│   ├── impact-analyzer.js       #   v96: BFS impact traversal + risk scoring
+│   ├── drift-detector.js        #   v96: Layer violations, circular deps, naming
+│   ├── dead-code-detector.js    #   v96: Unreachable code detection
+│   ├── execution-graph.js       #   v96: Route→middleware→handler chains
+│   ├── test-coverage-explorer.js #  v96: TESTED_BY edge analysis
+│   ├── code-evolution.js        #   v96: Git hotspots, churn, co-changes
+│   ├── exploration-agent.js     #   v96: Autonomous codebase exploration
 │   └── debug-agent.js           #   Debug analysis pipeline
 └── ws-bridge/                   # IDE WebSocket bridge
 ```
@@ -624,7 +638,7 @@ D1 plan → CODE implement → BUILD_VERIFYING → R2 review → D2/R1 loop
 
 ## Database Schema
 
-56+ tables in SQLite (better-sqlite3), 24 migrations:
+58+ tables in SQLite (better-sqlite3), 29 migrations:
 
 | Group | Tables |
 |-------|--------|
@@ -640,6 +654,7 @@ D1 plan → CODE implement → BUILD_VERIFYING → R2 review → D2/R1 loop
 | Quality | quality_scores (v80) |
 | Workflows | workflow_sessions |
 | Security | api_tokens (v91 — SHA-256 hashed, UNIQUE constraint) |
+| Architecture | **architecture_state** (v98 — per-milestone drift metrics), **api_contracts** (v98 — export tracking) |
 | Config | user_settings, learned_patterns, logs, drafts |
 
 ---
@@ -794,4 +809,4 @@ User clicks "+ Worker" → _awOpen('create')
 
 ---
 
-*This document reflects C.3 Agent Platform v93.0.0 architecture (2026-03-04).*
+*This document reflects C.3 Agent Platform v98.0.0 architecture (2026-03-05).*

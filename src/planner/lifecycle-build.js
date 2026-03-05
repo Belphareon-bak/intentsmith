@@ -42,6 +42,36 @@ import { validateArchitecture } from './architecture-check.js';
 let _codeIntelLoaded = false;
 let _searchCode, _rankFiles, _buildCodeContext, _expandQuery, _detectArchitecture, _formatArchitectureForPrompt;
 
+// v98: Architecture governance — lazy-loaded
+let _guardianLoaded = false;
+let _buildArchitectureBrief, _postMilestoneAudit, _formatAuditForCheckpoint;
+let _scanAndDiff, _formatApiDiff;
+let _classifyFailure, _analyzeFailureFn, _generateRepairRequest;
+
+async function ensureGuardian() {
+  if (_guardianLoaded) return true;
+  try {
+    const [guardian, registry, critic] = await Promise.all([
+      import('./architecture-guardian.js'),
+      import('./api-contract-registry.js'),
+      import('./critic-agent.js'),
+    ]);
+    _buildArchitectureBrief = guardian.buildArchitectureBrief;
+    _postMilestoneAudit = guardian.postMilestoneAudit;
+    _formatAuditForCheckpoint = guardian.formatAuditForCheckpoint;
+    _scanAndDiff = registry.scanAndDiff;
+    _formatApiDiff = registry.formatApiDiff;
+    _classifyFailure = critic.classifyFailure;
+    _analyzeFailureFn = critic.analyzeFailure;
+    _generateRepairRequest = critic.generateRepairRequest;
+    _guardianLoaded = true;
+    return true;
+  } catch (err) {
+    logger.warn('LifecycleBuild', `Architecture governance modules not available: ${err.message}`);
+    return false;
+  }
+}
+
 async function ensureCodeIntel() {
   if (_codeIntelLoaded) return true;
   try {
@@ -280,12 +310,41 @@ async function executeMilestone(lifecycle, milestone) {
 
     // Build request from local plan
     const localPlan = milestone.local_plan || {};
-    let request = buildMilestoneRequest(milestone, localPlan);
+    let request;
+
+    // v98: Use critic's targeted repair request on retry
+    if (milestone._lastFixPlan && _guardianLoaded && _generateRepairRequest) {
+      try {
+        const originalRequest = buildMilestoneRequest(milestone, localPlan);
+        request = _generateRepairRequest(milestone._lastFixPlan, milestone, originalRequest);
+        logger.info('LifecycleBuild', `Using critic repair request (${milestone._lastFixPlan.failureType})`, {
+          milestoneId: milestone.id,
+        });
+        milestone._lastFixPlan = null; // Clear after use
+      } catch (err) {
+        logger.warn('LifecycleBuild', `Critic repair request failed, using standard: ${err.message}`);
+        request = buildMilestoneRequest(milestone, localPlan);
+      }
+    } else {
+      request = buildMilestoneRequest(milestone, localPlan);
+    }
 
     // v95: Enrich with existing code context + architecture detection
     const codeContext = await buildCodeContextForMilestone(lifecycle.projectPath, milestone, localPlan);
     if (codeContext) {
       request += codeContext;
+    }
+
+    // v98: Architecture brief (cross-milestone context)
+    if (await ensureGuardian()) {
+      try {
+        const archBrief = await _buildArchitectureBrief(lifecycle, milestone);
+        if (archBrief) {
+          request += archBrief;
+        }
+      } catch (err) {
+        logger.warn('LifecycleBuild', `Architecture brief failed (non-blocking): ${err.message}`);
+      }
     }
 
     const wfResult = await executor.start(request, {
@@ -391,6 +450,25 @@ async function postExecution(lifecycle, milestone, wfResult) {
     logger.warn('LifecycleBuild', 'Architecture check failed (non-blocking)', { error: err.message });
   }
 
+  // ─── v98: Architecture Guardian — Post-Milestone Audit ──────────────────
+  let guardianAudit = null;
+  let apiDiff = null;
+  if (_guardianLoaded) {
+    try {
+      guardianAudit = await _postMilestoneAudit(lifecycle, milestone);
+    } catch (err) {
+      logger.warn('LifecycleBuild', `Guardian audit failed (non-blocking): ${err.message}`);
+    }
+    try {
+      const changedFiles = await getChangedFiles(lifecycle);
+      if (changedFiles && changedFiles.length > 0) {
+        apiDiff = await _scanAndDiff(lifecycle.id, milestone.id, lifecycle.projectPath, changedFiles);
+      }
+    } catch (err) {
+      logger.warn('LifecycleBuild', `API registry scan failed (non-blocking): ${err.message}`);
+    }
+  }
+
   // ─── REVIEW phase — Milestone Checkpoint ────────────────────────────────
   msRepo.updateStatus.run(MilestoneStatus.REVIEW, milestone.id);
 
@@ -401,7 +479,17 @@ async function postExecution(lifecycle, milestone, wfResult) {
 
   // Adaptive retry: pass previous findings from failed attempts
   const previousFindings = milestone._lastCheckpointFindings || null;
-  const checkpointResult = await milestoneCheckpoint(lifecycle, milestone, wfResult, testResultsForCheckpoint, previousFindings, qualityGateResult);
+
+  // v98: Enrich checkpoint with cross-milestone context
+  let archCheckpointContext = '';
+  if (guardianAudit) {
+    try { archCheckpointContext = _formatAuditForCheckpoint(guardianAudit); } catch { /* ignore */ }
+  }
+  if (apiDiff) {
+    try { archCheckpointContext += '\n' + _formatApiDiff(apiDiff); } catch { /* ignore */ }
+  }
+
+  const checkpointResult = await milestoneCheckpoint(lifecycle, milestone, wfResult, testResultsForCheckpoint, previousFindings, qualityGateResult, archCheckpointContext);
 
   // ─── Scope enforcement ──────────────────────────────────────────────────
   const scopeResult = await enforceMilestoneScope(lifecycle, milestone);
@@ -429,6 +517,21 @@ async function postExecution(lifecycle, milestone, wfResult) {
         error_handling_gaps: checkpointResult.error_handling_gaps || [],
         overall_assessment: checkpointResult.overall_assessment,
       };
+    }
+
+    // v98: Critic agent — generate targeted repair plan
+    if (_guardianLoaded && _analyzeFailureFn) {
+      try {
+        const fixPlan = _analyzeFailureFn(checkpointResult, guardianAudit, milestone);
+        milestone._lastFixPlan = fixPlan;
+        logger.info('LifecycleBuild', `Critic analysis: ${fixPlan.failureType}`, {
+          milestoneId: milestone.id,
+          instructions: fixPlan.instructions.length,
+          affectedFiles: fixPlan.affectedFiles.length,
+        });
+      } catch (err) {
+        logger.warn('LifecycleBuild', `Critic analysis failed: ${err.message}`);
+      }
     }
 
     return handleMilestoneFailure(lifecycle, milestone, reason);
@@ -620,18 +723,23 @@ function resolveCheckpointMode(milestone, lifecycle) {
   return CheckpointMode.FUNCTIONAL;
 }
 
-async function milestoneCheckpoint(lifecycle, milestone, wfResult, testResults, previousFindings = null, qualityGateResult = null) {
+async function milestoneCheckpoint(lifecycle, milestone, wfResult, testResults, previousFindings = null, qualityGateResult = null, archContext = '') {
   // Get actual git diff
   const gitDiff = await getGitDiff(lifecycle);
   const changedFiles = await getChangedFiles(lifecycle);
 
   const checkpointMode = resolveCheckpointMode(milestone, lifecycle);
 
-  const prompt = checkpointPrompt(milestone, gitDiff, changedFiles, testResults, {
+  let prompt = checkpointPrompt(milestone, gitDiff, changedFiles, testResults, {
     checkpointMode,
     previousFindings,
     qualityGateResult,
   });
+
+  // v98: Inject cross-milestone architecture context into checkpoint
+  if (archContext) {
+    prompt += '\n' + archContext;
+  }
 
   logger.info('LifecycleBuild', `Checkpoint mode: ${checkpointMode}`, {
     milestoneId: milestone.id,

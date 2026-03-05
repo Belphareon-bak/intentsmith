@@ -1685,6 +1685,115 @@ export const workflowPatterns = {
 };
 
 // ════════════════════════════════════════════════════════════════════════════
+// v98: ARCHITECTURE GOVERNANCE
+// ════════════════════════════════════════════════════════════════════════════
+
+export const architectureState = {
+  insert: db.prepare(`
+    INSERT INTO architecture_state
+      (lifecycle_id, milestone_id, phase, layer_violations, circular_deps,
+       naming_issues, api_surface_count, drift_score, acf_score, details)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `),
+
+  findByLifecycle: db.prepare(`
+    SELECT * FROM architecture_state WHERE lifecycle_id = ? ORDER BY created_at DESC
+  `),
+
+  findByMilestone: db.prepare(`
+    SELECT * FROM architecture_state WHERE milestone_id = ? ORDER BY created_at DESC
+  `),
+
+  findPrePost: db.prepare(`
+    SELECT * FROM architecture_state
+    WHERE lifecycle_id = ? AND milestone_id = ? AND phase = ?
+    ORDER BY created_at DESC LIMIT 1
+  `),
+
+  record(lifecycleId, milestoneId, phase, state) {
+    const detailsStr = state.details
+      ? (typeof state.details === 'string' ? state.details : JSON.stringify(state.details))
+      : null;
+    this.insert.run(
+      lifecycleId, milestoneId, phase,
+      state.layerViolations || 0, state.circularDeps || 0,
+      state.namingIssues || 0, state.apiSurfaceCount || 0,
+      state.driftScore ?? 1.0, state.acfScore ?? 1.0,
+      detailsStr
+    );
+  },
+
+  getHistory(lifecycleId) {
+    return this.findByLifecycle.all(lifecycleId).map(parseArchStateJSON);
+  },
+
+  getPrePost(lifecycleId, milestoneId, phase) {
+    const row = this.findPrePost.get(lifecycleId, milestoneId, phase);
+    return row ? parseArchStateJSON(row) : null;
+  },
+};
+
+function parseArchStateJSON(row) {
+  const parsed = { ...row };
+  if (parsed.details && typeof parsed.details === 'string') {
+    try { parsed.details = JSON.parse(parsed.details); } catch { /* keep string */ }
+  }
+  return parsed;
+}
+
+export const apiContracts = {
+  insert: db.prepare(`
+    INSERT INTO api_contracts
+      (lifecycle_id, milestone_id, file_path, export_name, signature, kind, consumer_count)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `),
+
+  findByLifecycle: db.prepare(`
+    SELECT * FROM api_contracts WHERE lifecycle_id = ? AND removed_at IS NULL ORDER BY file_path, export_name
+  `),
+
+  findByFile: db.prepare(`
+    SELECT * FROM api_contracts WHERE lifecycle_id = ? AND file_path = ? AND removed_at IS NULL
+  `),
+
+  findByExport: db.prepare(`
+    SELECT * FROM api_contracts WHERE lifecycle_id = ? AND export_name = ? AND removed_at IS NULL
+  `),
+
+  markRemoved: db.prepare(`
+    UPDATE api_contracts SET removed_at = CURRENT_TIMESTAMP
+    WHERE lifecycle_id = ? AND file_path = ? AND export_name = ? AND removed_at IS NULL
+  `),
+
+  updateConsumerCount: db.prepare(`
+    UPDATE api_contracts SET consumer_count = ?
+    WHERE lifecycle_id = ? AND file_path = ? AND export_name = ? AND removed_at IS NULL
+  `),
+
+  addContract(lifecycleId, milestoneId, contract) {
+    this.insert.run(
+      lifecycleId, milestoneId,
+      contract.filePath, contract.exportName,
+      contract.signature || null,
+      contract.kind || 'function',
+      contract.consumerCount || 0
+    );
+  },
+
+  getActive(lifecycleId) {
+    return this.findByLifecycle.all(lifecycleId);
+  },
+
+  getByFile(lifecycleId, filePath) {
+    return this.findByFile.all(lifecycleId, filePath);
+  },
+
+  removeContract(lifecycleId, filePath, exportName) {
+    this.markRemoved.run(lifecycleId, filePath, exportName);
+  },
+};
+
+// ════════════════════════════════════════════════════════════════════════════
 // UTILITIES
 // ════════════════════════════════════════════════════════════════════════════
 
@@ -1745,6 +1854,9 @@ export default {
   // v85 Skills
   skillExecutions,
   skillSteps,
+  // v98 Architecture Governance
+  architectureState,
+  apiContracts,
   transaction,
   close,
 };

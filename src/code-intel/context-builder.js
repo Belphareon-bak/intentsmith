@@ -491,4 +491,109 @@ ${codeContext}
 `;
 }
 
-export default { buildCodeContext, buildCodeAnalysisPrompt, estimateTokens, extractImports, buildIntentAwareContext, CONTEXT_STRATEGIES };
+// ─── Hierarchical Context Model ─────────────────────────────────────────────
+
+/**
+ * Build hierarchical project context at multiple levels of abstraction.
+ * Useful for architecture-aware prompts and exploration agents.
+ *
+ * @param {string} projectPath
+ * @param {Object} [opts]
+ * @param {number} [opts.maxTokens=5000]
+ * @param {number} [opts.maxDepth=4] - Max directory depth
+ * @returns {Promise<{ hierarchy: Object, formatted: string, tokenCount: number }>}
+ */
+export async function buildHierarchicalContext(projectPath, opts = {}) {
+  const { readdir } = await import('fs/promises');
+  const maxTokens = opts.maxTokens || 5000;
+  const maxDepth = opts.maxDepth || 4;
+
+  const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '__pycache__', 'vendor', '.venv', '.c3', 'coverage', '.next', 'target']);
+
+  const hierarchy = {
+    project: path.basename(projectPath),
+    subsystems: [],
+  };
+
+  // Walk top-level directories as subsystems
+  let topEntries;
+  try { topEntries = await readdir(projectPath, { withFileTypes: true }); } catch { topEntries = []; }
+
+  for (const entry of topEntries) {
+    if (entry.name.startsWith('.') || SKIP.has(entry.name)) continue;
+    if (!entry.isDirectory()) continue;
+
+    const subsystem = {
+      name: entry.name,
+      modules: [],
+      fileCount: 0,
+    };
+
+    // Walk subsystem directories as modules
+    const subPath = path.join(projectPath, entry.name);
+    await _walkModules(subPath, subsystem, 1, maxDepth, SKIP, readdir);
+
+    if (subsystem.fileCount > 0 || subsystem.modules.length > 0) {
+      hierarchy.subsystems.push(subsystem);
+    }
+  }
+
+  // Format hierarchy
+  const parts = [`# Project: ${hierarchy.project}`];
+  for (const sub of hierarchy.subsystems.slice(0, 15)) {
+    parts.push(`\n## ${sub.name}/ (${sub.fileCount} files)`);
+    for (const mod of sub.modules.slice(0, 10)) {
+      const exportList = mod.exports.length > 0
+        ? `: ${mod.exports.slice(0, 5).join(', ')}${mod.exports.length > 5 ? '...' : ''}`
+        : '';
+      parts.push(`  - ${mod.name}/${exportList} (${mod.fileCount} files)`);
+    }
+  }
+
+  const formatted = parts.join('\n');
+  const tokenCount = estimateTokens(formatted);
+
+  // Truncate if over budget
+  const finalFormatted = tokenCount > maxTokens
+    ? formatted.substring(0, maxTokens * 4) + '\n... [truncated]'
+    : formatted;
+
+  return { hierarchy, formatted: finalFormatted, tokenCount: Math.min(tokenCount, maxTokens) };
+}
+
+async function _walkModules(dirPath, subsystem, depth, maxDepth, skip, readdir) {
+  if (depth > maxDepth) return;
+
+  let entries;
+  try { entries = await readdir(dirPath, { withFileTypes: true }); } catch { return; }
+
+  const codeExts = new Set(['.js', '.mjs', '.ts', '.tsx', '.jsx', '.py', '.go', '.java', '.rs', '.svelte', '.vue']);
+  const files = [];
+  const dirs = [];
+
+  for (const e of entries) {
+    if (e.name.startsWith('.') || skip.has(e.name)) continue;
+    if (e.isDirectory()) dirs.push(e.name);
+    else if (codeExts.has(path.extname(e.name))) {
+      files.push(e.name);
+      subsystem.fileCount++;
+    }
+  }
+
+  // If this dir has code files, treat it as a module
+  if (files.length > 0) {
+    const mod = {
+      name: path.basename(dirPath),
+      fileCount: files.length,
+      exports: files.slice(0, 10).map(f => path.basename(f, path.extname(f))),
+    };
+    subsystem.modules.push(mod);
+  }
+
+  // Recurse into subdirectories
+  for (const dir of dirs.slice(0, 20)) {
+    await _walkModules(path.join(dirPath, dir), subsystem, depth + 1, maxDepth, skip, readdir);
+  }
+}
+
+export default { buildCodeContext, buildCodeAnalysisPrompt, estimateTokens, extractImports, buildIntentAwareContext, buildHierarchicalContext, CONTEXT_STRATEGIES };

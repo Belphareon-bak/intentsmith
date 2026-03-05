@@ -244,4 +244,77 @@ export function getImpactSummary(result) {
   return `Changing ${result.symbol} affects ${fn} function${fn !== 1 ? 's' : ''} in ${fi} file${fi !== 1 ? 's' : ''} (${te} test${te !== 1 ? 's' : ''})`;
 }
 
-export default { analyzeImpact, formatImpactReport, getImpactSummary };
+// ─── Risk Scoring ───────────────────────────────────────────────────────────
+
+/**
+ * Compute risk score for a code change based on impact analysis.
+ *
+ * Formula: riskScore = dependencyFactor × (1 - coverageFactor)
+ * - dependencyFactor: high if many dependents, normalized to [0, 1]
+ * - coverageFactor: ratio of tested-to-total impacted, [0, 1]
+ *
+ * @param {Object} impactResult - From analyzeImpact()
+ * @returns {{ riskScore: number, riskLevel: string, testGaps: string[], breakingChanges: string[], details: Object }}
+ */
+export function computeRiskScore(impactResult) {
+  if (!impactResult || !impactResult.stats) {
+    return { riskScore: 0, riskLevel: 'LOW', testGaps: [], breakingChanges: [], details: {} };
+  }
+
+  const s = impactResult.stats;
+
+  // Dependency factor: how many things depend on this?
+  // Normalize: 0 deps = 0.0, 10+ deps = 1.0
+  const depCount = s.totalImpacted || 0;
+  const dependencyFactor = Math.min(depCount / 10, 1.0);
+
+  // Coverage factor: what fraction of impacted code has tests?
+  const testsAffected = s.testsAffected || 0;
+  const totalImpacted = Math.max(s.totalImpacted, 1);
+  const coverageFactor = Math.min(testsAffected / totalImpacted, 1.0);
+
+  // Risk = high dependencies × low coverage
+  const riskScore = dependencyFactor * (1 - coverageFactor);
+
+  // Find test gaps: impacted files that have no test coverage
+  const testGaps = [];
+  const testedFiles = new Set(impactResult.impactedTests || []);
+  for (const file of impactResult.impactedFiles || []) {
+    const hasTest = [...testedFiles].some(t =>
+      t.includes(file.replace(/\.\w+$/, '')) ||
+      file.includes(t.replace(/\.\w+$/, ''))
+    );
+    if (!hasTest) {
+      testGaps.push(file);
+    }
+  }
+
+  // Breaking changes: exported symbols with consumers
+  const breakingChanges = [];
+  if (s.directCallers > 3) {
+    breakingChanges.push(`${impactResult.symbol} has ${s.directCallers} direct callers — signature change is risky`);
+  }
+
+  // Classify risk
+  let riskLevel;
+  if (riskScore < 0.2) riskLevel = 'LOW';
+  else if (riskScore < 0.5) riskLevel = 'MEDIUM';
+  else if (riskScore < 0.8) riskLevel = 'HIGH';
+  else riskLevel = 'CRITICAL';
+
+  return {
+    riskScore: Math.round(riskScore * 100) / 100,
+    riskLevel,
+    testGaps: testGaps.slice(0, 10),
+    breakingChanges,
+    details: {
+      dependencyFactor: Math.round(dependencyFactor * 100) / 100,
+      coverageFactor: Math.round(coverageFactor * 100) / 100,
+      directCallers: s.directCallers,
+      totalImpacted: s.totalImpacted,
+      testsAffected: s.testsAffected,
+    },
+  };
+}
+
+export default { analyzeImpact, formatImpactReport, getImpactSummary, computeRiskScore };
