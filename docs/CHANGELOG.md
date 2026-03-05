@@ -1,5 +1,11 @@
 # C3 Changelog
 
+> **Versioning policy**
+> - **Major version** (v82 → v83 → ...): Architectural subsystem changes or new capability domains
+> - **Minor version** (v88.0 → v88.1 → v88.2): Feature extensions within existing subsystems
+> - **Patch** (v97.0 → v97.1): Fixes, reliability improvements, bugfix batches
+> - Version numbers are sequential but not necessarily contiguous (e.g. v94 was skipped)
+
 ---
 
 ## v101.0.0 — Large Project Scaling (2026-03-05)
