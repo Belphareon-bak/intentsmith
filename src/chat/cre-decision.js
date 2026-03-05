@@ -1114,6 +1114,30 @@ const BUILD_PATTERNS = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
+// BUILD DEFERRAL VOCABULARY — v101: sequential intent detection
+// ─────────────────────────────────────────────────────────────────────────────
+// "revizi zadání... a pak implementace" = discussion FIRST, build LATER.
+// 3-part detection: DISCUSSION_VERBS + BUILD_VERBS + SEQUENCE_MARKERS
+// Composite: all 3 must match. Standalone patterns for conditional mood.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// CZ + EN verbs indicating review/discussion intent
+const DISCUSSION_VERBS = /(?:reviz[ieí]|proj[ií]t|projd[eě]me|doladit|dolad[ií]me|probrat|probereme|prodiskut\S*|projedn\S*|zkontrol\S*|zhodnot\S*|konzult\S*|review|discuss|go\s+through|fine.?tune|refine|talk\s+about)/i;
+
+// CZ + EN verbs indicating build/implementation intent (stem-based for conjugated forms)
+const BUILD_VERBS = /(?:implement\S*|stav[eěií]\S*|build\S*|programov\S*|k[oó]d(?:ov|uj)\S*|pustit|za[cč][ií]t\s+(?:stav|impl|prog|k[oó]d)|develop|code|start\s+build)/i;
+
+// CZ + EN temporal ordering markers
+const SEQUENCE_MARKERS = /(?:a\s+pak|a\s+potom|a\s+n[aá]sledn[eě]|pot[ée]\s+|po\s+tom|nejd[rř][ií]v|nejdrive|p[rř]edt[ií]m|predtim|before|and\s+then)/i;
+
+// CZ: conditional mood before build verb — future intent, not imperative
+// Handles both word orders: "by ses mohl / bys mohl" AND "mohli bychom / mohla bych"
+const CONDITIONAL_BUILD = /(?:(?:by\s+(?:ses?\s+)?|bys\s+)(?:mohl?a?|mohli)|(?:mohl?a?|mohli)\s+by(?:ch(?:om)?|ste|s)?(?:\s+se)?)\s+.{0,40}(?:pustit|za[cč][ií]t|implement\S*|stav[eěií]\S*|programov\S*|k[oó]d(?:ov|uj)\S*)/i;
+
+// CZ + EN: "nejdřív to projdeme" — implicit sequence without explicit build verb
+const IMPLICIT_DISCUSSION_FIRST = /(?:nejd[rř][ií]v|nejdrive|p[rř]edt[ií]m|predtim|first|let'?s\s+first)\s+.{0,40}(?:proj[ií]t|projd|prober|diskut|dolad|reviz|review|discuss|go\s+through)/i;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SKILL PATTERNS — v88: deterministic triggers for skill/expertise creation
 // ─────────────────────────────────────────────────────────────────────────────
 // "vytvořit expertizu", "spusť skill", "přidej expertizu" → SKILL
@@ -2351,6 +2375,18 @@ PRAVIDLA:
             logger.info('CRE:LLM:Guard', `BUILD downgrade → DESIGN (DESIGN pattern match overrides LLM BUILD)`, {
               input: input.substring(0, 60),
             });
+          } else if (
+            // v101: Discussion-before-build signal → downgrade confidence, NOT intent.
+            // Final decision made by GUARD 10 in decide(), not here.
+            (DISCUSSION_VERBS.test(input) && SEQUENCE_MARKERS.test(input)) ||
+            CONDITIONAL_BUILD.test(input) ||
+            IMPLICIT_DISCUSSION_FIRST.test(input)
+          ) {
+            parsed.confidence *= 0.6;
+            logger.info('CRE:LLM:Guard', `BUILD confidence downgrade (discussion-before-build signal)`, {
+              input: input.substring(0, 60),
+              newConfidence: parsed.confidence,
+            });
           }
           // Otherwise: no BUILD pattern AND no DESIGN pattern → trust LLM.
           // Many BUILD requests don't match regex ("zacni s buildem", "prepni do build modu").
@@ -2850,6 +2886,7 @@ PRAVIDLA:
       lastIntent: null,
       followUpResult: null,      // detectFollowUpType() result
       overrides: [],             // Array of override labels applied
+      deferredIntent: null,      // v101: BUILD deferred to later (discussion-before-build)
     };
 
     // v72: Helper — injects timing metrics into every decision
@@ -2862,6 +2899,7 @@ PRAVIDLA:
         classifiedBy,
         llmConfidence: llmMeta?.confidence ?? null,
         decideTimeMs,
+        deferredIntent: _diag.deferredIntent || null,  // v101: preserved BUILD signal
       };
 
       // v73: CRE Diagnostic log — captures full decision pipeline state
@@ -2874,6 +2912,7 @@ PRAVIDLA:
           ? { rule: _diag.followUpResult.rule, confidence: _diag.followUpResult.confidence, type: _diag.followUpResult.type }
           : null,
         overrides: _diag.overrides.length > 0 ? _diag.overrides : null,
+        deferredIntent: _diag.deferredIntent,  // v101: preserved BUILD signal
       };
 
       logger.info('CRE_DIAG', 'decide() trace', {
@@ -3044,6 +3083,45 @@ PRAVIDLA:
         });
         intent = IntentType.CONVERSATIONAL;
         _diag.overrides.push('guard9_meta_project');
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // GUARD 10: BUILD DEFERRAL — "first discuss/review, then implement"
+    // v101: When user asks to review/discuss/fine-tune BEFORE building,
+    // primary intent = CONVERSATIONAL, deferred intent = BUILD.
+    // BUILD signal preserved in _diag.deferredIntent for follow-up awareness.
+    // Uses 3-part detection: DISCUSSION_VERBS + BUILD_VERBS + SEQUENCE_MARKERS
+    // + standalone patterns for conditional mood and implicit "nejdřív projdeme".
+    // Note: checks patterns regardless of current intent — GUARD 7 confidence
+    // downgrade + regex fallback may have changed BUILD→SHELL/AMBIGUOUS,
+    // but the user's discussion-before-build signal is still in the text.
+    // ════════════════════════════════════════════════════════════════════════
+    if (intent !== IntentType.CONVERSATIONAL) {
+      const _g10text = input;
+      // Detect discussion-before-build via 3 independent pattern groups
+      const _g10isComposite = DISCUSSION_VERBS.test(_g10text) && BUILD_VERBS.test(_g10text) && SEQUENCE_MARKERS.test(_g10text);
+      const _g10isConditional = CONDITIONAL_BUILD.test(_g10text);
+      const _g10isImplicit = IMPLICIT_DISCUSSION_FIRST.test(_g10text);
+
+      if (_g10isComposite || _g10isConditional || _g10isImplicit) {
+        // Position check: only for composite pattern.
+        // Standalone patterns (conditional mood, implicit "nejdřív") encode
+        // position semantics internally — skip position check for them.
+        let _g10shouldDefer = _g10isConditional || _g10isImplicit;
+        if (!_g10shouldDefer && _g10isComposite) {
+          const _g10discussionIdx = _g10text.search(DISCUSSION_VERBS);
+          const _g10buildIdx = _g10text.search(BUILD_VERBS);
+          _g10shouldDefer = _g10buildIdx === -1 || _g10discussionIdx < _g10buildIdx;
+        }
+        if (_g10shouldDefer) {
+          logger.info('CRE:Guard10', `${intent} → CONVERSATIONAL (deferred, discussion-before-build)`, {
+            input: input.substring(0, 80),
+          });
+          intent = IntentType.CONVERSATIONAL;
+          _diag.deferredIntent = IntentType.BUILD;
+          _diag.overrides.push('guard10_build_deferral');
+        }
       }
     }
 
