@@ -475,6 +475,30 @@ async function handleBuildInput(input, state, context) {
     }
   }
 
+  // v97: Force-skip blocked milestone (with cascade)
+  if (/^force[- ]?skip\s*$/i.test(input.trim())) {
+    try {
+      const lifecycle = await resumeWithContext(state, context);
+      const { milestones: msRepo } = await import('../../db/database.js');
+      const blocked = msRepo.findByStatus.all(lifecycle.id, 'BLOCKED');
+      if (blocked.length > 0) {
+        const { handleMilestoneBlocked } = await import('../../planner/lifecycle-build.js');
+        const result = await handleMilestoneBlocked(lifecycle, blocked[0].id, 'force-skip');
+        const cascadeMsg = result.cascadeSkipped?.length > 0
+          ? '\n\nKaskádově přeskočené milníky:\n' + result.cascadeSkipped.map(s => `  - **${s.title}** — ${s.reason}`).join('\n')
+          : '';
+        // Reset blocked attempts counter
+        setLcState(sessionId, { ...state, _blockedAttempts: 0 });
+        return lcResponse(
+          `Milník přeskočen (force-skip). ${result.message || ''}${cascadeMsg}\n\nPokračuji dalším milníkem...`
+        );
+      }
+    } catch (err) {
+      return lcResponse(`Chyba při force-skip: ${err.message}`);
+    }
+    return await startNextMilestoneOrComplete(state, context);
+  }
+
   // Skip blocked milestone
   if (/^skip\s*$/i.test(input.trim())) {
     try {
@@ -686,19 +710,27 @@ async function startNextMilestoneOrComplete(state, context) {
 
     // All remaining milestones are dependency-blocked
     if (msResult && msResult.status === 'ALL_BLOCKED') {
-      setLcState(sessionId, { ...state, phase: 'BUILD' });
+      // v97: Loop detection — track consecutive ALL_BLOCKED attempts
+      const blockedAttempts = (state._blockedAttempts || 0) + 1;
+      setLcState(sessionId, { ...state, phase: 'BUILD', _blockedAttempts: blockedAttempts });
 
       const blockedList = msResult.blockedMilestones
         .map(b => `  - **${b.title}** (${b.milestoneId}) — blokováno: ${b.blockedBy.join(', ')}`)
         .join('\n');
 
+      // After ≥2 blocked attempts, offer force-skip to break the deadlock
+      const forceSkipOption = blockedAttempts >= 2
+        ? `  - **"force-skip"** — přeskočit blokovaný milník + všechny závislé (ukončí deadlock)\n`
+        : '';
+
       return lcResponse(
-        `🚫 **Všechny zbývající milníky jsou blokované**\n\n` +
+        `🚫 **Všechny zbývající milníky jsou blokované**${blockedAttempts >= 2 ? ' (opakovaně)' : ''}\n\n` +
         `Žádný další milník nelze spustit — jejich závislosti nejsou splněné:\n\n` +
         `${blockedList}\n\n` +
         `Co chceš udělat?\n` +
         `  - "retry" — zkusit blokovaný milník znovu\n` +
         `  - "skip" — přeskočit blokovaný milník\n` +
+        forceSkipOption +
         `  - "změna: ..." — upravit roadmapu\n` +
         `  - "zrušit" — ukončit lifecycle`,
         { phase: 'BUILD', lifecycleId: state.lifecycleId }
@@ -730,6 +762,7 @@ async function startNextMilestoneOrComplete(state, context) {
       ...state,
       phase: 'BUILD_MILESTONE_REVIEW',
       currentMilestoneId: msResult.milestoneId,
+      _blockedAttempts: 0, // v97: Reset loop counter on successful milestone start
     });
 
     return lcResponse(formatMilestonePlan(msResult), {

@@ -36,6 +36,7 @@ import { ensureReadme, ensureArchitectureDoc, appendReadmeChangelog } from '../c
 import { C3ToolExecutor } from '../executor/c3-tool-executor.js';
 import { validateMilestoneSize } from './milestone-size.js';
 import { runQualityGate } from './quality-gate.js';
+import { validateArchitecture } from './architecture-check.js';
 
 // v95: Code intelligence — lazy-loaded for BUILD context enrichment
 let _codeIntelLoaded = false;
@@ -368,6 +369,26 @@ async function postExecution(lifecycle, milestone, wfResult) {
       .map(r => `${r.file}:${r.line || '?'} ${r.message || r.error}`);
     return handleMilestoneFailure(lifecycle, milestone,
       `compile errors: ${milestone._lastCompileErrors.join('; ')}`);
+  }
+
+  // ─── ARCHITECTURE CONTRACT CHECK ─────────────────────────────────────────
+  let architectureResult = null;
+  try {
+    architectureResult = await validateArchitecture(lifecycle.projectPath);
+    if (architectureResult && !architectureResult.skipped) {
+      driftChecks.addCheck(lifecycle.id, milestone.id, 'ARCHITECTURE_CONTRACT',
+        architectureResult.score >= 0.7 ? 'PASS' : 'WARN', architectureResult);
+
+      if (architectureResult.score < 0.7) {
+        logger.warn('LifecycleBuild', 'Architecture contract violations detected', {
+          milestoneId: milestone.id,
+          score: architectureResult.score,
+          violations: architectureResult.violations.length,
+        });
+      }
+    }
+  } catch (err) {
+    logger.warn('LifecycleBuild', 'Architecture check failed (non-blocking)', { error: err.message });
   }
 
   // ─── REVIEW phase — Milestone Checkpoint ────────────────────────────────
@@ -853,7 +874,7 @@ function handleMilestoneFailure(lifecycle, milestone, reason) {
  * Handle user decision for a BLOCKED milestone.
  * @param {Object} lifecycle
  * @param {string} milestoneId
- * @param {'retry'|'skip'|'modify'} decision
+ * @param {'retry'|'skip'|'modify'|'force-skip'} decision
  * @param {string} [feedback] - For 'modify' — what to change
  * @returns {Promise<Object>}
  */
@@ -908,8 +929,58 @@ export async function handleMilestoneBlocked(lifecycle, milestoneId, decision, f
       return { milestoneId, status: 'WILL_MODIFY', feedback };
     }
 
+    case 'force-skip': {
+      // v97: Force-skip with cascade — skips this milestone AND all blocked dependents
+      msRepo.updateStatus.run(MilestoneStatus.SKIPPED, milestoneId);
+      logger.info('LifecycleBuild', 'Milestone force-skipped', { milestoneId });
+
+      // Cascade: skip all dependents that can't proceed
+      const allMs = msRepo.listByLifecycle(lifecycle.id);
+      const cascadeSkipped = [];
+
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const m of allMs) {
+          if (m.status !== 'PENDING' && m.status !== 'BLOCKED') continue;
+          if (!m.dependencies || m.dependencies.length === 0) continue;
+
+          // Check if all dependencies are satisfied (PASSED or SKIPPED)
+          const unsatisfied = m.dependencies.filter(depId => {
+            const dep = allMs.find(x => x.id === depId);
+            return dep && dep.status !== 'PASSED' && dep.status !== 'SKIPPED';
+          });
+
+          // If this milestone has unsatisfied deps that are all SKIPPED/BLOCKED, cascade skip it
+          if (unsatisfied.length > 0) {
+            const allUnsatisfiedSkippedOrBlocked = unsatisfied.every(depId => {
+              const dep = allMs.find(x => x.id === depId);
+              return dep && (dep.status === 'SKIPPED' || dep.status === 'BLOCKED');
+            });
+
+            if (allUnsatisfiedSkippedOrBlocked) {
+              msRepo.updateStatus.run(MilestoneStatus.SKIPPED, m.id);
+              m.status = 'SKIPPED'; // Update in-memory too for cascade loop
+              cascadeSkipped.push({ milestoneId: m.id, title: m.title, reason: 'Dependency force-skipped' });
+              changed = true;
+              logger.info('LifecycleBuild', 'Cascade skip', { milestoneId: m.id, title: m.title });
+            }
+          }
+        }
+      }
+
+      return {
+        milestoneId,
+        status: 'FORCE_SKIPPED',
+        cascadeSkipped,
+        message: cascadeSkipped.length > 0
+          ? `Milestone skipped. ${cascadeSkipped.length} dependent milestone(s) also skipped.`
+          : 'Milestone skipped due to dependency failure.',
+      };
+    }
+
     default:
-      throw new Error(`Unknown decision: ${decision}. Use retry, skip, or modify.`);
+      throw new Error(`Unknown decision: ${decision}. Use retry, skip, modify, or force-skip.`);
   }
 }
 
@@ -1124,6 +1195,9 @@ Documentation:
     }
     request += '\nFix ALL compile errors. Each error shows file:line and the error message.\n';
   }
+
+  // v97: Language-aware output instruction — prevents markdown fences and explanations
+  request += '\n\nIMPORTANT: Output ONLY raw source code for each file. NO markdown fences. NO ``` markers. NO explanations. The output will be written directly to files.';
 
   return request;
 }

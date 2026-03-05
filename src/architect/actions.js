@@ -4,6 +4,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { logger } from '../core/logger.js';
+import { stripCodeFences } from '../planner/code-cleaner.js';
 
 /**
  * Action types
@@ -58,8 +59,12 @@ export class ActionExecutor {
         // Create directory if needed
         await fs.mkdir(path.dirname(filePath), { recursive: true });
         
+        // v97: Strip markdown fences and TS syntax from LLM output before writing
+        const ext = path.extname(filePath);
+        const cleanContent = stripCodeFences(file.content, ext);
+
         // Write file
-        await fs.writeFile(filePath, file.content);
+        await fs.writeFile(filePath, cleanContent);
         created.push(file.path);
         
         logger.info('ActionExecutor', 'File created', { path: file.path });

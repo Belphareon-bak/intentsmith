@@ -203,6 +203,7 @@ RULES:
 - Do NOT skip steps
 - Output the actual code/commands/config
 - If a step is unclear, output what you CAN do and flag what's unclear
+- Output ONLY raw source code. NO markdown fences. NO \`\`\` markers. NO explanations. The output will be written directly to a file.
 
 Plan context: ${JSON.stringify(plan)}`,
     prompt: `Implement this step:\n\n${JSON.stringify(step)}\n\n${context ? `Additional context: ${JSON.stringify(context)}` : ''}`,

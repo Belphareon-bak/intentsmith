@@ -189,6 +189,28 @@ export async function generateRoadmap(lifecycle, context) {
   // Write ROADMAP.md to disk (after milestones are in DB)
   await writeRoadmapFile(lifecycle.projectPath, lifecycle.id, context);
 
+  // v97: Auto-generate ARCHITECTURE.json from spec
+  try {
+    const { architectureContractPrompt } = await import('./architecture-check.js');
+    const archPrompt = architectureContractPrompt(spec);
+    const archResult = await llm('D1', archPrompt);
+    const archContract = parseJSON(archResult.content);
+    if (archContract?.layers && archContract?.rules && archContract?.fileStructure) {
+      await writeFile(
+        join(lifecycle.projectPath, 'ARCHITECTURE.json'),
+        JSON.stringify(archContract, null, 2),
+        'utf-8'
+      );
+      logger.info('LifecyclePlanning', 'ARCHITECTURE.json generated', {
+        lifecycleId: lifecycle.id,
+        layers: archContract.layers.length,
+        rules: archContract.rules.length,
+      });
+    }
+  } catch (err) {
+    logger.warn('LifecyclePlanning', 'ARCHITECTURE.json generation failed (non-blocking)', { error: err.message });
+  }
+
   // Quality telemetry — observational, never blocks
   logRoadmapScore(lifecycle.id, roadmap, newVersion);
 
