@@ -8,6 +8,40 @@
 
 ---
 
+## v102.1 — Concept Registry (2026-03-05)
+
+Sémantická detekce konceptů (authentication, database, logging…) a fragmentation analysis — detekce rozptýlení konceptů přes moduly a drift mezi milníky.
+
+### Concept Registry (`src/code-intel/concept-registry.js`)
+- **12 concept signatures**: authentication, authorization, database, caching, logging, validation, routing, error-handling, configuration, testing, websocket, file-system
+- **Multi-signal scoring**: path patterns (+2), symbol patterns (+2), content patterns (+1 each, cap 2), import patterns (+1 each, cap 2)
+- **Threshold 2**: Vyžaduje alespoň jednu silnou shodu (path/symbol) nebo dvě střední (content+import)
+- **`scan(files)`**: Detect concepts z pole `{file, content, symbols, imports}`
+- **`scanFromGraph(graph)`**: Detect z KnowledgeGraph (file index + symbol data)
+- **`getFragmentation()`**: Compute spread score per concept (0.0 = single module, 1.0 = max spread)
+- **`detectDrift(previous)`**: Compare two registries → NEW_CONCEPT, CONCEPT_SPREAD, FILE_MIGRATED, CONCEPT_REMOVED
+- **`formatForPrompt()`**: Markdown pro architecture brief injection
+
+### Guardian Integration
+- **PRE-milestone**: `buildArchitectureBrief()` section 6 — concept fragmentation warnings (> 0.5 threshold)
+- **POST-milestone**: `postMilestoneAudit()` — concept drift detection, snapshot persistence via `CONCEPT_SNAPSHOT` drift check
+- **Checkpoint enrichment**: `formatAuditForCheckpoint()` includes concept drift findings
+
+### Tests
+- concept-registry: **42/42** (11 suites: signatures, path/symbol/content/import detection, multi-signal, query API, fragmentation, drift, formatting, singleton)
+- graph-retrieval: 30/30, knowledge-graph: 17/17, graph-sync: 24/24, large-project-scaling: 35/35
+- **0 regressions**
+
+### Soubory
+
+| Soubor | Změna |
+|--------|-------|
+| `src/code-intel/concept-registry.js` | NEW — ConceptRegistry class, 12 concept signatures (~300 lines) |
+| `src/planner/architecture-guardian.js` | +concept fragmentation in brief, +concept drift in audit (~100 lines) |
+| `tests/concept-registry.test.js` | NEW — 42 tests |
+
+---
+
 ## v102.0 — Graph Relevance Stabilization (2026-03-05)
 
 Hub penalty a namespace boost pro graph retrieval — zabraňuje high-degree utility nodes (logger, config, types) dominovat výsledkům a zvýhodňuje soubory ve stejném modulu jako query seeds.

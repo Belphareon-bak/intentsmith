@@ -25,21 +25,24 @@ import {
 let _loaded = false;
 let _DriftDetector, _validateArchitecture, _detectArchitecture, _formatArchitectureForPrompt;
 let _analyzeCodeStructure;
+let _ConceptRegistry;
 
 async function ensureModules() {
   if (_loaded) return true;
   try {
-    const [drift, acf, arch, analyzer] = await Promise.all([
+    const [drift, acf, arch, analyzer, concept] = await Promise.all([
       import('../code-intel/drift-detector.js'),
       import('./architecture-check.js'),
       import('../code-intel/architecture-detector.js'),
       import('../code-intel/code-analyzer.js'),
+      import('../code-intel/concept-registry.js'),
     ]);
     _DriftDetector = drift.DriftDetector;
     _validateArchitecture = acf.validateArchitecture;
     _detectArchitecture = arch.detectArchitecture;
     _formatArchitectureForPrompt = arch.formatArchitectureForPrompt;
     _analyzeCodeStructure = analyzer.analyzeCodeStructure;
+    _ConceptRegistry = concept.ConceptRegistry;
     _loaded = true;
     return true;
   } catch (err) {
@@ -98,6 +101,12 @@ export async function buildArchitectureBrief(lifecycle, milestone) {
     const acfResult = await _validateArchitecture(projectPath);
     if (acfResult && !acfResult.skipped && acfResult.violations.length > 0) {
       parts.push(_formatAcfViolations(acfResult));
+    }
+
+    // 6. Concept fragmentation (v102b)
+    const conceptFragmentation = await _detectConceptFragmentation(projectPath);
+    if (conceptFragmentation) {
+      parts.push(conceptFragmentation);
     }
 
     if (parts.length === 0) return '';
@@ -179,10 +188,13 @@ export async function postMilestoneAudit(lifecycle, milestone) {
     // Detect duplicate logic across milestones
     const duplicates = await _detectDuplicateLogic(lifecycle, milestone, projectPath);
 
+    // Detect concept drift (v102b)
+    const conceptDrifts = await _detectConceptDrift(lifecycle, milestone, projectPath);
+
     // Store audit as drift check
     driftChecks.addCheck(lifecycle.id, milestone.id, 'ARCHITECTURE_AUDIT',
       regressions.hasRegressions ? 'WARN' : 'PASS',
-      { regressions, postState, duplicates }
+      { regressions, postState, duplicates, conceptDrifts }
     );
 
     const auditResult = {
@@ -190,6 +202,7 @@ export async function postMilestoneAudit(lifecycle, milestone) {
       regressions,
       postState,
       duplicates,
+      conceptDrifts,
       acfScore: acfResult?.score ?? 1.0,
       acfViolations: acfResult?.violations || [],
       driftViolations: driftResult?.violations || [],
@@ -244,6 +257,11 @@ export function formatAuditForCheckpoint(auditResult) {
     for (const d of auditResult.duplicates.slice(0, 5)) {
       parts.push(`- **${d.exportName}**: found in ${d.files.join(', ')}`);
     }
+  }
+
+  // Concept drift (v102b)
+  if (auditResult.conceptDrifts?.length > 0) {
+    parts.push(_formatConceptDrifts(auditResult.conceptDrifts));
   }
 
   if (parts.length === 0) return '';
@@ -481,6 +499,144 @@ function _formatAcfViolations(acfResult) {
     parts.push(`- ... and ${acfResult.violations.length - 10} more`);
   }
   parts.push(``, `ACF score: ${acfResult.score.toFixed(2)}. Fix violations if they fall within this milestone's scope.`);
+  return parts.join('\n');
+}
+
+// ─── Concept Registry Integration (v102b) ─────────────────────────────────
+
+async function _detectConceptFragmentation(projectPath) {
+  if (!_ConceptRegistry) return null;
+  try {
+    const { readdir, readFile } = await import('fs/promises');
+    const pathMod = await import('path');
+    const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '__pycache__', 'vendor', '.venv', '.c3']);
+    const CODE_EXTS = new Set(['.js', '.mjs', '.ts', '.tsx', '.jsx', '.py', '.go', '.java', '.rs']);
+
+    const files = [];
+    async function walk(dir, depth = 0) {
+      if (depth > 5 || files.length > 300) return;
+      let entries;
+      try { entries = await readdir(dir, { withFileTypes: true }); } catch { return; }
+      for (const e of entries) {
+        if (e.name.startsWith('.') || SKIP.has(e.name)) continue;
+        const full = pathMod.default.join(dir, e.name);
+        if (e.isDirectory()) {
+          await walk(full, depth + 1);
+        } else if (CODE_EXTS.has(pathMod.default.extname(e.name))) {
+          const rel = pathMod.default.relative(projectPath, full);
+          let content = '';
+          try {
+            content = await readFile(full, 'utf8');
+            if (content.length > 50_000) content = content.substring(0, 50_000);
+          } catch { /* skip */ }
+          files.push({ file: rel, content });
+        }
+      }
+    }
+
+    await walk(projectPath);
+    if (files.length === 0) return null;
+
+    const registry = new _ConceptRegistry();
+    registry.scan(files);
+    return registry.formatForPrompt(0.5) || null;
+  } catch (err) {
+    logger.warn('ArchGuardian', `Concept fragmentation detection failed: ${err.message}`);
+    return null;
+  }
+}
+
+async function _detectConceptDrift(lifecycle, milestone, projectPath) {
+  if (!_ConceptRegistry) return [];
+  try {
+    const { readdir, readFile } = await import('fs/promises');
+    const pathMod = await import('path');
+    const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '__pycache__', 'vendor', '.venv', '.c3']);
+    const CODE_EXTS = new Set(['.js', '.mjs', '.ts', '.tsx', '.jsx', '.py', '.go', '.java', '.rs']);
+
+    const files = [];
+    async function walk(dir, depth = 0) {
+      if (depth > 5 || files.length > 300) return;
+      let entries;
+      try { entries = await readdir(dir, { withFileTypes: true }); } catch { return; }
+      for (const e of entries) {
+        if (e.name.startsWith('.') || SKIP.has(e.name)) continue;
+        const full = pathMod.default.join(dir, e.name);
+        if (e.isDirectory()) {
+          await walk(full, depth + 1);
+        } else if (CODE_EXTS.has(pathMod.default.extname(e.name))) {
+          const rel = pathMod.default.relative(projectPath, full);
+          let content = '';
+          try {
+            content = await readFile(full, 'utf8');
+            if (content.length > 50_000) content = content.substring(0, 50_000);
+          } catch { /* skip */ }
+          files.push({ file: rel, content });
+        }
+      }
+    }
+
+    await walk(projectPath);
+    if (files.length === 0) return [];
+
+    const current = new _ConceptRegistry();
+    current.scan(files, { milestoneId: milestone.id });
+
+    // Load previous snapshot from drift checks (if available)
+    const prevChecks = driftChecks.getByType(lifecycle.id, 'CONCEPT_SNAPSHOT');
+    let previous = null;
+    if (prevChecks.length > 0) {
+      try {
+        const prevData = typeof prevChecks[0].details === 'string'
+          ? JSON.parse(prevChecks[0].details) : prevChecks[0].details;
+        if (prevData?.concepts) {
+          previous = new _ConceptRegistry();
+          // Reconstruct from serialized data
+          for (const [name, entry] of Object.entries(prevData.concepts)) {
+            previous._concepts.set(name, {
+              name,
+              files: new Set(entry.files || []),
+              symbols: new Set(entry.symbols || []),
+              milestoneIds: new Set(entry.milestoneIds || []),
+            });
+            for (const f of (entry.files || [])) {
+              let fset = previous._fileMap.get(f);
+              if (!fset) { fset = new Set(); previous._fileMap.set(f, fset); }
+              fset.add(name);
+            }
+          }
+        }
+      } catch { /* ignore corrupt data */ }
+    }
+
+    // Save current snapshot for next milestone
+    const snapshot = {};
+    for (const [name, entry] of current._concepts) {
+      snapshot[name] = {
+        files: [...entry.files],
+        symbols: [...entry.symbols],
+        milestoneIds: [...entry.milestoneIds],
+      };
+    }
+    driftChecks.addCheck(lifecycle.id, milestone.id, 'CONCEPT_SNAPSHOT', 'INFO',
+      { concepts: snapshot }
+    );
+
+    // Detect drift
+    if (!previous) return [];
+    return current.detectDrift(previous);
+  } catch (err) {
+    logger.warn('ArchGuardian', `Concept drift detection failed: ${err.message}`);
+    return [];
+  }
+}
+
+function _formatConceptDrifts(drifts) {
+  if (!drifts || drifts.length === 0) return '';
+  const parts = ['### Concept Drift Detected'];
+  for (const d of drifts.slice(0, 10)) {
+    parts.push(`- **${d.type}**: ${d.message}`);
+  }
   return parts.join('\n');
 }
 
