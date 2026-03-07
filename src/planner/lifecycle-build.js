@@ -790,10 +790,10 @@ async function milestoneCheckpoint(lifecycle, milestone, wfResult, testResults, 
  * IMPORTANT: Works on REAL git diff, not orchestrator assumptions.
  */
 // Engine-managed files — always allowed, never scope violations
-const ENGINE_MANAGED_FILES = new Set(['ROADMAP.md', 'README.md', 'ARCHITECTURE.md', '.gitignore']);
+const ENGINE_MANAGED_FILES = new Set(['ROADMAP.md', 'README.md', 'ARCHITECTURE.md', 'ARCHITECTURE.json', '.gitignore']);
 
 // Generated/artifact directories — always ignored in scope check
-const SCOPE_IGNORE_DIRS = ['__pycache__', '.pytest_cache', 'node_modules', '.git', '.venv', '__pypackages__', '.mypy_cache'];
+const SCOPE_IGNORE_DIRS = ['__pycache__', '.pytest_cache', 'node_modules', '.git', '.venv', '__pypackages__', '.mypy_cache', '.c3'];
 
 async function enforceMilestoneScope(lifecycle, milestone) {
   const scopeFiles = milestone.scope_files || [];
