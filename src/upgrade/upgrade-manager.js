@@ -13,7 +13,10 @@
 
 import { logger } from '../core/logger.js';
 import { MODEL_PROFILES, parseModelName, isNewerVersion, isSameFamily } from './model-profiles.js';
-import { discover, getUpgradeHints } from './model-discovery.js';
+import { discover, getUpgradeHints, fetchInstalledModels } from './model-discovery.js';
+
+// Minimum score for user-facing notifications (lower proposals exist but are silent)
+export const MIN_NOTIFY_SCORE = 6;
 
 // ─── Candidate Filtering ────────────────────────────────────────────────────
 
@@ -239,7 +242,12 @@ export class UpgradeManager {
   constructor() {
     this._lastDiscovery = null;
     this._lastProposals = null;
+    this._lastCheckTime = null;
     this._history = [];  // Applied upgrades
+    this._modelHash = null;
+    this._recheckInterval = null;
+    this._pollInterval = null;
+    this._active = false;
   }
 
   /**
@@ -259,6 +267,11 @@ export class UpgradeManager {
       maxProposalsPerRole: opts.maxProposalsPerRole ?? 3,
     });
     this._lastProposals = proposals;
+
+    this._lastCheckTime = Date.now();
+
+    // Store model hash for change detection
+    this._modelHash = discovery.candidates.map(c => c.name).sort().join(',');
 
     logger.info('UpgradeManager', `Check complete: ${proposals.length} proposals from ${discovery.candidates.length} models`, {
       ollamaAvailable: discovery.ollamaAvailable,
@@ -341,6 +354,82 @@ export class UpgradeManager {
   getHistory() {
     return [...this._history];
   }
+
+  /**
+   * Get proposals above the notification threshold.
+   * @returns {Array<UpgradeProposal>}
+   */
+  getNotifiableProposals() {
+    if (!this._lastProposals) return [];
+    return this._lastProposals.filter(p => p.score >= MIN_NOTIFY_SCORE);
+  }
+
+  // ─── Lifecycle: Periodic Check + Ollama Poll ─────────────────────────────
+
+  /**
+   * Start background lifecycle: initial check + periodic recheck + model change poll.
+   *
+   * @param {Object} [opts]
+   * @param {number} [opts.recheckMs=86400000] - Recheck interval (default 24h)
+   * @param {number} [opts.pollMs=300000] - Ollama poll interval (default 5min)
+   * @param {string} [opts.baseUrl] - Ollama URL override
+   */
+  startPeriodicCheck(opts = {}) {
+    if (this._active) return;
+    this._active = true;
+
+    const recheckMs = opts.recheckMs ?? 24 * 60 * 60 * 1000;
+    const pollMs = opts.pollMs ?? 5 * 60 * 1000;
+    const checkOpts = { baseUrl: opts.baseUrl };
+
+    // Initial check (fire-and-forget)
+    this.checkForUpgrades(checkOpts).catch(err =>
+      logger.warn('UpgradeManager', `Startup check failed: ${err.message}`)
+    );
+
+    // Periodic full recheck (24h default)
+    this._recheckInterval = setInterval(() => {
+      this.checkForUpgrades(checkOpts).catch(err =>
+        logger.warn('UpgradeManager', `Periodic check failed: ${err.message}`)
+      );
+    }, recheckMs);
+    this._recheckInterval.unref();
+
+    // Ollama model change poll (5min default)
+    this._pollInterval = setInterval(() => {
+      this._pollModelChanges(checkOpts).catch(() => {});
+    }, pollMs);
+    this._pollInterval.unref();
+
+    logger.info('UpgradeManager', `Periodic check started (recheck: ${recheckMs / 3600000}h, poll: ${pollMs / 60000}min)`);
+  }
+
+  /**
+   * Stop periodic checks.
+   */
+  stopPeriodicCheck() {
+    if (this._recheckInterval) { clearInterval(this._recheckInterval); this._recheckInterval = null; }
+    if (this._pollInterval) { clearInterval(this._pollInterval); this._pollInterval = null; }
+    this._active = false;
+  }
+
+  /**
+   * Poll Ollama for model list changes. If the hash changed, re-run full check.
+   * @param {Object} [opts]
+   */
+  async _pollModelChanges(opts = {}) {
+    const models = await fetchInstalledModels(opts);
+    if (models.length === 0) return; // Ollama not running — skip
+
+    const hash = models.map(m => m.name).sort().join(',');
+    if (this._modelHash !== null && hash !== this._modelHash) {
+      logger.info('UpgradeManager', 'Ollama model list changed — re-checking upgrades');
+      await this.checkForUpgrades(opts);
+    } else if (this._modelHash === null) {
+      // First poll, just store hash (initial check handles proposals)
+      this._modelHash = hash;
+    }
+  }
 }
 
 // ─── Singleton ──────────────────────────────────────────────────────────────
@@ -349,5 +438,5 @@ export const upgradeManager = new UpgradeManager();
 
 export default {
   filterCandidates, rankCandidates, generateProposals,
-  UpgradeManager, upgradeManager,
+  UpgradeManager, upgradeManager, MIN_NOTIFY_SCORE,
 };

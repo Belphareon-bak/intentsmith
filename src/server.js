@@ -194,6 +194,9 @@ if (!setupComplete) {
 // F2: Auto-updater — background version checker
 import { startUpdateChecker, stopUpdateChecker, getCurrentVersion } from './packaging/auto-updater.js';
 
+// v103: Self-Evaluating Model Registry — background upgrade check
+import { upgradeManager } from './upgrade/upgrade-manager.js';
+
 // F3: License system — feature gates
 import { licenseManager, TIERS } from './licensing/license.js';
 const licenseStatus = licenseManager.getStatus();
@@ -297,7 +300,7 @@ if (AgentRepository) {
         });
 
         const response = await callWithAuth(token, '', {
-          model: model || 'qwen2.5:32b',
+          model: model || 'qwen3.5:27b',
           messages,
           format: format === 'json' ? 'json' : undefined,
           temperature: options.temperature ?? 0.3
@@ -1055,6 +1058,9 @@ server.listen(config.server.port, config.server.host, async () => {
     });
   }
 
+  // v103: Start background model upgrade check (non-blocking, fire-and-forget)
+  upgradeManager.startPeriodicCheck();
+
   const ver = getCurrentVersion();
   logger.info('Server', `p(AI)assistant v${ver} started`);
   logger.info('Server', `Chat:   http://${config.server.host}:${config.server.port}/architect`);
@@ -1115,6 +1121,9 @@ function gracefulShutdown(signal) {
 
   // F2: Stop update checker
   try { stopUpdateChecker(); } catch { /* ignore */ }
+
+  // v103: Stop upgrade manager periodic checks
+  try { upgradeManager.stopPeriodicCheck(); } catch { /* ignore */ }
 
   // v82: Flush specialist telemetry before DB close
   try { specialistTelemetry?.shutdown(); } catch { /* ignore */ }

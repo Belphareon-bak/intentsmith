@@ -11,6 +11,7 @@ import { getCurrentVersion } from '../packaging/auto-updater.js';
 import { getStorageConfig, validateStorageConfig, autoClean } from '../db/data-retention.js';
 import { drainMessages, getHistoryStats } from '../core/history-drain.js';
 import { createStateBackup, listBackups, pruneBackups, getBackupStats } from '../core/db-backup.js';
+import { upgradeManager, UpgradeManager } from '../upgrade/upgrade-manager.js';
 
 /**
  * @param {{ db: import('better-sqlite3').Database, sendJSON: Function, parseBody: Function }} deps
@@ -416,6 +417,46 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
         sendJSON(res, 200, { ok: true, message: 'Database vacuumed successfully' });
       } catch (err) {
         sendJSON(res, 500, { error: `Vacuum failed: ${err.message}` });
+      }
+    },
+
+    // ── Model Upgrade Proposals (v103) ────────────────────────────────
+    'GET /api/system/upgrades': (req, res) => {
+      try {
+        const { proposals, discovery } = upgradeManager.getLastResults();
+        sendJSON(res, 200, {
+          proposals: proposals || [],
+          formatted: UpgradeManager.formatProposals(proposals),
+          discovery: discovery ? {
+            ollamaAvailable: discovery.ollamaAvailable,
+            candidateCount: discovery.candidates.length,
+            hintsCount: discovery.hints.size,
+            timestamp: discovery.timestamp,
+          } : null,
+          lastCheckTime: upgradeManager._lastCheckTime,
+          history: upgradeManager.getHistory(),
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: `Upgrade check failed: ${err.message}` });
+      }
+    },
+
+    // Force re-check upgrades
+    'POST /api/system/upgrades/check': async (req, res) => {
+      try {
+        const { proposals, discovery } = await upgradeManager.checkForUpgrades();
+        sendJSON(res, 200, {
+          proposals,
+          formatted: UpgradeManager.formatProposals(proposals),
+          discovery: {
+            ollamaAvailable: discovery.ollamaAvailable,
+            candidateCount: discovery.candidates.length,
+            hintsCount: discovery.hints.size,
+            timestamp: discovery.timestamp,
+          },
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: `Upgrade check failed: ${err.message}` });
       }
     },
   };

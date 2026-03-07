@@ -132,11 +132,55 @@ function cancelMessage(what, mode) {
   return `${what} zrušen. Jsem zpět ${suffix}.`;
 }
 
+// ─── v103: Upgrade notification (lazy-loaded) ──────────────────────────────
+let _upgradeManager = null;
+let _MIN_NOTIFY_SCORE = 6;
+
 // ─── Intercept definitions ───────────────────────────────────────────────────
 // Each intercept: { name, modes, fn(input, context, mode) → { handled, response? } }
 // modes: ['*'] = all modes, or specific ['CONVERSATION', 'PROJECT']
 
 const intercepts = [];
+
+// 0. UPGRADE NOTIFICATION (v103) — side-effect only, once per session
+intercepts.push({
+  name: 'upgrade_notification',
+  modes: ['*'],
+  async fn(_input, context, _mode) {
+    // Only notify once per session
+    if (context.sessionState?._upgradeNotified) return { handled: false };
+
+    // Lazy-load upgrade manager
+    if (!_upgradeManager) {
+      try {
+        const um = await import('../../upgrade/upgrade-manager.js');
+        _upgradeManager = um.upgradeManager;
+        _MIN_NOTIFY_SCORE = um.MIN_NOTIFY_SCORE ?? 6;
+      } catch {
+        return { handled: false };
+      }
+    }
+
+    const proposals = _upgradeManager.getNotifiableProposals();
+    if (proposals.length === 0) return { handled: false };
+
+    // Mark notified (prevents repeated notifications)
+    if (context.sessionState) context.sessionState._upgradeNotified = true;
+
+    // Emit system step with summary
+    if (typeof context.onSystemStep === 'function') {
+      const summary = proposals.slice(0, 3).map(p =>
+        `${p.role}: ${p.currentModel} → ${p.candidateModel} (score ${p.score}, ${p.riskLevel})`
+      ).join('; ');
+      try {
+        context.onSystemStep('model_upgrade', `${proposals.length} upgrade(s) available: ${summary}`);
+      } catch (_) {}
+    }
+
+    logger.info('PreHandler', `Upgrade notification: ${proposals.length} proposals above score ${_MIN_NOTIFY_SCORE}`);
+    return { handled: false }; // never short-circuits
+  },
+});
 
 // 1. FEEDBACK DETECTION (M3) — always run, side-effect only (no short-circuit)
 intercepts.push({

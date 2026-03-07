@@ -8,6 +8,48 @@
 
 ---
 
+## v103.1 — Model Registry Startup Wiring (2026-03-07)
+
+Zapojení upgrade pipeline do reálného provozu — non-blocking startup check, periodický recheck, notifikace uživatele.
+
+### Startup Wiring (`src/server.js`)
+- **`upgradeManager.startPeriodicCheck()`** v `server.listen()` callback — fire-and-forget, neblokuje start
+- **`upgradeManager.stopPeriodicCheck()`** v `gracefulShutdown()` — čistý teardown
+- **Non-blocking**: initial check + 24h recheck interval + 5min Ollama poll (all `.unref()`)
+
+### Lifecycle (`src/upgrade/upgrade-manager.js`)
+- **`startPeriodicCheck(opts)`**: initial check → 24h recheck → 5min Ollama model hash poll
+- **`stopPeriodicCheck()`**: clears all intervals
+- **`_pollModelChanges()`**: porovná hash nainstalovaných modelů → re-check při změně (`ollama pull`)
+- **`getNotifiableProposals()`**: filtruje proposals s `score >= MIN_NOTIFY_SCORE (6)`
+- **`_lastCheckTime`**: timestamp posledního checku
+
+### API Endpoint (`src/routes/system.js`)
+- **`GET /api/system/upgrades`**: vrací proposals, formatted text, discovery metadata, history
+- **`POST /api/system/upgrades/check`**: force re-check (manuální trigger z FE)
+
+### Session Notification (`src/chat/handlers/pre-handler.js`)
+- **Intercept #0 `upgrade_notification`**: side-effect only, once per session
+- **Trigger**: první chat zpráva po startu, pokud existují proposals se score ≥ 6
+- **`onSystemStep('model_upgrade', ...)`**: emituje do agent logu
+- **`_upgradeNotified` flag** na sessionState → max 1× za session
+
+### Tests
+- model-upgrade: **56/56** (+8 lifecycle tests: start/stop, idempotency, intervals, poll, notifiable, MIN_NOTIFY_SCORE, lastCheckTime)
+- **0 regressions** (concept-registry 42/42, knowledge-graph 17/17)
+
+### Soubory
+
+| Soubor | Změna |
+|--------|-------|
+| `src/upgrade/upgrade-manager.js` | +lifecycle methods, MIN_NOTIFY_SCORE, getNotifiableProposals (~80 lines) |
+| `src/server.js` | +import upgradeManager, +startPeriodicCheck in listen, +stopPeriodicCheck in shutdown |
+| `src/routes/system.js` | +GET /api/system/upgrades, +POST /api/system/upgrades/check |
+| `src/chat/handlers/pre-handler.js` | +intercept #0 upgrade_notification (lazy-loaded, once per session) |
+| `tests/model-upgrade.test.js` | +8 lifecycle tests (suite 12) |
+
+---
+
 ## v103 — Self-Evaluating Model Registry, Phase 1 (2026-03-05)
 
 Model upgrade pipeline: discover → filter → rank → propose. Nikdy neupgraduje automaticky — vždy jen návrhy ke schválení.
