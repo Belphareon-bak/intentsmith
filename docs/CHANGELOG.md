@@ -8,6 +8,44 @@
 
 ---
 
+## v103 — Self-Evaluating Model Registry, Phase 1 (2026-03-05)
+
+Model upgrade pipeline: discover → filter → rank → propose. Nikdy neupgraduje automaticky — vždy jen návrhy ke schválení.
+
+### Model Profiles (`src/upgrade/model-profiles.js`)
+- **MODEL_FAMILIES**: 17 rodin (deepseek-r1, qwen, llama, codestral, mistral, phi, gemma, starcoder, llava…)
+- **parseModelName()**: Parsuje Ollama model names → `{family, category, version, params, quantization}`
+- **MODEL_PROFILES**: 7 rolí (D1, D2, CODE, R1, R2, CHAT, VISION) s requirements, preferredFamilies, validationSuite
+- **Helpers**: `isSameFamily()`, `isNewerVersion()`, `getCurrentBindings()`, `getProfile()`
+
+### Model Discovery (`src/upgrade/model-discovery.js`)
+- **L1 Local**: `fetchInstalledModels()` — Ollama `/api/tags` s timeout + error handling
+- **L3 Family heuristics**: `UPGRADE_HINTS` — 10 kurátorovaných upgrade cest (qwen2.5→3/3.5, deepseek-r1→0528, llama→4…)
+- **`buildCandidates()`**: Obohacení Ollama dat o parsovanou rodinu/verzi/parametry/kvantizaci
+- **`discover()`**: Full pipeline: fetch → build candidates → enrich with hints
+
+### Upgrade Manager (`src/upgrade/upgrade-manager.js`)
+- **`filterCandidates()`**: Filtruje dle param bounds, rodiny/kategorie, vyloučí aktuální model
+- **`rankCandidates()`**: Composite score = familyBonus(1-3) + versionBonus(0-2) + paramsBonus(0-2) + recencyBonus(0-2) + hintBonus(0-3)
+- **`generateProposals()`**: UpgradeProposal s role, currentModel, candidateModel, score, reason, riskLevel
+- **Risk assessment**: same family + newer = low, same family = medium, different family = high
+- **UpgradeManager class**: `checkForUpgrades()`, `formatProposals()`, `recordUpgrade()`, `getHistory()`
+
+### Tests
+- model-upgrade: **48/48** (11 suites: parser, profiles, families, candidates, hints, filtering, ranking, proposals, manager, risk, MODEL_FAMILIES)
+- **0 regressions** (concept-registry 42/42, knowledge-graph 17/17)
+
+### Soubory
+
+| Soubor | Změna |
+|--------|-------|
+| `src/upgrade/model-profiles.js` | NEW — Role profiles, model name parser, family registry (~210 lines) |
+| `src/upgrade/model-discovery.js` | NEW — Ollama discovery, candidate building, upgrade hints (~200 lines) |
+| `src/upgrade/upgrade-manager.js` | NEW — Filter, rank, propose pipeline + UpgradeManager class (~250 lines) |
+| `tests/model-upgrade.test.js` | NEW — 48 tests across 11 suites |
+
+---
+
 ## v102.1 — Concept Registry (2026-03-05)
 
 Sémantická detekce konceptů (authentication, database, logging…) a fragmentation analysis — detekce rozptýlení konceptů přes moduly a drift mezi milníky.
