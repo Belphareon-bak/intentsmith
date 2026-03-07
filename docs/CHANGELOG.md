@@ -8,6 +8,37 @@
 
 ---
 
+## v104 — F2: Error Normalizer (2026-03-07)
+
+Structured error classification with root-cause cascade detection. Transforms raw build/test output into NormalizedError objects for the execution loop (F3). Standalone module — no integration with lifecycle-build yet.
+
+### NormalizedError ADT
+- **14 canonical error codes**: MISSING_PROPERTY, TYPE_MISMATCH, UNDEFINED_VARIABLE, IMPORT_NOT_FOUND, SYNTAX_ERROR, NULL_REFERENCE, ASSERTION_FAILED, TEST_FAILED, FILE_NOT_FOUND, PERMISSION_DENIED, UNUSED_IMPORT, ARGUMENT_COUNT, MISSING_TYPE, UNKNOWN
+- **Severity field**: `'error'` | `'warning'` — lint → warning, all others → error (F3 uses this to skip warnings in patch loop)
+- **Recoverability**: heuristic per error code, TEST_FAILED conditional on file presence
+
+### `error-normalizer.js` — Main Module
+- **`normalizeErrors()`**: Dual-mode — raw string (32-entry ERROR_MAP, most-specific-first) or pre-parsed object array
+- **`deduplicateErrors()`**: Key by code+file+line, keep first
+- **`classifyRecoverability()`**: Recoverable/unrecoverable/conditional per error code
+- **`findRootCause()`**: IMPORT_NOT_FOUND → downstream UNDEFINED_VARIABLE/MISSING_PROPERTY (same-file or symbol-startsWith heuristic, no reverse containment)
+- **`formatErrorsForLLM()`**: Root causes first (separate maxRoots budget), derived errors omitted with count
+- **File:line extraction**: Window of 5 lines, covers tsc, Python traceback, JS stack trace formats
+- **Symbol extraction**: Per-pattern regex capture groups (TS codes, Go, Java, Rust, Python)
+
+### Tests
+- error-normalizer: **48/48** (9 suites: constants, raw-string 14 patterns, pre-parsed, severity, file-location, dedup, recoverability, root-cause, LLM-format)
+- **0 regressions** (patch-engine 57/57, knowledge-graph 17/17)
+
+### Soubory
+
+| Soubor | Změna |
+|--------|-------|
+| `src/planner/error-normalizer.js` | NEW — error classification + root-cause detection (~230 LOC) |
+| `tests/error-normalizer.test.js` | NEW — 48 tests across 9 suites (~340 LOC) |
+
+---
+
 ## v104 — F1: Patch Engine (2026-03-07)
 
 Structured, composable, revertible patches as the foundation for execution loop (F3). Replaces text-based repair instructions with semantic anchor-based Patch ADT. F1 is standalone — no integration with lifecycle-build or critic-agent yet.
