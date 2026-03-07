@@ -8,6 +8,61 @@
 
 ---
 
+## v104 — F1: Patch Engine (2026-03-07)
+
+Structured, composable, revertible patches as the foundation for execution loop (F3). Replaces text-based repair instructions with semantic anchor-based Patch ADT. F1 is standalone — no integration with lifecycle-build or critic-agent yet.
+
+### Patch ADT
+- **Semantic anchors** (not line numbers): `function login(`, `class UserService`, `import fs from` — survive edits across iterations
+- **AnchorType enum**: `function`, `class`, `method`, `import`, `line`, `insert_after`
+- **Region model**: `{ anchor, anchorType, contextBefore, old[], new[] }` — old=lines to remove, new=lines to add
+
+### `patch-parser.js` — LLM Output → Patch ADT
+- **`parsePatchFromDiff()`**: Extracts ` ```diff ` blocks, parses `--- a/path` + `@@ anchor` headers, infers anchorType from text patterns
+- **`parsePatchFromFullFile()`**: Greedy two-pointer diff fallback, finds nearest declaration as anchor, size guards (300 lines, 20 regions)
+- **`normalizeNewlines()`**: CRLF→LF before all parsing
+- Fence regex `/```[^\n]*\n/` handles ` ```diff title="patch" ` variants
+
+### `patch-validator.js` — Pre-Apply Checks + Anchor Resolution
+- **3-tier anchor fallback**: exact match → normalized (whitespace collapse) → AST-assisted (tree-sitter, lazy)
+- **Ambiguity guard**: `findAnchor()` returns `{ line, tier, matches }` — reject if matches>1 without contextBefore
+- **`getRegionOffset(anchorType)`**: structural anchors (function/class/method) offset=1, positional (import/line) offset=0
+- **Stale patch detection**: old lines compared against file content at correct offset
+- **Overlap detection**: sorted by resolved line, adjacent region boundary check
+- **`PATCH_LIMITS`**: MAX_LINES_CHANGED=300, MAX_FILES=5, MAX_REGIONS_PER_FILE=20, MAX_FILE_SIZE=50000
+- **`validateSyntaxPostApply()`**: async AST parse, checks `rootNode.hasError`
+
+### `patch-applier.js` — Apply/Revert/Compose
+- **Bottom-up application**: resolve all anchors → sort descending → splice — preserves line offsets
+- **Backup store**: module-level `Map<filePath, content>` for rollback
+- **`composePatchSet()`**: merge same-file patches, detect anchor conflicts
+- **`computeMetrics()`**: `anchorsResolved: { exact, normalized, ast }`, linesAdded/Removed/Modified
+- **`formatPatch()`**: pretty-printer for logs/debug/UI
+- **Trailing newline at EOF**: ensured after patching
+
+### `patch-engine.js` — Main API (only module touching filesystem)
+- **`applyPatch()`**: read → validate → backup → apply → syntax check → atomic write (tmp+rename)
+- **`previewPatch()`**: dry-run, returns before/after/metrics/formatted diff
+- **`rollbackPatch()`**: restore from backup
+- **`applyPatchSet()`**: sequential apply with full rollback on any failure (reverse order)
+- **`parseLLMOutput()`**: try diff parsing → fallback to full-file diff
+
+### Tests
+- patch-engine: **57/57** (11 suites: constants, parseDiff, parseFullFile, findAnchor, validatePatch, applyPatch, backup/revert, composePatchSet, formatPatch, computeMetrics, normalizeNewlines)
+- **0 regressions** (knowledge-graph 17/17, concept-registry 42/42, large-project-scaling 35/35)
+
+### Soubory
+
+| Soubor | Změna |
+|--------|-------|
+| `src/patch/patch-parser.js` | NEW — LLM output → Patch ADT (~210 LOC) |
+| `src/patch/patch-validator.js` | NEW — 3-tier anchor + validation (~250 LOC) |
+| `src/patch/patch-applier.js` | NEW — apply/revert/compose (~220 LOC) |
+| `src/patch/patch-engine.js` | NEW — filesystem orchestration (~230 LOC) |
+| `tests/patch-engine.test.js` | NEW — 57 tests across 11 suites (~480 LOC) |
+
+---
+
 ## v103.1 — Model Registry Startup Wiring (2026-03-07)
 
 Zapojení upgrade pipeline do reálného provozu — non-blocking startup check, periodický recheck, notifikace uživatele.
