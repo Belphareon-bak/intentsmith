@@ -48,6 +48,30 @@ let _buildArchitectureBrief, _postMilestoneAudit, _formatAuditForCheckpoint;
 let _scanAndDiff, _formatApiDiff;
 let _classifyFailure, _analyzeFailureFn, _generateRepairRequest;
 
+// v106: Context optimizer + signature map — lazy-loaded
+let _ctxOptLoaded = false;
+let _rankFilesByValue, _allocateBudget, _detectRedundancy, _buildSignatureMap, _formatSignatureMap;
+
+async function ensureContextOptimizer() {
+  if (_ctxOptLoaded) return true;
+  try {
+    const [opt, sig] = await Promise.all([
+      import('../code-intel/context-optimizer.js'),
+      import('../code-intel/signature-map.js'),
+    ]);
+    _rankFilesByValue = opt.rankFilesByValue;
+    _allocateBudget = opt.allocateBudget;
+    _detectRedundancy = opt.detectRedundancy;
+    _buildSignatureMap = sig.buildSignatureMap;
+    _formatSignatureMap = sig.formatSignatureMap;
+    _ctxOptLoaded = true;
+    return true;
+  } catch (err) {
+    logger.warn('LifecycleBuild', `Context optimizer not available: ${err.message}`);
+    return false;
+  }
+}
+
 // v104: Execution loop — lazy-loaded
 let _loopLoaded = false;
 let _runFixLoop;
@@ -1265,13 +1289,56 @@ async function buildCodeContextForMilestone(projectPath, milestone, localPlan) {
     // Rank files
     const rankedFiles = await _rankFiles(allResults, queryTerms, { projectPath });
 
-    // Build compact code context (smaller budget than full CODE_ANALYSIS)
-    const codeCtx = await _buildCodeContext(projectPath, rankedFiles, {
-      maxFiles: 5,
-      maxTokens: 5000,
-      maxLinesPerFile: 100,
-      queryTerms,
-    });
+    // v106: Context Optimizer + Signature Map
+    let codeCtx;
+    let sigText = '';
+
+    if (await ensureContextOptimizer()) {
+      // Prepare files with content for ranking
+      const searchFiles = rankedFiles.map(f => ({
+        file: f.file,
+        content: f.content || '',
+        score: f.score,
+      }));
+
+      const ranked = _rankFilesByValue(searchFiles, milestone.description || milestone.title || '', {
+        seedFiles: scopeFiles,
+      });
+
+      const redundant = _detectRedundancy(ranked, null); // graph optional
+      const filtered = ranked.filter(f => !redundant.has(f.file));
+      const budget = _allocateBudget(filtered, 6000, { summaryBudget: 500, signatureRatio: 0.3 });
+
+      // Build full source context for top files
+      codeCtx = await _buildCodeContext(projectPath,
+        budget.fullFiles.map(f => ({ file: f.file, score: 1 })),
+        { maxFiles: budget.fullFiles.length, maxTokens: budget.budgetBreakdown.fullSource, maxLinesPerFile: 100, queryTerms });
+
+      // Build signature map for secondary files
+      if (budget.signatureFiles.length > 0) {
+        try {
+          const sigMap = await _buildSignatureMap(
+            budget.signatureFiles.map(f => f.file), projectPath);
+          sigText = _formatSignatureMap(sigMap);
+        } catch (_) { /* graceful — signatures are optional */ }
+      }
+
+      logger.info('LifecycleBuild', 'v106 context optimizer active', {
+        milestoneId: milestone.id,
+        fullFiles: budget.fullFiles.length,
+        signatureFiles: budget.signatureFiles.length,
+        skipped: budget.skippedFiles.length,
+        totalTokens: budget.totalTokens,
+      });
+    } else {
+      // Fallback: original behavior
+      codeCtx = await _buildCodeContext(projectPath, rankedFiles, {
+        maxFiles: 5,
+        maxTokens: 5000,
+        maxLinesPerFile: 100,
+        queryTerms,
+      });
+    }
 
     // Architecture detection
     const arch = _detectArchitecture(codeCtx.files.map(f => ({
@@ -1295,6 +1362,10 @@ async function buildCodeContextForMilestone(projectPath, milestone, localPlan) {
 
     if (codeCtx.context) {
       parts.push(`\n\n## Existing Code Context\nRelevant existing code from the project (${codeCtx.files.length} files, ${codeCtx.totalTokens} tokens):\n\n${codeCtx.context}`);
+    }
+
+    if (sigText) {
+      parts.push(`\n\n${sigText}`);
     }
 
     const archSection = _formatArchitectureForPrompt(mergedArch);

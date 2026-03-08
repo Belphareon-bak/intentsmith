@@ -8,6 +8,30 @@
 
 ---
 
+## v106 — F4: Context Optimizer + Signature Map (2026-03-08)
+
+Intelligent context budget allocation for LLM code generation. Replaces flat 5-file/5K-token budget with cost-benefit ranking and compact API signatures — LLM gets maximum API awareness per token.
+
+### Context Optimizer (`context-optimizer.js`)
+- **`rankFilesByValue()`**: Scores files by `relevance / tokenCost`. Seed files get max relevance (1.0). Non-seed scoring: symbol call overlap (0.5 weight, via KG getCallers/getCallees), graph distance (0.3 weight, BFS 1-3 hops), import proximity (0.2 weight). Keyword fallback when no graph available.
+- **`allocateBudget()`**: Greedy allocation into 3 tiers — full source (seed budget), signature-only (30% ratio, max 20 files), skip. Reserves 500 tokens for architecture summary.
+- **`detectRedundancy()`**: Finds re-export chains via KG IMPORTS edges + symbol overlap — if file A exports ⊇ B's exports and A imports B, skip B.
+
+### Signature Map (`signature-map.js`)
+- **`buildSignatureMap()`**: Two-tier extraction — AST (tree-sitter, precise params/export detection) → regex fallback (unsupported languages). Supports JS/TS, Python, Go.
+- **`formatSignature()`**: Compact format: `export function processOrder(orderId, items)`, `export class OrderValidator`
+- **`formatSignatureMap()`**: Markdown output with "DO NOT modify these files" header.
+
+### Integration
+- **lifecycle-build.js**: lazy-loaded via `ensureContextOptimizer()`, wraps existing `buildCodeContextForMilestone()`. Budget 6000 tokens (up from 5000), 30% signature ratio. Graceful fallback to original behavior if module unavailable.
+
+### Tests
+- context-optimizer: **40/40** (8 suites: ranking, graph distance, import proximity, keyword, allocation, overflow, breakdown, edge cases)
+- signature-map: **25/25** (5 suites: formatSignature, formatSignatureMap, regex extraction, AST path, edge cases)
+- **0 regressions** (execution-loop 56, patch-engine 57, error-normalizer 48, knowledge-graph 17, graph-retrieval 30)
+
+---
+
 ## v104 — F3: Execution Loop (2026-03-08)
 
 Iterative fix cycle — the linchpin capability that closes the generate→test→diagnose→patch→test loop. When milestone code generation produces errors, F3 replaces coarse retry with fine-grained convergence: parse errors (F2) → build fix prompt → call LLM → parse patches (F1) → validate → apply → test → repeat until convergence or budget exhaustion.
