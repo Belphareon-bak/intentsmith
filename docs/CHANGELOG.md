@@ -8,6 +8,47 @@
 
 ---
 
+## v104 — F3: Execution Loop (2026-03-08)
+
+Iterative fix cycle — the linchpin capability that closes the generate→test→diagnose→patch→test loop. When milestone code generation produces errors, F3 replaces coarse retry with fine-grained convergence: parse errors (F2) → build fix prompt → call LLM → parse patches (F1) → validate → apply → test → repeat until convergence or budget exhaustion.
+
+### Pipeline
+- **`runFixLoop()`**: Main entry — receives callbacks (`callLLM`, `runTests`, `runQualityGate`, `getGitDiff`) from lifecycle-build.js
+- **LoopResult ADT**: `{ converged, stopReason, iterations, finalTestResults, finalQualityGate, lastErrors, report }`
+- **Stop reasons**: `all_passed` | `not_converging` | `diverging` | `budget_exhausted` | `unrecoverable` | `patch_failed` | `file_loop` | `scope_exceeded` | `oscillation_detected`
+
+### 10 Guards
+1. **Compile-first priority**: compile errors before test errors in prompt
+2. **Error frontier filtering**: root causes + max 5 first-order dependents (prevents prompt explosion)
+3. **Patch scope limit**: max 5 files per iteration → `scope_exceeded`
+4. **File loop protection**: same file patched >3× → `file_loop`
+5. **Patch oscillation detection**: hash-based repeat detection → `oscillation_detected`
+6. **Preview before apply**: `previewPatch()` validates each patch before `applyPatchSet()`
+7. **Divergence rollback**: error count ×2 → rollback last iteration's patches + stop
+8. **Prompt size limits**: last 2 patches, 4000 char git diff cap
+9. **Unrecoverable early stop**: all errors unrecoverable → skip loop entirely
+10. **Budget exhaustion**: configurable max iterations (default 8, `C3_MAX_LOOP_ITERATIONS`)
+
+### Integration
+- **lifecycle-build.js**: lazy-loaded via `ensureExecutionLoop()`, activates in `postExecution()` after test/quality gate detect failure
+- **Callback injection**: `runTests`, `runQualityGate`, `getGitDiff` passed as callbacks — no code duplication
+- **Fallback**: if execution loop module not available, falls back to previous compile-error short-circuit
+
+### Tests
+- execution-loop: **56/56** (10 suites: shouldContinue, compareErrors, limitErrors, buildFixPrompt, extractErrors, convergence, guards, callbacks, report, rollback)
+- **0 regressions** (patch-engine 57/57, error-normalizer 48/48, knowledge-graph 17/17)
+
+### Soubory
+
+| Soubor | Změna |
+|--------|-------|
+| `src/planner/execution-loop.js` | NEW — iterative fix cycle with 10 guards (~510 LOC) |
+| `tests/execution-loop.test.js` | NEW — 56 tests across 10 suites (~930 LOC) |
+| `src/planner/lifecycle-build.js` | MODIFY — lazy-loader + F3 integration in postExecution (~30 LOC delta) |
+| `src/config.js` | MODIFY — `maxLoopIterations` in lifecycle block |
+
+---
+
 ## v104 — F2: Error Normalizer (2026-03-07)
 
 Structured error classification with root-cause cascade detection. Transforms raw build/test output into NormalizedError objects for the execution loop (F3). Standalone module — no integration with lifecycle-build yet.
