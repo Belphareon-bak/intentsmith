@@ -495,7 +495,7 @@ async function _maybeReloadExpertise(executionId, result) {
         ...config,
         primaryProblemTypes: config.primaryProblemTypes || ['procedural'],
         allowedRepresentations: config.allowedRepresentations || ['structured'],
-        preferredModels: config.preferredModels || ['qwen2.5:32b'],
+        preferredModels: config.preferredModels || ['qwen3.5:27b'],
       });
       logger.info('SkillHandler', `create-expertise: ADD — registered custom expertise "${id}"`);
     }

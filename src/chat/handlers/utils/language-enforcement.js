@@ -279,7 +279,7 @@ Respond AGAIN, this time EXCLUSIVELY in ${lang}. No other languages.`;
 
 // ─── v62.2b: Mechanical Slovak→Czech word replacement ─────────────────────────
 // Last-resort fallback when LLM rewrite also produces Slovak.
-// Covers the most common SK→CZ word pairs that qwen2.5:32b produces.
+// Covers the most common SK→CZ word pairs that qwen3.5:27b produces.
 // v62.2e: Unicode-safe word boundaries for non-ASCII characters
 // JS \b fails with č,š,ž,ř,ť,ď,ň,ľ,ô,á,é,í,ó,ú,ý,ů — they're not \w
 // Use (?<=^|\s) for word start with non-ASCII, (?=\s|[.,;:!?]|$) for word end

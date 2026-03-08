@@ -16,7 +16,7 @@ import { callWithAuth } from '../llm/gateway.js';
 import { createAuthToken, LLMCallerRole } from '../llm/auth-types.js';
 import { extractJSON } from '../llm/client.js';
 
-const ARCHITECT_MODEL = 'qwen2.5:32b';
+const ARCHITECT_MODEL = 'qwen3.5:27b';
 
 /**
  * ArchitectLLM - ADVISOR role only

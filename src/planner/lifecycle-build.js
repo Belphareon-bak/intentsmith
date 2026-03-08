@@ -48,6 +48,23 @@ let _buildArchitectureBrief, _postMilestoneAudit, _formatAuditForCheckpoint;
 let _scanAndDiff, _formatApiDiff;
 let _classifyFailure, _analyzeFailureFn, _generateRepairRequest;
 
+// v104: Execution loop — lazy-loaded
+let _loopLoaded = false;
+let _runFixLoop;
+
+async function ensureExecutionLoop() {
+  if (_loopLoaded) return true;
+  try {
+    const mod = await import('./execution-loop.js');
+    _runFixLoop = mod.runFixLoop;
+    _loopLoaded = true;
+    return true;
+  } catch (err) {
+    logger.warn('LifecycleBuild', `Execution loop not available: ${err.message}`);
+    return false;
+  }
+}
+
 async function ensureGuardian() {
   if (_guardianLoaded) return true;
   try {
@@ -400,7 +417,7 @@ async function postExecution(lifecycle, milestone, wfResult) {
   // ─── TESTING phase ──────────────────────────────────────────────────────
   msRepo.updateStatus.run(MilestoneStatus.TESTING, milestone.id);
 
-  const testResults = await runTests(lifecycle, milestone);
+  let testResults = await runTests(lifecycle, milestone);
 
   // ─── QUALITY GATE — Compile/Syntax Check ──────────────────────────────
   const changedFiles = await getChangedFiles(lifecycle);
@@ -421,8 +438,43 @@ async function postExecution(lifecycle, milestone, wfResult) {
   driftChecks.addCheck(lifecycle.id, milestone.id, 'QUALITY_GATE',
     qualityGateResult.status, qualityGateResult);
 
-  // Short-circuit: skip R1 checkpoint if compile failed (saves 60+s LLM call)
-  if (!qualityGateResult.passed) {
+  // ─── F3: Execution Loop — iterative fix cycle ─────────────────────────
+  const hasTestFailure = testResults.allPassed === false;
+  const hasCompileFailure = !qualityGateResult.passed;
+
+  if ((hasTestFailure || hasCompileFailure) && await ensureExecutionLoop()) {
+    const loopResult = await _runFixLoop({
+      lifecycle,
+      milestone,
+      testResults,
+      qualityGateResult,
+      callLLM: lifecycle.callLLM || callLLM,
+      runTests: () => runTests(lifecycle, milestone),
+      runQualityGate: async () => {
+        const cf = await getChangedFiles(lifecycle);
+        const sp = lifecycleRepo.getSpec(lifecycle.id);
+        let qg = await runQualityGate(lifecycle.projectPath, sp?.tech_stack || {}, cf);
+        if (!qg.passed) {
+          qg = await runQualityGate(lifecycle.projectPath, sp?.tech_stack || {}, null, { mode: 'full-project' });
+        }
+        return qg;
+      },
+      getGitDiff: () => getGitDiff(lifecycle),
+    });
+
+    if (loopResult.converged) {
+      testResults = loopResult.finalTestResults;
+      qualityGateResult = loopResult.finalQualityGate;
+    } else {
+      milestone._lastCompileErrors = loopResult.lastErrors
+        ?.filter(e => e.category === 'compile')
+        .map(e => `${e.file}:${e.line || '?'} ${e.message}`) || [];
+      milestone._loopReport = loopResult.report;
+      return handleMilestoneFailure(lifecycle, milestone,
+        `execution loop ${loopResult.stopReason}: ${loopResult.report?.summary || 'fix cycle did not converge'}`);
+    }
+  } else if (hasCompileFailure) {
+    // Fallback: execution loop not available — original behavior
     milestone._lastCompileErrors = qualityGateResult.results
       .filter(r => !r.passed)
       .map(r => `${r.file}:${r.line || '?'} ${r.message || r.error}`);

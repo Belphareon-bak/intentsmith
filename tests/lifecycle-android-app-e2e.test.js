@@ -5,7 +5,7 @@
 //
 // Requirements:
 //   - Ollama running at http://127.0.0.1:11434
-//   - Models: deepseek-r1:32b, qwen2.5-coder:32b, qwen2.5:32b
+//   - Models: deepseek-r1:32b, qwen3.5:27b, qwen3.5:27b
 //   - Expected duration: 10-30 minutes
 //
 // Run: node tests/lifecycle-android-app-e2e.test.js
@@ -101,7 +101,7 @@ async function checkOllama() {
     const models = data.models?.map(m => m.name) || [];
     console.log(`    Available models: ${models.join(', ')}`);
 
-    const required = ['deepseek-r1', 'qwen2.5-coder', 'qwen2.5'];
+    const required = ['deepseek-r1', 'qwen3.5'];
     for (const req of required) {
       const found = models.some(m => m.includes(req));
       check(found, `Ollama: ${req} model available`, `models: ${models.join(', ')}`);

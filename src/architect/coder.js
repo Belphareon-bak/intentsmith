@@ -16,7 +16,7 @@ import { callWithAuth } from '../llm/gateway.js';
 import { createAuthToken, LLMCallerRole } from '../llm/auth-types.js';
 import { extractJSON } from '../llm/client.js';
 
-const CODER_MODEL = 'qwen2.5-coder:32b';
+const CODER_MODEL = 'qwen3.5:27b';
 
 /**
  * CODER PROMPT - minimální, zaměřený pouze na kód

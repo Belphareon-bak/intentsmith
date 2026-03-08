@@ -18,7 +18,7 @@ import { callWithAuth } from '../llm/gateway.js';
 import { createAuthToken, LLMCallerRole } from '../llm/auth-types.js';
 import { extractJSON } from '../llm/client.js';
 
-const EDITOR_MODEL = 'qwen2.5-coder:32b';
+const EDITOR_MODEL = 'qwen3.5:27b';
 
 /**
  * EDITOR PROMPT - pro modifikaci existujících souborů

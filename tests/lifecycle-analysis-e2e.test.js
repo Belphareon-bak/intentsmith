@@ -11,7 +11,7 @@
 //
 // Requirements:
 //   - Ollama running at http://127.0.0.1:11434
-//   - Model: qwen2.5:32b (CHAT role)
+//   - Model: qwen3.5:27b (CHAT role)
 //   - Expected duration: 3-10 minutes
 //
 // Run: node tests/lifecycle-analysis-e2e.test.js
@@ -75,7 +75,7 @@ async function checkOllama() {
     const resp = await fetch('http://127.0.0.1:11434/api/tags');
     const data = await resp.json();
     const models = data.models?.map(m => m.name) || [];
-    const hasChatModel = models.some(m => m.includes('qwen2.5'));
+    const hasChatModel = models.some(m => m.includes('qwen3.5'));
     check(hasChatModel, 'Ollama: CHAT model available');
     return hasChatModel;
   } catch (e) {

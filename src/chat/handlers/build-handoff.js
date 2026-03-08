@@ -459,7 +459,7 @@ function formatProposal(summary, originalInput) {
     ``,
     `Toto spustí Planner pipeline:`,
     `  D1 (deepseek-r1) → analýza a plán`,
-    `  CODE (qwen2.5-coder) → implementace`,
+    `  CODE (qwen3.5:27b) → implementace`,
     `  R2 → quick review → R1 → final review`,
     ``,
     `Chceš jít stavět? (ano/ne)`,

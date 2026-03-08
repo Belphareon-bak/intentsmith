@@ -323,7 +323,7 @@ export class ExpertiseStore {
         reviewPolicy: config.reviewPolicy || 'none',
         dataUsagePolicy: config.dataUsagePolicy || 'forbidden',
         outputBias: config.outputBias || 'analytical',
-        preferredModels: config.preferredModels || ['qwen2.5:32b'],
+        preferredModels: config.preferredModels || ['qwen3.5:27b'],
         styleRules: config.styleRules || {},
         weights: config.weights || {},
         isCustom: true,

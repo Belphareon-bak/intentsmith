@@ -80,7 +80,7 @@ function structuralFix(text, fixes) {
 // Layer 2: Language Fix
 // ─────────────────────────────────────────────────────────────────────────────
 // Mechanical Slovak→Czech word replacement.
-// Fast (0ms, pure regex). Catches ~90% of SK contamination from qwen2.5:32b.
+// Fast (0ms, pure regex). Catches ~90% of SK contamination from qwen3.5:27b.
 // Also detects remaining language issues (EN, Cyrillic) for flagging.
 
 function languageFix(text, context, fixes, issues) {

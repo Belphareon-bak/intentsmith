@@ -16,7 +16,7 @@ import { createAuthToken, LLMCallerRole } from '../llm/auth-types.js';
 import { extractJSON } from '../llm/client.js';
 
 // Používáme jiný model než Coder pro adversarial review
-const REVIEWER_MODEL = 'qwen2.5:32b';
+const REVIEWER_MODEL = 'qwen3.5:27b';
 
 /**
  * REVIEWER PROMPT

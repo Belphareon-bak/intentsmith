@@ -151,8 +151,8 @@ export const C3_DEFAULTS: C3Settings = {
   'c3.theme': 'dark',
 
   // v87: LLM Settings
-  'c3.llm.chatModel': 'qwen2.5:32b',
-  'c3.llm.codeModel': 'qwen2.5-coder:32b',
+  'c3.llm.chatModel': 'qwen3.5:27b',
+  'c3.llm.codeModel': 'qwen3.5:27b',
   'c3.llm.visionModel': 'llava:13b',
   'c3.llm.ollamaUrl': 'http://127.0.0.1:11434',
   'c3.llm.temperature': 0.7,

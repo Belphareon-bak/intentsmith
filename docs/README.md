@@ -26,7 +26,7 @@ cd c3-ide && yarn && yarn build && yarn start
 ### Prerekvizity
 
 - Node.js 22+ (doporuceno) / 18+ (minimum)
-- Ollama s modelem `qwen2.5:32b` na `http://127.0.0.1:11434`
+- Ollama s modelem `qwen3.5:27b` na `http://127.0.0.1:11434`
 - Python 3 + build-essential (kompilace better-sqlite3)
 - GPU s 12+ GB VRAM (doporuceno pro 32B modely)
 - Kompletni instalacni prirucka: [INSTALL.md](INSTALL.md)

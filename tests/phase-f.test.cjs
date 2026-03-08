@@ -357,7 +357,7 @@ describe('T36-T50: Setup Wizard', () => {
       this.setupPath = path.join(dir, 'c3-setup.json');
       this.config = {
         version: 1, completed: false, completedAt: null,
-        ollama: { url: 'http://127.0.0.1:11434', models: { CHAT: 'qwen2.5:32b' }, verified: false },
+        ollama: { url: 'http://127.0.0.1:11434', models: { CHAT: 'qwen3.5:27b' }, verified: false },
         language: 'cs',
         notifications: {
           telegram: { enabled: false, token: '', chatId: '' },
@@ -726,7 +726,7 @@ describe('T76-T85: Docker Configuration', () => {
   });
 
   it('T81: docker-compose pulls models on init', () => {
-    assert.ok(dockerCompose.includes('ollama pull qwen2.5:32b'));
+    assert.ok(dockerCompose.includes('ollama pull qwen3.5:27b'));
     assert.ok(dockerCompose.includes('ollama pull deepseek-r1:32b'));
   });
 

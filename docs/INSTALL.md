@@ -28,7 +28,7 @@
 | Disk | 50 GB volneho mista | 100 GB+ |
 | CPU | 4 jadra | 8+ jader |
 
-> Modely qwen2.5:32b a deepseek-r1:32b vyzaduji GPU s dostatkem VRAM.
+> Modely qwen3.5:27b a deepseek-r1:32b vyzaduji GPU s dostatkem VRAM.
 > Bez GPU lze pouzit mensi modely (7b/14b), ale kvalita odpovedi bude nizsi.
 
 ### Software
@@ -119,8 +119,8 @@ cp .env.example .env
 ollama serve &
 
 # Stahni modely (celkem ~50 GB)
-ollama pull qwen2.5:32b          # CHAT + R2 (hlavni konverzacni model)
-ollama pull qwen2.5-coder:32b    # CODE (generovani kodu)
+ollama pull qwen3.5:27b          # CHAT + R2 (hlavni konverzacni model)
+ollama pull qwen3.5:27b    # CODE (generovani kodu)
 ollama pull deepseek-r1:32b      # D1 + R1 (hluboka analyza a review)
 
 # Volitelne:
@@ -261,7 +261,7 @@ docker compose down
 | Sluzba | Kontejner | Popis |
 |--------|-----------|-------|
 | `ollama` | c3-ollama | Ollama LLM server s GPU podporou |
-| `ollama-init` | c3-ollama-init | Init kontejner — stahne modely (qwen2.5:32b, qwen2.5-coder:32b, deepseek-r1:32b) |
+| `ollama-init` | c3-ollama-init | Init kontejner — stahne modely (qwen3.5:27b, qwen3.5:27b, deepseek-r1:32b) |
 | `c3` | c3-agent | C3 Agent backend (Node.js 22-alpine) |
 
 ### 4.3 GPU podpora
@@ -325,12 +325,12 @@ Vsechny promenne se nacitaji z `.env` souboru v koreni projektu.
 
 | Promenna | Default | Role |
 |----------|---------|------|
-| `C3_MODEL_CHAT` | qwen2.5:32b | Obecna konverzace |
-| `C3_MODEL_CODE` | qwen2.5-coder:32b | Generovani kodu |
+| `C3_MODEL_CHAT` | qwen3.5:27b | Obecna konverzace |
+| `C3_MODEL_CODE` | qwen3.5:27b | Generovani kodu |
 | `C3_MODEL_D1` | deepseek-r1:32b | Hluboka analyza |
 | `C3_MODEL_D2` | qwen3-30b-a3b | Opravy (lehci model) |
 | `C3_MODEL_R1` | deepseek-r1:32b | Finalni review |
-| `C3_MODEL_R2` | qwen2.5:32b | Rychly review |
+| `C3_MODEL_R2` | qwen3.5:27b | Rychly review |
 | `C3_MODEL_VISION` | llava:13b | Analyza obrazku |
 
 ### Feature flagy
@@ -417,7 +417,7 @@ Ocekavany vystup:
 # Overeni ze Ollama bezi
 curl -s http://127.0.0.1:11434/api/tags | python3 -m json.tool
 
-# Melo by obsahovat: qwen2.5:32b, qwen2.5-coder:32b, deepseek-r1:32b
+# Melo by obsahovat: qwen3.5:27b, qwen3.5:27b, deepseek-r1:32b
 ```
 
 ### 6.4 IDE — overeni
@@ -506,7 +506,7 @@ yarn install
 nvidia-smi
 
 # Pokud neni dostatek VRAM, pouzij mensi model
-echo "C3_MODEL_CHAT=qwen2.5:14b" >> .env
+echo "C3_MODEL_CHAT=qwen3.5:14b" >> .env
 ```
 
 ### Backend pada pri startu s `SQLITE_CANTOPEN`

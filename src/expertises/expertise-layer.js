@@ -197,7 +197,7 @@ export const BUILTIN_EXPERTISES = {
     dataUsagePolicy: DATA_USAGE.FORBIDDEN,
     outputBias: OUTPUT_BIAS.CREATIVE,
     creativeLock: true,
-    preferredModels: ['qwen2.5:32b', 'mixtral', 'llama3'],
+    preferredModels: ['qwen3.5:27b', 'mixtral', 'llama3'],
     temperature: 0.8,
     chunkingStrategy: 'chapters',
     // v63.0 — Merge Engine v2
@@ -271,7 +271,7 @@ NIKDY:
     dataUsagePolicy: DATA_USAGE.FORBIDDEN,
     outputBias: OUTPUT_BIAS.CREATIVE,
     creativeLock: true,
-    preferredModels: ['qwen2.5:32b'],
+    preferredModels: ['qwen3.5:27b'],
     temperature: 0.85,
     chunkingStrategy: 'sessions',
     memoryPolicy: 'world_state',
@@ -345,7 +345,7 @@ FORMÁT:
     dataUsagePolicy: DATA_USAGE.FORBIDDEN,
     outputBias: OUTPUT_BIAS.CREATIVE,
     creativeLock: true,
-    preferredModels: ['qwen2.5:32b'],
+    preferredModels: ['qwen3.5:27b'],
     temperature: 0.9,
     // v63.0 — Merge Engine v2
     capabilities: { reasoning: 35, creativity: 85, determinism: 10, riskTolerance: 75, verbosity: 60 },
@@ -403,7 +403,7 @@ STYLY:
     reviewPolicy: REVIEW_POLICY.SELF,
     dataUsagePolicy: DATA_USAGE.CONTROLLED,
     outputBias: OUTPUT_BIAS.ANALYTICAL,
-    preferredModels: ['qwen2.5:32b'],
+    preferredModels: ['qwen3.5:27b'],
     temperature: 0.3,
     // v63.0 — Merge Engine v2
     capabilities: { reasoning: 90, creativity: 20, determinism: 80, riskTolerance: 20, verbosity: 60 },
@@ -475,7 +475,7 @@ NIKDY:
     reviewPolicy: REVIEW_POLICY.SELF,
     dataUsagePolicy: DATA_USAGE.EVIDENCE,
     outputBias: OUTPUT_BIAS.CONSERVATIVE,
-    preferredModels: ['qwen2.5:32b'],
+    preferredModels: ['qwen3.5:27b'],
     temperature: 0.4,
     // v63.0 — Merge Engine v2
     capabilities: { reasoning: 70, creativity: 20, determinism: 60, riskTolerance: 50, verbosity: 40 },
@@ -531,7 +531,7 @@ NIKDY:
     reviewPolicy: REVIEW_POLICY.SELF,
     dataUsagePolicy: DATA_USAGE.CONTROLLED,
     outputBias: OUTPUT_BIAS.CONSERVATIVE,
-    preferredModels: ['qwen2.5:32b'],
+    preferredModels: ['qwen3.5:27b'],
     temperature: 0.2,
     tools: ['tax_calculator', 'vat_calculator', 'deadline_checker', 'salary_calculator'],
     // v63.0 — Merge Engine v2
@@ -627,7 +627,7 @@ Na konci KAŽDÉ odpovědi obsahující výpočet nebo daňovou radu:
     reviewPolicy: REVIEW_POLICY.SELF,
     dataUsagePolicy: DATA_USAGE.EVIDENCE,
     outputBias: OUTPUT_BIAS.CONSERVATIVE,
-    preferredModels: ['qwen2.5:32b'],
+    preferredModels: ['qwen3.5:27b'],
     temperature: 0.3,
     // v63.0 — Merge Engine v2
     capabilities: { reasoning: 80, creativity: 10, determinism: 90, riskTolerance: 5, verbosity: 70 },
@@ -687,7 +687,7 @@ NIKDY:
     reviewPolicy: REVIEW_POLICY.SELF,
     dataUsagePolicy: DATA_USAGE.EVIDENCE,
     outputBias: OUTPUT_BIAS.CONSERVATIVE,
-    preferredModels: ['qwen2.5:32b'],
+    preferredModels: ['qwen3.5:27b'],
     temperature: 0.3,
     // v63.0 — Merge Engine v2
     capabilities: { reasoning: 70, creativity: 10, determinism: 85, riskTolerance: 5, verbosity: 60 },
@@ -741,7 +741,7 @@ NIKDY:
     reviewPolicy: REVIEW_POLICY.NONE,
     dataUsagePolicy: DATA_USAGE.FORBIDDEN,
     outputBias: OUTPUT_BIAS.CREATIVE,
-    preferredModels: ['qwen2.5:32b'],
+    preferredModels: ['qwen3.5:27b'],
     temperature: 0.6,
     // v63.0 — Merge Engine v2
     capabilities: { reasoning: 60, creativity: 50, determinism: 30, riskTolerance: 40, verbosity: 70 },
@@ -806,7 +806,7 @@ NIKDY:
     reviewPolicy: REVIEW_POLICY.SELF,
     dataUsagePolicy: DATA_USAGE.EVIDENCE,
     outputBias: OUTPUT_BIAS.ANALYTICAL,
-    preferredModels: ['qwen2.5:32b'],
+    preferredModels: ['qwen3.5:27b'],
     temperature: 0.4,
     // v63.0 — Merge Engine v2
     capabilities: { reasoning: 85, creativity: 35, determinism: 65, riskTolerance: 30, verbosity: 55 },
@@ -864,7 +864,7 @@ NIKDY:
     reviewPolicy: REVIEW_POLICY.SELF,
     dataUsagePolicy: DATA_USAGE.FORBIDDEN,
     outputBias: OUTPUT_BIAS.ANALYTICAL,
-    preferredModels: ['qwen2.5-coder:32b', 'qwen2.5:32b'],
+    preferredModels: ['qwen3.5:27b', 'qwen3.5:27b'],
     temperature: 0.3,
     // v63.0 — Merge Engine v2
     capabilities: { reasoning: 80, creativity: 40, determinism: 70, riskTolerance: 30, verbosity: 30 },
@@ -935,7 +935,7 @@ NIKDY:
     reviewPolicy: REVIEW_POLICY.NONE,
     dataUsagePolicy: DATA_USAGE.FORBIDDEN,
     outputBias: OUTPUT_BIAS.CONSERVATIVE,
-    preferredModels: ['qwen2.5:32b'],
+    preferredModels: ['qwen3.5:27b'],
     temperature: 0.3,
     // v63.0 — Merge Engine v2
     capabilities: { reasoning: 65, creativity: 15, determinism: 80, riskTolerance: 15, verbosity: 50 },
@@ -1000,7 +1000,7 @@ NIKDY:
     reviewPolicy: REVIEW_POLICY.NONE,
     dataUsagePolicy: DATA_USAGE.EVIDENCE,
     outputBias: OUTPUT_BIAS.ANALYTICAL,
-    preferredModels: ['qwen2.5:32b'],
+    preferredModels: ['qwen3.5:27b'],
     temperature: 0.5,
     // v63.0 — Merge Engine v2
     capabilities: { reasoning: 55, creativity: 20, determinism: 50, riskTolerance: 40, verbosity: 50 },
@@ -1058,7 +1058,7 @@ NIKDY:
     reviewPolicy: REVIEW_POLICY.NONE,
     dataUsagePolicy: DATA_USAGE.EVIDENCE,
     outputBias: OUTPUT_BIAS.CONSERVATIVE,
-    preferredModels: ['qwen2.5:32b'],
+    preferredModels: ['qwen3.5:27b'],
     temperature: 0.5,
     // v63.0 — Merge Engine v2
     capabilities: { reasoning: 50, creativity: 20, determinism: 45, riskTolerance: 35, verbosity: 50 },
@@ -1113,7 +1113,7 @@ Vždy zdůrazni ochranné vybavení a zodpovědnou jízdu.`
     reviewPolicy: REVIEW_POLICY.SELF,
     dataUsagePolicy: DATA_USAGE.EVIDENCE,
     outputBias: OUTPUT_BIAS.ANALYTICAL,
-    preferredModels: ['qwen2.5:32b'],
+    preferredModels: ['qwen3.5:27b'],
     temperature: 0.4,
     // v63.0 — Merge Engine v2
     capabilities: { reasoning: 85, creativity: 25, determinism: 60, riskTolerance: 25, verbosity: 65 },
@@ -1190,7 +1190,7 @@ export class ExpertiseAgent {
     this.reviewPolicy = config.reviewPolicy || REVIEW_POLICY.NONE;
     this.dataUsagePolicy = config.dataUsagePolicy || DATA_USAGE.FORBIDDEN;
     this.outputBias = config.outputBias || OUTPUT_BIAS.ANALYTICAL;
-    this.preferredModels = config.preferredModels || ['qwen2.5:32b'];
+    this.preferredModels = config.preferredModels || ['qwen3.5:27b'];
     this.temperature = config.temperature || 0.5;
     this.systemPrompt = config.systemPrompt || '';
     this.chunkingStrategy = config.chunkingStrategy || null;

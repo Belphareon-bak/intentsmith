@@ -15,7 +15,7 @@
 //
 // Requirements:
 //   - Ollama running at http://127.0.0.1:11434
-//   - Models: deepseek-r1:32b, qwen2.5-coder:32b, qwen2.5:32b
+//   - Models: deepseek-r1:32b, qwen3.5:27b, qwen3.5:27b
 //   - Expected duration: 20-40 minutes
 //
 // Run: node tests/lifecycle-klicenka-e2e.test.js
@@ -110,7 +110,7 @@ async function checkOllama() {
     const resp = await fetch('http://127.0.0.1:11434/api/tags');
     const data = await resp.json();
     const models = data.models?.map(m => m.name) || [];
-    const required = ['deepseek-r1', 'qwen2.5-coder', 'qwen2.5'];
+    const required = ['deepseek-r1', 'qwen3.5'];
     let ok = true;
     for (const req of required) {
       const found = models.some(m => m.includes(req));

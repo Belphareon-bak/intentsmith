@@ -13,7 +13,7 @@
 //   - Language consistency (responses should be in Czech)
 //
 // Usage: node tests/expert-ab-quality.test.js
-// Requires: Ollama running at 127.0.0.1:11434 with qwen2.5:32b
+// Requires: Ollama running at 127.0.0.1:11434 with qwen3.5:27b
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { expertiseRegistry } from '../src/expertises/expertise-layer.js';

@@ -156,7 +156,7 @@ function wrapConversationHandler(existingHandler) {
       const { onCREDecision, onLLMStart, onLLMDone, onGateVerdict } = options;
 
       // Emitovat start
-      if (onLLMStart) onLLMStart('qwen2.5', 0);
+      if (onLLMStart) onLLMStart('qwen3.5', 0);
 
       // Zavolat existující handler
       const result = await existingHandler.handle(input);

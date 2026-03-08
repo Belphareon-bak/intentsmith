@@ -66,7 +66,7 @@ function chat(message) {
   }, 180000); // 3 minute timeout — we want to MEASURE, not timeout
 }
 
-function ollamaDirect(prompt, model = 'qwen2.5:32b') {
+function ollamaDirect(prompt, model = 'qwen3.5:27b') {
   return request(OLLAMA_URL, 'POST', '/api/generate', {
     model,
     prompt,

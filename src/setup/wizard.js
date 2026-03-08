@@ -34,11 +34,11 @@ const DEFAULT_SETUP = {
   ollama: {
     url: 'http://127.0.0.1:11434',
     models: {
-      CHAT: 'qwen2.5:32b',
-      CODE: 'qwen2.5-coder:32b',
+      CHAT: 'qwen3.5:27b',
+      CODE: 'qwen3.5:27b',
       D1: 'deepseek-r1-32b',
       R1: 'deepseek-r1-32b',
-      R2: 'qwen2.5:32b',
+      R2: 'qwen3.5:27b',
       D2: 'qwen3-30b-a3b',
     },
     verified: false,

@@ -1384,7 +1384,7 @@ function initEvents() {
 let rightSidebarOpen = false;
 let memoryItems = [];
 let appSettings = {
-  model: 'qwen2.5:32b',
+  model: 'qwen3.5:27b',
   temperature: 0.7,
   systemPrompt: '',
   contextWindow: 32768,
@@ -1747,8 +1747,8 @@ const settingsState = {
   // System
   system: {
     runtime: 'local',
-    modelChat: 'qwen2.5:32b',
-    modelCode: 'qwen2.5-coder:32b',
+    modelChat: 'qwen3.5:27b',
+    modelCode: 'qwen3.5:27b',
     ollamaUrl: 'http://localhost:11434',
     maxTokens: 32768,
     lockConfig: false

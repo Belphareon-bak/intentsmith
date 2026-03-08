@@ -78,8 +78,8 @@ npm install
 cp .env.example .env
 
 # 3. Ollama modely (vyžaduje ~20 GB VRAM pro 32B modely)
-ollama pull qwen2.5:32b          # hlavní chat
-ollama pull qwen2.5-coder:32b    # generování kódu
+ollama pull qwen3.5:27b          # hlavní chat
+ollama pull qwen3.5:27b    # generování kódu
 ollama pull deepseek-r1-32b      # hluboká analýza
 
 # 4. Start
@@ -251,7 +251,7 @@ Veškerá konfigurace přes environment proměnné (`.env`). Výchozí hodnoty f
 | Sekce | Klíčové proměnné | Default |
 |-------|------------------|---------|
 | Server | `C3_PORT`, `C3_HOST` | `3335`, `127.0.0.1` |
-| Modely | `C3_MODEL_CHAT`, `C3_MODEL_CODE`, `C3_MODEL_D1` | qwen2.5:32b, qwen2.5-coder:32b, deepseek-r1-32b |
+| Modely | `C3_MODEL_CHAT`, `C3_MODEL_CODE`, `C3_MODEL_D1` | qwen3.5:27b, qwen3.5:27b, deepseek-r1-32b |
 | Databáze | `C3_DB_PATH` | `./data/c3.db` |
 | Features | `C3_ENABLE_LIFECYCLE`, `C3_ENABLE_SKILLS`, ... | vše zapnuto |
 | Bezpečnost | `C3_ADMIN_TOKEN` | - (localhost bypass v dev) |

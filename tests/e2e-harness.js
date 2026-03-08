@@ -138,7 +138,7 @@ export async function checkOllama() {
     const resp = await fetch('http://127.0.0.1:11434/api/tags');
     const data = await resp.json();
     const models = data.models?.map(m => m.name) || [];
-    const required = ['deepseek-r1', 'qwen2.5-coder', 'qwen2.5'];
+    const required = ['deepseek-r1', 'qwen3.5'];
     let ok = true;
     for (const req of required) {
       const found = models.some(m => m.includes(req));

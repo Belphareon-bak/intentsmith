@@ -229,9 +229,9 @@ test('D1 and R1 use same model (deepseek-r1)', async () => {
   assertIncludes(config.models.D1, 'deepseek-r1');
 });
 
-test('CODE uses qwen2.5-coder', async () => {
+test('CODE uses qwen3.5', async () => {
   const { default: config } = await import('../src/config.js');
-  assertIncludes(config.models.CODE, 'qwen2.5-coder');
+  assertIncludes(config.models.CODE, 'qwen3.5');
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════

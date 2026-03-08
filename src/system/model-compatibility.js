@@ -13,11 +13,10 @@
  * real_vram_mb = approximate VRAM needed including KV cache overhead.
  */
 const MODEL_TIERS = [
-  { model: 'qwen2.5:3b',    params: '3B',  quant: 'Q4_K_M', size_gb: 2.0,  real_vram_mb: 2400,  min_vram_mb: 0,     ctx_default: 4096  },
-  { model: 'qwen2.5:7b',    params: '7B',  quant: 'Q4_K_M', size_gb: 4.4,  real_vram_mb: 5300,  min_vram_mb: 6000,  ctx_default: 8192  },
-  { model: 'qwen2.5:14b',   params: '14B', quant: 'Q4_K_M', size_gb: 8.9,  real_vram_mb: 10700, min_vram_mb: 12000, ctx_default: 8192  },
-  { model: 'qwen2.5:14b',   params: '14B', quant: 'Q5_K_M', size_gb: 10.3, real_vram_mb: 12400, min_vram_mb: 14000, ctx_default: 8192  },
-  { model: 'qwen2.5:32b',   params: '32B', quant: 'Q4_K_M', size_gb: 19.9, real_vram_mb: 23900, min_vram_mb: 22000, ctx_default: 16384 },
+  { model: 'qwen3.5:4b',    params: '4B',  quant: 'Q4_K_M', size_gb: 2.6,  real_vram_mb: 3100,  min_vram_mb: 0,     ctx_default: 8192  },
+  { model: 'qwen3.5:9b',    params: '9B',  quant: 'Q4_K_M', size_gb: 5.6,  real_vram_mb: 6700,  min_vram_mb: 6000,  ctx_default: 16384 },
+  { model: 'qwen3.5:27b',   params: '27B', quant: 'Q4_K_M', size_gb: 16.0, real_vram_mb: 19200, min_vram_mb: 18000, ctx_default: 32768 },
+  { model: 'qwen3.5:35b',   params: '35B', quant: 'Q4_K_M', size_gb: 21.0, real_vram_mb: 25200, min_vram_mb: 22000, ctx_default: 32768 },
   { model: 'llama3.1:70b',  params: '70B', quant: 'Q4_K_M', size_gb: 40.0, real_vram_mb: 48000, min_vram_mb: 46000, ctx_default: 8192  },
 ];
 
@@ -25,13 +24,12 @@ const MODEL_TIERS = [
  * VRAM → recommended model lookup table (for quick reference).
  */
 const VRAM_RECOMMENDATIONS = [
-  { vram_label: 'CPU-only', max_vram: 0,     recommended: 'qwen2.5:3b (Q4_K_M)',  note: 'Very slow, CPU inference only' },
-  { vram_label: '4 GB',     max_vram: 4096,  recommended: 'qwen2.5:3b (Q4_K_M)',  note: 'Tight fit, short context' },
-  { vram_label: '6 GB',     max_vram: 6144,  recommended: 'qwen2.5:3b (Q4_K_M)',  note: 'Comfortable for 3B' },
-  { vram_label: '8 GB',     max_vram: 8192,  recommended: 'qwen2.5:7b (Q4_K_M)',  note: 'Good for basic tasks' },
-  { vram_label: '12 GB',    max_vram: 12288, recommended: 'qwen2.5:14b (Q4_K_M)', note: 'Good balance' },
-  { vram_label: '16 GB',    max_vram: 16384, recommended: 'qwen2.5:14b (Q5_K_M)', note: 'Higher quality quantization' },
-  { vram_label: '24 GB',    max_vram: 24576, recommended: 'qwen2.5:32b (Q4_K_M)', note: 'Best for C3 (current default)' },
+  { vram_label: 'CPU-only', max_vram: 0,     recommended: 'qwen3.5:4b (Q4_K_M)',  note: 'Very slow, CPU inference only' },
+  { vram_label: '4 GB',     max_vram: 4096,  recommended: 'qwen3.5:4b (Q4_K_M)',  note: 'Tight fit, short context' },
+  { vram_label: '8 GB',     max_vram: 8192,  recommended: 'qwen3.5:9b (Q4_K_M)',  note: 'Good for basic tasks' },
+  { vram_label: '12 GB',    max_vram: 12288, recommended: 'qwen3.5:9b (Q4_K_M)',  note: 'Good balance' },
+  { vram_label: '16 GB',    max_vram: 16384, recommended: 'qwen3.5:9b (Q4_K_M)',  note: 'Comfortable for 9B' },
+  { vram_label: '24 GB',    max_vram: 24576, recommended: 'qwen3.5:27b (Q4_K_M)', note: 'Best for C3 (current default)' },
   { vram_label: '48 GB',    max_vram: 49152, recommended: 'llama3.1:70b (Q4_K_M)', note: 'Maximum capability' },
 ];
 
@@ -90,7 +88,7 @@ export function recommend(vramMb, isIGPU = false) {
 /**
  * Check if a specific model is compatible with available VRAM.
  *
- * @param {string} modelName - Model name (e.g., 'qwen2.5:32b')
+ * @param {string} modelName - Model name (e.g., 'qwen3.5:27b')
  * @param {number} vramMb - Available VRAM in MB
  * @param {boolean} isIGPU
  * @returns {{ compatible: boolean, reason: string|null, estimated_vram_mb: number }}

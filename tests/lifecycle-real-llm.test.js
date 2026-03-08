@@ -4,7 +4,7 @@
 // Tests lifecycle transitions with REAL Ollama LLM calls against the running server.
 // Verifies that the LLM produces valid JSON at each stage and state transitions work.
 //
-// Requires: C3 server running at http://127.0.0.1:3335, Ollama with qwen2.5:32b
+// Requires: C3 server running at http://127.0.0.1:3335, Ollama with qwen3.5:27b
 // Run: node tests/lifecycle-real-llm.test.js
 // ═══════════════════════════════════════════════════════════════════════════════
 

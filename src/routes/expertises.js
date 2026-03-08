@@ -379,7 +379,7 @@ export function createExpertiseRoutes(deps) {
           ...body,
           primaryProblemTypes: body.primaryProblemTypes || ['procedural'],
           allowedRepresentations: body.allowedRepresentations || ['structured'],
-          preferredModels: body.preferredModels || ['qwen2.5:32b']
+          preferredModels: body.preferredModels || ['qwen3.5:27b']
         });
 
         // Save to database

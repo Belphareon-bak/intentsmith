@@ -136,7 +136,7 @@ Odpověz POUZE tímto JSON formátem:
 }`;
 
     const response = await this.llm.chat({
-      model: 'qwen2.5:32b',
+      model: 'qwen3.5:27b',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: description }
@@ -195,7 +195,7 @@ Odpověz POUZE JSON s upravenou definicí a vysvětlením změn:
 }`;
 
     const response = await this.llm.chat({
-      model: 'qwen2.5:32b',
+      model: 'qwen3.5:27b',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: feedback }
@@ -236,7 +236,7 @@ Odpověz JSON:
 }`;
 
     const response = await this.llm.chat({
-      model: 'qwen2.5:32b',
+      model: 'qwen3.5:27b',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: 'Analyzuj tohoto agenta a navrhni vylepšení.' }

@@ -1,7 +1,7 @@
 // C3-Agent v57.3 — LLM Integration Tests Part 2 (16 tests)
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// Requires: Ollama running at 127.0.0.1:11434 with qwen2.5:32b.
+// Requires: Ollama running at 127.0.0.1:11434 with qwen3.5:27b.
 //
 // Sections:
 //   7.  Language Detection & Enforcement (4 tests)
@@ -17,7 +17,7 @@
 import { suite, testAsync, assert, assertEqual, assertIncludes, summary } from './harness.js';
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
-const CHAT_MODEL = 'qwen2.5:32b';
+const CHAT_MODEL = 'qwen3.5:27b';
 const TIMEOUT = 90_000;
 
 // ═══════════════════════════════════════════════════════════════════════════════

@@ -46,8 +46,8 @@ services:
     command:
       - |
         echo "🔄 Pulling C3 models..."
-        ollama pull qwen2.5:32b
-        ollama pull qwen2.5-coder:32b
+        ollama pull qwen3.5:27b
+        ollama pull qwen3.5:27b
         ollama pull deepseek-r1:32b
         echo "✅ All models ready"
     volumes:

@@ -344,21 +344,21 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
           h('h4', { key: 'llm-models', className: 'c3-settings-h4' }, 'Models'),
           ..._inp('c3.llm.ollamaUrl', 'Ollama URL', 'http://127.0.0.1:11434'),
           h('label', { key: 'chat-m-l', className: 'c3-label' }, 'Chat model'),
-          h('select', { key: 'chat-m-s', className: 'c3-select', id: 'c3-llm-chat-model', defaultValue: 'qwen2.5:32b',
+          h('select', { key: 'chat-m-s', className: 'c3-select', id: 'c3-llm-chat-model', defaultValue: 'qwen3.5:27b',
             onChange: (e) => _sync('c3.llm.chatModel', e.target.value)
           },
-            h('option', { value: 'qwen2.5:32b' }, 'qwen2.5:32b'),
-            h('option', { value: 'qwen2.5:14b' }, 'qwen2.5:14b'),
-            h('option', { value: 'qwen2.5:7b' }, 'qwen2.5:7b'),
-            h('option', { value: 'qwen2.5:3b' }, 'qwen2.5:3b')
+            h('option', { value: 'qwen3.5:27b' }, 'qwen3.5:27b'),
+            h('option', { value: 'qwen3.5:14b' }, 'qwen3.5:14b'),
+            h('option', { value: 'qwen3.5:7b' }, 'qwen3.5:7b'),
+            h('option', { value: 'qwen3.5:3b' }, 'qwen3.5:3b')
           ),
           h('label', { key: 'code-m-l', className: 'c3-label' }, 'Code model'),
-          h('select', { key: 'code-m-s', className: 'c3-select', defaultValue: 'qwen2.5-coder:32b',
+          h('select', { key: 'code-m-s', className: 'c3-select', defaultValue: 'qwen3.5:27b',
             onChange: (e) => _sync('c3.llm.codeModel', e.target.value)
           },
-            h('option', { value: 'qwen2.5-coder:32b' }, 'qwen2.5-coder:32b'),
-            h('option', { value: 'qwen2.5-coder:14b' }, 'qwen2.5-coder:14b'),
-            h('option', { value: 'qwen2.5-coder:7b' }, 'qwen2.5-coder:7b')
+            h('option', { value: 'qwen3.5:27b' }, 'qwen3.5:27b'),
+            h('option', { value: 'qwen3.5:14b' }, 'qwen3.5:14b'),
+            h('option', { value: 'qwen3.5:7b' }, 'qwen3.5:7b')
           ),
           h('button', { key: 'load-models', className: 'c3-btn-sm c3-mt-8', onClick: () => this._loadOllamaModels() }, 'Load from Ollama'),
 

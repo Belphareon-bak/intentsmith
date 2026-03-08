@@ -48,7 +48,7 @@ Pravidla:
 Odpověz POUZE textem notifikace, nic jiného.`;
 
     const response = await this.llm.chat({
-      model: 'qwen2.5:32b',
+      model: 'qwen3.5:27b',
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -87,7 +87,7 @@ Pravidla:
 Odpověz POUZE shrnutím, nic jiného.`;
 
     const response = await this.llm.chat({
-      model: 'qwen2.5:32b',
+      model: 'qwen3.5:27b',
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -134,7 +134,7 @@ Odpověz JSON:
 }`;
 
     const response = await this.llm.chat({
-      model: 'qwen2.5:32b',
+      model: 'qwen3.5:27b',
       messages: [{ role: 'user', content: prompt }],
       format: 'json'
     });
@@ -178,7 +178,7 @@ Pravidla:
 Odpověz POUZE vysvětlením, nic jiného.`;
 
     const response = await this.llm.chat({
-      model: 'qwen2.5:32b',
+      model: 'qwen3.5:27b',
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -214,7 +214,7 @@ Pravidla:
 Odpověz POUZE analýzou, nic jiného.`;
 
     const response = await this.llm.chat({
-      model: 'qwen2.5:32b',
+      model: 'qwen3.5:27b',
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -254,7 +254,7 @@ Odpověz JSON:
 }`;
 
     const response = await this.llm.chat({
-      model: 'qwen2.5:32b',
+      model: 'qwen3.5:27b',
       messages: [{ role: 'user', content: prompt }],
       format: 'json'
     });
@@ -303,7 +303,7 @@ Odpověz JSON:
 }`;
 
     const response = await this.llm.chat({
-      model: 'qwen2.5:32b',
+      model: 'qwen3.5:27b',
       messages: [{ role: 'user', content: prompt }],
       format: 'json'
     });

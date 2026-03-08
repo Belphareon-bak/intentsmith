@@ -21,7 +21,7 @@
 //
 // Requirements:
 //   - Ollama running at http://127.0.0.1:11434
-//   - Models: deepseek-r1:32b, qwen2.5-coder:32b, qwen2.5:32b
+//   - Models: deepseek-r1:32b, qwen3.5:27b, qwen3.5:27b
 //   - Expected duration: 30-60 minutes
 //
 // Run: node tests/ultimate-e2e.test.js

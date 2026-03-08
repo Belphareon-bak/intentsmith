@@ -77,7 +77,7 @@ All decisions flow through CRE — LLM is the text generator, never the authorit
 │                    55 tables, prepared statements                     │
 ├──────────────────────────────────────────────────────────────────────┤
 │                     LLM Gateway (Ollama)                             │
-│              qwen2.5:32b (CHAT), deepseek-r1:32b (D1/R1)            │
+│              qwen3.5:27b (CHAT), deepseek-r1:32b (D1/R1)            │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -686,10 +686,10 @@ features: {
 |------|-------|---------|
 | D1 (deliberation) | deepseek-r1:32b | 120s |
 | D2 (fix) | qwen3-30b-a3b | 60s |
-| CODE | qwen2.5-coder:32b | 90s |
+| CODE | qwen3.5:27b | 90s |
 | R1 (review) | deepseek-r1:32b | 120s |
-| R2 (quick review) | qwen2.5:32b | 45s |
-| CHAT | qwen2.5:32b | 60s |
+| R2 (quick review) | qwen3.5:27b | 45s |
+| CHAT | qwen3.5:27b | 60s |
 | VISION | llava:13b | 60s |
 
 ### Environment Variables

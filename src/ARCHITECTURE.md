@@ -187,9 +187,9 @@ D1 (deepseek-r1) → Analyze → CLARIFY? → questions back to user
      ↓ READY
 D1 → Create Plan → User confirms
      ↓ OK
-CODE (qwen2.5-coder) → Implement
+CODE (qwen3.5:27b) → Implement
      ↓
-R2 (qwen2.5:32b) → Quick Review
+R2 (qwen3.5:27b) → Quick Review
      ↓ FAIL                    ↓ PASS
 D2 (qwen3-30b) → Fix plan     R1 (deepseek-r1) → Final Review
      ↓                              ↓ FAIL (redesign)
@@ -207,9 +207,9 @@ CODE → Apply Fix                   D1 → Redesign
 |------|-------|-----|---------|
 | D1 | deepseek-r1:32b | Analyze, plan, redesign | Execute code |
 | D2 | qwen3-30b-a3b | Deliberate fixes | Execute code |
-| CODE | qwen2.5-coder:32b | Implement, apply fixes | Decide what to build |
+| CODE | qwen3.5:27b | Implement, apply fixes | Decide what to build |
 | R1 | deepseek-r1:32b | Final deep review | Fix issues |
-| R2 | qwen2.5:32b | Quick review | Fix issues |
+| R2 | qwen3.5:27b | Quick review | Fix issues |
 
 **API Endpoints:**
 
@@ -306,7 +306,7 @@ POST /api/chat (BUILD)   → ChatController → CRE → build-handoff → workfl
 | Quality moduly | 5 (integrované) |
 | Safety domény | 4 (health, finance, law, general) |
 | Circuit breaker | ✅ per-tool |
-| LLM modely | 4 (deepseek-r1, qwen3-30b, qwen2.5-coder, qwen2.5) |
+| LLM modely | 4 (deepseek-r1, qwen3-30b, qwen3.5:27b, qwen3.5) |
 
 ---
 

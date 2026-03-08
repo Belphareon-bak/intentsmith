@@ -4,6 +4,9 @@
   "type": "module",
   "description": "C.3 Agent v95 — Full Code Intelligence (7 phases: search, file discovery, analyzer, AST, symbol index, semantic index, debug agent)",
   "main": "src/server.js",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",

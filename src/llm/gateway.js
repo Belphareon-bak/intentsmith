@@ -302,7 +302,7 @@ class LLMGateway {
     // MAKE THE CALL
     // ════════════════════════════════════════════════════════════════════════
     
-    const model = options.model || config.models?.CHAT || 'qwen2.5:32b';
+    const model = options.model || config.models?.CHAT || 'qwen3.5:27b';
     const timeout = options.timeout || config.timeouts?.CHAT || 60000;
     
     // Build messages (support pre-built array via options.messages)

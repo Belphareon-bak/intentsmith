@@ -2567,7 +2567,7 @@ function settingsLLM(){
   if(!_gpuInfo){fetch(_backendBase+'/api/system/gpu',{signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(d){_gpuInfo=d;renderCenter();}).catch(function(){_gpuInfo={error:true};});}
   if(!_ollamaModels){fetch(_backendBase+'/api/system/models',{signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(d){_ollamaModels=d.models||d||[];renderCenter();}).catch(function(){_ollamaModels=[];});}
   var models=(_ollamaModels||[]).map(function(m){return typeof m==='string'?m:m.name||m.model||'';}).filter(Boolean);
-  if(models.length===0)models=['qwen2.5:32b','qwen2.5-coder:32b','llava:13b','llama3.1:70b','mistral:7b'];
+  if(models.length===0)models=['qwen3.5:27b','qwen3.5:27b','llava:13b','llama3.1:70b','mistral:7b'];
   var gpus=_gpuInfo&&_gpuInfo.profile?_gpuInfo.profile.gpus:(_gpuInfo&&_gpuInfo.gpus?_gpuInfo.gpus:null);
   var rec=_gpuInfo&&_gpuInfo.recommendation?_gpuInfo.recommendation:null;
   return h('div',null,
@@ -2582,8 +2582,8 @@ function settingsLLM(){
           g.driver?h('span',{style:{color:C.tx4,fontSize:_fs(9)}},' ('+g.driver+(g.cuda_version?' / CUDA '+g.cuda_version:'')+')'):null);
       }),
       rec&&rec.recommended_model?h('div',{style:{fontSize:_fs(9),color:C.accent,marginTop:6}},'Doporučený model: '+rec.recommended_model):null):null,
-    _cfgSelect(_lI('Chat model','Hlavní model pro konverzaci, syntézu a analýzu'),'c3.llm.chatModel','qwen2.5:32b',models),
-    _cfgSelect(_lI('Code model','Model optimalizovaný pro generování a editaci kódu'),'c3.llm.codeModel','qwen2.5-coder:32b',models),
+    _cfgSelect(_lI('Chat model','Hlavní model pro konverzaci, syntézu a analýzu'),'c3.llm.chatModel','qwen3.5:27b',models),
+    _cfgSelect(_lI('Code model','Model optimalizovaný pro generování a editaci kódu'),'c3.llm.codeModel','qwen3.5:27b',models),
     _cfgSelect(_lI('Vision model','Model pro analýzu obrázků a vizuálního obsahu'),'c3.llm.visionModel','llava:13b',models),
     _cfgInput('Ollama URL','c3.llm.ollamaUrl','http://127.0.0.1:11434','input','Adresa lokálního Ollama serveru'),
     _cfgSlider(_lI('Temperature','Nízká = deterministické, konzistentní odpovědi. Vysoká = kreativnější, rozmanitější výstupy.'),'c3.llm.temperature',0.7,0,2,0.1,''),

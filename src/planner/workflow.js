@@ -8,11 +8,11 @@
 //        ↓ READY
 //   D1 → Create Plan → User confirms
 //        ↓ OK
-//   CODE (qwen2.5-coder) → Implement
+//   CODE (qwen3.5:27b) → Implement
 //        ↓
 //   BUILD_VERIFY → Run build command (deterministic, no LLM)
 //        ↓ FAIL (max 3)            ↓ PASS (or no build script → skip)
-//   D2 → Diagnose errors           R2 (qwen2.5:32b) → Quick Review
+//   D2 → Diagnose errors           R2 (qwen3.5:27b) → Quick Review
 //   CODE → Fix                     ↓ FAIL                    ↓ PASS
 //        → BUILD_VERIFY (loop)     D2 → Fix plan     R1 (deepseek-r1) → Final
 //                                  CODE → Apply Fix          ↓ FAIL (redesign)

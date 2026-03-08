@@ -25,7 +25,7 @@ class C3AgentLogWidget extends react_widget_1.ReactWidget {
     this._log = [
       { time: '14:32:01', type: 'TURN', cls: 'turn', text: 'start — "Popiš historii Československa"', active: true },
       { time: '14:32:01', type: 'CRE',  cls: 'cre',  text: 'CONV conf=0.94' },
-      { time: '14:32:02', type: 'LLM',  cls: 'llm',  text: 'qwen2.5:32b 847tok' },
+      { time: '14:32:02', type: 'LLM',  cls: 'llm',  text: 'qwen3.5:27b 847tok' },
       { time: '14:32:04', type: 'GATE', cls: 'gate', text: 'D6.1✓ D6.2✓ q=0.91' },
       { time: '14:32:04', type: 'TURN', cls: 'turn', text: 'end ok 2847ms' }
     ];

@@ -377,7 +377,7 @@ node src/server.js
 
 ### Prerekvizity
 - Node.js 22+ (system node 18 NESTACI — potreba nvm)
-- Ollama s modelem qwen2.5:32b (http://127.0.0.1:11434)
+- Ollama s modelem qwen3.5:27b (http://127.0.0.1:11434)
 - SQLite (better-sqlite3)
 
 ### Testy
@@ -553,14 +553,14 @@ Kazdy override logovan do `cre_override_log` tabulky.
 
 ## Zname problemy a omezeni
 
-### LLM Variance (qwen2.5:32b)
+### LLM Variance (qwen3.5:27b)
 - T1 ("mobilni app"): LLM obcas nevraci dostatecnou hloubku (~depth < 5)
 - T7 ("motorky"): Podobny problem s depth u porovnani
 - T12 ("React/Vue/Angular"): LLM obcas odpovi v EN misto CZ
 - S1: Zavisle na search API dostupnosti — kdyz search tool nevrati vysledky, LinkGuard nemuze injektovat URL
 
 ### SK Kontaminace
-- qwen2.5:32b ma tendency generovat slovensky misto cesky (sdileny corpus)
+- qwen3.5:27b ma tendency generovat slovensky misto cesky (sdileny corpus)
 - Reseno v 3 vrstvach: system prompt instruction, synthesis retry, QGv2 mechanical transliterator
 - Unconditional strip l/o + kritickych SK slov pridan pro edge cases pod detection threshold
 
@@ -580,7 +580,7 @@ Kazdy override logovan do `cre_override_log` tabulky.
 1. **Nejdriv testy** — pred jakoukoli zmenou spust existujici testy
 2. **ESM** — `import/export`, IDE soubory `.cjs` (CommonJS)
 3. **Ceska diakritika** — `\b` nefunguje s non-ASCII; pouzij `(?:\s|$|[?!.,;])` misto `\b`
-4. **Ollama model** — `qwen2.5:32b` je vychozi model pro vsechny LLM volani
+4. **Ollama model** — `qwen3.5:27b` je vychozi model pro vsechny LLM volani
 5. **Merge engine nedotykej** — `merge-engine.js` je cista funkce, zmeny jen v handleru
 6. **Node.js 22+** — system node 18 nestaci, pouzij nvm: `export PATH="$HOME/.nvm/versions/node/v22.21.1/bin:$PATH"`
 7. **E2E testy** — `e2e-quality-deep.cjs` je LLM-dependent, ocekavej 89-97% pass rate (ne 100%)

@@ -2,7 +2,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // End-to-end tests that actually call Ollama and verify real LLM responses.
-// Requires: Ollama running at localhost:11434 with qwen2.5:32b loaded.
+// Requires: Ollama running at localhost:11434 with qwen3.5:27b loaded.
 //
 // Sections:
 //   1. Ollama Connectivity — verify model is reachable
@@ -19,7 +19,7 @@
 import { suite, testAsync, assert, assertEqual, assertIncludes, summary } from './harness.js';
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
-const CHAT_MODEL = 'qwen2.5:32b';
+const CHAT_MODEL = 'qwen3.5:27b';
 const TIMEOUT = 90_000; // 90s per LLM call (32b model can be slow)
 
 // ═══════════════════════════════════════════════════════════════════════════════

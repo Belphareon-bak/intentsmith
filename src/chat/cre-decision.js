@@ -1125,14 +1125,14 @@ const BUILD_PATTERNS = [
 const DISCUSSION_VERBS = /(?:reviz[ieí]|proj[ií]t|projd[eě]me|doladit|dolad[ií]me|probrat|probereme|prodiskut\S*|projedn\S*|zkontrol\S*|zhodnot\S*|konzult\S*|review|discuss|go\s+through|fine.?tune|refine|talk\s+about)/i;
 
 // CZ + EN verbs indicating build/implementation intent (stem-based for conjugated forms)
-const BUILD_VERBS = /(?:implement\S*|stav[eěií]\S*|build\S*|programov\S*|k[oó]d(?:ov|uj)\S*|pustit|za[cč][ií]t\s+(?:stav|impl|prog|k[oó]d)|develop|code|start\s+build)/i;
+const BUILD_VERBS = /(?:implement\S*|stav[eěií]\S*|build\S*|programov\S*|k[oó]d\S*|pust\S*|za[cč][ií]t\s+(?:stav|impl|prog|k[oó]d)|develop|code|start\S*)/i;
 
 // CZ + EN temporal ordering markers
 const SEQUENCE_MARKERS = /(?:a\s+pak|a\s+potom|a\s+n[aá]sledn[eě]|pot[ée]\s+|po\s+tom|nejd[rř][ií]v|nejdrive|p[rř]edt[ií]m|predtim|before|and\s+then)/i;
 
 // CZ: conditional mood before build verb — future intent, not imperative
 // Handles both word orders: "by ses mohl / bys mohl" AND "mohli bychom / mohla bych"
-const CONDITIONAL_BUILD = /(?:(?:by\s+(?:ses?\s+)?|bys\s+)(?:mohl?a?|mohli)|(?:mohl?a?|mohli)\s+by(?:ch(?:om)?|ste|s)?(?:\s+se)?)\s+.{0,40}(?:pustit|za[cč][ií]t|implement\S*|stav[eěií]\S*|programov\S*|k[oó]d(?:ov|uj)\S*)/i;
+const CONDITIONAL_BUILD = /(?:(?:by\s+(?:ses?\s+)?|bys\s+)(?:mohl?a?|mohli)|(?:mohl?a?|mohli)\s+by(?:ch(?:om)?|ste|s)?(?:\s+se)?)\s+.{0,40}(?:pust\S*|za[cč][ií]t|implement\S*|stav[eěií]\S*|programov\S*|k[oó]d\S*)/i;
 
 // CZ + EN: "nejdřív to projdeme" — implicit sequence without explicit build verb
 const IMPLICIT_DISCUSSION_FIRST = /(?:nejd[rř][ií]v|nejdrive|p[rř]edt[ií]m|predtim|first|let'?s\s+first)\s+.{0,40}(?:proj[ií]t|projd|prober|diskut|dolad|reviz|review|discuss|go\s+through)/i;
@@ -2271,7 +2271,7 @@ PRAVIDLA:
     try {
       const result = await llmClassify(userPrompt, systemPrompt, {
         sessionId: context.sessionId || `cre-classify-${Date.now()}`,
-        // v71.1: Use FAST model if available, otherwise CHAT (qwen2.5:32b).
+        // v71.1: Use FAST model if available, otherwise CHAT (qwen3.5:27b).
         // D2 (qwen3-30b-a3b MoE) doesn't handle format:'json' reliably.
         // Set C3_MODEL_FAST env var to use a dedicated classification model.
         model: config.models?.FAST || config.models?.CHAT,

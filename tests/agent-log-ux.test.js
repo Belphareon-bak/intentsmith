@@ -119,9 +119,9 @@ test('tool_result produces _raw with tool, result, durationMs', () => {
 });
 
 test('llm_start produces _raw with model', () => {
-  const entry = formatAgentEvent(mkLLMStart('t-001', 'qwen2.5:32b'));
+  const entry = formatAgentEvent(mkLLMStart('t-001', 'qwen3.5:27b'));
   assertEqual(entry._raw.eventType, 'llm_start');
-  assertEqual(entry._raw.model, 'qwen2.5:32b');
+  assertEqual(entry._raw.model, 'qwen3.5:27b');
   assertEqual(entry._raw.tokensIn, 100);
 });
 
@@ -186,7 +186,7 @@ test('single complete turn groups correctly', () => {
     mkTurnStart('t-001', 'Ahoj'),
     mkSystemStep('t-001', 'handler_selected', 'conversation'),
     mkCREDecision('t-001', 'CONVERSATIONAL', 0.95),
-    mkLLMStart('t-001', 'qwen2.5:32b'),
+    mkLLMStart('t-001', 'qwen3.5:27b'),
     mkLLMDone('t-001', 256, 4200),
     mkTurnEnd('t-001', 'ok', 5000),
   ]);
@@ -242,7 +242,7 @@ test('incomplete turn (no turn_end) gets status=incomplete', () => {
   const t2 = '2026-02-26T10:00:03.000Z';
   const log = fmtAll([
     mkTurnStart('t-001', 'Running...', t1),
-    mkLLMStart('t-001', 'qwen2.5:32b', t2),
+    mkLLMStart('t-001', 'qwen3.5:27b', t2),
     // no turn_end!
   ]);
 
@@ -327,7 +327,7 @@ test('tool_call without result shows as unpaired', () => {
 test('llm_start + llm_done pair into single step', () => {
   const events = fmtAll([
     mkTurnStart('t-001', 'x'),
-    mkLLMStart('t-001', 'qwen2.5:32b'),
+    mkLLMStart('t-001', 'qwen3.5:27b'),
     mkLLMDone('t-001', 256, 4200),
     mkTurnEnd('t-001', 'ok', 5000),
   ]);
@@ -337,7 +337,7 @@ test('llm_start + llm_done pair into single step', () => {
   assertEqual(steps[0].type, 'llm');
   assert(steps[0].start, 'must have start');
   assert(steps[0].done, 'must have done');
-  assertEqual(steps[0].start._raw.model, 'qwen2.5:32b');
+  assertEqual(steps[0].start._raw.model, 'qwen3.5:27b');
   assertEqual(steps[0].done._raw.tokensOut, 256);
   assertEqual(steps[0].done._raw.durationMs, 4200);
 });
@@ -345,7 +345,7 @@ test('llm_start + llm_done pair into single step', () => {
 test('llm_start without llm_done shows as unpaired', () => {
   const events = fmtAll([
     mkTurnStart('t-001', 'x'),
-    mkLLMStart('t-001', 'qwen2.5:32b'),
+    mkLLMStart('t-001', 'qwen3.5:27b'),
     mkTurnEnd('t-001', 'ok', 1000),
   ]);
 
@@ -400,7 +400,7 @@ test('full realistic turn: multiple tools + LLM + system steps', () => {
     mkToolCall('t-001', 'web_search', { query: 'úroková sazba 2026' }),
     mkToolResult('t-001', 'web_search', '5 results', 234),
     mkSystemStep('t-001', 'prompt_built', '1240 chars, system: 380'),
-    mkLLMStart('t-001', 'qwen2.5:32b'),
+    mkLLMStart('t-001', 'qwen3.5:27b'),
     mkLLMDone('t-001', 256, 4200),
     mkGateVerdict('t-001', true, null),
     mkSystemStep('t-001', 'quality_d6', '\u2705'),
@@ -710,7 +710,7 @@ test('realistic 2-turn conversation renders correctly', () => {
     mkToolCall('t-001', 'web_search', { query: 'úroková sazba' }),
     mkToolResult('t-001', 'web_search', '5 results', 234),
     mkSystemStep('t-001', 'prompt_built', '1240 chars, system: 380'),
-    mkLLMStart('t-001', 'qwen2.5:32b'),
+    mkLLMStart('t-001', 'qwen3.5:27b'),
     mkLLMDone('t-001', 256, 4200),
     mkGateVerdict('t-001', true, null),
     mkSystemStep('t-001', 'quality_d6', '\u2705'),
@@ -719,7 +719,7 @@ test('realistic 2-turn conversation renders correctly', () => {
     mkTurnStart('t-002', 'Navrhni spec'),
     mkSystemStep('t-002', 'handler_selected', 'conversation'),
     mkCREDecision('t-002', 'DESIGN', 0.88),
-    mkLLMStart('t-002', 'qwen2.5:32b'),
+    mkLLMStart('t-002', 'qwen3.5:27b'),
     mkLLMDone('t-002', 512, 8000),
     mkTurnEnd('t-002', 'ok', 12100),
   ];

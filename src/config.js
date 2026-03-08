@@ -57,15 +57,15 @@ export const config = {
     D2: process.env.C3_MODEL_D2 || 'qwen3-30b-a3b',
 
     // CODE: Implementation — code generation and fixes
-    CODE: process.env.C3_MODEL_CODE || 'qwen2.5-coder:32b',
+    CODE: process.env.C3_MODEL_CODE || 'qwen3.5:27b',
 
     // R1: Final deep review (= D1, same deep reasoning)
     R1: process.env.C3_MODEL_R1 || 'deepseek-r1-32b',
 
     // R2: Quick review — fast structural/logic check
-    R2: process.env.C3_MODEL_R2 || 'qwen2.5:32b',
+    R2: process.env.C3_MODEL_R2 || 'qwen3.5:27b',
 
-    CHAT: process.env.C3_MODEL_CHAT || 'qwen2.5:32b',
+    CHAT: process.env.C3_MODEL_CHAT || 'qwen3.5:27b',
     VISION: process.env.C3_MODEL_VISION || 'llava:13b',
   },
 
@@ -135,6 +135,8 @@ export const config = {
     maxMilestoneRetries: parseInt(process.env.C3_MAX_MILESTONE_RETRIES || '3'),
     // Auto-commit on milestone PASS
     autoCommit: (process.env.C3_LIFECYCLE_AUTO_COMMIT || 'true') === 'true',
+    // v104: Max iterations for execution loop fix cycle
+    maxLoopIterations: parseInt(process.env.C3_MAX_LOOP_ITERATIONS || '8'),
   },
 
   // v83: Guarded Autonomy — self-tuning CRE parameters
