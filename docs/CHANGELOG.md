@@ -8,6 +8,28 @@
 
 ---
 
+## v113 — F12: Performance Intelligence (2026-03-09)
+
+Import-aware performance anti-pattern detection for LLM-generated code. Advisory only — does not block milestones.
+
+### Performance Analyzer (`perf-analyzer.js`, ~300 LOC)
+- **`AntiPatternType`** enum: N_PLUS_ONE, UNBOUNDED_LOOP, SYNC_IN_ASYNC, REDUNDANT_QUERY, LARGE_PAYLOAD.
+- **`detectAntiPatterns(content, language)`**: Line-by-line detection with import-aware DB context:
+  - **N+1 queries**: DB call inside loop body (requires DB package import evidence from 16 packages).
+  - **Unbounded loops**: while(true)/for(;;)/loop{} without break/return within 30-line scan window.
+  - **Sync-in-async**: 14 synchronous I/O calls (readFileSync, execSync, etc.) inside async functions.
+  - **Redundant queries**: Same DB call (extracted call key, ignoring assignment) repeated within 50 lines.
+  - **Large payloads**: SELECT * without LIMIT, findMany()/findAll() without pagination params.
+- **`analyzeFilePerformance()`**: Convenience wrapper with file path population.
+- **`formatPerfReport()`**: Severity-tagged markdown report with configurable maxEntries.
+- **`severityScore()`**: 0–100 score (100=clean) with weighted deductions (warning=15, info=5, error=25).
+
+### Tests
+- perf-analyzer: **36/36** (10 suites: AntiPatternType, N+1, unbounded loop, sync-in-async, redundant query, large payload, analyzeFilePerformance, formatPerfReport, severityScore, edge cases)
+- **0 regressions** (all 461 existing tests pass)
+
+---
+
 ## v112 — F9: Adaptive Build Strategy (2026-03-09)
 
 Multi-signal build strategy selection for optimal milestone ordering in roadmap generation.
