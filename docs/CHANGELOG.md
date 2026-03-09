@@ -8,6 +8,27 @@
 
 ---
 
+## v115 — F13: Continuous Improvement Mode (2026-03-09)
+
+Post-build quality enhancement — advisory mode, opt-in via config.
+
+### Continuous Improvement (`continuous-improvement.js`, ~350 LOC)
+- **`ImprovementType`** enum: TEST_COVERAGE, CODE_QUALITY, DEAD_CODE, DOCUMENTATION.
+- **`analyzeImprovementOpportunities()`**: Priority-ranked analysis from test coverage, code smells, dead symbols, undocumented files. Weighted: test_coverage(4) > code_quality(3) > dead_code(2) > documentation(1). Same-priority sorted by file name. `maxItems` cap (default 5).
+- **`executeImprovement()`**: Dispatches to type-specific handlers:
+  - TEST_COVERAGE: LLM generates test file → apply → verify tests pass → rollback on failure.
+  - CODE_QUALITY: LLM refactors file → apply → verify no regression → rollback on failure.
+  - DEAD_CODE: Conservative — returns "requires manual review" (too risky for auto-fix).
+  - DOCUMENTATION: LLM adds JSDoc/docstrings → apply.
+- **`runImprovementCycle()`**: Full orchestration with safeguards — `maxFiles` (default 10), `maxLines` (default 500). Filters by type, tracks completed/failed, stops early on limits.
+- **`formatImprovementReport()`**: Human-readable report with completed/failed/stoppedEarly sections.
+
+### Tests
+- continuous-improvement: **39/39** (10 suites: ImprovementType, analyze, execute×4 types, edge cases, cycle, report)
+- **0 regressions** (all 522 existing tests pass)
+
+---
+
 ## v114 — F11: Autonomous Dependency Upgrades (2026-03-09)
 
 Multi-package-manager dependency detection and safe upgrade orchestration.
