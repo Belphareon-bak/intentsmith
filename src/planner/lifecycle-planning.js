@@ -25,6 +25,24 @@ import { validateMilestoneSize, suggestMilestoneSplit } from './milestone-size.j
 import { ProjectPhase } from './lifecycle.js';
 import { logRoadmapScore } from './quality-telemetry.js';
 
+// v112: Adaptive Build Strategy — lazy-loaded
+let _buildStratLoaded = false;
+let _selectStrategy, _formatStrategyForPrompt;
+
+async function ensureBuildStrategy() {
+  if (_buildStratLoaded) return true;
+  try {
+    const mod = await import('./build-strategy.js');
+    _selectStrategy = mod.selectStrategy;
+    _formatStrategyForPrompt = mod.formatStrategyForPrompt;
+    _buildStratLoaded = true;
+    return true;
+  } catch (err) {
+    logger.warn('LifecyclePlanning', `Build strategy not available: ${err.message}`);
+    return false;
+  }
+}
+
 // ─── Milestone ID Scoping ────────────────────────────────────────────────────
 // Milestone IDs from D1 are always "ms-1", "ms-2", etc. — global collisions
 // when multiple lifecycles coexist. Scope with lifecycle suffix before DB storage.
@@ -71,7 +89,26 @@ export async function generateRoadmap(lifecycle, context) {
     try { context.onSystemStep('spec_loaded', lifecycle.id, 2); } catch (_) {}
   }
 
-  const prompt = generateRoadmapPrompt(spec);
+  // v112: Inject build strategy hint if architecture is available
+  let strategySection = '';
+  if (await ensureBuildStrategy()) {
+    try {
+      const arch = lifecycle._detectedArchitecture || context?.architecture || null;
+      if (arch) {
+        const stratResult = _selectStrategy(arch);
+        strategySection = _formatStrategyForPrompt(stratResult);
+        if (strategySection) {
+          logger.info('LifecyclePlanning', `Build strategy: ${stratResult.strategy} (${Math.round(stratResult.confidence * 100)}%)`, {
+            lifecycleId: lifecycle.id,
+          });
+        }
+      }
+    } catch (err) {
+      logger.warn('LifecyclePlanning', `Build strategy selection failed: ${err.message}`);
+    }
+  }
+
+  const prompt = generateRoadmapPrompt(spec) + (strategySection ? `\n\n${strategySection}` : '');
   const llm = lifecycle.callLLM || callLLM;
   const result = await llm('D1', prompt);
   const roadmap = parseJSON(result.content);

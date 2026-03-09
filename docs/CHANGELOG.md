@@ -8,6 +8,27 @@
 
 ---
 
+## v112 — F9: Adaptive Build Strategy (2026-03-09)
+
+Multi-signal build strategy selection for optimal milestone ordering in roadmap generation.
+
+### Build Strategy (`build-strategy.js`, ~220 LOC)
+- **`BuildStrategy`** enum: SCHEMA_FIRST, COMPONENT_FIRST, COMMAND_FIRST, MODEL_FIRST, TEST_FIRST, DEFAULT.
+- **`selectStrategy(architecture, patternHistory)`**: Weighted multi-signal selection:
+  - Framework signal (0.4): 20+ frameworks mapped (Express→SCHEMA_FIRST, React→COMPONENT_FIRST, Django→MODEL_FIRST, etc.)
+  - Layer signal (0.3): Dominant layer detection with file count weighting. NestJS resolved by layers.
+  - Pattern history signal (0.3): Past strategy success/failure from task memory (requires ≥2 data points).
+- **`formatStrategyForPrompt()`**: Confidence-gated: ≥0.7→Recommended, 0.4–0.7→Hint, <0.4→omitted.
+
+### Integration
+- **lifecycle-planning.js**: Lazy-loaded via `ensureBuildStrategy()`. Appends strategy section to D1 roadmap prompt.
+
+### Tests
+- build-strategy: **34/34** (8 suites)
+- **0 regressions** (all 427 existing tests pass)
+
+---
+
 ## v111 — F10: Failure Strategy Selection (2026-03-09)
 
 Classifies errors into fix strategies to skip unnecessary LLM calls and accelerate the execution loop.
