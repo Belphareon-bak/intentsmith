@@ -8,6 +8,30 @@
 
 ---
 
+## v109 — F7: Graph Debug + F8: Pattern Mining (2026-03-09)
+
+Developer-facing graph inspection and cross-milestone pattern discovery — the final two features in the F-Series agent evolution roadmap.
+
+### Graph Query (`graph-query.js`, ~200 LOC)
+- **`getImpactRadius()`**: BFS neighborhood traversal (both directions), depth-annotated nodes, deduplicated edges. Capped at 500 nodes.
+- **`detectCycles()`**: DFS with WHITE/GRAY/BLACK coloring on file nodes. Normalized cycles (start from smallest element), closed (first==last). Capped at 20 cycles.
+- **`computeMetrics()`**: fanIn, fanOut, degree, hubPenalty (via `computeHubPenalty`), dependency/dependent counts.
+- **`explainContext()`**: Traces relationship chains from seed files. Uses `graph.findPath()` for N-hop explanations, "No direct path" fallback for isolated files.
+- **`exportMermaid()`**: Subgraph → Mermaid diagram. Sanitized node IDs, shape per type (file=rect, function=rounded, other=diamond), edge labels.
+
+### Pattern Miner (`pattern-miner.js`, ~250 LOC)
+- **4 pattern types**: ERROR_CASCADE, FIX_ARCHETYPE, FILE_COUPLING, COMPLEXITY_HOTSPOT.
+- **`minePatterns()`**: Discovers all 4 types from task memory entries. Confidence threshold 0.7, decay λ=0.01 (LTM-aligned, half-life ~69d). Sorted by confidence DESC, capped at 50.
+- **`findArchetypes()`**: Matches current errors to known fix strategies by error code.
+- **`formatPatternsForPrompt()`**: `[type] description (confidence%)` format, capped at maxEntries.
+
+### Tests
+- graph-query: **26/26** (5 suites: getImpactRadius, detectCycles, computeMetrics, explainContext, exportMermaid)
+- pattern-miner: **26/26** (9 suites: PatternType, fix archetypes, error cascades, file coupling, complexity hotspots, decay, findArchetypes, formatPatternsForPrompt, edge cases)
+- **0 regressions** (execution-loop 56, self-critique 32, task-memory 45, patch-engine 57, error-normalizer 48, knowledge-graph 17, graph-retrieval 30, context-optimizer 40, signature-map 25)
+
+---
+
 ## v108 — F6: Self-Critique + Signature-First Patching (2026-03-09)
 
 LLM-driven root cause analysis and signature-level patch planning. On iteration >= 2 of the fix loop, the system reasons about WHY errors persist before generating the next fix attempt.
