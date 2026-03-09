@@ -8,6 +8,34 @@
 
 ---
 
+## v110 — FΔ: Context Delta Engine (2026-03-09)
+
+Incremental context compression for the execution loop. On iteration 2+, only changed context sections are sent to the LLM — reducing prompt size by 50-80% and improving reasoning quality.
+
+### Context Delta (`context-delta.js`, ~180 LOC)
+- **`hashSection()`**: FNV-1a 32-bit fingerprint for fast content comparison.
+- **`createContextSnapshot()`**: Captures 6 sections (errors, patches, files, taskMemory, critique, gitDiff) with hashes.
+- **`computeContextDelta()`**: Compares two snapshots, identifies changed/unchanged sections, computes per-section deltas (error added/resolved/remaining).
+- **`formatDeltaForPrompt()`**: On iteration 2+, emits only changed sections + "unchanged" summary. First iteration returns full context.
+- **`estimateTokenSavings()`**: Token savings estimation (1 token ≈ 4 chars).
+
+### Integration
+- **execution-loop.js**: Lazy-loaded via `ensureContextDelta()`. Creates snapshot after each iteration, computes delta, injects compressed `deltaContext` into `buildFixPrompt()`. Falls back to full context if delta engine unavailable.
+- **buildFixPrompt**: New 7th parameter `deltaContext` — when present, replaces all context sections with delta-compressed format.
+
+### Expected Impact
+| Metric | Before | After |
+|--------|--------|-------|
+| Prompt size (iter 2+) | 3000-6000 tokens | 300-900 tokens |
+| LLM latency (iter 2+) | 30-90s | 10-30s |
+| Token usage per loop | ~30K | ~10K |
+
+### Tests
+- context-delta: **34/34** (7 suites: hashSection, createContextSnapshot, computeContextDelta, formatFullContext, formatDeltaForPrompt, estimateTokenSavings, integration)
+- **0 regressions** (execution-loop 56, self-critique 32, task-memory 45, patch-engine 57, error-normalizer 48, knowledge-graph 17, graph-retrieval 30, context-optimizer 40, signature-map 25, graph-query 26, pattern-miner 26)
+
+---
+
 ## v109 — F7: Graph Debug + F8: Pattern Mining (2026-03-09)
 
 Developer-facing graph inspection and cross-milestone pattern discovery — the final two features in the F-Series agent evolution roadmap.

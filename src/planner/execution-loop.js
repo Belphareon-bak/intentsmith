@@ -24,6 +24,25 @@ import {
   findRootCause, formatErrorsForLLM,
 } from './error-normalizer.js';
 
+// v110: Context Delta Engine — lazy-loaded
+let _deltaLoaded = false;
+let _createContextSnapshot, _computeContextDelta, _formatDeltaForPrompt;
+
+async function ensureContextDelta() {
+  if (_deltaLoaded) return true;
+  try {
+    const mod = await import('../context/context-delta.js');
+    _createContextSnapshot = mod.createContextSnapshot;
+    _computeContextDelta = mod.computeContextDelta;
+    _formatDeltaForPrompt = mod.formatDeltaForPrompt;
+    _deltaLoaded = true;
+    return true;
+  } catch (err) {
+    logger.warn('ExecutionLoop', `Context delta not available: ${err.message}`);
+    return false;
+  }
+}
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const MAX_PATCH_FILES = 5;
@@ -120,9 +139,10 @@ export function limitErrors(errors) {
  * @param {string} gitDiff - Current git diff
  * @param {string} [taskContext] - Task memory context (from F5)
  * @param {string} [critiqueContext] - Self-critique analysis (from F6)
+ * @param {string} [deltaContext] - Delta-compressed context (from FΔ, iteration 2+)
  * @returns {string} Prompt for CODE LLM
  */
-export function buildFixPrompt(milestone, errors, iterationMemory, gitDiff, taskContext, critiqueContext) {
+export function buildFixPrompt(milestone, errors, iterationMemory, gitDiff, taskContext, critiqueContext, deltaContext) {
   const maxIter = config.lifecycle?.maxLoopIterations || 8;
   const iter = iterationMemory.iteration;
 
@@ -146,6 +166,27 @@ export function buildFixPrompt(milestone, errors, iterationMemory, gitDiff, task
   const diffSection = gitDiff
     ? gitDiff.slice(0, MAX_GIT_DIFF_CHARS)
     : 'No diff available';
+
+  // FΔ: If delta context available (iteration 2+), use compressed format
+  if (deltaContext) {
+    return `You are fixing errors in milestone "${milestone.title || ''}".
+This is iteration ${iter}/${maxIter}. Context below shows ONLY what changed since last iteration.
+
+${deltaContext}
+
+## Instructions
+- Fix ONLY the listed errors — do not touch unrelated code
+- Output patches in unified diff format with semantic anchors:
+  --- path/to/file.js
+  @@ function functionName
+  - old line
+  + new line
+- Do NOT revert previous fixes unless they caused regressions
+- Fix root cause errors first, dependent errors second
+- Maximum ${MAX_PATCH_FILES} files per response
+
+IMPORTANT: Output ONLY raw source patches. NO markdown fences. NO explanations.`;
+  }
 
   // Task memory section (F5)
   const taskSection = taskContext
@@ -343,6 +384,10 @@ export async function runFixLoop(options) {
   let lastQualityGate = initialQualityGate;
   let lastIterationFiles = [];
 
+  // FΔ: Context delta state
+  const useDelta = await ensureContextDelta();
+  let prevSnapshot = null;
+
   try {
     // Step 4: Fix loop
     for (let iter = 1; iter <= maxIter; iter++) {
@@ -381,11 +426,35 @@ export async function runFixLoop(options) {
         }
       }
 
-      // 4b. Build fix prompt
+      // 4b. Build fix prompt (with FΔ delta compression on iter 2+)
       const gitDiff = await getGitDiff();
-      const prompt = buildFixPrompt(milestone, currentErrors, iterMem, gitDiff, taskContext, critiqueContext);
+      let deltaContext = '';
+      if (useDelta) {
+        try {
+          const recentPatches = iterMem.patchesApplied.slice(-MAX_PROMPT_PATCHES);
+          const patchText = recentPatches.length > 0
+            ? recentPatches.map(p => formatPatch(p)).join('\n\n')
+            : '';
+          const currSnapshot = _createContextSnapshot({
+            errors: formatErrorsForLLM(limitErrors(currentErrors)),
+            patches: patchText,
+            files: [...iterMem.filesModified].join(', '),
+            taskMemory: taskContext,
+            critique: critiqueContext,
+            gitDiff: gitDiff ? gitDiff.slice(0, MAX_GIT_DIFF_CHARS) : '',
+          });
+          const delta = _computeContextDelta(prevSnapshot, currSnapshot);
+          if (!delta.isFirstIteration) {
+            deltaContext = _formatDeltaForPrompt(delta, currSnapshot);
+          }
+          prevSnapshot = currSnapshot;
+        } catch (err) {
+          logger.warn('ExecutionLoop', `Context delta failed: ${err.message}`);
+        }
+      }
+      const prompt = buildFixPrompt(milestone, currentErrors, iterMem, gitDiff, taskContext, critiqueContext, deltaContext);
 
-      // 4b. Call LLM
+      // 4c. Call LLM
       const llmResult = await callLLM('CODE', prompt);
       const llmOutput = llmResult?.content || '';
 
