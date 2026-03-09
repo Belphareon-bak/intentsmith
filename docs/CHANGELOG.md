@@ -8,6 +8,26 @@
 
 ---
 
+## v116 — F14: Cross-Project Learning (2026-03-09)
+
+Pattern sharing across projects within the same workspace.
+
+### Cross-Project Learner (`cross-project-learner.js`, ~290 LOC)
+- **`computeStackSimilarity()`**: Jaccard-based comparison of language, frameworks, tools. Case-insensitive, weighted (language strongest, tools weakest).
+- **`queryCrossProject()`**: Queries task_memory for entries from OTHER projects. Scores by error code match (0.5), architecture decision relevance (0.3), stack similarity boost (0.3×), and generality boost (0.2× for language-agnostic error codes like IMPORT_NOT_FOUND, SYNTAX_ERROR, etc.). Time-decay applied.
+- **`identifyShareablePatterns()`**: Selects high-confidence patterns suitable for cross-project transfer: general error codes, architecture decisions, battle-tested entries (≥3 uses).
+- **`formatCrossProjectHints()`**: Token-budgeted prompt section for LLM injection. Shows outcome (WORKED/FAILED/ARCH/PATTERN), strategy, source project.
+- **`mergeResults()`**: Deduplicates local (F5) and cross-project results by kind+key, local takes priority.
+- **`getProjectsWithMemory()`** / **`getProjectSummaries()`**: Registry queries for projects with task memory entries.
+
+### Tests
+- cross-project-learner: **36/36** (6 suites: computeStackSimilarity, queryCrossProject, identifyShareablePatterns, formatCrossProjectHints, mergeResults, project registry)
+- **0 regressions** (all 561 existing tests pass)
+
+**FΔ+F9-F14 series complete** — 242 new tests (FΔ:34 + F10:38 + F9:34 + F12:36 + F11:25 + F13:39 + F14:36), 597 total tests, 0 regressions.
+
+---
+
 ## v115 — F13: Continuous Improvement Mode (2026-03-09)
 
 Post-build quality enhancement — advisory mode, opt-in via config.
