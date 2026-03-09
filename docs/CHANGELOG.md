@@ -8,6 +8,25 @@
 
 ---
 
+## v114 — F11: Autonomous Dependency Upgrades (2026-03-09)
+
+Multi-package-manager dependency detection and safe upgrade orchestration.
+
+### Dependency Manager (`dependency-manager.js`, ~320 LOC)
+- **`PackageManager`** enum: NPM, YARN, PNPM, GO, PIP, CARGO.
+- **`detectPackageManager()`**: Lock file detection with priority ordering (pnpm > yarn > npm).
+- **`listOutdated()`**: Runs `npm outdated --json` etc., caches to `.c3/dependency-cache.json` (TTL 24h). Falls back to cache on network failure.
+- **`upgradePackage()`**: Per-manager install commands with timeout.
+- **`runUpgradeCycle()`**: Full orchestration — detect → list → sort (patch first) → upgrade → test → rollback on failure. NEVER auto-upgrades major versions. `maxPackagesPerRun` limit (default 5).
+- **`loadCache()`/`saveCache()`**: JSON cache with TTL, creates `.c3/` directory.
+- **`formatUpgradeReport()`**: Markdown report with upgraded/failed/skipped sections.
+
+### Tests
+- dependency-manager: **25/25** (6 suites: PackageManager, detectPackageManager, cache, formatUpgradeReport, runUpgradeCycle, edge cases)
+- **0 regressions** (all 497 existing tests pass)
+
+---
+
 ## v113 — F12: Performance Intelligence (2026-03-09)
 
 Import-aware performance anti-pattern detection for LLM-generated code. Advisory only — does not block milestones.
