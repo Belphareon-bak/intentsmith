@@ -319,6 +319,8 @@ class LLMGateway {
       model,
       messages,
       stream: false,
+      // Disable extended thinking mode (qwen3.5 puts output in thinking field, leaving content empty)
+      think: false,
       options: {
         temperature: options.temperature ?? 0.3,
         top_p: options.top_p ?? 0.75,

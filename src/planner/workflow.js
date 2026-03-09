@@ -153,7 +153,7 @@ async function callLLM(role, prompt, systemPrompt = '', options = {}) {
       ...options,
     });
     return {
-      content: result.content || result,
+      content: typeof result === 'string' ? result : (result.content || ''),
       model,
       duration: Date.now() - startTime,
     };
