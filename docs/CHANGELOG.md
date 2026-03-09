@@ -8,6 +8,27 @@
 
 ---
 
+## v108 — F6: Self-Critique + Signature-First Patching (2026-03-09)
+
+LLM-driven root cause analysis and signature-level patch planning. On iteration >= 2 of the fix loop, the system reasons about WHY errors persist before generating the next fix attempt.
+
+### Self-Critique (`self-critique.js`)
+- **`shouldActivate()`**: Only activates on iteration >= 2 (first iteration uses fast deterministic path).
+- **`analyzeCause()`**: Asks LLM to identify root cause of persistent errors. Includes error trend, signature context, and previous patches. Parses `ROOT_CAUSE:` + `REASONING:` response format.
+- **`generatePatchPlan()`**: Produces signature-level fix plan — `ACTION FILE SYMBOL REASON` steps. Actions: ADD, MODIFY, DELETE, MOVE. Capped at 10 steps.
+- **`validatePlan()`**: Checks plan steps against KG + symbol index — catches hallucinated symbols (MODIFY/DELETE checks `findSymbol`), missing files (checks `graph.getNode`). ADD skips file existence check. Issues are soft warnings (steps still included).
+- **`formatCritiqueForPrompt()`**: Combines root cause, patch plan, and validation warnings into a prompt section.
+
+### Integration
+- **execution-loop.js**: `runFixLoop()` accepts optional `selfCritique` object. On iteration >= 2, runs full pipeline (analyzeCause → generatePatchPlan → validatePlan → formatCritiqueForPrompt) and injects "Self-Critique Analysis" section into `buildFixPrompt()`. Two extra LLM calls per critique-enabled iteration (~500+200 tokens, ~25s on local models).
+- **lifecycle-build.js**: lazy-loaded via `ensureSelfCritique()`. Passes bound methods to execution loop alongside task memory.
+
+### Tests
+- self-critique: **32/32** (7 suites: shouldActivate, analyzeCause, generatePatchPlan, validatePlan, formatCritiqueForPrompt, parseCauseResponse edge cases, integration)
+- **0 regressions** (execution-loop 56, task-memory 45, patch-engine 57, error-normalizer 48, knowledge-graph 17, graph-retrieval 30, context-optimizer 40, signature-map 25)
+
+---
+
 ## v107 — F5: Task Memory (2026-03-09)
 
 Cross-milestone persistent learning for the execution loop. Records fix attempts (successes and failures) and architecture decisions so the LLM avoids repeating failed strategies and leverages past successes.

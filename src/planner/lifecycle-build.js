@@ -111,6 +111,30 @@ async function ensureTaskMemory() {
   }
 }
 
+// v108: Self-critique — lazy-loaded
+let _critiqueLoaded = false;
+let _selfCritique = null;
+
+async function ensureSelfCritique() {
+  if (_critiqueLoaded) return _selfCritique;
+  try {
+    const mod = await import('./self-critique.js');
+    _selfCritique = {
+      shouldActivate: mod.shouldActivate,
+      analyzeCause: mod.analyzeCause,
+      generatePatchPlan: mod.generatePatchPlan,
+      validatePlan: mod.validatePlan,
+      formatCritiqueForPrompt: mod.formatCritiqueForPrompt,
+    };
+    _critiqueLoaded = true;
+    return _selfCritique;
+  } catch (err) {
+    logger.warn('LifecycleBuild', `Self-critique not available: ${err.message}`);
+    _critiqueLoaded = true;
+    return null;
+  }
+}
+
 async function ensureGuardian() {
   if (_guardianLoaded) return true;
   try {
@@ -490,6 +514,7 @@ async function postExecution(lifecycle, milestone, wfResult) {
 
   if ((hasTestFailure || hasCompileFailure) && await ensureExecutionLoop()) {
     const tm = await ensureTaskMemory();
+    const sc = await ensureSelfCritique();
     const loopResult = await _runFixLoop({
       lifecycle,
       milestone,
@@ -508,6 +533,7 @@ async function postExecution(lifecycle, milestone, wfResult) {
       },
       getGitDiff: () => getGitDiff(lifecycle),
       taskMemory: tm,
+      selfCritique: sc,
     });
 
     if (loopResult.converged) {

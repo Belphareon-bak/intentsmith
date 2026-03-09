@@ -119,9 +119,10 @@ export function limitErrors(errors) {
  * @param {Object} iterationMemory - Loop state
  * @param {string} gitDiff - Current git diff
  * @param {string} [taskContext] - Task memory context (from F5)
+ * @param {string} [critiqueContext] - Self-critique analysis (from F6)
  * @returns {string} Prompt for CODE LLM
  */
-export function buildFixPrompt(milestone, errors, iterationMemory, gitDiff, taskContext) {
+export function buildFixPrompt(milestone, errors, iterationMemory, gitDiff, taskContext, critiqueContext) {
   const maxIter = config.lifecycle?.maxLoopIterations || 8;
   const iter = iterationMemory.iteration;
 
@@ -151,6 +152,11 @@ export function buildFixPrompt(milestone, errors, iterationMemory, gitDiff, task
     ? `\n## Past Fix Experience\n${taskContext}\n`
     : '';
 
+  // Self-critique section (F6)
+  const critiqueSection = critiqueContext
+    ? `\n## Self-Critique Analysis\n${critiqueContext}\n`
+    : '';
+
   return `You are fixing errors in milestone "${milestone.title || ''}".
 
 ## Current Errors (iteration ${iter}/${maxIter})
@@ -158,7 +164,7 @@ ${formattedErrors}
 
 ## Root Cause Analysis
 ${rootCauses.length} root cause(s) identified. Fix these FIRST — dependent errors will likely resolve automatically.
-${taskSection}
+${taskSection}${critiqueSection}
 ## Previous Patches (last ${MAX_PROMPT_PATCHES})
 ${patchSection}
 
@@ -257,7 +263,7 @@ export async function runFixLoop(options) {
     lifecycle, milestone, testResults: initialTestResults,
     qualityGateResult: initialQualityGate,
     callLLM, runTests, runQualityGate, getGitDiff,
-    taskMemory,
+    taskMemory, selfCritique,
   } = options;
 
   const maxIter = config.lifecycle?.maxLoopIterations || 8;
@@ -347,9 +353,37 @@ export async function runFixLoop(options) {
         errors: currentErrors.length,
       });
 
-      // 4a. Build fix prompt
+      // 4a. Self-critique (F6): on iteration >= 2, analyze cause + plan
+      let critiqueContext = '';
+      if (selfCritique && iter >= 2) {
+        try {
+          const { shouldActivate, analyzeCause, generatePatchPlan, validatePlan, formatCritiqueForPrompt } = selfCritique;
+          if (shouldActivate(iter, currentErrors)) {
+            const sigCtx = selfCritique.signatureContext || '';
+            const cause = await analyzeCause(currentErrors, sigCtx, iterMem, callLLM);
+            const plan = await generatePatchPlan(currentErrors, cause, sigCtx, callLLM);
+            const validation = validatePlan(plan.steps, {
+              symbolIndex: selfCritique.symbolIndex,
+              graph: selfCritique.graph,
+              fileNodeId: selfCritique.fileNodeId,
+            });
+            critiqueContext = formatCritiqueForPrompt(cause, plan, validation);
+            logger.info('ExecutionLoop', `Self-critique completed`, {
+              milestoneId: milestone.id,
+              iteration: iter,
+              rootCause: cause.rootCause ? 'yes' : 'no',
+              planSteps: plan.steps.length,
+              validationIssues: validation.issues.length,
+            });
+          }
+        } catch (err) {
+          logger.warn('ExecutionLoop', `Self-critique failed: ${err.message}`);
+        }
+      }
+
+      // 4b. Build fix prompt
       const gitDiff = await getGitDiff();
-      const prompt = buildFixPrompt(milestone, currentErrors, iterMem, gitDiff, taskContext);
+      const prompt = buildFixPrompt(milestone, currentErrors, iterMem, gitDiff, taskContext, critiqueContext);
 
       // 4b. Call LLM
       const llmResult = await callLLM('CODE', prompt);
