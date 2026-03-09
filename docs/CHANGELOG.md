@@ -8,6 +8,35 @@
 
 ---
 
+## v111 — F10: Failure Strategy Selection (2026-03-09)
+
+Classifies errors into fix strategies to skip unnecessary LLM calls and accelerate the execution loop.
+
+### Fix Strategy (`fix-strategy.js`, ~250 LOC)
+- **`StrategyType`** enum: DETERMINISTIC, HEURISTIC, LLM_FULL, SKIP.
+- **`selectFixStrategy()`**: Decision tree mapping error codes to strategies based on archetypes, heuristic hints, and iteration history.
+  - DETERMINISTIC: UNUSED_IMPORT (always), SYNTAX_ERROR (trivial patterns), IMPORT_NOT_FOUND (with archetype).
+  - HEURISTIC: NULL_REFERENCE, ASSERTION_FAILED, TYPE_MISMATCH, MISSING_PROPERTY, ARGUMENT_COUNT, UNDEFINED_VARIABLE, MISSING_TYPE — focused hints replace full prompts.
+  - SKIP: PERMISSION_DENIED (always), stale errors persisting 3+ iterations.
+  - LLM_FULL: everything else (current behavior).
+- **`buildDeterministicPatch()`**: Template-based patch generation for simple fixes (remove unused import, add semicolon).
+- **`validateDeterministicPatch()`**: Dry-run validation — bracket balance check, empty replacement guard.
+- **`buildHeuristicHint()`**: Focused hint text per error, enriched with archetype data when available.
+- **`formatStrategyReport()`**: Human-readable summary ("3 deterministic, 2 heuristic, 1 LLM, 0 skipped").
+
+### Integration
+- **execution-loop.js**: Lazy-loaded via `ensureFixStrategy()`. In each iteration:
+  1. `selectFixStrategy()` classifies all current errors.
+  2. SKIP errors removed from active list (stops loop if all skipped).
+  3. HEURISTIC hints injected into `buildFixPrompt()` as `## Fix Hints` section.
+  4. `buildFixPrompt` extended with 8th parameter `strategyHints`.
+
+### Tests
+- fix-strategy: **38/38** (7 suites: StrategyType, selectFixStrategy, buildDeterministicPatch, validateDeterministicPatch, buildHeuristicHint, formatStrategyReport, edge cases)
+- **0 regressions** (execution-loop 56, context-delta 34, self-critique 32, task-memory 45, patch-engine 57, error-normalizer 48, graph-query 26, pattern-miner 26, context-optimizer 40, signature-map 25)
+
+---
+
 ## v110 — FΔ: Context Delta Engine (2026-03-09)
 
 Incremental context compression for the execution loop. On iteration 2+, only changed context sections are sent to the LLM — reducing prompt size by 50-80% and improving reasoning quality.

@@ -24,6 +24,28 @@ import {
   findRootCause, formatErrorsForLLM,
 } from './error-normalizer.js';
 
+// v111: Fix Strategy Selection — lazy-loaded
+let _strategyLoaded = false;
+let _selectFixStrategy, _buildDeterministicPatch, _validateDeterministicPatch;
+let _buildHeuristicHint, _formatStrategyReport;
+
+async function ensureFixStrategy() {
+  if (_strategyLoaded) return true;
+  try {
+    const mod = await import('./fix-strategy.js');
+    _selectFixStrategy = mod.selectFixStrategy;
+    _buildDeterministicPatch = mod.buildDeterministicPatch;
+    _validateDeterministicPatch = mod.validateDeterministicPatch;
+    _buildHeuristicHint = mod.buildHeuristicHint;
+    _formatStrategyReport = mod.formatStrategyReport;
+    _strategyLoaded = true;
+    return true;
+  } catch (err) {
+    logger.warn('ExecutionLoop', `Fix strategy not available: ${err.message}`);
+    return false;
+  }
+}
+
 // v110: Context Delta Engine — lazy-loaded
 let _deltaLoaded = false;
 let _createContextSnapshot, _computeContextDelta, _formatDeltaForPrompt;
@@ -140,9 +162,10 @@ export function limitErrors(errors) {
  * @param {string} [taskContext] - Task memory context (from F5)
  * @param {string} [critiqueContext] - Self-critique analysis (from F6)
  * @param {string} [deltaContext] - Delta-compressed context (from FΔ, iteration 2+)
+ * @param {string} [strategyHints] - Fix hints from strategy selection (from F10)
  * @returns {string} Prompt for CODE LLM
  */
-export function buildFixPrompt(milestone, errors, iterationMemory, gitDiff, taskContext, critiqueContext, deltaContext) {
+export function buildFixPrompt(milestone, errors, iterationMemory, gitDiff, taskContext, critiqueContext, deltaContext, strategyHints) {
   const maxIter = config.lifecycle?.maxLoopIterations || 8;
   const iter = iterationMemory.iteration;
 
@@ -205,7 +228,7 @@ ${formattedErrors}
 
 ## Root Cause Analysis
 ${rootCauses.length} root cause(s) identified. Fix these FIRST — dependent errors will likely resolve automatically.
-${taskSection}${critiqueSection}
+${taskSection}${critiqueSection}${strategyHints || ''}
 ## Previous Patches (last ${MAX_PROMPT_PATCHES})
 ${patchSection}
 
@@ -426,6 +449,59 @@ export async function runFixLoop(options) {
         }
       }
 
+      // 4a2. Fix strategy selection (F10): classify errors, handle SKIP + DETERMINISTIC
+      let strategyHints = '';
+      const useStrategy = await ensureFixStrategy();
+      if (useStrategy) {
+        try {
+          const archetypes = options.archetypes || [];
+          const strategyMap = _selectFixStrategy(currentErrors, archetypes, iter, {
+            errorHistory: iterMem.errorHistory,
+          });
+
+          const report = _formatStrategyReport(strategyMap);
+          if (report) {
+            logger.info('ExecutionLoop', `Strategy: ${report}`, { milestoneId: milestone.id, iteration: iter });
+          }
+
+          // Remove SKIP errors from the active list
+          const skipped = [];
+          const active = [];
+          for (const err of currentErrors) {
+            const s = strategyMap.get(err);
+            if (s && s.type === 'skip') {
+              skipped.push(err);
+            } else {
+              active.push(err);
+            }
+          }
+          if (skipped.length > 0) {
+            logger.info('ExecutionLoop', `Skipped ${skipped.length} unfixable error(s)`, { milestoneId: milestone.id });
+          }
+          currentErrors = active;
+
+          // If all errors were skipped, stop
+          if (currentErrors.length === 0) {
+            iterationLog.push({ iteration: iter, errorCount: 0, patchFiles: [], action: 'skipped' });
+            return _buildResult(false, 'unrecoverable', iter, lastTestResults, lastQualityGate, skipped, iterationLog, iterMem.filesModified);
+          }
+
+          // Build hints for HEURISTIC errors
+          const hintParts = [];
+          for (const err of currentErrors) {
+            const s = strategyMap.get(err);
+            if (s && s.type === 'heuristic' && s.hint) {
+              hintParts.push(_buildHeuristicHint(err, s, s.archetype));
+            }
+          }
+          if (hintParts.length > 0) {
+            strategyHints = `\n## Fix Hints (from past patterns)\n${hintParts.join('\n\n')}\n`;
+          }
+        } catch (err) {
+          logger.warn('ExecutionLoop', `Fix strategy failed: ${err.message}`);
+        }
+      }
+
       // 4b. Build fix prompt (with FΔ delta compression on iter 2+)
       const gitDiff = await getGitDiff();
       let deltaContext = '';
@@ -452,7 +528,7 @@ export async function runFixLoop(options) {
           logger.warn('ExecutionLoop', `Context delta failed: ${err.message}`);
         }
       }
-      const prompt = buildFixPrompt(milestone, currentErrors, iterMem, gitDiff, taskContext, critiqueContext, deltaContext);
+      const prompt = buildFixPrompt(milestone, currentErrors, iterMem, gitDiff, taskContext, critiqueContext, deltaContext, strategyHints);
 
       // 4c. Call LLM
       const llmResult = await callLLM('CODE', prompt);
