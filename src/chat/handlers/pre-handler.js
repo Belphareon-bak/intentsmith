@@ -165,7 +165,11 @@ intercepts.push({
     if (proposals.length === 0) return { handled: false };
 
     // Mark notified (prevents repeated notifications)
-    if (context.sessionState) context.sessionState._upgradeNotified = true;
+    if (context.sessionState) {
+      context.sessionState._upgradeNotified = true;
+      // Deep copy — prevents drift if upgradeManager re-evaluates between notification and approval
+      context.sessionState._pendingUpgrades = JSON.parse(JSON.stringify(proposals));
+    }
 
     // Emit system step with summary
     if (typeof context.onSystemStep === 'function') {
@@ -173,12 +177,164 @@ intercepts.push({
         `${p.role}: ${p.currentModel} → ${p.candidateModel} (score ${p.score}, ${p.riskLevel})`
       ).join('; ');
       try {
-        context.onSystemStep('model_upgrade', `${proposals.length} upgrade(s) available: ${summary}`);
+        context.onSystemStep('model_upgrade', `${proposals.length} upgrade(s) available: ${summary}\nNapis "schvaluji" pro schvaleni.`);
+      } catch (_) {}
+    }
+
+    // Suggest removing unused old models (7+ days after upgrade)
+    if (_upgradeManager?._db) {
+      try {
+        const unused = _upgradeManager.getUnusedOldModels();
+        const old = unused.filter(u => {
+          const age = Date.now() - Date.parse(u.appliedAt);
+          return age > 7 * 24 * 60 * 60 * 1000;
+        });
+        if (old.length > 0 && !context.sessionState?._cleanupSuggested) {
+          if (context.sessionState) context.sessionState._cleanupSuggested = true;
+          if (typeof context.onSystemStep === 'function') {
+            const models = old.map(o => `${o.model} (nahrazen ${o.replacedBy})`).join(', ');
+            try { context.onSystemStep('model_cleanup', `Nepouzivane modely: ${models}. Napis "smaz stare modely" pro odstraneni.`); } catch (_) {}
+          }
+        }
       } catch (_) {}
     }
 
     logger.info('PreHandler', `Upgrade notification: ${proposals.length} proposals above score ${_MIN_NOTIFY_SCORE}`);
     return { handled: false }; // never short-circuits
+  },
+});
+
+// 0.5 UPGRADE APPROVAL (v103.2) — chat-based upgrade trigger
+intercepts.push({
+  name: 'upgrade_approval',
+  modes: ['*'],
+  async fn(input, context, mode) {
+    const pending = context.sessionState?._pendingUpgrades;
+    if (!pending || pending.length === 0) return { handled: false };
+
+    const APPROVAL_RE = /^(schvaluji?|approve|ano|jo|ok|yes|sure|jasn[eě]?)\s*[!.]?$/i;
+    const APPROVAL_PHRASE_RE = /\b(schval|approv|upgrad|aktualizuj)/i;
+    const REJECT_RE = /^(ne|no|nechci|cancel|zru[sš]i?t?|skip)\s*[!.]?$/i;
+
+    const trimmed = input.trim();
+    const isApproval = APPROVAL_RE.test(trimmed) || APPROVAL_PHRASE_RE.test(trimmed);
+    const isReject = REJECT_RE.test(trimmed);
+
+    if (!isApproval && !isReject) return { handled: false };
+
+    // Clear pending immediately (prevents double-trigger)
+    delete context.sessionState._pendingUpgrades;
+
+    if (isReject) {
+      return { handled: true, response: systemResponse('Upgrade preskocen.', mode) };
+    }
+
+    // Lazy-load upgrade manager
+    if (!_upgradeManager) {
+      try {
+        const um = await import('../../upgrade/upgrade-manager.js');
+        _upgradeManager = um.upgradeManager;
+      } catch {
+        return { handled: true, response: systemResponse('Upgrade manager neni dostupny.', mode) };
+      }
+    }
+
+    const results = [];
+    const pulledModels = new Set();
+
+    for (const p of pending) {
+      try {
+        if (!p.installed && !pulledModels.has(p.candidateModel)) {
+          if (typeof context.onSystemStep === 'function') {
+            try { context.onSystemStep('model_pull_start', `Stahuji ${p.candidateModel}...`); } catch (_) {}
+          }
+          await _upgradeManager.pullModel(p.candidateModel, (progress) => {
+            if (typeof context.onSystemStep === 'function') {
+              try { context.onSystemStep('model_pull_progress', progress.text, 2); } catch (_) {}
+            }
+          });
+          pulledModels.add(p.candidateModel);
+          if (typeof context.onSystemStep === 'function') {
+            try { context.onSystemStep('model_pull_done', `${p.candidateModel} stazen`); } catch (_) {}
+          }
+        }
+
+        const result = await _upgradeManager.applyUpgrade(p.role, p.candidateModel, {
+          score: p.score,
+          appliedBy: 'user',
+        });
+        results.push({ ...result, role: p.role });
+
+        if (typeof context.onSystemStep === 'function') {
+          try { context.onSystemStep('model_applied', `${p.role}: ${result.from} → ${result.to}`); } catch (_) {}
+        }
+      } catch (err) {
+        results.push({ ok: false, role: p.role, error: err.message });
+        if (typeof context.onSystemStep === 'function') {
+          try { context.onSystemStep('model_apply_error', `${p.role}: ${err.message}`); } catch (_) {}
+        }
+      }
+    }
+
+    const ok = results.filter(r => r.ok);
+    const fail = results.filter(r => !r.ok);
+    let summary = '';
+    if (ok.length > 0) {
+      summary += ok.map(r => `**${r.role}**: ${r.from} → ${r.to}`).join('\n');
+    }
+    if (fail.length > 0) {
+      if (summary) summary += '\n';
+      summary += fail.map(r => `**${r.role}**: ${r.error}`).join('\n');
+    }
+
+    return { handled: true, response: systemResponse(summary, mode, { upgradeApplied: true }) };
+  },
+});
+
+// 0.6 MODEL CLEANUP (v103.2) — remove unused old models
+intercepts.push({
+  name: 'model_cleanup',
+  modes: ['*'],
+  async fn(input, context, mode) {
+    const CLEANUP_RE = /^(sma[zž]\s+star[eé]\s+model|remove\s+old\s+model|cleanup\s+model)/i;
+    if (!CLEANUP_RE.test(input.trim())) return { handled: false };
+
+    if (!_upgradeManager) {
+      try {
+        const um = await import('../../upgrade/upgrade-manager.js');
+        _upgradeManager = um.upgradeManager;
+      } catch {
+        return { handled: false };
+      }
+    }
+
+    const unused = _upgradeManager.getUnusedOldModels();
+    if (unused.length === 0) {
+      return { handled: true, response: systemResponse('Zadne nepouzivane modely k odstraneni.', mode) };
+    }
+
+    const baseUrl = config.ollama?.baseUrl || 'http://127.0.0.1:11434';
+    const results = [];
+    for (const u of unused) {
+      try {
+        const resp = await fetch(`${baseUrl}/api/delete`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: u.model }),
+        });
+        if (resp.ok) {
+          results.push(`${u.model} smazan`);
+          if (typeof context.onSystemStep === 'function') {
+            try { context.onSystemStep('model_deleted', `${u.model} smazan`); } catch (_) {}
+          }
+        } else {
+          results.push(`${u.model}: HTTP ${resp.status}`);
+        }
+      } catch (err) {
+        results.push(`${u.model}: ${err.message}`);
+      }
+    }
+    return { handled: true, response: systemResponse(results.join('\n'), mode, { modelCleanup: true }) };
   },
 });
 

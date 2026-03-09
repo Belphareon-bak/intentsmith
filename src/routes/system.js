@@ -12,6 +12,7 @@ import { getStorageConfig, validateStorageConfig, autoClean } from '../db/data-r
 import { drainMessages, getHistoryStats } from '../core/history-drain.js';
 import { createStateBackup, listBackups, pruneBackups, getBackupStats } from '../core/db-backup.js';
 import { upgradeManager, UpgradeManager } from '../upgrade/upgrade-manager.js';
+import { broadcast } from '../ws-bridge/ws-server.js';
 
 /**
  * @param {{ db: import('better-sqlite3').Database, sendJSON: Function, parseBody: Function }} deps
@@ -457,6 +458,133 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
         });
       } catch (err) {
         sendJSON(res, 500, { error: `Upgrade check failed: ${err.message}` });
+      }
+    },
+
+    // ── Model Upgrade Apply/Rollback (v103.1) ─────────────────────────
+    'POST /api/system/upgrades/apply': async (req, res) => {
+      try {
+        const body = await parseBody(req);
+        const { role, targetModel } = body;
+
+        if (!role || !targetModel) {
+          return sendJSON(res, 400, { error: 'Missing required fields: role, targetModel' });
+        }
+
+        const result = await upgradeManager.applyUpgrade(role, targetModel, {
+          score: body.score,
+          skipVerify: body.skipVerify === true,
+          appliedBy: body.appliedBy || 'user',
+        });
+
+        broadcast('control', {
+          action: 'model_changed',
+          role,
+          fromModel: result.from,
+          toModel: result.to,
+          configVersion: result.configVersion,
+        });
+
+        sendJSON(res, 200, result);
+      } catch (err) {
+        const status = err.message.includes('Invalid role') ? 400
+          : err.message.includes('not installed') ? 404
+          : err.message.includes('already set') ? 409
+          : err.message.includes('Verification failed') ? 502
+          : err.message.includes('in progress') ? 409
+          : 500;
+        sendJSON(res, status, { error: err.message });
+      }
+    },
+
+    'POST /api/system/upgrades/rollback': async (req, res) => {
+      try {
+        const body = await parseBody(req);
+        const { role } = body;
+
+        if (!role) {
+          return sendJSON(res, 400, { error: 'Missing required field: role' });
+        }
+
+        const result = await upgradeManager.rollbackUpgrade(role, {
+          skipVerify: body.skipVerify === true,
+          force: body.force === true,
+        });
+
+        broadcast('control', {
+          action: 'model_changed',
+          role,
+          fromModel: result.from,
+          toModel: result.to,
+          configVersion: result.configVersion,
+        });
+
+        sendJSON(res, 200, result);
+      } catch (err) {
+        const status = err.message.includes('No override found') ? 404
+          : err.message.includes('no longer installed') ? 404
+          : err.message.includes('Rollback verification') ? 502
+          : err.message.includes('DB not initialized') ? 500
+          : 500;
+        sendJSON(res, status, { error: err.message });
+      }
+    },
+
+    // ── Model Delete (v103.2) ───────────────────────────────────────
+    'DELETE /api/system/models': async (req, res) => {
+      try {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const modelName = url.searchParams.get('name');
+        if (!modelName) return sendJSON(res, 400, { error: 'Missing ?name= parameter' });
+
+        // Safety: refuse to delete a model currently bound to any role
+        const bound = Object.entries(config.models).filter(([_, m]) => m === modelName);
+        if (bound.length > 0) {
+          const roles = bound.map(([r]) => r).join(', ');
+          return sendJSON(res, 409, { error: `Model still bound to role(s): ${roles}` });
+        }
+
+        const baseUrl = config.ollama?.baseUrl || 'http://127.0.0.1:11434';
+        const resp = await fetch(`${baseUrl}/api/delete`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: modelName }),
+        });
+        if (!resp.ok) {
+          return sendJSON(res, 502, { error: `Ollama returned ${resp.status}` });
+        }
+        sendJSON(res, 200, { ok: true, deleted: modelName });
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    'GET /api/system/upgrades/bindings': (req, res) => {
+      try {
+        const bindings = {};
+        for (const role of Object.keys(config.models)) {
+          bindings[role] = config.models[role];
+        }
+
+        const overrides = {};
+        if (upgradeManager._db) {
+          try {
+            const rows = upgradeManager._db.prepare(
+              'SELECT role, previous_model, applied_by, applied_at FROM model_overrides'
+            ).all();
+            for (const r of rows) {
+              overrides[r.role] = {
+                previousModel: r.previous_model,
+                appliedBy: r.applied_by,
+                appliedAt: r.applied_at,
+              };
+            }
+          } catch (_) { /* DB not ready */ }
+        }
+
+        sendJSON(res, 200, { bindings, overrides, configVersion: upgradeManager._configVersion });
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
       }
     },
   };

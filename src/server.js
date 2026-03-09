@@ -197,6 +197,13 @@ import { startUpdateChecker, stopUpdateChecker, getCurrentVersion } from './pack
 // v103: Self-Evaluating Model Registry — background upgrade check
 import { upgradeManager } from './upgrade/upgrade-manager.js';
 
+// v103.1: Restore persisted model overrides BEFORE any LLM calls
+upgradeManager.setDb(db.db);
+const overrideCount = upgradeManager.loadPersistedOverrides();
+if (overrideCount > 0) {
+  logger.info('Server', `Restored ${overrideCount} model override(s) from DB`);
+}
+
 // F3: License system — feature gates
 import { licenseManager, TIERS } from './licensing/license.js';
 const licenseStatus = licenseManager.getStatus();

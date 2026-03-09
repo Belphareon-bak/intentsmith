@@ -201,5 +201,25 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
     logger.error('WSBridge', `Server error: ${err.message}`);
   });
 
+  _wss = wss;
   return wss;
+}
+
+// ─── Broadcast (v103.1) ──────────────────────────────────────────────────
+
+let _wss = null;
+
+/**
+ * Broadcast a message to all connected WS clients.
+ * @param {string} channel - Protocol channel ('control', 'chat', etc.)
+ * @param {Object} data - Message payload
+ */
+export function broadcast(channel, data) {
+  if (!_wss) return;
+  const msg = JSON.stringify({ channel, data });
+  for (const client of _wss.clients) {
+    if (client.readyState === 1) {
+      client.send(msg);
+    }
+  }
 }

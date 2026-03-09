@@ -12,6 +12,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { logger } from '../core/logger.js';
+import { config } from '../config.js';
 import { MODEL_PROFILES, parseModelName, isNewerVersion, isSameFamily } from './model-profiles.js';
 import { discover, getUpgradeHints, fetchInstalledModels } from './model-discovery.js';
 
@@ -248,6 +249,329 @@ export class UpgradeManager {
     this._recheckInterval = null;
     this._pollInterval = null;
     this._active = false;
+    // v103.1: Apply mechanism
+    this._db = null;
+    this._upgrading = false;  // Mutex flag
+    this._configVersion = 0;  // Monotonic counter for WS broadcast
+  }
+
+  // ─── DB + Persistence (v103.1) ──────────────────────────────────────────
+
+  /**
+   * Set DB handle for persistence.
+   * @param {import('better-sqlite3').Database} db
+   */
+  setDb(db) {
+    this._db = db;
+  }
+
+  /**
+   * Load persisted model overrides from DB and apply to config.models.
+   * Called once on startup BEFORE any LLM calls.
+   * @returns {number} Number of overrides applied
+   */
+  loadPersistedOverrides() {
+    if (!this._db) return 0;
+    try {
+      const rows = this._db.prepare('SELECT role, model FROM model_overrides').all();
+      let applied = 0;
+      for (const row of rows) {
+        if (MODEL_PROFILES[row.role] && row.model) {
+          const current = config.models[row.role];
+          config.models[row.role] = row.model;
+          applied++;
+          logger.info('UpgradeManager', `Restored override: ${row.role} = ${row.model} (was ${current})`);
+        }
+      }
+      return applied;
+    } catch (err) {
+      logger.warn('UpgradeManager', `Failed to load overrides: ${err.message}`);
+      return 0;
+    }
+  }
+
+  /**
+   * Apply a model upgrade: validate → hot-swap → verify → persist.
+   *
+   * @param {string} role - Model role (D1, D2, CODE, R1, R2, CHAT, VISION)
+   * @param {string} targetModel - New model name
+   * @param {Object} [opts]
+   * @param {number} [opts.score] - Proposal score (for history)
+   * @param {boolean} [opts.skipVerify=false] - Skip Ollama ping verification
+   * @param {string} [opts.appliedBy='user'] - 'user' | 'system' | 'auto'
+   * @returns {Promise<{ok: boolean, role: string, from: string, to: string, verified: boolean, configVersion: number}>}
+   */
+  async applyUpgrade(role, targetModel, opts = {}) {
+    // Mutex
+    if (this._upgrading) throw new Error('Upgrade in progress');
+    this._upgrading = true;
+
+    try {
+      // Validate role
+      if (!MODEL_PROFILES[role]) throw new Error(`Invalid role: ${role}`);
+
+      // Verify model is installed
+      const installed = await fetchInstalledModels();
+      if (!installed.some(m => m.name === targetModel)) {
+        throw new Error(`Model not installed in Ollama: ${targetModel}`);
+      }
+
+      // Check not already set
+      const previousModel = config.models[role];
+      if (previousModel === targetModel) {
+        throw new Error(`${role} is already set to ${targetModel}`);
+      }
+
+      // Hot-swap
+      config.models[role] = targetModel;
+
+      // Verify
+      let verified = false;
+      if (!opts.skipVerify) {
+        verified = await this._verifyModel(targetModel);
+        if (!verified) {
+          config.models[role] = previousModel;
+          throw new Error(`Verification failed: ${targetModel} did not respond`);
+        }
+      } else {
+        verified = true;
+      }
+
+      // Persist
+      const appliedBy = opts.appliedBy || 'user';
+      if (this._db) {
+        this._persistOverride(role, targetModel, previousModel, opts.score, appliedBy);
+        this._recordHistory(role, previousModel, targetModel, opts.score, 'apply');
+      }
+
+      // In-memory history
+      this.recordUpgrade(role, previousModel, targetModel, opts.score || 0);
+      this._configVersion++;
+
+      logger.info('UpgradeManager', `Applied: ${role} ${previousModel} → ${targetModel}`, {
+        score: opts.score, verified, appliedBy,
+      });
+
+      return { ok: true, role, from: previousModel, to: targetModel, verified, configVersion: this._configVersion };
+    } finally {
+      this._upgrading = false;
+    }
+  }
+
+  /**
+   * Rollback a role to its previous model.
+   *
+   * @param {string} role
+   * @param {Object} [opts]
+   * @param {boolean} [opts.skipVerify=false]
+   * @param {boolean} [opts.force=false] - Proceed even if verify fails (prevents stuck state)
+   * @returns {Promise<{ok: boolean, role: string, from: string, to: string, configVersion: number}>}
+   */
+  async rollbackUpgrade(role, opts = {}) {
+    if (!this._db) throw new Error('DB not initialized');
+
+    const row = this._db.prepare(
+      'SELECT model, previous_model FROM model_overrides WHERE role = ?'
+    ).get(role);
+
+    if (!row) throw new Error(`No override found for role: ${role}`);
+
+    const currentModel = row.model;
+    const previousModel = row.previous_model;
+
+    // Verify previous model is still installed
+    const installed = await fetchInstalledModels();
+    if (!installed.some(m => m.name === previousModel)) {
+      throw new Error(`Previous model no longer installed: ${previousModel}`);
+    }
+
+    // Hot-swap back
+    config.models[role] = previousModel;
+
+    // Verify (unless skipped or forced)
+    if (!opts.skipVerify) {
+      const verified = await this._verifyModel(previousModel);
+      if (!verified && !opts.force) {
+        config.models[role] = currentModel;
+        throw new Error(`Rollback verification failed: ${previousModel} did not respond`);
+      }
+    }
+
+    // Remove override from DB
+    this._db.prepare('DELETE FROM model_overrides WHERE role = ?').run(role);
+
+    // Record in history
+    this._recordHistory(role, currentModel, previousModel, null, 'rollback');
+    this._configVersion++;
+
+    logger.info('UpgradeManager', `Rolled back: ${role} ${currentModel} → ${previousModel}`);
+
+    return { ok: true, role, from: currentModel, to: previousModel, configVersion: this._configVersion };
+  }
+
+  /**
+   * Quick verification that a model responds via Ollama /api/chat.
+   * @param {string} modelName
+   * @returns {Promise<boolean>}
+   */
+  async _verifyModel(modelName) {
+    const baseUrl = config.ollama?.baseUrl || 'http://127.0.0.1:11434';
+    const timeout = 15000;
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+      const response = await fetch(`${baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: modelName,
+          messages: [{ role: 'user', content: 'ping' }],
+          stream: false,
+          options: { num_predict: 1 },
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      if (!response.ok) return false;
+
+      const data = await response.json();
+      return !!(data.message?.content || data.response);
+    } catch (err) {
+      logger.warn('UpgradeManager', `Verify failed for ${modelName}: ${err.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Pull a model from Ollama with streaming progress.
+   *
+   * @param {string} modelName - e.g. 'qwen3.5:27b'
+   * @param {Function} [onProgress] - callback({text, percent, downloadedGB, totalGB, eta, status})
+   * @returns {Promise<void>}
+   */
+  async pullModel(modelName, onProgress) {
+    const baseUrl = config.ollama?.baseUrl || 'http://127.0.0.1:11434';
+
+    const response = await fetch(`${baseUrl}/api/pull`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: modelName }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Ollama pull failed: HTTP ${response.status}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let lastPercent = -1;
+    let lastEmitTime = 0;
+    const startTime = Date.now();
+
+    const STATUS_LABELS = {
+      'pulling manifest': 'Stahuji manifest...',
+      'downloading': null,
+      'verifying sha256 digest': 'Ověřuji integritu...',
+      'writing manifest': 'Zapisuji manifest...',
+      'removing any unused layers': 'Čistím staré vrstvy...',
+      'success': 'Hotovo',
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const data = JSON.parse(line);
+
+          if (data.status === 'downloading' && data.total > 0) {
+            const percent = Math.round((data.completed / data.total) * 100);
+            const now = Date.now();
+            if (percent >= lastPercent + 5 || (now - lastEmitTime >= 3000) || percent === 100) {
+              lastPercent = percent;
+              lastEmitTime = now;
+              const elapsed = (now - startTime) / 1000;
+              const speed = data.completed / elapsed;
+              const remaining = (data.total - data.completed) / speed;
+              const eta = remaining > 60
+                ? `${Math.round(remaining / 60)}:${String(Math.round(remaining % 60)).padStart(2, '0')}`
+                : `${Math.round(remaining)}s`;
+              const downloadedGB = (data.completed / 1_073_741_824).toFixed(1);
+              const totalGB = (data.total / 1_073_741_824).toFixed(1);
+              const text = `${modelName} — ${percent}% (${downloadedGB}/${totalGB} GB) — ETA ~${eta}`;
+
+              if (onProgress) onProgress({ text, percent, downloadedGB, totalGB, eta, status: 'downloading' });
+            }
+          } else if (data.status && STATUS_LABELS[data.status] !== undefined) {
+            const label = STATUS_LABELS[data.status];
+            if (label && onProgress) {
+              onProgress({ text: `${modelName} — ${label}`, percent: -1, status: data.status });
+            }
+          } else if (data.error) {
+            throw new Error(`Ollama pull error: ${data.error}`);
+          }
+        } catch (parseErr) {
+          if (parseErr.message.startsWith('Ollama pull error')) throw parseErr;
+        }
+      }
+    }
+
+    logger.info('UpgradeManager', `Pulled model: ${modelName}`);
+  }
+
+  /**
+   * Find old models that were replaced and are no longer bound to any role.
+   * @returns {Array<{model: string, replacedBy: string, role: string, appliedAt: string}>}
+   */
+  getUnusedOldModels() {
+    if (!this._db) return [];
+    try {
+      const rows = this._db.prepare(
+        'SELECT role, model, previous_model, applied_at FROM model_overrides ORDER BY applied_at DESC LIMIT 50'
+      ).all();
+
+      const boundModels = new Set(Object.values(config.models));
+      return rows
+        .filter(r => !boundModels.has(r.previous_model))
+        .map(r => ({
+          model: r.previous_model,
+          replacedBy: r.model,
+          role: r.role,
+          appliedAt: r.applied_at,
+        }));
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /**
+   * Persist a model override to DB.
+   */
+  _persistOverride(role, model, previousModel, score, appliedBy) {
+    this._db.prepare(`
+      INSERT OR REPLACE INTO model_overrides (role, model, previous_model, score, applied_by, applied_at)
+      VALUES (?, ?, ?, ?, ?, datetime('now'))
+    `).run(role, model, previousModel, score ?? null, appliedBy || 'user');
+  }
+
+  /**
+   * Record an upgrade/rollback action in DB history.
+   */
+  _recordHistory(role, fromModel, toModel, score, action) {
+    this._db.prepare(`
+      INSERT INTO upgrade_history (role, from_model, to_model, score, action)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(role, fromModel, toModel, score ?? null, action);
   }
 
   /**
@@ -348,10 +672,17 @@ export class UpgradeManager {
   }
 
   /**
-   * Get upgrade history.
+   * Get upgrade history. Prefers DB when available, falls back to in-memory.
    * @returns {Array}
    */
   getHistory() {
+    if (this._db) {
+      try {
+        return this._db.prepare(
+          'SELECT role, from_model AS fromModel, to_model AS toModel, score, action, created_at AS timestamp FROM upgrade_history ORDER BY created_at DESC LIMIT 50'
+        ).all();
+      } catch (_) { /* fall through */ }
+    }
     return [...this._history];
   }
 

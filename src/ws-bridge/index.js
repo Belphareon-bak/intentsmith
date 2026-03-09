@@ -9,7 +9,7 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
-export { attachWebSocketServer } from './ws-server.js';
+export { attachWebSocketServer, broadcast } from './ws-server.js';
 export { createSessionAdapter } from './session-adapter.js';
 export {
   PROTOCOL_VERSION,
