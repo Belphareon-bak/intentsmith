@@ -118,9 +118,10 @@ export function limitErrors(errors) {
  * @param {Array} errors - NormalizedError[] to fix
  * @param {Object} iterationMemory - Loop state
  * @param {string} gitDiff - Current git diff
+ * @param {string} [taskContext] - Task memory context (from F5)
  * @returns {string} Prompt for CODE LLM
  */
-export function buildFixPrompt(milestone, errors, iterationMemory, gitDiff) {
+export function buildFixPrompt(milestone, errors, iterationMemory, gitDiff, taskContext) {
   const maxIter = config.lifecycle?.maxLoopIterations || 8;
   const iter = iterationMemory.iteration;
 
@@ -145,6 +146,11 @@ export function buildFixPrompt(milestone, errors, iterationMemory, gitDiff) {
     ? gitDiff.slice(0, MAX_GIT_DIFF_CHARS)
     : 'No diff available';
 
+  // Task memory section (F5)
+  const taskSection = taskContext
+    ? `\n## Past Fix Experience\n${taskContext}\n`
+    : '';
+
   return `You are fixing errors in milestone "${milestone.title || ''}".
 
 ## Current Errors (iteration ${iter}/${maxIter})
@@ -152,7 +158,7 @@ ${formattedErrors}
 
 ## Root Cause Analysis
 ${rootCauses.length} root cause(s) identified. Fix these FIRST — dependent errors will likely resolve automatically.
-
+${taskSection}
 ## Previous Patches (last ${MAX_PROMPT_PATCHES})
 ${patchSection}
 
@@ -251,6 +257,7 @@ export async function runFixLoop(options) {
     lifecycle, milestone, testResults: initialTestResults,
     qualityGateResult: initialQualityGate,
     callLLM, runTests, runQualityGate, getGitDiff,
+    taskMemory,
   } = options;
 
   const maxIter = config.lifecycle?.maxLoopIterations || 8;
@@ -259,10 +266,29 @@ export async function runFixLoop(options) {
   // Step 1: Parse initial errors
   const initialErrors = extractErrors(initialTestResults, initialQualityGate);
 
+  // F5: Query task memory for past fix experience
+  let taskContext = '';
+  if (taskMemory) {
+    try {
+      const { queryRelevant, formatTaskMemory } = taskMemory;
+      const modifiedFiles = initialErrors.map(e => e.file).filter(Boolean);
+      const entries = await queryRelevant(initialErrors, modifiedFiles, {
+        projectId: lifecycle.projectId || lifecycle.id,
+        maxResults: 8,
+      });
+      if (entries && entries.length > 0) {
+        taskContext = formatTaskMemory(entries);
+      }
+    } catch (err) {
+      logger.warn('ExecutionLoop', `Task memory query failed: ${err.message}`);
+    }
+  }
+
   logger.info('ExecutionLoop', 'Starting fix loop', {
     milestoneId: milestone.id,
     initialErrors: initialErrors.length,
     maxIterations: maxIter,
+    taskMemoryEntries: taskContext ? taskContext.split('\n').length : 0,
   });
 
   if (initialErrors.length === 0) {
@@ -323,7 +349,7 @@ export async function runFixLoop(options) {
 
       // 4a. Build fix prompt
       const gitDiff = await getGitDiff();
-      const prompt = buildFixPrompt(milestone, currentErrors, iterMem, gitDiff);
+      const prompt = buildFixPrompt(milestone, currentErrors, iterMem, gitDiff, taskContext);
 
       // 4b. Call LLM
       const llmResult = await callLLM('CODE', prompt);
@@ -489,6 +515,31 @@ export async function runFixLoop(options) {
   } finally {
     // Always clean up backups
     clearBackups();
+
+    // F5: Record fix attempts to task memory
+    if (taskMemory) {
+      try {
+        const { recordFix } = taskMemory;
+        const projectId = lifecycle.projectId || lifecycle.id;
+        const converged = currentErrors.length === 0;
+        for (const entry of iterMem.errorHistory[0] || []) {
+          await recordFix({
+            projectId,
+            errorCode: entry.code,
+            file: entry.file,
+            symbol: entry.symbol,
+            patchFile: iterMem.filesModified.values().next().value || '',
+            success: converged,
+            strategy: converged
+              ? `Fixed in ${iterMem.iteration} iteration(s)`
+              : `Failed after ${iterMem.iteration} iteration(s): ${currentErrors.length} errors remain`,
+            milestoneId: milestone.id,
+          });
+        }
+      } catch (err) {
+        logger.warn('ExecutionLoop', `Task memory record failed: ${err.message}`);
+      }
+    }
   }
 }
 

@@ -8,6 +8,32 @@
 
 ---
 
+## v107 — F5: Task Memory (2026-03-09)
+
+Cross-milestone persistent learning for the execution loop. Records fix attempts (successes and failures) and architecture decisions so the LLM avoids repeating failed strategies and leverages past successes.
+
+### Task Memory (`task-memory.js`)
+- **`recordFix()`**: UPSERT with smart conflict resolution — failure→success overwrites (confidence 0.8), success→failure reduces confidence (−0.1), same outcome reinforces (+0.05, cap 0.95).
+- **`recordArchDecision()`**: Persistent architecture decisions with 0.9 initial confidence.
+- **`queryRelevant()`**: Matches past experience by error code prefix and file path. Architecture decisions always included. Results sorted by effective confidence.
+- **`reinforce()`**: Confidence boost on reuse (+0.05, cap 0.95).
+- **`prune()`**: Removes entries older than `maxAge` days with decayed confidence below threshold. Architecture decisions exempt.
+- **Decay**: `DECAY_LAMBDA=0.005` (half-life ~139 days), gentler than LTM's 0.01.
+- **`formatTaskMemory()`**: `[WORKED]`/`[FAILED]` prefix with confidence percentage for LLM prompt injection.
+
+### Integration
+- **execution-loop.js**: `runFixLoop()` accepts optional `taskMemory` object. Queries relevant entries before first iteration, injects formatted context into `buildFixPrompt()` as "Past Fix Experience" section. Records all initial errors as fix attempts on loop completion.
+- **lifecycle-build.js**: lazy-loaded via `ensureTaskMemory()` from singleton. Passes bound methods (`queryRelevant`, `formatTaskMemory`, `recordFix`) to execution loop.
+
+### Migration
+- `2026_03_08_030_v107_task_memory.js`: `task_memory` table with UNIQUE(project_id, kind, key), 4 indexes.
+
+### Tests
+- task-memory: **45/45** (10 suites: init, recordFix, recordArchDecision, queryRelevant, prune, reinforce, decay, format, integration, edge cases)
+- **0 regressions** (execution-loop 56, patch-engine 57, error-normalizer 48, knowledge-graph 17, graph-retrieval 30, context-optimizer 40, signature-map 25)
+
+---
+
 ## v106 — F4: Context Optimizer + Signature Map (2026-03-08)
 
 Intelligent context budget allocation for LLM code generation. Replaces flat 5-file/5K-token budget with cost-benefit ranking and compact API signatures — LLM gets maximum API awareness per token.

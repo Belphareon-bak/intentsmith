@@ -89,6 +89,28 @@ async function ensureExecutionLoop() {
   }
 }
 
+// v107: Task memory — lazy-loaded
+let _taskMemLoaded = false;
+let _taskMemory = null;
+
+async function ensureTaskMemory() {
+  if (_taskMemLoaded) return _taskMemory;
+  try {
+    const mod = await import('../memory/task-memory.js');
+    _taskMemory = {
+      queryRelevant: mod.taskMemory.queryRelevant.bind(mod.taskMemory),
+      formatTaskMemory: mod.formatTaskMemory,
+      recordFix: mod.taskMemory.recordFix.bind(mod.taskMemory),
+    };
+    _taskMemLoaded = true;
+    return _taskMemory;
+  } catch (err) {
+    logger.warn('LifecycleBuild', `Task memory not available: ${err.message}`);
+    _taskMemLoaded = true;
+    return null;
+  }
+}
+
 async function ensureGuardian() {
   if (_guardianLoaded) return true;
   try {
@@ -467,6 +489,7 @@ async function postExecution(lifecycle, milestone, wfResult) {
   const hasCompileFailure = !qualityGateResult.passed;
 
   if ((hasTestFailure || hasCompileFailure) && await ensureExecutionLoop()) {
+    const tm = await ensureTaskMemory();
     const loopResult = await _runFixLoop({
       lifecycle,
       milestone,
@@ -484,6 +507,7 @@ async function postExecution(lifecycle, milestone, wfResult) {
         return qg;
       },
       getGitDiff: () => getGitDiff(lifecycle),
+      taskMemory: tm,
     });
 
     if (loopResult.converged) {
