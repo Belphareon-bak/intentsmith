@@ -2,9 +2,9 @@
 
 ## Od aktuálního stavu k vizi
 
-**Datum:** 2026-03-04
-**Verze kódu:** v93.0.0 (Lifecycle E2E + Checkpoint Architecture + Specialist Focus + Project Workflow + IDE Polish)
-**Testy:** ~2600+ verified (683 lifecycle+quality, 401 CRE, 350 conversation, 218 ledger, 270 specialist, 200+ quality, 56 project-conversation, 44 agent-log, 43+78 expertise routing, 24 checkpoint)
+**Datum:** 2026-03-10
+**Verze kódu:** v116.0.0 (Code Intelligence + F-series Agent Evolution + Model Upgrade + Architecture Governance)
+**Testy:** ~3,000+ verified (597 F-series, 339 code-intel, 276 architecture, 401 CRE, 350 conversation, 218 ledger, 270 specialist, 115 upgrade, 56 project-E2E, 44 agent-log, + další)
 **IDE:** C3 Studio (Theia 1.65.2), 33 custom extensions, Phase 1-5 (~85%)
 
 ---
@@ -32,7 +32,7 @@ Installer, licence, auto-update, setup wizard.
 
 ---
 
-## Kde je každý pilíř dnes (v93)
+## Kde je každý pilíř dnes (v116)
 
 ### Pilíř 1: CHAT — 100% ✅
 **Status: PHASE A = DONE.**
@@ -52,12 +52,15 @@ Installer, licence, auto-update, setup wizard.
 - v87: **LLM timeout hardening** — no retry on AbortError, CHAT 90s
 
 ### Pilíř 2: PROJEKTY — 100% ✅
-**Status: PHASE C = DONE. Quality Scoring layer přidán v80.**
-- v65.6: Lifecycle session routing fix — RAM lookup by `projectId`, `bindSessionToLifecycle()`
+**Status: PHASE C = DONE. Quality Scoring + Checkpoint Architecture + Execution Engine.**
+- Lifecycle session routing, crash recovery, multi-session
 - 683 deterministických lifecycle + quality testů PASS
-- v65.7: C3 Real LLM lifecycle test ✅ — E2E s Ollama
-- v80: **Quality Score** — deterministický scoring (spec, roadmap, change, lifecycle aggregate)
-- v80: **Quality Telemetry** — automatické logování skóre do DB, query API
+- v80: **Quality Score + Telemetry** — deterministický scoring, DB logging
+- v92: **Checkpoint Architecture** — STRUCTURAL/FUNCTIONAL/SECURITY modes, adaptive retry
+- v95-v102: **Code Intelligence** — 33 modulů, 11,463 LOC, BUILD context enrichment
+- v98-v100: **Architecture Governance** — guardian, API contracts, critic/repair, regression prediction
+- v104-v109: **Execution Engine (F1-F8)** — patch engine, error normalizer, iterative fix loop, self-critique (355 testů)
+- v110-v116: **Agent Evolution (FΔ+F9-F14)** — adaptive strategy, task memory, cross-project learning (242 testů)
 
 ### Pilíř 3: WORKERI — 95% ✅
 **Status: B0-B9 DONE. B8 template workeři kompletní.**
@@ -202,6 +205,17 @@ Korelační analýza (po pilotu): spec_score vs build_success, roadmap_score vs 
 | v88–89 | **Project Workflow** — lifecycle intercepts, project welcome, version unification |
 | v90.0 | **Smart Relay Management** — _smartRouteToRelay(), typing indicator |
 | v91.0 | **Settings Phase 3** — Feature Flags UI, Security (auth+tokens+audit), 5-step onboarding |
+| v92.0 | **Checkpoint Architecture** — STRUCTURAL/FUNCTIONAL/SECURITY modes, adaptive retry |
+| v92.0 | **Specialist Focus Mode** — CSS-driven layout transformation, per-session focus |
+| v93.0 | **Project Conversation E2E** — 56/56 tests, 4 project types, lifecycle approval |
+| v95–v99 | **Code Intelligence** — 33 modules (11,463 LOC): symbol index, KG, graph expansion, architecture detection |
+| v98.0 | **Architecture Governance** — guardian, API contract registry, critic/repair agent (57 tests) |
+| v100.0 | **Architecture Intelligence** — policy, context engine, refactor, regression predictor, multi-agent (161 tests) |
+| v101–v102 | **Large Project Scaling** — map-based graph, priority BFS, streaming indexer, concept registry (107 tests) |
+| v103.0 | **Self-Evaluating Model Registry** — discover→rank→propose→approve→pull, chat-based approval (115 tests) |
+| v104.0 | **F1-F3: Patch Engine + Error Normalizer + Execution Loop** — core agent evolution (161 tests) |
+| v106–v109 | **F4-F8: Context Optimizer, Task Memory, Self-Critique, Graph Debug, Pattern Mining** (194 tests) |
+| v110–v116 | **FΔ+F9-F14: Context Delta, Build Strategy, Fix Strategy, Perf Intel, Deps, CI, Cross-Project** (242 tests) |
 
 ---
 
@@ -228,11 +242,15 @@ Korelační analýza (po pilotu): spec_score vs build_success, roadmap_score vs 
 ```
 Fáze Q: QUALITY    ██████████████████████████████████████████  100% → DONE
 Fáze A: CHAT       ██████████████████████████████████████████  100% → DONE (v87 GUARD 6 + attachment guard)
-Fáze C: PROJEKTY   ██████████████████████████████████████████  100% → DONE (v80 quality score)
+Fáze C: PROJEKTY   ██████████████████████████████████████████  100% → DONE (v80 quality score + v92 checkpoint)
 Fáze D-int: ÚČETNÍ ██████████████████████████████████████████  100% → DONE (ledger v69-v74)
 Fáze B: WORKERI    ██████████████████████████████████████░░░░   95% (B0-B9 done)
 Fáze H: HARDENING  ██████████████████████████████████████████  100% (9/9 DONE)
 Fáze D: SPECIALISTÉ██████████████████████████████████████░░░░   92% (D1-D8, ledger, specialist platform, telemetry)
+Fáze G: CODE INTEL ██████████████████████████████████████████  100% → DONE (v95-v102, 33 modulů, 339 testů)
+Fáze I: GOVERNANCE ██████████████████████████████████████████  100% → DONE (v98-v100, guardian+contracts+critic)
+Fáze J: F-SERIES   ██████████████████████████████████████████  100% → DONE (v104-v116, F1-F14, 597 testů)
+Fáze K: MODEL MGMT ██████████████████████████████████████████  100% → DONE (v103, 115 testů)
 Fáze E: IDE        █████████████████████████████████░░░░░░░░░   82% (Phase 1-5, 33 extensions, Settings Phase 3 v91)
 Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   25% (F1-F3 wired)
 ```
@@ -320,12 +338,12 @@ Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░�
 ## Celkový progres
 
 **Hotovo:** ~98% celkové vize
-**Nové od v15:** v91 Settings Phase 3 (Feature Flags UI, Security section, 5-step onboarding), v90 Smart Relay Management, v89 Project Welcome.
+**Nové od v93:** Code Intelligence (33 modulů), Architecture Governance, Execution Engine (F1-F14), Model Upgrade System, Large Project Scaling — celkem 1,500+ nových testů.
 
 ```
 Celkem zbývajících úkolů:  6 + IDE Settings Phase 3b-4
   🔴 Critical:              0
-  🟡 Important:             1  (QS3 Quality Report — in progress)
+  🟡 Important:             1  (QS3 Quality Report)
   ⚪ Future (D5,D9,E,F):     5  (~2 měsíce)
   📐 IDE Settings Phase 3b:  Social login (OAuth), Online sync (GitHub Gist)
   📐 IDE Settings Phase 4:   GPU wizard, Model auto-download, First-run, Diagnostics bundle
@@ -703,4 +721,4 @@ Vizuální breakdown (pie/bar chart)
 
 ---
 
-*Tento dokument nahrazuje Roadmapa v14. Aktualizováno na v87.6.0 (2026-02-28).*
+*Tento dokument nahrazuje Roadmapa v14. Aktualizováno na v116.0.0 (2026-03-10).*
