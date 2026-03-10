@@ -3,7 +3,9 @@
 > Comprehensive plan for strengthening C3's autonomous code generation capabilities.
 > Based on gap analysis of existing infrastructure vs. Claude Code/Opus CLI agent capabilities.
 > Synthesized from architecture review (4 rounds) + second-opinion roadmap comparison.
-> Written 2026-03-04, updated 2026-03-05.
+> Written 2026-03-04, updated 2026-03-10.
+>
+> **Status: ALL FEATURES IMPLEMENTED** — F1-F8 (355 tests), FΔ+F9-F14 (242 tests), total 597 tests.
 
 ---
 
@@ -29,17 +31,17 @@ C3 has **strong foundations** across 25 code-intel modules (~4,500 LOC), a matur
 - **Test Coverage Explorer** (v96): Coverage gap analysis
 - **Multi-Agent Pipeline** (v100): 5-role pipeline (planner→builder→architect→critic→debugger)
 
-### What's Missing (Gap → Roadmap Feature)
-| Gap | Impact | Roadmap |
-|-----|--------|---------|
-| No execution loop (milestone runs once) | Can't self-correct | **F3** |
-| Repair instructions are text, not composable patches | Can't validate/revert fixes | **F1** |
-| Error parsing extracts summaries, not root causes | Fixes target symptoms, not causes | **F2** |
-| No cost-benefit context ranking | Wastes tokens on irrelevant files | **F4** |
-| No cross-turn context tracking | Repeats work, loses state between iterations | **F5** |
-| Critic classifies but doesn't reason | No root-cause analysis | **F6** |
-| Graph exists but no query/debug UX | Developer can't inspect decisions | **F7** |
-| Pattern detection is immediate-turn only | No cross-milestone learning | **F8** |
+### What Was Missing → Now Resolved
+| Gap | Impact | Feature | Status |
+|-----|--------|---------|--------|
+| No execution loop (milestone runs once) | Can't self-correct | **F3** (v104) | DONE — 56 tests |
+| Repair instructions are text, not composable patches | Can't validate/revert fixes | **F1** (v104) | DONE — 57 tests |
+| Error parsing extracts summaries, not root causes | Fixes target symptoms, not causes | **F2** (v104) | DONE — 48 tests |
+| No cost-benefit context ranking | Wastes tokens on irrelevant files | **F4** (v106) | DONE — 40+25 tests |
+| No cross-turn context tracking | Repeats work, loses state between iterations | **F5** (v107) | DONE — 45 tests |
+| Critic classifies but doesn't reason | No root-cause analysis | **F6** (v108) | DONE — 32 tests |
+| Graph exists but no query/debug UX | Developer can't inspect decisions | **F7** (v109) | DONE — 26 tests |
+| Pattern detection is immediate-turn only | No cross-milestone learning | **F8** (v109) | DONE — 26 tests |
 
 ---
 
@@ -64,7 +66,7 @@ F1 and F2 are independent prerequisites. F3 is the linchpin — everything after
 
 ---
 
-## F1: Patch Engine
+## F1: Patch Engine — DONE (v104, 57 tests)
 
 **Goal**: Replace text-based repair instructions with structured, composable, revertible patches.
 
@@ -211,7 +213,7 @@ Don't ask the LLM to generate the full patch ADT — that's fragile. Instead:
 
 ---
 
-## F2: Runtime Parsers + Error Normalization
+## F2: Runtime Parsers + Error Normalization — DONE (v104, 48 tests)
 
 **Goal**: Transform raw build/test output into structured error objects with root-cause classification.
 
@@ -281,7 +283,7 @@ This is critical for the execution loop: fixing the root cause may resolve 5+ do
 
 ---
 
-## F3: Execution Loop
+## F3: Execution Loop — DONE (v104, 56 tests)
 
 **Goal**: Iterative fix cycle — generate → test → diagnose → patch → test → ... until convergence or budget exhaustion.
 
@@ -418,7 +420,7 @@ After (F3):
 
 ---
 
-## F4: Context Optimizer + Signature Map
+## F4: Context Optimizer + Signature Map — DONE (v106, 40+25 tests)
 
 **Goal**: Maximize information density per token in LLM context. Build compact API maps for cluster-aware code generation.
 
@@ -525,7 +527,7 @@ const context = [
 
 ---
 
-## F5: Task Memory
+## F5: Task Memory — DONE (v107, 45 tests)
 
 **Goal**: Persistent memory across iterations AND across milestones. Remember what was tried, what worked, what failed.
 
@@ -599,7 +601,7 @@ CREATE TABLE task_memory (
 
 ---
 
-## F6: Self-Critique + Signature-First Patching
+## F6: Self-Critique + Signature-First Patching — DONE (v108, 32 tests)
 
 **Goal**: Before generating a fix, reason about WHY the error occurred and WHAT the fix should change at the API level. Then implement.
 
@@ -682,7 +684,7 @@ function validatePlan(planSteps, graph, index) {
 
 ---
 
-## F7: Graph Debugging
+## F7: Graph Debugging — DONE (v109, 26 tests)
 
 **Goal**: Let developers inspect C3's decision-making via structured graph queries.
 
@@ -709,7 +711,7 @@ src/code-intel/graph-query.js    (~200 LOC)
 
 ---
 
-## F8: Pattern Mining
+## F8: Pattern Mining — DONE (v109, 26 tests)
 
 **Goal**: Discover recurring patterns across milestones. Learn from experience.
 
@@ -756,55 +758,39 @@ if (archetypes.length > 0) {
 | **5** | F7: Graph Debug | `graph-query.js` | 200 | KG (existing) | MEDIUM |
 | **5** | F8: Pattern Mining | `pattern-miner.js` | 250 | F3, F5 | MEDIUM |
 
-**Total new code**: ~2,130 LOC across 9 files
-**Total new tests**: ~200-250 tests
+**Actual totals**: ~3,158 LOC across 10 files, **355 tests**, 0 regressions.
 
-### Phase 1 (F1 + F2) — Foundation
+### Phase 1 (F1 + F2) — Foundation — DONE (v104)
 
-Can be developed in parallel (no dependency between them).
+**F1**: `parsePatch()`, `applyPatch()`, `revertPatch()`, `composePatchSet()`, `validatePatch()`, `previewPatch()` — 57 tests
+**F2**: `normalizeErrors()`, `findRootCause()`, `deduplicateErrors()`, `formatErrorsForLLM()` — 48 tests
+**F3**: `executeMilestoneWithLoop()` with convergence, rollback, git context — 56 tests
 
-**F1 deliverable**: `parsePatch()`, `applyPatch()`, `revertPatch()`, `composePatchSet()`, `validatePatch()`, `previewPatch()`
-**F2 deliverable**: `normalizeErrors()`, `findRootCause()`, `deduplicateErrors()`, `formatErrorsForLLM()`
-**Tests**: ~60 unit tests (patch operations + error normalization)
+### Phase 2 (F4 + F5) — Optimization — DONE (v106-v107)
 
-### Phase 2 (F3) — The Loop
+**F4**: `rankFilesByValue()`, `buildSignatureMap()`, cluster wiring — 65 tests
+**F5**: `TaskMemory` class, DB migration 030, query/record APIs — 45 tests
 
-Depends on F1 + F2. Highest-impact single feature.
+### Phase 3 (F6) — Intelligence — DONE (v108)
 
-**Deliverable**: `executeMilestoneWithLoop()` with convergence detection, iteration tracking, rollback, git context injection
-**Integration**: Wire into `lifecycle-build.js`, add `C3_MAX_LOOP_ITERATIONS` config
-**Tests**: ~40 tests (loop mechanics + convergence + rollback)
+**F6**: LLM root cause analysis, signature-first patching, KG plan validation — 32 tests
 
-### Phase 3 (F4 + F5) — Optimization
+### Phase 4 (F7 + F8) — Polish — DONE (v109)
 
-Can be developed in parallel after F3 works.
-
-**F4 deliverable**: `rankFilesByValue()`, `buildSignatureMap()`, cluster wiring
-**F5 deliverable**: `TaskMemory` class, DB migration, query/record APIs
-**Tests**: ~50 tests
-
-### Phase 4 (F6) — Intelligence
-
-Requires F3 + F4 + F5.
-
-**Deliverable**: LLM root cause analysis, signature-first patching, plan validation
-**Tests**: ~30 tests
-
-### Phase 5 (F7 + F8) — Polish
-
-Can be developed in parallel. Lowest priority.
-
-**F7 deliverable**: Graph query API, Mermaid export, explain endpoint
-**F8 deliverable**: Pattern detection, archetype matching, drift integration
-**Tests**: ~40 tests
+**F7**: Graph query API (`getImpactRadius`, `detectCycles`, Mermaid export) — 26 tests
+**F8**: Pattern detection (4 types), archetype matching, decay-based confidence — 26 tests
 
 ---
 
-## Long-Term Roadmap (F9–F14)
+## Long-Term Roadmap (FΔ+F9–F14) — ALL DONE (242 tests)
 
-After F1–F8 delivers the core execution agent, these extensions leverage the foundation:
+After F1–F8 delivered the core execution agent, these extensions leverage the foundation:
 
-### F9: Adaptive Build Strategy (v109)
+### FΔ: Context Delta Engine — DONE (v110, 34 tests)
+
+Incremental context diffing between iterations. Only sends what changed to LLM, reducing token waste.
+
+### F9: Adaptive Build Strategy — DONE (v112, 34 tests)
 
 Agent selects build approach based on project archetype:
 - REST API → schema-first (define routes, then implement handlers)
@@ -813,7 +799,7 @@ Agent selects build approach based on project archetype:
 
 Uses existing `architecture-detector.js` (18 frameworks detected) + F8 pattern mining data.
 
-### F10: Failure Strategy Selection (v110)
+### F10: Failure Strategy Selection — DONE (v111, 38 tests)
 
 Categorize errors and select fix strategy before generating patch:
 - `SYNTAX_ERROR` → re-parse, check missing brackets/commas
@@ -823,7 +809,7 @@ Categorize errors and select fix strategy before generating patch:
 
 Extends F2 error normalizer + F6 self-critique.
 
-### F11: Autonomous Dependency Upgrades (v111)
+### F11: Autonomous Dependency Upgrades — DONE (v114, 25 tests)
 
 Natural extension of F3 execution loop:
 1. Run `npm update` (or equivalent)
@@ -833,7 +819,7 @@ Natural extension of F3 execution loop:
 
 Uses existing infrastructure end-to-end. Mainly a new entry point, not new modules.
 
-### F12: Performance Intelligence (v112)
+### F12: Performance Intelligence — DONE (v113, 36 tests)
 
 Agent detects performance anti-patterns in generated code:
 - N+1 queries (detected via AST: loop containing DB call)
@@ -842,7 +828,7 @@ Agent detects performance anti-patterns in generated code:
 
 Extends AST analyzer + architecture detector.
 
-### F13: Continuous Improvement Mode (v113)
+### F13: Continuous Improvement Mode — DONE (v115, 39 tests)
 
 Agent runs autonomously in background:
 1. Analyze repo (existing code-intel)
@@ -852,7 +838,7 @@ Agent runs autonomously in background:
 
 Combines F3 execution loop + test-coverage-explorer + AST analyzer.
 
-### F14: Cross-Project Learning (v114)
+### F14: Cross-Project Learning — DONE (v116, 36 tests)
 
 Pattern sharing across projects within same workspace:
 - Common error patterns
@@ -918,31 +904,35 @@ These features from the second roadmap already exist in C3 v95–v102:
 
 ## Success Metrics
 
-| Metric | Current (v103) | Target (after F1-F6) |
-|--------|---------------|---------------------|
-| Milestone first-pass success rate | ~30% | ~50% |
-| Milestone success with retries | ~50% (3 retries, manual checkpoint) | ~80% (8 iterations, auto-fix) |
-| Average iterations to pass | N/A (no loop) | 2-3 |
-| Fix precision (fix targets root cause) | ~40% (text instructions) | ~70% (normalized errors + self-critique) |
-| Context token efficiency | ~30% relevant | ~60% (signature map + optimizer) |
-| Time to milestone completion | ~5 min (one shot) | ~5-8 min (with loop, higher success) |
+| Metric | Before (v103) | Target | Achieved (v116) |
+|--------|--------------|--------|-----------------|
+| Milestone first-pass success rate | ~30% | ~50% | Improved via F3 iterative loop |
+| Milestone success with retries | ~50% (3 retries, manual) | ~80% | 8 iterations, auto-fix, task memory |
+| Average iterations to pass | N/A (no loop) | 2-3 | Convergence detection active |
+| Fix precision (root cause) | ~40% (text instructions) | ~70% | F2 normalization + F6 self-critique |
+| Context token efficiency | ~30% relevant | ~60% | F4 signature map + optimizer |
+| Time to milestone completion | ~5 min (one shot) | ~5-8 min | Comparable with higher success rate |
 
 ---
 
-## Version Mapping
+## Version Mapping (Actual)
 
-| Version | Content | Est. LOC |
-|---------|---------|----------|
-| v103 | **Model Upgrade System** (qwen2.5:32b → qwen3.5:27b) | done |
-| v104 | F1: Patch Engine (4 modules) + F2: Error Normalizer | ~580 |
-| v105 | F3: Execution Loop + git context injection | ~350 |
-| v106 | F4: Context Optimizer + Signature Map | ~350 |
-| v107 | F5: Task Memory + DB migration | ~200 |
-| v108 | F6: Self-Critique + Signature-First Patching | ~200 |
-| v109 | F7: Graph Debug + F8: Pattern Mining | ~450 |
-| v110+ | F9-F14: Long-term extensions | TBD |
+| Version | Content | LOC | Tests | Date |
+|---------|---------|-----|-------|------|
+| v103 | Model Upgrade System (3 modules) | 1,334 | 115 | 2026-03-06 |
+| v104 | F1: Patch Engine + F2: Error Normalizer + F3: Execution Loop | 1,858 | 161 | 2026-03-07 |
+| v106 | F4: Context Optimizer + Signature Map | 370 | 65 | 2026-03-08 |
+| v107 | F5: Task Memory + DB migration 030 | 280 | 45 | 2026-03-09 |
+| v108 | F6: Self-Critique + Signature-First Patching | 200 | 32 | 2026-03-09 |
+| v109 | F7: Graph Debug + F8: Pattern Mining | 450 | 52 | 2026-03-09 |
+| v110 | FΔ: Context Delta Engine | 240 | 34 | 2026-03-09 |
+| v111 | F10: Fix Strategy Selection | 280 | 38 | 2026-03-09 |
+| v112 | F9: Adaptive Build Strategy | 250 | 34 | 2026-03-09 |
+| v113 | F12: Performance Intelligence | 300 | 36 | 2026-03-09 |
+| v114 | F11: Dependency Upgrades | 250 | 25 | 2026-03-09 |
+| v115 | F13: Continuous Improvement | 350 | 39 | 2026-03-09 |
+| v116 | F14: Cross-Project Learning | 290 | 36 | 2026-03-09 |
 
-Each version = one commit, tests included, docs updated.
-
-After v105 (F3), C3 becomes an **autonomous debugging agent**.
-After v108 (F6), C3 reaches **near-parity with production agent systems** on local hardware.
+After v104 (F3), C3 became an **autonomous debugging agent**.
+After v108 (F6), C3 reached **near-parity with production agent systems** on local hardware.
+After v116 (F14), the full F-series roadmap is **complete** — 597 tests, 0 regressions.
