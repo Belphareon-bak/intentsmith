@@ -1,10 +1,11 @@
-// Signature Map v1 — Compact API signatures for LLM context
+// Signature Map v1.1 — Compact API signatures for LLM context
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // For files outside the edit scope, include only exported API signatures
 // instead of full source. Saves ~85% tokens while preserving API awareness.
 //
 // Two-tier extraction: AST (precise) → regex fallback (unsupported languages).
+// v1.1: In-memory content-hash cache for iterative fix loops.
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -12,6 +13,12 @@ import { readFile } from 'fs/promises';
 import path from 'path';
 import { parseAST, extractSymbols, isASTSupported } from './ast-analyzer.js';
 import { detectLanguage } from './code-analyzer.js';
+import { hashSection } from '../context/context-delta.js';
+
+// ─── Signature Cache ──────────────────────────────────────────────────────
+
+/** In-memory cache: contentHash → exports string[] */
+const _signatureCache = new Map();
 
 // ─── Regex Fallback Patterns ────────────────────────────────────────────────
 
@@ -43,6 +50,16 @@ export async function buildSignatureMap(files, projectPath) {
     try {
       const absPath = path.isAbsolute(file) ? file : path.join(projectPath, file);
       const content = await readFile(absPath, 'utf-8');
+
+      // Cache check: content hash → cached signatures
+      const contentHash = hashSection(content);
+      const cacheKey = `${file}:${contentHash}`;
+      if (_signatureCache.has(cacheKey)) {
+        const cached = _signatureCache.get(cacheKey);
+        if (cached.length > 0) results.push({ file, exports: cached });
+        continue;
+      }
+
       const language = detectLanguage(file);
 
       let exports;
@@ -54,6 +71,9 @@ export async function buildSignatureMap(files, projectPath) {
       if (!exports || exports.length === 0) {
         exports = extractSignaturesRegex(content, language);
       }
+
+      // Store in cache
+      _signatureCache.set(cacheKey, exports);
 
       if (exports.length > 0) {
         results.push({ file, exports });
@@ -177,4 +197,21 @@ export function formatSignatureMap(signatureMap) {
   }
 
   return parts.join('\n');
+}
+
+// ─── Cache Management ─────────────────────────────────────────────────────
+
+/**
+ * Clear the signature cache. Used for testing and between project switches.
+ */
+export function clearSignatureCache() {
+  _signatureCache.clear();
+}
+
+/**
+ * Get current cache size (for diagnostics).
+ * @returns {number}
+ */
+export function getSignatureCacheSize() {
+  return _signatureCache.size;
 }

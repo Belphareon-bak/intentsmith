@@ -8,6 +8,45 @@
 
 ---
 
+## v119 — Unified Prompt Pipeline + Patch Scope Limiter (2026-03-10)
+
+Structured prompt assembly, KG-based import hints, and pre-apply scope validation.
+
+### Prompt Builder (`src/context/prompt-builder.js`, ~210 LOC)
+- **`buildStructuredPrompt()`**: Unified prompt assembly with 12 named sections, priority-weighted allocation, token budget management. Replaces ad-hoc prompt construction in execution-loop.js, lifecycle-build.js, and self-critique.js.
+- **`buildSectionBudget()`**: Adaptive per-section budgets. Error-type multipliers shift budget toward most relevant sections (e.g. IMPORT_NOT_FOUND → ×2.0 IMPORT_MAP, ×1.5 SIGNATURES; SYNTAX_ERROR → ×2.0 SOURCE). Strategy-aware scaling (DETERMINISTIC ×0.6).
+- **`estimateTokens()`**: ~4 chars/token rough estimator (consistent with context-delta.js).
+- **Audit trail**: Returns `{ prompt, metadata }` with per-section token usage, truncation flags, included/excluded reasons.
+
+### Import Map (`src/context/import-map.js`, ~170 LOC)
+- **`buildImportMap()`**: KG-based import resolution — for each target file, traces IMPORTS edges to dependencies, then DEFINES edges to resolve symbol→file mappings. Prevents wrong import paths (the #1 LLM code gen error).
+- **`detectSymbolConflicts()`**: Scans all symbol nodes to find same-name definitions in different files. Warns LLM about ambiguous names.
+- **`formatImportMap()`**: Markdown prompt section with `symbol → file` entries + conflict warnings.
+
+### Scope Limiter (`src/patch/scope-limiter.js`, ~190 LOC)
+- **`computePatchScope()`**: KG-based scope — target files + 1-hop dependencies (getDependencies) + 1-hop dependents (getDependents), capped at maxFiles. Engine-managed files (package.json, etc.) always allowed. Graceful degradation when no graph available.
+- **`validatePatchScope()`**: Pre-apply validation — rejects patches targeting files outside scope.
+- **`formatScopeHint()`**: Markdown prompt section listing allowed files with reasons.
+- **`ScopeViolationTracker`**: Tracks consecutive out-of-scope patches. Auto-widens scope after 3 violations (hops +1), disables limiter after 5 (graceful degradation).
+
+### Signature Cache (`signature-map.js`, +30 LOC)
+- In-memory `Map<file:contentHash, exports[]>` using FNV-1a hash from context-delta.js.
+- Cache hit skips AST parse entirely. Invalidation: content change → different hash → miss.
+- `clearSignatureCache()` / `getSignatureCacheSize()` for testing and project switches.
+
+### Integration
+- **execution-loop.js**: Lazy-loaded import map, scope limiter, prompt builder. Scope validation before patch apply (step 4g0). Import map + scope hint injected into fix prompts. Violation tracking with auto-widen/disable.
+- **lifecycle-build.js**: Import map + scope hint injected into `buildCodeContextForMilestone()` via lazy KG import.
+
+### Tests
+- prompt-builder: **30/30** (estimateTokens, buildSectionBudget, buildStructuredPrompt — ordering, truncation, budget exhaustion, metadata, determinism, adaptive weighting)
+- import-map: **19/19** (buildImportMap resolution, conflicts, formatImportMap, integration)
+- scope-limiter: **27/27** (scope computation, limits, no-graph, validatePatchScope, formatScopeHint, ScopeViolationTracker)
+- signature-cache: **7/7** (cache hit/miss, clear, independence, output correctness)
+- **0 regressions** (execution-loop 56, signature-map 25, patch-engine 57, error-normalizer 48, context-delta 34, fix-strategy 38, knowledge-graph 17, graph-query 26, self-critique 32 — all pass)
+
+---
+
 ## v116 — F14: Cross-Project Learning (2026-03-09)
 
 Pattern sharing across projects within the same workspace.

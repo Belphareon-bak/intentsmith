@@ -65,6 +65,62 @@ async function ensureContextDelta() {
   }
 }
 
+// v119: Prompt Builder — lazy-loaded
+let _promptBuilderLoaded = false;
+let _buildStructuredPrompt;
+
+async function ensurePromptBuilder() {
+  if (_promptBuilderLoaded) return true;
+  try {
+    const mod = await import('../context/prompt-builder.js');
+    _buildStructuredPrompt = mod.buildStructuredPrompt;
+    _promptBuilderLoaded = true;
+    return true;
+  } catch (err) {
+    logger.warn('ExecutionLoop', `Prompt builder not available: ${err.message}`);
+    return false;
+  }
+}
+
+// v119: Import Map — lazy-loaded
+let _importMapLoaded = false;
+let _buildImportMap, _detectSymbolConflicts, _formatImportMap;
+
+async function ensureImportMap() {
+  if (_importMapLoaded) return true;
+  try {
+    const mod = await import('../context/import-map.js');
+    _buildImportMap = mod.buildImportMap;
+    _detectSymbolConflicts = mod.detectSymbolConflicts;
+    _formatImportMap = mod.formatImportMap;
+    _importMapLoaded = true;
+    return true;
+  } catch (err) {
+    logger.warn('ExecutionLoop', `Import map not available: ${err.message}`);
+    return false;
+  }
+}
+
+// v119: Scope Limiter — lazy-loaded
+let _scopeLimiterLoaded = false;
+let _computePatchScope, _validatePatchScope, _formatScopeHint, _ScopeViolationTracker;
+
+async function ensureScopeLimiter() {
+  if (_scopeLimiterLoaded) return true;
+  try {
+    const mod = await import('../patch/scope-limiter.js');
+    _computePatchScope = mod.computePatchScope;
+    _validatePatchScope = mod.validatePatchScope;
+    _formatScopeHint = mod.formatScopeHint;
+    _ScopeViolationTracker = mod.ScopeViolationTracker;
+    _scopeLimiterLoaded = true;
+    return true;
+  } catch (err) {
+    logger.warn('ExecutionLoop', `Scope limiter not available: ${err.message}`);
+    return false;
+  }
+}
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const MAX_PATCH_FILES = 5;
@@ -163,9 +219,11 @@ export function limitErrors(errors) {
  * @param {string} [critiqueContext] - Self-critique analysis (from F6)
  * @param {string} [deltaContext] - Delta-compressed context (from FΔ, iteration 2+)
  * @param {string} [strategyHints] - Fix hints from strategy selection (from F10)
+ * @param {string} [scopeHint] - Scope limiter hint (from v119)
+ * @param {string} [importMapHint] - Import map hint (from v119)
  * @returns {string} Prompt for CODE LLM
  */
-export function buildFixPrompt(milestone, errors, iterationMemory, gitDiff, taskContext, critiqueContext, deltaContext, strategyHints) {
+export function buildFixPrompt(milestone, errors, iterationMemory, gitDiff, taskContext, critiqueContext, deltaContext, strategyHints, scopeHint, importMapHint) {
   const maxIter = config.lifecycle?.maxLoopIterations || 8;
   const iter = iterationMemory.iteration;
 
@@ -221,6 +279,10 @@ IMPORTANT: Output ONLY raw source patches. NO markdown fences. NO explanations.`
     ? `\n## Self-Critique Analysis\n${critiqueContext}\n`
     : '';
 
+  // v119: Scope and import map sections
+  const scopeSection = scopeHint ? `\n${scopeHint}\n` : '';
+  const importSection = importMapHint ? `\n${importMapHint}\n` : '';
+
   return `You are fixing errors in milestone "${milestone.title || ''}".
 
 ## Current Errors (iteration ${iter}/${maxIter})
@@ -228,7 +290,7 @@ ${formattedErrors}
 
 ## Root Cause Analysis
 ${rootCauses.length} root cause(s) identified. Fix these FIRST — dependent errors will likely resolve automatically.
-${taskSection}${critiqueSection}${strategyHints || ''}
+${scopeSection}${importSection}${taskSection}${critiqueSection}${strategyHints || ''}
 ## Previous Patches (last ${MAX_PROMPT_PATCHES})
 ${patchSection}
 
@@ -411,6 +473,34 @@ export async function runFixLoop(options) {
   const useDelta = await ensureContextDelta();
   let prevSnapshot = null;
 
+  // v119: Scope limiter + import map + prompt builder
+  const useScope = await ensureScopeLimiter();
+  const useImport = await ensureImportMap();
+  const usePromptBuilder = await ensurePromptBuilder();
+
+  let patchScope = null;
+  let violationTracker = null;
+  let importMapText = '';
+
+  if (useScope && options.graph) {
+    const targetFiles = milestone.scope_files || [];
+    const hops = violationTracker?.widened ? 2 : 1;
+    patchScope = _computePatchScope(options.graph, targetFiles, { hops });
+    violationTracker = new _ScopeViolationTracker();
+  }
+
+  if (useImport && options.graph) {
+    try {
+      const targetFiles = milestone.scope_files || [];
+      const entries = _buildImportMap(options.graph, targetFiles);
+      const symbolNames = entries.map(e => e.symbol);
+      const conflicts = _detectSymbolConflicts(options.graph, symbolNames);
+      importMapText = _formatImportMap(entries, conflicts);
+    } catch (err) {
+      logger.warn('ExecutionLoop', `Import map build failed: ${err.message}`);
+    }
+  }
+
   try {
     // Step 4: Fix loop
     for (let iter = 1; iter <= maxIter; iter++) {
@@ -528,7 +618,9 @@ export async function runFixLoop(options) {
           logger.warn('ExecutionLoop', `Context delta failed: ${err.message}`);
         }
       }
-      const prompt = buildFixPrompt(milestone, currentErrors, iterMem, gitDiff, taskContext, critiqueContext, deltaContext, strategyHints);
+      // v119: Build scope hint for this iteration
+      const scopeHint = (patchScope && !violationTracker?.disabled) ? _formatScopeHint(patchScope) : '';
+      const prompt = buildFixPrompt(milestone, currentErrors, iterMem, gitDiff, taskContext, critiqueContext, deltaContext, strategyHints, scopeHint, importMapText);
 
       // 4c. Call LLM
       const llmResult = await callLLM('CODE', prompt);
@@ -598,6 +690,23 @@ export async function runFixLoop(options) {
       if (oscillation) {
         iterationLog.push({ iteration: iter, errorCount: currentErrors.length, patchFiles, action: 'skipped' });
         return _buildResult(false, 'oscillation_detected', iter, lastTestResults, lastQualityGate, currentErrors, iterationLog, iterMem.filesModified);
+      }
+
+      // 4g0. GUARD: Scope limiter pre-validation (v119)
+      if (patchScope && violationTracker && !violationTracker.disabled) {
+        const scopeResult = _validatePatchScope(patches, patchScope);
+        if (!scopeResult.valid) {
+          const state = violationTracker.recordViolation();
+          logger.warn('ExecutionLoop', `Scope violation (${state.count}): ${scopeResult.violations.map(v => v.file).join(', ')}`, {
+            milestoneId: milestone.id, iteration: iter,
+          });
+
+          // Re-compute scope if widened
+          if (state.action === 'widened' && options.graph) {
+            const targetFiles = milestone.scope_files || [];
+            patchScope = _computePatchScope(options.graph, targetFiles, { hops: 2 });
+          }
+        }
       }
 
       // 4g. GUARD: Preview before apply — filter out invalid patches

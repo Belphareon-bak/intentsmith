@@ -1418,6 +1418,34 @@ async function buildCodeContextForMilestone(projectPath, milestone, localPlan) {
       parts.push(`\n\n${sigText}`);
     }
 
+    // v119: Import map + scope hint from KG
+    try {
+      const [importMapMod, scopeMod, kgMod] = await Promise.all([
+        import('../context/import-map.js'),
+        import('../patch/scope-limiter.js'),
+        import('../code-intel/knowledge-graph.js'),
+      ]);
+      const graph = kgMod.knowledgeGraph;
+      if (graph && graph.getNode) {
+        // Import map
+        if (importMapMod) {
+          const entries = importMapMod.buildImportMap(graph, scopeFiles);
+          if (entries.length > 0) {
+            const symbolNames = entries.map(e => e.symbol);
+            const conflicts = importMapMod.detectSymbolConflicts(graph, symbolNames);
+            const mapText = importMapMod.formatImportMap(entries, conflicts);
+            if (mapText) parts.push(`\n\n${mapText}`);
+          }
+        }
+        // Scope hint
+        if (scopeMod) {
+          const scope = scopeMod.computePatchScope(graph, scopeFiles);
+          const hint = scopeMod.formatScopeHint(scope);
+          if (hint) parts.push(`\n\n${hint}`);
+        }
+      }
+    } catch (_) { /* graceful — import map + scope are optional */ }
+
     const archSection = _formatArchitectureForPrompt(mergedArch);
     if (archSection) {
       parts.push(`\n\n${archSection}`);
