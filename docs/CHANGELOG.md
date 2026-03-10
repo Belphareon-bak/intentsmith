@@ -8,6 +8,67 @@
 
 ---
 
+## v118 — Phase 2 Model Upgrade: Pairwise Evaluation + Curated Catalog (2026-03-10)
+
+Complete overhaul of model upgrade discovery and evaluation — pairwise scoring, curated 55-model catalog with benchmarks, DB-backed proposals, implicit user preferences.
+
+### Model Catalog (`src/upgrade/model-catalog.js`, ~350 LOC)
+- **55 curated models** with benchmark data (swebench, livecodebench, humaneval, mmlu, arena, reasoning), VRAM requirements, capabilities, architecture info.
+- **Families**: Qwen 2.5/3/3.5, DeepSeek R1/R1-0528/Coder, Llama 3.1-3.3, Codestral, Mistral, StarCoder2, Phi-3/4, Gemma 2/3, LLaVA/BakLLaVA/Moondream/MiniCPM-V.
+- **`computeEffectiveVram()`**: Context-aware KV cache estimate — `(baseVramMb × quantFactor + params × contextWindow × 0.00002) × 1.10` safety margin.
+- **`CATALOG_HASH`**: DJB2 hash for proposal invalidation when catalog updates.
+
+### Model Ranker (`src/upgrade/model-ranker.js`, ~250 LOC)
+- **Pairwise evaluation**: `candidateScore − currentScore ≥ threshold` (per-role thresholds: D1=0.06, CODE=0.05, CHAT=0.04).
+- **Score formula**: `benchmark×0.35 + hwFit×0.20 + maturity×0.15 + generation×0.10 + category×0.10 + speed×0.10`.
+- **Per-role benchmark weights**: CODE→swebench 0.45, D1/R1→reasoning 0.50, CHAT→arena+mmlu 0.35 each.
+- **Null benchmark redistribution**: Missing benchmarks don't penalize — weight redistributed proportionally.
+- **Dominance gate**: Reject if any dimension (hw, speed, context) >20% worse than current.
+- **Context regression**: Reject if `candidate.contextWindow < current × 0.5`.
+- **Risk scoring**: HIGH for >30GB / age<14d / params>2× / ctxDrop>30%.
+
+### Proposal Store (`src/upgrade/proposal-store.js`, ~230 LOC)
+- **DB-backed lifecycle**: `pending → approved | rejected (30d cooldown) | dismissed (permanent) | expired (7d)`.
+- **Anti-thrashing**: 14-day minimum between upgrades per role (exception: delta ≥ 2× threshold).
+- **Catalog hash + evaluation version invalidation**: Proposals expire on catalog or scoring algorithm change.
+- **Dedup**: Same `(role, candidateModel, catalogHash, evalVersion)` → update score. Re-propose if current_model changed.
+- **Max 3 proposals per role** per cycle.
+
+### Preference Tracker (`src/upgrade/preference-tracker.js`, ~130 LOC)
+- **Implicit preferences** from approve/reject/rollback/dismiss history, per (role, family, sizeBucket).
+- **Confidence dampening**: `min(1.0, totalActions / 5)` — first few actions carry less weight.
+- **Time decay**: 90-day half-life. Rollbacks weighted 2×, dismissals 3×.
+- **Penalty**: `score > 0.5 → 0, else (0.5 - score) × 0.16` (max 0.08 impact on delta).
+
+### Registry Client (`src/upgrade/registry-client.js`, ~150 LOC)
+- **Online verification**: HEAD `ollama.com/library/{family}` → 200=exists, 404=removed. GET fallback.
+- **Cache**: `model_catalog_cache` table (TTL 7d). Offline after 3 failures, retry after 1h.
+- **Batch verification**: Concurrency limit 3. Assumes exists on error (safe default).
+
+### Discovery L2 (`model-discovery.js` extended)
+- **`buildCatalogCandidates()`**: Catalog entries not installed, filtered by maturity ≥7d + benchmark sanity.
+- **`discover({ includeCatalog: true })`**: Merges L1 (local) + L2 (catalog), L1 wins on dedup.
+- **Stats**: `{ local, catalog, total }` in discovery result.
+
+### Upgrade Manager Pipeline (`upgrade-manager.js` extended)
+- **Phase 2 pipeline**: discover → feasibility → pairwise → preference → proposal store.
+- **Feasibility gate**: VRAM (×0.90), RAM (params×0.6 < RAM×0.7), disk (sizeGB < free×0.8), CPU cap 14B, capability check (D1 needs json_mode, VISION needs vision).
+- **fullCycle scheduling**: 24h + ±90min jitter (prevents thundering herd). L1 on 5min poll.
+- **Phase 1 fallback**: If Phase 2 modules fail to load, falls back to v103 `generateProposals()`.
+
+### Integration
+- **`server.js`**: Wires proposalStore + registryClient with `setDb()`, loads cache, expires stale proposals.
+- **`pre-handler.js`**: Dismiss support (`nikdy/never/dismiss`), proposal store integration for approve/reject.
+- **`system.js`**: 3 new routes — `GET /api/system/catalog`, `GET /api/system/proposals`, `POST /api/system/proposals/:id/dismiss`.
+- **Migration 031**: `upgrade_proposals` table + `model_catalog_cache` table + 5 indexes.
+
+### Tests
+- model-upgrade-phase2: **88/88** (Catalog 15, Ranker 24, Proposal Store 16, Preference 11, Registry 6, Feasibility 8, Discovery L2 8)
+- **0 regressions** (upgrade-flow 28, upgrade-apply 31 — all pass)
+- **Total upgrade tests: 147**
+
+---
+
 ## v119 — Unified Prompt Pipeline + Patch Scope Limiter (2026-03-10)
 
 Structured prompt assembly, KG-based import hints, and pre-apply scope validation.

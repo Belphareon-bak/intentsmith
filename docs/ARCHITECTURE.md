@@ -1,6 +1,6 @@
-# C.3 Agent Platform — Architecture v116
+# C.3 Agent Platform — Architecture v119
 
-**Version:** v116.0.0
+**Version:** v119.0.0
 **Status:** Production-ready
 **Date:** 2026-03-10
 
@@ -19,10 +19,11 @@ C.3 is a conversational AI platform combining:
 7. **Guarded Autonomy** — Self-tuning CRE parameters via telemetry-driven drift detection
 8. **Memory System** — LTM persistence, injection ranking, feedback detection, pattern tracking
 9. **Code Intelligence** — 33-module pipeline: symbol index, knowledge graph, architecture detection, graph expansion, context building
-10. **Execution Engine** — Patch engine (3-tier anchor), error normalizer (14 codes), iterative fix loop, strategy selection, self-critique
-11. **Architecture Governance** — Cross-milestone drift enforcement, API contract tracking, critic/repair agent, regression prediction
-12. **Model Upgrade System** — Self-evaluating model registry, chat-based approval, streaming pull, rollback
-13. **Task Memory** — Persistent cross-milestone learning, cross-project pattern sharing, decay-based relevance
+10. **Execution Engine** — Patch engine (3-tier anchor), error normalizer (14 codes), iterative fix loop, strategy selection, self-critique, scope limiter
+11. **Prompt Pipeline** — Unified structured prompt builder (12 sections, adaptive weighting), KG-based import map, signature cache
+12. **Architecture Governance** — Cross-milestone drift enforcement, API contract tracking, critic/repair agent, regression prediction
+13. **Model Upgrade System** — Curated catalog (55 models), pairwise evaluation, feasibility gate, proposal store, chat-based approval
+14. **Task Memory** — Persistent cross-milestone learning, cross-project pattern sharing, decay-based relevance
 
 All decisions flow through CRE — LLM is the text generator, never the authority.
 
@@ -145,11 +146,16 @@ src/                              # 126,566 lines / 349 files / 29 directories
 │   ├── perf-analyzer.js          #   Import-aware anti-pattern detection
 │   ├── dependency-manager.js     #   Multi-PM, semver, cache
 │   └── ...                       #   + 17 more (AST, chunker, evolution, etc.)
-├── patch/                        # 4 files, 1,278 LOC — Patch Engine
+├── context/                      # 3 files — Prompt Pipeline (v119)
+│   ├── prompt-builder.js         #   12 sections, priority-weighted, adaptive budgets
+│   ├── import-map.js             #   KG-based import resolution hints
+│   └── context-delta.js          #   Incremental context diffing (FΔ)
+├── patch/                        # 5 files, ~1,470 LOC — Patch Engine + Scope
 │   ├── parser.js                 #   Patch ADT: file, regions, anchors
 │   ├── validator.js              #   Structural + semantic validation
 │   ├── applier.js                #   Bottom-up splice, atomic write
-│   └── engine.js                 #   applyPatchSet with full rollback
+│   ├── engine.js                 #   applyPatchSet with full rollback
+│   └── scope-limiter.js          #   Pre-apply scope validation (v119)
 ├── planner/                      # 34 files, 14,919 LOC — Lifecycle + Governance
 │   ├── lifecycle.js              #   State machine (SPEC→BUILD→REVIEW)
 │   ├── lifecycle-build.js        #   BUILD phase implementation
@@ -162,7 +168,6 @@ src/                              # 126,566 lines / 349 files / 29 directories
 │   ├── critic-agent.js           #   6 failure types, targeted repair
 │   ├── build-strategy.js         #   Multi-signal adaptive selection
 │   ├── continuous-improvement.js #   Advisory post-build quality
-│   ├── context-delta.js          #   Incremental context diffing
 │   └── ...                       #   + workflow, progress, context
 ├── expertises/                   # 30 files, 12,520 LOC — Expertise System
 │   ├── expertise-layer.js        #   15 built-in expertises, registry
@@ -179,10 +184,15 @@ src/                              # 126,566 lines / 349 files / 29 directories
 │   ├── feedback-detector.js      #   6 signal types
 │   ├── pattern-tracker.js        #   Cross-conversation learning
 │   └── preferences.js            #   User preference tracking
-├── upgrade/                      # 3 files, 1,334 LOC — Model Upgrade System
-│   ├── model-profiles.js         #   Model capabilities + benchmarks
-│   ├── model-discovery.js        #   Ollama registry scanning
-│   └── upgrade-manager.js        #   Propose → approve → pull → apply
+├── upgrade/                      # 9 files, ~3,200 LOC — Model Upgrade System (Phase 2)
+│   ├── model-profiles.js         #   Model capabilities + family definitions
+│   ├── model-discovery.js        #   L1 local + L2 catalog + L3 hints
+│   ├── model-catalog.js          #   55-model curated catalog with benchmarks
+│   ├── model-ranker.js           #   Pairwise evaluation, per-role scoring
+│   ├── proposal-store.js         #   DB-backed proposals (cooldown, dismiss, anti-thrashing)
+│   ├── preference-tracker.js     #   Implicit preferences from user actions
+│   ├── registry-client.js        #   Online verification (ollama.com HEAD check)
+│   └── upgrade-manager.js        #   Phase 2 pipeline: feasibility → pairwise → store
 ├── architect/                    # 13 files, 4,007 LOC — Architecture Intelligence
 │   ├── architecture-policy.js    #   Unified policy, load priority
 │   ├── refactor-agent.js         #   Smell detection → risk-gated plan
@@ -449,7 +459,7 @@ Query → expandQuery() → symbolIndex → searchCode()
 
 **BUILD Context Enrichment:** `buildCodeContextForMilestone()` in lifecycle-build.js — lazy-loaded via `ensureCodeIntel()`, graceful degradation. 5 files / 5K tokens budget.
 
-### 11. Execution Engine (v104-v108)
+### 11. Execution Engine (v104-v119)
 
 Iterative code fix pipeline — patches code, runs tests, learns from failures.
 
@@ -460,8 +470,11 @@ Milestone code → test → errors?
 Execution Loop (max 8 iterations)
   ├─ normalizeErrors (14 error codes, root cause analysis)
   ├─ selectStrategy (DETERMINISTIC / HEURISTIC / LLM_FULL / SKIP)
-  ├─ buildFixPrompt (with task memory + cross-project hints)
+  ├─ computePatchScope (v119: KG-based target + 1-hop deps/dependents)
+  ├─ buildImportMap (v119: KG IMPORTS→DEFINES symbol resolution)
+  ├─ buildFixPrompt (scope hint + import map + task memory + cross-project)
   ├─ LLM generates fix
+  ├─ validatePatchScope (v119: pre-apply scope check)
   ├─ parsePatch (Patch ADT: file, regions, anchors)
   ├─ validatePatch (structural + semantic)
   ├─ applyPatch (bottom-up splice, atomic write, rollback on failure)
@@ -476,7 +489,30 @@ Execution Loop (max 8 iterations)
 
 **Self-Critique (F6):** Activates at iteration ≥ 2. LLM analyzes root cause → generates patch plan (ADD/MODIFY/DELETE/MOVE, max 10 steps) → validates against knowledge graph.
 
-### 12. Architecture Governance (v98-v100)
+**Scope Limiter (v119):** Pre-apply scope validation. Target files + 1-hop KG deps/dependents, capped at maxFiles. ScopeViolationTracker auto-widens (3 violations → +1 hop, 5 → disable). Graceful degradation without graph.
+
+### 12. Prompt Pipeline (v119)
+
+Unified structured prompt assembly replacing ad-hoc prompt construction.
+
+```
+buildStructuredPrompt({sections, maxTokens, errorType, strategy})
+  ├─ 12 named sections: ROLE, ERRORS, SCOPE, SIGNATURES, IMPORT_MAP,
+  │   SOURCE, TASK_MEMORY, CALL_GRAPH, CROSS_PROJECT, TASK, RULES, OUTPUT_FORMAT
+  ├─ Priority-weighted allocation (highest priority filled first)
+  ├─ Adaptive error-type multipliers:
+  │   IMPORT_NOT_FOUND → ×2.0 IMPORT_MAP, ×1.5 SIGNATURES
+  │   SYNTAX_ERROR     → ×2.0 SOURCE, ×0.3 everything else
+  │   TEST_FAILED      → ×1.5 SOURCE, ×1.3 TASK_MEMORY
+  ├─ Smart truncation (keep complete lines, not arbitrary cut)
+  └─ Audit trail: per-section token usage, truncation flags, strategy
+```
+
+**Import Map:** KG-based import resolution — traces IMPORTS edges to dependency files, then DEFINES edges to symbols. Prevents wrong import paths. Symbol conflict detection warns about same-name definitions in different files.
+
+**Signature Cache:** FNV-1a content hash → in-memory Map. Skips AST re-parse when file content unchanged between iterations. `clearSignatureCache()` on project switch.
+
+### 13. Architecture Governance (v98-v100)
 
 Cross-milestone architecture enforcement and quality assurance.
 
@@ -497,20 +533,35 @@ Architecture Intelligence (v100):
   └─ multi-agent.js — 5-role pipeline (planner→builder→architect→critic→debugger)
 ```
 
-### 13. Model Upgrade System (v103)
+### 14. Model Upgrade System (v103 + v118 Phase 2)
 
-Self-evaluating model registry with chat-based approval workflow.
+Two-phase model upgrade with curated catalog and pairwise evaluation.
 
 ```
-discover (Ollama registry) → filter → rank → propose
-  → user approval (chat intercept) → pullModel (streaming progress via WS)
-  → applyUpgrade → verify ping → persist to DB
-  → rollbackUpgrade on failure
+Phase 1 (v103): discover → filter → rank → propose → chat approval → pull → apply
+Phase 2 (v118): catalog → discover(L1+L2+L3) → feasibility gate → pairwise evaluation
+  → preference adjust → proposal store (DB) → chat approval → pull → apply
+
+Discovery:
+  L1: Local (Ollama /api/tags) — always
+  L2: Catalog (55 curated models with benchmarks) — fullCycle (24h ±90min)
+  L3: Family upgrade hints — always
+
+Pairwise Evaluation:
+  scoreModel(benchmark×0.35 + hwFit×0.20 + maturity×0.15 + generation×0.10 + category×0.10 + speed×0.10)
+  → candidateScore − currentScore ≥ threshold (D1=0.06, CODE=0.05, CHAT=0.04)
+  → dominance gate (>20% worse in any dimension → reject)
+  → preference penalty (from approve/reject/dismiss history)
+
+Proposal Lifecycle:
+  pending → approved | rejected (30d cooldown) | dismissed (permanent) | expired (7d)
+  Anti-thrashing: 14d minimum between upgrades per role
+  Invalidation: catalog hash + evaluation version change → re-evaluate
 ```
 
-**Safety:** Never auto-upgrades. Chat-based approval regex (bare words + stem-based patterns). `getUnusedOldModels()` for cleanup. DB persistence with `loadPersistedOverrides()` on restart.
+**Safety:** Never auto-upgrades. Discovery never changes config. Runtime never touches internet. Communication only through proposals in DB.
 
-### 14. Task Memory & Cross-Project Learning (v107-v116)
+### 15. Task Memory & Cross-Project Learning (v107-v116)
 
 Persistent cross-milestone learning for the execution loop.
 
@@ -550,7 +601,7 @@ Registry → Resolver (LLM intent match) → Runner (state machine) → Step exe
 
 ## Database Schema
 
-80+ tables in SQLite (better-sqlite3), 32 migrations:
+80+ tables in SQLite (better-sqlite3), 33 migrations:
 
 | Group | Tables |
 |-------|--------|
@@ -564,7 +615,7 @@ Registry → Resolver (LLM intent match) → Runner (state machine) → Step exe
 | Memory | global_memory, user_memory, project_memory, memory (LTM), task_memory |
 | Skills | skill_executions, skill_steps, workflow_patterns |
 | Architecture | architecture_state, api_contracts |
-| Model Upgrade | model_overrides, upgrade_history |
+| Model Upgrade | model_overrides, upgrade_history, upgrade_proposals, model_catalog_cache |
 | Quality | quality_scores |
 | Security | api_tokens (SHA-256 hashed) |
 | Notifications | notification_channels_v57, notification_log_v57, notification_state_v57, notification_digest_buffer_v57, notification_trust_actions_v57 |
@@ -624,10 +675,11 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 | **Code Intelligence** | **339** | Symbol index, KG, graph, architecture, context |
 | **Execution Engine (F1-F8)** | **355** | Patch, errors, loop, strategy, critique, patterns |
 | **Long-term (FΔ+F9-F14)** | **242** | Context delta, build strategy, perf, deps, learning |
+| **Prompt Pipeline (v119)** | **83** | Prompt builder, import map, scope limiter, sig cache |
 | Architecture governance | 57 | Guardian, contracts, critic |
 | Architecture intelligence | 161 | Policy, context, refactor, predictor, KB, multi-agent |
 | Large project scaling | 107 | Graph storage, BFS, streaming, concept registry |
-| Model upgrade | 115 | Discovery, profiles, approval, pull, rollback |
+| Model upgrade (v103+v118) | 147 | Discovery, catalog, pairwise, proposals, approval, pull |
 | Project E2E | 56 | 4 project types, lifecycle, milestones |
 
 ---
@@ -685,7 +737,8 @@ All memory systems use exponential decay: LTM (λ=0.01, half-life ~69d), Task Me
 | H (Agent Evolution) | 100% | F1-F8 core (355 tests), FΔ+F9-F14 extensions (242 tests) |
 | I (Governance) | 100% | Guardian, contracts, critic, policy, regression prediction, multi-agent |
 | J (Model Mgmt) | 100% | Discovery, profiles, approval, pull, rollback |
+| K (Prompt Pipeline) | 100% | Prompt builder, import map, scope limiter, signature cache (83 tests) |
 
 ---
 
-*This document reflects C.3 Agent Platform v116.0.0 architecture (2026-03-10).*
+*This document reflects C.3 Agent Platform v119.0.0 architecture (2026-03-10).*
