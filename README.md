@@ -2,7 +2,7 @@
 
 Lokální AI platforma pro konverzační asistenci, správu projektů a autonomní agenty. Běží kompletně offline na vlastním hardware — žádný cloud, žádné API klíče, žádné sdílení dat.
 
-**Verze:** 116.0.0 | **349 modulů** | **204 testovacích sad** | **126,500+ řádků kódu**
+**Verze:** 119.0.0 | **352 modulů** | **208 testovacích sad** | **128,300+ řádků kódu**
 
 ---
 

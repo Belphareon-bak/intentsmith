@@ -6,6 +6,7 @@
 > Written 2026-03-04, updated 2026-03-10.
 >
 > **Status: ALL FEATURES IMPLEMENTED** — F1-F8 (355 tests), FΔ+F9-F14 (242 tests), total 597 tests.
+> **Post-F-series:** v119 Prompt Pipeline (83 tests) — structured prompts, import map, scope limiter.
 
 ---
 
