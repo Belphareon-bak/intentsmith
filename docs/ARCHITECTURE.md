@@ -1,8 +1,8 @@
-# C.3 Agent Platform — Architecture v101
+# C.3 Agent Platform — Architecture v116
 
-**Version:** v101.0.0 (Large Project Scaling)
+**Version:** v116.0.0
 **Status:** Production-ready
-**Date:** 2026-03-05
+**Date:** 2026-03-10
 
 ---
 
@@ -10,23 +10,19 @@
 
 C.3 is a conversational AI platform combining:
 
-1. **CRE (Conversational Reasoning Engine)** — Authoritative dialog management, intent classification, epistemic correctness
+1. **CRE (Conversational Reasoning Engine)** — Authoritative dialog management, intent classification (19 types), epistemic correctness
 2. **Agent Platform** — Deterministic worker agents with source fetching, conditions, triggers, notifications
-3. **Project Lifecycle** — Milestone-based project management with crash recovery
+3. **Project Lifecycle** — Milestone-based project management with crash recovery, checkpoint modes, adaptive retry
 4. **Expertise System** — 15 domain expertises with 5D capability profiles, multi-expertise merge engine, enforcement pipeline
-5. **Notification Pipeline** — Multi-channel delivery (email, Telegram, ntfy.sh push)
-6. **Skills System** (v85) — Deterministic macro-recipes for repeating procedures (LLM, template, write, shell steps)
-7. **Guarded Autonomy** (v83) — Self-tuning CRE parameters via telemetry-driven drift detection
-8. **Memory System** (v86) — LTM persistence, injection ranking, feedback detection, pattern tracking
-9. **IDE Settings UI** (v87-91) — 12-section settings with backend sync, GPU detection, model selector, feature flags, security
-10. **Smart Relay Management** (v90) — Auto-routing, label persistence, relay picker, thinking indicator
-11. **Security** (v91) — Auth guard, API token management (SHA-256), unified audit, webhook secret management
-12. **Checkpoint Architecture** (v92) — STRUCTURAL/FUNCTIONAL/SECURITY modes, adaptive retry, mode-specific prompts
-13. **Specialist Focus Mode** (v92) — CSS-driven layout transformation, derived state, file tracking, per-session focus
-14. **Code Intelligence** (v95) — Multi-engine code search, symbol index, architecture detection, BUILD context enrichment
-15. **Architecture Governance** (v98) — Cross-milestone drift enforcement, API contract tracking, critic/repair agent
-16. **Architecture Intelligence** (v100) — Policy engine, incremental context, regression prediction, runtime feedback, project KB, milestone decomposer, multi-agent build, refactor agent
-17. **Large Project Scaling** (v101) — Map-based graph storage, module-level queries, priority BFS with edge weights, streaming reactive indexer, persistent project snapshots
+5. **Notification Pipeline** — Multi-channel delivery (email, Telegram, ntfy.sh push), trust feedback, digest batching
+6. **Skills System** — Deterministic macro-recipes (LLM, template, write, shell steps), meta-skill for creation
+7. **Guarded Autonomy** — Self-tuning CRE parameters via telemetry-driven drift detection
+8. **Memory System** — LTM persistence, injection ranking, feedback detection, pattern tracking
+9. **Code Intelligence** — 33-module pipeline: symbol index, knowledge graph, architecture detection, graph expansion, context building
+10. **Execution Engine** — Patch engine (3-tier anchor), error normalizer (14 codes), iterative fix loop, strategy selection, self-critique
+11. **Architecture Governance** — Cross-milestone drift enforcement, API contract tracking, critic/repair agent, regression prediction
+12. **Model Upgrade System** — Self-evaluating model registry, chat-based approval, streaming pull, rollback
+13. **Task Memory** — Persistent cross-milestone learning, cross-project pattern sharing, decay-based relevance
 
 All decisions flow through CRE — LLM is the text generator, never the authority.
 
@@ -35,50 +31,65 @@ All decisions flow through CRE — LLM is the text generator, never the authorit
 ## System Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                          User Interface                              │
-│                    (Web UI / CLI / IDE / API)                        │
-├──────────────────────────────────────────────────────────────────────┤
-│                        Channel Adapters                              │
-│              (CLI, Web, Slack, Discord, API)                         │
-│              C3InputEvent → normalize → C3OutputEvent                │
-├──────────────┬───────────────────────────────────┬───────────────────┤
-│              │                                   │                   │
-│   ┌──────────▼──────────┐           ┌────────────▼────────────┐     │
-│   │   Chat Pipeline     │           │   Agent Platform        │     │
-│   │                     │           │                         │     │
-│   │  CRE → Intent       │           │  Scheduler → Runner     │     │
-│   │  → Handler          │           │  → Sources → Conditions │     │
-│   │  → LLM → Gate       │           │  → Triggers → Actions   │     │
-│   │  → Response         │           │  → mark_seen (HUNTER)   │     │
-│   └──────────┬──────────┘           └────────────┬────────────┘     │
-│              │                                   │                   │
-│   ┌──────────▼──────────┐           ┌────────────▼────────────┐     │
-│   │  Expertise System   │           │  Notification Pipeline  │     │
-│   │  (v63 Merge Engine) │           │                         │     │
-│   │  15 expertises,5D   │           │  Policy → Router        │     │
-│   │  Merge + Enforce    │           │  → Channel → Delivery   │     │
-│   └──────────┬──────────┘           │                         │     │
-│              │                      │  → Trust Feedback       │     │
-│   ┌──────────▼──────────┐           └─────────────────────────┘     │
-│   │  Skills System (v85)│                                           │
-│   │  Registry → Resolver│           ┌───────────────────────────┐   │
-│   │  → Runner → Steps   │           │  Guarded Autonomy (v83)   │   │
-│   │  (LLM,tmpl,write,sh)│           │  Aggregator → Drift Det. │   │
-│   └─────────────────────┘           │  → Controller → Threshold │   │
-│                                     └───────────────────────────┘   │
-│              ┌──────────────────────────────────────────────┐       │
-│              │         Project Lifecycle (Phase C)           │       │
-│              │  SPEC → BUILD → REVIEW → milestones          │       │
-│              │  Crash recovery, multi-session                │       │
-│              └──────────────────────────────────────────────┘       │
-├──────────────────────────────────────────────────────────────────────┤
-│                        Database (SQLite)                              │
-│                    55 tables, prepared statements                     │
-├──────────────────────────────────────────────────────────────────────┤
-│                     LLM Gateway (Ollama)                             │
-│              qwen3.5:27b (CHAT), deepseek-r1:32b (D1/R1)            │
-└──────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                           User Interface                                  │
+│                     (Web UI / CLI / IDE / API)                            │
+├───────────────────────────────────────────────────────────────────────────┤
+│                         Channel Adapters                                  │
+│               (CLI, Web, Slack, Discord, API)                             │
+│               C3InputEvent → normalize → C3OutputEvent                    │
+├──────────────┬──────────────────────────────────┬─────────────────────────┤
+│              │                                  │                         │
+│  ┌───────────▼───────────┐          ┌───────────▼──────────────┐         │
+│  │    Chat Pipeline       │          │   Agent Platform          │         │
+│  │                        │          │                           │         │
+│  │  CRE → Intent          │          │  Scheduler → Runner       │         │
+│  │  → Handler → LLM       │          │  → Sources → Conditions   │         │
+│  │  → Gate → Response     │          │  → Triggers → Actions     │         │
+│  └───────────┬────────────┘          └───────────┬───────────────┘         │
+│              │                                   │                         │
+│  ┌───────────▼────────────┐          ┌───────────▼───────────────┐        │
+│  │  Expertise System       │          │  Notification Pipeline    │        │
+│  │  15 expertises, 5D      │          │  Policy → Router          │        │
+│  │  Merge + Enforce        │          │  → Channel → Delivery     │        │
+│  └───────────┬─────────────┘          └──────────────────────────┘        │
+│              │                                                             │
+│  ┌───────────▼────────────┐          ┌────────────────────────────┐       │
+│  │  Skills System          │          │  Guarded Autonomy          │       │
+│  │  Registry → Resolver    │          │  Aggregator → Drift Det.   │       │
+│  │  → Runner → Steps       │          │  → Controller → Threshold  │       │
+│  └─────────────────────────┘          └────────────────────────────┘       │
+│                                                                            │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │              Project Lifecycle (Phase C)                              │  │
+│  │   SPEC → BUILD → REVIEW → milestones (crash recovery, multi-session) │  │
+│  │                        │                                              │  │
+│  │   ┌────────────────────▼──────────────────────────────────────┐      │  │
+│  │   │           Execution Engine (F-series)                      │      │  │
+│  │   │  normalizeErrors → selectStrategy → LLM → parsePatch      │      │  │
+│  │   │  → applyPatch → test → selfCritique → taskMemory          │      │  │
+│  │   └───────────────────────────────────────────────────────────┘      │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                            │
+│  ┌────────────────────────────┐     ┌──────────────────────────────────┐  │
+│  │  Code Intelligence          │     │  Memory System                   │  │
+│  │  33 modules, 11,463 LOC     │     │  LTM + Task Memory + Cross-Proj  │  │
+│  │  Symbol Index + KG + BFS    │     │  Decay + Reinforcement + Ranking  │  │
+│  │  Context → LLM → Answer     │     └──────────────────────────────────┘  │
+│  └────────────────────────────┘                                            │
+│                                     ┌──────────────────────────────────┐  │
+│  ┌────────────────────────────┐     │  Model Upgrade System            │  │
+│  │  Architecture Governance    │     │  Discover → Rank → Propose       │  │
+│  │  Guardian + Contracts       │     │  → Approve → Pull → Apply        │  │
+│  │  + Critic/Repair            │     └──────────────────────────────────┘  │
+│  └────────────────────────────┘                                            │
+├────────────────────────────────────────────────────────────────────────────┤
+│                         Database (SQLite)                                   │
+│                    80+ tables, 32 migrations, prepared statements           │
+├────────────────────────────────────────────────────────────────────────────┤
+│                      LLM Gateway (Ollama)                                  │
+│           qwen3.5:27b (CHAT/CODE), deepseek-r1:32b (D1/R1), 7 roles      │
+└────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -86,150 +97,119 @@ All decisions flow through CRE — LLM is the text generator, never the authorit
 ## Directory Structure
 
 ```
-src/                             # 73,706 lines / 188 files / 20 directories
-├── server.js                    # Express HTTP server (port 3335), 855 lines
-├── config.js                    # Feature flags, model bindings, timeouts
-├── routes/                      # HTTP route handlers (split from server.js)
-│   ├── agents.js                #   Agent CRUD + schema + dry-run
-│   ├── projects.js              #   Projects + lifecycle/start
-│   ├── expertises.js            #   Expertise CRUD + merge-preview
-│   ├── notifications.js         #   Notification endpoints
-│   ├── memory.js                #   Memory/preferences
-│   ├── chat.js                  #   Chat REST endpoints
-│   └── system.js                #   Health, config, version
-├── agents/                      # Phase B: Agent platform
-│   ├── runner.js                #   Execution engine (1339 lines)
-│   ├── scheduler.js             #   Cron/interval scheduling (282 lines)
-│   ├── repository.js            #   SQLite CRUD (662 lines)
-│   ├── conditions.js            #   Deterministic evaluator (551 lines)
-│   ├── triggers.js              #   Edge detection (172 lines)
-│   ├── multi-source.js          #   Cross-source dedup, health tracking
-│   ├── worker-configs.js        #   Weather, realty, news templates
-│   ├── schema.js                #   Validation whitelist + normalizeAgentDefinition()
-│   ├── sources/
-│   │   └── rss.js               #   RSS/Atom source adapter
-│   └── examples/                #   6 pre-built agent definitions
-│       ├── morning-briefing.json    # RSS + 2x HTTP (B6)
-│       ├── rate-monitor.json        # 6x HTTP tax monitoring
-│       ├── realty-multi-source.json # 2x HTTP realty
-│       ├── news-rss-digest.json     # 2x RSS news
-│       └── weather-monitor.json     # 1x HTTP weather
-├── chat/                        # Core: Conversational AI pipeline
-│   ├── controller.js            #   ChatController entry point
-│   ├── cre-decision.js          #   CRE intent classification (2897 lines)
-│   ├── conversation-store.js    #   Session persistence
-│   ├── handlers/                #   19 intent-specific processors
-│   │   ├── conversation.js      #     Main router, DESIGN sessions (778 lines)
-│   │   ├── decisions.js         #     TOOL_CALL, ANSWER, REFUSE (1054 lines)
-│   │   ├── ask-user.js          #     v93.1: ASK_USER handler + clarification templates
-│   │   ├── pre-handler.js       #     v93.1: Shared intercept registry (10 intercepts)
-│   │   ├── lifecycle-router.js  #     Phase C lifecycle intercept
-│   │   ├── lifecycle-state.js   #     Handoff state (DB write-through, 172 lines)
-│   │   ├── agent-wizard.js      #     Agent creation wizard (B9)
-│   │   └── utils/
-│   │       ├── synthesis.js     #       LLM synthesis + Output Gate
-│   │       ├── output-gate.js   #       D6 response validation
-│   │       ├── search-enrichment.js #   v93.1: Follow-up query enrichment + meta-continuation
-│   │       ├── language.js      #       CZ/EN detection & switching
-│   │       ├── language-enforcement.js #  SK→CZ transliterator (~160 rules)
-│   │       ├── project-state-reader.js # v89: Deterministic README+ROADMAP→state parser
-│   │       ├── welcome-generator.js    # v89: Template-based project welcome messages
-│   │       └── readme-generator.js     #  README/ROADMAP scaffold + detectStack()
-│   └── quality/                 #   Quality gates (QGv2)
-│       ├── quality-gate-v2.js   #     4-layer deterministic pipeline
-│       └── quality-pipeline.js  #     Pipeline orchestration
-├── channels/                    # Channel adapters
-│   ├── types.js                 #   ChannelType, C3InputEvent, C3OutputEvent
-│   └── cli-adapter.js           #   CLI integration
-├── notifications/               # Notification pipeline
-│   ├── pipeline.js              #   Policy → Router → Channel
-│   ├── service.js               #   NotificationRouter
-│   ├── policy.js                #   Muting, priority, escalation
-│   ├── digest.js                #   Hourly/daily batching
-│   ├── trust.js                 #   TrustTracker (auto-degrade/mute)
-│   └── channels/
-│       ├── email.js             #     SMTP via nodemailer
-│       ├── telegram.js          #     Telegram Bot API
-│       ├── push.js              #     ntfy.sh (JSON body, UTF-8)
-│       └── ntfy.js              #     ntfy.sh alternate
-├── planner/                     # Phase C: Project lifecycle
-│   ├── workflow.js              #   Workflow orchestration (BUILD_VERIFYING v90)
-│   ├── lifecycle.js             #   State machine (SPEC→BUILD→REVIEW)
-│   ├── lifecycle-build.js       #   BUILD phase implementation
-│   ├── architecture-guardian.js #   v98: Cross-milestone architecture enforcement
-│   ├── api-contract-registry.js #   v98: API surface tracking across milestones
-│   ├── critic-agent.js          #   v98: Targeted repair after checkpoint FAIL
-│   ├── architecture-check.js    #   v97: ACF — ARCHITECTURE.json validation
-│   ├── code-cleaner.js          #   v97: Code fence strip + AST repair
-│   ├── progress-tracker.js      #   Milestone tracking
-│   └── project-context.js       #   Project metadata
-├── domains/                     # Phase 5: Domain capabilities (v90)
-│   ├── index.js                 #   DomainRegistry — 8 scaffolds, tag matching
-│   ├── recipes/                 #   Infra/ops recipes (docker, k8s, CI/CD)
-│   └── scaffolds/               #   8 app templates
-│       ├── express-api.js       #     Express REST API
-│       ├── react-app.js         #     React SPA
-│       ├── fullstack.js         #     Express + React
-│       ├── next-app.js          #     Next.js App Router (v90)
-│       ├── vue-app.js           #     Vue 3 + Vite (v90)
-│       ├── python-fastapi.js    #     FastAPI REST API (v90)
-│       ├── cli-tool.js          #     Node.js CLI (v90)
-│       └── flutter-app.js       #     Flutter mobile (v90)
-├── expertises/                  # Phase D: Expertise System (v63+)
-│   ├── expertise-layer.js       #   15 built-in expertises, ExpertiseAgent class, ExpertiseRegistry, resolveInheritance
-│   ├── expertise-store.js       #   Expertise config persistence + validation (60+ rules)
-│   ├── expertise-enforcement.js #   ExpertiseEnforcer: forbidden phrases, retry with decay, strict mode
-│   ├── auto-select.js           #   Deterministic vocabulary-based expertise auto-selection (<1ms)
-│   ├── merge-engine.js          #   mergeExpertisePrompt() — 15-step pure function
-│   ├── merge-types.js           #   MERGE_LIMITS, MODULE_SECTIONS, CompatibilityBlockError
-│   ├── merge-compatibility.js   #   checkCompatibility() — 5D pairwise conflict detection
-│   ├── capability-enforcer.js   #   Post-response 5D capability drift validation
-│   ├── capability-mapping.js    #   Capability vector → prompt/temperature/enforcement modifiers
-│   ├── specialist-runtime.js    #   D1: Tool-augmented expert framework (ToolRegistry, IntentDetector)
-│   ├── knowledge-base.js        #   D2: Versioned fact store (domain/category/key/year)
-│   └── scenario-engine.js       #   D3: Multi-step guided workflows (ScenarioRegistry, ScenarioRunner)
-├── llm/                         # LLM subsystem
-│   ├── gateway.js               #   Token-based routing, timeouts
-│   ├── client.js                #   Ollama HTTP client
-│   └── web-search.js            #   Brave Search integration
-├── tools/                       # Tool Registry (153 tools)
-│   ├── registry.js              #   Central catalog: 153 tools, metadata, risk API (~4500 lines)
-│   └── http-client.js           #   HTTP client wrapper
-├── executor/                    # Tool execution
-│   ├── tool-executor.js         #   Main execution engine
-│   ├── circuit-breaker.js       #   Failure isolation
-│   └── shell-security.js        #   Shell sandboxing
-├── db/
-│   ├── database.js              #   SQLite schema (53 tables, 1328 lines)
-│   └── migrations/              #   29 migration files (timestamp-ordered)
-├── core/
-│   ├── error-handler.js         #   Global error handlers
-│   └── logger.js                #   Structured logging
-├── memory/                      # Memory subsystem
-│   ├── long-term.js             #   Semantic search
-│   └── preferences.js           #   User preference tracking
-├── code-intel/                  # v95-98: Code Intelligence (22 modules)
-│   ├── code-search.js           #   Ripgrep/grep/Node.js fallback search
-│   ├── query-expander.js        #   CZ+EN stop words, camelCase split
-│   ├── file-discovery.js        #   Multi-signal file ranking (6 signals)
-│   ├── context-builder.js       #   Smart truncation + token budget + hierarchical context
-│   ├── code-analyzer.js         #   Regex-based structure extraction
-│   ├── ast-analyzer.js          #   Tree-sitter AST (JS, Python, Go, Java)
-│   ├── architecture-detector.js #   Framework/layer/pattern/convention detection + pattern mining
-│   ├── symbol-index.js          #   O(1) symbol lookup
-│   ├── index-builder.js         #   Background index builder
-│   ├── chunker.js               #   Semantic code chunking
-│   ├── semantic-index.js        #   Embedding-based similarity
-│   ├── knowledge-graph.js       #   v96: 9 edge types, dependency graph
-│   ├── impact-analyzer.js       #   v96: BFS impact traversal + risk scoring
-│   ├── drift-detector.js        #   v96: Layer violations, circular deps, naming
-│   ├── dead-code-detector.js    #   v96: Unreachable code detection
-│   ├── execution-graph.js       #   v96: Route→middleware→handler chains
-│   ├── test-coverage-explorer.js #  v96: TESTED_BY edge analysis
-│   ├── code-evolution.js        #   v96: Git hotspots, churn, co-changes
-│   ├── exploration-agent.js     #   v96: Autonomous codebase exploration
-│   └── debug-agent.js           #   Debug analysis pipeline
-└── ws-bridge/                   # IDE WebSocket bridge
+src/                              # 126,566 lines / 349 files / 29 directories
+├── server.js                     # Express HTTP server (port 3335)
+├── config.js                     # Feature flags, model bindings, timeouts
+├── routes/                       # 14 files — HTTP route handlers
+│   ├── agents.js                 #   Agent CRUD + schema + dry-run
+│   ├── projects.js               #   Projects + lifecycle/start
+│   ├── expertises.js             #   Expertise CRUD + merge-preview
+│   ├── notifications.js          #   Notification endpoints
+│   ├── memory.js                 #   Memory/preferences
+│   ├── chat.js                   #   Chat REST endpoints
+│   └── system.js                 #   Health, config, version
+├── agents/                       # 14 files, 6,510 LOC — Agent platform
+│   ├── runner.js                 #   Execution engine
+│   ├── scheduler.js              #   Cron/interval scheduling
+│   ├── repository.js             #   SQLite CRUD
+│   ├── conditions.js             #   Deterministic evaluator (7 types)
+│   ├── triggers.js               #   Edge detection (rising/falling/any)
+│   ├── multi-source.js           #   Cross-source dedup, health tracking
+│   ├── schema.js                 #   Validation whitelist + normalize
+│   └── sources/                  #   Source adapters (RSS, HTTP)
+├── chat/                         # 72 files, 30,737 LOC — Chat pipeline
+│   ├── controller.js             #   ChatController entry point
+│   ├── cre-decision.js           #   CRE intent classification
+│   ├── handlers/                 #   19 intent-specific processors
+│   │   ├── conversation.js       #     Main router
+│   │   ├── decisions.js          #     TOOL_CALL, ANSWER, REFUSE
+│   │   ├── pre-handler.js        #     Shared intercept registry
+│   │   ├── lifecycle-router.js   #     Phase C lifecycle intercept
+│   │   └── utils/                #     Synthesis, language, quality
+│   └── quality/                  #   Quality gates (QGv2)
+├── code-intel/                   # 33 files, 11,463 LOC — Code Intelligence
+│   ├── code-search.js            #   Ripgrep/grep/Node.js fallback
+│   ├── symbol-index.js           #   O(1) symbol lookup
+│   ├── knowledge-graph.js        #   9 edge types, dependency graph
+│   ├── graph-retrieval.js        #   BFS expansion with edge weights
+│   ├── graph-query.js            #   Impact radius, cycle detection
+│   ├── architecture-detector.js  #   Framework/layer/pattern detection
+│   ├── context-builder.js        #   Smart truncation + token budget
+│   ├── context-engine.js         #   Symbol-aware compression
+│   ├── context-optimizer.js      #   Signature map, budget allocation
+│   ├── impact-analyzer.js        #   BFS impact traversal + risk
+│   ├── drift-detector.js         #   Layer violations, circular deps
+│   ├── risk-analyzer.js          #   3-signal composite risk scoring
+│   ├── pattern-miner.js          #   4 pattern types, decay-based
+│   ├── concept-registry.js       #   12 concept signatures, fragmentation
+│   ├── perf-analyzer.js          #   Import-aware anti-pattern detection
+│   ├── dependency-manager.js     #   Multi-PM, semver, cache
+│   └── ...                       #   + 17 more (AST, chunker, evolution, etc.)
+├── patch/                        # 4 files, 1,278 LOC — Patch Engine
+│   ├── parser.js                 #   Patch ADT: file, regions, anchors
+│   ├── validator.js              #   Structural + semantic validation
+│   ├── applier.js                #   Bottom-up splice, atomic write
+│   └── engine.js                 #   applyPatchSet with full rollback
+├── planner/                      # 34 files, 14,919 LOC — Lifecycle + Governance
+│   ├── lifecycle.js              #   State machine (SPEC→BUILD→REVIEW)
+│   ├── lifecycle-build.js        #   BUILD phase implementation
+│   ├── execution-loop.js         #   Iterative fix cycle (max 8 iters)
+│   ├── error-normalizer.js       #   14 error codes, root cause analysis
+│   ├── fix-strategy.js           #   DETERMINISTIC/HEURISTIC/LLM_FULL/SKIP
+│   ├── self-critique.js          #   LLM root-cause + patch plan + KG validate
+│   ├── architecture-guardian.js  #   PRE/POST milestone drift audit
+│   ├── api-contract-registry.js  #   Export tracking, breaking changes
+│   ├── critic-agent.js           #   6 failure types, targeted repair
+│   ├── build-strategy.js         #   Multi-signal adaptive selection
+│   ├── continuous-improvement.js #   Advisory post-build quality
+│   ├── context-delta.js          #   Incremental context diffing
+│   └── ...                       #   + workflow, progress, context
+├── expertises/                   # 30 files, 12,520 LOC — Expertise System
+│   ├── expertise-layer.js        #   15 built-in expertises, registry
+│   ├── merge-engine.js           #   15-step pure function merge
+│   ├── merge-compatibility.js    #   5D pairwise conflict detection
+│   ├── capability-enforcer.js    #   Post-response drift validation
+│   ├── specialist-runtime.js     #   D1: Tool-augmented expert framework
+│   └── ...                       #   + knowledge-base, scenario-engine
+├── memory/                       # 9 files, 3,130 LOC — Memory subsystem
+│   ├── long-term.js              #   LTM persistence, decay, reinforcement
+│   ├── task-memory.js            #   Cross-milestone learning (F5)
+│   ├── cross-project-learner.js  #   Cross-project pattern sharing (F14)
+│   ├── injection-ranker.js       #   Score = effConf × relevance
+│   ├── feedback-detector.js      #   6 signal types
+│   ├── pattern-tracker.js        #   Cross-conversation learning
+│   └── preferences.js            #   User preference tracking
+├── upgrade/                      # 3 files, 1,334 LOC — Model Upgrade System
+│   ├── model-profiles.js         #   Model capabilities + benchmarks
+│   ├── model-discovery.js        #   Ollama registry scanning
+│   └── upgrade-manager.js        #   Propose → approve → pull → apply
+├── architect/                    # 13 files, 4,007 LOC — Architecture Intelligence
+│   ├── architecture-policy.js    #   Unified policy, load priority
+│   ├── refactor-agent.js         #   Smell detection → risk-gated plan
+│   ├── regression-predictor.js   #   Composite risk formula
+│   ├── runtime-feedback.js       #   Parse test/build output
+│   ├── project-knowledge-base.js #   Incremental snapshot
+│   ├── milestone-decomposer.js   #   Auto-split >1500 LOC
+│   └── multi-agent.js            #   5-role pipeline
+├── notifications/                # 19 files — email, telegram, ntfy, push
+├── skills/                       # 12 files — Registry → Resolver → Runner
+├── domains/                      # 12 files — Scaffolds (8 templates) + recipes
+├── llm/                          # 6 files — Gateway, client, web-search
+├── tools/                        # 2 files — Tool registry (153 tools)
+├── executor/                     # 8 files — Tool executor, circuit breaker
+├── autonomy/                     # 3 files — Guarded autonomy, drift detection
+├── channels/                     # 3 files — Channel adapters
+├── db/                           # 35 files — Schema (80+ tables) + 32 migrations
+├── core/                         # 5 files — Logger, error handler
+├── telemetry/                    # 2 files — Metrics, alerts
+├── system/                       # 2 files — GPU detection, system info
+├── context/                      # 1 file — Context management
+├── specialists/                  # 1 file — Specialist runtime
+├── licensing/                    # 1 file — License system
+├── setup/                        # 1 file — Setup wizard
+├── packaging/                    # 1 file — Electron builder
+├── ui/                           # 2 files — UI components
+└── ws-bridge/                    # 5 files — IDE WebSocket bridge
 ```
 
 ---
@@ -238,7 +218,7 @@ src/                             # 73,706 lines / 188 files / 20 directories
 
 ### 1. CRE (Conversational Reasoning Engine)
 
-Single authority for all dialog decisions. v64.0 adds **CRE Gatekeeper** — all decision creation outside `decide()` now routes through `overrideDecision()` (with audit trail) or `logIntercept()` (for pre-CRE stateful routes). Every override persisted to `cre_override_log` table.
+Single authority for all dialog decisions. **CRE Gatekeeper** ensures all decision creation outside `decide()` routes through `overrideDecision()` (with audit trail) or `logIntercept()` (for pre-CRE stateful routes).
 
 Classifies user intent into 19 types:
 
@@ -264,6 +244,11 @@ User Input → CRE.classifyIntent() → IntentType
   → Response to user
 ```
 
+**10 CRE Guards** enforce context-sensitive overrides:
+- GUARD 6 (Creative Lock): creativeLock/outputBias → SEARCH/AMBIGUOUS overridden to CREATIVE
+- GUARD 7 (BUILD Confidence): Reduces confidence for deferred build intent
+- GUARD 10 (BUILD Deferral): Czech morphology stem-based deferral detection
+
 ### 2. Agent Platform (Phase B)
 
 Deterministic execution engine — no LLM in core loop.
@@ -278,9 +263,6 @@ AgentRunner.execute(agentId)
   │    ├─ fetchHttp(config)   → JSON or text
   │    ├─ fetchRss(config)    → items[] via RSSSource
   │    └─ fetchDatabase()     → (placeholder)
-  │
-  ├─ STEP 1b: Build _merged view
-  │    └─ Combine all sources, add _source field
   │
   ├─ STEP 2: Filter seen items (HUNTER pattern)
   │    └─ Per-source deduplication via agent_seen_items_v57
@@ -305,8 +287,6 @@ AgentRunner.execute(agentId)
 
 **Run states:** SUCCESS_TRIGGERED, SUCCESS_NO_TRIGGER, SUCCESS_NO_NEW, INIT_BASELINE, ERROR_SOURCE, ERROR_EXECUTION, SKIP_DISABLED, SKIP_COOLDOWN, SCHEMA_DEGRADED, SCHEMA_BROKEN
 
-**Multi-source (B6):** Agents can combine RSS + HTTP + other types. `_merged` synthetic source enables cross-source conditions. Per-source mark_seen, partial failure isolation.
-
 ### 3. Notification Pipeline
 
 ```
@@ -314,11 +294,8 @@ Agent action (notify) or API call
   │
   ▼
 NotificationPipeline.process(ctx)
-  ├─ NotificationPolicy
-  │    └─ Check: muted? priority threshold? digest mode?
-  │    └─ Decision: immediate | digest | drop
-  ├─ NotificationRouter
-  │    └─ Dispatch to channel by ctx.channel
+  ├─ NotificationPolicy → muted? priority threshold? digest mode?
+  ├─ NotificationRouter → dispatch to channel
   └─ Channel.send(notification)
        ├─ EmailChannel (SMTP/nodemailer)
        ├─ TelegramChannel (Bot API, MarkdownV2)
@@ -333,61 +310,31 @@ Trust Feedback Loop:
 
 ### 4. Project Lifecycle (Phase C)
 
-Milestone-based project management with crash recovery and hardened BUILD phase.
+Milestone-based project management with crash recovery and checkpoint architecture.
 
 ```
 SPEC → BUILD → REVIEW → next milestone or COMPLETED
   │                         │
   └── Crash recovery ───────┘
-      (lifecycle_handoff_state table,
-       DB write-through, preload on restart)
+      (lifecycle_handoff_state table, DB write-through)
 ```
 
-**BUILD phase (v65.2):**
-- Real test execution via `C3ToolExecutor` (shell sandbox, timeout 120s)
-- Pre-execution hard limit on milestone size (`validateMilestoneSize` — BLOCKED if LOC/files exceed config)
-- Checkpoint FAIL default on parse error (safe default, not PASS)
-- Scope enforcement: pre-execution warning + post-execution git diff check
+**BUILD phase:** Real test execution via `C3ToolExecutor` (shell sandbox, timeout 120s). Pre-execution hard limit on milestone size. Post-execution git diff scope check.
 
-**Build Verification Loop (v90):**
-- `BUILD_VERIFYING` state inserted between CODE implementation and R2 LLM review
-- Auto-detects build command from implementation output (package.json `scripts.build`, Cargo.toml, go.mod, Makefile, pubspec.yaml, pyproject.toml)
-- Runs build via `C3ToolExecutor.executeShell()` (180s timeout)
-- On failure: parses compiler errors → D2 diagnoses → CODE fixes → retry (max 3 attempts)
-- Falls through to R2 review on success or max retries (non-blocking)
+**Build Verification Loop:** `BUILD_VERIFYING` state between CODE and R2 review. Auto-detects build command from project config (package.json, Cargo.toml, go.mod, Makefile, etc.). On failure: parse errors → diagnose → fix → retry (max 3).
 
-**CODE→BUILD Escalation (v90):**
-- CRE `decide()` detects multi-file project scope in CODE intent (via `isProjectScopeBuild()`)
-- Escalates to PLAN/BUILD pipeline instead of single-file TOOL_CALL
-- Triggers on 3+ component indicators or explicit project-scope patterns
+**Checkpoint Architecture (v92):** Three modes — STRUCTURAL (files exist, syntax OK), FUNCTIONAL (logic correct, defer tests), SECURITY (full audit). Mode assignment: explicit from roadmap LLM > positional heuristic (first=STRUCTURAL, last=SECURITY, rest=FUNCTIONAL). Adaptive retry with `fix_instructions[]` feedback.
 
-**Multi-session (C4):** New session auto-detects active lifecycle for same project. **v65.6 fix:** IDE lifecycle/start uses `session-0` but WS chat uses `ws-<random>` — resolved by RAM lookup via `getLcStateByProject(projectId)` which finds state under any sessionId and migrates it to the current WS session. DB fallback preserved as backup. Lifecycle/start now generates proper IDs (`lc-<timestamp>-<random>`) and stores them in RAM state.
+**Multi-session (C4):** New session auto-detects active lifecycle for same project. RAM lookup via `getLcStateByProject(projectId)` + DB fallback.
 
-**PROJECT mode intercepts (v88):** Sticky mode routes all project-scoped messages to `projectHandler`. Prior to v88, lifecycle/build intercepts existed only in `conversationHandler`, making the lifecycle engine unreachable in PROJECT mode. v88 mirrors 3 intercept blocks from conversation.js into project.js: (1) build handoff (PROPOSED/CONFIRMING/CLARIFYING/PLAN_REVIEW/EXECUTING), (2) C4 lifecycle auto-detect (RAM + DB fallback), (3) lifecycle handoff. Frontend fixes ensure correct session ID binding in wizard and open-folder flows.
+### 5. Expertise System (v63+)
 
-**Working memory persistence (v88):** `SessionState` working memory (goal, activeFile, lastArtifactId) now writes through to `project_memory` DB (category: `working_memory`). Restored on project sync in `ChatController.handle()`. Survives server restarts.
-
-**README + ROADMAP guarantee (v88):** Both `POST /api/projects` (new) and `POST /api/projects/open-folder` ensure README.md and ROADMAP.md exist. `ensureRoadmap()` creates a scaffold with phase table; lifecycle engine's `writeRoadmapFile()` replaces it after planning. Neither overwrites user-created files.
-
-**Proactive Project Welcome (v89):** When a project is created or opened, the backend generates a context-aware welcome message and returns it in the API response. The frontend displays it as the first chat message and persists it via `POST /api/conversations` (with `welcomeMessage` parameter → stored as first assistant turn via ConversationStore).
-
-The welcome system consists of three layers:
-1. **`project-state-reader.js`** — Deterministic parser: README + ROADMAP + `.c3/project.json` → structured state (`stateType`: FULL/HYBRID/FOREIGN/EMPTY, `phaseStatus`: IN_PROGRESS/PENDING/COMPLETED/UNKNOWN, stack detection, summary extraction). Tolerant regex, BOM strip, 50k size guard. No LLM calls.
-2. **`welcome-generator.js`** — Template-based welcome messages per stateType variant (5+ templates). Max ~600 chars. Action suggestions (→ bullets) based on project state.
-3. **`projects.js` routes** — `POST /api/projects` calls `generateNewProjectWelcome()`, `POST /api/projects/open-folder` calls `readProjectState()` + `generateExistingProjectWelcome()`.
-
-**v90+ direction:** `.c3/state.json` will become the machine-readable source of truth. `readProjectState()` will read it directly for C3-owned projects; ROADMAP parsing will only be needed for onboarding foreign projects.
-
-### 5. Expertise System (v63+ — Merge Engine + Specialists)
-
-15 built-in domain expertises with 5D capability profiles, multi-expertise merge, auto-selection, enforcement pipeline, specialist tools, knowledge base, and scenario engine. Custom expertises via `create-expertise` skill.
+15 built-in domain expertises with 5D capability profiles, multi-expertise merge, auto-selection, enforcement pipeline.
 
 Full documentation: **[EXPERTISES.md](EXPERTISES.md)**
 
 ```
 User Input → Auto-Select (vocabulary-based, <1ms, no LLM)
-  │              ↓
-  │         Best match → set context (never overrides manual selection)
   │
   ▼
 Expertise Handler
@@ -395,16 +342,13 @@ Expertise Handler
   ├─ Single expertise → systemPrompt + LLM + enforce
   │
   └─ Multiple expertises (max 3)
-       │
-       ├─ STEP 1: checkCompatibility() — 5D pairwise conflict detection
-       ├─ STEP 2: resolveInheritance() — parent chain (max depth 4)
-       ├─ STEP 3: mergeExpertisePrompt() — 15-step pure function
-       │    └─ validate → sort → inherit → merge modules → specialist
-       │       → tone → temperature → trim tokens → build prompt → enforce
-       ├─ STEP 4: LLM generation (with merged prompt + temperature)
-       ├─ STEP 5: ExpertiseEnforcer — forbidden phrases, min length, retry with decay
-       ├─ STEP 6: enforceCapabilities() — 5D drift detection (deterministic, no LLM)
-       └─ STEP 7: logLlmExecution() — model, latency, prompt hash, token source
+       ├─ checkCompatibility() — 5D pairwise conflict detection
+       ├─ resolveInheritance() — parent chain (max depth 4)
+       ├─ mergeExpertisePrompt() — 15-step pure function
+       ├─ LLM generation (with merged prompt + temperature)
+       ├─ ExpertiseEnforcer — forbidden phrases, min length, retry
+       ├─ enforceCapabilities() — 5D drift detection (deterministic)
+       └─ logLlmExecution() — model, latency, prompt hash
 ```
 
 **15 Built-in Expertises** (5 categories):
@@ -416,98 +360,34 @@ Expertise Handler
 | Normativni & Odpovednostni | Pravnik, Lekar, Psycholog |
 | Technicko-odborni | AI Expert, Vyvojar, Technik |
 | Domenovi znalci | Autickar, Motorkar, Politicky analytik |
-| Vlastni experti | Created via `create-expertise` skill |
 
 **Key Concepts:**
 - **5D Capability Vector** (0-100): reasoning, creativity, determinism, riskTolerance, verbosity
-- **Strength Presets**: LIGHT (0-30%), BALANCED (31-60%), DEEP (61-100%) — controls style/depth influence
 - **Auto-Select**: Tier 1 vocabulary overlap + Tier 2 boost patterns + hysteresis (no LLM, <1ms)
-- **Modules**: 6 sections (domain_rules, emphasis, constraints, vocabulary, antipatterns, disclaimer)
 - **Specialist Runtime** (D1): Tool-augmented experts (e.g. accountant with tax/VAT calculators)
 - **Knowledge Base** (D2): Versioned fact store (domain/category/key/year with provenance)
-- **Scenario Engine** (D3): Multi-step guided workflows (e.g. tax calculation wizard)
+- **Scenario Engine** (D3): Multi-step guided workflows
 
-**Enforcement Pipeline:**
-- `ExpertiseEnforcer` — forbidden phrase check, retry with temperature decay (0.1/attempt), strict mode
-- `enforceCapabilities()` — hedging ratio, caveat density, verbosity, structure scoring
-- `computeCapabilityDrift()` — per-dimension delta vs expected profile, violation threshold 40
+### 6. Quality Gate v2 (QGv2)
 
-**ExecutionTrace (v63.3):**
-- One `executionTraceId` (UUID) per user turn
-- Connects: `llm_execution_log` → `ExpertiseEnforcer.retryAudit` → `capability_drift_log` → `merge_audit_log`
-
-### 6. Quality Gate v2 (QGv2) — Deterministic Post-Processing
-
-4-layer pipeline that runs after every LLM response. Pure functions, no LLM calls, deterministic.
+4-layer deterministic pipeline after every LLM response. Pure functions, no LLM calls.
 
 ```
 LLM Response → QGv2 Pipeline
-  │
-  ├─ Layer 1: Structural
-  │    └─ Min length, max length, format validation
-  │
-  ├─ Layer 2: Language
-  │    ├─ 2a. SK→CZ transliterator (≥2 markers → ~160 regex rules)
-  │    ├─ 2b. Unconditional SK strip (ľ→l, ô→ů, čo→co, nie je→není, ...)
-  │    └─ 2c. Language validation (CZ required for lang=cs)
-  │
-  ├─ Layer 3: Intent Guarantees
-  │    └─ LinkGuard: SEARCH responses must have ≥2 source links
-  │       If linkCount < 2 && sourceUrls available → inject **Zdroje:** section
-  │
-  └─ Layer 4: Content
-       └─ Topic drift, completeness checks
+  ├─ Layer 1: Structural — min/max length, format validation
+  ├─ Layer 2: Language — SK→CZ transliterator (160 rules), language validation
+  ├─ Layer 3: Intent Guarantees — LinkGuard (≥2 source links for SEARCH)
+  └─ Layer 4: Content — topic drift, completeness checks
 ```
-
-**Key files:**
-- `quality-gate-v2.js` — Main pipeline (~200 lines)
-- `quality-pipeline.js` — Orchestration
-- `language-enforcement.js` — SK→CZ transliterator (~160 regex rules, 49 SK_MARKERS)
 
 ### 7. Tool Registry (153 tools)
 
-Central catalog of all executable tools (`src/tools/registry.js`). Each tool is a pure async function with typed parameters, capability metadata, and structured return values.
-
-**153 tools** across 35 categories:
-
-| Category | Count | Examples |
-|----------|-------|---------|
-| **fs** | 20 | read, write, list, glob, mkdir, readJson, writeJson, patch, find |
-| **git** | 18 | status, commit, diff, push, pull, clone, branch, merge, rebase, blame |
-| **code** | 7 | analyze, format, lint, imports, deadcode, rename, duplicates |
-| **npm** | 7 | install, run, list, outdated, audit, init, scripts |
-| **docker** | 6 | run, build, ps, images, logs, compose |
-| **crypto** | 5 | randomBytes, generatePassword, encrypt, decrypt, uuid |
-| **deps** | 4 | tree, licenses, size, vuln |
-| **guard** | 4 | disk, memory, fd, watchdog |
-| **profile** | 4 | cpu, heap, eventloop, benchmark |
-| **api** | 4 | request, latency, validate, loadtest |
-| **date/url/validate** | 4+4+4 | now, parse, diff, format / parse, build, encode, decode |
-| ... | 62 | math, regex, yaml, diff, test, python, ssh, web, workspace, ... |
-
-**Capability metadata** on every tool:
-
-```javascript
-meta: {
-  sideEffects: boolean,       // Modifies external state?
-  idempotent: boolean,        // Safe to retry?
-  destructive: boolean,       // Can cause data loss?
-  requiresConfirmation: bool, // Needs user approval?
-  costLevel: 'free'|'low'|'medium'|'high',
-  category: 'pure'|'read'|'write'|'exec'|'net'
-}
-```
+Central catalog of all executable tools across 35 categories. Each tool has typed parameters, capability metadata (`sideEffects`, `idempotent`, `destructive`, `costLevel`, `category`), and structured return values.
 
 **Risk classification API:**
 - `safeForAutoExec()` → 91 tools safe for autonomous use
 - `requiresConfirmation()` → 37 tools needing user approval
 - `destructive()` → 7 tools that can cause data loss
-- `riskAssessment(name)` → `{ risk: 'safe'|'low'|'medium'|'high'|'critical', reasons, meta }`
-
-**Invariants:**
-1. `destructive: true` → `requiresConfirmation: true`
-2. `category: 'pure'` → `sideEffects: false`
-3. `category: 'read'` → `sideEffects: false`
 
 Full reference: [docs/tools/REGISTRY.md](tools/REGISTRY.md)
 
@@ -525,15 +405,14 @@ C3InputEvent {
 }
 ```
 
-Supported: CLI, Web, Slack, Discord, API. Each with capability presets (max message length, threading support, etc.)
+Supported: CLI, Web, Slack, Discord, API.
 
-### 9. Memory System (v86)
+### 9. Memory System
 
-Three-layer memory: LTM persistence, smart context injection, and implicit feedback learning.
+Three-layer memory architecture: LTM persistence, smart context injection, and implicit feedback learning.
 
 ```
 User Input → Feedback Detector (6 signal types)
-  │
   ├─ PreferenceEngine — records corrections, adjustments
   ├─ LongTermMemory — confidence decay (half-life 69d), reinforcement
   └─ PatternTracker — cross-conversation intent sequences, topic affinity
@@ -545,140 +424,157 @@ Context Assembly:
   → buildBudgetedContext(intent) → token-limited prompt injection
 ```
 
-**Key files:** `src/memory/` (long-term.js, injection-ranker.js, feedback-detector.js, pattern-tracker.js, preferences.js), `src/db/data-retention.js`
+### 10. Code Intelligence (v95-v102)
 
-### 10. IDE Settings UI (v87-91)
-
-12-section settings with dual storage: localStorage (appearance/UI) + backend REST (config).
+33-module pipeline for codebase understanding, search, and analysis.
 
 ```
-Settings UI (chat-panel-module.js)
+Query → expandQuery() → symbolIndex → searchCode()
+  → rankFiles() → graphExpansion → buildCodeContext() → LLM → answer
+```
+
+**Module groups:**
+
+| Group | Modules | Purpose |
+|-------|---------|---------|
+| Search | code-search, query-expander, file-discovery | Multi-engine code search |
+| Index | symbol-index, index-builder, streaming-indexer | O(1) symbol lookup, reactive updates |
+| Analysis | code-analyzer, ast-analyzer, architecture-detector | Structure extraction, framework detection |
+| Graph | knowledge-graph, graph-retrieval, graph-query, impact-analyzer | 9 edge types, BFS expansion, impact traversal |
+| Context | context-builder, context-engine, context-optimizer, chunker | Symbol-aware compression, token budgets |
+| Detection | drift-detector, dead-code-detector, risk-analyzer | Layer violations, unreachable code, 3-signal risk |
+| Advanced | exploration-agent, execution-graph, test-coverage-explorer, code-evolution, pattern-miner, perf-analyzer, dependency-manager, concept-registry, refactor-agent, regression-predictor | Autonomous exploration, anti-patterns, dependency upgrades |
+
+**Knowledge Graph:** 9 edge types (IMPORTS, EXPORTS, CALLS, INHERITS, IMPLEMENTS, USES, TESTED_BY, DEPENDS_ON, CONTAINS). Map-based storage, hub penalty scoring, namespace boost, priority BFS with edge weights.
+
+**BUILD Context Enrichment:** `buildCodeContextForMilestone()` in lifecycle-build.js — lazy-loaded via `ensureCodeIntel()`, graceful degradation. 5 files / 5K tokens budget.
+
+### 11. Execution Engine (v104-v108)
+
+Iterative code fix pipeline — patches code, runs tests, learns from failures.
+
+```
+Milestone code → test → errors?
   │
-  ├─ _settingsVals — localStorage (fontSize, theme, density, uiScale)
-  ├─ _bCfg — backend sync (GET/POST /api/settings, debounced 500ms)
-  ├─ _featureFlags — GET/POST /api/features (7 runtime toggles)
-  ├─ _sec* — GET /api/security/* (tokens, audit, webhook, sessions)
-  │
-  ├─ Sections: Account, LLM, Memory, Notifications, Output,
-  │             Appearance, System, Storage, Backup, Feature Flags, Security, About
-  │
-  ├─ GPU Detection — GET /api/system/gpu → profile.gpus[]
-  ├─ Model Selector — GET /api/system/models (Ollama proxy)
-  ├─ Notification Channels — GET /api/notifications/channels
-  ├─ Feature Flags — GET/POST /api/features/:name (runtime toggle, in-memory only)
-  ├─ Security — Auth guard (requireAuth), API tokens (SHA-256), unified audit, webhook
-  └─ Storage — GET /api/system/info (DB size, migrations, tables)
+  ▼
+Execution Loop (max 8 iterations)
+  ├─ normalizeErrors (14 error codes, root cause analysis)
+  ├─ selectStrategy (DETERMINISTIC / HEURISTIC / LLM_FULL / SKIP)
+  ├─ buildFixPrompt (with task memory + cross-project hints)
+  ├─ LLM generates fix
+  ├─ parsePatch (Patch ADT: file, regions, anchors)
+  ├─ validatePatch (structural + semantic)
+  ├─ applyPatch (bottom-up splice, atomic write, rollback on failure)
+  ├─ run tests → converged? → done
+  ├─ selfCritique (iteration ≥ 2: LLM root-cause + patch plan + KG validation)
+  └─ taskMemory.recordFix() → persist for future iterations
 ```
 
-**Theia integration:** 67+ preference keys in `c3-settings` extension (`settings-protocol.ts`). WS sync for `c3.features.*`, `c3.llm.*`, `c3.memory.*` prefixes via `settings-module.ts`.
+**Patch Engine (F1):** 3-tier anchor resolution (exact → normalized → AST). Ambiguity guard rejects if matches > 1 without contextBefore. Bottom-up splice preserves line offsets. Atomic write (tmp+rename). Full rollback on patchset failure.
 
-**Security model (v91):** All `/api/security/*` routes require auth: localhost bypass (dev only) OR `C3_ADMIN_TOKEN` header (timing-safe comparison). Production without token → `process.exit(1)`. API tokens use SHA-256 hashing (raw token returned once at creation). `validateApiToken()` helper ready for middleware integration.
+**Error Normalizer (F2):** 14 error codes, 32-entry error map (most-specific-first). Dual-mode: raw string or pre-parsed array. `findRootCause()` traces IMPORT_NOT_FOUND → downstream. `formatErrorsForLLM()` with separate root/other budgets.
 
-### 11. Smart Relay Management + Typing Indicator (v90)
+**Self-Critique (F6):** Activates at iteration ≥ 2. LLM analyzes root cause → generates patch plan (ADD/MODIFY/DELETE/MOVE, max 10 steps) → validates against knowledge graph.
 
-**Relay routing:** Center-to-relay routing replaced `targetSession` (legacy manual picker) with `_smartRouteToRelay()` — automatic free-relay detection, expansion (up to 3), and picker dialog fallback.
+### 12. Architecture Governance (v98-v100)
 
-```
-_smartRouteToRelay(callback)
-  │
-  ├─ _findFreeRelay() → switch to empty relay
-  ├─ _sessionCount < 3 → expand + new relay
-  └─ All occupied → _relayPickDialog overlay → user picks
-
-"+" button (_newChatInProject):
-  1. Current pane empty → reset in-place
-  2. Has project → in-project/free choice dialog
-  3. Other relay empty → switch there
-  4. Can expand → add relay
-  5. All full → relay picker dialog
-```
-
-**Label persistence:** `_label` field on each session — snapshot at open time, persisted to localStorage, restored on crash recovery. Rendering prefers `_label`, falls back to `PROJECTS`/`CONVERSATIONS` lookup.
-
-**Thinking indicator:** Per-session `_thinking` state (`{text, ts}`) — set on send, cleared on `chat:message`, updated from `agent:log` events. Three animated dots (CSS `c3-thinking-dot` keyframes) + live status text showing what C3 is currently doing.
-
-**Key helpers:** `_isSessionEmpty(s)`, `_findFreeRelay(excludeIdx)`, `_smartRouteToRelay(callback)`, `_resetSessionToClean(s)`
-
-### 12. Domain Capabilities + Executor Expansion (v90)
-
-**Domain Registry:** Tag-based matching of user requests to pre-built scaffolds and infra recipes. D1 planner receives matched domains in system prompt for informed plan generation.
+Cross-milestone architecture enforcement and quality assurance.
 
 ```
-DomainRegistry
-  ├─ 8 scaffolds (express-api, react-app, fullstack, next-app, vue-app,
-  │                python-fastapi, cli-tool, flutter-app)
-  ├─ Recipes (docker, k8s, nginx, CI/CD, monitoring)
-  └─ matchRequest(text) → { recipes[], scaffolds[] }
-      └─ extractTags() → keyword→tag mapping (26 tags)
+PRE-milestone: Architecture Guardian audits
+  → drift detection, pattern compliance
+  → archContext injected into checkpoint
+
+POST-milestone: Critic Agent analyzes failures
+  → 6 failure types → targeted repair (not full re-exec)
+  → API Contract Registry tracks breaking changes
+
+Architecture Intelligence (v100):
+  ├─ architecture-policy.js — unified policy (.c3 > ACF > auto)
+  ├─ regression-predictor.js — composite (risk+coverage+centrality+churn+coupling)
+  ├─ runtime-feedback.js — parse test/build output, cross-milestone patterns
+  ├─ milestone-decomposer.js — auto-split >1500 LOC milestones
+  └─ multi-agent.js — 5-role pipeline (planner→builder→architect→critic→debugger)
 ```
 
-**Skills shell whitelist (v90):** Expanded from 11 to 35+ commands. Covers package managers (npm, yarn, pnpm, pip), runtimes (python, deno, bun), build tools (tsc, eslint, cargo, go, flutter), git, docker, and filesystem ops. Timeout increased 30s → 120s.
+### 13. Model Upgrade System (v103)
 
-**Workflow pipeline (v90):**
+Self-evaluating model registry with chat-based approval workflow.
+
 ```
-D1 plan → CODE implement → BUILD_VERIFYING → R2 review → D2/R1 loop
-                              │
-                              ├─ detect build command (pkg.json, Cargo, go, Make)
-                              ├─ execute build (180s timeout)
-                              ├─ PASS → R2 review
-                              └─ FAIL → parse errors → D2 diagnose → CODE fix (max 3)
+discover (Ollama registry) → filter → rank → propose
+  → user approval (chat intercept) → pullModel (streaming progress via WS)
+  → applyUpgrade → verify ping → persist to DB
+  → rollbackUpgrade on failure
 ```
 
-### 13. IDE Boot Fix + Right Panel Recovery (v90.1)
+**Safety:** Never auto-upgrades. Chat-based approval regex (bare words + stem-based patterns). `getUnusedOldModels()` for cleanup. DB persistence with `loadPersistedOverrides()` on restart.
 
-**Status widget circular dependency:** `toDynamicValue` resolving `StatusBar` during binding created a circular deadlock (StatusBar -> FrontendApplicationContribution -> C3StatusBarContribution -> StatusBar). Fixed with `toConstantValue(_statusInstance)` and lazy `StatusBar` resolution in `onStart()` via `window.theia.container`.
+### 14. Task Memory & Cross-Project Learning (v107-v116)
 
-**`decorate()` void return bug:** `C3StatusBarContribution = inversify_1.decorate(...)` set class to `undefined` (decorate returns void). Masked by the deadlock. Fixed by calling `decorate()` without reassignment.
+Persistent cross-milestone learning for the execution loop.
 
-**Right panel snap-collapse race:** After cache clear, Theia's default right panel width < 300px threshold. ResizeObserver immediately snap-hid the chat panel. Fixed with `_c3SnapLock=true` during startup + `a.shell.resize(420,'right')` in `onStart` with 500ms delay.
+```
+Execution Loop → recordFix(errorCode, file, strategy, success)
+  → UPSERT with confidence update (failure→success overwrites, same→reinforce)
+  → queryRelevant(errors, files) → decay-weighted results
 
-**Center view null default:** v90 changed `_centerState.view` from `'expertises'` to `null`, showing blank welcome screen after cache clear. Fixed with fallback: `lastView || 'expertises'`.
+Cross-Project (F14):
+  queryCrossProject(db, {currentProjectId, errors, currentStack})
+    → stack similarity (Jaccard on language/frameworks/tools)
+    → relevance = errorMatch + archDecision + stackBoost + generality
+    → mergeResults(local, cross) — local priority, dedup by key
+```
 
-**Key files:** `c3-ide/extensions/c3-status-widget/lib/browser/status-widget-module.js`, `c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js`
+**Decay:** λ=0.005 (half-life ~139 days). Reinforcement: +0.05 on reuse (cap 0.95). Prune: remove entries below threshold after maxAge.
+
+---
+
+## Skills System
+
+Deterministic macro-recipes for repeating procedures.
+
+```
+Registry → Resolver (LLM intent match) → Runner (state machine) → Step executors
+```
+
+**Step types:** `llm`, `template`, `write` (sandboxed), `shell` (whitelisted), `ask`, `review`, `validate`
+
+**Interactive steps:** `ask`/`review` return `{ status: 'awaiting_input' }` → AWAITING_INPUT state → `resume()`.
+
+**Meta-skill:** `create-skill` — creates new skill definitions (ask→llm→review→validate→write). Auto-reloads registry after creation.
+
+**Constraints:** No branching, no nested skills, shell whitelist (not blacklist), `fs.realpath()` for write paths.
 
 ---
 
 ## Database Schema
 
-58+ tables in SQLite (better-sqlite3), 29 migrations:
+80+ tables in SQLite (better-sqlite3), 32 migrations:
 
 | Group | Tables |
 |-------|--------|
-| Chat | conversations, messages, attachments, chat_sessions |
+| Chat | conversations, messages, attachments, chat_sessions, chat_fts |
 | Agents | agents_v33, agent_runs_v33, agent_notifications_v33, agent_data_v33, agent_seen_items_v57, agent_schedule_v33 |
-| Projects | projects, project_lifecycles, milestones, change_requests, drift_checks |
+| Projects | projects, project_lifecycles, milestones, change_requests, drift_checks, roadmap_versions |
 | Lifecycle | lifecycle_handoff_state (crash recovery) |
-| Expertises | expertises, expertise_bindings, expertise_memory, conversation_expertises (v63 N:M max 3) |
-| Expertise Audit | merge_audit_log, capability_drift_log, llm_execution_log (v63.3) |
-| CRE Audit | **cre_override_log** (v64.0 — Gatekeeper override/intercept audit trail) |
-| Memory | global_memory, user_memory, project_memory, memory (LTM v86) |
-| Skills | skill_executions, skill_steps, workflow_patterns (v85) |
-| Quality | quality_scores (v80) |
-| Workflows | workflow_sessions |
-| Security | api_tokens (v91 — SHA-256 hashed, UNIQUE constraint) |
-| Architecture | **architecture_state** (v98 — per-milestone drift metrics), **api_contracts** (v98 — export tracking) |
-| Config | user_settings, learned_patterns, logs, drafts |
+| Expertises | expertises, expertise_bindings, expertise_memory, conversation_expertises, custom_expertises |
+| Expertise Audit | merge_audit_log, capability_drift_log, llm_execution_log |
+| CRE | cre_override_log (Gatekeeper audit trail) |
+| Memory | global_memory, user_memory, project_memory, memory (LTM), task_memory |
+| Skills | skill_executions, skill_steps, workflow_patterns |
+| Architecture | architecture_state, api_contracts |
+| Model Upgrade | model_overrides, upgrade_history |
+| Quality | quality_scores |
+| Security | api_tokens (SHA-256 hashed) |
+| Notifications | notification_channels_v57, notification_log_v57, notification_state_v57, notification_digest_buffer_v57, notification_trust_actions_v57 |
+| Telemetry | telemetry_metrics, telemetry_snapshots, telemetry_alerts, telemetry_improvements |
+| Specialists | specialists, specialist_expertises, specialist_memory, specialist_telemetry |
+| Config | user_settings, learned_patterns, logs, session_state |
 
 ---
 
 ## Configuration
-
-### Feature Flags
-
-Vsechny promenne se nacitaji z `.env` souboru (`dotenv`). Viz `.env.example` pro uplny seznam.
-
-```javascript
-// src/config.js — cte process.env s defaulty
-features: {
-  agents:    process.env.C3_ENABLE_AGENTS !== 'false',     // Phase B
-  lifecycle: process.env.C3_ENABLE_LIFECYCLE !== 'false',  // Phase C
-  expertises: process.env.C3_ENABLE_EXPERTISES !== 'false', // Phase D
-  skills:    process.env.C3_ENABLE_SKILLS !== 'false',     // v85: Skills
-}
-// Runtime hot-toggle via FeatureManager singleton (v85)
-// IDE sync: c3.features.* → WS sync_settings → featureManager.setEnabled()
-
-```
 
 ### Model Bindings (Ollama)
 
@@ -692,15 +588,16 @@ features: {
 | CHAT | qwen3.5:27b | 60s |
 | VISION | llava:13b | 60s |
 
+### Feature Flags
+
+All variables loaded from `.env` (`dotenv`). Features independently toggleable via `FeatureManager` singleton. IDE sync: `c3.features.*` → WS `sync_settings` → `featureManager.setEnabled()`.
+
 ### Environment Variables
 
 ```bash
-# Server
 C3_PORT=3335
 C3_DB_PATH=./data/c3.db
 OLLAMA_URL=http://127.0.0.1:11434
-
-# Notifications
 C3_SMTP_HOST, C3_SMTP_PORT, C3_SMTP_USER, C3_SMTP_PASS, C3_SMTP_FROM
 C3_TELEGRAM_BOT_TOKEN, C3_TELEGRAM_CHAT_ID
 C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
@@ -710,40 +607,28 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 
 ## Test Suite
 
-2400+ verified deterministic tests across 100+ test files:
+3,000+ verified tests across 200+ test files:
 
 | Suite | Tests | Focus |
 |-------|-------|-------|
 | CRE comprehensive | 401 | Intent classification |
-| v583 tier1 | 94 | Core CRE regression |
-| Lifecycle unit | 103 | State machine, persistence, deps |
-| Lifecycle E2E | 83 | Phase C lifecycle, crash recovery |
-| Phase B workers | 73 | B0/B4/B6/B8/B9 |
-| Lifecycle advanced | 71 | Multi-session, disk I/O, git |
+| Lifecycle unit + E2E | 186 | State machine, crash recovery, multi-session |
+| Phase B workers | 73 | B0/B4/B6/B8/B9 agents |
 | Notifications | 67 | Channels, routing, policy |
-| RSS sources | 47 | RSS/Atom parsing |
-| Workflow | 42 | Planner workflow |
-| Milestone size | 40 | Size validation, split suggestions |
-| Merge engine | 40 | Multi-expertise composition, token budget, inheritance |
-| Expertise system | 40 | Single expertise flow, built-in expertises |
-| Expertise wizard | 38 | Validation, modules, capabilities |
-| Capability enforcer | 38 | 5D evaluators, drift, strict, retry, trace |
-| Trust feedback | 34 | Auto-degrade/mute |
-| Execution trace stress | 20 | 3-expertise merge + strict + drift + trace reconstruction |
-| Agent runner | 20 | HUNTER, mark_seen |
-| Merge compatibility | 16 | 5D pairwise conflict detection |
-| Merge-enforcement integration | 15 | Merge → ExpertiseEnforcer pipeline |
-| Multi-source integration | 14 | RSS+HTTP, _merged, partial failure |
-| Expertise integration | 10 | Expertise + DB + handler pipeline |
-| **E2E Quality Deep** | **36** | **LLM output quality: S/R/F/T categories (89% — 32/36)** |
+| Expertise system | 190+ | Merge, enforce, 5D capabilities, routing, wizard |
 | Skills system | 44 | Registry, resolver, runner, 7 step types |
-| Agent log UX | 44 | E2E: SYSTEM_STEP protocol, 15 hooks |
-| Expertise routing | 43 | GUARD 6 creative override correctness |
-| Expertise comparison | 78 turns | E2E: expertise vs non-expertise quality |
-| Memory system | ~50 | LTM, injection-ranker, feedback, patterns |
-| Project welcome | 41 | State reader, welcome generator, edge cases |
-| **Executor capabilities** | **85** | **Shell whitelist, BUILD_VERIFYING, scaffolds, CODE→BUILD** |
-| + additional suites | ~100 | Various subsystems |
+| Memory system | 50+ | LTM, injection-ranker, feedback, patterns |
+| Quality gates | 36 | E2E quality: S/R/F/T categories |
+| Executor capabilities | 85 | Shell whitelist, BUILD_VERIFYING, scaffolds |
+| Agent log UX | 44 | SYSTEM_STEP protocol, 15 hooks |
+| **Code Intelligence** | **339** | Symbol index, KG, graph, architecture, context |
+| **Execution Engine (F1-F8)** | **355** | Patch, errors, loop, strategy, critique, patterns |
+| **Long-term (FΔ+F9-F14)** | **242** | Context delta, build strategy, perf, deps, learning |
+| Architecture governance | 57 | Guardian, contracts, critic |
+| Architecture intelligence | 161 | Policy, context, refactor, predictor, KB, multi-agent |
+| Large project scaling | 107 | Graph storage, BFS, streaming, concept registry |
+| Model upgrade | 115 | Discovery, profiles, approval, pull, rollback |
+| Project E2E | 56 | 4 project types, lifecycle, milestones |
 
 ---
 
@@ -758,39 +643,31 @@ RIGHT: CRE decides → LLM generates → Gate enforces
 
 ### 2. Agents are Deterministic
 
-No LLM in the agent execution loop. Sources, conditions, triggers, and mark_seen are all algorithmic. LLM is only called from `notify` actions with `use_llm: true`.
+No LLM in the agent execution loop. Sources, conditions, triggers, and mark_seen are all algorithmic.
 
 ### 3. HUNTER Pattern
 
-`mark_seen` runs BEFORE business actions. Crash recovery doesn't cause duplicate processing. Per-source, per-agent tracking in `agent_seen_items_v57`.
+`mark_seen` runs BEFORE business actions. Crash recovery doesn't cause duplicate processing.
 
 ### 4. Crash Recovery (C1)
 
-`lifecycle_handoff_state` table persists handoff state. DB write-through in `setLcState()`. `preloadActiveLifecycles()` restores RAM on restart.
+`lifecycle_handoff_state` table persists handoff state. DB write-through. `preloadActiveLifecycles()` restores RAM on restart.
 
 ### 5. Feature Flags
 
-Agents, lifecycle, and expertises are independently toggleable. Disabled features are never loaded (lazy import).
+Agents, lifecycle, expertises, and skills are independently toggleable. Disabled features are never loaded (lazy import).
 
 ### 6. UTF-8 First
 
 All notification channels use JSON body (not HTTP headers) to support Czech diacritics.
 
-### 7. Agent Builder Wizard (v65.5)
+### 7. Execution Engine: Patch, Don't Regenerate
 
-Backend is single source of truth — `GET /api/agents/schema` returns types, presets, allowed values. FE never hardcodes agent schema.
+The F-series execution engine parses and applies surgical patches instead of regenerating entire files. 3-tier anchor resolution ensures accuracy; bottom-up splice preserves line offsets; atomic write with rollback ensures safety.
 
-```
-User clicks "+ Worker" → _awOpen('create')
-  → FE fetches /api/agents/schema (presets from BE)
-  → User fills wizard (simple 3-step or advanced 5-section)
-  → _awSave() → auto dry-run (normalizeAgentDefinition + agentRunner.dryRun)
-    → valid:false? Show errors, DON'T save
-    → valid:true? POST /api/agents (with normalized definition)
-      → 409 collision? Append timestamp suffix, retry
-```
+### 8. Memory Decay
 
-`normalizeAgentDefinition()` in `schema.js`: deep clone → regenerate IDs (src-1, cond-1, trig-1) → remap cross-references → validate integrity → clamp defaults → return `{definition, errors[], warnings[]}`.
+All memory systems use exponential decay: LTM (λ=0.01, half-life ~69d), Task Memory (λ=0.005, half-life ~139d). Reinforcement on reuse prevents useful entries from decaying.
 
 ---
 
@@ -798,17 +675,17 @@ User clicks "+ Worker" → _awOpen('create')
 
 | Phase | Completion | Key Components |
 |-------|-----------|----------------|
-| A (CRE) | 100% | Intent classification (19 types), decision matrix, QGv2, GUARD 6, attachment guard |
+| A (CRE) | 100% | Intent classification (19 types), 10 guards, QGv2, attachment guard |
 | B (Workers) | 95% | Runner, scheduler, sources, notifications, multi-source |
-| C (Lifecycle) | **100%** | Milestones, crash recovery, multi-session, quality scoring |
-| D-int (Integration) | 100% | Rate monitor auto-registration |
-| D (Expertises) | **92%** | 15 built-in expertises, merge engine, 5D capabilities, enforcement, wizard UI |
-| D-obs (Observability) | **100%** | ExecutionTrace ID, LLM execution log, capability drift log, specialist telemetry |
-| E (IDE) | **82%** | C3 Studio (Theia 1.65.2), 33 extensions, Settings UI (12 sekcí), security, agent log UX |
-| F (Packaging) | **25%** | Setup wizard, auto-updater, license system |
-
-**Overall: ~98% complete**
+| C (Lifecycle) | 100% | Milestones, crash recovery, checkpoint modes, adaptive retry |
+| D (Expertises) | 92% | 15 built-in, merge engine, 5D capabilities, enforcement, wizard |
+| E (IDE) | 82% | C3 Studio (Theia), 33 extensions, settings UI, security, focus mode |
+| F (Packaging) | 25% | Setup wizard, auto-updater, license system |
+| G (Code Intel) | 100% | 33 modules, symbol index, KG, graph expansion, architecture detection |
+| H (Agent Evolution) | 100% | F1-F8 core (355 tests), FΔ+F9-F14 extensions (242 tests) |
+| I (Governance) | 100% | Guardian, contracts, critic, policy, regression prediction, multi-agent |
+| J (Model Mgmt) | 100% | Discovery, profiles, approval, pull, rollback |
 
 ---
 
-*This document reflects C.3 Agent Platform v98.0.0 architecture (2026-03-05).*
+*This document reflects C.3 Agent Platform v116.0.0 architecture (2026-03-10).*
