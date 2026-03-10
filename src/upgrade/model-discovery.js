@@ -1,13 +1,13 @@
-// Model Discovery v103 — Ollama Model Discovery & Family Heuristics
+// Model Discovery v118 — Ollama Model Discovery & Catalog Candidates
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Three-level discovery:
 //   L1: Local — query Ollama /api/tags for installed models
-//   L2: Remote — query Ollama library for available models (Phase 2)
+//   L2: Catalog — curated model catalog (not installed, maturity ≥7d)
 //   L3: Family heuristics — infer upgrade paths from naming patterns
 //
-// This module is Phase 1: L1 (local) + L3 (family heuristics).
-// L2 (remote) will be added in Phase 2 with caching (.c3/model-catalog.json).
+// L1 always runs. L2 on fullCycle (discover({ includeCatalog: true })).
+// L3 always runs for hints.
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -229,29 +229,151 @@ export function getUpgradeHints(currentModel) {
   return hints;
 }
 
+// ─── L2: Catalog Candidates (v118) ───────────────────────────────────────────
+
+/**
+ * Build candidate list from curated catalog (not-installed models).
+ *
+ * @param {Set<string>} installedNames - Names of installed models
+ * @param {Object} [opts]
+ * @param {number} [opts.minMaturityDays=7] - Minimum days since release
+ * @returns {Array<ModelCandidate>}
+ */
+export function buildCatalogCandidates(installedNames, opts = {}) {
+  const minDays = opts.minMaturityDays ?? 7;
+
+  let catalog;
+  try {
+    // Lazy import — catalog may not be available yet
+    const mod = require('./model-catalog.js');
+    catalog = mod.CATALOG || mod.default?.CATALOG;
+  } catch {
+    try {
+      // ESM dynamic import is async; use synchronous fallback
+      return _buildCatalogCandidatesAsync(installedNames, minDays);
+    } catch {
+      return [];
+    }
+  }
+
+  if (!catalog) return [];
+  return _filterCatalog(catalog, installedNames, minDays);
+}
+
+function _filterCatalog(catalog, installedNames, minDays) {
+  const candidates = [];
+  for (const entry of catalog) {
+    // Skip installed
+    if (installedNames.has(entry.name)) continue;
+
+    // Skip immature
+    if (entry.releaseDate) {
+      const ageDays = (Date.now() - Date.parse(entry.releaseDate)) / (24 * 60 * 60 * 1000);
+      if (ageDays < minDays) continue;
+    } else {
+      // Unknown release date — skip (maturity unknown)
+      continue;
+    }
+
+    // Benchmark sanity: reject if ALL benchmarks are null
+    if (entry.benchmarks) {
+      const hasAny = Object.values(entry.benchmarks).some(v => v != null);
+      if (!hasAny) continue;
+    } else {
+      continue;
+    }
+
+    const parsed = parseModelName(entry.name);
+    candidates.push({
+      name: entry.name,
+      family: parsed.family,
+      category: entry.category || parsed.category,
+      version: parsed.version,
+      params: entry.params || parsed.params,
+      quantization: parsed.quantization,
+      sizeBytes: (entry.sizeGB || 0) * 1_073_741_824,
+      sizeGB: entry.sizeGB || 0,
+      modifiedAt: entry.releaseDate || null,
+      installed: false,
+      source: 'catalog',
+      // Catalog-specific fields passed through for ranker
+      benchmarks: entry.benchmarks,
+      baseVramMb: entry.baseVramMb,
+      contextWindow: entry.contextWindow,
+      capabilities: entry.capabilities,
+      architecture: entry.architecture,
+      releaseDate: entry.releaseDate,
+      supersedes: entry.supersedes,
+      effectiveVramMb: entry.baseVramMb, // Will be refined by computeEffectiveVram
+    });
+  }
+  return candidates;
+}
+
+// Async fallback for ESM catalog import
+let _catalogCache = null;
+async function _buildCatalogCandidatesAsync(installedNames, minDays) {
+  if (!_catalogCache) {
+    try {
+      const mod = await import('./model-catalog.js');
+      _catalogCache = mod.CATALOG || mod.default?.CATALOG;
+    } catch {
+      return [];
+    }
+  }
+  if (!_catalogCache) return [];
+  return _filterCatalog(_catalogCache, installedNames, minDays);
+}
+
 // ─── Full Discovery Pipeline ───────────────────────────────────────────────
 
 /**
- * Run full model discovery: fetch installed → build candidates → enrich with hints.
+ * Run full model discovery: L1 (local) + optional L2 (catalog) + L3 (hints).
  *
  * @param {Object} [opts]
  * @param {string} [opts.baseUrl] - Ollama base URL override
  * @param {number} [opts.timeout] - Ollama API timeout
+ * @param {boolean} [opts.includeCatalog=false] - Include L2 catalog candidates
  * @returns {Promise<DiscoveryResult>}
  *
  * DiscoveryResult = {
  *   candidates: ModelCandidate[],
- *   hints: Map<string, UpgradeHint[]>,    // currentModel → hints
+ *   hints: Map<string, UpgradeHint[]>,
  *   ollamaAvailable: boolean,
- *   timestamp: number
+ *   timestamp: number,
+ *   stats: { local: number, catalog: number, total: number }
  * }
  */
 export async function discover(opts = {}) {
   const ollamaModels = await fetchInstalledModels(opts);
   const ollamaAvailable = ollamaModels.length > 0;
-  const candidates = buildCandidates(ollamaModels);
+  const localCandidates = buildCandidates(ollamaModels);
 
-  // Build hints map for current models
+  // L2: Catalog candidates (fullCycle only)
+  let catalogCandidates = [];
+  if (opts.includeCatalog) {
+    const installedNames = new Set(localCandidates.map(c => c.name));
+    try {
+      const mod = await import('./model-catalog.js');
+      const catalog = mod.CATALOG || mod.default?.CATALOG;
+      if (catalog) {
+        catalogCandidates = _filterCatalog(catalog, installedNames, opts.minMaturityDays ?? 7);
+      }
+    } catch (err) {
+      logger.warn('ModelDiscovery', `Catalog load failed: ${err.message}`);
+    }
+  }
+
+  // Merge: L1 wins on name collision (dedup)
+  const localNames = new Set(localCandidates.map(c => c.name));
+  const merged = [...localCandidates];
+  for (const cc of catalogCandidates) {
+    if (!localNames.has(cc.name)) {
+      merged.push(cc);
+    }
+  }
+
+  // L3: Build hints map for current models
   const hints = new Map();
   const currentModels = new Set();
   try {
@@ -270,20 +392,22 @@ export async function discover(opts = {}) {
     // model-profiles not available — skip hints
   }
 
-  logger.info('ModelDiscovery', `Discovered ${candidates.length} installed models, ${hints.size} upgrade hints`, {
+  const stats = { local: localCandidates.length, catalog: catalogCandidates.length, total: merged.length };
+  logger.info('ModelDiscovery', `Discovered ${stats.local} local + ${stats.catalog} catalog = ${stats.total} candidates, ${hints.size} hints`, {
     ollamaAvailable,
-    families: [...new Set(candidates.map(c => c.family))],
+    families: [...new Set(merged.map(c => c.family))],
   });
 
   return {
-    candidates,
+    candidates: merged,
     hints,
     ollamaAvailable,
     timestamp: Date.now(),
+    stats,
   };
 }
 
 export default {
   fetchInstalledModels, fetchModelInfo, buildCandidates,
-  getUpgradeHints, discover, UPGRADE_HINTS,
+  buildCatalogCandidates, getUpgradeHints, discover, UPGRADE_HINTS,
 };

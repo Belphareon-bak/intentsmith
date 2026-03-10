@@ -587,5 +587,75 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
         sendJSON(res, 500, { error: err.message });
       }
     },
+
+    // ── v118: Model Catalog & Proposals ──────────────────────────────
+    'GET /api/system/catalog': async (req, res) => {
+      try {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const role = url.searchParams.get('role');
+        const family = url.searchParams.get('family');
+
+        const { CATALOG, CATALOG_VERSION, CATALOG_HASH } = await import('../upgrade/model-catalog.js');
+
+        let entries = CATALOG;
+        if (role) {
+          const { BENCHMARK_WEIGHTS } = await import('../upgrade/model-ranker.js');
+          const weights = BENCHMARK_WEIGHTS[role];
+          if (!weights) return sendJSON(res, 400, { error: `Unknown role: ${role}` });
+          // Return entries with non-zero benchmark coverage for this role
+          entries = entries.filter(e => {
+            if (!e.benchmarks) return false;
+            return Object.keys(weights).some(k => e.benchmarks[k] != null);
+          });
+        }
+        if (family) {
+          entries = entries.filter(e => e.family === family);
+        }
+
+        sendJSON(res, 200, {
+          entries,
+          total: entries.length,
+          catalogVersion: CATALOG_VERSION,
+          catalogHash: CATALOG_HASH,
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    'GET /api/system/proposals': async (req, res) => {
+      try {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const status = url.searchParams.get('status');
+        const role = url.searchParams.get('role');
+
+        const { proposalStore } = await import('../upgrade/proposal-store.js');
+
+        if (status === 'pending' && role) {
+          sendJSON(res, 200, { proposals: proposalStore.getPendingForRole(role) });
+        } else if (status || role) {
+          sendJSON(res, 200, { proposals: proposalStore.getHistory({ status, role }) });
+        } else {
+          sendJSON(res, 200, { proposals: proposalStore.getActiveProposals() });
+        }
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    'POST /api/system/proposals/:id/dismiss': async (req, res) => {
+      try {
+        const match = req.url.match(/\/api\/system\/proposals\/(\d+)\/dismiss/);
+        if (!match) return sendJSON(res, 400, { error: 'Missing proposal ID' });
+        const id = parseInt(match[1], 10);
+
+        const { proposalStore } = await import('../upgrade/proposal-store.js');
+        proposalStore.dismiss(id);
+
+        sendJSON(res, 200, { ok: true, dismissed: id });
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
   };
 }

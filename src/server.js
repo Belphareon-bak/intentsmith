@@ -204,6 +204,25 @@ if (overrideCount > 0) {
   logger.info('Server', `Restored ${overrideCount} model override(s) from DB`);
 }
 
+// v118: Phase 2 — proposal store + registry client
+try {
+  const { proposalStore } = await import('./upgrade/proposal-store.js');
+  proposalStore.setDb(db.db);
+  upgradeManager.setProposalStore(proposalStore);
+
+  const { registryClient } = await import('./upgrade/registry-client.js');
+  registryClient.setDb(db.db);
+  registryClient.loadCache();
+  upgradeManager.setRegistryClient(registryClient);
+
+  // Expire stale proposals on startup
+  const expired = proposalStore.expireStale();
+  if (expired > 0) logger.info('Server', `Expired ${expired} stale upgrade proposal(s)`);
+  logger.info('Server', 'Phase 2 upgrade pipeline initialized');
+} catch (err) {
+  logger.warn('Server', `Phase 2 upgrade pipeline not available: ${err.message}`);
+}
+
 // F3: License system — feature gates
 import { licenseManager, TIERS } from './licensing/license.js';
 const licenseStatus = licenseManager.getStatus();

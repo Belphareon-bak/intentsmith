@@ -225,8 +225,27 @@ intercepts.push({
     // Clear pending immediately (prevents double-trigger)
     delete context.sessionState._pendingUpgrades;
 
-    if (isReject) {
-      return { handled: true, response: systemResponse('Upgrade preskocen.', mode) };
+    // v118: Dismiss detection — "nikdy"/"never"/"dismiss" = permanent block
+    const DISMISS_RE = /^(nikdy|never|dismiss|zamítn(out|i)|ignoruj)\s*[!.]?$/i;
+    const isDismiss = DISMISS_RE.test(trimmed);
+
+    if (isReject || isDismiss) {
+      // v118: Record reject/dismiss in proposal store
+      try {
+        const { proposalStore } = await import('../../upgrade/proposal-store.js');
+        for (const p of pending) {
+          const dbProposal = proposalStore.findPending(p.role, p.candidateModel || p.candidate_model);
+          if (dbProposal) {
+            if (isDismiss) {
+              proposalStore.dismiss(dbProposal.id);
+            } else {
+              proposalStore.reject(dbProposal.id);
+            }
+          }
+        }
+      } catch (_) {}
+      const msg = isDismiss ? 'Upgrade trvale zamitnut.' : 'Upgrade preskocen.';
+      return { handled: true, response: systemResponse(msg, mode) };
     }
 
     // Lazy-load upgrade manager
@@ -244,26 +263,35 @@ intercepts.push({
 
     for (const p of pending) {
       try {
-        if (!p.installed && !pulledModels.has(p.candidateModel)) {
+        if (!p.installed && !pulledModels.has(p.candidateModel || p.candidate_model)) {
+          const candidateName = p.candidateModel || p.candidate_model;
           if (typeof context.onSystemStep === 'function') {
-            try { context.onSystemStep('model_pull_start', `Stahuji ${p.candidateModel}...`); } catch (_) {}
+            try { context.onSystemStep('model_pull_start', `Stahuji ${candidateName}...`); } catch (_) {}
           }
-          await _upgradeManager.pullModel(p.candidateModel, (progress) => {
+          await _upgradeManager.pullModel(candidateName, (progress) => {
             if (typeof context.onSystemStep === 'function') {
               try { context.onSystemStep('model_pull_progress', progress.text, 2); } catch (_) {}
             }
           });
-          pulledModels.add(p.candidateModel);
+          pulledModels.add(candidateName);
           if (typeof context.onSystemStep === 'function') {
-            try { context.onSystemStep('model_pull_done', `${p.candidateModel} stazen`); } catch (_) {}
+            try { context.onSystemStep('model_pull_done', `${candidateName} stazen`); } catch (_) {}
           }
         }
 
-        const result = await _upgradeManager.applyUpgrade(p.role, p.candidateModel, {
+        const candidateName = p.candidateModel || p.candidate_model;
+        const result = await _upgradeManager.applyUpgrade(p.role, candidateName, {
           score: p.score,
           appliedBy: 'user',
         });
         results.push({ ...result, role: p.role });
+
+        // v118: Mark approved in proposal store
+        try {
+          const { proposalStore } = await import('../../upgrade/proposal-store.js');
+          const dbProposal = proposalStore.findPending(p.role, candidateName);
+          if (dbProposal) proposalStore.approve(dbProposal.id);
+        } catch (_) {}
 
         if (typeof context.onSystemStep === 'function') {
           try { context.onSystemStep('model_applied', `${p.role}: ${result.from} → ${result.to}`); } catch (_) {}

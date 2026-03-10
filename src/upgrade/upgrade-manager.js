@@ -1,13 +1,13 @@
-// Upgrade Manager v103 — Self-Evaluating Model Registry
+// Upgrade Manager v118 — Self-Evaluating Model Registry (Phase 2)
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// Orchestrates the model upgrade pipeline:
-//   discover → filter → rank → propose
+// Phase 2 pipeline:
+//   catalog → discover → feasibility gate → pairwise evaluation
+//   → preference adjust → proposal store → user approval → pull + apply
 //
 // NEVER auto-upgrades. Always produces proposals for user approval.
-//
-// Phase 1: Local discovery + ranking + proposals.
-// Phase 2: Validation suites + monitoring + rollback.
+// Discovery NEVER changes config. Runtime NEVER touches internet.
+// Communication only through proposals in DB.
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -18,6 +18,89 @@ import { discover, getUpgradeHints, fetchInstalledModels } from './model-discove
 
 // Minimum score for user-facing notifications (lower proposals exist but are silent)
 export const MIN_NOTIFY_SCORE = 6;
+
+// v118: Phase 2 lazy-loaded modules
+let _ranker = null;
+let _proposalStore = null;
+let _catalog = null;
+let _preferenceTracker = null;
+let _registryClient = null;
+
+async function _ensurePhase2() {
+  if (!_ranker) {
+    try { _ranker = await import('./model-ranker.js'); } catch { _ranker = null; }
+  }
+  if (!_catalog) {
+    try { _catalog = await import('./model-catalog.js'); } catch { _catalog = null; }
+  }
+  if (!_proposalStore) {
+    try {
+      const mod = await import('./proposal-store.js');
+      _proposalStore = mod.proposalStore;
+    } catch { _proposalStore = null; }
+  }
+  if (!_preferenceTracker) {
+    try { _preferenceTracker = await import('./preference-tracker.js'); } catch { _preferenceTracker = null; }
+  }
+}
+
+// ─── Feasibility Gate (v118) ────────────────────────────────────────────────
+
+/**
+ * Required capabilities per role.
+ */
+const ROLE_CAPABILITIES = {
+  D1: ['json_mode'], D2: ['json_mode'], R1: ['json_mode'], R2: ['json_mode'],
+  CODE: [], CHAT: [], VISION: ['vision'],
+};
+
+const CPU_ONLY_PARAM_CAP = 14; // Max params for CPU-only inference
+
+/**
+ * Check if a candidate is feasible for the current hardware.
+ * @param {Object} candidate - ModelCandidate with catalog fields
+ * @param {string} role
+ * @param {Object} hwContext - { gpuVramMb, systemRamGb, freeDiskGb }
+ * @returns {{ feasible: boolean, reason?: string }}
+ */
+export function checkFeasibility(candidate, role, hwContext = {}) {
+  const { gpuVramMb = 0, systemRamGb = 0, freeDiskGb = Infinity } = hwContext;
+
+  // Capability check
+  const required = ROLE_CAPABILITIES[role] || [];
+  for (const cap of required) {
+    if (candidate.capabilities && !candidate.capabilities.includes(cap)) {
+      return { feasible: false, reason: `missing capability: ${cap}` };
+    }
+  }
+
+  // VRAM check (context-aware)
+  if (candidate.effectiveVramMb && gpuVramMb > 0) {
+    if (candidate.effectiveVramMb > gpuVramMb * 0.90) {
+      return { feasible: false, reason: `VRAM: ${candidate.effectiveVramMb}MB > ${Math.round(gpuVramMb * 0.90)}MB (90% of ${gpuVramMb}MB)` };
+    }
+  }
+
+  // Host RAM check
+  if (candidate.params && systemRamGb > 0) {
+    const ramNeeded = candidate.params * 0.6; // ~0.6 GB per B params for Q4_K_M
+    if (ramNeeded > systemRamGb * 0.7) {
+      return { feasible: false, reason: `RAM: ${ramNeeded.toFixed(1)}GB > ${(systemRamGb * 0.7).toFixed(1)}GB (70% of ${systemRamGb}GB)` };
+    }
+  }
+
+  // Disk space check
+  if (candidate.sizeGB && candidate.sizeGB > freeDiskGb * 0.8) {
+    return { feasible: false, reason: `disk: ${candidate.sizeGB}GB > ${(freeDiskGb * 0.8).toFixed(1)}GB (80% of ${freeDiskGb}GB)` };
+  }
+
+  // CPU-only param cap
+  if (gpuVramMb === 0 && candidate.params && candidate.params > CPU_ONLY_PARAM_CAP) {
+    return { feasible: false, reason: `CPU-only: ${candidate.params}B > ${CPU_ONLY_PARAM_CAP}B cap` };
+  }
+
+  return { feasible: true };
+}
 
 // ─── Candidate Filtering ────────────────────────────────────────────────────
 
@@ -575,34 +658,219 @@ export class UpgradeManager {
   }
 
   /**
+   * Set the proposal store instance (v118).
+   * @param {import('./proposal-store.js').ProposalStore} store
+   */
+  setProposalStore(store) {
+    this._proposalStore = store;
+  }
+
+  /**
+   * Set the registry client instance (v118).
+   * @param {import('./registry-client.js').RegistryClient} client
+   */
+  setRegistryClient(client) {
+    this._registryClient = client;
+  }
+
+  /**
    * Run full check: discover → filter → rank → propose.
+   * v118: Uses Phase 2 pipeline when available (feasibility + pairwise + preference + proposal store).
    *
    * @param {Object} [opts]
    * @param {string} [opts.baseUrl] - Ollama URL override
-   * @param {number} [opts.minScore] - Minimum proposal score
+   * @param {number} [opts.minScore] - Minimum proposal score (Phase 1 compat)
+   * @param {boolean} [opts.fullCycle=false] - Include L2 catalog candidates
    * @returns {Promise<{proposals: UpgradeProposal[], discovery: DiscoveryResult}>}
    */
   async checkForUpgrades(opts = {}) {
-    const discovery = await discover(opts);
+    const discovery = await discover({
+      ...opts,
+      includeCatalog: opts.fullCycle || false,
+    });
     this._lastDiscovery = discovery;
 
-    const proposals = generateProposals(discovery.candidates, {
-      minScore: opts.minScore ?? 4,
-      maxProposalsPerRole: opts.maxProposalsPerRole ?? 3,
-    });
+    // Try Phase 2 pipeline first
+    let proposals;
+    try {
+      await _ensurePhase2();
+      if (_ranker && _catalog) {
+        proposals = await this._checkForUpgradesV2(discovery, opts);
+      }
+    } catch (err) {
+      logger.warn('UpgradeManager', `Phase 2 pipeline failed, falling back to Phase 1: ${err.message}`);
+      proposals = null;
+    }
+
+    // Fallback to Phase 1
+    if (!proposals) {
+      proposals = generateProposals(discovery.candidates, {
+        minScore: opts.minScore ?? 4,
+        maxProposalsPerRole: opts.maxProposalsPerRole ?? 3,
+      });
+    }
+
     this._lastProposals = proposals;
-
     this._lastCheckTime = Date.now();
-
-    // Store model hash for change detection
     this._modelHash = discovery.candidates.map(c => c.name).sort().join(',');
 
     logger.info('UpgradeManager', `Check complete: ${proposals.length} proposals from ${discovery.candidates.length} models`, {
       ollamaAvailable: discovery.ollamaAvailable,
       hintsCount: discovery.hints.size,
+      stats: discovery.stats,
     });
 
     return { proposals, discovery };
+  }
+
+  /**
+   * Phase 2 pipeline: feasibility → pairwise → preference → store.
+   * @private
+   */
+  async _checkForUpgradesV2(discovery, opts) {
+    const proposals = [];
+
+    // Get hardware context
+    let hwContext = { gpuVramMb: 0, systemRamGb: 0, freeDiskGb: Infinity };
+    try {
+      const { getSystemProfile } = await import('../system/gpu-detector.js');
+      const profile = await getSystemProfile();
+      if (profile.gpus?.length > 0) {
+        hwContext.gpuVramMb = Math.max(...profile.gpus.map(g => g.vram_mb || 0));
+      }
+      hwContext.systemRamGb = profile.ram_gb || 0;
+    } catch (_) {}
+
+    // Invalidate stale proposals (catalog hash / eval version changed)
+    const store = this._proposalStore || _proposalStore;
+    if (store && _catalog && _ranker) {
+      try {
+        store.invalidateStale(_catalog.CATALOG_HASH, _ranker.EVALUATION_VERSION);
+      } catch (_) {}
+    }
+
+    for (const [role, profile] of Object.entries(MODEL_PROFILES)) {
+      const current = profile.getCurrentModel();
+      const currentParsed = parseModelName(current);
+
+      // Find current model's catalog entry or build from local data
+      const currentEntry = _catalog?.getCatalogEntry?.(current) || {
+        name: current,
+        family: currentParsed.family,
+        category: currentParsed.category,
+        params: currentParsed.params,
+        benchmarks: null,
+        contextWindow: null,
+      };
+
+      // Anti-thrashing check
+      if (store) {
+        const thrashing = store.isAntiThrashing(role, this._db);
+        if (thrashing.blocked) {
+          logger.debug('UpgradeManager', `Skipping ${role}: anti-thrashing (last upgrade ${thrashing.lastUpgradeAt})`);
+          continue;
+        }
+      }
+
+      // Filter candidates for this role
+      const roleCandidates = discovery.candidates.filter(c => {
+        if (c.name === current) return false;
+        // Param bounds from profile
+        const req = profile.requirements;
+        if (c.params && req.minParams && c.params < req.minParams) return false;
+        if (c.params && req.maxParams && c.params > req.maxParams) return false;
+        // Family/category match
+        const familyMatch = profile.preferredFamilies.some(f => c.family === f || c.family.startsWith(f));
+        const categoryMatch = profile.preferredCategories.includes(c.category);
+        return familyMatch || categoryMatch;
+      });
+
+      for (const candidate of roleCandidates) {
+        // Benchmark sanity: all benchmarks null → skip
+        if (candidate.benchmarks) {
+          const hasAny = Object.values(candidate.benchmarks).some(v => v != null);
+          if (!hasAny) continue;
+        } else if (candidate.source === 'catalog') {
+          continue; // Catalog candidates without benchmarks are useless
+        }
+
+        // Compute effective VRAM if catalog entry available
+        let effectiveVramMb = candidate.effectiveVramMb;
+        if (!effectiveVramMb && _catalog?.computeEffectiveVram) {
+          const entry = _catalog.getCatalogEntry(candidate.name);
+          if (entry) effectiveVramMb = _catalog.computeEffectiveVram(entry);
+        }
+
+        // Feasibility gate
+        const feasibility = checkFeasibility(
+          { ...candidate, effectiveVramMb },
+          role,
+          hwContext
+        );
+        if (!feasibility.feasible) continue;
+
+        // Pairwise evaluation
+        const evalResult = _ranker.evaluateUpgrade(
+          currentEntry,
+          { ...candidate, effectiveVramMb },
+          role,
+          { gpuVramMb: hwContext.gpuVramMb, currentModel: currentEntry }
+        );
+
+        if (!evalResult.shouldUpgrade) continue;
+
+        // Preference penalty
+        let adjustedDelta = evalResult.delta;
+        if (_preferenceTracker && this._db) {
+          const penalty = _preferenceTracker.computePreferencePenalty(
+            role, candidate.family, candidate.params, this._db
+          );
+          adjustedDelta -= penalty;
+          const threshold = _ranker.IMPROVEMENT_THRESHOLD[role] || 0.05;
+          if (adjustedDelta < threshold) continue;
+        }
+
+        proposals.push({
+          role,
+          currentModel: current,
+          candidateModel: candidate.name,
+          score: evalResult.candidateScore,
+          currentScore: evalResult.currentScore,
+          improvement: evalResult.delta,
+          scoreBreakdown: evalResult.breakdown,
+          reason: evalResult.rejectReason || `+${(evalResult.delta * 100).toFixed(1)}% improvement`,
+          riskLevel: evalResult.riskLevel,
+          installed: candidate.installed,
+          sizeGB: candidate.sizeGB || 0,
+          source: candidate.source || 'local',
+          catalogHash: _catalog?.CATALOG_HASH,
+          evaluationVersion: _ranker?.EVALUATION_VERSION,
+        });
+      }
+    }
+
+    // Sort by improvement descending
+    proposals.sort((a, b) => (b.improvement ?? 0) - (a.improvement ?? 0));
+
+    // Store in proposal store
+    if (store) {
+      try {
+        const result = store.storeProposals(proposals);
+        logger.info('UpgradeManager', `Stored ${result.stored} proposals (${result.skipped} skipped)`);
+      } catch (err) {
+        logger.warn('UpgradeManager', `Proposal store failed: ${err.message}`);
+      }
+    }
+
+    // Registry verify (async non-blocking, fullCycle only)
+    if (opts.fullCycle && this._registryClient) {
+      const catalogCandidates = proposals.filter(p => p.source === 'catalog').map(p => p.candidateModel);
+      if (catalogCandidates.length > 0) {
+        this._registryClient.verifyBatch([...new Set(catalogCandidates.map(n => n.replace(/:.*/, '')))]).catch(() => {});
+      }
+    }
+
+    return proposals;
   }
 
   /**
@@ -688,9 +956,19 @@ export class UpgradeManager {
 
   /**
    * Get proposals above the notification threshold.
+   * v118: Prefers proposal store (DB-backed) when available.
    * @returns {Array<UpgradeProposal>}
    */
   getNotifiableProposals() {
+    // v118: Use proposal store if available
+    const store = this._proposalStore || _proposalStore;
+    if (store) {
+      try {
+        const dbProposals = store.getNotifiable(0.3); // 0.3 = ~normalized from 0-1 score
+        if (dbProposals.length > 0) return dbProposals;
+      } catch (_) {}
+    }
+    // Fallback to in-memory
     if (!this._lastProposals) return [];
     return this._lastProposals.filter(p => p.score >= MIN_NOTIFY_SCORE);
   }
@@ -699,11 +977,13 @@ export class UpgradeManager {
 
   /**
    * Start background lifecycle: initial check + periodic recheck + model change poll.
+   * v118: fullCycle (L2 catalog) every 24h with ±90min jitter.
    *
    * @param {Object} [opts]
-   * @param {number} [opts.recheckMs=86400000] - Recheck interval (default 24h)
+   * @param {number} [opts.recheckMs=86400000] - Full cycle interval (default 24h)
    * @param {number} [opts.pollMs=300000] - Ollama poll interval (default 5min)
    * @param {string} [opts.baseUrl] - Ollama URL override
+   * @param {number} [opts.jitterMs=5400000] - Full cycle jitter ±ms (default ±90min)
    */
   startPeriodicCheck(opts = {}) {
     if (this._active) return;
@@ -711,28 +991,35 @@ export class UpgradeManager {
 
     const recheckMs = opts.recheckMs ?? 24 * 60 * 60 * 1000;
     const pollMs = opts.pollMs ?? 5 * 60 * 1000;
+    const jitterMs = opts.jitterMs ?? 90 * 60 * 1000; // ±90min
     const checkOpts = { baseUrl: opts.baseUrl };
 
-    // Initial check (fire-and-forget)
+    // Initial check (L1 only, fire-and-forget)
     this.checkForUpgrades(checkOpts).catch(err =>
       logger.warn('UpgradeManager', `Startup check failed: ${err.message}`)
     );
 
-    // Periodic full recheck (24h default)
-    this._recheckInterval = setInterval(() => {
-      this.checkForUpgrades(checkOpts).catch(err =>
-        logger.warn('UpgradeManager', `Periodic check failed: ${err.message}`)
-      );
-    }, recheckMs);
-    this._recheckInterval.unref();
+    // Schedule first full cycle (L1+L2) with jitter
+    const scheduleFullCycle = () => {
+      const jitter = Math.round((Math.random() * 2 - 1) * jitterMs);
+      const delay = recheckMs + jitter;
+      this._recheckTimeout = setTimeout(() => {
+        this.checkForUpgrades({ ...checkOpts, fullCycle: true }).catch(err =>
+          logger.warn('UpgradeManager', `Full cycle failed: ${err.message}`)
+        );
+        scheduleFullCycle(); // Re-schedule next
+      }, delay);
+      this._recheckTimeout.unref();
+    };
+    scheduleFullCycle();
 
-    // Ollama model change poll (5min default)
+    // Ollama model change poll (5min default, L1 only)
     this._pollInterval = setInterval(() => {
       this._pollModelChanges(checkOpts).catch(() => {});
     }, pollMs);
     this._pollInterval.unref();
 
-    logger.info('UpgradeManager', `Periodic check started (recheck: ${recheckMs / 3600000}h, poll: ${pollMs / 60000}min)`);
+    logger.info('UpgradeManager', `Periodic check started (fullCycle: ${recheckMs / 3600000}h ±${jitterMs / 60000}min, poll: ${pollMs / 60000}min)`);
   }
 
   /**
@@ -740,6 +1027,7 @@ export class UpgradeManager {
    */
   stopPeriodicCheck() {
     if (this._recheckInterval) { clearInterval(this._recheckInterval); this._recheckInterval = null; }
+    if (this._recheckTimeout) { clearTimeout(this._recheckTimeout); this._recheckTimeout = null; }
     if (this._pollInterval) { clearInterval(this._pollInterval); this._pollInterval = null; }
     this._active = false;
   }
@@ -769,5 +1057,5 @@ export const upgradeManager = new UpgradeManager();
 
 export default {
   filterCandidates, rankCandidates, generateProposals,
-  UpgradeManager, upgradeManager, MIN_NOTIFY_SCORE,
+  checkFeasibility, UpgradeManager, upgradeManager, MIN_NOTIFY_SCORE,
 };
