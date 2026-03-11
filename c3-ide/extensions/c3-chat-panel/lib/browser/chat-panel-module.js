@@ -2243,6 +2243,7 @@ var _bCfg=null;var _bCfgLoading=false;var _gpuInfo=null;var _ollamaModels=null;v
 var _upgradeData=null;var _upgradeLoading=false;var _upgradeMsg=null;
 var _scoringData=null;var _scoringLoading=false;var _upgradeTab='proposals';
 var _discoveredData=null;var _discoveredLoading=false;
+var _pullState={};/* model name → {status,percent,text,downloadedGB,totalGB,eta,scores} */
 /* v91: Feature flags state — loaded from GET /api/features */
 var _featureFlags=null;var _ffLoading=false;
 /* v91: Security state */
@@ -2643,6 +2644,15 @@ function _loadScoringData(){
     .then(function(d){_scoringData=d;_scoringLoading=false;renderCenter();})
     .catch(function(e){_scoringData={error:e.message};_scoringLoading=false;renderCenter();});
 }
+function _pullModel(name){
+  if(_pullState[name]&&(_pullState[name].status==='downloading'||_pullState[name].status==='starting'||_pullState[name].status==='scoring'))return;
+  _pullState[name]={status:'starting',percent:0,text:name+' — Zahajuji stahování...'};renderCenter();
+  fetch(_backendBase+'/api/system/models/pull',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name:name}),signal:AbortSignal.timeout(10000)})
+    .then(function(r){return r.json();})
+    .then(function(d){if(!d.ok){_pullState[name]={status:'error',percent:-1,text:name+' — '+(d.error||'Chyba')};renderCenter();}})
+    .catch(function(e){_pullState[name]={status:'error',percent:-1,text:name+' — '+e.message};renderCenter();});
+}
 function _loadDiscoveredData(){
   if(_discoveredLoading)return;_discoveredLoading=true;
   fetch(_backendBase+'/api/system/upgrades/discovered',{signal:AbortSignal.timeout(8000)})
@@ -2651,41 +2661,93 @@ function _loadDiscoveredData(){
     .catch(function(e){_discoveredData={error:e.message};_discoveredLoading=false;renderCenter();});
 }
 function _renderDiscoveredTab(){
-  if(_discoveredLoading&&!_discoveredData)return h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Na\u010D\u00EDt\u00E1m nov\u00E9 modely...');
+  if(_discoveredLoading&&!_discoveredData)return h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Načítám nové modely...');
   if(!_discoveredData||_discoveredData.error)return h('div',{style:{color:C.tx4,padding:20,textAlign:'center'}},
-    h('div',{style:{fontSize:_fs(12),marginBottom:8}},_discoveredData?'Chyba: '+_discoveredData.error:'\u017D\u00E1dn\u00E1 data'),
-    h('div',{style:{fontSize:_fs(10)}},'Klikn\u011Bte na "Zkontrolovat" pro vyhled\u00E1n\u00ED nov\u00FDch model\u016F z ollama.com'));
+    h('div',{style:{fontSize:_fs(12),marginBottom:8}},_discoveredData?'Chyba: '+_discoveredData.error:'Žádná data'),
+    h('div',{style:{fontSize:_fs(10)}},'Klikněte na "Zkontrolovat" pro vyhledání nových modelů z ollama.com'));
   var models=_discoveredData.models||[];
-  if(models.length===0)return h('div',{style:{textAlign:'center',padding:'40px 20px'}},
+  /* Also show any models currently being pulled that aren't in the list */
+  var activePulls=Object.keys(_pullState).filter(function(n){var ps=_pullState[n];return ps.status!=='done'&&ps.status!=='error';});
+  if(models.length===0&&activePulls.length===0)return h('div',{style:{textAlign:'center',padding:'40px 20px'}},
     h('div',{style:{fontSize:_fs(28),marginBottom:10}},'\uD83D\uDD0D'),
-    h('div',{style:{fontSize:_fs(13),color:C.tx2,fontWeight:600,marginBottom:4}},'\u017D\u00E1dn\u00E9 nov\u00E9 modely'),
-    h('div',{style:{fontSize:_fs(11),color:C.tx4,lineHeight:1.5}},'Klikn\u011Bte na "Zkontrolovat" pro prohled\u00E1n\u00ED ollama.com/library.\nVyhled\u00E1v\u00E1 se ve family naistalovan\u00FDch model\u016F.'));
+    h('div',{style:{fontSize:_fs(13),color:C.tx2,fontWeight:600,marginBottom:4}},'Žádné nové modely'),
+    h('div',{style:{fontSize:_fs(11),color:C.tx4,lineHeight:1.5}},'Klikněte na "Zkontrolovat" pro prohledání ollama.com/library.\nVyhledává se ve family nainstalovaných modelů.'));
+  var benchLabels={mmlu:'MMLU',gpqa:'GPQA',humaneval:'HumanEval',livecodebench:'LiveCode',swebench:'SWE-Bench',
+    arena:'Arena',reasoning:'Reasoning',math:'Math',code:'Code',multimodal:'Multimodal'};
   return h('div',null,
-    h('div',{style:{fontSize:_fs(13),fontWeight:700,color:C.tx1,marginBottom:4}},'Nov\u00E9 modely z ollama.com ('+models.length+')'),
+    h('div',{style:{fontSize:_fs(13),fontWeight:700,color:C.tx1,marginBottom:4}},'Nové modely z ollama.com ('+models.length+')'),
     h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:14,lineHeight:1.4}},
-      'Modely nalezen\u00E9 v ollama.com/library pro rodiny va\u0161ich nainstalovan\u00FDch model\u016F. Benchmarky jsou odhadnut\u00E9 \u2014 empirick\u00E9 testov\u00E1n\u00ED je up\u0159esn\u00ED.'),
+      'Modely nalezené v ollama.com/library pro rodiny vašich nainstalovaných modelů. Benchmarky jsou odhadnuté — empirické testování je upřesní.'),
     models.map(function(m,i){
       var vramGB=(m.baseVramMb/1024).toFixed(1);
+      var sizeGB=(m.baseVramMb*0.75/1024).toFixed(1);/* rough download size ≈ 75% of VRAM */
       var conf=m.benchmarkConfidence!=null?Math.round(m.benchmarkConfidence*100):0;
       var hasBench=m.benchmarks&&Object.keys(m.benchmarks).length>0;
-      var capList=m.capabilities&&m.capabilities.length>0?m.capabilities.join(', '):'';
-      return h('div',{key:m.name,style:{background:C.bg2,border:'1px solid '+C.border,borderRadius:8,padding:14,marginBottom:10}},
-        h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:6}},
-          h('span',{style:{fontSize:_fs(13),fontWeight:700,color:C.tx1,fontFamily:C.mono}},m.name),
-          h('span',{style:{fontSize:_fs(9),padding:'1px 5px',borderRadius:3,background:'rgba(139,92,246,0.1)',color:'#8b5cf6'}},'L4'),
-          m.category&&m.category!=='general'?h('span',{style:{fontSize:_fs(9),padding:'1px 5px',borderRadius:3,background:'rgba(59,130,246,0.1)',color:'#3b82f6'}},m.category):null),
-        h('div',{style:{display:'flex',gap:14,flexWrap:'wrap',marginBottom:hasBench?8:0}},
-          h('div',{style:{fontSize:_fs(10),color:C.tx3}},h('span',{style:{fontWeight:600,color:C.tx2}},'Parametry: '),m.params+'B'),
-          h('div',{style:{fontSize:_fs(10),color:C.tx3}},h('span',{style:{fontWeight:600,color:C.tx2}},'VRAM: '),vramGB+' GB'),
-          m.contextWindow?h('div',{style:{fontSize:_fs(10),color:C.tx3}},h('span',{style:{fontWeight:600,color:C.tx2}},'Kontext: '),(m.contextWindow/1024).toFixed(0)+'K'):null,
-          capList?h('div',{style:{fontSize:_fs(10),color:C.tx3}},h('span',{style:{fontWeight:600,color:C.tx2}},'Schopnosti: '),capList):null),
-        hasBench?h('div',{style:{display:'flex',gap:10,flexWrap:'wrap',marginBottom:4}},
-          h('div',{style:{fontSize:_fs(9),color:conf>=70?C.accent:conf>=40?'#eab308':'#ef4444'}},
-            'Spolehlivost odhadu: '+conf+'%'),
-          Object.entries(m.benchmarks).map(function(kv){
-            return h('div',{key:kv[0],style:{fontSize:_fs(9),color:C.tx4}},kv[0]+': '+(kv[1]!=null?kv[1].toFixed(2):'\u2014'));
+      var capList=m.capabilities&&m.capabilities.length>0?m.capabilities:[];
+      var ps=_pullState[m.name];
+      var isPulling=ps&&(ps.status==='starting'||ps.status==='downloading'||ps.status==='pulled'||ps.status==='scoring');
+      var isDone=ps&&ps.status==='done';
+      var isError=ps&&ps.status==='error';
+      return h('div',{key:m.name,style:{background:C.bg2,border:'1px solid '+(isPulling?'rgba(59,130,246,0.4)':isDone?'rgba(34,197,94,0.3)':C.border),borderRadius:10,padding:16,marginBottom:12}},
+        /* ── Header: name + badges ── */
+        h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8}},
+          h('span',{style:{fontSize:_fs(14),fontWeight:700,color:C.tx1,fontFamily:C.mono,flex:1}},m.name),
+          h('span',{style:{fontSize:_fs(9),padding:'1px 6px',borderRadius:3,background:'rgba(139,92,246,0.1)',color:'#8b5cf6',fontWeight:600}},'L4'),
+          m.category&&m.category!=='general'?h('span',{style:{fontSize:_fs(9),padding:'1px 6px',borderRadius:3,background:'rgba(59,130,246,0.1)',color:'#3b82f6'}},m.category):null),
+        /* ── Specs row ── */
+        h('div',{style:{display:'flex',gap:16,flexWrap:'wrap',marginBottom:8,alignItems:'center'}},
+          h('div',{style:{fontSize:_fs(11),color:C.tx2}},h('span',{style:{fontWeight:600}},'Parametry: '),m.params+'B'),
+          h('div',{style:{fontSize:_fs(11),color:C.tx2}},h('span',{style:{fontWeight:600}},'VRAM: '),vramGB+' GB'),
+          h('div',{style:{fontSize:_fs(11),color:C.tx3}},h('span',{style:{fontWeight:600,color:C.tx2}},'Stažení: '),'~'+sizeGB+' GB'),
+          m.contextWindow?h('div',{style:{fontSize:_fs(11),color:C.tx2}},h('span',{style:{fontWeight:600}},'Kontext: '),(m.contextWindow/1024).toFixed(0)+'K'):null),
+        /* ── Capabilities ── */
+        capList.length>0?h('div',{style:{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}},
+          capList.map(function(cap){
+            var capColors={vision:'#8b5cf6',tool_use:'#f59e0b',reasoning:'#3b82f6',json_mode:'#6366f1',code:'#22c55e'};
+            return h('span',{key:cap,style:{fontSize:_fs(9),padding:'2px 8px',borderRadius:4,fontWeight:600,
+              background:(capColors[cap]||C.tx4)+'1a',color:capColors[cap]||C.tx4}},cap.replace(/_/g,' '));
           })):null,
-        h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:4}},'Nalezeno: '+new Date(m.discoveredAt).toLocaleString('cs-CZ')));
+        /* ── Benchmarks ── */
+        hasBench?h('div',{style:{marginBottom:8}},
+          h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:4}},
+            h('span',{style:{fontSize:_fs(10),fontWeight:600,color:C.tx2}},'Odhadované benchmarky'),
+            h('span',{style:{fontSize:_fs(9),padding:'1px 6px',borderRadius:3,
+              background:conf>=70?'rgba(34,197,94,0.1)':conf>=40?'rgba(234,179,8,0.1)':'rgba(239,68,68,0.1)',
+              color:conf>=70?C.accent:conf>=40?'#eab308':'#ef4444'}},conf+'% spolehlivost')),
+          h('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},
+            Object.entries(m.benchmarks).filter(function(kv){return kv[1]!=null;}).map(function(kv){
+              var label=benchLabels[kv[0]]||kv[0];var val=(kv[1]*100).toFixed(0);
+              return h('div',{key:kv[0],style:{fontSize:_fs(9),padding:'2px 6px',borderRadius:4,background:C.bg3,border:'1px solid '+C.border}},
+                h('span',{style:{color:C.tx4}},label+': '),h('span',{style:{fontWeight:600,color:C.tx2}},val));
+            }))):null,
+        /* ── Pull progress / actions ── */
+        isPulling?h('div',{style:{marginTop:8}},
+          h('div',{style:{fontSize:_fs(11),color:'#3b82f6',fontWeight:600,marginBottom:6}},ps.text||'Stahování...'),
+          ps.percent>=0?h('div',{style:{background:C.bg3,borderRadius:4,height:8,overflow:'hidden',marginBottom:4}},
+            h('div',{style:{width:Math.max(2,ps.percent)+'%',height:'100%',borderRadius:4,transition:'width 0.3s ease',
+              background:ps.status==='scoring'?'linear-gradient(90deg,#8b5cf6,#6366f1)':'linear-gradient(90deg,#3b82f6,#60a5fa)'}})):null,
+          ps.downloadedGB&&ps.totalGB?h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:_fs(9),color:C.tx4}},
+            h('span',null,ps.downloadedGB+' / '+ps.totalGB+' GB'),
+            ps.eta?h('span',null,'ETA: ~'+ps.eta):null):null):
+        isDone?h('div',{style:{marginTop:8}},
+          h('div',{style:{fontSize:_fs(11),color:C.accent,fontWeight:600,marginBottom:4}},'\u2705 '+ps.text),
+          ps.scores?h('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},
+            Object.entries(ps.scores).map(function(kv){
+              return h('div',{key:kv[0],style:{fontSize:_fs(9),padding:'2px 8px',borderRadius:4,background:'rgba(34,197,94,0.08)',border:'1px solid rgba(34,197,94,0.2)'}},
+                h('span',{style:{fontWeight:600,color:C.accent}},kv[0]),
+                h('span',{style:{color:C.tx3}},': '+kv[1].score.toFixed(4)));
+            })):null):
+        isError?h('div',{style:{marginTop:8}},
+          h('div',{style:{fontSize:_fs(11),color:'#ef4444',fontWeight:600}},ps.text)):
+        /* Default: show download button */
+        h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:8}},
+          h('div',{style:{fontSize:_fs(9),color:C.tx4}},'Nalezeno: '+new Date(m.discoveredAt).toLocaleString('cs-CZ')),
+          h('button',{style:{background:'linear-gradient(135deg,#3b82f6,#2563eb)',color:'#fff',border:'none',borderRadius:8,
+            padding:'7px 18px',fontSize:_fs(11),fontWeight:600,cursor:'pointer',fontFamily:C.font,
+            display:'flex',alignItems:'center',gap:6,boxShadow:'0 2px 8px rgba(37,99,235,0.3)'},
+            onClick:function(){_pullModel(m.name);}},
+            svgEl('<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>',14),
+            'Stáhnout (~'+sizeGB+' GB)')));
     }));
 }
 function _describeUpgrade(p,bd){
@@ -4272,6 +4334,18 @@ function _initBusSubscriptions() {
   C3Bus.on('ws:reconnected', function() {
     if(window._c3)window._c3.agentLog('TOOL','✅ Spojení obnoveno.');
     renderSidebar();
+  });
+
+  /* Model pull progress (v121.2) */
+  C3Bus.on('model:pull_progress', function(ev) {
+    var m=ev.model;if(!m)return;
+    _pullState[m]={status:ev.status||'unknown',percent:ev.percent||0,text:ev.text||'',
+      downloadedGB:ev.downloadedGB,totalGB:ev.totalGB,eta:ev.eta,scores:ev.scores||null};
+    if(ev.status==='done'||ev.status==='error'){
+      /* Refresh discovered data after completion */
+      _discoveredData=null;_loadDiscoveredData();
+    }
+    renderCenter();
   });
 
   /* Session changed (e.g. after rehydration) */

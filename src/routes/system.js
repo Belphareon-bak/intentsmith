@@ -736,6 +736,82 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
       }
     },
 
+    // v121.2: Pull (download) model from Ollama with WS progress + auto-scoring
+    'POST /api/system/models/pull': async (req, res) => {
+      try {
+        const body = await parseBody(req);
+        const { name } = body;
+        if (!name) return sendJSON(res, 400, { error: 'Missing required field: name' });
+
+        // Respond immediately — progress via WebSocket
+        sendJSON(res, 200, { ok: true, started: true, model: name });
+
+        // Fire-and-forget: pull + score
+        (async () => {
+          try {
+            broadcast('control', { action: 'model_pull_progress', model: name, status: 'starting', percent: 0, text: `${name} — Zahajuji stahování...` });
+
+            await upgradeManager.pullModel(name, (progress) => {
+              broadcast('control', { action: 'model_pull_progress', model: name, ...progress });
+            });
+
+            broadcast('control', { action: 'model_pull_progress', model: name, status: 'pulled', percent: 100, text: `${name} — Staženo. Spouštím scoring...` });
+
+            // Auto-scoring after pull
+            try {
+              broadcast('control', { action: 'model_pull_progress', model: name, status: 'scoring', percent: -1, text: `${name} — Probíhá scoring modelu...` });
+
+              const { scoreModel, EVALUATION_VERSION } = await import('../upgrade/model-ranker.js');
+              const { getCatalogEntry } = await import('../upgrade/model-catalog.js');
+              const { MODEL_PROFILES } = await import('../upgrade/model-profiles.js');
+              const { getSystemProfile } = await import('../system/gpu-detector.js');
+
+              let gpuVramMb = 0;
+              try {
+                const profile = await getSystemProfile();
+                if (profile.gpus?.length > 0) gpuVramMb = Math.max(...profile.gpus.map(g => g.vram_mb || 0));
+              } catch (_) {}
+
+              const roleBindings = {};
+              for (const [r, p] of Object.entries(MODEL_PROFILES)) roleBindings[r] = p.getCurrentModel();
+
+              // Try catalog entry first, then L4 discovered
+              let entry = getCatalogEntry(name);
+              if (!entry) {
+                try {
+                  const { onlineDiscovery } = await import('../upgrade/online-discovery.js');
+                  const discovered = await onlineDiscovery.getDiscoveredModels();
+                  entry = discovered.find(d => d.name === name);
+                } catch (_) {}
+              }
+
+              if (entry) {
+                const scores = {};
+                for (const role of Object.keys(MODEL_PROFILES)) {
+                  const ctx = { gpuVramMb, referenceParams: entry.params || 14, roleBindings };
+                  const result = scoreModel(entry, role, ctx);
+                  scores[role] = { score: result.totalScore, breakdown: result.breakdown };
+                }
+                broadcast('control', { action: 'model_pull_progress', model: name, status: 'done', percent: 100,
+                  text: `${name} — Scoring dokončen`, scores, evalVersion: EVALUATION_VERSION });
+              } else {
+                broadcast('control', { action: 'model_pull_progress', model: name, status: 'done', percent: 100,
+                  text: `${name} — Staženo (model není v katalogu — scoring po dalším fullCycle)` });
+              }
+            } catch (scoreErr) {
+              broadcast('control', { action: 'model_pull_progress', model: name, status: 'done', percent: 100,
+                text: `${name} — Staženo (scoring selhal: ${scoreErr.message})` });
+            }
+          } catch (pullErr) {
+            broadcast('control', { action: 'model_pull_progress', model: name, status: 'error', percent: -1,
+              text: `${name} — Chyba: ${pullErr.message}` });
+          }
+        })();
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
     'POST /api/system/proposals/:id/dismiss': async (req, res) => {
       try {
         const match = req.url.match(/\/api\/system\/proposals\/(\d+)\/dismiss/);

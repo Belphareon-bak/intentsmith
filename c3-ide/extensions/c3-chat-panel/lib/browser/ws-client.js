@@ -201,6 +201,8 @@ function _wsConnect() {
       case 'control':
         if (d.action === 'session_invalid') {
           C3Bus.emit('session:invalid', { sessionId: d.sessionId || d.conversationId });
+        } else if (d.action === 'model_pull_progress') {
+          C3Bus.emit('model:pull_progress', d);
         }
         break;
     }
