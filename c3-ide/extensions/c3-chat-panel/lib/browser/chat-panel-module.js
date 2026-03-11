@@ -2242,6 +2242,7 @@ var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSize
 var _bCfg=null;var _bCfgLoading=false;var _gpuInfo=null;var _ollamaModels=null;var _sysInfo=null;var _storageInfo=null;var _bCfgSaveTimer=null;
 var _upgradeData=null;var _upgradeLoading=false;var _upgradeMsg=null;
 var _scoringData=null;var _scoringLoading=false;var _upgradeTab='proposals';
+var _discoveredData=null;var _discoveredLoading=false;
 /* v91: Feature flags state — loaded from GET /api/features */
 var _featureFlags=null;var _ffLoading=false;
 /* v91: Security state */
@@ -2642,6 +2643,51 @@ function _loadScoringData(){
     .then(function(d){_scoringData=d;_scoringLoading=false;renderCenter();})
     .catch(function(e){_scoringData={error:e.message};_scoringLoading=false;renderCenter();});
 }
+function _loadDiscoveredData(){
+  if(_discoveredLoading)return;_discoveredLoading=true;
+  fetch(_backendBase+'/api/system/upgrades/discovered',{signal:AbortSignal.timeout(8000)})
+    .then(function(r){return r.json();})
+    .then(function(d){_discoveredData=d;_discoveredLoading=false;renderCenter();})
+    .catch(function(e){_discoveredData={error:e.message};_discoveredLoading=false;renderCenter();});
+}
+function _renderDiscoveredTab(){
+  if(_discoveredLoading&&!_discoveredData)return h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Na\u010D\u00EDt\u00E1m nov\u00E9 modely...');
+  if(!_discoveredData||_discoveredData.error)return h('div',{style:{color:C.tx4,padding:20,textAlign:'center'}},
+    h('div',{style:{fontSize:_fs(12),marginBottom:8}},_discoveredData?'Chyba: '+_discoveredData.error:'\u017D\u00E1dn\u00E1 data'),
+    h('div',{style:{fontSize:_fs(10)}},'Klikn\u011Bte na "Zkontrolovat" pro vyhled\u00E1n\u00ED nov\u00FDch model\u016F z ollama.com'));
+  var models=_discoveredData.models||[];
+  if(models.length===0)return h('div',{style:{textAlign:'center',padding:'40px 20px'}},
+    h('div',{style:{fontSize:_fs(28),marginBottom:10}},'\uD83D\uDD0D'),
+    h('div',{style:{fontSize:_fs(13),color:C.tx2,fontWeight:600,marginBottom:4}},'\u017D\u00E1dn\u00E9 nov\u00E9 modely'),
+    h('div',{style:{fontSize:_fs(11),color:C.tx4,lineHeight:1.5}},'Klikn\u011Bte na "Zkontrolovat" pro prohled\u00E1n\u00ED ollama.com/library.\nVyhled\u00E1v\u00E1 se ve family naistalovan\u00FDch model\u016F.'));
+  return h('div',null,
+    h('div',{style:{fontSize:_fs(13),fontWeight:700,color:C.tx1,marginBottom:4}},'Nov\u00E9 modely z ollama.com ('+models.length+')'),
+    h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:14,lineHeight:1.4}},
+      'Modely nalezen\u00E9 v ollama.com/library pro rodiny va\u0161ich nainstalovan\u00FDch model\u016F. Benchmarky jsou odhadnut\u00E9 \u2014 empirick\u00E9 testov\u00E1n\u00ED je up\u0159esn\u00ED.'),
+    models.map(function(m,i){
+      var vramGB=(m.baseVramMb/1024).toFixed(1);
+      var conf=m.benchmarkConfidence!=null?Math.round(m.benchmarkConfidence*100):0;
+      var hasBench=m.benchmarks&&Object.keys(m.benchmarks).length>0;
+      var capList=m.capabilities&&m.capabilities.length>0?m.capabilities.join(', '):'';
+      return h('div',{key:m.name,style:{background:C.bg2,border:'1px solid '+C.border,borderRadius:8,padding:14,marginBottom:10}},
+        h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:6}},
+          h('span',{style:{fontSize:_fs(13),fontWeight:700,color:C.tx1,fontFamily:C.mono}},m.name),
+          h('span',{style:{fontSize:_fs(9),padding:'1px 5px',borderRadius:3,background:'rgba(139,92,246,0.1)',color:'#8b5cf6'}},'L4'),
+          m.category&&m.category!=='general'?h('span',{style:{fontSize:_fs(9),padding:'1px 5px',borderRadius:3,background:'rgba(59,130,246,0.1)',color:'#3b82f6'}},m.category):null),
+        h('div',{style:{display:'flex',gap:14,flexWrap:'wrap',marginBottom:hasBench?8:0}},
+          h('div',{style:{fontSize:_fs(10),color:C.tx3}},h('span',{style:{fontWeight:600,color:C.tx2}},'Parametry: '),m.params+'B'),
+          h('div',{style:{fontSize:_fs(10),color:C.tx3}},h('span',{style:{fontWeight:600,color:C.tx2}},'VRAM: '),vramGB+' GB'),
+          m.contextWindow?h('div',{style:{fontSize:_fs(10),color:C.tx3}},h('span',{style:{fontWeight:600,color:C.tx2}},'Kontext: '),(m.contextWindow/1024).toFixed(0)+'K'):null,
+          capList?h('div',{style:{fontSize:_fs(10),color:C.tx3}},h('span',{style:{fontWeight:600,color:C.tx2}},'Schopnosti: '),capList):null),
+        hasBench?h('div',{style:{display:'flex',gap:10,flexWrap:'wrap',marginBottom:4}},
+          h('div',{style:{fontSize:_fs(9),color:conf>=70?C.accent:conf>=40?'#eab308':'#ef4444'}},
+            'Spolehlivost odhadu: '+conf+'%'),
+          Object.entries(m.benchmarks).map(function(kv){
+            return h('div',{key:kv[0],style:{fontSize:_fs(9),color:C.tx4}},kv[0]+': '+(kv[1]!=null?kv[1].toFixed(2):'\u2014'));
+          })):null,
+        h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:4}},'Nalezeno: '+new Date(m.discoveredAt).toLocaleString('cs-CZ')));
+    }));
+}
 function _describeUpgrade(p,bd){
   var items=[];var cur=bd.current||{};var cand=bd.candidate||{};
   var role=p.role||'';
@@ -2728,6 +2774,7 @@ function _renderScoringTab(){
 function centerUpgrades(){
   if(_upgradeTab==='proposals'&&!_upgradeData&&!_upgradeLoading)_loadUpgradeData();
   if(_upgradeTab==='scoring'&&!_scoringData&&!_scoringLoading)_loadScoringData();
+  if(_upgradeTab==='discovered'&&!_discoveredData&&!_discoveredLoading)_loadDiscoveredData();
   var proposals=_upgradeData&&_upgradeData.proposals?_upgradeData.proposals:[];
   var history=_upgradeData&&_upgradeData.history?_upgradeData.history:[];
   var discovery=_upgradeData&&_upgradeData.discovery?_upgradeData.discovery:null;
@@ -2752,7 +2799,8 @@ function centerUpgrades(){
     h('div',{style:{display:'flex',gap:6,padding:'10px 18px',borderBottom:'1px solid '+C.border}},
       h('button',{style:tabStyle('scoring'),onClick:function(){_upgradeTab='scoring';renderCenter();}},'Hodnocení modelů'),
       h('button',{style:tabStyle('proposals'),onClick:function(){_upgradeTab='proposals';renderCenter();}},'Návrhy ('+proposals.length+')'),
-      h('button',{style:tabStyle('history'),onClick:function(){_upgradeTab='history';renderCenter();}},'Historie')),
+      h('button',{style:tabStyle('history'),onClick:function(){_upgradeTab='history';renderCenter();}},'Historie'),
+      h('button',{style:tabStyle('discovered'),onClick:function(){_upgradeTab='discovered';renderCenter();}},'Nové modely')),
     /* toast */
     _upgradeMsg?h('div',{style:{margin:'0 18px',marginTop:12,padding:'8px 14px',borderRadius:6,fontSize:_fs(11),fontWeight:600,
       background:_upgradeMsg.ok?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)',
@@ -2828,7 +2876,9 @@ function centerUpgrades(){
               h('span',{style:{color:C.tx4}},'\u2192'),
               h('span',{style:{color:C.tx1,fontFamily:C.mono}},hi.toModel||hi.to_model||'?'));
           })):
-          h('div',{style:{textAlign:'center',padding:'40px 20px',color:C.tx4,fontSize:_fs(12)}},'Žádná historie upgradů')):null));
+          h('div',{style:{textAlign:'center',padding:'40px 20px',color:C.tx4,fontSize:_fs(12)}},'Žádná historie upgradů')):null,
+      /* ── Discovered tab ── */
+      _upgradeTab==='discovered'?_renderDiscoveredTab():null));
 }
 function settingsMemory(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
