@@ -244,6 +244,7 @@ if (getExpertiseStore) expertiseStore = getExpertiseStore(db);
 import { getSpecialistLoader } from './specialists/specialist-loader.js';
 import { specialistRuntime } from './expertises/specialist-runtime.js';
 import { getSpecialistMemory } from './expertises/specialist-memory.js';
+import { CapabilityRegistry } from './specialists/capability-registry.js';
 // v82: Specialist telemetry — init BEFORE loader.boot() to capture lifecycle events
 import { getSpecialistTelemetry } from './telemetry/specialist-telemetry.js';
 let specialistLoader = null;
@@ -255,6 +256,12 @@ try {
     specialistRuntime.setTelemetry(specialistTelemetry);
   }
   specialistLoader = getSpecialistLoader(db.db, specialistRuntime, { telemetry: specialistTelemetry });
+  // v122: Wire registries BEFORE boot() so specialists can self-register
+  if (expertiseLayer?.expertiseRegistry) {
+    specialistLoader.setExpertiseRegistry(expertiseLayer.expertiseRegistry);
+  }
+  const capabilityRegistry = new CapabilityRegistry();
+  specialistLoader.setCapabilityRegistry(capabilityRegistry);
   await specialistLoader.boot();
   logger.info('Server', `Specialists: ${specialistLoader.getEnabled().length} enabled`);
   // D4: Initialize persistent specialist memory
