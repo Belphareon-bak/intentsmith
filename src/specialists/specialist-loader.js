@@ -1219,6 +1219,11 @@ export function getSpecialistLoader(db, runtime, options = {}) {
   return _instance;
 }
 
+// v122: Loader accessor for post-skill reload (no args, returns null if not yet booted)
+export function getLoader() {
+  return _instance;
+}
+
 // v121: Test internals
 export const _testLoaderInternals = { validateManifest, checkEngineCompat };
 

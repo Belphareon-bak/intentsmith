@@ -142,6 +142,7 @@ ask(clarify) → llm(draft) → review(checkpoint) → llm(refine) → validate(
 | `ask` | Pause execution, show question, wait for user input | **Yes** | No | `prompt` |
 | `review` | Show content for approval/correction | **Yes** | No | `content`, `prompt` |
 | `validate` | Check output against criteria via LLM | No | Yes (transient) | `content`, `criteria`, `failMessage` |
+| `transform` | Deterministic JSON transforms (v122) | No | No | `content` |
 
 ### Interactive Steps
 

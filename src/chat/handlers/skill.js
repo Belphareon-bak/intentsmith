@@ -56,6 +56,18 @@ const META_SKILL_PATTERNS = [
     skillId: 'create-skill',
     paramKey: 'name',
   },
+  {
+    // v122: "vytvoř specialistu na X", "nového specialistu pro X", "chci specialistu na X"
+    regex: /(?:chci|vytvo[rř]|ud[eě]lej|p[rř]idej|nov\S+)\s+speciali[sz]t[uyaá]?\s+(?:na|pro|o)\s+(.+)/i,
+    skillId: 'create-specialist',
+    paramKey: 'name',
+  },
+  {
+    // v122: "create specialist for X", "add specialist for X"
+    regex: /(?:create|add|make|build)\s+(?:a\s+)?specialist\s+(?:for|about|on)\s+(.+)/i,
+    skillId: 'create-specialist',
+    paramKey: 'name',
+  },
 ];
 
 export function detectMetaSkill(input) {
@@ -367,6 +379,7 @@ function _handleExecutionResult(result, executionId, context) {
     // Auto-reload registries for meta-skills
     _maybeReloadRegistry(executionId);
     _maybeReloadExpertise(executionId, result);
+    _maybeReloadSpecialist(executionId);
 
     // Resolve skill_id for metadata
     let completedSkillId = null;
@@ -518,5 +531,53 @@ async function _maybeReloadExpertise(executionId, result) {
 
   } catch (err) {
     logger.error('SkillHandler', `create-expertise reload failed: ${err.message}`);
+  }
+}
+
+// ── Auto-reload specialist after create-specialist (v122) ─────────────────
+
+let _specialistReloadInProgress = false;
+
+async function _maybeReloadSpecialist(executionId) {
+  try {
+    const exec = skillExecutions.findById.get(executionId);
+    if (!exec || exec.skill_id !== 'create-specialist') return;
+
+    // Debounce: prevent concurrent reloads
+    if (_specialistReloadInProgress) {
+      logger.debug('SkillHandler', 'Specialist reload already in progress, skipping');
+      return;
+    }
+    _specialistReloadInProgress = true;
+
+    try {
+      const { getLoader } = await import('../../specialists/specialist-loader.js');
+      const loader = getLoader();
+      if (!loader) {
+        logger.warn('SkillHandler', 'create-specialist: loader not available (not booted yet)');
+        return;
+      }
+
+      loader.discoverAll();
+      loader.installPending();
+      await loader.enableAll();
+
+      // Post-install validation
+      const specId = exec.params ? JSON.parse(exec.params).name : null;
+      if (specId) {
+        const installed = loader.getInstalled();
+        const found = installed.find(s => s.id === specId);
+        if (found) {
+          logger.info('SkillHandler', `create-specialist: specialist "${specId}" enabled successfully`);
+        } else {
+          logger.warn('SkillHandler', `create-specialist: specialist "${specId}" not found after reload`);
+        }
+      }
+    } finally {
+      _specialistReloadInProgress = false;
+    }
+  } catch (err) {
+    _specialistReloadInProgress = false;
+    logger.error('SkillHandler', `create-specialist reload failed: ${err.message}`);
   }
 }

@@ -1,0 +1,82 @@
+{
+  "id": "create-specialist",
+  "version": 1,
+  "privileged": true,
+  "description": "Vytvoří nového specialistu — plugin s tools, capabilities a expertise",
+  "parameters": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "description": "Slug identifikátor specialisty (např. translator, code-reviewer, fitness-coach)"
+    }
+  },
+  "successCriteria": "Výstup je validní specialist package: specialist.json + index.js s register/unregister",
+  "steps": [
+    {
+      "id": "clarify",
+      "type": "ask",
+      "prompt": "Chystám se vytvořit nového specialistu **{{name}}**.\n\nPůvodní zadání: {{input}}\n\nPokud je z původního zadání jasné, co specialista má dělat, potvrd krátkým shrnutím.\n\nPokud potřebuji upřesnit, odpověz na tyto body:\n- Jaká je doména specialisty? (finance, utility, creative, technical...)\n- Jaké nástroje (tools) bude mít? (název + co dělá)\n- Jaké schopnosti (capabilities) by měl poskytovat?\n- Jaký tón a styl odpovědí? (professional / casual / technical)"
+    },
+    {
+      "id": "draft",
+      "type": "llm",
+      "prompt": "Vytvoř JSON manifest pro nového C3 specialistu.\n\nSlug: {{name}}\nPopis od uživatele: {{steps.clarify.output}}\nPůvodní zadání: {{input}}\n\nVYGENERUJ PŘESNĚ tento JSON formát:\n\n{\n  \"id\": \"{{name}}\",\n  \"version\": \"1.0.0\",\n  \"manifestVersion\": 2,\n  \"name\": \"Zobrazovaný název (česky, 2-64 znaků)\",\n  \"description\": \"Krátký popis, 1-2 věty\",\n  \"author\": \"user\",\n  \"domain\": \"snake_case_domain\",\n  \"type\": \"domain\",\n  \"engine\": \">=121.0.0\",\n  \"entry\": \"./index.js\",\n  \"tools\": [\n    {\n      \"id\": \"{{name}}.tool_name\",\n      \"name\": \"Název nástroje\",\n      \"module\": \"./tools/tool-name.js\",\n      \"function\": \"functionName\"\n    }\n  ],\n  \"capabilities\": [\"domain.action\"],\n  \"expertises\": [\"{{name}}\"],\n  \"enabledByDefault\": true\n}\n\nPravidla:\n- id: slug format, pouze [a-z0-9-]\n- domain: snake_case, pouze [a-z0-9_]\n- tools[].id: prefix musí být \"{{name}}.\" (tečková notace)\n- capabilities: tečková notace [a-z][a-z0-9]*.[a-z][a-z0-9]* — PREFERUJ existující capabilities (tax.compute, vat.compute, salary.compute, deadline.check, tax.compare). Nevymýšlej nové, pokud to není nutné.\n- engine MUSÍ být \">=121.0.0\"\n- entry MUSÍ být \"./index.js\"\n- Výstup MUSÍ být čistý JSON, žádný markdown code block",
+      "systemPrompt": "Jsi expert na návrh specialist pluginů pro C3 platformu. Generuješ POUZE čistý JSON bez markdown formátování. Piš česky.",
+      "format": "json",
+      "temperature": 0.3,
+      "maxTokens": 2048
+    },
+    {
+      "id": "review",
+      "type": "review",
+      "content": "{{steps.draft.output}}",
+      "prompt": "Zkontroluj manifest nového specialisty **{{name}}**.\n\nPokud je v pořádku, napiš **ano**. Pokud chceš úpravy, popiš co změnit:"
+    },
+    {
+      "id": "refine",
+      "type": "llm",
+      "prompt": "Uprav JSON manifest specialisty {{name}} podle zpětné vazby.\n\nZpětná vazba / schválený text:\n{{steps.review.output}}\n\nPůvodní manifest:\n{{steps.draft.output}}\n\nPokud je zpětná vazba shodná s původním textem (uživatel schválil beze změn), vrať původní JSON.\nPokud jsou požadované změny, zapracuj je.\n\nVýstup MUSÍ být POUZE čistý JSON objekt — žádný markdown, žádné komentáře.",
+      "systemPrompt": "Jsi editor specialist manifestů. Vrať POUZE čistý JSON. Piš česky.",
+      "format": "json",
+      "temperature": 0.2,
+      "maxTokens": 2048
+    },
+    {
+      "id": "validate",
+      "type": "validate",
+      "content": "{{steps.refine.output}}",
+      "criteria": "Obsah musí být validní JSON obsahující: id (slug formát [a-z0-9-]), version (string), manifestVersion (číslo 2), name (string 2-64 znaků), domain (snake_case), type (string), engine (string začínající >=), entry (string ./index.js), tools (pole objektů, každý s id ve formátu prefix.name), capabilities (pole stringů v tečkové notaci a.b kde a i b jsou lowercase alfanumerické).",
+      "failMessage": "Manifest specialisty nesplňuje požadovaná kritéria. Zkus skill spustit znovu."
+    },
+    {
+      "id": "sanitize",
+      "type": "transform",
+      "content": "{{steps.refine.output}}"
+    },
+    {
+      "id": "save_manifest",
+      "type": "write",
+      "path": "specialists/{{name}}/specialist.json",
+      "content": "{{steps.sanitize.output}}"
+    },
+    {
+      "id": "generate_code",
+      "type": "llm",
+      "prompt": "Vygeneruj index.js pro specialist plugin {{name}}.\n\nSchválený manifest:\n{{steps.sanitize.output}}\n\nVygeneruj KOMPLETNÍ JavaScript modul (ESM) s těmito exporty:\n\n1. export async function register(ctx) { ... }\n2. export function unregister(ctx) { ... }\n\nregister(ctx) MUSÍ:\n- ctx.runtime.registerSpecialist({ id, domain, tools: [...] }) — tools s id, name, description, patterns, extractParams\n- ctx.registries?.autoSelect?.registerBoostPatterns(id, [/* RegExp patterns */])\n- ctx.registries?.cre?.registerToolType(toolId) pro každý tool\n- ctx.registries?.toolExecutor?.register(toolId, handler) — handler je safe stub:\n  async (params) => ({ status: 'ok', data: { message: 'Tool not yet implemented' } })\n- ctx.registries?.capability?.register(cap, manifest.id) pro každou capability\n\nunregister(ctx) MUSÍ:\n- Každý krok v SAMOSTATNÉM try/catch (fail-safe)\n- runtime.unregisterSpecialist(id)\n- autoSelect.unregisterBoostPatterns(id)\n- cre.unregisterToolType(toolId) pro každý tool\n- toolExecutor.unregister(toolId) pro každý tool\n- capability.unregisterBySpecialist(manifest.id)\n\nImporty:\n- import { fileURLToPath } from 'url';\n- import path from 'path';\n- NIKDY neimportuj z ../../src/ — vše přes ctx\n\nVýstup MUSÍ být POUZE čistý JavaScript kód, žádný markdown code block, žádné komentáře mimo kód.",
+      "systemPrompt": "Jsi expert na tvorbu C3 specialist pluginů. Generuješ čistý JavaScript (ESM). NIKDY nepoužívej importy z ../../src/.",
+      "temperature": 0.2,
+      "maxTokens": 4096
+    },
+    {
+      "id": "save_entry",
+      "type": "write",
+      "path": "specialists/{{name}}/index.js",
+      "content": "{{steps.generate_code.output}}"
+    },
+    {
+      "id": "done",
+      "type": "template",
+      "template": "Specialista **{{name}}** vytvořen.\n\nSoubory:\n- `specialists/{{name}}/specialist.json`\n- `specialists/{{name}}/index.js`\n\nLoader bude automaticky reloadován a specialista aktivován."
+    }
+  ]
+}

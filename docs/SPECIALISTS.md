@@ -1,6 +1,6 @@
 # C.3 Specialists
 
-**Verze:** v121 (2026-03-11)
+**Verze:** v122 (2026-03-11)
 
 Viz take: [SPECIALIST-LIFECYCLE.md](SPECIALIST-LIFECYCLE.md) | [EXPERTISES.md](EXPERTISES.md) | [WORKERS.md](WORKERS.md) | [C3-Merge-Engine-v2-FINAL.md](C3-Merge-Engine-v2-FINAL.md)
 

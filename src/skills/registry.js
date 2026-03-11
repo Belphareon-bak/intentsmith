@@ -9,7 +9,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const VALID_STEP_TYPES = new Set(['llm', 'template', 'write', 'shell', 'ask', 'review', 'validate']);
+const VALID_STEP_TYPES = new Set(['llm', 'template', 'write', 'shell', 'ask', 'review', 'validate', 'transform']);
 
 class SkillRegistry {
   constructor() {

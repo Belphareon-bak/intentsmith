@@ -24,6 +24,7 @@ import { executeShell } from './steps/shell.js';
 import { executeAsk } from './steps/ask.js';
 import { executeReview } from './steps/review.js';
 import { executeValidate } from './steps/validate.js';
+import { executeTransform } from './steps/transform.js';
 import { substitute } from './steps/substitute.js';
 import { logger } from '../core/logger.js';
 
@@ -41,6 +42,7 @@ const STEP_EXECUTORS = {
   ask: executeAsk,
   review: executeReview,
   validate: executeValidate,
+  transform: executeTransform,
 };
 
 /**

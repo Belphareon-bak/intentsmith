@@ -8,6 +8,30 @@
 
 ---
 
+## v122 — create-specialist Skill (2026-03-11)
+
+Skill for creating specialist plugins from chat. Generates manifest + entry point, then auto-reloads the specialist loader.
+
+### Skill System
+- **`skills/create-specialist.json`**: 10-step workflow (clarify → draft → review → refine → validate → sanitize → write manifest → generate code → write entry → done).
+- **`transform` step type** (`src/skills/steps/transform.js`): Deterministic JSON transforms — capability alias normalization, dedup, sorting. Registered in runner + registry.
+- **Meta-skill detection**: Czech + English patterns in `META_SKILL_PATTERNS` for deterministic routing.
+
+### Loader Integration
+- **`getLoader()`** export in `specialist-loader.js` — returns active singleton for post-skill reload.
+- **`_maybeReloadSpecialist()`** in skill handler — auto-discovers, installs, enables new specialist after skill completion. Debounce guard prevents concurrent reloads. Post-install validation logs result.
+
+### Guards
+- **Capability explosion**: Prompt instructs LLM to prefer existing taxonomy.
+- **Plugin boundary**: Generated code prompt forbids `../../src/` imports.
+- **Tool stubs**: Safe no-op handlers (`{ status: 'ok', data: { message: 'Tool not yet implemented' } }`).
+- **Fail-safe unregister**: Each cleanup step in independent try/catch.
+
+### Tests
+- **48 new tests** (`tests/create-specialist-skill.test.js`): skill JSON validity (15), transform step (13), meta-skill detection (10), loader singleton (2), template paths (3), plugin boundary (3), runner integration (1). 0 regressions on existing 92 specialist tests.
+
+---
+
 ## v121 — Self-Contained Specialist System (2026-03-11)
 
 Architectural refactor making specialist packages truly self-contained. Zero hardcoded dependencies in core — all domain data (tools, expertise, boost patterns, scenarios, knowledge, tool types) registered dynamically via `ctx.registries`.
