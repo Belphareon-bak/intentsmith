@@ -180,6 +180,16 @@ export function scoreModel(model, role, context = {}, empirical = {}) {
   // Hard cap: empirical contribution <= MAX_EMPIRICAL_CONTRIBUTION (0.25)
   const es = ew > 0 ? Math.min(rawEs, 0.25 / ew) : rawEs;
 
+  // v121.1: Benchmark confidence attenuation for L4 provisional models
+  const benchConfidence = model.benchmarkConfidence ?? 1.0;
+
+  // v121.1: Provisional penalty + ghost decay
+  let provisionalPenalty = model.provisional ? -0.02 : 0;
+  if (model.provisional && (context.empiricalSamples ?? 0) === 0 && model.discoveredAt) {
+    const ageDays = (Date.now() - Date.parse(model.discoveredAt)) / 86400000;
+    if (ageDays > 7) provisionalPenalty -= 0.01; // Ghost decay
+  }
+
   // v120.2: Size floor for CODE role — small models (<20B) get penalized
   const sizePenalty = (role === 'CODE' && (model.params || 0) > 0 && (model.params || 0) < 20) ? -0.05 : 0;
 
@@ -193,7 +203,7 @@ export function scoreModel(model, role, context = {}, empirical = {}) {
   }
 
   const totalScore = Math.max(0, Math.min(1.0,
-    benchmark * bw +
+    benchmark * bw * benchConfidence +
     es * ew +
     hwFit * 0.20 +
     maturity * 0.15 +
@@ -201,7 +211,8 @@ export function scoreModel(model, role, context = {}, empirical = {}) {
     category * 0.13 +
     speed * 0.07 +
     sizePenalty +
-    diversityPenalty
+    diversityPenalty +
+    provisionalPenalty
   ));
 
   return {
@@ -215,6 +226,8 @@ export function scoreModel(model, role, context = {}, empirical = {}) {
       category,
       speed,
       diversityPenalty,
+      benchConfidence,
+      provisionalPenalty,
     },
   };
 }

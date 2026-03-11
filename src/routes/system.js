@@ -672,7 +672,14 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
           installed = (data.models || []).map(m => m.name);
         } catch (_) {}
 
-        // Score each installed model for each role
+        // Also load L4 discovered models for scoring
+        let discoveredModels = [];
+        try {
+          const { onlineDiscovery } = await import('../upgrade/online-discovery.js');
+          discoveredModels = await onlineDiscovery.getDiscoveredModels();
+        } catch (_) {}
+
+        // Score each installed model + discovered models for each role
         const roles = Object.keys(MODEL_PROFILES);
         const scoring = {};
         for (const role of roles) {
@@ -690,12 +697,39 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
               isCurrent: modelName === roleBindings[role],
             });
           }
+          // Add L4 discovered models not already in installed list
+          for (const dm of discoveredModels) {
+            if (installed.includes(dm.name)) continue;
+            if (!dm.benchmarks) continue;
+            const ctx = { gpuVramMb, referenceParams: dm.params || 14, roleBindings };
+            const result = scoreModel(dm, role, ctx);
+            scoring[role].models.push({
+              name: dm.name,
+              score: result.totalScore,
+              normalized: result.normalizedScore,
+              breakdown: result.breakdown,
+              isCurrent: false,
+              provisional: true,
+              benchmarkConfidence: dm.benchmarkConfidence,
+            });
+          }
           scoring[role].models.sort((a, b) => b.score - a.score);
         }
 
         sendJSON(res, 200, { scoring, evalVersion: EVALUATION_VERSION, gpuVramMb });
       } catch (err) {
         sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    // v121.1: List all L4 discovered models with confidence scores
+    'GET /api/system/upgrades/discovered': async (req, res) => {
+      try {
+        const { onlineDiscovery } = await import('../upgrade/online-discovery.js');
+        const models = await onlineDiscovery.getDiscoveredModels();
+        sendJSON(res, 200, { models, count: models.length });
+      } catch (err) {
+        sendJSON(res, 200, { models: [], count: 0, error: err.message });
       }
     },
 

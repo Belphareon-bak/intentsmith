@@ -232,6 +232,21 @@ try {
   logger.warn('Server', `Phase 3 metrics collector not available: ${err.message}`);
 }
 
+// v121.1: L4 Online Discovery — wire with DB and registryClient
+try {
+  const { onlineDiscovery } = await import('./upgrade/online-discovery.js');
+  onlineDiscovery.setDb(db.db);
+  try {
+    const { registryClient } = await import('./upgrade/registry-client.js');
+    onlineDiscovery.setRegistryClient(registryClient);
+  } catch (_) {}
+  const { setOnlineDiscovery } = await import('./upgrade/model-discovery.js');
+  setOnlineDiscovery(onlineDiscovery);
+  logger.info('Server', 'L4 Online Discovery initialized');
+} catch (err) {
+  logger.warn('Server', `L4 Online Discovery not available: ${err.message}`);
+}
+
 // F3: License system — feature gates
 import { licenseManager, TIERS } from './licensing/license.js';
 const licenseStatus = licenseManager.getStatus();

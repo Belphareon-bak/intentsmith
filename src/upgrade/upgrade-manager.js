@@ -57,6 +57,30 @@ async function _ensurePhase3() {
   }
 }
 
+// v121.1: L4 Online Discovery lazy-loaded
+let _onlineDiscovery = null;
+
+async function _ensureOnlineDiscovery() {
+  if (!_onlineDiscovery) {
+    try {
+      const mod = await import('./online-discovery.js');
+      _onlineDiscovery = mod.onlineDiscovery;
+    } catch { _onlineDiscovery = null; }
+  }
+  return _onlineDiscovery;
+}
+
+// ─── Model Name Normalization ────────────────────────────────────────────────
+
+/**
+ * Normalize model name for comparison — strip `:latest` suffix.
+ * Ollama returns some models as "model:latest" while config uses bare "model".
+ */
+function _normalizeModelName(name) {
+  if (!name) return '';
+  return name.replace(/:latest$/, '');
+}
+
 // ─── Feasibility Gate (v118) ────────────────────────────────────────────────
 
 /**
@@ -139,7 +163,7 @@ export function filterCandidates(candidates, profile) {
 
     // Skip the current model itself
     const current = profile.getCurrentModel();
-    if (c.name === current) return false;
+    if (_normalizeModelName(c.name) === _normalizeModelName(current)) return false;
 
     return true;
   });
@@ -406,9 +430,9 @@ export class UpgradeManager {
       // Validate role
       if (!MODEL_PROFILES[role]) throw new Error(`Invalid role: ${role}`);
 
-      // Verify model is installed
-      const installed = await fetchInstalledModels();
-      if (!installed.some(m => m.name === targetModel)) {
+      // Verify model is installed (15s timeout — Ollama may be busy with model swap)
+      const installed = await fetchInstalledModels({ timeout: 15000 });
+      if (!installed.some(m => _normalizeModelName(m.name) === _normalizeModelName(targetModel))) {
         throw new Error(`Model not installed in Ollama: ${targetModel}`);
       }
 
@@ -475,9 +499,9 @@ export class UpgradeManager {
     const currentModel = row.model;
     const previousModel = row.previous_model;
 
-    // Verify previous model is still installed
-    const installed = await fetchInstalledModels();
-    if (!installed.some(m => m.name === previousModel)) {
+    // Verify previous model is still installed (15s timeout — Ollama may be busy)
+    const installed = await fetchInstalledModels({ timeout: 15000 });
+    if (!installed.some(m => _normalizeModelName(m.name) === _normalizeModelName(previousModel))) {
       throw new Error(`Previous model no longer installed: ${previousModel}`);
     }
 
@@ -512,7 +536,8 @@ export class UpgradeManager {
    */
   async _verifyModel(modelName) {
     const baseUrl = config.ollama?.baseUrl || 'http://127.0.0.1:11434';
-    const timeout = 15000;
+    // 90s — model may need to load into VRAM (unload previous + load new)
+    const timeout = 90000;
 
     try {
       const controller = new AbortController();
@@ -703,6 +728,33 @@ export class UpgradeManager {
     });
     this._lastDiscovery = discovery;
 
+    // v121.1: L4 Online Discovery (fullCycle only — same cadence as L2)
+    if (opts.fullCycle) {
+      try {
+        const od = await _ensureOnlineDiscovery();
+        if (od) {
+          const installedFamilies = [...new Set(
+            discovery.candidates
+              .filter(c => c.source === 'local')
+              .map(c => c.family)
+              .filter(Boolean)
+          )];
+          if (installedFamilies.length > 0) {
+            await _ensurePhase2();
+            const catalogArr = _catalog?.CATALOG || [];
+            const newEntries = await od.discoverForFamilies(installedFamilies, { catalog: catalogArr });
+            if (newEntries.length > 0) {
+              await od.persistEntries(newEntries);
+              logger.info('UpgradeManager', `L4: discovered ${newEntries.length} new model variants`);
+            }
+            await od.pruneStale();
+          }
+        }
+      } catch (err) {
+        logger.warn('UpgradeManager', `L4 discovery failed: ${err.message}`);
+      }
+    }
+
     // Try Phase 2 pipeline first
     let proposals;
     try {
@@ -803,8 +855,9 @@ export class UpgradeManager {
       }
 
       // Filter candidates for this role
+      const currentNorm = _normalizeModelName(current);
       const roleCandidates = discovery.candidates.filter(c => {
-        if (c.name === current) return false;
+        if (_normalizeModelName(c.name) === currentNorm) return false;
         // Param bounds from profile
         const req = profile.requirements;
         if (c.params && req.minParams && c.params < req.minParams) return false;
@@ -829,12 +882,29 @@ export class UpgradeManager {
           }
         }
 
-        // Benchmark sanity: all benchmarks null → skip
+        // Benchmark sanity: all benchmarks null → skip (except L4 provisional)
         if (candidate.benchmarks) {
           const hasAny = Object.values(candidate.benchmarks).some(v => v != null);
-          if (!hasAny) continue;
+          if (!hasAny && !candidate.provisional) continue;
         } else if (candidate.source === 'catalog') {
           continue; // Catalog candidates without benchmarks are useless
+        } else if (!candidate.provisional) {
+          // Non-catalog, non-provisional without benchmarks — skip
+        }
+
+        // v121.1: Params jump guard — reject L4 candidates with >3× param increase
+        if (candidate.provisional && candidate.params && currentEntry.params) {
+          if (candidate.params / currentEntry.params > 3) continue;
+        }
+
+        // v121.1: Capability inheritance guard — L4 inherited caps must match role requirements
+        if (candidate.provisional) {
+          const reqCaps = ROLE_CAPABILITIES[role] || [];
+          for (const cap of reqCaps) {
+            if (!candidate.capabilities || !candidate.capabilities.includes(cap)) {
+              continue; // Will be caught by checkFeasibility too, but skip early
+            }
+          }
         }
 
         // Compute effective VRAM if catalog entry available
@@ -938,6 +1008,18 @@ export class UpgradeManager {
 
     // Sort by improvement descending
     proposals.sort((a, b) => (b.improvement ?? 0) - (a.improvement ?? 0));
+
+    // v121.1: Ranking candidate limit — top 8 per role to prevent instability
+    const MAX_PER_ROLE = 8;
+    const roleCounts = {};
+    const limited = proposals.filter(p => {
+      roleCounts[p.role] = (roleCounts[p.role] || 0) + 1;
+      return roleCounts[p.role] <= MAX_PER_ROLE;
+    });
+    if (limited.length < proposals.length) {
+      proposals.length = 0;
+      proposals.push(...limited);
+    }
 
     // Store in proposal store
     if (store) {

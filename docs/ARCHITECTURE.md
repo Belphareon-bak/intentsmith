@@ -1,6 +1,6 @@
 # C.3 Agent Platform — Architecture v121
 
-**Version:** v121.0.0
+**Version:** v121.1.0
 **Status:** Production-ready
 **Date:** 2026-03-11
 
@@ -22,7 +22,7 @@ C.3 is a conversational AI platform combining:
 10. **Execution Engine** — Patch engine (3-tier anchor), error normalizer (14 codes), iterative fix loop, strategy selection, self-critique, scope limiter
 11. **Prompt Pipeline** — Unified structured prompt builder (12 sections, adaptive weighting), KG-based import map, signature cache
 12. **Architecture Governance** — Cross-milestone drift enforcement, API contract tracking, critic/repair agent, regression prediction
-13. **Model Upgrade System** — Curated catalog (55 models), pairwise evaluation, feasibility gate, proposal store, chat-based approval, empirical scoring (Phase 3)
+13. **Model Upgrade System** — Curated catalog (55 models), pairwise evaluation, feasibility gate, proposal store, chat-based approval, empirical scoring (Phase 3), L4 online discovery
 14. **Task Memory** — Persistent cross-milestone learning, cross-project pattern sharing, decay-based relevance
 
 All decisions flow through CRE — LLM is the text generator, never the authority.
@@ -184,15 +184,17 @@ src/                              # 126,566 lines / 349 files / 29 directories
 │   ├── feedback-detector.js      #   6 signal types
 │   ├── pattern-tracker.js        #   Cross-conversation learning
 │   └── preferences.js            #   User preference tracking
-├── upgrade/                      # 11 files, ~3,800 LOC — Model Upgrade System (Phase 2 + 3)
+├── upgrade/                      # 13 files, ~4,500 LOC — Model Upgrade System (Phase 2 + 3 + L4)
 │   ├── model-profiles.js         #   Model capabilities + family definitions
-│   ├── model-discovery.js        #   L1 local + L2 catalog + L3 hints
+│   ├── model-discovery.js        #   L1 local + L2 catalog + L3 hints + L4 online
 │   ├── model-catalog.js          #   55-model curated catalog with benchmarks
-│   ├── model-ranker.js           #   Pairwise evaluation, per-role scoring
+│   ├── model-ranker.js           #   Pairwise evaluation, per-role scoring, confidence attenuation
 │   ├── proposal-store.js         #   DB-backed proposals (cooldown, dismiss, anti-thrashing)
 │   ├── preference-tracker.js     #   Implicit preferences from user actions
-│   ├── registry-client.js        #   Online verification (ollama.com HEAD check)
-│   └── upgrade-manager.js        #   Phase 2 pipeline: feasibility → pairwise → store
+│   ├── registry-client.js        #   Online verification + library page fetch
+│   ├── online-discovery.js       #   L4: HTML tag parsing, provisional entry builder
+│   ├── benchmark-estimator.js    #   Log-space interpolation, VRAM estimation
+│   └── upgrade-manager.js        #   Full pipeline: feasibility → pairwise → L4 → store
 ├── architect/                    # 13 files, 4,007 LOC — Architecture Intelligence
 │   ├── architecture-policy.js    #   Unified policy, load priority
 │   ├── refactor-agent.js         #   Smell detection → risk-gated plan
@@ -533,20 +535,22 @@ Architecture Intelligence (v100):
   └─ multi-agent.js — 5-role pipeline (planner→builder→architect→critic→debugger)
 ```
 
-### 14. Model Upgrade System (v103 + v118 Phase 2 + v120 Phase 3)
+### 14. Model Upgrade System (v103 + v118 Phase 2 + v120 Phase 3 + v121.1 L4)
 
-Three-phase model upgrade with curated catalog, pairwise evaluation, and empirical scoring.
+Four-layer discovery with curated catalog, pairwise evaluation, empirical scoring, and online discovery.
 
 ```
 Phase 1 (v103): discover → filter → rank → propose → chat approval → pull → apply
 Phase 2 (v118): catalog → discover(L1+L2+L3) → feasibility gate → pairwise evaluation
   → preference adjust → proposal store (DB) → chat approval → pull → apply
 Phase 3 (v120): + empirical scoring from real execution metrics → blended benchmark+empirical
+L4 (v121.1): + online discovery from ollama.com/library pages → estimated benchmarks → provisional entries
 
 Discovery:
   L1: Local (Ollama /api/tags) — always
   L2: Catalog (55 curated models with benchmarks) — fullCycle (24h ±90min)
   L3: Family upgrade hints — always
+  L4: Online (ollama.com/library/{family} HTML) — fullCycle, max 3 families/cycle
 
 Pairwise Evaluation (v120.2 calibration):
   scoreModel(benchmark×B + empirical×E + hwFit×0.20 + maturity×0.15 + gen×0.10 + cat×0.13 + speed×0.07 + sizePenalty)
@@ -565,6 +569,19 @@ Metrics Collection (fire-and-forget):
   lifecycle-build → recordEvent(checkpoint verdict, build completion)
   Batch buffer (10 events / 5s), outlier filter, recency decay (exp(-days/60)),
   Bayesian smoothing (prior=0.5, k=5), difficulty normalization, telemetry guard
+
+L4 Online Discovery (v121.1):
+  Fetch ollama.com/library/{family} HTML → parse tags (href links, regex fallback)
+  → estimate benchmarks (log-space interpolation from known family members)
+  → provisional entry (benchmarkConfidence 0.30-0.85, source='L4')
+  → persist to discovered_models DB → merge into discovery as lowest priority
+  VRAM estimation: 620 * params + 420 (Q4_K_M fit)
+  Family normalization: strip hyphens/underscores, lowercase, strip trailing version
+  Family scaling guard: <2 catalog entries → skip interpolation, confidence=0.20
+  Provisional penalty: -0.02 (catalog preferred). Ghost decay: +7d no empirical → extra -0.01
+  Params jump guard: >3× param increase rejected. Capability inheritance guard.
+  Ranking candidate limit: top 8 per role after scoring
+  30-day pruning, 24h cache TTL, rate limit 3 families/cycle
 
 Guards:
   Drift detection: recent 20 samples < historical × 0.8 → reset to Phase 2 weights
@@ -619,7 +636,7 @@ Registry → Resolver (LLM intent match) → Runner (state machine) → Step exe
 
 ## Database Schema
 
-80+ tables in SQLite (better-sqlite3), 34 migrations:
+80+ tables in SQLite (better-sqlite3), 35 migrations:
 
 | Group | Tables |
 |-------|--------|
@@ -633,7 +650,7 @@ Registry → Resolver (LLM intent match) → Runner (state machine) → Step exe
 | Memory | global_memory, user_memory, project_memory, memory (LTM), task_memory |
 | Skills | skill_executions, skill_steps, workflow_patterns |
 | Architecture | architecture_state, api_contracts |
-| Model Upgrade | model_overrides, upgrade_history, upgrade_proposals, model_catalog_cache, model_performance |
+| Model Upgrade | model_overrides, upgrade_history, upgrade_proposals, model_catalog_cache, model_performance, discovered_models |
 | Quality | quality_scores |
 | Security | api_tokens (SHA-256 hashed) |
 | Notifications | notification_channels_v57, notification_log_v57, notification_state_v57, notification_digest_buffer_v57, notification_trust_actions_v57 |

@@ -325,6 +325,18 @@ async function _buildCatalogCandidatesAsync(installedNames, minDays) {
   return _filterCatalog(_catalogCache, installedNames, minDays);
 }
 
+// ─── L4 Online Discovery Integration ─────────────────────────────────────────
+
+let _onlineDiscovery = null;
+
+/**
+ * Set the OnlineDiscovery instance for L4 provisional model merging.
+ * @param {Object} od - OnlineDiscovery instance
+ */
+export function setOnlineDiscovery(od) {
+  _onlineDiscovery = od;
+}
+
 // ─── Full Discovery Pipeline ───────────────────────────────────────────────
 
 /**
@@ -373,6 +385,43 @@ export async function discover(opts = {}) {
     }
   }
 
+  // L4: Online discovery (provisional entries from discovered_models DB)
+  // L1 (installed) wins; L2 (catalog) wins; L4 fills gaps
+  let l4Count = 0;
+  if (_onlineDiscovery) {
+    try {
+      const provisional = await _onlineDiscovery.getDiscoveredModels();
+      for (const entry of provisional) {
+        if (!localNames.has(entry.name) && !merged.some(c => c.name === entry.name)) {
+          merged.push({
+            name: entry.name,
+            family: entry.family,
+            category: entry.category || 'general',
+            version: entry.version || null,
+            params: entry.params,
+            quantization: null,
+            sizeBytes: 0,
+            sizeGB: 0,
+            modifiedAt: entry.discoveredAt || null,
+            installed: false,
+            source: 'L4',
+            benchmarks: entry.benchmarks,
+            baseVramMb: entry.baseVramMb,
+            contextWindow: entry.contextWindow,
+            capabilities: entry.capabilities,
+            releaseDate: entry.releaseDate,
+            benchmarkConfidence: entry.benchmarkConfidence,
+            provisional: true,
+            discoveredAt: entry.discoveredAt,
+          });
+          l4Count++;
+        }
+      }
+    } catch (err) {
+      logger.warn('ModelDiscovery', `L4 merge failed: ${err.message}`);
+    }
+  }
+
   // L3: Build hints map for current models
   const hints = new Map();
   const currentModels = new Set();
@@ -392,8 +441,8 @@ export async function discover(opts = {}) {
     // model-profiles not available — skip hints
   }
 
-  const stats = { local: localCandidates.length, catalog: catalogCandidates.length, total: merged.length };
-  logger.info('ModelDiscovery', `Discovered ${stats.local} local + ${stats.catalog} catalog = ${stats.total} candidates, ${hints.size} hints`, {
+  const stats = { local: localCandidates.length, catalog: catalogCandidates.length, l4: l4Count, total: merged.length };
+  logger.info('ModelDiscovery', `Discovered ${stats.local} local + ${stats.catalog} catalog + ${stats.l4} L4 = ${stats.total} candidates, ${hints.size} hints`, {
     ollamaAvailable,
     families: [...new Set(merged.map(c => c.family))],
   });
@@ -410,4 +459,5 @@ export async function discover(opts = {}) {
 export default {
   fetchInstalledModels, fetchModelInfo, buildCandidates,
   buildCatalogCandidates, getUpgradeHints, discover, UPGRADE_HINTS,
+  setOnlineDiscovery,
 };

@@ -122,6 +122,45 @@ export class RegistryClient {
     return this._isOffline();
   }
 
+  /**
+   * Fetch full HTML page from Ollama library for a family.
+   * Used by L4 OnlineDiscovery for tag parsing.
+   *
+   * @param {string} family - Model family name (e.g. 'qwen3', 'gemma3')
+   * @returns {Promise<string|null>} Raw HTML or null on failure
+   */
+  async fetchLibraryPage(family) {
+    if (this._isOffline()) return null;
+
+    const familyName = family.replace(/:.*/, '');
+    const url = `${REGISTRY_BASE}/${encodeURIComponent(familyName)}`;
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+      const response = await fetch(url, {
+        method: 'GET',
+        signal: controller.signal,
+        redirect: 'follow',
+        headers: { 'User-Agent': 'c3-agent/1.0' },
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) return null;
+
+      this._failureCount = 0;
+      this._offlineSince = null;
+      return await response.text();
+    } catch (err) {
+      this._failureCount++;
+      if (this._failureCount >= MAX_FAILURES) {
+        this._offlineSince = Date.now();
+        logger.warn('RegistryClient', `Offline after ${MAX_FAILURES} failures: ${err.message}`);
+      }
+      return null;
+    }
+  }
+
   // ── Internal ────────────────────────────────────────────────────────────
 
   async _checkRegistry(name) {
