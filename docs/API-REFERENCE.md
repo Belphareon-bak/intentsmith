@@ -1,6 +1,6 @@
 # C3 Agent — API Reference
 
-> **v93.1** | ~180 endpoints across 13 route modules
+> **v120** | ~180 endpoints across 14 route modules
 > Generated from source code analysis. All routes are HTTP/1.1, JSON bodies (unless noted).
 
 ## Table of Contents

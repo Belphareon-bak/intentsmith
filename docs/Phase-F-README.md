@@ -63,4 +63,4 @@ tests/
 | **F (packaging)** | **100** |
 | **Celkem (v78)** | **810** |
 
-> **Pozn.:** Tabulka ukazuje stav k v78 kdy byl Phase F dokoncen. Aktualni celkovy pocet testu je 2600+ (v93).
+> **Pozn.:** Tabulka ukazuje stav k v78 kdy byl Phase F dokoncen. Aktualni celkovy pocet testu je 3,270+ (v120).

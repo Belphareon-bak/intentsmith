@@ -1,8 +1,8 @@
 {
   "name": "c3-agent",
-  "version": "95.0.0",
+  "version": "120.0.0",
   "type": "module",
-  "description": "C.3 Agent v95 — Full Code Intelligence (7 phases: search, file discovery, analyzer, AST, symbol index, semantic index, debug agent)",
+  "description": "C.3 Agent v120 — Full platform (CRE, Lifecycle, Code Intelligence, Execution Engine, Prompt Pipeline, Model Upgrade, Architecture Governance)",
   "main": "src/server.js",
   "engines": {
     "node": ">=22.0.0"

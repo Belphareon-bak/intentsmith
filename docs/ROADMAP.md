@@ -1,10 +1,10 @@
-# C3-Agent — Roadmapa v16
+# C3-Agent — Roadmapa v17
 
 ## Od aktuálního stavu k vizi
 
-**Datum:** 2026-03-10
-**Verze kódu:** v119.0.0 (Code Intelligence + F-series + Prompt Pipeline + Model Upgrade + Architecture Governance)
-**Testy:** ~3,200+ verified (597 F-series, 339 code-intel, 276 architecture, 401 CRE, 350 conversation, 218 ledger, 270 specialist, 147 upgrade, 83 prompt-pipeline, 56 project-E2E, 44 agent-log, + další)
+**Datum:** 2026-03-11
+**Verze kódu:** v120.0.0 (Code Intelligence + F-series + Prompt Pipeline + Model Upgrade Phase 3 + Architecture Governance)
+**Testy:** ~3,270+ verified (597 F-series, 339 code-intel, 276 architecture, 401 CRE, 350 conversation, 218 ledger, 270 specialist, 214 upgrade, 83 prompt-pipeline, 56 project-E2E, 44 agent-log, + další)
 **IDE:** C3 Studio (Theia 1.65.2), 33 custom extensions, Phase 1-5 (~85%)
 
 ---
@@ -32,7 +32,7 @@ Installer, licence, auto-update, setup wizard.
 
 ---
 
-## Kde je každý pilíř dnes (v119)
+## Kde je každý pilíř dnes (v120)
 
 ### Pilíř 1: CHAT — 100% ✅
 **Status: PHASE A = DONE.**
@@ -62,6 +62,7 @@ Installer, licence, auto-update, setup wizard.
 - v104-v109: **Execution Engine (F1-F8)** — patch engine, error normalizer, iterative fix loop, self-critique (355 testů)
 - v110-v116: **Agent Evolution (FΔ+F9-F14)** — adaptive strategy, task memory, cross-project learning (242 testů)
 - v119: **Prompt Pipeline** — structured prompt builder, import map, scope limiter, signature cache (83 testů)
+- v120: **Phase 3 Empirical Model Evaluation** — metrics collection, blended scoring, drift detection (67 testů)
 
 ### Pilíř 3: WORKERI — 95% ✅
 **Status: B0-B9 DONE. B8 template workeři kompletní.**
@@ -214,7 +215,7 @@ Korelační analýza (po pilotu): spec_score vs build_success, roadmap_score vs 
 | v100.0 | **Architecture Intelligence** — policy, context engine, refactor, regression predictor, multi-agent (161 tests) |
 | v101–v102 | **Large Project Scaling** — map-based graph, priority BFS, streaming indexer, concept registry (107 tests) |
 | v103.0 | **Self-Evaluating Model Registry** — discover→rank→propose→approve→pull, chat-based approval (115 tests) |
-| v118.0 | **Phase 2 Model Upgrade** — curated 55-model catalog, pairwise evaluation, feasibility gate, proposal store, preference tracker (147 tests) |
+| v118.0 | **Phase 2 Model Upgrade** — curated 55-model catalog, pairwise evaluation, feasibility gate, proposal store, preference tracker (88 tests) |
 | v104.0 | **F1-F3: Patch Engine + Error Normalizer + Execution Loop** — core agent evolution (161 tests) |
 | v106–v109 | **F4-F8: Context Optimizer, Task Memory, Self-Critique, Graph Debug, Pattern Mining** (194 tests) |
 | v110–v116 | **FΔ+F9-F14: Context Delta, Build Strategy, Fix Strategy, Perf Intel, Deps, CI, Cross-Project** (242 tests) |
@@ -255,7 +256,7 @@ Fáze G: CODE INTEL ████████████████████
 Fáze I: GOVERNANCE ██████████████████████████████████████████  100% → DONE (v98-v100, guardian+contracts+critic)
 Fáze J: F-SERIES   ██████████████████████████████████████████  100% → DONE (v104-v116, F1-F14, 597 testů)
 Fáze K: PROMPT PL  ██████████████████████████████████████████  100% → DONE (v119, 83 testů)
-Fáze K: MODEL MGMT ██████████████████████████████████████████  100% → DONE (v103+v118+v120, 214 testů)
+Fáze J: MODEL MGMT ██████████████████████████████████████████  100% → DONE (v103+v118+v120, 214 testů)
 Fáze E: IDE        █████████████████████████████████░░░░░░░░░   82% (Phase 1-5, 33 extensions, Settings Phase 3 v91)
 Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   25% (F1-F3 wired)
 ```
@@ -300,10 +301,10 @@ Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░�
 ✅→ QS2. Quality Telemetry — DB logging, auto-fire, query API, 34 testů (v80)
 ```
 
-### Sprint 5 — Quality Report + API (NEXT)
+### Sprint 5 — Quality Report + API ✅ (DONE v93)
 
 ```
-→ QS3. Quality Report — CLI report + REST API (summary, distribution, per-project)
+✅→ QS3. Quality Report — CLI report + REST API (summary, distribution, per-project)
 → QS4. Volatility Index — lifecycle_score drift měření
 → Pilot: 5–10 reálných projektů, sběr distribuce, kalibrace
 ```
@@ -331,7 +332,7 @@ Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░�
 | 9 | D | D1-D3. Specialist Runtime + KB + Scenarios | 3d | ⚪ P2 | ✅ DONE (v65.8) |
 | 10 | D | D4-D8. Specialist Advanced (memory, deps, API) | ~2 týd. | ⚪ P2 | ✅ DONE (v79) |
 | 11 | C | QS1-QS2. Quality Score + Telemetry | 2d | 🟡 P1 | ✅ DONE (v80) |
-| 12 | C | QS3. Quality Report + API | 1d | 🟡 P1 | ⏳ IN PROGRESS |
+| 12 | C | QS3. Quality Report + API | 1d | 🟡 P1 | ✅ DONE (v93) |
 | 13 | C | QS4. Pilot — kalibrace na reálných datech | průběžně | ⚪ P2 | ❌ |
 | 14 | D | D5. Multi-specialist routing | ~1 týd. | ⚪ P2 | ❌ |
 | 15 | D | D9. Remote registry / marketplace | ~1 týd. | ⚪ P2 | ❌ |
@@ -343,12 +344,12 @@ Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░�
 ## Celkový progres
 
 **Hotovo:** ~98% celkové vize
-**Nové od v93:** Code Intelligence (33 modulů), Architecture Governance, Execution Engine (F1-F14), Model Upgrade System, Large Project Scaling — celkem 1,500+ nových testů.
+**Nové od v93:** Code Intelligence (33 modulů), Architecture Governance, Execution Engine (F1-F14), Model Upgrade System (Phase 1-3), Large Project Scaling, Prompt Pipeline — celkem 1,600+ nových testů.
 
 ```
-Celkem zbývajících úkolů:  6 + IDE Settings Phase 3b-4
+Celkem zbývajících úkolů:  5 + IDE Settings Phase 3b-4
   🔴 Critical:              0
-  🟡 Important:             1  (QS3 Quality Report)
+  🟡 Important:             0
   ⚪ Future (D5,D9,E,F):     5  (~2 měsíce)
   📐 IDE Settings Phase 3b:  Social login (OAuth), Online sync (GitHub Gist)
   📐 IDE Settings Phase 4:   GPU wizard, Model auto-download, First-run, Diagnostics bundle
@@ -726,4 +727,4 @@ Vizuální breakdown (pie/bar chart)
 
 ---
 
-*Tento dokument nahrazuje Roadmapa v14. Aktualizováno na v119.0.0 (2026-03-10).*
+*Tento dokument nahrazuje Roadmapa v14. Aktualizováno na v120.0.0 (2026-03-11).*

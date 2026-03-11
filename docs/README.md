@@ -1,4 +1,4 @@
-# C3-Agent v93.0.0 — Dokumentacni reference
+# C3-Agent v120.0.0 — Dokumentacni reference
 
 Kompletni dokumentace projektu C3 Agent — lokalni AI platforma s CRE decision enginem, 15 domain expertyzami, specialist plugin systemem, lifecycle project managementem, skills workflow enginem, autonomnimi agenty, LTM pametovym systemem a C3 Studio IDE (Theia 1.65.2 + Electron 37).
 
@@ -83,8 +83,8 @@ Vsechny promenne se nacitaji z `.env` souboru pres `dotenv`. Viz `.env.example` 
 
 | Dokument | Popis |
 |----------|-------|
-| [ROADMAP.md](ROADMAP.md) | Aktualni roadmapa v16 (stav k v93) |
-| [CHANGELOG.md](CHANGELOG.md) | Changelog (v56–v93) |
+| [ROADMAP.md](ROADMAP.md) | Aktualni roadmapa v17 (stav k v120) |
+| [CHANGELOG.md](CHANGELOG.md) | Changelog (v56–v120) |
 | [dev-checklist.md](dev-checklist.md) | Development checklist |
 
 ### Specifikace & Reference
@@ -438,4 +438,4 @@ System licenci vazany na hardware fingerprint (3 tiery: FREE / PRO / ENTERPRISE)
 
 ---
 
-*Posledni aktualizace: v93.0.0 (2026-03-04)*
+*Posledni aktualizace: v120.0.0 (2026-03-11)*

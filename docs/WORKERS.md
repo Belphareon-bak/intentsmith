@@ -1,6 +1,6 @@
 # C.3 Workers & Notifikace
 
-**Verze:** v93.0.0 (2026-03-04)
+**Verze:** v120.0.0 (2026-03-11)
 
 Viz take: [EXPERTISES.md](EXPERTISES.md) | [SPECIALISTS.md](SPECIALISTS.md) | [README.md](README.md)
 

@@ -86,7 +86,7 @@ All decisions flow through CRE — LLM is the text generator, never the authorit
 │  └────────────────────────────┘                                            │
 ├────────────────────────────────────────────────────────────────────────────┤
 │                         Database (SQLite)                                   │
-│                    80+ tables, 32 migrations, prepared statements           │
+│                    80+ tables, 34 migrations, prepared statements           │
 ├────────────────────────────────────────────────────────────────────────────┤
 │                      LLM Gateway (Ollama)                                  │
 │           qwen3.5:27b (CHAT/CODE), deepseek-r1:32b (D1/R1), 7 roles      │
@@ -209,7 +209,7 @@ src/                              # 126,566 lines / 349 files / 29 directories
 ├── executor/                     # 8 files — Tool executor, circuit breaker
 ├── autonomy/                     # 3 files — Guarded autonomy, drift detection
 ├── channels/                     # 3 files — Channel adapters
-├── db/                           # 35 files — Schema (80+ tables) + 32 migrations
+├── db/                           # 36 files — Schema (80+ tables) + 34 migrations
 ├── core/                         # 5 files — Logger, error handler
 ├── telemetry/                    # 2 files — Metrics, alerts
 ├── system/                       # 2 files — GPU detection, system info
@@ -751,9 +751,9 @@ All memory systems use exponential decay: LTM (λ=0.01, half-life ~69d), Task Me
 | G (Code Intel) | 100% | 33 modules, symbol index, KG, graph expansion, architecture detection |
 | H (Agent Evolution) | 100% | F1-F8 core (355 tests), FΔ+F9-F14 extensions (242 tests) |
 | I (Governance) | 100% | Guardian, contracts, critic, policy, regression prediction, multi-agent |
-| J (Model Mgmt) | 100% | Discovery, profiles, approval, pull, rollback |
+| J (Model Mgmt) | 100% | Phase 1-3: discovery, catalog (55 models), pairwise eval, proposals, empirical scoring (214 tests) |
 | K (Prompt Pipeline) | 100% | Prompt builder, import map, scope limiter, signature cache (83 tests) |
 
 ---
 
-*This document reflects C.3 Agent Platform v119.0.0 architecture (2026-03-10).*
+*This document reflects C.3 Agent Platform v120.0.0 architecture (2026-03-11).*
