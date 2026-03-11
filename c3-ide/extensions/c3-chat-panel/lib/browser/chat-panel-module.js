@@ -456,7 +456,7 @@ var _backendBase='http://localhost:3335';
 /* v88: Extracted expertise fetch — reusable for initial load + post-skill refresh */
 function _fetchExpertises(){
   fetch(_backendBase+'/api/expertises',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(data){
-    var items=Array.isArray(data)?data:(data.expertises||[]);
+    var items=Array.isArray(data)?data:(data.expertises||data.experts||[]);
     if(items.length>0){
       var _localEx={};EXPERTISES.forEach(function(le){_localEx[le.name]=le;});
       var allEx=items.map(function(e){
@@ -466,7 +466,7 @@ function _fetchExpertises(){
           desc:_s(e.description||e.desc)||(le?le.desc:''),
           domain:_s(e.domain)||(le?le.domain:''),
           fav:e.favorite!=null?!!e.favorite:(le?!!le.fav:false),
-          isSpecialist:!!(e.is_specialist||(cfg&&cfg.toolEnforcement)||(le&&le.isSpecialist)),
+          isSpecialist:!!(e.is_specialist||e.isCustom||(cfg&&cfg.toolEnforcement)||(le&&le.isSpecialist)),
           temperature:e.temperature||null};
       });
       EXPERTISES=allEx;
