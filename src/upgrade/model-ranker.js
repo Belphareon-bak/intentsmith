@@ -183,6 +183,15 @@ export function scoreModel(model, role, context = {}, empirical = {}) {
   // v120.2: Size floor for CODE role — small models (<20B) get penalized
   const sizePenalty = (role === 'CODE' && (model.params || 0) > 0 && (model.params || 0) < 20) ? -0.05 : 0;
 
+  // v120.2: Role diversity penalty — discourage model monoculture
+  // -0.01 per other role already using this model (max -0.04)
+  let diversityPenalty = 0;
+  if (context.roleBindings && model.name) {
+    const otherRolesUsing = Object.entries(context.roleBindings)
+      .filter(([r, m]) => r !== role && m === model.name).length;
+    diversityPenalty = -Math.min(otherRolesUsing * 0.01, 0.04);
+  }
+
   const totalScore = Math.max(0, Math.min(1.0,
     benchmark * bw +
     es * ew +
@@ -191,7 +200,8 @@ export function scoreModel(model, role, context = {}, empirical = {}) {
     generation * 0.10 +
     category * 0.13 +
     speed * 0.07 +
-    sizePenalty
+    sizePenalty +
+    diversityPenalty
   ));
 
   return {
@@ -204,6 +214,7 @@ export function scoreModel(model, role, context = {}, empirical = {}) {
       generation,
       category,
       speed,
+      diversityPenalty,
     },
   };
 }

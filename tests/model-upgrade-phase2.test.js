@@ -1066,6 +1066,143 @@ test('disk space check rejects', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+// v120.2: VISION Capability Guard, L1 Enrichment, Role Diversity Penalty
+// ═══════════════════════════════════════════════════════════════════════════
+
+suite('v120.2 — Capability Guard (undefined capabilities)');
+
+test('undefined capabilities rejects for D1 (requires json_mode)', () => {
+  const result = checkFeasibility(
+    { params: 14, effectiveVramMb: 10000 },
+    'D1',
+    { gpuVramMb: 24000 }
+  );
+  assert(!result.feasible, 'Should reject when capabilities is undefined');
+  assert(result.reason.includes('json_mode'), `Reason: ${result.reason}`);
+});
+
+test('undefined capabilities rejects for VISION (requires vision)', () => {
+  const result = checkFeasibility(
+    { params: 14, effectiveVramMb: 10000 },
+    'VISION',
+    { gpuVramMb: 24000 }
+  );
+  assert(!result.feasible, 'Should reject when capabilities is undefined');
+  assert(result.reason.includes('vision'), `Reason: ${result.reason}`);
+});
+
+test('null capabilities rejects for D1', () => {
+  const result = checkFeasibility(
+    { params: 14, capabilities: null, effectiveVramMb: 10000 },
+    'D1',
+    { gpuVramMb: 24000 }
+  );
+  assert(!result.feasible, 'Should reject when capabilities is null');
+});
+
+test('empty capabilities passes for CODE (no requirements)', () => {
+  const result = checkFeasibility(
+    { params: 14, capabilities: [], effectiveVramMb: 10000 },
+    'CODE',
+    { gpuVramMb: 24000 }
+  );
+  assert(result.feasible, 'CODE has no capability requirements');
+});
+
+test('undefined capabilities passes for CHAT (no requirements)', () => {
+  const result = checkFeasibility(
+    { params: 14, effectiveVramMb: 10000 },
+    'CHAT',
+    { gpuVramMb: 24000 }
+  );
+  assert(result.feasible, 'CHAT has no capability requirements');
+});
+
+test('vision capability passes for VISION', () => {
+  const result = checkFeasibility(
+    { params: 14, capabilities: ['vision'], effectiveVramMb: 10000 },
+    'VISION',
+    { gpuVramMb: 24000 }
+  );
+  assert(result.feasible, 'Should pass with vision capability');
+});
+
+suite('v120.2 — Role Diversity Penalty');
+
+test('no penalty when model serves single role', () => {
+  const result = scoreModel(
+    { name: 'test:14b', params: 14, benchmarks: { swebench: 0.5 }, category: 'general', releaseDate: '2025-01-01' },
+    'CODE',
+    { gpuVramMb: 24000, roleBindings: { CODE: 'test:14b', D1: 'other:32b', CHAT: 'other:32b' } }
+  );
+  assertEqual(result.breakdown.diversityPenalty, 0, 'No penalty for single-role model');
+});
+
+test('penalty -0.01 when model serves 2 roles', () => {
+  const result = scoreModel(
+    { name: 'shared:27b', params: 27, benchmarks: { swebench: 0.5 }, category: 'general', releaseDate: '2025-01-01' },
+    'CODE',
+    { gpuVramMb: 24000, roleBindings: { CODE: 'shared:27b', CHAT: 'shared:27b', D1: 'other:32b' } }
+  );
+  assertEqual(result.breakdown.diversityPenalty, -0.01, 'One other role using same model = -0.01');
+});
+
+test('penalty -0.02 when model serves 3 roles', () => {
+  const result = scoreModel(
+    { name: 'shared:27b', params: 27, benchmarks: { swebench: 0.5 }, category: 'general', releaseDate: '2025-01-01' },
+    'CODE',
+    { gpuVramMb: 24000, roleBindings: { CODE: 'shared:27b', CHAT: 'shared:27b', R2: 'shared:27b', D1: 'other:32b' } }
+  );
+  assertEqual(result.breakdown.diversityPenalty, -0.02, 'Two other roles using same model = -0.02');
+});
+
+test('penalty capped at -0.04', () => {
+  const result = scoreModel(
+    { name: 'mono:27b', params: 27, benchmarks: { swebench: 0.5 }, category: 'general', releaseDate: '2025-01-01' },
+    'CODE',
+    { gpuVramMb: 24000, roleBindings: {
+      CODE: 'mono:27b', D1: 'mono:27b', D2: 'mono:27b',
+      R1: 'mono:27b', R2: 'mono:27b', CHAT: 'mono:27b', VISION: 'mono:27b'
+    } }
+  );
+  assertEqual(result.breakdown.diversityPenalty, -0.04, 'Cap at -0.04 even with 6 other roles');
+});
+
+test('no roleBindings = no penalty (backward compat)', () => {
+  const result = scoreModel(
+    { name: 'test:14b', params: 14, benchmarks: { swebench: 0.5 }, category: 'general', releaseDate: '2025-01-01' },
+    'CODE',
+    { gpuVramMb: 24000 }
+  );
+  assertEqual(result.breakdown.diversityPenalty, 0, 'No roleBindings = no penalty');
+});
+
+test('diversity penalty reduces total score', () => {
+  const base = scoreModel(
+    { name: 'test:27b', params: 27, benchmarks: { swebench: 0.6, livecodebench: 0.7 }, category: 'code', releaseDate: '2025-01-01' },
+    'CODE',
+    { gpuVramMb: 24000, roleBindings: { CODE: 'test:27b', D1: 'other:32b' } }
+  );
+  const penalized = scoreModel(
+    { name: 'test:27b', params: 27, benchmarks: { swebench: 0.6, livecodebench: 0.7 }, category: 'code', releaseDate: '2025-01-01' },
+    'CODE',
+    { gpuVramMb: 24000, roleBindings: { CODE: 'test:27b', D1: 'test:27b', CHAT: 'test:27b', R2: 'test:27b' } }
+  );
+  assert(penalized.totalScore < base.totalScore, `Penalized ${penalized.totalScore} should be < base ${base.totalScore}`);
+  const diff = base.totalScore - penalized.totalScore;
+  assert(Math.abs(diff - 0.03) < 0.001, `Score diff should be ~0.03, got ${diff.toFixed(4)}`);
+});
+
+test('diversity penalty only counts OTHER roles, not the scored role itself', () => {
+  const result = scoreModel(
+    { name: 'test:27b', params: 27, benchmarks: { swebench: 0.5 }, category: 'general', releaseDate: '2025-01-01' },
+    'CODE',
+    { gpuVramMb: 24000, roleBindings: { CODE: 'test:27b' } }
+  );
+  assertEqual(result.breakdown.diversityPenalty, 0, 'Own role not counted');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SUMMARY
 // ═══════════════════════════════════════════════════════════════════════════
 

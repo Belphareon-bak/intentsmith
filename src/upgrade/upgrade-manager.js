@@ -79,10 +79,10 @@ const CPU_ONLY_PARAM_CAP = 14; // Max params for CPU-only inference
 export function checkFeasibility(candidate, role, hwContext = {}) {
   const { gpuVramMb = 0, systemRamGb = 0, freeDiskGb = Infinity } = hwContext;
 
-  // Capability check
+  // Capability check — reject if required capability is missing OR unknown
   const required = ROLE_CAPABILITIES[role] || [];
   for (const cap of required) {
-    if (candidate.capabilities && !candidate.capabilities.includes(cap)) {
+    if (!candidate.capabilities || !candidate.capabilities.includes(cap)) {
       return { feasible: false, reason: `missing capability: ${cap}` };
     }
   }
@@ -773,6 +773,12 @@ export class UpgradeManager {
       } catch (_) {}
     }
 
+    // v120.2: Build role bindings map for diversity penalty
+    const roleBindings = {};
+    for (const [r, p] of Object.entries(MODEL_PROFILES)) {
+      roleBindings[r] = p.getCurrentModel();
+    }
+
     for (const [role, profile] of Object.entries(MODEL_PROFILES)) {
       const current = profile.getCurrentModel();
       const currentParsed = parseModelName(current);
@@ -810,6 +816,19 @@ export class UpgradeManager {
       });
 
       for (const candidate of roleCandidates) {
+        // v120.2: Enrich L1 (local) candidates with catalog data
+        if (candidate.source === 'local' && _catalog?.getCatalogEntry) {
+          const catEntry = _catalog.getCatalogEntry(candidate.name);
+          if (catEntry) {
+            if (!candidate.capabilities) candidate.capabilities = catEntry.capabilities;
+            if (!candidate.benchmarks) candidate.benchmarks = catEntry.benchmarks;
+            if (!candidate.contextWindow) candidate.contextWindow = catEntry.contextWindow;
+            if (!candidate.baseVramMb) candidate.baseVramMb = catEntry.baseVramMb;
+            if (!candidate.releaseDate) candidate.releaseDate = catEntry.releaseDate;
+            if (!candidate.supersedes) candidate.supersedes = catEntry.supersedes;
+          }
+        }
+
         // Benchmark sanity: all benchmarks null → skip
         if (candidate.benchmarks) {
           const hasAny = Object.values(candidate.benchmarks).some(v => v != null);
@@ -881,7 +900,7 @@ export class UpgradeManager {
           currentEntry,
           { ...candidate, effectiveVramMb },
           role,
-          { gpuVramMb: hwContext.gpuVramMb, currentModel: currentEntry },
+          { gpuVramMb: hwContext.gpuVramMb, currentModel: currentEntry, roleBindings },
           empiricalCtx
         );
 
