@@ -152,6 +152,19 @@ ask(clarify) → llm(draft) → review(checkpoint) → llm(refine) → validate(
 
 **`validate`** — Non-interactive. Uses LLM to check content against criteria. Returns PASS (content passes through) or FAIL (skill fails). Enforces the skill's quality contract.
 
+### Transform Step (v122)
+
+**`transform`** — Deterministic JSON transforms. Parses `content` field (with substitution) as JSON, applies a fixed pipeline:
+
+1. **Capability alias normalization** — maps aliases to canonical names (e.g. `tax.calculate` → `tax.compute`)
+2. **Deduplication** — removes duplicate capabilities
+3. **Sorting** — capabilities + tools sorted alphabetically for deterministic output
+4. **ID slug sanitization** — ensures `id` field is lowercase alphanumeric with hyphens
+
+Returns transformed JSON string. Fails on invalid JSON. Strips markdown code fences from input.
+
+Used by `create-specialist` skill in the `sanitize` step to normalize LLM-generated manifests.
+
 ### Substitution Syntax
 
 - `{{paramName}}` — replaced with parameter value
@@ -332,7 +345,7 @@ If `skills/` directory doesn't exist, registry is empty (no crash). SKILL intent
 | `id` | INTEGER PK | Auto-increment |
 | `execution_id` | TEXT FK | References `skill_executions.id` |
 | `step_id` | TEXT | Step ID from definition |
-| `step_type` | TEXT | `llm`, `template`, `write`, `shell`, `ask`, `review`, `validate` |
+| `step_type` | TEXT | `llm`, `template`, `write`, `shell`, `ask`, `review`, `validate`, `transform` |
 | `status` | TEXT | `success`, `error`, or `awaiting_input` |
 | `error_type` | TEXT | `transient`, `validation`, `security`, or null |
 | `output` | TEXT | Step output content |
@@ -376,6 +389,7 @@ If `skills/` directory doesn't exist, registry is empty (no crash). SKILL intent
 | `src/skills/steps/ask.js` | Ask step executor (interactive) |
 | `src/skills/steps/review.js` | Review step executor (interactive) |
 | `src/skills/steps/validate.js` | Validate step executor (LLM criteria check) |
+| `src/skills/steps/transform.js` | Transform step executor (v122: deterministic JSON transforms) |
 | `src/chat/cre-decision.js` | SKILL intent/decision + CRE guard |
 | `src/chat/handlers/skill.js` | Skill handler (resolve, confirm, execute, resume) |
 | `src/chat/handlers/conversation.js` | Handler dispatch + confirmation/resume intercept |
@@ -386,6 +400,7 @@ If `skills/` directory doesn't exist, registry is empty (no crash). SKILL intent
 | `src/llm/auth-types.js` | SKILL_EXECUTOR + SKILL_RESOLVER roles |
 | `skills/create-expertise.json` | Example skill (v2: interactive) |
 | `skills/create-skill.json` | Meta-skill: creates new skill definitions |
+| `skills/create-specialist.json` | Meta-skill: creates specialist packages (v122) |
 | `src/skills/detector.js` | Workflow pattern detection + skill proposals |
 | `src/db/migrations/2026_02_27_022_v85_workflow_patterns.js` | Pattern tracking table |
 | `c3-ide/extensions/c3-settings/` | IDE Settings UI toggle |
@@ -444,6 +459,27 @@ ask(clarify) → llm(generate JSON) → review(checkpoint) → llm(refine) → v
 ```
 
 After completion, the registry auto-reloads to include the new skill.
+
+### Meta-skill: create-specialist (v122)
+
+Creates a new specialist plugin package from chat. Generates `specialist.json` manifest + `index.js` entry point, then auto-reloads the specialist loader.
+
+```
+ask(clarify) → llm(draft manifest) → review(checkpoint) → llm(refine) → validate(schema) → transform(sanitize) → write(manifest) → llm(generate code) → write(entry) → template(done)
+```
+
+**10 steps** with 3 guards:
+- **Capability explosion guard**: LLM prompt instructs to prefer existing capability taxonomy
+- **Plugin boundary guard**: Generated code prompt forbids `../../src/` imports
+- **Tool stubs**: Generated handlers return safe no-op response
+
+The `sanitize` step uses the **`transform`** step type (v122) for deterministic capability alias normalization, deduplication, and sorting.
+
+After completion, `_maybeReloadSpecialist()` in `skill.js` auto-discovers, installs, and enables the new specialist via the loader singleton. Debounce guard prevents concurrent reloads.
+
+**Detection**: Czech + English regex patterns in `META_SKILL_PATTERNS`:
+- CZ: `vytvoř specialistu na překlad`, `nového specialistu pro code review`
+- EN: `create specialist for translation`, `add specialist for code review`
 
 ---
 

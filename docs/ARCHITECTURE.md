@@ -1,6 +1,6 @@
-# C.3 Agent Platform — Architecture v121
+# C.3 Agent Platform — Architecture v122
 
-**Version:** v121.1.0
+**Version:** v122.0.0
 **Status:** Production-ready
 **Date:** 2026-03-11
 
@@ -15,7 +15,7 @@ C.3 is a conversational AI platform combining:
 3. **Project Lifecycle** — Milestone-based project management with crash recovery, checkpoint modes, adaptive retry
 4. **Specialist System** — Self-contained plugin packages with ctx.registries API, CapabilityRegistry (N:M), manifest v2, deterministic boot, fail-safe lifecycle
 5. **Notification Pipeline** — Multi-channel delivery (email, Telegram, ntfy.sh push), trust feedback, digest batching
-6. **Skills System** — Deterministic macro-recipes (LLM, template, write, shell steps), meta-skill for creation
+6. **Skills System** — Deterministic macro-recipes (9 step types incl. transform), meta-skills for expertise + specialist creation, post-completion hooks (auto-reload registries)
 7. **Guarded Autonomy** — Self-tuning CRE parameters via telemetry-driven drift detection
 8. **Memory System** — LTM persistence, injection ranking, feedback detection, pattern tracking
 9. **Code Intelligence** — 33-module pipeline: symbol index, knowledge graph, architecture detection, graph expansion, context building

@@ -2,7 +2,7 @@
 
 Lokální AI platforma pro konverzační asistenci, správu projektů a autonomní agenty. Běží kompletně offline na vlastním hardware — žádný cloud, žádné API klíče, žádné sdílení dat.
 
-**Verze:** 119.0.0 | **352 modulů** | **208 testovacích sad** | **128,300+ řádků kódu**
+**Verze:** 122.0.0 | **360+ modulů** | **220+ testovacích sad** | **135,000+ řádků kódu**
 
 ---
 
@@ -12,7 +12,7 @@ C3 je AI backend + IDE postavený pro vývojáře a knowledge workers, kteří c
 
 ### Konverzace a rozhodování
 - **CRE (Conversational Reasoning Engine)** — single-authority klasifikátor: každý vstup → 1 z 19 typů záměrů → specializovaný handler. 10 guard pravidel, auditní trail, Gatekeeper pattern.
-- **15 doménových expertýz** — 5D capability vektory (reasoning, kreativita, determinismus, risk, verbosity). Merge engine kombinuje až 3 expertýzy v jednom kontextu.
+- **14+ doménových expertýz** + custom specialist expertízy — 5D capability vektory (reasoning, kreativita, determinismus, risk, verbosity). Merge engine kombinuje až 3 expertýzy v jednom kontextu.
 - **Quality Gate v2** — 4-vrstvý deterministický post-processing (structural → language → intent → content). Bez LLM.
 
 ### Projekty a build
@@ -22,8 +22,8 @@ C3 je AI backend + IDE postavený pro vývojáře a knowledge workers, kteří c
 
 ### Agenti a automatizace
 - **Worker agenti** — RSS/HTTP/DB zdroje, deterministické podmínky, cron scheduling, 6 notifikačních kanálů.
-- **Skills** — deterministické workflow (JSON): 8 typů kroků (llm, template, write, shell, ask, review, validate, substitute).
-- **Specialisté** — pluginové balíčky s nástroji, znalostní bází a scénáři. Příklad: `accountant-cz` (české účetnictví).
+- **Skills** — deterministické workflow (JSON): 9 typů kroků (llm, template, write, shell, ask, review, validate, substitute, transform). Meta-skills pro auto-generaci expertíz a specialistů.
+- **Specialisté** — self-contained pluginové balíčky s nástroji, expertízou, znalostní bází a scénáři. `ctx.registries` API, manifest v2, capability routing. Auto-generace přes `create-specialist` skill.
 
 ### Paměť a učení
 - **Dlouhodobá paměť (LTM)** — confidence decay (poločas 69 dní), reinforcement, feedback detekce, cross-session pattern learning.
@@ -31,7 +31,7 @@ C3 je AI backend + IDE postavený pro vývojáře a knowledge workers, kteří c
 - **Cross-Project Learning** — sdílení vzorců mezi projekty (stack similarity scoring, pattern generality).
 
 ### Infrastruktura
-- **Model Upgrade System** — auto-discovery nových modelů, chat-based approval, streaming pull, rollback.
+- **Model Upgrade System** — curated catalog (55 modelů), pairwise evaluation, empirical scoring (Phase 3), L4 online discovery, chat-based approval, streaming pull, rollback.
 - **C3 Studio IDE** — Theia + Electron, 33 rozšíření, chat panel, agent log, settings (12 sekcí), specialist focus mode.
 - **153 nástrojů** ve 35 kategoriích. Sandboxed execution, circuit breaker, risk assessment.
 

@@ -3,10 +3,10 @@
 > Comprehensive plan for strengthening C3's autonomous code generation capabilities.
 > Based on gap analysis of existing infrastructure vs. Claude Code/Opus CLI agent capabilities.
 > Synthesized from architecture review (4 rounds) + second-opinion roadmap comparison.
-> Written 2026-03-04, updated 2026-03-10.
+> Written 2026-03-04, updated 2026-03-11.
 >
 > **Status: ALL FEATURES IMPLEMENTED** — F1-F8 (355 tests), FΔ+F9-F14 (242 tests), total 597 tests.
-> **Post-F-series:** v119 Prompt Pipeline (83 tests) — structured prompts, import map, scope limiter.
+> **Post-F-series:** v119 Prompt Pipeline (83t), v120 Empirical Eval (162t), v121 Specialist Refactor (333t), v122 create-specialist Skill (48t).
 
 ---
 
@@ -937,3 +937,21 @@ These features from the second roadmap already exist in C3 v95–v102:
 After v104 (F3), C3 became an **autonomous debugging agent**.
 After v108 (F6), C3 reached **near-parity with production agent systems** on local hardware.
 After v116 (F14), the full F-series roadmap is **complete** — 597 tests, 0 regressions.
+
+---
+
+## Post-F-Series: v118–v122
+
+| Version | Content | Tests | Date |
+|---------|---------|-------|------|
+| v118 | Model Upgrade Phase 2 (catalog, ranker, proposal store, preference tracker) | 88 | 2026-03-10 |
+| v119 | Prompt Pipeline (prompt-builder, import-map, scope-limiter, signature cache) | 83 | 2026-03-10 |
+| v120 | Empirical Model Evaluation (metrics-collector, empirical-scorer, blended scoring) | 162 | 2026-03-11 |
+| v121 | Self-Contained Specialist System (ctx.registries, CapabilityRegistry, manifest v2, deterministic boot) | 333 | 2026-03-11 |
+| v121.1 | L4 Online Model Discovery (benchmark-estimator, online-discovery, family normalization) | 64 | 2026-03-11 |
+| v122 | create-specialist Skill (transform step, meta-skill detection, loader auto-reload) | 48 | 2026-03-11 |
+
+Key milestones:
+- **v120**: C3 can now **empirically evaluate model quality** from its own build/patch telemetry, blending Phase 2 catalog scores with real-world performance.
+- **v121**: Specialist packages are **fully self-contained** — no hardcoded domain knowledge in core. New specialists can register tools, expertise, boost patterns, scenarios, capabilities, and tool types via `ctx.registries`.
+- **v122**: Users can **create new specialists from chat** via the `create-specialist` meta-skill. The transform step type enables deterministic JSON post-processing.

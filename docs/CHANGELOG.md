@@ -30,6 +30,14 @@ Skill for creating specialist plugins from chat. Generates manifest + entry poin
 ### Tests
 - **48 new tests** (`tests/create-specialist-skill.test.js`): skill JSON validity (15), transform step (13), meta-skill detection (10), loader singleton (2), template paths (3), plugin boundary (3), runner integration (1). 0 regressions on existing 92 specialist tests.
 
+### Bugfixes (v122.1)
+- **`engineVersion` default `65.5.0`** — specialist loader rejected all `>=121.0.0` manifests. Fix: reads from `package.json` dynamically.
+- **Registries not wired to specialist loader** — `expertiseRegistry` + `capabilityRegistry` never passed to loader before `boot()`. Custom expertises from specialists were invisible to the API. Fix: wiring in `server.js`.
+- **FE key mismatch** — `_fetchExpertises()` read `data.expertises` but backend returns `data.experts`. FE never updated from backend → showed only hardcoded builtins. Fix: `data.expertises || data.experts`.
+- **`isCustom` specialist detection** — FE didn't recognize specialist-registered expertises as specialists. Fix: added `e.isCustom` check.
+- **Expertise wizard test-prompt HTTP 500** — `LLMCallerRole.CHAT` doesn't exist. Fix: `LEGACY_DIRECT` + `decisionId` + `auditContext`.
+- **Translator test specialist** added (`specialists/translator/`) — language detection, translate tool, boost patterns, expertise.
+
 ---
 
 ## v121 — Self-Contained Specialist System (2026-03-11)
