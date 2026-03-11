@@ -548,12 +548,15 @@ Discovery:
   L2: Catalog (55 curated models with benchmarks) — fullCycle (24h ±90min)
   L3: Family upgrade hints — always
 
-Pairwise Evaluation:
-  scoreModel((benchmark×B + empirical×E) + hwFit×0.20 + maturity×0.15 + gen×0.10 + cat×0.10 + speed×0.10)
+Pairwise Evaluation (v120.2 calibration):
+  scoreModel(benchmark×B + empirical×E + hwFit×0.20 + maturity×0.15 + gen×0.10 + cat×0.13 + speed×0.07 + sizePenalty)
   B+E = 0.35, blend ratio shifts with sample count:
     <10 samples:  B=0.35, E=0.00 (Phase 2 behavior)
     10-50:        B=0.25, E=0.10
     >50:          B=0.15, E=0.20
+  CODE benchmark weights: swebench 0.15, livecodebench 0.40, humaneval 0.30, arena 0.15
+  Category bonus: code+CODE 0.10 (was 0.05). Size floor: CODE params<20B → -0.05.
+  Dominance gate bypassed when empirical delta >0.15 (Phase 3 data overrides heuristic)
   empiricalScore = patchSuccess×0.45 + checkpointPass×0.35 + efficiency×0.20
   Hard cap: empirical contribution ≤ 0.25
 
@@ -694,7 +697,7 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 | Architecture governance | 57 | Guardian, contracts, critic |
 | Architecture intelligence | 161 | Policy, context, refactor, predictor, KB, multi-agent |
 | Large project scaling | 107 | Graph storage, BFS, streaming, concept registry |
-| Model upgrade (v103+v118+v120) | 214 | Discovery, catalog, pairwise, proposals, approval, pull, empirical scoring |
+| Model upgrade (v103+v118+v120.2) | 221 | Discovery, catalog, pairwise, proposals, approval, pull, empirical scoring |
 | Project E2E | 56 | 4 project types, lifecycle, milestones |
 
 ---
@@ -751,9 +754,9 @@ All memory systems use exponential decay: LTM (λ=0.01, half-life ~69d), Task Me
 | G (Code Intel) | 100% | 33 modules, symbol index, KG, graph expansion, architecture detection |
 | H (Agent Evolution) | 100% | F1-F8 core (355 tests), FΔ+F9-F14 extensions (242 tests) |
 | I (Governance) | 100% | Guardian, contracts, critic, policy, regression prediction, multi-agent |
-| J (Model Mgmt) | 100% | Phase 1-3: discovery, catalog (55 models), pairwise eval, proposals, empirical scoring (214 tests) |
+| J (Model Mgmt) | 100% | Phase 1-3: discovery, catalog (55 models), pairwise eval, proposals, empirical scoring (221 tests) |
 | K (Prompt Pipeline) | 100% | Prompt builder, import map, scope limiter, signature cache (83 tests) |
 
 ---
 
-*This document reflects C.3 Agent Platform v120.0.0 architecture (2026-03-11).*
+*This document reflects C.3 Agent Platform v120.2.0 architecture (2026-03-11).*

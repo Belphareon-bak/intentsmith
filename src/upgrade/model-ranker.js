@@ -6,20 +6,21 @@
 //
 // Score formula (0-1):
 //   benchmarkScore * 0.35 + hardwareFit * 0.20 + maturity * 0.15
-//   + generation * 0.10 + category * 0.10 + speedScore * 0.10
+//   + generation * 0.10 + category * 0.13 + speedScore * 0.07
+//   + sizePenalty (CODE role: params<20B → -0.05)
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { parseModelName, isNewerVersion } from './model-profiles.js';
 
-export const EVALUATION_VERSION = 'v120.1';
+export const EVALUATION_VERSION = 'v120.2';
 
 // ─── Benchmark Weights per Role ──────────────────────────────────────────────
 
 export const BENCHMARK_WEIGHTS = {
   D1:     { swebench: 0.20, reasoning: 0.50, mmlu: 0.20, arena: 0.10 },
   D2:     { swebench: 0.30, reasoning: 0.20, mmlu: 0.30, arena: 0.20 },
-  CODE:   { swebench: 0.45, livecodebench: 0.30, humaneval: 0.15, arena: 0.10 },
+  CODE:   { swebench: 0.15, livecodebench: 0.40, humaneval: 0.30, arena: 0.15 },
   R1:     { swebench: 0.20, reasoning: 0.50, mmlu: 0.20, arena: 0.10 },
   R2:     { swebench: 0.10, reasoning: 0.30, mmlu: 0.40, arena: 0.20 },
   CHAT:   { swebench: 0.15, reasoning: 0.15, mmlu: 0.35, arena: 0.35 },
@@ -58,10 +59,12 @@ export function computeBenchmarkScore(benchmarks, role) {
 }
 
 /**
- * Category bonus — small bump for category-role alignment.
+ * Category bonus — alignment between model specialization and role.
+ * Code+CODE gets 0.10 (raised from 0.05 — P5 data shows coder models
+ * significantly outperform generalists in pipeline execution).
  */
 export function computeCategoryBonus(category, role) {
-  if (category === 'code' && role === 'CODE') return 0.05;
+  if (category === 'code' && role === 'CODE') return 0.10;
   if (category === 'reasoning' && (role === 'D1' || role === 'R1')) return 0.05;
   if (category === 'vision' && role === 'VISION') return 0.10;
   return 0;
@@ -177,15 +180,19 @@ export function scoreModel(model, role, context = {}, empirical = {}) {
   // Hard cap: empirical contribution <= MAX_EMPIRICAL_CONTRIBUTION (0.25)
   const es = ew > 0 ? Math.min(rawEs, 0.25 / ew) : rawEs;
 
-  const totalScore = Math.min(1.0,
+  // v120.2: Size floor for CODE role — small models (<20B) get penalized
+  const sizePenalty = (role === 'CODE' && (model.params || 0) > 0 && (model.params || 0) < 20) ? -0.05 : 0;
+
+  const totalScore = Math.max(0, Math.min(1.0,
     benchmark * bw +
     es * ew +
     hwFit * 0.20 +
     maturity * 0.15 +
     generation * 0.10 +
-    category * 0.10 +
-    speed * 0.10
-  );
+    category * 0.13 +
+    speed * 0.07 +
+    sizePenalty
+  ));
 
   return {
     totalScore,
@@ -286,6 +293,12 @@ export function evaluateUpgrade(current, candidate, role, context = {}, empirica
   }
 
   // Dominance gate — no dimension worse by >20%
+  // v120.2: Relax when empirical data strongly favors candidate
+  const empiricalDelta = (empiricalCtx.candidate?.empiricalScore ?? 0)
+                       - (empiricalCtx.current?.empiricalScore ?? 0);
+  const strongEmpirical = empiricalDelta > 0.15
+    && (empiricalCtx.candidate?.blendWeights?.empiricalWeight ?? 0) > 0;
+
   const dominanceChecks = [
     ['hardwareFit', candidateScoreResult.breakdown.hardwareFit, currentScoreResult.breakdown.hardwareFit],
     ['speed', candidateScoreResult.breakdown.speed, currentScoreResult.breakdown.speed],
@@ -298,7 +311,7 @@ export function evaluateUpgrade(current, candidate, role, context = {}, empirica
   }
 
   for (const [dim, candVal, curVal] of dominanceChecks) {
-    if (curVal > 0 && candVal < curVal * 0.8) {
+    if (curVal > 0 && candVal < curVal * 0.8 && !strongEmpirical) {
       return {
         shouldUpgrade: false,
         currentScore: currentScoreResult.totalScore,
@@ -341,6 +354,13 @@ export function evaluateUpgrade(current, candidate, role, context = {}, empirica
  *   10-50:        B=0.25, E=0.10
  *   >50:          B=0.15, E=0.20
  *   Hard cap: empirical contribution <= 0.25
+ *
+ * v120.2 calibration:
+ *   CODE weights: livecodebench=0.40, humaneval=0.30, swebench=0.15, arena=0.15
+ *   Category bonus: code+CODE=0.10 (was 0.05)
+ *   Score weights: category=0.13, speed=0.07 (was 0.10/0.10)
+ *   Size floor: CODE role, params<20B → -0.05 penalty
+ *   Dominance gate relaxed when empirical delta > 0.15
  */
 
 /**

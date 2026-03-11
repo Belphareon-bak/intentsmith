@@ -669,8 +669,8 @@ test('hard cap prevents empirical from dominating', () => {
   assert(result.totalScore <= 1.0, 'Score should be capped at 1.0');
 });
 
-test('EVALUATION_VERSION is v120.1', () => {
-  assertEqual(EVALUATION_VERSION, 'v120.1');
+test('EVALUATION_VERSION is v120.2', () => {
+  assertEqual(EVALUATION_VERSION, 'v120.2');
 });
 
 suite('Blended Scoring — evaluateUpgrade');

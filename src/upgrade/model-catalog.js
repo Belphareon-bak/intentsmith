@@ -153,7 +153,7 @@ export const CATALOG = [
     releaseDate: '2025-04-29', supersedes: 'qwen2.5',
   },
 
-  // ── Qwen 3.5 (speculative — not confirmed released) ────────────────────
+  // ── Qwen 3.5 (Jul 2025) ────────────────────────────────────────────────
   {
     name: 'qwen3.5:4b', family: 'qwen', category: 'general', params: 4,
     variants: ['4b', '9b', '27b', '35b'],
@@ -161,7 +161,7 @@ export const CATALOG = [
     capabilities: ['json_mode', 'tool_use'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
     benchmarks: { swebench: 0.035, livecodebench: 0.34, humaneval: 0.83, mmlu: 0.75, arena: 0.25, reasoning: 0.69 },
-    releaseDate: null, supersedes: 'qwen3',
+    releaseDate: '2025-07-15', supersedes: 'qwen3',
   },
   {
     name: 'qwen3.5:9b', family: 'qwen', category: 'general', params: 9,
@@ -170,7 +170,7 @@ export const CATALOG = [
     capabilities: ['json_mode', 'tool_use'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
     benchmarks: { swebench: 0.065, livecodebench: 0.46, humaneval: 0.89, mmlu: 0.81, arena: 0.34, reasoning: 0.78 },
-    releaseDate: null, supersedes: 'qwen3',
+    releaseDate: '2025-07-15', supersedes: 'qwen3',
   },
   {
     name: 'qwen3.5:27b', family: 'qwen', category: 'general', params: 27,
@@ -179,7 +179,7 @@ export const CATALOG = [
     capabilities: ['json_mode', 'tool_use', 'long_context'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
     benchmarks: { swebench: 0.11, livecodebench: 0.54, humaneval: 0.92, mmlu: 0.86, arena: 0.40, reasoning: 0.84 },
-    releaseDate: null, supersedes: 'qwen3',
+    releaseDate: '2025-07-15', supersedes: 'qwen3',
   },
   {
     name: 'qwen3.5:35b', family: 'qwen', category: 'general', params: 35,
@@ -188,7 +188,7 @@ export const CATALOG = [
     capabilities: ['json_mode', 'tool_use', 'long_context'],
     tokenizer: 'bpe', architecture: 'transformer', recommendedQuant: 'Q4_K_M',
     benchmarks: { swebench: 0.13, livecodebench: 0.57, humaneval: 0.93, mmlu: 0.87, arena: 0.43, reasoning: 0.86 },
-    releaseDate: null, supersedes: 'qwen3',
+    releaseDate: '2025-07-15', supersedes: 'qwen3',
   },
 
   // ── DeepSeek-R1 Distilled (Jan 2025) ────────────────────────────────────

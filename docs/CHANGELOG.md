@@ -48,6 +48,36 @@ Architectural refactor making specialist packages truly self-contained. Zero har
 
 ---
 
+## v120.2 — Scoring Calibration (2026-03-11)
+
+Scoring weight recalibration based on P5 pipeline test results. SWE-bench measures repo bug fixing, but C3 pipeline generates new code — livecodebench and humaneval are better signals.
+
+### Benchmark Weight Changes (`model-ranker.js`)
+- **CODE role benchmark weights**: swebench 0.45→0.15, livecodebench 0.30→0.40, humaneval 0.15→0.30, arena 0.10→0.15.
+- **Category bonus**: code+CODE role 0.05→0.10. P5 data shows coder models significantly outperform generalists.
+- **Weight rebalance**: category 0.10→0.13, speed 0.10→0.07.
+- **Size floor**: CODE role params<20B → -0.05 penalty. Small models have lower code reasoning despite better hwFit.
+
+### Formula
+```
+benchmarkScore × B + empirical × E + hwFit × 0.20 + maturity × 0.15 + generation × 0.10 + category × 0.13 + speed × 0.07 + sizePenalty
+```
+
+### Dominance Gate Relaxation (`upgrade-manager.js`)
+- When empirical delta >0.15 (Phase 3 data), dominance gate is bypassed. Real pipeline data should override heuristic safeguards.
+
+### Catalog Fix (`model-catalog.js`)
+- `qwen3.5` releaseDate null→'2025-07-15' (model is released, was incorrectly marked speculative).
+
+### Versioning
+- **`EVALUATION_VERSION`**: v120.1→v120.2 (triggers proposal invalidation).
+
+### Tests
+- **95 Phase 2 tests** (was 88) + **67 Phase 3 tests** + **28+31 flow+apply** = **221 total upgrade tests**.
+- **0 regressions**.
+
+---
+
 ## v120 — Phase 3 Empirical Model Evaluation (2026-03-11)
 
 Empirical scoring from real execution metrics, blended with static benchmarks for self-learning model evaluation.
