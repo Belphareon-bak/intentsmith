@@ -445,7 +445,10 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
     // Force re-check upgrades
     'POST /api/system/upgrades/check': async (req, res) => {
       try {
-        const { proposals, discovery } = await upgradeManager.checkForUpgrades();
+        const body = await parseBody(req).catch(() => ({}));
+        const opts = {};
+        if (body.fullCycle) opts.fullCycle = true;
+        const { proposals, discovery } = await upgradeManager.checkForUpgrades(opts);
         sendJSON(res, 200, {
           proposals,
           formatted: UpgradeManager.formatProposals(proposals),
