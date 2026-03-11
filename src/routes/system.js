@@ -812,6 +812,88 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
       }
     },
 
+    // v121.3: Curated model recommendations with semaphore scoring
+    'GET /api/system/upgrades/recommendations': async (req, res) => {
+      try {
+        const { RECOMMENDATION_SECTIONS, computeSemaphore } = await import('../upgrade/model-recommendations.js');
+        const { scoreModel } = await import('../upgrade/model-ranker.js');
+        const { getCatalogEntry } = await import('../upgrade/model-catalog.js');
+        const { MODEL_PROFILES } = await import('../upgrade/model-profiles.js');
+        const { getSystemProfile } = await import('../system/gpu-detector.js');
+
+        // Hardware context
+        let gpuVramMb = 0;
+        try {
+          const profile = await getSystemProfile();
+          if (profile.gpus?.length > 0) gpuVramMb = Math.max(...profile.gpus.map(g => g.vram_mb || 0));
+        } catch (_) {}
+
+        // Role bindings
+        const roleBindings = {};
+        for (const [r, p] of Object.entries(MODEL_PROFILES)) {
+          roleBindings[r] = p.getCurrentModel();
+        }
+
+        // Fetch installed models from Ollama
+        const installedSet = new Set();
+        try {
+          const r = await fetch(`${config.ollama.baseUrl}/api/tags`, { signal: AbortSignal.timeout(5000) });
+          const data = await r.json();
+          for (const m of (data.models || [])) installedSet.add(m.name);
+        } catch (_) {}
+
+        // Get catalog entry set for "inCatalog" flag
+        const { CATALOG } = await import('../upgrade/model-catalog.js');
+        const catalogSet = new Set(CATALOG.map(e => e.name));
+
+        const scoringContext = { gpuVramMb, roleBindings };
+
+        // Enrich each section
+        const sections = RECOMMENDATION_SECTIONS.map(section => ({
+          id: section.id,
+          title: section.title,
+          subtitle: section.subtitle,
+          icon: section.icon,
+          models: section.models.map(m => {
+            const installed = installedSet.has(m.name);
+            const inCatalog = catalogSet.has(m.name);
+
+            // Compute semaphore for each role this model serves
+            const semaphores = {};
+            for (const role of (m.roles || [])) {
+              const currentModel = roleBindings[role];
+              const currentEntry = getCatalogEntry(currentModel);
+              semaphores[role] = computeSemaphore(m, currentEntry, role, scoreModel, scoringContext);
+            }
+
+            // Best semaphore (upgrade > sidegrade > downgrade > unknown)
+            const order = { upgrade: 3, sidegrade: 2, downgrade: 1, unknown: 0 };
+            const bestSemaphore = Object.values(semaphores).reduce((best, s) =>
+              (order[s] || 0) > (order[best] || 0) ? s : best, 'unknown');
+
+            // Current model info for "replaces" hint
+            const replaces = {};
+            for (const role of (m.roles || [])) {
+              replaces[role] = roleBindings[role] || null;
+            }
+
+            return {
+              ...m,
+              installed,
+              inCatalog,
+              semaphores,
+              bestSemaphore,
+              replaces,
+            };
+          }),
+        }));
+
+        sendJSON(res, 200, { sections, gpuVramMb });
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
     'POST /api/system/proposals/:id/dismiss': async (req, res) => {
       try {
         const match = req.url.match(/\/api\/system\/proposals\/(\d+)\/dismiss/);
