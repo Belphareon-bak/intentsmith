@@ -356,10 +356,14 @@ export class KnowledgeBase {
  * Seed the knowledge base with accountant tax rates from the hardcoded RATES object.
  * Idempotent — uses upsert, safe to call multiple times.
  *
+ * @deprecated v121: Use specialists/accountant-cz/knowledge/seed.js instead.
+ *   This function is kept for backwards compatibility but will be removed in a future version.
+ *
  * @param {KnowledgeBase} kb
  * @param {Object} RATES - The static RATES object from tax-rates.js
  */
 export function seedTaxRates(kb, RATES) {
+  logger.warn?.('KnowledgeBase', 'seedTaxRates() is deprecated — use accountant specialist knowledge/seed.js instead');
   const facts = [];
 
   for (const [yearStr, yearData] of Object.entries(RATES)) {

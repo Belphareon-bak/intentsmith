@@ -1,6 +1,6 @@
-# C.3 Agent Platform — Architecture v120
+# C.3 Agent Platform — Architecture v121
 
-**Version:** v120.0.0
+**Version:** v121.0.0
 **Status:** Production-ready
 **Date:** 2026-03-11
 
@@ -13,7 +13,7 @@ C.3 is a conversational AI platform combining:
 1. **CRE (Conversational Reasoning Engine)** — Authoritative dialog management, intent classification (19 types), epistemic correctness
 2. **Agent Platform** — Deterministic worker agents with source fetching, conditions, triggers, notifications
 3. **Project Lifecycle** — Milestone-based project management with crash recovery, checkpoint modes, adaptive retry
-4. **Expertise System** — 15 domain expertises with 5D capability profiles, multi-expertise merge engine, enforcement pipeline
+4. **Specialist System** — Self-contained plugin packages with ctx.registries API, CapabilityRegistry (N:M), manifest v2, deterministic boot, fail-safe lifecycle
 5. **Notification Pipeline** — Multi-channel delivery (email, Telegram, ntfy.sh push), trust feedback, digest batching
 6. **Skills System** — Deterministic macro-recipes (LLM, template, write, shell steps), meta-skill for creation
 7. **Guarded Autonomy** — Self-tuning CRE parameters via telemetry-driven drift detection

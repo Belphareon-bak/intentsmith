@@ -2,12 +2,12 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { strict as assert } from 'assert';
-import { toCents, toCZK } from '../src/expertises/ledger/ledger-engine.js';
+import { toCents, toCZK } from '../specialists/accountant-cz/ledger/ledger-engine.js';
 import {
   computeSocialOverview, computeHealthOverview, computeInsuranceOverviews,
   generateAdvanceSchedule, reconcilePayments,
-} from '../src/expertises/ledger/ledger-insurance.js';
-import { RATES } from '../src/expertises/tools/tax-rates.js';
+} from '../specialists/accountant-cz/ledger/ledger-insurance.js';
+import { RATES } from '../specialists/accountant-cz/tools/tax-rates.js';
 
 let passed = 0, failed = 0;
 const failures = [];

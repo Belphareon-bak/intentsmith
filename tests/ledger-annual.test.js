@@ -3,12 +3,12 @@
 
 import { strict as assert } from 'assert';
 import Database from 'better-sqlite3';
-import { LedgerRepository } from '../src/expertises/ledger/ledger-repository.js';
-import { toCents, toCZK, computeAnnualSummary } from '../src/expertises/ledger/ledger-engine.js';
+import { LedgerRepository } from '../specialists/accountant-cz/ledger/ledger-repository.js';
+import { toCents, toCZK, computeAnnualSummary } from '../specialists/accountant-cz/ledger/ledger-engine.js';
 import {
   applyTaxLosses, detectTaxLoss, generateTaxReturnData, computeYearCloseSummary,
-} from '../src/expertises/ledger/ledger-annual.js';
-import { RATES } from '../src/expertises/tools/tax-rates.js';
+} from '../specialists/accountant-cz/ledger/ledger-annual.js';
+import { RATES } from '../specialists/accountant-cz/tools/tax-rates.js';
 
 let passed = 0, failed = 0;
 const failures = [];

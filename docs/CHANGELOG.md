@@ -8,6 +8,46 @@
 
 ---
 
+## v121 — Self-Contained Specialist System (2026-03-11)
+
+Architectural refactor making specialist packages truly self-contained. Zero hardcoded dependencies in core — all domain data (tools, expertise, boost patterns, scenarios, knowledge, tool types) registered dynamically via `ctx.registries`.
+
+### Core Registry API (`specialist-loader.js`, `auto-select.js`, `cre-decision.js`, `tool-executor.js`)
+- **ctx.registries namespace**: `{ autoSelect, scenario, cre, toolExecutor, capability, expertise }` passed to `register(ctx)`.
+- **Data-driven boost patterns**: `registerBoostPatterns()` / `unregisterBoostPatterns()` — accountant removed from defaults.
+- **Dynamic ToolType**: `registerToolType()` / `unregisterToolType()` — 6 accountant entries removed from static enum.
+- **ToolExecutor**: `unregister()` method, accountant handlers removed from hardcoded init.
+- **Fail-safe disable**: Each cleanup step in try/catch — no ghost registrations.
+
+### Accountant Self-Contained Package (`specialists/accountant-cz/`)
+- **`knowledge/seed.js`**: Tax rate seeding moved from core `knowledge-base.js`.
+- **`scenarios/tax-optimization.js`**: 5-step guided scenario moved from core `scenario-engine.js`.
+- **`index.js`**: Full `register(ctx)` / `unregister(ctx)` — tools, expertise, boost patterns, knowledge, scenarios, tool types, tool handlers, capabilities.
+- **`specialist.json`**: Manifest v2 (`manifestVersion: 2`, `capabilities[]`, `defaultExpertise`).
+- **Ledger**: 7 files (2,842 LOC) moved from `src/expertises/ledger/` — zero core imports.
+
+### Core Cleanup
+- `expertise-layer.js`: Accountant removed from `BUILTIN_EXPERTISES`.
+- `scenario-engine.js`: Hardcoded accountant scenario removed (~165 LOC).
+- `knowledge-base.js`: `seedTaxRates()` deprecated.
+
+### Manifest v2 + Package Stability
+- **Manifest validation**: `manifestVersion`, `capabilities[]` (dotted notation), `defaultExpertise` path.
+- **Deterministic boot**: Alphabetical secondary sort in Kahn's algorithm.
+- **defaultExpertise auto-load**: If expertise doesn't exist in registry, auto-register from JSON file.
+- **Plugin sandbox**: Warn on `../../src/` imports in specialist entry points.
+
+### Capability Registry (`src/specialists/capability-registry.js`, ~140 LOC)
+- N:M `capability → specialist[]` mapping. Priority-based resolution (higher first, registration order as tiebreaker).
+- `register()`, `unregister()`, `unregisterBySpecialist()`, `resolve()`, `getSpecialistCapabilities()`, `has()`.
+
+### Tests
+- **115 new tests**: specialist-registries (28), accountant-self-contained (24), ledger-rewire (23), manifest-v2 (19), capability-registry (21).
+- **218 existing ledger tests**: Rewired to new paths, all pass.
+- **0 regressions**: 333 total tests pass.
+
+---
+
 ## v120 — Phase 3 Empirical Model Evaluation (2026-03-11)
 
 Empirical scoring from real execution metrics, blended with static benchmarks for self-learning model evaluation.

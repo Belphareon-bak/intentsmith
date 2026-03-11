@@ -1,6 +1,6 @@
 # C.3 Specialists
 
-**Verze:** v90.1 (2026-03-01)
+**Verze:** v121 (2026-03-11)
 
 Viz take: [SPECIALIST-LIFECYCLE.md](SPECIALIST-LIFECYCLE.md) | [EXPERTISES.md](EXPERTISES.md) | [WORKERS.md](WORKERS.md) | [C3-Merge-Engine-v2-FINAL.md](C3-Merge-Engine-v2-FINAL.md)
 
@@ -8,36 +8,73 @@ Viz take: [SPECIALIST-LIFECYCLE.md](SPECIALIST-LIFECYCLE.md) | [EXPERTISES.md](E
 
 ## Obsah
 
-1. [Terminologie](#terminologie) — specialist vs expertiza
-2. [Architektura](#architektura) — jak specialist system funguje
+1. [Terminologie](#terminologie) — 4 runtime entity + 1 generativni
+2. [Architektura](#architektura) — self-contained specialist system
 3. [Accountant Specialist](#accountant-specialist) — deterministicke danove nastroje
 4. [Dummy Logger Specialist](#dummy-logger-specialist) — utility pro platform testing
-5. [Platform komponenty](#platform-komponenty) — runtime, loader, memory, telemetry
+5. [Platform komponenty](#platform-komponenty) — runtime, loader, registries
 6. [REST API](#rest-api) — 8 endpointu
-7. [Stav implementace](#stav-implementace) — co je hotovo, co chybi
-8. [Budouci specialiste](#budouci-specialiste)
+7. [Plugin Contract](#plugin-contract) — co specialist smi a nesmi
+8. [Manifest v2](#manifest-v2) — specialist.json format
+9. [Stav implementace](#stav-implementace)
+10. [Budouci specialiste](#budouci-specialiste)
 
 ---
 
 ## Terminologie
 
-| Pojem | Vyznam | Priklad |
-|-------|--------|---------|
-| **Specialista** | Persona/agent — "kdo". Ma styl, nastroje, znalosti. | Ucetni, Pravnik |
-| **Expertiza** | Lehky knowledge modul na tema — "co umi". | Kontrolni hlaseni, DPH, Hypoteky |
+| Entita | Role | Runtime | Vlastnictvi |
+|--------|------|---------|-------------|
+| **Expertise** | routing knowledge | read-only | globalni |
+| **Capability** | schopnost systemu | N:M routing | globalni |
+| **Specialist** | execution plugin | self-contained | package dir |
+| **Tool** | deterministicka funkce | ToolAdapter | soucast specialist |
+| **Skill** | generativni workflow | NENI runtime | nezavisle |
 
-Vztah: Specialista **vlastni kolekci** expertiz. Muze jich mit N. Ma oblibene (label).
+### Klicove vztahy
+- Specialist **uses** expertise (ne owns). Funguje i bez.
+- Capability resi N:M: `expertise → capability → specialist[]`
+- Tool ma vlastni lifecycle (match/execute/validate/fail)
+- Skill nikdy neni runtime komponenta
 
 ---
 
 ## Architektura
 
-Specialist je self-contained balik v `specialists/` adresari. Pri bootu serveru se automaticky objevi, nainstaluje a aktivuje pres **Specialist Loader**.
+Specialist je self-contained balik v `specialists/` adresari. **Nulove hardcoded zavislosti v core** — vsechny domenove data registrovane dynamicky pres `ctx.registries`.
 
 ```
 specialists/
   accountant-cz/          ← domain specialist (finance)
+    index.js              ← register(ctx) / unregister(ctx)
+    specialist.json       ← manifest v2
+    adapters.js           ← ToolAdapter subclasses
+    tools/                ← deterministic functions
+    knowledge/seed.js     ← knowledge base seeding
+    scenarios/            ← guided multi-step scenarios
+    ledger/               ← 7 ledger modules (2,842 LOC)
   dummy-logger/           ← utility specialist (testing)
+```
+
+### Registration Context (ctx)
+
+```javascript
+ctx = {
+  runtime,              // SpecialistRuntime
+  db,                   // SQLite
+  manifest,             // specialist.json
+  specialistDir,        // absolute path
+  logger,
+  knowledgeBase,        // KnowledgeBase instance
+  registries: {
+    autoSelect,         // { registerBoostPatterns, unregisterBoostPatterns }
+    scenario,           // ScenarioRegistry (register, unregisterBySpecialist)
+    cre,                // { registerToolType, unregisterToolType, isKnownTool }
+    toolExecutor,       // ToolExecutor singleton (register/unregister handlers)
+    capability,         // CapabilityRegistry (register, resolve, unregisterBySpecialist)
+    expertise,          // ExpertiseRegistry (addCustom, removeCustom, get)
+  },
+};
 ```
 
 ### Pipeline
@@ -76,6 +113,51 @@ TaggedResponse s metadaty { expertise, toolResults }
 ### Klicovy princip
 
 **Cisla pochazi z deterministickych vypoctu, ne z LLM.** LLM v roli specialisty NIKDY nepocita — pouze formatuje vysledky nastroju do citelne formy.
+
+---
+
+## Plugin Contract
+
+### Specialist SMI:
+- `ctx.runtime` — registerSpecialist, unregisterSpecialist
+- `ctx.registries.*` — boost patterns, scenarios, tool types, capabilities, expertise
+- `ctx.knowledgeBase` — bulkSetFacts
+- `ctx.db`, `ctx.logger`
+
+### Specialist NESMI:
+- `import ... from '../../src/...'` — warn v121, hard reject v budouci verzi
+- Upravovat globalni stav mimo ctx.registries
+
+### Fail-safe unregister:
+- Kazdy cleanup krok v try/catch
+- Loader provadi defensivni cleanup VSECH registru po unregister()
+
+---
+
+## Manifest v2
+
+```json
+{
+  "id": "accountant-cz",
+  "version": "2.0.0",
+  "manifestVersion": 2,
+  "name": "Ucetni specialista (CZ)",
+  "domain": "finance",
+  "type": "domain",
+  "engine": ">=121.0.0",
+  "entry": "./index.js",
+  "tools": [...],
+  "capabilities": ["tax.calculate", "vat.compute", "salary.compute"],
+  "expertises": ["accountant"],
+  "defaultExpertise": "./expertise.json",
+  "enabledByDefault": true
+}
+```
+
+- `manifestVersion`: 1 (backwards compat) nebo 2
+- `capabilities`: dotted notation `/^[a-z][a-z0-9]*\.[a-z][a-z0-9]*$/`
+- `defaultExpertise`: auto-load pokud expertise neexistuje v registru
+- Boot order: topological sort (dependencies) + alphabetical (deterministic)
 
 ---
 

@@ -1,12 +1,13 @@
 {
   "id": "accountant-cz",
-  "version": "1.0.0",
+  "version": "2.0.0",
+  "manifestVersion": 2,
   "name": "Ucetni specialista (CZ)",
   "description": "OSVC danova evidence, DPH, pojistne, compliance, reporty",
   "author": "c3-core",
   "domain": "finance",
   "type": "domain",
-  "engine": ">=65.0.0",
+  "engine": ">=121.0.0",
   "entry": "./index.js",
 
   "tools": [
@@ -42,7 +43,16 @@
     }
   ],
 
+  "capabilities": [
+    "tax.calculate",
+    "tax.compare",
+    "vat.compute",
+    "salary.compute",
+    "deadline.check"
+  ],
+
   "expertises": ["accountant"],
+  "defaultExpertise": "./expertise.json",
 
   "knowledge_packs": ["tax-rates"],
 
@@ -53,19 +63,5 @@
     "default_tax_regime": "actual"
   },
 
-  "enabledByDefault": true,
-
-  "future": {
-    "capabilities": [
-      "tax.calculate",
-      "tax.compare",
-      "vat.compute",
-      "salary.compute",
-      "deadline.check",
-      "ledger.record",
-      "ledger.report",
-      "compliance.check"
-    ],
-    "notes": "Reserved for capability extraction in Phase 3 (multi-specialist reuse)"
-  }
+  "enabledByDefault": true
 }

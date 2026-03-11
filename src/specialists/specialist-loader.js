@@ -21,12 +21,51 @@ import { logger } from '../core/logger.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// v121: Lazy-loaded registries for specialist ctx.registries
+let _autoSelectReg = null;
+let _creReg = null;
+let _toolExecutorRef = null;
+
+async function _ensureAutoSelect() {
+  if (!_autoSelectReg) {
+    const mod = await import('../expertises/auto-select.js');
+    _autoSelectReg = {
+      registerBoostPatterns: mod.registerBoostPatterns,
+      unregisterBoostPatterns: mod.unregisterBoostPatterns,
+      getPatterns: mod.getBoostPatterns,
+    };
+  }
+  return _autoSelectReg;
+}
+
+async function _ensureCRE() {
+  if (!_creReg) {
+    const mod = await import('../chat/cre-decision.js');
+    _creReg = {
+      registerToolType: mod.registerToolType,
+      unregisterToolType: mod.unregisterToolType,
+      isKnownTool: mod.isKnownTool,
+    };
+  }
+  return _creReg;
+}
+
+async function _ensureToolExecutor() {
+  if (!_toolExecutorRef) {
+    const mod = await import('../executor/tool-executor.js');
+    _toolExecutorRef = mod.toolExecutor;
+  }
+  return _toolExecutorRef;
+}
+
 // ─── Manifest Validation ────────────────────────────────────────────────────
 
 const ID_PATTERN = /^[a-z0-9-]+$/;
 const DOMAIN_PATTERN = /^[a-z0-9_]+$/;
 const SEMVER_PATTERN = /^\d+\.\d+\.\d+$/;
 const VALID_TYPES = ['domain', 'utility', 'integration'];
+// v121: Capability dotted notation (e.g. "tax.calculate", "vat.compute")
+const CAPABILITY_PATTERN = /^[a-z][a-z0-9]*\.[a-z][a-z0-9]*$/;
 
 /**
  * Validate a specialist.json manifest.
@@ -82,6 +121,30 @@ function validateManifest(manifest) {
         }
       }
     }
+  }
+
+  // v121: Manifest v2 fields (optional — v1 backwards compat)
+  const manifestVersion = manifest.manifestVersion ?? 1;
+  if (manifestVersion !== 1 && manifestVersion !== 2) {
+    errors.push(`manifestVersion must be 1 or 2 (got ${manifestVersion})`);
+  }
+
+  // v121: Capabilities validation (only for v2)
+  if (manifest.capabilities) {
+    if (!Array.isArray(manifest.capabilities)) {
+      errors.push('capabilities must be an array');
+    } else {
+      for (const cap of manifest.capabilities) {
+        if (typeof cap !== 'string' || !CAPABILITY_PATTERN.test(cap)) {
+          errors.push(`capability "${cap}" must match dotted notation (e.g. "tax.calculate")`);
+        }
+      }
+    }
+  }
+
+  // v121: defaultExpertise path validation
+  if (manifest.defaultExpertise && typeof manifest.defaultExpertise !== 'string') {
+    errors.push('defaultExpertise must be a string path');
   }
 
   return { valid: errors.length === 0, errors };
@@ -409,6 +472,8 @@ export class SpecialistLoader {
   /**
    * Enable a single specialist.
    * Supports ESM cache busting for update flow.
+   *
+   * v121: Expanded ctx with registries for self-contained specialists.
    */
   async _enableOne(id, { manifest, dir }) {
     const needsBust = this._needsCacheBust.has(id);
@@ -439,19 +504,69 @@ export class SpecialistLoader {
       throw new Error(`${id}/index.js must export register(ctx)`);
     }
 
-    // Build registration context
+    // v121 2d: Plugin stability contract — warn on core imports (static analysis)
+    try {
+      const entryContent = fs.readFileSync(entryPath, 'utf-8');
+      const coreImportPattern = /from\s+['"]\.\.\/\.\.\/src\//g;
+      const matches = entryContent.match(coreImportPattern);
+      if (matches) {
+        logger.warn('SpecialistLoader',
+          `${id}/index.js imports from core (../../src/) — ${matches.length} occurrence(s). ` +
+          'Specialists should use ctx.registries instead. This will become an error in a future version.');
+      }
+    } catch { /* non-fatal — file read may fail */ }
+
+    // v121: Build expanded registration context with registries
+    const [autoSelect, cre, toolExecutor] = await Promise.all([
+      _ensureAutoSelect(),
+      _ensureCRE(),
+      _ensureToolExecutor(),
+    ]);
+
     const ctx = {
       runtime: this.runtime,
       db: this.db,
       manifest,
       specialistDir: dir,
       logger: logger,
+
+      // v121: Knowledge base (set via setKnowledgeBase)
+      knowledgeBase: this._knowledgeBase || null,
+
+      // v121: Registries — grouped namespace for specialist self-registration
+      registries: {
+        autoSelect,           // { registerBoostPatterns, unregisterBoostPatterns, getPatterns }
+        scenario: this._scenarioRegistry || null,  // scenarioRegistry instance
+        cre,                  // { registerToolType, unregisterToolType, isKnownTool }
+        toolExecutor,         // CRE ToolExecutor singleton (register/unregister handlers)
+        capability: this._capabilityRegistry || null, // v121 Krok 3
+        expertise: this._expertiseRegistry || null,   // v121: expertiseRegistry (addCustom, removeCustom, get)
+      },
     };
 
-    // Call register — specialist wires itself into runtime
-    mod.register(ctx);
+    // Call register — specialist wires itself into runtime + registries
+    await mod.register(ctx);
 
     this._modules.set(id, mod);
+
+    // v121 2c: Auto-load defaultExpertise from manifest
+    if (manifest.defaultExpertise && this._expertiseRegistry) {
+      try {
+        const expertiseId = manifest.expertises?.[0] || id;
+        const existing = this._expertiseRegistry.get(expertiseId);
+        if (!existing) {
+          const expPath = path.join(dir, manifest.defaultExpertise);
+          if (fs.existsSync(expPath)) {
+            const raw = fs.readFileSync(expPath, 'utf-8');
+            const expConfig = JSON.parse(raw);
+            this._expertiseRegistry.addCustom({ ...expConfig, isCustom: true });
+            logger.debug('SpecialistLoader', `Auto-loaded expertise "${expertiseId}" from ${manifest.defaultExpertise}`);
+          }
+        }
+      } catch (err) {
+        logger.debug('SpecialistLoader', `defaultExpertise auto-load skipped for ${id}: ${err.message}`);
+      }
+    }
 
     // D5: Auto-seed expertise bindings from manifest
     this._seedExpertiseBindings(id, manifest);
@@ -517,9 +632,9 @@ export class SpecialistLoader {
   /**
    * Disable a specific specialist by ID.
    * D7: Refuses if other specialists depend on this one.
-   * Defensively cleans up ALL registrations (tools, scenarios).
+   * v121: Fail-safe cleanup of ALL registrations (tools, scenarios, boost, CRE, capabilities).
    */
-  disable(specialistId) {
+  async disable(specialistId) {
     const row = this._stmts.getSpecialist.get(specialistId);
     if (!row) throw new Error(`Specialist not found: ${specialistId}`);
     if (row.status === 'disabled') return; // noop
@@ -530,27 +645,80 @@ export class SpecialistLoader {
       throw new Error(`Cannot disable ${specialistId}: required by: ${dependents.join(', ')}`);
     }
 
-    // Let specialist do custom cleanup
+    const manifest = this._getManifestFromDiscovered(specialistId);
+    const expertiseId = this._resolveExpertiseId(specialistId, manifest);
+
+    // Let specialist do custom cleanup (v121: pass full ctx for fail-safe unregister)
     const mod = this._modules.get(specialistId);
     if (mod && typeof mod.unregister === 'function') {
       try {
-        mod.unregister({ runtime: this.runtime });
+        const [autoSelect, cre, toolExecutor] = await Promise.all([
+          _ensureAutoSelect(),
+          _ensureCRE(),
+          _ensureToolExecutor(),
+        ]);
+        mod.unregister({
+          runtime: this.runtime,
+          manifest,
+          registries: {
+            autoSelect,
+            scenario: this._scenarioRegistry || null,
+            cre,
+            toolExecutor,
+            capability: this._capabilityRegistry || null,
+            expertise: this._expertiseRegistry || null,
+          },
+        });
       } catch (err) {
         logger.warn('SpecialistLoader', `${specialistId} unregister() error: ${err.message}`);
       }
     }
 
-    // Defensive cleanup — remove from all registries regardless of unregister()
-    const manifest = this._getManifestFromDiscovered(specialistId);
-    const expertiseId = this._resolveExpertiseId(specialistId, manifest);
+    // v121: Fail-safe defensive cleanup — remove from ALL registries regardless of unregister()
+    // Each step wrapped in try/catch to prevent ghost registrations.
 
     // Tools
-    if (this.runtime.isSpecialist(expertiseId)) {
-      this.runtime.unregisterSpecialist(expertiseId);
+    try {
+      if (this.runtime.isSpecialist(expertiseId)) {
+        this.runtime.unregisterSpecialist(expertiseId);
+      }
+    } catch (err) {
+      logger.warn('SpecialistLoader', `${specialistId} tool cleanup error: ${err.message}`);
     }
 
-    // Scenarios (lazy import — only if module already loaded)
-    this._cleanupScenarios(expertiseId);
+    // Scenarios
+    try { this._cleanupScenarios(expertiseId); } catch { /* noop */ }
+
+    // v121: Boost patterns
+    try {
+      const autoSelect = await _ensureAutoSelect();
+      autoSelect.unregisterBoostPatterns(expertiseId);
+    } catch { /* noop */ }
+
+    // v121: CRE tool types + tool executor handlers
+    try {
+      const cre = await _ensureCRE();
+      const toolExec = await _ensureToolExecutor();
+      const tools = manifest?.tools || [];
+      for (const tool of tools) {
+        cre.unregisterToolType(tool.id);
+        toolExec.unregister(tool.id);
+      }
+    } catch { /* noop */ }
+
+    // v121: Capabilities
+    try {
+      if (this._capabilityRegistry) {
+        this._capabilityRegistry.unregisterBySpecialist(specialistId);
+      }
+    } catch { /* noop */ }
+
+    // v121: Custom expertise
+    try {
+      if (this._expertiseRegistry) {
+        this._expertiseRegistry.removeCustom(expertiseId);
+      }
+    } catch { /* noop */ }
 
     this._modules.delete(specialistId);
 
@@ -803,6 +971,30 @@ export class SpecialistLoader {
     this._scenarioRegistry = registry;
   }
 
+  /**
+   * v121: Set knowledge base reference for specialist ctx.
+   * @param {Object} kb - KnowledgeBase instance
+   */
+  setKnowledgeBase(kb) {
+    this._knowledgeBase = kb;
+  }
+
+  /**
+   * v121: Set capability registry reference for specialist ctx.
+   * @param {Object} registry - CapabilityRegistry instance
+   */
+  setCapabilityRegistry(registry) {
+    this._capabilityRegistry = registry;
+  }
+
+  /**
+   * v121: Set expertise registry reference for specialist ctx.
+   * @param {Object} registry - ExpertiseRegistry instance (addCustom, removeCustom, get)
+   */
+  setExpertiseRegistry(registry) {
+    this._expertiseRegistry = registry;
+  }
+
   // ─── D7: Dependency System ──────────────────────────────────────────────
 
   /**
@@ -832,8 +1024,10 @@ export class SpecialistLoader {
       }
     }
 
-    // Kahn's algorithm
-    const queue = rows.filter(r => inDegree.get(r.id) === 0).map(r => r.id);
+    // Kahn's algorithm — v121: alphabetical secondary sort for deterministic order
+    const queue = rows.filter(r => inDegree.get(r.id) === 0)
+      .map(r => r.id)
+      .sort((a, b) => a.localeCompare(b));
     const sorted = [];
 
     while (queue.length > 0) {
@@ -842,7 +1036,12 @@ export class SpecialistLoader {
       for (const neighbor of (adjacency.get(id) || [])) {
         const deg = inDegree.get(neighbor) - 1;
         inDegree.set(neighbor, deg);
-        if (deg === 0) queue.push(neighbor);
+        if (deg === 0) {
+          // v121: Insert in sorted position for deterministic order
+          const idx = queue.findIndex(q => q.localeCompare(neighbor) > 0);
+          if (idx === -1) queue.push(neighbor);
+          else queue.splice(idx, 0, neighbor);
+        }
       }
     }
 
@@ -1019,5 +1218,8 @@ export function getSpecialistLoader(db, runtime, options = {}) {
   }
   return _instance;
 }
+
+// v121: Test internals
+export const _testLoaderInternals = { validateManifest, checkEngineCompat };
 
 export default { SpecialistLoader, getSpecialistLoader };

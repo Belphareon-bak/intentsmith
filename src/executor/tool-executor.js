@@ -24,19 +24,9 @@ import { ToolType, DecisionType, IntentType } from '../chat/cre-decision.js';
 import { searchWeb, fetchPage, getProviderStatus } from '../llm/web-search.js';
 import { CircuitBreaker, CircuitState } from './circuit-breaker.js';
 import { canonicalizeQuery } from './query-canonicalizer.js';
-// v57.3 — Accountant expert tools (lazy-loaded — Phase D optional)
+// v121: Accountant expert tool imports removed — tools now registered dynamically
+//       by specialist packages via registerToolHandler() during register(ctx).
 import { config } from '../config.js';
-let calculateTax, compareTaxEntities, calculateVAT, calculateSalary, compareSalaries, checkDeadlines;
-if (config.features.expertises !== false) {
-  try {
-    ({ calculateTax, compareTaxEntities } = await import('../expertises/tools/tax-calc.js'));
-    ({ calculateVAT } = await import('../expertises/tools/vat-calc.js'));
-    ({ calculateSalary, compareSalaries } = await import('../expertises/tools/salary-calc.js'));
-    ({ checkDeadlines } = await import('../expertises/tools/deadline-checker.js'));
-  } catch (err) {
-    logger.warn('ToolExecutor', `Expert tools not available: ${err.message}`);
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // v56.2 Sprint B: Search Query Sanitization
@@ -543,25 +533,27 @@ export class ToolExecutor {
       return await this.executeLocalMath(params);
     });
 
-    // v57.3 — Accountant expert tools (Phase D — conditional)
-    if (calculateTax) {
-      this.register(ToolType.TAX_CALCULATOR, async (params) => calculateTax(params));
-      this.register(ToolType.VAT_CALCULATOR, async (params) => calculateVAT(params));
-      this.register(ToolType.SALARY_CALCULATOR, async (params) => calculateSalary(params));
-      this.register(ToolType.DEADLINE_CHECKER, async (params) => checkDeadlines(params));
-      this.register(ToolType.COMPARE_TAX_ENTITIES, async (params) => compareTaxEntities(params.gross_income, params));
-      this.register(ToolType.COMPARE_SALARIES, async (params) => compareSalaries(params.gross_levels, params));
-    }
+    // v121: Accountant expert tools removed — now registered dynamically
+    //       by specialist packages via registerToolHandler() during register(ctx).
   }
 
   /**
    * Register a tool handler
-   * @param {string} toolType - Tool type from ToolType enum
+   * @param {string} toolType - Tool type from ToolType enum or specialist tool ID
    * @param {Function} handler - Async function that executes the tool
    */
   register(toolType, handler) {
     this.toolHandlers.set(toolType, handler);
     logger.debug('ToolExecutor', `Registered handler for ${toolType}`);
+  }
+
+  /**
+   * v121: Unregister a tool handler. Called during specialist unregister().
+   * @param {string} toolType
+   */
+  unregister(toolType) {
+    this.toolHandlers.delete(toolType);
+    logger.debug('ToolExecutor', `Unregistered handler for ${toolType}`);
   }
 
   /**

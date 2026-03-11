@@ -23,24 +23,54 @@ import { BUILTIN_EXPERTISES, expertiseRegistry } from './expertise-layer.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // Tier 2: Boost patterns — high-confidence domain indicators
 // Each match adds +3 to raw score. Must be unambiguous for their domain.
+//
+// v121: Mutable Map — specialists register their own patterns via
+//       registerBoostPatterns(). Built-in patterns below are defaults;
+//       accountant patterns moved to specialists/accountant-cz/index.js.
 // ─────────────────────────────────────────────────────────────────────────────
-const BOOST_PATTERNS = {
-  writer:       [/(?:napi[šs]|napsa[tl]?)\s+(?:mi\s+)?(?:povídk|příběh|knih|kapitol|esej)/i, /příběhov/i],
-  dnd_master:   [/\b(?:NPC|D&?D|DnD|dungeon)\b/i, /kampan[ěí]/i, /\bencounter\b/i],
-  songwriter:   [/\b(?:chorus|verse|hook)\b/i, /\brefrén/i, /\bslok/i, /text\s+písn/i],
-  analyst:      [/srovn(?:ej|at|ání)/i, /pro\s*\/?\s*proti/i, /\bSWOT\b/i],
-  trader:       [/\b(?:bazar|retail)\b/i, /\bmarž/i, /koupit.{0,20}prodat/i],
-  accountant:   [/\b(?:OSVČ|DPH)\b/i, /\bdaňov/i, /\bpaušál/i, /základ\s+dan/i],
-  lawyer:       [/paragraf/i, /judikatur/i, /§\s*\d/i, /zákon\s+č\./i, /právní\s+úprav/i],
-  doctor:       [/\bsymptom/i, /\bterapie\b/i, /\bprevenc/i, /\bvyšetřen/i, /diagnóz/i],
-  psychologist: [/\bemoce\b/i, /\bempati/i, /\bpsycholog/i, /validace\s+emoc/i],
-  ai_expert:    [/\b(?:LLM|transformer|fine-?tuning|embedding|RAG)\b/i],
-  developer:    [/\b(?:refactoring|design\s+pattern|test\s+coverage|clean\s+code)\b/i, /naprogramu/i],
-  technician:   [/\bnefunguj/i, /\btroubleshoot/i, /krok(?:ový|em)\s+postup/i],
-  car_enthusiast: [/\bpřevodovk/i, /\bojetin/i, /servisní\s+interval/i, /\bmotor(?!k)/i],
-  biker:        [/\bmotork/i, /\bkubatur/i, /ochranné\s+vybaven/i],
-  political_analyst: [/\bgeopoliti/i, /\blegislativ/i, /politick/i],
-};
+const _boostPatterns = new Map([
+  ['writer',       [/(?:napi[šs]|napsa[tl]?)\s+(?:mi\s+)?(?:povídk|příběh|knih|kapitol|esej)/i, /příběhov/i]],
+  ['dnd_master',   [/\b(?:NPC|D&?D|DnD|dungeon)\b/i, /kampan[ěí]/i, /\bencounter\b/i]],
+  ['songwriter',   [/\b(?:chorus|verse|hook)\b/i, /\brefrén/i, /\bslok/i, /text\s+písn/i]],
+  ['analyst',      [/srovn(?:ej|at|ání)/i, /pro\s*\/?\s*proti/i, /\bSWOT\b/i]],
+  ['trader',       [/\b(?:bazar|retail)\b/i, /\bmarž/i, /koupit.{0,20}prodat/i]],
+  ['lawyer',       [/paragraf/i, /judikatur/i, /§\s*\d/i, /zákon\s+č\./i, /právní\s+úprav/i]],
+  ['doctor',       [/\bsymptom/i, /\bterapie\b/i, /\bprevenc/i, /\bvyšetřen/i, /diagnóz/i]],
+  ['psychologist', [/\bemoce\b/i, /\bempati/i, /\bpsycholog/i, /validace\s+emoc/i]],
+  ['ai_expert',    [/\b(?:LLM|transformer|fine-?tuning|embedding|RAG)\b/i]],
+  ['developer',    [/\b(?:refactoring|design\s+pattern|test\s+coverage|clean\s+code)\b/i, /naprogramu/i]],
+  ['technician',   [/\bnefunguj/i, /\btroubleshoot/i, /krok(?:ový|em)\s+postup/i]],
+  ['car_enthusiast', [/\bpřevodovk/i, /\bojetin/i, /servisní\s+interval/i, /\bmotor(?!k)/i]],
+  ['biker',        [/\bmotork/i, /\bkubatur/i, /ochranné\s+vybaven/i]],
+  ['political_analyst', [/\bgeopoliti/i, /\blegislativ/i, /politick/i]],
+]);
+
+/**
+ * v121: Register boost patterns for an expertise. Idempotent (overwrites if already set).
+ * Called by specialist register(ctx) to provide high-confidence domain indicators.
+ * @param {string} expertiseId
+ * @param {RegExp[]} patterns
+ */
+export function registerBoostPatterns(expertiseId, patterns) {
+  _boostPatterns.set(expertiseId, patterns);
+}
+
+/**
+ * v121: Unregister boost patterns. Called by specialist unregister().
+ * @param {string} expertiseId
+ */
+export function unregisterBoostPatterns(expertiseId) {
+  _boostPatterns.delete(expertiseId);
+}
+
+/**
+ * v121: Get boost patterns for an expertise.
+ * @param {string} expertiseId
+ * @returns {RegExp[]}
+ */
+export function getBoostPatterns(expertiseId) {
+  return _boostPatterns.get(expertiseId) || [];
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Precomputation: shared vocabulary terms (terms in 2+ expertises)
@@ -145,9 +175,9 @@ export function autoSelectExpertise(input, options = {}) {
       }
     }
 
-    // Tier 2: Boost patterns (built-in only — custom expertises have no boost)
+    // Tier 2: Boost patterns (built-in + specialist-registered)
     let boostScore = 0;
-    const patterns = BOOST_PATTERNS[id] || [];
+    const patterns = _boostPatterns.get(id) || [];
     for (const p of patterns) {
       if (p.test(input)) {
         boostScore += BOOST_WEIGHT;
@@ -219,7 +249,9 @@ export function autoSelectExpertise(input, options = {}) {
 }
 
 // Export matching primitives for reuse (D5: expertise-discovery.js)
-export { czStem, stemMatch, BOOST_PATTERNS };
+export { czStem, stemMatch };
+// v121: BOOST_PATTERNS renamed to _boostPatterns (Map). Legacy alias for compat.
+export const BOOST_PATTERNS = Object.fromEntries(_boostPatterns);
 export const SCORE_CONSTANTS = {
   BOOST_WEIGHT,
   MULTI_WORD_WEIGHT,
@@ -231,7 +263,7 @@ export const SCORE_CONSTANTS = {
 
 // Export internals for testing
 export const _testInternals = {
-  BOOST_PATTERNS,
+  _boostPatterns,
   _sharedTerms,
   THRESHOLD,
   HYSTERESIS_RATIO,
