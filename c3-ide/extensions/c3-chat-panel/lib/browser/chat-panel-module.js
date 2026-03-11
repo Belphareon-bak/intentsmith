@@ -2243,6 +2243,7 @@ var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSize
 /* v87.3: Backend config state — loaded from /api/settings */
 var _bCfg=null;var _bCfgLoading=false;var _gpuInfo=null;var _ollamaModels=null;var _sysInfo=null;var _storageInfo=null;var _bCfgSaveTimer=null;
 var _upgradeData=null;var _upgradeLoading=false;var _upgradeMsg=null;
+var _scoringData=null;var _scoringLoading=false;var _upgradeTab='proposals';
 /* v91: Feature flags state — loaded from GET /api/features */
 var _featureFlags=null;var _ffLoading=false;
 /* v91: Security state */
@@ -2595,7 +2596,7 @@ function settingsLLM(){
     h('div',{style:{borderTop:'1px solid '+C.border,margin:'14px 0'}}),
     h('button',{style:{width:'100%',background:'linear-gradient(135deg,rgba(34,197,94,0.12),rgba(22,163,74,0.06))',border:'1px solid rgba(34,197,94,0.3)',borderRadius:8,padding:'10px 14px',color:C.accent,fontSize:_fs(12),fontWeight:600,cursor:'pointer',fontFamily:C.font,display:'flex',alignItems:'center',gap:8,justifyContent:'center'},
       onClick:function(){_centerState.view='upgrades';_centerState.settingsSection=null;renderCenter();}},
-      svgEl('<path d="M12 5v14M5 12l7-7 7 7"/>',16),'Upgrade modelu'));
+      svgEl('<path d="M12 5v14M5 12l7-7 7 7"/>',16),'Hodnocení a upgrade modelů'));
 }
 /* ═══════════════════════════════════════════════════════════
    v120.2: MODEL UPGRADE PROPOSALS — full center panel
@@ -2632,8 +2633,55 @@ function _upgradeCheck(){
       setTimeout(function(){_upgradeMsg=null;renderCenter();},4000);})
     .catch(function(e){_upgradeLoading=false;_upgradeMsg={ok:false,text:'Chyba: '+e.message};renderCenter();});
 }
+function _loadScoringData(){
+  if(_scoringLoading)return;_scoringLoading=true;
+  fetch(_backendBase+'/api/system/upgrades/scoring',{signal:AbortSignal.timeout(10000)})
+    .then(function(r){return r.json();})
+    .then(function(d){_scoringData=d;_scoringLoading=false;renderCenter();})
+    .catch(function(e){_scoringData={error:e.message};_scoringLoading=false;renderCenter();});
+}
+function _renderScoringTab(){
+  if(_scoringLoading&&!_scoringData)return h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Načítám hodnocení modelů...');
+  if(!_scoringData||_scoringData.error)return h('div',{style:{color:'#ef4444',padding:20,textAlign:'center'}},'Chyba: '+(_scoringData?_scoringData.error:'žádná data'));
+  var scoring=_scoringData.scoring;var roles=Object.keys(scoring);
+  var bdKeys=['benchmark','hardwareFit','maturity','generation','category','speed','diversityPenalty'];
+  var bdLabels={benchmark:'Bench',hardwareFit:'HW Fit',maturity:'Zralost',generation:'Generace',category:'Kategorie',speed:'Rychlost',diversityPenalty:'Diverzita'};
+  return h('div',null,
+    _scoringData.gpuVramMb?h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:12}},'GPU VRAM: '+(_scoringData.gpuVramMb/1024).toFixed(1)+' GB  |  Eval: '+(_scoringData.evalVersion||'?')):null,
+    roles.map(function(role){
+      var rd=scoring[role];var models=rd.models||[];
+      return h('div',{key:role,style:{marginBottom:20}},
+        h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8}},
+          h('span',{style:{background:C.accent,color:'#fff',borderRadius:4,padding:'2px 8px',fontSize:_fs(10),fontWeight:700}},role),
+          h('span',{style:{fontSize:_fs(10),color:C.tx4}},'Aktuální: '),
+          h('span',{style:{fontSize:_fs(10),color:C.tx2,fontFamily:C.mono}},rd.current||'?')),
+        models.length===0?h('div',{style:{fontSize:_fs(10),color:C.tx4,padding:8}},'Žádné modely v katalogu'):
+        h('div',{style:{overflowX:'auto'}},
+          h('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:_fs(10),fontFamily:C.mono}},
+            h('thead',null,h('tr',{style:{borderBottom:'1px solid '+C.border}},
+              h('th',{style:{textAlign:'left',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'#'),
+              h('th',{style:{textAlign:'left',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'Model'),
+              h('th',{style:{textAlign:'right',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'Skóre'),
+              bdKeys.map(function(k){return h('th',{key:k,style:{textAlign:'right',padding:'4px 6px',color:C.tx4,fontWeight:500,fontSize:_fs(9),fontFamily:C.font}},bdLabels[k]);}))),
+            h('tbody',null,models.map(function(m,i){
+              var isCur=m.isCurrent;
+              return h('tr',{key:m.name,style:{borderBottom:'1px solid '+C.border,background:isCur?'rgba(34,197,94,0.06)':'transparent'}},
+                h('td',{style:{padding:'4px 6px',color:C.tx4}},i+1),
+                h('td',{style:{padding:'4px 6px',color:isCur?C.accent:C.tx2,fontWeight:isCur?700:400}},m.name+(isCur?' *':'')),
+                h('td',{style:{padding:'4px 6px',textAlign:'right',color:C.tx1,fontWeight:700}},m.score.toFixed(4)),
+                bdKeys.map(function(k){
+                  var v=m.breakdown?m.breakdown[k]:0;
+                  var color=C.tx3;if(k==='diversityPenalty'&&v<0)color='#ef4444';
+                  return h('td',{key:k,style:{padding:'4px 6px',textAlign:'right',color:color}},v!=null?v.toFixed(2):'—');
+                }));
+            })))));
+    }),
+    h('div',{style:{marginTop:12,fontSize:_fs(9),color:C.tx4,lineHeight:1.5}},
+      '* = aktuálně přiřazený model. Skóre: benchmark*0.35 + hwFit*0.20 + maturity*0.15 + generation*0.10 + category*0.13 + speed*0.07 + penalties'));
+}
 function centerUpgrades(){
-  if(!_upgradeData&&!_upgradeLoading)_loadUpgradeData();
+  if(_upgradeTab==='proposals'&&!_upgradeData&&!_upgradeLoading)_loadUpgradeData();
+  if(_upgradeTab==='scoring'&&!_scoringData&&!_scoringLoading)_loadScoringData();
   var proposals=_upgradeData&&_upgradeData.proposals?_upgradeData.proposals:[];
   var history=_upgradeData&&_upgradeData.history?_upgradeData.history:[];
   var discovery=_upgradeData&&_upgradeData.discovery?_upgradeData.discovery:null;
@@ -2641,16 +2689,24 @@ function centerUpgrades(){
   var riskColors={low:'rgba(34,197,94,0.15)',medium:'rgba(234,179,8,0.15)',high:'rgba(239,68,68,0.15)'};
   var riskBorders={low:'rgba(34,197,94,0.3)',medium:'rgba(234,179,8,0.3)',high:'rgba(239,68,68,0.3)'};
   var riskText={low:C.accent,medium:'#eab308',high:'#ef4444'};
+  var tabStyle=function(t){return{background:_upgradeTab===t?C.accent:'transparent',color:_upgradeTab===t?'#fff':C.tx3,
+    border:'1px solid '+(_upgradeTab===t?C.accent:C.border2),borderRadius:6,padding:'5px 14px',fontSize:_fs(11),
+    fontWeight:_upgradeTab===t?600:400,cursor:'pointer',fontFamily:C.font};};
   return h(React.Fragment,null,
     /* header */
     h('div',{style:{padding:'12px 18px',borderBottom:'1px solid '+C.border,display:'flex',alignItems:'center',flexShrink:0,gap:10}},
       h('button',{style:{background:'none',border:'none',color:C.tx3,cursor:'pointer',padding:4,borderRadius:4,display:'flex'},
         onClick:function(){_centerState.view='settings';_centerState.settingsSection=1;renderCenter();}},
         svgEl('<path d="M15 18l-6-6 6-6"/>',18)),
-      h('span',{style:{fontSize:_fs(15),fontWeight:700,color:C.tx1,flex:1}},'Upgrade modelu'),
+      h('span',{style:{fontSize:_fs(15),fontWeight:700,color:C.tx1,flex:1}},'Modely LLM'),
       lastCheck?h('span',{style:{fontSize:_fs(10),color:C.tx4}},'Kontrola: '+lastCheck):null,
       h('button',{style:{background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'5px 12px',color:C.tx2,fontSize:_fs(11),cursor:'pointer',fontFamily:C.font,display:'flex',alignItems:'center',gap:4},
         onClick:_upgradeCheck},svgEl('<path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/>',14),'Zkontrolovat')),
+    /* tab bar */
+    h('div',{style:{display:'flex',gap:6,padding:'10px 18px',borderBottom:'1px solid '+C.border}},
+      h('button',{style:tabStyle('scoring'),onClick:function(){_upgradeTab='scoring';renderCenter();}},'Hodnocení modelů'),
+      h('button',{style:tabStyle('proposals'),onClick:function(){_upgradeTab='proposals';renderCenter();}},'Návrhy ('+proposals.length+')'),
+      h('button',{style:tabStyle('history'),onClick:function(){_upgradeTab='history';renderCenter();}},'Historie')),
     /* toast */
     _upgradeMsg?h('div',{style:{margin:'0 18px',marginTop:12,padding:'8px 14px',borderRadius:6,fontSize:_fs(11),fontWeight:600,
       background:_upgradeMsg.ok?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)',
@@ -2658,62 +2714,68 @@ function centerUpgrades(){
       border:'1px solid '+(_upgradeMsg.ok?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)')}},_upgradeMsg.text):null,
     /* body */
     h('div',{style:{flex:1,overflowY:'auto',padding:18}},
-      _upgradeLoading&&!_upgradeData?h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Načítám návrhy...'):null,
-      _upgradeData&&_upgradeData.error?h('div',{style:{color:'#ef4444',padding:20,textAlign:'center'}},'Chyba: '+_upgradeData.error):null,
-      /* discovery info */
-      discovery?h('div',{style:{background:C.bg2,border:'1px solid '+C.border,borderRadius:8,padding:12,marginBottom:16,display:'flex',gap:16,flexWrap:'wrap'}},
-        h('div',{style:{fontSize:_fs(10),color:C.tx3}},h('span',{style:{fontWeight:600,color:C.tx2}},'Ollama: '),discovery.ollamaAvailable?'dostupný':'nedostupný'),
-        h('div',{style:{fontSize:_fs(10),color:C.tx3}},h('span',{style:{fontWeight:600,color:C.tx2}},'Kandidátů: '),discovery.candidateCount||0),
-        h('div',{style:{fontSize:_fs(10),color:C.tx3}},h('span',{style:{fontWeight:600,color:C.tx2}},'Hinty: '),discovery.hintsCount||0)):null,
-      /* proposals */
-      proposals.length>0?h('div',null,
-        h('div',{style:{fontSize:_fs(13),fontWeight:700,color:C.tx1,marginBottom:12}},'Návrhy na upgrade ('+proposals.length+')'),
-        proposals.map(function(p,i){
-          var risk=p.riskLevel||p.risk_level||'low';
-          var improvement=p.improvement!=null?(p.improvement*100).toFixed(1)+'%':p.score?p.score.toFixed(2):'?';
-          var bd=p.scoreBreakdown||p.score_breakdown||{};
-          return h('div',{key:p.id||i,style:{background:C.bg2,border:'1px solid '+C.border,borderRadius:10,padding:16,marginBottom:12,position:'relative'}},
-            /* risk badge */
-            h('div',{style:{position:'absolute',top:12,right:14,background:riskColors[risk],border:'1px solid '+riskBorders[risk],borderRadius:4,padding:'2px 8px',fontSize:_fs(9),fontWeight:600,color:riskText[risk]}},risk.toUpperCase()),
-            /* role + models */
-            h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8}},
-              h('span',{style:{background:C.accent,color:'#fff',borderRadius:4,padding:'2px 8px',fontSize:_fs(10),fontWeight:700}},p.role),
-              h('span',{style:{fontSize:_fs(12),color:C.tx2,fontFamily:C.mono}},p.currentModel||p.current_model||'?'),
-              h('span',{style:{color:C.tx4,fontSize:_fs(11)}},'\u2192'),
-              h('span',{style:{fontSize:_fs(12),color:C.tx1,fontWeight:600,fontFamily:C.mono}},p.candidateModel||p.candidate_model||'?')),
-            /* score */
-            h('div',{style:{display:'flex',gap:16,marginBottom:10,flexWrap:'wrap'}},
-              h('div',{style:{fontSize:_fs(10),color:C.tx3}},h('span',{style:{fontWeight:600,color:C.tx2}},'Zlepšení: '),h('span',{style:{color:C.accent,fontWeight:600}},'+'+improvement)),
-              bd.benchmark!=null?h('div',{style:{fontSize:_fs(10),color:C.tx3}},'Bench: '+(typeof bd.benchmark==='object'?JSON.stringify(bd.benchmark):bd.benchmark)):null,
-              p.installed!=null?h('div',{style:{fontSize:_fs(10),color:C.tx3}},p.installed?'Nainstalován':'Nutný pull'):null,
-              p.size_gb||p.sizeGB?h('div',{style:{fontSize:_fs(10),color:C.tx3}},(p.size_gb||p.sizeGB)+' GB'):null),
-            /* reason */
-            p.reason?h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:10,lineHeight:1.4}},p.reason):null,
-            /* actions */
-            h('div',{style:{display:'flex',gap:8,justifyContent:'flex-end'}},
-              h('button',{style:{background:'transparent',color:C.tx4,border:'1px solid '+C.border2,borderRadius:6,padding:'5px 14px',fontSize:_fs(11),cursor:'pointer',fontFamily:C.font},
-                onClick:function(){_upgradeDismiss(p.id);}},'Zahodit'),
-              h('button',{style:{background:C.accent,color:'#fff',border:'none',borderRadius:6,padding:'5px 14px',fontSize:_fs(11),fontWeight:600,cursor:'pointer',fontFamily:C.font},
-                onClick:function(){_upgradeApply(p.role,p.candidateModel||p.candidate_model);}},'Schválit')));
-        })):
-        (!_upgradeLoading?h('div',{style:{textAlign:'center',padding:'40px 20px'}},
-          h('div',{style:{fontSize:_fs(32),marginBottom:12}},'\u2705'),
-          h('div',{style:{fontSize:_fs(13),color:C.tx2,fontWeight:600,marginBottom:4}},'Žádné návrhy na upgrade'),
-          h('div',{style:{fontSize:_fs(11),color:C.tx4}},'Všechny modely jsou aktuální. Klikněte na "Zkontrolovat" pro novou analýzu.')):null),
-      /* history */
-      history.length>0?h('div',{style:{marginTop:24}},
-        h('div',{style:{fontSize:_fs(13),fontWeight:700,color:C.tx1,marginBottom:10}},'Historie upgradů'),
-        history.slice(0,20).map(function(hi,i){
-          var ts=hi.timestamp||hi.created_at?new Date(hi.timestamp||hi.created_at).toLocaleString('cs-CZ'):'?';
-          var isRollback=hi.action==='rollback';
-          return h('div',{key:i,style:{display:'flex',alignItems:'center',gap:8,padding:'6px 0',borderBottom:'1px solid '+C.border,fontSize:_fs(11)}},
-            h('span',{style:{color:C.tx4,minWidth:120}},ts),
-            h('span',{style:{background:isRollback?'rgba(239,68,68,0.1)':'rgba(34,197,94,0.1)',color:isRollback?'#ef4444':C.accent,borderRadius:4,padding:'1px 6px',fontSize:_fs(9),fontWeight:600}},isRollback?'ROLLBACK':'UPGRADE'),
-            h('span',{style:{fontWeight:600,color:C.tx2}},hi.role),
-            h('span',{style:{color:C.tx3,fontFamily:C.mono}},hi.fromModel||hi.from_model||'?'),
-            h('span',{style:{color:C.tx4}},'\u2192'),
-            h('span',{style:{color:C.tx1,fontFamily:C.mono}},hi.toModel||hi.to_model||'?'));
-        })):null));
+      /* ── Scoring tab ── */
+      _upgradeTab==='scoring'?_renderScoringTab():null,
+      /* ── Proposals tab ── */
+      _upgradeTab==='proposals'?h('div',null,
+        _upgradeLoading&&!_upgradeData?h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Načítám návrhy...'):null,
+        _upgradeData&&_upgradeData.error?h('div',{style:{color:'#ef4444',padding:20,textAlign:'center'}},'Chyba: '+_upgradeData.error):null,
+        /* discovery info */
+        discovery?h('div',{style:{background:C.bg2,border:'1px solid '+C.border,borderRadius:8,padding:12,marginBottom:16,display:'flex',gap:16,flexWrap:'wrap'}},
+          h('div',{style:{fontSize:_fs(10),color:C.tx3}},h('span',{style:{fontWeight:600,color:C.tx2}},'Ollama: '),discovery.ollamaAvailable?'dostupný':'nedostupný'),
+          h('div',{style:{fontSize:_fs(10),color:C.tx3}},h('span',{style:{fontWeight:600,color:C.tx2}},'Kandidátů: '),discovery.candidateCount||0),
+          h('div',{style:{fontSize:_fs(10),color:C.tx3}},h('span',{style:{fontWeight:600,color:C.tx2}},'Hinty: '),discovery.hintsCount||0)):null,
+        /* proposals */
+        proposals.length>0?h('div',null,
+          h('div',{style:{fontSize:_fs(13),fontWeight:700,color:C.tx1,marginBottom:12}},'Návrhy na upgrade ('+proposals.length+')'),
+          proposals.map(function(p,i){
+            var risk=p.riskLevel||p.risk_level||'low';
+            var improvement=p.improvement!=null?(p.improvement*100).toFixed(1)+'%':p.score?p.score.toFixed(2):'?';
+            var bd=p.scoreBreakdown||p.score_breakdown||{};
+            return h('div',{key:p.id||i,style:{background:C.bg2,border:'1px solid '+C.border,borderRadius:10,padding:16,marginBottom:12,position:'relative'}},
+              /* risk badge */
+              h('div',{style:{position:'absolute',top:12,right:14,background:riskColors[risk],border:'1px solid '+riskBorders[risk],borderRadius:4,padding:'2px 8px',fontSize:_fs(9),fontWeight:600,color:riskText[risk]}},risk.toUpperCase()),
+              /* role + models */
+              h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8}},
+                h('span',{style:{background:C.accent,color:'#fff',borderRadius:4,padding:'2px 8px',fontSize:_fs(10),fontWeight:700}},p.role),
+                h('span',{style:{fontSize:_fs(12),color:C.tx2,fontFamily:C.mono}},p.currentModel||p.current_model||'?'),
+                h('span',{style:{color:C.tx4,fontSize:_fs(11)}},'\u2192'),
+                h('span',{style:{fontSize:_fs(12),color:C.tx1,fontWeight:600,fontFamily:C.mono}},p.candidateModel||p.candidate_model||'?')),
+              /* score */
+              h('div',{style:{display:'flex',gap:16,marginBottom:10,flexWrap:'wrap'}},
+                h('div',{style:{fontSize:_fs(10),color:C.tx3}},h('span',{style:{fontWeight:600,color:C.tx2}},'Zlepšení: '),h('span',{style:{color:C.accent,fontWeight:600}},'+'+improvement)),
+                bd.benchmark!=null?h('div',{style:{fontSize:_fs(10),color:C.tx3}},'Bench: '+(typeof bd.benchmark==='object'?JSON.stringify(bd.benchmark):bd.benchmark)):null,
+                p.installed!=null?h('div',{style:{fontSize:_fs(10),color:C.tx3}},p.installed?'Nainstalován':'Nutný pull'):null,
+                p.size_gb||p.sizeGB?h('div',{style:{fontSize:_fs(10),color:C.tx3}},(p.size_gb||p.sizeGB)+' GB'):null),
+              /* reason */
+              p.reason?h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:10,lineHeight:1.4}},p.reason):null,
+              /* actions */
+              h('div',{style:{display:'flex',gap:8,justifyContent:'flex-end'}},
+                h('button',{style:{background:'transparent',color:C.tx4,border:'1px solid '+C.border2,borderRadius:6,padding:'5px 14px',fontSize:_fs(11),cursor:'pointer',fontFamily:C.font},
+                  onClick:function(){_upgradeDismiss(p.id);}},'Zahodit'),
+                h('button',{style:{background:C.accent,color:'#fff',border:'none',borderRadius:6,padding:'5px 14px',fontSize:_fs(11),fontWeight:600,cursor:'pointer',fontFamily:C.font},
+                  onClick:function(){_upgradeApply(p.role,p.candidateModel||p.candidate_model);}},'Schválit')));
+          })):
+          (!_upgradeLoading?h('div',{style:{textAlign:'center',padding:'40px 20px'}},
+            h('div',{style:{fontSize:_fs(32),marginBottom:12}},'\u2705'),
+            h('div',{style:{fontSize:_fs(13),color:C.tx2,fontWeight:600,marginBottom:4}},'Žádné návrhy na upgrade'),
+            h('div',{style:{fontSize:_fs(11),color:C.tx4}},'Všechny modely jsou aktuální. Klikněte na "Zkontrolovat" pro novou analýzu.')):null)):null,
+      /* ── History tab ── */
+      _upgradeTab==='history'?h('div',null,
+        history.length>0?h('div',null,
+          h('div',{style:{fontSize:_fs(13),fontWeight:700,color:C.tx1,marginBottom:10}},'Historie upgradů'),
+          history.slice(0,20).map(function(hi,i){
+            var ts=hi.timestamp||hi.created_at?new Date(hi.timestamp||hi.created_at).toLocaleString('cs-CZ'):'?';
+            var isRollback=hi.action==='rollback';
+            return h('div',{key:i,style:{display:'flex',alignItems:'center',gap:8,padding:'6px 0',borderBottom:'1px solid '+C.border,fontSize:_fs(11)}},
+              h('span',{style:{color:C.tx4,minWidth:120}},ts),
+              h('span',{style:{background:isRollback?'rgba(239,68,68,0.1)':'rgba(34,197,94,0.1)',color:isRollback?'#ef4444':C.accent,borderRadius:4,padding:'1px 6px',fontSize:_fs(9),fontWeight:600}},isRollback?'ROLLBACK':'UPGRADE'),
+              h('span',{style:{fontWeight:600,color:C.tx2}},hi.role),
+              h('span',{style:{color:C.tx3,fontFamily:C.mono}},hi.fromModel||hi.from_model||'?'),
+              h('span',{style:{color:C.tx4}},'\u2192'),
+              h('span',{style:{color:C.tx1,fontFamily:C.mono}},hi.toModel||hi.to_model||'?'));
+          })):
+          h('div',{style:{textAlign:'center',padding:'40px 20px',color:C.tx4,fontSize:_fs(12)}},'Žádná historie upgradů')):null));
 }
 function settingsMemory(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');

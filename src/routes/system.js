@@ -643,6 +643,62 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
       }
     },
 
+    // v120.2: Per-role model scoring for all installed models
+    'GET /api/system/upgrades/scoring': async (req, res) => {
+      try {
+        const { scoreModel, EVALUATION_VERSION, BENCHMARK_WEIGHTS } = await import('../upgrade/model-ranker.js');
+        const { getCatalogEntry, computeEffectiveVram } = await import('../upgrade/model-catalog.js');
+        const { MODEL_PROFILES } = await import('../upgrade/model-profiles.js');
+        const { getSystemProfile } = await import('../system/gpu-detector.js');
+
+        // Hardware context
+        let gpuVramMb = 0;
+        try {
+          const profile = await getSystemProfile();
+          if (profile.gpus?.length > 0) gpuVramMb = Math.max(...profile.gpus.map(g => g.vram_mb || 0));
+        } catch (_) {}
+
+        // Role bindings
+        const roleBindings = {};
+        for (const [r, p] of Object.entries(MODEL_PROFILES)) {
+          roleBindings[r] = p.getCurrentModel();
+        }
+
+        // Fetch installed models from Ollama
+        let installed = [];
+        try {
+          const r = await fetch(`${config.ollama.baseUrl}/api/tags`, { signal: AbortSignal.timeout(5000) });
+          const data = await r.json();
+          installed = (data.models || []).map(m => m.name);
+        } catch (_) {}
+
+        // Score each installed model for each role
+        const roles = Object.keys(MODEL_PROFILES);
+        const scoring = {};
+        for (const role of roles) {
+          scoring[role] = { current: roleBindings[role], models: [] };
+          for (const modelName of installed) {
+            const entry = getCatalogEntry(modelName);
+            if (!entry) continue;
+            const ctx = { gpuVramMb, referenceParams: entry.params || 14, currentModel: entry, roleBindings };
+            const result = scoreModel(entry, role, ctx);
+            scoring[role].models.push({
+              name: modelName,
+              score: result.totalScore,
+              normalized: result.normalizedScore,
+              breakdown: result.breakdown,
+              isCurrent: modelName === roleBindings[role],
+            });
+          }
+          scoring[role].models.sort((a, b) => b.score - a.score);
+        }
+
+        sendJSON(res, 200, { scoring, evalVersion: EVALUATION_VERSION, gpuVramMb });
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
     'POST /api/system/proposals/:id/dismiss': async (req, res) => {
       try {
         const match = req.url.match(/\/api\/system\/proposals\/(\d+)\/dismiss/);
