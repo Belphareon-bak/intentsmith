@@ -456,9 +456,7 @@ var _backendBase='http://localhost:3335';
 /* v88: Extracted expertise fetch — reusable for initial load + post-skill refresh */
 function _fetchExpertises(){
   fetch(_backendBase+'/api/expertises',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(data){
-    if(typeof console!=='undefined')console.debug('[C3:fetchExpertises] raw keys:',data?Object.keys(data).join(','):'null');
     var items=Array.isArray(data)?data:(data.expertises||data.experts||[]);
-    if(typeof console!=='undefined')console.debug('[C3:fetchExpertises] items:',items.length,'first3:',items.slice(0,3).map(function(e){return e.name;}));
     if(items.length>0){
       var _localEx={};EXPERTISES.forEach(function(le){_localEx[le.name]=le;});
       var allEx=items.map(function(e){
@@ -479,7 +477,6 @@ function _fetchExpertises(){
     }
     NAV[3].badge=EXPERTISES.length;NAV[3].recent=EXPERTISES.filter(function(e){return e.fav;}).slice(0,3).map(function(e){return e.name;});
     NAV[2].badge=SPECIALISTS.length;NAV[2].recent=SPECIALISTS.slice(0,3).map(function(s){return s.name;});
-    if(typeof console!=='undefined')console.debug('[C3:fetchExpertises] EXPERTISES:',EXPERTISES.length,'SPECIALISTS:',SPECIALISTS.length,'specNames:',SPECIALISTS.map(function(s){return s.name;}));
     renderCenter();
   }).catch(function(err){if(typeof console!=='undefined')console.error('[C3:fetchExpertises] ERROR:',err);});
 }
@@ -499,7 +496,6 @@ function fetchBackendData(){
     items=items.filter(function(p){return p.path&&p.name;});
     if(items.length>0){PROJECTS=items.slice(0,20).map(function(p){return{id:p.id,emoji:'📁',name:_s(p.name||p.title)||'Projekt',path:p.path||null,status:_s(p.status)||'Active',created:_s(p.created_at||p.createdAt||p.created)||'',updated:_s(p.last_active||p.updatedAt||p.updated)||'',desc:_s(p.description)||'',tags:[]};});}
     else{PROJECTS=[];}
-    if(typeof console!=='undefined')console.debug('[C3:fetchProjects]',PROJECTS.length,'items, raw:',items.length,'isArray:',Array.isArray(data),'keys:',data?Object.keys(data).join(','):'null');
     NAV[1].badge=PROJECTS.length;NAV[1].recent=PROJECTS.slice(0,3).map(function(p){return p.name;});renderCenter();
     /* v68: Sync working tree with active project after project data loads */
     var _as=_sessions[_sessionActive];
@@ -512,7 +508,6 @@ function fetchBackendData(){
     var items=Array.isArray(data)?data:(data.conversations||[]);
     if(items.length>0){CONVERSATIONS=items.slice(0,20).map(function(c){return{id:c.id,title:_s(c.title||c.name)||'Chat',preview:_s(c.preview||c.lastMessage||c.summary)||'',time:_s(c.time||c.updated_at||c.updatedAt)||'',created_at:_s(c.created_at||c.createdAt)||'',updated_at:_s(c.updated_at||c.updatedAt||c.time)||'',expertise:_s(c.expertise)||'Výchozí',status:_s(c.state||c.status)||'active'};});}
     else{CONVERSATIONS=[];}
-    if(typeof console!=='undefined')console.debug('[C3:fetchConversations]',CONVERSATIONS.length,'items, raw:',items.length,'isArray:',Array.isArray(data),'keys:',data?Object.keys(data).join(','):'null');
     NAV[0].badge=CONVERSATIONS.length;NAV[0].recent=CONVERSATIONS.slice(0,3).map(function(c){return c.title;});renderCenter();
   }).catch(function(){});
   /* Expertises — separate specialists (is_specialist or is_builtin+tools) */
@@ -4473,11 +4468,9 @@ try{_nodeFs=window.require&&window.require('fs');}catch(e){}
 function _readAttachments(attachments,callback){
   if(!attachments||attachments.length===0){callback([]);return;}
   var results=[];var pending=attachments.length;
-  if(typeof console!=='undefined')console.debug('[C3:readAttachments]',attachments.length,'files, _nodeFs:',!!_nodeFs);
   attachments.forEach(function(a,i){
     var filePath=(a.file&&a.file.path)?a.file.path:null;
-    if(typeof console!=='undefined')console.debug('[C3:readAttachments] file',i,a.name,'hasFile:',!!a.file,'filePath:',filePath,'fileSize:',a.file?a.file.size:'N/A');
-    function _done(res){results[i]=res;if(typeof console!=='undefined')console.debug('[C3:readAttachments] result',i,a.name,'hasContent:',!!res.content,'contentLen:',res.content?res.content.length:0,'hasPath:',!!res.path);if(--pending===0)callback(results);}
+    function _done(res){results[i]=res;if(--pending===0)callback(results);}
     /* ── TEXT FILES ── */
     if(_TEXT_EXTS.test(a.name)&&a.file&&a.file.size<=_MAX_TEXT_SIZE){
       /* Strategy A: FileReader (works in ALL contexts — standard Web API) */
