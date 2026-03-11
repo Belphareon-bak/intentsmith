@@ -2644,6 +2644,21 @@ function _loadScoringData(){
     .then(function(d){_scoringData=d;_scoringLoading=false;renderCenter();})
     .catch(function(e){_scoringData={error:e.message};_scoringLoading=false;renderCenter();});
 }
+var _discoverLoading=false;var _discoverMsg=null;
+function _discoverNewModels(){
+  if(_discoverLoading)return;
+  _discoverLoading=true;_discoverMsg={ok:true,text:'Prohledávám ollama.com/library...'};renderCenter();
+  fetch(_backendBase+'/api/system/upgrades/check',{method:'POST',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({fullCycle:true}),
+    signal:AbortSignal.timeout(90000)})
+    .then(function(r){return r.json();})
+    .then(function(d){_discoverLoading=false;_upgradeData=d;
+      var stats=d.discovery||{};var l4=stats.l4Count||0;
+      _discoverMsg={ok:true,text:'Hotovo — '+(l4>0?l4+' nových modelů nalezeno':'žádné nové modely')};
+      _discoveredData=null;_loadDiscoveredData();renderCenter();
+      setTimeout(function(){_discoverMsg=null;renderCenter();},5000);})
+    .catch(function(e){_discoverLoading=false;_discoverMsg={ok:false,text:'Chyba: '+e.message};renderCenter();});
+}
 function _pullModel(name){
   if(_pullState[name]&&(_pullState[name].status==='downloading'||_pullState[name].status==='starting'||_pullState[name].status==='scoring'))return;
   _pullState[name]={status:'starting',percent:0,text:name+' — Zahajuji stahování...'};renderCenter();
@@ -2661,21 +2676,39 @@ function _loadDiscoveredData(){
     .catch(function(e){_discoveredData={error:e.message};_discoveredLoading=false;renderCenter();});
 }
 function _renderDiscoveredTab(){
-  if(_discoveredLoading&&!_discoveredData)return h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Načítám nové modely...');
-  if(!_discoveredData||_discoveredData.error)return h('div',{style:{color:C.tx4,padding:20,textAlign:'center'}},
-    h('div',{style:{fontSize:_fs(12),marginBottom:8}},_discoveredData?'Chyba: '+_discoveredData.error:'Žádná data'),
-    h('div',{style:{fontSize:_fs(10)}},'Klikněte na "Zkontrolovat" pro vyhledání nových modelů z ollama.com'));
+  var searchBtn=h('button',{style:{background:_discoverLoading?C.bg3:'linear-gradient(135deg,#6366f1,#4f46e5)',color:_discoverLoading?C.tx4:'#fff',
+    border:'none',borderRadius:8,padding:'8px 18px',fontSize:_fs(11),fontWeight:600,cursor:_discoverLoading?'default':'pointer',
+    fontFamily:C.font,display:'flex',alignItems:'center',gap:6,boxShadow:_discoverLoading?'none':'0 2px 8px rgba(79,70,229,0.3)',
+    opacity:_discoverLoading?0.7:1},
+    onClick:_discoverLoading?null:_discoverNewModels},
+    svgEl('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',14),
+    _discoverLoading?'Vyhledávám...':'Vyhledat nové modely');
+  var toast=_discoverMsg?h('div',{style:{marginBottom:12,padding:'8px 14px',borderRadius:6,fontSize:_fs(11),fontWeight:600,
+    background:_discoverMsg.ok?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)',
+    color:_discoverMsg.ok?C.accent:'#ef4444',
+    border:'1px solid '+(_discoverMsg.ok?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)')}},_discoverMsg.text):null;
+  if(_discoveredLoading&&!_discoveredData)return h('div',null,toast,h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Načítám nové modely...'));
+  if(!_discoveredData||_discoveredData.error)return h('div',null,
+    h('div',{style:{textAlign:'center',padding:'40px 20px'}},
+      h('div',{style:{fontSize:_fs(28),marginBottom:12}},'\uD83D\uDD0D'),
+      h('div',{style:{fontSize:_fs(13),color:C.tx2,fontWeight:600,marginBottom:8}},_discoveredData?'Chyba: '+_discoveredData.error:'Žádná data — vyhledejte nové modely'),
+      searchBtn));
   var models=_discoveredData.models||[];
-  /* Also show any models currently being pulled that aren't in the list */
   var activePulls=Object.keys(_pullState).filter(function(n){var ps=_pullState[n];return ps.status!=='done'&&ps.status!=='error';});
-  if(models.length===0&&activePulls.length===0)return h('div',{style:{textAlign:'center',padding:'40px 20px'}},
-    h('div',{style:{fontSize:_fs(28),marginBottom:10}},'\uD83D\uDD0D'),
-    h('div',{style:{fontSize:_fs(13),color:C.tx2,fontWeight:600,marginBottom:4}},'Žádné nové modely'),
-    h('div',{style:{fontSize:_fs(11),color:C.tx4,lineHeight:1.5}},'Klikněte na "Zkontrolovat" pro prohledání ollama.com/library.\nVyhledává se ve family nainstalovaných modelů.'));
+  if(models.length===0&&activePulls.length===0)return h('div',null,toast,
+    h('div',{style:{textAlign:'center',padding:'40px 20px'}},
+      h('div',{style:{fontSize:_fs(28),marginBottom:10}},'\uD83D\uDD0D'),
+      h('div',{style:{fontSize:_fs(13),color:C.tx2,fontWeight:600,marginBottom:4}},'Žádné nové modely'),
+      h('div',{style:{fontSize:_fs(11),color:C.tx4,lineHeight:1.5,marginBottom:14}},'Prohledejte ollama.com/library pro nové varianty vašich nainstalovaných modelů.'),
+      searchBtn));
   var benchLabels={mmlu:'MMLU',gpqa:'GPQA',humaneval:'HumanEval',livecodebench:'LiveCode',swebench:'SWE-Bench',
     arena:'Arena',reasoning:'Reasoning',math:'Math',code:'Code',multimodal:'Multimodal'};
   return h('div',null,
-    h('div',{style:{fontSize:_fs(13),fontWeight:700,color:C.tx1,marginBottom:4}},'Nové modely z ollama.com ('+models.length+')'),
+    /* Header with search button */
+    h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}},
+      h('div',{style:{fontSize:_fs(13),fontWeight:700,color:C.tx1}},'Nové modely z ollama.com ('+models.length+')'),
+      searchBtn),
+    toast,
     h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:14,lineHeight:1.4}},
       'Modely nalezené v ollama.com/library pro rodiny vašich nainstalovaných modelů. Benchmarky jsou odhadnuté — empirické testování je upřesní.'),
     models.map(function(m,i){
