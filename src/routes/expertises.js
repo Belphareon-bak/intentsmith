@@ -251,7 +251,11 @@ export function createExpertiseRoutes(deps) {
 
         // Call LLM
         const startTime = Date.now();
-        const token = createAuthToken({ role: LLMCallerRole.CHAT });
+        const token = createAuthToken({
+          role: LLMCallerRole.LEGACY_DIRECT,
+          decisionId: `wizard-test-${randomUUID()}`,
+          auditContext: { sessionId: `wizard-${Date.now()}` },
+        });
         const llmResult = await callWithAuth(token, body.question, {
           systemPrompt: mergeResult.prompt,
           temperature: mergeResult.metadata.temperature,

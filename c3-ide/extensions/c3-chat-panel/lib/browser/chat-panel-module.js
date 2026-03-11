@@ -456,7 +456,9 @@ var _backendBase='http://localhost:3335';
 /* v88: Extracted expertise fetch — reusable for initial load + post-skill refresh */
 function _fetchExpertises(){
   fetch(_backendBase+'/api/expertises',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(data){
+    if(typeof console!=='undefined')console.debug('[C3:fetchExpertises] raw keys:',data?Object.keys(data).join(','):'null');
     var items=Array.isArray(data)?data:(data.expertises||data.experts||[]);
+    if(typeof console!=='undefined')console.debug('[C3:fetchExpertises] items:',items.length,'first3:',items.slice(0,3).map(function(e){return e.name;}));
     if(items.length>0){
       var _localEx={};EXPERTISES.forEach(function(le){_localEx[le.name]=le;});
       var allEx=items.map(function(e){
@@ -477,8 +479,9 @@ function _fetchExpertises(){
     }
     NAV[3].badge=EXPERTISES.length;NAV[3].recent=EXPERTISES.filter(function(e){return e.fav;}).slice(0,3).map(function(e){return e.name;});
     NAV[2].badge=SPECIALISTS.length;NAV[2].recent=SPECIALISTS.slice(0,3).map(function(s){return s.name;});
+    if(typeof console!=='undefined')console.debug('[C3:fetchExpertises] EXPERTISES:',EXPERTISES.length,'SPECIALISTS:',SPECIALISTS.length,'specNames:',SPECIALISTS.map(function(s){return s.name;}));
     renderCenter();
-  }).catch(function(){});
+  }).catch(function(err){if(typeof console!=='undefined')console.error('[C3:fetchExpertises] ERROR:',err);});
 }
 
 /* v88: Re-fetch expertises after create-expertise skill completes */
