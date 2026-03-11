@@ -18,6 +18,20 @@ import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { logger } from '../core/logger.js';
 
+// ── Engine version from package.json (fallback for default) ─────────────────
+let _packageVersion = null;
+function _readPackageVersion() {
+  if (_packageVersion) return _packageVersion;
+  try {
+    const pkgPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'package.json');
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+    _packageVersion = pkg.version || '122.0.0';
+  } catch {
+    _packageVersion = '122.0.0';
+  }
+  return _packageVersion;
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -194,7 +208,7 @@ export class SpecialistLoader {
     // Default: project_root/specialists/
     const projectRoot = path.resolve(__dirname, '..', '..');
     this.baseDir = options.baseDir || path.join(projectRoot, 'specialists');
-    this.engineVersion = options.engineVersion || '65.5.0';
+    this.engineVersion = options.engineVersion || _readPackageVersion();
 
     /** @type {Map<string, { manifest: Object, dir: string }>} */
     this._discovered = new Map();

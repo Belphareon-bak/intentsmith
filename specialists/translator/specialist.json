@@ -1,0 +1,36 @@
+{
+  "id": "translator",
+  "version": "1.0.0",
+  "manifestVersion": 2,
+  "name": "Překladatel",
+  "description": "Překlad textů mezi jazyky, detekce jazyka, stylistická adaptace",
+  "author": "user",
+  "domain": "language",
+  "type": "domain",
+  "engine": ">=121.0.0",
+  "entry": "./index.js",
+
+  "tools": [
+    {
+      "id": "translator.translate",
+      "name": "Překlad textu",
+      "module": "./index.js",
+      "function": "translate"
+    },
+    {
+      "id": "translator.detect_language",
+      "name": "Detekce jazyka",
+      "module": "./index.js",
+      "function": "detectLanguage"
+    }
+  ],
+
+  "capabilities": [
+    "translation.translate",
+    "translation.detect"
+  ],
+
+  "expertises": ["translator"],
+
+  "enabledByDefault": true
+}
