@@ -156,6 +156,8 @@ async function callLLM(role, prompt, systemPrompt = '', options = {}) {
       content: typeof result === 'string' ? result : (result.content || ''),
       model,
       duration: Date.now() - startTime,
+      promptEvalCount: result?.promptEvalCount ?? 0,
+      evalCount: result?.evalCount ?? 0,
     };
   } catch (err) {
     logger.error('Workflow', `LLM call failed for ${role}`, { model, error: err.message });

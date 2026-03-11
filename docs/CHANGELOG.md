@@ -8,6 +8,44 @@
 
 ---
 
+## v120 — Phase 3 Empirical Model Evaluation (2026-03-11)
+
+Empirical scoring from real execution metrics, blended with static benchmarks for self-learning model evaluation.
+
+### Empirical Scorer (`src/upgrade/empirical-scorer.js`, ~200 LOC)
+- **Composite efficiency**: `normalizeEfficiency(tokens)×0.6 + normalizeIterations×0.3 + normalizeDuration×0.1`.
+- **Blend weights** (B+E=0.35): <10 samples→Phase 2 behavior, 10-50→B=0.25/E=0.10, >50→B=0.15/E=0.20.
+- **Confidence factor**: `min(1, sampleCount/50)` scales empirical score.
+- **Hard cap**: Empirical contribution ≤ 0.25.
+- **Schema versioning**: `EMPIRICAL_SCHEMA_VERSION` for formula change invalidation.
+
+### Metrics Collector (`src/upgrade/metrics-collector.js`, ~280 LOC)
+- **Batch buffer**: Flush every 10 events OR 5 seconds, `INSERT OR IGNORE` in transaction.
+- **Telemetry guard**: Self-disables after 5 consecutive DB failures, retries after 10 minutes.
+- **Outlier filter**: Discards samples with tokens >5× median, duration >5× median, or iterations >20.
+- **Task weighting**: patch=1.0, checkpoint=0.8, build=0.6.
+- **Recency decay**: `exp(-days/60)` — recent samples weighted higher.
+- **Bayesian smoothing**: Prior=0.5, k=5 — stabilizes cold start.
+- **Difficulty normalization**: `errorsFixed/(errorsFixed+errorsRemaining+1)` adjusts success weight.
+- **Drift detection**: Recent 20 samples vs historical — resets to Phase 2 weights if degraded.
+- **Blacklist**: patchSuccess < 0.2 after 20+ samples → exclude from proposals.
+
+### Integration
+- **workflow.js**: `callLLM` now returns `promptEvalCount`/`evalCount` from gateway.
+- **execution-loop.js**: Fire-and-forget `recordEvent` in `finally` block with accumulated token count.
+- **lifecycle-build.js**: Checkpoint metrics hook + build completion hook.
+- **model-ranker.js**: `scoreModel(model, role, ctx, empirical)` — 4th param for blend weights + empirical score. `EVALUATION_VERSION` bumped to `v120.1`.
+- **upgrade-manager.js**: Phase 3 lazy-load, empirical data query before pairwise loop, drift guard, blacklist guard.
+- **server.js**: `metricsCollector.setDb(db.db)` wiring.
+- **data-retention.js**: `model_performance` with 90-day retention.
+- **Migration 032**: `model_performance` table (role, model, task_type, success, iterations, tokens, duration_ms, errors_fixed, errors_remaining, stop_reason, lifecycle_id, milestone_id, detail_json, created_at).
+
+### Tests
+- **67 new tests** (`tests/model-upgrade-phase3.test.js`): empirical scorer (14), metrics collector (18), blended scoring (10), integration (10), edge cases (5), plus constants/weights (10).
+- **0 regressions**: Phase 2 88/88, upgrade-flow 28/28, upgrade-apply 31/31.
+
+---
+
 ## v118 — Phase 2 Model Upgrade: Pairwise Evaluation + Curated Catalog (2026-03-10)
 
 Complete overhaul of model upgrade discovery and evaluation — pairwise scoring, curated 55-model catalog with benchmarks, DB-backed proposals, implicit user preferences.

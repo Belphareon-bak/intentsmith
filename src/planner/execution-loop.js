@@ -24,6 +24,15 @@ import {
   findRootCause, formatErrorsForLLM,
 } from './error-normalizer.js';
 
+// v120: Metrics collector — lazy-loaded
+let _metricsCollector = null;
+async function _ensureMetrics() {
+  if (!_metricsCollector) {
+    try { _metricsCollector = (await import('../upgrade/metrics-collector.js')).metricsCollector; } catch (_) {}
+  }
+  return _metricsCollector;
+}
+
 // v111: Fix Strategy Selection — lazy-loaded
 let _strategyLoaded = false;
 let _selectFixStrategy, _buildDeterministicPatch, _validateDeterministicPatch;
@@ -501,6 +510,11 @@ export async function runFixLoop(options) {
     }
   }
 
+  // v120: Metrics tracking
+  const loopStartTime = Date.now();
+  let tokenTotal = 0;
+  let lastModel = null;
+
   try {
     // Step 4: Fix loop
     for (let iter = 1; iter <= maxIter; iter++) {
@@ -625,6 +639,8 @@ export async function runFixLoop(options) {
       // 4c. Call LLM
       const llmResult = await callLLM('CODE', prompt);
       const llmOutput = llmResult?.content || '';
+      tokenTotal += llmResult?.evalCount || 0;
+      lastModel = llmResult?.model || lastModel;
 
       // 4c. Parse patches
       const patches = parseLLMOutput(llmOutput);
@@ -828,6 +844,29 @@ export async function runFixLoop(options) {
         logger.warn('ExecutionLoop', `Task memory record failed: ${err.message}`);
       }
     }
+
+    // v120: Record metrics for empirical model evaluation
+    try {
+      const mc = await _ensureMetrics();
+      if (mc) {
+        const converged = currentErrors.length === 0;
+        const errorsFixed = (initialErrors.length - currentErrors.length);
+        mc.recordEvent({
+          role: 'CODE',
+          model: lastModel || '',
+          taskType: 'patch',
+          success: converged ? 1 : 0,
+          iterations: iterMem.iteration,
+          tokens: tokenTotal,
+          durationMs: Date.now() - loopStartTime,
+          errorsFixed: Math.max(0, errorsFixed),
+          errorsRemaining: currentErrors.length,
+          stopReason: converged ? 'success' : 'max_iterations',
+          lifecycleId: lifecycle.id,
+          milestoneId: milestone.id,
+        });
+      }
+    } catch (_) { /* fire-and-forget */ }
   }
 }
 

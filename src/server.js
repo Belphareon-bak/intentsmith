@@ -223,6 +223,15 @@ try {
   logger.warn('Server', `Phase 2 upgrade pipeline not available: ${err.message}`);
 }
 
+// v120: Phase 3 — metrics collector for empirical model evaluation
+try {
+  const { metricsCollector } = await import('./upgrade/metrics-collector.js');
+  metricsCollector.setDb(db.db);
+  logger.info('Server', 'Phase 3 metrics collector initialized');
+} catch (err) {
+  logger.warn('Server', `Phase 3 metrics collector not available: ${err.message}`);
+}
+
 // F3: License system — feature gates
 import { licenseManager, TIERS } from './licensing/license.js';
 const licenseStatus = licenseManager.getStatus();

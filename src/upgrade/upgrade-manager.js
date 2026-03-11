@@ -44,6 +44,19 @@ async function _ensurePhase2() {
   }
 }
 
+// v120: Phase 3 lazy-loaded modules (empirical scoring)
+let _metricsCollector = null;
+let _empiricalScorer = null;
+
+async function _ensurePhase3() {
+  if (!_metricsCollector) {
+    try { _metricsCollector = (await import('./metrics-collector.js')).metricsCollector; } catch { _metricsCollector = null; }
+  }
+  if (!_empiricalScorer) {
+    try { _empiricalScorer = await import('./empirical-scorer.js'); } catch { _empiricalScorer = null; }
+  }
+}
+
 // ─── Feasibility Gate (v118) ────────────────────────────────────────────────
 
 /**
@@ -749,6 +762,17 @@ export class UpgradeManager {
       } catch (_) {}
     }
 
+    // v120: Query empirical data for all roles (Phase 3)
+    const empiricalData = new Map(); // role → Map<model, aggregated>
+    await _ensurePhase3();
+    if (_metricsCollector && _empiricalScorer) {
+      try {
+        for (const role of Object.keys(MODEL_PROFILES)) {
+          empiricalData.set(role, _metricsCollector.getAllMetricsForRole(role));
+        }
+      } catch (_) {}
+    }
+
     for (const [role, profile] of Object.entries(MODEL_PROFILES)) {
       const current = profile.getCurrentModel();
       const currentParsed = parseModelName(current);
@@ -809,12 +833,56 @@ export class UpgradeManager {
         );
         if (!feasibility.feasible) continue;
 
+        // v120: Blacklist guard — skip candidates with very poor empirical performance
+        if (_metricsCollector) {
+          try {
+            if (_metricsCollector.isBlacklisted(role, candidate.name)) continue;
+          } catch (_) {}
+        }
+
+        // v120: Build empirical context for pairwise evaluation
+        let empiricalCtx = {};
+        if (_empiricalScorer && empiricalData.has(role)) {
+          const roleData = empiricalData.get(role);
+          const candMetrics = roleData?.get(candidate.name);
+          const curMetrics = roleData?.get(current);
+          const candSamples = candMetrics?.sampleCount ?? 0;
+          const curSamples = curMetrics?.sampleCount ?? 0;
+
+          // Drift detection — reset to Phase 2 weights if drifted
+          let candDrifted = false;
+          if (_metricsCollector && candSamples >= _empiricalScorer.MIN_SAMPLES) {
+            try {
+              const driftInfo = _metricsCollector.detectDrift(role, candidate.name);
+              candDrifted = driftInfo?.drifted ?? false;
+            } catch (_) {}
+          }
+
+          const candBlend = candDrifted
+            ? { benchmarkWeight: 0.35, empiricalWeight: 0.00 }
+            : _empiricalScorer.computeBlendWeights(candSamples);
+          const curBlend = _empiricalScorer.computeBlendWeights(curSamples);
+
+          const candEmpScore = (!candDrifted && candSamples >= _empiricalScorer.MIN_SAMPLES)
+            ? _empiricalScorer.computeEmpiricalScore(candMetrics)
+            : 0;
+          const curEmpScore = (curSamples >= _empiricalScorer.MIN_SAMPLES)
+            ? _empiricalScorer.computeEmpiricalScore(curMetrics)
+            : 0;
+
+          empiricalCtx = {
+            candidate: { blendWeights: candBlend, empiricalScore: candEmpScore },
+            current: { blendWeights: curBlend, empiricalScore: curEmpScore },
+          };
+        }
+
         // Pairwise evaluation
         const evalResult = _ranker.evaluateUpgrade(
           currentEntry,
           { ...candidate, effectiveVramMb },
           role,
-          { gpuVramMb: hwContext.gpuVramMb, currentModel: currentEntry }
+          { gpuVramMb: hwContext.gpuVramMb, currentModel: currentEntry },
+          empiricalCtx
         );
 
         if (!evalResult.shouldUpgrade) continue;

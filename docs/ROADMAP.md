@@ -219,6 +219,7 @@ Korelační analýza (po pilotu): spec_score vs build_success, roadmap_score vs 
 | v106–v109 | **F4-F8: Context Optimizer, Task Memory, Self-Critique, Graph Debug, Pattern Mining** (194 tests) |
 | v110–v116 | **FΔ+F9-F14: Context Delta, Build Strategy, Fix Strategy, Perf Intel, Deps, CI, Cross-Project** (242 tests) |
 | v119 | **Prompt Pipeline: Structured Prompt Builder, Import Map, Scope Limiter, Signature Cache** (83 tests) |
+| v120 | **Phase 3 Empirical Model Evaluation** — metrics collection, blended scoring, drift detection, blacklist (67 tests) |
 
 ---
 
@@ -254,7 +255,7 @@ Fáze G: CODE INTEL ████████████████████
 Fáze I: GOVERNANCE ██████████████████████████████████████████  100% → DONE (v98-v100, guardian+contracts+critic)
 Fáze J: F-SERIES   ██████████████████████████████████████████  100% → DONE (v104-v116, F1-F14, 597 testů)
 Fáze K: PROMPT PL  ██████████████████████████████████████████  100% → DONE (v119, 83 testů)
-Fáze K: MODEL MGMT ██████████████████████████████████████████  100% → DONE (v103+v118, 147 testů)
+Fáze K: MODEL MGMT ██████████████████████████████████████████  100% → DONE (v103+v118+v120, 214 testů)
 Fáze E: IDE        █████████████████████████████████░░░░░░░░░   82% (Phase 1-5, 33 extensions, Settings Phase 3 v91)
 Fáze F: BALÍČKOVÁNÍ██████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   25% (F1-F3 wired)
 ```

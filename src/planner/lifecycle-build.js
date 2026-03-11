@@ -135,6 +135,15 @@ async function ensureSelfCritique() {
   }
 }
 
+// v120: Metrics collector — lazy-loaded
+let _metricsCollector = null;
+async function _ensureMetrics() {
+  if (!_metricsCollector) {
+    try { _metricsCollector = (await import('../upgrade/metrics-collector.js')).metricsCollector; } catch (_) {}
+  }
+  return _metricsCollector;
+}
+
 async function ensureGuardian() {
   if (_guardianLoaded) return true;
   try {
@@ -480,6 +489,7 @@ async function executeMilestone(lifecycle, milestone) {
  * After WorkflowOrchestrator completes, run testing + checkpoint + health score.
  */
 async function postExecution(lifecycle, milestone, wfResult) {
+  const _buildStart = Date.now(); // v120: build timing
   if (wfResult.state === 'FAILED') {
     return handleMilestoneFailure(lifecycle, milestone, wfResult.error || 'Workflow failed');
   }
@@ -615,7 +625,28 @@ async function postExecution(lifecycle, milestone, wfResult) {
     try { archCheckpointContext += '\n' + _formatApiDiff(apiDiff); } catch { /* ignore */ }
   }
 
+  const _cpStart = Date.now();
   const checkpointResult = await milestoneCheckpoint(lifecycle, milestone, wfResult, testResultsForCheckpoint, previousFindings, qualityGateResult, archCheckpointContext);
+
+  // v120: Record checkpoint metrics
+  try {
+    const mc = await _ensureMetrics();
+    if (mc) {
+      mc.recordEvent({
+        role: 'R1',
+        model: checkpointResult._model || '',
+        taskType: 'checkpoint',
+        success: checkpointResult.passed ? 1 : 0,
+        iterations: (milestone._lastCheckpointFindings ? 2 : 1),
+        tokens: checkpointResult._tokens || 0,
+        durationMs: Date.now() - _cpStart,
+        errorsFixed: 0,
+        errorsRemaining: checkpointResult.passed ? 0 : 1,
+        lifecycleId: lifecycle.id,
+        milestoneId: milestone.id,
+      });
+    }
+  } catch (_) { /* fire-and-forget */ }
 
   // ─── Scope enforcement ──────────────────────────────────────────────────
   const scopeResult = await enforceMilestoneScope(lifecycle, milestone);
@@ -709,6 +740,26 @@ async function postExecution(lifecycle, milestone, wfResult) {
     gitTag,
     health,
   });
+
+  // v120: Record build completion metrics
+  try {
+    const mc = await _ensureMetrics();
+    if (mc) {
+      mc.recordEvent({
+        role: 'CODE',
+        model: wfResult.model || '',
+        taskType: 'build',
+        success: 1,
+        iterations: 1,
+        tokens: 0,
+        durationMs: Date.now() - _buildStart,
+        errorsFixed: 0,
+        errorsRemaining: 0,
+        lifecycleId: lifecycle.id,
+        milestoneId: milestone.id,
+      });
+    }
+  } catch (_) { /* fire-and-forget */ }
 
   // v93: Email notification on milestone PASS
   if (_notificationEmitter) {
@@ -886,8 +937,10 @@ async function milestoneCheckpoint(lifecycle, milestone, wfResult, testResults, 
     return { passed: false, raw, reason: 'Checkpoint response was not valid JSON', checkpointMode };
   }
 
-  // Store checkpoint mode on result
+  // Store checkpoint mode + v120 metrics metadata on result
   checkpoint.checkpointMode = checkpointMode;
+  checkpoint._model = result.model || '';
+  checkpoint._tokens = result.evalCount || 0;
 
   // Log checkpoint verdict for diagnostics
   logger.info('LifecycleBuild', `Checkpoint verdict: ${checkpoint.passed ? 'PASS' : 'FAIL'} (${checkpointMode})`, {

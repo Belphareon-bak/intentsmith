@@ -31,6 +31,7 @@ export const DEFAULT_STORAGE_CONFIG = {
     skill_steps: 30,
     audit_events: 90,
     quality_scores: 90,
+    model_performance: 90,
     soft_delete_grace: 14,
   },
   backup: {
@@ -70,6 +71,7 @@ const VALIDATION = {
   'retention.skill_steps':           { min: 7,   max: 365 },
   'retention.audit_events':          { min: 14,  max: 3650 },
   'retention.quality_scores':        { min: 14,  max: 365 },
+  'retention.model_performance':     { min: 14,  max: 365 },
   'retention.soft_delete_grace':     { min: 1,   max: 365 },
   'backup.periodic_hours':           { min: 1,   max: 168 },
   'backup.max_daily':                { min: 1,   max: 30 },
@@ -102,6 +104,7 @@ const RETENTION_TABLE_MAP = [
   // Long retention
   { table: 'audit_events',          configKey: 'audit_events',         dateCol: 'created_at' },
   { table: 'quality_scores',        configKey: 'quality_scores',       dateCol: 'created_at' },
+  { table: 'model_performance',    configKey: 'model_performance',    dateCol: 'created_at' },
   { table: 'conversation_memory',   configKey: 'quality_scores',       dateCol: 'created_at' },
 ];
 

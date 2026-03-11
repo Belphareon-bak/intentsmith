@@ -12,7 +12,7 @@
 
 import { parseModelName, isNewerVersion } from './model-profiles.js';
 
-export const EVALUATION_VERSION = 'v118.1';
+export const EVALUATION_VERSION = 'v120.1';
 
 // ─── Benchmark Weights per Role ──────────────────────────────────────────────
 
@@ -158,7 +158,7 @@ export function computeMaturity(releaseDate) {
  * @param {Object} context - { gpuVramMb, referenceParams }
  * @returns {{ totalScore: number, breakdown: Object }}
  */
-export function scoreModel(model, role, context = {}) {
+export function scoreModel(model, role, context = {}, empirical = {}) {
   const benchmark = computeBenchmarkScore(model.benchmarks, role);
   const category = computeCategoryBonus(model.category, role);
   const hwFit = computeHardwareFit(
@@ -170,8 +170,16 @@ export function scoreModel(model, role, context = {}) {
   const maturity = Math.min(1.0, maturityRaw);
   const generation = computeGenerationBonus(model, context.currentModel);
 
+  // v120: Blended benchmark + empirical scoring
+  const bw = empirical.blendWeights?.benchmarkWeight ?? 0.35;
+  const ew = empirical.blendWeights?.empiricalWeight ?? 0.00;
+  const rawEs = empirical.empiricalScore ?? 0;
+  // Hard cap: empirical contribution <= MAX_EMPIRICAL_CONTRIBUTION (0.25)
+  const es = ew > 0 ? Math.min(rawEs, 0.25 / ew) : rawEs;
+
   const totalScore = Math.min(1.0,
-    benchmark * 0.35 +
+    benchmark * bw +
+    es * ew +
     hwFit * 0.20 +
     maturity * 0.15 +
     generation * 0.10 +
@@ -239,7 +247,7 @@ export function computeRiskLevel(current, candidate) {
  * @returns {{ shouldUpgrade: boolean, currentScore: number, candidateScore: number,
  *             delta: number, breakdown: Object, riskLevel: string, rejectReason?: string }}
  */
-export function evaluateUpgrade(current, candidate, role, context = {}) {
+export function evaluateUpgrade(current, candidate, role, context = {}, empiricalCtx = {}) {
   const currentParams = current.params || parseModelName(current.name || '').params || 0;
   const candidateParams = candidate.params || parseModelName(candidate.name || '').params || 0;
 
@@ -247,13 +255,13 @@ export function evaluateUpgrade(current, candidate, role, context = {}) {
     ...context,
     referenceParams: currentParams,
     currentModel: current,
-  });
+  }, empiricalCtx.current || {});
 
   const candidateScoreResult = scoreModel(candidate, role, {
     ...context,
     referenceParams: currentParams,
     currentModel: current,
-  });
+  }, empiricalCtx.candidate || {});
 
   const delta = candidateScoreResult.totalScore - currentScoreResult.totalScore;
   const threshold = IMPROVEMENT_THRESHOLD[role] || 0.05;
@@ -322,20 +330,17 @@ export function evaluateUpgrade(current, candidate, role, context = {}) {
 // ─── Phase 3/4 Interface Stubs ────────────────────────────────────────────
 
 /**
- * Phase 3: Empirical Model Evaluation (NOT IMPLEMENTED)
- * @typedef {Object} EmpiricalScore
- * @property {number} patchSuccessRate     - 0-1
- * @property {number} checkpointPassRate   - 0-1
- * @property {number} avgIterations        - normalized
- * @property {number} tokenEfficiency      - tokens per successful output
- * @property {number} sampleSize
- * @property {string} modelName
- * @property {string} role
+ * Phase 3: Empirical Model Evaluation — IMPLEMENTED (v120)
+ * See: empirical-scorer.js, metrics-collector.js
  *
- * Future: scoring adds empirical component:
- *   after 10 samples: benchmark 0.25 + empirical 0.15
- *   after 50 samples: benchmark 0.15 + empirical 0.25
- *   empiricalScore = patch_success * 0.45 + checkpoint_pass * 0.35 + efficiency * 0.20
+ * scoreModel() accepts empirical = { blendWeights, empiricalScore }
+ * evaluateUpgrade() accepts empiricalCtx = { current, candidate } (each with blendWeights + empiricalScore)
+ *
+ * Blend transition (B+E=0.35):
+ *   <10 samples:  B=0.35, E=0.00 (Phase 2 behavior)
+ *   10-50:        B=0.25, E=0.10
+ *   >50:          B=0.15, E=0.20
+ *   Hard cap: empirical contribution <= 0.25
  */
 
 /**

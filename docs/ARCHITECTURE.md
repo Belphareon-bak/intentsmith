@@ -1,8 +1,8 @@
-# C.3 Agent Platform — Architecture v119
+# C.3 Agent Platform — Architecture v120
 
-**Version:** v119.0.0
+**Version:** v120.0.0
 **Status:** Production-ready
-**Date:** 2026-03-10
+**Date:** 2026-03-11
 
 ---
 
@@ -22,7 +22,7 @@ C.3 is a conversational AI platform combining:
 10. **Execution Engine** — Patch engine (3-tier anchor), error normalizer (14 codes), iterative fix loop, strategy selection, self-critique, scope limiter
 11. **Prompt Pipeline** — Unified structured prompt builder (12 sections, adaptive weighting), KG-based import map, signature cache
 12. **Architecture Governance** — Cross-milestone drift enforcement, API contract tracking, critic/repair agent, regression prediction
-13. **Model Upgrade System** — Curated catalog (55 models), pairwise evaluation, feasibility gate, proposal store, chat-based approval
+13. **Model Upgrade System** — Curated catalog (55 models), pairwise evaluation, feasibility gate, proposal store, chat-based approval, empirical scoring (Phase 3)
 14. **Task Memory** — Persistent cross-milestone learning, cross-project pattern sharing, decay-based relevance
 
 All decisions flow through CRE — LLM is the text generator, never the authority.
@@ -184,7 +184,7 @@ src/                              # 126,566 lines / 349 files / 29 directories
 │   ├── feedback-detector.js      #   6 signal types
 │   ├── pattern-tracker.js        #   Cross-conversation learning
 │   └── preferences.js            #   User preference tracking
-├── upgrade/                      # 9 files, ~3,200 LOC — Model Upgrade System (Phase 2)
+├── upgrade/                      # 11 files, ~3,800 LOC — Model Upgrade System (Phase 2 + 3)
 │   ├── model-profiles.js         #   Model capabilities + family definitions
 │   ├── model-discovery.js        #   L1 local + L2 catalog + L3 hints
 │   ├── model-catalog.js          #   55-model curated catalog with benchmarks
@@ -533,14 +533,15 @@ Architecture Intelligence (v100):
   └─ multi-agent.js — 5-role pipeline (planner→builder→architect→critic→debugger)
 ```
 
-### 14. Model Upgrade System (v103 + v118 Phase 2)
+### 14. Model Upgrade System (v103 + v118 Phase 2 + v120 Phase 3)
 
-Two-phase model upgrade with curated catalog and pairwise evaluation.
+Three-phase model upgrade with curated catalog, pairwise evaluation, and empirical scoring.
 
 ```
 Phase 1 (v103): discover → filter → rank → propose → chat approval → pull → apply
 Phase 2 (v118): catalog → discover(L1+L2+L3) → feasibility gate → pairwise evaluation
   → preference adjust → proposal store (DB) → chat approval → pull → apply
+Phase 3 (v120): + empirical scoring from real execution metrics → blended benchmark+empirical
 
 Discovery:
   L1: Local (Ollama /api/tags) — always
@@ -548,10 +549,24 @@ Discovery:
   L3: Family upgrade hints — always
 
 Pairwise Evaluation:
-  scoreModel(benchmark×0.35 + hwFit×0.20 + maturity×0.15 + generation×0.10 + category×0.10 + speed×0.10)
-  → candidateScore − currentScore ≥ threshold (D1=0.06, CODE=0.05, CHAT=0.04)
-  → dominance gate (>20% worse in any dimension → reject)
-  → preference penalty (from approve/reject/dismiss history)
+  scoreModel((benchmark×B + empirical×E) + hwFit×0.20 + maturity×0.15 + gen×0.10 + cat×0.10 + speed×0.10)
+  B+E = 0.35, blend ratio shifts with sample count:
+    <10 samples:  B=0.35, E=0.00 (Phase 2 behavior)
+    10-50:        B=0.25, E=0.10
+    >50:          B=0.15, E=0.20
+  empiricalScore = patchSuccess×0.45 + checkpointPass×0.35 + efficiency×0.20
+  Hard cap: empirical contribution ≤ 0.25
+
+Metrics Collection (fire-and-forget):
+  execution-loop → recordEvent(patch success, iterations, tokens, duration)
+  lifecycle-build → recordEvent(checkpoint verdict, build completion)
+  Batch buffer (10 events / 5s), outlier filter, recency decay (exp(-days/60)),
+  Bayesian smoothing (prior=0.5, k=5), difficulty normalization, telemetry guard
+
+Guards:
+  Drift detection: recent 20 samples < historical × 0.8 → reset to Phase 2 weights
+  Blacklist: patchSuccess < 0.2 after 20+ samples → exclude candidate
+  Confidence: score × min(1, samples/50)
 
 Proposal Lifecycle:
   pending → approved | rejected (30d cooldown) | dismissed (permanent) | expired (7d)
@@ -601,7 +616,7 @@ Registry → Resolver (LLM intent match) → Runner (state machine) → Step exe
 
 ## Database Schema
 
-80+ tables in SQLite (better-sqlite3), 33 migrations:
+80+ tables in SQLite (better-sqlite3), 34 migrations:
 
 | Group | Tables |
 |-------|--------|
@@ -615,7 +630,7 @@ Registry → Resolver (LLM intent match) → Runner (state machine) → Step exe
 | Memory | global_memory, user_memory, project_memory, memory (LTM), task_memory |
 | Skills | skill_executions, skill_steps, workflow_patterns |
 | Architecture | architecture_state, api_contracts |
-| Model Upgrade | model_overrides, upgrade_history, upgrade_proposals, model_catalog_cache |
+| Model Upgrade | model_overrides, upgrade_history, upgrade_proposals, model_catalog_cache, model_performance |
 | Quality | quality_scores |
 | Security | api_tokens (SHA-256 hashed) |
 | Notifications | notification_channels_v57, notification_log_v57, notification_state_v57, notification_digest_buffer_v57, notification_trust_actions_v57 |
@@ -679,7 +694,7 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 | Architecture governance | 57 | Guardian, contracts, critic |
 | Architecture intelligence | 161 | Policy, context, refactor, predictor, KB, multi-agent |
 | Large project scaling | 107 | Graph storage, BFS, streaming, concept registry |
-| Model upgrade (v103+v118) | 147 | Discovery, catalog, pairwise, proposals, approval, pull |
+| Model upgrade (v103+v118+v120) | 214 | Discovery, catalog, pairwise, proposals, approval, pull, empirical scoring |
 | Project E2E | 56 | 4 project types, lifecycle, milestones |
 
 ---
