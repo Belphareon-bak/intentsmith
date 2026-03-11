@@ -12,6 +12,7 @@ import {
   normalizeFamily, estimateVram, logInterpolate,
   buildFamilyScalingModels, estimateBenchmarks,
   computeEstimationConfidence, inheritFromNearest,
+  extractLibraryName,
 } from '../src/upgrade/benchmark-estimator.js';
 
 import {
@@ -434,7 +435,7 @@ test('_buildProvisionalEntry creates correct shape', () => {
   od._scalingModels = buildFamilyScalingModels(CATALOG);
   od._catalogNames = new Set(CATALOG.map(e => e.name));
 
-  const entry = od._buildProvisionalEntry('qwen', { tag: '20b', params: 20 });
+  const entry = od._buildProvisionalEntry('qwen', { tag: '20b', params: 20 }, 24000);
   assert(entry !== null, 'Entry should not be null');
   assertEqual(entry.name, 'qwen:20b');
   assertEqual(entry.family, 'qwen');
@@ -450,8 +451,37 @@ test('_buildProvisionalEntry creates correct shape', () => {
 
 test('_buildProvisionalEntry returns null for 0 params', () => {
   const od = new OnlineDiscovery();
-  const entry = od._buildProvisionalEntry('qwen', { tag: 'latest', params: 0 });
+  const entry = od._buildProvisionalEntry('qwen', { tag: 'latest', params: 0 }, 0);
   assertEqual(entry, null);
+});
+
+test('_buildProvisionalEntry returns null for params < MIN_USEFUL_PARAMS (3B)', () => {
+  const od = new OnlineDiscovery();
+  od._scalingModels = buildFamilyScalingModels(CATALOG);
+  const entry1 = od._buildProvisionalEntry('qwen', { tag: '0.5b', params: 0.5 }, 24000);
+  assertEqual(entry1, null);
+  const entry2 = od._buildProvisionalEntry('qwen', { tag: '1.8b', params: 1.8 }, 24000);
+  assertEqual(entry2, null);
+  const entry3 = od._buildProvisionalEntry('qwen', { tag: '4b', params: 4 }, 24000);
+  assert(entry3 !== null, '4B should pass min params filter');
+});
+
+test('_buildProvisionalEntry returns null when VRAM exceeds GPU limit', () => {
+  const od = new OnlineDiscovery();
+  od._scalingModels = buildFamilyScalingModels(CATALOG);
+  // 72B → 620*72+420 = 45060 MB, 90% of 24000 = 21600 → too large
+  const entry72 = od._buildProvisionalEntry('qwen', { tag: '72b', params: 72 }, 24000);
+  assertEqual(entry72, null);
+  // 27B → 620*27+420 = 17160 MB, 90% of 24000 = 21600 → fits
+  const entry27 = od._buildProvisionalEntry('qwen', { tag: '27b', params: 27 }, 24000);
+  assert(entry27 !== null, '27B should fit in 24GB');
+});
+
+test('_buildProvisionalEntry skips VRAM check when gpuVramMb=0', () => {
+  const od = new OnlineDiscovery();
+  od._scalingModels = buildFamilyScalingModels(CATALOG);
+  const entry = od._buildProvisionalEntry('qwen', { tag: '72b', params: 72 }, 0);
+  assert(entry !== null, 'Should not filter when GPU info unavailable');
 });
 
 test('_filterNewTags excludes catalog entries', () => {
@@ -505,7 +535,7 @@ test('_filterNewTags excludes tags without params', () => {
 
 suite('Online Discovery — Rate Limit');
 
-test('max 3 families fetched per cycle', async () => {
+test('max 8 families fetched per cycle', async () => {
   let fetchCount = 0;
   const od = new OnlineDiscovery();
   od._scalingModels = buildFamilyScalingModels(CATALOG);
@@ -517,8 +547,10 @@ test('max 3 families fetched per cycle', async () => {
     return '<a href="/library/fam:99b">99b</a>';
   };
 
-  await od.discoverForFamilies(['fam1', 'fam2', 'fam3', 'fam4', 'fam5']);
-  assert(fetchCount <= 3, `Expected max 3 fetches, got ${fetchCount}`);
+  const families = Array.from({ length: 12 }, (_, i) => `fam${i}`);
+  await od.discoverForFamilies(families);
+  assert(fetchCount <= 8, `Expected max 8 fetches, got ${fetchCount}`);
+  assert(fetchCount > 3, `Expected more than 3 fetches, got ${fetchCount}`);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -756,6 +788,46 @@ test('registryClient fetchLibraryPage method exists', () => {
   const client = new RegistryClient();
   assert(typeof client.fetchLibraryPage === 'function',
     'fetchLibraryPage should be a method');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXTRACT LIBRARY NAME
+// ═══════════════════════════════════════════════════════════════════════════
+
+suite('extractLibraryName');
+
+test('extracts prefix before colon', () => {
+  assertEqual(extractLibraryName('qwen3.5:27b'), 'qwen3.5');
+  assertEqual(extractLibraryName('deepseek-r1:32b'), 'deepseek-r1');
+  assertEqual(extractLibraryName('llava:13b'), 'llava');
+  assertEqual(extractLibraryName('qwen2.5-coder:32b'), 'qwen2.5-coder');
+});
+
+test('strips trailing param-size suffix for models without colon', () => {
+  assertEqual(extractLibraryName('deepseek-r1-32b'), 'deepseek-r1');
+  assertEqual(extractLibraryName('qwen3-30b-a3b'), 'qwen3');
+});
+
+test('handles latest tag', () => {
+  assertEqual(extractLibraryName('deepseek-r1-32b:latest'), 'deepseek-r1');
+  assertEqual(extractLibraryName('qwen3:latest'), 'qwen3');
+});
+
+test('handles empty/null', () => {
+  assertEqual(extractLibraryName(''), '');
+  assertEqual(extractLibraryName(null), '');
+  assertEqual(extractLibraryName(undefined), '');
+});
+
+test('preserves version numbers in name', () => {
+  assertEqual(extractLibraryName('qwen2.5:32b'), 'qwen2.5');
+  assertEqual(extractLibraryName('llama3.1:70b'), 'llama3.1');
+  assertEqual(extractLibraryName('gemma3:27b'), 'gemma3');
+});
+
+test('lowercases the result', () => {
+  assertEqual(extractLibraryName('Qwen3.5:27b'), 'qwen3.5');
+  assertEqual(extractLibraryName('DeepSeek-R1:32b'), 'deepseek-r1');
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -278,8 +278,26 @@ export function inheritFromNearest(family, params, scalingModels) {
   };
 }
 
+/**
+ * Extract Ollama library name from a model name.
+ * This is the name used in ollama.com/library/{name} URLs.
+ * Different from parseModelName().family which gives the logical scoring family.
+ *
+ * @param {string} modelName - e.g. 'qwen3.5:27b', 'deepseek-r1-32b:latest'
+ * @returns {string} Library name (e.g. 'qwen3.5', 'deepseek-r1')
+ */
+export function extractLibraryName(modelName) {
+  if (!modelName) return '';
+  // Take everything before ':' (strip tag/params)
+  let base = modelName.split(':')[0].toLowerCase().trim();
+  // Strip trailing param-size suffixes: -32b, -14b, -30b-a3b, etc.
+  base = base.replace(/-\d+b(-[a-z]\d+b)?$/, '');
+  return base;
+}
+
 export default {
   normalizeFamily, estimateVram, logInterpolate,
   buildFamilyScalingModels, estimateBenchmarks,
   computeEstimationConfidence, inheritFromNearest,
+  extractLibraryName,
 };

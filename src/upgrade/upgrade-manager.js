@@ -729,20 +729,32 @@ export class UpgradeManager {
     this._lastDiscovery = discovery;
 
     // v121.1: L4 Online Discovery (fullCycle only — same cadence as L2)
+    // Use model name prefixes (library names) instead of logical families
+    // because 'qwen3.5:27b' → library 'qwen3.5', not logical family 'qwen'
     if (opts.fullCycle) {
       try {
         const od = await _ensureOnlineDiscovery();
         if (od) {
-          const installedFamilies = [...new Set(
+          const { extractLibraryName } = await import('./benchmark-estimator.js');
+          const installedLibraryNames = [...new Set(
             discovery.candidates
               .filter(c => c.source === 'local')
-              .map(c => c.family)
+              .map(c => extractLibraryName(c.name))
               .filter(Boolean)
           )];
-          if (installedFamilies.length > 0) {
+          if (installedLibraryNames.length > 0) {
             await _ensurePhase2();
             const catalogArr = _catalog?.CATALOG || [];
-            const newEntries = await od.discoverForFamilies(installedFamilies, { catalog: catalogArr });
+            // Pass GPU VRAM for pre-filtering oversized models
+            let gpuVramMb = 0;
+            try {
+              const { getSystemProfile } = await import('../system/gpu-detector.js');
+              const profile = await getSystemProfile();
+              if (profile.gpus?.length > 0) {
+                gpuVramMb = Math.max(...profile.gpus.map(g => g.vram_mb || 0));
+              }
+            } catch (_) {}
+            const newEntries = await od.discoverForFamilies(installedLibraryNames, { catalog: catalogArr, gpuVramMb });
             if (newEntries.length > 0) {
               await od.persistEntries(newEntries);
               logger.info('UpgradeManager', `L4: discovered ${newEntries.length} new model variants`);

@@ -22,9 +22,10 @@ import {
   buildFamilyScalingModels, inheritFromNearest,
 } from './benchmark-estimator.js';
 
-const MAX_FAMILY_FETCHES = 3;
+const MAX_FAMILY_FETCHES = 8;
 const STALE_DAYS = 30;
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24h
+const MIN_USEFUL_PARAMS = 3; // Skip models < 3B (too small for production)
 
 // ─── HTML Tag Parsing ────────────────────────────────────────────────────────
 
@@ -107,9 +108,10 @@ export class OnlineDiscovery {
    * Main entry: discover new model variants for installed families.
    * Rate limited to MAX_FAMILY_FETCHES per call.
    *
-   * @param {string[]} installedFamilies - Family names from installed models
+   * @param {string[]} installedFamilies - Library names from installed models (e.g. 'qwen3.5', 'deepseek-r1')
    * @param {Object} [opts]
    * @param {Array} [opts.catalog] - CATALOG array (for scaling models)
+   * @param {number} [opts.gpuVramMb] - Available GPU VRAM in MB (for pre-filtering oversized models)
    * @returns {Promise<Array<ProvisionalEntry>>}
    */
   async discoverForFamilies(installedFamilies, opts = {}) {
@@ -125,6 +127,7 @@ export class OnlineDiscovery {
       this._catalogNames = new Set(opts.catalog.map(e => e.name));
     }
 
+    const gpuVramMb = opts.gpuVramMb || 0;
     const results = [];
     let fetchCount = 0;
 
@@ -148,7 +151,7 @@ export class OnlineDiscovery {
         if (cached && Date.now() - cached.fetchedAt < CACHE_TTL) {
           const newTags = this._filterNewTags(family, cached.tags);
           for (const tag of newTags) {
-            const entry = this._buildProvisionalEntry(family, tag);
+            const entry = this._buildProvisionalEntry(family, tag, gpuVramMb);
             if (entry) results.push(entry);
           }
           continue; // Cache hit — doesn't count toward rate limit
@@ -174,7 +177,7 @@ export class OnlineDiscovery {
 
         const newTags = this._filterNewTags(family, tags);
         for (const tag of newTags) {
-          const entry = this._buildProvisionalEntry(family, tag);
+          const entry = this._buildProvisionalEntry(family, tag, gpuVramMb);
           if (entry) results.push(entry);
         }
       } catch (err) {
@@ -243,9 +246,16 @@ export class OnlineDiscovery {
   /**
    * Build a provisional catalog entry with estimated benchmarks.
    */
-  _buildProvisionalEntry(family, tagInfo) {
+  _buildProvisionalEntry(family, tagInfo, gpuVramMb) {
     const { tag, params } = tagInfo;
     if (!params || params <= 0) return null;
+
+    // Pre-filter: skip models too small for production
+    if (params < MIN_USEFUL_PARAMS) return null;
+
+    // Pre-filter: skip models that won't fit in GPU VRAM (90% threshold)
+    const baseVramMb = estimateVram(params);
+    if (gpuVramMb > 0 && baseVramMb > gpuVramMb * 0.90) return null;
 
     const fullName = `${family}:${tag}`;
 
@@ -277,7 +287,7 @@ export class OnlineDiscovery {
       version: tag,
       params,
       category,
-      baseVramMb: estimateVram(params),
+      baseVramMb,
       effectiveVramMb: null,
       contextWindow,
       releaseDate: null,
