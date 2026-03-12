@@ -2284,7 +2284,7 @@ var _bCfg=null;var _bCfgLoading=false;var _gpuInfo=null;var _ollamaModels=null;v
 var _upgradeData=null;var _upgradeLoading=false;var _upgradeMsg=null;
 var _scoringData=null;var _scoringLoading=false;var _upgradeTab='proposals';
 var _discoveredData=null;var _discoveredLoading=false;
-/* v123: Marketplace */
+/* v124: Marketplace */
 var _mpData=null;var _mpLoading=false;var _mpMsg=null;var _mpTab='skills';var _mpSearch='';var _mpPage=1;var _mpInstalling={};
 var _pullState={};/* model name → {status,percent,text,downloadedGB,totalGB,eta,scores} */
 var _validationScores={};/* model name → { reasoning: { score, validatedAt }, code: { ... } } */
@@ -3502,7 +3502,7 @@ function settingsAboutPanel(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   v123: MARKETPLACE — browse / install / update / uninstall
+   v124: MARKETPLACE — browse / install / update / uninstall
    ═══════════════════════════════════════════════════════════ */
 function _loadMarketplaceData(force){
   if(_mpLoading)return;_mpLoading=true;

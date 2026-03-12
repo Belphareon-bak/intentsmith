@@ -8,7 +8,7 @@
 
 ---
 
-## v123 — Marketplace (2026-03-12)
+## v124 — Marketplace (2026-03-12)
 
 Remote package marketplace for skills, expertises and specialists.
 

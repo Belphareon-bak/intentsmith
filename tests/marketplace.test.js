@@ -1,4 +1,4 @@
-// Marketplace tests — v123
+// Marketplace tests — v124
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { suite, test, testAsync, assert, assertEqual, assertThrows, summary } from './harness.js';

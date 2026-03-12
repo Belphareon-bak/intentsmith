@@ -1,7 +1,7 @@
 // Migration 035: Marketplace package tracking + catalog cache
 // ══════════════════════════════════════════════════════════════════════════════
 
-export const version = '2026_03_12_035_v123_marketplace';
+export const version = '2026_03_12_035_v124_marketplace';
 export const description = 'Marketplace package tracking and catalog cache';
 
 export function up(db) {

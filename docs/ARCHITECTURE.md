@@ -204,7 +204,7 @@ src/                              # 126,566 lines / 349 files / 29 directories
 │   ├── project-knowledge-base.js #   Incremental snapshot
 │   ├── milestone-decomposer.js   #   Auto-split >1500 LOC
 │   └── multi-agent.js            #   5-role pipeline
-├── marketplace/                  # 2 files — Remote package marketplace (v123)
+├── marketplace/                  # 2 files — Remote package marketplace (v124)
 │   ├── marketplace-client.js    #   Catalog fetch, cache, download, hash, archive validation
 │   └── package-installer.js     #   Transactional install, rollback, mutex, dependency resolver
 ├── notifications/                # 19 files — email, telegram, ntfy, push
