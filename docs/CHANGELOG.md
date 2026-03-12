@@ -8,6 +8,22 @@
 
 ---
 
+## v122.2 — Expertise/Specialist CRUD + Bulk Operations (2026-03-11)
+
+IDE integration fixes for specialist/expertise lifecycle management.
+
+### FE CRUD
+- **Delete action** (`Smazat`) added to expertise and specialist cards. Specialists are automatically disabled before deletion.
+- **Bulk operations**: `Označit` toggle + `Smazat (N)` for mass deletion of expertises/specialists.
+- **Specialist creation from IDE**: "+" button opens expertise wizard with `is_specialist` flag (was dummy template).
+- **Specialist edit**: "Editovat" opens expertise wizard (was generic inline edit).
+- **Auto-refresh after `create-specialist` skill**: `_maybeRefreshExpertises()` now triggers on both `create-expertise` and `create-specialist` completion.
+
+### Documentation
+- **`docs/SPECIALIST-CREATION-GUIDE.md`**: User-facing guide — two creation pathways (chat skill vs IDE wizard), manifest format, tool implementation, management (edit/delete/bulk), troubleshooting.
+
+---
+
 ## v122 — create-specialist Skill (2026-03-11)
 
 Skill for creating specialist plugins from chat. Generates manifest + entry point, then auto-reloads the specialist loader.

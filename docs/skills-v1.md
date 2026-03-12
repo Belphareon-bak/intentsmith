@@ -475,7 +475,9 @@ ask(clarify) → llm(draft manifest) → review(checkpoint) → llm(refine) → 
 
 The `sanitize` step uses the **`transform`** step type (v122) for deterministic capability alias normalization, deduplication, and sorting.
 
-After completion, `_maybeReloadSpecialist()` in `skill.js` auto-discovers, installs, and enables the new specialist via the loader singleton. Debounce guard prevents concurrent reloads.
+After completion, `_maybeReloadSpecialist()` in `skill.js` auto-discovers, installs, and enables the new specialist via the loader singleton. Debounce guard prevents concurrent reloads. FE auto-refreshes via `_maybeRefreshExpertises()` on skill completion (v122.2).
+
+**Alternative: IDE wizard** (v122.2): Click "+" in Specialisté view → opens expertise wizard with `is_specialist: true` → POST to `/api/expertises`. Faster for simple specialists without custom tools. See `docs/SPECIALIST-CREATION-GUIDE.md` for full walkthrough.
 
 **Detection**: Czech + English regex patterns in `META_SKILL_PATTERNS`:
 - CZ: `vytvoř specialistu na překlad`, `nového specialistu pro code review`

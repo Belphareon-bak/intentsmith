@@ -481,9 +481,9 @@ function _fetchExpertises(){
   }).catch(function(err){if(typeof console!=='undefined')console.error('[C3:fetchExpertises] ERROR:',err);});
 }
 
-/* v88: Re-fetch expertises after create-expertise skill completes */
+/* v88+v122.2: Re-fetch expertises after create-expertise or create-specialist skill completes */
 function _maybeRefreshExpertises(metadata){
-  if(metadata&&metadata.completed&&metadata.skillId==='create-expertise'){
+  if(metadata&&metadata.completed&&(metadata.skillId==='create-expertise'||metadata.skillId==='create-specialist')){
     _fetchExpertises();
   }
 }
@@ -1154,12 +1154,16 @@ function _addNew(view){
     renderCenter();
     return;
   }
-  var tpl={
-    specialists:{name:'Nový specialista',fields:[{k:'Oblast',v:''}],tags:[],actions:['Uložit','Zrušit'],editing:true,_isNew:true}};
-  setDetail(tpl[view]||tpl.specialists);
+  /* v122.2: Specialists → open expertise wizard with is_specialist flag */
+  if(view==='specialists'){
+    var _spData=_ewDefaultData();_spData.is_specialist=true;
+    _ewOpen('create',null,_spData);
+    return;
+  }
+  setDetail({name:'Nová položka',fields:[{k:'Popis',v:''}],tags:[],actions:['Uložit','Zrušit'],editing:true,_isNew:true});
 }
 
-function centerExpertises(){return h(React.Fragment,null,viewHead('Expertyzy',true,function(){_addNew('expertises');}),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(EXPERTISES.map(function(e){var tags=[e.isSpecialist?'Specialista':'Expertyza'];if(e.domain)tags.push(e.domain);return card(e,function(){setDetail({name:e.name,fields:[{k:'Typ',v:e.desc},{k:'Doména',v:e.domain||'general'},{k:'Emoji',v:e.emoji},{k:'Specialista',v:e.isSpecialist?'Ano':'Ne'},{k:'Oblíbený',v:e.fav,type:'fav',_expertiseName:e.name}],tags:tags,actions:['Otevřít','Editovat']});});}))));}
+function centerExpertises(){return h(React.Fragment,null,viewHead('Expertyzy',true,function(){_addNew('expertises');}),_bulkBar('expertises'),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(EXPERTISES.map(function(e){var tags=[e.isSpecialist?'Specialista':'Expertyza'];if(e.domain)tags.push(e.domain);return card(e,function(){if(_centerState._bulkMode){_bulkToggleItem(e.id);return;}setDetail({name:e.name,_itemId:e.id,fields:[{k:'Typ',v:e.desc},{k:'Doména',v:e.domain||'general'},{k:'Emoji',v:e.emoji},{k:'Specialista',v:e.isSpecialist?'Ano':'Ne'},{k:'Oblíbený',v:e.fav,type:'fav',_expertiseName:e.name}],tags:tags,actions:['Otevřít','Editovat','Smazat']});});}))));}
 
 /* ═══ Shared filter bar: [Označit] (bulk actions) ... [Aktivní] [Archivované] [Smazané] ═══ */
 function _filterBar(filterKey,view){
@@ -1208,6 +1212,33 @@ function _bulkToggleItem(id){
   renderCenter();
 }
 
+/* v122.2: Simplified bulk bar for expertises/specialists (no archive filter — hard delete only) */
+function _bulkBar(view){
+  var bm=_centerState._bulkMode;
+  var bs=_centerState._bulkSelected;
+  function _toggleBulk(){_centerState._bulkMode=!_centerState._bulkMode;_centerState._bulkSelected=[];renderCenter();}
+  function _bulkDelete(){
+    if(bs.length===0)return;
+    var ep='/api/expertises/';
+    var promises=bs.map(function(id){
+      /* For specialists, disable first then delete expertise */
+      var spec=SPECIALISTS.find(function(s){return s.id===id;});
+      var chain=spec?fetch(_backendBase+'/api/specialists/'+id+'/disable',{method:'POST',signal:AbortSignal.timeout(3000)}).catch(function(){}):Promise.resolve();
+      return chain.then(function(){return fetch(_backendBase+ep+id,{method:'DELETE',signal:AbortSignal.timeout(3000)});});
+    });
+    Promise.all(promises).then(function(){_centerState._bulkMode=false;_centerState._bulkSelected=[];_centerState.detail=null;_fetchExpertises();renderCenter();}).catch(function(){_fetchExpertises();renderCenter();});
+  }
+  var markBtnS={border:'none',borderRadius:4,padding:'3px 10px',fontSize:_fs(10),fontWeight:600,cursor:'pointer',
+    background:bm?C.accent:'transparent',color:bm?'#fff':C.tx4,transition:'background 0.15s'};
+  return h('div',{style:{padding:'4px 18px 0',display:'flex',alignItems:'center',gap:6}},
+    h('button',{style:markBtnS,onClick:_toggleBulk},bm?'Označit \u2713':'Označit'),
+    bm&&bs.length>0?h(React.Fragment,null,
+      h('button',{style:{border:'none',borderRadius:4,padding:'3px 10px',fontSize:_fs(10),fontWeight:600,cursor:'pointer',background:'rgba(239,68,68,0.1)',color:C.red},
+        onClick:_bulkDelete},'Smazat ('+bs.length+')'),
+      h('button',{style:{border:'none',borderRadius:4,padding:'3px 6px',fontSize:_fs(10),cursor:'pointer',background:'transparent',color:C.tx4},
+        onClick:function(){_centerState._bulkSelected=[];renderCenter();}},'Zrušit')):null);
+}
+
 function centerProjects(){
   var fm=_centerState.projectFilterMode||'active';
   /* v82: Defensive guard — only render items with emoji 📁 (projects). Log any contamination. */
@@ -1240,9 +1271,10 @@ function centerConvos(){
 
 function centerSpecs(){
   var activeSp=(_sessions[_sessionActive]||_sessions[0]).chat.specialist;
-  return h(React.Fragment,null,viewHead('Specialisté',true,function(){_addNew('specialists');}),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(SPECIALISTS.map(function(s){
+  return h(React.Fragment,null,viewHead('Specialisté',true,function(){_addNew('specialists');}),_bulkBar('specialists'),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(SPECIALISTS.map(function(s){
     var isActive=activeSp&&(activeSp.name===s.name||activeSp.id===s.id);
-    return card(Object.assign({},s,{status:isActive?'Aktivní':null}),function(){setDetail({name:s.name,fields:[{k:'Oblast',v:s.desc},{k:'Doména',v:s.domain||''},{k:'Status',v:isActive?'Aktivní':'Neaktivní'}],tags:s.tags,actions:isActive?['Deaktivovat']:['Otevřít','Editovat']});});
+    var actions=isActive?['Deaktivovat','Smazat']:['Otevřít','Editovat','Smazat'];
+    return card(Object.assign({},s,{status:isActive?'Aktivní':null}),function(){if(_centerState._bulkMode){_bulkToggleItem(s.id);return;}setDetail({name:s.name,_itemId:s.id,fields:[{k:'Oblast',v:s.desc},{k:'Doména',v:s.domain||''},{k:'Status',v:isActive?'Aktivní':'Neaktivní'}],tags:s.tags,actions:actions});});
   }))));
 }
 
@@ -1551,7 +1583,8 @@ function _ewSave(){
   .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
   .then(function(){
     _expertiseWizard.saving=false;
-    if(window._c3)window._c3.agentLog('TOOL','✨ Expertyza '+(method==='PUT'?'upravena':'vytvořena')+': '+d.name);
+    var _label=d.is_specialist?'Specialista':'Expertyza';
+    if(window._c3)window._c3.agentLog('TOOL',_label+' '+(method==='PUT'?'upraven(a)':'vytvořen(a)')+': '+d.name);
     fetchBackendData();_ewClose();
   }).catch(function(err){
     _expertiseWizard.saving=false;_expertiseWizard.testError='Uložení selhalo: '+err.message;
@@ -3789,7 +3822,7 @@ function _detailActionHandler(d,a){
     var wrk=WORKERS.find(function(w){return w.name===d.name;});
     if(wrk){c3.agentLog('TOOL','Worker: '+wrk.name+' ['+_s(wrk.status)+'] cron: '+_s(wrk.cron));}
   }else if(a==='Editovat'){
-    if(_centerState.view==='expertises'){
+    if(_centerState.view==='expertises'||_centerState.view==='specialists'){
       var _exItem=EXPERTISES.find(function(e){return e.name===d.name;});
       if(_exItem&&_exItem.id){
         fetch(_backendBase+'/api/expertises/'+_exItem.id,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(full){
@@ -3876,8 +3909,17 @@ function _detailActionHandler(d,a){
   }else if(a==='Smazat'){
     var cid4=null;var conv4=CONVERSATIONS.find(function(c){return c.title===d.name;});if(conv4&&conv4.id)cid4=conv4.id;
     var pid4=null;var proj4=PROJECTS.find(function(p){return p.name===d.name;});if(proj4&&proj4.id)pid4=proj4.id;
+    var eid4=d._itemId||null;var exp4=EXPERTISES.find(function(e){return e.name===d.name;});if(!eid4&&exp4&&exp4.id)eid4=exp4.id;
     if(cid4){fetch(_backendBase+'/api/conversations/'+cid4,{method:'DELETE',signal:AbortSignal.timeout(3000)}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);c3.agentLog('TOOL','Konverzace '+d.name+' smazána.');fetchBackendData();}).catch(function(e){c3.agentLog('TOOL','❌ Chyba mazání: '+(e.message||e));fetchBackendData();});}
     else if(pid4){fetch(_backendBase+'/api/projects/'+pid4,{method:'DELETE',signal:AbortSignal.timeout(3000)}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);c3.agentLog('TOOL','Projekt '+d.name+' smazán.');fetchBackendData();}).catch(function(e){c3.agentLog('TOOL','❌ Chyba mazání: '+(e.message||e));fetchBackendData();});}
+    else if(eid4){
+      /* v122.2: Delete expertise/specialist — disable specialist first if active */
+      var _isSpec=SPECIALISTS.find(function(s){return s.name===d.name;});
+      var _disableChain=_isSpec?fetch(_backendBase+'/api/specialists/'+eid4+'/disable',{method:'POST',signal:AbortSignal.timeout(3000)}).catch(function(){}):Promise.resolve();
+      _disableChain.then(function(){return fetch(_backendBase+'/api/expertises/'+eid4,{method:'DELETE',signal:AbortSignal.timeout(3000)});})
+      .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);c3.agentLog('TOOL',(_isSpec?'Specialista':'Expertyza')+' '+d.name+' smazán(a).');_fetchExpertises();})
+      .catch(function(e){c3.agentLog('TOOL','❌ Chyba mazání: '+(e.message||e));_fetchExpertises();});
+    }
     _centerState.detail=null;_centerState.detailConversations=null;renderCenter();
   }else if(a==='Smazat trvale'){
     var cid5=null;var conv5=CONVERSATIONS.find(function(c){return c.title===d.name;});if(conv5&&conv5.id)cid5=conv5.id;
@@ -4270,7 +4312,7 @@ function _initBusSubscriptions() {
       if (s.bottom !== 'split' && s.bottom !== 'terminal') { s.bottom = 'split'; }
       renderAgent();
     }
-    /* v88: Refresh expertises menu after create-expertise skill completes */
+    /* v88+v122.2: Refresh expertises after create-expertise or create-specialist skill completes */
     _maybeRefreshExpertises(ev.metadata);
     renderChat(); _chatScrollPane(ev.sessionIdx);
   });
