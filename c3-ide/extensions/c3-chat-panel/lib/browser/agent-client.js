@@ -126,7 +126,42 @@ function formatAgentEvent(event) {
       break;
 
     case 'system_step':
-      text = (payload.step || '?') + ': ' + (payload.detail || '');
+      /* Model upgrade steps belong in Upgrady view, not agent log */
+      if (payload.step === 'model_upgrade' || payload.step === 'model_cleanup' ||
+          payload.step === 'model_loading' || payload.step === 'model_applied' ||
+          payload.step === 'model_deleted') return null;
+      var _stepLabels = {
+        handler_selected: 'Režim',
+        cre_decided: 'Rozhodnutí',
+        routing_switch: 'Směrování',
+        code_analysis_start: 'Analýza kódu',
+        code_analysis_search: 'Hledám v kódu',
+        code_analysis_context: 'Stavím kontext',
+        code_analysis_llm: 'LLM syntéza',
+        prompt_built: 'Prompt sestaven',
+        quality_links: 'Kontrola odkazů',
+        quality_numeric: 'Kontrola čísel',
+        quality_fluff: 'Kontrola kvality',
+        quality_d6: 'Kvalitní brána',
+        quality_lang: 'Kontrola jazyka',
+        specialist_dispatch: 'Specialista',
+        expertise_discovery: 'Expertíza',
+        attachment_guard: 'Přílohy',
+        lifecycle: 'Životní cyklus',
+        build_handoff: 'Stavba projektu',
+        session_resume: 'Obnova sezení',
+        agent_wizard: 'Průvodce',
+        llm_calling: 'Volám LLM',
+        llm_response: 'Odpověď hotova',
+        preparing_prompt: 'Připravuji prompt',
+        analyzing_input: 'Analyzuji dotaz',
+        search_start: 'Hledám na webu',
+        search_scrape: 'Stahuji stránky',
+        search_synthesis: 'Tvořím odpověď',
+        tool_executing: 'Spouštím nástroj'
+      };
+      var stepLabel = _stepLabels[payload.step] || payload.step || '?';
+      text = stepLabel + (payload.detail ? ' — ' + payload.detail : '');
       break;
 
     default:
