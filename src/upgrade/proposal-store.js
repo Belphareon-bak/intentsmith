@@ -46,59 +46,64 @@ export class ProposalStore {
       return { stored: false, reason: 'cooldown' };
     }
 
-    // Check dedup — same (role, candidate, hash, evalVer) pending → update
-    const existing = this._db.prepare(`
-      SELECT id FROM upgrade_proposals
-      WHERE role = ? AND candidate_model = ? AND catalog_hash = ? AND evaluation_version = ? AND status = 'pending'
-    `).get(role, candidateModel, catalogHash || null, evaluationVersion || null);
+    // v124: Atomic transaction — dedup check + insert/update in one step
+    const txn = this._db.transaction(() => {
+      // Check dedup — same (role, candidate, hash, evalVer) pending → update
+      const existing = this._db.prepare(`
+        SELECT id FROM upgrade_proposals
+        WHERE role = ? AND candidate_model = ? AND catalog_hash = ? AND evaluation_version = ? AND status = 'pending'
+      `).get(role, candidateModel, catalogHash || null, evaluationVersion || null);
 
-    if (existing) {
+      if (existing) {
+        this._db.prepare(`
+          UPDATE upgrade_proposals
+          SET score = ?, current_score = ?, improvement = ?, score_breakdown = ?,
+              reason = ?, risk_level = ?, installed = ?, size_gb = ?, source = ?,
+              current_model = ?, detected_at = datetime('now')
+          WHERE id = ?
+        `).run(
+          proposal.score, proposal.currentScore ?? null, proposal.improvement ?? null,
+          proposal.scoreBreakdown ? JSON.stringify(proposal.scoreBreakdown) : null,
+          proposal.reason ?? null, proposal.riskLevel ?? 'medium',
+          proposal.installed ? 1 : 0, proposal.sizeGB ?? 0, proposal.source ?? 'local',
+          proposal.currentModel, existing.id
+        );
+        return { stored: true, reason: 'updated' };
+      }
+
+      // Allow re-propose if current_model changed (upgrade chain)
+      const existingDifferentCurrent = this._db.prepare(`
+        SELECT id FROM upgrade_proposals
+        WHERE role = ? AND candidate_model = ? AND status = 'pending' AND current_model != ?
+      `).get(role, candidateModel, proposal.currentModel);
+
+      if (existingDifferentCurrent) {
+        // Current model changed — expire old proposal, insert new
+        this._db.prepare(`
+          UPDATE upgrade_proposals SET status = 'expired', resolved_at = datetime('now') WHERE id = ?
+        `).run(existingDifferentCurrent.id);
+      }
+
+      // Insert new
       this._db.prepare(`
-        UPDATE upgrade_proposals
-        SET score = ?, current_score = ?, improvement = ?, score_breakdown = ?,
-            reason = ?, risk_level = ?, installed = ?, size_gb = ?, source = ?,
-            current_model = ?, detected_at = datetime('now')
-        WHERE id = ?
+        INSERT INTO upgrade_proposals
+          (role, current_model, candidate_model, score, current_score, improvement,
+           score_breakdown, reason, risk_level, installed, size_gb, source, status,
+           catalog_hash, evaluation_version)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
       `).run(
+        role, proposal.currentModel, candidateModel,
         proposal.score, proposal.currentScore ?? null, proposal.improvement ?? null,
         proposal.scoreBreakdown ? JSON.stringify(proposal.scoreBreakdown) : null,
         proposal.reason ?? null, proposal.riskLevel ?? 'medium',
         proposal.installed ? 1 : 0, proposal.sizeGB ?? 0, proposal.source ?? 'local',
-        proposal.currentModel, existing.id
+        catalogHash || null, evaluationVersion || null
       );
-      return { stored: true, reason: 'updated' };
-    }
 
-    // Allow re-propose if current_model changed (upgrade chain)
-    const existingDifferentCurrent = this._db.prepare(`
-      SELECT id FROM upgrade_proposals
-      WHERE role = ? AND candidate_model = ? AND status = 'pending' AND current_model != ?
-    `).get(role, candidateModel, proposal.currentModel);
+      return { stored: true, reason: 'new' };
+    });
 
-    if (existingDifferentCurrent) {
-      // Current model changed — expire old proposal, insert new
-      this._db.prepare(`
-        UPDATE upgrade_proposals SET status = 'expired', resolved_at = datetime('now') WHERE id = ?
-      `).run(existingDifferentCurrent.id);
-    }
-
-    // Insert new
-    this._db.prepare(`
-      INSERT INTO upgrade_proposals
-        (role, current_model, candidate_model, score, current_score, improvement,
-         score_breakdown, reason, risk_level, installed, size_gb, source, status,
-         catalog_hash, evaluation_version)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
-    `).run(
-      role, proposal.currentModel, candidateModel,
-      proposal.score, proposal.currentScore ?? null, proposal.improvement ?? null,
-      proposal.scoreBreakdown ? JSON.stringify(proposal.scoreBreakdown) : null,
-      proposal.reason ?? null, proposal.riskLevel ?? 'medium',
-      proposal.installed ? 1 : 0, proposal.sizeGB ?? 0, proposal.source ?? 'local',
-      catalogHash || null, evaluationVersion || null
-    );
-
-    return { stored: true, reason: 'new' };
+    return txn();
   }
 
   /**

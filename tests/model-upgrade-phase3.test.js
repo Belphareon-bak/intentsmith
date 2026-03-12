@@ -227,10 +227,18 @@ test('10 samples → partial blend', () => {
   assertEqual(w.empiricalWeight, 0.10);
 });
 
-test('50 samples → partial blend', () => {
+test('50 samples → full confidence (boundary)', () => {
+  // v124: 50 = FULL_CONFIDENCE_SAMPLES → full empirical weight
   const w = computeBlendWeights(50);
-  assertEqual(w.benchmarkWeight, 0.25);
-  assertEqual(w.empiricalWeight, 0.10);
+  assertEqual(w.benchmarkWeight, 0.15);
+  assertEqual(w.empiricalWeight, 0.20);
+});
+
+test('30 samples → linear interpolation midpoint', () => {
+  // v124: t = (30-10)/(50-10) = 0.5 → B=0.25-0.05=0.20, E=0.10+0.05=0.15
+  const w = computeBlendWeights(30);
+  assertEqual(w.benchmarkWeight, 0.2);
+  assertEqual(w.empiricalWeight, 0.15);
 });
 
 test('51 samples → full confidence', () => {

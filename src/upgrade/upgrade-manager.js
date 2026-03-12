@@ -517,7 +517,7 @@ export class UpgradeManager {
       }
     }
 
-    // Remove override from DB
+    // v124: Remove override from DB AFTER successful verification (not before)
     this._db.prepare('DELETE FROM model_overrides WHERE role = ?').run(role);
 
     // Record in history
@@ -550,7 +550,7 @@ export class UpgradeManager {
           model: modelName,
           messages: [{ role: 'user', content: 'ping' }],
           stream: false,
-          options: { num_predict: 1 },
+          options: { num_predict: 1, num_ctx: 512 },
         }),
         signal: controller.signal,
       });
@@ -824,6 +824,11 @@ export class UpgradeManager {
       try {
         store.invalidateStale(_catalog.CATALOG_HASH, _ranker.EVALUATION_VERSION);
       } catch (_) {}
+    }
+
+    // v124: Expire proposals older than 7 days
+    if (store) {
+      try { store.expireStale(7); } catch (_) {}
     }
 
     // v120: Query empirical data for all roles (Phase 3)

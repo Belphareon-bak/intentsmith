@@ -86,17 +86,21 @@ export function computeEmpiricalScore(metrics) {
  * B+E always sums to 0.35 — other signal weights unchanged.
  *
  * <10 samples:  B=0.35, E=0.00 (Phase 2 behavior)
- * 10-50:        B=0.25, E=0.10
+ * 10-50:        linear interpolation B: 0.25→0.15, E: 0.10→0.20
  * >50:          B=0.15, E=0.20
  */
 export function computeBlendWeights(sampleSize) {
   if (!sampleSize || sampleSize < MIN_SAMPLES) {
     return { benchmarkWeight: 0.35, empiricalWeight: 0.00 };
   }
-  if (sampleSize <= FULL_CONFIDENCE_SAMPLES) {
-    return { benchmarkWeight: 0.25, empiricalWeight: 0.10 };
+  if (sampleSize >= FULL_CONFIDENCE_SAMPLES) {
+    return { benchmarkWeight: 0.15, empiricalWeight: 0.20 };
   }
-  return { benchmarkWeight: 0.15, empiricalWeight: 0.20 };
+  // v124: Linear interpolation between MIN_SAMPLES and FULL_CONFIDENCE_SAMPLES
+  const t = (sampleSize - MIN_SAMPLES) / (FULL_CONFIDENCE_SAMPLES - MIN_SAMPLES);
+  const benchmarkWeight = 0.25 - t * 0.10; // 0.25 → 0.15
+  const empiricalWeight = 0.10 + t * 0.10; // 0.10 → 0.20
+  return { benchmarkWeight: Math.round(benchmarkWeight * 1000) / 1000, empiricalWeight: Math.round(empiricalWeight * 1000) / 1000 };
 }
 
 // ---------- Hard cap ----------
