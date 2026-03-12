@@ -697,7 +697,7 @@ function SidebarApp(props){
     return h('div',{style:{display:'flex',flexDirection:'column',width:48,maxWidth:48,position:'absolute',top:0,left:0,bottom:0,background:C.bg1,fontFamily:C.font,borderRight:'1px solid '+C.border,overflow:'hidden',alignItems:'center',paddingTop:6}},
       h('div',{style:{cursor:'pointer',width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:6,color:C.tx3,marginBottom:2},title:'Rozbalit (Ctrl+B)',
         onMouseEnter:function(e){e.currentTarget.style.background=C.bg3;},onMouseLeave:function(e){e.currentTarget.style.background='transparent';},
-        onClick:function(){if(isFocusActive()){_focusExitDialog={pendingAction:function(){set({collapsed:false});}};renderCenter();return;}set({collapsed:false});}},svgEl('<polyline points="9 18 15 12 9 6"/>',18)),
+        onClick:function(){if(isSpecialistFocus()){_focusExitDialog={pendingAction:function(){set({collapsed:false});}};renderCenter();return;}if(isConversationFocus()){_sessions[_sessionActive]._conversationFocus=false;_syncFocusClass();renderCenter();renderChat();}set({collapsed:false});}},svgEl('<polyline points="9 18 15 12 9 6"/>',18)),
       h('div',{style:{width:24,height:1,background:C.border,marginBottom:6}}),
       NAV.map(function(item){
         var isA=s.active===item.id;
@@ -862,12 +862,19 @@ function _wizardGuardNav(targetView,sidebarSet,extra){
     sidebarSet({active:null,dd:{}});
     return;
   }
-  /* v92: Focus mode intercept — show exit dialog instead of navigating */
+  /* v92+v122.2: Focus mode intercept */
   if(isFocusActive()){
-    var det2={view:targetView};if(extra)for(var k2 in extra)det2[k2]=extra[k2];
-    _focusExitDialog={pendingAction:function(){sidebarSet({active:targetView,dd:{}});window.dispatchEvent(new CustomEvent('c3-nav',{detail:det2}));}};
-    renderCenter();
-    return;
+    /* Conversation focus: just exit silently and navigate */
+    if(isConversationFocus()){
+      _sessions[_sessionActive]._conversationFocus=false;_syncFocusClass();renderCenter();renderChat();
+      /* fall through to normal navigation below */
+    }else{
+      /* Specialist focus: show exit confirmation dialog */
+      var det2={view:targetView};if(extra)for(var k2 in extra)det2[k2]=extra[k2];
+      _focusExitDialog={pendingAction:function(){sidebarSet({active:targetView,dd:{}});window.dispatchEvent(new CustomEvent('c3-nav',{detail:det2}));}};
+      renderCenter();
+      return;
+    }
   }
   var label=_projectWizard.active?'vytváření projektu':_expertiseWizard.active?'editaci expertýzy':_agentWizard.active?'vytváření workeru':_specialistWizard.active?'vytváření specialisty':null;
   var det={view:targetView};if(extra)for(var k in extra)det[k]=extra[k];
@@ -937,25 +944,27 @@ var _centerRoot=null;
 function renderCenter(){if(!_centerContainer)return;if(!_centerRoot)_centerRoot=_createRoot(_centerContainer);_centerRoot.render(h(CenterApp,null));}
 
 function CenterApp(){
-  /* v92: Focus mode — full-width specialist chat in center */
+  /* v92+v122.2: Focus mode — full-width chat in center (specialist or conversation) */
   if(isFocusActive()){
     var _spec=(_sessions[_sessionActive]&&_sessions[_sessionActive].chat)?_sessions[_sessionActive].chat.specialist:null;
+    var _isConvFocus=isConversationFocus();
     return h('div',{style:{display:'flex',height:'100%',width:'100%',background:C.bg0,fontFamily:C.font,position:'relative'}},
       h('div',{key:'cv-focus',style:{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}},
         _chatPaneUI(_sessionActive,{fullWidth:true})),
-      /* v92: Focus exit confirmation dialog */
+      /* Focus exit confirmation dialog */
       _focusExitDialog?h('div',{style:{position:'absolute',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.55)',zIndex:80,display:'flex',alignItems:'center',justifyContent:'center'},
         onClick:function(ev){ev.stopPropagation();_focusExitDialog=null;renderCenter();}},
         h('div',{style:{background:C.bg2,border:'1px solid '+C.border2,borderRadius:12,padding:'20px 24px',minWidth:280,maxWidth:380,boxShadow:'0 12px 40px rgba(0,0,0,0.5)'},
           onClick:function(ev){ev.stopPropagation();}},
-          h('div',{style:{fontSize:_fs(14),fontWeight:700,color:C.tx1,marginBottom:6}},'Ukončit režim specialisty?'),
+          h('div',{style:{fontSize:_fs(14),fontWeight:700,color:C.tx1,marginBottom:6}},_isConvFocus?'Zavřít konverzaci?':'Ukončit režim specialisty?'),
           _spec?h('div',{style:{fontSize:_fs(11),color:C.tx3,marginBottom:14}},
             h('span',null,'Aktivní: '),h('span',{style:{fontWeight:600}},(_spec.emoji||'')+' '+(_spec.name||'Specialista'))):null,
+          _isConvFocus?h('div',{style:{fontSize:_fs(11),color:C.tx3,marginBottom:14}},'Chat zůstane uložen.'):null,
           h('div',{style:{display:'flex',gap:8,justifyContent:'flex-end'}},
             h('button',{style:{background:'transparent',color:C.tx3,border:'1px solid '+C.border2,borderRadius:6,padding:'6px 16px',fontSize:_fs(11),fontWeight:600,cursor:'pointer'},
               onClick:function(){_focusExitDialog=null;renderCenter();}},'Zůstat'),
             h('button',{style:{background:'rgba(239,68,68,0.15)',color:'#f87171',border:'1px solid rgba(239,68,68,0.3)',borderRadius:6,padding:'6px 16px',fontSize:_fs(11),fontWeight:600,cursor:'pointer'},
-              onClick:function(){var pa=_focusExitDialog?_focusExitDialog.pendingAction:null;_focusExitDialog=null;if(window._c3)window._c3.clearSpecialist();if(pa)pa();}},'Ukončit')))):null);
+              onClick:function(){var pa=_focusExitDialog?_focusExitDialog.pendingAction:null;_focusExitDialog=null;if(_isConvFocus){_sessions[_sessionActive]._conversationFocus=false;_syncFocusClass();renderCenter();renderChat();}else{if(window._c3)window._c3.clearSpecialist();}if(pa)pa();}},'Zavřít')))):null);
   }
   var view=_centerState.view,detail=_centerState.detail;
   var isOverlay=_expertiseWizard.active||_agentWizard.active||_projectWizard.active||_specialistWizard.active||_editorState.active;
@@ -4106,7 +4115,10 @@ function _detailActionHandler(d,a){
     if(conv){_showOpenDialog('conv',conv,function(_ti){
       var _ts=_sessions[_ti];
       c3.agentLog('TOOL','Načítám konverzaci: '+conv.title+'...');c3.setExpertise(conv.expertise);
-      if(conv.id){_ts._convId=conv.id;_ts._label=conv.title||'Konverzace';_persistSessionState();
+      if(conv.id){_ts._convId=conv.id;_ts._label=conv.title||'Konverzace';
+        /* v122.2: Activate conversation center-panel focus */
+        _ts._conversationFocus=true;_syncFocusClass();renderCenter();
+        _persistSessionState();
         fetch(_backendBase+'/api/conversations/'+conv.id,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(cd){
           var meta={};try{meta=JSON.parse(cd.metadata||'{}');}catch(ex){}
           if(meta.agentId){_ts._agentId=meta.agentId;_persistSessionState();renderChat();}
@@ -5477,6 +5489,36 @@ function _chatPaneUI(idx,opts){
           st.showAllExpertises?h('div',{style:{padding:'4px 10px',fontSize:_fs(9.5),color:C.tx4,cursor:'pointer',borderTop:'1px solid '+C.border,marginTop:2},onClick:function(e){e.stopPropagation();st.showAllExpertises=false;renderChat();}},'Jen oblíbené'):null);}()):null)));
 }
 
+/* v122.2: Conversation info panel — replaces chat in right panel when conversation focus active */
+function ConversationInfoApp(){
+  var s=_sessions[_sessionActive];if(!s)return null;
+  var convTitle=s._label||'Konverzace';
+  var expertise=s.chat.expertise||'Výchozí';
+  var msgCount=s.chat.msgs.filter(function(m){return m.role!=='system';}).length;
+  var attachCount=s.chat.attachments?s.chat.attachments.length:0;
+  var labelS={fontSize:_fs(9.5),color:C.tx4,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.3px',marginBottom:2};
+  var valS={fontSize:_fs(12),color:C.tx1,marginBottom:12};
+  return h('div',{style:{display:'flex',flexDirection:'column',height:'100%',width:'100%',background:C.bg1,fontFamily:C.font}},
+    h('div',{style:{height:22,display:'flex',alignItems:'center',borderBottom:'1px solid '+C.border,flexShrink:0,padding:'0 10px'}},
+      h('span',{style:{fontSize:_fs(12),fontWeight:600,color:C.tx2}},'Konverzace')),
+    h('div',{style:{flex:1,overflowY:'auto',padding:14}},
+      h('div',{style:{marginBottom:16}},
+        h('div',{style:labelS},'Název'),
+        h('div',{style:valS},convTitle)),
+      h('div',{style:{marginBottom:16}},
+        h('div',{style:labelS},'Expertyza'),
+        h('div',{style:valS},expertise)),
+      h('div',{style:{marginBottom:16}},
+        h('div',{style:labelS},'Zprávy'),
+        h('div',{style:valS},String(msgCount))),
+      attachCount>0?h('div',{style:{marginBottom:16}},
+        h('div',{style:labelS},'Přílohy'),
+        h('div',{style:valS},String(attachCount))):null,
+      h('div',{style:{borderTop:'1px solid '+C.border,paddingTop:12,marginTop:8}},
+        h('button',{style:{width:'100%',padding:'8px 0',borderRadius:6,border:'1px solid '+C.border2,background:C.bg3,color:C.tx2,fontFamily:C.font,fontSize:_fs(11),fontWeight:600,cursor:'pointer'},
+          onClick:function(){s._conversationFocus=false;_syncFocusClass();renderCenter();renderChat();}},'Zavřít konverzaci'))));
+}
+
 /* v92: Focus Mode file list — replaces chat in right panel when specialist active */
 function FocusFilesApp(){
   var s=_sessions[_sessionActive];
@@ -5524,8 +5566,11 @@ function FocusFilesApp(){
 }
 
 function ChatApp(){
-  /* v92: Focus mode — right panel shows file list instead of chat */
-  if(isFocusActive())return FocusFilesApp();
+  /* v92+v122.2: Focus mode — specialist shows files, conversation shows info */
+  if(isFocusActive()){
+    if(isConversationFocus())return ConversationInfoApp();
+    return FocusFilesApp();
+  }
   var sc=_sessionCount;_ensureSessions();
   return h('div',{style:{display:'flex',flexDirection:'column',height:'100%',width:'100%',background:C.bg1,fontFamily:C.font}},
     /* Top bar — split count on the right */
