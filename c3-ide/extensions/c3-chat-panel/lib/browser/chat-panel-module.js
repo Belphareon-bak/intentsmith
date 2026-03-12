@@ -1154,10 +1154,18 @@ function _addNew(view){
     renderCenter();
     return;
   }
-  /* v122.2: Specialists → open expertise wizard with is_specialist flag */
+  /* v122.2: Specialists → trigger create-specialist skill via chat */
   if(view==='specialists'){
-    var _spData=_ewDefaultData();_spData.is_specialist=true;
-    _ewOpen('create',null,_spData);
+    var _si=_sessionActive;var _ss=_sessions[_si];if(!_ss)return;
+    _ss.chat.msgs.push({role:'user',text:'Vytvoř nového specialistu'});
+    _ss.chat._thinking={text:'Zpracovávám...',ts:Date.now()};
+    _centerState.view=null;_centerState.detail=null;renderCenter();renderChat();
+    var _body={type:'chat',message:'Vytvoř nového specialistu',expertise:_ss.chat.expertise,specialist:null,conversationId:_ss._convId,agentId:_ss._agentId||null,projectId:_ss._projectId||null};
+    var _sent=false;
+    if(typeof C3WS!=='undefined'&&C3WS.isReady()){_sent=C3WS.sendChat('Vytvoř nového specialistu',_ss,_si);}
+    if(!_sent){fetch(_backendBase+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(_body)})
+      .then(function(r){return r.json();}).then(function(d){_ss.chat._thinking=null;_ss.chat.msgs.push({role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'});_maybeRefreshExpertises(d.metadata);renderChat();_chatScrollPane(_si);})
+      .catch(function(){_ss.chat._thinking=null;_ss.chat.msgs.push({role:'assistant',text:'Backend nedostupný.',tag:'ERROR'});renderChat();});}
     return;
   }
   setDetail({name:'Nová položka',fields:[{k:'Popis',v:''}],tags:[],actions:['Uložit','Zrušit'],editing:true,_isNew:true});
