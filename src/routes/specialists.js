@@ -95,6 +95,7 @@ export function createSpecialistRoutes(deps) {
       'POST /api/specialists/:id/expertises': notAvailable,
       'DELETE /api/specialists/:id/expertises/:expertiseId': notAvailable,
       'PATCH /api/specialists/:id/expertises/:expertiseId': notAvailable,
+      'POST /api/specialists': notAvailable,
     };
   }
 
@@ -234,6 +235,152 @@ export function createSpecialistRoutes(deps) {
         sendJSON(res, 400, { ok: false, error: err.message });
       } finally {
         releaseLock(id);
+      }
+    }),
+
+    // ─── Create new specialist package (v122.2) ─────────────────────────
+    'POST /api/specialists': t(async (req, res) => {
+      try {
+        const body = await parseBody(req);
+        const { name, domain, description, icon } = body;
+
+        if (!name || name.trim().length < 2) {
+          return sendJSON(res, 400, { ok: false, error: 'Name is required (min 2 chars)' });
+        }
+
+        const id = name.trim().toLowerCase()
+          .replace(/\s+/g, '-')
+          .replace(/[^a-z0-9-]/g, '')
+          .substring(0, 32);
+
+        if (!id) {
+          return sendJSON(res, 400, { ok: false, error: 'Invalid name — cannot generate ID' });
+        }
+
+        // Check if already exists
+        const existing = specialistLoader.getInstalled().find(r => r.id === id);
+        if (existing) {
+          return sendJSON(res, 409, { ok: false, error: `Specialist "${id}" already exists` });
+        }
+
+        const fs = await import('fs');
+        const path = await import('path');
+        const baseDir = specialistLoader.baseDir;
+        const specDir = path.default.join(baseDir, id);
+
+        if (fs.default.existsSync(specDir)) {
+          return sendJSON(res, 409, { ok: false, error: `Directory specialists/${id}/ already exists` });
+        }
+
+        // Generate manifest
+        const manifest = {
+          manifestVersion: 2,
+          id,
+          version: '1.0.0',
+          name: name.trim(),
+          description: (description || '').trim() || `Specialista: ${name.trim()}`,
+          domain: (domain || 'general').trim(),
+          type: 'domain',
+          engine: '>=122.0.0',
+          entry: './index.js',
+          tools: [],
+          capabilities: [],
+          expertises: [id],
+          enabledByDefault: true,
+        };
+
+        // Generate stub index.js
+        const safeId = id.replace(/-/g, '_');
+        const safeName = name.trim();
+        const safeIcon = (icon || '🤖').substring(0, 4);
+        const safeDomain = (domain || 'general').trim();
+        const safeDesc = (description || '').trim();
+
+        const indexJs = `// ${safeName} — Auto-generated specialist
+// ══════════════════════════════════════════════════════════════════════════════
+
+const EXPERTISE = {
+  id: '${id}',
+  name: '${safeName}',
+  icon: '${safeIcon}',
+  domain: '${safeDomain}',
+  description: '${safeDesc || safeName}',
+  isCustom: true,
+  primaryProblemTypes: ['procedural'],
+  allowedRepresentations: ['structured', 'prose'],
+  planningDepth: 'light',
+  reviewPolicy: 'self',
+  dataUsagePolicy: 'open',
+  outputBias: 'neutral',
+  temperature: 0.5,
+  tools: [],
+  capabilities: { reasoning: 50, creativity: 50, determinism: 50, riskTolerance: 30, verbosity: 50 },
+  tone: 'professional',
+  modules: {
+    domain_rules: [],
+    emphasis: [],
+    constraints: [],
+    vocabulary: [],
+    antipatterns: [],
+  },
+  systemPrompt: '${safeDesc ? safeDesc.replace(/'/g, "\\'") : 'Jsi specialista ' + safeName + '.'}',
+};
+
+export async function register(ctx) {
+  const { runtime, manifest } = ctx;
+
+  runtime.registerSpecialist({
+    id: manifest.id,
+    domain: '${safeDomain}',
+    globalParamExtractor: null,
+    tools: [],
+  });
+
+  if (ctx.registries?.expertise) {
+    ctx.registries.expertise.addCustom(EXPERTISE);
+  }
+
+  if (ctx.registries?.capability?.register) {
+    for (const cap of manifest.capabilities || []) {
+      ctx.registries.capability.register(cap, manifest.id);
+    }
+  }
+}
+
+export function unregister(ctx) {
+  try { ctx.runtime?.unregisterSpecialist?.('${id}'); } catch {}
+  try { ctx.registries?.expertise?.removeCustom('${id}'); } catch {}
+  try { ctx.registries?.capability?.unregisterBySpecialist?.('${id}'); } catch {}
+}
+`;
+
+        // Write files
+        fs.default.mkdirSync(specDir, { recursive: true });
+        fs.default.writeFileSync(path.default.join(specDir, 'specialist.json'), JSON.stringify(manifest, null, 2), 'utf-8');
+        fs.default.writeFileSync(path.default.join(specDir, 'index.js'), indexJs, 'utf-8');
+
+        // Reload loader
+        specialistLoader.discoverAll();
+        specialistLoader.installPending();
+        await specialistLoader.enableAll();
+
+        // Verify
+        const installed = specialistLoader.getInstalled().find(r => r.id === id);
+
+        logger.info('SpecialistAPI', `Created specialist "${id}" → specialists/${id}/`);
+        sendJSON(res, 201, {
+          ok: true,
+          specialist: {
+            id,
+            name: safeName,
+            domain: safeDomain,
+            version: '1.0.0',
+            status: installed ? installed.status : 'installed',
+          },
+        });
+      } catch (err) {
+        logger.error('SpecialistAPI', `Create specialist failed: ${err.message}`);
+        sendJSON(res, 500, { ok: false, error: err.message });
       }
     }),
 

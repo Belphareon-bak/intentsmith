@@ -874,7 +874,7 @@ function _wizardGuardNav(targetView,sidebarSet,extra){
   if(!label){sidebarSet({active:targetView,dd:{}});window.dispatchEvent(new CustomEvent('c3-nav',{detail:det}));return;}
   if(!confirm('Opravdu chcete ukončit '+label+'? Neuložené změny budou ztraceny.'))return;
   _projectWizard.active=false;_projectWizard.saving=false;
-  _expertiseWizard.active=false;_agentWizard.active=false;
+  _expertiseWizard.active=false;_agentWizard.active=false;_specialistWizard.active=false;
   _savedCenterState=null;
   sidebarSet({active:targetView,dd:{}});window.dispatchEvent(new CustomEvent('c3-nav',{detail:det}));
 }
@@ -958,11 +958,12 @@ function CenterApp(){
               onClick:function(){var pa=_focusExitDialog?_focusExitDialog.pendingAction:null;_focusExitDialog=null;if(window._c3)window._c3.clearSpecialist();if(pa)pa();}},'Ukončit')))):null);
   }
   var view=_centerState.view,detail=_centerState.detail;
-  var isOverlay=_expertiseWizard.active||_agentWizard.active||_projectWizard.active||_editorState.active;
+  var isOverlay=_expertiseWizard.active||_agentWizard.active||_projectWizard.active||_specialistWizard.active||_editorState.active;
   var mainContent=isOverlay?(
     _expertiseWizard.active?centerExpertiseWizard():
     _agentWizard.active?centerAgentWizard():
     _projectWizard.active?centerProjectWizard():
+    _specialistWizard.active?centerSpecialistWizard():
     centerEditor()
   ):(
     view==='expertises'?centerExpertises():view==='projects'?centerProjects():view==='chats'?centerConvos():
@@ -976,9 +977,11 @@ function CenterApp(){
     showDetail?h('div',{style:{width:'45%',maxWidth:480,minWidth:280,borderLeft:'1px solid '+C.border,display:'flex',flexDirection:'column',overflow:'hidden',background:C.bg1,flexShrink:0}},centerDetail()):null);
 }
 
-function viewHead(t,showZoom,onAdd){
+function _mpNavBtn(tab){return h('button',{style:{background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'4px 10px',fontSize:_fs(11),fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:4,marginRight:10,color:C.tx2,fontFamily:C.font},onClick:function(){_mpTab=tab;_mpData=null;window.dispatchEvent(new CustomEvent('c3-nav',{detail:{view:'marketplace'}}));}},svgEl(I.store,12),'Marketplace');}
+function viewHead(t,showZoom,onAdd,extraBtn){
   return h('div',{style:{padding:'12px 18px',borderBottom:'1px solid '+C.border,display:'flex',alignItems:'center',flexShrink:0}},
     h('span',{style:{fontSize:_fs(15),fontWeight:700,color:C.tx1,flex:1}},t),
+    extraBtn||null,
     onAdd?h('button',{style:{background:C.accent,color:'#fff',border:'none',borderRadius:6,padding:'4px 10px',fontSize:_fs(11),fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:4,marginRight:10},onClick:onAdd},svgEl(I.plus,12),'Nový'):null,
     showZoom?h('div',{style:{display:'flex',alignItems:'center',gap:6}},
       svgEl('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/>',14),
@@ -1156,24 +1159,17 @@ function _addNew(view){
     renderCenter();
     return;
   }
-  /* v122.2: Specialists → trigger create-specialist skill via chat */
+  /* v122.2: Specialists → center-panel wizard */
   if(view==='specialists'){
-    var _si=_sessionActive;var _ss=_sessions[_si];if(!_ss)return;
-    _ss.chat.msgs.push({role:'user',text:'Vytvoř nového specialistu'});
-    _ss.chat._thinking={text:'Zpracovávám...',ts:Date.now()};
-    _centerState.view=null;_centerState.detail=null;renderCenter();renderChat();
-    var _body={type:'chat',message:'Vytvoř nového specialistu',expertise:_ss.chat.expertise,specialist:null,conversationId:_ss._convId,agentId:_ss._agentId||null,projectId:_ss._projectId||null};
-    var _sent=false;
-    if(typeof C3WS!=='undefined'&&C3WS.isReady()){_sent=C3WS.sendChat('Vytvoř nového specialistu',_ss,_si);}
-    if(!_sent){fetch(_backendBase+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(_body)})
-      .then(function(r){return r.json();}).then(function(d){_ss.chat._thinking=null;_ss.chat.msgs.push({role:'assistant',text:d.response||d.text||JSON.stringify(d),tag:'LLM'});_maybeRefreshExpertises(d.metadata);renderChat();_chatScrollPane(_si);})
-      .catch(function(){_ss.chat._thinking=null;_ss.chat.msgs.push({role:'assistant',text:'Backend nedostupný.',tag:'ERROR'});renderChat();});}
+    _wizardSaveLayout();
+    _specialistWizard={active:true,step:0,data:{name:'',domain:'general',description:'',icon:''},saving:false,error:null};
+    renderCenter();
     return;
   }
   setDetail({name:'Nová položka',fields:[{k:'Popis',v:''}],tags:[],actions:['Uložit','Zrušit'],editing:true,_isNew:true});
 }
 
-function centerExpertises(){return h(React.Fragment,null,viewHead('Expertyzy',true,function(){_addNew('expertises');}),_bulkBar('expertises'),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(EXPERTISES.map(function(e){var tags=[e.isSpecialist?'Specialista':'Expertyza'];if(e.domain)tags.push(e.domain);return card(e,function(){if(_centerState._bulkMode){_bulkToggleItem(e.id);return;}setDetail({name:e.name,_itemId:e.id,fields:[{k:'Typ',v:e.desc},{k:'Doména',v:e.domain||'general'},{k:'Emoji',v:e.emoji},{k:'Specialista',v:e.isSpecialist?'Ano':'Ne'},{k:'Oblíbený',v:e.fav,type:'fav',_expertiseName:e.name}],tags:tags,actions:['Otevřít','Editovat','Smazat']});});}))));}
+function centerExpertises(){return h(React.Fragment,null,viewHead('Expertyzy',true,function(){_addNew('expertises');},_mpNavBtn('expertises')),_bulkBar('expertises'),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(EXPERTISES.map(function(e){var tags=[e.isSpecialist?'Specialista':'Expertyza'];if(e.domain)tags.push(e.domain);return card(e,function(){if(_centerState._bulkMode){_bulkToggleItem(e.id);return;}setDetail({name:e.name,_itemId:e.id,fields:[{k:'Typ',v:e.desc},{k:'Doména',v:e.domain||'general'},{k:'Emoji',v:e.emoji},{k:'Specialista',v:e.isSpecialist?'Ano':'Ne'},{k:'Oblíbený',v:e.fav,type:'fav',_expertiseName:e.name}],tags:tags,actions:['Otevřít','Editovat','Smazat']});});}))));}
 
 /* ═══ Shared filter bar: [Označit] (bulk actions) ... [Aktivní] [Archivované] [Smazané] ═══ */
 function _filterBar(filterKey,view){
@@ -1281,14 +1277,14 @@ function centerConvos(){
 
 function centerSpecs(){
   var activeSp=(_sessions[_sessionActive]||_sessions[0]).chat.specialist;
-  return h(React.Fragment,null,viewHead('Specialisté',true,function(){_addNew('specialists');}),_bulkBar('specialists'),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(SPECIALISTS.map(function(s){
+  return h(React.Fragment,null,viewHead('Specialisté',true,function(){_addNew('specialists');},_mpNavBtn('specialists')),_bulkBar('specialists'),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(SPECIALISTS.map(function(s){
     var isActive=activeSp&&(activeSp.name===s.name||activeSp.id===s.id);
     var actions=isActive?['Deaktivovat','Smazat']:['Otevřít','Editovat','Smazat'];
     return card(Object.assign({},s,{status:isActive?'Aktivní':null}),function(){if(_centerState._bulkMode){_bulkToggleItem(s.id);return;}setDetail({name:s.name,_itemId:s.id,fields:[{k:'Oblast',v:s.desc},{k:'Doména',v:s.domain||''},{k:'Status',v:isActive?'Aktivní':'Neaktivní'}],tags:s.tags,actions:actions});});
   }))));
 }
 
-function centerWorkers(){return h(React.Fragment,null,viewHead('Workeri',true,function(){_addNew('workers');}),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(WORKERS.map(function(w){return card({name:w.name,emoji:'⚙️',desc:w.desc,status:w.status},function(){setDetail({name:w.name,fields:[{k:'Status',v:w.status,a:w.status==='Running'},{k:'Cron',v:w.cron},{k:'Poslední běh',v:w.lastRun},{k:'Popis',v:w.desc}],tags:['Worker',w.status],actions:['Spustit','Pozastavit','Editovat']});});}))));}
+function centerWorkers(){return h(React.Fragment,null,viewHead('Workeri',true,function(){_addNew('workers');},_mpNavBtn('skills')),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(WORKERS.map(function(w){return card({name:w.name,emoji:'⚙️',desc:w.desc,status:w.status},function(){setDetail({name:w.name,fields:[{k:'Status',v:w.status,a:w.status==='Running'},{k:'Cron',v:w.cron},{k:'Poslední běh',v:w.lastRun},{k:'Popis',v:w.desc}],tags:['Worker',w.status],actions:['Spustit','Pozastavit','Editovat']});});}))));}
 
 /* ═══ PROJECT CREATION WIZARD ═══ */
 function _wizardCanNext(){
@@ -1561,6 +1557,114 @@ function centerProjectWizard(){
         onClick:function(){if(_wizardCanNext()){w.step=step+1;renderCenter();}}},'Další'):null,
       step===5?h('button',{disabled:w.saving,style:{padding:'7px 24px',borderRadius:6,border:'none',background:w.saving?C.bg4:C.accent,color:'#fff',fontFamily:C.font,fontSize:_fs(12),fontWeight:600,cursor:w.saving?'default':'pointer'},
         onClick:_wizardSubmit},w.saving?'Vytvářím...':'Vytvořit projekt'):null));
+}
+
+/* ═══ SPECIALIST CREATION WIZARD (v122.2) ═══ */
+var _SW_DOMAINS=[
+  {id:'general',label:'Obecný',icon:'🤖'},
+  {id:'finance',label:'Finance',icon:'💰'},
+  {id:'law',label:'Právo',icon:'⚖️'},
+  {id:'tech',label:'Technologie',icon:'💻'},
+  {id:'medicine',label:'Medicína',icon:'🏥'},
+  {id:'creative',label:'Kreativní psaní',icon:'✍️'},
+  {id:'psychology',label:'Psychologie',icon:'🧠'},
+  {id:'language',label:'Jazyky',icon:'🌐'},
+  {id:'education',label:'Vzdělávání',icon:'📚'},
+  {id:'data',label:'Data a analýza',icon:'📊'}
+];
+function _swCanNext(){
+  var d=_specialistWizard.data,s=_specialistWizard.step;
+  if(s===0)return d.name.trim().length>=2;
+  if(s===1)return!!d.domain;
+  return true;
+}
+function _swSubmit(){
+  if(_specialistWizard.saving)return;
+  _specialistWizard.saving=true;_specialistWizard.error=null;renderCenter();
+  var d=_specialistWizard.data;
+  fetch(_backendBase+'/api/specialists',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name:d.name.trim(),domain:d.domain,description:d.description.trim(),icon:d.icon||null}),
+    signal:AbortSignal.timeout(10000)})
+  .then(function(r){return r.json().then(function(j){return{ok:r.ok,data:j};});})
+  .then(function(res){
+    _specialistWizard.saving=false;
+    if(!res.ok){_specialistWizard.error=res.data.error||'Chyba při vytváření';renderCenter();return;}
+    _specialistWizard.active=false;_wizardRestoreLayout();
+    _fetchExpertises();
+    if(typeof c3!=='undefined'&&c3.agentLog)c3.agentLog('TOOL','Specialista \u201E'+d.name.trim()+'\u201C vytvořen.');
+    renderCenter();
+  })
+  .catch(function(e){_specialistWizard.saving=false;_specialistWizard.error=e.message||'Nepodařilo se vytvořit';renderCenter();});
+}
+function centerSpecialistWizard(){
+  var w=_specialistWizard,step=w.step,d=w.data;
+  var stepStyle={background:C.bg2,borderRadius:12,padding:24,maxWidth:520,margin:'0 auto',width:'100%'};
+  var labelStyle={fontSize:_fs(11),color:C.tx3,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:6};
+  var inputStyle={width:'100%',padding:'8px 12px',borderRadius:8,border:'1px solid '+C.border2,background:C.bg3,color:C.tx1,fontFamily:C.font,fontSize:_fs(13),outline:'none',boxSizing:'border-box'};
+  var content;
+  if(step===0){
+    content=h('div',{style:stepStyle},
+      h('div',{style:labelStyle},'Název specialisty'),
+      h('input',{autoFocus:true,style:inputStyle,value:d.name,placeholder:'Např. Překladatel, Účetní, Analytik...',
+        onChange:function(e){d.name=e.target.value;renderCenter();},
+        onKeyDown:function(e){if(e.key==='Enter'&&_swCanNext()){w.step=1;renderCenter();}}}));
+  }else if(step===1){
+    content=h('div',{style:stepStyle},
+      h('div',{style:labelStyle},'Doména'),
+      h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginTop:8}},
+        _SW_DOMAINS.map(function(dom){
+          var sel=d.domain===dom.id;
+          return h('div',{key:dom.id,onClick:function(){d.domain=dom.id;if(!d.icon)d.icon=dom.icon;renderCenter();},
+            style:{padding:14,borderRadius:10,border:'1px solid '+(sel?C.accent:C.border),background:sel?C.accentBg:C.bg3,cursor:'pointer',transition:'border 0.15s'}},
+            h('div',{style:{fontSize:_fs(18),marginBottom:4}},dom.icon),
+            h('div',{style:{fontSize:_fs(12.5),fontWeight:700,color:sel?C.accentText:C.tx1}},dom.label));})));
+  }else if(step===2){
+    content=h('div',{style:stepStyle},
+      h('div',{style:labelStyle},'Popis (volitelný)'),
+      h('textarea',{autoFocus:true,style:Object.assign({},inputStyle,{minHeight:80,resize:'vertical',fontFamily:C.font}),value:d.description,placeholder:'Popište co specialista umí a k čemu slouží...',
+        onChange:function(e){d.description=e.target.value;renderCenter();}}),
+      h('div',{style:Object.assign({},labelStyle,{marginTop:16})},'Emoji / ikona (volitelná)'),
+      h('input',{style:Object.assign({},inputStyle,{maxWidth:80}),value:d.icon,placeholder:'🤖',maxLength:4,
+        onChange:function(e){d.icon=e.target.value;renderCenter();}}));
+  }else if(step===3){
+    var domInfo=_SW_DOMAINS.find(function(x){return x.id===d.domain;})||_SW_DOMAINS[0];
+    var slug=d.name.trim().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'').substring(0,32);
+    content=h('div',{style:stepStyle},
+      h('div',{style:labelStyle},'Souhrn'),
+      h('div',{style:{display:'flex',flexDirection:'column',gap:10,marginTop:8}},
+        h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:_fs(12)}},h('span',{style:{color:C.tx3}},'Název'),h('span',{style:{color:C.tx1,fontWeight:600}},(d.icon||domInfo.icon)+' '+d.name.trim())),
+        h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:_fs(12)}},h('span',{style:{color:C.tx3}},'Doména'),h('span',{style:{color:C.tx1}},domInfo.icon+' '+domInfo.label)),
+        h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:_fs(12)}},h('span',{style:{color:C.tx3}},'ID'),h('span',{style:{color:C.tx2,fontFamily:C.mono,fontSize:_fs(11)}},slug)),
+        d.description?h('div',{style:{fontSize:_fs(11),color:C.tx2,marginTop:4,padding:8,background:C.bg3,borderRadius:6,whiteSpace:'pre-wrap'}},d.description):null),
+      h('div',{style:{marginTop:16,padding:10,background:C.accentBg,borderRadius:8,border:'1px solid '+C.accent+'33'}},
+        h('div',{style:{fontSize:_fs(11),color:C.accentText,fontWeight:600}},'specialists/'+slug+'/'),
+        h('div',{style:{fontSize:_fs(10),color:C.tx3,marginTop:4}},'Vytvoří se balíček s manifestem a stub kódem. Nástroje můžete přidat později editací index.js.')),
+      w.error?h('div',{style:{marginTop:12,padding:8,background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:6,fontSize:_fs(11),color:'#f87171'}},w.error):null);
+  }
+  var SW_STEPS=[{id:'name',icon:'📝',desc:'Jak se bude jmenovat?'},{id:'domain',icon:'🎯',desc:'Doména specialisty'},{id:'desc',icon:'📋',desc:'Popis a ikona'},{id:'review',icon:'✅',desc:'Souhrn a vytvoření'}];
+  var totalSteps=SW_STEPS.length;
+  return h(React.Fragment,null,
+    h('div',{style:{padding:'12px 18px',borderBottom:'1px solid '+C.border,display:'flex',alignItems:'center',gap:10,flexShrink:0}},
+      h('button',{style:{background:'none',border:'none',color:C.tx4,cursor:'pointer',padding:4,borderRadius:4,display:'flex'},
+        onClick:function(){_specialistWizard.active=false;_wizardRestoreLayout();renderCenter();}},svgEl(I.close,16)),
+      h('span',{style:{fontSize:_fs(14),fontWeight:700,color:C.tx1}},'Nový specialista'),
+      h('div',{style:{flex:1}}),
+      h('span',{style:{fontSize:_fs(10),color:C.tx4,fontFamily:C.mono}},'Krok '+(step+1)+'/'+totalSteps)),
+    h('div',{style:{display:'flex',gap:2,padding:'8px 18px',flexShrink:0}},
+      SW_STEPS.map(function(ws,i){
+        var done=i<step,cur=i===step;
+        return h('div',{key:ws.id,style:{flex:1,height:3,borderRadius:2,background:done?C.accent:cur?C.accentText:C.bg4,transition:'background 0.2s'}});})),
+    h('div',{style:{flex:1,overflowY:'auto',padding:24,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-start'}},
+      h('div',{style:{fontSize:_fs(28),marginBottom:8}},SW_STEPS[step].icon),
+      h('div',{style:{fontSize:_fs(16),fontWeight:700,color:C.tx1,marginBottom:4}},SW_STEPS[step].desc),
+      h('div',{style:{width:'100%',maxWidth:520,marginTop:16}},content)),
+    h('div',{style:{padding:'12px 18px',borderTop:'1px solid '+C.border,display:'flex',gap:8,justifyContent:'flex-end',flexShrink:0}},
+      step>0?h('button',{style:{padding:'7px 16px',borderRadius:6,border:'1px solid '+C.border2,background:C.bg3,color:C.tx2,fontFamily:C.font,fontSize:_fs(12),cursor:'pointer'},
+        onClick:function(){w.step=Math.max(0,step-1);renderCenter();}},'Zpět'):null,
+      step<3?h('button',{disabled:!_swCanNext(),style:{padding:'7px 20px',borderRadius:6,border:'none',background:_swCanNext()?C.accent:C.bg4,color:_swCanNext()?'#fff':C.tx4,fontFamily:C.font,fontSize:_fs(12),fontWeight:600,cursor:_swCanNext()?'pointer':'default',opacity:_swCanNext()?1:0.5},
+        onClick:function(){if(_swCanNext()){w.step=step+1;renderCenter();}}},'Další'):null,
+      step===3?h('button',{disabled:w.saving,style:{padding:'7px 24px',borderRadius:6,border:'none',background:w.saving?C.bg4:C.accent,color:'#fff',fontFamily:C.font,fontSize:_fs(12),fontWeight:600,cursor:w.saving?'default':'pointer'},
+        onClick:_swSubmit},w.saving?'Vytvářím...':'Vytvořit specialistu'):null));
 }
 
 /* ═══ EXPERTISE CREATION/EDIT WIZARD (v64.1) ═══ */
@@ -3536,6 +3640,11 @@ function _loadMarketplaceData(force){
     .catch(function(e){_mpData={error:e.message};_mpLoading=false;renderCenter();});
 }
 function _mpInstall(type,id){
+  /* v124: Confirm dialog with package info */
+  var pkg=_mpData&&_mpData.items?_mpData.items.find(function(p){return p.type===type&&p.id===id;}):null;
+  var msg='Nainstalovat '+id+' ('+type+')?';
+  if(pkg){msg=(pkg.name||id)+' v'+(pkg.version||'?')+' ('+type+')';if(pkg.dependencies&&pkg.dependencies.length)msg+='\nZávislosti: '+pkg.dependencies.join(', ');if(pkg.size)msg+='\nVelikost: '+(pkg.size>1024?(pkg.size/1024).toFixed(1)+' KB':pkg.size+' B');msg+='\n\nNainstalovat?';}
+  if(!confirm(msg))return;
   _mpInstalling[type+':'+id]='Stahuji...';_mpMsg=null;renderCenter();
   fetch(_backendBase+'/api/marketplace/install/'+type+'/'+id,{method:'POST',signal:AbortSignal.timeout(120000)})
     .then(function(r){return r.json();})
