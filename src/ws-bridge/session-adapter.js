@@ -64,6 +64,19 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
   // Same conversation: reject with "Počkejte" message.
   const activeTurns = new Map(); // conversationId → { turnId, abortController, startTime }
 
+  // v124: Stale turn cleanup — abort and remove turns older than 5 minutes
+  const STALE_TURN_MS = 5 * 60 * 1000;
+  const _staleCleanupInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [convId, entry] of activeTurns) {
+      if (now - entry.startTime > STALE_TURN_MS) {
+        logger.warn('WSSession', `Stale turn cleanup: ${convId} (${Math.round((now - entry.startTime) / 1000)}s old)`, { sessionId: sid });
+        try { entry.abortController?.abort(); } catch (_) {}
+        activeTurns.delete(convId);
+      }
+    }
+  }, 60_000);
+
   // Fáze 5 — E4: Pending edit approvals (reqId → {resolve, reject, timer})
   const editPending = new Map();
 
@@ -71,8 +84,24 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
 
   // ─── Internal helpers ──────────────────────────────────────────────
 
+  // v124: Selective backpressure — drop streaming tokens when buffer full, keep critical messages
+  function safeSend(jsonString) {
+    try {
+      if (send._ws && send._ws.bufferedAmount > 1024 * 1024) {
+        try {
+          const parsed = JSON.parse(jsonString);
+          const isCritical = parsed?.channel === Channel.CHAT ||
+            parsed?.data?.type === 'turn_end' || parsed?.data?.type === 'error' ||
+            parsed?.data?.type === 'edit_request' || parsed?.data?.type === 'lifecycle_event';
+          if (!isCritical) return; // Drop non-critical when backpressured
+        } catch (_) { return; } // Can't parse → drop
+      }
+    } catch (_) { /* send._ws may not exist — skip backpressure check */ }
+    send(jsonString);
+  }
+
   function sendChannel(channel, data) {
-    send(buildChannelMessage(channel, data));
+    safeSend(buildChannelMessage(channel, data));
   }
 
   function sendAgentEvent(type, turnId, payload) {
@@ -196,12 +225,15 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
               });
 
               // Wait for approve/reject from IDE (30s timeout — invariant 14)
-              return new Promise((resolve, reject) => {
+              // v124: Wrap resolve/reject to auto-clear timer (prevents leak)
+              return new Promise((rawResolve, rawReject) => {
                 const timer = setTimeout(() => {
                   editPending.delete(reqId);
                   sendAgentEvent('edit_timeout', turnId, { reqId, file: filePath });
-                  reject(new Error('Edit request timeout (30s)'));
+                  rawReject(new Error('Edit request timeout (30s)'));
                 }, 30000);
+                const resolve = (v) => { clearTimeout(timer); rawResolve(v); };
+                const reject = (e) => { clearTimeout(timer); rawReject(e); };
                 editPending.set(reqId, { resolve, reject, timer, filePath, newContent: args.content, baseHash });
               });
             }
@@ -238,9 +270,9 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
           },
 
           // Hook: System step — structured internal operation detail
-          // level: 1 = key steps (default), 2 = verbose/debug
+          // level: 1 = key steps (default), 2 = verbose detail
           onSystemStep: (step, detail, level) => {
-            const maxLevel = config.features?.agentLogLevel || 1;
+            const maxLevel = config.features?.agentLogLevel ?? 2;
             if ((level || 1) <= maxLevel) {
               sendAgentEvent(AgentEventType.SYSTEM_STEP, turnId, { step, detail });
             }
@@ -562,6 +594,8 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
   // ─── Cleanup ───────────────────────────────────────────────────────
 
   function cleanup() {
+    // v124: Stop stale turn cleanup interval
+    clearInterval(_staleCleanupInterval);
     // Abort all active turns on disconnect
     for (const [cid, turn] of activeTurns) {
       turn.abortController.abort();

@@ -327,7 +327,8 @@ class LLMGateway {
         repeat_penalty: options.repeat_penalty ?? 1.1,
         num_predict: effectiveMaxTokens,
         // v72: Allow callers to override context window size (e.g. 1024 for classification)
-        ...(options.num_ctx ? { num_ctx: options.num_ctx } : {}),
+        // Default 8192 — qwen2.5:32b model default is 32768 which causes CPU spillover on 24GB VRAM
+        num_ctx: options.num_ctx || 8192,
       }
     };
 
@@ -435,6 +436,11 @@ class LLMGateway {
             });
             throw new Error(`LLM timeout after ${timeout}ms (model: ${model})`);
           }
+        } else if (err.message?.includes('503') || err.message?.includes('Service Unavailable')) {
+          // v124: Ollama OOM/overload — don't retry, escalate immediately
+          logger.error('LLMGateway', `Ollama OOM/overload (503) — not retrying`, { model });
+          this.audit.log('LLM_CALL_OOM', { role: authToken?.role, decisionId: authToken?.decisionId, model });
+          throw err;
         } else if (err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT') {
           // Network errors — retry makes sense (Ollama may be starting/restarting)
           logger.warn('LLMGateway', `Network error (attempt ${attempt}/${maxRetries}): ${err.code}`, {
