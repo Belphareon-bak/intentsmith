@@ -24,6 +24,7 @@ import {
   lifecycles as lifecycleRepo,
   milestones as msRepo,
   driftChecks,
+  db as _rawDb,
 } from '../db/database.js';
 import {
   milestonePlan as milestonePlanPrompt,
@@ -203,6 +204,19 @@ async function ensureCodeIntel() {
  *   null if no more milestones
  */
 export async function startNextMilestone(lifecycle) {
+  // v124: RAM mutex — prevent concurrent milestone starts
+  if (lifecycle._buildInProgress) {
+    return { milestoneId: null, status: 'BUSY', message: 'Build probíhá — vyčkejte.' };
+  }
+  lifecycle._buildInProgress = true;
+  try {
+    return await _startNextMilestoneImpl(lifecycle);
+  } finally {
+    lifecycle._buildInProgress = false;
+  }
+}
+
+async function _startNextMilestoneImpl(lifecycle) {
   // Find ALL pending milestones (not just first) to skip dependency-blocked ones
   const allPending = msRepo.findByStatus.all(lifecycle.id, 'PENDING').map(r => msRepo.getMilestone(r.id));
   if (allPending.length === 0) {
@@ -335,13 +349,23 @@ export async function startNextMilestone(lifecycle) {
  * @returns {Promise<Object>} Execution result
  */
 export async function approveMilestonePlan(lifecycle, milestoneId) {
-  const milestone = msRepo.getMilestone(milestoneId);
-  if (!milestone) throw new Error(`Milestone ${milestoneId} not found`);
-  if (milestone.status !== MilestoneStatus.AWAITING_PLAN) {
-    throw new Error(`Milestone ${milestoneId} is ${milestone.status}, not AWAITING_PLAN`);
+  // v124: RAM mutex — prevent concurrent milestone execution
+  if (lifecycle._buildInProgress) {
+    return { milestoneId, status: 'BUSY', message: 'Build probíhá — vyčkejte.' };
   }
+  lifecycle._buildInProgress = true;
 
-  return executeMilestone(lifecycle, milestone);
+  try {
+    const milestone = msRepo.getMilestone(milestoneId);
+    if (!milestone) throw new Error(`Milestone ${milestoneId} not found`);
+    if (milestone.status !== MilestoneStatus.AWAITING_PLAN) {
+      throw new Error(`Milestone ${milestoneId} is ${milestone.status}, not AWAITING_PLAN`);
+    }
+
+    return await executeMilestone(lifecycle, milestone);
+  } finally {
+    lifecycle._buildInProgress = false;
+  }
 }
 
 // ─── Execute Milestone ───────────────────────────────────────────────────────
@@ -771,6 +795,33 @@ async function postExecution(lifecycle, milestone, wfResult) {
     }).catch(() => {});
   }
 
+  // v124: Lifecycle health telemetry
+  logger.info('LifecycleMetrics', 'milestone_complete', {
+    lifecycleId: lifecycle.id,
+    milestoneId: milestone.id,
+    duration_ms: Date.now() - _buildStart,
+    retry_count: milestone.retry_count || 0,
+    checkpoint_mode: checkpointResult?.mode || 'unknown',
+    health_scope: health?.scope_adherence ?? null,
+  });
+
+  // v124: Spec drift guard — check every 4th PASSED milestone
+  let driftResult = null;
+  try {
+    const completedCount = msRepo.getCompleted(lifecycle.id).length;
+    if (completedCount > 0 && completedCount % 4 === 0) {
+      const { validateSpecDrift } = await import('./lifecycle-review.js');
+      driftResult = await validateSpecDrift(lifecycle);
+      if (driftResult.violations > 3) {
+        logger.warn('LifecycleBuild', `Spec drift detected: ${driftResult.violations} violations`, {
+          lifecycleId: lifecycle.id, details: driftResult.details,
+        });
+      }
+    }
+  } catch (err) {
+    logger.warn('LifecycleBuild', `Spec drift check failed (non-blocking): ${err.message}`);
+  }
+
   return {
     milestoneId: milestone.id,
     status: MilestoneStatus.PASSED,
@@ -781,6 +832,7 @@ async function postExecution(lifecycle, milestone, wfResult) {
     testResults,
     scopeCheck: scopeResult,
     reviewDue: lifecycle.isReviewDue(),
+    driftResult,
   };
 }
 
@@ -1156,6 +1208,7 @@ function handleMilestoneFailure(lifecycle, milestone, reason) {
   return {
     milestoneId: milestone.id,
     status: MilestoneStatus.BLOCKED,
+    blockedAt: Date.now(), // v124: timeout tracking
     retryCount: currentRetry,
     maxRetries,
     reason,
@@ -1171,11 +1224,20 @@ function handleMilestoneFailure(lifecycle, milestone, reason) {
  * @param {string} [feedback] - For 'modify' — what to change
  * @returns {Promise<Object>}
  */
-export async function handleMilestoneBlocked(lifecycle, milestoneId, decision, feedback = '') {
+export async function handleMilestoneBlocked(lifecycle, milestoneId, decision, feedback = '', context = null) {
   const milestone = msRepo.getMilestone(milestoneId);
   if (!milestone) throw new Error(`Milestone ${milestoneId} not found`);
   if (milestone.status !== MilestoneStatus.BLOCKED) {
     throw new Error(`Milestone ${milestoneId} is ${milestone.status}, not BLOCKED`);
+  }
+
+  // v124: BLOCKED timeout — auto force-skip after 15 min with user notification
+  if (milestone._blockedAt && Date.now() - milestone._blockedAt > 15 * 60 * 1000) {
+    if (typeof context?.onSystemStep === 'function') {
+      try { context.onSystemStep('lifecycle', 'Milník blokován >15 min — automaticky přeskakuji'); } catch (_) {}
+    }
+    logger.warn('LifecycleBuild', 'BLOCKED milestone auto-skipped (15min timeout)', { milestoneId });
+    decision = 'force-skip';
   }
 
   switch (decision) {
@@ -1223,44 +1285,45 @@ export async function handleMilestoneBlocked(lifecycle, milestoneId, decision, f
     }
 
     case 'force-skip': {
-      // v97: Force-skip with cascade — skips this milestone AND all blocked dependents
-      msRepo.updateStatus.run(MilestoneStatus.SKIPPED, milestoneId);
-      logger.info('LifecycleBuild', 'Milestone force-skipped', { milestoneId });
-
-      // Cascade: skip all dependents that can't proceed
+      // v97/v124: Force-skip with cascade — atomic transaction for all DB writes
       const allMs = msRepo.listByLifecycle(lifecycle.id);
       const cascadeSkipped = [];
 
-      let changed = true;
-      while (changed) {
-        changed = false;
-        for (const m of allMs) {
-          if (m.status !== 'PENDING' && m.status !== 'BLOCKED') continue;
-          if (!m.dependencies || m.dependencies.length === 0) continue;
+      const cascadeTx = _rawDb.transaction(() => {
+        msRepo.updateStatus.run(MilestoneStatus.SKIPPED, milestoneId);
+        logger.info('LifecycleBuild', 'Milestone force-skipped', { milestoneId });
 
-          // Check if all dependencies are satisfied (PASSED or SKIPPED)
-          const unsatisfied = m.dependencies.filter(depId => {
-            const dep = allMs.find(x => x.id === depId);
-            return dep && dep.status !== 'PASSED' && dep.status !== 'SKIPPED';
-          });
+        // Cascade: skip all dependents that can't proceed
+        let changed = true;
+        while (changed) {
+          changed = false;
+          for (const m of allMs) {
+            if (m.status !== 'PENDING' && m.status !== 'BLOCKED') continue;
+            if (!m.dependencies || m.dependencies.length === 0) continue;
 
-          // If this milestone has unsatisfied deps that are all SKIPPED/BLOCKED, cascade skip it
-          if (unsatisfied.length > 0) {
-            const allUnsatisfiedSkippedOrBlocked = unsatisfied.every(depId => {
+            const unsatisfied = m.dependencies.filter(depId => {
               const dep = allMs.find(x => x.id === depId);
-              return dep && (dep.status === 'SKIPPED' || dep.status === 'BLOCKED');
+              return dep && dep.status !== 'PASSED' && dep.status !== 'SKIPPED';
             });
 
-            if (allUnsatisfiedSkippedOrBlocked) {
-              msRepo.updateStatus.run(MilestoneStatus.SKIPPED, m.id);
-              m.status = 'SKIPPED'; // Update in-memory too for cascade loop
-              cascadeSkipped.push({ milestoneId: m.id, title: m.title, reason: 'Dependency force-skipped' });
-              changed = true;
-              logger.info('LifecycleBuild', 'Cascade skip', { milestoneId: m.id, title: m.title });
+            if (unsatisfied.length > 0) {
+              const allUnsatisfiedSkippedOrBlocked = unsatisfied.every(depId => {
+                const dep = allMs.find(x => x.id === depId);
+                return dep && (dep.status === 'SKIPPED' || dep.status === 'BLOCKED');
+              });
+
+              if (allUnsatisfiedSkippedOrBlocked) {
+                msRepo.updateStatus.run(MilestoneStatus.SKIPPED, m.id);
+                m.status = 'SKIPPED'; // Update in-memory too for cascade loop
+                cascadeSkipped.push({ milestoneId: m.id, title: m.title, reason: 'Dependency force-skipped' });
+                changed = true;
+                logger.info('LifecycleBuild', 'Cascade skip', { milestoneId: m.id, title: m.title });
+              }
             }
-          }
         }
       }
+      }); // end cascadeTx definition
+      cascadeTx(); // execute atomically
 
       return {
         milestoneId,

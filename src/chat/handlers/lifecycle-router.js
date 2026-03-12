@@ -9,7 +9,7 @@
 
 import { logger } from '../../core/logger.js';
 import { ProjectPhase } from '../../planner/lifecycle.js';
-import { getLcState, setLcState, clearLcState, bindSessionToLifecycle } from './lifecycle-state.js';
+import { getLcState, getLcStateByProject, setLcState, clearLcState, bindSessionToLifecycle } from './lifecycle-state.js';
 import {
   lcResponse,
   formatSpecQuestions,
@@ -136,7 +136,19 @@ export function handleLifecycleBuildDetected(input, decision, context) {
  */
 export async function handleLifecycleInput(input, context) {
   const { sessionId } = context;
-  const state = getLcState(sessionId);
+  let state = getLcState(sessionId);
+
+  // v124: Session recovery — browser crash → new sessionId → try project-based lookup
+  if (!state && context.project?.id) {
+    const found = getLcStateByProject(context.project.id);
+    if (found) {
+      state = found.state;
+      setLcState(sessionId, state); // Rebind to new session
+      logger.info('LifecycleRouter', 'Session recovered via projectId', {
+        sessionId, projectId: context.project.id,
+      });
+    }
+  }
 
   if (!state) return null;
 
@@ -377,21 +389,45 @@ async function handleSpecReviewInput(input, state, context) {
       });
     }
 
+    // v124: Track spec revision count — guard infinite revisions
+    const revisionCount = (state._specRevisionCount || 0) + 1;
+
+    if (revisionCount >= 4) {
+      // Auto-approve on 4th revision
+      logger.warn('LifecycleRouter', 'Spec revision limit reached — auto-approving', { revisionCount });
+      const { approveSpec } = await import('../../planner/lifecycle-spec.js');
+      await approveSpec(lifecycle);
+      setLcState(sessionId, { ...state, phase: 'PLANNING', _specRevisionCount: 0 });
+      const { generateRoadmap } = await import('../../planner/lifecycle-planning.js');
+      const roadmapResult = await generateRoadmap(lifecycle);
+      await lifecycle.transitionTo('PLAN_REVIEW');
+      setLcState(sessionId, { ...state, phase: 'PLAN_REVIEW', _specRevisionCount: 0 });
+      return lcResponse(
+        `**Specifikace automaticky schválena** (dosažen limit ${revisionCount} revizí).\n\n` +
+        formatRoadmap(roadmapResult),
+        { phase: 'PLAN_REVIEW', lifecycleId: state.lifecycleId }
+      );
+    }
+
     // Revision feedback — reviseSpec transitions lifecycle to SPEC and returns {questions, assessment}
     const { reviseSpec } = await import('../../planner/lifecycle-spec.js');
     const result = await reviseSpec(lifecycle, input);
 
     // Sync handoff state with lifecycle (reviseSpec transitions to SPEC)
-    setLcState(sessionId, { ...state, phase: 'SPEC' });
+    setLcState(sessionId, { ...state, phase: 'SPEC', _specRevisionCount: revisionCount });
+
+    const revisionWarning = revisionCount >= 3
+      ? `\n\n⚠️ *Toto je ${revisionCount}. revize specifikace. Další revize ji automaticky schválí.*`
+      : '';
 
     if (result.questions && result.questions.length > 0) {
-      return lcResponse(formatSpecQuestions(result.questions), {
+      return lcResponse(formatSpecQuestions(result.questions) + revisionWarning, {
         phase: 'SPEC',
         lifecycleId: state.lifecycleId,
       });
     }
 
-    return lcResponse('Specifikace se reviduje. Pošli odpovědi na upřesňující otázky.');
+    return lcResponse('Specifikace se reviduje. Pošli odpovědi na upřesňující otázky.' + revisionWarning);
   } catch (err) {
     logger.error('LifecycleHandoff', 'Spec review failed', { error: err.message });
     return lcResponse(`Chyba při review specifikace: ${err.message}`);

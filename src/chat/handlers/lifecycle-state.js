@@ -58,18 +58,19 @@ export function getLcStateByProject(projectId) {
 
 export function setLcState(sessionId, state) {
   const enriched = { ...state, updatedAt: new Date().toISOString() };
-  lifecycleStates.set(sessionId, enriched);
 
-  // Write-through to DB (non-fatal if DB not initialized)
+  // v124: Write DB FIRST, then RAM. If DB fails, still update RAM
+  // but flag inconsistency for debugging.
+  let dbWriteOk = true;
   if (_handoffDb) {
     try {
-      // Validate lifecycle_id FK before write — avoids FOREIGN KEY constraint failed
       let safeLifecycleId = state.lifecycleId || null;
       if (safeLifecycleId && _lifecyclesDb) {
         const lc = _lifecyclesDb.findById.get(safeLifecycleId);
         if (!lc) {
-          logger.warn('LifecycleState', `lifecycleId ${safeLifecycleId} not in project_lifecycles, skipping DB write-through`);
-          return; // RAM state is set, skip DB write
+          logger.warn('LifecycleState', `lifecycleId ${safeLifecycleId} not in project_lifecycles, skipping DB write`);
+          lifecycleStates.set(sessionId, enriched);
+          return;
         }
       }
       _handoffDb.upsert.run(
@@ -83,9 +84,13 @@ export function setLcState(sessionId, state) {
         state.changeRequestId || null
       );
     } catch (err) {
-      logger.warn('LifecycleState', `DB write-through failed: ${err.message}`);
+      dbWriteOk = false;
+      logger.warn('LifecycleState', `DB write failed (RAM updated, DB may be stale): ${err.message}`);
     }
   }
+
+  enriched._dbConsistent = dbWriteOk;
+  lifecycleStates.set(sessionId, enriched);
 }
 
 export function clearLcState(sessionId) {
@@ -161,6 +166,16 @@ export function preloadActiveLifecycles() {
       if (row.lc_phase === 'COMPLETED' || row.lc_phase === 'FAILED') {
         _handoffDb.delete.run(row.session_id);
         continue;
+      }
+
+      // v124: Skip stale handoff states older than 24h
+      if (row.updated_at) {
+        const ageMs = Date.now() - Date.parse(row.updated_at);
+        if (ageMs > 24 * 60 * 60 * 1000) {
+          logger.warn('LifecycleState', `Pruning stale handoff state (>24h): session=${row.session_id}, phase=${row.phase}`);
+          _handoffDb.delete.run(row.session_id);
+          continue;
+        }
       }
 
       // Skip orphaned states: non-PROPOSED phase but no lifecycle_id (broken state)

@@ -282,9 +282,93 @@ function avg(arr) {
   return arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 }
 
+// ─── v124: Spec Drift Guard ──────────────────────────────────────────────────
+
+/**
+ * Validate spec assumptions against current codebase state.
+ * Called every 4 PASSED milestones to detect drift.
+ *
+ * Checks: tech stack mentions, directory layout, design patterns, key files.
+ * Deterministic (no LLM) — compares spec text vs file system.
+ *
+ * @param {Object} lifecycle - ProjectLifecycle instance
+ * @returns {Promise<{ violations: number, details: string[] }>}
+ */
+export async function validateSpecDrift(lifecycle) {
+  const violations = [];
+
+  try {
+    const spec = lifecycleRepo.getSpec(lifecycle.id);
+    if (!spec) return { violations: 0, details: [] };
+
+    const specText = typeof spec === 'string' ? spec
+      : (spec.content || spec.full_text || JSON.stringify(spec));
+    const projectPath = lifecycle.projectPath;
+
+    if (!projectPath) return { violations: 0, details: [] };
+
+    // Check 1: Tech stack references — verify mentioned frameworks/files exist
+    const techStackHints = [
+      { pattern: /\b(express|fastify|koa|nest)\b/i, check: 'package.json', field: 'dependencies' },
+      { pattern: /\b(react|vue|angular|svelte)\b/i, check: 'package.json', field: 'dependencies' },
+      { pattern: /\b(flask|django|fastapi)\b/i, check: 'requirements.txt', field: null },
+      { pattern: /\bgo\b.*\b(gin|fiber|echo)\b/i, check: 'go.mod', field: null },
+    ];
+
+    const { existsSync, readFileSync } = await import('fs');
+    const { join } = await import('path');
+
+    for (const hint of techStackHints) {
+      if (hint.pattern.test(specText)) {
+        const checkPath = join(projectPath, hint.check);
+        if (!existsSync(checkPath)) {
+          violations.push(`Spec mentions ${hint.pattern.source} but ${hint.check} not found`);
+        }
+      }
+    }
+
+    // Check 2: Directory structure assumptions
+    const dirHints = [
+      { pattern: /\bsrc\//i, dir: 'src' },
+      { pattern: /\btests?\//i, dir: 'tests' },
+      { pattern: /\bpublic\//i, dir: 'public' },
+      { pattern: /\bapi\//i, dir: 'api' },
+    ];
+
+    for (const hint of dirHints) {
+      if (hint.pattern.test(specText)) {
+        const dirPath = join(projectPath, hint.dir);
+        if (!existsSync(dirPath)) {
+          violations.push(`Spec references ${hint.dir}/ directory but it doesn't exist`);
+        }
+      }
+    }
+
+    // Check 3: Completed milestones vs spec scope — detect scope files that were deleted
+    const completed = msRepo.getCompleted(lifecycle.id);
+    for (const ms of completed.slice(-4)) { // Check last 4 completed
+      const scopeFiles = ms.scope_files || [];
+      for (const sf of scopeFiles.slice(0, 5)) { // Sample max 5 files per milestone
+        const fullPath = join(projectPath, sf);
+        if (!existsSync(fullPath)) {
+          violations.push(`Milestone "${ms.title}" created ${sf} but it was deleted`);
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn('LifecycleReview', `Spec drift check error: ${err.message}`);
+  }
+
+  return {
+    violations: violations.length,
+    details: violations,
+  };
+}
+
 export default {
   DriftCheckType,
   triggerProjectReview,
   getDriftHistory,
   getAggregateHealth,
+  validateSpecDrift,
 };
