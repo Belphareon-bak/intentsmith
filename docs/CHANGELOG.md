@@ -8,6 +8,25 @@
 
 ---
 
+## v123 — Marketplace (2026-03-12)
+
+Remote package marketplace for skills, expertises and specialists.
+
+### Backend
+- **MarketplaceClient** (`src/marketplace/marketplace-client.js`): catalog fetch with ETag + 4h TTL cache, fetch mutex, offline fallback, streaming SHA-256 hash verification, 10MB size limit, archive extraction with path traversal + symlink/hardlink/device protection
+- **PackageInstaller** (`src/marketplace/package-installer.js`): transactional install/uninstall/update with per-package mutex, dependency resolver (DFS + circular detection + conflict detection), topological install order, uninstall protection, rollback on failure, idempotent installs
+- **REST API** (`src/routes/marketplace.js`): 6 endpoints (catalog GET/refresh POST, installed GET, install POST, uninstall DELETE, update POST), catalog enrichment (installed status, updateAvailable via semver), server-side pagination
+- **Migration 035**: `marketplace_packages` + `marketplace_catalog_cache` tables
+
+### Frontend
+- **Marketplace view** in `chat-panel-module.js`: NAV entry "Obchod", 3 sub-tabs (Dovednosti/Expertízy/Specialisté), card grid with install/update/uninstall actions, client-side search, detail panel, "NOVÉ"/"NAINSTALOVÁNO"/"AKTUALIZACE" badges, pagination, toast feedback, offline indicator
+- Webpack rebuild
+
+### Tests
+- 44 tests in `marketplace.test.js` (semver helpers, cache, schema validation, install/uninstall/update, rollback, dependency resolution, circular detection, uninstall protection, catalog enrichment, pagination)
+
+---
+
 ## v122.2 — Expertise/Specialist CRUD + Bulk Operations (2026-03-11)
 
 IDE integration fixes for specialist/expertise lifecycle management.

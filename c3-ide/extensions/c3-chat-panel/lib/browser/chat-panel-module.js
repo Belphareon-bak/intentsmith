@@ -289,7 +289,7 @@ function togSw(on,onChange){return h('div',{onClick:function(){if(onChange)onCha
 /* Safe stringify — prevents React error #31 when backend returns {type,value} objects */
 function _s(v){return v==null?'':typeof v==='object'?(v.value||v.name||v.type||JSON.stringify(v)):String(v);}
 
-var I={chat:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',folder:'<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',expert:'<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 10 3 12 0v-5"/>',worker:'<circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.18 1.65 1.65 0 0 0 4.27 6.36l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',chevDown:'<polyline points="6 9 12 15 18 9"/>',plus:'<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',split:'<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/>',close:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',send:'<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',attach:'<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>'};
+var I={chat:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',folder:'<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',expert:'<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 10 3 12 0v-5"/>',worker:'<circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.18 1.65 1.65 0 0 0 4.27 6.36l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',chevDown:'<polyline points="6 9 12 15 18 9"/>',plus:'<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',split:'<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/>',close:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',send:'<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',attach:'<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',store:'<path d="M6 2L3 7v13a1 1 0 001 1h16a1 1 0 001-1V7l-3-5H6z"/><path d="M3 7h18"/><path d="M16 10a4 4 0 01-8 0"/>'};
 
 /* ═══ DATA ═══ */
 /* 15+1 built-in expertises per docs — overridden by backend /api/expertises */
@@ -448,7 +448,7 @@ function _wtDeleteItem(itemPath){
   .then(function(d){if(d.ok)_loadWorkspaceTree(_wtRoot);})
   .catch(function(){});
 }
-var NAV=[{id:'chats',label:'Konverzace',icon:'chat',badge:0,recent:[]},{id:'projects',label:'Projekty',icon:'folder',badge:0,recent:[]},{id:'specialists',label:'Specialisté',icon:'users',badge:SPECIALISTS.length,recent:SPECIALISTS.slice(0,2).map(function(s){return s.name;})},{id:'expertises',label:'Expertyzy',icon:'expert',badge:EXPERTISES.length,recent:EXPERTISES.filter(function(e){return e.fav;}).slice(0,3).map(function(e){return e.name;})},{id:'workers',label:'Workeri',icon:'worker',badge:0,recent:[]}];
+var NAV=[{id:'chats',label:'Konverzace',icon:'chat',badge:0,recent:[]},{id:'projects',label:'Projekty',icon:'folder',badge:0,recent:[]},{id:'specialists',label:'Specialisté',icon:'users',badge:SPECIALISTS.length,recent:SPECIALISTS.slice(0,2).map(function(s){return s.name;})},{id:'expertises',label:'Expertyzy',icon:'expert',badge:EXPERTISES.length,recent:EXPERTISES.filter(function(e){return e.fav;}).slice(0,3).map(function(e){return e.name;})},{id:'workers',label:'Workeri',icon:'worker',badge:0,recent:[]},{id:'marketplace',label:'Obchod',icon:'store',badge:0,recent:[]}];
 
 /* ═══ LIVE DATA FETCH ═══ */
 var _backendBase='http://localhost:3335';
@@ -964,7 +964,7 @@ function CenterApp(){
     centerEditor()
   ):(
     view==='expertises'?centerExpertises():view==='projects'?centerProjects():view==='chats'?centerConvos():
-    view==='specialists'?centerSpecs():view==='workers'?centerWorkers():view==='settings'?centerSettings():view==='upgrades'?centerUpgrades():centerWelcome()
+    view==='specialists'?centerSpecs():view==='workers'?centerWorkers():view==='settings'?centerSettings():view==='upgrades'?centerUpgrades():view==='marketplace'?centerMarketplace():centerWelcome()
   );
   var showDetail=detail&&!isOverlay;
   /* v93: Solid background when view/overlay active — prevents editor bleed-through on pro themes */
@@ -2284,6 +2284,8 @@ var _bCfg=null;var _bCfgLoading=false;var _gpuInfo=null;var _ollamaModels=null;v
 var _upgradeData=null;var _upgradeLoading=false;var _upgradeMsg=null;
 var _scoringData=null;var _scoringLoading=false;var _upgradeTab='proposals';
 var _discoveredData=null;var _discoveredLoading=false;
+/* v123: Marketplace */
+var _mpData=null;var _mpLoading=false;var _mpMsg=null;var _mpTab='skills';var _mpSearch='';var _mpPage=1;var _mpInstalling={};
 var _pullState={};/* model name → {status,percent,text,downloadedGB,totalGB,eta,scores} */
 var _validationScores={};/* model name → { reasoning: { score, validatedAt }, code: { ... } } */
 var _validatingModel=null;/* currently validating model name or null */
@@ -3499,6 +3501,149 @@ function settingsAboutPanel(){
         }},_fbSending?'Odes\u00edl\u00e1m...':'Odeslat zp\u011btnou vazbu')));
 }
 
+/* ═══════════════════════════════════════════════════════════
+   v123: MARKETPLACE — browse / install / update / uninstall
+   ═══════════════════════════════════════════════════════════ */
+function _loadMarketplaceData(force){
+  if(_mpLoading)return;_mpLoading=true;
+  var url=_backendBase+'/api/marketplace/catalog?page='+_mpPage+'&limit=50';
+  if(force)url=_backendBase+'/api/marketplace/catalog/refresh';
+  var opts=force?{method:'POST',signal:AbortSignal.timeout(15000)}:{signal:AbortSignal.timeout(8000)};
+  fetch(url,opts)
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(force){_mpData=null;_mpLoading=false;_loadMarketplaceData();return;}
+      _mpData=d;_mpLoading=false;
+      var nav=NAV.find(function(n){return n.id==='marketplace';});
+      if(nav&&d&&d.items){nav.badge=d.total||d.items.length;}
+      renderCenter();
+    })
+    .catch(function(e){_mpData={error:e.message};_mpLoading=false;renderCenter();});
+}
+function _mpInstall(type,id){
+  _mpInstalling[type+':'+id]='Stahuji...';_mpMsg=null;renderCenter();
+  fetch(_backendBase+'/api/marketplace/install/'+type+'/'+id,{method:'POST',signal:AbortSignal.timeout(120000)})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      delete _mpInstalling[type+':'+id];
+      if(d.error){_mpMsg={ok:false,text:d.error};}
+      else{_mpMsg={ok:true,text:(d.id||id)+' v'+d.version+' nainstalováno'+(d.deps&&d.deps.length?' (+ '+d.deps.length+' závislostí)':'')+'.'};_mpData=null;}
+      renderCenter();if(!_mpData)_loadMarketplaceData();
+    })
+    .catch(function(e){delete _mpInstalling[type+':'+id];_mpMsg={ok:false,text:'Chyba: '+e.message};renderCenter();});
+}
+function _mpUninstall(type,id){
+  if(!confirm('Opravdu odinstalovat '+id+'?'))return;
+  _mpInstalling[type+':'+id]='Odinstalace...';_mpMsg=null;renderCenter();
+  fetch(_backendBase+'/api/marketplace/installed/'+type+'/'+id,{method:'DELETE',signal:AbortSignal.timeout(15000)})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      delete _mpInstalling[type+':'+id];
+      if(d.error){_mpMsg={ok:false,text:d.error};}
+      else{_mpMsg={ok:true,text:id+' odinstalováno.'};_mpData=null;}
+      renderCenter();if(!_mpData)_loadMarketplaceData();
+    })
+    .catch(function(e){delete _mpInstalling[type+':'+id];_mpMsg={ok:false,text:'Chyba: '+e.message};renderCenter();});
+}
+function _mpUpdate(type,id){
+  _mpInstalling[type+':'+id]='Aktualizuji...';_mpMsg=null;renderCenter();
+  fetch(_backendBase+'/api/marketplace/update/'+type+'/'+id,{method:'POST',signal:AbortSignal.timeout(120000)})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      delete _mpInstalling[type+':'+id];
+      if(d.error){_mpMsg={ok:false,text:d.error};}
+      else{_mpMsg={ok:true,text:id+' aktualizováno na v'+d.version+'.'};_mpData=null;}
+      renderCenter();if(!_mpData)_loadMarketplaceData();
+    })
+    .catch(function(e){delete _mpInstalling[type+':'+id];_mpMsg={ok:false,text:'Chyba: '+e.message};renderCenter();});
+}
+function centerMarketplace(){
+  if(!_mpData&&!_mpLoading)_loadMarketplaceData();
+  var typeMap={skills:'skill',expertises:'expertise',specialists:'specialist'};
+  var tabLabels={skills:'Dovednosti',expertises:'Expertízy',specialists:'Specialisté'};
+  var items=_mpData&&_mpData.items?_mpData.items:[];
+  /* filter by tab type */
+  var typeFilter=typeMap[_mpTab]||'skill';
+  var filtered=items.filter(function(p){return p.type===typeFilter;});
+  /* client-side search */
+  if(_mpSearch){var q=_mpSearch.toLowerCase();filtered=filtered.filter(function(p){return(p.name||'').toLowerCase().indexOf(q)>=0||(p.description||'').toLowerCase().indexOf(q)>=0||(p.tags||[]).join(' ').toLowerCase().indexOf(q)>=0;});}
+  /* counts per type */
+  var counts={skills:0,expertises:0,specialists:0};
+  items.forEach(function(p){var k=p.type==='skill'?'skills':p.type==='expertise'?'expertises':'specialists';counts[k]++;});
+  var tabStyle=function(t){return{background:_mpTab===t?C.accent:'transparent',color:_mpTab===t?'#fff':C.tx3,
+    border:'1px solid '+(_mpTab===t?C.accent:C.border2),borderRadius:6,padding:'5px 14px',fontSize:_fs(11),
+    fontWeight:_mpTab===t?600:400,cursor:'pointer',fontFamily:C.font};};
+  var isOffline=_mpData&&_mpData._offline;
+  var isNewDays=7;
+  return h(React.Fragment,null,
+    /* header */
+    h('div',{style:{padding:'12px 18px',borderBottom:'1px solid '+C.border,display:'flex',alignItems:'center',flexShrink:0,gap:10}},
+      h('span',{style:{fontSize:_fs(15),fontWeight:700,color:C.tx1,flex:1}},'Marketplace'),
+      isOffline?h('span',{style:{fontSize:_fs(9),background:'rgba(239,68,68,0.1)',color:'#ef4444',border:'1px solid rgba(239,68,68,0.2)',borderRadius:4,padding:'2px 8px',fontWeight:600}},'Offline'):null,
+      h('button',{style:{background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'5px 12px',color:C.tx2,fontSize:_fs(11),cursor:'pointer',fontFamily:C.font,display:'flex',alignItems:'center',gap:4},
+        onClick:function(){_mpData=null;_mpMsg=null;_loadMarketplaceData(true);}},svgEl('<path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/>',14),'Obnovit')),
+    /* tab bar */
+    h('div',{style:{display:'flex',gap:6,padding:'10px 18px',borderBottom:'1px solid '+C.border,alignItems:'center'}},
+      Object.keys(tabLabels).map(function(t){return h('button',{key:t,style:tabStyle(t),onClick:function(){_mpTab=t;_mpSearch='';renderCenter();}},tabLabels[t]+' ('+counts[t]+')');}),
+      h('div',{style:{flex:1}}),
+      h('input',{type:'text',value:_mpSearch,placeholder:'Hledat balíček...',
+        style:{background:C.bg2,border:'1px solid '+C.border,borderRadius:6,padding:'4px 10px',fontSize:_fs(11),color:C.tx1,fontFamily:C.font,width:180,outline:'none'},
+        onChange:function(e){_mpSearch=e.target.value;renderCenter();}})),
+    /* toast */
+    _mpMsg?h('div',{style:{margin:'0 18px',marginTop:12,padding:'8px 14px',borderRadius:6,fontSize:_fs(11),fontWeight:600,
+      background:_mpMsg.ok?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)',
+      color:_mpMsg.ok?C.accent:'#ef4444',
+      border:'1px solid '+(_mpMsg.ok?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)')}},_mpMsg.text):null,
+    /* body */
+    h('div',{style:{flex:1,overflowY:'auto',padding:18}},
+      _mpLoading&&!_mpData?h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Načítám katalog...'):null,
+      _mpData&&_mpData.error?h('div',{style:{color:'#ef4444',padding:20,textAlign:'center'}},'Chyba: '+_mpData.error):null,
+      filtered.length===0&&_mpData&&!_mpData.error?h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},_mpSearch?'Žádné výsledky pro "'+_mpSearch+'"':'Žádné balíčky v této kategorii.'):null,
+      filtered.length>0?h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:12,alignContent:'start'}},
+        filtered.map(function(p){
+          var key=p.type+':'+p.id;
+          var installing=_mpInstalling[key];
+          var isNew=p.publishedAt&&((Date.now()-new Date(p.publishedAt).getTime())/(86400000))<isNewDays;
+          return h('div',{key:key,style:{background:C.bg2,border:'1px solid '+(p.installed?C.accent:C.border),borderRadius:10,padding:16,cursor:'pointer',position:'relative',transition:'border-color 0.2s,box-shadow 0.2s',overflow:'hidden'},
+            onMouseEnter:function(e){if(!p.installed)e.currentTarget.style.borderColor=C.border2;e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.15)';},
+            onMouseLeave:function(e){if(!p.installed)e.currentTarget.style.borderColor=C.border;e.currentTarget.style.boxShadow='none';},
+            onClick:function(){setDetail({name:p.name||p.id,_itemId:p.id,fields:[
+              {k:'ID',v:p.id},{k:'Typ',v:p.type},{k:'Verze',v:p.version||'?'},
+              {k:'Autor',v:p.author||'—'},{k:'Popis',v:p.description||''},
+              {k:'Engine',v:p.engine||'—'},{k:'Velikost',v:p.size?(p.size>1024?(p.size/1024).toFixed(1)+' KB':p.size+' B'):'—'},
+              {k:'Závislosti',v:p.dependencies&&p.dependencies.length?p.dependencies.join(', '):'žádné'},
+              {k:'Stav',v:p.installed?'Nainstalováno'+(p.installedVersion?' (v'+p.installedVersion+')':''):'Dostupné'}
+            ],tags:[p.type].concat(p.tags||[]),actions:p.installed?(p.updateAvailable?['Aktualizovat','Odinstalovat']:['Odinstalovat']):['Nainstalovat']});}},
+            /* badges */
+            isNew?h('div',{style:{position:'absolute',top:10,right:10,background:'rgba(59,130,246,0.15)',border:'1px solid rgba(59,130,246,0.3)',borderRadius:4,padding:'2px 6px',fontSize:_fs(8),fontWeight:700,color:'#3b82f6'}},'NOVÉ'):null,
+            p.installed?h('div',{style:{position:'absolute',top:10,right:isNew?52:10,background:'rgba(34,197,94,0.15)',border:'1px solid rgba(34,197,94,0.3)',borderRadius:4,padding:'2px 6px',fontSize:_fs(8),fontWeight:700,color:C.accent}},p.updateAvailable?'AKTUALIZACE':'NAINSTALOVÁNO'):null,
+            /* content */
+            h('div',{style:{fontSize:_fs(13),fontWeight:700,color:C.tx1,marginBottom:4,paddingRight:isNew||p.installed?70:0}},p.name||p.id),
+            h('div',{style:{fontSize:_fs(10),color:C.tx3,marginBottom:8,lineHeight:1.4,maxHeight:40,overflow:'hidden'}},p.description||''),
+            h('div',{style:{display:'flex',gap:4,flexWrap:'wrap',marginBottom:8}},(p.tags||[]).slice(0,4).map(function(t){return h('span',{key:t,style:{background:C.bg3,border:'1px solid '+C.border,borderRadius:4,padding:'1px 6px',fontSize:_fs(9),color:C.tx4}},t);})),
+            /* footer: version + author + action */
+            h('div',{style:{display:'flex',alignItems:'center',gap:8,marginTop:4}},
+              h('span',{style:{fontSize:_fs(9),color:C.tx4}},p.version||''),
+              p.author?h('span',{style:{fontSize:_fs(9),color:C.tx4}},'· '+p.author):null,
+              h('div',{style:{flex:1}}),
+              installing?h('span',{style:{fontSize:_fs(10),color:C.accent,fontWeight:600}},installing):
+              p.installed&&p.updateAvailable?h('button',{style:{background:C.accent,color:'#fff',border:'none',borderRadius:5,padding:'3px 10px',fontSize:_fs(10),fontWeight:600,cursor:'pointer',fontFamily:C.font},onClick:function(ev){ev.stopPropagation();_mpUpdate(p.type,p.id);}},'Aktualizovat'):
+              !p.installed?h('button',{style:{background:C.accent,color:'#fff',border:'none',borderRadius:5,padding:'3px 10px',fontSize:_fs(10),fontWeight:600,cursor:'pointer',fontFamily:C.font},onClick:function(ev){ev.stopPropagation();_mpInstall(p.type,p.id);}},'Nainstalovat'):null)
+          );
+        })
+      ):null,
+      /* pagination */
+      _mpData&&_mpData.totalPages>1?h('div',{style:{display:'flex',justifyContent:'center',gap:10,marginTop:16,alignItems:'center'}},
+        h('button',{disabled:_mpPage<=1,style:{background:C.bg3,border:'1px solid '+C.border,borderRadius:6,padding:'4px 12px',fontSize:_fs(11),color:_mpPage<=1?C.tx4:C.tx2,cursor:_mpPage<=1?'default':'pointer',fontFamily:C.font},
+          onClick:function(){if(_mpPage>1){_mpPage--;_mpData=null;_loadMarketplaceData();}}},'← Předchozí'),
+        h('span',{style:{fontSize:_fs(11),color:C.tx3}},_mpPage+' / '+_mpData.totalPages),
+        h('button',{disabled:_mpPage>=_mpData.totalPages,style:{background:C.bg3,border:'1px solid '+C.border,borderRadius:6,padding:'4px 12px',fontSize:_fs(11),color:_mpPage>=_mpData.totalPages?C.tx4:C.tx2,cursor:_mpPage>=_mpData.totalPages?'default':'pointer',fontFamily:C.font},
+          onClick:function(){if(_mpPage<_mpData.totalPages){_mpPage++;_mpData=null;_loadMarketplaceData();}}},'Další →'))
+      :null
+    )
+  );
+}
+
 function centerWelcome(){return h('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:12}},h('div',{style:{width:48,height:48,background:'linear-gradient(135deg,#22c55e,#16a34a)',borderRadius:14,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:_fs(20),color:'#fff'}},'C3'),h('div',{style:{fontSize:_fs(16),fontWeight:700,color:C.tx1}},'C3 Studio'),h('div',{style:{fontSize:_fs(12),color:C.tx3}},'Vyber sekci v levém panelu'));}
 
 /* ═══════════════════════════════════════════════════════════
@@ -4016,6 +4161,18 @@ function _detailActionHandler(d,a){
     /* Show project picker overlay in detail */
     _centerState._projectPicker={convName:d.name,projects:PROJECTS.filter(function(p){return p.status!=='archived';}),show:true};
     renderCenter();
+  }else if(a==='Nainstalovat'&&_centerState.view==='marketplace'){
+    var _mpId=d._itemId;var _mpType=d.fields&&d.fields.find(function(f){return f.k==='Typ';});
+    if(_mpId&&_mpType)_mpInstall(_mpType.v,_mpId);
+    _centerState.detail=null;renderCenter();
+  }else if(a==='Odinstalovat'&&_centerState.view==='marketplace'){
+    var _mpId2=d._itemId;var _mpType2=d.fields&&d.fields.find(function(f){return f.k==='Typ';});
+    if(_mpId2&&_mpType2)_mpUninstall(_mpType2.v,_mpId2);
+    _centerState.detail=null;renderCenter();
+  }else if(a==='Aktualizovat'&&_centerState.view==='marketplace'){
+    var _mpId3=d._itemId;var _mpType3=d.fields&&d.fields.find(function(f){return f.k==='Typ';});
+    if(_mpId3&&_mpType3)_mpUpdate(_mpType3.v,_mpId3);
+    _centerState.detail=null;renderCenter();
   }
 }
 

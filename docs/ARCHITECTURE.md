@@ -24,6 +24,7 @@ C.3 is a conversational AI platform combining:
 12. **Architecture Governance** — Cross-milestone drift enforcement, API contract tracking, critic/repair agent, regression prediction
 13. **Model Upgrade System** — Curated catalog (55 models), pairwise evaluation, feasibility gate, proposal store, chat-based approval, empirical scoring (Phase 3), L4 online discovery
 14. **Task Memory** — Persistent cross-milestone learning, cross-project pattern sharing, decay-based relevance
+15. **Marketplace** — Remote package catalog (skills, expertises, specialists), transactional install/update/uninstall, dependency resolver, SHA-256 verification, archive security
 
 All decisions flow through CRE — LLM is the text generator, never the authority.
 
@@ -86,7 +87,7 @@ All decisions flow through CRE — LLM is the text generator, never the authorit
 │  └────────────────────────────┘                                            │
 ├────────────────────────────────────────────────────────────────────────────┤
 │                         Database (SQLite)                                   │
-│                    80+ tables, 34 migrations, prepared statements           │
+│                    80+ tables, 35 migrations, prepared statements           │
 ├────────────────────────────────────────────────────────────────────────────┤
 │                      LLM Gateway (Ollama)                                  │
 │           qwen3.5:27b (CHAT/CODE), deepseek-r1:32b (D1/R1), 7 roles      │
@@ -203,6 +204,9 @@ src/                              # 126,566 lines / 349 files / 29 directories
 │   ├── project-knowledge-base.js #   Incremental snapshot
 │   ├── milestone-decomposer.js   #   Auto-split >1500 LOC
 │   └── multi-agent.js            #   5-role pipeline
+├── marketplace/                  # 2 files — Remote package marketplace (v123)
+│   ├── marketplace-client.js    #   Catalog fetch, cache, download, hash, archive validation
+│   └── package-installer.js     #   Transactional install, rollback, mutex, dependency resolver
 ├── notifications/                # 19 files — email, telegram, ntfy, push
 ├── skills/                       # 12 files — Registry → Resolver → Runner
 ├── domains/                      # 12 files — Scaffolds (8 templates) + recipes
@@ -211,7 +215,7 @@ src/                              # 126,566 lines / 349 files / 29 directories
 ├── executor/                     # 8 files — Tool executor, circuit breaker
 ├── autonomy/                     # 3 files — Guarded autonomy, drift detection
 ├── channels/                     # 3 files — Channel adapters
-├── db/                           # 36 files — Schema (80+ tables) + 34 migrations
+├── db/                           # 36 files — Schema (80+ tables) + 35 migrations
 ├── core/                         # 5 files — Logger, error handler
 ├── telemetry/                    # 2 files — Metrics, alerts
 ├── system/                       # 2 files — GPU detection, system info
@@ -651,6 +655,7 @@ Registry → Resolver (LLM intent match) → Runner (state machine) → Step exe
 | Skills | skill_executions, skill_steps, workflow_patterns |
 | Architecture | architecture_state, api_contracts |
 | Model Upgrade | model_overrides, upgrade_history, upgrade_proposals, model_catalog_cache, model_performance, discovered_models |
+| Marketplace | marketplace_packages, marketplace_catalog_cache |
 | Quality | quality_scores |
 | Security | api_tokens (SHA-256 hashed) |
 | Notifications | notification_channels_v57, notification_log_v57, notification_state_v57, notification_digest_buffer_v57, notification_trust_actions_v57 |

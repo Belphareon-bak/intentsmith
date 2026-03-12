@@ -191,4 +191,9 @@ export const complexityKeywords = {
   // Everything else is SIMPLE
 };
 
+// v123: Marketplace
+config.marketplace = {
+  catalogUrl: process.env.C3_MARKETPLACE_URL || 'https://raw.githubusercontent.com/c3-community/marketplace/main/catalog.json',
+};
+
 export default config;

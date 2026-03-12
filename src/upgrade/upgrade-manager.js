@@ -436,9 +436,9 @@ export class UpgradeManager {
         throw new Error(`Model not installed in Ollama: ${targetModel}`);
       }
 
-      // Check not already set
+      // Check not already set (normalize to handle :latest variants)
       const previousModel = config.models[role];
-      if (previousModel === targetModel) {
+      if (_normalizeModelName(previousModel) === _normalizeModelName(targetModel)) {
         throw new Error(`${role} is already set to ${targetModel}`);
       }
 

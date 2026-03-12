@@ -113,6 +113,7 @@ import { createSkillRoutes } from './routes/skills.js';
 import { createSystemRoutes } from './routes/system.js';
 import { createSecurityRoutes } from './routes/security.js';
 import { createNotificationRoutes } from './routes/notifications.js';
+import { createMarketplaceRoutes } from './routes/marketplace.js';
 import { createNotificationPipeline, initNotificationTables } from './notifications/index.js';
 import { WebhookChannel } from './notifications/channels/webhook.js';
 import { DesktopChannel } from './notifications/channels/desktop.js';
@@ -296,6 +297,26 @@ if (config.features.skills !== false) {
   } catch (err) {
     logger.warn('Server', `Skill registry: ${err.message}`);
   }
+}
+
+// v123: Marketplace — catalog client + package installer
+let marketplaceClient = null;
+let packageInstaller = null;
+try {
+  const { MarketplaceClient } = await import('./marketplace/marketplace-client.js');
+  const { PackageInstaller } = await import('./marketplace/package-installer.js');
+  marketplaceClient = new MarketplaceClient(db.db, {
+    catalogUrl: config.marketplace?.catalogUrl,
+  });
+  packageInstaller = new PackageInstaller(db.db, {
+    client: marketplaceClient,
+    skillRegistry,
+    expertiseRegistry: expertiseLayer?.expertiseRegistry || null,
+    specialistLoader,
+  });
+  logger.info('Server', 'Marketplace initialized');
+} catch (err) {
+  logger.warn('Server', `Marketplace not available: ${err.message}`);
 }
 
 // Configure ChatController with default handlers
@@ -686,6 +707,9 @@ const routes = {
 
   // v87: Notification routes (channels, test, log)
   ...createNotificationRoutes({ ...routeDeps, notificationRouter }),
+
+  // v123: Marketplace routes
+  ...createMarketplaceRoutes({ ...routeDeps, marketplaceClient, packageInstaller }),
 
   // F1: Setup Wizard routes (always available — idempotent after completion)
   ...createSetupRoutes(setupWizard, routeDeps),

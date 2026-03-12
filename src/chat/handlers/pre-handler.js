@@ -161,7 +161,20 @@ intercepts.push({
       }
     }
 
-    const proposals = _upgradeManager.getNotifiableProposals();
+    const allProposals = _upgradeManager.getNotifiableProposals();
+    if (allProposals.length === 0) return { handled: false };
+
+    // Filter: only installed models, top-1 per role (highest score)
+    const byRole = new Map();
+    for (const p of allProposals) {
+      const inst = p.installed === 1 || p.installed === true;
+      if (!inst) continue;
+      const role = p.role;
+      if (!byRole.has(role) || (p.score ?? 0) > (byRole.get(role).score ?? 0)) {
+        byRole.set(role, p);
+      }
+    }
+    const proposals = [...byRole.values()];
     if (proposals.length === 0) return { handled: false };
 
     // Mark notified (prevents repeated notifications)
@@ -173,11 +186,13 @@ intercepts.push({
 
     // Emit system step with summary
     if (typeof context.onSystemStep === 'function') {
-      const summary = proposals.slice(0, 3).map(p =>
-        `${p.role}: ${p.currentModel} → ${p.candidateModel} (score ${p.score}, ${p.riskLevel})`
-      ).join('; ');
+      const cm = (p) => p.currentModel || p.current_model;
+      const cn = (p) => p.candidateModel || p.candidate_model;
+      const summary = proposals.map(p =>
+        `${p.role}: ${cm(p)} → ${cn(p)} (skore ${typeof p.score === 'number' ? p.score.toFixed(2) : p.score})`
+      ).join('\n');
       try {
-        context.onSystemStep('model_upgrade', `${proposals.length} upgrade(s) available: ${summary}\nNapis "schvaluji" pro schvaleni.`);
+        context.onSystemStep('model_upgrade', `Dostupne upgrady (${proposals.length}):\n${summary}\nNapis "schvaluji" pro schvaleni nebo "ne" pro preskoceni.`);
       } catch (_) {}
     }
 
@@ -259,63 +274,67 @@ intercepts.push({
     }
 
     const results = [];
-    const pulledModels = new Set();
 
     for (const p of pending) {
+      const candidateName = p.candidateModel || p.candidate_model;
+      const roleName = p.role;
       try {
-        if (!p.installed && !pulledModels.has(p.candidateModel || p.candidate_model)) {
-          const candidateName = p.candidateModel || p.candidate_model;
-          if (typeof context.onSystemStep === 'function') {
-            try { context.onSystemStep('model_pull_start', `Stahuji ${candidateName}...`); } catch (_) {}
-          }
-          await _upgradeManager.pullModel(candidateName, (progress) => {
-            if (typeof context.onSystemStep === 'function') {
-              try { context.onSystemStep('model_pull_progress', progress.text, 2); } catch (_) {}
-            }
-          });
-          pulledModels.add(candidateName);
-          if (typeof context.onSystemStep === 'function') {
-            try { context.onSystemStep('model_pull_done', `${candidateName} stazen`); } catch (_) {}
-          }
+        if (typeof context.onSystemStep === 'function') {
+          try { context.onSystemStep('model_loading', `Nacitam ${candidateName} do VRAM...`); } catch (_) {}
         }
 
-        const candidateName = p.candidateModel || p.candidate_model;
-        const result = await _upgradeManager.applyUpgrade(p.role, candidateName, {
+        const result = await _upgradeManager.applyUpgrade(roleName, candidateName, {
           score: p.score,
           appliedBy: 'user',
         });
-        results.push({ ...result, role: p.role });
+        results.push({ ...result, role: roleName });
 
-        // v118: Mark approved in proposal store
+        // Mark this proposal approved + expire all other pending proposals for this role
         try {
           const { proposalStore } = await import('../../upgrade/proposal-store.js');
-          const dbProposal = proposalStore.findPending(p.role, candidateName);
-          if (dbProposal) proposalStore.approve(dbProposal.id);
+          const remaining = proposalStore.getPendingForRole(roleName);
+          for (const rp of remaining) {
+            if (rp.candidate_model === candidateName) {
+              proposalStore.approve(rp.id);
+            } else {
+              // Expire other proposals for this role — current model changed, they're stale
+              proposalStore.reject(rp.id, 0); // 0-day cooldown = immediately re-eligible next cycle
+            }
+          }
         } catch (_) {}
 
         if (typeof context.onSystemStep === 'function') {
-          try { context.onSystemStep('model_applied', `${p.role}: ${result.from} → ${result.to}`); } catch (_) {}
+          try { context.onSystemStep('model_applied', `${roleName}: ${result.from} → ${result.to} — nacten a overen`); } catch (_) {}
         }
       } catch (err) {
-        results.push({ ok: false, role: p.role, error: err.message });
+        results.push({ ok: false, role: roleName, error: err.message });
         if (typeof context.onSystemStep === 'function') {
-          try { context.onSystemStep('model_apply_error', `${p.role}: ${err.message}`); } catch (_) {}
+          try { context.onSystemStep('model_apply_error', `${roleName}: ${err.message}`); } catch (_) {}
         }
       }
     }
 
     const ok = results.filter(r => r.ok);
     const fail = results.filter(r => !r.ok);
+
+    // Build confirmation summary
     let summary = '';
     if (ok.length > 0) {
-      summary += ok.map(r => `**${r.role}**: ${r.from} → ${r.to}`).join('\n');
+      summary += 'Modely zmeneny:\n' + ok.map(r =>
+        `**${r.role}**: ${r.from} → ${r.to} (nacten, overen)`
+      ).join('\n');
     }
     if (fail.length > 0) {
-      if (summary) summary += '\n';
-      summary += fail.map(r => `**${r.role}**: ${r.error}`).join('\n');
+      if (summary) summary += '\n\n';
+      summary += 'Chyby:\n' + fail.map(r => `**${r.role}**: ${r.error}`).join('\n');
     }
 
-    return { handled: true, response: systemResponse(summary, mode, { upgradeApplied: true }) };
+    // Reset notification flag — allows re-check for any remaining proposals next turn
+    if (context.sessionState) {
+      context.sessionState._upgradeNotified = false;
+    }
+
+    return { handled: true, response: systemResponse(summary, mode, { upgradeApplied: ok.length > 0 }) };
   },
 });
 
