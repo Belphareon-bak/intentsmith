@@ -857,9 +857,12 @@ function _wizardGuardNav(targetView,sidebarSet,extra){
   /* v93: Toggle — same nav item clicked again → hide center, show editor */
   if(targetView===_centerState.view&&!_projectWizard.active&&!_expertiseWizard.active&&!_agentWizard.active&&!_specialistWizard.active&&!_editorState.active){
     _centerState.view=null;_centerState.detail=null;
-    if(_centerContainer)_centerContainer.style.display='none';
     _settingsVals.lastView='';_saveSV();
     sidebarSet({active:null,dd:{}});
+    /* v122.3: Re-enable conversation focus for non-project sessions instead of hiding center */
+    var _as=_sessions[_sessionActive];
+    if(_as&&!_as._projectId&&!_as.chat.specialist){_as._conversationFocus=true;_syncFocusClass();renderCenter();renderChat();return;}
+    if(_centerContainer)_centerContainer.style.display='none';
     return;
   }
   /* v92+v122.2: Focus mode intercept */
@@ -1364,6 +1367,7 @@ function _doOpenExistingProject(folderPath){
       var _ts=_sessions[_ti];
       if(proj&&proj.id){
         _ts._projectId=proj.id;_ts._label=projName;
+        _ts._conversationFocus=false; /* v122.3 */
         /* Reset session for new project context */
         _ts._convId=null;_ts._agentId=null;_ts._lifecycleResumed=false;
         _ts.chat.msgs=[{role:'system',text:'Projekt: '+projName}];
@@ -1419,7 +1423,7 @@ function _wizardSubmit(){
     _smartRouteToRelay(function(_ti){
       var _ts=_sessions[_ti];
       var projId=created.id||(created.project&&created.project.id);
-      if(projId){_ts._projectId=projId;_persistSessionState();}
+      if(projId){_ts._projectId=projId;_ts._conversationFocus=false;_syncFocusClass();_persistSessionState();}
       _ts._label=projName;
       if(realPath){_wtRoot=realPath;_loadWorkspaceTree(realPath);}
       /* Reset session for new project */
@@ -4132,9 +4136,10 @@ function _detailActionHandler(d,a){
       c3.agentLog('TOOL','Otevren projekt: '+proj.name+(proj.path?' ['+proj.path+']':''));
       if(proj.path){_wtRoot=proj.path;_loadWorkspaceTree(proj.path);}
       _ts._projectId=proj.id||null;_ts._label=proj.name||'Projekt';
+      _ts._conversationFocus=false; /* v122.3: project sessions use normal layout */
       _ts._lifecycleResumed=false;
       _ts.log=[];_ts.term=[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}];
-      _persistSessionState();
+      _syncFocusClass();_persistSessionState();
       var openToken=Date.now();
       _ts._openToken=openToken;
       if(proj.id){
@@ -4475,7 +4480,7 @@ function _c3OpenFolderDo(folderPath){
     var proj=res.project;var realPath=(proj&&proj.path)||folderPath;
     _wtRoot=realPath;_loadWorkspaceTree(realPath);
     _smartRouteToRelay(function(_ti){
-      if(proj&&proj.id){_sessions[_ti]._projectId=proj.id;_sessions[_ti]._label=proj.name||folderPath.split('/').filter(Boolean).pop()||'Projekt';_persistSessionState();}
+      if(proj&&proj.id){_sessions[_ti]._projectId=proj.id;_sessions[_ti]._conversationFocus=false;_sessions[_ti]._label=proj.name||folderPath.split('/').filter(Boolean).pop()||'Projekt';_syncFocusClass();_persistSessionState();}
       if(window._c3){window._c3.agentLog('TOOL','📂 Složka otevřena: '+realPath);}
       fetchBackendData();renderCenter();renderChat();
     });
@@ -4544,7 +4549,7 @@ function _mkSession(){return{
   _focusFiles:[],  /* v92: files tracked during specialist focus mode */
   _focusBulkMode:false,  /* v92: file selection mode */
   _focusBulkSelected:[],  /* v92: selected file indices */
-  _conversationFocus:false /* v122.2: conversation center-panel focus mode */
+  _conversationFocus:true /* v122.3: conversation center-panel focus — default ON (off only for projects) */
 };}
 var _sessions=[_mkSession(),_mkSession()];
 /* Expose globally so terminal-client.js and agent-client.js can access session state */
@@ -4562,6 +4567,8 @@ function _syncFocusClass(){
   var wasFocus=document.body.classList.contains('c3-focus-mode');
   var isFocus=isFocusActive();
   document.body.classList.toggle('c3-focus-mode',isFocus);
+  /* v122.3: Ensure center container is visible when focus active (may have been hidden by toggle-off) */
+  if(isFocus&&_centerContainer&&_centerContainer.style.display==='none'){_centerContainer.style.display='';}
   /* Sidebar resize via shell API (same pattern as collapsed toggle, line 688) */
   try{var app=window._c3App;if(app&&app.shell&&typeof app.shell.resize==='function'){
     if(isFocus&&!wasFocus){_c3SnapLock=true;app.shell.resize(48,'left');setTimeout(function(){_c3SnapLock=false;},600);}
@@ -4610,6 +4617,8 @@ function _resetSessionToClean(s){
 }
 function _newChatInProject(idx){
   var s=_sessions[idx];if(!s)return;
+  /* v122.3: In conversation focus — just reset current session, no relay routing */
+  if(s._conversationFocus&&!s._projectId){_resetSessionToClean(s);_sessionActive=idx;_persistSessionState();renderChat();renderCenter();return;}
   /* v90: New "+" button logic with smart relay routing */
   /* 1. Current pane is empty → just reset it */
   if(_isSessionEmpty(s)){_resetSessionToClean(s);_sessionActive=idx;_persistSessionState();renderChat();return;}
@@ -4978,7 +4987,8 @@ function _restoreSessionState() {
     if (_settingsVals.restoreSession && _settingsVals.lastView === '') {
       _centerState.view = null;
       if (_sidebarWidget) _sidebarWidget._active = null;
-      setTimeout(function(){ if(_centerContainer)_centerContainer.style.display='none'; },50);
+      /* v122.3: Don't hide center if conversation focus active — chat renders there */
+      setTimeout(function(){ if(_centerContainer&&!isFocusActive())_centerContainer.style.display='none'; },50);
     } else {
       _centerState.view = _lastV;
       if (_sidebarWidget) _sidebarWidget._active = _lastV;
@@ -5013,6 +5023,10 @@ function _restoreSessionState() {
           _sessions[i].chat.editOriginalText=null;
         }
       });
+      /* v122.3: Sync conversation focus after restore — disable for project sessions */
+      _sessions.forEach(function(s){ if(s._projectId) s._conversationFocus=false; });
+      /* If a center view was restored, disable focus so the view renders */
+      if(_centerState.view){_sessions[_sessionActive||0]._conversationFocus=false;}
       /* Load active session's tree */
       if (_settingsVals.restoreSession) {
         var act=_sessionActive||0;
