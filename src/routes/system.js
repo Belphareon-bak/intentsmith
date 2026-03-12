@@ -682,15 +682,27 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
           discoveredModels = await onlineDiscovery.getDiscoveredModels();
         } catch (_) {}
 
+        // v123: Load validation scores for scoring enrichment
+        const roleSuiteMap = { D1: 'reasoning', D2: 'reasoning', CODE: 'code', R1: 'reasoning', R2: 'review', CHAT: 'chat', VISION: 'vision' };
+        let validationScores = new Map();
+        try {
+          const { validationRunner } = await import('../upgrade/validation-suites.js');
+          validationRunner.setDb(rawDb);
+          validationScores = validationRunner.getAllScores();
+        } catch (_) {}
+
         // Score each installed model + discovered models for each role
         const roles = Object.keys(MODEL_PROFILES);
         const scoring = {};
         for (const role of roles) {
           scoring[role] = { current: roleBindings[role], models: [] };
+          const suiteName = roleSuiteMap[role];
           for (const modelName of installed) {
             const entry = getCatalogEntry(modelName);
             if (!entry) continue;
-            const ctx = { gpuVramMb, referenceParams: entry.params || 14, currentModel: entry, roleBindings };
+            const vs = validationScores.get(modelName);
+            const valScore = vs && suiteName && vs[suiteName] ? vs[suiteName].score : null;
+            const ctx = { gpuVramMb, referenceParams: entry.params || 14, currentModel: entry, roleBindings, validationScore: valScore };
             const result = scoreModel(entry, role, ctx);
             scoring[role].models.push({
               name: modelName,
@@ -902,6 +914,100 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
         }));
 
         sendJSON(res, 200, { sections, gpuVramMb, currentModels });
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    // v123: Run validation suite against a model
+    'POST /api/system/models/validate': async (req, res) => {
+      try {
+        const body = await parseBody(req);
+        const { model, suite } = body;
+        if (!model) return sendJSON(res, 400, { error: 'Missing model name' });
+
+        const { validationRunner, SUITES, getSuiteForRole } = await import('../upgrade/validation-suites.js');
+        validationRunner.setDb(rawDb);
+
+        // Determine which suites to run
+        let suiteNames;
+        if (suite) {
+          if (!SUITES[suite]) return sendJSON(res, 400, { error: `Unknown suite: ${suite}` });
+          suiteNames = [suite];
+        } else {
+          suiteNames = Object.keys(SUITES);
+        }
+
+        // Quick response — actual work runs async with WS progress
+        sendJSON(res, 200, { ok: true, model, suites: suiteNames, status: 'started' });
+
+        // Run validation in background
+        (async () => {
+          try {
+            broadcast('control', { action: 'model_validation_progress', model, status: 'starting', percent: 0,
+              text: `${model} — Spouštím validaci...` });
+
+            const result = await validationRunner.runAll(model, suiteNames, (progress) => {
+              broadcast('control', {
+                action: 'model_validation_progress', model,
+                suite: progress.suite, testName: progress.testName,
+                status: progress.status,
+                currentTest: progress.currentTest, totalTests: progress.totalTests,
+                percent: progress.percent, score: progress.score,
+                text: progress.status === 'complete'
+                  ? `${model} — ${progress.suite}: ${Math.round((progress.score || 0) * 100)}%`
+                  : `${model} — ${progress.suite}: ${progress.testName} (${progress.currentTest}/${progress.totalTests})`,
+              });
+            });
+
+            broadcast('control', {
+              action: 'model_validation_progress', model, status: 'done', percent: 100,
+              text: `${model} — Validace dokončena: ${Math.round(result.overallScore * 100)}%`,
+              overallScore: result.overallScore,
+              results: result.results.map(r => ({ suite: r.suite, score: r.score, passed: r.passed, total: r.total })),
+            });
+          } catch (err) {
+            broadcast('control', { action: 'model_validation_progress', model, status: 'error', percent: -1,
+              text: `${model} — Chyba validace: ${err.message}` });
+          }
+        })();
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    // v123: Get validation results for a model
+    'GET /api/system/models/validate': async (req, res) => {
+      try {
+        const urlObj = new URL(req.url, 'http://localhost');
+        const model = urlObj.searchParams.get('model');
+        if (!model) return sendJSON(res, 400, { error: 'Missing model param' });
+
+        const { validationRunner } = await import('../upgrade/validation-suites.js');
+        validationRunner.setDb(rawDb);
+
+        const results = validationRunner.getResults(model);
+        if (!results) return sendJSON(res, 200, { model, suites: {} });
+
+        sendJSON(res, 200, results);
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    // v123: Get all validation scores (for scoring tab enrichment)
+    'GET /api/system/models/validation-scores': async (req, res) => {
+      try {
+        const { validationRunner } = await import('../upgrade/validation-suites.js');
+        validationRunner.setDb(rawDb);
+
+        const allScores = validationRunner.getAllScores();
+        const result = {};
+        for (const [model, suites] of allScores) {
+          result[model] = suites;
+        }
+
+        sendJSON(res, 200, { scores: result });
       } catch (err) {
         sendJSON(res, 500, { error: err.message });
       }

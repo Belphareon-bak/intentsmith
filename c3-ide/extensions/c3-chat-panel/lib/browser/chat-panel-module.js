@@ -2285,6 +2285,9 @@ var _upgradeData=null;var _upgradeLoading=false;var _upgradeMsg=null;
 var _scoringData=null;var _scoringLoading=false;var _upgradeTab='proposals';
 var _discoveredData=null;var _discoveredLoading=false;
 var _pullState={};/* model name → {status,percent,text,downloadedGB,totalGB,eta,scores} */
+var _validationScores={};/* model name → { reasoning: { score, validatedAt }, code: { ... } } */
+var _validatingModel=null;/* currently validating model name or null */
+var _validationProgress=null;/* { suite, testName, percent, text } */
 /* v91: Feature flags state — loaded from GET /api/features */
 var _featureFlags=null;var _ffLoading=false;
 /* v91: Security state */
@@ -2682,8 +2685,23 @@ function _loadScoringData(){
   if(_scoringLoading)return;_scoringLoading=true;
   fetch(_backendBase+'/api/system/upgrades/scoring',{signal:AbortSignal.timeout(10000)})
     .then(function(r){return r.json();})
-    .then(function(d){_scoringData=d;_scoringLoading=false;renderCenter();})
+    .then(function(d){_scoringData=d;_scoringLoading=false;_loadValidationScores();renderCenter();})
     .catch(function(e){_scoringData={error:e.message};_scoringLoading=false;renderCenter();});
+}
+function _loadValidationScores(){
+  fetch(_backendBase+'/api/system/models/validation-scores',{signal:AbortSignal.timeout(5000)})
+    .then(function(r){return r.json();})
+    .then(function(d){_validationScores=d.scores||{};renderCenter();})
+    .catch(function(){});
+}
+function _validateModel(name){
+  if(_validatingModel)return;
+  _validatingModel=name;_validationProgress={suite:'',testName:'',percent:0,text:name+' — Spouštím...'};renderCenter();
+  fetch(_backendBase+'/api/system/models/validate',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:name}),signal:AbortSignal.timeout(10000)})
+    .then(function(r){return r.json();})
+    .then(function(d){if(!d.ok){_validatingModel=null;_validationProgress=null;renderCenter();}})
+    .catch(function(e){_validatingModel=null;_validationProgress=null;renderCenter();});
 }
 var _discoverLoading=false;var _discoverMsg=null;
 function _discoverNewModels(){
@@ -2930,15 +2948,21 @@ function _renderScoringTab(){
   var scoring=_scoringData.scoring;var roles=Object.keys(scoring);
   var bdKeys=['benchmark','hardwareFit','maturity','generation','category','speed','diversityPenalty'];
   var bdLabels={benchmark:'Bench',hardwareFit:'HW Fit',maturity:'Zralost',generation:'Generace',category:'Kategorie',speed:'Rychlost',diversityPenalty:'Diverzita'};
+  var roleSuiteMap={D1:'reasoning',D2:'reasoning',CODE:'code',R1:'reasoning',R2:'review',CHAT:'chat',VISION:'vision'};
   return h('div',null,
     _scoringData.gpuVramMb?h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:12}},'GPU VRAM: '+(_scoringData.gpuVramMb/1024).toFixed(1)+' GB  |  Eval: '+(_scoringData.evalVersion||'?')):null,
+    /* validation progress banner */
+    _validatingModel&&_validationProgress?h('div',{style:{margin:'0 0 12px',padding:'8px 14px',borderRadius:6,fontSize:_fs(11),
+      background:'rgba(59,130,246,0.1)',color:'#3b82f6',border:'1px solid rgba(59,130,246,0.2)'}},
+      _validationProgress.text||(_validatingModel+' — validace...')):null,
     roles.map(function(role){
-      var rd=scoring[role];var models=rd.models||[];
+      var rd=scoring[role];var models=rd.models||[];var suiteName=roleSuiteMap[role]||'';
       return h('div',{key:role,style:{marginBottom:20}},
         h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8}},
           h('span',{style:{background:C.accent,color:'#fff',borderRadius:4,padding:'2px 8px',fontSize:_fs(10),fontWeight:700}},role),
           h('span',{style:{fontSize:_fs(10),color:C.tx4}},'Aktuální: '),
-          h('span',{style:{fontSize:_fs(10),color:C.tx2,fontFamily:C.mono}},rd.current||'?')),
+          h('span',{style:{fontSize:_fs(10),color:C.tx2,fontFamily:C.mono}},rd.current||'?'),
+          suiteName?h('span',{style:{fontSize:_fs(9),color:C.tx4,marginLeft:8}},'('+suiteName+')'):null),
         models.length===0?h('div',{style:{fontSize:_fs(10),color:C.tx4,padding:8}},'Žádné modely v katalogu'):
         h('div',{style:{overflowX:'auto'}},
           h('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:_fs(10),fontFamily:C.mono}},
@@ -2946,13 +2970,27 @@ function _renderScoringTab(){
               h('th',{style:{textAlign:'left',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'#'),
               h('th',{style:{textAlign:'left',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'Model'),
               h('th',{style:{textAlign:'right',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'Skóre'),
+              h('th',{style:{textAlign:'right',padding:'4px 6px',color:'#3b82f6',fontWeight:600,fontFamily:C.font}},'Validace'),
               bdKeys.map(function(k){return h('th',{key:k,style:{textAlign:'right',padding:'4px 6px',color:C.tx4,fontWeight:500,fontSize:_fs(9),fontFamily:C.font}},bdLabels[k]);}))),
             h('tbody',null,models.map(function(m,i){
               var isCur=m.isCurrent;
+              var vs=_validationScores[m.name];
+              var valScore=vs&&vs[suiteName]?vs[suiteName].score:null;
+              var valAge=vs&&vs[suiteName]&&vs[suiteName].validatedAt?Math.round((Date.now()-new Date(vs[suiteName].validatedAt).getTime())/(86400000)):null;
+              var isValidating=_validatingModel===m.name;
+              var valColor=valScore!=null?(valScore>=0.7?C.accent:valScore>=0.4?'#eab308':'#ef4444'):C.tx4;
               return h('tr',{key:m.name,style:{borderBottom:'1px solid '+C.border,background:isCur?'rgba(34,197,94,0.06)':'transparent'}},
                 h('td',{style:{padding:'4px 6px',color:C.tx4}},i+1),
                 h('td',{style:{padding:'4px 6px',color:isCur?C.accent:C.tx2,fontWeight:isCur?700:400}},m.name+(isCur?' *':'')),
                 h('td',{style:{padding:'4px 6px',textAlign:'right',color:C.tx1,fontWeight:700}},m.score.toFixed(4)),
+                h('td',{style:{padding:'4px 6px',textAlign:'right'}},
+                  isValidating?h('span',{style:{color:'#3b82f6',fontSize:_fs(9)}},'...'):
+                  valScore!=null?h('span',{style:{color:valColor,fontWeight:600,cursor:'default'},
+                    title:'Validováno '+((valAge!=null&&valAge>=0)?valAge+'d ago':'')},
+                    Math.round(valScore*100)+'%'):
+                  h('button',{style:{background:'none',border:'1px solid '+C.border2,borderRadius:4,padding:'1px 6px',
+                    color:C.tx3,fontSize:_fs(9),cursor:'pointer',fontFamily:C.font},
+                    onClick:function(){_validateModel(m.name);}},'\u25B6')),
                 bdKeys.map(function(k){
                   var v=m.breakdown?m.breakdown[k]:0;
                   var color=C.tx3;if(k==='diversityPenalty'&&v<0)color='#ef4444';
@@ -2961,7 +2999,7 @@ function _renderScoringTab(){
             })))));
     }),
     h('div',{style:{marginTop:12,fontSize:_fs(9),color:C.tx4,lineHeight:1.5}},
-      '* = aktuálně přiřazený model. Skóre: benchmark*0.35 + hwFit*0.20 + maturity*0.15 + generation*0.10 + category*0.13 + speed*0.07 + penalties'));
+      '* = aktuálně přiřazený model. Skóre: benchmark*0.35 + hwFit*0.20 + maturity*0.15 + generation*0.10 + category*0.13 + speed*0.07. Validace = lokální syntetický test (TTL 14d).'));
 }
 function centerUpgrades(){
   if(_upgradeTab==='proposals'&&!_upgradeData&&!_upgradeLoading)_loadUpgradeData();
@@ -4483,6 +4521,22 @@ function _initBusSubscriptions() {
     if(ev.status==='done'||ev.status==='error'){
       /* Refresh discovered data after completion */
       _discoveredData=null;_loadDiscoveredData();
+    }
+    renderCenter();
+  });
+
+  C3Bus.on('model:validation_progress', function(ev) {
+    var m=ev.model;if(!m)return;
+    _validationProgress={suite:ev.suite||'',testName:ev.testName||'',percent:ev.percent||0,text:ev.text||''};
+    if(ev.status==='done'||ev.status==='error'){
+      _validatingModel=null;_validationProgress=null;
+      /* Store results if provided */
+      if(ev.results){
+        if(!_validationScores[m])_validationScores[m]={};
+        ev.results.forEach(function(r){_validationScores[m][r.suite]={score:r.score,validatedAt:new Date().toISOString()};});
+      }
+      /* Also refresh from backend */
+      _loadValidationScores();
     }
     renderCenter();
   });

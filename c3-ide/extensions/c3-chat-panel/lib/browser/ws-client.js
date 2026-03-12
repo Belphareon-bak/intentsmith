@@ -203,6 +203,8 @@ function _wsConnect() {
           C3Bus.emit('session:invalid', { sessionId: d.sessionId || d.conversationId });
         } else if (d.action === 'model_pull_progress') {
           C3Bus.emit('model:pull_progress', d);
+        } else if (d.action === 'model_validation_progress') {
+          C3Bus.emit('model:validation_progress', d);
         }
         break;
     }

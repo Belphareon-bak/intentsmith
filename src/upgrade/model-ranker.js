@@ -158,7 +158,7 @@ export function computeMaturity(releaseDate) {
  *
  * @param {Object} model - CatalogEntry or ModelCandidate
  * @param {string} role - D1, D2, CODE, R1, R2, CHAT, VISION
- * @param {Object} context - { gpuVramMb, referenceParams }
+ * @param {Object} context - { gpuVramMb, referenceParams, validationScore? }
  * @returns {{ totalScore: number, breakdown: Object }}
  */
 export function scoreModel(model, role, context = {}, empirical = {}) {
@@ -202,6 +202,10 @@ export function scoreModel(model, role, context = {}, empirical = {}) {
     diversityPenalty = -Math.min(otherRolesUsing * 0.01, 0.04);
   }
 
+  // v123: Validation suite score (0-1) — weighted bonus for locally validated models
+  const validationScore = context.validationScore ?? null;
+  const validationBonus = validationScore != null ? validationScore * 0.05 : 0;
+
   const totalScore = Math.max(0, Math.min(1.0,
     benchmark * bw * benchConfidence +
     es * ew +
@@ -210,6 +214,7 @@ export function scoreModel(model, role, context = {}, empirical = {}) {
     generation * 0.10 +
     category * 0.13 +
     speed * 0.07 +
+    validationBonus +
     sizePenalty +
     diversityPenalty +
     provisionalPenalty
@@ -225,6 +230,7 @@ export function scoreModel(model, role, context = {}, empirical = {}) {
       generation,
       category,
       speed,
+      validation: validationScore,
       diversityPenalty,
       benchConfidence,
       provisionalPenalty,
