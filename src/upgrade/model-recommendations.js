@@ -432,6 +432,7 @@ export function computeSemaphore(recModel, currentEntry, role, scoreModelFn, sco
     const currentResult = scoreModelFn(currentEntry, role, scoringContext);
 
     // Build temporary entry for recommended model
+    // NOT provisional — curated benchmarks are human-verified, no penalty/attenuation
     const recEntry = {
       name: recModel.name,
       family: recModel.name.split(':')[0],
@@ -443,8 +444,6 @@ export function computeSemaphore(recModel, currentEntry, role, scoreModelFn, sco
       benchmarks: recModel.benchmarks,
       capabilities: recModel.capabilities || [],
       releaseDate: recModel.releaseDate,
-      provisional: true,
-      benchmarkConfidence: 0.85, // curated = higher confidence than L4
     };
 
     const recResult = scoreModelFn(recEntry, role, scoringContext);

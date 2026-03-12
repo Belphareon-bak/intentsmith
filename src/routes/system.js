@@ -848,6 +848,19 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
 
         const scoringContext = { gpuVramMb, roleBindings };
 
+        // Build current model info per role (for FE comparison tables)
+        const currentModels = {};
+        for (const [role, modelName] of Object.entries(roleBindings)) {
+          const entry = getCatalogEntry(modelName);
+          currentModels[role] = {
+            name: modelName,
+            params: entry?.params || null,
+            vramMb: entry?.baseVramMb || (entry?.params ? Math.round(620 * entry.params + 420) : null),
+            contextWindow: entry?.contextWindow || null,
+            benchmarks: entry?.benchmarks || null,
+          };
+        }
+
         // Enrich each section
         const sections = RECOMMENDATION_SECTIONS.map(section => ({
           id: section.id,
@@ -888,7 +901,7 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
           }),
         }));
 
-        sendJSON(res, 200, { sections, gpuVramMb });
+        sendJSON(res, 200, { sections, gpuVramMb, currentModels });
       } catch (err) {
         sendJSON(res, 500, { error: err.message });
       }
