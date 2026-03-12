@@ -105,6 +105,12 @@ export function isProjectScopeBuild(input, decision = null) {
     /chci\s+vybudovat/i,
     /celou\s+aplikaci/i,
     /celý\s+stack/i,
+    // v123.3: App-building patterns (complete application projects)
+    /chci\s+(vytvo[rř]it|ud[eě]lat|postavit)\s+.{0,60}(aplikac|app|web|syst[eé]m|platform)/i,
+    /chci\s+(vytvo[rř]it|ud[eě]lat)\s+.{0,60}(mobiln[ií]|android|ios|flutter)/i,
+    /chci\s+(vytvorit|udelat)\s+.{0,60}(aplikac|app|web|system|mobilni)/i,
+    /\b(mobiln[ií]\s+apli|mobile\s+app|android\s+app|ios\s+app|flutter\s+app)/i,
+    /\b(webov[áa]\s+apli|web\s+app|web\s+application)/i,
   ];
 
   if (PROJECT_SCOPE_PATTERNS.some(p => p.test(input))) {

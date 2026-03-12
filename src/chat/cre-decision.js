@@ -180,7 +180,7 @@ export function getSpecialistToolIds() {
 }
 
 // v121: Export for testing
-export const _testCREInternals = { _specialistTools };
+export const _testCREInternals = { _specialistTools, get DESIGN_BUILD_ESCALATION() { return [...DESIGN_BUILD_ESCALATION]; }, get DESIGN_ADVISORY() { return [...DESIGN_ADVISORY]; } };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // v45.0 KOLO 3: Response Intent (HOW to present the answer)
@@ -1135,6 +1135,31 @@ const BUILD_PATTERNS = [
   // Multi-step indicators (combined with action verb)
   /nakonfiguruj\s+(mi\s+)?(celý|celej|kompletní)/i,
   /připrav\s+(mi\s+)?(prostředí|environment|stack|infra)/i,
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v123.3: DESIGN → BUILD ESCALATION in project mode
+// ─────────────────────────────────────────────────────────────────────────────
+// "chci vytvořit mobilní aplikaci" in project mode = lifecycle, not plain doc.
+// Advisory requests ("navrhni schema", "jaký stack") stay DESIGN.
+// ─────────────────────────────────────────────────────────────────────────────
+const DESIGN_BUILD_ESCALATION = [
+  // CZ: "chci vytvořit/udělat/postavit [app type]" — intent to BUILD, not just plan
+  /chci\s+(vytvo[rř]it|ud[eě]lat|postavit|napsat)\s+.{0,60}(aplikac|app|web|str[áa]nk|syst[eé]m|platform)/i,
+  /chci\s+(vytvo[rř]it|ud[eě]lat)\s+.{0,60}(mobiln[ií]|android|ios|flutter)/i,
+  // CZ no-diacritics
+  /chci\s+(vytvorit|udelat)\s+.{0,60}(aplikac|app|web|system|mobilni)/i,
+  // EN: "I want to create/build/make [app type]"
+  /want\s+to\s+(create|build|make|develop)\s+.{0,60}(app|application|website|system|platform)/i,
+];
+
+const DESIGN_ADVISORY = [
+  /navrhni\s+.{0,30}(sch[eé]ma|datab[áa]z|api|endpoint)/i,
+  /(ud[eě]lej|vytvo[rř]|napi[sš])\s+.{0,20}(roadmap|plán|harmonogram)/i,
+  /jak[ýy]\s+stack/i,
+  /jak[aá]\s+technologi/i,
+  /doporu[cč]\s+/i,
+  /navrhni\s+.{0,15}(jak|postup|strategii)/i,
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2371,7 +2396,8 @@ PRAVIDLA:
       // all get DESIGN because LLM sees "plan". But DESIGN = software architecture only.
       // Solution: LLM proposes DESIGN → verify with DESIGN_PATTERNS. No match → CREATIVE.
       if (parsed.intent === IntentType.DESIGN) {
-        const hasDesignPattern = DESIGN_PATTERNS.some(p => p.test(input));
+        const hasDesignPattern = DESIGN_PATTERNS.some(p => p.test(input)) &&
+                                 !DESIGN_EXCLUSION_PATTERNS.some(p => p.test(input));
         if (!hasDesignPattern) {
           logger.info('CRE:LLM:Guard', `DESIGN downgrade → CREATIVE (no deterministic pattern match)`, {
             input: input.substring(0, 60),
@@ -3590,6 +3616,26 @@ PRAVIDLA:
           projectScope,
         },
       });
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // GUARD 11: PROJECT + DESIGN → BUILD escalation
+    // v123.3: In project mode, "chci vytvořit mobilní aplikaci" = lifecycle.
+    // Advisory requests ("navrhni schema", "jaký stack") stay DESIGN.
+    // Skip when lifecycle already active (prevents SPEC restart loop).
+    // ════════════════════════════════════════════════════════════════════════
+    if (intent === IntentType.DESIGN && hasActiveProject) {
+      const _g11lifecycleActive = context.lifecyclePhase && context.lifecyclePhase !== 'COMPLETED';
+      if (!_g11lifecycleActive && !context.expertise?.creativeLock &&
+          DESIGN_BUILD_ESCALATION.some(p => p.test(input)) &&
+          !DESIGN_ADVISORY.some(p => p.test(input))) {
+        logger.info('CRE:Guard11', `DESIGN → BUILD (project mode, app-building request)`, {
+          input: input.substring(0, 80),
+          project: context.project?.id || context.project?.name || 'unknown',
+        });
+        intent = IntentType.BUILD;
+        _diag.overrides.push('guard11_project_build_escalation');
+      }
     }
 
     // ════════════════════════════════════════════════════════════════════════

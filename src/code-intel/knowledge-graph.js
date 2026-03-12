@@ -94,6 +94,7 @@ export class KnowledgeGraph {
   }
 
   addEdge(type, from, to, metadata = {}) {
+    if (!this._nodes.has(from) || !this._nodes.has(to)) return null;
     const id = ++this._edgeCounter;
     const edge = { id, type, from, to, ...metadata };
     this._edges.set(id, edge);

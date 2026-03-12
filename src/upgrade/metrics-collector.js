@@ -89,7 +89,7 @@ export class MetricsCollector {
         `);
       }
 
-      const batch = this._buffer.splice(0);
+      const batch = [...this._buffer];
       const tx = this._db.transaction((rows) => {
         for (const r of rows) {
           this._insertStmt.run(
@@ -99,6 +99,7 @@ export class MetricsCollector {
         }
       });
       tx(batch);
+      this._buffer.splice(0, batch.length);
       this._consecutiveFailures = 0;
     } catch (_) {
       this._consecutiveFailures++;
