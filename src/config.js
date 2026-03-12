@@ -78,7 +78,7 @@ export const config = {
       CODE: 120000 * scale,
       R1: 120000 * scale,
       R2: 45000 * scale,
-      CHAT: 90000 * scale,
+      CHAT: 180000 * scale,
       VISION: 60000 * scale,
     };
   })(),
