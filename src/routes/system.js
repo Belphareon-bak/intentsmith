@@ -827,7 +827,7 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
     // v121.3: Curated model recommendations with semaphore scoring
     'GET /api/system/upgrades/recommendations': async (req, res) => {
       try {
-        const { RECOMMENDATION_SECTIONS, computeSemaphore } = await import('../upgrade/model-recommendations.js');
+        const { RECOMMENDATION_SECTIONS, computeSemaphore, getRecommendedEntry } = await import('../upgrade/model-recommendations.js');
         const { scoreModel } = await import('../upgrade/model-ranker.js');
         const { getCatalogEntry } = await import('../upgrade/model-catalog.js');
         const { MODEL_PROFILES } = await import('../upgrade/model-profiles.js');
@@ -861,9 +861,25 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
         const scoringContext = { gpuVramMb, roleBindings };
 
         // Build current model info per role (for FE comparison tables)
+        // Fallback chain: CATALOG (exact) → CATALOG (variant) → RECOMMENDATION_SECTIONS (variant)
+        // Name variants handle Ollama naming mismatches (e.g. 'deepseek-r1-32b' ↔ 'deepseek-r1:32b')
+        function _resolveEntry(modelName) {
+          const direct = getCatalogEntry(modelName);
+          if (direct) return direct;
+          // Try name variants (strip :latest, dash↔colon)
+          const bare = modelName.replace(/:latest$/, '');
+          if (bare !== modelName) { const e = getCatalogEntry(bare); if (e) return e; }
+          const dm = bare.match(/^(.+?)-((\d+\.?\d*)b(-.+)?)$/i);
+          if (dm) { const e = getCatalogEntry(dm[1] + ':' + dm[2]); if (e) return e; }
+          const cm = bare.match(/^(.+):((\d+\.?\d*)b(-.+)?)$/i);
+          if (cm) { const e = getCatalogEntry(cm[1] + '-' + cm[2]); if (e) return e; }
+          // Fallback to recommendations
+          return getRecommendedEntry(modelName);
+        }
+
         const currentModels = {};
         for (const [role, modelName] of Object.entries(roleBindings)) {
-          const entry = getCatalogEntry(modelName);
+          const entry = _resolveEntry(modelName);
           currentModels[role] = {
             name: modelName,
             params: entry?.params || null,
@@ -887,7 +903,7 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
             const semaphores = {};
             for (const role of (m.roles || [])) {
               const currentModel = roleBindings[role];
-              const currentEntry = getCatalogEntry(currentModel);
+              const currentEntry = _resolveEntry(currentModel);
               semaphores[role] = computeSemaphore(m, currentEntry, role, scoreModel, scoringContext);
             }
 

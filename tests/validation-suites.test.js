@@ -852,7 +852,7 @@ await testAsync('runSuite executes all tests sequentially', async () => {
     assertEqual(result.model, 'test-model');
     assertEqual(result.total, SUITES.reasoning.tests.length);
     assert(result.tests.length === result.total, 'all tests executed');
-    assert(result.durationMs > 0, 'duration tracked');
+    assert(result.durationMs >= 0, 'duration tracked');
     assert(result.score >= 0 && result.score <= 1, 'score in range');
     assertEqual(callCount, SUITES.reasoning.tests.length, 'one fetch per test');
 

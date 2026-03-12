@@ -850,10 +850,12 @@ var _projectWizard={active:false,step:0,data:{name:'',path:'',description:'',typ
 var _expertiseWizard={active:false,mode:'create',data:null,schema:null,preview:null,testResult:null,testLoading:false,testError:null,openSections:{basic:true},editId:null,saving:false,advancedMode:false,confirmAdvanced:false};
 /* ═══ Agent wizard state (v65.5) ═══ */
 var _agentWizard={active:false,mode:'create',data:null,schema:null,preview:null,testResult:null,testLoading:false,testError:null,openSections:{basic:true},editId:null,saving:false,advancedMode:false,confirmAdvanced:false,simpleStep:1};
+/* ═══ Specialist wizard state (v122.2) ═══ */
+var _specialistWizard={active:false,step:0,data:{name:'',domain:'general',description:'',icon:''},saving:false,error:null};
 /* ═══ Wizard navigation guard ═══ */
 function _wizardGuardNav(targetView,sidebarSet,extra){
   /* v93: Toggle — same nav item clicked again → hide center, show editor */
-  if(targetView===_centerState.view&&!_projectWizard.active&&!_expertiseWizard.active&&!_agentWizard.active&&!_editorState.active){
+  if(targetView===_centerState.view&&!_projectWizard.active&&!_expertiseWizard.active&&!_agentWizard.active&&!_specialistWizard.active&&!_editorState.active){
     _centerState.view=null;_centerState.detail=null;
     if(_centerContainer)_centerContainer.style.display='none';
     _settingsVals.lastView='';_saveSV();
@@ -867,7 +869,7 @@ function _wizardGuardNav(targetView,sidebarSet,extra){
     renderCenter();
     return;
   }
-  var label=_projectWizard.active?'vytváření projektu':_expertiseWizard.active?'editaci expertýzy':_agentWizard.active?'vytváření workeru':null;
+  var label=_projectWizard.active?'vytváření projektu':_expertiseWizard.active?'editaci expertýzy':_agentWizard.active?'vytváření workeru':_specialistWizard.active?'vytváření specialisty':null;
   var det={view:targetView};if(extra)for(var k in extra)det[k]=extra[k];
   if(!label){sidebarSet({active:targetView,dd:{}});window.dispatchEvent(new CustomEvent('c3-nav',{detail:det}));return;}
   if(!confirm('Opravdu chcete ukončit '+label+'? Neuložené změny budou ztraceny.'))return;
@@ -2847,21 +2849,34 @@ function _renderDiscoveredTab(){
             isExp?h('div',{style:{marginTop:8,borderTop:'1px solid '+C.border,paddingTop:8}},
               /* Detail text */
               m.detail?h('div',{style:{fontSize:_fs(9),color:C.tx3,lineHeight:1.4,marginBottom:8}},m.detail):null,
-              /* Comparison per role */
-              (m.roles||[]).map(function(role){
-                var cur=curModels[role];var curB=cur&&cur.benchmarks?cur.benchmarks:{};
+              /* Comparison per role — deduplicate when multiple roles share the same current model */
+              (function(){
+                var seen={};var deduped=[];
+                (m.roles||[]).forEach(function(role){
+                  var cur=curModels[role];var curName=cur?cur.name:'?';
+                  if(seen[curName]){seen[curName].roles.push(role);return;}
+                  seen[curName]={roles:[role],cur:cur,curName:curName};
+                  deduped.push(seen[curName]);
+                });
+                return deduped;
+              })().map(function(grp){
+                var cur=grp.cur;var curB=cur&&cur.benchmarks?cur.benchmarks:{};
                 var recB=m.benchmarks||{};
                 var allKeys=Object.keys(Object.assign({},curB,recB)).filter(function(k){return curB[k]!=null||recB[k]!=null;});
                 if(allKeys.length===0)return null;
-                var curName=cur?cur.name:'?';
-                return h('div',{key:role,style:{marginBottom:8}},
+                var curName=grp.curName;
+                var roleLabel=grp.roles.join('+');
+                /* Best semaphore for merged group */
+                var grpSem='unknown';var semOrd={upgrade:3,sidegrade:2,downgrade:1,unknown:0};
+                grp.roles.forEach(function(r){var s=m.semaphores&&m.semaphores[r];if((semOrd[s]||0)>(semOrd[grpSem]||0))grpSem=s;});
+                return h('div',{key:roleLabel,style:{marginBottom:8}},
                   h('div',{style:{display:'flex',alignItems:'center',gap:6,marginBottom:4}},
-                    h('span',{style:{fontSize:_fs(9),fontWeight:700,color:roleColors[role]||C.tx2}},role),
+                    h('span',{style:{fontSize:_fs(9),fontWeight:700,color:roleColors[grp.roles[0]]||C.tx2}},roleLabel),
                     h('span',{style:{fontSize:_fs(8),color:C.tx4}},'vs'),
                     h('span',{style:{fontSize:_fs(9),fontFamily:C.mono,color:C.tx3}},curName),
-                    m.semaphores&&m.semaphores[role]?h('span',{style:{fontSize:_fs(8),padding:'0px 4px',borderRadius:3,
-                      background:semBg[m.semaphores[role]],color:semColors[m.semaphores[role]],fontWeight:600}},
-                      semLabels[m.semaphores[role]]):null),
+                    grpSem!=='unknown'?h('span',{style:{fontSize:_fs(8),padding:'0px 4px',borderRadius:3,
+                      background:semBg[grpSem],color:semColors[grpSem],fontWeight:600}},
+                      semLabels[grpSem]):null),
                   h('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:_fs(9),fontFamily:C.mono}},
                     h('thead',null,h('tr',{style:{borderBottom:'1px solid '+C.border}},
                       h('th',{style:{textAlign:'left',padding:'2px 6px',color:C.tx4,fontWeight:500,fontSize:_fs(8)}},'Benchmark'),

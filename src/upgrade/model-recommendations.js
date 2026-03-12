@@ -415,6 +415,59 @@ export function getAllRecommendedNames() {
 }
 
 /**
+ * Normalize Ollama model name to alternate forms for matching.
+ * E.g. 'deepseek-r1-32b' → ['deepseek-r1-32b', 'deepseek-r1:32b']
+ *      'deepseek-r1:32b' → ['deepseek-r1:32b', 'deepseek-r1-32b']
+ * @param {string} name
+ * @returns {string[]}
+ */
+function _nameVariants(name) {
+  const variants = [name];
+  // Strip :latest suffix
+  const bare = name.replace(/:latest$/, '');
+  if (bare !== name) variants.push(bare);
+  // Convert dash-size to colon format: 'family-NNb-suffix' → 'family:NNb-suffix'
+  // Lazy group 1 ensures first size marker is used (e.g. qwen3-30b-a3b → qwen3:30b-a3b)
+  const dashMatch = bare.match(/^(.+?)-((\d+\.?\d*)b(-.+)?)$/i);
+  if (dashMatch) variants.push(dashMatch[1] + ':' + dashMatch[2]);
+  // Convert colon to dash format: 'family:NNb-suffix' → 'family-NNb-suffix'
+  const colonMatch = bare.match(/^(.+):((\d+\.?\d*)b(-.+)?)$/i);
+  if (colonMatch) variants.push(colonMatch[1] + '-' + colonMatch[2]);
+  return variants;
+}
+
+/**
+ * Look up a model by name in RECOMMENDATION_SECTIONS.
+ * Returns a catalog-compatible entry with benchmarks, or null.
+ * Tries name variants (dash↔colon, strip :latest) for fuzzy matching.
+ * @param {string} name - Ollama model name (e.g. 'deepseek-r1:32b')
+ * @returns {Object|null}
+ */
+export function getRecommendedEntry(name) {
+  const variants = _nameVariants(name);
+  for (const section of RECOMMENDATION_SECTIONS) {
+    for (const m of section.models) {
+      if (variants.includes(m.name)) {
+        return {
+          name: m.name,
+          family: m.name.split(':')[0],
+          category: m.roles?.includes('CODE') ? 'code'
+            : m.roles?.includes('D1') || m.roles?.includes('R1') ? 'reasoning'
+            : m.roles?.includes('VISION') ? 'vision' : 'general',
+          params: m.params,
+          baseVramMb: m.vramMb,
+          contextWindow: m.contextWindow,
+          benchmarks: m.benchmarks,
+          capabilities: m.capabilities || [],
+          releaseDate: m.releaseDate,
+        };
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Compute semaphore for a recommended model vs current model for a role.
  *
  * @param {Object} recModel - Recommended model entry
@@ -457,4 +510,4 @@ export function computeSemaphore(recModel, currentEntry, role, scoreModelFn, sco
   }
 }
 
-export default { RECOMMENDATION_SECTIONS, getAllRecommendedNames, computeSemaphore };
+export default { RECOMMENDATION_SECTIONS, getAllRecommendedNames, getRecommendedEntry, computeSemaphore };
