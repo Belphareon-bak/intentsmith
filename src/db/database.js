@@ -1,13 +1,58 @@
 // C.3 v64.0 Database Layer
 // ══════════════════════════════════════════════════════════════════════════════
 
-import Database from 'better-sqlite3';
 import { config } from '../config.js';
 import { logger } from '../core/logger.js';
 import { runMigrations } from './migrate.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
+
+// ─── Auto-repair: load better-sqlite3 with native binding recovery ──────────
+//
+// When Node.js or system libraries get updated, the native .node binary
+// compiled for the old ABI stops working. Instead of crashing silently,
+// we detect the failure, run `npm rebuild`, and restart the process.
+// Under `node --watch` (standard dev setup), exit(0) triggers auto-restart.
+//
+let Database;
+try {
+  Database = (await import('better-sqlite3')).default;
+} catch (loadErr) {
+  const isBindingError = /bindings|\.node|NAPI|MODULE_NOT_FOUND/i.test(loadErr.message);
+  if (!isBindingError) throw loadErr;
+
+  const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+  console.error('');
+  console.error('╔═══════════════════════════════════════════════════════════╗');
+  console.error('║  better-sqlite3 native binding is missing/broken.       ║');
+  console.error('║  This happens after Node.js or system library updates.  ║');
+  console.error('║  Attempting auto-repair: npm rebuild ...                ║');
+  console.error('╚═══════════════════════════════════════════════════════════╝');
+  console.error('');
+
+  try {
+    execSync('npm rebuild better-sqlite3 --build-from-source', {
+      cwd: projectRoot,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 120_000,
+      env: { ...process.env, npm_config_loglevel: 'error' },
+    });
+    console.error('[C3:DB] ✓ Rebuild succeeded. Restarting process...');
+    // ESM module cache is immutable — rebuilt .node file won't load
+    // until a fresh process starts. Exit and let node --watch restart.
+    process.exit(0);
+  } catch (rebuildErr) {
+    console.error('[C3:DB] ✗ Auto-repair FAILED:', rebuildErr.stderr?.toString().trim() || rebuildErr.message);
+    console.error('');
+    console.error('  Fix manually:');
+    console.error(`    cd ${projectRoot}`);
+    console.error('    npm rebuild better-sqlite3 --build-from-source');
+    console.error('');
+    process.exit(1);
+  }
+}
 
 // ESM __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);

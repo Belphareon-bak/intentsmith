@@ -12,7 +12,7 @@ import { logger } from '../core/logger.js';
 const DEFAULT_CATALOG_URL = 'https://raw.githubusercontent.com/c3-community/marketplace/main/catalog.json';
 const CATALOG_MAX_AGE_MS = 4 * 60 * 60 * 1000; // 4 hours
 const DOWNLOAD_TIMEOUT_MS = 60_000;
-const MAX_PACKAGE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_PACKAGE_SIZE = 50 * 1024 * 1024; // 50 MB
 
 const EMPTY_CATALOG = Object.freeze({
   _offline: true,
