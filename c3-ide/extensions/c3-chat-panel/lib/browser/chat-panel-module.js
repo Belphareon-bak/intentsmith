@@ -1169,7 +1169,7 @@ function _addNew(view){
   setDetail({name:'Nová položka',fields:[{k:'Popis',v:''}],tags:[],actions:['Uložit','Zrušit'],editing:true,_isNew:true});
 }
 
-function centerExpertises(){return h(React.Fragment,null,viewHead('Expertyzy',true,function(){_addNew('expertises');},_mpNavBtn('expertises')),_bulkBar('expertises'),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(EXPERTISES.map(function(e){var tags=[e.isSpecialist?'Specialista':'Expertyza'];if(e.domain)tags.push(e.domain);return card(e,function(){if(_centerState._bulkMode){_bulkToggleItem(e.id);return;}setDetail({name:e.name,_itemId:e.id,fields:[{k:'Typ',v:e.desc},{k:'Doména',v:e.domain||'general'},{k:'Emoji',v:e.emoji},{k:'Specialista',v:e.isSpecialist?'Ano':'Ne'},{k:'Oblíbený',v:e.fav,type:'fav',_expertiseName:e.name}],tags:tags,actions:['Otevřít','Editovat','Smazat']});});}))));}
+function centerExpertises(){return h(React.Fragment,null,viewHead('Expertyzy',true,function(){_addNew('expertises');},_mpNavBtn('expertises')),_bulkBar('expertises'),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(EXPERTISES.map(function(e){var tags=[e.isSpecialist?'Specialista':'Expertyza'];if(e.domain)tags.push(e.domain);return card(e,function(){if(_centerState._bulkMode){_bulkToggleItem(e.id);return;}setDetail({name:e.name,_itemId:e.id,fields:[{k:'Typ',v:e.desc},{k:'Doména',v:e.domain||'general'},{k:'Emoji',v:e.emoji},{k:'Specialista',v:e.isSpecialist?'Ano':'Ne'},{k:'Oblíbený',v:e.fav,type:'fav',_expertiseName:e.name}],tags:tags,actions:['Otevřít','Editovat','Publikovat','Smazat']});});}))));}
 
 /* ═══ Shared filter bar: [Označit] (bulk actions) ... [Aktivní] [Archivované] [Smazané] ═══ */
 function _filterBar(filterKey,view){
@@ -1279,7 +1279,7 @@ function centerSpecs(){
   var activeSp=(_sessions[_sessionActive]||_sessions[0]).chat.specialist;
   return h(React.Fragment,null,viewHead('Specialisté',true,function(){_addNew('specialists');},_mpNavBtn('specialists')),_bulkBar('specialists'),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(SPECIALISTS.map(function(s){
     var isActive=activeSp&&(activeSp.name===s.name||activeSp.id===s.id);
-    var actions=isActive?['Deaktivovat','Smazat']:['Otevřít','Editovat','Smazat'];
+    var actions=isActive?['Deaktivovat','Smazat']:['Otevřít','Editovat','Publikovat','Smazat'];
     return card(Object.assign({},s,{status:isActive?'Aktivní':null}),function(){if(_centerState._bulkMode){_bulkToggleItem(s.id);return;}setDetail({name:s.name,_itemId:s.id,fields:[{k:'Oblast',v:s.desc},{k:'Doména',v:s.domain||''},{k:'Status',v:isActive?'Aktivní':'Neaktivní'}],tags:s.tags,actions:actions});});
   }))));
 }
@@ -2964,12 +2964,18 @@ function _renderDiscoveredTab(){
                 });
                 return deduped;
               })().map(function(grp){
+                var roleLabel=grp.roles.join('+');
+                /* Skip self-comparison: show badge instead of table */
+                var allCurrent=m.isCurrent&&grp.roles.every(function(r){return m.isCurrent[r];});
+                if(allCurrent)return h('div',{key:roleLabel,style:{marginBottom:8,display:'flex',alignItems:'center',gap:6}},
+                  h('span',{style:{fontSize:_fs(9),fontWeight:700,color:roleColors[grp.roles[0]]||C.tx2}},roleLabel),
+                  h('span',{style:{fontSize:_fs(8),padding:'2px 8px',borderRadius:4,fontWeight:600,
+                    background:'rgba(34,197,94,0.12)',color:C.accent}},'Aktualni model'));
                 var cur=grp.cur;var curB=cur&&cur.benchmarks?cur.benchmarks:{};
                 var recB=m.benchmarks||{};
                 var allKeys=Object.keys(Object.assign({},curB,recB)).filter(function(k){return curB[k]!=null||recB[k]!=null;});
                 if(allKeys.length===0)return null;
                 var curName=grp.curName;
-                var roleLabel=grp.roles.join('+');
                 /* Best semaphore for merged group */
                 var grpSem='unknown';var semOrd={upgrade:3,sidegrade:2,downgrade:1,unknown:0};
                 grp.roles.forEach(function(r){var s=m.semaphores&&m.semaphores[r];if((semOrd[s]||0)>(semOrd[grpSem]||0))grpSem=s;});
@@ -2977,7 +2983,7 @@ function _renderDiscoveredTab(){
                   h('div',{style:{display:'flex',alignItems:'center',gap:6,marginBottom:4}},
                     h('span',{style:{fontSize:_fs(9),fontWeight:700,color:roleColors[grp.roles[0]]||C.tx2}},roleLabel),
                     h('span',{style:{fontSize:_fs(8),color:C.tx4}},'vs'),
-                    h('span',{style:{fontSize:_fs(9),fontFamily:C.mono,color:C.tx3}},curName),
+                    h('span',{style:{fontSize:_fs(9),fontFamily:C.mono,color:C.tx3}},grp.curName),
                     grpSem!=='unknown'?h('span',{style:{fontSize:_fs(8),padding:'0px 4px',borderRadius:3,
                       background:semBg[grpSem],color:semColors[grpSem],fontWeight:600}},
                       semLabels[grpSem]):null),
@@ -4297,6 +4303,26 @@ function _detailActionHandler(d,a){
     var _mpId3=d._itemId;var _mpType3=d.fields&&d.fields.find(function(f){return f.k==='Typ';});
     if(_mpId3&&_mpType3)_mpUpdate(_mpType3.v,_mpId3);
     _centerState.detail=null;renderCenter();
+  }else if(a==='Publikovat'){
+    var _pubId=d._itemId||null;
+    var _pubType=_centerState.view==='specialists'?'specialist':'expertise';
+    if(!_pubId){var _pubItem=(_pubType==='specialist'?SPECIALISTS:EXPERTISES).find(function(x){return x.name===d.name;});if(_pubItem)_pubId=_pubItem.id;}
+    if(!_pubId){alert('Nelze publikovat — chybí ID.');return;}
+    _mpMsg={ok:true,text:'Exportuji '+d.name+'...'};renderCenter();
+    fetch(_backendBase+'/api/marketplace/export/'+_pubType+'/'+_pubId,{method:'POST',signal:AbortSignal.timeout(30000)})
+      .then(function(r){return r.json();})
+      .then(function(result){
+        if(result.error){_mpMsg={ok:false,text:result.error};renderCenter();return;}
+        var info=result.name+' v'+result.version+' ('+result.type+')\nSHA-256: '+result.sha256+'\nVelikost: '+result.size+' B';
+        if(result.catalogEntry){info+='\n\nKatalogový záznam zkopírován do schránky.';}
+        _mpMsg={ok:true,text:'Balíček '+result.name+' exportován.'};renderCenter();
+        /* Copy catalog entry to clipboard */
+        if(result.catalogEntry&&navigator.clipboard){
+          navigator.clipboard.writeText(JSON.stringify(result.catalogEntry,null,2)).catch(function(){});
+        }
+        alert('Export dokončen:\n\n'+info);
+      })
+      .catch(function(e){_mpMsg={ok:false,text:'Chyba exportu: '+e.message};renderCenter();});
   }
 }
 
@@ -4505,7 +4531,8 @@ function _mkSession(){return{
   term:[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}],
   _focusFiles:[],  /* v92: files tracked during specialist focus mode */
   _focusBulkMode:false,  /* v92: file selection mode */
-  _focusBulkSelected:[]  /* v92: selected file indices */
+  _focusBulkSelected:[],  /* v92: selected file indices */
+  _conversationFocus:false /* v122.2: conversation center-panel focus mode */
 };}
 var _sessions=[_mkSession(),_mkSession()];
 /* Expose globally so terminal-client.js and agent-client.js can access session state */
@@ -4514,7 +4541,10 @@ function _ensureSessions(){while(_sessions.length<_sessionCount)_sessions.push(_
 function _setSessionCount(n){_sessionCount=Math.max(1,Math.min(3,n));if(_sessionActive>=_sessionCount)_sessionActive=_sessionCount-1;_ensureSessions();renderChat();renderAgent();}
 
 /* ── Focus Mode (derived state — no snapshot, no _focusMode variable) ── */
-function isFocusActive(){var s=_sessions[_sessionActive];return !!(s&&s.chat&&s.chat.specialist);}
+/* v122.2: Also active when conversation is opened in center-panel mode */
+function isFocusActive(){var s=_sessions[_sessionActive];return !!(s&&(s.chat&&s.chat.specialist||s._conversationFocus));}
+function isSpecialistFocus(){var s=_sessions[_sessionActive];return !!(s&&s.chat&&s.chat.specialist);}
+function isConversationFocus(){var s=_sessions[_sessionActive];return !!(s&&s._conversationFocus);}
 var _focusExitDialog=null; /* v92: {pendingAction:fn|null} — confirmation dialog state */
 function _syncFocusClass(){
   var wasFocus=document.body.classList.contains('c3-focus-mode');

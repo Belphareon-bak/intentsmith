@@ -404,6 +404,19 @@ export const RECOMMENDATION_SECTIONS = [
 ];
 
 /**
+ * Check if two model names refer to the same model (considering variants).
+ * E.g. 'deepseek-r1-32b' and 'deepseek-r1:32b' → true
+ * @param {string} a
+ * @param {string} b
+ * @returns {boolean}
+ */
+export function isSameModel(a, b) {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  return _nameVariants(a).some(v => _nameVariants(b).includes(v));
+}
+
+/**
  * Get all unique model names from recommendations.
  */
 export function getAllRecommendedNames() {
@@ -510,4 +523,4 @@ export function computeSemaphore(recModel, currentEntry, role, scoreModelFn, sco
   }
 }
 
-export default { RECOMMENDATION_SECTIONS, getAllRecommendedNames, getRecommendedEntry, computeSemaphore };
+export default { RECOMMENDATION_SECTIONS, getAllRecommendedNames, getRecommendedEntry, isSameModel, computeSemaphore };

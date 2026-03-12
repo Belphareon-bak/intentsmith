@@ -827,7 +827,7 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
     // v121.3: Curated model recommendations with semaphore scoring
     'GET /api/system/upgrades/recommendations': async (req, res) => {
       try {
-        const { RECOMMENDATION_SECTIONS, computeSemaphore, getRecommendedEntry } = await import('../upgrade/model-recommendations.js');
+        const { RECOMMENDATION_SECTIONS, computeSemaphore, getRecommendedEntry, isSameModel } = await import('../upgrade/model-recommendations.js');
         const { scoreModel } = await import('../upgrade/model-ranker.js');
         const { getCatalogEntry } = await import('../upgrade/model-catalog.js');
         const { MODEL_PROFILES } = await import('../upgrade/model-profiles.js');
@@ -912,10 +912,12 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
             const bestSemaphore = Object.values(semaphores).reduce((best, s) =>
               (order[s] || 0) > (order[best] || 0) ? s : best, 'unknown');
 
-            // Current model info for "replaces" hint
+            // Current model info for "replaces" hint + self-detection
             const replaces = {};
+            const isCurrent = {};
             for (const role of (m.roles || [])) {
               replaces[role] = roleBindings[role] || null;
+              isCurrent[role] = isSameModel(m.name, roleBindings[role]);
             }
 
             return {
@@ -925,6 +927,7 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
               semaphores,
               bestSemaphore,
               replaces,
+              isCurrent,
             };
           }),
         }));
