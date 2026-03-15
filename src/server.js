@@ -1206,6 +1206,9 @@ function gracefulShutdown(signal) {
   // v103: Stop upgrade manager periodic checks
   try { upgradeManager.stopPeriodicCheck(); } catch { /* ignore */ }
 
+  // v124.5: Release lazy-loaded lifecycle modules
+  try { (await import('./planner/lifecycle-build.js')).resetLazyModules(); } catch { /* ignore */ }
+
   // v82: Flush specialist telemetry before DB close
   try { specialistTelemetry?.shutdown(); } catch { /* ignore */ }
 

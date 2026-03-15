@@ -193,6 +193,25 @@ async function ensureCodeIntel() {
   }
 }
 
+// v124.5: Release lazy-loaded module references on shutdown
+export function resetLazyModules() {
+  _codeIntelLoaded = false;
+  _searchCode = _rankFiles = _buildCodeContext = _expandQuery = _detectArchitecture = _formatArchitectureForPrompt = undefined;
+  _guardianLoaded = false;
+  _buildArchitectureBrief = _postMilestoneAudit = _formatAuditForCheckpoint = undefined;
+  _scanAndDiff = _formatApiDiff = undefined;
+  _classifyFailure = _analyzeFailureFn = _generateRepairRequest = undefined;
+  _ctxOptLoaded = false;
+  _rankFilesByValue = _allocateBudget = _detectRedundancy = _buildSignatureMap = _formatSignatureMap = undefined;
+  _loopLoaded = false;
+  _runFixLoop = undefined;
+  _taskMemLoaded = false;
+  _taskMemory = null;
+  _critiqueLoaded = false;
+  _selfCritique = null;
+  _metricsCollector = null;
+}
+
 // ─── Start Next Milestone ────────────────────────────────────────────────────
 
 /**
@@ -467,11 +486,22 @@ async function executeMilestone(lifecycle, milestone) {
       }
     }
 
-    const wfResult = await executor.start(request, {
-      milestoneId: milestone.id,
-      lifecycleId: lifecycle.id,
-      projectId: lifecycle.projectId,
-    });
+    // v124.5: Executor timeout — 5 minutes hard limit
+    const MILESTONE_TIMEOUT = 5 * 60 * 1000;
+    const _execController = new AbortController();
+    const _execTimeoutId = setTimeout(() => _execController.abort(), MILESTONE_TIMEOUT);
+
+    let wfResult;
+    try {
+      wfResult = await executor.start(request, {
+        milestoneId: milestone.id,
+        lifecycleId: lifecycle.id,
+        projectId: lifecycle.projectId,
+        signal: _execController.signal,
+      });
+    } finally {
+      clearTimeout(_execTimeoutId);
+    }
 
     // Link workflow session to milestone
     if (wfResult.sessionId) {
@@ -1213,6 +1243,9 @@ function handleMilestoneFailure(lifecycle, milestone, reason) {
     maxRetries,
     reason,
     options: ['retry', 'skip', 'modify'],
+    // v124.5: Checkpoint retry visibility — surface last errors for debugging
+    lastCheckpointFindings: milestone._lastCheckpointFindings || null,
+    lastCompileErrors: milestone._lastCompileErrors || null,
   };
 }
 
