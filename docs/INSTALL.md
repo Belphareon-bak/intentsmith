@@ -315,8 +315,10 @@ Vsechny promenne se nacitaji z `.env` souboru v koreni projektu.
 
 | Promenna | Default | Popis |
 |----------|---------|-------|
-| `C3_PORT` | 3335 | Port HTTP serveru |
+| `C3_PORT` | 0 | Port HTTP serveru (0 = dynamicky prirazeny OS, bez konfliktu) |
 | `C3_HOST` | 127.0.0.1 | Bind adresa |
+| `C3_PORT_FILE` | ~/.c3/port | Port file pro IDE discovery (JSON: port, host, pid, started) |
+| `C3_TRUST_PROXY` | false | Duveryhodnost X-Forwarded-For hlavicek (pro reverse proxy) |
 | `OLLAMA_URL` | http://127.0.0.1:11434 | Adresa Ollama serveru |
 | `C3_DB_PATH` | ./data/c3.db | Cesta k SQLite databazi |
 | `C3_PROJECTS_DIR` | ./projects | Adresar pro nove projekty |
@@ -367,6 +369,15 @@ Vsechny promenne se nacitaji z `.env` souboru v koreni projektu.
 | `C3_LICENSE_KEY` | (prazdne) | Licencni klic |
 | `C3_LOG_LEVEL` | info | Uroven logovani (debug/info/warn/error) |
 | `C3_TRACE` | 0 | Execution tracing (1 = zapnuto) |
+
+### Multi-session (v125, pripraveno)
+
+| Promenna | Default | Popis |
+|----------|---------|-------|
+| `C3_MAX_CONCURRENT_LLM` | 1 | Max soucasnych LLM volani (1 = single GPU) |
+| `C3_LLM_QUEUE_TIMEOUT` | 300000 | Timeout fronty pro LLM slot (ms, 5 min) |
+| `C3_GPU_AUTO_SCALE` | false | Auto-detekce GPU a nastaveni maxConcurrentLLM |
+| `C3_LLM_PROVIDER` | ollama | LLM provider ('ollama' jediny implementovany) |
 
 ---
 

@@ -189,6 +189,7 @@ Při každém fetchi se validuje:
 - `packages` — musí existovat
 - `packages.skills`, `packages.expertises`, `packages.specialists` — musí být pole
 - Každá položka musí mít `id` (string)
+- **`sha256` je povinné** pro vzdálené balíčky (od v126) — bez hash se download odmítne
 
 ### Cache
 
@@ -339,9 +340,13 @@ Formát: `type:id>=version` (semver range).
 - **Symlinks/hardlinks/device nodes**: Rejektovány — povoleny pouze `file` a `directory`
 - **Validace před extrakcí**: `tar -tzf` na listing, validace, teprve pak `tar xzf`
 
-### Streaming SHA-256
+### Streaming SHA-256 (povinné od v126)
 
 Hash se počítá během downloadu přes `crypto.createHash('sha256')` napojený na write stream. Žádný separátní read pass. Po downloadu se porovná s `entry.sha256`.
+
+**Od v126 je SHA-256 povinný** pro všechny vzdálené balíčky. Katalogové záznamy bez `sha256` pole budou odmítnuty s chybou `"refusing unverified remote package"`. Stažený soubor je smazán před vyhozením výjimky.
+
+Dále: Package ID je validováno proti null bytes (`\0`) a délkovému limitu (max 128 znaků) — viz `package-installer.js:168`.
 
 ### Size limit
 

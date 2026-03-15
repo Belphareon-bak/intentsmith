@@ -1,6 +1,6 @@
-# C.3 Agent Platform — Architecture v124
+# C.3 Agent Platform — Architecture v126
 
-**Version:** v124.0.0
+**Version:** v126.0.0
 **Status:** Production-ready
 **Date:** 2026-03-12
 
@@ -24,8 +24,10 @@ C.3 is a conversational AI platform combining:
 12. **Architecture Governance** — Cross-milestone drift enforcement, API contract tracking, critic/repair agent, regression prediction
 13. **Model Upgrade System** — Curated catalog (55 models), pairwise evaluation, feasibility gate, proposal store, chat-based approval, empirical scoring (Phase 3), L4 online discovery
 14. **Task Memory** — Persistent cross-milestone learning, cross-project pattern sharing, decay-based relevance
-15. **Marketplace** — Remote package catalog (skills, expertises, specialists), transactional install/update/uninstall, dependency resolver, SHA-256 verification, archive security
+15. **Marketplace** — Remote package catalog (skills, expertises, specialists), transactional install/update/uninstall, dependency resolver, mandatory SHA-256 verification, archive security
 16. **Validation Suites** — 5 role-specific test suites (reasoning, code, chat, vision, review), deterministic + partial scoring, direct Ollama calls, 14d TTL, model ranker integration
+17. **Upgrade UX** — Tiered rate limiting (3 tiers), async background model verification, auto-pull on approval, auto-validation prompt, fire-and-forget upgrade routes
+18. **Security Hardening** — Path traversal guards (workspace, projects, attachments), input sanitization (conversationId, package IDs), mandatory SHA-256 for remote packages
 
 All decisions flow through CRE — LLM is the text generator, never the authority.
 
@@ -88,10 +90,11 @@ All decisions flow through CRE — LLM is the text generator, never the authorit
 │  └────────────────────────────┘                                            │
 ├────────────────────────────────────────────────────────────────────────────┤
 │                         Database (SQLite)                                   │
-│                    80+ tables, 35 migrations, prepared statements           │
+│                    80+ tables, 36 migrations, prepared statements           │
 ├────────────────────────────────────────────────────────────────────────────┤
 │                      LLM Gateway (Ollama)                                  │
-│           qwen3.5:27b (CHAT/CODE), deepseek-r1:32b (D1/R1), 7 roles      │
+│  qwen3.5:27b (CHAT/CODE), deepseek-r1:32b (D1/R1), 7 roles, semaphore   │
+│  Concurrency: 1 slot default (single GPU), prepared for multi-GPU         │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -100,9 +103,9 @@ All decisions flow through CRE — LLM is the text generator, never the authorit
 ## Directory Structure
 
 ```
-src/                              # 126,566 lines / 349 files / 29 directories
-├── server.js                     # HTTP server (dynamic port, port file ~/.c3/port)
-├── config.js                     # Feature flags, model bindings, timeouts, port config
+src/                              # ~128,000 lines / 350+ files / 29 directories
+├── server.js                     # HTTP server (dynamic port, tiered rate limiting, port file ~/.c3/port)
+├── config.js                     # Feature flags, model bindings, timeouts, port, sessions, providers
 ├── routes/                       # 14 files — HTTP route handlers
 │   ├── agents.js                 #   Agent CRUD + schema + dry-run
 │   ├── projects.js               #   Projects + lifecycle/start
@@ -619,6 +622,61 @@ Model ranker: validationScore × 0.05 bonus in scoreModel(), role-specific suite
 API: POST /api/system/models/validate, GET /api/system/models/validation-scores
 ```
 
+**Upgrade UX (v125):**
+```
+Tiered Rate Limiting:
+  Tier 0 — Exempt (no limit): OPTIONS, /api/health, WebSocket upgrades
+  Tier 1 — Read (600 req/min): all GET endpoints
+  Tier 2 — Write (120 req/min): all POST/PUT/DELETE endpoints
+  Localhost disabled: rate limiting OFF when binding to 127.0.0.1
+  Proxy support: C3_TRUST_PROXY=true → reads X-Forwarded-For / X-Real-IP
+
+Async Background Verify:
+  applyUpgrade() → instant HTTP 200 → _backgroundVerify(3 attempts × 30s delay)
+  Never auto-rollbacks — sets verified=0 in DB + WS warning
+  DB: model_overrides.verified column (migration 036)
+
+Auto-Pull on Approval:
+  Non-installed model → auto-pull via pullModel() with streaming WS progress
+  Fire-and-forget route: POST /api/system/upgrades/apply → HTTP 200 immediately
+  WS events: upgrade_progress, model_changed, upgrade_error, model_pull_progress
+
+Auto-Validation Prompt:
+  After model_changed → emit model_validation_prompt with suite info
+  FE shows consent notification → user clicks "Spustit" → existing validation pipeline
+
+Dynamic Port Allocation:
+  Default port 0 (OS-assigned). Port file ~/.c3/port (JSON: port, host, pid, started).
+  Stdout signal: C3_READY:<port> for parent process detection.
+  IDE discovery: window.electronC3.getBackendUrl() via contextBridge preload.
+  FE fallback: 127.0.0.1:3335 if electronC3 unavailable.
+
+Multi-Session Infrastructure (prepared, not activated):
+  config.sessions.maxConcurrentLLM=1 (default), LLM gateway concurrency semaphore
+  computeSessionCapacity() counts dedicated GPUs (≥6GB VRAM each = 1 slot)
+  config.providers.active='ollama' — stub for future OpenAI-compatible API
+```
+
+### Security Hardening (v126)
+
+```
+Path Traversal Guards:
+  C1: customPath on project creation → bounded to os.homedir()
+  C2: conversationId in attachment paths → reject /, \, .., null bytes
+  C3: Workspace file/directory endpoints → always validate traversal
+      (removed falsy data.root guard that skipped check)
+
+Input Sanitization:
+  conversationId: /[\/\\]|\.\.|\0/.test() → reject 400
+  Package ID: /[\/\\]|\.\.|\0/.test() + length > 128 → reject
+  All path.join() with user input: post-join startsWith() validation
+
+Package Integrity (mandatory SHA-256):
+  Remote downloads MUST include sha256 field — omission = rejection
+  Streaming hash verification during download (no separate pass)
+  File cleanup on mismatch or missing hash before throwing
+```
+
 ### 15. Task Memory & Cross-Project Learning (v107-v116)
 
 Persistent cross-milestone learning for the execution loop.
@@ -705,9 +763,25 @@ All variables loaded from `.env` (`dotenv`). Features independently toggleable v
 ### Environment Variables
 
 ```bash
-C3_PORT=3335
+# Server
+C3_PORT=0                          # Default: 0 (OS-assigned dynamic port). Set to pin a specific port.
+C3_HOST=127.0.0.1                  # Bind address
+C3_PORT_FILE=~/.c3/port            # Port file (JSON: port, host, pid, started) for IDE discovery
+C3_TRUST_PROXY=false               # Trust X-Forwarded-For / X-Real-IP headers (for reverse proxy)
+
+# Database & Ollama
 C3_DB_PATH=./data/c3.db
 OLLAMA_URL=http://127.0.0.1:11434
+
+# Multi-session (v125, prepared)
+C3_MAX_CONCURRENT_LLM=1            # Max concurrent LLM calls (1 = single GPU default)
+C3_LLM_QUEUE_TIMEOUT=300000        # 5 min timeout for queued LLM requests
+C3_GPU_AUTO_SCALE=false             # Auto-detect GPU count and scale maxConcurrentLLM
+
+# Provider (v125, prepared)
+C3_LLM_PROVIDER=ollama              # 'ollama' only for now; stub for future OpenAI-compatible API
+
+# Notifications
 C3_SMTP_HOST, C3_SMTP_PORT, C3_SMTP_USER, C3_SMTP_PASS, C3_SMTP_FROM
 C3_TELEGRAM_BOT_TOKEN, C3_TELEGRAM_CHAT_ID
 C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
@@ -717,7 +791,7 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 
 ## Test Suite
 
-3,500+ verified tests across 242 test files:
+3,600+ verified tests across 244 test files:
 
 | Suite | Tests | Focus |
 |-------|-------|-------|
@@ -744,6 +818,8 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 | **Validation suites (v123)** | **73** | 5 role-specific suites, scoring, TTL, model ranker |
 | **Marketplace (v124)** | **44** | Catalog, install, deps, security |
 | **Guard interactions (v124)** | **25** | Guard combinations, creativeLock, ordering invariants |
+| **Upgrade UX (v125)** | **49** | Rate limiting, async verify, auto-pull, dynamic port, multi-session |
+| **Security hardening (v126)** | **47** | Path traversal, conversationId, customPath, package ID, SHA-256 |
 | Project E2E | 56 | 4 project types, lifecycle, milestones |
 
 ---
@@ -800,10 +876,11 @@ All memory systems use exponential decay: LTM (λ=0.01, half-life ~69d), Task Me
 | G (Code Intel) | 100% | 33 modules, symbol index, KG, graph expansion, architecture detection |
 | H (Agent Evolution) | 100% | F1-F8 core (355 tests), FΔ+F9-F14 extensions (242 tests) |
 | I (Governance) | 100% | Guardian, contracts, critic, policy, regression prediction, multi-agent |
-| J (Model Mgmt) | 100% | Phase 1-3 + validation suites: discovery, catalog, pairwise, empirical, validation (294 tests) |
+| J (Model Mgmt) | 100% | Phase 1-3 + validation suites + upgrade UX: discovery, catalog, pairwise, empirical, validation (343 tests) |
 | K (Prompt Pipeline) | 100% | Prompt builder, import map, scope limiter, signature cache (83 tests) |
-| L (Marketplace) | 100% | Remote catalog, transactional install, dependency resolver, security (44 tests) |
+| L (Marketplace) | 100% | Remote catalog, transactional install, dependency resolver, mandatory SHA-256 (44 tests) |
+| M (Security) | 100% | Path traversal guards, input sanitization, package integrity (47 tests) |
 
 ---
 
-*This document reflects C.3 Agent Platform v124.0.0 architecture (2026-03-12).*
+*This document reflects C.3 Agent Platform v126.0.0 architecture (2026-03-12).*

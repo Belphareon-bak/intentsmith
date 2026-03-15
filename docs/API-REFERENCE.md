@@ -36,8 +36,8 @@
 | Layer | Description |
 |-------|-------------|
 | CORS | `OPTIONS *` → 204 with `Access-Control-Allow-*` headers |
-| Rate limit | Per-IP sliding window, default 100 req/60s (configurable) |
-| Path traversal guard | Static file serving validates paths within allowed base dirs |
+| Rate limit | Tiered per-IP sliding window (v125): Tier 0 exempt (OPTIONS, health, WS), Tier 1 read 600/min (GET), Tier 2 write 120/min (POST/PUT/DELETE). Disabled on localhost. Proxy: `C3_TRUST_PROXY=true` |
+| Path traversal guard | Static file serving + workspace + project paths validated against root. conversationId + package ID sanitized (v126) |
 | Security headers | `X-Content-Type-Options`, `X-Frame-Options`, CSP |
 
 ### Auth Mechanisms
@@ -406,14 +406,32 @@ Lifecycle endpoints are spread across projects and expertises routes:
 
 | Method | Path | Query | Response | Side Effects |
 |--------|------|-------|----------|-------------|
-| `GET` | `/api/system/gpu` | — | `{profile: {gpus, cpu}, recommendation}` | GPU detection |
+| `GET` | `/api/system/gpu` | — | `{profile: {gpus, cpu}, recommendation, sessionCapacity}` | GPU detection + session capacity |
 | `POST` | `/api/system/gpu/refresh` | — | Same | Forces re-detection |
 | `GET` | `/api/system/models/compatibility` | — | `{vram_mb, tiers, recommendations}` | — |
 | `GET` | `/api/system/models/check` | `?model=name` | Compatibility result | — |
 | `GET` | `/api/system/models` | — | `{models, ollama_url, current_model}` | Proxies to Ollama `/api/tags` |
 | `GET` | `/api/system/models/info` | `?model=name` | Model details | Proxies to Ollama `/api/show` |
-| `GET` | `/api/system/info` | — | System diagnostics | — |
+| `GET` | `/api/system/info` | — | System diagnostics (incl. sessions, provider config) | — |
 | `GET` | `/api/system/storage` | — | Storage stats | — |
+
+### Model Upgrade (v125)
+
+> Fire-and-forget upgrade with WS progress events. HTTP 200 returned immediately; actual operation reported via WebSocket.
+
+| Method | Path | Body | Response | Side Effects |
+|--------|------|------|----------|-------------|
+| `POST` | `/api/system/upgrades/apply` | `{role, targetModel, score?, appliedBy?}` | `{ok, status: 'started'}` | Applies upgrade (fire-and-forget). Auto-pulls if not installed. WS: `upgrade_progress`, `model_changed`, `model_pull_progress`, `upgrade_error` |
+| `POST` | `/api/system/upgrades/rollback` | `{role}` | `{ok, from, to}` | Rolls back to previous model |
+| `GET` | `/api/system/upgrades/proposals` | — | `{proposals[]}` | Current pending proposals |
+
+> **WS events after apply:**
+> - `upgrade_progress` — starting, pulling, applying
+> - `model_pull_progress` — download progress (percent, status label)
+> - `model_changed` — success (role, fromModel, toModel)
+> - `upgrade_error` — failure (role, model, error message)
+> - `upgrade_verify_failed` — background verify failed after 3 attempts (warning, not auto-rollback)
+> - `model_validation_prompt` — suggests running validation suite after model change
 
 ### Model Validation (v123)
 
