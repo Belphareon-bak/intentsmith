@@ -165,7 +165,7 @@ Katalog je JSON soubor s pevnou strukturou:
         "name": "Revize kódu",
         "description": "Automatická revize kódu s best practices",
         "version": "1.0.0",
-        "author": "c3-community",
+        "author": "C3 Studio",
         "tags": ["code", "review"],
         "downloadUrl": "https://cdn.example.com/skills/code-review-1.0.0.json",
         "sha256": "abc123...",
@@ -482,7 +482,7 @@ Před instalací se zobrazí confirm dialog s informacemi o balíčku a jeho zá
 // src/config.js
 config.marketplace = {
   catalogUrl: process.env.C3_MARKETPLACE_URL
-    || 'https://raw.githubusercontent.com/c3-community/marketplace/main/catalog.json',
+    || 'https://raw.githubusercontent.com/C3studio/C3-agent/master/marketplace/catalog.json',
 };
 ```
 

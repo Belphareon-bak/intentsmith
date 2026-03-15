@@ -225,7 +225,7 @@ export const complexityKeywords = {
 
 // v124: Marketplace
 config.marketplace = {
-  catalogUrl: process.env.C3_MARKETPLACE_URL || 'https://raw.githubusercontent.com/Belphareon-bak/C3-agent/master/marketplace/catalog.json',
+  catalogUrl: process.env.C3_MARKETPLACE_URL || 'https://raw.githubusercontent.com/C3studio/C3-agent/master/marketplace/catalog.json',
 };
 
 export default config;

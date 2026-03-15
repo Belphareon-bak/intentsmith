@@ -22,7 +22,7 @@ const ROOT = join(__dirname, '..');
 // ─── CLI args ────────────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
-let repo = 'Belphareon-bak/C3-agent';
+let repo = 'C3studio/C3-agent';
 let branch = 'master';
 
 for (let i = 0; i < args.length; i++) {
@@ -61,7 +61,7 @@ function scanExpertises() {
         name: data.name || data.id || file.replace('.json', ''),
         version: '1.0.0',
         description: data.description || '',
-        author: 'C3 Community',
+        author: 'C3 Studio',
         icon: data.icon || null,
         domain: data.domain || 'general',
         tags: [data.domain, data.tone].filter(Boolean),
@@ -93,7 +93,7 @@ function scanSkills() {
         name: data.description ? data.description.substring(0, 60) : file.replace('.json', ''),
         version: String(data.version || 1),
         description: data.description || '',
-        author: 'C3 Community',
+        author: 'C3 Studio',
         tags: Object.keys(data.parameters || {}),
         downloadUrl: `${RAW_BASE}/skills/${file}`,
         sha256: hash,
@@ -123,7 +123,7 @@ function scanSpecialists() {
         name: manifest.name || ent.name,
         version: manifest.version || '1.0.0',
         description: manifest.description || '',
-        author: 'C3 Community',
+        author: 'C3 Studio',
         icon: manifest.icon || null,
         tags: (manifest.capabilities || []).slice(0, 5),
         // Specialists need tar.gz — for now, point to the directory

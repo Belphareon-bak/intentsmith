@@ -12,7 +12,7 @@ import { logger } from '../core/logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const DEFAULT_CATALOG_URL = 'https://raw.githubusercontent.com/c3-community/marketplace/main/catalog.json';
+const DEFAULT_CATALOG_URL = 'https://raw.githubusercontent.com/C3studio/C3-agent/master/marketplace/catalog.json';
 const CATALOG_MAX_AGE_MS = 4 * 60 * 60 * 1000; // 4 hours
 const DOWNLOAD_TIMEOUT_MS = 60_000;
 const MAX_PACKAGE_SIZE = 50 * 1024 * 1024; // 50 MB
