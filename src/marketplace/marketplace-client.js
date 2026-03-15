@@ -366,9 +366,13 @@ export class MarketplaceClient {
           throw new Error(`SHA-256 mismatch for ${entry.id}`);
         }
         verified = true;
+      } else {
+        // v126: Require SHA-256 for remote packages — refuse unverified downloads
+        await fs.unlink(targetPath).catch(() => {});
+        throw new Error(`Package ${entry.id} missing SHA-256 hash — refusing unverified remote package`);
       }
 
-      logger.info('Marketplace', `Downloaded ${entry.id} (${(size / 1024).toFixed(1)} kB, hash ${verified ? 'verified' : 'unchecked'})`);
+      logger.info('Marketplace', `Downloaded ${entry.id} (${(size / 1024).toFixed(1)} kB, hash verified)`);
       return { path: targetPath, verified };
     } finally {
       clearTimeout(timeout);

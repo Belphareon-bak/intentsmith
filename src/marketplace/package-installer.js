@@ -165,7 +165,7 @@ export class PackageInstaller {
 
   async _installSkill(entry) {
     // Validate entry.id to prevent path traversal
-    if (!entry.id || /[\/\\]|\.\./.test(entry.id)) {
+    if (!entry.id || /[\/\\]|\.\.|\0/.test(entry.id) || entry.id.length > 128) {
       throw new Error(`Invalid package id: ${entry.id}`);
     }
 

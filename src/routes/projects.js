@@ -77,6 +77,7 @@ export function createProjectRoutes(deps) {
       try {
         const fs = await import('fs/promises');
         const pathModule = await import('path');
+        const os = await import('os');
         const { config } = await import('../config.js');
         const { execFile } = await import('child_process');
         const { promisify } = await import('util');
@@ -87,6 +88,11 @@ export function createProjectRoutes(deps) {
         let projectPath;
         if (customPath && customPath.trim()) {
           projectPath = pathModule.resolve(customPath.trim());
+          // v126: Security — custom path must be within user's home directory
+          const homeDir = os.homedir();
+          if (!projectPath.startsWith(homeDir + pathModule.sep) && projectPath !== homeDir) {
+            return sendJSON(res, 400, { error: 'Project path must be within home directory' });
+          }
         } else {
           const projectsDir = pathModule.resolve(config.projects.defaultDir);
           await fs.mkdir(projectsDir, { recursive: true });
@@ -789,6 +795,10 @@ export function createProjectRoutes(deps) {
         }
 
         if (!attachmentsDir && conversationId) {
+          // v126: Sanitize conversationId — reject path separators, traversal, null bytes
+          if (/[\/\\]|\.\.|\0/.test(conversationId)) {
+            return sendJSON(res, 400, { error: 'Invalid conversation ID' });
+          }
           attachmentsDir = pathModule.join(process.cwd(), 'chats', conversationId, 'attachments');
         }
 
@@ -1037,8 +1047,10 @@ export function createProjectRoutes(deps) {
           const data = JSON.parse(body);
           if (!data.path) { sendJSON(res, 400, { error: 'Missing path' }); return; }
 
-          const resolved = path.resolve(data.root || '.', data.path);
-          if (data.root && !resolved.startsWith(path.resolve(data.root) + path.sep)) {
+          const root = data.root || '.';
+          const absRoot = path.resolve(root);
+          const resolved = path.resolve(root, data.path);
+          if (!resolved.startsWith(absRoot + path.sep) && resolved !== absRoot) {
             sendJSON(res, 403, { error: 'Path traversal blocked' }); return;
           }
 
@@ -1073,8 +1085,10 @@ export function createProjectRoutes(deps) {
         try {
           const data = JSON.parse(body);
           if (!data.path) { sendJSON(res, 400, { error: 'Missing path' }); return; }
-          const resolved = path.resolve(data.root || '.', data.path);
-          if (data.root && !resolved.startsWith(path.resolve(data.root) + path.sep)) {
+          const root = data.root || '.';
+          const absRoot = path.resolve(root);
+          const resolved = path.resolve(root, data.path);
+          if (!resolved.startsWith(absRoot + path.sep) && resolved !== absRoot) {
             sendJSON(res, 403, { error: 'Path traversal blocked' }); return;
           }
           const fsP = await import('fs/promises');

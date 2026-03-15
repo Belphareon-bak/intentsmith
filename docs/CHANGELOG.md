@@ -8,6 +8,36 @@
 
 ---
 
+## v126 — Security Hardening (2026-03-12)
+
+Path traversal + package integrity fixes identified by security audit.
+
+### CRITICAL: Path Traversal in projects.js
+- **C1 — Custom project path**: `customPath` resolved without bounds check → arbitrary fs write. Fix: validate path is within user's home directory (`os.homedir()`)
+- **C2 — conversationId traversal**: `conversationId` used directly in `path.join()` for attachments. Fix: reject IDs containing `/`, `\`, `..`, or null bytes
+- **C3 — Null root bypass**: workspace file/directory endpoints skip traversal check when `data.root` is falsy. Fix: always validate path against resolved root (remove `data.root &&` guard)
+
+### HIGH: Package Integrity
+- **H1 — Null byte bypass**: package ID regex lacked null byte check + length limit. Fix: added `\0` guard + 128-char limit
+- **H2 — Optional SHA-256**: remote packages could skip hash verification. Fix: require SHA-256 for all remote downloads
+
+### False Positives (confirmed safe)
+- Shell injection in `shell.js` — uses whitelist approach, not vulnerable
+- innerHTML XSS in `architect.js` — uses `escapeHtml()`, not vulnerable
+- SQL table interpolation in `security.js` — table names are hardcoded, not user input
+- SSRF via Ollama URL — user-configured env var, not user input
+
+### Files Modified
+- `src/routes/projects.js` — C1+C2+C3 fixes (home dir bounds, conversationId sanitization, null root guard)
+- `src/marketplace/package-installer.js` — H1 null byte + length guard
+- `src/marketplace/marketplace-client.js` — H2 require SHA-256
+
+### Tests
+- `tests/security-hardening-v126.test.js` — 47 tests (9 workspace, 8 conversationId, 9 customPath, 10 package ID, 7 source audit, 4 edge cases)
+- Regressions: marketplace 44/44, upgrade-ux 49/49
+
+---
+
 ## v125 — Upgrade UX + Dynamic Port (2026-03-12)
 
 4 upgrade UX fixes + dynamic port allocation for conflict-free startup.
