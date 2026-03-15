@@ -2,12 +2,15 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { createHash } from 'crypto';
-import { createWriteStream, createReadStream } from 'fs';
+import { createWriteStream, createReadStream, readdirSync, readFileSync, existsSync } from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import { pipeline } from 'stream/promises';
 import { logger } from '../core/logger.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const DEFAULT_CATALOG_URL = 'https://raw.githubusercontent.com/c3-community/marketplace/main/catalog.json';
 const CATALOG_MAX_AGE_MS = 4 * 60 * 60 * 1000; // 4 hours
@@ -34,6 +37,7 @@ export class MarketplaceClient {
   constructor(db, options = {}) {
     this._db = db;
     this._catalogUrl = options.catalogUrl || DEFAULT_CATALOG_URL;
+    this._projectRoot = options.projectRoot || path.resolve(__dirname, '..', '..');
     this._fetchPromise = null; // fetch mutex
     this._prepareStatements();
   }
@@ -72,7 +76,7 @@ export class MarketplaceClient {
       const catalog = await this._fetchPromise;
 
       if (catalog) {
-        return catalog;
+        return this._mergeLocalPackages(catalog);
       }
     } catch (err) {
       logger.warn('Marketplace', `Catalog fetch failed: ${err.message}`);
@@ -82,9 +86,124 @@ export class MarketplaceClient {
 
     // Fallback: stale cache or empty
     if (cached) {
-      return { ...cached.catalog, _stale: true };
+      return this._mergeLocalPackages({ ...cached.catalog, _stale: true });
     }
-    return { ...EMPTY_CATALOG };
+    return this._mergeLocalPackages({ ...EMPTY_CATALOG });
+  }
+
+  // ─── Local Package Discovery ────────────────────────────────────────────
+
+  /**
+   * Scan local directories for packages and merge into catalog.
+   * Local entries get `_local: true` and `localPath` for direct disk install.
+   */
+  _mergeLocalPackages(catalog) {
+    const local = this._scanLocalPackages();
+    const totalLocal = local.skills.length + local.expertises.length + local.specialists.length;
+    if (totalLocal === 0) return catalog;
+
+    const merged = { ...catalog, packages: { ...catalog.packages } };
+
+    for (const type of ['skills', 'expertises', 'specialists']) {
+      const remoteEntries = merged.packages[type] || [];
+      const localEntries = local[type] || [];
+      const remoteIds = new Set(remoteEntries.map(e => e.id));
+      const newLocal = localEntries.filter(e => !remoteIds.has(e.id));
+      merged.packages[type] = [...remoteEntries, ...newLocal];
+    }
+
+    // Clear offline flag if we have local packages
+    if (merged._offline && totalLocal > 0) {
+      merged._offline = false;
+    }
+
+    return merged;
+  }
+
+  /**
+   * Scan marketplace/packages/, skills/, and specialists/ for local entries.
+   * @returns {{ skills: Array, expertises: Array, specialists: Array }}
+   */
+  _scanLocalPackages() {
+    const result = { skills: [], expertises: [], specialists: [] };
+
+    try {
+      // ─── Expertises from marketplace/packages/expertises/ ───────────
+      const expDir = path.join(this._projectRoot, 'marketplace', 'packages', 'expertises');
+      if (existsSync(expDir)) {
+        for (const file of readdirSync(expDir).filter(f => f.endsWith('.json'))) {
+          try {
+            const filePath = path.join(expDir, file);
+            const data = JSON.parse(readFileSync(filePath, 'utf-8'));
+            result.expertises.push({
+              id: data.id || file.replace('.json', '').replace(/-/g, '_'),
+              name: data.name || data.id || file.replace('.json', ''),
+              version: '1.0.0',
+              description: data.description || '',
+              author: 'local',
+              tags: [data.domain].filter(Boolean),
+              icon: data.icon || null,
+              downloadUrl: 'local',
+              _local: true,
+              localPath: filePath,
+            });
+          } catch { /* skip invalid JSON */ }
+        }
+      }
+
+      // ─── Skills from skills/ ───────────────────────────────────────
+      const skillsDir = path.join(this._projectRoot, 'skills');
+      if (existsSync(skillsDir)) {
+        for (const file of readdirSync(skillsDir).filter(f => f.endsWith('.json'))) {
+          try {
+            const filePath = path.join(skillsDir, file);
+            const data = JSON.parse(readFileSync(filePath, 'utf-8'));
+            result.skills.push({
+              id: data.id || file.replace('.json', ''),
+              name: data.description ? data.description.substring(0, 60) : file.replace('.json', ''),
+              version: String(data.version || 1),
+              description: data.description || '',
+              author: 'local',
+              tags: [],
+              downloadUrl: 'local',
+              _local: true,
+              _installed: true, // already in skills/ dir
+              localPath: filePath,
+            });
+          } catch { /* skip */ }
+        }
+      }
+
+      // ─── Specialists from specialists/ ─────────────────────────────
+      const specDir = path.join(this._projectRoot, 'specialists');
+      if (existsSync(specDir)) {
+        for (const ent of readdirSync(specDir, { withFileTypes: true })) {
+          if (!ent.isDirectory() || ent.name.startsWith('.')) continue;
+          try {
+            const manifestPath = path.join(specDir, ent.name, 'specialist.json');
+            if (!existsSync(manifestPath)) continue;
+            const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+            result.specialists.push({
+              id: manifest.id || ent.name,
+              name: manifest.name || ent.name,
+              version: manifest.version || '1.0.0',
+              description: manifest.description || '',
+              author: 'local',
+              tags: (manifest.capabilities || []).slice(0, 5),
+              icon: manifest.icon || null,
+              downloadUrl: 'local',
+              _local: true,
+              _installed: true, // already in specialists/ dir
+              localPath: path.join(specDir, ent.name),
+            });
+          } catch { /* skip */ }
+        }
+      }
+    } catch (err) {
+      logger.warn('Marketplace', `Local package scan failed: ${err.message}`);
+    }
+
+    return result;
   }
 
   /**

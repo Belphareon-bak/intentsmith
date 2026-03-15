@@ -169,13 +169,24 @@ export class PackageInstaller {
       throw new Error(`Invalid package id: ${entry.id}`);
     }
 
-    const skillsDir = path.join(this._projectRoot, 'skills');
-    const download = await this._client.downloadPackage(entry, skillsDir);
+    if (entry._local && entry.localPath) {
+      // Local package — already on disk, just ensure it's in skills/
+      const skillsDir = path.join(this._projectRoot, 'skills');
+      const targetPath = path.join(skillsDir, `${entry.id}.json`);
+      // Copy from localPath to skills/ if not already there
+      if (path.resolve(entry.localPath) !== path.resolve(targetPath)) {
+        const raw = await fs.readFile(entry.localPath, 'utf-8');
+        await fs.writeFile(targetPath, raw, 'utf-8');
+      }
+    } else {
+      const skillsDir = path.join(this._projectRoot, 'skills');
+      const download = await this._client.downloadPackage(entry, skillsDir);
 
-    // Rename to <id>.json if needed
-    const targetPath = path.join(skillsDir, `${entry.id}.json`);
-    if (download.path !== targetPath) {
-      await fs.rename(download.path, targetPath);
+      // Rename to <id>.json if needed
+      const targetPath = path.join(skillsDir, `${entry.id}.json`);
+      if (download.path !== targetPath) {
+        await fs.rename(download.path, targetPath);
+      }
     }
 
     // Reload skill registry
@@ -187,23 +198,32 @@ export class PackageInstaller {
   }
 
   async _installExpertise(entry) {
-    const tempDir = path.join(this._projectRoot, '.tmp', 'marketplace');
-    try {
-      const download = await this._client.downloadPackage(entry, tempDir);
-      const raw = await fs.readFile(download.path, 'utf-8');
-      const config = JSON.parse(raw);
+    let config;
 
-      if (!config.id) config.id = entry.id;
-      config.isCustom = true;
-
-      if (this._expertiseRegistry?.addCustom) {
-        this._expertiseRegistry.addCustom(config);
+    if (entry._local && entry.localPath) {
+      // Local package — read directly from disk
+      const raw = await fs.readFile(entry.localPath, 'utf-8');
+      config = JSON.parse(raw);
+    } else {
+      // Remote — download
+      const tempDir = path.join(this._projectRoot, '.tmp', 'marketplace');
+      try {
+        const download = await this._client.downloadPackage(entry, tempDir);
+        const raw = await fs.readFile(download.path, 'utf-8');
+        config = JSON.parse(raw);
+      } finally {
+        await fs.rm(path.join(tempDir), { recursive: true, force: true }).catch(() => {});
       }
-
-      this._recordInstall(entry, 'expertise');
-    } finally {
-      await fs.rm(path.join(tempDir), { recursive: true, force: true }).catch(() => {});
     }
+
+    if (!config.id) config.id = entry.id;
+    config.isCustom = true;
+
+    if (this._expertiseRegistry?.addCustom) {
+      this._expertiseRegistry.addCustom(config);
+    }
+
+    this._recordInstall(entry, 'expertise');
   }
 
   async _installSpecialist(entry) {

@@ -271,10 +271,11 @@ function _enrichCatalog(catalog, installedList, options = {}) {
 
   const enrichType = (entries, type) => (entries || []).map(e => {
     const installed = installedMap.get(`${type}:${e.id}`);
+    const isLocalInstalled = !!e._installed; // local package already on disk
     return {
       ...e,
-      installed: !!installed,
-      installedVersion: installed?.version || null,
+      installed: !!installed || isLocalInstalled,
+      installedVersion: installed?.version || (isLocalInstalled ? e.version : null),
       updateAvailable: installed ? semverNewer(e.version, installed.version) : false,
     };
   });
@@ -285,10 +286,17 @@ function _enrichCatalog(catalog, installedList, options = {}) {
     specialists: enrichType(catalog.packages?.specialists, 'specialist'),
   };
 
+  // Flatten packages into items array with type field (FE expects this)
+  const allItems = [
+    ...packages.skills.map(e => ({ ...e, type: 'skill' })),
+    ...packages.expertises.map(e => ({ ...e, type: 'expertise' })),
+    ...packages.specialists.map(e => ({ ...e, type: 'specialist' })),
+  ];
+
   // Pagination
   if (typeFilter && packages[typeFilter]) {
-    const items = packages[typeFilter];
-    const total = items.length;
+    const typeItems = packages[typeFilter].map(e => ({ ...e, type: typeFilter.replace(/s$/, '') }));
+    const total = typeItems.length;
     const totalPages = Math.max(1, Math.ceil(total / limit));
     const start = (page - 1) * limit;
     return {
@@ -298,9 +306,11 @@ function _enrichCatalog(catalog, installedList, options = {}) {
       _stale: catalog._stale || false,
       _offline: catalog._offline || false,
       packages,
+      items: allItems,
+      total: allItems.length,
       pagination: {
         type: typeFilter,
-        items: items.slice(start, start + limit),
+        items: typeItems.slice(start, start + limit),
         page, totalPages, total,
       },
     };
@@ -313,6 +323,8 @@ function _enrichCatalog(catalog, installedList, options = {}) {
     _stale: catalog._stale || false,
     _offline: catalog._offline || false,
     packages,
+    items: allItems,
+    total: allItems.length,
   };
 }
 
