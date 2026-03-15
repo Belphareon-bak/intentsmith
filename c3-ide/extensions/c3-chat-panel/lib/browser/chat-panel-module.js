@@ -832,6 +832,28 @@ function SidebarApp(props){
    2. CENTER VIEW (ReactDOM.render into main panel)
    ═══════════════════════════════════════════════════════════ */
 var _centerState={view:null,detail:null,detailConversations:null,openSections:{},zoom:1,listView:false,settingsSection:null,filterMode:'active',projectFilterMode:'active',_bulkMode:false,_bulkSelected:[]};
+/* v125: Resizable detail panel — drag handle between main content and detail */
+var _detailWidth=360; /* px, default width — persisted in localStorage */
+try{var _dw=localStorage.getItem('c3-detail-width');if(_dw){var _parsed=parseInt(_dw,10);if(_parsed>=200&&_parsed<=900)_detailWidth=_parsed;}}catch(e){}
+var _detailDragging=false;
+function _startDetailDrag(e){
+  e.preventDefault();_detailDragging=true;
+  var startX=e.clientX,startW=_detailWidth;
+  var container=document.getElementById('c3-center-mount');
+  var maxW=container?Math.round(container.offsetWidth*0.7):700;
+  function onMove(ev){
+    var delta=startX-ev.clientX; /* drag left = wider detail */
+    var newW=Math.max(200,Math.min(maxW,startW+delta));
+    _detailWidth=newW;renderCenter();
+  }
+  function onUp(){
+    _detailDragging=false;document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);
+    document.body.style.cursor='';document.body.style.userSelect='';
+    try{localStorage.setItem('c3-detail-width',String(_detailWidth));}catch(e){}
+  }
+  document.body.style.cursor='col-resize';document.body.style.userSelect='none';
+  document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
+}
 var _savedCenterState=null; /* saved state before wizard opens */
 function _wizardSaveLayout(){_savedCenterState={zoom:_centerState.zoom,listView:_centerState.listView,detail:_centerState.detail,view:_centerState.view};_centerState.detail=null;_centerState.zoom=1;_centerState.listView=false;}
 function _wizardRestoreLayout(){if(_savedCenterState){_centerState.zoom=_savedCenterState.zoom;_centerState.listView=_savedCenterState.listView;_centerState.view=_savedCenterState.view;_savedCenterState=null;}}
@@ -979,7 +1001,12 @@ function CenterApp(){
   var bgColor=(view||isOverlay)?(C._solidBg0||C.bg0):C.bg0;
   return h('div',{style:{display:'flex',height:'100%',width:'100%',background:bgColor,fontFamily:C.font,overflow:'hidden',position:'absolute',top:0,left:0,right:0,bottom:0}},
     h('div',{key:'cv-'+(isOverlay?'overlay':view),style:{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',minWidth:0}},mainContent),
-    showDetail?h('div',{style:{width:'45%',maxWidth:480,minWidth:280,borderLeft:'1px solid '+C.border,display:'flex',flexDirection:'column',overflow:'hidden',background:C.bg1,flexShrink:0}},centerDetail()):null);
+    showDetail?h(React.Fragment,null,
+      /* v125: Drag handle — resizable detail panel */
+      h('div',{onMouseDown:_startDetailDrag,style:{width:5,cursor:'col-resize',background:_detailDragging?C.accent:'transparent',flexShrink:0,transition:_detailDragging?'none':'background 0.2s',zIndex:2},
+        onMouseEnter:function(e){if(!_detailDragging)e.currentTarget.style.background=C.border2;},
+        onMouseLeave:function(e){if(!_detailDragging)e.currentTarget.style.background='transparent';}}),
+      h('div',{style:{width:_detailWidth,minWidth:200,borderLeft:'1px solid '+C.border,display:'flex',flexDirection:'column',overflow:'hidden',background:C.bg1,flexShrink:0}},centerDetail())):null);
 }
 
 function _mpNavBtn(tab){return h('button',{style:{background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'4px 10px',fontSize:_fs(11),fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',gap:4,marginRight:10,color:C.tx2,fontFamily:C.font},onClick:function(){_mpTab=tab;_mpData=null;window.dispatchEvent(new CustomEvent('c3-nav',{detail:{view:'marketplace'}}));}},svgEl(I.store,12),'Marketplace');}
