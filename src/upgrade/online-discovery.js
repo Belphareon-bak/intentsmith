@@ -42,6 +42,10 @@ export function parseTagsFromHtml(html, family) {
 
   const results = [];
   const seen = new Set();
+  const MAX_TAGS = 30; // v124.6: Cap parsed tags
+
+  // v124.6: Basic HTML structure validation
+  if (!html.includes('<') || html.length < 50) return [];
 
   // Strategy 1: look for tag links (href="/library/{family}:{tag}")
   const linkPattern = new RegExp(
@@ -49,7 +53,7 @@ export function parseTagsFromHtml(html, family) {
     'gi'
   );
   let match;
-  while ((match = linkPattern.exec(html)) !== null) {
+  while ((match = linkPattern.exec(html)) !== null && results.length < MAX_TAGS) {
     const tag = match[1].toLowerCase().trim();
     if (tag && !seen.has(tag)) {
       seen.add(tag);
@@ -60,7 +64,7 @@ export function parseTagsFromHtml(html, family) {
   // Strategy 2: fallback regex — look for tag-like patterns with param sizes
   if (results.length === 0) {
     const tagPattern = /\b(\d+(?:\.\d+)?b(?:-[a-z0-9]+)?)\b/gi;
-    while ((match = tagPattern.exec(html)) !== null) {
+    while ((match = tagPattern.exec(html)) !== null && results.length < MAX_TAGS) {
       const tag = match[1].toLowerCase();
       if (!seen.has(tag)) {
         seen.add(tag);

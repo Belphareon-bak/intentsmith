@@ -3085,8 +3085,10 @@ PRAVIDLA:
       if (_exp && (_exp.outputBias === 'creative' || _exp.creativeLock)) {
         const EXPLICIT_SEARCH = [
           /vyhledej/i, /najdi na internetu/i, /ve? skutečnost/i,
-          /v reálném světě/i, /ve? wikipedi/i, /googl/i,
-          /faktick/i, /historick[áéý] fakta?/i,
+          /v re[áa]ln[ée]m sv[ěe]t[ěe]/i, /ve? wikipedi/i, /googl/i,
+          /faktick/i, /historick[áaéeý] fakta?/i,
+          // v124.6: No-diacritic variants
+          /vyhledej/i, /najdi na internetu/i, /ve? skutecnost/i,
         ];
         if (!EXPLICIT_SEARCH.some(p => p.test(input))) {
           logger.info('CRE:Guard6', `${intent} downgrade → CREATIVE (creative expertise active: ${_exp.id})`, {

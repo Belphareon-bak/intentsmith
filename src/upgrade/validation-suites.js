@@ -683,6 +683,7 @@ export class ValidationRunner {
           temperature: options.temperature ?? DEFAULT_TEMPERATURE,
           top_p: options.top_p ?? DEFAULT_TOP_P,
           num_predict: options.num_predict ?? DEFAULT_NUM_PREDICT,
+          num_ctx: options.num_ctx || 4096,
         },
       };
 
@@ -705,7 +706,8 @@ export class ValidationRunner {
       };
     } catch (err) {
       clearTimeout(timeoutId);
-      return { content: '', evalCount: 0, promptEvalCount: 0, durationMs: Date.now() - start, error: err.message };
+      const timedOut = err.name === 'AbortError';
+      return { content: '', evalCount: 0, promptEvalCount: 0, durationMs: Date.now() - start, error: err.message, timedOut };
     }
   }
 

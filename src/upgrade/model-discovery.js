@@ -17,6 +17,9 @@ import { parseModelName, MODEL_FAMILIES } from './model-profiles.js';
 
 // ─── Ollama API ────────────────────────────────────────────────────────────
 
+// v124.6: Unreachable backoff cache
+let _ollamaUnreachableUntil = 0;
+
 /**
  * Fetch installed models from Ollama /api/tags.
  *
@@ -34,6 +37,9 @@ import { parseModelName, MODEL_FAMILIES } from './model-profiles.js';
  * }
  */
 export async function fetchInstalledModels(opts = {}) {
+  // v124.6: Skip if Ollama was recently unreachable (30s backoff)
+  if (Date.now() < _ollamaUnreachableUntil) return [];
+
   const baseUrl = opts.baseUrl || config.ollama?.baseUrl || 'http://127.0.0.1:11434';
   const timeout = opts.timeout ?? 5000;
 
@@ -57,6 +63,8 @@ export async function fetchInstalledModels(opts = {}) {
       logger.warn('ModelDiscovery', `Ollama timeout after ${timeout}ms`);
     } else if (err.code === 'ECONNREFUSED') {
       logger.warn('ModelDiscovery', 'Ollama not running');
+      // v124.6: Cache unreachable state for 30s backoff
+      _ollamaUnreachableUntil = Date.now() + 30_000;
     } else {
       logger.warn('ModelDiscovery', `Failed to fetch models: ${err.message}`);
     }

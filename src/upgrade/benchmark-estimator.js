@@ -51,7 +51,8 @@ export function estimateVram(params) {
  */
 export function logInterpolate(p, p1, b1, p2, b2) {
   if (!p || !p1 || !p2 || p1 === p2) return b1;
-  if (!b1 || b1 <= 0) return b2;
+  // v124.6: Guard log(0) — return null if both benchmarks invalid
+  if (!b1 || b1 <= 0) return (b2 && b2 > 0) ? b2 : null;
   if (!b2 || b2 <= 0) return b1;
 
   const logP = Math.log(p);
