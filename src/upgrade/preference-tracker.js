@@ -129,7 +129,8 @@ export function getPreferenceStats(role, db) {
       : 999;
     const decay = Math.exp(-daysSinceLast / 90);
 
-    const confidence = Math.min(1.0, entry.totalActions / 5);
+    // v124.7: sqrt dampening — smoother confidence ramp (was linear)
+    const confidence = Math.min(1.0, Math.sqrt(entry.totalActions / 5));
 
     entry.score = base * decay * confidence;
     entry.penalty = entry.score > 0.5 ? 0 : (0.5 - entry.score) * 0.16;

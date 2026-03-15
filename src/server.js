@@ -1162,6 +1162,12 @@ process.on('unhandledRejection', (reason, promise) => {
     stack,
     promiseInfo: 'Promise rejection not caught',
   });
+
+  // v124.7: Exit on DB corruption — unrecoverable state
+  if (message && (message.includes('database') || message.includes('SQLITE'))) {
+    logger.error('Process', 'Database error in unhandled rejection — exiting');
+    process.exit(1);
+  }
 });
 
 process.on('uncaughtException', (error, origin) => {
