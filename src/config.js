@@ -178,6 +178,30 @@ export const config = {
     maxTreeDepth: parseInt(process.env.C3_MAX_TREE_DEPTH || '5'),
   },
 
+  // v125: Session concurrency — prepared for multi-session / multi-GPU
+  sessions: {
+    // Max concurrent LLM-active sessions (1 = single GPU, >1 = multi-GPU)
+    // Single GPU: only 1 session can use LLM at a time (model thrashing otherwise)
+    maxConcurrentLLM: parseInt(process.env.C3_MAX_CONCURRENT_LLM || '1'),
+    // Queue timeout: how long a session waits for LLM slot before rejecting (ms)
+    llmQueueTimeout: parseInt(process.env.C3_LLM_QUEUE_TIMEOUT || '300000'),  // 5 min
+    // Auto-detect GPU count and set maxConcurrentLLM = dedicated GPU count
+    gpuAutoScale: process.env.C3_GPU_AUTO_SCALE === 'true',
+  },
+
+  // v125: LLM provider configuration — prepared for future online model support
+  // Currently only 'ollama' is implemented. 'openai' is a stub for future CLI integration.
+  providers: {
+    active: process.env.C3_LLM_PROVIDER || 'ollama',
+    // Future: OpenAI-compatible API (Claude, GPT, Groq, etc.)
+    // When implemented, set C3_LLM_PROVIDER=openai and configure:
+    // openai: {
+    //   baseUrl: process.env.C3_OPENAI_URL || 'https://api.openai.com/v1',
+    //   apiKey: process.env.C3_OPENAI_KEY,
+    //   model: process.env.C3_OPENAI_MODEL || 'gpt-4o',
+    // },
+  },
+
   // Logging
   log: {
     level: process.env.C3_LOG_LEVEL || 'info', // debug, info, warn, error

@@ -98,16 +98,74 @@ class LLMGateway {
     this.currentAuth = null;
     this.audit = new LLMAuditLog();
     this.callCount = 0;
-    
+
     // Rate limiting
     this.rateLimits = {
       maxCallsPerMinute: 60,
       currentMinuteCalls: 0,
       currentMinuteStart: Date.now()
     };
-    
+
     // v36.9: Strict mode is NOW DEFAULT — all calls require auth tokens.
     this.strictMode = true;
+
+    // v125: Concurrency semaphore — gates concurrent LLM calls
+    // With single GPU, only 1 call at a time (model swap = 10-30s VRAM load/unload).
+    // With multi-GPU, increase maxConcurrentLLM via config.sessions.maxConcurrentLLM.
+    this._concurrency = {
+      max: config.sessions?.maxConcurrentLLM || 1,
+      active: 0,
+      queue: [],  // Array of { resolve, reject, timer }
+      queueTimeout: config.sessions?.llmQueueTimeout || 300000,
+    };
+  }
+
+  /**
+   * v125: Acquire LLM slot (semaphore). Returns immediately if slot available,
+   * otherwise queues and waits. Rejects after queueTimeout.
+   * @returns {Promise<void>}
+   */
+  async _acquireSlot() {
+    if (this._concurrency.active < this._concurrency.max) {
+      this._concurrency.active++;
+      return;
+    }
+
+    // Queue this caller
+    return new Promise((resolve, reject) => {
+      const entry = { resolve, reject, timer: null };
+      entry.timer = setTimeout(() => {
+        const idx = this._concurrency.queue.indexOf(entry);
+        if (idx !== -1) this._concurrency.queue.splice(idx, 1);
+        reject(new Error(`LLM_QUEUE_TIMEOUT: Waited ${this._concurrency.queueTimeout}ms for LLM slot`));
+      }, this._concurrency.queueTimeout);
+      this._concurrency.queue.push(entry);
+    });
+  }
+
+  /**
+   * v125: Release LLM slot. Grants to next queued caller if any.
+   */
+  _releaseSlot() {
+    if (this._concurrency.queue.length > 0) {
+      const next = this._concurrency.queue.shift();
+      clearTimeout(next.timer);
+      next.resolve();
+      // active count stays the same (transferred)
+    } else {
+      this._concurrency.active = Math.max(0, this._concurrency.active - 1);
+    }
+  }
+
+  /**
+   * v125: Get concurrency stats.
+   */
+  getConcurrencyStats() {
+    return {
+      max: this._concurrency.max,
+      active: this._concurrency.active,
+      queued: this._concurrency.queue.length,
+    };
   }
   
   /**
@@ -229,6 +287,12 @@ class LLMGateway {
     const startTime = Date.now();
 
     // ════════════════════════════════════════════════════════════════════════
+    // v125: CONCURRENCY SEMAPHORE — wait for LLM slot
+    // ════════════════════════════════════════════════════════════════════════
+    await this._acquireSlot();
+    let slotAcquired = true;
+
+    // ════════════════════════════════════════════════════════════════════════
     // v44.0: INLINE AUTH TOKEN SUPPORT (avoids race condition)
     // ════════════════════════════════════════════════════════════════════════
 
@@ -248,6 +312,7 @@ class LLMGateway {
           hasSingletonAuth: !!this.currentAuth,
           stack: new Error().stack?.split('\n').slice(2, 5).join(' <- ')
         });
+        this._releaseSlot();
         throw new Error('LLM_CALL_OUTSIDE_CRE: No valid auth token. All LLM calls must go through CRE with proper authorization.');
       } else {
         // Non-strict mode (only for tests)
@@ -272,6 +337,7 @@ class LLMGateway {
           capability: options.capability,
           allowed: authToken.allowedCapabilities
         });
+        this._releaseSlot();
         throw new Error(`CAPABILITY_NOT_ALLOWED: ${options.capability}`);
       }
     }
@@ -286,6 +352,7 @@ class LLMGateway {
         role: authToken?.role,
         retryAfter: rateCheck.retryAfter
       });
+      this._releaseSlot();
       throw new Error(`RATE_LIMITED: Retry after ${rateCheck.retryAfter}ms`);
     }
 
@@ -392,6 +459,7 @@ class LLMGateway {
           attempt
         });
 
+        this._releaseSlot();
         return {
           content: output,
           model,
@@ -419,6 +487,7 @@ class LLMGateway {
               decisionId: authToken?.decisionId,
               abortSource: 'user_cancel',
             });
+            this._releaseSlot();
             throw new Error('LLM call cancelled by user');
           } else {
             // v82.2: Timeout — DON'T RETRY. The model is working, just slow.
@@ -434,12 +503,14 @@ class LLMGateway {
               timeout,
               model,
             });
+            this._releaseSlot();
             throw new Error(`LLM timeout after ${timeout}ms (model: ${model})`);
           }
         } else if (err.message?.includes('503') || err.message?.includes('Service Unavailable')) {
           // v124: Ollama OOM/overload — don't retry, escalate immediately
           logger.error('LLMGateway', `Ollama OOM/overload (503) — not retrying`, { model });
           this.audit.log('LLM_CALL_OOM', { role: authToken?.role, decisionId: authToken?.decisionId, model });
+          this._releaseSlot();
           throw err;
         } else if (err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT') {
           // Network errors — retry makes sense (Ollama may be starting/restarting)
@@ -462,6 +533,7 @@ class LLMGateway {
       error: lastError?.message
     });
 
+    this._releaseSlot();
     throw new Error(`LLM failed after ${maxRetries} attempts: ${lastError?.message}`);
   }
   
@@ -480,7 +552,8 @@ class LLMGateway {
       ...this.audit.getStats(),
       totalCallCount: this.callCount,
       strictMode: this.strictMode,
-      currentAuth: this.getCurrentAuth()
+      currentAuth: this.getCurrentAuth(),
+      concurrency: this.getConcurrencyStats(),
     };
   }
   

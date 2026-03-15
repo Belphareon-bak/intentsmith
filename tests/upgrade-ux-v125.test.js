@@ -569,5 +569,145 @@ test('C3_READY stdout format', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 9: Multi-Session Infrastructure (v125)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+import { computeSessionCapacity } from '../src/system/gpu-detector.js';
+import { llmGateway } from '../src/llm/gateway.js';
+
+suite('Multi-Session Infrastructure — config + semaphore + capacity');
+
+test('config.sessions exists with defaults', () => {
+  assert(config.sessions, 'sessions config should exist');
+  assertEqual(config.sessions.maxConcurrentLLM, 1, 'default maxConcurrentLLM should be 1');
+  assert(config.sessions.llmQueueTimeout > 0, 'llmQueueTimeout should be positive');
+  assertEqual(config.sessions.gpuAutoScale, false, 'gpuAutoScale should default to false');
+});
+
+test('config.providers exists with ollama default', () => {
+  assert(config.providers, 'providers config should exist');
+  assertEqual(config.providers.active, 'ollama', 'active provider should be ollama');
+});
+
+test('computeSessionCapacity — single dedicated GPU', () => {
+  const profile = {
+    gpus: [{ gpu_model: 'RTX 3090', vram_mb: 24576, is_igpu: false }],
+    platform: 'linux', cpu: 'test', ram_gb: 32,
+  };
+  const cap = computeSessionCapacity(profile);
+  assertEqual(cap.maxConcurrentLLM, 1);
+  assertEqual(cap.dedicatedGPUs, 1);
+  assertEqual(cap.totalVramMb, 24576);
+  assert(cap.reason.includes('1 dedicated GPU'), `reason: ${cap.reason}`);
+});
+
+test('computeSessionCapacity — two dedicated GPUs', () => {
+  const profile = {
+    gpus: [
+      { gpu_model: 'RTX 3090', vram_mb: 24576, is_igpu: false },
+      { gpu_model: 'RTX 4090', vram_mb: 24576, is_igpu: false },
+    ],
+    platform: 'linux', cpu: 'test', ram_gb: 64,
+  };
+  const cap = computeSessionCapacity(profile);
+  assertEqual(cap.maxConcurrentLLM, 2);
+  assertEqual(cap.dedicatedGPUs, 2);
+  assertEqual(cap.totalVramMb, 49152);
+  assert(cap.reason.includes('2 dedicated GPUs'), `reason: ${cap.reason}`);
+});
+
+test('computeSessionCapacity — iGPU only (no dedicated)', () => {
+  const profile = {
+    gpus: [{ gpu_model: 'Intel UHD 770', vram_mb: 2048, is_igpu: true }],
+    platform: 'linux', cpu: 'test', ram_gb: 16,
+  };
+  const cap = computeSessionCapacity(profile);
+  assertEqual(cap.maxConcurrentLLM, 1);
+  assertEqual(cap.dedicatedGPUs, 0);
+  assert(cap.reason.includes('CPU-only'), `reason: ${cap.reason}`);
+});
+
+test('computeSessionCapacity — small GPU excluded (< 6GB)', () => {
+  const profile = {
+    gpus: [{ gpu_model: 'GTX 1050', vram_mb: 4096, is_igpu: false }],
+    platform: 'linux', cpu: 'test', ram_gb: 16,
+  };
+  const cap = computeSessionCapacity(profile);
+  assertEqual(cap.maxConcurrentLLM, 1);
+  assertEqual(cap.dedicatedGPUs, 0, 'GPU with < 6GB should not count');
+});
+
+test('computeSessionCapacity — mixed GPUs (dedicated + iGPU)', () => {
+  const profile = {
+    gpus: [
+      { gpu_model: 'RTX 3090', vram_mb: 24576, is_igpu: false },
+      { gpu_model: 'Intel UHD 770', vram_mb: 2048, is_igpu: true },
+    ],
+    platform: 'linux', cpu: 'test', ram_gb: 32,
+  };
+  const cap = computeSessionCapacity(profile);
+  assertEqual(cap.maxConcurrentLLM, 1, 'only dedicated GPU counts');
+  assertEqual(cap.dedicatedGPUs, 1);
+});
+
+test('LLM gateway concurrency stats', () => {
+  const stats = llmGateway.getConcurrencyStats();
+  assert(typeof stats.max === 'number', 'max should be number');
+  assert(typeof stats.active === 'number', 'active should be number');
+  assert(typeof stats.queued === 'number', 'queued should be number');
+  assertEqual(stats.max, 1, 'default max should be 1');
+});
+
+test('LLM gateway getStats includes concurrency', () => {
+  const stats = llmGateway.getStats();
+  assert(stats.concurrency, 'stats should include concurrency');
+  assertEqual(stats.concurrency.max, 1);
+});
+
+await testAsync('LLM semaphore acquire/release cycle', async () => {
+  // Create a fresh gateway for testing
+  const { LLMGateway } = await import('../src/llm/gateway.js');
+
+  // Test direct semaphore behavior on singleton
+  // Acquire a slot
+  await llmGateway._acquireSlot();
+  assertEqual(llmGateway._concurrency.active, 1, 'should have 1 active');
+
+  // Release the slot
+  llmGateway._releaseSlot();
+  assertEqual(llmGateway._concurrency.active, 0, 'should have 0 active after release');
+});
+
+await testAsync('LLM semaphore queues when at max', async () => {
+  // Acquire the only slot
+  await llmGateway._acquireSlot();
+  assertEqual(llmGateway._concurrency.active, 1);
+
+  // Second acquire should queue
+  let resolved = false;
+  const p = llmGateway._acquireSlot().then(() => { resolved = true; });
+
+  // Should be queued, not resolved yet
+  assertEqual(llmGateway._concurrency.queue.length, 1, 'should have 1 queued');
+  assertEqual(resolved, false, 'should not be resolved yet');
+
+  // Release first slot — should grant to queued
+  llmGateway._releaseSlot();
+  await p;
+  assertEqual(resolved, true, 'queued caller should now be resolved');
+  assertEqual(llmGateway._concurrency.active, 1, 'active should still be 1 (transferred)');
+
+  // Cleanup
+  llmGateway._releaseSlot();
+  assertEqual(llmGateway._concurrency.active, 0);
+});
+
+await testAsync('LLM semaphore release when nothing queued', async () => {
+  // Release with nothing active — should clamp to 0
+  llmGateway._releaseSlot();
+  assertEqual(llmGateway._concurrency.active, 0, 'should not go negative');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
 
 summary();

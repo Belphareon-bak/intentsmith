@@ -42,8 +42,16 @@
 - **Override**: `C3_PORT=3335` to pin a specific port, `C3_PORT_FILE` for custom path
 - **All FE files updated**: chat-panel-module, ws-client, agent-client, status-widget, wizard-helpers
 
+### Multi-Session Infrastructure (Prepared, Not Active)
+- **Session capacity config**: `config.sessions.maxConcurrentLLM` (default 1), `llmQueueTimeout`, `gpuAutoScale`
+- **LLM concurrency semaphore**: gateway acquires/releases slots before each LLM call; queued callers wait with timeout
+- **GPU capacity detection**: `computeSessionCapacity()` counts dedicated GPUs (≥6GB VRAM), exposed in `/api/system/gpu` response
+- **Provider stub**: `config.providers.active` (default `'ollama'`), prepared for future OpenAI-compatible API integration
+- **System info**: `/api/system/info` now includes session config and active provider
+- **Single GPU guard**: with maxConcurrentLLM=1, second LLM call queues behind first (prevents model thrashing)
+
 ### Tests
-- 37 tests in `upgrade-ux-v125.test.js` (rate limiting, background verify, auto-pull, migration 036, dynamic port, FE discovery pattern, empirical scorer regression, UpgradeManager basics)
+- 50 tests in `upgrade-ux-v125.test.js` (rate limiting, background verify, auto-pull, migration 036, dynamic port, FE discovery, multi-session infra, semaphore, GPU capacity)
 
 ---
 

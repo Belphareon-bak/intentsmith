@@ -299,4 +299,40 @@ export function getSystemProfile(forceRefresh = false) {
   return _cachedProfile;
 }
 
-export default { detectGPU, getSystemProfile };
+/**
+ * v125: Compute session capacity based on detected GPUs.
+ * Returns how many concurrent LLM sessions the hardware can support.
+ *
+ * Rules:
+ *   - Only dedicated GPUs count (is_igpu excluded)
+ *   - Each GPU with ≥6GB VRAM = 1 concurrent session slot
+ *   - CPU-only = 1 slot (sequential, slow)
+ *
+ * @param {Object} [profile] - Optional pre-fetched profile
+ * @returns {{ maxConcurrentLLM: number, dedicatedGPUs: number, totalVramMb: number, reason: string }}
+ */
+export function computeSessionCapacity(profile) {
+  const p = profile || getSystemProfile();
+  const dedicatedGPUs = p.gpus.filter(g => !g.is_igpu && g.vram_mb >= 6144);
+  const totalVramMb = dedicatedGPUs.reduce((sum, g) => sum + g.vram_mb, 0);
+
+  if (dedicatedGPUs.length === 0) {
+    return {
+      maxConcurrentLLM: 1,
+      dedicatedGPUs: 0,
+      totalVramMb: 0,
+      reason: 'No dedicated GPU detected — CPU-only mode, single session',
+    };
+  }
+
+  return {
+    maxConcurrentLLM: dedicatedGPUs.length,
+    dedicatedGPUs: dedicatedGPUs.length,
+    totalVramMb,
+    reason: dedicatedGPUs.length === 1
+      ? `1 dedicated GPU (${dedicatedGPUs[0].gpu_model}, ${Math.round(dedicatedGPUs[0].vram_mb / 1024)} GB) — single session`
+      : `${dedicatedGPUs.length} dedicated GPUs (${totalVramMb} MB total) — ${dedicatedGPUs.length} concurrent sessions possible`,
+  };
+}
+
+export default { detectGPU, getSystemProfile, computeSessionCapacity };

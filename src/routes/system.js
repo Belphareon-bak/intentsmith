@@ -1,7 +1,7 @@
 // System Routes — GPU detection, model info, system diagnostics, storage management
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { getSystemProfile } from '../system/gpu-detector.js';
+import { getSystemProfile, computeSessionCapacity } from '../system/gpu-detector.js';
 import { recommend, checkCompatibility, getModelTiers, getVRAMRecommendations } from '../system/model-compatibility.js';
 import { logger } from '../core/logger.js';
 import config from '../config.js';
@@ -28,10 +28,12 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
         const profile = getSystemProfile();
         const primaryGPU = profile.gpus[0] || {};
         const recommendation = recommend(primaryGPU.vram_mb || 0, primaryGPU.is_igpu || false);
+        const capacity = computeSessionCapacity(profile);
 
         sendJSON(res, 200, {
           profile,
           recommendation,
+          sessionCapacity: capacity,
         });
       } catch (err) {
         logger.error('SystemRoutes', `GPU detection failed: ${err.message}`);
@@ -228,6 +230,11 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
             chat_model: config.models.CHAT,
             ollama_url: config.ollama.baseUrl,
             features: config.features,
+            provider: config.providers?.active || 'ollama',
+          },
+          sessions: {
+            maxConcurrentLLM: config.sessions?.maxConcurrentLLM || 1,
+            gpuAutoScale: config.sessions?.gpuAutoScale || false,
           },
         });
       } catch (err) {
