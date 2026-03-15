@@ -1,0 +1,59 @@
+{
+  "id": "sazeni",
+  "version": "1.0.0",
+  "manifestVersion": 2,
+  "name": "Sázkový analytik",
+  "description": "Komplexní analýza sportovních sázek — porovnání kurzů, statistická analýza, value betting, konstrukce tiketů",
+  "author": "c3-core",
+  "domain": "sports_betting",
+  "type": "domain",
+  "engine": ">=121.0.0",
+  "entry": "./index.js",
+
+  "tools": [
+    {
+      "id": "sazeni.odds_compare",
+      "name": "Porovnání kurzů",
+      "module": "./tools/odds-compare.js",
+      "function": "compareOdds"
+    },
+    {
+      "id": "sazeni.match_analysis",
+      "name": "Analýza zápasu",
+      "module": "./tools/match-analysis.js",
+      "function": "analyzeMatch"
+    },
+    {
+      "id": "sazeni.ticket_builder",
+      "name": "Sestavení tiketu",
+      "module": "./tools/ticket-builder.js",
+      "function": "buildTicket"
+    },
+    {
+      "id": "sazeni.value_finder",
+      "name": "Value Bet Finder",
+      "module": "./tools/value-finder.js",
+      "function": "findValue"
+    }
+  ],
+
+  "capabilities": [
+    "betting.odds_compare",
+    "betting.match_analysis",
+    "betting.ticket_build",
+    "betting.value_find"
+  ],
+
+  "expertises": ["sazeni"],
+
+  "knowledge_packs": ["betting-fundamentals"],
+  "migrations": [],
+
+  "settings": {
+    "default_sport": "football",
+    "default_currency": "CZK",
+    "default_stake_unit": 100
+  },
+
+  "enabledByDefault": true
+}

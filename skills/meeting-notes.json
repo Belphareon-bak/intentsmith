@@ -1,0 +1,48 @@
+{
+  "id": "meeting-notes",
+  "version": 1,
+  "description": "Strukturuje surov\u00e9 pozn\u00e1mky ze sch\u016fzky do p\u0159ehledn\u00e9ho z\u00e1pisu",
+  "parameters": {
+    "notes": {
+      "type": "string",
+      "required": true,
+      "description": "Surov\u00e9 pozn\u00e1mky ze sch\u016fzky"
+    }
+  },
+  "steps": [
+    {
+      "id": "clarify",
+      "type": "ask",
+      "prompt": "Chyst\u00e1m se strukturovat pozn\u00e1mky ze sch\u016fzky.\n\nSurov\u00e9 pozn\u00e1mky:\n{{notes}}\n\nUp\u0159esni pros\u00edm:\n- Jak\u00fd form\u00e1t z\u00e1pisu? (struktur\u00e1ln\u00ed s \u00fakoly / executive summary / detailn\u00ed protokol)\n- Maj\u00ed b\u00fdt zvl\u00e1\u0161\u0165 vyzna\u010deny action items a zodpov\u011bdn\u00e9 osoby?\n- Je n\u011bco d\u016fle\u017eit\u00e9ho, co v pozn\u00e1mk\u00e1ch chyb\u00ed a m\u00e1m doplnit?"
+    },
+    {
+      "id": "draft",
+      "type": "llm",
+      "prompt": "Strukturuj n\u00e1sleduj\u00edc\u00ed surov\u00e9 pozn\u00e1mky ze sch\u016fzky do p\u0159ehledn\u00e9ho z\u00e1pisu.\n\nSurov\u00e9 pozn\u00e1mky:\n{{notes}}\n\nPo\u017eadavky u\u017eivatele:\n{{steps.clarify.output}}\n\nForm\u00e1t z\u00e1pisu:\n1. **Z\u00e1hlav\u00ed** \u2014 datum, \u00fa\u010dastn\u00edci (pokud jsou v pozn\u00e1mk\u00e1ch)\n2. **Hlavn\u00ed body jedn\u00e1n\u00ed** \u2014 strukturovan\u011b podle t\u00e9mat\n3. **Rozhodnut\u00ed** \u2014 co bylo dohodnuto\n4. **Action items** \u2014 \u00fakol, zodpov\u011bdn\u00e1 osoba, term\u00edn\n5. **Dal\u0161\u00ed kroky** \u2014 n\u00e1sledn\u00e9 sch\u016fzky, deadlines\n\nPravidla:\n- Extrahuj fakta, ne interpretace.\n- Ka\u017ed\u00fd action item mus\u00ed m\u00edt jasn\u00e9ho vlastn\u00edka (pokud je uveden v pozn\u00e1mk\u00e1ch).\n- Pou\u017eij stru\u010dn\u00fd, v\u011bcn\u00fd jazyk.",
+      "systemPrompt": "Jsi expert na strukturov\u00e1n\u00ed sch\u016fzkov\u00fdch z\u00e1pis\u016f. Pi\u0161 \u010desky, jasn\u011b a p\u0159ehledn\u011b.",
+      "temperature": 0.3,
+      "maxTokens": 4096
+    },
+    {
+      "id": "review",
+      "type": "review",
+      "content": "{{steps.draft.output}}",
+      "prompt": "Zkontroluj z\u00e1pis ze sch\u016fzky. Pokud je v po\u0159\u00e1dku, napi\u0161 **ano**. Pokud n\u011bco chyb\u00ed nebo chce\u0161 \u00fapravy, popi\u0161 co zm\u011bnit:"
+    },
+    {
+      "id": "refine",
+      "type": "llm",
+      "prompt": "Uprav z\u00e1pis ze sch\u016fzky podle zp\u011btn\u00e9 vazby.\n\nZp\u011btn\u00e1 vazba / schv\u00e1len\u00fd text:\n{{steps.review.output}}\n\nP\u016fvodn\u00ed n\u00e1vrh:\n{{steps.draft.output}}\n\nPokud u\u017eivatel schv\u00e1lil beze zm\u011bn, vra\u0165 p\u016fvodn\u00ed text.\nPokud jsou po\u017eadovan\u00e9 zm\u011bny, zapracuj je.",
+      "systemPrompt": "Zapracuj zp\u011btnou vazbu p\u0159esn\u011b. Zachovej strukturu z\u00e1pisu. Pi\u0161 \u010desky.",
+      "temperature": 0.3,
+      "maxTokens": 4096
+    },
+    {
+      "id": "validate",
+      "type": "validate",
+      "content": "{{steps.refine.output}}",
+      "criteria": "Z\u00e1pis mus\u00ed obsahovat alespo\u0148: hlavn\u00ed body jedn\u00e1n\u00ed a action items (pokud existuj\u00ed). Mus\u00ed b\u00fdt p\u0159ehledn\u011b strukturovan\u00fd. \u017d\u00e1dn\u00e9 informace nesm\u00ed b\u00fdt vymysl\u00e9.",
+      "failMessage": "Z\u00e1pis nespl\u0148uje krit\u00e9ria kvality. Zkus skill spustit znovu."
+    }
+  ]
+}

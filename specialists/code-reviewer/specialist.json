@@ -1,0 +1,39 @@
+{
+  "id": "code-reviewer",
+  "version": "1.0.0",
+  "manifestVersion": 2,
+  "name": "Code Reviewer",
+  "description": "Systematicke code review -- bezpecnost, vykon, citelnost, best practices, OWASP, SOLID",
+  "author": "c3-core",
+  "domain": "software_engineering",
+  "type": "domain",
+  "engine": ">=121.0.0",
+  "entry": "./index.js",
+
+  "tools": [
+    {
+      "id": "code-reviewer.analyze_code",
+      "name": "Analyza kodu",
+      "module": "./tools/analyze-code.js",
+      "function": "analyzeCode"
+    },
+    {
+      "id": "code-reviewer.security_scan",
+      "name": "Security Scan",
+      "module": "./tools/security-scan.js",
+      "function": "securityScan"
+    }
+  ],
+
+  "capabilities": ["code.review", "code.security_scan"],
+
+  "expertises": ["code_reviewer"],
+
+  "knowledge_packs": [],
+
+  "migrations": [],
+
+  "settings": {},
+
+  "enabledByDefault": true
+}

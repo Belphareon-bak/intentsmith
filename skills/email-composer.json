@@ -1,0 +1,48 @@
+{
+  "id": "email-composer",
+  "version": 1,
+  "description": "Sestav\u00ed profesion\u00e1ln\u00ed email \u2014 od p\u0159edm\u011btu po podpis",
+  "parameters": {
+    "topic": {
+      "type": "string",
+      "required": true,
+      "description": "P\u0159edm\u011bt/t\u00e9ma emailu"
+    }
+  },
+  "steps": [
+    {
+      "id": "clarify",
+      "type": "ask",
+      "prompt": "Chyst\u00e1m se napsat email na t\u00e9ma: **{{topic}}**\n\nP\u016fvodn\u00ed zad\u00e1n\u00ed: {{input}}\n\nUp\u0159esni pros\u00edm:\n- Kdo je adres\u00e1t? (kolega / nad\u0159\u00edzen\u00fd / klient / \u00fa\u0159ad / obecn\u00fd)\n- Jak\u00fd t\u00f3n? (form\u00e1ln\u00ed / polo-form\u00e1ln\u00ed / neform\u00e1ln\u00ed)\n- Co je hlavn\u00ed \u00fa\u010del? (\u017e\u00e1dost / informov\u00e1n\u00ed / n\u00e1vrh / omlova / pod\u011bkov\u00e1n\u00ed / reklamace)\n- Jsou n\u011bjak\u00e9 specifick\u00e9 body, kter\u00e9 mus\u00ed email obsahovat?"
+    },
+    {
+      "id": "draft",
+      "type": "llm",
+      "prompt": "Napi\u0161 email na t\u00e9ma: {{topic}}\n\nPo\u017eadavky u\u017eivatele:\n{{steps.clarify.output}}\n\nForm\u00e1t emailu:\n- P\u0159edm\u011bt: (jasn\u00fd, stru\u010dn\u00fd)\n- Osloven\u00ed\n- \u00davod (\u00fa\u010del emailu)\n- Hlavn\u00ed sd\u011blen\u00ed (strukturovan\u011b, max 3-4 odstavce)\n- V\u00fdzva k akci / dal\u0161\u00ed kroky\n- Zav\u011br a podpis\n\nPravidla:\n1. Stru\u010dnost \u2014 \u017e\u00e1dn\u00e9 zbyte\u010dn\u00e9 floskulky.\n2. Jasn\u00e1 struktura \u2014 jeden odstavec = jedna my\u0161lenka.\n3. Tyk\u00e1n\u00ed/vyk\u00e1n\u00ed podle zvolen\u00e9ho t\u00f3nu.\n4. Profesion\u00e1ln\u00ed, ale p\u0159irozen\u00fd jazyk.",
+      "systemPrompt": "Jsi expert na obchodn\u00ed a profesion\u00e1ln\u00ed komunikaci. Pi\u0161 \u010desky, stru\u010dn\u011b a jasn\u011b.",
+      "temperature": 0.5,
+      "maxTokens": 2048
+    },
+    {
+      "id": "review",
+      "type": "review",
+      "content": "{{steps.draft.output}}",
+      "prompt": "Zkontroluj n\u00e1vrh emailu. Pokud je v po\u0159\u00e1dku, napi\u0161 **ano**. Pokud chce\u0161 \u00fapravy (t\u00f3n, obsah, d\u00e9lka), popi\u0161 co zm\u011bnit:"
+    },
+    {
+      "id": "refine",
+      "type": "llm",
+      "prompt": "Uprav email podle zp\u011btn\u00e9 vazby.\n\nZp\u011btn\u00e1 vazba / schv\u00e1len\u00fd text:\n{{steps.review.output}}\n\nP\u016fvodn\u00ed n\u00e1vrh:\n{{steps.draft.output}}\n\nPokud u\u017eivatel schv\u00e1lil beze zm\u011bn, vra\u0165 p\u016fvodn\u00ed text.\nPokud jsou po\u017eadovan\u00e9 zm\u011bny, zapracuj je.",
+      "systemPrompt": "Zapracuj zp\u011btnou vazbu p\u0159esn\u011b. Zachovej form\u00e1t emailu. Pi\u0161 \u010desky.",
+      "temperature": 0.4,
+      "maxTokens": 2048
+    },
+    {
+      "id": "validate",
+      "type": "validate",
+      "content": "{{steps.refine.output}}",
+      "criteria": "Email mus\u00ed obsahovat: p\u0159edm\u011bt, osloven\u00ed, t\u011blo zpr\u00e1vy a z\u00e1v\u011br. T\u00f3n mus\u00ed odpov\u00eddat po\u017eadavk\u016fm u\u017eivatele. D\u00e9lka t\u011bla max 500 slov.",
+      "failMessage": "Email nespl\u0148uje form\u00e1tov\u00e1 krit\u00e9ria. Zkus skill spustit znovu."
+    }
+  ]
+}

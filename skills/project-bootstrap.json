@@ -1,0 +1,61 @@
+{
+  "id": "project-bootstrap",
+  "version": 1,
+  "description": "Scaffolding nového projektu — výběr technologií, generování struktury a boilerplate kódu",
+  "parameters": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "description": "Název nového projektu"
+    },
+    "stack": {
+      "type": "string",
+      "required": false,
+      "description": "Technologický stack (např. React + Node.js, Python Flask, Go + PostgreSQL)"
+    }
+  },
+  "steps": [
+    {
+      "id": "clarify",
+      "type": "ask",
+      "prompt": "Chystám se vytvořit nový projekt **{{name}}**.\n\nPůvodní zadání: {{input}}\nPreferovaný stack: {{stack}}\n\nPotřebuji upřesnit:\n- Jaký typ projektu to je? (web app, API, CLI, mobilní app, knihovna, monorepo)\n- Jaké hlavní funkce má mít? (autentizace, databáze, REST API, real-time, ...)\n- Jaký package manager preferuješ? (npm, pnpm, yarn, pip, go mod)\n- Potřebuješ Docker a CI/CD setup?\n- Jaké prostředí? (Node.js verze, Python verze, ...)\n- Preferuješ TypeScript nebo JavaScript? (u web projektů)\n- Máš požadavky na strukturu adresářů?"
+    },
+    {
+      "id": "scaffold",
+      "type": "llm",
+      "prompt": "Navrhni kompletní strukturu a boilerplate pro projekt: {{name}}\n\nPůvodní zadání: {{input}}\nStack: {{stack}}\nKontext: {{steps.clarify.output}}\n\nVygeneruj:\n\n**1. Adresářová struktura**\nKompletní strom adresářů a souborů (tree formát).\n\n**2. Konfigurace**\nKlíčové konfigurační soubory:\n- package.json / pyproject.toml / go.mod (s dependencies)\n- .gitignore\n- tsconfig.json / eslint config (pokud relevantní)\n- Dockerfile (pokud požadován)\n- .env.example\n\n**3. Boilerplate kód**\nZákladní soubory s funkčním kódem:\n- Vstupní bod (index.ts, main.py, main.go, ...)\n- Základní server/app setup\n- Příklad route/endpointu\n- Databázové připojení (pokud relevantní)\n- Příklad testu\n\n**4. README osnova**\n- Popis projektu\n- Jak spustit (development, production)\n- Jak spustit testy\n- Struktura projektu\n\n**5. Další kroky**\nCo udělat po scaffoldingu (npm install, db migrace, env nastavení, ...)\n\nKaždý soubor uveď s plnou cestou a kompletním obsahem.",
+      "systemPrompt": "Jsi senior full-stack developer a DevOps engineer. Navrhuješ čisté a moderní projektové struktury s best practices. Piš česky, kód v angličtině.",
+      "format": "plain",
+      "temperature": 0.4,
+      "maxTokens": 4096
+    },
+    {
+      "id": "review",
+      "type": "review",
+      "content": "{{steps.scaffold.output}}",
+      "prompt": "Zkontroluj navržený scaffold projektu. Pokud je v pořádku, napiš **ano**. Pokud chceš úpravy (přidat/odebrat závislosti, změnit strukturu, přidat Docker/CI), popiš co změnit:"
+    },
+    {
+      "id": "refine",
+      "type": "llm",
+      "prompt": "Uprav scaffold projektu {{name}} podle zpětné vazby.\n\nZpětná vazba: {{steps.review.output}}\n\nPůvodní scaffold:\n{{steps.scaffold.output}}\n\nPokud uživatel schválil beze změn, vrať původní text.\nPokud jsou požadované změny, zapracuj je — uprav strukturu, přidej závislosti nebo konfiguraci.\n\nVýstup musí být kompletní finální verze scaffoldu se všemi soubory.",
+      "systemPrompt": "Jsi expert na projektový scaffolding. Zapracuj zpětnou vazbu a zachovej strukturovaný a kompletní výstup. Piš česky, kód v angličtině.",
+      "format": "plain",
+      "temperature": 0.3,
+      "maxTokens": 4096
+    },
+    {
+      "id": "validate",
+      "type": "validate",
+      "content": "{{steps.refine.output}}",
+      "criteria": "Scaffold obsahuje: adresářovou strukturu (tree formát), minimálně 3 konfigurační soubory s obsahem, minimálně 1 zdrojový soubor s kódem, README osnovu a sekci Další kroky. Celkový rozsah min 1000 znaků.",
+      "failMessage": "Scaffold nesplňuje požadovaná kritéria — chybí adresářová struktura, konfigurační soubory nebo zdrojový kód. Zkus skill spustit znovu."
+    },
+    {
+      "id": "write",
+      "type": "write",
+      "path": "{{name}}/",
+      "content": "{{steps.refine.output}}"
+    }
+  ]
+}

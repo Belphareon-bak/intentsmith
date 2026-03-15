@@ -1,0 +1,50 @@
+{
+  "id": "code-refactor",
+  "version": 1,
+  "description": "Průvodce refaktorováním kódu — analýza code smells, návrh změn a validace výsledku",
+  "parameters": {
+    "file": {
+      "type": "string",
+      "required": true,
+      "description": "Cesta k souboru pro refaktoring"
+    }
+  },
+  "steps": [
+    {
+      "id": "clarify",
+      "type": "ask",
+      "prompt": "Chystám se provést refaktoring souboru **{{file}}**.\n\nPůvodní zadání: {{input}}\n\nPotřebuji upřesnit:\n- Co konkrétně chceš zlepšit? (čitelnost / výkon / testovatelnost / architektura / vše)\n- Jsou oblasti kódu, kterých se NEMÁM dotýkat?\n- Máš testy, které musí po refaktoringu projít?\n- Je limit na rozsah změn? (drobné úpravy / střední refaktoring / kompletní přepis)\n- Preferuješ konkrétní vzory nebo konvence?"
+    },
+    {
+      "id": "analyze",
+      "type": "llm",
+      "prompt": "Analyzuj soubor {{file}} a identifikuj příležitosti pro refaktoring.\n\nPůvodní zadání: {{input}}\nPreference uživatele: {{steps.clarify.output}}\n\nProveď analýzu:\n\n**1. Code Smells (identifikované problémy)**\nPro každý smell uveď:\n- Název (např. Long Method, God Class, Feature Envy, Magic Numbers)\n- Kde v kódu se vyskytuje (funkce/řádek)\n- Proč je to problém\n- Závažnost (vysoká / střední / nízká)\n\n**2. Navržené refaktoringy**\nPro každou změnu uveď:\n- Co měníš a proč\n- Refaktorovací technika (Extract Method, Rename, Replace Conditional with Polymorphism, ...)\n- Před a po — ukázka kódu\n- Riziko (breaking changes, vliv na ostatní části kódu)\n\n**3. Pořadí změn**\nSeřaď změny od nejbezpečnější po nejrizikovější.\nDoporuč, které udělat první.\n\n**4. Co NEMĚNIT**\nIdentifikuj části kódu, které jsou v pořádku nebo kde by změna přinesla víc rizika než hodnoty.",
+      "systemPrompt": "Jsi senior software engineer specializovaný na refaktoring a clean code. Analyzuješ kód systematicky, identifikuješ code smells a navrhuješ bezpečné refaktoringy. Piš česky.",
+      "format": "plain",
+      "temperature": 0.3,
+      "maxTokens": 4096
+    },
+    {
+      "id": "review",
+      "type": "review",
+      "content": "{{steps.analyze.output}}",
+      "prompt": "Zkontroluj analýzu a navržené refaktoringy. Pokud souhlasíš, napiš **ano**. Pokud chceš úpravy (přidat/odebrat změny, změnit prioritu, vyloučit oblast), popiš co změnit:"
+    },
+    {
+      "id": "refine",
+      "type": "llm",
+      "prompt": "Uprav analýzu refaktoringu souboru {{file}} podle zpětné vazby.\n\nZpětná vazba: {{steps.review.output}}\n\nPůvodní analýza:\n{{steps.analyze.output}}\n\nPokud uživatel schválil beze změn, vrať původní text.\nPokud jsou požadované změny, zapracuj je — uprav návrhy, priority nebo přidej nové refaktoringy.\n\nVýstup musí být kompletní finální verze analýzy s konkrétními ukázkami kódu před a po.",
+      "systemPrompt": "Jsi expert na refaktoring kódu. Zapracuj zpětnou vazbu a zachovej strukturovaný formát analýzy. Piš česky.",
+      "format": "plain",
+      "temperature": 0.3,
+      "maxTokens": 4096
+    },
+    {
+      "id": "validate",
+      "type": "validate",
+      "content": "{{steps.refine.output}}",
+      "criteria": "Analýza obsahuje minimálně 2 identifikované code smells se závažností. Obsahuje minimálně 2 navržené refaktoringy s ukázkou kódu (před/po). Obsahuje pořadí změn a doporučení. Celkový rozsah min 800 znaků.",
+      "failMessage": "Analýza refaktoringu nesplňuje požadovaná kritéria — chybí identifikované problémy nebo konkrétní návrhy změn. Zkus skill spustit znovu."
+    }
+  ]
+}
