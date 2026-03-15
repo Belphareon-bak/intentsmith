@@ -27,6 +27,68 @@ Remote package marketplace for skills, expertises and specialists.
 
 ---
 
+## v124 — Pre-Release Stabilization (2026-03-12)
+
+8-wave stabilization pass based on full codebase audit (AUDIT-v123.md). 33 fixes across 18 files, 1 new test file.
+
+### Wave 0: Quick Wins (7 fixes)
+- **busy_timeout** (`src/db/database.js`): `PRAGMA busy_timeout = 5000` — prevents "database is locked" under concurrent writes
+- **GUARD 11 pattern gap** (`src/chat/cre-decision.js`, `src/chat/handlers/build-handoff.js`): `.{0,20}` → `.{0,60}` in DESIGN_BUILD_ESCALATION patterns — Czech sentences regularly span 50+ chars
+- **GUARD 11 creativeLock** (`src/chat/cre-decision.js`): creativeLock blocks BUILD escalation (was only checking lifecycle state)
+- **Metrics flush safety** (`src/upgrade/metrics-collector.js`): copy-before-splice prevents data loss on flush failure
+- **addEdge node validation** (`src/code-intel/knowledge-graph.js`): reject edges referencing non-existent nodes
+- **_testCREInternals freeze** (`src/chat/cre-decision.js`): getter-based defensive copies prevent mutation of internal pattern arrays
+- **GUARD 5 exclusion check** (`src/chat/cre-decision.js`): DESIGN_EXCLUSION_PATTERNS now actually applied during DESIGN detection
+
+### Wave 1: Lifecycle Stability (8 fixes)
+- **DB write-first** (`src/chat/handlers/lifecycle-state.js`): attempt DB write before RAM update, `_dbConsistent` flag for divergence tracking
+- **Concurrent milestone mutex** (`src/planner/lifecycle-build.js`): RAM `_buildInProgress` flag + DB `build_locked` column (survives restart)
+- **Session recovery** (`src/chat/handlers/lifecycle-router.js`): lost session auto-recovers via `getLcStateByProject(projectId)` + rebind
+- **BLOCKED milestone timeout** (`src/planner/lifecycle-build.js`): 15-min auto-skip with user notification via `onSystemStep`
+- **SPEC revision counter** (`src/chat/handlers/lifecycle-router.js`): warns at 3rd revision, auto-approves at 4th
+- **Cascade skip transaction** (`src/planner/lifecycle-build.js`): wrapped in `db.transaction()` for atomicity
+- **Spec drift guard** (`src/planner/lifecycle-build.js`, `src/planner/lifecycle-review.js`): after every 4th passed milestone, validates spec against current codebase. `validateSpecDrift()` checks tech stack, directory layout, patterns, API contracts
+- **Lifecycle health telemetry** (`src/planner/lifecycle-build.js`): logs duration, retry_count, checkpoint_failures, loop_iterations per milestone
+
+### Wave 2: WS + Gateway Resilience (4 fixes)
+- **Stale activeTurns cleanup** (`src/ws-bridge/session-adapter.js`): 5-min interval purges hung turns with abort
+- **WS output backpressure** (`src/ws-bridge/session-adapter.js`): selective drop — skips streaming tokens but keeps critical messages (turn_end, error, edit_request, lifecycle_event) when bufferedAmount > 1MB
+- **Edit pending timer leak** (`src/ws-bridge/session-adapter.js`): properly clears timeout on early resolution
+- **HTTP 503 handling** (`src/llm/gateway.js`): Ollama OOM/overload (503) → no retry (not transient)
+
+### Wave 3: Model Upgrade Concurrency (4 fixes)
+- **Proposal store atomic dedup** (`src/upgrade/proposal-store.js`): entire `storeProposal()` wrapped in `this._db.transaction()` — prevents duplicate proposals under concurrent evaluation cycles
+- **Rollback safety** (`src/upgrade/upgrade-manager.js`): DB DELETE moved to after successful verification; config reverted on failure
+- **Score blend smoothing** (`src/upgrade/empirical-scorer.js`): step function replaced with linear interpolation for 10-50 sample range (`t = (n - 10) / 40`)
+- **Expired proposal auto-cleanup** (`src/upgrade/upgrade-manager.js`): `store.expireStale(7)` called at start of `_checkForUpgradesV2()`
+
+### Wave 4: Code-Intel Hardening (4 fixes)
+- **KG memory ceiling** (`src/code-intel/knowledge-graph.js`): 50K nodes, 100K edges hard limits with logger.warn
+- **Prompt builder budget warning** (`src/context/prompt-builder.js`): warns when high-priority sections (≥70) are dropped due to budget exhaustion
+- **CRE guard interaction tests** (`tests/cre-guard-interactions.test.js`): **NEW** — 25 tests covering all guard combination scenarios (creativeLock + BUILD escalation, GUARD 5/6/7/9/10/11 interactions, guard ordering invariants, defensive copies)
+
+### Wave 5: Lifecycle Polish (4 fixes)
+- **Checkpoint retry visibility** (`src/planner/lifecycle-build.js`): BLOCKED response includes `lastCheckpointFindings` + `lastCompileErrors`
+- **Executor timeout** (`src/planner/lifecycle-build.js`): 5-min AbortController for milestone execution with proper cleanup
+- **Lazy-module cleanup** (`src/planner/lifecycle-build.js`, `src/server.js`): `resetLazyModules()` export, wired into SIGTERM shutdown handler
+
+### Wave 6: Upgrade Pipeline Polish (5 fixes)
+- **Tag parsing guards** (`src/upgrade/online-discovery.js`): MAX_TAGS=30 cap, HTML structure validation
+- **log(0) guard** (`src/upgrade/benchmark-estimator.js`): returns null if both benchmarks ≤ 0
+- **Timeout flag** (`src/upgrade/validation-suites.js`): `timedOut: boolean` in `_callModel()` error result
+- **Ollama unreachable backoff** (`src/upgrade/model-discovery.js`): 30s cache after ECONNREFUSED
+- **No-diacritic EXPLICIT_SEARCH** (`src/chat/cre-decision.js`): added variants without diacritics for CZ search patterns
+
+### Wave 7: LOW Priority Polish (2 fixes)
+- **DB error exit** (`src/server.js`): `unhandledRejection` handler exits process on database/SQLITE errors
+- **Preference tracker sqrt confidence** (`src/upgrade/preference-tracker.js`): `sqrt(total/5)` dampening for more gradual confidence ramp
+
+### Tests
+- **25 new** in `cre-guard-interactions.test.js`
+- **0 regressions** across 305+ existing tests (lifecycle entry 51, CRE gatekeeper 43, validation suites 73, prompt builder 30, lifecycle handoff 83)
+
+---
+
 ## v122.2 — Expertise/Specialist CRUD + Bulk Operations (2026-03-11)
 
 IDE integration fixes for specialist/expertise lifecycle management.

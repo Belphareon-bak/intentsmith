@@ -1,8 +1,8 @@
-# C.3 Agent Platform — Architecture v122
+# C.3 Agent Platform — Architecture v124
 
-**Version:** v122.0.0
+**Version:** v124.0.0
 **Status:** Production-ready
-**Date:** 2026-03-11
+**Date:** 2026-03-12
 
 ---
 
@@ -25,6 +25,7 @@ C.3 is a conversational AI platform combining:
 13. **Model Upgrade System** — Curated catalog (55 models), pairwise evaluation, feasibility gate, proposal store, chat-based approval, empirical scoring (Phase 3), L4 online discovery
 14. **Task Memory** — Persistent cross-milestone learning, cross-project pattern sharing, decay-based relevance
 15. **Marketplace** — Remote package catalog (skills, expertises, specialists), transactional install/update/uninstall, dependency resolver, SHA-256 verification, archive security
+16. **Validation Suites** — 5 role-specific test suites (reasoning, code, chat, vision, review), deterministic + partial scoring, direct Ollama calls, 14d TTL, model ranker integration
 
 All decisions flow through CRE — LLM is the text generator, never the authority.
 
@@ -185,7 +186,7 @@ src/                              # 126,566 lines / 349 files / 29 directories
 │   ├── feedback-detector.js      #   6 signal types
 │   ├── pattern-tracker.js        #   Cross-conversation learning
 │   └── preferences.js            #   User preference tracking
-├── upgrade/                      # 13 files, ~4,500 LOC — Model Upgrade System (Phase 2 + 3 + L4)
+├── upgrade/                      # 14 files, ~6,450 LOC — Model Upgrade System (Phase 2 + 3 + L4 + Validation)
 │   ├── model-profiles.js         #   Model capabilities + family definitions
 │   ├── model-discovery.js        #   L1 local + L2 catalog + L3 hints + L4 online
 │   ├── model-catalog.js          #   55-model curated catalog with benchmarks
@@ -195,6 +196,7 @@ src/                              # 126,566 lines / 349 files / 29 directories
 │   ├── registry-client.js        #   Online verification + library page fetch
 │   ├── online-discovery.js       #   L4: HTML tag parsing, provisional entry builder
 │   ├── benchmark-estimator.js    #   Log-space interpolation, VRAM estimation
+│   ├── validation-suites.js      #   5 role-specific test suites, grading, TTL
 │   └── upgrade-manager.js        #   Full pipeline: feasibility → pairwise → L4 → store
 ├── architect/                    # 13 files, 4,007 LOC — Architecture Intelligence
 │   ├── architecture-policy.js    #   Unified policy, load priority
@@ -215,12 +217,12 @@ src/                              # 126,566 lines / 349 files / 29 directories
 ├── executor/                     # 8 files — Tool executor, circuit breaker
 ├── autonomy/                     # 3 files — Guarded autonomy, drift detection
 ├── channels/                     # 3 files — Channel adapters
-├── db/                           # 36 files — Schema (80+ tables) + 35 migrations
+├── db/                           # 40 files — Schema (80+ tables) + 37 migrations
 ├── core/                         # 5 files — Logger, error handler
 ├── telemetry/                    # 2 files — Metrics, alerts
 ├── system/                       # 2 files — GPU detection, system info
-├── context/                      # 1 file — Context management
-├── specialists/                  # 1 file — Specialist runtime
+├── context/                      # 3 files — Prompt builder, import map, context delta
+├── specialists/                  # 2 files — Specialist loader + capability registry
 ├── licensing/                    # 1 file — License system
 ├── setup/                        # 1 file — Setup wizard
 ├── packaging/                    # 1 file — Electron builder
@@ -260,10 +262,12 @@ User Input → CRE.classifyIntent() → IntentType
   → Response to user
 ```
 
-**10 CRE Guards** enforce context-sensitive overrides:
+**11 CRE Guards** enforce context-sensitive overrides:
+- GUARD 5 (Design Exclusion): DESIGN_EXCLUSION_PATTERNS block false-positive DESIGN on questions ("jak navrhnout...")
 - GUARD 6 (Creative Lock): creativeLock/outputBias → SEARCH/AMBIGUOUS overridden to CREATIVE
 - GUARD 7 (BUILD Confidence): Reduces confidence for deferred build intent
 - GUARD 10 (BUILD Deferral): Czech morphology stem-based deferral detection
+- GUARD 11 (BUILD Escalation): `.{0,60}` pattern gap for long Czech sentences, creativeLock protection
 
 ### 2. Agent Platform (Phase B)
 
@@ -341,7 +345,9 @@ SPEC → BUILD → REVIEW → next milestone or COMPLETED
 
 **Checkpoint Architecture (v92):** Three modes — STRUCTURAL (files exist, syntax OK), FUNCTIONAL (logic correct, defer tests), SECURITY (full audit). Mode assignment: explicit from roadmap LLM > positional heuristic (first=STRUCTURAL, last=SECURITY, rest=FUNCTIONAL). Adaptive retry with `fix_instructions[]` feedback.
 
-**Multi-session (C4):** New session auto-detects active lifecycle for same project. RAM lookup via `getLcStateByProject(projectId)` + DB fallback.
+**Multi-session (C4):** New session auto-detects active lifecycle for same project. RAM lookup via `getLcStateByProject(projectId)` + DB fallback. Session recovery via projectId rebind (v124).
+
+**Stability (v124):** DB write-first (attempt DB before RAM, `_dbConsistent` flag). Concurrent milestone mutex (RAM `_buildInProgress` + DB `build_locked` column). BLOCKED timeout 15 min → auto-skip with user notification. SPEC revision counter (warn@3, auto-approve@4). Cascade skip atomicity. Spec drift guard (every 4th milestone). Executor timeout (5-min AbortController). Lazy-module cleanup on shutdown.
 
 ### 5. Expertise System (v63+)
 
@@ -461,7 +467,7 @@ Query → expandQuery() → symbolIndex → searchCode()
 | Detection | drift-detector, dead-code-detector, risk-analyzer | Layer violations, unreachable code, 3-signal risk |
 | Advanced | exploration-agent, execution-graph, test-coverage-explorer, code-evolution, pattern-miner, perf-analyzer, dependency-manager, concept-registry, refactor-agent, regression-predictor | Autonomous exploration, anti-patterns, dependency upgrades |
 
-**Knowledge Graph:** 9 edge types (IMPORTS, EXPORTS, CALLS, INHERITS, IMPLEMENTS, USES, TESTED_BY, DEPENDS_ON, CONTAINS). Map-based storage, hub penalty scoring, namespace boost, priority BFS with edge weights.
+**Knowledge Graph:** 9 edge types (IMPORTS, EXPORTS, CALLS, INHERITS, IMPLEMENTS, USES, TESTED_BY, DEPENDS_ON, CONTAINS). Map-based storage, hub penalty scoring, namespace boost, priority BFS with edge weights. Memory ceiling: 50K nodes, 100K edges (v124). Node validation on addEdge (v124).
 
 **BUILD Context Enrichment:** `buildCodeContextForMilestone()` in lifecycle-build.js — lazy-loaded via `ensureCodeIntel()`, graceful degradation. 5 files / 5K tokens budget.
 
@@ -558,9 +564,9 @@ Discovery:
 
 Pairwise Evaluation (v120.2 calibration):
   scoreModel(benchmark×B + empirical×E + hwFit×0.20 + maturity×0.15 + gen×0.10 + cat×0.13 + speed×0.07 + sizePenalty)
-  B+E = 0.35, blend ratio shifts with sample count:
+  B+E = 0.35, blend ratio shifts with sample count (v124: linear interpolation):
     <10 samples:  B=0.35, E=0.00 (Phase 2 behavior)
-    10-50:        B=0.25, E=0.10
+    10-50:        linear interpolation B: 0.25→0.15, E: 0.10→0.20
     >50:          B=0.15, E=0.20
   CODE benchmark weights: swebench 0.15, livecodebench 0.40, humaneval 0.30, arena 0.15
   Category bonus: code+CODE 0.10 (was 0.05). Size floor: CODE params<20B → -0.05.
@@ -596,9 +602,22 @@ Proposal Lifecycle:
   pending → approved | rejected (30d cooldown) | dismissed (permanent) | expired (7d)
   Anti-thrashing: 14d minimum between upgrades per role
   Invalidation: catalog hash + evaluation version change → re-evaluate
+  Atomic dedup: storeProposal() wrapped in db.transaction() (v124)
+  Auto-cleanup: expireStale(7) at start of each evaluation cycle (v124)
 ```
 
 **Safety:** Never auto-upgrades. Discovery never changes config. Runtime never touches internet. Communication only through proposals in DB.
+
+**Validation Suites (v123):**
+```
+5 suites: reasoning (D1/D2/R1), code (CODE), chat (CHAT), vision (VISION), review (R2)
+Deterministic grading: JSON.parse, regex, keyword matching, diacritics check + partial scoring
+Direct Ollama calls (bypass gateway): temperature 0.1, top_p 0.9, num_predict 512, timeout 30s
+DB: validation_results + validation_suite_scores (migration 034), INSERT OR REPLACE
+TTL 14d, blacklist score < 0.2, vision guard (skip if no vision capability)
+Model ranker: validationScore × 0.05 bonus in scoreModel(), role-specific suite mapping
+API: POST /api/system/models/validate, GET /api/system/models/validation-scores
+```
 
 ### 15. Task Memory & Cross-Project Learning (v107-v116)
 
@@ -640,7 +659,7 @@ Registry → Resolver (LLM intent match) → Runner (state machine) → Step exe
 
 ## Database Schema
 
-80+ tables in SQLite (better-sqlite3), 35 migrations:
+80+ tables in SQLite (better-sqlite3), 37 migrations:
 
 | Group | Tables |
 |-------|--------|
@@ -654,7 +673,7 @@ Registry → Resolver (LLM intent match) → Runner (state machine) → Step exe
 | Memory | global_memory, user_memory, project_memory, memory (LTM), task_memory |
 | Skills | skill_executions, skill_steps, workflow_patterns |
 | Architecture | architecture_state, api_contracts |
-| Model Upgrade | model_overrides, upgrade_history, upgrade_proposals, model_catalog_cache, model_performance, discovered_models |
+| Model Upgrade | model_overrides, upgrade_history, upgrade_proposals, model_catalog_cache, model_performance, discovered_models, validation_results, validation_suite_scores |
 | Marketplace | marketplace_packages, marketplace_catalog_cache |
 | Quality | quality_scores |
 | Security | api_tokens (SHA-256 hashed) |
@@ -698,18 +717,20 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 
 ## Test Suite
 
-3,000+ verified tests across 200+ test files:
+3,500+ verified tests across 242 test files:
 
 | Suite | Tests | Focus |
 |-------|-------|-------|
-| CRE comprehensive | 401 | Intent classification |
+| CRE comprehensive | 401 | Intent classification (19 types) |
+| Conversation | 350 | CZ 150 + EN 150 + ND 50 |
 | Lifecycle unit + E2E | 186 | State machine, crash recovery, multi-session |
 | Phase B workers | 73 | B0/B4/B6/B8/B9 agents |
 | Notifications | 67 | Channels, routing, policy |
 | Expertise system | 190+ | Merge, enforce, 5D capabilities, routing, wizard |
-| Skills system | 44 | Registry, resolver, runner, 7 step types |
+| Specialist system | 333 | Runtime, KB, scénáře, self-contained, wizard, ledger |
+| Skills system | 44 | Registry, resolver, runner, 9 step types |
 | Memory system | 50+ | LTM, injection-ranker, feedback, patterns |
-| Quality gates | 36 | E2E quality: S/R/F/T categories |
+| Quality + Telemetry | 200+ | QGv2, scoring, drift, resilience, soak |
 | Executor capabilities | 85 | Shell whitelist, BUILD_VERIFYING, scaffolds |
 | Agent log UX | 44 | SYSTEM_STEP protocol, 15 hooks |
 | **Code Intelligence** | **339** | Symbol index, KG, graph, architecture, context |
@@ -719,7 +740,10 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 | Architecture governance | 57 | Guardian, contracts, critic |
 | Architecture intelligence | 161 | Policy, context, refactor, predictor, KB, multi-agent |
 | Large project scaling | 107 | Graph storage, BFS, streaming, concept registry |
-| Model upgrade (v103+v118+v120.2) | 221 | Discovery, catalog, pairwise, proposals, approval, pull, empirical scoring |
+| Model upgrade (v103-v120) | 221 | Discovery, catalog, pairwise, proposals, approval, pull, empirical scoring |
+| **Validation suites (v123)** | **73** | 5 role-specific suites, scoring, TTL, model ranker |
+| **Marketplace (v124)** | **44** | Catalog, install, deps, security |
+| **Guard interactions (v124)** | **25** | Guard combinations, creativeLock, ordering invariants |
 | Project E2E | 56 | 4 project types, lifecycle, milestones |
 
 ---
@@ -767,18 +791,19 @@ All memory systems use exponential decay: LTM (λ=0.01, half-life ~69d), Task Me
 
 | Phase | Completion | Key Components |
 |-------|-----------|----------------|
-| A (CRE) | 100% | Intent classification (19 types), 10 guards, QGv2, attachment guard |
+| A (CRE) | 100% | Intent classification (19 types), 11 guards, QGv2, attachment guard |
 | B (Workers) | 95% | Runner, scheduler, sources, notifications, multi-source |
 | C (Lifecycle) | 100% | Milestones, crash recovery, checkpoint modes, adaptive retry |
-| D (Expertises) | 92% | 15 built-in, merge engine, 5D capabilities, enforcement, wizard |
+| D (Expertises) | 100% | 15 built-in, merge engine, 5D capabilities, self-contained specialists (v121), marketplace (v124) |
 | E (IDE) | 82% | C3 Studio (Theia), 33 extensions, settings UI, security, focus mode |
 | F (Packaging) | 25% | Setup wizard, auto-updater, license system |
 | G (Code Intel) | 100% | 33 modules, symbol index, KG, graph expansion, architecture detection |
 | H (Agent Evolution) | 100% | F1-F8 core (355 tests), FΔ+F9-F14 extensions (242 tests) |
 | I (Governance) | 100% | Guardian, contracts, critic, policy, regression prediction, multi-agent |
-| J (Model Mgmt) | 100% | Phase 1-3: discovery, catalog (55 models), pairwise eval, proposals, empirical scoring (221 tests) |
+| J (Model Mgmt) | 100% | Phase 1-3 + validation suites: discovery, catalog, pairwise, empirical, validation (294 tests) |
 | K (Prompt Pipeline) | 100% | Prompt builder, import map, scope limiter, signature cache (83 tests) |
+| L (Marketplace) | 100% | Remote catalog, transactional install, dependency resolver, security (44 tests) |
 
 ---
 
-*This document reflects C.3 Agent Platform v120.2.0 architecture (2026-03-11).*
+*This document reflects C.3 Agent Platform v124.0.0 architecture (2026-03-12).*

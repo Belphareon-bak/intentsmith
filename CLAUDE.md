@@ -1,591 +1,463 @@
 # CLAUDE.md - C.3 Agent Development Context
 
-**Verze:** v81.0.0
-**Datum:** 2026-02-25
+**Verze:** v124.0.0
+**Datum:** 2026-03-12
 **Projekt:** ~/Projects/c3-agent-wip
 
 ---
 
-## Aktualni stav
+## Aktuální stav
 
-C.3 Agent je plne funkcni conversational AI platforma s:
-- **CRE** (Conversational Reasoning Engine) — single-authority decision engine s **CRE Gatekeeper** audit trail (v64.0)
-- **Expertise System** (v63) — 15 built-in expertyz s 5D capability profily, multi-expertise merge engine, enforcement pipeline, execution trace observability
-- **Specialist Platform** (v65.8) — SpecialistRuntime (tool registry + intent detection + execution), KnowledgeBase (versioned facts, 96 seeded tax rates), ScenarioEngine (multi-step guided workflows)
-- **Quality Gate v2** (v62.3+) — deterministicky post-processing pipeline: structural fix, SK→CZ transliterator (~160 regexu), LinkGuard, content enforcement
-- **Agent Platform** — deterministicke worker agenty se zdroji, podminkami, triggery, notifikacemi + **Agent Builder Wizard (v65.5)**
-- **Project Lifecycle** — milnikove rizeni projektu s crash recovery + **project context injection (v65.4)** + **lifecycle session routing fix (v65.6)** + **real LLM E2E test (v65.7)**
-- **Product Modules** (v65.7) — Setup Wizard (first-run + API), Auto-updater (background checker), License system (3 tiers + feature gates)
-- **C3 Studio IDE** — Theia 1.65.2, custom panely, linked sessions, expertise wizard, agent builder wizard
-- **Resilience Layer** (v72) — ToolExecutor s circuit breaker (per-session), auto-retry, partial failure, AbortController cancel
-- **Telemetry** (v81) — TurnTelemetry per-turn data collector, SQLite persistence (telemetry_snapshots), startup retention pruning (30d)
-- **Quality Score** (v80) — deterministicky scoring engine (spec, roadmap, change, lifecycle aggregate), DB logging, trend queries
-- **WebSocket Bridge** — IDE ↔ Backend WS bridge s feature negotiation, session routing, file watcher
+C.3 Agent je plně funkční lokální AI platforma s:
+- **CRE** (Conversational Reasoning Engine) — single-authority klasifikátor, 19 intent typů, 11 guard pravidel, Gatekeeper audit trail
+- **Expertise System** (v63+) — 15 vestavěných expertýz, 5D capability profily, merge engine (max 3), auto-select (<1ms), enforcement pipeline
+- **Specialist Platform** (v121+) — self-contained pluginové balíčky v `specialists/`. ctx.registries API (6 registrů), manifest v2, CapabilityRegistry (N:M), deterministic boot (Kahn's algo)
+- **Quality Gate v2** — 4-vrstvý deterministický post-processing: structural fix, SK→CZ transliterátor (~160 regexů), LinkGuard, content enforcement
+- **Agent Platform** — worker agenti se zdroji, podmínkami, triggery, notifikacemi. Cron/interval scheduling, 6 kanálů
+- **Project Lifecycle** — SPEC → BUILD → REVIEW → CHANGE → COMPLETED. Checkpoint modes (STRUCTURAL/FUNCTIONAL/SECURITY), adaptive retry, crash recovery, auto-commit, milestone mutex (RAM+DB), spec drift guard, executor timeout (v124)
+- **Code Intelligence** (v95-v102) — 33 modulů: symbol index, knowledge graph (9 typů hran, 50K/100K limity), AST analýza, architecture detection, graph expansion, context building
+- **Execution Engine** (v104-v119) — patch engine (3-tier anchor), error normalizer (14 kódů), iterativní fix loop (max 8 iterací), self-critique, scope limiter, fix strategy selection
+- **Prompt Pipeline** (v119) — strukturovaný prompt builder (12 sekcí), KG-based import map, signature cache, scope limiter
+- **Architecture Governance** (v98-v100) — guardian, API contracts, critic/repair, regression prediction, multi-agent pipeline (5 rolí)
+- **Skills System** (v85+) — deterministické workflow (JSON): 9 step typů. Meta-skills: create-skill, create-expertise, create-specialist
+- **Memory System** (v86+) — LTM (poločas 69d), task memory (poločas 139d), cross-project learning
+- **Model Upgrade** (v103-v124) — catalog (55 modelů), pairwise eval, empirical scoring (Phase 3, linear blend interpolation), L4 online discovery, validation suites (5 sad), chat-based approval, atomic dedup, auto-cleanup
+- **Marketplace** (v124) — remote package catalog, transactional install, dependency resolver, SHA-256 ověření
+- **C3 Studio IDE** — Theia 1.65.2 + Electron 37, 33 rozšíření, chat panel, agent log, settings, focus mode
 
-### Branch: `rename-expert-to-expertise`
+### Zdrojový kód
 
-### Zdrojovy kod
+| Adresář | Soubory | Řádky | Popis |
+|---------|---------|-------|-------|
+| src/chat/ | 72 | 30,981 | Konverzační pipeline (CRE, handlery, quality, syntéza) |
+| src/planner/ | 34 | 15,150 | Lifecycle + execution engine + architecture governance |
+| src/code-intel/ | 33 | 11,500 | Code Intelligence (symbol index, KG, AST, graph, context) |
+| src/expertises/ | 23 | 9,464 | Expertise system + specialist runtime + merge engine |
+| src/upgrade/ | 14 | 6,451 | Model upgrade (catalog, pairwise, empirical, L4, validation) |
+| src/routes/ | 15 | 6,223 | HTTP API routes (14 route modulů) |
+| src/agents/ | 14 | 6,510 | Agent platform (runner, scheduler, conditions, triggers) |
+| src/tools/ | 2 | 5,456 | Tool registry (153 nástrojů) |
+| src/ui/ | 2 | 4,552 | Web UI (architect.js) |
+| src/architect/ | 13 | 4,007 | Architecture Intelligence (policy, refactor, predictor) |
+| src/db/ | 40 | 4,408 | SQLite schema, 37 migrací |
+| src/executor/ | 8 | 3,474 | Tool executor, circuit breaker, sandbox |
+| src/notifications/ | 19 | 3,335 | 6 kanálů (email, TG, ntfy, webhook, desktop, push) |
+| src/memory/ | 9 | 3,130 | LTM, task memory, cross-project, feedback |
+| src/llm/ | 6 | 2,596 | LLM gateway, Ollama klient, web search |
+| src/domains/ | 12 | 1,816 | Domain scaffoldy (React, Vue, FastAPI, Flutter, ...) |
+| src/skills/ | 13 | 1,768 | Skills: registry, resolver, runner, 9 step executors |
+| src/patch/ | 5 | 1,505 | Patch engine: parser, validator, applier, scope limiter |
+| src/specialists/ | 2 | 1,379 | Specialist loader + capability registry |
+| src/ws-bridge/ | 5 | 1,075 | WebSocket bridge (IDE ↔ backend) |
+| src/channels/ | 3 | 841 | Channel adaptery (CLI, Web, API) |
+| src/marketplace/ | 2 | 797 | Marketplace client + package installer |
+| src/context/ | 3 | 742 | Prompt builder, import map, context delta |
+| ostatní | 17 | 3,577 | core, autonomy, system, telemetry, licensing, setup, config, server |
+| **Celkem** | **366** | **132,337** | |
 
-| Adresar | Radky | Soubory | Popis |
-|---------|-------|---------|-------|
-| src/chat/ | 24,588 | 59 | Konverzacni pipeline (CRE, handlers, quality, synthesis) |
-| src/expertises/ | 9,200+ | 20 | Expertise system + specialist platform (runtime, knowledge base, scenarios) |
-| src/agents/ | 6,510 | 14 | Agent platform (runner, scheduler, conditions, triggers) |
-| src/planner/ | 4,754 | 13 | Project lifecycle (workflow, build, milestones) |
-| src/ui/ | 4,552 | 2 | Web UI (architect.js) |
-| src/architect/ | 4,002 | 13 | Code generation pipeline |
-| src/executor/ | 3,438 | 8 | Tool execution (circuit breaker, auto-retry, partial failure) |
-| src/telemetry/ | 200+ | 1 | TurnTelemetry (per-turn resilience data collector) |
-| src/notifications/ | 2,956 | 16 | Notification pipeline (email, telegram, ntfy, trust) |
-| src/routes/ | 3,200+ | 8 | HTTP API routes (incl. quality, specialists) |
-| src/llm/ | 2,722 | 6 | LLM gateway, Ollama client, web search |
-| src/db/ | 2,500+ | 22 | Database, 18 migrations, telemetry retention |
-| src/memory/ | 1,360 | 3 | Long-term memory, preferences |
-| src/domains/ | 1,179 | 7 | Domain recipes (CI/CD, monitoring, infra) |
-| src/ws-bridge/ | 913 | 5 | WebSocket bridge (IDE transport) |
-| src/channels/ | 841 | 3 | Channel adapters (CLI, Web, API) |
-| src/server.js | 855 | 1 | Express HTTP server |
-| ostatni | 1,476 | 7 | core, licensing, packaging, setup, tools, config |
-| **Celkem** | **73,706** | **188** | |
+### Databáze
 
-### Database
+80+ tabulek (SQLite, WAL, better-sqlite3), 37 migrací, prepared statements.
 
-58 tabulek (vcetne FTS + knowledge base + telemetry_snapshots), 18 migraci, prepared statements.
+### Testovací pokrytí
 
-### Testovaci pokryti
-
-| Sada | Pocet | Stav |
-|------|-------|------|
-| CRE Comprehensive | 401 | pass |
-| Quality Sprint Q | 125 | pass |
-| v583 Tier1 | 94 | pass |
-| Fixes v582 | 92 | pass |
-| Lifecycle Handoff | 83 | pass |
-| Lifecycle DB | 71 | pass |
-| Chat Fixes | 58 | pass |
-| Chat Pipeline | 52 | pass |
-| Chat Output Quality | 45 | pass |
-| CRE Gatekeeper | 43 | pass |
-| Modules | 23 | pass |
-| Lifecycle unit | 103 | pass |
-| Design Tests | 100 | pass |
-| Sprint D | 21 | pass |
-| Specialist Runtime | 23 | pass |
-| Knowledge Base | 35 | pass |
-| Scenario Engine | 42 | pass |
-| Accountant Tools | 81 | pass |
-| Tool Enforcement | 41 | pass |
-| E2E Resilience | 31 | pass |
-| Telemetry | 31 | pass |
-| Telemetry Soak (1000 turns) | 13 | pass |
-| Quality Score | 36 | pass |
-| Quality Telemetry | 34 | pass |
-| Expertise A/B (A7) | 5 (LLM) | pass (5/5 win/tie) |
-| Lifecycle Real LLM (C3) | 10 (LLM) | pass |
-| E2E Quality Deep | 36 (LLM) | 89-97% |
-| Chat Quality | 33 (LLM) | 32/33 |
-| **Deterministicke celkem** | **~2100+** | **pass** |
-
-### E2E Quality Deep — aktualni stav (2026-02-19)
-
-| Kategorie | Stav | Poznamka |
-|-----------|------|----------|
-| S: Vyhledavani | 89% (8/9) | S1 flaky (zavisle na search API) |
-| R: Reportovani | 100% (6/6) | Stabilni |
-| F: Fakta | 100% (9/9) | Stabilni |
-| T: Technicka expertiza | 75% (9/12) | T1, T7 depth; T12 CZ jazyk |
-| **Celkem** | **89%** | Deterministicke fixy hotove, zbyva LLM variance |
+| Sada | Počet | Oblast |
+|------|-------|--------|
+| CRE Comprehensive | 401 | Intent klasifikace (19 typů) |
+| Conversation | 350 | CZ 150 + EN 150 + ND 50 |
+| Code Intelligence | 339 | Symbol index, KG, graph, architektura, context |
+| Architecture (governance + intelligence) | 218 | Guardian, contracts, critic, policy, predictor |
+| Large Project Scaling | 107 | Graph storage, BFS, streaming, concept registry |
+| Execution Engine F1-F8 | 355 | Patch, errors, loop, strategy, critique, patterns |
+| Long-term FΔ+F9-F14 | 242 | Context delta, build strategy, deps, cross-project |
+| Prompt Pipeline | 83 | Prompt builder, import map, scope limiter, sig cache |
+| Model Upgrade (Phase 1-3 + L4) | 221 | Discovery, catalog, pairwise, proposals, empirical |
+| Validation Suites | 73 | 5 sad, scoring, TTL, model ranker |
+| Specialist System | 333 | Runtime, KB, scénáře, ledger, self-contained, wizard |
+| Marketplace | 44 | Catalog, install, deps, security |
+| Lifecycle | 186 | State machine, crash recovery, multi-session |
+| Quality + Telemetry | 200+ | QGv2, scoring, drift, resilience, soak |
+| Project E2E | 56 | 4 typy projektů, milníky |
+| Skills | 44 | Registry, resolver, runner, step types |
+| Memory | 50+ | LTM, injection-ranker, feedback, patterns |
+| **Deterministické celkem** | **~3,500+** | **pass** |
 
 ---
 
 ## Architektura
 
 ```
-User Input
-  |
-  v
-ChatController.handle()
-  |
-  v
-ConversationHandler
-  |-- Lifecycle intercept (SPEC/BUILD/REVIEW)
-  |     |-- getLcStateByProject() RAM lookup (v65.6 — sessionId mismatch fix)
-  |     |-- DB fallback for state restoration
-  |-- Agent Wizard intercept (B9)
-  |-- Scenario intercept (D3 — active scenario → ScenarioRunner.handleInput)
-  |-- CRE classifyIntent() --> LOCAL | CONVERSATIONAL | SEARCH | DESIGN | CREATIVE | BUILD | CODE
-  |-- Expertise handler (single or merged multi-expertise)
-  |     |-- SpecialistRuntime.tryToolExecution() (D1 — detect + execute deterministic tool)
-  |     |-- ScenarioRegistry.detectTrigger() (D3 — multi-step guided workflow)
-  |     |-- mergeExpertisePrompt() (pure function, max 3 expertises)
-  |     |-- LLM generation (with merged prompt + temperature)
-  |     |-- ExpertiseEnforcer (retry with temp decay, strict mode)
-  |     |-- enforceCapabilities() (5D drift detection)
-  |     |-- logLlmExecution() (prompt hash, latency, tokens)
-  |-- Tool execution (TOOL_CALL)
-  |     |-- sanitizeSearchQuery() → canonicalizeQuery()
-  |     |-- Circuit breaker (per-session, 5 failures / 30s reset)
-  |     |-- Auto-retry (retryable failures, max 1)
-  |-- LLM synthesis (synthesis.js)
-  |     |-- Quality pre-processing (relevance, trust, confidence)
-  |     |-- Prompt construction (language FIRST, intent contracts)
-  |     |-- Retry loop (MAX_RETRIES=1): link check → fluff → D6 → language → QGv2 score
-  |-- Quality Gate v2 (quality-gate-v2.js)
-  |     |-- Layer 1: Structural Fix (JSON leak, whitespace, CJK)
-  |     |-- Layer 2: Language Fix (SK→CZ transliterator ~160 rules + unconditional strip)
-  |     |-- Layer 3: Intent Guarantees (LinkGuard, FACTUAL numbers, REPORT length)
-  |     |-- Layer 4: Content Enforcement (zombie/sparse detection — flag only)
-  |
-  v
-Response (text + metadata + executionTraceId)
+                    ┌──────────────────┐
+                    │   C3 Studio IDE  │
+                    │  (Electron/Theia)│
+                    └────────┬─────────┘
+                             │ WebSocket + REST
+                             ▼
+┌─────────────────────────────────────────────────────────┐
+│                     C3 Backend                          │
+│                                                         │
+│  ┌──────────┐  ┌───────────┐  ┌──────────────────────┐ │
+│  │   CRE    │→ │ Handlers  │→ │     LLM Gateway      │ │
+│  │ Decision │  │(19 types) │  │ (Ollama, 7 rolí)     │ │
+│  └──────────┘  └───────────┘  └──────────────────────┘ │
+│                                                         │
+│  ┌──────────┐ ┌────────────┐ ┌───────────────────────┐ │
+│  │Expertises│ │ Specialists│ │   Lifecycle Engine     │ │
+│  │ (15 + N) │ │ (plugins)  │ │ (SPEC→BUILD→REVIEW)   │ │
+│  └──────────┘ └────────────┘ └───────────────────────┘ │
+│                                                         │
+│  ┌──────────┐ ┌────────────┐ ┌───────────────────────┐ │
+│  │  Skills  │ │   Agents   │ │  Execution Engine     │ │
+│  │(workflow)│ │  (workers) │ │ (patch+loop+strategy) │ │
+│  └──────────┘ └────────────┘ └───────────────────────┘ │
+│                                                         │
+│  ┌──────────┐ ┌────────────┐ ┌───────────────────────┐ │
+│  │  Code    │ │   Memory   │ │   Model Upgrade       │ │
+│  │  Intel   │ │(LTM+task+  │ │ (discovery+eval+      │ │
+│  │(33 mod.) │ │ cross-proj)│ │  validation)          │ │
+│  └──────────┘ └────────────┘ └───────────────────────┘ │
+│                                                         │
+│  ┌──────────┐ ┌────────────┐ ┌───────────────────────┐ │
+│  │ Quality  │ │   Tools    │ │    Notifications      │ │
+│  │ Gate v2  │ │(153,sandb.)│ │ (email,TG,ntfy,WH)   │ │
+│  └──────────┘ └────────────┘ └───────────────────────┘ │
+│                                                         │
+│  ┌──────────┐ ┌────────────┐                           │
+│  │Architect.│ │Marketplace │                           │
+│  │Governance│ │(remote pkg)│                           │
+│  └──────────┘ └────────────┘                           │
+│                                                         │
+│                SQLite (WAL, 80+ tabulek)                 │
+└─────────────────────────────────────────────────────────┘
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │      Ollama      │
+                    │  (lokální LLM)   │
+                    └──────────────────┘
 ```
 
 ### CRE Intent Routing
 
 | Intent | Handler | Popis |
 |--------|---------|-------|
-| LOCAL | Deterministic | Cas, datum, kalkulacka, konverze |
-| CONVERSATIONAL | LLM synthesis | Bezna konverzace |
-| SEARCH | WebSearch + synthesis | Fresh data dotazy |
-| DESIGN | Design pipeline | Strukturovane navrhy (SessionState lifecycle) |
-| CREATIVE | LLM synthesis | Pribehy, basne, kreativni obsah |
+| LOCAL | Deterministic | Čas, datum, kalkulačka, konverze |
+| CONVERSATIONAL | LLM syntéza | Běžná konverzace |
+| SEARCH | WebSearch + syntéza | Fresh data dotazy |
+| FACTUAL | Evidence-based | Fakta s podklady |
+| DESIGN | Design pipeline | Strukturované návrhy |
+| CREATIVE | LLM syntéza | Příběhy, básně, kreativní obsah |
 | BUILD | Planner pipeline | Stavba projektu |
-| CODE | LLM synthesis | Inline kod (bez projektu) |
+| CODE | LLM syntéza | Inline kód (bez projektu) |
+| PLAN | Build planning | Plánování milníků |
+| ANALYZE | Analysis handler | Analytické úlohy |
+| REPORT | Report handler | Strukturované reporty |
+| FILE_EXPLAIN | Attachment handler | Vysvětlení přiloženého souboru |
+| TOOL_CALL | Tool execution | Spuštění nástroje |
+| ANSWER | Direct answer | Přímá odpověď bez vyhledávání |
+| REFUSE | Refusal handler | Odmítnutí nevhodného obsahu |
+| ASK_USER | Clarification | Upřesnění od uživatele |
+| AMBIGUOUS | Fallback | Nejasný záměr → safe default |
+| AGENT_WIZARD | Wizard handler | Průvodce tvorbou agenta |
+| ATTACHMENT_EXPLAIN | Attachment | Pre-CRE deterministic override |
 
-### Quality Gate v2 Pipeline (deterministicky, bez LLM)
+### Quality Gate v2 Pipeline (deterministický, bez LLM)
 
 ```
-LLM Output
-  |
-  v
-Layer 1: Structural Fix
-  |-- JSON leak extraction (response = raw JSON → extract .content)
-  |-- Whitespace normalization (3+ newlines → 2)
-  |-- CJK character contamination strip
-  |
-  v
-Layer 2: Language Fix (only for lang=cs)
-  |-- 2a. detectSlovakContamination() → if >=2 markers:
-  |       mechanicalSlovakToCzech(text, aggressive=count>=3)
-  |       ~160 regex rules + 6 aggressive suffix patterns
-  |-- 2b. Unconditional SK strip (always runs):
-  |       Characters: l→l, o→u
-  |       Words: co→co, nie je→neni, mozno→mozna, nejaky→nejaky, ...
-  |-- 2c. Detect remaining EN/Cyrillic issues (flag only)
-  |
-  v
-Layer 3: Intent Guarantees
-  |-- LinkGuard: SEARCH + <2 links → inject sourceUrls deterministically
-  |-- FACTUAL: must contain >=1 number
-  |-- REPORT: must have >=200 chars content
-  |
-  v
-Layer 4: Content Enforcement (flag only)
-  |-- Zombie detection ("Jako jazykovy model...", "I apologize...")
-  |-- Sparse content (<20 chars)
-  |
-  v
-Score (0-100), Severity (NONE/LOW/MEDIUM/HIGH), Flags
+LLM Output → Layer 1: Structural Fix → Layer 2: Language Fix (SK→CZ)
+  → Layer 3: Intent Guarantees (LinkGuard, FACTUAL, REPORT)
+  → Layer 4: Content Enforcement → Score (0-100)
 ```
 
 ---
 
-## Klicove soubory
+## Klíčové soubory
 
 ### CRE Decision Engine
 ```
-src/chat/cre-decision.js          # ~2900 radku — klasifikace intentu, patterns, typo normalizace
+src/chat/cre-decision.js          # ~2,900+ ř. — klasifikace intentů, 10 guards
 src/chat/cre-decision-types.js    # CREDecision ADT, DecisionType, IntentType
-  # v64.0: overrideDecision(), logIntercept(), bindAuditDb()
-  # cre_override_log tabulka — audit trail vsech bypassu
-src/chat/cre-routing-patches.js   # CRE routing patches (SHELL negative lookahead etc.)
+src/chat/cre-routing-patches.js   # CRE routing patches
 ```
 
 ### Chat Pipeline
 ```
-src/chat/controller.js             # ChatController (~1870 radku) — vstupni bod pro chat
-src/chat/handlers/conversation.js  # ConversationHandler (~778 radku) — routing, lifecycle intercept, DESIGN session
-src/chat/handlers/clarification.js # Clarification resolution (v64.0 Gatekeeper)
-src/chat/handlers/expertise.js     # Expertise handler (~869 radku) — single + merge path, enforcement, trace
-src/chat/handlers/decisions.js     # Shared decision sub-handlers (~1329 radku) — enrichSearchQuery, followup
-src/chat/handlers/lifecycle-router.js   # Lifecycle router (~672 radku) — SPEC/BUILD/REVIEW message handling
-src/chat/handlers/lifecycle-state.js    # Lifecycle state (~166 radku) — RAM map, getLcStateByProject(), preload
-src/chat/handlers/build-handoff.js      # BUILD handoff (~553 radku)
-src/chat/handlers/agent-wizard.js       # Agent creation wizard (~671 radku) (B9)
-src/chat/handlers/design.js             # Design pipeline (~634 radku)
-src/chat/handlers/utils/synthesis.js    # LLM synteza (~1085 radku) + Output Gate (D6) + retry loop
-src/chat/handlers/utils/followup.js     # Follow-up detection (v64.0 Gatekeeper)
-src/chat/handlers/utils/quality.js      # Quality evaluators (~541 radku) — fluff, hedging, sections
-src/chat/handlers/utils/language-enforcement.js  # SK→CZ transliterator (~559 radku) ~160 rules, EN/Cyrillic detekce
-src/chat/handlers/utils/language.js     # detectLanguage() (~505 radku) — CZ/SK/EN/DE/PL disambiguace
-src/chat/handlers/utils/project-context-prompt.js # Project context injection (v65.4)
-src/chat/handlers/utils/response-sanitizer.js    # CJK strip, response cleanup
-src/chat/handlers/utils/output-gate.js  # D6 response validation
-src/chat/conversation-store.js     # Session persistence (~636 radku) (SQLite)
-src/chat/export-pipeline.js        # Chat export (DOCX, PDF)
+src/chat/controller.js             # ChatController — vstupní bod
+src/chat/handlers/conversation.js  # ConversationHandler — routing, lifecycle, scenarios
+src/chat/handlers/pre-handler.js   # Pre-handler intercepts (upgrade notification, approval)
+src/chat/handlers/expertise.js     # Expertise handler — single + merge, enforcement
+src/chat/handlers/decisions.js     # Decision sub-handlers
+src/chat/handlers/lifecycle-router.js  # Lifecycle router (SPEC/BUILD/REVIEW)
+src/chat/handlers/utils/synthesis.js   # LLM syntéza + Output Gate (D6)
+src/chat/handlers/utils/language-enforcement.js  # SK→CZ transliterátor (~160 pravidel)
+src/chat/conversation-store.js     # Session persistence (SQLite)
 ```
 
-### Quality Pipeline (v62.3+)
+### Quality Pipeline
 ```
-src/chat/quality/quality-gate-v2.js    # QGv2 — 4-layer deterministic pipeline
-src/chat/quality/quality-pipeline.js   # Orchestrator — wraps QGv2 with logging
-src/chat/quality/drift-guard.js        # Drift guard (language drift detection)
-src/chat/quality/confidence-scaling.js # Confidence calculation (source trust, relevance)
-src/chat/quality/relevance-filter.js   # Tool result relevance scoring
-src/chat/quality/source-trust.js       # Source trust weighting (official/media/community)
-src/chat/quality/creative-depth.js     # Creative depth scoring
-src/chat/quality/index.js              # Quality module exports
+src/chat/quality/quality-gate-v2.js    # QGv2 — 4-layer deterministický pipeline
+src/chat/quality/quality-pipeline.js   # Orchestrátor
+src/chat/quality/drift-guard.js        # Language drift detection
 ```
 
-### Expertise System (v63, v69 rename)
+### Expertise System
 ```
-src/expertises/expertise-layer.js        # 15 built-in expertises (~1838 radku), ExpertiseAgent, resolveInheritance()
-src/expertises/expertise-store.js        # Expertise config persistence + validation (~917 radku)
-src/expertises/expertise-enforcement.js  # ExpertiseEnforcer: forbidden phrases, retry, strict mode
-src/expertises/merge-engine.js           # mergeExpertisePrompt() — 15.5-step pure function (~573 radku)
-src/expertises/merge-types.js            # MERGE_LIMITS, MODULE_SECTIONS, CompatibilityBlockError
-src/expertises/merge-compatibility.js    # checkCompatibility() — 5D pairwise conflict detection
-src/expertises/capability-enforcer.js    # Post-response 5D capability drift validation
-src/expertises/capability-mapping.js     # Capability vector → prompt/temperature/enforcement modifiers
-```
-
-### Agent Platform (Phase B)
-```
-src/agents/runner.js               # Execution engine (~1339 radku)
-src/agents/scheduler.js            # Cron/interval scheduling
-src/agents/repository.js           # SQLite CRUD (~662 radku)
-src/agents/conditions.js           # Deterministic evaluator (~551 radku)
-src/agents/triggers.js             # Edge detection
-src/agents/multi-source.js         # Cross-source dedup, health tracking
-src/agents/worker-configs.js       # Weather, realty, news templates
-src/agents/schema.js               # Validation whitelist + normalizeAgentDefinition() (~619 radku)
-src/agents/api.js                  # Agent API handlers (~857 radku)
+src/expertises/expertise-layer.js        # 15 vestavěných expertýz, ExpertiseRegistry
+src/expertises/merge-engine.js           # mergeExpertisePrompt() — 15-step pure function
+src/expertises/merge-compatibility.js    # 5D pairwise kompatibilita
+src/expertises/capability-enforcer.js    # Post-response 5D drift detection
+src/expertises/specialist-runtime.js     # Tool-augmented expert framework
+src/expertises/knowledge-base.js         # Verzovaný fact store
+src/expertises/scenario-engine.js        # Multi-step guided workflows
 ```
 
-### LLM + Tools
+### Specialist System
 ```
-src/llm/gateway.js                # LLM Gateway (~535 radku) s auth tokeny
-src/llm/client.js                 # Ollama klient
-src/llm/cre-bridge.js             # CRE ↔ LLM bridge
-src/llm/web-search.js             # Web search tool (~930 radku) (multi-provider, sparse/zero recovery)
-src/llm/prompts.js                # System prompts
-src/executor/tool-executor.js     # Tool executor (~1500 radku) (circuit breaker, sanitize, retry)
-src/executor/c3-tool-executor.js  # C3 tool executor (~699 radku) (shell sandbox, file ops)
-src/executor/query-canonicalizer.js # Query canonicalization
-src/executor/shell-security.js     # Shell command security (path traversal, injection)
+src/specialists/specialist-loader.js     # Boot: scan → sort (Kahn) → load → register
+src/specialists/capability-registry.js   # N:M priority-based routing
+specialists/accountant-cz/               # Účetní (DPH, daně, pojistné, compliance)
+specialists/translator/                  # Překladatel (překlad, detekce jazyka)
+specialists/dummy-logger/                # Testovací utilita
 ```
 
-### Routes (HTTP API)
+### Code Intelligence
 ```
-src/routes/projects.js            # Project routes (~967 radku) — CRUD, lifecycle/start, lifecycle/bind
-src/routes/expertises.js          # Expertise routes (~788 radku) — CRUD, merge-preview, schema
-src/routes/chat.js                # Chat routes — /api/chat, /api/conversations, export
-src/routes/agents.js              # Agent routes — CRUD, dry-run, schema
-src/routes/planner.js             # Planner routes — /api/planner, /api/build
-src/routes/architect.js           # Architect routes — /api/architect
-src/routes/misc.js                # Misc routes — /api/health, /api/logs, /api/reset
-src/routes/specialists.js         # Specialist routes — CRUD, enable/disable, dependents
-src/routes/quality.js             # Quality routes — /api/quality/summary, /api/quality/project/:id
-```
-
-### Database
-```
-src/db/database.js                # SQLite schema (~1500 radku), 58 tabulek (vcetne FTS)
-src/db/migrate.js                 # Migration runner — runMigrations(), getCurrentVersion()
-src/db/telemetry-retention.js     # Startup pruning — pruneTelemetry(db, {maxAgeDays:30})
-src/db/migrations/                # 18 migracnich souboru (timestamp-based, v63 → v81)
-  # 001_baseline — core tables (projects, conversations, messages, agents, expertises...)
-  # 002-005 — v57-v64 (agent_seen_items, execution_trace, cre_override_log)
-  # 006-009 — v67-v69 (auto_compact, knowledge_base, ledger, expert_to_expertise rename)
-  # 010-012 — v70-v74 (period_locks, vat_engine, compliance, specialists)
-  # 013-015 — v78-v79 (archive_status, drop_old_expert_tables, specialist_memory)
-  # 016 — v80 quality_scores
-  # 017 — v81 telemetry_snapshots
+src/code-intel/code-search.js            # Multi-engine search (ripgrep → grep → Node.js)
+src/code-intel/symbol-index.js           # O(1) symbol lookup
+src/code-intel/knowledge-graph.js        # 9 edge typů, dependency graph
+src/code-intel/graph-retrieval.js        # BFS expansion, hub penalty, namespace boost
+src/code-intel/architecture-detector.js  # 18 frameworků, 10 vrstev, 8 vzorů
+src/code-intel/context-builder.js        # Smart truncation + token budget
+src/code-intel/context-engine.js         # Symbol-aware komprese (~70% úspora)
+src/code-intel/impact-analyzer.js        # BFS impact traversal + risk scoring
+src/code-intel/drift-detector.js         # Layer violations, circular deps
 ```
 
-### WebSocket Bridge
+### Execution Engine
 ```
-src/ws-bridge/ws-server.js        # WS server — attachWebSocketServer(), handshake, channel routing
-src/ws-bridge/session-adapter.js  # Session adapter — processChat(), handleControl(), handleTerminal()
-src/ws-bridge/protocol.js         # Protocol constants — PROTOCOL_VERSION, Channel, message builders
-src/ws-bridge/file-watcher.js     # File watcher — watchProject(), unwatchProject()
-src/ws-bridge/index.js            # Public API exports
+src/patch/parser.js                      # Patch ADT: file, regions, anchors
+src/patch/validator.js                   # Structural + semantic validace
+src/patch/applier.js                     # Bottom-up splice, atomic write
+src/patch/engine.js                      # applyPatchSet s full rollback
+src/patch/scope-limiter.js               # Pre-apply scope validace (KG-based)
+src/planner/execution-loop.js            # Iterativní fix cyklus (max 8 iterací)
+src/planner/error-normalizer.js          # 14 error kódů, root cause analýza
+src/planner/fix-strategy.js              # DETERMINISTIC / HEURISTIC / LLM_FULL / SKIP
+src/planner/self-critique.js             # LLM root-cause + patch plan + KG validace
+```
+
+### Prompt Pipeline
+```
+src/context/prompt-builder.js            # 12 sekcí, priority-weighted, adaptive budgets
+src/context/import-map.js                # KG-based import resolution hints
+src/context/context-delta.js             # Incremental context diffing
+```
+
+### Model Upgrade
+```
+src/upgrade/model-profiles.js            # Capabilities + family definice
+src/upgrade/model-discovery.js           # L1 local + L2 catalog + L3 hints + L4 online
+src/upgrade/model-catalog.js             # 55 curovaných modelů s benchmarky
+src/upgrade/model-ranker.js              # Pairwise evaluation, per-role scoring
+src/upgrade/upgrade-manager.js           # Full pipeline: discover → rank → propose → apply
+src/upgrade/empirical-scorer.js          # Real execution metrik → blended scoring
+src/upgrade/metrics-collector.js         # Batch event collection, outlier filtering
+src/upgrade/validation-suites.js         # 5 testovacích sad pro model validaci
+src/upgrade/proposal-store.js            # DB-backed proposals, cooldown, anti-thrashing
+src/upgrade/preference-tracker.js        # Implicit preferences z user akcí
+src/upgrade/online-discovery.js          # L4: HTML parsing, provisional entries
+src/upgrade/benchmark-estimator.js       # Log-space interpolace, VRAM odhad
+```
+
+### Marketplace
+```
+src/marketplace/marketplace-client.js    # Catalog fetch, cache, download, hash, archive validace
+src/marketplace/package-installer.js     # Transactional install, rollback, mutex, dependency resolver
+```
+
+### Memory System
+```
+src/memory/long-term.js                  # LTM persistence, decay, reinforcement
+src/memory/task-memory.js                # Cross-milestone learning
+src/memory/cross-project-learner.js      # Cross-project pattern sharing
+src/memory/injection-ranker.js           # Score = effConf × relevance
+src/memory/feedback-detector.js          # 6 signal typů
+src/memory/pattern-tracker.js            # Cross-conversation learning
+```
+
+### Skills
+```
+src/skills/registry.js                   # Skill registry (JSON definice)
+src/skills/resolver.js                   # LLM intent match
+src/skills/runner.js                     # State machine executor
+src/skills/steps/                        # 9 step executorů (llm, template, write, shell, ask, review, validate, substitute, transform)
+```
+
+### Architecture Governance
+```
+src/planner/architecture-guardian.js     # PRE/POST milestone drift audit
+src/planner/api-contract-registry.js     # Export tracking, breaking changes
+src/planner/critic-agent.js              # 6 failure typů, targeted repair
+src/architect/architecture-policy.js     # Unified policy (.c3 > ACF > auto)
+src/architect/regression-predictor.js    # Composite risk formula
+src/architect/multi-agent.js             # 5-role pipeline (planner→builder→architect→critic→debugger)
+```
+
+### Databáze
+```
+src/db/database.js                # SQLite schema, 80+ tabulek
+src/db/migrate.js                 # Migration runner
+src/db/migrations/                # 37 migrací (timestamp-based, v63 → v124)
 ```
 
 ### Server
 ```
-src/server.js                     # Express HTTP server (~855 radku), port 3335
-  # Route mounting, middleware, CORS, static files
-  # Feature flag gated lazy imports (agents, lifecycle, expertises)
-  # Scheduler init, preload active sessions + lifecycles
-src/config.js                     # Konfigurace (~142 radku) — server, ollama, modely, feature flags
+src/server.js                     # HTTP server (~1,242 ř.), port 3335
+src/config.js                     # Konfigurace (~199 ř.) — modely, feature flags, timeouty
 ```
 
-### IDE (C3 Studio)
+### IDE
 ```
-c3-ide/                           # C3 Studio IDE — Theia 1.65.2
-c3-ide/extensions/c3-chat-panel/  # Chat panel + WS client + transport layer
+c3-ide/extensions/c3-chat-panel/  # Chat panel + WS client (4,000+ ř.)
 c3-ide/extensions/c3-center-views/ # Center views + Expertise Wizard
 c3-ide/extensions/c3-detail-panel/ # Detail panel s capability bars
-c3-ide/docs/C3-STUDIO-IDE.md     # IDE dokumentace
-c3-ide/docs/C3-STUDIO-ROADMAP.md # 5-phase integration roadmap
-```
-
-### Testy
-```
-# Deterministicke unit testy (bez Ollama) — 87+ souboru, ~2100+ testu
-tests/cre-comprehensive.test.js      # 401 — CRE klasifikace
-tests/quality-sprint-q.test.js       # 125 — Quality pipeline
-tests/v583-tier1.test.js             # 94 — CRE regression
-tests/fixes-v582.test.js             # 92 — Bug fix regression
-tests/lifecycle-handoff.test.js      # 83 — Lifecycle handoff
-tests/lifecycle-db.test.js           # 71 — Lifecycle DB
-tests/chat-fixes.test.js             # 58 — Chat fixes
-tests/chat-pipeline.test.js          # 52 — Chat pipeline
-tests/chat-output-quality.test.js    # 45 — Output quality
-tests/cre-gatekeeper.test.js         # 43 — CRE Gatekeeper audit trail
-tests/lifecycle.test.js              # 103 — Lifecycle unit
-tests/e2e-resilience.test.js         # 31 — Tool timeout, partial failure, circuit breaker, cancel
-tests/telemetry.test.js              # 31 — TurnTelemetry (snapshot, finalize, safety)
-tests/telemetry-soak.test.js         # 13 — 1000-turn soak test (timing, distribution, outliers)
-tests/quality-score.test.js          # 36 — Deterministicky quality scoring
-tests/quality-telemetry.test.js      # 34 — Quality DB logging + queries
-tests/quality-report.test.js         # Quality report generation
-tests/modules.test.js                # 23 — Module imports
-
-# E2E testy (vyzaduji Ollama + GPU)
-tests/e2e-quality-deep.cjs          # 36 testu — LLM quality across S/R/F/T categories
-tests/chat-quality.test.js          # 33 testu — Konverzacni kvalita
-tests/conv-czech.test.js            # CZ konverzace
-tests/conv-english.test.js          # EN konverzace
 ```
 
 ---
 
-## Spusteni
+## Spuštění
 
 ### Backend
 ```bash
 cd ~/Projects/c3-agent-wip
-# DULEZITE: Pouzij Node.js 22+ (nvm)
 export PATH="$HOME/.nvm/versions/node/v22.21.1/bin:$PATH"
-node src/server.js
+node src/server.js            # Produkční
+node --watch src/server.js    # Vývojový (auto-restart)
 # Server na http://127.0.0.1:3335
-# Chat UI: http://127.0.0.1:3335/architect
-# WS: ws://127.0.0.1:3335/c3/ws
 ```
 
 ### Prerekvizity
-- Node.js 22+ (system node 18 NESTACI — potreba nvm)
-- Ollama s modelem qwen3.5:27b (http://127.0.0.1:11434)
+- Node.js 22+ (systémový node 18 NESTAČÍ — potřeba nvm)
+- Ollama s modely qwen3.5:27b + deepseek-r1:32b
 - SQLite (better-sqlite3)
 
 ### Testy
 ```bash
-# Vsechny deterministicke (~2100+ testu)
-npm test                              # Core suites
-npm run test:all                      # Full suite
+# Všechny deterministické (~3,500+ testů)
+npm test
 
-# Resilience + Telemetry (75 testu)
-node tests/e2e-resilience.test.js     # 31 — circuit breaker, retry, cancel
-node tests/telemetry.test.js          # 31 — TurnTelemetry unit
-C3_LOG_LEVEL=error node tests/telemetry-soak.test.js  # 13 — 1000-turn soak
+# Konkrétní subsystémy
+node tests/cre-comprehensive.test.js     # 401 — CRE
+node tests/code-intel-v95.test.js        # 276 — Code Intelligence
+node tests/execution-loop.test.js        # 56  — Execution Loop
+node tests/upgrade-phase2.test.js        # 88  — Model Upgrade
+node tests/specialist-system.test.js     # 115 — Specialist System
+node tests/marketplace.test.js           # 44  — Marketplace
 
-# Quality Score (70 testu)
-node tests/quality-score.test.js      # 36
-node tests/quality-telemetry.test.js  # 34
-
-# E2E (vyzaduje Ollama + GPU)
-node tests/e2e-quality-deep.cjs      # ~32-35/36 (89-97%), LLM-dependent
-node tests/chat-quality.test.js      # ~32/33
+# E2E (vyžaduje Ollama + GPU)
+node tests/lifecycle-klicenka-e2e.test.js
+node tests/project-conversation-e2e.test.js  # 56 — 4 typy projektů
 ```
 
 ---
 
-## API Endpoints
+## API Endpoints — přehled
 
-### Chat
-| Method | Path | Popis |
-|--------|------|-------|
-| POST | /api/chat | Hlavni chat endpoint |
-| GET | /api/conversations | Seznam konverzaci |
-| GET | /api/conversations/:id | Detail konverzace |
-| DELETE | /api/conversations/:id | Smazat konverzaci |
-| POST | /api/conversations/:id/export | Export (DOCX/PDF) |
-| GET | /api/context | Kontextove info pro IDE |
+> Kompletní reference: [docs/API-REFERENCE.md](docs/API-REFERENCE.md)
 
-### Projects
-| Method | Path | Popis |
-|--------|------|-------|
-| GET | /api/projects | Seznam projektu |
-| POST | /api/projects | Vytvorit projekt |
-| GET | /api/projects/:id | Detail projektu |
-| PUT | /api/projects/:id | Update projektu |
-| DELETE | /api/projects/:id | Smazat projekt |
-| POST | /api/projects/open-folder | Registrovat existujici slozku |
-| POST | /api/projects/lifecycle/start | Spustit lifecycle (SPEC faze) |
-| POST | /api/projects/lifecycle/bind | Navazat konverzaci na projekt |
-
-### Agents
-| Method | Path | Popis |
-|--------|------|-------|
-| GET | /api/agents | Seznam agentu |
-| POST | /api/agents | Vytvorit agenta |
-| GET | /api/agents/:id | Detail agenta |
-| PUT | /api/agents/:id | Update agenta |
-| DELETE | /api/agents/:id | Smazat agenta |
-| POST | /api/agents/dry-run | Dry-run (validace + normalizace) |
-| GET | /api/agents/schema | Agent schema (types, presets) |
-| POST | /api/agents/:id/run | Manualni spusteni |
-
-### Expertises (v69 rename)
-| Method | Path | Popis |
-|--------|------|-------|
-| GET | /api/expertises | Seznam expertyz |
-| POST | /api/expertises | Vytvorit expertyzu |
-| GET | /api/expertises/:id | Detail expertyzy |
-| PUT | /api/expertises/:id | Update expertyzy |
-| DELETE | /api/expertises/:id | Smazat expertyzu |
-| POST | /api/merge-preview | Preview merge dvou expertyz |
-| GET | /api/expertise-schema | Expertise schema (capabilities, modules) |
-| POST | /api/expertise-wizard/test-prompt | Test LLM s expertise promptem |
-
-### Trust & Notifications
-| Method | Path | Popis |
-|--------|------|-------|
-| POST | /api/notifications/:id/feedback | Feedback (useful/not_useful) |
-| GET | /api/trust/metrics | Trust metriky vsech agentu |
-| GET | /api/trust/metrics/:agentId | Trust metriky jednoho agenta |
-| POST | /api/trust/:agentId/unmute | Unmute agenta |
-| POST | /api/trust/:agentId/reset | Reset feedback (dev) |
-
-### Planner & Build
-| Method | Path | Popis |
-|--------|------|-------|
-| POST | /api/planner/analyze | Analyza projektu |
-| POST | /api/build/start | Spustit build |
-| GET | /api/build/status | Status buildu |
-
-### Setup Wizard (v65.7)
-| Method | Path | Popis |
-|--------|------|-------|
-| GET | /api/setup/status | Stav setup wizardu |
-| POST | /api/setup/ollama | Nastavit + overit Ollama URL |
-| POST | /api/setup/language | Nastavit jazyk (cs/en) |
-| POST | /api/setup/notifications | Nastavit notifikacni kanal |
-| POST | /api/setup/license | Nastavit licencni klic |
-| POST | /api/setup/complete | Dokoncit setup |
-
-### License (v65.7)
-| Method | Path | Popis |
-|--------|------|-------|
-| GET | /api/license/status | Tier, features, expiry, owner |
-
-### Misc
-| Method | Path | Popis |
-|--------|------|-------|
-| GET | / | Health check + version + setupComplete |
-| GET | /api/health | Health check |
-| GET | /api/logs | Aplikacni logy |
-| GET | /api/logs/export | Export logu |
-| POST | /api/reset | Reset nastaveni |
-| POST | /api/autocomplete | Autocomplete pro IDE |
-
-### WebSocket
-| Path | Popis |
-|------|-------|
-| ws://host:3335/c3/ws | IDE WS bridge — channels: chat, control, terminal, workspace |
+| Prefix | Modul | Popis |
+|--------|-------|-------|
+| `/api/chat` | Chat | Konverzace, zprávy, sessions, specialist |
+| `/api/conversations` | Conversations | CRUD, export, archiv, drafty |
+| `/api/projects` | Projects | CRUD, lifecycle start/bind |
+| `/api/expertises` | Expertises | CRUD, merge preview, schema, wizard |
+| `/api/agents` | Agents | CRUD, dry-run, scheduling, builder |
+| `/api/skills` | Skills | CRUD, reload, execution, resume |
+| `/api/specialists` | Specialists | Enable/disable, discovery, telemetry |
+| `/api/marketplace` | Marketplace | Catalog, install, uninstall, update |
+| `/api/notifications` | Notifications | Kanály, test, config, log |
+| `/api/system` | System | Health, GPU, modely, storage, validation |
+| `/api/quality` | Quality | Summary, distribution, report, volatility |
+| `/api/autonomy` | Autonomy | Status, approve, reject, alerts |
+| `/api/security` | Security | Audit, tokeny (vyžaduje X-Admin-Token) |
+| `/api/settings` | Settings | Uživatelská nastavení, feature flags |
+| `/api/setup` | Setup | Setup wizard (first-run) |
+| `/planner/*` | Planner | Sessions, progress, approve/reject |
+| `ws://...` | WebSocket | IDE WS bridge — chat, control, terminal |
 
 ---
 
-## Klicove kontrakty
+## Klíčové kontrakty
 
-### 1. CRE je jedina autorita
-Vsechny chat zpravy prochazi CRE klasifikaci. Zadny bypass.
+### 1. CRE je jediná autorita
+Všechny chat zprávy procházejí CRE klasifikací. Žádný bypass — `overrideDecision()` pro audit trail, `logIntercept()` pro pre-CRE routes.
 
-### 2. mergeExpertisePrompt() je cista funkce
-15.5-krokovy algoritmus, frozen vystupy, zadne side effects. TraceId se pridava az v handleru pri persistenci.
+### 2. mergeExpertisePrompt() je čistá funkce
+15-krokový algoritmus, frozen výstupy, žádné side effects.
 
 ### 3. ExpertiseEnforcer retry kontrakt
-- Max 2 retries s temperature decay (0.1/attempt) a top_p decay (0.05/attempt)
-- Strict mode: `hardFail=true` → response = null po vycerpani retries
-- Retry audit trail s executionTraceId a executionStep
+Max 2 retries s temperature decay (-0.1/pokus), top_p decay (-0.05/pokus). Strict mode: `hardFail=true`.
 
 ### 4. 5D Capability Vector
-Kazda expertyza ma profil: `{reasoning, creativity, determinism, riskTolerance, verbosity}` (0-100).
-Merge engine pouziva weighted average pro capability modifiers.
+`{reasoning, creativity, determinism, riskTolerance, verbosity}` (0-100). Merge engine: weighted average.
 
-### 5. ExecutionTrace kontrakt (v63.3)
-- Jeden UUID per user turn — NEMENI se pri retry
-- Propojuje: llm_execution_log → retryAudit → capability_drift_log → merge_audit_log
-- Prompt SHA-256 hash pro determinism analyzu
-- traceId v ResponseTag metadata jen za `context.debug` flag
+### 5. QGv2 — deterministický, idempotentní, 4 vrstvy
+Žádné LLM volání, žádný retry, žádné nové věty.
 
-### 6. QGv2 kontrakt (v62.3+)
-- **Deterministicky** — zadne LLM volani, zadny retry, zadne nove vety
-- **Idempotentni** — bezpecne spustit vicekrat
-- **4 vrstvy:** structural → language → intent → content
-- **Scoring:** 0-100 (output = issues only, raw = issues + fix penalties)
-- **Unconditional SK strip:** l, o a kriticka SK slova se stripuji VZDY pro lang=cs
+### 6. Patch Engine — 3-tier anchor, atomic write
+Exact → normalized → AST anchor resolution. Bottom-up splice. Atomic tmp+rename. Full rollback on failure.
 
-### 7. Output Gate (D6)
-Kazda LLM odpoved projde quality gatem: fluff check, hedging check, language leak check.
+### 7. Execution Loop — max 8 iterací
+Strategy selection (DETERMINISTIC → HEURISTIC → LLM_FULL → SKIP). Self-critique od iterace ≥ 2. Scope limiter: target + 1-hop KG deps.
 
-### 8. ESM projekt
-`package.json` ma `"type": "module"`. IDE soubory jsou .cjs (CommonJS v Theia kontextu).
+### 8. Model Upgrade — nikdy auto-upgrade
+Discovery nikdy nemění config. Komunikace jen přes proposals v DB. Chat-based approval.
 
-### 9. CRE Gatekeeper (v64.0)
-Zadne rozhodnuti nevznika mimo `CRE.decide()` nebo `CRE.overrideDecision()`.
-Vsechny bypass pointy (35) routuji pres `overrideDecision()` (audit trail) nebo `logIntercept()` (pre-CRE stateful routes).
-Kazdy override logovan do `cre_override_log` tabulky.
+### 9. Specialist self-contained
+Žádný `import ../../src/` z plugin balíčků. Vše přes `ctx.registries`. Fail-safe unregister (try/catch per step).
 
-### 10. Lifecycle Session Routing (v65.6)
-- `lifecycle/start` generuje korektni `lcId = lc-<timestamp>-<random>` (ne NULL)
-- `getLcStateByProject(projectId)` RAM lookup pri sessionId mismatch
-- State migrace z puvodniho sessionId na novy WS sessionId
-
-### 11. Product Modules (v65.7)
-- **Setup Wizard**: `SetupWizard` class v `src/setup/wizard.js`, first-run detection pres `isComplete()`, API routes pres `createSetupRoutes(wizard, deps)`
-- **Auto-updater**: `startUpdateChecker(callback)` v `src/packaging/auto-updater.js`, aktivni jen pri `C3_UPDATE_REPO` env var, `stopUpdateChecker()` v shutdown
-- **License**: `licenseManager` singleton v `src/licensing/license.js`, 3 tiers (FREE/PRO/ENTERPRISE), HW fingerprint, HMAC signing, FREE tier gatuje agent/worker routes (403)
+### 10. ESM projekt
+`package.json` má `"type": "module"`. IDE soubory jsou .cjs (CommonJS v Theia kontextu). Node.js 22+.
 
 ---
 
-## Zname problemy a omezeni
+## Známé problémy a omezení
 
 ### LLM Variance (qwen3.5:27b)
-- T1 ("mobilni app"): LLM obcas nevraci dostatecnou hloubku (~depth < 5)
-- T7 ("motorky"): Podobny problem s depth u porovnani
-- T12 ("React/Vue/Angular"): LLM obcas odpovi v EN misto CZ
-- S1: Zavisle na search API dostupnosti — kdyz search tool nevrati vysledky, LinkGuard nemuze injektovat URL
+- Občasné EN místo CZ odpovědi (sdílený corpus)
+- Depth issues u některých technických témat
+- Řešeno 3 vrstvami: system prompt → synthesis retry → QGv2 transliterátor
 
 ### SK Kontaminace
-- qwen3.5:27b ma tendency generovat slovensky misto cesky (sdileny corpus)
-- Reseno v 3 vrstvach: system prompt instruction, synthesis retry, QGv2 mechanical transliterator
-- Unconditional strip l/o + kritickych SK slov pridan pro edge cases pod detection threshold
+- qwen3.5:27b generuje slovensky místo česky
+- 3-vrstvá oprava: system prompt, synthesis retry, QGv2 mechanical transliterátor
+- Unconditional strip l/o + kritických SK slov pro edge cases pod threshold
 
-### Language Detection
-- `detectLanguage()` v language.js muze misklasifikovat CZ dotazy bez r/e/u jako SK
-- Fixnuto pridanim CZ-unique words (jak, co, podle, proc, zda) do CZ patterns
-- "si" presunuto z SK-only do shared CZ/SK
+### `\b` word boundary
+- Nefunguje s non-ASCII znaky (č, ř, ž, ...)
+- Workaround: `(?:\s|$|[?!.,;])` místo `\b` v CRE regexech
 
 ### better-sqlite3 segfaults
-- Pri vysoke zatezi (paralelni LLM testy) muze native modul spadnout
+- Při vysoké zátěži (paralelní LLM testy) může native modul spadnout
 - Fix: `npm rebuild better-sqlite3`
 
 ---
 
-## Poznamky pro pokracovani
+## Poznámky pro pokračování
 
-1. **Nejdriv testy** — pred jakoukoli zmenou spust existujici testy
+1. **Nejdřív testy** — před jakoukoli změnou spusť existující testy
 2. **ESM** — `import/export`, IDE soubory `.cjs` (CommonJS)
-3. **Ceska diakritika** — `\b` nefunguje s non-ASCII; pouzij `(?:\s|$|[?!.,;])` misto `\b`
-4. **Ollama model** — `qwen3.5:27b` je vychozi model pro vsechny LLM volani
-5. **Merge engine nedotykej** — `merge-engine.js` je cista funkce, zmeny jen v handleru
-6. **Node.js 22+** — system node 18 nestaci, pouzij nvm: `export PATH="$HOME/.nvm/versions/node/v22.21.1/bin:$PATH"`
-7. **E2E testy** — `e2e-quality-deep.cjs` je LLM-dependent, ocekavej 89-97% pass rate (ne 100%)
-8. **package.json verze** — `"version": "78.0.0"` v package.json (hlavni cislování sleduje ROADMAP)
+3. **Node.js 22+** — `export PATH="$HOME/.nvm/versions/node/v22.21.1/bin:$PATH"`
+4. **Česká diakritika** — `\b` nefunguje; použij `(?:\s|$|[?!.,;])`
+5. **Merge engine nedotýkej** — `merge-engine.js` je čistá funkce, změny jen v handleru
+6. **`127.0.0.1` ne `localhost`** — v test fetch callech (Node.js resolvuje localhost na IPv6 `::1`)
+7. **KG API** — `addEdge(type, from, to)` NE `(from, to, type)`. `getEdges(nodeId, edgeType)`, `getDependencies(fileId)`
+8. **inversify `decorate()` vrací void** — NIKDY nepřiřazuj class z výsledku decorate()
+9. **FE webpack rebuild** — úpravy `chat-panel-module.js` vyžadují: `cd c3-ide/applications/electron && npx webpack --config gen-webpack.config.js --mode development`
+10. **NIKDY `tsc -b`** na c3-chat-panel — TS source (23 řádků) by přepsal hand-written JS (4000+ řádků)
+11. **Backend auto-restart** — `node --watch src/server.js` (Node 22)
+12. **E2E testy** — LLM-dependent, očekávej 89-97% pass rate (ne 100%)
 
 ---
 
-*Posledni aktualizace: v81.0.0 (2026-02-25)*
+*Poslední aktualizace: v124.0.0 (2026-03-12)*
