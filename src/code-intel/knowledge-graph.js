@@ -72,6 +72,11 @@ export class KnowledgeGraph {
 
   addNode(id, type, metadata = {}) {
     if (this._nodes.has(id)) return;
+    // v124: Memory ceiling — prevent unbounded growth
+    if (this._nodes.size >= 50_000) {
+      logger.warn('KG', 'Node limit reached (50K)');
+      return;
+    }
     this._nodes.set(id, { id, type, name: metadata.name || id, ...metadata });
     if (!this._adjacency.has(id)) this._adjacency.set(id, []);
     if (!this._reverse.has(id)) this._reverse.set(id, []);
@@ -95,6 +100,11 @@ export class KnowledgeGraph {
 
   addEdge(type, from, to, metadata = {}) {
     if (!this._nodes.has(from) || !this._nodes.has(to)) return null;
+    // v124: Memory ceiling — prevent unbounded edge growth
+    if (this._edges.size >= 100_000) {
+      logger.warn('KG', 'Edge limit reached (100K)');
+      return null;
+    }
     const id = ++this._edgeCounter;
     const edge = { id, type, from, to, ...metadata };
     this._edges.set(id, edge);

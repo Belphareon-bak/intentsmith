@@ -211,6 +211,10 @@ export function buildStructuredPrompt(opts) {
     const effectiveBudget = Math.min(sectionBudget, remaining);
 
     if (effectiveBudget <= 0) {
+      // v124: Warn when high-priority sections are dropped
+      if (def.priority >= 70) {
+        logger.warn('PromptBuilder', `High-priority section "${def.name}" (priority=${def.priority}) dropped — budget exhausted`);
+      }
       sectionMeta.push({
         name: def.name,
         tokens: 0,
