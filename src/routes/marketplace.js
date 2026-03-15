@@ -220,8 +220,8 @@ export function createMarketplaceRoutes(deps) {
           await fs.mkdir(tmpDir, { recursive: true });
           const archivePath = path.join(tmpDir, `${id}.tar.gz`);
 
-          const { execSync } = await import('child_process');
-          execSync(`tar czf "${archivePath}" -C "${specDir}" "${id}"`, { timeout: 30000 });
+          const { execFileSync } = await import('child_process');
+          execFileSync('tar', ['czf', archivePath, '-C', specDir, id], { timeout: 30000 });
 
           // Compute hash
           const archiveData = await fs.readFile(archivePath);

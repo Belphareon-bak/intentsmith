@@ -101,8 +101,8 @@ All decisions flow through CRE — LLM is the text generator, never the authorit
 
 ```
 src/                              # 126,566 lines / 349 files / 29 directories
-├── server.js                     # Express HTTP server (port 3335)
-├── config.js                     # Feature flags, model bindings, timeouts
+├── server.js                     # HTTP server (dynamic port, port file ~/.c3/port)
+├── config.js                     # Feature flags, model bindings, timeouts, port config
 ├── routes/                       # 14 files — HTTP route handlers
 │   ├── agents.js                 #   Agent CRUD + schema + dry-run
 │   ├── projects.js               #   Projects + lifecycle/start

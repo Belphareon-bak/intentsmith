@@ -430,10 +430,22 @@ export class UpgradeManager {
       // Validate role
       if (!MODEL_PROFILES[role]) throw new Error(`Invalid role: ${role}`);
 
-      // Verify model is installed (15s timeout — Ollama may be busy with model swap)
+      // v125: Check if installed — auto-pull if onPullProgress callback provided
       const installed = await fetchInstalledModels({ timeout: 15000 });
-      if (!installed.some(m => _normalizeModelName(m.name) === _normalizeModelName(targetModel))) {
-        throw new Error(`Model not installed in Ollama: ${targetModel}`);
+      const isInstalled = installed.some(m => _normalizeModelName(m.name) === _normalizeModelName(targetModel));
+
+      if (!isInstalled) {
+        if (!opts.onPullProgress) {
+          throw new Error(`Model not installed in Ollama: ${targetModel}`);
+        }
+        opts.onPullProgress({ status: 'pulling', text: `Stahuji ${targetModel}...`, percent: 0 });
+        await this.pullModel(targetModel, opts.onPullProgress);
+        opts.onPullProgress({ status: 'pulled', text: `${targetModel} stažen`, percent: 100 });
+        // Verify model appeared after pull
+        const recheck = await fetchInstalledModels({ timeout: 10000 });
+        if (!recheck.some(m => _normalizeModelName(m.name) === _normalizeModelName(targetModel))) {
+          throw new Error(`Pull completed but model not found: ${targetModel}`);
+        }
       }
 
       // Check not already set (normalize to handle :latest variants)
@@ -445,17 +457,8 @@ export class UpgradeManager {
       // Hot-swap
       config.models[role] = targetModel;
 
-      // Verify
-      let verified = false;
-      if (!opts.skipVerify) {
-        verified = await this._verifyModel(targetModel);
-        if (!verified) {
-          config.models[role] = previousModel;
-          throw new Error(`Verification failed: ${targetModel} did not respond`);
-        }
-      } else {
-        verified = true;
-      }
+      // v125: Verify is always deferred to background (caller invokes _backgroundVerify)
+      const verified = true;
 
       // Persist
       const appliedBy = opts.appliedBy || 'user';
@@ -563,6 +566,49 @@ export class UpgradeManager {
     } catch (err) {
       logger.warn('UpgradeManager', `Verify failed for ${modelName}: ${err.message}`);
       return false;
+    }
+  }
+
+  /**
+   * v125: Background verify with retry — runs AFTER apply returns.
+   * 3 attempts × 30s delay. On success → mark verified=1. On failure → mark verified=0 + notify.
+   * NEVER auto-rollbacks — user must decide.
+   *
+   * @param {string} role
+   * @param {string} targetModel
+   * @param {string} previousModel
+   * @param {Function} [onFail] - callback(role, model) on all attempts failed
+   * @returns {Promise<boolean>}
+   */
+  async _backgroundVerify(role, targetModel, previousModel, onFail) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const ok = await this._verifyModel(targetModel);
+      if (ok) {
+        this._markVerified(role, true);
+        logger.info('UpgradeManager', `BG verify OK: ${targetModel} (attempt ${attempt})`);
+        return true;
+      }
+      if (attempt < 3) {
+        logger.info('UpgradeManager', `BG verify attempt ${attempt} failed for ${targetModel}, retrying in 30s`);
+        await new Promise(r => setTimeout(r, 30_000));
+      }
+    }
+    // All 3 failed — warn but DON'T auto-rollback
+    this._markVerified(role, false);
+    logger.warn('UpgradeManager', `BG verify FAILED for ${targetModel} after 3 attempts`);
+    if (onFail) onFail(role, targetModel);
+    return false;
+  }
+
+  /**
+   * v125: Update verified flag in DB.
+   */
+  _markVerified(role, verified) {
+    if (!this._db) return;
+    try {
+      this._db.prepare('UPDATE model_overrides SET verified = ? WHERE role = ?').run(verified ? 1 : 0, role);
+    } catch (err) {
+      logger.warn('UpgradeManager', `markVerified failed: ${err.message}`);
     }
   }
 

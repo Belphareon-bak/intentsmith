@@ -22,6 +22,7 @@ import {
 import { handleFileDecision, handleFileWriteDecision } from './file.js';
 import { handleLocalDecision } from './local.js';
 import { handleShellDecision } from './conversation.js';
+import { handleDesignDecision } from './design.js';
 import { config } from '../../config.js';
 import { readdirSync } from 'fs';
 import { extname } from 'path';
@@ -455,6 +456,15 @@ export async function projectHandler(input, context) {
         return handleAskUserDecision(input, decision, context);
 
       case DecisionType.ANSWER:
+        // v123.3: DESIGN gets specialized handler (structured synthesis)
+        if (decision.intent === IntentType.DESIGN) {
+          return await handleDesignDecision(input, decision, {
+            ...context,
+            hasActiveProject: true,
+            project: project,
+            projectPath: project.path,
+          });
+        }
         // In project mode, even CONVERSATIONAL gets project context
         return await handleAnswerDecision(input, decision, context);
 

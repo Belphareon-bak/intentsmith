@@ -3,10 +3,10 @@
 > Comprehensive plan for strengthening C3's autonomous code generation capabilities.
 > Based on gap analysis of existing infrastructure vs. Claude Code/Opus CLI agent capabilities.
 > Synthesized from architecture review (4 rounds) + second-opinion roadmap comparison.
-> Written 2026-03-04, updated 2026-03-11.
+> Written 2026-03-04, updated 2026-03-12.
 >
 > **Status: ALL FEATURES IMPLEMENTED** — F1-F8 (355 tests), FΔ+F9-F14 (242 tests), total 597 tests.
-> **Post-F-series:** v119 Prompt Pipeline (83t), v120 Empirical Eval (162t), v121 Specialist Refactor (333t), v122 create-specialist Skill (48t).
+> **Post-F-series:** v119 Prompt Pipeline (83t), v120 Empirical Eval (162t), v121 Specialist Refactor (333t), v122 create-specialist Skill (48t), v123 Validation Suites (73t), v124 Marketplace (44t).
 
 ---
 
@@ -940,7 +940,7 @@ After v116 (F14), the full F-series roadmap is **complete** — 597 tests, 0 reg
 
 ---
 
-## Post-F-Series: v118–v122
+## Post-F-Series: v118–v124
 
 | Version | Content | Tests | Date |
 |---------|---------|-------|------|
@@ -950,8 +950,12 @@ After v116 (F14), the full F-series roadmap is **complete** — 597 tests, 0 reg
 | v121 | Self-Contained Specialist System (ctx.registries, CapabilityRegistry, manifest v2, deterministic boot) | 333 | 2026-03-11 |
 | v121.1 | L4 Online Model Discovery (benchmark-estimator, online-discovery, family normalization) | 64 | 2026-03-11 |
 | v122 | create-specialist Skill (transform step, meta-skill detection, loader auto-reload) | 48 | 2026-03-11 |
+| v123 | Validation Suites (5 role-specific test suites, deterministic grading, model ranker integration) | 73 | 2026-03-12 |
+| v124 | Marketplace (remote catalog, transactional install, SHA-256, dependency resolution, FE navigation) | 44 | 2026-03-12 |
 
 Key milestones:
 - **v120**: C3 can now **empirically evaluate model quality** from its own build/patch telemetry, blending Phase 2 catalog scores with real-world performance.
 - **v121**: Specialist packages are **fully self-contained** — no hardcoded domain knowledge in core. New specialists can register tools, expertise, boost patterns, scenarios, capabilities, and tool types via `ctx.registries`.
 - **v122**: Users can **create new specialists from chat** via the `create-specialist` meta-skill. The transform step type enables deterministic JSON post-processing.
+- **v123**: C3 can **objectively validate model capabilities** via 5 deterministic test suites (reasoning, code, chat, vision, review) — results feed into model ranker scoring.
+- **v124**: Full **marketplace** for sharing specialist packages — catalog browsing, one-click install with SHA-256 verification, dependency resolution, and update management.

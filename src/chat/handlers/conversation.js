@@ -463,6 +463,11 @@ export async function conversationHandler(input, context) {
     }
   }
 
+  // v123.2: Notify progress — analyzing input
+  if (typeof context.onSystemStep === 'function') {
+    try { context.onSystemStep('analyzing_input', input.substring(0, 60)); } catch (_) {}
+  }
+
   // v65.4: Enrich CRE input with project hint for better intent classification
   const projectHint = buildProjectHint(context);
   const creInput = projectHint ? input + projectHint : input;

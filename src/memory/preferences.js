@@ -627,6 +627,8 @@ export class PreferenceEngine {
       reason,
       timestamp: Date.now(),
     });
+    // Cap at 100 entries to prevent unbounded growth
+    if (this.overrideLog.length > 100) this.overrideLog.shift();
     logger.warn('PreferenceEngine', `Preference overridden: ${axis}`, { reason });
   }
 

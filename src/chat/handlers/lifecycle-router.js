@@ -240,7 +240,7 @@ async function handleProposedResponse(input, state, context) {
     const { projects } = await import('../../db/database.js');
     const { ProjectLifecycle } = await import('../../planner/lifecycle.js');
 
-    const projectPath = context.projectPath || `/tmp/lc-${Date.now()}`;
+    const projectPath = context.projectPath || `${(await import('os')).tmpdir()}/lc-${Date.now()}`;
     const projectName = context.projectName || projectPath.split('/').pop() || `lc-${Date.now()}`;
     const project = projects.getOrCreate(projectName, projectPath, state.originalRequest.substring(0, 200));
     const projectId = Number(project.id);

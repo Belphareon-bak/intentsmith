@@ -53,6 +53,13 @@ function isProviderFailed(provider) {
  * Mark a provider as failed
  */
 function markProviderFailed(provider) {
+  // Sweep expired entries before adding (prevents unbounded growth)
+  if (failedProviders.size > 50) {
+    const now = Date.now();
+    for (const [k, v] of failedProviders) {
+      if (now > v) failedProviders.delete(k);
+    }
+  }
   failedProviders.set(provider, Date.now() + FAIL_COOLDOWN);
   logger.warn('WebSearch', `Provider ${provider} marked as failed for ${FAIL_COOLDOWN/1000}s`);
 }

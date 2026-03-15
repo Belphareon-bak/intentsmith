@@ -1,6 +1,6 @@
 # C3 Agent — API Reference
 
-> **v120** | ~180 endpoints across 14 route modules
+> **v124** | ~190 endpoints across 15 route modules
 > Generated from source code analysis. All routes are HTTP/1.1, JSON bodies (unless noted).
 
 ## Table of Contents
@@ -14,13 +14,14 @@
 - [Agents](#agents)
 - [Skills](#skills)
 - [Specialists](#specialists)
+- [Marketplace](#marketplace)
 - [Planner](#planner)
 - [Architect](#architect)
 - [Lifecycle](#lifecycle)
 - [Quality](#quality)
 - [Autonomy](#autonomy)
 - [Notifications](#notifications)
-- [System](#system)
+- [System](#system) (incl. Model Validation)
 - [Security](#security)
 - [Settings & Features](#settings--features)
 - [Setup Wizard](#setup-wizard)
@@ -291,6 +292,25 @@ Legacy endpoints: `GET /projects`, `POST /projects` (same as `/api/` variants).
 
 ---
 
+## Marketplace
+
+> Vzdálený katalog balíčků (skills, expertises, specialists). Instalace s SHA-256 verifikací.
+
+| Method | Path | Body / Query | Response | Side Effects |
+|--------|------|-------------|----------|-------------|
+| `GET` | `/api/marketplace/catalog` | `?force=true` | `{ok, packages[]}` s install statusem | Fetch/cache remote catalog |
+| `POST` | `/api/marketplace/catalog/refresh` | — | `{ok}` | Vynutí refresh cache |
+| `GET` | `/api/marketplace/installed` | — | `{ok, packages[]}` | Seznam nainstalovaných balíčků |
+| `POST` | `/api/marketplace/install/:type/:id` | — | `{ok, package}` | Stáhne, ověří SHA-256, nainstaluje |
+| `DELETE` | `/api/marketplace/installed/:type/:id` | — | `{ok}` | Odinstalace + cleanup |
+| `POST` | `/api/marketplace/update/:type/:id` | — | `{ok, oldVersion, newVersion}` | Update na nejnovější kompatibilní |
+| `POST` | `/api/marketplace/export/:type/:id` | — | `{ok, package}` | Export lokálního balíčku |
+
+> **`:type`** = `skill` | `expertise` | `specialist`
+> **`:id`** = identifikátor balíčku
+
+---
+
 ## Planner
 
 | Method | Path | Body / Query | Response | Side Effects |
@@ -394,6 +414,19 @@ Lifecycle endpoints are spread across projects and expertises routes:
 | `GET` | `/api/system/models/info` | `?model=name` | Model details | Proxies to Ollama `/api/show` |
 | `GET` | `/api/system/info` | — | System diagnostics | — |
 | `GET` | `/api/system/storage` | — | Storage stats | — |
+
+### Model Validation (v123)
+
+> Validační sady pro objektivní hodnocení modelů. 5 sad: reasoning, code, chat, vision, review.
+
+| Method | Path | Body / Query | Response | Side Effects |
+|--------|------|-------------|----------|-------------|
+| `POST` | `/api/system/models/validate` | `{model, suite?}` | `{ok, started}` | Spustí validaci (async, WS progress) |
+| `GET` | `/api/system/models/validate` | `?model=name` | `{results}` | Výsledky validace pro model |
+| `GET` | `/api/system/models/validation-scores` | — | `{scores[]}` | Všechna skóre napříč modely |
+
+> **`suite`** = `reasoning` | `code` | `chat` | `vision` | `review` (volitelné — bez něj běží vše)
+> Výsledky se streamují přes WebSocket s akcí `model_validation_progress`. TTL 14 dní.
 
 ---
 

@@ -464,7 +464,7 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
       }
     },
 
-    // ── Model Upgrade Apply/Rollback (v103.1) ─────────────────────────
+    // ── Model Upgrade Apply/Rollback (v125: fire-and-forget with auto-pull + BG verify) ──
     'POST /api/system/upgrades/apply': async (req, res) => {
       try {
         const body = await parseBody(req);
@@ -474,29 +474,59 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
           return sendJSON(res, 400, { error: 'Missing required fields: role, targetModel' });
         }
 
-        const result = await upgradeManager.applyUpgrade(role, targetModel, {
-          score: body.score,
-          skipVerify: body.skipVerify === true,
-          appliedBy: body.appliedBy || 'user',
-        });
+        // Quick validation before going async
+        const { MODEL_PROFILES: profiles } = await import('../upgrade/model-profiles.js');
+        if (!profiles[role]) {
+          return sendJSON(res, 400, { error: `Invalid role: ${role}` });
+        }
 
-        broadcast('control', {
-          action: 'model_changed',
-          role,
-          fromModel: result.from,
-          toModel: result.to,
-          configVersion: result.configVersion,
-        });
+        // Respond immediately — progress via WS
+        sendJSON(res, 200, { ok: true, status: 'started', role, targetModel });
 
-        sendJSON(res, 200, result);
+        // Fire-and-forget: pull (if needed) → apply → BG verify → validation prompt
+        (async () => {
+          try {
+            broadcast('control', { action: 'upgrade_progress', role, model: targetModel,
+              status: 'starting', text: `${role}: Aplikuji ${targetModel}...` });
+
+            const result = await upgradeManager.applyUpgrade(role, targetModel, {
+              score: body.score,
+              skipVerify: true,
+              appliedBy: body.appliedBy || 'user',
+              onPullProgress: (progress) => {
+                broadcast('control', { action: 'model_pull_progress', model: targetModel, ...progress });
+              },
+            });
+
+            broadcast('control', {
+              action: 'model_changed', role,
+              fromModel: result.from, toModel: result.to,
+              configVersion: result.configVersion,
+            });
+
+            // Background verify (v125) — don't await
+            upgradeManager._backgroundVerify(role, targetModel, result.from, (r, m) => {
+              broadcast('control', { action: 'upgrade_verify_failed', role: r, model: m,
+                text: `Varování: ${m} neodpovídá na ping po 3 pokusech. Zvažte rollback.` });
+            }).catch(err => logger.warn('UpgradeManager', `BG verify error: ${err.message}`));
+
+            // Auto-validation prompt (v125)
+            try {
+              const { getSuiteForRole } = await import('../upgrade/validation-suites.js');
+              const suite = getSuiteForRole(role);
+              if (suite) {
+                broadcast('control', { action: 'model_validation_prompt', role, model: targetModel,
+                  suite, estimatedMinutes: 5,
+                  text: `Model ${targetModel} nastaven pro ${role}. Spustit validaci? (~5 min)` });
+              }
+            } catch (_) {}
+
+          } catch (err) {
+            broadcast('control', { action: 'upgrade_error', role, model: targetModel, error: err.message });
+          }
+        })();
       } catch (err) {
-        const status = err.message.includes('Invalid role') ? 400
-          : err.message.includes('not installed') ? 404
-          : err.message.includes('already set') ? 409
-          : err.message.includes('Verification failed') ? 502
-          : err.message.includes('in progress') ? 409
-          : 500;
-        sendJSON(res, status, { error: err.message });
+        sendJSON(res, 500, { error: err.message });
       }
     },
 

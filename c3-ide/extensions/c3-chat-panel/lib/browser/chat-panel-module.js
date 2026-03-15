@@ -451,7 +451,7 @@ function _wtDeleteItem(itemPath){
 var NAV=[{id:'chats',label:'Konverzace',icon:'chat',badge:0,recent:[]},{id:'projects',label:'Projekty',icon:'folder',badge:0,recent:[]},{id:'specialists',label:'Specialisté',icon:'users',badge:SPECIALISTS.length,recent:SPECIALISTS.slice(0,2).map(function(s){return s.name;})},{id:'expertises',label:'Expertyzy',icon:'expert',badge:EXPERTISES.length,recent:EXPERTISES.filter(function(e){return e.fav;}).slice(0,3).map(function(e){return e.name;})},{id:'workers',label:'Workeri',icon:'worker',badge:0,recent:[]},{id:'marketplace',label:'Obchod',icon:'store',badge:0,recent:[]}];
 
 /* ═══ LIVE DATA FETCH ═══ */
-var _backendBase='http://localhost:3335';
+var _backendBase=(function(){try{if(typeof window!=='undefined'&&window.electronC3){var url=window.electronC3.getBackendUrl();if(url)return url;}}catch(e){}return 'http://127.0.0.1:3335';})();
 
 /* v88: Extracted expertise fetch — reusable for initial load + post-skill refresh */
 function _fetchExpertises(){
@@ -740,8 +740,8 @@ function SidebarApp(props){
             h('span',{style:{width:6,height:6,borderRadius:'50%',background:C.accent,flexShrink:0}}),r);})));
         return els;
       }),
-      h('div',{style:{height:1,background:C.border,margin:'6px 12px'}}),
-      h('div',{style:{display:'flex',alignItems:'center',padding:'6px 10px 2px'}},
+      _wtRoot?h('div',{style:{height:1,background:C.border,margin:'6px 12px'}}):null,
+      _wtRoot?h('div',{style:{display:'flex',alignItems:'center',padding:'6px 10px 2px'}},
         h('span',{style:{fontSize:_fs(10),fontWeight:700,color:C.tx4,textTransform:'uppercase',letterSpacing:'0.6px',flex:1}},'Working Tree'),
         h('div',{style:{display:'flex',gap:2}},
           _wtRoot?h('div',{style:{width:20,height:18,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:3,cursor:'pointer',color:C.tx4,fontSize:_fs(11)},title:'Obnovit',
@@ -755,19 +755,12 @@ function SidebarApp(props){
             onClick:function(){_wtNewInput={type:'file',parent:null};renderSidebar();}},'📄'),
           h('div',{style:{width:20,height:18,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:3,cursor:'pointer',color:C.tx4,fontSize:_fs(12)},title:'Nová složka',
             onMouseEnter:function(e){e.currentTarget.style.background=C.bg3;},onMouseLeave:function(e){e.currentTarget.style.background='transparent';},
-            onClick:function(){_wtNewInput={type:'dir',parent:null};renderSidebar();}},'📁'))),
+            onClick:function(){_wtNewInput={type:'dir',parent:null};renderSidebar();}},'📁'))):null,
       /* Workspace root path indicator */
       _wtRoot?h('div',{style:{padding:'2px 10px 4px',fontSize:_fs(9),color:C.tx4,fontFamily:C.mono,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'},title:_wtRoot},
-        _wtRoot.split('/').slice(-2).join('/')):
-      h('div',{style:{padding:'4px 10px'},onClick:function(){
-        /* Native directory picker (Electron doesn't support prompt()) */
-        try{var inp=document.createElement('input');inp.type='file';inp.webkitdirectory=true;
-          inp.addEventListener('change',function(){if(inp.files&&inp.files.length>0){var fp=(inp.files[0].path||'').replace(/\\/g,'/').split('/');var dir=fp.slice(0,-1).join('/');if(dir){_wtRoot=dir;_loadWorkspaceTree(dir);}}});
-          inp.click();}catch(e){}
-      }},h('div',{style:{padding:'6px 10px',borderRadius:6,border:'1px dashed '+C.border2,cursor:'pointer',textAlign:'center',fontSize:_fs(11),color:C.tx3}},
-        'Otevřít složku')),
-      /* New file/dir inline input */
-      _wtNewInput?h('div',{style:{display:'flex',alignItems:'center',gap:4,padding:'2px 8px'}},
+        _wtRoot.split('/').slice(-2).join('/')):null,
+      /* New file/dir inline input (only when project open) */
+      (_wtRoot&&_wtNewInput)?h('div',{style:{display:'flex',alignItems:'center',gap:4,padding:'2px 8px'}},
         h('span',{style:{fontSize:_fs(13),flexShrink:0}},_wtNewInput.type==='dir'?'📁':'📄'),
         h('input',{autoFocus:true,style:{flex:1,background:C.bg3,border:'1px solid '+C.accent,borderRadius:4,padding:'2px 6px',color:C.tx1,fontFamily:C.mono,fontSize:_fs(11),outline:'none'},
           placeholder:_wtNewInput.type==='dir'?'název-složky':'soubor.js',
@@ -2773,17 +2766,19 @@ function _loadUpgradeData(){
     .then(function(d){_upgradeData=d;_upgradeLoading=false;renderCenter();})
     .catch(function(e){_upgradeData={error:e.message};_upgradeLoading=false;renderCenter();});
 }
+/* v125: fire-and-forget — progress comes via WS events */
 function _upgradeApply(role,model){
-  _upgradeMsg={ok:true,text:'Aplikuji upgrade '+role+': '+model+' (model se na\u010D\u00EDt\u00E1 do VRAM...)'};_upgradeLoading=true;renderCenter();
+  _upgradeMsg={ok:true,text:'Aplikuji upgrade '+role+': '+model+'...'};_upgradeLoading=true;renderCenter();
   fetch(_backendBase+'/api/system/upgrades/apply',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({role:role,targetModel:model}),signal:AbortSignal.timeout(120000)})
+    body:JSON.stringify({role:role,targetModel:model}),signal:AbortSignal.timeout(10000)})
     .then(function(r){return r.json();})
-    .then(function(d){_upgradeLoading=false;
-      if(d.ok){_upgradeMsg={ok:true,text:'Upgrade '+role+': '+d.from+' \u2192 '+d.to};_upgradeData=null;_loadUpgradeData();}
-      else{_upgradeMsg={ok:false,text:d.error||'Upgrade selhal'};}renderCenter();
-      setTimeout(function(){_upgradeMsg=null;renderCenter();},5000);})
+    .then(function(d){
+      if(!d.ok){_upgradeLoading=false;_upgradeMsg={ok:false,text:d.error||'Upgrade selhal'};renderCenter();
+        setTimeout(function(){_upgradeMsg=null;renderCenter();},5000);}
+      /* else: loading stays true, WS model_changed/upgrade_error will clear it */})
     .catch(function(e){_upgradeLoading=false;_upgradeMsg={ok:false,text:e.message};renderCenter();});
 }
+var _validationPrompt=null;/* v125: pending validation consent */
 function _upgradeDismiss(id){
   fetch(_backendBase+'/api/system/proposals/'+id+'/dismiss',{method:'POST',signal:AbortSignal.timeout(5000)})
     .then(function(r){return r.json();})
@@ -3176,6 +3171,14 @@ function centerUpgrades(){
       background:_upgradeMsg.ok?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)',
       color:_upgradeMsg.ok?C.accent:'#ef4444',
       border:'1px solid '+(_upgradeMsg.ok?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)')}},_upgradeMsg.text):null,
+    /* v125: validation prompt */
+    _validationPrompt?h('div',{style:{margin:'0 18px',marginTop:8,padding:'10px 14px',borderRadius:6,fontSize:_fs(11),
+      background:'rgba(59,130,246,0.1)',color:'#3b82f6',border:'1px solid rgba(59,130,246,0.2)',display:'flex',alignItems:'center',gap:10}},
+      h('span',{style:{flex:1}},_validationPrompt.text||'Spustit validaci?'),
+      h('button',{style:{padding:'4px 12px',borderRadius:4,border:'1px solid #3b82f6',background:'#3b82f6',color:'#fff',cursor:'pointer',fontSize:_fs(10)},
+        onClick:function(){var m=_validationPrompt.model;_validationPrompt=null;_validateModel(m);renderCenter();}},'Spustit'),
+      h('button',{style:{padding:'4px 12px',borderRadius:4,border:'1px solid rgba(59,130,246,0.3)',background:'transparent',color:'#3b82f6',cursor:'pointer',fontSize:_fs(10)},
+        onClick:function(){_validationPrompt=null;renderCenter();}},'P\u0159eskočit')):null,
     /* body */
     h('div',{style:{flex:1,overflowY:'auto',padding:18}},
       /* ── Scoring tab ── */
@@ -4873,6 +4876,37 @@ function _initBusSubscriptions() {
     renderCenter();
   });
 
+  /* v125: Model changed via WS (fire-and-forget apply) */
+  C3Bus.on('model:changed', function(ev) {
+    _upgradeLoading=false;
+    _upgradeMsg={ok:true,text:'Upgrade '+ev.role+': '+(ev.fromModel||'?')+' \u2192 '+(ev.toModel||'?')};
+    _upgradeData=null;_loadUpgradeData();renderCenter();
+    setTimeout(function(){_upgradeMsg=null;renderCenter();},5000);
+  });
+
+  /* v125: Upgrade progress (intermediate status) */
+  C3Bus.on('upgrade:progress', function(ev) {
+    _upgradeMsg={ok:true,text:ev.text||'Aplikuji...'};renderCenter();
+  });
+
+  /* v125: Upgrade error via WS */
+  C3Bus.on('upgrade:error', function(ev) {
+    _upgradeLoading=false;
+    _upgradeMsg={ok:false,text:ev.error||'Upgrade selhal'};renderCenter();
+    setTimeout(function(){_upgradeMsg=null;renderCenter();},8000);
+  });
+
+  /* v125: Background verify failed warning */
+  C3Bus.on('upgrade:verify_failed', function(ev) {
+    _upgradeMsg={ok:false,text:ev.text||'Varování: model neodpovídá na ping'};renderCenter();
+    setTimeout(function(){_upgradeMsg=null;renderCenter();},15000);
+  });
+
+  /* v125: Validation prompt after model change */
+  C3Bus.on('model:validation_prompt', function(ev) {
+    _validationPrompt=ev;renderCenter();
+  });
+
   /* Session changed (e.g. after rehydration) */
   C3Bus.on('session:changed', function(ev) {
     renderChat(); renderAgent();
@@ -6033,11 +6067,11 @@ class C3SidebarContrib extends browser_1.AbstractViewContribution {
         var _mkExpandTab=function(side){
           var el=document.createElement('div');
           var isLeft=side==='left';
-          el.style.cssText='position:fixed;'+(isLeft?'left:0':'right:0')+';top:50%;transform:translateY(-50%);width:24px;height:72px;display:none;align-items:center;justify-content:center;cursor:pointer;z-index:10000;border-radius:'+(isLeft?'0 8px 8px 0':'8px 0 0 8px')+';background:'+C.bg3+';border:1px solid '+C.border2+';'+(isLeft?'border-left:none':'border-right:none')+';transition:background 0.15s,width 0.15s;';
-          el.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="'+C.tx2+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'+(isLeft?'<polyline points="9 18 15 12 9 6"/>':'<polyline points="15 18 9 12 15 6"/>')+'</svg>';
+          el.style.cssText='position:fixed;'+(isLeft?'left:0':'right:0')+';top:50%;transform:translateY(-50%);width:6px;height:48px;display:none;align-items:center;justify-content:center;cursor:pointer;z-index:10000;border-radius:'+(isLeft?'0 6px 6px 0':'6px 0 0 6px')+';background:'+C.border2+';border:none;opacity:0.15;transition:opacity 0.2s,width 0.2s,background 0.15s;';
+          el.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="'+C.tx2+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0;transition:opacity 0.2s">'+(isLeft?'<polyline points="9 18 15 12 9 6"/>':'<polyline points="15 18 9 12 15 6"/>')+'</svg>';
           el.title=isLeft?'Rozbalit sidebar':'Rozbalit chat panel';
-          el.addEventListener('mouseenter',function(){el.style.background=C.bg4;el.style.width='32px';});
-          el.addEventListener('mouseleave',function(){el.style.background=C.bg3;el.style.width='24px';});
+          el.addEventListener('mouseenter',function(){el.style.opacity='1';el.style.width='24px';el.style.background=C.bg4;el.querySelector('svg').style.opacity='1';});
+          el.addEventListener('mouseleave',function(){el.style.opacity='0.15';el.style.width='6px';el.style.background=C.border2;el.querySelector('svg').style.opacity='0';});
           el.addEventListener('click',function(){
             if(isLeft){
               var tw=(_sidebarWidget&&_sidebarWidget._collapsed)?48:(_c3LastLeftW||240);
@@ -6103,7 +6137,7 @@ inversify_1.decorate(inversify_1.injectable(),C3AgentContrib);
 
 class C3StatusContrib {
   onStart(){this._c();}
-  async _c(){try{var r=await fetch('http://localhost:3335/health',{signal:AbortSignal.timeout(2000)});document.body.classList.toggle('c3-backend-online',r.ok);}catch(e){document.body.classList.remove('c3-backend-online');}}}
+  async _c(){try{var r=await fetch(_backendBase+'/health',{signal:AbortSignal.timeout(2000)});document.body.classList.toggle('c3-backend-online',r.ok);}catch(e){document.body.classList.remove('c3-backend-online');}}}
 inversify_1.decorate(inversify_1.injectable(),C3StatusContrib);
 
 

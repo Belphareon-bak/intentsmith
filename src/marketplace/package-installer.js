@@ -164,6 +164,11 @@ export class PackageInstaller {
   }
 
   async _installSkill(entry) {
+    // Validate entry.id to prevent path traversal
+    if (!entry.id || /[\/\\]|\.\./.test(entry.id)) {
+      throw new Error(`Invalid package id: ${entry.id}`);
+    }
+
     const skillsDir = path.join(this._projectRoot, 'skills');
     const download = await this._client.downloadPackage(entry, skillsDir);
 

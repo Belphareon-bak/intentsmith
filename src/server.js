@@ -457,7 +457,7 @@ async function parseBody(req) {
 function getCorsOrigin(req) {
   const origin = req?.headers?.origin;
   const allowed = config.server.allowedOrigins;
-  if (!allowed.length) return origin || '*'; // no restriction configured
+  if (!allowed.length) return null; // no origins configured → deny all cross-origin
   if (allowed.includes(origin)) return origin;
   return null; // blocked
 }
@@ -901,26 +901,63 @@ function matchRoute(method, url) {
 // SERVER
 // ════════════════════════════════════════════════════════════════════════════
 
-// ── Rate limiter (per-IP, in-memory) ─────────────────────────────────────
+// ── Rate limiter (v125: disabled on localhost, tiered on network) ─────────
+//
+// Like Ollama, local dev tools don't rate-limit localhost — the user IS the
+// only client. Rate limiting only activates when C3_HOST binds to a network
+// interface (0.0.0.0, LAN IP, etc.).
+//
+const _rateLimitEnabled = config.server.host !== '127.0.0.1' && config.server.host !== 'localhost';
 const _rateBuckets = new Map();
-function checkRateLimit(ip) {
-  const { windowMs, maxRequests } = config.server.rateLimit;
+
+/**
+ * Classify endpoint into rate-limit tier.
+ * @returns {number} 0=exempt, 1=read, 2=write
+ */
+function classifyEndpoint(method, pathname) {
+  if (method === 'OPTIONS') return 0;
+  if (pathname === '/api/health') return 0;
+  if (method === 'GET') return 1;
+  return 2; // POST, PUT, DELETE
+}
+
+/**
+ * Get client IP with optional proxy header trust.
+ */
+function getClientIp(req) {
+  if (config.server.rateLimit.trustProxy) {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded) return forwarded.split(',')[0].trim();
+    const realIp = req.headers['x-real-ip'];
+    if (realIp) return realIp.trim();
+  }
+  return req.socket.remoteAddress || 'unknown';
+}
+
+function checkRateLimit(ip, tier) {
+  if (!_rateLimitEnabled) return true; // localhost — no limit
+  if (tier === 0) return true; // exempt endpoints
+  const { windowMs, readMaxRequests, writeMaxRequests } = config.server.rateLimit;
+  const maxRequests = tier === 1 ? readMaxRequests : writeMaxRequests;
+  const key = `${ip}:${tier}`;
   const now = Date.now();
-  let bucket = _rateBuckets.get(ip);
+  let bucket = _rateBuckets.get(key);
   if (!bucket || now - bucket.start > windowMs) {
     bucket = { start: now, count: 0 };
-    _rateBuckets.set(ip, bucket);
+    _rateBuckets.set(key, bucket);
   }
   bucket.count++;
   return bucket.count <= maxRequests;
 }
-// Cleanup stale buckets every 5 minutes
-setInterval(() => {
-  const cutoff = Date.now() - config.server.rateLimit.windowMs * 2;
-  for (const [ip, b] of _rateBuckets) {
-    if (b.start < cutoff) _rateBuckets.delete(ip);
-  }
-}, 300_000).unref();
+// Cleanup stale buckets every 5 minutes (only when rate limiting is active)
+if (_rateLimitEnabled) {
+  setInterval(() => {
+    const cutoff = Date.now() - config.server.rateLimit.windowMs * 2;
+    for (const [key, b] of _rateBuckets) {
+      if (b.start < cutoff) _rateBuckets.delete(key);
+    }
+  }, 300_000).unref();
+}
 
 const server = http.createServer(async (req, res) => {
   // CORS preflight
@@ -935,19 +972,20 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
 
-  // Rate limiting
-  const clientIp = req.socket.remoteAddress || 'unknown';
-  if (!checkRateLimit(clientIp)) {
-    res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60', ...SECURITY_HEADERS });
-    return res.end(JSON.stringify({ error: 'Too many requests' }));
-  }
-
   let pathname;
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
     pathname = url.pathname;
   } catch {
     return sendJSON(res, 400, { error: 'Malformed URL' });
+  }
+
+  // Rate limiting (v125: tiered)
+  const clientIp = getClientIp(req);
+  const rateTier = classifyEndpoint(req.method, pathname);
+  if (!checkRateLimit(clientIp, rateTier)) {
+    res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60', ...SECURITY_HEADERS });
+    return res.end(JSON.stringify({ error: 'Too many requests' }));
   }
 
   logger.debug('Server', `${req.method} ${pathname}`);
@@ -1142,12 +1180,33 @@ server.listen(config.server.port, config.server.host, async () => {
   // v103: Start background model upgrade check (non-blocking, fire-and-forget)
   upgradeManager.startPeriodicCheck();
 
+  // v125: Dynamic port — resolve actual port after listen (port 0 → OS-assigned)
+  const assignedPort = server.address().port;
+
+  // Write port file for IDE discovery
+  try {
+    const portFileDir = path.dirname(config.server.portFile);
+    fs.mkdirSync(portFileDir, { recursive: true });
+    fs.writeFileSync(config.server.portFile, JSON.stringify({
+      port: assignedPort,
+      host: config.server.host,
+      pid: process.pid,
+      started: new Date().toISOString(),
+    }));
+    logger.info('Server', `Port file written: ${config.server.portFile}`);
+  } catch (err) {
+    logger.warn('Server', `Failed to write port file: ${err.message}`);
+  }
+
+  // Machine-readable stdout line for parent process detection
+  console.log(`C3_READY:${assignedPort}`);
+
   const ver = getCurrentVersion();
   logger.info('Server', `p(AI)assistant v${ver} started`);
-  logger.info('Server', `Chat:   http://${config.server.host}:${config.server.port}/architect`);
-  if (agentRoutes) logger.info('Server', `Agents: http://${config.server.host}:${config.server.port}/agents`);
-  logger.info('Server', `API:    http://${config.server.host}:${config.server.port}`);
-  logger.info('Server', `WS:    ws://${config.server.host}:${config.server.port}/c3/ws`);
+  logger.info('Server', `Chat:   http://${config.server.host}:${assignedPort}/architect`);
+  if (agentRoutes) logger.info('Server', `Agents: http://${config.server.host}:${assignedPort}/agents`);
+  logger.info('Server', `API:    http://${config.server.host}:${assignedPort}`);
+  logger.info('Server', `WS:    ws://${config.server.host}:${assignedPort}/c3/ws`);
 });
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1233,6 +1292,14 @@ function gracefulShutdown(signal) {
     }
   } catch { /* ignore */ }
 
+  // v125: Remove port file
+  try {
+    if (fs.existsSync(config.server.portFile)) {
+      fs.unlinkSync(config.server.portFile);
+      logger.debug('Server', 'Port file removed');
+    }
+  } catch { /* ignore */ }
+
   // Close database
   try {
     db.close();
@@ -1240,7 +1307,7 @@ function gracefulShutdown(signal) {
   } catch (e) {
     // Ignore
   }
-  
+
   logger.info('Server', 'Shutdown complete');
   process.exit(0);
 }

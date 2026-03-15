@@ -339,7 +339,7 @@ async function executeShell(command, options) {
       // Graceful period, then force kill
       setTimeout(() => {
         if (!child.killed) {
-          child.kill('SIGKILL');
+          try { child.kill('SIGKILL'); } catch (_) { child.kill(); }
         }
       }, GRACEFUL_PERIOD_MS);
 
@@ -428,7 +428,7 @@ async function executeDocker(command, options) {
       child.kill('SIGTERM');
       setTimeout(() => {
         if (!child.killed) {
-          child.kill('SIGKILL');
+          try { child.kill('SIGKILL'); } catch (_) { child.kill(); }
         }
       }, GRACEFUL_PERIOD_MS);
       reject(new Error('Execution timeout'));

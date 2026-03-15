@@ -1,6 +1,6 @@
 # C.3 Expertise System
 
-**Verze:** v90.1 (2026-03-01)
+**Verze:** v124 (2026-03-12)
 
 Viz take: [ARCHITECTURE.md](ARCHITECTURE.md) | [skills-v1.md](skills-v1.md) | [WORKERS.md](WORKERS.md)
 
@@ -21,13 +21,14 @@ Viz take: [ARCHITECTURE.md](ARCHITECTURE.md) | [skills-v1.md](skills-v1.md) | [W
 11. [Specialist Runtime (D1)](#specialist-runtime-d1) — tool-augmented framework
 12. [Knowledge Base (D2)](#knowledge-base-d2) — verzovany fact store
 13. [Scenario Engine (D3)](#scenario-engine-d3) — multi-step guided workflows
-14. [Tvorba custom expertyz](#tvorba-custom-expertyz) — create-expertise skill + wizard UI
-15. [CRE Integrace](#cre-integrace) — GUARD 6, handler routing
-16. [API Endpointy](#api-endpointy)
-17. [Database Schema](#database-schema)
-18. [Konfigurace](#konfigurace)
-19. [Testy](#testy)
-20. [Soubory](#soubory)
+14. [Self-Contained Specialists (v121+)](#self-contained-specialists-v121) — plugin architektura
+15. [Tvorba custom expertyz](#tvorba-custom-expertyz) — create-expertise skill + wizard UI
+16. [CRE Integrace](#cre-integrace) — GUARD 6, handler routing
+17. [API Endpointy](#api-endpointy)
+18. [Database Schema](#database-schema)
+19. [Konfigurace](#konfigurace)
+20. [Testy](#testy)
+21. [Soubory](#soubory)
 
 ---
 
@@ -53,13 +54,16 @@ Expertise System poskytuje **domenove dialogove rezimy** ovlivnujici JAK LLM odp
 - Nepotlacuje LOCAL/CREATIVE rozhodnuti
 - Neni background agent
 
-**Terminologie (D5 — implementovano v91):**
-- **Specialista** = persona/agent (ucetni, pravnik) — "kdo". Ma styl, nastroje, znalosti.
+**Terminologie (D5 v91, v121+ self-contained refactor):**
+- **Specialista** = persona/agent (ucetni, pravnik) — "kdo". Ma styl, nastroje, znalosti. Od v121 self-contained plugin v `specialists/`.
 - **Expertyza** = lehky knowledge modul na tema (kontrolni hlaseni, DPH, hypoteky) — "co umi".
-- Vztah: Specialista **vlastni kolekci** expertyz. Muze jich mit N.
+- **Capability** = schopnost (N:M routing, priority-based) — registrovano pres `CapabilityRegistry`.
+- **Tool** = deterministicky nastroj specialisty (kalkulacka, checker).
+- Vztah: Specialista **vlastni kolekci** expertyz, capabilities a toolu. Muze jich mit N.
 - **D5 flow:** Uzivatel vybere specialistu → `specialistHandler` → expertise discovery →
   scoped vocabulary matching (`expertise-discovery.js`) → single/multi/gap → fallback.
-- Viz `docs/SPECIALISTS.md` pro detailni popis D5 pipeline.
+- **Plugin model (v121+):** Zadne `import ../../src/` — vse pres `ctx.registries` API.
+- Viz `docs/SPECIALISTS.md` a `docs/SPECIALIST-CREATION-GUIDE.md` pro detailni popis.
 
 ---
 
@@ -471,23 +475,30 @@ specialistRuntime.tryToolExecution('accountant', input)
 
 ## Registrovani specialiste
 
-Aktualne: `accountant` se 4 nastroji (tax_calculator, vat_calculator, deadline_checker, salary_calculator).
+Aktualne: `accountant-cz` (4 nastroje), `translator` (jazykove nastroje), `dummy-logger` (testovaci).
 
-## Registrace noveho specialisty
+Od v121 jsou specialiste self-contained pluginy v `specialists/` — viz [Self-Contained Specialists](#self-contained-specialists-v121).
+
+## Registrace noveho specialisty (v121+ plugin model)
 
 ```javascript
-toolRegistry.registerSpecialist({
-  id: 'accountant',
-  domain: 'finance',
-  tools: [{
-    id: 'accountant.tax_calculator',
-    modulePath: './tools/tax-calc.js',
-    functionName: 'calculate',
-    patterns: [{ patterns: [/dan z prijmu/i], priority: 10 }],
-    extractParams: (input) => { /* extrakce parametru */ },
-  }],
-});
+// specialists/my-specialist/index.js
+export async function register(ctx) {
+  const { runtime, manifest } = ctx;
+  runtime.registerSpecialist({
+    id: manifest.id,
+    domain: manifest.domain,
+    tools: buildToolDefinitions(),
+  });
+  if (ctx.registries?.expertise) ctx.registries.expertise.addCustom(MY_EXPERTISE);
+  if (ctx.registries?.capability?.register) ctx.registries.capability.register(CAPS);
+  if (ctx.registries?.toolExecutor?.register) ctx.registries.toolExecutor.register(TOOLS);
+}
+
+export async function unregister(ctx) { /* cleanup */ }
 ```
+
+> **Legacy pattern** (pre-v121): `toolRegistry.registerSpecialist()` primo ze `src/` — stale funguje pro vestavenou registraci, ale nove specialisty piste jako self-contained pluginy.
 
 ---
 
@@ -543,6 +554,74 @@ INTRO → COLLECTING → COMPUTING → PRESENTING → RECOMMENDING → ADJUSTING
 - `conversation.js` kontroluje `scenarioRunner.isActive(sessionId)` — aktivni → routuje na scenar
 - Neaktivni → expert handler kontroluje `scenarioRegistry.detectTrigger()` pro start
 - Kazda session muze mit jeden aktivni scenar
+
+---
+
+# Self-Contained Specialists (v121+)
+
+Od v121 jsou specialiste **self-contained pluginy** v adresari `specialists/`. Zadne importy z `src/` — veskera integrace pres `ctx.registries` API.
+
+## Architektura
+
+```
+specialists/
+  accountant-cz/        ← 7 modulu (tools, expertise, knowledge, scenarios)
+    specialist.json      ← manifest v2
+    index.js             ← register(ctx) / unregister(ctx)
+    ledger/              ← 5 tool modulu + knowledge data
+  translator/            ← jazykove nastroje
+  dummy-logger/          ← testovaci plugin
+```
+
+## ctx.registries API
+
+Plugin dostane pri registraci `ctx` objekt s nasledujicimi registry:
+
+| Registry | Ucel | Metoda |
+|----------|------|--------|
+| `ctx.registries.expertise` | Registrace custom expertyz | `addCustom(config)` / `removeCustom(id)` |
+| `ctx.registries.autoSelect` | Boost patterns pro auto-select | `registerBoostPatterns(id, patterns)` |
+| `ctx.registries.scenario` | Multi-step scenare | `register(scenario)` / `unregister(id)` |
+| `ctx.registries.toolExecutor` | Deterministicke nastroje | `register(tools)` / `unregister(ids)` |
+| `ctx.registries.capability` | N:M capability routing | `register(capabilities)` |
+| `ctx.registries.cre` | CRE tool-type patterns | `registerToolTypes(types)` |
+
+## Capability Registry
+
+N:M priority-based routing — vice specialistu muze obsluhovat stejnou capability:
+
+```javascript
+capabilityRegistry.register([
+  { id: 'finance.tax', provider: 'accountant-cz', priority: 100 },
+  { id: 'finance.vat', provider: 'accountant-cz', priority: 100 },
+]);
+// Dotaz: capabilityRegistry.resolve('finance.tax') → nejlepsi provider
+```
+
+## Manifest v2
+
+```json
+{
+  "id": "accountant-cz",
+  "manifestVersion": 2,
+  "version": "1.0.0",
+  "name": "Český účetní",
+  "domain": "finance",
+  "capabilities": ["finance.tax", "finance.vat", "finance.salary"],
+  "defaultExpertise": "accountant",
+  "entryPoint": "index.js"
+}
+```
+
+## Plugin contract
+
+- **Zadne `import ../../src/`** — vse pres `ctx` (warn-only v121, budouci hard reject)
+- **Deterministicky boot**: Kahnuv algoritmus + abecedni secondary sort
+- **Fail-safe unregister**: Kazdy cleanup krok v try/catch, loader provadi defenzivni cleanup
+- **create-specialist skill** (v122): 10-krokovy guided workflow pro tvorbu novych specialistu
+- **Marketplace (v124)**: Instalace vzdalenych balicku pres `POST /api/marketplace/install/:type/:id`
+
+Viz `docs/SPECIALISTS.md` a `docs/SPECIALIST-CREATION-GUIDE.md` pro kompletni dokumentaci.
 
 ---
 
@@ -722,7 +801,10 @@ CREATE TABLE llm_execution_log (model TEXT, temperature REAL, prompt_hash TEXT, 
 | `expertise-integration.test.js` | 10 | Expertise + DB + handler pipeline |
 | `expertise-routing-correctness.test.js` | 43 | GUARD 6 creative override |
 | `expertise-comparison-e2e.test.js` | 78 turns | E2E: expertise vs non-expertise |
-| **Celkem** | **~338** | |
+| `specialist-system.test.js` | 115 | v121: self-contained, ctx.registries, capability registry, boot order |
+| `specialist-create.test.js` | 48 | v122: create-specialist skill, manifest v2 |
+| `marketplace.test.js` | 44 | v124: catalog, install, deps, security |
+| **Celkem** | **~545** | |
 
 ---
 
@@ -742,6 +824,13 @@ CREATE TABLE llm_execution_log (model TEXT, temperature REAL, prompt_hash TEXT, 
 | `src/expertises/specialist-runtime.js` | D1: Tool-augmented framework |
 | `src/expertises/knowledge-base.js` | D2: Verzovany fact store |
 | `src/expertises/scenario-engine.js` | D3: Multi-step guided workflows |
+| `src/specialists/specialist-loader.js` | v121: Plugin loader, Kahnuv boot, ctx.registries |
+| `src/specialists/capability-registry.js` | v121: N:M priority-based capability routing |
 | `src/chat/handlers/expertise.js` | Handler: CRE routing, merge delegace, enforcement |
 | `src/routes/expertises.js` | REST API: CRUD, merge-preview, schema |
+| `src/marketplace/marketplace.js` | v124: Remote catalog, install, deps, security |
 | `skills/create-expertise.json` | Skill: 7-step guided tvorba expertyz |
+| `skills/create-specialist.json` | v122: 10-step tvorba novych specialistu |
+| `specialists/accountant-cz/` | Self-contained ucetni (7 modulu, 4 nastroje) |
+| `specialists/translator/` | Self-contained prekladac |
+| `specialists/dummy-logger/` | Testovaci plugin |

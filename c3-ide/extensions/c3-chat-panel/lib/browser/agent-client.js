@@ -226,7 +226,7 @@ function initAgentClient() {
         var hadEdit = _lastTurnTools.some(function(t) { return t === 'fs.write' || t === 'fs.patch'; });
         if (hadEdit) {
           _suggestionShownForTurn = true;
-          var _base = (typeof _backendBase !== 'undefined') ? _backendBase : 'http://localhost:3335';
+          var _base = (typeof _backendBase !== 'undefined') ? _backendBase : (function(){try{if(typeof window!=='undefined'&&window.electronC3){var u=window.electronC3.getBackendUrl();if(u)return u;}}catch(e){}return 'http://127.0.0.1:3335';})();
           fetch(_base + '/api/workspace/file?path=package.json', { signal: AbortSignal.timeout(2000) })
           .then(function(r) { return r.json(); })
           .then(function(data) {

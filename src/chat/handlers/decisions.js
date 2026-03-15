@@ -269,6 +269,11 @@ async function handleToolCallDecision(input, decision, context) {
       try { context.onToolCall('web.search', { query: effectiveQuery, pipeline: pipelineIntent }); } catch { /* */ }
     }
 
+    // v123.2: System step — search started
+    if (typeof context.onSystemStep === 'function') {
+      try { context.onSystemStep('search_start', effectiveQuery.substring(0, 60)); } catch (_) {}
+    }
+
     // Step 1: Execute web.search
     const searchResult = await toolExecutor.execute({
       ...decision,
@@ -322,6 +327,11 @@ async function handleToolCallDecision(input, decision, context) {
       urls: urls.slice(0, 3),
     });
 
+    // v123.2: System step — scraping
+    if (typeof context.onSystemStep === 'function') {
+      try { context.onSystemStep('search_scrape', `${urls.length} stránek`); } catch (_) {}
+    }
+
     // Step 3: Execute web.scrape
     let scrapeResults = [];
     if (urls.length > 0) {
@@ -360,6 +370,11 @@ async function handleToolCallDecision(input, decision, context) {
     const synthesisContext = scrapeSuccessRate < 0.4 && urls.length > 0
       ? { ...context, snippetOnlyMode: true }
       : context;
+
+    // v123.2: System step — synthesis
+    if (typeof context.onSystemStep === 'function') {
+      try { context.onSystemStep('search_synthesis', `${allToolResults.length} zdrojů, syntéza odpovědi`); } catch (_) {}
+    }
 
     const synthesisOpts = {
       query: input,
@@ -411,6 +426,11 @@ async function handleToolCallDecision(input, decision, context) {
   // v59.0 IDE Bridge: Notify tool call start
   if (typeof context.onToolCall === 'function') {
     try { context.onToolCall(decision.tools?.[0] || 'unknown', { query: effectiveQuery }); } catch { /* */ }
+  }
+
+  // v123.2: System step — tool execution
+  if (typeof context.onSystemStep === 'function') {
+    try { context.onSystemStep('tool_executing', (decision.tools?.[0] || 'nástroj') + ': ' + effectiveQuery.substring(0, 50)); } catch (_) {}
   }
 
   const executionResult = await toolExecutor.execute(decision, {
@@ -822,6 +842,11 @@ ${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
     // v65.4: Project context injection (sanitized, length-limited)
     systemPrompt += buildProjectContext(context);
 
+    // v123.2: System step — prompt prepared
+    if (typeof context.onSystemStep === 'function') {
+      try { context.onSystemStep('preparing_prompt', `${prompt.length} znaků, jazyk: ${langCtx.language}`); } catch (_) {}
+    }
+
     // Call LLM via CRE bridge (authorized)
     // v55.2 Sprint 2: Retry loop with D6 gate + creative quality enforcement
     // v61.3: Increased to 2 for D6 gate + language validation retries
@@ -836,10 +861,20 @@ ${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
     }
 
     while (answerRetry <= MAX_ANSWER_RETRIES) {
+      // v123.2: System step — calling LLM
+      if (typeof context.onSystemStep === 'function') {
+        try { context.onSystemStep('llm_calling', answerRetry > 0 ? `Opakuji (pokus ${answerRetry + 1})` : 'Generuji odpověď'); } catch (_) {}
+      }
+
       result = await creBridge.generateChatResponse(currentPrompt, systemPrompt, {
         sessionId: `conv-${sessionId}`,
         temperature: answerRetry === 0 ? 0.7 : 0.5,
       });
+
+      // v123.2: System step — LLM response received
+      if (typeof context.onSystemStep === 'function') {
+        try { context.onSystemStep('llm_response', `${result.content.length} znaků` + (result.duration ? `, ${result.duration}ms` : '')); } catch (_) {}
+      }
 
       // CRITICAL: Validate response against forbidden phrases
       // v72: Skip for CONVERSATIONAL — farewell/gratitude naturally uses phrases like
@@ -863,6 +898,11 @@ ${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
         responseIntent: null,
       });
 
+      // v123.2: System step — D6 quality gate
+      if (typeof context.onSystemStep === 'function') {
+        try { context.onSystemStep('quality_d6', gateVerdict.ok ? '\u2705' : 'retry: ' + gateVerdict.failDimension, 2); } catch (_) {}
+      }
+
       if (!gateVerdict.ok && answerRetry < MAX_ANSWER_RETRIES) {
         logger.warn('ConversationHandler', `D6 gate failed on ANSWER path, retrying`, {
           dimension: gateVerdict.failDimension,
@@ -878,6 +918,12 @@ ${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
       // v61.3 — Language Validation Gate: detect SK/RU/CN contamination
       // ════════════════════════════════════════════════════════════════════════
       const langValidation = validateResponseLanguage(result.content, langCtx.language);
+
+      // v123.2: System step — language validation
+      if (typeof context.onSystemStep === 'function') {
+        try { context.onSystemStep('quality_lang', langValidation.clean ? '\u2705' : langValidation.issues.join(', '), 2); } catch (_) {}
+      }
+
       if (!langValidation.clean && answerRetry < MAX_ANSWER_RETRIES) {
         logger.warn('ConversationHandler', 'Language validation failed on ANSWER path, retrying', {
           issues: langValidation.issues,

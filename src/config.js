@@ -1,6 +1,9 @@
 // C.3 v120 Configuration
 // ══════════════════════════════════════════════════════════════════════════════
 
+import os from 'os';
+import path from 'path';
+
 export const config = {
   // Feature flags — enable/disable optional modules (B/C/D)
   // Core chat works without any of these.
@@ -22,14 +25,19 @@ export const config = {
 
   // Server
   server: {
-    port: parseInt(process.env.C3_PORT || '3335'),
+    // Port: 0 = dynamic (OS assigns free port), default 0 for conflict-free startup
+    port: parseInt(process.env.C3_PORT || '0'),
     host: process.env.C3_HOST || '127.0.0.1',
+    // Port file: written after listen with assigned port (for IDE discovery)
+    portFile: process.env.C3_PORT_FILE || path.join(os.homedir(), '.c3', 'port'),
     // CORS: allowed origins (empty = same-origin only, '*' = allow all)
     allowedOrigins: (process.env.C3_CORS_ORIGINS || '').split(',').filter(Boolean),
-    // Rate limiting: max requests per IP per window
+    // Rate limiting: tiered per IP per window (v125)
     rateLimit: {
-      windowMs: 60_000,   // 1 minute
-      maxRequests: 120,    // 120 req/min per IP
+      windowMs: 60_000,          // 1 minute
+      readMaxRequests: 600,      // GET endpoints
+      writeMaxRequests: 120,     // POST/PUT/DELETE endpoints
+      trustProxy: process.env.C3_TRUST_PROXY === 'true',  // trust X-Forwarded-For
     },
   },
 

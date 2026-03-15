@@ -2,9 +2,9 @@
 
 ## Od aktuálního stavu k vizi
 
-**Datum:** 2026-03-11
-**Verze kódu:** v120.0.0 (Code Intelligence + F-series + Prompt Pipeline + Model Upgrade Phase 3 + Architecture Governance)
-**Testy:** ~3,270+ verified (597 F-series, 339 code-intel, 276 architecture, 401 CRE, 350 conversation, 218 ledger, 270 specialist, 214 upgrade, 83 prompt-pipeline, 56 project-E2E, 44 agent-log, + další)
+**Datum:** 2026-03-12
+**Verze kódu:** v124.0.0 (Code Intelligence + F-series + Prompt Pipeline + Model Upgrade Phase 3 + Architecture Governance + Self-Contained Specialists + Validation Suites + Marketplace)
+**Testy:** ~3,500+ verified (597 F-series, 339 code-intel, 276 architecture, 401 CRE, 350 conversation, 218 ledger, 333 specialist, 294 upgrade, 83 prompt-pipeline, 56 project-E2E, 44 marketplace, 44 agent-log, + další)
 **IDE:** C3 Studio (Theia 1.65.2), 33 custom extensions, Phase 1-5 (~85%)
 
 ---
@@ -32,7 +32,7 @@ Installer, licence, auto-update, setup wizard.
 
 ---
 
-## Kde je každý pilíř dnes (v120)
+## Kde je každý pilíř dnes (v124)
 
 ### Pilíř 1: CHAT — 100% ✅
 **Status: PHASE A = DONE.**
@@ -71,15 +71,18 @@ Installer, licence, auto-update, setup wizard.
 - B9: Agent Builder Wizard — FE wizard (simple + advanced), BE schema endpoint
 - Notifikační pipeline: Email, Telegram, ntfy/push, rate limiting, digest, trust tracker
 
-### Pilíř 4: SPECIALISTÉ — 92% ✅ (upgrade z 90%)
-Expertise layer (15 expertises) + accountant specialist + 5D capability system + merge engine v2 + ledger.
+### Pilíř 4: SPECIALISTÉ — 100% ✅
+Expertise layer (15 expertises) + self-contained specialists + 5D capability system + merge engine v2 + ledger + marketplace.
 - v65.8: D1-D3 Specialist Runtime, Knowledge Base, Scenario Engine ✅
 - v69: Expert→Expertise rename (soft DB migration, backward compat) ✅
 - v69-v74: **Ledger system** — české daně, DPH, pojištění, compliance (218 testů) ✅
 - v74: **Specialist Platform** — SpecialistLoader, specialist-runtime, tool-adapter ✅
 - v79: **D4+D6+D7+D8** — REST API, dependencies, scenario branching, specialist memory ✅
 - v82: **Specialist Telemetry** — pasivní observability (tool/memory/lifecycle/API events, batch flush, NOOP sentinel) ✅
-- Zbývá: D5 (multi-specialist routing), D9 (marketplace)
+- v121: **Self-Contained Specialists** — plugin architektura, ctx.registries, CapabilityRegistry N:M (115 testů) ✅
+- v122: **create-specialist Skill** — 10-step guided workflow, manifest v2 (48 testů) ✅
+- v123: **Validation Suites** — 5 sad (reasoning, code, chat, vision, review), deterministic grading (73 testů) ✅
+- v124: **Marketplace** — remote catalog, transactional install, SHA-256, deps (44 testů) ✅
 
 ### Pilíř 5: IDE — 78% ✅
 Theia 1.65.2, 33 custom extensions, fungující build (lib/ + src-gen/).
@@ -727,4 +730,4 @@ Vizuální breakdown (pie/bar chart)
 
 ---
 
-*Tento dokument nahrazuje Roadmapa v14. Aktualizováno na v120.0.0 (2026-03-11).*
+*Tento dokument nahrazuje Roadmapa v14. Aktualizováno na v124.0.0 (2026-03-12).*

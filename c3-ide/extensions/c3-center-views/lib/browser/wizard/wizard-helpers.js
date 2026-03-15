@@ -2,7 +2,7 @@
 // v63.0 — All backend communication for the wizard
 'use strict';
 
-const API_BASE = 'http://localhost:3335';
+const API_BASE = (function(){try{if(typeof window!=='undefined'&&window.electronC3){var u=window.electronC3.getBackendUrl();if(u)return u;}}catch(e){}return 'http://127.0.0.1:3335';})();
 
 /**
  * Fetch expertise schema from backend (🔴1 — anti-drift).

@@ -1,6 +1,6 @@
 # Notifications System
 
-> **v120** | 6 channels | ~2,000 lines | Trust-aware delivery with auto-mute
+> **v124** | 6 channels | ~2,000 lines | Trust-aware delivery with auto-mute
 
 ## Architecture
 

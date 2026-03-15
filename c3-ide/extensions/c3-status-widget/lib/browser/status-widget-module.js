@@ -6,6 +6,26 @@ require("./styles/c3-status.css");
 const inversify_1 = require("@theia/core/shared/inversify");
 const browser_1 = require("@theia/core/lib/browser");
 
+// v125: Dynamic port discovery
+function _c3BackendUrl() {
+  try {
+    if (typeof window !== 'undefined' && window.electronC3) {
+      var url = window.electronC3.getBackendUrl();
+      if (url) return url;
+    }
+  } catch(e) {}
+  return 'http://127.0.0.1:3335';
+}
+function _c3Port() {
+  try {
+    if (typeof window !== 'undefined' && window.electronC3) {
+      var p = window.electronC3.getPort();
+      if (p) return p;
+    }
+  } catch(e) {}
+  return 3335;
+}
+
 /* ═══ StatusBarContribution ═══ */
 let C3StatusBarContribution = class C3StatusBarContribution {
 
@@ -39,7 +59,7 @@ let C3StatusBarContribution = class C3StatusBarContribution {
 
       // Backend connection
       this.statusBar.setElement('c3-backend', {
-        text: '$(plug) :3335',
+        text: '$(plug) :' + _c3Port(),
         tooltip: 'C3 Backend',
         alignment: browser_1.StatusBarAlignment.RIGHT,
         priority: 1
@@ -64,10 +84,10 @@ let C3StatusBarContribution = class C3StatusBarContribution {
   async _checkBackend() {
     if (!this.statusBar) return;
     try {
-      const res = await fetch('http://localhost:3335/health', { signal: AbortSignal.timeout(3000) });
+      const res = await fetch(_c3BackendUrl() + '/health', { signal: AbortSignal.timeout(3000) });
       if (res.ok) {
         this.statusBar.setElement('c3-backend', {
-          text: '$(plug) :3335',
+          text: '$(plug) :' + _c3Port(),
           tooltip: 'C3 Backend — Connected',
           alignment: browser_1.StatusBarAlignment.RIGHT,
           priority: 1,
@@ -90,7 +110,7 @@ let C3StatusBarContribution = class C3StatusBarContribution {
   async _fetchVersion() {
     if (!this.statusBar || this._versionFetched) return;
     try {
-      const res = await fetch('http://localhost:3335/api/system/info', { signal: AbortSignal.timeout(3000) });
+      const res = await fetch(_c3BackendUrl() + '/api/system/info', { signal: AbortSignal.timeout(3000) });
       if (res.ok) {
         const data = await res.json();
         if (data.version) {

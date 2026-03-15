@@ -55,7 +55,7 @@ function _routeToSession(data) {
 
 function _rehydrateSessions() {
   if (typeof _sessions === 'undefined') return;
-  var _base = (typeof _backendBase !== 'undefined') ? _backendBase : 'http://localhost:3335';
+  var _base = (typeof _backendBase !== 'undefined') ? _backendBase : (function(){try{if(typeof window!=='undefined'&&window.electronC3){var u=window.electronC3.getBackendUrl();if(u)return u;}}catch(e){}return 'http://127.0.0.1:3335';})();
 
   /* Send rehydrate control message */
   var convIds = [];
@@ -96,7 +96,7 @@ function _rehydrateSessions() {
 /* ─── Connect ─────────────────────────────────────────────────────────── */
 
 function _wsConnect() {
-  var _base = (typeof _backendBase !== 'undefined') ? _backendBase : 'http://localhost:3335';
+  var _base = (typeof _backendBase !== 'undefined') ? _backendBase : (function(){try{if(typeof window!=='undefined'&&window.electronC3){var u=window.electronC3.getBackendUrl();if(u)return u;}}catch(e){}return 'http://127.0.0.1:3335';})();
   var wsUrl = _base.replace(/^http/, 'ws') + '/c3/ws';
 
   try {
@@ -205,6 +205,16 @@ function _wsConnect() {
           C3Bus.emit('model:pull_progress', d);
         } else if (d.action === 'model_validation_progress') {
           C3Bus.emit('model:validation_progress', d);
+        } else if (d.action === 'model_changed') {
+          C3Bus.emit('model:changed', d);
+        } else if (d.action === 'upgrade_progress') {
+          C3Bus.emit('upgrade:progress', d);
+        } else if (d.action === 'upgrade_error') {
+          C3Bus.emit('upgrade:error', d);
+        } else if (d.action === 'upgrade_verify_failed') {
+          C3Bus.emit('upgrade:verify_failed', d);
+        } else if (d.action === 'model_validation_prompt') {
+          C3Bus.emit('model:validation_prompt', d);
         }
         break;
     }

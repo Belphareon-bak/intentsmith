@@ -8,6 +8,45 @@
 
 ---
 
+## v125 — Upgrade UX + Dynamic Port (2026-03-12)
+
+4 upgrade UX fixes + dynamic port allocation for conflict-free startup.
+
+### Fix 1: Tiered Rate Limiting
+- **Endpoint classification** (`src/server.js`): tier 0 (exempt: OPTIONS, health, WS), tier 1 (read/GET: 600/min), tier 2 (write/POST: 120/min)
+- **Localhost disabled**: rate limiting OFF when binding to 127.0.0.1 (like Ollama)
+- **Proxy support**: `C3_TRUST_PROXY=true` → reads `X-Forwarded-For` / `X-Real-IP`
+
+### Fix 2: Async Background Verify
+- **Non-blocking apply**: `applyUpgrade()` returns immediately, verify runs in background
+- **3-retry strategy**: `_backgroundVerify()` — 3 attempts × 30s delay, never auto-rollbacks
+- **DB tracking**: `verified` column on `model_overrides` (migration 036)
+- **WS notification**: `upgrade_verify_failed` broadcast on persistent failure
+
+### Fix 3: Auto-Pull on Approval
+- **Seamless UX**: approving a non-installed (online-discovered) model auto-pulls it
+- **Fire-and-forget route**: `POST /api/system/upgrades/apply` responds 200 immediately, progress via WS
+- **WS events**: `upgrade_progress`, `model_changed`, `upgrade_error`, `model_pull_progress`
+
+### Fix 4: Auto-Validation Prompt
+- **Post-upgrade prompt**: after model change, FE shows consent notification for validation
+- **WS event**: `model_validation_prompt` with role, model, estimated time
+- **FE UI**: blue banner with "Spustit validaci" / "Přeskočit" buttons
+
+### Dynamic Port Allocation
+- **Default port 0**: OS assigns a free port on startup (no more port conflicts)
+- **Port file**: `~/.c3/port` (JSON: port, host, pid, started) — written after listen, cleaned on shutdown
+- **Stdout signal**: `C3_READY:<port>` for parent process detection
+- **IDE discovery**: Electron preload exposes `window.electronC3.getPort()` / `.getBackendUrl()` via contextBridge
+- **FE auto-discovery**: `_backendBase` reads from `electronC3` → falls back to `127.0.0.1:3335`
+- **Override**: `C3_PORT=3335` to pin a specific port, `C3_PORT_FILE` for custom path
+- **All FE files updated**: chat-panel-module, ws-client, agent-client, status-widget, wizard-helpers
+
+### Tests
+- 37 tests in `upgrade-ux-v125.test.js` (rate limiting, background verify, auto-pull, migration 036, dynamic port, FE discovery pattern, empirical scorer regression, UpgradeManager basics)
+
+---
+
 ## v124 — Marketplace (2026-03-12)
 
 Remote package marketplace for skills, expertises and specialists.

@@ -197,6 +197,7 @@ export async function analyzeImages(prompt, images, systemPrompt = '', options =
     options: {
       temperature: 0.3,
       num_predict: 2048,
+      num_ctx: 4096,
     },
   };
 

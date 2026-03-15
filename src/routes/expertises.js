@@ -378,9 +378,12 @@ export function createExpertiseRoutes(deps) {
           return sendJSON(res, 400, { error: 'Expertise with this ID already exists' });
         }
 
+        // Strip prototype pollution vectors
+        const { __proto__, constructor, prototype, ...safeBody } = body;
+
         const expert = expertiseLayer.expertiseRegistry.addCustom({
           id,
-          ...body,
+          ...safeBody,
           primaryProblemTypes: body.primaryProblemTypes || ['procedural'],
           allowedRepresentations: body.allowedRepresentations || ['structured'],
           preferredModels: body.preferredModels || ['qwen3.5:27b']

@@ -841,8 +841,13 @@ export function createProjectRoutes(deps) {
         const fsPromises = await import('fs/promises');
         const pathModule = await import('path');
 
-        const artifactsDir = './data/artifacts';
-        const filepath = pathModule.default.join(artifactsDir, params.filename);
+        const artifactsDir = pathModule.default.resolve('./data/artifacts');
+        const filepath = pathModule.default.resolve(artifactsDir, params.filename);
+
+        // Path traversal guard
+        if (!filepath.startsWith(artifactsDir + pathModule.default.sep) && filepath !== artifactsDir) {
+          return sendJSON(res, 400, { error: 'Invalid filename' });
+        }
 
         // Check if file exists
         try {
