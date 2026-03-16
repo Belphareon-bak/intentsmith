@@ -1272,7 +1272,7 @@ function gracefulShutdown(signal) {
   try { upgradeManager.stopPeriodicCheck(); } catch { /* ignore */ }
 
   // v124.5: Release lazy-loaded lifecycle modules
-  try { (await import('./planner/lifecycle-build.js')).resetLazyModules(); } catch { /* ignore */ }
+  try { import('./planner/lifecycle-build.js').then(m => m.resetLazyModules()).catch(() => {}); } catch { /* ignore */ }
 
   // v82: Flush specialist telemetry before DB close
   try { specialistTelemetry?.shutdown(); } catch { /* ignore */ }
