@@ -19,7 +19,8 @@
 10. [Konfigurace](#konfigurace)
 11. [Databáze](#databáze)
 12. [Structured Logging](#structured-logging)
-13. [Budoucí rozšíření](#budoucí-rozšíření)
+13. [Nasazení online katalogu (C3studio)](#nasazení-online-katalogu-c3studio)
+14. [Budoucí rozšíření](#budoucí-rozšíření)
 
 ---
 
@@ -542,6 +543,82 @@ CREATE TABLE marketplace_catalog_cache (
 | `marketplace.uninstall` | INFO | Balíček odinstalován |
 | `marketplace.dependency.resolve` | INFO | Výsledek dependency resolution |
 | `marketplace.dependency.blocked` | WARN | Uninstall blokován dependenty |
+
+---
+
+## Nasazení online katalogu (C3studio)
+
+Marketplace katalog se hostuje jako statický JSON na GitHubu přes `raw.githubusercontent.com`.
+
+### Prerekvizity
+
+1. **Vytvořit GitHub organizaci** `C3studio` na https://github.com/organizations/plan
+2. **Fork / mirror repozitáře** `C3-agent` do organizace:
+   ```bash
+   # Varianta A: Fork přes GitHub UI
+   # Varianta B: Mirror
+   git clone --bare git@github.com:Belphareon-bak/C3-agent.git
+   cd C3-agent.git
+   git push --mirror git@github.com:C3studio/C3-agent.git
+   ```
+3. **Přenastavit remote** v lokálním repozitáři:
+   ```bash
+   git remote set-url origin git@github.com:C3studio/C3-agent.git
+   git push
+   ```
+
+### Generování katalogu
+
+Po přidání / úpravě balíčků v `marketplace/packages/`, `skills/` nebo `specialists/`:
+
+```bash
+# Regenerovat catalog.json (default: C3studio/C3-agent, master)
+node scripts/generate-catalog.js
+
+# Nebo s explicitním repo/branch:
+node scripts/generate-catalog.js --repo C3studio/C3-agent --branch master
+
+# Commit + push
+git add marketplace/catalog.json
+git commit -m "update marketplace catalog"
+git push
+```
+
+Skript `scripts/generate-catalog.js`:
+- Skenuje `marketplace/packages/expertises/*.json`, `skills/*.json`, `specialists/*/specialist.json`
+- Generuje `downloadUrl` jako `https://raw.githubusercontent.com/<repo>/<branch>/...`
+- Počítá SHA-256 hash pro každý balíček
+- Výstup: `marketplace/catalog.json`
+
+### Výsledná URL
+
+```
+https://raw.githubusercontent.com/C3studio/C3-agent/master/marketplace/catalog.json
+```
+
+Tuto URL používá `src/config.js` (pole `marketplace.catalogUrl`). Lze přepsat env proměnnou `C3_MARKETPLACE_URL`.
+
+### Specialist balíčky (tar.gz)
+
+Specialisté se stahují jako `.tar.gz` archivy. Pro online distribuci je nutné archivy vytvořit:
+
+```bash
+cd marketplace/packages/specialists/
+tar czf accountant-cz.tar.gz -C ../../../specialists accountant-cz/
+tar czf code-reviewer.tar.gz -C ../../../specialists code-reviewer/
+# ... pro každého specialistu
+```
+
+Po vytvoření archivů znovu spustit `node scripts/generate-catalog.js` (přepočítá SHA-256).
+
+### Checklist před nasazením
+
+- [ ] GitHub organizace `C3studio` existuje
+- [ ] Repozitář `C3-agent` je v organizaci (fork nebo mirror)
+- [ ] `git remote` míří na `C3studio/C3-agent`
+- [ ] `marketplace/catalog.json` je vygenerovaný a pushnutý
+- [ ] Specialist `.tar.gz` archivy jsou vytvořené a pushnuté
+- [ ] Backend restartován (nový `catalogUrl` se načte z `config.js`)
 
 ---
 
