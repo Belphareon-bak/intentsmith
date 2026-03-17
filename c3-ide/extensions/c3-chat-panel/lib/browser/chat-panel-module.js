@@ -714,6 +714,8 @@ function SidebarApp(props){
         svgEl(I.settings,18)));
   }
   /* ── Full expanded mode ── */
+  var _curS=_sessions[_sessionActive];
+  var _showWT=_wtRoot&&_curS&&_curS._projectId;
   return h('div',{style:{display:'flex',flexDirection:'column',position:'absolute',top:0,left:0,right:0,bottom:0,background:C.bg1,fontFamily:C.font,borderRight:'1px solid '+C.border,overflow:'hidden'}},
     /* Header with C3 Studio + collapse */
     h('div',{style:{display:'flex',alignItems:'center',padding:'6px 8px 2px',flexShrink:0}},
@@ -740,8 +742,8 @@ function SidebarApp(props){
             h('span',{style:{width:6,height:6,borderRadius:'50%',background:C.accent,flexShrink:0}}),r);})));
         return els;
       }),
-      _wtRoot?h('div',{style:{height:1,background:C.border,margin:'6px 12px'}}):null,
-      _wtRoot?h('div',{style:{display:'flex',alignItems:'center',padding:'6px 10px 2px'}},
+      _showWT?h('div',{style:{height:1,background:C.border,margin:'6px 12px'}}):null,
+      _showWT?h('div',{style:{display:'flex',alignItems:'center',padding:'6px 10px 2px'}},
         h('span',{style:{fontSize:_fs(10),fontWeight:700,color:C.tx4,textTransform:'uppercase',letterSpacing:'0.6px',flex:1}},'Working Tree'),
         h('div',{style:{display:'flex',gap:2}},
           _wtRoot?h('div',{style:{width:20,height:18,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:3,cursor:'pointer',color:C.tx4,fontSize:_fs(11)},title:'Obnovit',
@@ -757,10 +759,10 @@ function SidebarApp(props){
             onMouseEnter:function(e){e.currentTarget.style.background=C.bg3;},onMouseLeave:function(e){e.currentTarget.style.background='transparent';},
             onClick:function(){_wtNewInput={type:'dir',parent:null};renderSidebar();}},'📁'))):null,
       /* Workspace root path indicator */
-      _wtRoot?h('div',{style:{padding:'2px 10px 4px',fontSize:_fs(9),color:C.tx4,fontFamily:C.mono,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'},title:_wtRoot},
+      _showWT?h('div',{style:{padding:'2px 10px 4px',fontSize:_fs(9),color:C.tx4,fontFamily:C.mono,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'},title:_wtRoot},
         _wtRoot.split('/').slice(-2).join('/')):null,
       /* New file/dir inline input (only when project open) */
-      (_wtRoot&&_wtNewInput)?h('div',{style:{display:'flex',alignItems:'center',gap:4,padding:'2px 8px'}},
+      (_showWT&&_wtNewInput)?h('div',{style:{display:'flex',alignItems:'center',gap:4,padding:'2px 8px'}},
         h('span',{style:{fontSize:_fs(13),flexShrink:0}},_wtNewInput.type==='dir'?'📁':'📄'),
         h('input',{autoFocus:true,style:{flex:1,background:C.bg3,border:'1px solid '+C.accent,borderRadius:4,padding:'2px 6px',color:C.tx1,fontFamily:C.mono,fontSize:_fs(11),outline:'none'},
           placeholder:_wtNewInput.type==='dir'?'název-složky':'soubor.js',
@@ -777,9 +779,9 @@ function SidebarApp(props){
           },
           onBlur:function(){_wtNewInput=null;renderSidebar();}})):null,
       /* Loading indicator */
-      _wtLoading?h('div',{style:{padding:'8px 10px',textAlign:'center',fontSize:_fs(10),color:C.tx4}},'Načítám...'):
+      (_showWT&&_wtLoading)?h('div',{style:{padding:'8px 10px',textAlign:'center',fontSize:_fs(10),color:C.tx4}},'Načítám...'):
       /* File tree */
-      (function(){
+      _showWT?(function(){
         var stColors={M:C.accentText,A:'#22d3ee',D:'#ef4444',U:'#f97316'};
         if(FILES.length===0&&_wtRoot){return h('div',{style:{padding:'8px 10px',fontSize:_fs(11),color:C.tx4}},'Prázdná složka');}
         if(FILES.length===0){return null;}
@@ -816,7 +818,7 @@ function SidebarApp(props){
               onClick:function(e){e.stopPropagation();if(confirm('Smazat '+f.n+'?')){_wtDeleteItem(filePath);}_wtRenaming=null;renderSidebar();}},'×'):
             f.st?h('span',{style:{fontSize:_fs(9),fontWeight:700,color:stColors[f.st]||C.tx4,fontFamily:C.mono,flexShrink:0}},f.st):null);
         });
-      })(),
+      })():null,
     ),
     /* Settings — pinned to bottom outside scroll area */
     h('div',{style:{padding:'4px 8px 2px',borderTop:'1px solid '+C.border,flexShrink:0}},
