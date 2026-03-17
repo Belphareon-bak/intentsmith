@@ -272,7 +272,7 @@ IMPLEMENTACE:
 Spustitelná Theia instance s C3 brandem, stripnutými nepotřebnými moduly, a prázdnými C3 panely. Žádná C3 logika — jen shell.
 
 ### Prerekvizity
-- Node.js 18+ (Theia requirement)
+- Node.js 22+
 - yarn (Theia používá yarn workspaces)
 - Python 3.10+ (build tooling)
 - Existující C3 backend (běží separátně)

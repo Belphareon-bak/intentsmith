@@ -35,7 +35,7 @@
 
 | Prerekvizita | Verze | Ucel |
 |-------------|-------|------|
-| Node.js | 22.x (doporuceno) / 18+ (minimum) | Backend + IDE build |
+| Node.js | 22.x (povinne) | Backend + IDE build |
 | npm | 10+ | Instalace BE zavislosti |
 | yarn | 1.22+ | IDE build (Theia workspaces) |
 | Ollama | latest | LLM inference server |

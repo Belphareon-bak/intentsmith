@@ -147,5 +147,5 @@ Viz `integration-guide.js` pro kompletní příklad.
 ## Prerekvizity
 
 - Sprint 0 hotový (Theia scaffold se spouští)
-- Node.js 18+
+- Node.js 22+
 - Existující C3 backend běží na :3001

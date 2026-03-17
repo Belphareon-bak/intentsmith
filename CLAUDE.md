@@ -337,7 +337,7 @@ node --watch src/server.js    # Vývojový (auto-restart)
 ```
 
 ### Prerekvizity
-- Node.js 22+ (systémový node 18 NESTAČÍ — potřeba nvm)
+- Node.js 22+ (povinné — `nvm use 22`, systémový node nestačí)
 - Ollama s modely qwen3.5:27b + deepseek-r1:32b
 - SQLite (better-sqlite3)
 
