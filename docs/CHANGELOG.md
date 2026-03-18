@@ -8,6 +8,41 @@
 
 ---
 
+## v125.1–v125.7 — Marketplace Catalog + IDE Fixes (2026-03-15–2026-03-18)
+
+Marketplace balíčky (24 nových), online katalog, C3studio branding, IDE opravy.
+
+### v125.1: Marketplace balíčky
+- **5 developer expertíz**: tester, system-architect, frontend-developer, backend-developer, technical-writer
+- **5 specialistů**: accountant-cz, code-reviewer, dummy-logger, sazeni, translator
+- **13 skills**: brainstorm, changelog-gen, code-refactor, create-expertise, create-skill, create-specialist, email-composer, interview-prep, meeting-notes, presentation, project-bootstrap, report-gen, summarizer
+
+### v125.2: Marketplace catalog testy
+- `tests/marketplace-catalog-v125.test.js` — 342 deterministických testů (9 sad)
+- Pokrytí: skills (parametry, kroky), expertízy (domény, capabilities), specialisté (manifest, tools), security-scan, analyze-code, betting tools
+
+### v125.3: Lokální katalog
+- `marketplace-client.js`: `_scanLocalPackages()` skenuje `marketplace/packages/`, `skills/`, `specialists/`
+- `package-installer.js`: lokální install cesta (přímé čtení z disku místo downloadu)
+- `routes/marketplace.js`: flat `items[]` array s `type` polem (FE/BE mismatch fix)
+
+### v125.5: Online marketplace
+- `scripts/generate-catalog.js`: generátor katalogu s raw GitHub URL + SHA-256
+- `marketplace/catalog.json`: 39 balíčků (21 expertíz, 13 dovedností, 5 specialistů)
+
+### v125.6: C3studio branding
+- Veškeré URL přebrandovány z `Belphareon-bak` na `C3studio/C3-agent`
+- Author: `C3 Community` → `C3 Studio`
+- Dotčené: config.js, marketplace-client.js, generate-catalog.js, catalog.json, docs/marketplace.md
+- Docs: nová sekce "Nasazení online katalogu (C3studio)" s checklistem
+
+### v125.7: IDE opravy
+- **Working Tree visibility**: sidebar se zobrazí pouze při aktivní projektové session (`_showWT = _wtRoot && _curS._projectId`)
+- **Duplicate key fix**: odstraněn duplicitní `qwen3.5:27b` z fallback pole modelů
+- **Expertise→Specialist leak**: odstraněn `e.isCustom` z `isSpecialist` heuristiky — marketplace expertízy se už nezobrazují jako specialisté
+
+---
+
 ## v126 — Security Hardening (2026-03-12)
 
 Path traversal + package integrity fixes identified by security audit.

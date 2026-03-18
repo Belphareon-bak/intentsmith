@@ -466,7 +466,7 @@ function _fetchExpertises(){
           desc:_s(e.description||e.desc)||(le?le.desc:''),
           domain:_s(e.domain)||(le?le.domain:''),
           fav:e.favorite!=null?!!e.favorite:(le?!!le.fav:false),
-          isSpecialist:!!(e.is_specialist||e.isCustom||(cfg&&cfg.toolEnforcement)||(le&&le.isSpecialist)),
+          isSpecialist:!!(e.is_specialist||(cfg&&cfg.toolEnforcement)||(le&&le.isSpecialist)),
           temperature:e.temperature||null};
       });
       EXPERTISES=allEx;
