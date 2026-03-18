@@ -746,15 +746,82 @@ Registry → Resolver (LLM intent match) → Runner (state machine) → Step exe
 
 ### Model Bindings (Ollama)
 
-| Role | Model | Timeout |
-|------|-------|---------|
-| D1 (deliberation) | deepseek-r1:32b | 120s |
-| D2 (fix) | qwen3-30b-a3b | 60s |
-| CODE | qwen3.5:27b | 90s |
-| R1 (review) | deepseek-r1:32b | 120s |
-| R2 (quick review) | qwen3.5:27b | 45s |
-| CHAT | qwen3.5:27b | 60s |
-| VISION | llava:13b | 60s |
+| Role | Default Model | Timeout | Usage |
+|------|---------------|---------|-------|
+| D1 (deliberation) | deepseek-r1:32b | 120s | Planning, analysis, roadmap generation |
+| D2 (fix) | qwen3-30b-a3b | 60s | Fix deliberation, error analysis |
+| CODE | qwen3.5:27b | 90s | Code generation, implementation |
+| R1 (review) | deepseek-r1:32b | 120s | Final milestone review, security audit |
+| R2 (quick review) | qwen3.5:27b | 45s | Quick code review, checkpoint validation |
+| CHAT | qwen3.5:27b | 60s | User conversation, synthesis, all non-workflow LLM calls |
+| VISION | llava:13b | 60s | Image understanding, screenshot analysis |
+
+### LLM Gateway & Model Selection
+
+Model selection is **purely static** — there is no adaptive layer that chooses models based on task complexity, token count, or runtime heuristics.
+
+**Resolution pipeline:**
+
+```
+config.models[role]          ← base binding (config.js / env var)
+  ↑ mutated by
+upgradeManager.applyUpgrade()  ← user-approved upgrade (persisted to model_overrides DB)
+  ↑ loaded at startup by
+upgradeManager.loadPersistedOverrides()  ← restores overrides from DB into config
+```
+
+**Every LLM call** reads `config.models[role]` at call time:
+
+```
+User Query
+  → CRE classifies intent
+  → Handler calls synthesizeWithLLM() or callLLM(role)
+  → creBridge.generateChatResponse(prompt, { model: config.models.CHAT })
+  → llmGateway.call(prompt, { model })
+  → Ollama /api/chat
+```
+
+**Key principles:**
+- **No routing by complexity** — a simple "ahoj" and a complex synthesis both use the same CHAT model
+- **No fallback chains** — if a model fails (OOM, timeout), the call fails; no automatic switch to a smaller model
+- **Role = model** — each role maps to exactly one model at any time
+- **Override is user-controlled** — the Model Upgrade System proposes candidates, but only a user-approved upgrade changes the binding (see Upgrade Pipeline below)
+- **Hot-swap** — `applyUpgrade()` mutates `config.models` in-place; all subsequent LLM calls immediately use the new model (no restart needed)
+- **Concurrency** — single-slot semaphore by default (`C3_MAX_CONCURRENT_LLM=1`), serializes all LLM calls across roles to prevent GPU contention
+
+**MODEL_PROFILES** (defined in `src/upgrade/model-profiles.js`) are metadata used **exclusively** by the upgrade system for discovery, filtering, and ranking. They are never consulted at request time.
+
+### Model Upgrade Pipeline
+
+The upgrade system discovers, evaluates, and proposes model changes — but **never auto-upgrades**.
+
+```
+  ┌─────────────────────────────────────────────────────────────┐
+  │ L1: Local Ollama (/api/tags)       — every poll cycle       │
+  │ L2: Curated Catalog (55 models)    — every full cycle (24h) │
+  │ L4: Online Discovery (ollama.com)  — every full cycle       │
+  └──────────┬──────────────────────────────────────────────────┘
+             ↓
+  Filter: requirements (minParams, capabilities, json_mode)
+             ↓
+  Feasibility: VRAM (90%), RAM (70%), disk (80%), CPU cap 14B
+             ↓
+  Pairwise Eval: score(candidate) − score(current) ≥ threshold
+    Score = benchmark×0.35 + hwFit×0.20 + maturity×0.15
+          + generation×0.10 + category×0.13 + speed×0.07
+    Thresholds: D1=0.06, CODE=0.05, CHAT=0.04, R2=0.05
+    Dominance gate: reject if context window >20% worse
+             ↓
+  Empirical Blend (Phase 3): blend real metrics when >10 samples
+             ↓
+  Proposal Store → User Notification (WS + chat)
+             ↓
+  User Approval ("schvaluji" / "approve" / "ano")
+             ↓
+  Pull (if not installed) → Verify (3×30s) → Apply → Persist
+```
+
+**Anti-thrashing:** 14-day cooldown per role. Rejected models get 30-day cooldown. Dismissed = permanent block.
 
 ### Feature Flags
 
