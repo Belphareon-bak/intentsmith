@@ -465,6 +465,9 @@ export class UpgradeManager {
       if (this._db) {
         this._persistOverride(role, targetModel, previousModel, opts.score, appliedBy);
         this._recordHistory(role, previousModel, targetModel, opts.score, 'apply');
+
+        // v126: Expire stale pending proposals (where candidate == new active model)
+        this._expirePendingProposalsForRole(role, targetModel);
       }
 
       // In-memory history
@@ -609,6 +612,31 @@ export class UpgradeManager {
       this._db.prepare('UPDATE model_overrides SET verified = ? WHERE role = ?').run(verified ? 1 : 0, role);
     } catch (err) {
       logger.warn('UpgradeManager', `markVerified failed: ${err.message}`);
+    }
+  }
+
+  /**
+   * Expire stale pending proposals for a role (where candidate == new active model).
+   * Called after applyUpgrade to clean up proposals that are now obsolete.
+   * @param {string} role
+   * @param {string} newModel - The newly applied model
+   */
+  _expirePendingProposalsForRole(role, newModel) {
+    if (!this._db) {
+      logger.warn('UpgradeManager', `Cannot expire proposals: DB not set`);
+      return;
+    }
+    try {
+      const normalized = _normalizeModelName(newModel);
+      const result = this._db.prepare(`
+        UPDATE upgrade_proposals
+        SET status = 'expired', resolved_at = datetime('now')
+        WHERE role = ? AND status = 'pending'
+          AND (candidate_model = ? OR candidate_model = ?)
+      `).run(role, newModel, normalized);
+      logger.info('UpgradeManager', `Expired ${result.changes} stale proposals for ${role} (candidate=${newModel})`);
+    } catch (err) {
+      logger.warn('UpgradeManager', `Failed to expire proposals: ${err.message}`);
     }
   }
 
@@ -1225,6 +1253,27 @@ export class UpgradeManager {
     const pollMs = opts.pollMs ?? 5 * 60 * 1000;
     const jitterMs = opts.jitterMs ?? 90 * 60 * 1000; // ±90min
     const checkOpts = { baseUrl: opts.baseUrl };
+
+    // v126: Startup cleanup — expire pending proposals where candidate == active model
+    if (this._db) {
+      try {
+        for (const [role, profile] of Object.entries(MODEL_PROFILES)) {
+          const currentModel = profile.getCurrentModel();
+          const normalized = _normalizeModelName(currentModel);
+          const result = this._db.prepare(`
+            UPDATE upgrade_proposals
+            SET status = 'expired', resolved_at = datetime('now')
+            WHERE role = ? AND status = 'pending'
+              AND (candidate_model = ? OR candidate_model = ?)
+          `).run(role, currentModel, normalized);
+          if (result.changes > 0) {
+            logger.info('UpgradeManager', `Startup cleanup: expired ${result.changes} stale proposals for ${role}`);
+          }
+        }
+      } catch (err) {
+        logger.warn('UpgradeManager', `Startup cleanup failed: ${err.message}`);
+      }
+    }
 
     // Initial check (L1 only, fire-and-forget)
     this.checkForUpgrades(checkOpts).catch(err =>

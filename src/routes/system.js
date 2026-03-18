@@ -670,13 +670,20 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
         const role = url.searchParams.get('role');
 
         const { proposalStore } = await import('../upgrade/proposal-store.js');
+        const { MODEL_PROFILES } = await import('../upgrade/model-profiles.js');
+
+        // v126: Build current models map for filtering
+        const currentModels = {};
+        for (const [r, profile] of Object.entries(MODEL_PROFILES)) {
+          currentModels[r] = profile.getCurrentModel();
+        }
 
         if (status === 'pending' && role) {
           sendJSON(res, 200, { proposals: proposalStore.getPendingForRole(role) });
         } else if (status || role) {
           sendJSON(res, 200, { proposals: proposalStore.getHistory({ status, role }) });
         } else {
-          sendJSON(res, 200, { proposals: proposalStore.getActiveProposals() });
+          sendJSON(res, 200, { proposals: proposalStore.getActiveProposals(currentModels) });
         }
       } catch (err) {
         sendJSON(res, 500, { error: err.message });

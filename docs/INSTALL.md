@@ -1,7 +1,7 @@
 # C3 Agent — Instalacni prirucka
 
-**Verze:** v124.0.0
-**Datum:** 2026-03-12
+**Verze:** v127.0.0
+**Datum:** 2026-03-18
 
 ---
 

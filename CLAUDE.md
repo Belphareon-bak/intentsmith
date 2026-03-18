@@ -1,7 +1,7 @@
 # CLAUDE.md - C.3 Agent Development Context
 
-**Verze:** v124.0.0
-**Datum:** 2026-03-12
+**Verze:** v127.0.0
+**Datum:** 2026-03-18
 **Projekt:** ~/Projects/c3-agent-wip
 
 ---
@@ -11,7 +11,7 @@
 C.3 Agent je plně funkční lokální AI platforma s:
 - **CRE** (Conversational Reasoning Engine) — single-authority klasifikátor, 19 intent typů, 11 guard pravidel, Gatekeeper audit trail
 - **Expertise System** (v63+) — 15 vestavěných expertýz, 5D capability profily, merge engine (max 3), auto-select (<1ms), enforcement pipeline
-- **Specialist Platform** (v121+) — self-contained pluginové balíčky v `specialists/`. ctx.registries API (6 registrů), manifest v2, CapabilityRegistry (N:M), deterministic boot (Kahn's algo)
+- **Specialist Platform** (v121-v124) — self-contained pluginové balíčky v `specialists/`. ctx.registries API (6 registrů), manifest v2, CapabilityRegistry (N:M), deterministic boot (Kahn's algo)
 - **Quality Gate v2** — 4-vrstvý deterministický post-processing: structural fix, SK→CZ transliterátor (~160 regexů), LinkGuard, content enforcement
 - **Agent Platform** — worker agenti se zdroji, podmínkami, triggery, notifikacemi. Cron/interval scheduling, 6 kanálů
 - **Project Lifecycle** — SPEC → BUILD → REVIEW → CHANGE → COMPLETED. Checkpoint modes (STRUCTURAL/FUNCTIONAL/SECURITY), adaptive retry, crash recovery, auto-commit, milestone mutex (RAM+DB), spec drift guard, executor timeout (v124)
@@ -21,8 +21,8 @@ C.3 Agent je plně funkční lokální AI platforma s:
 - **Architecture Governance** (v98-v100) — guardian, API contracts, critic/repair, regression prediction, multi-agent pipeline (5 rolí)
 - **Skills System** (v85+) — deterministické workflow (JSON): 9 step typů. Meta-skills: create-skill, create-expertise, create-specialist
 - **Memory System** (v86+) — LTM (poločas 69d), task memory (poločas 139d), cross-project learning
-- **Model Upgrade** (v103-v124) — catalog (55 modelů), pairwise eval, empirical scoring (Phase 3, linear blend interpolation), L4 online discovery, validation suites (5 sad), chat-based approval, atomic dedup, auto-cleanup
-- **Marketplace** (v124) — remote package catalog, transactional install, dependency resolver, SHA-256 ověření
+- **Model Upgrade** (v103-v127) — catalog (55 modelů), pairwise eval, empirical scoring (Phase 3, linear blend interpolation), L4 online discovery, validation suites (5 sad), chat-based approval, atomic dedup, auto-cleanup, scoring fixes (dominance gate, generation bonus)
+- **Marketplace** (v124-v126) — remote package catalog, transactional install, dependency resolver, SHA-256 ověření, security hardening (null byte guard, mandatory hash)
 - **C3 Studio IDE** — Theia 1.65.2 + Electron 37, 33 rozšíření, chat panel, agent log, settings, focus mode
 
 ### Zdrojový kód
@@ -307,7 +307,7 @@ src/architect/multi-agent.js             # 5-role pipeline (planner→builder→
 ```
 src/db/database.js                # SQLite schema, 80+ tabulek
 src/db/migrate.js                 # Migration runner
-src/db/migrations/                # 37 migrací (timestamp-based, v63 → v124)
+src/db/migrations/                # 37 migrací (timestamp-based, v63 → v127)
 ```
 
 ### Server
@@ -460,4 +460,4 @@ Discovery nikdy nemění config. Komunikace jen přes proposals v DB. Chat-based
 
 ---
 
-*Poslední aktualizace: v124.0.0 (2026-03-12)*
+*Poslední aktualizace: v127.0.0 (2026-03-18)*

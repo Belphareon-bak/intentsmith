@@ -1,8 +1,8 @@
-# C.3 Agent Platform — Architecture v126
+# C.3 Agent Platform — Architecture v127
 
-**Version:** v126.0.0
+**Version:** v127.0.0
 **Status:** Production-ready
-**Date:** 2026-03-12
+**Date:** 2026-03-18
 
 ---
 

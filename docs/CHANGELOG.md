@@ -8,7 +8,34 @@
 
 ---
 
+## v127 — Proposal Scoring Fix + Stale Cleanup (2026-03-18)
+
+Upgrade proposal pipeline was generating 0 proposals despite 9 candidates. Two bugs in pairwise scoring + stale proposal accumulation.
+
+### Scoring Fixes (model-ranker.js)
+- **Generation self-bonus removed**: current model was getting a 0.3 generation bonus when compared to itself, inflating its score and reducing delta. Fix: `currentModel: null` when scoring current model
+- **Dominance gate narrowed**: hardwareFit and speed removed from dominance gate — these are already weighted in total score (0.20 + 0.07). Only context window regression checked. Fixes: 32B models no longer blocked on 24GB GPU despite fitting in VRAM
+
+### Stale Proposal Cleanup
+- **API filter** (system.js): `getActiveProposals()` now filters out proposals where candidate == current active model
+- **On-apply expire** (upgrade-manager.js): `_expirePendingProposalsForRole()` expires obsolete proposals when a model is applied
+- **Startup cleanup** (upgrade-manager.js): on server start, expire all pending proposals where candidate matches current model
+
+### Result
+- Before: 9 candidates, 0 proposals
+- After: 9 candidates, 3 proposals (CODE/CHAT/R2 → qwen3.5:27b, already installed)
+
+### Version Sync
+- All doc versions synced to v127: package.json, server.js, ARCHITECTURE.md, CLAUDE.md, INSTALL.md
+
+### Tests
+- Phase 2: 108/0, Phase 3: 68/0, Validation: 73/0, UX: 49/0, Security: 47/0 — **345 tests, 0 regressions**
+
+---
+
 ## v125.1–v125.7 — Marketplace Catalog + IDE Fixes (2026-03-15–2026-03-18)
+
+> **Note:** v125.x features were developed after v126 (security hardening) as marketplace extensions. Numbering reflects the feature branch, not chronological commit order.
 
 Marketplace balíčky (24 nových), online katalog, C3studio branding, IDE opravy.
 

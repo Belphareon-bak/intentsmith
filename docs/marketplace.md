@@ -1,4 +1,4 @@
-# Marketplace — Dokumentace (v124)
+# Marketplace — Dokumentace (v127)
 
 > Vzdálený katalog balíčků pro skills, expertises a specialists.
 > Browse → Install → Update → Uninstall s dependency managementem.

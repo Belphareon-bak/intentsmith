@@ -288,10 +288,12 @@ export function evaluateUpgrade(current, candidate, role, context = {}, empirica
   const currentParams = current.params || parseModelName(current.name || '').params || 0;
   const candidateParams = candidate.params || parseModelName(candidate.name || '').params || 0;
 
+  // Don't pass currentModel when scoring the current model — generation bonus
+  // is meant to reward candidates that are newer versions, not self-referential.
   const currentScoreResult = scoreModel(current, role, {
     ...context,
     referenceParams: currentParams,
-    currentModel: current,
+    currentModel: null,
   }, empiricalCtx.current || {});
 
   const candidateScoreResult = scoreModel(candidate, role, {
@@ -329,10 +331,11 @@ export function evaluateUpgrade(current, candidate, role, context = {}, empirica
   const strongEmpirical = empiricalDelta > 0.15
     && (empiricalCtx.candidate?.blendWeights?.empiricalWeight ?? 0) > 0;
 
-  const dominanceChecks = [
-    ['hardwareFit', candidateScoreResult.breakdown.hardwareFit, currentScoreResult.breakdown.hardwareFit],
-    ['speed', candidateScoreResult.breakdown.speed, currentScoreResult.breakdown.speed],
-  ];
+  // Dominance gate: only check context window regression.
+  // HardwareFit and speed are already weighted in the total score (0.20 + 0.07);
+  // gating on them blocks valid upgrades where a larger model fits in GPU but
+  // has slightly worse hw/speed ratio (e.g. 32B vs 14B on 24GB GPU).
+  const dominanceChecks = [];
 
   // Context window as normalized dimension (1.0 = same or better, 0 = none)
   if (candidate.contextWindow && current.contextWindow) {

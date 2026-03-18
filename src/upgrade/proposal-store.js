@@ -251,11 +251,25 @@ export class ProposalStore {
     return { blocked: false };
   }
 
-  getActiveProposals() {
+  /**
+   * Get active proposals. Filters out proposals where candidate == current active model.
+   * @param {Object} [currentModels] - Optional map of role → current model for filtering
+   */
+  getActiveProposals(currentModels = null) {
     if (!this._db) return [];
-    return this._db.prepare(`
+    const proposals = this._db.prepare(`
       SELECT * FROM upgrade_proposals WHERE status = 'pending' ORDER BY score DESC
     `).all();
+
+    // v126: Filter out proposals where candidate is already the active model
+    if (!currentModels) return proposals;
+
+    const _normalize = (name) => name ? name.replace(/:latest$/, '') : '';
+    return proposals.filter(p => {
+      const currentModel = currentModels[p.role];
+      if (!currentModel) return true;
+      return _normalize(p.candidate_model) !== _normalize(currentModel);
+    });
   }
 
   getPendingForRole(role) {
