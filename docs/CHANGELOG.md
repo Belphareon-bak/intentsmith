@@ -25,6 +25,14 @@ Upgrade proposal pipeline was generating 0 proposals despite 9 candidates. Two b
 - Before: 9 candidates, 0 proposals
 - After: 9 candidates, 3 proposals (CODE/CHAT/R2 → qwen3.5:27b, already installed)
 
+### Documentation: LLM Gateway & Model Selection Pipeline
+- **New ARCHITECTURE.md section** documenting the model selection pipeline — previously undocumented
+- Model selection is purely static: `config.models[role]` → Ollama. No adaptive layer, no complexity-based routing, no fallback chains
+- Role = model: each role maps to exactly one model at any time
+- Only dynamism: user-approved upgrade overrides via `applyUpgrade()` (hot-swap, no restart needed)
+- `MODEL_PROFILES` used exclusively by upgrade pipeline for discovery/filtering/ranking — never at request time
+- Model Upgrade Pipeline diagram: L1/L2/L4 discovery → filter → feasibility → pairwise eval → empirical blend → proposal → approval → pull → apply
+
 ### Version Sync
 - All doc versions synced to v127: package.json, server.js, ARCHITECTURE.md, CLAUDE.md, INSTALL.md
 
