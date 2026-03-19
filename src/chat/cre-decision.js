@@ -712,6 +712,18 @@ export const KNOWLEDGE_EXPLANATION_PATTERNS = [
   /^shrň\s/i, /^shrn\s/i,                       // "shrň co víš o..."
   /^porovnej\s/i,                                // "porovnej X a Y"
   /^srovnej\s/i,                                 // "srovnej React a Angular"
+  // v128: Pronoun-based short follow-ups (after attachment/file context)
+  // These are context-dependent imperatives using pronouns that reference prior content.
+  /^co\s+to\s+d[eě]l[áa]\s*[?!.]?$/i,           // "co to dela" (what does it do)
+  /^k\s+[cč]emu\s+(to\s+)?slou[zž][ií]\s*[?!.]?$/i,  // "k cemu to slouzi"
+  /^o\s+[cč]em\s+to\s+(je|bylo)\s*[?!.]?$/i,     // "o cem to je"
+  /^ud[eě]lej\s+(mi\s+)?(p[rř]ehled|souhrn|v[ýy]tah|shrnut[ií])\s*[?!.]?$/i,  // "udelej prehled"
+  /^jak[ée]\s+(jsou|byly?)\s+(ty|tyto|tyhle)\s+/i,  // "jake jsou ty soubory"
+  /^chci\s+(n[eě]jak[ýy]\s+)?(v[ýy]tah|souhrn|p[rř]ehled|shrnut[ií])/i,  // "chci nejaky vytah..."
+  // EN pronoun follow-ups
+  /^what\s+do\s+(these|those|the)\s+(file|code|script|module|function)s?\s+do\s*[?]?$/i,
+  /^give\s+me\s+(a\s+)?(summary|overview|rundown|breakdown)/i,
+  /^summarize\s+(it|them|this|that|these|those)\s*[?!.]?$/i,
 ];
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -1011,12 +1023,14 @@ const FILE_EXPLAIN_PATTERNS = [
 // ─────────────────────────────────────────────────────────────────────────────
 const SHELL_COMMAND_PATTERNS = [
   // CZ: explicit execution verbs + command-like argument
-  /(?:^|\s)(spusť|spust|spustit|pusť|pust|pustit|runni|zavolej|proved|proveď|vykonej|exec)\s+(.+)/i,
+  // v128: negative lookahead for BUILD keywords — "spusť build" is BUILD, not SHELL
+  /(?:^|\s)(spusť|spust|spustit|pusť|pust|pustit|runni|zavolej|proved|proveď|vykonej|exec)\s+(?!(?:mi\s+)?(?:build|stav(?:bu|ět)|projekt|aplikac|deploy)\b)(.+)/i,
   // CZ: "dej/hoď do terminálu", "v terminálu spusť"
   /(?:^|\s)(v\s+termin[áa]lu|do\s+termin[áa]lu|v\s+shellu|do\s+shellu)\s+(.+)/i,
   /(?:^|\s)(.+)\s+(v\s+termin[áa]lu|do\s+termin[áa]lu|v\s+shellu)/i,
-  // CZ: "spusť testy", "pusť build", "runni linter"
-  /(?:^|\s)(spusť|spust|pusť|pust)\s+(testy|test[yů]?|build|lint|linter|server|docker|make)\b/i,
+  // CZ: "spusť testy", "pusť linter", "runni docker"
+  // v128: "build" removed — "spusť build" is BUILD intent, not SHELL
+  /(?:^|\s)(spusť|spust|pusť|pust)\s+(testy|test[yů]?|lint|linter|server|docker|make)\b/i,
   // CZ: "npm test", "npm install", "yarn build" — bare package manager commands
   /^\s*(npm|yarn|pnpm|npx|bun)\s+(test|install|build|run|start|dev|lint|ci|exec)\b/i,
   // CZ/EN: "git status", "git pull", "git push" — bare git commands
@@ -1135,6 +1149,21 @@ const BUILD_PATTERNS = [
   // Multi-step indicators (combined with action verb)
   /nakonfiguruj\s+(mi\s+)?(celý|celej|kompletní)/i,
   /připrav\s+(mi\s+)?(prostředí|environment|stack|infra)/i,
+
+  // v128: Modal verb BUILD patterns ("můžeš začít implementovat", "chci abys začal stavět")
+  /m[uůo][zž]e[sš]?\s+z[aá][cč][ií]t\s+(implement\S*|stav[eě]t|vytvo[rř]it|napsat|ud[eě]lat|programovat|k[oó]dovat)/i,
+  /m[uůo]ze[sš]?\s+zacit\s+(implement\S*|stavet|vytvorit|napsat|udelat|programovat|kodovat)/i,  // no diacritics
+  /(mohl|cht[eě]l)\s+bys?\s+(implement\S*|vytvo[rř]it|postavit|napsat|nakódovat|stavět)/i,
+  /chci\s+abys?\s+(za[cč]al|implementoval|napsal|vytvo[rř]il|postavil)\b/i,
+  /za[cč]ni\s+s\s+(buildem|build|implementac[ií]|ps[aá]n[ií]m\s+k[oó]du|v[ýy]vojem|programov[aá]n[ií]m)/i,
+  /zacni\s+s\s+(buildem|build|implementaci|psanim\s+kodu|vyvojem|programovanim)/i,  // no diacritics
+  /p[rř]epni\s+(?:se\s+)?do\s+(build|implementa[cč]n[ií]ho|k[oó]dovac[ií]ho)\s+(m[oó]du|re[zž]imu)/i,
+  /^napsat\s+(program|aplikac\S*|app|web\S*|syst[eé]m|server|api|backend|frontend)\b/i,
+  // EN: modal BUILD
+  /can\s+you\s+(start|begin)\s+(building|implementing|coding|creating|developing)/i,
+  /could\s+you\s+(build|implement|create|develop|code)\s/i,
+  /I\s+want\s+you\s+to\s+(build|implement|create|develop|code)\s/i,
+  /start\s+(implementing|coding|developing)\b/i,
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1151,6 +1180,11 @@ const DESIGN_BUILD_ESCALATION = [
   /chci\s+(vytvorit|udelat)\s+.{0,60}(aplikac|app|web|system|mobilni)/i,
   // EN: "I want to create/build/make [app type]"
   /want\s+to\s+(create|build|make|develop)\s+.{0,60}(app|application|website|system|platform)/i,
+  // v126: DESIGN+BUILD hybrid — "navrhni a implementuj/postav/vytvoř/naprogramuj"
+  /navrhni\s+.{0,60}(implementuj|postav|buduj|naprogramuj|vytvo[rř]|napi[sš])\b/i,
+  /navrhni\s+.{0,10}a\s+(implementuj|postav|buduj|naprogramuj|vytvo[rř]|napi[sš])/i,
+  // EN: "design and implement/build"
+  /design\s+.{0,30}(implement|build|create|develop)/i,
 ];
 
 const DESIGN_ADVISORY = [
@@ -2621,6 +2655,11 @@ PRAVIDLA:
     // v58.3: DESIGN_EXCLUSION — "navrhni nápady/příběh/jídelníček" = NOT architecture
     if (DESIGN_PATTERNS.some(p => p.test(textNorm)) &&
         !DESIGN_EXCLUSION_PATTERNS.some(p => p.test(textNorm))) {
+      // v126: If DESIGN matches BUT input also contains BUILD action verbs,
+      // escalate to BUILD. "Navrhni a implementuj REST API" = BUILD, not DESIGN.
+      if (DESIGN_BUILD_ESCALATION.some(p => p.test(textNorm))) {
+        return IntentType.BUILD;
+      }
       return IntentType.DESIGN;
     }
 
@@ -2644,7 +2683,7 @@ PRAVIDLA:
 
     // ════════════════════════════════════════════════════════════════════════
     // v65.0: SHELL — user wants to execute a terminal command
-    // MUST be before BUILD — "spusť build" is SHELL, not BUILD
+    // v128: "spusť build" now excluded by negative lookahead → falls to BUILD
     // ════════════════════════════════════════════════════════════════════════
     if (SHELL_COMMAND_PATTERNS.some(p => p.test(text))) {
       return IntentType.SHELL;

@@ -8,10 +8,12 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { logger } from '../core/logger.js';
+import { spawnSync } from 'node:child_process';
 
 // ─── Lazy Parser Cache ───────────────────────────────────────────────────────
 
 let Parser = null;
+let _treeSitterUnsafe = null; // null=unknown, true=segfaults, false=safe
 const _parsers = new Map();    // language → configured Parser instance
 const _grammars = new Map();   // language → grammar module
 
@@ -24,8 +26,38 @@ const GRAMMAR_MODULES = {
   java: 'tree-sitter-java',
 };
 
+/**
+ * v128: Subprocess probe — test if tree-sitter can load without crashing.
+ * Spawns a child process that attempts require('tree-sitter').
+ * If it segfaults (exit 139) or crashes, marks tree-sitter as unsafe.
+ * Result is cached — only runs once per process lifetime.
+ */
+function probeTreeSitter() {
+  if (_treeSitterUnsafe !== null) return !_treeSitterUnsafe;
+  try {
+    const result = spawnSync(process.execPath, [
+      '-e', 'try { require("tree-sitter"); process.exit(0); } catch(e) { process.exit(1); }'
+    ], { timeout: 5000, stdio: 'ignore' });
+    if (result.status === 0) {
+      _treeSitterUnsafe = false;
+      logger.info('ASTAnalyzer', 'tree-sitter probe: OK (safe to load)');
+      return true;
+    }
+    const sig = result.signal || `exit=${result.status}`;
+    _treeSitterUnsafe = true;
+    logger.warn('ASTAnalyzer', `tree-sitter probe: UNSAFE (${sig}) — AST features disabled`);
+    return false;
+  } catch (err) {
+    _treeSitterUnsafe = true;
+    logger.warn('ASTAnalyzer', `tree-sitter probe failed: ${err.message} — AST features disabled`);
+    return false;
+  }
+}
+
 async function loadParser() {
   if (Parser) return Parser;
+  // v128: Probe first — avoid segfault in main process
+  if (!probeTreeSitter()) return null;
   try {
     const mod = await import('tree-sitter');
     Parser = mod.default || mod;
@@ -351,6 +383,23 @@ export function getSupportedLanguages() {
   return [...SUPPORTED_LANGUAGES];
 }
 
+/**
+ * v128: Check if tree-sitter is safe to load (cached probe result).
+ * Returns true if probe passed, false if segfault detected, null if not yet probed.
+ */
+export function isTreeSitterSafe() {
+  if (_treeSitterUnsafe === null) return null;
+  return !_treeSitterUnsafe;
+}
+
+/** v128: Reset probe state (for testing only). */
+export function _resetProbeState() {
+  _treeSitterUnsafe = null;
+  Parser = null;
+  _parsers.clear();
+  _grammars.clear();
+}
+
 export default {
   parseAST,
   extractSymbols,
@@ -358,4 +407,5 @@ export default {
   extractCalls,
   isASTSupported,
   getSupportedLanguages,
+  isTreeSitterSafe,
 };
