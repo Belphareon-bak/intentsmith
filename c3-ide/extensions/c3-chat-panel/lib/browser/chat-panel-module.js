@@ -4581,7 +4581,7 @@ function _mkSession(){return{
   _focusFiles:[],  /* v92: files tracked during specialist focus mode */
   _focusBulkMode:false,  /* v92: file selection mode */
   _focusBulkSelected:[],  /* v92: selected file indices */
-  _conversationFocus:true /* v122.3: conversation center-panel focus — default ON (off only for projects) */
+  _conversationFocus:false /* v125.7: default OFF — focus activates on explicit user action (toggle/new conv), not on startup */
 };}
 var _sessions=[_mkSession(),_mkSession()];
 /* Expose globally so terminal-client.js and agent-client.js can access session state */

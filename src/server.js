@@ -1167,6 +1167,13 @@ server.listen(config.server.port, config.server.host, async () => {
       try { compactDatabase(db.db); } catch (_) {}
     }, WEEKLY_MS);
     weeklyCompact.unref();
+
+    // v129: Periodic WAL checkpoint — prevents WAL file growth under sustained write load
+    const WAL_CHECKPOINT_MS = 5 * 60 * 1000; // 5 minutes
+    const walCheckpoint = setInterval(() => {
+      try { db.db.pragma('wal_checkpoint(PASSIVE)'); } catch (_) {}
+    }, WAL_CHECKPOINT_MS);
+    walCheckpoint.unref();
   }
 
   // F2: Start background update checker (only if repository configured)
