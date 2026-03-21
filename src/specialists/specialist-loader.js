@@ -79,7 +79,7 @@ const DOMAIN_PATTERN = /^[a-z0-9_]+$/;
 const SEMVER_PATTERN = /^\d+\.\d+\.\d+$/;
 const VALID_TYPES = ['domain', 'utility', 'integration'];
 // v121: Capability dotted notation (e.g. "tax.calculate", "vat.compute")
-const CAPABILITY_PATTERN = /^[a-z][a-z0-9]*\.[a-z][a-z0-9]*$/;
+const CAPABILITY_PATTERN = /^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/;
 
 /**
  * Validate a specialist.json manifest.
