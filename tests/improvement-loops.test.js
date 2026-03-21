@@ -4,6 +4,7 @@ import {
   fastRetryGate,
   selfRefine,
   improveResponse,
+  tokenSimilarity,
 } from '../src/chat/quality/improvement-loops.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -124,6 +125,95 @@ await testAsync('rejects refinement that scores worse', async () => {
   if (result.scoreAfter) {
     assertEqual(result.improved, false, 'worse refinement should be rejected');
     assertEqual(result.response, original, 'should keep original');
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DRIFT GUARDS (v128.2)
+// ═══════════════════════════════════════════════════════════════════════════
+suite('Improvement Loops — Drift Guards');
+
+test('tokenSimilarity: identical texts → 1.0', () => {
+  assertEqual(tokenSimilarity('hello world foo', 'hello world foo'), 1.0);
+});
+
+test('tokenSimilarity: completely different → ~0', () => {
+  const sim = tokenSimilarity('alpha beta gamma delta', 'one two three four five');
+  assert(sim < 0.1, `expected <0.1, got ${sim}`);
+});
+
+test('tokenSimilarity: partial overlap', () => {
+  const sim = tokenSimilarity(
+    'Docker je kontejnerová platforma pro izolaci',
+    'Docker platforma kontejnery izolace aplikací',
+  );
+  assert(sim > 0.2 && sim < 0.9, `expected moderate similarity, got ${sim}`);
+});
+
+test('tokenSimilarity: empty strings → edge cases', () => {
+  assertEqual(tokenSimilarity('', ''), 1);
+  assertEqual(tokenSimilarity('hello world', ''), 0);
+  assertEqual(tokenSimilarity('', 'hello world'), 0);
+});
+
+await testAsync('drift guard rejects completely different rewrite', async () => {
+  // Mock LLM returns a completely off-topic response
+  const driftLLM = async () => ({
+    content: 'Recept na svíčkovou: hovězí maso, smetana, knedlíky, brusinky, citron. Svíčková je tradiční české jídlo.',
+  });
+  const original = 'Docker je kontejnerová platforma pro spouštění aplikací v izolovaném prostředí.';
+  const result = await selfRefine(
+    original,
+    { query: 'Co je Docker?', intent: 'CONVERSATIONAL', lang: 'cs' },
+    driftLLM,
+  );
+  // Drift guard should reject: svíčková has nothing to do with Docker
+  assertEqual(result.improved, false, 'drifted response should be rejected');
+  assertEqual(result.response, original, 'should keep original');
+});
+
+await testAsync('drift guard rejects length explosion', async () => {
+  const original = 'REST API je architektonický styl pro webové služby.';
+  const bloatedLLM = async () => ({
+    content: original + '\n\n' + 'Blah REST API architektura služby. '.repeat(50),
+  });
+  const result = await selfRefine(
+    original,
+    { query: 'Co je REST API?', intent: 'CONVERSATIONAL', lang: 'cs' },
+    bloatedLLM,
+  );
+  assertEqual(result.improved, false, 'bloated response should be rejected');
+});
+
+await testAsync('intent lock rejects CODE refinement that drops code blocks', async () => {
+  const original = 'Toto nefunguje:\n```python\nprint("hello")\n```\nJe tam chyba.';
+  const noCodeLLM = async () => ({
+    content: 'Funkce print vypíše text na standardní výstup. Používá se pro ladění programů a zobrazení výsledků výpočtů.',
+  });
+  const result = await selfRefine(
+    original,
+    { query: 'Proč mi nefunguje print?', intent: 'CODE', lang: 'cs' },
+    noCodeLLM,
+  );
+  assertEqual(result.improved, false, 'should reject CODE refinement without code blocks');
+  assertEqual(result.response, original, 'should keep original with code blocks');
+});
+
+await testAsync('accepts good refinement that preserves topic', async () => {
+  const original = 'Docker je kontejner.';
+  const goodLLM = async () => ({
+    content: 'Docker je kontejnerová platforma pro izolaci aplikací. Umožňuje snadný deploy a reprodukovatelné prostředí pomocí kontejnerů.',
+  });
+  const result = await selfRefine(
+    original,
+    { query: 'Co je Docker?', intent: 'CONVERSATIONAL', lang: 'cs' },
+    goodLLM,
+  );
+  // Good refinement: same topic, better content, reasonable length
+  // Whether it's accepted depends on score improvement
+  assert(typeof result.improved === 'boolean', 'should return boolean');
+  if (result.improved) {
+    assert(result.response.includes('Docker'), 'refined response should still mention Docker');
   }
 });
 

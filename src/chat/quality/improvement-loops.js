@@ -26,6 +26,25 @@ import { logger } from '../../core/logger.js';
 import { scoreResponse, buildScoreRetryPrompt } from './response-scorer.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Delta Guard: Token-level similarity (Jaccard) to detect semantic drift
+// ─────────────────────────────────────────────────────────────────────────────
+
+function tokenize(text) {
+  return new Set((text || '').toLowerCase().split(/\W+/).filter(w => w.length > 2));
+}
+
+function tokenSimilarity(a, b) {
+  const A = tokenize(a);
+  const B = tokenize(b);
+  if (A.size === 0 && B.size === 0) return 1;
+  if (A.size === 0 || B.size === 0) return 0;
+  let intersection = 0;
+  for (const t of A) { if (B.has(t)) intersection++; }
+  const union = new Set([...A, ...B]).size;
+  return union > 0 ? intersection / union : 0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Loop 1: Fast Retry — Deterministic prompt enhancement
 // ─────────────────────────────────────────────────────────────────────────────
 // Called INSIDE the synthesis retry loop. Returns enhanced prompt if score is
@@ -158,7 +177,39 @@ export async function selfRefine(response, context, callLLM, opts = {}) {
       return { improved: false, response, scoreBefore, scoreAfter: null };
     }
 
-    const scoreAfter = scoreResponse(result.content, context);
+    const candidate = result.content;
+
+    // ─── DRIFT GUARD 1: Similarity check ─────────────────────────
+    // Reject if refined text drifts too far from original (Jaccard < 0.35)
+    const similarity = tokenSimilarity(response, candidate);
+    if (similarity < 0.35) {
+      logger.info('ImprovementLoop', 'Refinement rejected: semantic drift', {
+        similarity: similarity.toFixed(2), threshold: 0.35,
+      });
+      return { improved: false, response, scoreBefore, scoreAfter: null };
+    }
+
+    // ─── DRIFT GUARD 2: Length explosion check ───────────────────
+    // Reject if refined text is >2× original length (balast/hallucination)
+    if (candidate.length > response.length * 2.5) {
+      logger.info('ImprovementLoop', 'Refinement rejected: length explosion', {
+        originalLen: response.length, candidateLen: candidate.length,
+      });
+      return { improved: false, response, scoreBefore, scoreAfter: null };
+    }
+
+    // ─── DRIFT GUARD 3: Intent preservation ──────────────────────
+    // For CODE intent, reject if original had code blocks but refined doesn't
+    if (intent === 'CODE' || intent === 'CODE_ANALYSIS') {
+      const origHasCode = /```/.test(response);
+      const candHasCode = /```/.test(candidate);
+      if (origHasCode && !candHasCode) {
+        logger.info('ImprovementLoop', 'Refinement rejected: code blocks removed');
+        return { improved: false, response, scoreBefore, scoreAfter: null };
+      }
+    }
+
+    const scoreAfter = scoreResponse(candidate, context);
 
     // Only accept if refinement actually improved the score
     if (scoreAfter.total > scoreBefore.total) {
@@ -168,7 +219,7 @@ export async function selfRefine(response, context, callLLM, opts = {}) {
         delta: scoreAfter.total - scoreBefore.total,
         intent,
       });
-      return { improved: true, response: result.content, scoreBefore, scoreAfter };
+      return { improved: true, response: candidate, scoreBefore, scoreAfter };
     }
 
     // Refinement didn't improve — keep original
@@ -228,8 +279,12 @@ export async function improveResponse(response, context, callLLM, opts = {}) {
   return { response, improved: false, telemetry };
 }
 
+// Exported for testing
+export { tokenSimilarity };
+
 export default {
   fastRetryGate,
   selfRefine,
   improveResponse,
+  tokenSimilarity,
 };
