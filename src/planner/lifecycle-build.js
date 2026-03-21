@@ -1218,9 +1218,16 @@ function handleMilestoneFailure(lifecycle, milestone, reason) {
   // BLOCKED — needs user decision
   msRepo.updateStatus.run(MilestoneStatus.BLOCKED, milestone.id);
 
+  // v128.1: Track how many times this milestone has been blocked (dead-end detection)
+  const localPlan = milestone.local_plan || {};
+  const blockedAttempts = (localPlan._blockedAttempts || 0) + 1;
+  const updatedPlan = { ...localPlan, _blockedAttempts: blockedAttempts, _lastBlockedAt: Date.now() };
+  msRepo.updateLocalPlan.run(JSON.stringify(updatedPlan), null, milestone.id);
+
   logger.error('LifecycleBuild', 'Milestone BLOCKED', {
     milestoneId: milestone.id,
     retries: currentRetry,
+    blockedAttempts,
     reason,
   });
 
@@ -1270,6 +1277,19 @@ export async function handleMilestoneBlocked(lifecycle, milestoneId, decision, f
       try { context.onSystemStep('lifecycle', 'Milník blokován >15 min — automaticky přeskakuji'); } catch (_) {}
     }
     logger.warn('LifecycleBuild', 'BLOCKED milestone auto-skipped (15min timeout)', { milestoneId });
+    decision = 'force-skip';
+  }
+
+  // v128.1: Dead-end detection — auto force-skip after ≥2 blocked attempts
+  const localPlan = milestone.local_plan || {};
+  const blockedAttempts = localPlan._blockedAttempts || 0;
+  if (decision === 'retry' && blockedAttempts >= 2) {
+    if (typeof context?.onSystemStep === 'function') {
+      try { context.onSystemStep('lifecycle', `Milník blokován ${blockedAttempts}× — přeskakuji (dead-end)`); } catch (_) {}
+    }
+    logger.warn('LifecycleBuild', 'Dead-end detected: milestone blocked ≥2 times, auto force-skip', {
+      milestoneId, blockedAttempts,
+    });
     decision = 'force-skip';
   }
 

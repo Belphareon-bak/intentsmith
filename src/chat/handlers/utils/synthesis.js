@@ -18,6 +18,8 @@ import { getLanguageContext } from './language.js';
 import { buildStrictLanguageInstruction, validateResponseLanguage, buildLanguageRetryInstruction } from './language-enforcement.js';
 import { runQualityPipeline } from '../../quality/quality-pipeline.js';
 import { runQualityGateV2 } from '../../quality/quality-gate-v2.js';
+import { scoreResponse } from '../../quality/response-scorer.js';
+import { fastRetryGate, selfRefine } from '../../quality/improvement-loops.js';
 import {
   filterToolResults,
   annotateWithTrust,
@@ -1037,6 +1039,24 @@ export async function synthesizeWithLLM({
       }
       // ─── End QG score-based retry ──────────────────────────────────────
 
+      // ─── v126: Response Scorer — Semantic quality fast retry ──────────
+      // Complements QGv2 (structural) with semantic scoring (relevance,
+      // completeness, coherence, intent alignment, language quality).
+      if (retryCount < MAX_RETRIES) {
+        const retryGate = fastRetryGate(result.content, synthesisPrompt, {
+          query, intent, lang: langCtx.language,
+        });
+        if (typeof context.onSystemStep === 'function') {
+          try { context.onSystemStep('quality_scorer', `score: ${retryGate.score.total}/100`, 2); } catch (_) {}
+        }
+        if (retryGate.shouldRetry) {
+          synthesisPrompt = retryGate.enhancedPrompt;
+          retryCount++;
+          continue;
+        }
+      }
+      // ─── End Response Scorer retry ────────────────────────────────────
+
       // ─── v55.2 Sprint 2.4: Confidence-based response styling ─────────
       const finalConfidence = fluffCheck.isFluff ? 0.6 : (gateVerdict.ok ? 0.85 : 0.55);
       let finalContent = result.content;
@@ -1089,6 +1109,38 @@ export async function synthesizeWithLLM({
         qgResult = pipelineResult.gateResult;
       }
 
+      // v128.1: Self-refinement (Loop 2) — LLM critique + rewrite for low-quality responses
+      // Runs after all deterministic quality processing. Only triggers if score < 75.
+      {
+        const preScore = scoreResponse(finalContent, { query, intent, lang: langCtx.language });
+        if (preScore.total < preScore.threshold.refinement && !context.signal?.aborted) {
+          try {
+            const refined = await selfRefine(finalContent, { query, intent, lang: langCtx.language },
+              async (prompt, system, opts) => {
+                return creBridge.generateChatResponse(prompt, system || '', {
+                  sessionId: `refine-${context.sessionId || 'default'}`,
+                  temperature: 0.3,
+                  signal: context.signal,
+                  ...opts,
+                });
+              }, { signal: context.signal, sessionId: context.sessionId });
+            if (refined.improved) {
+              finalContent = refined.response;
+              if (typeof context.onSystemStep === 'function') {
+                try { context.onSystemStep('quality_refine', `${preScore.total}→${refined.scoreAfter.total}`, 2); } catch (_) {}
+              }
+            }
+          } catch (err) {
+            logger.warn('Synthesis', `Self-refinement error: ${err.message}`);
+          }
+        }
+      }
+
+      // v126: Final semantic score (after all quality processing)
+      const semanticScore = scoreResponse(finalContent, {
+        query, intent, lang: langCtx.language,
+      });
+
       return {
         content: finalContent,
         confidence: finalConfidence,
@@ -1106,6 +1158,12 @@ export async function synthesizeWithLLM({
           scoreRaw: qgResult.scoreRaw,
           flags: qgResult.qualityFlags,
         } : undefined,
+        // v126: Semantic quality score (relevance, completeness, coherence, intent, language)
+        semanticScore: {
+          total: semanticScore.total,
+          dimensions: semanticScore.dimensions,
+          issues: semanticScore.issues,
+        },
       };
     }
 
