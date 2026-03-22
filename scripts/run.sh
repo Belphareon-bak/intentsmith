@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# C3 Studio — Run Script (F4a, v129.1)
+# C3 Studio — Run Script (F4a, v129.2)
 # ══════════════════════════════════════════════════════════════════════════════
 #
 # Starts the backend server and IDE in one command.
@@ -121,7 +121,8 @@ fi
 # Check for stale port file
 if [ -f "$PORT_FILE" ]; then
   EXISTING_PID=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('$PORT_FILE','utf8')).pid)}catch(e){console.log('')}" 2>/dev/null || echo "")
-  if [ -n "$EXISTING_PID" ] && kill -0 "$EXISTING_PID" 2>/dev/null; then
+  EXISTING_CMD=$(ps -p "$EXISTING_PID" -o comm= 2>/dev/null || echo "")
+  if [ -n "$EXISTING_PID" ] && kill -0 "$EXISTING_PID" 2>/dev/null && [ "$EXISTING_CMD" = "node" ]; then
     EXISTING_PORT=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('$PORT_FILE','utf8')).port)}catch(e){console.log('?')}" 2>/dev/null || echo "?")
     fail "C3 backend already running (PID ${EXISTING_PID}, port ${EXISTING_PORT})"
     echo "       Stop it first: ./scripts/stop.sh"
@@ -143,8 +144,9 @@ else
   # Try to start it
   if command -v ollama >/dev/null 2>&1; then
     info "Starting Ollama..."
-    ollama serve >/dev/null 2>&1 &
+    nohup ollama serve >/dev/null 2>&1 &
     OLLAMA_SERVE_PID=$!
+    disown "$OLLAMA_SERVE_PID" 2>/dev/null || true
     # Wait up to 10s
     for i in $(seq 1 10); do
       if curl -sf http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
@@ -159,6 +161,16 @@ else
     fi
   else
     warn "Ollama not installed — LLM features will be unavailable"
+  fi
+fi
+
+# Model availability check
+if [ "$OLLAMA_RUNNING" = true ]; then
+  if ollama list 2>/dev/null | grep -q "qwen3.5:27b"; then
+    ok "Default model available (qwen3.5:27b)"
+  else
+    warn "Default model qwen3.5:27b not installed — LLM responses will fail"
+    echo "       Run: ollama pull qwen3.5:27b"
   fi
 fi
 
@@ -177,6 +189,11 @@ echo ""
 # 2. Start Backend
 # ════════════════════════════════════════════════════════════════════════════
 echo -e "${BOLD}── Starting Backend ──${NC}"
+
+# Log rotation — keep one previous log
+if [ -f "$LOG_FILE" ]; then
+  mv "$LOG_FILE" "${LOG_FILE}.old"
+fi
 
 if [ "$DEV_MODE" = true ]; then
   info "Starting backend (dev mode, --watch)..."
@@ -231,7 +248,8 @@ ok "Backend running (PID ${BACKEND_PID}, port ${ASSIGNED_PORT})"
 info "Running health check..."
 
 HEALTH_OK=false
-for i in 1 2 3; do
+HEALTH_DELAYS=(1 2 4)  # exponential backoff
+for i in 0 1 2; do
   if curl -sf "http://127.0.0.1:${ASSIGNED_PORT}/api/health" >/dev/null 2>&1; then
     HEALTH_OK=true
     break
@@ -241,7 +259,7 @@ for i in 1 2 3; do
     HEALTH_OK=true
     break
   fi
-  sleep 2
+  sleep "${HEALTH_DELAYS[$i]}"
 done
 
 if [ "$HEALTH_OK" = true ]; then

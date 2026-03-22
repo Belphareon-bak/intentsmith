@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# C3 Studio — Install Script (F4a, v129.1)
+# C3 Studio — Install Script (F4a, v129.2)
 # ══════════════════════════════════════════════════════════════════════════════
 #
 # Idempotent setup: can be re-run safely at any time.
@@ -187,7 +187,16 @@ if [ "$ERRORS" -gt 0 ]; then
 fi
 
 # ════════════════════════════════════════════════════════════════════════════
-# 5. Backend Dependencies (npm)
+# 5. Disk Space Check
+# ════════════════════════════════════════════════════════════════════════════
+AVAIL_GB=$(df -BG . 2>/dev/null | awk 'NR==2 {gsub(/G/,"",$4); print $4}')
+if [ -n "$AVAIL_GB" ] && [ "$AVAIL_GB" -lt 5 ] 2>/dev/null; then
+  warn "Low disk space: ${AVAIL_GB}GB available (recommend ≥ 5GB)"
+  echo "       npm install + models need significant disk space"
+fi
+
+# ════════════════════════════════════════════════════════════════════════════
+# 5b. Backend Dependencies (npm)
 # ════════════════════════════════════════════════════════════════════════════
 echo -e "${BOLD}── Backend Dependencies ──${NC}"
 
@@ -269,17 +278,34 @@ echo ""
 echo -e "${BOLD}── Frontend Build ──${NC}"
 
 BUNDLE="c3-ide/applications/electron/lib/frontend/bundle.js"
-if [ -f "$BUNDLE" ]; then
-  ok "Frontend bundle exists ($(du -h "$BUNDLE" | cut -f1))"
-  info "Rebuilding to ensure latest..."
+WEBPACK_CONFIG="c3-ide/applications/electron/gen-webpack.config.js"
+
+if [ -f "$BUNDLE" ] && [ -f "$WEBPACK_CONFIG" ]; then
+  # Check if any source is newer than the bundle (skip rebuild if not)
+  NEEDS_BUILD=false
+  for src in c3-ide/extensions/*/lib/browser/*.js; do
+    if [ -f "$src" ] && [ "$src" -nt "$BUNDLE" ]; then
+      NEEDS_BUILD=true
+      break
+    fi
+  done
+  if [ "$NEEDS_BUILD" = true ]; then
+    ok "Frontend bundle exists ($(du -h "$BUNDLE" | cut -f1)) — sources changed, rebuilding..."
+  else
+    ok "Frontend bundle up to date ($(du -h "$BUNDLE" | cut -f1))"
+  fi
+else
+  NEEDS_BUILD=true
 fi
 
-info "Running webpack..."
-if (cd c3-ide/applications/electron && npx webpack --config gen-webpack.config.js --mode development 2>&1 | tail -5); then
-  ok "Webpack build complete"
-else
-  fail "Webpack build failed"
-  exit 1
+if [ "$NEEDS_BUILD" = true ]; then
+  info "Running webpack..."
+  if (cd c3-ide/applications/electron && npx webpack --config gen-webpack.config.js --mode development 2>&1 | tail -5); then
+    ok "Webpack build complete"
+  else
+    fail "Webpack build failed"
+    exit 1
+  fi
 fi
 
 echo ""

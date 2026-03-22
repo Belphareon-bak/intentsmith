@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# C3 Studio — Stop Script (F4a, v129.1)
+# C3 Studio — Stop Script (F4a, v129.2)
 # ══════════════════════════════════════════════════════════════════════════════
 #
 # Stops a running C3 backend instance.
@@ -54,9 +54,18 @@ if [ -z "$PID" ]; then
   exit 0
 fi
 
-# Check if process is actually running
+# Check if process is actually running AND is a node process (PID reuse guard)
 if ! kill -0 "$PID" 2>/dev/null; then
   info "Process ${PID} is not running (already stopped)"
+  rm -f "$PORT_FILE"
+  ok "Removed stale port file"
+  exit 0
+fi
+
+# Verify the PID is actually a node process (guards against PID reuse)
+PID_CMD=$(ps -p "$PID" -o comm= 2>/dev/null || echo "")
+if [ "$PID_CMD" != "node" ]; then
+  warn "PID ${PID} is not a node process (found: '${PID_CMD}') — stale port file"
   rm -f "$PORT_FILE"
   ok "Removed stale port file"
   exit 0
