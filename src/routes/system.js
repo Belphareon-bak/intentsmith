@@ -891,12 +891,31 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
         }
 
         // Fetch installed models from Ollama
+        // Build set with name variants (exact + stripped :latest + dash↔colon size suffix)
+        // so recommendations like 'deepseek-r1:32b' match Ollama's 'deepseek-r1:32b' or 'deepseek-r1:latest'
         const installedSet = new Set();
         try {
           const r = await fetch(`${config.ollama.baseUrl}/api/tags`, { signal: AbortSignal.timeout(5000) });
           const data = await r.json();
-          for (const m of (data.models || [])) installedSet.add(m.name);
-        } catch (_) {}
+          for (const m of (data.models || [])) {
+            const name = m.name;
+            installedSet.add(name);
+            // Strip :latest → bare name
+            const bare = name.replace(/:latest$/, '');
+            if (bare !== name) installedSet.add(bare);
+            // dash→colon variant: deepseek-r1-32b → deepseek-r1:32b
+            const dm = bare.match(/^(.+?)-((\d+\.?\d*)b(-.+)?)$/i);
+            if (dm) installedSet.add(dm[1] + ':' + dm[2]);
+            // colon→dash variant: deepseek-r1:32b → deepseek-r1-32b
+            const cm = bare.match(/^(.+):((\d+\.?\d*)b(-.+)?)$/i);
+            if (cm) installedSet.add(cm[1] + '-' + cm[2]);
+            // Quantization strip: deepseek-r1:32b-q4_K_M → also add deepseek-r1:32b
+            const qm = bare.match(/^(.+:\d+\.?\d*b)-[a-zA-Z]/);
+            if (qm) installedSet.add(qm[1]);
+          }
+        } catch (ollamaErr) {
+          logger.warn('System', `Cannot fetch installed models from Ollama: ${ollamaErr.message}`);
+        }
 
         // Get catalog entry set for "inCatalog" flag
         const { CATALOG } = await import('../upgrade/model-catalog.js');
