@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# C3 Studio — Install Script (F4a, v129.2)
+# C3 Studio — Install Script (F4b, v131)
 # ══════════════════════════════════════════════════════════════════════════════
 #
 # Idempotent setup: can be re-run safely at any time.
@@ -273,14 +273,51 @@ fi
 echo ""
 
 # ════════════════════════════════════════════════════════════════════════════
+# 6b. Electron Native Module Rebuild
+# ════════════════════════════════════════════════════════════════════════════
+echo -e "${BOLD}── Electron Native Modules ──${NC}"
+
+info "Rebuilding native modules for Electron ABI..."
+# keytar is deprecated and fails to build with modern node-addon-api — skip it
+REBUILD_MODULES="node-pty,nsfw,drivelist,native-keymap,@parcel/watcher,@vscode/watcher"
+if (cd c3-ide/applications/electron && npx electron-rebuild -f --only "$REBUILD_MODULES" 2>&1 | tail -5); then
+  ok "Native modules rebuilt for Electron"
+else
+  warn "electron-rebuild had errors — retrying..."
+  if (cd c3-ide/applications/electron && npx electron-rebuild -f --only "$REBUILD_MODULES" 2>&1 | tail -5); then
+    ok "Native modules rebuilt for Electron (second attempt)"
+  else
+    warn "electron-rebuild had errors (non-critical modules like nsfw may have failed)"
+  fi
+fi
+
+# After IDE rebuild, re-verify backend's better-sqlite3 (yarn install can break it)
+info "Verifying backend better-sqlite3 binding..."
+if node -e "require('better-sqlite3')(':memory:').close()" 2>/dev/null; then
+  ok "better-sqlite3 binding OK"
+else
+  warn "better-sqlite3 binding broken — rebuilding for system Node..."
+  npm rebuild better-sqlite3 --build-from-source 2>&1 | tail -3
+  if node -e "require('better-sqlite3')(':memory:').close()" 2>/dev/null; then
+    ok "better-sqlite3 rebuilt for system Node"
+  else
+    fail "better-sqlite3 rebuild failed — backend will not start"
+    exit 1
+  fi
+fi
+
+echo ""
+
+# ════════════════════════════════════════════════════════════════════════════
 # 7. Webpack Build
 # ════════════════════════════════════════════════════════════════════════════
 echo -e "${BOLD}── Frontend Build ──${NC}"
 
 BUNDLE="c3-ide/applications/electron/lib/frontend/bundle.js"
-WEBPACK_CONFIG="c3-ide/applications/electron/gen-webpack.config.js"
+WEBPACK_CONFIG="c3-ide/applications/electron/c3-webpack-wrapper.js"
+WEBPACK_CONFIG_FALLBACK="c3-ide/applications/electron/gen-webpack.config.js"
 
-if [ -f "$BUNDLE" ] && [ -f "$WEBPACK_CONFIG" ]; then
+if [ -f "$BUNDLE" ] && ( [ -f "$WEBPACK_CONFIG" ] || [ -f "$WEBPACK_CONFIG_FALLBACK" ] ); then
   # Check if any source is newer than the bundle (skip rebuild if not)
   NEEDS_BUILD=false
   for src in c3-ide/extensions/*/lib/browser/*.js; do
@@ -300,7 +337,13 @@ fi
 
 if [ "$NEEDS_BUILD" = true ]; then
   info "Running webpack..."
-  if (cd c3-ide/applications/electron && npx webpack --config gen-webpack.config.js --mode development 2>&1 | tail -5); then
+  # Use c3-webpack-wrapper.js (includes C3 preload), fall back to gen-webpack if wrapper missing
+  WEBPACK_USE="$WEBPACK_CONFIG"
+  if [ ! -f "$WEBPACK_USE" ]; then
+    WEBPACK_USE="$WEBPACK_CONFIG_FALLBACK"
+    warn "c3-webpack-wrapper.js not found — using gen-webpack.config.js (no C3 preload)"
+  fi
+  if (cd c3-ide/applications/electron && npx webpack --config "$(basename "$WEBPACK_USE")" --mode development 2>&1 | tail -5); then
     ok "Webpack build complete"
   else
     fail "Webpack build failed"

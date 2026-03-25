@@ -1,0 +1,32 @@
+# Native modules already rebuilt by install.sh (electron-rebuild --only)
+npmRebuild: false
+
+appId: com.c3.studio
+productName: C3 Studio
+directories:
+  output: dist
+
+files:
+  - lib/**/*
+  - node_modules/**/*
+  - scripts/**/*
+  - c3-preload.js
+  - c3-preload-entry.js
+  - package.json
+  - "!**/test/**"
+  - "!**/tests/**"
+  - "!**/*.map"
+  - "!**/*.d.ts"
+
+# asar disabled: Theia monorepo symlinks (yarn workspaces) resolve outside app dir
+# which breaks asar packing. Re-enable when migrating to flat layout.
+asar: false
+
+extraMetadata:
+  main: "lib/backend/electron-main.js"
+
+linux:
+  target:
+    - AppImage
+    - dir
+  category: Development

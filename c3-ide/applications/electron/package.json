@@ -75,13 +75,18 @@
   },
   "devDependencies": {
     "@theia/cli": "1.65.2",
-    "electron": "37.2.1"
+    "@electron/rebuild": "^3.7.1",
+    "electron": "37.2.1",
+    "electron-builder": "^25.1.8"
   },
   "scripts": {
     "build": "theia build --mode production",
     "build:dev": "theia build",
     "start": "node scripts/launch.js",
     "watch": "theia build --watch",
-    "clean": "theia clean && rimraf lib"
+    "clean": "theia clean && rimraf lib",
+    "rebuild": "electron-rebuild -f",
+    "dist": "electron-builder --linux",
+    "dist:dir": "electron-builder --linux --dir"
   }
 }
