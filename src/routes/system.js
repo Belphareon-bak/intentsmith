@@ -464,6 +464,7 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
             candidateCount: discovery.candidates.length,
             hintsCount: discovery.hints.size,
             timestamp: discovery.timestamp,
+            l4Count: discovery.candidates.filter(c => c.provisional || c.source === 'L4').length,
           },
         });
       } catch (err) {
@@ -754,6 +755,7 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
               normalized: result.normalizedScore,
               breakdown: result.breakdown,
               isCurrent: modelName === roleBindings[role],
+              benchmarkSource: 'catalog',
             });
           }
           // Add L4 discovered models not already in installed list
@@ -770,6 +772,7 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
               isCurrent: false,
               provisional: true,
               benchmarkConfidence: dm.benchmarkConfidence,
+              benchmarkSource: dm.benchmarkSource || 'L4',
             });
           }
           scoring[role].models.sort((a, b) => b.score - a.score);

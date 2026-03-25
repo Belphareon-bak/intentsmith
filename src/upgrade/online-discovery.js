@@ -347,6 +347,33 @@ export class OnlineDiscovery {
   }
 
   /**
+   * Persist L5 enrichment (WhatLLM benchmark source) back to discovered_models.
+   * Called after enrichCandidates() to make source visible in scoring UI.
+   */
+  persistEnrichment(entries) {
+    if (!this._db || !entries?.length) return;
+    try {
+      const stmt = this._db.prepare(`
+        UPDATE discovered_models SET
+          benchmarks_json = ?, benchmark_confidence = ?, benchmark_source = ?
+        WHERE name = ?`);
+      const tx = this._db.transaction(() => {
+        for (const e of entries) {
+          stmt.run(
+            e.benchmarks ? JSON.stringify(e.benchmarks) : null,
+            e.benchmarkConfidence,
+            e.benchmarkSource || 'whatllm',
+            e.name
+          );
+        }
+      });
+      tx();
+    } catch (err) {
+      logger.warn('OnlineDiscovery', `Enrichment persist failed: ${err.message}`);
+    }
+  }
+
+  /**
    * Load all discovered models from DB as provisional entries.
    */
   async getDiscoveredModels() {
@@ -368,6 +395,7 @@ export class OnlineDiscovery {
         capabilities: r.capabilities_json ? JSON.parse(r.capabilities_json) : null,
         provisional: true,
         source: r.source || 'L4',
+        benchmarkSource: r.benchmark_source || null,
         discoveredAt: r.discovered_at,
         installed: false,
       }));

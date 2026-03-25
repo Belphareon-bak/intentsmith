@@ -620,7 +620,7 @@ class C3SidebarWidget extends react_widget_1.ReactWidget {
          preserve Lumino's layout styles while hiding the element. */
       if(!document.getElementById('c3-strip-hide')){
         var ss=document.createElement('style');ss.id='c3-strip-hide';
-        ss.textContent='.theia-sidepanel-toolbar{display:none!important;height:0!important;max-height:0!important;min-height:0!important;overflow:hidden!important;visibility:hidden!important;opacity:0!important;}.theia-sidepanel-toolbar~*{top:0!important;height:100%!important;}.lm-TabBar-toolbar{display:none!important;height:0!important;overflow:hidden!important;}#theia-right-side-panel .lm-TabBar~*,#theia-bottom-content-panel .lm-TabBar~*{top:0!important;height:100%!important;}#theia-right-side-panel .lm-DockPanel-widget,#theia-bottom-content-panel .lm-DockPanel-widget{top:0!important;height:100%!important;}.lm-Widget:focus,.lm-Widget:focus-visible,#c3-sidebar:focus,#c3-chat-panel:focus,#c3-agent-panel:focus{outline:none!important;box-shadow:none!important;}*:focus-visible{outline:none!important;}#theia-top-panel,.p-MenuBar,#theia\\:menubar,.theia-app-header{background:var(--c3-bg1,#111114)!important;border-color:var(--c3-border,rgba(255,255,255,0.06))!important;}#theia-left-side-panel,#theia-right-side-panel,#theia-bottom-content-panel{background:var(--c3-bg1,#111114)!important;}input[type=range]{-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:var(--c3-bg4,#27282e);outline:none;}input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--c3-accent,#22c55e);cursor:pointer;border:2px solid var(--c3-bg1,#111114);}body{border:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;box-sizing:border-box!important;}#theia-right-side-panel{border-left:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;}#theia-bottom-content-panel{border-top:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;}@keyframes c3-ac-pulse{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}@keyframes c3-thinking-dot{0%,80%,100%{opacity:0.2;transform:scale(0.8)}40%{opacity:1;transform:scale(1)}}.lm-TabBar-tabCloseIcon,.lm-TabBar-tabCloseIcon::before,.p-TabBar-tabCloseIcon,.p-TabBar-tabCloseIcon::before{font-family:"codicon"!important;}';
+        ss.textContent='.theia-sidepanel-toolbar{display:none!important;height:0!important;max-height:0!important;min-height:0!important;overflow:hidden!important;visibility:hidden!important;opacity:0!important;}.theia-sidepanel-toolbar~*{top:0!important;height:100%!important;}.lm-TabBar-toolbar{display:none!important;height:0!important;overflow:hidden!important;}#theia-right-side-panel .lm-TabBar~*,#theia-bottom-content-panel .lm-TabBar~*{top:0!important;height:100%!important;}#theia-right-side-panel .lm-DockPanel-widget,#theia-bottom-content-panel .lm-DockPanel-widget{top:0!important;height:100%!important;}.lm-Widget:focus,.lm-Widget:focus-visible,#c3-sidebar:focus,#c3-chat-panel:focus,#c3-agent-panel:focus{outline:none!important;box-shadow:none!important;}*:focus-visible{outline:none!important;}#theia-top-panel,.p-MenuBar,#theia\\:menubar,.theia-app-header{background:var(--c3-bg1,#111114)!important;border-color:var(--c3-border,rgba(255,255,255,0.06))!important;}#theia-left-side-panel,#theia-right-side-panel,#theia-bottom-content-panel{background:var(--c3-bg1,#111114)!important;}input[type=range]{-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:var(--c3-bg4,#27282e);outline:none;}input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--c3-accent,#22c55e);cursor:pointer;border:2px solid var(--c3-bg1,#111114);}body{border:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;box-sizing:border-box!important;}#theia-right-side-panel{border-left:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;}#theia-bottom-content-panel{border-top:1px solid var(--c3-border2,rgba(255,255,255,0.1))!important;}@keyframes c3-ac-pulse{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}@keyframes c3-pulse{0%{transform:translateX(-100%)}100%{transform:translateX(400%)}}@keyframes c3-thinking-dot{0%,80%,100%{opacity:0.2;transform:scale(0.8)}40%{opacity:1;transform:scale(1)}}.lm-TabBar-tabCloseIcon,.lm-TabBar-tabCloseIcon::before,.p-TabBar-tabCloseIcon,.p-TabBar-tabCloseIcon::before{font-family:"codicon"!important;}';
         document.head.appendChild(ss);
       }
       /* v92: Focus Mode CSS — layout override when specialist is active */
@@ -2422,7 +2422,7 @@ function centerExpertiseWizard(){
 var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSizeVal:13,fontIdx:0,custom1:null,custom2:null,bgIdx:0,bgCustom1:null,bgCustom2:null,customCSS:'',visualMode:'borders',tileOpacity:80,bgDim:30,sidebarOpacity:80,projectsDir:'',autoCollapse:true,restoreSession:true,lastView:''};
 /* v87.3: Backend config state — loaded from /api/settings */
 var _bCfg=null;var _bCfgLoading=false;var _gpuInfo=null;var _ollamaModels=null;var _sysInfo=null;var _storageInfo=null;var _bCfgSaveTimer=null;
-var _upgradeData=null;var _upgradeLoading=false;var _upgradeMsg=null;
+var _upgradeData=null;var _upgradeLoading=false;var _upgradeMsg=null;var _upgradeAutoChecked=false;
 var _scoringData=null;var _scoringLoading=false;var _upgradeTab='proposals';
 var _discoveredData=null;var _discoveredLoading=false;
 /* v124: Marketplace */
@@ -2792,8 +2792,10 @@ function _loadUpgradeData(){
   if(_upgradeLoading)return;_upgradeLoading=true;
   fetch(_backendBase+'/api/system/upgrades',{signal:AbortSignal.timeout(8000)})
     .then(function(r){return r.json();})
-    .then(function(d){_upgradeData=d;_upgradeLoading=false;renderCenter();})
-    .catch(function(e){_upgradeData={error:e.message};_upgradeLoading=false;renderCenter();});
+    .then(function(d){_upgradeData=d;_upgradeLoading=false;
+      if(!_upgradeAutoChecked&&(!d.proposals||d.proposals.length===0)){_upgradeAutoChecked=true;_upgradeCheck();}
+      else renderCenter();})
+    .catch(function(e){_upgradeData={error:e.message};_upgradeLoading=false;_upgradeAutoChecked=true;renderCenter();});
 }
 /* v125: fire-and-forget — progress comes via WS events */
 function _upgradeApply(role,model){
@@ -2848,6 +2850,25 @@ function _validateModel(name){
     .then(function(d){if(!d.ok){_validatingModel=null;_validationProgress=null;renderCenter();}})
     .catch(function(e){_validatingModel=null;_validationProgress=null;renderCenter();});
 }
+/* Installed models cache for scoring tab */
+var _installedModels=null;var _installedLoading=false;var _assigningRole=null;
+function _loadInstalledModels(){
+  if(_installedLoading)return;_installedLoading=true;
+  fetch(_backendBase+'/api/system/models',{signal:AbortSignal.timeout(5000)})
+    .then(function(r){return r.json();})
+    .then(function(d){_installedModels=(d.models||[]).map(function(m){return m.name;});_installedLoading=false;renderCenter();})
+    .catch(function(){_installedLoading=false;});
+}
+function _assignModel(role,model){
+  if(_assigningRole)return;_assigningRole=role;renderCenter();
+  fetch(_backendBase+'/api/system/upgrades/apply',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({role:role,targetModel:model,appliedBy:'user-scoring'}),signal:AbortSignal.timeout(30000)})
+    .then(function(r){return r.json();})
+    .then(function(d){_assigningRole=null;
+      if(d.ok||d.applied){_scoringData=null;_loadScoringData();_discoveredData=null;}
+      else{_assigningRole=null;}renderCenter();})
+    .catch(function(){_assigningRole=null;renderCenter();});
+}
 var _discoverLoading=false;var _discoverMsg=null;
 function _discoverNewModels(){
   if(_discoverLoading)return;
@@ -2864,7 +2885,7 @@ function _discoverNewModels(){
     .catch(function(e){_discoverLoading=false;_discoverMsg={ok:false,text:'Chyba: '+e.message};renderCenter();});
 }
 function _pullModel(name){
-  if(_pullState[name]&&(_pullState[name].status==='downloading'||_pullState[name].status==='starting'||_pullState[name].status==='scoring'))return;
+  if(_pullState[name]&&_pullState[name].status&&_pullState[name].status!=='done'&&_pullState[name].status!=='error')return;
   _pullState[name]={status:'starting',percent:0,text:name+' — Zahajuji stahování...'};renderCenter();
   fetch(_backendBase+'/api/system/models/pull',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({name:name}),signal:AbortSignal.timeout(10000)})
@@ -2932,7 +2953,7 @@ function _renderDiscoveredTab(){
           var sem=m.bestSemaphore||'unknown';
           var isHL=m.highlight===true;
           var ps=_pullState[m.name];
-          var isPulling=ps&&(ps.status==='starting'||ps.status==='downloading'||ps.status==='pulled'||ps.status==='scoring');
+          var isPulling=ps&&ps.status&&ps.status!=='done'&&ps.status!=='error';
           var isDone=ps&&ps.status==='done';
           var isError=ps&&ps.status==='error';
           var isExp=_recExpanded[m.name+'-'+sec.id]===true;
@@ -2947,18 +2968,42 @@ function _renderDiscoveredTab(){
             h('div',{style:{display:'flex',alignItems:'center',gap:6,marginBottom:4}},
               h('span',{style:{fontSize:_fs(12),fontWeight:700,color:C.tx1,fontFamily:C.mono}},m.name),
               isHL?h('span',{style:{fontSize:_fs(8),padding:'1px 5px',borderRadius:3,background:'rgba(99,102,241,0.15)',color:'#6366f1',fontWeight:700}},'TOP'):null,
-              m.installed?h('span',{style:{fontSize:_fs(8),padding:'1px 5px',borderRadius:3,background:'rgba(34,197,94,0.12)',color:C.accent,fontWeight:600}},'Nainstalovano'):null,
               h('span',{style:{flex:1}}),
               /* Semaphore badge */
               h('span',{style:{fontSize:_fs(9),padding:'2px 8px',borderRadius:4,fontWeight:600,background:semBg[sem],color:semColors[sem]}},
                 semIcons[sem]+' '+semLabels[sem]),
-              /* Download btn inline */
-              !m.installed&&!isPulling&&!isDone?h('button',{style:{background:'linear-gradient(135deg,#3b82f6,#2563eb)',color:'#fff',border:'none',borderRadius:6,
+              /* Right side: installed badge | pull progress | download button */
+              m.installed?h('span',{style:{fontSize:_fs(9),padding:'3px 10px',borderRadius:6,background:'rgba(34,197,94,0.12)',
+                color:C.accent,fontWeight:600,marginLeft:6,whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:4}},
+                '\u2705 Nainstalováno'):
+              isPulling?h('div',{style:{marginLeft:6,display:'flex',flexDirection:'column',alignItems:'flex-end',gap:2,minWidth:180}},
+                h('div',{style:{display:'flex',alignItems:'center',gap:6}},
+                  h('span',{style:{fontSize:_fs(9),color:'#3b82f6',fontWeight:600,whiteSpace:'nowrap'}},
+                    ps.percent>=0?ps.percent+'%':(ps.status==='scoring'?'Scoring...':'Stahování...')),
+                  ps.downloadedGB&&ps.totalGB?h('span',{style:{fontSize:_fs(8),color:C.tx4,whiteSpace:'nowrap'}},
+                    ps.downloadedGB+'/'+ps.totalGB+' GB'):null,
+                  ps.eta?h('span',{style:{fontSize:_fs(8),color:C.tx4,whiteSpace:'nowrap'}},'~'+ps.eta):null),
+                h('div',{style:{width:'100%',background:C.bg3,borderRadius:3,height:4,overflow:'hidden'}},
+                  ps.percent>=0?h('div',{style:{width:Math.max(2,ps.percent)+'%',height:'100%',borderRadius:3,transition:'width 0.3s ease',
+                    background:ps.status==='scoring'?'linear-gradient(90deg,#8b5cf6,#6366f1)':'linear-gradient(90deg,#3b82f6,#60a5fa)'}}):
+                  h('div',{style:{width:'30%',height:'100%',borderRadius:3,
+                    background:'linear-gradient(90deg,transparent,#3b82f6,transparent)',
+                    animation:'c3-pulse 1.5s ease-in-out infinite'}}))):
+              isDone?h('div',{style:{marginLeft:6,display:'flex',alignItems:'center',gap:6}},
+                h('span',{style:{fontSize:_fs(9),color:C.accent,fontWeight:600,whiteSpace:'nowrap'}},'\u2705 Staženo'),
+                h('button',{style:{background:'linear-gradient(135deg,#8b5cf6,#6366f1)',color:'#fff',border:'none',borderRadius:6,
+                  padding:'3px 10px',fontSize:_fs(9),fontWeight:600,cursor:'pointer',fontFamily:C.font,
+                  display:'flex',alignItems:'center',gap:4,whiteSpace:'nowrap'},
+                  onClick:function(e){e.stopPropagation();_validateModel(m.name);}},
+                  'Otestovat')):
+              isError?h('span',{style:{fontSize:_fs(9),color:'#ef4444',fontWeight:600,marginLeft:6,whiteSpace:'nowrap'}},
+                '\u274C Chyba'):
+              h('button',{style:{background:'linear-gradient(135deg,#3b82f6,#2563eb)',color:'#fff',border:'none',borderRadius:6,
                 padding:'4px 12px',fontSize:_fs(9),fontWeight:600,cursor:'pointer',fontFamily:C.font,marginLeft:6,
                 display:'flex',alignItems:'center',gap:4,boxShadow:'0 1px 4px rgba(37,99,235,0.25)',whiteSpace:'nowrap'},
                 onClick:function(e){e.stopPropagation();_pullModel(m.name);}},
                 svgEl('<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>',12),
-                '~'+sizeGB+' GB'):null),
+                '~'+sizeGB+' GB')),
             /* ── Row 2: description + specs ── */
             h('div',{style:{display:'flex',alignItems:'baseline',gap:8,marginBottom:3,flexWrap:'wrap'}},
               h('span',{style:{fontSize:_fs(10),color:C.tx2,flex:'1 1 auto',lineHeight:1.3,minWidth:150}},m.description),
@@ -2977,16 +3022,9 @@ function _renderDiscoveredTab(){
               (m.capabilities||[]).map(function(cap){
                 return h('span',{key:cap,style:{fontSize:_fs(7),padding:'1px 4px',borderRadius:2,
                   background:(capColors[cap]||C.tx4)+'12',color:capColors[cap]||C.tx4}},cap.replace(/_/g,' '));})),
-            /* ── Pull progress (inline) ── */
-            isPulling?h('div',{style:{marginTop:6}},
-              h('div',{style:{fontSize:_fs(9),color:'#3b82f6',fontWeight:600,marginBottom:4}},ps.text||'Stahovani...'),
-              ps.percent>=0?h('div',{style:{background:C.bg3,borderRadius:3,height:5,overflow:'hidden',marginBottom:3}},
-                h('div',{style:{width:Math.max(2,ps.percent)+'%',height:'100%',borderRadius:3,transition:'width 0.3s ease',
-                  background:ps.status==='scoring'?'linear-gradient(90deg,#8b5cf6,#6366f1)':'linear-gradient(90deg,#3b82f6,#60a5fa)'}})):null,
-              ps.downloadedGB&&ps.totalGB?h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:_fs(8),color:C.tx4}},
-                h('span',null,ps.downloadedGB+' / '+ps.totalGB+' GB'),ps.eta?h('span',null,'~'+ps.eta):null):null):null,
-            isDone?h('div',{style:{marginTop:4,fontSize:_fs(9),color:C.accent,fontWeight:600}},'\u2705 '+ps.text):null,
-            isError?h('div',{style:{marginTop:4,fontSize:_fs(9),color:'#ef4444',fontWeight:600}},ps.text):null,
+            /* ── Pull status detail line (below rows when pulling) ── */
+            isPulling?h('div',{style:{marginTop:4,fontSize:_fs(9),color:'#3b82f6',fontWeight:500}},ps.text||'Stahování...'):null,
+            isError&&ps?h('div',{style:{marginTop:4,fontSize:_fs(9),color:'#ef4444',fontWeight:600}},ps.text):null,
             /* ── Expanded: comparison table ── */
             isExp?h('div',{style:{marginTop:8,borderTop:'1px solid '+C.border,paddingTop:8}},
               /* Detail text */
@@ -3136,7 +3174,9 @@ function _renderScoringTab(){
               h('th',{style:{textAlign:'left',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'#'),
               h('th',{style:{textAlign:'left',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'Model'),
               h('th',{title:'Celkové skóre modelu pro danou roli (vyšší = lepší). Skládá se z vážené kombinace sloupců vpravo.',style:{textAlign:'right',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font,cursor:'help'}},'Skóre'),
+              h('th',{title:'Odkud pocházejí benchmarky: Katalog (manuálně kurované), WhatLLM (reálné testy z whatllm.org), Odhad (interpolace z rodiny modelů)',style:{textAlign:'center',padding:'4px 6px',color:C.tx4,fontWeight:500,fontSize:_fs(9),fontFamily:C.font,cursor:'help'}},'Zdroj'),
               h('th',{title:'Výsledek lokálního syntetického testu (0-100%). Klikněte ▶ pro spuštění. Platnost 14 dní.',style:{textAlign:'right',padding:'4px 6px',color:'#3b82f6',fontWeight:600,fontFamily:C.font,cursor:'help'}},'Validace'),
+              h('th',{title:'Přiřadit model k této roli (pouze lokálně nainstalované)',style:{textAlign:'center',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font,cursor:'help',width:60}},''),
               bdKeys.map(function(k){return h('th',{key:k,title:bdTooltips[k]||'',style:{textAlign:'right',padding:'4px 6px',color:C.tx4,fontWeight:500,fontSize:_fs(9),fontFamily:C.font,cursor:'help'}},bdLabels[k]);}))),
             h('tbody',null,models.map(function(m,i){
               var isCur=m.isCurrent;
@@ -3149,6 +3189,12 @@ function _renderScoringTab(){
                 h('td',{style:{padding:'4px 6px',color:C.tx4}},i+1),
                 h('td',{style:{padding:'4px 6px',color:isCur?C.accent:C.tx2,fontWeight:isCur?700:400}},m.name+(isCur?' *':'')),
                 h('td',{style:{padding:'4px 6px',textAlign:'right',color:C.tx1,fontWeight:700}},m.score.toFixed(4)),
+                h('td',{style:{padding:'4px 6px',textAlign:'center'}},
+                  h('span',{style:{fontSize:_fs(8),padding:'1px 5px',borderRadius:3,
+                    background:m.benchmarkSource==='whatllm'?'rgba(59,130,246,0.12)':m.benchmarkSource==='catalog'?'rgba(34,197,94,0.08)':m.benchmarkSource==='L4'?'rgba(234,179,8,0.1)':'transparent',
+                    color:m.benchmarkSource==='whatllm'?'#3b82f6':m.benchmarkSource==='catalog'?C.accent:m.benchmarkSource==='L4'?'#eab308':C.tx4},
+                    title:m.benchmarkSource==='whatllm'?'Reálné benchmarky z whatllm.org (Quality Index)':m.benchmarkSource==='catalog'?'Benchmarky z kurovaného katalogu':m.benchmarkSource==='L4'?'Odhadované benchmarky (log-interpolace z rodiny)':'Neznámý zdroj'},
+                    m.benchmarkSource==='whatllm'?'WhatLLM':m.benchmarkSource==='catalog'?'Katalog':m.benchmarkSource==='L4'?'Odhad':'\u2014')),
                 h('td',{style:{padding:'4px 6px',textAlign:'right'}},
                   isValidating?h('span',{style:{color:'#3b82f6',fontSize:_fs(9)}},'...'):
                   valScore!=null?h('span',{style:{color:valColor,fontWeight:600,cursor:'default'},
@@ -3157,6 +3203,14 @@ function _renderScoringTab(){
                   h('button',{style:{background:'none',border:'1px solid '+C.border2,borderRadius:4,padding:'1px 6px',
                     color:C.tx3,fontSize:_fs(9),cursor:'pointer',fontFamily:C.font},
                     onClick:function(){_validateModel(m.name);}},'\u25B6')),
+                h('td',{style:{padding:'4px 6px',textAlign:'center'}},
+                  isCur?h('span',{style:{fontSize:_fs(8),color:C.accent,fontWeight:600}},'\u2713'):
+                  _installedModels&&_installedModels.indexOf(m.name)>=0?
+                    _assigningRole===role?h('span',{style:{fontSize:_fs(8),color:'#3b82f6'}},'...'):
+                    h('button',{style:{background:'none',border:'1px solid rgba(59,130,246,0.3)',borderRadius:4,padding:'1px 8px',
+                      color:'#3b82f6',fontSize:_fs(8),cursor:'pointer',fontFamily:C.font,whiteSpace:'nowrap'},
+                      onClick:function(){_assignModel(role,m.name);}},'\u2190 Přiřadit'):
+                  h('span',{style:{fontSize:_fs(7),color:C.tx4}},'\u2014')),
                 bdKeys.map(function(k){
                   var v=m.breakdown?m.breakdown[k]:0;
                   var color=C.tx3;if(k==='diversityPenalty'&&v<0)color='#ef4444';
@@ -3170,6 +3224,7 @@ function _renderScoringTab(){
 function centerUpgrades(){
   if(_upgradeTab==='proposals'&&!_upgradeData&&!_upgradeLoading)_loadUpgradeData();
   if(_upgradeTab==='scoring'&&!_scoringData&&!_scoringLoading)_loadScoringData();
+  if(_upgradeTab==='scoring'&&!_installedModels&&!_installedLoading)_loadInstalledModels();
   if(_upgradeTab==='discovered'&&!_discoveredData&&!_discoveredLoading)_loadDiscoveredData();
   var proposals=_upgradeData&&_upgradeData.proposals?_upgradeData.proposals:[];
   var history=_upgradeData&&_upgradeData.history?_upgradeData.history:[];

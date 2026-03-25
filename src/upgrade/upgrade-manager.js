@@ -848,6 +848,11 @@ export class UpgradeManager {
         const { enriched } = await enrichCandidates(discovery.candidates);
         if (enriched > 0) {
           logger.info('UpgradeManager', `L5: enriched ${enriched} candidates with WhatLLM benchmarks`);
+          // Persist enrichment back to DB for scoring visibility
+          try {
+            const od = await _ensureOnlineDiscovery();
+            if (od) od.persistEnrichment(discovery.candidates.filter(c => c.benchmarkSource === 'whatllm'));
+          } catch (_) {}
         }
       } catch (err) {
         logger.warn('UpgradeManager', `L5 enrichment failed: ${err.message}`);
