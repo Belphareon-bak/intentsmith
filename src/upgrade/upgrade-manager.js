@@ -839,6 +839,19 @@ export class UpgradeManager {
       } catch (err) {
         logger.warn('UpgradeManager', `L4 discovery failed: ${err.message}`);
       }
+
+      // v131: L5 — WhatLLM.org external benchmark enrichment (fullCycle only)
+      // Replaces estimated benchmarks with real composite quality scores
+      // for L4 provisional models (benchmarkConfidence < 0.85).
+      try {
+        const { enrichCandidates } = await import('./whatllm-client.js');
+        const { enriched } = await enrichCandidates(discovery.candidates);
+        if (enriched > 0) {
+          logger.info('UpgradeManager', `L5: enriched ${enriched} candidates with WhatLLM benchmarks`);
+        }
+      } catch (err) {
+        logger.warn('UpgradeManager', `L5 enrichment failed: ${err.message}`);
+      }
     }
 
     // Try Phase 2 pipeline first

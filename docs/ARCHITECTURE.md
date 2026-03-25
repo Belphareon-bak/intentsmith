@@ -1,8 +1,8 @@
-# C.3 Agent Platform — Architecture v127
+# C.3 Agent Platform — Architecture v131
 
-**Version:** v127.0.0
+**Version:** v131.0.0
 **Status:** Production-ready
-**Date:** 2026-03-18
+**Date:** 2026-03-22
 
 ---
 
@@ -22,7 +22,7 @@ C.3 is a conversational AI platform combining:
 10. **Execution Engine** — Patch engine (3-tier anchor), error normalizer (14 codes), iterative fix loop, strategy selection, self-critique, scope limiter
 11. **Prompt Pipeline** — Unified structured prompt builder (12 sections, adaptive weighting), KG-based import map, signature cache
 12. **Architecture Governance** — Cross-milestone drift enforcement, API contract tracking, critic/repair agent, regression prediction
-13. **Model Upgrade System** — Curated catalog (55 models), pairwise evaluation, feasibility gate, proposal store, chat-based approval, empirical scoring (Phase 3), L4 online discovery
+13. **Model Upgrade System** — Curated catalog (55 models), pairwise evaluation, feasibility gate, proposal store, chat-based approval, empirical scoring (Phase 3), L4 online discovery, L5 external benchmarks (whatllm.org)
 14. **Task Memory** — Persistent cross-milestone learning, cross-project pattern sharing, decay-based relevance
 15. **Marketplace** — Remote package catalog (skills, expertises, specialists), transactional install/update/uninstall, dependency resolver, mandatory SHA-256 verification, archive security
 16. **Validation Suites** — 5 role-specific test suites (reasoning, code, chat, vision, review), deterministic + partial scoring, direct Ollama calls, 14d TTL, model ranker integration
@@ -189,9 +189,9 @@ src/                              # ~128,000 lines / 350+ files / 29 directories
 │   ├── feedback-detector.js      #   6 signal types
 │   ├── pattern-tracker.js        #   Cross-conversation learning
 │   └── preferences.js            #   User preference tracking
-├── upgrade/                      # 14 files, ~6,450 LOC — Model Upgrade System (Phase 2 + 3 + L4 + Validation)
+├── upgrade/                      # 15 files, ~6,780 LOC — Model Upgrade System (Phase 2 + 3 + L4 + L5 + Validation)
 │   ├── model-profiles.js         #   Model capabilities + family definitions
-│   ├── model-discovery.js        #   L1 local + L2 catalog + L3 hints + L4 online
+│   ├── model-discovery.js        #   L1 local + L2 catalog + L3 hints + L4 online + L5 external
 │   ├── model-catalog.js          #   55-model curated catalog with benchmarks
 │   ├── model-ranker.js           #   Pairwise evaluation, per-role scoring, confidence attenuation
 │   ├── proposal-store.js         #   DB-backed proposals (cooldown, dismiss, anti-thrashing)
@@ -199,8 +199,9 @@ src/                              # ~128,000 lines / 350+ files / 29 directories
 │   ├── registry-client.js        #   Online verification + library page fetch
 │   ├── online-discovery.js       #   L4: HTML tag parsing, provisional entry builder
 │   ├── benchmark-estimator.js    #   Log-space interpolation, VRAM estimation
+│   ├── whatllm-client.js         #   L5: External benchmark enrichment from whatllm.org
 │   ├── validation-suites.js      #   5 role-specific test suites, grading, TTL
-│   └── upgrade-manager.js        #   Full pipeline: feasibility → pairwise → L4 → store
+│   └── upgrade-manager.js        #   Full pipeline: feasibility → pairwise → L4 → L5 → store
 ├── architect/                    # 13 files, 4,007 LOC — Architecture Intelligence
 │   ├── architecture-policy.js    #   Unified policy, load priority
 │   ├── refactor-agent.js         #   Smell detection → risk-gated plan
@@ -405,7 +406,32 @@ LLM Response → QGv2 Pipeline
   └─ Layer 4: Content — topic drift, completeness checks
 ```
 
-### 7. Tool Registry (153 tools)
+### 7. Semantic Quality Layer (v128+)
+
+Post-QGv2 semantic scoring + self-improvement loops. Complements QGv2's structural fixes with content-level quality assessment.
+
+```
+QGv2 Output → Semantic Scoring
+  ├─ response-scorer.js — 5 dimensions (0–100 composite)
+  │   ├─ Relevance (0.30) — keyword overlap with query
+  │   ├─ Completeness (0.20) — length vs intent expectations
+  │   ├─ Coherence (0.15) — structure markers, paragraphs
+  │   ├─ Intent Alignment (0.20) — code blocks for CODE, URLs for SEARCH
+  │   └─ Language Quality (0.15) — diacritics, SK contamination
+  │
+  └─ improvement-loops.js — 2 improvement loops
+      ├─ Loop 1: Fast Retry (score < 60) — prompt enhancement, 0 extra LLM calls
+      └─ Loop 2: Self-Refine (score < 75) — LLM critique + rewrite, 1 extra call
+          ├─ Drift Guard: Jaccard similarity ≥ 0.35
+          ├─ Length Guard: refined ≤ 2.5× original
+          └─ Intent Lock: CODE must preserve ``` blocks
+```
+
+**Latency budget:** synthesis scores ≥ 75 bypass controller selfRefine entirely. Max path: LLM → fastRetry → selfRefine = 3 calls (typical: 1–2).
+
+**Telemetry:** `QualityTelemetry` logger emits per-response score with dimensions, intent, and refinement status. Score included in API response as `qualityScore`.
+
+### 8. Tool Registry (153 tools)
 
 Central catalog of all executable tools across 35 categories. Each tool has typed parameters, capability metadata (`sideEffects`, `idempotent`, `destructive`, `costLevel`, `category`), and structured return values.
 
@@ -416,7 +442,7 @@ Central catalog of all executable tools across 35 categories. Each tool has type
 
 Full reference: [docs/tools/REGISTRY.md](tools/REGISTRY.md)
 
-### 8. Channel Adapters
+### 9. Channel Adapters
 
 Normalize input from any source into `C3InputEvent`:
 
@@ -432,7 +458,7 @@ C3InputEvent {
 
 Supported: CLI, Web, Slack, Discord, API.
 
-### 9. Memory System
+### 10. Memory System
 
 Three-layer memory architecture: LTM persistence, smart context injection, and implicit feedback learning.
 
@@ -449,7 +475,7 @@ Context Assembly:
   → buildBudgetedContext(intent) → token-limited prompt injection
 ```
 
-### 10. Code Intelligence (v95-v102)
+### 11. Code Intelligence (v95-v102)
 
 33-module pipeline for codebase understanding, search, and analysis.
 
@@ -548,9 +574,9 @@ Architecture Intelligence (v100):
   └─ multi-agent.js — 5-role pipeline (planner→builder→architect→critic→debugger)
 ```
 
-### 14. Model Upgrade System (v103 + v118 Phase 2 + v120 Phase 3 + v121.1 L4)
+### 14. Model Upgrade System (v103 + v118 Phase 2 + v120 Phase 3 + v121.1 L4 + v131 L5)
 
-Four-layer discovery with curated catalog, pairwise evaluation, empirical scoring, and online discovery.
+Five-layer discovery with curated catalog, pairwise evaluation, empirical scoring, online discovery, and external benchmarks.
 
 ```
 Phase 1 (v103): discover → filter → rank → propose → chat approval → pull → apply
@@ -558,12 +584,14 @@ Phase 2 (v118): catalog → discover(L1+L2+L3) → feasibility gate → pairwise
   → preference adjust → proposal store (DB) → chat approval → pull → apply
 Phase 3 (v120): + empirical scoring from real execution metrics → blended benchmark+empirical
 L4 (v121.1): + online discovery from ollama.com/library pages → estimated benchmarks → provisional entries
+L5 (v131): + external benchmark enrichment from whatllm.org → real quality scores for L4 provisionals
 
 Discovery:
   L1: Local (Ollama /api/tags) — always
   L2: Catalog (55 curated models with benchmarks) — fullCycle (24h ±90min)
   L3: Family upgrade hints — always
   L4: Online (ollama.com/library/{family} HTML) — fullCycle, max 3 families/cycle
+  L5: External (whatllm.org qualityIndex) — fullCycle, enriches L4 provisionals
 
 Pairwise Evaluation (v120.2 calibration):
   scoreModel(benchmark×B + empirical×E + hwFit×0.20 + maturity×0.15 + gen×0.10 + cat×0.13 + speed×0.07 + sizePenalty)
@@ -595,6 +623,16 @@ L4 Online Discovery (v121.1):
   Params jump guard: >3× param increase rejected. Capability inheritance guard.
   Ranking candidate limit: top 8 per role after scoring
   30-day pruning, 24h cache TTL, rate limit 3 families/cycle
+
+L5 External Benchmark Enrichment (v131):
+  Fetch whatllm.org HTML → parse models (multi-strategy: __NEXT_DATA__, raw JSON, __next_f.push RSC)
+  → strict match to Ollama candidates (exact family + params within 10%)
+  → normalize qualityIndex (0-100 composite from GPQA+AIME+LiveCodeBench+SWE-Bench+MMLU)
+  → apply quantization penalty (Q4_K_M=0.92, Q5_K_M=0.96, Q8_0=0.99, FP16=1.0)
+  → sets all 6 benchmark keys to same adjusted score, benchmarkConfidence → 0.85
+  Only enriches candidates with benchmarkConfidence < 0.85 (preserves catalog data)
+  24h cache + 1h error cooldown. MIN_MODELS=20 sanity guard. Cloud-only models rejected (require params).
+  File: src/upgrade/whatllm-client.js (~330 LOC)
 
 Guards:
   Drift detection: recent 20 samples < historical × 0.8 → reset to Phase 2 weights
@@ -800,11 +838,14 @@ The upgrade system discovers, evaluates, and proposes model changes — but **ne
   │ L1: Local Ollama (/api/tags)       — every poll cycle       │
   │ L2: Curated Catalog (55 models)    — every full cycle (24h) │
   │ L4: Online Discovery (ollama.com)  — every full cycle       │
+  │ L5: External Benchmarks (whatllm.org) — enriches L4         │
   └──────────┬──────────────────────────────────────────────────┘
              ↓
   Filter: requirements (minParams, capabilities, json_mode)
              ↓
   Feasibility: VRAM (90%), RAM (70%), disk (80%), CPU cap 14B
+             ↓
+  L5 Enrichment: whatllm qualityIndex → replace L4 estimates
              ↓
   Pairwise Eval: score(candidate) − score(current) ≥ threshold
     Score = benchmark×0.35 + hwFit×0.20 + maturity×0.15
@@ -943,7 +984,7 @@ All memory systems use exponential decay: LTM (λ=0.01, half-life ~69d), Task Me
 | G (Code Intel) | 100% | 33 modules, symbol index, KG, graph expansion, architecture detection |
 | H (Agent Evolution) | 100% | F1-F8 core (355 tests), FΔ+F9-F14 extensions (242 tests) |
 | I (Governance) | 100% | Guardian, contracts, critic, policy, regression prediction, multi-agent |
-| J (Model Mgmt) | 100% | Phase 1-3 + validation suites + upgrade UX: discovery, catalog, pairwise, empirical, validation (343 tests) |
+| J (Model Mgmt) | 100% | Phase 1-3 + validation suites + upgrade UX + L5 whatllm: discovery, catalog, pairwise, empirical, validation (452 tests) |
 | K (Prompt Pipeline) | 100% | Prompt builder, import map, scope limiter, signature cache (83 tests) |
 | L (Marketplace) | 100% | Remote catalog, transactional install, dependency resolver, mandatory SHA-256 (44 tests) |
 | M (Security) | 100% | Path traversal guards, input sanitization, package integrity (47 tests) |
