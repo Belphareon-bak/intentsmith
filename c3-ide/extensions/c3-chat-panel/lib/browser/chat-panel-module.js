@@ -3112,6 +3112,7 @@ function _renderScoringTab(){
   var scoring=_scoringData.scoring;var roles=Object.keys(scoring);
   var bdKeys=['benchmark','hardwareFit','maturity','generation','category','speed','diversityPenalty'];
   var bdLabels={benchmark:'Bench',hardwareFit:'HW Fit',maturity:'Zralost',generation:'Generace',category:'Kategorie',speed:'Rychlost',diversityPenalty:'Diverzita'};
+  var bdTooltips={benchmark:'Benchmark skóre z veřejných testů (MMLU, HumanEval, reasoning). Váha 35%.',hardwareFit:'Jak dobře model využívá dostupnou GPU VRAM (0=příliš velký, 1=ideální). Váha 20%.',maturity:'Stáří a stabilita modelu (starší = ověřenější). Váha 15%.',generation:'Bonus za novější generaci architektury (0=stará, 0.5=nová). Váha 10%.',category:'Bonus za kategorii modelu vhodnou pro danou roli. Váha 13%.',speed:'Rychlost inference (tokens/s normalizováno). Váha 7%.',diversityPenalty:'Penalizace pokud model již slouží v jiné roli (zabrání přiřazení jednoho modelu všude).'};
   var roleSuiteMap={D1:'reasoning',D2:'reasoning',CODE:'code',R1:'reasoning',R2:'review',CHAT:'chat',VISION:'vision'};
   return h('div',null,
     _scoringData.gpuVramMb?h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:12}},'GPU VRAM: '+(_scoringData.gpuVramMb/1024).toFixed(1)+' GB  |  Eval: '+(_scoringData.evalVersion||'?')):null,
@@ -3133,9 +3134,9 @@ function _renderScoringTab(){
             h('thead',null,h('tr',{style:{borderBottom:'1px solid '+C.border}},
               h('th',{style:{textAlign:'left',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'#'),
               h('th',{style:{textAlign:'left',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'Model'),
-              h('th',{style:{textAlign:'right',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'Skóre'),
-              h('th',{style:{textAlign:'right',padding:'4px 6px',color:'#3b82f6',fontWeight:600,fontFamily:C.font}},'Validace'),
-              bdKeys.map(function(k){return h('th',{key:k,style:{textAlign:'right',padding:'4px 6px',color:C.tx4,fontWeight:500,fontSize:_fs(9),fontFamily:C.font}},bdLabels[k]);}))),
+              h('th',{title:'Celkové skóre modelu pro danou roli (vyšší = lepší). Skládá se z vážené kombinace sloupců vpravo.',style:{textAlign:'right',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font,cursor:'help'}},'Skóre'),
+              h('th',{title:'Výsledek lokálního syntetického testu (0-100%). Klikněte ▶ pro spuštění. Platnost 14 dní.',style:{textAlign:'right',padding:'4px 6px',color:'#3b82f6',fontWeight:600,fontFamily:C.font,cursor:'help'}},'Validace'),
+              bdKeys.map(function(k){return h('th',{key:k,title:bdTooltips[k]||'',style:{textAlign:'right',padding:'4px 6px',color:C.tx4,fontWeight:500,fontSize:_fs(9),fontFamily:C.font,cursor:'help'}},bdLabels[k]);}))),
             h('tbody',null,models.map(function(m,i){
               var isCur=m.isCurrent;
               var vs=_validationScores[m.name];
@@ -3158,7 +3159,7 @@ function _renderScoringTab(){
                 bdKeys.map(function(k){
                   var v=m.breakdown?m.breakdown[k]:0;
                   var color=C.tx3;if(k==='diversityPenalty'&&v<0)color='#ef4444';
-                  return h('td',{key:k,style:{padding:'4px 6px',textAlign:'right',color:color}},v!=null?v.toFixed(2):'—');
+                  return h('td',{key:k,title:bdTooltips[k]||'',style:{padding:'4px 6px',textAlign:'right',color:color,cursor:'help'}},v!=null?v.toFixed(2):'—');
                 }));
             })))));
     }),
@@ -6028,6 +6029,7 @@ class C3SidebarContrib extends browser_1.AbstractViewContribution {
   async onStart(a){
     window._c3App=a;
     try{await this.openView({activate:false,reveal:true});}catch(e){}
+    _c3SnapLock=true; /* Lock immediately — prevent snap-collapse during entire init */
     setTimeout(function(){
       try{a.shell.resize(240,'left');}catch(e){}
       /* ── Spacing fix ── */
@@ -6129,7 +6131,11 @@ class C3SidebarContrib extends browser_1.AbstractViewContribution {
         }
         setInterval(_updateTabs,500);
         _updateTabs();
-      }catch(e){console.warn('[C3] Snap-collapse setup:',e);}
+        /* v130: Resize right panel AFTER observers are installed (fixes race condition) */
+        try{a.shell.resize(420,'right');}catch(e){}
+        /* Unlock snap-collapse after panels have settled */
+        setTimeout(function(){_c3SnapLock=false;console.log('[C3] Snap-lock released');},1200);
+      }catch(e){console.warn('[C3] Snap-collapse setup:',e);_c3SnapLock=false;}
     },800);
   }
 }
@@ -6152,9 +6158,8 @@ class C3ChatContrib extends browser_1.AbstractViewContribution {
     });
   }
   async onStart(a){try{await this.openView({activate:false,reveal:true});
-    /* v90.1: Ensure right panel is visible and wide enough — prevent snap-collapse race */
-    _c3SnapLock=true;
-    setTimeout(function(){try{a.shell.resize(420,'right');}catch(e){}setTimeout(function(){_c3SnapLock=false;},1000);},500);
+    /* v130: Right panel resize moved to SidebarContrib.onStart (after ResizeObserver setup).
+       Lock is set there too — no duplicate lock/resize needed here. */
   }catch(e){}}}
 inversify_1.decorate(inversify_1.injectable(),C3ChatContrib);
 
