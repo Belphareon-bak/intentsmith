@@ -437,6 +437,7 @@ export async function handleFileDecision(input, decision, context) {
             fileOperation: true,
             handler: 'file.explain',
             fileName: filename,
+            semanticScore: synthesized.semanticScore || null, // v126.1
           },
         }),
       });
@@ -480,10 +481,59 @@ export async function handleFileDecision(input, decision, context) {
   });
 }
 
+// ─── v131: FILE_WRITE content extraction from user input ────────────────────
+
+/**
+ * Extract content from user's message by stripping the save/write command suffix.
+ * Used when FILE_WRITE is triggered but no previous assistant response exists.
+ *
+ * "mam novy update pro aplikaci, schopna ovladat desktop, zapis to do planu"
+ * → "mam novy update pro aplikaci, schopna ovladat desktop"
+ *
+ * Returns the extracted content or null if nothing meaningful remains.
+ */
+function _extractUserContent(input) {
+  if (!input) return null;
+
+  // Patterns that match the save/write command at the end of user input.
+  // Order: most specific first (with file target), then short forms.
+  const SAVE_COMMAND_PATTERNS = [
+    // CZ: "zapis/ulož/napiš to/ho/ji do <target>"
+    /[,;.]\s*(?:ulo[žz]|uloz|zapi[šs]|zapsat|napi[šs]|napsat|dej|vlo[žz])\s+(?:to|ho|ji|je)\s+(?:do|jako|into)\s+\S+\s*$/i,
+    // CZ: "zapis/ulož to" (no target)
+    /[,;.]\s*(?:ulo[žz]|uloz|zapi[šs]|zapsat|napi[šs]|napsat|dej)\s+(?:to|ho|ji|je)\s*$/i,
+    // CZ: "a zapis/ulož to do <target>" (with conjunction)
+    /[,;.]?\s*a\s+(?:ulo[žz]|uloz|zapi[šs]|zapsat|napi[šs]|napsat|dej|vlo[žz])\s+(?:to|ho|ji|je)\s+(?:do|jako|into)\s+\S+\s*$/i,
+    // CZ: "a zapis/ulož to" (conjunction, no target)
+    /[,;.]?\s*a\s+(?:ulo[žz]|uloz|zapi[šs]|zapsat|napi[šs]|napsat|dej)\s+(?:to|ho|ji|je)\s*$/i,
+    // EN: "save/write it/this/that to <target>"
+    /[,;.]\s*(?:save|write)\s+(?:it|this|that)\s+(?:to|into)\s+\S+\s*$/i,
+    // EN: "save/write it/this/that"
+    /[,;.]\s*(?:save|write)\s+(?:it|this|that)\s*$/i,
+    // EN: "and save/write it to <target>"
+    /[,;.]?\s*and\s+(?:save|write)\s+(?:it|this|that)\s*(?:to\s+\S+)?\s*$/i,
+  ];
+
+  let extracted = input.trim();
+  for (const p of SAVE_COMMAND_PATTERNS) {
+    const stripped = extracted.replace(p, '').trim();
+    if (stripped !== extracted) {
+      extracted = stripped;
+      break;
+    }
+  }
+
+  // Only return if we actually stripped something AND meaningful content remains
+  if (extracted === input.trim() || extracted.length < 10) return null;
+  return extracted;
+}
+
 // ─── v70: FILE_WRITE handler ──────────────────────────────────────────────────
 
 /**
  * Handle FILE_WRITE decision — saves previous assistant output to a file.
+ * v131: Falls back to extracting content from user's own message when
+ * no prior assistant response exists (compound intent: content + save command).
  * TERMINAL: writes to filesystem, returns confirmation.
  */
 export async function handleFileWriteDecision(input, decision, context) {
@@ -522,6 +572,21 @@ export async function handleFileWriteDecision(input, decision, context) {
         content = resp;
         break;
       }
+    }
+  }
+
+  // v131: Fallback — extract content from user's own message when no assistant
+  // response exists. Handles compound intent: content + save command in one message.
+  // E.g.: "mam novy update pro aplikaci, schopna ovladat desktop, zapis to do planu"
+  // → content = "mam novy update pro aplikaci, schopna ovladat desktop"
+  if (!content && input) {
+    const extracted = _extractUserContent(input);
+    if (extracted) {
+      content = extracted;
+      logger.info('HandleFileWrite', 'Content extracted from user input (no prior assistant response)', {
+        inputLen: input.length,
+        extractedLen: extracted.length,
+      });
     }
   }
 
@@ -617,7 +682,7 @@ export async function handleFileWriteDecision(input, decision, context) {
 }
 
 // Testing exports
-export { validateFilePath, readFileSafe, extractFilePathFromInput };
+export { validateFilePath, readFileSafe, extractFilePathFromInput, _extractUserContent };
 
 /**
  * Extract file path from user input (exported for testing).

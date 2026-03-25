@@ -278,6 +278,89 @@ function _detectMac(profile) {
   } catch (_) {}
 }
 
+// ── Live VRAM Usage (v131) ──────────────────────────────────────────────────
+
+let _vramCache = null;
+let _vramCacheTime = 0;
+const VRAM_CACHE_TTL = 2000; // 2s — fast enough for coordination, avoids hammering nvidia-smi
+
+/**
+ * Get LIVE VRAM usage from nvidia-smi (sync, cached 2s).
+ * Returns the GPU with the most free VRAM (multi-GPU aware).
+ * Returns null on non-NVIDIA systems or if nvidia-smi not available.
+ *
+ * @returns {{ totalMb: number, usedMb: number, freeMb: number, source: string } | null}
+ */
+export function getVramUsage() {
+  const now = Date.now();
+  if (_vramCache && (now - _vramCacheTime) < VRAM_CACHE_TTL) {
+    return _vramCache;
+  }
+
+  try {
+    const out = execSync(
+      'nvidia-smi --query-gpu=memory.total,memory.used,memory.free --format=csv,noheader,nounits',
+      { timeout: EXEC_TIMEOUT, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+    ).trim();
+
+    if (!out) return null;
+
+    // Multi-GPU: pick GPU with most free VRAM
+    let best = null;
+    for (const line of out.split('\n')) {
+      const parts = line.split(',').map(s => parseInt(s.trim()));
+      if (parts.length < 3 || isNaN(parts[0])) continue;
+      const entry = { totalMb: parts[0], usedMb: parts[1], freeMb: parts[2], source: 'nvidia-smi' };
+      if (!best || entry.freeMb > best.freeMb) best = entry;
+    }
+
+    if (best) {
+      _vramCache = best;
+      _vramCacheTime = now;
+    }
+    return best;
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Async variant: tries nvidia-smi first, falls back to ComfyUI /system_stats.
+ * @param {Object} [opts]
+ * @param {string} [opts.comfyuiUrl] - ComfyUI base URL for fallback
+ * @returns {Promise<{ totalMb: number, usedMb: number, freeMb: number, source: string } | null>}
+ */
+export async function getVramUsageAsync(opts = {}) {
+  const smiResult = getVramUsage();
+  if (smiResult) return smiResult;
+
+  // Fallback: ComfyUI /system_stats (reports per-device vram_total + vram_free)
+  if (opts.comfyuiUrl) {
+    try {
+      const resp = await fetch(`${opts.comfyuiUrl}/system_stats`, {
+        signal: AbortSignal.timeout(3000),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        const gpu = data.devices?.[0];
+        if (gpu && gpu.vram_total) {
+          const totalMb = Math.round(gpu.vram_total / (1024 * 1024));
+          const freeMb = Math.round((gpu.vram_free || 0) / (1024 * 1024));
+          return { totalMb, usedMb: totalMb - freeMb, freeMb, source: 'comfyui' };
+        }
+      }
+    } catch (_) {}
+  }
+
+  return null;
+}
+
+/** Clear VRAM cache (for testing). */
+export function _clearVramCache() {
+  _vramCache = null;
+  _vramCacheTime = 0;
+}
+
 // ── Cache ───────────────────────────────────────────────────────────────────
 
 let _cachedProfile = null;
@@ -335,4 +418,4 @@ export function computeSessionCapacity(profile) {
   };
 }
 
-export default { detectGPU, getSystemProfile, computeSessionCapacity };
+export default { detectGPU, getSystemProfile, computeSessionCapacity, getVramUsage, getVramUsageAsync, _clearVramCache };

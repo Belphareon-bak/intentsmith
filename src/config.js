@@ -21,6 +21,7 @@ export const config = {
     specialistTelemetry: process.env.C3_SPECIALIST_TELEMETRY !== 'false',  // v82: Specialist execution observability
     autonomy: process.env.C3_ENABLE_AUTONOMY === 'true',  // v83: Guarded autonomy (opt-IN, default OFF)
     skills: process.env.C3_ENABLE_SKILLS !== 'false',  // v85: Skills system (default ON)
+    comfyui: process.env.C3_ENABLE_COMFYUI !== 'false',  // v130: Multimedia generation (ComfyUI)
   },
 
   // Server
@@ -46,6 +47,15 @@ export const config = {
     baseUrl: process.env.OLLAMA_URL || 'http://127.0.0.1:11434',
     retries: 3,
     retryDelay: 2000,
+  },
+
+  // v130: ComfyUI (multimedia generation)
+  comfyui: {
+    baseUrl: process.env.C3_COMFYUI_URL || 'http://127.0.0.1:8188',
+    timeout: parseInt(process.env.C3_COMFYUI_TIMEOUT || '300000'),  // 5min (video gen is slow)
+    retries: 2,
+    maxStorageGB: parseInt(process.env.C3_COMFYUI_MAX_STORAGE_GB || '10'),
+    maxOutputSizeMB: parseInt(process.env.C3_COMFYUI_MAX_OUTPUT_MB || '100'),
   },
 
   // Model bindings - which model for which role

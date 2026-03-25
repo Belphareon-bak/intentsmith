@@ -1,4 +1,4 @@
-// C.3 v127 Server - p(AI)assistant
+// C.3 v131 Server - p(AI)assistant
 // ══════════════════════════════════════════════════════════════════════════════
 
 import 'dotenv/config';
@@ -114,6 +114,7 @@ import { createSystemRoutes } from './routes/system.js';
 import { createSecurityRoutes } from './routes/security.js';
 import { createNotificationRoutes } from './routes/notifications.js';
 import { createMarketplaceRoutes } from './routes/marketplace.js';
+import { createMediaRoutes, recoverStuckGenerations } from './routes/media.js';
 import { createNotificationPipeline, initNotificationTables } from './notifications/index.js';
 import { WebhookChannel } from './notifications/channels/webhook.js';
 import { DesktopChannel } from './notifications/channels/desktop.js';
@@ -317,6 +318,43 @@ try {
   logger.info('Server', 'Marketplace initialized');
 } catch (err) {
   logger.warn('Server', `Marketplace not available: ${err.message}`);
+}
+
+// v130: ComfyUI multimedia module
+let comfyuiConnector = null;
+let vramManager = null;
+let mediaStorage = null;
+if (config.features.comfyui !== false) {
+  try {
+    const { ComfyUIConnector } = await import('./media/comfyui-connector.js');
+    const { VRAMManager } = await import('./media/vram-manager.js');
+    const { MediaOutputStorage } = await import('./media/output-storage.js');
+    comfyuiConnector = new ComfyUIConnector(config.comfyui);
+    // v131: Pass GPU info + ComfyUI URL for VRAM-aware coordination
+    const { getSystemProfile } = await import('./system/gpu-detector.js');
+    const gpuProfile = getSystemProfile();
+    const gpuVramMb = gpuProfile.gpus.find(g => !g.is_igpu && g.vram_mb > 0)?.vram_mb || 0;
+    vramManager = new VRAMManager({
+      ollamaUrl: config.ollama.baseUrl,
+      chatModel: config.models.CHAT,
+      comfyuiUrl: config.comfyui?.baseUrl || null,
+      gpuTotalVramMb: gpuVramMb,
+    });
+    mediaStorage = new MediaOutputStorage({ maxGB: config.comfyui.maxStorageGB });
+    mediaStorage.setDb(db.db);
+    mediaStorage.init();
+    recoverStuckGenerations(db.db, logger);
+    // v131: Startup VRAM audit — detect externally loaded models with wrong context
+    try {
+      const auditResult = await vramManager.auditOllamaModels();
+      logger.info('Server', `VRAM audit: ${auditResult.action} — ${auditResult.details}`);
+    } catch (err) {
+      logger.warn('Server', `VRAM audit failed (non-fatal): ${err.message}`);
+    }
+    logger.info('Server', `ComfyUI module initialized (GPU: ${gpuVramMb} MB VRAM)`);
+  } catch (err) {
+    logger.warn('Server', `ComfyUI module not available: ${err.message}`);
+  }
 }
 
 // Configure ChatController with default handlers
@@ -646,6 +684,7 @@ const routeDeps = {
   checkWizardRateLimit,
   specialistLoader, specialistRuntime, specialistTelemetry,
   notificationRouter, notificationEmitter,
+  comfyuiConnector, vramManager, mediaStorage,
 };
 
 // v93: notificationRouter + notificationPipeline initialized above (before agent platform)
@@ -710,6 +749,9 @@ const routes = {
 
   // v123: Marketplace routes
   ...createMarketplaceRoutes({ ...routeDeps, marketplaceClient, packageInstaller }),
+
+  // v130: Multimedia generation routes (ComfyUI)
+  ...(comfyuiConnector ? createMediaRoutes(routeDeps) : {}),
 
   // F1: Setup Wizard routes (always available — idempotent after completion)
   ...createSetupRoutes(setupWizard, routeDeps),
