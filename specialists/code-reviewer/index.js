@@ -192,8 +192,9 @@ export async function register(ctx) {
   const toolsDir = path.join(__dirname, 'tools');
 
   // 1. Tools — register into SpecialistRuntime
+  //    ID must match manifest.expertises[0] for integrity check consistency.
   runtime.registerSpecialist({
-    id: 'code-reviewer',
+    id: 'code_reviewer',
     domain: 'software_engineering',
     globalParamExtractor: null,
     tools: buildToolDefinitions(toolsDir),
@@ -247,7 +248,7 @@ export function unregister(ctx) {
   // 1. Tools
   try {
     if (typeof runtime?.unregisterSpecialist === 'function') {
-      runtime.unregisterSpecialist('code-reviewer');
+      runtime.unregisterSpecialist('code_reviewer');
     }
   } catch { /* handled by loader fail-safe */ }
 

@@ -815,7 +815,7 @@ export class SpecialistLoader {
 
     // 3. Disable if enabled
     if (wasEnabled) {
-      this.disable(specialistId);
+      await this.disable(specialistId);
     }
 
     // 4. Mark for entry point cache bust

@@ -2905,6 +2905,7 @@ function _renderDiscoveredTab(){
   var roleColors={D1:'#8b5cf6',D2:'#a78bfa',CODE:'#22c55e',R1:'#6366f1',R2:'#818cf8',CHAT:'#3b82f6',VISION:'#f59e0b'};
   var capColors={vision:'#8b5cf6',tool_use:'#f59e0b',reasoning:'#3b82f6',json_mode:'#6366f1',long_context:'#06b6d4'};
   var gpuGB=_discoveredData.gpuVramMb?(_discoveredData.gpuVramMb/1024).toFixed(0):null;
+  var budgetGB=_discoveredData.vramBudget?(_discoveredData.vramBudget/1024).toFixed(1):null;
   /* Helper: format context window */
   function fCtx(w){if(!w)return'-';return w>=1048576?(w/1048576).toFixed(0)+'M':w>=1024?(w/1024).toFixed(0)+'K':w+'';}
   /* Helper: delta cell */
@@ -2917,7 +2918,7 @@ function _renderDiscoveredTab(){
     h('div',{style:{marginBottom:14}},
       h('div',{style:{fontSize:_fs(13),fontWeight:700,color:C.tx1,marginBottom:3}},'Doporucene modely pro C3'),
       h('div',{style:{fontSize:_fs(10),color:C.tx4,lineHeight:1.4}},
-        gpuGB?'GPU: '+gpuGB+' GB VRAM. ':'','Modely 14-32B serazene dle doporuceni. Kliknete pro porovnani s aktualnim modelem.')),
+        gpuGB?'GPU: '+gpuGB+' GB VRAM'+(budgetGB?' — zobrazeny modely do '+budgetGB+' GB (80%)':'')+'. ':'','Kliknete pro porovnani s aktualnim modelem.')),
     sections.map(function(sec){
       return h('div',{key:sec.id,style:{marginBottom:22}},
         h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8,paddingBottom:6,borderBottom:'1px solid '+C.border}},

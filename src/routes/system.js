@@ -952,13 +952,24 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
           };
         }
 
+        // v128.3: VRAM budget — hide models that won't fit in GPU memory (80% threshold)
+        // Always show: already installed, currently assigned to a role, or GPU not detected
+        const vramBudget = gpuVramMb > 0 ? gpuVramMb * 0.80 : Infinity;
+        const currentModelNames = new Set(Object.values(roleBindings).filter(Boolean));
+
         // Enrich each section
         const sections = RECOMMENDATION_SECTIONS.map(section => ({
           id: section.id,
           title: section.title,
           subtitle: section.subtitle,
           icon: section.icon,
-          models: section.models.map(m => {
+          models: section.models.filter(m => {
+            // Always show installed or currently-assigned models
+            if (installedSet.has(m.name)) return true;
+            for (const cn of currentModelNames) { if (isSameModel(m.name, cn)) return true; }
+            // Hide models that exceed 80% of GPU VRAM
+            return !m.vramMb || m.vramMb <= vramBudget;
+          }).map(m => {
             const installed = installedSet.has(m.name);
             const inCatalog = catalogSet.has(m.name);
 
@@ -995,7 +1006,7 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
           }),
         }));
 
-        sendJSON(res, 200, { sections, gpuVramMb, currentModels });
+        sendJSON(res, 200, { sections, gpuVramMb, vramBudget: vramBudget === Infinity ? null : Math.round(vramBudget), currentModels });
       } catch (err) {
         sendJSON(res, 500, { error: err.message });
       }
