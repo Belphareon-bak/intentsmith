@@ -17,7 +17,7 @@ import { broadcast } from '../ws-bridge/ws-server.js';
 /**
  * @param {{ db: import('better-sqlite3').Database, sendJSON: Function, parseBody: Function }} deps
  */
-export function createSystemRoutes({ db, sendJSON, parseBody }) {
+export function createSystemRoutes({ db, sendJSON, parseBody, modelRegistry }) {
   const rawDb = db.db || db; // unwrap: db wrapper → raw better-sqlite3 instance
   const dataDir = config.db?.path ? path.dirname(path.resolve(config.db.path)) : path.resolve('./data');
 
@@ -571,14 +571,21 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
       }
     },
 
-    // ── Model Delete (v103.2) ───────────────────────────────────────
+    // ── Model Delete (v133: via ModelRegistry with safety guards) ──────
     'DELETE /api/system/models': async (req, res) => {
       try {
         const url = new URL(req.url, `http://${req.headers.host}`);
         const modelName = url.searchParams.get('name');
         if (!modelName) return sendJSON(res, 400, { error: 'Missing ?name= parameter' });
 
-        // Safety: refuse to delete a model currently bound to any role
+        if (modelRegistry) {
+          const { deletable, reason } = modelRegistry.isDeletable(modelName);
+          if (!deletable) return sendJSON(res, 409, { error: reason });
+          const result = await modelRegistry.deleteModel(modelName);
+          return sendJSON(res, 200, result);
+        }
+
+        // Fallback: direct delete without registry
         const bound = Object.entries(config.models).filter(([_, m]) => m === modelName);
         if (bound.length > 0) {
           const roles = bound.map(([r]) => r).join(', ');
@@ -596,7 +603,8 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
         }
         sendJSON(res, 200, { ok: true, deleted: modelName });
       } catch (err) {
-        sendJSON(res, 500, { error: err.message });
+        const status = err.message.includes('přiřazený') || err.message.includes('validován') || err.message.includes('maže') ? 409 : 500;
+        sendJSON(res, status, { error: err.message });
       }
     },
 
@@ -1104,6 +1112,32 @@ export function createSystemRoutes({ db, sendJSON, parseBody }) {
         }
 
         sendJSON(res, 200, { scores: result });
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    // ── v133: Model Overview (consolidated view) ──────────────────────
+    'GET /api/system/models/overview': async (req, res) => {
+      try {
+        if (!modelRegistry) {
+          return sendJSON(res, 501, { error: 'ModelRegistry not initialized' });
+        }
+        const overview = await modelRegistry.getOverview();
+        sendJSON(res, 200, overview);
+      } catch (err) {
+        sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    // ── v133: Batch Validate All Models ──────────────────────────────
+    'POST /api/system/models/validate-all': async (req, res) => {
+      try {
+        if (!modelRegistry) {
+          return sendJSON(res, 501, { error: 'ModelRegistry not initialized' });
+        }
+        const result = await modelRegistry.validateAll();
+        sendJSON(res, 200, result);
       } catch (err) {
         sendJSON(res, 500, { error: err.message });
       }

@@ -215,6 +215,20 @@ function _wsConnect() {
           C3Bus.emit('upgrade:verify_failed', d);
         } else if (d.action === 'model_validation_prompt') {
           C3Bus.emit('model:validation_prompt', d);
+        } else if (d.action === 'comfyui_progress') {
+          C3Bus.emit('comfyui:progress', d);
+        } else if (d.action === 'comfyui_complete') {
+          C3Bus.emit('comfyui:complete', d);
+        } else if (d.action === 'comfyui_error') {
+          C3Bus.emit('comfyui:error', d);
+        } else if (d.action === 'vram_state') {
+          C3Bus.emit('vram:state', d);
+        } else if (d.action === 'model_deleted') {
+          C3Bus.emit('model:deleted', d);
+        } else if (d.action === 'model_auto_cleaned') {
+          C3Bus.emit('model:auto_cleaned', d);
+        } else if (d.action === 'model_auto_rebound') {
+          C3Bus.emit('model:auto_rebound', d);
         }
         break;
     }

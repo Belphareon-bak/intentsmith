@@ -289,7 +289,7 @@ function togSw(on,onChange){return h('div',{onClick:function(){if(onChange)onCha
 /* Safe stringify — prevents React error #31 when backend returns {type,value} objects */
 function _s(v){return v==null?'':typeof v==='object'?(v.value||v.name||v.type||JSON.stringify(v)):String(v);}
 
-var I={chat:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',folder:'<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',expert:'<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 10 3 12 0v-5"/>',worker:'<circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.18 1.65 1.65 0 0 0 4.27 6.36l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',chevDown:'<polyline points="6 9 12 15 18 9"/>',plus:'<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',split:'<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/>',close:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',send:'<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',attach:'<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',store:'<path d="M6 2L3 7v13a1 1 0 001 1h16a1 1 0 001-1V7l-3-5H6z"/><path d="M3 7h18"/><path d="M16 10a4 4 0 01-8 0"/>'};
+var I={chat:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',folder:'<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',expert:'<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 10 3 12 0v-5"/>',worker:'<circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 8.18 1.65 1.65 0 0 0 4.27 6.36l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',chevDown:'<polyline points="6 9 12 15 18 9"/>',plus:'<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',split:'<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/>',close:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',send:'<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',attach:'<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',store:'<path d="M6 2L3 7v13a1 1 0 001 1h16a1 1 0 001-1V7l-3-5H6z"/><path d="M3 7h18"/><path d="M16 10a4 4 0 01-8 0"/>',media:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>'};
 
 /* ═══ DATA ═══ */
 /* 15+1 built-in expertises per docs — overridden by backend /api/expertises */
@@ -448,7 +448,7 @@ function _wtDeleteItem(itemPath){
   .then(function(d){if(d.ok)_loadWorkspaceTree(_wtRoot);})
   .catch(function(){});
 }
-var NAV=[{id:'chats',label:'Konverzace',icon:'chat',badge:0,recent:[]},{id:'projects',label:'Projekty',icon:'folder',badge:0,recent:[]},{id:'specialists',label:'Specialisté',icon:'users',badge:SPECIALISTS.length,recent:SPECIALISTS.slice(0,2).map(function(s){return s.name;})},{id:'expertises',label:'Expertyzy',icon:'expert',badge:EXPERTISES.length,recent:EXPERTISES.filter(function(e){return e.fav;}).slice(0,3).map(function(e){return e.name;})},{id:'workers',label:'Workeri',icon:'worker',badge:0,recent:[]},{id:'marketplace',label:'Obchod',icon:'store',badge:0,recent:[]}];
+var NAV=[{id:'chats',label:'Konverzace',icon:'chat',badge:0,recent:[]},{id:'projects',label:'Projekty',icon:'folder',badge:0,recent:[]},{id:'specialists',label:'Specialisté',icon:'users',badge:SPECIALISTS.length,recent:SPECIALISTS.slice(0,2).map(function(s){return s.name;})},{id:'expertises',label:'Expertyzy',icon:'expert',badge:EXPERTISES.length,recent:EXPERTISES.filter(function(e){return e.fav;}).slice(0,3).map(function(e){return e.name;})},{id:'workers',label:'Workeri',icon:'worker',badge:0,recent:[]},{id:'marketplace',label:'Obchod',icon:'store',badge:0,recent:[]},{id:'multimedia',label:'Multim\u00E9dia',icon:'media',badge:0,recent:[]}];
 
 /* ═══ LIVE DATA FETCH ═══ */
 var _backendBase=(function(){try{if(typeof window!=='undefined'&&window.electronC3){var url=window.electronC3.getBackendUrl();if(url)return url;}}catch(e){}return 'http://127.0.0.1:3335';})();
@@ -523,6 +523,11 @@ function fetchBackendData(){
     });}else{WORKERS=[];}
     NAV[4].badge=WORKERS.length;NAV[4].recent=WORKERS.slice(0,3).map(function(w){return w.name;});renderCenter();
   }).catch(function(){});}
+  /* v132: Media badge — show active generation count */
+  fetch(_backendBase+'/api/media/history?limit=1',{signal:AbortSignal.timeout(3000)})
+    .then(function(r){return r.json();})
+    .then(function(d){NAV[6].badge=_media.progress.size||(d.generations&&d.generations.length>0?'●':0);renderCenter();})
+    .catch(function(){});
 }
 setTimeout(fetchBackendData,1500);
 /* Auto-detect workspace root — ONLY if no session has a saved tree (don't overwrite restored state) */
@@ -996,7 +1001,7 @@ function CenterApp(){
     centerEditor()
   ):(
     view==='expertises'?centerExpertises():view==='projects'?centerProjects():view==='chats'?centerConvos():
-    view==='specialists'?centerSpecs():view==='workers'?centerWorkers():view==='settings'?centerSettings():view==='upgrades'?centerUpgrades():view==='marketplace'?centerMarketplace():centerWelcome()
+    view==='specialists'?centerSpecs():view==='workers'?centerWorkers():view==='settings'?centerSettings():view==='upgrades'?centerUpgrades():view==='marketplace'?centerMarketplace():view==='multimedia'?centerMultimedia():centerWelcome()
   );
   var showDetail=detail&&!isOverlay;
   /* v93: Solid background when view/overlay active — prevents editor bleed-through on pro themes */
@@ -2423,8 +2428,13 @@ var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSize
 /* v87.3: Backend config state — loaded from /api/settings */
 var _bCfg=null;var _bCfgLoading=false;var _gpuInfo=null;var _ollamaModels=null;var _sysInfo=null;var _storageInfo=null;var _bCfgSaveTimer=null;
 var _upgradeData=null;var _upgradeLoading=false;var _upgradeMsg=null;var _upgradeAutoChecked=false;
-var _scoringData=null;var _scoringLoading=false;var _upgradeTab='proposals';
+var _scoringData=null;var _scoringLoading=false;var _upgradeTab='overview';
 var _discoveredData=null;var _discoveredLoading=false;
+/* v133: Model overview + management state */
+var _modelOverview=null;var _modelOverviewLoading=false;
+var _deleteConfirm=null;/* {model,sizeGB} */var _deletingModel=null;
+var _batchValidating=false;var _batchQueue=[];var _batchCurrent=null;
+var _overviewSort={col:'name',dir:'asc'};var _roleBindings=null;
 /* v124: Marketplace */
 var _mpData=null;var _mpLoading=false;var _mpMsg=null;var _mpTab='skills';var _mpSearch='';var _mpPage=1;var _mpInstalling={};
 var _pullState={};/* model name → {status,percent,text,downloadedGB,totalGB,eta,scores} */
@@ -2771,19 +2781,51 @@ function settingsLLM(){
           g.driver?h('span',{style:{color:C.tx4,fontSize:_fs(9)}},' ('+g.driver+(g.cuda_version?' / CUDA '+g.cuda_version:'')+')'):null);
       }),
       rec&&rec.recommended_model?h('div',{style:{fontSize:_fs(9),color:C.accent,marginTop:6}},'Doporučený model: '+rec.recommended_model):null):null,
-    _cfgSelect(_lI('Chat model','Hlavní model pro konverzaci, syntézu a analýzu'),'c3.llm.chatModel','qwen3.5:27b',models),
-    _cfgSelect(_lI('Code model','Model optimalizovaný pro generování a editaci kódu'),'c3.llm.codeModel','qwen3.5:27b',models),
-    _cfgSelect(_lI('Vision model','Model pro analýzu obrázků a vizuálního obsahu'),'c3.llm.visionModel','llava:13b',models),
-    _cfgInput('Ollama URL','c3.llm.ollamaUrl','http://127.0.0.1:11434','input','Adresa lokálního Ollama serveru'),
+    /* v133: Compact 7-role bindings summary (replaces 3 broken dropdowns) */
+    (function(){
+      if(!_roleBindings){
+        fetch(_backendBase+'/api/system/upgrades/bindings',{signal:AbortSignal.timeout(5000)})
+          .then(function(r){return r.json();})
+          .then(function(d){_roleBindings=d.bindings||{};renderCenter();})
+          .catch(function(){});
+        return h('div',{style:{color:C.tx4,fontSize:_fs(10),padding:'8px 0'}},'Na\u010D\u00EDt\u00E1m role...');
+      }
+      var rp={D1:{name:'Hlubok\u00E1 anal\u00FDza',color:'#8b5cf6'},D2:{name:'Anal\u00FDza oprav',color:'#a78bfa'},
+        CODE:{name:'Generov\u00E1n\u00ED k\u00F3du',color:'#22c55e'},R1:{name:'Hlubok\u00E1 revize',color:'#6366f1'},
+        R2:{name:'Rychl\u00E1 revize',color:'#818cf8'},CHAT:{name:'Konverzace',color:'#3b82f6'},VISION:{name:'Anal\u00FDza obr\u00E1zk\u016F',color:'#f59e0b'}};
+      var roles=Object.keys(rp);
+      return h('div',{style:{marginBottom:12}},
+        h('div',{style:{fontSize:_fs(11),fontWeight:700,color:C.tx2,marginBottom:8}},
+          'P\u0159i\u0159azen\u00ED model\u016F'),
+        h('div',{style:{display:'flex',flexDirection:'column',gap:4}},
+          roles.map(function(r){
+            var m=_roleBindings[r]||'?';
+            var vs=_validationScores[m];
+            var scoreText='\u2014';var scoreColor=C.tx4;
+            if(vs){var vals=Object.values(vs).filter(function(v){return v&&v.score!=null;});
+              if(vals.length>0){var avg=vals.reduce(function(a,b){return a+b.score;},0)/vals.length;
+                scoreText=Math.round(avg*100)+'%';scoreColor=avg>=0.7?C.accent:avg>=0.4?'#eab308':'#ef4444';}}
+            var installed=models.indexOf(m)>=0;
+            return h('div',{key:r,style:{display:'flex',alignItems:'center',gap:8,padding:'4px 8px',borderRadius:6,background:C.bg2}},
+              h('span',{style:{fontWeight:700,fontSize:_fs(10),color:rp[r].color,minWidth:48}},r),
+              h('span',{style:{fontSize:_fs(10),color:C.tx3,minWidth:100,flex:'0 0 auto'}},rp[r].name),
+              h('span',{style:{flex:1,fontSize:_fs(10),color:installed?C.tx1:'#ef4444',fontFamily:C.mono}},m,
+                !installed?h('span',{style:{color:'#ef4444',fontSize:_fs(9),marginLeft:4}},'\u26A0'):null),
+              h('span',{style:{fontSize:_fs(10),fontWeight:600,color:scoreColor,minWidth:36,textAlign:'right'}},scoreText));
+          })),
+        h('button',{style:{width:'100%',marginTop:10,background:'linear-gradient(135deg,rgba(34,197,94,0.12),rgba(22,163,74,0.06))',
+          border:'1px solid rgba(34,197,94,0.3)',borderRadius:8,padding:'10px 14px',color:C.accent,fontSize:_fs(12),fontWeight:600,
+          cursor:'pointer',fontFamily:C.font,display:'flex',alignItems:'center',gap:8,justifyContent:'center'},
+          onClick:function(){_centerState.view='upgrades';_upgradeTab='overview';_centerState.settingsSection=null;renderCenter();}},
+          svgEl('<path d="M12 5v14M5 12l7-7 7 7"/>',16),'Spravovat role a modely'));
+    })(),
+    _cfgInput('Ollama URL','c3.llm.ollamaUrl','http://127.0.0.1:11434','input','Adresa lok\u00E1ln\u00EDho Ollama serveru'),
     _cfgSlider(_lI('Temperature','Nízká = deterministické, konzistentní odpovědi. Vysoká = kreativnější, rozmanitější výstupy.'),'c3.llm.temperature',0.7,0,2,0.1,''),
     _cfgSlider(_lI('Context window','Kolik tokenů si model pamatuje v rámci jedné konverzace. Větší okno = více kontextu, ale vyšší nároky na paměť.'),'c3.llm.contextWindow',32768,2048,131072,1024,'',null,function(v){return v>=1024?Math.round(v/1024)+'K tok':'v tok';}),
     _cfgSlider(_lI('Timeout chat','Maximální doba čekání na odpověď chat modelu. Zvyšte při pomalých odpovědích.'),'c3.llm.timeoutChat',90000,10000,300000,5000,'',null,function(v){return Math.round(v/1000)+'s';}),
     _cfgSlider(_lI('Timeout code','Maximální doba čekání na odpověď code modelu.'),'c3.llm.timeoutCode',90000,10000,300000,5000,'',null,function(v){return Math.round(v/1000)+'s';}),
     _cfgSlider(_lI('GPU layers','Kolik vrstev modelu se načte do GPU. -1 = automaticky dle dostupné VRAM. 0 = vše na CPU.'),'c3.llm.numGpu',-1,-1,8,1,''),
-    h('div',{style:{borderTop:'1px solid '+C.border,margin:'14px 0'}}),
-    h('button',{style:{width:'100%',background:'linear-gradient(135deg,rgba(34,197,94,0.12),rgba(22,163,74,0.06))',border:'1px solid rgba(34,197,94,0.3)',borderRadius:8,padding:'10px 14px',color:C.accent,fontSize:_fs(12),fontWeight:600,cursor:'pointer',fontFamily:C.font,display:'flex',alignItems:'center',gap:8,justifyContent:'center'},
-      onClick:function(){_centerState.view='upgrades';_centerState.settingsSection=null;renderCenter();}},
-      svgEl('<path d="M12 5v14M5 12l7-7 7 7"/>',16),'Hodnocení a upgrade modelů'));
+    h('div',{style:{borderTop:'1px solid '+C.border,margin:'14px 0'}}));
 }
 /* ═══════════════════════════════════════════════════════════
    v120.2: MODEL UPGRADE PROPOSALS — full center panel
@@ -2799,15 +2841,26 @@ function _loadUpgradeData(){
 }
 /* v125: fire-and-forget — progress comes via WS events */
 function _upgradeApply(role,model){
+  if(_upgradeLoading){_upgradeMsg={ok:false,text:'Prob\u00EDh\u00E1 jin\u00FD upgrade \u2014 vy\u010Dkejte'};renderCenter();return;}
   _upgradeMsg={ok:true,text:'Aplikuji upgrade '+role+': '+model+'...'};_upgradeLoading=true;renderCenter();
+  if(window._c3)window._c3.agentLog('TOOL','\uD83D\uDD04 Upgrade '+role+': '+model+'...');
   fetch(_backendBase+'/api/system/upgrades/apply',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({role:role,targetModel:model}),signal:AbortSignal.timeout(10000)})
+    body:JSON.stringify({role:role,targetModel:model}),signal:AbortSignal.timeout(30000)})
     .then(function(r){return r.json();})
     .then(function(d){
-      if(!d.ok){_upgradeLoading=false;_upgradeMsg={ok:false,text:d.error||'Upgrade selhal'};renderCenter();
+      if(!d.ok){_upgradeLoading=false;
+        var errMsg=d.error||'Upgrade selhal';
+        if(errMsg.indexOf('already set')>=0)errMsg='Model je ji\u017E nastaven pro tuto roli';
+        else if(errMsg.indexOf('Invalid role')>=0)errMsg='Neplatn\u00E1 role: '+role;
+        _upgradeMsg={ok:false,text:errMsg};renderCenter();
+        if(window._c3)window._c3.agentLog('TOOL','\u274C '+errMsg);
         setTimeout(function(){_upgradeMsg=null;renderCenter();},5000);}
-      /* else: loading stays true, WS model_changed/upgrade_error will clear it */})
-    .catch(function(e){_upgradeLoading=false;_upgradeMsg={ok:false,text:e.message};renderCenter();});
+      /* else: loading stays true, WS model_changed/upgrade_error will clear it */
+      /* Safety: auto-reset after 120s in case WS event is lost */
+      setTimeout(function(){if(_upgradeLoading){_upgradeLoading=false;_upgradeMsg={ok:false,text:'Timeout \u2014 odpov\u011B\u010F nedorazila'};renderCenter();
+        setTimeout(function(){_upgradeMsg=null;renderCenter();},5000);}},120000);})
+    .catch(function(e){_upgradeLoading=false;_upgradeMsg={ok:false,text:'Chyba s\u00EDt\u011B: '+e.message};renderCenter();
+      if(window._c3)window._c3.agentLog('TOOL','\u274C Chyba s\u00EDt\u011B: '+e.message);});
 }
 var _validationPrompt=null;/* v125: pending validation consent */
 function _upgradeDismiss(id){
@@ -2868,6 +2921,42 @@ function _assignModel(role,model){
       if(d.ok||d.applied){_scoringData=null;_loadScoringData();_discoveredData=null;}
       else{_assigningRole=null;}renderCenter();})
     .catch(function(){_assigningRole=null;renderCenter();});
+}
+/* v133: Overview loader + model delete + batch validate */
+function _loadModelOverview(){
+  if(_modelOverviewLoading)return;_modelOverviewLoading=true;
+  fetch(_backendBase+'/api/system/models/overview',{signal:AbortSignal.timeout(10000)})
+    .then(function(r){return r.json();})
+    .then(function(d){_modelOverview=d;_modelOverviewLoading=false;
+      _batchValidating=d.batchValidating||false;
+      _roleBindings=d.bindings||null;renderCenter();})
+    .catch(function(){_modelOverviewLoading=false;renderCenter();});
+}
+function _deleteModel(name){
+  if(_deletingModel)return;_deletingModel=name;renderCenter();
+  fetch(_backendBase+'/api/system/models?name='+encodeURIComponent(name),{method:'DELETE',signal:AbortSignal.timeout(15000)})
+    .then(function(r){return r.json();})
+    .then(function(d){_deletingModel=null;_deleteConfirm=null;
+      if(d.ok){_modelOverview=null;_installedModels=null;_ollamaModels=null;}
+      else{_upgradeMsg={ok:false,text:d.error||'Chyba p\u0159i maz\u00E1n\u00ED'};setTimeout(function(){_upgradeMsg=null;renderCenter();},5000);}
+      renderCenter();})
+    .catch(function(e){_deletingModel=null;_deleteConfirm=null;
+      _upgradeMsg={ok:false,text:'Chyba: '+e.message};renderCenter();
+      setTimeout(function(){_upgradeMsg=null;renderCenter();},5000);});
+}
+function _batchValidateAll(){
+  if(_batchValidating)return;_batchValidating=true;renderCenter();
+  fetch(_backendBase+'/api/system/models/validate-all',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:'{}',signal:AbortSignal.timeout(10000)})
+    .then(function(r){return r.json();})
+    .then(function(d){if(d.alreadyRunning){_upgradeMsg={ok:true,text:'Validace ji\u017E prob\u00EDh\u00E1'};setTimeout(function(){_upgradeMsg=null;renderCenter();},3000);}
+      else if(d.queued){_batchQueue=d.queued;
+        _upgradeMsg={ok:true,text:'Validace spu\u0161t\u011Bna: '+d.queued.length+' model\u016F (~'+d.estimatedMinutes+' min)'};
+        if(window._c3)window._c3.agentLog('TOOL','\uD83E\uDDEA D\u00E1vkov\u00E1 validace: '+d.queued.length+' model\u016F');
+        setTimeout(function(){_upgradeMsg=null;renderCenter();},5000);}
+      renderCenter();})
+    .catch(function(e){_batchValidating=false;_upgradeMsg={ok:false,text:'Chyba: '+e.message};renderCenter();
+      setTimeout(function(){_upgradeMsg=null;renderCenter();},5000);});
 }
 var _discoverLoading=false;var _discoverMsg=null;
 function _discoverNewModels(){
@@ -3221,7 +3310,181 @@ function _renderScoringTab(){
     h('div',{style:{marginTop:12,fontSize:_fs(9),color:C.tx4,lineHeight:1.5}},
       '* = aktuálně přiřazený model. Skóre: benchmark*0.35 + hwFit*0.20 + maturity*0.15 + generation*0.10 + category*0.13 + speed*0.07. Validace = lokální syntetický test (TTL 14d).'));
 }
+/* ═══════════════════════════════════════════════════════════
+   v133: MODEL OVERVIEW + ROLES TABS
+   ═══════════════════════════════════════════════════════════ */
+function _renderOverviewTab(){
+  if(_modelOverviewLoading&&!_modelOverview)return h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Na\u010D\u00EDt\u00E1m p\u0159ehled...');
+  if(!_modelOverview)return h('div',{style:{color:C.tx4,padding:20,textAlign:'center'}},'Nelze na\u010D\u00EDst p\u0159ehled model\u016F');
+  var ov=_modelOverview;var mods=ov.models||[];
+  var du=ov.diskUsage||{};var ac=ov.autoCleanup||{enabled:false,days:14};
+  /* Sort */
+  var sorted=mods.slice().sort(function(a,b){
+    var c=_overviewSort.col;var d=_overviewSort.dir==='asc'?1:-1;
+    if(c==='name')return a.name.localeCompare(b.name)*d;
+    if(c==='size')return((a.size||0)-(b.size||0))*d;
+    if(c==='score')return((a.overallScore||0)-(b.overallScore||0))*d;
+    if(c==='roles')return((a.boundRoles||[]).length-(b.boundRoles||[]).length)*d;
+    return 0;
+  });
+  function sortBtn(col,label){
+    var active=_overviewSort.col===col;
+    return h('th',{style:{padding:'6px 8px',textAlign:col==='name'?'left':'right',cursor:'pointer',fontSize:_fs(10),fontWeight:600,color:active?C.accent:C.tx3,
+      background:active?'rgba(34,197,94,0.05)':'transparent',borderBottom:'2px solid '+(active?C.accent:C.border),userSelect:'none'},
+      onClick:function(){if(_overviewSort.col===col)_overviewSort.dir=_overviewSort.dir==='asc'?'desc':'asc';
+        else{_overviewSort.col=col;_overviewSort.dir=col==='size'||col==='score'?'desc':'asc';}renderCenter();}},
+      label+(active?(_overviewSort.dir==='asc'?' \u25B2':' \u25BC'):''));
+  }
+  var delCount=mods.filter(function(m){return m.isDeletable;}).length;
+  var totalFreedGB=mods.filter(function(m){return m.isDeletable;}).reduce(function(s,m){return s+parseFloat(m.sizeGB||0);},0).toFixed(1);
+  return h('div',null,
+    /* Stats line */
+    h('div',{style:{display:'flex',gap:16,flexWrap:'wrap',marginBottom:12,fontSize:_fs(10),color:C.tx3}},
+      h('span',null,mods.length+' model\u016F'),
+      h('span',null,du.totalGB+' GB celkem'),
+      delCount>0?h('span',null,delCount+' nepou\u017E\u00EDvan\u00FDch'):null,
+      h('span',null,'Voln\u00E9 m\u00EDsto: '+(du.freeGB||'?')+' GB')),
+    /* Action bar */
+    h('div',{style:{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}},
+      h('button',{style:{padding:'6px 14px',borderRadius:6,border:'1px solid rgba(59,130,246,0.3)',
+        background:_batchValidating?'rgba(59,130,246,0.05)':'rgba(59,130,246,0.1)',color:'#3b82f6',fontSize:_fs(11),
+        fontWeight:600,cursor:_batchValidating?'default':'pointer',fontFamily:C.font,opacity:_batchValidating?0.6:1},
+        disabled:_batchValidating,onClick:_batchValidateAll},
+        _batchValidating?'Validuji...':'Validovat v\u0161e'+(ov.unvalidatedCount>0?' ('+ov.unvalidatedCount+')':'')),
+      delCount>0?h('button',{style:{padding:'6px 14px',borderRadius:6,border:'1px solid rgba(239,68,68,0.3)',
+        background:'rgba(239,68,68,0.1)',color:'#ef4444',fontSize:_fs(11),cursor:'pointer',fontFamily:C.font},
+        onClick:function(){/* Delete all unused one by one */
+          var del=mods.filter(function(m){return m.isDeletable;});
+          if(del.length===0)return;
+          _deleteConfirm={model:'__bulk__',sizeGB:totalFreedGB,count:del.length,names:del.map(function(m){return m.name;})};renderCenter();}},
+        'Smazat nepou\u017E\u00EDvan\u00E9 ('+delCount+', '+totalFreedGB+' GB)'):null,
+      h('button',{style:{padding:'6px 14px',borderRadius:6,border:'1px solid '+C.border2,background:'transparent',
+        color:C.tx3,fontSize:_fs(11),cursor:'pointer',fontFamily:C.font},
+        onClick:function(){_modelOverview=null;_loadModelOverview();}},'\u21BB Obnovit')),
+    /* Batch progress */
+    _batchValidating&&_batchCurrent?h('div',{style:{padding:'8px 12px',borderRadius:6,marginBottom:12,
+      background:'rgba(59,130,246,0.08)',border:'1px solid rgba(59,130,246,0.2)',fontSize:_fs(11),color:'#3b82f6'}},
+      'Validuji: '+_batchCurrent+(_validationProgress?' \u2014 '+_validationProgress.text:'...')):null,
+    /* Delete confirm */
+    _deleteConfirm?h('div',{style:{padding:'10px 14px',borderRadius:8,marginBottom:12,
+      background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.25)',display:'flex',alignItems:'center',gap:10}},
+      h('span',{style:{flex:1,fontSize:_fs(11),color:'#ef4444'}},
+        _deleteConfirm.model==='__bulk__'
+          ?'Smazat '+_deleteConfirm.count+' nepou\u017E\u00EDvan\u00FDch model\u016F? Uvoln\u00ED '+_deleteConfirm.sizeGB+' GB'
+          :'Smazat '+_deleteConfirm.model+'? Uvoln\u00ED '+_deleteConfirm.sizeGB+' GB'),
+      h('button',{style:{padding:'4px 12px',borderRadius:4,border:'1px solid #ef4444',background:'#ef4444',color:'#fff',
+        cursor:'pointer',fontSize:_fs(10),fontFamily:C.font},
+        onClick:function(){if(_deleteConfirm.model==='__bulk__'){
+          var names=_deleteConfirm.names||[];_deleteConfirm=null;
+          names.forEach(function(n){_deleteModel(n);});}
+          else{_deleteModel(_deleteConfirm.model);}}},_deletingModel?'Ma\u017Eu...':'Smazat'),
+      h('button',{style:{padding:'4px 12px',borderRadius:4,border:'1px solid rgba(239,68,68,0.3)',background:'transparent',
+        color:'#ef4444',cursor:'pointer',fontSize:_fs(10),fontFamily:C.font},
+        onClick:function(){_deleteConfirm=null;renderCenter();}},'Zru\u0161it')):null,
+    /* Table */
+    h('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:_fs(10)}},
+      h('thead',null,h('tr',null,
+        sortBtn('name','Model'),
+        h('th',{style:{padding:'6px 8px',textAlign:'right',fontSize:_fs(10),fontWeight:600,color:C.tx3,borderBottom:'2px solid '+C.border}},'Kv.'),
+        sortBtn('size','Velikost'),
+        sortBtn('roles','Role'),
+        sortBtn('score','Validace'),
+        h('th',{style:{padding:'6px 8px',textAlign:'center',fontSize:_fs(10),fontWeight:600,color:C.tx3,borderBottom:'2px solid '+C.border}},'Akce'))),
+      h('tbody',null,sorted.map(function(m){
+        var scorePct=m.overallScore!=null?Math.round(m.overallScore*100)+'%':'\u2014';
+        var scoreColor=m.overallScore==null?C.tx4:m.overallScore>=0.7?C.accent:m.overallScore>=0.4?'#eab308':'#ef4444';
+        var validBtn=m.unvalidatedSuites&&m.unvalidatedSuites.length>0&&!_validatingModel;
+        return h('tr',{key:m.name,style:{borderBottom:'1px solid '+C.border}},
+          h('td',{style:{padding:'6px 8px',color:C.tx1,fontFamily:C.mono,maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},
+            m.name,
+            h('div',{style:{fontSize:_fs(9),color:C.tx4}},m.params)),
+          h('td',{style:{padding:'6px 8px',textAlign:'right',color:C.tx4,fontSize:_fs(9)}},m.quantization||'?'),
+          h('td',{style:{padding:'6px 8px',textAlign:'right',color:C.tx2}},m.sizeGB+' GB'),
+          h('td',{style:{padding:'6px 8px',textAlign:'right'}},
+            m.boundRoles.length>0?m.boundRoles.map(function(r){
+              var rp={D1:'#8b5cf6',D2:'#a78bfa',CODE:'#22c55e',R1:'#6366f1',R2:'#818cf8',CHAT:'#3b82f6',VISION:'#f59e0b'};
+              return h('span',{key:r,style:{display:'inline-block',padding:'1px 5px',borderRadius:3,fontSize:_fs(9),fontWeight:600,
+                background:'rgba(0,0,0,0.15)',color:rp[r]||C.tx3,marginLeft:2}},r);
+            }):h('span',{style:{color:C.tx4}},'\u2014')),
+          h('td',{style:{padding:'6px 8px',textAlign:'right'}},
+            h('span',{style:{fontWeight:600,color:scoreColor}},scorePct),
+            validBtn?h('button',{style:{marginLeft:4,padding:'1px 6px',borderRadius:3,border:'1px solid rgba(59,130,246,0.3)',
+              background:'rgba(59,130,246,0.1)',color:'#3b82f6',fontSize:_fs(9),cursor:'pointer',fontFamily:C.font},
+              onClick:function(){_validateModel(m.name);}},'\u25B6'):null),
+          h('td',{style:{padding:'6px 8px',textAlign:'center'}},
+            m.isDeletable?h('button',{style:{padding:'2px 8px',borderRadius:4,border:'1px solid rgba(239,68,68,0.3)',
+              background:'rgba(239,68,68,0.06)',color:'#ef4444',fontSize:_fs(10),cursor:'pointer',fontFamily:C.font},
+              disabled:!!_deletingModel,title:'Smazat model',
+              onClick:function(){_deleteConfirm={model:m.name,sizeGB:m.sizeGB};renderCenter();}},'\uD83D\uDDD1'):
+              h('span',{style:{fontSize:_fs(9),color:C.tx4},title:m.deletableReason||''},'\u2014')));
+      }))),
+    /* Ollama offline warning */
+    !ov.ollamaAvailable?h('div',{style:{marginTop:16,padding:'10px 14px',borderRadius:6,
+      background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',color:'#ef4444',fontSize:_fs(11)}},
+      'Ollama nedostupn\u00E1 \u2014 nelze na\u010D\u00EDst modely'):null);
+}
+function _renderRolesTab(){
+  if(_modelOverviewLoading&&!_modelOverview)return h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Na\u010D\u00EDt\u00E1m...');
+  var ov=_modelOverview||{};var bindings=ov.bindings||_roleBindings||{};
+  var profiles=ov.profiles||{D1:{name:'Hlubok\u00E1 anal\u00FDza',desc:'Anal\u00FDza, pl\u00E1nov\u00E1n\u00ED, redesign.',suite:'reasoning',color:'#8b5cf6'},
+    D2:{name:'Anal\u00FDza oprav',desc:'Fokusovan\u00FD reasoning pro opravy.',suite:'reasoning',color:'#a78bfa'},
+    CODE:{name:'Generov\u00E1n\u00ED k\u00F3du',desc:'Implementace a editace k\u00F3du.',suite:'code',color:'#22c55e'},
+    R1:{name:'Hlubok\u00E1 revize',desc:'Fin\u00E1ln\u00ED deep review.',suite:'reasoning',color:'#6366f1'},
+    R2:{name:'Rychl\u00E1 revize',desc:'Rychl\u00FD check.',suite:'review',color:'#818cf8'},
+    CHAT:{name:'Konverzace',desc:'U\u017Eivatelsk\u00E1 konverzace.',suite:'chat',color:'#3b82f6'},
+    VISION:{name:'Anal\u00FDza obr\u00E1zk\u016F',desc:'Porozum\u011Bn\u00ED obr\u00E1zk\u016Fm.',suite:'vision',color:'#f59e0b'}};
+  var models=[...new Set((_installedModels||[]).concat(Object.values(bindings)))].filter(Boolean).sort();
+  var allScores=ov.models?{}:null;
+  if(ov.models)ov.models.forEach(function(m){allScores[m.name]=m.validationScores||{};});
+  var roles=Object.keys(profiles);
+  return h('div',{style:{display:'flex',flexDirection:'column',gap:12}},
+    roles.map(function(role){
+      var p=profiles[role];var current=bindings[role]||'?';
+      var vs=allScores?allScores[current]||{}:(_validationScores[current]||{});
+      var suiteScore=vs[p.suite];var scoreVal=suiteScore&&suiteScore.score!=null?suiteScore.score:null;
+      var scorePct=scoreVal!=null?Math.round(scoreVal*100)+'%':'\u2014';
+      var scoreColor=scoreVal==null?C.tx4:scoreVal>=0.7?C.accent:scoreVal>=0.4?'#eab308':'#ef4444';
+      /* Recommendation */
+      var rec=null;if(ov.models){
+        var bestScore=-1;var bestModel=null;
+        ov.models.forEach(function(m){var ms=m.validationScores||{};var s=ms[p.suite];
+          if(s&&s.score!=null&&m.name!==current&&s.score>bestScore){bestScore=s.score;bestModel=m.name;}});
+        if(bestModel&&scoreVal!=null&&bestScore>scoreVal){
+          rec={model:bestModel,delta:Math.round((bestScore-scoreVal)*100)};
+        }
+      }
+      var installed=models.indexOf(current)>=0;
+      return h('div',{key:role,style:{background:C.bg2,border:'1px solid '+C.border,borderRadius:10,padding:14}},
+        /* Header */
+        h('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:6}},
+          h('span',{style:{fontWeight:700,fontSize:_fs(13),color:p.color}},role),
+          h('span',{style:{fontSize:_fs(12),fontWeight:600,color:C.tx1}},p.name),
+          h('span',{style:{fontSize:_fs(9),padding:'1px 6px',borderRadius:3,background:'rgba(0,0,0,0.1)',color:C.tx4}},p.suite)),
+        /* Description */
+        h('div',{style:{fontSize:_fs(10),color:C.tx3,marginBottom:8}},p.desc),
+        /* Model selector + score */
+        h('div',{style:{display:'flex',alignItems:'center',gap:10}},
+          h('span',{style:{fontSize:_fs(10),color:C.tx3,minWidth:40}},'Model:'),
+          h('select',{style:{flex:1,background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'5px 8px',
+            color:C.tx1,fontSize:_fs(11),fontFamily:C.mono,outline:'none',cursor:'pointer',maxWidth:250},
+            value:current,
+            onChange:function(e){var v=e.target.value;if(v===current)return;_assignModel(role,v);}},
+            models.map(function(m){return h('option',{key:m,value:m},m);})),
+          _assigningRole===role?h('span',{style:{fontSize:_fs(10),color:C.accent}},'Ukl\u00E1d\u00E1m...'):null,
+          h('span',{style:{fontWeight:700,fontSize:_fs(13),color:scoreColor,minWidth:40,textAlign:'right'}},scorePct),
+          scoreVal!=null&&scoreVal>=0.7?h('span',{style:{color:C.accent}},'\u2705'):
+            scoreVal!=null&&scoreVal<0.4?h('span',{style:{color:'#ef4444'}},'\u26A0'):null),
+        /* Warnings */
+        !installed?h('div',{style:{marginTop:6,fontSize:_fs(10),color:'#ef4444'}},'\u26A0 Model nen\u00ED nainstalovan\u00FD!'):null,
+        scoreVal!=null&&scoreVal<0.5?h('div',{style:{marginTop:4,fontSize:_fs(10),color:'#eab308'}},'\u26A0 Slab\u00FD model pro tuto roli ('+scorePct+')'):null,
+        rec?h('div',{style:{marginTop:4,fontSize:_fs(10),color:'rgba(34,197,94,0.8)'}},
+          'Lep\u0161\u00ED model dostupn\u00FD: '+rec.model+' (+'+rec.delta+'%)'):null);
+    }));
+}
 function centerUpgrades(){
+  if(_upgradeTab==='overview'&&!_modelOverview&&!_modelOverviewLoading)_loadModelOverview();
+  if(_upgradeTab==='roles'&&!_modelOverview&&!_modelOverviewLoading)_loadModelOverview();
+  if(_upgradeTab==='roles'&&!_installedModels&&!_installedLoading)_loadInstalledModels();
   if(_upgradeTab==='proposals'&&!_upgradeData&&!_upgradeLoading)_loadUpgradeData();
   if(_upgradeTab==='scoring'&&!_scoringData&&!_scoringLoading)_loadScoringData();
   if(_upgradeTab==='scoring'&&!_installedModels&&!_installedLoading)_loadInstalledModels();
@@ -3247,11 +3510,13 @@ function centerUpgrades(){
       h('button',{style:{background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'5px 12px',color:C.tx2,fontSize:_fs(11),cursor:'pointer',fontFamily:C.font,display:'flex',alignItems:'center',gap:4},
         onClick:_upgradeCheck},svgEl('<path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/>',14),'Zkontrolovat')),
     /* tab bar */
-    h('div',{style:{display:'flex',gap:6,padding:'10px 18px',borderBottom:'1px solid '+C.border}},
-      h('button',{style:tabStyle('scoring'),onClick:function(){_upgradeTab='scoring';renderCenter();}},'Hodnocení modelů'),
-      h('button',{style:tabStyle('proposals'),onClick:function(){_upgradeTab='proposals';renderCenter();}},'Návrhy ('+proposals.length+')'),
+    h('div',{style:{display:'flex',gap:6,padding:'10px 18px',borderBottom:'1px solid '+C.border,flexWrap:'wrap'}},
+      h('button',{style:tabStyle('overview'),onClick:function(){_upgradeTab='overview';renderCenter();}},'P\u0159ehled'),
+      h('button',{style:tabStyle('roles'),onClick:function(){_upgradeTab='roles';renderCenter();}},'Role (7)'),
+      h('button',{style:tabStyle('scoring'),onClick:function(){_upgradeTab='scoring';renderCenter();}},'Hodnocen\u00ED'),
+      h('button',{style:tabStyle('proposals'),onClick:function(){_upgradeTab='proposals';renderCenter();}},'N\u00E1vrhy ('+proposals.length+')'),
       h('button',{style:tabStyle('history'),onClick:function(){_upgradeTab='history';renderCenter();}},'Historie'),
-      h('button',{style:tabStyle('discovered'),onClick:function(){_upgradeTab='discovered';renderCenter();}},'Nové modely')),
+      h('button',{style:tabStyle('discovered'),onClick:function(){_upgradeTab='discovered';renderCenter();}},'Nov\u00E9 modely')),
     /* toast */
     _upgradeMsg?h('div',{style:{margin:'0 18px',marginTop:12,padding:'8px 14px',borderRadius:6,fontSize:_fs(11),fontWeight:600,
       background:_upgradeMsg.ok?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)',
@@ -3267,6 +3532,10 @@ function centerUpgrades(){
         onClick:function(){_validationPrompt=null;renderCenter();}},'P\u0159eskočit')):null,
     /* body */
     h('div',{style:{flex:1,overflowY:'auto',padding:18}},
+      /* ── Overview tab (v133) ── */
+      _upgradeTab==='overview'?_renderOverviewTab():null,
+      /* ── Roles tab (v133) ── */
+      _upgradeTab==='roles'?_renderRolesTab():null,
       /* ── Scoring tab ── */
       _upgradeTab==='scoring'?_renderScoringTab():null,
       /* ── Proposals tab ── */
@@ -3876,6 +4145,305 @@ function centerMarketplace(){
   );
 }
 
+// ═══ MEDIA MODULE START ═══════════════════════════════════════════════════════
+
+var _media={
+  data:[],loading:false,tab:'all',search:'',
+  health:{available:false,vramBusy:false},
+  models:null,
+  form:{visible:false,type:'txt2img',prompt:'',neg:'',params:{width:1024,height:1024,steps:20,cfg_scale:7,seed:-1}},
+  progress:new Map(),
+  msg:null
+};
+var _mediaListenersAttached=false;
+
+var MediaAPI={
+  _fetch:function(path,opts){
+    var o={signal:AbortSignal.timeout(8000)};
+    if(opts){Object.keys(opts).forEach(function(k){o[k]=opts[k];});}
+    return fetch(_backendBase+path,o)
+      .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+      .catch(function(e){_media.msg={ok:false,text:e.message};throw e;});
+  },
+  loadData:function(){
+    if(_media.loading)return;
+    _media.loading=true;
+    var params='?limit=50';
+    if(_media.tab==='favorites')params+='&favorite=1';
+    else if(_media.tab!=='all')params+='&type='+_media.tab;
+    if(_media.search)params+='&q='+encodeURIComponent(_media.search);
+    MediaAPI._fetch('/api/media/history'+params)
+      .then(function(d){_media.data=d.generations||[];})
+      .catch(function(){_media.data=[];})
+      .finally(function(){_media.loading=false;MediaEvents.render();});
+  },
+  loadHealth:function(){
+    MediaAPI._fetch('/api/media/health')
+      .then(function(d){_media.health={available:!!d.available,vramBusy:false};})
+      .catch(function(){_media.health={available:false,vramBusy:false};})
+      .finally(function(){MediaEvents.render();});
+  },
+  loadModels:function(){
+    MediaAPI._fetch('/api/media/models')
+      .then(function(d){_media.models=d;})
+      .catch(function(){})
+      .finally(function(){MediaEvents.render();});
+  },
+  submit:function(){
+    var f=_media.form;
+    if(!f.prompt.trim()){_media.msg={ok:false,text:'Prompt je povinný'};MediaEvents.render();return;}
+    if(f.params.steps>150||f.params.steps<1){_media.msg={ok:false,text:'Steps musí být 1–150'};MediaEvents.render();return;}
+    if(f.params.width%8!==0||f.params.height%8!==0){_media.msg={ok:false,text:'Rozměry musí být dělitelné 8'};MediaEvents.render();return;}
+    if(!_media.health.available){_media.msg={ok:false,text:'ComfyUI není dostupné'};MediaEvents.render();return;}
+    MediaAPI._fetch('/api/media/generate',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({type:f.type,prompt:f.prompt,negative_prompt:f.neg,params:f.params})
+    }).then(function(d){
+      if(d.ok){
+        _media.msg={ok:true,text:'Generování zahájeno'+(d.dedup?' (již ve frontě)':'')};
+        _media.progress.set(d.generationId,{id:d.generationId,percent:0,text:'Ve frontě...',status:'pending',startedAt:Date.now()});
+        _media.form.visible=false;_media.form.prompt='';_media.form.neg='';
+        setTimeout(function(){_media.msg=null;MediaEvents.render();},3000);
+      }else{
+        _media.msg={ok:false,text:d.error||'Chyba'};
+        setTimeout(function(){_media.msg=null;MediaEvents.render();},5000);
+      }
+      MediaEvents.render();
+    }).catch(function(){MediaEvents.render();});
+  },
+  toggleFav:function(id,currentFav){
+    var item=_media.data.find(function(g){return g.id===id;});
+    if(item){item.favorite=currentFav?0:1;MediaEvents.render();}
+    MediaAPI._fetch('/api/media/favorite',{
+      method:'PUT',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id:id,favorite:!currentFav})
+    }).catch(function(){
+      if(item){item.favorite=currentFav?1:0;MediaEvents.render();}
+    });
+  },
+  del:function(id){
+    if(!confirm('Smazat generaci?'))return;
+    MediaAPI._fetch('/api/media?id='+encodeURIComponent(id),{method:'DELETE'})
+      .then(function(){_media.data=_media.data.filter(function(g){return g.id!==id;});_media.progress.delete(id);MediaEvents.render();})
+      .catch(function(){MediaEvents.render();});
+  },
+  cancel:function(id){
+    MediaAPI._fetch('/api/media/cancel?id='+encodeURIComponent(id),{method:'POST'})
+      .then(function(){
+        _media.progress.delete(id);
+        _media.msg={ok:true,text:'Zrušeno'};MediaEvents.render();
+        setTimeout(function(){_media.msg=null;MediaEvents.render();},3000);
+      }).catch(function(){});
+  }
+};
+
+var MediaEvents={
+  _scheduled:false,
+  render:function(){
+    if(MediaEvents._scheduled)return;
+    MediaEvents._scheduled=true;
+    requestAnimationFrame(function(){MediaEvents._scheduled=false;renderCenter();});
+  },
+  attach:function(){
+    if(_mediaListenersAttached)return;
+    _mediaListenersAttached=true;
+    C3Bus.on('comfyui:progress',function(ev){
+      if(!_media.progress.has(ev.generationId)){
+        _media.progress.set(ev.generationId,{id:ev.generationId,percent:0,text:'',status:'generating',startedAt:Date.now()});
+      }
+      var p=_media.progress.get(ev.generationId);
+      p.percent=ev.percent||0;p.text=ev.text||'';p.status=ev.status||'generating';
+      /* Update badge */
+      NAV[6].badge=_media.progress.size||0;
+      if(_centerState.view==='multimedia')MediaEvents.render();
+    });
+    C3Bus.on('comfyui:complete',function(ev){
+      _media.progress.delete(ev.generationId);
+      NAV[6].badge=_media.progress.size||0;
+      MediaAPI.loadData();
+      if(window._c3)window._c3.agentLog('TOOL','Media generování dokončeno');
+    });
+    C3Bus.on('comfyui:error',function(ev){
+      _media.progress.delete(ev.generationId);
+      NAV[6].badge=_media.progress.size||0;
+      _media.msg={ok:false,text:'Generování selhalo: '+(ev.error||'neznámá chyba')};
+      MediaAPI.loadData();
+      if(_centerState.view==='multimedia')MediaEvents.render();
+      setTimeout(function(){_media.msg=null;if(_centerState.view==='multimedia')MediaEvents.render();},8000);
+    });
+    C3Bus.on('vram:state',function(ev){
+      _media.health.vramBusy=!!ev.busy;
+      if(_centerState.view==='multimedia')MediaEvents.render();
+    });
+  }
+};
+
+function centerMultimedia(){
+  /* Lazy init on first view open */
+  if(!_media.data.length&&!_media.loading)MediaAPI.loadData();
+  if(!_media.models)MediaAPI.loadModels();
+  MediaAPI.loadHealth();
+
+  var ell={whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'};
+  var tabs=[
+    {id:'all',label:'Všechny'},{id:'txt2img',label:'Obrázky'},{id:'img2img',label:'Img2Img'},
+    {id:'txt2vid',label:'Video'},{id:'favorites',label:'Oblíbené'}
+  ];
+  var tabStyle=function(t){return{background:_media.tab===t?C.accent:'transparent',color:_media.tab===t?'#fff':C.tx3,
+    border:'1px solid '+(_media.tab===t?C.accent:C.border2),borderRadius:6,padding:'5px 14px',fontSize:_fs(11),
+    fontWeight:_media.tab===t?600:400,cursor:'pointer',fontFamily:C.font};};
+  var formTypeStyle=function(t){return{background:_media.form.type===t?C.accent:'transparent',color:_media.form.type===t?'#fff':C.tx3,
+    border:'1px solid '+(_media.form.type===t?C.accent:C.border2),borderRadius:6,padding:'4px 12px',fontSize:_fs(10),
+    cursor:'pointer',fontFamily:C.font};};
+
+  /* ── Progress cards ── */
+  var progressCards=[];
+  _media.progress.forEach(function(p){
+    progressCards.push(h('div',{key:p.id,style:{background:C.bg2,border:'1px solid '+C.border,borderRadius:8,padding:12,marginBottom:8}},
+      h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}},
+        h('span',{style:{fontSize:_fs(11),color:C.tx2}},p.text||'Generuji...'),
+        h('button',{style:{background:'transparent',border:'none',color:C.tx4,cursor:'pointer',fontSize:_fs(10),fontFamily:C.font},
+          onClick:function(){MediaAPI.cancel(p.id);}},'Zrušit')),
+      h('div',{style:{width:'100%',height:6,background:C.bg4,borderRadius:3,overflow:'hidden'}},
+        h('div',{style:{width:p.percent+'%',height:'100%',background:C.accent,borderRadius:3,transition:'width 0.3s'}})),
+      h('span',{style:{fontSize:_fs(9),color:C.tx4}},p.percent+'%')
+    ));
+  });
+
+  /* ── History grid ── */
+  var gridItems=_media.data.map(function(gen){
+    var outputs=[];try{outputs=JSON.parse(gen.outputs||'[]');}catch(_){}
+    var thumb=outputs.length>0?outputs[0]:null;
+    var statusColor=gen.status==='completed'?C.accent:gen.status==='failed'?'#ef4444':C.tx4;
+    var statusLabel=gen.status==='completed'?'Hotovo':gen.status==='failed'?'Chyba':gen.status==='cancelled'?'Zrušeno':gen.status==='running'?'Běží':'Čeká';
+    return h('div',{key:gen.id,style:{background:C.bg2,border:'1px solid '+C.border,borderRadius:10,overflow:'hidden',cursor:'pointer',transition:'border-color 0.2s,box-shadow 0.2s'},
+      onMouseEnter:function(e){e.currentTarget.style.borderColor=C.border2;e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.15)';},
+      onMouseLeave:function(e){e.currentTarget.style.borderColor=C.border;e.currentTarget.style.boxShadow='none';},
+      onClick:function(){
+        setDetail({
+          name:(gen.prompt||'').slice(0,40)+(gen.prompt&&gen.prompt.length>40?'…':''),
+          _itemId:gen.id,
+          fields:[
+            {k:'ID',v:gen.id},{k:'Typ',v:gen.type},{k:'Status',v:gen.status},
+            {k:'Prompt',v:gen.prompt||'—'},
+            {k:'Vytvořeno',v:gen.created_at||'—'},{k:'Dokončeno',v:gen.completed_at||'—'},
+            {k:'Doba',v:gen.duration_ms?(gen.duration_ms/1000).toFixed(1)+'s':'—'},
+            {k:'Chyba',v:gen.error||'—'}
+          ],
+          tags:[gen.type,statusLabel],
+          actions:gen.status==='completed'?['Oblíbené','Smazat']
+            :gen.status==='pending'?['Zrušit','Smazat']:['Smazat']
+        });
+      }},
+      thumb?h('img',{src:_backendBase+'/api/media/output?id='+gen.id+'&filename='+encodeURIComponent(thumb),
+        style:{width:'100%',height:140,objectFit:'cover'},
+        onError:function(e){e.target.style.display='none';}
+      }):h('div',{style:{width:'100%',height:140,background:C.bg3,display:'flex',alignItems:'center',justifyContent:'center',color:C.tx4}},
+        gen.status==='failed'?svgEl(I.close,24):svgEl(I.media,24)),
+      h('div',{style:{padding:10}},
+        h('div',{style:{fontSize:_fs(11),color:C.tx1,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginBottom:4}},gen.prompt||'—'),
+        h('div',{style:{display:'flex',gap:4,alignItems:'center'}},
+          h('span',{style:{display:'inline-flex',padding:'2px 7px',borderRadius:10,fontSize:_fs(9),fontWeight:600,fontFamily:C.mono,background:C.bg4,color:C.tx3}},gen.type),
+          h('span',{style:{display:'inline-flex',padding:'2px 7px',borderRadius:10,fontSize:_fs(9),fontWeight:600,fontFamily:C.mono,background:statusColor+'22',color:statusColor}},statusLabel),
+          h('div',{style:{flex:1}}),
+          h('span',{style:{cursor:'pointer',fontSize:16,color:gen.favorite?'#f59e0b':C.tx4,userSelect:'none'},
+            onClick:function(ev){ev.stopPropagation();MediaAPI.toggleFav(gen.id,gen.favorite);}},gen.favorite?'★':'☆')),
+        gen.duration_ms?h('span',{style:{fontSize:_fs(9),color:C.tx4}},(gen.duration_ms/1000).toFixed(1)+'s'):null)
+    );
+  });
+
+  /* ── Models select options ── */
+  var checkpoints=_media.models&&_media.models.checkpoints?_media.models.checkpoints:[];
+  var formDisabled=!_media.health.available||checkpoints.length===0;
+
+  return h(React.Fragment,null,
+    /* ── Header ── */
+    h('div',{style:{padding:'12px 18px',borderBottom:'1px solid '+C.border,display:'flex',alignItems:'center',flexShrink:0,gap:10}},
+      h('span',{style:{fontSize:_fs(15),fontWeight:700,color:C.tx1,flex:1}},'Multimédia'),
+      h('span',{style:{display:'inline-flex',alignItems:'center',gap:4,fontSize:_fs(9),fontWeight:600,
+        background:_media.health.available?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)',
+        color:_media.health.available?C.accentText:'#ef4444',
+        border:'1px solid '+(_media.health.available?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)'),
+        borderRadius:4,padding:'2px 8px'}},
+        h('span',{style:{width:6,height:6,borderRadius:'50%',background:_media.health.available?C.accentText:'#ef4444'}}),
+        _media.health.available?'ComfyUI':'Nedostupné'),
+      _media.health.vramBusy?h('span',{style:{fontSize:_fs(9),background:'rgba(245,158,11,0.1)',color:'#f59e0b',border:'1px solid rgba(245,158,11,0.2)',borderRadius:4,padding:'2px 8px',fontWeight:600}},'GPU zaneprázdněno'):null,
+      h('button',{style:{background:C.accent,border:'none',borderRadius:6,padding:'5px 14px',color:'#fff',fontSize:_fs(11),cursor:'pointer',fontFamily:C.font,fontWeight:600},
+        onClick:function(){_media.form.visible=!_media.form.visible;MediaEvents.render();}},'+ Nový')),
+
+    /* ── Tab bar ── */
+    h('div',{style:{display:'flex',gap:6,padding:'10px 18px',borderBottom:'1px solid '+C.border,alignItems:'center'}},
+      tabs.map(function(t){return h('button',{key:t.id,style:tabStyle(t.id),
+        onClick:function(){_media.tab=t.id;_media.data=[];MediaAPI.loadData();}},t.label);}),
+      h('div',{style:{flex:1}}),
+      h('input',{type:'text',value:_media.search,placeholder:'Hledat...',
+        style:{background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'5px 10px',fontSize:_fs(11),color:C.tx1,fontFamily:C.font,width:160,outline:'none'},
+        onChange:function(e){_media.search=e.target.value;},
+        onKeyDown:function(e){if(e.key==='Enter'){_media.data=[];MediaAPI.loadData();}}})),
+
+    /* ── Toast ── */
+    _media.msg?h('div',{style:{margin:'8px 18px',padding:'8px 14px',borderRadius:8,fontSize:_fs(11),fontWeight:600,
+      background:_media.msg.ok?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)',
+      color:_media.msg.ok?C.accentText:'#ef4444',
+      border:'1px solid '+(_media.msg.ok?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)')}},_media.msg.text):null,
+
+    /* ── Generation form ── */
+    _media.form.visible?h('div',{style:{margin:'8px 18px',padding:16,background:C.bg2,border:'1px solid '+C.border,borderRadius:10}},
+      h('div',{style:{display:'flex',gap:6,marginBottom:12}},
+        h('button',{style:formTypeStyle('txt2img'),onClick:function(){_media.form.type='txt2img';MediaEvents.render();}},'Text→Obraz'),
+        h('button',{style:formTypeStyle('img2img'),onClick:function(){_media.form.type='img2img';MediaEvents.render();}},'Obraz→Obraz'),
+        h('button',{style:formTypeStyle('txt2vid'),onClick:function(){_media.form.type='txt2vid';MediaEvents.render();}},'Text→Video')),
+      h('textarea',{value:_media.form.prompt,placeholder:'Popište co chcete vygenerovat...',rows:3,
+        style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:8,fontSize:_fs(11),color:C.tx1,fontFamily:C.font,resize:'vertical',outline:'none',boxSizing:'border-box'},
+        onChange:function(e){_media.form.prompt=e.target.value;}}),
+      h('textarea',{value:_media.form.neg,placeholder:'Negativní prompt (volitelné)',rows:2,
+        style:{width:'100%',marginTop:8,background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:8,fontSize:_fs(10),color:C.tx3,fontFamily:C.font,resize:'vertical',outline:'none',boxSizing:'border-box'},
+        onChange:function(e){_media.form.neg=e.target.value;}}),
+      h('div',{style:{display:'flex',gap:12,marginTop:10,flexWrap:'wrap',alignItems:'center'}},
+        h('label',{style:{fontSize:_fs(10),color:C.tx3,display:'flex',alignItems:'center',gap:4}},'Šířka',
+          h('input',{type:'number',value:_media.form.params.width,min:64,max:4096,step:8,
+            style:{width:70,background:C.bg3,border:'1px solid '+C.border2,borderRadius:4,padding:'3px 6px',fontSize:_fs(10),color:C.tx1,fontFamily:C.font,outline:'none'},
+            onChange:function(e){_media.form.params.width=parseInt(e.target.value)||1024;}})),
+        h('label',{style:{fontSize:_fs(10),color:C.tx3,display:'flex',alignItems:'center',gap:4}},'Výška',
+          h('input',{type:'number',value:_media.form.params.height,min:64,max:4096,step:8,
+            style:{width:70,background:C.bg3,border:'1px solid '+C.border2,borderRadius:4,padding:'3px 6px',fontSize:_fs(10),color:C.tx1,fontFamily:C.font,outline:'none'},
+            onChange:function(e){_media.form.params.height=parseInt(e.target.value)||1024;}})),
+        h('label',{style:{fontSize:_fs(10),color:C.tx3,display:'flex',alignItems:'center',gap:4}},'Steps',
+          h('input',{type:'number',value:_media.form.params.steps,min:1,max:150,
+            style:{width:50,background:C.bg3,border:'1px solid '+C.border2,borderRadius:4,padding:'3px 6px',fontSize:_fs(10),color:C.tx1,fontFamily:C.font,outline:'none'},
+            onChange:function(e){_media.form.params.steps=parseInt(e.target.value)||20;}})),
+        h('label',{style:{fontSize:_fs(10),color:C.tx3,display:'flex',alignItems:'center',gap:4}},'CFG',
+          h('input',{type:'number',value:_media.form.params.cfg_scale,min:0,max:30,step:0.5,
+            style:{width:50,background:C.bg3,border:'1px solid '+C.border2,borderRadius:4,padding:'3px 6px',fontSize:_fs(10),color:C.tx1,fontFamily:C.font,outline:'none'},
+            onChange:function(e){_media.form.params.cfg_scale=parseFloat(e.target.value)||7;}})),
+        h('label',{style:{fontSize:_fs(10),color:C.tx3,display:'flex',alignItems:'center',gap:4}},'Seed',
+          h('input',{type:'number',value:_media.form.params.seed,
+            style:{width:80,background:C.bg3,border:'1px solid '+C.border2,borderRadius:4,padding:'3px 6px',fontSize:_fs(10),color:C.tx1,fontFamily:C.font,outline:'none'},
+            onChange:function(e){_media.form.params.seed=parseInt(e.target.value)||-1;}})),
+        checkpoints.length>0?h('label',{style:{fontSize:_fs(10),color:C.tx3,display:'flex',alignItems:'center',gap:4}},'Model',
+          h('select',{style:{background:C.bg3,border:'1px solid '+C.border2,borderRadius:4,padding:'3px 6px',fontSize:_fs(10),color:C.tx1,fontFamily:C.font,outline:'none',maxWidth:150},
+            onChange:function(e){_media.form.params.model=e.target.value;}},
+            checkpoints.map(function(m){return h('option',{key:m,value:m},m);}))):null),
+      h('div',{style:{display:'flex',gap:8,marginTop:12}},
+        h('button',{disabled:formDisabled,style:{background:formDisabled?C.bg4:C.accent,border:'none',borderRadius:6,padding:'6px 18px',color:formDisabled?C.tx4:'#fff',fontSize:_fs(11),cursor:formDisabled?'default':'pointer',fontFamily:C.font,fontWeight:600},
+          onClick:function(){if(!formDisabled)MediaAPI.submit();}},'Generovat'),
+        h('button',{style:{background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'6px 14px',color:C.tx2,fontSize:_fs(11),cursor:'pointer',fontFamily:C.font},
+          onClick:function(){_media.form.visible=false;MediaEvents.render();}},'Zavřít'))
+    ):null,
+
+    /* ── Active progress ── */
+    progressCards.length>0?h('div',{style:{padding:'8px 18px'}},progressCards):null,
+
+    /* ── Content area ── */
+    h('div',{style:{flex:1,overflow:'auto',padding:18}},
+      _media.loading?h('div',{style:{textAlign:'center',padding:40,color:C.tx4,fontSize:_fs(12)}},'Načítám...'):
+      _media.data.length===0?h('div',{style:{textAlign:'center',padding:40,color:C.tx4,fontSize:_fs(12)}},'Žádné generace'):
+      h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:12}},gridItems))
+  );
+}
+
+// ═══ MEDIA MODULE END ═════════════════════════════════════════════════════════
+
 function centerWelcome(){return h('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:12}},h('div',{style:{width:48,height:48,background:'linear-gradient(135deg,#22c55e,#16a34a)',borderRadius:14,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:_fs(20),color:'#fff'}},'C3'),h('div',{style:{fontSize:_fs(16),fontWeight:700,color:C.tx1}},'C3 Studio'),h('div',{style:{fontSize:_fs(12),color:C.tx3}},'Vyber sekci v levém panelu'));}
 
 /* ═══════════════════════════════════════════════════════════
@@ -4409,6 +4977,15 @@ function _detailActionHandler(d,a){
     var _mpId3=d._itemId;var _mpType3=d.fields&&d.fields.find(function(f){return f.k==='Typ';});
     if(_mpId3&&_mpType3)_mpUpdate(_mpType3.v,_mpId3);
     _centerState.detail=null;renderCenter();
+  }else if(a==='Oblíbené'&&_centerState.view==='multimedia'){
+    var _mfId=d._itemId;if(_mfId){var _mfItem=_media.data.find(function(g){return g.id===_mfId;});MediaAPI.toggleFav(_mfId,_mfItem&&_mfItem.favorite);}
+    _centerState.detail=null;renderCenter();
+  }else if(a==='Zrušit'&&_centerState.view==='multimedia'){
+    var _mcId=d._itemId;if(_mcId)MediaAPI.cancel(_mcId);
+    _centerState.detail=null;renderCenter();
+  }else if(a==='Smazat'&&_centerState.view==='multimedia'){
+    var _mdId=d._itemId;if(_mdId)MediaAPI.del(_mdId);
+    _centerState.detail=null;renderCenter();
   }else if(a==='Publikovat'){
     var _pubId=d._itemId||null;
     var _pubType=_centerState.view==='specialists'?'specialist':'expertise';
@@ -4601,6 +5178,8 @@ if(typeof C3Bus!=='undefined'){
     }catch(e){}
   });
 }
+/* v132: Attach media event listeners (guarded — single attach) */
+if(typeof MediaEvents!=='undefined')MediaEvents.attach();
 
 /* Nav event handler */
 window.addEventListener('c3-nav',function(e){
@@ -4949,6 +5528,32 @@ function _initBusSubscriptions() {
   C3Bus.on('model:validation_progress', function(ev) {
     var m=ev.model;if(!m)return;
     _validationProgress={suite:ev.suite||'',testName:ev.testName||'',percent:ev.percent||0,text:ev.text||''};
+    /* Route details to log panel */
+    if(window._c3){
+      if(ev.status==='starting'){
+        window._c3.agentLog('TOOL','\uD83E\uDDEA Validace '+m+' \u2014 spou\u0161t\u00EDm testy...');
+      }else if(ev.status==='running'&&ev.testName){
+        window._c3.agentLog('TOOL','\uD83D\uDD04 ['+ev.suite+'] '+ev.testName+' ('+ev.currentTest+'/'+ev.totalTests+')');
+      }else if(ev.status==='complete'&&ev.suite){
+        var pct=ev.score!=null?Math.round(ev.score*100)+'%':'?';
+        window._c3.agentLog('TOOL','\u2705 ['+ev.suite+'] hotovo \u2014 sk\u00F3re: '+pct);
+      }else if(ev.status==='done'){
+        var overall=ev.overallScore!=null?Math.round(ev.overallScore*100)+'%':'?';
+        window._c3.agentLog('TOOL','\uD83C\uDFC1 Validace '+m+' dokon\u010Dena \u2014 celkov\u00E9 sk\u00F3re: '+overall);
+        if(ev.results){ev.results.forEach(function(r){
+          window._c3.agentLog('TOOL','   '+r.suite+': '+Math.round(r.score*100)+'% ('+r.passed+'/'+r.total+')');
+        });}
+      }else if(ev.status==='error'){
+        window._c3.agentLog('TOOL','\u274C Validace '+m+' selhala: '+(ev.text||'nezn\u00E1m\u00E1 chyba'));
+      }
+    }
+    /* v133: Track batch validation state */
+    if(ev.batchIndex!=null){
+      _batchValidating=true;_batchCurrent=ev.model;
+      if((ev.status==='done'||ev.status==='error')&&ev.batchIndex===ev.batchTotal){
+        _batchValidating=false;_batchCurrent=null;_modelOverview=null;
+      }
+    }
     if(ev.status==='done'||ev.status==='error'){
       _validatingModel=null;_validationProgress=null;
       /* Store results if provided */
@@ -4958,39 +5563,74 @@ function _initBusSubscriptions() {
       }
       /* Also refresh from backend */
       _loadValidationScores();
+      _modelOverview=null;/* invalidate overview cache */
     }
     renderCenter();
   });
 
   /* v125: Model changed via WS (fire-and-forget apply) */
   C3Bus.on('model:changed', function(ev) {
-    _upgradeLoading=false;
+    _upgradeLoading=false;_assigningRole=null;_roleBindings=null;_modelOverview=null;
     _upgradeMsg={ok:true,text:'Upgrade '+ev.role+': '+(ev.fromModel||'?')+' \u2192 '+(ev.toModel||'?')};
+    if(window._c3)window._c3.agentLog('TOOL','\u2705 Model zm\u011Bn\u011Bn: '+ev.role+' '+(ev.fromModel||'?')+' \u2192 '+(ev.toModel||'?'));
     _upgradeData=null;_loadUpgradeData();renderCenter();
     setTimeout(function(){_upgradeMsg=null;renderCenter();},5000);
   });
 
   /* v125: Upgrade progress (intermediate status) */
   C3Bus.on('upgrade:progress', function(ev) {
-    _upgradeMsg={ok:true,text:ev.text||'Aplikuji...'};renderCenter();
+    _upgradeMsg={ok:true,text:ev.text||'Aplikuji...'};
+    if(window._c3)window._c3.agentLog('TOOL','\uD83D\uDD04 '+(ev.text||'Aplikuji upgrade...'));
+    renderCenter();
   });
 
   /* v125: Upgrade error via WS */
   C3Bus.on('upgrade:error', function(ev) {
     _upgradeLoading=false;
-    _upgradeMsg={ok:false,text:ev.error||'Upgrade selhal'};renderCenter();
+    var errMsg=ev.error||'Upgrade selhal';
+    /* Translate common BE errors to user-friendly CZ */
+    if(errMsg.indexOf('already set')>=0)errMsg='Model je ji\u017E nastaven pro tuto roli';
+    else if(errMsg.indexOf('Upgrade in progress')>=0)errMsg='Prob\u00EDh\u00E1 jin\u00FD upgrade \u2014 vy\u010Dkejte';
+    else if(errMsg.indexOf('file does not exist')>=0||errMsg.indexOf('not found')>=0)errMsg='Model neexistuje v Ollama registru \u2014 nelze st\u00E1hnout';
+    else if(errMsg.indexOf('not installed')>=0)errMsg='Model nen\u00ED nainstalovan\u00FD a pull selhal';
+    _upgradeMsg={ok:false,text:errMsg};
+    if(window._c3)window._c3.agentLog('TOOL','\u274C Upgrade selhal: '+errMsg);
+    renderCenter();
     setTimeout(function(){_upgradeMsg=null;renderCenter();},8000);
   });
 
   /* v125: Background verify failed warning */
   C3Bus.on('upgrade:verify_failed', function(ev) {
-    _upgradeMsg={ok:false,text:ev.text||'Varování: model neodpovídá na ping'};renderCenter();
+    _upgradeMsg={ok:false,text:ev.text||'Varování: model neodpovídá na ping'};
+    if(window._c3)window._c3.agentLog('TOOL','\u26A0\uFE0F '+(ev.text||'Model neodpov\u00EDd\u00E1 na ping'));
+    renderCenter();
     setTimeout(function(){_upgradeMsg=null;renderCenter();},15000);
   });
 
   /* v125: Validation prompt after model change */
   C3Bus.on('model:validation_prompt', function(ev) {
     _validationPrompt=ev;renderCenter();
+  });
+
+  /* v133: Model deleted — refresh overview */
+  C3Bus.on('model:deleted', function(ev) {
+    _modelOverview=null;_installedModels=null;_ollamaModels=null;_deletingModel=null;_deleteConfirm=null;
+    if(window._c3)window._c3.agentLog('TOOL','\uD83D\uDDD1 Model smaz\u00E1n: '+ev.model+' (uvoln\u011Bno '+ev.freedGB+' GB)');
+    renderCenter();
+  });
+
+  /* v133: Auto-cleanup deleted a model */
+  C3Bus.on('model:auto_cleaned', function(ev) {
+    _modelOverview=null;_installedModels=null;_ollamaModels=null;
+    if(window._c3)window._c3.agentLog('TOOL','\uD83E\uDDF9 Auto-cleanup: smaz\u00E1n '+ev.model);
+    renderCenter();
+  });
+
+  /* v133: Auto-rebind — bound model disappeared externally */
+  C3Bus.on('model:auto_rebound', function(ev) {
+    _roleBindings=null;_modelOverview=null;
+    if(window._c3)window._c3.agentLog('TOOL','\uD83D\uDD04 Auto-rebind: '+ev.role+' '+ev.from+' \u2192 '+ev.to);
+    renderCenter();
   });
 
   /* Session changed (e.g. after rehydration) */

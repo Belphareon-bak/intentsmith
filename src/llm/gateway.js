@@ -109,6 +109,9 @@ class LLMGateway {
     // v36.9: Strict mode is NOW DEFAULT — all calls require auth tokens.
     this.strictMode = true;
 
+    // v133: Usage tracking DB (set via setUsageDb)
+    this._usageDb = null;
+
     // v125: Concurrency semaphore — gates concurrent LLM calls
     // With single GPU, only 1 call at a time (model swap = 10-30s VRAM load/unload).
     // With multi-GPU, increase maxConcurrentLLM via config.sessions.maxConcurrentLLM.
@@ -119,6 +122,9 @@ class LLMGateway {
       queueTimeout: config.sessions?.llmQueueTimeout || 300000,
     };
   }
+
+  /** v133: Set DB for usage tracking */
+  setUsageDb(db) { this._usageDb = db; }
 
   /**
    * v125: Acquire LLM slot (semaphore). Returns immediately if slot available,
@@ -458,6 +464,15 @@ class LLMGateway {
           duration,
           attempt
         });
+
+        // v133: Usage tracking for auto-cleanup decisions
+        if (this._usageDb) {
+          try {
+            this._usageDb.prepare(
+              'INSERT INTO model_usage (model, role, request_type) VALUES (?, ?, ?)'
+            ).run(model, authToken?.role || 'UNKNOWN', options.requestType || 'chat');
+          } catch (_) {}
+        }
 
         this._releaseSlot();
         return {

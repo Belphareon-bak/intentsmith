@@ -82,7 +82,7 @@ if (config.features.expertises !== false) {
 }
 
 // v36.9.1: LLM client routed through gateway with auth tokens
-import { callWithAuth } from './llm/gateway.js';
+import { callWithAuth, llmGateway } from './llm/gateway.js';
 import { createAuthToken, LLMCallerRole } from './llm/auth-types.js';
 
 // v57.2: Trust Feedback Loop
@@ -199,6 +199,9 @@ import { startUpdateChecker, stopUpdateChecker, getCurrentVersion } from './pack
 // v103: Self-Evaluating Model Registry — background upgrade check
 import { upgradeManager } from './upgrade/upgrade-manager.js';
 
+// v133: ModelRegistry — centralized model management
+import { modelRegistry } from './upgrade/model-registry.js';
+
 // v103.1: Restore persisted model overrides BEFORE any LLM calls
 upgradeManager.setDb(db.db);
 const overrideCount = upgradeManager.loadPersistedOverrides();
@@ -247,6 +250,23 @@ try {
   logger.info('Server', 'L4 Online Discovery initialized');
 } catch (err) {
   logger.warn('Server', `L4 Online Discovery not available: ${err.message}`);
+}
+
+// v133: Wire ModelRegistry — centralized model management
+try {
+  const { validationRunner } = await import('./upgrade/validation-suites.js');
+  validationRunner.setDb(db.db);
+  modelRegistry.init({
+    db: db.db,
+    upgradeManager,
+    validationRunner,
+    broadcast: (await import('./ws-bridge/ws-server.js')).broadcast,
+  });
+  // v133: Wire usage tracking to gateway
+  llmGateway.setUsageDb(db.db);
+  logger.info('Server', 'ModelRegistry initialized (+ gateway usage tracking)');
+} catch (err) {
+  logger.warn('Server', `ModelRegistry init failed: ${err.message}`);
 }
 
 // F3: License system — feature gates
@@ -685,6 +705,7 @@ const routeDeps = {
   specialistLoader, specialistRuntime, specialistTelemetry,
   notificationRouter, notificationEmitter,
   comfyuiConnector, vramManager, mediaStorage,
+  modelRegistry,
 };
 
 // v93: notificationRouter + notificationPipeline initialized above (before agent platform)
@@ -1228,6 +1249,27 @@ server.listen(config.server.port, config.server.host, async () => {
 
   // v103: Start background model upgrade check (non-blocking, fire-and-forget)
   upgradeManager.startPeriodicCheck();
+
+  // v133: ModelRegistry — auto-cleanup scheduler (every 6h) + binding integrity check (every 5 min)
+  {
+    const integrityInterval = setInterval(() => {
+      modelRegistry.checkBindingIntegrity().catch(() => {});
+    }, 5 * 60 * 1000);
+    integrityInterval.unref();
+
+    const cleanupInterval = setInterval(async () => {
+      try {
+        const row = db.db.prepare("SELECT value FROM user_settings WHERE key = 'c3.models.autoCleanupEnabled'").get();
+        if (row && (row.value === 'true' || row.value === true)) {
+          const daysRow = db.db.prepare("SELECT value FROM user_settings WHERE key = 'c3.models.autoCleanupDays'").get();
+          const days = daysRow ? parseInt(daysRow.value, 10) || 14 : 14;
+          await modelRegistry.runAutoCleanup(days);
+        }
+      } catch (_) {}
+    }, 6 * 60 * 60 * 1000);
+    cleanupInterval.unref();
+    logger.info('Server', 'ModelRegistry schedulers started (integrity 5min, cleanup 6h)');
+  }
 
   // v125: Dynamic port — resolve actual port after listen (port 0 → OS-assigned)
   const assignedPort = server.address().port;
