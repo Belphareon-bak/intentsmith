@@ -1632,7 +1632,7 @@ export function getExpertiseCategories() {
       id: 'analytical',
       name: 'Analyticko-rozhodovací',
       icon: '📊',
-      experts: ['analyst', 'trader', 'accountant']
+      experts: ['analyst', 'trader']
     },
     {
       id: 'normative',

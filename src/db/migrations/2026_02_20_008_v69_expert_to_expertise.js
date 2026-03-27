@@ -101,10 +101,16 @@ export function up(db) {
     )
   `);
 
-  db.exec(`
-    INSERT OR IGNORE INTO custom_expertises (id, config, created_at)
-    SELECT id, config, created_at FROM custom_experts
-  `);
+  // v135: Guard — custom_experts may not exist on fresh DBs (created ad-hoc in older versions)
+  const hasCustomExperts = db.prepare(
+    `SELECT 1 FROM sqlite_master WHERE type='table' AND name='custom_experts'`
+  ).get();
+  if (hasCustomExperts) {
+    db.exec(`
+      INSERT OR IGNORE INTO custom_expertises (id, config, created_at)
+      SELECT id, config, created_at FROM custom_experts
+    `);
+  }
 
   // ═══════════════════════════════════════════════════════════════
   // 2. ADD COLUMN to existing tables (idempotent via JS check)

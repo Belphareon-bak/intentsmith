@@ -10,8 +10,10 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { autoSelectExpertise, _testInternals } from '../src/expertises/auto-select.js';
+import { BUILTIN_EXPERTISES } from '../src/expertises/expertise-layer.js';
 
 const { _sharedTerms, THRESHOLD, HYSTERESIS_RATIO } = _testInternals;
+const HAS_ACCOUNTANT = !!BUILTIN_EXPERTISES['accountant'];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Test Runner
@@ -83,6 +85,7 @@ test('trader: "marže" + "bazar"', () => {
 });
 
 test('accountant: "DPH" + "základ daně"', () => {
+  if (!HAS_ACCOUNTANT) { console.log('    ⏭ SKIP (accountant is specialist plugin, not BUILTIN)'); return; }
   const r = autoSelectExpertise('Jak vypočítám DPH ze základu daně?');
   assertEqual(r.expertiseId, 'accountant');
 });
@@ -138,11 +141,13 @@ test('political_analyst: "geopolitika" + "legislativa"', () => {
 section('2. Boost pattern match (10 tests)');
 
 test('accountant boost: "DPH" alone', () => {
+  if (!HAS_ACCOUNTANT) { console.log('    ⏭ SKIP (accountant is specialist plugin)'); return; }
   const r = autoSelectExpertise('Kolik je DPH z 15000 Kč?');
   assertEqual(r.expertiseId, 'accountant');
 });
 
 test('accountant boost: "OSVČ"', () => {
+  if (!HAS_ACCOUNTANT) { console.log('    ⏭ SKIP (accountant is specialist plugin)'); return; }
   const r = autoSelectExpertise('Jak vyplnit daňové přiznání jako OSVČ?');
   assertEqual(r.expertiseId, 'accountant');
 });
@@ -278,6 +283,7 @@ test('previous within hysteresis → preferred', () => {
 });
 
 test('previous NOT within hysteresis → new winner', () => {
+  if (!HAS_ACCOUNTANT) { console.log('    ⏭ SKIP (accountant is specialist plugin)'); return; }
   // Clear mismatch — previous was writer but input is clearly accountant
   const r = autoSelectExpertise('Kolik je DPH ze základu daně?', {
     previousAutoExpertiseId: 'writer',
@@ -357,10 +363,10 @@ test('confidence is between 0 and 1', () => {
   assert(r.confidence >= 0 && r.confidence <= 1, `confidence ${r.confidence} out of range`);
 });
 
-test('scores contains all 15 expertises', () => {
+test('scores contains all 14 built-in expertises', () => {
   const r = autoSelectExpertise('test');
   const expertiseCount = Object.keys(r.scores).length;
-  assert(expertiseCount === 15, `expected 15 expertises in scores, got ${expertiseCount}`);
+  assert(expertiseCount === 14, `expected 14 expertises in scores, got ${expertiseCount}`);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════

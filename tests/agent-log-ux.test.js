@@ -139,7 +139,7 @@ test('system_step produces _raw with step and detail', () => {
   assertEqual(entry._raw.detail, 'conversation');
   assertEqual(entry.type, 'SYS');
   assertEqual(entry.cls, 'sys');
-  assert(entry.text.includes('handler_selected'), 'text should contain step name');
+  assert(entry.text.includes('Režim') || entry.text.includes('handler_selected'), 'text should contain step label or step name');
 });
 
 test('gate_verdict produces _raw with intent and confidence', () => {

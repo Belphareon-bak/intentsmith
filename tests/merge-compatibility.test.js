@@ -63,8 +63,9 @@ describe('T-MC1: Pairwise compatibility', async () => {
     assert.ok(!result.blocked);
   });
 
-  await it('writer + accountant = HARD_BLOCK (creativity↔determinism)', () => {
-    const result = checkCompatibility([expert('writer'), expert('accountant')]);
+  await it('dnd_master + lawyer = HARD_BLOCK (creativity↔determinism)', () => {
+    // dnd_master creativity=95, lawyer creativity=10 → gap=85 >80
+    const result = checkCompatibility([expert('dnd_master'), expert('lawyer')]);
     assert.strictEqual(result.severity, CompatibilitySeverity.HARD_BLOCK);
     assert.ok(result.blocked);
     assert.ok(!result.ok);
@@ -90,8 +91,8 @@ describe('T-MC1: Pairwise compatibility', async () => {
   });
 
   await it('detects riskTolerance gap > 60', () => {
-    // writer riskTolerance=70, accountant riskTolerance=5 → gap=65 >60
-    const result = checkCompatibility([expert('writer'), expert('accountant')]);
+    // writer riskTolerance=70, lawyer riskTolerance=5 → gap=65 >60
+    const result = checkCompatibility([expert('writer'), expert('lawyer')]);
     const riskConflict = result.conflicts[0]?.conflicts?.find(c => c.dimension === 'riskTolerance');
     assert.ok(riskConflict, 'should detect riskTolerance conflict');
     assert.ok(riskConflict.gap > 60);
@@ -154,7 +155,7 @@ describe('T-MC2: Edge cases', async () => {
   await it('worst severity from multiple pairs', () => {
     // If any pair is HARD_BLOCK, overall is HARD_BLOCK
     const result = checkCompatibility([
-      expert('writer'), expert('accountant'),  // HARD_BLOCK pair
+      expert('dnd_master'), expert('lawyer'),  // HARD_BLOCK pair (gap=85 >80)
     ]);
     assert.strictEqual(result.severity, CompatibilitySeverity.HARD_BLOCK);
   });

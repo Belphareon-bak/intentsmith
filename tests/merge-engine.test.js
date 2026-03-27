@@ -544,9 +544,10 @@ describe('T-ME10: Audit log', async () => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 describe('T-ME11: Compatibility block', async () => {
-  await it('throws CompatibilityBlockError for writer+accountant', () => {
+  await it('throws CompatibilityBlockError for dnd_master+lawyer', () => {
+    // dnd_master creativity=95, lawyer creativity=10 → gap=85 >80 → HARD_BLOCK
     assert.throws(
-      () => mergeExpertisePrompt([expert('writer', 0.5), expert('accountant', 0.5)]),
+      () => mergeExpertisePrompt([expert('dnd_master', 0.5), expert('lawyer', 0.5)]),
       (err) => {
         return err instanceof CompatibilityBlockError
           && err.compatibility.severity === 'hard_block'
@@ -558,12 +559,12 @@ describe('T-ME11: Compatibility block', async () => {
 
   await it('error has compatibility details', () => {
     try {
-      mergeExpertisePrompt([expert('writer', 0.5), expert('accountant', 0.5)]);
+      mergeExpertisePrompt([expert('dnd_master', 0.5), expert('lawyer', 0.5)]);
       assert.fail('should have thrown');
     } catch (e) {
       assert.ok(e.compatibility.conflicts.length > 0, 'should have conflict details');
       const detail = e.compatibility.conflicts[0].conflicts[0].detail;
-      assert.ok(detail.includes('creative') || detail.includes('deterministic'));
+      assert.ok(detail.includes('creative') || detail.includes('deterministic') || detail.includes('Creativity'));
     }
   });
 });
