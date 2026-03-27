@@ -2,7 +2,7 @@
   "name": "c3-agent",
   "version": "132.0.0",
   "type": "module",
-  "description": "C.3 Agent v131 — Full platform (CRE, Lifecycle, Code Intelligence, Execution Engine, Prompt Pipeline, Model Upgrade, Architecture Governance, Specialist Skills, Marketplace)",
+  "description": "C.3 Agent v132 — Full platform (CRE, Lifecycle, Code Intelligence, Execution Engine, Prompt Pipeline, Model Upgrade, Architecture Governance, Specialist Skills, Marketplace)",
   "main": "src/server.js",
   "engines": {
     "node": ">=22.0.0"

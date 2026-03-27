@@ -2,7 +2,7 @@
 
 Lokální AI platforma pro konverzační asistenci, správu projektů a autonomní agenty. Běží kompletně offline na vlastním hardware — žádný cloud, žádné API klíče, žádné sdílení dat.
 
-**Verze:** 124.0.0 | **366 modulů** | **241 testovacích sad** | **132,000+ řádků kódu**
+**Verze:** 132.0.0 | **380 modulů** | **226 testovacích sad** | **137,000+ řádků kódu**
 
 ---
 
@@ -12,17 +12,17 @@ C3 je AI backend + IDE postavený pro vývojáře a knowledge workers, kteří c
 
 ### Konverzace a rozhodování
 - **CRE (Conversational Reasoning Engine)** — single-authority klasifikátor: každý vstup → 1 z 19 typů záměrů → specializovaný handler. 10 guard pravidel, auditní trail, Gatekeeper pattern.
-- **14+ doménových expertýz** + custom specialist expertízy — 5D capability vektory (reasoning, kreativita, determinismus, risk, verbosity). Merge engine kombinuje až 3 expertýzy v jednom kontextu.
+- **15 doménových expertýz** + custom specialist expertízy — 5D capability vektory (reasoning, kreativita, determinismus, risk, verbosity). Merge engine kombinuje až 3 expertýzy v jednom kontextu.
 - **Quality Gate v2** — 4-vrstvý deterministický post-processing (structural → language → intent → content). Bez LLM.
 
 ### Projekty a build
 - **Životní cyklus projektů** — SPEC → PLANNING → BUILD → REVIEW → CHANGE. Checkpointy (STRUCTURAL / FUNCTIONAL / SECURITY), automatický git commit, crash recovery.
 - **Execution Engine** — iterativní fix cyklus: generuj → testuj → diagnostikuj → patchuj → testuj → konverguj. Patch engine s 3-tier anchoring, error normalizer (14 kódů, root cause analýza), fix strategy selection (DETERMINISTIC / HEURISTIC / LLM_FULL / SKIP).
-- **Code Intelligence** — 33 modulů pro analýzu kódu: symbol index, knowledge graph (9 typů uzlů, 8 typů hran), AST analýza, architecture detection, drift detection, impact analysis, performance anti-pattern detection.
+- **Code Intelligence** — 33 modulů pro analýzu kódu: symbol index, knowledge graph (9 typů uzlů, 9 typů hran), AST analýza, architecture detection, drift detection, impact analysis, performance anti-pattern detection.
 
 ### Agenti a automatizace
 - **Worker agenti** — RSS/HTTP/DB zdroje, deterministické podmínky, cron scheduling, 6 notifikačních kanálů.
-- **Skills** — deterministické workflow (JSON): 9 typů kroků (llm, template, write, shell, ask, review, validate, substitute, transform). Meta-skills pro auto-generaci expertíz a specialistů. `create-specialist` skill generuje kompletní pluginový balíček konverzačně.
+- **Skills** — deterministické workflow (JSON): 9 typů kroků (llm, template, write, shell, ask, review, validate, substitute, transform). 13 skills včetně meta-skills pro auto-generaci expertíz a specialistů. `create-specialist` skill generuje kompletní pluginový balíček konverzačně.
 - **Specialisté** — self-contained pluginové balíčky s nástroji, expertízou, znalostní bází a scénáři. `ctx.registries` API, manifest v2, capability routing. Auto-generace přes `create-specialist` skill.
 
 ### Paměť a učení
@@ -31,7 +31,7 @@ C3 je AI backend + IDE postavený pro vývojáře a knowledge workers, kteří c
 - **Cross-Project Learning** — sdílení vzorců mezi projekty (stack similarity scoring, pattern generality).
 
 ### Infrastruktura
-- **Model Upgrade System** — curated catalog (55 modelů), pairwise evaluation, empirical scoring (Phase 3), L4 online discovery, validation suites (5 sad), chat-based approval, streaming pull, rollback.
+- **Model Upgrade System** — curated catalog (55 modelů), 16 modulů (~7,700 řádků), pairwise evaluation, empirical scoring (Phase 3), L4 online discovery, validation suites (5 sad), chat-based approval, streaming pull, rollback.
 - **Marketplace** — remote package catalog pro skills, expertízy a specialisty. Transactional install/update/uninstall, dependency resolver, SHA-256 ověření, archive security.
 - **C3 Studio IDE** — Theia + Electron, 33 rozšíření, chat panel, agent log, settings (12 sekcí), specialist focus mode.
 - **153 nástrojů** ve 35 kategoriích. Sandboxed execution, circuit breaker, risk assessment.
@@ -78,10 +78,10 @@ Vše běží lokálně přes Ollama (LLM inference) + SQLite (persistence) na je
 │  │ Gate v2  │ │(153,sandb.)│ │ (email,TG,ntfy,WH)   │ │
 │  └──────────┘ └────────────┘ └───────────────────────┘ │
 │                                                         │
-│  ┌──────────┐                                           │
-│  │Marketplace│                                          │
-│  │(remote   )│                                          │
-│  └──────────┘                                           │
+│  ┌──────────┐ ┌────────────┐                           │
+│  │Architect.│ │Marketplace │                           │
+│  │Governance│ │(remote pkg)│                           │
+│  └──────────┘ └────────────┘                           │
 │                                                         │
 │                SQLite (WAL, 80+ tabulek)                 │
 └─────────────────────────────────────────────────────────┘
@@ -153,7 +153,7 @@ Centrální klasifikátor záměrů. Každý vstup projde přes `CRE.decide()`, 
 - [docs/C3-Merge-Engine-v2-FINAL.md](docs/C3-Merge-Engine-v2-FINAL.md) — merge algoritmus
 
 ### Specialisté
-Self-contained pluginové balíčky s nástroji, expertízou, znalostní bází a scénáři. Každý specialista je izolovaný package v `specialists/` — žádné importy z core. Příklady: `accountant-cz` (DPH, daně, pojistné), `translator` (překlad, detekce jazyka), `dummy-logger` (testovací utilita). Nové specialisty lze vytvořit konverzačně přes `create-specialist` skill nebo přes IDE wizard.
+Self-contained pluginové balíčky s nástroji, expertízou, znalostní bází a scénáři. Každý specialista je izolovaný package v `specialists/` — žádné importy z core. 5 specialistů: `accountant-cz` (DPH, daně, pojistné), `translator` (překlad, detekce jazyka), `code-reviewer` (code review automatizace), `sazeni` (doménový specialista), `dummy-logger` (testovací utilita). Nové specialisty lze vytvořit konverzačně přes `create-specialist` skill nebo přes IDE wizard.
 
 - [docs/SPECIALISTS.md](docs/SPECIALISTS.md) — architektura a API
 - [docs/SPECIALIST-CREATION-GUIDE.md](docs/SPECIALIST-CREATION-GUIDE.md) — průvodce vytvářením
@@ -165,18 +165,18 @@ Strukturovaný přístup k větším projektům. Fáze: specifikace → roadmapa
 - [docs/STORAGE-ARCHITECTURE.md](docs/STORAGE-ARCHITECTURE.md) — persistence
 
 ### Code Intelligence
-33 modulů v `src/code-intel/` (11,500 řádků). Multi-engine code search (ripgrep → grep → Node.js fallback), symbol index, knowledge graph (9 typů uzlů, 8 typů hran), AST analýza (JS, Python, Go, Java), architecture detection (18 frameworků), drift detection, dead code detection, performance anti-pattern detection, dependency management.
+33 modulů v `src/code-intel/` (11,561 řádků). Multi-engine code search (ripgrep → grep → Node.js fallback), symbol index, knowledge graph (9 typů uzlů, 8 typů hran), AST analýza (JS, Python, Go, Java), architecture detection (18 frameworků), drift detection, dead code detection, performance anti-pattern detection, dependency management.
 
 - [docs/C3-ROADMAP.md](docs/C3-ROADMAP.md) — technický plán a specifikace
 
 ### Execution Engine
 Iterativní fix cyklus pro milníky: generuj → testuj → diagnostikuj → patchuj → testuj → opakuj do konvergence (max 8 iterací). Patch engine s 3-tier anchor matching, error normalizer (14 error kódů, root cause analýza), fix strategy selection, self-critique (LLM + knowledge graph validace), task memory.
 
-- `src/patch/` — parser, validator, applier, engine (1,278 řádků)
+- `src/patch/` — parser, validator, applier, engine, scope limiter (1,505 řádků)
 - `src/planner/execution-loop.js` — hlavní fix loop
 
 ### Skills
-Deterministické workflow definované v JSON. 8 typů kroků: `llm`, `template`, `write`, `shell`, `ask`, `review`, `validate`, `substitute`. Meta-skill `create-skill` umožňuje vytvářet nové skills konverzačně.
+Deterministické workflow definované v JSON. 9 typů kroků: `llm`, `template`, `write`, `shell`, `ask`, `review`, `validate`, `substitute`, `transform`. 13 skills včetně meta-skills. `create-skill` umožňuje vytvářet nové skills konverzačně.
 
 - [docs/skills-v1.md](docs/skills-v1.md) — kompletní specifikace
 
@@ -193,7 +193,7 @@ Tři vrstvy: LTM s confidence decay (λ=0.01, poločas 69 dní), task memory (cr
 ### Model Upgrade System
 4-vrstvý discovery (local, catalog, hints, online), pairwise evaluation, empirical scoring z reálných metrik, validation suites (5 testovacích sad na model), chat-based approval (nikdy auto-upgrade), streaming pull, rollback.
 
-- `src/upgrade/` — 14 modulů, ~6,450 řádků
+- `src/upgrade/` — 16 modulů, ~7,682 řádků
 
 ### Quality Gate v2
 4-vrstvý deterministický pipeline (structural → language → intent → content). Bez LLM — čistě pravidlová validace výstupů. SK→CZ transliterace (~160 pravidel), language drift detection.
@@ -214,7 +214,7 @@ Tři vrstvy: LTM s confidence decay (λ=0.01, poločas 69 dní), task memory (cr
 | Vrstva | Technologie | Detail |
 |--------|-------------|--------|
 | Runtime | Node.js 22 (ESM) | Žádný framework — raw `http` modul |
-| Databáze | SQLite | better-sqlite3, WAL mód, 80+ tabulek, 37 migrací |
+| Databáze | SQLite | better-sqlite3, WAL mód, 80+ tabulek, 41 migrací |
 | LLM | Ollama | Lokální inference, 7 modelových rolí (D1, D2, CODE, R1, R2, CHAT, VISION) |
 | IDE | C3 Studio | Theia 1.65.2 + Electron 37, 33 vlastních rozšíření |
 | Frontend | React (lite) | Webpack bundle v chat-panel-module.js |
@@ -227,26 +227,26 @@ Tři vrstvy: LTM s confidence decay (λ=0.01, poločas 69 dní), task memory (cr
 
 ```
 c3-agent-wip/
-├── src/                          # Backend (366 souborů, 132,000+ řádků)
+├── src/                          # Backend (380 souborů, 137,000+ řádků)
 │   ├── chat/                     #   CRE engine, handlery, quality pipeline
-│   │   ├── cre-decision.js       #     Klasifikátor záměrů (2,900+ ř.)
+│   │   ├── cre-decision.js       #     Klasifikátor záměrů
 │   │   ├── handlers/             #     19 intent handlerů + lifecycle router
 │   │   └── quality/              #     Quality Gate v2 (4 vrstvy)
-│   ├── code-intel/               #   Code Intelligence (33 modulů, 11,500 ř.)
-│   ├── planner/                  #   Lifecycle + execution engine (34 modulů, 14,900+ ř.)
-│   ├── patch/                    #   Patch Engine (4 moduly, 1,278 ř.)
+│   ├── code-intel/               #   Code Intelligence (33 modulů, 11,561 ř.)
+│   ├── planner/                  #   Lifecycle + execution engine (34 modulů, 15,350 ř.)
+│   ├── patch/                    #   Patch Engine (5 modulů, 1,505 ř.)
 │   ├── memory/                   #   LTM, task memory, cross-project (9 modulů)
 │   ├── upgrade/                  #   Model upgrade system (14 modulů, 6,450 ř.)
 │   ├── expertises/               #   15 expertýz, merge engine, ledger
 │   ├── agents/                   #   Worker agenti, scheduler, conditions
-│   ├── skills/                   #   Registry, resolver, runner, 8 step types
+│   ├── skills/                   #   Registry, resolver, runner, 9 step types
 │   ├── executor/                 #   Tool executor, circuit breaker, sandbox
 │   ├── llm/                      #   Ollama gateway, web search, auth
 │   ├── notifications/            #   6 kanálů (email, TG, ntfy, webhook, ...)
 │   ├── routes/                   #   REST API (14 route modulů)
 │   ├── ws-bridge/                #   WebSocket bridge (IDE ↔ backend)
 │   ├── marketplace/              #   Remote package marketplace (2 moduly)
-│   ├── db/                       #   SQLite schema, 37 migrací
+│   ├── db/                       #   SQLite schema, 41 migrací
 │   ├── core/                     #   Logger, error handler, feature manager
 │   ├── domains/                  #   Scaffoldy (React, Vue, FastAPI, Flutter, ...)
 │   ├── specialists/              #   Specialist loader + plugin system
@@ -271,14 +271,26 @@ c3-agent-wip/
 ├── specialists/                  # Specialist balíčky (self-contained pluginy)
 │   ├── accountant-cz/            #   České účetnictví (DPH, daně, pojistné)
 │   ├── translator/               #   Překlad textů, detekce jazyka
+│   ├── code-reviewer/            #   Code review automatizace
+│   ├── sazeni/                   #   Doménový specialista
 │   └── dummy-logger/             #   Testovací utilita
 │
-├── skills/                       # Skill definice (JSON)
+├── skills/                       # Skill definice (13 JSON souborů)
 │   ├── create-skill.json         #   Meta-skill pro tvorbu nových skills
 │   ├── create-expertise.json     #   Meta-skill pro tvorbu expertýz
-│   └── create-specialist.json    #   Meta-skill pro tvorbu specialistů
+│   ├── create-specialist.json    #   Meta-skill pro tvorbu specialistů
+│   ├── brainstorm.json           #   Brainstorming workflow
+│   ├── changelog-gen.json        #   Generování changelogu
+│   ├── code-refactor.json        #   Refaktoring kódu
+│   ├── email-composer.json       #   Psaní emailů
+│   ├── interview-prep.json       #   Příprava na pohovor
+│   ├── meeting-notes.json        #   Zápisy z meetingů
+│   ├── presentation.json         #   Tvorba prezentací
+│   ├── project-bootstrap.json    #   Bootstrap nového projektu
+│   ├── report-gen.json           #   Generování reportů
+│   └── summarizer.json           #   Sumarizace textu
 │
-├── tests/                        # Testovací sady (241 souborů)
+├── tests/                        # Testovací sady (226 souborů)
 │   ├── harness.js                #   Custom ESM test harness
 │   ├── cre-*.test.js             #   CRE testy (401+)
 │   ├── lifecycle-*.test.js       #   Lifecycle testy (103+)
@@ -287,13 +299,13 @@ c3-agent-wip/
 │   ├── upgrade-*.test.js         #   Model Upgrade testy (294+)
 │   └── ...                       #   Celkem 3,500+ testů
 │
-├── docs/                         # Dokumentace (35+ dokumentů)
+├── docs/                         # Dokumentace (42 dokumentů)
 │   ├── ARCHITECTURE.md           #   Kompletní architektura
-│   ├── CHANGELOG.md              #   Historie verzí (v56–v116)
+│   ├── CHANGELOG.md              #   Historie verzí (v56–v132)
 │   ├── C3-ROADMAP.md             #   F-series technický plán
 │   ├── ROADMAP.md                #   Roadmapa a stav fází
 │   ├── INSTALL.md                #   Instalační příručka
-│   └── ...                       #   25+ dalších dokumentů
+│   └── ...                       #   30+ dalších dokumentů
 │
 ├── data/                         # Runtime data (gitignored)
 │   ├── c3.db                     #   SQLite databáze
@@ -367,7 +379,7 @@ Testy používají custom ESM harness (`tests/harness.js`): `suite()`, `test()`,
 | Dokument | Obsah |
 |----------|-------|
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Kompletní architektura systému, diagramy, design decisions |
-| [CHANGELOG.md](docs/CHANGELOG.md) | Historie všech verzí (v56–v124) |
+| [CHANGELOG.md](docs/CHANGELOG.md) | Historie všech verzí (v56–v132) |
 | [C3-ROADMAP.md](docs/C3-ROADMAP.md) | Technický plán — Code Intelligence, Agent Evolution, Post-F |
 | [ROADMAP.md](docs/ROADMAP.md) | Stav fází, plánované features |
 | [INSTALL.md](docs/INSTALL.md) | Instalace (Ubuntu, Fedora, Docker) |
@@ -397,7 +409,7 @@ Testy používají custom ESM harness (`tests/harness.js`): `suite()`, `test()`,
 | [WS-PROTOCOL.md](docs/WS-PROTOCOL.md) | WebSocket protokol |
 | [tools/EXECUTOR_CONTRACT.md](docs/tools/EXECUTOR_CONTRACT.md) | Tool execution contract, retry policy |
 
-Celkem **35+ dokumentů** dokumentace.
+Celkem **42 dokumentů** dokumentace.
 
 ---
 

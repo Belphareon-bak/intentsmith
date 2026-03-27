@@ -1,7 +1,7 @@
 # CLAUDE.md - C.3 Agent Development Context
 
-**Verze:** v127.0.0
-**Datum:** 2026-03-18
+**Verze:** v132.0.0
+**Datum:** 2026-03-27
 **Projekt:** ~/Projects/c3-agent-wip
 
 ---
@@ -21,43 +21,43 @@ C.3 Agent je plně funkční lokální AI platforma s:
 - **Architecture Governance** (v98-v100) — guardian, API contracts, critic/repair, regression prediction, multi-agent pipeline (5 rolí)
 - **Skills System** (v85+) — deterministické workflow (JSON): 9 step typů. Meta-skills: create-skill, create-expertise, create-specialist
 - **Memory System** (v86+) — LTM (poločas 69d), task memory (poločas 139d), cross-project learning
-- **Model Upgrade** (v103-v127) — catalog (55 modelů), pairwise eval, empirical scoring (Phase 3, linear blend interpolation), L4 online discovery, validation suites (5 sad), chat-based approval, atomic dedup, auto-cleanup, scoring fixes (dominance gate, generation bonus)
-- **Marketplace** (v124-v126) — remote package catalog, transactional install, dependency resolver, SHA-256 ověření, security hardening (null byte guard, mandatory hash)
+- **Model Upgrade** (v103-v132) — catalog (55 modelů), pairwise eval, empirical scoring (Phase 3, linear blend interpolation), L4 online discovery, validation suites (5 sad), chat-based approval, atomic dedup, auto-cleanup, scoring fixes (dominance gate, generation bonus)
+- **Marketplace** (v124-v132) — remote package catalog, transactional install, dependency resolver, SHA-256 ověření, security hardening (null byte guard, mandatory hash)
 - **C3 Studio IDE** — Theia 1.65.2 + Electron 37, 33 rozšíření, chat panel, agent log, settings, focus mode
 
 ### Zdrojový kód
 
 | Adresář | Soubory | Řádky | Popis |
 |---------|---------|-------|-------|
-| src/chat/ | 72 | 30,981 | Konverzační pipeline (CRE, handlery, quality, syntéza) |
-| src/planner/ | 34 | 15,150 | Lifecycle + execution engine + architecture governance |
-| src/code-intel/ | 33 | 11,500 | Code Intelligence (symbol index, KG, AST, graph, context) |
+| src/chat/ | 74 | 31,846 | Konverzační pipeline (CRE, handlery, quality, syntéza) |
+| src/planner/ | 34 | 15,350 | Lifecycle + execution engine + architecture governance |
+| src/code-intel/ | 33 | 11,561 | Code Intelligence (symbol index, KG, AST, graph, context) |
 | src/expertises/ | 23 | 9,464 | Expertise system + specialist runtime + merge engine |
-| src/upgrade/ | 14 | 6,451 | Model upgrade (catalog, pairwise, empirical, L4, validation) |
-| src/routes/ | 15 | 6,223 | HTTP API routes (14 route modulů) |
+| src/upgrade/ | 16 | 7,682 | Model upgrade (catalog, pairwise, empirical, L4, validation) |
+| src/routes/ | 16 | 6,813 | HTTP API routes (16 route modulů) |
 | src/agents/ | 14 | 6,510 | Agent platform (runner, scheduler, conditions, triggers) |
 | src/tools/ | 2 | 5,456 | Tool registry (153 nástrojů) |
 | src/ui/ | 2 | 4,552 | Web UI (architect.js) |
 | src/architect/ | 13 | 4,007 | Architecture Intelligence (policy, refactor, predictor) |
-| src/db/ | 40 | 4,408 | SQLite schema, 37 migrací |
+| src/db/ | 44 | 4,493 | SQLite schema, 41 migrací |
 | src/executor/ | 8 | 3,474 | Tool executor, circuit breaker, sandbox |
 | src/notifications/ | 19 | 3,335 | 6 kanálů (email, TG, ntfy, webhook, desktop, push) |
-| src/memory/ | 9 | 3,130 | LTM, task memory, cross-project, feedback |
-| src/llm/ | 6 | 2,596 | LLM gateway, Ollama klient, web search |
+| src/memory/ | 9 | 3,132 | LTM, task memory, cross-project, feedback |
+| src/llm/ | 6 | 2,696 | LLM gateway, Ollama klient, web search |
 | src/domains/ | 12 | 1,816 | Domain scaffoldy (React, Vue, FastAPI, Flutter, ...) |
 | src/skills/ | 13 | 1,768 | Skills: registry, resolver, runner, 9 step executors |
 | src/patch/ | 5 | 1,505 | Patch engine: parser, validator, applier, scope limiter |
 | src/specialists/ | 2 | 1,379 | Specialist loader + capability registry |
-| src/ws-bridge/ | 5 | 1,075 | WebSocket bridge (IDE ↔ backend) |
+| src/ws-bridge/ | 5 | 1,109 | WebSocket bridge (IDE ↔ backend) |
 | src/channels/ | 3 | 841 | Channel adaptery (CLI, Web, API) |
-| src/marketplace/ | 2 | 797 | Marketplace client + package installer |
-| src/context/ | 3 | 742 | Prompt builder, import map, context delta |
-| ostatní | 17 | 3,577 | core, autonomy, system, telemetry, licensing, setup, config, server |
-| **Celkem** | **366** | **132,337** | |
+| src/marketplace/ | 2 | 945 | Marketplace client + package installer |
+| src/context/ | 3 | 746 | Prompt builder, import map, context delta |
+| ostatní | 16 | 5,505 | core, autonomy, system, telemetry, licensing, setup, config, server, packaging |
+| **Celkem** | **380** | **137,282** | |
 
 ### Databáze
 
-80+ tabulek (SQLite, WAL, better-sqlite3), 37 migrací, prepared statements.
+80+ tabulek (SQLite, WAL, better-sqlite3), 41 migrací, prepared statements.
 
 ### Testovací pokrytí
 
@@ -217,6 +217,8 @@ src/specialists/specialist-loader.js     # Boot: scan → sort (Kahn) → load �
 src/specialists/capability-registry.js   # N:M priority-based routing
 specialists/accountant-cz/               # Účetní (DPH, daně, pojistné, compliance)
 specialists/translator/                  # Překladatel (překlad, detekce jazyka)
+specialists/code-reviewer/               # Code review automatizace
+specialists/sazeni/                      # Doménový specialista
 specialists/dummy-logger/                # Testovací utilita
 ```
 
@@ -267,6 +269,10 @@ src/upgrade/proposal-store.js            # DB-backed proposals, cooldown, anti-t
 src/upgrade/preference-tracker.js        # Implicit preferences z user akcí
 src/upgrade/online-discovery.js          # L4: HTML parsing, provisional entries
 src/upgrade/benchmark-estimator.js       # Log-space interpolace, VRAM odhad
+src/upgrade/model-recommendations.js    # Doporučení modelů na základě úloh
+src/upgrade/model-registry.js           # Registry dostupných modelů
+src/upgrade/registry-client.js          # Klient pro externí registry
+src/upgrade/whatllm-client.js           # WhatLLM API klient
 ```
 
 ### Marketplace
@@ -307,7 +313,7 @@ src/architect/multi-agent.js             # 5-role pipeline (planner→builder→
 ```
 src/db/database.js                # SQLite schema, 80+ tabulek
 src/db/migrate.js                 # Migration runner
-src/db/migrations/                # 37 migrací (timestamp-based, v63 → v127)
+src/db/migrations/                # 41 migrací (timestamp-based, v63 → v132)
 ```
 
 ### Server
@@ -460,4 +466,4 @@ Discovery nikdy nemění config. Komunikace jen přes proposals v DB. Chat-based
 
 ---
 
-*Poslední aktualizace: v127.0.0 (2026-03-18)*
+*Poslední aktualizace: v132.0.0 (2026-03-27)*
