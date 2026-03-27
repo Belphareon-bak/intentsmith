@@ -37,7 +37,7 @@
     "test:e2e": "node tests/e2e-pipeline.test.js && node tests/e2e-complex.test.js && node tests/e2e-resilience.test.js && node tests/e2e-workers.test.js && node tests/e2e-notifications.test.js && node tests/e2e-specialists.test.js",
     "test:e2e:tier1": "for f in tests/e2e/0*.e2e.js tests/e2e/1*.e2e.js tests/e2e/2*.e2e.js; do node \"$f\" || exit 1; done",
     "test:e2e:tier2": "for f in tests/e2e/5*.e2e.js tests/e2e/6*.e2e.js; do node \"$f\" || exit 1; done",
-    "test:e2e:tier3": "for f in tests/e2e/7*.e2e.js tests/e2e/8*.e2e.js; do node \"$f\" || exit 1; done",
+    "test:e2e:tier3": "for f in tests/e2e/7*.e2e.js tests/e2e/8*.e2e.js tests/e2e/9*.e2e.js; do node \"$f\" || exit 1; done",
     "test:e2e:all": "npm run test:e2e:tier1 && npm run test:e2e:tier2 && npm run test:e2e:tier3",
     "test:e2e:quick": "node tests/e2e/01-health-smoke.e2e.js",
     "test:security": "node tests/security-hardening.test.js",

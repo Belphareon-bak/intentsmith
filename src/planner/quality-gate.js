@@ -95,8 +95,8 @@ function validateJavaStructure(filePath, relativePath) {
     return { ok: false, message: 'Missing package declaration' };
   }
 
-  // Check class or interface declaration exists
-  const classMatch = code.match(/(?:public\s+)?(?:abstract\s+)?(?:class|interface|enum)\s+(\w+)/);
+  // Check class or interface declaration exists (anchored to line start to skip Javadoc)
+  const classMatch = code.match(/^\s*(?:public\s+)?(?:abstract\s+)?(?:final\s+)?(?:class|interface|enum)\s+(\w+)/m);
   if (!classMatch) {
     return { ok: false, message: 'No class/interface/enum declaration found' };
   }
