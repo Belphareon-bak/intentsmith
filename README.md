@@ -1,8 +1,8 @@
 # C3 Agent
 
-Lokální AI platforma pro konverzační asistenci, správu projektů a autonomní agenty. Běží kompletně offline na vlastním hardware — žádný cloud, žádné API klíče, žádné sdílení dat.
+Lokální AI platforma pro konverzační asistenci, správu projektů a autonomní agenty. Offline-first architektura na vlastním hardware — žádné API klíče, žádné sdílení dat. Volitelné síťové funkce (marketplace, model discovery) vyžadují explicitní zapnutí.
 
-**Verze:** 132.0.0 | **380 modulů** | **226 testovacích sad** | **137,000+ řádků kódu**
+**Verze:** 132.0.0 | **380+ modulů** | **294 testovacích sad** | **137,000+ řádků kódu**
 
 ---
 
@@ -33,7 +33,7 @@ C3 je AI backend + IDE postavený pro vývojáře a knowledge workers, kteří c
 ### Infrastruktura
 - **Model Upgrade System** — curated catalog (55 modelů), 16 modulů (~7,700 řádků), pairwise evaluation, empirical scoring (Phase 3), L4 online discovery, validation suites (5 sad), chat-based approval, streaming pull, rollback.
 - **Marketplace** — remote package catalog pro skills, expertízy a specialisty. Transactional install/update/uninstall, dependency resolver, SHA-256 ověření, archive security.
-- **C3 Studio IDE** — Theia + Electron, 33 rozšíření, chat panel, agent log, settings (12 sekcí), specialist focus mode.
+- **C3 Studio IDE** — Theia + Electron, 32 rozšíření, chat panel, agent log, settings (12 sekcí), specialist focus mode, multimedia view.
 - **153 nástrojů** ve 35 kategoriích. Sandboxed execution, circuit breaker, risk assessment.
 
 Vše běží lokálně přes Ollama (LLM inference) + SQLite (persistence) na jednom stroji.
@@ -149,25 +149,23 @@ Centrální klasifikátor záměrů. Každý vstup projde přes `CRE.decide()`, 
 ### Expertýzy
 15 vestavěných doménových profilů (programování, právo, finance, marketing, kreativní psaní, ...). Každá expertýza má 5D capability vektor ovlivňující tón, hloubku a styl odpovědí. Merge engine umožňuje kombinovat více expertýz.
 
-- [docs/EXPERTISES.md](docs/EXPERTISES.md) — reference všech 15 expertýz
-- [docs/C3-Merge-Engine-v2-FINAL.md](docs/C3-Merge-Engine-v2-FINAL.md) — merge algoritmus
+- [docs/EXPERTISES.md](docs/EXPERTISES.md) — reference všech 15 expertýz, merge engine
 
 ### Specialisté
 Self-contained pluginové balíčky s nástroji, expertízou, znalostní bází a scénáři. Každý specialista je izolovaný package v `specialists/` — žádné importy z core. 5 specialistů: `accountant-cz` (DPH, daně, pojistné), `translator` (překlad, detekce jazyka), `code-reviewer` (code review automatizace), `sazeni` (doménový specialista), `dummy-logger` (testovací utilita). Nové specialisty lze vytvořit konverzačně přes `create-specialist` skill nebo přes IDE wizard.
 
-- [docs/SPECIALISTS.md](docs/SPECIALISTS.md) — architektura a API
-- [docs/SPECIALIST-CREATION-GUIDE.md](docs/SPECIALIST-CREATION-GUIDE.md) — průvodce vytvářením
+- [docs/SPECIALISTS.md](docs/SPECIALISTS.md) — architektura, API, průvodce vytvářením
 
 ### Životní cyklus projektů
 Strukturovaný přístup k větším projektům. Fáze: specifikace → roadmapa → build (po milnících) → review → change management. Každý milník má checkpoint (STRUCTURAL / FUNCTIONAL / SECURITY), automatický git commit a tag.
 
-- [docs/C3-Phase-C-Lifecycle-Plan.md](docs/C3-Phase-C-Lifecycle-Plan.md) — design
+- [docs/PROJECT-SYSTEM.md](docs/PROJECT-SYSTEM.md) — lifecycle, checkpointy, recovery
 - [docs/STORAGE-ARCHITECTURE.md](docs/STORAGE-ARCHITECTURE.md) — persistence
 
 ### Code Intelligence
 33 modulů v `src/code-intel/` (11,561 řádků). Multi-engine code search (ripgrep → grep → Node.js fallback), symbol index, knowledge graph (9 typů uzlů, 8 typů hran), AST analýza (JS, Python, Go, Java), architecture detection (18 frameworků), drift detection, dead code detection, performance anti-pattern detection, dependency management.
 
-- [docs/C3-ROADMAP.md](docs/C3-ROADMAP.md) — technický plán a specifikace
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — architektura, code-intel moduly
 
 ### Execution Engine
 Iterativní fix cyklus pro milníky: generuj → testuj → diagnostikuj → patchuj → testuj → opakuj do konvergence (max 8 iterací). Patch engine s 3-tier anchor matching, error normalizer (14 error kódů, root cause analýza), fix strategy selection, self-critique (LLM + knowledge graph validace), task memory.
@@ -299,13 +297,13 @@ c3-agent-wip/
 │   ├── upgrade-*.test.js         #   Model Upgrade testy (294+)
 │   └── ...                       #   Celkem 3,500+ testů
 │
-├── docs/                         # Dokumentace (42 dokumentů)
+├── docs/                         # Dokumentace (26 aktivních + archiv)
 │   ├── ARCHITECTURE.md           #   Kompletní architektura
-│   ├── CHANGELOG.md              #   Historie verzí (v56–v132)
-│   ├── C3-ROADMAP.md             #   F-series technický plán
+│   ├── CHANGELOG.md              #   Historie verzí (v56–v135)
 │   ├── ROADMAP.md                #   Roadmapa a stav fází
 │   ├── INSTALL.md                #   Instalační příručka
-│   └── ...                       #   30+ dalších dokumentů
+│   ├── archive/                  #   Historické design dokumenty
+│   └── ...                       #   20+ dalších dokumentů
 │
 ├── data/                         # Runtime data (gitignored)
 │   ├── c3.db                     #   SQLite databáze
@@ -379,8 +377,7 @@ Testy používají custom ESM harness (`tests/harness.js`): `suite()`, `test()`,
 | Dokument | Obsah |
 |----------|-------|
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Kompletní architektura systému, diagramy, design decisions |
-| [CHANGELOG.md](docs/CHANGELOG.md) | Historie všech verzí (v56–v132) |
-| [C3-ROADMAP.md](docs/C3-ROADMAP.md) | Technický plán — Code Intelligence, Agent Evolution, Post-F |
+| [CHANGELOG.md](docs/CHANGELOG.md) | Historie všech verzí (v56–v135) |
 | [ROADMAP.md](docs/ROADMAP.md) | Stav fází, plánované features |
 | [INSTALL.md](docs/INSTALL.md) | Instalace (Ubuntu, Fedora, Docker) |
 
@@ -394,22 +391,21 @@ Testy používají custom ESM harness (`tests/harness.js`): `suite()`, `test()`,
 | [skills-v1.md](docs/skills-v1.md) | Skills systém, 8 step types, state machine, bezpečnost |
 | [MEMORY.md](docs/MEMORY.md) | 3-vrstvý paměťový systém (LTM, task memory, cross-project) |
 | [marketplace.md](docs/marketplace.md) | Marketplace architektura, catalog, install pipeline, security |
-| [SPECIALIST-CREATION-GUIDE.md](docs/SPECIALIST-CREATION-GUIDE.md) | Průvodce vytvářením specialistů a expertíz |
+| [followup-contract-v2.md](docs/followup-contract-v2.md) | Follow-up klasifikace, R1-R4 pravidla |
 | [STORAGE-ARCHITECTURE.md](docs/STORAGE-ARCHITECTURE.md) | SQLite schema, drain, backup, retention |
 | [tools/REGISTRY.md](docs/tools/REGISTRY.md) | 153 nástrojů, kategorie, risk assessment |
 | [PROJECT-SYSTEM.md](docs/PROJECT-SYSTEM.md) | Project management systém |
 
-### Design dokumenty
+### Kontrakty a protokoly
 
 | Dokument | Obsah |
 |----------|-------|
 | [AUTHORITY.md](docs/AUTHORITY.md) | CRE Gatekeeper, single authority pattern |
-| [C3-Merge-Engine-v2-FINAL.md](docs/C3-Merge-Engine-v2-FINAL.md) | Merge algoritmus (15.5 kroků), token budgeting |
-| [C3-Phase-C-Lifecycle-Plan.md](docs/C3-Phase-C-Lifecycle-Plan.md) | Lifecycle design, fáze, recovery |
 | [WS-PROTOCOL.md](docs/WS-PROTOCOL.md) | WebSocket protokol |
+| [OPERABILITY.md](docs/OPERABILITY.md) | Operační kontrakty (immutabilita, determinismus) |
 | [tools/EXECUTOR_CONTRACT.md](docs/tools/EXECUTOR_CONTRACT.md) | Tool execution contract, retry policy |
 
-Celkem **42 dokumentů** dokumentace.
+Historické design dokumenty (implementované RFC) → `docs/archive/`
 
 ---
 

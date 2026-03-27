@@ -2,7 +2,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
-import { runQualityGate } from '../src/planner/quality-gate.js';
+import { runQualityGate, runEnhancedValidation } from '../src/planner/quality-gate.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -119,14 +119,13 @@ await testAsync('mixed: valid.py + invalid.js → FAIL overall', async () => {
   } finally { cleanup(dir); }
 });
 
-await testAsync('unknown extension (.rs, .java) → SKIP', async () => {
+await testAsync('unknown extension (.rs) → SKIP, .java → validated (v134)', async () => {
   const dir = tmpDir();
   try {
     writeFile(dir, 'main.rs', 'fn main() {}\n');
-    writeFile(dir, 'App.java', 'class App {}\n');
+    writeFile(dir, 'App.java', 'package com.example;\n\npublic class App {\n}\n');
     const r = await runQualityGate(dir, {}, ['main.rs', 'App.java']);
-    assert(r.passed, 'should pass (skip unknown)');
-    assertEqual(r.results.length, 0, 'no results for unknown languages');
+    assert(r.passed, 'should pass (.rs skipped, .java valid)');
   } finally { cleanup(dir); }
 });
 
@@ -195,6 +194,102 @@ await testAsync('full-project mode discovers files', async () => {
     const r = await runQualityGate(dir, {}, null, { mode: 'full-project' });
     assert(r.passed, 'should pass');
     assert(r.results.length >= 3, `should find at least 3 files, found ${r.results.length}`);
+  } finally { cleanup(dir); }
+});
+
+// ─── v134: Java Validation Tests ──────────────────────────────────────────────
+
+suite('Quality Gate — Java Validation (v134)');
+
+await testAsync('valid Java file → PASS', async () => {
+  const dir = tmpDir();
+  try {
+    writeFile(dir, 'App.java', 'package com.example;\n\npublic class App {\n  public void run() {}\n}\n');
+    const r = await runQualityGate(dir, {}, ['App.java']);
+    assert(r.passed, 'should pass');
+  } finally { cleanup(dir); }
+});
+
+await testAsync('Java missing package → FAIL', async () => {
+  const dir = tmpDir();
+  try {
+    writeFile(dir, 'App.java', 'public class App {\n  public void run() {}\n}\n');
+    const r = await runQualityGate(dir, {}, ['App.java']);
+    assert(!r.passed, 'should fail — missing package');
+    const appR = r.results.find(x => x.file === 'App.java');
+    assert(!appR?.passed, 'App.java should fail');
+    assert(appR?.message?.includes('package'), 'error mentions package');
+  } finally { cleanup(dir); }
+});
+
+await testAsync('Java class name mismatch → FAIL', async () => {
+  const dir = tmpDir();
+  try {
+    writeFile(dir, 'App.java', 'package com.example;\n\npublic class WrongName {\n}\n');
+    const r = await runQualityGate(dir, {}, ['App.java']);
+    assert(!r.passed, 'should fail — class name mismatch');
+  } finally { cleanup(dir); }
+});
+
+await testAsync('Java unbalanced braces → FAIL', async () => {
+  const dir = tmpDir();
+  try {
+    writeFile(dir, 'App.java', 'package com.example;\n\npublic class App {\n  void run() {\n}\n');
+    const r = await runQualityGate(dir, {}, ['App.java']);
+    assert(!r.passed, 'should fail — unbalanced braces');
+  } finally { cleanup(dir); }
+});
+
+// ─── v134: Enhanced Validation Tests ─────────────────────────────────────────
+
+suite('Quality Gate — Enhanced Validation (v134)');
+
+await testAsync('runEnhancedValidation: empty file → error', async () => {
+  const dir = tmpDir();
+  try {
+    writeFile(dir, 'empty.js', '');
+    const r = await runEnhancedValidation(dir, ['empty.js']);
+    assert(r.errors.length > 0, 'should report error for empty file');
+    assert(r.errors[0].category === 'empty' || r.errors[0].message.includes('empty'), 'error mentions empty');
+  } finally { cleanup(dir); }
+});
+
+await testAsync('runEnhancedValidation: mock content → warning', async () => {
+  const dir = tmpDir();
+  try {
+    // >30% of code lines must match mock patterns to trigger warning
+    writeFile(dir, 'service.js',
+      '// placeholder service\n' +
+      'function getUsers() {\n' +
+      '  // mock implementation\n' +
+      '  // In a full implementation, this would use real DB\n' +
+      '  // simulated response for testing\n' +
+      '  return [];\n' +
+      '}\n' +
+      'module.exports = { getUsers };\n');
+    const r = await runEnhancedValidation(dir, ['service.js']);
+    assert(r.warnings.length > 0, 'should warn about mock/placeholder content');
+  } finally { cleanup(dir); }
+});
+
+await testAsync('runEnhancedValidation: unresolved JS import → error', async () => {
+  const dir = tmpDir();
+  try {
+    writeFile(dir, 'main.js', "const db = require('./database');\nconsole.log(db);\n");
+    // database.js does NOT exist
+    const r = await runEnhancedValidation(dir, ['main.js']);
+    assert(r.errors.some(e => e.category === 'import_missing' || e.message.includes('not found')),
+      'should report unresolved import error');
+  } finally { cleanup(dir); }
+});
+
+await testAsync('runEnhancedValidation: valid project → no errors', async () => {
+  const dir = tmpDir();
+  try {
+    writeFile(dir, 'main.js', "const util = require('./util');\nconsole.log(util.greet());\n");
+    writeFile(dir, 'util.js', "function greet() { return 'hello'; }\nmodule.exports = { greet };\n");
+    const r = await runEnhancedValidation(dir, ['main.js', 'util.js']);
+    assertEqual(r.errors.length, 0, 'should have no errors');
   } finally { cleanup(dir); }
 });
 

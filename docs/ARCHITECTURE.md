@@ -1,8 +1,8 @@
-# C.3 Agent Platform — Architecture v131
+# C.3 Agent Platform — Architecture v132
 
-**Version:** v131.0.0
+**Version:** v132.0.0
 **Status:** Production-ready
-**Date:** 2026-03-22
+**Date:** 2026-03-25
 
 ---
 
@@ -103,7 +103,7 @@ All decisions flow through CRE — LLM is the text generator, never the authorit
 ## Directory Structure
 
 ```
-src/                              # ~128,000 lines / 350+ files / 29 directories
+src/                              # ~137,000 lines / 380+ files / 29 directories
 ├── server.js                     # HTTP server (dynamic port, tiered rate limiting, port file ~/.c3/port)
 ├── config.js                     # Feature flags, model bindings, timeouts, port, sessions, providers
 ├── routes/                       # 14 files — HTTP route handlers
@@ -899,7 +899,7 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 
 ## Test Suite
 
-3,600+ verified tests across 244 test files:
+3,600+ verified tests across 294 test files (192 pure unit, 38 integration, 7 E2E/LLM):
 
 | Suite | Tests | Focus |
 |-------|-------|-------|
@@ -979,7 +979,7 @@ All memory systems use exponential decay: LTM (λ=0.01, half-life ~69d), Task Me
 | B (Workers) | 95% | Runner, scheduler, sources, notifications, multi-source |
 | C (Lifecycle) | 100% | Milestones, crash recovery, checkpoint modes, adaptive retry |
 | D (Expertises) | 100% | 15 built-in, merge engine, 5D capabilities, self-contained specialists (v121), marketplace (v124) |
-| E (IDE) | 82% | C3 Studio (Theia), 33 extensions, settings UI, security, focus mode |
+| E (IDE) | 85% | C3 Studio (Theia), 32 extensions, settings UI, security, focus mode, multimedia |
 | F (Packaging) | 25% | Setup wizard, auto-updater, license system |
 | G (Code Intel) | 100% | 33 modules, symbol index, KG, graph expansion, architecture detection |
 | H (Agent Evolution) | 100% | F1-F8 core (355 tests), FΔ+F9-F14 extensions (242 tests) |
@@ -991,4 +991,4 @@ All memory systems use exponential decay: LTM (λ=0.01, half-life ~69d), Task Me
 
 ---
 
-*This document reflects C.3 Agent Platform v126.0.0 architecture (2026-03-12).*
+*This document reflects C.3 Agent Platform v132.0.0 architecture (2026-03-25).*

@@ -45,6 +45,7 @@ import {
 import { getLcState, setLcState, clearLcState, initLifecycleStateDb } from '../src/chat/handlers/lifecycle-state.js';
 import { callLLM } from '../src/planner/workflow.js';
 import { stripCodeFences, checkSyntax, repairCode, languagePromptSuffix } from '../src/planner/code-cleaner.js';
+import { runQualityGate, runEnhancedValidation, resolveJsImport, extractJsExports } from '../src/planner/quality-gate.js';
 
 // ─── Shared State ───────────────────────────────────────────────────────────
 
@@ -301,14 +302,16 @@ export function walkFiles(dir, base = dir) {
 
 // ─── Adaptive build loop — drives lifecycle through BUILD→COMPLETED ─────────
 // v97: Uses force-skip when blocked ≥3 times instead of plain "skip"
+// v131: Track per-milestone attempts to auto-skip after 2 RETRY failures
 
 export async function buildLoop(t, sessionId, context, opts = {}) {
-  const { maxRounds = 30, rejectFirst = false, rejectMessage = '' } = opts;
+  const { maxRounds = 30, rejectFirst = false, rejectMessage = '', maxMsRetries = 2 } = opts;
   let round = 0;
   let completed = 0;
   let rejected = false;
   let blockedSkips = 0;
   let lastResponse = '';
+  const msAttempts = {}; // milestoneId → number of approval attempts
 
   while (round < maxRounds) {
     round++;
@@ -318,11 +321,25 @@ export async function buildLoop(t, sessionId, context, opts = {}) {
 
     console.log(`    [Build round ${round}] phase=${state.phase} ms=${state.currentMilestoneId || '-'}`);
 
-    // Detect blocked milestone loop
+    // Detect blocked milestone loop (explicit text or repeated RETRY for same milestone)
     const isBlocked = typeof lastResponse === 'string' &&
       (lastResponse.includes('milníky jsou blokované') || lastResponse.includes('Milník zablokován'));
 
     if (state.phase === 'BUILD_MILESTONE_REVIEW') {
+      const msId = state.currentMilestoneId;
+
+      // v131: Check if this milestone has been retried too many times → auto-skip
+      if (msId && (msAttempts[msId] || 0) >= maxMsRetries) {
+        console.log(`    [Build] Milestone ${msId} failed ${msAttempts[msId]}× — auto-skipping`);
+        // Force milestone to BLOCKED so the skip command is accepted by lifecycle router
+        try { msRepo.updateStatus.run('BLOCKED', msId); } catch {}
+        const msg = t.userTurn('skip');
+        const resp = await handleLifecycleInput(msg, context);
+        lastResponse = resp?.content || '';
+        t.systemTurn(`BUILD auto-skip ${msId}`, resp);
+        continue;
+      }
+
       if (rejectFirst && !rejected) {
         rejected = true;
         const msg = t.userTurn(rejectMessage || 'Ne, tohle se mi nelíbí. Zkus to jinak.');
@@ -334,12 +351,16 @@ export async function buildLoop(t, sessionId, context, opts = {}) {
       const msg = t.userTurn('ano');
       const resp = await handleLifecycleInput(msg, context);
       lastResponse = resp?.content || '';
-      t.systemTurn(`BUILD ${state.currentMilestoneId || ''}`, resp);
-      if (state.currentMilestoneId) {
-        const msDb = msRepo.getMilestone(state.currentMilestoneId);
+      t.systemTurn(`BUILD ${msId || ''}`, resp);
+
+      // Track attempts for this milestone
+      if (msId) msAttempts[msId] = (msAttempts[msId] || 0) + 1;
+
+      if (msId) {
+        const msDb = msRepo.getMilestone(msId);
         if (msDb?.status === 'PASSED') {
           completed++;
-          t.check(true, `BUILD: ${state.currentMilestoneId} PASSED`);
+          t.check(true, `BUILD: ${msId} PASSED`);
         }
       }
     } else if (state.phase === 'BUILD') {
@@ -363,6 +384,12 @@ export async function buildLoop(t, sessionId, context, opts = {}) {
       const resp = await handleLifecycleInput(msg, context);
       lastResponse = resp?.content || '';
       t.systemTurn('REVIEW', resp);
+    } else if (state.phase === 'PLANNING' || state.phase === 'PLAN_REVIEW') {
+      // Handle stuck PLANNING (D1 roadmap gen failed) or unexpected PLAN_REVIEW
+      const msg = t.userTurn('pokračovat');
+      const resp = await handleLifecycleInput(msg, context);
+      lastResponse = resp?.content || '';
+      t.systemTurn(`${state.phase}`, resp);
     } else {
       console.log(`    Unexpected phase: ${state.phase} — breaking`);
       break;
@@ -425,3 +452,120 @@ export async function runTests(testName, testFns, transcriptPrefix) {
 
   process.exit(totalFailed > 0 ? 1 : 0);
 }
+
+// ─── v134: Project Validation Utilities ─────────────────────────────────────
+// Reusable validation functions for post-build quality assertions
+
+/**
+ * Run syntax validation on all project files via quality gate (full-project mode).
+ * Returns { passed, results: [{file, passed, error, message}], summary }.
+ */
+export async function validateProjectSyntax(projectPath) {
+  return runQualityGate(projectPath, {}, null, { mode: 'full-project' });
+}
+
+/**
+ * Run semantic validation on all project files (non-empty, imports, mock detection).
+ * Returns { errors: [{file, message, category}], warnings: [{file, message, category}] }.
+ */
+export async function validateProjectSemantics(projectPath) {
+  return runEnhancedValidation(projectPath, null);
+}
+
+/**
+ * Check that a file exists and has substantive content (>10 bytes, >0 non-comment lines).
+ * Returns { exists, substantive, bytes, lines, nonCommentLines }.
+ */
+export function checkFileSubstantive(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return { exists: false, substantive: false, bytes: 0, lines: 0, nonCommentLines: 0 };
+  }
+  const content = fs.readFileSync(filePath, 'utf8');
+  const bytes = Buffer.byteLength(content, 'utf8');
+  const lines = content.split('\n');
+  const nonComment = lines.filter(l => {
+    const t = l.trim();
+    return t.length > 0 && !t.startsWith('//') && !t.startsWith('#') && !t.startsWith('*') && !t.startsWith('/*');
+  });
+  return {
+    exists: true,
+    substantive: bytes > 10 && nonComment.length > 0,
+    bytes,
+    lines: lines.length,
+    nonCommentLines: nonComment.length,
+  };
+}
+
+/**
+ * Scan all project source files for mock/placeholder patterns.
+ * Returns { files: [{file, mockLines, totalLines, ratio}], hasMockCode: boolean }.
+ */
+export function detectProjectMocks(projectPath) {
+  const MOCK_RE = /\b(placeholder|mock|simulated|dummy|TODO|FIXME|HACK|stub|fake|sample data|example data|not implemented|in a full implementation|in real implementation)\b/i;
+  const allFiles = walkFiles(projectPath);
+  const sourceExts = new Set(['.js', '.ts', '.java', '.py', '.go', '.rs', '.c', '.cpp', '.cs']);
+  const results = [];
+  let totalMock = 0;
+  let totalLines = 0;
+
+  for (const relPath of allFiles) {
+    const ext = path.extname(relPath);
+    if (!sourceExts.has(ext)) continue;
+    // Skip test files
+    if (relPath.includes('/test/') || relPath.includes('/tests/') || relPath.includes('Test.java') || relPath.includes('.test.')) continue;
+
+    try {
+      const content = fs.readFileSync(path.join(projectPath, relPath), 'utf8');
+      const lines = content.split('\n');
+      const mockLines = lines.filter(l => MOCK_RE.test(l)).length;
+      totalMock += mockLines;
+      totalLines += lines.length;
+      if (mockLines > 0) {
+        results.push({ file: relPath, mockLines, totalLines: lines.length, ratio: mockLines / lines.length });
+      }
+    } catch { /* skip unreadable */ }
+  }
+
+  return {
+    files: results,
+    hasMockCode: totalMock > 0,
+    totalMockLines: totalMock,
+    totalSourceLines: totalLines,
+    overallRatio: totalLines > 0 ? totalMock / totalLines : 0,
+  };
+}
+
+/**
+ * Verify that JS require/import targets actually resolve to existing files.
+ * Returns { resolved: number, unresolved: [{file, target}] }.
+ */
+export function validateJsImportResolution(projectPath) {
+  const allFiles = walkFiles(projectPath);
+  const jsFiles = allFiles.filter(f => f.endsWith('.js') || f.endsWith('.mjs') || f.endsWith('.cjs'));
+  const REQUIRE_RE = /(?:require\s*\(\s*['"](\.[^'"]+)['"]\s*\))|(?:from\s+['"](\.[^'"]+)['"])/g;
+  let resolved = 0;
+  const unresolved = [];
+
+  for (const relPath of jsFiles) {
+    const fullPath = path.join(projectPath, relPath);
+    try {
+      const content = fs.readFileSync(fullPath, 'utf8');
+      const dir = path.dirname(fullPath);
+      let m;
+      while ((m = REQUIRE_RE.exec(content)) !== null) {
+        const target = m[1] || m[2];
+        const resolvedPath = resolveJsImport(dir, target);
+        if (resolvedPath) {
+          resolved++;
+        } else {
+          unresolved.push({ file: relPath, target });
+        }
+      }
+    } catch { /* skip */ }
+  }
+
+  return { resolved, unresolved };
+}
+
+// Re-export quality-gate helpers for direct use in tests
+export { resolveJsImport, extractJsExports, runEnhancedValidation };

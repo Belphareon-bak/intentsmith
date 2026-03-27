@@ -437,7 +437,23 @@ async function handleSpecReviewInput(input, state, context) {
 // ─── PLANNING / PLAN_REVIEW phase ───────────────────────────────────────────
 
 async function handlePlanningInput(input, state, context) {
-  return lcResponse('Roadmapa se generuje, počkej prosím...');
+  const { sessionId } = context;
+  // v131: If user sends message during PLANNING, the previous roadmap gen failed.
+  // Retry the generation instead of returning a placeholder.
+  try {
+    const lifecycle = await resumeWithContext(state, context);
+    const { generateRoadmap } = await import('../../planner/lifecycle-planning.js');
+    const roadmapResult = await generateRoadmap(lifecycle);
+    await lifecycle.transitionTo('PLAN_REVIEW');
+    setLcState(sessionId, { ...state, phase: 'PLAN_REVIEW' });
+    return lcResponse(formatRoadmap(roadmapResult), {
+      phase: 'PLAN_REVIEW',
+      lifecycleId: state.lifecycleId,
+    });
+  } catch (err) {
+    logger.warn('LifecycleRouter', 'Roadmap generation retry failed', { error: err.message });
+    return lcResponse(`Generování roadmapy selhalo: ${err.message}\nZkus to znovu nebo napiš "pokračovat".`);
+  }
 }
 
 async function handlePlanReviewInput(input, state, context) {

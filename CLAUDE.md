@@ -1,8 +1,20 @@
 # CLAUDE.md - C.3 Agent Development Context
 
-**Verze:** v132.0.0
+**Verze:** v132.0.0 (kanonická verze z `package.json`)
 **Datum:** 2026-03-27
 **Projekt:** ~/Projects/c3-agent-wip
+
+---
+
+## Verzování
+
+**Kanonická verze** je v `package.json` → `version`. Při releasu/commitu aktualizuj verzi v package.json a VŽDY synchronizuj do:
+- `README.md` (řádek 5)
+- `CLAUDE.md` (řádek 3)
+- `docs/README.md` (řádek 1 + footer)
+- `docs/ARCHITECTURE.md` (řádek 1, 3 + footer)
+- `docs/ROADMAP.md` (řádek 6 + footer)
+- `docs/API-REFERENCE.md` (řádek 3)
 
 ---
 
@@ -21,9 +33,10 @@ C.3 Agent je plně funkční lokální AI platforma s:
 - **Architecture Governance** (v98-v100) — guardian, API contracts, critic/repair, regression prediction, multi-agent pipeline (5 rolí)
 - **Skills System** (v85+) — deterministické workflow (JSON): 9 step typů. Meta-skills: create-skill, create-expertise, create-specialist
 - **Memory System** (v86+) — LTM (poločas 69d), task memory (poločas 139d), cross-project learning
-- **Model Upgrade** (v103-v132) — catalog (55 modelů), pairwise eval, empirical scoring (Phase 3, linear blend interpolation), L4 online discovery, validation suites (5 sad), chat-based approval, atomic dedup, auto-cleanup, scoring fixes (dominance gate, generation bonus)
-- **Marketplace** (v124-v132) — remote package catalog, transactional install, dependency resolver, SHA-256 ověření, security hardening (null byte guard, mandatory hash)
-- **C3 Studio IDE** — Theia 1.65.2 + Electron 37, 33 rozšíření, chat panel, agent log, settings, focus mode
+- **Model Upgrade** (v103-v127) — catalog (55 modelů), pairwise eval, empirical scoring (Phase 3, linear blend interpolation), L4 online discovery, validation suites (5 sad), chat-based approval, atomic dedup, auto-cleanup, scoring fixes (dominance gate, generation bonus)
+- **Semantic Quality Layer** (v128+) — response-scorer (5D scoring), improvement-loops (fastRetry + selfRefine), drift guards (Jaccard, length, intent lock), telemetry
+- **Marketplace** (v124-v126) — remote package catalog, transactional install, dependency resolver, SHA-256 ověření, security hardening (null byte guard, mandatory hash)
+- **C3 Studio IDE** — Theia 1.65.2 + Electron 37, 32 rozšíření, chat panel, agent log, settings, focus mode, multimedia view (v132)
 
 ### Zdrojový kód
 
@@ -33,8 +46,8 @@ C.3 Agent je plně funkční lokální AI platforma s:
 | src/planner/ | 34 | 15,350 | Lifecycle + execution engine + architecture governance |
 | src/code-intel/ | 33 | 11,561 | Code Intelligence (symbol index, KG, AST, graph, context) |
 | src/expertises/ | 23 | 9,464 | Expertise system + specialist runtime + merge engine |
-| src/upgrade/ | 16 | 7,682 | Model upgrade (catalog, pairwise, empirical, L4, validation) |
-| src/routes/ | 16 | 6,813 | HTTP API routes (16 route modulů) |
+| src/upgrade/ | 15 | 6,780 | Model upgrade (catalog, pairwise, empirical, L4, validation) |
+| src/routes/ | 15 | 6,670 | HTTP API routes (15 route modulů, vč. media) |
 | src/agents/ | 14 | 6,510 | Agent platform (runner, scheduler, conditions, triggers) |
 | src/tools/ | 2 | 5,456 | Tool registry (153 nástrojů) |
 | src/ui/ | 2 | 4,552 | Web UI (architect.js) |
@@ -50,14 +63,14 @@ C.3 Agent je plně funkční lokální AI platforma s:
 | src/specialists/ | 2 | 1,379 | Specialist loader + capability registry |
 | src/ws-bridge/ | 5 | 1,109 | WebSocket bridge (IDE ↔ backend) |
 | src/channels/ | 3 | 841 | Channel adaptery (CLI, Web, API) |
-| src/marketplace/ | 2 | 945 | Marketplace client + package installer |
-| src/context/ | 3 | 746 | Prompt builder, import map, context delta |
-| ostatní | 16 | 5,505 | core, autonomy, system, telemetry, licensing, setup, config, server, packaging |
-| **Celkem** | **380** | **137,282** | |
+| src/marketplace/ | 2 | 797 | Marketplace client + package installer |
+| src/context/ | 3 | 742 | Prompt builder, import map, context delta |
+| ostatní | 17 | 3,577 | core, autonomy, system, telemetry, licensing, setup, config, server |
+| **Celkem** | **380+** | **~137,000** | |
 
 ### Databáze
 
-80+ tabulek (SQLite, WAL, better-sqlite3), 41 migrací, prepared statements.
+80+ tabulek (SQLite, WAL, better-sqlite3), 41 migrací (v63→v133), prepared statements.
 
 ### Testovací pokrytí
 
@@ -313,7 +326,7 @@ src/architect/multi-agent.js             # 5-role pipeline (planner→builder→
 ```
 src/db/database.js                # SQLite schema, 80+ tabulek
 src/db/migrate.js                 # Migration runner
-src/db/migrations/                # 41 migrací (timestamp-based, v63 → v132)
+src/db/migrations/                # 41 migrací (timestamp-based, v63 → v133)
 ```
 
 ### Server
@@ -348,17 +361,25 @@ node --watch src/server.js    # Vývojový (auto-restart)
 - SQLite (better-sqlite3)
 
 ### Testy
-```bash
-# Všechny deterministické (~3,500+ testů)
-npm test
 
-# Konkrétní subsystémy
-node tests/cre-comprehensive.test.js     # 401 — CRE
-node tests/code-intel-v95.test.js        # 276 — Code Intelligence
-node tests/execution-loop.test.js        # 56  — Execution Loop
-node tests/upgrade-phase2.test.js        # 88  — Model Upgrade
-node tests/specialist-system.test.js     # 115 — Specialist System
-node tests/marketplace.test.js           # 44  — Marketplace
+294 testovacích souborů: **192 pure unit** (bez LLM, bez serveru), **38 integration** (DB/server), **7 E2E** (Ollama+GPU).
+
+```bash
+# Hlavní deterministické sady (~3,600+ testů, bez LLM)
+npm test                                   # core + chat + expertises + lifecycle
+
+# Pure unit testy (příklady — žádný LLM ani server)
+node tests/cre-comprehensive.test.js       # 401 — CRE intent klasifikace
+node tests/knowledge-graph.test.js         # KG nodes/edges
+node tests/patch-engine.test.js            # Patch engine
+node tests/execution-loop.test.js          # 56  — Execution Loop
+node tests/specialist-system.test.js       # 115 — Specialist System
+node tests/marketplace.test.js             # 44  — Marketplace
+
+# Subsystémy
+npm run test:code-intel                    # Code Intelligence
+npm run test:specialists                   # Specialist runtime
+npm run test:notifications                 # Notifikace
 
 # E2E (vyžaduje Ollama + GPU)
 node tests/lifecycle-klicenka-e2e.test.js
@@ -387,6 +408,7 @@ node tests/project-conversation-e2e.test.js  # 56 — 4 typy projektů
 | `/api/autonomy` | Autonomy | Status, approve, reject, alerts |
 | `/api/security` | Security | Audit, tokeny (vyžaduje X-Admin-Token) |
 | `/api/settings` | Settings | Uživatelská nastavení, feature flags |
+| `/api/media` | Media | Multimedia generování (ComfyUI), history, models |
 | `/api/setup` | Setup | Setup wizard (first-run) |
 | `/planner/*` | Planner | Sessions, progress, approve/reject |
 | `ws://...` | WebSocket | IDE WS bridge — chat, control, terminal |

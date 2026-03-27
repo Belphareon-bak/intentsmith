@@ -229,6 +229,8 @@ function _wsConnect() {
           C3Bus.emit('model:auto_cleaned', d);
         } else if (d.action === 'model_auto_rebound') {
           C3Bus.emit('model:auto_rebound', d);
+        } else if (d.action === 'governor_report') {
+          C3Bus.emit('governor:report', d);
         }
         break;
     }

@@ -45,7 +45,7 @@ echo    2. Build the project: yarn build (or npm run build)
 echo    3. Start C3 IDE: yarn start (or npm start)
 echo.
 echo 📚 Documentation:
-echo    - README-INTEGRATION.md - Overview
+echo    - INTEGRATION-GUIDE.md - Integration overview
 echo    - INTEGRATION-GUIDE.md - Detailed integration
 echo    - VISUAL-PREVIEW.md - Design preview
 echo    - START.md - Development guide

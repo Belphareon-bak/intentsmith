@@ -2435,6 +2435,8 @@ var _modelOverview=null;var _modelOverviewLoading=false;
 var _deleteConfirm=null;/* {model,sizeGB} */var _deletingModel=null;
 var _batchValidating=false;var _batchQueue=[];var _batchCurrent=null;
 var _overviewSort={col:'name',dir:'asc'};var _roleBindings=null;
+/* v135: Governor */
+var _governorData=null;var _governorLoading=false;var _governorProposals=null;
 /* v124: Marketplace */
 var _mpData=null;var _mpLoading=false;var _mpMsg=null;var _mpTab='skills';var _mpSearch='';var _mpPage=1;var _mpInstalling={};
 var _pullState={};/* model name → {status,percent,text,downloadedGB,totalGB,eta,scores} */
@@ -3516,7 +3518,8 @@ function centerUpgrades(){
       h('button',{style:tabStyle('scoring'),onClick:function(){_upgradeTab='scoring';renderCenter();}},'Hodnocen\u00ED'),
       h('button',{style:tabStyle('proposals'),onClick:function(){_upgradeTab='proposals';renderCenter();}},'N\u00E1vrhy ('+proposals.length+')'),
       h('button',{style:tabStyle('history'),onClick:function(){_upgradeTab='history';renderCenter();}},'Historie'),
-      h('button',{style:tabStyle('discovered'),onClick:function(){_upgradeTab='discovered';renderCenter();}},'Nov\u00E9 modely')),
+      h('button',{style:tabStyle('discovered'),onClick:function(){_upgradeTab='discovered';renderCenter();}},'Nov\u00E9 modely'),
+      h('button',{style:tabStyle('governor'),onClick:function(){_upgradeTab='governor';_governorData=null;_loadGovernorData();renderCenter();}},'Spr\u00E1vce')),
     /* toast */
     _upgradeMsg?h('div',{style:{margin:'0 18px',marginTop:12,padding:'8px 14px',borderRadius:6,fontSize:_fs(11),fontWeight:600,
       background:_upgradeMsg.ok?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)',
@@ -3606,8 +3609,100 @@ function centerUpgrades(){
           })):
           h('div',{style:{textAlign:'center',padding:'40px 20px',color:C.tx4,fontSize:_fs(12)}},'Žádná historie upgradů')):null,
       /* ── Discovered tab ── */
-      _upgradeTab==='discovered'?_renderDiscoveredTab():null));
+      _upgradeTab==='discovered'?_renderDiscoveredTab():null,
+      /* ── Governor tab (v135) ── */
+      _upgradeTab==='governor'?_renderGovernorTab():null));
 }
+/* ── v135: Governor data loading + rendering ───────────────────────── */
+function _loadGovernorData(){
+  if(_governorLoading)return;_governorLoading=true;renderCenter();
+  var base=window._c3BackendUrl||'http://127.0.0.1:3335';
+  Promise.all([
+    fetch(base+'/api/system/governor/report').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}),
+    fetch(base+'/api/system/governor/proposals').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;})
+  ]).then(function(res){
+    _governorData=res[0];_governorProposals=res[1]?res[1].proposals:[];
+    _governorLoading=false;renderCenter();
+  }).catch(function(){_governorLoading=false;renderCenter();});
+}
+function _runGovernorCheck(){
+  var base=window._c3BackendUrl||'http://127.0.0.1:3335';
+  fetch(base+'/api/system/governor/check',{method:'POST'}).then(function(r){return r.json();}).then(function(d){
+    if(d.overallHealth){_governorData=d;_governorProposals=null;_loadGovernorData();}
+    else{_governorLoading=false;renderCenter();}
+  }).catch(function(){_governorLoading=false;renderCenter();});
+}
+function _approveGovernorProposal(id){
+  var base=window._c3BackendUrl||'http://127.0.0.1:3335';
+  fetch(base+'/api/system/governor/proposals/'+id+'/approve',{method:'POST'}).then(function(){_loadGovernorData();});
+}
+function _dismissGovernorProposal(id){
+  var base=window._c3BackendUrl||'http://127.0.0.1:3335';
+  fetch(base+'/api/system/governor/proposals/'+id+'/dismiss',{method:'POST'}).then(function(){_loadGovernorData();});
+}
+function _renderGovernorTab(){
+  if(_governorLoading&&!_governorData)return h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Na\u010D\u00EDt\u00E1m data Spr\u00E1vce...');
+  var report=_governorData;
+  var proposals=_governorProposals||[];
+  var healthColor=!report?C.tx4:report.overallHealth==='HEALTHY'?C.accent:report.overallHealth==='DEGRADED'?'#eab308':'#ef4444';
+  var healthIcon=!report?'\u2753':report.overallHealth==='HEALTHY'?'\u2705':report.overallHealth==='DEGRADED'?'\u26A0\uFE0F':'\uD83D\uDED1';
+  var healthLabel=!report?'Neznámý':report.overallHealth==='HEALTHY'?'V po\u0159\u00E1dku':report.overallHealth==='DEGRADED'?'Zhor\u0161en\u00FD':'Kritick\u00FD';
+  var trendArrow=function(d){if(!d)return '';var dir=d.trendDirection;return dir==='improving'?'\u2191':dir==='declining'?'\u2193':'\u2192';};
+  var trendColor=function(d){if(!d)return C.tx4;return d.trendDirection==='improving'?C.accent:d.trendDirection==='declining'?'#ef4444':C.tx4;};
+  var dimLabel={models:'Modely',cre:'CRE',architecture:'Architektura',builds:'Buildy',specialists:'Specialisti\u0301',upgrades:'Upgrady'};
+  var dimIcon={models:'\uD83E\uDD16',cre:'\uD83C\uDFAF',architecture:'\uD83C\uDFD7\uFE0F',builds:'\uD83D\uDD28',specialists:'\uD83D\uDC68\u200D\uD83D\uDD2C',upgrades:'\u2B06\uFE0F'};
+  var sevBg=function(s){return s==='HIGH'?'rgba(239,68,68,0.12)':s==='MEDIUM'?'rgba(234,179,8,0.12)':'rgba(59,130,246,0.1)';};
+  var sevColor=function(s){return s==='HIGH'?'#ef4444':s==='MEDIUM'?'#eab308':'#3b82f6';};
+  return h('div',null,
+    /* ── Health Overview ── */
+    h('div',{style:{display:'flex',alignItems:'center',gap:12,padding:16,background:C.bg3,borderRadius:8,marginBottom:16,border:'1px solid '+C.border}},
+      h('span',{style:{fontSize:28}},healthIcon),
+      h('div',{style:{flex:1}},
+        h('div',{style:{fontSize:_fs(14),fontWeight:700,color:healthColor}},healthLabel),
+        report?h('div',{style:{fontSize:_fs(11),color:C.tx3,marginTop:2}},
+          'Sk\u00F3re: '+Math.round(report.overallScore*100)+'%'+(report.summary?' \u2014 '+report.summary:'')):
+        h('div',{style:{fontSize:_fs(11),color:C.tx4}},'Dosud nebylo provedeno \u017E\u00E1dn\u00E9 hodnocen\u00ED.')),
+      h('button',{style:{background:C.accent,color:'#fff',border:'none',borderRadius:6,padding:'6px 14px',fontSize:_fs(11),fontWeight:600,cursor:'pointer',fontFamily:C.font},
+        onClick:_runGovernorCheck},'Zkontrolovat')),
+    /* ── Dimension Grid ── */
+    report&&report.dimensions?h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:18}},
+      Object.keys(dimLabel).map(function(key){
+        var d=report.dimensions[key];if(!d)return null;
+        var statusBg=d.status==='HEALTHY'?'rgba(34,197,94,0.08)':d.status==='DEGRADED'?'rgba(234,179,8,0.08)':d.status==='CRITICAL'?'rgba(239,68,68,0.08)':'rgba(100,100,100,0.05)';
+        var statusColor=d.status==='HEALTHY'?C.accent:d.status==='DEGRADED'?'#eab308':d.status==='CRITICAL'?'#ef4444':C.tx4;
+        return h('div',{key:key,style:{padding:12,background:statusBg,borderRadius:6,border:'1px solid '+C.border}},
+          h('div',{style:{display:'flex',alignItems:'center',gap:6,marginBottom:6}},
+            h('span',{style:{fontSize:16}},dimIcon[key]||''),
+            h('span',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx1}},dimLabel[key]),
+            h('span',{style:{fontSize:_fs(9),color:statusColor,fontWeight:600,marginLeft:'auto'}},d.status||'?')),
+          h('div',{style:{display:'flex',alignItems:'baseline',gap:6}},
+            h('span',{style:{fontSize:_fs(18),fontWeight:700,color:statusColor}},Math.round((d.score||0)*100)+'%'),
+            h('span',{style:{fontSize:_fs(14),color:trendColor(d)}},trendArrow(d))),
+          typeof d.dataCompleteness==='number'?h('div',{style:{marginTop:4}},
+            h('div',{style:{height:3,background:'rgba(255,255,255,0.1)',borderRadius:2}},
+              h('div',{style:{height:3,width:Math.round(d.dataCompleteness*100)+'%',background:statusColor,borderRadius:2,transition:'width 0.3s'}}))):null);
+      })):null,
+    /* ── Proposals ── */
+    h('div',{style:{fontSize:_fs(13),fontWeight:700,color:C.tx1,marginBottom:10,marginTop:6}},'N\u00E1vrhy na zlep\u0161en\u00ED'+(proposals.length?' ('+proposals.length+')':'')),
+    proposals.length>0?proposals.map(function(p){
+      return h('div',{key:p.id,style:{padding:12,background:C.bg3,borderRadius:6,marginBottom:8,border:'1px solid '+C.border}},
+        h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:6}},
+          h('span',{style:{background:sevBg(p.severity),color:sevColor(p.severity),borderRadius:4,padding:'2px 8px',fontSize:_fs(9),fontWeight:700}},p.severity),
+          h('span',{style:{fontSize:_fs(12),fontWeight:600,color:C.tx1,flex:1}},p.title),
+          h('span',{style:{fontSize:_fs(9),color:C.tx4}},'Jistota: '+Math.round(p.confidence*100)+'%')),
+        p.root_cause?h('div',{style:{fontSize:_fs(10),color:C.tx3,marginBottom:4}},'\uD83D\uDD0D '+p.root_cause):null,
+        p.description?h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:6}},p.description):null,
+        p.suggested_action?h('div',{style:{fontSize:_fs(10),color:'#3b82f6',marginBottom:6}},'\u27A1 '+p.suggested_action):null,
+        h('div',{style:{display:'flex',gap:8,justifyContent:'flex-end'}},
+          h('button',{style:{padding:'4px 12px',borderRadius:4,border:'1px solid '+C.border,background:'transparent',color:C.tx3,cursor:'pointer',fontSize:_fs(10),fontFamily:C.font},
+            onClick:function(){_dismissGovernorProposal(p.id);}},'Zam\u00EDtnout'),
+          h('button',{style:{padding:'4px 12px',borderRadius:4,border:'none',background:C.accent,color:'#fff',cursor:'pointer',fontSize:_fs(10),fontWeight:600,fontFamily:C.font},
+            onClick:function(){_approveGovernorProposal(p.id);}},'Schv\u00E1lit')));
+    }):h('div',{style:{textAlign:'center',padding:'30px 20px'}},
+      h('div',{style:{fontSize:32,marginBottom:8}},'\u2705'),
+      h('div',{style:{fontSize:_fs(12),color:C.tx3}},'Žádné aktivní návrhy.'+(!report?' Klikněte na Zkontrolovat.':''))));
+}
+if(typeof C3Bus!=='undefined'){C3Bus.on('governor:report',function(){_governorData=null;if(_upgradeTab==='governor')_loadGovernorData();});}
 function settingsMemory(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
   return h('div',null,

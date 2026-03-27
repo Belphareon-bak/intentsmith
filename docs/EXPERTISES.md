@@ -63,7 +63,7 @@ Expertise System poskytuje **domenove dialogove rezimy** ovlivnujici JAK LLM odp
 - **D5 flow:** Uzivatel vybere specialistu → `specialistHandler` → expertise discovery →
   scoped vocabulary matching (`expertise-discovery.js`) → single/multi/gap → fallback.
 - **Plugin model (v121+):** Zadne `import ../../src/` — vse pres `ctx.registries` API.
-- Viz `docs/SPECIALISTS.md` a `docs/SPECIALIST-CREATION-GUIDE.md` pro detailni popis.
+- Viz `docs/SPECIALISTS.md` pro detailni popis.
 
 ---
 
@@ -621,7 +621,7 @@ capabilityRegistry.register([
 - **create-specialist skill** (v122): 10-krokovy guided workflow pro tvorbu novych specialistu
 - **Marketplace (v124)**: Instalace vzdalenych balicku pres `POST /api/marketplace/install/:type/:id`
 
-Viz `docs/SPECIALISTS.md` a `docs/SPECIALIST-CREATION-GUIDE.md` pro kompletni dokumentaci.
+Viz `docs/SPECIALISTS.md` pro kompletni dokumentaci.
 
 ---
 

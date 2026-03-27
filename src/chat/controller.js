@@ -1995,6 +1995,76 @@ ChatController.handle = async function(request) {
   const result = await controller.process(message, fullContext);
 
   // ════════════════════════════════════════════════════════════════════════════
+  // v126.1: Centralized Quality Loop — single orchestration point
+  // 1. Check if synthesis already scored high → skip refinement (no double loop)
+  // 2. Only call LLM refinement when score < 75 AND synthesis didn't already retry
+  // 3. Telemetry always scores the FINAL output (after any refinement)
+  // ════════════════════════════════════════════════════════════════════════════
+  let _qualityScore = null;
+  const synthesisScore = result.tag?.metadata?.semanticScore?.total ?? null;
+
+  // Skip selfRefine if synthesis already scored >= 75 (avoids double loop interference)
+  const needsRefinement = result.content
+    && result.content.length > 20
+    && (synthesisScore === null || synthesisScore < 75);
+
+  if (needsRefinement) {
+    try {
+      const { improveResponse } = await import('./quality/improvement-loops.js');
+      const intent = result.tag?.metadata?.decision?.intent || 'CONVERSATIONAL';
+      const improvement = await improveResponse(
+        result.content,
+        { query: message, intent, lang: 'cs' },
+        async (prompt, systemPrompt, opts) => {
+          const creBridge = await import('../llm/cre-bridge.js');
+          return creBridge.generateChatResponse(prompt, systemPrompt || '', {
+            sessionId: opts?.sessionId || `refine-${sessionId}`,
+            temperature: opts?.temperature ?? 0.3,
+            signal: signal || null,
+          });
+        },
+        { signal, sessionId, mode: 'balanced' },
+      );
+      if (improvement.improved) {
+        result.content = improvement.response;
+        logger.info('ChatController', 'Self-refinement applied', {
+          originalScore: improvement.telemetry.originalScore,
+          finalScore: improvement.telemetry.finalScore,
+          delta: improvement.telemetry.finalScore - improvement.telemetry.originalScore,
+        });
+      }
+    } catch (err) {
+      logger.warn('ChatController', `Self-refinement failed (non-fatal): ${err.message}`);
+    }
+  } else if (synthesisScore !== null) {
+    logger.debug('ChatController', `Skipping selfRefine: synthesis score ${synthesisScore} >= 75`);
+  }
+
+  // Telemetry: always score the FINAL output (after any refinement) — no drift
+  try {
+    const { scoreResponse } = await import('./quality/response-scorer.js');
+    const intent = result.tag?.metadata?.decision?.intent || 'CONVERSATIONAL';
+    const finalScore = scoreResponse(result.content || '', {
+      query: message, intent, lang: 'cs',
+    });
+    _qualityScore = {
+      total: finalScore.total,
+      dimensions: finalScore.dimensions,
+      issues: finalScore.issues,
+    };
+    logger.info('QualityTelemetry', `Chat response score: ${finalScore.total}`, {
+      conversationId: dbConversationId,
+      intent,
+      score: finalScore.total,
+      dimensions: finalScore.dimensions,
+      refined: needsRefinement,
+      synthesisScore,
+    });
+  } catch (err) {
+    logger.warn('QualityTelemetry', `Score logging failed (non-fatal): ${err.message}`);
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
   // v56.0 Sprint 3: PERSIST assistant turn to DB (after processing)
   // INVARIANT: Turn is persisted before response is returned to caller
   // ════════════════════════════════════════════════════════════════════════════
@@ -2037,6 +2107,8 @@ ChatController.handle = async function(request) {
     confidence: result.confidence,
     canExecute: result.canExecute,
     metadata: result.tag.metadata,
+    // v126: Semantic quality score (null if scoring failed)
+    qualityScore: _qualityScore,
     // v66.0: Return the DB conversation ID so WS bridge can echo it to IDE
     conversationId: dbConversationId,
     // Include current state in response so UI can stay in sync

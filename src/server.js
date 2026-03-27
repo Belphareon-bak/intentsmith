@@ -1,4 +1,4 @@
-// C.3 v131 Server - p(AI)assistant
+// C.3 v135 Server - p(AI)assistant
 // ══════════════════════════════════════════════════════════════════════════════
 
 import 'dotenv/config';
@@ -115,6 +115,7 @@ import { createSecurityRoutes } from './routes/security.js';
 import { createNotificationRoutes } from './routes/notifications.js';
 import { createMarketplaceRoutes } from './routes/marketplace.js';
 import { createMediaRoutes, recoverStuckGenerations } from './routes/media.js';
+import { createGovernorRoutes } from './routes/governor.js';
 import { createNotificationPipeline, initNotificationTables } from './notifications/index.js';
 import { WebhookChannel } from './notifications/channels/webhook.js';
 import { DesktopChannel } from './notifications/channels/desktop.js';
@@ -267,6 +268,16 @@ try {
   logger.info('Server', 'ModelRegistry initialized (+ gateway usage tracking)');
 } catch (err) {
   logger.warn('Server', `ModelRegistry init failed: ${err.message}`);
+}
+
+// v135: System Governor — health monitoring
+try {
+  const { systemGovernor } = await import('./system/governor/system-governor.js');
+  systemGovernor.setDb(db.db);
+  systemGovernor.setBroadcast((await import('./ws-bridge/ws-server.js')).broadcast);
+  logger.info('Server', 'System Governor initialized');
+} catch (err) {
+  logger.warn('Server', `System Governor not available: ${err.message}`);
 }
 
 // F3: License system — feature gates
@@ -773,6 +784,9 @@ const routes = {
 
   // v130: Multimedia generation routes (ComfyUI)
   ...(comfyuiConnector ? createMediaRoutes(routeDeps) : {}),
+
+  // v135: System Governor routes
+  ...createGovernorRoutes(routeDeps),
 
   // F1: Setup Wizard routes (always available — idempotent after completion)
   ...createSetupRoutes(setupWizard, routeDeps),

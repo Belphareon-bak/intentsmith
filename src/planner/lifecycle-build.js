@@ -36,7 +36,7 @@ import { MilestoneStatus, CheckpointMode } from './lifecycle.js';
 import { ensureReadme, ensureArchitectureDoc, appendReadmeChangelog } from '../chat/handlers/utils/readme-generator.js';
 import { C3ToolExecutor } from '../executor/c3-tool-executor.js';
 import { validateMilestoneSize } from './milestone-size.js';
-import { runQualityGate } from './quality-gate.js';
+import { runQualityGate, runEnhancedValidation } from './quality-gate.js';
 import { validateArchitecture } from './architecture-check.js';
 
 // v95: Code intelligence — lazy-loaded for BUILD context enrichment
@@ -618,6 +618,88 @@ async function postExecution(lifecycle, milestone, wfResult) {
       .map(r => `${r.file}:${r.line || '?'} ${r.message || r.error}`);
     return handleMilestoneFailure(lifecycle, milestone,
       `compile errors: ${milestone._lastCompileErrors.join('; ')}`);
+  }
+
+  // ─── v134: ENHANCED SEMANTIC VALIDATION ─────────────────────────────────
+  let enhancedValidation = { errors: [], warnings: [] };
+  try {
+    const changedForSemantic = await getChangedFiles(lifecycle);
+    enhancedValidation = await runEnhancedValidation(lifecycle.projectPath, changedForSemantic);
+
+    if (enhancedValidation.errors.length > 0) {
+      logger.warn('LifecycleBuild', `Enhanced validation found ${enhancedValidation.errors.length} error(s)`, {
+        milestoneId: milestone.id,
+        errors: enhancedValidation.errors.map(e => `${e.file}: ${e.message}`),
+      });
+
+      // If execution loop is available, feed semantic errors back for retry
+      if (await ensureExecutionLoop()) {
+        const semanticErrors = enhancedValidation.errors.map(e => ({
+          file: e.file,
+          line: null,
+          message: e.message,
+          category: e.category || 'semantic',
+        }));
+
+        // Merge with quality gate — adds semantic errors as compile-equivalent
+        qualityGateResult = {
+          ...qualityGateResult,
+          passed: false,
+          results: [...qualityGateResult.results, ...enhancedValidation.errors],
+          summary: (qualityGateResult.summary || '') + '\n' +
+            enhancedValidation.errors.map(e => `  ${e.file}: ${e.message}`).join('\n'),
+          status: 'FAIL',
+        };
+
+        // Re-run fix loop with semantic errors
+        const tm = await ensureTaskMemory();
+        const sc = await ensureSelfCritique();
+        const loopResult2 = await _runFixLoop({
+          lifecycle, milestone,
+          testResults,
+          qualityGateResult,
+          callLLM: lifecycle.callLLM || callLLM,
+          runTests: () => runTests(lifecycle, milestone),
+          runQualityGate: async () => {
+            const cf = await getChangedFiles(lifecycle);
+            const sp = lifecycleRepo.getSpec(lifecycle.id);
+            let qg = await runQualityGate(lifecycle.projectPath, sp?.tech_stack || {}, cf);
+            if (!qg.passed) {
+              qg = await runQualityGate(lifecycle.projectPath, sp?.tech_stack || {}, null, { mode: 'full-project' });
+            }
+            // Also re-run enhanced validation
+            const ev = await runEnhancedValidation(lifecycle.projectPath, cf);
+            if (ev.errors.length > 0) {
+              qg.passed = false;
+              qg.results.push(...ev.errors);
+              qg.status = 'FAIL';
+            }
+            return qg;
+          },
+          getGitDiff: () => getGitDiff(lifecycle),
+          taskMemory: tm,
+          selfCritique: sc,
+        });
+
+        if (loopResult2.converged) {
+          testResults = loopResult2.finalTestResults;
+          qualityGateResult = loopResult2.finalQualityGate;
+          enhancedValidation = { errors: [], warnings: [] }; // cleared
+        } else {
+          return handleMilestoneFailure(lifecycle, milestone,
+            `semantic validation fix loop ${loopResult2.stopReason}: ${enhancedValidation.errors.map(e => e.message).join('; ')}`);
+        }
+      }
+    }
+
+    if (enhancedValidation.warnings.length > 0) {
+      logger.info('LifecycleBuild', `Enhanced validation warnings: ${enhancedValidation.warnings.length}`, {
+        milestoneId: milestone.id,
+        warnings: enhancedValidation.warnings.map(w => `${w.file}: ${w.message}`),
+      });
+    }
+  } catch (err) {
+    logger.warn('LifecycleBuild', `Enhanced validation failed (non-blocking): ${err.message}`);
   }
 
   // ─── ARCHITECTURE CONTRACT CHECK ─────────────────────────────────────────

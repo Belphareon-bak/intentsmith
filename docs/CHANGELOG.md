@@ -8,6 +8,63 @@
 
 ---
 
+## v129.1–v129.2 — F4a Packaging Bootstrap + Hardening (2026-03-21)
+
+Production-ready install/run/stop scripts for standalone deployment.
+
+### v129.1: Install/Run/Stop scripts
+- **install.sh**: Node.js ≥22 check (nvm auto-fix), C++ build tools detection, Ollama install/running check with retry, `npm install` with `--legacy-peer-deps` fallback, better-sqlite3 native binding verify + auto-rebuild, yarn install for IDE + webpack build, interactive model pull (qwen3.5:27b primary, deepseek-r1 opt-in). Idempotent (safe to re-run).
+- **run.sh**: Ollama auto-start, PID file management, health check with backoff, log rotation
+- **stop.sh**: Graceful shutdown via PID file, process verification
+
+### v129.2: 8 production-grade fixes
+1. PID reuse guard: verify process is node before kill
+2. Health check exponential backoff: 1s → 2s → 4s delays
+3. Ollama auto-start: nohup + disown (survives shell exit)
+4. Log rotation: mv `.c3-backend.log` → `.old` before start
+5. Webpack cache skip: only rebuild when sources newer than bundle
+6. Model check in run.sh: warn if qwen3.5:27b not installed
+7. Disk space check: warn if < 5GB available before npm install
+8. Version bump in all script headers
+
+### Bugfix
+- **CAPABILITY_PATTERN** rejected underscores → `betting.odds_compare` and `code.security_scan` failed validation. Fix: `/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/`
+
+---
+
+## v129 — SQLite Hardening + IDE Focus Fix (2026-03-21)
+
+- **SQLite**: `busy_timeout 5000ms` pragma in worker scripts (prevents SQLITE_BUSY on lock contention)
+- **WAL checkpoint**: periodic PASSIVE checkpoint every 5 min (prevents WAL file growth)
+- **IDE**: `_conversationFocus` default → `false` (prevents hidden sidebar after cache clear)
+
+---
+
+## v128–v128.2 — CRE Routing Fixes + Quality Layer + Drift Guards (2026-03-19–2026-03-21)
+
+### v128: CRE Routing Fixes (3 bugs) + tree-sitter guard
+- **Bug #1**: SHELL vs BUILD precedence — "spusť build" now correctly → BUILD. Added negative lookahead to broad SHELL pattern for BUILD keywords.
+- **Bug #2**: Modal verb BUILD patterns — CZ: "můžeš začít implementovat", "mohl bys postavit", "chci abys začal". EN: "can you start building", "could you implement".
+- **Bug #3**: Pronoun-based follow-up patterns — CZ: "co to dělá", "k čemu to slouží", "udělej přehled". EN: "what do these files do", "summarize them".
+- **tree-sitter**: subprocess probe guard (spawnSync child process tests `require('tree-sitter')` before main import). Cached result, graceful degradation if probe fails. Prevents Node 22 segfault.
+- Tests: build-patterns 43/43, build-intent 53/54, cre-followup 36/40, cre-gatekeeper 43/43, build-handoff 29/29
+
+### v128.1: Core Quality Layer
+- **response-scorer.js** (`src/chat/quality/`): 5-dimension deterministic scoring (relevance, completeness, coherence, intent alignment, language quality). Composite 0–100 score with per-intent length expectations.
+- **improvement-loops.js** (`src/chat/quality/`): Loop 1 — fastRetryGate (score < 60 → enhanced prompt, no extra LLM call). Loop 2 — selfRefine (score < 75 → LLM critique + rewrite, 1 extra call, only accept if score improves).
+- **Wiring**: fastRetry inside synthesis.js retry loop, selfRefine in controller.js after process()
+- **Dead-end detection**: `_blockedAttempts` counter in lifecycle-build.js, auto force-skip after ≥2 blocked attempts
+- Tests: 35/35 response-scorer, 13/13 improvement-loops
+
+### v128.2: Drift Guards for selfRefine
+- **GUARD 1**: Jaccard token similarity < 0.35 → reject (prevents topic drift)
+- **GUARD 2**: Length explosion > 2.5× original → reject (prevents balast/hallucination)
+- **GUARD 3**: CODE intent lock — reject if code blocks removed by rewrite
+- `tokenSimilarity()` exported for testing
+- Tests: 21/21 improvement-loops, 35/35 response-scorer
+
+---
+
 ## v127 — Proposal Scoring Fix + Stale Cleanup (2026-03-18)
 
 Upgrade proposal pipeline was generating 0 proposals despite 9 candidates. Two bugs in pairwise scoring + stale proposal accumulation.

@@ -1,7 +1,7 @@
 # C3 Agent — Instalacni prirucka
 
-**Verze:** v127.0.0
-**Datum:** 2026-03-18
+**Verze:** v131.0.0
+**Datum:** 2026-03-22
 
 ---
 
@@ -529,4 +529,4 @@ mkdir -p ~/Projects/c3-agent-wip/data
 
 ---
 
-*Posledni aktualizace: v124.0.0 (2026-03-12)*
+*Posledni aktualizace: v131.0.0 (2026-03-22)*

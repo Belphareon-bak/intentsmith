@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 
 require("./styles/c3-center.css");
 require("./styles/c3-pro-theme.css");
+require("./styles/c3-multimedia.css");
 
 const inversify_1 = require("@theia/core/shared/inversify");
 const browser_1 = require("@theia/core/lib/browser");
@@ -78,6 +79,7 @@ const SETTINGS = [
   { id: 'system', icon: '🖥️', title: 'System' },
   { id: 'appearance', icon: '🎨', title: 'Appearance' },
   { id: 'backup', icon: '📦', title: 'Backup & Sync' },
+  { id: 'multimedia', icon: '🖼️', title: 'Multimedia (ComfyUI)' },
   { id: 'about', icon: 'ℹ️', title: 'About' }
 ];
 
@@ -112,6 +114,27 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
 
     this._debouncedPreview = debounce(() => this._fetchWizardPreview(), 500);
 
+    // v130: Multimedia state
+    this._mm = {
+      status: 'idle',          // idle | preparing | generating | error
+      comfyAvailable: false,
+      type: 'txt2img',
+      prompt: '',
+      negativePrompt: '',
+      params: { width: 1024, height: 1024, steps: 20, cfg_scale: 7.0, seed: -1 },
+      models: [],
+      selectedModel: '',
+      progress: { percent: 0, text: '', step: 0, totalSteps: 0 },
+      history: [],
+      historyPage: 0,
+      currentGenId: null,
+      error: null,
+      paramsExpanded: false,
+      negExpanded: false,
+      healthTimer: null,
+      queueLength: 0,
+    };
+
     // Pro theme: restore from localStorage
     try {
       if (localStorage.getItem('c3-theme-mode') === 'pro') {
@@ -137,6 +160,40 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
     document.addEventListener('c3-wizard-open', (e) => {
       this._openWizard(e.detail.mode, e.detail.expertiseData);
     });
+
+    // v130: ComfyUI WS event listeners
+    const self = this;
+    const _mmBusInit = setInterval(() => {
+      if (typeof window.C3Bus === 'undefined') return;
+      clearInterval(_mmBusInit);
+      window.C3Bus.on('comfyui:progress', function(d) {
+        self._mm.progress = { percent: d.percent || 0, text: d.text || '', step: d.step || 0, totalSteps: d.totalSteps || 0 };
+        self._mm.status = 'generating';
+        if (d.generationId) self._mm.currentGenId = d.generationId;
+        self.update();
+      });
+      window.C3Bus.on('comfyui:complete', function(d) {
+        self._mm.status = 'idle';
+        self._mm.error = null;
+        self._mm.queueLength = 0;
+        self._mm.currentGenId = null;
+        self._mmFetchHistory();
+        self.update();
+      });
+      window.C3Bus.on('comfyui:error', function(d) {
+        self._mm.status = 'idle';
+        self._mm.error = d.error || 'Neznámá chyba';
+        self._mm.currentGenId = null;
+        self.update();
+        setTimeout(() => { self._mm.error = null; self.update(); }, 10000);
+      });
+      window.C3Bus.on('vram:state', function(d) {
+        self._mm.queueLength = d.queueLength || 0;
+        if (d.busy && self._mm.status === 'idle') self._mm.status = 'preparing';
+        if (!d.busy && self._mm.status === 'preparing') self._mm.status = 'idle';
+        self.update();
+      });
+    }, 200);
   }
 
   render() {
@@ -147,6 +204,7 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
     if (this._wizardMode) return this._renderWizard(h);
 
     if (v === 'settings') return this._renderSettings(h);
+    if (v === 'multimedia') return this._renderMultimedia(h);
     return h('div', { className: 'c3-cv' },
       this._renderBar(h, v),
       this._renderGrid(h, v)
@@ -154,7 +212,7 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
   }
 
   _renderBar(h, view) {
-    const titles = { chats: 'Konverzace', projects: 'Projekty', specialists: 'Specialisté', expertises: 'Expertyzy', workers: 'Workeri' };
+    const titles = { chats: 'Konverzace', projects: 'Projekty', specialists: 'Specialisté', expertises: 'Expertyzy', workers: 'Workeri', multimedia: 'Multimedia' };
     return h('div', { className: 'c3-view-bar' },
       h('h2', null, titles[view] || view),
       // v63.0: New expertise button
@@ -547,6 +605,57 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
         )
       ];
 
+      // ═══ Multimedia (ComfyUI) ═══
+      case 'multimedia':
+        setTimeout(() => this._mmFetchSettingsHealth(), 100);
+        return [
+          // Connection
+          h('h4', { key: 'mm-conn', className: 'c3-settings-h4' }, 'Připojení'),
+          ..._inp('c3.comfyui.baseUrl', 'ComfyUI URL', 'http://127.0.0.1:8188'),
+          h('div', { key: 'mm-health', className: 'c3-sys-info', id: 'c3-mm-settings-health' },
+            h('p', { className: 'c3-gpu-loading' }, 'Zjišťuji stav ComfyUI...')
+          ),
+          h('button', { key: 'mm-test', className: 'c3-btn-sm c3-mt-8', onClick: () => this._mmFetchSettingsHealth() }, 'Test připojení'),
+
+          // Generation defaults
+          h('h4', { key: 'mm-defaults', className: 'c3-settings-h4' }, 'Výchozí parametry'),
+          ..._inp('c3.comfyui.defaultWidth', 'Šířka (px)', '1024', 'number', { min: 64, max: 4096, step: 8 }),
+          ..._inp('c3.comfyui.defaultHeight', 'Výška (px)', '1024', 'number', { min: 64, max: 4096, step: 8 }),
+          ..._range('c3.comfyui.defaultSteps', 'Kroky', 20, 1, 150, 1, ''),
+          ..._range('c3.comfyui.defaultCfg', 'CFG Scale', 7.0, 0, 30, 0.5, ''),
+          ..._sel('c3.comfyui.defaultSampler', 'Sampler', [
+            { value: 'euler', label: 'Euler' },
+            { value: 'euler_ancestral', label: 'Euler Ancestral' },
+            { value: 'dpmpp_2m', label: 'DPM++ 2M' },
+            { value: 'dpmpp_2m_sde', label: 'DPM++ 2M SDE' },
+            { value: 'dpmpp_sde', label: 'DPM++ SDE' },
+            { value: 'uni_pc', label: 'UniPC' },
+          ], 'euler'),
+
+          // Timeouts
+          h('h4', { key: 'mm-timeouts', className: 'c3-settings-h4' }, 'Timeouty'),
+          ..._inp('c3.comfyui.timeout', 'Timeout generace (ms)', '300000', 'number', { min: 30000, max: 1800000, step: 30000 }),
+          h('p', { key: 'mm-to-hint', className: 'c3-hint' }, '300000 ms = 5 minut. Pro video zvyšte na 600000+.'),
+
+          // Storage
+          h('h4', { key: 'mm-storage', className: 'c3-settings-h4' }, 'Úložiště'),
+          ..._inp('c3.comfyui.maxStorageGB', 'Max úložiště (GB)', '10', 'number', { min: 1, max: 100 }),
+          ..._inp('c3.comfyui.maxOutputMB', 'Max velikost výstupu (MB)', '100', 'number', { min: 10, max: 2000 }),
+          h('p', { key: 'mm-stor-hint', className: 'c3-hint' }, 'Při překročení kvóty se automaticky smažou nejstarší neoblíbené generace.'),
+
+          // VRAM management
+          h('h4', { key: 'mm-vram', className: 'c3-settings-h4' }, 'VRAM management'),
+          _tog('c3.comfyui.autoUnloadOllama', 'Automaticky uvolnit Ollama před generací', true),
+          ..._inp('c3.comfyui.vramCooldownMs', 'VRAM cooldown (ms)', '3000', 'number', { min: 0, max: 10000, step: 500 }),
+          h('p', { key: 'mm-vram-hint', className: 'c3-hint' }, 'Čas na uvolnění VRAM po unloadu Ollama. 3000ms je bezpečné pro RTX 30xx/40xx.'),
+
+          // Feature toggle
+          h('h4', { key: 'mm-feat', className: 'c3-settings-h4' }, 'Funkce'),
+          _tog('c3.comfyui.enabled', 'Multimedia modul zapnutý', true),
+          _tog('c3.comfyui.wsProgress', 'WebSocket progress (real-time)', true),
+          _tog('c3.comfyui.autoRefreshModels', 'Automaticky obnovovat seznam modelů', true),
+        ];
+
       default: return h('p', { style: { fontSize: 11, color: 'var(--c3-tx-4)', padding: '4px 0' } }, 'Konfigurace bude doplněna.');
     }
   }
@@ -683,6 +792,36 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
         this._fetchStorageInfo();
       }
     } catch (_) {}
+  }
+
+  // ── v130: Multimedia settings health check ─────────────────────────────
+
+  async _mmFetchSettingsHealth() {
+    const el = document.getElementById('c3-mm-settings-health');
+    if (!el) return;
+    try {
+      const resp = await fetch('/api/media/health');
+      if (!resp.ok) throw new Error('API error');
+      const data = await resp.json();
+      if (data.available) {
+        const gpu = data.gpuInfo || {};
+        const vramFree = gpu.vramFree ? (gpu.vramFree / 1024 / 1024 / 1024).toFixed(1) : '?';
+        const vramTotal = gpu.vramTotal ? (gpu.vramTotal / 1024 / 1024 / 1024).toFixed(1) : '?';
+        el.innerHTML = `
+          <div class="c3-gpu-row"><span>Stav</span><strong class="c3-notif-on">Online</strong></div>
+          <div class="c3-gpu-row"><span>GPU</span><strong>${gpu.name || 'N/A'}</strong></div>
+          <div class="c3-gpu-row"><span>VRAM</span><strong>${vramFree} / ${vramTotal} GB volné</strong></div>
+          <div class="c3-gpu-row"><span>Fronta</span><strong>${data.queueSize || 0} úloh</strong></div>
+        `;
+      } else {
+        el.innerHTML = `
+          <div class="c3-gpu-row"><span>Stav</span><strong class="c3-notif-off">Offline</strong></div>
+          <div class="c3-gpu-row"><span>Chyba</span><strong>${data.error || 'ComfyUI nedostupné'}</strong></div>
+        `;
+      }
+    } catch (err) {
+      el.innerHTML = '<p class="c3-gpu-err">Multimedia health check selhalo (backend offline?)</p>';
+    }
   }
 
   // ── v87 Phase 2: Backup helpers ───────────────────────────────────────
@@ -887,6 +1026,387 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
         ),
       ),
     );
+  }
+
+  // ═══ v130: Multimedia Generator ═════════════════════════════════════════════
+
+  _renderMultimedia(h) {
+    const mm = this._mm;
+    const statusDot = mm.comfyAvailable
+      ? h('span', { className: 'c3-mm-status c3-mm-status--on', title: 'ComfyUI dostupné' }, '\u25CF Online')
+      : h('span', { className: 'c3-mm-status c3-mm-status--off', title: 'ComfyUI nedostupné' }, '\u25CF Offline');
+
+    // Start health polling on first render
+    if (!mm.healthTimer) {
+      this._mmFetchHealth();
+      mm.healthTimer = setInterval(() => this._mmFetchHealth(), 30000);
+    }
+
+    return h('div', { className: 'c3-mm', key: 'multimedia' },
+      // Header
+      h('div', { className: 'c3-mm-header' },
+        h('h2', null, 'Multimedia'),
+        statusDot,
+      ),
+
+      // Type selector
+      this._renderMmTypeSelector(h),
+
+      // Prompt area
+      this._renderMmPromptArea(h),
+
+      // Parameters (collapsible)
+      this._renderMmParams(h),
+
+      // Generate button + progress
+      this._renderMmActions(h),
+
+      // Error toast
+      mm.error && h('div', { className: 'c3-mm-error' }, mm.error),
+
+      // Gallery
+      this._renderMmGallery(h),
+    );
+  }
+
+  _renderMmTypeSelector(h) {
+    const mm = this._mm;
+    const types = [
+      { id: 'txt2img', label: 'Text \u2192 Obr\u00e1zek' },
+      { id: 'img2img', label: 'Obr\u00e1zek \u2192 Obr\u00e1zek' },
+      { id: 'txt2vid', label: 'Text \u2192 Video' },
+    ];
+    return h('div', { className: 'c3-mm-types' },
+      types.map(t => h('button', {
+        key: t.id,
+        className: 'c3-mm-type-btn' + (mm.type === t.id ? ' active' : ''),
+        onClick: () => { mm.type = t.id; this.update(); },
+      }, t.label))
+    );
+  }
+
+  _renderMmPromptArea(h) {
+    const mm = this._mm;
+    return h('div', { className: 'c3-mm-prompt-area' },
+      h('label', null, 'Prompt'),
+      h('textarea', {
+        className: 'c3-mm-textarea',
+        rows: 4,
+        placeholder: 'Popi\u0161te, co chcete vygenerovat...',
+        value: mm.prompt,
+        onChange: (e) => { mm.prompt = e.target.value; },
+      }),
+      // Collapsible negative prompt
+      h('div', { className: 'c3-mm-collapse-header', onClick: () => { mm.negExpanded = !mm.negExpanded; this.update(); } },
+        h('span', null, (mm.negExpanded ? '\u25BE' : '\u25B8') + ' Negativn\u00ed prompt'),
+      ),
+      mm.negExpanded && h('textarea', {
+        className: 'c3-mm-textarea c3-mm-textarea--neg',
+        rows: 2,
+        placeholder: 'Co nechcete vid\u011bt...',
+        value: mm.negativePrompt,
+        onChange: (e) => { mm.negativePrompt = e.target.value; },
+      }),
+    );
+  }
+
+  _renderMmParams(h) {
+    const mm = this._mm;
+    const p = mm.params;
+
+    return h('div', { className: 'c3-mm-params-section' },
+      h('div', { className: 'c3-mm-collapse-header', onClick: () => { mm.paramsExpanded = !mm.paramsExpanded; this.update(); } },
+        h('span', null, (mm.paramsExpanded ? '\u25BE' : '\u25B8') + ' Parametry'),
+      ),
+      mm.paramsExpanded && h('div', { className: 'c3-mm-params' },
+        // Model selector
+        h('div', { className: 'c3-mm-param-row' },
+          h('label', null, 'Model'),
+          h('select', {
+            className: 'c3-mm-select',
+            value: mm.selectedModel,
+            onChange: (e) => { mm.selectedModel = e.target.value; this.update(); },
+          },
+            h('option', { value: '' }, '(v\u00fdchoz\u00ed)'),
+            mm.models.map(m => h('option', { key: m, value: m }, m)),
+          ),
+          h('button', { className: 'c3-mm-refresh-btn', onClick: () => this._mmRefreshModels(), title: 'Obnovit seznam' }, '\u21BB'),
+        ),
+
+        // Resolution
+        h('div', { className: 'c3-mm-param-row' },
+          h('label', null, 'Rozli\u0161en\u00ed'),
+          h('input', { type: 'number', className: 'c3-mm-input-sm', value: p.width, min: 64, max: 4096, step: 8,
+            onChange: (e) => { p.width = parseInt(e.target.value) || 1024; },
+          }),
+          h('span', { className: 'c3-mm-x' }, '\u00d7'),
+          h('input', { type: 'number', className: 'c3-mm-input-sm', value: p.height, min: 64, max: 4096, step: 8,
+            onChange: (e) => { p.height = parseInt(e.target.value) || 1024; },
+          }),
+        ),
+
+        // Steps slider
+        h('div', { className: 'c3-mm-param-row' },
+          h('label', null, 'Kroky'),
+          h('input', { type: 'range', min: 1, max: 150, value: p.steps,
+            onChange: (e) => { p.steps = parseInt(e.target.value); this.update(); },
+          }),
+          h('span', { className: 'c3-mm-val' }, p.steps),
+        ),
+
+        // CFG slider
+        h('div', { className: 'c3-mm-param-row' },
+          h('label', null, 'CFG'),
+          h('input', { type: 'range', min: 0, max: 30, step: 0.5, value: p.cfg_scale,
+            onChange: (e) => { p.cfg_scale = parseFloat(e.target.value); this.update(); },
+          }),
+          h('span', { className: 'c3-mm-val' }, p.cfg_scale),
+        ),
+
+        // Seed
+        h('div', { className: 'c3-mm-param-row' },
+          h('label', null, 'Seed'),
+          h('input', { type: 'number', className: 'c3-mm-input-sm', value: p.seed, min: -1,
+            onChange: (e) => { p.seed = parseInt(e.target.value); },
+          }),
+          h('span', { className: 'c3-mm-hint' }, p.seed === -1 ? '(n\u00e1hodn\u00fd)' : ''),
+        ),
+
+        // Frames (video only)
+        mm.type === 'txt2vid' && h('div', { className: 'c3-mm-param-row' },
+          h('label', null, 'Sn\u00edmky'),
+          h('input', { type: 'number', className: 'c3-mm-input-sm', value: p.frames || 49, min: 1, max: 300,
+            onChange: (e) => { p.frames = parseInt(e.target.value) || 49; },
+          }),
+        ),
+      ),
+    );
+  }
+
+  _renderMmActions(h) {
+    const mm = this._mm;
+    const isWorking = mm.status === 'preparing' || mm.status === 'generating';
+    const canGenerate = mm.comfyAvailable && mm.prompt.trim() && !isWorking;
+
+    const parts = [];
+
+    // Generate / Cancel button
+    if (isWorking) {
+      parts.push(
+        h('button', { className: 'c3-mm-btn c3-mm-btn--cancel', onClick: () => this._mmCancel() }, 'Zru\u0161it'),
+      );
+    } else {
+      parts.push(
+        h('button', {
+          className: 'c3-mm-btn c3-mm-btn--gen' + (canGenerate ? '' : ' disabled'),
+          onClick: canGenerate ? () => this._mmGenerate() : null,
+          disabled: !canGenerate,
+        }, 'Generovat'),
+      );
+    }
+
+    // Progress bar
+    if (isWorking) {
+      const prog = mm.progress;
+      parts.push(
+        h('div', { className: 'c3-mm-progress' },
+          h('div', { className: 'c3-mm-progress-bar' },
+            h('div', { className: 'c3-mm-progress-fill', style: { width: (prog.percent || 0) + '%' } }),
+          ),
+          h('span', { className: 'c3-mm-progress-text' }, prog.text || (mm.status === 'preparing' ? 'P\u0159ipravuji GPU...' : 'Generuji...')),
+        ),
+      );
+    }
+
+    // Queue info
+    if (mm.queueLength > 0) {
+      parts.push(
+        h('div', { className: 'c3-mm-queue-info' }, '\u010cek\u00e1 ' + mm.queueLength + ' \u00faloh ve front\u011b'),
+      );
+    }
+
+    return h('div', { className: 'c3-mm-actions' }, ...parts);
+  }
+
+  _renderMmGallery(h) {
+    const mm = this._mm;
+    if (mm.history.length === 0 && mm.status === 'idle') {
+      return h('div', { className: 'c3-mm-empty' }, 'Zat\u00edm \u017e\u00e1dn\u00e9 generace. Zadejte prompt a klikn\u011bte Generovat.');
+    }
+
+    const items = mm.history.map(gen => {
+      const outputs = gen.outputs ? JSON.parse(gen.outputs) : [];
+      const firstFile = outputs[0];
+      const thumbUrl = firstFile ? '/api/media/output?id=' + encodeURIComponent(gen.id) + '&filename=' + encodeURIComponent(firstFile) : null;
+
+      return h('div', {
+        key: gen.id,
+        className: 'c3-mm-thumb' + (gen.status === 'failed' ? ' c3-mm-thumb--failed' : '') + (gen.favorite ? ' c3-mm-thumb--fav' : ''),
+        title: gen.prompt,
+      },
+        thumbUrl
+          ? h('img', { src: thumbUrl, loading: 'lazy', onClick: () => this._mmOpenFull(gen) })
+          : h('div', { className: 'c3-mm-thumb-placeholder' },
+              gen.status === 'failed' ? '\u2716' : gen.status === 'running' ? '\u23F3' : '\u25A1'),
+        h('div', { className: 'c3-mm-thumb-actions' },
+          h('button', {
+            className: 'c3-mm-fav-btn' + (gen.favorite ? ' active' : ''),
+            onClick: (e) => { e.stopPropagation(); this._mmToggleFavorite(gen); },
+            title: gen.favorite ? 'Odebrat z obl\u00edben\u00fdch' : 'P\u0159idat do obl\u00edben\u00fdch',
+          }, gen.favorite ? '\u2605' : '\u2606'),
+          h('button', {
+            className: 'c3-mm-del-btn',
+            onClick: (e) => { e.stopPropagation(); this._mmDelete(gen); },
+            title: 'Smazat',
+          }, '\u2716'),
+        ),
+      );
+    });
+
+    return h('div', { className: 'c3-mm-gallery-section' },
+      h('h3', null, 'Historie'),
+      h('div', { className: 'c3-mm-gallery' }, ...items),
+      mm.history.length >= (mm.historyPage + 1) * 20 && h('button', {
+        className: 'c3-mm-load-more',
+        onClick: () => this._mmFetchHistory(true),
+      }, 'Na\u010d\u00edst dal\u0161\u00ed...'),
+    );
+  }
+
+  // ── Multimedia API methods ─────────────────────────────────────────────────
+
+  async _mmFetchHealth() {
+    try {
+      const resp = await fetch('/api/media/health');
+      if (resp.ok) {
+        const data = await resp.json();
+        this._mm.comfyAvailable = data.available === true;
+      } else {
+        this._mm.comfyAvailable = false;
+      }
+      this.update();
+    } catch (_) {
+      this._mm.comfyAvailable = false;
+      this.update();
+    }
+  }
+
+  async _mmFetchModels() {
+    try {
+      const resp = await fetch('/api/media/models');
+      if (resp.ok) {
+        const data = await resp.json();
+        this._mm.models = data.checkpoints || [];
+        this.update();
+      }
+    } catch (_) {}
+  }
+
+  async _mmRefreshModels() {
+    try {
+      await fetch('/api/media/models/refresh', { method: 'POST' });
+      await this._mmFetchModels();
+    } catch (_) {}
+  }
+
+  async _mmFetchHistory(append) {
+    try {
+      const mm = this._mm;
+      const page = append ? mm.historyPage + 1 : 0;
+      const resp = await fetch('/api/media/history?page=' + page + '&limit=20');
+      if (resp.ok) {
+        const data = await resp.json();
+        if (append) {
+          mm.history = mm.history.concat(data.generations || []);
+        } else {
+          mm.history = data.generations || [];
+        }
+        mm.historyPage = page;
+        this.update();
+      }
+    } catch (_) {}
+  }
+
+  async _mmGenerate() {
+    const mm = this._mm;
+    if (!mm.prompt.trim()) return;
+
+    mm.status = 'preparing';
+    mm.error = null;
+    this.update();
+
+    try {
+      const body = {
+        type: mm.type,
+        prompt: mm.prompt,
+        negative_prompt: mm.negativePrompt || undefined,
+        params: {
+          ...mm.params,
+          model: mm.selectedModel || undefined,
+        },
+      };
+
+      const resp = await fetch('/api/media/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        mm.status = 'idle';
+        mm.error = data.error || 'Generov\u00e1n\u00ed selhalo';
+        this.update();
+        return;
+      }
+
+      mm.currentGenId = data.generationId;
+      if (data.dedup) {
+        mm.status = 'generating';
+      }
+      this.update();
+    } catch (err) {
+      mm.status = 'idle';
+      mm.error = err.message;
+      this.update();
+    }
+  }
+
+  async _mmCancel() {
+    const mm = this._mm;
+    if (!mm.currentGenId) return;
+
+    try {
+      await fetch('/api/media/cancel?id=' + encodeURIComponent(mm.currentGenId), { method: 'POST' });
+    } catch (_) {}
+  }
+
+  _mmOpenFull(gen) {
+    const outputs = gen.outputs ? JSON.parse(gen.outputs) : [];
+    if (outputs[0]) {
+      window.open('/api/media/output?id=' + encodeURIComponent(gen.id) + '&filename=' + encodeURIComponent(outputs[0]), '_blank');
+    }
+  }
+
+  async _mmToggleFavorite(gen) {
+    try {
+      await fetch('/api/media/favorite', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: gen.id, favorite: !gen.favorite }),
+      });
+      gen.favorite = gen.favorite ? 0 : 1;
+      this.update();
+    } catch (_) {}
+  }
+
+  async _mmDelete(gen) {
+    try {
+      await fetch('/api/media?id=' + encodeURIComponent(gen.id), { method: 'DELETE' });
+      this._mm.history = this._mm.history.filter(g => g.id !== gen.id);
+      this.update();
+    } catch (_) {}
   }
 
   _selectItem(id, type, item) {

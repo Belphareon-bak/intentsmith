@@ -114,6 +114,17 @@ const ForbiddenPatterns = [
     ],
   },
   {
+    // v126.1: Czech equivalents of "ignore previous instructions"
+    // NOTE: \b doesn't work with Czech diacritics (ň,š,ž) — use (?:^|\s) instead
+    pattern: /(?:^|\s)(zapomeň|ignoruj|zahoď|přepiš|overridni)\s.*(předchozí|systémov|všechn|minul)\S*\s.*(instrukc|pravidl|prompt|pokyn)/i,
+    reason_code: 'PROMPT_INJECTION',
+    template: 'Detekován pokus o prompt injection. Tento vstup byl zablokován.',
+    alternatives: [
+      'položit běžný dotaz',
+      'vysvětlit co potřebujete',
+    ],
+  },
+  {
     pattern: /\breturn\s+["'].*["']\s*$/i,
     reason_code: 'PROMPT_INJECTION',
     template: 'Detekován pokus o prompt injection. Tento vstup byl zablokován.',

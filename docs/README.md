@@ -1,6 +1,6 @@
-# C3-Agent v124.0.0 — Dokumentacni reference
+# C3-Agent v135.0.0 — Dokumentacni reference
 
-Kompletni dokumentace projektu C3 Agent — lokalni AI platforma s CRE decision enginem, 15 domain expertyzami, specialist plugin systemem, lifecycle project managementem, skills workflow enginem, autonomnimi agenty, LTM pametovym systemem a C3 Studio IDE (Theia 1.65.2 + Electron 37).
+Kompletni dokumentace projektu C3 Agent — offline-first AI platforma s CRE decision enginem, 15 domain expertyzami, specialist plugin systemem, lifecycle project managementem, skills workflow enginem, autonomnimi agenty, LTM pametovym systemem, multimedia generovanim a C3 Studio IDE (Theia 1.65.2 + Electron 37).
 
 ---
 
@@ -69,8 +69,10 @@ Vsechny promenne se nacitaji z `.env` souboru pres `dotenv`. Viz `.env.example` 
 | [SPECIALIST-LIFECYCLE.md](SPECIALIST-LIFECYCLE.md) | Specialist plugin lifecycle (registrace, activace, teardown) |
 | [WORKERS.md](WORKERS.md) | Worker agenty — Runner, Scheduler, zdroje, podminky, triggery, notifikace |
 | [skills-v1.md](skills-v1.md) | Skills system — 8 step types, state machine, sandboxed execution, meta-skill |
-| [autonomy-v1.md](autonomy-v1.md) | Autonomni vrstva — drift detection, confidence aggregator, self-tuning |
-| [TELEMETRY.md](TELEMETRY.md) | Turn telemetrie, specialist telemetrie, 30d retention |
+| [MEMORY.md](MEMORY.md) | Pametovy system — LTM decay, injection ranker, pattern tracker, task memory |
+| [NOTIFICATIONS.md](NOTIFICATIONS.md) | Notifikacni system — 6 kanalu, trust scoring, digest |
+| [PROJECT-SYSTEM.md](PROJECT-SYSTEM.md) | Projektovy lifecycle — SPEC→BUILD→REVIEW→CHANGE |
+| [marketplace.md](marketplace.md) | Marketplace — specialist balicky, distribuce, instalace |
 
 ### Nastroje & Bezpecnost
 
@@ -83,19 +85,17 @@ Vsechny promenne se nacitaji z `.env` souboru pres `dotenv`. Viz `.env.example` 
 
 | Dokument | Popis |
 |----------|-------|
-| [ROADMAP.md](ROADMAP.md) | Aktualni roadmapa v17 (stav k v124) |
-| [CHANGELOG.md](CHANGELOG.md) | Changelog (v56–v124) |
+| [ROADMAP.md](ROADMAP.md) | Aktualni roadmapa (stav k v135) |
+| [CHANGELOG.md](CHANGELOG.md) | Changelog (v56–v135) |
 | [dev-checklist.md](dev-checklist.md) | Development checklist |
 
-### Specifikace & Reference
+### Kontrakty & Protokoly
 
 | Dokument | Popis |
 |----------|-------|
-| [C3-Merge-Engine-v2-FINAL.md](C3-Merge-Engine-v2-FINAL.md) | Merge Engine specifikace (853 radku, 15.5-step algoritmus) |
-| [C3-Phase-C-Lifecycle-Plan.md](C3-Phase-C-Lifecycle-Plan.md) | Project Lifecycle design (SPEC→BUILD→REVIEW→CHANGE) |
-| [followup-contract-v2.md](followup-contract-v2.md) | Follow-up klasifikace, R1-R4 pravidla |
-| [accounting-engine-roadmap.md](accounting-engine-roadmap.md) | Ucetni engine roadmapa (ledger, DPH, dane, compliance) |
-| [OAUTH-DEVICE-PLAN.md](OAUTH-DEVICE-PLAN.md) | OAuth (Google/GitHub) + mobilni device pairing plan (v94) |
+| [followup-contract-v2.md](followup-contract-v2.md) | Follow-up klasifikace, R1-R4 pravidla (aktivni kontrakt v kodu) |
+| [API-REFERENCE.md](API-REFERENCE.md) | REST API reference (~200 endpointu) |
+| [WS-PROTOCOL.md](WS-PROTOCOL.md) | WebSocket protokol — streaming, agent log, file watch |
 
 ### IDE
 
@@ -108,10 +108,14 @@ Vsechny promenne se nacitaji z `.env` souboru pres `dotenv`. Viz `.env.example` 
 
 | Dokument | Popis |
 |----------|-------|
+| [INSTALL.md](INSTALL.md) | Kompletni instalacni prirucka |
 | [CLAUDE.md](../CLAUDE.md) | Development context pro AI asistenty |
-| [Phase-F-README.md](Phase-F-README.md) | Packaging & ochrana (Docker, licence, auto-update) |
-| [chat-quality-definition.md](chat-quality-definition.md) | Chat quality definice a metriky |
 | [channels/CHANNEL_ADAPTER_CONTRACT.md](channels/CHANNEL_ADAPTER_CONTRACT.md) | CLI/channel adapter kontrakt |
+
+### Archiv
+
+Historicke design dokumenty, implementovane RFC a point-in-time audity jsou v [`archive/`](archive/).
+Obsahuje 21 souboru — puvodni roadmap RFC, lifecycle a merge engine plany, audity v123/v127, a dalsi.
 
 ---
 
@@ -119,7 +123,7 @@ Vsechny promenne se nacitaji z `.env` souboru pres `dotenv`. Viz `.env.example` 
 
 ```
 c3-agent-wip/
-├── src/                              # Backend (282 souboru)
+├── src/                              # Backend (380+ souboru)
 │   ├── server.js                     # Entry point — HTTP server (port 3335)
 │   ├── config.js                     # Konfigurace + feature flags
 │   │
@@ -302,7 +306,7 @@ c3-agent-wip/
 │   └── tools/                        # Tool registry + HTTP client
 │
 ├── c3-ide/                           # C3 Studio IDE — Theia 1.65.2 + Electron 37
-│   ├── extensions/                   # 33 vlastnich rozsireni
+│   ├── extensions/                   # 32 vlastnich rozsireni
 │   │   ├── c3-chat-panel/            # Chat panel + transport layer (4,000+ ř.)
 │   │   ├── c3-center-views/          # Center views + Expertise Wizard
 │   │   └── c3-detail-panel/          # Detail panel s capability bars
@@ -316,11 +320,11 @@ c3-agent-wip/
 │   ├── create-skill.json             # Meta-skill pro tvorbu novych skills
 │   └── create-expertise.json         # Meta-skill pro tvorbu expertyz
 │
-├── tests/                            # 149 testovych souboru (~2,600+ testu)
+├── tests/                            # 294 testovych souboru (~3,600+ testu)
 │   ├── harness.js                    # Custom ESM test harness
 │   └── ...                           # Viz sekce Testy nize
 │
-├── docs/                             # Dokumentace (10,000+ radku, 20+ souboru)
+├── docs/                             # Dokumentace (26 aktivnich souboru + archiv)
 ├── data/                             # Runtime data (gitignored)
 └── .env.example                      # Vzorova konfigurace (113 promennych)
 ```
@@ -438,4 +442,4 @@ System licenci vazany na hardware fingerprint (3 tiery: FREE / PRO / ENTERPRISE)
 
 ---
 
-*Posledni aktualizace: v124.0.0 (2026-03-12)*
+*Posledni aktualizace: v135.0.0 (2026-03-27)*

@@ -409,6 +409,7 @@ async function handleToolCallDecision(input, decision, context) {
         searchResults: searchData?.data?.results?.length || 0,
         scrapedUrls: urls.length,
         synthesisModel: synthesisResult.model,
+        semanticScore: synthesisResult.semanticScore || null, // v126.1
       },
     });
 
@@ -621,6 +622,7 @@ async function handleToolCallDecision(input, decision, context) {
       synthesisModel: synthesizedResponse.model,
       synthesisConfidence: synthesizedResponse.confidence,
       followUpType: followUp?.type,
+      semanticScore: synthesizedResponse.semanticScore || null, // v126.1
     },
   });
 
