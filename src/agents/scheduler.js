@@ -243,9 +243,14 @@ export class AgentScheduler {
     if (this.runningAgents.has(agentId)) {
       throw new Error('Agent is already running');
     }
-    
-    // v34: Mark as manual run for better UX feedback
-    return this.runner.execute(agentId, { force: true, isManual: true });
+
+    this.runningAgents.add(agentId);
+    try {
+      // v34: Mark as manual run for better UX feedback
+      return await this.runner.execute(agentId, { force: true, isManual: true });
+    } finally {
+      this.runningAgents.delete(agentId);
+    }
   }
   
   /**

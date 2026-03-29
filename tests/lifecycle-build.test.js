@@ -12,6 +12,7 @@
 import {
   getBuildProgress,
   handleMilestoneBlocked,
+  _testInternals,
 } from '../src/planner/lifecycle-build.js';
 import {
   ProjectPhase,
@@ -24,6 +25,13 @@ import {
   projects,
   db,
 } from '../src/db/database.js';
+
+const {
+  mergeCheckpointFindings,
+  filterContextCandidatesToScope,
+  buildScopeFallbackCandidates,
+  matchesScopePattern,
+} = _testInternals;
 
 let passed = 0;
 let failed = 0;
@@ -474,6 +482,62 @@ console.log('\n── Build Progress (all status types) ──');
 
   db.prepare('DELETE FROM milestones WHERE lifecycle_id = ?').run(lc.id);
   db.prepare('DELETE FROM project_lifecycles WHERE id = ?').run(lc.id);
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// 9. Quick Win Helpers
+// ════════════════════════════════════════════════════════════════════════════════
+
+console.log('\n── Quick Win Helpers ──');
+
+{
+  const merged = mergeCheckpointFindings(
+    {
+      fix_instructions: ['Fix A', 'Fix B'],
+      security_findings: ['Sanitize input'],
+      error_handling_gaps: ['Handle timeout'],
+      overall_assessment: 'old',
+    },
+    {
+      fix_instructions: ['Fix B', 'Fix C'],
+      security_findings: ['Sanitize input', 'Validate auth'],
+      error_handling_gaps: ['Handle timeout', 'Return 400'],
+      overall_assessment: 'new',
+    }
+  );
+
+  assert(merged.fix_instructions.length === 3, 'mergeCheckpointFindings: dedups fix instructions');
+  assert(merged.security_findings.length === 2, 'mergeCheckpointFindings: dedups security findings');
+  assert(merged.error_handling_gaps.length === 2, 'mergeCheckpointFindings: dedups error handling gaps');
+  assert(merged.overall_assessment === 'new', 'mergeCheckpointFindings: keeps newest assessment');
+}
+
+{
+  assert(matchesScopePattern('src/auth/login.js', 'src/auth/'), 'matchesScopePattern: directory scope');
+  assert(matchesScopePattern('src/index.js', 'src/*.js'), 'matchesScopePattern: glob scope');
+  assert(matchesScopePattern('src/app.js', 'src/app.js'), 'matchesScopePattern: exact file scope');
+}
+
+{
+  const scoped = filterContextCandidatesToScope([
+    { file: 'src/in-scope.js', score: 2 },
+    { file: 'src/out-of-scope.js', score: 1 },
+  ], ['src/in-scope.js']);
+
+  assert(scoped.length === 1, 'filterContextCandidatesToScope: filters to scope');
+  assert(scoped[0].file === 'src/in-scope.js', 'filterContextCandidatesToScope: keeps matching file');
+}
+
+{
+  const fallback = buildScopeFallbackCandidates([
+    'src/in-scope.js',
+    'src/auth/',
+    'src/*.test.js',
+    'src/in-scope.js',
+  ]);
+
+  assert(fallback.length === 1, 'buildScopeFallbackCandidates: keeps only concrete unique files');
+  assert(fallback[0].file === 'src/in-scope.js', 'buildScopeFallbackCandidates: uses scope file path');
 }
 
 // ════════════════════════════════════════════════════════════════════════════════

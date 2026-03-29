@@ -3,6 +3,7 @@ import { featureManager } from '../core/feature-manager.js';
 import config from '../config.js';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
+import { getWebSocketBridgeHealth } from '../ws-bridge/ws-server.js';
 
 // H9: Settings, Health, Autocomplete, Audit, Logs routes
 const _fbRateMap = new Map(); // IP → last feedback timestamp (rate limit)
@@ -83,7 +84,8 @@ export function createMiscRoutes(deps) {
         version: getCurrentVersion(),
         timestamp: new Date().toISOString(),
         llm: true,
-        cwd: process.cwd()
+        cwd: process.cwd(),
+        wsBridge: getWebSocketBridgeHealth(),
       });
     },
 

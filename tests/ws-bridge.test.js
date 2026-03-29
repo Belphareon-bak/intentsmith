@@ -489,6 +489,8 @@ console.log('\n🌐 WS Server Module');
 
 // Import WS server — may fail if 'ws' not installed (no network in test env)
 let attachWebSocketServer = null;
+let getWebSocketBridgeHealth = null;
+let wsBridgeTestInternals = null;
 try {
   const mod = await import('../src/ws-bridge/index.js');
   attachWebSocketServer = mod.attachWebSocketServer;
@@ -496,6 +498,16 @@ try {
   if (err.code === 'ERR_MODULE_NOT_FOUND' && err.message.includes('ws')) {
     console.log('  ⚠️  Skipping WS server tests (ws package not installed)');
   } else {
+    throw err;
+  }
+}
+
+try {
+  const mod = await import('../src/ws-bridge/ws-server.js');
+  getWebSocketBridgeHealth = mod.getWebSocketBridgeHealth;
+  wsBridgeTestInternals = mod._testInternals;
+} catch (err) {
+  if (!(err.code === 'ERR_MODULE_NOT_FOUND' && err.message.includes('ws'))) {
     throw err;
   }
 }
@@ -532,6 +544,57 @@ test('T25: createSessionAdapter is exported and functional', () => {
   });
   assert.ok(adapter.sessionId);
 });
+
+if (wsBridgeTestInternals && getWebSocketBridgeHealth) {
+  test('T25b: dropped message counter increments and warns every 10th drop', () => {
+    wsBridgeTestInternals.resetBridgeState();
+    let warnCount = 0;
+    const logger = {
+      info() {},
+      error() {},
+      debug() {},
+      warn() {
+        warnCount++;
+      },
+    };
+
+    for (let i = 0; i < 9; i++) {
+      wsBridgeTestInternals.recordDroppedMessage(logger, { reason: 'test_drop' });
+    }
+
+    assert.equal(getWebSocketBridgeHealth().droppedMessages, 9);
+    assert.equal(warnCount, 0);
+
+    wsBridgeTestInternals.recordDroppedMessage(logger, { reason: 'test_drop' });
+
+    assert.equal(getWebSocketBridgeHealth().droppedMessages, 10);
+    assert.equal(warnCount, 1);
+  });
+
+  await asyncTest('T25c: health endpoint exposes wsBridge observability stats', async () => {
+    wsBridgeTestInternals.resetBridgeState();
+    wsBridgeTestInternals.recordDroppedMessage(mockLogger, { reason: 'health_check' });
+
+    const { createMiscRoutes } = await import('../src/routes/misc.js');
+    let sent = null;
+    const routes = createMiscRoutes({
+      db: {},
+      parseBody: async () => ({}),
+      sendJSON: (_res, status, body) => { sent = { status, body }; },
+      safeError: () => 'error',
+      logger: mockLogger,
+      callWithAuth: async () => ({}),
+      createAuthToken: () => '',
+      LLMCallerRole: {},
+    });
+
+    routes['GET /api/health']({}, {});
+
+    assert.equal(sent.status, 200);
+    assert.equal(sent.body.wsBridge.droppedMessages, 1);
+    assert.equal(typeof sent.body.wsBridge.connectedClients, 'number');
+  });
+}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // T26-T30: Integration (full turn lifecycle via session adapter)

@@ -804,12 +804,10 @@ async function postExecution(lifecycle, milestone, wfResult) {
 
     // Adaptive retry: store checkpoint findings so next attempt can address them
     if (!checkpointResult.passed && checkpointResult.fix_instructions?.length > 0) {
-      milestone._lastCheckpointFindings = {
-        fix_instructions: checkpointResult.fix_instructions,
-        security_findings: checkpointResult.security_findings || [],
-        error_handling_gaps: checkpointResult.error_handling_gaps || [],
-        overall_assessment: checkpointResult.overall_assessment,
-      };
+      milestone._lastCheckpointFindings = mergeCheckpointFindings(
+        milestone._lastCheckpointFindings,
+        checkpointResult
+      );
     }
 
     // v98: Critic agent — generate targeted repair plan
@@ -1137,6 +1135,77 @@ const ENGINE_MANAGED_FILES = new Set(['ROADMAP.md', 'README.md', 'ARCHITECTURE.m
 
 // Generated/artifact directories — always ignored in scope check
 const SCOPE_IGNORE_DIRS = ['__pycache__', '.pytest_cache', 'node_modules', '.git', '.venv', '__pypackages__', '.mypy_cache', '.c3'];
+
+function findingKey(value) {
+  if (value == null) return '';
+  if (typeof value === 'string') return value.trim();
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function dedupeFindings(items = []) {
+  const seen = new Set();
+  const deduped = [];
+  for (const item of items) {
+    const key = findingKey(item);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(item);
+  }
+  return deduped;
+}
+
+function mergeCheckpointFindings(previous = null, checkpointResult = {}) {
+  return {
+    fix_instructions: dedupeFindings([
+      ...(previous?.fix_instructions || []),
+      ...(checkpointResult.fix_instructions || []),
+    ]),
+    security_findings: dedupeFindings([
+      ...(previous?.security_findings || []),
+      ...(checkpointResult.security_findings || []),
+    ]),
+    error_handling_gaps: dedupeFindings([
+      ...(previous?.error_handling_gaps || []),
+      ...(checkpointResult.error_handling_gaps || []),
+    ]),
+    overall_assessment: checkpointResult.overall_assessment || previous?.overall_assessment || '',
+  };
+}
+
+function matchesScopePattern(file, pattern) {
+  if (!file || !pattern) return false;
+  if (file === pattern) return true;
+  if (pattern.endsWith('/') && file.startsWith(pattern)) return true;
+  if (pattern.includes('*')) {
+    const regex = new RegExp('^' + pattern.replace(/\*/g, '[^/]*') + '$');
+    return regex.test(file);
+  }
+  return false;
+}
+
+function filterContextCandidatesToScope(candidates = [], scopeFiles = []) {
+  if (!scopeFiles.length) return candidates;
+  return candidates.filter(candidate =>
+    typeof candidate?.file === 'string' &&
+    scopeFiles.some(pattern => matchesScopePattern(candidate.file, pattern))
+  );
+}
+
+function buildScopeFallbackCandidates(scopeFiles = []) {
+  const seen = new Set();
+  const fallback = [];
+  for (const file of scopeFiles) {
+    if (typeof file !== 'string' || !file || file.endsWith('/') || file.includes('*')) continue;
+    if (seen.has(file)) continue;
+    seen.add(file);
+    fallback.push({ file, score: 1, content: '' });
+  }
+  return fallback;
+}
 
 async function enforceMilestoneScope(lifecycle, milestone) {
   const scopeFiles = milestone.scope_files || [];
@@ -1585,10 +1654,40 @@ async function buildCodeContextForMilestone(projectPath, milestone, localPlan) {
       return true;
     });
 
-    if (allResults.length === 0) return '';
+    const fallbackCandidates = buildScopeFallbackCandidates(scopeFiles);
+    let effectiveRankedFiles;
+    let effectiveArchResults;
 
-    // Rank files
-    const rankedFiles = await _rankFiles(allResults, queryTerms, { projectPath });
+    if (allResults.length === 0) {
+      if (fallbackCandidates.length === 0) return '';
+      effectiveRankedFiles = fallbackCandidates;
+      effectiveArchResults = fallbackCandidates;
+      logger.info('LifecycleBuild', 'No KG matches — using scope_files fallback for code context', {
+        milestoneId: milestone.id,
+        scopeFiles: fallbackCandidates.length,
+      });
+    } else {
+      const rankedFiles = await _rankFiles(allResults, queryTerms, { projectPath });
+      const scopedRankedFiles = filterContextCandidatesToScope(rankedFiles, scopeFiles);
+      const scopedArchResults = filterContextCandidatesToScope(allResults, scopeFiles);
+
+      if (scopeFiles.length > 0) {
+        effectiveRankedFiles = scopedRankedFiles.length > 0 ? scopedRankedFiles : fallbackCandidates;
+        effectiveArchResults = scopedArchResults.length > 0 ? scopedArchResults : fallbackCandidates;
+
+        logger.info('LifecycleBuild', 'Code context scope filter applied', {
+          milestoneId: milestone.id,
+          rankedBefore: rankedFiles.length,
+          rankedAfter: scopedRankedFiles.length,
+          fallbackUsed: scopedRankedFiles.length === 0,
+        });
+      } else {
+        effectiveRankedFiles = rankedFiles;
+        effectiveArchResults = allResults;
+      }
+    }
+
+    if (!effectiveRankedFiles?.length) return '';
 
     // v106: Context Optimizer + Signature Map
     let codeCtx;
@@ -1596,7 +1695,7 @@ async function buildCodeContextForMilestone(projectPath, milestone, localPlan) {
 
     if (await ensureContextOptimizer()) {
       // Prepare files with content for ranking
-      const searchFiles = rankedFiles.map(f => ({
+      const searchFiles = effectiveRankedFiles.map(f => ({
         file: f.file,
         content: f.content || '',
         score: f.score,
@@ -1633,7 +1732,7 @@ async function buildCodeContextForMilestone(projectPath, milestone, localPlan) {
       });
     } else {
       // Fallback: original behavior
-      codeCtx = await _buildCodeContext(projectPath, rankedFiles, {
+      codeCtx = await _buildCodeContext(projectPath, effectiveRankedFiles, {
         maxFiles: 5,
         maxTokens: 5000,
         maxLinesPerFile: 100,
@@ -1647,16 +1746,15 @@ async function buildCodeContextForMilestone(projectPath, milestone, localPlan) {
       content: '', // files don't have content in fileInfos — detection uses path patterns
     })));
 
-    // Also detect from ranked results (which have content hints)
-    const archFromResults = _detectArchitecture(allResults.slice(0, 30).map(r => ({
+    const scopedArch = _detectArchitecture((effectiveArchResults || []).slice(0, 30).map(r => ({
       file: r.file,
       content: r.content || '',
     })));
 
     // Merge frameworks and patterns
-    const mergedFrameworks = [...new Set([...arch.framework, ...archFromResults.framework])];
-    const mergedPatterns = [...new Set([...arch.patterns, ...archFromResults.patterns])];
-    const mergedArch = { ...archFromResults, framework: mergedFrameworks, patterns: mergedPatterns };
+    const mergedFrameworks = [...new Set([...arch.framework, ...scopedArch.framework])];
+    const mergedPatterns = [...new Set([...arch.patterns, ...scopedArch.patterns])];
+    const mergedArch = { ...scopedArch, framework: mergedFrameworks, patterns: mergedPatterns };
 
     // Build prompt sections
     const parts = [];
@@ -1798,6 +1896,13 @@ function validateMilestonePlan(plan) {
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
+
+export const _testInternals = {
+  mergeCheckpointFindings,
+  filterContextCandidatesToScope,
+  buildScopeFallbackCandidates,
+  matchesScopePattern,
+};
 
 export default {
   startNextMilestone,

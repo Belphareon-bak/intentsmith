@@ -15,6 +15,7 @@ import db from './db/database.js';
 // ESM __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+let metricsCollector = null;
 
 // Global error handlers (Phase 1 — error-handler.js)
 installGlobalHandlers({ logger, exitOnUncaught: false });
@@ -231,7 +232,7 @@ try {
 
 // v120: Phase 3 — metrics collector for empirical model evaluation
 try {
-  const { metricsCollector } = await import('./upgrade/metrics-collector.js');
+  ({ metricsCollector } = await import('./upgrade/metrics-collector.js'));
   metricsCollector.setDb(db.db);
   logger.info('Server', 'Phase 3 metrics collector initialized');
 } catch (err) {
@@ -1381,6 +1382,9 @@ function gracefulShutdown(signal) {
 
   // v82: Flush specialist telemetry before DB close
   try { specialistTelemetry?.shutdown(); } catch { /* ignore */ }
+
+  // v135.1: Persist the last buffered upgrade metrics before DB shutdown
+  try { metricsCollector?.flush(); } catch { /* ignore */ }
 
   // v92: Drain + backup before shutdown
   try {

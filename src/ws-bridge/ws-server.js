@@ -24,6 +24,30 @@ import {
 import { createSessionAdapter } from './session-adapter.js';
 import { watchProject, unwatchProject } from './file-watcher.js';
 
+const WS_OPEN = 1;
+const DROP_LOG_INTERVAL = 10;
+const _wsStats = {
+  droppedMessages: 0,
+};
+
+let _wss = null;
+let _bridgeLogger = console;
+
+function recordDroppedMessage(logger, meta = {}) {
+  const targetLogger = logger && typeof logger.warn === 'function' ? logger : _bridgeLogger;
+  _wsStats.droppedMessages++;
+  if (_wsStats.droppedMessages % DROP_LOG_INTERVAL === 0) {
+    targetLogger.warn('WSBridge', `Dropped ${_wsStats.droppedMessages} websocket message(s)`, meta);
+  }
+}
+
+export function getWebSocketBridgeHealth() {
+  return {
+    droppedMessages: _wsStats.droppedMessages,
+    connectedClients: _wss?.clients?.size || 0,
+  };
+}
+
 /**
  * Attach a C3 WebSocket server to an existing HTTP server.
  *
@@ -36,6 +60,7 @@ import { watchProject, unwatchProject } from './file-watcher.js';
  */
 export function attachWebSocketServer(httpServer, chatController, logger, options = {}) {
   const wsPath = options.path || '/c3/ws';
+  _bridgeLogger = logger || console;
 
   const wss = new WebSocketServer({
     server: httpServer,
@@ -68,8 +93,20 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
     // ─── Safe send wrapper ────────────────────────────────────────
 
     function safeSend(jsonString) {
-      if (ws.readyState === 1 /* OPEN */) {
+      if (ws.readyState !== WS_OPEN) {
+        recordDroppedMessage(_bridgeLogger, { reason: 'socket_not_open', ip: clientIP });
+        return false;
+      }
+      try {
         ws.send(jsonString);
+        return true;
+      } catch (err) {
+        recordDroppedMessage(_bridgeLogger, {
+          reason: 'send_failed',
+          error: err.message,
+          ip: clientIP,
+        });
+        return false;
       }
     }
 
@@ -205,10 +242,6 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
   return wss;
 }
 
-// ─── Broadcast (v103.1) ──────────────────────────────────────────────────
-
-let _wss = null;
-
 /**
  * Broadcast a message to all connected WS clients.
  * @param {string} channel - Protocol channel ('control', 'chat', etc.)
@@ -218,8 +251,27 @@ export function broadcast(channel, data) {
   if (!_wss) return;
   const msg = JSON.stringify({ channel, data });
   for (const client of _wss.clients) {
-    if (client.readyState === 1) {
+    if (client.readyState !== WS_OPEN) {
+      recordDroppedMessage(_bridgeLogger, { reason: 'client_not_open', channel });
+      continue;
+    }
+    try {
       client.send(msg);
+    } catch (err) {
+      recordDroppedMessage(_bridgeLogger, {
+        reason: 'broadcast_failed',
+        channel,
+        error: err.message,
+      });
     }
   }
 }
+
+export const _testInternals = {
+  recordDroppedMessage,
+  resetBridgeState() {
+    _wsStats.droppedMessages = 0;
+    _wss = null;
+    _bridgeLogger = console;
+  },
+};
