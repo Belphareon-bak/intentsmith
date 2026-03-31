@@ -3,7 +3,7 @@
 ## Od aktuálního stavu k vizi
 
 **Datum:** 2026-03-25
-**Verze kódu:** v132.0.0 (vše z v124 + Semantic Quality Layer, VRAM Coordination, Multimedia, Upgrade UX, Security Hardening)
+**Verze kódu:** v135.0.0 (vše z v124 + Semantic Quality Layer, VRAM Coordination, Multimedia, Upgrade UX, Security Hardening)
 **Testy:** ~3,600+ verified across 294 test files (192 pure unit, 38 integration, 7 E2E/LLM)
 **IDE:** C3 Studio (Theia 1.65.2), 32 custom extensions, Phase 1-5 (~85%)
 
@@ -730,4 +730,4 @@ Vizuální breakdown (pie/bar chart)
 
 ---
 
-*Tento dokument nahrazuje Roadmapa v14. Aktualizováno na v132.0.0 (2026-03-25).*
+*Tento dokument nahrazuje Roadmapa v14. Aktualizováno na v135.0.0 (2026-03-31).*

@@ -2,7 +2,7 @@
 
 Lokální AI platforma pro konverzační asistenci, správu projektů a autonomní agenty. Offline-first architektura na vlastním hardware — žádné API klíče, žádné sdílení dat. Volitelné síťové funkce (marketplace, model discovery) vyžadují explicitní zapnutí.
 
-**Verze:** 132.0.0 | **380+ modulů** | **294 testovacích sad** | **137,000+ řádků kódu**
+**Verze:** 135.0.0 | **380+ modulů** | **294 testovacích sad** | **137,000+ řádků kódu**
 
 ---
 

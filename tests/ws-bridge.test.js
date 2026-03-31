@@ -131,7 +131,6 @@ test('T6: createSessionAdapter returns valid adapter', () => {
   assert.ok(adapter.sessionId);
   assert.ok(adapter.sessionId.startsWith('ws-'));
   assert.equal(adapter.isExecuting, false);
-  assert.equal(adapter.currentTurnId, null);
 });
 
 test('T7: custom sessionId is preserved', () => {

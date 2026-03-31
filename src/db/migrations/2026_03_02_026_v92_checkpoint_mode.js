@@ -4,11 +4,15 @@
 // Controls checkpoint strictness per milestone.
 // ==============================================================================
 
+import { hasColumn } from '../migrate.js';
+
 export const version = '2026_03_02_026';
 export const description = 'Add checkpoint_mode to milestones';
 
 export function up(db) {
-  db.exec(`ALTER TABLE milestones ADD COLUMN checkpoint_mode TEXT DEFAULT 'FUNCTIONAL'`);
+  if (!hasColumn(db, 'milestones', 'checkpoint_mode')) {
+    db.exec(`ALTER TABLE milestones ADD COLUMN checkpoint_mode TEXT DEFAULT 'FUNCTIONAL'`);
+  }
 }
 
 export function down(db) {

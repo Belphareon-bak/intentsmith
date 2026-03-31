@@ -1,6 +1,6 @@
 # CLAUDE.md - C.3 Agent Development Context
 
-**Verze:** v132.0.0 (kanonická verze z `package.json`)
+**Verze:** v135.0.0 (kanonická verze z `package.json`)
 **Datum:** 2026-03-27
 **Projekt:** ~/Projects/c3-agent-wip
 
@@ -488,4 +488,4 @@ Discovery nikdy nemění config. Komunikace jen přes proposals v DB. Chat-based
 
 ---
 
-*Poslední aktualizace: v132.0.0 (2026-03-27)*
+*Poslední aktualizace: v135.0.0 (2026-03-31)*

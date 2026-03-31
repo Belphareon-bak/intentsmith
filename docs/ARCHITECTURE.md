@@ -1,6 +1,6 @@
-# C.3 Agent Platform — Architecture v132
+# C.3 Agent Platform — Architecture v135
 
-**Version:** v132.0.0
+**Version:** v135.0.0
 **Status:** Production-ready
 **Date:** 2026-03-25
 
@@ -991,4 +991,4 @@ All memory systems use exponential decay: LTM (λ=0.01, half-life ~69d), Task Me
 
 ---
 
-*This document reflects C.3 Agent Platform v132.0.0 architecture (2026-03-25).*
+*This document reflects C.3 Agent Platform v135.0.0 architecture (2026-03-31).*

@@ -324,7 +324,7 @@ try {
 // v85: Initialize skill registry (graceful empty load)
 if (config.features.skills !== false) {
   try {
-    const skillsPath = path.join(process.cwd(), 'skills');
+    const skillsPath = path.join(__dirname, '..', 'skills');
     skillRegistry.load(skillsPath, logger);
     logger.info('Server', `Skills: ${skillRegistry.list().length} loaded from ${skillsPath}`);
   } catch (err) {

@@ -442,4 +442,4 @@ System licenci vazany na hardware fingerprint (3 tiery: FREE / PRO / ENTERPRISE)
 
 ---
 
-*Posledni aktualizace: v135.0.0 (2026-03-27)*
+*Posledni aktualizace: v135.0.0 (2026-03-31)*

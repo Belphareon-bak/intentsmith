@@ -8,47 +8,38 @@
 //
 // ==============================================================================
 
+import { hasColumn, hasTable } from '../migrate.js';
+
 export const version = '2026_02_27_021';
 export const description = 'Memory persistence & data retention (indexes, archived, decay)';
 
 export function up(db) {
   // ── 1. Retention indexes (critical for DELETE WHERE created_at < ?) ──
   const indexDefs = [
-    ['idx_messages_created_at',            'messages(created_at)'],
-    ['idx_agent_logs_created_at',          'agent_logs(created_at)'],
-    ['idx_execution_trace_created_at',     'execution_trace(created_at)'],
-    ['idx_cre_override_log_created_at',    'cre_override_log(created_at)'],
-    ['idx_conversation_memory_created_at', 'conversation_memory(created_at)'],
-    // Soft-delete cleanup: find deleted items by deleted_at
-    ['idx_conversations_deleted_at',       'conversations(deleted_at)'],
-    ['idx_projects_status',                'projects(status)'],
+    ['idx_messages_created_at',            'messages',             'messages(created_at)'],
+    ['idx_agent_logs_created_at',          'agent_logs',           'agent_logs(created_at)'],
+    ['idx_execution_trace_created_at',     'execution_trace',      'execution_trace(created_at)'],
+    ['idx_cre_override_log_created_at',    'cre_override_log',     'cre_override_log(created_at)'],
+    ['idx_conversation_memory_created_at', 'conversation_memory',  'conversation_memory(created_at)'],
+    ['idx_conversations_deleted_at',       'conversations',        'conversations(deleted_at)'],
+    ['idx_projects_status',                'projects',             'projects(status)'],
   ];
 
-  for (const [name, def] of indexDefs) {
-    try {
+  for (const [name, table, def] of indexDefs) {
+    if (hasTable(db, table)) {
       db.exec(`CREATE INDEX IF NOT EXISTS ${name} ON ${def}`);
-    } catch (_) {
-      // Table may not exist — skip silently
     }
   }
 
   // ── 2. Messages: archived flag ──
-  try {
+  if (!hasColumn(db, 'messages', 'archived')) {
     db.exec(`ALTER TABLE messages ADD COLUMN archived INTEGER DEFAULT 0`);
-  } catch (_) {
-    // Column already exists
   }
-
-  // Add index for archived messages retention
-  try {
-    db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_archived ON messages(archived, created_at)`);
-  } catch (_) {}
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_archived ON messages(archived, created_at)`);
 
   // ── 3. Conversations: summary_archive for extended archive summaries ──
-  try {
+  if (!hasColumn(db, 'conversations', 'summary_archive')) {
     db.exec(`ALTER TABLE conversations ADD COLUMN summary_archive TEXT`);
-  } catch (_) {
-    // Column already exists
   }
 
   // ── 4. Memory table: ensure exists with decay/access columns ──
@@ -70,13 +61,10 @@ export function up(db) {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_memory_user_kind ON memory(user_id, kind)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_memory_key ON memory(user_id, key)`);
 
-  // Add access_count column (for reinforcement tracking)
-  try {
+  if (!hasColumn(db, 'memory', 'access_count')) {
     db.exec(`ALTER TABLE memory ADD COLUMN access_count INTEGER DEFAULT 0`);
-  } catch (_) {}
-
-  // Add last_accessed_at column (for decay calculation)
-  try {
+  }
+  if (!hasColumn(db, 'memory', 'last_accessed_at')) {
     db.exec(`ALTER TABLE memory ADD COLUMN last_accessed_at DATETIME`);
-  } catch (_) {}
+  }
 }

@@ -9,17 +9,26 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
+import { hasColumn } from '../migrate.js';
+
 export const version = '2026_02_22_010';
 
 export function up(db) {
   // ── Extend financial_entries with VAT metadata ──
   // These columns are nullable — non-VAT entries simply leave them NULL.
 
-  db.exec(`ALTER TABLE financial_entries ADD COLUMN supply_date TEXT`);
-  db.exec(`ALTER TABLE financial_entries ADD COLUMN partner_dic TEXT`);
-  db.exec(`ALTER TABLE financial_entries ADD COLUMN partner_name TEXT`);
-  db.exec(`ALTER TABLE financial_entries ADD COLUMN document_number TEXT`);
-  db.exec(`ALTER TABLE financial_entries ADD COLUMN vat_type TEXT DEFAULT NULL`);
+  const vatCols = [
+    ['supply_date', 'TEXT'],
+    ['partner_dic', 'TEXT'],
+    ['partner_name', 'TEXT'],
+    ['document_number', 'TEXT'],
+    ['vat_type', 'TEXT DEFAULT NULL'],
+  ];
+  for (const [col, type] of vatCols) {
+    if (!hasColumn(db, 'financial_entries', col)) {
+      db.exec(`ALTER TABLE financial_entries ADD COLUMN ${col} ${type}`);
+    }
+  }
 
   // Note: SQLite ALTER TABLE ADD COLUMN doesn't support CHECK constraints.
   // vat_type values are enforced at application level:
