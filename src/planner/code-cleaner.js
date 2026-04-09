@@ -56,6 +56,12 @@ export function stripCodeFences(content, fileExt) {
 
   c = c.trim();
 
+  // Per-format prose strip for structured plaintext formats
+  if (fileExt === '.env' || fileExt === '.ini' || fileExt === '.cfg' || fileExt === '.conf') {
+    // Keep only KEY=VALUE pairs, comments, and blank lines — strip LLM prose
+    c = c.split('\n').filter(l => /^([A-Z_a-z]\w*\s*=|#|\s*$)/.test(l)).join('\n').trim();
+  }
+
   // TypeScript→JS transform for .js files
   if (['.js', '.mjs', '.cjs'].includes(fileExt)) {
     c = stripTypeAnnotations(c);
