@@ -1420,6 +1420,15 @@ export const driftChecks = {
   getChecksByMilestone(milestoneId) {
     return this.findByMilestone.all(milestoneId).map(parseDriftCheckJSON);
   },
+
+  getByType(lifecycleId, checkType) {
+    return this.findByType.all(lifecycleId, checkType).map(parseDriftCheckJSON);
+  },
+
+  getLatestByType(lifecycleId, checkType) {
+    const row = this.findLatestByType.get(lifecycleId, checkType);
+    return row ? parseDriftCheckJSON(row) : null;
+  },
 };
 
 function parseDriftCheckJSON(row) {

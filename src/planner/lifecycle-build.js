@@ -14,7 +14,10 @@
 // On failure: retry (up to max_retries) → BLOCKED → user decides (retry/skip/modify)
 // ══════════════════════════════════════════════════════════════════════════════
 
+import fs from 'fs';
+import path from 'path';
 import { logger } from '../core/logger.js';
+import { config } from '../config.js';
 
 // v93: Notification emitter reference (set by server.js via setNotificationEmitter)
 let _notificationEmitter = null;
@@ -486,8 +489,9 @@ async function executeMilestone(lifecycle, milestone) {
       }
     }
 
-    // v124.5: Executor timeout — 5 minutes hard limit
-    const MILESTONE_TIMEOUT = 5 * 60 * 1000;
+    // v124.5: Executor timeout — adaptive: 8 min for first milestone, 5 min for rest (v135.1)
+    const isFirstMs = (milestone.order_index === 0) || milestone.id.includes('ms-1');
+    const MILESTONE_TIMEOUT = isFirstMs ? (8 * 60 * 1000) : (5 * 60 * 1000);
     const _execController = new AbortController();
     const _execTimeoutId = setTimeout(() => _execController.abort(), MILESTONE_TIMEOUT);
 
@@ -498,6 +502,7 @@ async function executeMilestone(lifecycle, milestone) {
         lifecycleId: lifecycle.id,
         projectId: lifecycle.projectId,
         signal: _execController.signal,
+        codeTimeout: isFirstMs ? config.timeouts.CODE_FIRST : config.timeouts.CODE,
       });
     } finally {
       clearTimeout(_execTimeoutId);
@@ -546,6 +551,30 @@ async function postExecution(lifecycle, milestone, wfResult) {
   const _buildStart = Date.now(); // v120: build timing
   if (wfResult.state === 'FAILED') {
     return handleMilestoneFailure(lifecycle, milestone, wfResult.error || 'Workflow failed');
+  }
+
+  // ─── Artifact validation — hard fail on 0-byte plaintext artifacts ───────
+  const ARTIFACT_REQUIRED_EXTS = new Set(['.txt', '.sql', '.env', '.yaml', '.yml', '.toml', '.sh', '.ini', '.cfg', '.conf']);
+  const scopeFilesForArtifact = milestone.scope_files || [];
+  const artifactFailures = [];
+  for (const relPath of scopeFilesForArtifact) {
+    const ext = path.extname(relPath);
+    if (ARTIFACT_REQUIRED_EXTS.has(ext)) {
+      const fullPath = path.join(lifecycle.projectPath, relPath);
+      try {
+        const stat = fs.statSync(fullPath);
+        if (stat.size === 0) {
+          artifactFailures.push(relPath);
+          logger.warn('LifecycleBuild', 'Artifact validation: 0-byte plaintext file', {
+            milestoneId: milestone.id, file: relPath,
+          });
+        }
+      } catch { /* file missing — quality gate handles it */ }
+    }
+  }
+  if (artifactFailures.length > 0) {
+    return handleMilestoneFailure(lifecycle, milestone,
+      `Artifact validation failed — 0-byte files: ${artifactFailures.join(', ')}`);
   }
 
   // ─── TESTING phase ──────────────────────────────────────────────────────
@@ -685,6 +714,23 @@ async function postExecution(lifecycle, milestone, wfResult) {
           testResults = loopResult2.finalTestResults;
           qualityGateResult = loopResult2.finalQualityGate;
           enhancedValidation = { errors: [], warnings: [] }; // cleared
+        } else if (loopResult2.stopReason === 'out_of_scope_only') {
+          // v135.1: All errors reference files outside scope — strip dead imports instead of failing
+          const stripped = await _stripDeadImports(lifecycle.projectPath, milestone.scope_files);
+          if (stripped > 0) {
+            logger.info('LifecycleBuild', `Stripped ${stripped} dead import(s)`, { milestoneId: milestone.id });
+            const ev2 = await runEnhancedValidation(lifecycle.projectPath, await getChangedFiles(lifecycle));
+            if (ev2.errors.length === 0) {
+              enhancedValidation = ev2;
+              // Continue to checkpoint — imports cleaned
+            } else {
+              return handleMilestoneFailure(lifecycle, milestone,
+                `dead import strip incomplete: ${ev2.errors.map(e => e.message).join('; ')}`);
+            }
+          } else {
+            return handleMilestoneFailure(lifecycle, milestone,
+              `out-of-scope errors unfixable: ${enhancedValidation.errors.map(e => e.message).join('; ')}`);
+          }
         } else {
           return handleMilestoneFailure(lifecycle, milestone,
             `semantic validation fix loop ${loopResult2.stopReason}: ${enhancedValidation.errors.map(e => e.message).join('; ')}`);
@@ -914,6 +960,25 @@ async function postExecution(lifecycle, milestone, wfResult) {
     checkpoint_mode: checkpointResult?.mode || 'unknown',
     health_scope: health?.scope_adherence ?? null,
   });
+
+  // KG incremental sync — reindex new/changed files so next milestone has context
+  try {
+    const changedPaths = await getChangedFiles(lifecycle);
+    if (changedPaths.length > 0 && _codeIntelLoaded) {
+      const { knowledgeGraph } = await import('../code-intel/knowledge-graph.js');
+      if (knowledgeGraph._projectPath) {
+        // Fire-and-forget: reindex each changed code file
+        const codeExts = new Set(['.js','.ts','.py','.go','.rs','.java','.rb','.php','.vue','.svelte','.jsx','.tsx']);
+        const filesToIndex = changedPaths.filter(p => {
+          const dot = p.lastIndexOf('.');
+          return dot >= 0 && codeExts.has(p.substring(dot));
+        });
+        for (const relPath of filesToIndex.slice(0, 20)) {
+          knowledgeGraph.reindexFile(relPath).catch(() => {});
+        }
+      }
+    }
+  } catch (_) { /* non-blocking */ }
 
   // v124: Spec drift guard — check every 4th PASSED milestone
   let driftResult = null;
@@ -1602,6 +1667,68 @@ async function getChangedFiles(lifecycle) {
   return [];
 }
 
+// ─── v135.1: Dead Import Stripping ──────────────────────────────────────────
+
+/**
+ * Strip import lines that reference non-existent files from scope files.
+ * Returns count of stripped lines.
+ */
+async function _stripDeadImports(projectPath, scopeFiles) {
+  if (!scopeFiles || scopeFiles.length === 0) return 0;
+  let totalStripped = 0;
+
+  for (const relFile of scopeFiles) {
+    const fullPath = path.join(projectPath, relFile);
+    let code;
+    try { code = fs.readFileSync(fullPath, 'utf-8'); } catch { continue; }
+
+    const ext = path.extname(relFile);
+    const lines = code.split('\n');
+    let modified = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      let importTarget = null;
+
+      // JS: require('./foo') or import from './foo'
+      if (ext === '.js' || ext === '.mjs' || ext === '.cjs') {
+        const req = line.match(/require\(\s*['"](\.[^'"]+)['"]\s*\)/);
+        const esm = line.match(/from\s+['"](\.[^'"]+)['"]/);
+        importTarget = (req && req[1]) || (esm && esm[1]);
+      }
+      // Python: from foo import bar / import foo
+      else if (ext === '.py') {
+        const pyFrom = line.match(/^\s*from\s+(\.[\w.]+)\s+import/);
+        if (pyFrom) importTarget = pyFrom[1];
+      }
+      // Java: import com.foo.Bar;
+      // (Java imports are external packages — skip, handled by Java guard)
+
+      if (importTarget && importTarget.startsWith('.')) {
+        // Resolve relative import
+        const fromDir = path.dirname(fullPath);
+        const base = path.resolve(fromDir, importTarget);
+        const candidates = [base, base + '.js', base + '.mjs', base + '.cjs',
+          path.join(base, 'index.js'), base + '.py'];
+        const exists = candidates.some(c => { try { return fs.statSync(c).isFile(); } catch { return false; } });
+
+        if (!exists) {
+          lines[i] = `// [STRIPPED: dead import] ${line.trim()}`;
+          modified = true;
+          totalStripped++;
+        }
+      }
+    }
+
+    if (modified) {
+      fs.writeFileSync(fullPath, lines.join('\n'), 'utf-8');
+      logger.info('LifecycleBuild', `Stripped dead imports from ${relFile}`, { projectPath });
+    }
+  }
+
+  return totalStripped;
+}
+
 // ─── Code Context for BUILD ──────────────────────────────────────────────────
 
 const DOCS_ONLY_EXTENSIONS = new Set(['.md', '.txt', '.rst', '.adoc', '.doc']);
@@ -1878,7 +2005,7 @@ function validateMilestonePlan(plan) {
     errors.push(`Need ≥3 implementation steps, got ${steps.length}`);
   }
 
-  const actionVerbs = /create|implement|add|write|configure|set\s*up|install|define|build|test|update|modify|extend|integrate|initialize|register|connect|validate|handle|parse|render|import|export|setup/i;
+  const actionVerbs = /create|implement|add|write|configure|set\s*up|install|define|build|test|update|modify|extend|integrate|initialize|register|connect|validate|handle|parse|render|import|export|setup|vytvo[řr]|implemento|nastav|přid|zaveden|integro|registr|defino|testov|inicializ|napsat|napiš|zpracov|sestav|propoj|aktualizuj|uprav|rozšiř|valido|instalov|exportov|importov|konfigurov|vygeneruj|zajist|přepsat|refaktorov|vytvořen|implementac|nastaven|přidán|zavedení|integrác|registrác|definic|testován|inicializác|zpracován|aktualizác|vygenerován|generov|přechod|migrac|nasazen/i;
   for (const step of steps) {
     const text = step.action || step.description || (typeof step === 'string' ? step : '');
     if (typeof text === 'string' && text.length > 5 && !actionVerbs.test(text)) {

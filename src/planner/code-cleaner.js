@@ -37,21 +37,41 @@ export function stripCodeFences(content, fileExt) {
     c = String(content);
   }
 
+  const rawBytes = c.length; // snapshot before any stripping (for audit)
+
   // Remove all markdown fences (```lang and ```)
   c = c.replace(/```[\w]*\n?/g, '');
   c = c.replace(/\n?```/g, '');
 
   // Remove leading prose before first code line
-  const lines = c.split('\n');
-  while (lines.length && !CODE_START_PATTERN.test(lines[0])) {
-    lines.shift();
+  // Skip for plain-text file types where any line is valid content
+  const PLAIN_TEXT_EXTS = new Set(['.txt', '.env', '.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf', '.md', '.sql', '.sh', '.bash', '.zsh']);
+  if (!PLAIN_TEXT_EXTS.has(fileExt)) {
+    const lines = c.split('\n');
+    while (lines.length && !CODE_START_PATTERN.test(lines[0])) {
+      lines.shift();
+    }
+    c = lines.join('\n');
   }
 
-  c = lines.join('\n').trim();
+  c = c.trim();
 
   // TypeScript→JS transform for .js files
   if (['.js', '.mjs', '.cjs'].includes(fileExt)) {
     c = stripTypeAnnotations(c);
+  }
+
+  // Audit log: always log for plaintext (regression-prone), log for code only when significant stripping
+  const finalBytes = c.length;
+  const removedBytes = rawBytes - finalBytes;
+  if (PLAIN_TEXT_EXTS.has(fileExt) || removedBytes > 50) {
+    logger.debug('CodeCleaner', 'strip', {
+      ext: fileExt,
+      rawBytes,
+      finalBytes,
+      removedBytes,
+      empty: finalBytes === 0,
+    });
   }
 
   return c;
@@ -343,6 +363,23 @@ export function languagePromptSuffix(fileExt) {
       return 'Output TypeScript. NO markdown fences. The output will be written directly to a file.';
     case '.go':
       return 'Output ONLY raw Go code. NO markdown fences. The output will be written directly to a file.';
+    case '.txt':
+      return 'Output ONLY the plain text file content. NO markdown fences. NO code blocks. NO explanations. For requirements.txt output one package per line (e.g. flask==2.3.2). The output will be written directly to a file.';
+    case '.sql':
+      return 'Output ONLY valid SQL statements. NO markdown fences. NO explanations. Start directly with CREATE TABLE, INSERT, or other SQL. The output will be written directly to a .sql file.';
+    case '.sh':
+    case '.bash':
+    case '.zsh':
+      return 'Output ONLY shell script code. NO markdown fences. NO explanations. Start with #!/bin/bash or the first command. The output will be written directly to a file.';
+    case '.json':
+      return 'Output ONLY valid JSON. NO markdown fences. NO explanations. The output will be written directly to a file.';
+    case '.yaml':
+    case '.yml':
+      return 'Output ONLY valid YAML. NO markdown fences. NO explanations. The output will be written directly to a file.';
+    case '.toml':
+      return 'Output ONLY valid TOML. NO markdown fences. NO explanations. The output will be written directly to a file.';
+    case '.env':
+      return 'Output ONLY KEY=VALUE pairs, one per line. NO markdown fences. NO explanations. The output will be written directly to a file.';
     default:
       return 'Output ONLY raw source code. NO markdown fences. NO explanation. The output will be written directly to a file.';
   }

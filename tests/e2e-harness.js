@@ -211,9 +211,30 @@ ${langSuffix}`;
           // v97: Aggressive fence stripping + TS→JS transform
           content = stripCodeFences(content, ext);
 
+          // Non-empty guard: retry once if content is empty
+          if (content.trim().length === 0) {
+            console.log(`    [EXECUTOR]   ⚠ ${file.path} — empty content, retrying with explicit prompt...`);
+            const retryPrompt = `${codePrompt}\n\nIMPORTANT: The previous attempt returned empty content. You MUST output the actual file content now. Do NOT output empty response.`;
+            const retry = await callLLM('CODE', retryPrompt, null, { temperature: 0.3 });
+            content = stripCodeFences(retry.content || '', ext);
+          }
+
           const fullPath = path.join(projectPath, file.path);
           fs.mkdirSync(path.dirname(fullPath), { recursive: true });
           fs.writeFileSync(fullPath, content);
+
+          // Artifact validation: plaintext files must be non-empty
+          const ARTIFACT_EXTS = new Set(['.txt', '.sql', '.env', '.yaml', '.yml', '.toml', '.sh', '.ini', '.cfg', '.conf']);
+          if (ARTIFACT_EXTS.has(ext) && content.trim().length === 0) {
+            throw new Error(`ARTIFACT VALIDATION FAIL: ${file.path} is 0 bytes — plaintext artifacts must have content`);
+          }
+          // requirements.txt sanity: warn if suspiciously large
+          if (path.basename(file.path) === 'requirements.txt') {
+            const pkgLines = content.split('\n').filter(l => l.trim() && !l.startsWith('#')).length;
+            if (pkgLines > 200) {
+              console.log(`    [EXECUTOR]   ⚠ ${file.path} — ${pkgLines} packages (possible overgeneration)`);
+            }
+          }
 
           // v97: Per-file syntax check + AST-guided repair
           try {
