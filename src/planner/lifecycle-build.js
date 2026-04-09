@@ -16,6 +16,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { execFileSync } from 'child_process';
 import { logger } from '../core/logger.js';
 import { config } from '../config.js';
 
@@ -553,7 +554,7 @@ async function postExecution(lifecycle, milestone, wfResult) {
     return handleMilestoneFailure(lifecycle, milestone, wfResult.error || 'Workflow failed');
   }
 
-  // ─── Artifact validation — hard fail on 0-byte plaintext artifacts ───────
+  // ─── Artifact validation — hard fail on 0-byte + content sanity ─────────
   const ARTIFACT_REQUIRED_EXTS = new Set(['.txt', '.sql', '.env', '.yaml', '.yml', '.toml', '.sh', '.ini', '.cfg', '.conf']);
   const scopeFilesForArtifact = milestone.scope_files || [];
   const artifactFailures = [];
@@ -564,17 +565,25 @@ async function postExecution(lifecycle, milestone, wfResult) {
       try {
         const stat = fs.statSync(fullPath);
         if (stat.size === 0) {
-          artifactFailures.push(relPath);
+          artifactFailures.push(`${relPath}: 0 bytes`);
           logger.warn('LifecycleBuild', 'Artifact validation: 0-byte plaintext file', {
             milestoneId: milestone.id, file: relPath,
           });
+        } else {
+          const sanity = _checkArtifactContent(relPath, fullPath, ext);
+          if (!sanity.ok) {
+            artifactFailures.push(`${relPath}: ${sanity.reason}`);
+            logger.warn('LifecycleBuild', 'Artifact sanity fail', {
+              milestoneId: milestone.id, file: relPath, reason: sanity.reason,
+            });
+          }
         }
       } catch { /* file missing — quality gate handles it */ }
     }
   }
   if (artifactFailures.length > 0) {
     return handleMilestoneFailure(lifecycle, milestone,
-      `Artifact validation failed — 0-byte files: ${artifactFailures.join(', ')}`);
+      `Artifact validation failed: ${artifactFailures.join(' | ')}`);
   }
 
   // ─── TESTING phase ──────────────────────────────────────────────────────
@@ -961,20 +970,26 @@ async function postExecution(lifecycle, milestone, wfResult) {
     health_scope: health?.scope_adherence ?? null,
   });
 
-  // KG incremental sync — reindex new/changed files so next milestone has context
+  // KG incremental sync — await all reindex ops (prevents race with next milestone context build)
   try {
     const changedPaths = await getChangedFiles(lifecycle);
     if (changedPaths.length > 0 && _codeIntelLoaded) {
       const { knowledgeGraph } = await import('../code-intel/knowledge-graph.js');
       if (knowledgeGraph._projectPath) {
-        // Fire-and-forget: reindex each changed code file
         const codeExts = new Set(['.js','.ts','.py','.go','.rs','.java','.rb','.php','.vue','.svelte','.jsx','.tsx']);
         const filesToIndex = changedPaths.filter(p => {
           const dot = p.lastIndexOf('.');
           return dot >= 0 && codeExts.has(p.substring(dot));
-        });
-        for (const relPath of filesToIndex.slice(0, 20)) {
-          knowledgeGraph.reindexFile(relPath).catch(() => {});
+        }).slice(0, 20);
+        if (filesToIndex.length > 0) {
+          const results = await Promise.allSettled(
+            filesToIndex.map(relPath => knowledgeGraph.reindexFile(relPath))
+          );
+          const indexed = results.filter(r => r.status === 'fulfilled').length;
+          const failed = results.length - indexed;
+          logger.debug('LifecycleBuild', 'KG sync complete', {
+            milestoneId: milestone.id, indexed, failed,
+          });
         }
       }
     }
@@ -1017,8 +1032,63 @@ async function postExecution(lifecycle, milestone, wfResult) {
  * Run tests as defined in milestone's test_strategy.
  * Uses git-based approach: check if test files exist, run them.
  */
+/**
+ * Auto-detect and run pytest for Python projects even without explicit test_strategy.
+ * Returns null if pytest not applicable, or a testResults-compatible object.
+ */
+async function _runPytestIfAvailable(lifecycle, milestone) {
+  const scopeFiles = milestone.scope_files || [];
+  const testFiles = scopeFiles.filter(f => /test_.*\.py$|_test\.py$/.test(f));
+  if (testFiles.length === 0) return null; // No test files in this milestone's scope
+
+  // Verify pytest is installed (fast check)
+  try {
+    execFileSync('python3', ['-m', 'pytest', '--version'], { stdio: 'pipe', timeout: 5000 });
+  } catch {
+    logger.warn('LifecycleBuild', 'pytest not installed — skipping test gate', { milestoneId: milestone.id });
+    return { allPassed: null, summary: 'pytest not installed', results: [] };
+  }
+
+  logger.info('LifecycleBuild', 'Running pytest gate', { milestoneId: milestone.id, testFiles });
+
+  try {
+    const out = execFileSync(
+      'python3', ['-m', 'pytest', ...testFiles, '--tb=short', '-q', '--no-header'],
+      { cwd: lifecycle.projectPath, stdio: 'pipe', timeout: 60000 }
+    );
+    const stdout = out.toString();
+    return { allPassed: true, summary: 'pytest passed', stdout: stdout.slice(-1000), exitCode: 0 };
+  } catch (err) {
+    const stdout = (err.stdout || Buffer.alloc(0)).toString();
+    const stderr = (err.stderr || Buffer.alloc(0)).toString();
+    const combined = (stdout + stderr).slice(-2000);
+    return {
+      allPassed: false,
+      exitCode: err.status || 1,
+      summary: `pytest failed (exit ${err.status || 1})`,
+      stdout: stdout.slice(-1000),
+      stderr: stderr.slice(-500),
+      output: combined,
+    };
+  }
+}
+
 async function runTests(lifecycle, milestone) {
   const testStrategy = milestone.test_strategy;
+
+  // Auto-pytest gate: run even without test_strategy if scope includes .py test files
+  const autoResult = await _runPytestIfAvailable(lifecycle, milestone);
+  if (autoResult !== null) {
+    if (testStrategy) {
+      // Both auto and explicit strategy — prefer explicit, log auto result
+      logger.info('LifecycleBuild', 'Auto-pytest result', {
+        milestoneId: milestone.id, allPassed: autoResult.allPassed,
+      });
+    } else {
+      return autoResult;
+    }
+  }
+
   if (!testStrategy) {
     return { allPassed: null, summary: 'No test strategy defined', results: [] };
   }
@@ -1665,6 +1735,65 @@ async function getChangedFiles(lifecycle) {
     }
   } catch { /* ignore */ }
   return [];
+}
+
+// ─── Artifact Content Sanity Check ──────────────────────────────────────────
+
+/**
+ * Validate that a generated plaintext artifact has meaningful content.
+ * Goes beyond 0-byte check — catches LLM overconfident placeholders.
+ * @param {string} relPath - Relative path (for basename checks)
+ * @param {string} fullPath - Absolute path to file
+ * @param {string} ext - File extension
+ * @returns {{ ok: boolean, reason?: string }}
+ */
+function _checkArtifactContent(relPath, fullPath, ext) {
+  let content;
+  try { content = fs.readFileSync(fullPath, 'utf-8'); } catch { return { ok: true }; }
+
+  const basename = path.basename(relPath);
+
+  // requirements.txt: at least 1 non-comment, non-empty package line
+  if (basename === 'requirements.txt' || basename === 'requirements-dev.txt') {
+    const pkgLines = content.split('\n').filter(l => l.trim() && !l.startsWith('#') && !l.startsWith('-'));
+    if (pkgLines.length === 0) return { ok: false, reason: 'no package lines' };
+    return { ok: true };
+  }
+
+  // .env: at least 1 KEY=VALUE pair
+  if (ext === '.env') {
+    if (!/^[A-Z_a-z]\w*\s*=/m.test(content)) return { ok: false, reason: 'no KEY=VALUE pairs' };
+    return { ok: true };
+  }
+
+  // .sql: must contain recognizable SQL
+  if (ext === '.sql') {
+    if (!/\b(CREATE|INSERT|SELECT|UPDATE|DELETE|ALTER|DROP|BEGIN|PRAGMA)\b/i.test(content)) {
+      return { ok: false, reason: 'no SQL statements found' };
+    }
+    return { ok: true };
+  }
+
+  // .yaml/.yml: must have at least one key: value line
+  if (ext === '.yaml' || ext === '.yml') {
+    if (!/^\s*\w[\w-]*\s*:/m.test(content)) return { ok: false, reason: 'no key: value pairs' };
+    return { ok: true };
+  }
+
+  // .toml: must have [section] or key = value
+  if (ext === '.toml') {
+    if (!/^\[|\w+\s*=/m.test(content)) return { ok: false, reason: 'no TOML content' };
+    return { ok: true };
+  }
+
+  // .sh/.bash/.zsh: must have at least one non-comment line
+  if (ext === '.sh' || ext === '.bash' || ext === '.zsh') {
+    const codeLines = content.split('\n').filter(l => l.trim() && !l.startsWith('#'));
+    if (codeLines.length === 0) return { ok: false, reason: 'no shell commands' };
+    return { ok: true };
+  }
+
+  return { ok: true };
 }
 
 // ─── v135.1: Dead Import Stripping ──────────────────────────────────────────
