@@ -550,4 +550,125 @@ await testAsync('runtime guard re-enables model after cooldown', async () => {
   assertEqual(guard.state, 'enabled');
 });
 
+test('listUniverse supports pagination, filters and snapshot_id', () => {
+  const db = createDb(true);
+  modelUniverseStore.setDb(db);
+
+  modelUniverseStore.upsertRaw({
+    modelName: 'gemma4:27b',
+    tag: '27b',
+    source: 'local',
+    metadataState: 'STABLE',
+    parameters: 27,
+    contextLength: 32768,
+    quantization: 'Q4_K_M',
+    modality: 'text',
+  });
+  modelUniverseStore.reconcileAndRecompute('gemma4:27b', '27b', { reasonCode: 'list_test_stable' });
+
+  modelUniverseStore.upsertRaw({
+    modelName: 'mystery-new:14b',
+    tag: '14b',
+    source: 'local',
+    metadataState: 'PARTIAL',
+    parameters: 14,
+    contextLength: null,
+    quantization: 'Q4_K_M',
+    modality: 'text',
+  });
+  modelUniverseStore.reconcileAndRecompute('mystery-new:14b', '14b', { reasonCode: 'list_test_partial' });
+
+  const page1 = modelUniverseStore.listUniverse({ limit: 1, offset: 0, sort: 'name', order: 'asc' });
+  const onlyPartial = modelUniverseStore.listUniverse({ limit: 10, state: 'PARTIAL' });
+
+  assertEqual(page1.ok, true);
+  assertEqual(page1.limit, 1);
+  assertEqual(page1.total, 2);
+  assertEqual(page1.models.length, 1);
+  assert(page1.snapshotId && page1.snapshotId.startsWith('u1:'), `Expected snapshotId, got ${page1.snapshotId}`);
+
+  assertEqual(onlyPartial.ok, true);
+  assertEqual(onlyPartial.total, 1);
+  assertEqual(onlyPartial.models[0].metadataState, 'PARTIAL');
+});
+
+test('listUniverse supports runtime_state filter (disabled)', () => {
+  const db = createDb(true);
+  modelUniverseStore.setDb(db);
+
+  modelUniverseStore.upsertRaw({
+    modelName: 'qwen3.5:14b',
+    tag: '14b',
+    source: 'local',
+    metadataState: 'STABLE',
+    parameters: 14,
+    contextLength: 32768,
+    quantization: 'Q4_K_M',
+    modality: 'text',
+  });
+  modelUniverseStore.reconcileAndRecompute('qwen3.5:14b', '14b', { reasonCode: 'list_runtime_filter' });
+
+  db.prepare(`
+    INSERT OR REPLACE INTO model_runtime_guard (
+      model_name, state, error_rate, sample_size, window_seconds, disabled_until, reason, last_event_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+  `).run('qwen3.5:14b', 'disabled', 0.75, 20, 1800, '2099-01-01T00:00:00.000Z', 'error_rate_guard');
+
+  const disabledOnly = modelUniverseStore.listUniverse({ limit: 10, runtimeState: 'disabled' });
+  assertEqual(disabledOnly.ok, true);
+  assertEqual(disabledOnly.total, 1);
+  assertEqual(disabledOnly.models.length, 1);
+  assertEqual(disabledOnly.models[0].modelName, 'qwen3.5:14b');
+  assertEqual(disabledOnly.models[0].guard?.state, 'disabled');
+});
+
+test('getUniverseModelDetails returns model + sources + recent signals', () => {
+  const db = createDb(true);
+  modelUniverseStore.setDb(db);
+  modelUniverseStore.setSignalIngestConfig({
+    flushIntervalMs: 60000,
+    batchSize: 100,
+    bufferMax: 100,
+    baseSampleRate: 1,
+    pressureSampleRate: 1,
+  });
+
+  modelUniverseStore.upsertRaw({
+    modelName: 'deepseek-r1:32b',
+    tag: '32b',
+    source: 'local',
+    metadataState: 'STABLE',
+    parameters: 32,
+    contextLength: 32768,
+    quantization: 'Q4_K_M',
+    modality: 'text',
+  });
+  modelUniverseStore.reconcileAndRecompute('deepseek-r1:32b', '32b', { reasonCode: 'detail_test' });
+
+  for (let i = 1; i <= 3; i++) {
+    modelUniverseStore.recordSignalEvent({
+      modelName: 'deepseek-r1:32b',
+      signalType: i < 3 ? 'runtime' : 'runtime_failed',
+      success: i < 3,
+      latencyMs: 100 + i,
+      errorType: i < 3 ? null : 'runtime_failed',
+      scheduleRecompute: false,
+    });
+  }
+  modelUniverseStore.flushSignalBuffer({ drain: true, reason: 'detail_test' });
+
+  const detail = modelUniverseStore.getUniverseModelDetails('deepseek-r1:32b', {
+    includeSignals: true,
+    signalLimit: 2,
+    sourceLimit: 5,
+  });
+
+  assertEqual(detail.ok, true);
+  assert(detail.model, 'Expected detail.model');
+  assertEqual(detail.model.modelName, 'deepseek-r1:32b');
+  assert(Array.isArray(detail.sources) && detail.sources.length >= 1, 'Expected source rows');
+  assertEqual(detail.signals.length, 2);
+  assert(detail.snapshotId && detail.snapshotId.includes('deepseek-r1:32b'), `Expected snapshotId with model name, got ${detail.snapshotId}`);
+});
+
 summary();

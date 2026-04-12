@@ -1618,6 +1618,300 @@ class ModelUniverseStore {
     const normalizedTag = normalizeTag(normalizedModel, tag);
     return this._stmts.getDerivedByModelTag.get(normalizedModel, normalizedTag) || null;
   }
+
+  _getUniverseGuardFragments() {
+    if (this._hasRuntimeGuardTable) {
+      return {
+        joinSql: 'LEFT JOIN model_runtime_guard g ON g.model_name = r.model_name',
+        selectSql: `
+          g.state AS guard_state,
+          g.error_rate AS guard_error_rate,
+          g.sample_size AS guard_sample_size,
+          g.window_seconds AS guard_window_seconds,
+          g.disabled_until AS guard_disabled_until,
+          g.reason AS guard_reason
+        `,
+      };
+    }
+    return {
+      joinSql: '',
+      selectSql: `
+        NULL AS guard_state,
+        NULL AS guard_error_rate,
+        NULL AS guard_sample_size,
+        NULL AS guard_window_seconds,
+        NULL AS guard_disabled_until,
+        NULL AS guard_reason
+      `,
+    };
+  }
+
+  _mapUniverseRow(row = {}) {
+    return {
+      modelName: row.model_name,
+      tag: row.tag || '',
+      metadataState: row.metadata_state || null,
+      parameters: row.parameters != null ? Number(row.parameters) : null,
+      contextLength: row.context_length != null ? Number(row.context_length) : null,
+      quantization: row.quantization || null,
+      modality: row.modality || null,
+      scoreEstimated: row.score_estimated != null ? Number(row.score_estimated) : null,
+      confidence: row.confidence != null ? Number(row.confidence) : null,
+      confidenceState: row.confidence_state || null,
+      scoreState: row.score_state || null,
+      lastComputedAt: row.derived_last_computed_at || row.derived_updated_at || null,
+      updatedAt: row.raw_updated_at || null,
+      lastVerifiedAt: row.last_verified_at || null,
+      guard: row.guard_state
+        ? {
+          state: row.guard_state,
+          errorRate: row.guard_error_rate != null ? Number(row.guard_error_rate) : null,
+          sampleSize: row.guard_sample_size != null ? Number(row.guard_sample_size) : null,
+          windowSeconds: row.guard_window_seconds != null ? Number(row.guard_window_seconds) : null,
+          disabledUntil: row.guard_disabled_until || null,
+          reason: row.guard_reason || null,
+        }
+        : null,
+    };
+  }
+
+  listUniverse(opts = {}) {
+    this._ensureUniverseStatements();
+    if (!FEATURE_UNIVERSE_ENABLED) {
+      return { ok: false, disabled: true, reason: 'feature_disabled', models: [], total: 0, limit: 0, offset: 0, snapshotId: null };
+    }
+
+    const limitRaw = Number.parseInt(String(opts.limit ?? 50), 10);
+    const offsetRaw = Number.parseInt(String(opts.offset ?? 0), 10);
+    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, limitRaw)) : 50;
+    const offset = Number.isFinite(offsetRaw) ? Math.max(0, offsetRaw) : 0;
+
+    const stateInput = String(opts.state || '').trim().toUpperCase();
+    const stateFilter = stateInput && METADATA_STATES.has(stateInput) ? stateInput : null;
+
+    const runtimeStateInput = String(opts.runtimeState || '').trim().toLowerCase();
+    const runtimeStateFilter = runtimeStateInput === 'enabled' || runtimeStateInput === 'disabled'
+      ? runtimeStateInput
+      : null;
+
+    if (runtimeStateFilter === 'disabled' && !this._hasRuntimeGuardTable) {
+      return {
+        ok: true,
+        models: [],
+        total: 0,
+        limit,
+        offset,
+        snapshotId: 'u1:0:0',
+        state: stateFilter,
+        runtimeState: runtimeStateFilter,
+      };
+    }
+
+    const sortInput = String(opts.sort || 'score').trim().toLowerCase();
+    const orderInput = String(opts.order || 'desc').trim().toLowerCase();
+    const sortMap = {
+      score: 'd.score_estimated',
+      confidence: 'd.confidence',
+      updated: 'COALESCE(d.last_computed_at, d.updated_at, r.updated_at)',
+      name: 'r.model_name',
+      context: 'r.context_length',
+      params: 'r.parameters',
+    };
+    const sortBy = sortMap[sortInput] ? sortInput : 'score';
+    const sortSql = sortMap[sortBy];
+    const orderSql = orderInput === 'asc' ? 'ASC' : 'DESC';
+
+    const { joinSql, selectSql } = this._getUniverseGuardFragments();
+    const where = [`r.source = 'reconciled'`];
+    const params = [];
+    if (stateFilter) {
+      where.push('r.metadata_state = ?');
+      params.push(stateFilter);
+    }
+    if (runtimeStateFilter && this._hasRuntimeGuardTable) {
+      where.push(`COALESCE(g.state, 'enabled') = ?`);
+      params.push(runtimeStateFilter);
+    }
+
+    const fromSql = `
+      FROM model_universe_raw r
+      LEFT JOIN model_universe_derived d
+        ON d.model_name = r.model_name AND d.tag = r.tag
+      ${joinSql}
+      WHERE ${where.join(' AND ')}
+    `;
+
+    const rows = this._db.prepare(`
+      SELECT
+        r.model_name, r.tag, r.metadata_state,
+        r.parameters, r.context_length, r.quantization, r.modality,
+        r.updated_at AS raw_updated_at, r.last_verified_at,
+        d.score_estimated, d.confidence, d.confidence_state, d.score_state,
+        d.last_computed_at AS derived_last_computed_at, d.updated_at AS derived_updated_at,
+        ${selectSql}
+      ${fromSql}
+      ORDER BY ${sortSql} ${orderSql}, r.model_name ASC
+      LIMIT ? OFFSET ?
+    `).all(...params, limit, offset);
+
+    const totalRow = this._db.prepare(`
+      SELECT COUNT(*) AS c
+      ${fromSql}
+    `).get(...params);
+
+    const snapshotRow = this._db.prepare(`
+      SELECT
+        MAX(COALESCE(d.last_computed_at, d.updated_at, r.updated_at)) AS max_updated,
+        COUNT(*) AS c
+      ${fromSql}
+    `).get(...params);
+
+    const maxUpdatedMs = Date.parse(snapshotRow?.max_updated || 0) || 0;
+    const snapshotId = `u1:${snapshotRow?.c || 0}:${maxUpdatedMs}`;
+
+    return {
+      ok: true,
+      models: rows.map(r => this._mapUniverseRow(r)),
+      total: totalRow?.c || 0,
+      limit,
+      offset,
+      snapshotId,
+      state: stateFilter,
+      runtimeState: runtimeStateFilter,
+      sortBy,
+      order: orderSql.toLowerCase(),
+    };
+  }
+
+  getUniverseModelDetails(modelName, opts = {}) {
+    this._ensureUniverseStatements();
+    if (!FEATURE_UNIVERSE_ENABLED) {
+      return { ok: false, disabled: true, reason: 'feature_disabled', model: null, sources: [], signals: [], snapshotId: null };
+    }
+
+    const normalizedModel = canonicalModelName(modelName);
+    if (!normalizedModel) return { ok: false, reason: 'missing_model', model: null, sources: [], signals: [], snapshotId: null };
+
+    const requestedTag = normalizeTag(normalizedModel, opts.tag || '');
+    const includeSignals = opts.includeSignals === true;
+    const sourceLimitRaw = Number.parseInt(String(opts.sourceLimit ?? 30), 10);
+    const signalLimitRaw = Number.parseInt(String(opts.signalLimit ?? 20), 10);
+    const sourceLimit = Number.isFinite(sourceLimitRaw) ? Math.max(1, Math.min(200, sourceLimitRaw)) : 30;
+    const signalLimit = Number.isFinite(signalLimitRaw) ? Math.max(1, Math.min(200, signalLimitRaw)) : 20;
+
+    const { joinSql, selectSql } = this._getUniverseGuardFragments();
+    const detailWhere = requestedTag
+      ? `r.model_name = ? AND r.tag = ?`
+      : `r.model_name = ?`;
+    const detailParams = requestedTag ? [normalizedModel, requestedTag] : [normalizedModel];
+
+    let row = this._db.prepare(`
+      SELECT
+        r.model_name, r.tag, r.metadata_state,
+        r.parameters, r.context_length, r.quantization, r.modality,
+        r.metadata_json, r.updated_at AS raw_updated_at, r.last_verified_at,
+        d.score_estimated, d.confidence, d.confidence_state, d.score_state,
+        d.capability_vector_json, d.based_on_version,
+        d.last_computed_at AS derived_last_computed_at, d.updated_at AS derived_updated_at,
+        ${selectSql}
+      FROM model_universe_raw r
+      LEFT JOIN model_universe_derived d
+        ON d.model_name = r.model_name AND d.tag = r.tag
+      ${joinSql}
+      WHERE ${detailWhere} AND r.source = 'reconciled'
+      ORDER BY r.updated_at DESC, r.id DESC
+      LIMIT 1
+    `).get(...detailParams);
+
+    if (!row) {
+      row = this._db.prepare(`
+        SELECT
+          r.model_name, r.tag, r.metadata_state,
+          r.parameters, r.context_length, r.quantization, r.modality,
+          r.metadata_json, r.updated_at AS raw_updated_at, r.last_verified_at,
+          d.score_estimated, d.confidence, d.confidence_state, d.score_state,
+          d.capability_vector_json, d.based_on_version,
+          d.last_computed_at AS derived_last_computed_at, d.updated_at AS derived_updated_at,
+          ${selectSql}
+        FROM model_universe_raw r
+        LEFT JOIN model_universe_derived d
+          ON d.model_name = r.model_name AND d.tag = r.tag
+        ${joinSql}
+        WHERE ${detailWhere}
+        ORDER BY (r.source = 'reconciled') DESC, r.updated_at DESC, r.id DESC
+        LIMIT 1
+      `).get(...detailParams);
+    }
+
+    if (!row) {
+      return {
+        ok: true,
+        model: null,
+        sources: [],
+        signals: [],
+        snapshotId: `u1:${normalizedModel}:0`,
+      };
+    }
+
+    const modelTag = row.tag || '';
+    const sourceRows = this._db.prepare(`
+      SELECT
+        source, metadata_state, parameters, context_length, quantization, modality,
+        updated_at, last_verified_at
+      FROM model_universe_raw
+      WHERE model_name = ? AND tag = ?
+      ORDER BY updated_at DESC, id DESC
+      LIMIT ?
+    `).all(normalizedModel, modelTag, sourceLimit);
+
+    let signals = [];
+    if (includeSignals) {
+      signals = this._db.prepare(`
+        SELECT signal_type, success, latency_ms, error_type, created_at
+        FROM model_signal_events
+        WHERE model_name = ?
+        ORDER BY id DESC
+        LIMIT ?
+      `).all(normalizedModel, signalLimit);
+    }
+
+    const snapshotTs = Date.parse(
+      row.derived_last_computed_at || row.derived_updated_at || row.raw_updated_at || 0
+    ) || 0;
+    const snapshotId = `u1:${normalizedModel}:${modelTag}:${snapshotTs}`;
+    const metadata = safeJsonParse(row.metadata_json);
+    const capabilityVector = safeJsonParse(row.capability_vector_json);
+
+    return {
+      ok: true,
+      snapshotId,
+      model: {
+        ...this._mapUniverseRow(row),
+        metadata,
+        capabilityVector,
+        basedOnVersion: row.based_on_version || null,
+      },
+      sources: sourceRows.map(s => ({
+        source: s.source,
+        metadataState: s.metadata_state || null,
+        parameters: s.parameters != null ? Number(s.parameters) : null,
+        contextLength: s.context_length != null ? Number(s.context_length) : null,
+        quantization: s.quantization || null,
+        modality: s.modality || null,
+        updatedAt: s.updated_at || null,
+        lastVerifiedAt: s.last_verified_at || null,
+      })),
+      signals: includeSignals
+        ? signals.map(s => ({
+          signalType: s.signal_type,
+          success: s.success == null ? null : !!s.success,
+          latencyMs: s.latency_ms != null ? Number(s.latency_ms) : null,
+          errorType: s.error_type || null,
+          createdAt: s.created_at || null,
+        }))
+        : [],
+    };
+  }
 }
 
 export const modelUniverseStore = new ModelUniverseStore();

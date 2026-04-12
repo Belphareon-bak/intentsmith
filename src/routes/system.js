@@ -13,6 +13,217 @@ import { drainMessages, getHistoryStats } from '../core/history-drain.js';
 import { createStateBackup, listBackups, pruneBackups, getBackupStats } from '../core/db-backup.js';
 import { upgradeManager, UpgradeManager } from '../upgrade/upgrade-manager.js';
 import { broadcast } from '../ws-bridge/ws-server.js';
+import { modelUniverseStore } from '../upgrade/model-universe-store.js';
+import { parseModelName } from '../upgrade/model-profiles.js';
+import { estimateModelPrior } from '../upgrade/model-similarity.js';
+
+const FEATURE_UNIVERSE_ENABLED = (process.env.C3_MODEL_UNIVERSE_ENABLED || 'true') !== 'false';
+const FEATURE_UNIVERSE_MIRROR = (process.env.C3_DISCOVERY_MIRROR_DISCOVERED_MODELS || 'true') !== 'false';
+const SHOW_ATTEMPT_TIMEOUT_MS = parseInt(process.env.C3_MODEL_SHOW_ATTEMPT_TIMEOUT_MS || '2000', 10);
+const SHOW_MAX_TOTAL_MS = parseInt(process.env.C3_MODEL_SHOW_MAX_TOTAL_MS || '5000', 10);
+const SHOW_RETRY_DELAY_MS = parseInt(process.env.C3_MODEL_SHOW_RETRY_DELAY_MS || '250', 10);
+const MAX_SHOW_ATTEMPTS = parseInt(process.env.C3_MODEL_SHOW_MAX_ATTEMPTS || '3', 10);
+const CONTEXT_TOLERANCE = parseFloat(process.env.C3_MODEL_CONTEXT_TOLERANCE || '0.05');
+const PARTIAL_MAX_AGE_MS = parseInt(process.env.C3_MODEL_PARTIAL_MAX_AGE_MS || String(60 * 60 * 1000), 10);
+const RECOMPUTE_DELAY_MS = parseInt(process.env.C3_MODEL_RECOMPUTE_DELAY_MS || '15000', 10);
+const RECOMPUTE_RETRY_MS = parseInt(process.env.C3_MODEL_RECOMPUTE_RETRY_MS || String(5 * 60 * 1000), 10);
+const CRITICAL_FIELDS = ['model', 'parameters', 'context_length', 'quantization', 'modality'];
+
+function _parseBoolFlag(v, fallback = false) {
+  if (v == null || v === '') return fallback;
+  const s = String(v).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'y', 'on'].includes(s)) return true;
+  if (['0', 'false', 'no', 'n', 'off'].includes(s)) return false;
+  return fallback;
+}
+
+function _normalizeUniverseStateParam(value) {
+  const s = String(value || '').trim().toLowerCase();
+  if (!s) return null;
+  if (s === 'stable' || s === 'validated' || s === 'valid') return 'STABLE';
+  if (s === 'partial') return 'PARTIAL';
+  if (s === 'unstable') return 'UNSTABLE';
+  return null;
+}
+
+function _sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function _parseParams(modelName, showData) {
+  const fromShow = String(showData?.details?.parameter_size || '').toLowerCase();
+  let m = fromShow.match(/(\d+(?:\.\d+)?)\s*b/);
+  if (m) return parseFloat(m[1]);
+  const fromName = String(modelName || '').toLowerCase();
+  m = fromName.match(/[:\-](\d+(?:\.\d+)?)b/);
+  if (m) return parseFloat(m[1]);
+  return null;
+}
+
+function _parseContextLength(showData) {
+  const mi = showData?.model_info || {};
+  for (const [k, v] of Object.entries(mi)) {
+    if (/context_length|num_ctx/i.test(k)) {
+      const n = Number(v);
+      if (Number.isFinite(n) && n > 0) return Math.round(n);
+    }
+  }
+  const paramsText = String(showData?.parameters || '');
+  const p = paramsText.match(/num_ctx\s+(\d+)/i);
+  if (p) return parseInt(p[1], 10);
+  return null;
+}
+
+function _parseQuantization(modelName, showData) {
+  const q = String(showData?.details?.quantization_level || '').trim();
+  if (q) return q.toUpperCase();
+  const n = String(modelName || '');
+  const m = n.match(/(q\d[_\w]*)/i);
+  return m ? m[1].toUpperCase() : null;
+}
+
+function _parseModality(modelName, showData) {
+  const families = Array.isArray(showData?.details?.families) ? showData.details.families.map(x => String(x).toLowerCase()) : [];
+  const lowerName = String(modelName || '').toLowerCase();
+  if (families.some(f => /llava|vision|clip|qwen2\.5vl|qwen2\.5-vl/.test(f))) return 'vision';
+  if (/llava|vision|vl/.test(lowerName)) return 'vision';
+  return 'text';
+}
+
+function _buildSnapshot(modelName, showData) {
+  return {
+    model: String(modelName || '').toLowerCase(),
+    parameters: _parseParams(modelName, showData),
+    context_length: _parseContextLength(showData),
+    quantization: _parseQuantization(modelName, showData),
+    modality: _parseModality(modelName, showData),
+    raw: showData || {},
+  };
+}
+
+function _hasCritical(snapshot) {
+  return CRITICAL_FIELDS.every(k => snapshot?.[k] != null && snapshot[k] !== '');
+}
+
+function _contextStable(a, b) {
+  if (a == null || b == null) return false;
+  if (a === b) return true;
+  const max = Math.max(Math.abs(a), Math.abs(b), 1);
+  return Math.abs(a - b) / max <= CONTEXT_TOLERANCE;
+}
+
+function _snapshotsStable(a, b) {
+  if (!a || !b) return false;
+  if (a.parameters !== b.parameters) return false;
+  if (a.quantization !== b.quantization) return false;
+  if (a.modality !== b.modality) return false;
+  if (!_contextStable(a.context_length, b.context_length)) return false;
+  return true;
+}
+
+async function _fetchShowSnapshot(ollamaBaseUrl, modelName) {
+  const resp = await fetch(`${ollamaBaseUrl}/api/show`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: modelName }),
+    signal: AbortSignal.timeout(SHOW_ATTEMPT_TIMEOUT_MS),
+  });
+  if (!resp.ok) throw new Error(`show HTTP ${resp.status}`);
+  const data = await resp.json();
+  return _buildSnapshot(modelName, data);
+}
+
+async function fetchShowWithStability(ollamaBaseUrl, modelName) {
+  const started = Date.now();
+  const snapshots = [];
+  const errors = [];
+
+  for (let attempt = 1; attempt <= MAX_SHOW_ATTEMPTS; attempt++) {
+    if (Date.now() - started > SHOW_MAX_TOTAL_MS) break;
+    try {
+      const snap = await _fetchShowSnapshot(ollamaBaseUrl, modelName);
+      snapshots.push(snap);
+      if (snapshots.length >= 2 && _snapshotsStable(snapshots[snapshots.length - 2], snapshots[snapshots.length - 1]) && _hasCritical(snap)) {
+        break;
+      }
+    } catch (err) {
+      errors.push(err.message);
+    }
+    if (attempt < MAX_SHOW_ATTEMPTS) await _sleep(SHOW_RETRY_DELAY_MS);
+  }
+
+  const latest = snapshots[snapshots.length - 1] || null;
+  let metadataState = 'PARTIAL';
+  let unstable = false;
+  for (let i = 1; i < snapshots.length; i++) {
+    if (!_snapshotsStable(snapshots[i - 1], snapshots[i])) {
+      unstable = true;
+      break;
+    }
+  }
+  if (unstable) metadataState = 'UNSTABLE';
+  else if (latest && _hasCritical(latest)) metadataState = 'STABLE';
+
+  return {
+    snapshot: latest,
+    metadataState,
+    attempts: snapshots.length + errors.length,
+    errors,
+    unstable,
+    elapsedMs: Date.now() - started,
+  };
+}
+
+function _estimatedBenchmarks(params) {
+  if (!params || params <= 0) return null;
+  const base = Math.max(0.12, Math.min(0.86, 0.18 + Math.log2(params + 1) * 0.12));
+  return {
+    swebench: Math.min(0.95, base * 0.95),
+    livecodebench: Math.min(0.95, base * 1.0),
+    humaneval: Math.min(0.95, base * 1.02),
+    mmlu: Math.min(0.95, base * 1.05),
+    arena: Math.min(0.95, base * 0.92),
+    reasoning: Math.min(0.95, base * 0.98),
+  };
+}
+
+function _buildEstimatedEntry(modelName, snapshot, metadataState, prior = null) {
+  const parsed = parseModelName(snapshot?.model || modelName);
+  const params = snapshot?.parameters ?? parsed?.params ?? null;
+  const modality = snapshot?.modality || 'text';
+  const category = prior?.category || (modality === 'vision' ? 'vision' : 'general');
+  const benchmarks = prior?.benchmarks || _estimatedBenchmarks(params);
+  const defaultConfidence = metadataState === 'STABLE' ? 0.45 : (metadataState === 'UNSTABLE' ? 0.20 : 0.25);
+  const priorConfidence = Number.isFinite(prior?.benchmarkConfidence) ? prior.benchmarkConfidence : null;
+  let benchmarkConfidence = priorConfidence != null ? priorConfidence : defaultConfidence;
+  if (metadataState === 'UNSTABLE') benchmarkConfidence = Math.max(0.20, benchmarkConfidence * 0.85);
+  if (metadataState === 'PARTIAL') benchmarkConfidence = Math.max(0.25, benchmarkConfidence * 0.92);
+
+  const capabilities = Array.isArray(prior?.capabilities) && prior.capabilities.length > 0
+    ? [...new Set(prior.capabilities)]
+    : (modality === 'vision' ? ['vision'] : ['instruction-following']);
+
+  return {
+    name: modelName,
+    family: parsed?.family || 'unknown',
+    category,
+    params,
+    contextWindow: snapshot?.context_length ?? prior?.contextWindow ?? null,
+    benchmarks,
+    benchmarkConfidence,
+    benchmarkSource: prior?.strategy || 'heuristic',
+    provisional: true,
+    source: prior ? 'universe_similarity' : 'universe',
+    capabilities,
+    architecture: prior?.architecture || null,
+    baseVramMb: params ? Math.round(620 * params + 420) : null,
+    similarity: prior ? {
+      strategy: prior.strategy,
+      score: prior.similarityScore,
+      neighbors: prior.neighbors,
+    } : null,
+  };
+}
 
 /**
  * @param {{ db: import('better-sqlite3').Database, sendJSON: Function, parseBody: Function }} deps
@@ -20,6 +231,77 @@ import { broadcast } from '../ws-bridge/ws-server.js';
 export function createSystemRoutes({ db, sendJSON, parseBody, modelRegistry }) {
   const rawDb = db.db || db; // unwrap: db wrapper → raw better-sqlite3 instance
   const dataDir = config.db?.path ? path.dirname(path.resolve(config.db.path)) : path.resolve('./data');
+  const recomputeQueue = new Map(); // model_name -> { queuedAt, attempts, timer }
+
+  const enqueueUniverseRecompute = (modelName, reason = 'PARTIAL') => {
+    const normalizedModel = String(modelName || '').trim().toLowerCase();
+    if (!normalizedModel || recomputeQueue.has(normalizedModel)) return false;
+
+    const task = { queuedAt: Date.now(), attempts: 0, reason, timer: null };
+    recomputeQueue.set(normalizedModel, task);
+
+    const runTask = async () => {
+      const current = recomputeQueue.get(normalizedModel);
+      if (!current) return;
+      current.attempts++;
+
+      try {
+        const showResult = await fetchShowWithStability(config.ollama.baseUrl, normalizedModel);
+        if (FEATURE_UNIVERSE_ENABLED && showResult.snapshot) {
+          const snapshot = showResult.snapshot;
+          const entry = {
+            modelName: normalizedModel,
+            tag: normalizedModel.includes(':') ? normalizedModel.split(':')[1] : '',
+            source: 'local',
+            metadataState: showResult.metadataState,
+            parameters: snapshot.parameters,
+            contextLength: snapshot.context_length,
+            quantization: snapshot.quantization,
+            modality: snapshot.modality,
+            metadata: {
+              show: snapshot.raw,
+              showAttempts: showResult.attempts,
+              showErrors: showResult.errors,
+              queuedReason: reason,
+            },
+            lastVerifiedAt: new Date().toISOString(),
+          };
+          modelUniverseStore.persistRawWithFallback(entry, {
+            mirrorEnabled: FEATURE_UNIVERSE_MIRROR,
+            scheduleRecompute: false,
+          });
+          try {
+            modelUniverseStore.reconcileAndRecompute(normalizedModel, entry.tag, { reasonCode: 'metadata_refresh' });
+          } catch (reconcileErr) {
+            logger.warn('ModelUniverse', `Reconcile after metadata refresh failed for ${normalizedModel}: ${reconcileErr.message}`);
+          }
+        }
+
+        const age = Date.now() - current.queuedAt;
+        if (showResult.metadataState === 'STABLE' || age >= PARTIAL_MAX_AGE_MS) {
+          recomputeQueue.delete(normalizedModel);
+          logger.info('ModelUniverse', `Recompute done for ${normalizedModel} (state=${showResult.metadataState}, attempts=${current.attempts})`);
+          return;
+        }
+      } catch (err) {
+        const age = Date.now() - current.queuedAt;
+        if (age >= PARTIAL_MAX_AGE_MS) {
+          recomputeQueue.delete(normalizedModel);
+          logger.warn('ModelUniverse', `Recompute forced-stop for ${normalizedModel} after max age: ${err.message}`);
+          return;
+        }
+      }
+
+      const next = recomputeQueue.get(normalizedModel);
+      if (!next) return;
+      next.timer = setTimeout(runTask, RECOMPUTE_RETRY_MS);
+      next.timer.unref?.();
+    };
+
+    task.timer = setTimeout(runTask, RECOMPUTE_DELAY_MS);
+    task.timer.unref?.();
+    return true;
+  };
 
   return {
     // ── GPU & System Profile ──────────────────────────────────────────────
@@ -175,6 +457,93 @@ export function createSystemRoutes({ db, sendJSON, parseBody, modelRegistry }) {
         });
       } catch (err) {
         sendJSON(res, 500, { error: `Failed to get model info: ${err.message}` });
+      }
+    },
+
+    // Model universe list (paged, sortable, filterable)
+    'GET /api/system/models/universe': (req, res) => {
+      try {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const limit = Number.parseInt(url.searchParams.get('limit') || '50', 10);
+        const offset = Number.parseInt(url.searchParams.get('offset') || '0', 10);
+        const state = _normalizeUniverseStateParam(url.searchParams.get('state'));
+        const sort = String(url.searchParams.get('sort') || 'score').trim().toLowerCase();
+        const order = String(url.searchParams.get('order') || 'desc').trim().toLowerCase();
+        const runtimeState = String(url.searchParams.get('runtime_state') || '').trim().toLowerCase() || null;
+
+        const listed = modelUniverseStore.listUniverse({
+          limit,
+          offset,
+          state,
+          sort,
+          order,
+          runtimeState,
+        });
+
+        if (!listed.ok && !listed.disabled) {
+          return sendJSON(res, 500, {
+            error: 'Universe list failed',
+            reason: listed.reason || 'unknown',
+          });
+        }
+
+        sendJSON(res, 200, {
+          models: listed.models || [],
+          total: listed.total || 0,
+          limit: listed.limit || Math.max(1, Math.min(200, limit || 50)),
+          offset: listed.offset || Math.max(0, offset || 0),
+          snapshot_id: listed.snapshotId || null,
+          sort: { by: listed.sortBy || sort || 'score', order: listed.order || (order === 'asc' ? 'asc' : 'desc') },
+          filters: {
+            state: listed.state || state || null,
+            runtime_state: listed.runtimeState || runtimeState || null,
+          },
+          unavailable: listed.disabled ? (listed.reason || 'feature_disabled') : null,
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: `Failed to list model universe: ${err.message}` });
+      }
+    },
+
+    // Model universe detail (lazy detail fetch for one model)
+    'GET /api/system/models/universe/:name': (req, res, params) => {
+      try {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const modelName = params?.name || '';
+        const tag = String(url.searchParams.get('tag') || '').trim();
+        const includeSignals = _parseBoolFlag(url.searchParams.get('include_signals'), false);
+        const signalLimit = Number.parseInt(url.searchParams.get('signal_limit') || '20', 10);
+        const sourceLimit = Number.parseInt(url.searchParams.get('source_limit') || '30', 10);
+
+        const detail = modelUniverseStore.getUniverseModelDetails(modelName, {
+          tag,
+          includeSignals,
+          signalLimit,
+          sourceLimit,
+        });
+
+        if (!detail.ok && !detail.disabled) {
+          return sendJSON(res, 500, {
+            error: 'Universe detail failed',
+            reason: detail.reason || 'unknown',
+          });
+        }
+        if (!detail.model) {
+          return sendJSON(res, 404, {
+            error: 'Model not found in universe',
+            model: modelName,
+          });
+        }
+
+        sendJSON(res, 200, {
+          model: detail.model,
+          sources: detail.sources || [],
+          signals: detail.signals || [],
+          snapshot_id: detail.snapshotId || null,
+          unavailable: detail.disabled ? (detail.reason || 'feature_disabled') : null,
+        });
+      } catch (err) {
+        sendJSON(res, 500, { error: `Failed to load model universe detail: ${err.message}` });
       }
     },
 
@@ -829,9 +1198,10 @@ export function createSystemRoutes({ db, sendJSON, parseBody, modelRegistry }) {
               broadcast('control', { action: 'model_pull_progress', model: name, status: 'scoring', percent: -1, text: `${name} — Probíhá scoring modelu...` });
 
               const { scoreModel, EVALUATION_VERSION } = await import('../upgrade/model-ranker.js');
-              const { getCatalogEntry } = await import('../upgrade/model-catalog.js');
+              const { getCatalogEntry, CATALOG } = await import('../upgrade/model-catalog.js');
               const { MODEL_PROFILES } = await import('../upgrade/model-profiles.js');
               const { getSystemProfile } = await import('../system/gpu-detector.js');
+              const { onlineDiscovery } = await import('../upgrade/online-discovery.js');
 
               let gpuVramMb = 0;
               try {
@@ -842,14 +1212,75 @@ export function createSystemRoutes({ db, sendJSON, parseBody, modelRegistry }) {
               const roleBindings = {};
               for (const [r, p] of Object.entries(MODEL_PROFILES)) roleBindings[r] = p.getCurrentModel();
 
-              // Try catalog entry first, then L4 discovered
+              // Stabilized model metadata fetch from Ollama (/api/show)
+              const showResult = await fetchShowWithStability(config.ollama.baseUrl, name);
+              const snapshot = showResult.snapshot;
+              const metadataState = showResult.metadataState;
+
+              // Persist raw model facts immediately (primary universe, fallback discovered mirror)
+              let writeSource = 'none';
+              let reconcileResult = null;
+              if (FEATURE_UNIVERSE_ENABLED && snapshot) {
+                try {
+                  const persist = modelUniverseStore.persistRawWithFallback({
+                    modelName: name,
+                    tag: name.includes(':') ? name.split(':')[1] : '',
+                    source: 'local',
+                    metadataState,
+                    parameters: snapshot.parameters,
+                    contextLength: snapshot.context_length,
+                    quantization: snapshot.quantization,
+                    modality: snapshot.modality,
+                    metadata: {
+                      show: snapshot.raw,
+                      showAttempts: showResult.attempts,
+                      showErrors: showResult.errors,
+                      elapsedMs: showResult.elapsedMs,
+                    },
+                    lastVerifiedAt: new Date().toISOString(),
+                  }, {
+                    mirrorEnabled: FEATURE_UNIVERSE_MIRROR,
+                    scheduleRecompute: false,
+                  });
+                  writeSource = persist.writeSource || 'universe';
+                  try {
+                    reconcileResult = modelUniverseStore.reconcileAndRecompute(name, name.includes(':') ? name.split(':')[1] : '', {
+                      reasonCode: 'post_pull',
+                    });
+                  } catch (reconcileErr) {
+                    logger.warn('SystemRoutes', `Model universe reconcile failed for ${name}: ${reconcileErr.message}`);
+                  }
+                } catch (persistErr) {
+                  logger.warn('SystemRoutes', `Model universe persist failed for ${name}: ${persistErr.message}`);
+                  writeSource = 'error';
+                }
+              }
+
+              // Try catalog entry first, then L4 discovered, then universe similarity/heuristic estimate
               let entry = getCatalogEntry(name);
+              let discovered = [];
               if (!entry) {
                 try {
-                  const { onlineDiscovery } = await import('../upgrade/online-discovery.js');
-                  const discovered = await onlineDiscovery.getDiscoveredModels();
+                  discovered = await onlineDiscovery.getDiscoveredModels();
                   entry = discovered.find(d => d.name === name);
                 } catch (_) {}
+              }
+              if (!entry && snapshot) {
+                const parsed = parseModelName(name);
+                const target = {
+                  name,
+                  family: parsed.family,
+                  params: snapshot.parameters,
+                  contextWindow: snapshot.context_length,
+                  modality: snapshot.modality,
+                  quantization: snapshot.quantization,
+                };
+                const pool = [
+                  ...(Array.isArray(CATALOG) ? CATALOG.map(c => ({ ...c, benchmarkConfidence: 1, source: 'catalog' })) : []),
+                  ...(Array.isArray(discovered) ? discovered : []),
+                ];
+                const prior = estimateModelPrior(target, pool, { topK: 3 });
+                entry = _buildEstimatedEntry(name, snapshot, metadataState, prior);
               }
 
               if (entry) {
@@ -859,11 +1290,33 @@ export function createSystemRoutes({ db, sendJSON, parseBody, modelRegistry }) {
                   const result = scoreModel(entry, role, ctx);
                   scores[role] = { score: result.totalScore, breakdown: result.breakdown };
                 }
+
+                const qualitySuffix = metadataState === 'STABLE'
+                  ? 'Scoring dokončen (estimated)'
+                  : `Scoring dokončen (estimated, metadata ${metadataState})`;
                 broadcast('control', { action: 'model_pull_progress', model: name, status: 'done', percent: 100,
-                  text: `${name} — Scoring dokončen`, scores, evalVersion: EVALUATION_VERSION });
+                  text: `${name} — ${qualitySuffix}`, scores, evalVersion: EVALUATION_VERSION, metadataState, writeSource,
+                  reconcile: reconcileResult?.ok ? {
+                    metadataState: reconcileResult.metadataState,
+                    changedFields: reconcileResult.changedFields,
+                    confidence: reconcileResult.derived?.confidence,
+                  } : null });
               } else {
                 broadcast('control', { action: 'model_pull_progress', model: name, status: 'done', percent: 100,
-                  text: `${name} — Staženo (model není v katalogu — scoring po dalším fullCycle)` });
+                  text: `${name} — Staženo (metadata nedostupná, scoring odložen)` });
+              }
+
+              if (metadataState !== 'STABLE') {
+                const queued = enqueueUniverseRecompute(name, metadataState);
+                if (queued) {
+                  broadcast('control', {
+                    action: 'model_pull_progress',
+                    model: name,
+                    status: 'recompute_queued',
+                    percent: 100,
+                    text: `${name} — Metadata ${metadataState}, plánuju background recompute`,
+                  });
+                }
               }
             } catch (scoreErr) {
               broadcast('control', { action: 'model_pull_progress', model: name, status: 'done', percent: 100,
