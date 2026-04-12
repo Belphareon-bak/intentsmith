@@ -15,6 +15,7 @@ import { logger } from '../core/logger.js';
 import { config } from '../config.js';
 import { MODEL_PROFILES, parseModelName, isNewerVersion, isSameFamily } from './model-profiles.js';
 import { discover, getUpgradeHints, fetchInstalledModels } from './model-discovery.js';
+import { modelUniverseStore } from './model-universe-store.js';
 
 // Minimum score for user-facing notifications (lower proposals exist but are silent)
 export const MIN_NOTIFY_SCORE = 6;
@@ -148,8 +149,9 @@ export function checkFeasibility(candidate, role, hwContext = {}) {
  * @param {Object} profile - From MODEL_PROFILES
  * @returns {Array<ModelCandidate>}
  */
-export function filterCandidates(candidates, profile) {
+export function filterCandidates(candidates, profile, opts = {}) {
   const { requirements, preferredFamilies, preferredCategories } = profile;
+  const blockedModels = opts.blockedModels instanceof Set ? opts.blockedModels : null;
 
   return candidates.filter(c => {
     // Param bounds
@@ -164,6 +166,9 @@ export function filterCandidates(candidates, profile) {
     // Skip the current model itself
     const current = profile.getCurrentModel();
     if (_normalizeModelName(c.name) === _normalizeModelName(current)) return false;
+
+    // Runtime safety guard: optionally exclude currently disabled models.
+    if (blockedModels && blockedModels.has(_normalizeModelName(c.name))) return false;
 
     return true;
   });
@@ -288,7 +293,9 @@ export function generateProposals(candidates, opts = {}) {
 
   for (const [role, profile] of Object.entries(MODEL_PROFILES)) {
     const current = profile.getCurrentModel();
-    const filtered = filterCandidates(candidates, profile);
+    const filtered = filterCandidates(candidates, profile, {
+      blockedModels: opts.blockedModels,
+    });
     const ranked = rankCandidates(filtered, profile);
 
     // Take top candidates above threshold
@@ -385,6 +392,44 @@ export class UpgradeManager {
     this._db = db;
   }
 
+  _getRuntimeGuardDecision(modelName) {
+    try {
+      const decision = modelUniverseStore?.isModelRuntimeAllowed?.(modelName);
+      if (!decision || typeof decision.allowed !== 'boolean') {
+        return { allowed: true, reason: 'runtime_guard_unavailable' };
+      }
+      return decision;
+    } catch (err) {
+      logger.debug('UpgradeManager', `Runtime guard check failed for ${modelName}: ${err.message}`);
+      return { allowed: true, reason: 'runtime_guard_error' };
+    }
+  }
+
+  _filterRuntimeGuardedCandidates(candidates = [], stage = 'discovery') {
+    const filtered = [];
+    const blocked = [];
+    for (const candidate of candidates) {
+      const decision = this._getRuntimeGuardDecision(candidate?.name);
+      if (decision.allowed) {
+        filtered.push(candidate);
+        continue;
+      }
+      blocked.push({
+        name: candidate?.name,
+        reason: decision.reason || 'runtime_guard_disabled',
+        disabledUntil: decision.disabledUntil || null,
+      });
+    }
+
+    if (blocked.length > 0) {
+      logger.info('UpgradeManager', `Runtime guard blocked ${blocked.length} candidate(s) during ${stage}`, {
+        blocked: blocked.slice(0, 12),
+      });
+    }
+
+    return { filtered, blocked };
+  }
+
   /**
    * Load persisted model overrides from DB and apply to config.models.
    * Called once on startup BEFORE any LLM calls.
@@ -429,6 +474,14 @@ export class UpgradeManager {
     try {
       // Validate role
       if (!MODEL_PROFILES[role]) throw new Error(`Invalid role: ${role}`);
+
+      if (!opts.ignoreRuntimeGuard) {
+        const decision = this._getRuntimeGuardDecision(targetModel);
+        if (!decision.allowed) {
+          const until = decision.disabledUntil ? ` until ${decision.disabledUntil}` : '';
+          throw new Error(`Model temporarily blocked by runtime guard (${decision.reason || 'error rate guard'})${until}: ${targetModel}`);
+        }
+      }
 
       // v125: Check if installed — auto-pull if onPullProgress callback provided
       const installed = await fetchInstalledModels({ timeout: 15000 });
@@ -800,6 +853,15 @@ export class UpgradeManager {
       ...opts,
       includeCatalog: opts.fullCycle || false,
     });
+
+    const runtimeGuardFilter = this._filterRuntimeGuardedCandidates(discovery.candidates, 'check_for_upgrades');
+    if (runtimeGuardFilter.blocked.length > 0) {
+      discovery.candidates = runtimeGuardFilter.filtered;
+      discovery.stats = {
+        ...(discovery.stats || {}),
+        runtimeGuardBlocked: runtimeGuardFilter.blocked.length,
+      };
+    }
     this._lastDiscovery = discovery;
 
     // v121.1: L4 Online Discovery (fullCycle only — same cadence as L2)
@@ -819,6 +881,18 @@ export class UpgradeManager {
           if (installedLibraryNames.length > 0) {
             await _ensurePhase2();
             const catalogArr = _catalog?.CATALOG || [];
+            const { MODEL_PROFILES } = await import('./model-profiles.js');
+            const currentLibraryNames = [...new Set(
+              Object.values(MODEL_PROFILES)
+                .map(profile => profile?.getCurrentModel?.())
+                .map(name => extractLibraryName(name))
+                .filter(Boolean)
+            )];
+            const envSeedFamilies = String(process.env.C3_DISCOVERY_SEED_FAMILIES || '')
+              .split(',')
+              .map(s => s.trim())
+              .filter(Boolean);
+            const seedFamilies = [...new Set([...currentLibraryNames, ...envSeedFamilies])];
             // Pass GPU VRAM for pre-filtering oversized models
             let gpuVramMb = 0;
             try {
@@ -828,7 +902,12 @@ export class UpgradeManager {
                 gpuVramMb = Math.max(...profile.gpus.map(g => g.vram_mb || 0));
               }
             } catch (_) {}
-            const newEntries = await od.discoverForFamilies(installedLibraryNames, { catalog: catalogArr, gpuVramMb });
+            const newEntries = await od.discoverForFamilies(installedLibraryNames, {
+              catalog: catalogArr,
+              gpuVramMb,
+              currentFamilies: currentLibraryNames,
+              seedFamilies,
+            });
             if (newEntries.length > 0) {
               await od.persistEntries(newEntries);
               logger.info('UpgradeManager', `L4: discovered ${newEntries.length} new model variants`);
@@ -967,6 +1046,8 @@ export class UpgradeManager {
       const currentNorm = _normalizeModelName(current);
       const roleCandidates = discovery.candidates.filter(c => {
         if (_normalizeModelName(c.name) === currentNorm) return false;
+        const guardDecision = this._getRuntimeGuardDecision(c.name);
+        if (!guardDecision.allowed) return false;
         // Param bounds from profile
         const req = profile.requirements;
         if (c.params && req.minParams && c.params < req.minParams) return false;

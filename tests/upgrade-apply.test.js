@@ -329,6 +329,27 @@ await testAsync('mutex: concurrent apply throws "in progress"', async () => {
   resetModels();
 });
 
+await testAsync('runtime guard blocks applyUpgrade before install checks', async () => {
+  resetModels();
+  const db = createTestDb();
+  const mgr = createTestManager(db);
+  mgr._getRuntimeGuardDecision = () => ({
+    allowed: false,
+    reason: 'error_rate_guard',
+    disabledUntil: '2099-01-01T00:00:00.000Z',
+  });
+
+  try {
+    await mgr.applyUpgrade('CHAT', 'blocked-model:7b', {});
+    assert(false, 'Should have thrown');
+  } catch (err) {
+    assert(err.message.includes('runtime guard'), `Expected runtime guard error, got: ${err.message}`);
+  }
+
+  db.close();
+  resetModels();
+});
+
 test('configVersion increments on persist', () => {
   const db = createTestDb();
   const mgr = createTestManager(db);

@@ -278,6 +278,19 @@ test('excludes current model', () => {
   assert(!filtered.some(c => c.name === current), 'should exclude current model');
 });
 
+test('supports blockedModels set (runtime guard)', () => {
+  const profile = getProfile('CHAT');
+  const candidates = [
+    { name: 'qwen3:14b', family: 'qwen', category: 'general', params: 14, installed: true },
+    { name: 'llama3.1:8b', family: 'llama', category: 'general', params: 8, installed: true },
+  ];
+  const filtered = filterCandidates(candidates, profile, {
+    blockedModels: new Set(['qwen3:14b']),
+  });
+  assertEqual(filtered.length, 1);
+  assertEqual(filtered[0].name, 'llama3.1:8b');
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  Suite 7: Candidate Ranking
 // ═══════════════════════════════════════════════════════════════════════════
@@ -410,6 +423,24 @@ test('getLastResults initially null', () => {
   const { proposals, discovery } = manager.getLastResults();
   assertEqual(proposals, null);
   assertEqual(discovery, null);
+});
+
+test('_filterRuntimeGuardedCandidates excludes disabled models', () => {
+  const manager = new UpgradeManager();
+  manager._getRuntimeGuardDecision = (name) => {
+    if (name === 'blocked:7b') return { allowed: false, reason: 'error_rate_guard' };
+    return { allowed: true, reason: 'ok' };
+  };
+
+  const result = manager._filterRuntimeGuardedCandidates([
+    { name: 'allowed:14b' },
+    { name: 'blocked:7b' },
+  ], 'test');
+
+  assertEqual(result.filtered.length, 1);
+  assertEqual(result.filtered[0].name, 'allowed:14b');
+  assertEqual(result.blocked.length, 1);
+  assertEqual(result.blocked[0].name, 'blocked:7b');
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

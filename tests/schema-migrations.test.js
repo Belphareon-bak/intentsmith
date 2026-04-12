@@ -1,4 +1,4 @@
-// C3-Agent v64.0 — Schema Migration Tests
+// C3-Agent v135.0 — Schema Migration Tests
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // T-SM1:  Fresh DB — all migrations applied
@@ -9,7 +9,7 @@
 // T-SM6:  Migration ordering (lexicographic = chronological)
 // T-SM7:  Baseline creates all expected tables
 // T-SM8:  ALTER TABLE migrations are idempotent (column check)
-// T-SM9:  Failed migration rolls back (no partial state)
+// T-SM9:  Pre-seeded DB — all migrations skipped
 // T-SM10: hasColumn / hasTable utilities
 //
 // Spuštění: node tests/schema-migrations.test.js
@@ -70,27 +70,88 @@ function getColumnNames(db, table) {
   return db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
 }
 
-// Expected tables after all migrations (including v69 expert→expertise rename)
+// All 46 migration versions in order (as exported by each migration file, not filenames)
+const ALL_MIGRATIONS = [
+  '2026_02_14_001_baseline',
+  '2026_02_14_002_v59_is_external',
+  '2026_02_14_003_v62_active_session',
+  '2026_02_14_004_v63_execution_trace',
+  '2026_02_14_005_v64_cre_override_log',
+  '2026_02_18_006',
+  '2026_02_19_007',
+  '2026_02_19_008',
+  '2026_02_20_008',
+  '2026_02_20_009',
+  '2026_02_22_010',
+  '2026_02_22_011',
+  '2026_02_22_012',
+  '2026_02_24_013',
+  '2026_02_24_014',
+  '2026_02_24_015',
+  '2026_02_24_016',
+  '2026_02_24_017',
+  '2026_02_25_018',
+  '2026_02_26_019',
+  '2026_02_26_020',
+  '2026_02_27_021',
+  '2026_02_27_022',
+  '2026_02_28_023',
+  '2026_03_01_024',
+  '2026_03_01_025',
+  '2026_03_02_026',
+  '2026_03_03_027_v91_feedback',
+  '2026_03_03_028_v91_feedback_attachments',
+  '2026_03_05_029_v98_architecture_governance',
+  '2026_03_08_030_v103_model_overrides',
+  '2026_03_08_030_v107_task_memory',
+  '2026_03_10_031_v118_upgrade_proposals',
+  '2026_03_11_032_v120_model_performance',
+  '2026_03_11_033_v121_discovered_models',
+  '2026_03_12_034_v123_validation_results',
+  '2026_03_12_035_v124_marketplace',
+  '2026_03_12_036_v125_model_verified',
+  '2026_03_22_037_v130_media_generations',
+  '2026_03_25_038_v132_benchmark_source',
+  '2026_03_26_039_v133_model_usage',
+  '2026_03_27_040_v135_governor',
+  '2026_04_08_041_v136_model_universe',
+  '2026_04_08_042_v137_universe_reconciliation',
+  '2026_04_12_043_drafts_table',
+  '2026_04_12_044_v138_runtime_guard',
+];
+
+const MIGRATION_COUNT = ALL_MIGRATIONS.length; // 46
+const LAST_MIGRATION = ALL_MIGRATIONS[ALL_MIGRATIONS.length - 1];
+
+// Expected tables after all migrations
+// NOTE: experts, expert_memory, conversation_experts, custom_experts are DROPPED by migration 014
 const EXPECTED_TABLES = [
-  'agents', 'agent_logs', 'attachments',
-  'calculation_runs',
-  'capability_drift_log', 'change_requests', 'chat_fts', 'chat_messages', 'chat_sessions',
-  'conversations', 'conversation_experts', 'conversation_expertises',
-  'cre_override_log', 'custom_expertises',
-  'drafts', 'drift_checks',
-  'entity_profiles', 'entry_history',
-  'expertise_bindings', 'expertise_memory', 'expertises',
-  'expert_memory', 'experts',
-  'financial_entries',
-  'global_memory',
+  'agents', 'agent_logs', 'api_contracts', 'api_tokens', 'architecture_state', 'attachments',
+  'auto_expertise_log',
+  'calculation_runs', 'capability_drift_log', 'change_requests', 'chat_fts', 'chat_messages', 'chat_sessions',
+  'compliance_checks', 'conversation_expertises', 'conversations', 'cre_override_log', 'custom_expertises',
+  'discovered_models', 'drafts', 'drift_checks',
+  'entity_profiles', 'entry_history', 'expertise_bindings', 'expertise_memory', 'expertises',
+  'feedback', 'feedback_attachments', 'financial_entries',
+  'global_memory', 'governor_proposals', 'governor_reports',
   'knowledge_facts', 'knowledge_sources', 'knowledge_verification_log',
   'learned_patterns', 'lifecycle_handoff_state', 'llm_execution_log', 'logs',
-  'merge_audit_log', 'messages', 'messages_fts', 'milestones',
-  'project_lifecycles', 'project_memory', 'projects',
-  'roadmap_versions',
-  'schema_migrations',
-  'user_memory', 'user_settings',
-  'workflow_sessions',
+  'marketplace_catalog_cache', 'marketplace_packages', 'media_generations',
+  'memory', 'merge_audit_log', 'messages', 'messages_fts', 'milestones',
+  'model_catalog_cache', 'model_overrides', 'model_performance', 'model_reconciliation_log',
+  'model_runtime_guard',
+  'model_signal_events', 'model_universe_derived', 'model_universe_raw',
+  'model_usage', 'model_write_log',
+  'period_locks', 'project_lifecycles', 'project_memory', 'projects',
+  'quality_scores',
+  'registry_delta', 'roadmap_versions',
+  'schema_migrations', 'skill_executions', 'skill_steps', 'specialist_expertises',
+  'specialist_memory', 'specialist_migrations', 'specialist_telemetry', 'specialists',
+  'task_memory', 'tax_losses', 'telemetry_alerts', 'telemetry_improvements', 'telemetry_metrics',
+  'telemetry_snapshots',
+  'upgrade_history', 'upgrade_proposals', 'user_memory', 'user_settings',
+  'validation_results', 'validation_suite_scores', 'vat_periods',
+  'workflow_patterns', 'workflow_sessions',
 ];
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -98,10 +159,11 @@ const EXPECTED_TABLES = [
 // ══════════════════════════════════════════════════════════════════════════════
 
 describe('T-SM1: Fresh DB — all migrations applied', async () => {
-  await it('applies all 9 migrations on empty DB', async () => {
+  await it(`applies all ${MIGRATION_COUNT} migrations on empty DB`, async () => {
     const db = freshDb();
     const result = await runMigrations(db);
-    assert.strictEqual(result.applied.length, 9, `Expected 9 applied, got ${result.applied.length}`);
+    assert.strictEqual(result.applied.length, MIGRATION_COUNT,
+      `Expected ${MIGRATION_COUNT} applied, got ${result.applied.length}`);
     assert.strictEqual(result.skipped.length, 0, 'No skipped on fresh DB');
     db.close();
   });
@@ -109,17 +171,7 @@ describe('T-SM1: Fresh DB — all migrations applied', async () => {
   await it('migration versions are in correct order', async () => {
     const db = freshDb();
     const result = await runMigrations(db);
-    assert.deepStrictEqual(result.applied, [
-      '2026_02_14_001_baseline',
-      '2026_02_14_002_v59_is_external',
-      '2026_02_14_003_v62_active_session',
-      '2026_02_14_004_v63_execution_trace',
-      '2026_02_14_005_v64_cre_override_log',
-      '2026_02_18_006_v67_auto_compact',
-      '2026_02_19_007_v68_knowledge_base',
-      '2026_02_19_008_v69_ledger_core',
-      '2026_02_20_008_v69_expert_to_expertise',
-    ]);
+    assert.deepStrictEqual(result.applied, ALL_MIGRATIONS);
     db.close();
   });
 });
@@ -134,7 +186,8 @@ describe('T-SM2: Idempotent — running twice changes nothing', async () => {
     await runMigrations(db);
     const result2 = await runMigrations(db);
     assert.strictEqual(result2.applied.length, 0, 'Nothing new applied');
-    assert.strictEqual(result2.skipped.length, 9, 'All 9 skipped');
+    assert.strictEqual(result2.skipped.length, MIGRATION_COUNT,
+      `All ${MIGRATION_COUNT} skipped`);
     db.close();
   });
 
@@ -158,9 +211,10 @@ describe('T-SM3: schema_migrations table', async () => {
     const db = freshDb();
     await runMigrations(db);
     const rows = db.prepare('SELECT version, applied_at FROM schema_migrations ORDER BY version').all();
-    assert.strictEqual(rows.length, 9);
+    assert.strictEqual(rows.length, MIGRATION_COUNT);
     assert.strictEqual(rows[0].version, '2026_02_14_001_baseline');
-    assert.strictEqual(rows[8].version, '2026_02_20_008_v69_expert_to_expertise');
+    assert.strictEqual(rows[8].version, '2026_02_20_008');
+    assert.strictEqual(rows[MIGRATION_COUNT - 1].version, LAST_MIGRATION);
     db.close();
   });
 
@@ -191,7 +245,7 @@ describe('T-SM4: getCurrentVersion', async () => {
     const db = freshDb();
     await runMigrations(db);
     const ver = getCurrentVersion(db);
-    assert.strictEqual(ver, '2026_02_20_008_v69_expert_to_expertise');
+    assert.strictEqual(ver, LAST_MIGRATION);
     db.close();
   });
 });
@@ -204,7 +258,7 @@ describe('T-SM5: listMigrations', async () => {
   await it('shows all as pending on empty DB', async () => {
     const db = freshDb();
     const list = await listMigrations(db);
-    assert.strictEqual(list.length, 9);
+    assert.strictEqual(list.length, MIGRATION_COUNT);
     assert.ok(list.every(m => m.applied === false), 'All should be pending');
     db.close();
   });
@@ -213,7 +267,7 @@ describe('T-SM5: listMigrations', async () => {
     const db = freshDb();
     await runMigrations(db);
     const list = await listMigrations(db);
-    assert.strictEqual(list.length, 9);
+    assert.strictEqual(list.length, MIGRATION_COUNT);
     assert.ok(list.every(m => m.applied === true), 'All should be applied');
     db.close();
   });
@@ -299,6 +353,25 @@ describe('T-SM7: Baseline creates all expected tables', async () => {
     assert.throws(() => {
       db.prepare("INSERT INTO conversation_expertises (conversation_id, expertise_id, weight, position) VALUES ('test-conv', 'e2', 0.0, 1)").run();
     }, /CHECK/i);
+    db.close();
+  });
+
+  await it('v70+ tables exist (period_locks, vat_periods, specialists, memory)', async () => {
+    const db = freshDb();
+    await runMigrations(db);
+    for (const t of ['period_locks', 'vat_periods', 'specialists', 'memory', 'feedback', 'task_memory', 'discovered_models', 'drafts']) {
+      assert.ok(hasTable(db, t), `Missing table: ${t}`);
+    }
+    db.close();
+  });
+
+  await it('old expert tables are dropped by migration 014', async () => {
+    const db = freshDb();
+    await runMigrations(db);
+    const tables = getTableNames(db);
+    for (const t of ['experts', 'expert_memory', 'conversation_experts', 'custom_experts']) {
+      assert.ok(!tables.includes(t), `Table should be dropped: ${t}`);
+    }
     db.close();
   });
 });
@@ -389,31 +462,25 @@ describe('T-SM8: ALTER TABLE migrations idempotent on existing DB', async () => 
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// T-SM9: FAILED MIGRATION ROLLS BACK
+// T-SM9: PRE-SEEDED DB — ALL MIGRATIONS SKIPPED
 // ══════════════════════════════════════════════════════════════════════════════
 
-describe('T-SM9: Failed migration rolls back', async () => {
-  await it('schema_migrations is not updated on failure', async () => {
+describe('T-SM9: Pre-seeded DB — all migrations skipped', async () => {
+  await it('schema_migrations pre-seeded with all versions → runMigrations skips all', async () => {
     const db = freshDb();
 
-    // Manually create schema_migrations and mark baseline as applied
-    db.exec(`
-      CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at DATETIME DEFAULT CURRENT_TIMESTAMP);
-      INSERT INTO schema_migrations (version) VALUES ('2026_02_14_001_baseline');
-      INSERT INTO schema_migrations (version) VALUES ('2026_02_14_002_v59_is_external');
-      INSERT INTO schema_migrations (version) VALUES ('2026_02_14_003_v62_active_session');
-      INSERT INTO schema_migrations (version) VALUES ('2026_02_14_004_v63_execution_trace');
-      INSERT INTO schema_migrations (version) VALUES ('2026_02_14_005_v64_cre_override_log');
-      INSERT INTO schema_migrations (version) VALUES ('2026_02_18_006_v67_auto_compact');
-      INSERT INTO schema_migrations (version) VALUES ('2026_02_19_007_v68_knowledge_base');
-      INSERT INTO schema_migrations (version) VALUES ('2026_02_19_008_v69_ledger_core');
-      INSERT INTO schema_migrations (version) VALUES ('2026_02_20_008_v69_expert_to_expertise');
-    `);
+    // Manually create schema_migrations and mark ALL migrations as applied
+    db.exec(`CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+    const insert = db.prepare(`INSERT INTO schema_migrations (version) VALUES (?)`);
+    for (const version of ALL_MIGRATIONS) {
+      insert.run(version);
+    }
 
-    // All 9 migrations are already "applied" — runMigrations should skip all
+    // All migrations are already "applied" — runMigrations should skip all
     const result = await runMigrations(db);
     assert.strictEqual(result.applied.length, 0, 'All migrations already applied');
-    assert.strictEqual(result.skipped.length, 9, 'All 9 skipped');
+    assert.strictEqual(result.skipped.length, MIGRATION_COUNT,
+      `All ${MIGRATION_COUNT} skipped`);
     db.close();
   });
 });
@@ -480,7 +547,7 @@ describe('T-SM10: hasColumn / hasTable utilities', async () => {
 
 async function run() {
   console.log('\n' + '═'.repeat(70));
-  console.log('  C3-Agent v64.0 — Schema Migration Tests');
+  console.log(`  C3-Agent v135.0 — Schema Migration Tests (${MIGRATION_COUNT} migrations)`);
   console.log('═'.repeat(70));
 
   for (const test of pendingTests) {

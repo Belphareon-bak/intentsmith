@@ -42,6 +42,7 @@ Vsechny promenne se nacitaji z `.env` souboru pres `dotenv`. Viz `.env.example` 
 | Ollama | `OLLAMA_URL` | Adresa Ollama serveru |
 | Features | `C3_ENABLE_AGENTS`, `C3_ENABLE_LIFECYCLE`, `C3_ENABLE_EXPERTISES`, `C3_ENABLE_TELEMETRY`, `C3_ENABLE_SKILLS` | Zapnuti/vypnuti modulu |
 | Databaze | `C3_DB_PATH` | Cesta k SQLite souboru |
+| Model Universe | `C3_MODEL_UNIVERSE_ENABLED`, `C3_MODEL_RUNTIME_GUARD_ENABLED`, `C3_MODEL_RUNTIME_GUARD_DISABLE_ERROR_RATE`, `C3_MODEL_RUNTIME_GUARD_RECOVER_ERROR_RATE`, `C3_MODEL_RUNTIME_GUARD_COOLDOWN_MS` | Universe ingest + runtime safety guard |
 | Lifecycle | `C3_LIFECYCLE_REVIEW_FREQ`, `C3_MAX_MILESTONE_LOC`, `C3_MAX_MILESTONE_FILES` | Nastaveni projektu |
 | Notifikace | `C3_SMTP_*`, `C3_TELEGRAM_*`, `C3_NTFY_*` | Email, Telegram, push kanaly |
 | Security | `C3_ADMIN_TOKEN`, `C3_LICENSE_KEY` | Autentizace a licence |
@@ -279,7 +280,7 @@ c3-agent-wip/
 │   │   ├── database.js               # SQLite schema (58+ tabulek, prepared statements)
 │   │   ├── migrate.js                # Migration runner
 │   │   ├── data-retention.js         # Tiered pruning (30d/60d/90d/180d)
-│   │   └── migrations/               # 28 migracnich souboru (v59 → v92)
+│   │   └── migrations/               # 46 migracnich souboru (v63 → v138)
 │   │
 │   ├── ws-bridge/                    # WebSocket bridge (IDE ↔ backend)
 │   │   ├── ws-server.js              # WS server
@@ -320,7 +321,7 @@ c3-agent-wip/
 │   ├── create-skill.json             # Meta-skill pro tvorbu novych skills
 │   └── create-expertise.json         # Meta-skill pro tvorbu expertyz
 │
-├── tests/                            # 294 testovych souboru (~3,600+ testu)
+├── tests/                            # 300+ testovych souboru (~3,600+ testu)
 │   ├── harness.js                    # Custom ESM test harness
 │   └── ...                           # Viz sekce Testy nize
 │
@@ -386,6 +387,11 @@ npm run test:e2e                       # E2E pipeline, complex, resilience, work
 npm run test:security                  # Security hardening
 npm run test:ws                        # WebSocket bridge
 npm run test:conv                      # Konverzacni testy CZ/EN/no-diacritics (vyzaduje Ollama)
+
+# E2E Quality Loop (Tier 3, vyzaduje Ollama + GPU)
+node tests/e2e-loop.js --tiers 3       # Vsechny T3 suity (lite mode)
+node tests/e2e/97-project-build-quality.e2e.js   # Iterativni build cykly (plan→kod→ladeni→testy)
+node tests/e2e/98-analysis-quality.e2e.js         # Analyza kodu, debugging, dokonceni projektu
 
 # Jednotlive testy
 node tests/cre-comprehensive.test.js   # CRE klasifikace (401 testu)
