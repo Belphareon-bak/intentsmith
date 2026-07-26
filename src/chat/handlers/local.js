@@ -189,6 +189,14 @@ export function normalizeCzechMath(input) {
  * v82.1: DPH/VAT calculation — "DPH z 10000 při 21%" → 2100
  */
 export function computeMath(input) {
+  const nonFiniteResult = (expression, result) => ({
+    answer: NaN,
+    expression,
+    error: 'non_finite_result',
+    nonFiniteResult: Number.isNaN(result) ? 'NaN' : String(result),
+    explanation: `${expression} does not have a finite numeric result`,
+  });
+
   // v82.1: DPH/VAT — "DPH z 10000 Kč při sazbě 21%", "DPH z 5000 (15%)"
   const dphMatch = input.match(/dph\s+(?:z\s+)?(?:částky\s+)?(\d[\d\s]*)\s*(?:kč\s*)?(?:při\s+(?:sazbě\s+)?)?(\d+)\s*%/i);
   if (dphMatch) {
@@ -238,13 +246,14 @@ export function computeMath(input) {
     if (/^[\d+\-*/().]+$/.test(expr)) {
       try {
         const result = Function('"use strict"; return (' + expr + ')')();
-        if (typeof result === 'number' && !isNaN(result)) {
+        if (typeof result === 'number' && Number.isFinite(result)) {
           return {
             answer: result,
             expression: expr,
             explanation: `${expr} = ${result}`,
           };
         }
+        if (typeof result === 'number') return nonFiniteResult(expr, result);
       } catch {
         // fall through to Czech normalization
       }
@@ -259,13 +268,14 @@ export function computeMath(input) {
       if (/^[\d\s+\-*/().%]*(?:Math\.sqrt\([\d.]+\))?[\d\s+\-*/().%]*$/.test(normalized)
           || /\*\*/.test(normalized)) {
         const result = Function('"use strict"; return (' + normalized + ')')();
-        if (typeof result === 'number' && !isNaN(result)) {
+        if (typeof result === 'number' && Number.isFinite(result)) {
           return {
             answer: result,
             expression: normalized,
             explanation: `${normalized} = ${result}`,
           };
         }
+        if (typeof result === 'number') return nonFiniteResult(normalized, result);
       }
     } catch {
       // eval failed — fall through

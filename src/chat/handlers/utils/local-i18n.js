@@ -116,6 +116,13 @@ export function formatTimeResponse(lang = 'cs') {
  * @returns {string}
  */
 export function formatMathResponse(expression, result, lang = 'cs') {
+  if (!Number.isFinite(result)) {
+    const label = lang === 'cs' || lang === 'sk'
+      ? 'výsledek není konečné číslo'
+      : 'result is not a finite number';
+    return `📊 **${expression} = ${label}**`;
+  }
+
   // Math formatting is universal — just the expression = result
   return `📊 **${expression} = ${result}**`;
 }
