@@ -2980,6 +2980,13 @@ PRAVIDLA:
 
     // v72: Helper — injects timing metrics into every decision
     const _makeDecision = (config) => {
+      const overrideSource = config.overrideSource;
+      const overrideReason = config.overrideReason || config.reason;
+      const originalDecision = config.originalDecision || null;
+      delete config.overrideSource;
+      delete config.overrideReason;
+      delete config.originalDecision;
+
       const decideTimeMs = Math.round(performance.now() - _decideStart);
       const classifiedBy = llmMeta ? 'llm' : (isDeterministic ? 'deterministic' : 'regex');
       config.metadata = {
@@ -3014,6 +3021,15 @@ PRAVIDLA:
 
       // v73: Attach diag to metadata for telemetry persistence
       config.metadata.diag = _diagSnapshot;
+
+      if (overrideSource) {
+        return this.overrideDecision({
+          ...config,
+          source: overrideSource,
+          reason: overrideReason,
+          originalDecision,
+        });
+      }
 
       return new CREDecision(config);
     };
@@ -3064,6 +3080,25 @@ PRAVIDLA:
 
     // v73: Capture initial intent before any overrides
     _diag.initialIntent = intent;
+
+    if (llmMeta && intent !== IntentType.BUILD) {
+      const deterministicIntent = this.classifyIntent(input);
+      if (deterministicIntent === IntentType.BUILD) {
+        logger.info('CRE:LLM:Guard', `${intent} override → BUILD (strong deterministic BUILD signal)`, {
+          input: input.substring(0, 60),
+          llmIntent: intent,
+          deterministicIntent,
+          confidence: llmMeta.confidence,
+        });
+        llmMeta = {
+          ...llmMeta,
+          deterministicIntent,
+          arbitration: 'deterministic_build_override',
+        };
+        intent = IntentType.BUILD;
+        _diag.overrides.push('llm_to_build_deterministic_arbitration');
+      }
+    }
 
     // ════════════════════════════════════════════════════════════════════════
     // v88: GUARD 8 — SKILL deterministic upgrade + feature gate.
@@ -3709,12 +3744,28 @@ PRAVIDLA:
     // Chat Agent doesn't build — it hands off to Planner with confirmation
     // ════════════════════════════════════════════════════════════════════════
     if (intent === IntentType.BUILD) {
+      const buildArbitration = llmMeta?.arbitration === 'deterministic_build_override'
+        ? {
+            overrideSource: 'llm_to_build_deterministic_arbitration',
+            overrideReason: `Accepted LLM intent ${llmMeta.intent} overridden by strong deterministic BUILD signal`,
+            originalDecision: {
+              type: null,
+              intent: llmMeta.intent,
+              confidence: llmMeta.confidence,
+              metadata: {
+                classifiedBy: 'llm',
+                deterministicIntent: IntentType.BUILD,
+              },
+            },
+          }
+        : {};
       return _makeDecision({
         type: DecisionType.PLAN,
         intent,
         tools: [],                  // No Chat tools — Planner has its own pipeline
         reason: 'BUILD intent detected — handoff to Planner pipeline',
         confidence: 0.9,
+        ...buildArbitration,
         metadata: {
           inputPreview: input.substring(0, 200),
           buildRequest: true,
