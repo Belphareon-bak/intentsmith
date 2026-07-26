@@ -87,5 +87,8 @@ export function summary() {
   }
 
   console.log(`${'═'.repeat(70)}\n`);
+  if (failed > 0) {
+    process.exitCode ||= 1;
+  }
   return { passed, failed, skipped, failures };
 }
