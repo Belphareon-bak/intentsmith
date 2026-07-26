@@ -1,0 +1,8 @@
+[Unit]
+Description=C3 safe local nightly audit
+Documentation=file:@PROJECT_ROOT@/docs/nightly-audit.md
+
+[Service]
+Type=oneshot
+WorkingDirectory=@PROJECT_ROOT@
+ExecStart=@NODE_BIN@ @PROJECT_ROOT@/scripts/nightly-orchestrator.js --repo @PROJECT_ROOT@ --artifact-root @ARTIFACT_ROOT@ --worktree-root @WORKTREE_ROOT@
