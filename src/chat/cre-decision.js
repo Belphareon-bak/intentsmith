@@ -587,7 +587,7 @@ export const FORBIDDEN_PHRASES = [
 
 const SEARCH_PATTERNS = [
   // ── Explicit search commands (always SEARCH) ──────────────────────────
-  /najdi/i, /hledej/i, /hled[áa]m/i, /vyhledej/i, /search/i, /find/i,
+  /najdi/i, /naj[íi]t/i, /hledej/i, /hled[áa]m/i, /vyhledej/i, /search/i, /find/i,
 
   // ── "co je" / "what is" ONLY with fresh-data modifier ─────────────────
   /co je .{0,15}\b(aktuáln|současn|dnes|teď|nyn|cena|kurz|verze|stav|nového?|nových)\b/i,
