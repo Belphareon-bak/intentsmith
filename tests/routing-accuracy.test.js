@@ -206,7 +206,6 @@ const db = createTestDb();
 const runtime = new SpecialistRuntime();
 const loader = new SpecialistLoader(db, runtime, {
   baseDir: path.join(PROJECT_ROOT, 'specialists'),
-  engineVersion: '65.5.0',
 });
 
 await loader.boot();

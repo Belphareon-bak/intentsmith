@@ -178,7 +178,6 @@ console.log('\n── 5. Contextual re-execution (real specialist) ──');
   const runtime = new SpecialistRuntime();
   const loader = new SpecialistLoader(db, runtime, {
     baseDir: path.join(PROJECT_ROOT, 'specialists'),
-    engineVersion: '65.5.0',
   });
 
   await loader.boot();
@@ -280,7 +279,6 @@ console.log('\n── 6. Backwards compatibility ──');
   const runtime = new SpecialistRuntime();
   const loader = new SpecialistLoader(db, runtime, {
     baseDir: path.join(PROJECT_ROOT, 'specialists'),
-    engineVersion: '65.5.0',
   });
 
   await loader.boot();
@@ -365,7 +363,6 @@ console.log('\n── 8. Cross-tool isolation ──');
   const runtime = new SpecialistRuntime();
   const loader = new SpecialistLoader(db, runtime, {
     baseDir: path.join(PROJECT_ROOT, 'specialists'),
-    engineVersion: '65.5.0',
   });
   await loader.boot();
 
@@ -442,7 +439,6 @@ console.log('\n── 9. Cache expiration integration ──');
   runtime._sessionCache = new SessionParamCache(100);
   const loader = new SpecialistLoader(db, runtime, {
     baseDir: path.join(PROJECT_ROOT, 'specialists'),
-    engineVersion: '65.5.0',
   });
   await loader.boot();
 
@@ -509,7 +505,6 @@ console.log('\n── 10. Clarify loop guard ──');
   const runtime = new SpecialistRuntime();
   const loader = new SpecialistLoader(db, runtime, {
     baseDir: path.join(PROJECT_ROOT, 'specialists'),
-    engineVersion: '65.5.0',
   });
   await loader.boot();
 
