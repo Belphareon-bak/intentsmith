@@ -2,7 +2,7 @@
 
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import { createWriteStream } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -215,6 +215,9 @@ export async function runAudit(options = {}) {
   const runId = opts.runId || makeRunId();
   const runDir = path.join(opts.outDir, runId);
   const logsDir = path.join(runDir, 'logs');
+  if (!opts.resume && await pathExists(runDir)) {
+    throw new Error(`Run id already exists: ${runId}. Use --resume to continue it or choose a new --run-id.`);
+  }
   await mkdir(logsDir, { recursive: true });
 
   const sourceRevision = await getSourceRevision(opts.root);
@@ -222,12 +225,18 @@ export async function runAudit(options = {}) {
   const selectedSuites = filterSuites(allSuites, opts);
   const counts = countByCategory(selectedSuites);
   const blockerCounts = countBlockers(selectedSuites);
+  const inventoryFingerprint = fingerprintInventory(selectedSuites);
+  const optionsSnapshot = makeOptionsSnapshot(opts);
+  const optionsFingerprint = stableHash(optionsSnapshot);
   const checkpointPath = path.join(runDir, 'checkpoint.json');
   const reportPath = path.join(runDir, 'report.json');
   const inventoryPath = path.join(runDir, 'inventory.json');
   const startedAt = new Date().toISOString();
-  const completedResults = opts.resume ? await readCheckpoint(checkpointPath) : [];
+  const completedResults = opts.resume
+    ? await readAndValidateResume({ checkpointPath, inventoryPath, sourceRevision, inventoryFingerprint, optionsFingerprint })
+    : [];
   const completedKeys = new Set(completedResults.map(resultKey));
+  let checkpointWrite = Promise.resolve();
 
   await writeJSON(inventoryPath, {
     runId,
@@ -235,6 +244,9 @@ export async function runAudit(options = {}) {
     generatedAt: startedAt,
     counts,
     blockerCounts,
+    inventoryFingerprint,
+    optionsFingerprint,
+    options: optionsSnapshot,
     suites: selectedSuites,
   });
 
@@ -251,6 +263,8 @@ export async function runAudit(options = {}) {
       counts,
       blockerCounts,
       runDir,
+      inventoryFingerprint,
+      optionsFingerprint,
     });
     await writeJSON(reportPath, report);
     printInventorySummary(report);
@@ -284,22 +298,48 @@ export async function runAudit(options = {}) {
       if (disallowedBlockers.length) {
         result = makeBlockedResult(suite, sourceRevision, disallowedBlockers);
       } else {
-        result = await runSuite({ suite, opts, sourceRevision, logsDir });
+        result = await runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt });
       }
 
       results.push(result);
       if (result.required !== false && ['FAIL', 'TIMEOUT'].includes(result.status)) requiredFailureSeen = true;
-      await writeJSON(checkpointPath, { runId, sourceRevision, updatedAt: new Date().toISOString(), results });
+      await enqueueCheckpoint({
+        runId,
+        sourceRevision,
+        inventoryFingerprint,
+        optionsFingerprint,
+        options: optionsSnapshot,
+        updatedAt: new Date().toISOString(),
+        results,
+      });
       printSuiteProgress(results.length, selectedSuites.length, result);
     }
   }
 
+  function enqueueCheckpoint(value) {
+    checkpointWrite = checkpointWrite.then(() => writeJSONAtomic(checkpointPath, value));
+    return checkpointWrite;
+  }
+
   await Promise.all(Array.from({ length: opts.concurrency }, () => worker()));
+  await checkpointWrite;
 
   for (let i = cursor; i < pending.length; i++) {
     const suite = pending[i];
     const result = makeSkippedResult(suite, sourceRevision, Date.now() >= deadlineAt ? 'total_deadline' : 'fail_fast');
     results.push(result);
+  }
+  if (results.length !== completedResults.length) {
+    await enqueueCheckpoint({
+      runId,
+      sourceRevision,
+      inventoryFingerprint,
+      optionsFingerprint,
+      options: optionsSnapshot,
+      updatedAt: new Date().toISOString(),
+      results,
+    });
+    await checkpointWrite;
   }
 
   const endedAt = new Date().toISOString();
@@ -315,25 +355,32 @@ export async function runAudit(options = {}) {
     counts,
     blockerCounts,
     runDir,
+    inventoryFingerprint,
+    optionsFingerprint,
   });
   await writeJSON(reportPath, report);
   printFinalSummary(report);
   return report;
 }
 
-async function runSuite({ suite, opts, sourceRevision, logsDir }) {
+async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
   const startMs = Date.now();
   const startedAt = new Date(startMs).toISOString();
   const logPath = path.join(logsDir, `${safeLogName(suite.path)}.log`);
   const log = createWriteStream(logPath, { flags: 'a' });
   const [cmd, ...args] = suite.command;
   let timedOut = false;
+  let closed = false;
+  const remainingMs = Math.max(1, deadlineAt - startMs);
+  const suiteTimeoutMs = Math.min(opts.timeoutMs, remainingMs);
 
   log.write(`$ ${suite.command.join(' ')}\n`);
   log.write(`started_at=${startedAt}\n`);
   log.write(`source_revision=${sourceRevision}\n\n`);
+  log.write(`suite_timeout_ms=${suiteTimeoutMs}\n\n`);
 
   return await new Promise(resolve => {
+    const detached = process.platform !== 'win32';
     const child = spawn(cmd, args, {
       cwd: opts.root,
       env: {
@@ -342,22 +389,38 @@ async function runSuite({ suite, opts, sourceRevision, logsDir }) {
         C3_AUDIT_RUN: '1',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
+      detached,
     });
+    let killTimer = null;
+
+    const signalChildTree = (signal) => {
+      if (closed || !child.pid) return;
+      try {
+        if (detached) process.kill(-child.pid, signal);
+        else child.kill(signal);
+      } catch (err) {
+        if (err.code !== 'ESRCH') log.write(`\nkill_error_${signal}=${err.message}\n`);
+      }
+    };
 
     const timer = setTimeout(() => {
       timedOut = true;
-      child.kill('SIGTERM');
-      setTimeout(() => {
-        if (!child.killed) child.kill('SIGKILL');
+      log.write(`\ntimeout_after_ms=${suiteTimeoutMs}\n`);
+      signalChildTree('SIGTERM');
+      killTimer = setTimeout(() => {
+        signalChildTree('SIGKILL');
       }, 2000).unref();
-    }, opts.timeoutMs);
+    }, suiteTimeoutMs);
     timer.unref();
 
     child.stdout.on('data', chunk => log.write(chunk));
     child.stderr.on('data', chunk => log.write(chunk));
     child.on('error', err => log.write(`\nspawn_error=${err.message}\n`));
     child.on('close', (code, signal) => {
+      if (timedOut) signalChildTree('SIGKILL');
+      closed = true;
       clearTimeout(timer);
+      if (killTimer) clearTimeout(killTimer);
       const endMs = Date.now();
       const endedAt = new Date(endMs).toISOString();
       const status = timedOut ? 'TIMEOUT' : code === 0 ? 'PASS' : 'FAIL';
@@ -425,7 +488,7 @@ function makeSkippedResult(suite, sourceRevision, reason) {
   };
 }
 
-function makeReport({ runId, sourceRevision, startedAt, endedAt, opts, inventory, results, dryRun, counts, blockerCounts, runDir }) {
+function makeReport({ runId, sourceRevision, startedAt, endedAt, opts, inventory, results, dryRun, counts, blockerCounts, runDir, inventoryFingerprint, optionsFingerprint }) {
   const statusCounts = {};
   for (const status of ['PASS', 'FAIL', 'TIMEOUT', 'BLOCKED', 'SKIPPED']) statusCounts[status] = 0;
   for (const result of results) statusCounts[result.status] = (statusCounts[result.status] || 0) + 1;
@@ -452,6 +515,8 @@ function makeReport({ runId, sourceRevision, startedAt, endedAt, opts, inventory
       checkpoint: normalizePath(path.relative(opts.root, path.join(runDir, 'checkpoint.json'))),
       inventory: normalizePath(path.relative(opts.root, path.join(runDir, 'inventory.json'))),
     },
+    inventoryFingerprint,
+    optionsFingerprint,
     inventory: {
       total: inventory.length,
       counts,
@@ -463,12 +528,41 @@ function makeReport({ runId, sourceRevision, startedAt, endedAt, opts, inventory
   };
 }
 
-async function readCheckpoint(checkpointPath) {
+async function readAndValidateResume({ checkpointPath, inventoryPath, sourceRevision, inventoryFingerprint, optionsFingerprint }) {
+  const inventory = await readRequiredJSON(inventoryPath, 'resume inventory');
+  if (inventory.sourceRevision !== sourceRevision) {
+    throw new Error(`Cannot resume: source revision mismatch (${inventory.sourceRevision} !== ${sourceRevision})`);
+  }
+  if (inventory.inventoryFingerprint !== inventoryFingerprint) {
+    throw new Error('Cannot resume: inventory fingerprint mismatch');
+  }
+  if (inventory.optionsFingerprint !== optionsFingerprint) {
+    throw new Error('Cannot resume: audit option fingerprint mismatch');
+  }
+
   try {
     const parsed = JSON.parse(await readFile(checkpointPath, 'utf8'));
+    if (parsed.sourceRevision !== sourceRevision) {
+      throw new Error(`Cannot resume: checkpoint source revision mismatch (${parsed.sourceRevision} !== ${sourceRevision})`);
+    }
+    if (parsed.inventoryFingerprint !== inventoryFingerprint) {
+      throw new Error('Cannot resume: checkpoint inventory fingerprint mismatch');
+    }
+    if (parsed.optionsFingerprint !== optionsFingerprint) {
+      throw new Error('Cannot resume: checkpoint option fingerprint mismatch');
+    }
     return Array.isArray(parsed.results) ? parsed.results : [];
-  } catch {
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
     return [];
+  }
+}
+
+async function readRequiredJSON(filePath, label) {
+  try {
+    return JSON.parse(await readFile(filePath, 'utf8'));
+  } catch (err) {
+    throw new Error(`Cannot resume: missing or invalid ${label} at ${filePath}: ${err.message}`);
   }
 }
 
@@ -488,6 +582,33 @@ function countBlockers(suites) {
     for (const blocker of suite.blockers) counts[blocker] = (counts[blocker] || 0) + 1;
   }
   return counts;
+}
+
+function fingerprintInventory(suites) {
+  return stableHash(suites.map(suite => ({
+    path: suite.path,
+    category: suite.category,
+    command: suite.command,
+    blockers: suite.blockers,
+    required: suite.required,
+  })));
+}
+
+function makeOptionsSnapshot(opts) {
+  return {
+    concurrency: opts.concurrency,
+    failFast: opts.failFast,
+    timeoutMs: opts.timeoutMs,
+    deadlineMs: opts.deadlineMs,
+    include: [...opts.include].sort(),
+    exclude: [...opts.exclude].sort(),
+    allowBlockers: [...opts.allowBlockers].sort(),
+    noBlock: opts.noBlock,
+  };
+}
+
+function stableHash(value) {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
 async function getSourceRevision(root) {
@@ -514,8 +635,23 @@ function normalizePath(p) {
 }
 
 async function writeJSON(filePath, value) {
+  await writeJSONAtomic(filePath, value);
+}
+
+async function writeJSONAtomic(filePath, value) {
   await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`);
+  const tmpPath = `${filePath}.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`;
+  await writeFile(tmpPath, `${JSON.stringify(value, null, 2)}\n`);
+  await rename(tmpPath, filePath);
+}
+
+async function pathExists(filePath) {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function printInventorySummary(report) {
