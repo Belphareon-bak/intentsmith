@@ -177,10 +177,14 @@ async function resolveAuditInput(absInput) {
   const inputStat = await stat(absInput);
   if (inputStat.isDirectory()) {
     const reportPath = path.join(absInput, 'report.json');
-    if (await pathExists(reportPath)) return { mode: 'report', dataPath: reportPath, runDir: absInput };
-
     const checkpointPath = path.join(absInput, 'checkpoint.json');
-    if (await pathExists(checkpointPath)) return { mode: 'checkpoint', dataPath: checkpointPath, runDir: absInput };
+    const reportStat = await optionalStat(reportPath);
+    const checkpointStat = await optionalStat(checkpointPath);
+
+    if (checkpointStat && (!reportStat || checkpointStat.mtimeMs > reportStat.mtimeMs)) {
+      return { mode: 'checkpoint', dataPath: checkpointPath, runDir: absInput };
+    }
+    if (reportStat) return { mode: 'report', dataPath: reportPath, runDir: absInput };
 
     throw new Error(`No report.json or checkpoint.json found in ${absInput}`);
   }
@@ -194,12 +198,11 @@ async function resolveAuditInput(absInput) {
   return { mode, dataPath: absInput, runDir: path.dirname(absInput) };
 }
 
-async function pathExists(filePath) {
+async function optionalStat(filePath) {
   try {
-    await stat(filePath);
-    return true;
+    return await stat(filePath);
   } catch {
-    return false;
+    return null;
   }
 }
 

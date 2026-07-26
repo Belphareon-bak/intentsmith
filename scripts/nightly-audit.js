@@ -6,6 +6,7 @@ import { access, mkdir, readFile, readdir, rename, writeFile } from 'node:fs/pro
 import { createWriteStream } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { finished } from 'node:stream/promises';
 import { pathToFileURL } from 'node:url';
 
 const DEFAULT_OUT_DIR = 'data/artifacts/audit-runs';
@@ -48,6 +49,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
     exclude: new Set(),
     allowBlockers: new Set(),
     noBlock: false,
+    allowDirty: false,
   };
 
   for (let i = 0; i < argv.length; i++) {
@@ -63,6 +65,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
     else if (arg === '--fail-fast') opts.failFast = true;
     else if (arg === '--resume') opts.resume = true;
     else if (arg === '--no-block') opts.noBlock = true;
+    else if (arg === '--allow-dirty') opts.allowDirty = true;
     else if (arg.startsWith('--root')) opts.root = path.resolve(value());
     else if (arg.startsWith('--out-dir')) opts.outDir = value();
     else if (arg.startsWith('--run-id')) opts.runId = value();
@@ -101,6 +104,7 @@ Options:
   --exclude=a,b                 Exclude categories
   --allow-blocker=ollama,ports  Permit suites with blocker labels
   --no-block                    Execute suites regardless of detected blockers
+  --allow-dirty                 Permit non-dry-run audits from a dirty worktree
   --timeout-minutes=N           Per-suite timeout, default 10
   --deadline-hours=N            Total deadline, default 8
   --concurrency=N               Default 1
@@ -213,10 +217,14 @@ export async function runAudit(options = {}) {
   opts.root = path.resolve(opts.root);
   opts.outDir = path.resolve(opts.root, opts.outDir);
   const runId = opts.runId || makeRunId();
+  assertSafeRunId(runId);
   const runDir = path.join(opts.outDir, runId);
   const logsDir = path.join(runDir, 'logs');
   if (!opts.resume && await pathExists(runDir)) {
     throw new Error(`Run id already exists: ${runId}. Use --resume to continue it or choose a new --run-id.`);
+  }
+  if (!opts.dryRun && !opts.allowDirty) {
+    await assertCleanGitWorktree(opts.root);
   }
   await mkdir(logsDir, { recursive: true });
 
@@ -235,7 +243,7 @@ export async function runAudit(options = {}) {
   const completedResults = opts.resume
     ? await readAndValidateResume({ checkpointPath, inventoryPath, sourceRevision, inventoryFingerprint, optionsFingerprint })
     : [];
-  const completedKeys = new Set(completedResults.map(resultKey));
+  const completedKeys = new Set(completedResults.filter(result => result.status !== 'SKIPPED').map(resultKey));
   let checkpointWrite = Promise.resolve();
 
   await writeJSON(inventoryPath, {
@@ -275,7 +283,7 @@ export async function runAudit(options = {}) {
   const pending = selectedSuites.filter(suite => !completedKeys.has(resultKey(suite)));
   const results = [...completedResults];
   let cursor = 0;
-  let requiredFailureSeen = results.some(r => r.required !== false && ['FAIL', 'TIMEOUT'].includes(r.status));
+  let requiredFailureSeen = opts.resume ? false : results.some(r => r.required !== false && ['FAIL', 'TIMEOUT'].includes(r.status));
 
   async function nextSuite() {
     if (opts.failFast && requiredFailureSeen) return null;
@@ -413,20 +421,21 @@ async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
     }, suiteTimeoutMs);
     timer.unref();
 
-    child.stdout.on('data', chunk => log.write(chunk));
-    child.stderr.on('data', chunk => log.write(chunk));
+    child.stdout.pipe(log, { end: false });
+    child.stderr.pipe(log, { end: false });
+    const stdoutDone = finished(child.stdout).catch(() => {});
+    const stderrDone = finished(child.stderr).catch(() => {});
     child.on('error', err => log.write(`\nspawn_error=${err.message}\n`));
-    child.on('close', (code, signal) => {
+    child.on('close', async (code, signal) => {
       if (timedOut) signalChildTree('SIGKILL');
       closed = true;
       clearTimeout(timer);
       if (killTimer) clearTimeout(killTimer);
+      await Promise.all([stdoutDone, stderrDone]);
       const endMs = Date.now();
       const endedAt = new Date(endMs).toISOString();
       const status = timedOut ? 'TIMEOUT' : code === 0 ? 'PASS' : 'FAIL';
-      log.write(`\nended_at=${endedAt}\nexit_code=${code}\nsignal=${signal || ''}\nstatus=${status}\n`);
-      log.end();
-      resolve({
+      const result = {
         path: suite.path,
         category: suite.category,
         command: suite.command,
@@ -441,7 +450,9 @@ async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
         retryCount: 0,
         logPath: normalizePath(path.relative(opts.root, logPath)),
         sourceRevision,
-      });
+      };
+      log.write(`\nended_at=${endedAt}\nexit_code=${code}\nsignal=${signal || ''}\nstatus=${status}\n`);
+      log.end(() => resolve(result));
     });
   });
 }
@@ -551,7 +562,7 @@ async function readAndValidateResume({ checkpointPath, inventoryPath, sourceRevi
     if (parsed.optionsFingerprint !== optionsFingerprint) {
       throw new Error('Cannot resume: checkpoint option fingerprint mismatch');
     }
-    return Array.isArray(parsed.results) ? parsed.results : [];
+    return Array.isArray(parsed.results) ? parsed.results.filter(result => result.status !== 'SKIPPED') : [];
   } catch (err) {
     if (err.code !== 'ENOENT') throw err;
     return [];
@@ -604,6 +615,7 @@ function makeOptionsSnapshot(opts) {
     exclude: [...opts.exclude].sort(),
     allowBlockers: [...opts.allowBlockers].sort(),
     noBlock: opts.noBlock,
+    allowDirty: opts.allowDirty,
   };
 }
 
@@ -619,6 +631,31 @@ async function getSourceRevision(root) {
     child.on('close', code => resolve(code === 0 ? out.trim() : 'unknown'));
     child.on('error', () => resolve('unknown'));
   });
+}
+
+async function assertCleanGitWorktree(root) {
+  const status = await new Promise((resolve, reject) => {
+    const child = spawn('git', ['status', '--porcelain'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
+    let out = '';
+    let err = '';
+    child.stdout.on('data', chunk => { out += chunk; });
+    child.stderr.on('data', chunk => { err += chunk; });
+    child.on('close', code => {
+      if (code === 0) resolve(out);
+      else reject(new Error(`Cannot verify clean git worktree: ${err.trim() || `git status exited ${code}`}`));
+    });
+    child.on('error', error => reject(new Error(`Cannot verify clean git worktree: ${error.message}`)));
+  });
+
+  if (status.trim()) {
+    throw new Error('Non-dry-run audit requires a clean git worktree. Commit, stash, or use --allow-dirty for disposable fixtures only.');
+  }
+}
+
+function assertSafeRunId(runId) {
+  if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/.test(runId)) {
+    throw new Error(`Invalid run-id "${runId}". Use a filename-only id containing letters, numbers, dot, underscore, or dash.`);
+  }
 }
 
 function makeRunId() {

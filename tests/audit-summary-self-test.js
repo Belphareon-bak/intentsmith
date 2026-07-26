@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, utimes, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { makeTempAuditFixture, summarizeAudit } from '../scripts/audit-summary.js';
@@ -78,10 +78,48 @@ await writeFile(path.join(checkpointRunDir, 'checkpoint.json'), `${JSON.stringif
   ],
 }, null, 2)}\n`);
 
+const newerCheckpointRunDir = path.join(root, 'data/artifacts/audit-runs/newer-checkpoint');
+await mkdir(newerCheckpointRunDir, { recursive: true });
+await writeFile(path.join(newerCheckpointRunDir, 'inventory.json'), `${JSON.stringify({
+  runId: 'newer-checkpoint',
+  sourceRevision: 'ghi789',
+  generatedAt: '2026-07-26T00:00:00.000Z',
+  suites: [
+    { path: 'tests/pass.test.js', category: 'unit', blockers: [] },
+    { path: 'tests/late.test.js', category: 'unit', blockers: [] },
+  ],
+}, null, 2)}\n`);
+const staleReportPath = path.join(newerCheckpointRunDir, 'report.json');
+const newerCheckpointPath = path.join(newerCheckpointRunDir, 'checkpoint.json');
+await writeFile(staleReportPath, `${JSON.stringify({
+  runId: 'newer-checkpoint',
+  sourceRevision: 'ghi789',
+  startedAt: '2026-07-26T00:00:00.000Z',
+  endedAt: '2026-07-26T00:00:10.000Z',
+  inventory: { total: 2, counts: {}, blockerCounts: {} },
+  statusCounts: { PASS: 1, FAIL: 0, TIMEOUT: 0, BLOCKED: 0, SKIPPED: 1 },
+  results: [
+    { path: 'tests/pass.test.js', category: 'unit', command: ['node', 'tests/pass.test.js'], status: 'PASS', exitCode: 0, signal: null, required: true, logPath: null },
+    { path: 'tests/late.test.js', category: 'unit', command: ['node', 'tests/late.test.js'], status: 'SKIPPED', exitCode: null, signal: null, required: true, logPath: null },
+  ],
+}, null, 2)}\n`);
+await writeFile(newerCheckpointPath, `${JSON.stringify({
+  runId: 'newer-checkpoint',
+  sourceRevision: 'ghi789',
+  updatedAt: '2026-07-26T00:00:30.000Z',
+  results: [
+    { path: 'tests/pass.test.js', category: 'unit', command: ['node', 'tests/pass.test.js'], status: 'PASS', exitCode: 0, signal: null, required: true, logPath: null },
+    { path: 'tests/late.test.js', category: 'unit', command: ['node', 'tests/late.test.js'], status: 'PASS', exitCode: 0, signal: null, required: true, logPath: null },
+  ],
+}, null, 2)}\n`);
+await utimes(staleReportPath, new Date('2026-07-26T00:00:10.000Z'), new Date('2026-07-26T00:00:10.000Z'));
+await utimes(newerCheckpointPath, new Date('2026-07-26T00:00:30.000Z'), new Date('2026-07-26T00:00:30.000Z'));
+
 const summary = await summarizeAudit(runDir);
 const summaryFromReport = await summarizeAudit(path.join(runDir, 'report.json'));
 const summaryWithBaseline = await summarizeAudit(runDir, { baseline: path.join(baselineRunDir, 'report.json') });
 const checkpointSummary = await summarizeAudit(path.join(checkpointRunDir, 'checkpoint.json'));
+const newerCheckpointSummary = await summarizeAudit(newerCheckpointRunDir);
 
 assert.equal(summary.runId, 'summary-self-test');
 assert.equal(summaryFromReport.runId, 'summary-self-test');
@@ -106,5 +144,8 @@ assert.match(summary.recommendedRerun, /^node tests\//);
 assert.equal(checkpointSummary.mode, 'checkpoint');
 assert.equal(checkpointSummary.runId, 'checkpoint-only');
 assert.equal(checkpointSummary.statusCounts.PASS, 1);
+assert.equal(newerCheckpointSummary.mode, 'checkpoint');
+assert.equal(newerCheckpointSummary.statusCounts.PASS, 2);
+assert.equal(newerCheckpointSummary.statusCounts.SKIPPED, 0);
 
 console.log('audit summary self-test: PASS');
