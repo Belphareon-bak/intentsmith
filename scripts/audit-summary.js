@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
@@ -44,7 +44,7 @@ export function parseArgs(argv = process.argv.slice(2)) {
 export async function summarizeAudit(inputPath, options = {}) {
   const loaded = await loadAudit(inputPath);
   const baseline = options.baseline ? await loadAudit(options.baseline) : null;
-  const baselineKeys = new Set((baseline?.results || []).map(resultIdentity));
+  const baselineKeys = baseline ? await failureIdentitySet(baseline) : new Set();
   const results = loaded.results || [];
   const statusCounts = countBy(results, r => r.status);
   const failures = results.filter(r => FAILURE_STATUSES.has(r.status));
@@ -76,7 +76,7 @@ export async function summarizeAudit(inputPath, options = {}) {
     cluster.count += 1;
     cluster.paths.push(result.path);
     if (result.logPath) cluster.logPaths.push(result.logPath);
-    if (baselineKeys.has(resultIdentity(result))) cluster.repeatedCount += 1;
+    if (baselineKeys.has(resultIdentity(result, signature))) cluster.repeatedCount += 1;
     else cluster.newCount += 1;
     clusters.set(key, cluster);
   }
@@ -96,8 +96,8 @@ export async function summarizeAudit(inputPath, options = {}) {
       blockers: suite.blockers || [],
       classification: classifyBlockedSuite(suite),
     }));
-  const blockedCounts = countBy(blockedAnalysis, item => item.classification);
-  const preflightBlockedCounts = countBy(preflightBlockedAnalysis, item => item.classification);
+  const blockedCounts = countBy(blockedAnalysis, item => item.classification.label);
+  const preflightBlockedCounts = countBy(preflightBlockedAnalysis, item => item.classification.label);
   const requiredFailures = results.filter(r => r.required !== false && ['FAIL', 'TIMEOUT', 'SKIPPED'].includes(r.status));
 
   return {
@@ -143,62 +143,86 @@ export async function summarizeAudit(inputPath, options = {}) {
 
 async function loadAudit(inputPath) {
   const absInput = path.resolve(inputPath);
-  let reportPath = absInput;
-  let mode = 'report';
-  const statPath = await resolveExistingAuditFile(absInput);
+  const resolved = await resolveAuditInput(absInput);
+  const inventoryPath = path.join(resolved.runDir, 'inventory.json');
+  const inventoryFile = await readOptionalJSON(inventoryPath);
+  const inventorySuites = Array.isArray(inventoryFile?.suites) ? inventoryFile.suites : [];
+  let parsed = await readJSON(resolved.dataPath);
 
-  if (statPath.endsWith('/')) {
-    reportPath = path.join(statPath, 'report.json');
-  } else {
-    reportPath = statPath;
-  }
-
-  let parsed;
-  try {
-    parsed = JSON.parse(await readFile(reportPath, 'utf8'));
-  } catch {
-    const checkpointPath = path.join(absInput, 'checkpoint.json');
-    const inventoryPath = path.join(absInput, 'inventory.json');
-    const checkpoint = JSON.parse(await readFile(checkpointPath, 'utf8'));
-    const inventory = JSON.parse(await readFile(inventoryPath, 'utf8'));
+  if (resolved.mode === 'checkpoint') {
     parsed = {
-      runId: checkpoint.runId || inventory.runId,
-      sourceRevision: checkpoint.sourceRevision || inventory.sourceRevision,
-      startedAt: inventory.generatedAt,
+      runId: parsed.runId || inventoryFile?.runId,
+      sourceRevision: parsed.sourceRevision || inventoryFile?.sourceRevision,
+      startedAt: inventoryFile?.generatedAt,
       endedAt: null,
-      inventory: { total: inventory.suites.length, counts: inventory.counts, blockerCounts: inventory.blockerCounts },
-      results: checkpoint.results || [],
+      inventory: {
+        total: inventorySuites.length,
+        counts: inventoryFile?.counts || {},
+        blockerCounts: inventoryFile?.blockerCounts || {},
+      },
+      results: parsed.results || [],
     };
-    reportPath = checkpointPath;
-    mode = 'checkpoint';
-  }
-
-  const inventoryPath = path.join(path.dirname(reportPath), 'inventory.json');
-  let inventorySuites = [];
-  try {
-    const inventoryFile = JSON.parse(await readFile(inventoryPath, 'utf8'));
-    inventorySuites = Array.isArray(inventoryFile.suites) ? inventoryFile.suites : [];
-  } catch {
-    // Older reports may not have a sibling inventory file.
   }
 
   return {
     ...parsed,
-    inputPath: reportPath,
-    root: findAuditRoot(reportPath, parsed),
-    mode,
+    inputPath: resolved.dataPath,
+    root: findAuditRoot(resolved.dataPath, parsed),
+    mode: resolved.mode,
     inventorySuites,
   };
 }
 
-async function resolveExistingAuditFile(absInput) {
-  try {
-    const text = await readFile(absInput, 'utf8');
-    JSON.parse(text);
-    return absInput;
-  } catch {
-    return absInput.endsWith(path.sep) ? absInput : `${absInput}${path.sep}`;
+async function resolveAuditInput(absInput) {
+  const inputStat = await stat(absInput);
+  if (inputStat.isDirectory()) {
+    const reportPath = path.join(absInput, 'report.json');
+    if (await pathExists(reportPath)) return { mode: 'report', dataPath: reportPath, runDir: absInput };
+
+    const checkpointPath = path.join(absInput, 'checkpoint.json');
+    if (await pathExists(checkpointPath)) return { mode: 'checkpoint', dataPath: checkpointPath, runDir: absInput };
+
+    throw new Error(`No report.json or checkpoint.json found in ${absInput}`);
   }
+
+  const name = path.basename(absInput);
+  if (name === 'checkpoint.json') return { mode: 'checkpoint', dataPath: absInput, runDir: path.dirname(absInput) };
+  if (name === 'report.json') return { mode: 'report', dataPath: absInput, runDir: path.dirname(absInput) };
+
+  const parsed = await readJSON(absInput);
+  const mode = parsed.endedAt !== undefined || parsed.statusCounts || parsed.inventory ? 'report' : 'checkpoint';
+  return { mode, dataPath: absInput, runDir: path.dirname(absInput) };
+}
+
+async function pathExists(filePath) {
+  try {
+    await stat(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function readJSON(filePath) {
+  return JSON.parse(await readFile(filePath, 'utf8'));
+}
+
+async function readOptionalJSON(filePath) {
+  try {
+    return await readJSON(filePath);
+  } catch {
+    return null;
+  }
+}
+
+async function failureIdentitySet(loaded) {
+  const keys = new Set();
+  for (const result of loaded.results || []) {
+    if (!FAILURE_STATUSES.has(result.status)) continue;
+    const logText = result.logPath ? await safeRead(path.resolve(loaded.root, result.logPath)) : '';
+    keys.add(resultIdentity(result, failureSignature(result, logText)));
+  }
+  return keys;
 }
 
 function findAuditRoot(reportPath, report) {
@@ -242,7 +266,11 @@ function failureSignature(result, logText) {
 
 function classifyEnvironmentError(logText) {
   const text = stripAnsi(logText);
-  if (/MODULE_NOT_FOUND|ERR_MODULE_NOT_FOUND|Cannot find module/i.test(text)) return 'missing_dependency';
+  if (/MODULE_NOT_FOUND|ERR_MODULE_NOT_FOUND|Cannot find module/i.test(text)) {
+    const modulePath = extractMissingModulePath(text);
+    if (modulePath && looksLikeRelativeOrAbsoluteModulePath(modulePath)) return 'invalid_relative_module_path';
+    return 'missing_dependency';
+  }
   if (/EADDRINUSE|address already in use/i.test(text)) return 'port_conflict';
   if (/ECONNREFUSED|fetch failed|EAI_AGAIN|ENOTFOUND|network/i.test(text)) return 'network_or_service_unavailable';
   if (/SQLITE_CANTOPEN|SQLITE_CORRUPT|no such table|database is locked/i.test(text)) return 'database_environment';
@@ -256,15 +284,33 @@ function classifyBlockedSuite(result) {
 
   if (blockers.has('destructive')) {
     if (/(_legacy|soak|e2e|project|lifecycle|artifact|harness|tmp|fixture|cleanup|storage|semantic|symbol|graph|knowledge|quality)/i.test(p)) {
-      return 'SAFE_IN_DISPOSABLE_WORKTREE';
+      return blockerClassification('SAFE_IN_DISPOSABLE_WORKTREE', 0.55, 'heuristic path match only; disposable worktree required before any execution decision');
     }
-    return 'ACTUALLY_DESTRUCTIVE';
+    return blockerClassification('ACTUALLY_DESTRUCTIVE', 0.8, 'destructive marker without a known disposable-worktree-safe path pattern');
   }
-  if (blockers.has('ollama')) return 'REQUIRES_OLLAMA';
-  if (blockers.has('ports')) return 'REQUIRES_FREE_PORT';
-  if (blockers.has('network')) return 'REQUIRES_NETWORK';
-  if (result.category === 'database') return 'REQUIRES_TEST_DB';
-  return 'STATIC_FALSE_POSITIVE';
+  if (blockers.has('ollama')) return blockerClassification('REQUIRES_OLLAMA', 0.95, 'suite declares an Ollama blocker');
+  if (blockers.has('ports')) return blockerClassification('REQUIRES_FREE_PORT', 0.9, 'suite declares a port blocker');
+  if (blockers.has('network')) return blockerClassification('REQUIRES_NETWORK', 0.9, 'suite declares a network blocker');
+  if (result.category === 'database') return blockerClassification('REQUIRES_TEST_DB', 0.75, 'database-category suite without an explicit blocker');
+  return blockerClassification('STATIC_FALSE_POSITIVE', 0.5, 'blocked result has no recognized runtime blocker');
+}
+
+function blockerClassification(label, confidence, reason) {
+  return { label, confidence, autoAllow: false, reason };
+}
+
+function extractMissingModulePath(text) {
+  const match = text.match(/Cannot find (?:package|module) ['"]([^'"]+)['"]/i)
+    || text.match(/ERR_MODULE_NOT_FOUND[^'"]+['"]([^'"]+)['"]/i);
+  return match?.[1] || null;
+}
+
+function looksLikeRelativeOrAbsoluteModulePath(modulePath) {
+  return modulePath.startsWith('/')
+    || modulePath.startsWith('./')
+    || modulePath.startsWith('../')
+    || modulePath.includes('/src/')
+    || modulePath.includes('/tests/');
 }
 
 function recommendRerun(clusters, timeouts) {
@@ -286,8 +332,8 @@ function commandString(command) {
   return Array.isArray(command) ? command.join(' ') : String(command || '');
 }
 
-function resultIdentity(result) {
-  return `${result.status}\0${result.path}\0${result.exitCode ?? ''}\0${result.signal ?? ''}`;
+function resultIdentity(result, signature) {
+  return `${result.path}\0${result.status}\0${signature.key}`;
 }
 
 function stableId(text) {
