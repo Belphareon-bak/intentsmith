@@ -147,8 +147,13 @@ function importsOf(file: string): string[] {
   return [...specifiers];
 }
 
-/** Test files may import anything they need to drive the system under test. */
-const isTestFile = (file: string): boolean => file.endsWith('.test.ts');
+/**
+ * Test files, and the fixture modules that feed them, may import and contain
+ * whatever they need to drive the system under test. Fixtures are inert sample
+ * payloads, never call sites, and are kept out of every package's production
+ * entry point so they cannot ship.
+ */
+const isTestFile = (file: string): boolean => file.endsWith('.test.ts') || file.endsWith('/fixtures.ts');
 
 describe('dependency boundaries', () => {
   for (const zone of ZONES) {

@@ -91,6 +91,33 @@ const defaultSchedule = (fn: () => void, ms: number): (() => void) => {
   return () => clearTimeout(handle);
 };
 
+/**
+ * Rejects as soon as `signal` aborts, regardless of whether the underlying
+ * transport honours it.
+ *
+ * `fetch` does abort a pending request, but the transport is a seam and a
+ * buggy or non-cooperative implementation must not be able to hang the process
+ * forever. Timeout and cancellation are IntentSmith guarantees, so they cannot
+ * depend on someone else's good behaviour.
+ */
+function raceAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(new ProviderError('REQUEST_CANCELLED', 'Request was cancelled.'));
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = (): void => reject(new ProviderError('REQUEST_CANCELLED', 'Request was cancelled.'));
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(
+      value => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(value);
+      },
+      error => {
+        signal.removeEventListener('abort', onAbort);
+        reject(error);
+      },
+    );
+  });
+}
+
 /** Node `fetch` transport with redirects disabled. */
 export const fetchTransport: OllamaTransport = async (url, init) => {
   const response = await fetch(url, {
@@ -259,22 +286,25 @@ export class OllamaProvider implements InferenceProvider {
     let text = '';
 
     try {
-      const response = await this.transport(`${this.endpoint.origin}/api/generate`, {
-        method: 'POST',
-        headers: buildRequestHeaders(),
-        body: JSON.stringify({
-          model: request.modelId,
-          prompt: request.prompt,
-          ...(request.system === undefined ? {} : { system: request.system }),
-          stream: true,
-          options: {
-            ...(request.maxOutputTokens === undefined ? {} : { num_predict: request.maxOutputTokens }),
-            ...(request.temperature === undefined ? {} : { temperature: request.temperature }),
-          },
+      const response = await raceAbort(
+        this.transport(`${this.endpoint.origin}/api/generate`, {
+          method: 'POST',
+          headers: buildRequestHeaders(),
+          body: JSON.stringify({
+            model: request.modelId,
+            prompt: request.prompt,
+            ...(request.system === undefined ? {} : { system: request.system }),
+            stream: true,
+            options: {
+              ...(request.maxOutputTokens === undefined ? {} : { num_predict: request.maxOutputTokens }),
+              ...(request.temperature === undefined ? {} : { temperature: request.temperature }),
+            },
+          }),
+          signal: controller.signal,
+          redirect: 'error',
         }),
-        signal: controller.signal,
-        redirect: 'error',
-      });
+        controller.signal,
+      );
 
       this.assertNoRedirect(response);
       if (!response.ok) throw await this.httpError(response, request.modelId);
@@ -284,6 +314,11 @@ export class OllamaProvider implements InferenceProvider {
 
       let usage: { promptTokens: number; completionTokens: number } | undefined;
       for await (const raw of readNdjson(response.body(), this.ndjsonLimits)) {
+        // A body that ignores the abort signal must still not be able to keep
+        // feeding records after cancellation or an idle timeout.
+        if (controller.signal.aborted) {
+          throw new ProviderError('REQUEST_CANCELLED', 'Request was cancelled.');
+        }
         armIdle(this.timeouts.idleMs);
 
         if (terminalSeen) {
@@ -400,13 +435,16 @@ export class OllamaProvider implements InferenceProvider {
     }, timeoutMs);
 
     try {
-      const response = await this.transport(`${this.endpoint.origin}${path}`, {
-        method,
-        headers: buildRequestHeaders(),
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-        signal: controller.signal,
-        redirect: 'error',
-      });
+      const response = await raceAbort(
+        this.transport(`${this.endpoint.origin}${path}`, {
+          method,
+          headers: buildRequestHeaders(),
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+          signal: controller.signal,
+          redirect: 'error',
+        }),
+        controller.signal,
+      );
       this.assertNoRedirect(response);
       if (!response.ok) {
         const modelId = typeof body === 'object' && body !== null && 'model' in body

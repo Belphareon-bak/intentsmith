@@ -3,6 +3,11 @@
  *
  * Depends only on `@intentsmith/inference`. Nothing here reaches Core,
  * persistence, or the server, so the adapter stays replaceable.
+ *
+ * Offline test fixtures live in `./fixtures.js` and are deliberately not
+ * re-exported here: they contain sample upstream payloads including a
+ * cloud-backed entry whose `remote_host` is a real hostname, and nothing that
+ * ships in the production surface should carry a non-local URL.
  */
 export {
   DEFAULT_TIMEOUTS,

@@ -9,6 +9,7 @@ import { openIntentSmithDatabase } from '@intentsmith/persistence';
 import { FakeWorker } from '@intentsmith/testing';
 
 import type { ServerRuntime } from './app.js';
+import { GatewayTokenStore } from './gateway/token-store.js';
 import { runStartupRecovery, type RecoverySummary } from './recovery.js';
 
 export type RuntimeOptions = {
@@ -47,6 +48,7 @@ export function createRuntime(options: RuntimeOptions | string = {}): ServerRunt
     maxConcurrent: resolved.maxConcurrentInference ?? readConcurrency(),
   });
   const hardware = new HardwareDirector();
+  const gatewayTokens = new GatewayTokenStore();
 
   let recovery: RecoverySummary | undefined;
 
@@ -55,6 +57,7 @@ export function createRuntime(options: RuntimeOptions | string = {}): ServerRunt
     provider,
     scheduler,
     hardware,
+    gatewayTokens,
     executionPolicy: resolved.executionPolicy ?? 'cpu_allowed',
     get recovery() {
       return recovery;
@@ -68,6 +71,8 @@ export function createRuntime(options: RuntimeOptions | string = {}): ServerRunt
       return recovery;
     },
     close: async () => {
+      // Tokens die with the server; a stale token must never outlive it.
+      gatewayTokens.revokeAll();
       scheduler.shutdown();
       await core.shutdown();
       store.close();

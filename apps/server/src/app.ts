@@ -11,6 +11,7 @@ import type { ExecutionPolicy, HardwareDirector } from '@intentsmith/hardware';
 import type { InferenceScheduler } from '@intentsmith/inference';
 
 import { registerInferenceRoutes } from './inference-routes.js';
+import type { GatewayTokenStore } from './gateway/token-store.js';
 import type { RecoverySummary } from './recovery.js';
 
 export type ServerRuntime = {
@@ -18,6 +19,8 @@ export type ServerRuntime = {
   provider: OllamaProvider;
   scheduler: InferenceScheduler;
   hardware: HardwareDirector;
+  /** Per-run tokens for the worker inference gateway. */
+  gatewayTokens: GatewayTokenStore;
   executionPolicy: ExecutionPolicy;
   /** Populated by `prepare()`; undefined until startup recovery has run. */
   readonly recovery?: RecoverySummary;

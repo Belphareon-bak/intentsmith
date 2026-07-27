@@ -4,6 +4,7 @@ import { InferenceScheduler } from '@intentsmith/inference';
 import type { IntentSmithCore } from '@intentsmith/core';
 
 import type { ServerRuntime } from './app.js';
+import { GatewayTokenStore } from './gateway/token-store.js';
 import type { RecoverySummary } from './recovery.js';
 
 /**
@@ -48,6 +49,7 @@ export type TestServerRuntimeOptions = {
   gpu?: GpuProbeResult;
   executionPolicy?: ExecutionPolicy;
   recovery?: RecoverySummary;
+  gatewayTokens?: GatewayTokenStore;
   maxConcurrentInference?: number;
   close?: () => void | Promise<void>;
 };
@@ -70,6 +72,7 @@ export function createTestServerRuntime(options: TestServerRuntimeOptions): Serv
     provider,
     scheduler: new InferenceScheduler({ maxConcurrent: options.maxConcurrentInference ?? 1 }),
     hardware,
+    gatewayTokens: options.gatewayTokens ?? new GatewayTokenStore(),
     executionPolicy: options.executionPolicy ?? 'cpu_allowed',
     recovery: options.recovery ?? {
       status: 'completed',
