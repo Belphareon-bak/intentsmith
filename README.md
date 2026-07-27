@@ -26,6 +26,19 @@ test evidence, approvals, audit trails, and recovery.
 `IntentSmith Forge Local` is treated as working naming until trademark,
 repository, and domain checks are complete.
 
+## Current State
+
+Phase 1 delivered the deterministic vertical slice. Phase 1.1 audited it, fixed
+what the audit found, and hardened the boundaries. See `docs/STATUS.md` and
+`docs/testing/phase-1-1-results.md`.
+
+Phase 1.1 also adds two reusable contract suites. Any `WorkerAdapter` and any
+`InferenceProvider` can be checked against them without copying tests, so a real
+adapter in a later phase is held to the same bar as the fake. The
+`InferenceProvider` port is a boundary definition only: there is no HTTP client,
+no model download, no hardware detection, and it is not wired into the task
+lifecycle.
+
 ## Phase 1 Scope
 
 Phase 1 implements a fully local deterministic vertical slice:
@@ -58,8 +71,16 @@ pnpm install --frozen-lockfile
 pnpm verify
 ```
 
-`pnpm verify` runs frozen installation, typecheck, lint, all offline tests, and
-the build in that order.
+`pnpm verify` runs frozen installation, typecheck, lint, all offline tests with
+coverage gates, and the build in that order. `pnpm test:coverage` runs the
+coverage-gated suite on its own. The same pipeline runs in GitHub Actions on
+pull requests and on pushes to `main`, without secrets and without a dependency
+cache, so a clean-install failure cannot be masked.
+
+Architecture rules are executable: `tools/architecture/boundaries.test.ts`
+enforces the dependency boundaries in
+`docs/architecture/dependency-boundaries.md`, so crossing one fails
+`pnpm verify`.
 
 ## Local Server
 
