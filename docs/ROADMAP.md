@@ -17,9 +17,11 @@ Outputs:
 
 Milestone tag: `foundation-decisions`.
 
-## Phase 1 - Monorepo, Contracts, and Test Harness
+## Phase 1 - Monorepo, Contracts, and Deterministic Vertical Slice
 
-Goal: start a minimal typed skeleton without a real LLM.
+Status: complete.
+
+Goal: start a minimal typed vertical slice without a real LLM or external worker.
 
 Expected outputs:
 
@@ -28,12 +30,11 @@ Expected outputs:
 - `packages/contracts`;
 - `packages/core`;
 - `packages/persistence`;
-- fake inference provider;
 - fake worker adapter;
-- server health endpoint;
-- CLI health and version commands;
+- localhost Fastify lifecycle API;
+- CLI lifecycle commands with text and JSON output;
 - minimal SQLite migrations;
-- unit and contract test harness.
+- unit, contract, persistence, integration, API, and CLI tests.
 
 Acceptance:
 
@@ -42,7 +43,11 @@ Acceptance:
 - lint passes;
 - tests pass offline;
 - invalid API boundary payloads are rejected;
-- a task can be created, run through a fake worker, cancelled, resumed, and audited.
+- a task can be created, run through a fake worker, cancelled, resumed, and audited;
+- `Task` and `TaskRun` are separate so retries and evidence remain immutable.
+
+Verification: `docs/testing/phase-1-results.md` and
+`artifacts/phase-1-verification.json`.
 
 ## Phase 2 - Ollama and Hardware Director
 

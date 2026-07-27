@@ -52,7 +52,21 @@ type Task = {
   modelPreference?: ModelPreference;
   timeoutMs: number;
   retryPolicy: RetryPolicy;
-  status: 'pending' | 'running' | 'awaiting_approval' | 'cancelled' | 'failed' | 'passed';
+  status: 'pending' | 'running' | 'paused' | 'cancelled' | 'failed' | 'passed';
+  latestRunId?: string;
+};
+```
+
+## TaskRun
+
+```ts
+type TaskRun = {
+  id: string;
+  taskId: string;
+  attempt: number;
+  status: 'running' | 'paused' | 'cancelled' | 'failed' | 'passed' | 'timeout';
+  startedAt: string;
+  endedAt?: string;
 };
 ```
 

@@ -13,7 +13,7 @@ Date: 2026-07-27
 | IntentSmith Studio | Theia IDE |
 | IntentSmith Workers | OpenCode, OpenHands, and other agents |
 | IntentSmith Skills | Workflows and specialists |
-| IntentSmithtForge Local | Desktop distribution |
+| IntentSmith Forge Local | Desktop distribution |
 | `intentsmith` | CLI |
 | `intentsmith-core` | Main package |
 
@@ -25,8 +25,7 @@ Date: 2026-07-27
   Eclipse endorsement.
 - OpenCode, OpenHands, Serena, Promptfoo, Ollama, and related names are third
   party project names and should be used only as integration names.
-- `IntentSmithtForge Local` appears to contain a double `t` in `Smitht`; this
-  document preserves the supplied spelling until corrected by product decision.
+- `IntentSmith Forge Local` is the corrected Phase 1 spelling.
 
 ## Phase 1 Blocker
 

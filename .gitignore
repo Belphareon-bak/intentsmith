@@ -5,6 +5,11 @@ coverage/
 .env.*
 *.log
 tmp/
-artifacts/
+artifacts/*
+!artifacts/phase-1-verification.json
 runtime/
+.intentsmith/
+*.db
+*.db-shm
+*.db-wal
 .DS_Store

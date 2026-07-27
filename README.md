@@ -19,30 +19,87 @@ test evidence, approvals, audit trails, and recovery.
 | IntentSmith Studio | Theia IDE |
 | IntentSmith Workers | OpenCode, OpenHands, and other agents |
 | IntentSmith Skills | Workflows and specialists |
-| IntentSmithtForge Local | Desktop distribution |
+| IntentSmith Forge Local | Desktop distribution |
 | `intentsmith` | CLI |
 | `intentsmith-core` | Main package |
 
-`IntentSmithtForge Local` is kept exactly as specified for this phase. The name
-is treated as working naming until trademark, repository, and domain checks are
-complete.
+`IntentSmith Forge Local` is treated as working naming until trademark,
+repository, and domain checks are complete.
 
-## Phase 0 Scope
+## Phase 1 Scope
 
-This repository currently contains only foundation documentation and decision
-records. It intentionally contains no application source code.
+Phase 1 implements a fully local deterministic vertical slice:
 
-Phase 0 establishes:
+```text
+CLI / localhost API
+  -> IntentSmith Core lifecycle
+  -> deterministic fake worker
+  -> core-owned verdict
+  -> SQLite persistence and append-only audit
+```
 
-- the greenfield decision;
-- runtime and workspace boundaries;
-- protocol boundaries;
-- API framework decision;
-- testing strategy;
-- P0 third-party component records;
-- proposed dependency boundaries;
-- proposed minimal contract schemas;
-- Phase 1 to Phase 4 test matrix.
+There is no LLM, external agent, shell execution, cloud call, or non-localhost
+network dependency. `Task` stores the long-lived user intent while `TaskRun`
+stores one immutable execution attempt.
+
+## Requirements
+
+- Node.js 22 LTS
+- pnpm 11.17.0 through Corepack
+
+All dependency versions are pinned exactly in the workspace manifests and
+lockfile.
+
+## Install And Verify
+
+```bash
+corepack enable
+pnpm install --frozen-lockfile
+pnpm verify
+```
+
+`pnpm verify` runs frozen installation, typecheck, lint, all offline tests, and
+the build in that order.
+
+## Local Server
+
+Build and start the API:
+
+```bash
+pnpm build
+pnpm --filter @intentsmith/server start
+```
+
+The server binds to `127.0.0.1:47831` by default. The local SQLite database is
+stored at `.intentsmith/intentsmith.db`. Set `INTENTSMITH_DB_PATH` to use a
+different development database.
+
+## CLI
+
+The CLI talks only to the localhost API by default:
+
+```bash
+pnpm --filter intentsmith start version
+pnpm --filter intentsmith start health
+pnpm --filter intentsmith start project create --name demo --root /absolute/path
+pnpm --filter intentsmith start task create --project-id PROJECT_ID --goal "Run deterministic checks"
+pnpm --filter intentsmith start task start --task-id TASK_ID
+pnpm --filter intentsmith start task result --task-id TASK_ID --json
+pnpm --filter intentsmith start task audit --task-id TASK_ID --json
+```
+
+Set `INTENTSMITH_URL` to another localhost URL when the server uses a different
+port.
+
+## Development Data
+
+Stop the server first. To delete only the default development database:
+
+```bash
+rm -f .intentsmith/intentsmith.db .intentsmith/intentsmith.db-shm .intentsmith/intentsmith.db-wal
+```
+
+This command does not touch project workspaces.
 
 ## Reference
 

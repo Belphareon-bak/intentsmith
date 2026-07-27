@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "phase": "phase-1",
+  "status": "PASS",
+  "verifiedAt": "2026-07-27T21:06:58.000Z",
+  "references": {
+    "intentSmithBaseCommit": "991fdd5e40a356e7d9b4a6195c8ea998c2107691",
+    "intentSmithPhase1Commit": "self",
+    "c3ReadOnlyCommit": "a7b90e36aa80310305703f54f2332e1c0e7f9e8f"
+  },
+  "runtime": {
+    "node": "22.21.1",
+    "pnpm": "11.17.0"
+  },
+  "dependencies": {
+    "@eslint/js": "10.0.1",
+    "@sinclair/typebox": "0.34.52",
+    "@types/better-sqlite3": "7.6.13",
+    "@types/node": "22.20.1",
+    "better-sqlite3": "13.0.1",
+    "eslint": "10.8.0",
+    "fastify": "5.10.0",
+    "tsx": "4.23.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.65.0",
+    "vitest": "4.1.10"
+  },
+  "commands": [
+    {
+      "command": "pnpm install --frozen-lockfile",
+      "exitCode": 0,
+      "status": "PASS"
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "status": "PASS"
+    },
+    {
+      "command": "pnpm lint",
+      "exitCode": 0,
+      "status": "PASS"
+    },
+    {
+      "command": "pnpm test",
+      "exitCode": 0,
+      "status": "PASS"
+    },
+    {
+      "command": "pnpm build",
+      "exitCode": 0,
+      "status": "PASS"
+    },
+    {
+      "command": "pnpm verify",
+      "exitCode": 0,
+      "status": "PASS"
+    }
+  ],
+  "tests": {
+    "files": 7,
+    "passed": 54,
+    "failed": 0,
+    "skipped": 0,
+    "blocked": 0
+  },
+  "knownLimitations": [
+    "Only the deterministic in-process fake worker is implemented.",
+    "The CLI requires the localhost server for durable lifecycle commands.",
+    "Retry execution is deferred although retry policy and immutable TaskRun records exist.",
+    "Capability and approval contracts do not execute shell commands.",
+    "Ollama, external workers, ACP, MCP, Serena, Studio, desktop packaging and authentication are deferred."
+  ],
+  "assurances": {
+    "offlineTests": true,
+    "cloudUsed": false,
+    "ollamaUsed": false,
+    "externalAgentUsed": false,
+    "c3WriteAccessUsed": false,
+    "networkPortsOpenedByTests": false,
+    "candidateModeEnabled": false
+  }
+}

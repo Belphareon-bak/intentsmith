@@ -8,21 +8,10 @@ Initial Phase 1 workspace layout:
 apps/
   server/
   cli/
-  studio/
 packages/
   contracts/
   core/
-  lifecycle/
-  policy/
-  governance/
-  hardware/
-  inference/
   persistence/
-  telemetry/
-  worker-sdk/
-  adapter-opencode/
-  adapter-mcp/
-  adapter-serena/
   testing/
 ```
 
@@ -41,18 +30,13 @@ headless flow:
 ```text
 apps/* -> packages/core
 apps/* -> packages/contracts
+apps/* -> packages/persistence
+apps/server -> packages/testing (Phase 1 fake worker runtime only)
 packages/core -> packages/contracts
-packages/core -> packages/lifecycle
-packages/core -> packages/policy
-packages/core -> packages/governance
-packages/core -> packages/hardware
-packages/core -> packages/inference
-packages/core -> packages/persistence
-packages/core -> packages/telemetry
-packages/core -> packages/worker-sdk
-packages/adapters/* -> packages/contracts
-packages/adapters/* -> packages/worker-sdk
+packages/persistence -> packages/contracts
 packages/testing -> packages/contracts
+packages/testing -> packages/core
+packages/testing -> packages/persistence
 ```
 
 ## Forbidden Dependencies
