@@ -3,7 +3,7 @@
   "title": "Contract Stabilization, Adversarial Tests and CI Baseline",
   "date": "2026-07-27",
   "baseCommit": "ed21dd87407666fc43bfab350b81d6025ca34fdd",
-  "verifiedCommit": "PENDING",
+  "verifiedCommit": "1333b9a04ba52baa95a49024e8076cb0c6389c12",
   "verifiedCommitNote": "Set to the commit that the clean-clone verification ran against; the documentation commit carrying this artifact is its direct child on the same branch.",
   "branch": "phase-1-1-contract-stabilization",
   "environment": {
