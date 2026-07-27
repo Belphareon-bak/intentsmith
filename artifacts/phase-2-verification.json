@@ -308,5 +308,6 @@
     "c3Modified": false,
     "c3ReferenceCommit": "a7b90e36aa80310305703f54f2332e1c0e7f9e8f"
   },
-  "verifiedCommit": "PENDING"
+  "verifiedCommit": "b5fd188546cd5ffa473cbe92a47d2e1c6899ed4d",
+  "verifiedCommitNote": "Commit a clean clone ran pnpm verify against, exiting 0 with a clean tree. The documentation commit carrying this artifact is its direct child."
 }
