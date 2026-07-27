@@ -3,7 +3,8 @@
   "title": "Contract Stabilization, Adversarial Tests and CI Baseline",
   "date": "2026-07-27",
   "baseCommit": "ed21dd87407666fc43bfab350b81d6025ca34fdd",
-  "resultCommit": "c6a910dc441889904589bb8102e1bb165497a48e",
+  "verifiedCommit": "1a3cf4bfa6afc4c990c2b6ddd33e02dacb41941c",
+  "verifiedCommitNote": "Commit at which pnpm verify was run from a clean clone. The final documentation commit that carries this artifact is its direct child on the same branch.",
   "branch": "phase-1-1-contract-stabilization",
   "environment": {
     "node": "v22.21.1",
