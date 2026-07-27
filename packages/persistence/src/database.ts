@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import path from 'node:path';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { mkdirSync } from 'node:fs';
 import type { Static, TSchema } from '@sinclair/typebox';
 
@@ -15,6 +16,7 @@ import {
   type Task,
   type TaskResult,
   type TaskRun,
+  type TaskRunStatus,
 } from '@intentsmith/contracts';
 import type { AuditRepository, ProjectRepository, TaskRepository, TransactionManager } from '@intentsmith/core';
 import { DomainError } from '@intentsmith/core';
@@ -112,6 +114,19 @@ export function migrate(db: Database.Database): void {
       applied_at TEXT NOT NULL
     )
   `);
+
+  // A database written by a newer build carries migrations this code does not
+  // know how to interpret. Refuse it instead of silently reading unknown rows.
+  const known = new Set<string>(MIGRATIONS.map(migration => migration.id));
+  const applied = db.prepare('SELECT id FROM schema_migrations').all() as Array<{ id: string }>;
+  const unknown = applied.map(row => row.id).filter(id => !known.has(id));
+  if (unknown.length > 0) {
+    throw new DomainError(
+      'UNKNOWN_SCHEMA_VERSION',
+      `Database contains unknown schema migrations: ${unknown.sort().join(', ')}`,
+    );
+  }
+
   for (const migration of MIGRATIONS) {
     const applied = db.prepare('SELECT id FROM schema_migrations WHERE id = ?').get(migration.id);
     if (applied) continue;
@@ -124,18 +139,70 @@ export function migrate(db: Database.Database): void {
 }
 
 class BetterSqliteStore implements SQLiteStore {
+  /** Serializes top-level transactions; see {@link transaction}. */
+  private tail: Promise<unknown> = Promise.resolve();
+
+  /**
+   * Tracks whether the current async execution context already runs inside a
+   * transaction *on this connection*. better-sqlite3 exposes a single
+   * connection with a single transaction slot, so a nested `BEGIN IMMEDIATE`
+   * fails with "cannot start a transaction within a transaction".
+   *
+   * This is deliberately instance-owned rather than module-level. A shared
+   * context would make a transaction opened on one store look reentrant to a
+   * different store nested inside it, and that store would then run its writes
+   * with no transaction at all, silently losing its rollback. Instance
+   * ownership also keeps independent databases free of any shared
+   * synchronization: each store serializes only its own connection.
+   */
+  private readonly transactionContext = new AsyncLocalStorage<{ depth: number }>();
+
   constructor(private readonly db: Database.Database) {}
 
+  /**
+   * Runs `fn` inside a single SQLite transaction.
+   *
+   * Phase 1 issued `BEGIN IMMEDIATE` directly, so two overlapping callers (for
+   * example a lifecycle command racing the finalization of a worker run) made
+   * the second caller fail with a raw SQLite error instead of a domain error.
+   * Top-level transactions are now serialized through a promise queue, and a
+   * reentrant call joins the transaction already open on this connection
+   * rather than starting a second one. Reentrancy is scoped to this store, so
+   * a transaction on another database nested inside this one still gets its
+   * own real transaction.
+   */
   async transaction<T>(fn: () => Promise<T>): Promise<T> {
-    this.db.prepare('BEGIN IMMEDIATE').run();
-    try {
-      const result = await fn();
-      this.db.prepare('COMMIT').run();
-      return result;
-    } catch (error) {
-      this.db.prepare('ROLLBACK').run();
-      throw error;
+    const open = this.transactionContext.getStore();
+    if (open) {
+      open.depth += 1;
+      try {
+        return await fn();
+      } finally {
+        open.depth -= 1;
+      }
     }
+    return await this.enqueue(async () => {
+      this.db.prepare('BEGIN IMMEDIATE').run();
+      try {
+        const result = await this.transactionContext.run({ depth: 1 }, fn);
+        this.db.prepare('COMMIT').run();
+        return result;
+      } catch (error) {
+        // The transaction may already be closed if SQLite aborted it itself.
+        if (this.db.inTransaction) this.db.prepare('ROLLBACK').run();
+        throw error;
+      }
+    });
+  }
+
+  /** Appends `fn` to the serial queue regardless of the previous outcome. */
+  private enqueue<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.tail.then(fn, fn);
+    this.tail = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
   }
 
   async create(project: Project): Promise<void> {
@@ -195,6 +262,22 @@ class BetterSqliteStore implements SQLiteStore {
     if (result.changes !== 1) throw new DomainError('TASK_RUN_NOT_FOUND', `Task run not found: ${run.id}`);
   }
 
+  async listRuns(taskId: string): Promise<TaskRun[]> {
+    const rows = this.db
+      .prepare('SELECT payload_json FROM task_runs WHERE task_id = ? ORDER BY attempt ASC')
+      .all(taskId) as JsonRow[];
+    return rows.map(row => parseJson(TaskRunSchema, row.payload_json));
+  }
+
+  async listRunsByStatus(statuses: readonly TaskRunStatus[]): Promise<TaskRun[]> {
+    if (statuses.length === 0) return [];
+    const placeholders = statuses.map(() => '?').join(', ');
+    const rows = this.db
+      .prepare(`SELECT payload_json FROM task_runs WHERE status IN (${placeholders}) ORDER BY started_at ASC, id ASC`)
+      .all(...statuses) as JsonRow[];
+    return rows.map(row => parseJson(TaskRunSchema, row.payload_json));
+  }
+
   async countRuns(taskId: string): Promise<number> {
     const row = this.db.prepare('SELECT COUNT(*) AS count FROM task_runs WHERE task_id = ?').get(taskId) as { count: number };
     return row.count;
@@ -206,6 +289,13 @@ class BetterSqliteStore implements SQLiteStore {
       INSERT INTO task_results (id, task_id, run_id, core_verdict, payload_json, created_at)
       VALUES (@id, @taskId, @runId, @coreVerdict, @payload, @createdAt)
     `).run({ ...result, payload: JSON.stringify(result) });
+  }
+
+  async getResultByRun(runId: string): Promise<TaskResult | null> {
+    const row = this.db
+      .prepare('SELECT payload_json FROM task_results WHERE run_id = ? ORDER BY created_at ASC, id ASC LIMIT 1')
+      .get(runId) as JsonRow | undefined;
+    return row ? parseJson(TaskResultSchema, row.payload_json) : null;
   }
 
   async getResult(taskId: string): Promise<TaskResult | null> {

@@ -55,6 +55,13 @@ export function buildServer(runtime: ServerRuntime): FastifyInstance {
     });
   });
 
+  // Unknown routes must use the same error envelope as everything else.
+  app.setNotFoundHandler((_request, reply) => {
+    void reply.status(404).send({
+      error: { code: 'ROUTE_NOT_FOUND', message: 'Unknown route', retryable: false },
+    });
+  });
+
   app.get('/health', async () => ({ status: 'ok', service: 'intentsmith-core' }));
   app.get('/version', async () => ({ version: VERSION, cli: 'intentsmith', package: 'intentsmith-core' }));
 

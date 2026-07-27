@@ -10,10 +10,11 @@ import {
   DeterministicIdGenerator,
   DisposableWorkspace,
   FakeClock,
-  FakeWorker,
+  FakeTimer,
   createTaskInput,
   createTestRuntime,
 } from './fakes.js';
+import { FakeWorker } from './fake-worker.js';
 
 const cleanups: Array<() => void> = [];
 
@@ -65,6 +66,8 @@ describe('deterministic vertical slice', () => {
   it('classifies timeout as failure and aborts the worker', async () => {
     const context = await createContext('timeout', 10);
     await context.core.startTask(context.taskId);
+    // Timeouts are driven by the injected timer, never by wall-clock time.
+    context.timer.advance(10);
     expect((await context.core.waitForTask(context.taskId)).status).toBe('failed');
     const result = await context.core.getTaskResult(context.taskId);
     expect(result?.coreVerdict).toBe('fail');
@@ -144,7 +147,7 @@ async function createContext(
       : never
     : never,
   timeoutMs = 1000,
-): Promise<{ core: IntentSmithCore; taskId: string }> {
+): Promise<{ core: IntentSmithCore; taskId: string; timer: FakeTimer }> {
   const runtime = createTestRuntime();
   const workspace = new DisposableWorkspace();
   cleanups.push(() => runtime.cleanup(), () => workspace.cleanup());
@@ -157,5 +160,5 @@ async function createContext(
       timeoutMs,
     },
   }));
-  return { core: runtime.core, taskId: task.id };
+  return { core: runtime.core, taskId: task.id, timer: runtime.timer };
 }

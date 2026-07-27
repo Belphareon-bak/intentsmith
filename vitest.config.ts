@@ -17,7 +17,38 @@ export default defineConfig({
     testTimeout: 5000,
     hookTimeout: 5000,
     coverage: {
+      provider: 'v8',
       reportsDirectory: 'coverage',
+      reporter: ['text-summary', 'json-summary', 'lcov'],
+      include: [
+        'packages/contracts/src/**/*.ts',
+        'packages/core/src/**/*.ts',
+        'packages/persistence/src/**/*.ts',
+        'packages/testing/src/**/*.ts',
+        'apps/server/src/**/*.ts',
+        'apps/cli/src/**/*.ts',
+      ],
+      exclude: ['**/*.test.ts', '**/index.ts', '**/dist/**'],
+      /**
+       * Gates are set just below the measured Phase 1.1 values so a real
+       * regression fails the build, without rewarding filler tests. The
+       * per-file entries cover the critical domain logic: lifecycle, verdict,
+       * capability/path policy, persistence transactions and schema
+       * validation. There is deliberately no blanket 100% rule.
+       */
+      thresholds: {
+        statements: 90,
+        branches: 82,
+        functions: 88,
+        lines: 92,
+        'packages/core/src/core.ts': { statements: 92, branches: 82, functions: 90, lines: 95 },
+        'packages/core/src/lifecycle.ts': { statements: 95, branches: 78, functions: 95, lines: 95 },
+        'packages/core/src/verdict.ts': { statements: 88, branches: 88, functions: 95, lines: 88 },
+        'packages/core/src/path-policy.ts': { statements: 95, branches: 95, functions: 95, lines: 95 },
+        'packages/core/src/inference.ts': { statements: 95, branches: 95, functions: 95, lines: 95 },
+        'packages/persistence/src/database.ts': { statements: 95, branches: 85, functions: 95, lines: 95 },
+        'packages/contracts/src/index.ts': { statements: 90, branches: 85, functions: 85, lines: 90 },
+      },
     },
   },
 });

@@ -49,9 +49,49 @@ Acceptance:
 Verification: `docs/testing/phase-1-results.md` and
 `artifacts/phase-1-verification.json`.
 
+## Phase 1.1 - Contract Stabilization, Adversarial Tests, and CI Baseline
+
+Status: complete.
+
+Goal: independently verify Phase 1, fix what the audit found, and make the
+integration base trustworthy enough that Phase 2 can test a real adapter with
+the same contract suite as the fake.
+
+Outputs:
+
+- independent audit of Phase 1 with a recorded verdict (FAIL, remediated);
+- concurrency-safe transactions and per-task command serialization;
+- lifecycle commands validated separately from state edges (ADR 0008);
+- deferred finalization for a worker that completes while paused;
+- injected timer so timeouts are deterministic;
+- restart recovery policy for interrupted runs (ADR 0007);
+- per-store transaction context isolation (ADR 0010);
+- automatically enforced dependency boundaries;
+- reusable WorkerAdapter contract suite;
+- minimal InferenceProvider port and FakeInferenceProvider (ADR 0009);
+- adversarial lifecycle, persistence/recovery, security, and API/CLI
+  negative-path suites;
+- coverage reporting with regression gates;
+- GitHub Actions CI.
+
+Acceptance:
+
+- `pnpm verify` passes from a clean install;
+- a dependency boundary violation fails `pnpm verify`;
+- race tests are deterministic across repeated runs;
+- no real Ollama call, HTTP inference client, or cloud fallback exists.
+
+Verification: `docs/testing/phase-1-1-results.md` and
+`artifacts/phase-1-1-verification.json`.
+
 ## Phase 2 - Ollama and Hardware Director
 
 Goal: run the first local model through a provider contract.
+
+The provider port and its contract suite already exist from Phase 1.1. The
+Ollama adapter must satisfy `runInferenceProviderContract` unchanged, and
+`MODEL_TOO_LARGE` is decided here by the Hardware Director and model-fit policy,
+not by the transport.
 
 Expected outputs:
 

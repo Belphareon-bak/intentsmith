@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./worker-contract": "./dist/worker-contract.js",
+    "./provider-contract": "./dist/provider-contract.js"
   },
   "types": "./dist/index.d.ts",
   "scripts": {
@@ -14,5 +16,8 @@
     "@intentsmith/contracts": "workspace:*",
     "@intentsmith/core": "workspace:*",
     "@intentsmith/persistence": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "4.1.10"
   }
 }

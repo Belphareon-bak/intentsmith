@@ -1,0 +1,303 @@
+{
+  "phase": "1.1",
+  "title": "Contract Stabilization, Adversarial Tests and CI Baseline",
+  "date": "2026-07-27",
+  "baseCommit": "ed21dd87407666fc43bfab350b81d6025ca34fdd",
+  "verifiedCommit": "1333b9a04ba52baa95a49024e8076cb0c6389c12",
+  "verifiedCommitNote": "Set to the commit that the clean-clone verification ran against; the documentation commit carrying this artifact is its direct child on the same branch.",
+  "branch": "phase-1-1-contract-stabilization",
+  "environment": {
+    "node": "v22.21.1",
+    "pnpm": "pnpm@11.17.0",
+    "platform": "linux",
+    "os": "Linux 6.17.0-35-generic"
+  },
+  "dependencyVersions": {
+    "typescript": "6.0.3",
+    "vitest": "4.1.10",
+    "eslint": "10.8.0",
+    "typescript-eslint": "8.65.0",
+    "@vitest/coverage-v8": "4.1.10",
+    "@sinclair/typebox": "0.34.52",
+    "better-sqlite3": "13.0.1",
+    "fastify": "5.10.0"
+  },
+  "auditVerdict": {
+    "phase1": "FAIL",
+    "rationale": "All Phase 1 gates passed, but four defects broke guarantees stated in the Phase 1 docs and ADR 0006. All were reproduced before any change and are fixed with regression tests on this branch."
+  },
+  "gates": [
+    {
+      "command": "pnpm install --frozen-lockfile",
+      "exitCode": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm lint",
+      "exitCode": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm test",
+      "exitCode": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm test:coverage",
+      "exitCode": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm build",
+      "exitCode": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm verify",
+      "exitCode": 0,
+      "result": "PASS"
+    }
+  ],
+  "tests": {
+    "before": {
+      "testFiles": 7,
+      "tests": 54
+    },
+    "after": {
+      "testFiles": 18,
+      "tests": 202
+    },
+    "skipped": 0,
+    "flakyMarked": 0,
+    "determinismRuns": 5,
+    "determinismStable": true,
+    "determinismScope": "transaction-isolation suite and full suite, five runs each"
+  },
+  "coverage": {
+    "total": {
+      "statements": 93.71,
+      "branches": 85.68,
+      "functions": 92.04,
+      "lines": 95.27
+    },
+    "criticalModules": {
+      "packages/core/src/core.ts": {
+        "statements": 93.91,
+        "branches": 85.71,
+        "functions": 93.61,
+        "lines": 100
+      },
+      "packages/core/src/lifecycle.ts": {
+        "statements": 100,
+        "branches": 80,
+        "functions": 100,
+        "lines": 100
+      },
+      "packages/core/src/verdict.ts": {
+        "statements": 90.9,
+        "branches": 90.9,
+        "functions": 100,
+        "lines": 90.32
+      },
+      "packages/core/src/path-policy.ts": {
+        "statements": 100,
+        "branches": 100,
+        "functions": 100,
+        "lines": 100
+      },
+      "packages/core/src/inference.ts": {
+        "statements": 100,
+        "branches": 100,
+        "functions": 100,
+        "lines": 100
+      },
+      "packages/persistence/src/database.ts": {
+        "statements": 97.97,
+        "branches": 90,
+        "functions": 100,
+        "lines": 100
+      },
+      "packages/contracts/src/index.ts": null
+    },
+    "committed": false
+  },
+  "auditFindings": [
+    {
+      "id": 1,
+      "severity": "critical",
+      "classes": [
+        "correctness",
+        "durability"
+      ],
+      "finding": "Overlapping SQLite transactions failed with a raw nested-transaction error.",
+      "fixed": true
+    },
+    {
+      "id": 2,
+      "severity": "critical",
+      "classes": [
+        "contract",
+        "correctness"
+      ],
+      "finding": "resume from pending succeeded and stranded the task in running with no TaskRun or worker.",
+      "fixed": true
+    },
+    {
+      "id": 3,
+      "severity": "critical",
+      "classes": [
+        "correctness"
+      ],
+      "finding": "A worker completing while paused had its outcome silently dropped.",
+      "fixed": true
+    },
+    {
+      "id": 4,
+      "severity": "high",
+      "classes": [
+        "test gap",
+        "maintainability"
+      ],
+      "finding": "Worker timeouts used wall-clock setTimeout, making results machine-dependent.",
+      "fixed": true
+    },
+    {
+      "id": 5,
+      "severity": "medium",
+      "classes": [
+        "contract"
+      ],
+      "finding": "Repeated cancel surfaced a raw SQLite error instead of a domain error.",
+      "fixed": true
+    },
+    {
+      "id": 6,
+      "severity": "medium",
+      "classes": [
+        "contract"
+      ],
+      "finding": "Unknown routes bypassed the standard error envelope.",
+      "fixed": true
+    },
+    {
+      "id": 7,
+      "severity": "medium",
+      "classes": [
+        "contract"
+      ],
+      "finding": "CLI transport failures all collapsed into INTERNAL_ERROR.",
+      "fixed": true
+    },
+    {
+      "id": 8,
+      "severity": "medium",
+      "classes": [
+        "correctness"
+      ],
+      "finding": "Events after a terminal worker event, and second terminal events, were accepted.",
+      "fixed": true
+    },
+    {
+      "id": 9,
+      "severity": "medium",
+      "classes": [
+        "durability"
+      ],
+      "finding": "TaskRun updates ran outside the lifecycle transaction.",
+      "fixed": true
+    },
+    {
+      "id": 10,
+      "severity": "medium",
+      "classes": [
+        "durability"
+      ],
+      "finding": "No recovery policy for a running run found after restart.",
+      "fixed": true
+    },
+    {
+      "id": 11,
+      "severity": "medium",
+      "classes": [
+        "durability"
+      ],
+      "finding": "A database with unknown schema migrations was opened and read.",
+      "fixed": true
+    },
+    {
+      "id": 12,
+      "severity": "low",
+      "classes": [
+        "maintainability"
+      ],
+      "finding": "defaultDbPath created .intentsmith even when an override was set.",
+      "fixed": true
+    },
+    {
+      "id": 13,
+      "severity": "low",
+      "classes": [
+        "maintainability"
+      ],
+      "finding": "FakeWorker transitively imported persistence via a shared module.",
+      "fixed": true
+    },
+    {
+      "id": 14,
+      "severity": "low",
+      "classes": [
+        "maintainability"
+      ],
+      "finding": "No automated dependency boundary enforcement.",
+      "fixed": true
+    }
+  ],
+  "remainingRisks": [
+    "The only worker is the deterministic in-process fake.",
+    "The InferenceProvider port has no real implementation and is not wired into the task lifecycle.",
+    "Retry orchestration remains deferred; multi-run history is proven at the persistence layer.",
+    "recoverInterruptedRuns() exists but is not invoked automatically at server startup.",
+    "Concurrency is serialized per SQLite connection and independent stores run independently. Correct for one local process; nothing coordinates two OS processes against one database file beyond SQLite locking and the busy timeout.",
+    "apps/server still depends on packages/testing for the fake worker runtime (documented Phase 1 exception)."
+  ],
+  "confirmations": {
+    "ollamaUsed": false,
+    "cloudApiUsed": false,
+    "networkCallsInRuntimeCode": false,
+    "secretsUsedInCi": false,
+    "c3Modified": false,
+    "c3ReferenceCommit": "a7b90e36aa80310305703f54f2332e1c0e7f9e8f",
+    "testsWroteIntoRealProject": false,
+    "testsSkippedOrWeakened": false
+  },
+  "postAuditReviewFindings": [
+    {
+      "id": "P1",
+      "severity": "high",
+      "classes": [
+        "correctness",
+        "durability"
+      ],
+      "finding": "The AsyncLocalStorage detecting a reentrant transaction was module-level and shared by every SQLiteStore, so a transaction on one store made a transaction on a different store nested inside it look reentrant. That store then ran its writes in autocommit and silently lost its rollback.",
+      "reproducedBeforeFix": true,
+      "status": "fixed",
+      "adr": "docs/adr/0010-per-store-transaction-context.md"
+    },
+    {
+      "id": "P2",
+      "severity": "low",
+      "classes": [
+        "test gap"
+      ],
+      "finding": "The CI clean-tree gate used git diff --exit-code, which only detects tracked-file changes, so a new untracked artefact left by pnpm verify would not fail the build.",
+      "reproducedBeforeFix": true,
+      "status": "fixed"
+    }
+  ],
+  "postAuditReviewNote": "Found while reviewing the Phase 1.1 changes themselves. These do not alter the Phase 1 audit verdict recorded in auditVerdict."
+}

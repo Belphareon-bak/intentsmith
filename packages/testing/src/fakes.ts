@@ -2,9 +2,11 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import type { CapabilityEnvelope, CreateTaskInput, Evidence, WorkerEvent } from '@intentsmith/contracts';
-import { IntentSmithCore, type Clock, type IdGenerator, type WorkerAdapter, type WorkerExecutionContext, type WorkerExecutionResult, type WorkerHandle } from '@intentsmith/core';
+import type { CapabilityEnvelope, CreateTaskInput } from '@intentsmith/contracts';
+import { IntentSmithCore, type Clock, type IdGenerator, type Timer } from '@intentsmith/core';
 import { openIntentSmithDatabase, type SQLiteStore } from '@intentsmith/persistence';
+
+import { FakeWorker } from './fake-worker.js';
 
 export class FakeClock implements Clock {
   private current: Date;
@@ -19,6 +21,40 @@ export class FakeClock implements Clock {
 
   tick(ms: number): void {
     this.current = new Date(this.current.getTime() + ms);
+  }
+}
+
+/**
+ * Timer driven by explicit advancement instead of wall-clock time, so timeout
+ * behaviour is identical on a fast and a loaded machine.
+ */
+export class FakeTimer implements Timer {
+  private currentMs = 0;
+  private nextId = 0;
+  private readonly pending = new Map<number, { at: number; fn: () => void }>();
+
+  schedule(fn: () => void, ms: number): () => void {
+    const id = this.nextId++;
+    this.pending.set(id, { at: this.currentMs + ms, fn });
+    return () => {
+      this.pending.delete(id);
+    };
+  }
+
+  get pendingCount(): number {
+    return this.pending.size;
+  }
+
+  /** Advances virtual time and fires every timer due at or before the new instant. */
+  advance(ms: number): void {
+    this.currentMs += ms;
+    const due = [...this.pending.entries()]
+      .filter(([, timer]) => timer.at <= this.currentMs)
+      .sort((a, b) => a[1].at - b[1].at || a[0] - b[0]);
+    for (const [id, timer] of due) {
+      this.pending.delete(id);
+      timer.fn();
+    }
   }
 }
 
@@ -75,70 +111,12 @@ export function createTaskInput(projectId: string, rootPath: string, overrides: 
   };
 }
 
-export class FakeWorker implements WorkerAdapter {
-  private readonly handles = new Map<string, FakeWorkerHandle>();
-
-  start(context: WorkerExecutionContext): WorkerHandle {
-    const handle = new FakeWorkerHandle(context);
-    this.handles.set(context.run.id, handle);
-    return handle;
-  }
-
-  handle(runId: string): FakeWorkerHandle | undefined {
-    return this.handles.get(runId);
-  }
-}
-
-export class FakeWorkerHandle implements WorkerHandle {
-  readonly done: Promise<WorkerExecutionResult>;
-  private resolveDone!: (value: WorkerExecutionResult) => void;
-  private cancelled = false;
-
-  constructor(private readonly context: WorkerExecutionContext) {
-    this.done = new Promise(resolve => {
-      this.resolveDone = resolve;
-    });
-    this.schedule();
-  }
-
-  async pause(): Promise<void> {
-    if (this.context.task.workerPreference.scenario !== 'pauseable-success') return;
-  }
-
-  async resume(): Promise<void> {
-    if (this.context.task.workerPreference.scenario === 'pauseable-success' && !this.cancelled) {
-      this.resolveDone({ events: successfulEvents(this.context) });
-    }
-  }
-
-  async cancel(): Promise<void> {
-    this.cancelled = true;
-    this.resolveDone({ events: [] });
-  }
-
-  private schedule(): void {
-    const scenario = this.context.task.workerPreference.scenario;
-    if (scenario === 'pauseable-success' || scenario === 'timeout') return;
-    setTimeout(() => {
-      if (this.cancelled) return;
-      if (scenario === 'success') this.resolveDone({ events: successfulEvents(this.context) });
-      if (scenario === 'failure') this.resolveDone({ events: failureEvents(this.context) });
-      if (scenario === 'invalid-event') this.resolveDone({ events: [{ type: 'completed', claim: { status: 'success', summary: 'ok' }, extra: true }] });
-      if (scenario === 'claim-without-evidence') {
-        this.resolveDone({ events: [
-          { type: 'started', runId: this.context.run.id, workerVersion: 'fake-worker/0.1.0' },
-          { type: 'completed', claim: { status: 'success', summary: 'No evidence attached' } },
-        ] });
-      }
-    }, 0);
-  }
-}
-
 export type TestRuntime = {
   core: IntentSmithCore;
   store: SQLiteStore;
   worker: FakeWorker;
   clock: FakeClock;
+  timer: FakeTimer;
   ids: DeterministicIdGenerator;
   cleanup(): void;
 };
@@ -147,10 +125,12 @@ export function createTestRuntime(dbPath = ':memory:'): TestRuntime {
   const store = openIntentSmithDatabase(dbPath);
   const worker = new FakeWorker();
   const clock = new FakeClock();
+  const timer = new FakeTimer();
   const ids = new DeterministicIdGenerator();
   const core = new IntentSmithCore({
     clock,
     ids,
+    timer,
     projects: store,
     tasks: store,
     audit: store,
@@ -163,39 +143,8 @@ export function createTestRuntime(dbPath = ':memory:'): TestRuntime {
     store,
     worker,
     clock,
+    timer,
     ids,
     cleanup: () => store.close(),
-  };
-}
-
-function successfulEvents(context: WorkerExecutionContext): WorkerEvent[] {
-  return [
-    { type: 'started', runId: context.run.id, workerVersion: 'fake-worker/0.1.0' },
-    { type: 'evidence', evidence: passingEvidence(context.run.id) },
-    { type: 'completed', claim: { status: 'success', summary: 'Fake worker completed successfully' } },
-  ];
-}
-
-function failureEvents(context: WorkerExecutionContext): WorkerEvent[] {
-  return [
-    { type: 'started', runId: context.run.id, workerVersion: 'fake-worker/0.1.0' },
-    {
-      type: 'failed',
-      error: {
-        code: 'FAKE_WORKER_FAILURE',
-        message: 'Fake worker failed deterministically',
-        retryable: false,
-      },
-    },
-  ];
-}
-
-function passingEvidence(runId: string): Evidence {
-  return {
-    id: `evidence_${runId}`,
-    kind: 'test',
-    status: 'pass',
-    summary: 'Fake deterministic test passed',
-    producedAt: '2026-07-27T00:00:00.000Z',
   };
 }

@@ -1,9 +1,38 @@
 export { DomainError, normalizeError } from './errors.js';
-export { ALLOWED_TRANSITIONS, TERMINAL_TASK_STATUSES, assertTransition, canTransition } from './lifecycle.js';
-export { canonicalizeCapabilityEnvelope, assertPathInsideRoots } from './path-policy.js';
+export {
+  ALLOWED_TRANSITIONS,
+  COMMAND_SOURCE_STATES,
+  COMMAND_TARGET_STATUS,
+  TERMINAL_TASK_STATUSES,
+  assertCommand,
+  assertTransition,
+  canRunCommand,
+  canTransition,
+  isTerminal,
+  targetStatusFor,
+  type LifecycleCommand,
+} from './lifecycle.js';
+export { KeyedMutex } from './mutex.js';
+export { canonicalizeCapabilityEnvelope, canonicalizeExistingPath, assertPathInsideRoots } from './path-policy.js';
 export { decideVerdict, type VerdictInput } from './verdict.js';
-export { IntentSmithCore, type IntentSmithCoreOptions } from './core.js';
-export { CryptoIdGenerator, SystemClock } from './runtime-adapters.js';
+export { INTERRUPTIBLE_RUN_STATUSES, IntentSmithCore, type IntentSmithCoreOptions } from './core.js';
+export { CryptoIdGenerator, SystemClock, SystemTimer } from './runtime-adapters.js';
+export {
+  PROVIDER_ERROR_CODES,
+  ProviderError,
+  isProviderErrorCode,
+  normalizeProviderError,
+  type GenerationRequest,
+  type InferenceEvent,
+  type InferenceProvider,
+  type ModelDescriptor,
+  type NormalizedProviderError,
+  type ProviderCapabilities,
+  type ProviderErrorCode,
+  type ProviderHealth,
+  type ProviderIdentity,
+  type TokenUsage,
+} from './inference.js';
 export type {
   AuditRepository,
   Clock,
@@ -12,8 +41,10 @@ export type {
   IdGenerator,
   ProjectRepository,
   TaskRepository,
+  Timer,
   TransactionManager,
   WorkerAdapter,
+  WorkerDescriptor,
   WorkerExecutionContext,
   WorkerExecutionResult,
   WorkerHandle,

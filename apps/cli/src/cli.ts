@@ -107,14 +107,32 @@ export function createCoreTransport(core: IntentSmithCore): CliTransport {
   };
 }
 
-export function createHttpTransport(baseUrl = 'http://127.0.0.1:47831'): CliTransport {
+export function createHttpTransport(baseUrl = 'http://127.0.0.1:47831', timeoutMs = 10_000): CliTransport {
   const request = async <T>(method: string, pathname: string, body?: unknown): Promise<T> => {
-    const response = await fetch(new URL(pathname, baseUrl), {
-      method,
-      headers: body === undefined ? undefined : { 'content-type': 'application/json' },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    const payload = await response.json() as unknown;
+    // Transport failures must map onto stable CLI error codes instead of
+    // collapsing into a generic INTERNAL_ERROR.
+    let response: Response;
+    try {
+      response = await fetch(new URL(pathname, baseUrl), {
+        method,
+        headers: body === undefined ? undefined : { 'content-type': 'application/json' },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch (error) {
+      if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
+        throw new DomainError('SERVER_TIMEOUT', `Request to ${baseUrl} timed out`, true);
+      }
+      throw new DomainError('SERVER_UNAVAILABLE', `IntentSmith server is not reachable at ${baseUrl}`, true);
+    }
+
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      throw new DomainError('INVALID_SERVER_RESPONSE', 'Server returned a response that is not valid JSON.');
+    }
+
     if (!response.ok) {
       const error = isRecord(payload) && isRecord(payload.error) ? payload.error : {};
       throw new DomainError(

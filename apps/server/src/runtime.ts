@@ -28,7 +28,11 @@ export function createRuntime(dbPath = defaultDbPath()): ServerRuntime {
 }
 
 export function defaultDbPath(): string {
+  // Only create the directory that is actually used; an explicit override must
+  // not leave a stray `.intentsmith` folder in the current working directory.
+  const override = process.env.INTENTSMITH_DB_PATH;
+  if (override) return override;
   const root = path.join(process.cwd(), '.intentsmith');
   mkdirSync(root, { recursive: true });
-  return process.env.INTENTSMITH_DB_PATH ?? path.join(root, 'intentsmith.db');
+  return path.join(root, 'intentsmith.db');
 }

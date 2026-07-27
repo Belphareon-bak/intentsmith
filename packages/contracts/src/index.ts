@@ -118,6 +118,11 @@ export const WorkerPreferenceSchema = Type.Object({
     Type.Literal('timeout'),
     Type.Literal('invalid-event'),
     Type.Literal('claim-without-evidence'),
+    // Phase 1.1 adversarial scenarios for the shared worker contract suite.
+    Type.Literal('event-after-terminal'),
+    Type.Literal('two-terminal-events'),
+    Type.Literal('failing-evidence'),
+    Type.Literal('throwing'),
   ]),
 }, StrictOptions);
 

@@ -51,6 +51,38 @@ LLM providers -X-> lifecycle state mutation
 MCP tools -X-> direct side effects outside capability envelope
 ```
 
+## Enforcement
+
+These rules are executable. `tools/architecture/boundaries.test.ts` scans the
+sources and fails `pnpm test`, and therefore `pnpm verify`, when a boundary is
+crossed. It is a deterministic scan rather than an extra lint dependency.
+
+Enforced rules:
+
+```text
+contracts      -X-> core, persistence, fastify, better-sqlite3
+core           -X-> fastify, better-sqlite3, concrete worker adapter,
+                    inference vendor SDK
+persistence    -X-> fastify
+worker adapter -X-> persistence, better-sqlite3
+CLI            -X-> better-sqlite3, persistence
+server route   -X-> better-sqlite3 (composition in runtime.ts is exempt)
+```
+
+Two additional checks run alongside them:
+
+- no runtime source may reference a non-local URL, so no code path can reach a
+  cloud or inference endpoint;
+- every cross-package import must be declared in that package's manifest.
+
+Test files are exempt, because a test may import whatever it needs to drive the
+system under test.
+
+`apps/server -> packages/testing` remains allowed for the Phase 1 fake worker
+runtime. To keep that exception safe, the package entry point re-exports no
+module that imports a test framework, and `FakeWorker` lives in its own module
+that does not import persistence.
+
 ## Authority Rules
 
 - IntentSmith Core owns lifecycle, task state, approvals, audit, and final verdicts.
