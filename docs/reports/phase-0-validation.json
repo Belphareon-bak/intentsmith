@@ -1,0 +1,43 @@
+{
+  "phase": "0",
+  "status": "ready_for_review",
+  "validatedAt": "2026-07-27",
+  "sourceReference": {
+    "repository": "Belphareon-bak/C3-agent",
+    "localPath": "/home/belphareon/Projects/c3-agent-wip",
+    "commit": "a7b90e36aa80310305703f54f2332e1c0e7f9e8f",
+    "mode": "read_only_reference"
+  },
+  "newRepository": {
+    "path": "/home/belphareon/Projects/intentsmith",
+    "name": "intentsmith",
+    "applicationSourceCodeCreated": false
+  },
+  "checks": [
+    {
+      "name": "c3_reference_unchanged_by_phase_0",
+      "status": "PASS",
+      "evidence": "New files were created only under /home/belphareon/Projects/intentsmith."
+    },
+    {
+      "name": "no_c3_source_copied",
+      "status": "PASS",
+      "evidence": "Repository contains documentation only."
+    },
+    {
+      "name": "p0_components_recorded",
+      "status": "PASS",
+      "evidence": "docs/third-party contains P0 records."
+    },
+    {
+      "name": "phase_1_boundaries_proposed",
+      "status": "PASS",
+      "evidence": "docs/architecture/dependency-boundaries.md and minimal-contracts.md."
+    }
+  ],
+  "openItems": [
+    "Formal trademark and domain check for IntentSmith.",
+    "Confirm whether IntentSmithtForge Local spelling is intentional.",
+    "Pin exact dependency versions immediately before Phase 1 dependency install."
+  ]
+}
