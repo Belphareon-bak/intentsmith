@@ -1,0 +1,83 @@
+import { OllamaProvider, type OllamaTransport } from '@intentsmith/adapter-ollama';
+import { HardwareDirector, type ExecutionPolicy, type GpuProbeResult, type SystemProfile } from '@intentsmith/hardware';
+import { InferenceScheduler } from '@intentsmith/inference';
+import type { IntentSmithCore } from '@intentsmith/core';
+
+import type { ServerRuntime } from './app.js';
+import type { RecoverySummary } from './recovery.js';
+
+/**
+ * Builds a `ServerRuntime` for tests.
+ *
+ * Every dependency is injected, so nothing here opens a socket, runs a
+ * subprocess, or reads the host machine's real hardware. A test that does not
+ * care about inference still gets a working runtime.
+ */
+
+export const OFFLINE_SYSTEM: SystemProfile = {
+  os: 'linux',
+  arch: 'x64',
+  logicalCpuCount: 8,
+  totalRamBytes: 32 * 1024 ** 3,
+  availableRamBytes: 16 * 1024 ** 3,
+};
+
+export const OFFLINE_GPU: GpuProbeResult = {
+  status: 'ok',
+  vendor: 'nvidia',
+  devices: [
+    {
+      index: 0,
+      name: 'Offline Test GPU',
+      driverVersion: '000.00',
+      totalVramBytes: 24 * 1024 ** 3,
+      freeVramBytes: 22 * 1024 ** 3,
+    },
+  ],
+};
+
+/** Transport that refuses every call, for tests that never touch inference. */
+export const unreachableTransport: OllamaTransport = async () => {
+  throw new Error('offline');
+};
+
+export type TestServerRuntimeOptions = {
+  core: IntentSmithCore;
+  transport?: OllamaTransport;
+  system?: SystemProfile;
+  gpu?: GpuProbeResult;
+  executionPolicy?: ExecutionPolicy;
+  recovery?: RecoverySummary;
+  maxConcurrentInference?: number;
+  close?: () => void | Promise<void>;
+};
+
+export function createTestServerRuntime(options: TestServerRuntimeOptions): ServerRuntime {
+  const provider = new OllamaProvider({
+    endpoint: 'http://127.0.0.1:11434',
+    transport: options.transport ?? unreachableTransport,
+    // Short timeouts keep a misbehaving fixture from stalling a test run.
+    timeouts: { connectMs: 50, firstByteMs: 50, idleMs: 50, overallMs: 500 },
+  });
+  const hardware = new HardwareDirector({
+    systemProbe: async () => options.system ?? OFFLINE_SYSTEM,
+    gpuProbe: async () => options.gpu ?? OFFLINE_GPU,
+    now: () => '2026-07-28T00:00:00.000Z',
+  });
+
+  return {
+    core: options.core,
+    provider,
+    scheduler: new InferenceScheduler({ maxConcurrent: options.maxConcurrentInference ?? 1 }),
+    hardware,
+    executionPolicy: options.executionPolicy ?? 'cpu_allowed',
+    recovery: options.recovery ?? {
+      status: 'completed',
+      startedAt: '2026-07-28T00:00:00.000Z',
+      completedAt: '2026-07-28T00:00:00.000Z',
+      recoveredRunCount: 0,
+      affectedTaskIds: [],
+    },
+    close: options.close ?? (() => undefined),
+  };
+}

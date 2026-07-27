@@ -1,8 +1,11 @@
 import { buildServer } from './app.js';
+import { StartupRecoveryError } from './recovery.js';
 import { createRuntime } from './runtime.js';
 
 export { buildServer, type ServerRuntime } from './app.js';
-export { createRuntime, defaultDbPath } from './runtime.js';
+export { createRuntime, defaultDbPath, type RuntimeOptions } from './runtime.js';
+export { StartupRecoveryError, runStartupRecovery, type RecoverySummary } from './recovery.js';
+export { createTestServerRuntime } from './test-runtime.js';
 export const DEFAULT_HOST = '127.0.0.1';
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -28,10 +31,26 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     void shutdown();
   });
   try {
+    // Startup recovery runs before listen so no client can ever observe a
+    // stale `running` row as live work. A failure here must stop the process:
+    // serving from a half-recovered database is the ambiguity the policy
+    // exists to remove.
+    const summary = await runtime.prepare?.();
+    if (summary) {
+      console.log(
+        summary.recoveredRunCount === 0
+          ? 'Startup recovery: no interrupted runs found.'
+          : `Startup recovery: closed ${summary.recoveredRunCount} interrupted run(s) across ${summary.affectedTaskIds.length} task(s). None were restarted.`,
+      );
+    }
     await app.listen({ host, port });
     console.log(`IntentSmith server listening on http://${host}:${port}`);
   } catch (error) {
-    app.log.error(error);
+    if (error instanceof StartupRecoveryError) {
+      console.error(`IntentSmith refused to start: ${error.message}`);
+    } else {
+      app.log.error(error);
+    }
     await shutdown();
     process.exitCode = 1;
   }

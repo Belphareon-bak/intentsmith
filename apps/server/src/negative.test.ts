@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DisposableWorkspace, createTaskInput, createTestRuntime, type TestRuntime } from '@intentsmith/testing';
 
 import { buildServer } from './app.js';
+import { createTestServerRuntime } from './test-runtime.js';
 
 /** Negative and adversarial API boundary tests. */
 
@@ -21,7 +22,7 @@ afterEach(async () => {
 });
 
 function server() {
-  return buildServer({ core: runtime.core, close: () => undefined });
+  return buildServer(createTestServerRuntime({ core: runtime.core }));
 }
 
 async function seedTask(scenario: Parameters<typeof createTaskInput>[2] = {}) {
@@ -128,15 +129,16 @@ describe('API negative paths', () => {
   });
 
   it('never leaks a stack trace or local path in an internal error', async () => {
-    const app = buildServer({
-      core: {
-        ...runtime.core,
-        getTask: async () => {
-          throw new Error('boom at /home/someone/secret/file.ts:12:5');
-        },
-      } as unknown as TestRuntime['core'],
-      close: () => undefined,
-    });
+    const app = buildServer(
+      createTestServerRuntime({
+        core: {
+          ...runtime.core,
+          getTask: async () => {
+            throw new Error('boom at /home/someone/secret/file.ts:12:5');
+          },
+        } as unknown as TestRuntime['core'],
+      }),
+    );
     const response = await app.inject({ method: 'GET', url: '/tasks/task_x' });
     expect(response.statusCode).toBe(500);
     const body = response.body;
@@ -149,13 +151,15 @@ describe('API negative paths', () => {
 
   it('cancels an active task when the server shuts down', async () => {
     let closed = false;
-    const app = buildServer({
-      core: runtime.core,
-      close: async () => {
-        await runtime.core.shutdown();
-        closed = true;
-      },
-    });
+    const app = buildServer(
+      createTestServerRuntime({
+        core: runtime.core,
+        close: async () => {
+          await runtime.core.shutdown();
+          closed = true;
+        },
+      }),
+    );
     const task = await seedTask({ workerScenario: 'pauseable-success' });
     expect((await app.inject({ method: 'POST', url: `/tasks/${task.id}/start` })).statusCode).toBe(200);
 

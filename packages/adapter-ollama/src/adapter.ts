@@ -352,7 +352,7 @@ export class OllamaProvider implements InferenceProvider {
   }
 
   private async httpError(response: OllamaResponse, modelId?: string): Promise<ProviderError> {
-    let body = '';
+    let body: string;
     try {
       body = (await response.text()).slice(0, this.maxErrorBodyBytes);
     } catch {
