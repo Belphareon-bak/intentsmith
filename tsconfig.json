@@ -1,11 +1,32 @@
 {
   "files": [],
   "references": [
-    { "path": "./packages/contracts" },
-    { "path": "./packages/core" },
-    { "path": "./packages/persistence" },
-    { "path": "./packages/testing" },
-    { "path": "./apps/server" },
-    { "path": "./apps/cli" }
+    {
+      "path": "./packages/contracts"
+    },
+    {
+      "path": "./packages/inference"
+    },
+    {
+      "path": "./packages/hardware"
+    },
+    {
+      "path": "./packages/core"
+    },
+    {
+      "path": "./packages/persistence"
+    },
+    {
+      "path": "./packages/adapter-ollama"
+    },
+    {
+      "path": "./packages/testing"
+    },
+    {
+      "path": "./apps/server"
+    },
+    {
+      "path": "./apps/cli"
+    }
   ]
 }

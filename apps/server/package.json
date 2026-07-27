@@ -17,6 +17,9 @@
     "@intentsmith/persistence": "workspace:*",
     "@intentsmith/testing": "workspace:*",
     "@sinclair/typebox": "0.34.52",
-    "fastify": "5.10.0"
+    "fastify": "5.10.0",
+    "@intentsmith/inference": "workspace:*",
+    "@intentsmith/hardware": "workspace:*",
+    "@intentsmith/adapter-ollama": "workspace:*"
   }
 }

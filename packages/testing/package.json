@@ -15,7 +15,8 @@
   "dependencies": {
     "@intentsmith/contracts": "workspace:*",
     "@intentsmith/core": "workspace:*",
-    "@intentsmith/persistence": "workspace:*"
+    "@intentsmith/persistence": "workspace:*",
+    "@intentsmith/inference": "workspace:*"
   },
   "devDependencies": {
     "vitest": "4.1.10"

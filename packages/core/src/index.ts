@@ -17,22 +17,6 @@ export { canonicalizeCapabilityEnvelope, canonicalizeExistingPath, assertPathIns
 export { decideVerdict, type VerdictInput } from './verdict.js';
 export { INTERRUPTIBLE_RUN_STATUSES, IntentSmithCore, type IntentSmithCoreOptions } from './core.js';
 export { CryptoIdGenerator, SystemClock, SystemTimer } from './runtime-adapters.js';
-export {
-  PROVIDER_ERROR_CODES,
-  ProviderError,
-  isProviderErrorCode,
-  normalizeProviderError,
-  type GenerationRequest,
-  type InferenceEvent,
-  type InferenceProvider,
-  type ModelDescriptor,
-  type NormalizedProviderError,
-  type ProviderCapabilities,
-  type ProviderErrorCode,
-  type ProviderHealth,
-  type ProviderIdentity,
-  type TokenUsage,
-} from './inference.js';
 export type {
   AuditRepository,
   Clock,

@@ -1,5 +1,5 @@
 {
-  "name": "@intentsmith/core",
+  "name": "@intentsmith/inference",
   "version": "0.1.0",
   "type": "module",
   "exports": {
@@ -10,9 +10,5 @@
     "build": "tsc -b",
     "typecheck": "tsc -b --pretty false"
   },
-  "dependencies": {
-    "@intentsmith/contracts": "workspace:*",
-    "@intentsmith/inference": "workspace:*",
-    "@intentsmith/hardware": "workspace:*"
-  }
+  "dependencies": {}
 }

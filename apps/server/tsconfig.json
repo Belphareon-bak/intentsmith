@@ -5,6 +5,30 @@
     "outDir": "dist",
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
-  "references": [{ "path": "../../packages/contracts" }, { "path": "../../packages/core" }, { "path": "../../packages/persistence" }, { "path": "../../packages/testing" }],
-  "include": ["src/**/*.ts"]
+  "references": [
+    {
+      "path": "../../packages/contracts"
+    },
+    {
+      "path": "../../packages/core"
+    },
+    {
+      "path": "../../packages/persistence"
+    },
+    {
+      "path": "../../packages/testing"
+    },
+    {
+      "path": "../../packages/inference"
+    },
+    {
+      "path": "../../packages/hardware"
+    },
+    {
+      "path": "../../packages/adapter-ollama"
+    }
+  ],
+  "include": [
+    "src/**/*.ts"
+  ]
 }

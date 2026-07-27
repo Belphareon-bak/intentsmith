@@ -41,6 +41,9 @@ importers:
       '@intentsmith/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@intentsmith/inference':
+        specifier: workspace:*
+        version: link:../../packages/inference
     devDependencies:
       '@intentsmith/testing':
         specifier: workspace:*
@@ -48,12 +51,21 @@ importers:
 
   apps/server:
     dependencies:
+      '@intentsmith/adapter-ollama':
+        specifier: workspace:*
+        version: link:../../packages/adapter-ollama
       '@intentsmith/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
       '@intentsmith/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@intentsmith/hardware':
+        specifier: workspace:*
+        version: link:../../packages/hardware
+      '@intentsmith/inference':
+        specifier: workspace:*
+        version: link:../../packages/inference
       '@intentsmith/persistence':
         specifier: workspace:*
         version: link:../../packages/persistence
@@ -67,6 +79,12 @@ importers:
         specifier: 5.10.0
         version: 5.10.0
 
+  packages/adapter-ollama:
+    dependencies:
+      '@intentsmith/inference':
+        specifier: workspace:*
+        version: link:../inference
+
   packages/contracts:
     dependencies:
       '@sinclair/typebox':
@@ -78,6 +96,20 @@ importers:
       '@intentsmith/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@intentsmith/hardware':
+        specifier: workspace:*
+        version: link:../hardware
+      '@intentsmith/inference':
+        specifier: workspace:*
+        version: link:../inference
+
+  packages/hardware:
+    dependencies:
+      '@intentsmith/inference':
+        specifier: workspace:*
+        version: link:../inference
+
+  packages/inference: {}
 
   packages/persistence:
     dependencies:
@@ -106,6 +138,9 @@ importers:
       '@intentsmith/core':
         specifier: workspace:*
         version: link:../core
+      '@intentsmith/inference':
+        specifier: workspace:*
+        version: link:../inference
       '@intentsmith/persistence':
         specifier: workspace:*
         version: link:../persistence

@@ -29,6 +29,9 @@ const SQLITE = { pattern: /^better-sqlite3$/, reason: 'must not depend on a conc
 const PERSISTENCE = { pattern: /^@intentsmith\/persistence$/, reason: 'must not depend on persistence' };
 const CORE = { pattern: /^@intentsmith\/core$/, reason: 'must not depend on core' };
 const SERVER = { pattern: /^@intentsmith\/server$/, reason: 'must not depend on the server app' };
+const ADAPTER_OLLAMA = { pattern: /^@intentsmith\/adapter-ollama$/, reason: 'must not depend on a concrete inference adapter' };
+const CORE_PKG = { pattern: /^@intentsmith\/core$/, reason: 'must not depend on core' };
+const HARDWARE = { pattern: /^@intentsmith\/hardware$/, reason: 'must not depend on hardware' };
 
 const ZONES: Zone[] = [
   {
@@ -44,10 +47,38 @@ const ZONES: Zone[] = [
       FASTIFY,
       SQLITE,
       SERVER,
+      // Core may use the inference and hardware ports, never a concrete adapter.
+      ADAPTER_OLLAMA,
       { pattern: /^@intentsmith\/testing$/, reason: 'must not depend on a concrete worker adapter' },
       { pattern: /adapter-(opencode|openhands|goose)/, reason: 'must not depend on a concrete worker adapter' },
-      { pattern: /^ollama|^openai$|^@anthropic-ai\//, reason: 'must not depend on an inference vendor SDK' },
+      { pattern: /^ollama$|^openai$|^@anthropic-ai\//, reason: 'must not depend on an inference vendor SDK' },
     ],
+  },
+  {
+    // The port package is the root of the inference dependency direction.
+    name: 'packages/inference',
+    dir: 'packages/inference/src',
+    forbidden: [
+      CORE_PKG,
+      PERSISTENCE,
+      FASTIFY,
+      SQLITE,
+      SERVER,
+      HARDWARE,
+      ADAPTER_OLLAMA,
+      { pattern: /^ollama$|^openai$|^@anthropic-ai\//, reason: 'must not depend on an inference vendor SDK' },
+    ],
+  },
+  {
+    // The adapter translates one vendor API and must stay a leaf.
+    name: 'packages/adapter-ollama',
+    dir: 'packages/adapter-ollama/src',
+    forbidden: [CORE_PKG, PERSISTENCE, FASTIFY, SQLITE, SERVER, HARDWARE],
+  },
+  {
+    name: 'packages/hardware',
+    dir: 'packages/hardware/src',
+    forbidden: [CORE_PKG, PERSISTENCE, FASTIFY, SQLITE, SERVER, ADAPTER_OLLAMA],
   },
   {
     name: 'packages/persistence',
@@ -152,7 +183,16 @@ describe('dependency boundaries', () => {
   });
 
   it('no runtime source calls a cloud or inference endpoint', () => {
-    const zones = ['packages/contracts/src', 'packages/core/src', 'packages/persistence/src', 'apps/server/src', 'apps/cli/src'];
+    const zones = [
+      'packages/contracts/src',
+      'packages/core/src',
+      'packages/inference/src',
+      'packages/hardware/src',
+      'packages/adapter-ollama/src',
+      'packages/persistence/src',
+      'apps/server/src',
+      'apps/cli/src',
+    ];
     const banned = /https?:\/\/(?!127\.0\.0\.1|localhost)[a-z0-9.-]+/i;
     const violations: string[] = [];
     for (const dir of zones) {
@@ -172,7 +212,17 @@ describe('dependency boundaries', () => {
 
   it('declares every cross-package import in the package manifest', () => {
     const violations: string[] = [];
-    const packages = ['packages/contracts', 'packages/core', 'packages/persistence', 'packages/testing', 'apps/server', 'apps/cli'];
+    const packages = [
+      'packages/contracts',
+      'packages/core',
+      'packages/inference',
+      'packages/hardware',
+      'packages/adapter-ollama',
+      'packages/persistence',
+      'packages/testing',
+      'apps/server',
+      'apps/cli',
+    ];
     for (const pkg of packages) {
       const manifest = JSON.parse(readFileSync(path.join(repoRoot, pkg, 'package.json'), 'utf8')) as {
         dependencies?: Record<string, string>;
