@@ -92,16 +92,28 @@ function sourceFiles(dir: string): string[] {
   return out;
 }
 
-const IMPORT_PATTERN = /(?:import|export)\s[^;]*?from\s*['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]\s*\)|require\(\s*['"]([^'"]+)['"]\s*\)/g;
+/**
+ * Matches, in order: `import|export ... from 'x'`, a bare side-effect
+ * `import 'x'`, a dynamic `import('x')`, and `require('x')`. The bare form
+ * matters: `import 'fastify';` pulls in a dependency just as much as a named
+ * import does.
+ */
+const IMPORT_PATTERNS = [
+  /(?:import|export)\s[^;]*?from\s*['"]([^'"]+)['"]/g,
+  /import\s+['"]([^'"]+)['"]/g,
+  /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+  /require\(\s*['"]([^'"]+)['"]\s*\)/g,
+];
 
 function importsOf(file: string): string[] {
   const source = readFileSync(file, 'utf8');
-  const specifiers: string[] = [];
-  for (const match of source.matchAll(IMPORT_PATTERN)) {
-    const specifier = match[1] ?? match[2] ?? match[3];
-    if (specifier) specifiers.push(specifier);
+  const specifiers = new Set<string>();
+  for (const pattern of IMPORT_PATTERNS) {
+    for (const match of source.matchAll(pattern)) {
+      if (match[1]) specifiers.add(match[1]);
+    }
   }
-  return specifiers;
+  return [...specifiers];
 }
 
 /** Test files may import anything they need to drive the system under test. */
