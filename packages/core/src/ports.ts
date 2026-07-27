@@ -6,10 +6,21 @@ import type {
   Task,
   TaskResult,
   TaskRun,
+  TaskRunStatus,
 } from '@intentsmith/contracts';
 
 export type Clock = {
   now(): string;
+};
+
+/**
+ * Scheduling port. Phase 1 called the global `setTimeout` directly, which tied
+ * worker timeouts to wall-clock time and made timeout tests depend on machine
+ * speed. Tests inject a manually advanced timer instead.
+ */
+export type Timer = {
+  /** Schedules `fn` after `ms` and returns a cancel function. */
+  schedule(fn: () => void, ms: number): () => void;
 };
 
 export type IdGenerator = {
@@ -28,9 +39,12 @@ export type TaskRepository = {
   createRun(run: TaskRun): Promise<void>;
   getRun(id: string): Promise<TaskRun | null>;
   updateRun(run: TaskRun): Promise<void>;
+  listRuns(taskId: string): Promise<TaskRun[]>;
+  listRunsByStatus(statuses: readonly TaskRunStatus[]): Promise<TaskRun[]>;
   countRuns(taskId: string): Promise<number>;
   saveResult(result: TaskResult): Promise<void>;
   getResult(taskId: string): Promise<TaskResult | null>;
+  getResultByRun(runId: string): Promise<TaskResult | null>;
 };
 
 export type AuditRepository = {
@@ -59,7 +73,24 @@ export type WorkerHandle = {
   cancel(): Promise<void>;
 };
 
+/**
+ * Static worker identity and capability discovery.
+ *
+ * Added in Phase 1.1 so the shared contract suite can assert what an adapter
+ * claims to support before exercising it. Breaking change: every
+ * `WorkerAdapter` must now implement `describe()`.
+ */
+export type WorkerDescriptor = {
+  id: string;
+  version: string;
+  capabilities: {
+    pause: boolean;
+    cancel: boolean;
+  };
+};
+
 export type WorkerAdapter = {
+  describe(): WorkerDescriptor;
   start(context: WorkerExecutionContext): WorkerHandle;
 };
 

@@ -14,21 +14,48 @@ import {
   type Task,
   type TaskResult,
   type TaskRun,
+  type TaskRunStatus,
   type WorkerClaim,
   type WorkerEvent,
 } from '@intentsmith/contracts';
 
 import { DomainError, normalizeError } from './errors.js';
-import { assertTransition } from './lifecycle.js';
+import { assertCommand } from './lifecycle.js';
+import { KeyedMutex } from './mutex.js';
 import { canonicalizeCapabilityEnvelope, canonicalizeExistingPath } from './path-policy.js';
-import type { AuditRepository, Clock, IdGenerator, ProjectRepository, TaskRepository, TransactionManager, WorkerAdapter, WorkerHandle } from './ports.js';
+import type {
+  AuditRepository,
+  Clock,
+  IdGenerator,
+  ProjectRepository,
+  TaskRepository,
+  Timer,
+  TransactionManager,
+  WorkerAdapter,
+  WorkerHandle,
+} from './ports.js';
+import { SystemTimer } from './runtime-adapters.js';
 import { decideVerdict } from './verdict.js';
+
+/** Run statuses that a restart may find and must not present as live. */
+export const INTERRUPTIBLE_RUN_STATUSES: readonly TaskRunStatus[] = ['running', 'paused'];
+
+type WorkerOutcome = {
+  events: unknown[];
+  forcedError?: NormalizedError;
+  timedOut: boolean;
+};
 
 type ActiveRun = {
   runId: string;
   controller: AbortController;
   handle: WorkerHandle;
   settled: Promise<void>;
+  /**
+   * Set when the worker finished while the task was paused. Finalization is
+   * deferred until resume so the outcome is never silently dropped.
+   */
+  pendingOutcome?: WorkerOutcome;
 };
 
 export type IntentSmithCoreOptions = {
@@ -39,12 +66,17 @@ export type IntentSmithCoreOptions = {
   audit: AuditRepository;
   transactions: TransactionManager;
   worker: WorkerAdapter;
+  timer?: Timer;
 };
 
 export class IntentSmithCore {
   private readonly activeRuns = new Map<string, ActiveRun>();
+  private readonly commands = new KeyedMutex();
+  private readonly timer: Timer;
 
-  constructor(private readonly options: IntentSmithCoreOptions) {}
+  constructor(private readonly options: IntentSmithCoreOptions) {
+    this.timer = options.timer ?? new SystemTimer();
+  }
 
   async createProject(input: CreateProjectInput): Promise<Project> {
     const parsed = parseWithSchema(CreateProjectInputSchema, input);
@@ -131,58 +163,87 @@ export class IntentSmithCore {
     return task;
   }
 
+  async listTaskRuns(taskId: string): Promise<TaskRun[]> {
+    await this.getTask(taskId);
+    return await this.options.tasks.listRuns(taskId);
+  }
+
   async startTask(taskId: string): Promise<Task> {
-    const { task, run } = await this.transitionToRun(taskId, 'running');
-    const controller = new AbortController();
-    const handle = this.options.worker.start({ task, run, signal: controller.signal });
-    const settled = this.finalizeWhenDone(task.id, run.id, handle, controller);
-    void settled.catch(() => undefined);
-    this.activeRuns.set(task.id, { runId: run.id, controller, handle, settled });
-    return task;
+    return await this.commands.run(taskId, async () => {
+      if (this.activeRuns.has(taskId)) {
+        throw new DomainError('INVALID_TASK_TRANSITION', 'Cannot start a task that already has an active run.', false, {
+          command: 'start',
+        });
+      }
+      const { task, run } = await this.beginRun(taskId);
+      const controller = new AbortController();
+      const handle = this.options.worker.start({ task, run, signal: controller.signal });
+      const active: ActiveRun = { runId: run.id, controller, handle, settled: Promise.resolve() };
+      active.settled = this.watchRun(taskId, run.id, handle, controller, task.timeoutMs);
+      // Failures are surfaced through task state and audit, never as an
+      // unhandled rejection; `settled` stays awaitable for shutdown/waitForTask.
+      void active.settled.catch(() => undefined);
+      this.activeRuns.set(taskId, active);
+      return task;
+    });
   }
 
   async pauseTask(taskId: string): Promise<Task> {
-    const task = await this.transitionTask(taskId, 'paused');
-    const active = this.activeRuns.get(taskId);
-    if (active) {
-      await active.handle.pause();
-      const run = await this.requireRun(active.runId);
-      await this.options.tasks.updateRun({ ...run, status: 'paused' });
-    }
-    return task;
+    return await this.commands.run(taskId, async () => {
+      const active = this.activeRuns.get(taskId);
+      if (active) await active.handle.pause();
+      return await this.applyCommand(taskId, 'pause', 'paused');
+    });
   }
 
   async resumeTask(taskId: string): Promise<Task> {
-    const task = await this.transitionTask(taskId, 'running');
-    const active = this.activeRuns.get(taskId);
-    if (active) {
+    return await this.commands.run(taskId, async () => {
+      const task = await this.applyCommand(taskId, 'resume', 'running');
+      const active = this.activeRuns.get(taskId);
+      if (!active) return task;
+
+      const pending = active.pendingOutcome;
+      if (pending) {
+        // The worker finished while paused; settle it now instead of dropping it.
+        active.pendingOutcome = undefined;
+        await this.finalizeRun(taskId, active.runId, pending);
+        return await this.getTask(taskId);
+      }
       await active.handle.resume();
-      const run = await this.requireRun(active.runId);
-      await this.options.tasks.updateRun({ ...run, status: 'running' });
-    }
-    return task;
+      return task;
+    });
   }
 
   async cancelTask(taskId: string): Promise<Task> {
-    const task = await this.transitionTask(taskId, 'cancelled');
-    const active = this.activeRuns.get(taskId);
-    if (active) {
-      active.controller.abort();
-      await active.handle.cancel();
-      const run = await this.requireRun(active.runId);
-      await this.options.tasks.updateRun({ ...run, status: 'cancelled', endedAt: this.options.clock.now() });
-      const result = decideVerdict({
-        id: this.options.ids.next('result'),
-        taskId,
-        runId: active.runId,
-        now: this.options.clock.now(),
-        deterministicEvidence: [],
-        cancelled: true,
+    return await this.commands.run(taskId, async () => {
+      const active = this.activeRuns.get(taskId);
+      // Abort before the state write so a cooperative worker stops promptly;
+      // the command lock still guarantees a single winner.
+      if (active) {
+        active.controller.abort();
+        await active.handle.cancel();
+      }
+
+      const task = await this.applyCommand(taskId, 'cancel', 'cancelled', async () => {
+        if (!active) return;
+        const run = await this.requireRun(active.runId);
+        if (isTerminalRunStatus(run.status)) return;
+        await this.options.tasks.updateRun({ ...run, status: 'cancelled', endedAt: this.options.clock.now() });
+        await this.saveResultOnce(
+          decideVerdict({
+            id: this.options.ids.next('result'),
+            taskId,
+            runId: active.runId,
+            now: this.options.clock.now(),
+            deterministicEvidence: [],
+            cancelled: true,
+          }),
+        );
       });
-      await this.options.tasks.saveResult(result);
-      this.activeRuns.delete(taskId);
-    }
-    return task;
+
+      if (active) this.activeRuns.delete(taskId);
+      return task;
+    });
   }
 
   async getTaskResult(taskId: string): Promise<TaskResult | null> {
@@ -193,28 +254,87 @@ export class IntentSmithCore {
     return await this.options.audit.listByTask(taskId);
   }
 
+  /**
+   * Recovery policy for runs found in a non-terminal state at startup.
+   *
+   * A `running` or `paused` row left by a previous process has no live worker
+   * behind it. Such a run is closed as `failed` with a `blocked` result that
+   * records the interruption, its task moves to `failed`, and the audit trail
+   * is preserved. Nothing is restarted automatically; a new run requires an
+   * explicit user action.
+   */
+  async recoverInterruptedRuns(): Promise<TaskRun[]> {
+    const orphaned = await this.options.tasks.listRunsByStatus(INTERRUPTIBLE_RUN_STATUSES);
+    const recovered: TaskRun[] = [];
+    for (const run of orphaned) {
+      if (this.activeRuns.has(run.taskId)) continue;
+      const closed = await this.commands.run(run.taskId, async () =>
+        await this.options.transactions.transaction(async () => {
+          const current = await this.options.tasks.getRun(run.id);
+          if (!current || isTerminalRunStatus(current.status)) return null;
+          const task = await this.getTask(current.taskId);
+          const now = this.options.clock.now();
+          const interrupted: TaskRun = { ...current, status: 'failed', endedAt: now };
+          await this.options.tasks.updateRun(interrupted);
+          if (!isTerminalTaskStatus(task.status)) {
+            await this.options.tasks.update({ ...task, status: 'failed', updatedAt: now });
+          }
+          await this.saveResultOnce({
+            id: this.options.ids.next('result'),
+            taskId: task.id,
+            runId: current.id,
+            actions: [],
+            diffs: [],
+            artifacts: [],
+            deterministicEvidence: [],
+            securityEvidence: [],
+            governanceFindings: [],
+            approvals: [],
+            unresolvedRisks: [
+              'Run was interrupted by an unexpected process restart and was not resumed automatically.',
+            ],
+            coreVerdict: 'blocked',
+            createdAt: now,
+          });
+          await this.appendAudit({
+            projectId: task.projectId,
+            taskId: task.id,
+            runId: current.id,
+            type: 'task.verdict',
+            message: 'Run marked as interrupted after restart',
+            data: { verdict: 'blocked', reason: 'process_restart', previousRunStatus: current.status },
+          });
+          return interrupted;
+        }),
+      );
+      if (closed) recovered.push(closed);
+    }
+    return recovered;
+  }
+
   async shutdown(): Promise<void> {
     const active = [...this.activeRuns.entries()];
     for (const [taskId] of active) {
-      await this.cancelTask(taskId);
+      // A task may already have reached a terminal state between the snapshot
+      // and this call; that is not a shutdown failure.
+      await this.cancelTask(taskId).catch(() => undefined);
     }
     await Promise.allSettled(active.map(([, run]) => run.settled));
   }
 
   async waitForTask(taskId: string): Promise<Task> {
     const active = this.activeRuns.get(taskId);
-    if (active) {
-      await active.settled.catch(() => undefined);
-    }
+    if (active) await active.settled.catch(() => undefined);
     return await this.getTask(taskId);
   }
 
-  private async transitionToRun(taskId: string, to: 'running'): Promise<{ task: Task; run: TaskRun }> {
+  /** Creates the TaskRun and moves the task to `running` in one transaction. */
+  private async beginRun(taskId: string): Promise<{ task: Task; run: TaskRun }> {
     let current: Task | undefined;
     try {
       return await this.options.transactions.transaction(async () => {
         current = await this.getTask(taskId);
-        assertTransition(current.status, to);
+        assertCommand('start', current.status);
         const now = this.options.clock.now();
         const run: TaskRun = {
           id: this.options.ids.next('run'),
@@ -223,7 +343,7 @@ export class IntentSmithCore {
           status: 'running',
           startedAt: now,
         };
-        const task = { ...current, status: to, latestRunId: run.id, updatedAt: now };
+        const task: Task = { ...current, status: 'running', latestRunId: run.id, updatedAt: now };
         await this.options.tasks.createRun(run);
         await this.options.tasks.update(task);
         await this.appendAudit({
@@ -231,89 +351,131 @@ export class IntentSmithCore {
           taskId,
           runId: run.id,
           type: 'task.transition',
-          message: `Task transitioned from ${current.status} to ${to}`,
-          data: { from: current.status, to },
+          message: `Task transitioned from ${current.status} to running`,
+          data: { from: current.status, to: 'running', command: 'start' },
         });
         return { task, run };
       });
     } catch (error) {
-      await this.auditRejectedTransition(current, to, error);
+      await this.auditRejectedCommand(current, 'start', error);
       throw error;
     }
   }
 
-  private async transitionTask(taskId: string, to: Task['status']): Promise<Task> {
+  /**
+   * Applies a lifecycle command and its run-level side effects atomically.
+   * Phase 1 committed the task transition first and updated the run afterwards,
+   * so a failure in between left task and run disagreeing.
+   */
+  private async applyCommand(
+    taskId: string,
+    command: 'pause' | 'resume' | 'cancel',
+    to: Task['status'],
+    withinTransaction?: () => Promise<void>,
+  ): Promise<Task> {
     let current: Task | undefined;
     try {
       return await this.options.transactions.transaction(async () => {
         current = await this.getTask(taskId);
-        assertTransition(current.status, to);
-        const task = { ...current, status: to, updatedAt: this.options.clock.now() };
+        assertCommand(command, current.status);
+        const task: Task = { ...current, status: to, updatedAt: this.options.clock.now() };
         await this.options.tasks.update(task);
+        if (command !== 'cancel') await this.syncRunStatus(task, to === 'paused' ? 'paused' : 'running');
         await this.appendAudit({
           projectId: task.projectId,
           taskId,
           runId: task.latestRunId,
           type: 'task.transition',
           message: `Task transitioned from ${current.status} to ${to}`,
-          data: { from: current.status, to },
+          data: { from: current.status, to, command },
         });
+        if (withinTransaction) await withinTransaction();
         return task;
       });
     } catch (error) {
-      await this.auditRejectedTransition(current, to, error);
+      await this.auditRejectedCommand(current, command, error);
       throw error;
     }
   }
 
-  private async auditRejectedTransition(task: Task | undefined, to: Task['status'], error: unknown): Promise<void> {
-    if (task && error instanceof DomainError && error.code === 'INVALID_TASK_TRANSITION') {
+  private async syncRunStatus(task: Task, status: TaskRunStatus): Promise<void> {
+    const active = this.activeRuns.get(task.id);
+    if (!active) return;
+    const run = await this.requireRun(active.runId);
+    if (isTerminalRunStatus(run.status)) return;
+    await this.options.tasks.updateRun({ ...run, status });
+  }
+
+  private async auditRejectedCommand(task: Task | undefined, command: string, error: unknown): Promise<void> {
+    if (!task || !(error instanceof DomainError) || error.code !== 'INVALID_TASK_TRANSITION') return;
+    try {
       await this.appendAudit({
         projectId: task.projectId,
         taskId: task.id,
         runId: task.latestRunId,
         type: 'task.invalid_transition',
-        message: error instanceof Error ? error.message : 'Invalid task transition',
-        data: { from: task.status, to },
+        message: error.message,
+        data: { from: task.status, command },
       });
+    } catch {
+      // Never let audit bookkeeping mask the original rejection.
     }
   }
 
-  private async finalizeWhenDone(taskId: string, runId: string, handle: WorkerHandle, controller: AbortController): Promise<void> {
-    const task = await this.getTask(taskId);
-    let timeoutId: NodeJS.Timeout | undefined;
-    const timeout = new Promise<'timeout'>(resolve => {
-      timeoutId = setTimeout(() => resolve('timeout'), task.timeoutMs);
-    });
-    const outcome = await Promise.race([handle.done, timeout])
-      .catch(error => ({
-        events: [{ type: 'failed', error: normalizeError(error) }],
-      }))
-      .finally(() => {
-        if (timeoutId) clearTimeout(timeoutId);
-      });
-
-    if (outcome === 'timeout') {
-      controller.abort();
-      await this.finalizeTask(taskId, runId, [], { code: 'WORKER_TIMEOUT', message: 'Worker timed out', retryable: true }, true, false);
-      return;
-    }
-    await this.finalizeTask(taskId, runId, outcome.events, undefined, false, false);
-  }
-
-  private async finalizeTask(
+  /** Races the worker against its timeout and finalizes exactly once. */
+  private async watchRun(
     taskId: string,
     runId: string,
-    rawEvents: unknown[],
-    forcedError: NormalizedError | undefined,
-    timedOut: boolean,
-    cancelled: boolean,
+    handle: WorkerHandle,
+    controller: AbortController,
+    timeoutMs: number,
   ): Promise<void> {
+    let cancelTimer: (() => void) | undefined;
+    const timeout = new Promise<'timeout'>(resolve => {
+      cancelTimer = this.timer.schedule(() => resolve('timeout'), timeoutMs);
+    });
+
+    let outcome: WorkerOutcome;
+    try {
+      const raced = await Promise.race([handle.done, timeout]);
+      if (raced === 'timeout') {
+        controller.abort();
+        outcome = {
+          events: [],
+          forcedError: { code: 'WORKER_TIMEOUT', message: 'Worker timed out', retryable: true },
+          timedOut: true,
+        };
+      } else {
+        outcome = { events: raced.events, timedOut: false };
+      }
+    } catch (error) {
+      // A worker that throws must become a normalized error, not a crash.
+      outcome = { events: [], forcedError: normalizeError(error), timedOut: false };
+    } finally {
+      cancelTimer?.();
+    }
+
+    await this.commands.run(taskId, async () => {
+      const task = await this.getTask(taskId);
+      if (task.status === 'cancelled') return;
+      if (task.status === 'paused') {
+        const active = this.activeRuns.get(taskId);
+        // Hold the outcome; `resumeTask` finalizes it.
+        if (active) active.pendingOutcome = outcome;
+        return;
+      }
+      await this.finalizeRun(taskId, runId, outcome);
+    });
+  }
+
+  private async finalizeRun(taskId: string, runId: string, outcome: WorkerOutcome): Promise<void> {
     await this.options.transactions.transaction(async () => {
       const task = await this.getTask(taskId);
-      if (task.status === 'cancelled' || task.status === 'paused') return;
+      const run = await this.requireRun(runId);
+      // A terminal run verdict is immutable; a late worker event cannot rewrite it.
+      if (isTerminalRunStatus(run.status) || isTerminalTaskStatus(task.status)) return;
 
-      const parsed = await this.collectWorkerEvents(task, runId, rawEvents);
+      const parsed = await this.collectWorkerEvents(task, runId, outcome.events);
       const result = decideVerdict({
         id: this.options.ids.next('result'),
         taskId,
@@ -323,16 +485,16 @@ export class IntentSmithCore {
         deterministicEvidence: parsed.evidence,
         artifacts: parsed.artifacts,
         diffs: parsed.diffs,
-        workerError: forcedError ?? parsed.workerError,
+        workerError: outcome.forcedError ?? parsed.workerError,
         invalidWorkerEvent: parsed.invalidEvent,
-        timedOut,
-        cancelled,
+        workerProtocolViolation: parsed.protocolViolation,
+        timedOut: outcome.timedOut,
       });
-      const nextStatus = result.coreVerdict === 'pass' ? 'passed' : result.coreVerdict === 'cancelled' ? 'cancelled' : 'failed';
-      const runStatus = timedOut ? 'timeout' : nextStatus;
-      await this.options.tasks.updateRun({ ...(await this.requireRun(runId)), status: runStatus, endedAt: this.options.clock.now() });
-      await this.options.tasks.update({ ...task, status: nextStatus, updatedAt: this.options.clock.now() });
-      await this.options.tasks.saveResult(result);
+      const nextStatus = result.coreVerdict === 'pass' ? 'passed' : 'failed';
+      const now = this.options.clock.now();
+      await this.options.tasks.updateRun({ ...run, status: outcome.timedOut ? 'timeout' : nextStatus, endedAt: now });
+      await this.options.tasks.update({ ...task, status: nextStatus, updatedAt: now });
+      await this.saveResultOnce(result);
       await this.appendAudit({
         projectId: task.projectId,
         taskId,
@@ -345,13 +507,18 @@ export class IntentSmithCore {
     });
   }
 
-  private async collectWorkerEvents(task: Task, runId: string, rawEvents: unknown[]): Promise<{
+  private async collectWorkerEvents(
+    task: Task,
+    runId: string,
+    rawEvents: unknown[],
+  ): Promise<{
     evidence: Evidence[];
     artifacts: TaskResult['artifacts'];
     diffs: TaskResult['diffs'];
     claim?: WorkerClaim;
     workerError?: NormalizedError;
     invalidEvent: boolean;
+    protocolViolation: boolean;
   }> {
     const evidence: Evidence[] = [];
     const artifacts: TaskResult['artifacts'] = [];
@@ -359,6 +526,8 @@ export class IntentSmithCore {
     let claim: WorkerClaim | undefined;
     let workerError: NormalizedError | undefined;
     let invalidEvent = false;
+    let protocolViolation = false;
+    let terminalSeen = false;
 
     for (const rawEvent of rawEvents) {
       let event: WorkerEvent;
@@ -377,6 +546,21 @@ export class IntentSmithCore {
         continue;
       }
 
+      if (terminalSeen) {
+        // `completed`/`failed` end the stream; anything after it is a protocol
+        // violation, including a second terminal event.
+        protocolViolation = true;
+        await this.appendAudit({
+          projectId: task.projectId,
+          taskId: task.id,
+          runId,
+          type: 'worker.invalid_event',
+          message: `Worker emitted "${event.type}" after a terminal event`,
+          data: { type: event.type },
+        });
+        continue;
+      }
+
       await this.appendAudit({
         projectId: task.projectId,
         taskId: task.id,
@@ -388,10 +572,23 @@ export class IntentSmithCore {
 
       if (event.type === 'evidence') evidence.push(event.evidence);
       if (event.type === 'artifact') artifacts.push(event.artifact);
-      if (event.type === 'completed') claim = event.claim;
-      if (event.type === 'failed') workerError = event.error;
+      if (event.type === 'completed') {
+        claim = event.claim;
+        terminalSeen = true;
+      }
+      if (event.type === 'failed') {
+        workerError = event.error;
+        terminalSeen = true;
+      }
     }
-    return { evidence, artifacts, diffs, claim, workerError, invalidEvent };
+    return { evidence, artifacts, diffs, claim, workerError, invalidEvent, protocolViolation };
+  }
+
+  /** Persists a result unless the run already has one (results are immutable). */
+  private async saveResultOnce(result: TaskResult): Promise<void> {
+    const existing = await this.options.tasks.getResultByRun(result.runId);
+    if (existing) return;
+    await this.options.tasks.saveResult(result);
   }
 
   private async requireRun(runId: string): Promise<TaskRun> {
@@ -409,4 +606,12 @@ export class IntentSmithCore {
     parseWithSchema(AuditEventSchema, event);
     await this.options.audit.append(event);
   }
+}
+
+function isTerminalRunStatus(status: TaskRunStatus): boolean {
+  return status === 'passed' || status === 'failed' || status === 'cancelled' || status === 'timeout';
+}
+
+function isTerminalTaskStatus(status: Task['status']): boolean {
+  return status === 'passed' || status === 'failed' || status === 'cancelled';
 }
