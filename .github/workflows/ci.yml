@@ -45,6 +45,17 @@ jobs:
       - name: Verify
         run: pnpm verify
 
-      # Generated output must never differ from what is committed.
+      # Verifying must not change tracked files or leave new build artefacts
+      # behind. `git status --porcelain` covers both, and honours .gitignore so
+      # coverage/ and dist/ do not trip it. It writes nothing itself.
       - name: Assert clean working tree
-        run: git diff --exit-code
+        run: |
+          changes="$(git status --porcelain)"
+          if [ -n "$changes" ]; then
+            echo "::error::pnpm verify modified tracked files or left untracked artefacts behind"
+            git status
+            echo "--- tracked file diff ---"
+            git diff
+            exit 1
+          fi
+          echo "Working tree is clean."

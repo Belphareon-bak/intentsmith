@@ -65,6 +65,7 @@ Outputs:
 - deferred finalization for a worker that completes while paused;
 - injected timer so timeouts are deterministic;
 - restart recovery policy for interrupted runs (ADR 0007);
+- per-store transaction context isolation (ADR 0010);
 - automatically enforced dependency boundaries;
 - reusable WorkerAdapter contract suite;
 - minimal InferenceProvider port and FakeInferenceProvider (ADR 0009);

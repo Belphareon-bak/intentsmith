@@ -3,8 +3,8 @@
   "title": "Contract Stabilization, Adversarial Tests and CI Baseline",
   "date": "2026-07-27",
   "baseCommit": "ed21dd87407666fc43bfab350b81d6025ca34fdd",
-  "verifiedCommit": "1a3cf4bfa6afc4c990c2b6ddd33e02dacb41941c",
-  "verifiedCommitNote": "Commit at which pnpm verify was run from a clean clone. The final documentation commit that carries this artifact is its direct child on the same branch.",
+  "verifiedCommit": "PENDING",
+  "verifiedCommitNote": "Set to the commit that the clean-clone verification ran against; the documentation commit carrying this artifact is its direct child on the same branch.",
   "branch": "phase-1-1-contract-stabilization",
   "environment": {
     "node": "v22.21.1",
@@ -69,18 +69,19 @@
       "tests": 54
     },
     "after": {
-      "testFiles": 17,
-      "tests": 196
+      "testFiles": 18,
+      "tests": 202
     },
     "skipped": 0,
     "flakyMarked": 0,
     "determinismRuns": 5,
-    "determinismStable": true
+    "determinismStable": true,
+    "determinismScope": "transaction-isolation suite and full suite, five runs each"
   },
   "coverage": {
     "total": {
       "statements": 93.71,
-      "branches": 85.45,
+      "branches": 85.68,
       "functions": 92.04,
       "lines": 95.27
     },
@@ -117,7 +118,7 @@
       },
       "packages/persistence/src/database.ts": {
         "statements": 97.97,
-        "branches": 87.5,
+        "branches": 90,
         "functions": 100,
         "lines": 100
       },
@@ -261,7 +262,7 @@
     "The InferenceProvider port has no real implementation and is not wired into the task lifecycle.",
     "Retry orchestration remains deferred; multi-run history is proven at the persistence layer.",
     "recoverInterruptedRuns() exists but is not invoked automatically at server startup.",
-    "Concurrency is serialized on a single SQLite connection; correct for one local process, not multi-process safe.",
+    "Concurrency is serialized per SQLite connection and independent stores run independently. Correct for one local process; nothing coordinates two OS processes against one database file beyond SQLite locking and the busy timeout.",
     "apps/server still depends on packages/testing for the fake worker runtime (documented Phase 1 exception)."
   ],
   "confirmations": {
@@ -273,5 +274,30 @@
     "c3ReferenceCommit": "a7b90e36aa80310305703f54f2332e1c0e7f9e8f",
     "testsWroteIntoRealProject": false,
     "testsSkippedOrWeakened": false
-  }
+  },
+  "postAuditReviewFindings": [
+    {
+      "id": "P1",
+      "severity": "high",
+      "classes": [
+        "correctness",
+        "durability"
+      ],
+      "finding": "The AsyncLocalStorage detecting a reentrant transaction was module-level and shared by every SQLiteStore, so a transaction on one store made a transaction on a different store nested inside it look reentrant. That store then ran its writes in autocommit and silently lost its rollback.",
+      "reproducedBeforeFix": true,
+      "status": "fixed",
+      "adr": "docs/adr/0010-per-store-transaction-context.md"
+    },
+    {
+      "id": "P2",
+      "severity": "low",
+      "classes": [
+        "test gap"
+      ],
+      "finding": "The CI clean-tree gate used git diff --exit-code, which only detects tracked-file changes, so a new untracked artefact left by pnpm verify would not fail the build.",
+      "reproducedBeforeFix": true,
+      "status": "fixed"
+    }
+  ],
+  "postAuditReviewNote": "Found while reviewing the Phase 1.1 changes themselves. These do not alter the Phase 1 audit verdict recorded in auditVerdict."
 }

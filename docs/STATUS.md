@@ -60,7 +60,12 @@ Phase 1 (`ed21dd8`) is published on `origin/main`. Phase 1.1 lives on
   with `FakeInferenceProvider` exist (ADR 0009). No real provider is implemented
   and the port is not wired into the task lifecycle.
 - Coverage is reported with regression gates, and GitHub Actions runs
-  `pnpm verify` on pull requests and pushes to `main`.
+  `pnpm verify` on pull requests and pushes to `main`. The clean-tree gate uses
+  `git status --porcelain`, so a new untracked artefact fails the build too.
+- A post-audit review of the Phase 1.1 changes found that the reentrant
+  transaction context was module-level and therefore shared between separate
+  `SQLiteStore` instances, which could drop a nested store's rollback. The
+  context is now owned by the store instance (ADR 0010).
 - Test count went from 54 to 196; the suite runs faster because timeouts are
   virtual.
 
@@ -73,7 +78,9 @@ Phase 1 (`ed21dd8`) is published on `origin/main`. Phase 1.1 lives on
 - `recoverInterruptedRuns()` is implemented and tested but is not yet invoked
   automatically at server startup; that needs a product decision about how the
   user is informed.
-- Concurrency is serialized on one SQLite connection. That is correct for a
-  single local control-plane process and is not multi-process safe.
+- Concurrency is serialized per SQLite connection, and independent stores run
+  independently. That is correct for a single local control-plane process;
+  nothing coordinates two OS processes against one database file beyond
+  SQLite's own locking and the configured busy timeout.
 - Retry policy is represented in contracts; retry orchestration begins in a
   later phase.

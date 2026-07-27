@@ -138,17 +138,24 @@ export function migrate(db: Database.Database): void {
   }
 }
 
-/**
- * Tracks whether the current async execution context already runs inside an
- * open SQLite transaction. better-sqlite3 exposes a single connection with a
- * single transaction slot, so a nested `BEGIN IMMEDIATE` fails with
- * "cannot start a transaction within a transaction".
- */
-const transactionContext = new AsyncLocalStorage<{ depth: number }>();
-
 class BetterSqliteStore implements SQLiteStore {
   /** Serializes top-level transactions; see {@link transaction}. */
   private tail: Promise<unknown> = Promise.resolve();
+
+  /**
+   * Tracks whether the current async execution context already runs inside a
+   * transaction *on this connection*. better-sqlite3 exposes a single
+   * connection with a single transaction slot, so a nested `BEGIN IMMEDIATE`
+   * fails with "cannot start a transaction within a transaction".
+   *
+   * This is deliberately instance-owned rather than module-level. A shared
+   * context would make a transaction opened on one store look reentrant to a
+   * different store nested inside it, and that store would then run its writes
+   * with no transaction at all, silently losing its rollback. Instance
+   * ownership also keeps independent databases free of any shared
+   * synchronization: each store serializes only its own connection.
+   */
+  private readonly transactionContext = new AsyncLocalStorage<{ depth: number }>();
 
   constructor(private readonly db: Database.Database) {}
 
@@ -160,10 +167,12 @@ class BetterSqliteStore implements SQLiteStore {
    * the second caller fail with a raw SQLite error instead of a domain error.
    * Top-level transactions are now serialized through a promise queue, and a
    * reentrant call joins the transaction already open on this connection
-   * rather than starting a second one.
+   * rather than starting a second one. Reentrancy is scoped to this store, so
+   * a transaction on another database nested inside this one still gets its
+   * own real transaction.
    */
   async transaction<T>(fn: () => Promise<T>): Promise<T> {
-    const open = transactionContext.getStore();
+    const open = this.transactionContext.getStore();
     if (open) {
       open.depth += 1;
       try {
@@ -175,7 +184,7 @@ class BetterSqliteStore implements SQLiteStore {
     return await this.enqueue(async () => {
       this.db.prepare('BEGIN IMMEDIATE').run();
       try {
-        const result = await transactionContext.run({ depth: 1 }, fn);
+        const result = await this.transactionContext.run({ depth: 1 }, fn);
         this.db.prepare('COMMIT').run();
         return result;
       } catch (error) {

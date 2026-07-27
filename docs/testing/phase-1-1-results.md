@@ -33,6 +33,26 @@ throwaway probe before any code was changed, and each now has a regression test.
 | 13 | Low | maintainability | `FakeWorker` shared a module with the store-opening test harness, so a worker adapter transitively imported persistence. | Fixed (module split) |
 | 14 | Low | maintainability | No automated dependency boundary enforcement existed. | Fixed (Step 2) |
 
+### Post-Audit Review Findings
+
+These were found by reviewing the Phase 1.1 changes themselves, not in the
+Phase 1 audit. They do not change the Phase 1 verdict above.
+
+| # | Severity | Class | Finding | Status |
+|---|---|---|---|---|
+| P1 | High | correctness, durability | The `AsyncLocalStorage` used to detect a reentrant transaction was module-level and therefore shared by every `SQLiteStore`. A transaction on store A made a transaction on a *different* store nested inside it look reentrant, so that store ran its writes with no transaction at all and silently lost its rollback. | Fixed |
+| P2 | Low | test gap | The CI clean-tree gate used `git diff --exit-code`, which only sees tracked files. A new untracked artefact left behind by `pnpm verify` would not fail the build. | Fixed |
+
+P1 was reproduced before the fix: nesting a failing transaction of store B
+inside a transaction of store A left B's write committed instead of rolled back.
+The fix makes the transaction context instance-owned, so reentrancy is scoped to
+the connection that owns it. Independent databases share no synchronization; each
+store still serializes only its own connection. See ADR 0010.
+
+P2 is fixed by checking `git status --porcelain`, which honours `.gitignore`,
+covers both modified tracked files and new untracked files, writes nothing
+itself, and prints `git status` plus the diff on failure.
+
 ### Audit checks that passed unchanged
 
 - `Task` and `TaskRun` have no conflicting source of truth; results are per-run.
@@ -70,15 +90,22 @@ fixed at the cause; none was papered over with an added timeout.
 | | Test files | Tests |
 |---|---|---|
 | Phase 1 (`ed21dd8`) | 7 | 54 |
-| Phase 1.1 | 17 | 196 |
+| Phase 1.1 | 18 | 202 |
 
 The suite also got faster, from 5.25s to about 0.7s, because worker timeouts no
 longer wait on wall-clock time.
 
+The final six tests cover transaction context isolation: a reentrant
+transaction on one store, a nested transaction across two stores, a rollback on
+one database leaving the other untouched, a commit on one database not closing
+the other's transaction, two stores used concurrently, and per-store
+serialization.
+
 ## Determinism
 
-The adversarial and worker-contract suites were run five times in a row with
-identical results. Determinism is structural, not incidental:
+The adversarial, worker-contract and transaction-isolation suites were run five
+times in a row with identical results, and the full suite was likewise run five
+times at 202 passing tests. Determinism is structural, not incidental:
 
 - the fake worker settles synchronously or waits for an explicit signal, so no
   assertion depends on task-queue ordering;
@@ -94,7 +121,7 @@ fails the build without rewarding filler tests.
 
 ```text
 Statements   93.71% (924/986)
-Branches     85.45% (370/433)
+Branches     85.68% (371/433)
 Functions    92.04% (243/264)
 Lines        95.27% (847/889)
 ```
@@ -128,8 +155,10 @@ found `running` row is never presented as a live process.
   persistence layer rather than through a retry API.
 - `recoverInterruptedRuns()` is available but not invoked automatically at
   server startup; wiring it needs a product decision about who is told.
-- Concurrency is serialized on one SQLite connection, which is correct for a
-  local single-process control plane but is not multi-process safe.
+- Concurrency is serialized per SQLite connection. Independent stores run
+  independently, which is correct for a local single-process control plane, but
+  nothing coordinates two OS processes against the same database file beyond
+  SQLite's own locking and the configured busy timeout.
 - `apps/server` still depends on `packages/testing` for the fake worker runtime.
   This is the documented Phase 1 exception and should end when a real worker
   lands.
