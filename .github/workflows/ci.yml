@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# The workflow only reads the repository. No secrets are referenced, and no
+# step contacts Ollama, a model registry, or any cloud inference API.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: verify (node 22)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      # Activates the pnpm version pinned by `packageManager` in package.json.
+      - name: Enable pinned pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      # No dependency cache on purpose: this job must prove that a clean
+      # install works. A restored store can hide a broken or stale lockfile,
+      # and better-sqlite3 is built here with the runner's standard toolchain
+      # rather than any downloaded helper script.
+      - name: Install dependencies (clean, frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      # `pnpm verify` runs typecheck, lint, coverage-gated tests and build.
+      - name: Verify
+        run: pnpm verify
+
+      # Generated output must never differ from what is committed.
+      - name: Assert clean working tree
+        run: git diff --exit-code
