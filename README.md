@@ -28,9 +28,33 @@ repository, and domain checks are complete.
 
 ## Current State
 
-Phase 1 delivered the deterministic vertical slice. Phase 1.1 audited it, fixed
-what the audit found, and hardened the boundaries. See `docs/STATUS.md` and
-`docs/testing/phase-1-1-results.md`.
+Phase 1 delivered the deterministic vertical slice. Phase 1.1 audited it and
+hardened the boundaries. Phase 2 adds the first real local inference provider.
+See `docs/STATUS.md`, `docs/testing/phase-1-1-results.md` and
+`docs/testing/phase-2-results.md`.
+
+## Local-First Guarantee
+
+IntentSmith runs inference on your machine and must never silently use the
+cloud. A request to `http://127.0.0.1:11434` is **not** automatically local: a
+signed-in Ollama installation serves cloud-hosted models through the same
+loopback socket.
+
+Enforcement is in code, not convention:
+
+- only plain HTTP to a loopback address is accepted, validated before any socket
+  opens; HTTPS, public and private addresses, arbitrary hostnames, userinfo and
+  `ollama.com` are rejected, and redirects are disabled;
+- `Authorization`, cookies and API-key headers are never forwarded;
+- a model is treated as remote-backed when the daemon reports `remote_model` or
+  `remote_host`, checked at discovery, before generation, and on **every**
+  stream record, so a daemon cannot switch to a remote backend mid-stream;
+- a `-cloud` name suffix is a warning only and never the enforcement mechanism;
+- rejection raises `REMOTE_INFERENCE_FORBIDDEN`, which is never retried and
+  never falls back to another provider.
+
+IntentSmith never installs Ollama, signs in, uses an API key, downloads a model,
+or contacts ollama.com.
 
 Phase 1.1 also adds two reusable contract suites. Any `WorkerAdapter` and any
 `InferenceProvider` can be checked against them without copying tests, so a real
@@ -72,7 +96,8 @@ pnpm verify
 ```
 
 `pnpm verify` runs frozen installation, typecheck, lint, all offline tests with
-coverage gates, and the build in that order. `pnpm test:coverage` runs the
+coverage gates, and the build in that order. It needs no Ollama, no GPU and no
+model: every transport and hardware probe is injected. `pnpm test:coverage` runs the
 coverage-gated suite on its own. The same pipeline runs in GitHub Actions on
 pull requests and on pushes to `main`, without secrets and without a dependency
 cache, so a clean-install failure cannot be masked.
@@ -94,6 +119,44 @@ pnpm --filter @intentsmith/server start
 The server binds to `127.0.0.1:47831` by default. The local SQLite database is
 stored at `.intentsmith/intentsmith.db`. Set `INTENTSMITH_DB_PATH` to use a
 different development database.
+
+## Local Inference
+
+With a local Ollama daemon running, IntentSmith can inspect and use it:
+
+```bash
+pnpm --filter intentsmith start inference health
+pnpm --filter intentsmith start inference models
+pnpm --filter intentsmith start inference model --model qwen3:14b
+pnpm --filter intentsmith start inference assess --model qwen3:14b --policy gpu_required
+pnpm --filter intentsmith start hardware show
+pnpm --filter intentsmith start runtime recovery
+```
+
+Generation reads the prompt from stdin so it never enters shell history:
+
+```bash
+echo "Explain this repository in one sentence." \
+  | pnpm --filter intentsmith start inference generate --model qwen3:14b
+```
+
+`--prompt` exists but is documented as the less private option. Ctrl+C cancels
+the generation upstream rather than orphaning it.
+
+IntentSmith does not download models. If one is missing it says so and tells you
+the `ollama pull` command to run yourself.
+
+### Optional real-Ollama verification
+
+```bash
+INTENTSMITH_RUN_REAL_OLLAMA=1 \
+INTENTSMITH_OLLAMA_TEST_MODEL=<an-already-installed-model> \
+pnpm test:ollama
+```
+
+Never part of `pnpm verify` or CI. It never pulls a model, signs in or uses an
+API key, and reports BLOCKED rather than PASS when Ollama or the model is
+missing.
 
 ## CLI
 

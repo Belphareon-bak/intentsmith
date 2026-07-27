@@ -18,7 +18,9 @@ export default defineConfig({
   },
   test: {
     include: ['**/*.test.ts'],
-    exclude: ['**/dist/**', '**/node_modules/**'],
+    // The real-Ollama suite is opt-in only and must never run in `pnpm verify`
+    // or normal CI; `pnpm test:ollama` targets it explicitly.
+    exclude: ['**/dist/**', '**/node_modules/**', 'tools/ollama/**'],
     pool: 'threads',
     testTimeout: 5000,
     hookTimeout: 5000,
@@ -37,7 +39,7 @@ export default defineConfig({
         'apps/server/src/**/*.ts',
         'apps/cli/src/**/*.ts',
       ],
-      exclude: ['**/*.test.ts', '**/index.ts', '**/dist/**'],
+      exclude: ['**/*.test.ts', '**/index.ts', '**/dist/**', '**/fixtures.ts', '**/test-runtime.ts'],
       /**
        * Gates are set just below the measured Phase 1.1 values so a real
        * regression fails the build, without rewarding filler tests. The

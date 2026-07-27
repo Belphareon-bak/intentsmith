@@ -299,6 +299,46 @@ describe('model fit', () => {
     expect(result.assumptions.join(' ')).toContain('optimistic');
   });
 
+  it('warns when estimated size exceeds system RAM on a CPU-only machine', () => {
+    const result = assessFit(
+      model({ artifactBytes: 100 * GIB }),
+      profile({ status: 'unavailable', vendor: 'none', devices: [] }, { ...SYSTEM, availableRamBytes: 8 * GIB }),
+    );
+    expect(result.classification).toBe('cpu_only_possible');
+    expect(result.reasonCodes).toContain('RAM_BELOW_ESTIMATE');
+  });
+
+  it('lowers confidence when RAM is unknown on a CPU-only machine', () => {
+    const noRam: SystemProfile = { os: 'linux', arch: 'x64', logicalCpuCount: 4 };
+    const result = assessFit(model(), profile({ status: 'unavailable', vendor: 'none', devices: [] }, noRam));
+    expect(result.confidence).toBe('low');
+  });
+
+  it('returns insufficient_data when the GPU probe timed out', () => {
+    const result = assessFit(model(), {
+      ...profile({ status: 'timeout', vendor: 'none', devices: [], detail: 'timed out' }),
+      acceleratorState: 'gpu_probe_unavailable',
+    });
+    expect(result.classification).toBe('insufficient_data');
+    expect(result.reasonCodes).toContain('GPU_PROBE_UNAVAILABLE');
+  });
+
+  it('blocks unsupported hardware under every policy', () => {
+    const assessment = {
+      classification: 'unsupported_hardware' as const,
+      confidence: 'high' as const,
+      evidence: { modelId: 'x', gpuCount: 0 },
+      assumptions: [],
+      warnings: [],
+      reasonCodes: [],
+    };
+    for (const policy of ['gpu_required', 'gpu_preferred', 'cpu_allowed'] as const) {
+      const decision = applyExecutionPolicy(assessment, policy);
+      expect(decision.allowed).toBe(false);
+      expect(decision.errorCode).toBe('MODEL_FIT_REJECTED');
+    }
+  });
+
   it('always forbids a remote model regardless of fit', () => {
     const result = assessFit(
       model({ execution: 'remote_forbidden', artifactBytes: 1024, executionReason: 'remote_host set' }),

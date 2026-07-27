@@ -31,13 +31,26 @@ headless flow:
 apps/* -> packages/core
 apps/* -> packages/contracts
 apps/* -> packages/persistence
+apps/* -> packages/inference
+apps/* -> packages/hardware
+apps/server -> packages/adapter-ollama (composition root only)
 apps/server -> packages/testing (Phase 1 fake worker runtime only)
 packages/core -> packages/contracts
+packages/core -> packages/inference
+packages/core -> packages/hardware
 packages/persistence -> packages/contracts
+packages/inference -> (nothing)
+packages/adapter-ollama -> packages/inference
+packages/hardware -> packages/inference
 packages/testing -> packages/contracts
 packages/testing -> packages/core
 packages/testing -> packages/persistence
+packages/testing -> packages/inference
 ```
+
+`packages/inference` deliberately depends on nothing, so a concrete adapter can
+implement the port without pulling in Core (ADR 0011). Only `apps/server` may
+instantiate a concrete adapter.
 
 ## Forbidden Dependencies
 
@@ -62,7 +75,11 @@ Enforced rules:
 ```text
 contracts      -X-> core, persistence, fastify, better-sqlite3
 core           -X-> fastify, better-sqlite3, concrete worker adapter,
-                    inference vendor SDK
+                    adapter-ollama, inference vendor SDK
+inference      -X-> core, persistence, hardware, adapter-ollama, fastify,
+                    better-sqlite3, inference vendor SDK
+adapter-ollama -X-> core, persistence, hardware, fastify, better-sqlite3
+hardware       -X-> core, persistence, adapter-ollama, fastify, better-sqlite3
 persistence    -X-> fastify
 worker adapter -X-> persistence, better-sqlite3
 CLI            -X-> better-sqlite3, persistence
