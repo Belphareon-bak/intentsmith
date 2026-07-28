@@ -1,5 +1,7 @@
 import type {
+  ApprovalState,
   AuditEvent,
+  CapabilityApproval,
   CreateProjectInput,
   CreateTaskInput,
   Project,
@@ -45,6 +47,23 @@ export type TaskRepository = {
   saveResult(result: TaskResult): Promise<void>;
   getResult(taskId: string): Promise<TaskResult | null>;
   getResultByRun(runId: string): Promise<TaskResult | null>;
+};
+
+/**
+ * Storage for capability approvals.
+ *
+ * `updateApprovalState` is compare-and-set rather than a blind write: two
+ * callers racing to decide the same approval must not be able to overwrite each
+ * other, and the loser needs to find out that it lost.
+ */
+export type ApprovalRepository = {
+  createApproval(approval: CapabilityApproval): Promise<void>;
+  getApproval(id: string): Promise<CapabilityApproval | null>;
+  findApproval(runId: string, actionId: string, payloadHash: string): Promise<CapabilityApproval | null>;
+  /** Returns false when the row was no longer in `expectedState`. */
+  updateApprovalState(approval: CapabilityApproval, expectedState: ApprovalState): Promise<boolean>;
+  listApprovalsByRun(runId: string): Promise<CapabilityApproval[]>;
+  listApprovalsByState(states: readonly ApprovalState[]): Promise<CapabilityApproval[]>;
 };
 
 export type AuditRepository = {

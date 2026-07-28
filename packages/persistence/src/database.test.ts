@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import type { AuditEvent, Project, Task } from '@intentsmith/contracts';
+import type { AuditEvent, CapabilityApproval, Project, Task, TaskRun } from '@intentsmith/contracts';
 
 import { openIntentSmithDatabase } from './database.js';
 
@@ -27,7 +27,7 @@ describe('SQLite persistence', () => {
     const db = new Database(dbPath, { readonly: true });
     const migrations = db.prepare('SELECT id FROM schema_migrations ORDER BY id').all();
     db.close();
-    expect(migrations).toEqual([{ id: '0001_phase1_core' }]);
+    expect(migrations).toEqual([{ id: '0001_phase1_core' }, { id: '0002_capability_approvals' }]);
   });
 
   it('round-trips validated projects, tasks and audit events', async () => {
@@ -46,6 +46,51 @@ describe('SQLite persistence', () => {
     expect(await store.listByTask(task.id)).toEqual([event]);
     expect('updateAudit' in store).toBe(false);
     expect('deleteAudit' in store).toBe(false);
+    store.close();
+  });
+
+  it('persists approvals and settles them only from the expected state', async () => {
+    const { dbPath, root } = temporaryDatabase();
+    const store = openIntentSmithDatabase(dbPath);
+    const project = projectFixture(root);
+    const task = taskFixture(project);
+    await store.create(project);
+    await store.createTask(task);
+    await store.createRun(runFixture(task));
+
+    const approval = approvalFixture();
+    await store.createApproval(approval);
+    expect(await store.getApproval(approval.id)).toEqual(approval);
+    expect(await store.findApproval('run_1', 'call_1', approval.payloadHash)).toEqual(approval);
+    // The payload is part of the identity, so a different one is a different
+    // question rather than a match.
+    expect(await store.findApproval('run_1', 'call_1', 'b'.repeat(64))).toBeNull();
+
+    const approved = { ...approval, state: 'approved' as const, decidedAt: '2026-07-27T00:01:00.000Z' };
+    expect(await store.updateApprovalState(approved, 'pending')).toBe(true);
+    // The compare-and-set is what makes approve-vs-cancel safe: the loser of a
+    // race updates nothing and is told so.
+    expect(await store.updateApprovalState({ ...approved, state: 'revoked' }, 'pending')).toBe(false);
+    expect((await store.getApproval(approval.id))?.state).toBe('approved');
+
+    expect(await store.listApprovalsByRun('run_1')).toHaveLength(1);
+    expect(await store.listApprovalsByState(['approved'])).toHaveLength(1);
+    expect(await store.listApprovalsByState(['pending'])).toEqual([]);
+    expect(await store.listApprovalsByState([])).toEqual([]);
+    store.close();
+  });
+
+  it('refuses a second approval row for the same run, action and payload', async () => {
+    const { dbPath, root } = temporaryDatabase();
+    const store = openIntentSmithDatabase(dbPath);
+    const project = projectFixture(root);
+    const task = taskFixture(project);
+    await store.create(project);
+    await store.createTask(task);
+    await store.createRun(runFixture(task));
+    await store.createApproval(approvalFixture());
+
+    await expect(store.createApproval(approvalFixture({ id: 'approval_2' }))).rejects.toThrow(/UNIQUE/);
     store.close();
   });
 
@@ -141,6 +186,33 @@ function taskFixture(project: Project): Task {
     status: 'pending',
     createdAt: '2026-07-27T00:00:00.000Z',
     updatedAt: '2026-07-27T00:00:00.000Z',
+  };
+}
+
+function runFixture(task: Task): TaskRun {
+  return {
+    id: 'run_1',
+    taskId: task.id,
+    attempt: 1,
+    status: 'running',
+    startedAt: '2026-07-27T00:00:00.000Z',
+  };
+}
+
+function approvalFixture(overrides: Partial<CapabilityApproval> = {}): CapabilityApproval {
+  return {
+    id: 'approval_1',
+    taskId: 'task_1',
+    runId: 'run_1',
+    actionId: 'call_1',
+    toolName: 'edit',
+    capabilityId: 'filesystem.edit',
+    payloadHash: 'a'.repeat(64),
+    resourcePaths: ['/workspace/src/app.ts'],
+    state: 'pending',
+    requestedAt: '2026-07-27T00:00:00.000Z',
+    expiresAt: '2026-07-27T00:05:00.000Z',
+    ...overrides,
   };
 }
 

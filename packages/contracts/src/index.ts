@@ -91,6 +91,55 @@ export const ApprovalRecordSchema = Type.Object({
   decidedAt: IsoUtcSchema,
 }, StrictOptions);
 
+/**
+ * Lifecycle of one capability approval.
+ *
+ * `approved` is not a permission to act — `consumed` is what records that the
+ * single use it authorized has happened. Keeping them apart is what makes an
+ * approval usable exactly once and auditable afterwards.
+ *
+ * `revoked` is distinct from `denied` on purpose: a denial is a decision
+ * somebody made, a revocation is what happens to an outstanding approval when
+ * the run it belonged to was cancelled, timed out or failed. Collapsing them
+ * would lose the difference between "a human said no" and "the world moved on".
+ */
+export const ApprovalStateSchema = Type.Union([
+  Type.Literal('pending'),
+  Type.Literal('approved'),
+  Type.Literal('denied'),
+  Type.Literal('expired'),
+  Type.Literal('consumed'),
+  Type.Literal('revoked'),
+]);
+
+/**
+ * One approval, scoped to a run, an action and the exact payload it authorizes.
+ *
+ * The payload hash is the whole point: approving an edit to one file must not
+ * authorize an edit to another, and an approval whose payload no longer matches
+ * is a mismatch to be refused rather than a near-enough permission.
+ */
+export const CapabilityApprovalSchema = Type.Object({
+  id: IdSchema,
+  taskId: IdSchema,
+  runId: IdSchema,
+  /** Adapter-supplied identity of the specific call being mediated. */
+  actionId: Type.String({ minLength: 1, maxLength: 200 }),
+  /** Worker's own tool name, kept for audit. */
+  toolName: Type.String({ minLength: 1, maxLength: 120 }),
+  /** IntentSmith capability id from the ledger, e.g. `filesystem.edit`. */
+  capabilityId: Type.String({ minLength: 1, maxLength: 120 }),
+  payloadHash: Type.String({ minLength: 64, maxLength: 64 }),
+  resourcePaths: Type.Array(Type.String({ minLength: 1, maxLength: 4096 }), { maxItems: 32 }),
+  state: ApprovalStateSchema,
+  requestedAt: IsoUtcSchema,
+  expiresAt: IsoUtcSchema,
+  decidedAt: Type.Optional(IsoUtcSchema),
+  consumedAt: Type.Optional(IsoUtcSchema),
+  /** Why an approval ended the way it did, when that is not self-evident. */
+  reason: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
+}, StrictOptions);
+
 export const TaskStatusSchema = Type.Union([
   Type.Literal('pending'),
   Type.Literal('running'),
@@ -220,6 +269,17 @@ export const AuditEventSchema = Type.Object({
     Type.Literal('worker.event'),
     Type.Literal('worker.invalid_event'),
     Type.Literal('security.policy'),
+    // Approval lifecycle. Every one of these is append-only: a grant, a
+    // refusal, an expiry, a revocation, a mismatch and the single consumption
+    // an approval authorizes are each their own event, so the record shows what
+    // happened rather than only where things ended up.
+    Type.Literal('approval.requested'),
+    Type.Literal('approval.granted'),
+    Type.Literal('approval.denied'),
+    Type.Literal('approval.expired'),
+    Type.Literal('approval.revoked'),
+    Type.Literal('approval.consumed'),
+    Type.Literal('approval.mismatch'),
   ]),
   message: Type.String({ minLength: 1, maxLength: 1000 }),
   data: Type.Record(Type.String(), Type.Unknown()),
@@ -251,6 +311,8 @@ export type ArtifactRef = Static<typeof ArtifactRefSchema>;
 export type Evidence = Static<typeof EvidenceSchema>;
 export type WorkerClaim = Static<typeof WorkerClaimSchema>;
 export type ApprovalRecord = Static<typeof ApprovalRecordSchema>;
+export type ApprovalState = Static<typeof ApprovalStateSchema>;
+export type CapabilityApproval = Static<typeof CapabilityApprovalSchema>;
 export type TaskStatus = Static<typeof TaskStatusSchema>;
 export type TaskRunStatus = Static<typeof TaskRunStatusSchema>;
 export type WorkerPreference = Static<typeof WorkerPreferenceSchema>;

@@ -8,7 +8,7 @@ import {
   type WorkerContractHarness,
   type WorkerContractScenario,
 } from '@intentsmith/testing/worker-contract';
-import { IntentSmithCore } from '@intentsmith/core';
+import { ApprovalLedger, IntentSmithCore } from '@intentsmith/core';
 import { openIntentSmithDatabase } from '@intentsmith/persistence';
 
 import { ScenarioSelectingOpenCodeWorker, createTaskInputForScenario } from './contract-harness.js';
@@ -51,6 +51,7 @@ const harness: WorkerContractHarness = {
     const clock = new FakeClock();
     const timer = new FakeTimer();
     const ids = new DeterministicIdGenerator();
+    const approvals = new ApprovalLedger({ approvals: store, audit: store, clock, ids });
     const core = new IntentSmithCore({
       clock,
       ids,
@@ -60,9 +61,11 @@ const harness: WorkerContractHarness = {
       audit: store,
       transactions: store,
       worker,
+      approvals,
     });
     return {
       core,
+      approvals,
       store,
       worker: worker as unknown as TestRuntime['worker'],
       clock,

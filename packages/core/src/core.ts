@@ -19,6 +19,7 @@ import {
   type WorkerEvent,
 } from '@intentsmith/contracts';
 
+import type { ApprovalLedger } from './approvals.js';
 import { DomainError, normalizeError } from './errors.js';
 import { assertCommand } from './lifecycle.js';
 import { KeyedMutex } from './mutex.js';
@@ -67,6 +68,15 @@ export type IntentSmithCoreOptions = {
   transactions: TransactionManager;
   worker: WorkerAdapter;
   timer?: Timer;
+  /**
+   * Capability approvals, when the deployment mediates tools.
+   *
+   * Optional because a Core without a tool-calling worker has nothing to
+   * approve. When it is present, every path that ends a run revokes whatever
+   * that run still held: permission granted for work that is no longer
+   * happening must not survive to authorize something else.
+   */
+  approvals?: ApprovalLedger;
 };
 
 export class IntentSmithCore {
@@ -241,7 +251,11 @@ export class IntentSmithCore {
         );
       });
 
-      if (active) this.activeRuns.delete(taskId);
+      if (active) {
+        // The run is over, so nothing it was permitted to do still applies.
+        await this.revokeApprovals(active.runId, 'Run cancelled.');
+        this.activeRuns.delete(taskId);
+      }
       return task;
     });
   }
@@ -307,7 +321,12 @@ export class IntentSmithCore {
           return interrupted;
         }),
       );
-      if (closed) recovered.push(closed);
+      if (closed) {
+        // A restart is not consent. Anything this run still held is closed:
+        // pending questions expire unanswered, unused grants are revoked.
+        await this.revokeApprovals(closed.id, 'Run was interrupted by a process restart.');
+        recovered.push(closed);
+      }
     }
     return recovered;
   }
@@ -503,6 +522,10 @@ export class IntentSmithCore {
         message: `Core verdict: ${result.coreVerdict}`,
         data: { verdict: result.coreVerdict, risks: result.unresolvedRisks },
       });
+      await this.revokeApprovals(
+        runId,
+        outcome.timedOut ? 'Run timed out.' : `Run ended with verdict ${result.coreVerdict}.`,
+      );
       this.activeRuns.delete(taskId);
     });
   }
@@ -595,6 +618,11 @@ export class IntentSmithCore {
     const run = await this.options.tasks.getRun(runId);
     if (!run) throw new DomainError('TASK_RUN_NOT_FOUND', `Task run not found: ${runId}`);
     return run;
+  }
+
+  /** Ends any approval the run still held. Safe when no ledger is configured. */
+  private async revokeApprovals(runId: string, reason: string): Promise<void> {
+    await this.options.approvals?.revokeRun(runId, reason);
   }
 
   private async appendAudit(input: Omit<AuditEvent, 'id' | 'createdAt'>): Promise<void> {
