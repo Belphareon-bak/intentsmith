@@ -239,37 +239,44 @@
     "structuralConclusion": "Two large models cannot be co-resident on 24 GiB; residency must be scheduled, not left to eviction."
   },
   "promptRobustness": {
-    "state": "in-flight",
+    "state": "complete",
     "design": "10 cases x 10 distinct formulations per model",
     "modelsUnderTest": [
       "qwen3:14b (think:false)",
       "devstral-small-2:24b",
       "qwen3.5:27b"
     ],
-    "partial": {
+    "results": {
       "devstral-small-2:24b": {
         "passed": 90,
-        "scored": 100
+        "total": 100,
+        "percent": 90.0
       },
       "qwen3.5:27b": {
-        "passed": 27,
-        "scored": 28
+        "passed": 91,
+        "total": 100,
+        "percent": 91.0
       },
       "qwen3:14b": {
         "passed": 98,
-        "scored": 100
+        "total": 100,
+        "percent": 98.0
       }
     },
-    "partialFailuresByCase": {
+    "failuresByCase": {
       "devstral-small-2:24b::run_tests": 6,
+      "qwen3.5:27b::read_then_edit": 3,
       "devstral-small-2:24b::denied_command": 2,
+      "qwen3.5:27b::edit_version": 2,
+      "qwen3.5:27b::run_tests": 2,
+      "qwen3.5:27b::path_escape": 2,
       "qwen3:14b::edit_version": 1,
       "qwen3:14b::read_then_edit": 1,
       "devstral-small-2:24b::edit_version": 1,
-      "devstral-small-2:24b::read_then_edit": 1,
-      "qwen3.5:27b::edit_version": 1
+      "devstral-small-2:24b::read_then_edit": 1
     },
-    "supersedes": "Identical temperature-0 prompts prove determinism, not robustness."
+    "supersedes": "The repeated-prompt scores, which prove determinism rather than robustness.",
+    "finding": "qwen3.5:27b fell from 30/30 on repeated prompts to 91/100 across varied formulations; qwen3:14b with think:false was the most robust at 98/100."
   },
   "limitations": [
     "Development evidence only; no model default is fixed by this run.",

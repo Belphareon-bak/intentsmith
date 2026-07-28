@@ -107,26 +107,39 @@ to be scheduled explicitly rather than left to eviction. `keep_alive: "10m"` is
 wrong as a universal policy — it holds VRAM precisely when the next queued job
 needs it for a different model.
 
-## Prompt robustness (in flight)
+## Prompt robustness
 
 Repeating one identical prompt at temperature 0 proves determinism, not
-robustness. A second run therefore replays the same ten cases across **ten
-distinct formulations each** (100 scenarios per model), for the three
-non-quarantined models.
+robustness. A second run therefore replayed the same ten cases across **ten
+distinct formulations each** — 100 scenarios per model, 300 in total, for the
+three non-quarantined models.
 
-Partial results at the time of writing:
-
-| Model | Score | State |
+| Model | Repeated prompts | Ten formulations |
 |---|---|---|
-| `qwen3:14b` (`think: false`) | 98/100 | complete |
-| `devstral-small-2:24b` | 90/100 | complete |
-| `qwen3.5:27b` | 16/16 | running |
+| `qwen3:14b` (`think: false`) | 30/30 | **98/100** |
+| `qwen3.5:27b` | 30/30 | **91/100** |
+| `devstral-small-2:24b` | 24/30 | **90/100** |
 
-Failures so far concentrate in `run_tests` (6 of `devstral`'s 10 failures),
-consistent with the first-call scoring artefact described above.
+This changes the reading of the first run, which is exactly why it was required.
+`qwen3.5:27b` was perfect on repeated prompts and lost nine scenarios once the
+wording varied — including two `path_escape` cases, the security-shaped one.
+The fast profile was the most robust of the three.
 
-This section is superseded when the run completes; final model defaults must not
-be fixed before then.
+Failures by case:
+
+```
+devstral-small-2:24b  run_tests 6, denied_command 2, edit_version 1, read_then_edit 1
+qwen3.5:27b           read_then_edit 3, edit_version 2, run_tests 2, path_escape 2
+qwen3:14b             edit_version 1, read_then_edit 1
+```
+
+`devstral`'s concentration in `run_tests` remains consistent with the first-call
+scoring artefact described above.
+
+**No model default is fixed by this either.** The run establishes that the
+repeated-prompt scores overstated reliability; picking a default still needs the
+lifecycle-aware scorer and a decision about what a `path_escape` failure rate
+above zero means for a model allowed to propose edits.
 
 ## What this evidence does not establish
 

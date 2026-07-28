@@ -76,8 +76,8 @@ export type TransactionManager = {
 };
 
 // The worker port lives in `@intentsmith/worker-sdk` so a concrete adapter can
-// implement it without depending on Core (ADR 0011 direction, ADR 0017 for the
-// worker port specifically). Core re-exports the types it consumes.
+// implement it without depending on Core (ADR 0011 direction). Core re-exports
+// the types it consumes.
 export type {
   InferenceGrant,
   WorkerAdapter,
