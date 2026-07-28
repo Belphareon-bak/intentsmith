@@ -1,93 +1,89 @@
 # IntentSmith
 
-IntentSmith is a local-first AI control plane for software development and
-eventually general local automation. It coordinates local models, replaceable
-workers, tools, policy, lifecycle state, deterministic quality gates, audit,
-recovery, and local memory from one user-owned machine.
+**A local-first control plane for AI-assisted software work.**
 
-IntentSmith is not another chat wrapper and not a single coding agent. Its
-product thesis is that nondeterministic models and interchangeable agents need
-a deterministic control plane around them: explicit state, bounded permissions,
-test evidence, approvals, audit trails, and recovery.
+IntentSmith turns a developer's intent into a controlled, inspectable workflow: plan the work, choose a local model or worker, enforce boundaries, collect evidence, and decide whether the result actually passed.
 
-## Naming Convention
+It is designed for developers who have capable local hardware and want useful coding agents without making a cloud subscription or remote inference a requirement.
 
-| Name | Scope |
-|---|---|
-| IntentSmith | Whole product |
-| IntentSmith Core | Local control plane |
-| IntentSmith Studio | Theia IDE |
-| IntentSmith Workers | OpenCode, OpenHands, and other agents |
-| IntentSmith Skills | Workflows and specialists |
-| IntentSmith Forge Local | Desktop distribution |
-| `intentsmith` | CLI |
-| `intentsmith-core` | Main package |
+## What IntentSmith is
 
-`IntentSmith Forge Local` is treated as working naming until trademark,
-repository, and domain checks are complete.
+IntentSmith is the product and the control plane. It is not another chat wrapper and it is not a single all-powerful agent.
 
-## Current State
+| Concern | Owner |
+| --- | --- |
+| Task state, policy, approvals, audit and verdicts | IntentSmith Core |
+| Local inference | Provider adapters, beginning with Ollama |
+| Coding work | IntentSmith Workers, beginning with OpenCode |
+| Repeatable specialist workflows | IntentSmith Skills |
+| Visual development environment | IntentSmith Studio |
+| Desktop distribution | IntentSmith Forge Local |
+| Automation and scripting | `intentsmith` CLI |
 
-Phase 1 delivered the deterministic vertical slice. Phase 1.1 audited it and
-hardened the boundaries. Phase 2 adds the first real local inference provider.
-See `docs/STATUS.md`, `docs/testing/phase-1-1-results.md` and
-`docs/testing/phase-2-results.md`.
+The control plane remains authoritative. Providers infer, workers propose and execute within an explicitly granted scope, and deterministic gates decide whether the evidence is sufficient.
 
-## Local-First Guarantee
+## Current state
 
-IntentSmith runs inference on your machine and must never silently use the
-cloud. A request to `http://127.0.0.1:11434` is **not** automatically local: a
-signed-in Ollama installation serves cloud-hosted models through the same
-loopback socket.
+Phase 2 is the current stable baseline:
 
-Enforcement is in code, not convention:
+- a TypeScript/pnpm monorepo with runtime-validated contracts;
+- separate `Task` and `TaskRun` lifecycle records;
+- SQLite persistence with migrations, WAL, transactions and append-only audit;
+- evidence-based verdicts and deterministic verification;
+- a localhost-only Fastify API and `intentsmith` CLI;
+- a hardware director and an Ollama inference adapter;
+- a capability-scoped, loopback-only worker gateway that is disabled by default;
+- deterministic fake providers and workers for fast offline tests.
 
-- only plain HTTP to a loopback address is accepted, validated before any socket
-  opens; HTTPS, public and private addresses, arbitrary hostnames, userinfo and
-  `ollama.com` are rejected, and redirects are disabled;
-- `Authorization`, cookies and API-key headers are never forwarded;
-- a model is treated as remote-backed when the daemon reports `remote_model` or
-  `remote_host`, checked at discovery, before generation, and on **every**
-  stream record, so a daemon cannot switch to a remote backend mid-stream;
-- a `-cloud` name suffix is a warning only and never the enforcement mechanism;
-- rejection raises `REMOTE_INFERENCE_FORBIDDEN`, which is never retried and
-  never falls back to another provider.
+Phase 3 is under development on a separate branch. It adds the first external coding worker through ACP and OpenCode. Work in that phase is not part of the stable product until its contract, security, recovery and real-adapter gates pass and the phase is merged.
 
-IntentSmith never installs Ollama, signs in, uses an API key, downloads a model,
-or contacts ollama.com.
+See [project status](docs/STATUS.md) for exact evidence and [the roadmap](docs/ROADMAP.md) for sequencing.
 
-Phase 1.1 also adds two reusable contract suites. Any `WorkerAdapter` and any
-`InferenceProvider` can be checked against them without copying tests, so a real
-adapter in a later phase is held to the same bar as the fake. The
-`InferenceProvider` port is a boundary definition only: there is no HTTP client,
-no model download, no hardware detection, and it is not wired into the task
-lifecycle.
+## How it works
 
-## Phase 1 Scope
-
-Phase 1 implements a fully local deterministic vertical slice:
-
-```text
-CLI / localhost API
-  -> IntentSmith Core lifecycle
-  -> deterministic fake worker
-  -> core-owned verdict
-  -> SQLite persistence and append-only audit
+```mermaid
+flowchart TD
+    U["User / CLI / Studio"] --> C["IntentSmith Core"]
+    C --> P["Policy and approvals"]
+    C --> H["Hardware Director"]
+    H --> O["Local provider: Ollama"]
+    C --> W["Worker adapter"]
+    W --> G["Scoped localhost gateway"]
+    G --> O
+    W --> E["Workspace and deterministic gates"]
+    E --> C
+    C --> A["SQLite audit and evidence"]
 ```
 
-There is no LLM, external agent, shell execution, cloud call, or non-localhost
-network dependency. `Task` stores the long-lived user intent while `TaskRun`
-stores one immutable execution attempt.
+A typical run follows seven steps:
 
-## Requirements
+1. The user creates a task with an intent and workspace scope.
+2. Core validates policy and creates a distinct task run.
+3. The hardware director selects a compatible local inference profile.
+4. A worker receives only the capabilities and short-lived access required for that run.
+5. Proposed changes and worker events are captured as evidence.
+6. Deterministic gates inspect the resulting workspace.
+7. Core issues a verdict from evidence; a worker's success claim alone can never produce `pass`.
 
-- Node.js 22 LTS
+## Local-first policy
+
+- The stable path does not silently fall back to a cloud model.
+- Core and the server bind to loopback interfaces only.
+- The worker gateway is opt-in, loopback-only and uses run-scoped revocable tokens.
+- Prompts and model responses are not written to the stable audit trail.
+- Hardware detection records a sanitized capability profile rather than device identifiers.
+- Degraded sandboxing is reported honestly; process controls are not presented as an operating-system security boundary.
+
+Local-first does not mean that every future third-party worker is automatically offline or safe. Each adapter must declare and prove its capabilities, and any network-enabled mode must be explicit.
+
+## Quick start
+
+Requirements:
+
+- Node.js 22
 - pnpm 11.17.0 through Corepack
-
-All dependency versions are pinned exactly in the workspace manifests and
-lockfile.
-
-## Install And Verify
+- Linux, macOS or Windows for the core packages
+- Ollama only for optional real local-inference tests
 
 ```bash
 corepack enable
@@ -95,123 +91,54 @@ pnpm install --frozen-lockfile
 pnpm verify
 ```
 
-`pnpm verify` runs frozen installation, typecheck, lint, all offline tests with
-coverage gates, and the build in that order. It needs no Ollama, no GPU and no
-model: every transport and hardware probe is injected. `pnpm test:coverage` runs the
-coverage-gated suite on its own. The same pipeline runs in GitHub Actions on
-pull requests and on pushes to `main`, without secrets and without a dependency
-cache, so a clean-install failure cannot be masked.
-
-Architecture rules are executable: `tools/architecture/boundaries.test.ts`
-enforces the dependency boundaries in
-`docs/architecture/dependency-boundaries.md`, so crossing one fails
-`pnpm verify`.
-
-## Local Server
-
-Build and start the API:
+Build and start the localhost API:
 
 ```bash
 pnpm build
 pnpm --filter @intentsmith/server start
 ```
 
-The server binds to `127.0.0.1:47831` by default. The local SQLite database is
-stored at `.intentsmith/intentsmith.db`. Set `INTENTSMITH_DB_PATH` to use a
-different development database.
-
-## Local Inference
-
-With a local Ollama daemon running, IntentSmith can inspect and use it:
-
-```bash
-pnpm --filter intentsmith start inference health
-pnpm --filter intentsmith start inference models
-pnpm --filter intentsmith start inference model --model qwen3:14b
-pnpm --filter intentsmith start inference assess --model qwen3:14b --policy gpu_required
-pnpm --filter intentsmith start hardware show
-pnpm --filter intentsmith start runtime recovery
-```
-
-Generation reads the prompt from stdin so it never enters shell history:
-
-```bash
-echo "Explain this repository in one sentence." \
-  | pnpm --filter intentsmith start inference generate --model qwen3:14b
-```
-
-`--prompt` exists but is documented as the less private option. Ctrl+C cancels
-the generation upstream rather than orphaning it.
-
-IntentSmith does not download models. If one is missing it says so and tells you
-the `ollama pull` command to run yourself.
-
-### Optional real-Ollama verification
-
-```bash
-INTENTSMITH_RUN_REAL_OLLAMA=1 \
-INTENTSMITH_OLLAMA_TEST_MODEL=<an-already-installed-model> \
-pnpm test:ollama
-```
-
-Never part of `pnpm verify` or CI. It never pulls a model, signs in or uses an
-API key, and reports BLOCKED rather than PASS when Ollama or the model is
-missing.
-
-## Worker Inference Gateway
-
-A loopback-only, OpenAI-shaped gateway exists so a future external worker can
-run inference under the same guarantees as the user's own API: same provider,
-same hardware and model-fit policy, same local-only checks, same scheduler.
-
-It is **off by default**, because no worker exists yet:
-
-```bash
-INTENTSMITH_GATEWAY=1 pnpm --filter @intentsmith/server start
-# optionally pin the port instead of using an ephemeral one
-INTENTSMITH_GATEWAY_PORT=41234 pnpm --filter @intentsmith/server start
-```
-
-Every route needs an IntentSmith-issued per-run bearer token even on loopback,
-because loopback is not an authorization boundary: any local process can reach
-the port. Tokens are scoped to one run, never persisted or logged, and revoked
-when the run ends or the server stops.
-
-## CLI
-
-The CLI talks only to the localhost API by default:
+In another terminal:
 
 ```bash
 pnpm --filter intentsmith start version
-pnpm --filter intentsmith start health
-pnpm --filter intentsmith start project create --name demo --root /absolute/path
-pnpm --filter intentsmith start task create --project-id PROJECT_ID --goal "Run deterministic checks"
-pnpm --filter intentsmith start task start --task-id TASK_ID
-pnpm --filter intentsmith start task result --task-id TASK_ID --json
-pnpm --filter intentsmith start task audit --task-id TASK_ID --json
 ```
 
-Set `INTENTSMITH_URL` to another localhost URL when the server uses a different
-port.
+The standard verification suite is deterministic and does not require a model, GPU, external agent or cloud connection.
 
-## Development Data
-
-Stop the server first. To delete only the default development database:
-
-```bash
-rm -f .intentsmith/intentsmith.db .intentsmith/intentsmith.db-shm .intentsmith/intentsmith.db-wal
-```
-
-This command does not touch project workspaces.
-
-## Reference
-
-Source project: `Belphareon-bak/C3-agent`
-
-Reference commit:
+## Repository map
 
 ```text
-a7b90e36aa80310305703f54f2332e1c0e7f9e8f
+apps/
+  cli/                  command-line client
+  server/               localhost API and runtime composition
+packages/
+  contracts/            runtime schemas and public data contracts
+  core/                 lifecycle, policy, use cases and verdicts
+  persistence/          SQLite implementation and recovery
+  inference/            provider-neutral inference port
+  adapter-ollama/       local Ollama integration
+  hardware/             sanitized hardware discovery and selection
+  testing/              deterministic test doubles and fixtures
+docs/
+  product/              product vision and boundaries
+  architecture/         system design and contracts
+  adr/                  immutable architecture decisions
+  development/          contributor onboarding
+  security/             phase-specific threat models
 ```
 
-The C3 repository is a read-only reference for this transformation.
+Phase-specific packages that are not yet on `main` are documented in [STATUS.md](docs/STATUS.md), not advertised here as stable.
+
+## Documentation
+
+- [Documentation index](docs/README.md)
+- [Product vision](docs/product/vision.md)
+- [Architecture overview](docs/architecture/overview.md)
+- [Current status](docs/STATUS.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Development guide](docs/development/getting-started.md)
+- [Security policy](SECURITY.md)
+- [Contributing](CONTRIBUTING.md)
+
+IntentSmith is pre-release software. Interfaces, package names and persistence schemas may still change before the first stable release.
