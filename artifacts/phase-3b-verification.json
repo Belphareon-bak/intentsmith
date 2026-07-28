@@ -1,0 +1,93 @@
+{
+  "phase": "3B",
+  "title": "Tool Capability Mediation",
+  "date": "2026-07-28",
+  "branch": "phase-3-opencode-worker",
+  "baseline": {
+    "commit": "0fca7fd",
+    "description": "Green H checkpoint, tool calling refused outright. Not rewritten."
+  },
+  "contractSpike": {
+    "binary": "opencode-ai@1.18.8 (pinned, real)",
+    "verdict": "PASS",
+    "condition": "IntentSmith must generate permission:{edit,write,bash,webfetch:\"ask\"}; under OpenCode defaults zero permission requests are emitted.",
+    "document": "docs/testing/phase-3b-tool-mediation-spike.md"
+  },
+  "environment": {
+    "node": "v22.21.1",
+    "pnpm": "11.17.0",
+    "platform": "linux",
+    "ollamaVersion": "0.17.7"
+  },
+  "gates": {
+    "deterministicFullSuiteRuns": 5,
+    "testsPerRun": 694,
+    "testFiles": 44,
+    "allRunsIdentical": true,
+    "coverageThresholdsChanged": false,
+    "coverage": {
+      "statements": 91.96,
+      "branches": 82.96,
+      "functions": 92.01,
+      "lines": 93.64
+    },
+    "thresholds": {
+      "statements": 90,
+      "branches": 82,
+      "functions": 88,
+      "lines": 92
+    },
+    "cleanCloneVerify": {
+      "status": "pass",
+      "exitCode": 0,
+      "command": "pnpm verify"
+    },
+    "lint": "pass",
+    "typecheck": "pass",
+    "offline": true
+  },
+  "toolPolicy": {
+    "validatedOnly": [
+      "read",
+      "glob",
+      "grep"
+    ],
+    "approvalRequired": [
+      "edit",
+      "write"
+    ],
+    "denied": [
+      "bash",
+      "webfetch",
+      "skill",
+      "task",
+      "todowrite"
+    ],
+    "unclassified": "denied"
+  },
+  "approvalGuarantees": [
+    "Scoped to run + action + normalized payload hash.",
+    "Single consumption; approved and consumed are separate states.",
+    "TTL evaluated against the clock, not against whether a sweep ran.",
+    "Revoked on cancel, timeout, failure and restart recovery.",
+    "A pending approval found after a restart expires unanswered; a restart is not consent.",
+    "No allow-always exists and none can be expressed through the API.",
+    "The adapter never selects allow_always, whatever order the agent offers.",
+    "Append-only audit: requested, granted, denied, expired, revoked, consumed, mismatch.",
+    "Races settled by compare-and-set plus a per-approval mutex; the loser is told it lost."
+  ],
+  "verdicts": {
+    "localInference": "PROVEN. All inference goes through the authorized loopback gateway to local Ollama.",
+    "strictOffline": "NOT PROVEN. OpenCode fetches its provider catalog. No cloud traffic observed is not cloud traffic impossible.",
+    "degradedSandbox": "Disposable-fixture-only. No real project.",
+    "modelDefaults": "NOT FIXED. The ten-formulation robustness run supersedes the repeated-prompt scores."
+  },
+  "residualRisks": [
+    "Cancel/timeout/process failure while a permission is outstanding is unproven against the real binary.",
+    "Parallel tool calls are refused, not supported.",
+    "skill, task, todowrite and webfetch payload shapes remain unobserved.",
+    "Mediation depends on the permission config IntentSmith writes; if it is absent or overridden the worker acts unmediated.",
+    "The residency HTTP 500 has a structural conclusion but no preserved wire sample.",
+    "qwen3.5:27b failed 2 of 10 path_escape formulations, which is the security-shaped case."
+  ]
+}

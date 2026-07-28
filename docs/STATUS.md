@@ -2,10 +2,12 @@
 
 ## Current Phase
 
-Phase 2 - Local Ollama provider, Hardware Director and worker inference gateway.
+Phase 3B - Tool capability mediation, on `phase-3-opencode-worker`.
 
 Phase 1.1 is merged (`bd0a6a5`, PR #1) and tagged `phase-1.1`. Phase 2 lives on
-`phase-2-ollama-hardware`.
+`phase-2-ollama-hardware`. Phase 3 reached a green H checkpoint at `0fca7fd`
+(inference-only OpenCode integration, tool calling refused outright); Phase 3B
+builds on it and does not rewrite it.
 
 ## Reference State
 
@@ -92,6 +94,47 @@ Phase 1.1 is merged (`bd0a6a5`, PR #1) and tagged `phase-1.1`. Phase 2 lives on
 - A loopback-only worker inference gateway (ADR 0015) gives a future external
   worker the same guarantees as the user's own API, behind a per-run token.
 - 402 tests across 24 files; `pnpm verify` stays fully offline.
+
+## Phase 3B Implementation
+
+- The contract spike against the pinned real `opencode-ai@1.18.8` returned
+  **PASS, conditional on an IntentSmith-generated permission config**
+  (`docs/testing/phase-3b-tool-mediation-spike.md`). Under OpenCode's own
+  defaults zero permission requests are emitted and a bash command wrote outside
+  the workspace, so mediation is a property of the config IntentSmith writes.
+- ADR 0017 records the four separations: the gateway translates and never
+  executes, Core owns policy and approval state, an approval authorizes one
+  action once against one payload, and no ACP type enters Core.
+- The capability ledger classifies every observed tool. `read`/`glob`/`grep` are
+  validated-only; `edit`/`write` need an approval; `bash`, `webfetch`, `skill`,
+  `task` and `todowrite` are denied; anything unclassified is denied.
+- Approvals are scoped to run + action + payload hash, expire, are consumed once
+  and are revoked on cancel, timeout, failure and restart. There is no
+  "always allow", and the adapter never selects `allow_always` however the agent
+  orders its options.
+- The gateway's tool path refuses what it cannot mediate rather than
+  approximating it: forced or named `tool_choice`, parallel tool calls, tool
+  turns with no advertised tools, oversized or too-deeply-nested schemas.
+- Model profiles (ADR 0018) are Core-owned. A worker may ask; the profile
+  decides. Only a model observed using the structured tool protocol may be given
+  tools, and call-shaped prose is `MODEL_TOOL_PROTOCOL_ERROR`, never parsed.
+- Single-GPU residency (ADR 0019) leases one model at a time, verifies an unload
+  before switching, and derives `keep_alive` from the queue.
+- Git-backed change capture reads what the worker actually changed, read-only,
+  and a successful claim whose change set is unacceptable does not pass.
+- 694 tests across 44 files; `pnpm verify` stays fully offline.
+
+## Phase 3B - Not Proven
+
+- Cancel, timeout and process failure while a permission is outstanding, against
+  the real binary.
+- Parallel tool calls (refused, not supported).
+- `skill`, `task`, `todowrite` and `webfetch` payload shapes and side effects.
+- Strict-offline execution: NOT PROVEN while OpenCode fetches its provider
+  catalog. "No cloud traffic observed" is not "cloud traffic impossible".
+- Degraded-sandbox runs remain disposable-fixture-only. No real project.
+- Model defaults. The ten-formulation robustness run supersedes the
+  repeated-prompt scores and moved `qwen3.5:27b` from 30/30 to 91/100.
 
 ## Deferred Beyond Phase 1
 

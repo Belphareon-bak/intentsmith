@@ -136,6 +136,28 @@ Expected outputs:
 - deterministic test evidence;
 - cancel, timeout, and recovery tests.
 
+## Phase 3B - Tool Capability Mediation
+
+Inserted between H and I after the H checkpoint proved that an inference-only
+OpenCode integration is not a finished Phase 3, and that closing Phase 3 there
+would have moved the problem silently into Phase 4.
+
+Gate: a contract spike against the pinned real binary, run before any
+implementation. Verdict PASS, conditional on an IntentSmith-generated permission
+config (`docs/testing/phase-3b-tool-mediation-spike.md`).
+
+Delivered:
+
+- capability and lifecycle ledger for every observed tool;
+- bounded tool-calling gateway path that translates and never executes;
+- single-use, payload-bound approvals with append-only audit;
+- vendor-neutral permission bridge that cannot grant standing access;
+- git-backed change capture, and a verdict that refuses a success it cannot
+  corroborate;
+- Core-owned model profiles and single-GPU residency scheduling.
+
+ADRs 0017, 0018, 0019. Evidence in `artifacts/phase-3b-verification.json`.
+
 ## Phase 4 - MCP and Serena
 
 Goal: use external code intelligence instead of rebuilding LSP and symbol analysis.
