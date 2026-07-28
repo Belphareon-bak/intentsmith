@@ -270,9 +270,15 @@ export class OllamaProvider implements InferenceProvider {
     const abortUpstream = (): void => controller.abort();
     signal?.addEventListener('abort', abortUpstream, { once: true });
 
-    const cancelOverall = this.schedule(() => controller.abort(), this.timeouts.overallMs);
     let cancelIdle: (() => void) | undefined;
     let timedOut = false;
+    // The overall timer must mark a timeout, not merely abort. Without this a
+    // run that exceeded its ceiling was reported as REQUEST_CANCELLED, which
+    // told the caller a user cancelled something that actually timed out.
+    const cancelOverall = this.schedule(() => {
+      timedOut = true;
+      controller.abort();
+    }, this.timeouts.overallMs);
     const armIdle = (ms: number): void => {
       cancelIdle?.();
       cancelIdle = this.schedule(() => {

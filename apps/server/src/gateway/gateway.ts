@@ -139,8 +139,14 @@ export function buildGateway(options: GatewayOptions): FastifyInstance {
       return deny(reply, 400, 'REQUEST_INVALID', 'At least one user message is required.');
     }
 
+    // Abort only on a genuine client disconnect. `request.raw.on('close')` is
+    // the wrong signal: it fires when the request body has been consumed, so it
+    // aborted every normal POST. `reply.raw` closing while the response is
+    // still unfinished is what actually means "the client went away".
     const controller = new AbortController();
-    request.raw.on('close', () => controller.abort());
+    reply.raw.on('close', () => {
+      if (!reply.raw.writableEnded) controller.abort();
+    });
 
     let release: (() => void) | undefined;
     try {

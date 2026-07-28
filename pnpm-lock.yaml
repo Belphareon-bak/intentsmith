@@ -54,6 +54,9 @@ importers:
       '@intentsmith/adapter-ollama':
         specifier: workspace:*
         version: link:../../packages/adapter-ollama
+      '@intentsmith/adapter-opencode':
+        specifier: workspace:*
+        version: link:../../packages/adapter-opencode
       '@intentsmith/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -69,9 +72,15 @@ importers:
       '@intentsmith/persistence':
         specifier: workspace:*
         version: link:../../packages/persistence
+      '@intentsmith/process-runtime':
+        specifier: workspace:*
+        version: link:../../packages/process-runtime
       '@intentsmith/testing':
         specifier: workspace:*
         version: link:../../packages/testing
+      '@intentsmith/worker-sdk':
+        specifier: workspace:*
+        version: link:../../packages/worker-sdk
       '@sinclair/typebox':
         specifier: 0.34.52
         version: 0.34.52

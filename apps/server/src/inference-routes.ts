@@ -164,9 +164,14 @@ export function registerInferenceRoutes(app: FastifyInstance, runtime: ServerRun
       executionPolicy?: ExecutionPolicy;
     };
     const policy = body.executionPolicy ?? runtime.executionPolicy;
+    // Abort only on a genuine client disconnect. `request.raw.on('close')` is
+    // the wrong signal: it fires when the request body has been consumed, so it
+    // aborted every normal POST. `reply.raw` closing while the response is
+    // still unfinished is what actually means "the client went away".
     const controller = new AbortController();
-    // A client that hangs up must not leave the daemon generating.
-    request.raw.on('close', () => controller.abort());
+    reply.raw.on('close', () => {
+      if (!reply.raw.writableEnded) controller.abort();
+    });
 
     let release: (() => void) | undefined;
     try {
