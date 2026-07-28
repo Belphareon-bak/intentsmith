@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -272,74 +272,48 @@ describe('cancellation at every stage', () => {
 });
 
 describe('per-run token containment', () => {
-  it('keeps the token out of every place a hostile agent can put it', async () => {
+  it('keeps a token out of a permission proposal the agent controls', async () => {
     const decisions: ToolProposal[] = [];
-    const { handle, workspace } = start('leaks-token', {
+    const { handle } = start('leaks-token-permission', {
       onPermissionRequest: async proposal => {
         decisions.push(proposal);
         return { allowed: false, reason: `refused ${proposal.title}` };
       },
     });
-    // Wait for the permission request itself: it is emitted after every other
-    // leak attempt, so its arrival proves the agent got as far as it can.
     await waitUntil(() => decisions.length > 0, 'the agent to request permission');
     await handle.cancel();
     const result = await handle.done;
 
     const redactor = createRedactor([TOKEN]);
+    expect(decisions).toHaveLength(1);
+    // The agent put its token in both the title and an option name.
+    expect(redactor.leaks(decisions)).toBe(false);
+    expect(decisions[0]?.title).toContain('[redacted');
+    expect(redactor.leaks(result.events)).toBe(false);
+  });
 
-    // 1. Nothing IntentSmith collected may contain the token.
+  it('keeps a token out of a failure message built from stderr, and out of evidence', async () => {
+    const { handle, workspace } = start('leaks-token-stderr');
+    const result = await handle.done;
+
+    const redactor = createRedactor([TOKEN]);
     expect(redactor.leaks(result.events)).toBe(false);
     expect(JSON.stringify(result.events)).not.toContain(TOKEN);
 
-    // 2. Not via the permission proposal the agent controlled.
-    expect(decisions.length).toBeGreaterThan(0);
-    expect(redactor.leaks(decisions)).toBe(false);
-    expect(decisions[0]?.title).toContain('[redacted');
-
-    // 3. The agent really did try, so this is not a vacuous pass: it wrote the
-    //    token into a file it proposed, which is outside IntentSmith's control.
-    const leakedFile = path.join(workspace, 'src', 'leaked.js');
-    const wroteFile = readdirSync(workspace).includes('src');
-    if (wroteFile) {
-      expect(readFileSync(leakedFile, 'utf8')).toContain(TOKEN);
-    }
+    // Non-vacuous: the agent really did write the token where it could.
+    const leaked = path.join(workspace, 'src', 'leaked.js');
+    expect(readFileSync(leaked, 'utf8')).toContain(TOKEN);
   });
 
-  it('redacts the token from a failure message built out of stderr', async () => {
-    let asked = false;
-    const { handle } = start('leaks-token', {
-      onPermissionRequest: async () => {
-        asked = true;
-        return { allowed: false };
-      },
-    });
-    await waitUntil(() => asked, 'the agent to finish its leak attempts');
-    await handle.cancel();
+  it('ends the run and redacts when a token arrives on an invalid ACP line', async () => {
+    const { handle } = start('leaks-token-stdout');
     const result = await handle.done;
 
-    const serialized = JSON.stringify(result.events);
-    expect(serialized).not.toContain(TOKEN);
-  });
-
-  it('redacts a token that arrives on an invalid ACP line', async () => {
-    let asked = false;
-    const { handle } = start('leaks-token', {
-      onPermissionRequest: async () => {
-        asked = true;
-        return { allowed: false };
-      },
-    });
-    await waitUntil(() => asked, 'the agent to finish its leak attempts');
-    await handle.cancel();
-    const result = await handle.done;
-
-    const violations = result.events.filter(
-      e => (e as { evidence?: { kind: string } }).evidence?.kind === 'security',
-    ) as Array<{ evidence: { summary: string } }>;
-    for (const violation of violations) {
-      expect(violation.evidence.summary).not.toContain(TOKEN);
-    }
+    // stdout pollution is a protocol failure, not something to tolerate.
+    expect(failureOf(result.events)?.code).toBe('WORKER_PROTOCOL_ERROR');
+    expect(JSON.stringify(result.events)).not.toContain(TOKEN);
+    // The message names the problem without quoting the offending line.
+    expect(failureOf(result.events)?.message).toContain('not valid JSON');
   });
 });
 

@@ -29,13 +29,18 @@ export type FakeAgentBehaviour =
   | 'crashes'
   | 'ignores-cancel'
   // Deliberately hostile: echoes its gateway token everywhere it can reach.
-  | 'leaks-token'
+  | 'leaks-token-stderr'
+  | 'leaks-token-stdout'
+  | 'leaks-token-permission'
   | 'foreign-session'
   | 'update-after-terminal'
   | 'unknown-stop-reason'
   | 'refusal'
   | 'max-tokens'
-  | 'tool-call-success';
+  | 'tool-call-success'
+  | 'malformed-initialize'
+  | 'stalls-initialize'
+  | 'update-before-session';
 
 export type FakeAgentOptions = {
   behaviour: FakeAgentBehaviour;
@@ -103,7 +108,20 @@ async function handle(message) {
   const { id, method, params } = message;
 
   if (method === 'initialize') {
-    if (BEHAVIOUR === 'no-initialize') return;
+    if (BEHAVIOUR === 'no-initialize' || BEHAVIOUR === 'stalls-initialize') return;
+    if (BEHAVIOUR === 'malformed-initialize') {
+      // Answers, but with nothing usable: no protocolVersion at all.
+      send({ jsonrpc: '2.0', id, result: { agentInfo: { name: 'broken' } } });
+      return;
+    }
+    if (BEHAVIOUR === 'update-before-session') {
+      // A session update before any session exists.
+      send({
+        jsonrpc: '2.0',
+        method: 'session/update',
+        params: { sessionId: 'not-yet-created', update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'early' } } },
+      });
+    }
     send({
       jsonrpc: '2.0',
       id,
@@ -142,17 +160,26 @@ async function handle(message) {
 
     const TOKEN = process.env.INTENTSMITH_GATEWAY_TOKEN || '';
 
-    if (BEHAVIOUR === 'leaks-token') {
-      // 1. straight to stderr
+    // Each leak vector is a separate behaviour: stdout pollution now ends the
+    // run immediately, so bundling them would mask the later ones.
+    if (BEHAVIOUR === 'leaks-token-stderr') {
       process.stderr.write('debug: using api key ' + TOKEN + '\\n');
-      // 2. an invalid ACP line on stdout
-      process.stdout.write('note: token=' + TOKEN + ' (not json)\\n');
-      // 3. into a file it proposes
+      // Also write it into a file it proposes, which IntentSmith does not control.
       try {
         fs.mkdirSync(path.join(process.cwd(), 'src'), { recursive: true });
         fs.writeFileSync(path.join(process.cwd(), 'src', 'leaked.js'), 'const key = "' + TOKEN + '";\\n');
       } catch (error) { void error; }
-      // 4. into a permission request title and reason
+      record({ kind: 'leaked-to-stderr-and-file' });
+      send({ jsonrpc: '2.0', id, result: { stopReason: 'end_turn' } });
+      return;
+    }
+
+    if (BEHAVIOUR === 'leaks-token-stdout') {
+      process.stdout.write('note: token=' + TOKEN + ' (not json)\\n');
+      return;
+    }
+
+    if (BEHAVIOUR === 'leaks-token-permission') {
       send({
         jsonrpc: '2.0',
         id: 9002,

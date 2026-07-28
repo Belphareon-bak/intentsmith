@@ -23,7 +23,15 @@ import {
   type WorkerHandle,
 } from '@intentsmith/worker-sdk';
 
-import { ACP_PROTOCOL_VERSION, AcpClient, AcpProtocolError, LineBuffer, type JsonRpcId } from './acp.js';
+import { AGENT_METHODS, client, PROTOCOL_VERSION } from '@agentclientprotocol/sdk';
+
+import { AcpProtocolError } from './acp-error.js';
+import {
+  createStrictAcpStream,
+  type StreamLimits,
+  type StreamViolation,
+  type StrictStream,
+} from './strict-stream.js';
 import { outcomeForStopReason, parsePromptResponse, type TurnOutcome } from './stop-reason.js';
 import {
   GATEWAY_TOKEN_ENV,
@@ -66,6 +74,13 @@ export type OpenCodeAdapterOptions = {
   /** Version the operator pinned, for the mismatch check. */
   expectedVersion?: string;
   limits?: Partial<ProcessLimits>;
+  /** Bounds on the raw ACP stream, before the SDK ever sees a line. */
+  streamLimits?: Partial<StreamLimits>;
+  /**
+   * Observes the ACP wire, in order. Used by the handshake regression test and
+   * available for run evidence.
+   */
+  onWireMessage?: (direction: 'out' | 'in', message: unknown) => void;
   sandboxProbe?: SandboxProbe;
   preferSandbox?: boolean;
   /**
@@ -77,6 +92,9 @@ export type OpenCodeAdapterOptions = {
   /** Injected for tests; defaults to a real temp directory. */
   makeRuntimeRoot?: () => string;
 };
+
+/** Reported to the agent in `clientInfo`. */
+const INTENTSMITH_VERSION = '0.1.0';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -157,20 +175,17 @@ export class OpenCodeWorker implements WorkerAdapter {
 /** One OpenCode run: process, ACP session, and cleanup. */
 class OpenCodeSession {
   private process: SupervisedProcess | undefined;
-  private client: AcpClient | undefined;
+  private stream: StrictStream | undefined;
   private runtimeCleanup: (() => void) | undefined;
   private cancelled = false;
   /** The one session this run owns. Messages for any other are rejected. */
   private sessionId: string | undefined;
+  /** Active SDK session, used for cooperative cancellation. */
+  private session: { dispose?: () => Promise<void> | void } | undefined;
   /** Exactly one terminal worker event may ever be emitted. */
   private terminalEmitted = false;
-  /**
-   * Set the moment the prompt response line is read, not when its promise
-   * continuation runs, so a trailing notification in the same chunk is
-   * correctly seen as arriving after the turn ended.
-   */
+  /** Set as soon as the prompt response lands, so a later update is late. */
   private turnEnded = false;
-  private promptRequestId: JsonRpcId | undefined;
   /** Scrubs the per-run token out of anything the agent produced. */
   private redactor: Redactor = createRedactor();
 
@@ -247,49 +262,109 @@ class OpenCodeSession {
     }
   }
 
+  /**
+   * Runs the ACP conversation through the official SDK's fluent client.
+   *
+   * `initialize` is sent explicitly. `buildSession().start()` issues only
+   * `session/new`, so relying on it would silently skip protocol version
+   * negotiation; `ClientContext.request` is the public typed wrapper for
+   * sending an agent-side request, and the SDK's own tests use this sequence.
+   * No deprecated `ClientSideConnection` and no `unstable_*` surface is used.
+   *
+   * The transport is IntentSmith's own strict stream rather than the SDK's
+   * `ndJsonStream`, so malformed or oversized worker output ends the run
+   * deterministically instead of being logged and dropped (ADR 0016).
+   */
   private async speakAcp(child: SupervisedProcess): Promise<void> {
-    const lines = new LineBuffer();
-    const listeners = new Set<(line: string) => void>();
     let protocolError: AcpProtocolError | undefined;
+    const recordViolation = (violation: StreamViolation): void => {
+      protocolError ??= new AcpProtocolError(violation.message);
+    };
 
-    child.onStdout(chunk => {
-      try {
-        for (const line of lines.push(chunk.toString('utf8'))) {
-          for (const listener of listeners) listener(line);
+    // Per-instance transport: no shared buffers, counters or handlers, so two
+    // concurrent workers cannot observe or disturb one another.
+    const stream = createStrictAcpStream({
+      subscribe: listener => child.onStdout(listener),
+      write: line => child.write(line),
+      ...(this.options.streamLimits ? { limits: this.options.streamLimits } : {}),
+      onViolation: recordViolation,
+      ...(this.options.onWireMessage
+        ? {
+            onInbound: message => this.options.onWireMessage?.('in', message),
+            onOutbound: message => this.options.onWireMessage?.('out', message),
+          }
+        : {}),
+    });
+    this.stream = stream;
+
+    const app = client({ name: 'intentsmith' });
+
+    // Handlers must be registered through the fluent chain. Passing them to
+    // `client({ ... })` is silently ignored, which would leave the worker never
+    // asked for permission -- a failure in the dangerous direction.
+    app.onRequest('session/request_permission', async ctx =>
+      (await this.onPermissionRequest(ctx.params)) as never,
+    );
+    app.onNotification('session/update', async ctx => {
+      this.onSessionUpdate(ctx.params);
+    });
+
+    const conversation = app.connectWith(
+      stream as unknown as Parameters<typeof app.connectWith>[0],
+      async ctx => {
+        this.assertNotCancelled();
+
+        const initialize = await ctx.request(AGENT_METHODS.initialize, {
+          protocolVersion: PROTOCOL_VERSION,
+          clientCapabilities: {
+            fs: { readTextFile: false, writeTextFile: false },
+            terminal: false,
+          },
+          clientInfo: { name: 'IntentSmith', version: INTENTSMITH_VERSION },
+        });
+
+        // Hard gate before anything else is sent: a mismatch must stop the run
+        // rather than proceed against semantics nobody has verified.
+        this.assertProtocolVersion(initialize);
+        this.recordCapabilities(initialize);
+        if (protocolError) throw protocolError;
+
+        this.assertNotCancelled();
+        const session = await ctx
+          .buildSession({ cwd: this.context.workspaceRoot as string, mcpServers: [] })
+          .start();
+
+        const sessionId = session.sessionId;
+        if (typeof sessionId !== 'string' || sessionId.length === 0) {
+          throw new AcpProtocolError('OpenCode did not return a session id.');
         }
-      } catch (error) {
-        protocolError = error as AcpProtocolError;
-      }
-    });
+        // From here on, any message naming a different session is rejected.
+        this.sessionId = sessionId;
+        this.session = session as unknown as { dispose?: () => Promise<void> | void };
 
-    const client = new AcpClient({
-      transport: {
-        send: line => child.write(line),
-        onLine: listener => {
-          listeners.add(listener);
-          return () => listeners.delete(listener);
-        },
+        this.events.push({ type: 'started', runId: this.context.run.id, workerVersion: this.workerVersion() });
+
+        this.assertNotCancelled();
+        if (protocolError) throw protocolError;
+
+        const response = (await session.prompt([{ type: 'text', text: this.context.task.goal }])) as unknown;
+        // The turn is over the moment the response lands, so a trailing update
+        // is correctly seen as arriving after it.
+        this.turnEnded = true;
+
+        const outcome = outcomeForStopReason(parsePromptResponse(response));
+        // A protocol violation seen during the turn outranks a success: an
+        // agent that polluted stdout was not purely speaking ACP.
+        if (protocolError) throw protocolError;
+        this.emitTerminal(outcome);
       },
-      ...(this.options.schedule ? { schedule: this.options.schedule } : {}),
-    });
-    this.client = client;
-
-    client.onProtocolError = error => {
-      // The agent controls this text and may have echoed its token into it.
-      protocolError = new AcpProtocolError(this.redactor.text(error.message));
-    };
-    client.onResponseSettled = id => {
-      if (this.promptRequestId !== undefined && id === this.promptRequestId) this.turnEnded = true;
-    };
-    client.onNotification = (method, params) => this.onNotification(method, params);
-    client.onRequest = async (method, params) => await this.onAgentRequest(method, params);
+    );
 
     // Racing the process exit means a crashed agent fails fast rather than
     // waiting for a request timeout.
     const exited = child.exited.then(exit => {
       // The supervisor's own reason is far more useful than a generic protocol
-      // error: "install OpenCode" beats "the agent stopped talking". Preserve
-      // it so the caller sees the actionable message.
+      // error: "install OpenCode" beats "the agent stopped talking".
       const reason = child.failureReason ?? exit.reason;
       if (reason && reason !== 'completed') {
         throw Object.assign(
@@ -304,47 +379,15 @@ class OpenCodeSession {
       );
     });
 
-    const conversation = (async () => {
-      this.assertNotCancelled();
-      const initialize = (await client.request('initialize', {
-        protocolVersion: ACP_PROTOCOL_VERSION,
-        clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
-      })) as unknown;
-      this.assertProtocolVersion(initialize);
-      this.recordCapabilities(initialize);
-
-      this.assertNotCancelled();
-      const session = (await client.request('session/new', {
-        cwd: this.context.workspaceRoot,
-        mcpServers: [],
-      })) as unknown;
-      const sessionId = isRecord(session) && typeof session.sessionId === 'string' ? session.sessionId : undefined;
-      if (!sessionId) throw new AcpProtocolError('OpenCode did not return a session id.');
-      // From here on, any message naming a different session is rejected.
-      this.sessionId = sessionId;
-
-      this.events.push({ type: 'started', runId: this.context.run.id, workerVersion: this.workerVersion() });
-
-      this.assertNotCancelled();
-      const response = (await client.request(
-        'session/prompt',
-        { sessionId, prompt: [{ type: 'text', text: this.context.task.goal }] },
-        id => {
-          this.promptRequestId = id;
-        },
-      )) as unknown;
-
-      // A stop reason is validated, never assumed. Anything unrecognised is a
-      // protocol error rather than a success by default.
-      const outcome = outcomeForStopReason(parsePromptResponse(response));
-      // A protocol violation seen during the turn outranks a success: an agent
-      // that polluted stdout was not purely speaking ACP, and reporting that
-      // run as a pass would hide it.
+    try {
+      await Promise.race([conversation, exited]);
+    } catch (error) {
+      // A recorded stream violation is the true cause and outranks whatever
+      // the SDK surfaced once its reader was errored: "the worker polluted
+      // stdout" is actionable, "stream errored" is not.
       if (protocolError) throw protocolError;
-      this.emitTerminal(outcome);
-    })();
-
-    await Promise.race([conversation, exited]);
+      throw error;
+    }
     if (protocolError) throw protocolError;
   }
 
@@ -370,10 +413,10 @@ class OpenCodeSession {
         { reason: 'protocol_incompatible' },
       );
     }
-    if (reported !== ACP_PROTOCOL_VERSION) {
+    if (reported !== PROTOCOL_VERSION) {
       throw Object.assign(
         new AcpProtocolError(
-          `Agent negotiated ACP protocol version ${reported}, but IntentSmith implements ${ACP_PROTOCOL_VERSION}. Refusing to continue against unverified protocol semantics.`,
+          `Agent negotiated ACP protocol version ${reported}, but IntentSmith implements ${PROTOCOL_VERSION}. Refusing to continue against unverified protocol semantics.`,
         ),
         { reason: 'protocol_incompatible' },
       );
@@ -455,9 +498,9 @@ class OpenCodeSession {
     const limitations: string[] = [];
     if (protocolVersion === undefined) {
       limitations.push('Agent did not report a protocol version at initialize.');
-    } else if (protocolVersion !== ACP_PROTOCOL_VERSION) {
+    } else if (protocolVersion !== PROTOCOL_VERSION) {
       limitations.push(
-        `Agent negotiated ACP protocol version ${protocolVersion}; IntentSmith implements ${ACP_PROTOCOL_VERSION}.`,
+        `Agent negotiated ACP protocol version ${protocolVersion}; IntentSmith implements ${PROTOCOL_VERSION}.`,
       );
     }
     limitations.push('ACP defines no pause primitive, so pause is unavailable rather than emulated.');
@@ -501,8 +544,7 @@ class OpenCodeSession {
     }
   }
 
-  private onNotification(method: string, params: unknown): void {
-    if (method !== 'session/update') return;
+  private onSessionUpdate(params: unknown): void {
     try {
       this.assertOwnedSession(params, 'a session update');
     } catch (error) {
@@ -513,7 +555,7 @@ class OpenCodeSession {
     if (this.turnEnded || this.terminalEmitted) {
       // Anything after the turn ends is a protocol violation, recorded rather
       // than silently absorbed.
-      this.protocolViolation(new AcpProtocolError(`Agent sent "${method}" after the turn ended.`));
+      this.protocolViolation(new AcpProtocolError('Agent sent a session update after the turn ended.'));
       return;
     }
 
@@ -570,10 +612,7 @@ class OpenCodeSession {
    * Permission decisions belong to Core. With no handler installed the request
    * is denied, because an absent authority must never read as consent.
    */
-  private async onAgentRequest(method: string, params: unknown): Promise<unknown> {
-    if (method !== 'session/request_permission') {
-      throw new AcpProtocolError(`Unsupported agent request: ${method}`);
-    }
+  private async onPermissionRequest(params: unknown): Promise<unknown> {
     // A permission request must belong to this run's session.
     this.assertOwnedSession(params, 'a permission request');
     if (this.turnEnded || this.terminalEmitted) {
@@ -608,12 +647,10 @@ class OpenCodeSession {
   async cancel(): Promise<void> {
     if (this.cancelled) return;
     this.cancelled = true;
-    // Cooperative first, forceful second. ACP requires the sessionId; sending
-    // it without one would be ignored by a conforming agent.
+    // Cooperative first, forceful second. The SDK's session dispose issues
+    // `session/cancel { sessionId }` for the session this run owns.
     try {
-      if (this.sessionId !== undefined) {
-        this.client?.notify('session/cancel', { sessionId: this.sessionId });
-      }
+      await this.session?.dispose?.();
     } catch {
       // The agent may already be gone.
     }
@@ -636,7 +673,9 @@ class OpenCodeSession {
     if (this.process) {
       await this.process.terminate(reason).catch(() => undefined);
     }
-    this.client?.close('Session closed.');
+    this.stream?.close();
+    this.stream = undefined;
+    this.session = undefined;
     this.runtimeCleanup?.();
     this.runtimeCleanup = undefined;
   }

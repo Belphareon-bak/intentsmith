@@ -59,6 +59,13 @@ export type StrictStreamOptions = {
    * negotiated. Observation only: the message is passed through unchanged.
    */
   onInbound?: (message: unknown) => void;
+  /**
+   * Observes every outbound message.
+   *
+   * The transport is the only place that sees the true wire order, which is
+   * exactly what the handshake regression test asserts on.
+   */
+  onOutbound?: (message: unknown) => void;
 };
 
 export type StrictStream = {
@@ -177,6 +184,7 @@ export function createStrictAcpStream(options: StrictStreamOptions): StrictStrea
   const writable = new WritableStream<unknown>({
     write(message) {
       if (violated || closed) return;
+      options.onOutbound?.(message);
       options.write(`${JSON.stringify(message)}\n`);
     },
   });

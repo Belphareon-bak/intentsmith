@@ -1,4 +1,4 @@
-import { AcpProtocolError } from './acp.js';
+import { AcpProtocolError } from './acp-error.js';
 
 /**
  * ACP prompt-turn stop reasons.
