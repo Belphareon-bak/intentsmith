@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { Task, TaskRun } from '@intentsmith/contracts';
+import type { CapabilityRequest } from '@intentsmith/worker-sdk';
 import { createRedactor, type InferenceGrant } from '@intentsmith/worker-sdk';
 
 import { OpenCodeWorker, type ToolProposal } from './adapter.js';
@@ -105,7 +106,12 @@ async function waitForMilestone(
   throw new Error(`Fake agent never reached the "${kind}" milestone.`);
 }
 
-function start(behaviour: FakeAgentBehaviour, options: { onPermissionRequest?: (p: ToolProposal) => Promise<{ allowed: boolean; reason?: string }> } = {}) {
+function start(behaviour: FakeAgentBehaviour, options: {
+    onPermissionRequest?: (
+      request: CapabilityRequest,
+      proposal: ToolProposal,
+    ) => Promise<{ allowed: boolean; reason?: string }>;
+  } = {}) {
   const agent = createFakeAgent({ behaviour });
   cleanups.push(() => agent.cleanup());
   const workspace = tempDir();
@@ -275,7 +281,7 @@ describe('per-run token containment', () => {
   it('keeps a token out of a permission proposal the agent controls', async () => {
     const decisions: ToolProposal[] = [];
     const { handle } = start('leaks-token-permission', {
-      onPermissionRequest: async proposal => {
+      onPermissionRequest: async (_request, proposal) => {
         decisions.push(proposal);
         return { allowed: false, reason: `refused ${proposal.title}` };
       },

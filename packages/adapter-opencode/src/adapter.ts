@@ -14,6 +14,7 @@ import {
 import {
   UNKNOWN_CAPABILITY,
   createRedactor,
+  type CapabilityRequest,
   type Redactor,
   type WorkerAdapter,
   type WorkerCapability,
@@ -49,11 +50,16 @@ import {
  * persistence, and never decides a verdict.
  */
 
-/** Decision Core returns for a permission request. */
+/**
+ * Decision Core returns for a permission request.
+ *
+ * Deliberately without an option id. Which ACP option expresses the decision is
+ * this adapter's problem, and keeping the choice here is what makes
+ * "never allow_always" enforceable in one place rather than trusted to every
+ * caller.
+ */
 export type PermissionDecision = {
   allowed: boolean;
-  /** Option id to send back to the agent. */
-  optionId?: string;
   reason?: string;
 };
 
@@ -63,6 +69,8 @@ export type ToolProposal = {
   kind: string;
   /** Paths the tool wants to touch, as the agent reported them. */
   paths: string[];
+  /** Structured payload the agent sent, never parsed out of the title. */
+  rawInput: Record<string, unknown>;
   options: Array<{ optionId: string; name: string; kind: string }>;
 };
 
@@ -86,8 +94,15 @@ export type OpenCodeAdapterOptions = {
   /**
    * Core's approval authority. The adapter never decides; a missing handler
    * denies, because silence must not mean permission.
+   *
+   * The request is vendor-neutral: no ACP or OpenCode type crosses this
+   * boundary, so Core's policy and audit keep their meaning when the worker
+   * changes. The proposal is passed alongside for evidence only.
    */
-  onPermissionRequest?: (proposal: ToolProposal) => Promise<PermissionDecision>;
+  onPermissionRequest?: (
+    request: CapabilityRequest,
+    proposal: ToolProposal,
+  ) => Promise<PermissionDecision>;
   schedule?: (fn: () => void, ms: number) => () => void;
   /** Injected for tests; defaults to a real temp directory. */
   makeRuntimeRoot?: () => string;
@@ -620,8 +635,9 @@ class OpenCodeSession {
     }
     // The agent controls every string in here and may have echoed its token.
     const proposal = normalizeProposal(this.redactor.value(params));
+    const request = toCapabilityRequest(proposal);
     const decision = this.options.onPermissionRequest
-      ? await this.options.onPermissionRequest(proposal)
+      ? await this.options.onPermissionRequest(request, proposal)
       : { allowed: false, reason: 'No approval authority is installed; denying by default.' };
 
     this.events.push({
@@ -637,11 +653,7 @@ class OpenCodeSession {
       },
     });
 
-    const chosen = decision.allowed
-      ? (decision.optionId ?? proposal.options.find(option => option.kind.startsWith('allow'))?.optionId)
-      : (decision.optionId ?? proposal.options.find(option => option.kind.startsWith('reject'))?.optionId);
-
-    return { outcome: { outcome: 'selected', optionId: chosen ?? 'reject' } };
+    return { outcome: { outcome: 'selected', optionId: chooseOption(proposal, decision.allowed) } };
   }
 
   async cancel(): Promise<void> {
@@ -695,6 +707,7 @@ function normalizeProposal(params: unknown): ToolProposal {
     toolCallId: typeof toolCall.toolCallId === 'string' ? toolCall.toolCallId : 'unknown',
     title: typeof toolCall.title === 'string' ? toolCall.title : 'Untitled tool call',
     kind: typeof toolCall.kind === 'string' ? toolCall.kind : 'unknown',
+    rawInput: isRecord(toolCall.rawInput) ? toolCall.rawInput : {},
     paths: locations.flatMap(location =>
       isRecord(location) && typeof location.path === 'string' ? [location.path] : [],
     ),
@@ -708,6 +721,78 @@ function normalizeProposal(params: unknown): ToolProposal {
         : [],
     ),
   };
+}
+
+/**
+ * Translates one ACP permission request into the vendor-neutral shape Core
+ * evaluates.
+ *
+ * Everything is taken from structured fields. The title is never parsed:
+ * approving from a title would mean approving from prose the model wrote, and
+ * the spike showed the title of a shell command is exactly that.
+ */
+function toCapabilityRequest(proposal: ToolProposal): CapabilityRequest {
+  const raw = proposal.rawInput;
+  const filepath = typeof raw.filepath === 'string' ? raw.filepath : undefined;
+  const command = typeof raw.command === 'string' ? raw.command : undefined;
+  const url = typeof raw.url === 'string' ? raw.url : undefined;
+
+  // `locations` is the agent's own statement of what it will touch; `filepath`
+  // is the same thing for a file edit and is kept when locations are empty.
+  const paths = proposal.paths.length > 0 ? proposal.paths : filepath ? [filepath] : [];
+
+  return {
+    toolName: toolNameFor(proposal),
+    actionId: proposal.toolCallId,
+    resourcePaths: paths,
+    ...(command === undefined ? {} : { command }),
+    ...(url === undefined ? {} : { url }),
+    payload: raw,
+  };
+}
+
+/**
+ * Maps the agent's tool `kind` onto the ledger's tool vocabulary.
+ *
+ * An unrecognized kind stays unrecognized: `describeCapability` denies anything
+ * it has not classified, and inventing a plausible name here would turn an
+ * unknown action into a known-looking one.
+ */
+function toolNameFor(proposal: ToolProposal): string {
+  const raw = proposal.rawInput;
+  switch (proposal.kind) {
+    case 'edit':
+      // OpenCode reports both edit and write as `edit`; a diff means an edit of
+      // existing content, its absence means the file is being created whole.
+      return typeof raw.diff === 'string' ? 'edit' : 'write';
+    case 'execute':
+      return 'bash';
+    case 'fetch':
+      return 'webfetch';
+    case 'read':
+      return 'read';
+    case 'search':
+      return 'grep';
+    default:
+      return proposal.kind;
+  }
+}
+
+/**
+ * Picks the ACP option that expresses Core's decision.
+ *
+ * `allow_always` is never selected, whatever the agent offers or however it is
+ * ordered. IntentSmith's approvals are single-use by construction, and choosing
+ * an option that outlives the action would hand the agent a standing permission
+ * Core never granted. If the agent offers no way to allow exactly once, the
+ * answer is a rejection rather than a broader yes.
+ */
+export function chooseOption(proposal: ToolProposal, allowed: boolean): string {
+  const byKind = (kind: string): string | undefined =>
+    proposal.options.find(option => option.kind === kind)?.optionId;
+  const reject = byKind('reject_once') ?? proposal.options.find(option => option.kind.startsWith('reject'))?.optionId;
+  if (!allowed) return reject ?? 'reject';
+  return byKind('allow_once') ?? reject ?? 'reject';
 }
 
 function sandboxArtifact(status: SandboxStatus): Record<string, unknown> {

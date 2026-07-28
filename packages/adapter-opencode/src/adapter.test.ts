@@ -4,9 +4,9 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { Task, TaskRun } from '@intentsmith/contracts';
-import type { InferenceGrant } from '@intentsmith/worker-sdk';
+import type { CapabilityRequest, InferenceGrant } from '@intentsmith/worker-sdk';
 
-import { OpenCodeWorker, type PermissionDecision, type ToolProposal } from './adapter.js';
+import { OpenCodeWorker, chooseOption, type PermissionDecision, type ToolProposal } from './adapter.js';
 import { createFakeAgent, type FakeAgentBehaviour } from './fixtures.js';
 
 /**
@@ -78,9 +78,10 @@ const fakeRun: TaskRun = {
 type RunOptions = {
   behaviour: FakeAgentBehaviour;
   workspace?: string;
-  onPermissionRequest?: (proposal: ToolProposal) => Promise<PermissionDecision>;
+  onPermissionRequest?: (request: CapabilityRequest, proposal: ToolProposal) => Promise<PermissionDecision>;
   withGrant?: boolean;
   runtimeRoots?: string[];
+  onWireMessage?: (direction: 'out' | 'in', message: unknown) => void;
 };
 
 async function runAgent(options: RunOptions) {
@@ -95,6 +96,7 @@ async function runAgent(options: RunOptions) {
     preferSandbox: false,
     limits: { startupMs: 3_000, idleMs: 3_000, overallMs: 8_000, terminationGraceMs: 200 },
     ...(options.onPermissionRequest ? { onPermissionRequest: options.onPermissionRequest } : {}),
+    ...(options.onWireMessage ? { onWireMessage: options.onWireMessage } : {}),
     ...(options.runtimeRoots
       ? {
           makeRuntimeRoot: () => {
@@ -273,10 +275,12 @@ describe('permission authority', () => {
 
   it('forwards a normalized proposal to Core and honours a denial', async () => {
     const seen: ToolProposal[] = [];
+    const requests: CapabilityRequest[] = [];
     const { handle } = await runAgent({
       behaviour: 'requests-permission',
-      onPermissionRequest: async proposal => {
+      onPermissionRequest: async (request, proposal) => {
         seen.push(proposal);
+        requests.push(request);
         // Core denies: the path is outside the disposable workspace.
         return { allowed: false, reason: 'path outside workspace' };
       },
@@ -288,6 +292,53 @@ describe('permission authority', () => {
     expect(seen[0]?.toolCallId).toBe('tool-1');
     expect(seen[0]?.paths).toEqual(['/etc/passwd']);
     expect(seen[0]?.options.map(option => option.optionId)).toEqual(['allow', 'reject']);
+  });
+
+  it('never selects a standing permission, whatever the agent offers first', async () => {
+    const outbound: unknown[] = [];
+    const requests: CapabilityRequest[] = [];
+    const { handle } = await runAgent({
+      behaviour: 'offers-allow-always',
+      onWireMessage: (direction, message) => {
+        if (direction === 'out') outbound.push(message);
+      },
+      onPermissionRequest: async request => {
+        requests.push(request);
+        return { allowed: true, reason: 'approved once' };
+      },
+    });
+    setTimeout(() => void handle.cancel(), 300);
+    await handle.done;
+
+    const response = outbound.find(
+      message => (message as { id?: number }).id === 9001,
+    ) as { result?: { outcome?: { optionId?: string } } } | undefined;
+
+    // `allow_always` is offered first and would win a naive "starts with allow"
+    // search. IntentSmith's approvals are single-use, so a standing permission
+    // is never something it can honestly select.
+    expect(response?.result?.outcome?.optionId).toBe('once');
+
+    // The request Core saw is vendor-neutral and built from structured fields.
+    expect(requests[0]).toMatchObject({
+      toolName: 'edit',
+      actionId: 'tool-1',
+      resourcePaths: ['src/app.ts'],
+      payload: { filepath: 'src/app.ts', diff: '@@ -1 +1 @@' },
+    });
+  });
+
+  it('rejects when the agent offers no way to allow exactly once', async () => {
+    const proposal: ToolProposal = {
+      toolCallId: 'tool-1',
+      title: 'x',
+      kind: 'edit',
+      paths: [],
+      rawInput: {},
+      options: [{ optionId: 'always', name: 'Always', kind: 'allow_always' }],
+    };
+    // A yes IntentSmith cannot express as "once" is answered with a no.
+    expect(chooseOption(proposal, true)).toBe('reject');
   });
 
   it('records an approval as security evidence', async () => {

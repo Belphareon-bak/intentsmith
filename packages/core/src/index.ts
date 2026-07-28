@@ -14,6 +14,12 @@ export {
 } from './lifecycle.js';
 export { KeyedMutex } from './mutex.js';
 export {
+  CapabilityMediator,
+  type ApprovalDecider,
+  type CapabilityMediatorOptions,
+  type MediationOutcome,
+} from './capability-mediator.js';
+export {
   ApprovalLedger,
   DEFAULT_APPROVAL_TTL_MS,
   type ApprovalLedgerOptions,

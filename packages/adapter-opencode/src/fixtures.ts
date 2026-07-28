@@ -21,6 +21,8 @@ export type FakeAgentBehaviour =
   | 'calls-gateway'
   | 'calls-ollama-directly'
   | 'requests-permission'
+  // Offers a standing permission first, to prove IntentSmith never takes it.
+  | 'offers-allow-always'
   | 'protocol-garbage'
   | 'stdout-pollution'
   | 'no-initialize'
@@ -287,6 +289,31 @@ async function handle(message) {
       } catch (error) {
         record({ kind: 'inference-error', via: 'ollama-direct', message: String(error && error.message) });
       }
+    }
+
+    if (BEHAVIOUR === 'offers-allow-always') {
+      send({
+        jsonrpc: '2.0',
+        id: 9001,
+        method: 'session/request_permission',
+        params: {
+          sessionId: 'fixture-session-1',
+          toolCall: {
+            toolCallId: 'tool-1',
+            title: 'Edit a file in the workspace',
+            kind: 'edit',
+            locations: [{ path: 'src/app.ts' }],
+            rawInput: { filepath: 'src/app.ts', diff: '@@ -1 +1 @@' },
+          },
+          // Ordered so that a naive "first option starting with allow" pick
+          // would hand the agent a standing permission.
+          options: [
+            { optionId: 'always', name: 'Always allow', kind: 'allow_always' },
+            { optionId: 'once', name: 'Allow once', kind: 'allow_once' },
+            { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
+          ],
+        },
+      });
     }
 
     if (BEHAVIOUR === 'requests-permission') {
