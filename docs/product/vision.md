@@ -44,7 +44,10 @@ The primary user is a developer or small team that:
 | --- | --- | --- |
 | IntentSmith Core | Lifecycle, policy, evidence, verdicts and audit | Stable foundation |
 | IntentSmith Workers | Contracted execution adapters | OpenCode integration in progress |
-| IntentSmith Skills | Reusable workflows and specialist behaviour | Planned |
+| IntentSmith Expertises | Composable domain-aware synthesis profiles | Planned from proven C3 semantics |
+| IntentSmith Skills | Controlled, versioned workflows with checkpoints | Planned from proven C3 semantics |
+| IntentSmith Specialists | Self-contained tool and knowledge plugins | Planned from proven C3 semantics |
+| IntentSmith Autonomous Agents | Scheduled deterministic monitoring and automation | Planned from proven C3 semantics |
 | IntentSmith Studio | Theia-based visual environment | Planned |
 | IntentSmith Forge Local | Packaged desktop distribution | Directional |
 | `intentsmith` CLI | Automation and headless operation | Stable foundation |
@@ -56,6 +59,8 @@ IntentSmith is not differentiated by inventing another model runner or code agen
 - hardware-aware local model selection;
 - a provider boundary with no vendor transport shapes in Core;
 - a worker boundary with capability discovery and shared contract tests;
+- distinct contracts for expertises, skills, specialists and autonomous agents
+  rather than one generic extension type;
 - short-lived, least-authority access from workers back to local inference;
 - persisted task/run separation, append-only audit and conservative restart recovery;
 - deterministic workspace gates that produce the final verdict;
@@ -71,6 +76,10 @@ IntentSmith is not currently:
 - a promise of operating-system-grade sandboxing on every platform;
 - an autonomous merge-to-production system;
 - a compatibility layer for every model and agent at once.
+
+IntentSmith also does not reduce every reusable AI feature to a “skill.” Domain
+behaviour, deterministic domain execution, repeatable workflows and scheduled
+autonomy have different authority and lifecycle requirements.
 
 ## Intended user journey
 

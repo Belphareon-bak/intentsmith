@@ -7,13 +7,19 @@
 | **IntentSmith** | The complete product and project | Repository, documentation and product identity |
 | **IntentSmith Core** | Local control plane and source of lifecycle truth | Core packages and local service |
 | **IntentSmith Workers** | External-agent adapter layer | OpenCode, OpenHands and future workers |
-| **IntentSmith Skills** | Versioned workflows and specialists | Skills catalog and runtime |
+| **IntentSmith Expertises** | Read-only domain synthesis profiles | Expertise registry and composer |
+| **IntentSmith Skills** | Versioned controlled workflows | Skills catalog and runner |
+| **IntentSmith Specialists** | Self-contained domain execution plugins | Tools, knowledge and scenarios |
+| **IntentSmith Autonomous Agents** | Scheduled deterministic monitoring and automation | Agent scheduler and runs |
 | **IntentSmith Studio** | Theia-based visual development environment | Desktop/web IDE surface |
 | **IntentSmith Forge Local** | Packaged local desktop distribution | Installer and end-user bundle |
 | `intentsmith` | Command-line executable | Shell and automation |
 | `intentsmith-core` | Reserved public package form | Packaging/registry use if published |
 
 IntentSmith is the whole product. “Forge” is not a replacement product name; it is used only in **IntentSmith Forge Local**, the future desktop distribution.
+
+“Worker” is reserved for an adapter executing one task run. It is not a synonym
+for an Autonomous Agent, Specialist, Skill or Expertise.
 
 ## Repository naming
 

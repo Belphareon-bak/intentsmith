@@ -118,7 +118,10 @@ Nothing on the Phase 3 branch is advertised as stable merely because it has test
 - persisted approval decisions;
 - retry orchestration;
 - MCP or Serena integration;
-- skills runtime;
+- expertise composition runtime;
+- skills workflow runtime;
+- specialist plugin runtime;
+- autonomous-agent scheduler;
 - Studio;
 - desktop packaging;
 - multi-process Core coordination;
@@ -136,3 +139,22 @@ Nothing on the Phase 3 branch is advertised as stable merely because it has test
 ## Evidence
 
 Phase-specific human-readable results live in `docs/testing/`, machine-readable verification artifacts in `artifacts/`, and audits in `docs/reports/`. Historical reports retain their original phase context.
+
+## C3 semantic inheritance
+
+No C3 source code is used by the stable IntentSmith runtime. The following
+proven concepts are, however, explicit migration inputs rather than discarded
+prototype ideas:
+
+- 15 built-in expertises, deterministic auto-selection, 5D compatibility and
+  composition of up to three profiles;
+- controlled Skills with persisted checkpoints and result contracts;
+- self-contained Specialists with manifest-driven lifecycle, deterministic
+  tools, knowledge, scenarios, memory and telemetry;
+- deterministic Autonomous Agents with scheduling, sources, conditions,
+  edge-triggering and crash-safe deduplication;
+- project lifecycle from specification and planning through milestone gates,
+  review, change management and recovery.
+
+Their current status is **documented for semantic extraction, not implemented in
+IntentSmith**. See [Domain intelligence and autonomy](product/domain-intelligence.md).

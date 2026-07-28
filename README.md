@@ -14,13 +14,31 @@ IntentSmith is the product and the control plane. It is not another chat wrapper
 | --- | --- |
 | Task state, policy, approvals, audit and verdicts | IntentSmith Core |
 | Local inference | Provider adapters, beginning with Ollama |
-| Coding work | IntentSmith Workers, beginning with OpenCode |
-| Repeatable specialist workflows | IntentSmith Skills |
+| Coding task execution | IntentSmith Workers, beginning with OpenCode |
+| Domain-aware response behaviour | IntentSmith Expertises |
+| Controlled repeatable workflows | IntentSmith Skills |
+| Tool-backed domain execution | IntentSmith Specialists |
+| Scheduled monitoring and automation | IntentSmith Autonomous Agents |
 | Visual development environment | IntentSmith Studio |
 | Desktop distribution | IntentSmith Forge Local |
 | Automation and scripting | `intentsmith` CLI |
 
 The control plane remains authoritative. Providers infer, workers propose and execute within an explicitly granted scope, and deterministic gates decide whether the evidence is sufficient.
+
+Expertises, Skills, Specialists and Autonomous Agents are separate product
+concepts. They are not aliases:
+
+- an **Expertise** changes synthesis style, depth, vocabulary and caution without
+  changing the selected intent;
+- a **Skill** is a versioned workflow with explicit steps, checkpoints and a
+  result contract;
+- a **Specialist** is a self-contained plugin combining deterministic tools,
+  knowledge, scenarios and one or more referenced expertises;
+- an **Autonomous Agent** monitors sources and evaluates deterministic triggers
+  over time, creating Core-governed actions or tasks;
+- a **Worker** executes one task run through an adapter such as OpenCode.
+
+See [Domain intelligence and autonomy](docs/product/domain-intelligence.md).
 
 ## Current state
 

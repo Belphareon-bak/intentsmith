@@ -7,6 +7,7 @@ This directory is the standalone source of truth for understanding IntentSmith. 
 | Question | Document |
 | --- | --- |
 | What problem does IntentSmith solve? | [Product vision](product/vision.md) |
+| How do Expertises, Skills, Specialists and Agents differ? | [Domain intelligence and autonomy](product/domain-intelligence.md) |
 | How do the pieces work together? | [Architecture overview](architecture/overview.md) |
 | What is stable today? | [Current status](STATUS.md) |
 | What is being built next? | [Roadmap](ROADMAP.md) |

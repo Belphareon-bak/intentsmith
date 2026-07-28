@@ -102,6 +102,42 @@ Exit gates:
 - context failure degrades clearly and cannot create a pass;
 - external tools remain replaceable adapters.
 
+## Cross-cutting track — C3 semantic inheritance
+
+Goal: retain the mature product model proven across C3's long development
+history without importing its monolithic implementation or weakening
+IntentSmith Core.
+
+This track begins before Phase 4 and supplies contracts to later phases:
+
+1. **Semantic ledger** — inventory definitions, invariants, tests, failure modes
+   and version history for Expertises, Skills, Specialists, Autonomous Agents
+   and project lifecycle.
+2. **Contract ADRs** — freeze boundaries and resolve naming/ownership
+   ambiguities before writing runtime code.
+3. **Expertise contracts** — read-only synthesis profiles, deterministic
+   selection, 5D compatibility, inheritance and max-three composition.
+4. **Skill contracts** — versioned workflow definitions, persisted execution
+   state, interactive checkpoints and validation outcomes.
+5. **Specialist contracts** — self-contained manifests, capability routing,
+   deterministic ToolAdapters, knowledge provenance, scenarios, memory,
+   telemetry, dependency ordering and rollback-ready updates.
+6. **Autonomous-agent contracts** — schedules, sources, deterministic
+   conditions, edge triggers, cooldowns, crash-safe deduplication and
+   Core-governed actions.
+7. **Lifecycle extraction** — preserve specification, planning, milestone
+   scope, deterministic gates, checkpoint modes, bounded repair, drift review,
+   change management and recovery as policies over `Task`/`TaskRun`.
+
+Exit gates:
+
+- no layer is collapsed into another for implementation convenience;
+- every migrated invariant has a contract or negative test;
+- C3 code is not copied wholesale;
+- Core remains the only authority for state, approvals and verdicts;
+- legacy behaviour is classified as preserve, redesign, replace with open
+  source, or retire, with recorded evidence.
+
 ## Phase 5 — multi-worker orchestration and hardening
 
 Goal: support more than one worker without creating implicit or unreviewable authority.
@@ -114,12 +150,14 @@ Goal: support more than one worker without creating implicit or unreviewable aut
 - resource budgets and backpressure;
 - multi-process design decision before Studio needs a second writer.
 
-## Phase 6 — Skills, evaluation and observability
+## Phase 6 — domain intelligence, evaluation and observability
 
 Goal: make successful workflows reusable and measurable.
 
-- versioned IntentSmith Skills;
-- specialist workflow composition;
+- versioned IntentSmith Expertises and deterministic composition;
+- controlled IntentSmith Skills with checkpoints;
+- self-contained IntentSmith Specialists;
+- governed IntentSmith Autonomous Agents;
 - local evaluation corpus and regression harness;
 - structured performance and quality evidence;
 - privacy-preserving local diagnostics;

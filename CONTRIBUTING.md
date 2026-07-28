@@ -7,10 +7,11 @@ IntentSmith welcomes focused fixes, tests, documentation and adapter work that p
 Read:
 
 1. [Product vision](docs/product/vision.md)
-2. [Architecture overview](docs/architecture/overview.md)
-3. [Current status](docs/STATUS.md)
-4. [Roadmap](docs/ROADMAP.md)
-5. the relevant [ADR](docs/adr/) and threat model
+2. [Domain intelligence and autonomy](docs/product/domain-intelligence.md)
+3. [Architecture overview](docs/architecture/overview.md)
+4. [Current status](docs/STATUS.md)
+5. [Roadmap](docs/ROADMAP.md)
+6. the relevant [ADR](docs/adr/) and threat model
 
 For implementation setup, see the [development guide](docs/development/getting-started.md).
 

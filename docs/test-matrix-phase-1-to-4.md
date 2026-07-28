@@ -53,3 +53,15 @@ The default suite must remain deterministic, offline and independent of workstat
 - threat-model and known-limit updates.
 
 Real suites may require local software or hardware and therefore do not replace offline coverage. They prove that the contracted integration works against an observed upstream version.
+
+## C3 semantic-inheritance contract gates
+
+These gates begin as design tests before the later runtimes are implemented:
+
+| Layer | Minimum preserved guarantee |
+| --- | --- |
+| Expertise | Composition is deterministic; intent and tools remain unchanged; incompatible 5D profiles block |
+| Skill | Checkpoints persist and resume exactly once; undeclared steps or security failures fail closed |
+| Specialist | Lifecycle is idempotent; disable preserves data; failed reversible update rolls back |
+| Autonomous Agent | Triggers are deterministic; deduplication is crash-safe; actions pass through Core policy |
+| Project lifecycle | Completed milestone evidence is immutable; deterministic gates precede a passing checkpoint |

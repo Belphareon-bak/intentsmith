@@ -26,6 +26,10 @@ flowchart TD
 | Hardware Director | Describe sanitized local capacity and choose compatible profiles | Task lifecycle |
 | Inference provider | Execute a bounded inference request | Task state or final verdict |
 | Worker adapter | Translate a contracted run to an external worker and emit validated events | Persistence, approvals or pass/fail authority |
+| Expertise engine | Compose read-only synthesis constraints and domain guidance | Intent selection, tool execution or lifecycle |
+| Skill runner | Execute a versioned workflow and pause at declared checkpoints | Undeclared side effects or bypassed approvals |
+| Specialist runtime | Register deterministic tools, knowledge and scenarios through capability contracts | Core state or another plugin's private state |
+| Autonomous-agent runtime | Evaluate schedules, sources, conditions and triggers | Direct side effects outside Core-governed actions |
 | Gateway | Expose the minimum run-scoped local capability with revocable credentials | General Core or filesystem access |
 | Gate runner | Execute deterministic checks and return evidence | Lifecycle transitions |
 | CLI / Studio | Present commands and state | Bypass Core |
@@ -123,3 +127,19 @@ New providers and workers are added as adapters:
 - add an ADR when the change alters a lasting boundary.
 
 This allows IntentSmith to reuse open-source components without delegating product authority to them.
+
+## Domain intelligence and autonomy
+
+The mature domain model is intentionally split into five layers:
+
+| Layer | Meaning in IntentSmith |
+| --- | --- |
+| Expertise | Read-only synthesis profile; affects how an answer is produced |
+| Skill | Declarative workflow skeleton with dynamic inputs and checkpoints |
+| Specialist | Self-contained execution plugin with tools, knowledge and scenarios |
+| Autonomous Agent | Durable scheduled monitor/automation that creates governed actions |
+| Worker | Adapter that executes one task run, such as OpenCode |
+
+All five consume Core capabilities; none becomes a second lifecycle authority.
+The detailed contracts and the C3 extraction strategy are defined in
+[Domain intelligence and autonomy](../product/domain-intelligence.md).
