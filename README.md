@@ -35,7 +35,7 @@ Phase 2 is the current stable baseline:
 - a capability-scoped, loopback-only worker gateway that is disabled by default;
 - deterministic fake providers and workers for fast offline tests.
 
-Phase 3 is under development on a separate branch. It adds the first external coding worker through ACP and OpenCode. Work in that phase is not part of the stable product until its contract, security, recovery and real-adapter gates pass and the phase is merged.
+Phase 3 is under development on a separate branch. It adds the first external coding worker through ACP and OpenCode. A real probe found that an unconfigured OpenCode instance selects a cloud-backed default model and fetches provider metadata even in `--pure` mode, so forced local configuration and network behaviour remain explicit phase blockers. Work in that phase is not part of the stable product until its contract, security, recovery and real-adapter gates pass and the phase is merged.
 
 See [project status](docs/STATUS.md) for exact evidence and [the roadmap](docs/ROADMAP.md) for sequencing.
 

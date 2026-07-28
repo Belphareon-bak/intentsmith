@@ -20,11 +20,14 @@ The default suite must remain deterministic, offline and independent of workstat
 | Worker descriptor is truthful | Shared worker suite | Real OpenCode capability probe | 3 |
 | Exactly one terminal outcome | Adversarial ACP fixtures | Real OpenCode run | 3 |
 | Protocol/session mismatches fail closed | ACP parsing and session tests | Real ACP initialization | 3 |
+| Initialize occurs before session creation | 12 wire-order and negative handshake tests | Real OpenCode handshake | 3 |
 | Child processes terminate on every path | Supervisor/process-group tests | Real executable timeout/cancel | 3 |
 | Credentials are contained at ingress | Adversarial echo/redaction tests | Real gateway worker run | 3 |
 | Proposed changes match a git diff | Temporary-repository tests | Real OpenCode change set | 3 |
 | Approvals persist and expire | Core/persistence contract tests | Restarted approval flow | 3 |
 | Degraded sandbox cannot target a real project | Policy tests with disposable fixtures | Platform-specific isolation probe | 3 |
+| OpenCode cannot select a cloud-backed model | Forced-config and provider-selection tests | Real gateway-backed prompt | 3 |
+| Provider-catalog network behaviour is known | Isolated cache/config fixtures | Real clean-home network probe | 3 |
 | MCP tools cannot own lifecycle | Boundary and adversarial server tests | Real MCP server suite | 4 |
 | Tool calls are run-attributed and cancellable | MCP contract tests | Serena integration run | 4 |
 | Context failure cannot create a pass | Verdict and fallback tests | Serena unavailable/degraded run | 4 |

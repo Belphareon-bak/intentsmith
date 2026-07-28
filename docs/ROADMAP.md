@@ -61,7 +61,8 @@ Planned deliverables:
 - shared worker SDK and unchanged behavioural contract suite;
 - supervised, no-shell external processes;
 - official ACP SDK with explicit initialization and hard protocol-version negotiation;
-- real `opencode-ai` capability/configuration probe;
+- real `opencode-ai` capability/configuration and network-behaviour probe;
+- generated forced-local configuration that selects only the IntentSmith gateway provider/model;
 - truthful capability and sandbox reporting;
 - run-scoped gateway tokens, redaction and revocation;
 - persisted approval requests, decisions and expiry;
@@ -77,6 +78,8 @@ Exit gates:
 - no adapter writes Core state or persistence;
 - no token survives a terminal path;
 - unsupported capability is rejected, never simulated;
+- an unconfigured cloud model can never be selected for an IntentSmith run;
+- unavoidable provider-catalog traffic is either disabled or explicitly disclosed and policy-gated;
 - degraded isolation is clearly blocked or explicitly limited to disposable fixtures;
 - a real worker produces an inspectable change set and deterministic verdict;
 - default verification stays offline and deterministic.

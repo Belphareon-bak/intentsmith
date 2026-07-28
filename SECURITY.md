@@ -53,6 +53,18 @@ Process-group termination, environment allowlisting and workspace policy reduce 
 
 Worker text, protocol messages, filenames and proposed content are untrusted. Credentials are redacted where untrusted text enters IntentSmith, and run credentials must be revoked on success, failure, cancellation, timeout, spawn failure and shutdown.
 
+### Observed OpenCode cloud default
+
+A clean probe of `opencode-ai@1.18.8` found that `opencode acp --pure` with an isolated home and no configuration:
+
+- returned `opencode/big-pickle`, an OpenCode Zen cloud model, as the default model for `session/new`;
+- fetched an approximately 3.2 MB provider/model catalog into the isolated cache;
+- bound its ACP HTTP service to loopback with mDNS disabled.
+
+The catalog request was classified as metadata resolution rather than inference traffic, and no prompt was sent during that observation. Nevertheless, `--pure` is not an offline guarantee and the unconfigured worker path is unsafe for IntentSmith's local-first promise.
+
+Phase 3 must prove that generated configuration forces the IntentSmith gateway and selected local model. It must also determine whether the catalog fetch can be disabled. Until then, documentation may say that direct/cloud inference was not observed and not configured in controlled fixtures; it must not say that such inference is impossible.
+
 ## Sensitive data
 
 Do not commit or attach:

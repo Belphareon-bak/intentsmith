@@ -61,7 +61,7 @@ This is the behaviour described as **stable** in the current documentation.
 
 ## Phase 3 development checkpoint
 
-Phase 3 is being developed on `phase-3-opencode-worker`. The last published checkpoint is `bbda53f90726af58ee2b4a4c5b2aa087f3215cd9`, with 558 passing tests and the Phase 2 coverage thresholds unchanged.
+Phase 3 is being developed on `phase-3-opencode-worker`. The latest published implementation and ADR checkpoints are `f9dabf5` and `0898d18`, with 557 passing tests and the Phase 2 coverage thresholds unchanged.
 
 The checkpoint includes work on:
 
@@ -70,15 +70,29 @@ The checkpoint includes work on:
 - allowlisted environment construction;
 - honest sandbox capability reporting;
 - ACP validation, session identity and terminal-event rules;
+- the official ACP SDK using `connectWith`, a public typed `initialize` request, hard protocol-version negotiation and then `session/new`;
+- a strict per-instance NDJSON stream that rejects malformed, oversized and non-object input before it reaches the SDK;
+- 12 wire-level handshake tests proving initialization order, cancellation and connection isolation;
 - the unchanged worker contract suite running against FakeWorker and OpenCodeWorker;
 - deterministic gates and workspace policy;
 - per-run gateway token containment, ingress redaction and revocation;
 - a real child-process/loopback-gateway/local-model integration proof.
 
+The real `opencode-ai@1.18.8` probe has additionally verified:
+
+- ACP protocol version 1 and OpenCode agent version 1.18.8;
+- advertised session, MCP and embedded-context/image capabilities;
+- no advertised terminal capability;
+- a loopback HTTP listener in ACP mode, with mDNS off by default;
+- an unsafe default: with `--pure`, isolated home/config and no user configuration, `session/new` selected the cloud-backed `opencode/big-pickle` model and fetched an approximately 3.2 MB provider catalog into the isolated cache.
+
+The observed fetch was provider/model metadata resolution, not observed inference traffic. It is still a blocking product risk because it disproves any claim that an unconfigured OpenCode process is offline.
+
 These items remain work in progress until the phase closes:
 
-- migrate the ACP lifecycle to the official SDK while retaining an explicit public `initialize` request and hard version negotiation;
-- probe the real `opencode-ai` executable and record the observed protocol/configuration surface;
+- prove that generated `opencode.json` configuration forces `intentsmith-local/<model>` through the run-scoped gateway;
+- determine whether provider-catalog fetching can be disabled; otherwise document and policy-gate the residual network behaviour;
+- finish the real probe for prompt outcome, `stopReason`, session updates, permissions, cancellation and gateway-token environment expansion;
 - gate degraded-sandbox execution so it cannot be mistaken for safe real-project isolation;
 - persist approvals, expiry and recovery semantics in Core;
 - capture git-backed diffs into a `ProposedChangeSet`;
@@ -87,7 +101,7 @@ These items remain work in progress until the phase closes:
 - add an opt-in real-OpenCode suite;
 - complete Phase 3 evidence, documentation, pull request and merge.
 
-Nothing on the Phase 3 branch is advertised as stable merely because it has tests.
+Nothing on the Phase 3 branch is advertised as stable merely because it has tests or because the ACP handshake succeeds.
 
 ## Completed phases
 

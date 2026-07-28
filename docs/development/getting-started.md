@@ -121,6 +121,8 @@ Executable boundary checks supplement this guide; see [dependency boundaries](..
 5. Request local inference only through a run-scoped gateway capability.
 6. Persist approvals and change evidence through Core APIs.
 7. Add adversarial fixtures and a separate real-executable suite.
+8. Probe the executable in an isolated home and record every observed network/cache side effect.
+9. Prove that generated configuration selects the IntentSmith gateway provider and local model; never rely on `--pure` as an offline guarantee.
 
 ## Dependencies
 

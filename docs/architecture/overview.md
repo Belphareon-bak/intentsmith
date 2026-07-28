@@ -74,13 +74,13 @@ Ollama is the first adapter. The provider port deliberately does not expose Olla
 1. Core creates a run and obtains a truthful worker descriptor.
 2. Policy grants only capabilities supported by that descriptor.
 3. A process supervisor starts the worker without a shell and with an allowlisted environment.
-4. The ACP client negotiates protocol compatibility and starts a session.
+4. The ACP client uses the official SDK to send an explicit `initialize`, enforces protocol version 1, and only then starts a session.
 5. The worker can reach local inference only through a loopback gateway token scoped to that run.
 6. Worker messages are runtime-validated and untrusted text is redacted at ingress.
 7. Proposed workspace changes are captured, checked and persisted as evidence.
 8. Cancellation, timeout, failure and shutdown revoke the token and terminate owned processes.
 
-This flow is Phase 3 work in progress. The exact completed and pending guarantees are tracked in [STATUS.md](../STATUS.md).
+This flow is Phase 3 work in progress. A real OpenCode probe has shown that `--pure` does not mean offline: without forced configuration, OpenCode selects a cloud-backed default model and downloads provider metadata. The adapter must therefore generate and verify an IntentSmith-only local provider/model configuration before this flow can be considered safe. The exact completed and pending guarantees are tracked in [STATUS.md](../STATUS.md).
 
 ## Verdicts
 
