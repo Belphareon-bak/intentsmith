@@ -9,7 +9,7 @@ import {
   buildIsolatedEnv,
   isForbiddenEnvKey,
 } from './isolated-env.js';
-import { bubblewrapPlan, degradedPlan, planSandbox } from './sandbox.js';
+import { bubblewrapPlan, planSandbox } from './sandbox.js';
 import { SupervisedProcess } from './supervisor.js';
 
 /**
