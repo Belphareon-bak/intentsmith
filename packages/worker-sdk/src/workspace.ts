@@ -19,7 +19,25 @@ export type ChangedPath = {
   binary?: boolean;
 };
 
+export type ApprovalEvidenceReference = {
+  approvalId: string;
+  actionId: string;
+  payloadHash: string;
+  resourcePaths: string[];
+  /** Only a consumed single-use approval can corroborate a completed write. */
+  state: 'consumed' | 'approved' | 'pending' | 'denied' | 'expired' | 'revoked';
+};
+
+export type GateEvidenceReference = {
+  id: string;
+  status: 'pass' | 'fail' | 'blocked';
+  /** Stable link retained in the final audit event. */
+  evidenceUri: string;
+};
+
 export type ProposedChangeSet = {
+  /** Workers never supply this value; Git capture is the only producer. */
+  authoritativeSource: 'git';
   baseCommit: string;
   workspaceRoot: string;
   changedPaths: ChangedPath[];
@@ -27,6 +45,14 @@ export type ProposedChangeSet = {
   deletions: number;
   /** Reference to the stored diff artifact. */
   diffArtifact?: { id: string; sha256: string; bytes: number };
+  /** Digest of the Git-derived diff evidence, repeated for direct comparison. */
+  diffDigest?: string;
+  /** Untrusted digest the worker claimed, retained only to detect disagreement. */
+  workerProposedDiffDigest?: string;
+  approvalReferences: ApprovalEvidenceReference[];
+  gateEvidence: GateEvidenceReference[];
+  requiredGateIds: string[];
+  changeRequired: boolean;
   policyFindings: string[];
   workerClaim?: { status: 'success' | 'failure'; summary: string };
   unresolvedRisks: string[];

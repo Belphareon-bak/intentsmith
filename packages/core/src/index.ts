@@ -29,7 +29,13 @@ export {
 } from './approvals.js';
 export { canonicalizeCapabilityEnvelope, canonicalizeExistingPath, assertPathInsideRoots } from './path-policy.js';
 export { decideVerdict, type VerdictInput } from './verdict.js';
-export { INTERRUPTIBLE_RUN_STATUSES, IntentSmithCore, type IntentSmithCoreOptions } from './core.js';
+export {
+  INTERRUPTIBLE_RUN_STATUSES,
+  IntentSmithCore,
+  type ChangeEvidenceCollector,
+  type CollectedChangeEvidence,
+  type IntentSmithCoreOptions,
+} from './core.js';
 export { CryptoIdGenerator, SystemClock, SystemTimer } from './runtime-adapters.js';
 export type {
   ApprovalRepository,

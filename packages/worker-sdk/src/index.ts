@@ -100,8 +100,10 @@ export {
   findGeneratedSecrets,
   isEscapingSymlink,
   sha256,
+  type ApprovalEvidenceReference,
   type ChangedPath,
   type DiffPolicy,
+  type GateEvidenceReference,
   type ProposedChangeSet,
 } from './workspace.js';
 export {

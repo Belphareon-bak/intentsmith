@@ -6,6 +6,7 @@ import {
   assertInsideWorkspace,
   evaluateDiffPolicy,
   sha256,
+  type ApprovalEvidenceReference,
   type ChangedPath,
   type DiffPolicy,
   type ProposedChangeSet,
@@ -29,19 +30,22 @@ import { execFileGateRunner } from './gate-runner.js';
 export type CaptureOptions = {
   workspaceRoot: string;
   policy?: DiffPolicy;
-  /** Approval ids that authorized the writes, for the audit trail. */
-  approvalIds?: string[];
+  /** Consumed approvals that authorized the writes, for the audit trail. */
+  approvals?: readonly ApprovalEvidenceReference[];
   /** Results of the deterministic gates Core ran. */
   gates?: readonly GateResult[];
+  /** Gate ids the Phase 3 contract requires for this change. */
+  requiredGateIds?: readonly string[];
+  /** True for an edit task, where an empty workspace cannot satisfy success. */
+  requireChanges?: boolean;
+  /** Untrusted worker claim, compared with but never substituted for Git. */
+  workerProposedDiffDigest?: string;
   runner?: GateCommandRunner;
   timeoutMs?: number;
   maxDiffBytes?: number;
 };
 
 export type CapturedChangeSet = ProposedChangeSet & {
-  /** Approvals that authorized these writes. */
-  approvalIds: string[];
-  gateEvidence: Array<{ id: string; status: GateResult['status'] }>;
   /** Set when the capture itself could not run; never silently empty. */
   unavailableReason?: string;
 };
@@ -119,10 +123,17 @@ export async function captureProposedChanges(options: CaptureOptions): Promise<C
   const runner = options.runner ?? execFileGateRunner;
   const timeoutMs = options.timeoutMs ?? 30_000;
   const maxDiffBytes = options.maxDiffBytes ?? 512 * 1024;
-  const approvalIds = options.approvalIds ?? [];
-  const gateEvidence = (options.gates ?? []).map(gate => ({ id: gate.id, status: gate.status }));
+  const approvalReferences = [...(options.approvals ?? [])];
+  const requiredGateIds = [...(options.requiredGateIds ?? [])];
+  const changeRequired = options.requireChanges ?? false;
+  const gateEvidence = (options.gates ?? []).map(gate => ({
+    id: gate.id,
+    status: gate.status,
+    evidenceUri: `intentsmith://gate/${encodeURIComponent(gate.id)}`,
+  }));
 
   const empty = (unavailableReason: string): CapturedChangeSet => ({
+    authoritativeSource: 'git',
     baseCommit: 'unknown',
     workspaceRoot: options.workspaceRoot,
     changedPaths: [],
@@ -130,8 +141,13 @@ export async function captureProposedChanges(options: CaptureOptions): Promise<C
     deletions: 0,
     policyFindings: [],
     unresolvedRisks: [unavailableReason],
-    approvalIds,
+    approvalReferences,
     gateEvidence,
+    requiredGateIds,
+    changeRequired,
+    ...(options.workerProposedDiffDigest === undefined
+      ? {}
+      : { workerProposedDiffDigest: options.workerProposedDiffDigest }),
     unavailableReason,
   });
 
@@ -209,32 +225,83 @@ export async function captureProposedChanges(options: CaptureOptions): Promise<C
   policyFindings.push(...evaluateDiffPolicy({ changedPaths }, options.policy ?? DEFAULT_DIFF_POLICY));
 
   const unresolvedRisks: string[] = [];
-  if (approvalIds.length === 0 && changedPaths.length > 0) {
+  if (approvalReferences.length === 0 && changedPaths.length > 0) {
     // Writes happen only after an approval, so files changed with no approval
     // recorded means the two records disagree. That is worth surfacing rather
     // than resolving in favour of whichever one is more convenient.
     unresolvedRisks.push('The workspace changed but no approval was recorded for the writes.');
   }
 
+  for (const approval of approvalReferences) {
+    if (approval.state !== 'consumed') {
+      unresolvedRisks.push(`Approval "${approval.approvalId}" is ${approval.state}, not consumed.`);
+    }
+  }
+  for (const changed of changedPaths) {
+    const absolute = path.resolve(options.workspaceRoot, changed.path);
+    const covered = approvalReferences.some(
+      approval =>
+        approval.state === 'consumed' &&
+        approval.resourcePaths.some(resource => path.resolve(resource) === absolute),
+    );
+    if (!covered) unresolvedRisks.push(`Changed path "${changed.path}" has no consumed approval reference.`);
+  }
+
+  for (const required of requiredGateIds) {
+    if (!gateEvidence.some(gate => gate.id === required)) {
+      unresolvedRisks.push(`Required gate "${required}" has no evidence.`);
+    }
+  }
+  if ((changeRequired || changedPaths.length > 0) && gateEvidence.length === 0) {
+    unresolvedRisks.push('The proposed change has no required gate evidence.');
+  }
+  if (changeRequired && changedPaths.length === 0) {
+    unresolvedRisks.push('The task required an actual workspace change, but Git found none.');
+  }
+
+  // Git's normal patch omits untracked files. Their paths and content digests
+  // are appended to the authoritative evidence rather than trusting a worker
+  // to provide their contents or a precomputed diff.
+  const untrackedEvidence = changedPaths
+    .filter(entry => entry.status === 'untracked')
+    .map(entry => ({ path: entry.path, sha256: entry.sha256, bytes: entry.bytes }));
+  const authoritativeDiff = `${patch.code === 0 ? patch.stdout : ''}${
+    untrackedEvidence.length > 0 ? `\n${JSON.stringify({ untracked: untrackedEvidence })}\n` : ''
+  }`;
+  const diffDigest = authoritativeDiff.length > 0 ? sha256(authoritativeDiff) : undefined;
+  if (
+    options.workerProposedDiffDigest !== undefined &&
+    (diffDigest === undefined || options.workerProposedDiffDigest !== diffDigest)
+  ) {
+    unresolvedRisks.push('The worker-proposed diff digest does not match the Git-derived diff digest.');
+  }
+
   return {
+    authoritativeSource: 'git',
     baseCommit,
     workspaceRoot: options.workspaceRoot,
     changedPaths,
     additions,
     deletions,
-    ...(patch.code === 0 && patch.stdout.length > 0
-      ? {
+    ...(diffDigest === undefined
+      ? {}
+      : {
+          diffDigest,
           diffArtifact: {
             id: `diff-${baseCommit.slice(0, 12)}`,
-            sha256: sha256(patch.stdout),
-            bytes: Buffer.byteLength(patch.stdout, 'utf8'),
+            sha256: diffDigest,
+            bytes: Buffer.byteLength(authoritativeDiff, 'utf8'),
           },
-        }
-      : {}),
+        }),
     policyFindings,
     unresolvedRisks,
-    approvalIds,
+    approvalReferences,
     gateEvidence,
+    requiredGateIds,
+    changeRequired,
+    ...(options.workerProposedDiffDigest === undefined
+      ? {}
+      : { workerProposedDiffDigest: options.workerProposedDiffDigest }),
   };
 }
 
@@ -249,6 +316,8 @@ export function isAcceptable(changeSet: CapturedChangeSet): boolean {
   return (
     changeSet.unavailableReason === undefined &&
     changeSet.policyFindings.length === 0 &&
+    changeSet.unresolvedRisks.length === 0 &&
+    (!changeSet.changeRequired || (changeSet.changedPaths.length > 0 && changeSet.diffDigest !== undefined)) &&
     changeSet.gateEvidence.every(gate => gate.status === 'pass')
   );
 }

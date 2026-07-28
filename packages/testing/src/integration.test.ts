@@ -70,6 +70,9 @@ describe('deterministic vertical slice', () => {
     // Timeouts are driven by the injected timer, never by wall-clock time.
     context.timer.advance(10);
     expect((await context.core.waitForTask(context.taskId)).status).toBe('failed');
+    const [run] = await context.core.listTaskRuns(context.taskId);
+    expect(run).toBeDefined();
+    expect(context.worker.handle(run?.id ?? '')?.isCancelled).toBe(true);
     const result = await context.core.getTaskResult(context.taskId);
     expect(result?.coreVerdict).toBe('fail');
     expect(result?.unresolvedRisks).toContain('Worker timed out before producing a valid result.');
@@ -183,6 +186,7 @@ async function createContext(
   core: IntentSmithCore;
   taskId: string;
   timer: FakeTimer;
+  worker: FakeWorker;
   approvals: ApprovalLedger;
   workspaceRoot: string;
 }> {
@@ -202,6 +206,7 @@ async function createContext(
     core: runtime.core,
     taskId: task.id,
     timer: runtime.timer,
+    worker: runtime.worker,
     approvals: runtime.approvals,
     workspaceRoot: workspace.path,
   };

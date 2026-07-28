@@ -16,6 +16,8 @@ export type VerdictInput = {
   workerProtocolViolation?: boolean;
   timedOut?: boolean;
   cancelled?: boolean;
+  /** Phase 3 edit runs cannot pass without Git-backed change evidence. */
+  requiresChangeSet?: boolean;
   /**
    * What the workspace actually shows, when change capture ran.
    *
@@ -30,6 +32,7 @@ export type VerdictInput = {
     findings: readonly string[];
     unavailableReason?: string;
   };
+  approvals?: TaskResult['approvals'];
 };
 
 export function decideVerdict(input: VerdictInput): TaskResult {
@@ -53,6 +56,9 @@ export function decideVerdict(input: VerdictInput): TaskResult {
     unresolvedRisks.push('Worker timed out before producing a valid result.');
     coreVerdict = 'fail';
   } else if (input.workerError || input.workerClaim?.status === 'failure') {
+    coreVerdict = 'fail';
+  } else if (input.workerClaim?.status === 'success' && input.requiresChangeSet && !input.changeCapture) {
+    unresolvedRisks.push('Worker claimed success but no Git-backed proposed change set was collected.');
     coreVerdict = 'fail';
   } else if (
     input.workerClaim?.status === 'success' &&
@@ -94,7 +100,7 @@ export function decideVerdict(input: VerdictInput): TaskResult {
     deterministicEvidence,
     securityEvidence,
     governanceFindings: [],
-    approvals: [],
+    approvals: input.approvals ?? [],
     unresolvedRisks,
     coreVerdict,
     createdAt: input.now,

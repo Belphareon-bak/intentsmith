@@ -105,6 +105,19 @@ describe('core verdict', () => {
     expect(result.unresolvedRisks[0]).toMatch(/could not read the workspace repository/);
   });
 
+  it('fails a Phase 3 edit success when no required change set was collected', () => {
+    const result = decideVerdict({
+      ...base,
+      workerClaim: { status: 'success', summary: 'done' },
+      deterministicEvidence: [evidence],
+      requiresChangeSet: true,
+    });
+    expect(result.coreVerdict).toBe('fail');
+    expect(result.unresolvedRisks).toContain(
+      'Worker claimed success but no Git-backed proposed change set was collected.',
+    );
+  });
+
   it('returns cancelled when core cancels the run', () => {
     expect(decideVerdict({ ...base, deterministicEvidence: [], cancelled: true }).coreVerdict).toBe('cancelled');
   });
