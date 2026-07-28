@@ -172,7 +172,23 @@ export class SupervisedProcess {
       this.armIdle();
     });
 
+    // A process can disappear between the write-side state check and the
+    // kernel accepting bytes. Without an error listener Node promotes EPIPE to
+    // an uncaught exception, which lets a killed worker crash the supervisor.
+    this.child.stdin.on('error', (error: NodeJS.ErrnoException) => {
+      if (this.settled || error.code === 'EPIPE' || error.code === 'ERR_STREAM_DESTROYED') return;
+      this.fail(new ProcessError('crashed', 'Worker stdin failed while the process was running.'));
+    });
+
     this.child.on('exit', (code, signal) => {
+      if (!this.failure && (signal !== null || (code !== null && code !== 0))) {
+        this.failure = new ProcessError(
+          'crashed',
+          `Worker exited unexpectedly${signal ? ` on ${signal}` : ` with code ${String(code)}`}.`,
+          code,
+          signal,
+        );
+      }
       this.settle({ code, signal, ...(this.failure ? { reason: this.failure.reason } : {}) });
     });
 

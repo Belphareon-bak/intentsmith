@@ -30,9 +30,9 @@ export default defineConfig({
   },
   test: {
     include: ['**/*.test.ts'],
-    // The real-Ollama suite is opt-in only and must never run in `pnpm verify`
-    // or normal CI; `pnpm test:ollama` targets it explicitly.
-    exclude: ['**/dist/**', '**/node_modules/**', 'tools/ollama/**'],
+    // Real-provider suites are opt-in only and must never run in `pnpm verify`
+    // or normal CI; their dedicated configs target them explicitly.
+    exclude: ['**/dist/**', '**/node_modules/**', 'tools/ollama/**', 'tools/opencode/**'],
     pool: 'threads',
     testTimeout: 5000,
     hookTimeout: 5000,

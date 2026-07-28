@@ -14,7 +14,8 @@
     "test": "vitest run",
     "verify": "pnpm install --frozen-lockfile && pnpm typecheck && pnpm lint && pnpm test:coverage && pnpm build",
     "test:coverage": "vitest run --coverage",
-    "test:ollama": "vitest run --config vitest.ollama.config.ts"
+    "test:ollama": "vitest run --config vitest.ollama.config.ts",
+    "test:opencode": "vitest run --config vitest.opencode.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

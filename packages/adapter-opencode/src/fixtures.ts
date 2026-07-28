@@ -23,6 +23,10 @@ export type FakeAgentBehaviour =
   | 'requests-permission'
   // Offers a standing permission first, to prove IntentSmith never takes it.
   | 'offers-allow-always'
+  // Asks permission, then writes only if the answer allows it, and never
+  // answers the prompt until it hears back. Used to prove that a cancel or a
+  // timeout with a permission outstanding produces no side effect.
+  | 'waits-for-permission'
   | 'protocol-garbage'
   | 'stdout-pollution'
   | 'no-initialize'
@@ -51,6 +55,8 @@ export type FakeAgentOptions = {
   /** Relative path the `edits-file` behaviour writes inside the workspace. */
   editPath?: string;
   editContent?: string;
+  /** Disable the workspace activity log when Git evidence itself is under test. */
+  recordActivity?: boolean;
 };
 
 /**
@@ -72,6 +78,7 @@ const BEHAVIOUR = ${JSON.stringify(options.behaviour)};
 const PROTOCOL_VERSION = ${protocolVersion};
 const EDIT_PATH = ${JSON.stringify(editPath)};
 const EDIT_CONTENT = ${JSON.stringify(editContent)};
+const RECORD_ACTIVITY = ${options.recordActivity !== false};
 
 function send(message) {
   process.stdout.write(JSON.stringify(message) + '\\n');
@@ -87,6 +94,7 @@ function send(message) {
  */
 const LOG_FILE = '.intentsmith-agent-activity.json';
 function record(entry) {
+  if (!RECORD_ACTIVITY) return;
   const target = path.join(process.cwd(), LOG_FILE);
   let log = [];
   try { log = JSON.parse(fs.readFileSync(target, 'utf8')); } catch { log = []; }
@@ -106,8 +114,29 @@ async function callInference(baseUrl, token, modelId) {
 
 let cancelled = false;
 
+// Outgoing agent-initiated requests, awaiting the client's response.
+const pending = new Map();
+let nextRequestId = 9000;
+
+/** Sends a request to the client and resolves when its response arrives. */
+function request({ method, params }) {
+  const requestId = (nextRequestId += 1);
+  return new Promise(resolve => {
+    pending.set(requestId, resolve);
+    send({ jsonrpc: '2.0', id: requestId, method, params });
+  });
+}
+
 async function handle(message) {
   const { id, method, params } = message;
+
+  // A response to something this agent asked for.
+  if (method === undefined && pending.has(id)) {
+    const resolve = pending.get(id);
+    pending.delete(id);
+    resolve(message.result ?? null);
+    return;
+  }
 
   if (method === 'initialize') {
     if (BEHAVIOUR === 'no-initialize' || BEHAVIOUR === 'stalls-initialize') return;
@@ -291,6 +320,39 @@ async function handle(message) {
       }
     }
 
+    if (BEHAVIOUR === 'waits-for-permission') {
+      const target = path.join(process.cwd(), EDIT_PATH);
+      record({ kind: 'permission-requested', path: EDIT_PATH });
+      // Deliberately never resolves the prompt on its own: the turn stays open
+      // until IntentSmith cancels, times out, or answers.
+      const answer = await request({
+        method: 'session/request_permission',
+        params: {
+          sessionId: 'fixture-session-1',
+          toolCall: {
+            toolCallId: 'tool-1',
+            title: 'Edit a file in the workspace',
+            kind: 'edit',
+            locations: [{ path: EDIT_PATH }],
+            rawInput: { filepath: EDIT_PATH, diff: '@@ -0 +1 @@' },
+          },
+          options: [
+            { optionId: 'once', name: 'Allow once', kind: 'allow_once' },
+            { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
+          ],
+        },
+      });
+      const optionId = answer && answer.outcome && answer.outcome.optionId;
+      record({ kind: 'permission-answered', optionId: optionId || null });
+      if (optionId === 'once') {
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(target, EDIT_CONTENT);
+        record({ kind: 'edit', path: EDIT_PATH });
+      }
+      send({ jsonrpc: '2.0', id, result: { stopReason: 'end_turn' } });
+      return;
+    }
+
     if (BEHAVIOUR === 'offers-allow-always') {
       send({
         jsonrpc: '2.0',
@@ -375,11 +437,11 @@ process.stdin.on('data', chunk => {
   }
 });
 
-// Stay alive until stdin closes or we are terminated.
+// Stay alive until stdin closes or IntentSmith terminates the process. Merely
+// resuming a pipe is not a portable keepalive: Node may leave the event loop
+// before the first ACP request arrives on a fast host.
+setInterval(() => {}, 1000);
 process.stdin.resume();
-if (BEHAVIOUR === 'hangs' || BEHAVIOUR === 'ignores-cancel') {
-  setInterval(() => {}, 1000);
-}
 `;
 }
 

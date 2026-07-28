@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -104,6 +104,14 @@ export type OpenCodeAdapterOptions = {
     proposal: ToolProposal,
   ) => Promise<PermissionDecision>;
   schedule?: (fn: () => void, ms: number) => () => void;
+  /**
+   * Reports the supervised process-group leader after spawn.
+   *
+   * Lifecycle evidence uses this to prove the real binary and every member of
+   * its process group are gone after cancel, timeout or worker failure. The
+   * callback receives only a pid; no credential or command line is exposed.
+   */
+  onProcessStart?: (pid: number) => void;
   /** Injected for tests; defaults to a real temp directory. */
   makeRuntimeRoot?: () => string;
 };
@@ -203,6 +211,14 @@ class OpenCodeSession {
   private turnEnded = false;
   /** Scrubs the per-run token out of anything the agent produced. */
   private redactor: Redactor = createRedactor();
+  /**
+   * Ends every adapter-owned asynchronous request when the run ends.
+   *
+   * A human approval decider is allowed to wait indefinitely. The adapter is
+   * not: cancel, timeout and process failure must settle the ACP request even
+   * when nobody answered the question.
+   */
+  private readonly lifecycleAbort = new AbortController();
 
   constructor(
     private readonly options: OpenCodeAdapterOptions,
@@ -227,7 +243,13 @@ class OpenCodeSession {
     // The worker gets an inference route only through the gateway.
     const runtime = grant
       ? createOpenCodeRuntime({ runtimeRoot, grant })
-      : { runtimeRoot, configPath: '', configSha256: '', providedEnv: {}, cleanup: () => undefined };
+      : {
+          runtimeRoot,
+          configPath: '',
+          configSha256: '',
+          providedEnv: {},
+          cleanup: () => rmSync(runtimeRoot, { recursive: true, force: true }),
+        };
     this.runtimeCleanup = runtime.cleanup;
 
     const provided: Record<string, string> = { ...runtime.providedEnv };
@@ -282,6 +304,7 @@ class OpenCodeSession {
       ...(this.options.schedule ? { schedule: this.options.schedule } : {}),
     });
     this.process = child;
+    if (child.pid !== undefined) this.options.onProcessStart?.(child.pid);
 
     try {
       await this.speakAcp(child);
@@ -651,9 +674,10 @@ class OpenCodeSession {
     // The agent controls every string in here and may have echoed its token.
     const proposal = normalizeProposal(this.redactor.value(params));
     const request = toCapabilityRequest(proposal);
-    const decision = this.options.onPermissionRequest
-      ? await this.options.onPermissionRequest(request, proposal)
-      : { allowed: false, reason: 'No approval authority is installed; denying by default.' };
+    const decisionPromise = this.options.onPermissionRequest
+      ? this.options.onPermissionRequest(request, proposal)
+      : Promise.resolve({ allowed: false, reason: 'No approval authority is installed; denying by default.' });
+    const decision = await this.raceLifecycle(decisionPromise);
 
     this.events.push({
       type: 'evidence',
@@ -674,6 +698,7 @@ class OpenCodeSession {
   async cancel(): Promise<void> {
     if (this.cancelled) return;
     this.cancelled = true;
+    this.lifecycleAbort.abort();
     // Cooperative first, forceful second. The SDK's session dispose issues
     // `session/cancel { sessionId }` for the session this run owns.
     try {
@@ -693,6 +718,9 @@ class OpenCodeSession {
    * cancellation statistic meaningless.
    */
   private async shutdown(reason: 'cancelled' | 'completed' = 'completed'): Promise<void> {
+    // Settle a permission handler before waiting for the process to exit. A
+    // pending human decision must never keep shutdown alive.
+    this.lifecycleAbort.abort();
     // Terminate before closing the client. The process flushes stdout as it
     // exits, and those trailing lines are exactly where an agent's
     // after-the-turn protocol violations show up; closing the reader first
@@ -705,6 +733,24 @@ class OpenCodeSession {
     this.session = undefined;
     this.runtimeCleanup?.();
     this.runtimeCleanup = undefined;
+  }
+
+  /** Races an adapter-owned request against terminal cleanup. */
+  private async raceLifecycle<T>(operation: Promise<T>): Promise<T> {
+    if (this.lifecycleAbort.signal.aborted) {
+      throw Object.assign(new Error('The run ended while permission was pending.'), { reason: 'cancelled' });
+    }
+    let onAbort: (() => void) | undefined;
+    const ended = new Promise<never>((_resolve, reject) => {
+      onAbort = () =>
+        reject(Object.assign(new Error('The run ended while permission was pending.'), { reason: 'cancelled' }));
+      this.lifecycleAbort.signal.addEventListener('abort', onAbort, { once: true });
+    });
+    try {
+      return await Promise.race([operation, ended]);
+    } finally {
+      if (onAbort) this.lifecycleAbort.signal.removeEventListener('abort', onAbort);
+    }
   }
 }
 
