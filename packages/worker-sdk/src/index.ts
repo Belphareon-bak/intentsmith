@@ -105,6 +105,19 @@ export {
   type ProposedChangeSet,
 } from './workspace.js';
 export {
+  CAPABILITY_CATALOG,
+  UNKNOWN_CAPABILITY_DESCRIPTOR,
+  capabilityPayloadHash,
+  describeCapability,
+  evaluateCapabilityRequest,
+  type CapabilityCategory,
+  type CapabilityDecision,
+  type CapabilityDescriptor,
+  type CapabilityEvaluationOptions,
+  type CapabilityRequest,
+  type ConfirmationRequirement,
+} from './capability.js';
+export {
   REDACTED,
   assertRedacted,
   createRedactor,
