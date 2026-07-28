@@ -43,8 +43,20 @@ const ChatBodySchema = Type.Object(
       { minItems: 1, maxItems: 64 },
     ),
     stream: Type.Optional(Type.Boolean()),
-    max_tokens: Type.Optional(Type.Integer({ minimum: 1, maximum: 4096 })),
+    // A real OpenAI-compatible client sends a wider sampling surface than the
+    // minimum. These are accepted because they do not change what the request
+    // means; anything that would is rejected below rather than dropped.
+    max_tokens: Type.Optional(Type.Integer({ minimum: 1, maximum: 131_072 })),
     temperature: Type.Optional(Type.Number({ minimum: 0, maximum: 2 })),
+    top_p: Type.Optional(Type.Number({ minimum: 0, maximum: 1 })),
+    stream_options: Type.Optional(
+      Type.Object({ include_usage: Type.Optional(Type.Boolean()) }, { additionalProperties: false }),
+    ),
+    // Present in the schema only so an explicit, actionable refusal is possible.
+    // Omitting them would make Fastify reject the request with a generic
+    // "additional properties" error that tells a worker nothing.
+    tools: Type.Optional(Type.Array(Type.Unknown(), { maxItems: 128 })),
+    tool_choice: Type.Optional(Type.Unknown()),
   },
   { additionalProperties: false },
 );
@@ -133,7 +145,23 @@ export function buildGateway(options: GatewayOptions): FastifyInstance {
       stream?: boolean;
       max_tokens?: number;
       temperature?: number;
+      top_p?: number;
+      tools?: unknown[];
     };
+    // Tool calling is not implemented by the Phase 2 provider surface.
+    // Accepting the request and ignoring `tools` would be the dangerous
+    // choice: the worker would believe it holds capabilities such as shell,
+    // filesystem write and web fetch, and IntentSmith would have silently
+    // agreed to something it cannot mediate or gate.
+    if (Array.isArray(body.tools) && body.tools.length > 0) {
+      return deny(
+        reply,
+        400,
+        'TOOL_CALLING_UNSUPPORTED',
+        'This gateway does not implement tool calling. It will not accept a request that advertises tools, because ignoring them would let the worker assume capabilities IntentSmith cannot mediate.',
+      );
+    }
+
     const { prompt, system } = flattenMessages(body.messages);
     if (prompt.length === 0) {
       return deny(reply, 400, 'REQUEST_INVALID', 'At least one user message is required.');
@@ -185,7 +213,8 @@ export function buildGateway(options: GatewayOptions): FastifyInstance {
           modelId: body.model,
           prompt,
           ...(system === undefined ? {} : { system }),
-          maxOutputTokens: body.max_tokens ?? 512,
+          // Clamp to the provider's own ceiling; a client may ask for far more.
+          maxOutputTokens: Math.min(body.max_tokens ?? 512, 4096),
           ...(body.temperature === undefined ? {} : { temperature: body.temperature }),
           stream: streaming,
         },

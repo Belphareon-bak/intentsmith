@@ -245,7 +245,7 @@ describe('gateway chat completions', () => {
           method: 'POST',
           url: '/v1/chat/completions',
           headers: auth(token.value),
-          payload: { ...chat, tools: [] },
+          payload: { ...chat, notARealField: true },
         })
       ).statusCode,
     ).toBe(400);
@@ -258,6 +258,53 @@ describe('gateway chat completions', () => {
     });
     expect(noUser.statusCode).toBe(400);
     await app.close();
+  });
+
+  it('accepts the wider sampling surface a real OpenAI client sends', async () => {
+    const app = gateway();
+    const token = tokens.issue('run_1');
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      headers: auth(token.value),
+      // Observed from a real OpenCode 1.18.8 request.
+      payload: { ...chat, top_p: 1, stream_options: { include_usage: true }, max_tokens: 32_000 },
+    });
+    // These change nothing about what the request means, so they are honoured.
+    expect(response.statusCode).toBe(200);
+  });
+
+  it('refuses a request that advertises tools rather than ignoring them', async () => {
+    const app = gateway();
+    const token = tokens.issue('run_1');
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      headers: auth(token.value),
+      payload: {
+        ...chat,
+        tool_choice: 'auto',
+        tools: [{ type: 'function', function: { name: 'bash' } }],
+      },
+    });
+
+    // Accepting and dropping them would let the worker believe it holds shell,
+    // filesystem and network capabilities IntentSmith cannot mediate.
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('TOOL_CALLING_UNSUPPORTED');
+    expect(response.json().error.message).toContain('cannot mediate');
+  });
+
+  it('accepts an empty tools array, which advertises nothing', async () => {
+    const app = gateway();
+    const token = tokens.issue('run_1');
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      headers: auth(token.value),
+      payload: { ...chat, tools: [] },
+    });
+    expect(response.statusCode).toBe(200);
   });
 
   it('returns a structured error for an unknown gateway route', async () => {
