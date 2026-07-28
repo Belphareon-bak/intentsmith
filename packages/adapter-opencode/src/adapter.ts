@@ -36,8 +36,8 @@ import {
 import { outcomeForStopReason, parsePromptResponse, type TurnOutcome } from './stop-reason.js';
 import {
   GATEWAY_TOKEN_ENV,
-  assertConfigHasNoDirectInference,
-  buildOpenCodeConfig,
+  assertRuntimeUsesConfig,
+  inspectGeneratedConfig,
   createOpenCodeRuntime,
 } from './runtime-config.js';
 
@@ -227,12 +227,8 @@ class OpenCodeSession {
     // The worker gets an inference route only through the gateway.
     const runtime = grant
       ? createOpenCodeRuntime({ runtimeRoot, grant })
-      : { runtimeRoot, configPath: '', providedEnv: {}, cleanup: () => undefined };
+      : { runtimeRoot, configPath: '', configSha256: '', providedEnv: {}, cleanup: () => undefined };
     this.runtimeCleanup = runtime.cleanup;
-
-    if (grant) {
-      assertConfigHasNoDirectInference(buildOpenCodeConfig(grant), grant.baseUrl);
-    }
 
     const provided: Record<string, string> = { ...runtime.providedEnv };
     if (grant) {
@@ -243,6 +239,25 @@ class OpenCodeSession {
     const env = buildIsolatedEnv({ runtimeRoot, provided });
     // The gateway token is the only secret this process may hold.
     assertNoLeakedCredentials(env, [GATEWAY_TOKEN_ENV]);
+
+    if (grant) {
+      // Re-read and re-validate immediately before spawning, against the file
+      // the agent will actually open. Anything between generation and here --
+      // an edit, a truncation, a different XDG root -- means the mediation this
+      // run depends on may not exist, and starting anyway would be running the
+      // worker unmediated while believing otherwise.
+      const inspected = inspectGeneratedConfig(runtime.configPath, grant.baseUrl);
+      assertRuntimeUsesConfig(env, runtime.configPath);
+      this.events.push({
+        type: 'artifact',
+        artifact: {
+          id: 'opencode-config',
+          kind: 'json',
+          uri: `intentsmith://opencode-config/${inspected.sha256}`,
+          sha256: inspected.sha256,
+        },
+      });
+    }
 
     const plan = await planSandbox({
       request: {
