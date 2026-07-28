@@ -35,6 +35,14 @@ const HARDWARE = { pattern: /^@intentsmith\/hardware$/, reason: 'must not depend
 
 const ZONES: Zone[] = [
   {
+    name: 'packages/process-runtime',
+    dir: 'packages/process-runtime/src',
+    // It may use the worker vocabulary, and nothing above it. A process runner
+    // that could reach Core or persistence would be able to decide things it is
+    // only supposed to execute.
+    forbidden: [CORE, PERSISTENCE, FASTIFY, SQLITE, SERVER, ADAPTER_OLLAMA, HARDWARE],
+  },
+  {
     name: 'packages/contracts',
     dir: 'packages/contracts/src',
     forbidden: [CORE, PERSISTENCE, FASTIFY, SQLITE, SERVER],

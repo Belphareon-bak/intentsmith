@@ -68,6 +68,43 @@ describe('core verdict', () => {
     expect(decideVerdict({ ...base, ...input }).coreVerdict).toBe('fail');
   });
 
+  it('passes when capture confirms the workspace supports the claim', () => {
+    const result = decideVerdict({
+      ...base,
+      workerClaim: { status: 'success', summary: 'done' },
+      deterministicEvidence: [evidence],
+      changeCapture: { acceptable: true, findings: [] },
+    });
+    expect(result.coreVerdict).toBe('pass');
+  });
+
+  it('fails a successful claim whose changes violate workspace policy', () => {
+    const result = decideVerdict({
+      ...base,
+      workerClaim: { status: 'success', summary: 'done' },
+      deterministicEvidence: [evidence],
+      changeCapture: { acceptable: false, findings: ['Worker changed "secrets.env".'] },
+    });
+    // Passing tests do not make an unacceptable change set acceptable.
+    expect(result.coreVerdict).toBe('fail');
+    expect(result.unresolvedRisks).toContain('Worker changed "secrets.env".');
+  });
+
+  it('fails a successful claim when the workspace could not be inspected at all', () => {
+    const result = decideVerdict({
+      ...base,
+      workerClaim: { status: 'success', summary: 'done' },
+      deterministicEvidence: [evidence],
+      changeCapture: {
+        acceptable: false,
+        findings: [],
+        unavailableReason: 'Change capture could not read the workspace repository.',
+      },
+    });
+    expect(result.coreVerdict).toBe('fail');
+    expect(result.unresolvedRisks[0]).toMatch(/could not read the workspace repository/);
+  });
+
   it('returns cancelled when core cancels the run', () => {
     expect(decideVerdict({ ...base, deterministicEvidence: [], cancelled: true }).coreVerdict).toBe('cancelled');
   });

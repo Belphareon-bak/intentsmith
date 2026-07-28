@@ -16,6 +16,20 @@ export type VerdictInput = {
   workerProtocolViolation?: boolean;
   timedOut?: boolean;
   cancelled?: boolean;
+  /**
+   * What the workspace actually shows, when change capture ran.
+   *
+   * Absent means no capture was configured and the verdict is decided exactly
+   * as before. Present means the workspace was inspected, and then a worker's
+   * claim of success is not enough: a policy violation, a failed gate or a
+   * capture that could not run all mean nobody can show that what happened was
+   * acceptable.
+   */
+  changeCapture?: {
+    acceptable: boolean;
+    findings: readonly string[];
+    unavailableReason?: string;
+  };
 };
 
 export function decideVerdict(input: VerdictInput): TaskResult {
@@ -39,6 +53,21 @@ export function decideVerdict(input: VerdictInput): TaskResult {
     unresolvedRisks.push('Worker timed out before producing a valid result.');
     coreVerdict = 'fail';
   } else if (input.workerError || input.workerClaim?.status === 'failure') {
+    coreVerdict = 'fail';
+  } else if (
+    input.workerClaim?.status === 'success' &&
+    failures.length === 0 &&
+    passingEvidence.length > 0 &&
+    input.changeCapture &&
+    !input.changeCapture.acceptable
+  ) {
+    // The worker succeeded by its own account and the deterministic evidence
+    // agrees, but the workspace itself does not support that story.
+    unresolvedRisks.push(
+      input.changeCapture.unavailableReason ??
+        'Worker claimed success but its changes did not satisfy workspace policy.',
+    );
+    unresolvedRisks.push(...input.changeCapture.findings);
     coreVerdict = 'fail';
   } else if (input.workerClaim?.status === 'success' && failures.length === 0 && passingEvidence.length > 0) {
     coreVerdict = 'pass';

@@ -10,7 +10,9 @@
     "build": "tsc -b",
     "typecheck": "tsc -b --pretty false"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@intentsmith/worker-sdk": "workspace:*"
+  },
   "devDependencies": {
     "vitest": "4.1.10"
   }
