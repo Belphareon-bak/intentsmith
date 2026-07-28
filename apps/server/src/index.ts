@@ -1,8 +1,21 @@
 import { buildServer } from './app.js';
+import { isGatewayEnabled, readGatewayPort, startGateway, type GatewayHandle } from './gateway/lifecycle.js';
+import { StartupRecoveryError } from './recovery.js';
 import { createRuntime } from './runtime.js';
 
 export { buildServer, type ServerRuntime } from './app.js';
-export { createRuntime, defaultDbPath } from './runtime.js';
+export { createRuntime, defaultDbPath, type RuntimeOptions } from './runtime.js';
+export { StartupRecoveryError, runStartupRecovery, type RecoverySummary } from './recovery.js';
+export { createTestServerRuntime } from './test-runtime.js';
+export {
+  isGatewayEnabled,
+  readGatewayPort,
+  startGateway,
+  type GatewayHandle,
+  type StartGatewayOptions,
+} from './gateway/lifecycle.js';
+export { buildGateway, GATEWAY_DEFAULT_HOST } from './gateway/gateway.js';
+export { GatewayTokenStore, describeToken, type GatewayToken, type GatewayTokenInfo } from './gateway/token-store.js';
 export const DEFAULT_HOST = '127.0.0.1';
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -10,11 +23,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const app = buildServer(runtime);
   const host = process.env.INTENTSMITH_HOST ?? DEFAULT_HOST;
   const port = Number(process.env.INTENTSMITH_PORT ?? 47831);
+  let gateway: GatewayHandle | undefined;
   let shuttingDown = false;
   const shutdown = async (): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
     try {
+      // Close the gateway first so no token outlives the listener.
+      await gateway?.close();
       await app.close();
     } catch (error) {
       console.error('IntentSmith server shutdown failed', error);
@@ -28,10 +44,37 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     void shutdown();
   });
   try {
+    // Startup recovery runs before listen so no client can ever observe a
+    // stale `running` row as live work. A failure here must stop the process:
+    // serving from a half-recovered database is the ambiguity the policy
+    // exists to remove.
+    const summary = await runtime.prepare?.();
+    if (summary) {
+      console.log(
+        summary.recoveredRunCount === 0
+          ? 'Startup recovery: no interrupted runs found.'
+          : `Startup recovery: closed ${summary.recoveredRunCount} interrupted run(s) across ${summary.affectedTaskIds.length} task(s). None were restarted.`,
+      );
+    }
     await app.listen({ host, port });
     console.log(`IntentSmith server listening on http://${host}:${port}`);
+
+    // The worker inference gateway stays off unless explicitly enabled: no
+    // worker exists yet, and an unused listener is attack surface.
+    if (isGatewayEnabled()) {
+      gateway = await startGateway({
+        runtime,
+        tokens: runtime.gatewayTokens,
+        port: readGatewayPort(),
+      });
+      console.log(`Worker inference gateway listening on ${gateway.url} (per-run token required)`);
+    }
   } catch (error) {
-    app.log.error(error);
+    if (error instanceof StartupRecoveryError) {
+      console.error(`IntentSmith refused to start: ${error.message}`);
+    } else {
+      app.log.error(error);
+    }
     await shutdown();
     process.exitCode = 1;
   }

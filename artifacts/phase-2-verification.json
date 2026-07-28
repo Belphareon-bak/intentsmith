@@ -1,0 +1,318 @@
+{
+  "phase": "2",
+  "title": "Local Ollama Provider, Hardware Director and Worker Inference Gateway",
+  "date": "2026-07-28",
+  "baseline": {
+    "commit": "bd0a6a5dbfc17cd9a692dcedaaf6c4599893648b",
+    "tag": "phase-1.1",
+    "pr": "#1 merged"
+  },
+  "branch": "phase-2-ollama-hardware",
+  "environment": {
+    "node": "v22.21.1",
+    "pnpm": "pnpm@11.17.0",
+    "platform": "linux",
+    "os": "Linux 6.17.0-35-generic"
+  },
+  "dependencyVersions": {
+    "typescript": "6.0.3",
+    "vitest": "4.1.10",
+    "eslint": "10.8.0",
+    "@vitest/coverage-v8": "4.1.10",
+    "@sinclair/typebox": "0.34.52",
+    "better-sqlite3": "13.0.1",
+    "fastify": "5.10.0"
+  },
+  "newRuntimeDependencies": [],
+  "newRuntimeDependencyNote": "None. The adapter uses the Node runtime fetch behind an injectable transport seam. An Ollama client SDK was rejected: it would introduce cloud defaults, authentication behaviour and hidden retries.",
+  "gates": [
+    {
+      "command": "pnpm install --frozen-lockfile",
+      "exitCode": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm lint",
+      "exitCode": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm test",
+      "exitCode": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm test:coverage",
+      "exitCode": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm build",
+      "exitCode": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "pnpm verify",
+      "exitCode": 0,
+      "result": "PASS"
+    }
+  ],
+  "tests": {
+    "before": {
+      "testFiles": 18,
+      "tests": 202
+    },
+    "after": {
+      "testFiles": 25,
+      "tests": 410
+    },
+    "skipped": 0,
+    "determinismRuns": 5,
+    "determinismStable": true,
+    "offline": true,
+    "offlineNote": "pnpm verify requires no Ollama, no NVIDIA hardware and no model; all transports and probes are injected."
+  },
+  "coverage": {
+    "total": {
+      "statements": 91.65,
+      "branches": 83.1,
+      "functions": 90.02,
+      "lines": 93.37
+    },
+    "criticalModules": {
+      "packages/inference/src/endpoint-policy.ts": {
+        "statements": 97.77,
+        "branches": 95.23,
+        "functions": 100,
+        "lines": 97.61
+      },
+      "packages/inference/src/remote-policy.ts": {
+        "statements": 100,
+        "branches": 100,
+        "functions": 100,
+        "lines": 100
+      },
+      "packages/inference/src/scheduler.ts": {
+        "statements": 93.05,
+        "branches": 87.87,
+        "functions": 90.47,
+        "lines": 96.96
+      },
+      "packages/adapter-ollama/src/adapter.ts": {
+        "statements": 90.3,
+        "branches": 77.58,
+        "functions": 81.81,
+        "lines": 93.37
+      },
+      "packages/adapter-ollama/src/ndjson.ts": {
+        "statements": 97.29,
+        "branches": 94.11,
+        "functions": 100,
+        "lines": 97.29
+      },
+      "packages/adapter-ollama/src/dto.ts": {
+        "statements": 96.34,
+        "branches": 96.34,
+        "functions": 100,
+        "lines": 100
+      },
+      "packages/hardware/src/model-fit.ts": {
+        "statements": 98.46,
+        "branches": 95.16,
+        "functions": 100,
+        "lines": 100
+      },
+      "packages/hardware/src/nvidia-probe.ts": {
+        "statements": 85.48,
+        "branches": 79.68,
+        "functions": 66.66,
+        "lines": 85.96
+      },
+      "apps/server/src/gateway/token-store.ts": {
+        "statements": 100,
+        "branches": 95.83,
+        "functions": 100,
+        "lines": 100
+      }
+    },
+    "phase11GatesLowered": false,
+    "committed": false
+  },
+  "upstreamPinned": {
+    "ollamaVersion": "0.17.7",
+    "endpointsVerified": [
+      "/api/version",
+      "/api/tags",
+      "/api/show",
+      "/api/ps",
+      "/api/generate"
+    ],
+    "streaming": "NDJSON, terminal record marked done:true",
+    "durationUnits": "nanoseconds",
+    "errorFraming": "{\"error\":\"...\"}; unknown route returns plain text",
+    "record": "docs/third-party/ollama.md"
+  },
+  "localOnlyEnforcement": {
+    "endpointFormsRejected": 14,
+    "httpsRejected": true,
+    "redirectsDisabled": true,
+    "crossOriginResponseRejected": true,
+    "headerAllowlist": [
+      "content-type",
+      "accept"
+    ],
+    "credentialHeadersThrow": true,
+    "enforcedInConstructor": true
+  },
+  "cloudRejection": {
+    "mechanism": "metadata",
+    "markerFields": [
+      "remote_model",
+      "remote_host"
+    ],
+    "checkedAt": [
+      "discovery",
+      "generation preflight",
+      "every stream record"
+    ],
+    "nameSuffixIsAdviceOnly": true,
+    "errorCode": "REMOTE_INFERENCE_FORBIDDEN",
+    "neverRetried": true,
+    "noProviderFallback": true,
+    "gatewayFiltersRemoteFromModelList": true
+  },
+  "hardwareDirector": {
+    "driverVersionHardcoded": false,
+    "driverVersionObservedLive": "590.48.01",
+    "gpuObserved": "NVIDIA GeForce RTX 3090",
+    "probe": "execFile, no shell, frozen argument list, bounded timeout and output",
+    "distinctStates": [
+      "ok",
+      "unavailable",
+      "permission_denied",
+      "timeout",
+      "parse_error",
+      "partial"
+    ],
+    "uuidRedactedInEvidence": true,
+    "driverModified": false
+  },
+  "modelFit": {
+    "estimateSeparateFromPolicy": true,
+    "vramSummedAcrossGpus": false,
+    "artifactSizeTreatedAsRequirement": false,
+    "policies": [
+      "gpu_required",
+      "gpu_preferred",
+      "cpu_allowed"
+    ],
+    "blockingCode": "MODEL_FIT_REJECTED",
+    "modelTooLargeInTransportVocabulary": false
+  },
+  "scheduler": {
+    "defaultConcurrency": 1,
+    "fifo": true,
+    "abortableWhileQueued": true,
+    "boundedQueue": true,
+    "queueTimeout": true,
+    "permitLeak": false,
+    "doubleReleaseSafe": true,
+    "gpuCountUsedAsConcurrencySignal": false
+  },
+  "startupRecovery": {
+    "runsBeforeListen": true,
+    "failureStopsStartup": true,
+    "autoRetry": false,
+    "idempotent": true,
+    "exposedVia": [
+      "GET /runtime/recovery",
+      "GET /health",
+      "intentsmith runtime recovery"
+    ]
+  },
+  "workerGateway": {
+    "loopbackOnly": true,
+    "perRunTokenRequired": true,
+    "tokenConstantTimeCompare": true,
+    "tokenPersisted": false,
+    "tokenLogged": false,
+    "expiresOnRunOrServerEnd": true,
+    "surface": [
+      "/v1/models",
+      "/v1/chat/completions"
+    ],
+    "reusesProviderPolicyAndScheduler": true,
+    "cloudFallback": false,
+    "note": "Minimum testable foundation. Phase 3 extends only after probing a pinned OpenCode build.",
+    "enabledByDefault": false,
+    "enablement": "INTENTSMITH_GATEWAY=1 or INTENTSMITH_GATEWAY_PORT",
+    "ephemeralPortByDefault": true,
+    "bindHostConfigurable": false,
+    "tokensRevokedOnGatewayClose": true
+  },
+  "realOllamaSuite": {
+    "command": "pnpm test:ollama",
+    "partOfVerifyOrCi": false,
+    "optIn": "INTENTSMITH_RUN_REAL_OLLAMA=1",
+    "status": "PASS",
+    "ollamaVersion": "Ollama 0.17.7",
+    "modelId": "qwen3:14b",
+    "modelDigest": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+    "modelExecution": "local",
+    "fitClassification": "likely_gpu_fit",
+    "promptTokens": 17,
+    "completionTokens": 16,
+    "totalMs": 12877,
+    "timeToFirstTokenMs": null,
+    "timeToFirstTokenNote": "null because the 16-token budget was consumed by the model thinking phase; completion tokens confirm generation occurred. Reported as observed.",
+    "cancellationObserved": true,
+    "loadedInVramAfterRun": true,
+    "promptRecorded": false,
+    "responseRecorded": false,
+    "modelDownloaded": false,
+    "signedIn": false,
+    "apiKeyUsed": false,
+    "outputCommitted": false
+  },
+  "hardwareProfileRedacted": {
+    "gpu": [
+      {
+        "name": "NVIDIA GeForce RTX 3090",
+        "driverVersion": "590.48.01",
+        "computeCapability": "8.6",
+        "totalVramBytes": 25769803776
+      }
+    ],
+    "acceleratorState": "nvidia_available",
+    "uuidsIncluded": false
+  },
+  "knownLimitations": [
+    "Remote-marker field names are not specified in Ollama public API docs; detection is defensive and proven against fixtures, since this installation has no cloud models.",
+    "IntentSmith cannot verify at OS level that the local daemon is not itself proxying to a remote host; that needs OS-level network isolation, out of Phase 2 scope.",
+    "The gateway chat surface flattens messages onto a single prompt because that is what the Phase 2 provider supports; it is not full multi-turn chat.",
+    "Concurrency is enforced in-process; a second IntentSmith process has its own scheduler.",
+    "Swap and per-volume storage are not probed and stay undefined rather than guessed.",
+    "No worker exists yet; the gateway is a foundation, not an integration."
+  ],
+  "confirmations": {
+    "ollamaCalledInDeterministicTests": false,
+    "cloudApiUsed": false,
+    "modelDownloaded": false,
+    "ollamaSignIn": false,
+    "apiKeyUsed": false,
+    "ollamaComContacted": false,
+    "cloudFallbackImplemented": false,
+    "driverOrCudaOrOllamaModified": false,
+    "secretsUsedInCi": false,
+    "phase3WorkStarted": false,
+    "c3Modified": false,
+    "c3ReferenceCommit": "a7b90e36aa80310305703f54f2332e1c0e7f9e8f"
+  },
+  "verifiedCommit": "5553929f2cf0901ad7136290d32e1b663185e405",
+  "verifiedCommitNote": "Commit a clean clone ran pnpm verify against, exiting 0 with a clean tree, plus five identical repeat runs. The documentation commit carrying this artifact is its direct child."
+}

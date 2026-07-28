@@ -4,6 +4,7 @@ import { VERSION } from '@intentsmith/contracts';
 import { DisposableWorkspace, createTaskInput, createTestRuntime, type TestRuntime } from '@intentsmith/testing';
 
 import { buildServer } from './app.js';
+import { createTestServerRuntime } from './test-runtime.js';
 import { DEFAULT_HOST } from './index.js';
 
 let runtime: TestRuntime;
@@ -22,10 +23,13 @@ afterEach(async () => {
 
 describe('localhost API', () => {
   it('reports health, version and the safe default bind host', async () => {
-    const app = buildServer({ core: runtime.core, close: () => undefined });
+    const app = buildServer(createTestServerRuntime({ core: runtime.core }));
+    // Health also reports startup recovery, which must have completed before
+    // the server is willing to serve.
     expect((await app.inject({ method: 'GET', url: '/health' })).json()).toEqual({
       status: 'ok',
       service: 'intentsmith-core',
+      recovery: 'completed',
     });
     expect((await app.inject({ method: 'GET', url: '/version' })).json()).toMatchObject({ version: VERSION });
     expect(DEFAULT_HOST).toBe('127.0.0.1');
@@ -33,7 +37,7 @@ describe('localhost API', () => {
   });
 
   it('validates request payloads and rejects unknown fields before core', async () => {
-    const app = buildServer({ core: runtime.core, close: () => undefined });
+    const app = buildServer(createTestServerRuntime({ core: runtime.core }));
     const response = await app.inject({
       method: 'POST',
       url: '/projects',
@@ -51,7 +55,7 @@ describe('localhost API', () => {
   });
 
   it('returns a stable sanitized error for an unknown task', async () => {
-    const app = buildServer({ core: runtime.core, close: () => undefined });
+    const app = buildServer(createTestServerRuntime({ core: runtime.core }));
     const response = await app.inject({ method: 'GET', url: '/tasks/missing' });
     expect(response.statusCode).toBe(404);
     expect(response.json()).toEqual({
@@ -66,7 +70,7 @@ describe('localhost API', () => {
   });
 
   it('returns conflict for an invalid lifecycle transition', async () => {
-    const app = buildServer({ core: runtime.core, close: () => undefined });
+    const app = buildServer(createTestServerRuntime({ core: runtime.core }));
     const { taskId } = await createApiTask(app, 'pauseable-success');
     expect((await app.inject({ method: 'POST', url: `/tasks/${taskId}/start` })).statusCode).toBe(200);
     const response = await app.inject({ method: 'POST', url: `/tasks/${taskId}/start` });
@@ -76,7 +80,7 @@ describe('localhost API', () => {
   });
 
   it('runs the complete successful flow using Fastify injection only', async () => {
-    const app = buildServer({ core: runtime.core, close: () => undefined });
+    const app = buildServer(createTestServerRuntime({ core: runtime.core }));
     const { projectId, taskId } = await createApiTask(app, 'success');
     expect((await app.inject({ method: 'GET', url: `/projects/${projectId}` })).statusCode).toBe(200);
     expect((await app.inject({ method: 'POST', url: `/tasks/${taskId}/start` })).json().status).toBe('running');
@@ -92,7 +96,7 @@ describe('localhost API', () => {
   });
 
   it('enforces the request body size limit', async () => {
-    const app = buildServer({ core: runtime.core, close: () => undefined });
+    const app = buildServer(createTestServerRuntime({ core: runtime.core }));
     const response = await app.inject({
       method: 'POST',
       url: '/projects',

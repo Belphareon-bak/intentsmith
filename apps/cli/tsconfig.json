@@ -5,6 +5,21 @@
     "outDir": "dist",
     "tsBuildInfoFile": "dist/.tsbuildinfo"
   },
-  "references": [{ "path": "../../packages/contracts" }, { "path": "../../packages/core" }, { "path": "../../packages/testing" }],
-  "include": ["src/**/*.ts"]
+  "references": [
+    {
+      "path": "../../packages/contracts"
+    },
+    {
+      "path": "../../packages/core"
+    },
+    {
+      "path": "../../packages/testing"
+    },
+    {
+      "path": "../../packages/inference"
+    }
+  ],
+  "include": [
+    "src/**/*.ts"
+  ]
 }

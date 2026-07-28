@@ -11,6 +11,8 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
-    "@intentsmith/contracts": "workspace:*"
+    "@intentsmith/contracts": "workspace:*",
+    "@intentsmith/inference": "workspace:*",
+    "@intentsmith/hardware": "workspace:*"
   }
 }

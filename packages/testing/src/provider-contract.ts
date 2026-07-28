@@ -6,7 +6,7 @@ import {
   type GenerationRequest,
   type InferenceEvent,
   type InferenceProvider,
-} from '@intentsmith/core';
+} from '@intentsmith/inference';
 
 import { DEFAULT_FAKE_MODEL, FakeInferenceProvider, type FakeProviderMode } from './fake-provider.js';
 

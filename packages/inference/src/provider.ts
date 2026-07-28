@@ -7,8 +7,9 @@
  * vendor-specific endpoint, header, or response shape so that a future adapter
  * can satisfy the same contract suite as the fake provider.
  *
- * `MODEL_TOO_LARGE` is intentionally absent: model-fit is a Phase 2 hardware
- * policy decision, not a transport-level provider error.
+ * `MODEL_TOO_LARGE` is intentionally absent: model-fit is a hardware policy
+ * decision surfaced by `@intentsmith/hardware`, not a transport-level provider
+ * error.
  */
 
 export type ProviderIdentity = {
@@ -37,12 +38,37 @@ export type ProviderCapabilities = {
   maxConcurrentRequests: number;
 };
 
+/**
+ * Where a model actually runs. `remote_forbidden` models may appear in
+ * discovery so the user can see why they are unavailable, but they can never
+ * be selected for generation.
+ */
+export type ModelExecution = 'local' | 'remote_forbidden' | 'unknown';
+
 export type ModelDescriptor = {
   id: string;
   family: string;
-  /** Parameter count in billions when the provider reports it. */
+  /**
+   * Parameter count in billions when the provider reports it. Absent means the
+   * provider did not say; it never means zero and never implies the model is
+   * small enough to run.
+   */
   parameterBillions?: number;
   contextTokens?: number;
+  /** Content digest as reported by the provider. */
+  digest?: string;
+  /** On-disk artifact size in bytes. Evidence, not a VRAM requirement. */
+  artifactBytes?: number;
+  /** Display string such as `Q4_K_M`. */
+  quantization?: string;
+  /** Display string such as `14.8B`, kept verbatim alongside the parsed value. */
+  parameterSizeLabel?: string;
+  /** Capabilities the provider reports, e.g. `completion`, `tools`. */
+  capabilities?: string[];
+  modifiedAt?: string;
+  execution: ModelExecution;
+  /** Why the model was classified as remote, when it was. */
+  executionReason?: string;
 };
 
 export type GenerationRequest = {
@@ -76,6 +102,20 @@ export const PROVIDER_ERROR_CODES = [
   'REQUEST_CANCELLED',
   'STREAM_INVALID',
   'PROVIDER_PROTOCOL_ERROR',
+  /**
+   * The provider was asked to run, or started returning, inference that is not
+   * executing on this machine.
+   *
+   * This is a policy verdict, not a transport failure. Every other code here
+   * describes something that went wrong while talking to a local daemon and may
+   * be retryable or environmental. `REMOTE_INFERENCE_FORBIDDEN` means the
+   * transport worked perfectly and the answer is still refused, because
+   * IntentSmith is local-first and a signed-in daemon can serve cloud-backed
+   * models over the same loopback socket. It is also distinct from
+   * `MODEL_TOO_LARGE`, which is a hardware-fit judgement about a model that is
+   * legitimately local. Never retry it and never fall back to another provider.
+   */
+  'REMOTE_INFERENCE_FORBIDDEN',
 ] as const;
 
 export type ProviderErrorCode = (typeof PROVIDER_ERROR_CODES)[number];

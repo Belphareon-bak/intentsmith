@@ -6,9 +6,26 @@ import {
   VERSION,
 } from '@intentsmith/contracts';
 import { DomainError, normalizeError, type IntentSmithCore } from '@intentsmith/core';
+import type { OllamaProvider } from '@intentsmith/adapter-ollama';
+import type { ExecutionPolicy, HardwareDirector } from '@intentsmith/hardware';
+import type { InferenceScheduler } from '@intentsmith/inference';
+
+import { registerInferenceRoutes } from './inference-routes.js';
+import type { GatewayTokenStore } from './gateway/token-store.js';
+import type { RecoverySummary } from './recovery.js';
 
 export type ServerRuntime = {
   core: IntentSmithCore;
+  provider: OllamaProvider;
+  scheduler: InferenceScheduler;
+  hardware: HardwareDirector;
+  /** Per-run tokens for the worker inference gateway. */
+  gatewayTokens: GatewayTokenStore;
+  executionPolicy: ExecutionPolicy;
+  /** Populated by `prepare()`; undefined until startup recovery has run. */
+  readonly recovery?: RecoverySummary;
+  /** Runs startup recovery. Must succeed before the server binds. */
+  prepare?(): Promise<RecoverySummary>;
   close(): void | Promise<void>;
 };
 
@@ -62,7 +79,16 @@ export function buildServer(runtime: ServerRuntime): FastifyInstance {
     });
   });
 
-  app.get('/health', async () => ({ status: 'ok', service: 'intentsmith-core' }));
+  app.get('/health', async (_request, reply) => {
+    // The server only binds after recovery succeeds, so a missing summary here
+    // means something started the app without preparing it.
+    if (runtime.prepare && !runtime.recovery) {
+      return reply.status(503).send({
+        error: { code: 'RECOVERY_NOT_RUN', message: 'Startup recovery has not completed.', retryable: true },
+      });
+    }
+    return { status: 'ok', service: 'intentsmith-core', recovery: runtime.recovery?.status ?? 'not_required' };
+  });
   app.get('/version', async () => ({ version: VERSION, cli: 'intentsmith', package: 'intentsmith-core' }));
 
   app.post('/projects', { schema: { body: CreateProjectInputSchema } }, async request => {
@@ -114,6 +140,8 @@ export function buildServer(runtime: ServerRuntime): FastifyInstance {
     const { taskId } = request.params as { taskId: string };
     return { events: await runtime.core.listAuditEvents(taskId) };
   });
+
+  registerInferenceRoutes(app, runtime);
 
   app.addHook('onClose', async () => {
     await runtime.close();

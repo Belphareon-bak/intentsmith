@@ -5,7 +5,7 @@ import {
   ProviderError,
   isProviderErrorCode,
   normalizeProviderError,
-} from './inference.js';
+} from '@intentsmith/inference';
 import {
   COMMAND_SOURCE_STATES,
   assertCommand,

@@ -8,7 +8,7 @@ import {
   type ProviderCapabilities,
   type ProviderHealth,
   type ProviderIdentity,
-} from '@intentsmith/core';
+} from '@intentsmith/inference';
 
 /**
  * Deterministic in-memory inference provider.
@@ -43,6 +43,7 @@ export const DEFAULT_FAKE_MODEL: ModelDescriptor = {
   family: 'fake',
   parameterBillions: 1,
   contextTokens: 4096,
+  execution: 'local',
 };
 
 export class FakeInferenceProvider implements InferenceProvider {

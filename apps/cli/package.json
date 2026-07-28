@@ -16,7 +16,8 @@
   },
   "dependencies": {
     "@intentsmith/contracts": "workspace:*",
-    "@intentsmith/core": "workspace:*"
+    "@intentsmith/core": "workspace:*",
+    "@intentsmith/inference": "workspace:*"
   },
   "devDependencies": {
     "@intentsmith/testing": "workspace:*"

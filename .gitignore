@@ -8,6 +8,7 @@ tmp/
 artifacts/*
 !artifacts/phase-1-verification.json
 !artifacts/phase-1-1-verification.json
+!artifacts/phase-2-verification.json
 runtime/
 .intentsmith/
 *.db

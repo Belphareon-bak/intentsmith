@@ -86,12 +86,19 @@ Verification: `docs/testing/phase-1-1-results.md` and
 
 ## Phase 2 - Ollama and Hardware Director
 
+Status: complete (branch `phase-2-ollama-hardware`).
+
 Goal: run the first local model through a provider contract.
 
-The provider port and its contract suite already exist from Phase 1.1. The
-Ollama adapter must satisfy `runInferenceProviderContract` unchanged, and
-`MODEL_TOO_LARGE` is decided here by the Hardware Director and model-fit policy,
-not by the transport.
+Verification: `docs/testing/phase-2-results.md` and
+`artifacts/phase-2-verification.json`. ADRs 0011-0015.
+
+Delivered: port ownership moved to `packages/inference`; local-only Ollama
+adapter passing the unchanged provider contract suite; metadata-driven cloud
+rejection; Hardware Director with injected probes; model-fit estimation
+separated from execution policy; provider scheduler; startup recovery before
+listen; API and CLI surfaces; loopback-only worker inference gateway; 402
+offline tests plus a separate opt-in real-Ollama suite.
 
 Expected outputs:
 
@@ -105,9 +112,18 @@ Expected outputs:
 - local streaming;
 - OpenAI-compatible localhost adapter as a contract test double.
 
+Deferred from Phase 2 to a later phase: OS-level network isolation proving the
+daemon is not itself proxying remotely, and full multi-turn chat on the worker
+gateway.
+
 ## Phase 3 - OpenCode Worker POC
 
+Blocked until Phase 2 is merged into `main`, CI is green, and an annotated
+`phase-2` tag exists.
+
 Goal: delegate one coding task to OpenCode while preserving core authority.
+The Phase 2 gateway is the only inference path a worker may use; Phase 3 extends
+it only after probing a pinned OpenCode build and documenting the requirement.
 
 Expected outputs:
 

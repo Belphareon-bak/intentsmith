@@ -2,10 +2,10 @@
 
 ## Current Phase
 
-Phase 1.1 - Contract stabilization, adversarial tests, and CI baseline.
+Phase 2 - Local Ollama provider, Hardware Director and worker inference gateway.
 
-Phase 1 (`ed21dd8`) is published on `origin/main`. Phase 1.1 lives on
-`phase-1-1-contract-stabilization`.
+Phase 1.1 is merged (`bd0a6a5`, PR #1) and tagged `phase-1.1`. Phase 2 lives on
+`phase-2-ollama-hardware`.
 
 ## Reference State
 
@@ -69,15 +69,38 @@ Phase 1 (`ed21dd8`) is published on `origin/main`. Phase 1.1 lives on
 - Test count went from 54 to 196; the suite runs faster because timeouts are
   virtual.
 
+## Phase 2 Implementation
+
+- The `InferenceProvider` port moved from Core into `packages/inference` so a
+  concrete adapter never depends on Core (ADR 0011).
+- `packages/adapter-ollama` implements the unchanged provider contract against a
+  local Ollama daemon, pinned against observed version `0.17.7`.
+- Local-only endpoint policy and metadata-driven remote-model rejection
+  (ADR 0012). A request to `127.0.0.1:11434` is not automatically local: a
+  signed-in Ollama serves cloud models over the same socket, so enforcement uses
+  `remote_model`/`remote_host` metadata at discovery, preflight and every stream
+  record. The `-cloud` name suffix is advisory only.
+- `packages/hardware` reports evidence without false precision and never
+  modifies the machine. `nvidia-smi` runs through a dedicated read-only probe
+  with no shell and a frozen argument list. Driver versions are always read
+  live, never hardcoded.
+- Model-fit estimation is separate from execution policy (ADR 0013). VRAM is
+  never summed across GPUs, and unknown stays unknown.
+- Provider scheduler: one active generation by default, FIFO, bounded queue.
+- Startup recovery runs before the server binds and stops startup on failure
+  (ADR 0014), resolving the invocation point ADR 0007 deferred.
+- A loopback-only worker inference gateway (ADR 0015) gives a future external
+  worker the same guarantees as the user's own API, behind a per-run token.
+- 402 tests across 24 files; `pnpm verify` stays fully offline.
+
 ## Deferred Beyond Phase 1
 
 - Run formal trademark and domain checks before final public naming.
-- Ollama, external workers, ACP, MCP, Serena, Studio, desktop distribution,
-  authentication, and shell execution remain unimplemented. The
-  `InferenceProvider` port added in Phase 1.1 is a boundary definition only.
-- `recoverInterruptedRuns()` is implemented and tested but is not yet invoked
-  automatically at server startup; that needs a product decision about how the
-  user is informed.
+- External workers, ACP, MCP, Serena, Studio, desktop distribution,
+  authentication, and shell execution remain unimplemented.
+- Ollama is implemented as of Phase 2, local-only. IntentSmith never installs
+  Ollama, signs in, uses an API key, downloads a model, or contacts ollama.com.
+- No worker exists yet; the Phase 2 gateway is a foundation, not an integration.
 - Concurrency is serialized per SQLite connection, and independent stores run
   independently. That is correct for a single local control-plane process;
   nothing coordinates two OS processes against one database file beyond

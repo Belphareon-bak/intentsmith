@@ -18,7 +18,13 @@ export default [
     files: ['**/*.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      // `const { secret: _secret, ...rest } = obj` is the idiom used to drop a
+      // field before returning it, so leading-underscore bindings and rest
+      // siblings are intentionally unused.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true },
+      ],
     },
   },
 ];
