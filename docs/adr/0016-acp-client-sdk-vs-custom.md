@@ -40,7 +40,7 @@ processes used by the Phase 3 test suite.
 
 | Behaviour | Result |
 |---|---|
-| initialize and version negotiation | covered |
+| initialize and version negotiation | **not verified by the original spike; see the correction below** |
 | `session/new` | covered |
 | `session/prompt` with `stopReason` | covered |
 | `session/update` notifications | covered |
@@ -107,10 +107,68 @@ none are used, and ACP v2 draft types are not mixed in.
   useful anyway, because it also catches a process that writes non-JSON without
   breaking a line.
 
-## Status Of This Migration
+## Post-decision correction: explicit initialization
 
-The decision is made and the evidence is recorded. The adapter migration onto
-the SDK is the next commit on this branch and is **not** yet complete; until it
-lands, `acp.ts` remains in use. This ADR is deliberately written before the
-migration so the decision, and the evidence behind it, are reviewable
-independently of the code change.
+The original spike marked "initialize and version negotiation" as covered. That
+conclusion was wrong, and the way it was reached is worth recording: the spike
+asserted on the exported `PROTOCOL_VERSION` constant instead of on the wire. A
+constant proves what the SDK believes; it proves nothing about what was sent.
+
+Capturing the actual outbound traffic showed the truth:
+
+- `ctx.buildSession({...}).start()` sends **only** `session/new`. The first
+  outbound message in a fluent-client run had `id: 0` and method `session/new`;
+  no `initialize` was sent at any point.
+- `connectWith` hands back the same `ClientContext` and changes nothing here.
+- `handle.connection.initialize()` is unrelated to ACP: it resolves `undefined`
+  and puts nothing on the wire.
+
+An intermediate conclusion during this investigation -- that the non-deprecated
+fluent API cannot send `initialize` at all -- was **also wrong**. It came from
+reading `ClientApp.request(spec, handler)`, which *registers* an inbound
+handler, and assuming `ClientContext.request` was the same method. It is not.
+`ClientContext.request(method, params, options)` is a public typed wrapper that
+**sends** an agent-side request:
+
+```js
+request(method, params, options) {
+    const spec = agentRequestSpecsByMethod[method];
+    return this.sendRequest(method, params, spec?.mapResponse, options);
+}
+```
+
+The distinction that matters:
+
+- `AcpContext.sendRequest` is marked `@internal` and is not used;
+- `ClientContext.request` is the public supported wrapper and is what
+  IntentSmith uses;
+- the deprecated `ClientSideConnection` is **not** needed and is not used.
+
+IntentSmith therefore sends `AGENT_METHODS.initialize` explicitly as the first
+outbound request, validates the negotiated `protocolVersion` as a hard gate, and
+only then builds a session. `packages/adapter-opencode/src/handshake.test.ts`
+asserts the wire order (`initialize`, `session/new`, `session/prompt`), that
+`initialize` is sent exactly once and first, and that a version mismatch, a
+malformed initialize response, or cancellation during the handshake all prevent
+`session/new` from ever being sent.
+
+**The SDK decision stands.** The gap was in how IntentSmith drives the SDK, not
+in the SDK's capability. No deprecated, `unstable_*` or ACP v2 surface is used.
+
+## Dependencies, corrected
+
+The decision section above originally recorded "no runtime dependencies" from an
+empty `dependencies` field. That was incomplete: the SDK declares a **peer**
+dependency on `zod` and does not load without it. Both are pinned:
+
+- `@agentclientprotocol/sdk@1.3.0`, Apache-2.0, integrity
+  `sha512-i3h/efaeuMUFAO1HSfo97QZQnnvMd7wWBYtBsdL6UMZg3a78sk3Ffya5Xu7C7tYsXomXoDXJBAzQF2PcFKAhIQ==`
+- `zod@4.4.3`, MIT, integrity
+  `sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==`,
+  no runtime dependencies of its own.
+
+Neither has an install lifecycle script.
+
+zod also turned out to be a benefit rather than only a cost: the SDK validates
+inbound `session/update` payloads against the ACP schema, which caught several
+IntentSmith test fixtures that were emitting incomplete updates.

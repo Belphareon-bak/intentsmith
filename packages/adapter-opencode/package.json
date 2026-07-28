@@ -14,7 +14,9 @@
   "dependencies": {
     "@intentsmith/contracts": "workspace:*",
     "@intentsmith/process-runtime": "workspace:*",
-    "@intentsmith/worker-sdk": "workspace:*"
+    "@intentsmith/worker-sdk": "workspace:*",
+    "@agentclientprotocol/sdk": "1.3.0",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "vitest": "4.1.10",

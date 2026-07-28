@@ -170,7 +170,7 @@ async function handle(message) {
     }
 
     if (BEHAVIOUR === 'foreign-session') {
-      send({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: 'someone-elses-session', update: { sessionUpdate: 'agent_message_chunk' } } });
+      send({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: 'someone-elses-session', update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'not yours' } } } });
       send({ jsonrpc: '2.0', id, result: { stopReason: 'end_turn' } });
       return;
     }
@@ -183,7 +183,7 @@ async function handle(message) {
       process.stdout.write(
         JSON.stringify({ jsonrpc: '2.0', id, result: { stopReason: 'end_turn' } }) +
           '\\n' +
-          JSON.stringify({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: 'fixture-session-1', update: { sessionUpdate: 'agent_message_chunk' } } }) +
+          JSON.stringify({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: 'fixture-session-1', update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'late' } } } }) +
           '\\n',
       );
       return;
@@ -205,7 +205,16 @@ async function handle(message) {
       send({
         jsonrpc: '2.0',
         method: 'session/update',
-        params: { sessionId: 'fixture-session-1', update: { sessionUpdate: 'tool_call', status: 'completed', title: 'ran fixture tests' } },
+        params: {
+          sessionId: 'fixture-session-1',
+          update: {
+            sessionUpdate: 'tool_call',
+            toolCallId: 'tool-fixture-1',
+            title: 'ran fixture tests',
+            kind: 'execute',
+            status: 'completed',
+          },
+        },
       });
       send({ jsonrpc: '2.0', id, result: { stopReason: 'end_turn' } });
       return;
