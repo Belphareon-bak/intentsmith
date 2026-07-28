@@ -40,12 +40,17 @@ JSON-RPC 2.0 over stdio.
 
 ## Use In Phase 3
 
-IntentSmith implements a **minimal ACP client directly** over JSON-RPC 2.0
-rather than adopting `@agentclientprotocol/sdk`. See ADR 0016 for the reasoning:
-in short, interop cannot be verified without a real agent to probe, and an
-unverifiable dependency has a larger blast radius than a small client that
-IntentSmith validates itself. Every inbound message is schema-validated at
-runtime regardless, which the SDK would not remove the need for.
+IntentSmith **adopts `@agentclientprotocol/sdk@1.3.0`** for the ACP lifecycle.
+See ADR 0016 for the spike evidence: the SDK was driven against the same fake
+ACP agent the Phase 3 suite uses and covers initialize, session creation,
+prompt, updates, permission requests, cancellation and process termination.
 
-The SDK remains the preferred path once a pinned OpenCode build can actually be
-probed.
+Integrity `sha512-i3h/efaeuMUFAO1HSfo97QZQnnvMd7wWBYtBsdL6UMZg3a78sk3Ffya5Xu7C7tYsXomXoDXJBAzQF2PcFKAhIQ==`,
+Apache-2.0, no runtime dependencies, no install lifecycle scripts.
+
+Only the stable v1 surface is used. The SDK also ships `unstable_*` methods and
+v2 draft material; neither is used, and the two are not mixed.
+
+One gap is handled by IntentSmith rather than the SDK: `ndJsonStream` logs a
+malformed line to `console.error` and drops it, with no hook for the caller, so
+stdout purity is checked in the process supervisor where it belongs.

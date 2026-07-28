@@ -288,7 +288,10 @@ async function handle(message) {
     return;
   }
 
-  if (id !== undefined) {
+  // A message with no method is a *response* to something this agent sent.
+  // Replying to it would be a JSON-RPC error; only unknown *requests* get an
+  // error back.
+  if (method !== undefined && id !== undefined) {
     send({ jsonrpc: '2.0', id, error: { code: -32601, message: 'Method not found: ' + String(method) } });
   }
 }
