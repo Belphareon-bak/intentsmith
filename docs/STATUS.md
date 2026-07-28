@@ -157,4 +157,6 @@ prototype ideas:
   review, change management and recovery.
 
 Their current status is **documented for semantic extraction, not implemented in
-IntentSmith**. See [Domain intelligence and autonomy](product/domain-intelligence.md).
+IntentSmith**. See [Domain intelligence and autonomy](product/domain-intelligence.md)
+and the normative
+[C3 Capability & Lifecycle Ledger](migration/c3-capability-lifecycle-ledger.md).

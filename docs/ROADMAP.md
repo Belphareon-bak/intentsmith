@@ -108,6 +108,11 @@ Goal: retain the mature product model proven across C3's long development
 history without importing its monolithic implementation or weakening
 IntentSmith Core.
 
+The normative intake and progress record is the
+[C3 Capability & Lifecycle Ledger](migration/c3-capability-lifecycle-ledger.md).
+Roadmap work derived from C3 is not ready until its ledger entry identifies the
+source evidence, invariants, test families, ownership and migration decision.
+
 This track begins before Phase 4 and supplies contracts to later phases:
 
 1. **Semantic ledger** — inventory definitions, invariants, tests, failure modes

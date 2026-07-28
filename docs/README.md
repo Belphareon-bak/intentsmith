@@ -8,6 +8,7 @@ This directory is the standalone source of truth for understanding IntentSmith. 
 | --- | --- |
 | What problem does IntentSmith solve? | [Product vision](product/vision.md) |
 | How do Expertises, Skills, Specialists and Agents differ? | [Domain intelligence and autonomy](product/domain-intelligence.md) |
+| What exactly will be retained from C3? | [C3 Capability & Lifecycle Ledger](migration/c3-capability-lifecycle-ledger.md) |
 | How do the pieces work together? | [Architecture overview](architecture/overview.md) |
 | What is stable today? | [Current status](STATUS.md) |
 | What is being built next? | [Roadmap](ROADMAP.md) |
@@ -34,6 +35,14 @@ The runtime schemas in `packages/contracts/src/index.ts` and executable contract
 ## Third-party research
 
 `docs/third-party/` records point-in-time research about upstream projects and protocols. These files support dependency decisions, but they are not promises that a component is already integrated or supported.
+
+## Migration governance
+
+The [C3 Capability & Lifecycle Ledger](migration/c3-capability-lifecycle-ledger.md)
+is the controlled intake for proven C3 semantics. It records the immutable
+source baseline, preserved invariants, open-source substitutions, test
+harvesting and adoption status. No C3 capability may be silently omitted or
+collapsed into another layer without a recorded ledger decision.
 
 ## Documentation rules
 

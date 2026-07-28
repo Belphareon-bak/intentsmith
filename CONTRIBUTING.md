@@ -8,10 +8,11 @@ Read:
 
 1. [Product vision](docs/product/vision.md)
 2. [Domain intelligence and autonomy](docs/product/domain-intelligence.md)
-3. [Architecture overview](docs/architecture/overview.md)
-4. [Current status](docs/STATUS.md)
-5. [Roadmap](docs/ROADMAP.md)
-6. the relevant [ADR](docs/adr/) and threat model
+3. [C3 Capability & Lifecycle Ledger](docs/migration/c3-capability-lifecycle-ledger.md)
+4. [Architecture overview](docs/architecture/overview.md)
+5. [Current status](docs/STATUS.md)
+6. [Roadmap](docs/ROADMAP.md)
+7. the relevant [ADR](docs/adr/) and threat model
 
 For implementation setup, see the [development guide](docs/development/getting-started.md).
 
@@ -62,6 +63,10 @@ Add an ADR when changing:
 - product-wide naming or distribution.
 
 If evidence reverses an earlier decision, add a superseding ADR and explain the observed evidence. Do not silently edit history.
+
+C3-derived work must update the capability ledger with its immutable source
+evidence, preserved invariants, migration decision, harvested tests and
+IntentSmith adoption status.
 
 ## Dependencies and upstream integrations
 
