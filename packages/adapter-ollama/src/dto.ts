@@ -174,6 +174,62 @@ export function parseGenerateRecord(payload: unknown): OllamaGenerateRecord {
   };
 }
 
+export type OllamaChatRecord = {
+  model: string;
+  content: string;
+  toolCalls: Array<{ id?: string; name: string; arguments: Record<string, unknown> }>;
+  doneReason?: string;
+  promptEvalCount?: number;
+  evalCount?: number;
+};
+
+/**
+ * One non-streamed `POST /api/chat` response.
+ *
+ * Only the structured `message.tool_calls` array is read. The assistant's text
+ * is carried through untouched and is never inspected for anything call-shaped:
+ * a tool call that did not arrive through the protocol did not happen.
+ *
+ * Ollama reports `arguments` as an object, where the OpenAI shape uses a JSON
+ * string. That difference is handled at the gateway boundary, not here, so the
+ * normalized type stays vendor-neutral.
+ */
+export function parseChatRecord(payload: unknown): OllamaChatRecord {
+  if (!isRecord(payload)) invalid('chat record');
+  const inlineError = optionalString(payload.error);
+  if (inlineError) {
+    throw new ProviderError('PROVIDER_PROTOCOL_ERROR', `Ollama reported an error: ${sanitize(inlineError)}`);
+  }
+  const model = optionalString(payload.model);
+  if (!model) invalid('chat record without a model field');
+  if (!isRecord(payload.message)) invalid('chat record without a message object');
+
+  const message = payload.message;
+  const rawCalls = Array.isArray(message.tool_calls) ? message.tool_calls : [];
+  const toolCalls = rawCalls.map(entry => {
+    if (!isRecord(entry) || !isRecord(entry.function)) invalid('tool call');
+    const name = optionalString(entry.function.name);
+    if (!name) invalid('tool call without a function name');
+    const args = entry.function.arguments;
+    if (args !== undefined && !isRecord(args)) invalid('tool call whose arguments are not an object');
+    const id = optionalString(entry.id);
+    return {
+      ...(id === undefined ? {} : { id }),
+      name,
+      arguments: (args ?? {}) as Record<string, unknown>,
+    };
+  });
+
+  return {
+    model,
+    content: typeof message.content === 'string' ? message.content : '',
+    toolCalls,
+    doneReason: optionalString(payload.done_reason),
+    promptEvalCount: optionalFiniteNumber(payload.prompt_eval_count),
+    evalCount: optionalFiniteNumber(payload.eval_count),
+  };
+}
+
 /** `GET /api/ps` -> currently loaded models. */
 export function parsePs(payload: unknown): Array<{ model: string; sizeVramBytes?: number }> {
   if (!isRecord(payload)) invalid('ps payload');

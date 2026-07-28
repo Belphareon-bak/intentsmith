@@ -12,6 +12,8 @@
  * error.
  */
 
+import type { ChatRequest, ChatResult } from './chat.js';
+
 export type ProviderIdentity = {
   /** Stable machine-readable provider id, e.g. `fake`. */
   id: string;
@@ -116,6 +118,18 @@ export const PROVIDER_ERROR_CODES = [
    * legitimately local. Never retry it and never fall back to another provider.
    */
   'REMOTE_INFERENCE_FORBIDDEN',
+  /**
+   * The model answered, but not in the tool protocol it was asked to use.
+   *
+   * Observed for real: a model emitted `<function=list_files>` as ordinary text
+   * instead of a structured tool call. That is not a transport failure and not
+   * a model outage — the daemon worked and the response is well-formed prose.
+   * It is separated from `PROVIDER_PROTOCOL_ERROR` because the correct handling
+   * differs: at most one safe retry, then block the model for tool use or fall
+   * back to a compatible one. Text that looks like a tool call is never parsed,
+   * because doing so would execute a side effect no protocol ever requested.
+   */
+  'MODEL_TOOL_PROTOCOL_ERROR',
 ] as const;
 
 export type ProviderErrorCode = (typeof PROVIDER_ERROR_CODES)[number];
@@ -172,3 +186,21 @@ export type InferenceProvider = {
    */
   generate(request: GenerationRequest, signal?: AbortSignal): AsyncIterable<InferenceEvent>;
 };
+
+/**
+ * A provider that can also carry a tool-calling conversation.
+ *
+ * Optional on purpose: a provider without it is not broken, it simply cannot
+ * serve a worker that calls tools, and the gateway must refuse that request
+ * explicitly rather than degrade it into a plain completion.
+ */
+export type ToolCapableInferenceProvider = InferenceProvider & {
+  chat(request: ChatRequest, signal?: AbortSignal): Promise<ChatResult>;
+};
+
+/** Narrowing guard for the optional tool-capable surface. */
+export function supportsToolCalling(
+  provider: InferenceProvider,
+): provider is ToolCapableInferenceProvider {
+  return typeof (provider as ToolCapableInferenceProvider).chat === 'function';
+}

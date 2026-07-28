@@ -119,12 +119,35 @@ function streamResponse(chunks: string[], status = 200, url?: string): OllamaRes
   };
 }
 
+/** One non-streamed `/api/chat` response body. */
+export function chatRecord(
+  overrides: { content?: string; toolCalls?: Array<{ name: string; arguments: Record<string, unknown> }> } = {},
+): Record<string, unknown> {
+  return {
+    model: 'qwen3:14b',
+    message: {
+      role: 'assistant',
+      content: overrides.content ?? '',
+      ...(overrides.toolCalls === undefined
+        ? {}
+        : { tool_calls: overrides.toolCalls.map(call => ({ function: call })) }),
+    },
+    done: true,
+    done_reason: 'stop',
+    prompt_eval_count: 11,
+    eval_count: 7,
+  };
+}
+
 export type FixtureRoutes = {
   version?: OllamaResponse | (() => Promise<never>);
   tags?: OllamaResponse;
   show?: OllamaResponse;
   ps?: OllamaResponse;
   generate?: OllamaResponse | (() => Promise<never>);
+  chat?: OllamaResponse | (() => Promise<never>);
+  /** Receives every request body, so a test can assert what was actually sent. */
+  capture?: Array<{ url: string; body?: string }>;
 };
 
 /** Builds a transport that answers from fixtures and never touches a socket. */
@@ -135,15 +158,17 @@ export function fixtureTransport(routes: FixtureRoutes = {}): OllamaTransport {
     show: jsonResponse(200, SHOW_BODY),
     ps: jsonResponse(200, { models: [] }),
     generate: streamResponse([generateRecord('Hello'), generateRecord(' world'), terminalRecord()]),
+    chat: jsonResponse(200, chatRecord()),
   };
 
   return async (url, init) => {
+    routes.capture?.push({ url, ...(init.body === undefined ? {} : { body: init.body }) });
     if (init.signal.aborted) {
       const error = new Error('aborted');
       error.name = 'AbortError';
       throw error;
     }
-    const pick = (key: keyof FixtureRoutes): OllamaResponse | (() => Promise<never>) =>
+    const pick = (key: keyof typeof defaults): OllamaResponse | (() => Promise<never>) =>
       routes[key] ?? defaults[key];
 
     let chosen: OllamaResponse | (() => Promise<never>);
@@ -152,6 +177,7 @@ export function fixtureTransport(routes: FixtureRoutes = {}): OllamaTransport {
     else if (url.endsWith('/api/show')) chosen = pick('show');
     else if (url.endsWith('/api/ps')) chosen = pick('ps');
     else if (url.endsWith('/api/generate')) chosen = pick('generate');
+    else if (url.endsWith('/api/chat')) chosen = pick('chat');
     else chosen = jsonResponse(404, '404 page not found');
 
     if (typeof chosen === 'function') return await chosen();

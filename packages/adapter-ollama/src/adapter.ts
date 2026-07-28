@@ -3,8 +3,12 @@ import {
   assertLocalEndpoint,
   assertNotRemote,
   buildRequestHeaders,
+  containsTextualToolCall,
   DEFAULT_OLLAMA_ENDPOINT,
   normalizeProviderError,
+  type ChatRequest,
+  type ChatResult,
+  type ChatToolCall,
   type EndpointPolicyResult,
   type GenerationRequest,
   type InferenceEvent,
@@ -17,6 +21,7 @@ import {
 
 import {
   nsToMs,
+  parseChatRecord,
   parseGenerateRecord,
   parseVersion,
   parsePs,
@@ -243,6 +248,120 @@ export class OllamaProvider implements InferenceProvider {
     } catch (error) {
       yield { type: 'failed', error: normalizeProviderError(error) };
     }
+  }
+
+  /**
+   * Executes one tool-calling turn against `POST /api/chat`.
+   *
+   * Non-streamed on purpose. Streaming is a presentation concern of whatever
+   * serves the worker, and buffering one turn here keeps this method free of
+   * partial-tool-call reassembly, which is where an "almost right" tool call
+   * would be invented.
+   *
+   * The same preflight as `generate` applies: a remote-backed model is refused
+   * before anything is sent. Nothing in this method executes a tool.
+   */
+  async chat(request: ChatRequest, signal?: AbortSignal): Promise<ChatResult> {
+    if (typeof request.modelId !== 'string' || request.modelId.trim().length === 0) {
+      throw new ProviderError('REQUEST_INVALID', 'A model id is required.');
+    }
+    if (!Array.isArray(request.messages) || request.messages.length === 0) {
+      throw new ProviderError('REQUEST_INVALID', 'At least one message is required.');
+    }
+    if (signal?.aborted) {
+      throw new ProviderError('REQUEST_CANCELLED', 'Request was cancelled before it started.');
+    }
+
+    const described = await this.describeModel(request.modelId, signal);
+    if (described.execution === 'remote_forbidden') {
+      throw new ProviderError(
+        'REMOTE_INFERENCE_FORBIDDEN',
+        `Refusing remote-backed inference for "${request.modelId}": ${described.executionReason ?? 'provider reported remote execution metadata'}`,
+      );
+    }
+
+    const body: Record<string, unknown> = {
+      model: request.modelId,
+      stream: false,
+      messages: request.messages.map(message => {
+        if (message.role === 'assistant') {
+          return {
+            role: 'assistant',
+            content: message.content,
+            ...(message.toolCalls && message.toolCalls.length > 0
+              ? {
+                  tool_calls: message.toolCalls.map(call => ({
+                    function: { name: call.name, arguments: call.arguments },
+                  })),
+                }
+              : {}),
+          };
+        }
+        if (message.role === 'tool') {
+          // Ollama takes a tool result as a role-tagged message; the call id is
+          // correlated by position rather than carried, so it stays with the
+          // caller.
+          return { role: 'tool', content: message.content };
+        }
+        return { role: message.role, content: message.content };
+      }),
+      options: {
+        num_predict: request.maxOutputTokens ?? 512,
+        temperature: request.temperature ?? 0,
+      },
+    };
+
+    // Absent means "leave the model's default alone"; `false` is an explicit
+    // profile decision and must reach Ollama as one.
+    if (request.think !== undefined) body.think = request.think;
+
+    if (request.tools && request.tools.length > 0) {
+      body.tools = request.tools.map(tool => ({
+        type: 'function',
+        function: {
+          name: tool.name,
+          description: tool.description ?? '',
+          parameters: tool.parameters,
+        },
+      }));
+    }
+
+    const payload = await this.requestJson(
+      'POST',
+      '/api/chat',
+      body,
+      request.timeoutMs ?? this.timeouts.overallMs,
+      signal,
+    );
+    const record = parseChatRecord(payload);
+
+    const toolCalls: ChatToolCall[] = record.toolCalls.map((call, index) => ({
+      id: call.id ?? `call_${index}`,
+      name: call.name,
+      arguments: call.arguments,
+    }));
+
+    // A model that was offered tools and answered with call-shaped prose has
+    // failed the protocol. The text is refused, never parsed: honouring it
+    // would execute a side effect the protocol never carried.
+    if (request.tools && request.tools.length > 0 && toolCalls.length === 0 && containsTextualToolCall(record.content)) {
+      throw new ProviderError(
+        'MODEL_TOOL_PROTOCOL_ERROR',
+        `Model "${request.modelId}" emitted a tool call as text instead of a structured tool call.`,
+      );
+    }
+
+    const usage =
+      record.promptEvalCount === undefined && record.evalCount === undefined
+        ? undefined
+        : { promptTokens: record.promptEvalCount ?? 0, completionTokens: record.evalCount ?? 0 };
+
+    return {
+      text: record.content,
+      toolCalls,
+      finishReason: toolCalls.length > 0 ? 'tool_calls' : 'stop',
+      ...(usage === undefined ? {} : { usage }),
+    };
   }
 
   private async *runGeneration(request: GenerationRequest, signal?: AbortSignal): AsyncIterable<InferenceEvent> {

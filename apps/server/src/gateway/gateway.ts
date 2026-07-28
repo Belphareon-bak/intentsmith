@@ -2,11 +2,26 @@ import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 import { Type } from '@sinclair/typebox';
 
 import { applyExecutionPolicy, assessFit } from '@intentsmith/hardware';
-import { ProviderError, normalizeProviderError, type ModelDescriptor } from '@intentsmith/inference';
+import {
+  ProviderError,
+  normalizeProviderError,
+  supportsToolCalling,
+  type EffectiveInferenceSettings,
+  type ModelDescriptor,
+} from '@intentsmith/inference';
 
 import type { ServerRuntime } from '../app.js';
 import { providerStatus } from '../inference-routes.js';
 import type { GatewayTokenStore } from './token-store.js';
+import {
+  ToolRequestError,
+  assertToolCallingAllowed,
+  normalizeMessages,
+  normalizeTools,
+  toOpenAiToolCalls,
+  type OpenAiMessage,
+  type OpenAiTool,
+} from './tool-chat.js';
 
 /**
  * Loopback-only inference gateway for future external workers.
@@ -29,19 +44,39 @@ import type { GatewayTokenStore } from './token-store.js';
 
 export const GATEWAY_DEFAULT_HOST = '127.0.0.1';
 
+/**
+ * One message in either direction.
+ *
+ * `content` is nullable because an assistant turn that consists only of tool
+ * calls carries no text, and `tool_calls`/`tool_call_id` are declared so a tool
+ * conversation survives the round trip instead of being silently flattened.
+ */
+const MessageSchema = Type.Object(
+  {
+    role: Type.Union([
+      Type.Literal('system'),
+      Type.Literal('user'),
+      Type.Literal('assistant'),
+      Type.Literal('tool'),
+    ]),
+    content: Type.Optional(
+      Type.Union([
+        Type.String({ maxLength: 128_000 }),
+        Type.Null(),
+        Type.Array(Type.Unknown(), { maxItems: 64 }),
+      ]),
+    ),
+    tool_calls: Type.Optional(Type.Array(Type.Unknown(), { maxItems: 16 })),
+    tool_call_id: Type.Optional(Type.String({ maxLength: 200 })),
+    name: Type.Optional(Type.String({ maxLength: 200 })),
+  },
+  { additionalProperties: false },
+);
+
 const ChatBodySchema = Type.Object(
   {
     model: Type.String({ minLength: 1, maxLength: 200 }),
-    messages: Type.Array(
-      Type.Object(
-        {
-          role: Type.Union([Type.Literal('system'), Type.Literal('user'), Type.Literal('assistant')]),
-          content: Type.String({ maxLength: 32_000 }),
-        },
-        { additionalProperties: false },
-      ),
-      { minItems: 1, maxItems: 64 },
-    ),
+    messages: Type.Array(MessageSchema, { minItems: 1, maxItems: 256 }),
     stream: Type.Optional(Type.Boolean()),
     // A real OpenAI-compatible client sends a wider sampling surface than the
     // minimum. These are accepted because they do not change what the request
@@ -52,11 +87,11 @@ const ChatBodySchema = Type.Object(
     stream_options: Type.Optional(
       Type.Object({ include_usage: Type.Optional(Type.Boolean()) }, { additionalProperties: false }),
     ),
-    // Present in the schema only so an explicit, actionable refusal is possible.
-    // Omitting them would make Fastify reject the request with a generic
-    // "additional properties" error that tells a worker nothing.
     tools: Type.Optional(Type.Array(Type.Unknown(), { maxItems: 128 })),
     tool_choice: Type.Optional(Type.Unknown()),
+    // Declared so it can be refused with a reason. Accepting it silently would
+    // let a worker believe two side effects may be requested at once.
+    parallel_tool_calls: Type.Optional(Type.Boolean()),
   },
   { additionalProperties: false },
 );
@@ -65,7 +100,32 @@ export type GatewayOptions = {
   runtime: ServerRuntime;
   tokens: GatewayTokenStore;
   now?: () => number;
+  /**
+   * Receives the settings a tool-calling turn actually ran with.
+   *
+   * Run evidence has to record what was used, not what was asked for: a profile
+   * that silently differs from the audit is worse than no profile at all.
+   */
+  onInferenceProfile?: (settings: EffectiveInferenceSettings) => void;
 };
+
+/**
+ * Reduces OpenAI content to text for the plain path.
+ *
+ * Kept separate from the tool path's normalization so the Phase 2 surface keeps
+ * behaving exactly as it did, while still tolerating the content-part array a
+ * real client may send.
+ */
+function plainText(content: unknown): string {
+  if (content === undefined || content === null) return '';
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return (content as Array<{ text?: unknown }>)
+      .map(part => (typeof part.text === 'string' ? part.text : ''))
+      .join('');
+  }
+  throw new ToolRequestError('REQUEST_INVALID', 'Message content must be text.');
+}
 
 /**
  * Flattens OpenAI chat messages onto the provider's prompt/system shape.
@@ -106,6 +166,209 @@ export function buildGateway(options: GatewayOptions): FastifyInstance {
     reply.status(status).send({ error: { code, message, retryable: false } });
 
   /**
+   * The gate every request passes, tools or not: local-only preflight, remote
+   * rejection, model-fit policy, then a scheduler permit. Returns the permit's
+   * release function.
+   */
+  const admitModel = async (modelId: string, signal: AbortSignal): Promise<() => void> => {
+    const described = await runtime.provider.describeModel(modelId, signal);
+    const { show: _show, ...descriptor } = described;
+    if (descriptor.execution === 'remote_forbidden') {
+      throw new ProviderError('REMOTE_INFERENCE_FORBIDDEN', `Refusing remote-backed inference for "${modelId}".`);
+    }
+    const hardwareProfile = await runtime.hardware.profile(signal);
+    const decision = applyExecutionPolicy(
+      assessFit(descriptor as ModelDescriptor, hardwareProfile),
+      runtime.executionPolicy,
+    );
+    if (!decision.allowed) {
+      throw new ProviderError('REQUEST_INVALID', decision.reason ?? 'Model rejected by execution policy.');
+    }
+    return await runtime.scheduler.acquire(signal);
+  };
+
+  /**
+   * Serves one tool-calling turn.
+   *
+   * This path translates and nothing else. It does not run a tool, read a file,
+   * spawn a process or reach the network beyond the same local provider the
+   * plain path uses; a tool call is returned to the worker as data, and the
+   * worker executes it only after its own permission handling.
+   */
+  const handleToolChat = async (
+    body: {
+      model: string;
+      messages: OpenAiMessage[];
+      tools?: OpenAiTool[];
+      tool_choice?: unknown;
+      parallel_tool_calls?: boolean;
+      stream?: boolean;
+      max_tokens?: number;
+      temperature?: number;
+    },
+    reply: FastifyReply,
+  ): Promise<FastifyReply | unknown> => {
+    if (!supportsToolCalling(runtime.provider)) {
+      return deny(
+        reply,
+        400,
+        'TOOL_CALLING_UNSUPPORTED',
+        'The configured provider cannot carry a tool-calling conversation, and this gateway will not silently serve the request as a plain completion.',
+      );
+    }
+
+    // `required` and a named-function choice are not implemented. Accepting
+    // either and behaving like `auto` would tell the worker its constraint was
+    // honoured when it was not.
+    const toolChoice = body.tool_choice ?? 'auto';
+    if (toolChoice !== 'auto' && toolChoice !== 'none') {
+      return deny(
+        reply,
+        400,
+        'TOOL_CHOICE_UNSUPPORTED',
+        'Only tool_choice "auto" and "none" are implemented; a forced or named choice is refused rather than approximated.',
+      );
+    }
+    if (body.parallel_tool_calls === true) {
+      return deny(
+        reply,
+        400,
+        'PARALLEL_TOOL_CALLS_UNSUPPORTED',
+        'Parallel tool calls are not supported: two side effects arriving as one indivisible turn cannot be mediated or audited separately.',
+      );
+    }
+
+    let tools: ReturnType<typeof normalizeTools>;
+    let messages: ReturnType<typeof normalizeMessages>;
+    let effective: EffectiveInferenceSettings;
+    try {
+      effective = assertToolCallingAllowed(body.model);
+      tools = normalizeTools(body.tools ?? []);
+      messages = normalizeMessages(body.messages);
+    } catch (error) {
+      if (error instanceof ToolRequestError) return deny(reply, 400, error.code, error.message);
+      throw error;
+    }
+
+    const controller = new AbortController();
+    reply.raw.on('close', () => {
+      if (!reply.raw.writableEnded) controller.abort();
+    });
+
+    let release: (() => void) | undefined;
+    try {
+      release = await admitModel(body.model, controller.signal);
+    } catch (error) {
+      release?.();
+      const normalized = normalizeProviderError(error);
+      return reply.status(providerStatus(normalized.code)).send({ error: normalized });
+    }
+
+    const created = Math.floor((options.now?.() ?? Date.now()) / 1000);
+    const id = `chatcmpl-${created}`;
+
+    try {
+      // The profile decides; the worker's own sampling request is recorded as
+      // overruled rather than blended in.
+      const result = await runtime.provider.chat(
+        {
+          modelId: body.model,
+          messages,
+          ...(toolChoice === 'none' ? { toolChoice: 'none' as const } : { tools, toolChoice: 'auto' as const }),
+          maxOutputTokens: effective.maxOutputTokens,
+          temperature: effective.temperature,
+          ...(effective.think === undefined ? {} : { think: effective.think }),
+        },
+        controller.signal,
+      );
+      options.onInferenceProfile?.({
+        modelId: effective.modelId,
+        role: effective.role,
+        maxOutputTokens: effective.maxOutputTokens,
+        temperature: effective.temperature,
+        ...(effective.think === undefined ? {} : { think: effective.think }),
+        toolProtocol: effective.toolProtocol,
+        overruled: [
+          ...effective.overruled,
+          ...(body.max_tokens !== undefined && body.max_tokens > effective.maxOutputTokens ? ['max_tokens'] : []),
+          ...(body.temperature !== undefined && body.temperature !== effective.temperature ? ['temperature'] : []),
+        ],
+      });
+
+      const toolCalls = toOpenAiToolCalls(result);
+      const finishReason = toolCalls.length > 0 ? 'tool_calls' : 'stop';
+      const usage = {
+        prompt_tokens: result.usage?.promptTokens ?? 0,
+        completion_tokens: result.usage?.completionTokens ?? 0,
+        total_tokens: (result.usage?.promptTokens ?? 0) + (result.usage?.completionTokens ?? 0),
+      };
+
+      if (body.stream !== true) {
+        return {
+          id,
+          object: 'chat.completion',
+          created,
+          model: body.model,
+          choices: [
+            {
+              index: 0,
+              message: {
+                role: 'assistant',
+                content: result.text,
+                ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+              },
+              finish_reason: finishReason,
+            },
+          ],
+          usage,
+        };
+      }
+
+      // A real OpenAI-compatible client treats a non-streamed body for a
+      // streamed request as unusable and ends the turn without an error, so the
+      // tool call must arrive as SSE deltas or it may as well not exist.
+      reply.raw.setHeader('content-type', 'text/event-stream');
+      reply.raw.setHeader('cache-control', 'no-store');
+      const chunk = (payload: Record<string, unknown>): void => {
+        reply.raw.write(`data: ${JSON.stringify({ id, object: 'chat.completion.chunk', created, model: body.model, ...payload })}\n\n`);
+      };
+
+      chunk({ choices: [{ index: 0, delta: { role: 'assistant' }, finish_reason: null }] });
+      if (result.text.length > 0) {
+        chunk({ choices: [{ index: 0, delta: { content: result.text }, finish_reason: null }] });
+      }
+      for (const [index, call] of toolCalls.entries()) {
+        chunk({
+          choices: [
+            {
+              index: 0,
+              delta: { tool_calls: [{ index, id: call.id, type: 'function', function: call.function }] },
+              finish_reason: null,
+            },
+          ],
+        });
+      }
+      chunk({ choices: [{ index: 0, delta: {}, finish_reason: finishReason }] });
+      chunk({ choices: [], usage });
+      reply.raw.write('data: [DONE]\n\n');
+      reply.raw.end();
+      return reply;
+    } catch (error) {
+      const normalized = normalizeProviderError(error);
+      if (reply.raw.headersSent) {
+        // The status is already committed, so the failure travels in-band.
+        reply.raw.write(`data: ${JSON.stringify({ error: normalized })}\n\n`);
+        reply.raw.write('data: [DONE]\n\n');
+        reply.raw.end();
+        return reply;
+      }
+      return reply.status(providerStatus(normalized.code)).send({ error: normalized });
+    } finally {
+      release();
+    }
+  };
+
+  /**
    * Every gateway route requires a valid per-run token, even on loopback.
    * The token itself is never logged, echoed, or included in any error.
    */
@@ -141,28 +404,47 @@ export function buildGateway(options: GatewayOptions): FastifyInstance {
   app.post('/v1/chat/completions', { schema: { body: ChatBodySchema } }, async (request, reply) => {
     const body = request.body as {
       model: string;
-      messages: Array<{ role: string; content: string }>;
+      messages: OpenAiMessage[];
       stream?: boolean;
       max_tokens?: number;
       temperature?: number;
       top_p?: number;
-      tools?: unknown[];
+      tools?: OpenAiTool[];
+      tool_choice?: unknown;
+      parallel_tool_calls?: boolean;
     };
-    // Tool calling is not implemented by the Phase 2 provider surface.
-    // Accepting the request and ignoring `tools` would be the dangerous
-    // choice: the worker would believe it holds capabilities such as shell,
-    // filesystem write and web fetch, and IntentSmith would have silently
-    // agreed to something it cannot mediate or gate.
-    if (Array.isArray(body.tools) && body.tools.length > 0) {
+
+    const advertisesTools = Array.isArray(body.tools) && body.tools.length > 0;
+    const carriesToolTurns = body.messages.some(
+      message => message.role === 'tool' || (message.tool_calls?.length ?? 0) > 0,
+    );
+
+    if (advertisesTools) {
+      return await handleToolChat(body, reply);
+    }
+
+    // A conversation containing tool turns without an advertised toolset cannot
+    // be served as a plain completion: flattening it would drop the fact that a
+    // tool ran, and the model would answer from a transcript that lies.
+    if (carriesToolTurns) {
       return deny(
         reply,
         400,
         'TOOL_CALLING_UNSUPPORTED',
-        'This gateway does not implement tool calling. It will not accept a request that advertises tools, because ignoring them would let the worker assume capabilities IntentSmith cannot mediate.',
+        'The conversation contains tool calls or tool results but advertises no tools.',
       );
     }
 
-    const { prompt, system } = flattenMessages(body.messages);
+    let flattened: { prompt: string; system?: string };
+    try {
+      flattened = flattenMessages(
+        body.messages.map(message => ({ role: message.role, content: plainText(message.content) })),
+      );
+    } catch (error) {
+      const message = error instanceof ToolRequestError ? error.message : 'Message content must be text.';
+      return deny(reply, 400, 'REQUEST_INVALID', message);
+    }
+    const { prompt, system } = flattened;
     if (prompt.length === 0) {
       return deny(reply, 400, 'REQUEST_INVALID', 'At least one user message is required.');
     }
@@ -178,25 +460,7 @@ export function buildGateway(options: GatewayOptions): FastifyInstance {
 
     let release: (() => void) | undefined;
     try {
-      // Identical gate to the normal API: local-only preflight, remote
-      // rejection and model-fit policy, then a scheduler permit.
-      const described = await runtime.provider.describeModel(body.model, controller.signal);
-      const { show: _show, ...descriptor } = described;
-      if (descriptor.execution === 'remote_forbidden') {
-        throw new ProviderError(
-          'REMOTE_INFERENCE_FORBIDDEN',
-          `Refusing remote-backed inference for "${body.model}".`,
-        );
-      }
-      const profile = await runtime.hardware.profile(controller.signal);
-      const decision = applyExecutionPolicy(
-        assessFit(descriptor as ModelDescriptor, profile),
-        runtime.executionPolicy,
-      );
-      if (!decision.allowed) {
-        throw new ProviderError('REQUEST_INVALID', decision.reason ?? 'Model rejected by execution policy.');
-      }
-      release = await runtime.scheduler.acquire(controller.signal);
+      release = await admitModel(body.model, controller.signal);
     } catch (error) {
       release?.();
       const normalized = normalizeProviderError(error);

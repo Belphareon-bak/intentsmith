@@ -274,7 +274,7 @@ describe('gateway chat completions', () => {
     expect(response.statusCode).toBe(200);
   });
 
-  it('refuses a request that advertises tools rather than ignoring them', async () => {
+  it('serves a request that advertises tools without ever executing one', async () => {
     const app = gateway();
     const token = tokens.issue('run_1');
     const response = await app.inject({
@@ -288,11 +288,33 @@ describe('gateway chat completions', () => {
       },
     });
 
-    // Accepting and dropping them would let the worker believe it holds shell,
-    // filesystem and network capabilities IntentSmith cannot mediate.
+    // Phase 3B translates tool calls; it never runs them. Advertising `bash`
+    // here is deliberate: the gateway carries the schema through untouched, and
+    // whether `bash` may run at all is Core's decision, not this route's.
+    expect(response.statusCode).toBe(200);
+    expect(response.json().choices[0].message.role).toBe('assistant');
+  });
+
+  it('refuses a conversation with tool turns but no advertised tools', async () => {
+    const app = gateway();
+    const token = tokens.issue('run_1');
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      headers: auth(token.value),
+      payload: {
+        model: 'qwen3:14b',
+        messages: [
+          { role: 'user', content: 'read it' },
+          { role: 'tool', tool_call_id: 'call_0', content: '{}' },
+        ],
+      },
+    });
+
+    // Flattening this into a prompt would hide that a tool ran, and the model
+    // would answer from a transcript that misrepresents what happened.
     expect(response.statusCode).toBe(400);
     expect(response.json().error.code).toBe('TOOL_CALLING_UNSUPPORTED');
-    expect(response.json().error.message).toContain('cannot mediate');
   });
 
   it('accepts an empty tools array, which advertises nothing', async () => {
