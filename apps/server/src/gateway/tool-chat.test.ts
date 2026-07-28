@@ -7,6 +7,11 @@ import type { EffectiveInferenceSettings } from '@intentsmith/inference';
 import { createTestServerRuntime } from '../test-runtime.js';
 import { buildGateway } from './gateway.js';
 import { GatewayTokenStore } from './token-store.js';
+import {
+  classifySideEffectEvidence,
+  decideToolProtocolRetry,
+  type ToolProtocolAttemptAudit,
+} from './protocol-retry.js';
 import { TOOL_LIMITS, normalizeMessages, normalizeTools, toOpenAiToolCalls } from './tool-chat.js';
 
 /**
@@ -21,12 +26,14 @@ let core: TestRuntime;
 let workspace: DisposableWorkspace;
 let tokens: GatewayTokenStore;
 let profiles: EffectiveInferenceSettings[];
+let protocolAttempts: ToolProtocolAttemptAudit[];
 
 beforeEach(() => {
   core = createTestRuntime();
   workspace = new DisposableWorkspace();
   tokens = new GatewayTokenStore();
   profiles = [];
+  protocolAttempts = [];
 });
 
 afterEach(async () => {
@@ -46,6 +53,7 @@ function gateway(routes: Parameters<typeof fixtureTransport>[0] = {}) {
     tokens,
     now: () => 1_780_000_000_000,
     onInferenceProfile: settings => profiles.push(settings),
+    onToolProtocolAttempt: attempt => protocolAttempts.push(attempt),
   });
 }
 
@@ -194,6 +202,145 @@ describe('what the gateway refuses', () => {
         ],
       }),
     ).toThrow(/parallel tool calling is not supported/);
+  });
+});
+
+describe('bounded model tool-protocol retry', () => {
+  const pseudoCall = chatRecord({ content: 'let me look.\n<function=read>\n' });
+
+  it('retries exactly once when the ledger proves no side effect was consumed', async () => {
+    let calls = 0;
+    const app = gateway({
+      chat: async () => {
+        calls += 1;
+        return fixtures.jsonResponse(
+          200,
+          calls === 1
+            ? pseudoCall
+            : chatRecord({ toolCalls: [{ name: 'read', arguments: { path: 'package.json' } }] }),
+        );
+      },
+    });
+
+    const response = await post(app, { tools: [readTool] });
+    expect(response.statusCode).toBe(200);
+    expect(calls).toBe(2);
+    expect(protocolAttempts).toEqual([
+      expect.objectContaining({
+        runId: 'run_1',
+        attempt: 1,
+        sideEffectEvidence: 'proven_absent',
+        errorCode: 'MODEL_TOOL_PROTOCOL_ERROR',
+        retryDecision: 'allowed',
+      }),
+      expect.objectContaining({
+        runId: 'run_1',
+        attempt: 2,
+        outcome: 'success',
+        retryDecision: 'not_applicable',
+      }),
+    ]);
+    expect(protocolAttempts[0]?.reason).toMatch(/proves no tool turn or side effect/);
+  });
+
+  it('makes a repeated protocol error terminal without a third attempt', async () => {
+    let calls = 0;
+    const app = gateway({
+      chat: async () => {
+        calls += 1;
+        return fixtures.jsonResponse(200, pseudoCall);
+      },
+    });
+
+    const response = await post(app, { tools: [readTool] });
+    expect(response.json().error.code).toBe('MODEL_TOOL_PROTOCOL_ERROR');
+    expect(calls).toBe(2);
+    expect(protocolAttempts.map(attempt => [attempt.attempt, attempt.retryDecision])).toEqual([
+      [1, 'allowed'],
+      [2, 'refused'],
+    ]);
+    expect(protocolAttempts[1]?.reason).toMatch(/already consumed/);
+  });
+
+  it('does not retry after a consumed side effect', async () => {
+    let calls = 0;
+    const app = gateway({
+      chat: async () => {
+        calls += 1;
+        return fixtures.jsonResponse(200, pseudoCall);
+      },
+    });
+    const response = await post(app, {
+      tools: [readTool],
+      messages: [
+        { role: 'user', content: 'read it' },
+        {
+          role: 'assistant',
+          content: null,
+          tool_calls: [{ id: 'call_0', type: 'function', function: { name: 'read', arguments: '{}' } }],
+        },
+        { role: 'tool', tool_call_id: 'call_0', content: '{}' },
+      ],
+    });
+
+    expect(response.json().error.code).toBe('MODEL_TOOL_PROTOCOL_ERROR');
+    expect(calls).toBe(1);
+    expect(protocolAttempts[0]).toMatchObject({
+      attempt: 1,
+      sideEffectEvidence: 'consumed',
+      retryDecision: 'refused',
+    });
+  });
+
+  it('does not retry when side-effect evidence is ambiguous or missing', async () => {
+    let calls = 0;
+    const app = gateway({
+      chat: async () => {
+        calls += 1;
+        return fixtures.jsonResponse(200, pseudoCall);
+      },
+    });
+    const response = await post(app, {
+      tools: [readTool],
+      messages: [
+        { role: 'user', content: 'read it' },
+        {
+          role: 'assistant',
+          content: null,
+          tool_calls: [{ id: 'call_0', type: 'function', function: { name: 'read', arguments: '{}' } }],
+        },
+      ],
+    });
+
+    expect(response.json().error.code).toBe('MODEL_TOOL_PROTOCOL_ERROR');
+    expect(calls).toBe(1);
+    expect(protocolAttempts[0]).toMatchObject({
+      sideEffectEvidence: 'ambiguous',
+      retryDecision: 'refused',
+    });
+    expect(classifySideEffectEvidence([])).toBe('missing');
+    expect(
+      decideToolProtocolRetry({
+        attempt: 1,
+        errorCode: 'MODEL_TOOL_PROTOCOL_ERROR',
+        sideEffectEvidence: 'missing',
+      }).retry,
+    ).toBe(false);
+  });
+
+  it.each([
+    ['cancel', 'REQUEST_CANCELLED'],
+    ['timeout', 'REQUEST_TIMEOUT'],
+    ['permission denial', 'PERMISSION_DENIED'],
+    ['generic worker failure', 'PROVIDER_PROTOCOL_ERROR'],
+  ])('does not use the protocol retry for %s', (_name, errorCode) => {
+    const decision = decideToolProtocolRetry({
+      attempt: 1,
+      errorCode,
+      sideEffectEvidence: 'proven_absent',
+    });
+    expect(decision.retry).toBe(false);
+    expect(decision.reason).toContain('is not MODEL_TOOL_PROTOCOL_ERROR');
   });
 });
 

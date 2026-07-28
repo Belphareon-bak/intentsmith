@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   MODEL_PROFILES,
+  THINKING_ENABLED_INVALID_PROFILE,
   applyModelProfile,
   containsTextualToolCall,
   resolveModelProfile,
@@ -19,6 +20,7 @@ describe('profile resolution', () => {
   it('resolves a measured model to its recorded profile', () => {
     const profile = resolveModelProfile('qwen3:14b');
     expect(profile.think).toBe(false);
+    expect(profile.status).toBe('PROVISIONAL');
     expect(profile.toolProtocol).toBe('structured');
     expect(profile.evidence).toMatch(/74\.8 tok\/s/);
   });
@@ -26,6 +28,7 @@ describe('profile resolution', () => {
   it('treats an unmeasured model as unobserved rather than assuming it is fine', () => {
     const profile = resolveModelProfile('nobody-has-tried-this:8b');
     expect(profile.toolProtocol).toBe('unobserved');
+    expect(profile.status).toBe('UNOBSERVED');
     expect(profile).toEqual(unobservedProfile('nobody-has-tried-this:8b'));
   });
 
@@ -36,9 +39,22 @@ describe('profile resolution', () => {
   it('gives every catalogued profile its evidence', () => {
     for (const [id, profile] of Object.entries(MODEL_PROFILES)) {
       expect(profile.modelId, id).toBe(id);
+      expect(profile.status, id).toBe('PROVISIONAL');
       expect(profile.evidence.length, id).toBeGreaterThan(0);
       expect(profile.maxOutputTokens, id).toBeGreaterThan(0);
     }
+  });
+
+  it('preserves thinking-enabled qwen3:14b as an invalid negative fixture, never a selectable profile', () => {
+    expect(THINKING_ENABLED_INVALID_PROFILE).toMatchObject({
+      modelId: 'qwen3:14b',
+      status: 'INVALID_NEGATIVE_FIXTURE',
+      think: true,
+      maxOutputTokens: 512,
+    });
+    expect(THINKING_ENABLED_INVALID_PROFILE.expectedFailure).toMatch(/no structured tool call/i);
+    expect(Object.values(MODEL_PROFILES)).not.toContain(THINKING_ENABLED_INVALID_PROFILE);
+    expect(resolveModelProfile('qwen3:14b').think).toBe(false);
   });
 });
 

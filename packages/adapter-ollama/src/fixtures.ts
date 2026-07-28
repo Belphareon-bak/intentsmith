@@ -140,12 +140,12 @@ export function chatRecord(
 }
 
 export type FixtureRoutes = {
-  version?: OllamaResponse | (() => Promise<never>);
+  version?: OllamaResponse | (() => Promise<OllamaResponse>);
   tags?: OllamaResponse;
   show?: OllamaResponse;
   ps?: OllamaResponse;
-  generate?: OllamaResponse | (() => Promise<never>);
-  chat?: OllamaResponse | (() => Promise<never>);
+  generate?: OllamaResponse | (() => Promise<OllamaResponse>);
+  chat?: OllamaResponse | (() => Promise<OllamaResponse>);
   /** Receives every request body, so a test can assert what was actually sent. */
   capture?: Array<{ url: string; body?: string }>;
 };
@@ -168,10 +168,10 @@ export function fixtureTransport(routes: FixtureRoutes = {}): OllamaTransport {
       error.name = 'AbortError';
       throw error;
     }
-    const pick = (key: keyof typeof defaults): OllamaResponse | (() => Promise<never>) =>
+    const pick = (key: keyof typeof defaults): OllamaResponse | (() => Promise<OllamaResponse>) =>
       routes[key] ?? defaults[key];
 
-    let chosen: OllamaResponse | (() => Promise<never>);
+    let chosen: OllamaResponse | (() => Promise<OllamaResponse>);
     if (url.endsWith('/api/version')) chosen = pick('version');
     else if (url.endsWith('/api/tags')) chosen = pick('tags');
     else if (url.endsWith('/api/show')) chosen = pick('show');

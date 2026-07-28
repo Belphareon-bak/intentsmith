@@ -34,6 +34,7 @@ export {
 } from './chat.js';
 export {
   MODEL_PROFILES,
+  THINKING_ENABLED_INVALID_PROFILE,
   applyModelProfile,
   resolveModelProfile,
   unobservedProfile,

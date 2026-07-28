@@ -23,6 +23,13 @@ export type ToolProtocolStatus =
 
 export type ModelProfile = {
   modelId: string;
+  /**
+   * Probe-backed does not mean release-verified.
+   *
+   * Every catalogued Phase 3 profile remains PROVISIONAL until runtime
+   * lifecycle evidence supports promoting it in a separate decision.
+   */
+  status: 'PROVISIONAL' | 'UNOBSERVED';
   /** What this model is selected for. */
   role: 'fast' | 'deep' | 'coding-experimental' | 'quarantined-tools';
   /**
@@ -43,6 +50,7 @@ export type ModelProfile = {
 export const MODEL_PROFILES: Readonly<Record<string, ModelProfile>> = Object.freeze({
   'qwen3.5:27b': {
     modelId: 'qwen3.5:27b',
+    status: 'PROVISIONAL',
     role: 'deep',
     maxOutputTokens: 1024,
     temperature: 0,
@@ -51,6 +59,7 @@ export const MODEL_PROFILES: Readonly<Record<string, ModelProfile>> = Object.fre
   },
   'qwen3:14b': {
     modelId: 'qwen3:14b',
+    status: 'PROVISIONAL',
     role: 'fast',
     think: false,
     maxOutputTokens: 512,
@@ -60,6 +69,7 @@ export const MODEL_PROFILES: Readonly<Record<string, ModelProfile>> = Object.fre
   },
   'devstral-small-2:24b': {
     modelId: 'devstral-small-2:24b',
+    status: 'PROVISIONAL',
     role: 'coding-experimental',
     maxOutputTokens: 1024,
     temperature: 0,
@@ -68,12 +78,31 @@ export const MODEL_PROFILES: Readonly<Record<string, ModelProfile>> = Object.fre
   },
   'qwen3-coder:30b': {
     modelId: 'qwen3-coder:30b',
+    status: 'PROVISIONAL',
     role: 'quarantined-tools',
     maxOutputTokens: 1024,
     temperature: 0,
     toolProtocol: 'quarantined',
     evidence: 'Fastest measured at 143 tok/s, but emitted <function=...> as text in six responses.',
   },
+});
+
+/**
+ * Intentional negative regression fixture from the model probe.
+ *
+ * This is not a selectable profile. Keeping it as a differently typed value
+ * prevents an invalid configuration from being promoted accidentally while
+ * preserving the evidence that `think:true` plus 512 output tokens made
+ * qwen3:14b fail to emit a structured tool call.
+ */
+export const THINKING_ENABLED_INVALID_PROFILE = Object.freeze({
+  fixtureId: 'qwen3-14b-thinking-enabled-512',
+  modelId: 'qwen3:14b',
+  status: 'INVALID_NEGATIVE_FIXTURE' as const,
+  think: true,
+  maxOutputTokens: 512,
+  temperature: 0,
+  expectedFailure: 'Thinking consumed the output budget and no structured tool call was emitted.',
 });
 
 /**
@@ -87,6 +116,7 @@ export const MODEL_PROFILES: Readonly<Record<string, ModelProfile>> = Object.fre
 export function unobservedProfile(modelId: string): ModelProfile {
   return {
     modelId,
+    status: 'UNOBSERVED',
     role: 'fast',
     maxOutputTokens: 512,
     temperature: 0,
@@ -108,6 +138,7 @@ export function resolveModelProfile(modelId: string): ModelProfile {
  */
 export type EffectiveInferenceSettings = {
   modelId: string;
+  profileStatus: ModelProfile['status'];
   role: ModelProfile['role'];
   maxOutputTokens: number;
   temperature: number;
@@ -141,6 +172,7 @@ export function applyModelProfile(
 
   return {
     modelId: profile.modelId,
+    profileStatus: profile.status,
     role: profile.role,
     maxOutputTokens,
     temperature,

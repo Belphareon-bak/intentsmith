@@ -14,6 +14,11 @@ import type { ServerRuntime } from '../app.js';
 import { providerStatus } from '../inference-routes.js';
 import type { GatewayTokenStore } from './token-store.js';
 import {
+  classifySideEffectEvidence,
+  decideToolProtocolRetry,
+  type ToolProtocolAttemptAudit,
+} from './protocol-retry.js';
+import {
   ToolRequestError,
   assertToolCallingAllowed,
   normalizeMessages,
@@ -107,6 +112,8 @@ export type GatewayOptions = {
    * that silently differs from the audit is worse than no profile at all.
    */
   onInferenceProfile?: (settings: EffectiveInferenceSettings) => void;
+  /** Append-only sink for the bounded model tool-protocol attempt ledger. */
+  onToolProtocolAttempt?: (attempt: ToolProtocolAttemptAudit) => void;
 };
 
 /**
@@ -207,6 +214,7 @@ export function buildGateway(options: GatewayOptions): FastifyInstance {
       temperature?: number;
     },
     reply: FastifyReply,
+    runId: string,
   ): Promise<FastifyReply | unknown> => {
     if (!supportsToolCalling(runtime.provider)) {
       return deny(
@@ -270,19 +278,64 @@ export function buildGateway(options: GatewayOptions): FastifyInstance {
     try {
       // The profile decides; the worker's own sampling request is recorded as
       // overruled rather than blended in.
-      const result = await runtime.provider.chat(
-        {
-          modelId: body.model,
-          messages,
-          ...(toolChoice === 'none' ? { toolChoice: 'none' as const } : { tools, toolChoice: 'auto' as const }),
-          maxOutputTokens: effective.maxOutputTokens,
-          temperature: effective.temperature,
-          ...(effective.think === undefined ? {} : { think: effective.think }),
-        },
-        controller.signal,
-      );
+      const sideEffectEvidence = classifySideEffectEvidence(messages);
+      let attempt: 1 | 2 = 1;
+      let attempted:
+        | {
+            result: Awaited<ReturnType<typeof runtime.provider.chat>>;
+            toolCalls: ReturnType<typeof toOpenAiToolCalls>;
+          }
+        | undefined;
+
+      while (!attempted) {
+        try {
+          const result = await runtime.provider.chat(
+            {
+              modelId: body.model,
+              messages,
+              ...(toolChoice === 'none' ? { toolChoice: 'none' as const } : { tools, toolChoice: 'auto' as const }),
+              maxOutputTokens: effective.maxOutputTokens,
+              temperature: effective.temperature,
+              ...(effective.think === undefined ? {} : { think: effective.think }),
+            },
+            controller.signal,
+          );
+          // Model-result validation belongs to the attempt. A result carrying
+          // two calls is the same protocol failure as call-shaped prose and is
+          // eligible for the same single safe retry, never a separate wrapper.
+          const toolCalls = toOpenAiToolCalls(result);
+          attempted = { result, toolCalls };
+          options.onToolProtocolAttempt?.({
+            runId,
+            attempt,
+            sideEffectEvidence,
+            outcome: 'success',
+            retryDecision: 'not_applicable',
+            reason: `Attempt ${attempt} completed with a valid structured tool response.`,
+          });
+        } catch (error) {
+          const normalized = normalizeProviderError(error);
+          const decision = decideToolProtocolRetry({
+            attempt,
+            errorCode: normalized.code,
+            sideEffectEvidence,
+          });
+          options.onToolProtocolAttempt?.({
+            runId,
+            attempt,
+            sideEffectEvidence,
+            outcome: 'error',
+            errorCode: normalized.code,
+            retryDecision: decision.retry ? 'allowed' : 'refused',
+            reason: decision.reason,
+          });
+          if (!decision.retry) throw error;
+          attempt = 2;
+        }
+      }
       options.onInferenceProfile?.({
         modelId: effective.modelId,
+        profileStatus: effective.profileStatus,
         role: effective.role,
         maxOutputTokens: effective.maxOutputTokens,
         temperature: effective.temperature,
@@ -295,7 +348,7 @@ export function buildGateway(options: GatewayOptions): FastifyInstance {
         ],
       });
 
-      const toolCalls = toOpenAiToolCalls(result);
+      const { result, toolCalls } = attempted;
       const finishReason = toolCalls.length > 0 ? 'tool_calls' : 'stop';
       const usage = {
         prompt_tokens: result.usage?.promptTokens ?? 0,
@@ -420,7 +473,9 @@ export function buildGateway(options: GatewayOptions): FastifyInstance {
     );
 
     if (advertisesTools) {
-      return await handleToolChat(body, reply);
+      const runId = (request as FastifyRequest & { gatewayRunId?: string }).gatewayRunId;
+      if (!runId) return deny(reply, 401, 'GATEWAY_TOKEN_INVALID', 'A valid per-run gateway token is required.');
+      return await handleToolChat(body, reply, runId);
     }
 
     // A conversation containing tool turns without an advertised toolset cannot

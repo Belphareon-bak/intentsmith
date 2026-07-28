@@ -44,6 +44,12 @@ Only `structured` models may be given tools. Plain inference is unaffected for
 all three, because that path has been safe since Phase 2 and refusing it would
 break existing behaviour for no gain.
 
+Every catalogued Phase 3 profile is explicitly **PROVISIONAL**. Probe evidence
+permits bounded development use; it does not silently promote a model to a
+verified release default. The thinking-enabled `qwen3:14b` configuration is
+retained separately as an `INVALID_NEGATIVE_FIXTURE`, not as a selectable
+profile, so the failure cannot disappear from regression coverage.
+
 **Text that resembles a tool call is untrusted text.** It is never parsed and
 never executed heuristically. The condition has its own error code,
 `MODEL_TOOL_PROTOCOL_ERROR`, separate from transport failures, because the
