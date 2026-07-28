@@ -32,3 +32,13 @@ export {
   type SandboxRequest,
   type SandboxStatus,
 } from './sandbox.js';
+export {
+  execFileGateRunner,
+  runGate,
+  runGates,
+  verdictFromGates,
+  type GateCommandRunner,
+  type GateDefinition,
+  type GateResult,
+  type GateRunOptions,
+} from './gate-runner.js';

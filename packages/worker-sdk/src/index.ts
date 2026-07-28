@@ -92,3 +92,15 @@ export {
   type GrantIssuer,
   type GrantOutcome,
 } from './run-grant.js';
+export {
+  DEFAULT_DIFF_POLICY,
+  WorkspacePolicyError,
+  assertInsideWorkspace,
+  evaluateDiffPolicy,
+  findGeneratedSecrets,
+  isEscapingSymlink,
+  sha256,
+  type ChangedPath,
+  type DiffPolicy,
+  type ProposedChangeSet,
+} from './workspace.js';

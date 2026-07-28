@@ -2,8 +2,16 @@
   "name": "@intentsmith/process-runtime",
   "version": "0.1.0",
   "type": "module",
-  "exports": { ".": "./dist/index.js" },
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "types": "./dist/index.d.ts",
-  "scripts": { "build": "tsc -b", "typecheck": "tsc -b --pretty false" },
-  "dependencies": {}
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "vitest": "4.1.10"
+  }
 }

@@ -267,8 +267,18 @@ class OpenCodeSession {
     // Racing the process exit means a crashed agent fails fast rather than
     // waiting for a request timeout.
     const exited = child.exited.then(exit => {
+      // The supervisor's own reason is far more useful than a generic protocol
+      // error: "install OpenCode" beats "the agent stopped talking". Preserve
+      // it so the caller sees the actionable message.
+      const reason = child.failureReason ?? exit.reason;
+      if (reason) {
+        throw Object.assign(
+          new Error(processFailureMessage(reason, child.stderr)),
+          { reason },
+        );
+      }
       throw new AcpProtocolError(
-        `OpenCode exited before the session completed (code ${String(exit.code)}${exit.reason ? `, ${exit.reason}` : ''}).`,
+        `OpenCode exited before the session completed (code ${String(exit.code)}).`,
       );
     });
 
@@ -484,6 +494,31 @@ function normalizeFailureCode(error: unknown): string {
   if (typeof reason === 'string') return `WORKER_${reason.toUpperCase()}`;
   if (error instanceof AcpProtocolError) return 'WORKER_PROTOCOL_ERROR';
   return 'WORKER_FAILED';
+}
+
+/** Turns a supervisor failure reason into something a user can act on. */
+function processFailureMessage(reason: string, stderr: string): string {
+  const tail = stderr.trim().slice(-200);
+  const suffix = tail.length > 0 ? ` Worker stderr: ${tail}` : '';
+  switch (reason) {
+    case 'executable_missing':
+      return 'The OpenCode executable was not found. IntentSmith never installs it for you; install it yourself (npm install -g opencode-ai) and try again.';
+    case 'permission_denied':
+      return 'The OpenCode executable exists but could not be executed (permission denied).';
+    case 'startup_timeout':
+      return 'OpenCode did not start within the startup timeout.';
+    case 'idle_timeout':
+      return `OpenCode produced no output within the idle timeout.${suffix}`;
+    case 'overall_timeout':
+      return 'OpenCode exceeded its overall time limit.';
+    case 'stdout_overflow':
+    case 'stderr_overflow':
+      return 'OpenCode produced more output than the configured limit.';
+    case 'cancelled':
+      return 'The run was cancelled.';
+    default:
+      return `OpenCode exited before the session completed (${reason}).${suffix}`;
+  }
 }
 
 function describeFailure(error: unknown): string {
