@@ -237,6 +237,28 @@ export class OllamaProvider implements InferenceProvider {
     };
   }
 
+  /**
+   * Asks the daemon to drop a model from VRAM now.
+   *
+   * `keep_alive: 0` on a request with no prompt is Ollama's documented way to
+   * release a model. It goes through the HTTP API deliberately: invoking the
+   * `ollama` CLI would mean shelling out from the product to manage its own
+   * memory, inheriting that process's environment, PATH and version.
+   *
+   * Returning does not prove the model is gone -- the caller verifies through
+   * `loadedModels`, because "asked to unload" and "unloaded" are not the same
+   * claim.
+   */
+  async unloadModel(modelId: string, signal?: AbortSignal): Promise<void> {
+    await this.requestJson(
+      'POST',
+      '/api/generate',
+      { model: modelId, keep_alive: 0 },
+      this.timeouts.connectMs,
+      signal,
+    );
+  }
+
   /** Currently loaded models, from `/api/ps`. Observation only. */
   async loadedModels(signal?: AbortSignal): Promise<Array<{ model: string; sizeVramBytes?: number }>> {
     return parsePs(await this.requestJson('GET', '/api/ps', undefined, this.timeouts.connectMs, signal));

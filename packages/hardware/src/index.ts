@@ -38,3 +38,10 @@ export type {
   SystemProbe,
   SystemProfile,
 } from './types.js';
+export {
+  ModelResidencyManager,
+  type KeepAlivePlan,
+  type ModelResidencyOptions,
+  type ResidencyLease,
+  type ResidencyProvider,
+} from './model-residency.js';

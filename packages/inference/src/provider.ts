@@ -130,6 +130,16 @@ export const PROVIDER_ERROR_CODES = [
    * because doing so would execute a side effect no protocol ever requested.
    */
   'MODEL_TOOL_PROTOCOL_ERROR',
+  /**
+   * The GPU is still holding another model.
+   *
+   * Separated from every other code here because the failing thing is neither
+   * the transport nor the model: the daemon is healthy, the model is fine, and
+   * the memory is occupied. Retrying the same request is right; retrying it as
+   * if the model were broken is not, and blaming the model would hide a
+   * scheduling problem behind the wrong diagnosis.
+   */
+  'MODEL_RESIDENCY_CONFLICT',
 ] as const;
 
 export type ProviderErrorCode = (typeof PROVIDER_ERROR_CODES)[number];
