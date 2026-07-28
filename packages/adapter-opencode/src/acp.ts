@@ -134,6 +134,16 @@ export class AcpClient {
   /** Called when the agent breaks the protocol. */
   onProtocolError: (error: AcpProtocolError) => void = () => undefined;
 
+  /**
+   * Called synchronously the moment a response line is matched to a request.
+   *
+   * Ordering matters here: a promise continuation runs a microtask later, so an
+   * agent that writes its terminal response and a trailing notification in the
+   * same chunk would have the notification processed while the turn still
+   * looked open. This hook observes the response at the point the line is read.
+   */
+  onResponseSettled: (id: JsonRpcId) => void = () => undefined;
+
   constructor(private readonly options: AcpClientOptions) {
     this.schedule = options.schedule ?? defaultSchedule;
     this.requestTimeoutMs = options.requestTimeoutMs ?? 120_000;
@@ -189,6 +199,7 @@ export class AcpClient {
     this.seenResponseIds.add(response.id);
     this.pending.delete(response.id);
     waiter.cancel();
+    this.onResponseSettled(response.id);
     if (response.error) {
       waiter.reject(new AcpProtocolError(`Agent returned an error: ${response.error.message}`));
       return;
@@ -214,10 +225,16 @@ export class AcpClient {
     this.options.transport.send(`${JSON.stringify(message)}\n`);
   }
 
-  /** Sends a request and resolves with its result. */
-  async request<T = unknown>(method: string, params?: unknown): Promise<T> {
+  /**
+   * Sends a request and resolves with its result.
+   *
+   * `onId` receives the assigned id synchronously, so a caller can correlate
+   * the eventual response without racing the promise.
+   */
+  async request<T = unknown>(method: string, params?: unknown, onId?: (id: JsonRpcId) => void): Promise<T> {
     if (this.closed) throw new AcpProtocolError('ACP connection is closed.');
     const id = this.nextId++;
+    onId?.(id);
     return await new Promise<T>((resolve, reject) => {
       const cancel = this.schedule(() => {
         this.pending.delete(id);

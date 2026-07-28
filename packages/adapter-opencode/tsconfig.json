@@ -14,6 +14,15 @@
     },
     {
       "path": "../worker-sdk"
+    },
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../persistence"
+    },
+    {
+      "path": "../testing"
     }
   ],
   "include": [

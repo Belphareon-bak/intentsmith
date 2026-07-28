@@ -13,6 +13,8 @@ import {
 } from '@intentsmith/process-runtime';
 import {
   UNKNOWN_CAPABILITY,
+  createRedactor,
+  type Redactor,
   type WorkerAdapter,
   type WorkerCapability,
   type WorkerDescriptor,
@@ -21,7 +23,8 @@ import {
   type WorkerHandle,
 } from '@intentsmith/worker-sdk';
 
-import { ACP_PROTOCOL_VERSION, AcpClient, AcpProtocolError, LineBuffer } from './acp.js';
+import { ACP_PROTOCOL_VERSION, AcpClient, AcpProtocolError, LineBuffer, type JsonRpcId } from './acp.js';
+import { outcomeForStopReason, parsePromptResponse, type TurnOutcome } from './stop-reason.js';
 import {
   GATEWAY_TOKEN_ENV,
   assertConfigHasNoDirectInference,
@@ -128,14 +131,10 @@ export class OpenCodeWorker implements WorkerAdapter {
     void session.run().then(
       () => settle({ events }),
       error => {
-        events.push({
-          type: 'failed',
-          error: {
-            code: normalizeFailureCode(error),
-            message: describeFailure(error),
-            retryable: false,
-          },
-        });
+        // Must go through the same guard: a cancel that already emitted a
+        // terminal event must not be followed by a second one from the
+        // resulting rejection.
+        session.emitFailure(error);
         settle({ events });
       },
     );
@@ -161,7 +160,19 @@ class OpenCodeSession {
   private client: AcpClient | undefined;
   private runtimeCleanup: (() => void) | undefined;
   private cancelled = false;
-  private terminalSeen = false;
+  /** The one session this run owns. Messages for any other are rejected. */
+  private sessionId: string | undefined;
+  /** Exactly one terminal worker event may ever be emitted. */
+  private terminalEmitted = false;
+  /**
+   * Set the moment the prompt response line is read, not when its promise
+   * continuation runs, so a trailing notification in the same chunk is
+   * correctly seen as arriving after the turn ended.
+   */
+  private turnEnded = false;
+  private promptRequestId: JsonRpcId | undefined;
+  /** Scrubs the per-run token out of anything the agent produced. */
+  private redactor: Redactor = createRedactor();
 
   constructor(
     private readonly options: OpenCodeAdapterOptions,
@@ -179,6 +190,9 @@ class OpenCodeSession {
 
     const runtimeRoot = (this.options.makeRuntimeRoot ?? defaultRuntimeRoot)();
     const grant = this.context.inference;
+    // Register the token before anything can be read from the agent, so no
+    // output path exists that predates redaction.
+    if (grant) this.redactor = createRedactor([grant.token]);
 
     // The worker gets an inference route only through the gateway.
     const runtime = grant
@@ -226,8 +240,10 @@ class OpenCodeSession {
 
     try {
       await this.speakAcp(child);
-    } finally {
-      await this.shutdown();
+      await this.shutdown('completed');
+    } catch (error) {
+      await this.shutdown(this.cancelled ? 'cancelled' : 'completed');
+      throw error;
     }
   }
 
@@ -259,7 +275,11 @@ class OpenCodeSession {
     this.client = client;
 
     client.onProtocolError = error => {
-      protocolError = error;
+      // The agent controls this text and may have echoed its token into it.
+      protocolError = new AcpProtocolError(this.redactor.text(error.message));
+    };
+    client.onResponseSettled = id => {
+      if (this.promptRequestId !== undefined && id === this.promptRequestId) this.turnEnded = true;
     };
     client.onNotification = (method, params) => this.onNotification(method, params);
     client.onRequest = async (method, params) => await this.onAgentRequest(method, params);
@@ -271,9 +291,11 @@ class OpenCodeSession {
       // error: "install OpenCode" beats "the agent stopped talking". Preserve
       // it so the caller sees the actionable message.
       const reason = child.failureReason ?? exit.reason;
-      if (reason) {
+      if (reason && reason !== 'completed') {
         throw Object.assign(
-          new Error(processFailureMessage(reason, child.stderr)),
+          // stderr is agent-controlled and must be redacted before it is
+          // attached to anything IntentSmith stores or shows.
+          new Error(processFailureMessage(reason, this.redactor.text(child.stderr))),
           { reason },
         );
       }
@@ -283,30 +305,123 @@ class OpenCodeSession {
     });
 
     const conversation = (async () => {
+      this.assertNotCancelled();
       const initialize = (await client.request('initialize', {
         protocolVersion: ACP_PROTOCOL_VERSION,
         clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
       })) as unknown;
+      this.assertProtocolVersion(initialize);
       this.recordCapabilities(initialize);
 
+      this.assertNotCancelled();
       const session = (await client.request('session/new', {
         cwd: this.context.workspaceRoot,
         mcpServers: [],
       })) as unknown;
       const sessionId = isRecord(session) && typeof session.sessionId === 'string' ? session.sessionId : undefined;
       if (!sessionId) throw new AcpProtocolError('OpenCode did not return a session id.');
+      // From here on, any message naming a different session is rejected.
+      this.sessionId = sessionId;
 
       this.events.push({ type: 'started', runId: this.context.run.id, workerVersion: this.workerVersion() });
 
-      await client.request('session/prompt', {
-        sessionId,
-        prompt: [{ type: 'text', text: this.context.task.goal }],
-      });
-      this.terminalSeen = true;
+      this.assertNotCancelled();
+      const response = (await client.request(
+        'session/prompt',
+        { sessionId, prompt: [{ type: 'text', text: this.context.task.goal }] },
+        id => {
+          this.promptRequestId = id;
+        },
+      )) as unknown;
+
+      // A stop reason is validated, never assumed. Anything unrecognised is a
+      // protocol error rather than a success by default.
+      const outcome = outcomeForStopReason(parsePromptResponse(response));
+      // A protocol violation seen during the turn outranks a success: an agent
+      // that polluted stdout was not purely speaking ACP, and reporting that
+      // run as a pass would hide it.
+      if (protocolError) throw protocolError;
+      this.emitTerminal(outcome);
     })();
 
     await Promise.race([conversation, exited]);
     if (protocolError) throw protocolError;
+  }
+
+  /** Cancellation observed before the next protocol step. */
+  private assertNotCancelled(): void {
+    if (this.cancelled) {
+      throw Object.assign(new Error('The run was cancelled.'), { reason: 'cancelled' });
+    }
+  }
+
+  /**
+   * A protocol version IntentSmith does not implement ends the connection.
+   *
+   * A warning would leave the run proceeding against semantics nobody has
+   * verified, which is exactly how a silent misinterpretation becomes a wrong
+   * verdict.
+   */
+  private assertProtocolVersion(initialize: unknown): void {
+    const reported = isRecord(initialize) ? initialize.protocolVersion : undefined;
+    if (typeof reported !== 'number') {
+      throw Object.assign(
+        new AcpProtocolError('Agent did not report an ACP protocol version at initialize.'),
+        { reason: 'protocol_incompatible' },
+      );
+    }
+    if (reported !== ACP_PROTOCOL_VERSION) {
+      throw Object.assign(
+        new AcpProtocolError(
+          `Agent negotiated ACP protocol version ${reported}, but IntentSmith implements ${ACP_PROTOCOL_VERSION}. Refusing to continue against unverified protocol semantics.`,
+        ),
+        { reason: 'protocol_incompatible' },
+      );
+    }
+  }
+
+  /**
+   * Emits a terminal failure, unless a terminal event already exists.
+   *
+   * Public because the run's rejection handler must funnel through the same
+   * guard rather than pushing an event of its own.
+   */
+  emitFailure(error: unknown): void {
+    if (this.terminalEmitted) return;
+    this.terminalEmitted = true;
+    this.events.push({
+      type: 'failed',
+      error: {
+        code: normalizeFailureCode(error),
+        message: this.redactor.text(describeFailure(error)),
+        retryable: false,
+      },
+    });
+  }
+
+  /** Emits the single terminal worker event for this run. */
+  private emitTerminal(outcome: TurnOutcome): void {
+    if (this.terminalEmitted) return;
+    this.terminalEmitted = true;
+
+    if (outcome.kind === 'completed') {
+      this.events.push({
+        type: 'completed',
+        claim: { status: 'success', summary: 'Agent reported the turn finished (stopReason end_turn).' },
+      });
+      return;
+    }
+    if (outcome.kind === 'cancelled') {
+      this.events.push({
+        type: 'failed',
+        error: { code: 'WORKER_CANCELLED', message: 'The run was cancelled.', retryable: false },
+      });
+      return;
+    }
+    this.events.push({
+      type: 'failed',
+      error: { code: outcome.code, message: outcome.message, retryable: false },
+    });
   }
 
   private workerVersion(): string {
@@ -366,32 +481,84 @@ class OpenCodeSession {
     });
   }
 
+  /**
+   * Rejects a message that does not belong to this run's session.
+   *
+   * A missing or foreign sessionId is a protocol violation, not something to
+   * accept charitably: honouring it would let one session's agent influence
+   * another's evidence.
+   */
+  private assertOwnedSession(params: unknown, what: string): void {
+    const claimed = isRecord(params) && typeof params.sessionId === 'string' ? params.sessionId : undefined;
+    if (this.sessionId === undefined) {
+      throw new AcpProtocolError(`Agent sent ${what} before a session existed.`);
+    }
+    if (claimed === undefined) {
+      throw new AcpProtocolError(`Agent sent ${what} without a sessionId.`);
+    }
+    if (claimed !== this.sessionId) {
+      throw new AcpProtocolError(`Agent sent ${what} for a session this run does not own.`);
+    }
+  }
+
   private onNotification(method: string, params: unknown): void {
-    if (this.terminalSeen) {
-      // Anything after the turn ends is a protocol violation, recorded as
-      // evidence rather than silently absorbed.
+    if (method !== 'session/update') return;
+    try {
+      this.assertOwnedSession(params, 'a session update');
+    } catch (error) {
+      this.protocolViolation(error);
+      return;
+    }
+
+    if (this.turnEnded || this.terminalEmitted) {
+      // Anything after the turn ends is a protocol violation, recorded rather
+      // than silently absorbed.
+      this.protocolViolation(new AcpProtocolError(`Agent sent "${method}" after the turn ended.`));
+      return;
+    }
+
+    const update = isRecord(params) && isRecord(params.update) ? params.update : undefined;
+    const kind = update && typeof update.sessionUpdate === 'string' ? update.sessionUpdate : 'unknown';
+
+    // A tool call has an outcome; a message is talk. Only the former is
+    // recorded as evidence, and even then Core's gate runner is what decides a
+    // verdict -- a worker's own account of its work never can.
+    if (kind === 'tool_call' || kind === 'tool_call_update') {
+      const status = update && typeof update.status === 'string' ? update.status : 'unknown';
       this.events.push({
         type: 'evidence',
         evidence: {
-          id: `acp_after_terminal_${this.events.length}`,
+          id: `acp_tool_${this.events.length}`,
           kind: 'worker',
-          status: 'fail',
-          summary: `Agent sent "${method}" after the turn ended.`,
+          status: status === 'completed' ? 'pass' : status === 'failed' ? 'fail' : 'blocked',
+          summary: this.redactor.text(`Tool call reported by the agent: ${status}`),
           producedAt: new Date().toISOString(),
         },
       });
       return;
     }
-    if (method !== 'session/update' || !isRecord(params)) return;
-    const update = isRecord(params.update) ? params.update : undefined;
-    const kind = update && typeof update.sessionUpdate === 'string' ? update.sessionUpdate : 'unknown';
+
+    this.events.push({
+      type: 'artifact',
+      artifact: {
+        id: `acp_update_${this.events.length}`,
+        kind: 'log',
+        uri: `intentsmith://acp/session-update/${encodeURIComponent(kind)}`,
+      },
+    });
+  }
+
+  /** Records a protocol violation as failing security evidence. */
+  private protocolViolation(error: unknown): void {
     this.events.push({
       type: 'evidence',
       evidence: {
-        id: `acp_update_${this.events.length}`,
-        kind: 'worker',
-        status: 'pass',
-        summary: `Session update: ${kind}`,
+        id: `acp_violation_${this.events.length}`,
+        kind: 'security',
+        status: 'fail',
+        summary: this.redactor.text(
+          error instanceof Error ? error.message : 'Agent violated the ACP contract.',
+        ),
         producedAt: new Date().toISOString(),
       },
     });
@@ -407,7 +574,13 @@ class OpenCodeSession {
     if (method !== 'session/request_permission') {
       throw new AcpProtocolError(`Unsupported agent request: ${method}`);
     }
-    const proposal = normalizeProposal(params);
+    // A permission request must belong to this run's session.
+    this.assertOwnedSession(params, 'a permission request');
+    if (this.turnEnded || this.terminalEmitted) {
+      throw new AcpProtocolError('Agent requested permission after the turn ended.');
+    }
+    // The agent controls every string in here and may have echoed its token.
+    const proposal = normalizeProposal(this.redactor.value(params));
     const decision = this.options.onPermissionRequest
       ? await this.options.onPermissionRequest(proposal)
       : { allowed: false, reason: 'No approval authority is installed; denying by default.' };
@@ -418,7 +591,9 @@ class OpenCodeSession {
         id: `permission_${proposal.toolCallId}`,
         kind: 'security',
         status: decision.allowed ? 'pass' : 'fail',
-        summary: `Permission ${decision.allowed ? 'granted' : 'denied'} for "${proposal.title}"${decision.reason ? `: ${decision.reason}` : ''}`,
+        summary: this.redactor.text(
+          `Permission ${decision.allowed ? 'granted' : 'denied'} for "${proposal.title}"${decision.reason ? `: ${decision.reason}` : ''}`,
+        ),
         producedAt: new Date().toISOString(),
       },
     });
@@ -433,20 +608,35 @@ class OpenCodeSession {
   async cancel(): Promise<void> {
     if (this.cancelled) return;
     this.cancelled = true;
-    // Cooperative first, forceful second.
+    // Cooperative first, forceful second. ACP requires the sessionId; sending
+    // it without one would be ignored by a conforming agent.
     try {
-      this.client?.notify('session/cancel', {});
+      if (this.sessionId !== undefined) {
+        this.client?.notify('session/cancel', { sessionId: this.sessionId });
+      }
     } catch {
       // The agent may already be gone.
     }
+    this.emitTerminal({ kind: 'cancelled', stopReason: 'cancelled' });
     await this.shutdown('cancelled');
   }
 
+  /**
+   * Closes the session and its process.
+   *
+   * A normal finish is `completed`, not `cancelled`. Recording a successful run
+   * as cancelled would put a false reason into evidence and make every
+   * cancellation statistic meaningless.
+   */
   private async shutdown(reason: 'cancelled' | 'completed' = 'completed'): Promise<void> {
-    this.client?.close('Session closed.');
+    // Terminate before closing the client. The process flushes stdout as it
+    // exits, and those trailing lines are exactly where an agent's
+    // after-the-turn protocol violations show up; closing the reader first
+    // would silently discard the evidence.
     if (this.process) {
-      await this.process.terminate(reason === 'cancelled' ? 'cancelled' : 'cancelled').catch(() => undefined);
+      await this.process.terminate(reason).catch(() => undefined);
     }
+    this.client?.close('Session closed.');
     this.runtimeCleanup?.();
     this.runtimeCleanup = undefined;
   }
@@ -490,6 +680,8 @@ function sandboxArtifact(status: SandboxStatus): Record<string, unknown> {
 }
 
 function normalizeFailureCode(error: unknown): string {
+  // An explicit reason wins over the error class: a protocol-version mismatch
+  // is an AcpProtocolError but deserves its own actionable code.
   const reason = (error as { reason?: string } | undefined)?.reason;
   if (typeof reason === 'string') return `WORKER_${reason.toUpperCase()}`;
   if (error instanceof AcpProtocolError) return 'WORKER_PROTOCOL_ERROR';
@@ -497,8 +689,8 @@ function normalizeFailureCode(error: unknown): string {
 }
 
 /** Turns a supervisor failure reason into something a user can act on. */
-function processFailureMessage(reason: string, stderr: string): string {
-  const tail = stderr.trim().slice(-200);
+function processFailureMessage(reason: string, redactedStderr: string): string {
+  const tail = redactedStderr.trim().slice(-200);
   const suffix = tail.length > 0 ? ` Worker stderr: ${tail}` : '';
   switch (reason) {
     case 'executable_missing':

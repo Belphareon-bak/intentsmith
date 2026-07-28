@@ -17,6 +17,9 @@
     "@intentsmith/worker-sdk": "workspace:*"
   },
   "devDependencies": {
-    "vitest": "4.1.10"
+    "vitest": "4.1.10",
+    "@intentsmith/testing": "workspace:*",
+    "@intentsmith/core": "workspace:*",
+    "@intentsmith/persistence": "workspace:*"
   }
 }

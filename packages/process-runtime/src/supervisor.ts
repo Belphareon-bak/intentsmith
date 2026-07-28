@@ -56,6 +56,7 @@ export type SupervisedProcessOptions = {
 };
 
 export type ProcessFailureReason =
+  | 'completed'
   | 'executable_missing'
   | 'permission_denied'
   | 'spawn_failed'
@@ -213,7 +214,12 @@ export class SupervisedProcess {
    * worker's grandchildren must not survive.
    */
   async terminate(reason: ProcessFailureReason = 'cancelled'): Promise<ProcessExit> {
-    if (!this.failure) this.failure = new ProcessError(reason, `Process terminated: ${reason}`);
+    // `completed` is a normal close, not a failure, so it must not be recorded
+    // as one: a successful run reported as cancelled corrupts every downstream
+    // reason code.
+    if (!this.failure && reason !== 'completed') {
+      this.failure = new ProcessError(reason, `Process terminated: ${reason}`);
+    }
     this.clearTimers();
 
     if (this.child.exitCode !== null || this.child.signalCode !== null) {

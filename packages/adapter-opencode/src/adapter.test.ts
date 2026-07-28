@@ -150,7 +150,7 @@ describe('adapter description', () => {
     expect(detailed?.limitations?.join(' ')).toContain('terminal support');
   });
 
-  it('records a protocol version mismatch as a limitation', async () => {
+  it('ends the connection on an unsupported protocol version', async () => {
     const agent = createFakeAgent({ behaviour: 'success', protocolVersion: 99 });
     cleanups.push(() => agent.cleanup());
     const worker = new OpenCodeWorker({
@@ -166,8 +166,16 @@ describe('adapter description', () => {
       workspaceRoot: tempDir('intentsmith-adapter-ws-'),
       inference: GRANT,
     });
-    await handle.done;
-    expect(worker.describe().detailed?.limitations?.join(' ')).toContain('negotiated ACP protocol version 99');
+    const result = await handle.done;
+
+    // A warning would leave the run proceeding against semantics nobody has
+    // verified, so this is a hard compatibility failure.
+    const error = failure(result.events);
+    expect(error?.code).toBe('WORKER_PROTOCOL_INCOMPATIBLE');
+    expect(error?.message).toContain('protocol version 99');
+    expect(error?.message).toContain('Refusing to continue');
+    // The turn never started, so no success can have been recorded.
+    expect(eventTypes(result.events)).not.toContain('completed');
   });
 });
 

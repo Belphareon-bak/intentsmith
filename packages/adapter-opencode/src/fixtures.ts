@@ -27,7 +27,15 @@ export type FakeAgentBehaviour =
   | 'duplicate-terminal'
   | 'hangs'
   | 'crashes'
-  | 'ignores-cancel';
+  | 'ignores-cancel'
+  // Deliberately hostile: echoes its gateway token everywhere it can reach.
+  | 'leaks-token'
+  | 'foreign-session'
+  | 'update-after-terminal'
+  | 'unknown-stop-reason'
+  | 'refusal'
+  | 'max-tokens'
+  | 'tool-call-success';
 
 export type FakeAgentOptions = {
   behaviour: FakeAgentBehaviour;
@@ -113,6 +121,9 @@ async function handle(message) {
 
   if (method === 'session/new') {
     send({ jsonrpc: '2.0', id, result: { sessionId: 'fixture-session-1' } });
+    // Observable milestone so a test can wait on the session existing rather
+    // than on a fixed delay, which would make the result machine-dependent.
+    record({ kind: 'session-created' });
     return;
   }
 
@@ -128,6 +139,77 @@ async function handle(message) {
 
   if (method === 'session/prompt') {
     if (BEHAVIOUR === 'hangs' || BEHAVIOUR === 'ignores-cancel') return;
+
+    const TOKEN = process.env.INTENTSMITH_GATEWAY_TOKEN || '';
+
+    if (BEHAVIOUR === 'leaks-token') {
+      // 1. straight to stderr
+      process.stderr.write('debug: using api key ' + TOKEN + '\\n');
+      // 2. an invalid ACP line on stdout
+      process.stdout.write('note: token=' + TOKEN + ' (not json)\\n');
+      // 3. into a file it proposes
+      try {
+        fs.mkdirSync(path.join(process.cwd(), 'src'), { recursive: true });
+        fs.writeFileSync(path.join(process.cwd(), 'src', 'leaked.js'), 'const key = "' + TOKEN + '";\\n');
+      } catch (error) { void error; }
+      // 4. into a permission request title and reason
+      send({
+        jsonrpc: '2.0',
+        id: 9002,
+        method: 'session/request_permission',
+        params: {
+          sessionId: 'fixture-session-1',
+          toolCall: { toolCallId: 'leak-1', title: 'write key ' + TOKEN, kind: 'edit', locations: [{ path: 'src/leaked.js' }] },
+          options: [
+            { optionId: 'allow', name: 'Allow ' + TOKEN, kind: 'allow_once' },
+            { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
+          ],
+        },
+      });
+      return;
+    }
+
+    if (BEHAVIOUR === 'foreign-session') {
+      send({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: 'someone-elses-session', update: { sessionUpdate: 'agent_message_chunk' } } });
+      send({ jsonrpc: '2.0', id, result: { stopReason: 'end_turn' } });
+      return;
+    }
+
+    if (BEHAVIOUR === 'update-after-terminal') {
+      // Both lines in a single write, so they always arrive in one chunk.
+      // Splitting them across writes would test the OS scheduler rather than
+      // the adapter's ordering logic, and the trailing line could be lost to
+      // process termination before it was ever read.
+      process.stdout.write(
+        JSON.stringify({ jsonrpc: '2.0', id, result: { stopReason: 'end_turn' } }) +
+          '\\n' +
+          JSON.stringify({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: 'fixture-session-1', update: { sessionUpdate: 'agent_message_chunk' } } }) +
+          '\\n',
+      );
+      return;
+    }
+
+    if (BEHAVIOUR === 'unknown-stop-reason') {
+      send({ jsonrpc: '2.0', id, result: { stopReason: 'i_gave_up' } });
+      return;
+    }
+    if (BEHAVIOUR === 'refusal') {
+      send({ jsonrpc: '2.0', id, result: { stopReason: 'refusal' } });
+      return;
+    }
+    if (BEHAVIOUR === 'max-tokens') {
+      send({ jsonrpc: '2.0', id, result: { stopReason: 'max_tokens' } });
+      return;
+    }
+    if (BEHAVIOUR === 'tool-call-success') {
+      send({
+        jsonrpc: '2.0',
+        method: 'session/update',
+        params: { sessionId: 'fixture-session-1', update: { sessionUpdate: 'tool_call', status: 'completed', title: 'ran fixture tests' } },
+      });
+      send({ jsonrpc: '2.0', id, result: { stopReason: 'end_turn' } });
+      return;
+    }
 
     if (BEHAVIOUR === 'crashes') { process.exit(3); }
 

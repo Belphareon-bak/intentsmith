@@ -104,3 +104,9 @@ export {
   type DiffPolicy,
   type ProposedChangeSet,
 } from './workspace.js';
+export {
+  REDACTED,
+  assertRedacted,
+  createRedactor,
+  type Redactor,
+} from './redaction.js';

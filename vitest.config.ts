@@ -19,6 +19,12 @@ export default defineConfig({
       ),
       '@intentsmith/adapter-ollama': fileURLToPath(new URL('./packages/adapter-ollama/src/index.ts', import.meta.url)),
       '@intentsmith/persistence': fileURLToPath(new URL('./packages/persistence/src/index.ts', import.meta.url)),
+      '@intentsmith/testing/worker-contract': fileURLToPath(
+        new URL('./packages/testing/src/worker-contract.ts', import.meta.url),
+      ),
+      '@intentsmith/testing/provider-contract': fileURLToPath(
+        new URL('./packages/testing/src/provider-contract.ts', import.meta.url),
+      ),
       '@intentsmith/testing': fileURLToPath(new URL('./packages/testing/src/index.ts', import.meta.url)),
     },
   },
