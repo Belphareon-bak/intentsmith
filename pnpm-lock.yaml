@@ -85,6 +85,18 @@ importers:
         specifier: workspace:*
         version: link:../inference
 
+  packages/adapter-opencode:
+    dependencies:
+      '@intentsmith/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@intentsmith/process-runtime':
+        specifier: workspace:*
+        version: link:../process-runtime
+      '@intentsmith/worker-sdk':
+        specifier: workspace:*
+        version: link:../worker-sdk
+
   packages/contracts:
     dependencies:
       '@sinclair/typebox':
@@ -102,6 +114,9 @@ importers:
       '@intentsmith/inference':
         specifier: workspace:*
         version: link:../inference
+      '@intentsmith/worker-sdk':
+        specifier: workspace:*
+        version: link:../worker-sdk
 
   packages/hardware:
     dependencies:
@@ -130,6 +145,8 @@ importers:
         specifier: 7.6.13
         version: 7.6.13
 
+  packages/process-runtime: {}
+
   packages/testing:
     dependencies:
       '@intentsmith/contracts':
@@ -144,10 +161,19 @@ importers:
       '@intentsmith/persistence':
         specifier: workspace:*
         version: link:../persistence
+      '@intentsmith/worker-sdk':
+        specifier: workspace:*
+        version: link:../worker-sdk
     devDependencies:
       vitest:
         specifier: 4.1.10
         version: 4.1.10(@types/node@22.20.1)(@vitest/coverage-v8@4.1.10)(vite@8.1.5(@types/node@22.20.1)(esbuild@0.28.1)(tsx@4.23.1))
+
+  packages/worker-sdk:
+    dependencies:
+      '@intentsmith/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
 packages:
 

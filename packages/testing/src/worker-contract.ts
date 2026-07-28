@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { CreateTaskInput, Task, TaskRun } from '@intentsmith/contracts';
-import type { WorkerAdapter } from '@intentsmith/core';
+import type { WorkerAdapter } from '@intentsmith/worker-sdk';
 
 import { DisposableWorkspace, createTaskInput, createTestRuntime, type TestRuntime } from './fakes.js';
 

@@ -10,13 +10,7 @@
       "path": "../contracts"
     },
     {
-      "path": "../core"
-    },
-    {
-      "path": "../persistence"
-    },
-    {
-      "path": "../inference"
+      "path": "../process-runtime"
     },
     {
       "path": "../worker-sdk"

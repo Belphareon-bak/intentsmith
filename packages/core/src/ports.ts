@@ -56,43 +56,18 @@ export type TransactionManager = {
   transaction<T>(fn: () => Promise<T>): Promise<T>;
 };
 
-export type WorkerExecutionContext = {
-  task: Task;
-  run: TaskRun;
-  signal: AbortSignal;
-};
-
-export type WorkerExecutionResult = {
-  events: unknown[];
-};
-
-export type WorkerHandle = {
-  done: Promise<WorkerExecutionResult>;
-  pause(): Promise<void>;
-  resume(): Promise<void>;
-  cancel(): Promise<void>;
-};
-
-/**
- * Static worker identity and capability discovery.
- *
- * Added in Phase 1.1 so the shared contract suite can assert what an adapter
- * claims to support before exercising it. Breaking change: every
- * `WorkerAdapter` must now implement `describe()`.
- */
-export type WorkerDescriptor = {
-  id: string;
-  version: string;
-  capabilities: {
-    pause: boolean;
-    cancel: boolean;
-  };
-};
-
-export type WorkerAdapter = {
-  describe(): WorkerDescriptor;
-  start(context: WorkerExecutionContext): WorkerHandle;
-};
+// The worker port lives in `@intentsmith/worker-sdk` so a concrete adapter can
+// implement it without depending on Core (ADR 0011 direction, ADR 0017 for the
+// worker port specifically). Core re-exports the types it consumes.
+export type {
+  InferenceGrant,
+  WorkerAdapter,
+  WorkerCapability,
+  WorkerDescriptor,
+  WorkerExecutionContext,
+  WorkerExecutionResult,
+  WorkerHandle,
+} from '@intentsmith/worker-sdk';
 
 export type CreateProjectCommand = CreateProjectInput;
 export type CreateTaskCommand = CreateTaskInput;

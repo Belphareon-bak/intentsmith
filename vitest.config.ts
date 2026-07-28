@@ -8,6 +8,12 @@ export default defineConfig({
       '@intentsmith/core': fileURLToPath(new URL('./packages/core/src/index.ts', import.meta.url)),
       '@intentsmith/inference': fileURLToPath(new URL('./packages/inference/src/index.ts', import.meta.url)),
       '@intentsmith/hardware': fileURLToPath(new URL('./packages/hardware/src/index.ts', import.meta.url)),
+      '@intentsmith/worker-sdk': fileURLToPath(new URL('./packages/worker-sdk/src/index.ts', import.meta.url)),
+      '@intentsmith/process-runtime': fileURLToPath(new URL('./packages/process-runtime/src/index.ts', import.meta.url)),
+      '@intentsmith/adapter-opencode/fixtures': fileURLToPath(
+        new URL('./packages/adapter-opencode/src/fixtures.ts', import.meta.url),
+      ),
+      '@intentsmith/adapter-opencode': fileURLToPath(new URL('./packages/adapter-opencode/src/index.ts', import.meta.url)),
       '@intentsmith/adapter-ollama/fixtures': fileURLToPath(
         new URL('./packages/adapter-ollama/src/fixtures.ts', import.meta.url),
       ),
@@ -33,6 +39,9 @@ export default defineConfig({
         'packages/core/src/**/*.ts',
         'packages/inference/src/**/*.ts',
         'packages/hardware/src/**/*.ts',
+        'packages/worker-sdk/src/**/*.ts',
+        'packages/process-runtime/src/**/*.ts',
+        'packages/adapter-opencode/src/**/*.ts',
         'packages/adapter-ollama/src/**/*.ts',
         'packages/persistence/src/**/*.ts',
         'packages/testing/src/**/*.ts',

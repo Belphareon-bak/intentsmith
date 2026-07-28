@@ -8,18 +8,6 @@
   "references": [
     {
       "path": "../contracts"
-    },
-    {
-      "path": "../core"
-    },
-    {
-      "path": "../persistence"
-    },
-    {
-      "path": "../inference"
-    },
-    {
-      "path": "../worker-sdk"
     }
   ],
   "include": [
