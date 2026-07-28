@@ -28,6 +28,9 @@ The runtime schemas in `packages/contracts/src/index.ts` and executable contract
 ## Verification and evidence
 
 - [Phase test matrix](test-matrix-phase-1-to-4.md) maps guarantees to tests.
+- [Local model evaluation strategy](testing/local-model-evaluation-strategy.md)
+  preserves C3 benchmark lessons and the staged research direction without
+  committing IntentSmith to the legacy implementation.
 - `docs/testing/` contains phase verification reports.
 - `artifacts/` contains machine-readable evidence produced by completed gates.
 - `docs/reports/` contains audits and close-out reports.

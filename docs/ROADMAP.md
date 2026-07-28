@@ -168,6 +168,13 @@ Goal: make successful workflows reusable and measurable.
 - privacy-preserving local diagnostics;
 - explicit project memory with retention and deletion controls.
 
+The evaluation harness will be designed from the staged research recorded in
+[Local model evaluation strategy](testing/local-model-evaluation-strategy.md):
+transport eligibility first, varied tool-selection and repair scenarios second,
+long finalist coding runs and GPU switching evidence after that, followed by
+carefully weighted empirical outcomes. This records direction, not final
+weights, thresholds or model assignments; those require an ADR.
+
 ## Phase 7 — IntentSmith Studio
 
 Goal: provide a visual Theia-based experience over the same Core APIs.

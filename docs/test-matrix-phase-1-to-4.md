@@ -54,6 +54,12 @@ The default suite must remain deterministic, offline and independent of workstat
 
 Real suites may require local software or hardware and therefore do not replace offline coverage. They prove that the contracted integration works against an observed upstream version.
 
+Future model comparison is intentionally outside the Phase 1–4 required matrix.
+Its staged research requirements are recorded in
+[Local model evaluation strategy](testing/local-model-evaluation-strategy.md).
+In particular, one successful tool-call prompt is eligibility evidence only,
+not a quality or role-assignment verdict.
+
 ## C3 semantic-inheritance contract gates
 
 These gates begin as design tests before the later runtimes are implemented:

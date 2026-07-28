@@ -214,9 +214,17 @@ file.
 | Agents | Baseline, deduplication, edge triggers, cooldown, source degradation, crash points and delivery retry |
 | Memory | Decay, reinforcement, attribution, retention, deletion and cross-project isolation |
 | Quality | Structural/language/intent/content failures, evidence provenance and no optimistic pass |
+| Model evaluation | Tool-transport eligibility, varied formulations, distribution and tail-risk reporting, long project outcomes, GPU switching and empirical runtime evidence |
 
 For every family, the ledger must link the exact C3 tests before the IntentSmith
 implementation task can be marked ready.
+
+The model-evaluation family is further scoped in
+[Local model evaluation strategy](../testing/local-model-evaluation-strategy.md).
+It records C3's useful separation of deterministic, statistical, project and
+empirical evidence together with the legacy false-green and history-loss
+failure modes. It is a research input; adopting a corpus, scorer or role policy
+still requires an IntentSmith ADR.
 
 ## Known semantic conflicts requiring ADRs
 
