@@ -1,4 +1,5 @@
 import { buildServer } from './app.js';
+import { isGatewayEnabled, readGatewayPort, startGateway, type GatewayHandle } from './gateway/lifecycle.js';
 import { StartupRecoveryError } from './recovery.js';
 import { createRuntime } from './runtime.js';
 
@@ -6,6 +7,15 @@ export { buildServer, type ServerRuntime } from './app.js';
 export { createRuntime, defaultDbPath, type RuntimeOptions } from './runtime.js';
 export { StartupRecoveryError, runStartupRecovery, type RecoverySummary } from './recovery.js';
 export { createTestServerRuntime } from './test-runtime.js';
+export {
+  isGatewayEnabled,
+  readGatewayPort,
+  startGateway,
+  type GatewayHandle,
+  type StartGatewayOptions,
+} from './gateway/lifecycle.js';
+export { buildGateway, GATEWAY_DEFAULT_HOST } from './gateway/gateway.js';
+export { GatewayTokenStore, describeToken, type GatewayToken, type GatewayTokenInfo } from './gateway/token-store.js';
 export const DEFAULT_HOST = '127.0.0.1';
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -13,11 +23,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const app = buildServer(runtime);
   const host = process.env.INTENTSMITH_HOST ?? DEFAULT_HOST;
   const port = Number(process.env.INTENTSMITH_PORT ?? 47831);
+  let gateway: GatewayHandle | undefined;
   let shuttingDown = false;
   const shutdown = async (): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
     try {
+      // Close the gateway first so no token outlives the listener.
+      await gateway?.close();
       await app.close();
     } catch (error) {
       console.error('IntentSmith server shutdown failed', error);
@@ -45,6 +58,17 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     }
     await app.listen({ host, port });
     console.log(`IntentSmith server listening on http://${host}:${port}`);
+
+    // The worker inference gateway stays off unless explicitly enabled: no
+    // worker exists yet, and an unused listener is attack surface.
+    if (isGatewayEnabled()) {
+      gateway = await startGateway({
+        runtime,
+        tokens: runtime.gatewayTokens,
+        port: readGatewayPort(),
+      });
+      console.log(`Worker inference gateway listening on ${gateway.url} (per-run token required)`);
+    }
   } catch (error) {
     if (error instanceof StartupRecoveryError) {
       console.error(`IntentSmith refused to start: ${error.message}`);

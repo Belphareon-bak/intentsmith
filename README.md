@@ -158,6 +158,25 @@ Never part of `pnpm verify` or CI. It never pulls a model, signs in or uses an
 API key, and reports BLOCKED rather than PASS when Ollama or the model is
 missing.
 
+## Worker Inference Gateway
+
+A loopback-only, OpenAI-shaped gateway exists so a future external worker can
+run inference under the same guarantees as the user's own API: same provider,
+same hardware and model-fit policy, same local-only checks, same scheduler.
+
+It is **off by default**, because no worker exists yet:
+
+```bash
+INTENTSMITH_GATEWAY=1 pnpm --filter @intentsmith/server start
+# optionally pin the port instead of using an ephemeral one
+INTENTSMITH_GATEWAY_PORT=41234 pnpm --filter @intentsmith/server start
+```
+
+Every route needs an IntentSmith-issued per-run bearer token even on loopback,
+because loopback is not an authorization boundary: any local process can reach
+the port. Tokens are scoped to one run, never persisted or logged, and revoked
+when the run ends or the server stops.
+
 ## CLI
 
 The CLI talks only to the localhost API by default:

@@ -49,6 +49,18 @@ Unknown request fields are rejected rather than silently dropped, so a worker
 asking for a capability Phase 2 does not implement is told, instead of having
 its request quietly reinterpreted.
 
+## Off by default
+
+The gateway does not listen unless the operator sets `INTENTSMITH_GATEWAY=1` or
+configures `INTENTSMITH_GATEWAY_PORT`. No external worker exists yet, and an
+unused listener is attack surface with no corresponding benefit. The port is
+ephemeral unless one is configured, so the usual case leaves nothing
+predictable to aim at, and the host is never read from configuration: loopback
+is not negotiable.
+
+Closing the gateway revokes every outstanding token, so no token can outlive
+the listener that would honour it.
+
 ## Why not guess the full OpenCode surface now
 
 Phase 2 has not probed a pinned OpenCode build. Implementing endpoints against

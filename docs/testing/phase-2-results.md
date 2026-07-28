@@ -14,7 +14,7 @@ All deterministic gates pass on Node.js 22.21.1 and pnpm 11.17.0.
 pnpm install --frozen-lockfile  PASS
 pnpm typecheck                  PASS
 pnpm lint                       PASS
-pnpm test                       PASS (24 files, 402 tests)
+pnpm test                       PASS (25 files, 410 tests)
 pnpm test:coverage              PASS (gates met)
 pnpm build                      PASS
 pnpm verify                     PASS
@@ -24,20 +24,25 @@ pnpm verify                     PASS
 model: every transport and probe is injected. The full suite was run five times
 with identical results.
 
+The gateway lifecycle tests are the only ones that open a real socket, because
+loopback binding is precisely what they verify. They use an ephemeral port and
+close every handle, so they cannot collide with a parallel run or leak a
+listener.
+
 ## Test Counts
 
 | | Test files | Tests |
 |---|---|---|
 | Phase 1.1 (`bd0a6a5`) | 18 | 202 |
-| Phase 2 | 24 | 402 |
+| Phase 2 | 25 | 410 |
 
 ## Coverage
 
 ```text
-Statements   91.57% (1816/1983)
-Branches     82.95% (1017/1226)
-Functions    89.88% (391/435)
-Lines        93.31% (1661/1780)
+Statements   91.65% (1834/2001)
+Branches     83.10% (1033/1243)
+Functions    90.02% (397/441)
+Lines        93.37% (1677/1796)
 ```
 
 Phase 1.1 gates were not lowered. New per-file gates cover the Phase 2 security
@@ -126,9 +131,13 @@ auto-retried.
 
 ## Worker Inference Gateway
 
+Off by default: it listens only when `INTENTSMITH_GATEWAY=1` or
+`INTENTSMITH_GATEWAY_PORT` is set, on an ephemeral port unless one is
+configured. The bind host is never read from configuration.
+
 Loopback-only, per-run bearer token required on every route even on loopback,
 constant-time comparison, expiry, revocation on run end and shutdown, tokens
-never persisted or logged. Reuses the same provider, Hardware Director,
+never persisted or logged. Closing the gateway revokes every outstanding token. Reuses the same provider, Hardware Director,
 model-fit policy and scheduler as the normal API. Surface is deliberately
 minimal (`/v1/models` plus the chat shape the Phase 2 provider supports);
 Phase 3 extends it only after probing a pinned OpenCode build.

@@ -68,8 +68,8 @@
       "tests": 202
     },
     "after": {
-      "testFiles": 24,
-      "tests": 402
+      "testFiles": 25,
+      "tests": 410
     },
     "skipped": 0,
     "determinismRuns": 5,
@@ -79,10 +79,10 @@
   },
   "coverage": {
     "total": {
-      "statements": 91.57,
-      "branches": 82.95,
-      "functions": 89.88,
-      "lines": 93.31
+      "statements": 91.65,
+      "branches": 83.1,
+      "functions": 90.02,
+      "lines": 93.37
     },
     "criticalModules": {
       "packages/inference/src/endpoint-policy.ts": {
@@ -248,7 +248,12 @@
     ],
     "reusesProviderPolicyAndScheduler": true,
     "cloudFallback": false,
-    "note": "Minimum testable foundation. Phase 3 extends only after probing a pinned OpenCode build."
+    "note": "Minimum testable foundation. Phase 3 extends only after probing a pinned OpenCode build.",
+    "enabledByDefault": false,
+    "enablement": "INTENTSMITH_GATEWAY=1 or INTENTSMITH_GATEWAY_PORT",
+    "ephemeralPortByDefault": true,
+    "bindHostConfigurable": false,
+    "tokensRevokedOnGatewayClose": true
   },
   "realOllamaSuite": {
     "command": "pnpm test:ollama",
@@ -308,6 +313,6 @@
     "c3Modified": false,
     "c3ReferenceCommit": "a7b90e36aa80310305703f54f2332e1c0e7f9e8f"
   },
-  "verifiedCommit": "b5fd188546cd5ffa473cbe92a47d2e1c6899ed4d",
+  "verifiedCommit": "PENDING",
   "verifiedCommitNote": "Commit a clean clone ran pnpm verify against, exiting 0 with a clean tree. The documentation commit carrying this artifact is its direct child."
 }
