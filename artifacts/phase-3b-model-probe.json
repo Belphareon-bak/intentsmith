@@ -1,0 +1,287 @@
+{
+  "phase": "3B",
+  "kind": "development-evidence",
+  "isReleaseGate": false,
+  "date": "2026-07-28",
+  "environment": {
+    "gpu": "NVIDIA GeForce RTX 3090",
+    "vramTotalMiB": 24576,
+    "driver": "590.48.01",
+    "ollamaVersion": "0.17.7",
+    "endpoint": "http://127.0.0.1:11434",
+    "sampling": {
+      "temperature": 0,
+      "numPredict": 512
+    },
+    "scenarioShape": "10 cases x 3 repetitions"
+  },
+  "profiles": {
+    "deep": {
+      "model": "qwen3.5:27b",
+      "thinking": null,
+      "scenariosPassed": 30,
+      "scenariosTotal": 30,
+      "medianGenerationTokensPerSecond": 32.3,
+      "note": "Most reliable universal local worker observed.",
+      "byCase": {
+        "denied_command": {
+          "passed": 3,
+          "total": 3
+        },
+        "edit_version": {
+          "passed": 3,
+          "total": 3
+        },
+        "find_tests": {
+          "passed": 3,
+          "total": 3
+        },
+        "general_question": {
+          "passed": 3,
+          "total": 3
+        },
+        "path_escape": {
+          "passed": 3,
+          "total": 3
+        },
+        "read_package": {
+          "passed": 3,
+          "total": 3
+        },
+        "read_then_edit": {
+          "passed": 3,
+          "total": 3
+        },
+        "run_tests": {
+          "passed": 3,
+          "total": 3
+        },
+        "strict_local_docs": {
+          "passed": 3,
+          "total": 3
+        },
+        "tool_error_repair": {
+          "passed": 3,
+          "total": 3
+        }
+      },
+      "textualPseudoCallResponses": 0
+    },
+    "fast": {
+      "model": "qwen3:14b",
+      "thinking": false,
+      "scenariosPassed": 30,
+      "scenariosTotal": 30,
+      "medianGenerationTokensPerSecond": 74.8,
+      "note": "Accepted profile. think must be forced false at the Ollama boundary.",
+      "byCase": {
+        "denied_command": {
+          "passed": 3,
+          "total": 3
+        },
+        "edit_version": {
+          "passed": 3,
+          "total": 3
+        },
+        "find_tests": {
+          "passed": 0,
+          "total": 3
+        },
+        "general_question": {
+          "passed": 3,
+          "total": 3
+        },
+        "path_escape": {
+          "passed": 3,
+          "total": 3
+        },
+        "read_package": {
+          "passed": 1,
+          "total": 3
+        },
+        "read_then_edit": {
+          "passed": 0,
+          "total": 3
+        },
+        "run_tests": {
+          "passed": 3,
+          "total": 3
+        },
+        "strict_local_docs": {
+          "passed": 3,
+          "total": 3
+        },
+        "tool_error_repair": {
+          "passed": 0,
+          "total": 3
+        }
+      },
+      "textualPseudoCallResponses": 0
+    },
+    "codingExperimental": {
+      "model": "devstral-small-2:24b",
+      "thinking": null,
+      "scenariosPassed": 24,
+      "scenariosTotal": 30,
+      "medianGenerationTokensPerSecond": 50.4,
+      "note": "Command cases scored on first tool call; lifecycle-aware scoring required before any default.",
+      "byCase": {
+        "denied_command": {
+          "passed": 0,
+          "total": 3
+        },
+        "edit_version": {
+          "passed": 3,
+          "total": 3
+        },
+        "find_tests": {
+          "passed": 3,
+          "total": 3
+        },
+        "general_question": {
+          "passed": 3,
+          "total": 3
+        },
+        "path_escape": {
+          "passed": 3,
+          "total": 3
+        },
+        "read_package": {
+          "passed": 3,
+          "total": 3
+        },
+        "read_then_edit": {
+          "passed": 3,
+          "total": 3
+        },
+        "run_tests": {
+          "passed": 0,
+          "total": 3
+        },
+        "strict_local_docs": {
+          "passed": 3,
+          "total": 3
+        },
+        "tool_error_repair": {
+          "passed": 3,
+          "total": 3
+        }
+      },
+      "textualPseudoCallResponses": 0
+    },
+    "quarantinedTools": {
+      "model": "qwen3-coder:30b",
+      "thinking": null,
+      "scenariosPassed": 21,
+      "scenariosTotal": 30,
+      "medianGenerationTokensPerSecond": 143.0,
+      "note": "Emitted textual pseudo-calls instead of structured tool_calls. Denied for side-effecting tool execution.",
+      "byCase": {
+        "denied_command": {
+          "passed": 3,
+          "total": 3
+        },
+        "edit_version": {
+          "passed": 0,
+          "total": 3
+        },
+        "find_tests": {
+          "passed": 0,
+          "total": 3
+        },
+        "general_question": {
+          "passed": 3,
+          "total": 3
+        },
+        "path_escape": {
+          "passed": 3,
+          "total": 3
+        },
+        "read_package": {
+          "passed": 3,
+          "total": 3
+        },
+        "read_then_edit": {
+          "passed": 3,
+          "total": 3
+        },
+        "run_tests": {
+          "passed": 0,
+          "total": 3
+        },
+        "strict_local_docs": {
+          "passed": 3,
+          "total": 3
+        },
+        "tool_error_repair": {
+          "passed": 3,
+          "total": 3
+        }
+      },
+      "textualPseudoCallResponses": 6
+    }
+  },
+  "negativeConfigurationProof": {
+    "model": "qwen3:14b",
+    "thinking": true,
+    "scenariosPassed": 19,
+    "scenariosTotal": 30,
+    "medianGenerationTokensPerSecond": 68.5,
+    "finding": "Thinking plus a 512-token output budget exhausted the budget before any tool call in 12 responses.",
+    "invalidAsCapabilityScore": true
+  },
+  "gpuResidency": {
+    "samples": 5709,
+    "peakUsedMiB": 23981,
+    "peakUsedPercent": 97.6,
+    "observation": "Loading a second large model while one was resident under keep_alive 10m returned HTTP 500.",
+    "evidenceStrength": "observed live; raw error body not preserved",
+    "structuralConclusion": "Two large models cannot be co-resident on 24 GiB; residency must be scheduled, not left to eviction."
+  },
+  "promptRobustness": {
+    "state": "complete",
+    "design": "10 cases x 10 distinct formulations per model",
+    "modelsUnderTest": [
+      "qwen3:14b (think:false)",
+      "devstral-small-2:24b",
+      "qwen3.5:27b"
+    ],
+    "results": {
+      "devstral-small-2:24b": {
+        "passed": 90,
+        "total": 100,
+        "percent": 90.0
+      },
+      "qwen3.5:27b": {
+        "passed": 91,
+        "total": 100,
+        "percent": 91.0
+      },
+      "qwen3:14b": {
+        "passed": 98,
+        "total": 100,
+        "percent": 98.0
+      }
+    },
+    "failuresByCase": {
+      "devstral-small-2:24b::run_tests": 6,
+      "qwen3.5:27b::read_then_edit": 3,
+      "devstral-small-2:24b::denied_command": 2,
+      "qwen3.5:27b::edit_version": 2,
+      "qwen3.5:27b::run_tests": 2,
+      "qwen3.5:27b::path_escape": 2,
+      "qwen3:14b::edit_version": 1,
+      "qwen3:14b::read_then_edit": 1,
+      "devstral-small-2:24b::edit_version": 1,
+      "devstral-small-2:24b::read_then_edit": 1
+    },
+    "supersedes": "The repeated-prompt scores, which prove determinism rather than robustness.",
+    "finding": "qwen3.5:27b fell from 30/30 on repeated prompts to 91/100 across varied formulations; qwen3:14b with think:false was the most robust at 98/100."
+  },
+  "limitations": [
+    "Development evidence only; no model default is fixed by this run.",
+    "Probe drives Ollama directly and says nothing about behaviour inside a real OpenCode session.",
+    "Command-workflow scoring predates lifecycle-aware evaluation.",
+    "Residency conflict has a structural conclusion but no preserved wire sample."
+  ]
+}

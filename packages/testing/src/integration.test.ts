@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { IntentSmithCore } from '@intentsmith/core';
+import { evaluateCapabilityRequest } from '@intentsmith/worker-sdk';
+import { IntentSmithCore, type ApprovalLedger } from '@intentsmith/core';
 import { openIntentSmithDatabase } from '@intentsmith/persistence';
 
 import {
@@ -69,9 +70,43 @@ describe('deterministic vertical slice', () => {
     // Timeouts are driven by the injected timer, never by wall-clock time.
     context.timer.advance(10);
     expect((await context.core.waitForTask(context.taskId)).status).toBe('failed');
+    const [run] = await context.core.listTaskRuns(context.taskId);
+    expect(run).toBeDefined();
+    expect(context.worker.handle(run?.id ?? '')?.isCancelled).toBe(true);
     const result = await context.core.getTaskResult(context.taskId);
     expect(result?.coreVerdict).toBe('fail');
     expect(result?.unresolvedRisks).toContain('Worker timed out before producing a valid result.');
+  });
+
+  it('revokes an outstanding approval when its run is cancelled', async () => {
+    const context = await createContext('pauseable-success');
+    await context.core.startTask(context.taskId);
+    const run = (await context.core.listTaskRuns(context.taskId))[0];
+    if (!run) throw new Error('expected a run');
+
+    const target = path.join(context.workspaceRoot, 'edited.txt');
+    const request = {
+      toolName: 'edit',
+      actionId: 'call_1',
+      resourcePaths: [target],
+      payload: { filepath: target, diff: '@@ -0 +1 @@' },
+    };
+    const decision = evaluateCapabilityRequest(request, { workspaceRoot: context.workspaceRoot });
+    if (decision.outcome !== 'requires_approval') throw new Error('expected an approval to be required');
+    const approval = await context.approvals.request({
+      taskId: context.taskId,
+      runId: run.id,
+      request,
+      decision,
+    });
+    await context.approvals.approve(approval.id);
+
+    await context.core.cancelTask(context.taskId);
+
+    // A grant that outlived its run would be permission with nothing left to
+    // authorize, which is exactly what gets reused for something else.
+    const outcome = await context.approvals.consume({ runId: run.id, request });
+    expect(outcome).toMatchObject({ allowed: false, refusal: 'revoked' });
   });
 
   it('cancels active work during core shutdown', async () => {
@@ -147,7 +182,14 @@ async function createContext(
       : never
     : never,
   timeoutMs = 1000,
-): Promise<{ core: IntentSmithCore; taskId: string; timer: FakeTimer }> {
+): Promise<{
+  core: IntentSmithCore;
+  taskId: string;
+  timer: FakeTimer;
+  worker: FakeWorker;
+  approvals: ApprovalLedger;
+  workspaceRoot: string;
+}> {
   const runtime = createTestRuntime();
   const workspace = new DisposableWorkspace();
   cleanups.push(() => runtime.cleanup(), () => workspace.cleanup());
@@ -160,5 +202,12 @@ async function createContext(
       timeoutMs,
     },
   }));
-  return { core: runtime.core, taskId: task.id, timer: runtime.timer };
+  return {
+    core: runtime.core,
+    taskId: task.id,
+    timer: runtime.timer,
+    worker: runtime.worker,
+    approvals: runtime.approvals,
+    workspaceRoot: workspace.path,
+  };
 }

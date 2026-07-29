@@ -10,8 +10,13 @@ import type { OllamaProvider } from '@intentsmith/adapter-ollama';
 import type { ExecutionPolicy, HardwareDirector } from '@intentsmith/hardware';
 import type { InferenceScheduler } from '@intentsmith/inference';
 
+import { registerApprovalRoutes } from './approval-routes.js';
 import { registerInferenceRoutes } from './inference-routes.js';
+import { LOOPBACK_ONLY, registerOperatorAuthentication, type RemoteAccessConfig } from './remote-access.js';
 import type { GatewayTokenStore } from './gateway/token-store.js';
+import type { ApprovalDesk } from './opencode/approval-desk.js';
+import type { WorkerSelection } from './opencode/config.js';
+import type { RunEvidenceRecorder } from './opencode/run-evidence.js';
 import type { RecoverySummary } from './recovery.js';
 
 export type ServerRuntime = {
@@ -21,6 +26,31 @@ export type ServerRuntime = {
   hardware: HardwareDirector;
   /** Per-run tokens for the worker inference gateway. */
   gatewayTokens: GatewayTokenStore;
+  /**
+   * The human decision surface for pending capability approvals.
+   *
+   * Present only when the composed worker mediates tools. A runtime without one
+   * has nothing to approve, and its approval routes say so rather than
+   * answering "nothing is pending".
+   */
+  readonly approvals?: ApprovalDesk;
+  /**
+   * Durable sink for worker lifecycle evidence.
+   *
+   * The gateway writes the inference profile and the tool-protocol attempt
+   * ledger here. Present only alongside a worker whose runs are what that
+   * evidence describes.
+   */
+  readonly workerEvidence?: RunEvidenceRecorder;
+  /** Which worker the composition root selected. Absent in test runtimes. */
+  readonly workerKind?: WorkerSelection;
+  /**
+   * Binds the live gateway URL so run-scoped grants can be issued.
+   *
+   * Present only when the selected worker needs a mediated inference path. Its
+   * presence is what tells startup the gateway is mandatory rather than opt-in.
+   */
+  bindWorkerGateway?(baseUrl: string): void;
   executionPolicy: ExecutionPolicy;
   /** Populated by `prepare()`; undefined until startup recovery has run. */
   readonly recovery?: RecoverySummary;
@@ -34,7 +64,19 @@ const ParamsSchema = Type.Object({
   projectId: Type.Optional(Type.String({ minLength: 1 })),
 }, { additionalProperties: false });
 
-export function buildServer(runtime: ServerRuntime): FastifyInstance {
+/**
+ * Builds the main API.
+ *
+ * `remoteAccess` defaults to the loopback-only contract, which is what every
+ * existing caller and test gets: no authentication, local access as the trust
+ * boundary. An operator who deliberately binds a VPN interface passes an
+ * operator-token configuration instead, and every route below is then behind
+ * it.
+ */
+export function buildServer(
+  runtime: ServerRuntime,
+  remoteAccess: RemoteAccessConfig = LOOPBACK_ONLY,
+): FastifyInstance {
   const app = Fastify({
     logger: false,
     bodyLimit: 1_048_576,
@@ -44,6 +86,12 @@ export function buildServer(runtime: ServerRuntime): FastifyInstance {
       },
     },
   });
+
+  // Registered before any route, because Fastify binds a route's hook chain
+  // when the route is declared: a check added afterwards would not run. This is
+  // the only place the operator credential is checked, so no handler below can
+  // forget to, and none of them can be reached without it in remote mode.
+  registerOperatorAuthentication(app, remoteAccess);
 
   app.setErrorHandler((error, _request, reply) => {
     const err = error as Error & { validation?: unknown; statusCode?: number };
@@ -141,6 +189,7 @@ export function buildServer(runtime: ServerRuntime): FastifyInstance {
     return { events: await runtime.core.listAuditEvents(taskId) };
   });
 
+  registerApprovalRoutes(app, runtime);
   registerInferenceRoutes(app, runtime);
 
   app.addHook('onClose', async () => {
@@ -153,5 +202,10 @@ export function buildServer(runtime: ServerRuntime): FastifyInstance {
 function domainStatus(code: string): number {
   if (code.endsWith('_NOT_FOUND')) return 404;
   if (code === 'INVALID_TASK_TRANSITION') return 409;
+  // A decision refused because the approval is already settled is a conflict,
+  // not a malformed request: the caller asked something answerable, and the
+  // answer is that somebody or something else answered first.
+  if (code === 'APPROVAL_NOT_PENDING' || code === 'APPROVAL_EXPIRED') return 409;
+  if (code === 'APPROVAL_SURFACE_UNAVAILABLE') return 404;
   return 400;
 }

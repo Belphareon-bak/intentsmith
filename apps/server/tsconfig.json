@@ -26,6 +26,15 @@
     },
     {
       "path": "../../packages/adapter-ollama"
+    },
+    {
+      "path": "../../packages/worker-sdk"
+    },
+    {
+      "path": "../../packages/process-runtime"
+    },
+    {
+      "path": "../../packages/adapter-opencode"
     }
   ],
   "include": [

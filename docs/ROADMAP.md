@@ -52,11 +52,14 @@ Goal: provide a useful local model path without weakening Core.
 
 Exit evidence: `phase-2` tag, 410 tests, real-Ollama evidence and unchanged quality thresholds.
 
-## Phase 3 — first coding worker 🚧
+## Phase 3 — first coding worker, closure candidate
+
+Status: complete through run 2F, integrated with current `main` in PR #4, and
+green in CI on the integrated code tree. Not merged and not tagged.
 
 Goal: run a real open-source coding worker while keeping lifecycle, permissions and verdict authority in Core.
 
-Planned deliverables:
+Delivered:
 
 - shared worker SDK and unchanged behavioural contract suite;
 - supervised, no-shell external processes;
@@ -82,7 +85,9 @@ Exit gates:
 - unavoidable provider-catalog traffic is either disabled or explicitly disclosed and policy-gated;
 - degraded isolation is clearly blocked or explicitly limited to disposable fixtures;
 - a real worker produces an inspectable change set and deterministic verdict;
-- default verification stays offline and deterministic.
+- default tests and build stay deterministic and independent of external
+  runtimes; strict network isolation and a cold-network install remain separate
+  evidence questions.
 
 ## Phase 4 — context and code intelligence
 
@@ -136,12 +141,156 @@ This track begins before Phase 4 and supplies contracts to later phases:
 
 Exit gates:
 
-- no layer is collapsed into another for implementation convenience;
-- every migrated invariant has a contract or negative test;
-- C3 code is not copied wholesale;
-- Core remains the only authority for state, approvals and verdicts;
-- legacy behaviour is classified as preserve, redesign, replace with open
-  source, or retire, with recorded evidence.
+ - no layer is collapsed into another for implementation convenience;
+ - every migrated invariant has a contract or negative test;
+ - C3 code is not copied wholesale;
+ - Core remains the only authority for state, approvals and verdicts;
+ - legacy behaviour is classified as preserve, redesign, replace with open
+   source, or retire, with recorded evidence.
+
+## Phase 3 integration record
+
+Entry gate (satisfied): Phase 2 is merged into `main` (`ec87dd0`, PR #2), the
+annotated `phase-2` tag exists, and CI for that merge completed successfully
+(workflow run `30337726989`).
+
+### Runs
+
+| Run | Subject |
+|---|---|
+| 2A | fail-closed OpenCode configuration, evidence-bounded protocol retries, Git-backed evidence required for code verdicts, permission-pending lifecycle cleanup |
+| 2B | executable authority stack, run-scoped approval decision surface, structured lifecycle and protocol evidence, trusted verdict provenance |
+| 2C | pinned real `opencode-ai@1.18.8` with real local `qwen3:14b` on an RTX 3090: approved edit plus four terminal paths |
+| 2D | authenticated remote access for a single operator over a private VPN (ADR 0020) |
+| 2E | security closure audit, ADR 0020, process-level refusal proof, acceptance matrix |
+| 2F | restart recovery on the OpenCode composition, focused real-binary regression, wording corrections, closure documents and gates |
+
+Runs 2A-2F are complete. The requirement-level audit against this specification
+is `docs/testing/phase-3-acceptance-matrix.md`, and the closure evidence is
+`docs/testing/phase-3-results.md` with `artifacts/phase-3-verification.json`.
+
+### Phase 3 closure work, and what closed it
+
+1. **Restart recovery on the OpenCode composition** — closed by
+   `apps/server/src/opencode/restart-recovery.process.test.ts`, which SIGKILLs a
+   real Core running the production composition at a pending approval and proves
+   the next Core reconciles everything it left behind and can do useful work.
+   No production defect was found and no production code changed.
+2. **Five identical deterministic full-suite runs** — recorded in the results
+   document.
+3. **Clean-clone `pnpm verify`** — recorded in the results document.
+4. **`docs/testing/phase-3-results.md` and `artifacts/phase-3-verification.json`**
+   — produced, in the shape every previous phase produced.
+5. **README "Current State"** — updated.
+6. **CI status** — the entry gate's run is recorded and green. PR #4 then ran
+   workflow `30481867726` against integrated commit `64eabbd` and completed
+   successfully, promoting G7 from NOT PROVEN to PASS.
+7. **Two wording corrections** — made in `docs/test-matrix-phase-1-to-4.md`.
+   Neither promoted a verdict: the rows stay PARTIAL because what changed was
+   the specification's accuracy, not the evidence behind it.
+
+Phase 3 is a **closure candidate** in PR #4 with green CI. It is not merged or
+tagged; final integration still requires the reviewed PR head to remain green.
+
+## Phase 3B - Tool Capability Mediation
+
+Inserted between H and I after the H checkpoint proved that an inference-only
+OpenCode integration is not a finished Phase 3, and that closing Phase 3 there
+would have moved the problem silently into Phase 4.
+
+Gate: a contract spike against the pinned real binary, run before any
+implementation. Verdict PASS, conditional on an IntentSmith-generated permission
+config (`docs/testing/phase-3b-tool-mediation-spike.md`).
+
+Delivered:
+
+- capability and lifecycle ledger for every observed tool;
+- bounded tool-calling gateway path that translates and never executes;
+- single-use, payload-bound approvals with append-only audit;
+- vendor-neutral permission bridge that cannot grant standing access;
+- git-backed change capture, and a verdict that refuses a success it cannot
+  corroborate;
+- Core-owned model profiles and single-GPU residency scheduling.
+
+ADRs 0017, 0018, 0019. Evidence in `artifacts/phase-3b-verification.json`.
+
+## Phase 3 run 2D - Remote Operator Access
+
+Delivered: the main API can be bound to a private VPN interface behind one
+operator bearer token, supplied at runtime. The loopback default is unchanged
+and requires no configuration and no credential.
+
+Remote mode is an explicit opt-in that fails closed before anything is opened: a
+non-loopback bind without the opt-in, the opt-in without a credential, a weak
+credential, a credential nothing would enforce, an unsupported opt-in value, a
+wildcard bind and a hostname are all startup errors. Authentication is one
+`onRequest` hook registered before any route, so no route can forget to ask, and
+in remote mode nothing is public. The worker inference gateway stays
+loopback-only with its own per-run tokens.
+
+Transport confidentiality is entirely the VPN's; IntentSmith terminates no TLS,
+and direct public-internet exposure is unsupported. Accepted alpha limits:
+rotation is a restart, no accounts, no roles, no rate limiting.
+
+ADR 0020. Documented in `docs/security/remote-vpn-access.md`.
+
+## Post-Phase-3 - Local Validation and Soak Testing
+
+A validation stage, not a development phase. It runs **after** Phase 3 is closed
+and **before** Phase 3.1 begins. Nothing in it is implemented yet, and this
+section is a specification only.
+
+Its purpose is to find out what a week of real use does to a system that has so
+far been proven one scenario at a time. Phase 3 proved that each guarantee holds
+once. This stage asks whether they hold repeatedly, overnight, and under a real
+model's variability.
+
+Environment, pinned:
+
+- real `opencode-ai@1.18.8`, installed outside this repository, version-checked
+  before every session;
+- local Ollama serving `qwen3:14b` on the RTX 3090;
+- disposable managed workspaces, created and destroyed per run, never a real
+  project;
+- an isolated `HOME` and `XDG_*` per run, so nothing inherits or leaves behind
+  developer state.
+
+Method:
+
+- an overnight runner with checkpoint and resume, so an interrupted night is
+  resumable evidence rather than a discarded one;
+- **deterministic gates** (exit codes, schema-valid artifacts, invariant checks)
+  evaluated separately from **behavioural evidence** (what the model and the
+  agent actually did), because the second is not reproducible and must never be
+  scored as though it were;
+- every scenario classified **PASS**, **FAIL** or **BLOCKED**, with BLOCKED
+  reserved for a missing precondition and never used to hide a failure;
+- comparison against a recorded baseline, so a regression is a difference rather
+  than an opinion;
+- machine-readable artifacts as the primary output, with prose derived from them
+  and never the other way round.
+
+Leak checks, run after every session:
+
+- **resources** — file descriptors, sockets, temporary directories, disk;
+- **processes** — no orphan in any run's process group, no surviving child;
+- **tokens** — no gateway or operator credential in any artifact, log, audit
+  record, database row or error message;
+- **approvals** — no grant outliving its run, no standing permission, no waiter
+  left suspended.
+
+Constraints:
+
+- the runner **never changes production code automatically**. It reports; a
+  human decides;
+- **no claim of strict-offline operation** unless network activity is actually
+  observed and the observation is part of the artifact. "No cloud traffic seen"
+  is not "cloud traffic impossible", and the distinction has already been
+  recorded once in Phase 3B.
+
+Carried into this stage from Phase 3: strict-offline behaviour, sandboxed
+(`preferSandbox`) execution, degraded-sandbox runs, real-hardware single-GPU
+model switching, and model default selection.
 
 ## Phase 5 — multi-worker orchestration and hardening
 

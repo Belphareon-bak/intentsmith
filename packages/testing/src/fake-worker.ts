@@ -5,7 +5,7 @@ import type {
   WorkerExecutionContext,
   WorkerExecutionResult,
   WorkerHandle,
-} from '@intentsmith/core';
+} from '@intentsmith/worker-sdk';
 
 /**
  * Deterministic in-process worker adapter.

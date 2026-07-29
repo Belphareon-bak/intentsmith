@@ -19,6 +19,7 @@ import {
   type WorkerEvent,
 } from '@intentsmith/contracts';
 
+import type { ApprovalLedger } from './approvals.js';
 import { DomainError, normalizeError } from './errors.js';
 import { assertCommand } from './lifecycle.js';
 import { KeyedMutex } from './mutex.js';
@@ -58,6 +59,21 @@ type ActiveRun = {
   pendingOutcome?: WorkerOutcome;
 };
 
+export type CollectedChangeEvidence = {
+  acceptable: boolean;
+  findings: string[];
+  unavailableReason?: string;
+  gateEvidence: Evidence[];
+  diffs: TaskResult['diffs'];
+  approvals: TaskResult['approvals'];
+  /** Stable evidence links copied into the terminal audit event. */
+  auditLinks: Record<string, unknown>;
+};
+
+export type ChangeEvidenceCollector = {
+  collect(input: { task: Task; run: TaskRun; workerClaim?: WorkerClaim }): Promise<CollectedChangeEvidence>;
+};
+
 export type IntentSmithCoreOptions = {
   clock: Clock;
   ids: IdGenerator;
@@ -67,6 +83,24 @@ export type IntentSmithCoreOptions = {
   transactions: TransactionManager;
   worker: WorkerAdapter;
   timer?: Timer;
+  /**
+   * Capability approvals, when the deployment mediates tools.
+   *
+   * Optional because a Core without a tool-calling worker has nothing to
+   * approve. When it is present, every path that ends a run revokes whatever
+   * that run still held: permission granted for work that is no longer
+   * happening must not survive to authorize something else.
+   */
+  approvals?: ApprovalLedger;
+  /**
+   * Phase 3 edit evidence pipeline.
+   *
+   * Optional for earlier fake-worker phases. When `requireChangeEvidenceForCodeTasks`
+   * is true, absence or failure of this collector is terminal and cannot be
+   * replaced by the worker's success claim.
+   */
+  changeEvidence?: ChangeEvidenceCollector;
+  requireChangeEvidenceForCodeTasks?: boolean;
 };
 
 export class IntentSmithCore {
@@ -229,19 +263,31 @@ export class IntentSmithCore {
         const run = await this.requireRun(active.runId);
         if (isTerminalRunStatus(run.status)) return;
         await this.options.tasks.updateRun({ ...run, status: 'cancelled', endedAt: this.options.clock.now() });
-        await this.saveResultOnce(
-          decideVerdict({
-            id: this.options.ids.next('result'),
-            taskId,
-            runId: active.runId,
-            now: this.options.clock.now(),
-            deterministicEvidence: [],
-            cancelled: true,
-          }),
-        );
+        const result = decideVerdict({
+          id: this.options.ids.next('result'),
+          taskId,
+          runId: active.runId,
+          now: this.options.clock.now(),
+          deterministicEvidence: [],
+          cancelled: true,
+        });
+        await this.saveResultOnce(result);
+        const cancellingTask = await this.getTask(taskId);
+        await this.appendAudit({
+          projectId: cancellingTask.projectId,
+          taskId,
+          runId: active.runId,
+          type: 'task.verdict',
+          message: 'Core verdict: cancelled',
+          data: { verdict: 'cancelled', risks: result.unresolvedRisks },
+        });
       });
 
-      if (active) this.activeRuns.delete(taskId);
+      if (active) {
+        // The run is over, so nothing it was permitted to do still applies.
+        await this.revokeApprovals(active.runId, 'Run cancelled.');
+        this.activeRuns.delete(taskId);
+      }
       return task;
     });
   }
@@ -307,7 +353,12 @@ export class IntentSmithCore {
           return interrupted;
         }),
       );
-      if (closed) recovered.push(closed);
+      if (closed) {
+        // A restart is not consent. Anything this run still held is closed:
+        // pending questions expire unanswered, unused grants are revoked.
+        await this.revokeApprovals(closed.id, 'Run was interrupted by a process restart.');
+        recovered.push(closed);
+      }
     }
     return recovered;
   }
@@ -440,6 +491,11 @@ export class IntentSmithCore {
       const raced = await Promise.race([handle.done, timeout]);
       if (raced === 'timeout') {
         controller.abort();
+        // AbortSignal is the cooperative notification; the WorkerHandle owns
+        // the process and must also be told to terminate it. Without this call
+        // an external worker can stay alive with an approval request pending
+        // after Core has already declared the TaskRun timed out.
+        await handle.cancel().catch(() => undefined);
         outcome = {
           events: [],
           forcedError: { code: 'WORKER_TIMEOUT', message: 'Worker timed out', retryable: true },
@@ -469,26 +525,67 @@ export class IntentSmithCore {
   }
 
   private async finalizeRun(taskId: string, runId: string, outcome: WorkerOutcome): Promise<void> {
+    const taskBeforeEvidence = await this.getTask(taskId);
+    const runBeforeEvidence = await this.requireRun(runId);
+    // A terminal run verdict is immutable; a late worker event cannot rewrite it.
+    if (isTerminalRunStatus(runBeforeEvidence.status) || isTerminalTaskStatus(taskBeforeEvidence.status)) return;
+
+    const parsed = await this.collectWorkerEvents(taskBeforeEvidence, runId, outcome.events);
+    const requiresChangeSet =
+      this.options.requireChangeEvidenceForCodeTasks === true && taskBeforeEvidence.type === 'code';
+    let changeEvidence: CollectedChangeEvidence | undefined;
+    if (this.options.changeEvidence) {
+      try {
+        changeEvidence = await this.options.changeEvidence.collect({
+          task: taskBeforeEvidence,
+          run: runBeforeEvidence,
+          ...(parsed.claim === undefined ? {} : { workerClaim: parsed.claim }),
+        });
+      } catch {
+        changeEvidence = {
+          acceptable: false,
+          findings: [],
+          unavailableReason: 'The Git-backed change evidence pipeline could not complete.',
+          gateEvidence: [],
+          diffs: [],
+          approvals: [],
+          auditLinks: {},
+        };
+      }
+    }
+
     await this.options.transactions.transaction(async () => {
       const task = await this.getTask(taskId);
       const run = await this.requireRun(runId);
-      // A terminal run verdict is immutable; a late worker event cannot rewrite it.
       if (isTerminalRunStatus(run.status) || isTerminalTaskStatus(task.status)) return;
 
-      const parsed = await this.collectWorkerEvents(task, runId, outcome.events);
       const result = decideVerdict({
         id: this.options.ids.next('result'),
         taskId,
         runId,
         now: this.options.clock.now(),
         workerClaim: parsed.claim,
-        deterministicEvidence: parsed.evidence,
+        deterministicEvidence: [...parsed.evidence, ...(changeEvidence?.gateEvidence ?? [])],
         artifacts: parsed.artifacts,
         diffs: parsed.diffs,
         workerError: outcome.forcedError ?? parsed.workerError,
         invalidWorkerEvent: parsed.invalidEvent,
         workerProtocolViolation: parsed.protocolViolation,
         timedOut: outcome.timedOut,
+        requiresChangeSet,
+        ...(changeEvidence
+          ? {
+              changeCapture: {
+                acceptable: changeEvidence.acceptable,
+                findings: changeEvidence.findings,
+                ...(changeEvidence.unavailableReason === undefined
+                  ? {}
+                  : { unavailableReason: changeEvidence.unavailableReason }),
+              },
+              diffs: changeEvidence.diffs,
+              approvals: changeEvidence.approvals,
+            }
+          : {}),
       });
       const nextStatus = result.coreVerdict === 'pass' ? 'passed' : 'failed';
       const now = this.options.clock.now();
@@ -501,8 +598,16 @@ export class IntentSmithCore {
         runId,
         type: 'task.verdict',
         message: `Core verdict: ${result.coreVerdict}`,
-        data: { verdict: result.coreVerdict, risks: result.unresolvedRisks },
+        data: {
+          verdict: result.coreVerdict,
+          risks: result.unresolvedRisks,
+          ...(changeEvidence ? { evidenceLinks: changeEvidence.auditLinks } : {}),
+        },
       });
+      await this.revokeApprovals(
+        runId,
+        outcome.timedOut ? 'Run timed out.' : `Run ended with verdict ${result.coreVerdict}.`,
+      );
       this.activeRuns.delete(taskId);
     });
   }
@@ -595,6 +700,11 @@ export class IntentSmithCore {
     const run = await this.options.tasks.getRun(runId);
     if (!run) throw new DomainError('TASK_RUN_NOT_FOUND', `Task run not found: ${runId}`);
     return run;
+  }
+
+  /** Ends any approval the run still held. Safe when no ledger is configured. */
+  private async revokeApprovals(runId: string, reason: string): Promise<void> {
+    await this.options.approvals?.revokeRun(runId, reason);
   }
 
   private async appendAudit(input: Omit<AuditEvent, 'id' | 'createdAt'>): Promise<void> {

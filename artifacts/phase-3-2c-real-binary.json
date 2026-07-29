@@ -1,0 +1,366 @@
+{
+  "phase": "3",
+  "run": "2C",
+  "title": "Pinned real OpenCode binary, real local GPU inference, product-level approved edit and terminal lifecycle",
+  "date": "2026-07-29",
+  "branch": "phase-3-opencode-worker",
+  "baseCommit": "3e61c18f05baa709041556437a69a42f67ad5136",
+  "environment": {
+    "node": "v22.21.1",
+    "platform": "linux",
+    "openCode": {
+      "package": "opencode-ai@1.18.8",
+      "reportedVersion": "1.18.8",
+      "installedOutsideRepository": true,
+      "lockfileChanged": false
+    },
+    "ollama": {
+      "version": "0.17.7",
+      "endpoint": "http://127.0.0.1:11434"
+    },
+    "model": "qwen3:14b",
+    "gpu": {
+      "name": "NVIDIA GeForce RTX 3090",
+      "driverVersion": "590.48.01",
+      "uuidRecorded": false
+    }
+  },
+  "serverBinding": {
+    "api": "127.0.0.1 (ephemeral port)",
+    "gateway": "127.0.0.1 (ephemeral port)",
+    "remoteAuth": "not implemented in 2C"
+  },
+  "commands": [
+    {
+      "label": "smoke",
+      "command": "INTENTSMITH_RUN_REAL_OPENCODE=1 INTENTSMITH_OPENCODE_BIN=<pinned> pnpm test:opencode -- tools/opencode/real-product-smoke.test.ts",
+      "exitCode": 0,
+      "files": 2,
+      "tests": 4,
+      "durationSeconds": 53.24,
+      "note": "The file argument is not honoured by the pnpm wrapper, so both real-binary files ran; the smoke scenario is the first product-level test in it."
+    },
+    {
+      "label": "complete real-binary suite",
+      "command": "INTENTSMITH_RUN_REAL_OPENCODE=1 INTENTSMITH_OPENCODE_BIN=<pinned> INTENTSMITH_2C_EVIDENCE=<log> pnpm test:opencode",
+      "exitCode": 0,
+      "files": 3,
+      "tests": 9,
+      "durationSeconds": 134.77
+    }
+  ],
+  "gpuUseEvidence": {
+    "sampledDuring": "active model execution, between task start and the pending approval",
+    "approvedEditRun": [
+      {
+        "at": "2026-07-29T12:13:25.768Z",
+        "gpuName": "NVIDIA GeForce RTX 3090",
+        "residentModels": [
+          "qwen3:14b | bdbd181c33f2 | 14 GB | 100% GPU | 32768 | 4 minutes from now"
+        ],
+        "computeProcesses": [
+          "136558 | /usr/local/bin/ollama | 14144 MiB"
+        ]
+      },
+      {
+        "at": "2026-07-29T12:13:26.768Z",
+        "gpuName": "NVIDIA GeForce RTX 3090",
+        "residentModels": [
+          "qwen3:14b | bdbd181c33f2 | 14 GB | 100% GPU | 32768 | 4 minutes from now"
+        ],
+        "computeProcesses": [
+          "136558 | /usr/local/bin/ollama | 14144 MiB"
+        ]
+      }
+    ],
+    "smokeRun": [
+      {
+        "at": "2026-07-29T12:15:19.151Z",
+        "gpuName": "NVIDIA GeForce RTX 3090",
+        "residentModels": [
+          "qwen3:14b | bdbd181c33f2 | 14 GB | 100% GPU | 32768 | 4 minutes from now"
+        ],
+        "computeProcesses": [
+          "136558 | /usr/local/bin/ollama | 14144 MiB"
+        ]
+      },
+      {
+        "at": "2026-07-29T12:15:20.150Z",
+        "gpuName": "NVIDIA GeForce RTX 3090",
+        "residentModels": [
+          "qwen3:14b | bdbd181c33f2 | 14 GB | 100% GPU | 32768 | 4 minutes from now"
+        ],
+        "computeProcesses": [
+          "136558 | /usr/local/bin/ollama | 14144 MiB"
+        ]
+      }
+    ]
+  },
+  "approvedEdit": {
+    "taskId": "task_7a999f55-1c8a-4672-8183-97acc28a9667",
+    "runId": "run_2e1b0a75-2f00-4f22-bde5-e9712e48b36a",
+    "workerPid": 148901,
+    "workerPgid": 148901,
+    "approval": {
+      "id": "approval_caa2bfe3-6b90-424d-b9de-641f41e9092b",
+      "toolName": "edit",
+      "capabilityId": "filesystem.edit",
+      "decidedThrough": "POST /runs/:runId/approvals/:approvalId/approve",
+      "replayStatus": 409
+    },
+    "laterDecisions": [],
+    "finalTaskStatus": "passed",
+    "coreVerdict": "pass",
+    "git": {
+      "authoritativeSource": "git",
+      "changedPaths": [
+        "src/answer.js"
+      ],
+      "diffDigest": "2d2a87488f0a0c9af729c876e277309402b30acae6fef410823d69134e4e6054",
+      "diffUri": "intentsmith://git-diff/2d2a87488f0a0c9af729c876e277309402b30acae6fef410823d69134e4e6054"
+    },
+    "gates": {
+      "required": [
+        "answer"
+      ],
+      "evidenceUris": [
+        "intentsmith://gate/answer"
+      ],
+      "status": "pass"
+    },
+    "inference": {
+      "modelId": "qwen3:14b",
+      "modelProfileStatus": "PROVISIONAL",
+      "profileAuditIds": [
+        "audit_d5093a71-5f3a-4907-89cf-b0408264f48e",
+        "audit_8beaff60-f190-4e93-8a02-20cda0444a78"
+      ]
+    },
+    "grantAuditIds": [
+      "audit_096287a6-693f-471a-8f98-18a0897ac502"
+    ],
+    "auditOrder": [
+      "task.created",
+      "task.transition",
+      "worker.process_start",
+      "inference.protocol_attempt",
+      "inference.profile",
+      "approval.requested",
+      "approval.granted",
+      "approval.consumed",
+      "inference.protocol_attempt",
+      "inference.profile",
+      "security.grant",
+      "worker.event",
+      "worker.event",
+      "worker.event",
+      "worker.event",
+      "worker.event",
+      "worker.event",
+      "worker.event",
+      "worker.event",
+      "worker.event",
+      "worker.event",
+      "worker.event",
+      "task.verdict"
+    ],
+    "cleanup": {
+      "processGroupMembersAfterTerminal": [],
+      "gatewayTokens": 0,
+      "pendingApprovalWaiters": 0
+    }
+  },
+  "scenarios": [
+    {
+      "scenario": "approved-edit",
+      "outcome": "pass",
+      "taskId": "task_7a999f55-1c8a-4672-8183-97acc28a9667",
+      "runId": "run_2e1b0a75-2f00-4f22-bde5-e9712e48b36a",
+      "workerPid": 148901,
+      "workerPgid": 148901,
+      "processGroupMembersAfterTerminal": [],
+      "gatewayTokensAfterTerminal": 0,
+      "pendingApprovalWaitersAfterTerminal": 0,
+      "finalTaskStatus": "passed",
+      "finalRunStatus": null,
+      "lateApprovalHttpStatus": null,
+      "protectedFileChanged": true,
+      "auditOrder": [
+        "task.created",
+        "task.transition",
+        "worker.process_start",
+        "inference.protocol_attempt",
+        "inference.profile",
+        "approval.requested",
+        "approval.granted",
+        "approval.consumed",
+        "inference.protocol_attempt",
+        "inference.profile",
+        "security.grant",
+        "worker.event",
+        "worker.event",
+        "worker.event",
+        "worker.event",
+        "worker.event",
+        "worker.event",
+        "worker.event",
+        "worker.event",
+        "worker.event",
+        "worker.event",
+        "worker.event",
+        "task.verdict"
+      ]
+    },
+    {
+      "scenario": "deny-while-pending",
+      "outcome": "pass",
+      "taskId": "task_752c16c5-2099-48ca-8425-74ce630ba72e",
+      "runId": "run_edbe3d1e-97e7-49f8-9072-59a0626e666d",
+      "workerPid": 150486,
+      "workerPgid": 150486,
+      "processGroupMembersAfterTerminal": [],
+      "gatewayTokensAfterTerminal": 0,
+      "pendingApprovalWaitersAfterTerminal": 0,
+      "finalTaskStatus": "failed",
+      "finalRunStatus": null,
+      "lateApprovalHttpStatus": null,
+      "protectedFileChanged": false,
+      "auditOrder": [
+        "task.created",
+        "task.transition",
+        "worker.process_start",
+        "inference.protocol_attempt",
+        "inference.profile",
+        "approval.requested",
+        "approval.denied",
+        "security.grant",
+        "worker.event",
+        "worker.event",
+        "worker.event",
+        "worker.event",
+        "worker.event",
+        "worker.event",
+        "worker.event",
+        "worker.event",
+        "worker.event",
+        "task.verdict"
+      ]
+    },
+    {
+      "scenario": "cancel-while-pending",
+      "outcome": "pass",
+      "taskId": "task_9e4a53b8-c428-4852-b7b5-c3adeb01c328",
+      "runId": "run_88b08bdf-cce7-4e64-a39a-e3202993ff42",
+      "workerPid": 151190,
+      "workerPgid": 151190,
+      "processGroupMembersAfterTerminal": [],
+      "gatewayTokensAfterTerminal": 0,
+      "pendingApprovalWaitersAfterTerminal": 0,
+      "finalTaskStatus": "cancelled",
+      "finalRunStatus": "cancelled",
+      "lateApprovalHttpStatus": 404,
+      "protectedFileChanged": false,
+      "auditOrder": [
+        "task.created",
+        "task.transition",
+        "worker.process_start",
+        "inference.protocol_attempt",
+        "inference.profile",
+        "approval.requested",
+        "task.transition",
+        "security.grant",
+        "approval.denied",
+        "task.verdict"
+      ]
+    },
+    {
+      "scenario": "timeout-while-pending",
+      "outcome": "pass",
+      "taskId": "task_278df183-6b24-4177-a52d-811f638540af",
+      "runId": "run_c1812f86-7a0b-4e0b-a34d-c81e1105cf97",
+      "workerPid": 151706,
+      "workerPgid": 151706,
+      "processGroupMembersAfterTerminal": [],
+      "gatewayTokensAfterTerminal": 0,
+      "pendingApprovalWaitersAfterTerminal": 0,
+      "finalTaskStatus": "failed",
+      "finalRunStatus": "timeout",
+      "lateApprovalHttpStatus": 404,
+      "protectedFileChanged": false,
+      "auditOrder": [
+        "task.created",
+        "task.transition",
+        "worker.process_start",
+        "inference.protocol_attempt",
+        "inference.profile",
+        "approval.requested",
+        "security.grant",
+        "approval.denied",
+        "task.verdict"
+      ]
+    },
+    {
+      "scenario": "worker-termination-while-pending",
+      "outcome": "pass",
+      "taskId": "task_495605ef-8004-42a2-ad2b-9326be1c92dd",
+      "runId": "run_72eb30c8-0f60-45da-a376-593f4a1c3df5",
+      "workerPid": 152339,
+      "workerPgid": 152339,
+      "processGroupMembersAfterTerminal": [],
+      "gatewayTokensAfterTerminal": 0,
+      "pendingApprovalWaitersAfterTerminal": 0,
+      "finalTaskStatus": "failed",
+      "finalRunStatus": "failed",
+      "lateApprovalHttpStatus": 404,
+      "protectedFileChanged": false,
+      "auditOrder": [
+        "task.created",
+        "task.transition",
+        "worker.process_start",
+        "inference.protocol_attempt",
+        "inference.profile",
+        "approval.requested",
+        "security.grant",
+        "approval.denied",
+        "worker.event",
+        "worker.event",
+        "worker.event",
+        "worker.event",
+        "worker.event",
+        "worker.event",
+        "worker.event",
+        "task.verdict"
+      ]
+    },
+    {
+      "scenario": "smoke",
+      "outcome": "pass",
+      "taskId": "task_0a097b08-4fa8-4035-a200-02f4041ef331",
+      "runId": "run_1eef4648-2032-4245-920d-782b8ce6383e",
+      "workerPid": 153005,
+      "workerPgid": 153005,
+      "processGroupMembersAfterTerminal": null,
+      "gatewayTokensAfterTerminal": null,
+      "pendingApprovalWaitersAfterTerminal": null,
+      "finalTaskStatus": "cancelled",
+      "finalRunStatus": null,
+      "lateApprovalHttpStatus": null,
+      "protectedFileChanged": false,
+      "auditOrder": null
+    }
+  ],
+  "sanitization": {
+    "rawPromptsPersisted": false,
+    "rawModelResponsesPersisted": false,
+    "acpWirePayloadsPersisted": false,
+    "gatewayTokensPersisted": false,
+    "environmentSecretsPersisted": false,
+    "gpuUuidRecorded": false
+  },
+  "notProven": [
+    "Strict offline operation: OpenCode provider-catalogue and package resolution behaviour was not isolated or measured in this run.",
+    "Concurrent runs sharing one Git working tree.",
+    "Sandboxed execution: preferSandbox was disabled, so the bubblewrap path is attested but not exercised.",
+    "Remote/VPN authentication, which is run 2D scope."
+  ]
+}

@@ -11,6 +11,12 @@
       "path": "./packages/hardware"
     },
     {
+      "path": "./packages/worker-sdk"
+    },
+    {
+      "path": "./packages/process-runtime"
+    },
+    {
       "path": "./packages/core"
     },
     {
@@ -18,6 +24,9 @@
     },
     {
       "path": "./packages/adapter-ollama"
+    },
+    {
+      "path": "./packages/adapter-opencode"
     },
     {
       "path": "./packages/testing"

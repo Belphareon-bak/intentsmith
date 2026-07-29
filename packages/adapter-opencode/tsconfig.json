@@ -1,0 +1,31 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../contracts"
+    },
+    {
+      "path": "../process-runtime"
+    },
+    {
+      "path": "../worker-sdk"
+    },
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../persistence"
+    },
+    {
+      "path": "../testing"
+    }
+  ],
+  "include": [
+    "src/**/*.ts"
+  ]
+}

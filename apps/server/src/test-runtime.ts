@@ -5,6 +5,7 @@ import type { IntentSmithCore } from '@intentsmith/core';
 
 import type { ServerRuntime } from './app.js';
 import { GatewayTokenStore } from './gateway/token-store.js';
+import type { RunEvidenceRecorder } from './opencode/run-evidence.js';
 import type { RecoverySummary } from './recovery.js';
 
 /**
@@ -50,6 +51,8 @@ export type TestServerRuntimeOptions = {
   executionPolicy?: ExecutionPolicy;
   recovery?: RecoverySummary;
   gatewayTokens?: GatewayTokenStore;
+  /** Durable lifecycle-evidence sink, for tests that assert what was persisted. */
+  workerEvidence?: RunEvidenceRecorder;
   maxConcurrentInference?: number;
   close?: () => void | Promise<void>;
 };
@@ -58,8 +61,9 @@ export function createTestServerRuntime(options: TestServerRuntimeOptions): Serv
   const provider = new OllamaProvider({
     endpoint: 'http://127.0.0.1:11434',
     transport: options.transport ?? unreachableTransport,
-    // Short timeouts keep a misbehaving fixture from stalling a test run.
-    timeouts: { connectMs: 50, firstByteMs: 50, idleMs: 50, overallMs: 500 },
+    // Short enough that a misbehaving fixture cannot stall a run, generous
+    // enough that a real loopback round trip is never the thing that fails.
+    timeouts: { connectMs: 2_000, firstByteMs: 2_000, idleMs: 2_000, overallMs: 10_000 },
   });
   const hardware = new HardwareDirector({
     systemProbe: async () => options.system ?? OFFLINE_SYSTEM,
@@ -73,6 +77,7 @@ export function createTestServerRuntime(options: TestServerRuntimeOptions): Serv
     scheduler: new InferenceScheduler({ maxConcurrent: options.maxConcurrentInference ?? 1 }),
     hardware,
     gatewayTokens: options.gatewayTokens ?? new GatewayTokenStore(),
+    ...(options.workerEvidence ? { workerEvidence: options.workerEvidence } : {}),
     executionPolicy: options.executionPolicy ?? 'cpu_allowed',
     recovery: options.recovery ?? {
       status: 'completed',

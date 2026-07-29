@@ -1,0 +1,334 @@
+{
+  "phase": "3",
+  "title": "OpenCode Worker POC",
+  "date": "2026-07-29",
+  "branch": "phase-3-opencode-worker",
+  "status": "integrated closure candidate with green PR CI",
+  "merged": false,
+  "tagged": false,
+  "pushed": true,
+  "pushedAs": {
+    "remote": "origin",
+    "branch": "phase-3-opencode-worker",
+    "commit": "d2f3f882c2018c6e8b6d9cbc472dd359f5b57224",
+    "fastForward": true,
+    "forced": false,
+    "purpose": "published for independent review; triggers no CI, opens no pull request"
+  },
+  "baseline": {
+    "commit": "ec87dd0f52d010726b2ca9409ec6fbceefa778fe",
+    "description": "Phase 2 merge into main, tagged phase-2. Entry gate for Phase 3."
+  },
+  "commits": {
+    "sourceTested": "bfc6c5794600107603ebe757e5941de1c0abc7db",
+    "evidenceCommit": "d2f3f882c2018c6e8b6d9cbc472dd359f5b57224",
+    "pushStateCorrection": "9251c91dab6475817236df5c8c08d975dd2e8021",
+    "integrationCandidate": "64eabbd57a82a3c54c97a70be5ecb77e2e923a77",
+    "integrationParents": [
+      "9251c91dab6475817236df5c8c08d975dd2e8021",
+      "b3a7dbda961a019175959128769f46493291fc86"
+    ],
+    "relationship": "Implementation and measured 2F evidence were produced against bfc6c57. d2f3f88 added the closure documents and 9251c91 corrected their push-state claims. Run 2G merged the documentation-only main changes into 64eabbd without changing a production boundary, then verified that exact integrated commit locally and in PR CI. Historical 2F measurements are not relabelled as measurements of a later commit."
+  },
+  "runs": [
+    { "run": "2A", "commits": ["07d917c", "0ea01e3", "978dc40", "f515819"], "subject": "fail-closed OpenCode configuration, evidence-bounded protocol retries, Git-backed evidence for code verdicts, permission-pending lifecycle cleanup" },
+    { "run": "2B", "commits": ["cc70710", "9b56f9d", "cff4838", "fd71811", "39c0e65", "6d66432", "3e61c18"], "subject": "executable authority stack, run-scoped approval decision surface, structured lifecycle and protocol evidence, trusted verdict provenance" },
+    { "run": "2C", "commits": ["259473e"], "subject": "pinned real opencode-ai@1.18.8 and real local qwen3:14b: approved edit plus four terminal paths" },
+    { "run": "2D", "commits": ["15aa023"], "subject": "authenticated remote access for a single operator over a private VPN (ADR 0020)" },
+    { "run": "2E", "commits": ["09c3a95"], "subject": "security closure audit, ADR 0020, process-level refusal proof, acceptance matrix" },
+    { "run": "2F", "commits": ["bfc6c57"], "subject": "restart recovery on the OpenCode composition, focused real-binary regression, wording corrections, closure documents and gates" },
+    { "run": "2G", "commits": ["64eabbd"], "subject": "merge current main, verify the integrated tree locally, open PR #4 and prove the required CI workflow" }
+  ],
+  "integrationVerification": {
+    "commit": "64eabbd57a82a3c54c97a70be5ecb77e2e923a77",
+    "node": "v22.21.1",
+    "pnpm": "11.17.0",
+    "frozenInstall": "pass",
+    "typecheck": "pass",
+    "lint": "pass",
+    "testFiles": 55,
+    "tests": 869,
+    "coverage": {
+      "statements": 92.84,
+      "branches": 84.42,
+      "functions": 93.45,
+      "lines": 94.57
+    },
+    "build": "pass",
+    "workingTreeCleanAfterwards": true,
+    "realBinaryRepeated": false,
+    "realBinaryRepeatReason": "Current main changed documentation only and no production boundary involved in authentication, approvals, gateway access, recovery or workspace mutation changed."
+  },
+  "environment": {
+    "node": "v22.21.1",
+    "pnpm": "11.17.0",
+    "platform": "linux",
+    "kernel": "6.17.0-35-generic",
+    "optInSuitesOnly": {
+      "openCode": {
+        "package": "opencode-ai@1.18.8",
+        "reportedVersion": "1.18.8",
+        "installedOutsideRepository": true,
+        "lockfileChanged": false
+      },
+      "ollamaVersion": "0.17.7",
+      "ollamaEndpoint": "http://127.0.0.1:11434",
+      "model": "qwen3:14b",
+      "gpu": "NVIDIA GeForce RTX 3090",
+      "driverVersion": "590.48.01",
+      "gpuUuidRecorded": false
+    }
+  },
+  "gates": {
+    "deterministicFullSuiteRuns": 5,
+    "testsPerRun": 869,
+    "testFiles": 55,
+    "allRunsIdentical": true,
+    "discardedOrRepeatedRuns": 0,
+    "runDetail": [
+      { "run": 1, "command": "pnpm test", "exitCode": 0, "durationSeconds": 7.33, "testFiles": 55, "tests": 869, "leakedTempDirs": 0, "orphanWorkerProcesses": 0 },
+      { "run": 2, "command": "pnpm test", "exitCode": 0, "durationSeconds": 7.35, "testFiles": 55, "tests": 869, "leakedTempDirs": 0, "orphanWorkerProcesses": 0 },
+      { "run": 3, "command": "pnpm test", "exitCode": 0, "durationSeconds": 7.40, "testFiles": 55, "tests": 869, "leakedTempDirs": 0, "orphanWorkerProcesses": 0 },
+      { "run": 4, "command": "pnpm test", "exitCode": 0, "durationSeconds": 7.34, "testFiles": 55, "tests": 869, "leakedTempDirs": 0, "orphanWorkerProcesses": 0 },
+      { "run": 5, "command": "pnpm test", "exitCode": 0, "durationSeconds": 7.31, "testFiles": 55, "tests": 869, "leakedTempDirs": 0, "orphanWorkerProcesses": 0 }
+    ],
+    "priorSequenceDiscarded": {
+      "reason": "An earlier five-run sequence, taken before the final change to the candidate, exposed three leaked worker runtime directories per run: a Core killed with SIGKILL cannot remove the isolated HOME and XDG root the adapter gives each run. The fixture now confines the killed child's temporary directory to one the test owns. That sequence is recorded here rather than quietly replaced.",
+      "reportedAsResult": false
+    },
+    "coverageThresholdsChanged": false,
+    "coverage": {
+      "statements": 92.84,
+      "branches": 84.42,
+      "functions": 93.45,
+      "lines": 94.57
+    },
+    "thresholds": {
+      "statements": 90,
+      "branches": 82,
+      "functions": 88,
+      "lines": 92
+    },
+    "coverageExclusionChange": {
+      "from": "**/fixtures.ts",
+      "to": "**/*fixtures.ts",
+      "reason": "The restart regression's fixture is a child-process entry point: executed for real, but in a process where in-process coverage cannot see it.",
+      "productionFilesExcluded": 0
+    },
+    "cleanCloneVerify": {
+      "status": "pass",
+      "exitCode": 0,
+      "command": "pnpm verify",
+      "commit": "bfc6c5794600107603ebe757e5941de1c0abc7db",
+      "clonePath": "/tmp/intentsmith-cleanclone-2f",
+      "preExistingState": "none: no node_modules, no dist, no .intentsmith, no coverage",
+      "testFiles": 55,
+      "tests": 869,
+      "coverage": { "statements": 92.84, "branches": 84.42, "functions": 93.45, "lines": 94.57 },
+      "workingTreeCleanAfterwards": true,
+      "dependencyVersionsChanged": false,
+      "packagesInstalled": 204,
+      "packagesDownloaded": 0,
+      "note": "Frozen-lockfile install resolved every package from the local pnpm store. This proves the lockfile is consistent and complete; it is not a network-cold install, which CI performs on every pull request."
+    },
+    "lint": "pass",
+    "typecheck": "pass",
+    "build": "pass",
+    "deterministicExternalRuntimeIndependent": true,
+    "networkIsolationProven": false,
+    "coldNetworkInstallProven": false
+  },
+  "restartRecovery": {
+    "test": "apps/server/src/opencode/restart-recovery.process.test.ts",
+    "tests": 3,
+    "deterministic": true,
+    "usesRealModel": false,
+    "method": "A child process runs the product composition root (createRuntime with INTENTSMITH_WORKER=opencode, no approval decider, file-backed database), reaches a pending approval, and is killed with SIGKILL. A second Core is started on the same database.",
+    "interruptionSignal": "SIGKILL",
+    "wreckageLeftBehind": [
+      "a running TaskRun row with no live worker",
+      "an unanswered pending approval",
+      "an orphaned OpenCode worker process",
+      "a gateway token that existed only in the dead process's memory"
+    ],
+    "proven": {
+      "recoveredRunCount": 1,
+      "runStatusAfterRecovery": "failed",
+      "taskStatusAfterRecovery": "failed",
+      "resultVerdict": "blocked",
+      "verdictReason": "process_restart",
+      "approvalRevoked": true,
+      "approvalGranted": false,
+      "approvalConsumed": false,
+      "verdictWrittenBeforeAuthorityReleased": true,
+      "terminalVerdictCount": 1,
+      "pendingApprovalWaiters": 0,
+      "decidablePendingApprovals": 0,
+      "gatewayTokens": 0,
+      "lateApprovalHttpStatus": 404,
+      "workspaceUnchanged": true,
+      "recoveryIdempotentOnThirdStart": true,
+      "newRunAfterRestart": {
+        "sameWorkspace": true,
+        "sameComposition": true,
+        "sameDatabase": true,
+        "askedItsOwnPermission": true,
+        "inheritedDeadRunApproval": false,
+        "finalTaskStatus": "passed",
+        "coreVerdict": "pass",
+        "gitDerivedDiffDigest": true,
+        "approvals": 1
+      },
+      "interruptedRunRowsUnchangedByLaterRun": true,
+      "interruptedRunAuditUnchangedByLaterRun": true
+    },
+    "productionDefectFound": false,
+    "productionFilesChanged": 0,
+    "boundariesAsserted": [
+      "The recovered task cannot start a new run of its own: ADR 0007 makes it terminal, ADR 0008 makes terminal statuses accept no lifecycle command, and retry orchestration is deferred. The test asserts INVALID_TASK_TRANSITION. A new attempt is a new task, which is proven to work.",
+      "The worker orphaned by SIGKILL is not killed by recovery. A pid recorded before a restart may belong to something else by now, so the system offers identification through the audit trail rather than action."
+    ]
+  },
+  "focusedRealBinaryRegression": {
+    "reason": "Run 2D composed the loopback peer check with isOperatorAuthenticated, and 2C's product-level evidence predates that change. The approval decision route is the boundary that evidence runs through.",
+    "command": "INTENTSMITH_RUN_REAL_OPENCODE=1 INTENTSMITH_OPENCODE_BIN=<pinned> INTENTSMITH_2C_EVIDENCE=<log> npx vitest run --config vitest.opencode.config.ts tools/opencode/real-product-lifecycle.test.ts -t \"passes on Git-derived evidence|deny prevents the protected side effect\"",
+    "exitCode": 0,
+    "passed": 2,
+    "skipped": 3,
+    "durationSeconds": 51.45,
+    "fullMatrixRepeated": false,
+    "fullMatrixRepeatReason": "2C already recorded all five scenarios once with cleanup evidence, and the change under re-examination does not touch the other three.",
+    "fiveRunsOfRealBinary": false,
+    "fiveRunsOfRealBinaryReason": "The five-run convention applies to the deterministic external-runtime-independent suite. A 14B model's output is not reproducible, so five real-binary transcripts could not support the claim the convention exists to make.",
+    "scenarios": [
+      {
+        "scenario": "approved-edit",
+        "outcome": "pass",
+        "finalTaskStatus": "passed",
+        "coreVerdict": "pass",
+        "changedPaths": ["src/answer.js"],
+        "diffDigest": "2d2a87488f0a0c9af729c876e277309402b30acae6fef410823d69134e4e6054",
+        "gateEvidenceUris": ["intentsmith://gate/answer"],
+        "approvalToolName": "edit",
+        "approvalCapabilityId": "filesystem.edit",
+        "laterDecisions": [],
+        "modelId": "qwen3:14b",
+        "modelProfileStatus": "PROVISIONAL",
+        "gpuResidentDuringRun": true,
+        "processGroupMembersAfterTerminal": [],
+        "gatewayTokensAfterTerminal": 0,
+        "pendingWaitersAfterTerminal": 0
+      },
+      {
+        "scenario": "deny-while-pending",
+        "outcome": "pass",
+        "finalTaskStatus": "failed",
+        "targetUnchanged": true,
+        "approvalDenied": true,
+        "approvalGranted": false,
+        "processGroupMembersAfterTerminal": [],
+        "gatewayTokensAfterTerminal": 0,
+        "pendingWaitersAfterTerminal": 0
+      }
+    ]
+  },
+  "ci": {
+    "entryGate": {
+      "requirement": "Phase 2 merged into main with CI green",
+      "commit": "ec87dd0f52d010726b2ca9409ec6fbceefa778fe",
+      "workflowRunId": 30337726989,
+      "conclusion": "success",
+      "completedAt": "2026-07-28T07:15:31Z",
+      "readVia": "GitHub REST API, unauthenticated, read-only",
+      "verdict": "PASS"
+    },
+    "closureCandidate": {
+      "verdict": "PASS",
+      "pullRequest": 4,
+      "testedCommit": "64eabbd57a82a3c54c97a70be5ecb77e2e923a77",
+      "workflowRunId": 30481867726,
+      "workflowRunUrl": "https://github.com/Belphareon-bak/intentsmith/actions/runs/30481867726",
+      "workflow": "CI",
+      "event": "pull_request",
+      "job": "verify (node 22)",
+      "jobId": 90677713956,
+      "conclusion": "success",
+      "completedAt": "2026-07-29T18:53:20Z",
+      "workflowsChanged": false,
+      "branchPushed": true,
+      "pullRequestOpened": true,
+      "workflowRunsForBranchAfterPush": 0
+    }
+  },
+  "acceptanceMatrix": {
+    "document": "docs/testing/phase-3-acceptance-matrix.md",
+    "requirements": 53,
+    "endOf2E": { "pass": 30, "partial": 6, "notProven": 11, "fail": 3, "total": 50 },
+    "closureCandidate": { "pass": 38, "partial": 5, "notProven": 10, "fail": 0, "total": 53 },
+    "movedToPass": ["A3", "C8", "G1", "G2", "G4", "G5", "G6", "G7"],
+    "added": ["G7", "H9", "H10"],
+    "partial": ["C3", "D2", "D4", "D5", "F8"],
+    "notProven": ["H1", "H2", "H3", "H4", "H5", "H6", "H7", "H8", "H9", "H10"],
+    "fail": []
+  },
+  "remainingPartial": {
+    "C3": "The adapter negotiates the ACP protocol version and capabilities but does not ask the executable its own version; that is operator-declared and harness-verified. The specification now says so, and the row was not promoted on a wording change.",
+    "D2": "Process health is derived from the handshake and process state. There is no separate health probe, by design.",
+    "D4": "Writes require a single-use, payload-bound approval; bash is denied outright rather than approval-gated, because an approval for a command string cannot be bound to a workspace scope. Stricter than the row was.",
+    "D5": "Restart recovery is proven end to end on the OpenCode composition. The recovered task cannot start a new run of its own, which is a contract rather than a gap.",
+    "F8": "A wildcard bind and a hostname are refused. A port forward in front of a correctly bound VPN interface is outside anything the process can observe, and is documented as unsupported rather than prevented."
+  },
+  "remainingNotProven": {
+    "H1": "Strict-offline execution: requires observed network isolation. No cloud traffic seen is not cloud traffic impossible.",
+    "H2": "Sandboxed (preferSandbox) execution: attested but disabled in every run so far.",
+    "H3": "Concurrent runs sharing one Git working tree: out of Phase 3 scope.",
+    "H4": "skill, task, todowrite and webfetch payload shapes: all four denied, so there is no exposure to close.",
+    "H5": "Parallel tool calls: refused, not supported.",
+    "H6": "Degraded-sandbox runs on a real project: disposable fixtures only.",
+    "H7": "Model defaults: choosing one needs more evidence.",
+    "H8": "Real-hardware single-GPU model switching: proven against a fake daemon; the real-hardware suite stays opt-in.",
+    "H9": "A recovered task starting a new run of its own: not supported by contract; a new attempt is a new task.",
+    "H10": "Cleaning up a worker orphaned by SIGKILL: not possible after an uncatchable signal, and killing a remembered pid would be unsafe."
+  },
+  "deferred": [
+    "Retry orchestration: represented in contracts, no lifecycle command to start a second run of a task.",
+    "MCP, Serena, Studio and desktop distribution.",
+    "Shell execution: not merely absent, bash is a denied capability.",
+    "Accounts, roles, sessions, credential rotation and rate limiting (ADR 0020).",
+    "Multi-worker orchestration and coordination of two OS processes against one database file.",
+    "Phase 3.1, mobile access, the nightly runner, Expertises, Skills and Specialists.",
+    "Local Validation and Soak Testing, which carries H1, H2, H6 and H8."
+  ],
+  "sanitization": {
+    "rawPromptsPersisted": false,
+    "rawModelResponsesPersisted": false,
+    "acpWirePayloadsPersisted": false,
+    "gatewayTokensPersisted": false,
+    "operatorCredentialPersisted": false,
+    "environmentSecretsPersisted": false,
+    "gpuUuidRecorded": false
+  },
+  "cleanupEvidence": {
+    "orphanWorkerProcessesAfterOfflineRuns": 0,
+    "leakedTemporaryDirectoriesAfterOfflineRuns": 0,
+    "processGroupMembersAfterRealBinaryTerminalPaths": 0,
+    "gatewayTokensAfterTerminalPaths": 0,
+    "suspendedApprovalWaitersAfterTerminalPaths": 0
+  },
+  "verdicts": {
+    "localInference": "PROVEN. All worker inference goes through the authorized loopback gateway to local Ollama.",
+    "restartRecovery": "PROVEN on the executable OpenCode composition, across a real SIGKILL, with a correct subsequent run.",
+    "approvalAuthority": "PROVEN. Single-use, payload-bound, revoked on every terminal path including restart. A restart is not consent.",
+    "gitAuthoritativeEvidence": "PROVEN. A code task cannot pass on the worker's own account.",
+    "strictOffline": "NOT PROVEN. Network isolation was not enforced or measured. No cloud traffic observed is not cloud traffic impossible.",
+    "sandboxedExecution": "NOT PROVEN. preferSandbox was disabled in every run so far.",
+    "modelDefaults": "NOT FIXED. Choosing a default needs more evidence than the robustness run provides."
+  },
+  "residualRisks": [
+    "ApprovalLedger.recoverAfterRestart() exists and is unit-tested but is not called at startup. Approvals belonging to runs that recovery closes are revoked through recoverInterruptedRuns, which is the path the restart regression exercises; an approval stranded by a crash between a run's terminal write and its revocation would instead sit until its TTL. It cannot authorize anything — its run is over and consumption checks expiry — so this is recorded as an observation, not fixed under a closure run.",
+    "Mediation depends on the permission configuration IntentSmith writes; if it is absent or overridden the worker acts unmediated.",
+    "A worker orphaned by a SIGKILLed Core survives; the audit trail identifies it but nothing reaps it.",
+    "Concurrency is serialized per SQLite connection. Nothing coordinates two OS processes against one database file beyond SQLite's own locking.",
+    "qwen3.5:27b failed 2 of 10 path_escape formulations in the Phase 3B robustness run, which is the security-shaped case."
+  ]
+}

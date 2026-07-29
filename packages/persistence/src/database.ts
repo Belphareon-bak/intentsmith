@@ -6,19 +6,27 @@ import type { Static, TSchema } from '@sinclair/typebox';
 
 import {
   AuditEventSchema,
+  CapabilityApprovalSchema,
   ProjectSchema,
   TaskResultSchema,
   TaskRunSchema,
   TaskSchema,
   parseWithSchema,
   type AuditEvent,
+  type CapabilityApproval,
   type Project,
   type Task,
   type TaskResult,
   type TaskRun,
   type TaskRunStatus,
 } from '@intentsmith/contracts';
-import type { AuditRepository, ProjectRepository, TaskRepository, TransactionManager } from '@intentsmith/core';
+import type {
+  ApprovalRepository,
+  AuditRepository,
+  ProjectRepository,
+  TaskRepository,
+  TransactionManager,
+} from '@intentsmith/core';
 import { DomainError } from '@intentsmith/core';
 
 const MIGRATIONS = [
@@ -89,12 +97,39 @@ CREATE INDEX IF NOT EXISTS idx_task_results_task ON task_results(task_id);
 CREATE INDEX IF NOT EXISTS idx_audit_task_seq ON audit_events(task_id, seq);
 `,
   },
+  {
+    id: '0002_capability_approvals',
+    sql: `
+CREATE TABLE IF NOT EXISTS capability_approvals (
+  id TEXT PRIMARY KEY,
+  task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE RESTRICT,
+  run_id TEXT NOT NULL REFERENCES task_runs(id) ON DELETE RESTRICT,
+  action_id TEXT NOT NULL,
+  payload_hash TEXT NOT NULL,
+  state TEXT NOT NULL,
+  requested_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  -- One live approval per (run, action, payload). A worker that asks twice for
+  -- the same thing is answered once; a worker that asks for something different
+  -- gets a different row, because the payload is part of the identity.
+  UNIQUE(run_id, action_id, payload_hash)
+);
+
+CREATE INDEX IF NOT EXISTS idx_approvals_run ON capability_approvals(run_id);
+CREATE INDEX IF NOT EXISTS idx_approvals_state ON capability_approvals(state);
+`,
+  },
 ] as const;
 
-export type SQLiteStore = ProjectRepository & TaskRepository & AuditRepository & TransactionManager & {
-  close(): void;
-  pragmaValue(name: string): unknown;
-};
+export type SQLiteStore = ProjectRepository &
+  TaskRepository &
+  AuditRepository &
+  ApprovalRepository &
+  TransactionManager & {
+    close(): void;
+    pragmaValue(name: string): unknown;
+  };
 
 export function openIntentSmithDatabase(dbPath: string): SQLiteStore {
   if (dbPath !== ':memory:') mkdirSync(path.dirname(dbPath), { recursive: true });
@@ -317,6 +352,66 @@ class BetterSqliteStore implements SQLiteStore {
       payload: JSON.stringify(event),
       createdAt: event.createdAt,
     });
+  }
+
+  async createApproval(approval: CapabilityApproval): Promise<void> {
+    parseWithSchema(CapabilityApprovalSchema, approval);
+    this.db.prepare(`
+      INSERT INTO capability_approvals
+        (id, task_id, run_id, action_id, payload_hash, state, requested_at, expires_at, payload_json)
+      VALUES (@id, @taskId, @runId, @actionId, @payloadHash, @state, @requestedAt, @expiresAt, @payload)
+    `).run({ ...approval, payload: JSON.stringify(approval) });
+  }
+
+  async getApproval(id: string): Promise<CapabilityApproval | null> {
+    const row = this.db
+      .prepare('SELECT payload_json FROM capability_approvals WHERE id = ?')
+      .get(id) as JsonRow | undefined;
+    return row ? parseJson(CapabilityApprovalSchema, row.payload_json) : null;
+  }
+
+  async findApproval(runId: string, actionId: string, payloadHash: string): Promise<CapabilityApproval | null> {
+    const row = this.db
+      .prepare('SELECT payload_json FROM capability_approvals WHERE run_id = ? AND action_id = ? AND payload_hash = ?')
+      .get(runId, actionId, payloadHash) as JsonRow | undefined;
+    return row ? parseJson(CapabilityApprovalSchema, row.payload_json) : null;
+  }
+
+  /**
+   * Writes a new state only when the approval is still in the state the caller
+   * read.
+   *
+   * The guard is what makes approve-vs-cancel and approve-vs-expire safe: the
+   * loser of the race updates zero rows and is told so, rather than overwriting
+   * a terminal state with a stale one.
+   */
+  async updateApprovalState(
+    approval: CapabilityApproval,
+    expectedState: CapabilityApproval['state'],
+  ): Promise<boolean> {
+    parseWithSchema(CapabilityApprovalSchema, approval);
+    const result = this.db.prepare(`
+      UPDATE capability_approvals
+         SET state = @state, payload_json = @payload
+       WHERE id = @id AND state = @expectedState
+    `).run({ id: approval.id, state: approval.state, payload: JSON.stringify(approval), expectedState });
+    return result.changes === 1;
+  }
+
+  async listApprovalsByRun(runId: string): Promise<CapabilityApproval[]> {
+    const rows = this.db
+      .prepare('SELECT payload_json FROM capability_approvals WHERE run_id = ? ORDER BY requested_at ASC, id ASC')
+      .all(runId) as JsonRow[];
+    return rows.map(row => parseJson(CapabilityApprovalSchema, row.payload_json));
+  }
+
+  async listApprovalsByState(states: readonly CapabilityApproval['state'][]): Promise<CapabilityApproval[]> {
+    if (states.length === 0) return [];
+    const placeholders = states.map(() => '?').join(', ');
+    const rows = this.db
+      .prepare(`SELECT payload_json FROM capability_approvals WHERE state IN (${placeholders}) ORDER BY requested_at ASC, id ASC`)
+      .all(...states) as JsonRow[];
+    return rows.map(row => parseJson(CapabilityApprovalSchema, row.payload_json));
   }
 
   async listByTask(taskId: string): Promise<AuditEvent[]> {

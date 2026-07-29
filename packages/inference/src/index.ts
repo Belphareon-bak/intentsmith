@@ -9,6 +9,8 @@ export {
   ProviderError,
   isProviderErrorCode,
   normalizeProviderError,
+  supportsToolCalling,
+  type ToolCapableInferenceProvider,
   type GenerationRequest,
   type InferenceEvent,
   type InferenceProvider,
@@ -21,6 +23,25 @@ export {
   type ProviderIdentity,
   type TokenUsage,
 } from './provider.js';
+export {
+  containsTextualToolCall,
+  type ChatMessage,
+  type ChatRequest,
+  type ChatResult,
+  type ChatToolCall,
+  type ChatToolChoice,
+  type ChatToolDefinition,
+} from './chat.js';
+export {
+  MODEL_PROFILES,
+  THINKING_ENABLED_INVALID_PROFILE,
+  applyModelProfile,
+  resolveModelProfile,
+  unobservedProfile,
+  type EffectiveInferenceSettings,
+  type ModelProfile,
+  type ToolProtocolStatus,
+} from './model-profile.js';
 export {
   ALLOWED_REQUEST_HEADERS,
   DEFAULT_OLLAMA_ENDPOINT,

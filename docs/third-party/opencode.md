@@ -1,46 +1,94 @@
 # OpenCode
 
-Verified: 2026-07-27
+Verified: 2026-07-28
 
 ## Upstream
 
-- Repository: https://github.com/anomalyco/opencode
 - Documentation: https://opencode.ai/docs/
-- CLI package: https://www.npmjs.com/package/opencode-ai
+- ACP mode: https://opencode.ai/docs/acp/
+- Provider config: https://opencode.ai/docs/providers/
+- npm package: https://www.npmjs.com/package/opencode-ai
 
 ## Version
 
-- GitHub latest observed: `v1.18.7`
-- npm `opencode-ai` latest observed: `1.18.4`
+- npm `opencode-ai` latest observed: **1.18.8**
+- Locally installed: **none**
 
-These differed at Phase 0 review time. Phase 3 must pin one distribution
-channel explicitly before installation.
+`opencode` is **not** a valid npm package name (registry returns 404). The
+package is `opencode-ai`, whose `bin.opencode` points at a compiled platform
+binary (`bin/opencode.exe`), not a JavaScript entry point.
 
 ## License
 
-MIT.
+MIT (`opencode-ai` package metadata).
 
-## Use Mode
+## Distribution Channels
 
-External process through worker adapter and ACP/server boundary.
+Documented: npm (`npm install -g opencode-ai`), an install script
+(`curl -fsSL https://opencode.ai/install | bash`), Homebrew
+(`anomalyco/tap/opencode`), Arch (pacman/AUR), and on Windows Chocolatey,
+Scoop, Mise and Docker.
 
-## Binary Distribution
+IntentSmith pins **npm `opencode-ai`** as the single reproducible channel: it
+is versioned, checksummed by the registry, and installable without piping a
+script to a shell.
 
-Do not redistribute binary artifacts in MVP. Installation strategy is external
-process discovery or user-managed install.
+**IntentSmith never installs or upgrades OpenCode.** A missing binary is a
+reported state with installation guidance, never an automatic install.
 
-## Security Boundary
+## ACP Mode
 
-OpenCode is not an authority. It may propose diffs, tool actions, shell actions,
-and artifacts. IntentSmith Core owns policy, approval, execution, audit, and
-final verdicts.
+- Command: `opencode acp`
+- Transport: **JSON-RPC over stdio** (documented explicitly)
+- Protocol version: **not stated in the documentation**, so it must be
+  discovered by negotiation at `initialize` and never assumed.
+- Documented limitation: some built-in slash commands such as `/undo` and
+  `/redo` are unsupported in ACP mode.
 
-## Fallback
+## Provider Configuration
 
-Use fake worker adapter in tests. If OpenCode is missing, report
-`WORKER_UNAVAILABLE` with installation guidance.
+Config file: `opencode.json` in the project directory, or
+`~/.config/opencode/opencode.json` globally. The global path is under
+`XDG_CONFIG_HOME`, which is what lets IntentSmith isolate the runtime.
 
-## Update Strategy
+For an OpenAI-compatible endpoint:
 
-Pin exact version in Phase 3. Update only after contract tests, fixture E2E, and
-side-effect boundary tests pass.
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "<id>": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "<display name>",
+      "options": {
+        "baseURL": "http://127.0.0.1:<port>/v1",
+        "apiKey": "{env:SOME_VAR}"
+      },
+      "models": { "<model-id>": { "name": "<display>" } }
+    }
+  }
+}
+```
+
+`{env:VAR}` indirection is the documented way to supply a secret. IntentSmith
+uses it so the per-run gateway token travels in the isolated child environment
+and never appears in a command line, in persistence, in audit, or in a log.
+
+## Probe Status
+
+**Not probed.** OpenCode is not installed on this machine, and Phase 3 does not
+install it.
+
+Everything above is derived from official documentation and the npm registry,
+not from running the binary. The following therefore remain **unverified
+against a pinned build** and must be confirmed by the opt-in real-OpenCode
+suite before any claim is made about them:
+
+- the ACP protocol version OpenCode advertises at `initialize`;
+- the session methods and capabilities it actually implements;
+- whether permissions, cancellation and session updates behave as documented;
+- the exact config keys accepted by version 1.18.8;
+- process shutdown behaviour on SIGTERM.
+
+Deterministic tests run against a fake ACP process. The real suite reports
+**BLOCKED**, never PASS, when OpenCode is absent.

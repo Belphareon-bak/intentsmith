@@ -1,6 +1,24 @@
 # Project status
 
-Last updated: 2026-07-28.
+Last updated: 2026-07-29.
+
+## Phase 3 closure candidate
+
+Phase 3 - OpenCode Worker POC, on `phase-3-opencode-worker`. Complete through
+run 2F and a **closure candidate**: every Phase 3 gate has been executed
+and recorded, and nothing required remains FAIL. The branch is pushed to
+`origin` as PR #4 and CI is green on integrated commit `64eabbd`; **it is not
+merged and not tagged**.
+
+Phase 1.1 is merged (`bd0a6a5`, PR #1) and tagged `phase-1.1`. Phase 2 is merged
+(`ec87dd0`, PR #2) and tagged `phase-2`, which satisfies the Phase 3 entry gate.
+Phase 3 reached a green H checkpoint at `0fca7fd` (inference-only OpenCode
+integration, tool calling refused outright); Phase 3B built on it without
+rewriting it, and runs 2A-2D built on Phase 3B.
+
+The requirement-level audit against the original Phase 3 specification is
+`docs/testing/phase-3-acceptance-matrix.md`, and the closure evidence is
+`docs/testing/phase-3-results.md` with `artifacts/phase-3-verification.json`.
 
 ## Release baseline
 
@@ -48,7 +66,8 @@ This is the behaviour described as **stable** in the current documentation.
 - Fastify API bound to `127.0.0.1`.
 - `intentsmith` CLI with text and JSON output.
 - Optional worker gateway, disabled by default.
-- Gateway binds only to loopback, issues run-scoped tokens and revokes all tokens on close.
+- Gateway binds only to loopback, issues run-scoped tokens and revokes all
+  tokens on close.
 
 ### Verification
 
@@ -57,51 +76,185 @@ This is the behaviour described as **stable** in the current documentation.
 - Shared contract suites.
 - Executable dependency-boundary checks.
 - Clean-tree and clean-clone verification.
-- Default gates require no model, GPU, cloud service or external worker.
+- Default deterministic gates require no model, GPU, cloud service or external
+  worker.
 
-## Phase 3 development checkpoint
+## Phase 3B Implementation
 
-Phase 3 is being developed on `phase-3-opencode-worker`. The latest published implementation and ADR checkpoints are `f9dabf5` and `0898d18`, with 557 passing tests and the Phase 2 coverage thresholds unchanged.
+- The contract spike against the pinned real `opencode-ai@1.18.8` returned
+  **PASS, conditional on an IntentSmith-generated permission config**
+  (`docs/testing/phase-3b-tool-mediation-spike.md`). Under OpenCode's own
+  defaults zero permission requests are emitted and a bash command wrote outside
+  the workspace, so mediation is a property of the config IntentSmith writes.
+- ADR 0017 records the four separations: the gateway translates and never
+  executes, Core owns policy and approval state, an approval authorizes one
+  action once against one payload, and no ACP type enters Core.
+- The capability ledger classifies every observed tool. `read`/`glob`/`grep` are
+  validated-only; `edit`/`write` need an approval; `bash`, `webfetch`, `skill`,
+  `task` and `todowrite` are denied; anything unclassified is denied.
+- Approvals are scoped to run + action + payload hash, expire, are consumed once
+  and are revoked on cancel, timeout, failure and restart. There is no
+  "always allow", and the adapter never selects `allow_always` however the agent
+  orders its options.
+- The gateway's tool path refuses what it cannot mediate rather than
+  approximating it: forced or named `tool_choice`, parallel tool calls, tool
+  turns with no advertised tools, oversized or too-deeply-nested schemas.
+- Model profiles (ADR 0018) are Core-owned. A worker may ask; the profile
+  decides. Only a model observed using the structured tool protocol may be given
+  tools, and call-shaped prose is `MODEL_TOOL_PROTOCOL_ERROR`, never parsed.
+- Single-GPU residency (ADR 0019) leases one model at a time, verifies an unload
+  before switching, and derives `keep_alive` from the queue.
+- Git-backed change capture reads what the worker actually changed, read-only,
+  and a successful claim whose change set is unacceptable does not pass.
+- 694 tests across 44 files at that checkpoint. The deterministic tests and
+  build do not require OpenCode, Ollama, a GPU or another external runtime. The
+  measured installation used an already populated pnpm store; network isolation
+  and a cold-network installation were not proven.
 
-The checkpoint includes work on:
+## Phase 3 Runs 2A-2D
 
-- worker SDK and package ownership;
-- no-shell process supervision and process-group termination;
-- allowlisted environment construction;
-- honest sandbox capability reporting;
-- ACP validation, session identity and terminal-event rules;
-- the official ACP SDK using `connectWith`, a public typed `initialize` request, hard protocol-version negotiation and then `session/new`;
-- a strict per-instance NDJSON stream that rejects malformed, oversized and non-object input before it reaches the SDK;
-- 12 wire-level handshake tests proving initialization order, cancellation and connection isolation;
-- the unchanged worker contract suite running against FakeWorker and OpenCodeWorker;
-- deterministic gates and workspace policy;
-- per-run gateway token containment, ingress redaction and revocation;
-- a real child-process/loopback-gateway/local-model integration proof.
+All four runs are complete. Each item below says which of four things it is:
+**implemented and proven**, **partially proven**, **implemented but not
+proven**, or **deferred**.
 
-The real `opencode-ai@1.18.8` probe has additionally verified:
+### Run 2A - fail-closed worker configuration
 
-- ACP protocol version 1 and OpenCode agent version 1.18.8;
-- advertised session, MCP and embedded-context/image capabilities;
-- no advertised terminal capability;
-- a loopback HTTP listener in ACP mode, with mDNS off by default;
-- an unsafe default: with `--pure`, isolated home/config and no user configuration, `session/new` selected the cloud-backed `opencode/big-pickle` model and fetched an approximately 3.2 MB provider catalog into the isolated cache.
+- *Implemented and proven*: an OpenCode configuration that cannot support
+  mediation stops startup instead of quietly reverting to the fake worker;
+  protocol retries are bounded by side-effect evidence rather than by a count;
+  a code verdict requires Git-backed evidence; a permission left pending when a
+  run ends is cleaned up rather than left suspended.
 
-The observed fetch was provider/model metadata resolution, not observed inference traffic. It is still a blocking product risk because it disproves any claim that an unconfigured OpenCode process is offline.
+### Run 2B - executable authority stack
 
-These items remain work in progress until the phase closes:
+- *Implemented and proven*: `INTENTSMITH_WORKER=opencode` composes the adapter,
+  the approval ledger, the capability mediator, Git evidence, the gates and
+  run-scoped inference grants together, with no third state in which OpenCode
+  runs without them. The run-scoped approval decision surface is executable over
+  HTTP. Lifecycle and protocol evidence is persisted as structured records that
+  carry no prompt, model response or wire payload. The terminal verdict cites
+  trusted provenance IntentSmith read itself.
 
-- prove that generated `opencode.json` configuration forces `intentsmith-local/<model>` through the run-scoped gateway;
-- determine whether provider-catalog fetching can be disabled; otherwise document and policy-gate the residual network behaviour;
-- finish the real probe for prompt outcome, `stopReason`, session updates, permissions, cancellation and gateway-token environment expansion;
-- gate degraded-sandbox execution so it cannot be mistaken for safe real-project isolation;
-- persist approvals, expiry and recovery semantics in Core;
-- capture git-backed diffs into a `ProposedChangeSet`;
-- cover worker crash and restart recovery points;
-- expose worker operations through API and CLI;
-- add an opt-in real-OpenCode suite;
-- complete Phase 3 evidence, documentation, pull request and merge.
+### Run 2C - pinned real binary
 
-Nothing on the Phase 3 branch is advertised as stable merely because it has tests or because the ACP handshake succeeds.
+- *Implemented and proven*: against real `opencode-ai@1.18.8` and real local
+  `qwen3:14b` on an RTX 3090, an approved edit reaches `passed` on a Git digest
+  and IntentSmith-run gates, and four terminal paths — deny, cancel, timeout and
+  worker termination, each with an approval outstanding — leave no side effect,
+  no orphan process, no surviving gateway token and no suspended waiter.
+  Evidence: `artifacts/phase-3-2c-real-binary.json`.
+- *Implemented but not proven*: strict-offline execution, sandboxed
+  (`preferSandbox`) execution, and concurrent runs sharing one Git working tree.
+  The 2C run recorded these as not proven and they remain so.
+
+### Run 2D - remote operator access
+
+- *Implemented and proven*: the loopback default is unchanged; the VPN opt-in is
+  explicit and any other value refuses; one runtime-supplied operator credential
+  is required and is never generated, stored, substituted, logged, audited or
+  returned; authentication is one `onRequest` hook registered before any route,
+  so it runs before body parsing, validation and every handler, and nothing is
+  public in remote mode; a wildcard bind and a hostname are refused; the worker
+  gateway stays loopback-only with its own per-run tokens and rejects the
+  operator credential.
+- *Implemented and proven at process level*: the real entry point, spawned as a
+  child process, exits non-zero on eight unsafe configurations, opens no
+  listener, creates no database, and names the violated rule without echoing the
+  supplied credential
+  (`apps/server/src/startup-refusal.process.test.ts`).
+- *Partially proven*: "direct public exposure is unsupported" is enforced only
+  where the process can enforce it — a wildcard bind and a hostname are refused.
+  A port forward in front of a correctly bound VPN interface is a documented
+  boundary, not an enforced one.
+- *Deferred by decision, not oversight*: rotation is a restart; there are no
+  accounts, no roles and no rate limiting; the CLI does not send the credential
+  and is local-only in this alpha. ADR 0020 records why each is acceptable and
+  on what premise.
+
+### Run 2F - restart recovery and closure
+
+- *Implemented and proven*: recovery across a real Core death on the executable
+  OpenCode composition. A child process running the product's own composition
+  root reaches a pending approval and is SIGKILLed — a signal it cannot catch —
+  leaving a `running` run row, an unanswered approval, an orphaned OpenCode
+  process and a gateway token that existed only in the dead process's memory. A
+  second Core on the same database closes the run as `failed` with a `blocked`
+  verdict and reason `process_restart`, revokes the approval without ever
+  granting it, writes the verdict before releasing what the run held, answers a
+  late decision with 404, keeps the workspace unchanged, and is idempotent. A
+  fresh run in the same workspace then reaches `passed` on a Git digest with its
+  own approval, and the interrupted run's rows and audit trail are unchanged by
+  it. No production code was changed: the regression passed against the
+  composition as run 2E left it.
+- *Proven again against the real binary*: run 2D moved the loopback peer check
+  into a composed operator/approval guard, and 2C's product-level evidence
+  predates that change. The approved-edit and deny-while-pending scenarios were
+  re-run at the closure candidate against pinned `opencode-ai@1.18.8` and real
+  local `qwen3:14b`, and both still behave exactly as 2C recorded.
+- *Not supported, by decision*: the recovered **task** cannot start a new run of
+  its own. ADR 0007 makes it terminal and ADR 0008 makes terminal statuses
+  accept no lifecycle command, so a new attempt is a new task. The regression
+  asserts that refusal rather than working around it.
+- *Not possible, and not attempted*: cleaning up the worker a SIGKILLed Core
+  left behind. Recovery records the process-group leader in the audit trail so
+  an operator can find it, and never kills a pid recorded before a restart,
+  because that pid may belong to something else by then.
+
+### Partially proven across Phase 3
+
+- **Version discovery.** ACP protocol version and agent capabilities are
+  negotiated, recorded and refused on mismatch. The OpenCode *binary* version is
+  operator-declared and verified by the real-binary harness, not discovered by
+  the adapter. The Phase 3 test matrix now says so.
+- **Shell policy.** `bash` is denied outright rather than approval-gated,
+  because an approval for a command string cannot be bound to a workspace scope.
+  This is stricter than the Phase 3 test matrix row used to say; the row has
+  been corrected to state the policy that is actually implemented.
+
+## Phase 3 Closure Work
+
+All seven items are done and recorded in `docs/testing/phase-3-results.md`: the
+restart-recovery regression, five identical deterministic full-suite runs, a
+clean-clone `pnpm verify`, the results document and verification artifact, the
+README, the CI status, and the two specification wording corrections.
+
+The CI item is now proven: PR #4 ran workflow `30481867726` against integrated
+commit `64eabbd57a82a3c54c97a70be5ecb77e2e923a77`. Its `verify (node 22)` job
+completed successfully, including clean frozen installation, verification and
+the clean-working-tree assertion.
+
+## Phase 3B - Not Proven
+
+- Parallel tool calls (refused, not supported).
+- `skill`, `task`, `todowrite` and `webfetch` payload shapes and side effects.
+- Strict-offline execution: NOT PROVEN while OpenCode fetches its provider
+  catalog. "No cloud traffic observed" is not "cloud traffic impossible".
+- Degraded-sandbox runs remain disposable-fixture-only. No real project.
+- Model defaults. The ten-formulation robustness run supersedes the
+  repeated-prompt scores and moved `qwen3.5:27b` from 30/30 to 91/100.
+- A SIGKILL-orphaned OpenCode process may survive, but it has no usable
+  in-memory gateway authority after Core dies.
+- `ApprovalLedger.recoverAfterRestart()` is not wired directly into startup.
+
+## Deferred Beyond Phase 1
+
+- Run formal trademark and domain checks before final public naming.
+- MCP, Serena, Studio, desktop distribution and shell execution remain
+  unimplemented. Shell is not merely absent: `bash` is a denied capability.
+- Ollama is implemented as of Phase 2, local-only. IntentSmith never installs
+  Ollama, signs in, uses an API key, downloads a model, or contacts ollama.com.
+- External workers and ACP are implemented as of Phase 3: the OpenCode adapter
+  speaks ACP to a real child process, and the Phase 2 gateway is now a working
+  integration rather than a foundation.
+- Authentication is implemented as of run 2D, in exactly one shape: a single
+  operator bearer token over a private VPN (ADR 0020). There are no accounts,
+  roles, sessions or rotation, and the CLI does not send the credential.
+- Concurrency is serialized per SQLite connection, and independent stores run
+  independently. That is correct for a single local control-plane process;
+  nothing coordinates two OS processes against one database file beyond
+  SQLite's own locking and the configured busy timeout.
+- Phase 3 implements only its evidence-bounded single protocol retry. Generic
+  retry and multi-run orchestration remain later work.
 
 ## Completed phases
 
@@ -112,7 +265,7 @@ Nothing on the Phase 3 branch is advertised as stable merely because it has test
 | Phase 1.1 — contract stabilization | 14 audit findings plus per-store transaction-context isolation fixed; 202 tests |
 | Phase 2 — local inference | Hardware director, Ollama provider and scoped worker gateway; 410 tests |
 
-## Not implemented on stable `main`
+## Not implemented on stable `main` before Phase 3 integration
 
 - external coding worker execution;
 - persisted approval decisions;

@@ -245,7 +245,7 @@ describe('gateway chat completions', () => {
           method: 'POST',
           url: '/v1/chat/completions',
           headers: auth(token.value),
-          payload: { ...chat, tools: [] },
+          payload: { ...chat, notARealField: true },
         })
       ).statusCode,
     ).toBe(400);
@@ -258,6 +258,75 @@ describe('gateway chat completions', () => {
     });
     expect(noUser.statusCode).toBe(400);
     await app.close();
+  });
+
+  it('accepts the wider sampling surface a real OpenAI client sends', async () => {
+    const app = gateway();
+    const token = tokens.issue('run_1');
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      headers: auth(token.value),
+      // Observed from a real OpenCode 1.18.8 request.
+      payload: { ...chat, top_p: 1, stream_options: { include_usage: true }, max_tokens: 32_000 },
+    });
+    // These change nothing about what the request means, so they are honoured.
+    expect(response.statusCode).toBe(200);
+  });
+
+  it('serves a request that advertises tools without ever executing one', async () => {
+    const app = gateway();
+    const token = tokens.issue('run_1');
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      headers: auth(token.value),
+      payload: {
+        ...chat,
+        tool_choice: 'auto',
+        tools: [{ type: 'function', function: { name: 'bash' } }],
+      },
+    });
+
+    // Phase 3B translates tool calls; it never runs them. Advertising `bash`
+    // here is deliberate: the gateway carries the schema through untouched, and
+    // whether `bash` may run at all is Core's decision, not this route's.
+    expect(response.statusCode).toBe(200);
+    expect(response.json().choices[0].message.role).toBe('assistant');
+  });
+
+  it('refuses a conversation with tool turns but no advertised tools', async () => {
+    const app = gateway();
+    const token = tokens.issue('run_1');
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      headers: auth(token.value),
+      payload: {
+        model: 'qwen3:14b',
+        messages: [
+          { role: 'user', content: 'read it' },
+          { role: 'tool', tool_call_id: 'call_0', content: '{}' },
+        ],
+      },
+    });
+
+    // Flattening this into a prompt would hide that a tool ran, and the model
+    // would answer from a transcript that misrepresents what happened.
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('TOOL_CALLING_UNSUPPORTED');
+  });
+
+  it('accepts an empty tools array, which advertises nothing', async () => {
+    const app = gateway();
+    const token = tokens.issue('run_1');
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      headers: auth(token.value),
+      payload: { ...chat, tools: [] },
+    });
+    expect(response.statusCode).toBe(200);
   });
 
   it('returns a structured error for an unknown gateway route', async () => {

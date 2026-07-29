@@ -20,9 +20,11 @@ pnpm build                      PASS
 pnpm verify                     PASS
 ```
 
-`pnpm verify` is fully offline. It needs no Ollama, no NVIDIA hardware and no
-model: every transport and probe is injected. The full suite was run five times
-with identical results.
+The deterministic tests and build do not require Ollama, NVIDIA hardware, a
+model or another external runtime: every transport and probe is injected. The
+measured installation used an already populated pnpm store; network isolation
+and a cold-network installation were not proven. The full suite was run five
+times with identical results.
 
 The gateway lifecycle tests are the only ones that open a real socket, because
 loopback binding is precisely what they verify. They use an ephemeral port and

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import type { CapabilityEnvelope, CreateTaskInput } from '@intentsmith/contracts';
-import { IntentSmithCore, type Clock, type IdGenerator, type Timer } from '@intentsmith/core';
+import { ApprovalLedger, IntentSmithCore, type Clock, type IdGenerator, type Timer } from '@intentsmith/core';
 import { openIntentSmithDatabase, type SQLiteStore } from '@intentsmith/persistence';
 
 import { FakeWorker } from './fake-worker.js';
@@ -113,6 +113,7 @@ export function createTaskInput(projectId: string, rootPath: string, overrides: 
 
 export type TestRuntime = {
   core: IntentSmithCore;
+  approvals: ApprovalLedger;
   store: SQLiteStore;
   worker: FakeWorker;
   clock: FakeClock;
@@ -127,6 +128,7 @@ export function createTestRuntime(dbPath = ':memory:'): TestRuntime {
   const clock = new FakeClock();
   const timer = new FakeTimer();
   const ids = new DeterministicIdGenerator();
+  const approvals = new ApprovalLedger({ approvals: store, audit: store, clock, ids });
   const core = new IntentSmithCore({
     clock,
     ids,
@@ -136,10 +138,12 @@ export function createTestRuntime(dbPath = ':memory:'): TestRuntime {
     audit: store,
     transactions: store,
     worker,
+    approvals,
   });
 
   return {
     core,
+    approvals,
     store,
     worker,
     clock,

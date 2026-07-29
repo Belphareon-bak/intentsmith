@@ -8,19 +8,31 @@ export default defineConfig({
       '@intentsmith/core': fileURLToPath(new URL('./packages/core/src/index.ts', import.meta.url)),
       '@intentsmith/inference': fileURLToPath(new URL('./packages/inference/src/index.ts', import.meta.url)),
       '@intentsmith/hardware': fileURLToPath(new URL('./packages/hardware/src/index.ts', import.meta.url)),
+      '@intentsmith/worker-sdk': fileURLToPath(new URL('./packages/worker-sdk/src/index.ts', import.meta.url)),
+      '@intentsmith/process-runtime': fileURLToPath(new URL('./packages/process-runtime/src/index.ts', import.meta.url)),
+      '@intentsmith/adapter-opencode/fixtures': fileURLToPath(
+        new URL('./packages/adapter-opencode/src/fixtures.ts', import.meta.url),
+      ),
+      '@intentsmith/adapter-opencode': fileURLToPath(new URL('./packages/adapter-opencode/src/index.ts', import.meta.url)),
       '@intentsmith/adapter-ollama/fixtures': fileURLToPath(
         new URL('./packages/adapter-ollama/src/fixtures.ts', import.meta.url),
       ),
       '@intentsmith/adapter-ollama': fileURLToPath(new URL('./packages/adapter-ollama/src/index.ts', import.meta.url)),
       '@intentsmith/persistence': fileURLToPath(new URL('./packages/persistence/src/index.ts', import.meta.url)),
+      '@intentsmith/testing/worker-contract': fileURLToPath(
+        new URL('./packages/testing/src/worker-contract.ts', import.meta.url),
+      ),
+      '@intentsmith/testing/provider-contract': fileURLToPath(
+        new URL('./packages/testing/src/provider-contract.ts', import.meta.url),
+      ),
       '@intentsmith/testing': fileURLToPath(new URL('./packages/testing/src/index.ts', import.meta.url)),
     },
   },
   test: {
     include: ['**/*.test.ts'],
-    // The real-Ollama suite is opt-in only and must never run in `pnpm verify`
-    // or normal CI; `pnpm test:ollama` targets it explicitly.
-    exclude: ['**/dist/**', '**/node_modules/**', 'tools/ollama/**'],
+    // Real-provider suites are opt-in only and must never run in `pnpm verify`
+    // or normal CI; their dedicated configs target them explicitly.
+    exclude: ['**/dist/**', '**/node_modules/**', 'tools/ollama/**', 'tools/opencode/**'],
     pool: 'threads',
     testTimeout: 5000,
     hookTimeout: 5000,
@@ -33,13 +45,20 @@ export default defineConfig({
         'packages/core/src/**/*.ts',
         'packages/inference/src/**/*.ts',
         'packages/hardware/src/**/*.ts',
+        'packages/worker-sdk/src/**/*.ts',
+        'packages/process-runtime/src/**/*.ts',
+        'packages/adapter-opencode/src/**/*.ts',
         'packages/adapter-ollama/src/**/*.ts',
         'packages/persistence/src/**/*.ts',
         'packages/testing/src/**/*.ts',
         'apps/server/src/**/*.ts',
         'apps/cli/src/**/*.ts',
       ],
-      exclude: ['**/*.test.ts', '**/index.ts', '**/dist/**', '**/fixtures.ts', '**/test-runtime.ts'],
+      // Test-only modules. `*fixtures.ts` rather than `fixtures.ts` because the
+      // restart regression's fixture is a child-process entry point: it is
+      // executed for real, but in another process, so in-process coverage can
+      // never see it. No production file is excluded by this list.
+      exclude: ['**/*.test.ts', '**/index.ts', '**/dist/**', '**/*fixtures.ts', '**/test-runtime.ts'],
       /**
        * Gates are set just below the measured Phase 1.1 values so a real
        * regression fails the build, without rewarding filler tests. The

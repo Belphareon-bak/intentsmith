@@ -1,5 +1,7 @@
 import type {
+  ApprovalState,
   AuditEvent,
+  CapabilityApproval,
   CreateProjectInput,
   CreateTaskInput,
   Project,
@@ -47,6 +49,23 @@ export type TaskRepository = {
   getResultByRun(runId: string): Promise<TaskResult | null>;
 };
 
+/**
+ * Storage for capability approvals.
+ *
+ * `updateApprovalState` is compare-and-set rather than a blind write: two
+ * callers racing to decide the same approval must not be able to overwrite each
+ * other, and the loser needs to find out that it lost.
+ */
+export type ApprovalRepository = {
+  createApproval(approval: CapabilityApproval): Promise<void>;
+  getApproval(id: string): Promise<CapabilityApproval | null>;
+  findApproval(runId: string, actionId: string, payloadHash: string): Promise<CapabilityApproval | null>;
+  /** Returns false when the row was no longer in `expectedState`. */
+  updateApprovalState(approval: CapabilityApproval, expectedState: ApprovalState): Promise<boolean>;
+  listApprovalsByRun(runId: string): Promise<CapabilityApproval[]>;
+  listApprovalsByState(states: readonly ApprovalState[]): Promise<CapabilityApproval[]>;
+};
+
 export type AuditRepository = {
   append(event: AuditEvent): Promise<void>;
   listByTask(taskId: string): Promise<AuditEvent[]>;
@@ -56,43 +75,18 @@ export type TransactionManager = {
   transaction<T>(fn: () => Promise<T>): Promise<T>;
 };
 
-export type WorkerExecutionContext = {
-  task: Task;
-  run: TaskRun;
-  signal: AbortSignal;
-};
-
-export type WorkerExecutionResult = {
-  events: unknown[];
-};
-
-export type WorkerHandle = {
-  done: Promise<WorkerExecutionResult>;
-  pause(): Promise<void>;
-  resume(): Promise<void>;
-  cancel(): Promise<void>;
-};
-
-/**
- * Static worker identity and capability discovery.
- *
- * Added in Phase 1.1 so the shared contract suite can assert what an adapter
- * claims to support before exercising it. Breaking change: every
- * `WorkerAdapter` must now implement `describe()`.
- */
-export type WorkerDescriptor = {
-  id: string;
-  version: string;
-  capabilities: {
-    pause: boolean;
-    cancel: boolean;
-  };
-};
-
-export type WorkerAdapter = {
-  describe(): WorkerDescriptor;
-  start(context: WorkerExecutionContext): WorkerHandle;
-};
+// The worker port lives in `@intentsmith/worker-sdk` so a concrete adapter can
+// implement it without depending on Core (ADR 0011 direction). Core re-exports
+// the types it consumes.
+export type {
+  InferenceGrant,
+  WorkerAdapter,
+  WorkerCapability,
+  WorkerDescriptor,
+  WorkerExecutionContext,
+  WorkerExecutionResult,
+  WorkerHandle,
+} from '@intentsmith/worker-sdk';
 
 export type CreateProjectCommand = CreateProjectInput;
 export type CreateTaskCommand = CreateTaskInput;

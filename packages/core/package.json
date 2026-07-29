@@ -13,6 +13,7 @@
   "dependencies": {
     "@intentsmith/contracts": "workspace:*",
     "@intentsmith/inference": "workspace:*",
-    "@intentsmith/hardware": "workspace:*"
+    "@intentsmith/hardware": "workspace:*",
+    "@intentsmith/worker-sdk": "workspace:*"
   }
 }
