@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-07-29T19:37:00.000Z",
+  "probeKind": "read-only-local-prerequisites",
+  "sourceCommit": "334099415f782d6ee1451394011541245e86f3c3",
+  "profile": {
+    "opencodeVersion": "1.18.8",
+    "ollamaModel": "qwen3:14b",
+    "gpu": "NVIDIA GeForce RTX 3090",
+    "concurrency": 1,
+    "strictOffline": "NOT PROVEN"
+  },
+  "observed": {
+    "opencode": {
+      "available": false,
+      "reason": "OPENCODE_MISSING"
+    },
+    "nvidia": {
+      "available": true,
+      "gpu": "NVIDIA GeForce RTX 3090",
+      "driver": "590.48.01",
+      "utilizationPercent": 27,
+      "memoryUsedMiB": 1121,
+      "computeProcessesReported": []
+    },
+    "ollama": {
+      "available": true,
+      "version": "0.17.7",
+      "requiredModelPresent": true,
+      "requiredModel": "qwen3:14b"
+    }
+  },
+  "decision": {
+    "verdict": "BLOCKED",
+    "reason": "OPENCODE_MISSING",
+    "gpuIdleUnderRunnerThreshold": false,
+    "scenariosStarted": false,
+    "workspaceCreated": false,
+    "externalProcessAltered": false,
+    "modelAltered": false
+  }
+}

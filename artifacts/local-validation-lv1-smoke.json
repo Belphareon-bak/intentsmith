@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "runId": "lv1-smoke-final-20260729",
+  "createdAt": "2026-07-29T19:39:35.605Z",
+  "updatedAt": "2026-07-29T19:39:35.606Z",
+  "fingerprints": {
+    "sourceCommit": "334099415f782d6ee1451394011541245e86f3c3",
+    "runnerVersion": "0.1.0",
+    "scenarioManifest": "74140f8fd9a5936deb814720eda5d4901e330cbbf2468cc2b320afe903fd5cae",
+    "modelProfile": "dff2a7c4d701fc2bf3c9a0815e3867228f9d96d87cfd11faa0c7fb5a544749f2",
+    "options": "da519f9f71cf8476bb382e6f2169584dc22cdd835dd758a4ad505fd573058708"
+  },
+  "scenarios": [
+    {
+      "id": "approved-edit",
+      "version": "1",
+      "schedulerState": "COMPLETED",
+      "attempts": [
+        {
+          "attempt": 1,
+          "scenarioId": "approved-edit",
+          "scenarioVersion": "1",
+          "testedCommit": "334099415f782d6ee1451394011541245e86f3c3",
+          "verdict": "BLOCKED",
+          "behavioralObservations": [],
+          "startedAt": "2026-07-29T19:39:35.605Z",
+          "endedAt": "2026-07-29T19:39:35.605Z",
+          "durationMs": 0,
+          "exitCode": null,
+          "signal": null,
+          "reason": {
+            "code": "OPENCODE_MISSING",
+            "message": "The pinned OpenCode binary is not available.",
+            "kind": "blocked"
+          },
+          "runtimeVersions": {
+            "node": "v22.21.1",
+            "runner": "0.1.0"
+          },
+          "artifactPaths": [],
+          "logPaths": [],
+          "retryCount": 0,
+          "leakCheck": {
+            "passed": true,
+            "processGroupMembers": [],
+            "ownedListeners": [],
+            "ownedSockets": [],
+            "ownedTemporaryPaths": [],
+            "isolatedEnvironmentPaths": [],
+            "fileDescriptorDelta": 0,
+            "diskBytesDelta": 0,
+            "approvalWaiters": 0,
+            "liveApprovalGrants": 0,
+            "liveGatewayTokens": 0,
+            "operatorCredentialLeaks": []
+          },
+          "redaction": {
+            "passed": true,
+            "checkedLocations": [],
+            "findings": []
+          }
+        }
+      ],
+      "deterministicVerdict": "BLOCKED"
+    },
+    {
+      "id": "deny-while-pending",
+      "version": "1",
+      "schedulerState": "COMPLETED",
+      "attempts": [
+        {
+          "attempt": 1,
+          "scenarioId": "deny-while-pending",
+          "scenarioVersion": "1",
+          "testedCommit": "334099415f782d6ee1451394011541245e86f3c3",
+          "verdict": "BLOCKED",
+          "behavioralObservations": [],
+          "startedAt": "2026-07-29T19:39:35.606Z",
+          "endedAt": "2026-07-29T19:39:35.606Z",
+          "durationMs": 0,
+          "exitCode": null,
+          "signal": null,
+          "reason": {
+            "code": "OPENCODE_MISSING",
+            "message": "The pinned OpenCode binary is not available.",
+            "kind": "blocked"
+          },
+          "runtimeVersions": {
+            "node": "v22.21.1",
+            "runner": "0.1.0"
+          },
+          "artifactPaths": [],
+          "logPaths": [],
+          "retryCount": 0,
+          "leakCheck": {
+            "passed": true,
+            "processGroupMembers": [],
+            "ownedListeners": [],
+            "ownedSockets": [],
+            "ownedTemporaryPaths": [],
+            "isolatedEnvironmentPaths": [],
+            "fileDescriptorDelta": 0,
+            "diskBytesDelta": 0,
+            "approvalWaiters": 0,
+            "liveApprovalGrants": 0,
+            "liveGatewayTokens": 0,
+            "operatorCredentialLeaks": []
+          },
+          "redaction": {
+            "passed": true,
+            "checkedLocations": [],
+            "findings": []
+          }
+        }
+      ],
+      "deterministicVerdict": "BLOCKED"
+    }
+  ],
+  "completedAt": "2026-07-29T19:39:35.606Z",
+  "baselinePath": "/home/belphareon/Projects/coworker/intentsmith-local-validation/artifacts/local-validation-baseline.json",
+  "baselineDifferences": [
+    {
+      "path": "fingerprints.sourceCommit",
+      "baseline": "6676902c5f6fe7a5d66aba0d79cb502e0f3a60e4",
+      "current": "334099415f782d6ee1451394011541245e86f3c3",
+      "deterministicInvariant": false
+    },
+    {
+      "path": "fingerprints.runnerVersion",
+      "baseline": "pre-lv0-phase-3-evidence",
+      "current": "0.1.0",
+      "deterministicInvariant": false
+    },
+    {
+      "path": "fingerprints.scenarioManifest",
+      "baseline": "phase-3-2c-real-binary",
+      "current": "74140f8fd9a5936deb814720eda5d4901e330cbbf2468cc2b320afe903fd5cae",
+      "deterministicInvariant": false
+    },
+    {
+      "path": "fingerprints.modelProfile",
+      "baseline": "opencode-1.18.8-ollama-qwen3-14b-rtx3090-provisional",
+      "current": "dff2a7c4d701fc2bf3c9a0815e3867228f9d96d87cfd11faa0c7fb5a544749f2",
+      "deterministicInvariant": false
+    },
+    {
+      "path": "fingerprints.options",
+      "baseline": "phase-3-closure",
+      "current": "da519f9f71cf8476bb382e6f2169584dc22cdd835dd758a4ad505fd573058708",
+      "deterministicInvariant": false
+    },
+    {
+      "path": "scenarios.approved-edit.version",
+      "baseline": "phase-3",
+      "current": "1",
+      "deterministicInvariant": false
+    },
+    {
+      "path": "scenarios.approved-edit.deterministicVerdict",
+      "baseline": "PASS",
+      "current": "BLOCKED",
+      "deterministicInvariant": false
+    },
+    {
+      "path": "scenarios.deny-while-pending.version",
+      "baseline": "phase-3",
+      "current": "1",
+      "deterministicInvariant": false
+    },
+    {
+      "path": "scenarios.deny-while-pending.deterministicVerdict",
+      "baseline": "PASS",
+      "current": "BLOCKED",
+      "deterministicInvariant": false
+    }
+  ]
+}
