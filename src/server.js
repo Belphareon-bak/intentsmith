@@ -204,9 +204,11 @@ import { upgradeManager } from './upgrade/upgrade-manager.js';
 
 // v133: ModelRegistry — centralized model management
 import { modelRegistry } from './upgrade/model-registry.js';
+import { modelUniverseStore } from './upgrade/model-universe-store.js';
 
 // v103.1: Restore persisted model overrides BEFORE any LLM calls
 upgradeManager.setDb(db.db);
+modelUniverseStore.setDb(db.db);
 const overrideCount = upgradeManager.loadPersistedOverrides();
 if (overrideCount > 0) {
   logger.info('Server', `Restored ${overrideCount} model override(s) from DB`);
@@ -388,6 +390,18 @@ if (config.features.comfyui !== false) {
   } catch (err) {
     logger.warn('Server', `ComfyUI module not available: ${err.message}`);
   }
+}
+
+// Initialize VRAM-aware num_ctx for the active chat model without delaying
+// server startup. Gateway and context compaction share this effective value.
+{
+  const { initModelNumCtx } = await import('./llm/model-ctx.js');
+  const chatModel = config.models.CHAT;
+  initModelNumCtx(chatModel, config.ollama.baseUrl).then(numCtx => {
+    logger.info('Server', `Model context initialized: ${chatModel} → num_ctx=${numCtx}`);
+  }).catch(err => {
+    logger.warn('Server', `Model context init failed (non-fatal): ${err.message}`);
+  });
 }
 
 // Configure ChatController with default handlers
@@ -1390,6 +1404,11 @@ function gracefulShutdown(signal) {
 
   // v135.1: Persist the last buffered upgrade metrics before DB shutdown
   try { metricsCollector?.flush(); } catch { /* ignore */ }
+
+  // Persist buffered runtime model signals before the database is closed.
+  try {
+    modelUniverseStore.flushSignalBuffer({ drain: true, reason: 'shutdown' });
+  } catch { /* ignore */ }
 
   // v92: Drain + backup before shutdown
   try {
