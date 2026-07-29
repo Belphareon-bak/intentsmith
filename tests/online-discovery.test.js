@@ -553,6 +553,81 @@ test('max 8 families fetched per cycle', async () => {
   assert(fetchCount > 3, `Expected more than 3 fetches, got ${fetchCount}`);
 });
 
+test('guided discovery works without installed families when seed families are provided', async () => {
+  const od = new OnlineDiscovery();
+  od._scalingModels = buildFamilyScalingModels(CATALOG);
+  od._catalogNames = new Set(CATALOG.map(e => e.name));
+  od._fetchFamilyPage = async () => '<a href="/library/gemma4:27b">27b</a>';
+
+  const results = await od.discoverForFamilies([], {
+    seedFamilies: ['gemma4'],
+    maxFamilies: 2,
+  });
+  assert(results.some(r => r.name === 'gemma4:27b'), 'Expected seeded family to be discovered');
+});
+
+test('guided discovery reserves diversity slot for registry seeds', async () => {
+  const fetchedFamilies = [];
+  const od = new OnlineDiscovery();
+  od._scalingModels = buildFamilyScalingModels(CATALOG);
+  od._catalogNames = new Set(CATALOG.map(e => e.name));
+  od._registryClient = {
+    fetchLibraryIndexFamilies: async () => ['regalpha', 'regbeta', 'reggamma'],
+  };
+  od._fetchFamilyPage = async (family) => {
+    fetchedFamilies.push(family);
+    return `<a href="/library/${family}:14b">14b</a>`;
+  };
+
+  await od.discoverForFamilies(['installedA'], {
+    seedFamilies: ['seedA', 'seedB'],
+    maxFamilies: 4,
+    highPriorityRatio: 0.75, // 3 high-priority + 1 diversity slot
+  });
+
+  const hasRegistryFamily = fetchedFamilies.some(f => f.startsWith('reg'));
+  assert(hasRegistryFamily, `Expected at least one registry family in diversity slot, got: ${fetchedFamilies.join(', ')}`);
+  assert(fetchedFamilies.length <= 4, `Expected <= 4 fetched families, got ${fetchedFamilies.length}`);
+});
+
+test('highPriorityRatio zero selects entirely from diversity ranking', async () => {
+  const fetchedFamilies = [];
+  const od = new OnlineDiscovery();
+  od._scalingModels = buildFamilyScalingModels(CATALOG);
+  od._catalogNames = new Set(CATALOG.map(e => e.name));
+  od._fetchFamilyPage = async (family) => {
+    fetchedFamilies.push(family);
+    return `<a href="/library/${family}:14b">14b</a>`;
+  };
+
+  await od.discoverForFamilies(['installed'], {
+    registrySeedFamilies: ['registry-a', 'registry-b'],
+    maxFamilies: 1,
+    highPriorityRatio: 0,
+  });
+
+  assertEqual(fetchedFamilies.length, 1);
+  assertEqual(fetchedFamilies[0], 'registry-a');
+});
+
+test('maxVariantsPerFamily limits parsed variants', async () => {
+  const od = new OnlineDiscovery();
+  od._scalingModels = buildFamilyScalingModels(CATALOG);
+  od._catalogNames = new Set(CATALOG.map(e => e.name));
+  od._fetchFamilyPage = async () => `
+    <a href="/library/limfam:7b">7b</a>
+    <a href="/library/limfam:14b">14b</a>
+    <a href="/library/limfam:27b">27b</a>
+    <a href="/library/limfam:32b">32b</a>
+  `;
+
+  const results = await od.discoverForFamilies(['limfam'], {
+    maxFamilies: 1,
+    maxVariantsPerFamily: 2,
+  });
+  assertEqual(results.length, 2);
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 // SCORING INTEGRATION
 // ═══════════════════════════════════════════════════════════════════════════
@@ -788,6 +863,20 @@ test('registryClient fetchLibraryPage method exists', () => {
   const client = new RegistryClient();
   assert(typeof client.fetchLibraryPage === 'function',
     'fetchLibraryPage should be a method');
+});
+
+test('registryClient parses bounded, unique library index families', () => {
+  const client = new RegistryClient();
+  const families = client._parseLibraryIndexFamilies(`
+    <a href="/library/Qwen3">Qwen</a>
+    <a href="/library/qwen3:8b">Qwen tag</a>
+    <a href="/library/gemma3">Gemma</a>
+    <a href="/library/not%2Fsafe">Invalid decoded path</a>
+  `, 2);
+
+  assertEqual(families.length, 2);
+  assertEqual(families[0], 'qwen3');
+  assertEqual(families[1], 'gemma3');
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

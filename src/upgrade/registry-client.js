@@ -18,6 +18,15 @@ const MAX_FAILURES = 3;
 const OFFLINE_RETRY_MS = 60 * 60 * 1000; // 1 hour
 const REQUEST_TIMEOUT = 10000; // 10s
 const MAX_CONCURRENCY = 3;
+const DEFAULT_LIBRARY_INDEX_CACHE_MS = 6 * 60 * 60 * 1000;
+const parsedIndexCacheMs = Number.parseInt(process.env.C3_REGISTRY_INDEX_TTL_MS || '', 10);
+const parsedIndexLimit = Number.parseInt(process.env.C3_REGISTRY_INDEX_LIMIT || '', 10);
+const LIBRARY_INDEX_CACHE_MS = Number.isFinite(parsedIndexCacheMs) && parsedIndexCacheMs >= 1000
+  ? parsedIndexCacheMs
+  : DEFAULT_LIBRARY_INDEX_CACHE_MS;
+const LIBRARY_INDEX_LIMIT = Number.isFinite(parsedIndexLimit) && parsedIndexLimit > 0
+  ? Math.min(parsedIndexLimit, 200)
+  : 60;
 
 export class RegistryClient {
   constructor() {
@@ -25,6 +34,7 @@ export class RegistryClient {
     this._cache = new Map();
     this._failureCount = 0;
     this._offlineSince = null;
+    this._libraryIndexCache = null; // { families: string[], fetchedAt: number }
   }
 
   setDb(db) {
@@ -161,7 +171,83 @@ export class RegistryClient {
     }
   }
 
+  /**
+   * Fetch family seeds from Ollama library index page.
+   * Used by guided L4 discovery to discover unknown families dynamically.
+   *
+   * @param {Object} [opts]
+   * @param {number} [opts.limit=LIBRARY_INDEX_LIMIT]
+   * @returns {Promise<string[]>}
+   */
+  async fetchLibraryIndexFamilies(opts = {}) {
+    const limit = Number.isFinite(opts.limit) && opts.limit > 0
+      ? Math.min(Math.floor(opts.limit), 200)
+      : LIBRARY_INDEX_LIMIT;
+    const now = Date.now();
+
+    if (this._libraryIndexCache && (now - this._libraryIndexCache.fetchedAt) < LIBRARY_INDEX_CACHE_MS) {
+      return this._libraryIndexCache.families.slice(0, limit);
+    }
+
+    if (this._isOffline()) {
+      return this._libraryIndexCache?.families?.slice(0, limit) || [];
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+    try {
+      const response = await fetch(REGISTRY_BASE, {
+        method: 'GET',
+        signal: controller.signal,
+        redirect: 'follow',
+        headers: { 'User-Agent': 'c3-agent/1.0' },
+      });
+
+      if (!response.ok) {
+        return this._libraryIndexCache?.families?.slice(0, limit) || [];
+      }
+
+      const html = await response.text();
+      const families = this._parseLibraryIndexFamilies(html, Math.max(limit, LIBRARY_INDEX_LIMIT));
+      this._libraryIndexCache = { families, fetchedAt: now };
+      this._failureCount = 0;
+      this._offlineSince = null;
+      return families.slice(0, limit);
+    } catch (err) {
+      this._failureCount++;
+      if (this._failureCount >= MAX_FAILURES) {
+        this._offlineSince = Date.now();
+        logger.warn('RegistryClient', `Offline after ${MAX_FAILURES} failures: ${err.message}`);
+      }
+      return this._libraryIndexCache?.families?.slice(0, limit) || [];
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
   // ── Internal ────────────────────────────────────────────────────────────
+
+  _parseLibraryIndexFamilies(html, limit = LIBRARY_INDEX_LIMIT) {
+    if (!html || typeof html !== 'string') return [];
+    const boundedLimit = Number.isFinite(limit) && limit > 0
+      ? Math.min(Math.floor(limit), 200)
+      : LIBRARY_INDEX_LIMIT;
+    const out = [];
+    const seen = new Set();
+    const re = /href=["']\/library\/([^"'?#/]+)["']/gi;
+    let m;
+    while ((m = re.exec(html)) !== null && out.length < boundedLimit) {
+      let family = m[1];
+      try { family = decodeURIComponent(family); } catch (_) {}
+      family = String(family || '').split(':')[0].trim().toLowerCase();
+      if (!family) continue;
+      if (!/^[a-z0-9._-]+$/.test(family)) continue;
+      if (seen.has(family)) continue;
+      seen.add(family);
+      out.push(family);
+    }
+    return out;
+  }
 
   async _checkRegistry(name) {
     const familyName = name.replace(/:.*/, ''); // Strip params/tag
