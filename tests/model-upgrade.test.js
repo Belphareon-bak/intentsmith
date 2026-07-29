@@ -540,14 +540,14 @@ test('startPeriodicCheck is idempotent', () => {
   }, 50);
 });
 
-test('stopPeriodicCheck clears intervals', () => {
+test('stopPeriodicCheck clears scheduled timers', () => {
   const mgr = new UpgradeManager();
   mgr.checkForUpgrades = async () => ({ proposals: [], discovery: { candidates: [], hints: new Map(), ollamaAvailable: false, timestamp: Date.now() } });
   mgr.startPeriodicCheck({ recheckMs: 999999, pollMs: 999999 });
-  assert(mgr._recheckInterval !== null, 'should have recheck interval');
+  assert(mgr._recheckTimeout !== null, 'should have full-cycle timeout');
   assert(mgr._pollInterval !== null, 'should have poll interval');
   mgr.stopPeriodicCheck();
-  assertEqual(mgr._recheckInterval, null, 'recheck interval should be null');
+  assertEqual(mgr._recheckTimeout, null, 'full-cycle timeout should be null');
   assertEqual(mgr._pollInterval, null, 'poll interval should be null');
 });
 
