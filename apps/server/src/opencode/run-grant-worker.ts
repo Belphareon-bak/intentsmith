@@ -143,7 +143,7 @@ export function createRunScopedWorker(options: RunScopedWorkerOptions): WorkerAd
         // waiting on one; resolving twice is a no-op.
         .finally(() => announce(undefined));
 
-      const require = async (verb: string): Promise<WorkerHandle> => {
+      const liveHandle = async (verb: string): Promise<WorkerHandle> => {
         const handle = await started;
         if (!handle) throw new Error(`The worker never started, so it cannot be ${verb}.`);
         return handle;
@@ -151,8 +151,8 @@ export function createRunScopedWorker(options: RunScopedWorkerOptions): WorkerAd
 
       return {
         done,
-        pause: async () => await (await require('paused')).pause(),
-        resume: async () => await (await require('resumed')).resume(),
+        pause: async () => await (await liveHandle('paused')).pause(),
+        resume: async () => await (await liveHandle('resumed')).resume(),
         // A cancel that arrives before the process exists must still reach it,
         // and a cancel for a run that never started is simply nothing to do.
         cancel: async () => await (await started)?.cancel(),
