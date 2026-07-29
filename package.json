@@ -14,6 +14,8 @@
     "test": "vitest run",
     "verify": "pnpm install --frozen-lockfile && pnpm typecheck && pnpm lint && pnpm test:coverage && pnpm build",
     "test:coverage": "vitest run --coverage",
+    "test:local-validation": "vitest run packages/local-validation/src",
+    "local-validation": "tsx packages/local-validation/src/cli.ts",
     "test:ollama": "vitest run --config vitest.ollama.config.ts",
     "test:opencode": "vitest run --config vitest.opencode.config.ts"
   },

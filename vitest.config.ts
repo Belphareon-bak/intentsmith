@@ -26,6 +26,9 @@ export default defineConfig({
         new URL('./packages/testing/src/provider-contract.ts', import.meta.url),
       ),
       '@intentsmith/testing': fileURLToPath(new URL('./packages/testing/src/index.ts', import.meta.url)),
+      '@intentsmith/local-validation': fileURLToPath(
+        new URL('./packages/local-validation/src/index.ts', import.meta.url),
+      ),
     },
   },
   test: {
@@ -51,6 +54,7 @@ export default defineConfig({
         'packages/adapter-ollama/src/**/*.ts',
         'packages/persistence/src/**/*.ts',
         'packages/testing/src/**/*.ts',
+        'packages/local-validation/src/**/*.ts',
         'apps/server/src/**/*.ts',
         'apps/cli/src/**/*.ts',
       ],
@@ -58,7 +62,11 @@ export default defineConfig({
       // restart regression's fixture is a child-process entry point: it is
       // executed for real, but in another process, so in-process coverage can
       // never see it. No production file is excluded by this list.
-      exclude: ['**/*.test.ts', '**/index.ts', '**/dist/**', '**/*fixtures.ts', '**/test-runtime.ts'],
+      // The local-validation CLI is covered by black-box subprocess tests. Like
+      // child fixtures, its separately instrumented process cannot contribute
+      // to Vitest's in-process V8 counters; the orchestration modules it calls
+      // remain included.
+      exclude: ['**/*.test.ts', '**/index.ts', '**/cli.ts', '**/dist/**', '**/*fixtures.ts', '**/test-runtime.ts'],
       /**
        * Gates are set just below the measured Phase 1.1 values so a real
        * regression fails the build, without rewarding filler tests. The

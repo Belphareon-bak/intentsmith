@@ -13,6 +13,7 @@ artifacts/*
 !artifacts/phase-3b-verification.json
 !artifacts/phase-3-2c-real-binary.json
 !artifacts/phase-3-verification.json
+!artifacts/local-validation-baseline.json
 runtime/
 .intentsmith/
 *.db
