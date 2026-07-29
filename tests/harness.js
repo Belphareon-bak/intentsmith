@@ -25,9 +25,39 @@ export function test(name, fn) {
   }
 }
 
-export async function testAsync(name, fn) {
+async function invokeAsyncTest(fn, timeoutMs) {
+  if (timeoutMs === undefined) {
+    return fn();
+  }
+
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    throw new TypeError(`Invalid test timeout: ${timeoutMs}`);
+  }
+
+  const controller = new AbortController();
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      const error = new Error(`Test timed out after ${timeoutMs}ms`);
+      error.code = 'TEST_TIMEOUT';
+      reject(error);
+    }, timeoutMs);
+  });
+
   try {
-    await fn();
+    return await Promise.race([
+      Promise.resolve().then(() => fn(controller.signal)),
+      timeout,
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function testAsync(name, fn, timeoutMs) {
+  try {
+    await invokeAsyncTest(fn, timeoutMs);
     passed++;
     console.log(`  ✅ ${name}`);
   } catch (e) {

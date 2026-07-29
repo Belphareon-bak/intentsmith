@@ -53,6 +53,20 @@ summary();
   assert.equal(passing.status, 0, passing.stderr || passing.stdout);
   assert.match(passing.stdout, /RESULTS:\s*1 passed,\s*0 failed/);
 
+  const timeoutFixture = writeFixture('timeout-fixture.mjs', `
+import { suite, testAsync, summary } from ${JSON.stringify(harnessUrl)};
+
+suite('meta timeout fixture');
+await testAsync('intentional timeout', () => new Promise(() => {}), 25);
+summary();
+`);
+
+  const timedOut = runFixture(timeoutFixture);
+  assert.equal(timedOut.error, undefined, String(timedOut.error));
+  assert.equal(timedOut.status, 1, timedOut.stderr || timedOut.stdout);
+  assert.match(timedOut.stdout, /Test timed out after 25ms/);
+  assert.match(timedOut.stdout, /RESULTS:\s*0 passed,\s*1 failed/);
+
   console.log('Harness exit-code meta-test passed');
 } finally {
   rmSync(fixtureDir, { recursive: true, force: true });
