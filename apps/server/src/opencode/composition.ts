@@ -15,6 +15,7 @@ import type { GateCommandRunner, ProcessLimits } from '@intentsmith/process-runt
 import type { GrantAudit } from '@intentsmith/worker-sdk';
 
 import type { GatewayTokenStore } from '../gateway/token-store.js';
+import { ApprovalDesk } from './approval-desk.js';
 import { createGitChangeEvidenceCollector } from './change-evidence.js';
 import type { OpenCodeConfig } from './config.js';
 import { GatewayGrantIssuer, createRunScopedWorker } from './run-grant-worker.js';
@@ -37,10 +38,10 @@ export type OpenCodeOverrides = {
   /**
    * Answers pending approvals.
    *
-   * There is no HTTP or CLI decision surface yet, so the default denies and
-   * says why. That is deliberate: an unanswered question is not consent, and an
-   * automatic yes here would be exactly the standing permission the ledger
-   * exists to make impossible.
+   * The default is the run-scoped {@link ApprovalDesk}, which suspends the
+   * mediator until a human decides through the server's approval routes. An
+   * override exists only so a test can decide deterministically; production
+   * never installs one, and neither path can produce an automatic yes.
    */
   approvalDecider?: ApprovalDecider;
   preferSandbox?: boolean;
@@ -64,20 +65,22 @@ export type OpenCodeStackOptions = {
 export type OpenCodeStack = {
   worker: WorkerAdapter;
   approvals: ApprovalLedger;
+  /** The executable decision surface the server's approval routes talk to. */
+  desk: ApprovalDesk;
   changeEvidence: ChangeEvidenceCollector;
   /** Called once the gateway is listening. No run may start before it is. */
   bindGateway(baseUrl: string): void;
+  /** Releases every suspended decision. Called when the server stops. */
+  close(): void;
 };
-
-/** Refusal used until the approval decision surface exists. */
-export const NO_DECISION_SURFACE: ApprovalDecider = async () => 'deny';
 
 export function createOpenCodeStack(options: OpenCodeStackOptions): OpenCodeStack {
   const { config, store, clock, ids } = options;
   const overrides = options.overrides ?? {};
 
   const approvals = new ApprovalLedger({ approvals: store, audit: store, clock, ids });
-  const decide = overrides.approvalDecider ?? NO_DECISION_SURFACE;
+  const desk = new ApprovalDesk(approvals);
+  const decide = overrides.approvalDecider ?? desk.decider;
   const issuer = new GatewayGrantIssuer(options.tokens, config.modelId);
 
   const adapterOptionsFor = (context: WorkerExecutionContext | undefined): ConstructorParameters<
@@ -115,7 +118,14 @@ export function createOpenCodeStack(options: OpenCodeStackOptions): OpenCodeStac
     adapterFor: context => new OpenCodeWorker(adapterOptionsFor(context)),
     issuer,
     workspaceRoot: config.workspaceRoot,
-    ...(overrides.onGrantAudit ? { onGrantAudit: overrides.onGrantAudit } : {}),
+    // The grant audit fires from `withGrant`'s `finally`, which is the one place
+    // that runs on every terminal path this run can take. Releasing suspended
+    // decisions from there makes waiter cleanup structural rather than a thing
+    // each failure branch has to remember.
+    onGrantAudit: audit => {
+      desk.settleRun(audit.runId);
+      overrides.onGrantAudit?.(audit);
+    },
   });
 
   const changeEvidence = createGitChangeEvidenceCollector({
@@ -131,7 +141,11 @@ export function createOpenCodeStack(options: OpenCodeStackOptions): OpenCodeStac
   return {
     worker,
     approvals,
+    desk,
     changeEvidence,
     bindGateway: baseUrl => issuer.bind(baseUrl),
+    close: () => {
+      desk.settleAll();
+    },
   };
 }

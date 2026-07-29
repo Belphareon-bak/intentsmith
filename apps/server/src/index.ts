@@ -26,10 +26,18 @@ export {
 } from './opencode/config.js';
 export {
   createOpenCodeStack,
-  NO_DECISION_SURFACE,
   type OpenCodeOverrides,
   type OpenCodeStack,
 } from './opencode/composition.js';
+export {
+  ApprovalDesk,
+  ApprovalDeskError,
+  describePending,
+  type ApprovalVerdict,
+  type DecisionResult,
+  type PendingApprovalView,
+} from './opencode/approval-desk.js';
+export { registerApprovalRoutes, isLoopbackAddress } from './approval-routes.js';
 export {
   GatewayGrantIssuer,
   WorkerAuthorityError,

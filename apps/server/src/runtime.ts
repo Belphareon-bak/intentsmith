@@ -116,6 +116,9 @@ export function createRuntime(options: RuntimeOptions | string = {}): ServerRunt
     hardware,
     gatewayTokens,
     workerKind,
+    // The approval routes decide through this and nothing else; the fake path
+    // composes no mediation, so it exposes no decision surface either.
+    ...(openCode ? { approvals: openCode.desk } : {}),
     executionPolicy: resolved.executionPolicy ?? 'cpu_allowed',
     // Present only for the OpenCode path, where a run cannot start until the
     // gateway exists to issue it a token.
@@ -132,8 +135,11 @@ export function createRuntime(options: RuntimeOptions | string = {}): ServerRunt
       return recovery;
     },
     close: async () => {
-      // Tokens die with the server; a stale token must never outlive it.
+      // Tokens die with the server; a stale token must never outlive it. So do
+      // suspended approval decisions: a question nobody can answer any more must
+      // not keep a shutdown waiting on it.
       gatewayTokens.revokeAll();
+      openCode?.close();
       scheduler.shutdown();
       await core.shutdown();
       store.close();

@@ -10,8 +10,10 @@ import type { OllamaProvider } from '@intentsmith/adapter-ollama';
 import type { ExecutionPolicy, HardwareDirector } from '@intentsmith/hardware';
 import type { InferenceScheduler } from '@intentsmith/inference';
 
+import { registerApprovalRoutes } from './approval-routes.js';
 import { registerInferenceRoutes } from './inference-routes.js';
 import type { GatewayTokenStore } from './gateway/token-store.js';
+import type { ApprovalDesk } from './opencode/approval-desk.js';
 import type { WorkerSelection } from './opencode/config.js';
 import type { RecoverySummary } from './recovery.js';
 
@@ -22,6 +24,14 @@ export type ServerRuntime = {
   hardware: HardwareDirector;
   /** Per-run tokens for the worker inference gateway. */
   gatewayTokens: GatewayTokenStore;
+  /**
+   * The human decision surface for pending capability approvals.
+   *
+   * Present only when the composed worker mediates tools. A runtime without one
+   * has nothing to approve, and its approval routes say so rather than
+   * answering "nothing is pending".
+   */
+  readonly approvals?: ApprovalDesk;
   /** Which worker the composition root selected. Absent in test runtimes. */
   readonly workerKind?: WorkerSelection;
   /**
@@ -151,6 +161,7 @@ export function buildServer(runtime: ServerRuntime): FastifyInstance {
     return { events: await runtime.core.listAuditEvents(taskId) };
   });
 
+  registerApprovalRoutes(app, runtime);
   registerInferenceRoutes(app, runtime);
 
   app.addHook('onClose', async () => {
@@ -163,5 +174,10 @@ export function buildServer(runtime: ServerRuntime): FastifyInstance {
 function domainStatus(code: string): number {
   if (code.endsWith('_NOT_FOUND')) return 404;
   if (code === 'INVALID_TASK_TRANSITION') return 409;
+  // A decision refused because the approval is already settled is a conflict,
+  // not a malformed request: the caller asked something answerable, and the
+  // answer is that somebody or something else answered first.
+  if (code === 'APPROVAL_NOT_PENDING' || code === 'APPROVAL_EXPIRED') return 409;
+  if (code === 'APPROVAL_SURFACE_UNAVAILABLE') return 404;
   return 400;
 }

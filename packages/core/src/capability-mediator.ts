@@ -106,7 +106,15 @@ export class CapabilityMediator {
     }
 
     if (answer === 'deny') {
-      await this.options.ledger.deny(approval.id, 'Denied.');
+      try {
+        await this.options.ledger.deny(approval.id, 'Denied.');
+      } catch {
+        // Already settled while the question was open: revoked with its run,
+        // expired, or denied by whoever answered. Every one of those is already
+        // a refusal, so the answer stands and nothing is retried. Letting this
+        // escape would turn a late "no" into a rejected promise on a request the
+        // adapter has usually stopped waiting for.
+      }
       return { allowed: false, reason: 'The action was denied.', approvalId: approval.id };
     }
 
