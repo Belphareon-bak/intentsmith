@@ -1,15 +1,23 @@
 // Archive / Restore / Soft-Delete Lifecycle Test
 // ==============================================================================
-// Tests the full archive lifecycle for projects and conversations:
+// Tests the full archive lifecycle for projects and conversations in an
+// isolated temporary database:
 //   active → archived → restored → soft-deleted → hard-deleted
 // ==============================================================================
 
-import {
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+
+const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-archive-test-'));
+process.env.C3_DB_PATH = path.join(testDir, 'archive.sqlite');
+
+const {
   projects,
   conversations,
   messages,
   db,
-} from '../src/db/database.js';
+} = await import('../src/db/database.js');
 
 let passed = 0;
 let failed = 0;
@@ -26,16 +34,6 @@ function check(condition, name, detail) {
   }
 }
 
-// ─── Cleanup: only remove test data ─────────────────────────────────────────
-
-function cleanup() {
-  try {
-    db.prepare(`DELETE FROM messages WHERE conversation_id LIKE 'test-archive-%'`).run();
-    db.prepare(`DELETE FROM conversations WHERE id LIKE 'test-archive-%'`).run();
-    db.prepare(`DELETE FROM projects WHERE path LIKE '/tmp/test-archive-%'`).run();
-  } catch { /* ignore */ }
-}
-
 // ═══════════════════════════════════════════════════════════════════════════════
 
 async function run() {
@@ -43,15 +41,21 @@ async function run() {
   console.log('  Archive / Restore / Soft-Delete Lifecycle Test');
   console.log('══════════════════════════════════════════════════════════════════════');
 
-  cleanup();
-
   // ─── Setup: Create test project + conversation + messages ──────────────
   console.log('\n═══ SETUP ══════════════════════════════════════════════════════════════');
 
-  const projPath = `/tmp/test-archive-${Date.now()}`;
+  const projPath = path.join(testDir, 'project-under-test');
   const result = projects.create.run('test-archive-project', projPath, 'Archive test project');
   const projectId = Number(result.lastInsertRowid);
   check(projectId > 0, 'Setup.1: project created');
+
+  const sentinelPath = path.join(testDir, 'unrelated-project');
+  const sentinelResult = projects.create.run(
+    'test-unrelated-project',
+    sentinelPath,
+    'Must remain untouched',
+  );
+  const sentinelId = Number(sentinelResult.lastInsertRowid);
 
   const proj = projects.findById.get(projectId);
   check(proj.status === 'active', 'Setup.2: project status is active');
@@ -76,8 +80,12 @@ async function run() {
   const activeProjects = projects.listActive.all(100);
   check(activeProjects.some(p => p.id === projectId), 'List.1: project in listActive');
 
-  const activeConvs = conversations.listActive.all(100);
-  check(activeConvs.some(c => c.id === convId), 'List.2: conversation in listActive');
+  const activeProjectConvs = conversations.listActiveByProject.all(projectId, 100);
+  check(activeProjectConvs.some(c => c.id === convId), 'List.2: conversation in project active list');
+
+  const activeGlobalConvs = conversations.listActive.all(100);
+  check(!activeGlobalConvs.some(c => c.id === convId),
+    'List.3: project conversation excluded from global active list');
 
   // ─── ARCHIVE project ──────────────────────────────────────────────────
   console.log('\n═══ ARCHIVE ════════════════════════════════════════════════════════════');
@@ -103,15 +111,21 @@ async function run() {
   const notDeletedList = projects.listNotDeleted.all(100);
   check(notDeletedList.some(p => p.id === projectId), 'Archive.7: project IN listNotDeleted');
 
-  const activeConvsAfter = conversations.listActive.all(100);
-  check(!activeConvsAfter.some(c => c.id === convId), 'Archive.8: conversation NOT in listActive');
+  const activeProjectConvsAfter = conversations.listActiveByProject.all(projectId, 100);
+  check(!activeProjectConvsAfter.some(c => c.id === convId),
+    'Archive.8: conversation NOT in project active list');
 
-  const archivedConvs = conversations.listArchived.all(100);
-  check(archivedConvs.some(c => c.id === convId), 'Archive.9: conversation IN listArchived');
+  const archivedProjectConvs = conversations.findByProject.all(projectId);
+  check(archivedProjectConvs.some(c => c.id === convId && c.state === 'archived'),
+    'Archive.9: project conversation is archived');
+
+  const archivedGlobalConvs = conversations.listArchived.all(100);
+  check(!archivedGlobalConvs.some(c => c.id === convId),
+    'Archive.10: project conversation excluded from global archived list');
 
   // Messages still accessible (read-only)
   const msgsAfterArchive = messages.listByConversation.all(convId);
-  check(msgsAfterArchive.length === 2, 'Archive.10: messages still accessible after archive');
+  check(msgsAfterArchive.length === 2, 'Archive.11: messages still accessible after archive');
 
   // ─── RESTORE ──────────────────────────────────────────────────────────
   console.log('\n═══ RESTORE ════════════════════════════════════════════════════════════');
@@ -130,8 +144,23 @@ async function run() {
   const activeAfterRestore = projects.listActive.all(100);
   check(activeAfterRestore.some(p => p.id === projectId), 'Restore.6: project back in listActive');
 
+  const activeProjectConvsRestored = conversations.listActiveByProject.all(projectId, 100);
+  check(activeProjectConvsRestored.some(c => c.id === convId),
+    'Restore.7: conversation back in project active list');
+
   const msgsAfterRestore = messages.listByConversation.all(convId);
-  check(msgsAfterRestore.length === 2, 'Restore.7: messages intact after restore');
+  check(msgsAfterRestore.length === 2, 'Restore.8: messages intact after restore');
+
+  // A lifecycle phase is still a live project and must reserve its name.
+  db.prepare(`UPDATE projects SET status = 'SPEC' WHERE id = ?`).run(projectId);
+  const conflict = projects.getOrCreate(
+    'test-archive-project',
+    path.join(testDir, 'conflicting-project'),
+    'Must conflict with live lifecycle project',
+  );
+  check(conflict._nameConflict === true,
+    'Restore.9: non-terminal lifecycle status reserves project name');
+  db.prepare(`UPDATE projects SET status = 'active' WHERE id = ?`).run(projectId);
 
   // ─── SOFT DELETE ──────────────────────────────────────────────────────
   console.log('\n═══ SOFT DELETE ═════════════════════════════════════════════════════════');
@@ -194,21 +223,18 @@ async function run() {
   const hardDeletedProj = projects.findById.get(projectId);
   check(hardDeletedProj === undefined, 'HardDel.3: project permanently deleted');
 
-  // ─── VERIFY USER PROJECTS UNAFFECTED ───────────────────────────────────
-  console.log('\n═══ USER PROJECT SAFETY ═════════════════════════════════════════════════');
+  // ─── VERIFY UNRELATED FIXTURE UNAFFECTED ───────────────────────────────
+  console.log('\n═══ FIXTURE ISOLATION ═══════════════════════════════════════════════════');
 
-  const userProjects = projects.listActive.all(100);
-  const klicenka = userProjects.find(p => p.name === 'klicenka');
-  check(klicenka != null, 'Safety.1: klicenka still in active list');
-  check(klicenka?.status === 'active', 'Safety.2: klicenka status is active');
+  const sentinel = projects.findById.get(sentinelId);
+  check(sentinel != null, 'Safety.1: unrelated project still exists');
+  check(sentinel?.status === 'active', 'Safety.2: unrelated project remains active');
 
-  const allProjects = projects.listNotDeleted.all(100);
-  check(allProjects.length >= 10, 'Safety.3: user projects intact',
-    `got: ${allProjects.length}`);
+  const remainingProjects = projects.listNotDeleted.all(100);
+  check(remainingProjects.length === 1 && remainingProjects[0].id === sentinelId,
+    'Safety.3: only the unrelated fixture remains');
 
   // ═══ Summary ══════════════════════════════════════════════════════════
-
-  cleanup();
 
   console.log(`\n${'═'.repeat(70)}`);
   console.log(`  Archive Lifecycle: ${passed} passed, ${failed} failed`);
@@ -219,7 +245,15 @@ async function run() {
     }
   }
   console.log('══════════════════════════════════════════════════════════════════════\n');
+
+  db.close();
+  fs.rmSync(testDir, { recursive: true, force: true });
   process.exit(failed > 0 ? 1 : 0);
 }
 
-run();
+run().catch((error) => {
+  console.error(error);
+  try { db.close(); } catch {}
+  fs.rmSync(testDir, { recursive: true, force: true });
+  process.exit(1);
+});

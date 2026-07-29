@@ -198,7 +198,7 @@ export const projects = {
   _updateName: db.prepare(`UPDATE projects SET name = ? WHERE id = ?`),
 
   _findActiveByName: db.prepare(`
-    SELECT * FROM projects WHERE name = ? AND status = 'active'
+    SELECT * FROM projects WHERE name = ? AND status NOT IN ('archived', 'deleted')
   `),
 
   archive: {
