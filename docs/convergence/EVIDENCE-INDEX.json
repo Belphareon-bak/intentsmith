@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "product": "IntentSmith",
+  "gate": "Gate 0",
+  "status": "IN_PROGRESS",
+  "updatedAt": "2026-07-30",
+  "sourceRefs": {
+    "c3Input": "ffd21cf119865259ea1847af989acb24916bebe3",
+    "c3Parent": "a7b90e36aa80310305703f54f2332e1c0e7f9e8f",
+    "intentSmithDonor": "6676902c5f6fe7a5d66aba0d79cb502e0f3a60e4",
+    "localValidationCandidate": "b0d28bbfd9d4ed55e19a72719ad5e9b776b96c12"
+  },
+  "artifacts": []
+}
