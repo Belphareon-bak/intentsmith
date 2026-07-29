@@ -26,6 +26,9 @@ const IMPORT_PATTERNS = {
   go: [
     /^\s*"(.+?)"/gm,                                       // import "pkg"
   ],
+  java: [
+    /^\s*import\s+(?:static\s+)?([\w.]+)\s*;/gm,          // import com.foo.Bar;
+  ],
 };
 
 /**
@@ -139,6 +142,7 @@ const LANG_EXTS = {
   '.ts': 'javascript', '.tsx': 'javascript', '.jsx': 'javascript',
   '.py': 'python',
   '.go': 'go',
+  '.java': 'java',
 };
 
 const SKIP_DIRS = new Set(['.git', 'node_modules', '__pycache__', 'vendor', '.venv', 'dist', 'build']);

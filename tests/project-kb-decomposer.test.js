@@ -13,6 +13,7 @@ import {
   shouldDecompose,
   decomposeMilestone,
   executeSubtasks,
+  splitFirstRoadmapMilestone,
 } from '../src/planner/milestone-decomposer.js';
 
 // ─── Project KB — Snapshot ──────────────────────────────────────────────────
@@ -176,6 +177,12 @@ test('null milestone → false', () => {
   assertEqual(shouldDecompose(null), false);
 });
 
+test('first milestone uses stricter size thresholds', () => {
+  const milestone = { estimated_loc: 900, estimated_files: 4 };
+  assertEqual(shouldDecompose(milestone), false);
+  assertEqual(shouldDecompose(milestone, null, { firstMilestone: true }), true);
+});
+
 // ─── Milestone Decomposer — decomposeMilestone ─────────────────────────────
 
 suite('Milestone Decomposer — decomposeMilestone');
@@ -219,6 +226,83 @@ test('subtasks have unique IDs', () => {
 test('handles null milestone', () => {
   const result = decomposeMilestone(null);
   assertEqual(result.subtasks.length, 0);
+});
+
+// ─── Milestone Decomposer — roadmap integration ─────────────────────────────
+
+suite('Milestone Decomposer — first-roadmap milestone');
+
+test('split preserves schema and rewires downstream dependencies', () => {
+  const roadmap = {
+    milestones: [
+      {
+        id: 'ms-1',
+        title: 'Build core',
+        description: 'Implement the complete core',
+        scope_files: [
+          'src/models/user.js',
+          'src/models/session.js',
+          'src/services/user.js',
+          'src/services/session.js',
+          'src/routes/user.js',
+          'tests/core.test.js',
+        ],
+        estimated_loc: 1200,
+        estimated_files: 6,
+        estimated_complexity: 'HIGH',
+        dependencies: [],
+        deliverables: ['core implementation'],
+        acceptance_criteria: ['core behavior works'],
+        requirements_addressed: ['FR-1'],
+        test_strategy: { type: 'unit', specific_tests: ['core test'] },
+      },
+      {
+        id: 'ms-2',
+        title: 'Integrate',
+        dependencies: ['ms-1'],
+        deliverables: ['integration'],
+        acceptance_criteria: ['integrates'],
+        test_strategy: { type: 'integration' },
+      },
+    ],
+  };
+
+  const result = splitFirstRoadmapMilestone(roadmap);
+  assertEqual(result.split, true);
+  assert(result.replacementIds.length >= 2, 'must create at least two replacements');
+  assertEqual(new Set(result.replacementIds).size, result.replacementIds.length);
+
+  const replacements = roadmap.milestones.slice(0, result.replacementIds.length);
+  for (const milestone of replacements) {
+    assert(milestone.description, 'description must be preserved');
+    assert(milestone.deliverables.length > 0, 'deliverables must be concrete');
+    assert(milestone.acceptance_criteria.length > 0, 'acceptance criteria must be preserved');
+    assert(milestone.test_strategy, 'test strategy must be preserved');
+    assertEqual(milestone.auto_decomposed_from, 'ms-1');
+  }
+
+  const downstream = roadmap.milestones.at(-1);
+  assertEqual(
+    downstream.dependencies[0],
+    result.replacementIds.at(-1),
+    'downstream milestone must wait for final replacement',
+  );
+});
+
+test('small first milestone leaves roadmap unchanged', () => {
+  const roadmap = {
+    milestones: [{
+      id: 'ms-1',
+      estimated_loc: 400,
+      estimated_files: 2,
+      scope_files: ['src/a.js', 'tests/a.test.js'],
+    }],
+  };
+
+  const result = splitFirstRoadmapMilestone(roadmap);
+  assertEqual(result.split, false);
+  assertEqual(roadmap.milestones.length, 1);
+  assertEqual(roadmap.milestones[0].id, 'ms-1');
 });
 
 // ─── Milestone Decomposer — executeSubtasks ─────────────────────────────────

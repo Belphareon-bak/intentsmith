@@ -293,6 +293,31 @@ await testAsync('runEnhancedValidation: valid project → no errors', async () =
   } finally { cleanup(dir); }
 });
 
+await testAsync('runEnhancedValidation: forbidden Java internal import → error', async () => {
+  const dir = tmpDir();
+  try {
+    writeFile(dir, 'Connector.java',
+      'package com.example;\n\n' +
+      'import com.evolveum.midpoint.repo.api.RepositoryService;\n\n' +
+      'public class Connector {\n}\n');
+    const r = await runEnhancedValidation(dir, ['Connector.java']);
+    assert(r.errors.some(e => e.category === 'forbidden_import'),
+      'should reject a framework-internal Java import');
+  } finally { cleanup(dir); }
+});
+
+await testAsync('runEnhancedValidation: near-prefix Java package remains allowed', async () => {
+  const dir = tmpDir();
+  try {
+    writeFile(dir, 'Connector.java',
+      'package com.example;\n\n' +
+      'import com.evolveum.midpoint.repositoryx.PublicApi;\n\n' +
+      'public class Connector {\n}\n');
+    const r = await runEnhancedValidation(dir, ['Connector.java']);
+    assertEqual(r.errors.length, 0, 'near-prefix package must not be treated as internal');
+  } finally { cleanup(dir); }
+});
+
 // ─── Summary ─────────────────────────────────────────────────────────────────
 
 summary();

@@ -22,6 +22,7 @@ import {
 } from '../db/database.js';
 import { generateRoadmap as generateRoadmapPrompt } from './lifecycle-prompts.js';
 import { validateMilestoneSize, suggestMilestoneSplit } from './milestone-size.js';
+import { splitFirstRoadmapMilestone } from './milestone-decomposer.js';
 import { ProjectPhase } from './lifecycle.js';
 import { logRoadmapScore } from './quality-telemetry.js';
 
@@ -152,6 +153,20 @@ export async function generateRoadmap(lifecycle, context) {
     }
   }
 
+  // v135.1: Auto-split first milestone if it exceeds stricter thresholds.
+  try {
+    const split = splitFirstRoadmapMilestone(roadmap);
+    if (split.split) {
+      logger.info('LifecyclePlanning', 'Auto-split first milestone', {
+        original: split.originalMilestoneId,
+        replacements: split.replacementIds.length,
+        lifecycleId: lifecycle.id,
+      });
+    }
+  } catch (err) {
+    logger.warn('LifecyclePlanning', `First milestone auto-split failed: ${err.message}`);
+  }
+
   // Validate each milestone size
   const sizeWarnings = [];
   for (const ms of roadmap.milestones) {
@@ -210,7 +225,7 @@ export async function generateRoadmap(lifecycle, context) {
       id: ms.id,
       lifecycle_id: lifecycle.id,
       roadmap_version: newVersion,
-      sequence: parseInt(rawId(ms.id).replace('ms-', ''), 10) || i + 1,
+      sequence: i + 1,
       title: ms.title,
       description: ms.description,
       dependencies: ms.dependencies || [],
@@ -431,7 +446,7 @@ IMPORTANT: Do NOT modify or remove completed milestones. Adjust remaining milest
         id: ms.id,
         lifecycle_id: lifecycle.id,
         roadmap_version: newVersion,
-        sequence: parseInt(rawId(ms.id).replace('ms-', ''), 10) || i + 1,
+        sequence: i + 1,
         title: ms.title,
         description: ms.description,
         dependencies: ms.dependencies || [],

@@ -19,6 +19,10 @@ const DEFAULT_MAX_LOC = 1500;
 const DEFAULT_MAX_FILES = 8;
 const SUBTASK_MAX_LOC = 800;
 
+// v135.1: Stricter thresholds for first milestone (no prior context, highest hallucination risk)
+const FIRST_MS_MAX_LOC = 800;
+const FIRST_MS_MAX_FILES = 5;
+
 // ─── Should Decompose? ──────────────────────────────────────────────────────
 
 /**
@@ -29,13 +33,15 @@ const SUBTASK_MAX_LOC = 800;
  * @param {Object} [opts]
  * @param {number} [opts.maxLOC=1500] - LOC threshold
  * @param {number} [opts.maxFiles=8] - File count threshold
+ * @param {boolean} [opts.firstMilestone=false] - v135.1: Use stricter thresholds for first milestone
  * @returns {boolean}
  */
 export function shouldDecompose(milestone, snapshot = null, opts = {}) {
   if (!milestone) return false;
 
-  const maxLOC = opts.maxLOC || DEFAULT_MAX_LOC;
-  const maxFiles = opts.maxFiles || DEFAULT_MAX_FILES;
+  const isFirst = opts.firstMilestone || false;
+  const maxLOC = isFirst ? FIRST_MS_MAX_LOC : (opts.maxLOC || DEFAULT_MAX_LOC);
+  const maxFiles = isFirst ? FIRST_MS_MAX_FILES : (opts.maxFiles || DEFAULT_MAX_FILES);
 
   const estimatedLoc = milestone.estimated_loc || 0;
   const estimatedFiles = milestone.estimated_files || 0;
@@ -129,6 +135,79 @@ export function decomposeMilestone(milestone, snapshot = null, opts = {}) {
     subtasks,
     executionOrder,
     totalEstimatedLoc: totalLOC,
+  };
+}
+
+/**
+ * Replace an oversized first roadmap milestone with schema-complete milestones.
+ * Later milestones that depended on the original milestone are rewired to the
+ * final replacement so roadmap ordering and dependency validity are preserved.
+ *
+ * @param {Object} roadmap - Roadmap with a milestones array
+ * @returns {{ split: boolean, originalMilestoneId?: string, replacementIds?: string[] }}
+ */
+export function splitFirstRoadmapMilestone(roadmap) {
+  const milestones = roadmap?.milestones;
+  if (!Array.isArray(milestones) || milestones.length === 0) {
+    return { split: false };
+  }
+
+  const original = milestones[0];
+  if (!shouldDecompose(original, null, { firstMilestone: true })) {
+    return { split: false };
+  }
+
+  const plan = decomposeMilestone(original, null);
+  if (!Array.isArray(plan.subtasks) || plan.subtasks.length < 2) {
+    return { split: false };
+  }
+
+  const byId = new Map(plan.subtasks.map(subtask => [subtask.id, subtask]));
+  const ordered = plan.executionOrder
+    .map(id => byId.get(id))
+    .filter(Boolean);
+  for (const subtask of plan.subtasks) {
+    if (!ordered.includes(subtask)) ordered.push(subtask);
+  }
+
+  const originalDependencies = Array.isArray(original.dependencies)
+    ? original.dependencies
+    : [];
+  const replacements = ordered.map((subtask, index) => ({
+    ...original,
+    ...subtask,
+    description: original.description,
+    deliverables: subtask.scope_files.length > 0
+      ? [...subtask.scope_files]
+      : [...(original.deliverables || [])],
+    acceptance_criteria: [...(original.acceptance_criteria || [])],
+    requirements_addressed: [...(original.requirements_addressed || [])],
+    goals_addressed: [...(original.goals_addressed || [])],
+    test_strategy: original.test_strategy ? { ...original.test_strategy } : original.test_strategy,
+    estimated_files: subtask.scope_files.length,
+    dependencies: [...new Set([
+      ...originalDependencies,
+      ...(subtask.dependencies || []),
+    ])],
+    checkpoint_mode: index === 0
+      ? original.checkpoint_mode
+      : 'FUNCTIONAL',
+    auto_decomposed_from: original.id,
+  }));
+
+  const finalReplacementId = replacements[replacements.length - 1].id;
+  const remaining = milestones.slice(1).map(milestone => ({
+    ...milestone,
+    dependencies: (milestone.dependencies || []).map(dependency => (
+      dependency === original.id ? finalReplacementId : dependency
+    )),
+  }));
+
+  roadmap.milestones = [...replacements, ...remaining];
+  return {
+    split: true,
+    originalMilestoneId: original.id,
+    replacementIds: replacements.map(milestone => milestone.id),
   };
 }
 

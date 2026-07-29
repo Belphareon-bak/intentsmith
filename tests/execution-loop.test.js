@@ -6,7 +6,7 @@ import path from 'path';
 import { suite, test, testAsync, assert, assertEqual, assertIncludes, summary } from './harness.js';
 import {
   shouldContinue, compareErrors, limitErrors, buildFixPrompt,
-  extractErrors, runFixLoop,
+  extractErrors, partitionErrorsByProjectScope, runFixLoop,
 } from '../src/planner/execution-loop.js';
 
 // ─── Test Project Setup ─────────────────────────────────────────────────────
@@ -482,6 +482,50 @@ await testAsync('no initial errors → immediate converge', async () => {
 // ─── runFixLoop — guards ────────────────────────────────────────────────────
 
 suite('runFixLoop — guards');
+
+test('scope partition accepts declared missing files and rejects traversal', () => {
+  const declared = mkError('DECLARED', 'src/new-file.js');
+  const existing = mkError('EXISTING', 'main.js');
+  const traversal = mkError('TRAVERSAL', '../../etc/passwd');
+  const missing = mkError('MISSING', 'other/missing.js');
+  const noFile = mkError('GENERAL', null);
+
+  const result = partitionErrorsByProjectScope(
+    [declared, existing, traversal, missing, noFile],
+    JSON.stringify(['src/new-file.js']),
+    TEST_DIR,
+  );
+
+  assert(result.inScopeErrors.includes(declared), 'declared target must remain actionable');
+  assert(result.inScopeErrors.includes(existing), 'existing project file must remain actionable');
+  assert(result.inScopeErrors.includes(noFile), 'general errors must remain actionable');
+  assert(result.outOfScopeErrors.includes(traversal), 'path traversal must be rejected');
+  assert(result.outOfScopeErrors.includes(missing), 'hallucinated file must be rejected');
+});
+
+await testAsync('out_of_scope_only — no LLM call for hallucinated files', async () => {
+  let llmCalls = 0;
+  const r = await runFixLoop({
+    lifecycle: { projectPath: TEST_DIR },
+    milestone: {
+      id: 'ms-1',
+      title: 'Test',
+      scope_files: JSON.stringify(['src/expected.js']),
+    },
+    testResults: mkTestResults(false, '', 'SyntaxError: Unexpected token at ghost.js:1'),
+    qualityGateResult: mkQualityGate(true),
+    callLLM: async () => {
+      llmCalls += 1;
+      return { content: '' };
+    },
+    runTests: async () => mkTestResults(true),
+    runQualityGate: async () => mkQualityGate(true),
+    getGitDiff: async () => '',
+  });
+
+  assertEqual(r.stopReason, 'out_of_scope_only');
+  assertEqual(llmCalls, 0);
+});
 
 await testAsync('scope_exceeded — >5 files', async () => {
   const r = await runFixLoop({

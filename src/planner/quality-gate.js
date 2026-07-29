@@ -121,6 +121,46 @@ function validateJavaStructure(filePath, relativePath) {
   return { ok: true };
 }
 
+// ─── v135.1: Java Import Validation ─────────────────────────────────────────
+
+const FORBIDDEN_JAVA_IMPORTS = [
+  'com.evolveum.midpoint.repo',
+  'com.evolveum.midpoint.model',
+  'com.evolveum.midpoint.prism',
+  'com.evolveum.midpoint.schema',
+  'com.evolveum.midpoint.common',
+  'com.evolveum.midpoint.task',
+  'com.evolveum.midpoint.gui',
+];
+
+/**
+ * Validate Java imports — flag framework-internal imports that connectors must not use.
+ */
+function validateJavaImports(projectPath, javaFiles) {
+  const errors = [];
+  for (const relFile of javaFiles) {
+    const fullPath = path.join(projectPath, relFile);
+    let code;
+    try { code = fs.readFileSync(fullPath, 'utf-8'); } catch { continue; }
+
+    const imports = [...code.matchAll(/^\s*import\s+(?:static\s+)?([\w.]+)\s*;/gm)];
+
+    for (const [, imp] of imports) {
+      if (imp.startsWith('java.') || imp.startsWith('javax.')) continue;
+      if (FORBIDDEN_JAVA_IMPORTS.some(prefix => (
+        imp === prefix || imp.startsWith(`${prefix}.`)
+      ))) {
+        errors.push({
+          file: relFile, lang: 'java', passed: false,
+          message: `Forbidden framework-internal import: ${imp}`,
+          category: 'forbidden_import',
+        });
+      }
+    }
+  }
+  return errors;
+}
+
 // ─── v134: Non-empty File Check ──────────────────────────────────────────────
 
 /**
@@ -333,6 +373,9 @@ export async function runEnhancedValidation(projectPath, changedFiles = null) {
     const fullPath = path.join(projectPath, relFile);
     const ext = path.extname(relFile);
 
+    // v135.1: Skip files that don't exist on disk (hallucinated or from failed previous attempt)
+    if (!fs.existsSync(fullPath)) continue;
+
     // Non-empty check for semantic extensions
     if (SEMANTIC_EXTS.has(ext)) {
       const subst = isFileSubstantive(fullPath, ext);
@@ -364,6 +407,13 @@ export async function runEnhancedValidation(projectPath, changedFiles = null) {
   // Cross-module import validation (JS only)
   const importErrors = validateJsImports(projectPath, jsFiles);
   errors.push(...importErrors);
+
+  // v135.1: Java import validation
+  const javaFiles = files.filter(f => f.endsWith('.java'));
+  if (javaFiles.length > 0) {
+    const javaImportErrors = validateJavaImports(projectPath, javaFiles);
+    errors.push(...javaImportErrors);
+  }
 
   return { errors, warnings };
 }

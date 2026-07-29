@@ -15,6 +15,8 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
+import fs from 'fs';
+import path from 'path';
 import { logger } from '../core/logger.js';
 import { config } from '../config.js';
 import { applyPatchSet, parseLLMOutput, rollbackPatch, previewPatch } from '../patch/patch-engine.js';
@@ -385,6 +387,53 @@ function buildReport(iterationLog, filesModified, converged) {
   };
 }
 
+/**
+ * Partition errors against a milestone's declared scope and project boundary.
+ * Missing declared files remain actionable, while absolute/path-traversal
+ * references outside the project are always out of scope.
+ */
+export function partitionErrorsByProjectScope(errors, scopeFiles, projectRoot) {
+  let parsedScope = scopeFiles;
+  if (typeof parsedScope === 'string') {
+    try { parsedScope = JSON.parse(parsedScope); } catch { parsedScope = []; }
+  }
+  if (!Array.isArray(parsedScope) || parsedScope.length === 0) {
+    return { inScopeErrors: [...errors], outOfScopeErrors: [] };
+  }
+
+  const root = path.resolve(projectRoot);
+  const normalize = value => String(value || '')
+    .replaceAll('\\', '/')
+    .replace(/^\.\//, '');
+  const scope = new Set(parsedScope.map(normalize).filter(Boolean));
+  const inScopeErrors = [];
+  const outOfScopeErrors = [];
+
+  for (const error of errors) {
+    if (!error.file) {
+      inScopeErrors.push(error);
+      continue;
+    }
+
+    const fullPath = path.isAbsolute(error.file)
+      ? path.resolve(error.file)
+      : path.resolve(root, error.file);
+    const relative = path.relative(root, fullPath);
+    const insideProject = relative !== ''
+      && !relative.startsWith(`..${path.sep}`)
+      && relative !== '..'
+      && !path.isAbsolute(relative);
+    const normalizedRelative = normalize(relative);
+    const declared = insideProject && scope.has(normalizedRelative);
+    const existsInsideProject = insideProject && fs.existsSync(fullPath);
+
+    if (declared || existsInsideProject) inScopeErrors.push(error);
+    else outOfScopeErrors.push(error);
+  }
+
+  return { inScopeErrors, outOfScopeErrors };
+}
+
 // ─── Main Loop ──────────────────────────────────────────────────────────────
 
 /**
@@ -405,7 +454,30 @@ export async function runFixLoop(options) {
   const projectRoot = lifecycle.projectPath;
 
   // Step 1: Parse initial errors
-  const initialErrors = extractErrors(initialTestResults, initialQualityGate);
+  let initialErrors = extractErrors(initialTestResults, initialQualityGate);
+
+  // v135.1: Filter out-of-scope errors (hallucinated files that don't exist in scope_files)
+  if (milestone.scope_files && initialErrors.length > 0) {
+    const { inScopeErrors, outOfScopeErrors } = partitionErrorsByProjectScope(
+      initialErrors,
+      milestone.scope_files,
+      projectRoot,
+    );
+    if (outOfScopeErrors.length > 0) {
+      logger.warn('ExecutionLoop', `Filtered ${outOfScopeErrors.length} out-of-scope error(s)`, {
+        milestoneId: milestone.id,
+        outOfScope: outOfScopeErrors.map(e => e.file).filter(Boolean),
+      });
+    }
+    if (inScopeErrors.length === 0 && outOfScopeErrors.length > 0) {
+      logger.warn('ExecutionLoop', 'All errors reference out-of-scope files — regeneration needed', {
+        milestoneId: milestone.id,
+      });
+      return _buildResult(false, 'out_of_scope_only', 0, initialTestResults,
+        initialQualityGate, outOfScopeErrors, [], new Set());
+    }
+    initialErrors = inScopeErrors;
+  }
 
   // F5: Query task memory for past fix experience
   let taskContext = '';
