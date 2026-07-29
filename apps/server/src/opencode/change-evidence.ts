@@ -10,9 +10,9 @@ import {
   type GateDefinition,
   type GateResult,
 } from '@intentsmith/process-runtime';
-import type { ApprovalEvidenceReference } from '@intentsmith/worker-sdk';
+import type { ApprovalEvidenceReference, ChangeProvenance } from '@intentsmith/worker-sdk';
 
-import type { RunEvidenceRecorder } from './run-evidence.js';
+import type { RunEvidenceRecorder, RunProvenance } from './run-evidence.js';
 
 /**
  * Git-backed change evidence for the executable OpenCode path.
@@ -62,6 +62,10 @@ export function createGitChangeEvidenceCollector(options: GitChangeEvidenceOptio
         // An edit task that changed nothing has not done the work, whatever the
         // worker claims. Other task types are judged on gates alone.
         requireChanges: task.type === 'code',
+        // Trusted run facts, read out of IntentSmith's own state. No worker
+        // supplies any part of this, and no worker-claimed diff digest is
+        // passed: there is no authenticated channel for one to arrive on.
+        ...(runFacts ? { provenance: toChangeProvenance(runFacts) } : {}),
         ...(options.gateRunner ? { runner: options.gateRunner } : {}),
       });
       const evidence = describeEvidence(captured, gateResults, approvalReferences, task, run, options.clock);
@@ -145,7 +149,43 @@ function describeEvidence(
       diffUri: diffUri ?? null,
       approvalIds: captured.approvalReferences.map(reference => reference.approvalId),
       gateEvidenceUris: captured.gateEvidence.map(gate => gate.evidenceUri),
+      // The same trusted references the change set carries, so the terminal
+      // audit event and the proposed change set cannot disagree about which
+      // run, which confinement and which model produced this.
+      runId: captured.provenance?.runId ?? null,
+      taskId: captured.provenance?.taskId ?? null,
+      sandboxAttestationUri: captured.provenance?.sandbox?.attestationUri ?? null,
+      sandboxLevel: captured.provenance?.sandbox?.level ?? null,
+      modelId: captured.provenance?.inference?.modelId ?? null,
+      modelProfileStatus: captured.provenance?.inference?.profileStatus ?? null,
+      inferenceOverruled: captured.provenance?.inference?.overruled ?? [],
+      grantAuditIds: captured.provenance?.evidenceRefs.grantAuditIds ?? [],
+      inferenceProfileAuditIds: captured.provenance?.evidenceRefs.inferenceProfileAuditIds ?? [],
+      protocolAttemptAuditIds: captured.provenance?.evidenceRefs.protocolAttemptAuditIds ?? [],
     },
   };
 }
 
+/** Drops the recorder's internal bookkeeping; only trusted facts travel on. */
+function toChangeProvenance(facts: RunProvenance): ChangeProvenance {
+  return {
+    runId: facts.runId,
+    taskId: facts.taskId,
+    ...(facts.sandbox ? { sandbox: facts.sandbox } : {}),
+    ...(facts.inference
+      ? {
+          inference: {
+            modelId: facts.inference.modelId,
+            profileStatus: facts.inference.profileStatus,
+            role: facts.inference.role,
+            maxOutputTokens: facts.inference.maxOutputTokens,
+            temperature: facts.inference.temperature,
+            ...(facts.inference.think === undefined ? {} : { think: facts.inference.think }),
+            toolProtocol: facts.inference.toolProtocol,
+            overruled: [...facts.inference.overruled],
+          },
+        }
+      : {}),
+    evidenceRefs: facts.evidenceRefs,
+  };
+}

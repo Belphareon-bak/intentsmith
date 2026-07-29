@@ -101,6 +101,7 @@ export {
   isEscapingSymlink,
   sha256,
   type ApprovalEvidenceReference,
+  type ChangeProvenance,
   type ChangedPath,
   type DiffPolicy,
   type GateEvidenceReference,

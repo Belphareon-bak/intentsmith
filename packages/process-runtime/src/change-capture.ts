@@ -7,6 +7,7 @@ import {
   evaluateDiffPolicy,
   sha256,
   type ApprovalEvidenceReference,
+  type ChangeProvenance,
   type ChangedPath,
   type DiffPolicy,
   type ProposedChangeSet,
@@ -40,6 +41,13 @@ export type CaptureOptions = {
   requireChanges?: boolean;
   /** Untrusted worker claim, compared with but never substituted for Git. */
   workerProposedDiffDigest?: string;
+  /**
+   * Trusted run facts, supplied by the composition root and never by a worker.
+   *
+   * Absent is a refusal, not a default: a change set nobody can attribute to a
+   * run is not evidence, so its absence becomes an unresolved risk below.
+   */
+  provenance?: ChangeProvenance;
   runner?: GateCommandRunner;
   timeoutMs?: number;
   maxDiffBytes?: number;
@@ -132,15 +140,19 @@ export async function captureProposedChanges(options: CaptureOptions): Promise<C
     evidenceUri: `intentsmith://gate/${encodeURIComponent(gate.id)}`,
   }));
 
+  const provenanceRisks = (changedCount: number): string[] =>
+    describeProvenanceRisks(options.provenance, changeRequired, changedCount);
+
   const empty = (unavailableReason: string): CapturedChangeSet => ({
     authoritativeSource: 'git',
+    ...(options.provenance === undefined ? {} : { provenance: options.provenance }),
     baseCommit: 'unknown',
     workspaceRoot: options.workspaceRoot,
     changedPaths: [],
     additions: 0,
     deletions: 0,
     policyFindings: [],
-    unresolvedRisks: [unavailableReason],
+    unresolvedRisks: [unavailableReason, ...provenanceRisks(0)],
     approvalReferences,
     gateEvidence,
     requiredGateIds,
@@ -276,8 +288,11 @@ export async function captureProposedChanges(options: CaptureOptions): Promise<C
     unresolvedRisks.push('The worker-proposed diff digest does not match the Git-derived diff digest.');
   }
 
+  unresolvedRisks.push(...provenanceRisks(changedPaths.length));
+
   return {
     authoritativeSource: 'git',
+    ...(options.provenance === undefined ? {} : { provenance: options.provenance }),
     baseCommit,
     workspaceRoot: options.workspaceRoot,
     changedPaths,
@@ -303,6 +318,36 @@ export async function captureProposedChanges(options: CaptureOptions): Promise<C
       ? {}
       : { workerProposedDiffDigest: options.workerProposedDiffDigest }),
   };
+}
+
+/**
+ * Refuses a change set that cannot say where it came from.
+ *
+ * Deliberately graded rather than absolute. A run id and a task id are always
+ * available from IntentSmith's own state, so their absence means the capture was
+ * not wired to the product at all. A sandbox attestation is required only once
+ * something was actually written under a change-required task: that is the case
+ * where "what confinement produced this edit?" has to have an answer. The
+ * inference profile is recorded when a tool-calling turn happened and is not
+ * demanded of a run that never asked the model for anything.
+ */
+function describeProvenanceRisks(
+  provenance: ChangeProvenance | undefined,
+  changeRequired: boolean,
+  changedCount: number,
+): string[] {
+  if (!provenance) {
+    return changeRequired
+      ? ['The change set carries no trusted run provenance, so it cannot be attributed to a run.']
+      : [];
+  }
+  const risks: string[] = [];
+  if (provenance.runId.length === 0) risks.push('The change set provenance names no run.');
+  if (provenance.taskId.length === 0) risks.push('The change set provenance names no task.');
+  if (changeRequired && changedCount > 0 && !provenance.sandbox) {
+    risks.push('The workspace was modified but no sandbox attestation records what the worker ran under.');
+  }
+  return risks;
 }
 
 /**

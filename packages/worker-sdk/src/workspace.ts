@@ -35,9 +35,60 @@ export type GateEvidenceReference = {
   evidenceUri: string;
 };
 
+/**
+ * Where a change set came from, in terms only IntentSmith can supply.
+ *
+ * Every field here is read out of IntentSmith's own state — the run record, the
+ * adapter's sandbox probe, the profile the gateway applied, the audit rows it
+ * wrote. None of it passes through the worker, so none of it can be shaped by
+ * what the worker claims about itself.
+ *
+ * The purpose is to make a change set answerable after the fact. "This diff was
+ * approved" is not reviewable unless one can also say which run produced it,
+ * what confinement it ran under, which model was driving, and where the
+ * structured evidence for each of those lives.
+ */
+export type ChangeProvenance = {
+  runId: string;
+  taskId: string;
+  /**
+   * Confinement the worker actually ran under, from the adapter's own probe.
+   *
+   * `level` is `degraded` or `unavailable` when the machine could not enforce a
+   * sandbox. That is recorded rather than hidden: a change produced without
+   * enforcement is still a fact a reviewer needs.
+   */
+  sandbox?: {
+    kind: string;
+    level: string;
+    networkIsolated: boolean;
+    attestationUri: string;
+  };
+  /** Settings a tool-calling turn actually ran with, not the ones requested. */
+  inference?: {
+    modelId: string;
+    /** Phase 3 profiles stay PROVISIONAL; promotion is a separate decision. */
+    profileStatus: string;
+    role: string;
+    maxOutputTokens: number;
+    temperature: number;
+    think?: boolean;
+    toolProtocol: string;
+    overruled: string[];
+  };
+  /** Audit ids of the structured lifecycle records this change set rests on. */
+  evidenceRefs: {
+    grantAuditIds: string[];
+    inferenceProfileAuditIds: string[];
+    protocolAttemptAuditIds: string[];
+  };
+};
+
 export type ProposedChangeSet = {
   /** Workers never supply this value; Git capture is the only producer. */
   authoritativeSource: 'git';
+  /** Trusted run facts. Absent means nobody can say which run produced this. */
+  provenance?: ChangeProvenance;
   baseCommit: string;
   workspaceRoot: string;
   changedPaths: ChangedPath[];

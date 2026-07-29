@@ -80,6 +80,8 @@ type Scenario = {
   collector?: 'normal' | 'missing';
   gates?: 'pass' | 'fail' | 'missing';
   workerProposedDiffDigest?: string;
+  /** `missing` proves a change set nobody can attribute to a run cannot pass. */
+  provenance?: 'present' | 'missing';
   action?: 'complete' | 'cancel' | 'timeout';
 };
 
@@ -196,6 +198,25 @@ async function scenario(options: Scenario = {}): Promise<ScenarioHarness> {
         gates: gateResults,
         requiredGateIds: ['fixture'],
         requireChanges: true,
+        ...(options.provenance === 'missing'
+          ? {}
+          : {
+              provenance: {
+                runId: run.id,
+                taskId: run.taskId,
+                sandbox: {
+                  kind: 'none',
+                  level: 'degraded',
+                  networkIsolated: false,
+                  attestationUri: 'intentsmith://sandbox/none/degraded',
+                },
+                evidenceRefs: {
+                  grantAuditIds: [],
+                  inferenceProfileAuditIds: [],
+                  protocolAttemptAuditIds: [],
+                },
+              },
+            }),
         ...(options.workerProposedDiffDigest === undefined
           ? {}
           : { workerProposedDiffDigest: options.workerProposedDiffDigest }),
@@ -358,6 +379,37 @@ describe('Phase 3 proposed change set to verdict', () => {
 
     expect((await harness.core.getTaskResult(harness.taskId))?.coreVerdict).toBe('fail');
     expect(harness.captured()?.unresolvedRisks.join(' ')).toMatch(/does not match the Git-derived diff digest/);
+  });
+
+  it('fails an approved edit that cannot say which run produced it', async () => {
+    // Everything else about this run is exactly the passing case: the edit was
+    // approved, Git saw it, the gate passed. What is missing is the ability to
+    // say afterwards which run, task and confinement produced it, and a change
+    // nobody can attribute is not evidence a reviewer can act on.
+    const harness = await scenario({ provenance: 'missing' });
+    await harness.core.startTask(harness.taskId);
+    await harness.core.waitForTask(harness.taskId);
+
+    expect((await harness.core.getTaskResult(harness.taskId))?.coreVerdict).toBe('fail');
+    expect(harness.captured()?.unresolvedRisks.join(' ')).toMatch(/no trusted run provenance/);
+    expect(harness.captured()?.provenance).toBeUndefined();
+  });
+
+  it('carries trusted run, sandbox and evidence provenance on an approved edit', async () => {
+    const harness = await scenario();
+    await harness.core.startTask(harness.taskId);
+    await harness.core.waitForTask(harness.taskId);
+
+    const captured = harness.captured();
+    expect(captured?.authoritativeSource).toBe('git');
+    expect(captured?.provenance).toMatchObject({
+      runId: expect.stringMatching(/^run_/),
+      taskId: expect.stringMatching(/^task_/),
+      sandbox: { attestationUri: 'intentsmith://sandbox/none/degraded', level: 'degraded' },
+    });
+    // Git remains the only producer of the digest and the changed paths.
+    expect(captured?.diffDigest).toMatch(/^[0-9a-f]{64}$/);
+    expect(captured?.workerProposedDiffDigest).toBeUndefined();
   });
 
   it('fails an edit with missing required gate evidence', async () => {
