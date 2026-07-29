@@ -15,6 +15,7 @@ import { registerInferenceRoutes } from './inference-routes.js';
 import type { GatewayTokenStore } from './gateway/token-store.js';
 import type { ApprovalDesk } from './opencode/approval-desk.js';
 import type { WorkerSelection } from './opencode/config.js';
+import type { RunEvidenceRecorder } from './opencode/run-evidence.js';
 import type { RecoverySummary } from './recovery.js';
 
 export type ServerRuntime = {
@@ -32,6 +33,14 @@ export type ServerRuntime = {
    * answering "nothing is pending".
    */
   readonly approvals?: ApprovalDesk;
+  /**
+   * Durable sink for worker lifecycle evidence.
+   *
+   * The gateway writes the inference profile and the tool-protocol attempt
+   * ledger here. Present only alongside a worker whose runs are what that
+   * evidence describes.
+   */
+  readonly workerEvidence?: RunEvidenceRecorder;
   /** Which worker the composition root selected. Absent in test runtimes. */
   readonly workerKind?: WorkerSelection;
   /**

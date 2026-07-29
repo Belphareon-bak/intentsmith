@@ -12,6 +12,8 @@ import {
 } from '@intentsmith/process-runtime';
 import type { ApprovalEvidenceReference } from '@intentsmith/worker-sdk';
 
+import type { RunEvidenceRecorder } from './run-evidence.js';
+
 /**
  * Git-backed change evidence for the executable OpenCode path.
  *
@@ -31,6 +33,8 @@ export type GitChangeEvidenceOptions = {
   workspaceRoot: string;
   /** The ledger the mediator wrote to, so approvals come from one source. */
   approvals: ApprovalLedger;
+  /** Trusted run facts: sandbox attestation, inference profile, audit refs. */
+  evidence: RunEvidenceRecorder;
   gates: readonly GateDefinition[];
   requiredGateIds: readonly string[];
   clock: Clock;
@@ -42,6 +46,12 @@ export type GitChangeEvidenceOptions = {
 export function createGitChangeEvidenceCollector(options: GitChangeEvidenceOptions): ChangeEvidenceCollector {
   return {
     collect: async ({ task, run }) => {
+      // Everything the run recorded must have reached the audit repository
+      // before the verdict is written, so the ordering the audit shows is the
+      // ordering that happened.
+      await options.evidence.flush();
+      const runFacts = options.evidence.provenanceFor(run.id);
+
       const gateResults = await runGateSuite(options);
       const approvalReferences = await readApprovals(options.approvals, run.id);
       const captured = await captureProposedChanges({
@@ -54,7 +64,18 @@ export function createGitChangeEvidenceCollector(options: GitChangeEvidenceOptio
         requireChanges: task.type === 'code',
         ...(options.gateRunner ? { runner: options.gateRunner } : {}),
       });
-      return describeEvidence(captured, gateResults, approvalReferences, task, run, options.clock);
+      const evidence = describeEvidence(captured, gateResults, approvalReferences, task, run, options.clock);
+      options.evidence.endRun(run.id);
+
+      // Security evidence that could not be written is not quietly dropped: a
+      // run whose audit trail is incomplete is a run nobody can review.
+      const auditFailures = runFacts?.auditFailures ?? [];
+      if (auditFailures.length === 0) return evidence;
+      return {
+        ...evidence,
+        acceptable: false,
+        findings: [...evidence.findings, ...auditFailures],
+      };
     },
   };
 }
@@ -127,3 +148,4 @@ function describeEvidence(
     },
   };
 }
+

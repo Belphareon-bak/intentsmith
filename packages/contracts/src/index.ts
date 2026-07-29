@@ -280,6 +280,14 @@ export const AuditEventSchema = Type.Object({
     Type.Literal('approval.revoked'),
     Type.Literal('approval.consumed'),
     Type.Literal('approval.mismatch'),
+    // Worker lifecycle evidence. Each of these exists because a run-scoped fact
+    // that only ever reached a callback is not evidence: it is gone the moment
+    // the process is. All three carry structured metadata only — never a
+    // prompt, a model response, a tool argument, a wire message or a token.
+    Type.Literal('security.grant'),
+    Type.Literal('worker.process_start'),
+    Type.Literal('inference.profile'),
+    Type.Literal('inference.protocol_attempt'),
   ]),
   message: Type.String({ minLength: 1, maxLength: 1000 }),
   data: Type.Record(Type.String(), Type.Unknown()),

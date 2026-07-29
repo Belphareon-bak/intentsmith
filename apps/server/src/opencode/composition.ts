@@ -17,6 +17,7 @@ import type { GrantAudit } from '@intentsmith/worker-sdk';
 import type { GatewayTokenStore } from '../gateway/token-store.js';
 import { ApprovalDesk } from './approval-desk.js';
 import { createGitChangeEvidenceCollector } from './change-evidence.js';
+import { RunEvidenceRecorder } from './run-evidence.js';
 import type { OpenCodeConfig } from './config.js';
 import { GatewayGrantIssuer, createRunScopedWorker } from './run-grant-worker.js';
 
@@ -67,6 +68,8 @@ export type OpenCodeStack = {
   approvals: ApprovalLedger;
   /** The executable decision surface the server's approval routes talk to. */
   desk: ApprovalDesk;
+  /** Durable sink for grant, inference-profile and protocol-attempt evidence. */
+  evidence: RunEvidenceRecorder;
   changeEvidence: ChangeEvidenceCollector;
   /** Called once the gateway is listening. No run may start before it is. */
   bindGateway(baseUrl: string): void;
@@ -83,6 +86,8 @@ export function createOpenCodeStack(options: OpenCodeStackOptions): OpenCodeStac
   const decide = overrides.approvalDecider ?? desk.decider;
   const issuer = new GatewayGrantIssuer(options.tokens, config.modelId);
 
+  const evidence = new RunEvidenceRecorder({ audit: store, clock, ids });
+
   const adapterOptionsFor = (context: WorkerExecutionContext | undefined): ConstructorParameters<
     typeof OpenCodeWorker
   >[0] => ({
@@ -94,6 +99,9 @@ export function createOpenCodeStack(options: OpenCodeStackOptions): OpenCodeStac
     ...(context === undefined
       ? {}
       : {
+          // A pid and nothing else. It is what 2C's proof that the real binary
+          // and its process group are gone will have to be anchored to.
+          onProcessStart: pid => evidence.processStarted(context.run.id, pid),
           onPermissionRequest: async request => {
             // The adapter asks; Core decides. The mediator is the only place a
             // capability request turns into a yes, and it is bound to this run.
@@ -115,7 +123,13 @@ export function createOpenCodeStack(options: OpenCodeStackOptions): OpenCodeStac
 
   const worker = createRunScopedWorker({
     describe: () => new OpenCodeWorker(adapterOptionsFor(undefined)).describe(),
-    adapterFor: context => new OpenCodeWorker(adapterOptionsFor(context)),
+    adapterFor: context => {
+      const adapter = new OpenCodeWorker(adapterOptionsFor(context));
+      // Registered before the adapter can produce anything, and holding the
+      // adapter's own sandbox getter rather than a value a worker reported.
+      evidence.beginRun(context.run.id, context.task.id, () => adapter.sandboxStatus);
+      return adapter;
+    },
     issuer,
     workspaceRoot: config.workspaceRoot,
     // The grant audit fires from `withGrant`'s `finally`, which is the one place
@@ -124,6 +138,7 @@ export function createOpenCodeStack(options: OpenCodeStackOptions): OpenCodeStac
     // each failure branch has to remember.
     onGrantAudit: audit => {
       desk.settleRun(audit.runId);
+      evidence.grantSettled(audit);
       overrides.onGrantAudit?.(audit);
     },
   });
@@ -131,6 +146,7 @@ export function createOpenCodeStack(options: OpenCodeStackOptions): OpenCodeStac
   const changeEvidence = createGitChangeEvidenceCollector({
     workspaceRoot: config.workspaceRoot,
     approvals,
+    evidence,
     gates: config.gates,
     requiredGateIds: config.requiredGateIds,
     clock,
@@ -142,6 +158,7 @@ export function createOpenCodeStack(options: OpenCodeStackOptions): OpenCodeStac
     worker,
     approvals,
     desk,
+    evidence,
     changeEvidence,
     bindGateway: baseUrl => issuer.bind(baseUrl),
     close: () => {

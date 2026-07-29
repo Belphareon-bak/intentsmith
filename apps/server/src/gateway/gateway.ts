@@ -109,9 +109,11 @@ export type GatewayOptions = {
    * Receives the settings a tool-calling turn actually ran with.
    *
    * Run evidence has to record what was used, not what was asked for: a profile
-   * that silently differs from the audit is worse than no profile at all.
+   * that silently differs from the audit is worse than no profile at all. The
+   * run id travels with it so the record is attributed to the run that made the
+   * turn rather than to whichever run happens to be finishing.
    */
-  onInferenceProfile?: (settings: EffectiveInferenceSettings) => void;
+  onInferenceProfile?: (settings: EffectiveInferenceSettings, runId: string) => void;
   /** Append-only sink for the bounded model tool-protocol attempt ledger. */
   onToolProtocolAttempt?: (attempt: ToolProtocolAttemptAudit) => void;
 };
@@ -171,6 +173,20 @@ export function buildGateway(options: GatewayOptions): FastifyInstance {
 
   const deny = (reply: FastifyReply, status: number, code: string, message: string): FastifyReply =>
     reply.status(status).send({ error: { code, message, retryable: false } });
+
+  /**
+   * Lifecycle evidence goes to the caller's sink and to the runtime's durable
+   * one. The runtime sink is what production has: an observer that only ever
+   * existed as a test callback is not evidence.
+   */
+  const recordInferenceProfile = (settings: EffectiveInferenceSettings, runId: string): void => {
+    options.onInferenceProfile?.(settings, runId);
+    runtime.workerEvidence?.inferenceProfile(runId, settings);
+  };
+  const recordProtocolAttempt = (attempt: ToolProtocolAttemptAudit): void => {
+    options.onToolProtocolAttempt?.(attempt);
+    runtime.workerEvidence?.protocolAttempt(attempt);
+  };
 
   /**
    * The gate every request passes, tools or not: local-only preflight, remote
@@ -305,7 +321,7 @@ export function buildGateway(options: GatewayOptions): FastifyInstance {
           // eligible for the same single safe retry, never a separate wrapper.
           const toolCalls = toOpenAiToolCalls(result);
           attempted = { result, toolCalls };
-          options.onToolProtocolAttempt?.({
+          recordProtocolAttempt({
             runId,
             attempt,
             sideEffectEvidence,
@@ -320,7 +336,7 @@ export function buildGateway(options: GatewayOptions): FastifyInstance {
             errorCode: normalized.code,
             sideEffectEvidence,
           });
-          options.onToolProtocolAttempt?.({
+          recordProtocolAttempt({
             runId,
             attempt,
             sideEffectEvidence,
@@ -333,20 +349,23 @@ export function buildGateway(options: GatewayOptions): FastifyInstance {
           attempt = 2;
         }
       }
-      options.onInferenceProfile?.({
-        modelId: effective.modelId,
-        profileStatus: effective.profileStatus,
-        role: effective.role,
-        maxOutputTokens: effective.maxOutputTokens,
-        temperature: effective.temperature,
-        ...(effective.think === undefined ? {} : { think: effective.think }),
-        toolProtocol: effective.toolProtocol,
-        overruled: [
-          ...effective.overruled,
-          ...(body.max_tokens !== undefined && body.max_tokens > effective.maxOutputTokens ? ['max_tokens'] : []),
-          ...(body.temperature !== undefined && body.temperature !== effective.temperature ? ['temperature'] : []),
-        ],
-      });
+      recordInferenceProfile(
+        {
+          modelId: effective.modelId,
+          profileStatus: effective.profileStatus,
+          role: effective.role,
+          maxOutputTokens: effective.maxOutputTokens,
+          temperature: effective.temperature,
+          ...(effective.think === undefined ? {} : { think: effective.think }),
+          toolProtocol: effective.toolProtocol,
+          overruled: [
+            ...effective.overruled,
+            ...(body.max_tokens !== undefined && body.max_tokens > effective.maxOutputTokens ? ['max_tokens'] : []),
+            ...(body.temperature !== undefined && body.temperature !== effective.temperature ? ['temperature'] : []),
+          ],
+        },
+        runId,
+      );
 
       const { result, toolCalls } = attempted;
       const finishReason = toolCalls.length > 0 ? 'tool_calls' : 'stop';
