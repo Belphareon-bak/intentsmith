@@ -6,6 +6,10 @@ Branch: `phase-3-opencode-worker`
 
 Audited commit: `15aa0234db4e79484736326d70dacb360f8ed4f7` (end of run 2D)
 
+Re-audited at run 2F, the closure candidate. Rows changed by 2F evidence are
+marked **(2F)** and say what the new evidence was. Nothing was promoted on the
+strength of a wording correction alone.
+
 Scope: every requirement of the original Phase 3 specification
 (`docs/ROADMAP.md` "Phase 3 - OpenCode Worker POC" and the Phase 3 rows of
 `docs/test-matrix-phase-1-to-4.md`), the Phase 3B insertion, the run 2D
@@ -20,6 +24,8 @@ has applied to Phase 1.1, Phase 2 and Phase 3B.
 | 2B | `cc70710`, `9b56f9d`, `cff4838`, `fd71811`, `39c0e65`, `6d66432`, `3e61c18` | executable authority stack composition, run-scoped approval decision surface, structured lifecycle/protocol evidence, trusted verdict provenance |
 | 2C | `259473e` | pinned real `opencode-ai@1.18.8`, real local `qwen3:14b` on an RTX 3090, product-level approved edit and four terminal paths |
 | 2D | `15aa023` | authenticated remote access for a single operator over a private VPN |
+| 2E | `09c3a95` | security closure audit, ADR 0020, process-level refusal proof, this matrix |
+| 2F | closure candidate | restart-recovery regression on the OpenCode composition, focused real-binary regression, two wording corrections, closure documents, five-run and clean-clone gates, CI status |
 
 ## How to read a verdict
 
@@ -43,7 +49,7 @@ is green, and an annotated `phase-2` tag exists".
 |---|---|---|---|---|---|
 | A1 | Phase 2 merged into `main` | `ec87dd0` (merge of PR #2) | `git merge-base --is-ancestor main HEAD` succeeds; `main` is an ancestor of this branch, which is 33 ahead and 0 behind | PASS | none |
 | A2 | Annotated `phase-2` tag | tag `phase-2` | `git cat-file -t phase-2` reports `tag`, i.e. an annotated tag object, not a lightweight ref | PASS | none |
-| A3 | CI green | `.github/workflows/ci.yml` | Workflow exists and runs `pnpm verify` plus a clean-tree assertion; the actual run status on `main` was **not** observable from this environment (`gh` is not installed) | NOT PROVEN | Read the CI status for `main` at the closure commit and record the run id |
+| A3 **(2F)** | CI green | `.github/workflows/ci.yml` | Read from the GitHub REST API, unauthenticated and read-only: workflow run **30337726989** for `ec87dd0` (the Phase 2 merge into `main`) completed with conclusion **success** at 2026-07-28T07:15:31Z. The entry gate the ROADMAP states — Phase 2 merged, CI green, `phase-2` tag — is therefore fully evidenced | PASS | none. CI for the *closure candidate itself* is a separate question, recorded at G7 |
 
 ## B. Phase 3 goal and inference constraint
 
@@ -59,22 +65,22 @@ is green, and an annotated `phase-2` tag exists".
 |---|---|---|---|---|---|
 | C1 | Disposable fixture repository | `DisposableWorkspace` (`packages/testing/src/fakes.ts`); `tools/opencode/real-product.ts` builds a throwaway Git repo with a deterministic base commit | `adapter.test.ts` "refuses to run without a disposable workspace"; 2C ran every scenario in a fresh fixture | PASS | none |
 | C2 | OpenCode external process adapter | `packages/adapter-opencode/src/adapter.ts` | Offline: a real child process speaking ACP over stdio (`fixtures.ts`). Real: 2C recorded `workerPid`/`workerPgid` per scenario against `opencode-ai@1.18.8` | PASS | none |
-| C3 | Capability and version discovery | `adapter.ts` `describe()` and initialize negotiation | ACP protocol version and agent capabilities are negotiated, recorded and refused on mismatch (`adapter.test.ts` "records what the agent actually negotiated", "ends the connection on an unsupported protocol version"). The **binary** version is not discovered by the adapter: `describe()` returns `expectedVersion ?? 'unpinned'`, and the `1.18.8` check lives in the test harness (`real-product.ts:124`), which reports BLOCKED on mismatch | PARTIAL | Either have the adapter read and record the executable's own reported version at startup, or state in the ROADMAP that binary version is operator-declared and harness-verified |
+| C3 | Capability and version discovery | `adapter.ts` `describe()` and initialize negotiation | ACP protocol version and agent capabilities are negotiated, recorded and refused on mismatch (`adapter.test.ts` "records what the agent actually negotiated", "ends the connection on an unsupported protocol version"). The **binary** version is not discovered by the adapter: `describe()` returns `expectedVersion ?? 'unpinned'`, and the `1.18.8` check lives in the test harness (`real-product.ts:124`), which reports BLOCKED on mismatch. **(2F)** The specification now states this: `docs/test-matrix-phase-1-to-4.md` says binary version is operator-declared and harness-verified rather than adapter-discovered | PARTIAL | None outstanding. The wording was corrected, not the behaviour, so the row stays PARTIAL on purpose: the stronger claim — the adapter asking the executable what it is — is still not made and still not proven |
 | C4 | Normalized event stream | `adapter.ts`, `strict-stream.ts`, `stop-reason.ts` | `contract-correctness.test.ts` "emits exactly one terminal event on success" / "…when the agent answers twice" / "records a tool call as evidence but a message only as an artifact"; `strict-stream.test.ts` (14 framing and bound cases) | PASS | none |
 | C5 | Proposed diff collection | `apps/server/src/opencode/change-evidence.ts` via `captureProposedChanges` | `authoritativeSource: 'git'` by construction; 2C `git.diffDigest` `2d2a874…`, `changedPaths: ["src/answer.js"]` | PASS | none |
 | C6 | Approval before risky actions | `packages/worker-sdk/src/capability.ts`, `apps/server/src/opencode/approval-desk.ts`, `approval-routes.ts` | `capability.test.ts` "requires approval for an edit inside the workspace"; `executable-composition.test.ts` "refuses to pass an unapproved edit even though the worker succeeded"; 2C `deny-while-pending` shows `protectedFileChanged: false` | PASS | see D4 for the shell case |
 | C7 | Deterministic test evidence | `vitest.config.ts` excludes `tools/opencode/**` and `tools/ollama/**`; gates are commands IntentSmith chose | 866 tests across 54 files run fully offline with no OpenCode, Ollama, GPU or network | PASS | none |
-| C8 | Cancel, timeout and recovery tests | `pending-permission.test.ts`, `contract-correctness.test.ts`, `startup.test.ts` | Cancel and timeout proven offline **and** against the real binary (2C `cancel-while-pending`, `timeout-while-pending`, both with `protectedFileChanged: false` and `lateApprovalHttpStatus: 404`). Recovery: see D5 | PARTIAL | The recovery half of this row is D5 |
+| C8 **(2F)** | Cancel, timeout and recovery tests | `pending-permission.test.ts`, `contract-correctness.test.ts`, `startup.test.ts`, `restart-recovery.process.test.ts` | Cancel and timeout proven offline **and** against the real binary (2C `cancel-while-pending`, `timeout-while-pending`, both with `protectedFileChanged: false` and `lateApprovalHttpStatus: 404`). Recovery is now proven on the OpenCode composition across a real process death — see D5 | PASS | none |
 
 ## D. Phase 3 test matrix (`docs/test-matrix-phase-1-to-4.md`)
 
 | # | Requirement | Implementation / evidence | Proof | Verdict | Remaining work |
 |---|---|---|---|---|---|
 | D1 | Contract: fake and OpenCode adapter pass the same suite | `packages/adapter-opencode/src/worker-contract.test.ts` | Imports `runWorkerAdapterContract` from `@intentsmith/testing/worker-contract` — the same suite `FakeWorker` runs, not a copy — and drives it against a real fake-ACP child process | PASS | none |
-| D2 | Integration: OpenCode external process — version, health, capability discovery | `adapter.ts`, `real-product.ts` | Protocol version and capabilities: PASS (C4, C3). Process health: proven as liveness and failure handling (`adapter.test.ts` "fails when the agent crashes mid-turn", "reports a missing executable with actionable guidance"; 2C `worker-termination-while-pending`). Binary version discovery: see C3. There is no separate health *probe* against the external process — health is inferred from the ACP handshake and process state | PARTIAL | Same as C3; optionally record that process health is handshake-derived by design rather than a probe |
+| D2 **(2F)** | Integration: OpenCode external process — version, health, capability discovery | `adapter.ts`, `real-product.ts` | Protocol version and capabilities: PASS (C4, C3). Process health: proven as liveness and failure handling (`adapter.test.ts` "fails when the agent crashes mid-turn", "reports a missing executable with actionable guidance"; 2C `worker-termination-while-pending`). Binary version discovery: see C3. There is no separate health *probe* against the external process — health is inferred from the ACP handshake and process state, which the specification now says | PARTIAL | None outstanding, and PARTIAL on purpose for the same reason as C3: what changed is the wording, not the evidence |
 | D3 | Integration: diff captured before approval | `capability.ts` (`payload`, `resourcePaths`, payload hash) | The edit payload — including its content — is hashed into the approval, so the approval authorizes that exact change and no other: `capability.test.ts` "changes when the diff changes", "changes when the target path changes", "ignores object key order". The aggregate `ProposedChangeSet` is read from Git *after* the run by design (C5), because a worker must not supply it | PASS | none |
-| D4 | Policy: shell and writes — risky action requires approval | `capability.ts` capability catalog | **Writes**: `edit`/`write` require a single-use, payload-bound approval — PASS. **Shell**: `bash` is denied outright, not approval-gated. The recorded reason (`capability.ts:131`) is that the observed permission payload carries a command string but no resource locations, so approving it would mean approving prose. This is stricter than the matrix row but is not the row as written | PARTIAL | Amend the Phase 3 matrix row to "shell is denied; writes require approval", so the specification and the implementation state the same policy |
-| D5 | Recovery: killed worker — task remains recoverable | `pending-permission.test.ts`, `apps/server/src/recovery.ts`, `startup.test.ts` | Killed **during** a run: PASS — `pending-permission.test.ts` "worker process failure while a permission is outstanding" settles the run, leaves no process and no side effect; 2C `worker-termination-while-pending` shows `processGroupMembersAfterTerminal: []`, `gatewayTokensAfterTerminal: 0`. Killed **with the server**, i.e. restart recovery: proven only with the in-process fake worker (`startup.test.ts` "reports one interrupted run after a simulated crash"). No test covers an interrupted run whose worker was an OpenCode process, and no test proves the task can start a **new** run after recovery — which is what "remains recoverable" claims | PARTIAL | Add an offline regression: interrupt a run on the OpenCode composition, restart the runtime, assert the run is closed failed, no orphan process or grant survives, and a fresh run can be started for the same task |
+| D4 | Policy: shell and writes — risky action requires approval | `capability.ts` capability catalog | **Writes**: `edit`/`write` require a single-use, payload-bound approval — PASS. **Shell**: `bash` is denied outright, not approval-gated. The recorded reason (`capability.ts:131`) is that the observed permission payload carries a command string but no resource locations, so approving it would mean approving prose. This is stricter than the matrix row was. **(2F)** The row now reads "writes require a single-use, payload-bound approval; shell is denied by policy, not approval-gated", so the specification and the implementation state the same policy | PARTIAL | None outstanding. PARTIAL on purpose: the row as originally written — an approval-gated shell — is not implemented and is deliberately not going to be |
+| D5 **(2F)** | Recovery: killed worker — task remains recoverable | `pending-permission.test.ts`, `apps/server/src/recovery.ts`, `startup.test.ts`, `apps/server/src/opencode/restart-recovery.process.test.ts` | Killed **during** a run: PASS — `pending-permission.test.ts` "worker process failure while a permission is outstanding" settles the run, leaves no process and no side effect; 2C `worker-termination-while-pending` shows `processGroupMembersAfterTerminal: []`, `gatewayTokensAfterTerminal: 0`. Killed **with the server**: now proven on the production composition, not the fake. A child process running `createRuntime` with `INTENTSMITH_WORKER=opencode` and no approval decider is driven to a pending approval and SIGKILLed; a second Core on the same file-backed database then reconciles it — one run recovered, run and task `failed`, verdict `blocked` with reason `process_restart`, `approval.revoked` and never `approval.granted`, verdict ordered before the release, zero gateway tokens, zero waiters, a late decision answered 404, the workspace unchanged, and recovery idempotent on a third start. A fresh run in the same workspace through the same composition then reaches `passed` on a Git digest with its own approval, and the interrupted run's rows and audit are byte-identical afterwards | PARTIAL | One residual, and it is a contract rather than a gap: the recovered **task** cannot itself start a new run, because ADR 0007 makes it terminal and ADR 0008 makes terminal statuses accept no command. The regression asserts that refusal (`INVALID_TASK_TRANSITION`) rather than working around it. Carried as H9 |
 | D6 | Deterministic E2E: fixture coding task, evidence separated from worker claim | `executable-composition.test.ts`, `verdict.ts` | "refuses to accept the worker's own account in place of Git evidence"; "cannot pass on the worker's account when Git has nothing to show"; 2C `approved-edit` passed on a Git digest and IntentSmith-run gates, never on the agent's claim | PASS | none |
 
 ## E. Phase 3B delivered items
@@ -135,6 +141,8 @@ defect; each is a claim the project has deliberately declined to make.
 | H6 | Degraded-sandbox runs on a real project | `docs/STATUS.md` | NOT PROVEN | Disposable fixtures only. Local validation stage |
 | H7 | Model defaults | `docs/STATUS.md`; `docs/testing/phase-3b-model-probe.md` | NOT PROVEN | The ten-formulation robustness run supersedes the repeated-prompt scores; choosing a default needs more evidence |
 | H8 | Real-hardware single-GPU model switching | ADR 0019 | NOT PROVEN | Proven against a fake daemon; the real-hardware suite stays opt-in. Local validation stage |
+| H9 **(2F)** | A recovered task starting a new run of its own | ADR 0007, ADR 0008, D5 | NOT PROVEN | Not supported, by decision. An interrupted run's task is terminal, terminal statuses accept no lifecycle command, and retry orchestration is deferred to a later phase. A new attempt is a new task, which D5 proves works. Revisit only when retry orchestration is actually specified; do not describe this as recovery being incomplete |
+| H10 **(2F)** | Cleaning up a worker orphaned by SIGKILL | `restart-recovery.process.test.ts` | NOT PROVEN | Not possible, and deliberately not attempted. A Core killed with SIGKILL runs no cleanup, so its OpenCode process is reparented and survives. Recovery does not kill the recorded pid, because a pid from before a restart may belong to something else by then. What the system provides is identification — `worker.process_start` records the process-group leader in the audit trail — not action. The regression asserts the orphan exists rather than pretending it does not |
 
 ## Totals
 
@@ -150,24 +158,28 @@ PARTIAL: C3, C8, D2, D4, D5, F8.
 NOT PROVEN: A3, G1, G2, H1-H8.
 FAIL: G4, G5, G6.
 
-## What actually blocks Phase 3 closure
+## What blocked Phase 3 closure, and what happened to it
 
-Of the fourteen non-PASS entries, most are either deliberate non-claims (H1-H8),
-specification wording rather than behaviour (C3, D2, D4), or a boundary that
-cannot be enforced at this layer (F8). Four items are real work:
+At the end of 2E, four items were real work. Run 2F closed all four.
 
-1. **D5** — an offline restart-recovery regression on the OpenCode composition.
-   This is the only functional gap: a requirement in the original test matrix
-   with no evidence at the level it states.
-2. **G1, G2** — the deterministic-run and clean-clone gates, at the closure
-   commit.
+1. **D5** — the one functional gap: no restart-recovery evidence on the OpenCode
+   composition. Closed by `apps/server/src/opencode/restart-recovery.process.test.ts`,
+   which interrupts the production composition with a real SIGKILL and proves
+   reconciliation, release of every kind of authority, and that the next run
+   works and is trustworthy. **The regression found no production defect**: it
+   passed against the composition as 2E left it, and no production file was
+   changed to make it pass.
+2. **G1, G2** — the deterministic-run and clean-clone gates, executed at the
+   closure candidate and recorded in section G.
 3. **G4, G5, G6** — the results document, the verification artifact and the
-   README, which every previous phase produced.
-4. **A3** — read and record the CI status.
+   README, all produced.
+4. **A3** — read and recorded from the GitHub API, read-only.
 
-Nothing here requires new production behaviour except D5's fix, if the
-regression finds one; the test is expected to pass against the current
-composition.
+What remains non-PASS is now, in every case, either a deliberate non-claim
+(H1-H10), a specification wording that has been corrected but whose stronger
+original reading is intentionally not implemented (C3, D2, D4), a boundary this
+layer cannot enforce (F8), or CI for an unpushed branch (G7). None of them is a
+hidden defect, and none of them is work someone forgot.
 
 ## What closure does *not* require, and why
 

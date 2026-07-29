@@ -26,11 +26,30 @@
 | Layer | Scope | Required Evidence |
 |---|---|---|
 | Contract | worker adapter interface | fake and OpenCode adapter pass same suite |
-| Integration | OpenCode external process | version, health, capability discovery |
+| Integration | OpenCode external process | ACP protocol version and capabilities discovered by the adapter; binary version operator-declared and harness-verified; health derived from the handshake and process state |
 | Integration | proposed diff | diff captured before approval |
-| Policy | shell and writes | risky action requires approval |
+| Policy | shell and writes | writes require a single-use, payload-bound approval; shell is denied by policy, not approval-gated |
 | Recovery | killed worker | task remains recoverable |
 | Deterministic E2E | small fixture coding task | test evidence separated from worker claim |
+
+Two rows were corrected at Phase 3 closure so the specification states what the
+implementation does rather than what was assumed before it existed. Neither
+weakens a claim:
+
+- **Binary version.** The adapter negotiates and records the *ACP protocol*
+  version and the agent's capabilities, and refuses a mismatch. The OpenCode
+  *executable's* version is declared by the operator (`INTENTSMITH_OPENCODE_VERSION`)
+  and verified by the real-binary harness, which reports BLOCKED on a mismatch.
+  The adapter does not ask the executable what it is.
+- **Shell.** `bash` is denied outright rather than approval-gated. The observed
+  permission payload carries a command string and no resource locations, so an
+  approval for it could not be bound to a workspace scope; approving it would
+  mean approving prose. This is stricter than "requires approval", not weaker.
+
+The "killed worker, task remains recoverable" row is left exactly as written.
+What it is and is not proven to mean is recorded against requirement D5 of
+`docs/testing/phase-3-acceptance-matrix.md`, because that is an evidence
+question rather than a wording one.
 
 ## Phase 4
 

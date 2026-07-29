@@ -118,12 +118,12 @@ gateway.
 
 ## Phase 3 - OpenCode Worker POC
 
-Status: implementation complete through run 2D, **not closed**. Not merged, not
-tagged. The remaining closure work is listed below.
+Status: complete through run 2F and a **local closure candidate**. Not merged,
+not tagged, not pushed.
 
-Entry gate (satisfied): Phase 2 is merged into `main` (`ec87dd0`, PR #2) and the
-annotated `phase-2` tag exists. The CI status for that merge has not been read
-into the record.
+Entry gate (satisfied): Phase 2 is merged into `main` (`ec87dd0`, PR #2), the
+annotated `phase-2` tag exists, and CI for that merge completed successfully
+(workflow run `30337726989`).
 
 Goal: delegate one coding task to OpenCode while preserving core authority.
 The Phase 2 gateway is the only inference path a worker may use; Phase 3 extends
@@ -148,31 +148,36 @@ Expected outputs:
 | 2B | executable authority stack, run-scoped approval decision surface, structured lifecycle and protocol evidence, trusted verdict provenance |
 | 2C | pinned real `opencode-ai@1.18.8` with real local `qwen3:14b` on an RTX 3090: approved edit plus four terminal paths |
 | 2D | authenticated remote access for a single operator over a private VPN (ADR 0020) |
+| 2E | security closure audit, ADR 0020, process-level refusal proof, acceptance matrix |
+| 2F | restart recovery on the OpenCode composition, focused real-binary regression, wording corrections, closure documents and gates |
 
-Runs 2A-2D are complete. A requirement-level audit of all four against this
-specification is in `docs/testing/phase-3-acceptance-matrix.md`: 30 PASS,
-6 PARTIAL, 11 NOT PROVEN, 3 FAIL across 50 requirements.
+Runs 2A-2F are complete. The requirement-level audit against this specification
+is `docs/testing/phase-3-acceptance-matrix.md`, and the closure evidence is
+`docs/testing/phase-3-results.md` with `artifacts/phase-3-verification.json`.
 
-### Remaining Phase 3 closure work
+### Phase 3 closure work, and what closed it
 
-1. An offline restart-recovery regression on the OpenCode composition. The
-   matrix row "killed worker, task remains recoverable" is proven for a worker
-   killed during a run, but restart recovery is proven only with the in-process
-   fake, and nothing proves a task can start a new run afterwards.
-2. Five identical deterministic full-suite runs at the closure commit.
-3. A clean-clone `pnpm verify` at the closure commit. The Phase 3B result no
-   longer describes this tree.
-4. `docs/testing/phase-3-results.md` and `artifacts/phase-3-verification.json`,
-   in the shape every previous phase produced.
-5. A README "Current State" that names Phase 3.
-6. Read and record the CI status for the closure commit.
-7. Two wording corrections so the specification matches the implementation:
-   binary version is operator-declared and harness-verified rather than
-   discovered by the adapter, and shell is denied outright rather than
-   approval-gated.
+1. **Restart recovery on the OpenCode composition** — closed by
+   `apps/server/src/opencode/restart-recovery.process.test.ts`, which SIGKILLs a
+   real Core running the production composition at a pending approval and proves
+   the next Core reconciles everything it left behind and can do useful work.
+   No production defect was found and no production code changed.
+2. **Five identical deterministic full-suite runs** — recorded in the results
+   document.
+3. **Clean-clone `pnpm verify`** — recorded in the results document.
+4. **`docs/testing/phase-3-results.md` and `artifacts/phase-3-verification.json`**
+   — produced, in the shape every previous phase produced.
+5. **README "Current State"** — updated.
+6. **CI status** — the entry gate's run is recorded. The closure candidate
+   itself has no CI run, because the branch is deliberately not pushed and the
+   workflow triggers only on pull requests and pushes to `main`. That is
+   recorded as NOT PROVEN with its reason rather than implied to be green.
+7. **Two wording corrections** — made in `docs/test-matrix-phase-1-to-4.md`.
+   Neither promoted a verdict: the rows stay PARTIAL because what changed was
+   the specification's accuracy, not the evidence behind it.
 
-Only item 1 could change production behaviour, and only if the regression finds
-something.
+Phase 3 is a **local closure candidate**. It is not merged, not tagged and not
+pushed; independent review comes before integration.
 
 ## Phase 3B - Tool Capability Mediation
 

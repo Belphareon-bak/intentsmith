@@ -95,6 +95,26 @@ export function repository(
   return { root, target, gatesPath };
 }
 
+/**
+ * The environment the production OpenCode composition reads.
+ *
+ * Extracted so that a test which has to build the same runtime in a *second
+ * process* — the restart-recovery regression — configures it from one place
+ * rather than from a copy that can drift away from what the harness proves.
+ */
+export function openCodeEnvironment(options: { agentScript: string; fixture: Fixture }): NodeJS.ProcessEnv {
+  return {
+    PATH: process.env.PATH,
+    [WORKER_SELECTION_ENV]: 'opencode',
+    [OPENCODE_ENV.executable]: process.execPath,
+    [OPENCODE_ENV.args]: JSON.stringify([options.agentScript]),
+    [OPENCODE_ENV.version]: 'fake-opencode/0.0.0',
+    [OPENCODE_ENV.workspaceRoot]: options.fixture.root,
+    [OPENCODE_ENV.model]: 'qwen3:14b',
+    [OPENCODE_ENV.gates]: options.fixture.gatesPath,
+  };
+}
+
 export type Scenario = {
   behaviour?: FakeAgentBehaviour;
   editPath?: string;
@@ -163,14 +183,12 @@ export async function harness(
   const never = new Promise<'approve' | 'deny'>(() => undefined);
 
   const env: NodeJS.ProcessEnv = {
-    PATH: process.env.PATH,
-    [WORKER_SELECTION_ENV]: 'opencode',
-    [OPENCODE_ENV.executable]: options.executable === 'wrapper' ? wrapper : process.execPath,
-    [OPENCODE_ENV.args]: options.executable === 'wrapper' ? '[]' : JSON.stringify([agent.scriptPath]),
-    [OPENCODE_ENV.version]: 'fake-opencode/0.0.0',
-    [OPENCODE_ENV.workspaceRoot]: fixture.root,
-    [OPENCODE_ENV.model]: 'qwen3:14b',
-    [OPENCODE_ENV.gates]: fixture.gatesPath,
+    ...openCodeEnvironment({ agentScript: agent.scriptPath, fixture }),
+    // The wrapper case runs the agent through a shell script the test can
+    // delete, so the executable and its arguments differ from the shared shape.
+    ...(options.executable === 'wrapper'
+      ? { [OPENCODE_ENV.executable]: wrapper, [OPENCODE_ENV.args]: '[]' }
+      : {}),
   };
 
   const runtime = createRuntime({

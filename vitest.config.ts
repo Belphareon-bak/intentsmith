@@ -54,7 +54,11 @@ export default defineConfig({
         'apps/server/src/**/*.ts',
         'apps/cli/src/**/*.ts',
       ],
-      exclude: ['**/*.test.ts', '**/index.ts', '**/dist/**', '**/fixtures.ts', '**/test-runtime.ts'],
+      // Test-only modules. `*fixtures.ts` rather than `fixtures.ts` because the
+      // restart regression's fixture is a child-process entry point: it is
+      // executed for real, but in another process, so in-process coverage can
+      // never see it. No production file is excluded by this list.
+      exclude: ['**/*.test.ts', '**/index.ts', '**/dist/**', '**/*fixtures.ts', '**/test-runtime.ts'],
       /**
        * Gates are set just below the measured Phase 1.1 values so a real
        * regression fails the build, without rewarding filler tests. The

@@ -2,8 +2,10 @@
 
 ## Current Phase
 
-Phase 3 - OpenCode Worker POC, on `phase-3-opencode-worker`. Implementation is
-complete through run 2D. **Phase 3 is not closed, not merged and not tagged.**
+Phase 3 - OpenCode Worker POC, on `phase-3-opencode-worker`. Complete through
+run 2F and a **local closure candidate**: every Phase 3 gate has been executed
+and recorded, and nothing required remains FAIL. **It is not merged, not tagged
+and not pushed** — independent review comes before integration.
 
 Phase 1.1 is merged (`bd0a6a5`, PR #1) and tagged `phase-1.1`. Phase 2 is merged
 (`ec87dd0`, PR #2) and tagged `phase-2`, which satisfies the Phase 3 entry gate.
@@ -11,10 +13,9 @@ Phase 3 reached a green H checkpoint at `0fca7fd` (inference-only OpenCode
 integration, tool calling refused outright); Phase 3B built on it without
 rewriting it, and runs 2A-2D built on Phase 3B.
 
-The requirement-level audit of runs 2A-2D against the original Phase 3
-specification is `docs/testing/phase-3-acceptance-matrix.md`: 30 PASS, 6
-PARTIAL, 11 NOT PROVEN, 3 FAIL across 50 requirements. The remaining closure
-work is listed in `docs/ROADMAP.md` and repeated below.
+The requirement-level audit against the original Phase 3 specification is
+`docs/testing/phase-3-acceptance-matrix.md`, and the closure evidence is
+`docs/testing/phase-3-results.md` with `artifacts/phase-3-verification.json`.
 
 ## Reference State
 
@@ -191,34 +192,57 @@ proven**, or **deferred**.
   and is local-only in this alpha. ADR 0020 records why each is acceptable and
   on what premise.
 
+### Run 2F - restart recovery and closure
+
+- *Implemented and proven*: recovery across a real Core death on the executable
+  OpenCode composition. A child process running the product's own composition
+  root reaches a pending approval and is SIGKILLed — a signal it cannot catch —
+  leaving a `running` run row, an unanswered approval, an orphaned OpenCode
+  process and a gateway token that existed only in the dead process's memory. A
+  second Core on the same database closes the run as `failed` with a `blocked`
+  verdict and reason `process_restart`, revokes the approval without ever
+  granting it, writes the verdict before releasing what the run held, answers a
+  late decision with 404, keeps the workspace unchanged, and is idempotent. A
+  fresh run in the same workspace then reaches `passed` on a Git digest with its
+  own approval, and the interrupted run's rows and audit trail are unchanged by
+  it. No production code was changed: the regression passed against the
+  composition as run 2E left it.
+- *Proven again against the real binary*: run 2D moved the loopback peer check
+  into a composed operator/approval guard, and 2C's product-level evidence
+  predates that change. The approved-edit and deny-while-pending scenarios were
+  re-run at the closure candidate against pinned `opencode-ai@1.18.8` and real
+  local `qwen3:14b`, and both still behave exactly as 2C recorded.
+- *Not supported, by decision*: the recovered **task** cannot start a new run of
+  its own. ADR 0007 makes it terminal and ADR 0008 makes terminal statuses
+  accept no lifecycle command, so a new attempt is a new task. The regression
+  asserts that refusal rather than working around it.
+- *Not possible, and not attempted*: cleaning up the worker a SIGKILLed Core
+  left behind. Recovery records the process-group leader in the audit trail so
+  an operator can find it, and never kills a pid recorded before a restart,
+  because that pid may belong to something else by then.
+
 ### Partially proven across Phase 3
 
-- **Killed worker recovery.** A worker killed during a run settles cleanly, with
-  no orphan process, no surviving grant and no side effect — proven offline and
-  against the real binary. Restart recovery of an interrupted run is proven only
-  with the in-process fake worker, and nothing proves a task whose run was
-  recovered can start a new run. This is the one functional gap.
 - **Version discovery.** ACP protocol version and agent capabilities are
   negotiated, recorded and refused on mismatch. The OpenCode *binary* version is
   operator-declared and verified by the real-binary harness, not discovered by
-  the adapter.
+  the adapter. The Phase 3 test matrix now says so.
 - **Shell policy.** `bash` is denied outright rather than approval-gated,
   because an approval for a command string cannot be bound to a workspace scope.
-  This is stricter than the Phase 3 test matrix row, which still says shell
-  requires approval.
+  This is stricter than the Phase 3 test matrix row used to say; the row has
+  been corrected to state the policy that is actually implemented.
 
-## Remaining Phase 3 Closure Work
+## Phase 3 Closure Work
 
-1. Offline restart-recovery regression on the OpenCode composition.
-2. Five identical deterministic full-suite runs at the closure commit.
-3. Clean-clone `pnpm verify` at the closure commit.
-4. `docs/testing/phase-3-results.md` and `artifacts/phase-3-verification.json`.
-5. README "Current State" updated to Phase 3.
-6. CI status for the closure commit read and recorded.
-7. Two specification wording corrections: binary version discovery and shell
-   policy, as described above.
+All seven items are done and recorded in `docs/testing/phase-3-results.md`: the
+restart-recovery regression, five identical deterministic full-suite runs, a
+clean-clone `pnpm verify`, the results document and verification artifact, the
+README, the CI status, and the two specification wording corrections.
 
-Phase 3 is closed only when these are done. It is not closed now.
+The CI item is recorded honestly rather than favourably: the entry gate's run on
+`main` is green and identified, and the closure candidate itself has no CI run
+at all, because the branch is deliberately not pushed and the workflow triggers
+only on pull requests and pushes to `main`.
 
 ## Phase 3B - Not Proven
 
