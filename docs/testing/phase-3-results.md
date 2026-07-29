@@ -9,16 +9,17 @@ tagged `phase-2`)
 
 Source commit tested: `bfc6c5794600107603ebe757e5941de1c0abc7db`
 
-Closure candidate: everything on top of `bfc6c57` is documentation. `d2f3f88`
-added this document and `artifacts/phase-3-verification.json`; the commit after
-it corrected the push-state sentences in both, once the branch had actually been
-pushed. Neither changed a line of code, a measurement or a verdict. Every
-measurement below was taken against `bfc6c57` itself, before either file
-existed, so nothing here is a result the tree it describes could have contained.
+Phase 3 implementation and measured 2F evidence were produced against
+`bfc6c5794600107603ebe757e5941de1c0abc7db`. `d2f3f88` added the closure
+documents and `9251c91` corrected their push-state claims. Run 2G then merged
+current `main` into the candidate as `64eabbd`; main's changes were documentation
+only, and the merge changed no production boundary. The local and CI
+verification of `64eabbd` below are separate post-integration observations; no
+historical 2F result is relabelled as a measurement of a later commit.
 
 Phase 3 is a **closure candidate**. The branch was pushed to `origin` at
-`d2f3f88` so it can be reviewed; it is not merged and not tagged, and pushing a
-branch runs no CI (see "CI Status" below).
+`d2f3f88`, integrated with current `main` in `64eabbd`, and opened as PR #4. It
+is not merged and not tagged. Required CI is green on the integrated code tree.
 
 ## Result
 
@@ -273,24 +274,23 @@ Carried from run 2E's audit and re-checked here:
 
 ## CI Status
 
-Read from the GitHub REST API, unauthenticated and read-only. No CI tooling was
-installed and no workflow was changed.
+Read from GitHub Actions through the authenticated GitHub CLI. No workflow was
+changed.
 
 | | |
 |---|---|
 | Entry gate (`ec87dd0`, Phase 2 merge into `main`) | workflow run **30337726989**, conclusion **success**, 2026-07-28T07:15:31Z — **PASS** |
-| Closure candidate (`d2f3f88`) | no workflow run exists — **NOT PROVEN** |
+| Integrated closure candidate (`64eabbd`, PR #4) | workflow run [**30481867726**](https://github.com/Belphareon-bak/intentsmith/actions/runs/30481867726), `verify (node 22)` completed **successfully** at 2026-07-29T18:53:20Z — **PASS** |
 
-The branch was pushed to `origin` at `d2f3f88` so it can be reviewed, and that
-does not change the CI verdict: `.github/workflows/ci.yml` triggers on
-`pull_request` and on `push` to `main` only. The API was queried again after the
-push and reports zero workflow runs for this branch. CI observes this commit
-when a pull request is opened for it, and not before.
+The initial branch push triggered no workflow because `.github/workflows/ci.yml`
+runs on pull requests and pushes to `main`. PR #4 supplied the missing
+observation: its required workflow checked out
+`64eabbd57a82a3c54c97a70be5ecb77e2e923a77`, installed from the frozen lockfile,
+ran verification and asserted a clean working tree.
 
-What was verified locally instead is exactly what the workflow does: a
-clean-clone frozen-lockfile install, `pnpm verify`, and an empty
-`git status --porcelain` afterwards. That is evidence about this commit, not a
-substitute for CI having run.
+Before the PR, the same integrated commit passed local `pnpm verify`: 55 test
+files, 869 tests, coverage 92.84% statements / 84.42% branches / 93.45%
+functions / 94.57% lines, and an empty `git status --porcelain`.
 
 ## Acceptance Matrix Totals
 
@@ -298,9 +298,9 @@ From `docs/testing/phase-3-acceptance-matrix.md`, 53 requirements:
 
 | Verdict | End of 2E | Closure candidate |
 |---|---|---|
-| PASS | 30 | 37 |
+| PASS | 30 | 38 |
 | PARTIAL | 6 | 5 |
-| NOT PROVEN | 11 | 11 |
+| NOT PROVEN | 11 | 10 |
 | FAIL | 3 | 0 |
 
 No required Phase 3 gate is FAIL.
@@ -319,7 +319,6 @@ No required Phase 3 gate is FAIL.
 
 | # | Item | Why it is acceptable |
 |---|---|---|
-| G7 | CI for the closure candidate | The workflow triggers only on pull requests and pushes to `main`. The branch is pushed but no pull request is open, so no run exists — confirmed against the API after the push. The clean clone performed exactly what CI performs |
 | H1 | Strict-offline execution | Requires observed network isolation. "No cloud traffic seen" is not "cloud traffic impossible", and the distinction is not going to be blurred. Belongs to Local Validation |
 | H2 | Sandboxed (`preferSandbox`) execution | The path is attested but was disabled in every run so far. Local Validation |
 | H3 | Concurrent runs sharing one Git working tree | Out of Phase 3 scope; the composition serializes one workspace per run |

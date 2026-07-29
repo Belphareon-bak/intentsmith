@@ -10,6 +10,9 @@ Re-audited at run 2F, the closure candidate. Rows changed by 2F evidence are
 marked **(2F)** and say what the new evidence was. Nothing was promoted on the
 strength of a wording correction alone.
 
+Run 2G integrated current `main` and opened PR #4. Only G7 changes
+classification on the strength of that PR's successful required workflow.
+
 Scope: every requirement of the original Phase 3 specification
 (`docs/ROADMAP.md` "Phase 3 - OpenCode Worker POC" and the Phase 3 rows of
 `docs/test-matrix-phase-1-to-4.md`), the Phase 3B insertion, the run 2D
@@ -125,7 +128,7 @@ the same bar.
 | G4 **(2F)** | `docs/testing/phase-3-results.md` | `docs/testing/phase-3-results.md` | Written, covering runs 2A-2F | PASS | none |
 | G5 **(2F)** | `artifacts/phase-3-verification.json` | `artifacts/phase-3-verification.json` | Written, in the shape of `phase-3b-verification.json`. The document and the artifact are generated from the same measurements and state the same numbers | PASS | none |
 | G6 **(2F)** | `README.md` reflects Phase 3 | `README.md` "Current State" | Updated: names Phase 3, says it is a closure candidate rather than merged, and links the results document | PASS | none |
-| G7 **(2F)** | CI status for the closure candidate itself | `.github/workflows/ci.yml` | **No CI run exists for it.** The workflow triggers on pull requests and on pushes to `main`, and neither has happened: the branch `phase-3-opencode-worker` was pushed to `origin` at `d2f3f88` for review, which triggers nothing, and no pull request is open. The GitHub API was queried after the push and reports zero workflow runs for the branch. What was verified locally instead is exactly what CI would do — a clean-clone frozen install, `pnpm verify`, and an empty `git status --porcelain` (G2) | NOT PROVEN | Nothing to do locally. CI observes this commit when a pull request is opened for it, and not before |
+| G7 **(2G)** | CI status for the integrated closure candidate | `.github/workflows/ci.yml`; PR #4 | Workflow run [`30481867726`](https://github.com/Belphareon-bak/intentsmith/actions/runs/30481867726), event `pull_request`, tested `64eabbd57a82a3c54c97a70be5ecb77e2e923a77`. The `verify (node 22)` job completed successfully at 2026-07-29T18:53:20Z, including frozen installation, verification and clean-tree assertion | PASS | none |
 
 ## H. Carried "not proven" items
 
@@ -149,19 +152,19 @@ defect; each is a claim the project has deliberately declined to make.
 
 | Verdict | End of 2E | Closure candidate (2F) |
 |---|---|---|
-| PASS | 30 | **37** |
+| PASS | 30 | **38** |
 | PARTIAL | 6 | **5** |
-| NOT PROVEN | 11 | **11** |
+| NOT PROVEN | 11 | **10** |
 | FAIL | 3 | **0** |
 | **Total** | **50** | **53** |
 
 PARTIAL: C3, D2, D4, D5, F8.
-NOT PROVEN: G7, H1-H10.
+NOT PROVEN: H1-H10.
 FAIL: none.
 
 The three added requirements are G7 (CI for the closure candidate) and H9-H10,
-the two boundaries the restart regression made explicit. Seven moved to PASS:
-A3, C8, G1, G2, G4, G5, G6.
+the two boundaries the restart regression made explicit. Eight moved to PASS:
+A3, C8, G1, G2, G4, G5, G6 and, in run 2G, G7.
 
 ## What blocked Phase 3 closure, and what happened to it
 
@@ -182,9 +185,8 @@ At the end of 2E, four items were real work. Run 2F closed all four.
 
 What remains non-PASS is now, in every case, either a deliberate non-claim
 (H1-H10), a specification wording that has been corrected but whose stronger
-original reading is intentionally not implemented (C3, D2, D4), a boundary this
-layer cannot enforce (F8), or CI for a branch push that triggers no workflow
-(G7). None of them is a hidden defect, and none of them is work someone forgot.
+original reading is intentionally not implemented (C3, D2, D4), or a boundary
+this layer cannot enforce (F8). None is a hidden defect or forgotten work.
 
 ## What closure does *not* require, and why
 

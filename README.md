@@ -37,8 +37,9 @@ to the exact payload; shell is denied outright; what changed is read from Git
 rather than believed; and an interrupted run is reconciled after a restart
 without a restart ever counting as consent.
 
-Phase 3 is a **closure candidate**: complete and verified locally, published for
-review, not merged and not tagged. See `docs/STATUS.md`,
+Phase 3 is a **closure candidate**: complete and verified locally, published as
+PR #4, and green in CI on the integrated code tree. It is not merged or tagged.
+See `docs/STATUS.md`,
 `docs/testing/phase-3-results.md` and
 `docs/testing/phase-3-acceptance-matrix.md`, which records what is proven, what
 is only partly proven, and what the project deliberately does not claim.

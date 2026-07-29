@@ -54,8 +54,8 @@ Exit evidence: `phase-2` tag, 410 tests, real-Ollama evidence and unchanged qual
 
 ## Phase 3 — first coding worker, closure candidate
 
-Status: complete through run 2F, pushed to `origin` for review, not merged and
-not tagged.
+Status: complete through run 2F, integrated with current `main` in PR #4, and
+green in CI on the integrated code tree. Not merged and not tagged.
 
 Goal: run a real open-source coding worker while keeping lifecycle, permissions and verdict authority in Core.
 
@@ -182,16 +182,15 @@ is `docs/testing/phase-3-acceptance-matrix.md`, and the closure evidence is
 4. **`docs/testing/phase-3-results.md` and `artifacts/phase-3-verification.json`**
    — produced, in the shape every previous phase produced.
 5. **README "Current State"** — updated.
-6. **CI status** — the entry gate's run is recorded and green. The closure
-   candidate itself has no CI run: the workflow triggers only on pull requests
-   and pushes to `main`, so pushing the branch triggered nothing. That is
-   recorded as NOT PROVEN with its reason rather than implied to be green.
+6. **CI status** — the entry gate's run is recorded and green. PR #4 then ran
+   workflow `30481867726` against integrated commit `64eabbd` and completed
+   successfully, promoting G7 from NOT PROVEN to PASS.
 7. **Two wording corrections** — made in `docs/test-matrix-phase-1-to-4.md`.
    Neither promoted a verdict: the rows stay PARTIAL because what changed was
    the specification's accuracy, not the evidence behind it.
 
-Phase 3 is a **closure candidate**, published for review. It is not merged and
-not tagged; independent review comes before integration.
+Phase 3 is a **closure candidate** in PR #4 with green CI. It is not merged or
+tagged; final integration still requires the reviewed PR head to remain green.
 
 ## Phase 3B - Tool Capability Mediation
 

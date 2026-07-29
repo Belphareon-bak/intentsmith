@@ -3,7 +3,7 @@
   "title": "OpenCode Worker POC",
   "date": "2026-07-29",
   "branch": "phase-3-opencode-worker",
-  "status": "local closure candidate",
+  "status": "integrated closure candidate with green PR CI",
   "merged": false,
   "tagged": false,
   "pushed": true,
@@ -22,8 +22,13 @@
   "commits": {
     "sourceTested": "bfc6c5794600107603ebe757e5941de1c0abc7db",
     "evidenceCommit": "d2f3f882c2018c6e8b6d9cbc472dd359f5b57224",
-    "closureCandidate": "documentation-only commits on top of bfc6c57",
-    "relationship": "Every measurement in this artifact was taken against bfc6c57 before this file existed. d2f3f88 added docs/testing/phase-3-results.md, this artifact and the .gitignore entry that tracks it; the commit after it corrected the push-state sentences in both, once the branch had actually been pushed. Neither changed code, a measurement or a verdict. There is no claim that anything was tested at a commit that contains its own results."
+    "pushStateCorrection": "9251c91dab6475817236df5c8c08d975dd2e8021",
+    "integrationCandidate": "64eabbd57a82a3c54c97a70be5ecb77e2e923a77",
+    "integrationParents": [
+      "9251c91dab6475817236df5c8c08d975dd2e8021",
+      "b3a7dbda961a019175959128769f46493291fc86"
+    ],
+    "relationship": "Implementation and measured 2F evidence were produced against bfc6c57. d2f3f88 added the closure documents and 9251c91 corrected their push-state claims. Run 2G merged the documentation-only main changes into 64eabbd without changing a production boundary, then verified that exact integrated commit locally and in PR CI. Historical 2F measurements are not relabelled as measurements of a later commit."
   },
   "runs": [
     { "run": "2A", "commits": ["07d917c", "0ea01e3", "978dc40", "f515819"], "subject": "fail-closed OpenCode configuration, evidence-bounded protocol retries, Git-backed evidence for code verdicts, permission-pending lifecycle cleanup" },
@@ -31,8 +36,29 @@
     { "run": "2C", "commits": ["259473e"], "subject": "pinned real opencode-ai@1.18.8 and real local qwen3:14b: approved edit plus four terminal paths" },
     { "run": "2D", "commits": ["15aa023"], "subject": "authenticated remote access for a single operator over a private VPN (ADR 0020)" },
     { "run": "2E", "commits": ["09c3a95"], "subject": "security closure audit, ADR 0020, process-level refusal proof, acceptance matrix" },
-    { "run": "2F", "commits": ["bfc6c57"], "subject": "restart recovery on the OpenCode composition, focused real-binary regression, wording corrections, closure documents and gates" }
+    { "run": "2F", "commits": ["bfc6c57"], "subject": "restart recovery on the OpenCode composition, focused real-binary regression, wording corrections, closure documents and gates" },
+    { "run": "2G", "commits": ["64eabbd"], "subject": "merge current main, verify the integrated tree locally, open PR #4 and prove the required CI workflow" }
   ],
+  "integrationVerification": {
+    "commit": "64eabbd57a82a3c54c97a70be5ecb77e2e923a77",
+    "node": "v22.21.1",
+    "pnpm": "11.17.0",
+    "frozenInstall": "pass",
+    "typecheck": "pass",
+    "lint": "pass",
+    "testFiles": 55,
+    "tests": 869,
+    "coverage": {
+      "statements": 92.84,
+      "branches": 84.42,
+      "functions": 93.45,
+      "lines": 94.57
+    },
+    "build": "pass",
+    "workingTreeCleanAfterwards": true,
+    "realBinaryRepeated": false,
+    "realBinaryRepeatReason": "Current main changed documentation only and no production boundary involved in authentication, approvals, gateway access, recovery or workspace mutation changed."
+  },
   "environment": {
     "node": "v22.21.1",
     "pnpm": "11.17.0",
@@ -217,13 +243,20 @@
       "verdict": "PASS"
     },
     "closureCandidate": {
-      "verdict": "NOT PROVEN",
-      "reason": "The workflow triggers on pull requests and pushes to main. The branch phase-3-opencode-worker was pushed to origin for review, which triggers nothing, and no pull request is open. The GitHub API was queried after the push and reports zero workflow runs for the branch, so no CI observation of this commit exists.",
-      "localEquivalent": "The clean-clone verification performed what the workflow performs: frozen-lockfile install, pnpm verify, and an empty git status --porcelain. That is evidence about this commit, not a substitute for CI having run.",
-      "toolingInstalled": false,
+      "verdict": "PASS",
+      "pullRequest": 4,
+      "testedCommit": "64eabbd57a82a3c54c97a70be5ecb77e2e923a77",
+      "workflowRunId": 30481867726,
+      "workflowRunUrl": "https://github.com/Belphareon-bak/intentsmith/actions/runs/30481867726",
+      "workflow": "CI",
+      "event": "pull_request",
+      "job": "verify (node 22)",
+      "jobId": 90677713956,
+      "conclusion": "success",
+      "completedAt": "2026-07-29T18:53:20Z",
       "workflowsChanged": false,
       "branchPushed": true,
-      "pullRequestOpened": false,
+      "pullRequestOpened": true,
       "workflowRunsForBranchAfterPush": 0
     }
   },
@@ -231,11 +264,11 @@
     "document": "docs/testing/phase-3-acceptance-matrix.md",
     "requirements": 53,
     "endOf2E": { "pass": 30, "partial": 6, "notProven": 11, "fail": 3, "total": 50 },
-    "closureCandidate": { "pass": 37, "partial": 5, "notProven": 11, "fail": 0, "total": 53 },
-    "movedToPass": ["A3", "C8", "G1", "G2", "G4", "G5", "G6"],
+    "closureCandidate": { "pass": 38, "partial": 5, "notProven": 10, "fail": 0, "total": 53 },
+    "movedToPass": ["A3", "C8", "G1", "G2", "G4", "G5", "G6", "G7"],
     "added": ["G7", "H9", "H10"],
     "partial": ["C3", "D2", "D4", "D5", "F8"],
-    "notProven": ["G7", "H1", "H2", "H3", "H4", "H5", "H6", "H7", "H8", "H9", "H10"],
+    "notProven": ["H1", "H2", "H3", "H4", "H5", "H6", "H7", "H8", "H9", "H10"],
     "fail": []
   },
   "remainingPartial": {
@@ -246,7 +279,6 @@
     "F8": "A wildcard bind and a hostname are refused. A port forward in front of a correctly bound VPN interface is outside anything the process can observe, and is documented as unsupported rather than prevented."
   },
   "remainingNotProven": {
-    "G7": "CI for the closure candidate: the workflow triggers only on pull requests and pushes to main, and neither has happened. Pushing the branch triggered nothing.",
     "H1": "Strict-offline execution: requires observed network isolation. No cloud traffic seen is not cloud traffic impossible.",
     "H2": "Sandboxed (preferSandbox) execution: attested but disabled in every run so far.",
     "H3": "Concurrent runs sharing one Git working tree: out of Phase 3 scope.",
