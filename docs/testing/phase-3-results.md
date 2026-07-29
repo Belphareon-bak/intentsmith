@@ -32,10 +32,12 @@ pnpm build                      PASS
 pnpm verify                     PASS (clean clone, exit 0)
 ```
 
-`pnpm verify` is fully offline. It needs no OpenCode, no Ollama, no GPU, no
-model and no network: the worker is a real child process, but the ACP agent it
-speaks to is a deterministic fixture, and every transport and probe is injected.
-The opt-in real-binary and real-Ollama suites are excluded from it by
+The deterministic tests and build do not require OpenCode, Ollama, a GPU, a
+model or another external runtime: the worker is a real child process, but the
+ACP agent it speaks to is a deterministic fixture, and every transport and
+probe is injected. The measured installation used an already populated pnpm
+store; network isolation and a cold-network installation were not proven. The
+opt-in real-binary and real-Ollama suites are excluded from it by
 `vitest.config.ts` and must stay excluded.
 
 ## Runs
@@ -346,9 +348,10 @@ None of these is a defect. Each is a claim the project has declined to make.
 
 ## What This Does Not Claim
 
-- **Not strict-offline.** `pnpm verify` needs no network, and no cloud traffic
-  was observed in any run, but network isolation was not enforced or measured,
-  so no strict-offline claim is made here.
+- **Not strict-offline.** The deterministic tests and build need no external
+  runtime, and no cloud traffic was observed in any run. The measured
+  installation used an already populated pnpm store; network isolation and a
+  cold-network installation were not proven, so no strict-offline claim is made.
 - **Not merged or tagged.** The branch is published for review and nothing more.
 - **Not a soak test.** Every guarantee here is proven once, or five times for
   the deterministic suite. Whether they hold overnight, repeatedly, and under a

@@ -1,144 +1,158 @@
 # Roadmap
 
-## Phase 0 - Foundation Decisions
+The roadmap is ordered by product dependency, not calendar promises. A phase closes only when its stated evidence and safety gates pass on a clean clone.
 
-Status: ready for review.
+## Phase 0 — foundation ✅
 
-Outputs:
+Goal: establish the product boundary before implementation.
 
-- greenfield repository;
-- product thesis;
-- status and roadmap;
-- ADRs 0001 to 0005;
-- P0 third-party component records;
-- dependency boundary proposal;
-- minimal contract schema proposal;
-- Phase 1 to Phase 4 test matrix.
+- Define local-first policy and component ownership.
+- Research reusable open-source components and protocols.
+- Record core architecture decisions.
+- Define the monorepo and dependency boundaries.
 
-Milestone tag: `foundation-decisions`.
+Exit evidence: ADRs, component research and a reviewable implementation plan.
 
-## Phase 1 - Monorepo, Contracts, and Deterministic Vertical Slice
+## Phase 1 — deterministic core ✅
 
-Status: complete.
+Goal: build an offline, deterministic control plane without a real model or external agent.
 
-Goal: start a minimal typed vertical slice without a real LLM or external worker.
+- Runtime contracts and lifecycle.
+- Separate tasks and task runs.
+- SQLite persistence, audit and migrations.
+- Fake worker with success, failure, pause, resume, cancel and invalid-event scenarios.
+- Localhost API and CLI.
+- Evidence-based verdict.
 
-Expected outputs:
+Exit evidence: 54 tests and all quality gates passing.
 
-- pnpm workspace;
-- strict TypeScript;
-- `packages/contracts`;
-- `packages/core`;
-- `packages/persistence`;
-- fake worker adapter;
-- localhost Fastify lifecycle API;
-- CLI lifecycle commands with text and JSON output;
-- minimal SQLite migrations;
-- unit, contract, persistence, integration, API, and CLI tests.
+## Phase 1.1 — contract stabilization ✅
 
-Acceptance:
+Goal: prove that the Phase 1 guarantees survive concurrency, malformed adapters and restart boundaries.
 
-- clean install;
-- typecheck passes;
-- lint passes;
-- tests pass offline;
-- invalid API boundary payloads are rejected;
-- a task can be created, run through a fake worker, cancelled, resumed, and audited;
-- `Task` and `TaskRun` are separate so retries and evidence remain immutable.
+- Shared worker and provider contract suites.
+- Transaction serialization and per-store context isolation.
+- Conservative interrupted-run recovery.
+- Virtual-time timeout tests.
+- Boundary enforcement and clean-tree verification.
+- Remediation of all audit findings.
 
-Verification: `docs/testing/phase-1-results.md` and
-`artifacts/phase-1-verification.json`.
+Exit evidence: 202 tests, coverage gates and clean-clone verification.
 
-## Phase 1.1 - Contract Stabilization, Adversarial Tests, and CI Baseline
+## Phase 2 — local inference ✅
 
-Status: complete.
+Goal: provide a useful local model path without weakening Core.
 
-Goal: independently verify Phase 1, fix what the audit found, and make the
-integration base trustworthy enough that Phase 2 can test a real adapter with
-the same contract suite as the fake.
+- Sanitized hardware discovery.
+- Hardware/model fit policy and explicit `MODEL_TOO_LARGE`.
+- Ollama provider adapter.
+- Timeout, cancellation and single-GPU semaphore.
+- Optional real-Ollama verification.
+- Scoped loopback worker gateway, off by default.
 
-Outputs:
+Exit evidence: `phase-2` tag, 410 tests, real-Ollama evidence and unchanged quality thresholds.
 
-- independent audit of Phase 1 with a recorded verdict (FAIL, remediated);
-- concurrency-safe transactions and per-task command serialization;
-- lifecycle commands validated separately from state edges (ADR 0008);
-- deferred finalization for a worker that completes while paused;
-- injected timer so timeouts are deterministic;
-- restart recovery policy for interrupted runs (ADR 0007);
-- per-store transaction context isolation (ADR 0010);
-- automatically enforced dependency boundaries;
-- reusable WorkerAdapter contract suite;
-- minimal InferenceProvider port and FakeInferenceProvider (ADR 0009);
-- adversarial lifecycle, persistence/recovery, security, and API/CLI
-  negative-path suites;
-- coverage reporting with regression gates;
-- GitHub Actions CI.
+## Phase 3 — first coding worker, closure candidate
 
-Acceptance:
+Status: complete through run 2F, pushed to `origin` for review, not merged and
+not tagged.
 
-- `pnpm verify` passes from a clean install;
-- a dependency boundary violation fails `pnpm verify`;
-- race tests are deterministic across repeated runs;
-- no real Ollama call, HTTP inference client, or cloud fallback exists.
+Goal: run a real open-source coding worker while keeping lifecycle, permissions and verdict authority in Core.
 
-Verification: `docs/testing/phase-1-1-results.md` and
-`artifacts/phase-1-1-verification.json`.
+Delivered:
 
-## Phase 2 - Ollama and Hardware Director
+- shared worker SDK and unchanged behavioural contract suite;
+- supervised, no-shell external processes;
+- official ACP SDK with explicit initialization and hard protocol-version negotiation;
+- real `opencode-ai` capability/configuration and network-behaviour probe;
+- generated forced-local configuration that selects only the IntentSmith gateway provider/model;
+- truthful capability and sandbox reporting;
+- run-scoped gateway tokens, redaction and revocation;
+- persisted approval requests, decisions and expiry;
+- git-backed `ProposedChangeSet`;
+- deterministic gate execution;
+- cancellation, timeout, failure and restart recovery;
+- API and CLI surface;
+- opt-in real-OpenCode integration suite.
 
-Status: complete (branch `phase-2-ollama-hardware`).
+Exit gates:
 
-Goal: run the first local model through a provider contract.
+- one terminal outcome per run;
+- no adapter writes Core state or persistence;
+- no token survives a terminal path;
+- unsupported capability is rejected, never simulated;
+- an unconfigured cloud model can never be selected for an IntentSmith run;
+- unavoidable provider-catalog traffic is either disabled or explicitly disclosed and policy-gated;
+- degraded isolation is clearly blocked or explicitly limited to disposable fixtures;
+- a real worker produces an inspectable change set and deterministic verdict;
+- default tests and build stay deterministic and independent of external
+  runtimes; strict network isolation and a cold-network install remain separate
+  evidence questions.
 
-Verification: `docs/testing/phase-2-results.md` and
-`artifacts/phase-2-verification.json`. ADRs 0011-0015.
+## Phase 4 — context and code intelligence
 
-Delivered: port ownership moved to `packages/inference`; local-only Ollama
-adapter passing the unchanged provider contract suite; metadata-driven cloud
-rejection; Hardware Director with injected probes; model-fit estimation
-separated from execution policy; provider scheduler; startup recovery before
-listen; API and CLI surfaces; loopback-only worker inference gateway; 402
-offline tests plus a separate opt-in real-Ollama suite.
+Goal: give workers useful project context without turning context services into authorities.
 
-Expected outputs:
+- MCP client boundary and protocol validation.
+- Serena adapter for code navigation and semantic tooling.
+- capability discovery and least-authority tool exposure;
+- bounded context budgets and cancellation;
+- audit metadata without persisting sensitive payloads;
+- contract and opt-in real-integration suites.
 
-- Ollama adapter;
-- health and model discovery;
-- GPU, VRAM, and RAM detection;
-- hardware profile;
-- model fit estimator;
-- single-GPU semaphore;
-- timeout and cancel;
-- local streaming;
-- OpenAI-compatible localhost adapter as a contract test double.
+Exit gates:
 
-Deferred from Phase 2 to a later phase: OS-level network isolation proving the
-daemon is not itself proxying remotely, and full multi-turn chat on the worker
-gateway.
+- no MCP server can change Core lifecycle directly;
+- every tool call is attributed to a task run and policy decision;
+- context failure degrades clearly and cannot create a pass;
+- external tools remain replaceable adapters.
 
-## Phase 3 - OpenCode Worker POC
+## Cross-cutting track — C3 semantic inheritance
 
-Status: complete through run 2F and a **closure candidate**, pushed to `origin`
-for review. Not merged, not tagged.
+Goal: retain the mature product model proven across C3's long development
+history without importing its monolithic implementation or weakening
+IntentSmith Core.
+
+The normative intake and progress record is the
+[C3 Capability & Lifecycle Ledger](migration/c3-capability-lifecycle-ledger.md).
+Roadmap work derived from C3 is not ready until its ledger entry identifies the
+source evidence, invariants, test families, ownership and migration decision.
+
+This track begins before Phase 4 and supplies contracts to later phases:
+
+1. **Semantic ledger** — inventory definitions, invariants, tests, failure modes
+   and version history for Expertises, Skills, Specialists, Autonomous Agents
+   and project lifecycle.
+2. **Contract ADRs** — freeze boundaries and resolve naming/ownership
+   ambiguities before writing runtime code.
+3. **Expertise contracts** — read-only synthesis profiles, deterministic
+   selection, 5D compatibility, inheritance and max-three composition.
+4. **Skill contracts** — versioned workflow definitions, persisted execution
+   state, interactive checkpoints and validation outcomes.
+5. **Specialist contracts** — self-contained manifests, capability routing,
+   deterministic ToolAdapters, knowledge provenance, scenarios, memory,
+   telemetry, dependency ordering and rollback-ready updates.
+6. **Autonomous-agent contracts** — schedules, sources, deterministic
+   conditions, edge triggers, cooldowns, crash-safe deduplication and
+   Core-governed actions.
+7. **Lifecycle extraction** — preserve specification, planning, milestone
+   scope, deterministic gates, checkpoint modes, bounded repair, drift review,
+   change management and recovery as policies over `Task`/`TaskRun`.
+
+Exit gates:
+
+ - no layer is collapsed into another for implementation convenience;
+ - every migrated invariant has a contract or negative test;
+ - C3 code is not copied wholesale;
+ - Core remains the only authority for state, approvals and verdicts;
+ - legacy behaviour is classified as preserve, redesign, replace with open
+   source, or retire, with recorded evidence.
+
+## Phase 3 integration record
 
 Entry gate (satisfied): Phase 2 is merged into `main` (`ec87dd0`, PR #2), the
 annotated `phase-2` tag exists, and CI for that merge completed successfully
 (workflow run `30337726989`).
-
-Goal: delegate one coding task to OpenCode while preserving core authority.
-The Phase 2 gateway is the only inference path a worker may use; Phase 3 extends
-it only after probing a pinned OpenCode build and documenting the requirement.
-
-Expected outputs:
-
-- disposable fixture repository;
-- OpenCode external process adapter;
-- capability and version discovery;
-- normalized event stream;
-- proposed diff collection;
-- approval before risky actions;
-- deterministic test evidence;
-- cancel, timeout, and recovery tests.
 
 ### Runs
 
@@ -279,18 +293,69 @@ Carried into this stage from Phase 3: strict-offline behaviour, sandboxed
 (`preferSandbox`) execution, degraded-sandbox runs, real-hardware single-GPU
 model switching, and model default selection.
 
-## Phase 4 - MCP and Serena
+## Phase 5 — multi-worker orchestration and hardening
 
-Goal: use external code intelligence instead of rebuilding LSP and symbol analysis.
+Goal: support more than one worker without creating implicit or unreviewable authority.
 
-Expected outputs:
+- OpenHands feasibility/adapter work.
+- explicit routing policy based on capability, hardware and task type;
+- retry and multi-run orchestration;
+- approval escalation and expiry;
+- stronger platform-specific isolation profiles;
+- resource budgets and backpressure;
+- multi-process design decision before Studio needs a second writer.
 
-- MCP client/server boundary;
-- Serena adapter;
-- capability map;
-- symbol lookup;
-- references;
-- diagnostics;
-- rename proof of concept;
-- audited tool calls;
-- unavailable-Serena fallback.
+## Phase 6 — domain intelligence, evaluation and observability
+
+Goal: make successful workflows reusable and measurable.
+
+- versioned IntentSmith Expertises and deterministic composition;
+- controlled IntentSmith Skills with checkpoints;
+- self-contained IntentSmith Specialists;
+- governed IntentSmith Autonomous Agents;
+- local evaluation corpus and regression harness;
+- structured performance and quality evidence;
+- privacy-preserving local diagnostics;
+- explicit project memory with retention and deletion controls.
+
+The evaluation harness will be designed from the staged research recorded in
+[Local model evaluation strategy](testing/local-model-evaluation-strategy.md):
+transport eligibility first, varied tool-selection and repair scenarios second,
+long finalist coding runs and GPU switching evidence after that, followed by
+carefully weighted empirical outcomes. This records direction, not final
+weights, thresholds or model assignments; those require an ADR.
+
+## Phase 7 — IntentSmith Studio
+
+Goal: provide a visual Theia-based experience over the same Core APIs.
+
+- project and task views;
+- plan, approval and change-set review;
+- run timeline and gate evidence;
+- local model and hardware settings;
+- worker/skill management;
+- no privileged Studio-only lifecycle path.
+
+## Phase 8 — IntentSmith Forge Local
+
+Goal: package the complete local product for developers who do not want to assemble the monorepo.
+
+- desktop installer and updates;
+- guided hardware/model setup;
+- local service lifecycle;
+- diagnostics, backup and export;
+- signed artifacts and dependency provenance;
+- clear offline and optional-network modes.
+
+## Cross-phase rules
+
+Every phase must:
+
+- keep stable contracts runtime-validated;
+- preserve deterministic offline tests;
+- avoid silent cloud fallback;
+- keep vendor shapes out of Core;
+- add or update threat models for new trust boundaries;
+- record architectural decisions before they become expensive to reverse;
+- publish exact evidence and known limitations;
+- avoid lowering quality gates to make a phase pass.

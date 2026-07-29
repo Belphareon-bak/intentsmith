@@ -69,7 +69,7 @@ is green, and an annotated `phase-2` tag exists".
 | C4 | Normalized event stream | `adapter.ts`, `strict-stream.ts`, `stop-reason.ts` | `contract-correctness.test.ts` "emits exactly one terminal event on success" / "…when the agent answers twice" / "records a tool call as evidence but a message only as an artifact"; `strict-stream.test.ts` (14 framing and bound cases) | PASS | none |
 | C5 | Proposed diff collection | `apps/server/src/opencode/change-evidence.ts` via `captureProposedChanges` | `authoritativeSource: 'git'` by construction; 2C `git.diffDigest` `2d2a874…`, `changedPaths: ["src/answer.js"]` | PASS | none |
 | C6 | Approval before risky actions | `packages/worker-sdk/src/capability.ts`, `apps/server/src/opencode/approval-desk.ts`, `approval-routes.ts` | `capability.test.ts` "requires approval for an edit inside the workspace"; `executable-composition.test.ts` "refuses to pass an unapproved edit even though the worker succeeded"; 2C `deny-while-pending` shows `protectedFileChanged: false` | PASS | see D4 for the shell case |
-| C7 | Deterministic test evidence | `vitest.config.ts` excludes `tools/opencode/**` and `tools/ollama/**`; gates are commands IntentSmith chose | 866 tests across 54 files run fully offline with no OpenCode, Ollama, GPU or network | PASS | none |
+| C7 | Deterministic test evidence | `vitest.config.ts` excludes `tools/opencode/**` and `tools/ollama/**`; gates are commands IntentSmith chose | 866 tests across 54 files; the deterministic tests and build require no OpenCode, Ollama, GPU or other external runtime. The measured install used an already populated pnpm store; network isolation and a cold-network installation were not proven | PASS | none |
 | C8 **(2F)** | Cancel, timeout and recovery tests | `pending-permission.test.ts`, `contract-correctness.test.ts`, `startup.test.ts`, `restart-recovery.process.test.ts` | Cancel and timeout proven offline **and** against the real binary (2C `cancel-while-pending`, `timeout-while-pending`, both with `protectedFileChanged: false` and `lateApprovalHttpStatus: 404`). Recovery is now proven on the OpenCode composition across a real process death — see D5 | PASS | none |
 
 ## D. Phase 3 test matrix (`docs/test-matrix-phase-1-to-4.md`)
@@ -142,7 +142,7 @@ defect; each is a claim the project has deliberately declined to make.
 | H6 | Degraded-sandbox runs on a real project | `docs/STATUS.md` | NOT PROVEN | Disposable fixtures only. Local validation stage |
 | H7 | Model defaults | `docs/STATUS.md`; `docs/testing/phase-3b-model-probe.md` | NOT PROVEN | The ten-formulation robustness run supersedes the repeated-prompt scores; choosing a default needs more evidence |
 | H8 | Real-hardware single-GPU model switching | ADR 0019 | NOT PROVEN | Proven against a fake daemon; the real-hardware suite stays opt-in. Local validation stage |
-| H9 **(2F)** | A recovered task starting a new run of its own | ADR 0007, ADR 0008, D5 | NOT PROVEN | Not supported, by decision. An interrupted run's task is terminal, terminal statuses accept no lifecycle command, and retry orchestration is deferred to a later phase. A new attempt is a new task, which D5 proves works. Revisit only when retry orchestration is actually specified; do not describe this as recovery being incomplete |
+| H9 **(2F)** | A recovered task starting a new run of its own | ADR 0007, ADR 0008, D5 | NOT PROVEN | Not supported, by decision. An interrupted run's task is terminal, terminal statuses accept no lifecycle command, and generic task-level retry orchestration is deferred to a later phase. A new attempt is a new task, which D5 proves works. Revisit only when that orchestration is actually specified; do not describe this as recovery being incomplete |
 | H10 **(2F)** | Cleaning up a worker orphaned by SIGKILL | `restart-recovery.process.test.ts` | NOT PROVEN | Not possible, and deliberately not attempted. A Core killed with SIGKILL runs no cleanup, so its OpenCode process is reparented and survives. Recovery does not kill the recorded pid, because a pid from before a restart may belong to something else by then. What the system provides is identification — `worker.process_start` records the process-group leader in the audit trail — not action. The regression asserts the orphan exists rather than pretending it does not |
 
 ## Totals
@@ -183,8 +183,8 @@ At the end of 2E, four items were real work. Run 2F closed all four.
 What remains non-PASS is now, in every case, either a deliberate non-claim
 (H1-H10), a specification wording that has been corrected but whose stronger
 original reading is intentionally not implemented (C3, D2, D4), a boundary this
-layer cannot enforce (F8), or CI for an unpushed branch (G7). None of them is a
-hidden defect, and none of them is work someone forgot.
+layer cannot enforce (F8), or CI for a branch push that triggers no workflow
+(G7). None of them is a hidden defect, and none of them is work someone forgot.
 
 ## What closure does *not* require, and why
 

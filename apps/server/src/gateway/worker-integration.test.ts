@@ -19,7 +19,8 @@ import { GatewayTokenStore } from './token-store.js';
  *
  * This is the integration evidence Phase 3 turns on, so it uses a real
  * gateway on a real loopback socket and a real child process. The only fake is
- * the Ollama transport, which is what keeps `pnpm verify` offline.
+ * the Ollama transport, so deterministic verification needs no external
+ * inference runtime.
  */
 
 const cleanups: Array<() => void | Promise<void>> = [];

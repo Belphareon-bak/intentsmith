@@ -1,9 +1,11 @@
-# Status
+# Project status
 
-## Current Phase
+Last updated: 2026-07-29.
+
+## Phase 3 closure candidate
 
 Phase 3 - OpenCode Worker POC, on `phase-3-opencode-worker`. Complete through
-run 2F and a **local closure candidate**: every Phase 3 gate has been executed
+run 2F and a **closure candidate**: every Phase 3 gate has been executed
 and recorded, and nothing required remains FAIL. The branch is pushed to
 `origin` for review; **it is not merged and not tagged** — independent review
 comes before integration.
@@ -18,91 +20,64 @@ The requirement-level audit against the original Phase 3 specification is
 `docs/testing/phase-3-acceptance-matrix.md`, and the closure evidence is
 `docs/testing/phase-3-results.md` with `artifacts/phase-3-verification.json`.
 
-## Reference State
+## Release baseline
 
-- Source repository: `Belphareon-bak/C3-agent`
-- Local reference path: `/home/belphareon/Projects/c3-agent-wip`
-- Reference commit: `a7b90e36aa80310305703f54f2332e1c0e7f9e8f`
-- Current repository: `/home/belphareon/Projects/intentsmith`
-- Current repository purpose: local deterministic control-plane implementation
+The stable branch is `main` at Phase 2:
 
-## Product Names
+- merge commit: `ec87dd0f52d010726b2ca9409ec6fbceefa778fe`;
+- annotated tag: `phase-2`;
+- verification: 410 tests across 25 files;
+- coverage: 91.65% statements, 83.10% branches, 90.02% functions, 93.37% lines;
+- all install, typecheck, lint, test, coverage, build and verification gates pass.
 
-- Whole product: IntentSmith
-- Local control plane: IntentSmith Core
-- Theia IDE: IntentSmith Studio
-- Worker layer: IntentSmith Workers
-- Workflow and specialist layer: IntentSmith Skills
-- Desktop distribution: IntentSmith Forge Local
-- CLI: `intentsmith`
-- Main package: `intentsmith-core`
+This is the behaviour described as **stable** in the current documentation.
 
-## Phase 1 Implementation
+## Stable capabilities
 
-- Existing C3 worktree was inspected and left unmodified.
-- No source file from C3 was copied into this repository.
-- The workspace contains contracts, core, SQLite persistence, testing utilities,
-  localhost Fastify API, and the `intentsmith` CLI.
-- The fake worker uses no shell, network, LLM, or external process.
-- Core owns lifecycle transitions, final verdicts, and audit meaning.
-- `Task` and `TaskRun` are separate by ADR 0006.
-- Phase 1 verification evidence is stored in
-  `artifacts/phase-1-verification.json`.
+### Core and contracts
 
-## Phase 1.1 Implementation
+- Runtime-validated TypeBox contracts.
+- Explicit `Task` and `TaskRun` records.
+- Audited lifecycle with invalid-transition rejection.
+- Terminal `cancelled` state and resume only from `paused`.
+- Evidence-based `CoreVerdict`; worker self-report alone cannot yield `pass`.
+- Provider and worker ports kept independent of vendor transport types.
 
-- An independent audit of Phase 1 returned **FAIL**: every declared gate passed,
-  but four defects broke guarantees the Phase 1 documentation and ADR 0006
-  claim. All four were reproduced before any code changed and now have
-  regression tests. Details in `docs/testing/phase-1-1-results.md`.
-- Transactions are concurrency-safe and lifecycle commands are serialized per
-  task, so two overlapping requests produce a domain error rather than a raw
-  SQLite failure.
-- Lifecycle commands are validated as commands, not bare state edges, so resume
-  works only from `paused` (ADR 0008).
-- A worker that completes while its task is paused is finalized on resume
-  instead of having its outcome dropped.
-- Worker timeouts run on an injected timer, so no test result depends on machine
-  speed.
-- Interrupted runs found after a restart are closed as failed with a blocked
-  result and are never auto-restarted (ADR 0007).
-- Dependency boundaries are enforced automatically and fail `pnpm verify`.
-- A reusable WorkerAdapter contract suite and a minimal InferenceProvider port
-  with `FakeInferenceProvider` exist (ADR 0009). No real provider is implemented
-  and the port is not wired into the task lifecycle.
-- Coverage is reported with regression gates, and GitHub Actions runs
-  `pnpm verify` on pull requests and pushes to `main`. The clean-tree gate uses
-  `git status --porcelain`, so a new untracked artefact fails the build too.
-- A post-audit review of the Phase 1.1 changes found that the reentrant
-  transaction context was module-level and therefore shared between separate
-  `SQLiteStore` instances, which could drop a nested store's rollback. The
-  context is now owned by the store instance (ADR 0010).
-- Test count went from 54 to 196; the suite runs faster because timeouts are
-  virtual.
+### Persistence and recovery
 
-## Phase 2 Implementation
+- SQLite migrations, foreign keys and WAL.
+- Atomic, per-store serialized transactions.
+- Instance-isolated async transaction contexts for multiple stores.
+- Append-only audit API with no update/delete surface.
+- Idempotent conservative recovery of interrupted runs.
+- Unknown schema versions fail closed.
 
-- The `InferenceProvider` port moved from Core into `packages/inference` so a
-  concrete adapter never depends on Core (ADR 0011).
-- `packages/adapter-ollama` implements the unchanged provider contract against a
-  local Ollama daemon, pinned against observed version `0.17.7`.
-- Local-only endpoint policy and metadata-driven remote-model rejection
-  (ADR 0012). A request to `127.0.0.1:11434` is not automatically local: a
-  signed-in Ollama serves cloud models over the same socket, so enforcement uses
-  `remote_model`/`remote_host` metadata at discovery, preflight and every stream
-  record. The `-cloud` name suffix is advisory only.
-- `packages/hardware` reports evidence without false precision and never
-  modifies the machine. `nvidia-smi` runs through a dedicated read-only probe
-  with no shell and a frozen argument list. Driver versions are always read
-  live, never hardcoded.
-- Model-fit estimation is separate from execution policy (ADR 0013). VRAM is
-  never summed across GPUs, and unknown stays unknown.
-- Provider scheduler: one active generation by default, FIFO, bounded queue.
-- Startup recovery runs before the server binds and stops startup on failure
-  (ADR 0014), resolving the invocation point ADR 0007 deferred.
-- A loopback-only worker inference gateway (ADR 0015) gives a future external
-  worker the same guarantees as the user's own API, behind a per-run token.
-- 402 tests across 24 files; `pnpm verify` stays fully offline.
+### Local inference
+
+- Sanitized hardware discovery.
+- Explicit hardware/model profiles and single-GPU concurrency control.
+- Ollama adapter behind the provider contract.
+- Timeout, cancellation and transport errors mapped to stable domain errors.
+- No prompt, model response or GPU UUID persisted by the verified path.
+- Optional real-Ollama integration suite.
+
+### Local interfaces
+
+- Fastify API bound to `127.0.0.1`.
+- `intentsmith` CLI with text and JSON output.
+- Optional worker gateway, disabled by default.
+- Gateway binds only to loopback, issues run-scoped tokens and revokes all
+  tokens on close.
+
+### Verification
+
+- Deterministic fake worker and provider.
+- Virtual time for timeout tests.
+- Shared contract suites.
+- Executable dependency-boundary checks.
+- Clean-tree and clean-clone verification.
+- Default deterministic gates require no model, GPU, cloud service or external
+  worker.
 
 ## Phase 3B Implementation
 
@@ -131,7 +106,10 @@ The requirement-level audit against the original Phase 3 specification is
   before switching, and derives `keep_alive` from the queue.
 - Git-backed change capture reads what the worker actually changed, read-only,
   and a successful claim whose change set is unacceptable does not pass.
-- 694 tests across 44 files; `pnpm verify` stays fully offline.
+- 694 tests across 44 files at that checkpoint. The deterministic tests and
+  build do not require OpenCode, Ollama, a GPU or another external runtime. The
+  measured installation used an already populated pnpm store; network isolation
+  and a cold-network installation were not proven.
 
 ## Phase 3 Runs 2A-2D
 
@@ -247,8 +225,6 @@ pull requests and pushes to `main`, and no pull request is open.
 
 ## Phase 3B - Not Proven
 
-- Cancel, timeout and process failure while a permission is outstanding, against
-  the real binary.
 - Parallel tool calls (refused, not supported).
 - `skill`, `task`, `todowrite` and `webfetch` payload shapes and side effects.
 - Strict-offline execution: NOT PROVEN while OpenCode fetches its provider
@@ -256,6 +232,9 @@ pull requests and pushes to `main`, and no pull request is open.
 - Degraded-sandbox runs remain disposable-fixture-only. No real project.
 - Model defaults. The ten-formulation robustness run supersedes the
   repeated-prompt scores and moved `qwen3.5:27b` from 30/30 to 91/100.
+- A SIGKILL-orphaned OpenCode process may survive, but it has no usable
+  in-memory gateway authority after Core dies.
+- `ApprovalLedger.recoverAfterRestart()` is not wired directly into startup.
 
 ## Deferred Beyond Phase 1
 
@@ -274,5 +253,63 @@ pull requests and pushes to `main`, and no pull request is open.
   independently. That is correct for a single local control-plane process;
   nothing coordinates two OS processes against one database file beyond
   SQLite's own locking and the configured busy timeout.
-- Retry policy is represented in contracts; retry orchestration begins in a
-  later phase.
+- Phase 3 implements only its evidence-bounded single protocol retry. Generic
+  retry and multi-run orchestration remain later work.
+
+## Completed phases
+
+| Phase | Result |
+| --- | --- |
+| Phase 0 — foundation | Product boundaries, dependency research, ADRs and monorepo plan |
+| Phase 1 — deterministic core | Lifecycle, SQLite, fake worker, localhost API and CLI |
+| Phase 1.1 — contract stabilization | 14 audit findings plus per-store transaction-context isolation fixed; 202 tests |
+| Phase 2 — local inference | Hardware director, Ollama provider and scoped worker gateway; 410 tests |
+
+## Not implemented on stable `main` before Phase 3 integration
+
+- external coding worker execution;
+- persisted approval decisions;
+- retry orchestration;
+- MCP or Serena integration;
+- expertise composition runtime;
+- skills workflow runtime;
+- specialist plugin runtime;
+- autonomous-agent scheduler;
+- Studio;
+- desktop packaging;
+- multi-process Core coordination;
+- authentication for non-loopback or multi-user operation;
+- cloud inference.
+
+## Known stable limitations
+
+- The CLI expects a running localhost server.
+- SQLite correctness is designed for one local IntentSmith process, not multiple writers.
+- Recovery is available and tested but automatic startup invocation requires explicit user-notification policy.
+- The gateway has no benefit without an external worker and therefore remains off by default.
+- Local process controls do not constitute a portable operating-system sandbox.
+
+## Evidence
+
+Phase-specific human-readable results live in `docs/testing/`, machine-readable verification artifacts in `artifacts/`, and audits in `docs/reports/`. Historical reports retain their original phase context.
+
+## C3 semantic inheritance
+
+No C3 source code is used by the stable IntentSmith runtime. The following
+proven concepts are, however, explicit migration inputs rather than discarded
+prototype ideas:
+
+- 15 built-in expertises, deterministic auto-selection, 5D compatibility and
+  composition of up to three profiles;
+- controlled Skills with persisted checkpoints and result contracts;
+- self-contained Specialists with manifest-driven lifecycle, deterministic
+  tools, knowledge, scenarios, memory and telemetry;
+- deterministic Autonomous Agents with scheduling, sources, conditions,
+  edge-triggering and crash-safe deduplication;
+- project lifecycle from specification and planning through milestone gates,
+  review, change management and recovery.
+
+Their current status is **documented for semantic extraction, not implemented in
+IntentSmith**. See [Domain intelligence and autonomy](product/domain-intelligence.md)
+and the normative
+[C3 Capability & Lifecycle Ledger](migration/c3-capability-lifecycle-ledger.md).

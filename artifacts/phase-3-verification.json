@@ -108,7 +108,9 @@
     "lint": "pass",
     "typecheck": "pass",
     "build": "pass",
-    "offline": true
+    "deterministicExternalRuntimeIndependent": true,
+    "networkIsolationProven": false,
+    "coldNetworkInstallProven": false
   },
   "restartRecovery": {
     "test": "apps/server/src/opencode/restart-recovery.process.test.ts",
@@ -171,7 +173,7 @@
     "fullMatrixRepeated": false,
     "fullMatrixRepeatReason": "2C already recorded all five scenarios once with cleanup evidence, and the change under re-examination does not touch the other three.",
     "fiveRunsOfRealBinary": false,
-    "fiveRunsOfRealBinaryReason": "The five-run convention applies to the deterministic offline suite. A 14B model's output is not reproducible, so five real-binary transcripts could not support the claim the convention exists to make.",
+    "fiveRunsOfRealBinaryReason": "The five-run convention applies to the deterministic external-runtime-independent suite. A 14B model's output is not reproducible, so five real-binary transcripts could not support the claim the convention exists to make.",
     "scenarios": [
       {
         "scenario": "approved-edit",
