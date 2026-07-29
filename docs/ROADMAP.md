@@ -118,8 +118,12 @@ gateway.
 
 ## Phase 3 - OpenCode Worker POC
 
-Blocked until Phase 2 is merged into `main`, CI is green, and an annotated
-`phase-2` tag exists.
+Status: implementation complete through run 2D, **not closed**. Not merged, not
+tagged. The remaining closure work is listed below.
+
+Entry gate (satisfied): Phase 2 is merged into `main` (`ec87dd0`, PR #2) and the
+annotated `phase-2` tag exists. The CI status for that merge has not been read
+into the record.
 
 Goal: delegate one coding task to OpenCode while preserving core authority.
 The Phase 2 gateway is the only inference path a worker may use; Phase 3 extends
@@ -135,6 +139,40 @@ Expected outputs:
 - approval before risky actions;
 - deterministic test evidence;
 - cancel, timeout, and recovery tests.
+
+### Runs
+
+| Run | Subject |
+|---|---|
+| 2A | fail-closed OpenCode configuration, evidence-bounded protocol retries, Git-backed evidence required for code verdicts, permission-pending lifecycle cleanup |
+| 2B | executable authority stack, run-scoped approval decision surface, structured lifecycle and protocol evidence, trusted verdict provenance |
+| 2C | pinned real `opencode-ai@1.18.8` with real local `qwen3:14b` on an RTX 3090: approved edit plus four terminal paths |
+| 2D | authenticated remote access for a single operator over a private VPN (ADR 0020) |
+
+Runs 2A-2D are complete. A requirement-level audit of all four against this
+specification is in `docs/testing/phase-3-acceptance-matrix.md`: 30 PASS,
+6 PARTIAL, 11 NOT PROVEN, 3 FAIL across 50 requirements.
+
+### Remaining Phase 3 closure work
+
+1. An offline restart-recovery regression on the OpenCode composition. The
+   matrix row "killed worker, task remains recoverable" is proven for a worker
+   killed during a run, but restart recovery is proven only with the in-process
+   fake, and nothing proves a task can start a new run afterwards.
+2. Five identical deterministic full-suite runs at the closure commit.
+3. A clean-clone `pnpm verify` at the closure commit. The Phase 3B result no
+   longer describes this tree.
+4. `docs/testing/phase-3-results.md` and `artifacts/phase-3-verification.json`,
+   in the shape every previous phase produced.
+5. A README "Current State" that names Phase 3.
+6. Read and record the CI status for the closure commit.
+7. Two wording corrections so the specification matches the implementation:
+   binary version is operator-declared and harness-verified rather than
+   discovered by the adapter, and shell is denied outright rather than
+   approval-gated.
+
+Only item 1 could change production behaviour, and only if the regression finds
+something.
 
 ## Phase 3B - Tool Capability Mediation
 
@@ -157,6 +195,84 @@ Delivered:
 - Core-owned model profiles and single-GPU residency scheduling.
 
 ADRs 0017, 0018, 0019. Evidence in `artifacts/phase-3b-verification.json`.
+
+## Phase 3 run 2D - Remote Operator Access
+
+Delivered: the main API can be bound to a private VPN interface behind one
+operator bearer token, supplied at runtime. The loopback default is unchanged
+and requires no configuration and no credential.
+
+Remote mode is an explicit opt-in that fails closed before anything is opened: a
+non-loopback bind without the opt-in, the opt-in without a credential, a weak
+credential, a credential nothing would enforce, an unsupported opt-in value, a
+wildcard bind and a hostname are all startup errors. Authentication is one
+`onRequest` hook registered before any route, so no route can forget to ask, and
+in remote mode nothing is public. The worker inference gateway stays
+loopback-only with its own per-run tokens.
+
+Transport confidentiality is entirely the VPN's; IntentSmith terminates no TLS,
+and direct public-internet exposure is unsupported. Accepted alpha limits:
+rotation is a restart, no accounts, no roles, no rate limiting.
+
+ADR 0020. Documented in `docs/security/remote-vpn-access.md`.
+
+## Post-Phase-3 - Local Validation and Soak Testing
+
+A validation stage, not a development phase. It runs **after** Phase 3 is closed
+and **before** Phase 3.1 begins. Nothing in it is implemented yet, and this
+section is a specification only.
+
+Its purpose is to find out what a week of real use does to a system that has so
+far been proven one scenario at a time. Phase 3 proved that each guarantee holds
+once. This stage asks whether they hold repeatedly, overnight, and under a real
+model's variability.
+
+Environment, pinned:
+
+- real `opencode-ai@1.18.8`, installed outside this repository, version-checked
+  before every session;
+- local Ollama serving `qwen3:14b` on the RTX 3090;
+- disposable managed workspaces, created and destroyed per run, never a real
+  project;
+- an isolated `HOME` and `XDG_*` per run, so nothing inherits or leaves behind
+  developer state.
+
+Method:
+
+- an overnight runner with checkpoint and resume, so an interrupted night is
+  resumable evidence rather than a discarded one;
+- **deterministic gates** (exit codes, schema-valid artifacts, invariant checks)
+  evaluated separately from **behavioural evidence** (what the model and the
+  agent actually did), because the second is not reproducible and must never be
+  scored as though it were;
+- every scenario classified **PASS**, **FAIL** or **BLOCKED**, with BLOCKED
+  reserved for a missing precondition and never used to hide a failure;
+- comparison against a recorded baseline, so a regression is a difference rather
+  than an opinion;
+- machine-readable artifacts as the primary output, with prose derived from them
+  and never the other way round.
+
+Leak checks, run after every session:
+
+- **resources** — file descriptors, sockets, temporary directories, disk;
+- **processes** — no orphan in any run's process group, no surviving child;
+- **tokens** — no gateway or operator credential in any artifact, log, audit
+  record, database row or error message;
+- **approvals** — no grant outliving its run, no standing permission, no waiter
+  left suspended.
+
+Constraints:
+
+- the runner **never changes production code automatically**. It reports; a
+  human decides;
+- **no claim of strict-offline operation** unless network activity is actually
+  observed and the observation is part of the artifact. "No cloud traffic seen"
+  is not "cloud traffic impossible", and the distinction has already been
+  recorded once in Phase 3B.
+
+Carried into this stage from Phase 3: strict-offline behaviour, sandboxed
+(`preferSandbox`) execution, degraded-sandbox runs, real-hardware single-GPU
+model switching, and model default selection.
 
 ## Phase 4 - MCP and Serena
 

@@ -2,12 +2,19 @@
 
 ## Current Phase
 
-Phase 3B - Tool capability mediation, on `phase-3-opencode-worker`.
+Phase 3 - OpenCode Worker POC, on `phase-3-opencode-worker`. Implementation is
+complete through run 2D. **Phase 3 is not closed, not merged and not tagged.**
 
-Phase 1.1 is merged (`bd0a6a5`, PR #1) and tagged `phase-1.1`. Phase 2 lives on
-`phase-2-ollama-hardware`. Phase 3 reached a green H checkpoint at `0fca7fd`
-(inference-only OpenCode integration, tool calling refused outright); Phase 3B
-builds on it and does not rewrite it.
+Phase 1.1 is merged (`bd0a6a5`, PR #1) and tagged `phase-1.1`. Phase 2 is merged
+(`ec87dd0`, PR #2) and tagged `phase-2`, which satisfies the Phase 3 entry gate.
+Phase 3 reached a green H checkpoint at `0fca7fd` (inference-only OpenCode
+integration, tool calling refused outright); Phase 3B built on it without
+rewriting it, and runs 2A-2D built on Phase 3B.
+
+The requirement-level audit of runs 2A-2D against the original Phase 3
+specification is `docs/testing/phase-3-acceptance-matrix.md`: 30 PASS, 6
+PARTIAL, 11 NOT PROVEN, 3 FAIL across 50 requirements. The remaining closure
+work is listed in `docs/ROADMAP.md` and repeated below.
 
 ## Reference State
 
@@ -124,6 +131,95 @@ builds on it and does not rewrite it.
   and a successful claim whose change set is unacceptable does not pass.
 - 694 tests across 44 files; `pnpm verify` stays fully offline.
 
+## Phase 3 Runs 2A-2D
+
+All four runs are complete. Each item below says which of four things it is:
+**implemented and proven**, **partially proven**, **implemented but not
+proven**, or **deferred**.
+
+### Run 2A - fail-closed worker configuration
+
+- *Implemented and proven*: an OpenCode configuration that cannot support
+  mediation stops startup instead of quietly reverting to the fake worker;
+  protocol retries are bounded by side-effect evidence rather than by a count;
+  a code verdict requires Git-backed evidence; a permission left pending when a
+  run ends is cleaned up rather than left suspended.
+
+### Run 2B - executable authority stack
+
+- *Implemented and proven*: `INTENTSMITH_WORKER=opencode` composes the adapter,
+  the approval ledger, the capability mediator, Git evidence, the gates and
+  run-scoped inference grants together, with no third state in which OpenCode
+  runs without them. The run-scoped approval decision surface is executable over
+  HTTP. Lifecycle and protocol evidence is persisted as structured records that
+  carry no prompt, model response or wire payload. The terminal verdict cites
+  trusted provenance IntentSmith read itself.
+
+### Run 2C - pinned real binary
+
+- *Implemented and proven*: against real `opencode-ai@1.18.8` and real local
+  `qwen3:14b` on an RTX 3090, an approved edit reaches `passed` on a Git digest
+  and IntentSmith-run gates, and four terminal paths — deny, cancel, timeout and
+  worker termination, each with an approval outstanding — leave no side effect,
+  no orphan process, no surviving gateway token and no suspended waiter.
+  Evidence: `artifacts/phase-3-2c-real-binary.json`.
+- *Implemented but not proven*: strict-offline execution, sandboxed
+  (`preferSandbox`) execution, and concurrent runs sharing one Git working tree.
+  The 2C run recorded these as not proven and they remain so.
+
+### Run 2D - remote operator access
+
+- *Implemented and proven*: the loopback default is unchanged; the VPN opt-in is
+  explicit and any other value refuses; one runtime-supplied operator credential
+  is required and is never generated, stored, substituted, logged, audited or
+  returned; authentication is one `onRequest` hook registered before any route,
+  so it runs before body parsing, validation and every handler, and nothing is
+  public in remote mode; a wildcard bind and a hostname are refused; the worker
+  gateway stays loopback-only with its own per-run tokens and rejects the
+  operator credential.
+- *Implemented and proven at process level*: the real entry point, spawned as a
+  child process, exits non-zero on eight unsafe configurations, opens no
+  listener, creates no database, and names the violated rule without echoing the
+  supplied credential
+  (`apps/server/src/startup-refusal.process.test.ts`).
+- *Partially proven*: "direct public exposure is unsupported" is enforced only
+  where the process can enforce it — a wildcard bind and a hostname are refused.
+  A port forward in front of a correctly bound VPN interface is a documented
+  boundary, not an enforced one.
+- *Deferred by decision, not oversight*: rotation is a restart; there are no
+  accounts, no roles and no rate limiting; the CLI does not send the credential
+  and is local-only in this alpha. ADR 0020 records why each is acceptable and
+  on what premise.
+
+### Partially proven across Phase 3
+
+- **Killed worker recovery.** A worker killed during a run settles cleanly, with
+  no orphan process, no surviving grant and no side effect — proven offline and
+  against the real binary. Restart recovery of an interrupted run is proven only
+  with the in-process fake worker, and nothing proves a task whose run was
+  recovered can start a new run. This is the one functional gap.
+- **Version discovery.** ACP protocol version and agent capabilities are
+  negotiated, recorded and refused on mismatch. The OpenCode *binary* version is
+  operator-declared and verified by the real-binary harness, not discovered by
+  the adapter.
+- **Shell policy.** `bash` is denied outright rather than approval-gated,
+  because an approval for a command string cannot be bound to a workspace scope.
+  This is stricter than the Phase 3 test matrix row, which still says shell
+  requires approval.
+
+## Remaining Phase 3 Closure Work
+
+1. Offline restart-recovery regression on the OpenCode composition.
+2. Five identical deterministic full-suite runs at the closure commit.
+3. Clean-clone `pnpm verify` at the closure commit.
+4. `docs/testing/phase-3-results.md` and `artifacts/phase-3-verification.json`.
+5. README "Current State" updated to Phase 3.
+6. CI status for the closure commit read and recorded.
+7. Two specification wording corrections: binary version discovery and shell
+   policy, as described above.
+
+Phase 3 is closed only when these are done. It is not closed now.
+
 ## Phase 3B - Not Proven
 
 - Cancel, timeout and process failure while a permission is outstanding, against
@@ -139,11 +235,16 @@ builds on it and does not rewrite it.
 ## Deferred Beyond Phase 1
 
 - Run formal trademark and domain checks before final public naming.
-- External workers, ACP, MCP, Serena, Studio, desktop distribution,
-  authentication, and shell execution remain unimplemented.
+- MCP, Serena, Studio, desktop distribution and shell execution remain
+  unimplemented. Shell is not merely absent: `bash` is a denied capability.
 - Ollama is implemented as of Phase 2, local-only. IntentSmith never installs
   Ollama, signs in, uses an API key, downloads a model, or contacts ollama.com.
-- No worker exists yet; the Phase 2 gateway is a foundation, not an integration.
+- External workers and ACP are implemented as of Phase 3: the OpenCode adapter
+  speaks ACP to a real child process, and the Phase 2 gateway is now a working
+  integration rather than a foundation.
+- Authentication is implemented as of run 2D, in exactly one shape: a single
+  operator bearer token over a private VPN (ADR 0020). There are no accounts,
+  roles, sessions or rotation, and the CLI does not send the credential.
 - Concurrency is serialized per SQLite connection, and independent stores run
   independently. That is correct for a single local control-plane process;
   nothing coordinates two OS processes against one database file beyond
