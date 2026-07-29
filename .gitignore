@@ -11,14 +11,18 @@ pnpm-lock.yaml
 pnpm-workspace.yaml
 
 # Database
-data/*.db
-data/*.db-shm
-data/*.db-wal
+data/*.db*
+data/*.sql
+data/*.malformed
+data/*.pre-recover
 
 # Generated artifacts
 data/artifacts/
 data/backups/
 data/history/
+/.intentsmith-artifacts/
+/e2e-review/
+/test-reports/
 e2e-report.json
 e2e-latest.json
 e2e-quality-deep.json
@@ -31,6 +35,12 @@ projects/
 
 # E2E test transcripts
 test-transcripts/
+/tests/e2e-transcript-*.md
+
+# Known leaked generated-project paths from disputed final commit
+/login.html
+/templates/admin/dashboard.html
+/templates/products/detail.html
 
 # Temp files
 *.tmp
@@ -56,6 +66,7 @@ c3-ide/yarn.lock
 
 # Logs
 *.log
+/.c3-backend.log*
 logs/
 
 # OS

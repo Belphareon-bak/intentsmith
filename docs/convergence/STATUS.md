@@ -26,11 +26,11 @@ Gate 0 — trustworthy baseline recovery.
 
 ## Last completed action
 
-Read the normative handoff, inspected both repositories, recorded the frozen refs, and created the target IntentSmith integration worktree from the clean C3 parent.
+Classified all 225 `a7b90e3..ffd21cf` diff records and added path-only repository-hygiene protections without opening suspected personal content.
 
 ## Next action
 
-Build the complete `a7b90e3..ffd21cf` path disposition and repository-hygiene inventory without opening suspected personal content.
+Verify and commit the disposition/hygiene checkpoint, then replay the 124 `KEEP` records and reconstruct the 10 `REBUILD` records in small thematic changes.
 
 ## Blockers
 

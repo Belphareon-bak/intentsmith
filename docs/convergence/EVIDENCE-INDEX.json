@@ -10,5 +10,33 @@
     "intentSmithDonor": "6676902c5f6fe7a5d66aba0d79cb502e0f3a60e4",
     "localValidationCandidate": "b0d28bbfd9d4ed55e19a72719ad5e9b776b96c12"
   },
-  "artifacts": []
+  "artifacts": [
+    {
+      "id": "G0-E001",
+      "type": "disposition",
+      "path": "docs/convergence/FINAL-COMMIT-DISPOSITION.md",
+      "command": "git diff --name-status a7b90e3..ffd21cf",
+      "exitCode": 0,
+      "records": 225,
+      "sourceSha": "ffd21cf119865259ea1847af989acb24916bebe3"
+    },
+    {
+      "id": "G0-E002",
+      "type": "remote-metadata",
+      "provider": "GitHub repository metadata API",
+      "checkedAt": "2026-07-30",
+      "repositories": [
+        {
+          "name": "Belphareon-bak/C3-agent",
+          "visibility": "public",
+          "defaultBranch": "master"
+        },
+        {
+          "name": "Belphareon-bak/intentsmith",
+          "visibility": "public",
+          "defaultBranch": "main"
+        }
+      ]
+    }
+  ]
 }

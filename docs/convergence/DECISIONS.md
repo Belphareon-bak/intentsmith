@@ -15,6 +15,8 @@
 | D-009 | Confirmed public exposure is treated as compromise; third-party download is unknown | current user decision and handoff | ACCEPTED |
 | D-010 | All new commits are pushed only to `codex/intentsmith-1.0` in the IntentSmith repository; C3 is reference upstream and receives no pushes | current user decision | ACCEPTED |
 | D-011 | The integration branch starts at clean C3 parent `a7b90e3`; classified `ffd21cf` changes are replayed as new clean commits | current user decision and non-destructive baseline strategy | ACCEPTED |
+| D-012 | Runtime/private/generated paths from `ffd21cf` are excluded by clean replay; the disputed ref remains untouched and no user data is deleted | Gate 0 disposition evidence | ACCEPTED |
+| D-013 | Raw test/model logs go only to ignored `.intentsmith-artifacts/`; committed evidence contains bounded summaries, commands, exits, SHAs, and checksums | current user decision and test system | ACCEPTED |
 
 ## Pending operator decisions
 
