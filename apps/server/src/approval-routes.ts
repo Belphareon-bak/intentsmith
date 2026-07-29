@@ -4,6 +4,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { DomainError } from '@intentsmith/core';
 
 import type { ServerRuntime } from './app.js';
+import { isLoopbackAddress, isOperatorAuthenticated } from './remote-access.js';
 
 /**
  * The human approval decision surface.
@@ -26,12 +27,19 @@ import type { ServerRuntime } from './app.js';
  *
  * ## Trust boundary
  *
- * The main API has no authentication. It binds to `127.0.0.1` by default and
+ * By default the main API has no authentication. It binds to `127.0.0.1` and
  * treats local access as the trust boundary, exactly as every other route here
  * does. These routes additionally refuse any request that did not arrive over
  * loopback, so that an operator who widens `INTENTSMITH_HOST` does not silently
  * hand the approval decision to the network. That is a guard, not an
  * authentication system: any process on this machine can still decide.
+ *
+ * That guard is composed with, not replaced by, the operator credential. When
+ * remote access is enabled the central `onRequest` check in `remote-access.ts`
+ * has already proved authority before any of this runs, and an authenticated
+ * operator therefore satisfies the peer-address requirement the credential is
+ * strictly stronger than. Unauthenticated callers never arrive here at all.
+ * With no credential configured the behaviour below is unchanged.
  */
 
 const RunParamsSchema = Type.Object(
@@ -41,17 +49,6 @@ const RunParamsSchema = Type.Object(
   },
   { additionalProperties: false },
 );
-
-/** Loopback literals. A hostname is never accepted: only the peer address is. */
-const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
-
-export function isLoopbackAddress(address: string | undefined): boolean {
-  if (!address) return false;
-  if (LOOPBACK.has(address)) return true;
-  // The whole 127.0.0.0/8 block is loopback, including the mapped IPv6 form.
-  const bare = address.startsWith('::ffff:') ? address.slice(7) : address;
-  return /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(bare);
-}
 
 export function registerApprovalRoutes(app: FastifyInstance, runtime: ServerRuntime): void {
   const desk = (): NonNullable<ServerRuntime['approvals']> => {
@@ -67,7 +64,11 @@ export function registerApprovalRoutes(app: FastifyInstance, runtime: ServerRunt
     return runtime.approvals;
   };
 
-  const assertLocal = (request: FastifyRequest, reply: FastifyReply): boolean => {
+  const assertDecisionAuthority = (request: FastifyRequest, reply: FastifyReply): boolean => {
+    // An authenticated operator has already proved the stronger claim: the
+    // credential is what the peer address was standing in for. Without one
+    // configured this is exactly the loopback guard it always was.
+    if (isOperatorAuthenticated(request)) return true;
     if (isLoopbackAddress(request.socket.remoteAddress ?? undefined)) return true;
     void reply.status(403).send({
       error: {
@@ -80,7 +81,7 @@ export function registerApprovalRoutes(app: FastifyInstance, runtime: ServerRunt
   };
 
   app.get('/runs/:runId/approvals', { schema: { params: RunParamsSchema } }, async (request, reply) => {
-    if (!assertLocal(request, reply)) return reply;
+    if (!assertDecisionAuthority(request, reply)) return reply;
     const { runId } = request.params as { runId: string };
     return { approvals: await desk().listPending(runId) };
   });
@@ -89,7 +90,7 @@ export function registerApprovalRoutes(app: FastifyInstance, runtime: ServerRunt
     '/runs/:runId/approvals/:approvalId/approve',
     { schema: { params: RunParamsSchema } },
     async (request, reply) => {
-      if (!assertLocal(request, reply)) return reply;
+      if (!assertDecisionAuthority(request, reply)) return reply;
       const { runId, approvalId } = request.params as { runId: string; approvalId: string };
       return await desk().decide(runId, approvalId, 'approve');
     },
@@ -99,7 +100,7 @@ export function registerApprovalRoutes(app: FastifyInstance, runtime: ServerRunt
     '/runs/:runId/approvals/:approvalId/deny',
     { schema: { params: RunParamsSchema } },
     async (request, reply) => {
-      if (!assertLocal(request, reply)) return reply;
+      if (!assertDecisionAuthority(request, reply)) return reply;
       const { runId, approvalId } = request.params as { runId: string; approvalId: string };
       return await desk().decide(runId, approvalId, 'deny');
     },

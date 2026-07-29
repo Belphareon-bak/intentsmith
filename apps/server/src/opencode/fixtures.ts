@@ -11,6 +11,7 @@ import type { GrantAudit } from '@intentsmith/worker-sdk';
 import type { ServerRuntime } from '../app.js';
 import { buildServer } from '../app.js';
 import { createRuntime } from '../runtime.js';
+import type { RemoteAccessConfig } from '../remote-access.js';
 import type { ApprovalDesk } from './approval-desk.js';
 import { OPENCODE_ENV, WORKER_SELECTION_ENV } from './config.js';
 
@@ -111,6 +112,8 @@ export type Scenario = {
   timer?: FakeTimer;
   /** Shares one repository fixture between harnesses, e.g. for two runtimes. */
   fixture?: Fixture;
+  /** Builds the server behind an operator credential, as a VPN bind does. */
+  remoteAccess?: RemoteAccessConfig;
 };
 
 export type Harness = {
@@ -194,7 +197,7 @@ export async function harness(
   });
   cleanups.push(() => runtime.close());
 
-  const server = buildServer(runtime);
+  const server = options.remoteAccess ? buildServer(runtime, options.remoteAccess) : buildServer(runtime);
   cleanups.push(async () => {
     // `close` runs the runtime's own shutdown hook, so it must come first.
     await server.close();

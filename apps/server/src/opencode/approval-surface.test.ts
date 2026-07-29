@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { FakeTimer } from '@intentsmith/testing';
 
-import { isLoopbackAddress } from '../approval-routes.js';
+import { isLoopbackAddress, type RemoteAccessConfig } from '../remote-access.js';
 import { harness as buildHarness, repository, type Scenario } from './fixtures.js';
 
 /**
@@ -319,6 +319,93 @@ describe('a pending decision settles on every terminal path', () => {
     await test.runtime.close();
     expect(test.desk.pendingWaiterCount).toBe(0);
     await test.runtime.core.waitForTask(test.taskId).catch(() => undefined);
+  });
+});
+
+describe('deciding across an authenticated VPN connection', () => {
+  const OPERATOR_TOKEN = 'x7Kq2mVt9Rb4LpZs6Wc1Nd8Fh3Gj5Yu0';
+  const WRONG_TOKEN = 'a1Bc2De3Fg4Hi5Jk6Lm7No8Pq9Rs0Tu1';
+  const remoteAccess: RemoteAccessConfig = {
+    authentication: 'operator-token',
+    host: '10.8.0.4',
+    token: OPERATOR_TOKEN,
+  };
+  /** A VPN peer: not loopback, so only the credential can let it through. */
+  const peer = '10.8.0.9';
+  const operator = { authorization: `Bearer ${OPERATOR_TOKEN}` };
+
+  it('lets an authenticated operator decide from the VPN, and nobody else at all', async () => {
+    const test = await harness({ remoteAccess });
+    const { runId, approvalId } = await pendingRun(test);
+
+    // Nothing without the credential reaches the desk: not an anonymous VPN
+    // peer, not a wrong credential, and not a local process either. The
+    // peer-address guard was replaced by something stronger, not by nothing.
+    const rejected = await Promise.all([
+      test.server.inject({ method: 'GET', url: `/runs/${runId}/approvals`, remoteAddress: peer }),
+      test.server.inject({
+        method: 'POST',
+        url: `/runs/${runId}/approvals/${approvalId}/approve`,
+        remoteAddress: peer,
+        headers: { authorization: `Bearer ${WRONG_TOKEN}` },
+      }),
+      test.server.inject({ method: 'POST', url: `/runs/${runId}/approvals/${approvalId}/deny` }),
+    ]);
+    expect(rejected.map(response => response.statusCode)).toEqual([401, 401, 401]);
+    expect((await test.desk.listPending(runId)).map(approval => approval.id)).toEqual([approvalId]);
+
+    // A wrong credential cannot be used to probe for what exists: a real
+    // approval and an invented one answer identically.
+    const probeReal = await test.server.inject({
+      method: 'POST',
+      url: `/runs/${runId}/approvals/${approvalId}/approve`,
+      headers: { authorization: `Bearer ${WRONG_TOKEN}` },
+    });
+    const probeInvented = await test.server.inject({
+      method: 'POST',
+      url: '/runs/run_invented/approvals/approval_invented/approve',
+      headers: { authorization: `Bearer ${WRONG_TOKEN}` },
+    });
+    expect(probeReal.body).toBe(probeInvented.body);
+    expect(probeReal.body).not.toContain(approvalId);
+    expect(probeReal.body).not.toContain(OPERATOR_TOKEN);
+
+    // With the credential, the VPN client sees exactly its own run's question.
+    const listed = await test.server.inject({
+      method: 'GET',
+      url: `/runs/${runId}/approvals`,
+      remoteAddress: peer,
+      headers: operator,
+    });
+    expect(listed.statusCode).toBe(200);
+    expect((listed.json() as { approvals: Array<{ id: string }> }).approvals.map(a => a.id)).toEqual([approvalId]);
+
+    // The decision contract is unchanged by being remote: there is still no
+    // body, and a body that tries to widen the grant changes nothing.
+    const decision = await test.server.inject({
+      method: 'POST',
+      url: `/runs/${runId}/approvals/${approvalId}/approve`,
+      remoteAddress: peer,
+      headers: operator,
+      payload: { scope: 'always', paths: ['/'], durationMs: 86_400_000 },
+    });
+    expect(decision.statusCode).toBe(200);
+    expect(decision.json()).toMatchObject({ decision: 'approve', outcome: 'recorded', approval: { id: approvalId } });
+
+    const task = await test.runtime.core.waitForTask(test.taskId);
+    const result = await test.runtime.core.getTaskResult(test.taskId);
+    expect({ status: task.status, verdict: result?.coreVerdict }).toEqual({ status: 'passed', verdict: 'pass' });
+    expect(readFileSync(test.fixture.target, 'utf8')).toBe('module.exports = 4;\n');
+    // One question, one grant, one use — the same ledger the local path writes.
+    expect(result?.approvals).toHaveLength(1);
+    const audit = await test.runtime.core.listAuditEvents(test.taskId);
+    const types = audit.map(event => event.type);
+    expect(types.filter(type => type === 'approval.granted')).toHaveLength(1);
+    expect(types.filter(type => type === 'approval.consumed')).toHaveLength(1);
+    // The credential authorized the decision and left no trace of itself.
+    const serialized = JSON.stringify({ audit, result, decision: decision.json(), headers: decision.headers });
+    expect(serialized).not.toContain(OPERATOR_TOKEN);
+    expect(serialized.toLowerCase()).not.toContain('authorization');
   });
 });
 

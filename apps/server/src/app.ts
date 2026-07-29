@@ -12,6 +12,7 @@ import type { InferenceScheduler } from '@intentsmith/inference';
 
 import { registerApprovalRoutes } from './approval-routes.js';
 import { registerInferenceRoutes } from './inference-routes.js';
+import { LOOPBACK_ONLY, registerOperatorAuthentication, type RemoteAccessConfig } from './remote-access.js';
 import type { GatewayTokenStore } from './gateway/token-store.js';
 import type { ApprovalDesk } from './opencode/approval-desk.js';
 import type { WorkerSelection } from './opencode/config.js';
@@ -63,7 +64,19 @@ const ParamsSchema = Type.Object({
   projectId: Type.Optional(Type.String({ minLength: 1 })),
 }, { additionalProperties: false });
 
-export function buildServer(runtime: ServerRuntime): FastifyInstance {
+/**
+ * Builds the main API.
+ *
+ * `remoteAccess` defaults to the loopback-only contract, which is what every
+ * existing caller and test gets: no authentication, local access as the trust
+ * boundary. An operator who deliberately binds a VPN interface passes an
+ * operator-token configuration instead, and every route below is then behind
+ * it.
+ */
+export function buildServer(
+  runtime: ServerRuntime,
+  remoteAccess: RemoteAccessConfig = LOOPBACK_ONLY,
+): FastifyInstance {
   const app = Fastify({
     logger: false,
     bodyLimit: 1_048_576,
@@ -73,6 +86,12 @@ export function buildServer(runtime: ServerRuntime): FastifyInstance {
       },
     },
   });
+
+  // Registered before any route, because Fastify binds a route's hook chain
+  // when the route is declared: a check added afterwards would not run. This is
+  // the only place the operator credential is checked, so no handler below can
+  // forget to, and none of them can be reached without it in remote mode.
+  registerOperatorAuthentication(app, remoteAccess);
 
   app.setErrorHandler((error, _request, reply) => {
     const err = error as Error & { validation?: unknown; statusCode?: number };

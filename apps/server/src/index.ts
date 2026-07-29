@@ -2,6 +2,12 @@ import { buildServer } from './app.js';
 import { isGatewayEnabled, readGatewayPort, startGateway, type GatewayHandle } from './gateway/lifecycle.js';
 import { StartupRecoveryError } from './recovery.js';
 import { createRuntime } from './runtime.js';
+import {
+  DEFAULT_API_HOST,
+  describeRemoteAccess,
+  readRemoteAccessConfig,
+  type RemoteAccessConfig,
+} from './remote-access.js';
 
 export { buildServer, type ServerRuntime } from './app.js';
 export { createRuntime, defaultDbPath, type RuntimeOptions } from './runtime.js';
@@ -37,7 +43,21 @@ export {
   type DecisionResult,
   type PendingApprovalView,
 } from './opencode/approval-desk.js';
-export { registerApprovalRoutes, isLoopbackAddress } from './approval-routes.js';
+export { registerApprovalRoutes } from './approval-routes.js';
+export {
+  DEFAULT_API_HOST,
+  LOOPBACK_ONLY,
+  REMOTE_ACCESS_ENV,
+  REMOTE_ACCESS_MODE,
+  RemoteAccessConfigError,
+  describeRemoteAccess,
+  isLoopbackAddress,
+  isLoopbackBindTarget,
+  isOperatorAuthenticated,
+  readRemoteAccessConfig,
+  registerOperatorAuthentication,
+  type RemoteAccessConfig,
+} from './remote-access.js';
 export {
   GatewayGrantIssuer,
   WorkerAuthorityError,
@@ -45,12 +65,24 @@ export {
   type RunScopedWorkerOptions,
 } from './opencode/run-grant-worker.js';
 export { GatewayTokenStore, describeToken, type GatewayToken, type GatewayTokenInfo } from './gateway/token-store.js';
-export const DEFAULT_HOST = '127.0.0.1';
+export const DEFAULT_HOST = DEFAULT_API_HOST;
 
 if (import.meta.url === `file://${process.argv[1]}`) {
+  // Read first, before a database is opened or a socket exists. A bind that
+  // would be reachable off this machine without a credential, a credential that
+  // nothing would enforce, or a credential too weak to be one, all stop the
+  // process here rather than becoming a listener somebody has to notice.
+  let remoteAccess: RemoteAccessConfig;
+  try {
+    remoteAccess = readRemoteAccessConfig();
+  } catch (error) {
+    console.error(`IntentSmith refused to start: ${(error as Error).message}`);
+    process.exit(1);
+  }
+
   const runtime = createRuntime();
-  const app = buildServer(runtime);
-  const host = process.env.INTENTSMITH_HOST ?? DEFAULT_HOST;
+  const app = buildServer(runtime, remoteAccess);
+  const host = remoteAccess.host;
   const port = Number(process.env.INTENTSMITH_PORT ?? 47831);
   let gateway: GatewayHandle | undefined;
   let shuttingDown = false;
@@ -86,7 +118,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       );
     }
     await app.listen({ host, port });
-    console.log(`IntentSmith server listening on http://${host}:${port}`);
+    // `describeRemoteAccess` is the only thing about this configuration that
+    // may be printed: the shape of the boundary, never the credential.
+    const boundary = describeRemoteAccess(remoteAccess);
+    console.log(
+      boundary.authentication === 'operator-token'
+        ? `IntentSmith server listening on http://${host}:${port} (operator token required; private VPN transport assumed)`
+        : `IntentSmith server listening on http://${host}:${port}`,
+    );
 
     // The worker inference gateway stays off unless explicitly enabled: for the
     // fake worker there is nothing to serve, and an unused listener is attack
