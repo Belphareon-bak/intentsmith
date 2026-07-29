@@ -3,6 +3,7 @@
 
 import os from 'os';
 import path from 'path';
+import { resolveHttpTimeoutPolicy, resolveRoleTimeouts } from './timeout-policy.js';
 
 export const config = {
   // Feature flags — enable/disable optional modules (B/C/D)
@@ -40,6 +41,9 @@ export const config = {
       writeMaxRequests: 120,     // POST/PUT/DELETE endpoints
       trustProxy: process.env.C3_TRUST_PROXY === 'true',  // trust X-Forwarded-For
     },
+    // Finite request-receipt protection; LLM response duration is controlled
+    // independently by the per-role timeouts below.
+    httpTimeouts: resolveHttpTimeoutPolicy(),
   },
 
   // Ollama
@@ -88,18 +92,7 @@ export const config = {
   },
 
   // Timeouts per role (ms) — multiply via C3_TIMEOUT_SCALE env (default 1)
-  timeouts: (() => {
-    const scale = parseFloat(process.env.C3_TIMEOUT_SCALE) || 1;
-    return {
-      D1: 120000 * scale,
-      D2: 60000 * scale,
-      CODE: 120000 * scale,
-      R1: 120000 * scale,
-      R2: 45000 * scale,
-      CHAT: 180000 * scale,
-      VISION: 60000 * scale,
-    };
-  })(),
+  timeouts: resolveRoleTimeouts(),
 
   // Workflow configuration
   workflow: {

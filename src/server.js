@@ -8,6 +8,7 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 import { config } from './config.js';
+import { applyHttpTimeoutPolicy } from './timeout-policy.js';
 import { logger } from './core/logger.js';
 import { installGlobalHandlers, handleError } from './core/error-handler.js';
 import db from './db/database.js';
@@ -1090,6 +1091,10 @@ const server = http.createServer(async (req, res) => {
     sendJSON(res, 500, safeError(err));
   }
 });
+
+// Keep slow-request protection finite. Long LLM generation is governed by the
+// gateway's per-role timeout and is not extended by disabling requestTimeout.
+applyHttpTimeoutPolicy(server, config.server.httpTimeouts);
 
 // ════════════════════════════════════════════════════════════════════════════
 // REMOVED: Legacy workflow UI (getUIHTML) — v57.0
