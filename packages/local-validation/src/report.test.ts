@@ -56,7 +56,7 @@ describe('authoritative JSON and derived reporting', () => {
     const current = artifact([record('scenario', 'FAIL')]);
     current.fingerprints.sourceCommit = 'e'.repeat(40);
     expect(compareBaseline(baseline, current)).toEqual([
-      expect.objectContaining({ path: 'fingerprints.sourceCommit', deterministicInvariant: true }),
+      expect.objectContaining({ path: 'fingerprints.sourceCommit', deterministicInvariant: false }),
       expect.objectContaining({ path: 'scenarios.scenario.deterministicVerdict', deterministicInvariant: false }),
     ]);
   });

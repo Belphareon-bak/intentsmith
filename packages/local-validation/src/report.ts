@@ -9,17 +9,29 @@ export function compareBaseline(
   current: Pick<RunArtifact, 'fingerprints' | 'scenarios'>,
 ): BaselineDifference[] {
   const differences: BaselineDifference[] = [];
-  if (baseline.fingerprints.sourceCommit !== current.fingerprints.sourceCommit) {
-    differences.push({
-      path: 'fingerprints.sourceCommit',
-      baseline: baseline.fingerprints.sourceCommit,
-      current: current.fingerprints.sourceCommit,
-      deterministicInvariant: true,
-    });
+  for (const key of Object.keys(baseline.fingerprints) as Array<keyof RunArtifact['fingerprints']>) {
+    if (baseline.fingerprints[key] !== current.fingerprints[key]) {
+      differences.push({
+        path: `fingerprints.${key}`,
+        baseline: baseline.fingerprints[key],
+        current: current.fingerprints[key],
+        // Fingerprints identify two runs. A difference is provenance evidence,
+        // not a verdict about either run.
+        deterministicInvariant: false,
+      });
+    }
   }
   const baselineScenarios = new Map(baseline.scenarios.map(scenario => [scenario.id, scenario]));
   for (const scenario of current.scenarios) {
     const previous = baselineScenarios.get(scenario.id);
+    if (previous && previous.version !== scenario.version) {
+      differences.push({
+        path: `scenarios.${scenario.id}.version`,
+        baseline: previous.version,
+        current: scenario.version,
+        deterministicInvariant: false,
+      });
+    }
     if (!previous || previous.deterministicVerdict !== scenario.deterministicVerdict) {
       differences.push({
         path: `scenarios.${scenario.id}.deterministicVerdict`,
