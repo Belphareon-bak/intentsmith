@@ -158,6 +158,26 @@ Never part of `pnpm verify` or CI. It never pulls a model, signs in or uses an
 API key, and reports BLOCKED rather than PASS when Ollama or the model is
 missing.
 
+### Optional real-OpenCode verification
+
+The opt-in suite in `tools/opencode/` drives the executable server composition
+over loopback HTTP with the pinned real binary, the real gateway and real local
+inference:
+
+```bash
+INTENTSMITH_RUN_REAL_OPENCODE=1 \
+INTENTSMITH_OPENCODE_BIN=/absolute/path/to/opencode \
+pnpm test:opencode
+```
+
+IntentSmith never installs OpenCode: install exactly `opencode-ai@1.18.8`
+yourself, outside this repository, and point the variable at it. The suite
+reports BLOCKED rather than PASS when the binary, its pinned version, the local
+Ollama daemon, the model (`INTENTSMITH_OPENCODE_TEST_MODEL`, default
+`qwen3:14b`) or the NVIDIA GPU is missing, and it is never part of `pnpm verify`
+or CI. Set `INTENTSMITH_2C_EVIDENCE` to a file path to collect the sanitized
+scenario log the Phase 3 evidence artifact is built from.
+
 ## Worker Inference Gateway
 
 A loopback-only, OpenAI-shaped gateway exists so a future external worker can
