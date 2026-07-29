@@ -112,6 +112,7 @@ describe('immutable workspace and dry-run safety', () => {
         '--import',
         'tsx',
         cli,
+        '--',
         '--source',
         repository.path,
         '--revision',

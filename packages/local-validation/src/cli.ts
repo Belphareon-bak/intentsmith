@@ -39,6 +39,7 @@ function parseArguments(argv: string[]): CliOptions {
   const flags = new Set<string>();
   for (let index = 0; index < argv.length; index += 1) {
     const part = argv[index];
+    if (part === '--') continue;
     if (!part?.startsWith('--')) throw new ValidationSafetyError('CLI_ARGUMENT_INVALID', `Unexpected argument ${part}.`);
     if (part === '--execute' || part === '--resume' || part === '--dry-run') {
       flags.add(part);
