@@ -5,6 +5,7 @@ import type { IntentSmithCore } from '@intentsmith/core';
 
 import type { ServerRuntime } from './app.js';
 import { GatewayTokenStore } from './gateway/token-store.js';
+import type { RunEvidenceRecorder } from './opencode/run-evidence.js';
 import type { RecoverySummary } from './recovery.js';
 
 /**
@@ -50,6 +51,8 @@ export type TestServerRuntimeOptions = {
   executionPolicy?: ExecutionPolicy;
   recovery?: RecoverySummary;
   gatewayTokens?: GatewayTokenStore;
+  /** Durable lifecycle-evidence sink, for tests that assert what was persisted. */
+  workerEvidence?: RunEvidenceRecorder;
   maxConcurrentInference?: number;
   close?: () => void | Promise<void>;
 };
@@ -74,6 +77,7 @@ export function createTestServerRuntime(options: TestServerRuntimeOptions): Serv
     scheduler: new InferenceScheduler({ maxConcurrent: options.maxConcurrentInference ?? 1 }),
     hardware,
     gatewayTokens: options.gatewayTokens ?? new GatewayTokenStore(),
+    ...(options.workerEvidence ? { workerEvidence: options.workerEvidence } : {}),
     executionPolicy: options.executionPolicy ?? 'cpu_allowed',
     recovery: options.recovery ?? {
       status: 'completed',

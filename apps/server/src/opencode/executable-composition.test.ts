@@ -280,3 +280,74 @@ describe('the run-scoped grant is revoked on every terminal path', () => {
     expect(test.grantAudits[0]?.revoked).toBe(true);
   });
 });
+
+describe('the terminal verdict carries trusted provenance', () => {
+  it('cites the run, sandbox, approvals, digest, paths and gates for an approved edit', async () => {
+    const test = await harness();
+    const { audit, status, result } = await test.run();
+    expect(status).toBe('passed');
+
+    const verdict = audit.at(-1);
+    const links = (verdict?.data as { evidenceLinks?: Record<string, unknown> }).evidenceLinks ?? {};
+    const runId = await test.runIdFor(test.taskId);
+
+    expect(verdict?.type).toBe('task.verdict');
+    expect(links).toMatchObject({
+      // Git remains the authority for what changed.
+      authoritativeSource: 'git',
+      changedPaths: ['src/answer.js'],
+      diffDigest: expect.stringMatching(/^[0-9a-f]{64}$/),
+      diffUri: expect.stringMatching(/^intentsmith:\/\/git-diff\/[0-9a-f]{64}$/),
+      gateEvidenceUris: ['intentsmith://gate/fixture'],
+      // Trusted run provenance, none of which passed through the worker.
+      runId,
+      taskId: test.taskId,
+      sandboxAttestationUri: expect.stringMatching(/^intentsmith:\/\/sandbox\//),
+      sandboxLevel: expect.any(String),
+    });
+    expect(links.approvalIds).toEqual(result?.approvals.map(approval => approval.id));
+    // The structured lifecycle evidence this verdict rests on is addressable.
+    expect(links.grantAuditIds).toHaveLength(1);
+    const grantId = (links.grantAuditIds as string[])[0];
+    expect(audit.find(event => event.id === grantId)?.type).toBe('security.grant');
+
+    // The verdict and the persisted diff artifact agree on the digest.
+    expect(result?.diffs[0]?.sha256).toBe(links.diffDigest);
+  });
+
+  it('cannot pass on the worker’s account when Git has nothing to show', async () => {
+    // The worker reports a completed tool call and success, and the gate is
+    // rigged to agree. Git disagrees, and Git is the only source of the digest
+    // and the changed paths, so there is no provenance to substitute.
+    const test = await harness({ behaviour: 'tool-call-success', gates: 'always' });
+    const { audit, result } = await test.run();
+
+    expect(result?.workerClaim?.status).toBe('success');
+    expect(result?.coreVerdict).toBe('fail');
+    const links = (audit.at(-1)?.data as { evidenceLinks?: Record<string, unknown> }).evidenceLinks ?? {};
+    expect(links.changedPaths).toEqual([]);
+    expect(links.diffDigest).toBeNull();
+    expect(links.diffUri).toBeNull();
+    // The run is still identifiable even though it produced nothing.
+    expect(links.runId).toBe(await test.runIdFor(test.taskId));
+  });
+
+  it('leaves a non-code task judged on gates alone, as before', async () => {
+    const test = await harness();
+    const project = await test.runtime.core.getTask(test.taskId);
+    const planTask = await test.runtime.core.createTask(
+      createTaskInput(project.projectId, test.fixture.root, {
+        type: 'plan',
+        goal: 'Describe the change without making it.',
+        timeoutMs: 1_000,
+        scope: { ...createTaskInput(project.projectId, test.fixture.root).scope, timeoutMs: 1_000 },
+      }),
+    );
+    await test.runtime.core.startTask(planTask.id);
+    await test.runtime.core.waitForTask(planTask.id);
+
+    const result = await test.runtime.core.getTaskResult(planTask.id);
+    // No change was required of it, so missing change evidence is not a risk.
+    expect(result?.unresolvedRisks.join(' ')).not.toMatch(/provenance|actual workspace change/);
+  });
+});
