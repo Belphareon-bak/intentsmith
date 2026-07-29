@@ -17,6 +17,8 @@
 
 import { config } from '../config.js';
 import { logger } from '../core/logger.js';
+import { modelUniverseStore } from '../upgrade/model-universe-store.js';
+import { getNumCtx } from './model-ctx.js';
 import { 
   validateAuthToken, 
   hasCapability, 
@@ -377,6 +379,31 @@ class LLMGateway {
     
     const model = options.model || config.models?.CHAT || 'qwen3.5:27b';
     const timeout = options.timeout || config.timeouts?.CHAT || 60000;
+    const requestType = options.requestType || 'chat';
+
+    const emitRuntimeSignal = (signalType, success, extra = {}) => {
+      try {
+        modelUniverseStore.recordSignalEvent({
+          modelName: model,
+          role: authToken?.role || 'UNKNOWN',
+          signalType,
+          success,
+          latencyMs: extra.latencyMs ?? (Date.now() - startTime),
+          errorType: extra.errorType || null,
+          payload: {
+            requestType,
+            attempt: extra.attempt ?? null,
+            timeoutMs: timeout,
+            promptLength: prompt?.length ?? 0,
+            outputLength: extra.outputLength ?? null,
+            queueDepth: this._concurrency.queue.length,
+          },
+          scheduleRecompute: extra.scheduleRecompute !== false,
+        });
+      } catch (_) {
+        // Signal ingestion must never break core LLM path.
+      }
+    };
     
     // Build messages (support pre-built array via options.messages)
     const messages = options.messages || (() => {
@@ -400,8 +427,8 @@ class LLMGateway {
         repeat_penalty: options.repeat_penalty ?? 1.1,
         num_predict: effectiveMaxTokens,
         // v72: Allow callers to override context window size (e.g. 1024 for classification)
-        // Default 8192 — qwen2.5:32b model default is 32768 which causes CPU spillover on 24GB VRAM
-        num_ctx: options.num_ctx || 8192,
+        // Dynamic default from model-ctx registry (VRAM-optimized per model, set at startup)
+        num_ctx: options.num_ctx || getNumCtx(model),
       }
     };
 
@@ -414,18 +441,22 @@ class LLMGateway {
     const maxRetries = config.ollama?.retries || 3;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      let timeoutId;
+      let userSignal;
+      let userAbortHandler;
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        timeoutId = setTimeout(() => controller.abort(), timeout);
 
         // v63.0: Connect user cancel signal to LLM abort controller
         // When the user disconnects (req.on('close')), abort the LLM call too
-        const userSignal = options.signal;
-        let userAbortHandler;
+        userSignal = options.signal;
         if (userSignal) {
           if (userSignal.aborted) {
             clearTimeout(timeoutId);
-            throw new Error('Request cancelled by user');
+            const error = new Error('Request cancelled by user');
+            error.name = 'AbortError';
+            throw error;
           }
           userAbortHandler = () => controller.abort();
           userSignal.addEventListener('abort', userAbortHandler, { once: true });
@@ -470,9 +501,15 @@ class LLMGateway {
           try {
             this._usageDb.prepare(
               'INSERT INTO model_usage (model, role, request_type) VALUES (?, ?, ?)'
-            ).run(model, authToken?.role || 'UNKNOWN', options.requestType || 'chat');
+            ).run(model, authToken?.role || 'UNKNOWN', requestType);
           } catch (_) {}
         }
+
+        emitRuntimeSignal('runtime', true, {
+          attempt,
+          outputLength: output.length,
+          latencyMs: duration,
+        });
 
         this._releaseSlot();
         return {
@@ -502,6 +539,11 @@ class LLMGateway {
               decisionId: authToken?.decisionId,
               abortSource: 'user_cancel',
             });
+            emitRuntimeSignal('runtime_cancelled', null, {
+              attempt,
+              errorType: 'user_cancel',
+              scheduleRecompute: false,
+            });
             this._releaseSlot();
             throw new Error('LLM call cancelled by user');
           } else {
@@ -518,6 +560,11 @@ class LLMGateway {
               timeout,
               model,
             });
+            emitRuntimeSignal('runtime_timeout', false, {
+              attempt,
+              errorType: 'timeout',
+              latencyMs: Date.now() - startTime,
+            });
             this._releaseSlot();
             throw new Error(`LLM timeout after ${timeout}ms (model: ${model})`);
           }
@@ -525,6 +572,11 @@ class LLMGateway {
           // v124: Ollama OOM/overload — don't retry, escalate immediately
           logger.error('LLMGateway', `Ollama OOM/overload (503) — not retrying`, { model });
           this.audit.log('LLM_CALL_OOM', { role: authToken?.role, decisionId: authToken?.decisionId, model });
+          emitRuntimeSignal('runtime_oom', false, {
+            attempt,
+            errorType: 'oom_503',
+            latencyMs: Date.now() - startTime,
+          });
           this._releaseSlot();
           throw err;
         } else if (err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT') {
@@ -539,6 +591,11 @@ class LLMGateway {
         if (attempt < maxRetries) {
           await this.sleep((config.ollama?.retryDelay || 1000) * attempt);
         }
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+        if (userAbortHandler && userSignal) {
+          userSignal.removeEventListener('abort', userAbortHandler);
+        }
       }
     }
     
@@ -546,6 +603,11 @@ class LLMGateway {
       role: authToken?.role,
       decisionId: authToken?.decisionId,
       error: lastError?.message
+    });
+    emitRuntimeSignal('runtime_failed', false, {
+      attempt: maxRetries,
+      errorType: lastError?.code || lastError?.name || 'runtime_failed',
+      latencyMs: Date.now() - startTime,
     });
 
     this._releaseSlot();

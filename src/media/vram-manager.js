@@ -3,6 +3,7 @@
 
 import { broadcast } from '../ws-bridge/ws-server.js';
 import { logger } from '../core/logger.js';
+import { setNumCtx } from '../llm/model-ctx.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -103,6 +104,7 @@ export class VRAMManager {
     if (!vram) {
       logger.debug('VRAMManager', 'Cannot query VRAM — using fallback num_ctx 4096');
       this._targetNumCtx = 4096;
+      if (this._chatModel) setNumCtx(this._chatModel, 4096);
       return 4096;
     }
 
@@ -117,6 +119,7 @@ export class VRAMManager {
     if (availableForKV < kvPer1k) {
       logger.warn('VRAMManager', `Tight VRAM: total=${vram.totalMb}, used=${vram.usedMb}, weights=${modelWeightsMb} → num_ctx=2048`);
       this._targetNumCtx = 2048;
+      if (this._chatModel) setNumCtx(this._chatModel, 2048);
       return 2048;
     }
 
@@ -126,6 +129,7 @@ export class VRAMManager {
 
     logger.info('VRAMManager', `computeNumCtx=${maxCtx} (total=${vram.totalMb}, used=${vram.usedMb}, weights=${modelWeightsMb}, kvPer1k=${kvPer1k})`);
     this._targetNumCtx = maxCtx;
+    if (this._chatModel) setNumCtx(this._chatModel, maxCtx);
     return maxCtx;
   }
 

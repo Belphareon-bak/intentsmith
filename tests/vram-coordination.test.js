@@ -4,6 +4,7 @@
 import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
 import { VRAMManager, _estimateWeightsMb, _kvMbPer1k } from '../src/media/vram-manager.js';
 import { getVramUsage, getVramUsageAsync, _clearVramCache } from '../src/system/gpu-detector.js';
+import { clearNumCtxCache, getNumCtx } from '../src/llm/model-ctx.js';
 
 // ── Mock infrastructure ───────────────────────────────────────────────────
 
@@ -177,8 +178,10 @@ await testAsync('returns 4096 fallback when VRAM cannot be queried', async () =>
 
 await testAsync('computeNumCtx stores result in _targetNumCtx', async () => {
   const mgr = createManager();
+  clearNumCtxCache();
   const result = await mgr.computeNumCtx({ modelParams: 27 });
   assertEqual(mgr.getTargetNumCtx(), result);
+  assertEqual(getNumCtx('qwen3.5:27b'), result);
 });
 
 await testAsync('computeNumCtx respects maxCtx gateway limit', async () => {

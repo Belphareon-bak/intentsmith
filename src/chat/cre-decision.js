@@ -2310,7 +2310,7 @@ export class CREDecisionEngine {
     // "z projektu"/"v projektu"/"z folderu" references project files, not LLM knowledge.
     const hasProject = context.hasActiveProject || context.project?.id;
     const projectHint = hasProject
-      ? `\n- Uživatel má AKTIVNÍ PROJEKT. "z projektu"/"v projektu"/"z tohoto folderu"/"ze složky" = soubory projektu. Analyzuj/shrň/vysvětli obsah → FILE_EXPLAIN. Přečti/projdi/zobraz/výtah → FILE_READ. NIKDY CONVERSATIONAL pro dotazy o projektu.`
+      ? `\n- Uživatel má AKTIVNÍ PROJEKT. "z projektu"/"v projektu"/"z tohoto folderu"/"ze složky" = soubory projektu. Analyzuj/shrň/vysvětli obsah KONKRÉTNÍHO SOUBORU → FILE_EXPLAIN (musí uvést název souboru nebo cestu). Přečti/projdi/zobraz/výtah soubor → FILE_READ. Obecné otázky o projektu ("co jsme udělali", "shrň práci", "jaký je stav") → CONVERSATIONAL. FILE_EXPLAIN jen když je uveden konkrétní soubor.`
       : '';
 
     // v87: Expertise context — LLM knows active domain for better disambiguation.
@@ -3196,11 +3196,22 @@ PRAVIDLA:
         /co\s+(?:ten(?:to|hle)?\s+)?projekt\s+(?:d[eě]l[áa]|[rř]e[sš][ií]|umí)/i,
         /k\s+[cč]emu\s+(?:ten(?:to|hle)?\s+)?projekt\s+slou[zž][ií]/i,
         /(?:ten|projekt).*(?:otev[rř]en[ýé]|aktivn[ií])/i,
+        // v135: Abstract summary/recall — no specific file referenced
+        /shr[nň]\s+(?:mi\s+)?co\s+jsme/i,           // "shrň mi co jsme vytvořili/udělali"
+        /shr[nň]\s+(?:mi\s+)?(?:celou?\s+)?(?:práci|konverzaci|diskusi)/i,  // "shrň práci/konverzaci"
+        /co\s+(?:všechno\s+)?jsme\s+(?:tu\s+)?(?:vytvo[rř]ili|ud[eě]lali|naprogramovali|napsali|navrhli)/i,
+        /vyjmenuj\s+(?:mi\s+)?(?:všechny?\s+)?soubory?\s+(?:z|které|co)\s+(?:jsme|naší)/i,
+        /kolik\s+soubor[ůu]\s+(?:jsme|máme|má)/i,    // "kolik souborů jsme vytvořili"
+        /jak[ýé]\s+soubory\s+(?:jsme|máme)/i,         // "jaké soubory jsme vytvořili"
+        /seznam\s+(?:všech\s+)?soubor[ůu]/i,          // "seznam souborů"
+        /stav\s+(?:naší|této)?\s*práce/i,             // "stav práce"
         // EN
         /what\s+(?:is|'s)\s+(?:this\s+)?project\s+(?:about|for)/i,
         /tell\s+me\s+about\s+(?:this\s+|the\s+)?project/i,
         /describe\s+(?:this\s+|the\s+)?project/i,
         /summarize\s+(?:this\s+|the\s+)?project/i,
+        /what\s+(?:have\s+we|did\s+we)\s+(?:created?|built|done|made)/i,
+        /list\s+(?:all\s+)?(?:the\s+)?files\s+(?:we|from)/i,
       ];
       if (META_PROJECT.some(p => p.test(input))) {
         logger.info('CRE:Guard9', `${intent} downgrade → CONVERSATIONAL (meta-project query)`, {
@@ -3209,6 +3220,31 @@ PRAVIDLA:
         });
         intent = IntentType.CONVERSATIONAL;
         _diag.overrides.push('guard9_meta_project');
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // GUARD 12: FILE_EXPLAIN/FILE_READ without file reference → CONVERSATIONAL
+    // v135: LLM sometimes routes "shrň mi návrh" or "rekapituluj co jsme udělali"
+    // to FILE_EXPLAIN, but no actual file is referenced. This causes
+    // "Nebyl zadán žádný soubor" errors. If no file path/name pattern is found
+    // in the input, downgrade to CONVERSATIONAL.
+    // ════════════════════════════════════════════════════════════════════════
+    if (intent === IntentType.FILE_EXPLAIN || intent === IntentType.FILE_READ) {
+      // Detect actual file references (not just Czech words ending with period)
+      const FILE_EXT_RE = /\w+\.(js|ts|py|json|md|txt|html|css|yml|yaml|toml|cfg|conf|sh|sql|go|rs|c|h|cpp|java|rb|php|vue|svelte|jsx|tsx)\b/i;
+      const hasFileRef = FILE_EXT_RE.test(input)                      // file.ext
+        || /[\\/][\w.-]+/.test(input)                                 // path/file
+        || /otev[rř]i|open/i.test(input)                             // explicit open verb
+        || /p[rř]e[cč]ti\s+(si\s+)?soubor/i.test(input)             // "přečti soubor"
+        || /read\s+file/i.test(input)                                 // "read file"
+        || (context.attachments && context.attachments.length > 0);   // has inline attachments
+      if (!hasFileRef) {
+        logger.info('CRE:Guard12', `${intent} downgrade → CONVERSATIONAL (no file reference)`, {
+          input: input.substring(0, 60),
+        });
+        intent = IntentType.CONVERSATIONAL;
+        _diag.overrides.push('guard12_no_file_ref');
       }
     }
 

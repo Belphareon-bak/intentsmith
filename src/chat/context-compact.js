@@ -25,6 +25,7 @@ import { config } from '../config.js';
 import { logger } from '../core/logger.js';
 import { callWithAuth } from '../llm/gateway.js';
 import { createAuthToken, LLMCallerRole, LLMCapability } from '../llm/auth-types.js';
+import { getNumCtx } from '../llm/model-ctx.js';
 
 // Track active compactions — prevent concurrent runs per conversation
 const activeCompactions = new Set();
@@ -58,7 +59,12 @@ export function maybeCompact(conversationId, store, sessionId) {
   const lastTime = lastCompactionTime.get(conversationId);
   if (lastTime && (Date.now() - lastTime) < COMPACTION_COOLDOWN_MS) return;
 
-  const { contextWindow, threshold, keepTurns } = config.compact;
+  const { threshold, keepTurns } = config.compact;
+
+  // Effective context window: VRAM-optimized value from model-ctx registry,
+  // falling back to config.compact.contextWindow if not yet initialized.
+  const summaryModel = config.compact.summaryModel || config.models.CHAT;
+  const contextWindow = getNumCtx(summaryModel, config.compact.contextWindow);
 
   // Token estimation: messages + system prompt overhead
   const messageTokens = store.getEstimatedTokens(conversationId);
