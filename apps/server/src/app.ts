@@ -12,6 +12,7 @@ import type { InferenceScheduler } from '@intentsmith/inference';
 
 import { registerInferenceRoutes } from './inference-routes.js';
 import type { GatewayTokenStore } from './gateway/token-store.js';
+import type { WorkerSelection } from './opencode/config.js';
 import type { RecoverySummary } from './recovery.js';
 
 export type ServerRuntime = {
@@ -21,6 +22,15 @@ export type ServerRuntime = {
   hardware: HardwareDirector;
   /** Per-run tokens for the worker inference gateway. */
   gatewayTokens: GatewayTokenStore;
+  /** Which worker the composition root selected. Absent in test runtimes. */
+  readonly workerKind?: WorkerSelection;
+  /**
+   * Binds the live gateway URL so run-scoped grants can be issued.
+   *
+   * Present only when the selected worker needs a mediated inference path. Its
+   * presence is what tells startup the gateway is mandatory rather than opt-in.
+   */
+  bindWorkerGateway?(baseUrl: string): void;
   executionPolicy: ExecutionPolicy;
   /** Populated by `prepare()`; undefined until startup recovery has run. */
   readonly recovery?: RecoverySummary;

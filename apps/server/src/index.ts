@@ -15,6 +15,27 @@ export {
   type StartGatewayOptions,
 } from './gateway/lifecycle.js';
 export { buildGateway, GATEWAY_DEFAULT_HOST } from './gateway/gateway.js';
+export {
+  OPENCODE_ENV,
+  WORKER_SELECTION_ENV,
+  WorkerConfigError,
+  readOpenCodeConfig,
+  readWorkerSelection,
+  type OpenCodeConfig,
+  type WorkerSelection,
+} from './opencode/config.js';
+export {
+  createOpenCodeStack,
+  NO_DECISION_SURFACE,
+  type OpenCodeOverrides,
+  type OpenCodeStack,
+} from './opencode/composition.js';
+export {
+  GatewayGrantIssuer,
+  WorkerAuthorityError,
+  createRunScopedWorker,
+  type RunScopedWorkerOptions,
+} from './opencode/run-grant-worker.js';
 export { GatewayTokenStore, describeToken, type GatewayToken, type GatewayTokenInfo } from './gateway/token-store.js';
 export const DEFAULT_HOST = '127.0.0.1';
 
@@ -59,14 +80,17 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     await app.listen({ host, port });
     console.log(`IntentSmith server listening on http://${host}:${port}`);
 
-    // The worker inference gateway stays off unless explicitly enabled: no
-    // worker exists yet, and an unused listener is attack surface.
-    if (isGatewayEnabled()) {
+    // The worker inference gateway stays off unless explicitly enabled: for the
+    // fake worker there is nothing to serve, and an unused listener is attack
+    // surface. A worker that needs a mediated inference path is the exception —
+    // it cannot start a run without one, so the gateway is not optional there.
+    if (isGatewayEnabled() || runtime.bindWorkerGateway) {
       gateway = await startGateway({
         runtime,
         tokens: runtime.gatewayTokens,
         port: readGatewayPort(),
       });
+      runtime.bindWorkerGateway?.(gateway.url);
       console.log(`Worker inference gateway listening on ${gateway.url} (per-run token required)`);
     }
   } catch (error) {
