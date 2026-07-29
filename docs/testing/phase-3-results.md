@@ -9,13 +9,16 @@ tagged `phase-2`)
 
 Source commit tested: `bfc6c5794600107603ebe757e5941de1c0abc7db`
 
-Closure candidate: this document and `artifacts/phase-3-verification.json` are
-the only things added on top of `bfc6c57`. Every measurement below was taken
-against `bfc6c57` itself, before either file existed, so nothing here is a
-result the tree it describes could have contained.
+Closure candidate: everything on top of `bfc6c57` is documentation. `d2f3f88`
+added this document and `artifacts/phase-3-verification.json`; the commit after
+it corrected the push-state sentences in both, once the branch had actually been
+pushed. Neither changed a line of code, a measurement or a verdict. Every
+measurement below was taken against `bfc6c57` itself, before either file
+existed, so nothing here is a result the tree it describes could have contained.
 
-Phase 3 is a **local closure candidate**. It is not merged, not tagged and not
-pushed.
+Phase 3 is a **closure candidate**. The branch was pushed to `origin` at
+`d2f3f88` so it can be reviewed; it is not merged and not tagged, and pushing a
+branch runs no CI (see "CI Status" below).
 
 ## Result
 
@@ -266,6 +269,27 @@ Carried from run 2E's audit and re-checked here:
   fake-agent process and no leftover temporary directory. In the real-binary
   regression: empty process groups after every terminal path.
 
+## CI Status
+
+Read from the GitHub REST API, unauthenticated and read-only. No CI tooling was
+installed and no workflow was changed.
+
+| | |
+|---|---|
+| Entry gate (`ec87dd0`, Phase 2 merge into `main`) | workflow run **30337726989**, conclusion **success**, 2026-07-28T07:15:31Z — **PASS** |
+| Closure candidate (`d2f3f88`) | no workflow run exists — **NOT PROVEN** |
+
+The branch was pushed to `origin` at `d2f3f88` so it can be reviewed, and that
+does not change the CI verdict: `.github/workflows/ci.yml` triggers on
+`pull_request` and on `push` to `main` only. The API was queried again after the
+push and reports zero workflow runs for this branch. CI observes this commit
+when a pull request is opened for it, and not before.
+
+What was verified locally instead is exactly what the workflow does: a
+clean-clone frozen-lockfile install, `pnpm verify`, and an empty
+`git status --porcelain` afterwards. That is evidence about this commit, not a
+substitute for CI having run.
+
 ## Acceptance Matrix Totals
 
 From `docs/testing/phase-3-acceptance-matrix.md`, 53 requirements:
@@ -293,7 +317,7 @@ No required Phase 3 gate is FAIL.
 
 | # | Item | Why it is acceptable |
 |---|---|---|
-| G7 | CI for the closure candidate | The branch is deliberately unpushed and the workflow triggers only on pull requests and pushes to `main`, so no run exists. The clean clone performed exactly what CI performs |
+| G7 | CI for the closure candidate | The workflow triggers only on pull requests and pushes to `main`. The branch is pushed but no pull request is open, so no run exists — confirmed against the API after the push. The clean clone performed exactly what CI performs |
 | H1 | Strict-offline execution | Requires observed network isolation. "No cloud traffic seen" is not "cloud traffic impossible", and the distinction is not going to be blurred. Belongs to Local Validation |
 | H2 | Sandboxed (`preferSandbox`) execution | The path is attested but was disabled in every run so far. Local Validation |
 | H3 | Concurrent runs sharing one Git working tree | Out of Phase 3 scope; the composition serializes one workspace per run |
@@ -325,7 +349,7 @@ None of these is a defect. Each is a claim the project has declined to make.
 - **Not strict-offline.** `pnpm verify` needs no network, and no cloud traffic
   was observed in any run, but network isolation was not enforced or measured,
   so no strict-offline claim is made here.
-- **Not merged, tagged or pushed.** This is a candidate for independent review.
+- **Not merged or tagged.** The branch is published for review and nothing more.
 - **Not a soak test.** Every guarantee here is proven once, or five times for
   the deterministic suite. Whether they hold overnight, repeatedly, and under a
   real model's variability is the Local Validation and Soak Testing stage, which

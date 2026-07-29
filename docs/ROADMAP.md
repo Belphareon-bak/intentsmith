@@ -118,8 +118,8 @@ gateway.
 
 ## Phase 3 - OpenCode Worker POC
 
-Status: complete through run 2F and a **local closure candidate**. Not merged,
-not tagged, not pushed.
+Status: complete through run 2F and a **closure candidate**, pushed to `origin`
+for review. Not merged, not tagged.
 
 Entry gate (satisfied): Phase 2 is merged into `main` (`ec87dd0`, PR #2), the
 annotated `phase-2` tag exists, and CI for that merge completed successfully
@@ -168,16 +168,16 @@ is `docs/testing/phase-3-acceptance-matrix.md`, and the closure evidence is
 4. **`docs/testing/phase-3-results.md` and `artifacts/phase-3-verification.json`**
    — produced, in the shape every previous phase produced.
 5. **README "Current State"** — updated.
-6. **CI status** — the entry gate's run is recorded. The closure candidate
-   itself has no CI run, because the branch is deliberately not pushed and the
-   workflow triggers only on pull requests and pushes to `main`. That is
+6. **CI status** — the entry gate's run is recorded and green. The closure
+   candidate itself has no CI run: the workflow triggers only on pull requests
+   and pushes to `main`, so pushing the branch triggered nothing. That is
    recorded as NOT PROVEN with its reason rather than implied to be green.
 7. **Two wording corrections** — made in `docs/test-matrix-phase-1-to-4.md`.
    Neither promoted a verdict: the rows stay PARTIAL because what changed was
    the specification's accuracy, not the evidence behind it.
 
-Phase 3 is a **local closure candidate**. It is not merged, not tagged and not
-pushed; independent review comes before integration.
+Phase 3 is a **closure candidate**, published for review. It is not merged and
+not tagged; independent review comes before integration.
 
 ## Phase 3B - Tool Capability Mediation
 

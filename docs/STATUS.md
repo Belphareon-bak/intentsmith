@@ -4,8 +4,9 @@
 
 Phase 3 - OpenCode Worker POC, on `phase-3-opencode-worker`. Complete through
 run 2F and a **local closure candidate**: every Phase 3 gate has been executed
-and recorded, and nothing required remains FAIL. **It is not merged, not tagged
-and not pushed** — independent review comes before integration.
+and recorded, and nothing required remains FAIL. The branch is pushed to
+`origin` for review; **it is not merged and not tagged** — independent review
+comes before integration.
 
 Phase 1.1 is merged (`bd0a6a5`, PR #1) and tagged `phase-1.1`. Phase 2 is merged
 (`ec87dd0`, PR #2) and tagged `phase-2`, which satisfies the Phase 3 entry gate.
@@ -241,8 +242,8 @@ README, the CI status, and the two specification wording corrections.
 
 The CI item is recorded honestly rather than favourably: the entry gate's run on
 `main` is green and identified, and the closure candidate itself has no CI run
-at all, because the branch is deliberately not pushed and the workflow triggers
-only on pull requests and pushes to `main`.
+at all. Pushing the branch did not change that — the workflow triggers only on
+pull requests and pushes to `main`, and no pull request is open.
 
 ## Phase 3B - Not Proven
 

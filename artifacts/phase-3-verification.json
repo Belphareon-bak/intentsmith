@@ -6,15 +6,24 @@
   "status": "local closure candidate",
   "merged": false,
   "tagged": false,
-  "pushed": false,
+  "pushed": true,
+  "pushedAs": {
+    "remote": "origin",
+    "branch": "phase-3-opencode-worker",
+    "commit": "d2f3f882c2018c6e8b6d9cbc472dd359f5b57224",
+    "fastForward": true,
+    "forced": false,
+    "purpose": "published for independent review; triggers no CI, opens no pull request"
+  },
   "baseline": {
     "commit": "ec87dd0f52d010726b2ca9409ec6fbceefa778fe",
     "description": "Phase 2 merge into main, tagged phase-2. Entry gate for Phase 3."
   },
   "commits": {
     "sourceTested": "bfc6c5794600107603ebe757e5941de1c0abc7db",
-    "closureCandidate": "evidence-only commit on top of bfc6c57",
-    "relationship": "Every measurement in this artifact was taken against bfc6c57 before this file existed. The closure-candidate commit adds docs/testing/phase-3-results.md, this artifact, and the .gitignore entry that tracks it, and changes no code. There is no claim that anything was tested at a commit that contains its own results."
+    "evidenceCommit": "d2f3f882c2018c6e8b6d9cbc472dd359f5b57224",
+    "closureCandidate": "documentation-only commits on top of bfc6c57",
+    "relationship": "Every measurement in this artifact was taken against bfc6c57 before this file existed. d2f3f88 added docs/testing/phase-3-results.md, this artifact and the .gitignore entry that tracks it; the commit after it corrected the push-state sentences in both, once the branch had actually been pushed. Neither changed code, a measurement or a verdict. There is no claim that anything was tested at a commit that contains its own results."
   },
   "runs": [
     { "run": "2A", "commits": ["07d917c", "0ea01e3", "978dc40", "f515819"], "subject": "fail-closed OpenCode configuration, evidence-bounded protocol retries, Git-backed evidence for code verdicts, permission-pending lifecycle cleanup" },
@@ -207,11 +216,13 @@
     },
     "closureCandidate": {
       "verdict": "NOT PROVEN",
-      "reason": "The workflow triggers on pull requests and pushes to main. The branch phase-3-opencode-worker is deliberately not pushed at this commit, and the GitHub API reports zero workflow runs for it, so no CI observation of this commit exists or can exist without publishing it.",
-      "localEquivalent": "The clean-clone verification performed what the workflow performs: frozen-lockfile install, pnpm verify, and an empty git status --porcelain.",
+      "reason": "The workflow triggers on pull requests and pushes to main. The branch phase-3-opencode-worker was pushed to origin for review, which triggers nothing, and no pull request is open. The GitHub API was queried after the push and reports zero workflow runs for the branch, so no CI observation of this commit exists.",
+      "localEquivalent": "The clean-clone verification performed what the workflow performs: frozen-lockfile install, pnpm verify, and an empty git status --porcelain. That is evidence about this commit, not a substitute for CI having run.",
       "toolingInstalled": false,
       "workflowsChanged": false,
-      "branchPushed": false
+      "branchPushed": true,
+      "pullRequestOpened": false,
+      "workflowRunsForBranchAfterPush": 0
     }
   },
   "acceptanceMatrix": {
@@ -233,7 +244,7 @@
     "F8": "A wildcard bind and a hostname are refused. A port forward in front of a correctly bound VPN interface is outside anything the process can observe, and is documented as unsupported rather than prevented."
   },
   "remainingNotProven": {
-    "G7": "CI for the closure candidate: the branch is deliberately unpushed.",
+    "G7": "CI for the closure candidate: the workflow triggers only on pull requests and pushes to main, and neither has happened. Pushing the branch triggered nothing.",
     "H1": "Strict-offline execution: requires observed network isolation. No cloud traffic seen is not cloud traffic impossible.",
     "H2": "Sandboxed (preferSandbox) execution: attested but disabled in every run so far.",
     "H3": "Concurrent runs sharing one Git working tree: out of Phase 3 scope.",
