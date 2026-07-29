@@ -29,8 +29,20 @@ repository, and domain checks are complete.
 ## Current State
 
 Phase 1 delivered the deterministic vertical slice. Phase 1.1 audited it and
-hardened the boundaries. Phase 2 adds the first real local inference provider.
-See `docs/STATUS.md`, `docs/testing/phase-1-1-results.md` and
+hardened the boundaries. Phase 2 added the first real local inference provider.
+Phase 3 delegates a coding task to a real external agent — the pinned
+`opencode-ai` binary, speaking ACP as a supervised child process — without
+giving it any authority. Inference reaches only a loopback gateway behind a
+token that dies with its run; a risky action needs a single-use approval bound
+to the exact payload; shell is denied outright; what changed is read from Git
+rather than believed; and an interrupted run is reconciled after a restart
+without a restart ever counting as consent.
+
+Phase 3 is a **closure candidate**: complete and verified locally, not merged
+and not tagged. See `docs/STATUS.md`, `docs/testing/phase-3-results.md` and
+`docs/testing/phase-3-acceptance-matrix.md`, which records what is proven, what
+is only partly proven, and what the project deliberately does not claim.
+Earlier phases: `docs/testing/phase-1-1-results.md` and
 `docs/testing/phase-2-results.md`.
 
 ## Local-First Guarantee

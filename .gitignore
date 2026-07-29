@@ -12,6 +12,7 @@ artifacts/*
 !artifacts/phase-3b-model-probe.json
 !artifacts/phase-3b-verification.json
 !artifacts/phase-3-2c-real-binary.json
+!artifacts/phase-3-verification.json
 runtime/
 .intentsmith/
 *.db

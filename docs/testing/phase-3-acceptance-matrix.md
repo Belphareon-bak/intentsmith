@@ -119,12 +119,13 @@ the same bar.
 
 | # | Requirement | Implementation / evidence | Proof | Verdict | Remaining work |
 |---|---|---|---|---|---|
-| G1 | Five deterministic full-suite runs at the closure commit | — | Last performed at Phase 3B (`deterministicFullSuiteRuns: 5`, 44 files, 694 tests). This tree is 54 files and 866 tests; the suite has been run once here, inside `pnpm verify` | NOT PROVEN | Run `pnpm test` five times at the closure commit and record that all five are identical |
-| G2 | Clean-clone `pnpm verify` at the closure commit | — | Last performed at Phase 3B. `package.json` and `vitest.config.ts` have both changed since, so the recorded result no longer describes this tree | NOT PROVEN | Clone the branch to a clean directory and run `pnpm verify`; record the exit code and commit |
-| G3 | Coverage thresholds preserved and met | `vitest.config.ts` `thresholds` | Thresholds are unchanged since Phase 1.1. `pnpm verify` with the new process-level test present: 54 files, 866 tests, statements 92.79 %, branches 84.31 %, functions 93.33 %, lines 94.54 %, against gates of 90 / 82 / 88 / 92 | PASS | none |
-| G4 | `docs/testing/phase-3-results.md` | — | Absent. Phase 1, Phase 1.1 and Phase 2 each have one; Phase 3 has only the 3B spike, the model probe and this matrix | FAIL | Write it at closure, covering runs 2A-2D |
-| G5 | `artifacts/phase-3-verification.json` | — | Absent. Only `phase-3b-verification.json` and `phase-3-2c-real-binary.json` exist | FAIL | Write it at closure, in the shape of `phase-3b-verification.json` |
-| G6 | `README.md` reflects Phase 3 | `README.md` "Current State" | Still reads "Phase 2 adds the first real local inference provider" and links only Phase 1.1 and Phase 2 results | FAIL | Update at closure, once G4 and G5 exist to link |
+| G1 **(2F)** | Five deterministic full-suite runs at the closure commit | — | `pnpm test` run five consecutive times at `bfc6c57`: every run exited 0 with **55 files and 869 tests**, in 7.31 s – 7.40 s, leaving no temporary directory and no orphan worker process behind. No run was discarded or repeated | PASS | none |
+| G2 **(2F)** | Clean-clone `pnpm verify` at the closure commit | — | `bfc6c57` cloned to an empty directory with no `node_modules`, no `dist` and no `.intentsmith`; `pnpm verify` exited 0 — frozen-lockfile install, typecheck, lint, coverage-gated tests (55 files, 869 tests) and build — and `git status --porcelain` was empty afterwards, which is the assertion CI makes. No dependency version was changed to make it work | PASS | none |
+| G3 **(2F)** | Coverage thresholds preserved and met | `vitest.config.ts` `thresholds` | Thresholds unchanged since Phase 1.1. Measured in the clean clone: statements 92.84 %, branches 84.42 %, functions 93.45 %, lines 94.57 %, against gates of 90 / 82 / 88 / 92. The exclusion list for test-only modules was generalized from `**/fixtures.ts` to `**/*fixtures.ts` so it covers the restart regression's child-process fixture; no production file is excluded and no threshold moved | PASS | none |
+| G4 **(2F)** | `docs/testing/phase-3-results.md` | `docs/testing/phase-3-results.md` | Written, covering runs 2A-2F | PASS | none |
+| G5 **(2F)** | `artifacts/phase-3-verification.json` | `artifacts/phase-3-verification.json` | Written, in the shape of `phase-3b-verification.json`. The document and the artifact are generated from the same measurements and state the same numbers | PASS | none |
+| G6 **(2F)** | `README.md` reflects Phase 3 | `README.md` "Current State" | Updated: names Phase 3, says it is a closure candidate rather than merged, and links the results document | PASS | none |
+| G7 **(2F)** | CI status for the closure candidate itself | `.github/workflows/ci.yml` | **No CI run exists for it, and none can without publishing it.** The workflow triggers on pull requests and on pushes to `main`; the branch `phase-3-opencode-worker` is deliberately not pushed at this commit, and the GitHub API reports zero workflow runs for that branch. What was verified locally instead is exactly what CI would do — a clean-clone frozen install, `pnpm verify`, and an empty `git status --porcelain` (G2) | NOT PROVEN | Nothing to do locally. CI observes this commit when, and only when, it is published for review |
 
 ## H. Carried "not proven" items
 
@@ -146,17 +147,21 @@ defect; each is a claim the project has deliberately declined to make.
 
 ## Totals
 
-| Verdict | Count |
-|---|---|
-| PASS | 30 |
-| PARTIAL | 6 |
-| NOT PROVEN | 11 |
-| FAIL | 3 |
-| **Total** | **50** |
+| Verdict | End of 2E | Closure candidate (2F) |
+|---|---|---|
+| PASS | 30 | **37** |
+| PARTIAL | 6 | **5** |
+| NOT PROVEN | 11 | **11** |
+| FAIL | 3 | **0** |
+| **Total** | **50** | **53** |
 
-PARTIAL: C3, C8, D2, D4, D5, F8.
-NOT PROVEN: A3, G1, G2, H1-H8.
-FAIL: G4, G5, G6.
+PARTIAL: C3, D2, D4, D5, F8.
+NOT PROVEN: G7, H1-H10.
+FAIL: none.
+
+The three added requirements are G7 (CI for the closure candidate) and H9-H10,
+the two boundaries the restart regression made explicit. Seven moved to PASS:
+A3, C8, G1, G2, G4, G5, G6.
 
 ## What blocked Phase 3 closure, and what happened to it
 
