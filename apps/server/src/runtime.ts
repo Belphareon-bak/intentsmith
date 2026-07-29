@@ -98,12 +98,12 @@ export function createRuntime(options: RuntimeOptions | string = {}): ServerRunt
       })
     : new IntentSmithCore({ ...shared, worker: new FakeWorker() });
 
-  const endpoint = resolved.ollamaEndpoint ?? process.env.INTENTSMITH_OLLAMA_ENDPOINT ?? DEFAULT_OLLAMA_ENDPOINT;
+  const endpoint = resolved.ollamaEndpoint ?? env.INTENTSMITH_OLLAMA_ENDPOINT ?? DEFAULT_OLLAMA_ENDPOINT;
   // Fails fast on an illegal endpoint rather than at first generation.
   assertLocalEndpoint(endpoint);
   const provider = new OllamaProvider({ endpoint });
   const scheduler = new InferenceScheduler({
-    maxConcurrent: resolved.maxConcurrentInference ?? readConcurrency(),
+    maxConcurrent: resolved.maxConcurrentInference ?? readConcurrency(env),
   });
   const hardware = new HardwareDirector();
 
@@ -142,8 +142,8 @@ export function createRuntime(options: RuntimeOptions | string = {}): ServerRunt
 }
 
 /** Concurrency comes only from validated local configuration. */
-function readConcurrency(): number {
-  const raw = process.env.INTENTSMITH_MAX_CONCURRENT_INFERENCE;
+function readConcurrency(env: NodeJS.ProcessEnv): number {
+  const raw = env.INTENTSMITH_MAX_CONCURRENT_INFERENCE;
   if (!raw) return 1;
   const parsed = Number(raw);
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 8) return 1;

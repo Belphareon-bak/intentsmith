@@ -3,6 +3,7 @@ import {
   withGrant,
   type GrantAudit,
   type GrantIssuer,
+  type GrantOutcome,
   type InferenceGrant,
   type WorkerAdapter,
   type WorkerDescriptor,
@@ -108,9 +109,15 @@ export function createRunScopedWorker(options: RunScopedWorkerOptions): WorkerAd
   return {
     describe: (): WorkerDescriptor => options.describe(),
     start: (context: WorkerExecutionContext): WorkerHandle => {
-      let inner: WorkerHandle | undefined;
-      let cancelRequested = false;
       let token = '';
+      let observed: WorkerExecutionResult | undefined;
+      // Resolves with the live handle, or with `undefined` when the run ended
+      // without one. A lifecycle command therefore never has to guess whether
+      // the process exists yet, and never waits on one that never will.
+      let announce!: (handle: WorkerHandle | undefined) => void;
+      const started = new Promise<WorkerHandle | undefined>(resolve => {
+        announce = resolve;
+      });
 
       const done = withGrant(
         options.issuer,
@@ -118,36 +125,62 @@ export function createRunScopedWorker(options: RunScopedWorkerOptions): WorkerAd
         context.task.id,
         async grant => {
           token = grant.token;
-          inner = options.adapterFor(context).start({
+          const inner = options.adapterFor(context).start({
             ...context,
             workspaceRoot: options.workspaceRoot,
             inference: grant,
           });
-          // A cancel that arrived while the grant was being issued must still
-          // reach the process, rather than being lost to the ordering.
-          if (cancelRequested) await inner.cancel();
-          return await inner.done;
+          announce(inner);
+          observed = await inner.done;
+          return observed;
         },
-        options.onGrantAudit ? { onAudit: options.onGrantAudit } : {},
-      ).catch((error: unknown) => failureResult(error, token));
+        {
+          onAudit: audit => options.onGrantAudit?.({ ...audit, outcome: refineOutcome(audit.outcome, observed) }),
+        },
+      )
+        .catch((error: unknown) => failureResult(error, token))
+        // A run that never produced a handle still has to release anything
+        // waiting on one; resolving twice is a no-op.
+        .finally(() => announce(undefined));
+
+      const require = async (verb: string): Promise<WorkerHandle> => {
+        const handle = await started;
+        if (!handle) throw new Error(`The worker never started, so it cannot be ${verb}.`);
+        return handle;
+      };
 
       return {
         done,
-        pause: async () => {
-          if (!inner) throw new Error('The worker has not started yet and cannot be paused.');
-          await inner.pause();
-        },
-        resume: async () => {
-          if (!inner) throw new Error('The worker has not started yet and cannot be resumed.');
-          await inner.resume();
-        },
-        cancel: async () => {
-          cancelRequested = true;
-          await inner?.cancel();
-        },
+        pause: async () => await (await require('paused')).pause(),
+        resume: async () => await (await require('resumed')).resume(),
+        // A cancel that arrives before the process exists must still reach it,
+        // and a cancel for a run that never started is simply nothing to do.
+        cancel: async () => await (await started)?.cancel(),
       };
     },
   };
+}
+
+/**
+ * Corrects the grant audit's outcome from what the worker actually reported.
+ *
+ * A worker adapter reports its own failure as a terminal event and settles
+ * normally, so the promise resolving is not evidence that anything succeeded.
+ * Recording that run as a success would put a false reason into the audit trail
+ * while the revocation it describes was in fact a failure path.
+ */
+function refineOutcome(outcome: GrantOutcome, observed: WorkerExecutionResult | undefined): GrantOutcome {
+  if (outcome !== 'success' || !observed) return outcome;
+  const terminal = observed.events.find(
+    (event): event is { type: 'failed'; error: { code?: unknown } } =>
+      typeof event === 'object' && event !== null && (event as { type?: unknown }).type === 'failed',
+  );
+  if (!terminal) return outcome;
+  const code = typeof terminal.error?.code === 'string' ? terminal.error.code : '';
+  if (/cancel/i.test(code)) return 'cancelled';
+  if (/timeout/i.test(code)) return 'timeout';
+  if (/executable_missing|permission_denied|spawn/i.test(code)) return 'spawn_failed';
+  return 'failure';
 }
 
 /**
