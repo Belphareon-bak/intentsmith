@@ -384,7 +384,7 @@ function riskAssessmentCopy(overrides = {}) {
       SEPARATE_INCIDENT: 3,
     },
     openImpactCounts: {
-      G0_FAIL: 2,
+      G0_FAIL: 1,
       G0_REVIEW_REQUIRED: 1,
       LATER_GATE: 2,
       SEPARATE_INCIDENT: 3,
@@ -411,7 +411,6 @@ test('committed policy classifies every risk and derives current blockers', () =
   assertEqual(result.policyCount, 26);
   assertEqual(result.repositoryBlockers.join(','), [
     'G0-R014: OPEN',
-    'G0-R020: OPEN',
   ].join(','));
   assertEqual(result.reviewRequiredRisks.join(','), 'G0-R015: OPEN');
   assertEqual(result.laterGateRisks.join(','), 'G0-R009: OPEN,G0-R018: OPEN');
@@ -452,22 +451,22 @@ test('a newly added unknown OPEN risk fails closed without a code allowlist', ()
 
 test('removing an OPEN risk policy entry fails closed', () => {
   const policy = riskPolicyCopy();
-  policy.risks = policy.risks.filter(entry => entry.riskId !== 'G0-R020');
+  policy.risks = policy.risks.filter(entry => entry.riskId !== 'G0-R014');
   const result = evaluateGate0RiskPolicy(committedRiskMarkdown, policy);
   assertEqual(result.valid, false);
-  assert(includesError(result.errors, 'G0-R020: missing valid gateImpact policy'));
-  assert(includesError(result.repositoryBlockers, 'G0-R020: OPEN'));
+  assert(includesError(result.errors, 'G0-R014: missing valid gateImpact policy'));
+  assert(includesError(result.repositoryBlockers, 'G0-R014: OPEN'));
 });
 
 test('duplicate and unknown gateImpact entries are rejected', () => {
   const duplicate = riskPolicyCopy();
   duplicate.risks.push(structuredClone(
-    duplicate.risks.find(entry => entry.riskId === 'G0-R020'),
+    duplicate.risks.find(entry => entry.riskId === 'G0-R014'),
   ));
   const duplicateResult = evaluateGate0RiskPolicy(committedRiskMarkdown, duplicate);
   assertEqual(duplicateResult.valid, false);
-  assert(includesError(duplicateResult.errors, 'G0-R020: duplicate gateImpact'));
-  assert(includesError(duplicateResult.repositoryBlockers, 'G0-R020: OPEN'));
+  assert(includesError(duplicateResult.errors, 'G0-R014: duplicate gateImpact'));
+  assert(includesError(duplicateResult.repositoryBlockers, 'G0-R014: OPEN'));
 
   const unknown = riskPolicyCopy();
   unknown.risks.find(entry => entry.riskId === 'G0-R014').gateImpact = 'IGNORE';

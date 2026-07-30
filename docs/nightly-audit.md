@@ -124,8 +124,8 @@ row in `RISK-REGISTER.md`. A missing or duplicate mapping, unknown
 `gateImpact`, malformed entry, missing concrete condition, extra policy row, or
 new unclassified open/local risk fails G0-C9. Any non-closed `G0_FAIL` row
 forces `FAIL`; reopening one is effective without changing generator code. The
-current policy derives `G0-R014` and `G0-R020` as repository blockers;
-`G0-R015` requires review. `G0-R018` remains
+current policy derives `G0-R014` as the repository blocker; `G0-R015` requires
+review. `G0-R018` remains
 a later-gate risk only while the legacy listener stays loopback-only, and the
 privacy findings remain separately reported incidents.
 

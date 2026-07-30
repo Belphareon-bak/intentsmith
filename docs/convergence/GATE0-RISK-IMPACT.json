@@ -107,7 +107,7 @@
     {
       "riskId": "G0-R020",
       "gateImpact": "G0_FAIL",
-      "rationale": "Generic GPU metadata cannot truthfully explain the observed model, context, VRAM, and concurrency prerequisite."
+      "rationale": "A regression to generic GPU metadata would again hide the exact model, context, VRAM, residency, and concurrency prerequisite."
     },
     {
       "riskId": "G0-R021",
