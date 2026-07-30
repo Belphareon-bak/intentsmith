@@ -8,6 +8,6 @@
     { "frontend": "lib/browser/center-views-module" }
   ],
   "dependencies": {
-    "@theia/core": "*"
+    "@theia/core": "1.65.2"
   }
 }

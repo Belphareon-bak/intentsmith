@@ -4,6 +4,7 @@
   "version": "0.2.0",
   "description": "C3 Studio — AI-powered IDE built on Eclipse Theia",
   "license": "MIT",
+  "packageManager": "yarn@1.22.22",
   "engines": {
     "node": ">=22.0.0"
   },
@@ -11,6 +12,9 @@
     "applications/*",
     "extensions/*"
   ],
+  "resolutions": {
+    "@vscode/ripgrep": "1.15.14"
+  },
   "scripts": {
     "build": "yarn --cwd applications/electron build",
     "start": "yarn --cwd applications/electron start",

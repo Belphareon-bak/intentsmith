@@ -77,7 +77,10 @@
     "@theia/cli": "1.65.2",
     "@electron/rebuild": "^3.7.1",
     "electron": "37.2.1",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^25.1.8",
+    "terser-webpack-plugin": "5.3.17",
+    "webpack": "5.109.2",
+    "webpack-cli": "4.7.0"
   },
   "scripts": {
     "build": "theia build --mode production",

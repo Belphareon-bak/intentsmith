@@ -4,6 +4,7 @@
   "type": "module",
   "description": "IntentSmith — C3-derived local agent platform with CRE, lifecycle, Code Intelligence, execution, and governed model operations",
   "main": "src/server.js",
+  "packageManager": "npm@10.9.4",
   "engines": {
     "node": ">=22.0.0"
   },

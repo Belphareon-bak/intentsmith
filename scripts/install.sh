@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# C3 Studio — Install Script (F4b, v131)
+# IntentSmith + C3 Studio — reproducible install
 # ══════════════════════════════════════════════════════════════════════════════
 #
 # Idempotent setup: can be re-run safely at any time.
@@ -47,7 +47,7 @@ cd "$PROJECT_ROOT"
 
 echo ""
 echo -e "${BOLD}═══════════════════════════════════════════════════════════${NC}"
-echo -e "${BOLD} C3 Studio — Install${NC}"
+echo -e "${BOLD} IntentSmith + C3 Studio — Install${NC}"
 echo -e "${BOLD}═══════════════════════════════════════════════════════════${NC}"
 echo ""
 echo -e "  Project: ${PROJECT_ROOT}"
@@ -104,7 +104,14 @@ fi
 
 # npm check
 if command -v npm >/dev/null 2>&1; then
-  ok "npm $(npm -v)"
+  NPM_VERSION="$(npm -v)"
+  if [ "$NPM_VERSION" = "10.9.4" ]; then
+    ok "npm $NPM_VERSION"
+  else
+    fail "npm 10.9.4 required; found $NPM_VERSION"
+    echo "       Install: npm install -g npm@10.9.4"
+    ERRORS=$((ERRORS + 1))
+  fi
 else
   fail "npm not found (should come with Node.js)"
   ERRORS=$((ERRORS + 1))
@@ -131,11 +138,30 @@ else
   echo "       Install: sudo apt install build-essential"
 fi
 
-if command -v python3 >/dev/null 2>&1; then
-  ok "python3 found"
+PDF_BOOTSTRAP_PYTHON="${PYTHON3:-python3.12}"
+if command -v "$PDF_BOOTSTRAP_PYTHON" >/dev/null 2>&1 &&
+   "$PDF_BOOTSTRAP_PYTHON" -c 'import ensurepip, venv; raise SystemExit(0)' >/dev/null 2>&1; then
+  ok "$PDF_BOOTSTRAP_PYTHON with venv support found"
 else
-  warn "python3 not found (needed for node-gyp)"
-  echo "       Install: sudo apt install python3"
+  fail "CPython 3.12 with venv support is required for locked PDF export"
+  echo "       Install: sudo apt install python3.12 python3.12-venv"
+  ERRORS=$((ERRORS + 1))
+fi
+
+PDF_FONT_DIR="/usr/share/fonts/truetype/dejavu"
+PDF_FONTS="DejaVuSans.ttf DejaVuSans-Bold.ttf DejaVuSans-Oblique.ttf DejaVuSans-BoldOblique.ttf DejaVuSansMono.ttf"
+MISSING_PDF_FONTS=""
+for font_name in $PDF_FONTS; do
+  if [ ! -f "$PDF_FONT_DIR/$font_name" ]; then
+    MISSING_PDF_FONTS="$MISSING_PDF_FONTS $font_name"
+  fi
+done
+if [ -z "$MISSING_PDF_FONTS" ]; then
+  ok "DejaVu PDF fonts found"
+else
+  fail "Missing required PDF fonts:$MISSING_PDF_FONTS"
+  echo "       Install: sudo apt install fonts-dejavu-core"
+  ERRORS=$((ERRORS + 1))
 fi
 
 echo ""
@@ -192,7 +218,7 @@ fi
 AVAIL_GB=$(df -BG . 2>/dev/null | awk 'NR==2 {gsub(/G/,"",$4); print $4}')
 if [ -n "$AVAIL_GB" ] && [ "$AVAIL_GB" -lt 5 ] 2>/dev/null; then
   warn "Low disk space: ${AVAIL_GB}GB available (recommend ≥ 5GB)"
-  echo "       npm install + models need significant disk space"
+  echo "       npm ci + IDE dependencies + models need significant disk space"
 fi
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -200,20 +226,13 @@ fi
 # ════════════════════════════════════════════════════════════════════════════
 echo -e "${BOLD}── Backend Dependencies ──${NC}"
 
-info "Running npm install..."
-if npm install 2>&1 | tail -3; then
-  ok "npm install complete"
+info "Running npm ci from package-lock.json..."
+if npm ci 2>&1 | tail -3; then
+  ok "npm ci complete"
 else
-  # Retry with --legacy-peer-deps (tree-sitter-java peerOptional conflict)
-  info "Retrying with --legacy-peer-deps..."
-  if npm install --legacy-peer-deps 2>&1 | tail -3; then
-    ok "npm install complete (with --legacy-peer-deps)"
-  else
-    fail "npm install failed"
-    echo "       If better-sqlite3 failed, try:"
-    echo "       npm rebuild better-sqlite3 --build-from-source"
-    exit 1
-  fi
+  fail "npm ci failed; package.json and package-lock.json must remain synchronized"
+  echo "       If better-sqlite3 failed, install the documented build prerequisites."
+  exit 1
 fi
 
 # Verify better-sqlite3 native binding
@@ -245,7 +264,7 @@ echo ""
 echo -e "${BOLD}── PDF Export Runtime ──${NC}"
 
 info "Installing hash-locked ReportLab runtime..."
-if "$SCRIPT_DIR/install-pdf-runtime.sh"; then
+if PYTHON3="$PDF_BOOTSTRAP_PYTHON" "$SCRIPT_DIR/install-pdf-runtime.sh"; then
   ok "Isolated PDF export runtime ready"
 else
   fail "PDF runtime installation failed"
@@ -261,29 +280,26 @@ echo ""
 echo -e "${BOLD}── IDE Dependencies ──${NC}"
 
 if ! command -v yarn >/dev/null 2>&1; then
-  info "yarn not found — installing..."
-  if npm install -g yarn 2>&1 | tail -1; then
-    ok "yarn installed"
-  else
-    fail "Could not install yarn"
-    echo "       Install manually: npm install -g yarn"
-    exit 1
-  fi
+  fail "Yarn 1.22.22 not found"
+  echo "       Install: npm install -g yarn@1.22.22"
+  exit 1
 fi
 
-ok "yarn $(yarn --version)"
+YARN_VERSION="$(yarn --version)"
+if [ "$YARN_VERSION" != "1.22.22" ]; then
+  fail "Yarn 1.22.22 required; found $YARN_VERSION"
+  echo "       Install: npm install -g yarn@1.22.22"
+  exit 1
+fi
+ok "yarn $YARN_VERSION"
 
-info "Running yarn install for IDE..."
-if (cd c3-ide && yarn install --frozen-lockfile 2>&1 | tail -3); then
+info "Running frozen Yarn install for IDE..."
+if (cd c3-ide && yarn install --frozen-lockfile --non-interactive 2>&1 | tail -3); then
   ok "IDE dependencies installed"
 else
-  warn "yarn --frozen-lockfile failed, trying without..."
-  if (cd c3-ide && yarn install 2>&1 | tail -3); then
-    ok "IDE dependencies installed"
-  else
-    fail "yarn install failed"
-    exit 1
-  fi
+  fail "Frozen IDE dependency installation failed"
+  echo "       Do not regenerate c3-ide/yarn.lock without review."
+  exit 1
 fi
 
 echo ""
@@ -458,7 +474,7 @@ echo -e "${BOLD}═════════════════════�
 echo ""
 echo -e "  ${GREEN}Next steps:${NC}"
 echo ""
-echo "    1. Start C3 Studio:"
+echo "    1. Start IntentSmith with C3 Studio:"
 echo "       ./scripts/run.sh"
 echo ""
 echo "    2. The IDE will open automatically"
@@ -467,7 +483,7 @@ echo "    3. Try your first prompt in the chat panel"
 echo ""
 
 if [ "$OLLAMA_OK" = false ]; then
-  echo -e "  ${YELLOW}Note:${NC} Ollama is not running. Start it before using C3:"
+  echo -e "  ${YELLOW}Note:${NC} Ollama is not running. Start it before model-backed IntentSmith features:"
   echo "       ollama serve &"
   echo ""
 fi
