@@ -2365,6 +2365,7 @@ PRAVIDLA:
         // v72: num_ctx 1024 — classification needs <500 tokens total.
         // Default 32K context window wastes VRAM on KV-cache allocation.
         num_ctx: 1024,
+        signal: context.signal,
       });
 
       if (!result?.content) {
@@ -2490,6 +2491,11 @@ PRAVIDLA:
 
       return parsed;
     } catch (err) {
+      if (context.signal?.aborted) {
+        const abortError = new Error('Request cancelled by user');
+        abortError.name = 'AbortError';
+        throw abortError;
+      }
       logger.warn('CRE:LLM', `LLM intent classification failed: ${err.message}`, {
         input: input.substring(0, 60),
       });

@@ -251,8 +251,9 @@ await asyncTest('T10: cancel aborts current turn', async () => {
     send: (json) => sent.push(JSON.parse(json)),
     handleRequest: async (request) => {
       // Check abort signal
+      assert.equal(request.signal, request.context.signal);
       return new Promise((resolve, reject) => {
-        request.context.signal.addEventListener('abort', () => {
+        request.signal.addEventListener('abort', () => {
           reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }));
         });
         firstDone.then(() => resolve({ response: 'ok', mode: 'conversation', confidence: 1, state: {} }));
@@ -269,6 +270,30 @@ await asyncTest('T10: cancel aborts current turn', async () => {
   await turn1;
 
   // Should have cancelled turn_end
+  const turnEnd = sent.find(m => m.channel === 'agent' && m.data.type === 'turn_end');
+  assert.ok(turnEnd, 'Should have turn_end');
+  assert.equal(turnEnd.data.payload.status, 'cancelled_by_user');
+});
+
+await asyncTest('T10b: cancelled handler result is never emitted as an assistant response', async () => {
+  const sent = [];
+  const adapter = createSessionAdapter({
+    send: (json) => sent.push(JSON.parse(json)),
+    handleRequest: async (request) => new Promise(resolve => {
+      request.signal.addEventListener('abort', () => {
+        resolve({ response: 'late result', mode: 'conversation', confidence: 1, state: {} });
+      }, { once: true });
+    }),
+    logger: mockLogger,
+  });
+
+  const turn = adapter.processChat('Test cancellation race');
+  await new Promise(r => setTimeout(r, 10));
+  adapter.handleControl({ action: 'cancel' });
+  await turn;
+
+  const assistant = sent.find(m => m.channel === 'chat' && m.data.type === 'assistant');
+  assert.equal(assistant, undefined, 'Cancelled turn must not emit a late assistant response');
   const turnEnd = sent.find(m => m.channel === 'agent' && m.data.type === 'turn_end');
   assert.ok(turnEnd, 'Should have turn_end');
   assert.equal(turnEnd.data.payload.status, 'cancelled_by_user');
@@ -422,6 +447,79 @@ await asyncTest('T16: hooks pass through context to handler', async () => {
   });
 
   assert.ok(handlerReceivedHooks, 'Handler should receive hooks via context spread');
+}, ASYNC_TEST_TIMEOUT_MS);
+
+await asyncTest('T16b: ChatController canonicalizes any handler rejection after cancellation', async () => {
+  const abortController = new AbortController();
+  const controller = new ChatController({
+    sessionId: 'test-16b',
+    handlers: {
+      [ChatMode.CONVERSATION]: async (_input, context) => new Promise((resolve, reject) => {
+        context.signal.addEventListener('abort', () => {
+          reject(new Error('provider closed after abort'));
+        }, { once: true });
+      }),
+    },
+  });
+
+  const processing = controller.process('hello', { signal: abortController.signal });
+  abortController.abort();
+
+  await assert.rejects(
+    processing,
+    error => error.name === 'AbortError',
+    'user cancellation must reject instead of returning a tagged handler error',
+  );
+}, ASYNC_TEST_TIMEOUT_MS);
+
+await asyncTest('T16c: cancellation before persistence leaves no assistant turn', async () => {
+  resetConversationStore();
+  const store = getConversationStore(null);
+  const abortController = new AbortController();
+  const sessionId = 'test-16c-cancel-persistence';
+
+  class AbortOnStaticQualityRead extends TaggedResponse {
+    get tag() {
+      abortController.abort();
+      return super.tag;
+    }
+  }
+
+  ChatController.configure({
+    handlers: {
+      [ChatMode.CONVERSATION]: async () => new AbortOnStaticQualityRead({
+        content: 'This response must never cross the persistence boundary.',
+        tag: new ResponseTag({
+          speaker: ResponseSpeaker.SYSTEM,
+          mode: ChatMode.CONVERSATION,
+          confidence: 0.9,
+          metadata: { semanticScore: { total: 100 } },
+        }),
+      }),
+    },
+    config: { autoModeDetection: false },
+  });
+
+  try {
+    await assert.rejects(
+      ChatController.handle({
+        message: 'Persist only this user turn',
+        sessionId,
+        conversationId: sessionId,
+        signal: abortController.signal,
+      }),
+      error => error.name === 'AbortError',
+      'late cancellation must reject canonically',
+    );
+    assert.deepEqual(
+      store.getAllTurns(sessionId).map(turn => turn.role),
+      ['user'],
+      'cancelled assistant response must not be persisted',
+    );
+  } finally {
+    ChatController.removeSession(sessionId);
+    resetConversationStore();
+  }
 }, ASYNC_TEST_TIMEOUT_MS);
 
 test('T17: hooks survive through full context pipeline in static handle()', () => {

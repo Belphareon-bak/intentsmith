@@ -1,9 +1,9 @@
 # Disposition of disputed `final` commit
 
 Status: all source-diff facts are recorded in a committed sanitized manifest
-and validate offline. Fifty-five records are evidence-backed `REPAIRED`, and 30
+and validate offline. Fifty-nine records are evidence-backed `REPAIRED`, and 30
 truthful model suites are `DEFERRED` behind concrete runtime prerequisites. The
-validator deliberately remains red while seven legacy `REBUILD/REPAIR` rows await
+validator deliberately remains red while three legacy `REBUILD/REPAIR` rows await
 terminal closure under `D-018`.
 
 Compared refs:
@@ -74,8 +74,8 @@ node scripts/validate-final-disposition.js \
 | `EXCLUDE/MOVE_OUTSIDE_PRODUCTION` | 78 |
 | `EXCLUDE/REMOVE_FOLLOWUP` | 13 |
 | `KEEP/REPLAY` | 42 |
-| `REBUILD/REPAIR` | 7 |
-| `REBUILD/REPAIRED` | 55 |
+| `REBUILD/REPAIR` | 3 |
+| `REBUILD/REPAIRED` | 59 |
 | `REBUILD/DEFERRED(<prerequisite>)` | 30 |
 | `UNRESOLVED / USER_DECISION` | 0 |
 
@@ -259,10 +259,10 @@ node scripts/validate-final-disposition.js \
 | `A` | `tests/e2e/57-lifecycle-full.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Project and conversation setup are mandatory and runner-owned; lifecycle handoff, phase and confirmation are exact, dependent returns are gone, and cleanup is unconditional. An isolated pre-commit diagnostic reached both model-free assertions but the lifecycle request timed out at 90 seconds (2 passed, 1 failed, 0 skipped), so no green model claim is made. |
 | `A` | `tests/e2e/58-code-generation.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Each request uses a mandatory owned conversation and fail-closed transport; Python, JavaScript and explanation outputs have substantive fenced-code/semantic assertions and unconditional cleanup. An isolated pre-commit diagnostic timed out all three model requests at 60 seconds (0 passed, 3 failed, 0 skipped), so execution remains behind the named model fixture. |
 | `A` | `tests/e2e/59-cross-feature.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Expertise IDs resolve only through the server-owned canonical registry; the suite requires exact expertise session state, draft round-trip/delete and memory persistence with snapshot restoration. Its isolated pre-commit diagnostic proved the draft contract but timed out both model-backed checks (1 passed, 2 failed, 0 skipped), so no green model claim is made. |
-| `A` | `tests/e2e/60-ws-chat.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/61-autocomplete.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/62-validation-suites.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/63-agent-execution.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/60-ws-chat.e2e.js` | `REBUILD` | `REPAIRED` | Tautological event and cancel checks were replaced with exact correlated WS envelopes, strictly increasing event sequence, explicit cancel acknowledgement, a cancelled terminal event, idle transition and proof that no assistant response escapes or persists after cancellation. Cancellation is canonicalized and propagates through the WS adapter, CRE classifier, LLM gateway and chat controller; negative regressions cover ordinary provider errors and the pre-persistence race. An isolated run with Ollama deliberately unreachable reported 3 passed, 0 failed, exit 0, proving the owned local-server prerequisite. |
+| `A` | `tests/e2e/61-autocomplete.e2e.js` | `REBUILD` | `REPAIRED` | Alternate 400/502 responses and conditional suggestion assertions were removed. Short input must return exact 200/null, while both model-backed prefixes require exact 200 and non-empty strings within bounded time; an isolated candidate run reported all three assertions green. |
+| `A` | `tests/e2e/62-validation-suites.e2e.js` | `REBUILD` | `REPAIRED` | The suite now binds only the exact CHAT model, requires a successful start, correlated starting/running/complete/done WS evidence, a non-zero score and all eight persisted validation results. Missing models, 500 responses, 404 results and absent progress can no longer pass; an isolated candidate run reported all four assertions green. |
+| `A` | `tests/e2e/63-agent-execution.e2e.js` | `REBUILD` | `REPAIRED` | The former external URL/model payload was replaced by a schema-valid deterministic database-source dry-run fixture. Agent inventory, preview, missing-agent/execution errors and trust summary now have exact local-server contracts; an isolated run with Ollama deliberately unreachable reported 5 passed, 0 failed, exit 0, so the registry no longer declares external network, Ollama or GPU. |
 | `A` | `tests/e2e/70-cre-intent-semantic.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Source is fail-closed through the strict positive chat helper (including exact 200); execution requires the named isolated local model fixture. |
 | `A` | `tests/e2e/71-language-enforcement.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Language assertions are fail-closed through the strict positive chat helper; execution requires the named isolated local model fixture. |
 | `A` | `tests/e2e/72-followup-coherence.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Follow-up assertions are fail-closed through the strict positive chat helper; execution requires the named isolated local model fixture. |

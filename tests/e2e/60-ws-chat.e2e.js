@@ -1,82 +1,190 @@
 // tests/e2e/60-ws-chat.e2e.js — WebSocket chat events
 // ══════════════════════════════════════════════════════════════════════════════
-// Tier 2: Verifies WS agent events sequence during chat.
+// Tier 3: Verifies the actual WS envelope, event order, cancel, and ping.
 // ══════════════════════════════════════════════════════════════════════════════
-import { suite, testAsync, assert, summary, api, waitForServer, createWsClient } from './_helpers.js';
+import {
+  suite,
+  testAsync,
+  assert,
+  assertEqual,
+  summary,
+  waitForServer,
+  createWsClient,
+  createConv,
+  cleanupConversation,
+} from './_helpers.js';
 
 await waitForServer();
 
-const LLM_TIMEOUT = 60000;
+const WS_TIMEOUT = 180000;
 
 // ── WS Agent Events ────────────────────────────────────────────────────────
 suite('WS Chat — Agent Events');
 
-await testAsync('WS receives agent events during chat', async () => {
-  const client = await createWsClient();
-
-  // Send a chat message via HTTP — WS should receive agent events
-  const chatPromise = api('POST', '/chat', { message: 'Co je to rekurze?' });
-
-  // Wait for any agent event
+await testAsync('chat envelope emits correlated turn_start, assistant, turn_end, and idle', async () => {
+  const conversationId = await createConv('E2E WS chat');
+  let client;
   try {
-    const event = await client.waitForMessage(
-      m => m.channel === 'agent' || m.channel === 'status',
-      30000
+    client = await createWsClient();
+    client.send({
+      channel: 'chat',
+      data: {
+        content: 'Kolik je 2+2?',
+        conversationId,
+      },
+    });
+
+    const turnStart = await client.waitForMessage(
+      m => m.channel === 'agent'
+        && m.data?.type === 'turn_start'
+        && m.data?.payload?.input === 'Kolik je 2+2?',
+      WS_TIMEOUT,
     );
-    assert(event, 'received agent/status event via WS');
-  } catch {
-    // If no events received, chat might have completed too quickly
-    assert(true, 'chat completed (events may have been too fast to catch)');
+    const turnId = turnStart.data.turnId;
+    assert(typeof turnId === 'string' && turnId.length > 0, 'turn_start must carry turnId');
+
+    const assistant = await client.waitForMessage(
+      m => m.channel === 'chat'
+        && m.data?.type === 'assistant'
+        && m.data?.conversationId === conversationId
+        && m.data?.metadata?.turnId === turnId,
+      WS_TIMEOUT,
+    );
+    assert(
+      typeof assistant.data.content === 'string' && assistant.data.content.trim().length > 0,
+      'assistant content must be non-empty',
+    );
+
+    const turnEnd = await client.waitForMessage(
+      m => m.channel === 'agent'
+        && m.data?.type === 'turn_end'
+        && m.data?.turnId === turnId,
+      WS_TIMEOUT,
+    );
+    assertEqual(turnEnd.data.payload?.status, 'ok');
+
+    const endIndex = client.messages.indexOf(turnEnd);
+    const idle = await client.waitForMessage(
+      m => client.messages.indexOf(m) > endIndex
+        && m.channel === 'status'
+        && m.data?.agentStatus === 'idle',
+      WS_TIMEOUT,
+    );
+    assertEqual(idle.data.agentStatus, 'idle');
+
+    const startIndex = client.messages.indexOf(turnStart);
+    const assistantIndex = client.messages.indexOf(assistant);
+    assert(startIndex < assistantIndex, 'turn_start must precede assistant response');
+    assert(assistantIndex < endIndex, 'assistant response must precede turn_end');
+
+    const seq = client.messages
+      .filter(m => m.channel === 'agent' && m.data?.turnId === turnId)
+      .map(m => m.data.seq);
+    assert(seq.length >= 2, 'turn must emit at least start and end agent events');
+    for (let i = 1; i < seq.length; i++) {
+      assert(seq[i] > seq[i - 1], 'agent event sequence must be strictly increasing');
+    }
+  } finally {
+    client?.close();
+    await cleanupConversation(conversationId);
   }
-
-  await chatPromise; // Wait for chat to finish
-  client.close();
-}, LLM_TIMEOUT);
-
-// ── WS Status Updates ──────────────────────────────────────────────────────
-suite('WS Chat — Status Updates');
-
-await testAsync('WS receives status updates during chat', async () => {
-  const client = await createWsClient();
-
-  // Send chat
-  const chatPromise = api('POST', '/chat', { message: 'Kolik je 2+2?' });
-
-  // Wait briefly for any status event
-  await new Promise(r => setTimeout(r, 2000));
-
-  // Check if we got any messages at all
-  const hasMessages = client.messages.length > 0;
-
-  await chatPromise;
-  client.close();
-
-  // Any result is acceptable — we're mainly testing WS doesn't crash during chat
-  assert(true, `WS received ${client.messages.length} messages during chat`);
-}, LLM_TIMEOUT);
+}, WS_TIMEOUT);
 
 // ── WS Cancel ───────────────────────────────────────────────────────────────
 suite('WS Chat — Cancel');
 
-await testAsync('cancel via WS control channel', async () => {
+await testAsync('cancel emits acknowledgement and a cancelled terminal event without assistant output', async () => {
+  const conversationId = await createConv('E2E WS cancel');
+  let client;
+  try {
+    client = await createWsClient();
+    client.send({
+      channel: 'chat',
+      data: {
+        content: 'Napiš podrobnou dlouhou esej o historii počítačů.',
+        conversationId,
+      },
+    });
+    // WebSocket frames are ordered. Sending cancel immediately after chat makes
+    // the test independent of model speed while still exercising an active turn.
+    client.send({
+      channel: 'control',
+      data: { action: 'cancel', conversationId },
+    });
+
+    const turnStart = await client.waitForMessage(
+      m => m.channel === 'agent'
+        && m.data?.type === 'turn_start'
+        && m.data?.payload?.input === 'Napiš podrobnou dlouhou esej o historii počítačů.',
+      WS_TIMEOUT,
+    );
+    const turnId = turnStart.data.turnId;
+
+    const acknowledgement = await client.waitForMessage(
+      m => m.channel === 'control'
+        && m.data?.action === 'cancel',
+      WS_TIMEOUT,
+    );
+    assertEqual(acknowledgement.data.success, true);
+
+    const turnEnd = await client.waitForMessage(
+      m => m.channel === 'agent'
+        && m.data?.type === 'turn_end'
+        && m.data?.turnId === turnId,
+      WS_TIMEOUT,
+    );
+    assertEqual(turnEnd.data.payload?.status, 'cancelled_by_user');
+
+    const cancellationMessage = await client.waitForMessage(
+      m => m.channel === 'chat'
+        && m.data?.type === 'system'
+        && m.data?.conversationId === conversationId,
+      WS_TIMEOUT,
+    );
+    assert(
+      typeof cancellationMessage.data.content === 'string'
+        && cancellationMessage.data.content.trim().length > 0,
+      'cancel must emit a non-empty system message',
+    );
+
+    const endIndex = client.messages.indexOf(turnEnd);
+    const idle = await client.waitForMessage(
+      m => client.messages.indexOf(m) > endIndex
+        && m.channel === 'status'
+        && m.data?.agentStatus === 'idle',
+      WS_TIMEOUT,
+    );
+    assertEqual(idle.data.agentStatus, 'idle');
+    assert(
+      !client.messages.some(
+        m => m.channel === 'chat'
+          && m.data?.type === 'assistant'
+          && m.data?.metadata?.turnId === turnId,
+      ),
+      'cancelled turn must not emit an assistant response',
+    );
+  } finally {
+    client?.close();
+    await cleanupConversation(conversationId);
+  }
+}, WS_TIMEOUT);
+
+// ── WS Ping ─────────────────────────────────────────────────────────────────
+suite('WS Chat — Ping');
+
+await testAsync('ping returns an exact pong acknowledgement', async () => {
   const client = await createWsClient();
-
-  // Start a chat
-  const chatPromise = api('POST', '/chat', {
-    message: 'Napiš dlouhý esej o historii počítačů.'
-  });
-
-  // Wait a bit then cancel
-  await new Promise(r => setTimeout(r, 500));
-  client.send({ channel: 'control', data: { action: 'cancel' } });
-
-  // Wait for chat to finish (should be cancelled)
-  const { status } = await chatPromise;
-  // Both 200 (completed before cancel) and 499/200 (cancelled) are acceptable
-  assert(true, `chat completed with status ${status} after cancel`);
-
-  client.close();
-}, LLM_TIMEOUT);
+  try {
+    client.send({ channel: 'control', data: { action: 'ping' } });
+    const pong = await client.waitForMessage(
+      m => m.channel === 'control' && m.data?.action === 'pong',
+      10000,
+    );
+    assertEqual(pong.data.success, true);
+  } finally {
+    client.close();
+  }
+});
 
 const result = summary();
 process.exit(result.failed > 0 ? 1 : 0);

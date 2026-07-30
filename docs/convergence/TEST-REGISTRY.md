@@ -12,8 +12,8 @@ override a failed or blocked suite.
 
 - Runnable programs: 350
 - Explicit support-module exclusions: 8
-- Profiles: offline=173, database=26, server=33, model=85, soak=18, manual=15
-- States: ACTIVE=256, HISTORICAL=15, BLOCKED=75, KNOWN_DEFECTIVE=4
+- Profiles: offline=173, database=26, server=35, model=83, soak=18, manual=15
+- States: ACTIVE=256, HISTORICAL=15, BLOCKED=78, KNOWN_DEFECTIVE=1
 
 ## Execution profiles
 
@@ -173,10 +173,10 @@ override a failed or blocked suite.
 | `IS-T3-E2E-57-LIFECYCLE-FULL` | `tests/e2e/57-lifecycle-full.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-58-CODE-GENERATION` | `tests/e2e/58-code-generation.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-59-CROSS-FEATURE` | `tests/e2e/59-cross-feature.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T3-E2E-60-WS-CHAT` | `tests/e2e/60-ws-chat.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
+| `IS-T3-E2E-60-WS-CHAT` | `tests/e2e/60-ws-chat.e2e.js` | `C3-003` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-61-AUTOCOMPLETE` | `tests/e2e/61-autocomplete.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T3-E2E-62-VALIDATION-SUITES` | `tests/e2e/62-validation-suites.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
-| `IS-T3-E2E-63-AGENT-EXECUTION` | `tests/e2e/63-agent-execution.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:external, temp-db, server, ollama, gpu | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
+| `IS-T3-E2E-62-VALIDATION-SUITES` | `tests/e2e/62-validation-suites.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-63-AGENT-EXECUTION` | `tests/e2e/63-agent-execution.e2e.js` | `C3-003` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-70-CRE-INTENT-SEMANTIC` | `tests/e2e/70-cre-intent-semantic.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-71-LANGUAGE-ENFORCEMENT` | `tests/e2e/71-language-enforcement.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-72-FOLLOWUP-COHERENCE` | `tests/e2e/72-followup-coherence.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |

@@ -178,6 +178,9 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
         conversationId: options.conversationId || null,
         projectId: options.projectId || null,
         attachments: options.attachments || [],
+        // ChatController.handle() reads the cancellation signal from the
+        // top-level request before projecting it into handler context.
+        signal: ac.signal,
         context: {
           turnId,
           signal: ac.signal,
@@ -281,6 +284,11 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
       };
 
       const response = await handleRequest(request);
+      if (ac.signal.aborted) {
+        const error = new Error('Request cancelled by user');
+        error.name = 'AbortError';
+        throw error;
+      }
 
       // Send final response via chat channel — include conversationId for session routing
       const responseConvId = response.conversationId || requestConversationId;

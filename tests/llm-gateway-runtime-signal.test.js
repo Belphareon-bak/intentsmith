@@ -11,6 +11,7 @@ import { config } from '../src/config.js';
 import { llmGateway } from '../src/llm/gateway.js';
 import { setNumCtx } from '../src/llm/model-ctx.js';
 import { modelUniverseStore } from '../src/upgrade/model-universe-store.js';
+import { CREDecisionEngine } from '../src/chat/cre-decision.js';
 
 const originalFetch = globalThis.fetch;
 const originalRecordSignalEvent = modelUniverseStore.recordSignalEvent;
@@ -109,6 +110,41 @@ try {
     assert(error, 'cancelled request must reject');
     assertEqual(error.message, 'LLM call cancelled by user');
     assertEqual(fetchCalls, 0);
+    assertEqual(signals.length, 1);
+    assertEqual(signals[0].signalType, 'runtime_cancelled');
+    assertEqual(signals[0].success, null);
+  });
+
+  await testAsync('CRE classification propagates active cancellation to the LLM gateway', async () => {
+    signals.length = 0;
+    let fetchStarted;
+    const started = new Promise(resolve => { fetchStarted = resolve; });
+    globalThis.fetch = async (_url, options) => new Promise((_resolve, reject) => {
+      fetchStarted();
+      options.signal.addEventListener('abort', () => {
+        const error = new Error('aborted');
+        error.name = 'AbortError';
+        reject(error);
+      }, { once: true });
+    });
+
+    const controller = new AbortController();
+    const engine = new CREDecisionEngine();
+    const classification = engine._llmClassifyIntent(
+      'Vysvětli podrobně historii počítačů.',
+      { sessionId: 'cre-cancel-test', signal: controller.signal },
+    );
+    await started;
+    controller.abort();
+
+    let cancellationError;
+    try {
+      await classification;
+    } catch (error) {
+      cancellationError = error;
+    }
+    assert(cancellationError, 'CRE cancellation must reject');
+    assertEqual(cancellationError.name, 'AbortError');
     assertEqual(signals.length, 1);
     assertEqual(signals[0].signalType, 'runtime_cancelled');
     assertEqual(signals[0].success, null);

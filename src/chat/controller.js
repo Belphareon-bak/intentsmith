@@ -232,6 +232,18 @@ export const MODES_REQUIRING_CONFIRMATION = Object.freeze([
   ChatMode.AGENT,
 ]);
 
+function cancelledByUserError() {
+  const error = new Error('Request cancelled by user');
+  error.name = 'AbortError';
+  return error;
+}
+
+function throwIfCancelled(signal) {
+  if (signal?.aborted) {
+    throw cancelledByUserError();
+  }
+}
+
 /**
  * Mode detection result
  */
@@ -596,6 +608,8 @@ export class ChatController {
         history: context.dbHistory || this.#responseHistory.slice(-10),
       });
 
+      throwIfCancelled(context.signal);
+
       // Ensure response is properly tagged
       let taggedResponse = this.#ensureTagged(response, targetMode, pendingConfirmation);
 
@@ -608,6 +622,9 @@ export class ChatController {
 
       return taggedResponse;
     } catch (error) {
+      if (context.signal?.aborted) {
+        throw cancelledByUserError();
+      }
       return this.#createErrorResponse(
         `Handler error: ${error.message}`,
         targetMode
@@ -1993,6 +2010,7 @@ ChatController.handle = async function(request) {
 
   // Process the message with full context
   const result = await controller.process(message, fullContext);
+  throwIfCancelled(signal);
 
   // ════════════════════════════════════════════════════════════════════════════
   // v126.1: Centralized Quality Loop — single orchestration point
@@ -2002,6 +2020,7 @@ ChatController.handle = async function(request) {
   // ════════════════════════════════════════════════════════════════════════════
   let _qualityScore = null;
   const synthesisScore = result.tag?.metadata?.semanticScore?.total ?? null;
+  throwIfCancelled(signal);
 
   // Skip selfRefine if synthesis already scored >= 75 (avoids double loop interference)
   const needsRefinement = result.content
@@ -2039,6 +2058,7 @@ ChatController.handle = async function(request) {
   } else if (synthesisScore !== null) {
     logger.debug('ChatController', `Skipping selfRefine: synthesis score ${synthesisScore} >= 75`);
   }
+  throwIfCancelled(signal);
 
   // Telemetry: always score the FINAL output (after any refinement) — no drift
   try {
@@ -2063,6 +2083,9 @@ ChatController.handle = async function(request) {
   } catch (err) {
     logger.warn('QualityTelemetry', `Score logging failed (non-fatal): ${err.message}`);
   }
+  // No await occurs between this check and appendTurn(), so an aborted turn
+  // cannot cross the persistence boundary on the same event-loop tick.
+  throwIfCancelled(signal);
 
   // ════════════════════════════════════════════════════════════════════════════
   // v56.0 Sprint 3: PERSIST assistant turn to DB (after processing)
