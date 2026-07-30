@@ -75,4 +75,20 @@ Both temporary source mutations were restored before commit.
 | replace the npm error-envelope guard with `false`; run `node tests/tool-registry-e2e.test.js` outside the restrictive child-process sandbox | named `both audit aliases reject npm error JSON` failure; 81 passed, 1 failed | 1 |
 | replace the unexpected-status guard with `false`; run the same command | named `deps.vuln rejects malformed output and unexpected nonzero status` failure; 81 passed, 1 failed | 1 |
 
-Committed-SHA validation is added by the follow-up evidence-only commit.
+## Committed implementation proof
+
+Tested implementation commit:
+`d8356507a595e1061a5876543768a450803d866f`.
+
+| Command | Result | Exit |
+|---|---|---:|
+| `git status --porcelain` | empty before and after the committed runs | 0 |
+| `node tests/tool-registry-e2e.test.js` outside the restrictive child-process sandbox | 82 passed, 0 failed, 0 skipped; every audit invocation used the fake npm fixture | 0 |
+| `node tests/artifact-validation.test.js` | 64 passed, 0 failed, 0 skipped; 27 risk rows and 27 policy rows agree | 0 |
+| `node scripts/validate-test-registry.js` | 350 runnable programs; SHA-256 `f6edc6ccff693284ee01ed159e90faea20e94662892d7b84b2f61efdf35e03b5` | 0 |
+| `node scripts/validate-final-disposition.js` | 225 records; manifest `aa95bbc0918daa3f188283297e03562e3a4b8a8d0b178bec126b60a27cd8677e` | 0 |
+| `git diff --check d835650^ d835650` plus `node --check` for the new module, registry and test | clean diff; all three sources parse | 0 |
+
+This evidence closes only `G0-R027`. It does not claim a complete deterministic
+Gate 0 run, installation result, external npm availability, or a Gate 0
+verdict.
