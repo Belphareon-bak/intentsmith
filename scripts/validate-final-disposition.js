@@ -1,18 +1,24 @@
 #!/usr/bin/env node
 
+import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import {
   chmodSync,
+  closeSync,
   lstatSync,
   mkdirSync,
   openSync,
-  closeSync,
   readFileSync,
   readlinkSync,
   writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import {
+  compareManifestToSource,
+  EXPECTED_RECORD_COUNT,
+  validateDiffManifest,
+} from './final-disposition-manifest.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dispositionPath = path.join(
@@ -21,9 +27,12 @@ const dispositionPath = path.join(
   'convergence',
   'FINAL-COMMIT-DISPOSITION.md',
 );
-const parentRef = 'a7b90e36aa80310305703f54f2332e1c0e7f9e8f';
-const sourceRef = 'ffd21cf119865259ea1847af989acb24916bebe3';
-const expectedRecords = 225;
+const manifestPath = path.join(
+  repoRoot,
+  'docs',
+  'convergence',
+  'FINAL-COMMIT-DIFF-MANIFEST.json',
+);
 
 const repairedPathMappings = new Map([
   ['tests/TEST-INVENTORY.md', 'tests/registry.json'],
@@ -33,48 +42,21 @@ const repairedPathMappings = new Map([
     'tests/_legacy/packages/c3-backend.md',
   ],
 ]);
+const DEFERRED_PREREQUISITES = new Set([
+  'external-network',
+  'gpu',
+  'isolated-database',
+  'ollama',
+  'operator-fixture',
+  'owned-server',
+  'pinned-model',
+  'sufficient-gpu-vram',
+  'three-request-gpu-headroom',
+]);
 
-function git(args, options = {}) {
-  return execFileSync('git', args, {
-    cwd: repoRoot,
-    encoding: options.encoding ?? 'utf8',
-    maxBuffer: 32 * 1024 * 1024,
-  });
-}
-
-function parseDiffRecords() {
-  const fields = git([
-    'diff',
-    '--name-status',
-    '--find-renames',
-    '-z',
-    `${parentRef}..${sourceRef}`,
-  ]).split('\0');
-  fields.pop();
-
-  const records = [];
-  for (let index = 0; index < fields.length;) {
-    const status = fields[index++];
-    if (/^[RC]\d+$/.test(status)) {
-      const oldPath = fields[index++];
-      const newPath = fields[index++];
-      records.push({
-        status,
-        oldPath,
-        targetPath: newPath,
-        displayPath: `${oldPath} -> ${newPath}`,
-      });
-    } else {
-      const targetPath = fields[index++];
-      records.push({ status, oldPath: null, targetPath, displayPath: targetPath });
-    }
-  }
-  return records;
-}
-
-function parseDispositionRows(markdown) {
+export function parseDispositionRows(markdown) {
   const rowPattern =
-    /^\| `([^`]+)` \| `([^`]+)` \| `(KEEP|REBUILD|EXCLUDE|UNRESOLVED)` \| `([^`]+)` \| (.+) \|$/;
+    /^\| `([^`]+)` \| `([^`]+)` \| `(KEEP|REBUILD|EXCLUDE|UNRESOLVED)` \| `([^`]*)` \| (.+) \|$/;
   return markdown
     .split('\n')
     .map((line) => {
@@ -91,6 +73,249 @@ function parseDispositionRows(markdown) {
     .filter(Boolean);
 }
 
+export function validateDispositionActions(rows) {
+  const errors = [];
+  for (const [index, row] of rows.entries()) {
+    const label = `disposition row ${index + 1} (${row.displayPath})`;
+    if (row.disposition === 'KEEP') {
+      if (row.action !== 'REPLAY') errors.push(`${label}: KEEP action must be REPLAY`);
+      continue;
+    }
+    if (row.disposition === 'EXCLUDE') {
+      if (!['MOVE_OUTSIDE_PRODUCTION', 'REMOVE_FOLLOWUP'].includes(row.action)) {
+        errors.push(`${label}: EXCLUDE action is invalid: ${row.action || '<empty>'}`);
+      }
+      continue;
+    }
+    if (row.disposition === 'UNRESOLVED') {
+      if (row.action !== 'USER_DECISION') {
+        errors.push(`${label}: UNRESOLVED action must be USER_DECISION`);
+      }
+      continue;
+    }
+    if (row.disposition !== 'REBUILD') continue;
+
+    if (row.action === 'ACCEPTED' || row.action === 'REPAIRED') continue;
+    const match = row.action.match(/^DEFERRED\(([^()]*)\)$/);
+    if (!match) {
+      errors.push(`${label}: REBUILD action is not a terminal D-018 state: ${row.action || '<empty>'}`);
+      continue;
+    }
+    const prerequisites = match[1].split('+');
+    if (
+      match[1] === ''
+      || prerequisites.some(value => !DEFERRED_PREREQUISITES.has(value))
+      || new Set(prerequisites).size !== prerequisites.length
+    ) {
+      errors.push(
+        `${label}: DEFERRED must name unique canonical concrete prerequisites`,
+      );
+    }
+  }
+  return errors;
+}
+
+export function validateAndResolve({
+  manifest,
+  dispositionRows,
+  candidateRoot = repoRoot,
+  sourceRepo = null,
+}) {
+  const errors = validateDiffManifest(manifest);
+  errors.push(...validateDispositionActions(dispositionRows));
+  if (sourceRepo) errors.push(...compareManifestToSource(manifest, sourceRepo));
+
+  const records = Array.isArray(manifest?.records) ? manifest.records : [];
+  const resolutions = [];
+  if (dispositionRows.length !== EXPECTED_RECORD_COUNT) {
+    errors.push(
+      `disposition table has ${dispositionRows.length} records; expected ${EXPECTED_RECORD_COUNT}`,
+    );
+  }
+
+  const limit = Math.max(records.length, dispositionRows.length);
+  for (let index = 0; index < limit; index++) {
+    const diff = records[index];
+    const row = dispositionRows[index];
+    if (!diff || !row) continue;
+
+    const displayPath = diff.status === 'R100'
+      ? `${diff.oldPath} -> ${diff.newPath}`
+      : diff.newPath ?? diff.oldPath;
+    if (row.status !== diff.status || row.displayPath !== displayPath) {
+      errors.push(
+        `record ${index + 1} mismatch: manifest=${diff.status} ${displayPath}; `
+        + `table=${row.status} ${row.displayPath}`,
+      );
+      continue;
+    }
+
+    const mappedPath = repairedPathMappings.get(displayPath) ?? null;
+    const candidatePath = mappedPath ?? diff.newPath ?? diff.oldPath;
+    const candidateAbsolute = safeCandidatePath(candidateRoot, candidatePath);
+    const candidateExists = pathExists(candidateAbsolute);
+
+    if (
+      diff.changeType === 'RENAME'
+      && diff.oldPath !== candidatePath
+      && pathExists(safeCandidatePath(candidateRoot, diff.oldPath))
+    ) {
+      errors.push(`renamed source path still exists: ${diff.oldPath}`);
+    }
+
+    const sourceBlob = diff.newBlob ?? diff.oldBlob;
+    const sourceMode = diff.newMode ?? diff.oldMode;
+    if (row.disposition === 'EXCLUDE') {
+      if (candidateExists) {
+        errors.push(`excluded path exists in candidate tree: ${candidatePath}`);
+      }
+      resolutions.push({
+        ...row,
+        sourcePath: diff.newPath ?? diff.oldPath,
+        candidatePath,
+        sourceBlob,
+        sourceMode,
+        candidateBlob: null,
+        candidateMode: null,
+        resolution: 'ABSENT',
+      });
+      continue;
+    }
+
+    if (row.disposition === 'UNRESOLVED') {
+      errors.push(`unresolved disposition remains: ${displayPath}`);
+    }
+
+    if (diff.changeType === 'DELETE') {
+      if (candidateExists) {
+        errors.push(`deleted source path remains in candidate tree: ${candidatePath}`);
+      }
+      resolutions.push({
+        ...row,
+        sourcePath: diff.oldPath,
+        candidatePath,
+        sourceBlob,
+        sourceMode,
+        candidateBlob: null,
+        candidateMode: null,
+        resolution: candidateExists ? 'NOT_DELETED' : 'EXACT_DELETE',
+      });
+      continue;
+    }
+
+    if (!candidateExists) {
+      errors.push(
+        `${row.disposition.toLowerCase()} path is unresolved in candidate tree: `
+        + `${displayPath}${mappedPath ? ` (mapped to ${mappedPath})` : ''}`,
+      );
+      resolutions.push({
+        ...row,
+        sourcePath: diff.newPath,
+        candidatePath,
+        sourceBlob,
+        sourceMode,
+        candidateBlob: null,
+        candidateMode: null,
+        resolution: 'MISSING',
+      });
+      continue;
+    }
+
+    const candidate = candidateObject(candidateAbsolute);
+    const resolution = mappedPath
+      ? 'MAPPED_REPAIR'
+      : sourceBlob === candidate.blob && sourceMode === candidate.mode
+        ? 'EXACT'
+        : 'MODIFIED';
+    validateTerminalResolution(row, resolution, displayPath, errors);
+    resolutions.push({
+      ...row,
+      sourcePath: diff.newPath,
+      candidatePath,
+      sourceBlob,
+      sourceMode,
+      candidateBlob: candidate.blob,
+      candidateMode: candidate.mode,
+      resolution,
+    });
+  }
+
+  validateTrackedSymlinks(candidateRoot, errors);
+  return { errors, resolutions };
+}
+
+export function countBy(values, key) {
+  return Object.fromEntries(
+    [...values.reduce((counts, value) => {
+      const label = value[key];
+      counts.set(label, (counts.get(label) ?? 0) + 1);
+      return counts;
+    }, new Map())].sort(([left], [right]) => left.localeCompare(right)),
+  );
+}
+
+export function buildValidationReport({
+  manifest,
+  dispositionRows,
+  candidateRoot = repoRoot,
+  sourceRepo = null,
+}) {
+  const { errors, resolutions } = validateAndResolve({
+    manifest,
+    dispositionRows,
+    candidateRoot,
+    sourceRepo,
+  });
+  return {
+    schemaVersion: 2,
+    sourceRepository: manifest?.sourceRepository ?? null,
+    sourceRange: manifest?.sourceRange ?? null,
+    sourceManifest: {
+      path: 'docs/convergence/FINAL-COMMIT-DIFF-MANIFEST.json',
+      schemaVersion: manifest?.schemaVersion ?? null,
+      recordsSha256: manifest?.recordsSha256 ?? null,
+      recordCount: manifest?.recordCount ?? null,
+      changeCounts: manifest?.changeCounts ?? null,
+      liveSourceCrossCheck: sourceRepo ? 'PASS' : 'NOT_REQUESTED',
+    },
+    records: Array.isArray(manifest?.records) ? manifest.records.length : 0,
+    dispositionCounts: countBy(resolutions, 'disposition'),
+    terminalCounts: countBy(
+      resolutions.filter(item => item.disposition === 'REBUILD'),
+      'action',
+    ),
+    resolutionCounts: countBy(resolutions, 'resolution'),
+    errors,
+    paths: resolutions,
+  };
+}
+
+function validateTerminalResolution(row, resolution, displayPath, errors) {
+  if (row.disposition !== 'REBUILD') return;
+  if (row.action === 'REPAIRED' && resolution === 'EXACT') {
+    errors.push(`REBUILD/REPAIRED path is byte-and-mode exact, not repaired: ${displayPath}`);
+  }
+  if (row.action === 'ACCEPTED' && resolution !== 'EXACT') {
+    errors.push(`REBUILD/ACCEPTED path is not byte-and-mode exact: ${displayPath}`);
+  }
+}
+
+function safeCandidatePath(candidateRoot, relativePath) {
+  if (
+    typeof relativePath !== 'string'
+    || relativePath.length === 0
+    || path.isAbsolute(relativePath)
+  ) {
+    throw new Error(`unsafe candidate path: ${relativePath}`);
+  }
+  const absolute = path.resolve(candidateRoot, relativePath);
+  const relative = path.relative(candidateRoot, absolute);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`candidate path escapes repository: ${relativePath}`);
+  }
+  return absolute;
+}
+
 function pathExists(candidate) {
   try {
     lstatSync(candidate);
@@ -101,21 +326,39 @@ function pathExists(candidate) {
   }
 }
 
-function sourceBlob(targetPath) {
-  return git(['rev-parse', `${sourceRef}:${targetPath}`]).trim();
+function candidateObject(absolutePath) {
+  const info = lstatSync(absolutePath);
+  if (info.isSymbolicLink()) {
+    const bytes = Buffer.from(readlinkSync(absolutePath));
+    return { blob: hashGitBlob(bytes), mode: '120000' };
+  }
+  if (!info.isFile()) throw new Error(`candidate path is not a file: ${absolutePath}`);
+  const bytes = readFileSync(absolutePath);
+  return {
+    blob: hashGitBlob(bytes),
+    mode: (info.mode & 0o111) === 0 ? '100644' : '100755',
+  };
 }
 
-function currentBlob(relativePath) {
-  return git(['hash-object', '--no-filters', '--', relativePath]).trim();
+function hashGitBlob(bytes) {
+  return createHash('sha1')
+    .update(Buffer.from(`blob ${bytes.length}\0`))
+    .update(bytes)
+    .digest('hex');
 }
 
-function validateTrackedSymlinks(errors) {
-  const entries = git(['ls-files', '-s', '-z']).split('\0').filter(Boolean);
+function validateTrackedSymlinks(candidateRoot, errors) {
+  const entries = execFileSync('git', ['ls-files', '-s', '-z'], {
+    cwd: candidateRoot,
+    encoding: 'utf8',
+    maxBuffer: 32 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).split('\0').filter(Boolean);
   for (const entry of entries) {
     const match = entry.match(/^(\d+) [0-9a-f]+ \d+\t(.+)$/s);
     if (!match || match[1] !== '120000') continue;
     const relativePath = match[2];
-    const absolutePath = path.join(repoRoot, relativePath);
+    const absolutePath = path.join(candidateRoot, relativePath);
     if (!pathExists(absolutePath)) {
       errors.push(`tracked symlink is missing from the worktree: ${relativePath}`);
       continue;
@@ -127,120 +370,30 @@ function validateTrackedSymlinks(errors) {
   }
 }
 
-function validateAndResolve(diffRecords, dispositionRows) {
-  const errors = [];
-  const resolutions = [];
-
-  if (diffRecords.length !== expectedRecords) {
-    errors.push(`Git diff has ${diffRecords.length} records; expected ${expectedRecords}`);
+function parseCliArgs(argv) {
+  const options = {
+    json: false,
+    reportPath: null,
+    sourceRepo: null,
+  };
+  for (let index = 0; index < argv.length; index++) {
+    const arg = argv[index];
+    if (arg === '--json') {
+      options.json = true;
+      continue;
+    }
+    if (arg === '--report') {
+      if (!argv[index + 1]) throw new Error('--report requires a path');
+      options.reportPath = path.resolve(repoRoot, argv[++index]);
+      continue;
+    }
+    if (arg.startsWith('--source-repo=')) {
+      options.sourceRepo = path.resolve(arg.slice('--source-repo='.length));
+      continue;
+    }
+    throw new Error(`Unsupported argument: ${arg}`);
   }
-  if (dispositionRows.length !== expectedRecords) {
-    errors.push(
-      `disposition table has ${dispositionRows.length} records; expected ${expectedRecords}`,
-    );
-  }
-
-  const limit = Math.max(diffRecords.length, dispositionRows.length);
-  for (let index = 0; index < limit; index++) {
-    const diff = diffRecords[index];
-    const row = dispositionRows[index];
-    if (!diff || !row) continue;
-    if (row.status !== diff.status || row.displayPath !== diff.displayPath) {
-      errors.push(
-        `record ${index + 1} mismatch: Git=${diff.status} ${diff.displayPath}; ` +
-        `table=${row.status} ${row.displayPath}`,
-      );
-      continue;
-    }
-
-    const mappedPath = repairedPathMappings.get(diff.displayPath) ?? null;
-    const candidatePath = mappedPath ?? diff.targetPath;
-    const candidateAbsolute = path.join(repoRoot, candidatePath);
-    const candidateExists = pathExists(candidateAbsolute);
-
-    if (diff.oldPath && pathExists(path.join(repoRoot, diff.oldPath))) {
-      errors.push(`renamed source path still exists: ${diff.oldPath}`);
-    }
-
-    if (row.disposition === 'EXCLUDE') {
-      if (candidateExists) {
-        errors.push(`excluded path exists in candidate tree: ${candidatePath}`);
-      }
-      resolutions.push({
-        ...row,
-        sourcePath: diff.targetPath,
-        candidatePath,
-        sourceBlob: sourceBlob(diff.targetPath),
-        candidateBlob: null,
-        resolution: 'ABSENT',
-      });
-      continue;
-    }
-
-    if (row.disposition === 'UNRESOLVED') {
-      errors.push(`unresolved disposition remains: ${diff.displayPath}`);
-      resolutions.push({
-        ...row,
-        sourcePath: diff.targetPath,
-        candidatePath,
-        sourceBlob: sourceBlob(diff.targetPath),
-        candidateBlob: candidateExists ? currentBlob(candidatePath) : null,
-        resolution: 'UNRESOLVED',
-      });
-      continue;
-    }
-
-    if (!candidateExists) {
-      errors.push(
-        `${row.disposition.toLowerCase()} path is unresolved in candidate tree: ` +
-        `${diff.displayPath}${mappedPath ? ` (mapped to ${mappedPath})` : ''}`,
-      );
-      resolutions.push({
-        ...row,
-        sourcePath: diff.targetPath,
-        candidatePath,
-        sourceBlob: sourceBlob(diff.targetPath),
-        candidateBlob: null,
-        resolution: 'MISSING',
-      });
-      continue;
-    }
-
-    const originalBlob = sourceBlob(diff.targetPath);
-    const candidateBlob = currentBlob(candidatePath);
-    resolutions.push({
-      ...row,
-      sourcePath: diff.targetPath,
-      candidatePath,
-      sourceBlob: originalBlob,
-      candidateBlob,
-      resolution: mappedPath
-        ? 'MAPPED_REPAIR'
-        : originalBlob === candidateBlob
-          ? 'EXACT'
-          : 'MODIFIED',
-    });
-  }
-
-  validateTrackedSymlinks(errors);
-  return { errors, resolutions };
-}
-
-function countBy(values, key) {
-  return Object.fromEntries(
-    [...values.reduce((counts, value) => {
-      const label = value[key];
-      counts.set(label, (counts.get(label) ?? 0) + 1);
-      return counts;
-    }, new Map())].sort(([left], [right]) => left.localeCompare(right)),
-  );
-}
-
-function parseReportPath(argv) {
-  const index = argv.indexOf('--report');
-  if (index === -1) return null;
-  if (!argv[index + 1]) throw new Error('--report requires a path');
-  return path.resolve(repoRoot, argv[index + 1]);
+  return options;
 }
 
 function ensurePrivateReportPath(reportPath) {
@@ -275,44 +428,46 @@ function writePrivateReport(reportPath, report) {
 }
 
 function main() {
-  const markdown = readFileSync(dispositionPath, 'utf8');
-  const diffRecords = parseDiffRecords();
-  const dispositionRows = parseDispositionRows(markdown);
-  const { errors, resolutions } = validateAndResolve(diffRecords, dispositionRows);
+  const options = parseCliArgs(process.argv.slice(2));
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const dispositionRows = parseDispositionRows(readFileSync(dispositionPath, 'utf8'));
+  const report = buildValidationReport({
+    manifest,
+    dispositionRows,
+    sourceRepo: options.sourceRepo,
+  });
 
-  const report = {
-    schemaVersion: 1,
-    sourceRange: `${parentRef}..${sourceRef}`,
-    records: diffRecords.length,
-    dispositionCounts: countBy(resolutions, 'disposition'),
-    resolutionCounts: countBy(resolutions, 'resolution'),
-    errors,
-    paths: resolutions,
-  };
-
-  const reportPath = parseReportPath(process.argv.slice(2));
-  if (reportPath) writePrivateReport(reportPath, report);
-
-  if (errors.length > 0) {
-    for (const error of errors) console.error(`ERROR: ${error}`);
-    console.error(`Disposition validation failed with ${errors.length} error(s).`);
-    process.exitCode = 1;
-    return;
+  if (options.reportPath) writePrivateReport(options.reportPath, report);
+  if (options.json) {
+    console.log(JSON.stringify(report));
+  } else if (report.errors.length === 0) {
+    console.log(
+      `Disposition valid: ${report.records} records; `
+      + `manifest=${report.sourceManifest.recordsSha256}; `
+      + `dispositions=${JSON.stringify(report.dispositionCounts)}; `
+      + `terminals=${JSON.stringify(report.terminalCounts)}; `
+      + `resolutions=${JSON.stringify(report.resolutionCounts)}`,
+    );
+    if (options.sourceRepo) console.log(`C3 source cross-check: PASS (${options.sourceRepo})`);
+    if (options.reportPath) {
+      console.log(`Private resolution report: ${path.relative(repoRoot, options.reportPath)}`);
+    }
+  } else {
+    for (const error of report.errors) console.error(`ERROR: ${error}`);
+    console.error(`Disposition validation failed with ${report.errors.length} error(s).`);
   }
 
-  console.log(
-    `Disposition valid: ${diffRecords.length} records; ` +
-    `dispositions=${JSON.stringify(report.dispositionCounts)}; ` +
-    `resolutions=${JSON.stringify(report.resolutionCounts)}`,
-  );
-  if (reportPath) {
-    console.log(`Private resolution report: ${path.relative(repoRoot, reportPath)}`);
-  }
+  if (report.errors.length > 0) process.exitCode = 1;
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(error?.stack || error);
-  process.exitCode = 1;
+if (
+  process.argv[1]
+  && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
+) {
+  try {
+    main();
+  } catch (error) {
+    console.error(error?.stack || error);
+    process.exitCode = 1;
+  }
 }

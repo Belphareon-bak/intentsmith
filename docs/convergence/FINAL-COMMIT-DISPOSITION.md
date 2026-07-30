@@ -1,8 +1,9 @@
 # Disposition of disputed `final` commit
 
-Status: classification and current-tree resolution are machine-validated; local
-Gate 0 verification is complete at candidate `22a9b84` and independent review
-remains pending.
+Status: all source-diff facts are recorded in a committed sanitized manifest
+and validate offline. The validator deliberately remains red while the 92
+`REBUILD/REPAIR` rows below await evidence-backed terminal closure under
+`D-018`.
 
 Compared refs:
 
@@ -10,6 +11,33 @@ Compared refs:
 - disputed input: `ffd21cf119865259ea1847af989acb24916bebe3`
 - command: `git diff --name-status a7b90e3..ffd21cf`
 - records classified: `225`
+
+## Reproducible source manifest
+
+`FINAL-COMMIT-DIFF-MANIFEST.json` is the committed source of truth for the
+disputed Git range. It contains only repository identity, full source commit
+IDs, change status, paths, blob IDs and file modes. It contains no file content,
+runtime data, secrets or private values.
+
+- schema: `intentsmith.c3-final-diff` version 1;
+- base: `a7b90e36aa80310305703f54f2332e1c0e7f9e8f`;
+- head: `ffd21cf119865259ea1847af989acb24916bebe3`;
+- exact-renames diff: 185 additions, 0 deletions, 24 modifications, 16 renames;
+- records digest:
+  `aa95bbc0918daa3f188283297e03562e3a4b8a8d0b178bec126b60a27cd8677e`.
+
+The normal command is offline and does not need either C3 commit object:
+
+```bash
+node scripts/validate-final-disposition.js
+```
+
+An optional no-fetch corroboration against an available C3 checkout is:
+
+```bash
+node scripts/validate-final-disposition.js \
+  --source-repo=/path/to/C3-agent
+```
 
 ## Vocabulary
 

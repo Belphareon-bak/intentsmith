@@ -4,6 +4,7 @@
 import {
   chmodSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from 'fs';
@@ -14,6 +15,13 @@ import {
   isRequiredArtifactPath,
   validateArtifactFile,
 } from '../src/planner/artifact-validation.js';
+import {
+  refreshManifestIntegrity,
+  validateDiffManifest,
+} from '../scripts/final-disposition-manifest.js';
+import {
+  validateDispositionActions,
+} from '../scripts/validate-final-disposition.js';
 import { suite, test, assert, assertEqual, summary } from './harness.js';
 
 const testRoot = mkdtempSync(path.join(tmpdir(), 'intentsmith-artifact-validation-'));
@@ -151,6 +159,107 @@ suite('generic configured artifact');
 
 test('non-empty .ini remains subject only to the zero-byte check', () => {
   assertEqual(validateContent('settings.ini', '# content interpreted downstream\n').ok, true);
+});
+
+suite('sanitized final-commit diff manifest');
+
+const committedManifest = JSON.parse(readFileSync(
+  new URL('../docs/convergence/FINAL-COMMIT-DIFF-MANIFEST.json', import.meta.url),
+  'utf8',
+));
+
+function manifestCopy() {
+  return structuredClone(committedManifest);
+}
+
+function includesError(errors, fragment) {
+  return errors.some(error => error.includes(fragment));
+}
+
+test('complete committed source manifest is valid offline', () => {
+  assertEqual(validateDiffManifest(manifestCopy()).length, 0);
+});
+
+test('missing source record is rejected after self-declared integrity is recomputed', () => {
+  const manifest = manifestCopy();
+  manifest.records.pop();
+  refreshManifestIntegrity(manifest);
+  const errors = validateDiffManifest(manifest);
+  assert(includesError(errors, 'recordCount must equal 225'));
+  assert(includesError(errors, 'validator-pinned source diff'));
+});
+
+test('duplicate source record is rejected', () => {
+  const manifest = manifestCopy();
+  manifest.records[1] = structuredClone(manifest.records[0]);
+  refreshManifestIntegrity(manifest);
+  const errors = validateDiffManifest(manifest);
+  assert(includesError(errors, 'duplicates another diff record'));
+});
+
+test('changed full blob SHA is rejected even with a recomputed manifest digest', () => {
+  const manifest = manifestCopy();
+  manifest.records[0].newBlob = 'f'.repeat(40);
+  refreshManifestIntegrity(manifest);
+  const errors = validateDiffManifest(manifest);
+  assert(includesError(errors, 'validator-pinned source diff'));
+});
+
+test('missing source base metadata is rejected', () => {
+  const manifest = manifestCopy();
+  delete manifest.sourceRange.base;
+  const errors = validateDiffManifest(manifest);
+  assert(includesError(errors, 'sourceRange fields'));
+  assert(includesError(errors, 'sourceRange.base'));
+});
+
+test('missing source head metadata is rejected', () => {
+  const manifest = manifestCopy();
+  delete manifest.sourceRange.head;
+  const errors = validateDiffManifest(manifest);
+  assert(includesError(errors, 'sourceRange fields'));
+  assert(includesError(errors, 'sourceRange.head'));
+});
+
+suite('D-018 terminal disposition states');
+
+function rebuildRow(action) {
+  return [{
+    status: 'M',
+    displayPath: 'fixture.js',
+    disposition: 'REBUILD',
+    action,
+    rationale: 'fixture',
+  }];
+}
+
+test('legacy bare REBUILD/REPAIR is rejected', () => {
+  const errors = validateDispositionActions(rebuildRow('REPAIR'));
+  assert(includesError(errors, 'not a terminal D-018 state'));
+});
+
+test('unknown REBUILD terminal state is rejected', () => {
+  const errors = validateDispositionActions(rebuildRow('DONE'));
+  assert(includesError(errors, 'not a terminal D-018 state'));
+});
+
+test('DEFERRED without a prerequisite is rejected', () => {
+  const errors = validateDispositionActions(rebuildRow('DEFERRED()'));
+  assert(includesError(errors, 'canonical concrete prerequisites'));
+});
+
+test('DEFERRED with a placeholder prerequisite is rejected', () => {
+  const errors = validateDispositionActions(rebuildRow('DEFERRED(TBD)'));
+  assert(includesError(errors, 'canonical concrete prerequisites'));
+});
+
+test('DEFERRED with concrete canonical prerequisites is accepted', () => {
+  assertEqual(
+    validateDispositionActions(
+      rebuildRow('DEFERRED(owned-server+ollama+sufficient-gpu-vram)'),
+    ).length,
+    0,
+  );
 });
 
 rmSync(testRoot, { recursive: true, force: true });
