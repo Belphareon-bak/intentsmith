@@ -468,16 +468,9 @@ function makeC2Spec() {
       {
         id: 'DD1',
         decision: 'Compression strategy',
-        chosen: 'tar + gzip via native node:child_process tar command',
-        alternatives_considered: ['archiver npm package', 'node-tar (pure JS)'],
-        rationale: 'Native tar is 3-5x faster than pure JS implementations for large directories. archiver adds dependency bloat. However, native tar requires tar binary on PATH — acceptable since all target platforms (Linux, macOS) include it by default.',
-      },
-      {
-        id: 'DD2',
-        decision: 'Version metadata storage',
-        chosen: 'SQLite database in ~/.backuptool/meta.db',
-        alternatives_considered: ['JSON manifest file', 'Filename-based versioning (backup-v1.tar.gz)'],
-        rationale: 'SQLite enables efficient queries (list, diff, prune) without loading entire history. JSON manifest risks corruption on concurrent access. Filename-based versioning lacks metadata (source path, checksum) but is simpler for single-user scenarios — on the other hand SQLite is still a single file and zero-config.',
+        chosen: 'tar + gzip',
+        alternatives_considered: ['zip archive'],
+        rationale: 'Use the platform tar command to keep the first version small.',
       },
     ],
     risks: [
@@ -485,15 +478,7 @@ function makeC2Spec() {
         id: 'RISK1',
         description: 'Disk space exhaustion from accumulated backup versions',
         severity: 'MEDIUM',
-        likelihood: 'HIGH',
-        mitigation: 'backuptool prune --keep-last N command. Warning when store exceeds 80% of available disk. Auto-prune option in config.',
-      },
-      {
-        id: 'RISK2',
-        description: 'Restore to wrong directory overwrites production data',
-        severity: 'HIGH',
-        likelihood: 'LOW',
-        mitigation: 'Dry-run mode (--dry-run) shows what would be restored. Confirmation prompt for restore to existing directory unless --force flag.',
+        mitigation: 'Document prune --keep-last and warn before backup.',
       },
     ],
     acceptance_criteria: [

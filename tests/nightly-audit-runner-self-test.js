@@ -250,6 +250,7 @@ assert.equal(resumed.results.length, 6);
 const passResult = byPath.get('tests/pass.test.js');
 const passLogPath = path.join(root, passResult.logPath);
 const originalPassLog = await readFile(passLogPath, 'utf8');
+assert.match(originalPassLog, /fixture pass/);
 await writeFile(passLogPath, `${originalPassLog}\ntampered\n`);
 await assert.rejects(
   () => runAudit({
