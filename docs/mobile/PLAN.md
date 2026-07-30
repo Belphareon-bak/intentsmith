@@ -3,7 +3,7 @@
 **Status:** návrh k review; nic není schváleno k implementaci
 **Datum:** 2026-07-30
 **Ověřeno proti:** `54913a1` na `codex/intentsmith-1.0`
-**Blokující rozhodnutí:** [ADR 0001](../adr/0001-mobile-data-ownership.md)
+**Datový model:** REMOTE_COMPANION — rozhodnuto, [ADR 0001](../adr/0001-mobile-data-ownership.md) ACCEPTED
 
 Legenda: **[F]** ověřený fakt v tomto repu · **[R]** doporučení · **[?]** rozhodnutí operátora · **[D]** odloženo
 
@@ -165,8 +165,8 @@ Odhady v člověkodnech záměrně neuvádím — po P1 (párování end-to-end)
 
 ## 5. Fáze 1–5
 
-Platí pouze pokud [ADR 0001](../adr/0001-mobile-data-ownership.md) skončí jako
-REMOTE_COMPANION. Při LOCAL_FIRST se Fáze 2–4 ruší.
+[ADR 0001](../adr/0001-mobile-data-ownership.md) je ACCEPTED jako REMOTE_COMPANION,
+takže všechny fáze níže jsou v rozsahu.
 
 - **Fáze 1 — Konverzace:** historie, stránkování, hledání, přepínání, markdown, offline cache pro čtení.
 - **Fáze 2 — Nastavení:** viz dělení níže.
@@ -254,7 +254,6 @@ předchozí gate nedrží"*.
 
 | # | Otázka | Doporučení |
 |---|---|---|
-| **ADR 0001** | REMOTE_COMPANION vs LOCAL_FIRST | REMOTE_COMPANION — 5 ze 6 požadavků jsou serverové koncepty |
 | **M-1** | Expo/RN vs Flutter | Expo/RN + TS, development build |
 | **N-1** | Notifikace při spící appce | (a) pro Fázi 0, pak (b) jako opt-in |
 | R-2 | VPN: Tailscale vs WireGuard | — |
@@ -262,4 +261,6 @@ předchozí gate nedrží"*.
 | R-4 | Je diff obsah stahovatelný na telefon? | — |
 | R-5 | Dělení nastavení dle §5 | — |
 
-Bez ADR 0001 nemá smysl psát API kontrakt — datový model klienta na něm stojí.
+ADR 0001 je uzavřená. API kontrakt `/m1` se ale nepíše, dokud Gate 0 nedosáhne
+reprodukovatelného PASS a dokud není oddělená security boundary prokázaná
+negativními testy — viz §8.

@@ -1,9 +1,22 @@
 # ADR 0001 — Vlastnictví dat v mobilním klientovi
 
-**Status:** PROPOSED — vyžaduje rozhodnutí operátora
-**Datum:** 2026-07-30
+**Status:** **ACCEPTED** — REMOTE_COMPANION
+**Datum návrhu:** 2026-07-30
+**Datum rozhodnutí:** 2026-07-30
+**Rozhodl:** operátor
 **Kontext:** Gate 0, příprava mobilního klienta
 **Souvisí:** `D-001` (C3 je produktový trunk), `D-003` (IntentSmith repo je donor)
+
+## Rozhodnutí
+
+**REMOTE_COMPANION je přijatý cílový směr mobilního klienta 1.0.**
+
+Mobil vzdáleně pracuje s projekty, konverzacemi, nastavením, uchovávanými
+informacemi, approvaly a notifikacemi IntentSmithu.
+
+`LOCAL_FIRST` **není zamítnut jako koncept** — může někdy vzniknout jako
+samostatný offline režim. Není však architekturou klienta 1.0 a nic v 1.0 se
+podle něj nenavrhuje.
 
 ---
 
@@ -63,7 +76,7 @@ informací, funkční in-app notifikace.
 
 ---
 
-## Doporučení
+## Odůvodnění (původní doporučení, které bylo přijato)
 
 **REMOTE_COMPANION**, s lokální cache pro čtení offline.
 
@@ -77,16 +90,17 @@ Nejcennější use case — *„schválím build z telefonu"*, který je i dekla
 motivací donorovy ADR 0020 — je pod LOCAL_FIRST **nepostavitelný**, protože
 approval je serverová lifecycle událost, ke které bezstavový klient nemá vztah.
 
-### Pokud padne LOCAL_FIRST
+### Kdyby se někdy uvažovalo o LOCAL_FIRST
 
-Pak je potřeba explicitně přeškrtnout čtyři z pěti požadavků a mobil
-překlasifikovat na *„offline chatovací klient používající můj GPU"*. To je
-legitimní produkt, ale jiný, a je potřeba to říct nahlas, ne to zjistit
-uprostřed Fáze 2.
+Zůstává zde jako záznam analýzy: přechod na LOCAL_FIRST by znamenal explicitně
+přeškrtnout čtyři z pěti požadavků a mobil překlasifikovat na *„offline
+chatovací klient používající můj GPU"*. To je legitimní produkt, ale jiný.
+Případný pozdější offline režim proto musí vzniknout jako **doplněk** vedle
+companion klienta, ne jako jeho náhrada.
 
 ---
 
-## Důsledky doporučené varianty
+## Důsledky přijaté varianty
 
 **Přijímáme:**
 - telefon bez VPN je jen čtečka cache, nikoli plnohodnotný klient;
