@@ -27,6 +27,7 @@
 | D-021 | Gate 0 evidence must be reproducible by a third party from the commit alone: exact command, exit status, output SHA-256 | current user decision | ACCEPTED |
 | D-022 | `data/c3.db` is not read, deleted, reverted, or chmod-ed; the decision to leave it untouched is recorded as a decision with an owner | current user decision | ACCEPTED |
 | D-023 | Gate 0 verdicts are derived, never supplied by `--verdict`. A well-formed red validator report generates `FAIL` evidence and exits 1; a malformed, contradictory, signalled, or unexecutable validator is evidence-infrastructure failure exit 2. Open repository-local trust blockers cannot be converted to `CONDITIONAL PASS` | Gate 0 generator repair and current user direction | ACCEPTED |
+| D-024 | Every risk-register row has one validated machine-readable `gateImpact`: `G0_FAIL`, `G0_REVIEW_REQUIRED`, `LATER_GATE`, or `SEPARATE_INCIDENT`. Open `G0_FAIL` and every unclassified open/local risk fail closed; no fixed risk-ID allowlist defines the verdict. A non-failing class requires a concrete condition. `G0-R018` remains later-gate only while the legacy listener is loopback-only; privacy remains a separate incident | current user decision and Gate 0 risk-policy repair | ACCEPTED |
 
 ## Pending operator decisions
 

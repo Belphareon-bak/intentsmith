@@ -32,10 +32,24 @@ const DEFERRED_PREREQUISITES = new Set([
   'sufficient-gpu-vram',
   'three-request-gpu-headroom',
 ]);
+const CLOSED_RISK_STATES = new Set([
+  'ACCEPTED',
+  'CLOSED',
+  'MITIGATED',
+  'MITIGATED_WITH_RESIDUAL',
+  'MITIGATED_WITH_RESIDUALS',
+]);
 
 export const ReviewStatus = Object.freeze({
   PENDING: 'PENDING',
   APPROVED: 'APPROVED',
+});
+
+export const GateImpact = Object.freeze({
+  G0_FAIL: 'G0_FAIL',
+  G0_REVIEW_REQUIRED: 'G0_REVIEW_REQUIRED',
+  LATER_GATE: 'LATER_GATE',
+  SEPARATE_INCIDENT: 'SEPARATE_INCIDENT',
 });
 
 export class EvidenceInfrastructureError extends Error {
@@ -250,31 +264,131 @@ function validTerminalState(value) {
   );
 }
 
-export function findOpenGate0RepositoryBlockers(
-  riskMarkdown,
-  blockerIds = ['G0-R023', 'G0-R025'],
-) {
-  const statuses = new Map();
-  for (const line of String(riskMarkdown).split('\n')) {
-    const match = line.match(/^\| (G0-R\d+) \|.*\| ([A-Z][A-Z0-9_]*) \|$/);
-    if (!match) continue;
-    const statusList = statuses.get(match[1]) || [];
-    statusList.push(match[2]);
-    statuses.set(match[1], statusList);
+export function evaluateGate0RiskPolicy(riskMarkdown, policy) {
+  const errors = [];
+  const registerRows = parseRiskRegister(riskMarkdown, errors);
+  const registerById = groupBy(registerRows, row => row.riskId);
+  const impacts = Object.values(GateImpact);
+  const validEntries = new Map();
+
+  if (policy?.schemaVersion !== 1) {
+    errors.push('risk policy schemaVersion must equal 1');
+  }
+  if (policy?.gate !== 'Gate 0') {
+    errors.push('risk policy gate must equal Gate 0');
+  }
+  if (policy?.source !== 'docs/convergence/RISK-REGISTER.md') {
+    errors.push('risk policy source must equal docs/convergence/RISK-REGISTER.md');
+  }
+  if (!Array.isArray(policy?.risks)) {
+    errors.push('risk policy risks must be an array');
   }
 
-  const closedStatuses = new Set(['ACCEPTED', 'CLOSED', 'MITIGATED']);
-  return blockerIds.flatMap((id) => {
-    const statusList = statuses.get(id);
-    if (!statusList) return [`${id}: missing from RISK-REGISTER.md`];
-    if (statusList.length !== 1) return [`${id}: duplicate risk rows`];
-    return closedStatuses.has(statusList[0]) ? [] : [`${id}: ${statusList[0]}`];
-  });
+  const policyEntries = Array.isArray(policy?.risks) ? policy.risks : [];
+  for (const [index, entry] of policyEntries.entries()) {
+    if (!validObject(entry)) {
+      errors.push(`risk policy risks[${index}] must be an object`);
+    }
+  }
+  const policyById = groupBy(
+    policyEntries.filter(entry => validObject(entry)),
+    entry => entry.riskId,
+  );
+
+  for (const [riskId, entries] of policyById) {
+    if (!/^G0-R\d{3}$/.test(riskId || '')) {
+      errors.push(`risk policy contains invalid riskId ${String(riskId)}`);
+      continue;
+    }
+    if (entries.length !== 1) {
+      errors.push(`${riskId}: duplicate gateImpact policy entries`);
+      continue;
+    }
+    const [entry] = entries;
+    let valid = true;
+    if (!impacts.includes(entry.gateImpact)) {
+      errors.push(`${riskId}: unknown gateImpact ${String(entry.gateImpact)}`);
+      valid = false;
+    }
+    if (typeof entry.rationale !== 'string' || entry.rationale.trim() === '') {
+      errors.push(`${riskId}: gateImpact rationale is required`);
+      valid = false;
+    }
+    if (
+      entry.gateImpact !== GateImpact.G0_FAIL
+      && (typeof entry.condition !== 'string' || entry.condition.trim() === '')
+    ) {
+      errors.push(`${riskId}: ${entry.gateImpact} requires a concrete condition`);
+      valid = false;
+    }
+    if (valid) validEntries.set(riskId, entry);
+  }
+
+  const repositoryBlockers = [];
+  const reviewRequiredRisks = [];
+  const laterGateRisks = [];
+  const separateIncidents = [];
+  const impactCounts = Object.fromEntries(impacts.map(impact => [impact, 0]));
+  const openImpactCounts = Object.fromEntries(impacts.map(impact => [impact, 0]));
+
+  for (const [riskId, rows] of registerById) {
+    if (rows.length !== 1) {
+      errors.push(`${riskId}: duplicate risk register rows`);
+      if (rows.some(row => !isClosedRiskState(row.state))) {
+        repositoryBlockers.push(`${riskId}: duplicate OPEN/local risk rows`);
+      }
+      continue;
+    }
+    const [row] = rows;
+    const entry = validEntries.get(riskId);
+    if (!entry) {
+      errors.push(`${riskId}: missing valid gateImpact policy`);
+      if (!isClosedRiskState(row.state)) {
+        repositoryBlockers.push(`${riskId}: ${row.state} (unclassified OPEN/local risk)`);
+      }
+      continue;
+    }
+
+    impactCounts[entry.gateImpact] += 1;
+    if (isClosedRiskState(row.state)) continue;
+    openImpactCounts[entry.gateImpact] += 1;
+
+    const label = `${riskId}: ${row.state}`;
+    if (entry.gateImpact === GateImpact.G0_FAIL) repositoryBlockers.push(label);
+    else if (entry.gateImpact === GateImpact.G0_REVIEW_REQUIRED) {
+      reviewRequiredRisks.push(label);
+    } else if (entry.gateImpact === GateImpact.LATER_GATE) {
+      laterGateRisks.push(label);
+    } else if (entry.gateImpact === GateImpact.SEPARATE_INCIDENT) {
+      separateIncidents.push(label);
+    }
+  }
+
+  for (const riskId of policyById.keys()) {
+    if (!registerById.has(riskId)) {
+      errors.push(`${riskId}: gateImpact policy has no risk register row`);
+    }
+  }
+
+  return {
+    schemaVersion: policy?.schemaVersion ?? null,
+    valid: errors.length === 0,
+    errors: uniqueSorted(errors),
+    riskCount: registerRows.length,
+    policyCount: policyEntries.length,
+    impactCounts,
+    openImpactCounts,
+    repositoryBlockers: uniqueSorted(repositoryBlockers),
+    reviewRequiredRisks: uniqueSorted(reviewRequiredRisks),
+    laterGateRisks: uniqueSorted(laterGateRisks),
+    separateIncidents: uniqueSorted(separateIncidents),
+  };
 }
 
 export function deriveGateOutcome({
   clauses,
   repositoryBlockers = [],
+  reviewRequiredRisks = [],
   reviewStatus = ReviewStatus.PENDING,
 }) {
   if (!Array.isArray(clauses) || clauses.length === 0) {
@@ -294,15 +408,25 @@ export function deriveGateOutcome({
       `unsupported independent review status: ${String(reviewStatus)}`,
     );
   }
+  if (
+    !Array.isArray(reviewRequiredRisks)
+    || reviewRequiredRisks.some(item => typeof item !== 'string' || item === '')
+  ) {
+    throw new EvidenceInfrastructureError(
+      'Gate 0 review-required risks have an invalid shape',
+    );
+  }
 
   const failedClauses = clauses.filter(clause => clause.result === 'FAIL');
   const blockers = [...repositoryBlockers];
+  const reviewRisks = uniqueSorted(reviewRequiredRisks);
   if (failedClauses.length > 0 || blockers.length > 0) {
     return {
       verdict: 'FAIL',
       exitCode: 1,
       failedClauses,
       repositoryBlockers: blockers,
+      reviewRequiredRisks: reviewRisks,
       reviewStatus,
     };
   }
@@ -312,6 +436,7 @@ export function deriveGateOutcome({
       exitCode: 0,
       failedClauses: [],
       repositoryBlockers: [],
+      reviewRequiredRisks: reviewRisks,
       reviewStatus,
     };
   }
@@ -320,8 +445,51 @@ export function deriveGateOutcome({
     exitCode: 0,
     failedClauses: [],
     repositoryBlockers: [],
+    reviewRequiredRisks: reviewRisks,
     reviewStatus,
   };
+}
+
+function parseRiskRegister(markdown, errors) {
+  const rows = [];
+  for (const [index, line] of String(markdown).split('\n').entries()) {
+    if (!/^\|\s*G0-R\d{3}\s*\|/.test(line)) continue;
+    const cells = line.split('|').slice(1, -1).map(cell => cell.trim());
+    if (cells.length !== 7) {
+      errors.push(`risk register line ${index + 1} must contain seven columns`);
+      continue;
+    }
+    const [riskId, severity, probability, risk, mitigation, owner, state] = cells;
+    if (!/^G0-R\d{3}$/.test(riskId)) {
+      errors.push(`risk register line ${index + 1} has invalid risk ID`);
+      continue;
+    }
+    if ([severity, probability, risk, mitigation, owner, state].some(value => value === '')) {
+      errors.push(`${riskId}: risk register row contains an empty field`);
+    }
+    rows.push({ riskId, state });
+  }
+  if (rows.length === 0) errors.push('risk register contains no G0 risk rows');
+  return rows;
+}
+
+function groupBy(values, keyFn) {
+  const grouped = new Map();
+  for (const value of values) {
+    const key = keyFn(value);
+    const group = grouped.get(key) || [];
+    group.push(value);
+    grouped.set(key, group);
+  }
+  return grouped;
+}
+
+function isClosedRiskState(state) {
+  return CLOSED_RISK_STATES.has(state);
+}
+
+function uniqueSorted(values) {
+  return [...new Set(values)].sort();
 }
 
 function assertExecutableResult(result, label) {

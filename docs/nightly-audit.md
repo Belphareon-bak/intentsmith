@@ -113,11 +113,26 @@ the pinned source/count invariants of a green report, or disagrees with its
 process exit is an evidence-infrastructure failure; the generator exits 2 and
 does not claim a verdict from that invocation.
 
-All local clauses must be green before the generator may derive
+All local clauses G0-C1 through G0-C9 must be green before the generator may derive
 `CONDITIONAL PASS`, and that verdict means only that independent read-only
 review remains pending. `PASS` additionally requires approved independent
-review. Open repository-local trust blockers `G0-R023` and `G0-R025` force
-`FAIL`; neither may be absorbed into a conditional verdict.
+review.
+
+The generator reads the committed
+`docs/convergence/GATE0-RISK-IMPACT.json` and validates it against every current
+row in `RISK-REGISTER.md`. A missing or duplicate mapping, unknown
+`gateImpact`, malformed entry, missing concrete condition, extra policy row, or
+new unclassified open/local risk fails G0-C9. Any non-closed `G0_FAIL` row
+forces `FAIL`; reopening one is effective without changing generator code. The
+current policy derives `G0-R012`, `G0-R014`, `G0-R017`, `G0-R019`, and
+`G0-R020` as repository blockers; `G0-R015` requires review. `G0-R018` remains
+a later-gate risk only while the legacy listener stays loopback-only, and the
+privacy findings remain separately reported incidents.
+
+The evidence index records the policy path, SHA-256, schema version, validation
+errors, row counts, impact counts, and all open risks grouped by impact. The
+generated status, baseline report, and review packet render those derived
+groups; none uses a fixed risk-ID blocker allowlist.
 
 ## Known Gate 0 boundary
 

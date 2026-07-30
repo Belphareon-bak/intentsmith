@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "gate": "Gate 0",
+  "source": "docs/convergence/RISK-REGISTER.md",
+  "risks": [
+    {
+      "riskId": "G0-R001",
+      "gateImpact": "SEPARATE_INCIDENT",
+      "rationale": "The confirmed privacy compromise has its own operator-controlled verdict.",
+      "condition": "Report the incident state verbatim and keep P-001 through P-003 open until the operator decides them."
+    },
+    {
+      "riskId": "G0-R002",
+      "gateImpact": "SEPARATE_INCIDENT",
+      "rationale": "Reachable private and runtime history belongs to the confirmed privacy incident.",
+      "condition": "Do not rewrite history or delete data without explicit operator authorization."
+    },
+    {
+      "riskId": "G0-R003",
+      "gateImpact": "G0_FAIL",
+      "rationale": "Incomplete disputed-commit disposition makes the baseline unverifiable."
+    },
+    {
+      "riskId": "G0-R004",
+      "gateImpact": "G0_FAIL",
+      "rationale": "An unreproducible clean installation invalidates the Gate 0 baseline."
+    },
+    {
+      "riskId": "G0-R005",
+      "gateImpact": "G0_FAIL",
+      "rationale": "False-green or incomplete test discovery invalidates Gate 0 evidence."
+    },
+    {
+      "riskId": "G0-R006",
+      "gateImpact": "G0_FAIL",
+      "rationale": "Unclassified deterministic release failures invalidate the measured baseline."
+    },
+    {
+      "riskId": "G0-R007",
+      "gateImpact": "G0_FAIL",
+      "rationale": "Untruthful baseline documentation invalidates the handoff state."
+    },
+    {
+      "riskId": "G0-R008",
+      "gateImpact": "G0_FAIL",
+      "rationale": "Generated E2E material must not reintroduce private data into the candidate tree."
+    },
+    {
+      "riskId": "G0-R009",
+      "gateImpact": "LATER_GATE",
+      "rationale": "The Local Validation ref is required when the T5 runner is audited, not for the deterministic Gate 0 scope.",
+      "condition": "Fetch and verify the exact frozen ref before Gate 4 T5 evidence; never substitute another commit."
+    },
+    {
+      "riskId": "G0-R010",
+      "gateImpact": "SEPARATE_INCIDENT",
+      "rationale": "Repository visibility is an operator-owned privacy containment decision.",
+      "condition": "Keep the current tree contained and report repository visibility until P-001 is decided."
+    },
+    {
+      "riskId": "G0-R011",
+      "gateImpact": "G0_FAIL",
+      "rationale": "A runner that writes raw transcripts into the tracked tree cannot produce trustworthy evidence."
+    },
+    {
+      "riskId": "G0-R012",
+      "gateImpact": "G0_FAIL",
+      "rationale": "The open database import side effect can touch operator data during an unwrapped test run."
+    },
+    {
+      "riskId": "G0-R013",
+      "gateImpact": "G0_FAIL",
+      "rationale": "Filename-based test omission is a Gate 0 registry-integrity failure."
+    },
+    {
+      "riskId": "G0-R014",
+      "gateImpact": "G0_FAIL",
+      "rationale": "The open direct-run filesystem and database isolation gap remains repository-local."
+    },
+    {
+      "riskId": "G0-R015",
+      "gateImpact": "G0_REVIEW_REQUIRED",
+      "rationale": "The producing process cannot give final independent acceptance to its own evidence.",
+      "condition": "A bounded read-only reviewer must reproduce or audit the exact candidate packet before PASS."
+    },
+    {
+      "riskId": "G0-R016",
+      "gateImpact": "G0_FAIL",
+      "rationale": "An incomplete false-green inventory invalidates test-trust claims."
+    },
+    {
+      "riskId": "G0-R017",
+      "gateImpact": "G0_FAIL",
+      "rationale": "The inherited product-documentation damage remains an open repository-local Gate 0 finding."
+    },
+    {
+      "riskId": "G0-R018",
+      "gateImpact": "LATER_GATE",
+      "rationale": "The remote security boundary is an explicitly separate post-Gate-0 track.",
+      "condition": "The legacy listener must remain loopback-only; off-loopback binding is prohibited until the separate authenticated boundary and bypass-negative tests pass."
+    },
+    {
+      "riskId": "G0-R019",
+      "gateImpact": "G0_FAIL",
+      "rationale": "Milestone success output after generation or test-gate failure is a repository-local test-trust defect."
+    },
+    {
+      "riskId": "G0-R020",
+      "gateImpact": "G0_FAIL",
+      "rationale": "Generic GPU metadata cannot truthfully explain the observed model, context, VRAM, and concurrency prerequisite."
+    },
+    {
+      "riskId": "G0-R021",
+      "gateImpact": "G0_FAIL",
+      "rationale": "Misclassified model-backed soak programs invalidate deterministic scope selection."
+    },
+    {
+      "riskId": "G0-R022",
+      "gateImpact": "G0_FAIL",
+      "rationale": "A test process that exits zero after named failures is a Gate 0 false-green defect."
+    },
+    {
+      "riskId": "G0-R023",
+      "gateImpact": "G0_FAIL",
+      "rationale": "A broken refinement path cannot be hidden behind a successful primary response."
+    },
+    {
+      "riskId": "G0-R024",
+      "gateImpact": "G0_FAIL",
+      "rationale": "An insecure server coordination file prevents the owned runner from starting truthfully."
+    },
+    {
+      "riskId": "G0-R025",
+      "gateImpact": "G0_FAIL",
+      "rationale": "A provider outage represented as a successful persisted assistant turn is a Gate 0 test-trust defect."
+    }
+  ]
+}

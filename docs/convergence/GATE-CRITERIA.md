@@ -41,6 +41,7 @@ product is good, only that statements about it are verifiable.
 | G0-C6 | No `KNOWN_DEFECTIVE` suite is counted as green evidence | evidence generator refuses to read a green result from a `KNOWN_DEFECTIVE` row |
 | G0-C7 | Every `BLOCKED` suite names a specific technical prerequisite | each `BLOCKED` row has a non-generic reason naming the missing capability |
 | G0-C8 | Evidence and status documentation derive from the clean candidate | generated attestation carries the candidate SHA and registry fingerprint, and has that candidate as its parent |
+| G0-C9 | Every risk has one valid machine-readable Gate 0 impact | `GATE0-RISK-IMPACT.json` validates against every row in `RISK-REGISTER.md` |
 
 ### "Available" is derived, never judged
 
@@ -62,9 +63,40 @@ which requires blocked runs to say *what specifically* is missing. Five soak
 programs previously misdeclared as model-free are now guarded by explicit
 `ollama` and `gpu` requirements.
 
+### Risk impact policy
+
+`docs/convergence/GATE0-RISK-IMPACT.json` is the committed policy that tells the
+evidence generator how each row in `RISK-REGISTER.md` affects Gate 0. Every
+register row must have exactly one valid entry with a rationale. An entry that
+does not have `G0_FAIL` impact must also carry a concrete condition. The four
+allowed impacts are:
+
+- `G0_FAIL`: any state not recognized as closed is a repository-local blocker
+  and forces `FAIL`;
+- `G0_REVIEW_REQUIRED`: the named bounded review is required before `PASS`;
+- `LATER_GATE`: the risk belongs to a named later gate and is non-blocking only
+  while its concrete safety condition holds;
+- `SEPARATE_INCIDENT`: the incident is reported verbatim under its own
+  operator-controlled decision instead of being disguised as a Gate 0
+  prerequisite.
+
+The policy, not a JavaScript risk-ID allowlist, currently classifies open
+`G0-R012`, `G0-R014`, `G0-R017`, `G0-R019`, and `G0-R020` as `G0_FAIL`.
+`G0-R015` is `G0_REVIEW_REQUIRED`. `G0-R018` is `LATER_GATE` only under the
+condition that the legacy listener remains loopback-only; off-loopback binding
+is prohibited until the separate authenticated boundary and its bypass-negative
+tests pass. The confirmed privacy findings `G0-R001`, `G0-R002`, and `G0-R010`
+are `SEPARATE_INCIDENT`.
+
+Validation fails closed. A missing or duplicate entry, unknown impact, empty
+required condition, malformed policy entry, extra policy entry without a
+register row, or newly added unclassified open/local risk makes G0-C9 fail.
+Reopening a closed `G0_FAIL` row makes it a blocker without a generator code
+change.
+
 ### CONDITIONAL PASS
 
-Permitted only when every local G0-C1..C8 clause holds but the mandatory
+Permitted only when every local G0-C1..C9 clause holds but the mandatory
 independent read-only review or operator acceptance is still pending. It may
 also describe later-profile suites that remain unrun for reasons entirely
 outside the codebase — absent GPU, absent Ollama, absent operator-provided
@@ -106,9 +138,10 @@ Any of:
 - **a `REBUILD` record has not reached one of the three terminal states** in
   `FINAL-COMMIT-DISPOSITION.md`. `D-018` is a gate condition, not a convention,
   and it is not satisfied by a validator that never checks it.
-- repository-local test-trust findings `G0-R023` or `G0-R025` remain open.
-  They are code defects, not missing external prerequisites, so
-  `CONDITIONAL PASS` cannot absorb them.
+- a non-closed risk classified `G0_FAIL` remains in the risk register;
+- the risk-impact policy is missing, malformed, incomplete, duplicated, uses an
+  unknown impact or omits a required concrete condition. These are local
+  evidence defects, so `CONDITIONAL PASS` cannot absorb them.
 
 A deterministic failure is never downgraded to CONDITIONAL PASS. If code is
 wrong, the verdict is FAIL regardless of how much else is green.

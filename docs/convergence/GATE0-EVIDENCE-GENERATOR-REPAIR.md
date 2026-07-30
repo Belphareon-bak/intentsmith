@@ -20,7 +20,9 @@ Implementation commit:
   failure exit 2.
 - `--verdict`, including an empty value, is rejected. With all local evidence
   green, pending independent review can derive only `CONDITIONAL PASS`.
-- Open `G0-R023` or `G0-R025` forces `FAIL`.
+- The current generator validates `GATE0-RISK-IMPACT.json` against every risk
+  row. Any non-closed `G0_FAIL` or unclassified open/local risk forces `FAIL`;
+  no fixed risk-ID allowlist defines that result (`D-024`).
 
 ## Exact focused evidence
 
@@ -56,8 +58,9 @@ exercised internal PASS, FAIL, TIMEOUT and BLOCKED fixtures before reporting
 ## Independent control-flow review
 
 An independent reviewer used temporary synthetic evidence only to control the
-generator branches; those fixtures are not Gate evidence. On temporary patched
-commit `8664ff1`:
+generator branches; those fixtures are not Gate evidence. This list preserves
+the behavior tested before the later `D-024` policy generalization. On temporary
+patched commit `8664ff1`:
 
 - green validators plus open `G0-R023`/`G0-R025`: four `FAIL` documents,
   generator exit 1;

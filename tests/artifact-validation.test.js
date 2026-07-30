@@ -26,10 +26,12 @@ import {
   classifyDispositionValidatorExecution,
   classifyRegistryValidatorExecution,
   deriveGateOutcome,
-  findOpenGate0RepositoryBlockers,
+  evaluateGate0RiskPolicy,
+  GateImpact,
   ReviewStatus,
 } from '../scripts/gate0-evidence-verdict.js';
 import {
+  buildGate0Clauses,
   main as generateGate0Evidence,
   renderBaselineReport,
   renderStatus,
@@ -282,6 +284,184 @@ test('DEFERRED with concrete canonical prerequisites is accepted', () => {
   );
 });
 
+suite('Gate 0 risk-impact policy');
+
+const committedRiskMarkdown = readFileSync(
+  new URL('../docs/convergence/RISK-REGISTER.md', import.meta.url),
+  'utf8',
+);
+const committedRiskPolicy = JSON.parse(readFileSync(
+  new URL('../docs/convergence/GATE0-RISK-IMPACT.json', import.meta.url),
+  'utf8',
+));
+const gate0GeneratorSource = readFileSync(
+  new URL('../scripts/generate-gate0-evidence.js', import.meta.url),
+  'utf8',
+);
+
+function riskPolicyCopy() {
+  return structuredClone(committedRiskPolicy);
+}
+
+function riskAssessmentCopy(overrides = {}) {
+  return {
+    schemaVersion: 1,
+    valid: true,
+    errors: [],
+    riskCount: 25,
+    policyCount: 25,
+    impactCounts: {
+      G0_FAIL: 19,
+      G0_REVIEW_REQUIRED: 1,
+      LATER_GATE: 2,
+      SEPARATE_INCIDENT: 3,
+    },
+    openImpactCounts: {
+      G0_FAIL: 5,
+      G0_REVIEW_REQUIRED: 1,
+      LATER_GATE: 2,
+      SEPARATE_INCIDENT: 3,
+    },
+    repositoryBlockers: [],
+    reviewRequiredRisks: ['G0-R015: OPEN'],
+    laterGateRisks: ['G0-R009: OPEN', 'G0-R018: OPEN'],
+    separateIncidents: [
+      'G0-R001: CONTAINED_CURRENT_TREE / OPEN_HISTORY',
+      'G0-R002: CONTAINED_CURRENT_TREE / OPEN_HISTORY',
+      'G0-R010: OPEN',
+    ],
+    ...overrides,
+  };
+}
+
+test('committed policy classifies every risk and derives current blockers', () => {
+  const result = evaluateGate0RiskPolicy(
+    committedRiskMarkdown,
+    riskPolicyCopy(),
+  );
+  assertEqual(result.valid, true);
+  assertEqual(result.riskCount, 25);
+  assertEqual(result.policyCount, 25);
+  assertEqual(result.repositoryBlockers.join(','), [
+    'G0-R012: OPEN',
+    'G0-R014: OPEN',
+    'G0-R017: OPEN',
+    'G0-R019: OPEN',
+    'G0-R020: OPEN',
+  ].join(','));
+  assertEqual(result.reviewRequiredRisks.join(','), 'G0-R015: OPEN');
+  assertEqual(result.laterGateRisks.join(','), 'G0-R009: OPEN,G0-R018: OPEN');
+  assertEqual(
+    result.separateIncidents.join(','),
+    'G0-R001: CONTAINED_CURRENT_TREE / OPEN_HISTORY,'
+      + 'G0-R002: CONTAINED_CURRENT_TREE / OPEN_HISTORY,G0-R010: OPEN',
+  );
+});
+
+test('policy pins required Gate 0 blockers and the loopback condition', () => {
+  const byId = new Map(committedRiskPolicy.risks.map(entry => [entry.riskId, entry]));
+  for (const riskId of ['G0-R012', 'G0-R014', 'G0-R017', 'G0-R019', 'G0-R020']) {
+    assertEqual(byId.get(riskId)?.gateImpact, GateImpact.G0_FAIL);
+  }
+  assertEqual(byId.get('G0-R018')?.gateImpact, GateImpact.LATER_GATE);
+  assert(byId.get('G0-R018')?.condition.includes('loopback-only'));
+  for (const riskId of ['G0-R001', 'G0-R002', 'G0-R010']) {
+    assertEqual(byId.get(riskId)?.gateImpact, GateImpact.SEPARATE_INCIDENT);
+  }
+});
+
+test('a newly added unknown OPEN risk fails closed without a code allowlist', () => {
+  const riskMarkdown = `${committedRiskMarkdown.trim()}\n`
+    + '| G0-R999 | P1 | confirmed | new local finding | repair | primary implementer | OPEN |\n';
+  const result = evaluateGate0RiskPolicy(riskMarkdown, riskPolicyCopy());
+  assertEqual(result.valid, false);
+  assert(includesError(result.errors, 'G0-R999: missing valid gateImpact policy'));
+  assert(includesError(result.repositoryBlockers, 'G0-R999: OPEN'));
+});
+
+test('removing an OPEN risk policy entry fails closed', () => {
+  const policy = riskPolicyCopy();
+  policy.risks = policy.risks.filter(entry => entry.riskId !== 'G0-R019');
+  const result = evaluateGate0RiskPolicy(committedRiskMarkdown, policy);
+  assertEqual(result.valid, false);
+  assert(includesError(result.errors, 'G0-R019: missing valid gateImpact policy'));
+  assert(includesError(result.repositoryBlockers, 'G0-R019: OPEN'));
+});
+
+test('duplicate and unknown gateImpact entries are rejected', () => {
+  const duplicate = riskPolicyCopy();
+  duplicate.risks.push(structuredClone(
+    duplicate.risks.find(entry => entry.riskId === 'G0-R020'),
+  ));
+  const duplicateResult = evaluateGate0RiskPolicy(committedRiskMarkdown, duplicate);
+  assertEqual(duplicateResult.valid, false);
+  assert(includesError(duplicateResult.errors, 'G0-R020: duplicate gateImpact'));
+  assert(includesError(duplicateResult.repositoryBlockers, 'G0-R020: OPEN'));
+
+  const unknown = riskPolicyCopy();
+  unknown.risks.find(entry => entry.riskId === 'G0-R017').gateImpact = 'IGNORE';
+  const unknownResult = evaluateGate0RiskPolicy(committedRiskMarkdown, unknown);
+  assertEqual(unknownResult.valid, false);
+  assert(includesError(unknownResult.errors, 'G0-R017: unknown gateImpact'));
+  assert(includesError(unknownResult.repositoryBlockers, 'G0-R017: OPEN'));
+});
+
+test('a malformed policy entry is rejected instead of being silently skipped', () => {
+  const policy = riskPolicyCopy();
+  policy.risks[0] = null;
+  const result = evaluateGate0RiskPolicy(committedRiskMarkdown, policy);
+  assertEqual(result.valid, false);
+  assert(includesError(result.errors, 'risk policy risks[0] must be an object'));
+  assert(includesError(result.errors, 'G0-R001: missing valid gateImpact policy'));
+  assert(includesError(result.repositoryBlockers, 'G0-R001'));
+});
+
+test('an open later-gate risk without its concrete condition fails closed', () => {
+  const policy = riskPolicyCopy();
+  delete policy.risks.find(entry => entry.riskId === 'G0-R018').condition;
+  const result = evaluateGate0RiskPolicy(committedRiskMarkdown, policy);
+  assertEqual(result.valid, false);
+  assert(includesError(result.errors, 'G0-R018: LATER_GATE requires a concrete condition'));
+  assert(includesError(result.repositoryBlockers, 'G0-R018: OPEN'));
+});
+
+test('a mitigated G0_FAIL risk does not block, but reopening it does', () => {
+  const current = evaluateGate0RiskPolicy(committedRiskMarkdown, riskPolicyCopy());
+  assert(!includesError(current.repositoryBlockers, 'G0-R025'));
+  const reopenedMarkdown = committedRiskMarkdown.replace(
+    /(\| G0-R025 \|.*\| )MITIGATED \|/,
+    '$1OPEN |',
+  );
+  const reopened = evaluateGate0RiskPolicy(reopenedMarkdown, riskPolicyCopy());
+  assert(includesError(reopened.repositoryBlockers, 'G0-R025: OPEN'));
+});
+
+test('the evidence generator consumes the policy evaluator without a risk-ID allowlist', () => {
+  assert(gate0GeneratorSource.includes('evaluateGate0RiskPolicy('));
+  assert(!gate0GeneratorSource.includes('GATE0_REPOSITORY_BLOCKER_IDS'));
+  assert(!gate0GeneratorSource.includes('findOpenGate0RepositoryBlockers'));
+});
+
+test('risk policy validity is a generated Gate 0 clause', () => {
+  const clauses = buildGate0Clauses({
+    registryValidation: { passed: true, report: { records: 350 }, errors: [] },
+    dispositionValidation: { passed: true, report: { records: 225 }, errors: [] },
+    deterministicEvidence: { statusCounts: { PASS: 199 } },
+    runnablePrograms: 350,
+    explicitSupportExclusions: 8,
+    stateCounts: { ACTIVE: 271 },
+    blockedWithoutPrerequisite: [],
+    knownDefectiveInDeterministic: [],
+    riskAssessment: riskAssessmentCopy({
+      valid: false,
+      errors: ['G0-R999: missing valid gateImpact policy'],
+    }),
+  });
+  const riskClause = clauses.find(clause => clause.id === 'G0-C9');
+  assertEqual(riskClause.result, 'FAIL');
+  assert(riskClause.evidence.includes('G0-R999'));
+});
+
 suite('Gate 0 verdict derivation');
 
 function dispositionReport(errors = []) {
@@ -497,26 +677,46 @@ test('PASS requires all local clauses and approved review', () => {
   assertEqual(outcome.exitCode, 0);
 });
 
-test('an open repository blocker forces FAIL until its status is mitigated', () => {
-  const open = findOpenGate0RepositoryBlockers(
-    '| G0-R023 | P1 | confirmed | finding | action | owner | MITIGATED |\n'
-      + '| G0-R025 | P1 | confirmed | finding | action | owner | OPEN |',
+test('a policy-derived repository blocker forces FAIL', () => {
+  const assessment = evaluateGate0RiskPolicy(
+    '| G0-R777 | P1 | confirmed | finding | action | owner | OPEN |\n',
+    {
+      schemaVersion: 1,
+      gate: 'Gate 0',
+      source: 'docs/convergence/RISK-REGISTER.md',
+      risks: [{
+        riskId: 'G0-R777',
+        gateImpact: GateImpact.G0_FAIL,
+        rationale: 'Synthetic local blocker.',
+      }],
+    },
   );
-  assertEqual(open.length, 1);
+  assertEqual(assessment.valid, true);
+  assertEqual(assessment.repositoryBlockers.length, 1);
   assertEqual(
     deriveGateOutcome({
       clauses: passingClauses(),
-      repositoryBlockers: open,
+      repositoryBlockers: assessment.repositoryBlockers,
     }).verdict,
     'FAIL',
   );
-  assertEqual(
-    findOpenGate0RepositoryBlockers(
-      '| G0-R023 | P1 | confirmed | finding | action | owner | MITIGATED |\n'
-        + '| G0-R025 | P1 | confirmed | finding | action | owner | MITIGATED |',
-    ).length,
-    0,
-  );
+});
+
+test('G0_REVIEW_REQUIRED remains conditional until review approval', () => {
+  const reviewRequiredRisks = ['G0-R015: OPEN'];
+  const pending = deriveGateOutcome({
+    clauses: passingClauses(),
+    reviewRequiredRisks,
+    reviewStatus: ReviewStatus.PENDING,
+  });
+  assertEqual(pending.verdict, 'CONDITIONAL PASS');
+  assertEqual(pending.reviewRequiredRisks[0], 'G0-R015: OPEN');
+  const approved = deriveGateOutcome({
+    clauses: passingClauses(),
+    reviewRequiredRisks,
+    reviewStatus: ReviewStatus.APPROVED,
+  });
+  assertEqual(approved.verdict, 'PASS');
 });
 
 test('FAIL status renders derived clauses, zero counts, and repository blockers', () => {
@@ -541,6 +741,7 @@ test('FAIL status renders derived clauses, zero counts, and repository blockers'
     privacy: { status: 'CONFIRMED_COMPROMISE' },
     clauses,
     outcome,
+    riskAssessment: riskAssessmentCopy(),
   });
   assert(markdown.includes('Verdict: **FAIL**'));
   assert(markdown.includes('| G0-C2 disposition | FAIL | exit 1 |'));
@@ -605,6 +806,7 @@ test('baseline renders disposition counts from the structured report', () => {
     stateCounts: { ACTIVE: 256, BLOCKED: 79 },
     clauses,
     outcome,
+    riskAssessment: riskAssessmentCopy(),
     dispositionReport: disposition,
   });
   assert(markdown.includes('`EXACT` 32'));

@@ -17,8 +17,8 @@ import {
   classifyDispositionValidatorExecution,
   classifyRegistryValidatorExecution,
   deriveGateOutcome,
+  evaluateGate0RiskPolicy,
   EvidenceInfrastructureError,
-  findOpenGate0RepositoryBlockers,
   ReviewStatus,
 } from './gate0-evidence-verdict.js';
 
@@ -31,7 +31,7 @@ const OUTPUTS = {
 const GATE0_OFFLINE_COUNT = 173;
 const GATE0_DATABASE_COUNT = 26;
 const GATE0_DETERMINISTIC_COUNT = GATE0_OFFLINE_COUNT + GATE0_DATABASE_COUNT;
-const GATE0_REPOSITORY_BLOCKER_IDS = ['G0-R023', 'G0-R025'];
+const GATE0_RISK_POLICY_PATH = 'docs/convergence/GATE0-RISK-IMPACT.json';
 const MODEL_BACKED_SOAK_IDS = new Set([
   'IS-T5-TESTS-SOAK-ATTACHMENT-HEAVY-TEST',
   'IS-T5-TESTS-SOAK-BREAK-PATTERN-PROBE-TEST',
@@ -213,10 +213,13 @@ export async function main(argv = process.argv.slice(2)) {
     path.join(root, 'docs/convergence/RISK-REGISTER.md'),
     'utf8',
   );
-  const repositoryBlockers = findOpenGate0RepositoryBlockers(
+  const riskPolicyPath = path.join(root, GATE0_RISK_POLICY_PATH);
+  const riskPolicy = await readJson(riskPolicyPath);
+  const riskAssessment = evaluateGate0RiskPolicy(
     riskMarkdown,
-    GATE0_REPOSITORY_BLOCKER_IDS,
+    riskPolicy,
   );
+  const repositoryBlockers = riskAssessment.repositoryBlockers;
 
   const reviewBase = opts['review-base'] || '126b061';
   const reviewRange = `${reviewBase}..${candidateSha}`;
@@ -238,10 +241,12 @@ export async function main(argv = process.argv.slice(2)) {
     stateCounts,
     blockedWithoutPrerequisite,
     knownDefectiveInDeterministic,
+    riskAssessment,
   });
   const outcome = deriveGateOutcome({
     clauses,
     repositoryBlockers,
+    reviewRequiredRisks: riskAssessment.reviewRequiredRisks,
     reviewStatus: ReviewStatus.PENDING,
   });
   const { verdict } = outcome;
@@ -276,7 +281,7 @@ export async function main(argv = process.argv.slice(2)) {
   };
 
   const evidenceIndex = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     product: 'IntentSmith',
     gate: 'Gate 0',
     verdict,
@@ -304,6 +309,20 @@ export async function main(argv = process.argv.slice(2)) {
     },
     clauses,
     repositoryBlockers,
+    riskPolicy: {
+      path: GATE0_RISK_POLICY_PATH,
+      schemaVersion: riskAssessment.schemaVersion,
+      sha256: await hashFile(riskPolicyPath),
+      valid: riskAssessment.valid,
+      errors: riskAssessment.errors,
+      riskCount: riskAssessment.riskCount,
+      policyCount: riskAssessment.policyCount,
+      impactCounts: riskAssessment.impactCounts,
+      openImpactCounts: riskAssessment.openImpactCounts,
+      reviewRequiredRisks: riskAssessment.reviewRequiredRisks,
+      laterGateRisks: riskAssessment.laterGateRisks,
+      separateIncidents: riskAssessment.separateIncidents,
+    },
     validations: {
       registry: {
         command: 'node scripts/validate-test-registry.js --json',
@@ -359,6 +378,7 @@ export async function main(argv = process.argv.slice(2)) {
     privacy,
     clauses,
     outcome,
+    riskAssessment,
   });
   const baselineMarkdown = renderBaselineReport({
     candidateSha,
@@ -378,6 +398,7 @@ export async function main(argv = process.argv.slice(2)) {
     stateCounts,
     clauses,
     outcome,
+    riskAssessment,
     dispositionReport: dispositionValidation.report,
   });
   const reviewMarkdown = renderReviewPacket({
@@ -392,6 +413,7 @@ export async function main(argv = process.argv.slice(2)) {
     stateCounts,
     clauses,
     outcome,
+    riskAssessment,
     dispositionRecords: dispositionValidation.report.records,
   });
 
@@ -459,6 +481,7 @@ export function buildGate0Clauses({
   stateCounts,
   blockedWithoutPrerequisite,
   knownDefectiveInDeterministic,
+  riskAssessment,
 }) {
   const validatorEvidence = (validation) => (
     validation.passed
@@ -517,6 +540,14 @@ export function buildGate0Clauses({
       label: 'generated evidence',
       result: 'PASS',
       evidence: 'status, index, baseline report, and review packet derive from the clean candidate',
+    },
+    {
+      id: 'G0-C9',
+      label: 'risk impact policy',
+      result: riskAssessment.valid ? 'PASS' : 'FAIL',
+      evidence: riskAssessment.valid
+        ? `${riskAssessment.riskCount} risk rows have validated machine-readable gateImpact entries`
+        : `risk policy invalid: ${riskAssessment.errors.join('; ')}`,
     },
   ];
 }
@@ -615,6 +646,7 @@ export function renderStatus({
   privacy,
   clauses,
   outcome,
+  riskAssessment,
 }) {
   return `# IntentSmith Convergence Status
 
@@ -647,6 +679,9 @@ ${renderClauseRows(clauses)}
 ${outcome.repositoryBlockers.length > 0
     ? `- Repository-local Gate 0 blockers: **${outcome.repositoryBlockers.join(', ')}**.`
     : '- Repository-local Gate 0 blockers: none.'}
+- Review-required risks: ${riskAssessment.reviewRequiredRisks.join(', ') || 'none'}.
+- Later-gate risks: ${riskAssessment.laterGateRisks.join(', ') || 'none'}.
+- Separate incidents: ${riskAssessment.separateIncidents.join(', ') || 'none'}.
 - Confirmed privacy compromise: **${privacy.status}**.
 - Current-tree private material is contained; affected history remains reachable.
 - Credential rotation and history remediation require operator action.
@@ -683,6 +718,7 @@ export function renderBaselineReport({
   stateCounts,
   clauses,
   outcome,
+  riskAssessment,
   dispositionReport,
 }) {
   const pilotRows = pilotEvidence.map(item => (
@@ -817,6 +853,9 @@ ${rotationRows}
 
 - Independent review status: ${outcome.reviewStatus}.
 - Repository-local Gate 0 blockers: ${outcome.repositoryBlockers.join(', ') || 'none'}.
+- Review-required risks: ${riskAssessment.reviewRequiredRisks.join(', ') || 'none'}.
+- Later-gate risks: ${riskAssessment.laterGateRisks.join(', ') || 'none'}.
+- Separate incidents: ${riskAssessment.separateIncidents.join(', ') || 'none'}.
 - Public-history remediation, repository visibility, and credential rotation
   remain operator decisions.
 - ${stateCounts.KNOWN_DEFECTIVE || 0} recovered E2E suites retain known false-green
@@ -851,6 +890,7 @@ function renderReviewPacket({
   stateCounts,
   clauses,
   outcome,
+  riskAssessment,
   dispositionRecords,
 }) {
   return `# Gate 0 — Opus 5 Read-only Review Packet
@@ -872,6 +912,9 @@ verdict machinery.
 - Derived verdict: **${outcome.verdict}**
 - Independent review status: **${outcome.reviewStatus}**
 - Repository-local blockers: ${outcome.repositoryBlockers.join(', ') || 'none'}
+- Review-required risks: ${riskAssessment.reviewRequiredRisks.join(', ') || 'none'}
+- Later-gate risks: ${riskAssessment.laterGateRisks.join(', ') || 'none'}
+- Separate incidents: ${riskAssessment.separateIncidents.join(', ') || 'none'}
 
 | Clause | Result | Evidence |
 |---|---|---|
@@ -924,6 +967,8 @@ ${pilotEvidence.map(item => (
   \`KNOWN_DEFECTIVE\`; ${stateCounts.BLOCKED || 0} remain registry-\`BLOCKED\`.
 - Privacy history remains reachable and credential rotation is pending.
 - Repository-local Gate 0 blockers: ${outcome.repositoryBlockers.join(', ') || 'none'}.
+- Gate-impact policy: ${riskAssessment.valid ? 'valid' : 'invalid'}; ${riskAssessment.riskCount}
+  risk rows and ${riskAssessment.policyCount} policy entries.
 
 ## Questions
 
