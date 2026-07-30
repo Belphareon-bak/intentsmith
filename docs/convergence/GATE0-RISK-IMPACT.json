@@ -75,7 +75,7 @@
     {
       "riskId": "G0-R014",
       "gateImpact": "G0_FAIL",
-      "rationale": "The open direct-run filesystem and database isolation gap remains repository-local."
+      "rationale": "Direct-run filesystem and database isolation is repository-local; its closed state remains monitored and reopening it must block Gate 0."
     },
     {
       "riskId": "G0-R015",

@@ -384,7 +384,7 @@ function riskAssessmentCopy(overrides = {}) {
       SEPARATE_INCIDENT: 3,
     },
     openImpactCounts: {
-      G0_FAIL: 1,
+      G0_FAIL: 0,
       G0_REVIEW_REQUIRED: 1,
       LATER_GATE: 2,
       SEPARATE_INCIDENT: 3,
@@ -409,9 +409,7 @@ test('committed policy classifies every risk and derives current blockers', () =
   assertEqual(result.valid, true);
   assertEqual(result.riskCount, 27);
   assertEqual(result.policyCount, 27);
-  assertEqual(result.repositoryBlockers.join(','), [
-    'G0-R014: OPEN',
-  ].join(','));
+  assertEqual(result.repositoryBlockers.join(','), '');
   assertEqual(result.reviewRequiredRisks.join(','), 'G0-R015: OPEN');
   assertEqual(result.laterGateRisks.join(','), 'G0-R009: OPEN,G0-R018: OPEN');
   assertEqual(
@@ -450,28 +448,36 @@ test('a newly added unknown OPEN risk fails closed without a code allowlist', ()
   assert(includesError(result.repositoryBlockers, 'G0-R999: OPEN'));
 });
 
-test('removing an OPEN risk policy entry fails closed', () => {
+test('removing a policy entry for a reopened risk fails closed', () => {
   const policy = riskPolicyCopy();
   policy.risks = policy.risks.filter(entry => entry.riskId !== 'G0-R014');
-  const result = evaluateGate0RiskPolicy(committedRiskMarkdown, policy);
+  const reopenedMarkdown = committedRiskMarkdown.replace(
+    /(\| G0-R014 \|.*\| )MITIGATED \|/,
+    '$1OPEN |',
+  );
+  const result = evaluateGate0RiskPolicy(reopenedMarkdown, policy);
   assertEqual(result.valid, false);
   assert(includesError(result.errors, 'G0-R014: missing valid gateImpact policy'));
   assert(includesError(result.repositoryBlockers, 'G0-R014: OPEN'));
 });
 
 test('duplicate and unknown gateImpact entries are rejected', () => {
+  const reopenedMarkdown = committedRiskMarkdown.replace(
+    /(\| G0-R014 \|.*\| )MITIGATED \|/,
+    '$1OPEN |',
+  );
   const duplicate = riskPolicyCopy();
   duplicate.risks.push(structuredClone(
     duplicate.risks.find(entry => entry.riskId === 'G0-R014'),
   ));
-  const duplicateResult = evaluateGate0RiskPolicy(committedRiskMarkdown, duplicate);
+  const duplicateResult = evaluateGate0RiskPolicy(reopenedMarkdown, duplicate);
   assertEqual(duplicateResult.valid, false);
   assert(includesError(duplicateResult.errors, 'G0-R014: duplicate gateImpact'));
   assert(includesError(duplicateResult.repositoryBlockers, 'G0-R014: OPEN'));
 
   const unknown = riskPolicyCopy();
   unknown.risks.find(entry => entry.riskId === 'G0-R014').gateImpact = 'IGNORE';
-  const unknownResult = evaluateGate0RiskPolicy(committedRiskMarkdown, unknown);
+  const unknownResult = evaluateGate0RiskPolicy(reopenedMarkdown, unknown);
   assertEqual(unknownResult.valid, false);
   assert(includesError(unknownResult.errors, 'G0-R014: unknown gateImpact'));
   assert(includesError(unknownResult.repositoryBlockers, 'G0-R014: OPEN'));
@@ -498,13 +504,13 @@ test('an open later-gate risk without its concrete condition fails closed', () =
 
 test('a mitigated G0_FAIL risk does not block, but reopening it does', () => {
   const current = evaluateGate0RiskPolicy(committedRiskMarkdown, riskPolicyCopy());
-  assert(!includesError(current.repositoryBlockers, 'G0-R025'));
+  assert(!includesError(current.repositoryBlockers, 'G0-R014'));
   const reopenedMarkdown = committedRiskMarkdown.replace(
-    /(\| G0-R025 \|.*\| )MITIGATED \|/,
+    /(\| G0-R014 \|.*\| )MITIGATED \|/,
     '$1OPEN |',
   );
   const reopened = evaluateGate0RiskPolicy(reopenedMarkdown, riskPolicyCopy());
-  assert(includesError(reopened.repositoryBlockers, 'G0-R025: OPEN'));
+  assert(includesError(reopened.repositoryBlockers, 'G0-R014: OPEN'));
 });
 
 test('the evidence generator consumes the policy evaluator without a risk-ID allowlist', () => {

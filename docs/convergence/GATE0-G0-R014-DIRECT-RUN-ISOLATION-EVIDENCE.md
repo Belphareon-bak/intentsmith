@@ -2,8 +2,8 @@
 
 ## Result
 
-- Evidence state: **PARTIAL**
-- Risk state: **OPEN**
+- Evidence state: **COMPLETE (focused)**
+- Risk state: **MITIGATED**
 - Branch: `codex/g0-r014-direct-run-isolation`
 - Base SHA: `2c2fd256526a6ae7a5b9f84e2636f4ba0f9a49b5`
 - Code and test SHA: `d2a351898c32da303182122c664571e2d16406b8`
@@ -18,15 +18,15 @@
 - Scope: common bootstrap, all database-reachable root programs, and all
   previously identified fixed/non-atomic writers
 
-This change does not claim to close `G0-R014`. It establishes a fail-closed
-direct-run bootstrap, connects the two shared root-test harnesses, protects all
-92 root programs that can reach the database, covers every current root test
-which calls `mkdtemp` or `mkdtempSync`, and carries the same contract through
-the nightly audit runner and the large E2E runner. Follow-ups convert every
-hard-coded shared writer to an atomic owned root, bind the remaining
-`os.tmpdir()` consumers to the invocation-private `TMPDIR`, and require a
-private PID-bound server attestation before the attachment suite can send a
-request.
+The integrated change closes `G0-R014` as a focused repository-local risk. It
+establishes a fail-closed direct-run bootstrap, connects the two shared
+root-test harnesses, protects all 92 root programs that can reach the database,
+covers every current root test which calls `mkdtemp` or `mkdtempSync`, and
+carries the same contract through the nightly audit runner and the large E2E
+runner. Follow-ups convert every hard-coded shared writer to an atomic owned
+root, bind the remaining `os.tmpdir()` consumers to the invocation-private
+`TMPDIR`, and require a private PID-and-nonce server attestation before the
+attachment suite can send a request.
 
 ## Implemented contract
 
@@ -387,6 +387,17 @@ self-contained direct result. The final clean-clone audit must provision the
 lockfile-pinned PDF runtime inside its owned install root and inject both equal
 absolute overrides; no assertion is skipped or weakened.
 
+The final capability test-trust follow-up at
+`fab974eda32bcdb62941f91d697600af1bdbedcb` then produced:
+
+| Command | Result | Exit |
+| --- | --- | ---: |
+| attachment boundary self-check with throwing `fetch` | 5 passed, no request | 0 |
+| `node tests/upgrade-ux-v125.test.js` outside the process sandbox | 53 passed, 0 failed | 0 |
+| `node tests/harness-exit-code.test.js` outside the child-process sandbox | 49 temp creators; 92/92 DB graph; DB mutation and raw pre-fetch oracle passed | 0 |
+| boundary self-check after removing nonce equality | 4 passed, 1 named mismatched-capability failure | 1 |
+| upgrade suite after replacing server nonce wiring with `undefined` | 52 passed, 1 named wiring failure | 1 |
+
 ## Mutation and negative coverage
 
 The existing registered meta-test covers:
@@ -409,10 +420,13 @@ exit-1 assertion. The raw attachment oracle requires both the exact guard error
 and absence of `FETCH_CALLED`; a later throwing fetch cannot masquerade as the
 expected boundary failure.
 
-## Remaining decision
+## Closure and remaining Gate 0 work
 
-`G0-R014` remains **OPEN** until these combined contracts pass from a committed
-integration SHA and the full 199-suite deterministic registry is replayed from
-the final clean candidate. No remaining direct-run database or shared-writer
-consumer is currently undispositioned. This work does not edit `STATUS.md`,
-registry schema/version data, or `data/c3.db`.
+`G0-R014` is **MITIGATED** because the combined contracts pass from committed
+integration SHAs and no direct-run database or shared-writer consumer remains
+undispositioned. The full 199-suite deterministic replay is still required by
+the separate G0-C5 candidate clause and is not claimed here. The registered T3
+attachment suite is still `BLOCKED` until a future server-profile runner owns
+and passes the complete PID+nonce capability; raw execution remains
+fail-closed in the meantime. This work does not edit `STATUS.md`, registry
+schema/version data, or `data/c3.db`.

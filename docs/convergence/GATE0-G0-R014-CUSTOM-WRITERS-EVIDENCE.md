@@ -2,8 +2,9 @@
 
 ## Result
 
-- Evidence state: **PARTIAL**
-- Risk state: **OPEN**
+- Evidence state: **COMPLETE (focused donor batch)**
+- Integration risk state: **MITIGATED**; see
+  `GATE0-G0-R014-DIRECT-RUN-ISOLATION-EVIDENCE.md`
 - Branch: `codex/g0-r014-custom-writers`
 - Base SHA: `8b058076991b67af6eaed7dad7a68a35e40d3b32`
 - Code and test SHA: `1e9e696db114f7d98e5ce9a432876cef5017b83f`
@@ -11,16 +12,18 @@
 - Scope: four custom filesystem writer suites and their registered isolation
   regression in `tests/harness-exit-code.test.js`
 
-This commit does not claim to close `G0-R014` or Gate 0. It removes the shared
-`/tmp` dependency from the following four root suites:
+This donor commit did not by itself claim to close `G0-R014` or Gate 0. Its
+four-suite scope is now reconciled into the committed integration closure. It
+removes the shared `/tmp` dependency from the following four root suites:
 
 - `tests/chat-export-budget.test.js`;
 - `tests/export-pdf-docx.test.js`;
 - `tests/lifecycle-e2e.test.js`; and
 - `tests/lifecycle-human-friction.test.js`.
 
-The remaining R014 consumers are handled by separate bounded branches and must
-be reconciled by a fresh integrated inventory before the risk state changes.
+The other R014 consumers were handled by separate bounded branches; the
+integrated 49-temp-creator and 92-DB-program inventories now reconcile the
+complete root-test scope.
 
 ## Implemented boundary
 
