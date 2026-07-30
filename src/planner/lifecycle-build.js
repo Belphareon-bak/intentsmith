@@ -42,6 +42,10 @@ import { C3ToolExecutor } from '../executor/c3-tool-executor.js';
 import { validateMilestoneSize } from './milestone-size.js';
 import { runQualityGate, runEnhancedValidation } from './quality-gate.js';
 import { validateArchitecture } from './architecture-check.js';
+import {
+  isRequiredArtifactPath,
+  validateArtifactFile,
+} from './artifact-validation.js';
 
 function milestoneForPlanningPrompt(milestone) {
   return {
@@ -567,30 +571,24 @@ async function postExecution(lifecycle, milestone, wfResult) {
   }
 
   // ─── Artifact validation — hard fail on 0-byte + content sanity ─────────
-  const ARTIFACT_REQUIRED_EXTS = new Set(['.txt', '.sql', '.env', '.yaml', '.yml', '.toml', '.sh', '.ini', '.cfg', '.conf']);
   const scopeFilesForArtifact = milestone.scope_files || [];
   const artifactFailures = [];
   for (const relPath of scopeFilesForArtifact) {
-    const ext = path.extname(relPath);
-    if (ARTIFACT_REQUIRED_EXTS.has(ext)) {
+    if (isRequiredArtifactPath(relPath)) {
       const fullPath = path.join(lifecycle.projectPath, relPath);
-      try {
-        const stat = fs.statSync(fullPath);
-        if (stat.size === 0) {
-          artifactFailures.push(`${relPath}: 0 bytes`);
+      const validation = validateArtifactFile(relPath, fullPath);
+      if (!validation.ok) {
+        artifactFailures.push(`${relPath}: ${validation.reason}`);
+        if (validation.kind === 'zero-byte') {
           logger.warn('LifecycleBuild', 'Artifact validation: 0-byte plaintext file', {
             milestoneId: milestone.id, file: relPath,
           });
         } else {
-          const sanity = _checkArtifactContent(relPath, fullPath, ext);
-          if (!sanity.ok) {
-            artifactFailures.push(`${relPath}: ${sanity.reason}`);
-            logger.warn('LifecycleBuild', 'Artifact sanity fail', {
-              milestoneId: milestone.id, file: relPath, reason: sanity.reason,
-            });
-          }
+          logger.warn('LifecycleBuild', 'Artifact sanity fail', {
+            milestoneId: milestone.id, file: relPath, reason: validation.reason,
+          });
         }
-      } catch { /* file missing — quality gate handles it */ }
+      }
     }
   }
   if (artifactFailures.length > 0) {
@@ -1747,65 +1745,6 @@ async function getChangedFiles(lifecycle) {
     }
   } catch { /* ignore */ }
   return [];
-}
-
-// ─── Artifact Content Sanity Check ──────────────────────────────────────────
-
-/**
- * Validate that a generated plaintext artifact has meaningful content.
- * Goes beyond 0-byte check — catches LLM overconfident placeholders.
- * @param {string} relPath - Relative path (for basename checks)
- * @param {string} fullPath - Absolute path to file
- * @param {string} ext - File extension
- * @returns {{ ok: boolean, reason?: string }}
- */
-function _checkArtifactContent(relPath, fullPath, ext) {
-  let content;
-  try { content = fs.readFileSync(fullPath, 'utf-8'); } catch { return { ok: true }; }
-
-  const basename = path.basename(relPath);
-
-  // requirements.txt: at least 1 non-comment, non-empty package line
-  if (basename === 'requirements.txt' || basename === 'requirements-dev.txt') {
-    const pkgLines = content.split('\n').filter(l => l.trim() && !l.startsWith('#') && !l.startsWith('-'));
-    if (pkgLines.length === 0) return { ok: false, reason: 'no package lines' };
-    return { ok: true };
-  }
-
-  // .env: at least 1 KEY=VALUE pair
-  if (ext === '.env') {
-    if (!/^[A-Z_a-z]\w*\s*=/m.test(content)) return { ok: false, reason: 'no KEY=VALUE pairs' };
-    return { ok: true };
-  }
-
-  // .sql: must contain recognizable SQL
-  if (ext === '.sql') {
-    if (!/\b(CREATE|INSERT|SELECT|UPDATE|DELETE|ALTER|DROP|BEGIN|PRAGMA)\b/i.test(content)) {
-      return { ok: false, reason: 'no SQL statements found' };
-    }
-    return { ok: true };
-  }
-
-  // .yaml/.yml: must have at least one key: value line
-  if (ext === '.yaml' || ext === '.yml') {
-    if (!/^\s*\w[\w-]*\s*:/m.test(content)) return { ok: false, reason: 'no key: value pairs' };
-    return { ok: true };
-  }
-
-  // .toml: must have [section] or key = value
-  if (ext === '.toml') {
-    if (!/^\[|\w+\s*=/m.test(content)) return { ok: false, reason: 'no TOML content' };
-    return { ok: true };
-  }
-
-  // .sh/.bash/.zsh: must have at least one non-comment line
-  if (ext === '.sh' || ext === '.bash' || ext === '.zsh') {
-    const codeLines = content.split('\n').filter(l => l.trim() && !l.startsWith('#'));
-    if (codeLines.length === 0) return { ok: false, reason: 'no shell commands' };
-    return { ok: true };
-  }
-
-  return { ok: true };
 }
 
 // ─── v135.1: Dead Import Stripping ──────────────────────────────────────────

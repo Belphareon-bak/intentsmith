@@ -14,7 +14,7 @@
     "test": "npm run test:deterministic",
     "test:all": "node tests/run-all.js",
     "test:gate0": "npm run test:deterministic",
-    "test:registry": "node scripts/validate-test-registry.js",
+    "test:registry": "node scripts/reconcile-ffd-e2e-registry.js && node scripts/validate-test-registry.js",
     "test:offline": "node scripts/nightly-audit.js --profile=offline",
     "test:database": "node scripts/nightly-audit.js --profile=database",
     "test:deterministic": "node scripts/nightly-audit.js --profile=offline,database",
