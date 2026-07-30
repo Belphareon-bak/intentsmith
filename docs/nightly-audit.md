@@ -15,7 +15,7 @@ The canonical registry currently contains 350 runnable programs. This Gate 0
 orchestrator selects exactly the 173 `offline` and 26 `database` entries. The
 remaining 36 `server`, 82 `model`, 18 `soak`, and 15 `manual` programs are not
 silently counted as passing. The reviewed registry fingerprint is
-`a7a5c6d4670159cd38a08edea8aabbf868eb3342a3baf1857b6a4849d1f4960a`;
+`f6edc6ccff693284ee01ed159e90faea20e94662892d7b84b2f61efdf35e03b5`;
 the run fails closed if either that fingerprint or the reviewed profile counts
 change.
 

@@ -19,9 +19,9 @@ kód nefungoval — šlo o to, že **pro ta tvrzení neexistoval ověřitelný p
 
 - 30 z 30 schopností v [CAPABILITY-MATRIX.md](convergence/CAPABILITY-MATRIX.md)
   je `UNVERIFIED` nebo `BASELINE_RED`;
-- z 350 registrovaných testovacích programů je 25 `KNOWN_DEFECTIVE`
-  (false-green vzory: `assert(true)`, předčasné návraty, akceptace HTTP 5xx)
-  a 54 `BLOCKED` na prostředí;
+- původní audit našel 25 `KNOWN_DEFECTIVE` a 54 `BLOCKED`; položková oprava a
+  klasifikace nyní ponechává 0 `KNOWN_DEFECTIVE` a 79 konkrétně
+  prerekvizitami blokovaných programů — blokovaný stav není zelený důkaz;
 - test harness hlásil zelenou i tam, kde běh selhal;
 - registr testů byl neúplný — část spustitelných programů v něm nebyla.
 
@@ -64,8 +64,8 @@ Reprodukce: `node scripts/validate-test-registry.js`,
 | Registrované spustitelné programy | 350 |
 | Explicitní support/aggregate výjimky | 8 |
 | `ACTIVE` | 256 |
-| `BLOCKED` (chybí prostředí) | 54 |
-| `KNOWN_DEFECTIVE` (vadné aserce) | 25 |
+| `BLOCKED` (konkrétní prerekvizity) | 79 |
+| `KNOWN_DEFECTIVE` | 0 |
 | `HISTORICAL` | 15 |
 | Rozsah G0-C5 (`offline` + `database`, required) | **199** |
 | Klasifikované dispoziční záznamy | 225 (validní) |
@@ -75,9 +75,10 @@ Dříve známý deterministický failure `tests/pilot-c1c2c3.test.js` A9 (qualit
 engine označoval všech 10 výstupů jako `EXCELLENT`) je **opravený v `f38f5e8`** —
 sada hlásí 44 passed, 0 failed, exit 0.
 
-Gate 0 tím ale nepřechází na PASS. Zbývá čistý kandidátní strom (G0-C1),
-generovaná evidence (G0-C8) a skutečné spuštění celého rozsahu 199 sad na
-výsledném commitu (G0-C5). Jeden opravený test není důkaz o zbylých 198.
+Gate 0 tím ale nepřechází na PASS. Zbývá uzavřít `G0-R014`, vytvořit nový
+čistý kandidátní strom (G0-C1), spustit na něm celý rozsah 199 sad (G0-C5),
+vygenerovat evidenci (G0-C8/C9) a získat nezávislé review. Starší zelený běh
+199 sad na jiném SHA není důkazem pro výsledný commit.
 
 ---
 
@@ -92,6 +93,7 @@ Gate 0  DŮVĚRA V MĚŘENÍ        ← kandidát čeká na finální evidenci/r
         ├─ čistá instalace reprodukovatelná
         ├─ 199 deterministických required T1/T2 sad prochází
         ├─ žádná KNOWN_DEFECTIVE jako zelený důkaz
+        ├─ risk-impact policy nemá otevřený repository blocker
         └─ evidence generovaná z verdiktního commitu
               ↓
 Gate 1  AKCEPTAČNÍ DŮKAZ       0 z 30 schopností
@@ -159,20 +161,22 @@ Stav = stav důkazů, ne odhad hotovosti. Mapování na
 | G0-1 | Izolace E2E na runner-owned root (7 posledních sad) | 🔴 P0 | ✅ hotovo |
 | G0-2 | Doplnit registr na úplnost (2 neregistrované programy) | 🔴 P0 | ✅ hotovo |
 | G0-3 | Opravit `pilot-c1c2c3` A9 — quality engine nerozlišuje kvalitu | 🔴 P0 | ✅ hotovo (`f38f5e8`) |
-| G0-4 | Izolovat autoritativní běhy přes `C3_DB_PATH`; produktový import-side-effect ponechat jako transparentní residual risk (`G0-R012`) | 🔴 P0 | ✅ runner + self-test; produktové chování nezměněno |
+| G0-4 | Izolovat autoritativní běhy přes `C3_DB_PATH` a zavřít implicitní produktový DB import (`G0-R012`) | 🔴 P0 | ✅ explicitní cesta fail-closed; server bootstrap zachovává projektový default; pozitivní i negativní self-test |
 | G0-5 | Discovery registru podle spustitelnosti, ne názvu; explicitní výjimky (`G0-R013`) | 🟡 P1 | ✅ 350 programů + 8 explicitních výjimek; meta-test dokazuje nekonvenční název |
 | G0-6 | Generátor evidence — status, index, baseline report a review packet z čistého kandidáta (`D-020`) | 🔴 P0 | ✅ implementováno; finální běh čeká na kandidátní SHA |
-| G0-7 | Každý `REBUILD` záznam do koncového stavu (`D-018`) | 🟡 P1 | přesunuto do per-suite Gate 2 aktivace; Gate 0 validator má 225/225 resolution |
+| G0-7 | Každý `REBUILD` záznam do koncového stavu (`D-018`) | 🟡 P1 | ✅ 60 `REPAIRED`, 32 `DEFERRED(<konkrétní prerequisite>)`; validator 225/225 |
 | G0-8 | Každý registry-`BLOCKED` řádek s konkrétní prerekvizitou (G0-C7) | 🟡 P1 | ✅ 0 řádků bez server/external/Ollama/GPU důvodu |
 | G0-9 | Čistá instalace + celý rozsah G0-C5 z výsledného commitu | 🔴 P0 | ❌ |
-| G0-10 | Rozhodnout rozsah izolace pro T1 (43 sad ve sdíleném `/tmp`, `G0-R014`) | ⚪ P2 | residual risk; nešlo o novou Gate 0 regresi |
+| G0-10 | Uzavřít direct-run/T1 filesystem izolaci (`G0-R014`) | 🔴 P0 | 🔄 položkový audit a nejmenší společná oprava probíhají |
+| G0-11 | Obnovit poškozenou českou dokumentaci bez ztráty novějších informací (`G0-R017`) | 🟡 P1 | ✅ obnoveno; registrovaný test hlídá diakritiku, code fences a lokální odkazy |
+| G0-12 | Připnout přesný model/GPU/context kontrakt pro sady 57–59 a 88 (`G0-R020`) | 🔴 P0 | ✅ schema v3 + fail-closed preflight; sady zůstávají `BLOCKED`, žádný modelový green claim |
 
 ### Gate 1 — akceptační důkaz per schopnost
 
 Po jednom řádku matice. Pořadí podle rizika, ne podle snadnosti:
 
-1. **C3-024** SQLite a migrace — je pod tím všechno ostatní; navíc přímo souvisí
-   s `G0-R012`.
+1. **C3-024** SQLite a migrace — je pod tím všechno ostatní; Gate 0 odstranil
+   implicitní import-side-effect, ale akceptační důkaz schopnosti teprve chybí.
 2. **C3-003** CRE routing — jediná autorita nad chováním celého chatu.
 3. **C3-008** deterministické quality gates — bez nich nelze měřit nic dalšího
    a je to zdroj `pilot-c1c2c3` failure.
@@ -185,19 +189,19 @@ Po jednom řádku matice. Pořadí podle rizika, ne podle snadnosti:
 78 obnovených sad, po jedné, tři podmínky per sada (izolace → pravdivé exity →
 skutečný běh). Rozpad práce:
 
-Následující kategorie **nejsou rozkladem těch 78** — překrývají se. Sada může
-být zároveň blokovaná na prostředí a mít vadné aserce; sedm izolovaných sad je
-podmnožinou blokovaných. Součet 7 + 25 + 54 = 86 tedy neodpovídá 78 a ani nemá.
+Následující kategorie shrnují aktuální koncový stav. Sedm přepojených sad je
+podmnožinou 78 blokovaných E2E; 0 `KNOWN_DEFECTIVE` neznamená 78 zelených sad.
 
 | Osa | Počet | Co je potřeba |
 |---|---:|---|
-| Izolace přepojena na runner-owned root | 7 | ⊂ blokovaných; čeká na prostředí |
-| Registrový stav `KNOWN_DEFECTIVE` (vadné aserce) | 25 | oprava asercí + before/after důkaz |
-| Registrový stav `BLOCKED` (chybí prostředí) | 54 | pojmenovat prerekvizitu, pak hardware |
+| Izolace přepojena na runner-owned root | 7 | ✅ hotovo; sady dál čekají na své prostředí |
+| Registrový stav `KNOWN_DEFECTIVE` | 0 | žádný takový řádek se nesmí počítat zeleně |
+| Obnovené E2E v registrovém stavu `BLOCKED` | 78 | splnit deklarované server/network/model/GPU prerekvizity po jedné |
 
-Autoritativní je registrový stav, ne tahle tabulka. Přesný rozklad bez překryvů
-vznikne až při per-suite klasifikaci do koncových stavů `D-018` — a právě proto
-je ta klasifikace Gate 0 podmínka, ne úklid.
+Autoritativní je registrový stav a dispoziční ledger, ne tahle souhrnná tabulka.
+Klasifikace `D-018` je dokončená: 60 položek je `REPAIRED` a 32 je
+`DEFERRED(<konkrétní prerequisite>)`. Gate 2 tyto odklady aktivuje po jedné;
+nemění je zpětně na Gate 0 zelený důkaz.
 
 Sada, která splní izolaci a pravdivé exity, ale nemůže běžet z environmentálních
 důvodů, se uzavírá jako `REBUILD/DEFERRED(<prerekvizita>)`. To je koncový stav,
@@ -251,7 +255,7 @@ Pairing, mobilní kontrakt a mobilní UI nejsou součástí tohoto tracku ani Ga
 |---|---|
 | „~98 % celkové vize hotovo" | neodvozené z měřitelného podkladu |
 | „Pilíř 1/2/4 — 100 % ✅" | 0 z 30 schopností má akceptační důkaz |
-| „~3 600+ verified tests" | 25 sad je `KNOWN_DEFECTIVE`, 54 `BLOCKED`; „verified" neplatilo |
+| „~3 600+ verified tests" | při auditu bylo 25 sad `KNOWN_DEFECTIVE` a 54 `BLOCKED`; jejich pozdější oprava/reklasifikace původní tvrzení zpětně nedokazuje |
 | Sprint 1–6 s ✅ značkami | sprinty popisovaly C3 historii, ne směr IntentSmithu; nahradil je gate ladder |
 | Timeline s progress bary | procenta bez definice výpočtu |
 | Detailní specifikace IDE Settings (~350 řádků) | je to produktová specifikace, ne roadmapa — patří do vlastního dokumentu |
