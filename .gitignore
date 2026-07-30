@@ -33,6 +33,10 @@ src.zip
 # User projects (data, not code)
 projects/
 
+# Confirmed privacy-incident paths (user content, not product source)
+/chats/conv-*/attachments/
+/docs/archive/conversations/
+
 # E2E test transcripts
 test-transcripts/
 /tests/e2e-transcript-*.md

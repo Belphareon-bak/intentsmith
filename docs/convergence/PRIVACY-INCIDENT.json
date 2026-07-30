@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "incidentId": "G0-PRIVACY-001",
+  "status": "CONFIRMED_COMPROMISE",
+  "assessmentDate": "2026-07-30",
+  "assessment": {
+    "repositoryWasPublic": true,
+    "thirdPartyDownloadKnown": false,
+    "possibleExfiltrationAssumed": true,
+    "personalContentInspected": false,
+    "method": "path names, Git object metadata, file size metadata, and repository visibility only"
+  },
+  "currentTreeContainment": {
+    "sourceCommit": "aa9614a7b96adb584ffc6d8cc0d4734092615ae1",
+    "trackedPathsRemoved": 13,
+    "trackedBytesRemoved": 7617363,
+    "localQuarantineRoot": ".intentsmith-artifacts/gate0/quarantine/tracked-private-current-tree",
+    "localQuarantineTracked": false,
+    "directoryMode": "0700",
+    "fileMode": "0600",
+    "userDataDeleted": false
+  },
+  "history": {
+    "affectedObjectsRemainReachable": true,
+    "historyRewritten": false,
+    "remediationAuthority": "operator decision required"
+  },
+  "trackedObjectManifest": [
+    {
+      "path": "chats/conv-1768165091450-n9ss37evx/attachments/0649bdce5d5899a4.png",
+      "gitBlob": "2223afdc812ab0eed20cf488a2ce860d2e6734d6",
+      "bytes": 28650,
+      "category": "chat attachment"
+    },
+    {
+      "path": "chats/conv-1768166660825-3fipqmy0i/attachments/371f3c0363f64aad.jpeg",
+      "gitBlob": "6831c500687f408cd8f14338367a430352131bef",
+      "bytes": 8050,
+      "category": "chat attachment"
+    },
+    {
+      "path": "docs/archive/conversations/01-devops-sre.md",
+      "gitBlob": "18b794e514de8a39d1ec7066f464d13244626bb0",
+      "bytes": 8970,
+      "category": "archived conversation"
+    },
+    {
+      "path": "docs/archive/conversations/02-legal.md",
+      "gitBlob": "3c0f7d6092187f05ee4531ef42109f67c67acf75",
+      "bytes": 9946,
+      "category": "archived conversation"
+    },
+    {
+      "path": "docs/archive/conversations/03-business-strategy.md",
+      "gitBlob": "55dcd9f871fbf6786035bb91c1c7e28d752d67a9",
+      "bytes": 11532,
+      "category": "archived conversation"
+    },
+    {
+      "path": "projects/P2-agenti/.c3-architect/roadmap/main.md",
+      "gitBlob": "9d7ef0ff414940a401b57f3209a9e4aac16cf6c8",
+      "bytes": 130,
+      "category": "user project state"
+    },
+    {
+      "path": "projects/P2-agenti/.c3-architect/state.json",
+      "gitBlob": "33d7b17045313766727cef4bb4b1b0419d47441e",
+      "bytes": 417,
+      "category": "user project state"
+    },
+    {
+      "path": "projects/P3-web/.c3-architect/roadmap/main.md",
+      "gitBlob": "d02747e99541abbd94a082b39542c9045d07aa14",
+      "bytes": 127,
+      "category": "user project state"
+    },
+    {
+      "path": "projects/P3-web/.c3-architect/state.json",
+      "gitBlob": "80e1b94b6f0a28ff0eee1e6bf3ef77f1d8ceb372",
+      "bytes": 414,
+      "category": "user project state"
+    },
+    {
+      "path": "projects/P3-web/attachments/48b92208dfdab8fd.pdf",
+      "gitBlob": "444a1afb8fab8de637c21d15dae9fbbaea408021",
+      "bytes": 183060,
+      "category": "user project attachment"
+    },
+    {
+      "path": "projects/P3-web/attachments/f44d3426c09ba678.jpg",
+      "gitBlob": "25da2e78e34823c4e030013b1d951cdf4b965498",
+      "bytes": 7365512,
+      "category": "user project attachment"
+    },
+    {
+      "path": "projects/prvni-projekt/.c3-architect/roadmap/main.md",
+      "gitBlob": "3024aad30f12088ed8d3367c702a3caf6f3b13cf",
+      "bytes": 134,
+      "category": "user project state"
+    },
+    {
+      "path": "projects/prvni-projekt/.c3-architect/state.json",
+      "gitBlob": "61deebf0cefec47ffbf0ae47447d5ade5f1922c0",
+      "bytes": 421,
+      "category": "user project state"
+    }
+  ],
+  "rotationInventory": [
+    {
+      "category": "license signing and validation secrets",
+      "examples": ["C3_LICENSE_SECRET"],
+      "action": "rotate or reissue and revoke affected licenses"
+    },
+    {
+      "category": "administrative and issued API credentials",
+      "examples": ["C3_ADMIN_TOKEN", "issued API token material"],
+      "action": "revoke and reissue"
+    },
+    {
+      "category": "notification credentials",
+      "examples": ["SMTP credentials", "webhook secrets", "Telegram bot token and chat identifier", "ntfy token and topic"],
+      "action": "rotate credentials and verify destinations"
+    },
+    {
+      "category": "model and provider credentials",
+      "examples": ["C3_OPENAI_KEY", "other provider credentials"],
+      "action": "revoke and reissue"
+    },
+    {
+      "category": "license and agent credentials",
+      "examples": ["C3_LICENSE_KEY", "agent secrets"],
+      "action": "rotate where externally valid"
+    },
+    {
+      "category": "fixture passwords reused outside tests",
+      "examples": ["KLICENKA_PASS"],
+      "action": "rotate only if reused outside its fixture context"
+    },
+    {
+      "category": "project-scoped external credentials",
+      "examples": ["Git, cloud, deployment, database, and service credentials referenced by exposed user data"],
+      "action": "inventory by the operator without publishing values, then revoke and reissue"
+    },
+    {
+      "category": "ephemeral authorization material",
+      "examples": ["session, WebSocket, capability grant, and lease tokens"],
+      "action": "invalidate through service restart or revocation"
+    }
+  ]
+}

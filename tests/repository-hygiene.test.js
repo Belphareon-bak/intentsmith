@@ -29,6 +29,9 @@ const exactGeneratedLeaks = new Set([
 
 const prohibited = tracked.filter(path => (
   exactGeneratedLeaks.has(path)
+  || path.startsWith('projects/')
+  || /^chats\/conv-[^/]+\/attachments\//i.test(path)
+  || path.startsWith('docs/archive/conversations/')
   || path.startsWith('e2e-review/')
   || path.startsWith('test-reports/')
   || /^data\/.*\.(?:db(?:[.-].*)?|sql|malformed|pre-recover)$/i.test(path)
