@@ -42,7 +42,7 @@ await testAsync('Phase 5: 9-turn export + tests', async () => {
   console.log(`\n  ${passCount}/${TURNS.length} passed, test score ${testScore}`);
 
   const allCodeBlocks = mergeCodeBlocks(state.codeBlocks || [], testBlocks);
-  state.phases.p5 = { completed: true, passCount, testScore, results }; state.codeBlocks = allCodeBlocks; saveState(SUITE_ID, state);
   assert(passCount >= 5); assert(testScore >= 30);
+  state.phases.p5 = { completed: true, passCount, testScore, results }; state.codeBlocks = allCodeBlocks; saveState(SUITE_ID, state);
 });
 await summary();

@@ -137,6 +137,9 @@ await testAsync('Phase 3: 10-turn pipeline implementation', async () => {
   console.log(`\n  Results: ${passCount}/${TURNS.length} passed, code score ${codeScore}`);
   console.log(`  Files: ${allCodeBlocks.map(b => b.filename || 'unnamed').join(', ')}`);
 
+  assert(passCount >= 6, `At least 6/10 turns should pass, got ${passCount}`);
+  assert(codeScore >= 30, `Code score should be ≥30, got ${codeScore}`);
+
   state.phases.p3 = {
     completed: true,
     turnCount: TURNS.length,
@@ -147,8 +150,6 @@ await testAsync('Phase 3: 10-turn pipeline implementation', async () => {
   state.codeBlocks = allCodeBlocks;
   saveState(SUITE_ID, state);
 
-  assert(passCount >= 6, `At least 6/10 turns should pass, got ${passCount}`);
-  assert(codeScore >= 30, `Code score should be ≥30, got ${codeScore}`);
 });
 
 await summary();

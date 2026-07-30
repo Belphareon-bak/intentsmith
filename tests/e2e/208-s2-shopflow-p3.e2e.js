@@ -40,7 +40,7 @@ await testAsync('Phase 3: 10-turn routes + auth', async () => {
   const codeScore = scoreCode(allCodeBlocks, 'python', { minFiles: 7, mustHaveKeywords: ['blueprint', 'login_user', 'CSRF', 'admin_required', 'random'] });
   console.log(`\n  ${passCount}/${TURNS.length} passed, code score ${codeScore}`);
 
-  state.phases.p3 = { completed: true, passCount, codeScore, results }; state.codeBlocks = allCodeBlocks; saveState(SUITE_ID, state);
   assert(passCount >= 6); assert(codeScore >= 30);
+  state.phases.p3 = { completed: true, passCount, codeScore, results }; state.codeBlocks = allCodeBlocks; saveState(SUITE_ID, state);
 });
 await summary();

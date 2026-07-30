@@ -45,7 +45,7 @@ await testAsync('Phase 4: 8-turn template creation', async () => {
   console.log(`\n  ${passCount}/${TURNS.length} passed, avg template score ${avgTemplateScore}`);
 
   const allCodeBlocks = mergeCodeBlocks(state.codeBlocks || [], templateBlocks);
-  state.phases.p4 = { completed: true, passCount, avgTemplateScore, results }; state.codeBlocks = allCodeBlocks; saveState(SUITE_ID, state);
   assert(passCount >= 5); assert(avgTemplateScore >= 30);
+  state.phases.p4 = { completed: true, passCount, avgTemplateScore, results }; state.codeBlocks = allCodeBlocks; saveState(SUITE_ID, state);
 });
 await summary();

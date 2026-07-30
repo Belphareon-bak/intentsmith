@@ -155,6 +155,9 @@ await testAsync('Phase 2: 10-turn core implementation', async () => {
   console.log(`\n  Results: ${passCount}/${TURNS.length} passed, code score ${codeScore}, syntax ${syntaxRate}%, placeholder-free ${placeholderRate}%`);
   console.log(`  Files: ${allCodeBlocks.map(b => b.filename || 'unnamed').join(', ')}`);
 
+  assert(passCount >= 6, `At least 6/10 turns should pass, got ${passCount}`);
+  assert(codeScore >= 30, `Code score should be ≥30, got ${codeScore}`);
+
   // Save state
   state.phases.p2 = {
     completed: true,
@@ -168,9 +171,6 @@ await testAsync('Phase 2: 10-turn core implementation', async () => {
   state.codeBlocks = allCodeBlocks;
   saveState(SUITE_ID, state);
 
-  // Assertions
-  assert(passCount >= 6, `At least 6/10 turns should pass, got ${passCount}`);
-  assert(codeScore >= 30, `Code score should be ≥30, got ${codeScore}`);
 });
 
 await summary();

@@ -35,6 +35,7 @@ function childImport(envOverrides) {
   );
 }
 
+const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
 const runRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-helpers-check-'));
 const artifactRoot = path.join(runRoot, '.intentsmith-artifacts', 'helpers-check');
 const legacyTranscript = path.join(runRoot, 'legacy-transcript.md');
@@ -226,6 +227,47 @@ try {
   }
   ensure(corruptStateRejected, 'corrupt state was silently treated as absent');
   stateStore.cleanupAllStates();
+
+  for (const contract of [
+    ['200-s1-minic3-p1.e2e.js', 'p1', 'assert(avgResponseLength > 200'],
+    ['201-s1-minic3-p2.e2e.js', 'p2', 'assert(codeScore >= 30'],
+    ['202-s1-minic3-p3.e2e.js', 'p3', 'assert(codeScore >= 30'],
+    ['203-s1-minic3-p4.e2e.js', 'p4', 'assert(codeScore >= 30'],
+    ['204-s1-minic3-p5.e2e.js', 'p5', 'assert(testScore >= 30'],
+    ['205-s1-minic3-p6.e2e.js', 'p6', 'assert(passCount >= 4'],
+    ['206-s2-shopflow-p1.e2e.js', 'p1', 'assert(searchUsedCount >= 1'],
+    ['207-s2-shopflow-p2.e2e.js', 'p2', 'assert(codeScore >= 30'],
+    ['208-s2-shopflow-p3.e2e.js', 'p3', 'assert(codeScore >= 30'],
+    ['209-s2-shopflow-p4.e2e.js', 'p4', 'assert(avgTemplateScore >= 30'],
+    ['210-s2-shopflow-p5.e2e.js', 'p5', 'assert(testScore >= 30'],
+    ['211-s2-shopflow-p6.e2e.js', 'p6', 'assert(passCount >= 4'],
+  ]) {
+    const [file, phase, terminalAssertion] = contract;
+    const source = fs.readFileSync(path.join(repoRoot, 'tests', 'e2e', file), 'utf8');
+    const assertionIndex = source.lastIndexOf(terminalAssertion);
+    const mutationIndex = source.lastIndexOf(`state.phases.${phase} =`);
+    const saveIndex = source.lastIndexOf('saveState(SUITE_ID, state)');
+    ensure(assertionIndex >= 0, `${file} lost its terminal assertion`);
+    ensure(mutationIndex > assertionIndex, `${file} persisted completion before final assertion`);
+    ensure(saveIndex > mutationIndex, `${file} saved state before recording completion`);
+
+    if (phase === 'p6') {
+      const finallyIndex = source.indexOf('} finally {', assertionIndex);
+      const conversationCleanupIndex = source.indexOf(
+        'await cleanupConversation(convId)',
+        finallyIndex,
+      );
+      const projectCleanupIndex = source.indexOf(
+        'await cleanupProject(state.projectId)',
+        conversationCleanupIndex,
+      );
+      ensure(finallyIndex > assertionIndex, `${file} cleanup is not protected by finally`);
+      ensure(
+        projectCleanupIndex > conversationCleanupIndex && projectCleanupIndex < mutationIndex,
+        `${file} cleanup must finish before successful completion is persisted`,
+      );
+    }
+  }
 
   for (const invalidUrl of [
     'https://127.0.0.1:4443',

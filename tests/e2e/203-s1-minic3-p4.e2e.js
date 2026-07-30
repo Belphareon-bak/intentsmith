@@ -125,12 +125,12 @@ await testAsync('Phase 4: 9-turn refinement', async () => {
 
   console.log(`\n  Results: ${passCount}/${TURNS.length} passed, code score ${codeScore}`);
 
+  assert(passCount >= 5, `At least 5/9 turns should pass, got ${passCount}`);
+  assert(codeScore >= 30, `Code score should be ≥30, got ${codeScore}`);
+
   state.phases.p4 = { completed: true, turnCount: TURNS.length, passCount, codeScore, results };
   state.codeBlocks = allCodeBlocks;
   saveState(SUITE_ID, state);
-
-  assert(passCount >= 5, `At least 5/9 turns should pass, got ${passCount}`);
-  assert(codeScore >= 30, `Code score should be ≥30, got ${codeScore}`);
 });
 
 await summary();

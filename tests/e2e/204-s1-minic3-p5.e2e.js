@@ -128,12 +128,12 @@ await testAsync('Phase 5: 9-turn test creation', async () => {
   // Merge test blocks into main code blocks for final phase
   const allCodeBlocks = mergeCodeBlocks(state.codeBlocks || [], testBlocks);
 
+  assert(passCount >= 5, `At least 5/9 turns should pass, got ${passCount}`);
+  assert(testScore >= 30, `Test score should be ≥30, got ${testScore}`);
+
   state.phases.p5 = { completed: true, turnCount: TURNS.length, passCount, testScore, results };
   state.codeBlocks = allCodeBlocks;
   saveState(SUITE_ID, state);
-
-  assert(passCount >= 5, `At least 5/9 turns should pass, got ${passCount}`);
-  assert(testScore >= 30, `Test score should be ≥30, got ${testScore}`);
 });
 
 await summary();

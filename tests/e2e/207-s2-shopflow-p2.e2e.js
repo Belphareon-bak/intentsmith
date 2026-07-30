@@ -41,7 +41,7 @@ await testAsync('Phase 2: 9-turn core implementation', async () => {
   const codeScore = scoreCode(allCodeBlocks, 'python', { minFiles: 4, mustHaveKeywords: ['FTS5', 'werkzeug', 'session', 'cart'] });
   console.log(`\n  ${passCount}/${TURNS.length} passed, code score ${codeScore}`);
 
-  state.phases.p2 = { completed: true, passCount, codeScore, results }; state.codeBlocks = allCodeBlocks; saveState(SUITE_ID, state);
   assert(passCount >= 5); assert(codeScore >= 30);
+  state.phases.p2 = { completed: true, passCount, codeScore, results }; state.codeBlocks = allCodeBlocks; saveState(SUITE_ID, state);
 });
 await summary();

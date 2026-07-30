@@ -156,6 +156,10 @@ await testAsync('Phase 1: 10-turn architecture planning', async () => {
 
   console.log(`\n  Results: ${passCount}/${TURNS.length} passed, avg response ${avgResponseLength} chars, plan score ${planScore}`);
 
+  assert(passCount >= 6, `At least 6/10 turns should pass, got ${passCount}`);
+  assert(planScore >= 40, `Plan score should be ≥40, got ${planScore}`);
+  assert(avgResponseLength > 200, `Avg response should be >200 chars, got ${avgResponseLength}`);
+
   // Save state
   state.phases.p1 = {
     completed: true,
@@ -169,10 +173,6 @@ await testAsync('Phase 1: 10-turn architecture planning', async () => {
   state.context = `MiniC3 — Express+SQLite+Ollama chat agent. ${TURNS.length} architecture turns completed. Plan score: ${planScore}.`;
   saveState(SUITE_ID, state);
 
-  // Assertions
-  assert(passCount >= 6, `At least 6/10 turns should pass, got ${passCount}`);
-  assert(planScore >= 40, `Plan score should be ≥40, got ${planScore}`);
-  assert(avgResponseLength > 200, `Avg response should be >200 chars, got ${avgResponseLength}`);
 });
 
 await summary();

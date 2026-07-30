@@ -154,14 +154,15 @@ await testAsync('Phase 1: 10-turn architecture planning with web search', async 
 
   console.log(`\n  Results: ${passCount}/${TURNS.length} passed, plan score ${planScore}, web search used ${searchUsedCount}/2 times`);
 
+  assert(passCount >= 6, `At least 6/10 turns should pass, got ${passCount}`);
+  assert(planScore >= 40, `Plan score should be ≥40, got ${planScore}`);
+  assert(searchUsedCount >= 1, `At least 1 web search should be used, got ${searchUsedCount}`);
+
   state.phases.p1 = { completed: true, turnCount: TURNS.length, passCount, planScore, searchUsedCount, results };
   state.planText = planText;
   state.context = `ShopFlow — Flask+SQLite e-commerce. ${TURNS.length} architecture turns, ${searchUsedCount} web searches. Plan score: ${planScore}.`;
   saveState(SUITE_ID, state);
 
-  assert(passCount >= 6, `At least 6/10 turns should pass, got ${passCount}`);
-  assert(planScore >= 40, `Plan score should be ≥40, got ${planScore}`);
-  assert(searchUsedCount >= 1, `At least 1 web search should be used, got ${searchUsedCount}`);
 });
 
 await summary();

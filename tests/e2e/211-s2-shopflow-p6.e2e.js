@@ -45,14 +45,17 @@ await testAsync('Phase 6: 7-turn finalization', async () => {
   console.log(`\n  ${passCount}/${TURNS.length} passed, avg config score ${avgConfigScore}`);
 
   const allCodeBlocks = mergeCodeBlocks(state.codeBlocks || [], configBlocks);
+
+  try {
+    assert(passCount >= 4);
+  } finally {
+    await cleanupConversation(convId);
+    await cleanupProject(state.projectId);
+  }
+
   state.phases.p6 = { completed: true, passCount, avgConfigScore, results }; state.codeBlocks = allCodeBlocks; saveState(SUITE_ID, state);
 
   console.log(`\n✓ S2 ShopFlow COMPLETE — ${allCodeBlocks.length} files total`);
   console.log(`  Phase scores: P1=${state.phases.p1.planScore} P2=${state.phases.p2.codeScore} P3=${state.phases.p3.codeScore} P4=${state.phases.p4.avgTemplateScore} P5=${state.phases.p5.testScore} P6=${avgConfigScore}`);
-
-  await cleanupConversation(convId);
-  await cleanupProject(state.projectId);
-
-  assert(passCount >= 4);
 });
 await summary();
