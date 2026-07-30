@@ -578,6 +578,34 @@ test('test server capability is explicit, validated, and absent in production', 
   );
 });
 
+test('server wires the test capability after resolving the bound port', () => {
+  const serverSource = fs.readFileSync(
+    new URL('../src/server.js', import.meta.url),
+    'utf8',
+  );
+  const assignedPortIndex = serverSource.indexOf(
+    'const assignedPort = server.address().port;',
+  );
+  const payloadIndex = serverSource.indexOf(
+    'buildServerPortPayload(',
+    assignedPortIndex,
+  );
+  const nonceIndex = serverSource.indexOf(
+    'process.env.INTENTSMITH_TEST_SERVER_NONCE',
+    payloadIndex,
+  );
+
+  assert(assignedPortIndex >= 0, 'server must resolve its actual bound port');
+  assert(
+    payloadIndex > assignedPortIndex,
+    'server must build the port payload after resolving its bound port',
+  );
+  assert(
+    nonceIndex > payloadIndex,
+    'server must pass the private test capability into the port payload',
+  );
+});
+
 test('private port file writer refuses a symlink without changing its target', () => {
   const target = path.join(os.tmpdir(), `c3-test-port-target-${process.pid}`);
   const link = path.join(os.tmpdir(), `c3-test-port-link-${process.pid}`);

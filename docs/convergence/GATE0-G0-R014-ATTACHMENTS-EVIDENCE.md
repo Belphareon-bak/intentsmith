@@ -78,6 +78,14 @@ contract. It does **not** claim that the registered T3 full suite ran: no
 current runner supplies the live child PID and private nonce, so that profile
 remains `BLOCKED`.
 
+The final focused test-trust follow-up adds the two remaining negative
+contracts from independent review: the consumer rejects a validly shaped but
+mismatched nonce, and a static source contract requires `src/server.js` to
+pass `INTENTSMITH_TEST_SERVER_NONCE` into the port payload only after the
+actual bound port has been resolved. Exact post-commit evidence is recorded
+below after the focused rerun; this does not change the `BLOCKED` full-T3
+availability statement.
+
 Scope:
 
 - branch: `codex/g0-r014-attachments`;

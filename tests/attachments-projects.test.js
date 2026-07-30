@@ -368,6 +368,13 @@ test('full suite requires a private matching live server attestation', () => {
     assertThrows(
       () => requireOwnedServerBaseUrl({
         ...valid,
+        expectedNonce: 'boundary-self-check-capability-0002',
+      }),
+      'Full suite accepted a mismatched server capability',
+    );
+    assertThrows(
+      () => requireOwnedServerBaseUrl({
+        ...valid,
         rawUrl: 'http://127.0.0.1:4568',
       }),
       'Full suite accepted a C3_URL/port-file mismatch',

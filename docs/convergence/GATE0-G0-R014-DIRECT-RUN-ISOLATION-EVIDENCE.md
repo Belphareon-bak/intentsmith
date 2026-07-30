@@ -13,6 +13,7 @@
 - Custom-writer completion SHA: `6a330a8b9b06e7d8acdc1bdf2ac87a4d1f7291cb`
 - Attachment ownership fix SHA: `c1aeb17c67a4f912c5d1e4161c0c1796f9e79f35`
 - Server-capability follow-up SHA: `ab0b9e5601cf8256684304832cedb326f1015ef2`
+- Final capability test-trust follow-up: pending focused commit and rerun
 - Scope: common bootstrap, all database-reachable root programs, and all
   previously identified fixed/non-atomic writers
 
