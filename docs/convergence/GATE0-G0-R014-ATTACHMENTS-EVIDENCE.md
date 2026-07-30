@@ -1,5 +1,41 @@
 # Gate 0 evidence: G0-R014 attachments and projects boundary
 
+## Integration review follow-up
+
+The donor snapshot documented below established an explicit numeric-loopback
+URL, but independent integration review correctly found that this alone did
+not prove server ownership. A raw full run with an inherited or manually set
+`C3_URL` could still have sent mutating requests to an unrelated local
+IntentSmith instance.
+
+The integration follow-up in the same thematic change now fails closed before
+the first `fetch` unless all of these conditions hold:
+
+- the helper is in validated `C3_AUDIT_RUN=1` / `audit` mode;
+- `C3_PORT_FILE` is the exact path below the helper's private runtime root;
+- the port file opens without following a symlink, is current-user-owned,
+  regular, and private;
+- its loopback host and port exactly match `C3_URL`;
+- its PID exactly matches `INTENTSMITH_TEST_SERVER_PID`; and
+- that expected PID is live.
+
+The safe boundary and forced-async-rejection self-checks remain server-free.
+A focused integration run with a throwing `fetch` preload reported `5 passed,
+0 failed`, exit `0`. A raw full run with only
+`C3_URL=http://127.0.0.1:1` was rejected as lacking a runner-owned audit server,
+exit `1`, before the preload fired. The forced async rejection reported 32
+synchronous passes but still exited `1`.
+
+Cleanup ownership now records the atomically created directory's device and
+inode. The negative contract rejects both a symlink replacement and a real
+directory substituted at the same path, and proves the replacement survives
+the rejected cleanup.
+
+The exact post-commit integration SHA and rerun are recorded by the immediate
+follow-up evidence commit. Historical donor commands and counts below remain
+unchanged rather than being presented as results from the later integration
+tree.
+
 Scope:
 
 - branch: `codex/g0-r014-attachments`;

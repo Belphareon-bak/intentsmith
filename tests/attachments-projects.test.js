@@ -20,6 +20,7 @@ import path from 'node:path';
 
 const BOUNDARY_SELF_CHECK = process.argv.includes('--boundary-self-check');
 const ASYNC_REJECTION_SELF_CHECK = process.argv.includes('--async-rejection-self-check');
+const SELF_CHECK_ONLY = BOUNDARY_SELF_CHECK || ASYNC_REJECTION_SELF_CHECK;
 const ownedDirectories = new Map();
 
 function isLoopbackHostname(hostname) {
@@ -77,6 +78,112 @@ function isStrictChild(root, candidate) {
   );
 }
 
+function assertCurrentUser(metadata, label) {
+  if (
+    typeof process.getuid === 'function'
+    && metadata.uid !== process.getuid()
+  ) {
+    throw new Error(`${label} is not owned by the current user`);
+  }
+}
+
+function requireOwnedServerBaseUrl({
+  rawUrl,
+  auditRun,
+  runtimeMode,
+  portFilePath,
+  expectedPidRaw,
+}) {
+  if (auditRun !== '1' || runtimeMode !== 'audit') {
+    throw new Error(
+      'The full attachment suite requires a runner-owned audit server',
+    );
+  }
+
+  const baseUrl = requireLoopbackBaseUrl(rawUrl);
+  const expectedPortFile = path.resolve(isolatedTestRuntime.portFile);
+  const absolutePortFile = path.resolve(portFilePath || '');
+  if (
+    absolutePortFile !== expectedPortFile
+    || !isStrictChild(isolatedTestRuntime.runtime, absolutePortFile)
+  ) {
+    throw new Error(
+      'C3_PORT_FILE must be the isolated runtime server attestation',
+    );
+  }
+
+  const expectedPid = Number(expectedPidRaw);
+  if (!Number.isSafeInteger(expectedPid) || expectedPid < 1) {
+    throw new Error('INTENTSMITH_TEST_SERVER_PID must identify the owned server');
+  }
+
+  const noFollow = fs.constants.O_NOFOLLOW ?? 0;
+  let descriptor;
+  try {
+    descriptor = fs.openSync(
+      absolutePortFile,
+      fs.constants.O_RDONLY | noFollow,
+    );
+  } catch (error) {
+    throw new Error(`Cannot open runner-owned C3_PORT_FILE: ${error.message}`);
+  }
+
+  let metadata;
+  let value;
+  try {
+    metadata = fs.fstatSync(descriptor);
+    if (!metadata.isFile()) {
+      throw new Error('C3_PORT_FILE must be a regular file');
+    }
+    assertCurrentUser(metadata, 'C3_PORT_FILE');
+    if (process.platform !== 'win32' && (metadata.mode & 0o077) !== 0) {
+      throw new Error('C3_PORT_FILE must not be accessible by group or others');
+    }
+    value = JSON.parse(fs.readFileSync(descriptor, 'utf8'));
+  } catch (error) {
+    throw new Error(`Invalid runner-owned C3_PORT_FILE: ${error.message}`);
+  } finally {
+    fs.closeSync(descriptor);
+  }
+
+  if (
+    fs.realpathSync(absolutePortFile) !== absolutePortFile
+    || !value
+    || typeof value !== 'object'
+    || !isLoopbackHostname(value.host)
+  ) {
+    throw new Error('C3_PORT_FILE must contain a canonical loopback endpoint');
+  }
+
+  const attestedPid = Number(value.pid);
+  const attestedPort = Number(value.port);
+  if (
+    !Number.isSafeInteger(attestedPid)
+    || attestedPid !== expectedPid
+    || !Number.isInteger(attestedPort)
+    || attestedPort < 1
+    || attestedPort > 65535
+  ) {
+    throw new Error('C3_PORT_FILE does not match the expected server PID/port');
+  }
+
+  try {
+    process.kill(expectedPid, 0);
+  } catch (error) {
+    throw new Error(`Runner-owned server PID is not live: ${error.message}`);
+  }
+
+  const host = String(value.host).replace(/^\[|\]$/g, '');
+  const authority = host === '::1' ? `[${host}]` : host;
+  const attestedUrl = requireLoopbackBaseUrl(
+    `http://${authority}:${attestedPort}`,
+  );
+  if (attestedUrl !== baseUrl) {
+    throw new Error('C3_URL does not match the runner-owned port attestation');
+  }
+  return baseUrl;
+}
+
 function makeOwnedDir(root, prefix) {
   const created = fs.mkdtempSync(path.join(root, `${prefix}-`));
   fs.chmodSync(created, 0o700);
@@ -84,19 +191,32 @@ function makeOwnedDir(root, prefix) {
   if (!isStrictChild(root, canonical)) {
     throw new Error(`Fixture escaped its runner-owned root: ${canonical}`);
   }
-  ownedDirectories.set(canonical, root);
+  const metadata = fs.lstatSync(canonical);
+  assertCurrentUser(metadata, 'Owned fixture');
+  ownedDirectories.set(canonical, {
+    root,
+    device: metadata.dev,
+    inode: metadata.ino,
+  });
   return canonical;
 }
 
 function removeOwnedDir(candidate) {
   const absolute = path.resolve(candidate);
-  const root = ownedDirectories.get(absolute);
-  if (!root || !isStrictChild(root, absolute)) {
+  const ownership = ownedDirectories.get(absolute);
+  if (!ownership || !isStrictChild(ownership.root, absolute)) {
     throw new Error(`Refusing to remove an unowned fixture: ${absolute}`);
   }
   const metadata = fs.lstatSync(absolute);
   if (metadata.isSymbolicLink() || !metadata.isDirectory()) {
     throw new Error(`Refusing to remove an unsafe fixture: ${absolute}`);
+  }
+  assertCurrentUser(metadata, 'Owned fixture');
+  if (
+    metadata.dev !== ownership.device
+    || metadata.ino !== ownership.inode
+  ) {
+    throw new Error(`Refusing to remove a substituted fixture: ${absolute}`);
   }
   if (fs.realpathSync(absolute) !== absolute) {
     throw new Error(`Fixture no longer resolves to its owned path: ${absolute}`);
@@ -122,7 +242,15 @@ function removeOwnedTempFile(candidate) {
 }
 
 // Resolve the server boundary before this suite creates fixtures or calls fetch.
-const BASE = requireLoopbackBaseUrl(process.env.C3_URL);
+const BASE = SELF_CHECK_ONLY
+  ? requireLoopbackBaseUrl(process.env.C3_URL)
+  : requireOwnedServerBaseUrl({
+    rawUrl: process.env.C3_URL,
+    auditRun: process.env.C3_AUDIT_RUN,
+    runtimeMode: isolatedTestRuntime.mode,
+    portFilePath: process.env.C3_PORT_FILE,
+    expectedPidRaw: process.env.INTENTSMITH_TEST_SERVER_PID,
+  });
 const PROJECT_FIXTURE_ROOT = isolatedTestRuntime.projects;
 const TEST_TMP_ROOT = isolatedTestRuntime.temp;
 
@@ -155,6 +283,78 @@ test('C3_URL rejects missing, named-host, non-HTTP, and path-bearing values', ()
   }
 });
 
+test('full suite requires a private matching live server attestation', () => {
+  const portFile = isolatedTestRuntime.portFile;
+  const valid = {
+    rawUrl: 'http://127.0.0.1:4567',
+    auditRun: '1',
+    runtimeMode: 'audit',
+    portFilePath: portFile,
+    expectedPidRaw: String(process.pid),
+  };
+  assertThrows(
+    () => requireOwnedServerBaseUrl(valid),
+    'Full suite accepted a missing server port attestation',
+  );
+
+  const payload = {
+    host: '127.0.0.1',
+    port: 4567,
+    pid: process.pid,
+    started: new Date().toISOString(),
+  };
+  fs.writeFileSync(portFile, JSON.stringify(payload), {
+    encoding: 'utf8',
+    flag: 'wx',
+    mode: 0o600,
+  });
+  fs.chmodSync(portFile, 0o600);
+  const original = fs.lstatSync(portFile);
+  try {
+    assertEqual(
+      requireOwnedServerBaseUrl(valid),
+      'http://127.0.0.1:4567',
+    );
+    assertThrows(
+      () => requireOwnedServerBaseUrl({ ...valid, auditRun: undefined }),
+      'Full suite accepted a direct-run filesystem',
+    );
+    assertThrows(
+      () => requireOwnedServerBaseUrl({
+        ...valid,
+        runtimeMode: 'direct',
+      }),
+      'Full suite accepted direct runtime mode',
+    );
+    assertThrows(
+      () => requireOwnedServerBaseUrl({
+        ...valid,
+        expectedPidRaw: String(process.pid + 1),
+      }),
+      'Full suite accepted a mismatched server PID',
+    );
+    assertThrows(
+      () => requireOwnedServerBaseUrl({
+        ...valid,
+        rawUrl: 'http://127.0.0.1:4568',
+      }),
+      'Full suite accepted a C3_URL/port-file mismatch',
+    );
+  } finally {
+    const current = fs.lstatSync(portFile);
+    if (
+      current.isFile()
+      && !current.isSymbolicLink()
+      && current.dev === original.dev
+      && current.ino === original.ino
+    ) {
+      fs.unlinkSync(portFile);
+    } else {
+      throw new Error('Refusing to remove a substituted port attestation');
+    }
+  }
+});
+
 test('fixtures round-trip inside the isolated runtime roots', () => {
   assertEqual(
     PROJECT_FIXTURE_ROOT,
@@ -181,7 +381,7 @@ test('fixtures round-trip inside the isolated runtime roots', () => {
   assert(!fs.existsSync(projectDir), 'Project fixture survived cleanup');
 });
 
-test('cleanup rejects unowned roots and symlink-substituted fixtures', () => {
+test('cleanup rejects unowned, symlinked, and directory-substituted fixtures', () => {
   assertThrows(
     () => removeOwnedDir(TEST_TMP_ROOT),
     'Cleanup accepted the runner-owned temp root itself',
@@ -210,6 +410,35 @@ test('cleanup rejects unowned roots and symlink-substituted fixtures', () => {
     ownedDirectories.delete(replaced);
     if (fs.existsSync(target)) removeOwnedDir(target);
     else ownedDirectories.delete(target);
+  }
+
+  const directoryReplaced = makeOwnedDir(
+    TEST_TMP_ROOT,
+    'boundary-directory-replaced',
+  );
+  const originalPath = `${directoryReplaced}-original`;
+  fs.renameSync(directoryReplaced, originalPath);
+  fs.mkdirSync(directoryReplaced, { mode: 0o700 });
+  const replacementMarker = path.join(directoryReplaced, 'replacement.txt');
+  fs.writeFileSync(replacementMarker, 'must survive', {
+    encoding: 'utf8',
+    flag: 'wx',
+    mode: 0o600,
+  });
+  try {
+    assertThrows(
+      () => removeOwnedDir(directoryReplaced),
+      'Cleanup removed a real-directory substitution',
+    );
+    assert(
+      fs.existsSync(replacementMarker),
+      'Directory substitution rejection removed the replacement',
+    );
+  } finally {
+    fs.unlinkSync(replacementMarker);
+    fs.rmdirSync(directoryReplaced);
+    fs.renameSync(originalPath, directoryReplaced);
+    removeOwnedDir(directoryReplaced);
   }
 });
 
