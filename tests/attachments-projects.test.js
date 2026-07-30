@@ -13,12 +13,209 @@
 // Run: node tests/attachments-projects.test.js
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { suite, test, testAsync, assert, assertEqual, assertIncludes, summary } from './harness.js';
+import { suite, test, testAsync, assert, assertEqual, assertIncludes, assertThrows, summary } from './harness.js';
+import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 
-const BASE = 'http://127.0.0.1:3335';
+const BOUNDARY_SELF_CHECK = process.argv.includes('--boundary-self-check');
+const ASYNC_REJECTION_SELF_CHECK = process.argv.includes('--async-rejection-self-check');
+const ownedDirectories = new Map();
+
+function isLoopbackHostname(hostname) {
+  const normalized = String(hostname).toLowerCase().replace(/^\[|\]$/g, '');
+  return normalized === '::1' || /^127(?:\.[0-9]{1,3}){3}$/.test(normalized);
+}
+
+function requireLoopbackBaseUrl(raw) {
+  if (typeof raw !== 'string' || raw.trim() === '') {
+    throw new Error(
+      'C3_URL is required and must identify the runner-owned loopback server',
+    );
+  }
+  if (raw !== raw.trim()) {
+    throw new Error('C3_URL must not contain leading or trailing whitespace');
+  }
+
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error('C3_URL must be an absolute loopback HTTP origin');
+  }
+
+  if (
+    url.protocol !== 'http:'
+    || !isLoopbackHostname(url.hostname)
+    || !url.port
+    || url.username
+    || url.password
+    || url.search
+    || url.hash
+    || (url.pathname !== '/' && url.pathname !== '')
+    || raw.replace(/\/$/, '') !== url.origin
+  ) {
+    throw new Error(
+      'C3_URL must be an explicit http://127.x.x.x:<port> or http://[::1]:<port> origin',
+    );
+  }
+
+  const port = Number(url.port);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('C3_URL contains an invalid TCP port');
+  }
+  return url.origin;
+}
+
+function isStrictChild(root, candidate) {
+  const relative = path.relative(root, candidate);
+  return (
+    relative !== ''
+    && relative !== '..'
+    && !relative.startsWith(`..${path.sep}`)
+    && !path.isAbsolute(relative)
+  );
+}
+
+function makeOwnedDir(root, prefix) {
+  const created = fs.mkdtempSync(path.join(root, `${prefix}-`));
+  fs.chmodSync(created, 0o700);
+  const canonical = fs.realpathSync(created);
+  if (!isStrictChild(root, canonical)) {
+    throw new Error(`Fixture escaped its runner-owned root: ${canonical}`);
+  }
+  ownedDirectories.set(canonical, root);
+  return canonical;
+}
+
+function removeOwnedDir(candidate) {
+  const absolute = path.resolve(candidate);
+  const root = ownedDirectories.get(absolute);
+  if (!root || !isStrictChild(root, absolute)) {
+    throw new Error(`Refusing to remove an unowned fixture: ${absolute}`);
+  }
+  const metadata = fs.lstatSync(absolute);
+  if (metadata.isSymbolicLink() || !metadata.isDirectory()) {
+    throw new Error(`Refusing to remove an unsafe fixture: ${absolute}`);
+  }
+  if (fs.realpathSync(absolute) !== absolute) {
+    throw new Error(`Fixture no longer resolves to its owned path: ${absolute}`);
+  }
+  fs.rmSync(absolute, { recursive: true, force: false });
+  ownedDirectories.delete(absolute);
+}
+
+function makeOwnedTempFile(prefix, extension, content) {
+  const directory = makeOwnedDir(TEST_TMP_ROOT, prefix);
+  const file = path.join(directory, `fixture${extension}`);
+  try {
+    fs.writeFileSync(file, content, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+  } catch (error) {
+    removeOwnedDir(directory);
+    throw error;
+  }
+  return file;
+}
+
+function removeOwnedTempFile(candidate) {
+  removeOwnedDir(path.dirname(path.resolve(candidate)));
+}
+
+// Resolve the server boundary before this suite creates fixtures or calls fetch.
+const BASE = requireLoopbackBaseUrl(process.env.C3_URL);
+const PROJECT_FIXTURE_ROOT = isolatedTestRuntime.projects;
+const TEST_TMP_ROOT = isolatedTestRuntime.temp;
+
+suite('0. Runner-owned server and filesystem boundary');
+
+test('C3_URL is the explicit normalized loopback origin', () => {
+  assertEqual(BASE, requireLoopbackBaseUrl(process.env.C3_URL));
+  assertEqual(requireLoopbackBaseUrl('http://127.0.0.42:4567/'), 'http://127.0.0.42:4567');
+  assertEqual(requireLoopbackBaseUrl('http://[::1]:3335'), 'http://[::1]:3335');
+});
+
+test('C3_URL rejects missing, named-host, non-HTTP, and path-bearing values', () => {
+  for (const invalid of [
+    undefined,
+    '',
+    'http://localhost:3335',
+    'http://example.com:3335',
+    'http://127.999.999.999:3335',
+    'http://2130706433:3335',
+    'http://0x7f000001:3335',
+    'https://127.0.0.1:3335',
+    'http://127.0.0.1:3335/nested',
+    'http://user:pass@127.0.0.1:3335',
+    'http://127.0.0.1',
+  ]) {
+    assertThrows(
+      () => requireLoopbackBaseUrl(invalid),
+      `Unsafe C3_URL was accepted: ${String(invalid)}`,
+    );
+  }
+});
+
+test('fixtures round-trip inside the isolated runtime roots', () => {
+  assertEqual(
+    PROJECT_FIXTURE_ROOT,
+    fs.realpathSync(process.env.INTENTSMITH_TEST_PROJECTS_DIR),
+  );
+  assertEqual(PROJECT_FIXTURE_ROOT, fs.realpathSync(process.env.C3_PROJECTS_DIR));
+  assertEqual(TEST_TMP_ROOT, fs.realpathSync(process.env.TMPDIR));
+
+  const projectDir = makeOwnedDir(PROJECT_FIXTURE_ROOT, 'boundary-project');
+  let attachmentFile = null;
+  try {
+    attachmentFile = makeOwnedTempFile(
+      'boundary-attachment',
+      '.txt',
+      'boundary fixture',
+    );
+    assert(isStrictChild(PROJECT_FIXTURE_ROOT, projectDir));
+    assert(isStrictChild(TEST_TMP_ROOT, attachmentFile));
+  } finally {
+    if (attachmentFile) removeOwnedDir(path.dirname(attachmentFile));
+    removeOwnedDir(projectDir);
+  }
+  assert(!fs.existsSync(attachmentFile), 'Attachment fixture survived cleanup');
+  assert(!fs.existsSync(projectDir), 'Project fixture survived cleanup');
+});
+
+test('cleanup rejects unowned roots and symlink-substituted fixtures', () => {
+  assertThrows(
+    () => removeOwnedDir(TEST_TMP_ROOT),
+    'Cleanup accepted the runner-owned temp root itself',
+  );
+  assertThrows(
+    () => removeOwnedDir(path.join(TEST_TMP_ROOT, 'not-owned')),
+    'Cleanup accepted an unowned child path',
+  );
+
+  const target = makeOwnedDir(TEST_TMP_ROOT, 'boundary-target');
+  const replaced = makeOwnedDir(TEST_TMP_ROOT, 'boundary-replaced');
+  const marker = path.join(target, 'marker.txt');
+  let substituted = false;
+  fs.writeFileSync(marker, 'must survive', { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+  try {
+    fs.rmdirSync(replaced);
+    fs.symlinkSync(target, replaced, 'dir');
+    substituted = true;
+    assertThrows(
+      () => removeOwnedDir(replaced),
+      'Cleanup followed a substituted fixture symlink',
+    );
+    assert(fs.existsSync(marker), 'Symlink rejection removed the owned target');
+  } finally {
+    if (substituted && fs.lstatSync(replaced).isSymbolicLink()) fs.unlinkSync(replaced);
+    ownedDirectories.delete(replaced);
+    if (fs.existsSync(target)) removeOwnedDir(target);
+    else ownedDirectories.delete(target);
+  }
+});
+
+if (BOUNDARY_SELF_CHECK) {
+  summary();
+} else {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Frontend patterns (extracted from chat-panel-module.js for testing)
@@ -178,31 +375,36 @@ suite('4. Backend attachment reading (fs.readFileSync)');
 // ═══════════════════════════════════════════════════════════════════════════════
 
 test('Read real file via path', () => {
-  // Create a temp file
-  const tmpDir = os.tmpdir();
-  const tmpFile = path.join(tmpDir, 'c3-test-attachment-' + Date.now() + '.js');
-  fs.writeFileSync(tmpFile, 'const hello = "world";\nconsole.log(hello);\n', 'utf-8');
-
-  // Simulate backend attachment reading
-  const attachment = { name: 'test.js', size: '50 B', type: 'text', path: tmpFile, content: null };
-  if (!attachment.content && attachment.path) {
-    try {
-      attachment.content = fs.readFileSync(attachment.path, 'utf-8');
-    } catch (e) {
-      attachment.content = `[Cannot read: ${e.message}]`;
+  const tmpFile = makeOwnedTempFile(
+    'c3-test-attachment',
+    '.js',
+    'const hello = "world";\nconsole.log(hello);\n',
+  );
+  try {
+    // Simulate backend attachment reading
+    const attachment = { name: 'test.js', size: '50 B', type: 'text', path: tmpFile, content: null };
+    if (!attachment.content && attachment.path) {
+      try {
+        attachment.content = fs.readFileSync(attachment.path, 'utf-8');
+      } catch (e) {
+        attachment.content = `[Cannot read: ${e.message}]`;
+      }
     }
+
+    assert(attachment.content !== null, 'Content should be read');
+    assertIncludes(attachment.content, 'hello', 'Content should contain "hello"');
+    assertIncludes(attachment.content, 'console.log', 'Content should contain "console.log"');
+  } finally {
+    removeOwnedTempFile(tmpFile);
   }
-
-  assert(attachment.content !== null, 'Content should be read');
-  assertIncludes(attachment.content, 'hello', 'Content should contain "hello"');
-  assertIncludes(attachment.content, 'console.log', 'Content should contain "console.log"');
-
-  // Cleanup
-  fs.unlinkSync(tmpFile);
 });
 
 test('Read missing file returns error message', () => {
-  const attachment = { name: 'missing.js', size: '0 B', type: 'text', path: '/tmp/c3-nonexistent-file-xyz.js', content: null };
+  const missingPath = path.join(
+    TEST_TMP_ROOT,
+    `c3-nonexistent-file-${process.pid}-${Date.now()}.js`,
+  );
+  const attachment = { name: 'missing.js', size: '0 B', type: 'text', path: missingPath, content: null };
   if (!attachment.content && attachment.path) {
     try {
       attachment.content = fs.readFileSync(attachment.path, 'utf-8');
@@ -268,33 +470,37 @@ test('Attachments without content are filtered out', () => {
 
 test('Path-based reading enriches null content', () => {
   // Simulate the full backend flow
-  const tmpFile = path.join(os.tmpdir(), 'c3-enrich-test-' + Date.now() + '.txt');
-  fs.writeFileSync(tmpFile, 'Hello from attachment!', 'utf-8');
+  const tmpFile = makeOwnedTempFile(
+    'c3-enrich-test',
+    '.txt',
+    'Hello from attachment!',
+  );
+  try {
+    const attachments = [
+      { name: 'test.txt', size: '21 B', type: 'text', path: tmpFile, content: null },
+    ];
 
-  const attachments = [
-    { name: 'test.txt', size: '21 B', type: 'text', path: tmpFile, content: null },
-  ];
-
-  // Backend enrichment logic
-  for (const a of attachments) {
-    if (!a.content && a.path) {
-      try {
-        a.content = fs.readFileSync(a.path, 'utf-8');
-      } catch (e) {
-        a.content = `[Error: ${e.message}]`;
+    // Backend enrichment logic
+    for (const a of attachments) {
+      if (!a.content && a.path) {
+        try {
+          a.content = fs.readFileSync(a.path, 'utf-8');
+        } catch (e) {
+          a.content = `[Error: ${e.message}]`;
+        }
       }
     }
+
+    let message = 'Read this';
+    const blocks = attachments
+      .filter(a => a.content)
+      .map(a => `\n--- Příloha: ${a.name} (${a.size}) ---\n${a.content}\n---`);
+    if (blocks.length > 0) message += blocks.join('');
+
+    assertIncludes(message, 'Hello from attachment!', 'File content in enriched message');
+  } finally {
+    removeOwnedTempFile(tmpFile);
   }
-
-  let message = 'Read this';
-  const blocks = attachments
-    .filter(a => a.content)
-    .map(a => `\n--- Příloha: ${a.name} (${a.size}) ---\n${a.content}\n---`);
-  if (blocks.length > 0) message += blocks.join('');
-
-  assertIncludes(message, 'Hello from attachment!', 'File content in enriched message');
-
-  fs.unlinkSync(tmpFile);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -306,7 +512,7 @@ async function runAsyncTests() {
 suite('6. Project opening — API integration');
 
 await testAsync('POST /api/projects/open-folder with valid path', async () => {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-proj-test-'));
+  const tmpDir = makeOwnedDir(PROJECT_FIXTURE_ROOT, 'c3-proj-test');
   try {
     const resp = await fetch(`${BASE}/api/projects/open-folder`, {
       method: 'POST',
@@ -321,15 +527,19 @@ await testAsync('POST /api/projects/open-folder with valid path', async () => {
     assert(data.project.path, 'Project should have path');
     assertIncludes(data.project.path, 'c3-proj-test-', 'Path should match temp dir');
   } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    removeOwnedDir(tmpDir);
   }
 });
 
 await testAsync('POST /api/projects/open-folder with nonexistent path returns error', async () => {
+  const nonexistentPath = path.join(
+    TEST_TMP_ROOT,
+    `c3-nonexistent-path-${process.pid}-${Date.now()}`,
+  );
   const resp = await fetch(`${BASE}/api/projects/open-folder`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ folderPath: '/tmp/c3-nonexistent-path-xyz-' + Date.now() }),
+    body: JSON.stringify({ folderPath: nonexistentPath }),
     signal: AbortSignal.timeout(5000),
   });
   assertEqual(resp.status, 400, 'Should return 400 for nonexistent path');
@@ -338,7 +548,7 @@ await testAsync('POST /api/projects/open-folder with nonexistent path returns er
 });
 
 await testAsync('POST /api/projects/open-folder idempotent (same folder twice)', async () => {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-idem-test-'));
+  const tmpDir = makeOwnedDir(PROJECT_FIXTURE_ROOT, 'c3-idem-test');
   try {
     // Open first time
     const resp1 = await fetch(`${BASE}/api/projects/open-folder`, {
@@ -363,15 +573,18 @@ await testAsync('POST /api/projects/open-folder idempotent (same folder twice)',
     assertEqual(data1.project.id, data2.project.id, 'Same project ID both times');
     assertEqual(data2.status, 'already_registered', 'Second time should say already_registered');
   } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    removeOwnedDir(tmpDir);
   }
 });
 
 suite('7. Chat with attachments — E2E');
 
 await testAsync('POST /chat with path-based attachment', async () => {
-  const tmpFile = path.join(os.tmpdir(), 'c3-chat-attach-' + Date.now() + '.js');
-  fs.writeFileSync(tmpFile, 'function greet(name) { return "Hello " + name; }\n', 'utf-8');
+  const tmpFile = makeOwnedTempFile(
+    'c3-chat-attach',
+    '.js',
+    'function greet(name) { return "Hello " + name; }\n',
+  );
 
   try {
     const resp = await fetch(`${BASE}/chat`, {
@@ -393,7 +606,7 @@ await testAsync('POST /chat with path-based attachment', async () => {
     // The LLM should reference the function content since it was read from path
     assert(data.response.length > 10, 'Response should be meaningful');
   } finally {
-    fs.unlinkSync(tmpFile);
+    removeOwnedTempFile(tmpFile);
   }
 });
 
@@ -417,8 +630,11 @@ await testAsync('POST /chat with inline content attachment', async () => {
 });
 
 await testAsync('POST /chat with mixed attachments (path + inline)', async () => {
-  const tmpFile = path.join(os.tmpdir(), 'c3-mixed-' + Date.now() + '.py');
-  fs.writeFileSync(tmpFile, 'def add(a, b):\n    return a + b\n', 'utf-8');
+  const tmpFile = makeOwnedTempFile(
+    'c3-mixed',
+    '.py',
+    'def add(a, b):\n    return a + b\n',
+  );
 
   try {
     const resp = await fetch(`${BASE}/chat`, {
@@ -439,7 +655,7 @@ await testAsync('POST /chat with mixed attachments (path + inline)', async () =>
     const data = await resp.json();
     assert(data.response, 'Should have response field');
   } finally {
-    fs.unlinkSync(tmpFile);
+    removeOwnedTempFile(tmpFile);
   }
 });
 
@@ -496,4 +712,12 @@ test('Multiple attachments survive serialization', () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // Run async tests then print summary
-runAsyncTests().then(() => summary()).catch(e => { console.error('Async test runner error:', e); summary(); });
+const asyncRun = ASYNC_REJECTION_SELF_CHECK
+  ? Promise.reject(new Error('forced async runner rejection'))
+  : runAsyncTests();
+asyncRun.then(() => summary()).catch(e => {
+  console.error('Async test runner error:', e);
+  process.exitCode = 1;
+  summary();
+});
+}
