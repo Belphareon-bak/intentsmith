@@ -16,6 +16,7 @@
     "test:gate0": "npm run test:deterministic",
     "test:registry": "node scripts/reconcile-ffd-e2e-registry.js && node scripts/validate-test-registry.js",
     "gate0:validate-disposition": "node scripts/validate-final-disposition.js",
+    "gate0:generate-evidence": "node scripts/generate-gate0-evidence.js",
     "test:offline": "node scripts/nightly-audit.js --profile=offline",
     "test:database": "node scripts/nightly-audit.js --profile=database",
     "test:deterministic": "node scripts/nightly-audit.js --profile=offline,database",
