@@ -235,6 +235,10 @@ const docsReadmeUrl = new URL('../docs/README.md', import.meta.url);
 const docsReadme = readFileSync(docsReadmeUrl, 'utf8');
 const rootReadme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
 const rootClaude = readFileSync(new URL('../CLAUDE.md', import.meta.url), 'utf8');
+const installScript = readFileSync(
+  new URL('../scripts/install.sh', import.meta.url),
+  'utf8',
+);
 const committedRegistry = JSON.parse(readFileSync(
   new URL('../tests/registry.json', import.meta.url),
   'utf8',
@@ -319,6 +323,16 @@ test('root README rejects drift from the committed registry', () => {
     rootReadme.replace('`256 ACTIVE`', '`255 ACTIVE`'),
     committedRegistry,
   ));
+});
+
+test('minimal install keeps the projects directory inside the configured boundary', () => {
+  assert(installScript.includes(
+    'PROJECTS_DIR="${C3_PROJECTS_DIR:-$PROJECT_ROOT/projects}"',
+  ));
+  assert(installScript.includes(
+    'mkdir -p "$PROJECT_ROOT/data" "$PROJECTS_DIR"',
+  ));
+  assert(!installScript.includes('mkdir -p data projects'));
 });
 
 test('BLOCKED registry rows require a concrete parent-verifiable prerequisite', () => {

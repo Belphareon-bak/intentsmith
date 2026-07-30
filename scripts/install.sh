@@ -422,7 +422,8 @@ echo ""
 # ════════════════════════════════════════════════════════════════════════════
 echo -e "${BOLD}── Data Directories ──${NC}"
 
-mkdir -p data projects
+PROJECTS_DIR="${C3_PROJECTS_DIR:-$PROJECT_ROOT/projects}"
+mkdir -p "$PROJECT_ROOT/data" "$PROJECTS_DIR"
 ok "data/ directory ready"
 ok "projects/ directory ready"
 

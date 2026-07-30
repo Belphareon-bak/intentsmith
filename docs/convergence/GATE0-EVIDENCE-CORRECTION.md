@@ -57,3 +57,13 @@ A later attestation is valid only when all of the following occur:
 6. the commit and raw artifact hashes are independently reviewed.
 
 No history was rewritten and the superseded commit was not removed.
+
+## Clean-clone execution finding
+
+The first locked run from candidate
+`855fb80095b8f571303fa58ac992a51da3865f6f` correctly stopped with evidence
+infrastructure exit 2 after `install-clean`: the installer returned 0 but
+created ignored root `projects/` outside the candidate evidence boundary.
+That run is retained as red diagnostic evidence and is not a green Gate 0
+execution. The follow-up installer repair honors `C3_PROJECTS_DIR` while
+preserving `./projects` as the default interactive-install location.
