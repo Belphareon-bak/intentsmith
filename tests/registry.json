@@ -8278,7 +8278,7 @@
       },
       "required": true,
       "owner": "primary implementer",
-      "state": "KNOWN_DEFECTIVE",
+      "state": "BLOCKED",
       "lastGreen": {
         "commit": null,
         "artifact": null
@@ -8308,7 +8308,7 @@
       },
       "required": true,
       "owner": "primary implementer",
-      "state": "KNOWN_DEFECTIVE",
+      "state": "BLOCKED",
       "lastGreen": {
         "commit": null,
         "artifact": null
@@ -8390,7 +8390,7 @@
       "timeoutMs": 900000,
       "expectedDurationMs": 120000,
       "requirements": {
-        "network": "external",
+        "network": "loopback",
         "database": true,
         "server": true,
         "ollama": false,
@@ -8398,7 +8398,7 @@
       },
       "required": true,
       "owner": "primary implementer",
-      "state": "KNOWN_DEFECTIVE",
+      "state": "BLOCKED",
       "lastGreen": {
         "commit": null,
         "artifact": null

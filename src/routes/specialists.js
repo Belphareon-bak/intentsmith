@@ -176,7 +176,7 @@ export function createSpecialistRoutes(deps) {
     }),
 
     // ─── Disable specialist ─────────────────────────────────────────────
-    'POST /api/specialists/:id/disable': t((req, res, params) => {
+    'POST /api/specialists/:id/disable': t(async (req, res, params) => {
       const id = params.id;
       if (!acquireLock(id)) {
         return sendJSON(res, 409, { ok: false, error: `Operation in progress for ${id}` });
@@ -184,7 +184,7 @@ export function createSpecialistRoutes(deps) {
 
       try {
         // D7: Loader.disable() checks dependents and throws if any exist
-        specialistLoader.disable(id);
+        await specialistLoader.disable(id);
         sendJSON(res, 200, { ok: true, status: 'disabled' });
       } catch (err) {
         logger.error('SpecialistAPI', `Disable ${id} failed: ${err.message}`);

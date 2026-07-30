@@ -13,7 +13,7 @@ override a failed or blocked suite.
 - Runnable programs: 350
 - Explicit support-module exclusions: 8
 - Profiles: offline=173, database=26, server=32, model=71, soak=33, manual=15
-- States: ACTIVE=256, HISTORICAL=15, BLOCKED=54, KNOWN_DEFECTIVE=25
+- States: ACTIVE=256, HISTORICAL=15, BLOCKED=57, KNOWN_DEFECTIVE=22
 
 ## Execution profiles
 
@@ -128,11 +128,11 @@ override a failed or blocked suite.
 | `IS-T3-E2E-01-HEALTH-SMOKE` | `tests/e2e/01-health-smoke.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-02-CHAT-API` | `tests/e2e/02-chat-api.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-03-CONVERSATIONS` | `tests/e2e/03-conversations.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
-| `IS-T3-E2E-04-PROJECTS` | `tests/e2e/04-projects.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
-| `IS-T3-E2E-05-ATTACHMENTS` | `tests/e2e/05-attachments.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
+| `IS-T3-E2E-04-PROJECTS` | `tests/e2e/04-projects.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-05-ATTACHMENTS` | `tests/e2e/05-attachments.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-06-EXPERTISES` | `tests/e2e/06-expertises.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-07-SPECIALISTS` | `tests/e2e/07-specialists.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
-| `IS-T3-E2E-08-AGENTS` | `tests/e2e/08-agents.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:external, temp-db, server | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
+| `IS-T3-E2E-08-AGENTS` | `tests/e2e/08-agents.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-09-SKILLS` | `tests/e2e/09-skills.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-10-MARKETPLACE` | `tests/e2e/10-marketplace.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:external, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-11-MEMORY` | `tests/e2e/11-memory.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |

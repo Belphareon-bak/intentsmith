@@ -156,6 +156,49 @@ if (typeof chatFactory === 'function') {
 
 // ─── Summary ─────────────────────────────────────────────────────────────────
 
+console.log('\n── 5. Specialist Disable Ordering ──\n');
+
+const specialistFactory = loaded['src/routes/specialists.js']?.createSpecialistRoutes;
+if (typeof specialistFactory === 'function') {
+  let resolveDisable;
+  let disableCalls = 0;
+  const responses = [];
+  const specialistRoutes = specialistFactory({
+    ...mockDeps,
+    specialistLoader: {
+      disable: async () => {
+        disableCalls++;
+        await new Promise(resolve => {
+          resolveDisable = resolve;
+        });
+      },
+    },
+    sendJSON: (_res, status, data) => responses.push({ status, data }),
+  });
+
+  const disablePromise = specialistRoutes['POST /api/specialists/:id/disable'](
+    {},
+    {},
+    { id: 'dummy-logger' },
+  );
+  await Promise.resolve();
+
+  assert(disableCalls === 1, 'specialist disable invokes loader exactly once');
+  assert(responses.length === 0, 'specialist disable does not respond before loader settles');
+
+  resolveDisable();
+  await disablePromise;
+
+  assert(
+    responses.length === 1
+      && responses[0].status === 200
+      && responses[0].data?.status === 'disabled',
+    'specialist disable responds with HTTP 200 only after loader settles',
+  );
+}
+
+// ─── Summary ─────────────────────────────────────────────────────────────────
+
 console.log(`\n══ Results: ${pass} passed, ${fail} failed ══\n`);
 
 if (fail > 0) {

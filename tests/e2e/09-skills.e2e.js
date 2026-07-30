@@ -21,7 +21,6 @@ await testAsync('has at least 1 skill', async () => {
 });
 
 await testAsync('each skill has required fields', async () => {
-  if (skills.length === 0) return;
   const s = skills[0];
   assert(s.id, 'id required');
   assert(typeof s.description === 'string', 'description required');
@@ -31,10 +30,9 @@ await testAsync('each skill has required fields', async () => {
 suite('GET /api/skills/:id');
 
 await testAsync('returns skill detail', async () => {
-  if (skills.length === 0) return;
   const { status, data } = await api('GET', `/api/skills/${skills[0].id}`);
   assertEqual(status, 200);
-  assert(data.id || data.skill, 'skill data required');
+  assertEqual(data.skill?.id, skills[0].id);
 });
 
 await testAsync('returns 404 for nonexistent', async () => {
@@ -48,6 +46,8 @@ suite('POST /api/skills/reload');
 await testAsync('hot-reload returns success', async () => {
   const { status, data } = await api('POST', '/api/skills/reload');
   assertEqual(status, 200);
+  assert(data.loaded >= 1, 'reload must load committed skills');
+  assert(Array.isArray(data.errors) && data.errors.length === 0, 'reload errors must be empty');
 });
 
 // ── Execution State Machine ──────────────────────────────────────────────
@@ -60,17 +60,17 @@ await testAsync('GET execution with invalid ID returns 404', async () => {
 
 await testAsync('confirm with invalid execution returns 404', async () => {
   const { status } = await api('POST', '/api/skills/executions/nonexistent-xyz/confirm');
-  assert(status === 404 || status === 409, `expected 404/409, got ${status}`);
+  assertEqual(status, 404);
 });
 
-await testAsync('cancel with invalid execution returns 404', async () => {
+await testAsync('cancel with invalid execution returns 409', async () => {
   const { status } = await api('POST', '/api/skills/executions/nonexistent-xyz/cancel');
-  assert(status === 404 || status === 409, `expected 404/409, got ${status}`);
+  assertEqual(status, 409);
 });
 
-await testAsync('resume without input returns 400 or 404', async () => {
+await testAsync('resume with invalid execution returns 404', async () => {
   const { status } = await api('POST', '/api/skills/executions/nonexistent-xyz/resume', {});
-  assert(status === 400 || status === 404, `expected 400/404, got ${status}`);
+  assertEqual(status, 404);
 });
 
 const result = summary();

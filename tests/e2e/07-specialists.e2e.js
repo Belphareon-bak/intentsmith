@@ -4,90 +4,127 @@ import { suite, testAsync, assert, assertEqual, summary, api, waitForServer } fr
 
 await waitForServer();
 
-// ── List ──────────────────────────────────────────────────────────────────
-suite('GET /api/specialists — list');
-
+const TARGET_SPECIALIST_ID = 'dummy-logger';
 let specialists = [];
 
-await testAsync('returns specialists array', async () => {
-  const { status, data } = await api('GET', '/api/specialists');
-  assertEqual(status, 200);
-  assert(data.ok === true, 'ok flag required');
-  assert(Array.isArray(data.specialists), 'specialists must be array');
-  specialists = data.specialists;
-});
+try {
+  // ── List ────────────────────────────────────────────────────────────────
+  suite('GET /api/specialists — list');
 
-await testAsync('each specialist has required fields', async () => {
-  if (specialists.length === 0) return;
-  const s = specialists[0];
-  assert(s.id, 'id required');
-  assert(s.name, 'name required');
-  assert(s.version, 'version required');
-  assert(typeof s.status === 'string', 'status required');
-});
+  await testAsync('returns specialists array', async () => {
+    const { status, data } = await api('GET', '/api/specialists');
+    assertEqual(status, 200);
+    assertEqual(data.ok, true);
+    assert(Array.isArray(data.specialists), 'specialists must be array');
+    assert(data.specialists.length > 0, 'committed specialists required');
+    assert(
+      data.specialists.some(s => s.id === TARGET_SPECIALIST_ID),
+      `${TARGET_SPECIALIST_ID} fixture required`,
+    );
+    specialists = data.specialists;
+  });
 
-// ── Get Single ────────────────────────────────────────────────────────────
-suite('GET /api/specialists/:id');
+  await testAsync('each specialist has required fields', async () => {
+    for (const specialist of specialists) {
+      assert(specialist.id, 'id required');
+      assert(specialist.name, 'name required');
+      assert(specialist.version, 'version required');
+      assert(typeof specialist.status === 'string', 'status required');
+    }
+  });
 
-await testAsync('returns existing specialist', async () => {
-  if (specialists.length === 0) return;
-  const { status, data } = await api('GET', `/api/specialists/${specialists[0].id}`);
-  assertEqual(status, 200);
-});
+  // ── Get Single ──────────────────────────────────────────────────────────
+  suite('GET /api/specialists/:id');
 
-await testAsync('returns 404 for nonexistent', async () => {
-  const { status } = await api('GET', '/api/specialists/nonexistent-spec-xyz');
-  assertEqual(status, 404);
-});
+  await testAsync('returns existing specialist', async () => {
+    const { status, data } = await api('GET', `/api/specialists/${TARGET_SPECIALIST_ID}`);
+    assertEqual(status, 200);
+    assertEqual(data.ok, true);
+    assertEqual(data.id, TARGET_SPECIALIST_ID);
+    assert(data.manifest && typeof data.manifest === 'object', 'manifest required');
+  });
 
-// ── Enable/Disable ───────────────────────────────────────────────────────
-suite('Specialist Enable/Disable');
+  await testAsync('returns 404 for nonexistent', async () => {
+    const { status } = await api('GET', '/api/specialists/nonexistent-spec-xyz');
+    assertEqual(status, 404);
+  });
 
-await testAsync('disable specialist', async () => {
-  if (specialists.length === 0) return;
-  const { status } = await api('POST', `/api/specialists/${specialists[0].id}/disable`);
-  assert(status === 200 || status === 204 || status === 409, `expected 200/204/409, got ${status}`);
-});
+  // ── Enable/Disable ─────────────────────────────────────────────────────
+  suite('Specialist Enable/Disable');
 
-await testAsync('enable specialist', async () => {
-  if (specialists.length === 0) return;
-  const { status } = await api('POST', `/api/specialists/${specialists[0].id}/enable`);
-  assert(status === 200 || status === 204 || status === 409, `expected 200/204/409, got ${status}`);
-});
+  await testAsync('disable specialist', async () => {
+    const { status, data } = await api('POST', `/api/specialists/${TARGET_SPECIALIST_ID}/disable`);
+    assertEqual(status, 200);
+    assertEqual(data.ok, true);
+    assertEqual(data.status, 'disabled');
 
-// ── Discover ─────────────────────────────────────────────────────────────
-suite('Specialist Discovery');
+    const listed = await api('GET', '/api/specialists');
+    assertEqual(listed.status, 200);
+    assertEqual(
+      listed.data.specialists.find(s => s.id === TARGET_SPECIALIST_ID)?.status,
+      'disabled',
+    );
+  });
 
-await testAsync('discover re-scans', async () => {
-  const { status } = await api('POST', '/api/specialists/discover');
-  assert(status === 200 || status === 204, `expected 200/204, got ${status}`);
-});
+  await testAsync('enable specialist', async () => {
+    const { status, data } = await api('POST', `/api/specialists/${TARGET_SPECIALIST_ID}/enable`);
+    assertEqual(status, 200);
+    assertEqual(data.ok, true);
+    assertEqual(data.status, 'enabled');
 
-// ── Integrity ────────────────────────────────────────────────────────────
-suite('Specialist Integrity');
+    const listed = await api('GET', '/api/specialists');
+    assertEqual(listed.status, 200);
+    assertEqual(
+      listed.data.specialists.find(s => s.id === TARGET_SPECIALIST_ID)?.status,
+      'enabled',
+    );
+  });
 
-await testAsync('integrity check for existing specialist', async () => {
-  if (specialists.length === 0) return;
-  const { status } = await api('GET', `/api/specialists/${specialists[0].id}/integrity`);
-  assert(status === 200 || status === 404, `expected 200/404, got ${status}`);
-});
+  // ── Discover ───────────────────────────────────────────────────────────
+  suite('Specialist Discovery');
 
-// ── Expertise Binding ────────────────────────────────────────────────────
-suite('Specialist Expertise Binding');
+  await testAsync('discover re-scans', async () => {
+    const { status, data } = await api('POST', '/api/specialists/discover');
+    assertEqual(status, 200);
+    assertEqual(data.ok, true);
+    assert(Array.isArray(data.discovered), 'discovered must be array');
+    assert(Array.isArray(data.newlyInstalled), 'newlyInstalled must be array');
+    assert(typeof data.total === 'number', 'total must be numeric');
+  });
 
-await testAsync('list specialist expertises', async () => {
-  if (specialists.length === 0) return;
-  const { status } = await api('GET', `/api/specialists/${specialists[0].id}/expertises`);
-  assert(status === 200 || status === 404, `expected 200/404, got ${status}`);
-});
+  // ── Integrity ──────────────────────────────────────────────────────────
+  suite('Specialist Integrity');
 
-// ── Telemetry ────────────────────────────────────────────────────────────
-suite('Specialist Telemetry');
+  await testAsync('integrity check for existing specialist', async () => {
+    const { status, data } = await api('GET', `/api/specialists/${TARGET_SPECIALIST_ID}/integrity`);
+    assertEqual(status, 200);
+    assertEqual(data.ok, true);
+    assert(Array.isArray(data.issues), 'issues must be array');
+  });
 
-await testAsync('telemetry endpoint returns data', async () => {
-  const { status } = await api('GET', '/api/specialists/telemetry');
-  assert(status === 200 || status === 404, `expected 200/404, got ${status}`);
-});
+  // ── Expertise Binding ──────────────────────────────────────────────────
+  suite('Specialist Expertise Binding');
+
+  await testAsync('list specialist expertises', async () => {
+    const { status, data } = await api('GET', `/api/specialists/${TARGET_SPECIALIST_ID}/expertises`);
+    assertEqual(status, 200);
+    assertEqual(data.ok, true);
+    assert(Array.isArray(data.expertises), 'expertises must be array');
+  });
+
+  // ── Telemetry ──────────────────────────────────────────────────────────
+  suite('Specialist Telemetry');
+
+  await testAsync('telemetry endpoint returns data', async () => {
+    const { status, data } = await api('GET', '/api/specialists/telemetry');
+    assertEqual(status, 200);
+    assertEqual(data.ok, true);
+  });
+} finally {
+  try {
+    await api('POST', `/api/specialists/${TARGET_SPECIALIST_ID}/enable`);
+  } catch {}
+}
 
 const result = summary();
 process.exit(result.failed > 0 ? 1 : 0);

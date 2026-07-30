@@ -1,7 +1,6 @@
 // tests/e2e/04-projects.e2e.js — Project CRUD & workspace
 // ══════════════════════════════════════════════════════════════════════════════
-import { suite, testAsync, assert, assertEqual, summary, api, waitForServer, uniqueId, createProject, cleanupProject, makeOwnedTempDir, removeOwnedTempDir } from './_helpers.js';
-import { join } from 'node:path';
+import { suite, testAsync, assert, assertEqual, summary, api, waitForServer, uniqueId, cleanupProject, makeOwnedTempDir, removeOwnedTempDir } from './_helpers.js';
 
 await waitForServer();
 
@@ -35,13 +34,20 @@ try {
 
   await testAsync('creates project under the runner-owned projects root', async () => {
     const name = uniqueId('test-project');
-    const project = await createProject(name, 'E2E test project');
-    created.push(project.id);
+    const { status, data } = await api('POST', '/api/projects', {
+      name,
+      description: 'E2E test project',
+    });
+    assertEqual(status, 201);
+    assert(data.project?.id, 'project id required');
+    assertEqual(data.id, data.project.id);
+    assertEqual(data.path, data.project.path);
+    created.push(data.project.id);
   });
 
   await testAsync('create without name returns 400', async () => {
     const { status } = await api('POST', '/api/projects', {
-      path: join(tmpDir, 'no-name'),
+      description: 'missing name',
     });
     assertEqual(status, 400);
   });
@@ -52,11 +58,11 @@ try {
   await testAsync('returns existing project', async () => {
     const { status, data } = await api('GET', `/api/projects/${created[0]}`);
     assertEqual(status, 200);
-    assert(data.name || data.project, 'project data required');
+    assertEqual(data.project?.id, created[0]);
   });
 
   await testAsync('returns 404 for nonexistent', async () => {
-    const { status } = await api('GET', '/api/projects/proj-nonexistent-xyz');
+    const { status } = await api('GET', '/api/projects/999999999');
     assertEqual(status, 404);
   });
 
@@ -64,12 +70,13 @@ try {
   suite('PUT /api/projects/:id — update');
 
   await testAsync('updates project description', async () => {
-    const { status } = await api('PUT', `/api/projects/${created[0]}`, { description: 'Updated description' });
+    const { status, data } = await api('PUT', `/api/projects/${created[0]}`, { description: 'Updated description' });
     assertEqual(status, 200);
+    assertEqual(data.project?.description, 'Updated description');
   });
 
   await testAsync('returns 404 for nonexistent', async () => {
-    const { status } = await api('PUT', '/api/projects/proj-nonexistent-xyz', { description: 'x' });
+    const { status } = await api('PUT', '/api/projects/999999999', { description: 'x' });
     assertEqual(status, 404);
   });
 
@@ -77,18 +84,24 @@ try {
   suite('Project Archive & Delete');
 
   await testAsync('archive project', async () => {
-    const { status } = await api('PATCH', `/api/projects/${created[0]}/archive`);
+    const { status, data } = await api('PATCH', `/api/projects/${created[0]}/archive`);
     assertEqual(status, 200);
+    assertEqual(data.success, true);
+    assertEqual(data.status, 'archived');
   });
 
   await testAsync('restore project', async () => {
-    const { status } = await api('PATCH', `/api/projects/${created[0]}/restore`);
+    const { status, data } = await api('PATCH', `/api/projects/${created[0]}/restore`);
     assertEqual(status, 200);
+    assertEqual(data.success, true);
+    assertEqual(data.status, 'active');
   });
 
   await testAsync('delete project', async () => {
-    const { status } = await api('DELETE', `/api/projects/${created[0]}`);
+    const { status, data } = await api('DELETE', `/api/projects/${created[0]}`);
     assertEqual(status, 200);
+    assertEqual(data.success, true);
+    assertEqual(data.mode, 'soft');
   });
 
   // ── Open Folder ────────────────────────────────────────────────────────
@@ -100,6 +113,7 @@ try {
       name: uniqueId('e2e-folder-test'),
     });
     assertEqual(status, 201);
+    assertEqual(data.status, 'registered');
     assert(data.project?.id, 'registered project id required');
     created.push(data.project.id);
   });

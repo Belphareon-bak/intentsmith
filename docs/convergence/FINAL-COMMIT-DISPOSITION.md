@@ -74,9 +74,9 @@ node scripts/validate-final-disposition.js \
 | `EXCLUDE/MOVE_OUTSIDE_PRODUCTION` | 78 |
 | `EXCLUDE/REMOVE_FOLLOWUP` | 13 |
 | `KEEP/REPLAY` | 42 |
-| `REBUILD/REPAIR` | 46 |
-| `REBUILD/REPAIRED` | 30 |
-| `REBUILD/DEFERRED(<prerequisite>)` | 16 |
+| `REBUILD/REPAIR` | 42 |
+| `REBUILD/REPAIRED` | 35 |
+| `REBUILD/DEFERRED(<prerequisite>)` | 15 |
 | `UNRESOLVED / USER_DECISION` | 0 |
 
 ## Path-by-path classification
@@ -214,12 +214,12 @@ node scripts/validate-final-disposition.js \
 | `A` | `tests/e2e/01-health-smoke.e2e.js` | `REBUILD` | `REPAIRED` | Every health, system and license request now asserts exact HTTP 200 before inspecting content; syntax and the 39-assertion route regression passed at `06d49847988ae3fb65711fe6bf737c08c0e3ac0c`. |
 | `A` | `tests/e2e/02-chat-api.e2e.js` | `REBUILD` | `REPAIRED` | Ambiguous 200/204 and 400/404 branches were replaced with current exact route contracts; syntax and route regression passed at `06d49847988ae3fb65711fe6bf737c08c0e3ac0c`. |
 | `A` | `tests/e2e/03-conversations.e2e.js` | `REBUILD` | `REPAIRED` | CRUD now asserts each exact status, including the documented empty-message-list response, without conditional assertion paths; syntax passed at `06d49847988ae3fb65711fe6bf737c08c0e3ac0c`. |
-| `A` | `tests/e2e/04-projects.e2e.js` | `REBUILD` | `REPAIR` | Runner-owned setup and open-folder payload are repaired, but the nonexistent-ID fixture still needs a numeric route-compatible ID before terminal closure. |
+| `A` | `tests/e2e/04-projects.e2e.js` | `REBUILD` | `REPAIRED` | Project creation, CRUD state transitions and open-folder registration now require exact route contracts; nonexistent-project checks use a numeric route-compatible fixture and all writes remain runner-owned. |
 | `A` | `tests/e2e/05-attachments.e2e.js` | `REBUILD` | `REPAIRED` | Every validation request now requires HTTP 400. Non-string messages are rejected before controller dispatch, proven by the 39/39 deterministic route assertions at `06d49847988ae3fb65711fe6bf737c08c0e3ac0c`. |
-| `A` | `tests/e2e/06-expertises.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/07-specialists.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/08-agents.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/09-skills.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/06-expertises.e2e.js` | `REBUILD` | `REPAIRED` | Expertise CRUD and merge preview now assert exact current status and payload contracts, including the required `expertises` query parameter; conditional 200/204/400 acceptance was removed. |
+| `A` | `tests/e2e/07-specialists.e2e.js` | `REBUILD` | `REPAIRED` | Lifecycle checks use the committed `dummy-logger` fixture, verify persisted disable/enable state and exact discovery, integrity, binding and telemetry payloads; disable now awaits loader completion before responding. |
+| `A` | `tests/e2e/08-agents.e2e.js` | `REBUILD` | `REPAIRED` | Agent CRUD and dry-run use a schema-valid disabled fixture, require exact route contracts and perform no source fetch; the registry therefore records loopback rather than external-network access. |
+| `A` | `tests/e2e/09-skills.e2e.js` | `REBUILD` | `REPAIRED` | Skill inventory, detail, reload and missing-execution state transitions now require exact current payloads and statuses without setup-dependent early returns. |
 | `A` | `tests/e2e/10-marketplace.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/11-memory.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/12-notifications.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
@@ -272,7 +272,7 @@ node scripts/validate-final-disposition.js \
 | `A` | `tests/e2e/76-specialist-domain.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/77-project-context-injection.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/78-guard-rules.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/79-response-semantics.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Response-semantic assertions are fail-closed through the strict positive chat helper; execution requires the named isolated local model fixture. |
+| `A` | `tests/e2e/79-response-semantics.e2e.js` | `REBUILD` | `REPAIR` | The shared chat transport is fail-closed, but the local date assertion still accepts the year alone and hard-codes stale month/day values; repair the semantic oracle before deferring execution to the model fixture. |
 | `A` | `tests/e2e/80-ws-semantic-events.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/81-conversation-lifecycle.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/82-cre-conflict-resolution.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | CRE conflict assertions are fail-closed through the strict positive chat helper; execution requires the named isolated local model fixture. |
