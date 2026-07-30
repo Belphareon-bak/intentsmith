@@ -1,9 +1,9 @@
 # Disposition of disputed `final` commit
 
 Status: all source-diff facts are recorded in a committed sanitized manifest
-and validate offline. Fifty-nine records are evidence-backed `REPAIRED`, and 30
+and validate offline. Fifty-nine records are evidence-backed `REPAIRED`, and 31
 truthful model suites are `DEFERRED` behind concrete runtime prerequisites. The
-validator deliberately remains red while three legacy `REBUILD/REPAIR` rows await
+validator deliberately remains red while two legacy `REBUILD/REPAIR` rows await
 terminal closure under `D-018`.
 
 Compared refs:
@@ -74,9 +74,9 @@ node scripts/validate-final-disposition.js \
 | `EXCLUDE/MOVE_OUTSIDE_PRODUCTION` | 78 |
 | `EXCLUDE/REMOVE_FOLLOWUP` | 13 |
 | `KEEP/REPLAY` | 42 |
-| `REBUILD/REPAIR` | 3 |
+| `REBUILD/REPAIR` | 2 |
 | `REBUILD/REPAIRED` | 59 |
-| `REBUILD/DEFERRED(<prerequisite>)` | 30 |
+| `REBUILD/DEFERRED(<prerequisite>)` | 31 |
 | `UNRESOLVED / USER_DECISION` | 0 |
 
 ## Path-by-path classification
@@ -272,7 +272,7 @@ node scripts/validate-final-disposition.js \
 | `A` | `tests/e2e/76-specialist-domain.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Accountant and translator are mandatory installed fixtures; each specialist is set, queried, used and cleared on the exact conversation session, with exact 200/state/mode contracts and bounded model calls. Missing fixtures and alternate success/404 statuses no longer pass. |
 | `A` | `tests/e2e/77-project-context-injection.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Project creation and canary files are confined to the verified runner-owned project root; bound and unbound conversations are mandatory, the server-derived session project is exact, canary isolation is asserted, and a project build request must expose exact `BUILD` intent. All dependent returns and tautological cleanup assertions are gone. |
 | `A` | `tests/e2e/78-guard-rules.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | GUARD inputs use mandatory owned conversations/project fixtures and bounded chats; intent metadata is required, with exact `CREATIVE`, `CONVERSATIONAL`, `CONVERSATIONAL` and `BUILD` outcomes for GUARD 6/9/10/11. The incorrect explicit-search oracle, custom project path, fixture skips and conditional assertions are removed. |
-| `A` | `tests/e2e/79-response-semantics.e2e.js` | `REBUILD` | `REPAIR` | The shared chat transport is fail-closed, but the local date assertion still accepts the year alone and hard-codes stale month/day values; repair the semantic oracle before deferring execution to the model fixture. |
+| `A` | `tests/e2e/79-response-semantics.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | All ten requests are bounded and fail closed. Math and date require exact deterministic `LOCAL` handlers and result metadata; the date oracle accepts only a complete current day/month/year across the request boundary. Code, explanation, comparison, poem, numbered-installation, refusal, greeting and gratitude checks now require their named semantics rather than generic non-empty prose. Static and oracle review passed; live execution remains behind the named isolated model fixture, so no model-green claim is made. |
 | `A` | `tests/e2e/80-ws-semantic-events.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/81-conversation-lifecycle.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/82-cre-conflict-resolution.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | CRE conflict assertions are fail-closed through the strict positive chat helper; execution requires the named isolated local model fixture. |
