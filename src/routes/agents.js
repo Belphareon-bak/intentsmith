@@ -240,8 +240,10 @@ export function createAgentPlatformRoutes(deps) {
     },
 
     'POST /api/notifications/read-all': async (req, res) => {
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const mockReq = { query: { agent: url.searchParams.get('agent') } };
       const mockRes = createMockResponse(res);
-      await agentRoutes.markAllNotificationsRead({}, mockRes);
+      await agentRoutes.markAllNotificationsRead(mockReq, mockRes);
     },
 
     'GET /api/scheduler/status': async (req, res) => {

@@ -13,7 +13,7 @@ override a failed or blocked suite.
 - Runnable programs: 350
 - Explicit support-module exclusions: 8
 - Profiles: offline=173, database=26, server=32, model=71, soak=33, manual=15
-- States: ACTIVE=256, HISTORICAL=15, BLOCKED=57, KNOWN_DEFECTIVE=22
+- States: ACTIVE=256, HISTORICAL=15, BLOCKED=58, KNOWN_DEFECTIVE=21
 
 ## Execution profiles
 
@@ -136,7 +136,7 @@ override a failed or blocked suite.
 | `IS-T3-E2E-09-SKILLS` | `tests/e2e/09-skills.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-10-MARKETPLACE` | `tests/e2e/10-marketplace.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:external, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-11-MEMORY` | `tests/e2e/11-memory.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
-| `IS-T3-E2E-12-NOTIFICATIONS` | `tests/e2e/12-notifications.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
+| `IS-T3-E2E-12-NOTIFICATIONS` | `tests/e2e/12-notifications.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-13-SECURITY` | `tests/e2e/13-security.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-14-SYSTEM` | `tests/e2e/14-system.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
 | `IS-T3-E2E-15-QUALITY` | `tests/e2e/15-quality.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |

@@ -74,8 +74,8 @@ node scripts/validate-final-disposition.js \
 | `EXCLUDE/MOVE_OUTSIDE_PRODUCTION` | 78 |
 | `EXCLUDE/REMOVE_FOLLOWUP` | 13 |
 | `KEEP/REPLAY` | 42 |
-| `REBUILD/REPAIR` | 42 |
-| `REBUILD/REPAIRED` | 35 |
+| `REBUILD/REPAIR` | 38 |
+| `REBUILD/REPAIRED` | 39 |
 | `REBUILD/DEFERRED(<prerequisite>)` | 15 |
 | `UNRESOLVED / USER_DECISION` | 0 |
 
@@ -220,10 +220,10 @@ node scripts/validate-final-disposition.js \
 | `A` | `tests/e2e/07-specialists.e2e.js` | `REBUILD` | `REPAIRED` | Lifecycle checks use the committed `dummy-logger` fixture, verify persisted disable/enable state and exact discovery, integrity, binding and telemetry payloads; disable now awaits loader completion before responding. |
 | `A` | `tests/e2e/08-agents.e2e.js` | `REBUILD` | `REPAIRED` | Agent CRUD and dry-run use a schema-valid disabled fixture, require exact route contracts and perform no source fetch; the registry therefore records loopback rather than external-network access. |
 | `A` | `tests/e2e/09-skills.e2e.js` | `REBUILD` | `REPAIRED` | Skill inventory, detail, reload and missing-execution state transitions now require exact current payloads and statuses without setup-dependent early returns. |
-| `A` | `tests/e2e/10-marketplace.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/11-memory.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/12-notifications.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/13-security.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/10-marketplace.e2e.js` | `REBUILD` | `REPAIRED` | Catalog, refresh, installed-package and error-path checks now require exact route contracts without rate-limit or alternate-status bypasses; execution remains registry-blocked on its declared external catalog prerequisite. |
+| `A` | `tests/e2e/11-memory.e2e.js` | `REBUILD` | `REPAIRED` | Memory and settings writes now require exact success responses and prove deterministic GET round-trips, including the persisted language setting. |
+| `A` | `tests/e2e/12-notifications.e2e.js` | `REBUILD` | `REPAIRED` | Channel, configuration, validation, log and in-app notification checks now assert exact payloads; read-all forwards the optional agent query and the repository now performs filtered or global bulk-read updates, covered directly against SQLite. |
+| `A` | `tests/e2e/13-security.e2e.js` | `REBUILD` | `REPAIRED` | Token setup is now mandatory for list/delete coverage, removing conditional success paths while preserving exact audit, webhook and session contracts. |
 | `A` | `tests/e2e/14-system.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/15-quality.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/16-setup-wizard.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |

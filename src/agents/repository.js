@@ -352,6 +352,22 @@ export class AgentRepository {
   markNotificationRead(id) {
     this.db.prepare('UPDATE agent_notifications_v33 SET read_at = CURRENT_TIMESTAMP WHERE id = ?').run(id);
   }
+
+  markAllNotificationsRead(agentId = null) {
+    if (agentId) {
+      return this.db.prepare(`
+        UPDATE agent_notifications_v33
+        SET read_at = CURRENT_TIMESTAMP
+        WHERE read_at IS NULL AND agent_id = ?
+      `).run(agentId).changes;
+    }
+
+    return this.db.prepare(`
+      UPDATE agent_notifications_v33
+      SET read_at = CURRENT_TIMESTAMP
+      WHERE read_at IS NULL
+    `).run().changes;
+  }
   
   getUnreadCount() {
     const row = this.db.prepare('SELECT COUNT(*) as count FROM agent_notifications_v33 WHERE read_at IS NULL').get();

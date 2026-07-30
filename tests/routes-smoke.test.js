@@ -154,8 +154,6 @@ if (typeof chatFactory === 'function') {
   assert(controllerCalls === 0, 'invalid chat requests never reach ChatController');
 }
 
-// ─── Summary ─────────────────────────────────────────────────────────────────
-
 console.log('\n── 5. Specialist Disable Ordering ──\n');
 
 const specialistFactory = loaded['src/routes/specialists.js']?.createSpecialistRoutes;
@@ -194,6 +192,46 @@ if (typeof specialistFactory === 'function') {
       && responses[0].status === 200
       && responses[0].data?.status === 'disabled',
     'specialist disable responds with HTTP 200 only after loader settles',
+  );
+}
+
+console.log('\n── 6. Notification Query Adapter ──\n');
+
+const agentFactory = loaded['src/routes/agents.js']?.createAgentPlatformRoutes;
+if (typeof agentFactory === 'function') {
+  let capturedRequest = null;
+  const responseBodies = [];
+  const agentRoutes = agentFactory({
+    ...mockDeps,
+    agentRoutes: {
+      markAllNotificationsRead: async (req, res) => {
+        capturedRequest = req;
+        res.json({ success: true });
+      },
+    },
+    createMockResponse: () => ({
+      status() {
+        return this;
+      },
+      json(data) {
+        responseBodies.push(data);
+        return this;
+      },
+    }),
+  });
+
+  await agentRoutes['POST /api/notifications/read-all']({
+    url: '/api/notifications/read-all?agent=fixture-agent',
+    headers: { host: '127.0.0.1' },
+  }, {});
+
+  assert(
+    capturedRequest?.query?.agent === 'fixture-agent',
+    'notification read-all forwards the agent query filter',
+  );
+  assert(
+    responseBodies.length === 1 && responseBodies[0]?.success === true,
+    'notification read-all preserves the adapter response',
   );
 }
 

@@ -18,7 +18,7 @@ await testAsync('returns memory data (array or object)', async () => {
 suite('POST /api/memory');
 
 await testAsync('saves memory object', async () => {
-  const payload = { test: true, timestamp: Date.now() };
+  const payload = { test: true, marker: 'gate0-memory-roundtrip' };
   const { status, data } = await api('POST', '/api/memory', payload);
   assertEqual(status, 200);
   assert(data.success === true, 'success flag required');
@@ -54,8 +54,15 @@ await testAsync('GET /api/settings returns shape', async () => {
 });
 
 await testAsync('POST /api/settings saves setting', async () => {
-  const { status } = await api('POST', '/api/settings', { language: 'cs' });
-  assert(status === 200 || status === 204, `expected 200/204, got ${status}`);
+  const { status, data } = await api('POST', '/api/settings', { language: 'cs' });
+  assertEqual(status, 200);
+  assertEqual(data.success, true);
+});
+
+await testAsync('saved setting persists on GET', async () => {
+  const { status, data } = await api('GET', '/api/settings');
+  assertEqual(status, 200);
+  assertEqual(data.language, 'cs');
 });
 
 const result = summary();

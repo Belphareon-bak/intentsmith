@@ -17,6 +17,7 @@
 
 import { strict as assert } from 'assert';
 import Database from 'better-sqlite3';
+import { AgentRepository, initAgentTables } from '../src/agents/repository.js';
 
 // ─── Test Infrastructure ─────────────────────────────────────────────────────
 
@@ -294,6 +295,40 @@ async function runTests() {
   console.log('╔══════════════════════════════════════════════════════════════════════╗');
   console.log('║       C3-Agent v57.0 — Agent Runner Tests                            ║');
   console.log('╚══════════════════════════════════════════════════════════════════════╝');
+
+  await describe('T12.0: notification read-all repository contract', async () => {
+    await it('marks only the requested agent notifications as read', async () => {
+      const db = new Database(':memory:');
+      initAgentTables(db);
+      const repo = new AgentRepository(db);
+
+      repo.createAgent({ id: 'agent-a', name: 'Agent A', definition: {} });
+      repo.createAgent({ id: 'agent-b', name: 'Agent B', definition: {} });
+      repo.createNotification('agent-a', null, { title: 'A1' });
+      repo.createNotification('agent-a', null, { title: 'A2' });
+      repo.createNotification('agent-b', null, { title: 'B1' });
+
+      assert.equal(repo.markAllNotificationsRead('agent-a'), 2);
+      assert.equal(repo.getNotifications({ agentId: 'agent-a', unreadOnly: true }).length, 0);
+      assert.equal(repo.getNotifications({ agentId: 'agent-b', unreadOnly: true }).length, 1);
+      db.close();
+    });
+
+    await it('marks all remaining notifications when no agent is supplied', async () => {
+      const db = new Database(':memory:');
+      initAgentTables(db);
+      const repo = new AgentRepository(db);
+
+      repo.createAgent({ id: 'agent-a', name: 'Agent A', definition: {} });
+      repo.createAgent({ id: 'agent-b', name: 'Agent B', definition: {} });
+      repo.createNotification('agent-a', null, { title: 'A1' });
+      repo.createNotification('agent-b', null, { title: 'B1' });
+
+      assert.equal(repo.markAllNotificationsRead(), 2);
+      assert.equal(repo.getUnreadCount(), 0);
+      db.close();
+    });
+  });
 
   // T12.1
   await describe('T12.1: mark_seen is idempotent', async () => {

@@ -60,11 +60,9 @@ try {
     const { status, data } = await api('GET', '/api/security/tokens');
     assertEqual(status, 200);
     assert(Array.isArray(data.tokens), 'tokens must be array');
-    if (createdTokenIds.length > 0) {
-      const found = data.tokens.find(t => t.id === createdTokenIds[0]);
-      assert(found, 'created token should be in list');
-      assert(!found.token_hash, 'token_hash should not be exposed');
-    }
+    const found = data.tokens.find(t => t.id === createdTokenIds[0]);
+    assert(found, 'created token should be in list');
+    assert(!found.token_hash, 'token_hash should not be exposed');
   });
 
   await testAsync('create token without name returns 400', async () => {
@@ -73,7 +71,6 @@ try {
   });
 
   await testAsync('delete token returns success', async () => {
-    if (createdTokenIds.length === 0) return;
     const { status, data } = await api('DELETE', `/api/security/tokens/${createdTokenIds[0]}`);
     assertEqual(status, 200);
     assert(data.ok === true, 'ok flag required');

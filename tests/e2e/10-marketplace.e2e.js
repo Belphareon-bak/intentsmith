@@ -10,28 +10,29 @@ suite('GET /api/marketplace/catalog');
 
 await testAsync('returns catalog structure', async () => {
   const { status, data } = await api('GET', '/api/marketplace/catalog');
-  assert(status === 200 || status === 429, `expected 200/429, got ${status}`);
-  if (status === 429) return;
-  assert(data.ok === true, 'ok flag required');
+  assertEqual(status, 200);
+  assertEqual(data.ok, true);
   assert(data.packages, 'packages required');
   assert(typeof data.packages === 'object', 'packages must be object');
 });
 
 await testAsync('catalog has package type arrays', async () => {
   const { data, status } = await api('GET', '/api/marketplace/catalog');
-  if (status === 429) return;
+  assertEqual(status, 200);
   const p = data.packages;
-  assert(Array.isArray(p.skills) || p.skills === undefined, 'skills must be array or undefined');
-  assert(Array.isArray(p.expertises) || p.expertises === undefined, 'expertises must be array or undefined');
-  assert(Array.isArray(p.specialists) || p.specialists === undefined, 'specialists must be array or undefined');
+  assert(Array.isArray(p.skills), 'skills must be array');
+  assert(Array.isArray(p.expertises), 'expertises must be array');
+  assert(Array.isArray(p.specialists), 'specialists must be array');
 });
 
 // ── Refresh ──────────────────────────────────────────────────────────────
 suite('POST /api/marketplace/catalog/refresh');
 
 await testAsync('refresh returns success', async () => {
-  const { status } = await api('POST', '/api/marketplace/catalog/refresh');
-  assert(status === 200 || status === 204 || status === 429, `expected 200/204/429, got ${status}`);
+  const { status, data } = await api('POST', '/api/marketplace/catalog/refresh');
+  assertEqual(status, 200);
+  assertEqual(data.ok, true);
+  assert(data.packages && typeof data.packages === 'object', 'packages required');
 });
 
 // ── Installed ────────────────────────────────────────────────────────────
@@ -39,9 +40,8 @@ suite('GET /api/marketplace/installed');
 
 await testAsync('returns installed list', async () => {
   const { status, data } = await api('GET', '/api/marketplace/installed');
-  assert(status === 200 || status === 429, `expected 200/429, got ${status}`);
-  if (status === 429) return;
-  assert(data.ok === true, 'ok flag required');
+  assertEqual(status, 200);
+  assertEqual(data.ok, true);
   assert(Array.isArray(data.installed), 'installed must be array');
 });
 
@@ -50,17 +50,17 @@ suite('Marketplace Install — error paths');
 
 await testAsync('install invalid type returns 400', async () => {
   const { status } = await api('POST', '/api/marketplace/install/invalid-type/test');
-  assert(status === 400 || status === 404 || status === 429, `expected 400/404/429, got ${status}`);
+  assertEqual(status, 400);
 });
 
 await testAsync('install nonexistent package returns 404', async () => {
   const { status } = await api('POST', '/api/marketplace/install/skill/nonexistent-pkg-xyz');
-  assert(status === 404 || status === 400 || status === 429, `expected 404/400/429, got ${status}`);
+  assertEqual(status, 404);
 });
 
 await testAsync('uninstall nonexistent returns 404', async () => {
   const { status } = await api('DELETE', '/api/marketplace/installed/skill/nonexistent-pkg-xyz');
-  assert(status === 404 || status === 400 || status === 429, `expected 404/400/429, got ${status}`);
+  assertEqual(status, 404);
 });
 
 // ── Export ────────────────────────────────────────────────────────────────
@@ -68,7 +68,7 @@ suite('Marketplace Export');
 
 await testAsync('export invalid type returns 400', async () => {
   const { status } = await api('POST', '/api/marketplace/export/invalid-type/test');
-  assert(status === 400 || status === 404 || status === 429, `expected 400/404/429, got ${status}`);
+  assertEqual(status, 400);
 });
 
 const result = summary();

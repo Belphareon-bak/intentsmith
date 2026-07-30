@@ -8167,6 +8167,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-E2E-HELPERS-SELF-CHECK",
+      "path": "tests/e2e/_helpers.self-check.js",
+      "argv": [
+        "node",
+        "tests/e2e/_helpers.self-check.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T1",
+      "fixture": "isolated-home-and-owned-loopback-server",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 5000,
+      "requirements": {
+        "network": "loopback",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T3-E2E-01-HEALTH-SMOKE",
       "path": "tests/e2e/01-health-smoke.e2e.js",
       "argv": [
@@ -8518,7 +8548,7 @@
       },
       "required": true,
       "owner": "primary implementer",
-      "state": "KNOWN_DEFECTIVE",
+      "state": "BLOCKED",
       "lastGreen": {
         "commit": null,
         "artifact": null
@@ -10499,36 +10529,6 @@
       "required": true,
       "owner": "primary implementer",
       "state": "BLOCKED",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
-      "id": "IS-T1-E2E-HELPERS-SELF-CHECK",
-      "path": "tests/e2e/_helpers.self-check.js",
-      "argv": [
-        "node",
-        "tests/e2e/_helpers.self-check.js"
-      ],
-      "capabilityId": "C3-027",
-      "tier": "T1",
-      "fixture": "isolated-home-and-owned-loopback-server",
-      "profile": "offline",
-      "timeoutMs": 30000,
-      "expectedDurationMs": 5000,
-      "requirements": {
-        "network": "loopback",
-        "database": false,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
       "lastGreen": {
         "commit": null,
         "artifact": null
