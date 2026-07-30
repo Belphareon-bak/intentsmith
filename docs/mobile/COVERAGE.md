@@ -165,6 +165,7 @@ Vypsané, protože nevypsaná díra je horší než přiznaná.
 | **GAP-5** | Žádný test nepokrývá `SS-01`..`SS-10` jako **úplnost** — tedy že tok žádný stav nevynechal | střední | Zvážit jeden `offline` test nad deklarativním popisem toků. Riziko: test, který kontroluje dokumentaci, ne chování |
 | **GAP-6** | Rodina MX má jediný řádek, který zastupuje celou testovací sadu klienta | střední | Přijatelné, pokud platí fail-closed z §5 TEST-STRATEGY. Jinak je to jeden bod, kde se schová cokoli |
 | **GAP-7** | `MR-21` (notifikace) má jediný test a ten pokrývá obsah, ne doručení | nízká | Doručení je podle PLAN.md §6 produktový limit, ne funkce; testovat půjde až s kanálem |
+| **GAP-8** | **[F]** `C3-032` existuje v `CAPABILITY-MATRIX.md` na `codex/legacy-listener-loopback-boundary` (`f9b0b60`), ale **žádný registrovaný test na něj neukazuje** | střední | Přesně stav, kterému měla `D-T1` zabránit. Buď první `MC`/`MX` test, nebo řádek zatím vyjmout — viz TEST-STRATEGY §3.2 |
 
 ---
 
@@ -197,7 +198,7 @@ přijatý `REMOTE_COMPANION`, mezi nimi nejsou — ADR 0001 zůstává nedotčen
 | `D-M5` | Konkrétní TTL | Přijmout výchozí, přeměřit po fázi 1 | — |
 | `D-M6` | Rozsah okna zpráv | 200 × 20 | `M-R3` |
 | `D-M7` | Cachovat diffy a obsah souborů | Ne pro 1.0 | `R-4` |
-| ~~`D-T1`~~ | `C3-031` a `C3-032` do CAPABILITY-MATRIX | **ROZHODNUTO:** oba řádky se přidají **atomicky ve stejném commitu jako první skutečný mobilní test** — viz TEST-STRATEGY §3 a §6 | — |
+| ~~`D-T1`~~ | `C3-031` a `C3-032` do CAPABILITY-MATRIX | **ROZHODNUTO:** oba řádky atomicky s prvním skutečným testem (TEST-STRATEGY §3.1). **[F]** Zavedeny na `codex/legacy-listener-loopback-boundary` v `f9b0b60`; `C3-031` s testem, `C3-032` zatím bez — viz §3.2 | `C3-032` |
 | `D-T2` | Můstek na klientské testy | V-2 s pěti podmínkami | `GAP-6` |
 | `D-T3` | Kdy zapsat první mobilní řádek | Po dokončení integrační práce | — |
 | `D-T4` | Je `revoke-cannot-wipe-offline` test, nebo dokumentace? | Test | `M-R1` |

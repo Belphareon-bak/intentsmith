@@ -97,9 +97,14 @@ vlastníka, dokud ho operátor nepojmenuje.
 
 ---
 
-## 3. Capability ID pro mobil — **[?] `D-T1` rozhodnuto, neaplikováno**
+## 3. Capability ID pro mobil — **[?] `D-T1` rozhodnuto**
 
-`CAPABILITY-MATRIX.md` má dnes `C3-001`..`C3-030` a **žádný mobilní řádek**.
+> **[F] Stav mimo tuto větev:** oba řádky už na mobilní větvi **nejsou**, ale
+> **existují** na `codex/legacy-listener-loopback-boundary` od commitu `f9b0b60`.
+> Co z toho plyne, je v §3.2 — a jedna část toho je přesně to, čemu měla §3.1
+> zabránit.
+
+`CAPABILITY-MATRIX.md` měl `C3-001`..`C3-030` a **žádný mobilní řádek**.
 Mobilní testy musí na něco ukazovat. Tři možnosti:
 
 | Varianta | Hodnocení |
@@ -144,6 +149,24 @@ Obsah toho commitu je pevný a nedělitelný:
 Tím nevznikne ani dočasně nepravdivá matice, ani visící registrace. Každý
 další mobilní test už jen opakuje kroky 2–5; capability řádky se přidávají
 jednou.
+
+### 3.2 Co se stalo na `codex/legacy-listener-loopback-boundary`
+
+**[F]** Commit `f9b0b60` (nad `d69afb3`) zavedl oba řádky do
+`CAPABILITY-MATRIX.md` spolu s hardeningem legacy listeneru. Ověřeno v tom
+commitu, ne převzato:
+
+| Zjištění | Hodnocení |
+|---|---|
+| `C3-031` má registrovaný test `IS-T1-TESTS-LEGACY-LISTENER-BOUNDARY-TEST` (`offline`, `ACTIVE`, `required`) ve **stejném commitu** jako capability řádek | ✅ **§3.1 splněna.** Není to mobilní test, ale přesně ten druh, pro který `C3-031` vzniklo — serverová hranice, která má cenu i bez telefonu |
+| `C3-032` je v matici, ale **v registru na něj neukazuje žádný test** | ⚠️ **To je stav, kterému měla §3.1 zabránit** — schopnost bez jediného ověření. Zbývá buď první `MX`/`MC` test, nebo řádek zatím vyjmout |
+| Status `HARDENING` u `C3-031` je **nová hodnota**; matice jinak používá jen `UNVERIFIED` (20×) a `BASELINE_RED` (11×) a `GATE-CRITERIA.md` ji nezná (0 výskytů) | ⚠️ Nový evidenční stav bez definice v autoritě pro verdikty. Buď se definuje, nebo se řádek vrátí na `UNVERIFIED` |
+| Fixture `isolated-host-policy` je **17. druh**; validátor fixtures proti seznamu neověřuje (`F-6` je obdobná díra) | ℹ️ přípustné, jen stojí za pojmenování |
+| Rozsah `G0-C5` je nově **200** sad; `GATE-CRITERIA.md` uvádí 199 | ℹ️ přesně ten posun otisku registru, který předpovídá §1 — kandidátský verdikt padá a evidence se generuje znovu |
+
+Tato větev na `CAPABILITY-MATRIX.md` ani na registr **nesáhla**; výše uvedené je
+zjištění o cizí větvi, ne návod, co s ním. Až se větve potkají, `C3-032` bez
+testu je jediná položka, která si žádá rozhodnutí.
 
 ---
 
