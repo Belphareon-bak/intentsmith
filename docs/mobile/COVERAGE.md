@@ -13,7 +13,7 @@
 pravidlo, pravidlo má datový typ a všechno to má plánovaný test. Slouží
 k hledání děr, ne k prokazování hotovosti.
 
-**Není evidence.** Ani jedna z 40 testovacích identit zde uvedených dnes
+**Není evidence.** Ani jedna ze 46 testovacích identit zde uvedených dnes
 neexistuje jako program. Autoritou o tom, co je zelené, zůstává
 `tests/registry.json` a generovaný `docs/convergence/STATUS.md`. Řádek v této
 matici znamená *„je rozmyšleno, čím se to prokáže"*, nikoli *„je to prokázané"*.
@@ -29,11 +29,11 @@ Rozdíl je celý Gate 0 v jedné větě: **plán pokrytí není pokrytí.**
 | Požadavky `MR-01`..`MR-23` | 23 | SCREENS §1 |
 | Toky `MS-01`..`MS-19` | 19 | SCREENS §4 |
 | Obrazovkové stavy `SS-01`..`SS-10` | 10 | SCREENS §2 |
-| Datové typy `MD-01`..`MD-18` | 18 | DATA-MODEL §4 |
-| Invarianty `I-1`..`I-10` | 10 | DATA-MODEL §1 |
-| Plánované testy | 40 v 9 rodinách | TEST-STRATEGY §7 |
+| Datové typy `MD-01`..`MD-19` | 19 | DATA-MODEL §4 |
+| Invarianty `I-1`..`I-11` | 11 | DATA-MODEL §1 |
+| Plánované testy | 46 v 9 rodinách | TEST-STRATEGY §7 |
 | Reziduální rizika `M-R1`..`M-R6` | 6 | DATA-MODEL §5.5 |
-| Otevřená rozhodnutí | 15 (7 `D-M`, 4 `D-T`, 4 `D-S`) + 5 z PLAN.md | §8 |
+| Otevřená rozhodnutí | 13 (7 `D-M`, 3 `D-T`, 3 `D-S`) + 5 z PLAN.md; `D-S1` a `D-T1` uzavřel operátor | §8 |
 
 **Ověřeno strojově napříč dokumenty:** každý požadavek má aspoň jeden tok
 (0 sirotků), každé testovací ID zmíněné u toku existuje v katalogu rodin
@@ -50,21 +50,21 @@ Rozdíl je celý Gate 0 v jedné větě: **plán pokrytí není pokrytí.**
 | `MR-03` rozeznatelná příčina nedostupnosti | 0 | `MS-03` | `MD-10` | MN-error-states, MV-diagnostics | `M-R4` |
 | `MR-04` seznam konverzací | 1 | `MS-06` | `MD-03`, `MD-13` | MC ×3 | `M-R3` |
 | `MR-05` historie a stránkování | 1 | `MS-07` | `MD-04`, `MD-13` | MC-only-explicit, MN-cursor, MN-pagination | `M-R3` |
-| `MR-06` odeslat zprávu, dostat odpověď najednou | 1 | `MS-08` | `MD-04`, `MD-14` | MO-mutations-refused | — |
+| `MR-06` odeslat zprávu, dostat odpověď najednou | 1 | `MS-08` | `MD-04`, `MD-14`, `MD-19` | MO-mutations-refused, MN-operation-key-reuse | — |
 | `MR-07` průběh běhu přes agent log | 1 | `MS-15` | `MD-09` | MV-log-redaction, MN-error-states | `M-R6` |
-| `MR-08` reconnect, přerušený turn označen | 1 | `MS-08`, `MS-15` | `MD-04`, `MD-09` | MO-draft-no-autosend | — |
+| `MR-08` reconnect, přerušený turn označen | 1 | `MS-08`, `MS-15` | `MD-04`, `MD-09`, `MD-19` | MO-draft-no-autosend, MO-operation-key-unknown-state | — |
 | `MR-09` offline čtení cachovaných konverzací | 1 | `MS-06`, `MS-07` | `MD-03`, `MD-04` | MC ×6 | `M-R1`, `M-R3` |
 | `MR-10` hledání | 1 | `MS-09` | `MD-03`, `MD-04` | MC-only-explicit | `M-R3` |
 | `MR-11` draft přežije zavření i offline | 1 | `MS-08` | `MD-14` | MO-draft-no-autosend, MO-draft-local-only | `M-R3` |
 | `MR-12` čtení nastavení | 2 | `MS-10` | `MD-01`, `MD-12` | MC-freshness, MS-client-hint-only | — |
-| `MR-13` změna nastavení | 2 | `MS-11` | `MD-01` | MO-mutations-refused, MC-stale-blocks-action, MS-security-routes-denied | `G0-R021` |
+| `MR-13` změna nastavení | 2 | `MS-11` | `MD-01`, `MD-19` | MO-mutations-refused, MC-stale-blocks-action, MS-security-routes-denied, MN-operation-key-conflict | `G0-R021` |
 | `MR-14` projekty a jejich fáze | 3 | `MS-12` | `MD-02`, `MD-13` | MC-freshness, MO-never-queued | `M-R3` |
 | `MR-15` fronta approvalů | 3 | `MS-13` | `MD-07` | MO-approval-hidden, MO-never-queued | — |
-| `MR-16` rozhodnutí o approvalu ★ | 3 | `MS-14` | `MD-07`, `MD-12` | MN-approval-idempotency, MO-never-queued, MC-stale-blocks-action, MS-fail-closed | `M-R2` |
+| `MR-16` rozhodnutí o approvalu ★ | 3 | `MS-14` | `MD-07`, `MD-12`, `MD-19` | MN-approval-idempotency, MN-operation-key-conflict, MO-never-queued, MO-operation-key-not-a-queue, MC-stale-blocks-action, MS-fail-closed | `M-R2` |
 | `MR-17` čtení uchovávaných informací | 4 | `MS-16` | `MD-06` | MC-only-explicit, MV-storage-class | **`M-R3` (nejvyšší hustota)** |
-| `MR-18` ruční poznámka | 4 | `MS-17` | `MD-06`, `MD-14` | MO-mutations-refused, MO-draft-no-autosend | — |
+| `MR-18` ruční poznámka | 4 | `MS-17` | `MD-06`, `MD-14`, `MD-19` | MO-mutations-refused, MO-draft-no-autosend, MN-operation-key-reuse | — |
 | `MR-19` stav agentů a historie | 5 | `MS-18` | `MD-17`, `MD-09` | MC-freshness, MO-never-queued | — |
-| `MR-20` dry-run agenta | 5 | `MS-19` | `MD-17` | MO-never-queued, MS-fail-closed | `G0-R021` |
+| `MR-20` dry-run agenta | 5 | `MS-19` | `MD-17`, `MD-19` | MO-never-queued, MS-fail-closed, MO-operation-key-unknown-state | `G0-R021` |
 | `MR-21` in-app notifikace | 1+ | `MS-05` | `MD-08` | MV-notification-content | `M-R5` |
 | `MR-22` správa a odvolání zařízení | 0 | `MS-04` | `MD-11`, `MD-12` | MS-token-expiry, ML-revoke-wipe, ML-revoke-cannot-wipe-offline | **`M-R1`** |
 | `MR-23` zámek aplikace | 0 | `MS-01` | `MD-11` | ML-logout-wipe, MC-expired-purge, ML-token-storage | **`M-R2`** |
@@ -101,10 +101,10 @@ serverovou hranici, která má cenu i kdyby žádný telefon nikdy nevznikl
 | **MP** pairing | 6 | `MS-02` |
 | **MS** scope | 4 | `MS-01`, `MS-04`, `MS-10`, `MS-11`, `MS-14`, `MS-19` |
 | **MC** cache | 6 | `MS-06`, `MS-07`, `MS-09`, `MS-10`, `MS-11`, `MS-12`, `MS-14`, `MS-16`, `MS-18` |
-| **MO** offline | 5 | `MS-08`, `MS-11`, `MS-12`, `MS-13`, `MS-14`, `MS-17`, `MS-18`, `MS-19` |
-| **ML** lifecycle | 5 | `MS-01`, `MS-04` |
+| **MO** offline | 7 | `MS-08`, `MS-11`, `MS-12`, `MS-13`, `MS-14`, `MS-17`, `MS-18`, `MS-19` |
+| **ML** lifecycle | 6 | `MS-01`, `MS-04` |
 | **MV** privacy | 4 | `MS-03`, `MS-05`, `MS-15`, `MS-16` |
-| **MN** contract | 4 | `MS-03`, `MS-07`, `MS-14`, `MS-15` |
+| **MN** contract | 7 | `MS-03`, `MS-07`, `MS-14`, `MS-15` |
 
 ---
 
@@ -127,6 +127,7 @@ serverovou hranici, která má cenu i kdyby žádný telefon nikdy nevznikl
 | `MD-13` kurzor | `MS-06`, `MS-07`, `MS-12` | MN-cursor-rejection | |
 | `MD-14` draft | `MS-08`, `MS-17` | MO-draft-no-autosend, MO-draft-local-only | jediný lokální originál |
 | `MD-15` lokální preference | **žádný konkrétní** | MV-storage-class | průřezové; viz `GAP-1` |
+| `MD-19` žurnál operací | `MS-04`, `MS-08`, `MS-11`, `MS-14`, `MS-17`, `MS-19` | MN-operation-key ×3, MO-operation-key ×2, ML-operation-journal-wipe | `D-S1`; jediné místo, kde je „nevím" trvalý stav |
 | `MD-16` párovací stav | `MS-02` | MP-code-not-persisted | |
 | `MD-17` agenti | `MS-18`, `MS-19` | MC-freshness, MO-never-queued | |
 | `MD-18` klientský log | **žádný konkrétní** | MV-log-redaction | průřezové; viz `GAP-1` |
@@ -158,7 +159,7 @@ Vypsané, protože nevypsaná díra je horší než přiznaná.
 |---|---|---|---|
 | **GAP-1** | `MD-15` a `MD-18` nemají vlastní tok — jsou průřezové | nízká | Nechat; `MV-storage-class` a `MV-log-redaction` je pokrývají napříč |
 | **GAP-2** | Tři z pěti MB testů jsou `server`, tedy `BLOCKED` až do vzniku vlastněného supervizoru | **vysoká** | Hranici do té doby **nelze prokázat**. Odtud plyne §7: žádné vzdálené zpřístupnění |
-| **GAP-3** | Stav `SS-10` (bezpečné opakování) stojí na klientském klíči operace, který zatím nikdo nevydává | střední | `D-S1` — bez rozhodnutí je `SS-10` nesplnitelný u `MS-08`, `MS-17`, `MS-19` |
+| ~~**GAP-3**~~ | ~~`SS-10` stojí na klíči operace, který nikdo nevydává~~ | — | **UZAVŘENA** rozhodnutím `D-S1`: závazný model v `MD-19` a SCREENS §5.1, šest testů v rodinách MN/MO/ML |
 | **GAP-4** | `MR-06` slibuje odpověď „najednou", protože token streaming neexistuje. Až vznikne, změní se tok `MS-08` i `MS-15` | nízká | Ponechat; `MR-06` je pravdivý popis dneška, ne cíl |
 | **GAP-5** | Žádný test nepokrývá `SS-01`..`SS-10` jako **úplnost** — tedy že tok žádný stav nevynechal | střední | Zvážit jeden `offline` test nad deklarativním popisem toků. Riziko: test, který kontroluje dokumentaci, ne chování |
 | **GAP-6** | Rodina MX má jediný řádek, který zastupuje celou testovací sadu klienta | střední | Přijatelné, pokud platí fail-closed z §5 TEST-STRATEGY. Jinak je to jeden bod, kde se schová cokoli |
@@ -195,11 +196,11 @@ přijatý `REMOTE_COMPANION`, mezi nimi nejsou — ADR 0001 zůstává nedotčen
 | `D-M5` | Konkrétní TTL | Přijmout výchozí, přeměřit po fázi 1 | — |
 | `D-M6` | Rozsah okna zpráv | 200 × 20 | `M-R3` |
 | `D-M7` | Cachovat diffy a obsah souborů | Ne pro 1.0 | `R-4` |
-| `D-T1` | `C3-031` a `C3-032` do CAPABILITY-MATRIX | Ano, dvě ID | **první řádek v registru** |
+| ~~`D-T1`~~ | `C3-031` a `C3-032` do CAPABILITY-MATRIX | **ROZHODNUTO:** oba řádky se přidají **atomicky ve stejném commitu jako první skutečný mobilní test** — viz TEST-STRATEGY §3 a §6 | — |
 | `D-T2` | Můstek na klientské testy | V-2 s pěti podmínkami | `GAP-6` |
 | `D-T3` | Kdy zapsat první mobilní řádek | Po dokončení integrační práce | — |
 | `D-T4` | Je `revoke-cannot-wipe-offline` test, nebo dokumentace? | Test | `M-R1` |
-| `D-S1` | Klientský klíč operace | Klient generuje, server odmítá duplicitu | **`GAP-3`** |
+| ~~`D-S1`~~ | Klientský klíč operace | **ROZHODNUTO:** 128bitový `operationId` na logickou mutaci, dedup podle `(deviceId, operationId)`, `UNKNOWN` bez nového klíče, klíč neopravňuje | — |
 | `D-S2` | Počet approvalů na domovské obrazovce | Živý údaj, offline mizí | `MS-13` |
 | `D-S3` | Serverové hledání mimo cache | Ano ve fázi 1 | `MS-09` |
 | `D-S4` | `MS-04` ve fázi 0? | Ano | `P-9` |

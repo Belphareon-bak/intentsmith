@@ -198,7 +198,7 @@ Jediná obrazovka, která má smysl i bez platného tokenu — má odpovědět n
 | `SS-07` | Bez scope na správu zařízení: seznam ano, odvolání uzamčené |
 | `SS-08` | Odvolání se **nefrontuje**; řekni, že se to nepovedlo |
 | `SS-09` | Zařízení už bylo odvoláno odjinud → ukaž aktuální stav, neopakuj |
-| `SS-10` | Odvolání je idempotentní: druhý pokus končí stejným stavem, ne chybou |
+| `SS-10` | Odvolání je idempotentní: druhý pokus končí stejným stavem, ne chybou. Nese klíč operace (`MD-19`) jako každá mutace |
 
 > **Obrazovka musí říct nahlas, co odvolání nedokáže:** zabrání novému přístupu,
 > ale nesmaže data, která už v odvolaném telefonu leží (`M-R1`, I-7).
@@ -287,7 +287,7 @@ Jediná obrazovka, která má smysl i bez platného tokenu — má odpovědět n
 | `SS-07` | Bez scope na zápis je editor uzamčený, ale draft se uchová |
 | `SS-08` | Jako `SS-03`, s jinou formulací příčiny |
 | `SS-09` | Konverzace mezitím archivovaná → nabídni jinou nebo novou, text neztrať |
-| `SS-10` | Opakování odeslání **jen s klientským klíčem operace**, jinak vznikne duplicitní zpráva. Bez potvrzené odpovědi se nikdy neopakuje automaticky |
+| `SS-10` | Opakování odeslání **jen s týmž klíčem operace** (`MD-19`), jinak vznikne duplicitní zpráva. Nejasný timeout → `UNKNOWN`; **nový klíč se nevyrábí**, řeší se přečtením konverzace |
 
 ---
 
@@ -348,7 +348,7 @@ Jediná obrazovka, která má smysl i bez platného tokenu — má odpovědět n
 | `SS-07` | Bezpečnostní sekce nedosažitelná ani se scopem (PLAN.md §2, pravidlo 4) |
 | `SS-08` | Odmítnout s vysvětlením |
 | `SS-09` | Souběžná změna → ukázat obě hodnoty a nechat rozhodnout. Nikdy tiché přepsání |
-| `SS-10` | Opakování až po načtení aktuální hodnoty; nikdy slepé opakované uložení |
+| `SS-10` | Opakování až po načtení aktuální hodnoty, a s týmž klíčem operace (`MD-19`); nikdy slepé opakované uložení |
 
 ---
 
@@ -414,7 +414,7 @@ Nejcennější a nejnebezpečnější tok aplikace.
 | `SS-07` | Chybí scope → **fail-closed**, zobrazit jen k náhledu bez rozhodování |
 | `SS-08` | Rozhodnout nelze; řekni to bez náznaku, že se to zkusí znovu |
 | `SS-09` | Approval mezitím vypršel, byl rozhodnut nebo se změnil payload → **rozhodnutí se zahodí**, načte se aktuální stav a začíná se znovu |
-| `SS-10` | Opakování jen jako **idempotentní zopakování téhož rozhodnutí téže položky s týmž otiskem**. Jiný otisk = jiná věc = nové rozhodnutí. Automatický retry **zakázán** |
+| `SS-10` | Opakování jen jako **idempotentní zopakování téhož rozhodnutí s týmž klíčem operace a týmž otiskem** (`MD-19`). Jiný otisk = jiná věc = nové rozhodnutí. Automatický retry **zakázán**. Klíč **neprodlužuje jednorázové oprávnění** approvalu (I-11) |
 
 > Tři pravidla, která z tohoto toku dělají to, čím má být:
 > 1. rozhoduje se **jen** o právě načteném stavu, nikdy o cachovaném;
@@ -485,8 +485,8 @@ ne přepis běhu.**
 | `SS-06` | Jako `MS-08` |
 | `SS-07` | Zápis do paměti bez scope je uzamčený |
 | `SS-08` | Odmítnout, text zachovat |
-| `SS-09` | Konflikt je nepravděpodobný (přidání), ale duplicita ano → opakování jen s klientským klíčem |
-| `SS-10` | Jako výše: bez klíče se neopakuje |
+| `SS-09` | Konflikt je nepravděpodobný (přidání), ale duplicita ano → opakování jen s týmž klíčem operace (`MD-19`) |
+| `SS-10` | Jako výše. `UNKNOWN` se řeší přečtením seznamu poznámek, ne druhým uložením |
 
 ---
 
@@ -528,7 +528,7 @@ ne přepis běhu.**
 | `SS-07` | Fail-closed |
 | `SS-08` | Odmítnout |
 | `SS-09` | Definice agenta se mezitím změnila → načíst znovu a nechat potvrdit |
-| `SS-10` | Opakování jen s klientským klíčem operace; nikdy automaticky |
+| `SS-10` | Opakování jen s týmž klíčem operace (`MD-19`); nikdy automaticky. `UNKNOWN` → přečíst stav běhu, ne spustit znovu |
 
 > Vytváření agentů je mimo 1.0 (PLAN.md §5). Dry-run je nejsilnější operace,
 > kterou telefon nad agenty smí — a i ta je příkaz.
@@ -552,6 +552,25 @@ ztratí.
 | **C-8** | Přerušený turn se označí jako přerušený; nepředstírá se pokračování |
 | **C-9** | Žádná obrazovka nezobrazí token — ani zkrácený, ani jako otisk |
 | **C-10** | Změna serverového stavu se přebírá; klient nikdy nevyhrává konflikt sám |
+| **C-11** | **Nejasný výsledek je stav, ne chyba.** `UNKNOWN` se řeší přečtením serverového stavu, nikdy novým klíčem ani slepým opakováním |
+
+### 5.1 Klíč operace — `D-S1`, rozhodnuto
+
+Bez tohoto modelu je `SS-10` u `MS-08`, `MS-11`, `MS-14`, `MS-17` a `MS-19`
+nesplnitelný, protože „opakuj bezpečně" nemá čím být bezpečné.
+
+| Pravidlo | Důsledek pro obrazovku |
+|---|---|
+| Klient vydá pro každou **logickou mutaci** náhodný 128bitový `operationId` | Tlačítko, které mutuje, drží klíč od prvního stisku |
+| Tentýž klíč přežije **všechny síťové retry téže operace** | „Zkusit znovu" po chybě sítě neplodí druhý efekt |
+| **Nové vědomé provedení = nový klíč** | Uživatel, který stiskne odeslat podruhé záměrně, odesílá skutečně podruhé |
+| Server deduplikuje podle `(deviceId, operationId)` | Tentýž klíč + tentýž otisk vrátí původní výsledek |
+| Tentýž klíč + **jiný payload** → fail-closed konflikt | Editace textu po neúspěšném odeslání **musí** vyrobit nový klíč, jinak skončí konfliktem — a to je správně |
+| Nejasný timeout → `UNKNOWN`, **nikdy nový klíč automaticky** | Obrazovka ukáže „výsledek neznámý" s nabídkou načíst aktuální stav, ne s tlačítkem „poslat znovu" |
+| Klíč **neopravňuje** | U approvalů, bezpečnostních a administrativních operací nenahrazuje ani neprodlužuje jednorázové oprávnění (I-11, I-4) |
+
+Detailní model včetně stavů žurnálu a jeho životního cyklu je `MD-19`
+v [DATA-MODEL.md](DATA-MODEL.md).
 
 ---
 
@@ -559,7 +578,7 @@ ztratí.
 
 | # | Otázka | Doporučení |
 |---|---|---|
-| **D-S1** | Klientský klíč operace pro odeslání zprávy, poznámku a dry-run — kdo ho generuje a jak dlouho platí | Klient generuje, server odmítá duplicitu. Bez toho není `SS-10` splnitelný |
+| ~~`D-S1`~~ | Klientský klíč operace | **ROZHODNUTO** operátorem — závazný model v §5.1 a `MD-19` |
 | **D-S2** | Ukazuje `MS-13` počet čekajících approvalů na domovské obrazovce, když je fronta necachovaná? | Ano, ale jen jako živý údaj; offline zmizí, nezůstane zastaralé číslo |
 | **D-S3** | Má `MS-09` nabízet serverové hledání mimo cachované okno? | Ano ve fázi 1, jinak je hledání matoucí |
 | **D-S4** | Vejde se `MS-04` (správa zařízení) do fáze 0, nebo je to fáze 2? | Fáze 0 — bez odvolání zařízení nemá `P-9` smysl |

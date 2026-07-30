@@ -139,10 +139,10 @@ Cesta: `tests/mobile/<rodina>-<případ>.test.js`, malými písmeny, pomlčky.
 | **MS — Scope** | `tests/mobile/scope-*` | `offline`, `database` | `C3-031` | Fail-closed scope enforcement, žádný tichý fallback |
 | **MP — Pairing** | `tests/mobile/pairing-*` | `database`, `server` | `C3-031` | Jednorázovost, TTL, odolnost proti hrubé síle, nemožnost eskalace, vypínač |
 | **MC — Cache** | `tests/mobile/cache-*` | `offline` | `C3-032` | FRESH/STALE/EXPIRED, úklid, invalidace, `I-2` |
-| **MO — Offline** | `tests/mobile/offline-*` | `offline` | `C3-032` | `I-3`, `I-4`, `I-5` — co se odmítne a co se nikdy nefrontuje |
+| **MO — Offline** | `tests/mobile/offline-*` | `offline` | `C3-032` | `I-3`, `I-4`, `I-5`, `I-11` — co se odmítne, co se nikdy nefrontuje a proč klíč operace není fronta |
 | **ML — Lifecycle** | `tests/mobile/lifecycle-*` | `offline`, `database` | `C3-032` | Logout, expirace, revokace: co se maže, v jakém pořadí, co zbyde |
 | **MV — Privacy** | `tests/mobile/privacy-*` | `offline` | `C3-032` | S2/S3 se nedostanou do logu, notifikací ani diagnostiky |
-| **MN — Contract** | `tests/mobile/contract-*` | `offline`, `server` | `C3-031` | Rozlišitelné chybové stavy, kurzor, idempotence approvalu (DATA-MODEL §8) |
+| **MN — Contract** | `tests/mobile/contract-*` | `offline`, `database`, `server` | `C3-031` | Rozlišitelné chybové stavy, kurzor, idempotence approvalu a deduplikace podle klíče operace (DATA-MODEL §8) |
 | **MX — Client** | `tests/mobile/client-*` | `offline` | `C3-032` | Most k testům klientské aplikace — viz §5 |
 
 ### 4.1 Proč je většina rodin `offline`
@@ -398,6 +398,8 @@ existují. Odkazuje se proto na **plánované ID**, které se odvodí z cesty po
 | `IS-T1-TESTS-MOBILE-OFFLINE-APPROVAL-HIDDEN-TEST` | `offline-approval-hidden` | `MD-07` se offline nezobrazí vůbec | `offline` |
 | `IS-T1-TESTS-MOBILE-OFFLINE-DRAFT-NO-AUTOSEND-TEST` | `offline-draft-no-autosend` | `I-5`: draft se po reconnectu neodešle sám | `offline` |
 | `IS-T1-TESTS-MOBILE-OFFLINE-DRAFT-LOCAL-ONLY-TEST` | `offline-draft-local-only` | `D-M1`: mobilní draft se nezapisuje do serverových draftů | `offline` |
+| `IS-T1-TESTS-MOBILE-OFFLINE-OPERATION-KEY-NOT-A-QUEUE-TEST` | `offline-operation-key-not-a-queue` | `I-11`: `PENDING`/`UNKNOWN` se nikdy neodešle sám; klíč neprodlužuje jednorázové oprávnění approvalu | `offline` |
+| `IS-T1-TESTS-MOBILE-OFFLINE-OPERATION-KEY-UNKNOWN-STATE-TEST` | `offline-operation-key-unknown-state` | Nejasný timeout → `UNKNOWN`; klient nevyrobí nový klíč automaticky | `offline` |
 
 ### ML — Lifecycle (`C3-032`)
 
@@ -408,6 +410,7 @@ existují. Odkazuje se proto na **plánované ID**, které se odvodí z cesty po
 | `IS-T1-TESTS-MOBILE-LIFECYCLE-EXPIRY-READONLY-TEST` | `lifecycle-expiry-readonly` | Po expiraci je cache read-only do konce TTL | `offline` |
 | `IS-T1-TESTS-MOBILE-LIFECYCLE-REVOKE-CANNOT-WIPE-OFFLINE-TEST` | `lifecycle-revoke-cannot-wipe-offline` | **`M-R1` je vlastnost:** revokace bez spojení nemaže nic. Test zamyká *dokumentovaný* limit, aby ho nikdo omylem „neopravil" tvrzením, že remote wipe funguje | `offline` |
 | `IS-T2-TESTS-MOBILE-LIFECYCLE-TOKEN-STORAGE-TEST` | `lifecycle-token-storage` | `I-6`: token nikdy v cache DB ani preferencích | `database` |
+| `IS-T1-TESTS-MOBILE-LIFECYCLE-OPERATION-JOURNAL-WIPE-TEST` | `lifecycle-operation-journal-wipe` | `MD-19`: logout a revokace mažou žurnál; expirace ho ponechává | `offline` |
 
 ### MV — Privacy (`C3-032`)
 
@@ -426,6 +429,9 @@ existují. Odkazuje se proto na **plánované ID**, které se odvodí z cesty po
 | `IS-T1-TESTS-MOBILE-CONTRACT-CURSOR-REJECTION-TEST` | `contract-cursor-rejection` | Odmítnutý kurzor → plný refresh, nikdy dopočet | `offline` |
 | `IS-T3-TESTS-MOBILE-CONTRACT-APPROVAL-IDEMPOTENCY-TEST` | `contract-approval-idempotency` | Druhé rozhodnutí je rozpoznatelný konflikt, ne druhé schválení | `server` |
 | `IS-T1-TESTS-MOBILE-CONTRACT-PAGINATION-END-TEST` | `contract-pagination-end` | Konec okna je explicitní; neúplný seznam se nezobrazí jako úplný | `offline` |
+| `IS-T1-TESTS-MOBILE-CONTRACT-OPERATION-KEY-REUSE-TEST` | `contract-operation-key-reuse` | Síťový retry drží tentýž klíč; nové vědomé provedení dostane nový | `offline` |
+| `IS-T3-TESTS-MOBILE-CONTRACT-OPERATION-KEY-CONFLICT-TEST` | `contract-operation-key-conflict` | Tentýž klíč s jiným payloadem → fail-closed konflikt, ne druhý efekt | `server` |
+| `IS-T2-TESTS-MOBILE-CONTRACT-OPERATION-KEY-PERSISTENCE-TEST` | `contract-operation-key-persistence` | Deduplikační záznam přežije retry interval i restart serveru | `database` |
 
 ### MX — Client (`C3-032`)
 

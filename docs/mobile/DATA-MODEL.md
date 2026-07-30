@@ -28,8 +28,8 @@ zpřístupnění.
 
 ## 1. Invarianty
 
-Devět pravidel, ze kterých se odvozuje každý řádek §4. Kde tabulka a invariant
-nesouhlasí, platí invariant a tabulka je chyba.
+Jedenáct pravidel, ze kterých se odvozuje každý řádek §4. Kde tabulka
+a invariant nesouhlasí, platí invariant a tabulka je chyba.
 
 | # | Invariant | Proč |
 |---|---|---|
@@ -43,6 +43,7 @@ nesouhlasí, platí invariant a tabulka je chyba.
 | **I-8** | Cachuje se jen to, co má konkrétní obrazovka pro offline čtení slíbeno. Ne „co zrovna přišlo z odpovědi". | Každý cachovaný bajt je bajt, který přežije ztrátu telefonu |
 | **I-9** | Každý cachovaný záznam nese `fetchedAt` a verzi/otisk od serveru. Bez toho nelze rozlišit čerstvé od zastaralého a §3 nemá na čem stát. | Obrazovkový stav „zastaralá cache" musí být odvoditelný, ne odhadnutý |
 | **I-10** | Cache je **odvozená a kdykoli zahoditelná**. Její ztráta nesmí znamenat ztrátu dat — s jedinou výjimkou `MD-14` (draft) a `MD-15` (lokální preference). | Test: smazání app dat nesmí uživatele o nic připravit |
+| **I-11** | **Klíč operace chrání před duplicitou, neopravňuje a neodkládá.** Záznam ve stavu `PENDING`/`UNKNOWN` se nikdy neodešle sám a u approvalů, bezpečnostních a administrativních operací nenahrazuje ani neprodlužuje jednorázové oprávnění. | Bez tohoto pravidla je žurnál operací fronta pod jiným jménem a I-3 i I-4 padají |
 
 ---
 
@@ -526,6 +527,54 @@ na telefon nepatří.
 
 ---
 
+### MD-19 — Žurnál operací (klíč operace)
+
+**[?] `D-S1` — rozhodnuto operátorem, závazný model.**
+
+Klient vydává pro každou **logickou mutaci** náhodný 128bitový `operationId`.
+Tentýž klíč přežije všechny síťové retry téže operace; **nové vědomé provedení
+dostane nový klíč.**
+
+Žurnál drží před prvním odesláním: `operationId`, identitu zařízení, typ
+operace, otisk kanonického požadavku, čas vzniku a stav
+`PENDING` / `CONFIRMED` / `REJECTED` / `UNKNOWN`.
+
+| Atribut | Hodnota |
+|---|---|
+| Zdroj pravdy | **Klient vydává klíč, server je autoritou nad výsledkem.** Žurnál je záznam o pokusu, ne o pravdě |
+| V telefonu | ano — jinak by klíč nepřežil restart aplikace, tedy právě ten případ, kvůli kterému existuje |
+| Citlivost | **S1** — typ operace a otisk. **Payload se do žurnálu neukládá nikdy** (jinak by to bylo S2) |
+| Úložiště | `ST-DB`, oddělený od dat |
+| TTL | `CONFIRMED`/`REJECTED` → úklid po 24 h. **`PENDING`/`UNKNOWN` se nemažou časem** — jen rozřešením nebo vědomým zahozením uživatelem |
+| Invalidace | výsledkem potvrzeným serverem |
+| Offline čtení | `READ_CACHED` — uživatel musí vidět, že výsledek operace zůstal neznámý |
+| Offline změny | `MUT-LOCAL-ONLY` pro žurnál samotný. **Žurnál není fronta** (I-11) |
+| `E-LOGOUT` | smazat; pokud existují `UNKNOWN` záznamy, upozornit, že jejich výsledek už nepůjde dohledat z telefonu |
+| `E-EXPIRE` | **ponechat** — po novém přihlášení lze `UNKNOWN` rozřešit přečtením serverového stavu |
+| `E-REVOKE` | smazat s cache |
+| Po ztrátě (`E-LOST`) | prozradí **typy** operací a jejich časy, ne obsah |
+
+**Pravidla, která z klíče dělají ochranu a ne frontu:**
+
+1. Tentýž klíč s **tímtéž otiskem** → server vrátí původní výsledek **bez nového
+   efektu**.
+2. Tentýž klíč s **jiným payloadem** → **fail-closed konflikt**. Jiný payload je
+   jiná operace; sdílení klíče je chyba klienta, ne důvod k domýšlení.
+3. **Nejasný timeout → `UNKNOWN`.** Klient v té chvíli **nesmí vyrobit nový
+   klíč** — tím by z jedné operace udělal dvě. `UNKNOWN` se řeší přečtením
+   serverového stavu, ne dalším pokusem naslepo.
+4. Approvaly, bezpečnostní a administrativní operace se offline **nefrontují ani
+   s klíčem**. Klíč je ochrana proti duplicitě uvnitř jednoho vědomého pokusu;
+   jednorázové oprávnění approvalu neprodlužuje ani nenahrazuje (I-11, I-4).
+5. Otisk se počítá z **kanonického** tvaru požadavku, aby se přeuspořádáním polí
+   nedala obejít pravidla 1 a 2.
+
+> Žurnál je jediné místo v klientovi, kde je „nevím" legitimní trvalý stav.
+> Všude jinde se nejistota překlápí na refresh; tady by refresh mohl operaci
+> provést podruhé.
+
+---
+
 ## 5. Ztráta telefonu
 
 Nedílná součást tohoto modelu. Tabulky v §4 mají sloupec `E-LOST` právě proto,
@@ -551,6 +600,7 @@ Nedílná součást tohoto modelu. Tabulky v §4 mají sloupec `E-LOST` právě 
 | Seznam projektů a fází (`MD-02`) | Párovací kód (`MD-16`) |
 | Hodnoty mobilní podmnožiny nastavení (`MD-01`) | Výstupy běhů agentů (`MD-17`) |
 | Neodeslané drafty (`MD-14`) | Cokoli mimo TTL — pokud úklid proběhl |
+| Typy a časy pokusů o operace (`MD-19`) | Payloady těch operací — žurnál drží jen otisk |
 | Adresa backendu a jeho verze (`MD-10`) | |
 | **Platný token do revokace** (`MD-11`) | |
 
@@ -605,6 +655,8 @@ Jedna tabulka, protože právě tohle se v návrzích nejčastěji rozjede.
 |---|---|
 | Číst cachované konverzace, zprávy, projekty, LTM, nastavení, notifikace, stav agentů | **ano**, se stářím a s viditelnou hranicí cache |
 | Psát a upravovat draft | **ano** |
+| Číst žurnál operací a jeho `UNKNOWN` stavy (`MD-19`) | **ano** — uživatel musí vidět, co zůstalo nerozřešené |
+| Odeslat operaci s dříve vydaným klíčem po připojení | **ne automaticky** — klíč není fronta (I-11) |
 | Odeslat zprávu | ne |
 | Změnit nastavení | ne |
 | Schválit nebo zamítnout approval | **nikdy** |
@@ -645,10 +697,18 @@ nezmrazují, dokud neplatí PLAN.md §8.
 4. **Approval nese vlastní expiraci a vazbu na otisk payloadu**, aby platilo
    `MD-07`.
 5. **Rozhodnutí o approvalu je idempotentní** a druhé odeslání je rozpoznatelný
-   konflikt, ne tiché druhé schválení.
+   konflikt, ne tiché druhé schválení. Idempotenci nese klíč operace z `MD-19`,
+   ale **nenahrazuje jednorázové oprávnění approvalu** — to zůstává jednorázové
+   i tehdy, když je klíč platný.
 6. **Serverem řízené stránkování s explicitním koncem**, aby klient poznal
    hranici okna a neukazoval neúplný seznam jako úplný (I-2).
 7. **Odpověď zmiňuje platný scope**, aby `MD-12` neputoval mimo realitu.
+8. **Server deduplikuje podle `(deviceId, operationId)`.** Shodný klíč se
+   shodným otiskem vrací původní výsledek bez nového efektu; shodný klíč s jiným
+   payloadem je fail-closed konflikt (`MD-19`).
+9. **Deduplikační záznam přežije celý podporovaný retry interval i restart
+   serveru.** Bez toho je klíč bezcenný přesně ve chvíli, kdy je nejpotřebnější
+   — po pádu nebo restartu, kdy klient nezná výsledek.
 
 ---
 
