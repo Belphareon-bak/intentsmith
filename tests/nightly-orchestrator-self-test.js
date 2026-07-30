@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import {
+  chmod,
   mkdir,
   mkdtemp,
   readdir,
@@ -69,6 +70,16 @@ try {
   assert.deepEqual(argumentValue(dryRun.commands.audit, '--profile').split(','), ['offline', 'database']);
   assert.equal(argumentValue(dryRun.commands.audit, '--timeout-ms'), String(8 * 60 * 60 * 1000));
   assert.deepEqual(dryRun.commands.install, ['npm', 'ci']);
+  assert.deepEqual(
+    dryRun.commands.pdfRuntime,
+    [
+      './scripts/install-pdf-runtime.sh',
+      '--venv',
+      dryRun.paths.pdfVenv,
+    ],
+  );
+  assert.equal(dryRun.environment.isolated.pdfPython, dryRun.paths.pdfPython);
+  assert.equal(dryRun.environment.isolated.pythonNoUserSite, true);
   assertNoUnsafeAuditFlags(dryRun.commands.audit);
   const serializedDryRun = JSON.stringify(dryRun);
   assert.equal(serializedDryRun.includes(SECRET_KEY), false);
@@ -127,8 +138,8 @@ try {
   assert.equal(failingAudit.runnerExitCode, 1);
   assert.equal(failingAudit.summaryExitCode, 0);
   assert.equal(failingAudit.auditContract.status, 'PASS');
-  assert.equal(failingAudit.auditContract.expectedSuiteCount, 192);
-  assert.deepEqual(failingAudit.auditContract.profileCounts, { offline: 171, database: 21 });
+  assert.equal(failingAudit.auditContract.expectedSuiteCount, 193);
+  assert.deepEqual(failingAudit.auditContract.profileCounts, { offline: 171, database: 22 });
   assert.equal(failingAudit.auditContract.reportVerdict, 'FAIL');
   assert.equal(failingAudit.summaryContract.status, 'PASS');
 
@@ -142,6 +153,32 @@ try {
   assert.deepEqual(metadata.blockerPolicy.allowBlockers, []);
   assert.equal(metadata.dependencyInstall.command, 'npm ci');
   assert.equal(metadata.dependencyInstall.lockfileOnly, true);
+  assert.equal(metadata.dependencyInstall.node.status, 'PASS');
+  assert.match(metadata.dependencyInstall.node.lockSha256, /^[a-f0-9]{64}$/);
+  assert.match(metadata.dependencyInstall.node.logSha256, /^[a-f0-9]{64}$/);
+  assert.equal(metadata.dependencyInstall.pdfRuntime.status, 'PASS');
+  assert.equal(
+    metadata.dependencyInstall.pdfRuntime.lockSha256,
+    createHash('sha256')
+      .update(await readFile(path.join(SOURCE_ROOT, 'requirements', 'pdf-export.lock')))
+      .digest('hex'),
+  );
+  assert.deepEqual(metadata.dependencyInstall.pdfRuntime.packages, {
+    'charset-normalizer': '3.4.4',
+    pillow: '12.3.0',
+    reportlab: '5.0.0',
+  });
+  assert.match(metadata.dependencyInstall.pdfRuntime.python, /^3\.12\.\d+$/);
+  assert.equal(metadata.dependencyInstall.pdfRuntime.policy.requireHashes, true);
+  assert.equal(metadata.dependencyInstall.pdfRuntime.policy.onlyBinary, true);
+  assert.equal(metadata.dependencyInstall.pdfRuntime.policy.noDependencies, true);
+  assert.equal(metadata.dependencyInstall.pdfRuntime.policy.isolatedPip, true);
+  assert.equal(metadata.dependencyInstall.pdfRuntime.policy.freshStagingVenv, true);
+  assert.match(
+    metadata.dependencyInstall.pdfRuntime.interpreter,
+    /\.venv\/pdf\/bin\/python$/,
+  );
+  assert.match(metadata.dependencyInstall.pdfRuntime.logSha256, /^[a-f0-9]{64}$/);
   assert.equal(metadata.auditContract.status, 'PASS');
   assert.equal(metadata.summaryContract.status, 'PASS');
 
@@ -154,6 +191,12 @@ try {
   assert.match(receivedEnvironment.C3_PROJECTS_DIR, /runtime\/projects$/);
   assert.equal(receivedEnvironment.C3_LIFECYCLE_AUTO_COMMIT, 'false');
   assert.equal(receivedEnvironment.C3_ENABLE_AUTONOMY, 'false');
+  assert.match(receivedEnvironment.INTENTSMITH_PDF_PYTHON, /\.venv\/pdf\/bin\/python$/);
+  assert.equal(
+    receivedEnvironment.C3_PDF_PYTHON,
+    receivedEnvironment.INTENTSMITH_PDF_PYTHON,
+  );
+  assert.equal(receivedEnvironment.PYTHONNOUSERSITE, '1');
   assert.equal(receivedEnvironment.UMASK, 0o077);
   process.umask(originalUmask);
   permissiveUmaskActive = false;
@@ -164,6 +207,7 @@ try {
   await assertMode(runDir, 0o700);
   await assertMode(path.join(runDir, 'metadata.json'), 0o600);
   await assertMode(path.join(runDir, 'audit-runner.log'), 0o600);
+  await assertMode(path.join(runDir, 'pdf-runtime-install.log'), 0o600);
   await assertMode(path.join(runDir, 'summary.json'), 0o600);
   await assertMode(path.join(runDir, 'audit-contract.json'), 0o600);
 
@@ -209,7 +253,7 @@ try {
   assert.equal(passingAudit.runnerExitCode, 0);
   assert.equal(passingAudit.summaryExitCode, 0);
   assert.equal(passingAudit.auditContract.reportVerdict, 'PASS');
-  assert.equal(passingAudit.auditContract.expectedSuiteCount, 192);
+  assert.equal(passingAudit.auditContract.expectedSuiteCount, 193);
   assert.equal(passingAudit.summaryContract.status, 'PASS');
   const passingMetadata = await readJson(
     path.join(artifactRoot, 'runs', 'selftest-passing-audit', 'metadata.json'),
@@ -312,6 +356,15 @@ try {
     worktreeRoot,
     runId: 'selftest-preflight-mutate',
     pattern: /Disposable source worktree is dirty/,
+  });
+
+  await commitFixtureMode(repo, 'pdf-runtime-mismatch');
+  await assertRejectedRun({
+    repo,
+    artifactRoot,
+    worktreeRoot,
+    runId: 'selftest-pdf-runtime-mismatch',
+    pattern: /PDF runtime package versions differ from policy/,
   });
 
   await assert.rejects(
@@ -540,13 +593,14 @@ try {
 async function writeFixtureRepo(repo) {
   await mkdir(path.join(repo, 'scripts'), { recursive: true });
   await mkdir(path.join(repo, 'tests'), { recursive: true });
+  await mkdir(path.join(repo, 'requirements'), { recursive: true });
 
   await writeFile(path.join(repo, 'package.json'), `${JSON.stringify({
     name: 'intentsmith-nightly-orchestrator-fixture',
     version: '1.0.0',
     type: 'module',
   }, null, 2)}\n`);
-  await writeFile(path.join(repo, '.gitignore'), '/.intentsmith-artifacts/\n');
+  await writeFile(path.join(repo, '.gitignore'), '/.intentsmith-artifacts/\n/.venv/\n');
   await writeFile(path.join(repo, 'package-lock.json'), `${JSON.stringify({
     name: 'intentsmith-nightly-orchestrator-fixture',
     version: '1.0.0',
@@ -560,6 +614,13 @@ async function writeFixtureRepo(repo) {
     },
   }, null, 2)}\n`);
   await writeJson(path.join(repo, 'fixture-mode.json'), { mode: 'valid' });
+  await writeFile(
+    path.join(repo, 'requirements', 'pdf-export.lock'),
+    await readFile(path.join(SOURCE_ROOT, 'requirements', 'pdf-export.lock')),
+  );
+  const fakePdfInstaller = path.join(repo, 'scripts', 'install-pdf-runtime.sh');
+  await writeFile(fakePdfInstaller, fakePdfInstallerSource(), { mode: 0o755 });
+  await chmod(fakePdfInstaller, 0o755);
 
   const registry = JSON.parse(
     await readFile(path.join(SOURCE_ROOT, 'tests', 'registry.json'), 'utf8'),
@@ -595,6 +656,35 @@ if (mode === 'preflight-fail') {
   );
   await writeFile(path.join(repo, 'scripts', 'nightly-audit.js'), fakeAuditRunnerSource());
   await writeFile(path.join(repo, 'scripts', 'audit-summary.js'), fakeSummarySource());
+}
+
+function fakePdfInstallerSource() {
+  return `#!/usr/bin/env bash
+set -euo pipefail
+if [ "$1" != "--venv" ] || [ -z "$2" ]; then
+  exit 2
+fi
+target="$2"
+case "$target" in /*) ;; *) exit 2 ;; esac
+lock_sha="$(sha256sum requirements/pdf-export.lock | cut -d ' ' -f1)"
+reportlab_version='5.0.0'
+if grep -q '"pdf-runtime-mismatch"' fixture-mode.json; then
+  reportlab_version='0.0.0'
+fi
+mkdir -p "$target/bin"
+chmod 700 "$target"
+printf '#!/bin/sh\\nexit 0\\n' > "$target/bin/python"
+chmod 755 "$target/bin/python"
+printf '%s\\n' \\
+  'format=1' \\
+  'status=ready' \\
+  "lock_sha256=$lock_sha" \\
+  'target=CPython 3.12 / Linux x86_64 / glibc 2.27+' \\
+  "versions={\\"packages\\":{\\"charset-normalizer\\":\\"3.4.4\\",\\"pillow\\":\\"12.3.0\\",\\"reportlab\\":\\"$reportlab_version\\"},\\"python\\":\\"3.12.3\\"}" \\
+  > "$target/.intentsmith-pdf-runtime"
+chmod 600 "$target/.intentsmith-pdf-runtime"
+echo 'fixture PDF runtime ready'
+`;
 }
 
 function fakeAuditRunnerSource() {
@@ -778,6 +868,9 @@ await writeFile(path.join(runDir, 'env.json'), JSON.stringify({
   C3_PROJECTS_DIR: process.env.C3_PROJECTS_DIR,
   C3_LIFECYCLE_AUTO_COMMIT: process.env.C3_LIFECYCLE_AUTO_COMMIT,
   C3_ENABLE_AUTONOMY: process.env.C3_ENABLE_AUTONOMY,
+  INTENTSMITH_PDF_PYTHON: process.env.INTENTSMITH_PDF_PYTHON,
+  C3_PDF_PYTHON: process.env.C3_PDF_PYTHON,
+  PYTHONNOUSERSITE: process.env.PYTHONNOUSERSITE,
   UMASK: process.umask()
 }, null, 2), { mode: 0o600 });
 await writeFile(path.join(runDir, 'inventory.json'), JSON.stringify(inventory, null, 2), { mode: 0o600 });

@@ -650,6 +650,13 @@ function makeSuiteEnvironment({
   for (const key of inheritedKeys) {
     if (process.env[key] !== undefined) env[key] = process.env[key];
   }
+  const pdfRuntimeKeys = [
+    'INTENTSMITH_PDF_PYTHON',
+    'C3_PDF_PYTHON',
+  ];
+  for (const key of pdfRuntimeKeys) {
+    if (process.env[key] !== undefined) env[key] = process.env[key];
+  }
 
   Object.assign(env, {
     HOME: homeDir,
@@ -674,6 +681,7 @@ function makeSuiteEnvironment({
     C3_LIFECYCLE_AUTO_COMMIT: 'false',
     C3_ENABLE_AUTONOMY: 'false',
     C3_LOG_LEVEL: 'warn',
+    PYTHONNOUSERSITE: '1',
   });
 
   if (suite.requirements.server) env.C3_URL = 'http://127.0.0.1:3335';
@@ -683,11 +691,14 @@ function makeSuiteEnvironment({
     env,
     evidence: {
       inheritedKeys: inheritedKeys.filter(key => process.env[key] !== undefined),
+      forwardedRuntimeKeys: pdfRuntimeKeys.filter(key => process.env[key] !== undefined),
       home: homeDir,
       temp: tempDir,
       database: env.C3_DB_PATH,
       projects: projectsDir,
       portFile: env.C3_PORT_FILE,
+      pdfPython: env.INTENTSMITH_PDF_PYTHON || env.C3_PDF_PYTHON || null,
+      pythonNoUserSite: true,
       xdg: {
         config: xdgConfigDir,
         cache: xdgCacheDir,

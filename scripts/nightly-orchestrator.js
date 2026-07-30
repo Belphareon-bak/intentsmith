@@ -47,8 +47,14 @@ const AUDIT_PROCESS_TIMEOUT_MS = DEFAULT_DEADLINE_MS + (5 * 60 * 1000);
 const SUMMARY_TIMEOUT_MS = 5 * 60 * 1000;
 const AUDIT_RUN_ID = 'product-audit';
 const AUDIT_PROFILES = ['offline', 'database'];
-const GATE0_REGISTRY_HASH = '4804c79e582e937d48fe59540b38233d35c48796b57a6793205b7ade3bb5d90a';
-const GATE0_PROFILE_COUNTS = { offline: 171, database: 21 };
+const GATE0_REGISTRY_HASH = 'f303ab7c2a4625a4859a4b595d6fa1bac0719a82ffff8d874c47766d105cc171';
+const GATE0_PROFILE_COUNTS = { offline: 171, database: 22 };
+const PDF_RUNTIME_PACKAGES = Object.freeze({
+  'charset-normalizer': '3.4.4',
+  pillow: '12.3.0',
+  reportlab: '5.0.0',
+});
+const PDF_RUNTIME_TARGET = 'CPython 3.12 / Linux x86_64 / glibc 2.27+';
 const REPORT_STATUSES = ['PASS', 'FAIL', 'TIMEOUT', 'BLOCKED', 'SKIPPED'];
 const TERMINATION_GRACE_MS = 10_000;
 const ACTIVE_OWNED_CHILDREN = new Map();
@@ -202,6 +208,23 @@ export async function runNightly(rawOptions = {}) {
   const dependencyInstall = {
     command: 'npm ci',
     lockfileOnly: true,
+    node: {
+      command: commands.install,
+      lockPath: 'package-lock.json',
+      status: 'PENDING',
+    },
+    pdfRuntime: {
+      command: commands.pdfRuntime,
+      lockPath: 'requirements/pdf-export.lock',
+      policy: {
+        requireHashes: true,
+        onlyBinary: true,
+        noDependencies: true,
+        isolatedPip: true,
+        freshStagingVenv: true,
+      },
+      status: 'PENDING',
+    },
   };
   try {
     await ensureNoExistingPath(paths.runDir, 'artifact run directory');
@@ -247,6 +270,18 @@ export async function runNightly(rawOptions = {}) {
       env: auditEnvironment,
       timeoutMs: INSTALL_TIMEOUT_MS,
     });
+    dependencyInstall.node = await collectNodeInstallEvidence(paths, commands.install);
+    await runLogged(commands.pdfRuntime, {
+      cwd: paths.worktree,
+      logPath: paths.pdfInstallLog,
+      env: auditEnvironment,
+      capture: true,
+      timeoutMs: INSTALL_TIMEOUT_MS,
+    });
+    dependencyInstall.pdfRuntime = await collectPdfRuntimeEvidence(
+      paths,
+      commands.pdfRuntime,
+    );
     await assertExactCleanWorktree(paths.worktree, sha);
     await writeJSON(paths.metadata, makeMetadata({
       opts,
@@ -458,6 +493,7 @@ function makePaths(opts, sha) {
     summaryContract: path.join(runDir, 'summary-contract.json'),
     launchLog: path.join(runDir, 'worktree.log'),
     installLog: path.join(runDir, 'npm-ci.log'),
+    pdfInstallLog: path.join(runDir, 'pdf-runtime-install.log'),
     auditLog: path.join(runDir, 'audit-runner.log'),
     summaryLog: path.join(runDir, 'audit-summary.log'),
     summaryJson: path.join(runDir, 'summary.json'),
@@ -472,6 +508,20 @@ function makePaths(opts, sha) {
     xdgDataDir: path.join(runDir, 'runtime', 'xdg', 'data'),
     xdgStateDir: path.join(runDir, 'runtime', 'xdg', 'state'),
     gitConfigPath: path.join(runDir, 'runtime', 'gitconfig'),
+    pdfVenv: path.join(
+      opts.worktreeRoot,
+      `${opts.runId}-${sha.slice(0, 12)}`,
+      '.venv',
+      'pdf',
+    ),
+    pdfPython: path.join(
+      opts.worktreeRoot,
+      `${opts.runId}-${sha.slice(0, 12)}`,
+      '.venv',
+      'pdf',
+      'bin',
+      'python',
+    ),
   };
 }
 
@@ -481,6 +531,11 @@ function makeCommandPlan(paths, opts) {
     fetch: makeFetchCommand(opts.remote, branchRef),
     worktree: ['git', 'worktree', 'add', '--detach', paths.worktree, '<source-sha>'],
     install: ['npm', 'ci'],
+    pdfRuntime: [
+      './scripts/install-pdf-runtime.sh',
+      '--venv',
+      paths.pdfVenv,
+    ],
     preflight: PREFLIGHT_COMMANDS,
     audit: [
       'node',
@@ -524,6 +579,9 @@ function makeAuditEnv(paths) {
     C3_LIFECYCLE_AUTO_COMMIT: 'false',
     C3_ENABLE_AUTONOMY: 'false',
     C3_LOG_LEVEL: 'warn',
+    INTENTSMITH_PDF_PYTHON: paths.pdfPython,
+    C3_PDF_PYTHON: paths.pdfPython,
+    PYTHONNOUSERSITE: '1',
   };
 }
 
@@ -541,6 +599,8 @@ function makeAuditEnvironmentEvidence(paths) {
       database: path.join(paths.runtimeDir, 'intentsmith-nightly.sqlite'),
       projects: paths.projectsDir,
       portFile: path.join(paths.runtimeDir, 'intentsmith.port'),
+      pdfPython: paths.pdfPython,
+      pythonNoUserSite: true,
     },
     secretValuesRecorded: false,
   };
@@ -580,6 +640,92 @@ async function prepareRuntime(paths) {
     await ensurePrivateDirectory(directory);
   }
   await writeFile(paths.gitConfigPath, '', { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+}
+
+async function collectNodeInstallEvidence(paths, command) {
+  const lockPath = path.join(paths.worktree, 'package-lock.json');
+  await assertRegularContainedFile(lockPath, paths.worktree, 'Node dependency lock');
+  await assertRegularContainedFile(paths.installLog, paths.runDir, 'Node dependency install log');
+  return {
+    command,
+    lockPath: 'package-lock.json',
+    lockSha256: await hashFile(lockPath),
+    logPath: paths.installLog,
+    logSha256: await hashFile(paths.installLog),
+    status: 'PASS',
+  };
+}
+
+async function collectPdfRuntimeEvidence(paths, command) {
+  const lockPath = path.join(paths.worktree, 'requirements', 'pdf-export.lock');
+  const markerPath = path.join(paths.pdfVenv, '.intentsmith-pdf-runtime');
+  await assertRegularContainedFile(lockPath, paths.worktree, 'PDF dependency lock');
+  await assertRegularContainedFile(markerPath, paths.pdfVenv, 'PDF runtime marker');
+  await assertRegularContainedFile(
+    paths.pdfInstallLog,
+    paths.runDir,
+    'PDF runtime install log',
+  );
+  await access(paths.pdfPython, fsConstants.X_OK);
+
+  const marker = parsePdfRuntimeMarker(await readFile(markerPath, 'utf8'));
+  const lockSha256 = await hashFile(lockPath);
+  requireContract(marker.format === '1', 'PDF runtime marker format mismatch');
+  requireContract(marker.status === 'ready', 'PDF runtime marker is not ready');
+  requireContract(marker.lock_sha256 === lockSha256, 'PDF runtime lock hash mismatch');
+  requireContract(marker.target === PDF_RUNTIME_TARGET, 'PDF runtime target mismatch');
+
+  let versions;
+  try {
+    versions = JSON.parse(marker.versions);
+  } catch (error) {
+    throw new Error(`Invalid PDF runtime version evidence: ${error.message}`);
+  }
+  requireContract(
+    isDeepStrictEqual(versions.packages, PDF_RUNTIME_PACKAGES),
+    'PDF runtime package versions differ from policy',
+  );
+  requireContract(
+    typeof versions.python === 'string' && /^3\.12\.\d+$/.test(versions.python),
+    'PDF runtime Python version differs from policy',
+  );
+
+  return {
+    command,
+    lockPath: 'requirements/pdf-export.lock',
+    lockSha256,
+    target: marker.target,
+    python: versions.python,
+    packages: versions.packages,
+    interpreter: paths.pdfPython,
+    policy: {
+      requireHashes: true,
+      onlyBinary: true,
+      noDependencies: true,
+      isolatedPip: true,
+      freshStagingVenv: true,
+    },
+    logPath: paths.pdfInstallLog,
+    logSha256: await hashFile(paths.pdfInstallLog),
+    status: 'PASS',
+  };
+}
+
+function parsePdfRuntimeMarker(contents) {
+  const marker = {};
+  for (const line of contents.split(/\r?\n/)) {
+    if (!line) continue;
+    const separator = line.indexOf('=');
+    if (separator <= 0) {
+      throw new Error(`Invalid PDF runtime marker line: ${line}`);
+    }
+    const key = line.slice(0, separator);
+    if (Object.hasOwn(marker, key)) {
+      throw new Error(`Duplicate PDF runtime marker key: ${key}`);
+    }
+    marker[key] = line.slice(separator + 1);
+  }
+  return marker;
 }
 
 async function runPreflight(paths, env, sourceRevision) {

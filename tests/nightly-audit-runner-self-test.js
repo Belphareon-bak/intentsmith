@@ -69,6 +69,9 @@ import path from 'node:path';
 writeFileSync(path.join(process.env.TMPDIR, 'observed-env.json'), JSON.stringify({
   HOME: process.env.HOME,
   C3_DB_PATH: process.env.C3_DB_PATH,
+  INTENTSMITH_PDF_PYTHON: process.env.INTENTSMITH_PDF_PYTHON,
+  C3_PDF_PYTHON: process.env.C3_PDF_PYTHON,
+  PYTHONNOUSERSITE: process.env.PYTHONNOUSERSITE,
   TEST_SECRET_SENTINEL: process.env.TEST_SECRET_SENTINEL,
   UMASK: process.umask(),
 }));
@@ -141,6 +144,9 @@ await assert.rejects(
 );
 
 process.env.TEST_SECRET_SENTINEL = 'must-not-reach-child';
+const expectedPdfPython = path.join(root, 'private-pdf-runtime', 'bin', 'python');
+process.env.INTENTSMITH_PDF_PYTHON = expectedPdfPython;
+process.env.C3_PDF_PYTHON = expectedPdfPython;
 process.umask(0o022);
 permissiveUmaskActive = true;
 const run = await runAudit({
@@ -154,6 +160,8 @@ const run = await runAudit({
   allowDirty: true,
 });
 delete process.env.TEST_SECRET_SENTINEL;
+delete process.env.INTENTSMITH_PDF_PYTHON;
+delete process.env.C3_PDF_PYTHON;
 assert.equal(process.umask(), 0o022, 'audit runner must restore its parent umask');
 
 assert.equal(run.inventory.total, 6);
@@ -192,8 +200,17 @@ const observedEnv = JSON.parse(await readFile(
 ));
 assert.equal(observedEnv.HOME, byPath.get('tests/pass.test.js').environment.home);
 assert.equal(observedEnv.C3_DB_PATH, byPath.get('tests/pass.test.js').environment.database);
+assert.equal(observedEnv.INTENTSMITH_PDF_PYTHON, expectedPdfPython);
+assert.equal(observedEnv.C3_PDF_PYTHON, expectedPdfPython);
+assert.equal(observedEnv.PYTHONNOUSERSITE, '1');
 assert.equal(observedEnv.TEST_SECRET_SENTINEL, undefined);
 assert.equal(observedEnv.UMASK, 0o077);
+assert.deepEqual(
+  byPath.get('tests/pass.test.js').environment.forwardedRuntimeKeys,
+  ['INTENTSMITH_PDF_PYTHON', 'C3_PDF_PYTHON'],
+);
+assert.equal(byPath.get('tests/pass.test.js').environment.pdfPython, expectedPdfPython);
+assert.equal(byPath.get('tests/pass.test.js').environment.pythonNoUserSite, true);
 process.umask(originalUmask);
 permissiveUmaskActive = false;
 assert.equal(new Set(run.results.map(result => result.environment?.database).filter(Boolean)).size, 6);
@@ -768,6 +785,8 @@ for (const signal of ['SIGTERM', 'SIGINT']) {
 console.log('nightly audit runner self-test: PASS');
 } finally {
   delete process.env.TEST_SECRET_SENTINEL;
+  delete process.env.INTENTSMITH_PDF_PYTHON;
+  delete process.env.C3_PDF_PYTHON;
   if (permissiveUmaskActive) process.umask(originalUmask);
   for (const fixture of activeSignalFixtures) {
     await cleanupRunnerSignalFixture(fixture).catch(() => {});
