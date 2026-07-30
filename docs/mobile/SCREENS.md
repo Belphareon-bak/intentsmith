@@ -326,9 +326,9 @@ Jediná obrazovka, která má smysl i bez platného tokenu — má odpovědět n
 | `SS-04` | Stáří viditelné; editace zamčená do refreshe |
 | `SS-05` | Refresh při návratu na obrazovku |
 | `SS-06` | Jako `MS-06` |
-| `SS-07` | Desktop-only sekce (`R-5`) se **nezobrazují vůbec** — nejsou to uzamčené prvky, na telefon nepatří |
+| `SS-07` | Desktop-only sekce se **nezobrazují vůbec** — nejsou to uzamčené prvky, na telefon nepatří. Dělení je závazné (`R-5`, `R5-1`) |
 | `SS-08` | Cache čitelná, editace neaktivní |
-| `SS-09` | Hodnota změněná na desktopu → převzít serverovou |
+| `SS-09` | Hodnota změněná na desktopu → **převzít serverovou** (`R5-4`) a u bezpečnostně významné hodnoty to **zobrazit**, ne přepsat potichu |
 | `SS-10` | Čtení, bezpečné |
 
 ---
@@ -345,9 +345,9 @@ Jediná obrazovka, která má smysl i bez platného tokenu — má odpovědět n
 | `SS-04` | **Nad `STALE` se needituje** — jinak uživatel přepíše cizí čerstvou změnu |
 | `SS-05` | Po reconnectu se rozdělaná změna **nepodá sama**; hodnota se načte znovu |
 | `SS-06` | Zamítnout, odhlásit |
-| `SS-07` | Bezpečnostní sekce nedosažitelná ani se scopem (PLAN.md §2, pravidlo 4) |
+| `SS-07` | Bezpečnostní sekce nedosažitelná ani se scopem (PLAN.md §2, pravidlo 4). **Žádná lokální volba nesmí rozšířit scope ani změkčit serverovou policy** (`R5-3`) |
 | `SS-08` | Odmítnout s vysvětlením |
-| `SS-09` | Souběžná změna → ukázat obě hodnoty a nechat rozhodnout. Nikdy tiché přepsání |
+| `SS-09` | Souběžná změna → ukázat obě hodnoty a nechat rozhodnout. Nikdy tiché přepsání. **U bezpečnostně významných hodnot vítězí server** a klient to jasně zobrazí (`R5-4`) |
 | `SS-10` | Opakování až po načtení aktuální hodnoty, a s týmž klíčem operace (`MD-19`); nikdy slepé opakované uložení |
 
 ---
@@ -405,7 +405,7 @@ Nejcennější a nejnebezpečnější tok aplikace.
 
 | Stav | Chování |
 |---|---|
-| `SS-01` | Rozhodovací tlačítka jsou neaktivní, dokud není načtený **kompletní** payload a jeho otisk |
+| `SS-01` | Rozhodovací tlačítka jsou neaktivní, dokud není načtený **kompletní** payload a jeho otisk. Zbývající čas vzdáleného okna (**15 min**, `R-3`) je vidět od začátku |
 | `SS-02` | Nenastane |
 | `SS-03` | **Nedostupné. Nikdy fronta, nikdy „odešle se později"** (I-4) |
 | `SS-04` | Nenastane — approval se nikdy nezobrazuje ze cache |
@@ -413,7 +413,7 @@ Nejcennější a nejnebezpečnější tok aplikace.
 | `SS-06` | Zahodit, odhlásit. Rozpracované rozhodnutí se neuchovává |
 | `SS-07` | Chybí scope → **fail-closed**, zobrazit jen k náhledu bez rozhodování |
 | `SS-08` | Rozhodnout nelze; řekni to bez náznaku, že se to zkusí znovu |
-| `SS-09` | Approval mezitím vypršel, byl rozhodnut nebo se změnil payload → **rozhodnutí se zahodí**, načte se aktuální stav a začíná se znovu |
+| `SS-09` | Approval mezitím vypršel, byl rozhodnut, změnil se payload, příkaz, oprávnění nebo bezpečnostně významný stav → **rozhodnutí se zahodí**, načte se aktuální stav. Po expiraci **nelze prodloužit** — vzniká nový approval request (`R-3`) |
 | `SS-10` | Opakování jen jako **idempotentní zopakování téhož rozhodnutí s týmž klíčem operace a týmž otiskem** (`MD-19`). Jiný otisk = jiná věc = nové rozhodnutí. Automatický retry **zakázán**. Klíč **neprodlužuje jednorázové oprávnění** approvalu (I-11) |
 
 > Tři pravidla, která z tohoto toku dělají to, čím má být:
@@ -421,8 +421,10 @@ Nejcennější a nejnebezpečnější tok aplikace.
 > 2. rozhodnutí je vázané na otisk payloadu — změna payloadu ruší rozhodnutí;
 > 3. druhé odeslání je rozpoznatelný konflikt, ne druhé schválení.
 >
-> Lokální vs. vzdálená TTL approvalu zůstává otevřená (`R-3`): pět minut je
-> pro telefon, který je v kapse, nedosažitelných.
+> **`R-3` uzavřeno:** lokální okno 5 minut, vzdálené 15 minut. Delší okno je
+> lhůta na rozhodnutí, ne delší platnost oprávnění — approval zůstává
+> jednorázový, vázaný na konkrétní run, operaci a přesný obsah, bez replay
+> a bez prodloužení. Detail v `MD-07` §`R-3`.
 
 ---
 

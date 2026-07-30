@@ -33,7 +33,7 @@ Rozdíl je celý Gate 0 v jedné větě: **plán pokrytí není pokrytí.**
 | Invarianty `I-1`..`I-11` | 11 | DATA-MODEL §1 |
 | Plánované testy | 51 v 9 rodinách | TEST-STRATEGY §7 |
 | Reziduální rizika `M-R1`..`M-R7` | 7 | DATA-MODEL §5.5 |
-| Otevřená rozhodnutí | 13 (7 `D-M`, 3 `D-T`, 3 `D-S`) + 5 z PLAN.md; `D-S1` a `D-T1` uzavřel operátor | §8 |
+| Otevřená rozhodnutí | 13 (7 `D-M`, 3 `D-T`, 3 `D-S`) + 3 z PLAN.md s gaty; `D-S1`, `D-T1`, `R-3`, `R-4` a `R-5` uzavřel operátor | §8 |
 
 **Ověřeno strojově napříč dokumenty:** každý požadavek má aspoň jeden tok
 (0 sirotků), každé testovací ID zmíněné u toku existuje v katalogu rodin
@@ -165,7 +165,7 @@ Vypsané, protože nevypsaná díra je horší než přiznaná.
 | **GAP-5** | Žádný test nepokrývá `SS-01`..`SS-10` jako **úplnost** — tedy že tok žádný stav nevynechal | střední | Zvážit jeden `offline` test nad deklarativním popisem toků. Riziko: test, který kontroluje dokumentaci, ne chování |
 | **GAP-6** | Rodina MX má jediný řádek, který zastupuje celou testovací sadu klienta | střední | Přijatelné, pokud platí fail-closed z §5 TEST-STRATEGY. Jinak je to jeden bod, kde se schová cokoli |
 | **GAP-7** | `MR-21` (notifikace) má jediný test a ten pokrývá obsah, ne doručení | nízká | Doručení je podle PLAN.md §6 produktový limit, ne funkce; testovat půjde až s kanálem |
-| **GAP-8** | **[F]** `C3-032` existuje v `CAPABILITY-MATRIX.md` na `codex/legacy-listener-loopback-boundary` (`f9b0b60`), ale **žádný registrovaný test na něj neukazuje** | střední | Přesně stav, kterému měla `D-T1` zabránit. Buď první `MC`/`MX` test, nebo řádek zatím vyjmout — viz TEST-STRATEGY §3.2 |
+| **GAP-8** | `C3-032` čeká na první test z této větve | nízká | **Závislost, ne díra této matice.** Řeší ji první mobilní test; evidenci o capability řádcích vede `codex/legacy-listener-loopback-boundary` — viz TEST-STRATEGY §3.2 |
 
 ---
 
@@ -198,7 +198,7 @@ přijatý `REMOTE_COMPANION`, mezi nimi nejsou — ADR 0001 zůstává nedotčen
 | `D-M5` | Konkrétní TTL | Přijmout výchozí, přeměřit po fázi 1 | — |
 | `D-M6` | Rozsah okna zpráv | 200 × 20 | `M-R3` |
 | `D-M7` | Cachovat diffy a obsah souborů | Ne pro 1.0 | `R-4` |
-| ~~`D-T1`~~ | `C3-031` a `C3-032` do CAPABILITY-MATRIX | **ROZHODNUTO:** oba řádky atomicky s prvním skutečným testem (TEST-STRATEGY §3.1). **[F]** Zavedeny na `codex/legacy-listener-loopback-boundary` v `f9b0b60`; `C3-031` s testem, `C3-032` zatím bez — viz §3.2 | `C3-032` |
+| ~~`D-T1`~~ | `C3-031` a `C3-032` do CAPABILITY-MATRIX | **ROZHODNUTO:** oba řádky atomicky s prvním skutečným testem (TEST-STRATEGY §3.1). Zavedeny na `codex/legacy-listener-loopback-boundary`; evidenci vede ta větev | `GAP-8` |
 | `D-T2` | Můstek na klientské testy | V-2 s pěti podmínkami | `GAP-6` |
 | `D-T3` | Kdy zapsat první mobilní řádek | Po dokončení integrační práce | — |
 | `D-T4` | Je `revoke-cannot-wipe-offline` test, nebo dokumentace? | Test | `M-R1` |
@@ -206,11 +206,12 @@ přijatý `REMOTE_COMPANION`, mezi nimi nejsou — ADR 0001 zůstává nedotčen
 | `D-S2` | Počet approvalů na domovské obrazovce | Živý údaj, offline mizí | `MS-13` |
 | `D-S3` | Serverové hledání mimo cache | Ano ve fázi 1 | `MS-09` |
 | `D-S4` | `MS-04` ve fázi 0? | Ano | `P-9` |
-| `M-1` | Expo/RN vs Flutter | Expo/RN + TS, development build | PLAN.md §9 |
-| `N-1` | Notifikace při spící appce | (a) pro fázi 0 | PLAN.md §9 |
-| `R-2` | Tailscale vs WireGuard | — | PLAN.md §9 |
-| `R-3` | Approval TTL lokální vs vzdálená | Rozlišit; 5 min je pro telefon nedosažitelných | `MS-14` |
-| `R-4` | Stahovatelnost diffů na telefon | Váže na `D-M7` | `MD-05` |
+| `M-1` | Expo/RN vs Flutter | Expo/RN + TS, development build — **gate:** před založením mobilního projektu / první UI | `MX` |
+| `N-1` | Notifikace při spící appce | (a) pro fázi 0 — **gate:** před zmrazením notifikační architektury; může vyžadovat APNs/FCM a serverovou registraci | `MR-21` |
+| `R-2` | Tailscale vs WireGuard | — **gate:** před prvním provozním nasazením vzdáleného přístupu | provoz, ne design |
+| ~~`R-3`~~ | Approval okna | **ROZHODNUTO:** lokální 5 min, vzdálené 15 min; jednorázový, vázaný na run/operaci/obsah, bez replay a bez prodloužení | — |
+| ~~`R-4`~~ | Stahovatelnost diffů | **ROZHODNUTO:** ne pro 1.0 — zobrazit ano; stáhnout, exportovat ani uložit ne | — |
+| ~~`R-5`~~ | Dělení nastavení | **ROZHODNUTO:** PLAN §5 závazné + invarianty `R5-1`..`R5-5` | — |
 
 ---
 
@@ -237,8 +238,10 @@ Aby se nečekalo, až to někdo objeví při čtení:
 |---|---|
 | Vznikne token streaming | `MR-06` přestane platit, mění se `MS-08` i `MS-15` (`GAP-4`) |
 | Padne `GAP-2` (hranice prokázaná) | Tři `MB` testy z `BLOCKED` na `ACTIVE`; teprve pak smí být řeč o vzdáleném zpřístupnění |
-| Uzavře se `R-5` (dělení nastavení) | Rozsah `MD-01`, a tím i toky `MS-10`/`MS-11` |
-| Uzavře se `R-3` (approval TTL) | `MD-07` a rozhodovací okno v `MS-14` |
+| ~~Uzavře se `R-5`~~ | **stalo se** — `MD-01` §`R-5`, toky `MS-10`/`MS-11` |
+| ~~Uzavře se `R-3`~~ | **stalo se** — `MD-07` §`R-3`, rozhodovací okno v `MS-14` |
+| ~~Uzavře se `R-4`~~ | **stalo se** — `MD-05` |
+| Padne `N-1` směrem k APNs/FCM | `MD-08`, tok `MS-05` a nová serverová registrační závislost |
 | Změní se `D-M6` (rozsah okna zpráv) | `M-R3`, tedy největší jednotlivý dopad ztráty telefonu |
 | Zvolí se jiná platforma než `M-1` | Rodina `MX` a podmínky můstku, ne zbytek matice |
 

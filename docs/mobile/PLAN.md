@@ -279,17 +279,30 @@ to je přesně ta třída tvrzení, kvůli které Gate 0 vznikl.
 | **`D-S1`** | Klíč operace: 128bitový `operationId`, dedup podle `(deviceId, operationId)`, `UNKNOWN` bez nového klíče, klíč neopravňuje | [DATA-MODEL.md](DATA-MODEL.md) `MD-19` §4.1–§4.3, [SCREENS.md](SCREENS.md) §5.1 |
 | **`D-T1`** | `C3-031` a `C3-032` se přidají **atomicky s prvním skutečným mobilním testem** | [TEST-STRATEGY.md](TEST-STRATEGY.md) §3.1 |
 | **`GAP-2`** | Do doby, než hranice projde testy: žádný bind mimo loopback, listener, pairing, `/m1` ani tvrzení o prokázané hranici | §8.1 tohoto dokumentu |
+| **`R-3`** | Approval okna: lokální **5 min**, vzdálené **15 min**; jednorázový, vázaný na run/operaci/obsah, bez replay a bez prodloužení | [DATA-MODEL.md](DATA-MODEL.md) `MD-07` §`R-3`, [SCREENS.md](SCREENS.md) `MS-14` |
+| **`R-4`** | Stahování diffů: **ne pro 1.0** — zobrazit ano, stáhnout/exportovat/uložit ne | [DATA-MODEL.md](DATA-MODEL.md) `MD-05` |
+| **`R-5`** | Dělení nastavení dle §5 je **závazné**, s pěti invarianty `R5-1`..`R5-5` | [DATA-MODEL.md](DATA-MODEL.md) `MD-01` §`R-5`, toky `MS-10`/`MS-11` |
 
 ### Stále otevřená
 
-| # | Otázka | Doporučení | Co na tom visí |
-|---|---|---|---|
-| **M-1** | Expo/RN vs Flutter | Expo/RN + TS, development build | rodina testů `MX` a její můstek |
-| **N-1** | Notifikace při spící appce | (a) pro Fázi 0, pak (b) jako opt-in | `MR-21`, tok `MS-05` |
-| R-2 | VPN: Tailscale vs WireGuard | — | nic z designu; čistě provozní volba |
-| R-3 | Approval TTL: lokální vs remote | rozlišit; 5 min je pro telefon nedosažitelných | `MD-07`, tok `MS-14` |
-| R-4 | Je diff obsah stahovatelný na telefon? | ne pro 1.0, viz `D-M7` | `MD-05`, `MD-07` |
-| R-5 | Dělení nastavení dle §5 | tabulka v §5 je návrh k potvrzení | `MD-01`, toky `MS-10`/`MS-11` |
+Zbývají tři. Žádné z nich není otevřené bez omezení — každé má **gate, do
+kterého musí padnout**, jinak blokuje to, co je za ním.
+
+| # | Otázka | Doporučení | **Rozhodnout nejpozději** | Co na tom visí |
+|---|---|---|---|---|
+| **M-1** | Expo/RN vs Flutter | Expo/RN + TS, development build | **před založením mobilního projektu nebo první implementací UI** | rodina `MX` a podmínky jejího můstku |
+| **N-1** | Notifikace při spící appce | (a) pro Fázi 0, pak (b) jako opt-in | **před zmrazením notifikační architektury** | `MR-21`, tok `MS-05` |
+| R-2 | VPN: Tailscale vs WireGuard | — | **před prvním provozním nasazením vzdáleného přístupu** | nic z designu; čistě provozní volba |
+
+**Proč právě tyhle gaty:**
+
+- **M-1** se po založení projektu mění draho — přepis klienta, ne volba knihovny.
+- **N-1** je nejtvrdší z trojice: podpora spící aplikace může vyžadovat
+  **APNs/FCM a serverovou registrační infrastrukturu**. To není přepínač v
+  klientovi, ale kus backendu a cloudová závislost, která se do architektury
+  nedá dolepit potom.
+- **R-2** nedrží nic z designu, ale drží provoz — a padnout musí dřív, než
+  poprvé něco poteče mimo loopback, tedy až po uzavření `GAP-2`.
 
 Plus sedm klientských rozhodnutí `D-M1`..`D-M7` v [DATA-MODEL.md](DATA-MODEL.md) §7,
 tři otevřená `D-T` v [TEST-STRATEGY.md](TEST-STRATEGY.md) §10 a tři otevřená

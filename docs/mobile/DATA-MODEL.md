@@ -121,8 +121,8 @@ Značení: `MD-xx`. Sloupec „Offline změny" používá:
 
 ### MD-01 — Nastavení (podmnožina viditelná na mobilu)
 
-Rozsah podmnožiny řeší `R-5` v PLAN.md §5; celá Security sekce a feature flags
-na telefon nepatří.
+**`R-5` uzavřeno:** tabulka dělení v PLAN.md §5 je **závazná**. Celá Security
+sekce a feature flags na telefon nepatří.
 
 | Atribut | Hodnota |
 |---|---|
@@ -142,6 +142,25 @@ na telefon nepatří.
 > Editace nastavení z telefonu je změna serverového stavu se skutečným
 > dopadem. Nikdy se needituje nad `STALE` daty — jinak uživatel přepíše hodnotu,
 > kterou už někdo změnil.
+
+#### `R-5` — pět invariantů dělení nastavení
+
+| # | Invariant | Kde se to projeví |
+|---|---|---|
+| **R5-1** | Bezpečnostní, autorizační, pairingové, projektové a serverové nastavení má **autoritativní zdroj na serveru** | `MD-01`, `MD-12`, `MD-16` |
+| **R5-2** | Vzhled, lokální cache a čistě zařízení specifické chování zůstává **lokální** | `MD-15` |
+| **R5-3** | **Lokální nastavení nesmí oslabit serverovou policy ani rozšířit scope** — je to preference, ne oprávnění | `MD-12` je nápověda, ne vynucení |
+| **R5-4** | Při konfliktu bezpečnostně významných hodnot **vítězí server** a klient ten stav **jasně zobrazí** | `SS-09` u `MS-10`/`MS-11` |
+| **R5-5** | Logout a revokace odstraní lokální **zařízení specifická a citlivá** nastavení **podle již definovaného datového modelu** | řádky `E-LOGOUT`/`E-REVOKE` v §4 |
+
+> `R5-5` nezavádí nové mazání a nepřebíjí §4. `MD-01` se při logoutu maže,
+> protože je to serverová hodnota v cache; `MD-15` (téma, hustota — `S0`)
+> zůstává, protože to nejsou data účtu. „Citlivá" je v `R5-5` určující slovo:
+> co je `S0` a čistě kosmetické, mazat není co.
+>
+> `R5-3` je jediný invariant s bezpečnostním zubem. Zbytek popisuje vlastnictví;
+> tenhle zakazuje obcházení — žádná lokální volba nesmí být cestou, jak si
+> přidat scope nebo změkčit serverové pravidlo.
 
 ---
 
@@ -228,7 +247,25 @@ na telefon nepatří.
 
 > Obrázky a soubory jsou nejobjemnější a nejhůř mazatelná kategorie (systémové
 > galerie, náhledy OS). Necachovat je nejlevnější bezpečnostní rozhodnutí, které
-> tento model dělá. Souvisí s `R-4` v PLAN.md (stahovatelnost diffů).
+> tento model dělá.
+
+**`R-4` — stahování diffů: uzavřeno jako NE pro 1.0** (v souladu s `D-M7`).
+
+Klient smí diff **bezpečně zobrazit**. Nepodporuje:
+
+- stažení diffu jako souboru;
+- export ani sdílení do jiné aplikace;
+- uložení do uživatelsky přístupného úložiště telefonu.
+
+To **není** zákaz nezbytné chráněné cache pro samotné zobrazení — ta smí
+existovat v mezích tohoto modelu (`ST-MEM`, případně `ST-DB` pod ochranou §2).
+Zakázaná je cesta ven: jakmile obsah opustí aplikaci, přestávají pro něj platit
+`E-LOGOUT`, `E-REVOKE` i celá §5, protože systémová galerie ani cizí aplikace
+o revokaci zařízení nevědí.
+
+Rozhodnutí o exportu se může vrátit v pozdější verzi — ale s **vlastním threat
+modelem**, ne jako drobné rozšíření tohoto. Diff schvalovaného approvalu se
+řídí i `MD-07`.
 
 ---
 
@@ -262,7 +299,7 @@ na telefon nepatří.
 | V telefonu | **jen v `ST-MEM`, nikdy na disk** |
 | Citlivost | **S2** (payload nese diff nebo příkaz) |
 | Úložiště | `ST-MEM` |
-| TTL | vázané na expiraci approvalu ze serveru, ne na klientský čas |
+| TTL | **`R-3` uzavřeno:** lokální okno **5 minut**, vzdálené okno **15 minut**. Autoritou je vždy serverová expirace, ne klientský čas |
 | Invalidace | před zobrazením i před odesláním rozhodnutí vždy znovu ověřit stav |
 | Offline čtení | `READ_NONE` — **offline se čekající approval nezobrazí vůbec** |
 | Offline změny | `MUT-NEVER-QUEUED` |
@@ -277,7 +314,30 @@ na telefon nepatří.
 >
 > Approval se schvaluje **jen** na základě právě načteného stavu, včetně
 > vazby na otisk payloadu a serverovou expiraci (PLAN.md §5, Fáze 3).
-> Rozlišení lokální vs. vzdálené TTL je otevřené `R-3`.
+
+#### `R-3` — rozdílná approval okna, uzavřeno
+
+| Okno | Délka | Pro koho |
+|---|---|---|
+| **lokální** | **5 minut** | operátor u stroje; delší okno tam nic neřeší |
+| **vzdálené** | **15 minut** | telefon v kapse — pět minut je pro něj nedosažitelných |
+
+Šest pravidel, která z delšího okna nedělají slabší oprávnění:
+
+1. Approval je **jednorázový**.
+2. Je vázaný na **konkrétní run, konkrétní operaci a přesný schvalovaný obsah**.
+3. **Jakákoli změna** příkazu, diffu, oprávnění nebo bezpečnostně významného
+   stavu approval **zneplatní** — okno na tom nic nemění.
+4. Delší vzdálené okno **neprodlužuje samotné oprávnění po jeho použití**.
+   Patnáct minut je lhůta na rozhodnutí, ne platnost výsledku.
+5. **Žádný replay.** Opakované odeslání téhož rozhodnutí je konflikt řešený
+   klíčem operace (`MD-19`), ne druhé schválení.
+6. Po expiraci **musí vzniknout nový approval request**. Prodloužení, obnovení
+   ani „ještě chvilku" neexistuje.
+
+> Delší okno je ústupek fyzice, ne bezpečnosti: telefon leží v kapse a jeho
+> majitel není u obrazovky. Rozšiřuje se **doba na rozhodnutí**, nikoli to,
+> co rozhodnutí zmůže.
 
 ---
 

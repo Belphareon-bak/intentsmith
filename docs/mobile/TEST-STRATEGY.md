@@ -150,23 +150,22 @@ Tím nevznikne ani dočasně nepravdivá matice, ani visící registrace. Každ�
 další mobilní test už jen opakuje kroky 2–5; capability řádky se přidávají
 jednou.
 
-### 3.2 Co se stalo na `codex/legacy-listener-loopback-boundary`
+### 3.2 Závislost na `codex/legacy-listener-loopback-boundary`
 
-**[F]** Commit `f9b0b60` (nad `d69afb3`) zavedl oba řádky do
-`CAPABILITY-MATRIX.md` spolu s hardeningem legacy listeneru. Ověřeno v tom
-commitu, ne převzato:
+**[F]** Oba capability řádky už existují — zavedl je commit `f9b0b60` na větvi
+`codex/legacy-listener-loopback-boundary` spolu s hardeningem legacy listeneru.
+Tvrzení v §3, že matice žádný mobilní řádek nemá, platilo jen do té chvíle.
 
-| Zjištění | Hodnocení |
+**Evidenci o tom vede ta větev, ne tato.** Její stav `CAPABILITY-MATRIX.md`,
+`tests/registry.json` a `RISK-REGISTER.md` je autoritativní; zde se nezrcadlí
+a neduplikuje. Mobilní větev z toho má jedinou závislost:
+
+| Závislost | Co s ní |
 |---|---|
-| `C3-031` má registrovaný test `IS-T1-TESTS-LEGACY-LISTENER-BOUNDARY-TEST` (`offline`, `ACTIVE`, `required`) ve **stejném commitu** jako capability řádek | ✅ **§3.1 splněna.** Není to mobilní test, ale přesně ten druh, pro který `C3-031` vzniklo — serverová hranice, která má cenu i bez telefonu |
-| `C3-032` je v matici, ale **v registru na něj neukazuje žádný test** | ⚠️ **To je stav, kterému měla §3.1 zabránit** — schopnost bez jediného ověření. Zbývá buď první `MX`/`MC` test, nebo řádek zatím vyjmout |
-| Status `HARDENING` u `C3-031` je **nová hodnota**; matice jinak používá jen `UNVERIFIED` (20×) a `BASELINE_RED` (11×) a `GATE-CRITERIA.md` ji nezná (0 výskytů) | ⚠️ Nový evidenční stav bez definice v autoritě pro verdikty. Buď se definuje, nebo se řádek vrátí na `UNVERIFIED` |
-| Fixture `isolated-host-policy` je **17. druh**; validátor fixtures proti seznamu neověřuje (`F-6` je obdobná díra) | ℹ️ přípustné, jen stojí za pojmenování |
-| Rozsah `G0-C5` je nově **200** sad; `GATE-CRITERIA.md` uvádí 199 | ℹ️ přesně ten posun otisku registru, který předpovídá §1 — kandidátský verdikt padá a evidence se generuje znovu |
+| `C3-031` má na cizí větvi vlastní registrovaný hraniční test | §3.1 je tím splněna. Mobilní rodiny `MB` a `MS` na `C3-031` **navážou**, nezakládají ho |
+| `C3-032` zatím nemá čím být ověřeno | **První mobilní test to napraví** — krok 0 v §6 tedy odpadá, zbývají kroky 1–5 |
 
-Tato větev na `CAPABILITY-MATRIX.md` ani na registr **nesáhla**; výše uvedené je
-zjištění o cizí větvi, ne návod, co s ním. Až se větve potkají, `C3-032` bez
-testu je jediná položka, která si žádá rozhodnutí.
+Nic dalšího z toho commitu tato větev neřeší ani nekomentuje.
 
 ---
 
