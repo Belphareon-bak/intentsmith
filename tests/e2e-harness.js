@@ -207,7 +207,9 @@ export async function checkOllama() {
 //   → commit
 //
 
-export function createExecutor(projectPath, techHint = 'Node.js') {
+export function createExecutor(projectPath, techHint = 'Node.js', dependencies = {}) {
+  const generate = dependencies.callLLM || callLLM;
+
   return {
     async start(request, metadata) {
       const msId = metadata.milestoneId;
@@ -248,7 +250,7 @@ ${langSuffix}`;
         const t0 = Date.now();
         try {
           // v97: temperature 0.1 for stable generation
-          const result = await callLLM('CODE', codePrompt, null, { temperature: 0.1 });
+          const result = await generate('CODE', codePrompt, null, { temperature: 0.1 });
           let content = result.content || '';
 
           // v97: Aggressive fence stripping + TS→JS transform
@@ -258,7 +260,7 @@ ${langSuffix}`;
           if (content.trim().length === 0) {
             console.log(`    [EXECUTOR]   ⚠ ${file.path} — empty content, retrying with explicit prompt...`);
             const retryPrompt = `${codePrompt}\n\nIMPORTANT: The previous attempt returned empty content. You MUST output the actual file content now. Do NOT output empty response.`;
-            const retry = await callLLM('CODE', retryPrompt, null, { temperature: 0.3 });
+            const retry = await generate('CODE', retryPrompt, null, { temperature: 0.3 });
             content = stripCodeFences(retry.content || '', ext);
           }
 
@@ -286,7 +288,7 @@ ${langSuffix}`;
             console.log(`    [EXECUTOR]   ✓ ${file.path} (${content.length} bytes, ${dt}s)`);
           } catch (syntaxErr) {
             console.log(`    [EXECUTOR]   ⚠ ${file.path} syntax error — attempting repair...`);
-            const repairResult = await repairCode(content, syntaxErr.stderr || syntaxErr.message, fullPath, callLLM);
+            const repairResult = await repairCode(content, syntaxErr.stderr || syntaxErr.message, fullPath, generate);
             const dt = ((Date.now() - t0) / 1000).toFixed(1);
             if (repairResult.repaired) {
               console.log(`    [EXECUTOR]   ✓ ${file.path} repaired (tier: ${repairResult.tier}, ${repairResult.attempts} attempts, ${dt}s)`);
@@ -296,6 +298,11 @@ ${langSuffix}`;
           }
         } catch (err) {
           console.log(`    [EXECUTOR]   ✗ ${file.path}: ${err.message}`);
+          return {
+            state: 'FAILED',
+            sessionId: `real-wf-${msId}`,
+            error: `Code generation failed for ${file.path}: ${err.message}`,
+          };
         }
       }
 

@@ -856,9 +856,7 @@ async function postExecution(lifecycle, milestone, wfResult) {
   const health = await computeHealthScore(lifecycle, milestone, wfResult, testResults);
 
   // ─── Decide: PASS or FAIL ──────────────────────────────────────────────
-  const passed = checkpointResult.passed
-    && scopeResult.violations.length === 0
-    && testResults.allPassed !== false;
+  const passed = canPassMilestone(checkpointResult, scopeResult, testResults);
 
   if (!passed) {
     const reason = [
@@ -1046,23 +1044,36 @@ async function postExecution(lifecycle, milestone, wfResult) {
  * Auto-detect and run pytest for Python projects even without explicit test_strategy.
  * Returns null if pytest not applicable, or a testResults-compatible object.
  */
-async function _runPytestIfAvailable(lifecycle, milestone) {
+async function _runPytestIfAvailable(
+  lifecycle,
+  milestone,
+  { execFile = execFileSync } = {},
+) {
   const scopeFiles = milestone.scope_files || [];
   const testFiles = scopeFiles.filter(f => /test_.*\.py$|_test\.py$/.test(f));
   if (testFiles.length === 0) return null; // No test files in this milestone's scope
 
   // Verify pytest is installed (fast check)
   try {
-    execFileSync('python3', ['-m', 'pytest', '--version'], { stdio: 'pipe', timeout: 5000 });
-  } catch {
-    logger.warn('LifecycleBuild', 'pytest not installed — skipping test gate', { milestoneId: milestone.id });
-    return { allPassed: null, summary: 'pytest not installed', results: [] };
+    execFile('python3', ['-m', 'pytest', '--version'], { stdio: 'pipe', timeout: 5000 });
+  } catch (err) {
+    const exitCode = Number.isInteger(err?.status) && err.status !== 0 ? err.status : 1;
+    logger.warn('LifecycleBuild', 'Required pytest gate unavailable — failing milestone test gate', {
+      milestoneId: milestone.id,
+      exitCode,
+    });
+    return {
+      allPassed: false,
+      exitCode,
+      summary: 'Required pytest gate unavailable for Python test files',
+      results: [],
+    };
   }
 
   logger.info('LifecycleBuild', 'Running pytest gate', { milestoneId: milestone.id, testFiles });
 
   try {
-    const out = execFileSync(
+    const out = execFile(
       'python3', ['-m', 'pytest', ...testFiles, '--tb=short', '-q', '--no-header'],
       { cwd: lifecycle.projectPath, stdio: 'pipe', timeout: 60000 }
     );
@@ -1179,6 +1190,12 @@ async function runTests(lifecycle, milestone) {
       strategy: testStrategy,
     };
   }
+}
+
+function canPassMilestone(checkpointResult, scopeResult, testResults) {
+  return checkpointResult.passed
+    && scopeResult.violations.length === 0
+    && testResults.allPassed !== false;
 }
 
 // ─── Milestone Checkpoint ────────────────────────────────────────────────────
@@ -2109,6 +2126,8 @@ export const _testInternals = {
   filterContextCandidatesToScope,
   buildScopeFallbackCandidates,
   matchesScopePattern,
+  runPytestIfAvailable: _runPytestIfAvailable,
+  canPassMilestone,
 };
 
 export default {

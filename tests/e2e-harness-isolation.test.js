@@ -120,6 +120,63 @@ test('owns project cleanup and writes private transcripts', () => {
   assertEqual(fs.statSync(childResult.transcriptPath).mode & 0o777, 0o600);
 });
 
+test('reports generation errors as FAILED before the completion marker', () => {
+  const childSource = `
+    import fs from 'fs';
+    const harness = await import('./tests/e2e-harness.js');
+    const projectPath = harness.resolveTestProjectPath('Generation-Failure');
+    fs.mkdirSync(projectPath, { recursive: true });
+
+    const projectId = Number(
+      harness.projects.create.run('Generation-Failure', projectPath, 'failure contract').lastInsertRowid,
+    );
+    const lifecycleId = 'lc-generation-failure';
+    const milestoneId = 'ms-generation-failure';
+    harness.lifecycleRepo.save(lifecycleId, projectId, 'BUILD', null, {});
+    harness.msRepo.addMilestone({
+      id: milestoneId,
+      lifecycle_id: lifecycleId,
+      roadmap_version: 1,
+      sequence: 1,
+      title: 'Generation failure',
+      description: 'Generation errors must fail closed',
+      status: 'EXECUTING',
+      dependencies: [],
+      estimated_loc: 10,
+      estimated_files: 1,
+      estimated_complexity: 'LOW',
+      local_plan: {
+        files: [{ path: 'src/generated.js', purpose: 'Exercise the failure contract' }],
+      },
+      scope_files: ['src/generated.js'],
+    });
+
+    const executor = harness.createExecutor(projectPath, 'Node.js', {
+      callLLM: async () => {
+        throw new Error('synthetic generation failure');
+      },
+    });
+    const result = await executor.start('Generate the planned file.', { milestoneId });
+    if (result.state !== 'FAILED') {
+      throw new Error('generation failure was reported as ' + result.state);
+    }
+    if (!result.error.includes('src/generated.js') ||
+        !result.error.includes('synthetic generation failure')) {
+      throw new Error('failure result lost actionable generation context');
+    }
+    console.log('GENERATION_FAILURE_RESULT ' + JSON.stringify(result));
+  `;
+  const result = runChild(childSource);
+
+  assertEqual(result.signal, null, `child terminated by ${result.signal}`);
+  assertEqual(result.status, 0, result.stderr || result.stdout);
+  assertIncludes(result.stdout, '"state":"FAILED"');
+  assert(
+    !result.stdout.includes('[EXECUTOR] ─── ms-generation-failure complete ───'),
+    'executor printed a completion marker after generation failed',
+  );
+});
+
 process.on('exit', (code) => {
   if (code === 0) {
     fs.rmSync(runRoot, { recursive: true, force: true });

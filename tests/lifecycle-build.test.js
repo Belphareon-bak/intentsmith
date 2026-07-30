@@ -31,6 +31,8 @@ const {
   filterContextCandidatesToScope,
   buildScopeFallbackCandidates,
   matchesScopePattern,
+  runPytestIfAvailable,
+  canPassMilestone,
 } = _testInternals;
 
 let passed = 0;
@@ -538,6 +540,56 @@ console.log('\n── Quick Win Helpers ──');
 
   assert(fallback.length === 1, 'buildScopeFallbackCandidates: keeps only concrete unique files');
   assert(fallback[0].file === 'src/in-scope.js', 'buildScopeFallbackCandidates: uses scope file path');
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// 10. Required pytest gate
+// ════════════════════════════════════════════════════════════════════════════════
+
+console.log('\n── Required pytest gate ──');
+
+{
+  let commandCalls = 0;
+  const result = await runPytestIfAvailable(
+    { projectPath: '/tmp/test' },
+    { id: 'ms-pytest-unavailable', scope_files: ['tests/test_generated.py'] },
+    {
+      execFile() {
+        commandCalls++;
+        const error = new Error('No module named pytest');
+        error.status = 1;
+        throw error;
+      },
+    },
+  );
+
+  assert(commandCalls === 1, 'pytest unavailable: probes the required tool once');
+  assert(result.allPassed === false, 'pytest unavailable: fails the test gate closed');
+  assert(result.exitCode === 1, 'pytest unavailable: records a non-zero exit code');
+  assert(
+    result.summary === 'Required pytest gate unavailable for Python test files',
+    'pytest unavailable: records the blocking prerequisite',
+  );
+  assert(
+    !canPassMilestone({ passed: true }, { violations: [] }, result),
+    'pytest unavailable: cannot satisfy the milestone PASS decision',
+  );
+}
+
+{
+  let commandCalled = false;
+  const result = await runPytestIfAvailable(
+    { projectPath: '/tmp/test' },
+    { id: 'ms-no-python-tests', scope_files: ['src/app.py'] },
+    {
+      execFile() {
+        commandCalled = true;
+      },
+    },
+  );
+
+  assert(result === null, 'pytest not applicable: preserves the no-test-file contract');
+  assert(!commandCalled, 'pytest not applicable: does not probe the tool');
 }
 
 // ════════════════════════════════════════════════════════════════════════════════

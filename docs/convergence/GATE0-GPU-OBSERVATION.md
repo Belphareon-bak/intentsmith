@@ -50,6 +50,9 @@ registry requirement `gpu: true` does not capture this headroom requirement.
 - Do not count this run or its milestone-level `PASSED` messages as green.
 - Keep the deterministic Gate 0 verdict separate; this suite is outside the
   199-suite offline/database acceptance scope.
-- Before this suite can provide release evidence, make generation failures and
-  missing test tooling fail the milestone, and specify a reproducible
-  model/context/VRAM prerequisite or a supported fallback.
+- The deterministic repair and mutation-sensitive coverage for generation
+  failures and unavailable `pytest` are recorded in
+  `GATE0-G0-R019-EVIDENCE.md`. They do not turn this failed model run green.
+- Before this suite can provide release evidence, specify a reproducible
+  model/context/VRAM prerequisite or a supported fallback and rerun it in that
+  environment.
