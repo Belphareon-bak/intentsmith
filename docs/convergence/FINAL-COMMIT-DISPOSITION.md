@@ -17,6 +17,22 @@ Compared refs:
 - `REBUILD / REPAIR`: preserve the product or test intent, but do not accept the
   exact patch until isolation, truthful exits, and focused verification are
   restored.
+
+  `REBUILD` is a condition on acceptance, not an instruction to rewrite a file.
+  It has three terminal states, and a record is not closed until it reaches one
+  of them. Collapsing them loses the distinction between a suite whose
+  assertions are provably wrong (costs work) and one that merely cannot run here
+  (costs hardware), which makes the remaining effort unplannable:
+
+  | Terminal state | Meaning |
+  |---|---|
+  | `REBUILD/ACCEPTED` | isolation restored, exits truthful, executed at a named commit with artifacts |
+  | `REBUILD/DEFERRED(<prerequisite>)` | isolation restored and exits truthful, but execution is blocked on a specific named prerequisite (GPU, Ollama, owned server, operator fixture). Closed, not pending. |
+  | `REBUILD/REPAIRED` | the assertions themselves were defective and were corrected; requires its own before/after evidence |
+
+  `REBUILD/DEFERRED` MUST name the missing capability. A record still carrying
+  bare `REBUILD/REPAIR` is one nobody has finished classifying, and is
+  indistinguishable in a ledger from one nobody has looked at.
 - `EXCLUDE / MOVE_OUTSIDE_PRODUCTION`: evidence or generated output stays outside the production tree; only sanitized metadata may be committed.
 - `EXCLUDE / REMOVE_FOLLOWUP`: the path must not exist in the clean candidate. Because this branch starts at the parent, removal is implemented non-destructively by never replaying it.
 - `UNRESOLVED / USER_DECISION`: requires an operator choice before activation. There are no diff paths in this state after the initial classification; remote incident-response choices remain separately recorded in `DECISIONS.md`.

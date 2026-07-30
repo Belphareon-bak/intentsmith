@@ -17,6 +17,15 @@
 | D-011 | The integration branch starts at clean C3 parent `a7b90e3`; classified `ffd21cf` changes are replayed as new clean commits | current user decision and non-destructive baseline strategy | ACCEPTED |
 | D-012 | Runtime/private/generated paths from `ffd21cf` are excluded by clean replay; the disputed ref remains untouched and no user data is deleted | Gate 0 disposition evidence | ACCEPTED |
 | D-013 | Raw test/model logs go only to ignored `.intentsmith-artifacts/`; committed evidence contains bounded summaries, commands, exits, SHAs, and checksums | current user decision and test system | ACCEPTED |
+| D-014 | Gate verdict wording is normative and lives in `GATE-CRITERIA.md`; a verdict names its candidate commit and registry fingerprint. Product/source/test/config changes invalidate it; a generated evidence-only attestation commit may name and follow the unchanged candidate | Gate 0 evidence design | ACCEPTED |
+| D-015 | The G0-C5 scope is the registry's reviewed deterministic T1/T2 profiles (`offline`, `database`), never an ad-hoc per-verdict subset. Currently 198 required ACTIVE suites: 172 offline + 26 database | normative test system and reviewed orchestrator policy | ACCEPTED |
+| D-016 | The privacy incident is excluded from CONDITIONAL PASS and carries its own verdict; CONDITIONAL PASS covers only prerequisites outside the codebase | current user decision | ACCEPTED |
+| D-017 | The 78 recovered E2E suites are activated one at a time against isolation → truthful exits → real execution; never as a set | current user decision | ACCEPTED |
+| D-018 | `REBUILD` closes into `ACCEPTED`, `DEFERRED(<prerequisite>)`, or `REPAIRED`; a bare `REBUILD/REPAIR` is unfinished classification | current user decision | ACCEPTED |
+| D-019 | Registry membership follows executability, not filename. Exclusions are explicit, reasoned rows validated like any other | current user decision | ACCEPTED |
+| D-020 | `STATUS.md`, `EVIDENCE-INDEX.json`, `GATE0-BASELINE-REPORT.md`, and the Opus packet are generated from a clean candidate commit. They live in one evidence-only attestation commit whose parent is that candidate; the generator refuses a dirty input tree | Gate 0 evidence design; avoids impossible self-referential commit SHAs | ACCEPTED |
+| D-021 | Gate 0 evidence must be reproducible by a third party from the commit alone: exact command, exit status, output SHA-256 | current user decision | ACCEPTED |
+| D-022 | `data/c3.db` is not read, deleted, reverted, or chmod-ed; the decision to leave it untouched is recorded as a decision with an owner | current user decision | ACCEPTED |
 
 ## Pending operator decisions
 
