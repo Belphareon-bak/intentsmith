@@ -343,11 +343,11 @@ override a failed or blocked suite.
 | `IS-T1-TESTS-SKILL-META-DETECTION-TEST` | `tests/skill-meta-detection.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-SKILL-ROUTING-CRE-TEST` | `tests/skill-routing-cre.test.js` | `C3-013` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-SMOKE-TEST` | `tests/smoke.test.js` | `C3-005` | T2 | `database` | 2 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
-| `IS-T5-TESTS-SOAK-ATTACHMENT-HEAVY-TEST` | `tests/soak/attachment-heavy.test.js` | `C3-027` | T5 | `soak` | 30 min | 60 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
-| `IS-T5-TESTS-SOAK-BREAK-PATTERN-PROBE-TEST` | `tests/soak/break-pattern-probe.test.js` | `C3-027` | T5 | `soak` | 30 min | 60 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
-| `IS-T5-TESTS-SOAK-FOLLOWUP-LOAD-TEST` | `tests/soak/followup-load.test.js` | `C3-027` | T5 | `soak` | 30 min | 60 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
-| `IS-T5-TESTS-SOAK-MIXED-SESSION-SIMULATION-TEST` | `tests/soak/mixed-session-simulation.test.js` | `C3-027` | T5 | `soak` | 30 min | 60 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
-| `IS-T5-TESTS-SOAK-SHORT-INPUT-STRESS-TEST` | `tests/soak/short-input-stress.test.js` | `C3-027` | T5 | `soak` | 30 min | 60 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
+| `IS-T5-TESTS-SOAK-ATTACHMENT-HEAVY-TEST` | `tests/soak/attachment-heavy.test.js` | `C3-027` | T5 | `soak` | 30 min | 60 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
+| `IS-T5-TESTS-SOAK-BREAK-PATTERN-PROBE-TEST` | `tests/soak/break-pattern-probe.test.js` | `C3-027` | T5 | `soak` | 30 min | 60 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
+| `IS-T5-TESTS-SOAK-FOLLOWUP-LOAD-TEST` | `tests/soak/followup-load.test.js` | `C3-027` | T5 | `soak` | 30 min | 60 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
+| `IS-T5-TESTS-SOAK-MIXED-SESSION-SIMULATION-TEST` | `tests/soak/mixed-session-simulation.test.js` | `C3-027` | T5 | `soak` | 30 min | 60 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
+| `IS-T5-TESTS-SOAK-SHORT-INPUT-STRESS-TEST` | `tests/soak/short-input-stress.test.js` | `C3-027` | T5 | `soak` | 30 min | 60 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SPECIALIST-HANDLER-TEST` | `tests/specialist-handler.test.js` | `C3-013` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SPECIALIST-LOADER-TEST` | `tests/specialist-loader.test.js` | `C3-013` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SPECIALIST-REGISTRIES-TEST` | `tests/specialist-registries.test.js` | `C3-013` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

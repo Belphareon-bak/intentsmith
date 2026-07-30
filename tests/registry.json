@@ -6916,11 +6916,11 @@
       "timeoutMs": 3600000,
       "expectedDurationMs": 1800000,
       "requirements": {
-        "network": "none",
+        "network": "loopback",
         "database": true,
         "server": false,
-        "ollama": false,
-        "gpu": false
+        "ollama": true,
+        "gpu": true
       },
       "required": true,
       "owner": "primary implementer",
@@ -6946,11 +6946,11 @@
       "timeoutMs": 3600000,
       "expectedDurationMs": 1800000,
       "requirements": {
-        "network": "none",
+        "network": "loopback",
         "database": true,
         "server": false,
-        "ollama": false,
-        "gpu": false
+        "ollama": true,
+        "gpu": true
       },
       "required": true,
       "owner": "primary implementer",
@@ -6976,11 +6976,11 @@
       "timeoutMs": 3600000,
       "expectedDurationMs": 1800000,
       "requirements": {
-        "network": "none",
+        "network": "loopback",
         "database": true,
         "server": false,
-        "ollama": false,
-        "gpu": false
+        "ollama": true,
+        "gpu": true
       },
       "required": true,
       "owner": "primary implementer",
@@ -7006,11 +7006,11 @@
       "timeoutMs": 3600000,
       "expectedDurationMs": 1800000,
       "requirements": {
-        "network": "none",
+        "network": "loopback",
         "database": true,
         "server": false,
-        "ollama": false,
-        "gpu": false
+        "ollama": true,
+        "gpu": true
       },
       "required": true,
       "owner": "primary implementer",
@@ -7036,11 +7036,11 @@
       "timeoutMs": 3600000,
       "expectedDurationMs": 1800000,
       "requirements": {
-        "network": "none",
+        "network": "loopback",
         "database": true,
         "server": false,
-        "ollama": false,
-        "gpu": false
+        "ollama": true,
+        "gpu": true
       },
       "required": true,
       "owner": "primary implementer",
