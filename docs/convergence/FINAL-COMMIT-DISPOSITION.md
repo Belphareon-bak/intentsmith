@@ -19,6 +19,11 @@ disputed Git range. It contains only repository identity, full source commit
 IDs, change status, paths, blob IDs and file modes. It contains no file content,
 runtime data, secrets or private values.
 
+The prose ledger does not make mutable content-identity assertions about an
+older candidate. Current candidate blob and mode identity is calculated for
+every row by `validate-final-disposition.js` and pinned through the structured
+report hash in the generated Gate 0 evidence.
+
 - schema: `intentsmith.c3-final-diff` version 1;
 - base: `a7b90e36aa80310305703f54f2332e1c0e7f9e8f`;
 - head: `ffd21cf119865259ea1847af989acb24916bebe3`;
@@ -83,8 +88,8 @@ node scripts/validate-final-disposition.js \
 | Git status | Path | Disposition | Action | Evidence-based rationale |
 |---|---|---|---|---|
 | `A` | `.c3-backend.log.old` | `EXCLUDE` | `REMOVE_FOLLOWUP` | Runtime log; no production source value and may contain operational data. |
-| `M` | `CLAUDE.md` | `REBUILD` | `REPAIRED` | Overwritten product guidance was reconstructed in `b860ae96d8f333acfa61724ba8065740059995d6` and aligned to the complete registry in `af539dccbb420ac32aed5e095eb6d69bc4ffcc37`; it is unchanged from attested candidate `22a9b848db1be69f6cd0657d5d0e9bffb44bcb19`. |
-| `M` | `README.md` | `REBUILD` | `REPAIRED` | Product status and test claims were reconstructed in `b860ae96d8f333acfa61724ba8065740059995d6` and aligned in `af539dccbb420ac32aed5e095eb6d69bc4ffcc37`; it is unchanged from attested candidate `22a9b848db1be69f6cd0657d5d0e9bffb44bcb19`. |
+| `M` | `CLAUDE.md` | `REBUILD` | `REPAIRED` | Overwritten product guidance was reconstructed in `b860ae96d8f333acfa61724ba8065740059995d6` and aligned to the complete registry in `af539dccbb420ac32aed5e095eb6d69bc4ffcc37`; `1a0b77946de0af7f195040d512c2a350e259a541` later synchronized the documented tool inventory with the fail-closed npm-audit repair. The current document is protected by the registered artifact-validation suite. |
+| `M` | `README.md` | `REBUILD` | `REPAIRED` | Product status and test claims were reconstructed in `b860ae96d8f333acfa61724ba8065740059995d6` and aligned in `af539dccbb420ac32aed5e095eb6d69bc4ffcc37`; `bae8106d0c137437162c05b03d441d7824a888b1` later refreshed the explicit ACTIVE/BLOCKED/KNOWN_DEFECTIVE counts. The current document is protected by the registered artifact-validation suite. |
 | `A` | `data/c3-recovered.sql` | `EXCLUDE` | `REMOVE_FOLLOWUP` | Runtime database, recovery, or backup artifact; potentially private and never replayed. |
 | `A` | `data/c3.db.bak-1775936499219` | `EXCLUDE` | `REMOVE_FOLLOWUP` | Runtime database, recovery, or backup artifact; potentially private and never replayed. |
 | `A` | `data/c3.db.corrupt-backup-20260325-132735` | `EXCLUDE` | `REMOVE_FOLLOWUP` | Runtime database, recovery, or backup artifact; potentially private and never replayed. |
@@ -167,12 +172,12 @@ node scripts/validate-final-disposition.js \
 | `A` | `e2e-review/README.md` | `EXCLUDE` | `MOVE_OUTSIDE_PRODUCTION` | Generated E2E project/evidence; retained only in disputed history, not production tree. |
 | `A` | `e2e-review/RUN3-full-log.txt` | `EXCLUDE` | `MOVE_OUTSIDE_PRODUCTION` | Generated E2E project/evidence; retained only in disputed history, not production tree. |
 | `A` | `login.html` | `EXCLUDE` | `REMOVE_FOLLOWUP` | Generated project output leaked into repository root; not C3 product source. |
-| `M` | `package-lock.json` | `REBUILD` | `REPAIRED` | The lockfile peer conflict is repaired; attestation `bf70c790231d7640f78c4b391551e3e91d7f40f3` records two consecutive isolated minimal installs at `22a9b848db1be69f6cd0657d5d0e9bffb44bcb19`, both exit 0. The file is unchanged since that candidate. |
-| `M` | `package.json` | `REBUILD` | `REPAIRED` | Product metadata and dependency intent are repaired; attestation `bf70c790231d7640f78c4b391551e3e91d7f40f3` records two consecutive isolated minimal installs at `22a9b848db1be69f6cd0657d5d0e9bffb44bcb19`, both exit 0. The file is unchanged since that candidate. |
+| `M` | `package-lock.json` | `REBUILD` | `REPAIRED` | The lockfile peer conflict is repaired. Candidate `82dbc3b30ad0c7329182dbe399705d874b004f2e` completed two consecutive isolated minimal installs, both exit 0; the generated baseline records their commands and log hashes. Current blob and mode resolution comes from the disposition validator report. |
+| `M` | `package.json` | `REBUILD` | `REPAIRED` | Product metadata and dependency intent are repaired. Candidate `82dbc3b30ad0c7329182dbe399705d874b004f2e` completed two consecutive isolated minimal installs, both exit 0; the generated baseline records their commands and log hashes. Current blob and mode resolution comes from the disposition validator report. |
 | `M` | `src/chat/context-compact.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
 | `M` | `src/chat/cre-decision.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
 | `M` | `src/chat/handlers/decisions.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
-| `M` | `src/config.js` | `REBUILD` | `REPAIRED` | Unbounded runtime timeouts were replaced by the explicit bounded policy in `de3eaf6c3e2004b8f69d63affe65e79b63b6aaab`; the file is unchanged from the 199/199 deterministic candidate attested by `bf70c790231d7640f78c4b391551e3e91d7f40f3`. |
+| `M` | `src/config.js` | `REBUILD` | `REPAIRED` | Unbounded runtime timeouts were replaced by the explicit bounded policy in `de3eaf6c3e2004b8f69d63affe65e79b63b6aaab`; `968d6d366d5c5d0e8dfd1e3214448907d0f89348` later removed the implicit operator-database fallback. The explicit database contract and complete deterministic run cover the current repair. |
 | `M` | `src/db/database.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
 | `M` | `src/llm/gateway.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
 | `A` | `src/llm/model-ctx.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
@@ -182,7 +187,7 @@ node scripts/validate-final-disposition.js \
 | `M` | `src/planner/lifecycle-planning.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
 | `M` | `src/planner/milestone-decomposer.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
 | `M` | `src/planner/quality-gate.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
-| `M` | `src/server.js` | `REBUILD` | `REPAIRED` | Bounded timeout policy and centralized mutable model lifecycle were wired by `de3eaf6c3e2004b8f69d63affe65e79b63b6aaab` and `7d3e465033e37ad147f7fad806b09d523bac3eda`; the file is unchanged from the 199/199 deterministic candidate attested by `bf70c790231d7640f78c4b391551e3e91d7f40f3`. |
+| `M` | `src/server.js` | `REBUILD` | `REPAIRED` | Bounded timeout policy and centralized mutable model lifecycle were wired by `de3eaf6c3e2004b8f69d63affe65e79b63b6aaab` and `7d3e465033e37ad147f7fad806b09d523bac3eda`; later repairs reject oversized bodies safely (`e8ddb7cade47f1c895fda1b14137081d452b9d2a`), write private port files (`8e6cd4147dd154d28212a5c8e9be271d4b8b367c`), establish the explicit runtime database bootstrap (`968d6d366d5c5d0e8dfd1e3214448907d0f89348`) and bind the attachment capability nonce (`ab0b9e5601cf8256684304832cedb326f1015ef2`). Focused mutations and the complete deterministic run cover the current repair. |
 | `M` | `src/upgrade/online-discovery.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
 | `M` | `src/upgrade/registry-client.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
 | `A` | `templates/admin/dashboard.html` | `EXCLUDE` | `REMOVE_FOLLOWUP` | Generated project output leaked into repository root; not C3 product source. |
@@ -318,9 +323,9 @@ node scripts/validate-final-disposition.js \
 | `452b1f7688e7624d30b81daabcb0be3b18a64cd0` | `tests/e2e/200-s1-minic3-p1.e2e.js` … `tests/e2e/211-s2-shopflow-p6.e2e.js` | `node tests/e2e/_helpers.self-check.js` | 0 | all 12 source contracts preserve terminal thresholds before completion/save; both P6 cleanup paths are protected by `finally` |
 | `c0471924d7a445c4be0d9256c06154bd970f53f8` | `tests/e2e/_helpers.js` | `node tests/e2e/_helpers.self-check.js` | 0 | negative fixtures rejected HTTP 202/500, absent IDs and empty responses; positive exact-200 and valid-ID fixtures passed |
 | `c0471924d7a445c4be0d9256c06154bd970f53f8` | model suites `70–74`, `79`, `82`, `85`, `87`, `89`, `92`, `93`, `95–98` | `node --check <each of the 16 listed files>` | 0 | syntax valid; static inspection found no bare early-return, accepted 5xx or assertion bypass, so execution alone is deferred to the named model fixture |
-| `22a9b848db1be69f6cd0657d5d0e9bffb44bcb19` | `package.json`, `package-lock.json`, `src/config.js`, `src/server.js` | commands and output hashes in attestation `bf70c790231d7640f78c4b391551e3e91d7f40f3` | 0 | two isolated minimal installs and the complete 199-program deterministic registry passed; current four files are byte-identical to the candidate |
+| `82dbc3b30ad0c7329182dbe399705d874b004f2e` | `package.json`, `package-lock.json`, `src/config.js`, `src/server.js` | commands and output hashes in attestation `f11026f062e5d2e75fe6802a3e4e2ad38a6c9dab` | 0 | two isolated minimal installs and the complete 199-program deterministic registry passed with the later database, port-file, body-limit and capability hardening included |
 | `b188e54bc339557b316676cc27619457710bb0bf` | registry mappings and `tests/artifact-validation.test.js` | `node scripts/validate-test-registry.js`; `node tests/artifact-validation.test.js` | 0 / 0 | 350 runnable programs validated with SHA-256 `f930d637…`; artifact/manifest/D-018 suite reported 31 passed, 0 failed |
-| `b188e54bc339557b316676cc27619457710bb0bf` | `CLAUDE.md`, `README.md`, legacy backend reference | `git diff --name-status 22a9b848…HEAD -- <listed paths>` plus disposition resolution | 0 | product docs are unchanged from the attested reconstruction; unsafe legacy symlink is absent and its portable target resolves as `MAPPED_REPAIR` |
+| `82dbc3b30ad0c7329182dbe399705d874b004f2e` | `CLAUDE.md`, `README.md`, legacy backend reference | `node tests/artifact-validation.test.js`; disposition resolution | 0 | registered documentation checks preserve reconstructed product guidance and current registry facts; the unsafe legacy symlink is absent and its portable target resolves as `MAPPED_REPAIR` |
 | `06d49847988ae3fb65711fe6bf737c08c0e3ac0c` | server suites `01–03`, `05` and `src/routes/chat.js` | `node --check <each changed source>`; `node tests/routes-smoke.test.js` | 0 / 0 | no early-return or accepted 5xx pattern remains in the closed records; route regression reported 39 passed and proves invalid messages never reach the controller |
 
 ## Incident-response decisions outside this diff

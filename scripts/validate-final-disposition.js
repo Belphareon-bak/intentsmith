@@ -115,14 +115,33 @@ export function validateDispositionActions(rows) {
   return errors;
 }
 
+export function validateDispositionDocument(markdown) {
+  const errors = [];
+  if (typeof markdown !== 'string' || markdown.trim() === '') {
+    return ['disposition document markdown is required'];
+  }
+  const mutableIdentityClaim = /\b(?:unchanged|byte-identical)\b/i;
+  for (const [index, line] of markdown.split('\n').entries()) {
+    if (!mutableIdentityClaim.test(line)) continue;
+    errors.push(
+      `disposition document line ${index + 1} uses an unenforced mutable `
+      + 'identity claim; candidate blob and mode identity must come from '
+      + 'the structured validator report',
+    );
+  }
+  return errors;
+}
+
 export function validateAndResolve({
   manifest,
   dispositionRows,
+  dispositionMarkdown = '',
   candidateRoot = repoRoot,
   sourceRepo = null,
 }) {
   const errors = validateDiffManifest(manifest);
   errors.push(...validateDispositionActions(dispositionRows));
+  errors.push(...validateDispositionDocument(dispositionMarkdown));
   if (sourceRepo) errors.push(...compareManifestToSource(manifest, sourceRepo));
 
   const records = Array.isArray(manifest?.records) ? manifest.records : [];
@@ -257,12 +276,14 @@ export function countBy(values, key) {
 export function buildValidationReport({
   manifest,
   dispositionRows,
+  dispositionMarkdown,
   candidateRoot = repoRoot,
   sourceRepo = null,
 }) {
   const { errors, resolutions } = validateAndResolve({
     manifest,
     dispositionRows,
+    dispositionMarkdown,
     candidateRoot,
     sourceRepo,
   });
@@ -430,10 +451,12 @@ function writePrivateReport(reportPath, report) {
 function main() {
   const options = parseCliArgs(process.argv.slice(2));
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  const dispositionRows = parseDispositionRows(readFileSync(dispositionPath, 'utf8'));
+  const dispositionMarkdown = readFileSync(dispositionPath, 'utf8');
+  const dispositionRows = parseDispositionRows(dispositionMarkdown);
   const report = buildValidationReport({
     manifest,
     dispositionRows,
+    dispositionMarkdown,
     sourceRepo: options.sourceRepo,
   });
 

@@ -21,6 +21,7 @@ import {
   validateDiffManifest,
 } from '../scripts/final-disposition-manifest.js';
 import {
+  validateDispositionDocument,
   validateDispositionActions,
 } from '../scripts/validate-final-disposition.js';
 import {
@@ -312,6 +313,11 @@ test('missing source head metadata is rejected', () => {
 
 suite('D-018 terminal disposition states');
 
+const committedDispositionMarkdown = readFileSync(
+  new URL('../docs/convergence/FINAL-COMMIT-DISPOSITION.md', import.meta.url),
+  'utf8',
+);
+
 function rebuildRow(action) {
   return [{
     status: 'M',
@@ -349,6 +355,29 @@ test('DEFERRED with concrete canonical prerequisites is accepted', () => {
     ).length,
     0,
   );
+});
+
+test('committed disposition has no unenforced mutable identity claims', () => {
+  assertEqual(validateDispositionDocument(committedDispositionMarkdown).length, 0);
+});
+
+test('missing disposition document is rejected', () => {
+  const errors = validateDispositionDocument('');
+  assert(includesError(errors, 'document markdown is required'));
+});
+
+test('stale unchanged candidate prose is rejected', () => {
+  const errors = validateDispositionDocument(
+    'The file is unchanged from attested candidate `0123456789012345678901234567890123456789`.',
+  );
+  assert(includesError(errors, 'unenforced mutable identity claim'));
+});
+
+test('stale byte-identical candidate prose is rejected', () => {
+  const errors = validateDispositionDocument(
+    'The current files are byte-identical to the earlier candidate.',
+  );
+  assert(includesError(errors, 'unenforced mutable identity claim'));
 });
 
 suite('Gate 0 risk-impact policy');
