@@ -441,3 +441,39 @@ The exact post-closure rerun at
 | `node tests/artifact-validation.test.js` | 64 passed, 0 failed; current policy has no open `G0_FAIL` risk and reopening R014 blocks | 0 |
 | `node scripts/validate-test-registry.js` | 350 runnable programs; SHA-256 `f6edc6ccff693284ee01ed159e90faea20e94662892d7b84b2f61efdf35e03b5` | 0 |
 | `node scripts/validate-final-disposition.js` | 225 records; 60 repaired; 32 deferred; manifest SHA-256 `aa95bbc0918daa3f188283297e03562e3a4b8a8d0b178bec126b60a27cd8677e` | 0 |
+
+### First complete-candidate replay finding
+
+The first clean-clone deterministic replay of candidate
+`9d93507fb336e4f5867a3b5bbf469a3172858081` truthfully stopped at 198 passes
+and one failure, exit `1`. The report SHA-256 is
+`c8d749d1efcd03a559770d7dcadc51ebaf4756192e3a5f8252f9ec96c697a691`.
+The sole failure was registered
+`IS-T1-E2E-HELPERS-SELF-CHECK`: it created a nested artifact root before
+dynamically importing the shared helper but retained the outer runner's npm
+cache. The helper correctly rejected that sibling path with
+`npm_config_cache must be inside INTENTSMITH_TEST_ARTIFACT_DIR`.
+
+The first focused draft created a private `npm-cache` below the nested artifact
+root, but its raw direct run then exposed the symmetric problem: the common
+bootstrap correctly replaced the ad-hoc roots when it was loaded dynamically,
+so the self-check looked for its transcript in a root it no longer owned. The
+final follow-up therefore imports the isolation bootstrap before fixture
+allocation, creates atomic temp and artifact roots below the resulting owned
+runtime, places the nested npm cache below that artifact root, and gives child
+imports the same complete audit contract. It asserts the cache mode is `0700`.
+
+The fix does not change the registry, profile, expected result or any product
+assertion. Both failed attempts remain preserved; a new candidate must repeat
+both installs and the entire 199-suite registry.
+
+Focused pre-commit results for the final patch:
+
+| Command | Result | Exit |
+| --- | --- | ---: |
+| `node tests/e2e/_helpers.self-check.js` | `E2E helper self-check: PASS` | 0 |
+| single-suite audit with `--allow-dirty` | `1/1 PASS`; pre-commit probe only | 0 |
+| direct self-check after removing only `process.env.npm_config_cache = artifactNpmCache` | exact nested-cache rejection during private port-file child import | 1 |
+
+The production line was restored after the mutation. Exact clean-commit
+evidence will replace the pre-commit probe before the next full candidate run.

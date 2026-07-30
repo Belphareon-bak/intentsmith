@@ -3,8 +3,8 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
-import os from 'node:os';
 import path from 'node:path';
+import { isolatedTestRuntime } from '../helpers/isolated-test-db.js';
 
 function ensure(condition, message) {
   if (!condition) throw new Error(message);
@@ -25,7 +25,11 @@ async function expectRejection(action, expectedMessage, label) {
 }
 
 function childImport(envOverrides) {
-  const env = { ...process.env, ...envOverrides };
+  const env = {
+    ...process.env,
+    C3_AUDIT_RUN: '1',
+    ...envOverrides,
+  };
   for (const [key, value] of Object.entries(env)) {
     if (value === undefined) delete env[key];
   }
@@ -46,8 +50,13 @@ function childImport(envOverrides) {
 }
 
 const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
-const runRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-helpers-check-'));
-const artifactRoot = path.join(runRoot, '.intentsmith-artifacts', 'helpers-check');
+const runRoot = fs.mkdtempSync(
+  path.join(isolatedTestRuntime.temp, 'intentsmith-helpers-check-'),
+);
+const artifactRoot = fs.mkdtempSync(
+  path.join(isolatedTestRuntime.artifacts, 'helpers-check-'),
+);
+const artifactNpmCache = path.join(artifactRoot, 'npm-cache');
 const legacyTranscript = path.join(runRoot, 'legacy-transcript.md');
 let server;
 const conversationFixtures = [
@@ -69,8 +78,9 @@ const chatFixtures = [
 const chatBodies = [];
 
 try {
-  fs.mkdirSync(artifactRoot, { recursive: true, mode: 0o700 });
+  fs.mkdirSync(artifactNpmCache, { recursive: true, mode: 0o700 });
   fs.chmodSync(artifactRoot, 0o700);
+  fs.chmodSync(artifactNpmCache, 0o700);
 
   server = http.createServer((request, response) => {
     if (request.url === '/slow') return;
@@ -115,11 +125,13 @@ try {
   process.env.C3_URL = `http://127.0.0.1:${port}`;
   process.env.C3_TRANSCRIPT = legacyTranscript;
   process.env.INTENTSMITH_TEST_ARTIFACT_DIR = artifactRoot;
+  process.env.npm_config_cache = artifactNpmCache;
   process.env.INTENTSMITH_TEST_REQUEST_TIMEOUT_MS = '100';
   process.env.INTENTSMITH_TEST_SUITE_ID = 'helpers-self-check';
   process.env.INTENTSMITH_TEST_SOURCE_REVISION = 'a'.repeat(40);
   process.env.E2E_GPU_COOLDOWN = '0';
 
+  ensure(mode(artifactNpmCache) === 0o700, 'nested npm cache mode is not 0700');
   const helpers = await import('./_helpers.js');
   ensure(helpers.BASE_URL === process.env.C3_URL, 'C3_URL was not preserved');
   ensure(
@@ -371,8 +383,6 @@ try {
   ]) {
     const child = childImport({
       C3_URL: invalidUrl,
-      C3_PORT: undefined,
-      C3_PORT_FILE: undefined,
     });
     ensure(child.status !== 0, `unsafe C3_URL was accepted: ${invalidUrl}`);
   }
@@ -400,4 +410,5 @@ try {
     await new Promise(resolve => server.close(resolve));
   }
   fs.rmSync(runRoot, { recursive: true, force: true });
+  fs.rmSync(artifactRoot, { recursive: true, force: true });
 }
