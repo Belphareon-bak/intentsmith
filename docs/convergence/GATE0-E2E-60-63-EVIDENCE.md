@@ -200,7 +200,7 @@ database-backed program ran with its own ignored `HOME`, `TMPDIR` and
 | `tests/cre-build-arbitration.test.js` | 7 passed, 0 failed | 0 |
 | `tests/artifact-validation.test.js` | 31 passed, 0 failed | 0 |
 | `node scripts/validate-test-registry.js` | 350 programs; SHA-256 `a7a5c6d4670159cd38a08edea8aabbf868eb3342a3baf1857b6a4849d1f4960a` | 0 |
-| `node scripts/reconcile-test-registry.js --check` | ACTIVE 256, HISTORICAL 15, BLOCKED 79 | 0 |
+| `node scripts/reconcile-ffd-e2e-registry.js --check` | 78 disputed E2E suites; BLOCKED 78; path SHA-256 `43108129171be799d282df0fc5b7db5d40daefda0bbcebe5cc287f3139b033ff` | 0 |
 | `node scripts/validate-final-disposition.js` | 225 records; all 92 `REBUILD` rows terminal | 0 |
 
 An independent reviewer repeated `git diff --check`, syntax checks and the WS
