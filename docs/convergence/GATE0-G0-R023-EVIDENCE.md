@@ -62,6 +62,8 @@ The registered `tests/ws-bridge.test.js` suite now requires:
 4. Accepted refinement emits `refined: true` and no mutation warning.
 5. A rejected candidate is not scored, persisted, or returned.
 6. Eligibility without application emits `refined: false` and no failure warning.
+7. The real `ChatController.handle()` path scores, persists, and returns the
+   same accepted refinement through its production finalizer wiring.
 
 ## Exact-commit proof
 
@@ -91,6 +93,28 @@ The dependency tree was copied locally from an existing installation whose
 `package-lock.json` SHA-256 matched this worktree:
 `496a21b7266c3a84a28384cd5b562414796e9e6ec8e884f402bd7ffc235a7d38`.
 No dependency fetch occurred.
+
+## Independent-review follow-up
+
+Independent review found that the helper-level tests were mutation-sensitive,
+but did not pin the production callback that connects `ChatController.handle()`
+to assistant-turn persistence. In an isolated copy, changing that callback from
+its `content` argument back to immutable `result.content` left the original
+suite green at `53/53`.
+
+Commit `5407bac1930a73bc81a443dfa99ab594a1374b29` adds a controller-level
+regression through the real static `ChatController.handle()` path. It uses the
+existing production handler configuration and a process-local `fetch` fixture
+at the Ollama gateway boundary; it does not add request-controlled or
+production dependency injection. The test requires one accepted refinement to
+be the exact value returned and stored as the assistant turn, requires its
+quality score to be `79`, and rechecks that the original `TaggedResponse`
+remains frozen and unchanged.
+
+| Command | Result | Exit |
+|---|---|---:|
+| `env HOME=/tmp/intentsmith-r023-review-20260730/home TMPDIR=/tmp/intentsmith-r023-review-20260730/tmp C3_DB_PATH=/tmp/intentsmith-r023-review-20260730/runtime/ws-controller-integration.sqlite node tests/ws-bridge.test.js` | 54 passed, 0 failed | 0 |
+| from isolated archive `/tmp/intentsmith-r023-review-20260730/mutation-current`, change only `store.appendTurn(..., content, ...)` to `store.appendTurn(..., result.content, ...)`; `env HOME=/tmp/intentsmith-r023-review-20260730/home TMPDIR=/tmp/intentsmith-r023-review-20260730/tmp C3_DB_PATH=/tmp/intentsmith-r023-review-20260730/runtime/ws-controller-mutation-detected.sqlite node tests/ws-bridge.test.js` | `G0-R023d` failed on the persisted original-versus-refined identity; 53 passed, 1 failed | 1 |
 
 ## Remaining boundary
 
