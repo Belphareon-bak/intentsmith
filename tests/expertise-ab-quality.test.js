@@ -146,7 +146,7 @@ async function callLLM(prompt, systemPrompt, temperature = 0.5) {
     });
     return result.content || '';
   } catch (err) {
-    return `[ERROR: ${err.message}]`;
+    throw new Error(`LLM call failed: ${err.message}`);
   }
 }
 
@@ -161,8 +161,7 @@ async function runABTest() {
   for (const test of AB_TESTS) {
     const expert = expertiseRegistry.get(test.expertId);
     if (!expert) {
-      console.log(`  ⚠️  Expert "${test.expertId}" not found — skipping`);
-      continue;
+      throw new Error(`Required expert "${test.expertId}" not found`);
     }
 
     console.log(`\n── ${test.category}: ${expert.name} (${test.expertId}) ──`);
@@ -247,6 +246,7 @@ async function runABTest() {
     console.log(`✅ A7 PASS — Expert prompts win/tie in ${expertWinOrTie}/5 domains`);
   } else {
     console.log(`❌ A7 FAIL — Expert prompts only win/tie in ${expertWinOrTie}/5 domains (need ≥3)`);
+    process.exitCode = 1;
   }
 
   return { expertWins, generalWins, ties, results };

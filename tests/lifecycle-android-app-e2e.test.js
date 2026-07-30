@@ -247,7 +247,7 @@ async function runTest() {
   const ollamaOk = await checkOllama();
   if (!ollamaOk) {
     console.log('\n  Ollama not available — skipping test');
-    process.exit(0);
+    process.exit(1);
   }
 
   const SESSION_ID = 'android-app-e2e-real';

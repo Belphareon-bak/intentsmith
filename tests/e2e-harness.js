@@ -440,7 +440,7 @@ export async function runTests(testName, testFns, transcriptPrefix) {
   const ollamaOk = await checkOllama();
   if (!ollamaOk) {
     console.log('\n  Ollama not available or missing models — aborting.');
-    process.exit(0);
+    process.exit(1);
   }
 
   for (const fn of testFns) {

@@ -246,11 +246,12 @@ if (failures.length > 0) {
     console.log(`  ❌ ${f.name}: ${f.msg}`);
   }
 }
-if (skipped > 0 && passed === 0 && failed === 0) {
+const allSkipped = skipped > 0 && passed === 0 && failed === 0;
+if (allSkipped) {
   console.log('\n⚠️  All tests skipped. Set environment variables to run E2E tests.');
   console.log('   C3_SMTP_HOST, C3_SMTP_PORT, C3_SMTP_USER, C3_SMTP_PASS');
   console.log('   C3_TELEGRAM_BOT_TOKEN, C3_TELEGRAM_CHAT_ID');
 }
 console.log('');
 
-process.exit(failed > 0 ? 1 : 0);
+process.exit(failed > 0 ? 1 : skipped > 0 ? 2 : 0);

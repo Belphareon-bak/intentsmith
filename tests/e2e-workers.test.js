@@ -253,4 +253,4 @@ if (failures.length > 0) {
 console.log('');
 
 db.close();
-process.exit(failed > 0 ? 1 : 0);
+process.exit(failed > 0 ? 1 : skipped > 0 ? 2 : 0);

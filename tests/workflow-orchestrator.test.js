@@ -117,21 +117,19 @@ test('getSession returns null for unknown', () => {
   assert.equal(o.getSession('nope'), null);
 });
 
-// ── Start (requires LLM — will fail without Ollama) ────────────────────────
-// We test that start() creates session and throws predictably without LLM
+// ── Start (requires LLM) ────────────────────────────────────────────────────
 
-console.log('\n── Start (no LLM) ──');
+console.log('\n── Start (real LLM) ──');
 
-await testAsync('start() creates session even if LLM fails', async () => {
+await testAsync('start() produces a valid workflow session', async () => {
   const o = new WorkflowOrchestrator();
-  try {
-    await o.start('build API');
-  } catch (e) {
-    // Expected — no Ollama running
-    assert.ok(e.message, 'Should have error message');
-  }
-  // Session should have been created in the sessions map
-  assert.ok(o.sessions.size >= 0, 'Sessions map accessible');
+  const session = await o.start('build a small REST API with one health endpoint');
+  assert.ok(session, 'start() returns a session');
+  assert.ok(o.sessions.has(session.id), 'session is registered');
+  assert.ok(
+    [WorkflowState.CLARIFYING, WorkflowState.AWAITING_APPROVAL].includes(session.state),
+    `unexpected start state: ${session.state}`,
+  );
 });
 
 // ── Approve/Reject guards ───────────────────────────────────────────────────

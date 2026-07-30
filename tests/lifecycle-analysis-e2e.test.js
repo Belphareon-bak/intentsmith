@@ -231,7 +231,7 @@ async function runTest() {
   const ollamaOk = await checkOllama();
   if (!ollamaOk) {
     console.log('\n  Ollama not available — skipping test');
-    process.exit(0);
+    process.exit(1);
   }
 
   const projectPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../projects/AI-Log-Analyzer-E2E');

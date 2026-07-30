@@ -211,8 +211,7 @@ for (const input of decideTests) {
       !(isAskUser && hasClarification));
     g6Completed++;
   } catch (e) {
-    // decide() may fail without LLM — that's OK, just log it
-    console.log(`    ⚠️ decide("${input}") threw: ${e.message} (expected without LLM)`);
+    assert(`"${input}" → decide() must complete: ${e.message}`, false);
     g6Completed++;
   }
 }
@@ -241,7 +240,7 @@ for (const t of stickyTests) {
     diag(t.input, `sticky upgrade from ${t.lastIntent}`, `${decision.intent} (type: ${decision.type})`);
     assert(`"${t.input}" with lastIntent=${t.lastIntent} → should upgrade from AMBIGUOUS, got: ${decision.intent}`, upgraded);
   } catch (e) {
-    console.log(`    ⚠️ decide("${t.input}") threw: ${e.message} (expected without LLM)`);
+    assert(`"${t.input}" → sticky decide() must complete: ${e.message}`, false);
   }
 }
 

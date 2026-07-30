@@ -2,37 +2,30 @@
 
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { access, mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
-import { createWriteStream } from 'node:fs';
+import { access, chmod, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { createReadStream, createWriteStream } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { finished } from 'node:stream/promises';
 import { pathToFileURL } from 'node:url';
 
-const DEFAULT_OUT_DIR = 'data/artifacts/audit-runs';
+import {
+  TEST_PROFILES,
+  loadTestRegistry,
+  registryFingerprint,
+} from './test-registry.js';
+
+const DEFAULT_OUT_DIR = '.intentsmith-artifacts/test-runs';
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
 const DEFAULT_DEADLINE_MS = 8 * 60 * 60 * 1000;
-const RUNNABLE_BASENAMES = new Set(['output-gate.js']);
-const RUNNABLE_SUFFIXES = ['.test.js', '.test.cjs', '.e2e.js'];
-const CATEGORY_ORDER = [
-  'unit',
-  'integration',
+const PROFILE_ORDER = [
+  'offline',
   'database',
-  'contract',
-  'local-e2e',
-  'ollama-e2e',
-  'legacy',
-  'python',
+  'server',
+  'model',
   'soak',
-  'check',
+  'manual',
 ];
-
-const BLOCKER_PATTERNS = {
-  ollama: /\b(ollama|OLLAMA(?:_[A-Z0-9_]+)?|real[-\s]?llm|localhost:11434|127\.0\.0\.1:11434|\/api\/(?:chat|generate|tags|ps))\b/i,
-  network: /\b(?:fetch\(|WebSocket|request\(|https?\.request|net\.createConnection|rssSource\.fetch|C3_NTFY|SMTP|TELEGRAM|online-discovery|marketplace|registry-client)/i,
-  ports: /\b(listen\(|localhost|127\.0\.0\.1|PORT|server\.listen|websocket|ws-bridge|rate-limit)\b/i,
-  destructive: /\b(rm\s+-rf|unlinkSync|rmSync|DROP\s+TABLE|reset\s+--hard|deleteProject|rmdirSync)\b/i,
-};
 
 export function parseArgs(argv = process.argv.slice(2)) {
   const opts = {
@@ -45,7 +38,8 @@ export function parseArgs(argv = process.argv.slice(2)) {
     concurrency: 1,
     timeoutMs: DEFAULT_TIMEOUT_MS,
     deadlineMs: DEFAULT_DEADLINE_MS,
-    include: new Set(),
+    profiles: new Set(),
+    ids: new Set(),
     exclude: new Set(),
     allowBlockers: new Set(),
     noBlock: false,
@@ -74,7 +68,9 @@ export function parseArgs(argv = process.argv.slice(2)) {
     else if (arg.startsWith('--timeout-minutes')) opts.timeoutMs = Math.max(1, Number(value()) || 10) * 60 * 1000;
     else if (arg.startsWith('--deadline-ms')) opts.deadlineMs = Math.max(1, Number(value()) || DEFAULT_DEADLINE_MS);
     else if (arg.startsWith('--deadline-hours')) opts.deadlineMs = Math.max(1, Number(value()) || 8) * 60 * 60 * 1000;
-    else if (arg.startsWith('--include')) addCsv(opts.include, value());
+    else if (arg.startsWith('--profile')) addCsv(opts.profiles, value());
+    else if (arg.startsWith('--suite')) addCsv(opts.ids, value());
+    else if (arg.startsWith('--include')) addCsv(opts.profiles, value());
     else if (arg.startsWith('--exclude')) addCsv(opts.exclude, value());
     else if (arg.startsWith('--allow-blocker')) addCsv(opts.allowBlockers, value());
     else if (arg === '--help' || arg === '-h') {
@@ -85,6 +81,11 @@ export function parseArgs(argv = process.argv.slice(2)) {
     }
   }
 
+  for (const profile of [...opts.profiles, ...opts.exclude]) {
+    if (!TEST_PROFILES.includes(profile)) {
+      throw new Error(`Unknown test profile: ${profile}`);
+    }
+  }
   return opts;
 }
 
@@ -100,10 +101,12 @@ function printHelp() {
 
 Options:
   --dry-run                     Discover and classify inventory only
-  --include=a,b                 Include only categories
-  --exclude=a,b                 Exclude categories
-  --allow-blocker=ollama,ports  Permit suites with blocker labels
-  --no-block                    Execute suites regardless of detected blockers
+  --profile=a,b                 Include only explicit registry profiles
+  --suite=ID[,ID]               Include only exact stable registry IDs
+  --exclude=a,b                 Exclude profiles
+  --allow-blocker=ollama,gpu    Permit soft local prerequisites
+  --no-block                    Bypass soft blockers in disposable fixtures
+                                 (never state, external-network, or unowned server)
   --allow-dirty                 Permit non-dry-run audits from a dirty worktree
   --timeout-minutes=N           Per-suite timeout, default 10
   --deadline-hours=N            Total deadline, default 8
@@ -115,105 +118,50 @@ Options:
 }
 
 export async function discoverInventory(root = process.cwd()) {
-  const testsDir = path.join(root, 'tests');
-  const files = await walk(testsDir);
-  const suites = [];
-
-  for (const absPath of files) {
-    const relPath = normalizePath(path.relative(root, absPath));
-    if (!isRunnable(relPath)) continue;
-    const content = await safeRead(absPath);
-    const category = classifyTestFile(relPath, content);
-    const blockers = detectBlockers(relPath, content, category);
-    suites.push({
-      path: relPath,
-      category,
-      command: commandFor(relPath),
-      blockers,
-      required: true,
-    });
-  }
-
-  suites.sort((a, b) => a.path.localeCompare(b.path));
-  return suites;
-}
-
-async function walk(dir) {
-  const entries = await readdir(dir, { withFileTypes: true });
-  const files = [];
-  for (const entry of entries) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) files.push(...await walk(full));
-    else if (entry.isFile()) files.push(full);
-  }
-  return files;
-}
-
-function isRunnable(relPath) {
-  const base = path.basename(relPath);
-  if (RUNNABLE_BASENAMES.has(base)) return true;
-  if (/^tests\/test_[^/]+\.py$/.test(relPath)) return true;
-  return RUNNABLE_SUFFIXES.some(suffix => relPath.endsWith(suffix));
-}
-
-async function safeRead(absPath) {
-  try {
-    return await readFile(absPath, 'utf8');
-  } catch {
-    return '';
-  }
-}
-
-export function classifyTestFile(relPath, content = '') {
-  if (relPath === 'tests/output-gate.js') return 'check';
-  if (relPath.endsWith('.py')) return 'python';
-  if (relPath.includes('/_legacy/')) return 'legacy';
-  if (relPath.includes('/soak/')) return 'soak';
-  if (relPath.includes('/e2e/')) {
-    return BLOCKER_PATTERNS.ollama.test(`${relPath}\n${content}`) ? 'ollama-e2e' : 'local-e2e';
-  }
-
-  const text = `${relPath}\n${content}`;
-  if (BLOCKER_PATTERNS.ollama.test(text)) return 'ollama-e2e';
-  if (/\b(db|database|schema|migration|sqlite|ledger|storage)\b/i.test(text)) return 'database';
-  if (/\b(contract|schema|invariant|security|capability|enforcement|validation|manifest|gatekeeper)\b/i.test(text)) return 'contract';
-  if (/\b(integration|lifecycle|project|workflow|pipeline|server|route|api|executor|agent|specialist|expertise|notification|websocket|ws-bridge)\b/i.test(text)) {
-    return 'integration';
-  }
-  return 'unit';
-}
-
-export function detectBlockers(relPath, content = '', category = classifyTestFile(relPath, content)) {
-  const blockers = new Set();
-  const text = `${relPath}\n${content}`;
-  if (category === 'ollama-e2e' || BLOCKER_PATTERNS.ollama.test(text)) blockers.add('ollama');
-  if (BLOCKER_PATTERNS.network.test(text)) blockers.add('network');
-  if (BLOCKER_PATTERNS.ports.test(text)) blockers.add('ports');
-  if (BLOCKER_PATTERNS.destructive.test(text)) blockers.add('destructive');
-  return [...blockers].sort();
-}
-
-function commandFor(relPath) {
-  if (relPath.endsWith('.py')) return ['python3', relPath];
-  return ['node', relPath];
+  const registry = await loadTestRegistry(root);
+  return registry.suites
+    .map(suite => ({
+      ...suite,
+      category: suite.profile,
+      command: suite.argv,
+      blockers: blockersFor(suite),
+    }))
+    .sort((a, b) => a.path.localeCompare(b.path));
 }
 
 export function filterSuites(suites, opts) {
   return suites.filter(suite => {
-    if (opts.include?.size && !opts.include.has(suite.category)) return false;
-    if (opts.exclude?.has(suite.category)) return false;
+    if (opts.ids?.size && !opts.ids.has(suite.id)) return false;
+    if (opts.profiles?.size && !opts.profiles.has(suite.profile)) return false;
+    if (opts.exclude?.has(suite.profile)) return false;
     return true;
   });
+}
+
+function blockersFor(suite) {
+  const blockers = new Set();
+  if (suite.state !== 'ACTIVE') blockers.add(`state-${suite.state.toLowerCase()}`);
+  if (suite.requirements.server) blockers.add('server');
+  if (suite.requirements.ollama) blockers.add('ollama');
+  if (suite.requirements.gpu) blockers.add('gpu');
+  if (suite.requirements.network === 'external') blockers.add('external-network');
+  return [...blockers].sort();
 }
 
 export async function runAudit(options = {}) {
   const opts = {
     ...parseArgs([]),
     ...options,
-    include: options.include instanceof Set ? options.include : new Set(options.include || []),
+    profiles: options.profiles instanceof Set
+      ? options.profiles
+      : new Set(options.profiles || options.include || []),
+    ids: options.ids instanceof Set ? options.ids : new Set(options.ids || []),
     exclude: options.exclude instanceof Set ? options.exclude : new Set(options.exclude || []),
     allowBlockers: options.allowBlockers instanceof Set ? options.allowBlockers : new Set(options.allowBlockers || []),
   };
+  for (const profile of [...opts.profiles, ...opts.exclude]) {
+    if (!TEST_PROFILES.includes(profile)) throw new Error(`Unknown test profile: ${profile}`);
+  }
   opts.root = path.resolve(opts.root);
   opts.outDir = path.resolve(opts.root, opts.outDir);
   const runId = opts.runId || makeRunId();
@@ -226,11 +174,22 @@ export async function runAudit(options = {}) {
   if (!opts.dryRun && !opts.allowDirty) {
     await assertCleanGitWorktree(opts.root);
   }
-  await mkdir(logsDir, { recursive: true });
 
   const sourceRevision = await getSourceRevision(opts.root);
+  const registry = await loadTestRegistry(opts.root);
+  const registryHash = registryFingerprint(registry);
   const allSuites = await discoverInventory(opts.root);
+  const knownIds = new Set(allSuites.map(suite => suite.id));
+  for (const id of opts.ids) {
+    if (!knownIds.has(id)) throw new Error(`Unknown test suite id: ${id}`);
+  }
   const selectedSuites = filterSuites(allSuites, opts);
+  if (selectedSuites.length === 0) {
+    throw new Error('No test suites selected');
+  }
+  await mkdir(logsDir, { recursive: true, mode: 0o700 });
+  await chmod(runDir, 0o700);
+  await chmod(logsDir, 0o700);
   const counts = countByCategory(selectedSuites);
   const blockerCounts = countBlockers(selectedSuites);
   const inventoryFingerprint = fingerprintInventory(selectedSuites);
@@ -241,9 +200,19 @@ export async function runAudit(options = {}) {
   const inventoryPath = path.join(runDir, 'inventory.json');
   const startedAt = new Date().toISOString();
   const completedResults = opts.resume
-    ? await readAndValidateResume({ checkpointPath, inventoryPath, sourceRevision, inventoryFingerprint, optionsFingerprint })
+    ? await readAndValidateResume({
+      checkpointPath,
+      inventoryPath,
+      sourceRevision,
+      inventoryFingerprint,
+      optionsFingerprint,
+      registryHash,
+      expectedSuites: selectedSuites,
+      root: opts.root,
+      allowDirty: opts.allowDirty,
+    })
     : [];
-  const completedKeys = new Set(completedResults.filter(result => result.status !== 'SKIPPED').map(resultKey));
+  const completedKeys = new Set(completedResults.map(resultKey));
   let checkpointWrite = Promise.resolve();
 
   await writeJSON(inventoryPath, {
@@ -254,6 +223,7 @@ export async function runAudit(options = {}) {
     blockerCounts,
     inventoryFingerprint,
     optionsFingerprint,
+    registryHash,
     options: optionsSnapshot,
     suites: selectedSuites,
   });
@@ -273,6 +243,7 @@ export async function runAudit(options = {}) {
       runDir,
       inventoryFingerprint,
       optionsFingerprint,
+      registryHash,
     });
     await writeJSON(reportPath, report);
     printInventorySummary(report);
@@ -283,7 +254,9 @@ export async function runAudit(options = {}) {
   const pending = selectedSuites.filter(suite => !completedKeys.has(resultKey(suite)));
   const results = [...completedResults];
   let cursor = 0;
-  let requiredFailureSeen = opts.resume ? false : results.some(r => r.required !== false && ['FAIL', 'TIMEOUT'].includes(r.status));
+  let requiredFailureSeen = opts.resume
+    ? false
+    : results.some(result => result.required !== false && result.status !== 'PASS');
 
   async function nextSuite() {
     if (opts.failFast && requiredFailureSeen) return null;
@@ -299,9 +272,10 @@ export async function runAudit(options = {}) {
       const suite = await nextSuite();
       if (!suite) return;
 
-      const disallowedBlockers = opts.noBlock
-        ? []
-        : suite.blockers.filter(blocker => !opts.allowBlockers.has(blocker));
+      const disallowedBlockers = suite.blockers.filter(blocker => (
+        isHardBlocker(blocker)
+        || (!opts.noBlock && !opts.allowBlockers.has(blocker))
+      ));
       let result;
       if (disallowedBlockers.length) {
         result = makeBlockedResult(suite, sourceRevision, disallowedBlockers);
@@ -310,12 +284,13 @@ export async function runAudit(options = {}) {
       }
 
       results.push(result);
-      if (result.required !== false && ['FAIL', 'TIMEOUT'].includes(result.status)) requiredFailureSeen = true;
+      if (result.required !== false && result.status !== 'PASS') requiredFailureSeen = true;
       await enqueueCheckpoint({
         runId,
         sourceRevision,
         inventoryFingerprint,
         optionsFingerprint,
+        registryHash,
         options: optionsSnapshot,
         updatedAt: new Date().toISOString(),
         results,
@@ -343,6 +318,7 @@ export async function runAudit(options = {}) {
       sourceRevision,
       inventoryFingerprint,
       optionsFingerprint,
+      registryHash,
       options: optionsSnapshot,
       updatedAt: new Date().toISOString(),
       results,
@@ -365,6 +341,7 @@ export async function runAudit(options = {}) {
     runDir,
     inventoryFingerprint,
     optionsFingerprint,
+    registryHash,
   });
   await writeJSON(reportPath, report);
   printFinalSummary(report);
@@ -374,13 +351,55 @@ export async function runAudit(options = {}) {
 async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
   const startMs = Date.now();
   const startedAt = new Date(startMs).toISOString();
-  const logPath = path.join(logsDir, `${safeLogName(suite.path)}.log`);
-  const log = createWriteStream(logPath, { flags: 'a' });
-  const [cmd, ...args] = suite.command;
+  const safeName = safeLogName(suite.path);
+  const runDir = path.dirname(logsDir);
+  const suiteRoot = path.join(runDir, 'runtime', safeName);
+  const homeDir = path.join(suiteRoot, 'home');
+  const tempDir = path.join(suiteRoot, 'tmp');
+  const projectsDir = path.join(suiteRoot, 'projects');
+  const runtimeDir = path.join(suiteRoot, 'runtime');
+  const xdgConfigDir = path.join(suiteRoot, 'xdg', 'config');
+  const xdgCacheDir = path.join(suiteRoot, 'xdg', 'cache');
+  const xdgDataDir = path.join(suiteRoot, 'xdg', 'data');
+  const xdgStateDir = path.join(suiteRoot, 'xdg', 'state');
+  const logPath = path.join(logsDir, `${safeName}.log`);
+  const gitConfigPath = path.join(suiteRoot, 'gitconfig');
+
+  for (const directory of [
+    suiteRoot,
+    homeDir,
+    tempDir,
+    projectsDir,
+    runtimeDir,
+    xdgConfigDir,
+    xdgCacheDir,
+    xdgDataDir,
+    xdgStateDir,
+  ]) {
+    await mkdir(directory, { recursive: true, mode: 0o700 });
+    await chmod(directory, 0o700);
+  }
+  await writeFile(gitConfigPath, '', { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+
+  const log = createWriteStream(logPath, { flags: 'wx', mode: 0o600 });
+  const [registeredCommand, ...args] = suite.command;
+  const command = registeredCommand === 'node' ? process.execPath : registeredCommand;
   let timedOut = false;
-  let closed = false;
+  let spawnError = null;
   const remainingMs = Math.max(1, deadlineAt - startMs);
-  const suiteTimeoutMs = Math.min(opts.timeoutMs, remainingMs);
+  const suiteTimeoutMs = Math.min(opts.timeoutMs, suite.timeoutMs, remainingMs);
+  const environment = makeSuiteEnvironment({
+    suite,
+    homeDir,
+    tempDir,
+    projectsDir,
+    runtimeDir,
+    xdgConfigDir,
+    xdgCacheDir,
+    xdgDataDir,
+    xdgStateDir,
+    gitConfigPath,
+  });
 
   log.write(`$ ${suite.command.join(' ')}\n`);
   log.write(`started_at=${startedAt}\n`);
@@ -389,20 +408,16 @@ async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
 
   return await new Promise(resolve => {
     const detached = process.platform !== 'win32';
-    const child = spawn(cmd, args, {
+    const child = spawn(command, args, {
       cwd: opts.root,
-      env: {
-        ...process.env,
-        NODE_ENV: process.env.NODE_ENV || 'test',
-        C3_AUDIT_RUN: '1',
-      },
+      env: environment.env,
       stdio: ['ignore', 'pipe', 'pipe'],
       detached,
     });
     let killTimer = null;
 
     const signalChildTree = (signal) => {
-      if (closed || !child.pid) return;
+      if (!child.pid) return;
       try {
         if (detached) process.kill(-child.pid, signal);
         else child.kill(signal);
@@ -425,18 +440,41 @@ async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
     child.stderr.pipe(log, { end: false });
     const stdoutDone = finished(child.stdout).catch(() => {});
     const stderrDone = finished(child.stderr).catch(() => {});
-    child.on('error', err => log.write(`\nspawn_error=${err.message}\n`));
+    child.on('error', error => {
+      spawnError = error;
+      log.write(`\nspawn_error=${error.message}\n`);
+    });
     child.on('close', async (code, signal) => {
       if (timedOut) signalChildTree('SIGKILL');
-      closed = true;
       clearTimeout(timer);
       if (killTimer) clearTimeout(killTimer);
       await Promise.all([stdoutDone, stderrDone]);
+      const cleanup = await cleanupOwnedProcessGroup(child.pid, detached, log);
+      const sourceTree = opts.allowDirty
+        ? { checked: false, clean: null, porcelain: null }
+        : await inspectGitWorktree(opts.root);
       const endMs = Date.now();
       const endedAt = new Date(endMs).toISOString();
-      const status = timedOut ? 'TIMEOUT' : code === 0 ? 'PASS' : 'FAIL';
+      let status = timedOut ? 'TIMEOUT' : code === 0 && !spawnError ? 'PASS' : 'FAIL';
+      const cleanupEvidenceComplete = (
+        cleanup.checked === true
+        && cleanup.terminated === true
+      );
+      const sourceEvidenceComplete = (
+        opts.allowDirty
+        || (sourceTree.checked === true && sourceTree.clean === true)
+      );
+      if (
+        cleanup.leakDetected
+        || !cleanupEvidenceComplete
+        || !sourceEvidenceComplete
+      ) {
+        status = 'FAIL';
+      }
       const result = {
+        id: suite.id,
         path: suite.path,
+        profile: suite.profile,
         category: suite.category,
         command: suite.command,
         blockers: suite.blockers,
@@ -450,21 +488,219 @@ async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
         retryCount: 0,
         logPath: normalizePath(path.relative(opts.root, logPath)),
         sourceRevision,
+        environment: environment.evidence,
+        cleanup,
+        sourceTree,
       };
-      log.write(`\nended_at=${endedAt}\nexit_code=${code}\nsignal=${signal || ''}\nstatus=${status}\n`);
-      log.end(() => resolve(result));
+      log.write(
+        `\nended_at=${endedAt}\nexit_code=${code}\nsignal=${signal || ''}` +
+        `\nstatus=${status}\ncleanup=${JSON.stringify(cleanup)}` +
+        `\nsource_tree_clean=${sourceTree.clean}\n`,
+      );
+      log.end();
+      await finished(log).catch(() => {});
+      result.logSha256 = await hashFile(logPath);
+      resolve(result);
     });
   });
+}
+
+function isHardBlocker(blocker) {
+  return (
+    blocker === 'server'
+    || blocker === 'external-network'
+    || blocker.startsWith('state-')
+  );
+}
+
+function makeSuiteEnvironment({
+  suite,
+  homeDir,
+  tempDir,
+  projectsDir,
+  runtimeDir,
+  xdgConfigDir,
+  xdgCacheDir,
+  xdgDataDir,
+  xdgStateDir,
+  gitConfigPath,
+}) {
+  const inheritedKeys = [
+    'PATH',
+    'LANG',
+    'LC_ALL',
+    'TZ',
+    'SYSTEMROOT',
+    'WINDIR',
+    'PATHEXT',
+    'COMSPEC',
+  ];
+  const env = {};
+  for (const key of inheritedKeys) {
+    if (process.env[key] !== undefined) env[key] = process.env[key];
+  }
+
+  Object.assign(env, {
+    HOME: homeDir,
+    XDG_CONFIG_HOME: xdgConfigDir,
+    XDG_CACHE_HOME: xdgCacheDir,
+    XDG_DATA_HOME: xdgDataDir,
+    XDG_STATE_HOME: xdgStateDir,
+    TMPDIR: tempDir,
+    TMP: tempDir,
+    TEMP: tempDir,
+    NODE_ENV: 'test',
+    NODE_NO_WARNINGS: '1',
+    CI: '1',
+    NO_COLOR: '1',
+    GIT_CONFIG_GLOBAL: gitConfigPath,
+    GIT_CONFIG_NOSYSTEM: '1',
+    C3_AUDIT_RUN: '1',
+    C3_DB_PATH: path.join(runtimeDir, 'intentsmith-test.sqlite'),
+    C3_PROJECTS_DIR: projectsDir,
+    C3_PORT: '0',
+    C3_PORT_FILE: path.join(runtimeDir, 'intentsmith.port'),
+    C3_LIFECYCLE_AUTO_COMMIT: 'false',
+    C3_ENABLE_AUTONOMY: 'false',
+    C3_LOG_LEVEL: 'warn',
+  });
+
+  if (suite.requirements.server) env.C3_URL = 'http://127.0.0.1:3335';
+  if (suite.requirements.ollama) env.OLLAMA_URL = 'http://127.0.0.1:11434';
+
+  return {
+    env,
+    evidence: {
+      inheritedKeys: inheritedKeys.filter(key => process.env[key] !== undefined),
+      home: homeDir,
+      temp: tempDir,
+      database: env.C3_DB_PATH,
+      projects: projectsDir,
+      portFile: env.C3_PORT_FILE,
+      xdg: {
+        config: xdgConfigDir,
+        cache: xdgCacheDir,
+        data: xdgDataDir,
+        state: xdgStateDir,
+      },
+    },
+  };
+}
+
+async function cleanupOwnedProcessGroup(pid, detached, log) {
+  if (!detached || !pid) {
+    return {
+      checked: false,
+      leakDetected: false,
+      terminated: null,
+      reason: 'process groups unsupported',
+    };
+  }
+
+  const leakDetected = processGroupAlive(pid);
+  if (!leakDetected) {
+    return { checked: true, leakDetected: false, terminated: true };
+  }
+
+  log.write('\nowned_process_group_leak=true\n');
+  signalProcessGroup(pid, 'SIGTERM', log);
+  let terminated = await waitForProcessGroupExit(pid, 500);
+  if (!terminated) {
+    signalProcessGroup(pid, 'SIGKILL', log);
+    terminated = await waitForProcessGroupExit(pid, 500);
+  }
+  return { checked: true, leakDetected: true, terminated };
+}
+
+function signalProcessGroup(pid, signal, log) {
+  try {
+    process.kill(-pid, signal);
+  } catch (error) {
+    if (error.code !== 'ESRCH') log.write(`process_group_${signal}_error=${error.message}\n`);
+  }
+}
+
+function processGroupAlive(pid) {
+  try {
+    process.kill(-pid, 0);
+    return true;
+  } catch (error) {
+    if (error.code === 'ESRCH') return false;
+    return true;
+  }
+}
+
+async function waitForProcessGroupExit(pid, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (!processGroupAlive(pid)) return true;
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  return !processGroupAlive(pid);
+}
+
+async function inspectGitWorktree(root) {
+  return await new Promise(resolve => {
+    const child = spawn('git', ['status', '--porcelain', '--untracked-files=all'], {
+      cwd: root,
+      env: pickCommandEnvironment(),
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', chunk => { stdout += chunk; });
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    child.on('error', error => resolve({
+      checked: false,
+      clean: null,
+      porcelain: null,
+      error: error.message,
+    }));
+    child.on('close', code => {
+      if (code !== 0) {
+        resolve({
+          checked: false,
+          clean: null,
+          porcelain: null,
+          error: stderr.trim() || `git status exited ${code}`,
+        });
+        return;
+      }
+      resolve({
+        checked: true,
+        clean: stdout.trim().length === 0,
+        porcelain: stdout.trim() || null,
+      });
+    });
+  });
+}
+
+function pickCommandEnvironment() {
+  const env = {};
+  for (const key of ['PATH', 'LANG', 'LC_ALL', 'SYSTEMROOT', 'WINDIR', 'PATHEXT', 'COMSPEC']) {
+    if (process.env[key] !== undefined) env[key] = process.env[key];
+  }
+  return env;
+}
+
+async function hashFile(filePath) {
+  const hash = createHash('sha256');
+  const input = createReadStream(filePath);
+  input.on('data', chunk => hash.update(chunk));
+  await finished(input);
+  return hash.digest('hex');
 }
 
 function makeBlockedResult(suite, sourceRevision, blockers) {
   const now = new Date().toISOString();
   return {
+    id: suite.id,
     path: suite.path,
+    profile: suite.profile,
     category: suite.category,
     command: suite.command,
     blockers: suite.blockers,
-    required: false,
+    required: suite.required,
     start: now,
     end: now,
     durationMs: 0,
@@ -481,11 +717,13 @@ function makeBlockedResult(suite, sourceRevision, blockers) {
 function makeSkippedResult(suite, sourceRevision, reason) {
   const now = new Date().toISOString();
   return {
+    id: suite.id,
     path: suite.path,
+    profile: suite.profile,
     category: suite.category,
     command: suite.command,
     blockers: suite.blockers,
-    required: reason === 'total_deadline',
+    required: suite.required,
     start: now,
     end: now,
     durationMs: 0,
@@ -499,11 +737,36 @@ function makeSkippedResult(suite, sourceRevision, reason) {
   };
 }
 
-function makeReport({ runId, sourceRevision, startedAt, endedAt, opts, inventory, results, dryRun, counts, blockerCounts, runDir, inventoryFingerprint, optionsFingerprint }) {
+function makeReport({
+  runId,
+  sourceRevision,
+  startedAt,
+  endedAt,
+  opts,
+  inventory,
+  results,
+  dryRun,
+  counts,
+  blockerCounts,
+  runDir,
+  inventoryFingerprint,
+  optionsFingerprint,
+  registryHash,
+}) {
   const statusCounts = {};
   for (const status of ['PASS', 'FAIL', 'TIMEOUT', 'BLOCKED', 'SKIPPED']) statusCounts[status] = 0;
   for (const result of results) statusCounts[result.status] = (statusCounts[result.status] || 0) + 1;
-  const requiredFailures = results.filter(r => r.required !== false && ['FAIL', 'TIMEOUT', 'SKIPPED'].includes(r.status));
+  const requiredProblems = results.filter(result => result.required !== false && result.status !== 'PASS');
+  const requiredBlocked = requiredProblems.filter(result => result.status === 'BLOCKED');
+  const requiredFailures = requiredProblems.filter(result => result.status !== 'BLOCKED');
+  const verdict = dryRun
+    ? 'DRY_RUN'
+    : requiredFailures.length > 0 ? 'FAIL'
+      : requiredBlocked.length > 0 ? 'BLOCKED'
+        : 'PASS';
+  const exitCode = verdict === 'PASS' || verdict === 'DRY_RUN'
+    ? 0
+    : verdict === 'BLOCKED' ? 2 : 1;
   return {
     runId,
     sourceRevision,
@@ -515,7 +778,8 @@ function makeReport({ runId, sourceRevision, startedAt, endedAt, opts, inventory
       failFast: opts.failFast,
       timeoutMs: opts.timeoutMs,
       deadlineMs: opts.deadlineMs,
-      include: [...opts.include],
+      profiles: [...opts.profiles],
+      ids: [...opts.ids],
       exclude: [...opts.exclude],
       allowBlockers: [...opts.allowBlockers],
       noBlock: opts.noBlock,
@@ -528,18 +792,32 @@ function makeReport({ runId, sourceRevision, startedAt, endedAt, opts, inventory
     },
     inventoryFingerprint,
     optionsFingerprint,
+    registryHash,
     inventory: {
       total: inventory.length,
       counts,
       blockerCounts,
     },
     statusCounts,
-    requiredFailureCount: requiredFailures.length,
+    verdict,
+    exitCode,
+    requiredFailureCount: requiredProblems.length,
+    requiredBlockedCount: requiredBlocked.length,
     results,
   };
 }
 
-async function readAndValidateResume({ checkpointPath, inventoryPath, sourceRevision, inventoryFingerprint, optionsFingerprint }) {
+async function readAndValidateResume({
+  checkpointPath,
+  inventoryPath,
+  sourceRevision,
+  inventoryFingerprint,
+  optionsFingerprint,
+  registryHash,
+  expectedSuites,
+  root,
+  allowDirty,
+}) {
   const inventory = await readRequiredJSON(inventoryPath, 'resume inventory');
   if (inventory.sourceRevision !== sourceRevision) {
     throw new Error(`Cannot resume: source revision mismatch (${inventory.sourceRevision} !== ${sourceRevision})`);
@@ -549,6 +827,9 @@ async function readAndValidateResume({ checkpointPath, inventoryPath, sourceRevi
   }
   if (inventory.optionsFingerprint !== optionsFingerprint) {
     throw new Error('Cannot resume: audit option fingerprint mismatch');
+  }
+  if (inventory.registryHash !== registryHash) {
+    throw new Error('Cannot resume: test registry fingerprint mismatch');
   }
 
   try {
@@ -562,11 +843,100 @@ async function readAndValidateResume({ checkpointPath, inventoryPath, sourceRevi
     if (parsed.optionsFingerprint !== optionsFingerprint) {
       throw new Error('Cannot resume: checkpoint option fingerprint mismatch');
     }
-    return Array.isArray(parsed.results) ? parsed.results.filter(result => result.status !== 'SKIPPED') : [];
+    if (parsed.registryHash !== registryHash) {
+      throw new Error('Cannot resume: checkpoint test registry fingerprint mismatch');
+    }
+    if (!Array.isArray(parsed.results)) {
+      throw new Error('Cannot resume: checkpoint results must be an array');
+    }
+    return await validateCompletedResults({
+      results: parsed.results,
+      expectedSuites,
+      sourceRevision,
+      root,
+      logsDir: path.join(path.dirname(checkpointPath), 'logs'),
+      allowDirty,
+    });
   } catch (err) {
     if (err.code !== 'ENOENT') throw err;
     return [];
   }
+}
+
+async function validateCompletedResults({
+  results,
+  expectedSuites,
+  sourceRevision,
+  root,
+  logsDir,
+  allowDirty,
+}) {
+  const resumableStatuses = new Set(['PASS', 'FAIL', 'TIMEOUT']);
+  const expectedById = new Map(expectedSuites.map(suite => [suite.id, suite]));
+  const completed = [];
+  const seenIds = new Set();
+
+  for (const result of results) {
+    if (!resumableStatuses.has(result.status)) continue;
+    const expected = expectedById.get(result.id);
+    if (!expected) {
+      throw new Error(`Cannot resume: checkpoint contains unknown suite id ${result.id || '(missing)'}`);
+    }
+    if (seenIds.has(result.id)) {
+      throw new Error(`Cannot resume: checkpoint contains duplicate suite id ${result.id}`);
+    }
+    seenIds.add(result.id);
+    if (
+      result.path !== expected.path
+      || JSON.stringify(result.command) !== JSON.stringify(expected.command)
+    ) {
+      throw new Error(`Cannot resume: checkpoint suite metadata mismatch for ${result.id}`);
+    }
+    if (result.sourceRevision !== sourceRevision) {
+      throw new Error(`Cannot resume: checkpoint result source revision mismatch for ${result.id}`);
+    }
+    if (!result.logPath || !/^[a-f0-9]{64}$/.test(result.logSha256 || '')) {
+      throw new Error(`Cannot resume: checkpoint result lacks log evidence for ${result.id}`);
+    }
+
+    const absoluteLogPath = path.resolve(root, result.logPath);
+    const relativeToLogs = path.relative(logsDir, absoluteLogPath);
+    if (
+      relativeToLogs === ''
+      || relativeToLogs.startsWith(`..${path.sep}`)
+      || path.isAbsolute(relativeToLogs)
+    ) {
+      throw new Error(`Cannot resume: checkpoint log path escapes the run for ${result.id}`);
+    }
+    const actualLogHash = await hashFile(absoluteLogPath).catch(error => {
+      throw new Error(`Cannot resume: missing log evidence for ${result.id}: ${error.message}`);
+    });
+    if (actualLogHash !== result.logSha256) {
+      throw new Error(`Cannot resume: log evidence hash mismatch for ${result.id}`);
+    }
+    if (
+      !result.cleanup
+      || result.cleanup.checked !== true
+      || result.cleanup.terminated !== true
+    ) {
+      throw new Error(`Cannot resume: incomplete process cleanup evidence for ${result.id}`);
+    }
+    if (!allowDirty && result.sourceTree?.clean !== true) {
+      throw new Error(`Cannot resume: incomplete clean-tree evidence for ${result.id}`);
+    }
+    if (result.status === 'PASS' && (result.exitCode !== 0 || result.signal !== null)) {
+      throw new Error(`Cannot resume: invalid PASS exit evidence for ${result.id}`);
+    }
+    if (result.status === 'PASS' && result.cleanup.leakDetected !== false) {
+      throw new Error(`Cannot resume: PASS contains process-leak evidence for ${result.id}`);
+    }
+    if (result.cleanup.leakDetected === true && result.status !== 'FAIL') {
+      throw new Error(`Cannot resume: process leak is not classified as FAIL for ${result.id}`);
+    }
+
+    completed.push(result);
+  }
+  return completed;
 }
 
 async function readRequiredJSON(filePath, label) {
@@ -578,11 +948,11 @@ async function readRequiredJSON(filePath, label) {
 }
 
 function resultKey(item) {
-  return `${item.path}\0${Array.isArray(item.command) ? item.command.join(' ') : ''}`;
+  return item.id;
 }
 
 function countByCategory(suites) {
-  const counts = Object.fromEntries(CATEGORY_ORDER.map(category => [category, 0]));
+  const counts = Object.fromEntries(PROFILE_ORDER.map(profile => [profile, 0]));
   for (const suite of suites) counts[suite.category] = (counts[suite.category] || 0) + 1;
   return counts;
 }
@@ -597,11 +967,17 @@ function countBlockers(suites) {
 
 function fingerprintInventory(suites) {
   return stableHash(suites.map(suite => ({
+    id: suite.id,
     path: suite.path,
-    category: suite.category,
+    profile: suite.profile,
+    tier: suite.tier,
     command: suite.command,
     blockers: suite.blockers,
     required: suite.required,
+    state: suite.state,
+    requirements: suite.requirements,
+    timeoutMs: suite.timeoutMs,
+    expectedDurationMs: suite.expectedDurationMs,
   })));
 }
 
@@ -611,7 +987,8 @@ function makeOptionsSnapshot(opts) {
     failFast: opts.failFast,
     timeoutMs: opts.timeoutMs,
     deadlineMs: opts.deadlineMs,
-    include: [...opts.include].sort(),
+    profiles: [...opts.profiles].sort(),
+    ids: [...opts.ids].sort(),
     exclude: [...opts.exclude].sort(),
     allowBlockers: [...opts.allowBlockers].sort(),
     noBlock: opts.noBlock,
@@ -625,7 +1002,11 @@ function stableHash(value) {
 
 async function getSourceRevision(root) {
   return await new Promise(resolve => {
-    const child = spawn('git', ['rev-parse', 'HEAD'], { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] });
+    const child = spawn('git', ['rev-parse', 'HEAD'], {
+      cwd: root,
+      env: pickCommandEnvironment(),
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
     let out = '';
     child.stdout.on('data', chunk => { out += chunk; });
     child.on('close', code => resolve(code === 0 ? out.trim() : 'unknown'));
@@ -635,7 +1016,11 @@ async function getSourceRevision(root) {
 
 async function assertCleanGitWorktree(root) {
   const status = await new Promise((resolve, reject) => {
-    const child = spawn('git', ['status', '--porcelain'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn('git', ['status', '--porcelain', '--untracked-files=all'], {
+      cwd: root,
+      env: pickCommandEnvironment(),
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
     let out = '';
     let err = '';
     child.stdout.on('data', chunk => { out += chunk; });
@@ -676,9 +1061,9 @@ async function writeJSON(filePath, value) {
 }
 
 async function writeJSONAtomic(filePath, value) {
-  await mkdir(path.dirname(filePath), { recursive: true });
+  await mkdir(path.dirname(filePath), { recursive: true, mode: 0o700 });
   const tmpPath = `${filePath}.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`;
-  await writeFile(tmpPath, `${JSON.stringify(value, null, 2)}\n`);
+  await writeFile(tmpPath, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
   await rename(tmpPath, filePath);
 }
 
@@ -694,8 +1079,8 @@ async function pathExists(filePath) {
 function printInventorySummary(report) {
   console.log(`audit dry-run ${report.runId}`);
   console.log(`inventory: ${report.inventory.total}`);
-  for (const category of CATEGORY_ORDER) {
-    console.log(`  ${category}: ${report.inventory.counts[category] || 0}`);
+  for (const profile of PROFILE_ORDER) {
+    console.log(`  ${profile}: ${report.inventory.counts[profile] || 0}`);
   }
   console.log(`blockers: ${JSON.stringify(report.inventory.blockerCounts)}`);
   console.log(`report: ${report.paths.report}`);
@@ -708,15 +1093,16 @@ function printSuiteProgress(done, total, result) {
 
 function printFinalSummary(report) {
   console.log(`audit run ${report.runId}`);
+  console.log(`verdict: ${report.verdict}`);
   console.log(`status: ${JSON.stringify(report.statusCounts)}`);
   console.log(`required failures: ${report.requiredFailureCount}`);
   console.log(`report: ${report.paths.report}`);
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     const report = await runAudit(parseArgs());
-    if (!report.dryRun && report.requiredFailureCount > 0) process.exitCode = 1;
+    process.exitCode = report.exitCode;
   } catch (err) {
     console.error(`audit runner failed: ${err.stack || err.message}`);
     process.exitCode = 2;
