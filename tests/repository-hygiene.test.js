@@ -76,6 +76,7 @@ for (const workspaceKind of ['applications', 'extensions']) {
   }
 }
 assert.match(installer, /\bnpm ci\b/);
+assert.match(installer, /export COREPACK_ENABLE_DOWNLOAD_PROMPT=0/);
 assert.match(installer, /yarn install --frozen-lockfile --non-interactive/);
 assert.match(installer, /YARN_VERSION="\$\(cd c3-ide && yarn --version\)"/);
 assert.match(installer, /\(cd c3-ide && yarn build /);

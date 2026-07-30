@@ -284,6 +284,11 @@ echo ""
 # ════════════════════════════════════════════════════════════════════════════
 echo -e "${BOLD}── IDE Dependencies ──${NC}"
 
+# Corepack-backed Yarn shims otherwise prompt before downloading the exact
+# packageManager version on a first-use machine. Installation must be
+# non-interactive and must still fail if that exact bootstrap cannot complete.
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+
 if ! command -v yarn >/dev/null 2>&1; then
   fail "Yarn 1.22.22 not found"
   echo "       Install: npm install -g yarn@1.22.22"
