@@ -12,8 +12,8 @@ override a failed or blocked suite.
 
 - Runnable programs: 350
 - Explicit support-module exclusions: 8
-- Profiles: offline=173, database=26, server=32, model=71, soak=33, manual=15
-- States: ACTIVE=256, HISTORICAL=15, BLOCKED=71, KNOWN_DEFECTIVE=8
+- Profiles: offline=173, database=26, server=32, model=86, soak=18, manual=15
+- States: ACTIVE=256, HISTORICAL=15, BLOCKED=74, KNOWN_DEFECTIVE=5
 
 ## Execution profiles
 
@@ -190,20 +190,20 @@ override a failed or blocked suite.
 | `IS-T3-E2E-80-WS-SEMANTIC-EVENTS` | `tests/e2e/80-ws-semantic-events.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
 | `IS-T3-E2E-81-CONVERSATION-LIFECYCLE` | `tests/e2e/81-conversation-lifecycle.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-82-CRE-CONFLICT-RESOLUTION` | `tests/e2e/82-cre-conflict-resolution.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T4-E2E-85-LONG-SESSION-DEGRADATION` | `tests/e2e/85-long-session-degradation.e2e.js` | `C3-003` | T4 | `soak` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T4-E2E-86-CODE-SEMANTIC-QUALITY` | `tests/e2e/86-code-semantic-quality.e2e.js` | `C3-003` | T4 | `soak` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
-| `IS-T4-E2E-87-SECURITY-INJECTION` | `tests/e2e/87-security-injection.e2e.js` | `C3-003` | T4 | `soak` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T4-E2E-88-CONCURRENT-LOAD` | `tests/e2e/88-concurrent-load.e2e.js` | `C3-003` | T4 | `soak` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
-| `IS-T4-E2E-89-RESPONSE-USEFULNESS` | `tests/e2e/89-response-usefulness.e2e.js` | `C3-003` | T4 | `soak` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T4-E2E-90-LARGE-PROJECT-GENERATION` | `tests/e2e/90-large-project-generation.e2e.js` | `C3-003` | T4 | `soak` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T4-E2E-91-MULTI-TURN-PROJECT-BUILD` | `tests/e2e/91-multi-turn-project-build.e2e.js` | `C3-003` | T4 | `soak` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T4-E2E-92-CODE-ANALYSIS-DEPTH` | `tests/e2e/92-code-analysis-depth.e2e.js` | `C3-003` | T4 | `soak` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T4-E2E-93-CHAT-RESPONSE-QUALITY` | `tests/e2e/93-chat-response-quality.e2e.js` | `C3-003` | T4 | `soak` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T4-E2E-94-LONG-CONVERSATION-QUALITY` | `tests/e2e/94-long-conversation-quality.e2e.js` | `C3-003` | T4 | `soak` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
-| `IS-T4-E2E-95-CODE-GENERATION-QUALITY` | `tests/e2e/95-code-generation-quality.e2e.js` | `C3-003` | T4 | `soak` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T4-E2E-96-PROJECT-WORKFLOW-QUALITY` | `tests/e2e/96-project-workflow-quality.e2e.js` | `C3-003` | T4 | `soak` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T4-E2E-97-PROJECT-BUILD-QUALITY` | `tests/e2e/97-project-build-quality.e2e.js` | `C3-003` | T4 | `soak` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T4-E2E-98-ANALYSIS-QUALITY` | `tests/e2e/98-analysis-quality.e2e.js` | `C3-003` | T4 | `soak` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-85-LONG-SESSION-DEGRADATION` | `tests/e2e/85-long-session-degradation.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-86-CODE-SEMANTIC-QUALITY` | `tests/e2e/86-code-semantic-quality.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-87-SECURITY-INJECTION` | `tests/e2e/87-security-injection.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-88-CONCURRENT-LOAD` | `tests/e2e/88-concurrent-load.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-89-RESPONSE-USEFULNESS` | `tests/e2e/89-response-usefulness.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-90-LARGE-PROJECT-GENERATION` | `tests/e2e/90-large-project-generation.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-91-MULTI-TURN-PROJECT-BUILD` | `tests/e2e/91-multi-turn-project-build.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-92-CODE-ANALYSIS-DEPTH` | `tests/e2e/92-code-analysis-depth.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-93-CHAT-RESPONSE-QUALITY` | `tests/e2e/93-chat-response-quality.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-94-LONG-CONVERSATION-QUALITY` | `tests/e2e/94-long-conversation-quality.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-95-CODE-GENERATION-QUALITY` | `tests/e2e/95-code-generation-quality.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-96-PROJECT-WORKFLOW-QUALITY` | `tests/e2e/96-project-workflow-quality.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-97-PROJECT-BUILD-QUALITY` | `tests/e2e/97-project-build-quality.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-98-ANALYSIS-QUALITY` | `tests/e2e/98-analysis-quality.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T1-TESTS-ERROR-NORMALIZER-TEST` | `tests/error-normalizer.test.js` | `C3-007` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-EXECUTION-GRAPH-TEST` | `tests/execution-graph.test.js` | `C3-007` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-EXECUTION-LOOP-TEST` | `tests/execution-loop.test.js` | `C3-007` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
@@ -296,7 +296,7 @@ override a failed or blocked suite.
 | `IS-T1-TESTS-PERF-ANALYZER-TEST` | `tests/perf-analyzer.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-PILOT-C1C2C3-TEST` | `tests/pilot-c1c2c3.test.js` | `C3-027` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-PROJECT-CONVERSATION-E2E-P5P7-TEST` | `tests/project-conversation-e2e-p5p7.test.js` | `C3-005` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
-| `IS-T4-TESTS-PROJECT-CONVERSATION-E2E-V2-TEST` | `tests/project-conversation-e2e-v2.test.js` | `C3-005` | T4 | `soak` | 45 min | 60 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-PROJECT-CONVERSATION-E2E-V2-TEST` | `tests/project-conversation-e2e-v2.test.js` | `C3-005` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-PROJECT-CONVERSATION-E2E-TEST` | `tests/project-conversation-e2e.test.js` | `C3-005` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-PROJECT-E2E-V131-TEST` | `tests/project-e2e-v131.test.js` | `C3-005` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-PROJECT-E2E-TEST` | `tests/project-e2e.test.js` | `C3-005` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `ACTIVE` | — | primary implementer |

@@ -6,13 +6,14 @@
 // ══════════════════════════════════════════════════════════════════════════════
 import {
   suite, testAsync, assert, summary,
-  api, waitForServer, chatInConv, createConv, hasKeywords,
+  api, waitForServer, chatWithTimeout, createConv, hasKeywords,
   cleanupConversation, LLM_TIMEOUT,
 } from './_helpers.js';
 
 await waitForServer();
 const created = [];
 const CONCURRENT_TIMEOUT = LLM_TIMEOUT * 3; // 180s for parallel waits
+const SEQUENTIAL_TIMEOUT = LLM_TIMEOUT * 5;
 
 try {
   // ═══════════════════════════════════════════════════════════════════════════
@@ -28,9 +29,21 @@ try {
 
     // Send all 3 in parallel — different unique topics
     const [r1, r2, r3] = await Promise.all([
-      chatInConv(conv1, 'Vysvětli mi co je DNS a jak funguje překlad doménových jmen'),
-      chatInConv(conv2, 'Co je fotosyntéza a jakou roli hraje chlorofyl?'),
-      chatInConv(conv3, 'Vysvětli princip fungování elektromotoru'),
+      chatWithTimeout(
+        conv1,
+        'Vysvětli mi co je DNS a jak funguje překlad doménových jmen',
+        LLM_TIMEOUT,
+      ),
+      chatWithTimeout(
+        conv2,
+        'Co je fotosyntéza a jakou roli hraje chlorofyl?',
+        LLM_TIMEOUT,
+      ),
+      chatWithTimeout(
+        conv3,
+        'Vysvětli princip fungování elektromotoru',
+        LLM_TIMEOUT,
+      ),
     ]);
 
     // Each response should address its own topic
@@ -60,10 +73,10 @@ try {
     created.push(convA, convB);
 
     // Alternate: A1, B1, A2, B2
-    const a1 = await chatInConv(convA, 'Co je to TCP protokol?');
-    const b1 = await chatInConv(convB, 'Co je to gravitační síla?');
-    const a2 = await chatInConv(convA, 'A jak se liší od UDP?');
-    const b2 = await chatInConv(convB, 'A jaká je gravitační konstanta?');
+    const a1 = await chatWithTimeout(convA, 'Co je to TCP protokol?', LLM_TIMEOUT);
+    const b1 = await chatWithTimeout(convB, 'Co je to gravitační síla?', LLM_TIMEOUT);
+    const a2 = await chatWithTimeout(convA, 'A jak se liší od UDP?', LLM_TIMEOUT);
+    const b2 = await chatWithTimeout(convB, 'A jaká je gravitační konstanta?', LLM_TIMEOUT);
 
     // A responses should be about networking
     assert(hasKeywords(a1.response, ['tcp', 'protokol', 'spojení', 'connection', 'přenos'], 1), 'A1: TCP topic');
@@ -72,7 +85,7 @@ try {
     // B responses should be about physics
     assert(hasKeywords(b1.response, ['gravitac', 'síla', 'přitažli', 'těleso', 'hmotnost', 'newton', 'gravity'], 1), 'B1: gravity');
     assert(hasKeywords(b2.response, ['konstant', 'gravitac', 'newton', 'hodnot', 'síla', 'g'], 1), 'B2: gravitational constant');
-  }, CONCURRENT_TIMEOUT);
+  }, SEQUENTIAL_TIMEOUT);
 
   // ═══════════════════════════════════════════════════════════════════════════
   suite('Concurrent — Error Resilience');
@@ -84,10 +97,14 @@ try {
 
     // Send a good request + deliberately bad request in parallel
     const [goodResult, badResult] = await Promise.all([
-      chatInConv(convGood, 'Co je to SQL databáze?'),
-      // Bad: empty message should get 400 or graceful error
-      api('POST', '/api/chat', { conversation_id: 'nonexistent-999', message: '' })
-        .catch(err => ({ status: 500, data: { error: err.message } })),
+      chatWithTimeout(convGood, 'Co je to SQL databáze?', LLM_TIMEOUT),
+      // Bad: empty message must retain the exact validation contract.
+      api(
+        'POST',
+        '/api/chat',
+        { conversation_id: 'nonexistent-999', message: '' },
+        AbortSignal.timeout(LLM_TIMEOUT),
+      ),
     ]);
 
     // Good request should still work
@@ -95,9 +112,17 @@ try {
     assert(hasKeywords(goodResult.response, ['sql', 'databáz', 'database', 'tabulk', 'dotaz', 'query'], 1),
       `good request should be about SQL: ${goodResult.response.substring(0, 200)}`);
 
-    // Bad request should get an error (not affect the good one)
-    assert(badResult.status >= 400 || (badResult.data && badResult.data.error),
-      'bad request should return error status or error message');
+    // Bad request must retain the route's exact validation contract.
+    assert(badResult.status === 400,
+      `bad request should return 400, got ${badResult.status}`);
+    assert(
+      badResult.data
+      && typeof badResult.data === 'object'
+      && !Array.isArray(badResult.data)
+      && Object.keys(badResult.data).length === 1
+      && badResult.data.error === 'conversation_id and message are required',
+      `bad request should return the validation error schema: ${JSON.stringify(badResult.data)}`,
+    );
   }, CONCURRENT_TIMEOUT);
 
 } finally {

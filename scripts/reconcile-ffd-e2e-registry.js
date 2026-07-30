@@ -29,8 +29,8 @@ function suiteId(tier, testPath) {
 function isKnownDefective(source) {
   return (
     /\bassert\s*\(\s*true\b/.test(source)
-    || /status[^\n]{0,120}\b500\b/.test(source)
-    || /\b500\b[^\n]{0,120}status/.test(source)
+    || /\bstatus\s*===?\s*500\b/.test(source)
+    || /\b500\s*===?\s*status\b/.test(source)
   );
 }
 
@@ -39,8 +39,8 @@ function metadataFor(testPath, source) {
   const isPhase = number >= 200;
   const isLongModel = number >= 85 && number < 200;
   const isServer = number <= 25;
-  const tier = isPhase ? 'T5' : isLongModel ? 'T4' : 'T3';
-  const profile = isPhase || isLongModel ? 'soak' : isServer ? 'server' : 'model';
+  const tier = isPhase ? 'T5' : 'T3';
+  const profile = isPhase ? 'soak' : isServer ? 'server' : 'model';
   const timeoutMs = isPhase ? 5_400_000 : isLongModel ? 3_600_000 : 900_000;
   const expectedDurationMs = isPhase ? 3_600_000 : isLongModel ? 2_700_000
     : isServer ? 120_000 : 600_000;
@@ -60,7 +60,7 @@ function metadataFor(testPath, source) {
       : isServer
         ? 'owned-isolated-local-server'
         : isLongModel
-          ? 'owned-isolated-model-server-soak'
+          ? 'owned-isolated-model-server-long'
           : 'owned-isolated-model-server',
     profile,
     timeoutMs,

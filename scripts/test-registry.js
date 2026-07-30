@@ -135,6 +135,9 @@ export function validateTestRegistry(registry, candidates) {
     if (typeof suite.required !== 'boolean') {
       errors.push(`${label}.required must be boolean`);
     }
+    if (suite.tier === 'T4' && suite.required !== false) {
+      errors.push(`${label} T4 replacement benchmarks must not be required for 1.0`);
+    }
     if (suite.state === 'HISTORICAL' && suite.required !== false) {
       errors.push(`${label} historical suites must not be required`);
     }

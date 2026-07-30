@@ -11,11 +11,11 @@
 //   6. No metadata leak — JSON internals never appear in responses
 //   7. Language stability — Czech maintained throughout
 //
-// Expected duration: 15-25 minutes (12+ LLM calls).
+// Expected duration: 15-25 minutes (10 LLM calls).
 // ══════════════════════════════════════════════════════════════════════════════
 import {
   suite, testAsync, assert, summary,
-  waitForServer, createConv, chatInConv, hasKeywords,
+  waitForServer, createConv, chatWithTimeout, hasKeywords,
   cleanupConversation, LLM_TIMEOUT,
 } from './_helpers.js';
 
@@ -23,6 +23,8 @@ await waitForServer();
 
 const created = [];
 const TURN_TIMEOUT = LLM_TIMEOUT * 4; // 240s per turn
+const TURN_REQUEST_TIMEOUT = TURN_TIMEOUT;
+const TURN_TEST_TIMEOUT = TURN_REQUEST_TIMEOUT + 5_000;
 
 // ── Quality Scoring Helpers ──────────────────────────────────────────────────
 
@@ -54,6 +56,21 @@ function hasMetadataLeak(text) {
 let convId;
 const responses = [];
 
+function recordResponse(response, label) {
+  assert(typeof response === 'string' && response.trim().length > 0,
+    `${label} must produce a non-empty response`);
+  responses.push(response);
+}
+
+function assertCompleteTranscript() {
+  assert(responses.length === 10,
+    `expected exactly 10 turn responses before aggregate checks, got ${responses.length}`);
+  for (let index = 0; index < responses.length; index++) {
+    assert(typeof responses[index] === 'string' && responses[index].trim().length > 0,
+      `turn ${index + 1} response must be non-empty`);
+  }
+}
+
 try {
   suite('Long Conversation Quality — Progressive Building');
 
@@ -62,22 +79,27 @@ try {
     convId = await createConv('lq-long');
     created.push(convId);
 
-    const r = await chatInConv(convId,
-      'Chci navrhnout REST API pro knihovnu. Jaké endpointy bych měl mít pro správu knih? Poraď mi s návrhem.'
+    const r = await chatWithTimeout(
+      convId,
+      'Chci navrhnout REST API pro knihovnu. Jaké endpointy bych měl mít pro správu knih? Poraď mi s návrhem.',
+      TURN_REQUEST_TIMEOUT,
     );
-    responses.push(r.response);
+    recordResponse(r.response, 'T1');
     assert(r.response.length > 200, `T1 too short: ${r.response.length}`);
     assert(hasKeywords(r.response, ['GET', 'POST', 'PUT', 'DELETE', 'endpoint', 'knih', 'book'], 3),
       'T1 should propose REST endpoints for books');
-  }, TURN_TIMEOUT);
+  }, TURN_TEST_TIMEOUT);
 
   // Turn 2: Drill into specifics
   await testAsync('T2: provides database schema for discussed API', async () => {
-    if (!convId) return;
-    const r = await chatInConv(convId,
-      'Dobře, a jaké databázové schéma by k tomu API mělo patřit? Jaké tabulky a sloupce?'
+    assert(typeof convId === 'string' && convId.length > 0,
+      'T2 requires the long-conversation fixture');
+    const r = await chatWithTimeout(
+      convId,
+      'Dobře, a jaké databázové schéma by k tomu API mělo patřit? Jaké tabulky a sloupce?',
+      TURN_REQUEST_TIMEOUT,
     );
-    responses.push(r.response);
+    recordResponse(r.response, 'T2');
 
     // Should reference the book API from T1
     assert(hasKeywords(r.response, ['knih', 'book', 'titul', 'title', 'autor', 'author', 'ISBN', 'isbn'], 2),
@@ -85,60 +107,72 @@ try {
     // Should have actual column definitions
     assert(hasKeywords(r.response, ['id', 'INTEGER', 'VARCHAR', 'TEXT', 'PRIMARY', 'sloupec', 'column', 'tabulk', 'table'], 2),
       'T2 should define database columns');
-  }, TURN_TIMEOUT);
+  }, TURN_TEST_TIMEOUT);
 
   // Turn 3: Add complexity
   await testAsync('T3: adds authentication to existing API', async () => {
-    if (!convId) return;
-    const r = await chatInConv(convId,
-      'Jak bych měl přidat autentizaci k tomu API? Chci JWT tokeny. Které endpointy by měly být chráněné?'
+    assert(typeof convId === 'string' && convId.length > 0,
+      'T3 requires the long-conversation fixture');
+    const r = await chatWithTimeout(
+      convId,
+      'Jak bych měl přidat autentizaci k tomu API? Chci JWT tokeny. Které endpointy by měly být chráněné?',
+      TURN_REQUEST_TIMEOUT,
     );
-    responses.push(r.response);
+    recordResponse(r.response, 'T3');
 
     // Must reference the specific endpoints from T1
     assert(hasKeywords(r.response, ['JWT', 'jwt', 'token', 'autentiz', 'authenticat'], 1),
       'T3 should discuss JWT');
     assert(hasKeywords(r.response, ['POST', 'PUT', 'DELETE', 'chráněn', 'protect', 'middleware'], 2),
       'T3 should specify which endpoints to protect');
-  }, TURN_TIMEOUT);
+  }, TURN_TEST_TIMEOUT);
 
   // Turn 4: Ask about earlier context (cross-reference test)
   await testAsync('T4: accurately references earlier discussion', async () => {
-    if (!convId) return;
-    const r = await chatInConv(convId,
-      'Vrátím se k databázi — potřebuji přidat tabulku pro výpůjčky knih. Jak ji propojit s tou tabulkou knih co jsme navrhli?'
+    assert(typeof convId === 'string' && convId.length > 0,
+      'T4 requires the long-conversation fixture');
+    const r = await chatWithTimeout(
+      convId,
+      'Vrátím se k databázi — potřebuji přidat tabulku pro výpůjčky knih. Jak ji propojit s tou tabulkou knih co jsme navrhli?',
+      TURN_REQUEST_TIMEOUT,
     );
-    responses.push(r.response);
+    recordResponse(r.response, 'T4');
 
     // Should remember the books table from T2 and build on it
     assert(hasKeywords(r.response, ['výpůjčk', 'borrow', 'půjč', 'loan'], 1),
       'T4 should discuss borrowing/loans');
     assert(hasKeywords(r.response, ['FOREIGN KEY', 'foreign key', 'referenc', 'cizí klíč', 'book_id', 'knih'], 1),
       'T4 should reference the books table from T2');
-  }, TURN_TIMEOUT);
+  }, TURN_TEST_TIMEOUT);
 
   // Turn 5: Topic switch
   await testAsync('T5: handles topic switch without confusion', async () => {
-    if (!convId) return;
-    const r = await chatInConv(convId,
-      'Jiné téma — jak bys doporučil strukturovat frontend pro tu aplikaci? React nebo Vue? Jaké komponenty?'
+    assert(typeof convId === 'string' && convId.length > 0,
+      'T5 requires the long-conversation fixture');
+    const r = await chatWithTimeout(
+      convId,
+      'Jiné téma — jak bys doporučil strukturovat frontend pro tu aplikaci? React nebo Vue? Jaké komponenty?',
+      TURN_REQUEST_TIMEOUT,
     );
-    responses.push(r.response);
+    recordResponse(r.response, 'T5');
 
     assert(hasKeywords(r.response, ['React', 'Vue', 'frontend', 'komponent', 'component'], 2),
       'T5 should discuss frontend frameworks');
     // Should still relate to the library app, not some random app
     assert(hasKeywords(r.response, ['knihovn', 'library', 'knih', 'book', 'výpůjčk', 'API', 'endpoint'], 1),
       'T5 should relate frontend to our library project');
-  }, TURN_TIMEOUT);
+  }, TURN_TEST_TIMEOUT);
 
   // Turn 6: Deep technical question
   await testAsync('T6: provides detailed error handling strategy', async () => {
-    if (!convId) return;
-    const r = await chatInConv(convId,
-      'Jakou strategii error handlingu bys doporučil pro to REST API? Jak řešit validační chyby, 404, 500, a rate limiting?'
+    assert(typeof convId === 'string' && convId.length > 0,
+      'T6 requires the long-conversation fixture');
+    const r = await chatWithTimeout(
+      convId,
+      'Jakou strategii error handlingu bys doporučil pro to REST API? Jak řešit validační chyby, 404, 500, a rate limiting?',
+      TURN_REQUEST_TIMEOUT,
     );
-    responses.push(r.response);
+    recordResponse(r.response, 'T6');
 
     assert(r.response.length > 300, `T6 too short for error handling strategy: ${r.response.length}`);
     // Should mention specific HTTP codes
@@ -147,15 +181,18 @@ try {
     // Should be structured
     assert(scoreStructure(r.response) >= 2,
       'T6 error handling strategy should be well-structured');
-  }, TURN_TIMEOUT);
+  }, TURN_TEST_TIMEOUT);
 
   // Turn 7: Code implementation
   await testAsync('T7: generates code consistent with discussed design', async () => {
-    if (!convId) return;
-    const r = await chatInConv(convId,
-      'Ukaž mi příklad implementace GET /books a POST /books endpointu v Express.js, včetně toho error handlingu co jsme probírali a JWT autentizace na POST.'
+    assert(typeof convId === 'string' && convId.length > 0,
+      'T7 requires the long-conversation fixture');
+    const r = await chatWithTimeout(
+      convId,
+      'Ukaž mi příklad implementace GET /books a POST /books endpointu v Express.js, včetně toho error handlingu co jsme probírali a JWT autentizace na POST.',
+      TURN_REQUEST_TIMEOUT,
     );
-    responses.push(r.response);
+    recordResponse(r.response, 'T7');
 
     assert(r.response.includes('```'), 'T7 should include code');
 
@@ -168,22 +205,25 @@ try {
     // Should have error handling from T6
     assert(hasKeywords(r.response, ['catch', 'error', 'status', '404', '400', '500', 'try'], 2),
       'T7 code should have error handling from T6 discussion');
-  }, TURN_TIMEOUT);
+  }, TURN_TEST_TIMEOUT);
 
   // Turn 8: Testing
   await testAsync('T8: suggests tests for the code', async () => {
-    if (!convId) return;
-    const r = await chatInConv(convId,
-      'Jaké testy bych měl napsat pro ty endpointy? Napiš mi 3-4 příklady testovacích případů.'
+    assert(typeof convId === 'string' && convId.length > 0,
+      'T8 requires the long-conversation fixture');
+    const r = await chatWithTimeout(
+      convId,
+      'Jaké testy bych měl napsat pro ty endpointy? Napiš mi 3-4 příklady testovacích případů.',
+      TURN_REQUEST_TIMEOUT,
     );
-    responses.push(r.response);
+    recordResponse(r.response, 'T8');
 
     assert(hasKeywords(r.response, ['test', 'assert', 'expect', 'should', 'měl', 'ověř'], 2),
       'T8 should describe test cases');
     // Should reference the specific endpoints
     assert(hasKeywords(r.response, ['GET', 'POST', 'books', 'knih', '200', '201', '401', '404'], 2),
       'T8 tests should reference our specific endpoints');
-  }, TURN_TIMEOUT);
+  }, TURN_TEST_TIMEOUT);
 
   // ═══════════════════════════════════════════════════════════════════════════
   suite('Long Conversation Quality — Cross-Turn Consistency');
@@ -191,11 +231,14 @@ try {
 
   // Turn 9: Summarize (tests comprehensive recall)
   await testAsync('T9: accurately summarizes full conversation', async () => {
-    if (!convId) return;
-    const r = await chatInConv(convId,
-      'Shrň mi celou tu architekturu co jsme navrhli — endpointy, databázi, autentizaci, error handling, frontend, testy. Co jsme pokryli a co nám chybí?'
+    assert(typeof convId === 'string' && convId.length > 0,
+      'T9 requires the long-conversation fixture');
+    const r = await chatWithTimeout(
+      convId,
+      'Shrň mi celou tu architekturu co jsme navrhli — endpointy, databázi, autentizaci, error handling, frontend, testy. Co jsme pokryli a co nám chybí?',
+      TURN_REQUEST_TIMEOUT,
     );
-    responses.push(r.response);
+    recordResponse(r.response, 'T9');
 
     assert(r.response.length > 400, `T9 summary too short: ${r.response.length}`);
 
@@ -211,15 +254,18 @@ try {
 
     assert(recalled.length >= 4,
       `T9 should recall ≥4 topics, remembered: ${recalled.join(', ')}`);
-  }, TURN_TIMEOUT);
+  }, TURN_TEST_TIMEOUT);
 
   // Turn 10: Contradiction test
   await testAsync('T10: catches contradiction with earlier advice', async () => {
-    if (!convId) return;
-    const r = await chatInConv(convId,
-      'Vlastně, nebylo by lepší nepoužívat JWT a místo toho použít session cookies? Jaké by byly výhody a nevýhody oproti tomu co jsme navrhli?'
+    assert(typeof convId === 'string' && convId.length > 0,
+      'T10 requires the long-conversation fixture');
+    const r = await chatWithTimeout(
+      convId,
+      'Vlastně, nebylo by lepší nepoužívat JWT a místo toho použít session cookies? Jaké by byly výhody a nevýhody oproti tomu co jsme navrhli?',
+      TURN_REQUEST_TIMEOUT,
     );
-    responses.push(r.response);
+    recordResponse(r.response, 'T10');
 
     // Should acknowledge the previous JWT recommendation and compare
     assert(hasKeywords(r.response, ['JWT', 'session', 'cookie', 'token'], 2),
@@ -227,13 +273,14 @@ try {
     // Should provide balanced comparison, not just switch position
     assert(hasKeywords(r.response, ['výhod', 'nevýhod', 'pros', 'cons', 'oproti', 'versus', 'narozd', 'compar'], 1),
       'T10 should give balanced comparison, not just agree');
-  }, TURN_TIMEOUT);
+  }, TURN_TEST_TIMEOUT);
 
   // ═══════════════════════════════════════════════════════════════════════════
   suite('Long Conversation Quality — No Degradation');
   // ═══════════════════════════════════════════════════════════════════════════
 
   await testAsync('response quality does not degrade across turns', async () => {
+    assertCompleteTranscript();
     // Compare early responses (T1-T3) vs late responses (T7-T10) on structure
     const early = responses.slice(0, 3);
     const late = responses.slice(-4);
@@ -257,6 +304,7 @@ try {
   });
 
   await testAsync('Czech maintained throughout all turns', async () => {
+    assertCompleteTranscript();
     let czechTurns = 0;
     for (const r of responses) {
       if (czechRatio(r) > 0.02) czechTurns++;
@@ -268,6 +316,7 @@ try {
   });
 
   await testAsync('no metadata leak in any turn', async () => {
+    assertCompleteTranscript();
     for (let i = 0; i < responses.length; i++) {
       assert(!hasMetadataLeak(responses[i]),
         `metadata leak detected in turn ${i + 1}: ${responses[i].substring(0, 200)}`);
@@ -275,6 +324,7 @@ try {
   });
 
   await testAsync('no identical/copy-paste responses', async () => {
+    assertCompleteTranscript();
     // No two responses should be >80% similar (no copy-paste)
     for (let i = 0; i < responses.length; i++) {
       for (let j = i + 1; j < responses.length; j++) {

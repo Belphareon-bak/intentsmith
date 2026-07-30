@@ -1,9 +1,9 @@
 # Disposition of disputed `final` commit
 
 Status: all source-diff facts are recorded in a committed sanitized manifest
-and validate offline. Fifty-one records are evidence-backed `REPAIRED`, and 22
+and validate offline. Fifty-one records are evidence-backed `REPAIRED`, and 27
 truthful model suites are `DEFERRED` behind concrete runtime prerequisites. The
-validator deliberately remains red while 19 legacy `REBUILD/REPAIR` rows await
+validator deliberately remains red while 14 legacy `REBUILD/REPAIR` rows await
 terminal closure under `D-018`.
 
 Compared refs:
@@ -74,9 +74,9 @@ node scripts/validate-final-disposition.js \
 | `EXCLUDE/MOVE_OUTSIDE_PRODUCTION` | 78 |
 | `EXCLUDE/REMOVE_FOLLOWUP` | 13 |
 | `KEEP/REPLAY` | 42 |
-| `REBUILD/REPAIR` | 19 |
+| `REBUILD/REPAIR` | 14 |
 | `REBUILD/REPAIRED` | 51 |
-| `REBUILD/DEFERRED(<prerequisite>)` | 22 |
+| `REBUILD/DEFERRED(<prerequisite>)` | 27 |
 | `UNRESOLVED / USER_DECISION` | 0 |
 
 ## Path-by-path classification
@@ -277,15 +277,15 @@ node scripts/validate-final-disposition.js \
 | `A` | `tests/e2e/81-conversation-lifecycle.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/82-cre-conflict-resolution.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | CRE conflict assertions are fail-closed through the strict positive chat helper; execution requires the named isolated local model fixture. |
 | `A` | `tests/e2e/85-long-session-degradation.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Long-session assertions are fail-closed through the strict positive chat helper; execution requires the named isolated local model fixture. |
-| `A` | `tests/e2e/86-code-semantic-quality.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/86-code-semantic-quality.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Every response is bounded and must contain fenced, non-placeholder code. Python imports are parsed individually and checked against an explicit allowlist; Express route/listen and requested implementation semantics are mandatory. Transient errors and empty implementations no longer pass, and cleanup is unconditional. Execution remains behind the named isolated model fixture. |
 | `A` | `tests/e2e/87-security-injection.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Injection assertions are fail-closed through the strict positive chat helper; execution requires the named isolated local model fixture. |
-| `A` | `tests/e2e/88-concurrent-load.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/88-concurrent-load.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+three-request-gpu-headroom)` | Three parallel model requests and four alternating turns are bounded, topic-specific and fail closed. The paired invalid request must return the exact 400 validation schema instead of being converted into a synthetic 500. No model-green claim is made until the fixture provides explicit headroom for three concurrent requests. |
 | `A` | `tests/e2e/89-response-usefulness.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Usefulness assertions are fail-closed through the strict positive chat helper; execution requires the named isolated local model fixture. |
-| `A` | `tests/e2e/90-large-project-generation.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/91-multi-turn-project-build.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/90-large-project-generation.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | The suite now evaluates a mandatory seven-file project manifest extracted from fenced responses, recognizes Markdown filename headings and requires the exact named files plus substantive code, imports, routes, validation and error handling. The former synthetic disk writer and its path-traversal exposure are removed; every turn is bounded and cleanup is unconditional. |
+| `A` | `tests/e2e/91-multi-turn-project-build.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Six dependent model turns now require non-empty exact-200 responses and assert the requested evolving Flask/SQLAlchemy/API/test semantics. Early returns that previously converted a failed prerequisite into later green checks are gone, and cleanup is unconditional. |
 | `A` | `tests/e2e/92-code-analysis-depth.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Code-analysis assertions are fail-closed through the strict positive chat helper; execution requires the named isolated local model fixture. |
 | `A` | `tests/e2e/93-chat-response-quality.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Response-quality assertions are fail-closed through the strict positive chat helper; execution requires the named isolated local model fixture. |
-| `A` | `tests/e2e/94-long-conversation-quality.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/94-long-conversation-quality.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Ten bounded turns must each return substantive content and preserve exact named facts, corrections, exclusions and final synthesis. Dependent early returns and weak aggregate-only checks are removed; the suite fails closed and always cleans up. Execution remains behind the named long-context model fixture. |
 | `A` | `tests/e2e/95-code-generation-quality.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Code-generation assertions are fail-closed through the strict positive chat helper; execution requires the named isolated local model fixture. |
 | `A` | `tests/e2e/96-project-workflow-quality.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Project-workflow assertions are fail-closed through the strict positive chat helper and owned temp cleanup; execution requires the named isolated local model fixture. |
 | `A` | `tests/e2e/97-project-build-quality.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Project-build assertions are fail-closed through the strict positive chat helper; execution requires the named isolated local model fixture. |

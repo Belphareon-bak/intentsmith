@@ -226,6 +226,24 @@ summary();
       .some(error => error.includes('path is unsafe')),
   );
 
+  const requiredT4 = {
+    schemaVersion: 2,
+    exclusions: [],
+    suites: [validRegistrySuite('tests/example.js', ['node', 'tests/example.js'])],
+  };
+  requiredT4.suites[0].tier = 'T4';
+  assert.ok(
+    validateTestRegistry(requiredT4, ['tests/example.js'])
+      .some(error => error.includes('T4 replacement benchmarks must not be required')),
+  );
+
+  const deferredT4 = structuredClone(requiredT4);
+  deferredT4.suites[0].required = false;
+  assert.deepEqual(
+    validateTestRegistry(deferredT4, ['tests/example.js']),
+    [],
+  );
+
   const discoveryRoot = join(fixtureDir, 'discovery-root');
   mkdirSync(join(discoveryRoot, 'tests'), { recursive: true });
   writeFileSync(join(discoveryRoot, 'tests', 'unconventional.runner.mjs'), 'export {};\n');

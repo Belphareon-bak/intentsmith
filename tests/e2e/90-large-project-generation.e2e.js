@@ -12,20 +12,45 @@
 // ══════════════════════════════════════════════════════════════════════════════
 import {
   suite, testAsync, assert, summary,
-  waitForServer, createConv, chatInConv, hasKeywords,
-  cleanupConversation, LLM_TIMEOUT, makeOwnedTempDir, removeOwnedTempDir,
+  waitForServer, createConv, chatWithTimeout, hasKeywords,
+  cleanupConversation, LLM_TIMEOUT,
 } from './_helpers.js';
-import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
-import { join, dirname, extname, basename } from 'node:path';
 
 await waitForServer();
 
 const created = [];
 const LONG_TIMEOUT = LLM_TIMEOUT * 3;    // 180s per turn
 const PROJECT_TIMEOUT = LLM_TIMEOUT * 5;  // 300s for generation
-const tmpDir = makeOwnedTempDir('c3-e2e-large');
+const LONG_TEST_TIMEOUT = LONG_TIMEOUT + 5_000;
+const PROJECT_TEST_TIMEOUT = PROJECT_TIMEOUT + 5_000;
+const REQUIRED_PROJECT_FILES = [
+  'server.js',
+  'routes/books.js',
+  'routes/authors.js',
+  'models/book.js',
+  'models/author.js',
+  'middleware/errorHandler.js',
+  'middleware/validate.js',
+];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+function normalizeFilename(filename) {
+  return filename
+    ? filename.replace(/\\/g, '/').replace(/^[./]+/, '').replace(/[`"',:;]+$/g, '')
+    : null;
+}
+
+function detectFilename(before, code) {
+  const recentLines = before.trimEnd().split(/\r?\n/).slice(-4).reverse();
+  for (const line of recentLines) {
+    const matches = [
+      ...line.matchAll(/(?:^|[\s`*])([a-zA-Z_][\w./-]*\.[a-zA-Z0-9]{1,8})(?=[\s`*:;,—-]|$)/g),
+    ];
+    if (matches.length > 0) return matches[matches.length - 1][1];
+  }
+  return code.match(/^\/\/\s*(.+\.\w+)/)?.[1] || null;
+}
 
 /** Extract fenced code blocks from response: { lang, filename, code } */
 function extractCodeBlocks(response) {
@@ -37,12 +62,9 @@ function extractCodeBlocks(response) {
     const code = m[2];
     // Try to detect filename from comment or header near the block
     const before = response.substring(Math.max(0, m.index - 200), m.index);
-    const fnMatch = before.match(/(?:soubor|file|filename)[:\s]*[`"']?([^\s`"']+\.\w+)/i)
-      || before.match(/([a-zA-Z_][\w\-/]*\.\w{1,5})\s*[:]*\s*$/m)
-      || code.match(/^\/\/\s*(.+\.\w+)/);
     blocks.push({
       lang,
-      filename: fnMatch ? fnMatch[1].trim() : null,
+      filename: normalizeFilename(detectFilename(before, code)),
       code,
       lines: code.split('\n').length,
     });
@@ -56,58 +78,70 @@ function hasMockPatterns(code) {
   return MOCK_RE.test(code);
 }
 
-/** Count import/require statements */
-function countImports(code, lang) {
-  if (['js', 'javascript', 'mjs', 'ts', 'typescript'].includes(lang)) {
-    return (code.match(/(?:import\s+|require\s*\()/g) || []).length;
-  }
-  if (['py', 'python'].includes(lang)) {
-    return (code.match(/(?:^import\s+|^from\s+)/gm) || []).length;
-  }
-  if (['go'].includes(lang)) {
-    return (code.match(/(?:^import\s+)/gm) || []).length;
-  }
-  return 0;
-}
-
-/** Extract exported names from JS/TS code */
-function extractExports(code) {
-  const names = [];
-  for (const m of code.matchAll(/export\s+(?:default\s+)?(?:function|class|const|let|var)\s+(\w+)/g)) {
-    names.push(m[1]);
-  }
-  for (const m of code.matchAll(/module\.exports\s*=\s*\{?\s*(\w+)/g)) {
-    names.push(m[1]);
-  }
-  return names;
-}
-
-/** Extract imported names from JS/TS code */
-function extractImportedNames(code) {
-  const names = [];
-  for (const m of code.matchAll(/import\s+\{([^}]+)\}/g)) {
-    for (const n of m[1].split(',')) {
-      const clean = n.trim().split(/\s+as\s+/).pop().trim();
-      if (clean) names.push(clean);
+function resolveRelativeImport(sourceFilename, importPath) {
+  const parts = sourceFilename.split('/');
+  parts.pop();
+  for (const part of importPath.split('/')) {
+    if (!part || part === '.') continue;
+    if (part === '..') {
+      if (parts.length === 0) return null;
+      parts.pop();
+    } else {
+      parts.push(part);
     }
   }
-  for (const m of code.matchAll(/import\s+(\w+)/g)) {
-    names.push(m[1]);
-  }
-  return names;
+  return parts.join('/');
 }
 
-/** Write extracted code blocks to temp directory */
-function writeCodeFiles(blocks) {
-  const files = [];
-  for (const block of blocks) {
-    if (!block.filename) continue;
-    const fullPath = join(tmpDir, block.filename);
-    mkdirSync(dirname(fullPath), { recursive: true });
-    writeFileSync(fullPath, block.code);
-    files.push({ path: block.filename, fullPath, code: block.code, lang: block.lang, lines: block.lines });
+function hasJsExtension(filename) {
+  return /\.(?:js|mjs)$/.test(filename || '');
+}
+
+function extractRoutePaths(code, method) {
+  const paths = [];
+  const routeRe = new RegExp(`\\.${method}\\s*\\(\\s*['"]([^'"]+)['"]`, 'g');
+  for (const match of code.matchAll(routeRe)) paths.push(match[1]);
+  return paths;
+}
+
+function assertCleanEsModules(blocks, label) {
+  const jsBlocks = blocks.filter(block =>
+    ['js', 'javascript', 'mjs'].includes(block.lang) || hasJsExtension(block.filename)
+  );
+  assert(jsBlocks.length >= 5, `${label} should contain at least five JavaScript files`);
+  for (const block of jsBlocks) {
+    const name = block.filename || '(unnamed)';
+    assert(!/\brequire\s*\(|\bmodule\.exports\b|\bexports\./.test(block.code),
+      `${name} should not use CommonJS`);
+    assert(/\b(?:import|export)\b/.test(block.code),
+      `${name} should use ES module import/export syntax`);
   }
-  return files;
+}
+
+function assertRelativeImportsResolve(blocks) {
+  const filenames = new Set(blocks.map(block => block.filename).filter(Boolean));
+  let relativeImportCount = 0;
+
+  for (const block of blocks) {
+    assert(block.filename, 'every generated code block must identify its filename');
+    const importPaths = [
+      ...block.code.matchAll(/\bfrom\s+['"](\.[^'"]+)['"]/g),
+      ...block.code.matchAll(/\bimport\s+['"](\.[^'"]+)['"]/g),
+    ].map(match => match[1]);
+
+    for (const importPath of importPaths) {
+      relativeImportCount++;
+      const resolved = resolveRelativeImport(block.filename, importPath);
+      const candidates = resolved
+        ? [resolved, `${resolved}.js`, `${resolved}/index.js`]
+        : [];
+      assert(candidates.some(candidate => filenames.has(candidate)),
+        `${block.filename} import ${importPath} does not reference a generated file`);
+    }
+  }
+
+  assert(relativeImportCount >= 3,
+    `project should contain at least three relative imports, got ${relativeImportCount}`);
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────
@@ -120,13 +154,12 @@ try {
   let convId;
   let generationResponse = '';
   let codeBlocks = [];
-  let writtenFiles = [];
 
   await testAsync('ask C3 to generate complete Node.js REST API project', async () => {
     convId = await createConv('large-project');
     created.push(convId);
 
-    const r = await chatInConv(convId,
+    const r = await chatWithTimeout(convId,
       `Vygeneruj kompletní Node.js REST API projekt pro správu knihovny. Projekt musí mít tyto soubory:
 
 1. server.js — hlavní soubor s Express serverem a registrací routerů
@@ -138,7 +171,8 @@ try {
 7. middleware/validate.js — validační middleware
 
 Každý soubor musí být kompletní, funkční, a importy mezi soubory musí být konzistentní.
-Použij ES modules (import/export). Vypiš každý soubor v code bloku s jeho názvem.`
+Použij ES modules (import/export). Vypiš každý soubor v code bloku s jeho názvem.`,
+      PROJECT_TIMEOUT,
     );
 
     assert(r.response.length > 500, `project generation response too short: ${r.response.length}`);
@@ -147,32 +181,25 @@ Použij ES modules (import/export). Vypiš každý soubor v code bloku s jeho n�
     // Extract code blocks
     codeBlocks = extractCodeBlocks(r.response);
     assert(codeBlocks.length >= 5, `expected ≥5 code blocks for 7-file project, got ${codeBlocks.length}`);
-
-    // Write to temp files for analysis
-    writtenFiles = writeCodeFiles(codeBlocks);
-  }, PROJECT_TIMEOUT);
+  }, PROJECT_TEST_TIMEOUT);
 
   // ═══════════════════════════════════════════════════════════════════════════
   suite('Large Project — File Completeness');
   // ═══════════════════════════════════════════════════════════════════════════
 
   await testAsync('all key files are generated', async () => {
-    if (!codeBlocks.length) return;
-    const filenames = codeBlocks.map(b => b.filename).filter(Boolean).join(' ');
-    const allCode = codeBlocks.map(b => b.code).join('\n');
-    // Check that essential parts are covered
-    const hasServer = filenames.includes('server') || filenames.includes('app') || filenames.includes('index')
-      || allCode.includes('express()') || allCode.includes('app.listen') || allCode.includes('createServer')
-      || allCode.includes('.listen(');
-    const hasRoutes = filenames.includes('route') || filenames.includes('book') || allCode.includes('router.');
-    const hasModel = filenames.includes('model') || allCode.includes('class Book') || allCode.includes('class Author');
-    assert(hasServer, 'project should include server setup');
-    assert(hasRoutes, 'project should include route definitions');
-    assert(hasModel || allCode.includes('validat'), 'project should include models or validation');
+    assert(generationResponse.trim().length > 0, 'project generation response is required');
+    assert(codeBlocks.length >= 5,
+      `project generation must produce at least five code blocks, got ${codeBlocks.length}`);
+    const filenames = new Set(codeBlocks.map(block => block.filename).filter(Boolean));
+    for (const filename of REQUIRED_PROJECT_FILES) {
+      assert(filenames.has(filename), `project should include ${filename}`);
+    }
   });
 
   await testAsync('code blocks have sufficient length', async () => {
-    if (!codeBlocks.length) return;
+    assert(codeBlocks.length >= 5,
+      `code-length check requires at least five generated blocks, got ${codeBlocks.length}`);
     const avgLines = codeBlocks.reduce((s, b) => s + b.lines, 0) / codeBlocks.length;
     assert(avgLines > 5, `average code block too short: ${avgLines.toFixed(1)} lines`);
     // At least one file should be substantial (>15 lines)
@@ -181,7 +208,8 @@ Použij ES modules (import/export). Vypiš každý soubor v code bloku s jeho n�
   });
 
   await testAsync('no placeholder/TODO code in generated files', async () => {
-    if (!codeBlocks.length) return;
+    assert(codeBlocks.length >= 5,
+      `placeholder check requires at least five generated blocks, got ${codeBlocks.length}`);
     let mockCount = 0;
     const mockFiles = [];
     for (const block of codeBlocks) {
@@ -199,53 +227,15 @@ Použij ES modules (import/export). Vypiš každý soubor v code bloku s jeho n�
   // ═══════════════════════════════════════════════════════════════════════════
 
   await testAsync('import statements use consistent module system', async () => {
-    if (!codeBlocks.length) return;
-    const jsBlocks = codeBlocks.filter(b =>
-      ['js', 'javascript', 'mjs'].includes(b.lang) || (b.filename && /\.m?js$/.test(b.filename))
-    );
-    if (jsBlocks.length < 2) return;
-
-    // Check: either all use import/export OR all use require/module.exports
-    let esm = 0, cjs = 0;
-    for (const block of jsBlocks) {
-      if (/\bimport\s+/.test(block.code) || /\bexport\s+/.test(block.code)) esm++;
-      if (/\brequire\s*\(/.test(block.code) || /module\.exports/.test(block.code)) cjs++;
-    }
-    // Allow mixed only if clearly intentional (e.g., one config file using CJS)
-    assert(esm === 0 || cjs === 0 || Math.min(esm, cjs) <= 1,
-      `mixed module systems: ${esm} ESM files, ${cjs} CJS files — should be consistent`);
+    assert(codeBlocks.length >= 5,
+      `module-system check requires at least five generated blocks, got ${codeBlocks.length}`);
+    assertCleanEsModules(codeBlocks, 'generated project');
   });
 
   await testAsync('cross-file imports reference existing files', async () => {
-    if (codeBlocks.length < 3) return;
-    const allCode = codeBlocks.map(b => b.code).join('\n---FILE-BOUNDARY---\n');
-    const filenames = codeBlocks.map(b => b.filename).filter(Boolean);
-
-    // Extract import paths (relative: ./xxx or ../xxx)
-    const importPaths = [];
-    for (const m of allCode.matchAll(/(?:import|from)\s+['"](\.[^'"]+)['"]/g)) {
-      importPaths.push(m[1]);
-    }
-    for (const m of allCode.matchAll(/require\s*\(\s*['"](\.[^'"]+)['"]\s*\)/g)) {
-      importPaths.push(m[1]);
-    }
-
-    if (importPaths.length === 0) return; // No relative imports to check
-
-    // At least some relative imports should reference files from the project
-    let resolved = 0;
-    for (const imp of importPaths) {
-      const base = imp.replace(/^\.\//, '').replace(/^\.\.\//, '');
-      const withExt = base.endsWith('.js') ? base : base + '.js';
-      const matches = filenames.some(f =>
-        f.includes(base) || f.includes(withExt) || f.endsWith('/' + basename(base))
-      );
-      if (matches) resolved++;
-    }
-    // At least 50% of relative imports should resolve (accounting for naming variations)
-    const resolveRate = importPaths.length > 0 ? resolved / importPaths.length : 1;
-    assert(resolveRate >= 0.5 || resolved >= 2,
-      `only ${resolved}/${importPaths.length} relative imports resolve (${(resolveRate * 100).toFixed(0)}%)`);
+    assert(codeBlocks.length >= 5,
+      `import-resolution check requires at least five generated blocks, got ${codeBlocks.length}`);
+    assertRelativeImportsResolve(codeBlocks);
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -253,11 +243,10 @@ Použij ES modules (import/export). Vypiš každý soubor v code bloku s jeho n�
   // ═══════════════════════════════════════════════════════════════════════════
 
   await testAsync('server file registers routes', async () => {
-    if (!codeBlocks.length) return;
-    const serverBlock = codeBlocks.find(b =>
-      (b.filename && b.filename.includes('server')) || b.code.includes('app.listen')
-    );
-    if (!serverBlock) return;
+    assert(codeBlocks.length >= 5,
+      `server check requires at least five generated blocks, got ${codeBlocks.length}`);
+    const serverBlock = codeBlocks.find(block => block.filename === 'server.js');
+    assert(serverBlock, 'project should include a named server.js code block');
 
     assert(
       serverBlock.code.includes('app.use') || serverBlock.code.includes('app.get'),
@@ -270,25 +259,34 @@ Použij ES modules (import/export). Vypiš každý soubor v code bloku s jeho n�
   });
 
   await testAsync('routes have CRUD operations', async () => {
-    if (!codeBlocks.length) return;
-    const routeBlocks = codeBlocks.filter(b =>
-      (b.filename && (b.filename.includes('route') || b.filename.includes('book') || b.filename.includes('author')))
-      || b.code.includes('router.')
-    );
-    if (routeBlocks.length === 0) return;
-
-    const allRouteCode = routeBlocks.map(b => b.code).join('\n');
-    // Should have at least GET and POST
-    assert(/\.get\s*\(/.test(allRouteCode), 'routes should have GET endpoint');
-    assert(/\.post\s*\(/.test(allRouteCode), 'routes should have POST endpoint');
+    assert(codeBlocks.length >= 5,
+      `route check requires at least five generated blocks, got ${codeBlocks.length}`);
+    for (const filename of ['routes/books.js', 'routes/authors.js']) {
+      const routeBlock = codeBlocks.find(block => block.filename === filename);
+      assert(routeBlock, `project should include ${filename}`);
+      const getPaths = extractRoutePaths(routeBlock.code, 'get');
+      const postPaths = extractRoutePaths(routeBlock.code, 'post');
+      const putPaths = extractRoutePaths(routeBlock.code, 'put');
+      const deletePaths = extractRoutePaths(routeBlock.code, 'delete');
+      assert(getPaths.some(route => route === '/' || !route.includes(':id')),
+        `${filename} should have a collection GET endpoint`);
+      assert(getPaths.some(route => route.includes(':id')),
+        `${filename} should have an item GET endpoint`);
+      assert(postPaths.length > 0, `${filename} should have a POST endpoint`);
+      assert(putPaths.some(route => route.includes(':id')),
+        `${filename} should have an item PUT endpoint`);
+      assert(deletePaths.some(route => route.includes(':id')),
+        `${filename} should have an item DELETE endpoint`);
+    }
   });
 
   await testAsync('error handler uses Express error pattern', async () => {
-    if (!codeBlocks.length) return;
-    const errorBlock = codeBlocks.find(b =>
-      (b.filename && b.filename.includes('error')) || b.code.includes('err, req, res, next')
+    assert(codeBlocks.length >= 5,
+      `error-handler check requires at least five generated blocks, got ${codeBlocks.length}`);
+    const errorBlock = codeBlocks.find(block =>
+      block.filename === 'middleware/errorHandler.js'
     );
-    if (!errorBlock) return;
+    assert(errorBlock, 'project should include middleware/errorHandler.js');
 
     // Express error handler has 4 params: (err, req, res, next)
     assert(
@@ -305,9 +303,12 @@ Použij ES modules (import/export). Vypiš každý soubor v code bloku s jeho n�
   let featureResponse = '';
 
   await testAsync('ask to add search endpoint to existing project', async () => {
-    if (!convId) return;
-    const r = await chatInConv(convId,
-      'Přidej do routes/books.js endpoint GET /books/search?q=text pro fulltextové vyhledávání knih podle názvu. Vypiš aktualizovaný soubor.'
+    assert(typeof convId === 'string' && convId.length > 0,
+      'search follow-up requires the project conversation');
+    const r = await chatWithTimeout(
+      convId,
+      'Přidej do routes/books.js endpoint GET /books/search?q=text pro fulltextové vyhledávání knih podle názvu. Vypiš celý aktualizovaný soubor se všemi CRUD endpointy.',
+      LONG_TIMEOUT,
     );
     assert(r.response.length > 100, `feature response too short: ${r.response.length}`);
     featureResponse = r.response;
@@ -317,20 +318,34 @@ Použij ES modules (import/export). Vypiš každý soubor v code bloku s jeho n�
       'feature response should contain search logic');
     // Should have code block
     assert(r.response.includes('```'), 'feature response should include code block');
-  }, LONG_TIMEOUT);
+  }, LONG_TEST_TIMEOUT);
 
   await testAsync('added feature maintains existing CRUD', async () => {
-    if (!featureResponse) return;
+    assert(featureResponse.trim().length > 0, 'search feature response is required');
     const blocks = extractCodeBlocks(featureResponse);
-    if (blocks.length === 0) return;
-
-    const routeCode = blocks.map(b => b.code).join('\n');
-    // Should still have original CRUD operations
-    const hasCrud = /\.get\s*\(/.test(routeCode) && /\.post\s*\(/.test(routeCode);
-    // OR the response only shows the new endpoint (incremental update)
-    const hasSearch = /search|query|hled/.test(routeCode.toLowerCase());
-    assert(hasCrud || hasSearch,
-      'updated file should maintain CRUD or at least show search endpoint');
+    assert(blocks.length > 0, 'search feature should contain a code block');
+    const routeBlock = blocks.find(block => block.filename === 'routes/books.js');
+    assert(routeBlock, 'search feature should contain the complete routes/books.js file');
+    assert(!hasMockPatterns(routeBlock.code), 'updated routes/books.js should not contain placeholders');
+    assert(!/\brequire\s*\(|\bmodule\.exports\b|\bexports\./.test(routeBlock.code),
+      'updated routes/books.js should remain an ES module');
+    assert(/\b(?:import|export)\b/.test(routeBlock.code),
+      'updated routes/books.js should use import/export syntax');
+    const getPaths = extractRoutePaths(routeBlock.code, 'get');
+    const postPaths = extractRoutePaths(routeBlock.code, 'post');
+    const putPaths = extractRoutePaths(routeBlock.code, 'put');
+    const deletePaths = extractRoutePaths(routeBlock.code, 'delete');
+    assert(getPaths.some(route => /\/search$/.test(route)),
+      'updated routes/books.js should define the search endpoint');
+    assert(getPaths.some(route => route === '/' || route === '/books'),
+      'updated routes/books.js should retain the collection GET endpoint');
+    assert(getPaths.some(route => route.includes(':id')),
+      'updated routes/books.js should retain the item GET endpoint');
+    assert(postPaths.length > 0, 'updated routes/books.js should retain POST');
+    assert(putPaths.some(route => route.includes(':id')),
+      'updated routes/books.js should retain the item PUT endpoint');
+    assert(deletePaths.some(route => route.includes(':id')),
+      'updated routes/books.js should retain the item DELETE endpoint');
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -338,9 +353,12 @@ Použij ES modules (import/export). Vypiš každý soubor v code bloku s jeho n�
   // ═══════════════════════════════════════════════════════════════════════════
 
   await testAsync('ask for security review of the project', async () => {
-    if (!convId) return;
-    const r = await chatInConv(convId,
-      'Proveď bezpečnostní revizi celého projektu. Zkontroluj: SQL injection, validaci vstupů, error handling, a chybějící autentizaci.'
+    assert(typeof convId === 'string' && convId.length > 0,
+      'security review requires the project conversation');
+    const r = await chatWithTimeout(
+      convId,
+      'Proveď bezpečnostní revizi celého projektu. Zkontroluj: SQL injection, validaci vstupů, error handling, a chybějící autentizaci.',
+      LONG_TIMEOUT,
     );
     assert(r.response.length > 200, `security review too short: ${r.response.length}`);
     // Should mention at least some security concepts
@@ -349,66 +367,84 @@ Použij ES modules (import/export). Vypiš každý soubor v code bloku s jeho n�
     // Should identify specific improvements (not just generic advice)
     assert(r.response.length > 300 || r.response.includes('```'),
       'security review should be detailed or include code fixes');
-  }, LONG_TIMEOUT);
+  }, LONG_TEST_TIMEOUT);
 
   await testAsync('ask for architecture assessment', async () => {
-    if (!convId) return;
-    const r = await chatInConv(convId,
-      'Zhodnoť architekturu projektu. Je struktura správná? Dodržuje princip oddělení zodpovědností? Co bys vylepšil?'
+    assert(typeof convId === 'string' && convId.length > 0,
+      'architecture assessment requires the project conversation');
+    const r = await chatWithTimeout(
+      convId,
+      'Zhodnoť architekturu projektu. Je struktura správná? Dodržuje princip oddělení zodpovědností? Co bys vylepšil?',
+      LONG_TIMEOUT,
     );
     assert(r.response.length > 100, `architecture review too short: ${r.response.length}`);
     assert(hasKeywords(r.response, ['architektur', 'struktur', 'oddělení', 'zodpověd', 'separation', 'concern', 'vrst', 'layer', 'model', 'controller', 'route', 'middleware', 'modul'], 2),
       `architecture review should cover structural topics: ${r.response.substring(0, 300)}`);
-  }, LONG_TIMEOUT);
+  }, LONG_TEST_TIMEOUT);
 
   // ═══════════════════════════════════════════════════════════════════════════
   suite('Large Project — Context Retention');
   // ═══════════════════════════════════════════════════════════════════════════
 
   await testAsync('remembers project structure after 6+ turns', async () => {
-    if (!convId) return;
-    const r = await chatInConv(convId,
-      'Rekapituluj naši konverzaci — jaké kódové soubory jsme tu diskutovali a co každý obsahuje? Odpověz na základě předchozích zpráv v tomto chatu.'
+    assert(typeof convId === 'string' && convId.length > 0,
+      'project recall requires the project conversation');
+    const r = await chatWithTimeout(
+      convId,
+      'Rekapituluj naši konverzaci — jaké kódové soubory jsme tu diskutovali a co každý obsahuje? Odpověz na základě předchozích zpráv v tomto chatu.',
+      LONG_TIMEOUT,
     );
     // Should reference the project files from earlier turns
     assert(hasKeywords(r.response, ['server', 'route', 'book', 'author', 'model', 'middleware', 'error'], 2),
       `should remember project files: ${r.response.substring(0, 300)}`);
-  }, LONG_TIMEOUT);
+  }, LONG_TEST_TIMEOUT);
 
   await testAsync('can reference specific file content', async () => {
-    if (!convId) return;
-    const r = await chatInConv(convId,
-      'Vyjmenuj všechny endpointy pro knihy které jsme vytvořili, včetně toho nového search.'
+    assert(typeof convId === 'string' && convId.length > 0,
+      'endpoint recall requires the project conversation');
+    const r = await chatWithTimeout(
+      convId,
+      'Vyjmenuj všechny endpointy pro knihy které jsme vytvořili, včetně toho nového search.',
+      LONG_TIMEOUT,
     );
     assert(hasKeywords(r.response, ['get', 'post', 'put', 'delete', 'search'], 2),
       `should list CRUD + search endpoints: ${r.response.substring(0, 300)}`);
-  }, LONG_TIMEOUT);
+  }, LONG_TEST_TIMEOUT);
 
   // ═══════════════════════════════════════════════════════════════════════════
   suite('Large Project — No Quality Degradation');
   // ═══════════════════════════════════════════════════════════════════════════
 
   await testAsync('no JSON/metadata leak after 8+ turns', async () => {
-    if (!convId) return;
-    const r = await chatInConv(convId, 'Shrň mi celý projekt v 5 bodech.');
+    assert(typeof convId === 'string' && convId.length > 0,
+      'quality-degradation check requires the project conversation');
+    const r = await chatWithTimeout(
+      convId,
+      'Shrň mi celý projekt v 5 bodech.',
+      LONG_TIMEOUT,
+    );
     assert(!r.response.includes('"decision_type"'), 'no JSON decision_type leak');
     assert(!r.response.includes('"intent_type"'), 'no intent_type leak');
     assert(!r.response.includes('"confidence":'), 'no confidence leak');
     assert(r.response.length > 50, 'summary should be substantive');
     assert(r.response.length < 3000, `summary should be concise, got ${r.response.length}`);
-  }, LONG_TIMEOUT);
+  }, LONG_TEST_TIMEOUT);
 
   await testAsync('response is still in Czech', async () => {
-    if (!convId) return;
-    const r = await chatInConv(convId, 'Jaké jsou hlavní výhody této architektury?');
+    assert(typeof convId === 'string' && convId.length > 0,
+      'language check requires the project conversation');
+    const r = await chatWithTimeout(
+      convId,
+      'Jaké jsou hlavní výhody této architektury?',
+      LONG_TIMEOUT,
+    );
     // Should contain Czech diacritics
     assert(/[ěščřžýáíéůúďťň]/i.test(r.response),
       'response should still be in Czech after many turns');
-  }, LONG_TIMEOUT);
+  }, LONG_TEST_TIMEOUT);
 
 } finally {
   for (const id of created) await cleanupConversation(id);
-  try { removeOwnedTempDir(tmpDir); } catch {}
 }
 
 const result = summary();
