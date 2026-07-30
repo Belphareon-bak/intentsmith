@@ -121,3 +121,51 @@ provider: HTTP returned 200, WebSocket emitted an assistant plus
 That behavior is not presented as fixed by this follow-up. It is recorded as
 the blocking runtime risk `G0-R025`; suite 60's deterministic local-math result
 proves only its model-free path.
+
+### Follow-up candidate and positive evidence
+
+The cancellation follow-up candidate is
+`aa2062bd96680a2aff67de7eb5325b29cde51d07`. Every database-backed command used
+its own ignored root below
+`.intentsmith-artifacts/g0-review-followup/post-aa2062b/`:
+
+```bash
+env HOME=<root>/<program>/home \
+  TMPDIR=<root>/<program>/tmp \
+  C3_DB_PATH=<root>/<program>/runtime/test.sqlite \
+  node <program>
+```
+
+| Program or validator | Result | Exit |
+|---|---:|---:|
+| `tests/ws-bridge.test.js` | 49 passed, 0 failed | 0 |
+| `tests/llm-gateway-runtime-signal.test.js` | 5 passed, 0 failed | 0 |
+| `tests/chat-fixes.test.js` | 58 passed, 0 failed | 0 |
+| `tests/cre-build-arbitration.test.js` | 7 passed, 0 failed | 0 |
+| `tests/chat-persistence.test.js` | 35 passed, 0 failed | 0 |
+| `tests/telemetry.test.js` | 33 passed, 0 failed | 0 |
+| `tests/artifact-validation.test.js` | 31 passed, 0 failed | 0 |
+| `node scripts/validate-test-registry.js` | 350 programs; SHA-256 `0a652994c7d9dc5252b15e9eb8647e8dbc59967b508c2bf80cd6d516ecf15735` | 0 |
+
+### Mutation evidence
+
+A local no-hardlink clone at exact candidate `aa2062b` used the same isolated
+environment contract. Removing only the final `throwIfAborted(signal)` directly
+before `appendTurn()` and running:
+
+```bash
+env HOME=.intentsmith-artifacts/mutation/home \
+  TMPDIR=.intentsmith-artifacts/mutation/tmp \
+  C3_DB_PATH=.intentsmith-artifacts/mutation/runtime/test.sqlite \
+  node tests/ws-bridge.test.js
+```
+
+produced `48 passed, 1 failed`, exit 1. The sole failure was `T16d`:
+`Missing expected rejection`, proving that the persistence-boundary test fails
+when its target guard is removed.
+
+After restoring that guard, changing only the stale-sweep abort source from
+`AbortSource.TIMEOUT` to `AbortSource.USER` and rerunning the same program with
+a fresh isolated database produced `48 passed, 1 failed`, exit 1. The sole
+failure was `T10c`, which observed `Zpracování zrušeno.` instead of the required
+timeout contract. Neither mutation touched the integration worktree.
