@@ -2,13 +2,14 @@
 // ══════════════════════════════════════════════════════════════════════════════
 // Verifies ledger modules live in specialist package and have no core imports.
 
-import { suite, test, assert, assertEqual, summary } from './harness.js';
+import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
+const ASYNC_TEST_TIMEOUT_MS = 10_000;
 
 const SPECIALIST_LEDGER = path.join(ROOT, 'specialists', 'accountant-cz', 'ledger');
 const OLD_LEDGER = path.join(ROOT, 'src', 'expertises', 'ledger');
@@ -59,48 +60,48 @@ for (const file of LEDGER_FILES) {
 
 suite('ledger: modules load correctly');
 
-test('ledger-engine exports expected functions', async () => {
+await testAsync('ledger-engine exports expected functions', async () => {
   const mod = await import(path.join(SPECIALIST_LEDGER, 'ledger-engine.js'));
   assert(typeof mod.toCents === 'function', 'toCents should exist');
   assert(typeof mod.toCZK === 'function', 'toCZK should exist');
   assert(typeof mod.aggregateEntries === 'function', 'aggregateEntries should exist');
   assert(typeof mod.computeTaxBase === 'function', 'computeTaxBase should exist');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('ledger-repository exports LedgerRepository', async () => {
+await testAsync('ledger-repository exports LedgerRepository', async () => {
   const mod = await import(path.join(SPECIALIST_LEDGER, 'ledger-repository.js'));
   assert(typeof mod.LedgerRepository === 'function', 'LedgerRepository should be a class');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('ledger-vat exports expected functions', async () => {
+await testAsync('ledger-vat exports expected functions', async () => {
   const mod = await import(path.join(SPECIALIST_LEDGER, 'ledger-vat.js'));
   assert(typeof mod.computeVATReturn === 'function', 'computeVATReturn should exist');
   assert(typeof mod.validateVATEntry === 'function', 'validateVATEntry should exist');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('ledger-compliance exports expected functions', async () => {
+await testAsync('ledger-compliance exports expected functions', async () => {
   const mod = await import(path.join(SPECIALIST_LEDGER, 'ledger-compliance.js'));
   assert(typeof mod.getObligations === 'function', 'getObligations should exist');
   assert(typeof mod.runComplianceCheck === 'function', 'runComplianceCheck should exist');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('ledger-reports exports expected functions', async () => {
+await testAsync('ledger-reports exports expected functions', async () => {
   const mod = await import(path.join(SPECIALIST_LEDGER, 'ledger-reports.js'));
   assert(typeof mod.generateDPFOReport === 'function', 'generateDPFOReport should exist');
   assert(typeof mod.formatReportAsMarkdown === 'function', 'formatReportAsMarkdown should exist');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('ledger-insurance exports expected functions', async () => {
+await testAsync('ledger-insurance exports expected functions', async () => {
   const mod = await import(path.join(SPECIALIST_LEDGER, 'ledger-insurance.js'));
   assert(typeof mod.computeSocialOverview === 'function');
   assert(typeof mod.computeHealthOverview === 'function');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('ledger-annual exports expected functions', async () => {
+await testAsync('ledger-annual exports expected functions', async () => {
   const mod = await import(path.join(SPECIALIST_LEDGER, 'ledger-annual.js'));
   assert(typeof mod.generateTaxReturnData === 'function');
   assert(typeof mod.computeYearCloseSummary === 'function');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
 // ─── Summary ─────────────────────────────────────────────────────────────────
 

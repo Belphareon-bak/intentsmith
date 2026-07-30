@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
+const ASYNC_TEST_TIMEOUT_MS = 10_000;
 
 // ─── Skill JSON Validity ────────────────────────────────────────────────────
 
@@ -435,7 +436,7 @@ test('tool stubs in prompt return safe response', () => {
 
 suite('create-specialist: runner integration');
 
-test('transform is in STEP_EXECUTORS', async () => {
+await testAsync('transform is in STEP_EXECUTORS', async () => {
   // Import runner to check that transform is registered
   // We check indirectly: the registry accepts 'transform' as valid step type
   const { skillRegistry: reg } = await import('../src/skills/registry.js');
@@ -444,7 +445,7 @@ test('transform is in STEP_EXECUTORS', async () => {
   assert(skill, 'create-specialist should load (transform type accepted)');
   const sanitize = skill.steps.find(s => s.type === 'transform');
   assert(sanitize, 'transform step should be present after registry validation');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
 // ─── Summary ────────────────────────────────────────────────────────────────
 

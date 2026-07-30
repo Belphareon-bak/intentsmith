@@ -18,6 +18,8 @@ import Database from 'better-sqlite3';
 import { UpgradeManager } from '../src/upgrade/upgrade-manager.js';
 import { config } from '../src/config.js';
 
+const ASYNC_TEST_TIMEOUT_MS = 10_000;
+
 // ─── Test DB Setup ──────────────────────────────────────────────────────────
 
 function createTestDb() {
@@ -440,7 +442,7 @@ test('_upgrading mutex starts false', () => {
   assert(!mgr._upgrading);
 });
 
-test('applyUpgrade rejects invalid role', async () => {
+await testAsync('applyUpgrade rejects invalid role', async () => {
   const mgr = new UpgradeManager();
   try {
     await mgr.applyUpgrade('INVALID_ROLE', 'some-model');
@@ -448,7 +450,7 @@ test('applyUpgrade rejects invalid role', async () => {
   } catch (err) {
     assert(err.message.includes('Invalid role'), `Expected Invalid role, got: ${err.message}`);
   }
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION 8: Dynamic Port Allocation
@@ -457,26 +459,74 @@ test('applyUpgrade rejects invalid role', async () => {
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { spawnSync } from 'child_process';
 
 suite('Dynamic Port — config + port file');
 
-test('config default port is 0 (dynamic)', () => {
-  // When C3_PORT env is not set, default should be 0
-  // Note: the current running config reflects the test env
-  assertEqual(typeof config.server.port, 'number', 'port should be a number');
-  // Port 0 means dynamic allocation
+function probeServerConfig(env) {
+  const configUrl = new URL('../src/config.js', import.meta.url).href;
+  const probe = spawnSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '--eval',
+      `const { config } = await import(${JSON.stringify(configUrl)});`
+        + 'process.stdout.write(JSON.stringify({'
+        + 'port: config.server.port, portFile: config.server.portFile'
+        + '}));',
+    ],
+    {
+      encoding: 'utf8',
+      env: {
+        LANG: 'C',
+        LC_ALL: 'C',
+        ...env,
+      },
+      timeout: 5_000,
+    },
+  );
+  assertEqual(probe.error, undefined, String(probe.error));
+  assertEqual(probe.status, 0, probe.stderr || probe.stdout);
+  return JSON.parse(probe.stdout);
+}
+
+test('config port honors C3_PORT or uses dynamic port 0', () => {
+  const expected = Number.parseInt(process.env.C3_PORT || '0', 10);
+  assertEqual(config.server.port, expected);
 });
 
-test('config has portFile path', () => {
+test('config portFile honors the isolated override or default', () => {
   assert(typeof config.server.portFile === 'string', 'portFile should be a string');
   assert(config.server.portFile.length > 0, 'portFile should not be empty');
-  assert(config.server.portFile.includes('.c3'), 'portFile should be in .c3 directory');
-  assert(config.server.portFile.endsWith('port'), 'portFile should end with "port"');
+  const expected = process.env.C3_PORT_FILE || path.join(os.homedir(), '.c3', 'port');
+  assertEqual(config.server.portFile, expected);
 });
 
-test('portFile defaults to ~/.c3/port', () => {
-  const expected = path.join(os.homedir(), '.c3', 'port');
-  assertEqual(config.server.portFile, expected);
+test('portFile defaults to ~/.c3/port when no override exists', () => {
+  const isolatedHome = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-port-default-'));
+  try {
+    const probed = probeServerConfig({ HOME: isolatedHome });
+    assertEqual(probed.port, 0);
+    assertEqual(probed.portFile, path.join(isolatedHome, '.c3', 'port'));
+  } finally {
+    fs.rmSync(isolatedHome, { recursive: true, force: true });
+  }
+});
+
+test('server config honors explicit port and port-file overrides', () => {
+  const isolatedHome = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-port-override-'));
+  try {
+    const overridePath = path.join(isolatedHome, 'runtime', 'override.port');
+    const probed = probeServerConfig({
+      HOME: isolatedHome,
+      C3_PORT: '45678',
+      C3_PORT_FILE: overridePath,
+    });
+    assertEqual(probed.port, 45678);
+    assertEqual(probed.portFile, overridePath);
+  } finally {
+    fs.rmSync(isolatedHome, { recursive: true, force: true });
+  }
 });
 
 test('port file write/read roundtrip', () => {

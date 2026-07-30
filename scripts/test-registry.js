@@ -23,6 +23,12 @@ const TEST_STATES = new Set([
   'HISTORICAL',
 ]);
 const NETWORK_REQUIREMENTS = new Set(['none', 'loopback', 'external']);
+const EXECUTOR_BY_EXTENSION = new Map([
+  ['.js', 'node'],
+  ['.cjs', 'node'],
+  ['.py', 'python3'],
+  ['.sh', 'bash'],
+]);
 
 export async function loadTestRegistry(root) {
   const registryPath = path.join(root, TEST_REGISTRY_PATH);
@@ -128,10 +134,23 @@ export function validateTestRegistry(registry, candidates) {
     ) {
       errors.push(`${label}.expectedDurationMs must not exceed timeoutMs`);
     }
-    if (!Array.isArray(suite.argv) || suite.argv.length < 2 || suite.argv.some(arg => typeof arg !== 'string')) {
-      errors.push(`${label}.argv must be a string array with executable and path`);
-    } else if (suite.argv[1] !== suite.path) {
-      errors.push(`${label}.argv[1] must equal path`);
+    if (!Array.isArray(suite.argv) || suite.argv.length !== 2 || suite.argv.some(arg => typeof arg !== 'string')) {
+      errors.push(`${label}.argv must contain exactly executable and path`);
+    } else {
+      const extension = typeof suite.path === 'string'
+        ? path.posix.extname(suite.path)
+        : '';
+      const expectedExecutor = EXECUTOR_BY_EXTENSION.get(extension);
+      if (!expectedExecutor) {
+        errors.push(`${label}.path has no approved executor: ${suite.path}`);
+      } else if (suite.argv[0] !== expectedExecutor) {
+        errors.push(
+          `${label}.argv[0] must equal ${expectedExecutor} for ${suite.path}`,
+        );
+      }
+      if (suite.argv[1] !== suite.path) {
+        errors.push(`${label}.argv[1] must equal path`);
+      }
     }
 
     const requirements = suite.requirements;

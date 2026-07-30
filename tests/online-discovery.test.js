@@ -29,6 +29,8 @@ import { RegistryClient } from '../src/upgrade/registry-client.js';
 
 import { checkFeasibility } from '../src/upgrade/upgrade-manager.js';
 
+const ASYNC_TEST_TIMEOUT_MS = 10_000;
+
 // ─── Test DB Setup ──────────────────────────────────────────────────────────
 
 function createTestDb() {
@@ -314,39 +316,39 @@ test('parses params from tag', () => {
 
 suite('Online Discovery — Core');
 
-test('discoverForFamilies returns empty for empty input', async () => {
+await testAsync('discoverForFamilies returns empty for empty input', async () => {
   const od = new OnlineDiscovery();
   const results = await od.discoverForFamilies([]);
   assertEqual(results.length, 0);
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('discoverForFamilies returns empty for null input', async () => {
+await testAsync('discoverForFamilies returns empty for null input', async () => {
   const od = new OnlineDiscovery();
   const results = await od.discoverForFamilies(null);
   assertEqual(results.length, 0);
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('no-op without setDb for getDiscoveredModels', async () => {
+await testAsync('no-op without setDb for getDiscoveredModels', async () => {
   const od = new OnlineDiscovery();
   const results = await od.getDiscoveredModels();
   assertEqual(results.length, 0);
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('no-op without setDb for persistEntries', async () => {
+await testAsync('no-op without setDb for persistEntries', async () => {
   const od = new OnlineDiscovery();
   // Should not throw
   await od.persistEntries([{ name: 'test:7b', family: 'test' }]);
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('no-op without setDb for pruneStale', async () => {
+await testAsync('no-op without setDb for pruneStale', async () => {
   const od = new OnlineDiscovery();
   const pruned = await od.pruneStale();
   assertEqual(pruned, 0);
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
 suite('Online Discovery — DB operations');
 
-test('persistEntries stores to DB and getDiscoveredModels reads back', async () => {
+await testAsync('persistEntries stores to DB and getDiscoveredModels reads back', async () => {
   const db = createTestDb();
   const od = new OnlineDiscovery();
   od.setDb(db);
@@ -374,9 +376,9 @@ test('persistEntries stores to DB and getDiscoveredModels reads back', async () 
   assert(models[0].benchmarks.mmlu === 0.75, 'Benchmarks should round-trip');
   assert(models[0].capabilities.includes('json_mode'), 'Capabilities should round-trip');
   db.close();
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('duplicate persist does upsert (UPDATE)', async () => {
+await testAsync('duplicate persist does upsert (UPDATE)', async () => {
   const db = createTestDb();
   const od = new OnlineDiscovery();
   od.setDb(db);
@@ -401,9 +403,9 @@ test('duplicate persist does upsert (UPDATE)', async () => {
   assertEqual(models[0].benchmarkConfidence, 0.70);
   assertEqual(models[0].benchmarks.mmlu, 0.55);
   db.close();
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('pruneStale removes old entries', async () => {
+await testAsync('pruneStale removes old entries', async () => {
   const db = createTestDb();
   const od = new OnlineDiscovery();
   od.setDb(db);
@@ -426,7 +428,7 @@ test('pruneStale removes old entries', async () => {
   assertEqual(models.length, 1);
   assertEqual(models[0].name, 'new:14b');
   db.close();
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
 suite('Online Discovery — Entry Building');
 
@@ -535,7 +537,7 @@ test('_filterNewTags excludes tags without params', () => {
 
 suite('Online Discovery — Rate Limit');
 
-test('max 8 families fetched per cycle', async () => {
+await testAsync('max 8 families fetched per cycle', async () => {
   let fetchCount = 0;
   const od = new OnlineDiscovery();
   od._scalingModels = buildFamilyScalingModels(CATALOG);
@@ -551,9 +553,9 @@ test('max 8 families fetched per cycle', async () => {
   await od.discoverForFamilies(families);
   assert(fetchCount <= 8, `Expected max 8 fetches, got ${fetchCount}`);
   assert(fetchCount > 3, `Expected more than 3 fetches, got ${fetchCount}`);
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('guided discovery works without installed families when seed families are provided', async () => {
+await testAsync('guided discovery works without installed families when seed families are provided', async () => {
   const od = new OnlineDiscovery();
   od._scalingModels = buildFamilyScalingModels(CATALOG);
   od._catalogNames = new Set(CATALOG.map(e => e.name));
@@ -564,9 +566,9 @@ test('guided discovery works without installed families when seed families are p
     maxFamilies: 2,
   });
   assert(results.some(r => r.name === 'gemma4:27b'), 'Expected seeded family to be discovered');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('guided discovery reserves diversity slot for registry seeds', async () => {
+await testAsync('guided discovery reserves diversity slot for registry seeds', async () => {
   const fetchedFamilies = [];
   const od = new OnlineDiscovery();
   od._scalingModels = buildFamilyScalingModels(CATALOG);
@@ -588,9 +590,9 @@ test('guided discovery reserves diversity slot for registry seeds', async () => 
   const hasRegistryFamily = fetchedFamilies.some(f => f.startsWith('reg'));
   assert(hasRegistryFamily, `Expected at least one registry family in diversity slot, got: ${fetchedFamilies.join(', ')}`);
   assert(fetchedFamilies.length <= 4, `Expected <= 4 fetched families, got ${fetchedFamilies.length}`);
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('highPriorityRatio zero selects entirely from diversity ranking', async () => {
+await testAsync('highPriorityRatio zero selects entirely from diversity ranking', async () => {
   const fetchedFamilies = [];
   const od = new OnlineDiscovery();
   od._scalingModels = buildFamilyScalingModels(CATALOG);
@@ -608,9 +610,9 @@ test('highPriorityRatio zero selects entirely from diversity ranking', async () 
 
   assertEqual(fetchedFamilies.length, 1);
   assertEqual(fetchedFamilies[0], 'registry-a');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('maxVariantsPerFamily limits parsed variants', async () => {
+await testAsync('maxVariantsPerFamily limits parsed variants', async () => {
   const od = new OnlineDiscovery();
   od._scalingModels = buildFamilyScalingModels(CATALOG);
   od._catalogNames = new Set(CATALOG.map(e => e.name));
@@ -626,7 +628,7 @@ test('maxVariantsPerFamily limits parsed variants', async () => {
     maxVariantsPerFamily: 2,
   });
   assertEqual(results.length, 2);
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SCORING INTEGRATION
@@ -806,7 +808,7 @@ test('qwen-3 and qwen3 match same family in scaling models', () => {
 
 suite('Pipeline Integration');
 
-test('L4 entries merged into discovery candidates', async () => {
+await testAsync('L4 entries merged into discovery candidates', async () => {
   const db = createTestDb();
   const od = new OnlineDiscovery();
   od.setDb(db);
@@ -823,9 +825,9 @@ test('L4 entries merged into discovery candidates', async () => {
   assertEqual(models[0].provisional, true);
   assertEqual(models[0].source, 'L4');
   db.close();
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('scoring API includes provisional entries with confidence', async () => {
+await testAsync('scoring API includes provisional entries with confidence', async () => {
   const dm = {
     name: 'prov:14b', params: 14, category: 'general',
     benchmarks: { mmlu: 0.80, reasoning: 0.70 },
@@ -837,7 +839,7 @@ test('scoring API includes provisional entries with confidence', async () => {
   assert(result.totalScore > 0, 'Should score > 0');
   assertEqual(result.breakdown.benchConfidence, 0.65);
   assertEqual(result.breakdown.provisionalPenalty, -0.02);
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
 test('catalog model always scores higher than same L4 model', () => {
   const base = {

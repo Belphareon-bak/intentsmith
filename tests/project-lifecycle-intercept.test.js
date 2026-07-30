@@ -15,6 +15,8 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
+const ASYNC_TEST_TIMEOUT_MS = 10_000;
+
 // ─── Suite 1: ensureRoadmap ─────────────────────────────────────────────────
 
 suite('ensureRoadmap — scaffold ROADMAP.md');
@@ -361,10 +363,10 @@ suite('buildProjectStatusResponse — analysis enrichment (v88.2)');
 
 // We can't easily import the function since it's not exported, but we can test
 // the structural pattern — the function reads context.projectAnalysis
-test('project.js exports projectHandler function', async () => {
+await testAsync('project.js exports projectHandler function', async () => {
   const mod = await import('../src/chat/handlers/project.js');
   assert(typeof mod.projectHandler === 'function', 'should export projectHandler');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
 // ─── Cleanup ────────────────────────────────────────────────────────────────
 

@@ -1,11 +1,13 @@
 // tests/context-engine.test.js — Incremental Context Engine v100 tests
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { suite, test, assert, assertEqual, summary } from './harness.js';
+import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
 import {
   extractRelevantSections,
   compressContext,
 } from '../src/code-intel/context-engine.js';
+
+const ASYNC_TEST_TIMEOUT_MS = 10_000;
 
 // ─── Extract Relevant Sections ──────────────────────────────────────────────
 
@@ -159,11 +161,11 @@ test('formats output with file headers', () => {
 
 suite('Context Engine — Symbol Extraction');
 
-test('milestone context handles null milestone', async () => {
+await testAsync('milestone context handles null milestone', async () => {
   const { buildMilestoneContext } = await import('../src/code-intel/context-engine.js');
   const result = await buildMilestoneContext('/tmp', null);
   assertEqual(result.tokens, 0);
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
 // ─── Summary ─────────────────────────────────────────────────────────────────
 

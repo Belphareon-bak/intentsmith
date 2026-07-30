@@ -9,10 +9,25 @@ import { strict as assert } from 'assert';
 let passed = 0;
 let failed = 0;
 const failures = [];
+const ASYNC_TEST_TIMEOUT_MS = 10_000;
+
+function asyncUsageError() {
+  return new TypeError(
+    'test() does not accept async callbacks or returned thenables; '
+    + 'use await testAsync(name, fn, timeoutMs)',
+  );
+}
 
 function test(name, fn) {
   try {
-    fn();
+    if (fn.constructor?.name === 'AsyncFunction') {
+      throw asyncUsageError();
+    }
+    const result = fn();
+    if (result && typeof result.then === 'function') {
+      Promise.resolve(result).catch(() => {});
+      throw asyncUsageError();
+    }
     passed++;
     console.log(`  ✓ ${name}`);
   } catch (err) {
@@ -23,9 +38,21 @@ function test(name, fn) {
   }
 }
 
-async function testAsync(name, fn) {
+async function testAsync(name, fn, timeoutMs = ASYNC_TEST_TIMEOUT_MS) {
+  let timer;
   try {
-    await fn();
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+      throw new TypeError(`Invalid test timeout: ${timeoutMs}`);
+    }
+    await Promise.race([
+      Promise.resolve().then(() => fn()),
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`Test timed out after ${timeoutMs}ms`)),
+          timeoutMs,
+        );
+      }),
+    ]);
     passed++;
     console.log(`  ✓ ${name}`);
   } catch (err) {
@@ -33,6 +60,8 @@ async function testAsync(name, fn) {
     failures.push({ name, error: err.message });
     console.log(`  ✗ ${name}`);
     console.log(`    ${err.message}`);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -400,7 +429,7 @@ console.log('\n═══ Secrets Auth Guard ═══');
 // Actually, requireAdminAuth is not exported — it's a private function inside api.js.
 // We test via behavioral checks:
 
-test('A3: requireAdminAuth is embedded in api.js', async () => {
+await testAsync('A3: requireAdminAuth is embedded in api.js', async () => {
   // Read the file as text and verify the guard is present
   const fs = await import('fs');
   const apiCode = fs.readFileSync(new URL('../src/agents/api.js', import.meta.url), 'utf8');
@@ -410,21 +439,21 @@ test('A3: requireAdminAuth is embedded in api.js', async () => {
     (apiCode.match(/requireAdminAuth\(req\)/g) || []).length >= 3,
     'Should guard all 3 secrets endpoints'
   );
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SECTION 9: Config env var overrides (A4)
 // ═══════════════════════════════════════════════════════════════════════════════
 console.log('\n═══ Config Env Var Overrides ═══');
 
-test('A4: config.js uses process.env for model overrides', async () => {
+await testAsync('A4: config.js uses process.env for model overrides', async () => {
   const fs = await import('fs');
   const configCode = fs.readFileSync(new URL('../src/config.js', import.meta.url), 'utf8');
   const envVars = ['C3_MODEL_D1', 'C3_MODEL_D2', 'C3_MODEL_CODE', 'C3_MODEL_R1', 'C3_MODEL_R2', 'C3_MODEL_CHAT', 'C3_MODEL_VISION'];
   for (const v of envVars) {
     assert.ok(configCode.includes(v), `Should contain ${v} env var override`);
   }
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Summary

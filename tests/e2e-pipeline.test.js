@@ -26,6 +26,8 @@ import {
   ReviewVerdict,
 } from '../src/planner/workflow.js';
 
+const ASYNC_TEST_TIMEOUT_MS = 10_000;
+
 // ═══════════════════════════════════════════════════════════════════════════════
 suite('E2E — Full pipeline flow (mock)');
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -204,7 +206,7 @@ test('Multiple concurrent sessions are independent', () => {
 suite('E2E — Config integration');
 // ═══════════════════════════════════════════════════════════════════════════════
 
-test('Config model mappings exist', async () => {
+await testAsync('Config model mappings exist', async () => {
   const { default: config } = await import('../src/config.js');
   assert(config.models != null, 'Config should have models');
   assert(config.models.D1 != null, 'Should have D1 model');
@@ -212,27 +214,27 @@ test('Config model mappings exist', async () => {
   assert(config.models.CODE != null, 'Should have CODE model');
   assert(config.models.R1 != null, 'Should have R1 model');
   assert(config.models.R2 != null, 'Should have R2 model');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('Config timeouts exist for all roles', async () => {
+await testAsync('Config timeouts exist for all roles', async () => {
   const { default: config } = await import('../src/config.js');
   assert(config.timeouts != null, 'Config should have timeouts');
   assert(config.timeouts.D1 > 0, 'D1 timeout');
   assert(config.timeouts.CODE > 0, 'CODE timeout');
   assert(config.timeouts.R2 > 0, 'R2 timeout');
   assert(config.timeouts.R1 > 0, 'R1 timeout');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('D1 and R1 use same model (deepseek-r1)', async () => {
+await testAsync('D1 and R1 use same model (deepseek-r1)', async () => {
   const { default: config } = await import('../src/config.js');
   assertEqual(config.models.D1, config.models.R1);
   assertIncludes(config.models.D1, 'deepseek-r1');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('CODE uses qwen3.5', async () => {
+await testAsync('CODE uses qwen3.5', async () => {
   const { default: config } = await import('../src/config.js');
   assertIncludes(config.models.CODE, 'qwen3.5');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // RESULTS

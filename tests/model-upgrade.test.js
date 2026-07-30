@@ -1,7 +1,7 @@
 // tests/model-upgrade.test.js — Model Upgrade System v103 Phase 1 tests
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { suite, test, assert, assertEqual, summary } from './harness.js';
+import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
 import {
   MODEL_FAMILIES, MODEL_PROFILES,
   parseModelName, getAllProfiles, getProfile,
@@ -14,6 +14,8 @@ import {
   filterCandidates, rankCandidates, generateProposals,
   UpgradeManager, MIN_NOTIFY_SCORE,
 } from '../src/upgrade/upgrade-manager.js';
+
+const ASYNC_TEST_TIMEOUT_MS = 10_000;
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  Suite 1: Model Name Parser
@@ -551,7 +553,7 @@ test('stopPeriodicCheck clears scheduled timers', () => {
   assertEqual(mgr._pollInterval, null, 'poll interval should be null');
 });
 
-test('_pollModelChanges detects model list change', async () => {
+await testAsync('_pollModelChanges detects model list change', async () => {
   const mgr = new UpgradeManager();
   let checkCalled = false;
   mgr._modelHash = 'llava:13b,qwen3.5:27b'; // Old hash
@@ -577,7 +579,7 @@ test('_pollModelChanges detects model list change', async () => {
     checkCalled = true;
   }
   assert(checkCalled, 'hash change should trigger re-check');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
 test('getNotifiableProposals filters by MIN_NOTIFY_SCORE', () => {
   const mgr = new UpgradeManager();
@@ -601,7 +603,7 @@ test('MIN_NOTIFY_SCORE is exported and equals 6', () => {
   assertEqual(MIN_NOTIFY_SCORE, 6, 'MIN_NOTIFY_SCORE should be 6');
 });
 
-test('_lastCheckTime is set after checkForUpgrades', async () => {
+await testAsync('_lastCheckTime is set after checkForUpgrades', async () => {
   const mgr = new UpgradeManager();
   // Mock discover to avoid real Ollama call
   const origDiscover = (await import('../src/upgrade/model-discovery.js')).discover;
@@ -609,7 +611,7 @@ test('_lastCheckTime is set after checkForUpgrades', async () => {
   assertEqual(mgr._lastCheckTime, null, 'initially null');
   // Can't easily mock discover without changing module, but we can verify the property exists
   assert('_lastCheckTime' in mgr, 'should have _lastCheckTime property');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
 // ═══════════════════════════════════════════════════════════════════════════
 

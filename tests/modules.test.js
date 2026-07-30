@@ -1,10 +1,12 @@
 // tests/modules.test.js — Circuit breaker, safety, quality module tests
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { suite, test, assert, assertEqual, assertIncludes, summary } from './harness.js';
+import { suite, test, testAsync, assert, assertEqual, assertIncludes, summary } from './harness.js';
 import { CircuitBreaker, CircuitState } from '../src/executor/circuit-breaker.js';
 import { SafetyEngine, SafetyAction, SafetyDomain } from '../src/chat/safety/engine.js';
 import { GeneralPolicy } from '../src/chat/safety/policies/general.js';
+
+const ASYNC_TEST_TIMEOUT_MS = 10_000;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 suite('CircuitBreaker — State Machine');
@@ -162,33 +164,33 @@ test('Finance domain detected for trading queries', () => {
 suite('Quality Modules — imports');
 // ═══════════════════════════════════════════════════════════════════════════════
 
-test('Quality index exports', async () => {
+await testAsync('Quality index exports', async () => {
   const quality = await import('../src/chat/quality/index.js');
   assert(quality != null, 'Quality module should import');
   // Check for expected exports
   const keys = Object.keys(quality);
   assert(keys.length > 0, `Quality module should export something, got: ${keys.join(', ')}`);
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('Relevance filter imports', async () => {
+await testAsync('Relevance filter imports', async () => {
   const mod = await import('../src/chat/quality/relevance-filter.js');
   assert(mod != null, 'Relevance filter should import');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('Source trust imports', async () => {
+await testAsync('Source trust imports', async () => {
   const mod = await import('../src/chat/quality/source-trust.js');
   assert(mod != null, 'Source trust should import');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('Confidence scaling imports', async () => {
+await testAsync('Confidence scaling imports', async () => {
   const mod = await import('../src/chat/quality/confidence-scaling.js');
   assert(mod != null, 'Confidence scaling should import');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('Drift guard imports', async () => {
+await testAsync('Drift guard imports', async () => {
   const mod = await import('../src/chat/quality/drift-guard.js');
   assert(mod != null, 'Drift guard should import');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // RESULTS

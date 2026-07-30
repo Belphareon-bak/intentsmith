@@ -7,14 +7,43 @@ let skipped = 0;
 const failures = [];
 let currentSuite = '';
 
+export const DEFAULT_ASYNC_TEST_TIMEOUT_MS = 10 * 60 * 1000;
+
 export function suite(name) {
   currentSuite = name;
   console.log(`\n═══ ${name} ${'═'.repeat(Math.max(0, 60 - name.length))}`);
 }
 
+function asyncUsageError() {
+  return new TypeError(
+    'test() does not accept async callbacks or returned thenables; '
+    + 'use await testAsync(name, fn, timeoutMs)',
+  );
+}
+
+function isAsyncFunction(fn) {
+  return typeof fn === 'function' && fn.constructor?.name === 'AsyncFunction';
+}
+
+function isThenable(value) {
+  return (
+    (typeof value === 'object' && value !== null)
+    || typeof value === 'function'
+  ) && typeof value.then === 'function';
+}
+
 export function test(name, fn) {
   try {
-    fn();
+    if (isAsyncFunction(fn)) {
+      throw asyncUsageError();
+    }
+
+    const result = fn();
+    if (isThenable(result)) {
+      Promise.resolve(result).catch(() => {});
+      throw asyncUsageError();
+    }
+
     passed++;
     console.log(`  ✅ ${name}`);
   } catch (e) {
@@ -26,10 +55,6 @@ export function test(name, fn) {
 }
 
 async function invokeAsyncTest(fn, timeoutMs) {
-  if (timeoutMs === undefined) {
-    return fn();
-  }
-
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
     throw new TypeError(`Invalid test timeout: ${timeoutMs}`);
   }
@@ -55,7 +80,7 @@ async function invokeAsyncTest(fn, timeoutMs) {
   }
 }
 
-export async function testAsync(name, fn, timeoutMs) {
+export async function testAsync(name, fn, timeoutMs = DEFAULT_ASYNC_TEST_TIMEOUT_MS) {
   try {
     await invokeAsyncTest(fn, timeoutMs);
     passed++;

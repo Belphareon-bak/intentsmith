@@ -31,10 +31,25 @@ import { createSessionAdapter } from '../src/ws-bridge/session-adapter.js';
 
 let passed = 0;
 let failed = 0;
+const ASYNC_TEST_TIMEOUT_MS = 10_000;
+
+function asyncUsageError() {
+  return new TypeError(
+    'test() does not accept async callbacks or returned thenables; '
+    + 'use await asyncTest(name, fn, timeoutMs)',
+  );
+}
 
 function test(name, fn) {
   try {
-    fn();
+    if (fn.constructor?.name === 'AsyncFunction') {
+      throw asyncUsageError();
+    }
+    const result = fn();
+    if (result && typeof result.then === 'function') {
+      Promise.resolve(result).catch(() => {});
+      throw asyncUsageError();
+    }
     passed++;
     console.log(`  ✅ ${name}`);
   } catch (err) {
@@ -43,14 +58,28 @@ function test(name, fn) {
   }
 }
 
-async function asyncTest(name, fn) {
+async function asyncTest(name, fn, timeoutMs = ASYNC_TEST_TIMEOUT_MS) {
+  let timer;
   try {
-    await fn();
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+      throw new TypeError(`Invalid test timeout: ${timeoutMs}`);
+    }
+    await Promise.race([
+      Promise.resolve().then(() => fn()),
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`Test timed out after ${timeoutMs}ms`)),
+          timeoutMs,
+        );
+      }),
+    ]);
     passed++;
     console.log(`  ✅ ${name}`);
   } catch (err) {
     failed++;
     console.log(`  ❌ ${name}: ${err.message}`);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -287,7 +316,7 @@ console.log('\n🧠 Controller Hook Emission');
 // Import ChatController components
 import { ChatController, ChatMode, ResponseSpeaker, ResponseTag, TaggedResponse } from '../src/chat/controller.js';
 
-test('T13: ChatController.process calls onCREDecision hook', async () => {
+await asyncTest('T13: ChatController.process calls onCREDecision hook', async () => {
   let hookCalled = false;
   let hookData = null;
 
@@ -316,9 +345,9 @@ test('T13: ChatController.process calls onCREDecision hook', async () => {
 
   assert.ok(hookCalled, 'onCREDecision hook should be called');
   assert.ok(hookData.confidence > 0, 'Hook should receive confidence');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('T14: hook error does not crash process()', async () => {
+await asyncTest('T14: hook error does not crash process()', async () => {
   const controller = new ChatController({
     sessionId: 'test-14',
     handlers: {
@@ -341,9 +370,9 @@ test('T14: hook error does not crash process()', async () => {
   });
 
   assert.ok(result.content, 'Should still return response despite hook error');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('T15: no hook = no error', async () => {
+await asyncTest('T15: no hook = no error', async () => {
   const controller = new ChatController({
     sessionId: 'test-15',
     handlers: {
@@ -363,9 +392,9 @@ test('T15: no hook = no error', async () => {
   // No hooks in context — should work fine
   const result = await controller.process('hello', {});
   assert.equal(result.content, 'OK');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('T16: hooks pass through context to handler', async () => {
+await asyncTest('T16: hooks pass through context to handler', async () => {
   let handlerReceivedHooks = false;
 
   const controller = new ChatController({
@@ -393,7 +422,7 @@ test('T16: hooks pass through context to handler', async () => {
   });
 
   assert.ok(handlerReceivedHooks, 'Handler should receive hooks via context spread');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
 test('T17: hooks survive through full context pipeline in static handle()', () => {
   // This test verifies the architectural contract:

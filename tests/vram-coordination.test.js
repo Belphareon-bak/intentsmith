@@ -6,6 +6,8 @@ import { VRAMManager, _estimateWeightsMb, _kvMbPer1k } from '../src/media/vram-m
 import { getVramUsage, getVramUsageAsync, _clearVramCache } from '../src/system/gpu-detector.js';
 import { clearNumCtxCache, getNumCtx } from '../src/llm/model-ctx.js';
 
+const ASYNC_TEST_TIMEOUT_MS = 10_000;
+
 // ── Mock infrastructure ───────────────────────────────────────────────────
 
 let _mockExecSync = null;
@@ -631,7 +633,7 @@ test('constructor defaults are safe', () => {
   assertEqual(mgr._lastReloadTime, 0);
 });
 
-test('FIFO queue works with acquire', async () => {
+await testAsync('FIFO queue works with acquire', async () => {
   const mgr = createManager();
   const order = [];
 
@@ -646,7 +648,7 @@ test('FIFO queue works with acquire', async () => {
   assertEqual(r2, 'b');
   assertEqual(order[0], 1);
   assertEqual(order[1], 2);
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
 // ══════════════════════════════════════════════════════════════════════════════
 

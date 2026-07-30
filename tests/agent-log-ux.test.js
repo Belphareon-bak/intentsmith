@@ -5,10 +5,11 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { suite, test, assert, assertEqual, summary } from './harness.js';
+import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
+const ASYNC_TEST_TIMEOUT_MS = 10_000;
 
 // CJS modules from IDE extension
 const { formatAgentEvent } = require(
@@ -681,12 +682,12 @@ suite('BE instrumentation — onSystemStep hook');
 
 // We can't test session-adapter directly (ESM + dependencies),
 // but we can test the protocol constant exists
-test('SYSTEM_STEP constant exists in protocol', async () => {
+await testAsync('SYSTEM_STEP constant exists in protocol', async () => {
   const { AgentEventType } = await import('../src/ws-bridge/protocol.js');
   assertEqual(AgentEventType.SYSTEM_STEP, 'system_step');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
-test('buildAgentEvent creates valid event with system_step type', async () => {
+await testAsync('buildAgentEvent creates valid event with system_step type', async () => {
   const { buildAgentEvent } = await import('../src/ws-bridge/protocol.js');
   const evt = buildAgentEvent(1, 'system_step', 't-001', { step: 'test', detail: 'ok' });
   assertEqual(evt.type, 'system_step');
@@ -695,7 +696,7 @@ test('buildAgentEvent creates valid event with system_step type', async () => {
   assertEqual(evt.payload.detail, 'ok');
   assert(evt.id.startsWith('evt-'), 'id should start with evt-');
   assert(evt.timestamp, 'timestamp must exist');
-});
+}, ASYNC_TEST_TIMEOUT_MS);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 
