@@ -4,6 +4,7 @@
 import fs from 'fs';
 import path from 'path';
 import { suite, test, testAsync, assert, assertEqual, assertIncludes, summary } from './harness.js';
+import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import {
   shouldContinue, compareErrors, limitErrors, buildFixPrompt,
   extractErrors, partitionErrorsByProjectScope, runFixLoop,
@@ -11,7 +12,9 @@ import {
 
 // ─── Test Project Setup ─────────────────────────────────────────────────────
 
-const TEST_DIR = `/tmp/test-exec-loop-${Date.now()}`;
+const TEST_DIR = fs.mkdtempSync(
+  path.join(isolatedTestRuntime.projects, 'execution-loop-'),
+);
 
 function setupTestProject() {
   fs.mkdirSync(TEST_DIR, { recursive: true });

@@ -3,9 +3,18 @@
 
 import { suite, test, testAsync, assert, assertEqual, assertThrows, summary } from './harness.js';
 import Database from 'better-sqlite3';
+import fs from 'node:fs';
+import path from 'node:path';
 import { MarketplaceClient } from '../src/marketplace/marketplace-client.js';
 import { PackageInstaller, parseSemver, semverGte, semverNewer, parseDependencySpec } from '../src/marketplace/package-installer.js';
 import { _enrichCatalog } from '../src/routes/marketplace.js';
+import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
+
+function makeMarketplaceProject(label) {
+  return fs.mkdtempSync(
+    path.join(isolatedTestRuntime.projects, `${label}-`),
+  );
+}
 
 // ─── Test DB helper ─────────────────────────────────────────────────────────
 
@@ -275,7 +284,7 @@ await testAsync('install skill records in DB', async () => {
   const installer = new PackageInstaller(db, {
     client: mockClient,
     skillRegistry: mockRegistry,
-    projectRoot: '/tmp/test-marketplace',
+    projectRoot: makeMarketplaceProject('marketplace-skill'),
   });
 
   const result = await installer.install('skill', MOCK_CATALOG.packages.skills[0]);
@@ -303,7 +312,7 @@ await testAsync('install expertise calls addCustom', async () => {
   const installer = new PackageInstaller(db, {
     client: mockClient,
     expertiseRegistry: mockRegistry,
-    projectRoot: '/tmp/test-marketplace',
+    projectRoot: makeMarketplaceProject('marketplace-expertise'),
   });
 
   await installer.install('expertise', MOCK_CATALOG.packages.expertises[0]);
@@ -318,7 +327,7 @@ await testAsync('idempotent install (same version)', async () => {
   const installer = new PackageInstaller(db, {
     client: mockClient,
     skillRegistry: new MockSkillRegistry(),
-    projectRoot: '/tmp/test-marketplace',
+    projectRoot: makeMarketplaceProject('marketplace-idempotent'),
   });
 
   await installer.install('skill', MOCK_CATALOG.packages.skills[0]);
@@ -335,7 +344,7 @@ await testAsync('uninstall removes from DB', async () => {
   const installer = new PackageInstaller(db, {
     client: mockClient,
     skillRegistry: new MockSkillRegistry(),
-    projectRoot: '/tmp/test-marketplace',
+    projectRoot: makeMarketplaceProject('marketplace-uninstall'),
   });
 
   await installer.install('skill', MOCK_CATALOG.packages.skills[0]);
@@ -364,7 +373,7 @@ await testAsync('install specialist calls loader', async () => {
   const installer = new PackageInstaller(db, {
     client: mockClient,
     specialistLoader: mockLoader,
-    projectRoot: '/tmp/test-marketplace',
+    projectRoot: makeMarketplaceProject('marketplace-specialist'),
   });
 
   // Mock extract to create a manifest file
@@ -393,7 +402,7 @@ await testAsync('specialist install failure triggers rollback', async () => {
   const installer = new PackageInstaller(db, {
     client: mockClient,
     specialistLoader: new MockSpecialistLoader(),
-    projectRoot: '/tmp/test-marketplace-rollback',
+    projectRoot: makeMarketplaceProject('marketplace-rollback'),
   });
 
   try {
@@ -564,7 +573,7 @@ await testAsync('update changes version', async () => {
   const installer = new PackageInstaller(db, {
     client: mockClient,
     skillRegistry: mockRegistry,
-    projectRoot: '/tmp/test-marketplace-update',
+    projectRoot: makeMarketplaceProject('marketplace-update'),
   });
 
   // Install v1
@@ -592,7 +601,7 @@ await testAsync('installWithDependencies installs deps first', async () => {
     client: mockClient,
     skillRegistry: mockRegistry,
     expertiseRegistry: new MockExpertiseRegistry(),
-    projectRoot: '/tmp/test-marketplace-deps',
+    projectRoot: makeMarketplaceProject('marketplace-deps'),
   });
 
   // Override download for expertise to write a JSON file

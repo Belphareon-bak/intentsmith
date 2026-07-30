@@ -7,9 +7,13 @@ import {
   getSignatureCacheSize,
 } from '../src/code-intel/signature-map.js';
 import { writeFile, mkdir, rm } from 'fs/promises';
+import { mkdtempSync } from 'node:fs';
 import path from 'path';
+import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 
-const TMP_DIR = '/tmp/sig-cache-test-' + Date.now();
+const TMP_DIR = mkdtempSync(
+  path.join(isolatedTestRuntime.projects, 'signature-cache-'),
+);
 
 // ─── Setup ──────────────────────────────────────────────────────────────────
 

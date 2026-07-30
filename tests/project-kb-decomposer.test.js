@@ -2,6 +2,9 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import {
   buildProjectSnapshot,
   updateSnapshot,
@@ -16,12 +19,19 @@ import {
   splitFirstRoadmapMilestone,
 } from '../src/planner/milestone-decomposer.js';
 
+const PROJECT_ROOT = fs.mkdtempSync(
+  path.join(isolatedTestRuntime.projects, 'project-kb-'),
+);
+const EMPTY_PROJECT_ROOT = fs.mkdtempSync(
+  path.join(isolatedTestRuntime.projects, 'project-kb-empty-'),
+);
+
 // ─── Project KB — Snapshot ──────────────────────────────────────────────────
 
 suite('Project KB — Snapshot');
 
 await testAsync('builds snapshot from files', async () => {
-  const snapshot = await buildProjectSnapshot('/tmp/test-project', {
+  const snapshot = await buildProjectSnapshot(PROJECT_ROOT, {
     files: [
       { file: 'src/controllers/user.js', content: 'app.get("/users", handler);' },
       { file: 'src/services/userService.js', content: 'function getUser() {}' },
@@ -35,7 +45,7 @@ await testAsync('builds snapshot from files', async () => {
 });
 
 await testAsync('builds module map from files', async () => {
-  const snapshot = await buildProjectSnapshot('/tmp/test-project', {
+  const snapshot = await buildProjectSnapshot(PROJECT_ROOT, {
     files: [
       { file: 'src/auth/login.js', content: '' },
       { file: 'src/auth/register.js', content: '' },
@@ -56,10 +66,10 @@ await testAsync('returns null for no project path', async () => {
 suite('Project KB — Incremental Update');
 
 await testAsync('updates snapshot incrementally', async () => {
-  const original = await buildProjectSnapshot('/tmp/test-project', {
+  const original = await buildProjectSnapshot(PROJECT_ROOT, {
     files: [{ file: 'src/api/users.js', content: '' }],
   });
-  const updated = await updateSnapshot('/tmp/test-project', ['src/api/new-endpoint.js'], original);
+  const updated = await updateSnapshot(PROJECT_ROOT, ['src/api/new-endpoint.js'], original);
 
   assert(updated.version > original.version, 'version should increment');
   assert(updated.moduleMap['src/api'].includes('src/api/new-endpoint.js'),
@@ -68,12 +78,12 @@ await testAsync('updates snapshot incrementally', async () => {
 
 await testAsync('returns existing snapshot when no changes', async () => {
   const original = { version: 1, moduleMap: {}, timestamp: 'old' };
-  const result = await updateSnapshot('/tmp', [], original);
+  const result = await updateSnapshot(EMPTY_PROJECT_ROOT, [], original);
   assertEqual(result.version, 1); // no increment
 });
 
 await testAsync('falls back to full build when no existing snapshot', async () => {
-  const result = await updateSnapshot('/tmp', ['src/a.js'], null);
+  const result = await updateSnapshot(EMPTY_PROJECT_ROOT, ['src/a.js'], null);
   assert(result, 'should return snapshot');
   assertEqual(result.version, 1);
 });

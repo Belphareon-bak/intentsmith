@@ -12,11 +12,14 @@ import {
   savePolicy,
 } from '../src/planner/architecture-policy.js';
 import { DriftDetector } from '../src/code-intel/drift-detector.js';
-import { writeFile, readFile, mkdir, rm } from 'fs/promises';
+import { mkdtempSync } from 'node:fs';
+import { writeFile, readFile, mkdir, rm } from 'node:fs/promises';
 import { join } from 'path';
-import { tmpdir } from 'os';
+import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 
-const TMP = join(tmpdir(), `c3-policy-test-${Date.now()}`);
+const TMP = mkdtempSync(
+  join(isolatedTestRuntime.projects, 'architecture-policy-'),
+);
 
 // ─── Setup ───────────────────────────────────────────────────────────────────
 
