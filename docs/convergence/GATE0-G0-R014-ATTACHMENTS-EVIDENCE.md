@@ -78,13 +78,28 @@ contract. It does **not** claim that the registered T3 full suite ran: no
 current runner supplies the live child PID and private nonce, so that profile
 remains `BLOCKED`.
 
-The final focused test-trust follow-up adds the two remaining negative
+The final focused test-trust follow-up,
+`fab974eda32bcdb62941f91d697600af1bdbedcb`, adds the two remaining negative
 contracts from independent review: the consumer rejects a validly shaped but
 mismatched nonce, and a static source contract requires `src/server.js` to
 pass `INTENTSMITH_TEST_SERVER_NONCE` into the port payload only after the
-actual bound port has been resolved. Exact post-commit evidence is recorded
-below after the focused rerun; this does not change the `BLOCKED` full-T3
-availability statement.
+actual bound port has been resolved. Its exact post-commit rerun produced:
+
+| Command | Result | Exit |
+| --- | --- | ---: |
+| boundary self-check with `C3_URL=http://127.0.0.1:1` and throwing `fetch` preload | `5 passed, 0 failed, 0 skipped`; no request | 0 |
+| `node tests/upgrade-ux-v125.test.js` outside the process sandbox | `53 passed, 0 failed, 0 skipped` | 0 |
+| `node tests/harness-exit-code.test.js` outside the child-process sandbox | 49 temp creators; 92/92 DB graph; removed anchor rejected; raw attachment path rejected before `fetch` | 0 |
+
+Before commit, removing the nonce equality caused the boundary self-check to
+report `4 passed, 1 failed` and exit `1` with `Full suite accepted a
+mismatched server capability`. Replacing the server's nonce argument with
+`undefined` caused the upgrade suite to report `52 passed, 1 failed` and exit
+`1` with `server must pass the private test capability into the port payload`.
+Both mutations were restored before the positive post-commit rerun.
+
+This focused proof does not change the `BLOCKED` full-T3 availability
+statement.
 
 Scope:
 
