@@ -65,7 +65,7 @@
     {
       "riskId": "G0-R012",
       "gateImpact": "G0_FAIL",
-      "rationale": "The open database import side effect can touch operator data during an unwrapped test run."
+      "rationale": "An implicit database import path can touch operator data during an unwrapped test run."
     },
     {
       "riskId": "G0-R013",
@@ -133,6 +133,11 @@
       "riskId": "G0-R025",
       "gateImpact": "G0_FAIL",
       "rationale": "A provider outage represented as a successful persisted assistant turn is a Gate 0 test-trust defect."
+    },
+    {
+      "riskId": "G0-R026",
+      "gateImpact": "G0_FAIL",
+      "rationale": "A route factory exception ignored by its registered smoke suite is a Gate 0 false-green defect."
     }
   ]
 }

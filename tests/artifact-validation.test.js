@@ -308,16 +308,16 @@ function riskAssessmentCopy(overrides = {}) {
     schemaVersion: 1,
     valid: true,
     errors: [],
-    riskCount: 25,
-    policyCount: 25,
+    riskCount: 26,
+    policyCount: 26,
     impactCounts: {
-      G0_FAIL: 19,
+      G0_FAIL: 20,
       G0_REVIEW_REQUIRED: 1,
       LATER_GATE: 2,
       SEPARATE_INCIDENT: 3,
     },
     openImpactCounts: {
-      G0_FAIL: 5,
+      G0_FAIL: 3,
       G0_REVIEW_REQUIRED: 1,
       LATER_GATE: 2,
       SEPARATE_INCIDENT: 3,
@@ -340,13 +340,11 @@ test('committed policy classifies every risk and derives current blockers', () =
     riskPolicyCopy(),
   );
   assertEqual(result.valid, true);
-  assertEqual(result.riskCount, 25);
-  assertEqual(result.policyCount, 25);
+  assertEqual(result.riskCount, 26);
+  assertEqual(result.policyCount, 26);
   assertEqual(result.repositoryBlockers.join(','), [
-    'G0-R012: OPEN',
     'G0-R014: OPEN',
     'G0-R017: OPEN',
-    'G0-R019: OPEN',
     'G0-R020: OPEN',
   ].join(','));
   assertEqual(result.reviewRequiredRisks.join(','), 'G0-R015: OPEN');
@@ -360,7 +358,14 @@ test('committed policy classifies every risk and derives current blockers', () =
 
 test('policy pins required Gate 0 blockers and the loopback condition', () => {
   const byId = new Map(committedRiskPolicy.risks.map(entry => [entry.riskId, entry]));
-  for (const riskId of ['G0-R012', 'G0-R014', 'G0-R017', 'G0-R019', 'G0-R020']) {
+  for (const riskId of [
+    'G0-R012',
+    'G0-R014',
+    'G0-R017',
+    'G0-R019',
+    'G0-R020',
+    'G0-R026',
+  ]) {
     assertEqual(byId.get(riskId)?.gateImpact, GateImpact.G0_FAIL);
   }
   assertEqual(byId.get('G0-R018')?.gateImpact, GateImpact.LATER_GATE);
@@ -381,11 +386,11 @@ test('a newly added unknown OPEN risk fails closed without a code allowlist', ()
 
 test('removing an OPEN risk policy entry fails closed', () => {
   const policy = riskPolicyCopy();
-  policy.risks = policy.risks.filter(entry => entry.riskId !== 'G0-R019');
+  policy.risks = policy.risks.filter(entry => entry.riskId !== 'G0-R020');
   const result = evaluateGate0RiskPolicy(committedRiskMarkdown, policy);
   assertEqual(result.valid, false);
-  assert(includesError(result.errors, 'G0-R019: missing valid gateImpact policy'));
-  assert(includesError(result.repositoryBlockers, 'G0-R019: OPEN'));
+  assert(includesError(result.errors, 'G0-R020: missing valid gateImpact policy'));
+  assert(includesError(result.repositoryBlockers, 'G0-R020: OPEN'));
 });
 
 test('duplicate and unknown gateImpact entries are rejected', () => {

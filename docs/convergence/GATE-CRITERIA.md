@@ -81,7 +81,8 @@ allowed impacts are:
   prerequisite.
 
 The policy, not a JavaScript risk-ID allowlist, currently classifies open
-`G0-R012`, `G0-R014`, `G0-R017`, `G0-R019`, and `G0-R020` as `G0_FAIL`.
+`G0-R014`, `G0-R017`, and `G0-R020` as `G0_FAIL`. Closed `G0-R012`, `G0-R019`,
+and `G0-R026` retain the same impact and become blockers again if reopened.
 `G0-R015` is `G0_REVIEW_REQUIRED`. `G0-R018` is `LATER_GATE` only under the
 condition that the legacy listener remains loopback-only; off-loopback binding
 is prohibited until the separate authenticated boundary and its bypass-negative
