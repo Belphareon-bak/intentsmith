@@ -67,3 +67,11 @@ created ignored root `projects/` outside the candidate evidence boundary.
 That run is retained as red diagnostic evidence and is not a green Gate 0
 execution. The follow-up installer repair honors `C3_PROJECTS_DIR` while
 preserving `./projects` as the default interactive-install location.
+
+Candidate `b594f30a44c8821e451102e1e4d84a04caf86fbc` then completed both
+installs and all 199 deterministic suites as `PASS`, but the runner again
+correctly returned evidence-infrastructure exit 2: the harness meta-test had
+removed every owned raw-test runtime yet left the empty sibling directory
+`.intentsmith-artifacts/direct-tests/`. The audit-mode meta-test now proves
+that parent is empty and removes it before returning. The 199 test outcomes
+from the rejected run remain diagnostic only; they are not Gate 0 evidence.

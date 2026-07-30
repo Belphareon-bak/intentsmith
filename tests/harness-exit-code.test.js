@@ -15,6 +15,7 @@ import {
   readdirSync,
   realpathSync,
   rmSync,
+  rmdirSync,
   symlinkSync,
   unlinkSync,
   writeFileSync,
@@ -1186,6 +1187,20 @@ summary();
     discoverRunnablePrograms(symlinkRoot),
     /Test inventory rejects symbolic links/,
   );
+
+  if (process.env.C3_AUDIT_RUN === '1') {
+    assert.deepEqual(
+      readdirSync(directParent),
+      [],
+      'audit meta-test must not leave a direct-test runtime behind',
+    );
+    rmdirSync(directParent);
+    assert.equal(
+      existsSync(directParent),
+      false,
+      'audit meta-test must remove its empty direct-test parent',
+    );
+  }
 
   console.log('Harness exit-code meta-test passed');
 } finally {
