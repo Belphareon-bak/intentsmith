@@ -1355,7 +1355,8 @@ async function run() {
     }
   }
 
-  process.exit(failed > 0 ? 1 : 0);
+  await flushProcessOutput();
+  process.exitCode = failed > 0 ? 1 : 0;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -1371,7 +1372,19 @@ function avgScore(scores) {
   return Math.round((valid.reduce((a, b) => a + b, 0) / valid.length) * 100) / 100;
 }
 
-run().catch(err => {
+async function flushProcessOutput() {
+  await Promise.all([
+    new Promise((resolve, reject) => {
+      process.stdout.write('', error => error ? reject(error) : resolve());
+    }),
+    new Promise((resolve, reject) => {
+      process.stderr.write('', error => error ? reject(error) : resolve());
+    }),
+  ]);
+}
+
+run().catch(async err => {
   console.error('FATAL:', err);
-  process.exit(1);
+  await flushProcessOutput();
+  process.exitCode = 1;
 });
