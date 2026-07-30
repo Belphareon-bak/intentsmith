@@ -660,7 +660,7 @@ export async function runLogged(command, options = {}) {
 
   const result = await new Promise(resolve => {
     const detached = process.platform !== 'win32';
-    const child = spawn(command[0], command.slice(1), {
+    const child = spawnWithPrivateUmask(command[0], command.slice(1), {
       cwd,
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -848,6 +848,15 @@ function requestTermination(signal) {
 function throwIfTerminationRequested() {
   if (requestedTerminationSignal) {
     throw new Error(`Nightly orchestration interrupted by ${requestedTerminationSignal}`);
+  }
+}
+
+function spawnWithPrivateUmask(command, args, options) {
+  const previousUmask = process.umask(0o077);
+  try {
+    return spawn(command, args, options);
+  } finally {
+    process.umask(previousUmask);
   }
 }
 

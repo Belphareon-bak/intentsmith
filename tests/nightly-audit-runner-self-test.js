@@ -27,6 +27,8 @@ import {
 const tempRoots = new Set();
 const activeSignalFixtures = new Set();
 const sourceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const originalUmask = process.umask();
+let permissiveUmaskActive = false;
 
 try {
 const nestedSourceRoot = await makeTempDirectory(
@@ -68,6 +70,7 @@ writeFileSync(path.join(process.env.TMPDIR, 'observed-env.json'), JSON.stringify
   HOME: process.env.HOME,
   C3_DB_PATH: process.env.C3_DB_PATH,
   TEST_SECRET_SENTINEL: process.env.TEST_SECRET_SENTINEL,
+  UMASK: process.umask(),
 }));
 console.log("fixture pass");
 `);
@@ -138,6 +141,8 @@ await assert.rejects(
 );
 
 process.env.TEST_SECRET_SENTINEL = 'must-not-reach-child';
+process.umask(0o022);
+permissiveUmaskActive = true;
 const run = await runAudit({
   root,
   outDir: 'data/artifacts/audit-runs',
@@ -149,6 +154,7 @@ const run = await runAudit({
   allowDirty: true,
 });
 delete process.env.TEST_SECRET_SENTINEL;
+assert.equal(process.umask(), 0o022, 'audit runner must restore its parent umask');
 
 assert.equal(run.inventory.total, 6);
 assert.equal(run.statusCounts.PASS, 2);
@@ -187,6 +193,9 @@ const observedEnv = JSON.parse(await readFile(
 assert.equal(observedEnv.HOME, byPath.get('tests/pass.test.js').environment.home);
 assert.equal(observedEnv.C3_DB_PATH, byPath.get('tests/pass.test.js').environment.database);
 assert.equal(observedEnv.TEST_SECRET_SENTINEL, undefined);
+assert.equal(observedEnv.UMASK, 0o077);
+process.umask(originalUmask);
+permissiveUmaskActive = false;
 assert.equal(new Set(run.results.map(result => result.environment?.database).filter(Boolean)).size, 6);
 assert.equal((await stat(path.join(root, run.paths.report))).mode & 0o777, 0o600);
 
@@ -758,6 +767,8 @@ for (const signal of ['SIGTERM', 'SIGINT']) {
 
 console.log('nightly audit runner self-test: PASS');
 } finally {
+  delete process.env.TEST_SECRET_SENTINEL;
+  if (permissiveUmaskActive) process.umask(originalUmask);
   for (const fixture of activeSignalFixtures) {
     await cleanupRunnerSignalFixture(fixture).catch(() => {});
   }

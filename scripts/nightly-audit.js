@@ -452,7 +452,7 @@ async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
 
   return await new Promise((resolve, reject) => {
     const detached = process.platform !== 'win32';
-    const child = spawn(command, args, {
+    const child = spawnWithPrivateUmask(command, args, {
       cwd: opts.root,
       env: environment.env,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -1203,6 +1203,15 @@ function makeOptionsSnapshot(opts) {
 
 function stableHash(value) {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+function spawnWithPrivateUmask(command, args, options) {
+  const previousUmask = process.umask(0o077);
+  try {
+    return spawn(command, args, options);
+  } finally {
+    process.umask(previousUmask);
+  }
 }
 
 async function getSourceRevision(root) {

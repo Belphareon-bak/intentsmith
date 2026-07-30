@@ -31,6 +31,8 @@ const SECRET_KEY = 'INTENTSMITH_ORCHESTRATOR_SELFTEST_SECRET';
 const SECRET_VALUE = 'must-not-appear-in-evidence';
 const tmp = await mkdtemp(path.join(os.tmpdir(), 'intentsmith-nightly-orchestrator-'));
 const originalSecret = process.env[SECRET_KEY];
+const originalUmask = process.umask();
+let permissiveUmaskActive = false;
 
 try {
   process.env[SECRET_KEY] = SECRET_VALUE;
@@ -110,6 +112,8 @@ try {
   await rm(path.join(artifactRoot, 'intentsmith-nightly.lock'), { recursive: true, force: true });
 
   await seedCompletedRuns(artifactRoot, 8);
+  process.umask(0o022);
+  permissiveUmaskActive = true;
   const failingAudit = await runNightly({
     repo,
     artifactRoot,
@@ -118,6 +122,7 @@ try {
     retain: 7,
     testMode: true,
   });
+  assert.equal(process.umask(), 0o022, 'nightly orchestrator must restore its parent umask');
   assert.equal(failingAudit.exitCode, 1);
   assert.equal(failingAudit.runnerExitCode, 1);
   assert.equal(failingAudit.summaryExitCode, 0);
@@ -149,6 +154,9 @@ try {
   assert.match(receivedEnvironment.C3_PROJECTS_DIR, /runtime\/projects$/);
   assert.equal(receivedEnvironment.C3_LIFECYCLE_AUTO_COMMIT, 'false');
   assert.equal(receivedEnvironment.C3_ENABLE_AUTONOMY, 'false');
+  assert.equal(receivedEnvironment.UMASK, 0o077);
+  process.umask(originalUmask);
+  permissiveUmaskActive = false;
   await assertMissing(failingAudit.paths.worktree);
   await assertMissing(failingAudit.paths.worktreeOwnership);
 
@@ -317,6 +325,15 @@ try {
     }),
     /Invalid run-id/,
   );
+
+  process.umask(0o022);
+  permissiveUmaskActive = true;
+  await assert.rejects(
+    () => runLogged([], { cwd: repo, timeoutMs: 100 }),
+  );
+  assert.equal(process.umask(), 0o022, 'synchronous spawn failure must restore the parent umask');
+  process.umask(originalUmask);
+  permissiveUmaskActive = false;
 
   await assert.rejects(
     () => runLogged(
@@ -516,6 +533,7 @@ try {
 } finally {
   if (originalSecret === undefined) delete process.env[SECRET_KEY];
   else process.env[SECRET_KEY] = originalSecret;
+  if (permissiveUmaskActive) process.umask(originalUmask);
   await rm(tmp, { recursive: true, force: true });
 }
 
@@ -759,7 +777,8 @@ await writeFile(path.join(runDir, 'env.json'), JSON.stringify({
   C3_DB_PATH: process.env.C3_DB_PATH,
   C3_PROJECTS_DIR: process.env.C3_PROJECTS_DIR,
   C3_LIFECYCLE_AUTO_COMMIT: process.env.C3_LIFECYCLE_AUTO_COMMIT,
-  C3_ENABLE_AUTONOMY: process.env.C3_ENABLE_AUTONOMY
+  C3_ENABLE_AUTONOMY: process.env.C3_ENABLE_AUTONOMY,
+  UMASK: process.umask()
 }, null, 2), { mode: 0o600 });
 await writeFile(path.join(runDir, 'inventory.json'), JSON.stringify(inventory, null, 2), { mode: 0o600 });
 if (mode === 'corrupt-report') {
