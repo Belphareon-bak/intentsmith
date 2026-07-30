@@ -10,9 +10,10 @@ override a failed or blocked suite.
 
 ## Inventory
 
-- Runnable programs: 349
-- Profiles: offline=172, database=26, server=32, model=71, soak=33, manual=15
-- States: ACTIVE=255, HISTORICAL=15, BLOCKED=54, KNOWN_DEFECTIVE=25
+- Runnable programs: 350
+- Explicit support-module exclusions: 8
+- Profiles: offline=173, database=26, server=32, model=71, soak=33, manual=15
+- States: ACTIVE=256, HISTORICAL=15, BLOCKED=54, KNOWN_DEFECTIVE=25
 
 ## Execution profiles
 
@@ -123,6 +124,7 @@ override a failed or blocked suite.
 | `IS-T3-TESTS-E2E-RESILIENCE-TEST` | `tests/e2e-resilience.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-E2E-SPECIALISTS-TEST` | `tests/e2e-specialists.test.js` | `C3-027` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-E2E-WORKERS-TEST` | `tests/e2e-workers.test.js` | `C3-027` | T3 | `model` | 5 min | 15 min | network:external, temp-db | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-E2E-HELPERS-SELF-CHECK` | `tests/e2e/_helpers.self-check.js` | `C3-027` | T1 | `offline` | 5 s | 30 s | network:loopback | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-E2E-01-HEALTH-SMOKE` | `tests/e2e/01-health-smoke.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-02-CHAT-API` | `tests/e2e/02-chat-api.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-03-CONVERSATIONS` | `tests/e2e/03-conversations.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
@@ -378,6 +380,23 @@ override a failed or blocked suite.
 | `IS-T3-TESTS-WORKFLOW-ORCHESTRATOR-TEST` | `tests/workflow-orchestrator.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-WORKFLOW-TEST` | `tests/workflow.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-WS-BRIDGE-TEST` | `tests/ws-bridge.test.js` | `C3-023` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+
+## Explicit support-module exclusions
+
+Every supported program-language file below `tests/` must be either a suite
+above or a reasoned exclusion below. File naming cannot hide it from the
+ledger.
+
+| Path | Reason |
+|---|---|
+| `tests/e2e-harness.js` | Imported legacy E2E harness library with no top-level test entry point. |
+| `tests/e2e/_e2e-state.js` | Imported E2E state support module with no top-level test entry point. |
+| `tests/e2e/_helpers.js` | Imported E2E harness support module; its direct checks live in _helpers.self-check.js. |
+| `tests/e2e/_quality-evaluator.js` | Imported deterministic scoring library with no top-level test entry point. |
+| `tests/e2e/_test-fixtures.js` | Imported synthetic fixture data module with no top-level test entry point. |
+| `tests/harness.js` | Imported unit-test harness library with no top-level test entry point. |
+| `tests/helpers/isolated-test-db.js` | Imported direct-run database isolation bootstrap, not a standalone test. |
+| `tests/run-all.js` | Aggregate compatibility entry point; registering it as a child suite would recurse into the registry runner. |
 
 Required fields per run: exact command and commit, clean-tree status, start/end
 time, isolated environment paths, stdout/stderr artifact and hash, exit code

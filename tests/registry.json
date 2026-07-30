@@ -1,6 +1,40 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "classificationBasis": "Gate 0 path-by-path source inspection at 3a6efa6e41701d85060e7ce1568e4a950fdc1dd7 plus same-commit test-trust repairs",
+  "exclusions": [
+    {
+      "path": "tests/e2e/_e2e-state.js",
+      "reason": "Imported E2E state support module with no top-level test entry point."
+    },
+    {
+      "path": "tests/e2e/_helpers.js",
+      "reason": "Imported E2E harness support module; its direct checks live in _helpers.self-check.js."
+    },
+    {
+      "path": "tests/e2e/_quality-evaluator.js",
+      "reason": "Imported deterministic scoring library with no top-level test entry point."
+    },
+    {
+      "path": "tests/e2e/_test-fixtures.js",
+      "reason": "Imported synthetic fixture data module with no top-level test entry point."
+    },
+    {
+      "path": "tests/e2e-harness.js",
+      "reason": "Imported legacy E2E harness library with no top-level test entry point."
+    },
+    {
+      "path": "tests/harness.js",
+      "reason": "Imported unit-test harness library with no top-level test entry point."
+    },
+    {
+      "path": "tests/helpers/isolated-test-db.js",
+      "reason": "Imported direct-run database isolation bootstrap, not a standalone test."
+    },
+    {
+      "path": "tests/run-all.js",
+      "reason": "Aggregate compatibility entry point; registering it as a child suite would recurse into the registry runner."
+    }
+  ],
   "suites": [
     {
       "id": "IS-T3-E2E-RUN-E2E",
@@ -10465,6 +10499,36 @@
       "required": true,
       "owner": "primary implementer",
       "state": "BLOCKED",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-E2E-HELPERS-SELF-CHECK",
+      "path": "tests/e2e/_helpers.self-check.js",
+      "argv": [
+        "node",
+        "tests/e2e/_helpers.self-check.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T1",
+      "fixture": "isolated-home-and-owned-loopback-server",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 5000,
+      "requirements": {
+        "network": "loopback",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
       "lastGreen": {
         "commit": null,
         "artifact": null

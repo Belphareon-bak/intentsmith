@@ -1,4 +1,4 @@
-// Deterministic, non-registry self-check for tests/e2e/_helpers.js.
+// Deterministic registry self-check for tests/e2e/_helpers.js.
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';

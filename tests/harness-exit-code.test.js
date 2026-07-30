@@ -4,11 +4,14 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { validateTestRegistry } from '../scripts/test-registry.js';
+import {
+  discoverRunnablePrograms,
+  validateTestRegistry,
+} from '../scripts/test-registry.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const harnessUrl = pathToFileURL(join(__dirname, 'harness.js')).href;
@@ -173,14 +176,16 @@ summary();
   ];
   for (const [path, argv] of executorCases) {
     const registry = {
-      schemaVersion: 1,
+      schemaVersion: 2,
+      exclusions: [],
       suites: [validRegistrySuite(path, argv)],
     };
     assert.deepEqual(validateTestRegistry(registry, [path]), []);
   }
 
   const wrongExecutor = {
-    schemaVersion: 1,
+    schemaVersion: 2,
+    exclusions: [],
     suites: [
       validRegistrySuite('tests/example.js', ['/bin/true', 'tests/example.js']),
     ],
@@ -191,7 +196,8 @@ summary();
   );
 
   const extraArgument = {
-    schemaVersion: 1,
+    schemaVersion: 2,
+    exclusions: [],
     suites: [
       validRegistrySuite(
         'tests/example.js',
@@ -205,12 +211,63 @@ summary();
   );
 
   const missingPath = {
-    schemaVersion: 1,
+    schemaVersion: 2,
+    exclusions: [],
     suites: [validRegistrySuite(undefined, ['node', 'tests/example.js'])],
   };
   assert.ok(
     validateTestRegistry(missingPath, [])
       .some(error => error.includes('path is unsafe')),
+  );
+
+  const discoveryRoot = join(fixtureDir, 'discovery-root');
+  mkdirSync(join(discoveryRoot, 'tests'), { recursive: true });
+  writeFileSync(join(discoveryRoot, 'tests', 'unconventional.runner.mjs'), 'export {};\n');
+  writeFileSync(join(discoveryRoot, 'tests', 'fixture-helper.js'), 'export {};\n');
+  assert.deepEqual(
+    await discoverRunnablePrograms(discoveryRoot),
+    [
+      'tests/fixture-helper.js',
+      'tests/unconventional.runner.mjs',
+    ],
+    'program discovery must not depend on test filename conventions',
+  );
+
+  const explicitExclusion = {
+    schemaVersion: 2,
+    exclusions: [{
+      path: 'tests/fixture-helper.js',
+      reason: 'Imported support fixture with no top-level test entry point.',
+    }],
+    suites: [
+      validRegistrySuite(
+        'tests/unconventional.runner.mjs',
+        ['node', 'tests/unconventional.runner.mjs'],
+      ),
+    ],
+  };
+  assert.deepEqual(
+    validateTestRegistry(
+      explicitExclusion,
+      ['tests/fixture-helper.js', 'tests/unconventional.runner.mjs'],
+    ),
+    [],
+  );
+
+  const unexplainedProgram = structuredClone(explicitExclusion);
+  unexplainedProgram.exclusions = [];
+  assert.ok(
+    validateTestRegistry(
+      unexplainedProgram,
+      ['tests/fixture-helper.js', 'tests/unconventional.runner.mjs'],
+    ).some(error => error.includes('unregistered or unexplained test program')),
+  );
+
+  const overlap = structuredClone(explicitExclusion);
+  overlap.exclusions[0].path = 'tests/unconventional.runner.mjs';
+  assert.ok(
+    validateTestRegistry(overlap, ['tests/unconventional.runner.mjs'])
+      .some(error => error.includes('both registered and excluded')),
   );
 
   console.log('Harness exit-code meta-test passed');

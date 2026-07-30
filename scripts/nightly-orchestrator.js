@@ -47,8 +47,8 @@ const AUDIT_PROCESS_TIMEOUT_MS = DEFAULT_DEADLINE_MS + (5 * 60 * 1000);
 const SUMMARY_TIMEOUT_MS = 5 * 60 * 1000;
 const AUDIT_RUN_ID = 'product-audit';
 const AUDIT_PROFILES = ['offline', 'database'];
-const GATE0_REGISTRY_HASH = '31d5735342f232a8d4e7b620ace0af246fbb1278d054dd4f81d4d1ee783c39e0';
-const GATE0_PROFILE_COUNTS = { offline: 172, database: 26 };
+const GATE0_REGISTRY_HASH = 'f930d637693759df07c290ed415477ba5bf461a0fe4ec71ab207e5663da0bf60';
+const GATE0_PROFILE_COUNTS = { offline: 173, database: 26 };
 const PDF_RUNTIME_PACKAGES = Object.freeze({
   'charset-normalizer': '3.4.4',
   pillow: '12.3.0',

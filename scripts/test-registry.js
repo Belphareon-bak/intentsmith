@@ -4,7 +4,7 @@ import path from 'node:path';
 
 export const TEST_REGISTRY_PATH = 'tests/registry.json';
 export const TEST_REGISTRY_DOC_PATH = 'docs/convergence/TEST-REGISTRY.md';
-export const TEST_REGISTRY_SCHEMA_VERSION = 1;
+export const TEST_REGISTRY_SCHEMA_VERSION = 2;
 
 export const TEST_PROFILES = [
   'offline',
@@ -26,6 +26,7 @@ const NETWORK_REQUIREMENTS = new Set(['none', 'loopback', 'external']);
 const EXECUTOR_BY_EXTENSION = new Map([
   ['.js', 'node'],
   ['.cjs', 'node'],
+  ['.mjs', 'node'],
   ['.py', 'python3'],
   ['.sh', 'bash'],
 ]);
@@ -53,7 +54,7 @@ export async function discoverRunnablePrograms(root) {
   const testsDir = path.join(root, 'tests');
   for (const absolutePath of await walk(testsDir)) {
     const relativePath = normalizePath(path.relative(root, absolutePath));
-    if (isRunnableProgram(relativePath)) candidates.push(relativePath);
+    if (hasApprovedProgramExtension(relativePath)) candidates.push(relativePath);
   }
 
   const rootE2eRunner = path.join(root, 'e2e', 'run-e2e.js');
@@ -75,6 +76,29 @@ export function validateTestRegistry(registry, candidates) {
 
   const ids = new Set();
   const registeredPaths = new Set();
+  const excludedPaths = new Set();
+
+  if (!Array.isArray(registry.exclusions)) {
+    errors.push('exclusions must be an array');
+  } else {
+    for (const [index, exclusion] of registry.exclusions.entries()) {
+      const label = `exclusions[${index}]`;
+      if (!exclusion || typeof exclusion !== 'object') {
+        errors.push(`${label} must be an object`);
+        continue;
+      }
+      if (!isSafeRelativePath(exclusion.path)) {
+        errors.push(`${label}.path is unsafe: ${exclusion.path}`);
+      } else if (excludedPaths.has(exclusion.path)) {
+        errors.push(`duplicate exclusion path ${exclusion.path}`);
+      } else {
+        excludedPaths.add(exclusion.path);
+      }
+      if (typeof exclusion.reason !== 'string' || exclusion.reason.trim().length < 20) {
+        errors.push(`${label}.reason must be a specific explanation of at least 20 characters`);
+      }
+    }
+  }
 
   for (const [index, suite] of registry.suites.entries()) {
     const label = `suites[${index}]`;
@@ -181,10 +205,20 @@ export function validateTestRegistry(registry, candidates) {
 
   const candidateSet = new Set(candidates);
   for (const candidate of candidates) {
-    if (!registeredPaths.has(candidate)) errors.push(`unregistered runnable program: ${candidate}`);
+    if (!registeredPaths.has(candidate) && !excludedPaths.has(candidate)) {
+      errors.push(`unregistered or unexplained test program: ${candidate}`);
+    }
   }
   for (const registeredPath of registeredPaths) {
     if (!candidateSet.has(registeredPath)) errors.push(`registered path is missing or no longer runnable: ${registeredPath}`);
+    if (excludedPaths.has(registeredPath)) {
+      errors.push(`path cannot be both registered and excluded: ${registeredPath}`);
+    }
+  }
+  for (const excludedPath of excludedPaths) {
+    if (!candidateSet.has(excludedPath)) {
+      errors.push(`excluded path is missing or no longer a supported program: ${excludedPath}`);
+    }
   }
 
   return errors;
@@ -222,6 +256,7 @@ export function renderTestRegistry(registry) {
     '## Inventory',
     '',
     `- Runnable programs: ${suites.length}`,
+    `- Explicit support-module exclusions: ${registry.exclusions.length}`,
     `- Profiles: ${formatCounts(profileCounts)}`,
     `- States: ${formatCounts(stateCounts)}`,
     '',
@@ -264,6 +299,25 @@ export function renderTestRegistry(registry) {
 
   lines.push(
     '',
+    '## Explicit support-module exclusions',
+    '',
+    'Every supported program-language file below `tests/` must be either a suite',
+    'above or a reasoned exclusion below. File naming cannot hide it from the',
+    'ledger.',
+    '',
+    '| Path | Reason |',
+    '|---|---|',
+  );
+  for (const exclusion of [...registry.exclusions].sort((a, b) => (
+    a.path.localeCompare(b.path)
+  ))) {
+    lines.push(
+      `| \`${escapeCell(exclusion.path)}\` | ${escapeCell(exclusion.reason)} |`,
+    );
+  }
+
+  lines.push(
+    '',
     'Required fields per run: exact command and commit, clean-tree status, start/end',
     'time, isolated environment paths, stdout/stderr artifact and hash, exit code',
     'or signal, timeout classification, cleanup result, and deterministic verdict.',
@@ -272,16 +326,8 @@ export function renderTestRegistry(registry) {
   return lines.join('\n');
 }
 
-function isRunnableProgram(relativePath) {
-  const base = path.basename(relativePath);
-  if (relativePath === 'tests/output-gate.js') return true;
-  if (relativePath === 'tests/e2e/220-e2e-suite-runner.js') return true;
-  if (/^tests\/test_[^/]+\.py$/.test(relativePath)) return true;
-  if (base.endsWith('-self-test.js')) return true;
-  if (relativePath.includes('/_legacy/')) {
-    return /\.(?:cjs|js|sh)$/.test(relativePath);
-  }
-  return /\.(?:test\.js|test\.cjs|e2e\.js)$/.test(relativePath);
+function hasApprovedProgramExtension(relativePath) {
+  return EXECUTOR_BY_EXTENSION.has(path.posix.extname(relativePath));
 }
 
 async function walk(directory) {

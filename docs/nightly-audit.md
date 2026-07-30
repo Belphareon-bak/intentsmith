@@ -11,11 +11,11 @@ The orchestrator is locked to:
 - dependency install: `npm ci`, then the hash-locked isolated PDF runtime;
 - concurrency: `1`.
 
-The canonical registry currently contains 263 runnable programs. This Gate 0
-orchestrator selects exactly the 171 `offline` and 22 `database` entries. The
+The canonical registry currently contains 350 runnable programs. This Gate 0
+orchestrator selects exactly the 173 `offline` and 26 `database` entries. The
 remaining `server`, `model`, `soak`, and `manual` profiles are not silently
 counted as passing. The reviewed registry fingerprint is
-`4f1109a5fe5788b029aa287a68eca0964f27b18709d59863a6d6f6cbb0096753`;
+`f930d637693759df07c290ed415477ba5bf461a0fe4ec71ab207e5663da0bf60`;
 the run fails closed if either that fingerprint or the reviewed profile counts
 change.
 
@@ -63,7 +63,7 @@ The run:
 4. proves the exact HEAD and clean worktree immediately after installation and
    before and after every preflight;
 5. validates the registry and test-trust self-tests;
-6. runs the 193 deterministic registry entries with the exact isolated PDF
+6. runs the 199 deterministic registry entries with the exact isolated PDF
    interpreter forwarded through the runner whitelist;
 7. validates source SHA, registry hash, exact suite IDs, profiles, result
    evidence, log containment/hashes, verdict, and process exit before summary;
@@ -90,7 +90,7 @@ reviewable `.retry-N` path with the matching `retryCount`.
 
 Exit codes are:
 
-- `0`: all 193 required entries passed and all required evidence validated;
+- `0`: all 199 required entries passed and all required evidence validated;
 - `1`: at least one required entry failed or timed out;
 - `2`: a prerequisite blocked execution or orchestration/evidence validation
   failed.
