@@ -1,8 +1,10 @@
 # Gate 0 — G0-R023 immutable self-refinement evidence
 
-Status: implementation candidate; exact-commit verification pending
+Status: verified repair evidence
 
 Base commit: `265b87729628c7d21d9fea5ccef1c282ebd94170`
+
+Implementation commit: `48dcdc04a08463a5693368e2dba0cf64b5722dc2`
 
 Branch: `codex/g0-r023-immutable-refinement`
 
@@ -61,23 +63,24 @@ The registered `tests/ws-bridge.test.js` suite now requires:
 5. A rejected candidate is not scored, persisted, or returned.
 6. Eligibility without application emits `refined: false` and no failure warning.
 
-## Candidate-tree proof
+## Exact-commit proof
 
 All commands used isolated `HOME`, `TMPDIR`, and `C3_DB_PATH` values below
 `/tmp/intentsmith-g0-r023-impl.zjcPSn`. No model, GPU, external network, server,
-or `data/c3.db` was used.
+or `data/c3.db` was used. The worktree was clean at
+`48dcdc04a08463a5693368e2dba0cf64b5722dc2` before these commands ran.
 
 | Command | Result | Exit |
 |---|---|---:|
 | `node --check src/chat/response-finalizer.js && node --check src/chat/controller.js && node --check tests/ws-bridge.test.js` | syntax valid | 0 |
-| `node tests/ws-bridge.test.js` | 53 passed, 0 failed | 0 |
-| `node tests/improvement-loops.test.js` | 21 passed, 0 failed, 0 skipped | 0 |
-| `node tests/chat-persistence.test.js` | 35 passed, 0 failed | 0 |
-| `node tests/quality-telemetry.test.js` | 34 passed, 0 failed | 0 |
-| `node tests/modules.test.js` | 23 passed, 0 failed, 0 skipped | 0 |
-| `node scripts/validate-test-registry.js` | 350 runnable programs; registry hash `a7a5c6d4670159cd38a08edea8aabbf868eb3342a3baf1857b6a4849d1f4960a` | 0 |
-| `node tests/repository-hygiene.test.js` | 1,334 tracked paths checked | 0 |
-| `git diff --check` | no whitespace errors | 0 |
+| `env HOME=/tmp/intentsmith-g0-r023-impl.zjcPSn/home TMPDIR=/tmp/intentsmith-g0-r023-impl.zjcPSn/tmp C3_DB_PATH=/tmp/intentsmith-g0-r023-impl.zjcPSn/runtime/ws-48dcdc0.sqlite node tests/ws-bridge.test.js` | 53 passed, 0 failed | 0 |
+| `env HOME=/tmp/intentsmith-g0-r023-impl.zjcPSn/home TMPDIR=/tmp/intentsmith-g0-r023-impl.zjcPSn/tmp C3_DB_PATH=/tmp/intentsmith-g0-r023-impl.zjcPSn/runtime/improvement-48dcdc0.sqlite node tests/improvement-loops.test.js` | 21 passed, 0 failed, 0 skipped | 0 |
+| `env HOME=/tmp/intentsmith-g0-r023-impl.zjcPSn/home TMPDIR=/tmp/intentsmith-g0-r023-impl.zjcPSn/tmp C3_DB_PATH=/tmp/intentsmith-g0-r023-impl.zjcPSn/runtime/chat-persistence-48dcdc0.sqlite node tests/chat-persistence.test.js` | 35 passed, 0 failed | 0 |
+| `env HOME=/tmp/intentsmith-g0-r023-impl.zjcPSn/home TMPDIR=/tmp/intentsmith-g0-r023-impl.zjcPSn/tmp C3_DB_PATH=/tmp/intentsmith-g0-r023-impl.zjcPSn/runtime/quality-telemetry-48dcdc0.sqlite node tests/quality-telemetry.test.js` | 34 passed, 0 failed | 0 |
+| `env HOME=/tmp/intentsmith-g0-r023-impl.zjcPSn/home TMPDIR=/tmp/intentsmith-g0-r023-impl.zjcPSn/tmp C3_DB_PATH=/tmp/intentsmith-g0-r023-impl.zjcPSn/runtime/modules-48dcdc0.sqlite node tests/modules.test.js` | 23 passed, 0 failed, 0 skipped | 0 |
+| `env HOME=/tmp/intentsmith-g0-r023-impl.zjcPSn/home TMPDIR=/tmp/intentsmith-g0-r023-impl.zjcPSn/tmp C3_DB_PATH=/tmp/intentsmith-g0-r023-impl.zjcPSn/runtime/registry-48dcdc0.sqlite node scripts/validate-test-registry.js` | 350 runnable programs; registry hash `a7a5c6d4670159cd38a08edea8aabbf868eb3342a3baf1857b6a4849d1f4960a` | 0 |
+| `env HOME=/tmp/intentsmith-g0-r023-impl.zjcPSn/home TMPDIR=/tmp/intentsmith-g0-r023-impl.zjcPSn/tmp C3_DB_PATH=/tmp/intentsmith-g0-r023-impl.zjcPSn/runtime/hygiene-48dcdc0.sqlite node tests/repository-hygiene.test.js` | 1,336 tracked paths checked | 0 |
+| `git status --short --branch && git rev-parse HEAD && git diff --exit-code && git diff --cached --exit-code` | clean branch; exact HEAD `48dcdc04a08463a5693368e2dba0cf64b5722dc2` | 0 |
 
 The first sandboxed hygiene invocation could not spawn `git ls-files` and
 failed with `spawnSync git EPERM`. The same read-only command was repeated
@@ -93,5 +96,5 @@ No dependency fetch occurred.
 
 This evidence closes only the deterministic G0-R023 repair candidate. It does
 not claim that the complete Gate 0 registry, model-backed E2E suites, or Gate 0
-as a whole pass. The exact implementation commit must be rerun before
-`G0-R023` changes from `OPEN` to `MITIGATED`.
+as a whole pass. The focused immutable-response failure is repaired and
+reproducibly covered, so `G0-R023` may move from `OPEN` to `MITIGATED`.
