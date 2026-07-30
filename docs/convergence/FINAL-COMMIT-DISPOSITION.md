@@ -1,9 +1,9 @@
 # Disposition of disputed `final` commit
 
 Status: all source-diff facts are recorded in a committed sanitized manifest
-and validate offline. The validator deliberately remains red while the 92
-`REBUILD/REPAIR` rows below await evidence-backed terminal closure under
-`D-018`.
+and validate offline. Two shared E2E support records have evidence-backed
+`REBUILD/REPAIRED` closure; the validator deliberately remains red while 90
+legacy `REBUILD/REPAIR` rows await terminal closure under `D-018`.
 
 Compared refs:
 
@@ -73,7 +73,8 @@ node scripts/validate-final-disposition.js \
 | `EXCLUDE/MOVE_OUTSIDE_PRODUCTION` | 78 |
 | `EXCLUDE/REMOVE_FOLLOWUP` | 13 |
 | `KEEP/REPLAY` | 42 |
-| `REBUILD/REPAIR` | 92 |
+| `REBUILD/REPAIR` | 90 |
+| `REBUILD/REPAIRED` | 2 |
 | `UNRESOLVED / USER_DECISION` | 0 |
 
 ## Path-by-path classification
@@ -289,8 +290,8 @@ node scripts/validate-final-disposition.js \
 | `A` | `tests/e2e/98-analysis-quality.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/QUALITY-REPORT.md` | `EXCLUDE` | `MOVE_OUTSIDE_PRODUCTION` | Generated quality report; replace with bounded evidence metadata when rerun. |
 | `A` | `tests/e2e/_e2e-state.js` | `REBUILD` | `REPAIR` | Preserve multi-phase state intent, but confine state to a private runner-owned root with safe IDs, atomic writes, and explicit cleanup. |
-| `A` | `tests/e2e/_helpers.js` | `REBUILD` | `REPAIR` | Preserve shared E2E behavior, but rebuild endpoint ownership, request timeouts, resource cleanup, and private transcript storage. |
-| `A` | `tests/e2e/_quality-evaluator.js` | `REBUILD` | `REPAIR` | Preserve deterministic quality scoring, but replace shell execution and loose temporary files with argv execution and owned cleanup. |
+| `A` | `tests/e2e/_helpers.js` | `REBUILD` | `REPAIRED` | Endpoint ownership, bounded requests and private transcript/temp cleanup were rebuilt. At `7ad7145360d927d164eb85d2e732cdfa20c6fd81`, `createConv()` rejects HTTP 500 and 2xx responses without an ID while accepting the valid nested-ID contract; focused self-check exit 0. |
+| `A` | `tests/e2e/_quality-evaluator.js` | `REBUILD` | `REPAIRED` | Syntax checks use argv execution and a `makeOwnedTempDir()` fixture with owned cleanup rather than shared `/tmp`. The focused helper self-check at `7ad7145360d927d164eb85d2e732cdfa20c6fd81` proves valid/invalid syntax discrimination and no surviving fixture, exit 0. |
 | `A` | `tests/e2e/_test-fixtures.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
 | `A` | `tests/intent-classifier.test.js` | `EXCLUDE` | `REMOVE_FOLLOWUP` | Confirmed generated/save-response contamination, not executable C3 test source. |
 | `M` | `tests/lifecycle-conversation-e2e.test.js` | `KEEP` | `REPLAY` | Legitimate test intent/change; replay and verify without weakening assertions. |
@@ -305,6 +306,12 @@ node scripts/validate-final-disposition.js \
 | `A` | `tests/smoke.test.js` | `KEEP` | `REPLAY` | Legitimate test intent/change; replay and verify without weakening assertions. |
 | `A` | `tests/test_auth.py` | `EXCLUDE` | `REMOVE_FOLLOWUP` | Confirmed generated/save-response contamination, not executable C3 test source. |
 | `A` | `tests/test_models.py` | `EXCLUDE` | `REMOVE_FOLLOWUP` | Confirmed generated/save-response contamination, not executable C3 test source. |
+
+## D-018 terminal evidence
+
+| Candidate | Records | Command | Exit | Result |
+|---|---|---|---:|---|
+| `7ad7145360d927d164eb85d2e732cdfa20c6fd81` | `tests/e2e/_helpers.js`, `tests/e2e/_quality-evaluator.js` | `node tests/e2e/_helpers.self-check.js` | 0 | missing ID and HTTP 500 rejected; nested ID accepted; syntax fixture owned and removed |
 
 ## Incident-response decisions outside this diff
 
