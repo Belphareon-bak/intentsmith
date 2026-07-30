@@ -62,20 +62,26 @@ export function getSummary({ sinceDays = 0, artifactType } = {}) {
   const sinceOuter = sinceClause(sinceDays, 'qs');
   const typeOuter = typeClause(artifactType, 'qs');
 
-  // Get latest score per lifecycle per artifact_type
+  // Get exactly one latest score per lifecycle per artifact_type. IDs provide
+  // the deterministic tie-break because SQLite timestamps have second precision.
   const rows = db.prepare(`
     SELECT qs.lifecycle_id, qs.artifact_type, qs.score, qs.label, qs.created_at
     FROM quality_scores qs
     INNER JOIN (
-      SELECT lifecycle_id, artifact_type, MAX(created_at) as max_created
-      FROM quality_scores
-      WHERE 1=1 ${sinceInner} ${typeInner}
-      GROUP BY lifecycle_id, artifact_type
-    ) latest ON qs.lifecycle_id = latest.lifecycle_id
-      AND qs.artifact_type = latest.artifact_type
-      AND qs.created_at = latest.max_created
+      SELECT id
+      FROM (
+        SELECT id,
+          ROW_NUMBER() OVER (
+            PARTITION BY lifecycle_id, artifact_type
+            ORDER BY created_at DESC, id DESC
+          ) AS row_number
+        FROM quality_scores
+        WHERE 1=1 ${sinceInner} ${typeInner}
+      )
+      WHERE row_number = 1
+    ) latest ON qs.id = latest.id
     WHERE 1=1 ${sinceOuter} ${typeOuter}
-    ORDER BY qs.lifecycle_id
+    ORDER BY qs.lifecycle_id, qs.artifact_type
   `).all();
 
   if (rows.length === 0) {
@@ -140,7 +146,7 @@ export function getProjectReport(lifecycleId) {
   const allScores = db.prepare(`
     SELECT * FROM quality_scores
     WHERE lifecycle_id = ?
-    ORDER BY created_at ASC
+    ORDER BY created_at ASC, id ASC
   `).all(lifecycleId);
 
   if (allScores.length === 0) {
@@ -159,7 +165,10 @@ export function getProjectReport(lifecycleId) {
   // Latest per type
   const latest = {};
   for (const row of parsed) {
-    if (!latest[row.artifact_type] || row.created_at > latest[row.artifact_type].created_at) {
+    const previous = latest[row.artifact_type];
+    if (!previous
+      || row.created_at > previous.created_at
+      || (row.created_at === previous.created_at && row.id > previous.id)) {
       latest[row.artifact_type] = row;
     }
   }
@@ -201,18 +210,24 @@ export function getDistribution({ sinceDays = 0, artifactType } = {}) {
   const sinceOuter = sinceClause(sinceDays, 'qs');
   const typeOuter = typeClause(artifactType, 'qs');
 
-  // Latest score per lifecycle per artifact_type
+  // Latest score per lifecycle per artifact_type, with an ID tie-break for
+  // entries created in the same SQLite timestamp second.
   const rows = db.prepare(`
     SELECT qs.score
     FROM quality_scores qs
     INNER JOIN (
-      SELECT lifecycle_id, artifact_type, MAX(created_at) as max_created
-      FROM quality_scores
-      WHERE 1=1 ${sinceInner} ${typeInner}
-      GROUP BY lifecycle_id, artifact_type
-    ) latest ON qs.lifecycle_id = latest.lifecycle_id
-      AND qs.artifact_type = latest.artifact_type
-      AND qs.created_at = latest.max_created
+      SELECT id
+      FROM (
+        SELECT id,
+          ROW_NUMBER() OVER (
+            PARTITION BY lifecycle_id, artifact_type
+            ORDER BY created_at DESC, id DESC
+          ) AS row_number
+        FROM quality_scores
+        WHERE 1=1 ${sinceInner} ${typeInner}
+      )
+      WHERE row_number = 1
+    ) latest ON qs.id = latest.id
     WHERE 1=1 ${sinceOuter} ${typeOuter}
   `).all();
 
@@ -243,7 +258,7 @@ export function getVolatilityIndex(lifecycleId) {
   const allScores = db.prepare(`
     SELECT * FROM quality_scores
     WHERE lifecycle_id = ?
-    ORDER BY artifact_type, created_at ASC
+    ORDER BY artifact_type, created_at ASC, id ASC
   `).all(lifecycleId);
 
   return round2(computeVolatility(allScores));
@@ -284,7 +299,7 @@ export function getSpecVersionDelta({ sinceDays = 0 } = {}) {
     SELECT lifecycle_id, artifact_version, score
     FROM quality_scores
     WHERE artifact_type = 'spec' ${since}
-    ORDER BY lifecycle_id, artifact_version ASC
+    ORDER BY lifecycle_id, artifact_version ASC, created_at ASC, id ASC
   `).all();
 
   // Group by lifecycle

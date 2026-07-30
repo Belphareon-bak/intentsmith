@@ -1571,15 +1571,22 @@ export const qualityScores = {
   `),
 
   findByLifecycle: db.prepare(`
-    SELECT * FROM quality_scores WHERE lifecycle_id = ? ORDER BY created_at DESC
+    SELECT * FROM quality_scores
+    WHERE lifecycle_id = ?
+    ORDER BY created_at DESC, id DESC
   `),
 
   findByType: db.prepare(`
-    SELECT * FROM quality_scores WHERE lifecycle_id = ? AND artifact_type = ? ORDER BY created_at DESC
+    SELECT * FROM quality_scores
+    WHERE lifecycle_id = ? AND artifact_type = ?
+    ORDER BY created_at DESC, id DESC
   `),
 
   findLatest: db.prepare(`
-    SELECT * FROM quality_scores WHERE lifecycle_id = ? AND artifact_type = ? ORDER BY created_at DESC LIMIT 1
+    SELECT * FROM quality_scores
+    WHERE lifecycle_id = ? AND artifact_type = ?
+    ORDER BY created_at DESC, id DESC
+    LIMIT 1
   `),
 
   log(lifecycleId, artifactType, version, score, label, breakdown) {

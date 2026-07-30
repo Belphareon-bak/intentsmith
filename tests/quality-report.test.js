@@ -10,8 +10,11 @@
 //   T6: getSpecVersionDelta() — improvement tracking
 //   T7: generateTextReport() — text output format
 //   T8: Filters — sinceDays and artifactType
+//   T9: Same-second rows use ID as deterministic latest-row tie-break
 //
 // ══════════════════════════════════════════════════════════════════════════════
+
+import './helpers/isolated-test-db.js';
 
 import {
   db,
@@ -207,6 +210,75 @@ async function run() {
   // Very old sinceDays (should include everything)
   const allTime = getSummary({ sinceDays: 3650 });
   check(allTime.projects_analyzed >= 3, 'T8.4: 10-year window includes all', `got ${allTime.projects_analyzed}`);
+
+  // ─── T9: Same-second latest-row tie-break ─────────────────────────────
+  console.log('\n════ T9: Same-second latest-row tie-break ═══════════════════════════');
+
+  const tieType = 'same-second-regression';
+  const tieCreatedAt = '2030-01-01 00:00:00';
+  const insertTieScore = db.prepare(`
+    INSERT INTO quality_scores
+      (lifecycle_id, artifact_type, artifact_version, score, label, breakdown, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  const olderTie = insertTieScore.run(
+    LC_IDS[2], tieType, 1, 0.20, 'WEAK', '{}', tieCreatedAt
+  );
+  const newerTie = insertTieScore.run(
+    LC_IDS[2], tieType, 2, 0.90, 'EXCELLENT', '{}', tieCreatedAt
+  );
+
+  const latestTie = qualityScores.getLatest(LC_IDS[2], tieType);
+  check(latestTie?.id === Number(newerTie.lastInsertRowid),
+    'T9.1: repository latest selects greatest ID at equal timestamp',
+    `got id=${latestTie?.id}, expected=${newerTie.lastInsertRowid}`);
+
+  const tieByType = qualityScores.getByType(LC_IDS[2], tieType);
+  check(tieByType[0]?.id === Number(newerTie.lastInsertRowid)
+      && tieByType[1]?.id === Number(olderTie.lastInsertRowid),
+    'T9.2: repository type history is deterministic newest-first');
+
+  const tieSummary = getSummary({ artifactType: tieType });
+  check(tieSummary.projects_analyzed === 1
+      && tieSummary.per_type[tieType]?.count === 1
+      && tieSummary.mean === 0.90,
+    'T9.3: summary counts one latest row and uses greatest ID',
+    JSON.stringify(tieSummary));
+
+  const tieDistribution = getDistribution({ artifactType: tieType });
+  check(tieDistribution.total === 1 && tieDistribution.buckets.EXCELLENT === 1,
+    'T9.4: distribution counts one latest row and uses greatest ID',
+    JSON.stringify(tieDistribution));
+
+  const tieReport = getProjectReport(LC_IDS[2]);
+  const tieHistory = tieReport.history.filter(row => row.artifact_type === tieType);
+  check(tieReport.latest[tieType]?.id === Number(newerTie.lastInsertRowid),
+    'T9.5: project report latest selects greatest ID at equal timestamp');
+  check(tieHistory[0]?.id === Number(olderTie.lastInsertRowid)
+      && tieHistory[1]?.id === Number(newerTie.lastInsertRowid),
+    'T9.6: project history is deterministic oldest-first');
+  check(tieReport.trend[tieType]?.[0]?.score === 0.20
+      && tieReport.trend[tieType]?.[1]?.score === 0.90,
+    'T9.7: project trend is deterministic oldest-first');
+
+  const timestampPriorityType = 'timestamp-priority-regression';
+  const newerTimestamp = insertTieScore.run(
+    LC_IDS[2], timestampPriorityType, 2, 0.80, 'GOOD', '{}', '2031-01-01 00:00:00'
+  );
+  const higherIdButOlderTimestamp = insertTieScore.run(
+    LC_IDS[2], timestampPriorityType, 1, 0.30, 'WEAK', '{}', '2030-01-01 00:00:00'
+  );
+  const timestampPriorityLatest = qualityScores.getLatest(LC_IDS[2], timestampPriorityType);
+  check(timestampPriorityLatest?.id === Number(newerTimestamp.lastInsertRowid)
+      && timestampPriorityLatest?.id !== Number(higherIdButOlderTimestamp.lastInsertRowid),
+    'T9.8: newer timestamp takes priority over a greater ID',
+    `got id=${timestampPriorityLatest?.id}, expected=${newerTimestamp.lastInsertRowid}`);
+
+  const timestampPrioritySummary = getSummary({ artifactType: timestampPriorityType });
+  check(timestampPrioritySummary.projects_analyzed === 1
+      && timestampPrioritySummary.mean === 0.80,
+    'T9.9: summary applies timestamp priority before the ID tie-break',
+    JSON.stringify(timestampPrioritySummary));
 
   // ═════════════════════════════════════════════════════════════════════════
   // Cleanup + Summary
