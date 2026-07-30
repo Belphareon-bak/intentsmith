@@ -68,7 +68,6 @@ c3-ide/applications/electron/src-gen/
 c3-ide/applications/electron/gen-webpack*.js
 c3-ide/applications/electron/webpack.config.js
 c3-ide/applications/electron/dist/
-c3-ide/yarn.lock
 *.tsbuildinfo
 
 # Logs
