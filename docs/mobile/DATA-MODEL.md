@@ -549,9 +549,9 @@ operace, otisk kanonického požadavku, čas vzniku a stav
 | Invalidace | výsledkem potvrzeným serverem |
 | Offline čtení | `READ_CACHED` — uživatel musí vidět, že výsledek operace zůstal neznámý |
 | Offline změny | `MUT-LOCAL-ONLY` pro žurnál samotný. **Žurnál není fronta** (I-11) |
-| `E-LOGOUT` | smazat; pokud existují `UNKNOWN` záznamy, upozornit, že jejich výsledek už nepůjde dohledat z telefonu |
+| `E-LOGOUT` | smazat — s **výslovným varováním**, existují-li `PENDING`/`UNKNOWN`: lokální klíč zmizí, ale **efekt na serveru může zůstat nerozřešený** a z telefonu už ho nepůjde dohledat |
 | `E-EXPIRE` | **ponechat** — po novém přihlášení lze `UNKNOWN` rozřešit přečtením serverového stavu |
-| `E-REVOKE` | smazat s cache |
+| `E-REVOKE` | smazat s cache — **jen pokud zařízení revokaci autenticky přijme a wipe skutečně proběhne.** Viz §4.1 |
 | Po ztrátě (`E-LOST`) | prozradí **typy** operací a jejich časy, ne obsah |
 
 **Pravidla, která z klíče dělají ochranu a ne frontu:**
@@ -572,6 +572,65 @@ operace, otisk kanonického požadavku, čas vzniku a stav
 > Žurnál je jediné místo v klientovi, kde je „nevím" legitimní trvalý stav.
 > Všude jinde se nejistota překlápí na refresh; tady by refresh mohl operaci
 > provést podruhé.
+
+#### 4.1 Obnova operace bez payloadu
+
+Žurnál nese otisk, ne obsah. Z toho plyne, co lze a co nelze:
+
+1. **Stav operace se po reconnectu zjistí podle klíče**, bez opětovného zaslání
+   payloadu. Dotaz „jak dopadl `operationId`" je čtení a je vždy bezpečný.
+2. **Ze samotného otisku nelze požadavek obnovit.** Otisk slouží k porovnání,
+   ne k rekonstrukci; jednosměrnost je jeho smysl.
+3. Vrátí-li server, že **klíč nezná**, je retry možný **jen tehdy, je-li přesný
+   původní kanonický požadavek stále dostupný** v odpovídajícím chráněném
+   doménovém úložišti — například text zprávy jako `MD-14`. Retry pak nese
+   **týž klíč**.
+4. **Není-li původní požadavek dostupný, retry se nekoná.** Klient **nesmí**
+   sestavit náhradní požadavek, doplnit chybějící pole ani se tvářit, že
+   opakování je bezpečné. Uživateli se řekne, že obsah pokusu už není k
+   dispozici, a nabídne se **vědomé nové provedení**.
+5. Editovaný nebo znovu vědomě vytvořený obsah dostává **nový klíč** — jak už
+   stanovuje SCREENS §5.1. Týž klíč s jiným payloadem je konflikt, ne retry.
+
+> Tohle **není** offline fronta a nezavádí ji. Fronta by odesílala sama; zde se
+> jen umožňuje, aby vědomé zopakování téhož pokusu neslo týž klíč. Payload do
+> `MD-19` nepřibývá — žurnál zůstává S1.
+
+#### 4.2 Co `E-REVOKE` doopravdy znamená
+
+Řádek „`E-REVOKE` → smazat s cache" platí **jen za podmínky, že zařízení
+revokaci autenticky přijme a lokální wipe skutečně proběhne.** To je online
+případ.
+
+Revokace ztraceného telefonu:
+
+- **okamžitě zablokuje nový serverový přístup** — to je jediné, co je zaručené;
+- **nezaručí vzdálené smazání dat** z telefonu, který je offline nebo pod
+  kontrolou útočníka;
+- **nesmí být v dokumentaci ani v testech vydávána za prokázaný remote wipe.**
+
+Je to týž limit, který už drží `I-7` a `M-R1`, jen aplikovaný na žurnál:
+i `MD-19` zůstane v odvolaném a nepřipojeném telefonu ležet a prozradí typy
+a časy pokusů. Test, který má tento limit zamknout, je
+`ML-revoke-cannot-wipe-offline`.
+
+#### 4.3 Omezení neuzavřených záznamů
+
+`PENDING`/`UNKNOWN` se nemažou časem (jinak by se ztrácela informace). Bez
+stropu by to ale znamenalo neomezený růst a laciný storage DoS. Proto:
+
+| Pravidlo | |
+|---|---|
+| **Limit současně neuzavřených operací** na zařízení/principal | strop je konečný a vynucený, ne doporučený |
+| **Rate limit vzniku nových operací** | brání zaplnění stropu jedním rychlým během |
+| **Fail-closed odmítnutí dalších mutací po dosažení limitu** | další mutace se **odmítne**, nikoli odloží — odložení by bylo fronta (I-11) |
+| **Metrika a diagnostika** pro ruční rozřešení | uživatel i operátor musí vidět, kolik pokusů visí a které |
+| **Žádné automatické mazání nejstaršího `PENDING`/`UNKNOWN`** | vytlačení nejstaršího záznamu je tichá ztráta právě té informace, kvůli které žurnál existuje — a zároveň cesta, jak si útočník vyčistí stopu |
+
+Strop se tedy neuvolňuje mazáním, ale **rozřešením**: přečtením serverového
+stavu, nebo vědomým zahozením ze strany uživatele. Dokud uživatel visící pokusy
+nerozřeší, další mutace neprojdou — to je nepříjemné a je to správně, protože
+alternativou je klient, který neví, co provedl.
 
 ---
 
@@ -644,6 +703,7 @@ existující kód.
 | **M-R4** | Diagnostika prozradí existenci a adresu backendu (`MD-10`) | P3 | přijato — bez toho nelze diagnostikovat |
 | **M-R5** | Notifikace na zamčené obrazovce obcházejí `P-4` | P2 | zmírňuje pravidlo „ukazatel, ne obsah" u `MD-08` |
 | **M-R6** | Chybový log může nechtěně pojmout S2/S3 (`MD-18`) | P2 | zmírňuje P-7 + test |
+| **M-R7** | Strop neuzavřených operací (`MD-19` §4.3) po dosažení **zablokuje další mutace**, dokud uživatel visící pokusy nerozřeší | P2 | **přijatý kompromis** — alternativou je buď neomezený růst žurnálu, nebo klient, který neví, co provedl |
 
 ---
 
@@ -709,6 +769,11 @@ nezmrazují, dokud neplatí PLAN.md §8.
 9. **Deduplikační záznam přežije celý podporovaný retry interval i restart
    serveru.** Bez toho je klíč bezcenný přesně ve chvíli, kdy je nejpotřebnější
    — po pádu nebo restartu, kdy klient nezná výsledek.
+10. **Stav operace lze zjistit podle klíče bez zaslání payloadu**, a odpověď
+    rozlišuje „znám a dopadlo takto" od „klíč neznám" (`MD-19` §4.1).
+11. **Strop a rate limit neuzavřených operací** na zařízení/principal jsou
+    vynucené serverem, ne jen klientem, a jejich dosažení je rozpoznatelné
+    odmítnutí (`MD-19` §4.3).
 
 ---
 

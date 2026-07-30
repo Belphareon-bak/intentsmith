@@ -13,7 +13,7 @@
 pravidlo, pravidlo má datový typ a všechno to má plánovaný test. Slouží
 k hledání děr, ne k prokazování hotovosti.
 
-**Není evidence.** Ani jedna ze 46 testovacích identit zde uvedených dnes
+**Není evidence.** Ani jedna z 51 testovacích identit zde uvedených dnes
 neexistuje jako program. Autoritou o tom, co je zelené, zůstává
 `tests/registry.json` a generovaný `docs/convergence/STATUS.md`. Řádek v této
 matici znamená *„je rozmyšleno, čím se to prokáže"*, nikoli *„je to prokázané"*.
@@ -31,8 +31,8 @@ Rozdíl je celý Gate 0 v jedné větě: **plán pokrytí není pokrytí.**
 | Obrazovkové stavy `SS-01`..`SS-10` | 10 | SCREENS §2 |
 | Datové typy `MD-01`..`MD-19` | 19 | DATA-MODEL §4 |
 | Invarianty `I-1`..`I-11` | 11 | DATA-MODEL §1 |
-| Plánované testy | 46 v 9 rodinách | TEST-STRATEGY §7 |
-| Reziduální rizika `M-R1`..`M-R6` | 6 | DATA-MODEL §5.5 |
+| Plánované testy | 51 v 9 rodinách | TEST-STRATEGY §7 |
+| Reziduální rizika `M-R1`..`M-R7` | 7 | DATA-MODEL §5.5 |
 | Otevřená rozhodnutí | 13 (7 `D-M`, 3 `D-T`, 3 `D-S`) + 5 z PLAN.md; `D-S1` a `D-T1` uzavřel operátor | §8 |
 
 **Ověřeno strojově napříč dokumenty:** každý požadavek má aspoň jeden tok
@@ -101,10 +101,10 @@ serverovou hranici, která má cenu i kdyby žádný telefon nikdy nevznikl
 | **MP** pairing | 6 | `MS-02` |
 | **MS** scope | 4 | `MS-01`, `MS-04`, `MS-10`, `MS-11`, `MS-14`, `MS-19` |
 | **MC** cache | 6 | `MS-06`, `MS-07`, `MS-09`, `MS-10`, `MS-11`, `MS-12`, `MS-14`, `MS-16`, `MS-18` |
-| **MO** offline | 7 | `MS-08`, `MS-11`, `MS-12`, `MS-13`, `MS-14`, `MS-17`, `MS-18`, `MS-19` |
-| **ML** lifecycle | 6 | `MS-01`, `MS-04` |
+| **MO** offline | 9 | `MS-08`, `MS-11`, `MS-12`, `MS-13`, `MS-14`, `MS-17`, `MS-18`, `MS-19` |
+| **ML** lifecycle | 7 | `MS-01`, `MS-04` |
 | **MV** privacy | 4 | `MS-03`, `MS-05`, `MS-15`, `MS-16` |
-| **MN** contract | 7 | `MS-03`, `MS-07`, `MS-14`, `MS-15` |
+| **MN** contract | 9 | `MS-03`, `MS-07`, `MS-14`, `MS-15` |
 
 ---
 
@@ -127,7 +127,7 @@ serverovou hranici, která má cenu i kdyby žádný telefon nikdy nevznikl
 | `MD-13` kurzor | `MS-06`, `MS-07`, `MS-12` | MN-cursor-rejection | |
 | `MD-14` draft | `MS-08`, `MS-17` | MO-draft-no-autosend, MO-draft-local-only | jediný lokální originál |
 | `MD-15` lokální preference | **žádný konkrétní** | MV-storage-class | průřezové; viz `GAP-1` |
-| `MD-19` žurnál operací | `MS-04`, `MS-08`, `MS-11`, `MS-14`, `MS-17`, `MS-19` | MN-operation-key ×3, MO-operation-key ×2, ML-operation-journal-wipe | `D-S1`; jediné místo, kde je „nevím" trvalý stav |
+| `MD-19` žurnál operací | `MS-04`, `MS-08`, `MS-11`, `MS-14`, `MS-17`, `MS-19` | MN ×5, MO ×4, ML ×2 | `D-S1`; jediné místo, kde je „nevím" trvalý stav |
 | `MD-16` párovací stav | `MS-02` | MP-code-not-persisted | |
 | `MD-17` agenti | `MS-18`, `MS-19` | MC-freshness, MO-never-queued | |
 | `MD-18` klientský log | **žádný konkrétní** | MV-log-redaction | průřezové; viz `GAP-1` |
@@ -145,6 +145,7 @@ serverovou hranici, která má cenu i kdyby žádný telefon nikdy nevznikl
 | **`M-R4`** diagnostika prozradí backend | přijato | MV-diagnostics | přijato |
 | **`M-R5`** notifikace na zamčené obrazovce | ukazatel, ne obsah | MV-notification-content | zmírněno |
 | **`M-R6`** log pojme S2/S3 | `P-7` | MV-log-redaction | zmírněno testem |
+| **`M-R7`** nerozřešené pokusy blokují mutace | `MD-19` §4.3: strop, rate limit, metrika, ruční rozřešení | MO-operation-key-limit, MN-operation-key-rate-limit | **přijatý kompromis** |
 | `G0-R011` testy píšou do sledovaného stromu | artefaktový root | podmínka §5 TEST-STRATEGY | platí i pro mobil |
 | `G0-R012` import DB bez `C3_DB_PATH` | `isolated-sqlite` | podmínka §6.3 TEST-STRATEGY | platí i pro mobil |
 | `G0-R016` false-green vzorce | zákazy §8 TEST-STRATEGY | — | platí i pro mobil |

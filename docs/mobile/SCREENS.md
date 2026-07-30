@@ -194,7 +194,7 @@ Jediná obrazovka, která má smysl i bez platného tokenu — má odpovědět n
 | `SS-03` | Seznam ze cache **ano**, odvolání ne. `MUT-NEVER-QUEUED` |
 | `SS-04` | Seznam se stářím; odvolávat nad `STALE` seznamem nelze — nejdřív refresh |
 | `SS-05` | Refresh seznamu |
-| `SS-06` | Odvolání sebe sama = okamžitý logout a úklid cache tohoto telefonu |
+| `SS-06` | Odvolání sebe sama = okamžitý logout a úklid cache tohoto telefonu. Existují-li `PENDING`/`UNKNOWN` (`MD-19`), **varovat**: klíč zmizí, ale efekt na serveru může zůstat nerozřešený |
 | `SS-07` | Bez scope na správu zařízení: seznam ano, odvolání uzamčené |
 | `SS-08` | Odvolání se **nefrontuje**; řekni, že se to nepovedlo |
 | `SS-09` | Zařízení už bylo odvoláno odjinud → ukaž aktuální stav, neopakuj |
@@ -287,7 +287,7 @@ Jediná obrazovka, která má smysl i bez platného tokenu — má odpovědět n
 | `SS-07` | Bez scope na zápis je editor uzamčený, ale draft se uchová |
 | `SS-08` | Jako `SS-03`, s jinou formulací příčiny |
 | `SS-09` | Konverzace mezitím archivovaná → nabídni jinou nebo novou, text neztrať |
-| `SS-10` | Opakování odeslání **jen s týmž klíčem operace** (`MD-19`), jinak vznikne duplicitní zpráva. Nejasný timeout → `UNKNOWN`; **nový klíč se nevyrábí**, řeší se přečtením konverzace |
+| `SS-10` | Opakování odeslání **jen s týmž klíčem operace** (`MD-19`), jinak vznikne duplicitní zpráva. Nejasný timeout → `UNKNOWN`; **nový klíč se nevyrábí**, řeší se přečtením konverzace. Zná-li klient klíč, ale ne původní text, nabídne **nové odeslání**, nikdy dopsaný náhradní obsah (C-13) |
 
 ---
 
@@ -553,6 +553,8 @@ ztratí.
 | **C-9** | Žádná obrazovka nezobrazí token — ani zkrácený, ani jako otisk |
 | **C-10** | Změna serverového stavu se přebírá; klient nikdy nevyhrává konflikt sám |
 | **C-11** | **Nejasný výsledek je stav, ne chyba.** `UNKNOWN` se řeší přečtením serverového stavu, nikdy novým klíčem ani slepým opakováním |
+| **C-12** | **Nerozřešené pokusy blokují další mutace.** Po dosažení stropu se mutace odmítá fail-closed; strop se uvolňuje rozřešením, nikdy vytlačením nejstaršího záznamu |
+| **C-13** | Klient **nikdy nesestaví náhradní požadavek** za ztracený originál. Buď má přesný původní obsah a opakuje s týmž klíčem, nebo uživatel provede novou operaci s novým klíčem |
 
 ### 5.1 Klíč operace — `D-S1`, rozhodnuto
 
@@ -568,8 +570,12 @@ nesplnitelný, protože „opakuj bezpečně" nemá čím být bezpečné.
 | Tentýž klíč + **jiný payload** → fail-closed konflikt | Editace textu po neúspěšném odeslání **musí** vyrobit nový klíč, jinak skončí konfliktem — a to je správně |
 | Nejasný timeout → `UNKNOWN`, **nikdy nový klíč automaticky** | Obrazovka ukáže „výsledek neznámý" s nabídkou načíst aktuální stav, ne s tlačítkem „poslat znovu" |
 | Klíč **neopravňuje** | U approvalů, bezpečnostních a administrativních operací nenahrazuje ani neprodlužuje jednorázové oprávnění (I-11, I-4) |
+| **Stav se zjišťuje podle klíče, bez payloadu** | Po reconnectu se obrazovka ptá „jak dopadl tenhle pokus", ne „pošli to znovu" |
+| Server klíč **nezná** → retry jen s dostupným původním kanonickým požadavkem | Obsah pokusu už není k dispozici → obrazovka nabídne **vědomé nové provedení**, ne tiché zopakování |
+| **Strop neuzavřených operací** | Po jeho dosažení se další mutace **odmítne** (fail-closed), dokud uživatel visící pokusy nerozřeší |
 
-Detailní model včetně stavů žurnálu a jeho životního cyklu je `MD-19`
+Detailní model včetně stavů žurnálu, obnovy bez payloadu, pravdivého významu
+revokace a stropu neuzavřených záznamů je `MD-19` §4.1–§4.3
 v [DATA-MODEL.md](DATA-MODEL.md).
 
 ---
