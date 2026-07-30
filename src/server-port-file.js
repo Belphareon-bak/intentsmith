@@ -10,6 +10,25 @@ import {
 } from 'node:fs';
 import path from 'node:path';
 
+const TEST_RUN_NONCE_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
+
+export function buildServerPortPayload(
+  { port, host, pid, started },
+  testRunNonce,
+) {
+  const payload = { port, host, pid, started };
+  if (testRunNonce === undefined) return payload;
+  if (
+    typeof testRunNonce !== 'string'
+    || !TEST_RUN_NONCE_PATTERN.test(testRunNonce)
+  ) {
+    throw new Error(
+      'INTENTSMITH_TEST_SERVER_NONCE must contain 32-128 safe characters',
+    );
+  }
+  return { ...payload, testRunNonce };
+}
+
 export function writePrivatePortFile(filePath, payload) {
   if (typeof filePath !== 'string' || filePath.length === 0) {
     throw new TypeError('Port file path must be a non-empty string');

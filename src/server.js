@@ -8,7 +8,10 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 import { config } from './config.js';
-import { writePrivatePortFile } from './server-port-file.js';
+import {
+  buildServerPortPayload,
+  writePrivatePortFile,
+} from './server-port-file.js';
 import { applyHttpTimeoutPolicy } from './timeout-policy.js';
 import { logger } from './core/logger.js';
 import { installGlobalHandlers, handleError } from './core/error-handler.js';
@@ -1315,12 +1318,18 @@ server.listen(config.server.port, config.server.host, async () => {
 
   // Write port file for IDE discovery
   try {
-    writePrivatePortFile(config.server.portFile, {
-      port: assignedPort,
-      host: config.server.host,
-      pid: process.pid,
-      started: new Date().toISOString(),
-    });
+    writePrivatePortFile(
+      config.server.portFile,
+      buildServerPortPayload(
+        {
+          port: assignedPort,
+          host: config.server.host,
+          pid: process.pid,
+          started: new Date().toISOString(),
+        },
+        process.env.INTENTSMITH_TEST_SERVER_NONCE,
+      ),
+    );
     logger.info('Server', `Port file written: ${config.server.portFile}`);
   } catch (err) {
     logger.warn('Server', `Failed to write port file: ${err.message}`);

@@ -21,6 +21,7 @@ import path from 'node:path';
 const BOUNDARY_SELF_CHECK = process.argv.includes('--boundary-self-check');
 const ASYNC_REJECTION_SELF_CHECK = process.argv.includes('--async-rejection-self-check');
 const SELF_CHECK_ONLY = BOUNDARY_SELF_CHECK || ASYNC_REJECTION_SELF_CHECK;
+const SERVER_NONCE_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
 const ownedDirectories = new Map();
 
 function isLoopbackHostname(hostname) {
@@ -93,6 +94,7 @@ function requireOwnedServerBaseUrl({
   runtimeMode,
   portFilePath,
   expectedPidRaw,
+  expectedNonce,
 }) {
   if (auditRun !== '1' || runtimeMode !== 'audit') {
     throw new Error(
@@ -115,6 +117,14 @@ function requireOwnedServerBaseUrl({
   const expectedPid = Number(expectedPidRaw);
   if (!Number.isSafeInteger(expectedPid) || expectedPid < 1) {
     throw new Error('INTENTSMITH_TEST_SERVER_PID must identify the owned server');
+  }
+  if (
+    typeof expectedNonce !== 'string'
+    || !SERVER_NONCE_PATTERN.test(expectedNonce)
+  ) {
+    throw new Error(
+      'INTENTSMITH_TEST_SERVER_NONCE must be a private runner capability',
+    );
   }
 
   const noFollow = fs.constants.O_NOFOLLOW ?? 0;
@@ -160,11 +170,14 @@ function requireOwnedServerBaseUrl({
   if (
     !Number.isSafeInteger(attestedPid)
     || attestedPid !== expectedPid
+    || value.testRunNonce !== expectedNonce
     || !Number.isInteger(attestedPort)
     || attestedPort < 1
     || attestedPort > 65535
   ) {
-    throw new Error('C3_PORT_FILE does not match the expected server PID/port');
+    throw new Error(
+      'C3_PORT_FILE does not match the expected server PID/port/capability',
+    );
   }
 
   try {
@@ -250,6 +263,7 @@ const BASE = SELF_CHECK_ONLY
     runtimeMode: isolatedTestRuntime.mode,
     portFilePath: process.env.C3_PORT_FILE,
     expectedPidRaw: process.env.INTENTSMITH_TEST_SERVER_PID,
+    expectedNonce: process.env.INTENTSMITH_TEST_SERVER_NONCE,
   });
 const PROJECT_FIXTURE_ROOT = isolatedTestRuntime.projects;
 const TEST_TMP_ROOT = isolatedTestRuntime.temp;
@@ -284,13 +298,30 @@ test('C3_URL rejects missing, named-host, non-HTTP, and path-bearing values', ()
 });
 
 test('full suite requires a private matching live server attestation', () => {
+  if (!SELF_CHECK_ONLY) {
+    assertEqual(
+      BASE,
+      requireOwnedServerBaseUrl({
+        rawUrl: process.env.C3_URL,
+        auditRun: process.env.C3_AUDIT_RUN,
+        runtimeMode: isolatedTestRuntime.mode,
+        portFilePath: process.env.C3_PORT_FILE,
+        expectedPidRaw: process.env.INTENTSMITH_TEST_SERVER_PID,
+        expectedNonce: process.env.INTENTSMITH_TEST_SERVER_NONCE,
+      }),
+    );
+    return;
+  }
+
   const portFile = isolatedTestRuntime.portFile;
+  const nonce = 'boundary-self-check-capability-0001';
   const valid = {
     rawUrl: 'http://127.0.0.1:4567',
     auditRun: '1',
     runtimeMode: 'audit',
     portFilePath: portFile,
     expectedPidRaw: String(process.pid),
+    expectedNonce: nonce,
   };
   assertThrows(
     () => requireOwnedServerBaseUrl(valid),
@@ -301,6 +332,7 @@ test('full suite requires a private matching live server attestation', () => {
     host: '127.0.0.1',
     port: 4567,
     pid: process.pid,
+    testRunNonce: nonce,
     started: new Date().toISOString(),
   };
   fs.writeFileSync(portFile, JSON.stringify(payload), {

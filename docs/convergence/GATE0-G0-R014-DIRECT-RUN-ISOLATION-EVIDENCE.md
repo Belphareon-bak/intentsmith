@@ -9,15 +9,21 @@
 - Code and test SHA: `d2a351898c32da303182122c664571e2d16406b8`
 - Integrated code SHA: `6027e3b918d46455e98d869cd8067b166b50a68f`
 - First fixed-writer batch SHA: `96b8e9439e0d1492678ae404511a391ab7d58afc`
-- Scope: common bootstrap plus the first five fixed-writer conversions
+- Database completion SHA: `e78290776cd2b30bd46465adbe9f8abcb0a4ad60`
+- Custom-writer completion SHA: `6a330a8b9b06e7d8acdc1bdf2ac87a4d1f7291cb`
+- Attachment ownership fix SHA: `c1aeb17c67a4f912c5d1e4161c0c1796f9e79f35`
+- Scope: common bootstrap, all database-reachable root programs, and all
+  previously identified fixed/non-atomic writers
 
 This change does not claim to close `G0-R014`. It establishes a fail-closed
-direct-run bootstrap, connects the two shared root-test harnesses, covers every
-current root test which actually calls `mkdtemp` or `mkdtempSync`, and carries
-the same contract through the nightly audit runner and the large E2E runner.
-The first follow-up moves five fixed or timestamp-only writers below the
-runner-owned project root. Residual database-reachable and fixed-path writers
-are listed below.
+direct-run bootstrap, connects the two shared root-test harnesses, protects all
+92 root programs that can reach the database, covers every current root test
+which calls `mkdtemp` or `mkdtempSync`, and carries the same contract through
+the nightly audit runner and the large E2E runner. Follow-ups convert every
+hard-coded shared writer to an atomic owned root, bind the remaining
+`os.tmpdir()` consumers to the invocation-private `TMPDIR`, and require a
+private PID-bound server attestation before the attachment suite can send a
+request.
 
 ## Implemented contract
 
@@ -59,18 +65,20 @@ model-fixture or preflight semantics were changed.
 ## Root temp-directory inventory
 
 At the tested tree there are 246 root `tests/*.test.js` programs. Static
-discovery finds 40 programs with an actual `mkdtemp(...)` or
-`mkdtempSync(...)` call. All 40 now have a static bootstrap path through the
+discovery on the integrated tree finds 49 programs with an actual
+`mkdtemp(...)` or `mkdtempSync(...)` call. All 49 have a static bootstrap path through the
 helper, `harness.js`, or `e2e-harness.js`; the registered
 `harness-exit-code.test.js` meta-test enforces this on every run.
 
-The 40 programs are:
+The 49 programs are:
 
 ```text
 tests/architecture-check.test.js
+tests/architecture-policy.test.js
 tests/archive-lifecycle.test.js
 tests/artifact-validation.test.js
 tests/attachments-projects.test.js
+tests/chat-export-budget.test.js
 tests/code-evolution.test.js
 tests/code-search.test.js
 tests/context-builder.test.js
@@ -79,7 +87,9 @@ tests/debug-agent.test.js
 tests/dependency-manager.test.js
 tests/drift-detector.test.js
 tests/e2e-harness-isolation.test.js
+tests/export-pdf-docx.test.js
 tests/execution-graph.test.js
+tests/execution-loop.test.js
 tests/exploration-agent.test.js
 tests/graph-sync.test.js
 tests/harness-exit-code.test.js
@@ -88,8 +98,12 @@ tests/intent-context.test.js
 tests/knowledge-graph.test.js
 tests/large-project-scaling.test.js
 tests/lifecycle-conversation-e2e.test.js
+tests/lifecycle-e2e.test.js
+tests/lifecycle-human-friction.test.js
 tests/lifecycle-llm-realistic.test.js
 tests/lifecycle-stress-advanced.test.js
+tests/marketplace.test.js
+tests/project-kb-decomposer.test.js
 tests/project-lifecycle-change-mgmt.test.js
 tests/project-lifecycle-expertise.test.js
 tests/project-lifecycle-happy-path.test.js
@@ -98,6 +112,7 @@ tests/project-lifecycle-interrupts.test.js
 tests/project-lifecycle-klicenka.test.js
 tests/quality-gate.test.js
 tests/semantic-index.test.js
+tests/signature-cache.test.js
 tests/signature-map.test.js
 tests/smoke.test.js
 tests/specialist-loader.test.js
@@ -109,15 +124,15 @@ tests/tool-registry-e2e.test.js
 tests/upgrade-ux-v125.test.js
 ```
 
-This current count is 40, not the historical risk-register wording of 43. The
-risk register remains untouched in this isolated branch because current
-generated risk/status documents changed independently on the integration
-branch.
+The count increased from the original 40 because nine fixed or timestamp-only
+writers were deliberately converted to atomic `mkdtemp` allocation. It is not
+the stale historical risk-register wording of 43.
 
 ## Database reachability
 
 A static root-program import-graph inventory identified 92 programs which can
-reach `src/db/database.js`. The common bootstrap currently reaches 40 of them:
+reach `src/db/database.js`. At the original common-bootstrap SHA, 40 were
+protected:
 
 ```text
 tests/api-contract-registry.test.js
@@ -162,8 +177,9 @@ tests/ultimate-e2e.test.js
 tests/vram-coordination.test.js
 ```
 
-The exact 52 database-reachable programs still lacking a common bootstrap path
-are:
+Integrated commit `e78290776cd2b30bd46465adbe9f8abcb0a4ad60` adds an
+isolation import before any database-reachable product dependency in the
+remaining 52 programs:
 
 ```text
 tests/adversarial-cre.test.js
@@ -220,9 +236,12 @@ tests/v583-tier1.test.js
 tests/ws-bridge.test.js
 ```
 
-`tests/smoke.test.js`, for example, imports the shared harness after a
-database-reachable dependency and therefore is not counted as protected merely
-because the harness appears somewhere in its source.
+The registered meta-test derives this graph from literal static imports,
+re-exports, dynamic imports, and CommonJS `require` calls. It follows static
+evaluation order and rejects a root whose first database/isolation boundary is
+the database module. Removing only the direct anchor from
+`tests/adversarial-cre.test.js` leaves the inventory at 92 but exposes exactly
+that program as unprotected; the mutation exits 1.
 
 ## Fixed or non-atomic writer progress
 
@@ -238,17 +257,28 @@ At integrated SHA `96b8e9439e0d1492678ae404511a391ab7d58afc`,
 `isolatedTestRuntime.projects`. In particular, the project knowledge-base
 fixture can no longer write `/tmp/.c3/snapshot.json`.
 
-The remaining inventory is:
+The integrated disposition is:
 
-| Residual category | Programs |
+| Former residual category | Integrated disposition |
 | --- | --- |
-| Hard-coded `/tmp` | `chat-export-budget`, `export-pdf-docx`, `lifecycle-e2e`, `lifecycle-human-friction` |
-| `os.tmpdir()` but non-atomic inside the per-run private root | `attachments-projects`, `multimedia`, `project-welcome`, `tool-registry-e2e`, `upgrade-ux-v125` |
+| `chat-export-budget`, `export-pdf-docx` | Atomic directories below `isolatedTestRuntime.artifacts` at `6a330a8b9b06e7d8acdc1bdf2ac87a4d1f7291cb` |
+| `lifecycle-e2e`, `lifecycle-human-friction` | Atomic Git project roots below `isolatedTestRuntime.projects` at the same SHA; DB cleanup is exact and fail-closed |
+| `attachments-projects` | Atomic project/attachment roots, device+inode cleanup identity, and pre-fetch server attestation at `c1aeb17c67a4f912c5d1e4161c0c1796f9e79f35` plus the current nonce follow-up |
+| `multimedia`, `project-welcome`, `tool-registry-e2e`, `upgrade-ux-v125` | Accepted as invocation-bounded: `os.tmpdir()` resolves only after the harness binds it to the atomically unique private runtime; no shared `/tmp` literal is permitted |
 
-The common bootstrap already prevents the second category from reaching the
-shared system temporary directory. `attachments-projects` still needs an
-explicit owned-server boundary and atomic fixture cleanup; the other four
-remain bounded leaf-allocation cleanup work rather than an operator-data path.
+The registered meta-test pins the last four programs to `os.tmpdir()`, requires
+their harness before product dependencies, and rejects a future hard-coded
+`/tmp` bypass. Timestamp or fixed leaf names cannot collide with another test
+invocation or operator data because their parent is already unique and mode
+`0700`.
+
+The attachment suite's raw full mode is deliberately unavailable: it rejects
+before `fetch`. A future server-profile runner must launch the product server
+with a private 32–128 character capability, pass the child PID to the suite,
+and use the server-written private port file. The server writes that capability
+only after `listen()` has produced the actual port. No current runner produces
+this full contract, so the registered T3 server suite remains honestly
+`BLOCKED`; the server-free boundary self-check is not a full-suite green claim.
 
 ## Test evidence
 
@@ -330,11 +360,38 @@ Each successful raw run allocated below
 root on exit 0. No network, model, GPU, application database, or generated
 source-tree fixture was used.
 
+### Integrated completion preparation
+
+The current integration combines all bounded branches. Focused commands on the
+integrated tree produced:
+
+| Command | Result | Exit |
+| --- | --- | ---: |
+| `node tests/harness-exit-code.test.js` outside the child-process-restricted sandbox | 49 temp creators protected; 92/92 DB-reachable programs protected; removed DB anchor rejected; raw attachment run rejected before `fetch` | 0 |
+| `node tests/upgrade-ux-v125.test.js` | 52 passed, including private port-file and optional server-capability producer contracts | 0 |
+| attachment boundary self-check with throwing `fetch` | 5 passed, no request | 0 |
+| raw full attachment program with only a numeric loopback `C3_URL` | exact server-boundary rejection before `fetch` | 1 |
+| `node tests/lifecycle-e2e.test.js` | 138 passed, 0 failed | 0 |
+| `node tests/lifecycle-human-friction.test.js` | 23 passed, 0 failed | 0 |
+| both export programs without an injected PDF runtime | truthful missing-fixture failures | 1 |
+| `chat-export-budget` with both PDF overrides bound to the pinned candidate runtime | 67 passed, 0 failed | 0 |
+| `export-pdf-docx` with the same pinned runtime | 28 passed, 0 failed | 0 |
+
+The PDF green runs reused an existing hash-pinned Gate 0 fixture and therefore
+are focused evidence only. The unprovisioned red runs are the truthful
+self-contained direct result. The final clean-clone audit must provision the
+lockfile-pinned PDF runtime inside its owned install root and inject both equal
+absolute overrides; no assertion is skipped or weakened.
+
 ## Mutation and negative coverage
 
 The existing registered meta-test covers:
 
 - removal of the `tests/harness.js` bootstrap anchor;
+- removal of one database-reachable program's direct bootstrap anchor;
+- exact 92-program graph and static evaluation order;
+- all four invocation-bounded `os.tmpdir()` consumers;
+- raw attachment execution with an exact pre-fetch error oracle;
 - incomplete audit environments;
 - symlinked audit directories;
 - npm cache outside the suite artifact directory;
@@ -343,13 +400,15 @@ The existing registered meta-test covers:
 - non-zero preservation; and
 - cleanup target replacement by a symlink.
 
-Removing the harness bootstrap produced exit code 1 before any assertion was
-weakened. Restoring only that import returned the same suite to exit code 0.
+Removing an isolation anchor or changing an owned writer root produces a named
+exit-1 assertion. The raw attachment oracle requires both the exact guard error
+and absence of `FETCH_CALLED`; a later throwing fetch cannot masquerade as the
+expected boundary failure.
 
 ## Remaining decision
 
-`G0-R014` must remain **OPEN** until the remaining 52 database-reachable
-programs and nine fixed/non-atomic writers are converted or explicitly
-dispositioned, followed by a full registered audit from the integrated SHA.
-This work does not edit `STATUS.md`, registry schema/version data, or
-`data/c3.db`.
+`G0-R014` remains **OPEN** until these combined contracts pass from a committed
+integration SHA and the full 199-suite deterministic registry is replayed from
+the final clean candidate. No remaining direct-run database or shared-writer
+consumer is currently undispositioned. This work does not edit `STATUS.md`,
+registry schema/version data, or `data/c3.db`.

@@ -60,8 +60,11 @@ const isolationKeys = [
   'npm_config_cache',
   'C3_DB_PATH',
   'C3_PROJECTS_DIR',
+  'C3_URL',
   'INTENTSMITH_TEST_PROJECTS_DIR',
   'INTENTSMITH_TEST_ARTIFACT_DIR',
+  'INTENTSMITH_TEST_SERVER_PID',
+  'INTENTSMITH_TEST_SERVER_NONCE',
   'C3_PORT_FILE',
   'INTENTSMITH_DIRECT_TEST_RUN',
   'KEEP_TEST_RUNTIME',
@@ -394,6 +397,116 @@ try {
       `${name} must bootstrap isolation before product dependencies`,
     );
   }
+
+  const invocationBoundTmpdirPrograms = [
+    'multimedia.test.js',
+    'project-welcome.test.js',
+    'tool-registry-e2e.test.js',
+    'upgrade-ux-v125.test.js',
+  ];
+  for (const name of invocationBoundTmpdirPrograms) {
+    const source = readFileSync(join(__dirname, name), 'utf8');
+    assert.ok(
+      !source.includes('/tmp'),
+      `${name} must not bypass the invocation-owned TMPDIR`,
+    );
+    assert.match(
+      source,
+      /\bos\.tmpdir\(\)/,
+      `${name} must resolve temporary paths through os.tmpdir()`,
+    );
+    const bootstrapIndex = source.search(
+      /\bfrom\s+['"]\.\/(?:helpers\/isolated-test-db|harness|e2e-harness)\.js['"]/,
+    );
+    const productDependencyIndex = source.search(
+      /\bfrom\s+['"]\.\.\/src\//,
+    );
+    assert.ok(
+      bootstrapIndex >= 0
+        && productDependencyIndex >= 0
+        && bootstrapIndex < productDependencyIndex,
+      `${name} must bind TMPDIR before product dependencies`,
+    );
+  }
+
+  const attachmentBoundaryEnvironment = {
+    ...process.env,
+    NODE_NO_WARNINGS: '1',
+  };
+  for (const key of isolationKeys) delete attachmentBoundaryEnvironment[key];
+  attachmentBoundaryEnvironment.C3_URL = 'http://127.0.0.1:1';
+  const attachmentBoundary = spawnSync(
+    process.execPath,
+    [
+      '--import',
+      'data:text/javascript,globalThis.fetch%20%3D%20()%20%3D%3E%20%7B%20throw%20new%20Error(%22FETCH_CALLED%22)%3B%20%7D%3B',
+      join(__dirname, 'attachments-projects.test.js'),
+    ],
+    {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      env: attachmentBoundaryEnvironment,
+      timeout: 5_000,
+    },
+  );
+  assert.equal(
+    attachmentBoundary.error,
+    undefined,
+    String(attachmentBoundary.error),
+  );
+  assert.equal(
+    attachmentBoundary.status,
+    1,
+    attachmentBoundary.stderr || attachmentBoundary.stdout,
+  );
+  assert.match(
+    attachmentBoundary.stderr,
+    /The full attachment suite requires a runner-owned audit server/,
+  );
+  assert.doesNotMatch(
+    `${attachmentBoundary.stdout}\n${attachmentBoundary.stderr}`,
+    /FETCH_CALLED/,
+    'raw attachment run reached fetch without an owned server',
+  );
+  const preservedAttachmentRoot = attachmentBoundary.stderr.match(
+    /Isolated test runtime preserved: ([^\r\n]+)/,
+  )?.[1];
+  assert.ok(
+    preservedAttachmentRoot,
+    'raw attachment boundary did not preserve its diagnostic runtime',
+  );
+  const directParent = realpathSync(
+    join(repositoryRoot, '.intentsmith-artifacts', 'direct-tests'),
+  );
+  const attachmentRoot = pathResolve(preservedAttachmentRoot);
+  const attachmentRootRelative = pathRelative(directParent, attachmentRoot);
+  assert.ok(
+    attachmentRootRelative
+      && !attachmentRootRelative.startsWith('..')
+      && !pathIsAbsolute(attachmentRootRelative),
+    'raw attachment diagnostic runtime escaped the ignored direct root',
+  );
+  const attachmentRootMetadata = lstatSync(attachmentRoot);
+  assert.ok(
+    attachmentRootMetadata.isDirectory()
+      && !attachmentRootMetadata.isSymbolicLink(),
+    'raw attachment diagnostic runtime is not a real directory',
+  );
+  assert.equal(attachmentRootMetadata.mode & 0o777, 0o700);
+  if (typeof process.getuid === 'function') {
+    assert.equal(attachmentRootMetadata.uid, process.getuid());
+  }
+  assert.equal(realpathSync(attachmentRoot), attachmentRoot);
+  assert.equal(
+    readdirSync(attachmentRoot, {
+      recursive: true,
+      withFileTypes: true,
+    }).filter(entry => !entry.isDirectory()).length,
+    0,
+    'raw attachment guard wrote files before rejecting the server boundary',
+  );
+  rmSync(attachmentRoot, { recursive: true, force: false });
+  console.log('Attachment raw server boundary: pre-fetch rejection verified');
 
   const frictionSource = readFileSync(
     join(__dirname, 'lifecycle-human-friction.test.js'),

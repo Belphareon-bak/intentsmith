@@ -19,6 +19,22 @@ the first `fetch` unless all of these conditions hold:
 - its PID exactly matches `INTENTSMITH_TEST_SERVER_PID`; and
 - that expected PID is live.
 
+A second independent review correctly noted that PID liveness alone does not
+bind a process to the declared socket, and that the synthetic contract test
+would collide with a real server port file. The current follow-up therefore
+adds a private 32–128 character `INTENTSMITH_TEST_SERVER_NONCE`. The product
+server copies this capability into its private port file only after `listen()`
+returns the actual bound port. The consumer requires exact nonce, PID,
+host/port, private-file, and audit-runtime agreement.
+
+The synthetic port-file fixture now runs only in server-free self-check modes.
+A legitimate full run revalidates the already existing server file without
+creating or replacing it. There is intentionally no current runner producer
+for the complete PID+nonce contract, so the registered T3 server suite remains
+`BLOCKED`; this document makes no full-suite green claim. A registered T1
+meta-test instead pins the production raw path to the exact pre-fetch guard
+error and requires that the throwing-fetch sentinel is absent.
+
 The safe boundary and forced-async-rejection self-checks remain server-free.
 A focused integration run with a throwing `fetch` preload reported `5 passed,
 0 failed`, exit `0`. A raw full run with only
@@ -83,7 +99,8 @@ outside this commit.
   `TMPDIR`.
 - Recursive cleanup accepts only directories atomically created and tracked by
   this process below those roots; the focused contract rejects the root itself,
-  an unowned child and an owned directory replaced by a symlink.
+  an unowned child, a symlink replacement, and a real directory with a
+  different device/inode identity substituted at the same path.
 - The two synchronous attachment fixtures that previously cleaned up after
   assertions now clean up in `finally`.
 

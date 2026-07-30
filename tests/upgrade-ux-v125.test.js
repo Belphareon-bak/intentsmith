@@ -13,7 +13,7 @@
 // Run: node tests/upgrade-ux-v125.test.js
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
+import { suite, test, testAsync, assert, assertEqual, assertThrows, summary } from './harness.js';
 import Database from 'better-sqlite3';
 import { UpgradeManager } from '../src/upgrade/upgrade-manager.js';
 import { config } from '../src/config.js';
@@ -460,7 +460,10 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { spawnSync } from 'child_process';
-import { writePrivatePortFile } from '../src/server-port-file.js';
+import {
+  buildServerPortPayload,
+  writePrivatePortFile,
+} from '../src/server-port-file.js';
 
 suite('Dynamic Port — config + port file');
 
@@ -550,6 +553,29 @@ test('port file write/read roundtrip is private for new and stale files', () => 
   } finally {
     if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
   }
+});
+
+test('test server capability is explicit, validated, and absent in production', () => {
+  const base = {
+    port: 54321,
+    host: '127.0.0.1',
+    pid: process.pid,
+    started: '2026-07-30T00:00:00.000Z',
+  };
+  const production = buildServerPortPayload(base);
+  assertEqual('testRunNonce' in production, false);
+
+  const nonce = 'owned-server-capability-0000000001';
+  const attested = buildServerPortPayload(base, nonce);
+  assertEqual(attested.testRunNonce, nonce);
+  assertThrows(
+    () => buildServerPortPayload(base, 'short'),
+    'Short test server capability must fail closed',
+  );
+  assertThrows(
+    () => buildServerPortPayload(base, `${'a'.repeat(31)}!`),
+    'Unsafe test server capability must fail closed',
+  );
 });
 
 test('private port file writer refuses a symlink without changing its target', () => {
