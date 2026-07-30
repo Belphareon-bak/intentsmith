@@ -163,22 +163,26 @@ suite('startNextMilestone — skip dependency-blocked, find independent');
   addMilestone(lc.id, ms1Id, 1, 'PASSED', []);
   addMilestone(lc.id, ms2Id, 2, 'BLOCKED', []);
   addMilestone(lc.id, ms3Id, 3, 'PENDING', [ms2Id]);
-  addMilestone(lc.id, ms4Id, 4, 'PENDING', []);
+  addMilestone(lc.id, ms4Id, 4, 'PENDING', [ms1Id]);
 
   // Inject a fake LLM that returns a valid plan (D1)
-  lc.callLLM = async (role, prompt) => ({
-    content: JSON.stringify({
-      implementation_steps: [
-        { step: 1, action: 'Create initial config file' },
-        { step: 2, action: 'Implement core module' },
-        { step: 3, action: 'Add unit tests' },
-      ],
-      files: [
-        { path: 'src/index.js', action: 'create', purpose: 'Entry point' },
-      ],
-      scope_files: ['src/index.js'],
-    }),
-  });
+  let milestonePlanPromptSeen = null;
+  lc.callLLM = async (role, prompt) => {
+    milestonePlanPromptSeen = prompt;
+    return {
+      content: JSON.stringify({
+        implementation_steps: [
+          { step: 1, action: 'Create initial config file' },
+          { step: 2, action: 'Implement core module' },
+          { step: 3, action: 'Add unit tests' },
+        ],
+        files: [
+          { path: 'src/index.js', action: 'create', purpose: 'Entry point' },
+        ],
+        scope_files: ['src/index.js'],
+      }),
+    };
+  };
 
   await testAsync('T3: startNextMilestone skips ms-3 (dep-blocked), returns ms-4', async () => {
     const result = await startNextMilestone(lc);
@@ -186,6 +190,20 @@ suite('startNextMilestone — skip dependency-blocked, find independent');
     assertEqual(result.milestoneId, ms4Id, `Expected ms-4 (${ms4Id}), got ${result.milestoneId}`);
     assertEqual(result.status, MilestoneStatus.AWAITING_PLAN);
     assert(result.localPlan !== null, 'Should have a local plan');
+    assert(milestonePlanPromptSeen.includes('"id": "ms-4"'), 'D1 prompt should use raw current milestone ID');
+    assert(milestonePlanPromptSeen.includes('- ms-1: Milestone 1 (PASSED)'), 'D1 prompt should use raw completed milestone ID');
+    assert(!milestonePlanPromptSeen.includes(ms4Id), 'D1 prompt must not expose scoped current milestone ID');
+    assert(!milestonePlanPromptSeen.includes(ms1Id), 'D1 prompt must not expose scoped completed milestone ID');
+    const currentMilestoneJson = milestonePlanPromptSeen
+      .split('## Current Milestone\n')[1]
+      .split('\n\n## Task')[0];
+    const currentMilestone = JSON.parse(currentMilestoneJson);
+    assertEqual(JSON.stringify(currentMilestone.dependencies), JSON.stringify(['ms-1']),
+      'D1 prompt dependencies should use raw milestone IDs');
+    const persistedMilestone = msRepo.getMilestone(ms4Id);
+    assert(persistedMilestone !== null, 'DB milestone must retain its scoped ID');
+    assertEqual(JSON.stringify(persistedMilestone.dependencies), JSON.stringify([ms1Id]),
+      'DB milestone dependencies must remain scoped');
   });
 
   // Mark ms-4 as PASSED and try again — only ms-3 left (blocked by ms-2)

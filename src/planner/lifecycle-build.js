@@ -35,13 +35,23 @@ import {
   milestoneCheckpoint as checkpointPrompt,
   healthScore as healthScorePrompt,
 } from './lifecycle-prompts.js';
-import { checkDependencies, writeRoadmapFile } from './lifecycle-planning.js';
+import { checkDependencies, rawId, writeRoadmapFile } from './lifecycle-planning.js';
 import { MilestoneStatus, CheckpointMode } from './lifecycle.js';
 import { ensureReadme, ensureArchitectureDoc, appendReadmeChangelog } from '../chat/handlers/utils/readme-generator.js';
 import { C3ToolExecutor } from '../executor/c3-tool-executor.js';
 import { validateMilestoneSize } from './milestone-size.js';
 import { runQualityGate, runEnhancedValidation } from './quality-gate.js';
 import { validateArchitecture } from './architecture-check.js';
+
+function milestoneForPlanningPrompt(milestone) {
+  return {
+    ...milestone,
+    id: rawId(milestone.id),
+    dependencies: Array.isArray(milestone.dependencies)
+      ? milestone.dependencies.map(rawId)
+      : milestone.dependencies,
+  };
+}
 
 // v95: Code intelligence — lazy-loaded for BUILD context enrichment
 let _codeIntelLoaded = false;
@@ -313,7 +323,9 @@ async function _startNextMilestoneImpl(lifecycle) {
     title: milestone.title,
   });
 
-  const prompt = milestonePlanPrompt(milestone, spec, completed);
+  const promptMilestone = milestoneForPlanningPrompt(milestone);
+  const promptCompleted = completed.map(milestoneForPlanningPrompt);
+  const prompt = milestonePlanPrompt(promptMilestone, spec, promptCompleted);
   const llm = lifecycle.callLLM || callLLM;
   const result = await llm('D1', prompt);
   const localPlan = parseJSON(result.content);
