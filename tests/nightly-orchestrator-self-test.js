@@ -494,8 +494,7 @@ try {
         'product-audit',
         'interrupt-ready.json',
       );
-      await waitForFile(interruptReady, 20_000);
-      interruptPids = await readJson(interruptReady);
+      interruptPids = await waitForJson(interruptReady, 20_000);
       assert.equal(interrupted.kill(signal), true);
       const interruptedExit = await waitForObservedClose(
         observedClose,
@@ -1056,6 +1055,19 @@ async function waitForFile(filePath, timeoutMs) {
     await new Promise(resolve => setTimeout(resolve, 25));
   }
   assert.fail(`timed out waiting for ${filePath}`);
+}
+
+async function waitForJson(filePath, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      return JSON.parse(await readFile(filePath, 'utf8'));
+    } catch (error) {
+      if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error;
+    }
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  assert.fail(`timed out waiting for valid JSON in ${filePath}`);
 }
 
 function observeChildClose(child) {
