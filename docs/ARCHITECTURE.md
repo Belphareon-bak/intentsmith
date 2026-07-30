@@ -226,7 +226,7 @@ src/                              # ~137,000 lines / 380+ files / 29 directories
 ├── skills/                       # 12 files — Registry → Resolver → Runner
 ├── domains/                      # 12 files — Scaffolds (8 templates) + recipes
 ├── llm/                          # 6 files — Gateway, client, web-search
-├── tools/                        # 2 files — Tool registry (153 tools)
+├── tools/                        # 3 files — Tool registry (153 tools)
 ├── executor/                     # 8 files — Tool executor, circuit breaker
 ├── autonomy/                     # 3 files — Guarded autonomy, drift detection
 ├── channels/                     # 3 files — Channel adapters
@@ -445,8 +445,8 @@ QGv2 Output → Semantic Scoring
 Central catalog of all executable tools across 35 categories. Each tool has typed parameters, capability metadata (`sideEffects`, `idempotent`, `destructive`, `costLevel`, `category`), and structured return values.
 
 **Risk classification API:**
-- `safeForAutoExec()` → 91 tools safe for autonomous use
-- `requiresConfirmation()` → 37 tools needing user approval
+- `safeForAutoExec()` → 89 tools safe for autonomous use
+- `requiresConfirmation()` → 39 tools needing user approval
 - `destructive()` → 7 tools that can cause data loss
 
 Full reference: [docs/tools/REGISTRY.md](tools/REGISTRY.md)

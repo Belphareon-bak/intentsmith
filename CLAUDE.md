@@ -59,7 +59,7 @@ C.3 Agent je plně funkční lokální AI platforma s:
 | src/upgrade/ | 15 | 6,780 | Model upgrade (catalog, pairwise, empirical, L4, validation) |
 | src/routes/ | 15 | 6,670 | HTTP API routes (15 route modulů, vč. media) |
 | src/agents/ | 14 | 6,510 | Agent platform (runner, scheduler, conditions, triggers) |
-| src/tools/ | 2 | 5,456 | Tool registry (153 nástrojů) |
+| src/tools/ | 3 | 5,694 | Tool registry (153 nástrojů) |
 | src/ui/ | 2 | 4,552 | Web UI (architect.js) |
 | src/architect/ | 13 | 4,007 | Architecture Intelligence (policy, refactor, predictor) |
 | src/db/ | 44 | 4,493 | SQLite schema, 41 migrací |

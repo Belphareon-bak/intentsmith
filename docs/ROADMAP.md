@@ -170,6 +170,7 @@ Stav = stav důkazů, ne odhad hotovosti. Mapování na
 | G0-10 | Uzavřít direct-run/T1 filesystem izolaci (`G0-R014`) | 🔴 P0 | 🔄 položkový audit a nejmenší společná oprava probíhají |
 | G0-11 | Obnovit poškozenou českou dokumentaci bez ztráty novějších informací (`G0-R017`) | 🟡 P1 | ✅ obnoveno; registrovaný test hlídá diakritiku, code fences a lokální odkazy |
 | G0-12 | Připnout přesný model/GPU/context kontrakt pro sady 57–59 a 88 (`G0-R020`) | 🔴 P0 | ✅ schema v3 + fail-closed preflight; sady zůstávají `BLOCKED`, žádný modelový green claim |
+| G0-13 | Zavřít false-green síťové/procesní chyby obou npm audit aliasů (`G0-R027`) | 🔴 P0 | ✅ sdílený shell-free runner + registrované offline pozitivní/negativní fixture |
 
 ### Gate 1 — akceptační důkaz per schopnost
 

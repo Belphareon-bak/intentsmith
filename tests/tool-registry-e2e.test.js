@@ -13,6 +13,7 @@
 
 import { suite, test, testAsync, assert, assertEqual, assertIncludes, summary } from './harness.js';
 import { toolRegistry as registry } from '../src/tools/registry.js';
+import { runNpmAuditReport } from '../src/tools/npm-audit.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -159,6 +160,20 @@ test('read category tools have no sideEffects', () => {
 
   assert(violations.length === 0,
     `Read tools with sideEffects: ${violations.join(', ')}`);
+});
+
+test('npm audit tools declare the optional fix capability as mutating', () => {
+  for (const name of ['npm.audit', 'deps.vuln']) {
+    const tool = registry.get(name);
+    assert(tool.params.optional.includes('fix'), `${name} exposes fix`);
+    assert(tool.permissions.includes('fs.write'), `${name} declares fs.write`);
+    assert(tool.permissions.includes('process.exec'), `${name} declares process.exec`);
+    assertEqual(tool.meta.sideEffects, true, `${name} has side effects`);
+    assertEqual(tool.meta.idempotent, false, `${name} is not idempotent`);
+    assertEqual(tool.meta.requiresConfirmation, true, `${name} requires confirmation`);
+    assertEqual(tool.meta.category, 'exec', `${name} is an exec capability`);
+    assert(!registry.safeForAutoExec().includes(name), `${name} is not auto-executable`);
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -482,6 +497,95 @@ await testAsync('yaml.stringify — serializes to YAML', async () => {
 suite('Tool Execution — FS (temp dir)');
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-test-'));
+const npmAuditFixtureRoot = path.join(tmpDir, 'npm-audit-fixture');
+const fakeNpmBinDir = path.join(npmAuditFixtureRoot, 'bin');
+const fakeNpmCacheDir = path.join(npmAuditFixtureRoot, 'npm-cache');
+const fakeNpmScenarioPath = path.join(npmAuditFixtureRoot, 'scenario.json');
+const fakeNpmObservedPath = path.join(npmAuditFixtureRoot, 'observed.json');
+const fakeNpmPath = path.join(fakeNpmBinDir, 'npm');
+
+fs.mkdirSync(fakeNpmBinDir, { recursive: true, mode: 0o700 });
+fs.mkdirSync(fakeNpmCacheDir, { recursive: true, mode: 0o700 });
+fs.writeFileSync(fakeNpmPath, `#!${process.execPath}
+const fs = require('node:fs');
+const scenario = JSON.parse(fs.readFileSync(
+  process.env.INTENTSMITH_NPM_AUDIT_SCENARIO,
+  'utf8',
+));
+fs.writeFileSync(
+  process.env.INTENTSMITH_NPM_AUDIT_OBSERVED,
+  JSON.stringify({
+    argv: process.argv.slice(2),
+    cache: process.env.npm_config_cache,
+  }),
+);
+if (scenario.delayMs) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, scenario.delayMs);
+}
+if (scenario.signal) process.kill(process.pid, scenario.signal);
+if (scenario.stdout) process.stdout.write(scenario.stdout);
+if (scenario.stderr) process.stderr.write(scenario.stderr);
+process.exit(Number.isInteger(scenario.status) ? scenario.status : 0);
+`, { mode: 0o700 });
+fs.chmodSync(fakeNpmPath, 0o700);
+
+function makeAuditReport(vulnerabilities = {}) {
+  const counts = {
+    critical: 0,
+    high: 0,
+    moderate: 0,
+    low: 0,
+    info: 0,
+    total: 0,
+  };
+  for (const vulnerability of Object.values(vulnerabilities)) {
+    counts[vulnerability.severity] += 1;
+    counts.total += 1;
+  }
+  return {
+    auditReportVersion: 2,
+    vulnerabilities,
+    metadata: {
+      vulnerabilities: counts,
+      totalDependencies: 17,
+    },
+  };
+}
+
+function fakeNpmEnvironment(scenario) {
+  fs.writeFileSync(fakeNpmScenarioPath, JSON.stringify(scenario));
+  try { fs.rmSync(fakeNpmObservedPath); } catch {}
+  return {
+    ...process.env,
+    PATH: `${fakeNpmBinDir}${path.delimiter}${process.env.PATH || ''}`,
+    npm_config_cache: fakeNpmCacheDir,
+    INTENTSMITH_NPM_AUDIT_SCENARIO: fakeNpmScenarioPath,
+    INTENTSMITH_NPM_AUDIT_OBSERVED: fakeNpmObservedPath,
+  };
+}
+
+async function withFakeNpmEnvironment(scenario, fn) {
+  const keys = [
+    'PATH',
+    'npm_config_cache',
+    'INTENTSMITH_NPM_AUDIT_SCENARIO',
+    'INTENTSMITH_NPM_AUDIT_OBSERVED',
+  ];
+  const previous = new Map(keys.map(key => [key, process.env[key]]));
+  Object.assign(process.env, fakeNpmEnvironment(scenario));
+  try {
+    return await fn();
+  } finally {
+    for (const [key, value] of previous) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
+
+function readFakeNpmObservation() {
+  return JSON.parse(fs.readFileSync(fakeNpmObservedPath, 'utf8'));
+}
 
 await testAsync('fs.write + fs.read roundtrip', async () => {
   const filePath = path.join(tmpDir, 'test.txt');
@@ -780,11 +884,159 @@ await testAsync('deps.size — analyzes package sizes', async () => {
   }
 });
 
-await testAsync('deps.vuln — runs vulnerability audit', async () => {
-  const r = await registry.get('deps.vuln').execute({});
-  assert(!r.error, `error: ${r.error}`);
-  assert(r.summary, 'has summary');
-  assert(typeof r.clean === 'boolean', 'has clean flag');
+await testAsync('deps.vuln accepts npm exit 1 only with a valid vulnerability report', async () => {
+  const report = makeAuditReport({
+    'intentsmith-sentinel': {
+      severity: 'critical',
+      via: [{ title: 'INTENTSMITH_SENTINEL_VULNERABILITY' }],
+      fixAvailable: true,
+      range: '<1.0.0',
+    },
+  });
+  await withFakeNpmEnvironment({
+    stdout: JSON.stringify(report),
+    status: 1,
+  }, async () => {
+    const r = await registry.get('deps.vuln').execute({ cwd: tmpDir });
+    assert(!r.error, `error: ${r.error}`);
+    assertEqual(r.clean, false, 'vulnerability report is not clean');
+    assertEqual(r.summary.total, 1, 'one vulnerability is counted');
+    assertEqual(r.summary.critical, 1, 'critical severity is preserved');
+    assertEqual(r.vulnerabilities.length, 1, 'one detail is returned');
+    assertEqual(r.vulnerabilities[0].name, 'intentsmith-sentinel');
+    assertEqual(r.vulnerabilities[0].title, 'INTENTSMITH_SENTINEL_VULNERABILITY');
+
+    const observed = readFakeNpmObservation();
+    assertEqual(observed.argv.join(','), 'audit,--json');
+    assertEqual(observed.cache, fakeNpmCacheDir);
+    assert(observed.cache.startsWith(`${tmpDir}${path.sep}`), 'npm cache stays below the owned test root');
+  });
+});
+
+await testAsync('npm.audit shares the validated offline report contract', async () => {
+  const report = makeAuditReport();
+  await withFakeNpmEnvironment({
+    stdout: JSON.stringify(report),
+    status: 0,
+  }, async () => {
+    const r = await registry.get('npm.audit').execute({
+      cwd: tmpDir,
+      production: true,
+    });
+    assert(!r.error, `error: ${r.error}`);
+    assertEqual(r.vulnerabilities.total, 0);
+    assertEqual(r.totalDeps, 17);
+    assertEqual(readFakeNpmObservation().argv.join(','), 'audit,--json,--production');
+  });
+});
+
+await testAsync('both audit aliases reject npm error JSON', async () => {
+  const scenario = {
+    stdout: JSON.stringify({
+      error: {
+        code: 'ENOAUDIT',
+        summary: 'audit endpoint returned an error',
+      },
+    }),
+    status: 1,
+  };
+  for (const [name, code] of [
+    ['npm.audit', 'NPM_ERROR'],
+    ['deps.vuln', 'VULN_ERROR'],
+  ]) {
+    await withFakeNpmEnvironment(scenario, async () => {
+      const r = await registry.get(name).execute({ cwd: tmpDir });
+      assertEqual(r.code, code, `${name} returns its terminal error code`);
+      assertEqual(r.reason, 'NPM_ERROR_RESPONSE', `${name} rejects the npm error envelope`);
+      assertEqual(r.npmErrorCode, 'ENOAUDIT', `${name} preserves only the bounded npm error code`);
+      assert(!r.summary, `${name} does not manufacture a vulnerability summary`);
+      assert(!r.clean, `${name} does not manufacture a clean result`);
+    });
+  }
+});
+
+await testAsync('deps.vuln rejects malformed output and unexpected nonzero status', async () => {
+  await withFakeNpmEnvironment({
+    stdout: 'not-json',
+    status: 1,
+  }, async () => {
+    const malformed = await registry.get('deps.vuln').execute({ cwd: tmpDir });
+    assertEqual(malformed.code, 'VULN_ERROR');
+    assertEqual(malformed.reason, 'INVALID_JSON');
+  });
+
+  await withFakeNpmEnvironment({
+    stdout: JSON.stringify(makeAuditReport()),
+    status: 2,
+  }, async () => {
+    const failed = await registry.get('deps.vuln').execute({ cwd: tmpDir });
+    assertEqual(failed.code, 'VULN_ERROR');
+    assertEqual(failed.reason, 'PROCESS_FAILED');
+    assertEqual(failed.status, 2);
+  });
+});
+
+await testAsync('audit report and exit status must agree', async () => {
+  await withFakeNpmEnvironment({
+    stdout: JSON.stringify(makeAuditReport()),
+    status: 1,
+  }, async () => {
+    const r = await registry.get('npm.audit').execute({ cwd: tmpDir });
+    assertEqual(r.code, 'NPM_ERROR');
+    assertEqual(r.reason, 'INCONSISTENT_STATUS');
+  });
+});
+
+await testAsync('npm audit timeout, signal, and spawn failure are terminal', async () => {
+  const timeoutResult = runNpmAuditReport({
+    cwd: tmpDir,
+    timeoutMs: 20,
+  }, {
+    env: fakeNpmEnvironment({
+      delayMs: 250,
+      stdout: JSON.stringify(makeAuditReport()),
+      status: 0,
+    }),
+  });
+  assertEqual(timeoutResult.ok, false);
+  assertEqual(timeoutResult.reason, 'TIMEOUT');
+
+  const signalResult = runNpmAuditReport({
+    cwd: tmpDir,
+  }, {
+    env: fakeNpmEnvironment({ signal: 'SIGTERM' }),
+  });
+  assertEqual(signalResult.ok, false);
+  assertEqual(signalResult.reason, 'SIGNALLED');
+  assertEqual(signalResult.signal, 'SIGTERM');
+
+  const missingBinDir = path.join(npmAuditFixtureRoot, 'missing-bin');
+  fs.mkdirSync(missingBinDir, { mode: 0o700 });
+  const spawnResult = runNpmAuditReport({
+    cwd: tmpDir,
+  }, {
+    env: {
+      ...process.env,
+      PATH: missingBinDir,
+      npm_config_cache: fakeNpmCacheDir,
+    },
+  });
+  assertEqual(spawnResult.ok, false);
+  assertEqual(spawnResult.reason, 'SPAWN_FAILED');
+});
+
+await testAsync('npm audit fix is exercised only through the local fake capability', async () => {
+  await withFakeNpmEnvironment({
+    stdout: JSON.stringify(makeAuditReport()),
+    status: 0,
+  }, async () => {
+    const r = await registry.get('npm.audit').execute({
+      cwd: tmpDir,
+      fix: true,
+    });
+    assert(!r.error, `error: ${r.error}`);
+    assertEqual(readFakeNpmObservation().argv.join(','), 'audit,fix,--json');
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

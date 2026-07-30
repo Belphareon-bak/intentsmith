@@ -375,10 +375,10 @@ function riskAssessmentCopy(overrides = {}) {
     schemaVersion: 1,
     valid: true,
     errors: [],
-    riskCount: 26,
-    policyCount: 26,
+    riskCount: 27,
+    policyCount: 27,
     impactCounts: {
-      G0_FAIL: 20,
+      G0_FAIL: 21,
       G0_REVIEW_REQUIRED: 1,
       LATER_GATE: 2,
       SEPARATE_INCIDENT: 3,
@@ -407,8 +407,8 @@ test('committed policy classifies every risk and derives current blockers', () =
     riskPolicyCopy(),
   );
   assertEqual(result.valid, true);
-  assertEqual(result.riskCount, 26);
-  assertEqual(result.policyCount, 26);
+  assertEqual(result.riskCount, 27);
+  assertEqual(result.policyCount, 27);
   assertEqual(result.repositoryBlockers.join(','), [
     'G0-R014: OPEN',
   ].join(','));
@@ -430,6 +430,7 @@ test('policy pins Gate 0 failure classes and the loopback condition', () => {
     'G0-R019',
     'G0-R020',
     'G0-R026',
+    'G0-R027',
   ]) {
     assertEqual(byId.get(riskId)?.gateImpact, GateImpact.G0_FAIL);
   }

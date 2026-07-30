@@ -135,8 +135,8 @@ toolRegistry.get('fs.read')            // → ToolDef | undefined
 toolRegistry.has('fs.read')            // → boolean
 
 // Filter by metadata
-toolRegistry.safeForAutoExec()         // → string[]  (91 tools)
-toolRegistry.requiresConfirmation()    // → string[]  (37 tools)
+toolRegistry.safeForAutoExec()         // → string[]  (89 tools)
+toolRegistry.requiresConfirmation()    // → string[]  (39 tools)
 toolRegistry.destructive()             // → string[]  (7 tools)
 toolRegistry.byCategory('read')       // → string[]
 toolRegistry.byCost('free')           // → string[]
@@ -151,11 +151,11 @@ toolRegistry.capabilitySummary()       // → { total, categories, costs, ... }
 Total:          153
 With metadata:  153 (100%)
 
-Categories:     pure: 34, read: 51, write: 35, exec: 17, net: 16
+Categories:     pure: 34, read: 49, write: 35, exec: 19, net: 16
 Cost levels:    free: 80, low: 32, medium: 26, high: 15
 
-Safe for auto:  91
-Needs confirm:  37
+Safe for auto:  89
+Needs confirm:  39
 Destructive:    7
 ```
 
@@ -246,7 +246,7 @@ Destructive:    7
 | `deps.tree` | Transitive dependency tree with depth/size info | — | read | medium |
 | `deps.licenses` | Scan all dependency licenses, flag copyleft/unknown | — | read | medium |
 | `deps.size` | Size impact analysis per dependency | — | read | medium |
-| `deps.vuln` | Vulnerability audit (npm audit) | — | read | low |
+| `deps.vuln` | Vulnerability audit; optional confirmed npm audit fix | — | exec | low |
 
 ### diff (2)
 
@@ -363,7 +363,7 @@ Destructive:    7
 | `npm.run` | Run npm script | `script` | exec | medium |
 | `npm.list` | List installed packages | — | read | free |
 | `npm.outdated` | Check outdated packages | — | read | low |
-| `npm.audit` | Security audit | — | read | low |
+| `npm.audit` | Security audit; optional confirmed fix | — | exec | low |
 | `npm.init` | Initialize package.json | — | write | free |
 | `npm.scripts` | List available scripts | — | read | free |
 
@@ -470,7 +470,7 @@ Supported tools for auto-install:
 ## 9. Testing
 
 ```bash
-# Full E2E test suite (75 tests)
+# Full E2E test suite (82 tests)
 node tests/tool-registry-e2e.test.js
 
 # Tool executor + circuit breaker tests (31 tests)
@@ -482,9 +482,9 @@ node tests/tool-pipeline-e2e.test.js
 
 Test coverage includes:
 - Registry structure & API (5 tests)
-- Metadata integrity for ALL 153 tools (7 tests)
+- Metadata integrity for ALL 153 tools (8 tests)
 - Risk classification & query methods (9 tests)
-- Tool execution across 11 categories (54 tests)
+- Tool execution across 11 categories (60 tests)
 
 ---
 

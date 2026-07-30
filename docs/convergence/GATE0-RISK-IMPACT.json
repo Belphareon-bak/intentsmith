@@ -138,6 +138,11 @@
       "riskId": "G0-R026",
       "gateImpact": "G0_FAIL",
       "rationale": "A route factory exception ignored by its registered smoke suite is a Gate 0 false-green defect."
+    },
+    {
+      "riskId": "G0-R027",
+      "gateImpact": "G0_FAIL",
+      "rationale": "A vulnerability-audit network or process failure represented as a clean report is a Gate 0 false-green defect."
     }
   ]
 }

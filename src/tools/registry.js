@@ -17,6 +17,12 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { httpClient } from './http-client.js';
+import {
+  dependencyVulnerabilityResult,
+  npmAuditError,
+  npmAuditOverview,
+  runNpmAuditReport,
+} from './npm-audit.js';
 import { memory } from '../memory/policy.js';
 import { logger } from '../core/logger.js';
 
@@ -1775,27 +1781,13 @@ tools['npm.audit'] = {
   name: 'npm.audit',
   description: 'Run npm security audit',
   params: { required: [], optional: ['cwd', 'fix', 'production'] },
-  permissions: ['fs.read'],
-  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'read' },
+  permissions: ['fs.read', 'fs.write', 'process.exec'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: true, costLevel: 'low', category: 'exec' },
   async execute(params) {
     const { cwd = '.', fix = false, production = false } = params;
-    const { execSync } = await import('child_process');
-    try {
-      let cmd = fix ? 'npm audit fix --json' : 'npm audit --json';
-      if (production) cmd += ' --production';
-      const output = execSync(cmd, { cwd, timeout: 60000, encoding: 'utf-8', maxBuffer: 2 * 1024 * 1024 });
-      const data = JSON.parse(output || '{}');
-      return {
-        vulnerabilities: data.metadata?.vulnerabilities || data.vulnerabilities || {},
-        totalDeps: data.metadata?.totalDependencies,
-        advisories: Object.values(data.advisories || {}).slice(0, 20).map(a => ({
-          title: a.title, severity: a.severity, module: a.module_name, url: a.url,
-        })),
-      };
-    } catch (err) {
-      try { return JSON.parse(err.stdout || '{}'); }
-      catch { return { error: err.message, code: 'NPM_ERROR' }; }
-    }
+    const result = runNpmAuditReport({ cwd, fix, production });
+    if (!result.ok) return npmAuditError(result, 'NPM_ERROR');
+    return npmAuditOverview(result);
   },
 };
 
@@ -4709,46 +4701,16 @@ tools['deps.vuln'] = {
   name: 'deps.vuln',
   description: 'Run vulnerability audit and return structured results',
   params: { required: [], optional: ['cwd', 'fix'] },
-  permissions: ['fs.read', 'process.exec'],
-  meta: { sideEffects: false, idempotent: true, destructive: false, requiresConfirmation: false, costLevel: 'low', category: 'read' },
+  permissions: ['fs.read', 'fs.write', 'process.exec'],
+  meta: { sideEffects: true, idempotent: false, destructive: false, requiresConfirmation: true, costLevel: 'low', category: 'exec' },
   async execute(params) {
-    try {
-      const { execSync } = await import('node:child_process');
-      const cwd = params.cwd || process.cwd();
-
-      if (params.fix) {
-        const output = execSync('npm audit fix --json 2>/dev/null || true', { cwd, encoding: 'utf-8', timeout: 60000 });
-        try { return JSON.parse(output); } catch { return { output }; }
-      }
-
-      const output = execSync('npm audit --json 2>/dev/null || true', { cwd, encoding: 'utf-8', timeout: 30000 });
-      let audit;
-      try { audit = JSON.parse(output); } catch { return { error: 'Could not parse audit output', code: 'VULN_ERROR' }; }
-
-      const vulns = audit.vulnerabilities || {};
-      const summary = { critical: 0, high: 0, moderate: 0, low: 0, info: 0, total: 0 };
-      const details = [];
-
-      for (const [name, info] of Object.entries(vulns)) {
-        const sev = info.severity || 'info';
-        summary[sev] = (summary[sev] || 0) + 1;
-        summary.total++;
-        details.push({
-          name,
-          severity: sev,
-          title: info.via?.[0]?.title || info.via?.[0] || 'Unknown',
-          fixAvailable: !!info.fixAvailable,
-          range: info.range,
-        });
-      }
-
-      details.sort((a, b) => {
-        const order = { critical: 0, high: 1, moderate: 2, low: 3, info: 4 };
-        return (order[a.severity] || 5) - (order[b.severity] || 5);
-      });
-
-      return { summary, vulnerabilities: details.slice(0, 50), clean: summary.total === 0 };
-    } catch (err) { return { error: err.message, code: 'VULN_ERROR' }; }
+    const result = runNpmAuditReport({
+      cwd: params.cwd || process.cwd(),
+      fix: Boolean(params.fix),
+    });
+    if (!result.ok) return npmAuditError(result, 'VULN_ERROR');
+    if (params.fix) return result.audit;
+    return dependencyVulnerabilityResult(result);
   },
 };
 
