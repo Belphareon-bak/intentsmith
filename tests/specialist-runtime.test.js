@@ -8,6 +8,14 @@ import {
   IntentDetector,
   SpecialistRuntime,
 } from '../src/expertises/specialist-runtime.js';
+import { register as registerAccountant } from '../specialists/accountant-cz/index.js';
+
+// Accountant is a self-contained dynamic specialist since v121. Activate its
+// real package entry point explicitly for this runtime unit test.
+await registerAccountant({
+  runtime: specialistRuntime,
+  registries: {},
+});
 
 let passed = 0, failed = 0;
 const failures = [];
@@ -203,7 +211,8 @@ runAsyncTests().then(() => {
   console.log(`══════════════════════════════════════════════════════════`);
   if (failed === 0) console.log('✅ ALL SPECIALIST RUNTIME TESTS PASS');
   else console.log(`❌ Failures: ${failures.join(', ')}`);
+  process.exitCode = failed > 0 ? 1 : 0;
 }).catch(err => {
   console.error('Test error:', err);
-  process.exit(1);
+  process.exitCode = 1;
 });

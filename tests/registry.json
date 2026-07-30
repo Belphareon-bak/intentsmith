@@ -7198,7 +7198,7 @@
       },
       "required": true,
       "owner": "primary implementer",
-      "state": "KNOWN_DEFECTIVE",
+      "state": "ACTIVE",
       "lastGreen": {
         "commit": null,
         "artifact": null

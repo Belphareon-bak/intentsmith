@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 import {
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -156,6 +157,58 @@ summary();
     /test\(\) does not accept async callbacks or returned thenables/,
   );
   assert.match(asyncCallback.stdout, /RESULTS:\s*0 passed,\s*1 failed/);
+
+  const specialistRuntimeTestPath = join(__dirname, 'specialist-runtime.test.js');
+  const specialistRuntimeUrl = pathToFileURL(
+    join(__dirname, '../src/expertises/specialist-runtime.js'),
+  ).href;
+  const accountantPackageUrl = pathToFileURL(
+    join(__dirname, '../specialists/accountant-cz/index.js'),
+  ).href;
+  const specialistRuntimeSource = readFileSync(specialistRuntimeTestPath, 'utf8');
+  const passingAssertion = "assert(specialistRuntime.isSpecialist('accountant'));";
+  assert.match(specialistRuntimeSource, /process\.exitCode = failed > 0 \? 1 : 0/);
+  assert.ok(
+    specialistRuntimeSource.includes(passingAssertion),
+    'specialist runtime failure-injection target is stale',
+  );
+
+  const failingSpecialistRuntimeSource = specialistRuntimeSource
+    .replace(
+      "'../src/expertises/specialist-runtime.js'",
+      JSON.stringify(specialistRuntimeUrl),
+    )
+    .replace(
+      "'../specialists/accountant-cz/index.js'",
+      JSON.stringify(accountantPackageUrl),
+    )
+    .replace(
+      passingAssertion,
+      "assert.fail('meta injected specialist runtime failure');",
+    );
+  const failingSpecialistRuntimeFixture = writeFixture(
+    'specialist-runtime-failing-fixture.mjs',
+    failingSpecialistRuntimeSource,
+  );
+  const failingSpecialistRuntime = runFixture(failingSpecialistRuntimeFixture);
+  assert.equal(
+    failingSpecialistRuntime.error,
+    undefined,
+    String(failingSpecialistRuntime.error),
+  );
+  assert.equal(
+    failingSpecialistRuntime.status,
+    1,
+    failingSpecialistRuntime.stderr || failingSpecialistRuntime.stdout,
+  );
+  assert.match(
+    failingSpecialistRuntime.stdout,
+    /Specialist Runtime:\s*22\/23 PASS,\s*1 FAIL/,
+  );
+  assert.match(
+    failingSpecialistRuntime.stdout,
+    /meta injected specialist runtime failure/,
+  );
 
   const returnedThenableFixture = writeFixture('returned-thenable-fixture.mjs', `
 import { suite, test, summary } from ${JSON.stringify(harnessUrl)};
