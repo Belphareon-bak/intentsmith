@@ -15,6 +15,7 @@
 - Server-capability follow-up SHA: `ab0b9e5601cf8256684304832cedb326f1015ef2`
 - Final capability test-trust follow-up SHA:
   `fab974eda32bcdb62941f91d697600af1bdbedcb`
+- Risk closure SHA: `b381f7f530e2a19127e12bcb04f80acd9c89b16f`
 - Scope: common bootstrap, all database-reachable root programs, and all
   previously identified fixed/non-atomic writers
 
@@ -430,3 +431,13 @@ attachment suite is still `BLOCKED` until a future server-profile runner owns
 and passes the complete PID+nonce capability; raw execution remains
 fail-closed in the meantime. This work does not edit `STATUS.md`, registry
 schema/version data, or `data/c3.db`.
+
+The exact post-closure rerun at
+`b381f7f530e2a19127e12bcb04f80acd9c89b16f` produced:
+
+| Command | Result | Exit |
+| --- | --- | ---: |
+| `node tests/harness-exit-code.test.js` outside the child-process sandbox | 49 temp creators; 92/92 DB graph; DB mutation and raw pre-fetch oracle passed | 0 |
+| `node tests/artifact-validation.test.js` | 64 passed, 0 failed; current policy has no open `G0_FAIL` risk and reopening R014 blocks | 0 |
+| `node scripts/validate-test-registry.js` | 350 runnable programs; SHA-256 `f6edc6ccff693284ee01ed159e90faea20e94662892d7b84b2f61efdf35e03b5` | 0 |
+| `node scripts/validate-final-disposition.js` | 225 records; 60 repaired; 32 deferred; manifest SHA-256 `aa95bbc0918daa3f188283297e03562e3a4b8a8d0b178bec126b60a27cd8677e` | 0 |
