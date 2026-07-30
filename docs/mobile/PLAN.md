@@ -68,7 +68,7 @@ V kódu stojí `// TODO (Phase 3b): Wire into route-level middleware`.
 
 Bind `C3_HOST` mimo loopback = **neautentizované vzdálené spuštění příkazů**
 pro každého na té síti. Není to mobilní problém; je to vlastnost současného
-systému. Evidováno jako `G0-R018`.
+systému. Evidováno jako `G0-R021`.
 
 Samotný scope middleware na `/m1` proto **nestačí** — útočník by `/m1` ignoroval
 a šel přímo na legacy API nebo na WS terminál na stejném portu.

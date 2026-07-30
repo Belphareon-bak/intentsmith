@@ -114,6 +114,6 @@ companion klienta, ne jako jeho náhrada.
 - jakoukoli formu obousměrné synchronizace.
 
 **Nezávislé na této ADR:** bezpečnostní hranice. Ať padne cokoli, telefon se
-nesmí připojit ke stávajícímu listeneru — viz `G0-R018` a plán mobilního
+nesmí připojit ke stávajícímu listeneru — viz `G0-R021` a plán mobilního
 klienta. Neautentizovaný WS terminál je problém současného systému, ne
 mobilního návrhu.

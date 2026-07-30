@@ -222,7 +222,7 @@ systému** a na gaty nečeká.
 
 | # | Úkol | Priorita | Stav |
 |---|---|---|---|
-| S-1 | `G0-R018` — bez globálního auth guardu; `hello` handshake ověřuje jen `protocolVersion` a odemyká terminal exec. Bind mimo loopback = neautentizované RCE | 🔴 P0 | ❌ otevřeno |
+| S-1 | `G0-R021` — bez globálního auth guardu; `hello` handshake ověřuje jen `protocolVersion` a odemyká terminal exec. Bind mimo loopback = neautentizované RCE | 🔴 P0 | ❌ otevřeno |
 | S-2 | Oddělený listener pro vzdálený přístup; stávající server zůstává na loopbacku | 🔴 P0 | ❌ |
 | S-3 | Zapojit `validateApiToken()` do middleware se scope enforcementem (funkce hotová, chybí volání) | 🔴 P0 | ❌ |
 | S-4 | Negativní testy hranice — do registru testů | 🔴 P0 | ❌ |
