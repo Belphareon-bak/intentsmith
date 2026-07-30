@@ -117,7 +117,11 @@ export function createAutonomyRoutes(deps) {
           return;
         }
 
-        telemetryAlerts.acknowledge.run(id);
+        const result = telemetryAlerts.acknowledge.run(id);
+        if (result.changes === 0) {
+          sendJSON(res, 404, { error: `Alert #${id} not found` });
+          return;
+        }
         sendJSON(res, 200, { success: true });
       } catch (err) {
         logger.error('Autonomy', `Acknowledge error: ${err.message}`);

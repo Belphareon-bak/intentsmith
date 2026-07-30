@@ -472,7 +472,7 @@ export function createChatRoutes(deps) {
 
       try {
         const draft = db.drafts.get(conversationId, projectId ? parseInt(projectId) : null);
-        sendJSON(res, 200, { draft });
+        sendJSON(res, 200, { draft: draft || null });
       } catch (err) {
         sendJSON(res, 500, safeError(err));
       }

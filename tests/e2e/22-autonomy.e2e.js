@@ -7,30 +7,35 @@ await waitForServer();
 // ── Status ──────────────────────────────────────────────────────────────────
 suite('GET /api/autonomy/status');
 
-await testAsync('returns autonomy status (or 404 if not registered)', async () => {
+await testAsync('returns autonomy status when the owned server enables autonomy', async () => {
   const { status, data } = await api('GET', '/api/autonomy/status');
-  assert(status === 200 || status === 404, `expected 200/404, got ${status}`);
-  if (status === 200) {
-    assert(typeof data === 'object', 'status must be object');
-  }
+  assertEqual(status, 200);
+  assert(typeof data.currentThreshold === 'number', 'currentThreshold must be numeric');
+  assert(Number.isInteger(data.trustLevel), 'trustLevel integer required');
+  assertEqual(typeof data.autoApplyEnabled, 'boolean');
+  assert(Array.isArray(data.pendingProposals), 'pendingProposals array required');
+  assert(Array.isArray(data.unacknowledgedAlerts), 'unacknowledgedAlerts array required');
 });
 
 // ── Approve/Reject Error Paths ──────────────────────────────────────────────
 suite('Autonomy Actions — Error Paths');
 
 await testAsync('approve nonexistent action returns 404', async () => {
-  const { status } = await api('POST', '/api/autonomy/approve/nonexistent-xyz');
-  assert(status === 404 || status === 400 || status === 500, `expected 404/400/500, got ${status}`);
+  const { status, data } = await api('POST', '/api/autonomy/approve/2147483647');
+  assertEqual(status, 404);
+  assert(data.error.includes('not found'), 'missing-improvement error required');
 });
 
 await testAsync('reject nonexistent action returns 404', async () => {
-  const { status } = await api('POST', '/api/autonomy/reject/nonexistent-xyz');
-  assert(status === 404 || status === 400 || status === 500, `expected 404/400/500, got ${status}`);
+  const { status, data } = await api('POST', '/api/autonomy/reject/2147483647');
+  assertEqual(status, 404);
+  assert(data.error.includes('not found'), 'missing-improvement error required');
 });
 
 await testAsync('acknowledge nonexistent alert returns 404', async () => {
-  const { status } = await api('POST', '/api/autonomy/alerts/nonexistent-xyz/acknowledge');
-  assert(status === 404 || status === 400 || status === 500, `expected 404/400/500, got ${status}`);
+  const { status, data } = await api('POST', '/api/autonomy/alerts/2147483647/acknowledge');
+  assertEqual(status, 404);
+  assert(data.error.includes('not found'), 'missing-alert error required');
 });
 
 const result = summary();

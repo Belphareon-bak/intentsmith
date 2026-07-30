@@ -7,59 +7,75 @@ await waitForServer();
 // ── List ─────────────────────────────────────────────────────────────────────
 suite('GET /api/features');
 
-let featureNames = [];
+let originalSkills;
 
 await testAsync('returns features object', async () => {
   const { status, data } = await api('GET', '/api/features');
   assertEqual(status, 200);
-  assert(typeof data === 'object', 'features must be object');
-  const features = data.features || data;
-  featureNames = Object.keys(features);
+  assert(data.features && typeof data.features === 'object', 'features object required');
+  assert(Object.keys(data.features).length > 0, 'at least one feature required');
+  assert(Object.values(data.features).every(value => typeof value === 'boolean'), 'feature values must be boolean');
+  originalSkills = data.features.skills;
+  assertEqual(typeof originalSkills, 'boolean');
 });
 
 // ── Toggle ──────────────────────────────────────────────────────────────────
 suite('POST /api/features/:name — toggle');
 
 await testAsync('toggle known feature succeeds', async () => {
-  if (featureNames.length === 0) return;
-  const name = featureNames[0];
-  const { status } = await api('POST', `/api/features/${name}`, { enabled: true });
-  assert(status === 200 || status === 204, `expected 200/204, got ${status}`);
+  const { status, data } = await api('POST', '/api/features/skills', {
+    enabled: !originalSkills,
+  });
+  assertEqual(status, 200);
+  assertEqual(data.ok, true);
+  assertEqual(data.features.skills, !originalSkills);
+
+  const current = await api('GET', '/api/features');
+  assertEqual(current.status, 200);
+  assertEqual(current.data.features.skills, !originalSkills);
 });
 
-await testAsync('toggle unknown feature returns 404 or creates it', async () => {
-  const { status } = await api('POST', '/api/features/nonexistent-feature-xyz', { enabled: true });
-  assert(status === 200 || status === 204 || status === 404 || status === 400, `expected 200/204/404/400, got ${status}`);
+await testAsync('toggle unknown feature returns 400', async () => {
+  const { status, data } = await api('POST', '/api/features/nonexistent-feature-xyz', { enabled: true });
+  assertEqual(status, 400);
+  assert(data.error.includes('Unknown feature'), 'unknown-feature error required');
 });
 
 // ── Reset ───────────────────────────────────────────────────────────────────
 suite('POST /api/features/reset');
 
 await testAsync('reset features to defaults', async () => {
-  const { status } = await api('POST', '/api/features/reset');
-  assert(status === 200 || status === 204, `expected 200/204, got ${status}`);
+  const { status, data } = await api('POST', '/api/features/reset');
+  assertEqual(status, 200);
+  assertEqual(data.ok, true);
+  assertEqual(data.features.skills, originalSkills);
 });
 
 await testAsync('features restored after reset', async () => {
   const { status, data } = await api('GET', '/api/features');
   assertEqual(status, 200);
-  assert(typeof data === 'object', 'features must be object after reset');
+  assertEqual(data.features.skills, originalSkills);
 });
 
 // ── Autocomplete ────────────────────────────────────────────────────────────
 suite('POST /api/autocomplete');
 
-await testAsync('autocomplete with short prefix returns suggestions or error', async () => {
-  const { status } = await api('POST', '/api/autocomplete', { text: 'Ja', context: '' });
-  assert(status === 200 || status === 400 || status === 500 || status === 502, `expected 200/400/500/502, got ${status}`);
+await testAsync('autocomplete with short prefix returns exact null without model I/O', async () => {
+  const { status, data } = await api('POST', '/api/autocomplete', {
+    partial: 'Ja',
+    context: [],
+  });
+  assertEqual(status, 200);
+  assertEqual(data.suggestion, null);
 });
 
 // ── Context ─────────────────────────────────────────────────────────────────
 suite('POST /api/context');
 
 await testAsync('context estimate returns percentage', async () => {
-  const { status, data } = await api('POST', '/api/context', { text: 'Hello world' });
-  assert(status === 200 || status === 400 || status === 500, `expected 200/400/500, got ${status}`);
+  const { status, data } = await api('POST', '/api/context', { messageCount: 8 });
+  assertEqual(status, 200);
+  assertEqual(data.percent, 20);
 });
 
 const result = summary();

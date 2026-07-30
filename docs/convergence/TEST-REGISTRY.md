@@ -13,7 +13,7 @@ override a failed or blocked suite.
 - Runnable programs: 350
 - Explicit support-module exclusions: 8
 - Profiles: offline=173, database=26, server=32, model=71, soak=33, manual=15
-- States: ACTIVE=256, HISTORICAL=15, BLOCKED=63, KNOWN_DEFECTIVE=16
+- States: ACTIVE=256, HISTORICAL=15, BLOCKED=67, KNOWN_DEFECTIVE=12
 
 ## Execution profiles
 
@@ -155,14 +155,14 @@ override a failed or blocked suite.
 | `IS-T5-E2E-207-S2-SHOPFLOW-P2` | `tests/e2e/207-s2-shopflow-p2.e2e.js` | `C3-027` | T5 | `soak` | 60 min | 90 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T5-E2E-208-S2-SHOPFLOW-P3` | `tests/e2e/208-s2-shopflow-p3.e2e.js` | `C3-027` | T5 | `soak` | 60 min | 90 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T5-E2E-209-S2-SHOPFLOW-P4` | `tests/e2e/209-s2-shopflow-p4.e2e.js` | `C3-027` | T5 | `soak` | 60 min | 90 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T3-E2E-21-MODEL-UPGRADE` | `tests/e2e/21-model-upgrade.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:external, temp-db, server, ollama, gpu | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
+| `IS-T3-E2E-21-MODEL-UPGRADE` | `tests/e2e/21-model-upgrade.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T5-E2E-210-S2-SHOPFLOW-P5` | `tests/e2e/210-s2-shopflow-p5.e2e.js` | `C3-027` | T5 | `soak` | 60 min | 90 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T5-E2E-211-S2-SHOPFLOW-P6` | `tests/e2e/211-s2-shopflow-p6.e2e.js` | `C3-027` | T5 | `soak` | 60 min | 90 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T3-E2E-22-AUTONOMY` | `tests/e2e/22-autonomy.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
+| `IS-T3-E2E-22-AUTONOMY` | `tests/e2e/22-autonomy.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T5-E2E-220-E2E-SUITE-RUNNER` | `tests/e2e/220-e2e-suite-runner.js` | `C3-027` | T5 | `soak` | 720 min | 1080 min | network:external, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T3-E2E-23-FEEDBACK` | `tests/e2e/23-feedback.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
+| `IS-T3-E2E-23-FEEDBACK` | `tests/e2e/23-feedback.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-24-DRAFTS` | `tests/e2e/24-drafts.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
-| `IS-T3-E2E-25-FEATURES` | `tests/e2e/25-features.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
+| `IS-T3-E2E-25-FEATURES` | `tests/e2e/25-features.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-50-CHAT-CONVERSATION` | `tests/e2e/50-chat-conversation.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-51-CRE-CLASSIFICATION` | `tests/e2e/51-cre-classification.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
 | `IS-T3-E2E-52-CHAT-QUALITY-GATE` | `tests/e2e/52-chat-quality-gate.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |

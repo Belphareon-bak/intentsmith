@@ -12,79 +12,78 @@ let bindings = {};
 await testAsync('GET bindings returns current model roles', async () => {
   const { status, data } = await api('GET', '/api/system/upgrades/bindings');
   assertEqual(status, 200);
-  assert(data.bindings, 'bindings object required');
+  assert(data.bindings && typeof data.bindings === 'object', 'bindings object required');
+  assert(data.overrides && typeof data.overrides === 'object', 'overrides object required');
+  assert(Number.isInteger(data.configVersion), 'configVersion integer required');
   bindings = data.bindings;
 });
 
 await testAsync('bindings include D1 role', async () => {
-  assert(bindings.D1 || Object.keys(bindings).length > 0, 'should have at least one binding');
+  assert(typeof bindings.D1 === 'string' && bindings.D1.length > 0, 'D1 binding required');
 });
 
 // ── Apply Error Paths ───────────────────────────────────────────────────────
 suite('Upgrade Apply — Error Paths');
 
 await testAsync('apply without targetModel returns error', async () => {
-  const { status } = await api('POST', '/api/system/upgrades/apply', { role: 'D1' });
-  assert(status === 400 || status === 500, `expected 400/500, got ${status}`);
-});
-
-await testAsync('apply with nonexistent model returns accepted (async validation)', async () => {
-  const { status, data } = await api('POST', '/api/system/upgrades/apply', {
-    role: 'D1',
-    targetModel: 'nonexistent-model-xyz:latest'
-  });
-  // Apply is fire-and-forget: returns 200 immediately, validates async
-  assert(status === 200 || status === 400 || status === 404, `expected 200 (async) or error, got ${status}`);
+  const { status, data } = await api('POST', '/api/system/upgrades/apply', { role: 'D1' });
+  assertEqual(status, 400);
+  assert(data.error.includes('role, targetModel'), 'missing-field error required');
 });
 
 await testAsync('apply with invalid role returns error', async () => {
-  const { status } = await api('POST', '/api/system/upgrades/apply', {
+  const { status, data } = await api('POST', '/api/system/upgrades/apply', {
     role: 'INVALID',
     targetModel: 'test'
   });
-  assert(status === 400 || status === 500, `expected 400/500, got ${status}`);
+  assertEqual(status, 400);
+  assert(data.error.includes('Invalid role'), 'invalid-role error required');
 });
 
 // ── Rollback Error Paths ────────────────────────────────────────────────────
 suite('Upgrade Rollback — Error Paths');
 
 await testAsync('rollback without previous upgrade returns error', async () => {
-  const { status } = await api('POST', '/api/system/upgrades/rollback', {
+  const { status, data } = await api('POST', '/api/system/upgrades/rollback', {
     role: 'CHAT'
   });
-  // May return 400 (no previous), 404, 500, or 502 (verification failure)
-  assert(status === 400 || status === 404 || status === 500 || status === 502, `expected error, got ${status}`);
+  assertEqual(status, 404);
+  assert(data.error.includes('No override found'), 'missing-override error required');
+});
+
+await testAsync('rollback with invalid role is rejected before lookup', async () => {
+  const { status, data } = await api('POST', '/api/system/upgrades/rollback', {
+    role: 'INVALID',
+  });
+  assertEqual(status, 400);
+  assert(data.error.includes('Invalid role'), 'invalid-role error required');
 });
 
 // ── Delete Bound Model Protection ───────────────────────────────────────────
 suite('Model Deletion Protection');
 
 await testAsync('cannot delete model bound to role', async () => {
-  const boundModel = bindings.D1 || bindings.CHAT || bindings.CODE;
-  if (!boundModel) return;
+  const boundModel = bindings.D1;
   const { status, data } = await api('DELETE', `/api/system/models?name=${encodeURIComponent(boundModel)}`);
-  // Should be rejected (409 conflict) or error
-  assert(status === 400 || status === 409 || status === 500, `expected rejection for bound model, got ${status}`);
-});
-
-// ── Upgrade Check ───────────────────────────────────────────────────────────
-suite('Upgrade Check');
-
-await testAsync('POST upgrade check returns proposals', async () => {
-  const { status, data } = await api('POST', '/api/system/upgrades/check', { fullCycle: false });
-  assert(status === 200 || status === 500, `expected 200/500, got ${status}`);
-  if (status === 200) {
-    assert(typeof data === 'object', 'check result must be object');
-  }
+  assertEqual(status, 409);
+  assert(typeof data.error === 'string' && data.error.length > 0, 'bound-model error required');
 });
 
 // ── Validation Trigger ──────────────────────────────────────────────────────
-suite('Validation Trigger');
+suite('Validation Results');
 
-await testAsync('GET validation for specific model returns shape', async () => {
-  const model = bindings.D1 || bindings.CHAT || 'unknown';
+await testAsync('GET validation requires a model', async () => {
+  const { status, data } = await api('GET', '/api/system/models/validate');
+  assertEqual(status, 400);
+  assert(data.error.includes('Missing model'), 'missing-model error required');
+});
+
+await testAsync('GET validation returns an exact empty result for an unknown model', async () => {
+  const model = 'nonexistent-model-xyz:latest';
   const { status, data } = await api('GET', `/api/system/models/validate?model=${encodeURIComponent(model)}`);
-  assert(status === 200 || status === 404, `expected 200/404, got ${status}`);
+  assertEqual(status, 200);
+  assertEqual(data.model, model);
+  assertEqual(Object.keys(data.suites).length, 0);
 });
 
 const result = summary();

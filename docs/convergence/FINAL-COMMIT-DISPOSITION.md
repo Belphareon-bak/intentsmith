@@ -74,8 +74,8 @@ node scripts/validate-final-disposition.js \
 | `EXCLUDE/MOVE_OUTSIDE_PRODUCTION` | 78 |
 | `EXCLUDE/REMOVE_FOLLOWUP` | 13 |
 | `KEEP/REPLAY` | 42 |
-| `REBUILD/REPAIR` | 31 |
-| `REBUILD/REPAIRED` | 46 |
+| `REBUILD/REPAIR` | 26 |
+| `REBUILD/REPAIRED` | 51 |
 | `REBUILD/DEFERRED(<prerequisite>)` | 15 |
 | `UNRESOLVED / USER_DECISION` | 0 |
 
@@ -241,14 +241,14 @@ node scripts/validate-final-disposition.js \
 | `A` | `tests/e2e/207-s2-shopflow-p2.e2e.js` | `REBUILD` | `REPAIRED` | S2 P2 now evaluates pass-count and code-score thresholds before persisting completion; the ordering self-check at `452b1f7688e7624d30b81daabcb0be3b18a64cd0` exited 0. |
 | `A` | `tests/e2e/208-s2-shopflow-p3.e2e.js` | `REBUILD` | `REPAIRED` | S2 P3 now evaluates pass-count and code-score thresholds before persisting completion; the ordering self-check at `452b1f7688e7624d30b81daabcb0be3b18a64cd0` exited 0. |
 | `A` | `tests/e2e/209-s2-shopflow-p4.e2e.js` | `REBUILD` | `REPAIRED` | S2 P4 now evaluates pass-count and template-score thresholds before persisting completion; the ordering self-check at `452b1f7688e7624d30b81daabcb0be3b18a64cd0` exited 0. |
-| `A` | `tests/e2e/21-model-upgrade.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/21-model-upgrade.e2e.js` | `REBUILD` | `REPAIRED` | Bindings, missing fields, invalid roles, absent rollback state, bound-model deletion and empty validation results now require exact synchronous contracts; unverifiable fire-and-forget upgrade/check calls were removed, so this control-plane suite no longer claims external/model prerequisites. |
 | `A` | `tests/e2e/210-s2-shopflow-p5.e2e.js` | `REBUILD` | `REPAIRED` | S2 P5 now evaluates pass-count and test-score thresholds before persisting completion; the ordering self-check at `452b1f7688e7624d30b81daabcb0be3b18a64cd0` exited 0. |
 | `A` | `tests/e2e/211-s2-shopflow-p6.e2e.js` | `REBUILD` | `REPAIRED` | S2 P6 asserts before completion, performs both cleanups in `finally`, and saves only after successful assertion and cleanup. The registered self-check at `452b1f7688e7624d30b81daabcb0be3b18a64cd0` exited 0. |
-| `A` | `tests/e2e/22-autonomy.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/22-autonomy.e2e.js` | `REBUILD` | `REPAIRED` | An autonomy-enabled owned server must return the full status shape and exact 404 responses for absent numeric improvement/alert IDs; acknowledging an absent alert now checks the update result instead of reporting false success. |
 | `A` | `tests/e2e/220-e2e-suite-runner.js` | `REBUILD` | `REPAIRED` | The runner uses private run-owned storage, defaults to clean state, derives the exact Git HEAD, records it in schema-v2 evidence and forwards it to phases; full execution rejects a dirty tree. Its self-check at `343c19f9354c87a0154baf695f9351221c7722c8` reported `SELF_CHECK_PASS`, exit 0. |
-| `A` | `tests/e2e/23-feedback.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/24-drafts.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/25-features.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/23-feedback.e2e.js` | `REBUILD` | `REPAIRED` | The suite now requires an exact 201 insert with a persisted category/message, an immediate exact 429 second submission, exact 404 attachment lookup and exact audit/list schemas; accepted 5xx and rate-limit early exits are gone. |
+| `A` | `tests/e2e/24-drafts.e2e.js` | `REBUILD` | `REPAIRED` | Conversation creation is mandatory; save/load assert the exact draft content, DELETE sends the route's JSON body contract, and both unknown and deleted drafts must return null before owned cleanup. |
+| `A` | `tests/e2e/25-features.e2e.js` | `REBUILD` | `REPAIRED` | A known feature is toggled and read back, reset to its captured default, and an unknown feature must return 400; short autocomplete and context estimation now use canonical payloads with exact model-free outputs, removing false Ollama/GPU prerequisites. |
 | `A` | `tests/e2e/50-chat-conversation.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/51-cre-classification.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/52-chat-quality-gate.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
