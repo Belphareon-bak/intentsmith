@@ -173,6 +173,10 @@ evidence record MUST therefore carry the exact command, the exit status, and a
 SHA-256 of the captured output — enough to re-run without reading this
 conversation, the transcript, or any local state. Evidence that cannot be
 reproduced from the commit is not evidence.
+Host-specific executed commands are retained verbatim, but each must also have
+a mechanically derived replay command rooted at `$PWD` and a checkout-relative
+artifact locator. A replay command retaining any other host-absolute path is an
+evidence-infrastructure failure.
 
 Install logs additionally carry the candidate SHA, pre/post clean-worktree
 markers, run kind (`clean` or `idempotent`), and SHA-256 of the documented

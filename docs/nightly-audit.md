@@ -103,6 +103,11 @@ validated report.
 `node scripts/generate-gate0-evidence.js ...` accepts only evidence artifacts
 bound to its clean candidate SHA and current registry fingerprint. The verdict
 is derived; the generator rejects the former manual `--verdict` override.
+`--execution-root` names the absolute checkout used for the recorded commands.
+The generator preserves those exact commands and mechanically emits a second
+portable form in which that root is `$PWD`; any other host-absolute path or
+artifact outside the checkout is rejected. Evidence entries therefore carry
+both the executed path and a fresh-clone replay locator.
 
 The registry and disposition validators are invoked with `--json`. A
 well-formed validation report with errors is a valid red state: the generator
@@ -124,8 +129,8 @@ row in `RISK-REGISTER.md`. A missing or duplicate mapping, unknown
 `gateImpact`, malformed entry, missing concrete condition, extra policy row, or
 new unclassified open/local risk fails G0-C9. Any non-closed `G0_FAIL` row
 forces `FAIL`; reopening one is effective without changing generator code. The
-current policy derives `G0-R014` as the repository blocker; `G0-R015` requires
-review. `G0-R018` remains
+current policy has no open repository-local `G0_FAIL` row; `G0-R015` requires
+independent review. `G0-R018` remains
 a later-gate risk only while the legacy listener stays loopback-only, and the
 privacy findings remain separately reported incidents.
 

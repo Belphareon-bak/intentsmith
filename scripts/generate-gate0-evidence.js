@@ -55,6 +55,7 @@ export async function main(argv = process.argv.slice(2)) {
     'deterministic-command',
     'pilot-command-template',
     'soak-command',
+    'execution-root',
   ]) {
     if (!opts[key]) throw new Error(`Missing --${key}=VALUE`);
   }
@@ -63,6 +64,27 @@ export async function main(argv = process.argv.slice(2)) {
       '--verdict is not supported; Gate 0 verdicts are derived from evidence',
     );
   }
+  const executionRoot = path.resolve(opts['execution-root']);
+  requireEvidence(
+    path.isAbsolute(opts['execution-root']),
+    '--execution-root must be an absolute candidate checkout path',
+  );
+  const installReplayCommand = makeReplayCommand(
+    opts['install-command'],
+    executionRoot,
+  );
+  const deterministicReplayCommand = makeReplayCommand(
+    opts['deterministic-command'],
+    executionRoot,
+  );
+  const pilotReplayCommandTemplate = makeReplayCommand(
+    opts['pilot-command-template'],
+    executionRoot,
+  );
+  const soakReplayCommand = makeReplayCommand(
+    opts['soak-command'],
+    executionRoot,
+  );
 
   const initialStatus = git(['status', '--porcelain=v1', '--untracked-files=all']);
   if (initialStatus !== '') {
@@ -162,6 +184,7 @@ export async function main(argv = process.argv.slice(2)) {
     installLogs.push({
       kind,
       path: displayPath(absolutePath),
+      replayPath: makeReplayArtifactPath(absolutePath, executionRoot),
       bytes: contents.length,
       sha256: sha256(contents),
       exitCode: 0,
@@ -253,8 +276,10 @@ export async function main(argv = process.argv.slice(2)) {
 
   const deterministicEvidence = {
     command: opts['deterministic-command'],
+    replayCommand: deterministicReplayCommand,
     exitCode: deterministicReport.exitCode,
     report: displayPath(deterministicReportPath),
+    replayReport: makeReplayArtifactPath(deterministicReportPath, executionRoot),
     reportSha256: await hashFile(deterministicReportPath),
     statusCounts: deterministicReport.statusCounts,
     inventoryFingerprint: deterministicReport.inventoryFingerprint,
@@ -265,7 +290,9 @@ export async function main(argv = process.argv.slice(2)) {
   const pilotEvidence = await Promise.all(pilotReports.map(async item => ({
     runId: item.report.runId,
     command: opts['pilot-command-template'].replaceAll('{runId}', item.report.runId),
+    replayCommand: pilotReplayCommandTemplate.replaceAll('{runId}', item.report.runId),
     report: displayPath(item.path),
+    replayReport: makeReplayArtifactPath(item.path, executionRoot),
     reportSha256: await hashFile(item.path),
     exitCode: item.report.exitCode,
     startedAt: item.report.startedAt,
@@ -273,15 +300,17 @@ export async function main(argv = process.argv.slice(2)) {
   })));
   const soakEvidence = {
     command: opts['soak-command'],
+    replayCommand: soakReplayCommand,
     exitCode: soakGuard.exitCode,
     verdict: soakGuard.verdict,
     report: displayPath(soakGuardPath),
+    replayReport: makeReplayArtifactPath(soakGuardPath, executionRoot),
     reportSha256: await hashFile(soakGuardPath),
     blockedBy: [...new Set(soakGuard.results.flatMap(result => result.blockedBy || []))].sort(),
   };
 
   const evidenceIndex = {
-    schemaVersion: 4,
+    schemaVersion: 5,
     product: 'IntentSmith',
     gate: 'Gate 0',
     verdict,
@@ -344,6 +373,8 @@ export async function main(argv = process.argv.slice(2)) {
     installation: {
       command: opts['install-command'],
       repeatedCommand: opts['install-command'],
+      replayCommand: installReplayCommand,
+      repeatedReplayCommand: installReplayCommand,
       logs: installLogs,
     },
     deterministic: deterministicEvidence,
@@ -390,6 +421,7 @@ export async function main(argv = process.argv.slice(2)) {
     dispositionValidation,
     installLogs,
     installCommand: opts['install-command'],
+    installReplayCommand,
     deterministicEvidence,
     pilotEvidence,
     soakEvidence,
@@ -407,6 +439,7 @@ export async function main(argv = process.argv.slice(2)) {
     reviewRange,
     reviewCommits,
     reviewDiffStat,
+    installReplayCommand,
     deterministicEvidence,
     pilotEvidence,
     soakEvidence,
@@ -710,6 +743,7 @@ export function renderBaselineReport({
   dispositionValidation,
   installLogs,
   installCommand,
+  installReplayCommand,
   deterministicEvidence,
   pilotEvidence,
   soakEvidence,
@@ -725,7 +759,7 @@ export function renderBaselineReport({
     `| \`${item.runId}\` | 0 | PASS | \`${item.reportSha256}\` |`
   )).join('\n');
   const pilotCommands = pilotEvidence.map(item => (
-    `- \`${item.runId}\`: \`${item.command}\``
+    `- \`${item.runId}\`: executed \`${item.command}\`; replay \`${item.replayCommand}\``
   )).join('\n');
   const rotationRows = privacy.rotationInventory
     .map(item => `- ${item.category}: ${item.action}`)
@@ -777,9 +811,15 @@ Exact command, run twice with the same fresh isolated cache:
 ${installCommand}
 \`\`\`
 
-| Run | Exit | Bytes | Log SHA-256 | Local artifact |
-|---|---:|---:|---|---|
-${installLogs.map(log => `| ${log.kind} | 0 | ${log.bytes} | \`${log.sha256}\` | \`${log.path}\` |`).join('\n')}
+Portable replay from the root of a fresh clone:
+
+\`\`\`bash
+${installReplayCommand}
+\`\`\`
+
+| Run | Exit | Bytes | Log SHA-256 | Executed artifact | Replay locator |
+|---|---:|---:|---|---|---|
+${installLogs.map(log => `| ${log.kind} | 0 | ${log.bytes} | \`${log.sha256}\` | \`${log.path}\` | \`${log.replayPath}\` |`).join('\n')}
 
 The first run installed locked Node/Yarn/Python dependencies and built the IDE.
 The second run exited 0 and reported the frozen Yarn tree already up to date.
@@ -790,10 +830,12 @@ The second run exited 0 and reported the frozen Yarn tree already up to date.
 ${deterministicEvidence.command}
 \`\`\`
 
+- Portable replay: \`${deterministicEvidence.replayCommand}\`
 - Exit: **${deterministicEvidence.exitCode}**
 - Verdict: **PASS**
 - Status: \`${JSON.stringify(deterministicEvidence.statusCounts)}\`
 - Report: \`${deterministicEvidence.report}\`
+- Replay report locator: \`${deterministicEvidence.replayReport}\`
 - Report SHA-256: \`${deterministicEvidence.reportSha256}\`
 - Inventory fingerprint: \`${deterministicEvidence.inventoryFingerprint}\`
 - Options fingerprint: \`${deterministicEvidence.optionsFingerprint}\`
@@ -818,10 +860,12 @@ ceremony C2 fixture, not production score weights or thresholds.
 ## Model-backed soak guard
 
 - Command: \`${soakEvidence.command}\`
+- Portable replay: \`${soakEvidence.replayCommand}\`
 - Exit: **${soakEvidence.exitCode}**
 - Verdict: **${soakEvidence.verdict}**
 - Named prerequisites: \`${soakEvidence.blockedBy.join(', ')}\`
 - Report SHA-256: \`${soakEvidence.reportSha256}\`
+- Replay report locator: \`${soakEvidence.replayReport}\`
 
 Five soak programs previously misdeclared as model-free are now blocked before
 execution unless Ollama and GPU are explicitly authorized.
@@ -884,6 +928,7 @@ function renderReviewPacket({
   reviewRange,
   reviewCommits,
   reviewDiffStat,
+  installReplayCommand,
   deterministicEvidence,
   pilotEvidence,
   soakEvidence,
@@ -947,15 +992,18 @@ ${reviewDiffStat}
 ## Verification
 
 - Deterministic registry: ${GATE0_DETERMINISTIC_COUNT} PASS, exit 0, report SHA
-  \`${deterministicEvidence.reportSha256}\`.
+  \`${deterministicEvidence.reportSha256}\`; replay
+  \`${deterministicEvidence.replayCommand}\`.
 - Pilot A9: five consecutive PASS reports:
 ${pilotEvidence.map(item => (
-    `  - \`${item.runId}\`: report \`${item.reportSha256}\`; command \`${item.command}\``
+    `  - \`${item.runId}\`: report \`${item.reportSha256}\`; replay \`${item.replayCommand}\``
   )).join('\n')}
 - Soak requirement guard: ${soakEvidence.verdict}, exit
-  ${soakEvidence.exitCode}, prerequisites \`${soakEvidence.blockedBy.join(', ')}\`.
+  ${soakEvidence.exitCode}, prerequisites \`${soakEvidence.blockedBy.join(', ')}\`;
+  replay \`${soakEvidence.replayCommand}\`.
 - Registry and disposition validator exits: ${clauses.find(clause => clause.id === 'G0-C3')?.result === 'PASS' ? 0 : 1} and ${clauses.find(clause => clause.id === 'G0-C2')?.result === 'PASS' ? 0 : 1}.
-- Clean install: two consecutive exit-0 runs from the candidate.
+- Clean install: two consecutive exit-0 runs from the candidate; replay
+  \`${installReplayCommand}\`.
 
 ## Known risks
 
@@ -1044,6 +1092,41 @@ function displayPath(absolutePath) {
   return !relative.startsWith('..') && !path.isAbsolute(relative)
     ? relative.split(path.sep).join('/')
     : absolutePath;
+}
+
+export function makeReplayCommand(command, executionRoot) {
+  if (typeof command !== 'string' || command.trim() === '') {
+    throw new Error('replay command source must be a non-empty string');
+  }
+  if (typeof executionRoot !== 'string' || !path.isAbsolute(executionRoot)) {
+    throw new Error('replay execution root must be absolute');
+  }
+  const normalizedRoot = path.resolve(executionRoot);
+  if (!command.includes(normalizedRoot)) {
+    throw new Error('executed command does not contain the declared execution root');
+  }
+  const replay = command.replaceAll(normalizedRoot, '$PWD');
+  if (/(^|[\s='"])\/(?!\/)/.test(replay)) {
+    throw new Error('portable replay command retains a host-absolute path');
+  }
+  return replay;
+}
+
+export function makeReplayArtifactPath(absolutePath, executionRoot) {
+  if (
+    typeof absolutePath !== 'string'
+    || typeof executionRoot !== 'string'
+    || !path.isAbsolute(absolutePath)
+    || !path.isAbsolute(executionRoot)
+  ) {
+    throw new Error('replay artifact path and execution root must be absolute');
+  }
+  const normalizedRoot = path.resolve(executionRoot);
+  const relative = path.relative(normalizedRoot, path.resolve(absolutePath));
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error('replay artifact must be a file below the execution root');
+  }
+  return `$PWD/${relative.split(path.sep).join('/')}`;
 }
 
 async function writeAtomic(filePath, contents) {

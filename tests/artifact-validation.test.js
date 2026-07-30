@@ -35,6 +35,8 @@ import {
 import {
   buildGate0Clauses,
   main as generateGate0Evidence,
+  makeReplayArtifactPath,
+  makeReplayCommand,
   renderBaselineReport,
   renderStatus,
 } from '../scripts/generate-gate0-evidence.js';
@@ -570,6 +572,42 @@ test('risk policy validity is a generated Gate 0 clause', () => {
 
 suite('Gate 0 verdict derivation');
 
+test('portable replay normalizes only the declared checkout root', () => {
+  const command = 'env C3_DB_PATH=/work/repository/.intentsmith-artifacts/db.sqlite '
+    + 'node /work/repository/scripts/nightly-audit.js';
+  assertEqual(
+    makeReplayCommand(command, '/work/repository'),
+    'env C3_DB_PATH=$PWD/.intentsmith-artifacts/db.sqlite '
+      + 'node $PWD/scripts/nightly-audit.js',
+  );
+});
+
+test('portable replay rejects a residual host-absolute path', () => {
+  assertThrows(() => makeReplayCommand(
+    'env C3_DB_PATH=/work/repository/db.sqlite TOOL=/opt/private/tool '
+      + 'node /work/repository/scripts/nightly-audit.js',
+    '/work/repository',
+  ));
+});
+
+test('portable replay requires the executed checkout root', () => {
+  assertThrows(() => makeReplayCommand(
+    'node scripts/nightly-audit.js',
+    '/work/repository',
+  ));
+});
+
+test('replay artifact locator is checkout-relative and rejects escape', () => {
+  assertEqual(
+    makeReplayArtifactPath(
+      '/work/repository/.intentsmith-artifacts/report.json',
+      '/work/repository',
+    ),
+    '$PWD/.intentsmith-artifacts/report.json',
+  );
+  assertThrows(() => makeReplayArtifactPath('/work/other/report.json', '/work/repository'));
+});
+
 function dispositionReport(errors = []) {
   const dispositions = [
     ...Array(91).fill('EXCLUDE'),
@@ -879,15 +917,30 @@ test('baseline renders disposition counts from the structured report', () => {
     },
     dispositionValidation: { exitCode: 0, output: JSON.stringify(disposition) },
     installLogs: [
-      { kind: 'clean', bytes: 1, sha256: 'c'.repeat(64), path: 'clean.log' },
-      { kind: 'idempotent', bytes: 1, sha256: 'd'.repeat(64), path: 'again.log' },
+      {
+        kind: 'clean',
+        bytes: 1,
+        sha256: 'c'.repeat(64),
+        path: 'clean.log',
+        replayPath: '$PWD/.intentsmith-artifacts/clean.log',
+      },
+      {
+        kind: 'idempotent',
+        bytes: 1,
+        sha256: 'd'.repeat(64),
+        path: 'again.log',
+        replayPath: '$PWD/.intentsmith-artifacts/again.log',
+      },
     ],
     installCommand: './scripts/install.sh --minimal',
+    installReplayCommand: './scripts/install.sh --minimal',
     deterministicEvidence: {
       command: 'node scripts/nightly-audit.js',
+      replayCommand: 'node scripts/nightly-audit.js',
       exitCode: 0,
       statusCounts: { PASS: 199 },
       report: 'report.json',
+      replayReport: '$PWD/.intentsmith-artifacts/report.json',
       reportSha256: 'e'.repeat(64),
       inventoryFingerprint: 'f'.repeat(64),
       optionsFingerprint: '1'.repeat(64),
@@ -895,10 +948,12 @@ test('baseline renders disposition counts from the structured report', () => {
     pilotEvidence: [],
     soakEvidence: {
       command: 'node scripts/nightly-audit.js --profile=soak',
+      replayCommand: 'node scripts/nightly-audit.js --profile=soak',
       exitCode: 2,
       verdict: 'BLOCKED',
       blockedBy: ['gpu', 'ollama'],
       reportSha256: '2'.repeat(64),
+      replayReport: '$PWD/.intentsmith-artifacts/soak/report.json',
     },
     privacy: {
       incidentId: 'G0-PRIVACY-001',
@@ -939,6 +994,7 @@ await testAsync('even an empty manual verdict override is rejected before eviden
       '--deterministic-command=unused',
       '--pilot-command-template=unused-{runId}',
       '--soak-command=unused',
+      '--execution-root=/unused',
       '--verdict=',
     ]);
   } finally {
