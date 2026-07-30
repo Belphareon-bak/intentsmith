@@ -230,6 +230,8 @@ export async function runAudit(options = {}) {
   let checkpointWrite = Promise.resolve();
 
   await writeJSON(inventoryPath, {
+    schemaVersion: 1,
+    manifestType: 'intentsmith.audit-inventory',
     runId,
     sourceRevision,
     generatedAt: startedAt,
@@ -1028,6 +1030,8 @@ function makeReport({
     ? 0
     : verdict === 'BLOCKED' ? 2 : 1;
   const report = {
+    schemaVersion: 1,
+    manifestType: 'intentsmith.audit-report',
     runId,
     sourceRevision,
     startedAt,
@@ -1038,10 +1042,10 @@ function makeReport({
       failFast: opts.failFast,
       timeoutMs: opts.timeoutMs,
       deadlineMs: opts.deadlineMs,
-      profiles: [...opts.profiles],
-      ids: [...opts.ids],
-      exclude: [...opts.exclude],
-      allowBlockers: [...opts.allowBlockers],
+      profiles: [...opts.profiles].sort(),
+      ids: [...opts.ids].sort(),
+      exclude: [...opts.exclude].sort(),
+      allowBlockers: [...opts.allowBlockers].sort(),
       noBlock: opts.noBlock,
     },
     paths: {

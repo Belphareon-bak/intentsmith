@@ -200,6 +200,14 @@ export function validateTestRegistry(registry, candidates) {
           errors.push(`${label}.requirements.${field} must be boolean`);
         }
       }
+      if (
+        suite.state === 'BLOCKED'
+        && !hasConcreteBlockedPrerequisite(suite)
+      ) {
+        errors.push(
+          `${label} BLOCKED state requires external network, server, ollama, or gpu`,
+        );
+      }
       if (MODEL_FIXTURE_REQUIRED_SUITE_IDS.has(suite.id) && !requirements.modelFixture) {
         errors.push(`${label}.requirements.modelFixture is required by G0-R020`);
       }
@@ -258,6 +266,14 @@ export function registryFingerprint(registry) {
   return createHash('sha256')
     .update(JSON.stringify(registry))
     .digest('hex');
+}
+
+export function hasConcreteBlockedPrerequisite(suite) {
+  const requirements = suite?.requirements;
+  return requirements?.network === 'external'
+    || requirements?.server === true
+    || requirements?.ollama === true
+    || requirements?.gpu === true;
 }
 
 export function renderTestRegistry(registry) {

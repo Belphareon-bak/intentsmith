@@ -143,6 +143,11 @@
       "riskId": "G0-R027",
       "gateImpact": "G0_FAIL",
       "rationale": "A vulnerability-audit network or process failure represented as a clean report is a Gate 0 false-green defect."
+    },
+    {
+      "riskId": "G0-R028",
+      "gateImpact": "G0_FAIL",
+      "rationale": "Caller-controlled or weakly bound evidence provenance can create a false Gate 0 attestation."
     }
   ]
 }

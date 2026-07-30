@@ -2,13 +2,17 @@
 // Run: node tests/artifact-validation.test.js
 
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import {
   chmodSync,
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
   rmSync,
+  statSync,
+  symlinkSync,
   writeFileSync,
 } from 'fs';
 import { tmpdir } from 'os';
@@ -41,13 +45,43 @@ import {
   ReviewStatus,
 } from '../scripts/gate0-evidence-verdict.js';
 import {
+  buildGate0RiskEvidence,
+  buildPrivacyIncidentEvidence,
+  buildRegistryGateFacts,
+} from '../scripts/gate0-evidence-projections.js';
+import { validateTestRegistry } from '../scripts/test-registry.js';
+import {
+  auditResultLogIdentityErrors,
   buildGate0Clauses,
+  formatPortableInvocation,
+  loadAndValidateAuditEvidence,
   main as generateGate0Evidence,
-  makeReplayArtifactPath,
-  makeReplayCommand,
   renderBaselineReport,
   renderStatus,
+  runWithGate0OutputRollback,
 } from '../scripts/generate-gate0-evidence.js';
+import {
+  buildGate0ExecutionPlan,
+  buildSanitizedExecutionEvidence,
+  gate0EvidenceLayout,
+  makePortableInvocation,
+  resolveOwnedEvidenceFile,
+  validateGate0Provenance,
+} from '../scripts/gate0-evidence-contract.js';
+import {
+  assertAllowedIgnoredState,
+  assertOwnedDependencyRoots,
+  assertOwnedExecutionBoundary,
+  assertOwnedArtifactRoot,
+  assertPristineIgnoredState,
+  captureToolchain,
+  main as runGate0CandidateEvidence,
+} from '../scripts/run-gate0-candidate-evidence.js';
+import {
+  GATE0_ATTESTATION_OUTPUTS,
+  GATE0_BOUND_OUTPUTS,
+  validateGate0Attestation,
+} from '../scripts/validate-gate0-attestation.js';
 import {
   suite,
   test,
@@ -284,6 +318,31 @@ test('root README rejects drift from the committed registry', () => {
   assert(!rootReadmeMatchesRegistry(
     rootReadme.replace('`256 ACTIVE`', '`255 ACTIVE`'),
     committedRegistry,
+  ));
+});
+
+test('BLOCKED registry rows require a concrete parent-verifiable prerequisite', () => {
+  const registry = JSON.parse(JSON.stringify(committedRegistry));
+  const suiteRecord = registry.suites.find(
+    suite => suite.id === 'IS-T5-E2E-220-E2E-SUITE-RUNNER',
+  );
+  suiteRecord.requirements = {
+    network: 'none',
+    database: false,
+    server: false,
+    ollama: false,
+    gpu: false,
+  };
+  const candidates = [
+    ...registry.suites.map(suite => suite.path),
+    ...registry.exclusions.map(exclusion => exclusion.path),
+  ];
+  const errors = validateTestRegistry(registry, candidates);
+  assert(errors.some(error => error.includes(
+    'BLOCKED state requires external network, server, ollama, or gpu',
+  )));
+  assert(buildRegistryGateFacts(registry).blockedWithoutPrerequisite.includes(
+    suiteRecord.id,
   ));
 });
 
@@ -644,10 +703,10 @@ function riskAssessmentCopy(overrides = {}) {
     schemaVersion: 1,
     valid: true,
     errors: [],
-    riskCount: 27,
-    policyCount: 27,
+    riskCount: 28,
+    policyCount: 28,
     impactCounts: {
-      G0_FAIL: 21,
+      G0_FAIL: 22,
       G0_REVIEW_REQUIRED: 1,
       LATER_GATE: 2,
       SEPARATE_INCIDENT: 3,
@@ -676,8 +735,8 @@ test('committed policy classifies every risk and derives current blockers', () =
     riskPolicyCopy(),
   );
   assertEqual(result.valid, true);
-  assertEqual(result.riskCount, 27);
-  assertEqual(result.policyCount, 27);
+  assertEqual(result.riskCount, 28);
+  assertEqual(result.policyCount, 28);
   assertEqual(result.repositoryBlockers.join(','), '');
   assertEqual(result.reviewRequiredRisks.join(','), 'G0-R015: OPEN');
   assertEqual(result.laterGateRisks.join(','), 'G0-R009: OPEN,G0-R018: OPEN');
@@ -698,6 +757,7 @@ test('policy pins Gate 0 failure classes and the loopback condition', () => {
     'G0-R020',
     'G0-R026',
     'G0-R027',
+    'G0-R028',
   ]) {
     assertEqual(byId.get(riskId)?.gateImpact, GateImpact.G0_FAIL);
   }
@@ -783,16 +843,77 @@ test('a mitigated G0_FAIL risk does not block, but reopening it does', () => {
 });
 
 test('the evidence generator consumes the policy evaluator without a risk-ID allowlist', () => {
-  assert(gate0GeneratorSource.includes('evaluateGate0RiskPolicy('));
+  assert(gate0GeneratorSource.includes('buildGate0RiskEvidence({'));
   assert(!gate0GeneratorSource.includes('GATE0_REPOSITORY_BLOCKER_IDS'));
   assert(!gate0GeneratorSource.includes('findOpenGate0RepositoryBlockers'));
+});
+
+test('committed risk projection binds both parent blobs and rejects unknown fields', () => {
+  const evidence = buildGate0RiskEvidence({
+    riskMarkdownBytes: Buffer.from(committedRiskMarkdown),
+    policyBytes: Buffer.from(JSON.stringify(committedRiskPolicy)),
+  });
+  assertEqual(evidence.repositoryBlockers.length, 0);
+  assert(/^[a-f0-9]{64}$/.test(evidence.sha256));
+  assert(/^[a-f0-9]{64}$/.test(evidence.registerSha256));
+
+  const unknown = riskPolicyCopy();
+  unknown.unreviewedOverride = true;
+  assertThrows(() => buildGate0RiskEvidence({
+    riskMarkdownBytes: Buffer.from(committedRiskMarkdown),
+    policyBytes: Buffer.from(JSON.stringify(unknown)),
+  }));
+});
+
+test('privacy projection binds the incident without republishing private paths', () => {
+  const privacyBytes = readFileSync(
+    new URL('../docs/convergence/PRIVACY-INCIDENT.json', import.meta.url),
+  );
+  const evidence = buildPrivacyIncidentEvidence(privacyBytes);
+  assertEqual(evidence.status, 'CONFIRMED_COMPROMISE');
+  assertEqual(evidence.trackedPathsRemoved, 13);
+  assertEqual(evidence.historyReachable, true);
+  assert(!JSON.stringify(evidence).includes('trackedObjectManifest'));
+  assert(!JSON.stringify(evidence).includes('attachments/'));
+
+  const invalid = JSON.parse(privacyBytes.toString('utf8'));
+  invalid.currentTreeContainment.trackedBytesRemoved += 1;
+  assertThrows(() => buildPrivacyIncidentEvidence(
+    Buffer.from(JSON.stringify(invalid)),
+  ));
+
+  const unknown = JSON.parse(privacyBytes.toString('utf8'));
+  unknown.privateOverride = true;
+  assertThrows(() => buildPrivacyIncidentEvidence(
+    Buffer.from(JSON.stringify(unknown)),
+  ));
 });
 
 test('risk policy validity is a generated Gate 0 clause', () => {
   const clauses = buildGate0Clauses({
     registryValidation: { passed: true, report: { records: 350 }, errors: [] },
     dispositionValidation: { passed: true, report: { records: 225 }, errors: [] },
-    deterministicEvidence: { statusCounts: { PASS: 199 } },
+    sourceEvidence: { passed: true, executionCount: 9 },
+    installationEvidence: {
+      passed: true,
+      logs: [
+        { kind: 'clean', exitCode: 0 },
+        { kind: 'repeat', exitCode: 0 },
+      ],
+    },
+    deterministicEvidence: {
+      passed: true,
+      verdict: 'PASS',
+      exitCode: 0,
+      statusCounts: { PASS: 199 },
+    },
+    pilotEvidence: Array.from({ length: 5 }, () => ({ passed: true })),
+    soakEvidence: { guardPassed: true, verdict: 'BLOCKED', exitCode: 2 },
+    evidenceContract: {
+      passed: true,
+      path: '.intentsmith-artifacts/gate0/provenance.json',
+      sha256: 'a'.repeat(64),
+    },
     runnablePrograms: 350,
     explicitSupportExclusions: 8,
     stateCounts: { ACTIVE: 271 },
@@ -810,40 +931,1332 @@ test('risk policy validity is a generated Gate 0 clause', () => {
 
 suite('Gate 0 verdict derivation');
 
-test('portable replay normalizes only the declared checkout root', () => {
-  const command = 'env C3_DB_PATH=/work/repository/.intentsmith-artifacts/db.sqlite '
-    + 'node /work/repository/scripts/nightly-audit.js';
+const provenanceCandidate = 'a'.repeat(40);
+const provenanceRegistry = 'b'.repeat(64);
+const provenanceEnvironment = { PATH: '/bin', LANG: 'C' };
+
+function validProvenanceFixture(rootPath = '/work/repository') {
+  const plan = buildGate0ExecutionPlan({
+    root: rootPath,
+    candidateSha: provenanceCandidate,
+    inheritedEnvironment: provenanceEnvironment,
+  });
+  const timestamp = '2026-07-30T00:00:00.000Z';
+  return {
+    schemaVersion: 1,
+    manifestType: 'intentsmith.gate0-candidate-evidence',
+    candidateSha: provenanceCandidate,
+    registrySha256: provenanceRegistry,
+    sourceRoot: rootPath,
+    evidenceRoot: gate0EvidenceLayout(provenanceCandidate).evidenceRoot,
+    startedAt: timestamp,
+    endedAt: timestamp,
+    secretValuesRecorded: false,
+    initialIgnoredState: { clean: true },
+    toolchain: {
+      schemaVersion: 1,
+      platform: 'linux',
+      architecture: 'x64',
+      nodeVersion: 'v22.18.0',
+      nodeExecutableSha256: '1'.repeat(64),
+      npmVersion: '10.9.4',
+      yarnVersion: '1.22.22',
+      pythonVersion: '3.12.3',
+      gitVersion: 'git version 2.43.0',
+      bashVersion: 'GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)',
+      pathSha256: '2'.repeat(64),
+    },
+    executions: plan.map(execution => ({
+      ...execution,
+      startedAt: timestamp,
+      endedAt: timestamp,
+      exitCode: execution.id === 'soak-guard' ? 2 : 0,
+      signal: null,
+      timedOut: false,
+      leakDetected: false,
+      cleanupTerminated: true,
+      preSourceState: {
+        sha: provenanceCandidate,
+        statusPorcelain: '',
+      },
+      postSourceState: {
+        sha: provenanceCandidate,
+        statusPorcelain: '',
+      },
+      preIgnoredState: {
+        policy: 'gate0-ignored-path-boundary-v1',
+        observedAllowedCount: 1,
+        unexpectedPathCount: 0,
+      },
+      postIgnoredState: {
+        policy: 'gate0-ignored-path-boundary-v1',
+        observedAllowedCount: 1,
+        unexpectedPathCount: 0,
+      },
+      logBytes: 1,
+      logSha256: 'c'.repeat(64),
+      reportBytes: execution.reportPath === null ? null : 1,
+      reportSha256: execution.reportPath === null ? null : 'd'.repeat(64),
+      inventoryBytes: execution.inventoryPath === null ? null : 1,
+      inventorySha256: execution.inventoryPath === null ? null : 'e'.repeat(64),
+    })),
+  };
+}
+
+test('complete typed Gate 0 provenance matches the locked nine-phase plan', () => {
+  const result = validateGate0Provenance({
+    provenance: validProvenanceFixture(),
+    root: '/work/repository',
+    candidateSha: provenanceCandidate,
+    registrySha256: provenanceRegistry,
+    inheritedEnvironment: provenanceEnvironment,
+  });
+  assertEqual(result.valid, true);
+  assertEqual(result.errors.length, 0);
+  assertEqual(result.expectedPlan.length, 9);
+});
+
+test('typed provenance validation is independent of reviewer environment presence', () => {
+  const provenance = validProvenanceFixture();
+  for (const inheritedEnvironment of [
+    { PATH: '/bin' },
+    { PATH: '/bin', LANG: 'C.UTF-8', TZ: 'UTC', EXTRA_REVIEWER_KEY: 'ignored' },
+  ]) {
+    const result = validateGate0Provenance({
+      provenance,
+      root: '/work/repository',
+      candidateSha: provenanceCandidate,
+      registrySha256: provenanceRegistry,
+      inheritedEnvironment,
+    });
+    assertEqual(result.valid, true);
+  }
+});
+
+test('typed provenance fixes locale and timezone instead of inheriting the host', () => {
+  const plan = buildGate0ExecutionPlan({
+    root: '/work/repository',
+    candidateSha: provenanceCandidate,
+  });
+  for (const execution of plan) {
+    assert(!execution.inheritedEnvironmentKeys.includes('LANG'));
+    assert(!execution.inheritedEnvironmentKeys.includes('LC_ALL'));
+    assert(!execution.inheritedEnvironmentKeys.includes('TZ'));
+    assertEqual(execution.environmentOverrides.LANG, 'C.UTF-8');
+    assertEqual(execution.environmentOverrides.LC_ALL, 'C.UTF-8');
+    assertEqual(execution.environmentOverrides.TZ, 'UTC');
+  }
+});
+
+test('typed provenance rejects missing or unknown toolchain identity fields', () => {
+  const missing = validProvenanceFixture();
+  delete missing.toolchain.pathSha256;
+  assertEqual(validateGate0Provenance({
+    provenance: missing,
+    root: '/work/repository',
+    candidateSha: provenanceCandidate,
+    registrySha256: provenanceRegistry,
+  }).valid, false);
+
+  const unknown = validProvenanceFixture();
+  unknown.toolchain.privateHostPath = '/private/reviewer';
+  assertEqual(validateGate0Provenance({
+    provenance: unknown,
+    root: '/work/repository',
+    candidateSha: provenanceCandidate,
+    registrySha256: provenanceRegistry,
+  }).valid, false);
+});
+
+await testAsync('toolchain capture does not execute npm, Yarn, or Corepack', async () => {
+  const fakeBin = path.join(testRoot, 'toolchain-fake-bin');
+  const sentinel = path.join(testRoot, 'package-manager-was-executed');
+  mkdirSync(fakeBin, { mode: 0o700 });
+  for (const command of ['npm', 'yarn', 'corepack']) {
+    const executable = path.join(fakeBin, command);
+    writeFileSync(
+      executable,
+      `#!/bin/sh\nprintf called > ${JSON.stringify(sentinel)}\nexit 99\n`,
+      { mode: 0o700 },
+    );
+  }
+  const toolchain = await captureToolchain(process.cwd(), {
+    PATH: `${fakeBin}:${process.env.PATH}`,
+    LANG: 'C.UTF-8',
+    LC_ALL: 'C.UTF-8',
+    TZ: 'UTC',
+  });
+  assertEqual(existsSync(sentinel), false);
+  assertEqual(toolchain.npmVersion, '10.9.4');
+  assertEqual(toolchain.yarnVersion, '1.22.22');
+  assert(/^[a-f0-9]{64}$/.test(toolchain.nodeExecutableSha256));
+  assert(/^[a-f0-9]{64}$/.test(toolchain.pathSha256));
+});
+
+test('typed provenance rejects a no-op install and arbitrary argv', () => {
+  const provenance = validProvenanceFixture();
+  provenance.executions[0].executable = 'true';
+  provenance.executions[0].argv = ['/work/repository'];
+  const result = validateGate0Provenance({
+    provenance,
+    root: '/work/repository',
+    candidateSha: provenanceCandidate,
+    registrySha256: provenanceRegistry,
+    inheritedEnvironment: provenanceEnvironment,
+  });
+  assertEqual(result.valid, false);
+  assert(result.errors.some(error => error.includes('executable differs')));
+  assert(result.errors.some(error => error.includes('argv differs')));
+});
+
+test('typed provenance rejects missing, duplicate, and unknown execution fields', () => {
+  const missing = validProvenanceFixture();
+  missing.executions.pop();
+  assertEqual(validateGate0Provenance({
+    provenance: missing,
+    root: '/work/repository',
+    candidateSha: provenanceCandidate,
+    registrySha256: provenanceRegistry,
+    inheritedEnvironment: provenanceEnvironment,
+  }).valid, false);
+
+  const duplicate = validProvenanceFixture();
+  duplicate.executions[1].id = duplicate.executions[0].id;
+  assertEqual(validateGate0Provenance({
+    provenance: duplicate,
+    root: '/work/repository',
+    candidateSha: provenanceCandidate,
+    registrySha256: provenanceRegistry,
+    inheritedEnvironment: provenanceEnvironment,
+  }).valid, false);
+
+  const unknown = validProvenanceFixture();
+  unknown.executions[0].freeFormCommand = 'true';
+  assertEqual(validateGate0Provenance({
+    provenance: unknown,
+    root: '/work/repository',
+    candidateSha: provenanceCandidate,
+    registrySha256: provenanceRegistry,
+    inheritedEnvironment: provenanceEnvironment,
+  }).valid, false);
+});
+
+test('typed provenance rejects reversed and overlapping serial chronology', () => {
+  const reversed = validProvenanceFixture();
+  reversed.endedAt = '2026-07-29T23:59:59.000Z';
+  assertEqual(validateGate0Provenance({
+    provenance: reversed,
+    root: '/work/repository',
+    candidateSha: provenanceCandidate,
+    registrySha256: provenanceRegistry,
+  }).valid, false);
+
+  const overlapping = validProvenanceFixture();
+  overlapping.executions[1].startedAt = '2026-07-29T23:59:59.000Z';
+  assertEqual(validateGate0Provenance({
+    provenance: overlapping,
+    root: '/work/repository',
+    candidateSha: provenanceCandidate,
+    registrySha256: provenanceRegistry,
+  }).valid, false);
+});
+
+test('portable typed argv preserves a repository path containing spaces', () => {
+  const rootPath = '/work/repository with spaces';
+  const execution = buildGate0ExecutionPlan({
+    root: rootPath,
+    candidateSha: provenanceCandidate,
+    inheritedEnvironment: provenanceEnvironment,
+  })[2];
+  const replay = makePortableInvocation(execution, rootPath);
+  const rendered = formatPortableInvocation(replay);
+  assertEqual(replay.cwd, '$PWD');
+  assert(!JSON.stringify(replay).includes(rootPath));
+  assert(rendered.startsWith('env -i '));
+  assert(rendered.includes('"${PWD}/.intentsmith-artifacts/'));
+  assert(rendered.includes('--profile=offline,database'));
+});
+
+test('portable replay clears caller secrets and non-allowlisted Node options', () => {
+  const rendered = formatPortableInvocation({
+    cwd: '$PWD',
+    executable: 'node',
+    argv: [
+      '-e',
+      'process.stdout.write(JSON.stringify({aws:process.env.AWS_SECRET_ACCESS_KEY??null,nodeOptions:process.env.NODE_OPTIONS??null}))',
+    ],
+    inheritedEnvironmentKeys: ['PATH'],
+    environmentOverrides: {},
+  });
+  const child = spawnSync('/bin/sh', ['-c', rendered], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    env: {
+      PATH: process.env.PATH,
+      AWS_SECRET_ACCESS_KEY: 'private-fixture-value',
+      NODE_OPTIONS: '--trace-warnings',
+    },
+  });
+  assertEqual(child.error, undefined);
+  assertEqual(child.status, 0);
   assertEqual(
-    makeReplayCommand(command, '/work/repository'),
-    'env C3_DB_PATH=$PWD/.intentsmith-artifacts/db.sqlite '
-      + 'node $PWD/scripts/nightly-audit.js',
+    child.stdout,
+    JSON.stringify({ aws: null, nodeOptions: null }),
+  );
+  assert(!rendered.includes('private-fixture-value'));
+});
+
+test('sanitized execution evidence never commits porcelain path names', () => {
+  const execution = validProvenanceFixture().executions[0];
+  execution.preSourceState.statusPorcelain = '?? private-client-name.txt';
+  const sanitized = buildSanitizedExecutionEvidence(
+    execution,
+    '/work/repository',
+  );
+  assertEqual(sanitized.preSourceState.clean, false);
+  assertEqual(sanitized.preSourceState.sha, provenanceCandidate);
+  assertEqual(sanitized.postSourceState.clean, true);
+  assert(!JSON.stringify(sanitized).includes('private-client-name.txt'));
+  assert(!JSON.stringify(sanitized).includes('statusPorcelain'));
+});
+
+test('portable typed replay rejects host-absolute and embedded-root values', () => {
+  const execution = buildGate0ExecutionPlan({
+    root: '/work/repository',
+    candidateSha: provenanceCandidate,
+    inheritedEnvironment: provenanceEnvironment,
+  })[2];
+  execution.environmentOverrides.TOOL = '/opt/private/tool';
+  assertThrows(() => makePortableInvocation(execution, '/work/repository'));
+  delete execution.environmentOverrides.TOOL;
+  execution.argv.push('/work/repository-evil/script.js');
+  assertThrows(() => makePortableInvocation(execution, '/work/repository'));
+});
+
+await testAsync('owned evidence files reject traversal and final symlinks', async () => {
+  const repository = path.join(testRoot, 'repository with spaces');
+  const layout = gate0EvidenceLayout(provenanceCandidate);
+  const evidenceRoot = path.join(repository, layout.evidenceRoot);
+  mkdirSync(evidenceRoot, { recursive: true, mode: 0o700 });
+  const regular = path.join(evidenceRoot, 'report.json');
+  writeFileSync(regular, '{}\n', { mode: 0o600 });
+  const accepted = await resolveOwnedEvidenceFile({
+    root: repository,
+    evidenceRoot: layout.evidenceRoot,
+    relativePath: `${layout.evidenceRoot}/report.json`,
+    label: 'fixture report',
+  });
+  assertEqual(accepted.bytes, 3);
+
+  chmodSync(evidenceRoot, 0o777);
+  let publicRootRejected = false;
+  try {
+    await resolveOwnedEvidenceFile({
+      root: repository,
+      evidenceRoot: layout.evidenceRoot,
+      relativePath: `${layout.evidenceRoot}/report.json`,
+      label: 'public-root report',
+    });
+  } catch {
+    publicRootRejected = true;
+  }
+  assertEqual(publicRootRejected, true);
+  chmodSync(evidenceRoot, 0o700);
+
+  chmodSync(regular, 0o644);
+  let publicFileRejected = false;
+  try {
+    await resolveOwnedEvidenceFile({
+      root: repository,
+      evidenceRoot: layout.evidenceRoot,
+      relativePath: `${layout.evidenceRoot}/report.json`,
+      label: 'public-file report',
+    });
+  } catch {
+    publicFileRejected = true;
+  }
+  assertEqual(publicFileRejected, true);
+  chmodSync(regular, 0o600);
+
+  let traversalRejected = false;
+  try {
+    await resolveOwnedEvidenceFile({
+      root: repository,
+      evidenceRoot: layout.evidenceRoot,
+      relativePath: '../report.json',
+      label: 'traversal report',
+    });
+  } catch {
+    traversalRejected = true;
+  }
+  assertEqual(traversalRejected, true);
+
+  const outside = path.join(repository, 'outside.json');
+  writeFileSync(outside, '{}\n', { mode: 0o600 });
+  symlinkSync(outside, path.join(evidenceRoot, 'linked.json'));
+  let symlinkRejected = false;
+  try {
+    await resolveOwnedEvidenceFile({
+      root: repository,
+      evidenceRoot: layout.evidenceRoot,
+      relativePath: `${layout.evidenceRoot}/linked.json`,
+      label: 'linked report',
+    });
+  } catch {
+    symlinkRejected = true;
+  }
+  assertEqual(symlinkRejected, true);
+
+  const outsideDirectory = path.join(repository, 'outside-directory');
+  mkdirSync(outsideDirectory, { mode: 0o700 });
+  writeFileSync(path.join(outsideDirectory, 'nested.json'), '{}\n', { mode: 0o600 });
+  symlinkSync(outsideDirectory, path.join(evidenceRoot, 'linked-directory'));
+  let ancestorSymlinkRejected = false;
+  try {
+    await resolveOwnedEvidenceFile({
+      root: repository,
+      evidenceRoot: layout.evidenceRoot,
+      relativePath: `${layout.evidenceRoot}/linked-directory/nested.json`,
+      label: 'ancestor-linked report',
+    });
+  } catch {
+    ancestorSymlinkRejected = true;
+  }
+  assertEqual(ancestorSymlinkRejected, true);
+
+  const redirectedRepository = path.join(testRoot, 'inside-root-redirect');
+  const redirectedTarget = path.join(redirectedRepository, 'redirect');
+  const redirectedEvidence = path.join(
+    redirectedTarget,
+    'gate0',
+    `candidate-${provenanceCandidate}`,
+  );
+  mkdirSync(redirectedEvidence, { recursive: true, mode: 0o700 });
+  writeFileSync(
+    path.join(redirectedEvidence, 'report.json'),
+    '{}\n',
+    { mode: 0o600 },
+  );
+  symlinkSync(
+    redirectedTarget,
+    path.join(redirectedRepository, '.intentsmith-artifacts'),
+  );
+  let insideRootAncestorSymlinkRejected = false;
+  try {
+    await resolveOwnedEvidenceFile({
+      root: redirectedRepository,
+      evidenceRoot: layout.evidenceRoot,
+      relativePath: `${layout.evidenceRoot}/report.json`,
+      label: 'inside-root ancestor-linked report',
+    });
+  } catch {
+    insideRootAncestorSymlinkRejected = true;
+  }
+  assertEqual(insideRootAncestorSymlinkRejected, true);
+});
+
+function buildAuditContractFixture(label) {
+  const repository = path.join(testRoot, `audit-contract-${label}`);
+  mkdirSync(repository, { recursive: true, mode: 0o700 });
+  const plan = buildGate0ExecutionPlan({
+    root: repository,
+    candidateSha: provenanceCandidate,
+    inheritedEnvironment: provenanceEnvironment,
+  });
+  const execution = { ...plan[3] };
+  execution.exitCode = 0;
+  const suiteRecord = committedRegistry.suites.find(
+    suiteRecord => suiteRecord.id === 'IS-T2-TESTS-PILOT-C1C2C3-TEST',
+  );
+  const inventorySuite = {
+    ...suiteRecord,
+    category: suiteRecord.profile,
+    command: suiteRecord.argv,
+    blockers: [],
+  };
+  const options = {
+    concurrency: 1,
+    failFast: false,
+    timeoutMs: 5 * 60 * 1000,
+    deadlineMs: 60 * 60 * 1000,
+    profiles: [],
+    ids: [suiteRecord.id],
+    exclude: [],
+    allowBlockers: [],
+    noBlock: false,
+    allowDirty: false,
+  };
+  const reportOptions = { ...options };
+  delete reportOptions.allowDirty;
+  const optionsFingerprint = createHash('sha256')
+    .update(JSON.stringify(options))
+    .digest('hex');
+  const inventoryFingerprint = createHash('sha256').update(JSON.stringify([{
+    id: inventorySuite.id,
+    path: inventorySuite.path,
+    profile: inventorySuite.profile,
+    tier: inventorySuite.tier,
+    command: inventorySuite.command,
+    blockers: inventorySuite.blockers,
+    required: inventorySuite.required,
+    state: inventorySuite.state,
+    requirements: inventorySuite.requirements,
+    timeoutMs: inventorySuite.timeoutMs,
+    expectedDurationMs: inventorySuite.expectedDurationMs,
+  }])).digest('hex');
+  const timestamp = '2026-07-30T00:00:00.000Z';
+  execution.startedAt = timestamp;
+  execution.endedAt = timestamp;
+  const runDir = path.dirname(execution.reportPath).split(path.sep).join('/');
+  const safeLogName = `${suiteRecord.path.replace(/[^a-zA-Z0-9_.-]+/g, '_')}.${createHash('sha1')
+    .update(suiteRecord.path)
+    .digest('hex')
+    .slice(0, 8)}`;
+  const suiteLogPath = `${runDir}/logs/${safeLogName}.log`;
+  const suiteLogContents = 'pilot pass\n';
+  const suiteLogSha256 = createHash('sha256')
+    .update(suiteLogContents)
+    .digest('hex');
+  const counts = {
+    offline: 0,
+    database: 1,
+    server: 0,
+    model: 0,
+    soak: 0,
+    manual: 0,
+  };
+  const inventory = {
+    schemaVersion: 1,
+    manifestType: 'intentsmith.audit-inventory',
+    runId: execution.argv.find(value => value.startsWith('--run-id='))
+      .slice('--run-id='.length),
+    sourceRevision: provenanceCandidate,
+    generatedAt: timestamp,
+    counts,
+    blockerCounts: {},
+    inventoryFingerprint,
+    optionsFingerprint,
+    registryHash: provenanceRegistry,
+    options,
+    suites: [inventorySuite],
+  };
+  const result = {
+    id: suiteRecord.id,
+    path: suiteRecord.path,
+    profile: suiteRecord.profile,
+    category: suiteRecord.profile,
+    command: suiteRecord.argv,
+    blockers: [],
+    required: true,
+    start: timestamp,
+    end: timestamp,
+    durationMs: 0,
+    exitCode: 0,
+    signal: null,
+    timedOut: false,
+    status: 'PASS',
+    retryCount: 0,
+    logPath: suiteLogPath,
+    sourceRevision: provenanceCandidate,
+    cleanup: {
+      checked: true,
+      leakDetected: false,
+      terminated: true,
+    },
+    sourceTree: {
+      checked: true,
+      clean: true,
+      porcelain: null,
+      head: provenanceCandidate,
+    },
+    logSha256: suiteLogSha256,
+    logError: null,
+    outputError: null,
+  };
+  const report = {
+    schemaVersion: 1,
+    manifestType: 'intentsmith.audit-report',
+    runId: inventory.runId,
+    sourceRevision: provenanceCandidate,
+    startedAt: timestamp,
+    endedAt: timestamp,
+    dryRun: false,
+    options: reportOptions,
+    paths: {
+      sourceRoot: repository,
+      runDir,
+      report: execution.reportPath,
+      checkpoint: `${runDir}/checkpoint.json`,
+      inventory: execution.inventoryPath,
+    },
+    inventoryFingerprint,
+    optionsFingerprint,
+    registryHash: provenanceRegistry,
+    interruptionSignal: null,
+    inventory: {
+      total: 1,
+      counts,
+      blockerCounts: {},
+    },
+    statusCounts: {
+      PASS: 1,
+      FAIL: 0,
+      TIMEOUT: 0,
+      BLOCKED: 0,
+      SKIPPED: 0,
+    },
+    verdict: 'PASS',
+    exitCode: 0,
+    requiredFailureCount: 0,
+    requiredBlockedCount: 0,
+    results: [result],
+  };
+  const writeJson = (relativePath, value) => {
+    const absolutePath = path.join(repository, relativePath);
+    mkdirSync(path.dirname(absolutePath), { recursive: true, mode: 0o700 });
+    const contents = `${JSON.stringify(value, null, 2)}\n`;
+    writeFileSync(absolutePath, contents, { mode: 0o600 });
+    return {
+      bytes: Buffer.byteLength(contents),
+      sha256: createHash('sha256').update(contents).digest('hex'),
+    };
+  };
+  mkdirSync(path.dirname(path.join(repository, suiteLogPath)), {
+    recursive: true,
+    mode: 0o700,
+  });
+  writeFileSync(path.join(repository, suiteLogPath), suiteLogContents, { mode: 0o600 });
+  const refreshBindings = () => {
+    const reportBinding = writeJson(execution.reportPath, report);
+    const inventoryBinding = writeJson(execution.inventoryPath, inventory);
+    execution.reportBytes = reportBinding.bytes;
+    execution.reportSha256 = reportBinding.sha256;
+    execution.inventoryBytes = inventoryBinding.bytes;
+    execution.inventorySha256 = inventoryBinding.sha256;
+  };
+  refreshBindings();
+  return {
+    repository,
+    execution,
+    suiteRecord,
+    report,
+    inventory,
+    suiteLogPath,
+    refreshBindings,
+  };
+}
+
+await testAsync('audit evidence binds report, inventory, options, counters, and suite log', async () => {
+  const fixture = buildAuditContractFixture('positive');
+  const result = await loadAndValidateAuditEvidence({
+    root: fixture.repository,
+    evidenceRoot: gate0EvidenceLayout(provenanceCandidate).evidenceRoot,
+    execution: fixture.execution,
+    candidateSha: provenanceCandidate,
+    registryHash: provenanceRegistry,
+    expectedSuites: [fixture.suiteRecord],
+    expectedOptions: fixture.inventory.options,
+  });
+  assertEqual(result.passed, true);
+  assertEqual(result.report.verdict, 'PASS');
+});
+
+await testAsync('audit evidence rejects allowDirty and recomputed forged counters', async () => {
+  const fixture = buildAuditContractFixture('mutated');
+  fixture.inventory.options.allowDirty = true;
+  fixture.report.statusCounts = {
+    PASS: 0,
+    FAIL: 1,
+    TIMEOUT: 0,
+    BLOCKED: 0,
+    SKIPPED: 0,
+  };
+  fixture.refreshBindings();
+  let rejected = false;
+  try {
+    await loadAndValidateAuditEvidence({
+      root: fixture.repository,
+      evidenceRoot: gate0EvidenceLayout(provenanceCandidate).evidenceRoot,
+      execution: fixture.execution,
+      candidateSha: provenanceCandidate,
+      registryHash: provenanceRegistry,
+      expectedSuites: [fixture.suiteRecord],
+      expectedOptions: {
+        ...fixture.inventory.options,
+        allowDirty: false,
+      },
+    });
+  } catch {
+    rejected = true;
+  }
+  assertEqual(rejected, true);
+});
+
+await testAsync('audit evidence rejects changed suite-log bytes', async () => {
+  const fixture = buildAuditContractFixture('log-mutation');
+  writeFileSync(
+    path.join(fixture.repository, fixture.suiteLogPath),
+    'tampered\n',
+    { mode: 0o600 },
+  );
+  let rejected = false;
+  try {
+    await loadAndValidateAuditEvidence({
+      root: fixture.repository,
+      evidenceRoot: gate0EvidenceLayout(provenanceCandidate).evidenceRoot,
+      execution: fixture.execution,
+      candidateSha: provenanceCandidate,
+      registryHash: provenanceRegistry,
+      expectedSuites: [fixture.suiteRecord],
+      expectedOptions: fixture.inventory.options,
+    });
+  } catch {
+    rejected = true;
+  }
+  assertEqual(rejected, true);
+});
+
+test('audit evidence rejects duplicate or non-deterministic result log paths', () => {
+  const suites = [
+    { id: 'suite-a', path: 'tests/a.test.js' },
+    { id: 'suite-b', path: 'tests/b.test.js' },
+  ];
+  const results = [
+    {
+      id: 'suite-a',
+      status: 'PASS',
+      logPath: 'audit/run/logs/shared.log',
+    },
+    {
+      id: 'suite-b',
+      status: 'PASS',
+      logPath: 'audit/run/logs/shared.log',
+    },
+  ];
+  const errors = auditResultLogIdentityErrors({
+    results,
+    expectedSuites: suites,
+    expectedRunDir: 'audit/run',
+  });
+  assert(errors.some(error => error.includes('reuses another result log path')));
+  assert(errors.some(error => error.includes('deterministic path')));
+});
+
+test('valid red producer outcomes become failed clauses instead of false green', () => {
+  const clauses = buildGate0Clauses({
+    registryValidation: { passed: true, report: { records: 350 }, errors: [] },
+    dispositionValidation: { passed: true, report: { records: 225 }, errors: [] },
+    sourceEvidence: { passed: false, executionCount: 9 },
+    installationEvidence: {
+      passed: false,
+      logs: [
+        { kind: 'clean', exitCode: 1 },
+        { kind: 'repeat', exitCode: 0 },
+      ],
+    },
+    deterministicEvidence: {
+      passed: false,
+      verdict: 'FAIL',
+      exitCode: 1,
+      statusCounts: { PASS: 198, FAIL: 1 },
+    },
+    pilotEvidence: [
+      { passed: true },
+      { passed: true },
+      { passed: false },
+      { passed: true },
+      { passed: true },
+    ],
+    soakEvidence: { guardPassed: false, verdict: 'PASS', exitCode: 0 },
+    evidenceContract: {
+      passed: true,
+      path: '.intentsmith-artifacts/gate0/provenance.json',
+      sha256: 'a'.repeat(64),
+    },
+    runnablePrograms: 350,
+    explicitSupportExclusions: 8,
+    stateCounts: { ACTIVE: 271 },
+    blockedWithoutPrerequisite: [],
+    knownDefectiveInDeterministic: [],
+    riskAssessment: riskAssessmentCopy(),
+  });
+  for (const clauseId of ['G0-C1', 'G0-C4', 'G0-C5', 'G0-C7']) {
+    assertEqual(clauses.find(clause => clause.id === clauseId).result, 'FAIL');
+  }
+  assertEqual(
+    deriveGateOutcome({ clauses }).verdict,
+    'FAIL',
   );
 });
 
-test('portable replay rejects a residual host-absolute path', () => {
-  assertThrows(() => makeReplayCommand(
-    'env C3_DB_PATH=/work/repository/db.sqlite TOOL=/opt/private/tool '
-      + 'node /work/repository/scripts/nightly-audit.js',
-    '/work/repository',
-  ));
-});
-
-test('portable replay requires the executed checkout root', () => {
-  assertThrows(() => makeReplayCommand(
-    'node scripts/nightly-audit.js',
-    '/work/repository',
-  ));
-});
-
-test('replay artifact locator is checkout-relative and rejects escape', () => {
-  assertEqual(
-    makeReplayArtifactPath(
-      '/work/repository/.intentsmith-artifacts/report.json',
-      '/work/repository',
+function validAttestationFixture() {
+  const candidateSha = 'a'.repeat(40);
+  const expectedRegistrySha256 = 'c'.repeat(64);
+  const timestamp = '2026-07-30T00:00:00.000Z';
+  const syntheticRoot = '/intentsmith-gate0-candidate';
+  const plan = buildGate0ExecutionPlan({
+    root: syntheticRoot,
+    candidateSha,
+  });
+  const executionEvidence = (execution, index) => ({
+    id: execution.id,
+    portableReplay: makePortableInvocation(execution, syntheticRoot),
+    startedAt: timestamp,
+    endedAt: timestamp,
+    exitCode: execution.id === 'soak-guard' ? 2 : 0,
+    signal: null,
+    timedOut: false,
+    leakDetected: false,
+    cleanupTerminated: true,
+    log: execution.logPath,
+    logBytes: index + 1,
+    logSha256: index.toString(16).padStart(64, '0'),
+    report: execution.reportPath,
+    reportBytes: execution.reportPath === null ? null : index + 10,
+    reportSha256: execution.reportPath === null
+      ? null : (index + 10).toString(16).padStart(64, '0'),
+    inventory: execution.inventoryPath,
+    inventoryBytes: execution.inventoryPath === null ? null : index + 20,
+    inventorySha256: execution.inventoryPath === null
+      ? null : (index + 20).toString(16).padStart(64, '0'),
+    preSourceState: { sha: candidateSha, clean: true },
+    postSourceState: { sha: candidateSha, clean: true },
+    preIgnoredState: {
+      policy: 'gate0-ignored-path-boundary-v1',
+      observedAllowedCount: 1,
+      unexpectedPathCount: 0,
+    },
+    postIgnoredState: {
+      policy: 'gate0-ignored-path-boundary-v1',
+      observedAllowedCount: 1,
+      unexpectedPathCount: 0,
+    },
+  });
+  const executions = plan.map(executionEvidence);
+  const auditEvidence = (executionIndex, statusCounts, overrides = {}) => {
+    const execution = executions[executionIndex];
+    const recipe = plan[executionIndex];
+    return {
+      runId: recipe.argv.find(value => value.startsWith('--run-id='))
+        .slice('--run-id='.length),
+      passed: true,
+      verdict: 'PASS',
+      exitCode: 0,
+      statusCounts,
+      report: execution.report,
+      reportSha256: execution.reportSha256,
+      reportBytes: execution.reportBytes,
+      inventory: execution.inventory,
+      inventorySha256: execution.inventorySha256,
+      inventoryBytes: execution.inventoryBytes,
+      inventoryFingerprint: (executionIndex + 30)
+        .toString(16).padStart(64, '0'),
+      optionsFingerprint: (executionIndex + 40)
+        .toString(16).padStart(64, '0'),
+      startedAt: timestamp,
+      endedAt: timestamp,
+      execution,
+      ...overrides,
+    };
+  };
+  const registryValidation = {
+    command: 'node scripts/validate-test-registry.js --json',
+    exitCode: 0,
+    outputSha256: '3'.repeat(64),
+    reportSha256: '4'.repeat(64),
+    errors: [],
+    report: {
+      schemaVersion: 1,
+      valid: true,
+      runnablePrograms: 350,
+      explicitSupportExclusions: 8,
+      fingerprint: expectedRegistrySha256,
+      document: {
+        path: 'docs/convergence/TEST-REGISTRY.md',
+        mode: 'check',
+      },
+    },
+  };
+  const dispositionValidation = {
+    command: 'node scripts/validate-final-disposition.js --json',
+    exitCode: 0,
+    outputSha256: '5'.repeat(64),
+    reportSha256: '6'.repeat(64),
+    errors: [],
+    report: {
+      schemaVersion: 3,
+      sourceRepository: {
+        identity: 'github.com/Belphareon-bak/C3-agent',
+      },
+      sourceRange: {
+        base: 'a7b90e36aa80310305703f54f2332e1c0e7f9e8f',
+        head: 'ffd21cf119865259ea1847af989acb24916bebe3',
+      },
+      sourceManifest: { recordCount: 225 },
+      repairedSubjectEvidence: { validatedCount: 60 },
+      records: 225,
+      dispositionCounts: { EXCLUDE: 91, KEEP: 42, REBUILD: 92 },
+      terminalCounts: { REPAIRED: 60, 'DEFERRED(owned-server)': 32 },
+      resolutionCounts: { ABSENT: 91, EXACT: 32, MODIFIED: 102 },
+      pathsCount: 225,
+      pathsSha256: '7'.repeat(64),
+    },
+  };
+  const riskPolicy = {
+    path: 'docs/convergence/GATE0-RISK-IMPACT.json',
+    schemaVersion: 1,
+    sha256: '8'.repeat(64),
+    registerPath: 'docs/convergence/RISK-REGISTER.md',
+    registerSha256: '9'.repeat(64),
+    valid: true,
+    errors: [],
+    riskCount: 28,
+    policyCount: 28,
+    impactCounts: {
+      G0_FAIL: 22,
+      G0_REVIEW_REQUIRED: 1,
+      LATER_GATE: 2,
+      SEPARATE_INCIDENT: 3,
+    },
+    openImpactCounts: {
+      G0_FAIL: 0,
+      G0_REVIEW_REQUIRED: 1,
+      LATER_GATE: 2,
+      SEPARATE_INCIDENT: 3,
+    },
+    repositoryBlockers: [],
+    reviewRequiredRisks: ['G0-R015: OPEN'],
+    laterGateRisks: ['G0-R019: OPEN', 'G0-R020: OPEN'],
+    separateIncidents: [
+      'G0-R017: OPEN',
+      'G0-R018: OPEN',
+      'G0-R028: OPEN',
+    ],
+  };
+  const privacyIncident = {
+    path: 'docs/convergence/PRIVACY-INCIDENT.json',
+    schemaVersion: 1,
+    sha256: 'a'.repeat(64),
+    incidentId: 'G0-PRIVACY-001',
+    status: 'CONFIRMED_COMPROMISE',
+    trackedPathsRemoved: 13,
+    trackedBytesRemoved: 7617363,
+    historyReachable: true,
+    historyRewritten: false,
+    personalContentInspected: false,
+    rotationCategories: ['credential category'],
+  };
+  const outputArtifacts = Object.fromEntries(
+    GATE0_BOUND_OUTPUTS.map(filePath => [
+      filePath,
+      `generated fixture for ${filePath}\n`,
+    ]),
+  );
+  const evidenceIndex = {
+      schemaVersion: 7,
+      product: 'IntentSmith',
+      gate: 'Gate 0',
+      verdict: 'CONDITIONAL PASS',
+      exitCode: 0,
+      generatedAt: timestamp,
+      candidate: {
+        sha: candidateSha,
+        branch: 'codex/intentsmith-1.0',
+        registrySha256: expectedRegistrySha256,
+        attestationRule:
+          'the evidence-only commit must have this candidate as its first parent',
+      },
+      sourceRefs: {
+        c3Input: 'ffd21cf119865259ea1847af989acb24916bebe3',
+        c3Parent: 'a7b90e36aa80310305703f54f2332e1c0e7f9e8f',
+        intentSmithDonor: '6676902c5f6fe7a5d66aba0d79cb502e0f3a60e4',
+        localValidationCandidate: candidateSha,
+      },
+      inventory: {
+        runnablePrograms: 350,
+        explicitSupportExclusions: 8,
+        deterministicRequired: 199,
+        dispositionRecords: 225,
+        profileCounts: {
+          offline: 173,
+          database: 26,
+          server: 36,
+          model: 82,
+          soak: 18,
+          manual: 15,
+        },
+        stateCounts: {
+          ACTIVE: 256,
+          BLOCKED: 79,
+          HISTORICAL: 15,
+        },
+      },
+      clauses: Array.from({ length: 9 }, (_, index) => ({
+        id: `G0-C${index + 1}`,
+        label: `clause ${index + 1}`,
+        result: 'PASS',
+        evidence: 'fixture evidence',
+      })),
+      repositoryBlockers: [],
+      provenance: {
+        schemaVersion: 1,
+        path: gate0EvidenceLayout(candidateSha).provenance,
+        sha256: '1'.repeat(64),
+        bytes: 1,
+        executionCount: 9,
+        secretValuesRecorded: false,
+        initialIgnoredState: { clean: true },
+        startedAt: timestamp,
+        endedAt: timestamp,
+        toolchain: {
+          schemaVersion: 1,
+          platform: 'linux',
+          architecture: 'x64',
+          nodeVersion: 'v22.18.0',
+          nodeExecutableSha256: '2'.repeat(64),
+          npmVersion: '10.9.4',
+          yarnVersion: '1.22.22',
+          pythonVersion: '3.12.3',
+          gitVersion: 'git version 2.43.0',
+          bashVersion:
+            'GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)',
+          pathSha256: '3'.repeat(64),
+        },
+      },
+      riskPolicy,
+      validations: {
+        registry: registryValidation,
+        disposition: dispositionValidation,
+      },
+      installation: {
+        passed: true,
+        logs: [
+          {
+            kind: 'clean',
+            path: executions[0].log,
+            bytes: executions[0].logBytes,
+            sha256: executions[0].logSha256,
+            exitCode: executions[0].exitCode,
+            execution: executions[0],
+          },
+          {
+            kind: 'repeat',
+            path: executions[1].log,
+            bytes: executions[1].logBytes,
+            sha256: executions[1].logSha256,
+            exitCode: executions[1].exitCode,
+            execution: executions[1],
+          },
+        ],
+      },
+      deterministic: auditEvidence(2, {
+        PASS: 199,
+        FAIL: 0,
+        TIMEOUT: 0,
+        BLOCKED: 0,
+        SKIPPED: 0,
+      }),
+      pilotFiveConsecutive: Array.from(
+        { length: 5 },
+        (_, index) => auditEvidence(index + 3, {
+          PASS: 1,
+          FAIL: 0,
+          TIMEOUT: 0,
+          BLOCKED: 0,
+          SKIPPED: 0,
+        }),
+      ),
+      soakRequirementGuard: auditEvidence(8, {
+        PASS: 0,
+        FAIL: 0,
+        TIMEOUT: 0,
+        BLOCKED: 5,
+        SKIPPED: 0,
+      }, {
+        passed: false,
+        verdict: 'BLOCKED',
+        exitCode: 2,
+        guardPassed: true,
+        blockedBy: ['gpu', 'ollama'],
+      }),
+      privacyIncident,
+      review: {
+        range:
+          `f11026f062e5d2e75fe6802a3e4e2ad38a6c9dab..${candidateSha}`,
+        commitCount: 1,
+        packet: 'docs/convergence/reviews/GATE0-OPUS-REVIEW.md',
+        independentReviewStatus: 'PENDING',
+      },
+      generatedOutputs: Object.fromEntries(
+        Object.entries(outputArtifacts).map(([filePath, contents]) => [
+          filePath,
+          {
+            bytes: Buffer.byteLength(contents),
+            sha256: createHash('sha256').update(contents).digest('hex'),
+          },
+        ]),
+      ),
+    };
+  return {
+    headSha: 'b'.repeat(40),
+    parentShas: [candidateSha],
+    changedEntries: GATE0_ATTESTATION_OUTPUTS.map(
+      filePath => `M\t${filePath}`,
     ),
-    '$PWD/.intentsmith-artifacts/report.json',
+    evidenceIndex,
+    outputArtifacts,
+    outputModes: Object.fromEntries(
+      GATE0_ATTESTATION_OUTPUTS.map(filePath => [filePath, '100644']),
+    ),
+    expectedRegistrySha256,
+    expectedRegistryFacts: {
+      runnablePrograms: 350,
+      explicitSupportExclusions: 8,
+      profileCounts: {
+        offline: 173,
+        database: 26,
+        server: 36,
+        model: 82,
+        soak: 18,
+        manual: 15,
+      },
+      stateCounts: {
+        ACTIVE: 256,
+        BLOCKED: 79,
+        HISTORICAL: 15,
+      },
+      deterministicRequired: 199,
+      deterministicScopeValid: true,
+      knownDefectiveInDeterministic: [],
+      blockedWithoutPrerequisite: [],
+    },
+    expectedRegistryValidation: JSON.parse(JSON.stringify(registryValidation)),
+    expectedDispositionValidation:
+      JSON.parse(JSON.stringify(dispositionValidation)),
+    expectedRiskPolicy: JSON.parse(JSON.stringify(riskPolicy)),
+    expectedPrivacyIncident: JSON.parse(JSON.stringify(privacyIncident)),
+    worktreeClean: true,
+  };
+}
+
+test('post-commit attestation binds the candidate parent and four outputs', () => {
+  const report = validateGate0Attestation(validAttestationFixture());
+  assertEqual(report.valid, true);
+  assertEqual(report.errors.length, 0);
+});
+
+test('post-commit attestation preserves a revalidated structured red result', () => {
+  const fixture = validAttestationFixture();
+  const red = fixture.evidenceIndex.validations.disposition;
+  red.exitCode = 1;
+  red.errors = ['fixture disposition failure'];
+  fixture.expectedDispositionValidation =
+    JSON.parse(JSON.stringify(red));
+  fixture.evidenceIndex.clauses.find(clause => clause.id === 'G0-C2').result =
+    'FAIL';
+  fixture.evidenceIndex.verdict = 'FAIL';
+  fixture.evidenceIndex.exitCode = 1;
+  const report = validateGate0Attestation(fixture);
+  assertEqual(report.valid, true);
+  assertEqual(report.errors.length, 0);
+});
+
+test('post-commit attestation rejects wrong parents and product changes', () => {
+  const wrongParent = validAttestationFixture();
+  wrongParent.parentShas = ['c'.repeat(40)];
+  assertEqual(validateGate0Attestation(wrongParent).valid, false);
+
+  const merge = validAttestationFixture();
+  merge.parentShas.push('c'.repeat(40));
+  assertEqual(validateGate0Attestation(merge).valid, false);
+
+  const extraPath = validAttestationFixture();
+  extraPath.changedEntries.push('M\tsrc/server.js');
+  assertEqual(validateGate0Attestation(extraPath).valid, false);
+
+  const missingPath = validAttestationFixture();
+  missingPath.changedEntries.pop();
+  assertEqual(validateGate0Attestation(missingPath).valid, false);
+});
+
+test('post-commit attestation rejects stale schema and dirty review state', () => {
+  const stale = validAttestationFixture();
+  stale.evidenceIndex.schemaVersion = 6;
+  assertEqual(validateGate0Attestation(stale).valid, false);
+
+  const dirty = validAttestationFixture();
+  dirty.worktreeClean = false;
+  assertEqual(validateGate0Attestation(dirty).valid, false);
+
+  const changedMarkdown = validAttestationFixture();
+  changedMarkdown.outputArtifacts['docs/convergence/STATUS.md'] =
+    '# forged PASS\n';
+  assertEqual(validateGate0Attestation(changedMarkdown).valid, false);
+
+  const changedRegistry = validAttestationFixture();
+  changedRegistry.evidenceIndex.candidate.registrySha256 = 'd'.repeat(64);
+  assertEqual(validateGate0Attestation(changedRegistry).valid, false);
+
+  const missingRegistry = validAttestationFixture();
+  delete missingRegistry.evidenceIndex.candidate.registrySha256;
+  assertEqual(validateGate0Attestation(missingRegistry).valid, false);
+
+  const executableOutput = validAttestationFixture();
+  executableOutput.outputModes['docs/convergence/STATUS.md'] = '100755';
+  assertEqual(validateGate0Attestation(executableOutput).valid, false);
+
+  const approvedWithoutContract = validAttestationFixture();
+  approvedWithoutContract.evidenceIndex.review.independentReviewStatus =
+    'APPROVED';
+  approvedWithoutContract.evidenceIndex.verdict = 'PASS';
+  assertEqual(validateGate0Attestation(approvedWithoutContract).valid, false);
+
+  const contradictory = validAttestationFixture();
+  contradictory.evidenceIndex.inventory = null;
+  contradictory.evidenceIndex.riskPolicy = [];
+  contradictory.evidenceIndex.installation = [];
+  contradictory.evidenceIndex.deterministic = [];
+  contradictory.evidenceIndex.pilotFiveConsecutive = [];
+  contradictory.evidenceIndex.soakRequirementGuard = [];
+  contradictory.evidenceIndex.privacyIncident = [];
+  contradictory.evidenceIndex.validations = {
+    registry: {},
+    disposition: {},
+  };
+  assertEqual(validateGate0Attestation(contradictory).valid, false);
+
+  const lineageDrift = validAttestationFixture();
+  lineageDrift.evidenceIndex.sourceRefs.c3Parent = '9'.repeat(40);
+  assertEqual(validateGate0Attestation(lineageDrift).valid, false);
+});
+
+test('post-commit attestation rejects unknown fields in every nested summary', () => {
+  const mutations = [
+    fixture => {
+      fixture.evidenceIndex.candidate.privateHostPath = '/secret/home';
+    },
+    fixture => {
+      fixture.evidenceIndex.review.unreviewed = 'yes';
+    },
+    fixture => {
+      fixture.evidenceIndex.clauses[0].manualOverride = true;
+    },
+    fixture => {
+      fixture.evidenceIndex.inventory.undocumented = 1;
+    },
+    fixture => {
+      fixture.evidenceIndex.installation.privateHostPath = '/secret/cache';
+    },
+    fixture => {
+      fixture.evidenceIndex.validations.privateHostPath = '/secret/validator';
+    },
+    fixture => {
+      fixture.evidenceIndex.generatedOutputs[
+        'docs/convergence/STATUS.md'
+      ].unbound = true;
+    },
+  ];
+  for (const mutate of mutations) {
+    const fixture = validAttestationFixture();
+    mutate(fixture);
+    assertEqual(validateGate0Attestation(fixture).valid, false);
+  }
+});
+
+test('post-commit attestation derives audit verdict from exact status counts', () => {
+  const fixture = validAttestationFixture();
+  fixture.evidenceIndex.deterministic.statusCounts.PASS = 198;
+  fixture.evidenceIndex.deterministic.statusCounts.FAIL = 1;
+  assertEqual(validateGate0Attestation(fixture).valid, false);
+
+  const incompleteGuard = validAttestationFixture();
+  incompleteGuard.evidenceIndex.soakRequirementGuard.statusCounts.BLOCKED = 4;
+  incompleteGuard.evidenceIndex.soakRequirementGuard.statusCounts.SKIPPED = 1;
+  assertEqual(validateGate0Attestation(incompleteGuard).valid, false);
+
+  const mixedGuard = validAttestationFixture();
+  mixedGuard.evidenceIndex.soakRequirementGuard.statusCounts.PASS = 4;
+  mixedGuard.evidenceIndex.soakRequirementGuard.statusCounts.BLOCKED = 1;
+  assertEqual(validateGate0Attestation(mixedGuard).valid, false);
+
+  const truthfulSkipped = validAttestationFixture();
+  truthfulSkipped.evidenceIndex.deterministic.statusCounts.PASS = 198;
+  truthfulSkipped.evidenceIndex.deterministic.statusCounts.SKIPPED = 1;
+  truthfulSkipped.evidenceIndex.deterministic.passed = false;
+  truthfulSkipped.evidenceIndex.deterministic.verdict = 'FAIL';
+  truthfulSkipped.evidenceIndex.deterministic.exitCode = 1;
+  truthfulSkipped.evidenceIndex.deterministic.execution.exitCode = 1;
+  truthfulSkipped.evidenceIndex.clauses.find(
+    clause => clause.id === 'G0-C5',
+  ).result = 'FAIL';
+  truthfulSkipped.evidenceIndex.verdict = 'FAIL';
+  truthfulSkipped.evidenceIndex.exitCode = 1;
+  assertEqual(validateGate0Attestation(truthfulSkipped).valid, true);
+});
+
+test('post-commit attestation derives G0-C6 and G0-C7 from parent registry facts', () => {
+  const blockerGap = validAttestationFixture();
+  blockerGap.expectedRegistryFacts.blockedWithoutPrerequisite = [
+    'IS-T5-E2E-220-E2E-SUITE-RUNNER',
+  ];
+  assertEqual(validateGate0Attestation(blockerGap).valid, false);
+
+  const defectiveDeterministic = validAttestationFixture();
+  defectiveDeterministic.expectedRegistryFacts.deterministicScopeValid = false;
+  defectiveDeterministic.expectedRegistryFacts.knownDefectiveInDeterministic = [
+    'IS-T1-FORGED-KNOWN-DEFECTIVE',
+  ];
+  assertEqual(validateGate0Attestation(defectiveDeterministic).valid, false);
+
+  const inventoryDrift = validAttestationFixture();
+  inventoryDrift.expectedRegistryFacts.profileCounts.offline = 172;
+  inventoryDrift.expectedRegistryFacts.profileCounts.server = 37;
+  assertEqual(validateGate0Attestation(inventoryDrift).valid, false);
+});
+
+test('post-commit attestation rejects self-asserted validators, risks, and privacy', () => {
+  const registry = validAttestationFixture();
+  registry.evidenceIndex.validations.registry.outputSha256 = 'f'.repeat(64);
+  assertEqual(validateGate0Attestation(registry).valid, false);
+
+  const disposition = validAttestationFixture();
+  disposition.evidenceIndex.validations.disposition.report.pathsSha256 =
+    'f'.repeat(64);
+  assertEqual(validateGate0Attestation(disposition).valid, false);
+
+  const risk = validAttestationFixture();
+  risk.evidenceIndex.riskPolicy.sha256 = 'f'.repeat(64);
+  assertEqual(validateGate0Attestation(risk).valid, false);
+
+  const hiddenBlocker = validAttestationFixture();
+  hiddenBlocker.expectedRiskPolicy.repositoryBlockers = ['G0-R999: OPEN'];
+  assertEqual(validateGate0Attestation(hiddenBlocker).valid, false);
+
+  const privacy = validAttestationFixture();
+  privacy.evidenceIndex.privacyIncident.rotationCategories.push(
+    'unverified category',
   );
-  assertThrows(() => makeReplayArtifactPath('/work/other/report.json', '/work/repository'));
+  assertEqual(validateGate0Attestation(privacy).valid, false);
+});
+
+test('post-commit attestation rejects incomplete D-021 execution bindings', () => {
+  const missingExecution = validAttestationFixture();
+  missingExecution.evidenceIndex.deterministic.execution = {};
+  assertEqual(validateGate0Attestation(missingExecution).valid, false);
+
+  const changedReplay = validAttestationFixture();
+  changedReplay.evidenceIndex.pilotFiveConsecutive[0]
+    .execution.portableReplay.argv.push('--unlocked');
+  assertEqual(validateGate0Attestation(changedReplay).valid, false);
+
+  const changedLog = validAttestationFixture();
+  changedLog.evidenceIndex.installation.logs[0].sha256 = 'f'.repeat(64);
+  assertEqual(validateGate0Attestation(changedLog).valid, false);
+
+  const cleanupMissing = validAttestationFixture();
+  cleanupMissing.evidenceIndex.soakRequirementGuard
+    .execution.cleanupTerminated = false;
+  assertEqual(validateGate0Attestation(cleanupMissing).valid, false);
 });
 
 function dispositionReport(errors = []) {
@@ -1203,7 +2616,11 @@ test('baseline renders disposition counts from the structured report', () => {
     repositoryBlockers: ['G0-R023: OPEN'],
   });
   const disposition = dispositionReport();
-  const markdown = renderBaselineReport({
+  const provenanceExecutions = validProvenanceFixture().executions;
+  const executionEvidence = (execution) => ({
+    portableReplay: makePortableInvocation(execution, '/work/repository'),
+  });
+  const baselineArguments = {
     candidateSha: 'a'.repeat(40),
     branch: 'codex/intentsmith-1.0',
     registryHash: 'b'.repeat(64),
@@ -1222,38 +2639,39 @@ test('baseline renders disposition counts from the structured report', () => {
         bytes: 1,
         sha256: 'c'.repeat(64),
         path: 'clean.log',
-        replayPath: '$PWD/.intentsmith-artifacts/clean.log',
+        exitCode: 0,
+        execution: executionEvidence(provenanceExecutions[0]),
       },
       {
-        kind: 'idempotent',
+        kind: 'repeat',
         bytes: 1,
         sha256: 'd'.repeat(64),
         path: 'again.log',
-        replayPath: '$PWD/.intentsmith-artifacts/again.log',
+        exitCode: 0,
+        execution: executionEvidence(provenanceExecutions[1]),
       },
     ],
-    installCommand: './scripts/install.sh --minimal',
-    installReplayCommand: './scripts/install.sh --minimal',
     deterministicEvidence: {
-      command: 'node scripts/nightly-audit.js',
-      replayCommand: 'node scripts/nightly-audit.js',
       exitCode: 0,
+      verdict: 'PASS',
       statusCounts: { PASS: 199 },
       report: 'report.json',
-      replayReport: '$PWD/.intentsmith-artifacts/report.json',
       reportSha256: 'e'.repeat(64),
+      inventory: 'inventory.json',
+      inventorySha256: 'a'.repeat(64),
       inventoryFingerprint: 'f'.repeat(64),
       optionsFingerprint: '1'.repeat(64),
+      execution: executionEvidence(provenanceExecutions[2]),
     },
     pilotEvidence: [],
     soakEvidence: {
-      command: 'node scripts/nightly-audit.js --profile=soak',
-      replayCommand: 'node scripts/nightly-audit.js --profile=soak',
       exitCode: 2,
       verdict: 'BLOCKED',
+      guardPassed: true,
       blockedBy: ['gpu', 'ollama'],
       reportSha256: '2'.repeat(64),
-      replayReport: '$PWD/.intentsmith-artifacts/soak/report.json',
+      inventorySha256: '3'.repeat(64),
+      execution: executionEvidence(provenanceExecutions[8]),
     },
     privacy: {
       incidentId: 'G0-PRIVACY-001',
@@ -1269,11 +2687,29 @@ test('baseline renders disposition counts from the structured report', () => {
     outcome,
     riskAssessment: riskAssessmentCopy(),
     dispositionReport: disposition,
-  });
+  };
+  const markdown = renderBaselineReport(baselineArguments);
   assert(markdown.includes('`EXACT` 32'));
   assert(markdown.includes('`MODIFIED` 99'));
   assert(!markdown.includes('`EXACT` 87'));
+  assert(markdown.includes('did not establish five consecutive A9 passes'));
+  assert(!markdown.includes('A9 assertion passed in every run'));
+  assert(markdown.includes('Five soak programs previously misdeclared'));
+  assert(markdown.includes('Runtime database access now requires'));
+  assert(markdown.includes('former shared-`/tmp` convention is closed'));
+  assert(!markdown.includes('Product DB initialization remains an import side effect'));
   assert(!markdown.includes('undefined'));
+
+  baselineArguments.soakEvidence = {
+    ...baselineArguments.soakEvidence,
+    exitCode: 1,
+    verdict: 'FAIL',
+    guardPassed: false,
+    blockedBy: [],
+  };
+  const redMarkdown = renderBaselineReport(baselineArguments);
+  assert(redMarkdown.includes('soak prerequisite guard was not established'));
+  assert(!redMarkdown.includes('are now blocked before'));
 });
 
 await testAsync('even an empty manual verdict override is rejected before evidence writes', async () => {
@@ -1285,16 +2721,6 @@ await testAsync('even an empty manual verdict override is rejected before eviden
   let exitCode;
   try {
     exitCode = await generateGate0Evidence([
-      '--deterministic-report=unused',
-      '--pilot-root=unused',
-      '--soak-guard-report=unused',
-      '--install-log=unused',
-      '--idempotent-install-log=unused',
-      '--install-command=unused',
-      '--deterministic-command=unused',
-      '--pilot-command-template=unused-{runId}',
-      '--soak-command=unused',
-      '--execution-root=/unused',
       '--verdict=',
     ]);
   } finally {
@@ -1302,6 +2728,190 @@ await testAsync('even an empty manual verdict override is rejected before eviden
   }
   assertEqual(exitCode, 2);
   assert(errorText.includes('--verdict is not supported'));
+});
+
+await testAsync('signal during evidence finalization restores every tracked output', async () => {
+  const repository = path.join(testRoot, 'generator-signal-rollback');
+  const outputPaths = [
+    'status.md',
+    'index.json',
+    'report.md',
+    'review.md',
+  ];
+  mkdirSync(repository, { mode: 0o700 });
+  for (const relativePath of outputPaths) {
+    writeFileSync(
+      path.join(repository, relativePath),
+      `original ${relativePath}\n`,
+      { mode: 0o600 },
+    );
+  }
+  let interrupted = false;
+  try {
+    await runWithGate0OutputRollback({
+      repositoryRoot: repository,
+      outputPaths,
+      operation: async ({ armRollback }) => {
+        await armRollback();
+        for (const relativePath of outputPaths) {
+          writeFileSync(
+            path.join(repository, relativePath),
+            `generated ${relativePath}\n`,
+            { mode: 0o600 },
+          );
+        }
+        process.kill(process.pid, 'SIGTERM');
+        await new Promise(resolve => setTimeout(resolve, 25));
+        return 0;
+      },
+    });
+  } catch (error) {
+    interrupted = error.message.includes('interrupted by SIGTERM');
+  }
+  assertEqual(interrupted, true);
+  for (const relativePath of outputPaths) {
+    assertEqual(
+      readFileSync(path.join(repository, relativePath), 'utf8'),
+      `original ${relativePath}\n`,
+    );
+  }
+});
+
+await testAsync('the candidate evidence producer rejects every caller argument', async () => {
+  const originalError = console.error;
+  let errorText = '';
+  console.error = (...values) => {
+    errorText += values.join(' ');
+  };
+  let exitCode;
+  try {
+    exitCode = await runGate0CandidateEvidence(['--command=true']);
+  } finally {
+    console.error = originalError;
+  }
+  assertEqual(exitCode, 2);
+  assert(errorText.includes('accepts no arguments'));
+});
+
+test('the candidate producer installs owned-process termination handling', () => {
+  const source = readFileSync(
+    path.join(process.cwd(), 'scripts/run-gate0-candidate-evidence.js'),
+    'utf8',
+  );
+  assert(source.includes(
+    'return await runWithOwnedProcessTerminationHandling(async () => {',
+  ));
+  assert(source.includes('await unlink(completedProvenancePath)'));
+});
+
+test('the candidate evidence producer rejects seeded ignored install outputs', () => {
+  assertThrows(() => assertPristineIgnoredState(
+    '!! c3-ide/node_modules/seeded-package/index.js',
+  ));
+  assertEqual(assertPristineIgnoredState('').clean, true);
+});
+
+test('every producer phase rejects ignored runtime paths outside its allowlist', () => {
+  const evidenceRoot =
+    `.intentsmith-artifacts/gate0/candidate-${provenanceCandidate}`;
+  const allowed = [
+    '!! .intentsmith-artifacts/',
+    '!! node_modules/',
+    '!! c3-ide/extensions/example/node_modules/',
+    '!! c3-ide/applications/electron/lib/',
+  ].join('\n');
+  assertEqual(
+    assertAllowedIgnoredState(allowed, evidenceRoot).unexpectedPathCount,
+    0,
+  );
+  assertThrows(() => assertAllowedIgnoredState(
+    `${allowed}\n!! data/c3.db`,
+    evidenceRoot,
+  ));
+  assertThrows(() => assertAllowedIgnoredState(
+    `${allowed}\n!! logs/private-runtime.log`,
+    evidenceRoot,
+  ));
+  assertThrows(() => assertAllowedIgnoredState(
+    `${allowed}\n!! data/node_modules/c3.db`,
+    evidenceRoot,
+  ));
+  assertThrows(() => assertAllowedIgnoredState(
+    `${allowed}\n!! data/private.tsbuildinfo`,
+    evidenceRoot,
+  ));
+});
+
+await testAsync('producer artifact ownership rejects ignored sibling paths', async () => {
+  const repository = path.join(testRoot, 'artifact-root-ownership');
+  const evidenceRoot =
+    `.intentsmith-artifacts/gate0/candidate-${provenanceCandidate}`;
+  mkdirSync(path.join(repository, evidenceRoot), {
+    recursive: true,
+    mode: 0o700,
+  });
+  await assertOwnedArtifactRoot(repository, evidenceRoot);
+  mkdirSync(
+    path.join(repository, '.intentsmith-artifacts', 'unowned'),
+    { mode: 0o700 },
+  );
+  let rejected = false;
+  try {
+    await assertOwnedArtifactRoot(repository, evidenceRoot);
+  } catch {
+    rejected = true;
+  }
+  assertEqual(rejected, true);
+});
+
+await testAsync('producer rejects a symlink inside its writable install boundary', async () => {
+  const repository = path.join(testRoot, 'nested-install-symlink');
+  const evidenceRoot =
+    `.intentsmith-artifacts/gate0/candidate-${provenanceCandidate}`;
+  const candidateRoot = path.join(repository, evidenceRoot);
+  const installRoot = path.join(candidateRoot, 'install-root');
+  const logRoot = path.join(candidateRoot, 'logs');
+  mkdirSync(installRoot, { recursive: true, mode: 0o700 });
+  mkdirSync(logRoot, { recursive: true, mode: 0o700 });
+  symlinkSync(tmpdir(), path.join(installRoot, 'tmp'), 'dir');
+  let rejected = false;
+  try {
+    await assertOwnedExecutionBoundary(repository, evidenceRoot, {
+      id: 'fixture',
+      environmentOverrides: {
+        TMPDIR: path.join(installRoot, 'tmp'),
+      },
+      logPath: `${evidenceRoot}/logs/fixture.log`,
+      reportPath: null,
+      inventoryPath: null,
+    });
+  } catch {
+    rejected = true;
+  }
+  assertEqual(rejected, true);
+});
+
+await testAsync('producer rejects a world-writable dependency root', async () => {
+  const repository = path.join(testRoot, 'world-writable-dependency');
+  const dependencyRoot = path.join(repository, 'node_modules');
+  mkdirSync(dependencyRoot, { recursive: true, mode: 0o777 });
+  chmodSync(dependencyRoot, 0o777);
+  let rejected = false;
+  try {
+    await assertOwnedDependencyRoots(repository);
+  } catch {
+    rejected = true;
+  }
+  assertEqual(rejected, true);
+});
+
+await testAsync('producer makes safe package-manager root modes private before reuse', async () => {
+  const repository = path.join(testRoot, 'group-writable-dependency');
+  const dependencyRoot = path.join(repository, 'node_modules');
+  mkdirSync(dependencyRoot, { recursive: true, mode: 0o775 });
+  chmodSync(dependencyRoot, 0o775);
+  await assertOwnedDependencyRoots(repository);
+  assertEqual(statSync(dependencyRoot).mode & 0o777, 0o700);
 });
 
 rmSync(testRoot, { recursive: true, force: true });

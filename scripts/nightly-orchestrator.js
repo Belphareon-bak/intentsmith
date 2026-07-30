@@ -965,13 +965,22 @@ function installTerminationHandlers() {
 }
 
 export async function runNightlyWithTerminationHandling(options) {
+  return runWithOwnedProcessTerminationHandling(() => runNightly(options));
+}
+
+export async function runWithOwnedProcessTerminationHandling(operation) {
   if (ACTIVE_OWNED_CHILDREN.size !== 0) {
     throw new Error('Cannot start termination handling while owned commands are active');
+  }
+  if (typeof operation !== 'function') {
+    throw new Error('Termination-protected operation must be a function');
   }
   requestedTerminationSignal = null;
   const removeTerminationHandlers = installTerminationHandlers();
   try {
-    return await runNightly(options);
+    const result = await operation();
+    throwIfTerminationRequested();
+    return result;
   } finally {
     removeTerminationHandlers();
     requestedTerminationSignal = null;
@@ -1326,7 +1335,7 @@ async function validateAuditContract({ paths, sourceRevision, runnerExitCode }) 
     failFast: expectedOptions.failFast,
     timeoutMs: expectedOptions.timeoutMs,
     deadlineMs: expectedOptions.deadlineMs,
-    profiles: [...AUDIT_PROFILES],
+    profiles: [...AUDIT_PROFILES].sort(),
     ids: [],
     exclude: [],
     allowBlockers: [],
@@ -1533,7 +1542,7 @@ async function validateAuditContract({ paths, sourceRevision, runnerExitCode }) 
     status: 'PASS',
     sourceRevision,
     registryHash: expectedRegistryHash,
-    profiles: [...AUDIT_PROFILES],
+    profiles: [...AUDIT_PROFILES].sort(),
     expectedSuiteCount: expectedIds.length,
     profileCounts: expectedProfileCounts,
     reportVerdict: report.verdict,

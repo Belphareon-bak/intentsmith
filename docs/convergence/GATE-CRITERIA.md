@@ -5,6 +5,9 @@ satisfy every clause below is not that verdict.
 
 This document is the authority for gate wording. `STATUS.md` records which
 verdict currently holds and against which commit; it does not redefine terms.
+The historical `f11026f` attestation is explicitly superseded by
+`GATE0-EVIDENCE-CORRECTION.md`; generated files are refreshed only through the
+generator, never by hand.
 
 ## Scope of a verdict
 
@@ -33,15 +36,15 @@ product is good, only that statements about it are verifiable.
 
 | # | Condition | How it is checked |
 |---|---|---|
-| G0-C1 | Worktree is clean | `git status --porcelain` is empty |
-| G0-C2 | All 225 disposition records resolve and all 60 repaired subjects match the current candidate | `node scripts/validate-final-disposition.js` exits 0; the sanitized subject sidecar matches path/blob/mode/resolution/rationale |
-| G0-C3 | Test registry is complete and valid | `node scripts/validate-test-registry.js` exits 0 |
-| G0-C4 | Clean install reproduces from the verdict commit | two consecutive `scripts/install.sh --minimal` runs exit 0, second one idempotent |
-| G0-C5 | Every required deterministic T1/T2 suite passes | all `offline` and `database` registry rows |
-| G0-C6 | No `KNOWN_DEFECTIVE` suite is counted as green evidence | evidence generator refuses to read a green result from a `KNOWN_DEFECTIVE` row |
-| G0-C7 | Every `BLOCKED` suite names a specific technical prerequisite | each `BLOCKED` row has a non-generic reason naming the missing capability |
-| G0-C8 | Evidence and status documentation derive from the clean candidate | generated attestation carries the candidate SHA and registry fingerprint, and has that candidate as its parent |
-| G0-C9 | Every risk has one valid machine-readable Gate 0 impact | `GATE0-RISK-IMPACT.json` validates against every row in `RISK-REGISTER.md` |
+| G0-C1 | Worktree is clean | the fixed producer requires the same candidate SHA and empty tracked/untracked porcelain before and after all nine executions; it also rejects ignored paths outside its fixed allowlist, rejects non-canonical/symlinked/other-writable execution and dependency roots, and normalizes safe package-manager-created directory modes to 0700 before reuse |
+| G0-C2 | All 225 disposition records resolve and all 60 repaired subjects match the current candidate | `node scripts/validate-final-disposition.js --json` exits 0; the sanitized subject sidecar matches path/blob/mode/resolution/rationale, and the post-commit validator reruns and exactly compares the typed result |
+| G0-C3 | Test registry is complete and valid | `node scripts/validate-test-registry.js --json` exits 0, rejects a `BLOCKED` row without external-network/server/Ollama/GPU prerequisites, and the post-commit validator reruns and exactly compares its typed result |
+| G0-C4 | Clean install reproduces from the verdict commit | two consecutive locked `scripts/install.sh --minimal` executions exit 0 against the same isolated cache; no stronger installed-state idempotence claim is inferred |
+| G0-C5 | Every required deterministic T1/T2 suite and all five pilot repeats pass | all `offline` and `database` registry rows plus five exact `IS-T2-TESTS-PILOT-C1C2C3-TEST` reports |
+| G0-C6 | No `KNOWN_DEFECTIVE` suite is counted as green evidence | the generator validates every deterministic result against the registry; the post-commit validator independently derives the deterministic profile/state inventory from the candidate-parent registry and binds this clause |
+| G0-C7 | Every `BLOCKED` suite names a specific technical prerequisite | each `BLOCKED` row names external network, owned server, Ollama or GPU; the post-commit validator recomputes the gap list from the candidate-parent registry and binds this clause together with the five-suite soak guard |
+| G0-C8 | Evidence and status documentation derive from typed producer evidence for the clean candidate | schema-7 index binds all nine typed executions and the three generated Markdown blobs; the evidence-only commit is post-validated by `npm run gate0:validate-attestation` for its sole candidate parent, exact four-file diff, output modes/hashes and parent-derived evidence |
+| G0-C9 | Every risk has one valid machine-readable Gate 0 impact | `GATE0-RISK-IMPACT.json` validates against every row in `RISK-REGISTER.md`; both parent blobs, derived blockers and typed summary are recomputed after the evidence commit |
 
 ### "Available" is derived, never judged
 
@@ -82,8 +85,8 @@ allowed impacts are:
 
 The policy, not a JavaScript risk-ID allowlist, classifies repository-local
 risks with `G0_FAIL` impact. Closed `G0-R012`, `G0-R014`, `G0-R017`,
-`G0-R019`, `G0-R020`, `G0-R026`, and `G0-R027` retain that impact and become
-blockers again if reopened.
+`G0-R019`, `G0-R020`, `G0-R026`, `G0-R027`, and `G0-R028` retain that impact
+and become blockers again if reopened.
 `G0-R015` is `G0_REVIEW_REQUIRED`. `G0-R018` is `LATER_GATE` only under the
 condition that the legacy listener remains loopback-only; off-loopback binding
 is prohibited until the separate authenticated boundary and its bypass-negative
@@ -152,12 +155,13 @@ A validator that passes is evidence only of what it actually asserts. If a
 decision is recorded but unenforced, the gate is open regardless of the exit
 code — the exit code merely fails to mention it.
 
-The evidence generator derives the verdict and rejects a manual `--verdict`
-override. A well-formed red validator report produces generated `FAIL`
-documents and generator exit 1. An unexecutable validator, malformed structured
-report, unsupported schema, signal termination, or disagreement between report
-and process exit is an evidence-infrastructure failure and generator exit 2;
-it is not a Gate verdict.
+The evidence generator derives the verdict and accepts no manual command,
+artifact-root, checkout-root, or `--verdict` input. A well-formed red validator
+or candidate execution produces generated `FAIL` documents and generator exit
+1. An unexecutable validator, malformed producer/report/inventory output,
+unsupported schema, signal termination, symlink/path escape, or disagreement
+between report, provenance and process exit is an evidence-infrastructure
+failure and generator exit 2; it is not a Gate verdict.
 
 ### Repeatability
 
@@ -168,20 +172,45 @@ green runs at the verdict commit before they count toward G0-C5.
 ### Independent reproducibility
 
 Gate 0 evidence is produced by the same process that produced the tree. That is
-acceptable only if a third party can repeat it from the commit alone. Every
-evidence record MUST therefore carry the exact command, the exit status, and a
-SHA-256 of the captured output — enough to re-run without reading this
-conversation, the transcript, or any local state. Evidence that cannot be
-reproduced from the commit is not evidence.
-Host-specific executed commands are retained verbatim, but each must also have
-a mechanically derived replay command rooted at `$PWD` and a checkout-relative
-artifact locator. A replay command retaining any other host-absolute path is an
-evidence-infrastructure failure.
+acceptable only if a third party can repeat it from the commit alone. The
+candidate therefore contains a fixed, argument-free runner. Its ignored
+producer record carries, for every phase, the exact spawn-boundary executable,
+argv tokens, a fixed host-independent inherited-environment allowlist, explicit isolated
+overrides, source state before/after, exit status, and SHA-256 of the captured
+log. The producer refuses pre-existing ignored dependency/build/runtime paths
+and rejects new ignored paths outside its fixed dependency/build/evidence
+allowlist after every phase. It terminates its owned process groups on
+interruption. A caller-supplied
+shell command or textual log marker is never evidence.
 
-Install logs additionally carry the candidate SHA, pre/post clean-worktree
-markers, run kind (`clean` or `idempotent`), and SHA-256 of the documented
-install command. The evidence generator rejects logs missing or disagreeing
-with any marker.
+The committed schema-7 evidence index binds that producer record by path, byte
+count and SHA-256, records the bounded toolchain identity, and exposes an
+`env -i` typed `$PWD` replay recipe derived field-by-field.
+It commits only source SHA and a cleanliness boolean, never porcelain path names,
+host-specific absolute paths or secret values. The generator derives
+the fixed producer location from full current `HEAD`; every report, inventory
+and suite log must be a regular non-symlink file below that canonical directory
+through mode-0700 canonical directories, itself mode 0600, and have matching
+content digest, candidate SHA, registry fingerprint, exact
+selection/options fingerprint and recomputed result counters. Every audit
+summary has an exact nested schema, and its verdict/exit/passed fields must
+agree with the complete PASS/FAIL/TIMEOUT/BLOCKED/SKIPPED counters. Evidence
+that cannot satisfy this contract from a fresh clone is not evidence.
+
+After the four generated files are committed alone, run
+`npm run gate0:validate-attestation`. The validator reads blobs from the commit,
+requires exactly one parent equal to the indexed candidate, recomputes the
+candidate registry fingerprint, verifies that only the four generated paths
+changed with mode 100644, and checks the three Markdown blobs against hashes in
+the index. It then reruns the registry and disposition validators in the locked
+environment, recomputes G0-C9 and repository blockers from both parent risk
+blobs, recomputes inventory plus G0-C6/G0-C7 prerequisite facts from the
+candidate-parent registry, and binds the sanitized privacy summary to the
+complete parent incident blob without republishing private paths or secret
+examples. All committed summary records use exact nested fields, so an
+unreviewed extension cannot hide inside the evidence schema. The validator
+checks HEAD and cleanliness again after those executions. A pre-commit G0-C8
+row is not a valid attestation without this post-commit check.
 
 ## Later gates
 

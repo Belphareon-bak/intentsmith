@@ -527,6 +527,44 @@ try {
     }
   }
 
+  const tailReady = path.join(tmp, 'termination-tail-ready');
+  const tailProvenance = path.join(tmp, 'termination-tail-provenance.json');
+  const tailWrapper = path.join(tmp, 'run-protected-tail-with-signal.mjs');
+  await writeFile(tailWrapper, `
+import { unlink, writeFile } from 'node:fs/promises';
+import { runWithOwnedProcessTerminationHandling } from ${
+  JSON.stringify(pathToFileURL(path.join(SOURCE_ROOT, 'scripts', 'nightly-orchestrator.js')).href)
+};
+const ready = process.argv[2];
+const provenance = process.argv[3];
+let provenanceWritten = false;
+try {
+  await runWithOwnedProcessTerminationHandling(async () => {
+    await writeFile(ready, 'ready');
+    await new Promise(resolve => setTimeout(resolve, 250));
+    await writeFile(provenance, 'must not remain usable');
+    provenanceWritten = true;
+  });
+  process.exitCode = 0;
+} catch (error) {
+  if (provenanceWritten) await unlink(provenance).catch(() => {});
+  process.stderr.write(String(error.message));
+  process.exitCode = 2;
+}
+  `);
+  const tailOwner = spawn(
+    process.execPath,
+    [tailWrapper, tailReady, tailProvenance],
+    { cwd: SOURCE_ROOT, stdio: ['ignore', 'pipe', 'pipe'] },
+  );
+  const tailClose = observeChildClose(tailOwner);
+  await waitForFile(tailReady, 5_000);
+  assert.equal(tailOwner.kill('SIGTERM'), true);
+  const tailExit = await waitForObservedClose(tailClose, tailOwner, 5_000);
+  assert.equal(tailExit.code, 2);
+  assert.equal(tailExit.signal, null);
+  await assertMissing(tailProvenance);
+
   git(['config', 'core.sshCommand', 'sh -c "exit 99" ignored'], repo);
   await assert.rejects(
     () => runNightly({
@@ -836,7 +874,7 @@ const report = {
     failFast: false,
     timeoutMs: Number(value('--timeout-ms')),
     deadlineMs: Number(value('--deadline-ms')),
-    profiles,
+    profiles: [...profiles].sort(),
     ids: [],
     exclude: [],
     allowBlockers: [],

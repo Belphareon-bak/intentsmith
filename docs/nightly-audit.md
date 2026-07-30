@@ -100,14 +100,58 @@ validated report.
 
 ## Gate 0 evidence generation
 
-`node scripts/generate-gate0-evidence.js ...` accepts only evidence artifacts
-bound to its clean candidate SHA and current registry fingerprint. The verdict
-is derived; the generator rejects the former manual `--verdict` override.
-`--execution-root` names the absolute checkout used for the recorded commands.
-The generator preserves those exact commands and mechanically emits a second
-portable form in which that root is `$PWD`; any other host-absolute path or
-artifact outside the checkout is rejected. Evidence entries therefore carry
-both the executed path and a fresh-clone replay locator.
+From a clean committed candidate, run:
+
+```bash
+npm run gate0:run-evidence
+npm run gate0:generate-evidence
+# after committing only the four generated files:
+npm run gate0:validate-attestation
+```
+
+The runner accepts no arguments. It executes a fixed nine-phase plan without a
+shell: two minimal installs against one isolated cache, the complete
+offline/database registry, five exact pilot runs, and the five-suite
+model-backed soak prerequisite guard. It writes raw logs, reports, inventories,
+and a strict producer provenance record only below the ignored fixed path
+`.intentsmith-artifacts/gate0/candidate-<full-HEAD>/`.
+
+The producer record contains the exact spawn-boundary executable, argv tokens,
+the fixed host-independent inherited-environment allowlist, explicit isolated environment
+overrides, source state before and after each phase, exit status, log size and
+log SHA-256. It declares that no secret values were recorded. The runner
+refuses a dirty tree, a subdirectory or symlinked checkout root, an existing
+candidate evidence directory, any pre-existing ignored dependency/build/runtime
+path, and unsafe path components. Before and after every phase it rejects
+ignored paths outside the fixed dependency/build/evidence allowlist, verifies
+every configured writable root/file parent inside the private candidate
+boundary, rejects symlinked, non-canonical, or other-writable dependency/build
+roots, and normalizes safe package-manager-created root modes to `0700` before
+a later phase can reuse them.
+SIGINT/SIGTERM handling terminates every
+owned child process group before the runner returns; an interruption during
+the no-child finalization tail invalidates the candidate provenance file.
+
+The generator also accepts no artifact, command, root, or verdict arguments.
+It derives the only valid evidence path from current full `HEAD`, validates the
+producer schema against the fixed plan, requires canonical real paths and
+private mode-0700 directory chains plus regular mode-0600 non-symlink files,
+and recomputes report, inventory and suite-log contracts. Committed schema-7
+evidence contains the producer-file digest, bounded toolchain identity,
+path-free source cleanliness booleans, exact process-cleanup fields, hashes of
+all three generated Markdown outputs and an `env -i` tokenized `$PWD` replay
+recipe; host-specific absolute
+paths and raw Git porcelain remain only in the ignored producer record.
+The post-commit attestation validator then verifies the sole candidate parent,
+candidate registry fingerprint, exact four-output diff, Git modes and bound
+Markdown hashes; reruns both offline validators in the locked environment; and
+recomputes the registry inventory, G0-C6/G0-C7 prerequisite facts,
+risk-policy blockers and privacy-incident binding from the candidate-parent
+blobs. Exact nested summary fields and status-count-derived audit verdicts
+prevent unreviewed metadata or contradictory aggregates from passing. A
+signal during the generator's four-file finalization
+restores all original tracked outputs, so an exit-2 run cannot leave a
+commit-ready evidence quartet.
 
 The registry and disposition validators are invoked with `--json`. A
 well-formed validation report with errors is a valid red state: the generator
@@ -117,6 +161,13 @@ terminates by signal, emits malformed JSON, uses an unsupported schema, breaks
 the pinned source/count invariants of a green report, or disagrees with its
 process exit is an evidence-infrastructure failure; the generator exits 2 and
 does not claim a verdict from that invocation.
+
+The same distinction applies to candidate execution. A structurally valid
+nonzero install, deterministic result, or pilot result produces a failed gate
+clause and exit 1. Missing, forged, contradictory, symlink-escaped, wrong-SHA,
+wrong-options, wrong-layout, or otherwise malformed producer evidence is an
+infrastructure failure and exit 2. No clause is promoted by matching text
+markers in a log.
 
 All local clauses G0-C1 through G0-C9 must be green before the generator may derive
 `CONDITIONAL PASS`, and that verdict means only that independent read-only

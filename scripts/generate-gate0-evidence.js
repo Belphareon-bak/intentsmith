@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   mkdir,
   readFile,
-  readdir,
+  realpath,
   rename,
   stat,
+  unlink,
   writeFile,
 } from 'node:fs/promises';
+import { isDeepStrictEqual } from 'node:util';
 import path from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
@@ -17,10 +19,37 @@ import {
   classifyDispositionValidatorExecution,
   classifyRegistryValidatorExecution,
   deriveGateOutcome,
-  evaluateGate0RiskPolicy,
   EvidenceInfrastructureError,
   ReviewStatus,
 } from './gate0-evidence-verdict.js';
+import {
+  buildGate0RiskEvidence,
+  buildPrivacyIncidentEvidence,
+  buildRegistryGateFacts,
+  PRIVACY_INCIDENT_PATH,
+  projectDispositionValidation,
+  projectRegistryValidation,
+  RISK_POLICY_PATH,
+  RISK_REGISTER_PATH,
+} from './gate0-evidence-projections.js';
+import {
+  buildSanitizedExecutionEvidence,
+  buildSanitizedToolchainEvidence,
+  environmentForExecution,
+  GATE0_DATABASE_COUNT,
+  GATE0_DETERMINISTIC_COUNT,
+  GATE0_MODEL_SOAK_IDS,
+  GATE0_OFFLINE_COUNT,
+  GATE0_PILOT_SUITE_ID,
+  gate0EvidenceLayout,
+  resolveOwnedEvidenceFile,
+  sha256,
+  validateGate0Provenance,
+} from './gate0-evidence-contract.js';
+import {
+  runLogged,
+  runWithOwnedProcessTerminationHandling,
+} from './nightly-orchestrator.js';
 
 const OUTPUTS = {
   status: 'docs/convergence/STATUS.md',
@@ -28,63 +57,27 @@ const OUTPUTS = {
   report: 'docs/convergence/GATE0-BASELINE-REPORT.md',
   review: 'docs/convergence/reviews/GATE0-OPUS-REVIEW.md',
 };
-const GATE0_OFFLINE_COUNT = 173;
-const GATE0_DATABASE_COUNT = 26;
-const GATE0_DETERMINISTIC_COUNT = GATE0_OFFLINE_COUNT + GATE0_DATABASE_COUNT;
-const GATE0_RISK_POLICY_PATH = 'docs/convergence/GATE0-RISK-IMPACT.json';
-const MODEL_BACKED_SOAK_IDS = new Set([
-  'IS-T5-TESTS-SOAK-ATTACHMENT-HEAVY-TEST',
-  'IS-T5-TESTS-SOAK-BREAK-PATTERN-PROBE-TEST',
-  'IS-T5-TESTS-SOAK-FOLLOWUP-LOAD-TEST',
-  'IS-T5-TESTS-SOAK-MIXED-SESSION-SIMULATION-TEST',
-  'IS-T5-TESTS-SOAK-SHORT-INPUT-STRESS-TEST',
-]);
+const REVIEW_BASE = 'f11026f062e5d2e75fe6802a3e4e2ad38a6c9dab';
 
 const root = process.cwd();
 
 export async function main(argv = process.argv.slice(2)) {
  try {
-  const opts = parseArgs(argv);
-  for (const key of [
-    'deterministic-report',
-    'pilot-root',
-    'soak-guard-report',
-    'install-log',
-    'idempotent-install-log',
-    'install-command',
-    'deterministic-command',
-    'pilot-command-template',
-    'soak-command',
-    'execution-root',
-  ]) {
-    if (!opts[key]) throw new Error(`Missing --${key}=VALUE`);
-  }
-  if (Object.hasOwn(opts, 'verdict')) {
+  return await runWithGate0OutputRollback({
+    repositoryRoot: root,
+    outputPaths: Object.values(OUTPUTS),
+    operation: async ({ armRollback }) => {
+  if (argv.some(arg => arg === '--verdict' || arg.startsWith('--verdict='))) {
     throw new EvidenceInfrastructureError(
       '--verdict is not supported; Gate 0 verdicts are derived from evidence',
     );
   }
-  const executionRoot = path.resolve(opts['execution-root']);
-  requireEvidence(
-    path.isAbsolute(opts['execution-root']),
-    '--execution-root must be an absolute candidate checkout path',
-  );
-  const installReplayCommand = makeReplayCommand(
-    opts['install-command'],
-    executionRoot,
-  );
-  const deterministicReplayCommand = makeReplayCommand(
-    opts['deterministic-command'],
-    executionRoot,
-  );
-  const pilotReplayCommandTemplate = makeReplayCommand(
-    opts['pilot-command-template'],
-    executionRoot,
-  );
-  const soakReplayCommand = makeReplayCommand(
-    opts['soak-command'],
-    executionRoot,
-  );
+  if (argv.length > 0) {
+    throw new EvidenceInfrastructureError(
+      'Gate 0 evidence generation uses the locked candidate layout and accepts no arguments',
+    );
+  }
+  await requireCanonicalRepositoryRoot(root);
 
   const initialStatus = git(['status', '--porcelain=v1', '--untracked-files=all']);
   if (initialStatus !== '') {
@@ -96,12 +89,11 @@ export async function main(argv = process.argv.slice(2)) {
   const registry = await readJson(path.join(root, 'tests/registry.json'));
   const registryHash = sha256(JSON.stringify(registry));
   const suiteById = new Map(registry.suites.map(suite => [suite.id, suite]));
-  const profileCounts = countBy(registry.suites, 'profile');
-  const stateCounts = countBy(registry.suites, 'state');
+  const registryFacts = buildRegistryGateFacts(registry);
+  const { profileCounts, stateCounts } = registryFacts;
   const deterministicSuites = registry.suites.filter(
     suite => suite.profile === 'offline' || suite.profile === 'database',
   );
-
   requireEvidence(
     deterministicSuites.length === GATE0_DETERMINISTIC_COUNT
       && deterministicSuites.every(suite => suite.required && suite.state === 'ACTIVE'),
@@ -114,85 +106,133 @@ export async function main(argv = process.argv.slice(2)) {
     'reviewed deterministic profile counts changed',
   );
 
-  const deterministicReportPath = resolveInput(opts['deterministic-report']);
-  const deterministicReport = await readJson(deterministicReportPath);
-  validatePassingReport({
-    report: deterministicReport,
-    candidateSha,
-    registryHash,
-    expectedIds: new Set(deterministicSuites.map(suite => suite.id)),
-    expectedCount: GATE0_DETERMINISTIC_COUNT,
+  const layout = gate0EvidenceLayout(candidateSha);
+  const provenanceFile = await resolveOwnedEvidenceFile({
+    root,
+    evidenceRoot: layout.evidenceRoot,
+    relativePath: layout.provenance,
+    label: 'Gate 0 provenance',
   });
-
-  const pilotReports = await loadPilotReports(resolveInput(opts['pilot-root']));
-  requireEvidence(pilotReports.length === 5, `expected 5 pilot reports, got ${pilotReports.length}`);
+  const provenance = JSON.parse(provenanceFile.contents.toString('utf8'));
+  const provenanceValidation = validateGate0Provenance({
+    provenance,
+    root,
+    candidateSha,
+    registrySha256: registryHash,
+  });
   requireEvidence(
-    opts['pilot-command-template'].includes('{runId}'),
-    'pilot command template must contain {runId}',
+    provenanceValidation.valid,
+    `Gate 0 provenance is invalid: ${provenanceValidation.errors.join('; ')}`,
   );
   requireEvidence(
-    new Set(pilotReports.map(item => item.report.runId)).size === pilotReports.length,
-    'pilot reports contain duplicate run IDs',
+    provenanceFile.sha256 === await hashFile(provenanceFile.absolutePath),
+    'Gate 0 provenance changed while it was being read',
   );
-  for (const item of pilotReports) {
-    validatePassingReport({
-      report: item.report,
-      candidateSha,
-      registryHash,
-      expectedIds: new Set(['IS-T2-TESTS-PILOT-C1C2C3-TEST']),
-      expectedCount: 1,
+  const executionById = new Map(
+    provenance.executions.map(execution => [execution.id, execution]),
+  );
+  const producerLogById = new Map();
+  for (const execution of provenance.executions) {
+    const log = await resolveOwnedEvidenceFile({
+      root,
+      evidenceRoot: layout.evidenceRoot,
+      relativePath: execution.logPath,
+      label: `${execution.id} producer log`,
     });
+    requireEvidence(
+      log.bytes === execution.logBytes && log.sha256 === execution.logSha256,
+      `${execution.id} producer log disagrees with provenance`,
+    );
+    producerLogById.set(execution.id, log);
   }
-
-  const soakGuardPath = resolveInput(opts['soak-guard-report']);
-  const soakGuard = await readJson(soakGuardPath);
-  validateSoakGuard(soakGuard, candidateSha, registryHash);
 
   const installLogs = [];
-  for (const [kind, option] of [
-    ['clean', 'install-log'],
-    ['idempotent', 'idempotent-install-log'],
+  for (const [kind, executionId] of [
+    ['clean', 'install-clean'],
+    ['repeat', 'install-repeat'],
   ]) {
-    const absolutePath = resolveInput(opts[option]);
-    const contents = await readFile(absolutePath);
-    const logText = contents.toString('utf8');
-    requireEvidence(contents.length > 0, `${kind} install log is empty`);
-    requireEvidence(
-      logText.includes('COMMAND_EXIT_CODE="0"'),
-      `${kind} install log does not record COMMAND_EXIT_CODE="0"`,
-    );
-    requireEvidence(
-      logText.includes(`GATE0_CANDIDATE_SHA=${candidateSha}`),
-      `${kind} install log does not identify the candidate SHA`,
-    );
-    requireEvidence(
-      logText.includes('GATE0_WORKTREE_STATUS=clean'),
-      `${kind} install log does not prove a clean source tree`,
-    );
-    requireEvidence(
-      logText.includes(`GATE0_INSTALL_RUN=${kind}`),
-      `${kind} install log has the wrong run marker`,
-    );
-    requireEvidence(
-      logText.includes(`GATE0_INSTALL_COMMAND_SHA256=${sha256(opts['install-command'])}`),
-      `${kind} install log does not match the documented install command`,
-    );
-    requireEvidence(
-      logText.includes('GATE0_POST_INSTALL_WORKTREE_STATUS=clean'),
-      `${kind} install log does not prove a clean post-install source tree`,
-    );
+    const execution = executionById.get(executionId);
+    const log = producerLogById.get(executionId);
     installLogs.push({
       kind,
-      path: displayPath(absolutePath),
-      replayPath: makeReplayArtifactPath(absolutePath, executionRoot),
-      bytes: contents.length,
-      sha256: sha256(contents),
-      exitCode: 0,
+      path: log.relativePath,
+      bytes: log.bytes,
+      sha256: log.sha256,
+      exitCode: execution.exitCode,
+      execution: buildSanitizedExecutionEvidence(execution, root),
     });
   }
+  for (const log of installLogs) {
+    const contents = producerLogById.get(`install-${log.kind}`).contents
+      .toString('utf8');
+    for (const marker of [
+      `Node.js ${provenance.toolchain.nodeVersion}`,
+      `npm ${provenance.toolchain.npmVersion}`,
+      `yarn ${provenance.toolchain.yarnVersion}`,
+    ]) {
+      requireEvidence(
+        contents.includes(marker),
+        `${log.kind} install log does not prove toolchain marker ${marker}`,
+      );
+    }
+  }
 
+  const deterministicAudit = await loadAndValidateAuditEvidence({
+    root,
+    evidenceRoot: layout.evidenceRoot,
+    execution: executionById.get('deterministic'),
+    candidateSha,
+    registryHash,
+    expectedSuites: deterministicSuites,
+    expectedOptions: auditOptions({
+      profiles: ['offline', 'database'],
+      timeoutMs: 10 * 60 * 1000,
+      deadlineMs: 8 * 60 * 60 * 1000,
+    }),
+  });
+  const pilotAudits = [];
+  for (let index = 0; index < 5; index++) {
+    pilotAudits.push(await loadAndValidateAuditEvidence({
+      root,
+      evidenceRoot: layout.evidenceRoot,
+      execution: executionById.get(`pilot-${String(index + 1).padStart(2, '0')}`),
+      candidateSha,
+      registryHash,
+      expectedSuites: [suiteById.get(GATE0_PILOT_SUITE_ID)],
+      expectedOptions: auditOptions({
+        ids: [GATE0_PILOT_SUITE_ID],
+        timeoutMs: 5 * 60 * 1000,
+        deadlineMs: 60 * 60 * 1000,
+      }),
+    }));
+  }
+  const soakSuites = GATE0_MODEL_SOAK_IDS.map(id => suiteById.get(id));
+  requireEvidence(
+    soakSuites.every(Boolean),
+    'reviewed model-backed soak suites are missing from the registry',
+  );
+  const soakAudit = await loadAndValidateAuditEvidence({
+    root,
+    evidenceRoot: layout.evidenceRoot,
+    execution: executionById.get('soak-guard'),
+    candidateSha,
+    registryHash,
+    expectedSuites: soakSuites,
+    expectedOptions: auditOptions({
+      ids: [...GATE0_MODEL_SOAK_IDS],
+      timeoutMs: 60 * 60 * 1000,
+      deadlineMs: 60 * 60 * 1000,
+    }),
+  });
+
+  const validatorEnvironment = environmentForExecution(
+    provenanceValidation.expectedPlan[2],
+  );
   const registryValidation = classifyRegistryValidatorExecution(
-    runValidator(['node', 'scripts/validate-test-registry.js', '--json']),
+    await runValidator(
+      ['node', 'scripts/validate-test-registry.js', '--json'],
+      validatorEnvironment,
+    ),
   );
   if (
     registryValidation.passed
@@ -208,44 +248,39 @@ export async function main(argv = process.argv.slice(2)) {
     );
   }
   const dispositionValidation = classifyDispositionValidatorExecution(
-    runValidator(['node', 'scripts/validate-final-disposition.js', '--json']),
+    await runValidator(
+      ['node', 'scripts/validate-final-disposition.js', '--json'],
+      validatorEnvironment,
+    ),
   );
 
-  const knownDefectiveInDeterministic = deterministicReport.results.filter(result => (
+  const knownDefectiveInDeterministic = deterministicAudit.report.results.filter(result => (
     suiteById.get(result.id)?.state === 'KNOWN_DEFECTIVE'
   ));
 
-  const blockedWithoutPrerequisite = registry.suites.filter(suite => (
-    suite.state === 'BLOCKED'
-      && suite.requirements.network !== 'external'
-      && !suite.requirements.server
-      && !suite.requirements.ollama
-      && !suite.requirements.gpu
-  ));
+  const blockedWithoutPrerequisite =
+    registryFacts.blockedWithoutPrerequisite;
   requireEvidence(
     git(['status', '--porcelain=v1', '--untracked-files=all']) === '',
     'validators changed the candidate worktree',
   );
 
-  const privacy = await readJson(path.join(root, 'docs/convergence/PRIVACY-INCIDENT.json'));
+  const privacyBytes = await readFile(path.join(root, PRIVACY_INCIDENT_PATH));
+  const privacy = JSON.parse(privacyBytes.toString('utf8'));
   requireEvidence(
     privacy.status === 'CONFIRMED_COMPROMISE',
     'privacy incident must remain classified as CONFIRMED_COMPROMISE',
   );
-  const riskMarkdown = await readFile(
-    path.join(root, 'docs/convergence/RISK-REGISTER.md'),
-    'utf8',
-  );
-  const riskPolicyPath = path.join(root, GATE0_RISK_POLICY_PATH);
-  const riskPolicy = await readJson(riskPolicyPath);
-  const riskAssessment = evaluateGate0RiskPolicy(
-    riskMarkdown,
-    riskPolicy,
-  );
+  const privacyIncident = buildPrivacyIncidentEvidence(privacyBytes);
+  const riskMarkdownBytes = await readFile(path.join(root, RISK_REGISTER_PATH));
+  const riskPolicyBytes = await readFile(path.join(root, RISK_POLICY_PATH));
+  const riskAssessment = buildGate0RiskEvidence({
+    riskMarkdownBytes,
+    policyBytes: riskPolicyBytes,
+  });
   const repositoryBlockers = riskAssessment.repositoryBlockers;
 
-  const reviewBase = opts['review-base'] || '126b061';
-  const reviewRange = `${reviewBase}..${candidateSha}`;
+  const reviewRange = `${REVIEW_BASE}..${candidateSha}`;
   const reviewCommits = git([
     'log',
     '--reverse',
@@ -254,11 +289,61 @@ export async function main(argv = process.argv.slice(2)) {
   ]).split('\n').filter(Boolean);
   const reviewDiffStat = git(['diff', '--stat', reviewRange]);
 
-  const generatedAt = deterministicReport.endedAt;
+  const sourceEvidence = {
+    passed: provenance.executions.every(execution => (
+      execution.preSourceState.sha === candidateSha
+      && execution.preSourceState.statusPorcelain === ''
+      && execution.postSourceState.sha === candidateSha
+      && execution.postSourceState.statusPorcelain === ''
+      && execution.preIgnoredState.unexpectedPathCount === 0
+      && execution.postIgnoredState.unexpectedPathCount === 0
+    )),
+    executionCount: provenance.executions.length,
+  };
+  const installationEvidence = {
+    passed: installLogs.every(log => log.exitCode === 0),
+    logs: installLogs,
+  };
+  const deterministicEvidence = makeAuditEvidence(
+    deterministicAudit,
+    executionById.get('deterministic'),
+    root,
+  );
+  const pilotEvidence = pilotAudits.map((audit, index) => ({
+    ...makeAuditEvidence(
+      audit,
+      executionById.get(`pilot-${String(index + 1).padStart(2, '0')}`),
+      root,
+    ),
+  }));
+  const soakEvidence = {
+    ...makeAuditEvidence(soakAudit, executionById.get('soak-guard'), root),
+    blockedBy: [...new Set(
+      soakAudit.report.results.flatMap(result => result.blockedBy || []),
+    )].sort(),
+    guardPassed: soakAudit.report.verdict === 'BLOCKED'
+      && soakAudit.report.exitCode === 2
+      && soakAudit.report.results.every(result => (
+        result.status === 'BLOCKED'
+        && result.blockedBy?.includes('gpu')
+        && result.blockedBy?.includes('ollama')
+      )),
+  };
+  const evidenceContract = {
+    passed: provenanceValidation.valid,
+    path: provenanceFile.relativePath,
+    sha256: provenanceFile.sha256,
+  };
+  const generatedAt = provenance.endedAt;
   const clauses = buildGate0Clauses({
     registryValidation,
     dispositionValidation,
-    deterministicEvidence: deterministicReport,
+    sourceEvidence,
+    installationEvidence,
+    deterministicEvidence,
+    pilotEvidence,
+    soakEvidence,
+    evidenceContract,
     runnablePrograms: registry.suites.length,
     explicitSupportExclusions: registry.exclusions.length,
     stateCounts,
@@ -274,43 +359,8 @@ export async function main(argv = process.argv.slice(2)) {
   });
   const { verdict } = outcome;
 
-  const deterministicEvidence = {
-    command: opts['deterministic-command'],
-    replayCommand: deterministicReplayCommand,
-    exitCode: deterministicReport.exitCode,
-    report: displayPath(deterministicReportPath),
-    replayReport: makeReplayArtifactPath(deterministicReportPath, executionRoot),
-    reportSha256: await hashFile(deterministicReportPath),
-    statusCounts: deterministicReport.statusCounts,
-    inventoryFingerprint: deterministicReport.inventoryFingerprint,
-    optionsFingerprint: deterministicReport.optionsFingerprint,
-    startedAt: deterministicReport.startedAt,
-    endedAt: deterministicReport.endedAt,
-  };
-  const pilotEvidence = await Promise.all(pilotReports.map(async item => ({
-    runId: item.report.runId,
-    command: opts['pilot-command-template'].replaceAll('{runId}', item.report.runId),
-    replayCommand: pilotReplayCommandTemplate.replaceAll('{runId}', item.report.runId),
-    report: displayPath(item.path),
-    replayReport: makeReplayArtifactPath(item.path, executionRoot),
-    reportSha256: await hashFile(item.path),
-    exitCode: item.report.exitCode,
-    startedAt: item.report.startedAt,
-    endedAt: item.report.endedAt,
-  })));
-  const soakEvidence = {
-    command: opts['soak-command'],
-    replayCommand: soakReplayCommand,
-    exitCode: soakGuard.exitCode,
-    verdict: soakGuard.verdict,
-    report: displayPath(soakGuardPath),
-    replayReport: makeReplayArtifactPath(soakGuardPath, executionRoot),
-    reportSha256: await hashFile(soakGuardPath),
-    blockedBy: [...new Set(soakGuard.results.flatMap(result => result.blockedBy || []))].sort(),
-  };
-
   const evidenceIndex = {
-    schemaVersion: 5,
+    schemaVersion: 7,
     product: 'IntentSmith',
     gate: 'Gate 0',
     verdict,
@@ -338,55 +388,31 @@ export async function main(argv = process.argv.slice(2)) {
     },
     clauses,
     repositoryBlockers,
-    riskPolicy: {
-      path: GATE0_RISK_POLICY_PATH,
-      schemaVersion: riskAssessment.schemaVersion,
-      sha256: await hashFile(riskPolicyPath),
-      valid: riskAssessment.valid,
-      errors: riskAssessment.errors,
-      riskCount: riskAssessment.riskCount,
-      policyCount: riskAssessment.policyCount,
-      impactCounts: riskAssessment.impactCounts,
-      openImpactCounts: riskAssessment.openImpactCounts,
-      reviewRequiredRisks: riskAssessment.reviewRequiredRisks,
-      laterGateRisks: riskAssessment.laterGateRisks,
-      separateIncidents: riskAssessment.separateIncidents,
+    provenance: {
+      schemaVersion: provenance.schemaVersion,
+      path: provenanceFile.relativePath,
+      sha256: provenanceFile.sha256,
+      bytes: provenanceFile.bytes,
+      executionCount: provenance.executions.length,
+      secretValuesRecorded: provenance.secretValuesRecorded,
+      initialIgnoredState: provenance.initialIgnoredState,
+      startedAt: provenance.startedAt,
+      endedAt: provenance.endedAt,
+      toolchain: buildSanitizedToolchainEvidence(provenance.toolchain),
     },
+    riskPolicy: riskAssessment,
     validations: {
-      registry: {
-        command: 'node scripts/validate-test-registry.js --json',
-        exitCode: registryValidation.exitCode,
-        outputSha256: sha256(registryValidation.output),
-        errors: registryValidation.errors,
-      },
-      disposition: {
-        command: 'node scripts/validate-final-disposition.js --json',
-        exitCode: dispositionValidation.exitCode,
-        outputSha256: sha256(dispositionValidation.output),
-        errors: dispositionValidation.errors,
-        sourceManifest: dispositionValidation.report.sourceManifest,
-        dispositionCounts: dispositionValidation.report.dispositionCounts,
-        terminalCounts: dispositionValidation.report.terminalCounts,
-        resolutionCounts: dispositionValidation.report.resolutionCounts,
-      },
+      registry: projectRegistryValidation(registryValidation),
+      disposition: projectDispositionValidation(dispositionValidation),
     },
     installation: {
-      command: opts['install-command'],
-      repeatedCommand: opts['install-command'],
-      replayCommand: installReplayCommand,
-      repeatedReplayCommand: installReplayCommand,
+      passed: installationEvidence.passed,
       logs: installLogs,
     },
     deterministic: deterministicEvidence,
     pilotFiveConsecutive: pilotEvidence,
     soakRequirementGuard: soakEvidence,
-    privacyIncident: {
-      id: privacy.incidentId,
-      status: privacy.status,
-      currentTreeContained: privacy.currentTreeContainment.trackedPathsRemoved,
-      historyReachable: privacy.history.affectedObjectsRemainReachable,
-      rotationCategories: privacy.rotationInventory.map(item => item.category),
-    },
+    privacyIncident,
     review: {
       range: reviewRange,
       commitCount: reviewCommits.length,
@@ -420,8 +446,6 @@ export async function main(argv = process.argv.slice(2)) {
     registryValidation,
     dispositionValidation,
     installLogs,
-    installCommand: opts['install-command'],
-    installReplayCommand,
     deterministicEvidence,
     pilotEvidence,
     soakEvidence,
@@ -439,7 +463,7 @@ export async function main(argv = process.argv.slice(2)) {
     reviewRange,
     reviewCommits,
     reviewDiffStat,
-    installReplayCommand,
+    installLogs,
     deterministicEvidence,
     pilotEvidence,
     soakEvidence,
@@ -447,9 +471,26 @@ export async function main(argv = process.argv.slice(2)) {
     clauses,
     outcome,
     riskAssessment,
-    dispositionRecords: dispositionValidation.report.records,
+    dispositionReport: dispositionValidation.report,
   });
+  evidenceIndex.generatedOutputs = Object.fromEntries([
+    [OUTPUTS.status, statusMarkdown],
+    [OUTPUTS.report, baselineMarkdown],
+    [OUTPUTS.review, reviewMarkdown],
+  ].map(([filePath, contents]) => [
+    filePath,
+    {
+      bytes: Buffer.byteLength(contents),
+      sha256: sha256(contents),
+    },
+  ]));
 
+  requireEvidence(
+    git(['rev-parse', 'HEAD']) === candidateSha
+      && git(['status', '--porcelain=v1', '--untracked-files=all']) === '',
+    'candidate identity or worktree changed before evidence output',
+  );
+  await armRollback();
   await writeAtomic(path.join(root, OUTPUTS.status), statusMarkdown);
   await writeAtomic(
     path.join(root, OUTPUTS.index),
@@ -457,16 +498,67 @@ export async function main(argv = process.argv.slice(2)) {
   );
   await writeAtomic(path.join(root, OUTPUTS.report), baselineMarkdown);
   await writeAtomic(path.join(root, OUTPUTS.review), reviewMarkdown);
+  requireEvidence(
+    git(['rev-parse', 'HEAD']) === candidateSha,
+    'candidate HEAD changed while evidence was generated',
+  );
 
   console.log(`Gate 0 evidence generated for ${candidateSha}`);
   console.log(`Registry sha256: ${registryHash}`);
   console.log(`Verdict: ${verdict}`);
   for (const output of Object.values(OUTPUTS)) console.log(`Wrote: ${output}`);
   return outcome.exitCode;
+    },
+  });
  } catch (error) {
    console.error(error.stack || error.message);
    return 2;
  }
+}
+
+export async function runWithGate0OutputRollback({
+  repositoryRoot,
+  outputPaths,
+  operation,
+}) {
+  let rollbackSnapshot = null;
+  const armRollback = async () => {
+    if (rollbackSnapshot !== null) {
+      throw new Error('Gate 0 output rollback was armed more than once');
+    }
+    rollbackSnapshot = new Map();
+    for (const relativePath of outputPaths) {
+      rollbackSnapshot.set(
+        relativePath,
+        await readFile(path.join(repositoryRoot, relativePath)),
+      );
+    }
+  };
+  try {
+    const result = await runWithOwnedProcessTerminationHandling(
+      () => operation({ armRollback }),
+    );
+    rollbackSnapshot = null;
+    return result;
+  } catch (error) {
+    if (rollbackSnapshot !== null) {
+      const restoreErrors = [];
+      for (const [relativePath, contents] of rollbackSnapshot) {
+        try {
+          await writeAtomic(path.join(repositoryRoot, relativePath), contents);
+        } catch (restoreError) {
+          restoreErrors.push(`${relativePath}: ${restoreError.message}`);
+        }
+      }
+      if (restoreErrors.length > 0) {
+        throw new AggregateError(
+          [error],
+          `Gate 0 output rollback failed: ${restoreErrors.join('; ')}`,
+        );
+      }
+    }
+    throw error;
+  }
 }
 
 if (
@@ -474,18 +566,6 @@ if (
   && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
 ) {
   process.exitCode = await main();
-}
-
-function parseArgs(args) {
-  const parsed = {};
-  for (const arg of args) {
-    if (!arg.startsWith('--') || !arg.includes('=')) {
-      throw new Error(`Arguments must use --key=value: ${arg}`);
-    }
-    const separator = arg.indexOf('=');
-    parsed[arg.slice(2, separator)] = arg.slice(separator + 1);
-  }
-  return parsed;
 }
 
 function git(args) {
@@ -496,19 +576,32 @@ function git(args) {
   }).trim();
 }
 
-function runValidator(argv) {
-  return spawnSync(argv[0], argv.slice(1), {
+async function runValidator(argv, environment) {
+  const result = await runLogged(argv, {
     cwd: process.cwd(),
-    encoding: 'utf8',
-    maxBuffer: 32 * 1024 * 1024,
-    stdio: ['ignore', 'pipe', 'pipe'],
+    env: environment,
+    capture: true,
+    allowFailure: true,
+    timeoutMs: 5 * 60 * 1000,
   });
+  return {
+    status: result.exitCode,
+    signal: result.signal,
+    error: result.spawnError,
+    stdout: result.stdout,
+    stderr: result.stderr,
+  };
 }
 
 export function buildGate0Clauses({
   registryValidation,
   dispositionValidation,
+  sourceEvidence,
+  installationEvidence,
   deterministicEvidence,
+  pilotEvidence,
+  soakEvidence,
+  evidenceContract,
   runnablePrograms,
   explicitSupportExclusions,
   stateCounts,
@@ -525,14 +618,18 @@ export function buildGate0Clauses({
     {
       id: 'G0-C1',
       label: 'clean candidate',
-      result: 'PASS',
-      evidence: `all ${deterministicEvidence.statusCounts.PASS} suite records carry clean source-tree evidence at the candidate SHA`,
+      result: sourceEvidence.passed ? 'PASS' : 'FAIL',
+      evidence: sourceEvidence.passed
+        ? `all ${sourceEvidence.executionCount} locked executions started and ended at a clean candidate SHA`
+        : 'at least one locked execution started or ended at a dirty or different candidate',
     },
     {
       id: 'G0-C2',
       label: 'disposition',
       result: dispositionValidation.passed ? 'PASS' : 'FAIL',
-      evidence: `${dispositionValidation.report.records} records; ${validatorEvidence(dispositionValidation)}`,
+      evidence: `${dispositionValidation.report.records} records; `
+        + `${dispositionValidation.report.repairedSubjectEvidence?.validatedCount || 0}/60 repaired subjects; `
+        + `${validatorEvidence(dispositionValidation)}`,
     },
     {
       id: 'G0-C3',
@@ -543,14 +640,21 @@ export function buildGate0Clauses({
     {
       id: 'G0-C4',
       label: 'clean install',
-      result: 'PASS',
-      evidence: 'two consecutive minimal installs, both exit 0; second idempotent',
+      result: installationEvidence.passed ? 'PASS' : 'FAIL',
+      evidence: installationEvidence.passed
+        ? 'two consecutive locked minimal installs, both exit 0 against the same isolated cache'
+        : `locked install exits: ${installationEvidence.logs.map(log => (
+          `${log.kind}=${log.exitCode}`
+        )).join(', ')}`,
     },
     {
       id: 'G0-C5',
       label: 'deterministic T1/T2',
-      result: 'PASS',
-      evidence: `${deterministicEvidence.statusCounts.PASS} PASS, 0 FAIL/TIMEOUT/BLOCKED/SKIPPED`,
+      result: deterministicEvidence.passed
+        && pilotEvidence.every(item => item.passed) ? 'PASS' : 'FAIL',
+      evidence: `${deterministicEvidence.statusCounts.PASS || 0} deterministic PASS; `
+        + `${pilotEvidence.filter(item => item.passed).length}/5 pilot PASS; `
+        + `deterministic verdict ${deterministicEvidence.verdict}/exit ${deterministicEvidence.exitCode}`,
     },
     {
       id: 'G0-C6',
@@ -563,16 +667,26 @@ export function buildGate0Clauses({
     {
       id: 'G0-C7',
       label: 'blockers specific',
-      result: blockedWithoutPrerequisite.length === 0 ? 'PASS' : 'FAIL',
-      evidence: blockedWithoutPrerequisite.length === 0
-        ? 'every registry BLOCKED row names server, external-network, Ollama, or GPU'
-        : `BLOCKED rows lack a concrete prerequisite: ${blockedWithoutPrerequisite.map(suite => suite.id).join(', ')}`,
+      result: blockedWithoutPrerequisite.length === 0 && soakEvidence.guardPassed
+        ? 'PASS' : 'FAIL',
+      evidence: blockedWithoutPrerequisite.length === 0 && soakEvidence.guardPassed
+        ? 'every registry BLOCKED row names a concrete prerequisite; all five soak guards name gpu and ollama'
+        : [
+          blockedWithoutPrerequisite.length > 0
+            ? `BLOCKED rows lack a concrete prerequisite: ${blockedWithoutPrerequisite.join(', ')}`
+            : null,
+          !soakEvidence.guardPassed
+            ? `soak guard was ${soakEvidence.verdict}/exit ${soakEvidence.exitCode}`
+            : null,
+        ].filter(Boolean).join('; '),
     },
     {
       id: 'G0-C8',
       label: 'generated evidence',
-      result: 'PASS',
-      evidence: 'status, index, baseline report, and review packet derive from the clean candidate',
+      result: evidenceContract.passed ? 'PASS' : 'FAIL',
+      evidence: evidenceContract.passed
+        ? `typed producer provenance ${evidenceContract.path} is bound by SHA-256 ${evidenceContract.sha256}`
+        : 'typed producer provenance failed validation',
     },
     {
       id: 'G0-C9',
@@ -585,83 +699,424 @@ export function buildGate0Clauses({
   ];
 }
 
-async function loadPilotReports(rootPath) {
-  const paths = await findNamedFiles(rootPath, 'report.json');
-  const reports = [];
-  for (const reportPath of paths) {
-    const report = await readJson(reportPath);
-    if (report.results?.some(result => result.id === 'IS-T2-TESTS-PILOT-C1C2C3-TEST')) {
-      reports.push({ path: reportPath, report });
-    }
-  }
-  return reports.sort((a, b) => a.report.runId.localeCompare(b.report.runId));
+function auditOptions({
+  profiles = [],
+  ids = [],
+  timeoutMs,
+  deadlineMs,
+}) {
+  return {
+    concurrency: 1,
+    failFast: false,
+    timeoutMs,
+    deadlineMs,
+    profiles: [...profiles].sort(),
+    ids: [...ids].sort(),
+    exclude: [],
+    allowBlockers: [],
+    noBlock: false,
+    allowDirty: false,
+  };
 }
 
-async function findNamedFiles(directory, name) {
-  const results = [];
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
-    const absolutePath = path.join(directory, entry.name);
-    if (entry.isDirectory()) results.push(...await findNamedFiles(absolutePath, name));
-    else if (entry.isFile() && entry.name === name) results.push(absolutePath);
-  }
-  return results;
-}
-
-function validatePassingReport({
-  report,
+export async function loadAndValidateAuditEvidence({
+  root: sourceRoot,
+  evidenceRoot,
+  execution,
   candidateSha,
   registryHash,
-  expectedIds,
-  expectedCount,
+  expectedSuites,
+  expectedOptions,
 }) {
-  requireEvidence(report.sourceRevision === candidateSha, 'report source SHA mismatch');
-  requireEvidence(report.registryHash === registryHash, 'report registry fingerprint mismatch');
-  requireEvidence(report.verdict === 'PASS' && report.exitCode === 0, 'report is not PASS/exit 0');
-  requireEvidence(report.results?.length === expectedCount, 'report suite count mismatch');
-  const actualIds = new Set(report.results.map(result => result.id));
+  requireEvidence(execution, 'audit execution is missing from provenance');
   requireEvidence(
-    actualIds.size === expectedIds.size
-      && [...expectedIds].every(id => actualIds.has(id)),
-    'report suite IDs are missing or duplicated',
+    Array.isArray(expectedSuites) && expectedSuites.length > 0
+      && expectedSuites.every(Boolean),
+    `${execution.id} expected registry suites are missing`,
+  );
+  const [reportFile, inventoryFile] = await Promise.all([
+    resolveOwnedEvidenceFile({
+      root: sourceRoot,
+      evidenceRoot,
+      relativePath: execution.reportPath,
+      label: `${execution.id} report`,
+    }),
+    resolveOwnedEvidenceFile({
+      root: sourceRoot,
+      evidenceRoot,
+      relativePath: execution.inventoryPath,
+      label: `${execution.id} inventory`,
+    }),
+  ]);
+  const [report, inventory] = [
+    JSON.parse(reportFile.contents.toString('utf8')),
+    JSON.parse(inventoryFile.contents.toString('utf8')),
+  ];
+  requireEvidence(
+    reportFile.bytes === execution.reportBytes
+      && reportFile.sha256 === execution.reportSha256
+      && inventoryFile.bytes === execution.inventoryBytes
+      && inventoryFile.sha256 === execution.inventorySha256,
+    `${execution.id} report/inventory changed after producer capture`,
   );
   requireEvidence(
-    report.results.every(result => expectedIds.has(result.id)),
-    'report contains an unexpected suite',
+    report.schemaVersion === 1
+      && report.manifestType === 'intentsmith.audit-report',
+    `${execution.id} report schema is unsupported`,
   );
   requireEvidence(
-    report.results.every(result => (
-      result.status === 'PASS'
-      && result.exitCode === 0
-      && result.cleanup?.checked === true
-      && result.cleanup?.leakDetected === false
-      && result.cleanup?.terminated === true
-      && result.sourceTree?.checked === true
-      && result.sourceTree?.clean === true
-      && result.sourceTree?.head === candidateSha
-      && /^[a-f0-9]{64}$/.test(result.logSha256 || '')
-    )),
-    'report contains incomplete or non-green suite evidence',
+    inventory.schemaVersion === 1
+      && inventory.manifestType === 'intentsmith.audit-inventory',
+    `${execution.id} inventory schema is unsupported`,
   );
+  const expectedRunId = execution.argv
+    .find(value => value.startsWith('--run-id='))
+    ?.slice('--run-id='.length);
+  requireEvidence(
+    typeof expectedRunId === 'string'
+      && report.runId === expectedRunId
+      && inventory.runId === expectedRunId
+      && report.sourceRevision === candidateSha
+      && inventory.sourceRevision === candidateSha,
+    `${execution.id} report/inventory candidate identity mismatch`,
+  );
+  requireEvidence(
+    report.registryHash === registryHash && inventory.registryHash === registryHash,
+    `${execution.id} report/inventory registry fingerprint mismatch`,
+  );
+  requireEvidence(
+    report.paths?.sourceRoot === sourceRoot
+      && report.paths?.report === execution.reportPath
+      && report.paths?.inventory === execution.inventoryPath,
+    `${execution.id} report path identity mismatch`,
+  );
+  const expectedRunDir = path.dirname(execution.reportPath).split(path.sep).join('/');
+  requireEvidence(
+    report.paths?.runDir === expectedRunDir
+      && report.paths?.checkpoint === `${expectedRunDir}/checkpoint.json`,
+    `${execution.id} report layout differs from the locked plan`,
+  );
+  requireEvidence(
+    isDeepStrictEqual(inventory.options, expectedOptions),
+    `${execution.id} inventory options differ from the locked plan`,
+  );
+  const expectedReportOptions = { ...expectedOptions };
+  delete expectedReportOptions.allowDirty;
+  requireEvidence(
+    isDeepStrictEqual(report.options, expectedReportOptions),
+    `${execution.id} report options differ from the locked plan`,
+  );
+  const expectedOptionsFingerprint = stableHash(expectedOptions);
+  requireEvidence(
+    inventory.optionsFingerprint === expectedOptionsFingerprint
+      && report.optionsFingerprint === expectedOptionsFingerprint,
+    `${execution.id} options fingerprint mismatch`,
+  );
+
+  const expectedInventorySuites = [...expectedSuites]
+    .sort((left, right) => left.path.localeCompare(right.path))
+    .map(suite => ({
+      ...suite,
+      category: suite.profile,
+      command: suite.argv,
+      blockers: registryBlockersFor(suite),
+    }));
+  requireEvidence(
+    isDeepStrictEqual(inventory.suites, expectedInventorySuites),
+    `${execution.id} inventory payload differs from the reviewed registry`,
+  );
+  const expectedInventoryFingerprint = stableHash(
+    expectedInventorySuites.map(suite => ({
+      id: suite.id,
+      path: suite.path,
+      profile: suite.profile,
+      tier: suite.tier,
+      command: suite.command,
+      blockers: suite.blockers,
+      required: suite.required,
+      state: suite.state,
+      requirements: suite.requirements,
+      timeoutMs: suite.timeoutMs,
+      expectedDurationMs: suite.expectedDurationMs,
+    })),
+  );
+  requireEvidence(
+    inventory.inventoryFingerprint === expectedInventoryFingerprint
+      && report.inventoryFingerprint === expectedInventoryFingerprint,
+    `${execution.id} inventory fingerprint mismatch`,
+  );
+  const expectedIds = expectedInventorySuites.map(suite => suite.id);
+  const expectedById = new Map(
+    expectedInventorySuites.map(suite => [suite.id, suite]),
+  );
+  const expectedProfileCounts = Object.fromEntries(
+    ['offline', 'database', 'server', 'model', 'soak', 'manual']
+      .map(profile => [profile, 0]),
+  );
+  for (const suite of expectedInventorySuites) {
+    expectedProfileCounts[suite.profile] += 1;
+  }
+  const expectedBlockerCounts = expectedInventorySuites
+    .flatMap(suite => suite.blockers)
+    .reduce((counts, blocker) => {
+      counts[blocker] = (counts[blocker] || 0) + 1;
+      return counts;
+    }, {});
+  requireEvidence(
+    inventory.generatedAt === report.startedAt
+      && inventory.counts
+      && isDeepStrictEqual(inventory.counts, expectedProfileCounts)
+      && isDeepStrictEqual(inventory.blockerCounts, expectedBlockerCounts)
+      && report.inventory?.total === expectedIds.length
+      && isDeepStrictEqual(report.inventory?.counts, expectedProfileCounts)
+      && isDeepStrictEqual(report.inventory?.blockerCounts, expectedBlockerCounts)
+      && report.interruptionSignal === null,
+    `${execution.id} inventory counters or interruption evidence mismatch`,
+  );
+  requireEvidence(
+    isOrderedInterval(
+      execution.startedAt,
+      report.startedAt,
+      report.endedAt,
+      execution.endedAt,
+    ),
+    `${execution.id} report chronology is outside its producer execution`,
+  );
+  requireEvidence(
+    Array.isArray(report.results)
+      && report.results.length === expectedIds.length
+      && isDeepStrictEqual(
+        report.results.map(result => result.id),
+        expectedIds,
+      ),
+    `${execution.id} report suite identity/order mismatch`,
+  );
+  const statuses = ['PASS', 'FAIL', 'TIMEOUT', 'BLOCKED', 'SKIPPED'];
+  const statusCounts = Object.fromEntries(statuses.map(status => [status, 0]));
+  const logIdentityErrors = auditResultLogIdentityErrors({
+    results: report.results,
+    expectedSuites,
+    expectedRunDir,
+  });
+  requireEvidence(
+    logIdentityErrors.length === 0,
+    `${execution.id} suite log identity is invalid: ${logIdentityErrors.join('; ')}`,
+  );
+  for (const result of report.results) {
+    const expected = expectedById.get(result.id);
+    requireEvidence(
+      result.path === expected.path
+        && result.profile === expected.profile
+        && result.category === expected.profile
+        && result.required === expected.required
+        && result.sourceRevision === candidateSha
+        && isDeepStrictEqual(result.command, expected.argv)
+        && isDeepStrictEqual(result.blockers, registryBlockersFor(expected))
+        && result.retryCount === 0
+        && Number.isInteger(result.durationMs)
+        && result.durationMs >= 0
+        && isOrderedInterval(
+          report.startedAt,
+          result.start,
+          result.end,
+          report.endedAt,
+        )
+        && Date.parse(result.end) - Date.parse(result.start) === result.durationMs
+        && statuses.includes(result.status),
+      `${execution.id} result contract mismatch for ${result.id}`,
+    );
+    statusCounts[result.status] += 1;
+    if (result.status === 'PASS') {
+      requireEvidence(
+        result.exitCode === 0 && result.signal === null && result.timedOut === false,
+        `${execution.id} PASS has inconsistent process evidence for ${result.id}`,
+      );
+    }
+    if (result.status === 'TIMEOUT') {
+      requireEvidence(
+        result.timedOut === true,
+        `${execution.id} TIMEOUT lacks timeout evidence for ${result.id}`,
+      );
+    }
+    if (!['BLOCKED', 'SKIPPED'].includes(result.status)) {
+      requireEvidence(
+        result.cleanup?.checked === true
+          && result.cleanup?.leakDetected === false
+          && result.cleanup?.terminated === true
+          && result.sourceTree?.checked === true
+          && result.sourceTree?.clean === true
+          && result.sourceTree?.head === candidateSha
+          && result.logError === null
+          && result.outputError === null
+          && result.logReadError === undefined
+          && typeof result.logPath === 'string'
+          && /^[a-f0-9]{64}$/.test(result.logSha256 || ''),
+        `${execution.id} result lacks cleanup/source/log evidence for ${result.id}`,
+      );
+      const logFile = await resolveOwnedEvidenceFile({
+        root: sourceRoot,
+        evidenceRoot,
+        relativePath: result.logPath,
+        label: `${execution.id} suite log ${result.id}`,
+      });
+      requireEvidence(
+        logFile.sha256 === result.logSha256
+          && isPathWithin(
+            path.join(sourceRoot, expectedRunDir, 'logs'),
+            logFile.absolutePath,
+          ),
+        `${execution.id} suite log identity mismatch for ${result.id}`,
+      );
+    } else {
+      requireEvidence(
+        result.exitCode === null && result.signal === null && result.logPath === null,
+        `${execution.id} ${result.status} has inconsistent process evidence for ${result.id}`,
+      );
+      if (result.status === 'BLOCKED') {
+        requireEvidence(
+          Array.isArray(result.blockedBy) && result.blockedBy.length > 0,
+          `${execution.id} BLOCKED lacks named prerequisites for ${result.id}`,
+        );
+      } else {
+        requireEvidence(
+          typeof result.skipReason === 'string' && result.skipReason !== '',
+          `${execution.id} SKIPPED lacks a reason for ${result.id}`,
+        );
+      }
+    }
+  }
+  requireEvidence(
+    isDeepStrictEqual(report.statusCounts, statusCounts),
+    `${execution.id} status counts disagree with result rows`,
+  );
+  const requiredProblems = report.results.filter(result => (
+    result.required !== false && result.status !== 'PASS'
+  ));
+  const requiredBlocked = requiredProblems.filter(result => result.status === 'BLOCKED');
+  const requiredFailures = requiredProblems.filter(result => result.status !== 'BLOCKED');
+  const expectedVerdict = requiredFailures.length > 0
+    ? 'FAIL'
+    : requiredBlocked.length > 0 ? 'BLOCKED' : 'PASS';
+  const expectedExitCode = expectedVerdict === 'PASS'
+    ? 0
+    : expectedVerdict === 'BLOCKED' ? 2 : 1;
+  requireEvidence(
+    report.verdict === expectedVerdict
+      && report.exitCode === expectedExitCode
+      && execution.exitCode === expectedExitCode
+      && report.requiredFailureCount === requiredProblems.length
+      && report.requiredBlockedCount === requiredBlocked.length
+      && report.dryRun === false,
+    `${execution.id} verdict/exit/counter evidence is contradictory`,
+  );
+  return {
+    report,
+    inventory,
+    reportFile,
+    inventoryFile,
+    passed: expectedVerdict === 'PASS',
+  };
 }
 
-function validateSoakGuard(report, candidateSha, registryHash) {
-  requireEvidence(report.sourceRevision === candidateSha, 'soak guard source SHA mismatch');
-  requireEvidence(report.registryHash === registryHash, 'soak guard registry mismatch');
-  requireEvidence(report.verdict === 'BLOCKED' && report.exitCode === 2, 'soak guard must be BLOCKED/2');
-  requireEvidence(report.results?.length === 5, 'soak guard must contain five suites');
-  const actualIds = new Set(report.results.map(result => result.id));
-  requireEvidence(
-    actualIds.size === MODEL_BACKED_SOAK_IDS.size
-      && [...MODEL_BACKED_SOAK_IDS].every(id => actualIds.has(id)),
-    'soak guard suite IDs are missing, duplicated, or unexpected',
+export function auditResultLogIdentityErrors({
+  results,
+  expectedSuites,
+  expectedRunDir,
+}) {
+  const errors = [];
+  const expectedById = new Map(
+    (expectedSuites || []).map(suite => [suite.id, suite]),
   );
+  const seen = new Set();
+  for (const result of results || []) {
+    if (['BLOCKED', 'SKIPPED'].includes(result.status)) continue;
+    const expected = expectedById.get(result.id);
+    if (!expected) {
+      errors.push(`unknown executed suite ${result.id || '(missing)'}`);
+      continue;
+    }
+    const expectedLogPath =
+      `${expectedRunDir}/logs/${safeAuditLogName(expected.path)}.log`;
+    if (result.logPath !== expectedLogPath) {
+      errors.push(`${result.id} log path differs from the deterministic path`);
+    }
+    if (seen.has(result.logPath)) {
+      errors.push(`${result.id} reuses another result log path`);
+    }
+    seen.add(result.logPath);
+  }
+  return errors;
+}
+
+function makeAuditEvidence(audit, execution, sourceRoot) {
+  return {
+    runId: audit.report.runId,
+    passed: audit.passed,
+    verdict: audit.report.verdict,
+    exitCode: audit.report.exitCode,
+    statusCounts: audit.report.statusCounts,
+    report: audit.reportFile.relativePath,
+    reportSha256: audit.reportFile.sha256,
+    reportBytes: audit.reportFile.bytes,
+    inventory: audit.inventoryFile.relativePath,
+    inventorySha256: audit.inventoryFile.sha256,
+    inventoryBytes: audit.inventoryFile.bytes,
+    inventoryFingerprint: audit.report.inventoryFingerprint,
+    optionsFingerprint: audit.report.optionsFingerprint,
+    startedAt: audit.report.startedAt,
+    endedAt: audit.report.endedAt,
+    execution: buildSanitizedExecutionEvidence(execution, sourceRoot),
+  };
+}
+
+function registryBlockersFor(suite) {
+  const blockers = new Set();
+  if (suite.state !== 'ACTIVE') blockers.add(`state-${suite.state.toLowerCase()}`);
+  if (suite.requirements.server) blockers.add('server');
+  if (suite.requirements.ollama) blockers.add('ollama');
+  if (suite.requirements.gpu) blockers.add('gpu');
+  if (suite.requirements.modelFixture) blockers.add('model-fixture');
+  if (suite.requirements.network === 'external') blockers.add('external-network');
+  return [...blockers].sort();
+}
+
+function stableHash(value) {
+  return sha256(JSON.stringify(value));
+}
+
+function safeAuditLogName(relativePath) {
+  const hash = createHash('sha1')
+    .update(relativePath)
+    .digest('hex')
+    .slice(0, 8);
+  return `${relativePath.replace(/[^a-zA-Z0-9_.-]+/g, '_')}.${hash}`;
+}
+
+function isOrderedInterval(outerStart, innerStart, innerEnd, outerEnd) {
+  const values = [outerStart, innerStart, innerEnd, outerEnd]
+    .map(value => Date.parse(value));
+  return values.every(Number.isFinite)
+    && values[0] <= values[1]
+    && values[1] <= values[2]
+    && values[2] <= values[3];
+}
+
+function isPathWithin(parent, candidate) {
+  const relative = path.relative(path.resolve(parent), path.resolve(candidate));
+  return relative !== ''
+    && relative !== '..'
+    && !relative.startsWith(`..${path.sep}`)
+    && !path.isAbsolute(relative);
+}
+
+async function requireCanonicalRepositoryRoot(requestedRoot) {
+  const [requestedReal, discoveredReal] = await Promise.all([
+    realpath(requestedRoot),
+    realpath(git(['rev-parse', '--show-toplevel'])),
+  ]);
   requireEvidence(
-    report.results.every(result => (
-      result.status === 'BLOCKED'
-      && result.blockedBy?.includes('gpu')
-      && result.blockedBy?.includes('ollama')
-    )),
-    'soak guard did not name gpu and ollama for every suite',
+    requestedRoot === requestedReal && requestedReal === discoveredReal,
+    'Gate 0 evidence must run from the canonical Git worktree root',
   );
 }
 
@@ -742,8 +1197,6 @@ export function renderBaselineReport({
   registryValidation,
   dispositionValidation,
   installLogs,
-  installCommand,
-  installReplayCommand,
   deterministicEvidence,
   pilotEvidence,
   soakEvidence,
@@ -756,14 +1209,30 @@ export function renderBaselineReport({
   dispositionReport,
 }) {
   const pilotRows = pilotEvidence.map(item => (
-    `| \`${item.runId}\` | 0 | PASS | \`${item.reportSha256}\` |`
+    `| \`${item.runId}\` | ${item.exitCode} | ${item.verdict} | \`${item.reportSha256}\` |`
   )).join('\n');
   const pilotCommands = pilotEvidence.map(item => (
-    `- \`${item.runId}\`: executed \`${item.command}\`; replay \`${item.replayCommand}\``
+    `- \`${item.runId}\`: \`${formatPortableInvocation(item.execution.portableReplay)}\``
   )).join('\n');
   const rotationRows = privacy.rotationInventory
     .map(item => `- ${item.category}: ${item.action}`)
     .join('\n');
+  const pilotsPassed = pilotEvidence.length === 5
+    && pilotEvidence.every(item => (
+      item.passed === true
+      && item.verdict === 'PASS'
+      && item.exitCode === 0
+    ));
+  const pilotNarrative = pilotsPassed
+    ? 'The unchanged A9 assertion passed in every run. The repair changed the low-\n'
+      + 'ceremony C2 fixture, not production score weights or thresholds.'
+    : 'The pilot evidence did not establish five consecutive A9 passes; the Gate 0\n'
+      + 'pilot clause remains failed.';
+  const soakNarrative = soakEvidence.guardPassed === true
+    ? 'Five soak programs previously misdeclared as model-free are now blocked before\n'
+      + 'execution unless Ollama and GPU are explicitly authorized.'
+    : 'The model-backed soak prerequisite guard was not established; the Gate 0 soak\n'
+      + 'clause remains failed.';
   return `# IntentSmith Gate 0 Baseline Report
 
 ## Verdict
@@ -805,44 +1274,38 @@ ${formatCodeCounts(dispositionReport.dispositionCounts)}.
 
 ## Clean installation
 
-Exact command, run twice with the same fresh isolated cache:
+Locked tokenized recipe, run twice with the same fresh isolated cache:
 
 \`\`\`bash
-${installCommand}
+${formatPortableInvocation(installLogs[0].execution.portableReplay)}
 \`\`\`
 
-Portable replay from the root of a fresh clone:
+| Run | Exit | Bytes | Log SHA-256 | Artifact |
+|---|---:|---:|---|---|
+${installLogs.map(log => `| ${log.kind} | ${log.exitCode} | ${log.bytes} | \`${log.sha256}\` | \`${log.path}\` |`).join('\n')}
 
-\`\`\`bash
-${installReplayCommand}
-\`\`\`
-
-| Run | Exit | Bytes | Log SHA-256 | Executed artifact | Replay locator |
-|---|---:|---:|---|---|---|
-${installLogs.map(log => `| ${log.kind} | 0 | ${log.bytes} | \`${log.sha256}\` | \`${log.path}\` | \`${log.replayPath}\` |`).join('\n')}
-
-The first run installed locked Node/Yarn/Python dependencies and built the IDE.
-The second run exited 0 and reported the frozen Yarn tree already up to date.
+The producer spawned both recipes without a shell and recorded exact argv,
+allowlisted inherited environment keys, explicit isolated overrides, source
+state before/after, exit status and log digest in its ignored provenance file.
 
 ## Deterministic registry
 
 \`\`\`bash
-${deterministicEvidence.command}
+${formatPortableInvocation(deterministicEvidence.execution.portableReplay)}
 \`\`\`
 
-- Portable replay: \`${deterministicEvidence.replayCommand}\`
 - Exit: **${deterministicEvidence.exitCode}**
-- Verdict: **PASS**
+- Verdict: **${deterministicEvidence.verdict}**
 - Status: \`${JSON.stringify(deterministicEvidence.statusCounts)}\`
 - Report: \`${deterministicEvidence.report}\`
-- Replay report locator: \`${deterministicEvidence.replayReport}\`
 - Report SHA-256: \`${deterministicEvidence.reportSha256}\`
+- Inventory: \`${deterministicEvidence.inventory}\`
+- Inventory SHA-256: \`${deterministicEvidence.inventorySha256}\`
 - Inventory fingerprint: \`${deterministicEvidence.inventoryFingerprint}\`
 - Options fingerprint: \`${deterministicEvidence.optionsFingerprint}\`
 
-All ${GATE0_DETERMINISTIC_COUNT} required T1/T2 suites passed from clean
-per-suite environments. Printed assertion totals were not used to override
-suite exits.
+The verdict is recomputed from all ${GATE0_DETERMINISTIC_COUNT} required T1/T2
+result rows. Printed assertion totals cannot override suite exits.
 
 ## Pilot discrimination — five consecutive runs
 
@@ -854,21 +1317,18 @@ Exact orchestration commands:
 
 ${pilotCommands}
 
-The unchanged A9 assertion passed in every run. The repair changed the low-
-ceremony C2 fixture, not production score weights or thresholds.
+${pilotNarrative}
 
 ## Model-backed soak guard
 
-- Command: \`${soakEvidence.command}\`
-- Portable replay: \`${soakEvidence.replayCommand}\`
+- Locked replay: \`${formatPortableInvocation(soakEvidence.execution.portableReplay)}\`
 - Exit: **${soakEvidence.exitCode}**
 - Verdict: **${soakEvidence.verdict}**
 - Named prerequisites: \`${soakEvidence.blockedBy.join(', ')}\`
 - Report SHA-256: \`${soakEvidence.reportSha256}\`
-- Replay report locator: \`${soakEvidence.replayReport}\`
+- Inventory SHA-256: \`${soakEvidence.inventorySha256}\`
 
-Five soak programs previously misdeclared as model-free are now blocked before
-execution unless Ollama and GPU are explicitly authorized.
+${soakNarrative}
 
 ## \`a7b90e3..ffd21cf\` disposition
 
@@ -876,6 +1336,9 @@ execution unless Ollama and GPU are explicitly authorized.
 - Dispositions: ${formatCodeCounts(dispositionReport.dispositionCounts)}
 - Terminals: ${formatCodeCounts(dispositionReport.terminalCounts)}
 - Resolutions: ${formatCodeCounts(dispositionReport.resolutionCounts)}
+- Repaired subjects: ${dispositionReport.repairedSubjectEvidence.validatedCount}/
+  ${dispositionReport.repairedSubjectEvidence.recordCount}, digest
+  \`${dispositionReport.repairedSubjectEvidence.recordsSha256}\`
 - Validator errors: ${dispositionReport.errors.length}
 
 The disputed commit was neither accepted wholesale nor reverted wholesale.
@@ -909,10 +1372,10 @@ ${rotationRows}
 - Registry discovery covers every supported program-language file independent
   of its filename; ${explicitSupportExclusions} support/aggregate files are
   explicit reasoned exclusions.
-- Product DB initialization remains an import side effect; all authoritative
-  registry runs set an isolated \`C3_DB_PATH\` (\`G0-R012\`).
-- The T1 shared-\`/tmp\` convention remains a documented scope decision
-  (\`G0-R014\`).
+- Runtime database access now requires an explicit non-empty \`C3_DB_PATH\`;
+  authoritative registry runs bind a distinct isolated path (\`G0-R012\`).
+- All current direct-run temp creators use the private bootstrap-owned runtime
+  boundary; the former shared-\`/tmp\` convention is closed (\`G0-R014\`).
 
 ## Recommended next step
 
@@ -928,7 +1391,7 @@ function renderReviewPacket({
   reviewRange,
   reviewCommits,
   reviewDiffStat,
-  installReplayCommand,
+  installLogs,
   deterministicEvidence,
   pilotEvidence,
   soakEvidence,
@@ -936,7 +1399,7 @@ function renderReviewPacket({
   clauses,
   outcome,
   riskAssessment,
-  dispositionRecords,
+  dispositionReport,
 }) {
   return `# Gate 0 — Opus 5 Read-only Review Packet
 
@@ -948,7 +1411,7 @@ function renderReviewPacket({
 - Role: read-only reviewer; do not modify the branch
 
 The earlier large E2E reconstruction is represented by the current
-${dispositionRecords}-row
+${dispositionReport.records}-row
 disposition report (clause
 ${clauses.find(clause => clause.id === 'G0-C2')?.result || 'FAIL'}) and registry
 evidence. This bounded packet focuses on the final test-trust repairs and
@@ -991,26 +1454,33 @@ ${reviewDiffStat}
 
 ## Verification
 
-- Deterministic registry: ${GATE0_DETERMINISTIC_COUNT} PASS, exit 0, report SHA
-  \`${deterministicEvidence.reportSha256}\`; replay
-  \`${deterministicEvidence.replayCommand}\`.
-- Pilot A9: five consecutive PASS reports:
+- Deterministic registry: ${deterministicEvidence.verdict}, exit
+  ${deterministicEvidence.exitCode}, status
+  \`${JSON.stringify(deterministicEvidence.statusCounts)}\`, report SHA
+  \`${deterministicEvidence.reportSha256}\`; locked replay
+  \`${formatPortableInvocation(deterministicEvidence.execution.portableReplay)}\`.
+- Pilot A9: five consecutive structured reports:
 ${pilotEvidence.map(item => (
-    `  - \`${item.runId}\`: report \`${item.reportSha256}\`; replay \`${item.replayCommand}\``
+    `  - \`${item.runId}\`: ${item.verdict}/exit ${item.exitCode}; report \`${item.reportSha256}\`; replay \`${formatPortableInvocation(item.execution.portableReplay)}\``
   )).join('\n')}
 - Soak requirement guard: ${soakEvidence.verdict}, exit
   ${soakEvidence.exitCode}, prerequisites \`${soakEvidence.blockedBy.join(', ')}\`;
-  replay \`${soakEvidence.replayCommand}\`.
+  replay \`${formatPortableInvocation(soakEvidence.execution.portableReplay)}\`.
 - Registry and disposition validator exits: ${clauses.find(clause => clause.id === 'G0-C3')?.result === 'PASS' ? 0 : 1} and ${clauses.find(clause => clause.id === 'G0-C2')?.result === 'PASS' ? 0 : 1}.
-- Clean install: two consecutive exit-0 runs from the candidate; replay
-  \`${installReplayCommand}\`.
+- Clean install exits: ${installLogs.map(log => `${log.kind}=${log.exitCode}`).join(', ')};
+  replay \`${formatPortableInvocation(installLogs[0].execution.portableReplay)}\`.
+- Disposition: ${dispositionReport.records} rows; terminals
+  ${formatCodeCounts(dispositionReport.terminalCounts)}; repaired subjects
+  ${dispositionReport.repairedSubjectEvidence.validatedCount}/
+  ${dispositionReport.repairedSubjectEvidence.recordCount}, digest
+  \`${dispositionReport.repairedSubjectEvidence.recordsSha256}\`.
 
 ## Known risks
 
 - Registry discovery is extension-based and every support/aggregate file is an
   explicit reasoned exclusion.
-- Product DB opening remains an import side effect (\`G0-R012\`), although the
-  authoritative runner supplies isolated DB paths.
+- Runtime DB access fails closed without an explicit \`C3_DB_PATH\`, and the
+  authoritative runner supplies isolated DB paths (\`G0-R012\`).
 - ${stateCounts.KNOWN_DEFECTIVE || 0} recovered E2E suites remain
   \`KNOWN_DEFECTIVE\`; ${stateCounts.BLOCKED || 0} remain registry-\`BLOCKED\`.
 - Privacy history remains reachable and credential rotation is pending.
@@ -1045,18 +1515,6 @@ async function hashFile(filePath) {
   return sha256(await readFile(filePath));
 }
 
-function sha256(value) {
-  return createHash('sha256').update(value).digest('hex');
-}
-
-function countBy(values, key) {
-  return values.reduce((counts, value) => {
-    const label = value[key];
-    counts[label] = (counts[label] || 0) + 1;
-    return counts;
-  }, {});
-}
-
 function formatCounts(counts) {
   return Object.entries(counts)
     .filter(([, count]) => count > 0)
@@ -1083,57 +1541,69 @@ function tableCell(value) {
   return String(value).replace(/\r?\n/g, ' ').replaceAll('|', '\\|');
 }
 
-function resolveInput(value) {
-  return path.resolve(root, value);
-}
-
-function displayPath(absolutePath) {
-  const relative = path.relative(root, absolutePath);
-  return !relative.startsWith('..') && !path.isAbsolute(relative)
-    ? relative.split(path.sep).join('/')
-    : absolutePath;
-}
-
-export function makeReplayCommand(command, executionRoot) {
-  if (typeof command !== 'string' || command.trim() === '') {
-    throw new Error('replay command source must be a non-empty string');
-  }
-  if (typeof executionRoot !== 'string' || !path.isAbsolute(executionRoot)) {
-    throw new Error('replay execution root must be absolute');
-  }
-  const normalizedRoot = path.resolve(executionRoot);
-  if (!command.includes(normalizedRoot)) {
-    throw new Error('executed command does not contain the declared execution root');
-  }
-  const replay = command.replaceAll(normalizedRoot, '$PWD');
-  if (/(^|[\s='"])\/(?!\/)/.test(replay)) {
-    throw new Error('portable replay command retains a host-absolute path');
-  }
-  return replay;
-}
-
-export function makeReplayArtifactPath(absolutePath, executionRoot) {
+export function formatPortableInvocation(invocation) {
   if (
-    typeof absolutePath !== 'string'
-    || typeof executionRoot !== 'string'
-    || !path.isAbsolute(absolutePath)
-    || !path.isAbsolute(executionRoot)
+    invocation?.cwd !== '$PWD'
+    || typeof invocation.executable !== 'string'
+    || !Array.isArray(invocation.argv)
+    || !Array.isArray(invocation.inheritedEnvironmentKeys)
+    || invocation.environmentOverrides === null
+    || typeof invocation.environmentOverrides !== 'object'
   ) {
-    throw new Error('replay artifact path and execution root must be absolute');
+    throw new Error('portable invocation has an invalid shape');
   }
-  const normalizedRoot = path.resolve(executionRoot);
-  const relative = path.relative(normalizedRoot, path.resolve(absolutePath));
-  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new Error('replay artifact must be a file below the execution root');
+  const inheritedEnvironment = invocation.inheritedEnvironmentKeys
+    .map(key => {
+      if (!/^[A-Z][A-Z0-9_]*$/.test(key)) {
+        throw new Error('portable invocation contains an unsafe environment key');
+      }
+      return `${key}="\${${key}-}"`;
+    });
+  const environment = Object.entries(invocation.environmentOverrides)
+    .map(([key, value]) => {
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+        throw new Error('portable invocation contains an unsafe environment override key');
+      }
+      return `${key}=${shellToken(value)}`;
+    });
+  return [
+    'env',
+    '-i',
+    ...inheritedEnvironment,
+    ...environment,
+    shellToken(invocation.executable),
+    ...invocation.argv.map(shellToken),
+  ].join(' ');
+}
+
+function shellToken(value) {
+  const text = String(value);
+  if (text === '$PWD' || text.startsWith('$PWD/')) {
+    return `"\${PWD}${text.slice(4).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
   }
-  return `$PWD/${relative.split(path.sep).join('/')}`;
+  if (/^[A-Za-z0-9_./,:=@%+-]+$/.test(text)) return text;
+  return `'${text.replaceAll("'", "'\"'\"'")}'`;
 }
 
 async function writeAtomic(filePath, contents) {
   await mkdir(path.dirname(filePath), { recursive: true, mode: 0o755 });
   const temporaryPath = `${filePath}.tmp-${process.pid}`;
-  await writeFile(temporaryPath, contents, { encoding: 'utf8', mode: 0o644 });
-  await rename(temporaryPath, filePath);
+  try {
+    await writeFile(temporaryPath, contents, { encoding: 'utf8', mode: 0o644 });
+    await rename(temporaryPath, filePath);
+  } catch (error) {
+    try {
+      await unlink(temporaryPath);
+    } catch (cleanupError) {
+      if (cleanupError.code !== 'ENOENT') {
+        throw new AggregateError(
+          [error, cleanupError],
+          `generated output cleanup failed: ${filePath}`,
+        );
+      }
+    }
+    throw error;
+  }
   const metadata = await stat(filePath);
   requireEvidence(metadata.isFile(), `generated output is not a file: ${filePath}`);
 }
