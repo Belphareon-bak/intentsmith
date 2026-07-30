@@ -89,19 +89,18 @@ export function countPlaceholders(code) {
 // ── Syntax Checking ─────────────────────────────────────────────────────────
 
 import { execFileSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
+import { makeOwnedTempDir, removeOwnedTempDir } from './_helpers.js';
 
 function withSyntaxFixture(extension, code, check) {
-  const workDir = mkdtempSync(join(tmpdir(), 'intentsmith-quality-evaluator-'));
-  chmodSync(workDir, 0o700);
+  const workDir = makeOwnedTempDir('quality-evaluator');
   const fixturePath = join(workDir, `check.${extension}`);
   try {
     writeFileSync(fixturePath, code, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
     return check(fixturePath);
   } finally {
-    rmSync(workDir, { recursive: true, force: true });
+    removeOwnedTempDir(workDir);
   }
 }
 

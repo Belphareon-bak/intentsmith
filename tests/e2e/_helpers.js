@@ -731,7 +731,11 @@ export async function createConv(title) {
   if (status !== 200 && status !== 201) {
     throw new Error(`createConv failed: ${status}`);
   }
-  return data.id || data.conversation?.id;
+  const conversationId = data?.id ?? data?.conversation?.id;
+  if (typeof conversationId !== 'string' || conversationId.trim() === '') {
+    throw new Error(`createConv failed: ${status} response did not contain a conversation id`);
+  }
+  return conversationId;
 }
 
 /**

@@ -39,6 +39,7 @@ const runRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-helpers-check
 const artifactRoot = path.join(runRoot, '.intentsmith-artifacts', 'helpers-check');
 const legacyTranscript = path.join(runRoot, 'legacy-transcript.md');
 let server;
+let conversationFixtureCall = 0;
 
 try {
   fs.mkdirSync(artifactRoot, { recursive: true, mode: 0o700 });
@@ -46,6 +47,21 @@ try {
 
   server = http.createServer((request, response) => {
     if (request.url === '/slow') return;
+    if (request.method === 'POST' && request.url === '/api/conversations') {
+      conversationFixtureCall += 1;
+      response.writeHead(
+        conversationFixtureCall === 2 ? 500 : conversationFixtureCall === 3 ? 201 : 200,
+        { 'Content-Type': 'application/json' },
+      );
+      response.end(JSON.stringify(
+        conversationFixtureCall === 2
+          ? { error: 'fixture failure' }
+          : conversationFixtureCall === 3
+            ? { conversation: { id: 'nested-conversation-id' } }
+            : { ok: true },
+      ));
+      return;
+    }
     response.writeHead(200, { 'Content-Type': 'application/json' });
     response.end(JSON.stringify({ ok: true, path: request.url }));
   });
@@ -74,6 +90,29 @@ try {
   const raw = await helpers.apiRaw('GET', '/raw');
   ensure(raw.status === 200, 'buffered raw request lost status');
   ensure((await raw.json()).path === '/raw', 'buffered raw request lost body');
+
+  let missingConversationIdRejected = false;
+  try {
+    await helpers.createConv('missing-id-fixture');
+  } catch (error) {
+    missingConversationIdRejected = error.message.includes('did not contain a conversation id');
+  }
+  ensure(
+    missingConversationIdRejected,
+    'createConv accepted a successful response without a conversation id',
+  );
+
+  let failedConversationRequestRejected = false;
+  try {
+    await helpers.createConv('server-error-fixture');
+  } catch (error) {
+    failedConversationRequestRejected = error.message === 'createConv failed: 500';
+  }
+  ensure(failedConversationRequestRejected, 'createConv accepted an HTTP 500 response');
+  ensure(
+    await helpers.createConv('nested-id-fixture') === 'nested-conversation-id',
+    'createConv rejected a valid nested conversation id',
+  );
 
   let escapedOriginRejected = false;
   try {
@@ -114,6 +153,14 @@ try {
     arbitraryRemovalRejected = true;
   }
   ensure(arbitraryRemovalRejected, 'arbitrary recursive removal was accepted');
+
+  const quality = await import('./_quality-evaluator.js');
+  ensure(quality.checkJsSyntax('const valid = true;\n').ok, 'valid JS syntax was rejected');
+  ensure(!quality.checkJsSyntax('const = broken;\n').ok, 'invalid JS syntax was accepted');
+  ensure(
+    fs.readdirSync(path.join(artifactRoot, 'tmp')).length === 0,
+    'quality evaluator left a syntax fixture in the runner-owned temp root',
+  );
 
   for (const invalidUrl of [
     'https://127.0.0.1:4443',
