@@ -2,15 +2,15 @@
 
 ## Verdict
 
-**FAIL**
+**CONDITIONAL PASS**
 
-- Candidate: `7372ad9f70c8a662c71122c2ba0ba5c6f6f90eb5`
+- Candidate: `82dbc3b30ad0c7329182dbe399705d874b004f2e`
 - Branch: `codex/intentsmith-1.0`
-- Registry SHA-256: `a7a5c6d4670159cd38a08edea8aabbf868eb3342a3baf1857b6a4849d1f4960a`
-- Evidence generated: 2026-07-30T17:16:16.218Z
+- Registry SHA-256: `f6edc6ccff693284ee01ed159e90faea20e94662892d7b84b2f61efdf35e03b5`
+- Evidence generated: 2026-07-30T19:58:58.489Z
 - Independent review: PENDING
 
-The candidate does not satisfy Gate 0. Failed clauses: none. Repository-local blockers: G0-R023: OPEN, G0-R025: OPEN.
+The code/test baseline satisfies the local deterministic Gate 0 clauses. Acceptance remains conditional until the bounded Opus review is evaluated.
 The confirmed privacy compromise remains a separate operator-owned incident
 and is not presented as nearly green.
 
@@ -26,17 +26,18 @@ and is not presented as nearly green.
 | G0-C6 defective suites excluded | PASS | 0 registry rows are KNOWN_DEFECTIVE; none appears in green deterministic evidence |
 | G0-C7 blockers specific | PASS | every registry BLOCKED row names server, external-network, Ollama, or GPU |
 | G0-C8 generated evidence | PASS | status, index, baseline report, and review packet derive from the clean candidate |
+| G0-C9 risk impact policy | PASS | 27 risk rows have validated machine-readable gateImpact entries |
 
 ## Validators
 
 | Command | Exit | Output SHA-256 |
 |---|---:|---|
-| `node scripts/validate-test-registry.js --json` | 0 | `35e90be592602f15a9ae6961e929b651dac3e33ab7cfde1df4be07677d3b186f` |
-| `node scripts/validate-final-disposition.js --json` | 0 | `cebb800de5c360bed8a2165d8373d1a64dfbc28f7e1e559fe690a1ea97a5bba4` |
+| `node scripts/validate-test-registry.js --json` | 0 | `92b421854f9515922ab9f609ce044e38cbabf9586a87ccdb038b8f9f1af2dd00` |
+| `node scripts/validate-final-disposition.js --json` | 0 | `93e87b939d5672a93bb81e4da1cedc41a0778f2d09742e5be945007fc47f497a` |
 
 Registry report: 350 programs,
 8 exclusions, fingerprint
-`a7a5c6d4670159cd38a08edea8aabbf868eb3342a3baf1857b6a4849d1f4960a`, 0 errors.
+`f6edc6ccff693284ee01ed159e90faea20e94662892d7b84b2f61efdf35e03b5`, 0 errors.
 
 Disposition report: 225 records,
 0 errors; dispositions
@@ -47,13 +48,13 @@ Disposition report: 225 records,
 Exact command, run twice with the same fresh isolated cache:
 
 ```bash
-env XDG_CACHE_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-cache XDG_CONFIG_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-config XDG_DATA_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data XDG_STATE_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-state npm_config_cache=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/npm-cache YARN_CACHE_FOLDER=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/yarn-cache PIP_CACHE_DIR=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/pip-cache COREPACK_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/corepack C3_DB_PATH=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/runtime/install.sqlite C3_PROJECTS_DIR=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/runtime/projects ./scripts/install.sh --minimal
+env XDG_CACHE_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-cache XDG_CONFIG_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-config XDG_DATA_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data XDG_STATE_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-state npm_config_cache=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/npm-cache YARN_CACHE_FOLDER=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/yarn-cache PIP_CACHE_DIR=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/pip-cache COREPACK_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/corepack C3_DB_PATH=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/runtime/install.sqlite C3_PROJECTS_DIR=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/runtime/projects ./scripts/install.sh --minimal
 ```
 
 | Run | Exit | Bytes | Log SHA-256 | Local artifact |
 |---|---:|---:|---|---|
-| clean | 0 | 7857 | `caeda248c03509524c71c998f3b46b5462e62efe431a8aa0116207691932ec01` | `/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-logs/clean.typescript` |
-| idempotent | 0 | 7610 | `77bd9f53ae3f45dd3017dbb0f6aa3fa493497204682f39964f0dfcfe2a778b37` | `/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-logs/idempotent.typescript` |
+| clean | 0 | 8014 | `a5f1b95ccb99a69cbdd0b731d0fa865d4db14a62757ef7ae6bb103826f74577e` | `/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-logs/clean.typescript` |
+| idempotent | 0 | 7767 | `dd5f8c6767caae35595e086ff81fb68c1b94bb678c2970ab9fc4bb5901f1b8d8` | `/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-logs/idempotent.typescript` |
 
 The first run installed locked Node/Yarn/Python dependencies and built the IDE.
 The second run exited 0 and reported the frozen Yarn tree already up to date.
@@ -61,14 +62,14 @@ The second run exited 0 and reported the frozen Yarn tree already up to date.
 ## Deterministic registry
 
 ```bash
-env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --profile=offline,database --run-id=gate0-deterministic-199-7372ad9 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/deterministic --timeout-minutes=10 --deadline-hours=8 --concurrency=1
+env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --profile=offline,database --run-id=gate0-deterministic-199-82dbc3b --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/deterministic --timeout-minutes=10 --deadline-hours=8 --concurrency=1
 ```
 
 - Exit: **0**
 - Verdict: **PASS**
 - Status: `{"PASS":199,"FAIL":0,"TIMEOUT":0,"BLOCKED":0,"SKIPPED":0}`
-- Report: `/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/deterministic/gate0-deterministic-199-7372ad9/report.json`
-- Report SHA-256: `e921d934b005b0e7a0bd279f97b12de6e1c874502052a44348e8972996c2a151`
+- Report: `/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/deterministic/gate0-deterministic-199-82dbc3b/report.json`
+- Report SHA-256: `0b7a943c2b1f2a050d6ef0be547448fe71d23f2e695fefa429078a1e1898104e`
 - Inventory fingerprint: `89bfba52129a0d88dd0808feaa5a741f2c0fe8c4ac3de78ea141a46c9c393361`
 - Options fingerprint: `b6c9a55d1eef4edd4cd3c3fc691fe87947b8aad52dc7249c05af5a41fed7db4e`
 
@@ -80,30 +81,30 @@ suite exits.
 
 | Run | Exit | Verdict | Report SHA-256 |
 |---|---:|---|---|
-| `pilot-7372-01` | 0 | PASS | `fde83caa370d3c599e0023caa0dad3b45f9c0cf5105280ef53d633cb71b4526d` |
-| `pilot-7372-02` | 0 | PASS | `514611ff3d5fb5bb8f9ccd8183f27dfe80b4d6ee6b6c04d5c424089fc539b439` |
-| `pilot-7372-03` | 0 | PASS | `079d1f3e6e0ff1f085d61705e386b15a486af09b2814ecc712d7495ab3a18500` |
-| `pilot-7372-04` | 0 | PASS | `86007c4fc78af10216d7317a3a7e333a4fd9a3aa26d08a7a142bd417e4bb3006` |
-| `pilot-7372-05` | 0 | PASS | `c8e3c00f2b1c93268bb5bf5ebff66729f8b437715b3d36c75d036e5fa000db0b` |
+| `pilot-82dbc3-01` | 0 | PASS | `19cad01a0d3368a19be5c973d7825befbd631e964700529edb109d473858bd9f` |
+| `pilot-82dbc3-02` | 0 | PASS | `1cb1f08a731adbfce2d964c5cfda56aa3ba1de103c2e94d5616871005f1a6214` |
+| `pilot-82dbc3-03` | 0 | PASS | `8c978d7bad56eb98e606cd46b66a98556562dc037ae341afbcbcf89e6cb2e4d1` |
+| `pilot-82dbc3-04` | 0 | PASS | `742fddd5d472344fe86fd7658f948cbc9f678ce587cc4ece4ce15de46584ae23` |
+| `pilot-82dbc3-05` | 0 | PASS | `c951f14a6525d2b8d20b1597583882d8e26587096bc8550415ff7113190b7bb6` |
 
 Exact orchestration commands:
 
-- `pilot-7372-01`: `env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-7372-01 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1`
-- `pilot-7372-02`: `env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-7372-02 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1`
-- `pilot-7372-03`: `env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-7372-03 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1`
-- `pilot-7372-04`: `env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-7372-04 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1`
-- `pilot-7372-05`: `env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-7372-05 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1`
+- `pilot-82dbc3-01`: `env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-82dbc3-01 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1`
+- `pilot-82dbc3-02`: `env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-82dbc3-02 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1`
+- `pilot-82dbc3-03`: `env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-82dbc3-03 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1`
+- `pilot-82dbc3-04`: `env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-82dbc3-04 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1`
+- `pilot-82dbc3-05`: `env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-82dbc3-05 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1`
 
 The unchanged A9 assertion passed in every run. The repair changed the low-
 ceremony C2 fixture, not production score weights or thresholds.
 
 ## Model-backed soak guard
 
-- Command: `env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T5-TESTS-SOAK-ATTACHMENT-HEAVY-TEST,IS-T5-TESTS-SOAK-BREAK-PATTERN-PROBE-TEST,IS-T5-TESTS-SOAK-FOLLOWUP-LOAD-TEST,IS-T5-TESTS-SOAK-MIXED-SESSION-SIMULATION-TEST,IS-T5-TESTS-SOAK-SHORT-INPUT-STRESS-TEST --run-id=soak-requirement-guard-7372ad9 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/soak-guard --timeout-minutes=60 --deadline-hours=1 --concurrency=1`
+- Command: `env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T5-TESTS-SOAK-ATTACHMENT-HEAVY-TEST,IS-T5-TESTS-SOAK-BREAK-PATTERN-PROBE-TEST,IS-T5-TESTS-SOAK-FOLLOWUP-LOAD-TEST,IS-T5-TESTS-SOAK-MIXED-SESSION-SIMULATION-TEST,IS-T5-TESTS-SOAK-SHORT-INPUT-STRESS-TEST --run-id=soak-requirement-guard-82dbc3b --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/soak-guard --timeout-minutes=60 --deadline-hours=1 --concurrency=1`
 - Exit: **2**
 - Verdict: **BLOCKED**
 - Named prerequisites: `gpu, ollama`
-- Report SHA-256: `c55e4927a232069296bb26c99478480751343e7027218c2cea9a7f023986f06b`
+- Report SHA-256: `af4a4fcba8c0cbf3d5d1cde624c41c06f77819906a53cbe3316982afdcdac2cf`
 
 Five soak programs previously misdeclared as model-free are now blocked before
 execution unless Ollama and GPU are explicitly authorized.
@@ -141,7 +142,10 @@ Potentially compromised categories to rotate, without values:
 ## Remaining risks and blockers
 
 - Independent review status: PENDING.
-- Repository-local Gate 0 blockers: G0-R023: OPEN, G0-R025: OPEN.
+- Repository-local Gate 0 blockers: none.
+- Review-required risks: G0-R015: OPEN.
+- Later-gate risks: G0-R009: OPEN, G0-R018: OPEN.
+- Separate incidents: G0-R001: CONTAINED_CURRENT_TREE / OPEN_HISTORY, G0-R002: CONTAINED_CURRENT_TREE / OPEN_HISTORY, G0-R010: OPEN.
 - Public-history remediation, repository visibility, and credential rotation
   remain operator decisions.
 - 0 recovered E2E suites retain known false-green
@@ -158,4 +162,4 @@ Potentially compromised categories to rotate, without values:
 
 ## Recommended next step
 
-Repair the failed local evidence or repository blocker, then repeat the clean candidate run and regenerate this report.
+Perform the bounded Opus 5 read-only review, evaluate every finding against the candidate and evidence, then ask the operator whether Gate 0 may be accepted. Do not begin the next gate from this conditional checkpoint.

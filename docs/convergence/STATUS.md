@@ -4,12 +4,12 @@
 > Do not hand-edit. The evidence-only attestation commit must have the candidate
 > below as its first parent.
 
-- Generated: 2026-07-30T17:16:16.218Z
-- Candidate: `7372ad9f70c8a662c71122c2ba0ba5c6f6f90eb5`
+- Generated: 2026-07-30T19:58:58.489Z
+- Candidate: `82dbc3b30ad0c7329182dbe399705d874b004f2e`
 - Branch: `codex/intentsmith-1.0`
-- Registry SHA-256: `a7a5c6d4670159cd38a08edea8aabbf868eb3342a3baf1857b6a4849d1f4960a`
+- Registry SHA-256: `f6edc6ccff693284ee01ed159e90faea20e94662892d7b84b2f61efdf35e03b5`
 - Gate: **Gate 0 — trustworthy baseline**
-- Verdict: **FAIL**
+- Verdict: **CONDITIONAL PASS**
 
 ## Gate 0 clauses
 
@@ -23,6 +23,7 @@
 | G0-C6 defective suites excluded | PASS | 0 registry rows are KNOWN_DEFECTIVE; none appears in green deterministic evidence |
 | G0-C7 blockers specific | PASS | every registry BLOCKED row names server, external-network, Ollama, or GPU |
 | G0-C8 generated evidence | PASS | status, index, baseline report, and review packet derive from the clean candidate |
+| G0-C9 risk impact policy | PASS | 27 risk rows have validated machine-readable gateImpact entries |
 
 ## Registry
 
@@ -33,7 +34,10 @@
 ## Remaining boundaries
 
 - Independent Opus review: **PENDING**.
-- Repository-local Gate 0 blockers: **G0-R023: OPEN, G0-R025: OPEN**.
+- Repository-local Gate 0 blockers: none.
+- Review-required risks: G0-R015: OPEN.
+- Later-gate risks: G0-R009: OPEN, G0-R018: OPEN.
+- Separate incidents: G0-R001: CONTAINED_CURRENT_TREE / OPEN_HISTORY, G0-R002: CONTAINED_CURRENT_TREE / OPEN_HISTORY, G0-R010: OPEN.
 - Confirmed privacy compromise: **CONFIRMED_COMPROMISE**.
 - Current-tree private material is contained; affected history remains reachable.
 - Credential rotation and history remediation require operator action.
@@ -46,4 +50,4 @@
 
 ## Next action
 
-Repair every failed clause and repository-local blocker, then regenerate evidence from a new clean candidate.
+Give `docs/convergence/reviews/GATE0-OPUS-REVIEW.md` and the referenced artifacts to Opus 5 for read-only review. Do not enter the next gate until the review is evaluated and the operator confirms continuation.

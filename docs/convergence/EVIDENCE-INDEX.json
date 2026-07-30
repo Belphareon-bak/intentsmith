@@ -1,21 +1,21 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "product": "IntentSmith",
   "gate": "Gate 0",
-  "verdict": "FAIL",
-  "exitCode": 1,
-  "generatedAt": "2026-07-30T17:16:16.218Z",
+  "verdict": "CONDITIONAL PASS",
+  "exitCode": 0,
+  "generatedAt": "2026-07-30T19:58:58.489Z",
   "candidate": {
-    "sha": "7372ad9f70c8a662c71122c2ba0ba5c6f6f90eb5",
+    "sha": "82dbc3b30ad0c7329182dbe399705d874b004f2e",
     "branch": "codex/intentsmith-1.0",
-    "registrySha256": "a7a5c6d4670159cd38a08edea8aabbf868eb3342a3baf1857b6a4849d1f4960a",
+    "registrySha256": "f6edc6ccff693284ee01ed159e90faea20e94662892d7b84b2f61efdf35e03b5",
     "attestationRule": "the evidence-only commit must have this candidate as its first parent"
   },
   "sourceRefs": {
     "c3Input": "ffd21cf119865259ea1847af989acb24916bebe3",
     "c3Parent": "a7b90e36aa80310305703f54f2332e1c0e7f9e8f",
     "intentSmithDonor": "6676902c5f6fe7a5d66aba0d79cb502e0f3a60e4",
-    "localValidationCandidate": "7372ad9f70c8a662c71122c2ba0ba5c6f6f90eb5"
+    "localValidationCandidate": "82dbc3b30ad0c7329182dbe399705d874b004f2e"
   },
   "inventory": {
     "runnablePrograms": 350,
@@ -84,23 +84,59 @@
       "label": "generated evidence",
       "result": "PASS",
       "evidence": "status, index, baseline report, and review packet derive from the clean candidate"
+    },
+    {
+      "id": "G0-C9",
+      "label": "risk impact policy",
+      "result": "PASS",
+      "evidence": "27 risk rows have validated machine-readable gateImpact entries"
     }
   ],
-  "repositoryBlockers": [
-    "G0-R023: OPEN",
-    "G0-R025: OPEN"
-  ],
+  "repositoryBlockers": [],
+  "riskPolicy": {
+    "path": "docs/convergence/GATE0-RISK-IMPACT.json",
+    "schemaVersion": 1,
+    "sha256": "238ec67726fa079a78720b433094a03bf272fc1656375cdc226d6caec3d70ecd",
+    "valid": true,
+    "errors": [],
+    "riskCount": 27,
+    "policyCount": 27,
+    "impactCounts": {
+      "G0_FAIL": 21,
+      "G0_REVIEW_REQUIRED": 1,
+      "LATER_GATE": 2,
+      "SEPARATE_INCIDENT": 3
+    },
+    "openImpactCounts": {
+      "G0_FAIL": 0,
+      "G0_REVIEW_REQUIRED": 1,
+      "LATER_GATE": 2,
+      "SEPARATE_INCIDENT": 3
+    },
+    "reviewRequiredRisks": [
+      "G0-R015: OPEN"
+    ],
+    "laterGateRisks": [
+      "G0-R009: OPEN",
+      "G0-R018: OPEN"
+    ],
+    "separateIncidents": [
+      "G0-R001: CONTAINED_CURRENT_TREE / OPEN_HISTORY",
+      "G0-R002: CONTAINED_CURRENT_TREE / OPEN_HISTORY",
+      "G0-R010: OPEN"
+    ]
+  },
   "validations": {
     "registry": {
       "command": "node scripts/validate-test-registry.js --json",
       "exitCode": 0,
-      "outputSha256": "35e90be592602f15a9ae6961e929b651dac3e33ab7cfde1df4be07677d3b186f",
+      "outputSha256": "92b421854f9515922ab9f609ce044e38cbabf9586a87ccdb038b8f9f1af2dd00",
       "errors": []
     },
     "disposition": {
       "command": "node scripts/validate-final-disposition.js --json",
       "exitCode": 0,
-      "outputSha256": "cebb800de5c360bed8a2165d8373d1a64dfbc28f7e1e559fe690a1ea97a5bba4",
+      "outputSha256": "93e87b939d5672a93bb81e4da1cedc41a0778f2d09742e5be945007fc47f497a",
       "errors": [],
       "sourceManifest": {
         "path": "docs/convergence/FINAL-COMMIT-DIFF-MANIFEST.json",
@@ -135,30 +171,30 @@
     }
   },
   "installation": {
-    "command": "env XDG_CACHE_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-cache XDG_CONFIG_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-config XDG_DATA_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data XDG_STATE_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-state npm_config_cache=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/npm-cache YARN_CACHE_FOLDER=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/yarn-cache PIP_CACHE_DIR=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/pip-cache COREPACK_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/corepack C3_DB_PATH=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/runtime/install.sqlite C3_PROJECTS_DIR=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/runtime/projects ./scripts/install.sh --minimal",
-    "repeatedCommand": "env XDG_CACHE_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-cache XDG_CONFIG_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-config XDG_DATA_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data XDG_STATE_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-state npm_config_cache=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/npm-cache YARN_CACHE_FOLDER=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/yarn-cache PIP_CACHE_DIR=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/pip-cache COREPACK_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/corepack C3_DB_PATH=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/runtime/install.sqlite C3_PROJECTS_DIR=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/runtime/projects ./scripts/install.sh --minimal",
+    "command": "env XDG_CACHE_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-cache XDG_CONFIG_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-config XDG_DATA_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data XDG_STATE_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-state npm_config_cache=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/npm-cache YARN_CACHE_FOLDER=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/yarn-cache PIP_CACHE_DIR=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/pip-cache COREPACK_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/corepack C3_DB_PATH=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/runtime/install.sqlite C3_PROJECTS_DIR=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/runtime/projects ./scripts/install.sh --minimal",
+    "repeatedCommand": "env XDG_CACHE_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-cache XDG_CONFIG_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-config XDG_DATA_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data XDG_STATE_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-state npm_config_cache=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/npm-cache YARN_CACHE_FOLDER=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/yarn-cache PIP_CACHE_DIR=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/pip-cache COREPACK_HOME=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/corepack C3_DB_PATH=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/runtime/install.sqlite C3_PROJECTS_DIR=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/runtime/projects ./scripts/install.sh --minimal",
     "logs": [
       {
         "kind": "clean",
-        "path": "/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-logs/clean.typescript",
-        "bytes": 7857,
-        "sha256": "caeda248c03509524c71c998f3b46b5462e62efe431a8aa0116207691932ec01",
+        "path": "/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-logs/clean.typescript",
+        "bytes": 8014,
+        "sha256": "a5f1b95ccb99a69cbdd0b731d0fa865d4db14a62757ef7ae6bb103826f74577e",
         "exitCode": 0
       },
       {
         "kind": "idempotent",
-        "path": "/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-logs/idempotent.typescript",
-        "bytes": 7610,
-        "sha256": "77bd9f53ae3f45dd3017dbb0f6aa3fa493497204682f39964f0dfcfe2a778b37",
+        "path": "/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-logs/idempotent.typescript",
+        "bytes": 7767,
+        "sha256": "dd5f8c6767caae35595e086ff81fb68c1b94bb678c2970ab9fc4bb5901f1b8d8",
         "exitCode": 0
       }
     ]
   },
   "deterministic": {
-    "command": "env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --profile=offline,database --run-id=gate0-deterministic-199-7372ad9 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/deterministic --timeout-minutes=10 --deadline-hours=8 --concurrency=1",
+    "command": "env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --profile=offline,database --run-id=gate0-deterministic-199-82dbc3b --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/deterministic --timeout-minutes=10 --deadline-hours=8 --concurrency=1",
     "exitCode": 0,
-    "report": "/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/deterministic/gate0-deterministic-199-7372ad9/report.json",
-    "reportSha256": "e921d934b005b0e7a0bd279f97b12de6e1c874502052a44348e8972996c2a151",
+    "report": "/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/deterministic/gate0-deterministic-199-82dbc3b/report.json",
+    "reportSha256": "0b7a943c2b1f2a050d6ef0be547448fe71d23f2e695fefa429078a1e1898104e",
     "statusCounts": {
       "PASS": 199,
       "FAIL": 0,
@@ -168,62 +204,62 @@
     },
     "inventoryFingerprint": "89bfba52129a0d88dd0808feaa5a741f2c0fe8c4ac3de78ea141a46c9c393361",
     "optionsFingerprint": "b6c9a55d1eef4edd4cd3c3fc691fe87947b8aad52dc7249c05af5a41fed7db4e",
-    "startedAt": "2026-07-30T17:13:41.121Z",
-    "endedAt": "2026-07-30T17:16:16.218Z"
+    "startedAt": "2026-07-30T19:56:29.754Z",
+    "endedAt": "2026-07-30T19:58:58.489Z"
   },
   "pilotFiveConsecutive": [
     {
-      "runId": "pilot-7372-01",
-      "command": "env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-7372-01 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1",
-      "report": "/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/pilot-five/pilot-7372-01/report.json",
-      "reportSha256": "fde83caa370d3c599e0023caa0dad3b45f9c0cf5105280ef53d633cb71b4526d",
+      "runId": "pilot-82dbc3-01",
+      "command": "env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-82dbc3-01 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1",
+      "report": "/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/pilot-five/pilot-82dbc3-01/report.json",
+      "reportSha256": "19cad01a0d3368a19be5c973d7825befbd631e964700529edb109d473858bd9f",
       "exitCode": 0,
-      "startedAt": "2026-07-30T17:16:40.015Z",
-      "endedAt": "2026-07-30T17:16:40.112Z"
+      "startedAt": "2026-07-30T19:59:28.681Z",
+      "endedAt": "2026-07-30T19:59:28.780Z"
     },
     {
-      "runId": "pilot-7372-02",
-      "command": "env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-7372-02 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1",
-      "report": "/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/pilot-five/pilot-7372-02/report.json",
-      "reportSha256": "514611ff3d5fb5bb8f9ccd8183f27dfe80b4d6ee6b6c04d5c424089fc539b439",
+      "runId": "pilot-82dbc3-02",
+      "command": "env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-82dbc3-02 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1",
+      "report": "/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/pilot-five/pilot-82dbc3-02/report.json",
+      "reportSha256": "1cb1f08a731adbfce2d964c5cfda56aa3ba1de103c2e94d5616871005f1a6214",
       "exitCode": 0,
-      "startedAt": "2026-07-30T17:16:40.172Z",
-      "endedAt": "2026-07-30T17:16:40.267Z"
+      "startedAt": "2026-07-30T19:59:42.255Z",
+      "endedAt": "2026-07-30T19:59:42.358Z"
     },
     {
-      "runId": "pilot-7372-03",
-      "command": "env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-7372-03 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1",
-      "report": "/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/pilot-five/pilot-7372-03/report.json",
-      "reportSha256": "079d1f3e6e0ff1f085d61705e386b15a486af09b2814ecc712d7495ab3a18500",
+      "runId": "pilot-82dbc3-03",
+      "command": "env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-82dbc3-03 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1",
+      "report": "/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/pilot-five/pilot-82dbc3-03/report.json",
+      "reportSha256": "8c978d7bad56eb98e606cd46b66a98556562dc037ae341afbcbcf89e6cb2e4d1",
       "exitCode": 0,
-      "startedAt": "2026-07-30T17:16:40.319Z",
-      "endedAt": "2026-07-30T17:16:40.431Z"
+      "startedAt": "2026-07-30T19:59:53.609Z",
+      "endedAt": "2026-07-30T19:59:53.710Z"
     },
     {
-      "runId": "pilot-7372-04",
-      "command": "env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-7372-04 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1",
-      "report": "/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/pilot-five/pilot-7372-04/report.json",
-      "reportSha256": "86007c4fc78af10216d7317a3a7e333a4fd9a3aa26d08a7a142bd417e4bb3006",
+      "runId": "pilot-82dbc3-04",
+      "command": "env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-82dbc3-04 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1",
+      "report": "/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/pilot-five/pilot-82dbc3-04/report.json",
+      "reportSha256": "742fddd5d472344fe86fd7658f948cbc9f678ce587cc4ece4ce15de46584ae23",
       "exitCode": 0,
-      "startedAt": "2026-07-30T17:16:40.494Z",
-      "endedAt": "2026-07-30T17:16:40.596Z"
+      "startedAt": "2026-07-30T20:00:04.515Z",
+      "endedAt": "2026-07-30T20:00:04.618Z"
     },
     {
-      "runId": "pilot-7372-05",
-      "command": "env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-7372-05 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1",
-      "report": "/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/pilot-five/pilot-7372-05/report.json",
-      "reportSha256": "c8e3c00f2b1c93268bb5bf5ebff66729f8b437715b3d36c75d036e5fa000db0b",
+      "runId": "pilot-82dbc3-05",
+      "command": "env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-82dbc3-05 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1",
+      "report": "/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/pilot-five/pilot-82dbc3-05/report.json",
+      "reportSha256": "c951f14a6525d2b8d20b1597583882d8e26587096bc8550415ff7113190b7bb6",
       "exitCode": 0,
-      "startedAt": "2026-07-30T17:16:40.649Z",
-      "endedAt": "2026-07-30T17:16:40.749Z"
+      "startedAt": "2026-07-30T20:00:16.227Z",
+      "endedAt": "2026-07-30T20:00:16.335Z"
     }
   ],
   "soakRequirementGuard": {
-    "command": "env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T5-TESTS-SOAK-ATTACHMENT-HEAVY-TEST,IS-T5-TESTS-SOAK-BREAK-PATTERN-PROBE-TEST,IS-T5-TESTS-SOAK-FOLLOWUP-LOAD-TEST,IS-T5-TESTS-SOAK-MIXED-SESSION-SIMULATION-TEST,IS-T5-TESTS-SOAK-SHORT-INPUT-STRESS-TEST --run-id=soak-requirement-guard-7372ad9 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/soak-guard --timeout-minutes=60 --deadline-hours=1 --concurrency=1",
+    "command": "env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T5-TESTS-SOAK-ATTACHMENT-HEAVY-TEST,IS-T5-TESTS-SOAK-BREAK-PATTERN-PROBE-TEST,IS-T5-TESTS-SOAK-FOLLOWUP-LOAD-TEST,IS-T5-TESTS-SOAK-MIXED-SESSION-SIMULATION-TEST,IS-T5-TESTS-SOAK-SHORT-INPUT-STRESS-TEST --run-id=soak-requirement-guard-82dbc3b --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/soak-guard --timeout-minutes=60 --deadline-hours=1 --concurrency=1",
     "exitCode": 2,
     "verdict": "BLOCKED",
-    "report": "/home/belphareon/Projects/intentsmith-gate0-candidate-7372ad9/.intentsmith-artifacts/gate0/candidate-7372ad9/soak-guard/soak-requirement-guard-7372ad9/report.json",
-    "reportSha256": "c55e4927a232069296bb26c99478480751343e7027218c2cea9a7f023986f06b",
+    "report": "/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/soak-guard/soak-requirement-guard-82dbc3b/report.json",
+    "reportSha256": "af4a4fcba8c0cbf3d5d1cde624c41c06f77819906a53cbe3316982afdcdac2cf",
     "blockedBy": [
       "gpu",
       "ollama"
@@ -246,8 +282,8 @@
     ]
   },
   "review": {
-    "range": "126b061..7372ad9f70c8a662c71122c2ba0ba5c6f6f90eb5",
-    "commitCount": 59,
+    "range": "c4dc987a1a8c4c825e45c91fb437716efa007be1..82dbc3b30ad0c7329182dbe399705d874b004f2e",
+    "commitCount": 40,
     "packet": "docs/convergence/reviews/GATE0-OPUS-REVIEW.md",
     "independentReviewStatus": "PENDING"
   }
