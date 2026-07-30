@@ -1,9 +1,9 @@
 # Disposition of disputed `final` commit
 
 Status: all source-diff facts are recorded in a committed sanitized manifest
-and validate offline. Thirty records are evidence-backed `REPAIRED`, and 16
+and validate offline. Fifty-one records are evidence-backed `REPAIRED`, and 18
 truthful model suites are `DEFERRED` behind concrete runtime prerequisites. The
-validator deliberately remains red while 46 legacy `REBUILD/REPAIR` rows await
+validator deliberately remains red while 23 legacy `REBUILD/REPAIR` rows await
 terminal closure under `D-018`.
 
 Compared refs:
@@ -74,9 +74,9 @@ node scripts/validate-final-disposition.js \
 | `EXCLUDE/MOVE_OUTSIDE_PRODUCTION` | 78 |
 | `EXCLUDE/REMOVE_FOLLOWUP` | 13 |
 | `KEEP/REPLAY` | 42 |
-| `REBUILD/REPAIR` | 26 |
+| `REBUILD/REPAIR` | 23 |
 | `REBUILD/REPAIRED` | 51 |
-| `REBUILD/DEFERRED(<prerequisite>)` | 15 |
+| `REBUILD/DEFERRED(<prerequisite>)` | 18 |
 | `UNRESOLVED / USER_DECISION` | 0 |
 
 ## Path-by-path classification
@@ -256,9 +256,9 @@ node scripts/validate-final-disposition.js \
 | `A` | `tests/e2e/54-chat-with-expertise.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/55-chat-with-specialist.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/56-chat-with-project.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/57-lifecycle-full.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/58-code-generation.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/59-cross-feature.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/57-lifecycle-full.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Project and conversation setup are mandatory and runner-owned; lifecycle handoff, phase and confirmation are exact, dependent returns are gone, and cleanup is unconditional. An isolated pre-commit diagnostic reached both model-free assertions but the lifecycle request timed out at 90 seconds (2 passed, 1 failed, 0 skipped), so no green model claim is made. |
+| `A` | `tests/e2e/58-code-generation.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Each request uses a mandatory owned conversation and fail-closed transport; Python, JavaScript and explanation outputs have substantive fenced-code/semantic assertions and unconditional cleanup. An isolated pre-commit diagnostic timed out all three model requests at 60 seconds (0 passed, 3 failed, 0 skipped), so execution remains behind the named model fixture. |
+| `A` | `tests/e2e/59-cross-feature.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Expertise IDs resolve only through the server-owned canonical registry; the suite requires exact expertise session state, draft round-trip/delete and memory persistence with snapshot restoration. Its isolated pre-commit diagnostic proved the draft contract but timed out both model-backed checks (1 passed, 2 failed, 0 skipped), so no green model claim is made. |
 | `A` | `tests/e2e/60-ws-chat.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/61-autocomplete.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/62-validation-suites.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |

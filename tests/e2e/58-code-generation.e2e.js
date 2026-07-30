@@ -2,59 +2,68 @@
 // ══════════════════════════════════════════════════════════════════════════════
 // Tier 2: Verifies code generation requests produce code blocks.
 // ══════════════════════════════════════════════════════════════════════════════
-import { suite, testAsync, assert, summary, api, waitForServer } from './_helpers.js';
+import {
+  suite, testAsync, assert, summary, waitForServer,
+  createConv, chatWithTimeout, cleanupConversation,
+} from './_helpers.js';
 
 await waitForServer();
 
 const LLM_TIMEOUT = 60000;
+const created = [];
 
-// ── Python Code ─────────────────────────────────────────────────────────────
-suite('Code Generation — Python');
+async function strictCodeChat(title, message) {
+  const convId = await createConv(title);
+  created.push(convId);
+  return chatWithTimeout(convId, message, LLM_TIMEOUT);
+}
 
-await testAsync('generates Python function', async () => {
-  const { status, data } = await api('POST', '/chat', {
-    message: 'Napiš Python funkci, která počítá faktoriál čísla.'
-  });
-  assert(status === 200 || status === 202, `expected 200/202, got ${status}`);
-  if (data.response) {
-    const r = data.response;
-    // Should contain code block or at least def keyword
-    assert(
-      r.includes('```') || r.includes('def ') || r.includes('factorial'),
-      'response should contain code'
+try {
+  // ── Python Code ─────────────────────────────────────────────────────────────
+  suite('Code Generation — Python');
+
+  await testAsync('generates Python function', async () => {
+    const { response } = await strictCodeChat(
+      'python-generation',
+      'Napiš Python funkci, která počítá faktoriál čísla.',
     );
-  }
-}, LLM_TIMEOUT);
-
-// ── JavaScript Code ─────────────────────────────────────────────────────────
-suite('Code Generation — JavaScript');
-
-await testAsync('generates JavaScript function', async () => {
-  const { status, data } = await api('POST', '/chat', {
-    message: 'Write a JavaScript function that reverses a string.'
-  });
-  assert(status === 200 || status === 202, `expected 200/202, got ${status}`);
-  if (data.response) {
-    const r = data.response;
     assert(
-      r.includes('```') || r.includes('function') || r.includes('reverse'),
-      'response should contain JS code'
+      /```(?:python|py)?[\s\S]*\bdef\s+\w+\s*\(/i.test(response),
+      'Python response must contain a fenced function',
     );
-  }
-}, LLM_TIMEOUT);
+    assert(/faktori|factorial/i.test(response), 'Python response must address factorial');
+  }, LLM_TIMEOUT);
 
-// ── Code Explanation ────────────────────────────────────────────────────────
-suite('Code Generation — Explanation');
+  // ── JavaScript Code ─────────────────────────────────────────────────────────
+  suite('Code Generation — JavaScript');
 
-await testAsync('explains given code snippet', async () => {
-  const { status, data } = await api('POST', '/chat', {
-    message: 'Vysvětli tento kód:\n```python\ndef fib(n):\n  if n <= 1: return n\n  return fib(n-1) + fib(n-2)\n```'
-  });
-  assert(status === 200 || status === 202, `expected 200/202, got ${status}`);
-  if (data.response) {
-    assert(data.response.length > 30, 'explanation should be detailed');
-  }
-}, LLM_TIMEOUT);
+  await testAsync('generates JavaScript function', async () => {
+    const { response } = await strictCodeChat(
+      'javascript-generation',
+      'Write a JavaScript function that reverses a string.',
+    );
+    assert(
+      /```(?:javascript|js)?[\s\S]*(?:\bfunction\b|=>)/i.test(response),
+      'JavaScript response must contain a fenced function',
+    );
+    assert(/revers|string/i.test(response), 'JavaScript response must address string reversal');
+  }, LLM_TIMEOUT);
+
+  // ── Code Explanation ────────────────────────────────────────────────────────
+  suite('Code Generation — Explanation');
+
+  await testAsync('explains given code snippet', async () => {
+    const { response } = await strictCodeChat(
+      'code-explanation',
+      'Vysvětli tento kód:\n```python\ndef fib(n):\n  if n <= 1: return n\n  return fib(n-1) + fib(n-2)\n```',
+    );
+    assert(response.length > 80, 'explanation must be substantive');
+    assert(/rekurz|recurs/i.test(response), 'explanation must identify recursion');
+    assert(/základ|base case|n\s*<=\s*1/i.test(response), 'explanation must identify the base case');
+  }, LLM_TIMEOUT);
+} finally {
+  for (const id of created) await cleanupConversation(id);
+}
 
 const result = summary();
 process.exit(result.failed > 0 ? 1 : 0);

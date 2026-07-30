@@ -152,6 +152,81 @@ if (typeof chatFactory === 'function') {
     'chat routes reject non-string and blank messages with HTTP 400',
   );
   assert(controllerCalls === 0, 'invalid chat requests never reach ChatController');
+
+  const canonicalExpertise = {
+    id: 'developer',
+    name: 'Software Developer',
+    systemPrompt: 'server-owned fixture prompt',
+  };
+  const expertiseLookups = [];
+  const dispatchedRequests = [];
+  const expertiseResponses = [];
+  const expertiseRoutes = chatFactory({
+    ...mockDeps,
+    parseBody: async req => req.body,
+    sendJSON: (_res, status, data) => expertiseResponses.push({ status, data }),
+    expertiseLayer: {
+      expertiseRegistry: {
+        get: id => {
+          expertiseLookups.push(id);
+          return id === canonicalExpertise.id
+            ? { toJSON: () => ({ ...canonicalExpertise }) }
+            : null;
+        },
+      },
+    },
+    ChatController: {
+      handle: async request => {
+        dispatchedRequests.push(request);
+        return {
+          response: 'fixture response',
+          mode: 'expert',
+          confidence: 1,
+          metadata: {},
+        };
+      },
+    },
+  });
+  const validRequest = {
+    body: {
+      conversation_id: 'fixture-conversation',
+      message: 'Explain this API.',
+      expertise_id: ' developer ',
+    },
+    on: () => {},
+  };
+
+  await expertiseRoutes['POST /api/chat'](validRequest, { writableEnded: false });
+  await expertiseRoutes['POST /api/chat']({
+    body: {
+      conversation_id: 'fixture-conversation',
+      message: 'Explain this API.',
+      expertise_id: {},
+    },
+    on: () => {},
+  }, {});
+  await expertiseRoutes['POST /api/chat']({
+    body: {
+      conversation_id: 'fixture-conversation',
+      message: 'Explain this API.',
+      expertise_id: 'missing-expertise',
+    },
+    on: () => {},
+  }, {});
+
+  assert(
+    JSON.stringify(expertiseLookups) === JSON.stringify(['developer', 'missing-expertise']),
+    'chat route normalizes expertise IDs and resolves them through the server registry',
+  );
+  assert(
+    dispatchedRequests.length === 1
+      && JSON.stringify(dispatchedRequests[0].expertise) === JSON.stringify(canonicalExpertise),
+    'chat route dispatches the canonical server-owned expertise object',
+  );
+  assert(
+    JSON.stringify(expertiseResponses.map(item => item.status)) === JSON.stringify([200, 400, 404]),
+    'chat route accepts known expertise and rejects invalid or unknown expertise IDs',
+  );
 }
 
 console.log('\n── 5. Specialist Disable Ordering ──\n');

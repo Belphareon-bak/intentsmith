@@ -2,7 +2,7 @@
 export function createChatRoutes(deps) {
   const {
     db, parseBody, sendJSON, sendStaticFile, safeError, safeParseInt,
-    logger, ChatController, config,
+    logger, ChatController, config, expertiseLayer,
   } = deps;
   return {
     // ══════════════════════════════════════════════════════════════════════════
@@ -430,10 +430,24 @@ export function createChatRoutes(deps) {
         // v56.0: No manual DB writes here — ChatController.handle persists via ConversationStore
         logger.info('Server', `[ChatController] Processing: "${message.substring(0, 50)}..."`);
 
+        let expertise;
+        if (body.expertise_id !== undefined) {
+          if (typeof body.expertise_id !== 'string' || body.expertise_id.trim() === '') {
+            return sendJSON(res, 400, { error: 'expertise_id must be a non-empty string' });
+          }
+          const expertiseId = body.expertise_id.trim();
+          const registered = expertiseLayer?.expertiseRegistry?.get(expertiseId);
+          if (!registered) {
+            return sendJSON(res, 404, { error: `Expertise not found: ${expertiseId}` });
+          }
+          expertise = registered.toJSON();
+        }
+
         const result = await ChatController.handle({
           message,
           sessionId: conversation_id,
           userId: body.userId || null,
+          expertise,
           attachments: body.attachments || [],
           signal: abortController.signal,  // v63.0: propagate cancel signal
           context: {

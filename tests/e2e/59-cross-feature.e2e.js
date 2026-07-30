@@ -2,78 +2,96 @@
 // ══════════════════════════════════════════════════════════════════════════════
 // Tier 2: Tests combinations of features working together.
 // ══════════════════════════════════════════════════════════════════════════════
-import { suite, testAsync, assert, assertEqual, summary, api, waitForServer, uniqueId, cleanupConversation } from './_helpers.js';
+import {
+  suite, testAsync, assert, assertEqual, summary, api, waitForServer,
+  createConv, chatWithTimeout, cleanupConversation,
+} from './_helpers.js';
 
 await waitForServer();
 
 const LLM_TIMEOUT = 60000;
 const created = [];
+let originalMemory;
 
 try {
   // ── Expertise + Conversation ──────────────────────────────────────────────
   suite('Cross-Feature — Expertise + Conversation');
 
-  await testAsync('chat in conversation with expertise context', async () => {
-    // Create conversation
-    const { data: convData } = await api('POST', '/api/conversations', {
-      title: uniqueId('cross-feat'), mode: 'chat'
-    });
-    const convId = convData?.id || convData?.conversation?.id;
-    if (convId) created.push(convId);
+  await testAsync('chat in conversation with expertise context', async (signal) => {
+    const convId = await createConv('cross-feature');
+    created.push(convId);
 
-    // Get first expertise
-    const { data: expData } = await api('GET', '/api/expertises');
-    const expertiseId = expData.experts?.[0]?.id;
+    const expertiseList = await api('GET', '/api/expertises');
+    assertEqual(expertiseList.status, 200);
+    const developer = expertiseList.data.experts.find(item => item.id === 'developer');
+    assert(developer, 'canonical developer expertise required');
 
-    // Chat with both conversation and expertise
-    const body = { message: 'Porovnej REST a GraphQL.', conversation_id: convId };
-    if (expertiseId) body.expertise_id = expertiseId;
+    const { status, data } = await api('POST', '/api/chat', {
+      message: 'Porovnej REST a GraphQL.',
+      conversation_id: convId,
+      expertise_id: developer.id,
+    }, signal);
+    assertEqual(status, 200);
+    assert(typeof data.response === 'string' && data.response.trim().length > 0, 'expert response required');
+    assertEqual(data.mode, 'expert');
 
-    const { status } = await api('POST', '/api/chat', body);
-    assert(status === 200 || status === 202, `expected 200/202, got ${status}`);
+    const session = await api('GET', `/api/chat/sessions/${convId}`);
+    assertEqual(session.status, 200);
+    assertEqual(session.data.state.expertise.id, developer.id);
   }, LLM_TIMEOUT);
 
   // ── Draft + Conversation ──────────────────────────────────────────────────
   suite('Cross-Feature — Draft + Conversation');
 
   await testAsync('save and load draft within conversation context', async () => {
-    if (created.length === 0) return;
     const convId = created[0];
+    const content = 'Cross-feature draft test';
 
-    // Save draft
-    const { status: saveStatus } = await api('POST', '/api/drafts', {
+    const saved = await api('POST', '/api/drafts', {
       conversation_id: convId,
-      content: 'Cross-feature draft test'
+      content,
     });
-    assert(saveStatus === 200 || saveStatus === 201 || saveStatus === 204, 'draft saved');
+    assertEqual(saved.status, 200);
+    assertEqual(saved.data.success, true);
 
-    // Load draft
-    const { status: loadStatus, data } = await api('GET', `/api/drafts?conversation_id=${convId}`);
-    assertEqual(loadStatus, 200);
+    const loaded = await api('GET', `/api/drafts?conversation_id=${convId}`);
+    assertEqual(loaded.status, 200);
+    assertEqual(loaded.data.draft.content, content);
 
-    // Clean up draft
-    await api('DELETE', `/api/drafts?conversation_id=${convId}`);
+    const deleted = await api('DELETE', '/api/drafts', { conversation_id: convId });
+    assertEqual(deleted.status, 200);
+    const empty = await api('GET', `/api/drafts?conversation_id=${convId}`);
+    assertEqual(empty.status, 200);
+    assertEqual(empty.data.draft, null);
   });
 
   // ── Memory + Chat ────────────────────────────────────────────────────────
   suite('Cross-Feature — Memory + Chat');
 
   await testAsync('memory persists across chat requests', async () => {
-    // Save memory
-    await api('POST', '/api/memory', { preference: 'concise answers' });
+    const snapshot = await api('GET', '/api/memory');
+    assertEqual(snapshot.status, 200);
+    originalMemory = snapshot.data;
 
-    // Chat
-    const { status } = await api('POST', '/chat', {
-      message: 'Co je to Docker?'
+    const stored = await api('POST', '/api/memory', {
+      preference: 'concise answers',
     });
-    assert(status === 200 || status === 202, `expected 200/202, got ${status}`);
+    assertEqual(stored.status, 200);
+    assertEqual(stored.data.success, true);
 
-    // Verify memory still there
-    const { data: memData } = await api('GET', '/api/memory');
-    assert(memData.preference === 'concise answers', 'memory should persist');
+    const convId = await createConv('memory-chat');
+    created.push(convId);
+    await chatWithTimeout(convId, 'Co je to Docker?', LLM_TIMEOUT);
+
+    const memory = await api('GET', '/api/memory');
+    assertEqual(memory.status, 200);
+    assertEqual(memory.data.preference, 'concise answers');
   }, LLM_TIMEOUT);
 
 } finally {
+  if (originalMemory !== undefined) {
+    await api('POST', '/api/memory', originalMemory);
+  }
   for (const id of created) {
     await cleanupConversation(id);
   }
