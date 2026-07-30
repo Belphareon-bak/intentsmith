@@ -507,7 +507,7 @@ const fakeNpmPath = path.join(fakeNpmBinDir, 'npm');
 fs.mkdirSync(fakeNpmBinDir, { recursive: true, mode: 0o700 });
 fs.mkdirSync(fakeNpmCacheDir, { recursive: true, mode: 0o700 });
 fs.writeFileSync(fakeNpmPath, `#!${process.execPath}
-const fs = require('node:fs');
+import fs from 'node:fs';
 const scenario = JSON.parse(fs.readFileSync(
   process.env.INTENTSMITH_NPM_AUDIT_SCENARIO,
   'utf8',
