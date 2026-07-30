@@ -518,16 +518,20 @@ async function parseBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
     let size = 0;
+    let tooLarge = false;
     req.on('data', chunk => {
+      if (tooLarge) return;
       size += chunk.length;
       if (size > MAX_BODY_SIZE) {
-        req.destroy();
+        tooLarge = true;
+        body = '';
         reject(new Error(`Request body too large (max ${Math.round(MAX_BODY_SIZE/1024/1024)}MB)`));
         return;
       }
       body += chunk;
     });
     req.on('end', () => {
+      if (tooLarge) return;
       if (!body) return resolve({});
       try {
         resolve(JSON.parse(body));

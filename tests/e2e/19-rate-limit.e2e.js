@@ -29,39 +29,51 @@ await testAsync('Content-Security-Policy present', async () => {
 await testAsync('Referrer-Policy present', async () => {
   const res = await apiRaw('GET', '/api/health');
   const val = res.headers.get('referrer-policy');
-  // May or may not be set depending on config
-  assert(true, 'referrer-policy check complete');
+  assertEqual(val, 'strict-origin-when-cross-origin');
 });
 
 // ── CORS ────────────────────────────────────────────────────────────────────
 suite('CORS Headers');
 
-await testAsync('OPTIONS preflight returns CORS headers', async () => {
+await testAsync('default OPTIONS preflight denies an unconfigured cross-origin caller', async () => {
   const res = await fetch(`${BASE_URL}/api/health`, {
     method: 'OPTIONS',
     headers: { 'Origin': 'http://localhost:3000' }
   });
-  // Should return 204 or 200 for preflight
-  assert(res.status === 200 || res.status === 204, `expected 200/204 for OPTIONS, got ${res.status}`);
+  assertEqual(res.status, 204);
+  assertEqual(res.headers.get('access-control-allow-origin'), null);
   const methods = res.headers.get('access-control-allow-methods');
-  if (methods) {
-    assert(methods.includes('GET'), 'CORS must allow GET');
-    assert(methods.includes('POST'), 'CORS must allow POST');
-  }
+  assert(methods?.includes('GET'), 'preflight method metadata must include GET');
+  assert(methods?.includes('POST'), 'preflight method metadata must include POST');
 });
 
 // ── Body Size ───────────────────────────────────────────────────────────────
 suite('Body Size Limits (6 MB)');
 
 await testAsync('normal body accepted (not 413)', async () => {
-  const { status } = await api('POST', '/api/memory', { key: 'e2e-body-test', value: 'test body size' });
-  assert(status !== 413, 'normal body should not trigger 413');
+  const { status, data } = await api('POST', '/api/memory', {
+    key: 'e2e-body-test',
+    value: 'test body size',
+  });
+  assertEqual(status, 200);
+  assertEqual(data.success, true);
 });
 
 await testAsync('under-limit body accepted', async () => {
   const small = 'y'.repeat(1000);
-  const { status } = await api('POST', '/api/memory', { key: 'e2e-body-test', value: small });
-  assert(status !== 413, `1KB body should not trigger 413, got ${status}`);
+  const { status, data } = await api('POST', '/api/memory', {
+    key: 'e2e-body-test',
+    value: small,
+  });
+  assertEqual(status, 200);
+  assertEqual(data.success, true);
+});
+
+await testAsync('over-limit body returns 413 without dropping the response', async () => {
+  const oversized = 'z'.repeat(6 * 1024 * 1024);
+  const { status, data } = await api('POST', '/api/memory', { oversized });
+  assertEqual(status, 413);
+  assert(typeof data.error === 'string' && data.error.includes('too large'), 'size error required');
 });
 
 // ── Content Type ────────────────────────────────────────────────────────────

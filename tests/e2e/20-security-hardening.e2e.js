@@ -2,26 +2,28 @@
 // ══════════════════════════════════════════════════════════════════════════════
 import {
   suite, testAsync, assert, assertEqual, summary, api, apiRaw, waitForServer, BASE_URL,
+  cleanupConversation,
 } from './_helpers.js';
 
 await waitForServer();
+const createdConversations = [];
 
 // ── Path Traversal ──────────────────────────────────────────────────────────
 suite('Path Traversal Prevention');
 
 await testAsync('../../../etc/passwd in URL path returns 404', async () => {
   const { status } = await api('GET', '/api/../../../etc/passwd');
-  assert(status === 404 || status === 400, `expected 404/400, got ${status}`);
+  assertEqual(status, 404);
 });
 
 await testAsync('encoded traversal (%2e%2e) handled', async () => {
   const { status } = await api('GET', '/api/%2e%2e/%2e%2e/etc/passwd');
-  assert(status === 404 || status === 400, `expected 404/400, got ${status}`);
+  assertEqual(status, 404);
 });
 
 await testAsync('null byte in path handled', async () => {
   const { status } = await api('GET', '/api/conversations/test%00.txt');
-  assert(status === 404 || status === 400 || status === 500, `expected 404/400/500, got ${status}`);
+  assertEqual(status, 404);
 });
 
 // ── Shell Injection ─────────────────────────────────────────────────────────
@@ -29,17 +31,21 @@ suite('Shell Injection Prevention');
 
 await testAsync('shell metacharacters in query param', async () => {
   const { status } = await api('GET', '/api/conversations?title=test;rm -rf /');
-  // Should not crash, should return normal response
-  assert(status === 200 || status === 400, `expected 200/400, got ${status}`);
+  assertEqual(status, 200);
 });
 
 await testAsync('backtick injection in body field', async () => {
-  const { status } = await api('POST', '/api/conversations', {
+  const { status, data } = await api('POST', '/api/conversations', {
     title: '`whoami`',
     mode: 'chat'
   });
-  // Should create normally — shell chars are just string data
-  assert(status === 200 || status === 201 || status === 400, `expected 200/201/400, got ${status}`);
+  assertEqual(status, 201);
+  const id = data.conversation?.id;
+  assert(typeof id === 'string', 'conversation id required');
+  createdConversations.push(id);
+  const stored = await api('GET', `/api/conversations/${id}`);
+  assertEqual(stored.status, 200);
+  assertEqual(stored.data.conversation.title, '`whoami`');
 });
 
 // ── XSS Prevention ──────────────────────────────────────────────────────────
@@ -51,19 +57,13 @@ await testAsync('HTML/script tags in conversation title', async () => {
     title: xss,
     mode: 'chat'
   });
-  if (status === 200 || status === 201) {
-    const id = data.id || data.conversation?.id;
-    if (id) {
-      // Verify stored title doesn't execute — just stored as text
-      const { data: get } = await api('GET', `/api/conversations/${id}`);
-      const title = get.title || get.conversation?.title || '';
-      // Title should be stored as-is (escaped on output) or sanitized
-      assert(!title.includes('<script>') || title === xss, 'title stored or sanitized');
-      // Cleanup
-      await api('DELETE', `/api/conversations/${id}?hard=true`);
-    }
-  }
-  assert(true, 'XSS attempt handled');
+  assertEqual(status, 201);
+  const id = data.conversation?.id;
+  assert(typeof id === 'string', 'conversation id required');
+  createdConversations.push(id);
+  const stored = await api('GET', `/api/conversations/${id}`);
+  assertEqual(stored.status, 200);
+  assertEqual(stored.data.conversation.title, xss);
 });
 
 await testAsync('event handler injection in conversation title', async () => {
@@ -71,32 +71,40 @@ await testAsync('event handler injection in conversation title', async () => {
   const { status, data } = await api('POST', '/api/conversations', {
     title: xssPayload, mode: 'chat'
   });
-  // Should store without crash — no script execution server-side
-  assert(status === 200 || status === 201 || status === 400, `expected 200/201/400, got ${status}`);
-  if (status === 200 || status === 201) {
-    const id = data.id || data.conversation?.id;
-    if (id) await api('DELETE', `/api/conversations/${id}?hard=true`);
-  }
+  assertEqual(status, 201);
+  const id = data.conversation?.id;
+  assert(typeof id === 'string', 'conversation id required');
+  createdConversations.push(id);
+  const stored = await api('GET', `/api/conversations/${id}`);
+  assertEqual(stored.status, 200);
+  assertEqual(stored.data.conversation.title, xssPayload);
 });
 
 // ── SQL Injection ───────────────────────────────────────────────────────────
 suite('SQL Injection Prevention');
 
 await testAsync('SQL injection in conversation title', async () => {
-  const { status } = await api('POST', '/api/conversations', {
-    title: "'; DROP TABLE conversations; --",
+  const injection = "'; DROP TABLE conversations; --";
+  const { status, data } = await api('POST', '/api/conversations', {
+    title: injection,
     mode: 'chat'
   });
-  assert(status === 200 || status === 201 || status === 400, `expected 200/201/400, got ${status}`);
+  assertEqual(status, 201);
+  const id = data.conversation?.id;
+  assert(typeof id === 'string', 'conversation id required');
+  createdConversations.push(id);
 
   // Verify table still exists
-  const { status: listStatus } = await api('GET', '/api/conversations');
+  const { status: listStatus, data: listData } = await api('GET', '/api/conversations');
   assertEqual(listStatus, 200);
+  assert(listData.conversations.some(conversation => (
+    conversation.id === id && conversation.title === injection
+  )), 'injection text must remain inert data');
 });
 
 await testAsync('SQL injection in query parameter', async () => {
   const { status } = await api('GET', "/api/conversations?status=active' OR '1'='1");
-  assert(status === 200 || status === 400, `expected 200/400, got ${status}`);
+  assertEqual(status, 200);
 });
 
 // ── Stack Trace Leak ────────────────────────────────────────────────────────
@@ -111,32 +119,34 @@ await testAsync('404 does not leak stack trace', async () => {
   assert(!body.includes('.js:'), 'should not contain file:line references');
 });
 
-await testAsync('500 error does not leak internals', async () => {
-  // Send something likely to cause a server error
-  const { data } = await api('POST', '/api/conversations', {
-    title: null, mode: null, impossible_field: { nested: { deep: true } }
-  });
+await testAsync('invalid JSON error does not leak internals', async () => {
+  const response = await apiRaw('POST', '/api/conversations', '{"title":');
+  assertEqual(response.status, 400);
+  const data = await response.json();
   const body = typeof data === 'string' ? data : JSON.stringify(data);
-  if (body) {
-    assert(!body.includes('SQLITE'), 'should not leak SQLite error details');
-  }
+  assert(!body.includes('SQLITE'), 'should not leak SQLite error details');
+  assert(!body.includes('node_modules'), 'should not leak module paths');
+  assert(!body.includes('.js:'), 'should not leak file:line references');
 });
 
 // ── Header Injection ────────────────────────────────────────────────────────
 suite('Header Injection Prevention');
 
-await testAsync('newline in header value does not inject', async () => {
+await testAsync('Node HTTP client rejects a newline in a header value', async () => {
+  let rejected = false;
   try {
-    const res = await fetch(`${BASE_URL}/api/health`, {
+    await fetch(`${BASE_URL}/api/health`, {
       headers: { 'X-Test': 'value\r\nInjected-Header: evil' }
     });
-    // Node.js HTTP parser rejects CRLF in headers — should get error or normal response
-    assert(res.status === 200 || res.status === 400, 'CRLF injection handled');
   } catch {
-    // fetch may throw on invalid headers — that's the correct behavior
-    assert(true, 'CRLF in header correctly rejected by HTTP layer');
+    rejected = true;
   }
+  assertEqual(rejected, true);
 });
+
+for (const id of createdConversations) {
+  await cleanupConversation(id);
+}
 
 const result = summary();
 process.exit(result.failed > 0 ? 1 : 0);

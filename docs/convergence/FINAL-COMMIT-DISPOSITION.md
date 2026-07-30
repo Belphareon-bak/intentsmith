@@ -74,8 +74,8 @@ node scripts/validate-final-disposition.js \
 | `EXCLUDE/MOVE_OUTSIDE_PRODUCTION` | 78 |
 | `EXCLUDE/REMOVE_FOLLOWUP` | 13 |
 | `KEEP/REPLAY` | 42 |
-| `REBUILD/REPAIR` | 34 |
-| `REBUILD/REPAIRED` | 43 |
+| `REBUILD/REPAIR` | 31 |
+| `REBUILD/REPAIRED` | 46 |
 | `REBUILD/DEFERRED(<prerequisite>)` | 15 |
 | `UNRESOLVED / USER_DECISION` | 0 |
 
@@ -228,9 +228,9 @@ node scripts/validate-final-disposition.js \
 | `A` | `tests/e2e/15-quality.e2e.js` | `REBUILD` | `REPAIRED` | Summary, distribution, empty-project, volatility and text-report checks now assert their concrete schemas and statuses instead of accepting alternate empty responses. |
 | `A` | `tests/e2e/16-setup-wizard.e2e.js` | `REBUILD` | `REPAIRED` | Setup now proves a reachable Ollama with all configured models, exact language/notification/license writes and a status round-trip; the registry records Ollama but no GPU prerequisite. |
 | `A` | `tests/e2e/17-export.e2e.js` | `REBUILD` | `REPAIRED` | Export setup is mandatory and message-backed; missing, empty and unsupported requests now have exact 404/409/400 contracts, successful Markdown is downloaded and checked, and export/download share an artifact directory derived from the isolated database path. |
-| `A` | `tests/e2e/18-websocket.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/19-rate-limit.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/20-security-hardening.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/18-websocket.e2e.js` | `REBUILD` | `REPAIRED` | Handshake rejection, pre-hello handling, ping/pong, concurrent clients and malformed text/binary frames now require exact observable protocol outcomes; timeout/error and unconditional-pass branches were removed. |
+| `A` | `tests/e2e/19-rate-limit.e2e.js` | `REBUILD` | `REPAIRED` | Loopback transport checks now require exact security/referrer/CORS/content-type headers and exact 200/413 body-size behavior; request parsing drains oversized input and returns a response instead of destroying the socket. Network-bound rate limiting remains outside this loopback suite. |
+| `A` | `tests/e2e/20-security-hardening.e2e.js` | `REBUILD` | `REPAIRED` | Traversal, inert shell/XSS/SQL payload round-trips, disclosure-safe errors and client header validation now assert exact statuses and stored values with owned cleanup, without accepted 5xx or unconditional success paths. |
 | `A` | `tests/e2e/200-s1-minic3-p1.e2e.js` | `REBUILD` | `REPAIRED` | S1 P1 now evaluates all original terminal thresholds before persisting completion. The registered helper self-check at `452b1f7688e7624d30b81daabcb0be3b18a64cd0` verifies assertion → completion → save ordering, exit 0. |
 | `A` | `tests/e2e/201-s1-minic3-p2.e2e.js` | `REBUILD` | `REPAIRED` | S1 P2 now evaluates pass-count and code-score thresholds before persisting completion; the ordering self-check at `452b1f7688e7624d30b81daabcb0be3b18a64cd0` exited 0. |
 | `A` | `tests/e2e/202-s1-minic3-p3.e2e.js` | `REBUILD` | `REPAIRED` | S1 P3 now evaluates pass-count and code-score thresholds before persisting completion; the ordering self-check at `452b1f7688e7624d30b81daabcb0be3b18a64cd0` exited 0. |
