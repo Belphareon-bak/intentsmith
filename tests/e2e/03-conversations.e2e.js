@@ -44,7 +44,8 @@ try {
   });
 
   await testAsync('respects limit param', async () => {
-    const { data } = await api('GET', '/api/conversations?limit=1');
+    const { status, data } = await api('GET', '/api/conversations?limit=1');
+    assertEqual(status, 200);
     assert(data.conversations.length <= 1, 'should respect limit=1');
   });
 
@@ -73,15 +74,11 @@ try {
     assert(Array.isArray(data.messages || data), 'messages must be array');
   });
 
-  await testAsync('returns empty or 404 for nonexistent conversation messages', async () => {
+  await testAsync('returns an empty list for nonexistent conversation messages', async () => {
     const { status, data } = await api('GET', '/api/conversations/conv-nonexistent-xyz/messages');
-    // API may return 200 with empty array or 404
-    if (status === 200) {
-      const msgs = data.messages || data;
-      assert(Array.isArray(msgs) && msgs.length === 0, 'should be empty array for nonexistent');
-    } else {
-      assertEqual(status, 404);
-    }
+    assertEqual(status, 200);
+    const msgs = data.messages || data;
+    assert(Array.isArray(msgs) && msgs.length === 0, 'should be empty array for nonexistent');
   });
 
   // ── Update ──────────────────────────────────────────────────────────────
@@ -91,7 +88,7 @@ try {
     const id = created[0];
     const newTitle = uniqueId('updated');
     const { status } = await api('PUT', `/api/conversations/${id}`, { title: newTitle });
-    assert(status === 200 || status === 204, `expected 200/204, got ${status}`);
+    assertEqual(status, 200);
   });
 
   await testAsync('returns 404 for nonexistent', async () => {
@@ -105,13 +102,13 @@ try {
   await testAsync('archive conversation', async () => {
     const id = created[1];
     const { status } = await api('PATCH', `/api/conversations/${id}/archive`);
-    assert(status === 200 || status === 204, `expected 200/204, got ${status}`);
+    assertEqual(status, 200);
   });
 
   await testAsync('restore conversation', async () => {
     const id = created[1];
     const { status } = await api('PATCH', `/api/conversations/${id}/restore`);
-    assert(status === 200 || status === 204, `expected 200/204, got ${status}`);
+    assertEqual(status, 200);
   });
 
   // ── Delete ──────────────────────────────────────────────────────────────
@@ -120,13 +117,13 @@ try {
   await testAsync('soft-delete', async () => {
     const id = created[2];
     const { status } = await api('DELETE', `/api/conversations/${id}`);
-    assert(status === 200 || status === 204, `expected 200/204, got ${status}`);
+    assertEqual(status, 200);
   });
 
   await testAsync('hard-delete after soft-delete', async () => {
     const id = created[2];
     const { status } = await api('DELETE', `/api/conversations/${id}?hard=true`);
-    assert(status === 200 || status === 204, `expected 200/204, got ${status}`);
+    assertEqual(status, 200);
   });
 
   await testAsync('returns 404 for nonexistent delete', async () => {

@@ -1,6 +1,6 @@
 // tests/e2e/05-attachments.e2e.js — Attachment & chat validation (HTTP layer only)
 // ══════════════════════════════════════════════════════════════════════════════
-// Tier 1: Tests only validation paths that return immediately (400/404/500).
+// Tier 1: Tests only validation paths that return immediately (400).
 // NEVER sends a valid message that would trigger LLM calls.
 // ══════════════════════════════════════════════════════════════════════════════
 import {
@@ -29,43 +29,42 @@ await testAsync('null message returns 400', async () => {
 
 await testAsync('numeric message returns 400', async () => {
   const { status } = await api('POST', '/chat', { message: 12345 });
-  // Should be 400 (not a string) or accepted
-  assert(status === 400 || status === 200 || status === 500, `expected 400/200/500, got ${status}`);
+  assertEqual(status, 400);
 });
 
 // ── POST /api/chat — validation errors ──────────────────────────────────────
 suite('POST /api/chat — validation');
 
-await testAsync('missing conversation_id returns 400/404', async () => {
+await testAsync('missing conversation_id returns 400', async () => {
   const { status } = await api('POST', '/api/chat', { message: 'test' });
-  assert(status === 400 || status === 404, `expected 400/404, got ${status}`);
+  assertEqual(status, 400);
 });
 
-await testAsync('missing message returns 400/404', async () => {
+await testAsync('missing message returns 400', async () => {
   const { status } = await api('POST', '/api/chat', { conversation_id: 'test' });
-  assert(status === 400 || status === 404, `expected 400/404, got ${status}`);
+  assertEqual(status, 400);
 });
 
 await testAsync('both fields missing returns 400', async () => {
   const { status } = await api('POST', '/api/chat', {});
-  assert(status === 400 || status === 404, `expected 400/404, got ${status}`);
+  assertEqual(status, 400);
 });
 
 // ── Content-Type ────────────────────────────────────────────────────────────
 suite('Content-Type Handling');
 
-await testAsync('non-JSON body returns 400/500', async () => {
+await testAsync('non-JSON body returns 400', async () => {
   const res = await apiRaw('POST', '/chat', 'not json');
-  assert(res.status === 400 || res.status === 500, `expected 400/500, got ${res.status}`);
+  assertEqual(res.status, 400);
 });
 
-await testAsync('empty POST body returns 400/500', async () => {
+await testAsync('empty POST body returns 400', async () => {
   const res = await fetch(`${BASE_URL}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: ''
   });
-  assert(res.status === 400 || res.status === 500, `expected 400/500, got ${res.status}`);
+  assertEqual(res.status, 400);
 });
 
 const result = summary();

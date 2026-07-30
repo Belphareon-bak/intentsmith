@@ -89,7 +89,7 @@ export function createChatRoutes(deps) {
       const body = await parseBody(req);
       const { message, session_id } = body;
 
-      if (!message) {
+      if (typeof message !== 'string' || message.trim() === '') {
         return sendJSON(res, 400, { error: 'message is required' });
       }
 
@@ -387,7 +387,12 @@ export function createChatRoutes(deps) {
       const body = await parseBody(req);
       const { conversation_id, project_id, message } = body;
 
-      if (!conversation_id || !message) {
+      if (
+        typeof conversation_id !== 'string'
+        || conversation_id.trim() === ''
+        || typeof message !== 'string'
+        || message.trim() === ''
+      ) {
         return sendJSON(res, 400, { error: 'conversation_id and message are required' });
       }
 

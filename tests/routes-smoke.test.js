@@ -118,6 +118,42 @@ for (const rm of ROUTE_MODULES) {
   }
 }
 
+// ─── Test 4: Chat validation fails before controller dispatch ───────────────
+
+console.log('\n── 4. Chat Request Validation ──\n');
+
+const chatFactory = loaded['src/routes/chat.js']?.createChatRoutes;
+if (typeof chatFactory === 'function') {
+  let controllerCalls = 0;
+  const statuses = [];
+  const chatRoutes = chatFactory({
+    ...mockDeps,
+    parseBody: async req => req.body,
+    sendJSON: (_res, status) => statuses.push(status),
+    ChatController: {
+      handle: async () => {
+        controllerCalls++;
+        throw new Error('invalid request reached ChatController');
+      },
+    },
+  });
+  const response = {};
+
+  await chatRoutes['POST /chat']({ body: { message: 12345 } }, response);
+  await chatRoutes['POST /api/chat']({
+    body: { conversation_id: 'fixture-conversation', message: 12345 },
+  }, response);
+  await chatRoutes['POST /api/chat']({
+    body: { conversation_id: 'fixture-conversation', message: '   ' },
+  }, response);
+
+  assert(
+    JSON.stringify(statuses) === JSON.stringify([400, 400, 400]),
+    'chat routes reject non-string and blank messages with HTTP 400',
+  );
+  assert(controllerCalls === 0, 'invalid chat requests never reach ChatController');
+}
+
 // ─── Summary ─────────────────────────────────────────────────────────────────
 
 console.log(`\n══ Results: ${pass} passed, ${fail} failed ══\n`);

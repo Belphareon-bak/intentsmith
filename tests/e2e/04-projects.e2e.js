@@ -1,6 +1,6 @@
 // tests/e2e/04-projects.e2e.js — Project CRUD & workspace
 // ══════════════════════════════════════════════════════════════════════════════
-import { suite, testAsync, assert, assertEqual, summary, api, waitForServer, uniqueId, cleanupProject, makeOwnedTempDir, removeOwnedTempDir } from './_helpers.js';
+import { suite, testAsync, assert, assertEqual, summary, api, waitForServer, uniqueId, createProject, cleanupProject, makeOwnedTempDir, removeOwnedTempDir } from './_helpers.js';
 import { join } from 'node:path';
 
 await waitForServer();
@@ -19,7 +19,8 @@ try {
   });
 
   await testAsync('respects limit param', async () => {
-    const { data } = await api('GET', '/api/projects?limit=1');
+    const { status, data } = await api('GET', '/api/projects?limit=1');
+    assertEqual(status, 200);
     assert(data.projects.length <= 1, 'should respect limit');
   });
 
@@ -32,14 +33,10 @@ try {
   // ── Create ──────────────────────────────────────────────────────────────
   suite('POST /api/projects — create');
 
-  await testAsync('creates project with name and path', async () => {
+  await testAsync('creates project under the runner-owned projects root', async () => {
     const name = uniqueId('test-project');
-    const projPath = join(tmpDir, name);
-    const { status, data } = await api('POST', '/api/projects', { name, path: projPath, description: 'E2E test project' });
-    assert(status === 200 || status === 201, `expected 200/201, got ${status}`);
-    const id = data.project?.id || data.id;
-    assert(id, 'project id required');
-    created.push(id);
+    const project = await createProject(name, 'E2E test project');
+    created.push(project.id);
   });
 
   await testAsync('create without name returns 400', async () => {
@@ -53,65 +50,65 @@ try {
   suite('GET /api/projects/:id');
 
   await testAsync('returns existing project', async () => {
-    if (!created[0]) return;
     const { status, data } = await api('GET', `/api/projects/${created[0]}`);
     assertEqual(status, 200);
     assert(data.name || data.project, 'project data required');
   });
 
-  await testAsync('returns 404 or 500 for nonexistent', async () => {
+  await testAsync('returns 404 for nonexistent', async () => {
     const { status } = await api('GET', '/api/projects/proj-nonexistent-xyz');
-    assert(status === 404 || status === 500, `expected 404/500, got ${status}`);
+    assertEqual(status, 404);
   });
 
   // ── Update ──────────────────────────────────────────────────────────────
   suite('PUT /api/projects/:id — update');
 
   await testAsync('updates project description', async () => {
-    if (!created[0]) return;
     const { status } = await api('PUT', `/api/projects/${created[0]}`, { description: 'Updated description' });
-    assert(status === 200 || status === 204, `expected 200/204, got ${status}`);
+    assertEqual(status, 200);
   });
 
-  await testAsync('returns 404 or 500 for nonexistent', async () => {
+  await testAsync('returns 404 for nonexistent', async () => {
     const { status } = await api('PUT', '/api/projects/proj-nonexistent-xyz', { description: 'x' });
-    assert(status === 404 || status === 500, `expected 404/500, got ${status}`);
+    assertEqual(status, 404);
   });
 
   // ── Archive / Delete ───────────────────────────────────────────────────
   suite('Project Archive & Delete');
 
   await testAsync('archive project', async () => {
-    if (!created[0]) return;
     const { status } = await api('PATCH', `/api/projects/${created[0]}/archive`);
-    assert(status === 200 || status === 204, `expected 200/204, got ${status}`);
+    assertEqual(status, 200);
   });
 
   await testAsync('restore project', async () => {
-    if (!created[0]) return;
     const { status } = await api('PATCH', `/api/projects/${created[0]}/restore`);
-    assert(status === 200 || status === 204, `expected 200/204, got ${status}`);
+    assertEqual(status, 200);
   });
 
   await testAsync('delete project', async () => {
-    if (!created[0]) return;
     const { status } = await api('DELETE', `/api/projects/${created[0]}`);
-    assert(status === 200 || status === 204, `expected 200/204, got ${status}`);
+    assertEqual(status, 200);
   });
 
   // ── Open Folder ────────────────────────────────────────────────────────
   suite('POST /api/projects/open-folder');
 
-  await testAsync('registers existing folder (or rejects missing name)', async () => {
-    const { status } = await api('POST', '/api/projects/open-folder', { path: tmpDir, name: 'e2e-folder-test' });
-    assert(status === 200 || status === 201 || status === 400, `expected 200/201/400, got ${status}`);
+  await testAsync('registers an existing runner-owned folder', async () => {
+    const { status, data } = await api('POST', '/api/projects/open-folder', {
+      folderPath: tmpDir,
+      name: uniqueId('e2e-folder-test'),
+    });
+    assertEqual(status, 201);
+    assert(data.project?.id, 'registered project id required');
+    created.push(data.project.id);
   });
 
 } finally {
   for (const id of created) {
     await cleanupProject(id);
   }
-  try { removeOwnedTempDir(tmpDir); } catch {}
+  removeOwnedTempDir(tmpDir);
 }
 
 const result = summary();

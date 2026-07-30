@@ -14,24 +14,28 @@ await testAsync('returns 200 with status ok', async () => {
 });
 
 await testAsync('has version in semver format', async () => {
-  const { data } = await api('GET', '/api/health');
+  const { status, data } = await api('GET', '/api/health');
+  assertEqual(status, 200);
   assert(typeof data.version === 'string', 'version must be string');
   assertMatch(data.version, /^\d+\.\d+\.\d+/, 'version should be semver-like');
 });
 
 await testAsync('has timestamp in ISO format', async () => {
-  const { data } = await api('GET', '/api/health');
+  const { status, data } = await api('GET', '/api/health');
+  assertEqual(status, 200);
   assert(typeof data.timestamp === 'string', 'timestamp must be string');
   assert(!isNaN(Date.parse(data.timestamp)), 'timestamp must be valid ISO date');
 });
 
 await testAsync('has llm boolean', async () => {
-  const { data } = await api('GET', '/api/health');
+  const { status, data } = await api('GET', '/api/health');
+  assertEqual(status, 200);
   assert(typeof data.llm === 'boolean', 'llm must be boolean');
 });
 
 await testAsync('has cwd string', async () => {
-  const { data } = await api('GET', '/api/health');
+  const { status, data } = await api('GET', '/api/health');
+  assertEqual(status, 200);
   assert(typeof data.cwd === 'string' && data.cwd.length > 0, 'cwd must be non-empty string');
 });
 
@@ -49,21 +53,24 @@ await testAsync('returns system info with required fields', async () => {
 });
 
 await testAsync('memory info present', async () => {
-  const { data } = await api('GET', '/api/system/info');
+  const { status, data } = await api('GET', '/api/system/info');
+  assertEqual(status, 200);
   assert(data.memory, 'memory object required');
   assert(typeof data.memory.total_mb === 'number', 'total_mb required');
   assert(typeof data.memory.process_mb === 'number', 'process_mb required');
 });
 
 await testAsync('db info present', async () => {
-  const { data } = await api('GET', '/api/system/info');
+  const { status, data } = await api('GET', '/api/system/info');
+  assertEqual(status, 200);
   assert(data.db, 'db object required');
   assert(typeof data.db.migrations === 'number', 'migrations should be number');
   assert(data.db.tables && typeof data.db.tables === 'object', 'should have tables object');
 });
 
 await testAsync('config present with chat_model', async () => {
-  const { data } = await api('GET', '/api/system/info');
+  const { status, data } = await api('GET', '/api/system/info');
+  assertEqual(status, 200);
   assert(data.config, 'config required');
   assert(typeof data.config.chat_model === 'string', 'chat_model required');
 });
@@ -79,13 +86,15 @@ await testAsync('unknown path returns 404', async () => {
 
 await testAsync('response is JSON content-type', async () => {
   const res = await apiRaw('GET', '/api/health');
+  assertEqual(res.status, 200);
   const ct = res.headers.get('content-type');
   assertIncludes(ct, 'application/json');
 });
 
 await testAsync('health responds quickly (< 500ms)', async () => {
   const start = Date.now();
-  await apiRaw('GET', '/api/health');
+  const response = await apiRaw('GET', '/api/health');
+  assertEqual(response.status, 200);
   const elapsed = Date.now() - start;
   assert(elapsed < 500, `health took ${elapsed}ms, expected < 500ms`);
 });
@@ -102,7 +111,8 @@ await testAsync('returns license info with tier', async () => {
 });
 
 await testAsync('features has expected keys', async () => {
-  const { data } = await api('GET', '/api/license/status');
+  const { status, data } = await api('GET', '/api/license/status');
+  assertEqual(status, 200);
   const f = data.features;
   assert('maxProjects' in f, 'maxProjects required');
   assert('agents' in f, 'agents required');

@@ -27,12 +27,12 @@ suite('POST /api/chat — validation');
 
 await testAsync('missing conversation_id returns 400', async () => {
   const { status } = await api('POST', '/api/chat', { message: 'test' });
-  assert(status === 400 || status === 404, `expected 400/404, got ${status}`);
+  assertEqual(status, 400);
 });
 
 await testAsync('missing message returns 400', async () => {
   const { status } = await api('POST', '/api/chat', { conversation_id: 'nonexistent' });
-  assert(status === 400 || status === 404, `expected 400/404, got ${status}`);
+  assertEqual(status, 400);
 });
 
 // ── Session Management ───────────────────────────────────────────────────────
@@ -66,12 +66,12 @@ suite('Chat Specialist Assignment');
 
 await testAsync('POST /api/chat/specialist without specialistId returns 400', async () => {
   const { status } = await api('POST', '/api/chat/specialist', {});
-  assert(status === 400 || status === 404, `expected 400/404, got ${status}`);
+  assertEqual(status, 400);
 });
 
 await testAsync('DELETE /api/chat/specialist returns 200', async () => {
   const { status } = await api('DELETE', '/api/chat/specialist');
-  assert(status === 200 || status === 204, `expected 200/204, got ${status}`);
+  assertEqual(status, 200);
 });
 
 const result = summary();
