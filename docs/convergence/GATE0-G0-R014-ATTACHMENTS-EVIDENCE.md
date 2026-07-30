@@ -31,10 +31,22 @@ inode. The negative contract rejects both a symlink replacement and a real
 directory substituted at the same path, and proves the replacement survives
 the rejected cleanup.
 
-The exact post-commit integration SHA and rerun are recorded by the immediate
-follow-up evidence commit. Historical donor commands and counts below remain
-unchanged rather than being presented as results from the later integration
-tree.
+The security follow-up was committed as
+`c1aeb17c67a4f912c5d1e4161c0c1796f9e79f35`. Its exact post-commit rerun
+produced:
+
+| Command | Result | Exit |
+| --- | --- | ---: |
+| boundary self-check with a throwing `fetch` preload | `5 passed, 0 failed, 0 skipped`; no request | 0 |
+| raw full suite with only `C3_URL=http://127.0.0.1:1` and the same preload | rejected: `The full attachment suite requires a runner-owned audit server`; no request | 1 |
+| forced async rejection self-check with the same preload | `32 passed, 0 failed, 0 skipped`, followed by the forced rejection | 1 |
+| `node tests/harness-exit-code.test.js` outside the child-process-restricted sandbox | 49 temp creators protected, 92/92 database-reachable programs protected, mutation check passed | 0 |
+| `node --check tests/attachments-projects.test.js` | no syntax error | 0 |
+
+The two expected exit-1 runs preserved private mode-`0700` direct runtimes.
+They were inspected and contained directories only, with zero files. Historical
+donor commands and counts below remain unchanged rather than being presented as
+results from the later integration tree.
 
 Scope:
 
