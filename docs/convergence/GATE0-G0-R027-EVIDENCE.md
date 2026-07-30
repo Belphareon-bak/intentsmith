@@ -79,6 +79,8 @@ Both temporary source mutations were restored before commit.
 
 Tested implementation commit:
 `d8356507a595e1061a5876543768a450803d866f`.
+The implementation was integrated as
+`1a0b77946de0af7f195040d512c2a350e259a541`.
 
 | Command | Result | Exit |
 |---|---|---:|
@@ -88,6 +90,27 @@ Tested implementation commit:
 | `node scripts/validate-test-registry.js` | 350 runnable programs; SHA-256 `f6edc6ccff693284ee01ed159e90faea20e94662892d7b84b2f61efdf35e03b5` | 0 |
 | `node scripts/validate-final-disposition.js` | 225 records; manifest `aa95bbc0918daa3f188283297e03562e3a4b8a8d0b178bec126b60a27cd8677e` | 0 |
 | `git diff --check d835650^ d835650` plus `node --check` for the new module, registry and test | clean diff; all three sources parse | 0 |
+
+## R014 integration repair
+
+The isolated R027 branch placed its extensionless fake `npm` below the host
+system temporary directory, outside the repository package scope. After the
+R014 direct-run bootstrap was integrated, the same executable moved below
+`.intentsmith-artifacts/direct-tests/`, where the repository's
+`"type": "module"` applies. Its CommonJS `require('node:fs')` therefore failed
+before emitting fixture JSON.
+
+This interaction was not accepted as green:
+
+| Exact state and command | Result | Exit |
+|---|---|---:|
+| integrated R014+R027 tree before repair; `node tests/tool-registry-e2e.test.js` outside the restrictive child-process sandbox | 75 passed, 7 failed; all seven audit contracts received `INVALID_JSON` because the fake executable produced no stdout | 1 |
+| replace only the fake executable's `require` with an ESM import; same command before commit | 82 passed, 0 failed | 0 |
+| exact repair commit `d1305da3b34e0dbe44852e1b2fc9c8fcbfc90a00`; same command | 82 passed, 0 failed, 0 skipped | 0 |
+
+The repair changes only the local fake executable syntax. The production
+runner, assertions, expected statuses, cache containment and no-network
+contract are unchanged.
 
 This evidence closes only `G0-R027`. It does not claim a complete deterministic
 Gate 0 run, installation result, external npm availability, or a Gate 0
