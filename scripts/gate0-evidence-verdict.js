@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   EXPECTED_RECORD_COUNT,
   EXPECTED_RECORDS_SHA256,
@@ -39,6 +40,9 @@ const CLOSED_RISK_STATES = new Set([
   'MITIGATED_WITH_RESIDUAL',
   'MITIGATED_WITH_RESIDUALS',
 ]);
+const EXPECTED_REPAIRED_SUBJECT_COUNT = 60;
+const REPAIRED_SUBJECTS_PATH =
+  'docs/convergence/FINAL-COMMIT-DISPOSITION-SUBJECTS.json';
 
 export const ReviewStatus = Object.freeze({
   PENDING: 'PENDING',
@@ -140,10 +144,11 @@ export function classifyDispositionValidatorExecution(result) {
     );
   }
   if (
-    report?.schemaVersion !== 2
+    report?.schemaVersion !== 3
     || !Array.isArray(report.errors)
     || !Number.isInteger(report.records)
     || !validObject(report.sourceManifest)
+    || !validObject(report.repairedSubjectEvidence)
     || !validObject(report.dispositionCounts)
     || !validObject(report.terminalCounts)
     || !validObject(report.resolutionCounts)
@@ -185,8 +190,23 @@ export function classifyDispositionValidatorExecution(result) {
       || report.sourceManifest.recordCount !== EXPECTED_RECORD_COUNT
       || report.sourceManifest.recordsSha256 !== EXPECTED_RECORDS_SHA256
       || !sameCountMap(report.sourceManifest.changeCounts, EXPECTED_CHANGE_COUNTS)
+      || report.repairedSubjectEvidence.path !== REPAIRED_SUBJECTS_PATH
+      || report.repairedSubjectEvidence.schemaVersion !== 1
+      || report.repairedSubjectEvidence.sourceManifestRecordsSha256
+        !== EXPECTED_RECORDS_SHA256
+      || report.repairedSubjectEvidence.terminalState !== 'REBUILD/REPAIRED'
+      || report.repairedSubjectEvidence.recordCount !== EXPECTED_REPAIRED_SUBJECT_COUNT
+      || report.repairedSubjectEvidence.validatedCount !== EXPECTED_REPAIRED_SUBJECT_COUNT
+      || report.repairedSubjectEvidence.recordsDigestAlgorithm
+        !== 'sha256-repaired-subject-tuples-v1'
+      || !/^[a-f0-9]{64}$/.test(
+        report.repairedSubjectEvidence.recordsSha256 || '',
+      )
+      || report.repairedSubjectEvidence.recordsSha256
+        !== repairedSubjectsDigest(report.paths)
       || dispositionTotal !== EXPECTED_RECORD_COUNT
       || terminalTotal !== report.dispositionCounts.REBUILD
+      || report.terminalCounts.REPAIRED !== EXPECTED_REPAIRED_SUBJECT_COUNT
       || resolutionTotal !== EXPECTED_RECORD_COUNT
       || !keysAllowed(report.dispositionCounts, ALLOWED_DISPOSITIONS)
       || !keysAllowed(report.resolutionCounts, ALLOWED_RESOLUTIONS)
@@ -262,6 +282,31 @@ function validTerminalState(value) {
     new Set(prerequisites).size === prerequisites.length
     && prerequisites.every(item => DEFERRED_PREREQUISITES.has(item))
   );
+}
+
+function repairedSubjectsDigest(paths) {
+  const records = paths
+    .filter(item => item.disposition === 'REBUILD' && item.action === 'REPAIRED')
+    .map(item => ([
+      item.sourceSequence,
+      item.displayPath,
+      item.candidatePath,
+      item.candidateBlob,
+      item.candidateMode,
+      typeof item.rationale === 'string'
+        ? createHash('sha256').update(item.rationale).digest('hex')
+        : null,
+    ]));
+  const sourceSequences = new Set(records.map(record => record[0]));
+  const candidatePaths = new Set(records.map(record => record[2]));
+  if (
+    records.length !== EXPECTED_REPAIRED_SUBJECT_COUNT
+    || sourceSequences.size !== records.length
+    || candidatePaths.size !== records.length
+  ) {
+    return null;
+  }
+  return createHash('sha256').update(JSON.stringify(records)).digest('hex');
 }
 
 export function evaluateGate0RiskPolicy(riskMarkdown, policy) {

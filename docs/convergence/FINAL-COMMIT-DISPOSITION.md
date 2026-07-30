@@ -20,9 +20,13 @@ IDs, change status, paths, blob IDs and file modes. It contains no file content,
 runtime data, secrets or private values.
 
 The prose ledger does not make mutable content-identity assertions about an
-older candidate. Current candidate blob and mode identity is calculated for
-every row by `validate-final-disposition.js` and pinned through the structured
-report hash in the generated Gate 0 evidence.
+older candidate. `FINAL-COMMIT-DISPOSITION-SUBJECTS.json` binds every one of
+the 60 `REBUILD/REPAIRED` rows to its current candidate path, Git blob, file
+mode, source-manifest sequence and exact rationale digest.
+`validate-final-disposition.js` recomputes those values from the worktree,
+requires the document, sidecar and every repaired subject to match tracked
+`HEAD`, and refuses missing, duplicate, stale, reordered or structurally
+unknown subject records before Gate 0 can be green.
 
 - schema: `intentsmith.c3-final-diff` version 1;
 - base: `a7b90e36aa80310305703f54f2332e1c0e7f9e8f`;
@@ -30,6 +34,9 @@ report hash in the generated Gate 0 evidence.
 - exact-renames diff: 185 additions, 0 deletions, 24 modifications, 16 renames;
 - records digest:
   `aa95bbc0918daa3f188283297e03562e3a4b8a8d0b178bec126b60a27cd8677e`.
+- repaired-subject schema: `REBUILD/REPAIRED` version 1, exactly 60 sanitized
+  records; its canonical tuple digest is recomputed independently from both
+  the committed sidecar and the structured validator paths.
 
 The normal command is offline and does not need either C3 commit object:
 

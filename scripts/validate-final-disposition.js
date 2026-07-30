@@ -33,6 +33,11 @@ const manifestPath = path.join(
   'convergence',
   'FINAL-COMMIT-DIFF-MANIFEST.json',
 );
+export const REPAIRED_SUBJECTS_PATH =
+  'docs/convergence/FINAL-COMMIT-DISPOSITION-SUBJECTS.json';
+export const REPAIRED_SUBJECTS_SCHEMA_VERSION = 1;
+export const EXPECTED_REPAIRED_SUBJECT_COUNT = 60;
+const repairedSubjectsPath = path.join(repoRoot, REPAIRED_SUBJECTS_PATH);
 
 const repairedPathMappings = new Map([
   ['tests/TEST-INVENTORY.md', 'tests/registry.json'],
@@ -190,6 +195,7 @@ export function validateAndResolve({
       }
       resolutions.push({
         ...row,
+        sourceSequence: diff.sequence,
         sourcePath: diff.newPath ?? diff.oldPath,
         candidatePath,
         sourceBlob,
@@ -211,6 +217,7 @@ export function validateAndResolve({
       }
       resolutions.push({
         ...row,
+        sourceSequence: diff.sequence,
         sourcePath: diff.oldPath,
         candidatePath,
         sourceBlob,
@@ -229,6 +236,7 @@ export function validateAndResolve({
       );
       resolutions.push({
         ...row,
+        sourceSequence: diff.sequence,
         sourcePath: diff.newPath,
         candidatePath,
         sourceBlob,
@@ -241,6 +249,17 @@ export function validateAndResolve({
     }
 
     const candidate = candidateObject(candidateAbsolute);
+    const trackedCandidate = headCandidateObject(candidateRoot, candidatePath);
+    if (!trackedCandidate) {
+      errors.push(`candidate path is not tracked at HEAD: ${candidatePath}`);
+    } else if (
+      trackedCandidate.blob !== candidate.blob
+      || trackedCandidate.mode !== candidate.mode
+    ) {
+      errors.push(
+        `candidate worktree differs from the tracked HEAD subject: ${candidatePath}`,
+      );
+    }
     const resolution = mappedPath
       ? 'MAPPED_REPAIR'
       : sourceBlob === candidate.blob && sourceMode === candidate.mode
@@ -249,6 +268,7 @@ export function validateAndResolve({
     validateTerminalResolution(row, resolution, displayPath, errors);
     resolutions.push({
       ...row,
+      sourceSequence: diff.sequence,
       sourcePath: diff.newPath,
       candidatePath,
       sourceBlob,
@@ -261,6 +281,217 @@ export function validateAndResolve({
 
   validateTrackedSymlinks(candidateRoot, errors);
   return { errors, resolutions };
+}
+
+export function buildRepairedSubjectManifest(
+  resolutions,
+  sourceManifestRecordsSha256,
+) {
+  const records = repairedSubjectRecords(resolutions);
+  return {
+    schemaVersion: REPAIRED_SUBJECTS_SCHEMA_VERSION,
+    manifestType: 'intentsmith.repaired-disposition-subjects',
+    sourceManifestRecordsSha256,
+    sourceDocument: 'docs/convergence/FINAL-COMMIT-DISPOSITION.md',
+    terminalState: 'REBUILD/REPAIRED',
+    candidateObjectFormat: 'sha1',
+    recordCount: records.length,
+    rationaleDigestAlgorithm: 'sha256-utf8-exact-v1',
+    recordsDigestAlgorithm: 'sha256-repaired-subject-tuples-v1',
+    recordsSha256: repairedSubjectRecordsSha256(records),
+    records,
+  };
+}
+
+export function validateRepairedSubjectManifest(
+  subjectManifest,
+  resolutions,
+  sourceManifest,
+) {
+  const errors = [];
+  const expected = resolutions.filter(
+    item => item.disposition === 'REBUILD' && item.action === 'REPAIRED',
+  );
+  const summary = {
+    path: REPAIRED_SUBJECTS_PATH,
+    schemaVersion: subjectManifest?.schemaVersion ?? null,
+    sourceManifestRecordsSha256:
+      subjectManifest?.sourceManifestRecordsSha256 ?? null,
+    terminalState: subjectManifest?.terminalState ?? null,
+    recordCount: subjectManifest?.recordCount ?? null,
+    recordsDigestAlgorithm: subjectManifest?.recordsDigestAlgorithm ?? null,
+    recordsSha256: subjectManifest?.recordsSha256 ?? null,
+    validatedCount: 0,
+  };
+
+  if (!isPlainObject(subjectManifest)) {
+    errors.push('repaired subject manifest is required');
+    return { errors, summary };
+  }
+  requireExactKeys(
+    subjectManifest,
+    [
+      'recordCount',
+      'records',
+      'recordsDigestAlgorithm',
+      'recordsSha256',
+      'candidateObjectFormat',
+      'manifestType',
+      'rationaleDigestAlgorithm',
+      'schemaVersion',
+      'sourceDocument',
+      'sourceManifestRecordsSha256',
+      'terminalState',
+    ],
+    'repaired subject manifest',
+    errors,
+  );
+  if (subjectManifest.schemaVersion !== REPAIRED_SUBJECTS_SCHEMA_VERSION) {
+    errors.push(
+      `repaired subject manifest schemaVersion must equal ${REPAIRED_SUBJECTS_SCHEMA_VERSION}`,
+    );
+  }
+  if (subjectManifest.manifestType !== 'intentsmith.repaired-disposition-subjects') {
+    errors.push('repaired subject manifest manifestType is invalid');
+  }
+  if (subjectManifest.sourceDocument !== 'docs/convergence/FINAL-COMMIT-DISPOSITION.md') {
+    errors.push('repaired subject manifest sourceDocument is invalid');
+  }
+  if (
+    !/^[a-f0-9]{64}$/.test(
+      subjectManifest.sourceManifestRecordsSha256 || '',
+    )
+    || subjectManifest.sourceManifestRecordsSha256
+      !== sourceManifest?.recordsSha256
+  ) {
+    errors.push(
+      'repaired subject manifest source manifest digest does not match',
+    );
+  }
+  if (subjectManifest.terminalState !== 'REBUILD/REPAIRED') {
+    errors.push('repaired subject manifest terminalState is invalid');
+  }
+  if (subjectManifest.candidateObjectFormat !== 'sha1') {
+    errors.push('repaired subject manifest candidateObjectFormat is invalid');
+  }
+  if (subjectManifest.rationaleDigestAlgorithm !== 'sha256-utf8-exact-v1') {
+    errors.push('repaired subject manifest rationaleDigestAlgorithm is invalid');
+  }
+  if (
+    subjectManifest.recordsDigestAlgorithm
+    !== 'sha256-repaired-subject-tuples-v1'
+  ) {
+    errors.push('repaired subject manifest recordsDigestAlgorithm is invalid');
+  }
+  if (!Array.isArray(subjectManifest.records)) {
+    errors.push('repaired subject manifest records must be an array');
+    return { errors, summary };
+  }
+  if (subjectManifest.recordCount !== subjectManifest.records.length) {
+    errors.push('repaired subject manifest recordCount does not match records');
+  }
+  if (
+    subjectManifest.recordCount !== EXPECTED_REPAIRED_SUBJECT_COUNT
+    || expected.length !== EXPECTED_REPAIRED_SUBJECT_COUNT
+  ) {
+    errors.push(
+      `repaired subject manifest must cover exactly ${EXPECTED_REPAIRED_SUBJECT_COUNT} `
+      + 'REBUILD/REPAIRED records',
+    );
+  }
+  const actualDigest = repairedSubjectRecordsSha256(subjectManifest.records);
+  if (
+    !/^[a-f0-9]{64}$/.test(subjectManifest.recordsSha256 || '')
+    || subjectManifest.recordsSha256 !== actualDigest
+  ) {
+    errors.push('repaired subject manifest recordsSha256 is invalid');
+  }
+  const identities = new Set();
+  const candidatePaths = new Set();
+  const sourceSequences = new Set();
+  const limit = Math.max(expected.length, subjectManifest.records.length);
+  for (let index = 0; index < limit; index++) {
+    const record = subjectManifest.records[index];
+    const subject = expected[index];
+    const label = `repaired subject record ${index + 1}`;
+    if (!record) {
+      errors.push(`${label} is missing`);
+      continue;
+    }
+    if (!subject) {
+      errors.push(`${label} is unexpected`);
+      continue;
+    }
+    if (!isPlainObject(record)) {
+      errors.push(`${label} must be an object`);
+      continue;
+    }
+    requireExactKeys(
+      record,
+      [
+        'candidateBlob',
+        'candidateMode',
+        'candidatePath',
+        'displayPath',
+        'rationaleSha256',
+        'sourceSequence',
+      ],
+      label,
+      errors,
+    );
+    const identity = `${record.displayPath}\0${record.candidatePath}`;
+    if (identities.has(identity)) errors.push(`${label} is duplicated`);
+    identities.add(identity);
+    if (candidatePaths.has(record.candidatePath)) {
+      errors.push(`${label} candidatePath is duplicated`);
+    }
+    candidatePaths.add(record.candidatePath);
+    if (sourceSequences.has(record.sourceSequence)) {
+      errors.push(`${label} sourceSequence is duplicated`);
+    }
+    sourceSequences.add(record.sourceSequence);
+    if (
+      !Number.isInteger(record.sourceSequence)
+      || record.sourceSequence !== subject.sourceSequence
+    ) {
+      errors.push(`${label} sourceSequence does not match the source manifest`);
+    }
+    if (record.displayPath !== subject.displayPath) {
+      errors.push(`${label} displayPath does not match the disposition row`);
+    }
+    if (record.candidatePath !== subject.candidatePath) {
+      errors.push(`${label} candidatePath does not match the resolved candidate`);
+    }
+    if (
+      !/^[a-f0-9]{40}$/.test(record.candidateBlob || '')
+      || record.candidateBlob !== subject.candidateBlob
+    ) {
+      errors.push(`${label} candidateBlob does not match the current candidate`);
+    }
+    if (
+      !/^(?:100644|100755|120000)$/.test(record.candidateMode || '')
+      || record.candidateMode !== subject.candidateMode
+    ) {
+      errors.push(`${label} candidateMode does not match the current candidate`);
+    }
+    if (
+      !/^[a-f0-9]{64}$/.test(record.rationaleSha256 || '')
+      || record.rationaleSha256 !== sha256(subject.rationale)
+    ) {
+      errors.push(`${label} rationaleSha256 does not match the disposition row`);
+    }
+    if (
+      record.displayPath === subject.displayPath
+      && record.candidatePath === subject.candidatePath
+      && record.sourceSequence === subject.sourceSequence
+      && record.candidateBlob === subject.candidateBlob
+      && record.candidateMode === subject.candidateMode
+      && record.rationaleSha256 === sha256(subject.rationale)
+    ) {
+      summary.validatedCount += 1;
+    }
+  }
+  return { errors, summary };
 }
 
 export function countBy(values, key) {
@@ -277,6 +508,7 @@ export function buildValidationReport({
   manifest,
   dispositionRows,
   dispositionMarkdown,
+  repairedSubjectManifest = null,
   candidateRoot = repoRoot,
   sourceRepo = null,
 }) {
@@ -287,8 +519,14 @@ export function buildValidationReport({
     candidateRoot,
     sourceRepo,
   });
+  const subjectValidation = validateRepairedSubjectManifest(
+    repairedSubjectManifest,
+    resolutions,
+    manifest,
+  );
+  errors.push(...subjectValidation.errors);
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     sourceRepository: manifest?.sourceRepository ?? null,
     sourceRange: manifest?.sourceRange ?? null,
     sourceManifest: {
@@ -299,6 +537,7 @@ export function buildValidationReport({
       changeCounts: manifest?.changeCounts ?? null,
       liveSourceCrossCheck: sourceRepo ? 'PASS' : 'NOT_REQUESTED',
     },
+    repairedSubjectEvidence: subjectValidation.summary,
     records: Array.isArray(manifest?.records) ? manifest.records.length : 0,
     dispositionCounts: countBy(resolutions, 'disposition'),
     terminalCounts: countBy(
@@ -361,11 +600,91 @@ function candidateObject(absolutePath) {
   };
 }
 
+function headCandidateObject(candidateRoot, relativePath) {
+  const output = execFileSync(
+    'git',
+    ['ls-tree', '-z', 'HEAD', '--', relativePath],
+    {
+      cwd: candidateRoot,
+      encoding: 'utf8',
+      maxBuffer: 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
+  const entries = output.split('\0').filter(Boolean);
+  if (entries.length !== 1) return null;
+  const match = entries[0].match(/^(\d+) blob ([a-f0-9]{40})\t(.+)$/s);
+  if (!match || match[3] !== relativePath) return null;
+  return { mode: match[1], blob: match[2] };
+}
+
+export function validateHeadFile(candidateRoot, relativePath, label, errors) {
+  const absolutePath = safeCandidatePath(candidateRoot, relativePath);
+  if (!pathExists(absolutePath)) {
+    errors.push(`${label} is missing from the worktree`);
+    return;
+  }
+  const working = candidateObject(absolutePath);
+  const head = headCandidateObject(candidateRoot, relativePath);
+  validateHeadBinding(working, head, label, errors);
+}
+
+export function validateHeadBinding(working, head, label, errors) {
+  if (!head) {
+    errors.push(`${label} is not tracked at HEAD`);
+  } else if (head.blob !== working.blob || head.mode !== working.mode) {
+    errors.push(`${label} worktree differs from HEAD`);
+  }
+}
+
+function repairedSubjectRecords(resolutions) {
+  return resolutions
+    .filter(item => item.disposition === 'REBUILD' && item.action === 'REPAIRED')
+    .map(item => ({
+      sourceSequence: item.sourceSequence,
+      displayPath: item.displayPath,
+      candidatePath: item.candidatePath,
+      candidateBlob: item.candidateBlob,
+      candidateMode: item.candidateMode,
+      rationaleSha256: sha256(item.rationale),
+    }));
+}
+
+function repairedSubjectRecordsSha256(records) {
+  return sha256(JSON.stringify(records.map(record => ([
+    record?.sourceSequence,
+    record?.displayPath,
+    record?.candidatePath,
+    record?.candidateBlob,
+    record?.candidateMode,
+    record?.rationaleSha256,
+  ]))));
+}
+
 function hashGitBlob(bytes) {
   return createHash('sha1')
     .update(Buffer.from(`blob ${bytes.length}\0`))
     .update(bytes)
     .digest('hex');
+}
+
+function sha256(value) {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function requireExactKeys(value, expected, label, errors) {
+  const actual = Object.keys(value).sort();
+  const wanted = [...expected].sort();
+  if (
+    actual.length !== wanted.length
+    || actual.some((key, index) => key !== wanted[index])
+  ) {
+    errors.push(`${label} fields must be exactly: ${wanted.join(', ')}`);
+  }
 }
 
 function validateTrackedSymlinks(candidateRoot, errors) {
@@ -453,12 +772,35 @@ function main() {
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   const dispositionMarkdown = readFileSync(dispositionPath, 'utf8');
   const dispositionRows = parseDispositionRows(dispositionMarkdown);
+  let repairedSubjectManifest = null;
+  let repairedSubjectReadError = null;
+  try {
+    repairedSubjectManifest = JSON.parse(readFileSync(repairedSubjectsPath, 'utf8'));
+  } catch (error) {
+    repairedSubjectReadError = `cannot read repaired subject manifest: ${error.message}`;
+  }
   const report = buildValidationReport({
     manifest,
     dispositionRows,
     dispositionMarkdown,
+    repairedSubjectManifest,
     sourceRepo: options.sourceRepo,
   });
+  validateHeadFile(
+    repoRoot,
+    'docs/convergence/FINAL-COMMIT-DISPOSITION.md',
+    'disposition document',
+    report.errors,
+  );
+  if (repairedSubjectManifest) {
+    validateHeadFile(
+      repoRoot,
+      REPAIRED_SUBJECTS_PATH,
+      'repaired subject manifest',
+      report.errors,
+    );
+  }
+  if (repairedSubjectReadError) report.errors.unshift(repairedSubjectReadError);
 
   if (options.reportPath) writePrivateReport(options.reportPath, report);
   if (options.json) {

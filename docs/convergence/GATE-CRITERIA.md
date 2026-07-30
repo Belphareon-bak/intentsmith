@@ -34,7 +34,7 @@ product is good, only that statements about it are verifiable.
 | # | Condition | How it is checked |
 |---|---|---|
 | G0-C1 | Worktree is clean | `git status --porcelain` is empty |
-| G0-C2 | All 225 disposition records resolve | `node scripts/validate-final-disposition.js` exits 0 |
+| G0-C2 | All 225 disposition records resolve and all 60 repaired subjects match the current candidate | `node scripts/validate-final-disposition.js` exits 0; the sanitized subject sidecar matches path/blob/mode/resolution/rationale |
 | G0-C3 | Test registry is complete and valid | `node scripts/validate-test-registry.js` exits 0 |
 | G0-C4 | Clean install reproduces from the verdict commit | two consecutive `scripts/install.sh --minimal` runs exit 0, second one idempotent |
 | G0-C5 | Every required deterministic T1/T2 suite passes | all `offline` and `database` registry rows |

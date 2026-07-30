@@ -1,6 +1,7 @@
 // Production artifact validation contract.
 // Run: node tests/artifact-validation.test.js
 
+import { createHash } from 'node:crypto';
 import {
   chmodSync,
   existsSync,
@@ -18,10 +19,16 @@ import {
   validateArtifactFile,
 } from '../src/planner/artifact-validation.js';
 import {
+  EXPECTED_RECORDS_SHA256,
   refreshManifestIntegrity,
   validateDiffManifest,
 } from '../scripts/final-disposition-manifest.js';
 import {
+  buildRepairedSubjectManifest,
+  EXPECTED_REPAIRED_SUBJECT_COUNT,
+  REPAIRED_SUBJECTS_PATH,
+  validateHeadBinding,
+  validateRepairedSubjectManifest,
   validateDispositionDocument,
   validateDispositionActions,
 } from '../scripts/validate-final-disposition.js';
@@ -441,6 +448,178 @@ test('stale byte-identical candidate prose is rejected', () => {
   assert(includesError(errors, 'unenforced mutable identity claim'));
 });
 
+suite('REBUILD/REPAIRED subject evidence');
+
+function repairedResolutions() {
+  return Array.from({ length: EXPECTED_REPAIRED_SUBJECT_COUNT }, (_, index) => ({
+    sourceSequence: index + 1,
+    displayPath: `tests/repaired-${String(index).padStart(2, '0')}.js`,
+    candidatePath: `tests/repaired-${String(index).padStart(2, '0')}.js`,
+    disposition: 'REBUILD',
+    action: 'REPAIRED',
+    rationale: `focused repair evidence ${index}`,
+    candidateBlob: (index + 1).toString(16).padStart(40, '0'),
+    candidateMode: index === 0 ? '100755' : '100644',
+    resolution: 'MODIFIED',
+  }));
+}
+
+function refreshSubjectDigest(subjectManifest) {
+  subjectManifest.recordCount = subjectManifest.records.length;
+  subjectManifest.recordsSha256 = createHash('sha256')
+    .update(JSON.stringify(subjectManifest.records.map(record => ([
+      record.sourceSequence,
+      record.displayPath,
+      record.candidatePath,
+      record.candidateBlob,
+      record.candidateMode,
+      record.rationaleSha256,
+    ]))))
+    .digest('hex');
+  return subjectManifest;
+}
+
+function buildSubjectManifest(resolutions = repairedResolutions()) {
+  return buildRepairedSubjectManifest(resolutions, EXPECTED_RECORDS_SHA256);
+}
+
+function validateSubjectManifest(manifest, resolutions) {
+  return validateRepairedSubjectManifest(
+    manifest,
+    resolutions,
+    { recordsSha256: EXPECTED_RECORDS_SHA256 },
+  );
+}
+
+test('complete repaired-subject manifest validates all 60 current subjects', () => {
+  const resolutions = repairedResolutions();
+  const result = validateRepairedSubjectManifest(
+    buildSubjectManifest(resolutions),
+    resolutions,
+    { recordsSha256: EXPECTED_RECORDS_SHA256 },
+  );
+  assertEqual(result.errors.length, 0);
+  assertEqual(result.summary.path, REPAIRED_SUBJECTS_PATH);
+  assertEqual(result.summary.validatedCount, EXPECTED_REPAIRED_SUBJECT_COUNT);
+});
+
+test('missing repaired-subject record is rejected after digest refresh', () => {
+  const resolutions = repairedResolutions();
+  const manifest = buildSubjectManifest(resolutions);
+  manifest.records.pop();
+  refreshSubjectDigest(manifest);
+  const errors = validateSubjectManifest(manifest, resolutions).errors;
+  assert(includesError(errors, 'cover exactly 60'));
+  assert(includesError(errors, 'record 60 is missing'));
+});
+
+test('duplicate repaired-subject record is rejected after digest refresh', () => {
+  const resolutions = repairedResolutions();
+  const manifest = buildSubjectManifest(resolutions);
+  manifest.records[1] = structuredClone(manifest.records[0]);
+  refreshSubjectDigest(manifest);
+  const errors = validateSubjectManifest(manifest, resolutions).errors;
+  assert(includesError(errors, 'record 2 is duplicated'));
+  assert(includesError(errors, 'displayPath does not match'));
+});
+
+test('changed repaired-subject blob is rejected after digest refresh', () => {
+  const resolutions = repairedResolutions();
+  const manifest = buildSubjectManifest(resolutions);
+  manifest.records[0].candidateBlob = 'f'.repeat(40);
+  refreshSubjectDigest(manifest);
+  const errors = validateSubjectManifest(manifest, resolutions).errors;
+  assert(includesError(errors, 'candidateBlob does not match'));
+});
+
+test('changed repaired-subject mode is rejected after digest refresh', () => {
+  const resolutions = repairedResolutions();
+  const manifest = buildSubjectManifest(resolutions);
+  manifest.records[0].candidateMode = '100644';
+  refreshSubjectDigest(manifest);
+  const errors = validateSubjectManifest(manifest, resolutions).errors;
+  assert(includesError(errors, 'candidateMode does not match'));
+});
+
+test('changed disposition rationale is rejected by its subject digest', () => {
+  const resolutions = repairedResolutions();
+  const manifest = buildSubjectManifest(resolutions);
+  resolutions[0].rationale = 'forged replacement rationale';
+  const errors = validateSubjectManifest(manifest, resolutions).errors;
+  assert(includesError(errors, 'rationaleSha256 does not match'));
+});
+
+test('changed repaired-subject candidate path is rejected after digest refresh', () => {
+  const resolutions = repairedResolutions();
+  const manifest = buildSubjectManifest(resolutions);
+  manifest.records[0].candidatePath = 'tests/other.js';
+  refreshSubjectDigest(manifest);
+  const errors = validateSubjectManifest(manifest, resolutions).errors;
+  assert(includesError(errors, 'candidatePath does not match'));
+});
+
+test('unknown repaired-subject field is rejected after digest refresh', () => {
+  const resolutions = repairedResolutions();
+  const manifest = buildSubjectManifest(resolutions);
+  manifest.records[0].evidenceSha = '0'.repeat(40);
+  refreshSubjectDigest(manifest);
+  const errors = validateSubjectManifest(manifest, resolutions).errors;
+  assert(includesError(errors, 'fields must be exactly'));
+});
+
+test('missing repaired-subject manifest fails closed', () => {
+  const result = validateSubjectManifest(null, repairedResolutions());
+  assert(includesError(result.errors, 'manifest is required'));
+  assertEqual(result.summary.validatedCount, 0);
+});
+
+test('repaired-subject source manifest and source sequence are pinned', () => {
+  const resolutions = repairedResolutions();
+  const wrongSource = buildSubjectManifest(resolutions);
+  wrongSource.sourceManifestRecordsSha256 = 'f'.repeat(64);
+  assert(includesError(
+    validateSubjectManifest(wrongSource, resolutions).errors,
+    'source manifest digest does not match',
+  ));
+
+  const wrongSequence = buildSubjectManifest(resolutions);
+  wrongSequence.records[0].sourceSequence = 99;
+  refreshSubjectDigest(wrongSequence);
+  assert(includesError(
+    validateSubjectManifest(wrongSequence, resolutions).errors,
+    'sourceSequence does not match',
+  ));
+});
+
+test('repaired-subject files must be tracked and worktree-identical to HEAD', () => {
+  const cleanErrors = [];
+  validateHeadBinding(
+    { blob: 'a'.repeat(40), mode: '100644' },
+    { blob: 'a'.repeat(40), mode: '100644' },
+    'tracked subject',
+    cleanErrors,
+  );
+  assertEqual(cleanErrors.length, 0);
+
+  const changedErrors = [];
+  validateHeadBinding(
+    { blob: 'b'.repeat(40), mode: '100644' },
+    { blob: 'a'.repeat(40), mode: '100644' },
+    'tracked subject',
+    changedErrors,
+  );
+  assert(includesError(changedErrors, 'worktree differs from HEAD'));
+
+  const untrackedErrors = [];
+  validateHeadBinding(
+    { blob: 'a'.repeat(40), mode: '100644' },
+    null,
+    'untracked subject',
+    untrackedErrors,
+  );
+  assert(includesError(untrackedErrors, 'is not tracked at HEAD'));
+});
+
 suite('Gate 0 risk-impact policy');
 
 const committedRiskMarkdown = readFileSync(
@@ -687,10 +866,32 @@ function dispositionReport(errors = []) {
         ? 'REPAIRED'
         : 'DEFERRED(owned-server)';
     }
-    return { disposition, action, resolution: resolutions[index] };
+    return {
+      sourceSequence: index + 1,
+      displayPath: `path-${index}`,
+      candidatePath: `path-${index}`,
+      candidateBlob: (index + 1).toString(16).padStart(40, '0'),
+      candidateMode: '100644',
+      rationale: `rationale ${index}`,
+      disposition,
+      action,
+      resolution: resolutions[index],
+    };
   });
+  const repairedDigest = createHash('sha256').update(JSON.stringify(
+    paths
+      .filter(item => item.disposition === 'REBUILD' && item.action === 'REPAIRED')
+      .map(item => ([
+        item.sourceSequence,
+        item.displayPath,
+        item.candidatePath,
+        item.candidateBlob,
+        item.candidateMode,
+        createHash('sha256').update(item.rationale).digest('hex'),
+      ])),
+  )).digest('hex');
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     sourceRepository: {
       identity: 'github.com/Belphareon-bak/C3-agent',
     },
@@ -705,6 +906,16 @@ function dispositionReport(errors = []) {
       recordsSha256: 'aa95bbc0918daa3f188283297e03562e3a4b8a8d0b178bec126b60a27cd8677e',
       recordCount: 225,
       changeCounts: { ADD: 185, DELETE: 0, MODIFY: 24, RENAME: 16 },
+    },
+    repairedSubjectEvidence: {
+      path: REPAIRED_SUBJECTS_PATH,
+      schemaVersion: 1,
+      sourceManifestRecordsSha256: EXPECTED_RECORDS_SHA256,
+      terminalState: 'REBUILD/REPAIRED',
+      recordCount: EXPECTED_REPAIRED_SUBJECT_COUNT,
+      recordsDigestAlgorithm: 'sha256-repaired-subject-tuples-v1',
+      recordsSha256: repairedDigest,
+      validatedCount: EXPECTED_REPAIRED_SUBJECT_COUNT,
     },
     dispositionCounts: { EXCLUDE: 91, KEEP: 42, REBUILD: 92 },
     terminalCounts: { REPAIRED: 60, 'DEFERRED(owned-server)': 32 },
@@ -839,6 +1050,36 @@ test('green disposition report rejects unknown count and terminal vocabularies',
   malformed.dispositionCounts = { REBUILD: 92, SURPRISE: 133 };
   malformed.terminalCounts = { DONE: 92 };
   malformed.resolutionCounts = { MAGIC: 225 };
+  assertThrows(() => classifyDispositionValidatorExecution(
+    validatorExecution(0, malformed),
+  ));
+});
+
+test('green disposition report requires all 60 repaired subjects to validate', () => {
+  const malformed = dispositionReport();
+  malformed.repairedSubjectEvidence.validatedCount = 59;
+  assertThrows(() => classifyDispositionValidatorExecution(
+    validatorExecution(0, malformed),
+  ));
+});
+
+test('green disposition report binds repaired subject digest to report paths', () => {
+  const malformed = dispositionReport();
+  const repaired = malformed.paths.find(
+    item => item.disposition === 'REBUILD' && item.action === 'REPAIRED',
+  );
+  repaired.candidateBlob = '0'.repeat(40);
+  repaired.candidateMode = '100755';
+  repaired.rationale = 'forged evidence text';
+  malformed.repairedSubjectEvidence.recordsSha256 = 'f'.repeat(64);
+  assertThrows(() => classifyDispositionValidatorExecution(
+    validatorExecution(0, malformed),
+  ));
+});
+
+test('green disposition report pins repaired subjects to source manifest', () => {
+  const malformed = dispositionReport();
+  malformed.repairedSubjectEvidence.sourceManifestRecordsSha256 = 'f'.repeat(64);
   assertThrows(() => classifyDispositionValidatorExecution(
     validatorExecution(0, malformed),
   ));
