@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // C3-Agent v58.3 — Czech No-Diacritics Deep Conversation Tests (5 × 10 steps)
 // ══════════════════════════════════════════════════════════════════════════════
 //

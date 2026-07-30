@@ -25,6 +25,7 @@ import {
   isAbsolute as pathIsAbsolute,
   join,
   relative as pathRelative,
+  resolve as pathResolve,
 } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
@@ -38,6 +39,13 @@ const e2eHarnessUrl = pathToFileURL(join(__dirname, 'e2e-harness.js')).href;
 const isolationHelperUrl = pathToFileURL(
   join(__dirname, 'helpers', 'isolated-test-db.js'),
 ).href;
+const repositoryRoot = pathResolve(__dirname, '..');
+const databaseModulePath = realpathSync(
+  join(repositoryRoot, 'src', 'db', 'database.js'),
+);
+const isolationHelperPath = realpathSync(
+  join(__dirname, 'helpers', 'isolated-test-db.js'),
+);
 const fixtureDir = mkdtempSync(join(tmpdir(), 'c3-harness-meta-'));
 const isolationKeys = [
   'C3_AUDIT_RUN',
@@ -133,6 +141,130 @@ function assertDirectRuntimeProbe(probe, label) {
   );
 }
 
+function extractModuleReferences(source) {
+  const references = [];
+  const patterns = [
+    {
+      kind: 'static',
+      expression: /(?:^|\n)\s*import\s*['"]([^'"\n]+)['"]\s*;?/g,
+    },
+    {
+      kind: 'static',
+      expression: /(?:^|\n)\s*import\s+(?!['"])[\s\S]*?\s+from\s+['"]([^'"\n]+)['"]\s*;?/g,
+    },
+    {
+      kind: 'static',
+      expression: /(?:^|\n)\s*export\s+(?:\*|\{[\s\S]*?\})\s+from\s+['"]([^'"\n]+)['"]\s*;?/g,
+    },
+    {
+      kind: 'runtime',
+      expression: /\bimport\s*\(\s*['"]([^'"\n]+)['"]\s*\)/g,
+    },
+    {
+      kind: 'runtime',
+      expression: /\brequire\s*\(\s*['"]([^'"\n]+)['"]\s*\)/g,
+    },
+  ];
+
+  for (const { kind, expression } of patterns) {
+    for (const match of source.matchAll(expression)) {
+      references.push({
+        kind,
+        specifier: match[1],
+        offset: match.index,
+      });
+    }
+  }
+
+  return references.sort((left, right) => left.offset - right.offset);
+}
+
+function resolveLocalModule(importer, specifier) {
+  if (!specifier.startsWith('.')) return null;
+
+  const base = pathResolve(dirname(importer), specifier);
+  const candidates = [
+    base,
+    `${base}.js`,
+    `${base}.mjs`,
+    `${base}.cjs`,
+    join(base, 'index.js'),
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (lstatSync(candidate).isFile()) return realpathSync(candidate);
+    } catch {
+      // Try the next deterministic local-module candidate.
+    }
+  }
+  return null;
+}
+
+function analyzeDatabaseBootstraps(sourceOverrides = new Map()) {
+  const referenceCache = new Map();
+  const moduleReferences = filePath => {
+    const canonical = realpathSync(filePath);
+    if (referenceCache.has(canonical)) return referenceCache.get(canonical);
+    const source = sourceOverrides.has(canonical)
+      ? sourceOverrides.get(canonical)
+      : readFileSync(canonical, 'utf8');
+    const references = extractModuleReferences(source)
+      .map(reference => ({
+        ...reference,
+        resolved: resolveLocalModule(canonical, reference.specifier),
+      }))
+      .filter(reference => reference.resolved !== null);
+    referenceCache.set(canonical, references);
+    return references;
+  };
+
+  const reachesDatabase = (filePath, ancestors = new Set()) => {
+    const canonical = realpathSync(filePath);
+    if (canonical === databaseModulePath) return true;
+    if (ancestors.has(canonical)) return false;
+    const nextAncestors = new Set(ancestors);
+    nextAncestors.add(canonical);
+    return moduleReferences(canonical).some(reference => (
+      reachesDatabase(reference.resolved, nextAncestors)
+    ));
+  };
+
+  const firstStaticBoundary = (filePath, ancestors = new Set()) => {
+    const canonical = realpathSync(filePath);
+    if (canonical === isolationHelperPath) return 'isolation';
+    if (canonical === databaseModulePath) return 'database';
+    if (ancestors.has(canonical)) return null;
+
+    const nextAncestors = new Set(ancestors);
+    nextAncestors.add(canonical);
+    for (const reference of moduleReferences(canonical)) {
+      if (reference.kind !== 'static') continue;
+      const boundary = firstStaticBoundary(reference.resolved, nextAncestors);
+      if (boundary !== null) return boundary;
+    }
+    return null;
+  };
+
+  const rootPrograms = readdirSync(__dirname, {
+    encoding: 'utf8',
+    withFileTypes: true,
+  })
+    .filter(entry => entry.isFile() && entry.name.endsWith('.test.js'))
+    .map(entry => realpathSync(join(__dirname, entry.name)))
+    .sort();
+  const databaseReachable = rootPrograms.filter(program => (
+    reachesDatabase(program)
+  ));
+  const unprotected = databaseReachable.filter(program => (
+    firstStaticBoundary(program) !== 'isolation'
+  ));
+
+  return {
+    databaseReachable,
+    unprotected,
+  };
+}
+
 function validRegistrySuite(path, argv) {
   return {
     id: 'IS-T1-VALIDATOR-FIXTURE',
@@ -187,6 +319,49 @@ try {
   );
   console.log(
     `Temp bootstrap coverage: ${tempCreatingPrograms.length} root tests covered`,
+  );
+
+  const databaseBootstrapAnalysis = analyzeDatabaseBootstraps();
+  assert.equal(
+    databaseBootstrapAnalysis.databaseReachable.length,
+    92,
+    'database-reachable root-test inventory changed; review the import graph',
+  );
+  assert.deepEqual(
+    databaseBootstrapAnalysis.unprotected.map(program => (
+      pathRelative(repositoryRoot, program)
+    )),
+    [],
+    'a database-reachable root test can evaluate the database before isolation',
+  );
+  console.log(
+    'Database bootstrap coverage: 92 database-reachable root tests protected',
+  );
+
+  const mutationTarget = realpathSync(join(__dirname, 'adversarial-cre.test.js'));
+  const mutationAnchor = "import './helpers/isolated-test-db.js';\n";
+  const mutationSource = readFileSync(mutationTarget, 'utf8');
+  assert.ok(
+    mutationSource.includes(mutationAnchor),
+    'database bootstrap mutation target is stale',
+  );
+  const mutatedAnalysis = analyzeDatabaseBootstraps(new Map([
+    [mutationTarget, mutationSource.replace(mutationAnchor, '')],
+  ]));
+  assert.equal(
+    mutatedAnalysis.databaseReachable.length,
+    92,
+    'removing an isolation anchor must not hide database reachability',
+  );
+  assert.deepEqual(
+    mutatedAnalysis.unprotected.map(program => (
+      pathRelative(repositoryRoot, program)
+    )),
+    ['tests/adversarial-cre.test.js'],
+    'removing one bootstrap anchor must expose that database-reachable program',
+  );
+  console.log(
+    'Database bootstrap mutation check: removed anchor is rejected',
   );
 
   const directHarnessProbeFixture = writeFixture('direct-harness-probe.mjs', `

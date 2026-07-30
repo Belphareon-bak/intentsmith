@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // Lifecycle E2E Test — Android Mobile App (FitTracker) — Real LLM
 // ══════════════════════════════════════════════════════════════════════════════
 // Real scenario with REAL Ollama LLM calls (no fake LLM, no fake executor).

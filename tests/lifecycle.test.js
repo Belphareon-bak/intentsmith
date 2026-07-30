@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // Lifecycle Tests — SPEC + PLANNING Phases
 // ══════════════════════════════════════════════════════════════════════════════
 // Tests: spec validation, dependency validation, planning helpers, enums,

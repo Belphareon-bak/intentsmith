@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // Expertise Comparison E2E Test — Group D: ai_expert, developer, technician
 // ═══════════════════════════════════════════════════════════════════════════════
 //

@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // Expertise Comparison E2E Test — Group E: car_enthusiast, biker, political_analyst
 // ═══════════════════════════════════════════════════════════════════════════════
 //

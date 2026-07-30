@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // Expertise Comparison E2E Test — 3 expertises × 2 conversations (chat vs expert)
 // ═══════════════════════════════════════════════════════════════════════════════
 //

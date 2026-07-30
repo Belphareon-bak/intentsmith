@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // Lifecycle E2E Test — Klíčenka (Credential Vault) — Real LLM (v91)
 // ══════════════════════════════════════════════════════════════════════════════
 // Real scenario with REAL Ollama LLM calls. Full lifecycle WITH:

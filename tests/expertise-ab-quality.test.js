@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // A7: Expert A/B Quality Test — expert prompt vs general prompt across 5 domains
 // ═══════════════════════════════════════════════════════════════════════════════
 //

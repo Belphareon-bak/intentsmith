@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // BUILD Pattern Detection Tests
 // ══════════════════════════════════════════════════════════════════════════════
 

@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // Pilot C1-C2-C3 — Real-world Quality Score Distribution Test
 // ══════════════════════════════════════════════════════════════════════════════
 //

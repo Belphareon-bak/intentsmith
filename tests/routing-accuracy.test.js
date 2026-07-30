@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // Routing Accuracy Test — Pattern Layer Measurement
 // ══════════════════════════════════════════════════════════════════════════════
 //

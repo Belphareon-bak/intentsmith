@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // Lifecycle BUILD Tests — Milestone Execution Logic
 // ══════════════════════════════════════════════════════════════════════════════
 // Tests: getBuildProgress, handleMilestoneBlocked (retry/skip/modify),

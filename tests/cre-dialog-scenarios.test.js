@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import './helpers/isolated-test-db.js';
+
 // ══════════════════════════════════════════════════════════════════════════════
 // CRE Real Dialog Scenarios — Follow-up Classification Diagnostic
 // ══════════════════════════════════════════════════════════════════════════════

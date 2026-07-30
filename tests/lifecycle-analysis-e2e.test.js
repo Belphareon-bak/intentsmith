@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // E2E Test — Existing Project Analysis (ai-log-analyzer) — Real LLM
 // ══════════════════════════════════════════════════════════════════════════════
 // Real scenario: User opens existing ai-log-analyzer project and asks

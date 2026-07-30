@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // Test 9: Quality Score — Deterministic Diagnostic Metrics
 // ══════════════════════════════════════════════════════════════════════════════
 //

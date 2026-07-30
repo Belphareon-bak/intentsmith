@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // tests/smoke.test.js — Runtime smoke test (no LLM, no GPU, no server)
 // ══════════════════════════════════════════════════════════════════════════════
 // Verifies the actual execution machinery works end-to-end using:

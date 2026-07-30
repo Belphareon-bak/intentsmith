@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // C3 WS Bridge — Tests for B1-B3 (DEV B)
 // ══════════════════════════════════════════════════════════════════════════════
 //

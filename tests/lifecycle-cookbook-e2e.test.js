@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // Lifecycle E2E Test — Kuchařka (Recipe API) — Real LLM (v92)
 // ══════════════════════════════════════════════════════════════════════════════
 // Real scenario with REAL Ollama LLM calls. Focus: DEEP QUALITY VERIFICATION.

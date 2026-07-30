@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import './helpers/isolated-test-db.js';
 
 import assert from 'node:assert/strict';
 

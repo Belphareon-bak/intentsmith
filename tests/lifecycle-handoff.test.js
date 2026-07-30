@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // Lifecycle Handoff Tests
 // ══════════════════════════════════════════════════════════════════════════════
 // Tests: isProjectScopeBuild, lifecycle handoff state management,

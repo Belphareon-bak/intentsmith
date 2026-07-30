@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // Lifecycle DB Schema Tests — v61
 // ══════════════════════════════════════════════════════════════════════════════
 // Verifies: 5 new tables, repositories, JSON serialization, foreign keys

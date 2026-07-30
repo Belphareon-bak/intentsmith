@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // Lifecycle E2E Test — Full Chain: SPEC → PLANNING → BUILD → REVIEW → CHANGE
 // ══════════════════════════════════════════════════════════════════════════════
 // Creates a real sample project (TODO API) and walks through the entire

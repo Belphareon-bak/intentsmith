@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // Test 7: Quality Gate Enforcement — "Can the engine say NO?"
 // ══════════════════════════════════════════════════════════════════════════════
 //

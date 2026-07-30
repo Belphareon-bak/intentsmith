@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // C3-Agent v45.0 — Chat Pipeline Quality Tests
 // ══════════════════════════════════════════════════════════════════════════════
 //

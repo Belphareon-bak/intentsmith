@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // Test 8: Human Friction Test — "Is the engine usable?"
 // ══════════════════════════════════════════════════════════════════════════════
 //

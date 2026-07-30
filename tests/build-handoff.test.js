@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // Build Handoff State Machine Tests
 // ══════════════════════════════════════════════════════════════════════════════
 

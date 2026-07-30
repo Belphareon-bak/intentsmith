@@ -1,3 +1,5 @@
+import './helpers/isolated-test-db.js';
+
 // C.3 Phase B — Agent Builder Wizard Tests (B9)
 // ══════════════════════════════════════════════════════════════════════════════
 //
