@@ -158,7 +158,7 @@ Vypsané, protože nevypsaná díra je horší než přiznaná.
 | # | Díra | Závažnost | Návrh |
 |---|---|---|---|
 | **GAP-1** | `MD-15` a `MD-18` nemají vlastní tok — jsou průřezové | nízká | Nechat; `MV-storage-class` a `MV-log-redaction` je pokrývají napříč |
-| **GAP-2** | Tři z pěti MB testů jsou `server`, tedy `BLOCKED` až do vzniku vlastněného supervizoru | **vysoká** | Hranici do té doby **nelze prokázat**. Odtud plyne §7: žádné vzdálené zpřístupnění |
+| **GAP-2** | Tři z pěti MB testů jsou `server`, tedy `BLOCKED` až do vzniku vlastněného supervizoru | **vysoká** | **Potvrzeno operátorem jako správný stav.** Hranici do té doby nelze prokázat: žádný bind mimo loopback, žádný vzdálený listener, žádný pairing, žádné `/m1` a **žádné tvrzení, že je hranice prokázaná** — viz PLAN.md §8.1 |
 | ~~**GAP-3**~~ | ~~`SS-10` stojí na klíči operace, který nikdo nevydává~~ | — | **UZAVŘENA** rozhodnutím `D-S1`: závazný model v `MD-19` a SCREENS §5.1, šest testů v rodinách MN/MO/ML |
 | **GAP-4** | `MR-06` slibuje odpověď „najednou", protože token streaming neexistuje. Až vznikne, změní se tok `MS-08` i `MS-15` | nízká | Ponechat; `MR-06` je pravdivý popis dneška, ne cíl |
 | **GAP-5** | Žádný test nepokrývá `SS-01`..`SS-10` jako **úplnost** — tedy že tok žádný stav nevynechal | střední | Zvážit jeden `offline` test nad deklarativním popisem toků. Riziko: test, který kontroluje dokumentaci, ne chování |
@@ -174,7 +174,7 @@ Pořadí neurčují fáze klienta, ale to, co brání čemu.
 | Krok | Podmínka | Kde je zapsaná |
 |---|---|---|
 | **Discovery spike (M-0)** | Běží proti loopbacku nebo emulátoru. **Žádné vzdálené zpřístupnění.** `B2` scope enforcement platí i pro spike | PLAN.md §8 body 1 a 4 |
-| **Jakékoli vzdálené zpřístupnění** | `S-1`..`S-4` hotové **včetně** negativních testů, tedy `GAP-2` uzavřená | PLAN.md §2, `G0-R021` |
+| **Jakékoli vzdálené zpřístupnění** | `S-1`..`S-4` hotové **včetně** negativních testů, tedy `GAP-2` uzavřená. Potvrzeno operátorem, bez výjimek | PLAN.md §2 a §8.1, `G0-R021` |
 | **Zmrazení kontraktu `/m1`** | Backend má Gate 1 pro `C3-002` a `C3-023` | PLAN.md §8 bod 2 |
 | **První mobilní řádek v registru** | Integrační větev dokončila manifest a terminální uzavření `REBUILD`. Pak jeden atomický commit: oba capability řádky + testovací soubor + řádek registru + regenerovaný ledger | TEST-STRATEGY §3.1 a §6.4 |
 | **Fáze 3 (approvaly)** | `MN-approval-idempotency` (`server`) je proveditelný, tedy platí totéž co pro `GAP-2` | SCREENS `MS-14` |

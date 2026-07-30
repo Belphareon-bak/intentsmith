@@ -248,6 +248,24 @@ předchozí gate nedrží"*.
 4. **B2 (scope enforcement) je nepodkročitelný** i pro spike.
 5. Spike je časově omezený; po vypršení se vyhodnotí, nepokračuje setrvačností.
 
+### 8.1 Potvrzený zákaz do doby, než hranice projde testy
+
+Operátor potvrdil stav `BLOCKED` u hraničních negativních testů jako správný
+(`GAP-2` v [COVERAGE.md](COVERAGE.md)). Dokud nevznikne vlastněný supervizor
+a **neprojdou všechny hraniční negativní testy**, neplatí žádná výjimka:
+
+| Zakázáno | |
+|---|---|
+| Bind mimo loopback | ani dočasně, ani „jen pro test" |
+| Vzdálený listener | včetně mobilní gateway |
+| Pairing | `B4` je nejrizikovější nový kód a nemá kam bezpečně ústit |
+| `/m1` v jakékoli podobě | ani prototypově |
+| **Tvrzení, že je remote security boundary prokázaná** | tři z pěti testů `MB` jsou `server` profil a ten je `BLOCKED` |
+
+Poslední řádek je stejně závazný jako první čtyři. Neprokázaná hranice se
+nesmí popisovat jako hotová v žádném dokumentu, statusu ani commit message —
+to je přesně ta třída tvrzení, kvůli které Gate 0 vznikl.
+
 ---
 
 ## 9. Otevřená rozhodnutí
