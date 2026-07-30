@@ -74,8 +74,8 @@ node scripts/validate-final-disposition.js \
 | `EXCLUDE/MOVE_OUTSIDE_PRODUCTION` | 78 |
 | `EXCLUDE/REMOVE_FOLLOWUP` | 13 |
 | `KEEP/REPLAY` | 42 |
-| `REBUILD/REPAIR` | 38 |
-| `REBUILD/REPAIRED` | 39 |
+| `REBUILD/REPAIR` | 34 |
+| `REBUILD/REPAIRED` | 43 |
 | `REBUILD/DEFERRED(<prerequisite>)` | 15 |
 | `UNRESOLVED / USER_DECISION` | 0 |
 
@@ -224,10 +224,10 @@ node scripts/validate-final-disposition.js \
 | `A` | `tests/e2e/11-memory.e2e.js` | `REBUILD` | `REPAIRED` | Memory and settings writes now require exact success responses and prove deterministic GET round-trips, including the persisted language setting. |
 | `A` | `tests/e2e/12-notifications.e2e.js` | `REBUILD` | `REPAIRED` | Channel, configuration, validation, log and in-app notification checks now assert exact payloads; read-all forwards the optional agent query and the repository now performs filtered or global bulk-read updates, covered directly against SQLite. |
 | `A` | `tests/e2e/13-security.e2e.js` | `REBUILD` | `REPAIRED` | Token setup is now mandatory for list/delete coverage, removing conditional success paths while preserving exact audit, webhook and session contracts. |
-| `A` | `tests/e2e/14-system.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/15-quality.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/16-setup-wizard.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/17-export.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/14-system.e2e.js` | `REBUILD` | `REPAIRED` | GPU, system, storage, model, upgrade and validation routes now require exact payload contracts; invalid apply/rollback roles return 400 and dismissing a missing numeric proposal returns 404. The registry declares the loopback Ollama dependency without requiring a GPU. |
+| `A` | `tests/e2e/15-quality.e2e.js` | `REBUILD` | `REPAIRED` | Summary, distribution, empty-project, volatility and text-report checks now assert their concrete schemas and statuses instead of accepting alternate empty responses. |
+| `A` | `tests/e2e/16-setup-wizard.e2e.js` | `REBUILD` | `REPAIRED` | Setup now proves a reachable Ollama with all configured models, exact language/notification/license writes and a status round-trip; the registry records Ollama but no GPU prerequisite. |
+| `A` | `tests/e2e/17-export.e2e.js` | `REBUILD` | `REPAIRED` | Export setup is mandatory and message-backed; missing, empty and unsupported requests now have exact 404/409/400 contracts, successful Markdown is downloaded and checked, and export/download share an artifact directory derived from the isolated database path. |
 | `A` | `tests/e2e/18-websocket.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/19-rate-limit.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/20-security-hardening.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |

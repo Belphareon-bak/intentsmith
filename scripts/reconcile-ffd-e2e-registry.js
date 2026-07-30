@@ -15,7 +15,8 @@ const EXPECTED_PATH_HASH = '43108129171be799d282df0fc5b7db5d40daefda0bbcebe5cc28
 // Suite 08 validates and stores an HTTPS source definition but never executes
 // it; only suites that actually perform external I/O belong here.
 const EXTERNAL_NETWORK = new Set([10, 21, 63, 206]);
-const MIXED_SERVER_MODEL = new Set([16, 21, 25]);
+const OLLAMA_ONLY_SERVER = new Set([14, 16]);
+const MIXED_SERVER_MODEL = new Set([21, 25]);
 
 function suiteId(tier, testPath) {
   const stem = path.basename(testPath, '.e2e.js')
@@ -43,7 +44,10 @@ function metadataFor(testPath, source) {
   const timeoutMs = isPhase ? 5_400_000 : isLongModel ? 3_600_000 : 900_000;
   const expectedDurationMs = isPhase ? 3_600_000 : isLongModel ? 2_700_000
     : isServer ? 120_000 : 600_000;
-  const modelRequired = !isServer || MIXED_SERVER_MODEL.has(number);
+  const ollamaRequired = !isServer
+    || OLLAMA_ONLY_SERVER.has(number)
+    || MIXED_SERVER_MODEL.has(number);
+  const gpuRequired = !isServer || MIXED_SERVER_MODEL.has(number);
 
   return {
     id: suiteId(tier, testPath),
@@ -65,8 +69,8 @@ function metadataFor(testPath, source) {
       network: EXTERNAL_NETWORK.has(number) ? 'external' : 'loopback',
       database: true,
       server: true,
-      ollama: modelRequired,
-      gpu: modelRequired,
+      ollama: ollamaRequired,
+      gpu: gpuRequired,
     },
     required: true,
     owner: 'primary implementer',

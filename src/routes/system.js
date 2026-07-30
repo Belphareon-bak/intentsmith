@@ -916,6 +916,11 @@ export function createSystemRoutes({ db, sendJSON, parseBody, modelRegistry }) {
           return sendJSON(res, 400, { error: 'Missing required field: role' });
         }
 
+        const { MODEL_PROFILES: profiles } = await import('../upgrade/model-profiles.js');
+        if (!profiles[role]) {
+          return sendJSON(res, 400, { error: `Invalid role: ${role}` });
+        }
+
         const result = await upgradeManager.rollbackUpgrade(role, {
           skipVerify: body.skipVerify === true,
           force: body.force === true,
@@ -1603,7 +1608,9 @@ export function createSystemRoutes({ db, sendJSON, parseBody, modelRegistry }) {
         const id = parseInt(match[1], 10);
 
         const { proposalStore } = await import('../upgrade/proposal-store.js');
-        proposalStore.dismiss(id);
+        if (!proposalStore.dismiss(id)) {
+          return sendJSON(res, 404, { error: `Proposal not found: ${id}` });
+        }
 
         sendJSON(res, 200, { ok: true, dismissed: id });
       } catch (err) {

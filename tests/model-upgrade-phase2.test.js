@@ -628,7 +628,8 @@ test('dismiss blocks permanently', () => {
 
   store.storeProposal({ role: 'CHAT', currentModel: 'a', candidateModel: 'b', score: 0.8 });
   const proposals = store.getActiveProposals();
-  store.dismiss(proposals[0].id);
+  assertEqual(store.dismiss(proposals[0].id), true);
+  assertEqual(store.dismiss(999999), false);
 
   assert(store.isDismissed('CHAT', 'b'), 'Should be dismissed');
   // Cannot re-store dismissed

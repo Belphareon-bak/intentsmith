@@ -160,14 +160,15 @@ export class ProposalStore {
   }
 
   dismiss(proposalId) {
-    if (!this._db) return;
+    if (!this._db) return false;
     // Dismissed = permanent block (cooldown_until far future)
-    this._db.prepare(`
+    const result = this._db.prepare(`
       UPDATE upgrade_proposals
       SET status = 'dismissed', resolved_at = datetime('now'),
           cooldown_until = datetime('now', '+3650 days')
       WHERE id = ?
     `).run(proposalId);
+    return result.changes > 0;
   }
 
   // ── Expiration & invalidation ────────────────────────────────────────────

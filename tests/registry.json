@@ -8603,12 +8603,12 @@
         "network": "loopback",
         "database": true,
         "server": true,
-        "ollama": false,
+        "ollama": true,
         "gpu": false
       },
       "required": true,
       "owner": "primary implementer",
-      "state": "KNOWN_DEFECTIVE",
+      "state": "BLOCKED",
       "lastGreen": {
         "commit": null,
         "artifact": null
@@ -8664,7 +8664,7 @@
         "database": true,
         "server": true,
         "ollama": true,
-        "gpu": true
+        "gpu": false
       },
       "required": true,
       "owner": "primary implementer",
@@ -8698,7 +8698,7 @@
       },
       "required": true,
       "owner": "primary implementer",
-      "state": "KNOWN_DEFECTIVE",
+      "state": "BLOCKED",
       "lastGreen": {
         "commit": null,
         "artifact": null

@@ -851,7 +851,10 @@ export function createProjectRoutes(deps) {
         const fsPromises = await import('fs/promises');
         const pathModule = await import('path');
 
-        const artifactsDir = pathModule.default.resolve('./data/artifacts');
+        const artifactsDir = pathModule.default.resolve(
+          pathModule.default.dirname(config.db.path),
+          'artifacts',
+        );
         const filepath = pathModule.default.resolve(artifactsDir, params.filename);
 
         // Path traversal guard

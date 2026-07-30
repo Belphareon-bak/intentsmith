@@ -1,6 +1,9 @@
 // H9: Chat, Conversations, Drafts & Memory routes
 export function createChatRoutes(deps) {
-  const { db, parseBody, sendJSON, sendStaticFile, safeError, safeParseInt, logger, ChatController } = deps;
+  const {
+    db, parseBody, sendJSON, sendStaticFile, safeError, safeParseInt,
+    logger, ChatController, config,
+  } = deps;
   return {
     // ══════════════════════════════════════════════════════════════════════════
     // Chat Session Management
@@ -155,12 +158,24 @@ export function createChatRoutes(deps) {
       if (!conversation_id) {
         return sendJSON(res, 400, { error: 'conversation_id is required' });
       }
+      if (format !== undefined && !['md', 'html', 'txt', 'pdf', 'docx', 'xlsx'].includes(format)) {
+        return sendJSON(res, 400, { error: `Unsupported export format: ${format}` });
+      }
+      if (scope !== undefined && !['last', 'conversation', 'summary'].includes(scope)) {
+        return sendJSON(res, 400, { error: `Unsupported export scope: ${scope}` });
+      }
 
       try {
         const { exportConversation } = await import('../chat/export-pipeline.js');
+        const pathModule = await import('path');
+        const artifactsDir = pathModule.resolve(
+          pathModule.dirname(config.db.path),
+          'artifacts',
+        );
         const result = await exportConversation(conversation_id, {
           format: format || 'md',
           scope: scope || 'conversation',
+          artifactsDir,
         });
 
         sendJSON(res, 200, {
@@ -173,6 +188,12 @@ export function createChatRoutes(deps) {
         });
       } catch (err) {
         logger.error('Server', `Export error: ${err.message}`);
+        if (/^Export: conversation .+ not found$/.test(err.message)) {
+          return sendJSON(res, 404, { error: err.message });
+        }
+        if (err.message === 'Export: no messages to export') {
+          return sendJSON(res, 409, { error: err.message });
+        }
         sendJSON(res, 500, safeError(err));
       }
     },

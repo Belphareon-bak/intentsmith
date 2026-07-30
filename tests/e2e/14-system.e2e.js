@@ -15,8 +15,10 @@ await testAsync('returns GPU profile', async () => {
 });
 
 await testAsync('GPU refresh works', async () => {
-  const { status } = await api('POST', '/api/system/gpu/refresh');
-  assert(status === 200 || status === 204, `expected 200/204, got ${status}`);
+  const { status, data } = await api('POST', '/api/system/gpu/refresh');
+  assertEqual(status, 200);
+  assert(Array.isArray(data.profile?.gpus), 'refreshed profile.gpus must be array');
+  assert(data.recommendation && typeof data.recommendation === 'object', 'recommendation required');
 });
 
 // ── System Info ─────────────────────────────────────────────────────────────
@@ -38,17 +40,23 @@ await testAsync('GET /api/system/models returns models list', async () => {
   const { status, data } = await api('GET', '/api/system/models');
   assertEqual(status, 200);
   assert(Array.isArray(data.models), 'models must be array');
+  assert(typeof data.ollama_url === 'string' && data.ollama_url.length > 0, 'ollama_url required');
+  assert(typeof data.current_model === 'string' && data.current_model.length > 0, 'current_model required');
 });
 
 await testAsync('GET /api/system/models/compatibility returns tiers', async () => {
   const { status, data } = await api('GET', '/api/system/models/compatibility');
   assertEqual(status, 200);
-  assert(typeof data.vram_mb === 'number' || data.vram_mb === undefined, 'vram_mb shape');
+  assert(typeof data.vram_mb === 'number', 'vram_mb must be numeric');
+  assert(typeof data.is_igpu === 'boolean', 'is_igpu must be boolean');
+  assert(Array.isArray(data.tiers), 'tiers must be array');
+  assert(Array.isArray(data.recommendations), 'recommendations must be array');
 });
 
 await testAsync('GET /api/system/models/check without model param handled', async () => {
-  const { status } = await api('GET', '/api/system/models/check');
-  assert(status === 200 || status === 400, `expected 200/400, got ${status}`);
+  const { status, data } = await api('GET', '/api/system/models/check');
+  assertEqual(status, 400);
+  assert(typeof data.error === 'string' && data.error.includes('model'), 'model error required');
 });
 
 // ── Storage ─────────────────────────────────────────────────────────────────
@@ -57,13 +65,19 @@ suite('System Storage');
 await testAsync('GET /api/system/storage returns shape', async () => {
   const { status, data } = await api('GET', '/api/system/storage');
   assertEqual(status, 200);
-  assert(typeof data.db_size_mb === 'number' || data.db_size_mb !== undefined, 'db_size_mb required');
+  assert(typeof data.db_size_mb === 'number', 'db_size_mb must be numeric');
+  assert(typeof data.messages_in_db === 'number', 'messages_in_db must be numeric');
+  assert(data.history && typeof data.history.total_mb === 'number', 'history metrics required');
+  assert(data.backups && typeof data.backups.count === 'number', 'backup metrics required');
 });
 
 await testAsync('GET /api/system/storage/settings returns config', async () => {
   const { status, data } = await api('GET', '/api/system/storage/settings');
   assertEqual(status, 200);
-  assert(typeof data === 'object', 'settings must be object');
+  assert(data.retention && typeof data.retention.conversations === 'number', 'retention config required');
+  assert(data.backup && typeof data.backup.on_shutdown === 'boolean', 'backup config required');
+  assert(data.drain && typeof data.drain.enabled === 'boolean', 'drain config required');
+  assert(data.clean && typeof data.clean.enabled === 'boolean', 'clean config required');
 });
 
 await testAsync('GET /api/system/backups returns array', async () => {
@@ -84,7 +98,10 @@ await testAsync('POST /api/system/vacuum succeeds', async () => {
 await testAsync('POST /api/system/clean returns shape', async () => {
   const { status, data } = await api('POST', '/api/system/clean');
   assertEqual(status, 200);
-  assert(typeof data === 'object', 'clean result must be object');
+  assert(typeof data.db_rows_pruned === 'number', 'db_rows_pruned must be numeric');
+  assert(typeof data.history_files_pruned === 'number', 'history_files_pruned must be numeric');
+  assert(typeof data.jsonl_cleaned === 'number', 'jsonl_cleaned must be numeric');
+  assert(typeof data.pressure === 'string', 'pressure must be a string');
 });
 
 // ── Upgrades ────────────────────────────────────────────────────────────────
@@ -93,7 +110,8 @@ suite('System Upgrades');
 await testAsync('GET /api/system/upgrades returns shape', async () => {
   const { status, data } = await api('GET', '/api/system/upgrades');
   assertEqual(status, 200);
-  assert(Array.isArray(data.proposals) || data.proposals !== undefined, 'proposals required');
+  assert(Array.isArray(data.proposals), 'proposals must be array');
+  assert(Array.isArray(data.history), 'history must be array');
 });
 
 await testAsync('GET /api/system/upgrades/bindings returns bindings', async () => {
@@ -101,18 +119,25 @@ await testAsync('GET /api/system/upgrades/bindings returns bindings', async () =
   assertEqual(status, 200);
   assert(data.bindings, 'bindings required');
   assert(typeof data.bindings === 'object', 'bindings must be object');
+  assert(typeof data.overrides === 'object', 'overrides must be object');
+  assert(typeof data.configVersion === 'number', 'configVersion must be numeric');
 });
 
 await testAsync('GET /api/system/upgrades/scoring returns scores', async () => {
   const { status, data } = await api('GET', '/api/system/upgrades/scoring');
   assertEqual(status, 200);
-  assert(typeof data === 'object', 'scoring must be object');
+  assert(data.scoring && typeof data.scoring === 'object', 'scoring map required');
+  assert(typeof data.evalVersion === 'string', 'evalVersion required');
+  assert(typeof data.gpuVramMb === 'number', 'gpuVramMb must be numeric');
 });
 
 await testAsync('GET /api/system/catalog returns entries', async () => {
   const { status, data } = await api('GET', '/api/system/catalog');
   assertEqual(status, 200);
   assert(Array.isArray(data.entries), 'entries must be array');
+  assertEqual(data.total, data.entries.length);
+  assert(typeof data.catalogVersion === 'string', 'catalogVersion required');
+  assert(typeof data.catalogHash === 'string', 'catalogHash required');
 });
 
 await testAsync('GET /api/system/proposals returns proposals', async () => {
@@ -125,35 +150,41 @@ await testAsync('GET /api/system/upgrades/discovered returns models', async () =
   const { status, data } = await api('GET', '/api/system/upgrades/discovered');
   assertEqual(status, 200);
   assert(Array.isArray(data.models), 'models must be array');
+  assertEqual(data.count, data.models.length);
 });
 
 await testAsync('GET /api/system/upgrades/recommendations returns sections', async () => {
   const { status, data } = await api('GET', '/api/system/upgrades/recommendations');
   assertEqual(status, 200);
-  assert(typeof data === 'object', 'recommendations must be object');
+  assert(Array.isArray(data.sections), 'recommendation sections must be array');
+  assert(typeof data.gpuVramMb === 'number', 'gpuVramMb must be numeric');
+  assert(data.currentModels && typeof data.currentModels === 'object', 'currentModels required');
 });
 
 // ── Upgrade Apply Error Paths ───────────────────────────────────────────────
 suite('Upgrade Error Paths');
 
 await testAsync('apply with invalid role returns 400', async () => {
-  const { status } = await api('POST', '/api/system/upgrades/apply', {
+  const { status, data } = await api('POST', '/api/system/upgrades/apply', {
     role: 'INVALID_ROLE',
     targetModel: 'nonexistent-model'
   });
-  assert(status === 400 || status === 404 || status === 500, `expected 400/404/500, got ${status}`);
+  assertEqual(status, 400);
+  assert(data.error.includes('Invalid role'), 'invalid-role error required');
 });
 
 await testAsync('rollback with invalid role returns 400', async () => {
-  const { status } = await api('POST', '/api/system/upgrades/rollback', {
+  const { status, data } = await api('POST', '/api/system/upgrades/rollback', {
     role: 'INVALID_ROLE'
   });
-  assert(status === 400 || status === 404 || status === 500, `expected 400/404/500, got ${status}`);
+  assertEqual(status, 400);
+  assert(data.error.includes('Invalid role'), 'invalid-role error required');
 });
 
 await testAsync('dismiss nonexistent proposal returns 404', async () => {
-  const { status } = await api('POST', '/api/system/proposals/nonexistent-id/dismiss');
-  assert(status === 404 || status === 400 || status === 500, `expected 404/400/500, got ${status}`);
+  const { status, data } = await api('POST', '/api/system/proposals/999999999/dismiss');
+  assertEqual(status, 404);
+  assert(data.error.includes('Proposal not found'), 'missing-proposal error required');
 });
 
 // ── Validation ──────────────────────────────────────────────────────────────
@@ -162,7 +193,7 @@ suite('Model Validation');
 await testAsync('GET validation scores returns shape', async () => {
   const { status, data } = await api('GET', '/api/system/models/validation-scores');
   assertEqual(status, 200);
-  assert(typeof data === 'object', 'scores must be object');
+  assert(data.scores && typeof data.scores === 'object', 'scores map required');
 });
 
 const result = summary();

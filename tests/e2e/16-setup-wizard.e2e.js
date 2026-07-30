@@ -10,33 +10,57 @@ suite('GET /api/setup/status');
 await testAsync('returns setup status', async () => {
   const { status, data } = await api('GET', '/api/setup/status');
   assertEqual(status, 200);
-  assert(typeof data === 'object', 'status must be object');
+  assert(typeof data.completed === 'boolean', 'completed must be boolean');
+  assert(typeof data.ollamaUrl === 'string', 'ollamaUrl required');
+  assert(typeof data.ollamaVerified === 'boolean', 'ollamaVerified must be boolean');
+  assert(['cs', 'en'].includes(data.language), 'supported language required');
+  assert(data.notifications && typeof data.notifications === 'object', 'notifications required');
+  assert(data.license && typeof data.license.hasKey === 'boolean', 'license state required');
 });
 
 // ── Steps (validation only — don't actually complete setup) ─────────────────
 suite('Setup Steps — Validation');
 
 await testAsync('POST /api/setup/ollama validates Ollama connection', async () => {
-  const { status } = await api('POST', '/api/setup/ollama', {
+  const { status, data } = await api('POST', '/api/setup/ollama', {
     url: 'http://127.0.0.1:11434'
   });
-  // 200 if Ollama reachable, 400/502 if not
-  assert(status === 200 || status === 400 || status === 502, `expected 200/400/502, got ${status}`);
+  assertEqual(status, 200);
+  assertEqual(data.ok, true);
+  assert(Array.isArray(data.models) && data.models.length > 0, 'installed models required');
+  assert(Array.isArray(data.missing), 'missing-model list required');
+  assertEqual(data.missing.length, 0);
 });
 
 await testAsync('POST /api/setup/language sets language', async () => {
-  const { status } = await api('POST', '/api/setup/language', { language: 'cs' });
-  assert(status === 200 || status === 204, `expected 200/204, got ${status}`);
+  const { status, data } = await api('POST', '/api/setup/language', { language: 'cs' });
+  assertEqual(status, 200);
+  assertEqual(data.language, 'cs');
 });
 
-await testAsync('POST /api/setup/notifications validates config', async () => {
-  const { status } = await api('POST', '/api/setup/notifications', { enabled: false });
-  assert(status === 200 || status === 204 || status === 400, `expected 200/204/400, got ${status}`);
+await testAsync('POST /api/setup/notifications stores a valid channel config', async () => {
+  const { status, data } = await api('POST', '/api/setup/notifications', {
+    channel: 'ntfy',
+    config: { topic: 'gate0-notifications' },
+  });
+  assertEqual(status, 200);
+  assertEqual(data.channel, 'ntfy');
+  assertEqual(data.enabled, true);
 });
 
 await testAsync('POST /api/setup/license checks license', async () => {
-  const { status } = await api('POST', '/api/setup/license', { key: '' });
-  assert(status === 200 || status === 400 || status === 204, `expected 200/400/204, got ${status}`);
+  const { status, data } = await api('POST', '/api/setup/license', { key: '' });
+  assertEqual(status, 200);
+  assertEqual(data.hasKey, false);
+});
+
+await testAsync('GET /api/setup/status reflects prior steps', async () => {
+  const { status, data } = await api('GET', '/api/setup/status');
+  assertEqual(status, 200);
+  assertEqual(data.ollamaVerified, true);
+  assertEqual(data.language, 'cs');
+  assertEqual(data.notifications.ntfy, true);
+  assertEqual(data.license.hasKey, false);
 });
 
 // ── License Status ──────────────────────────────────────────────────────────
@@ -45,7 +69,10 @@ suite('License Status');
 await testAsync('GET /api/license/status returns shape', async () => {
   const { status, data } = await api('GET', '/api/license/status');
   assertEqual(status, 200);
-  assert(data.tier, 'tier required');
+  assert(typeof data.tier === 'string' && data.tier.length > 0, 'tier required');
+  assert(typeof data.valid === 'boolean', 'valid must be boolean');
+  assert(data.features && typeof data.features === 'object', 'features map required');
+  assert(Array.isArray(data.features.export), 'export feature list required');
 });
 
 const result = summary();
