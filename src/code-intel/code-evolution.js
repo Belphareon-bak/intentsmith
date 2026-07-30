@@ -13,6 +13,7 @@ import { logger } from '../core/logger.js';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
+import { realpath } from 'fs/promises';
 
 const execFileAsync = promisify(execFile);
 
@@ -20,19 +21,72 @@ const execFileAsync = promisify(execFile);
 
 async function gitLog(projectPath, args, timeout = 15000) {
   try {
-    const { stdout } = await execFileAsync('git', ['log', ...args], {
-      cwd: projectPath,
-      timeout,
-      maxBuffer: 5 * 1024 * 1024, // 5MB
-    });
-    return stdout.trim();
-  } catch (err) {
-    if (err.code === 'ENOENT' || err.stderr?.includes('not a git repository')) {
+    const deadlineAt = Date.now() + timeout;
+    const env = gitEnvironment();
+    const exactRoot = await resolveExactGitWorktreeRoot(projectPath, timeout, env);
+    if (!exactRoot) {
       return null;
     }
+    const remainingMs = deadlineAt - Date.now();
+    if (remainingMs <= 0) {
+      const error = new Error(`Git history query exceeded ${timeout}ms timeout`);
+      error.code = 'ETIMEDOUT';
+      throw error;
+    }
+
+    const { stdout } = await execFileAsync('git', ['log', ...args], {
+      cwd: exactRoot,
+      env,
+      timeout: remainingMs,
+      maxBuffer: 5 * 1024 * 1024, // 5MB
+    });
+    return { output: stdout.trim(), root: exactRoot, env, deadlineAt };
+  } catch (err) {
     logger.warn('CodeEvolution', `git log failed: ${err.message}`);
     return null;
   }
+}
+
+async function resolveExactGitWorktreeRoot(projectPath, timeout, env) {
+  let requestedRoot;
+  try {
+    requestedRoot = await realpath(projectPath);
+  } catch (error) {
+    if (error.code === 'ENOENT' || error.code === 'ENOTDIR') return null;
+    throw error;
+  }
+
+  let stdout;
+  try {
+    ({ stdout } = await execFileAsync('git', ['rev-parse', '--show-toplevel'], {
+      cwd: requestedRoot,
+      env,
+      timeout,
+      maxBuffer: 64 * 1024,
+    }));
+  } catch (error) {
+    if (error.stderr?.includes('not a git repository')) return null;
+    throw error;
+  }
+
+  const discoveredRoot = await realpath(stdout.trim());
+  return discoveredRoot === requestedRoot ? requestedRoot : null;
+}
+
+function gitEnvironment() {
+  const env = { ...process.env };
+  for (const name of [
+    'GIT_DIR',
+    'GIT_WORK_TREE',
+    'GIT_COMMON_DIR',
+    'GIT_INDEX_FILE',
+    'GIT_OBJECT_DIRECTORY',
+    'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+    'GIT_NAMESPACE',
+  ]) {
+    delete env[name];
+  }
+  return env;
 }
 
 // ─── Hotspot Detection ───────────────────────────────────────────────────────
@@ -50,14 +104,15 @@ export async function findHotspots(projectPath, opts = {}) {
   const days = opts.days || 90;
   const maxFiles = opts.maxFiles || 50;
 
-  const raw = await gitLog(projectPath, [
+  const gitResult = await gitLog(projectPath, [
     `--since=${days} days ago`,
     '--name-only',
     '--format=',
     '--diff-filter=AMRC',
   ]);
 
-  if (!raw) return [];
+  if (!gitResult?.output) return [];
+  const raw = gitResult.output;
 
   // Count commits per file
   const counts = new Map();
@@ -94,13 +149,14 @@ export async function analyzeChurn(projectPath, opts = {}) {
   const days = opts.days || 90;
   const maxFiles = opts.maxFiles || 30;
 
-  const raw = await gitLog(projectPath, [
+  const gitResult = await gitLog(projectPath, [
     `--since=${days} days ago`,
     '--numstat',
     '--format=',
   ]);
 
-  if (!raw) return [];
+  if (!gitResult?.output) return [];
+  const raw = gitResult.output;
 
   const stats = new Map();
   for (const line of raw.split('\n')) {
@@ -151,13 +207,14 @@ export async function findCoChanges(projectPath, opts = {}) {
   const maxPairs = opts.maxPairs || 30;
 
   // Get commit-grouped file changes
-  const raw = await gitLog(projectPath, [
+  const gitResult = await gitLog(projectPath, [
     `--since=${days} days ago`,
     '--name-only',
     '--pretty=format:__COMMIT__',
   ]);
 
-  if (!raw) return [];
+  if (!gitResult?.output) return [];
+  const raw = gitResult.output;
 
   const commits = [];
   let current = [];
@@ -225,13 +282,14 @@ export async function findCoChanges(projectPath, opts = {}) {
 export async function analyzeComplexityTrend(projectPath, filePath, opts = {}) {
   const commits = opts.commits || 20;
 
-  const raw = await gitLog(projectPath, [
+  const gitResult = await gitLog(projectPath, [
     `-${commits}`,
     '--format=%H %ai',
     '--', filePath,
   ]);
 
-  if (!raw) return { file: filePath, history: [], trend: 'stable' };
+  if (!gitResult?.output) return { file: filePath, history: [], trend: 'stable' };
+  const raw = gitResult.output;
 
   const history = [];
   for (const line of raw.split('\n')) {
@@ -239,14 +297,23 @@ export async function analyzeComplexityTrend(projectPath, filePath, opts = {}) {
     if (!match) continue;
 
     const [, hash, date] = match;
+    const remainingMs = gitResult.deadlineAt - Date.now();
+    if (remainingMs <= 0) {
+      logger.warn('CodeEvolution', 'git show history query exceeded its shared timeout');
+      break;
+    }
     try {
       const { stdout } = await execFileAsync('git', ['show', `${hash}:${filePath}`], {
-        cwd: projectPath,
-        timeout: 5000,
+        cwd: gitResult.root,
+        env: gitResult.env,
+        timeout: Math.min(5000, remainingMs),
         maxBuffer: 2 * 1024 * 1024,
       });
       history.push({ date, lines: stdout.split('\n').length });
-    } catch {
+    } catch (error) {
+      if (error.killed || error.code === 'ETIMEDOUT') {
+        logger.warn('CodeEvolution', `git show failed: ${error.message}`);
+      }
       // File might not exist at that commit
     }
   }
@@ -275,11 +342,17 @@ export async function analyzeComplexityTrend(projectPath, filePath, opts = {}) {
  */
 export async function analyzeEvolution(projectPath, opts = {}) {
   const start = Date.now();
+  let analysisRoot = projectPath;
+  try {
+    analysisRoot = await realpath(projectPath);
+  } catch {
+    // Individual queries preserve the established empty-result/error logging contract.
+  }
 
   const [hotspots, churn, coChanges] = await Promise.all([
-    findHotspots(projectPath, opts),
-    analyzeChurn(projectPath, opts),
-    findCoChanges(projectPath, opts),
+    findHotspots(analysisRoot, opts),
+    analyzeChurn(analysisRoot, opts),
+    findCoChanges(analysisRoot, opts),
   ]);
 
   const buildTime = Date.now() - start;

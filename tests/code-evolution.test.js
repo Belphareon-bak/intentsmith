@@ -2,7 +2,14 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
-import { findHotspots, analyzeChurn, findCoChanges, analyzeEvolution, formatEvolutionReport } from '../src/code-intel/code-evolution.js';
+import {
+  findHotspots,
+  analyzeChurn,
+  findCoChanges,
+  analyzeComplexityTrend,
+  analyzeEvolution,
+  formatEvolutionReport,
+} from '../src/code-intel/code-evolution.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -68,11 +75,43 @@ await testAsync('ignores node_modules', async () => {
 });
 
 await testAsync('returns empty for non-git directory', async () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nogit-'));
+  const dir = tmpGitRepo();
   try {
-    const hotspots = await findHotspots(dir);
+    writeAndCommit(dir, 'src/tracked.js', 'code', 'init');
+    const nestedNonRoot = path.join(dir, 'nested-project');
+    fs.mkdirSync(nestedNonRoot);
+
+    const hotspots = await findHotspots(nestedNonRoot);
     assertEqual(hotspots.length, 0);
   } finally { cleanup(dir); }
+});
+
+await testAsync('ignores inherited Git repository overrides', async () => {
+  const target = tmpGitRepo();
+  const override = tmpGitRepo();
+  const previousGitDir = process.env.GIT_DIR;
+  const previousWorkTree = process.env.GIT_WORK_TREE;
+  try {
+    writeAndCommit(target, 'src/target.js', 'target\n', 'target commit');
+    writeAndCommit(target, 'src/target.js', 'target\nmore\nlines\nfor\ngrowth\n', 'target growth');
+    writeAndCommit(override, 'src/override.js', 'override', 'override commit');
+    process.env.GIT_DIR = path.join(override, '.git');
+    process.env.GIT_WORK_TREE = override;
+
+    const hotspots = await findHotspots(target, { days: 30 });
+    const complexity = await analyzeComplexityTrend(target, 'src/target.js');
+    assert(hotspots.some(item => item.file === 'src/target.js'), 'should analyze the requested repository');
+    assert(hotspots.every(item => item.file !== 'src/override.js'), 'should ignore inherited Git overrides');
+    assertEqual(complexity.history.length, 2);
+    assertEqual(complexity.trend, 'growing');
+  } finally {
+    if (previousGitDir === undefined) delete process.env.GIT_DIR;
+    else process.env.GIT_DIR = previousGitDir;
+    if (previousWorkTree === undefined) delete process.env.GIT_WORK_TREE;
+    else process.env.GIT_WORK_TREE = previousWorkTree;
+    cleanup(target);
+    cleanup(override);
+  }
 });
 
 // ─── Churn Analysis ──────────────────────────────────────────────────────────
