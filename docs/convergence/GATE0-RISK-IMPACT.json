@@ -91,7 +91,7 @@
     {
       "riskId": "G0-R017",
       "gateImpact": "G0_FAIL",
-      "rationale": "The inherited product-documentation damage remains an open repository-local Gate 0 finding."
+      "rationale": "A regression that strips the restored product documentation would again be a repository-local Gate 0 finding."
     },
     {
       "riskId": "G0-R018",

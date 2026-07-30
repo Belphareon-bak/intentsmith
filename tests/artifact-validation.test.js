@@ -3,6 +3,7 @@
 
 import {
   chmodSync,
+  existsSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -183,6 +184,72 @@ test('non-empty .ini remains subject only to the zero-byte check', () => {
   assertEqual(validateContent('settings.ini', '# content interpreted downstream\n').ok, true);
 });
 
+suite('documentation integrity');
+
+const docsReadmeUrl = new URL('../docs/README.md', import.meta.url);
+const docsReadme = readFileSync(docsReadmeUrl, 'utf8');
+const strippedCzechTokenPattern = /\b(?:Spusteni|Nastroje|Bezpecnost|Planovani|Vyvoj|Dalsi|Konverzacni|Kanonicky|zavislosti|nativnich|Rucni|promenlive|auditni|skutecny|Vsechny|promenne|nacitaji|Kompletni|instalacni|prirucka|Projektovy|kazdy|uzivatelsky|spravny|zadny|Pocet|vypsanych|sobe|dukaz|zeleneho|validovana|navratovy|vystavi|zpravy|stejnem|Posledni)\b/g;
+
+function markdownProse(markdown) {
+  let inFence = false;
+  return String(markdown)
+    .split('\n')
+    .filter((line) => {
+      if (/^\s*```/.test(line)) {
+        inFence = !inFence;
+        return false;
+      }
+      return !inFence;
+    })
+    .join('\n')
+    .replace(/`[^`\n]*`/g, '')
+    .replace(/\[([^\]]*)\]\([^)]+\)/g, '$1');
+}
+
+function strippedCzechTokens(markdown) {
+  return markdownProse(markdown).match(strippedCzechTokenPattern) || [];
+}
+
+test('current README keeps restored Czech headings and prose', () => {
+  assert(!docsReadme.includes('**Známé poškození:**'));
+  for (const heading of [
+    '## Spuštění',
+    '### Nástroje & Bezpečnost',
+    '### Plánování & Vývoj',
+    '### Další',
+    '### Konverzační testy (vyžadují Ollama + GPU)',
+  ]) {
+    assert(docsReadme.includes(heading), `missing restored heading: ${heading}`);
+  }
+  const strippedTokens = strippedCzechTokens(docsReadme);
+  assertEqual(
+    strippedTokens.join(','),
+    '',
+    `stripped Czech prose tokens: ${strippedTokens.join(', ')}`,
+  );
+});
+
+test('diacritics scan ignores intentional fenced, inline, and path examples', () => {
+  const intentionalNoDiacritics = [
+    '```text',
+    'Spusteni a Konverzacni testy',
+    '```',
+    '`conv-czech-nodiacritics.test.js`',
+    '[fixture](examples/Spusteni-bez-diakritiky.md)',
+  ].join('\n');
+  assertEqual(strippedCzechTokens(intentionalNoDiacritics).length, 0);
+});
+
+test('every local README Markdown link resolves from docs/', () => {
+  const targets = [...docsReadme.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)]
+    .map(match => match[1].split('#')[0])
+    .filter(target => target !== '' && !/^[a-z][a-z0-9+.-]*:/i.test(target));
+  assert(targets.length > 0, 'README must contain local Markdown links');
+  for (const target of targets) {
+    assert(existsSync(new URL(target, docsReadmeUrl)), `missing README link target: ${target}`);
+  }
+});
+
 suite('sanitized final-commit diff manifest');
 
 const committedManifest = JSON.parse(readFileSync(
@@ -317,7 +384,7 @@ function riskAssessmentCopy(overrides = {}) {
       SEPARATE_INCIDENT: 3,
     },
     openImpactCounts: {
-      G0_FAIL: 3,
+      G0_FAIL: 2,
       G0_REVIEW_REQUIRED: 1,
       LATER_GATE: 2,
       SEPARATE_INCIDENT: 3,
@@ -344,7 +411,6 @@ test('committed policy classifies every risk and derives current blockers', () =
   assertEqual(result.policyCount, 26);
   assertEqual(result.repositoryBlockers.join(','), [
     'G0-R014: OPEN',
-    'G0-R017: OPEN',
     'G0-R020: OPEN',
   ].join(','));
   assertEqual(result.reviewRequiredRisks.join(','), 'G0-R015: OPEN');
@@ -356,7 +422,7 @@ test('committed policy classifies every risk and derives current blockers', () =
   );
 });
 
-test('policy pins required Gate 0 blockers and the loopback condition', () => {
+test('policy pins Gate 0 failure classes and the loopback condition', () => {
   const byId = new Map(committedRiskPolicy.risks.map(entry => [entry.riskId, entry]));
   for (const riskId of [
     'G0-R012',
@@ -404,11 +470,11 @@ test('duplicate and unknown gateImpact entries are rejected', () => {
   assert(includesError(duplicateResult.repositoryBlockers, 'G0-R020: OPEN'));
 
   const unknown = riskPolicyCopy();
-  unknown.risks.find(entry => entry.riskId === 'G0-R017').gateImpact = 'IGNORE';
+  unknown.risks.find(entry => entry.riskId === 'G0-R014').gateImpact = 'IGNORE';
   const unknownResult = evaluateGate0RiskPolicy(committedRiskMarkdown, unknown);
   assertEqual(unknownResult.valid, false);
-  assert(includesError(unknownResult.errors, 'G0-R017: unknown gateImpact'));
-  assert(includesError(unknownResult.repositoryBlockers, 'G0-R017: OPEN'));
+  assert(includesError(unknownResult.errors, 'G0-R014: unknown gateImpact'));
+  assert(includesError(unknownResult.repositoryBlockers, 'G0-R014: OPEN'));
 });
 
 test('a malformed policy entry is rejected instead of being silently skipped', () => {

@@ -12,13 +12,9 @@ a zachovaným C3 Studio IDE.
 > [convergence/GATE-CRITERIA.md](convergence/GATE-CRITERIA.md). Aktuální stav:
 > [convergence/STATUS.md](convergence/STATUS.md). Směr: [ROADMAP.md](ROADMAP.md).
 >
-> **Známé poškození:** tento soubor má stripnutou českou diakritiku
-> (14 ze 407 řádků ji má). Sledováno jako `G0-R017`; oprava je samostatná úloha,
-> protože chybná diakritika je horší než žádná.
-
 ---
 
-## Spusteni
+## Spuštění
 
 ```bash
 # 1. Kanonicka instalace backendu i C3 Studio
@@ -35,25 +31,25 @@ ollama pull qwen3.5:27b
 ./scripts/run.sh
 ```
 
-Kanonicky installer zahrnuje frozen zavislosti, hash-locked PDF runtime,
-Electron ABI rebuild, Theia build a smoke test nativnich artefaktu. Rucni
-`npm ci` nebo `yarn build` neni ekvivalent plne instalace. Ollama tagy jsou
-promenlive; auditni evidence musi zaznamenat skutecny modelovy digest.
+Kanonický installer zahrnuje frozen závislosti, hash-locked PDF runtime,
+Electron ABI rebuild, Theia build a smoke test nativních artefaktů. Ruční
+`npm ci` nebo `yarn build` není ekvivalent plné instalace. Ollama tagy jsou
+proměnlivé; auditní evidence musí zaznamenat skutečný modelový digest.
 
 ### Prerekvizity
 
-- Node.js 22.x (povinne)
-- npm 10.9.4 (uzamcena backend instalace)
+- Node.js 22.x (povinné)
+- npm 10.9.4 (uzamčená backend instalace)
 - Ollama s modelem `qwen3.5:27b` na `http://127.0.0.1:11434`
 - CPython 3.12 + `venv`, glibc 2.27+ a DejaVu fonty (PDF export)
-- build-essential (kompilace native Node modulu)
+- build-essential (kompilace native Node modulů)
 - Yarn 1.22.22 (pouze C3 Studio)
-- GPU s 12+ GB VRAM (doporuceno pro 32B modely)
-- Kompletni instalacni prirucka: [INSTALL.md](INSTALL.md)
+- GPU s 12+ GB VRAM (doporučeno pro 32B modely)
+- Kompletní instalační příručka: [INSTALL.md](INSTALL.md)
 
 ### Konfigurace (.env)
 
-Vsechny promenne se nacitaji z `.env` souboru pres `dotenv`. Viz
+Všechny proměnné se načítají z `.env` souboru přes `dotenv`. Viz
 `.env.example` pro kanonickou referenci.
 
 Produkční entrypoint nastaví výchozí projektovou databázi explicitně po načtení
@@ -61,18 +57,18 @@ Produkční entrypoint nastaví výchozí projektovou databázi explicitně po n
 než může vytvořit nebo otevřít operátorovu databázi; testovací runner každé sadě
 předává vlastní izolovanou cestu.
 
-| Skupina | Promenne | Popis |
+| Skupina | Proměnné | Popis |
 |---------|----------|-------|
 | Server | `C3_PORT`, `C3_HOST`, `C3_CORS_ORIGINS` | HTTP server |
-| Modely | `C3_MODEL_D1`, `C3_MODEL_D2`, `C3_MODEL_CODE`, `C3_MODEL_R1`, `C3_MODEL_R2`, `C3_MODEL_CHAT`, `C3_MODEL_VISION` | Ollama modely pro 7 roli |
+| Modely | `C3_MODEL_D1`, `C3_MODEL_D2`, `C3_MODEL_CODE`, `C3_MODEL_R1`, `C3_MODEL_R2`, `C3_MODEL_CHAT`, `C3_MODEL_VISION` | Ollama modely pro 7 rolí |
 | Ollama | `OLLAMA_URL` | Adresa Ollama serveru |
-| Features | `C3_ENABLE_AGENTS`, `C3_ENABLE_LIFECYCLE`, `C3_ENABLE_EXPERTISES`, `C3_ENABLE_TELEMETRY`, `C3_ENABLE_SKILLS` | Zapnuti/vypnuti modulu |
-| Databaze | `C3_DB_PATH` | Cesta k SQLite souboru |
+| Features | `C3_ENABLE_AGENTS`, `C3_ENABLE_LIFECYCLE`, `C3_ENABLE_EXPERTISES`, `C3_ENABLE_TELEMETRY`, `C3_ENABLE_SKILLS` | Zapnutí/vypnutí modulů |
+| Databáze | `C3_DB_PATH` | Cesta k SQLite souboru |
 | Model Universe | `C3_MODEL_UNIVERSE_ENABLED`, `C3_MODEL_RUNTIME_GUARD_ENABLED`, `C3_MODEL_RUNTIME_GUARD_DISABLE_ERROR_RATE`, `C3_MODEL_RUNTIME_GUARD_RECOVER_ERROR_RATE`, `C3_MODEL_RUNTIME_GUARD_COOLDOWN_MS` | Universe ingest + runtime safety guard |
-| Lifecycle | `C3_LIFECYCLE_REVIEW_FREQ`, `C3_MAX_MILESTONE_LOC`, `C3_MAX_MILESTONE_FILES` | Nastaveni projektu |
-| Notifikace | `C3_SMTP_*`, `C3_TELEGRAM_*`, `C3_NTFY_*` | Email, Telegram, push kanaly |
+| Lifecycle | `C3_LIFECYCLE_REVIEW_FREQ`, `C3_MAX_MILESTONE_LOC`, `C3_MAX_MILESTONE_FILES` | Nastavení projektu |
+| Notifikace | `C3_SMTP_*`, `C3_TELEGRAM_*`, `C3_NTFY_*` | Email, Telegram, push kanály |
 | Security | `C3_ADMIN_TOKEN`, `C3_LICENSE_KEY` | Autentizace a licence |
-| Debug | `C3_LOG_LEVEL`, `C3_TRACE` | Logovani a trasovani |
+| Debug | `C3_LOG_LEVEL`, `C3_TRACE` | Logování a trasování |
 
 ---
 
@@ -82,33 +78,33 @@ předává vlastní izolovanou cestu.
 
 | Dokument | Popis |
 |----------|-------|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Kompletni architektura platformy |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Kompletní architektura platformy |
 | [AUTHORITY.md](AUTHORITY.md) | Authority chain: User > HumanGate > CRE > Planner > Executor > Tool |
-| [OPERABILITY.md](OPERABILITY.md) | Operacni kontrakty: immutabilita, determinismus, replay |
+| [OPERABILITY.md](OPERABILITY.md) | Operační kontrakty: immutabilita, determinismus, replay |
 | [STORAGE-ARCHITECTURE.md](STORAGE-ARCHITECTURE.md) | SQLite schema, drain pipeline, WAL, backup, retention |
 
 ### Moduly & Subsystemy
 
 | Dokument | Popis |
 |----------|-------|
-| [EXPERTISES.md](EXPERTISES.md) | Expertise Layer — 15 expertyz, 5D capability profily, Merge Engine v2, enforcement pipeline |
+| [EXPERTISES.md](EXPERTISES.md) | Expertise Layer — 15 expertýz, 5D capability profily, Merge Engine v2, enforcement pipeline |
 | [SPECIALISTS.md](SPECIALISTS.md) | Specialist system — runtime, knowledge base, scenario engine, memory |
 | [SPECIALIST-LIFECYCLE.md](SPECIALIST-LIFECYCLE.md) | Specialist plugin lifecycle (registrace, activace, teardown) |
-| [WORKERS.md](WORKERS.md) | Worker agenty — Runner, Scheduler, zdroje, podminky, triggery, notifikace |
+| [WORKERS.md](WORKERS.md) | Worker agenty — Runner, Scheduler, zdroje, podmínky, triggery, notifikace |
 | [skills-v1.md](skills-v1.md) | Skills system — 8 step types, state machine, sandboxed execution, meta-skill |
-| [MEMORY.md](MEMORY.md) | Pametovy system — LTM decay, injection ranker, pattern tracker, task memory |
-| [NOTIFICATIONS.md](NOTIFICATIONS.md) | Notifikacni system — 6 kanalu, trust scoring, digest |
-| [PROJECT-SYSTEM.md](PROJECT-SYSTEM.md) | Projektovy lifecycle — SPEC→BUILD→REVIEW→CHANGE |
-| [marketplace.md](marketplace.md) | Marketplace — specialist balicky, distribuce, instalace |
+| [MEMORY.md](MEMORY.md) | Paměťový systém — LTM decay, injection ranker, pattern tracker, task memory |
+| [NOTIFICATIONS.md](NOTIFICATIONS.md) | Notifikační systém — 6 kanálů, trust scoring, digest |
+| [PROJECT-SYSTEM.md](PROJECT-SYSTEM.md) | Projektový lifecycle — SPEC→BUILD→REVIEW→CHANGE |
+| [marketplace.md](marketplace.md) | Marketplace — specialist balíčky, distribuce, instalace |
 
-### Nastroje & Bezpecnost
+### Nástroje & Bezpečnost
 
 | Dokument | Popis |
 |----------|-------|
 | [tools/EXECUTOR_CONTRACT.md](tools/EXECUTOR_CONTRACT.md) | Tool executor kontrakt (circuit breaker, retry, partial failure) |
-| [tools/REGISTRY.md](tools/REGISTRY.md) | Tool Registry — 153 nastroju, capability metadata, risk classification, API reference |
+| [tools/REGISTRY.md](tools/REGISTRY.md) | Tool Registry — 153 nástrojů, capability metadata, risk classification, API reference |
 
-### Planovani & Vyvoj
+### Plánování & Vývoj
 
 | Dokument | Popis |
 |----------|-------|
@@ -137,8 +133,8 @@ ve zbytku dokumentace.
 
 | Dokument | Popis |
 |----------|-------|
-| [followup-contract-v2.md](followup-contract-v2.md) | Follow-up klasifikace, R1-R4 pravidla (aktivni kontrakt v kodu) |
-| [API-REFERENCE.md](API-REFERENCE.md) | REST API reference (~200 endpointu) |
+| [followup-contract-v2.md](followup-contract-v2.md) | Follow-up klasifikace, R1-R4 pravidla (aktivní kontrakt v kódu) |
+| [API-REFERENCE.md](API-REFERENCE.md) | REST API reference (~200 endpointů) |
 | [WS-PROTOCOL.md](WS-PROTOCOL.md) | WebSocket protokol — streaming, agent log, file watch |
 
 ### IDE
@@ -148,17 +144,17 @@ ve zbytku dokumentace.
 | [C3-STUDIO-IDE.md](../c3-ide/docs/C3-STUDIO-IDE.md) | C3 Studio IDE dokumentace |
 | [C3-STUDIO-ROADMAP.md](../c3-ide/docs/C3-STUDIO-ROADMAP.md) | IDE integration roadmap |
 
-### Dalsi
+### Další
 
 | Dokument | Popis |
 |----------|-------|
-| [INSTALL.md](INSTALL.md) | Kompletni instalacni prirucka |
+| [INSTALL.md](INSTALL.md) | Kompletní instalační příručka |
 | [CLAUDE.md](../CLAUDE.md) | Development context pro AI asistenty |
 | [channels/CHANNEL_ADAPTER_CONTRACT.md](channels/CHANNEL_ADAPTER_CONTRACT.md) | CLI/channel adapter kontrakt |
 
 ### Archiv
 
-Historicke design dokumenty, implementovane RFC a point-in-time audity jsou v
+Historické design dokumenty, implementované RFC a point-in-time audity jsou v
 [`archive/`](archive/).
 
 ---
@@ -377,24 +373,24 @@ intentsmith/
 
 ## CRE Intent Routing
 
-CRE (Conversational Reasoning Engine) klasifikuje kazdy uzivatelsky vstup a routuje na spravny handler. Gatekeeper pattern — zadny kod nemuze CRE obejit.
+CRE (Conversational Reasoning Engine) klasifikuje každý uživatelský vstup a routuje na správný handler. Gatekeeper pattern — žádný kód nemůže CRE obejít.
 
-| Intent | Popis | Priklad |
+| Intent | Popis | Příklad |
 |--------|-------|---------|
-| LOCAL | Cas, datum, kalkulacka | "kolik je hodin", "5+3" |
-| CONVERSATIONAL | Bezna konverzace | "jak se mas", "vysvetli mi X" |
-| SEARCH | Dotazy na cerstve udaje | "pocasi v Praze", "cena bitcoinu" |
-| DESIGN | Strukturovane navrhy | "navrhni architekturu pro X" |
-| CREATIVE | Kreativni obsah | "napis basnicku", "vymysli pribeh" |
+| LOCAL | Čas, datum, kalkulačka | "kolik je hodin", "5+3" |
+| CONVERSATIONAL | Běžná konverzace | "jak se máš", "vysvětli mi X" |
+| SEARCH | Dotazy na čerstvé údaje | "počasí v Praze", "cena bitcoinu" |
+| DESIGN | Strukturované návrhy | "navrhni architekturu pro X" |
+| CREATIVE | Kreativní obsah | "napiš básničku", "vymysli příběh" |
 | BUILD / PLAN | Stavba projektu | "postav mi webovou aplikaci" |
-| CODE | Inline kod | "napis funkci na X" |
-| SHELL | Prikaz v terminalu | "spust npm test", "git status" |
-| FILE_READ | Cteni souboru | "precti package.json" |
-| FILE_EXPLAIN | Vysvetleni souboru | "vysvetli co dela server.js" |
-| ITEM_LOOKUP | Vyhledani entity | "najdi expertyzu na React" |
-| SKILL | Spusteni skill workflow | "vytvor fakturu" |
-| TOOL_CALL | Volani nastroje | "spocitej DPH z 10000" |
-| AMBIGUOUS | Nejednoznacny dotaz | "zajimalo by me..." |
+| CODE | Inline kód | "napiš funkci na X" |
+| SHELL | Příkaz v terminálu | "spusť npm test", "git status" |
+| FILE_READ | Čtení souboru | "přečti package.json" |
+| FILE_EXPLAIN | Vysvětlení souboru | "vysvětli co dělá server.js" |
+| ITEM_LOOKUP | Vyhledání entity | "najdi expertýzu na React" |
+| SKILL | Spuštění skill workflow | "vytvoř fakturu" |
+| TOOL_CALL | Volání nástroje | "spočítej DPH z 10000" |
+| AMBIGUOUS | Nejednoznačný dotaz | "zajímalo by mě..." |
 
 9 guard pravidel: follow-up contract, attachment guard, creative override, skill detection, expertise lock, project mode, lifecycle intercept, build handoff, C4 auto-detect.
 
@@ -446,12 +442,12 @@ node tests/specialist-runtime.test.js  # Specialist runtime
 node tests/chat-pipeline.test.js       # Chat pipeline E2E
 ```
 
-Kanonicky ledger profilu, prerequisites a timeoutu je v
-[`convergence/TEST-REGISTRY.md`](convergence/TEST-REGISTRY.md). Pocet vypsanych
-asercí sam o sobe neni dukaz zeleneho celku; rozhoduje validovana evidence a
-navratovy kod procesu.
+Kanonický ledger profilů, prerequisites a timeoutů je v
+[`convergence/TEST-REGISTRY.md`](convergence/TEST-REGISTRY.md). Počet vypsaných
+asercí sám o sobě není důkaz zeleného celku; rozhoduje validovaná evidence a
+návratový kód procesu.
 
-### Konverzacni testy (vyzaduji Ollama + GPU)
+### Konverzační testy (vyžadují Ollama + GPU)
 
 ```bash
 OLLAMA_URL=http://127.0.0.1:11434 node tests/conv-czech.test.js
@@ -463,38 +459,38 @@ OLLAMA_URL=http://127.0.0.1:11434 node tests/conv-czech-nodiacritics.test.js
 
 ## REST API
 
-Backend vystavi REST API na `http://127.0.0.1:3335`:
+Backend vystaví REST API na `http://127.0.0.1:3335`:
 
 | Prefix | Modul | Popis |
 |--------|-------|-------|
-| `/api/chat` | Chat | Konverzace, zpravy, export (md, html, pdf, docx) |
+| `/api/chat` | Chat | Konverzace, zprávy, export (md, html, pdf, docx) |
 | `/api/projects` | Projects | Projekty, lifecycle, roadmapa, milestones |
 | `/api/expertises` | Expertises | CRUD, merge preview, schema, discovery |
 | `/api/agents` | Agents | CRUD, dry-run, scheduling (PRO+) |
 | `/api/skills` | Skills | CRUD, reload, execution, meta-skill |
 | `/api/specialists` | Specialists | Enable/disable, discovery, memory |
-| `/api/notifications` | Notifications | Kanaly, test, trust, digest |
+| `/api/notifications` | Notifications | Kanály, test, trust, digest |
 | `/api/system` | System | Health, storage, GPU, backup, info |
 | `/api/security` | Security | Audit, tokeny, sessions |
-| `/api/settings` | Settings | Uzivatelska nastaveni, feature flags |
+| `/api/settings` | Settings | Uživatelská nastavení, feature flags |
 | `/api/quality` | Quality | Quality reports, telemetrie |
 | `/api/planner` | Planner | Workflow, build status |
 | `/api/autonomy` | Autonomy | Drift status, thresholds |
 
-WebSocket na stejnem portu — IDE ↔ backend real-time komunikace (chat streaming, agent log, terminal, file watch, settings sync).
+WebSocket na stejném portu — IDE ↔ backend real-time komunikace (chat streaming, agent log, terminal, file watch, settings sync).
 
 ---
 
 ## Licence
 
-System licenci vazany na hardware fingerprint (3 tiery: FREE / PRO / ENTERPRISE). Offline validace — zadny license server.
+Systém licencí vázaný na hardware fingerprint (3 tiery: FREE / PRO / ENTERPRISE). Offline validace — žádný license server.
 
-| Tier | Projekty | Agenti | Specialiste | Export |
+| Tier | Projekty | Agenti | Specialisté | Export |
 |------|----------|--------|-------------|--------|
 | FREE | 1 | - | - | md, txt |
-| PRO | neomezene | ano | ano | md, txt, html, pdf, docx |
-| ENTERPRISE | neomezene | ano | ano | vse + multi-user |
+| PRO | neomezeně | ano | ano | md, txt, html, pdf, docx |
+| ENTERPRISE | neomezeně | ano | ano | vše + multi-user |
 
 ---
 
-*Posledni aktualizace: v135.0.0 (2026-03-31)*
+*Poslední aktualizace: v135.0.0 (2026-03-31)*
