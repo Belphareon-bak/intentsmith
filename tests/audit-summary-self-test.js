@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
-import { mkdir, utimes, writeFile } from 'node:fs/promises';
+import { mkdir, rm, utimes, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { makeTempAuditFixture, summarizeAudit } from '../scripts/audit-summary.js';
 
 const root = await makeTempAuditFixture();
+try {
 const runDir = path.join(root, 'data/artifacts/audit-runs/summary-self-test');
 const logsDir = path.join(runDir, 'logs');
 await mkdir(logsDir, { recursive: true });
@@ -115,11 +116,40 @@ await writeFile(newerCheckpointPath, `${JSON.stringify({
 await utimes(staleReportPath, new Date('2026-07-26T00:00:10.000Z'), new Date('2026-07-26T00:00:10.000Z'));
 await utimes(newerCheckpointPath, new Date('2026-07-26T00:00:30.000Z'), new Date('2026-07-26T00:00:30.000Z'));
 
+const escapedLogPath = path.join(root, 'outside-audit.log');
+const escapeRunDir = path.join(root, 'escape-attempt');
+await mkdir(path.join(escapeRunDir, 'logs'), { recursive: true });
+await writeFile(
+  escapedLogPath,
+  'Error [ERR_MODULE_NOT_FOUND]: Cannot find package "must-not-be-read"\n',
+);
+await writeFile(path.join(escapeRunDir, 'report.json'), `${JSON.stringify({
+  runId: 'escape-attempt',
+  sourceRevision: 'escape123',
+  startedAt: '2026-07-26T00:00:00.000Z',
+  endedAt: '2026-07-26T00:00:01.000Z',
+  paths: { sourceRoot: root },
+  inventory: { total: 1, counts: {}, blockerCounts: {} },
+  results: [
+    {
+      path: 'tests/escape.test.js',
+      category: 'unit',
+      command: ['node', 'tests/escape.test.js'],
+      status: 'FAIL',
+      exitCode: 1,
+      signal: null,
+      required: true,
+      logPath: 'outside-audit.log',
+    },
+  ],
+}, null, 2)}\n`);
+
 const summary = await summarizeAudit(runDir);
 const summaryFromReport = await summarizeAudit(path.join(runDir, 'report.json'));
 const summaryWithBaseline = await summarizeAudit(runDir, { baseline: path.join(baselineRunDir, 'report.json') });
 const checkpointSummary = await summarizeAudit(path.join(checkpointRunDir, 'checkpoint.json'));
 const newerCheckpointSummary = await summarizeAudit(newerCheckpointRunDir);
+const escapeSummary = await summarizeAudit(escapeRunDir);
 
 assert.equal(summary.runId, 'summary-self-test');
 assert.equal(summaryFromReport.runId, 'summary-self-test');
@@ -147,5 +177,10 @@ assert.equal(checkpointSummary.statusCounts.PASS, 1);
 assert.equal(newerCheckpointSummary.mode, 'checkpoint');
 assert.equal(newerCheckpointSummary.statusCounts.PASS, 2);
 assert.equal(newerCheckpointSummary.statusCounts.SKIPPED, 0);
+assert.equal(escapeSummary.environmentErrors.total, 0);
+assert.equal(escapeSummary.failures.clusters[0].signature.includes('must-not-be-read'), false);
 
 console.log('audit summary self-test: PASS');
+} finally {
+  await rm(root, { recursive: true, force: true });
+}

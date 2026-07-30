@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 
-import { spawnSync } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
@@ -15,20 +13,12 @@ const repoRoot = path.resolve(scriptDir, '..');
 
 const options = parseArgs(process.argv.slice(2));
 const unitDir = path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'systemd', 'user');
-const artifactRoot = path.resolve(options.artifactRoot || path.join(repoRoot, '..', 'c3-nightly-artifacts'));
-const worktreeRoot = path.resolve(options.worktreeRoot || path.join(repoRoot, '..', 'c3-nightly-worktrees'));
-
-const replacements = {
-  '@PROJECT_ROOT@': repoRoot,
-  '@NODE_BIN@': process.execPath,
-  '@ARTIFACT_ROOT@': artifactRoot,
-  '@WORKTREE_ROOT@': worktreeRoot,
-};
-
-const rendered = {
-  service: render(await readFile(path.join(repoRoot, 'systemd', 'user', `${SERVICE_NAME}.in`), 'utf8'), replacements),
-  timer: render(await readFile(path.join(repoRoot, 'systemd', 'user', `${TIMER_NAME}.in`), 'utf8'), replacements),
-};
+const artifactRoot = path.resolve(
+  options.artifactRoot || path.join(repoRoot, '.intentsmith-artifacts', 'nightly'),
+);
+const worktreeRoot = path.resolve(
+  options.worktreeRoot || path.join(repoRoot, '.intentsmith-artifacts', 'nightly', 'worktrees'),
+);
 
 const servicePath = path.join(unitDir, SERVICE_NAME);
 const timerPath = path.join(unitDir, TIMER_NAME);
@@ -36,33 +26,22 @@ const timerPath = path.join(unitDir, TIMER_NAME);
 if (options.dryRun) {
   console.log(JSON.stringify({
     dryRun: true,
+    status: 'DISABLED_GATE0',
     unitDir,
     servicePath,
     timerPath,
     artifactRoot,
     worktreeRoot,
-    enableTimer: options.enable,
+    enableTimer: false,
+    note: 'Legacy C3 unit installation is disabled until IntentSmith systemd migration is reviewed.',
   }, null, 2));
   process.exit(0);
 }
 
-await mkdir(unitDir, { recursive: true });
-await writeFile(servicePath, rendered.service);
-await writeFile(timerPath, rendered.timer);
-
-runSystemctl(['--user', 'daemon-reload']);
-if (options.enable) {
-  runSystemctl(['--user', 'enable', TIMER_NAME]);
-}
-
-console.log(JSON.stringify({
-  servicePath,
-  timerPath,
-  artifactRoot,
-  worktreeRoot,
-  timerEnabled: options.enable,
-  note: 'The service was not started by this installer.',
-}, null, 2));
+throw new Error(
+  'Systemd installation is disabled during Gate 0. Use --dry-run for inspection; ' +
+  'migration and activation require a later reviewed change.',
+);
 
 function parseArgs(argv) {
   const opts = {
@@ -103,23 +82,8 @@ function printHelp() {
 Options:
   --artifact-root=PATH   Durable audit artifact root
   --worktree-root=PATH   Disposable audit worktree root
-  --enable               Enable the user timer after installing units
-  --no-enable            Install units without enabling the timer, default
-  --dry-run              Print resolved paths without writing units
+  --enable               Legacy option; activation is disabled during Gate 0
+  --no-enable            Legacy option; installation is disabled during Gate 0
+  --dry-run              Inspect resolved legacy units without writing them
 `);
-}
-
-function render(template, values) {
-  let output = template;
-  for (const [token, value] of Object.entries(values)) {
-    output = output.split(token).join(value);
-  }
-  return output;
-}
-
-function runSystemctl(args) {
-  const result = spawnSync('systemctl', args, { encoding: 'utf8' });
-  if (result.status !== 0) {
-    throw new Error(`systemctl ${args.join(' ')} failed\n${result.stderr || result.stdout}`);
-  }
 }

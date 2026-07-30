@@ -2,7 +2,15 @@
 
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { access, chmod, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  lstat,
+  mkdir,
+  readFile,
+  realpath,
+  rename,
+  writeFile,
+} from 'node:fs/promises';
 import { createReadStream, createWriteStream } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -18,6 +26,9 @@ import {
 const DEFAULT_OUT_DIR = '.intentsmith-artifacts/test-runs';
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
 const DEFAULT_DEADLINE_MS = 8 * 60 * 60 * 1000;
+const TERMINATION_GRACE_MS = 2_000;
+const ACTIVE_SUITE_CHILDREN = new Map();
+let requestedTerminationSignal = null;
 const PROFILE_ORDER = [
   'offline',
   'database',
@@ -187,9 +198,12 @@ export async function runAudit(options = {}) {
   if (selectedSuites.length === 0) {
     throw new Error('No test suites selected');
   }
-  await mkdir(logsDir, { recursive: true, mode: 0o700 });
-  await chmod(runDir, 0o700);
-  await chmod(logsDir, 0o700);
+  await prepareRunBoundary({
+    outDir: opts.outDir,
+    runDir,
+    logsDir,
+    resume: opts.resume,
+  });
   const counts = countByCategory(selectedSuites);
   const blockerCounts = countBlockers(selectedSuites);
   const inventoryFingerprint = fingerprintInventory(selectedSuites);
@@ -259,6 +273,7 @@ export async function runAudit(options = {}) {
     : results.some(result => result.required !== false && result.status !== 'PASS');
 
   async function nextSuite() {
+    if (requestedTerminationSignal) return null;
     if (opts.failFast && requiredFailureSeen) return null;
     if (Date.now() >= deadlineAt) return null;
     if (cursor >= pending.length) return null;
@@ -277,7 +292,13 @@ export async function runAudit(options = {}) {
         || (!opts.noBlock && !opts.allowBlockers.has(blocker))
       ));
       let result;
-      if (disallowedBlockers.length) {
+      if (requestedTerminationSignal) {
+        result = makeSkippedResult(
+          suite,
+          sourceRevision,
+          `interrupted-${requestedTerminationSignal}`,
+        );
+      } else if (disallowedBlockers.length) {
         result = makeBlockedResult(suite, sourceRevision, disallowedBlockers);
       } else {
         result = await runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt });
@@ -309,7 +330,10 @@ export async function runAudit(options = {}) {
 
   for (let i = cursor; i < pending.length; i++) {
     const suite = pending[i];
-    const result = makeSkippedResult(suite, sourceRevision, Date.now() >= deadlineAt ? 'total_deadline' : 'fail_fast');
+    const skipReason = requestedTerminationSignal
+      ? `interrupted-${requestedTerminationSignal}`
+      : Date.now() >= deadlineAt ? 'total_deadline' : 'fail_fast';
+    const result = makeSkippedResult(suite, sourceRevision, skipReason);
     results.push(result);
   }
   if (results.length !== completedResults.length) {
@@ -349,11 +373,19 @@ export async function runAudit(options = {}) {
 }
 
 async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
+  if (requestedTerminationSignal) {
+    return makeSkippedResult(
+      suite,
+      sourceRevision,
+      `interrupted-${requestedTerminationSignal}`,
+    );
+  }
   const startMs = Date.now();
   const startedAt = new Date(startMs).toISOString();
   const safeName = safeLogName(suite.path);
   const runDir = path.dirname(logsDir);
-  const suiteRoot = path.join(runDir, 'runtime', safeName);
+  const attempt = await selectSuiteAttempt(runDir, logsDir, safeName);
+  const suiteRoot = path.join(runDir, 'runtime', attempt.stem);
   const homeDir = path.join(suiteRoot, 'home');
   const tempDir = path.join(suiteRoot, 'tmp');
   const projectsDir = path.join(suiteRoot, 'projects');
@@ -362,7 +394,7 @@ async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
   const xdgCacheDir = path.join(suiteRoot, 'xdg', 'cache');
   const xdgDataDir = path.join(suiteRoot, 'xdg', 'data');
   const xdgStateDir = path.join(suiteRoot, 'xdg', 'state');
-  const logPath = path.join(logsDir, `${safeName}.log`);
+  const logPath = path.join(logsDir, `${attempt.stem}.log`);
   const gitConfigPath = path.join(suiteRoot, 'gitconfig');
 
   for (const directory of [
@@ -381,7 +413,21 @@ async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
   }
   await writeFile(gitConfigPath, '', { encoding: 'utf8', mode: 0o600, flag: 'wx' });
 
-  const log = createWriteStream(logPath, { flags: 'wx', mode: 0o600 });
+  const logStreamFactory = opts.logStreamFactory || createWriteStream;
+  const log = logStreamFactory(logPath, { flags: 'wx', mode: 0o600 });
+  let logError = null;
+  let terminateChildForLogError = () => {};
+  let logTerminationTimer = null;
+  log.on('error', error => {
+    if (!logError) logError = error;
+    terminateChildForLogError();
+  });
+  try {
+    await waitForWritableOpen(log);
+  } catch (error) {
+    if (!log.destroyed) log.destroy();
+    throw new Error(`Suite log could not open at ${logPath}: ${error.message}`);
+  }
   const [registeredCommand, ...args] = suite.command;
   const command = registeredCommand === 'node' ? process.execPath : registeredCommand;
   let timedOut = false;
@@ -401,12 +447,12 @@ async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
     gitConfigPath,
   });
 
-  log.write(`$ ${suite.command.join(' ')}\n`);
-  log.write(`started_at=${startedAt}\n`);
-  log.write(`source_revision=${sourceRevision}\n\n`);
-  log.write(`suite_timeout_ms=${suiteTimeoutMs}\n\n`);
+  writeLog(log, logError, `$ ${suite.command.join(' ')}\n`);
+  writeLog(log, logError, `started_at=${startedAt}\n`);
+  writeLog(log, logError, `source_revision=${sourceRevision}\n\n`);
+  writeLog(log, logError, `suite_timeout_ms=${suiteTimeoutMs}\n\n`);
 
-  return await new Promise(resolve => {
+  return await new Promise((resolve, reject) => {
     const detached = process.platform !== 'win32';
     const child = spawn(command, args, {
       cwd: opts.root,
@@ -422,13 +468,28 @@ async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
         if (detached) process.kill(-child.pid, signal);
         else child.kill(signal);
       } catch (err) {
-        if (err.code !== 'ESRCH') log.write(`\nkill_error_${signal}=${err.message}\n`);
+        if (err.code !== 'ESRCH') {
+          writeLog(log, logError, `\nkill_error_${signal}=${err.message}\n`);
+        }
       }
     };
+    terminateChildForLogError = () => {
+      signalChildTree('SIGTERM');
+      child.stdout.unpipe(log);
+      child.stderr.unpipe(log);
+      if (!logTerminationTimer) {
+        logTerminationTimer = setTimeout(() => {
+          signalChildTree('SIGKILL');
+        }, TERMINATION_GRACE_MS);
+        logTerminationTimer.unref();
+      }
+    };
+    ACTIVE_SUITE_CHILDREN.set(child, { signalChildTree, terminationTimer: null });
+    if (logError) terminateChildForLogError();
 
     const timer = setTimeout(() => {
       timedOut = true;
-      log.write(`\ntimeout_after_ms=${suiteTimeoutMs}\n`);
+      writeLog(log, logError, `\ntimeout_after_ms=${suiteTimeoutMs}\n`);
       signalChildTree('SIGTERM');
       killTimer = setTimeout(() => {
         signalChildTree('SIGKILL');
@@ -438,16 +499,26 @@ async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
 
     child.stdout.pipe(log, { end: false });
     child.stderr.pipe(log, { end: false });
-    const stdoutDone = finished(child.stdout).catch(() => {});
-    const stderrDone = finished(child.stderr).catch(() => {});
+    let outputError = null;
+    const recordOutputError = error => {
+      outputError ||= error;
+      terminateChildForLogError();
+    };
+    const stdoutDone = finished(child.stdout).catch(recordOutputError);
+    const stderrDone = finished(child.stderr).catch(recordOutputError);
     child.on('error', error => {
       spawnError = error;
-      log.write(`\nspawn_error=${error.message}\n`);
+      writeLog(log, logError, `\nspawn_error=${error.message}\n`);
     });
-    child.on('close', async (code, signal) => {
+    child.on('close', (code, signal) => {
+      void (async () => {
+      const activeEntry = ACTIVE_SUITE_CHILDREN.get(child);
+      if (activeEntry?.terminationTimer) clearTimeout(activeEntry.terminationTimer);
+      ACTIVE_SUITE_CHILDREN.delete(child);
       if (timedOut) signalChildTree('SIGKILL');
       clearTimeout(timer);
       if (killTimer) clearTimeout(killTimer);
+      if (logTerminationTimer) clearTimeout(logTerminationTimer);
       await Promise.all([stdoutDone, stderrDone]);
       const cleanup = await cleanupOwnedProcessGroup(child.pid, detached, log);
       const sourceTree = opts.allowDirty
@@ -462,12 +533,18 @@ async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
       );
       const sourceEvidenceComplete = (
         opts.allowDirty
-        || (sourceTree.checked === true && sourceTree.clean === true)
+        || (
+          sourceTree.checked === true
+          && sourceTree.clean === true
+          && sourceTree.head === sourceRevision
+        )
       );
       if (
         cleanup.leakDetected
         || !cleanupEvidenceComplete
         || !sourceEvidenceComplete
+        || logError
+        || outputError
       ) {
         status = 'FAIL';
       }
@@ -484,23 +561,59 @@ async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
         durationMs: endMs - startMs,
         exitCode: code,
         signal,
+        timedOut,
         status,
-        retryCount: 0,
+        retryCount: attempt.retryCount,
         logPath: normalizePath(path.relative(opts.root, logPath)),
         sourceRevision,
         environment: environment.evidence,
         cleanup,
         sourceTree,
+        logError: logError ? {
+          code: logError.code || 'EIO',
+          message: logError.message,
+        } : null,
+        outputError: outputError ? {
+          code: outputError.code || 'EIO',
+          message: outputError.message,
+        } : null,
       };
-      log.write(
-        `\nended_at=${endedAt}\nexit_code=${code}\nsignal=${signal || ''}` +
-        `\nstatus=${status}\ncleanup=${JSON.stringify(cleanup)}` +
-        `\nsource_tree_clean=${sourceTree.clean}\n`,
-      );
-      log.end();
-      await finished(log).catch(() => {});
-      result.logSha256 = await hashFile(logPath);
+      if (!logError) {
+        try {
+          await endWritable(
+            log,
+            `\nended_at=${endedAt}\nexit_code=${code}\nsignal=${signal || ''}` +
+            `\nstatus=${status}\ncleanup=${JSON.stringify(cleanup)}` +
+            `\nsource_tree_clean=${sourceTree.clean}` +
+            `\nsource_tree_head=${sourceTree.head || ''}\n`,
+          );
+        } catch (error) {
+          logError ||= error;
+          result.logError = {
+            code: error.code || 'EIO',
+            message: error.message,
+          };
+          result.status = 'FAIL';
+        }
+      } else if (!log.destroyed) {
+        log.destroy();
+      }
+      if (logError) {
+        result.logSha256 = null;
+      } else {
+        try {
+          result.logSha256 = await hashFile(logPath);
+        } catch (error) {
+          result.status = 'FAIL';
+          result.logSha256 = null;
+          result.logReadError = {
+            code: error.code || 'EIO',
+            message: error.message,
+          };
+        }
+      }
       resolve(result);
+      })().catch(reject);
     });
   });
 }
@@ -602,7 +715,7 @@ async function cleanupOwnedProcessGroup(pid, detached, log) {
     return { checked: true, leakDetected: false, terminated: true };
   }
 
-  log.write('\nowned_process_group_leak=true\n');
+  writeLog(log, null, '\nowned_process_group_leak=true\n');
   signalProcessGroup(pid, 'SIGTERM', log);
   let terminated = await waitForProcessGroupExit(pid, 500);
   if (!terminated) {
@@ -616,7 +729,53 @@ function signalProcessGroup(pid, signal, log) {
   try {
     process.kill(-pid, signal);
   } catch (error) {
-    if (error.code !== 'ESRCH') log.write(`process_group_${signal}_error=${error.message}\n`);
+    if (error.code !== 'ESRCH') {
+      writeLog(log, null, `process_group_${signal}_error=${error.message}\n`);
+    }
+  }
+}
+
+function installTerminationHandlers() {
+  const handlers = new Map();
+  for (const signal of ['SIGINT', 'SIGTERM']) {
+    const handler = () => requestTermination(signal);
+    handlers.set(signal, handler);
+    process.on(signal, handler);
+  }
+  return () => {
+    for (const [signal, handler] of handlers) process.off(signal, handler);
+  };
+}
+
+export async function runAuditWithTerminationHandling(options) {
+  if (ACTIVE_SUITE_CHILDREN.size !== 0) {
+    throw new Error('Cannot start termination handling while audit suites are active');
+  }
+  requestedTerminationSignal = null;
+  const removeTerminationHandlers = installTerminationHandlers();
+  try {
+    const report = await runAudit(options);
+    if (applyInterruptionToReport(report)) {
+      const reportPath = path.resolve(report.paths.sourceRoot, report.paths.report);
+      await writeJSON(reportPath, report);
+    }
+    return report;
+  } finally {
+    removeTerminationHandlers();
+    requestedTerminationSignal = null;
+  }
+}
+
+function requestTermination(signal) {
+  if (!requestedTerminationSignal) requestedTerminationSignal = signal;
+  for (const entry of ACTIVE_SUITE_CHILDREN.values()) {
+    entry.signalChildTree('SIGTERM');
+    if (!entry.terminationTimer) {
+      entry.terminationTimer = setTimeout(() => {
+        entry.signalChildTree('SIGKILL');
+      }, TERMINATION_GRACE_MS);
+      entry.terminationTimer.unref();
+    }
   }
 }
 
@@ -640,7 +799,7 @@ async function waitForProcessGroupExit(pid, timeoutMs) {
 }
 
 async function inspectGitWorktree(root) {
-  return await new Promise(resolve => {
+  const status = await new Promise(resolve => {
     const child = spawn('git', ['status', '--porcelain', '--untracked-files=all'], {
       cwd: root,
       env: pickCommandEnvironment(),
@@ -673,6 +832,11 @@ async function inspectGitWorktree(root) {
       });
     });
   });
+  if (status.checked !== true) return status;
+  return {
+    ...status,
+    head: await getSourceRevision(root),
+  };
 }
 
 function pickCommandEnvironment() {
@@ -706,6 +870,7 @@ function makeBlockedResult(suite, sourceRevision, blockers) {
     durationMs: 0,
     exitCode: null,
     signal: null,
+    timedOut: false,
     status: 'BLOCKED',
     blockedBy: blockers,
     retryCount: 0,
@@ -729,6 +894,7 @@ function makeSkippedResult(suite, sourceRevision, reason) {
     durationMs: 0,
     exitCode: null,
     signal: null,
+    timedOut: false,
     status: 'SKIPPED',
     skipReason: reason,
     retryCount: 0,
@@ -767,7 +933,7 @@ function makeReport({
   const exitCode = verdict === 'PASS' || verdict === 'DRY_RUN'
     ? 0
     : verdict === 'BLOCKED' ? 2 : 1;
-  return {
+  const report = {
     runId,
     sourceRevision,
     startedAt,
@@ -785,6 +951,7 @@ function makeReport({
       noBlock: opts.noBlock,
     },
     paths: {
+      sourceRoot: normalizePath(opts.root),
       runDir: normalizePath(path.relative(opts.root, runDir)),
       report: normalizePath(path.relative(opts.root, path.join(runDir, 'report.json'))),
       checkpoint: normalizePath(path.relative(opts.root, path.join(runDir, 'checkpoint.json'))),
@@ -793,6 +960,7 @@ function makeReport({
     inventoryFingerprint,
     optionsFingerprint,
     registryHash,
+    interruptionSignal: requestedTerminationSignal,
     inventory: {
       total: inventory.length,
       counts,
@@ -805,6 +973,25 @@ function makeReport({
     requiredBlockedCount: requiredBlocked.length,
     results,
   };
+  applyInterruptionToReport(report);
+  return report;
+}
+
+function applyInterruptionToReport(report) {
+  if (!requestedTerminationSignal) return false;
+  const changed = (
+    report.interruptionSignal !== requestedTerminationSignal
+    || report.verdict !== 'FAIL'
+    || report.exitCode === 0
+  );
+  report.interruptionSignal = requestedTerminationSignal;
+  report.runnerFailure = {
+    kind: 'interrupted',
+    signal: requestedTerminationSignal,
+  };
+  report.verdict = 'FAIL';
+  report.exitCode = 1;
+  return changed;
 }
 
 async function readAndValidateResume({
@@ -818,7 +1005,8 @@ async function readAndValidateResume({
   root,
   allowDirty,
 }) {
-  const inventory = await readRequiredJSON(inventoryPath, 'resume inventory');
+  const runDir = path.dirname(checkpointPath);
+  const inventory = await readRequiredJSON(inventoryPath, runDir, 'resume inventory');
   if (inventory.sourceRevision !== sourceRevision) {
     throw new Error(`Cannot resume: source revision mismatch (${inventory.sourceRevision} !== ${sourceRevision})`);
   }
@@ -833,34 +1021,35 @@ async function readAndValidateResume({
   }
 
   try {
-    const parsed = JSON.parse(await readFile(checkpointPath, 'utf8'));
-    if (parsed.sourceRevision !== sourceRevision) {
-      throw new Error(`Cannot resume: checkpoint source revision mismatch (${parsed.sourceRevision} !== ${sourceRevision})`);
-    }
-    if (parsed.inventoryFingerprint !== inventoryFingerprint) {
-      throw new Error('Cannot resume: checkpoint inventory fingerprint mismatch');
-    }
-    if (parsed.optionsFingerprint !== optionsFingerprint) {
-      throw new Error('Cannot resume: checkpoint option fingerprint mismatch');
-    }
-    if (parsed.registryHash !== registryHash) {
-      throw new Error('Cannot resume: checkpoint test registry fingerprint mismatch');
-    }
-    if (!Array.isArray(parsed.results)) {
-      throw new Error('Cannot resume: checkpoint results must be an array');
-    }
-    return await validateCompletedResults({
-      results: parsed.results,
-      expectedSuites,
-      sourceRevision,
-      root,
-      logsDir: path.join(path.dirname(checkpointPath), 'logs'),
-      allowDirty,
-    });
-  } catch (err) {
-    if (err.code !== 'ENOENT') throw err;
+    await lstat(checkpointPath);
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
     return [];
   }
+  const parsed = await readRequiredJSON(checkpointPath, runDir, 'resume checkpoint');
+  if (parsed.sourceRevision !== sourceRevision) {
+    throw new Error(`Cannot resume: checkpoint source revision mismatch (${parsed.sourceRevision} !== ${sourceRevision})`);
+  }
+  if (parsed.inventoryFingerprint !== inventoryFingerprint) {
+    throw new Error('Cannot resume: checkpoint inventory fingerprint mismatch');
+  }
+  if (parsed.optionsFingerprint !== optionsFingerprint) {
+    throw new Error('Cannot resume: checkpoint option fingerprint mismatch');
+  }
+  if (parsed.registryHash !== registryHash) {
+    throw new Error('Cannot resume: checkpoint test registry fingerprint mismatch');
+  }
+  if (!Array.isArray(parsed.results)) {
+    throw new Error('Cannot resume: checkpoint results must be an array');
+  }
+  return await validateCompletedResults({
+    results: parsed.results,
+    expectedSuites,
+    sourceRevision,
+    root,
+    logsDir: path.join(runDir, 'logs'),
+    allowDirty,
+  });
 }
 
 async function validateCompletedResults({
@@ -908,6 +1097,11 @@ async function validateCompletedResults({
     ) {
       throw new Error(`Cannot resume: checkpoint log path escapes the run for ${result.id}`);
     }
+    await assertRegularContainedFile(
+      absoluteLogPath,
+      logsDir,
+      `resume log for ${result.id}`,
+    );
     const actualLogHash = await hashFile(absoluteLogPath).catch(error => {
       throw new Error(`Cannot resume: missing log evidence for ${result.id}: ${error.message}`);
     });
@@ -921,11 +1115,23 @@ async function validateCompletedResults({
     ) {
       throw new Error(`Cannot resume: incomplete process cleanup evidence for ${result.id}`);
     }
-    if (!allowDirty && result.sourceTree?.clean !== true) {
+    if (
+      !allowDirty
+      && (
+        result.sourceTree?.clean !== true
+        || result.sourceTree?.head !== sourceRevision
+      )
+    ) {
       throw new Error(`Cannot resume: incomplete clean-tree evidence for ${result.id}`);
     }
     if (result.status === 'PASS' && (result.exitCode !== 0 || result.signal !== null)) {
       throw new Error(`Cannot resume: invalid PASS exit evidence for ${result.id}`);
+    }
+    if (
+      (result.status === 'TIMEOUT' && result.timedOut !== true)
+      || (result.status === 'PASS' && result.timedOut !== false)
+    ) {
+      throw new Error(`Cannot resume: timeout evidence mismatch for ${result.id}`);
     }
     if (result.status === 'PASS' && result.cleanup.leakDetected !== false) {
       throw new Error(`Cannot resume: PASS contains process-leak evidence for ${result.id}`);
@@ -939,8 +1145,9 @@ async function validateCompletedResults({
   return completed;
 }
 
-async function readRequiredJSON(filePath, label) {
+async function readRequiredJSON(filePath, root, label) {
   try {
+    await assertRegularContainedFile(filePath, root, label);
     return JSON.parse(await readFile(filePath, 'utf8'));
   } catch (err) {
     throw new Error(`Cannot resume: missing or invalid ${label} at ${filePath}: ${err.message}`);
@@ -1052,6 +1259,18 @@ function safeLogName(relPath) {
   return `${relPath.replace(/[^a-zA-Z0-9_.-]+/g, '_')}.${hash}`;
 }
 
+async function selectSuiteAttempt(runDir, logsDir, safeName) {
+  for (let retryCount = 0; retryCount < 10_000; retryCount++) {
+    const stem = retryCount === 0 ? safeName : `${safeName}.retry-${retryCount}`;
+    const logPath = path.join(logsDir, `${stem}.log`);
+    const runtimePath = path.join(runDir, 'runtime', stem);
+    if (!await pathExists(logPath) && !await pathExists(runtimePath)) {
+      return { stem, retryCount };
+    }
+  }
+  throw new Error(`No unused owned attempt path remains for ${safeName}`);
+}
+
 function normalizePath(p) {
   return p.split(path.sep).join('/');
 }
@@ -1067,9 +1286,110 @@ async function writeJSONAtomic(filePath, value) {
   await rename(tmpPath, filePath);
 }
 
+async function waitForWritableOpen(stream) {
+  if (!('pending' in stream) || stream.pending === false) return;
+  await new Promise((resolve, reject) => {
+    const onOpen = () => {
+      stream.off('error', onError);
+      resolve();
+    };
+    const onError = error => {
+      stream.off('open', onOpen);
+      reject(error);
+    };
+    stream.once('open', onOpen);
+    stream.once('error', onError);
+  });
+}
+
+async function endWritable(stream, finalChunk) {
+  await new Promise((resolve, reject) => {
+    const onFinish = () => {
+      stream.off('error', onError);
+      resolve();
+    };
+    const onError = error => {
+      stream.off('finish', onFinish);
+      reject(error);
+    };
+    stream.once('finish', onFinish);
+    stream.once('error', onError);
+    stream.end(finalChunk);
+  });
+}
+
+function writeLog(stream, currentError, chunk) {
+  if (!stream || currentError || stream.errored || stream.destroyed) return;
+  stream.write(chunk);
+}
+
+async function prepareRunBoundary({ outDir, runDir, logsDir, resume }) {
+  if (resume) {
+    await assertContainedDirectory(runDir, outDir, 'resume run directory');
+    await assertContainedDirectory(logsDir, runDir, 'resume logs directory');
+  } else {
+    await mkdir(outDir, { recursive: true, mode: 0o700 });
+    const outMetadata = await lstat(outDir);
+    if (outMetadata.isSymbolicLink() || !outMetadata.isDirectory()) {
+      throw new Error(`Unsafe audit output directory: ${outDir}`);
+    }
+    try {
+      await mkdir(runDir, { recursive: false, mode: 0o700 });
+    } catch (error) {
+      if (error.code === 'EEXIST') {
+        throw new Error(`Run id already exists: ${path.basename(runDir)}. Use --resume to continue it or choose a new --run-id.`);
+      }
+      throw error;
+    }
+    await assertContainedDirectory(runDir, outDir, 'run directory');
+    await mkdir(logsDir, { recursive: false, mode: 0o700 });
+    await assertContainedDirectory(logsDir, runDir, 'logs directory');
+  }
+  await chmod(runDir, 0o700);
+  await chmod(logsDir, 0o700);
+}
+
+async function assertContainedDirectory(directory, parent, label) {
+  const [metadata, parentMetadata] = await Promise.all([lstat(directory), lstat(parent)]);
+  if (
+    metadata.isSymbolicLink()
+    || !metadata.isDirectory()
+    || parentMetadata.isSymbolicLink()
+    || !parentMetadata.isDirectory()
+  ) {
+    throw new Error(`Cannot resume: unsafe ${label} boundary at ${directory}`);
+  }
+  const [resolvedDirectory, resolvedParent] = await Promise.all([
+    realpath(directory),
+    realpath(parent),
+  ]);
+  if (!isPathInside(resolvedParent, resolvedDirectory)) {
+    throw new Error(`Cannot resume: ${label} resolves outside ${parent}`);
+  }
+}
+
+async function assertRegularContainedFile(filePath, root, label) {
+  const metadata = await lstat(filePath);
+  if (metadata.isSymbolicLink() || !metadata.isFile()) {
+    throw new Error(`Cannot resume: ${label} is not a regular contained file`);
+  }
+  const [resolvedFile, resolvedRoot] = await Promise.all([realpath(filePath), realpath(root)]);
+  if (!isPathInside(resolvedRoot, resolvedFile)) {
+    throw new Error(`Cannot resume: ${label} resolves outside its evidence root`);
+  }
+}
+
+function isPathInside(root, candidate) {
+  const relative = path.relative(path.resolve(root), path.resolve(candidate));
+  return relative !== ''
+    && !relative.startsWith(`..${path.sep}`)
+    && relative !== '..'
+    && !path.isAbsolute(relative);
+}
+
 async function pathExists(filePath) {
   try {
-    await access(filePath);
+    await lstat(filePath);
     return true;
   } catch {
     return false;
@@ -1101,7 +1421,7 @@ function printFinalSummary(report) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    const report = await runAudit(parseArgs());
+    const report = await runAuditWithTerminationHandling(parseArgs());
     process.exitCode = report.exitCode;
   } catch (err) {
     console.error(`audit runner failed: ${err.stack || err.message}`);

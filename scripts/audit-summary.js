@@ -1,7 +1,17 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rename,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
@@ -54,7 +64,7 @@ export async function summarizeAudit(inputPath, options = {}) {
   const clusters = new Map();
 
   for (const result of failures) {
-    const logText = result.logPath ? await safeRead(path.resolve(loaded.root, result.logPath)) : '';
+    const logText = result.logPath ? await safeReadResultLog(loaded, result.logPath) : '';
     const signature = failureSignature(result, logText);
     const envKind = classifyEnvironmentError(logText);
     if (envKind) envErrors.push({ path: result.path, status: result.status, kind: envKind, logPath: result.logPath });
@@ -167,6 +177,7 @@ async function loadAudit(inputPath) {
   return {
     ...parsed,
     inputPath: resolved.dataPath,
+    runDir: resolved.runDir,
     root: findAuditRoot(resolved.dataPath, parsed),
     mode: resolved.mode,
     inventorySuites,
@@ -222,13 +233,14 @@ async function failureIdentitySet(loaded) {
   const keys = new Set();
   for (const result of loaded.results || []) {
     if (!FAILURE_STATUSES.has(result.status)) continue;
-    const logText = result.logPath ? await safeRead(path.resolve(loaded.root, result.logPath)) : '';
+    const logText = result.logPath ? await safeReadResultLog(loaded, result.logPath) : '';
     keys.add(resultIdentity(result, failureSignature(result, logText)));
   }
   return keys;
 }
 
 function findAuditRoot(reportPath, report) {
+  if (report.paths?.sourceRoot) return path.resolve(report.paths.sourceRoot);
   const marker = `${path.sep}data${path.sep}artifacts${path.sep}audit-runs${path.sep}`;
   const idx = reportPath.indexOf(marker);
   if (idx !== -1) return reportPath.slice(0, idx);
@@ -242,6 +254,33 @@ async function safeRead(filePath) {
   } catch {
     return '';
   }
+}
+
+async function safeReadResultLog(loaded, logPath) {
+  if (typeof logPath !== 'string' || !logPath) return '';
+  const candidate = path.resolve(loaded.root, logPath);
+  const allowedRoot = path.join(loaded.runDir, 'logs');
+  if (!isPathWithin(allowedRoot, candidate)) return '';
+  try {
+    const metadata = await lstat(candidate);
+    if (!metadata.isFile() || metadata.isSymbolicLink()) return '';
+    const [realRoot, realCandidate] = await Promise.all([
+      realpath(allowedRoot),
+      realpath(candidate),
+    ]);
+    if (!isPathWithin(realRoot, realCandidate)) return '';
+    return await safeRead(realCandidate);
+  } catch {
+    return '';
+  }
+}
+
+function isPathWithin(root, candidate) {
+  const relative = path.relative(path.resolve(root), path.resolve(candidate));
+  return relative !== ''
+    && relative !== '..'
+    && !relative.startsWith(`..${path.sep}`)
+    && !path.isAbsolute(relative);
 }
 
 function failureSignature(result, logText) {
@@ -396,14 +435,14 @@ export function formatSummary(summary, top = DEFAULT_TOP) {
   return `${lines.join('\n')}\n`;
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+const entrypointUrl = process.argv[1] ? pathToFileURL(process.argv[1]).href : null;
+if (entrypointUrl && import.meta.url === entrypointUrl) {
   try {
     const opts = parseArgs();
     const summary = await summarizeAudit(opts.input, opts);
     const output = opts.json ? `${JSON.stringify(summary, null, 2)}\n` : formatSummary(summary, opts.top);
     if (opts.out) {
-      await mkdir(path.dirname(path.resolve(opts.out)), { recursive: true });
-      await writeFile(opts.out, output);
+      await writeSecureFile(path.resolve(opts.out), output);
     }
     process.stdout.write(output);
   } catch (err) {
@@ -415,4 +454,13 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
 export async function makeTempAuditFixture() {
   const root = await mkdtemp(path.join(os.tmpdir(), 'c3-audit-summary-'));
   return root;
+}
+
+async function writeSecureFile(filePath, contents) {
+  const directory = path.dirname(filePath);
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  const temporaryPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  await writeFile(temporaryPath, contents, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+  await rename(temporaryPath, filePath);
+  await chmod(filePath, 0o600);
 }

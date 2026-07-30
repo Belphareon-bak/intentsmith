@@ -1,14 +1,34 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
+import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { createWriteStream } from 'node:fs';
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rename,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { Writable } from 'node:stream';
+import { fileURLToPath } from 'node:url';
 
-import { runAudit } from '../scripts/nightly-audit.js';
+import {
+  runAudit,
+  runAuditWithTerminationHandling,
+} from '../scripts/nightly-audit.js';
 
-const root = await mkdtemp(path.join(os.tmpdir(), 'c3-audit-runner-'));
+const tempRoots = new Set();
+const activeSignalFixtures = new Set();
+
+try {
+const root = await makeTempDirectory(path.join(os.tmpdir(), 'c3-audit-runner-'));
 const testsDir = path.join(root, 'tests');
 await mkdir(testsDir, { recursive: true });
 
@@ -192,6 +212,85 @@ await assert.rejects(
 );
 await writeFile(passLogPath, originalPassLog);
 
+const externalResumeLog = path.join(root, 'outside-resume.log');
+await writeFile(externalResumeLog, originalPassLog, { mode: 0o644 });
+const externalResumeLogMode = (await stat(externalResumeLog)).mode & 0o777;
+await rm(passLogPath);
+await symlink(externalResumeLog, passLogPath);
+await assert.rejects(
+  () => runAudit({
+    root,
+    outDir: 'data/artifacts/audit-runs',
+    runId: 'self-test-execution',
+    timeoutMs: 250,
+    deadlineMs: 15_000,
+    concurrency: 1,
+    noBlock: true,
+    allowDirty: true,
+    resume: true,
+  }),
+  /resume log .* is not a regular contained file/,
+);
+assert.equal(await readFile(externalResumeLog, 'utf8'), originalPassLog);
+assert.equal((await stat(externalResumeLog)).mode & 0o777, externalResumeLogMode);
+await rm(passLogPath);
+await writeFile(passLogPath, originalPassLog, { mode: 0o600 });
+
+const executionRunDir = path.join(root, 'data', 'artifacts', 'audit-runs', 'self-test-execution');
+const executionLogsDir = path.join(executionRunDir, 'logs');
+const ownedLogsBackup = path.join(executionRunDir, 'logs-owned-backup');
+const externalLogsDir = path.join(root, 'outside-resume-logs');
+await mkdir(externalLogsDir, { mode: 0o755 });
+const externalLogsMode = (await stat(externalLogsDir)).mode & 0o777;
+await rename(executionLogsDir, ownedLogsBackup);
+await symlink(externalLogsDir, executionLogsDir, 'dir');
+await assert.rejects(
+  () => runAudit({
+    root,
+    outDir: 'data/artifacts/audit-runs',
+    runId: 'self-test-execution',
+    timeoutMs: 250,
+    deadlineMs: 15_000,
+    concurrency: 1,
+    noBlock: true,
+    allowDirty: true,
+    resume: true,
+  }),
+  /unsafe resume logs directory boundary/,
+);
+assert.equal((await stat(externalLogsDir)).mode & 0o777, externalLogsMode);
+await rm(executionLogsDir);
+await rename(ownedLogsBackup, executionLogsDir);
+
+for (const evidenceName of ['inventory.json', 'checkpoint.json']) {
+  const evidencePath = path.join(executionRunDir, evidenceName);
+  const evidenceBackup = `${evidencePath}.owned-backup`;
+  const evidenceContents = await readFile(evidencePath, 'utf8');
+  const externalEvidence = path.join(root, `outside-${evidenceName}`);
+  await writeFile(externalEvidence, evidenceContents, { mode: 0o644 });
+  const externalEvidenceMode = (await stat(externalEvidence)).mode & 0o777;
+  await rename(evidencePath, evidenceBackup);
+  await symlink(externalEvidence, evidencePath);
+  await assert.rejects(
+    () => runAudit({
+      root,
+      outDir: 'data/artifacts/audit-runs',
+      runId: 'self-test-execution',
+      timeoutMs: 250,
+      deadlineMs: 15_000,
+      concurrency: 1,
+      noBlock: true,
+      allowDirty: true,
+      resume: true,
+    }),
+    /is not a regular contained file/,
+  );
+  assert.equal(await readFile(externalEvidence, 'utf8'), evidenceContents);
+  assert.equal((await stat(externalEvidence)).mode & 0o777, externalEvidenceMode);
+  await rm(evidencePath);
+  await rename(evidenceBackup, evidencePath);
+}
+
 await assert.rejects(
   () => runAudit({
     root,
@@ -218,7 +317,7 @@ await assert.rejects(
   /Invalid run-id/
 );
 
-const dirtyGuardRoot = await mkdtemp(path.join(os.tmpdir(), 'c3-audit-runner-dirty-'));
+const dirtyGuardRoot = await makeTempDirectory(path.join(os.tmpdir(), 'c3-audit-runner-dirty-'));
 await mkdir(path.join(dirtyGuardRoot, 'tests'), { recursive: true });
 await writeFile(path.join(dirtyGuardRoot, 'tests', 'pass.test.js'), 'console.log("dirty fixture");\n');
 await writeFixtureRegistry(dirtyGuardRoot, ['tests/pass.test.js']);
@@ -256,10 +355,15 @@ assert.equal(cleanGuardRun.results[0].sourceTree.clean, true);
 assert.equal(cleanGuardRun.results[0].cleanup.checked, true);
 assert.equal(cleanGuardRun.results[0].cleanup.terminated, true);
 
-const failFastRoot = await mkdtemp(path.join(os.tmpdir(), 'c3-audit-runner-failfast-'));
+const failFastRoot = await makeTempDirectory(path.join(os.tmpdir(), 'c3-audit-runner-failfast-'));
 await mkdir(path.join(failFastRoot, 'tests'), { recursive: true });
 await writeFile(path.join(failFastRoot, 'tests', 'a-fail.test.js'), 'process.exit(9);\n');
-await writeFile(path.join(failFastRoot, 'tests', 'z-pass.test.js'), 'console.log("late pass");\n');
+const failFastLatePidPath = path.join(failFastRoot, 'late-pass.pid');
+await writeFile(path.join(failFastRoot, 'tests', 'z-pass.test.js'), `
+import { writeFileSync } from 'node:fs';
+writeFileSync(${JSON.stringify(failFastLatePidPath)}, String(process.pid));
+console.log("late pass");
+`);
 await writeFixtureRegistry(failFastRoot, ['tests/a-fail.test.js', 'tests/z-pass.test.js']);
 const failFastRun = await runAudit({
   root: failFastRoot,
@@ -274,6 +378,13 @@ const failFastRun = await runAudit({
 });
 assert.equal(failFastRun.statusCounts.FAIL, 1);
 assert.equal(failFastRun.statusCounts.SKIPPED, 1);
+const staleLateLog = path.join(
+  failFastRoot,
+  failFastRun.paths.runDir,
+  'logs',
+  `${testSafeLogName('tests/z-pass.test.js')}.log`,
+);
+await writeFile(staleLateLog, 'stale partial log\n', { mode: 0o600 });
 const failFastResumed = await runAudit({
   root: failFastRoot,
   outDir: 'data/artifacts/audit-runs',
@@ -289,8 +400,15 @@ const failFastResumed = await runAudit({
 assert.equal(failFastResumed.statusCounts.FAIL, 1);
 assert.equal(failFastResumed.statusCounts.PASS, 1);
 assert.equal(failFastResumed.statusCounts.SKIPPED, 0);
+const resumedLateResult = failFastResumed.results.find(
+  result => result.path === 'tests/z-pass.test.js',
+);
+assert.equal(resumedLateResult.retryCount, 1);
+assert.notEqual(path.join(failFastRoot, resumedLateResult.logPath), staleLateLog);
+assert.equal(await readFile(staleLateLog, 'utf8'), 'stale partial log\n');
+assert.ok(Number(await readFile(failFastLatePidPath, 'utf8')) > 0);
 
-const deadlineResumeRoot = await mkdtemp(path.join(os.tmpdir(), 'c3-audit-runner-deadline-resume-'));
+const deadlineResumeRoot = await makeTempDirectory(path.join(os.tmpdir(), 'c3-audit-runner-deadline-resume-'));
 await mkdir(path.join(deadlineResumeRoot, 'tests'), { recursive: true });
 await writeFile(path.join(deadlineResumeRoot, 'tests', 'a-timeout.test.js'), `
 process.on('SIGTERM', () => {});
@@ -328,7 +446,7 @@ assert.equal(deadlineResumed.statusCounts.TIMEOUT, 1);
 assert.equal(deadlineResumed.statusCounts.PASS, 1);
 assert.equal(deadlineResumed.statusCounts.SKIPPED, 0);
 
-const deadlineRoot = await mkdtemp(path.join(os.tmpdir(), 'c3-audit-runner-deadline-'));
+const deadlineRoot = await makeTempDirectory(path.join(os.tmpdir(), 'c3-audit-runner-deadline-'));
 await mkdir(path.join(deadlineRoot, 'tests'), { recursive: true });
 await writeFile(path.join(deadlineRoot, 'tests', 'deadline.test.js'), `
 process.on('SIGTERM', () => {});
@@ -348,13 +466,19 @@ const deadlineRun = await runAudit({
 const deadlineResult = deadlineRun.results[0];
 assert.equal(deadlineResult.status, 'TIMEOUT');
 const deadlineLog = await readFile(path.join(deadlineRoot, deadlineResult.logPath), 'utf8');
-assert.match(deadlineLog, /suite_timeout_ms=300/);
+const deadlineTimeoutMatch = deadlineLog.match(/suite_timeout_ms=(\d+)/);
+assert.ok(deadlineTimeoutMatch, 'deadline log must record the effective suite timeout');
+const deadlineSuiteTimeoutMs = Number(deadlineTimeoutMatch[1]);
+assert.ok(
+  deadlineSuiteTimeoutMs > 0 && deadlineSuiteTimeoutMs <= 300,
+  `expected an effective timeout in (0, 300], got ${deadlineSuiteTimeoutMs}`,
+);
 
 const childPid = Number(await readFile(path.join(root, 'child.pid'), 'utf8'));
 assert.ok(Number.isInteger(childPid) && childPid > 0);
 await waitForProcessExit(childPid);
 
-const blockedRoot = await mkdtemp(path.join(os.tmpdir(), 'c3-audit-runner-blocked-'));
+const blockedRoot = await makeTempDirectory(path.join(os.tmpdir(), 'c3-audit-runner-blocked-'));
 await mkdir(path.join(blockedRoot, 'tests'), { recursive: true });
 await writeFile(path.join(blockedRoot, 'tests', 'model.test.js'), 'console.log("must not run");\n');
 await writeFixtureRegistry(blockedRoot, ['tests/model.test.js'], {
@@ -385,7 +509,233 @@ assert.equal(blockedRun.verdict, 'BLOCKED');
 assert.equal(blockedRun.exitCode, 2);
 assert.deepEqual(blockedRun.results[0].blockedBy, ['server']);
 
+const logOpenFailureRoot = await makeTempDirectory(
+  path.join(os.tmpdir(), 'c3-audit-runner-log-open-failure-'),
+);
+const logOpenFailurePidPath = path.join(logOpenFailureRoot, 'must-not-start.pid');
+const occupiedLogPath = path.join(logOpenFailureRoot, 'occupied.log');
+await mkdir(path.join(logOpenFailureRoot, 'tests'), { recursive: true });
+await writeFile(path.join(logOpenFailureRoot, 'tests', 'must-not-start.test.js'), `
+import { writeFileSync } from 'node:fs';
+writeFileSync(${JSON.stringify(logOpenFailurePidPath)}, String(process.pid));
+setInterval(() => {}, 1000);
+`);
+await writeFile(occupiedLogPath, 'occupied\n', { mode: 0o600 });
+await writeFixtureRegistry(logOpenFailureRoot, ['tests/must-not-start.test.js']);
+await assert.rejects(
+  () => runAudit({
+    root: logOpenFailureRoot,
+    outDir: 'data/artifacts/audit-runs',
+    runId: 'log-open-failure',
+    timeoutMs: 10_000,
+    deadlineMs: 15_000,
+    concurrency: 1,
+    noBlock: true,
+    allowDirty: true,
+    logStreamFactory: (_requestedPath, options) => createWriteStream(
+      occupiedLogPath,
+      { ...options, flags: 'wx' },
+    ),
+  }),
+  /Suite log could not open.*EEXIST/,
+);
+await assert.rejects(() => stat(logOpenFailurePidPath), /ENOENT/);
+
+const logFailureRoot = await makeTempDirectory(
+  path.join(os.tmpdir(), 'c3-audit-runner-log-failure-'),
+);
+const logFailurePidPath = path.join(logFailureRoot, 'active-suite.pid');
+await mkdir(path.join(logFailureRoot, 'tests'), { recursive: true });
+await writeFile(path.join(logFailureRoot, 'tests', 'log-failure.test.js'), `
+import { writeFileSync } from 'node:fs';
+writeFileSync(${JSON.stringify(logFailurePidPath)}, String(process.pid));
+console.log('INJECT_LOG_EIO');
+process.on('SIGTERM', () => {});
+setInterval(() => {}, 1000);
+`);
+await writeFixtureRegistry(logFailureRoot, ['tests/log-failure.test.js']);
+let injectedRunnerLogWrites = 0;
+const logFailureRun = await runAudit({
+  root: logFailureRoot,
+  outDir: 'data/artifacts/audit-runs',
+  runId: 'log-write-failure',
+  timeoutMs: 10_000,
+  deadlineMs: 15_000,
+  concurrency: 1,
+  noBlock: true,
+  allowDirty: true,
+  logStreamFactory: () => new Writable({
+    write(_chunk, _encoding, callback) {
+      injectedRunnerLogWrites += 1;
+      if (injectedRunnerLogWrites >= 5) {
+        const error = new Error('injected runner log failure');
+        error.code = 'EIO';
+        callback(error);
+      } else {
+        callback();
+      }
+    },
+  }),
+});
+assert.equal(logFailureRun.verdict, 'FAIL');
+assert.equal(logFailureRun.exitCode, 1);
+assert.equal(logFailureRun.results[0].status, 'FAIL');
+assert.equal(logFailureRun.results[0].logError?.code, 'EIO');
+assert.equal(logFailureRun.results[0].logSha256, null);
+const logFailureSuitePid = Number(await readFile(logFailurePidPath, 'utf8'));
+await waitForProcessExit(logFailureSuitePid);
+
+const logReadFailureRoot = await makeTempDirectory(
+  path.join(os.tmpdir(), 'c3-audit-runner-log-read-failure-'),
+);
+await mkdir(path.join(logReadFailureRoot, 'tests'), { recursive: true });
+await writeFile(
+  path.join(logReadFailureRoot, 'tests', 'pass.test.js'),
+  'console.log("pass without a filesystem-backed log");\n',
+);
+await writeFixtureRegistry(logReadFailureRoot, ['tests/pass.test.js']);
+const logReadFailureRun = await runAudit({
+  root: logReadFailureRoot,
+  outDir: 'data/artifacts/audit-runs',
+  runId: 'log-read-failure',
+  timeoutMs: 5_000,
+  deadlineMs: 10_000,
+  concurrency: 1,
+  noBlock: true,
+  allowDirty: true,
+  logStreamFactory: () => new Writable({
+    write(_chunk, _encoding, callback) {
+      callback();
+    },
+  }),
+});
+assert.equal(logReadFailureRun.verdict, 'FAIL');
+assert.equal(logReadFailureRun.exitCode, 1);
+assert.equal(logReadFailureRun.results[0].status, 'FAIL');
+assert.equal(logReadFailureRun.results[0].logReadError?.code, 'ENOENT');
+assert.equal(logReadFailureRun.results[0].logSha256, null);
+
+const interruptedDryRoot = await makeTempDirectory(
+  path.join(os.tmpdir(), 'c3-audit-runner-interrupted-dry-'),
+);
+await mkdir(path.join(interruptedDryRoot, 'tests'), { recursive: true });
+await writeFile(
+  path.join(interruptedDryRoot, 'tests', 'pass.test.js'),
+  'console.log("dry-run fixture");\n',
+);
+await writeFixtureRegistry(interruptedDryRoot, ['tests/pass.test.js']);
+const selfSignalTimer = setTimeout(() => process.kill(process.pid, 'SIGTERM'), 0);
+let interruptedDryRun;
+try {
+  interruptedDryRun = await runAuditWithTerminationHandling({
+    root: interruptedDryRoot,
+    outDir: 'data/artifacts/audit-runs',
+    runId: 'interrupted-dry-run',
+    dryRun: true,
+  });
+} finally {
+  clearTimeout(selfSignalTimer);
+}
+assert.equal(interruptedDryRun.interruptionSignal, 'SIGTERM');
+assert.equal(interruptedDryRun.runnerFailure?.kind, 'interrupted');
+assert.equal(interruptedDryRun.verdict, 'FAIL');
+assert.equal(interruptedDryRun.exitCode, 1);
+const interruptedDryReport = JSON.parse(await readFile(
+  path.join(
+    interruptedDryRoot,
+    'data',
+    'artifacts',
+    'audit-runs',
+    'interrupted-dry-run',
+    'report.json',
+  ),
+  'utf8',
+));
+assert.equal(interruptedDryReport.interruptionSignal, 'SIGTERM');
+assert.equal(interruptedDryReport.verdict, 'FAIL');
+assert.equal(interruptedDryReport.exitCode, 1);
+
+const signalRoot = await makeTempDirectory(path.join(os.tmpdir(), 'c3-audit-runner-signal-'));
+const signalReadyPath = path.join(signalRoot, 'suite-ready.pid');
+await mkdir(path.join(signalRoot, 'tests'), { recursive: true });
+await writeFile(path.join(signalRoot, 'tests', 'a-ignore-signal.test.js'), `
+import { writeFileSync } from 'node:fs';
+writeFileSync(${JSON.stringify(signalReadyPath)}, String(process.pid));
+process.on('SIGTERM', () => {});
+setInterval(() => {}, 1000);
+`);
+await writeFile(
+  path.join(signalRoot, 'tests', 'z-must-skip.test.js'),
+  'console.error("interrupted runner scheduled a late suite"); process.exit(9);\n',
+);
+await writeFixtureRegistry(signalRoot, [
+  'tests/a-ignore-signal.test.js',
+  'tests/z-must-skip.test.js',
+]);
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  await rm(signalReadyPath, { force: true });
+  const runId = `interrupted-${signal.toLowerCase()}`;
+  const interrupted = spawn(
+    process.execPath,
+    [
+      fileURLToPath(new URL('../scripts/nightly-audit.js', import.meta.url)),
+      '--root', signalRoot,
+      '--out-dir', 'data/artifacts/audit-runs',
+      '--run-id', runId,
+      '--timeout-ms', '30000',
+      '--deadline-ms', '30000',
+      '--concurrency', '1',
+      '--no-block',
+      '--allow-dirty',
+    ],
+    { cwd: signalRoot, stdio: ['ignore', 'pipe', 'pipe'] },
+  );
+  const observedClose = observeChildClose(interrupted);
+  const signalFixture = {
+    child: interrupted,
+    observedClose,
+    suitePid: null,
+  };
+  activeSignalFixtures.add(signalFixture);
+  let interruptedStdout = '';
+  let interruptedStderr = '';
+  interrupted.stdout.on('data', chunk => { interruptedStdout += chunk; });
+  interrupted.stderr.on('data', chunk => { interruptedStderr += chunk; });
+  try {
+    await waitForFile(signalReadyPath, 5_000);
+    signalFixture.suitePid = Number(await readFile(signalReadyPath, 'utf8'));
+    assert.equal(interrupted.kill(signal), true);
+    const interruptedExit = await waitForObservedClose(observedClose, interrupted, 8_000);
+    assert.equal(
+      interruptedExit.code,
+      1,
+      `runner ${signal} exit mismatch\nstdout:\n${interruptedStdout}\nstderr:\n${interruptedStderr}`,
+    );
+    assert.equal(interruptedExit.signal, null);
+    await waitForProcessExit(signalFixture.suitePid);
+    const interruptedReport = JSON.parse(await readFile(
+      path.join(signalRoot, 'data', 'artifacts', 'audit-runs', runId, 'report.json'),
+      'utf8',
+    ));
+    assert.equal(interruptedReport.interruptionSignal, signal);
+    assert.equal(interruptedReport.statusCounts.FAIL, 1);
+    assert.equal(interruptedReport.statusCounts.SKIPPED, 1);
+    assert.equal(interruptedReport.results[1].skipReason, `interrupted-${signal}`);
+  } finally {
+    await cleanupRunnerSignalFixture(signalFixture);
+    activeSignalFixtures.delete(signalFixture);
+  }
+}
+
 console.log('nightly audit runner self-test: PASS');
+} finally {
+  for (const fixture of activeSignalFixtures) {
+    await cleanupRunnerSignalFixture(fixture).catch(() => {});
+  }
+  for (const tempRoot of [...tempRoots].reverse()) {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+}
 
 async function waitForProcessExit(pid) {
   const deadline = Date.now() + 3000;
@@ -398,6 +748,86 @@ async function waitForProcessExit(pid) {
     await new Promise(resolve => setTimeout(resolve, 50));
   }
   assert.fail(`spawned child process still exists: ${pid}`);
+}
+
+async function waitForFile(filePath, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      await readFile(filePath);
+      return;
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  assert.fail(`timed out waiting for ${filePath}`);
+}
+
+function observeChildClose(child) {
+  return new Promise((resolve, reject) => {
+    child.once('error', reject);
+    child.once('close', (code, signal) => resolve({ code, signal }));
+  });
+}
+
+async function waitForObservedClose(observedClose, child, timeoutMs) {
+  let timer;
+  try {
+    return await Promise.race([
+      observedClose,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error(`timed out waiting for child ${child.pid}`));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function cleanupRunnerSignalFixture({ child, observedClose, suitePid }) {
+  signalOwnedGroupForTest(suitePid, 'SIGTERM');
+  if (processAlive(child.pid)) child.kill('SIGTERM');
+  await new Promise(resolve => setTimeout(resolve, 250));
+  signalOwnedGroupForTest(suitePid, 'SIGKILL');
+  if (processAlive(child.pid)) child.kill('SIGKILL');
+  await Promise.race([
+    observedClose.catch(() => {}),
+    new Promise(resolve => setTimeout(resolve, 1_000)),
+  ]);
+}
+
+function signalOwnedGroupForTest(pid, signal) {
+  if (!Number.isInteger(pid) || pid <= 0) return;
+  try {
+    process.kill(-pid, signal);
+  } catch (error) {
+    if (error.code !== 'ESRCH') throw error;
+  }
+}
+
+function processAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (error.code === 'ESRCH') return false;
+    throw error;
+  }
+}
+
+async function makeTempDirectory(prefix) {
+  const directory = await mkdtemp(prefix);
+  tempRoots.add(directory);
+  return directory;
+}
+
+function testSafeLogName(relativePath) {
+  const hash = createHash('sha1').update(relativePath).digest('hex').slice(0, 8);
+  return `${relativePath.replace(/[^a-zA-Z0-9_.-]+/g, '_')}.${hash}`;
 }
 
 async function writeFixtureRegistry(rootDir, paths, overrides = {}) {
