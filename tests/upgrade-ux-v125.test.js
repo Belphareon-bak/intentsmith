@@ -460,6 +460,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { spawnSync } from 'child_process';
+import { writePrivatePortFile } from '../src/server-port-file.js';
 
 suite('Dynamic Port — config + port file');
 
@@ -529,18 +530,51 @@ test('server config honors explicit port and port-file overrides', () => {
   }
 });
 
-test('port file write/read roundtrip', () => {
+test('port file write/read roundtrip is private for new and stale files', () => {
   const tmpFile = path.join(os.tmpdir(), `c3-test-port-${process.pid}`);
   const portData = { port: 54321, host: '127.0.0.1', pid: process.pid, started: new Date().toISOString() };
 
-  fs.writeFileSync(tmpFile, JSON.stringify(portData));
-  const read = JSON.parse(fs.readFileSync(tmpFile, 'utf-8'));
-  assertEqual(read.port, 54321);
-  assertEqual(read.host, '127.0.0.1');
-  assertEqual(read.pid, process.pid);
+  try {
+    writePrivatePortFile(tmpFile, portData);
+    let read = JSON.parse(fs.readFileSync(tmpFile, 'utf-8'));
+    assertEqual(read.port, 54321);
+    assertEqual(read.host, '127.0.0.1');
+    assertEqual(read.pid, process.pid);
+    assertEqual(fs.lstatSync(tmpFile).mode & 0o777, 0o600);
 
-  // Cleanup
-  fs.unlinkSync(tmpFile);
+    fs.chmodSync(tmpFile, 0o644);
+    writePrivatePortFile(tmpFile, { ...portData, port: 54322 });
+    read = JSON.parse(fs.readFileSync(tmpFile, 'utf-8'));
+    assertEqual(read.port, 54322);
+    assertEqual(fs.lstatSync(tmpFile).mode & 0o777, 0o600);
+  } finally {
+    if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
+  }
+});
+
+test('private port file writer refuses a symlink without changing its target', () => {
+  const target = path.join(os.tmpdir(), `c3-test-port-target-${process.pid}`);
+  const link = path.join(os.tmpdir(), `c3-test-port-link-${process.pid}`);
+  try {
+    fs.writeFileSync(target, 'unchanged', { encoding: 'utf8', mode: 0o600 });
+    fs.symlinkSync(target, link);
+    let rejected = false;
+    try {
+      writePrivatePortFile(link, {
+        port: 54321,
+        host: '127.0.0.1',
+        pid: process.pid,
+        started: new Date().toISOString(),
+      });
+    } catch (error) {
+      rejected = /non-symlink/.test(error.message);
+    }
+    assert(rejected, 'port-file symlink must be rejected');
+    assertEqual(fs.readFileSync(target, 'utf8'), 'unchanged');
+  } finally {
+    if (fs.existsSync(link)) fs.unlinkSync(link);
+    if (fs.existsSync(target)) fs.unlinkSync(target);
+  }
 });
 
 test('port file cleanup on missing file does not crash', () => {
