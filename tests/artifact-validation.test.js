@@ -285,6 +285,27 @@ test('DEFERRED with concrete canonical prerequisites is accepted', () => {
 suite('Gate 0 verdict derivation');
 
 function dispositionReport(errors = []) {
+  const dispositions = [
+    ...Array(91).fill('EXCLUDE'),
+    ...Array(42).fill('KEEP'),
+    ...Array(92).fill('REBUILD'),
+  ];
+  const resolutions = [
+    ...Array(91).fill('ABSENT'),
+    ...Array(32).fill('EXACT'),
+    ...Array(3).fill('MAPPED_REPAIR'),
+    ...Array(99).fill('MODIFIED'),
+  ];
+  let rebuildIndex = 0;
+  const paths = dispositions.map((disposition, index) => {
+    let action = disposition === 'EXCLUDE' ? 'REMOVE_FOLLOWUP' : 'REPLAY';
+    if (disposition === 'REBUILD') {
+      action = rebuildIndex++ < 60
+        ? 'REPAIRED'
+        : 'DEFERRED(owned-server)';
+    }
+    return { disposition, action, resolution: resolutions[index] };
+  });
   return {
     schemaVersion: 2,
     sourceRepository: {
@@ -306,7 +327,7 @@ function dispositionReport(errors = []) {
     terminalCounts: { REPAIRED: 60, 'DEFERRED(owned-server)': 32 },
     resolutionCounts: { ABSENT: 91, EXACT: 32, MAPPED_REPAIR: 3, MODIFIED: 99 },
     errors,
-    paths: Array.from({ length: 225 }, () => ({})),
+    paths,
   };
 }
 
@@ -424,6 +445,17 @@ test('green disposition report must satisfy pinned source and count invariants',
   malformed.terminalCounts = {};
   malformed.resolutionCounts = {};
   malformed.paths = [];
+  assertThrows(() => classifyDispositionValidatorExecution(
+    validatorExecution(0, malformed),
+  ));
+});
+
+test('green disposition report rejects unknown count and terminal vocabularies', () => {
+  const malformed = dispositionReport();
+  malformed.sourceManifest.changeCounts = { SURPRISE: 225 };
+  malformed.dispositionCounts = { REBUILD: 92, SURPRISE: 133 };
+  malformed.terminalCounts = { DONE: 92 };
+  malformed.resolutionCounts = { MAGIC: 225 };
   assertThrows(() => classifyDispositionValidatorExecution(
     validatorExecution(0, malformed),
   ));
@@ -581,7 +613,7 @@ test('baseline renders disposition counts from the structured report', () => {
   assert(!markdown.includes('undefined'));
 });
 
-await testAsync('manual verdict override is rejected before any evidence write', async () => {
+await testAsync('even an empty manual verdict override is rejected before evidence writes', async () => {
   const originalError = console.error;
   let errorText = '';
   console.error = (...values) => {
@@ -599,7 +631,7 @@ await testAsync('manual verdict override is rejected before any evidence write',
       '--deterministic-command=unused',
       '--pilot-command-template=unused-{runId}',
       '--soak-command=unused',
-      '--verdict=PASS',
+      '--verdict=',
     ]);
   } finally {
     console.error = originalError;

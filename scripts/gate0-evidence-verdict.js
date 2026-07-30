@@ -7,6 +7,32 @@ import {
   SOURCE_REPOSITORY_IDENTITY,
 } from './final-disposition-manifest.js';
 
+const EXPECTED_CHANGE_COUNTS = Object.freeze({
+  ADD: 185,
+  DELETE: 0,
+  MODIFY: 24,
+  RENAME: 16,
+});
+const ALLOWED_DISPOSITIONS = new Set(['EXCLUDE', 'KEEP', 'REBUILD']);
+const ALLOWED_RESOLUTIONS = new Set([
+  'ABSENT',
+  'EXACT',
+  'EXACT_DELETE',
+  'MAPPED_REPAIR',
+  'MODIFIED',
+]);
+const DEFERRED_PREREQUISITES = new Set([
+  'external-network',
+  'gpu',
+  'isolated-database',
+  'ollama',
+  'operator-fixture',
+  'owned-server',
+  'pinned-model',
+  'sufficient-gpu-vram',
+  'three-request-gpu-headroom',
+]);
+
 export const ReviewStatus = Object.freeze({
   PENDING: 'PENDING',
   APPROVED: 'APPROVED',
@@ -127,6 +153,12 @@ export function classifyDispositionValidatorExecution(result) {
     const dispositionTotal = sumCounts(report.dispositionCounts);
     const terminalTotal = sumCounts(report.terminalCounts);
     const resolutionTotal = sumCounts(report.resolutionCounts);
+    const pathDispositionCounts = countPathValues(report.paths, 'disposition');
+    const pathTerminalCounts = countPathValues(
+      report.paths.filter(item => item.disposition === 'REBUILD'),
+      'action',
+    );
+    const pathResolutionCounts = countPathValues(report.paths, 'resolution');
     if (
       report.records !== EXPECTED_RECORD_COUNT
       || report.paths.length !== EXPECTED_RECORD_COUNT
@@ -138,10 +170,16 @@ export function classifyDispositionValidatorExecution(result) {
       || report.sourceManifest.schemaVersion !== MANIFEST_SCHEMA_VERSION
       || report.sourceManifest.recordCount !== EXPECTED_RECORD_COUNT
       || report.sourceManifest.recordsSha256 !== EXPECTED_RECORDS_SHA256
-      || sumCounts(report.sourceManifest.changeCounts) !== EXPECTED_RECORD_COUNT
+      || !sameCountMap(report.sourceManifest.changeCounts, EXPECTED_CHANGE_COUNTS)
       || dispositionTotal !== EXPECTED_RECORD_COUNT
       || terminalTotal !== report.dispositionCounts.REBUILD
       || resolutionTotal !== EXPECTED_RECORD_COUNT
+      || !keysAllowed(report.dispositionCounts, ALLOWED_DISPOSITIONS)
+      || !keysAllowed(report.resolutionCounts, ALLOWED_RESOLUTIONS)
+      || !Object.keys(report.terminalCounts).every(validTerminalState)
+      || !sameCountMap(report.dispositionCounts, pathDispositionCounts)
+      || !sameCountMap(report.terminalCounts, pathTerminalCounts)
+      || !sameCountMap(report.resolutionCounts, pathResolutionCounts)
     ) {
       throw new EvidenceInfrastructureError(
         `${label} green report violates pinned count or source invariants`,
@@ -174,6 +212,42 @@ function sumCounts(value) {
   return validObject(value)
     ? Object.values(value).reduce((sum, count) => sum + count, 0)
     : Number.NaN;
+}
+
+function countPathValues(values, key) {
+  return values.reduce((counts, value) => {
+    const label = value?.[key];
+    if (typeof label !== 'string' || label === '') return counts;
+    counts[label] = (counts[label] || 0) + 1;
+    return counts;
+  }, {});
+}
+
+function keysAllowed(counts, allowed) {
+  return Object.keys(counts).every(key => allowed.has(key));
+}
+
+function sameCountMap(left, right) {
+  if (!validObject(left) || !validObject(right)) return false;
+  const leftKeys = Object.keys(left).sort();
+  const rightKeys = Object.keys(right).sort();
+  return (
+    leftKeys.length === rightKeys.length
+    && leftKeys.every((key, index) => (
+      key === rightKeys[index] && left[key] === right[key]
+    ))
+  );
+}
+
+function validTerminalState(value) {
+  if (value === 'ACCEPTED' || value === 'REPAIRED') return true;
+  const match = value.match(/^DEFERRED\(([^()]*)\)$/);
+  if (!match || match[1] === '') return false;
+  const prerequisites = match[1].split('+');
+  return (
+    new Set(prerequisites).size === prerequisites.length
+    && prerequisites.every(item => DEFERRED_PREREQUISITES.has(item))
+  );
 }
 
 export function findOpenGate0RepositoryBlockers(

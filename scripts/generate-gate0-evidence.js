@@ -58,7 +58,7 @@ export async function main(argv = process.argv.slice(2)) {
   ]) {
     if (!opts[key]) throw new Error(`Missing --${key}=VALUE`);
   }
-  if (opts.verdict) {
+  if (Object.hasOwn(opts, 'verdict')) {
     throw new EvidenceInfrastructureError(
       '--verdict is not supported; Gate 0 verdicts are derived from evidence',
     );
@@ -173,10 +173,15 @@ export async function main(argv = process.argv.slice(2)) {
   );
   if (
     registryValidation.passed
-    && registryValidation.report.fingerprint !== registryHash
+    && (
+      registryValidation.report.fingerprint !== registryHash
+      || registryValidation.report.runnablePrograms !== registry.suites.length
+      || registryValidation.report.explicitSupportExclusions
+        !== registry.exclusions.length
+    )
   ) {
     throw new EvidenceInfrastructureError(
-      'registry validator output does not contain the candidate fingerprint',
+      'registry validator report disagrees with the candidate inventory',
     );
   }
   const dispositionValidation = classifyDispositionValidatorExecution(
@@ -387,6 +392,7 @@ export async function main(argv = process.argv.slice(2)) {
     stateCounts,
     clauses,
     outcome,
+    dispositionRecords: dispositionValidation.report.records,
   });
 
   await writeAtomic(path.join(root, OUTPUTS.status), statusMarkdown);
@@ -845,6 +851,7 @@ function renderReviewPacket({
   stateCounts,
   clauses,
   outcome,
+  dispositionRecords,
 }) {
   return `# Gate 0 — Opus 5 Read-only Review Packet
 
@@ -855,9 +862,12 @@ function renderReviewPacket({
 - Focus range: \`${reviewRange}\`
 - Role: read-only reviewer; do not modify the branch
 
-The earlier large E2E reconstruction is represented by the validated 225-row
-disposition and registry evidence. This bounded packet focuses on the final
-test-trust repairs and verdict machinery.
+The earlier large E2E reconstruction is represented by the current
+${dispositionRecords}-row
+disposition report (clause
+${clauses.find(clause => clause.id === 'G0-C2')?.result || 'FAIL'}) and registry
+evidence. This bounded packet focuses on the final test-trust repairs and
+verdict machinery.
 
 - Derived verdict: **${outcome.verdict}**
 - Independent review status: **${outcome.reviewStatus}**
