@@ -15,9 +15,19 @@
 // Run: node tests/create-expertise-integration.test.js
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { expertiseRegistry } from '../src/expertises/expertise-layer.js';
-import { autoSelectExpertise, recomputeSharedTerms, _testInternals } from '../src/expertises/auto-select.js';
+import { BUILTIN_EXPERTISES, expertiseRegistry } from '../src/expertises/expertise-layer.js';
+import {
+  autoSelectExpertise,
+  recomputeSharedTerms,
+  registerBoostPatterns,
+  unregisterBoostPatterns,
+  _testInternals,
+} from '../src/expertises/auto-select.js';
 import { validateExpertiseConfig } from '../src/expertises/expertise-store.js';
+import {
+  register as registerAccountant,
+  unregister as unregisterAccountant,
+} from '../specialists/accountant-cz/index.js';
 
 const { _sharedTerms, _getAllExpertises } = _testInternals;
 
@@ -115,7 +125,11 @@ test('custom expertise appears in _getAllExpertises()', () => {
   const all = _getAllExpertises();
   assert('test_gardener' in all, 'test_gardener not in _getAllExpertises()');
   assert('writer' in all, 'built-in writer should still be present');
-  assert(Object.keys(all).length >= 16, `expected ≥16 expertises, got ${Object.keys(all).length}`);
+  assertEqual(
+    Object.keys(all).length,
+    Object.keys(BUILTIN_EXPERTISES).length + expertiseRegistry.getCustom().length,
+    'all built-in and custom expertises should be present',
+  );
 });
 
 test('auto-select matches custom expertise vocabulary', () => {
@@ -269,7 +283,23 @@ test('custom vocab term overlapping with built-in → shared', () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // 8. EXISTING AUTO-SELECT TESTS STILL PASS
 // ═══════════════════════════════════════════════════════════════════════════════
-section('8. Regression — built-in auto-select unchanged (3 tests)');
+section('8. Regression — registered auto-select unchanged (3 tests)');
+
+const accountantRuntimeEntries = new Map();
+const accountantContext = {
+  runtime: {
+    registerSpecialist: specialist => accountantRuntimeEntries.set(specialist.id, specialist),
+    unregisterSpecialist: id => accountantRuntimeEntries.delete(id),
+  },
+  manifest: null,
+  logger: { warn: () => {} },
+  registries: {
+    expertise: expertiseRegistry,
+    autoSelect: { registerBoostPatterns, unregisterBoostPatterns },
+  },
+};
+await registerAccountant(accountantContext);
+recomputeSharedTerms();
 
 test('writer: "kapitola" + "dialog" still works', () => {
   const r = autoSelectExpertise('Napiš mi druhou kapitolu s živým dialogem');
@@ -285,6 +315,9 @@ test('"ahoj" → null still works', () => {
   const r = autoSelectExpertise('ahoj');
   assertEqual(r.expertiseId, null);
 });
+
+unregisterAccountant(accountantContext);
+recomputeSharedTerms();
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SUMMARY
