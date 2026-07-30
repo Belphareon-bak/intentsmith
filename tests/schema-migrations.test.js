@@ -70,7 +70,7 @@ function getColumnNames(db, table) {
   return db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
 }
 
-// All 46 migration versions in order (as exported by each migration file, not filenames)
+// All migration versions in order (as exported by each migration file, not filenames)
 const ALL_MIGRATIONS = [
   '2026_02_14_001_baseline',
   '2026_02_14_002_v59_is_external',
@@ -118,9 +118,10 @@ const ALL_MIGRATIONS = [
   '2026_04_08_042_v137_universe_reconciliation',
   '2026_04_12_043_drafts_table',
   '2026_04_12_044_v138_runtime_guard',
+  '2026_07_30_045_telemetry_aggregation_version',
 ];
 
-const MIGRATION_COUNT = ALL_MIGRATIONS.length; // 46
+const MIGRATION_COUNT = ALL_MIGRATIONS.length;
 const LAST_MIGRATION = ALL_MIGRATIONS[ALL_MIGRATIONS.length - 1];
 
 // Expected tables after all migrations

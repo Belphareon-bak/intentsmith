@@ -10,9 +10,9 @@ override a failed or blocked suite.
 
 ## Inventory
 
-- Runnable programs: 262
-- Profiles: offline=171, database=21, server=7, model=44, soak=5, manual=14
-- States: ACTIVE=248, HISTORICAL=14
+- Runnable programs: 263
+- Profiles: offline=171, database=22, server=7, model=44, soak=5, manual=14
+- States: ACTIVE=249, HISTORICAL=14
 
 ## Execution profiles
 
@@ -269,6 +269,7 @@ override a failed or blocked suite.
 | `IS-T1-TESTS-STORAGE-ARCHITECTURE-TEST` | `tests/storage-architecture.test.js` | `C3-024` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SYMBOL-INDEX-TEST` | `tests/symbol-index.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-TASK-MEMORY-TEST` | `tests/task-memory.test.js` | `C3-016` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T2-TESTS-TELEMETRY-AGGREGATION-VERSION-TEST` | `tests/telemetry-aggregation-version.test.js` | `C3-027` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-TELEMETRY-SOAK-TEST` | `tests/telemetry-soak.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-TELEMETRY-TEST` | `tests/telemetry.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-TEST-COVERAGE-EXPLORER-TEST` | `tests/test-coverage-explorer.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

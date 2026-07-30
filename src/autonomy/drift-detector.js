@@ -13,6 +13,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { config } from '../config.js';
+import { TELEMETRY_AGGREGATION_VERSION } from './aggregator.js';
 
 /**
  * Detect drift in current metrics vs baseline.
@@ -32,9 +33,18 @@ export function detectDrift(deps, currentMetrics) {
     if (currentMetrics.totalTurns === 0) {
       return { drifted: false, alerts };
     }
+    if (typeof currentMetrics.windowEnd !== 'string' || currentMetrics.windowEnd.length === 0) {
+      logger.debug('Autonomy', 'Drift detection skipped: current window boundary missing');
+      return { drifted: false, alerts };
+    }
 
     // Get baseline from last N qualifying windows
-    const baseline = telemetryMetrics.baseline.get(minTurns, guards.baselineWindows);
+    const baseline = telemetryMetrics.baseline.get(
+      TELEMETRY_AGGREGATION_VERSION,
+      minTurns,
+      currentMetrics.windowEnd,
+      guards.baselineWindows,
+    );
 
     if (!baseline || baseline.avg_ask_user_rate == null) {
       // Not enough baseline data yet — no drift detection possible

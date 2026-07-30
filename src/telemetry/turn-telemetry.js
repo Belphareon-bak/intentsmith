@@ -62,9 +62,10 @@ export class TurnTelemetry {
   /**
    * Record CRE classification result.
    */
-  recordClassification({ intent, classifiedBy, confidence, classificationTimeMs, diag }) {
+  recordClassification(input) {
     if (this._finalized) return;
     try {
+      const { intent, classifiedBy, confidence, classificationTimeMs, diag } = input ?? {};
       this.classification.intent = intent ?? null;
       this.classification.classifiedBy = classifiedBy ?? null;
       this.classification.confidence = confidence ?? null;
@@ -72,12 +73,18 @@ export class TurnTelemetry {
       // v2: Whitelist CRE diagnostic fields for persistence
       if (diag) {
         this.diag = {
-          initialIntent: diag.initialIntent ?? null,
-          finalIntent: diag.finalIntent ?? null,
-          isIntentBreak: diag.isIntentBreak ?? false,
-          lastIntent: diag.lastIntent ?? null,
-          followUp: diag.followUp ?? null,      // {rule, confidence, type}
-          overrides: diag.overrides ?? null,     // string[] or null
+          initialIntent: stringOrNull(diag.initialIntent),
+          finalIntent: stringOrNull(diag.finalIntent),
+          isIntentBreak: diag.isIntentBreak === true,
+          lastIntent: stringOrNull(diag.lastIntent),
+          followUp: diag.followUp ? {
+            rule: stringOrNull(diag.followUp.rule),
+            confidence: confidenceOrNull(diag.followUp.confidence),
+            type: stringOrNull(diag.followUp.type),
+          } : null,
+          overrides: Array.isArray(diag.overrides)
+            ? diag.overrides.filter(value => typeof value === 'string')
+            : null,
         };
       }
     } catch (_) { /* telemetry must not throw */ }
@@ -86,9 +93,10 @@ export class TurnTelemetry {
   /**
    * Record CRE decision timing and override state.
    */
-  recordDecision({ decideTimeMs, overrideApplied, overrideSource }) {
+  recordDecision(input) {
     if (this._finalized) return;
     try {
+      const { decideTimeMs, overrideApplied, overrideSource } = input ?? {};
       this.decideTimeMs = decideTimeMs ?? null;
       this.classification.overrideApplied = overrideApplied ?? false;
       this.classification.overrideSource = overrideSource ?? null;
@@ -99,9 +107,10 @@ export class TurnTelemetry {
    * Record a single tool invocation result.
    * Called once per tool after execution completes.
    */
-  recordToolInvocation({ tool, durationMs, success, retryCount, errorType, errorCode }) {
+  recordToolInvocation(input) {
     if (this._finalized) return;
     try {
+      const { tool, durationMs, success, retryCount, errorType, errorCode } = input ?? {};
       this.execution.toolsInvoked.push({
         tool: tool ?? 'unknown',
         durationMs: durationMs ?? 0,
@@ -118,9 +127,10 @@ export class TurnTelemetry {
   /**
    * Record circuit breaker state before/after a tool execution.
    */
-  recordCircuitState({ tool, stateBefore, stateAfter }) {
+  recordCircuitState(input) {
     if (this._finalized) return;
     try {
+      const { tool, stateBefore, stateAfter } = input ?? {};
       this.circuit.states.push({
         tool: tool ?? 'unknown',
         stateBefore: stateBefore ?? null,
@@ -148,9 +158,10 @@ export class TurnTelemetry {
   /**
    * Record execution summary (from ToolExecutor).
    */
-  recordExecution({ executionTimeMs, status, partialFailure }) {
+  recordExecution(input) {
     if (this._finalized) return;
     try {
+      const { executionTimeMs, status, partialFailure } = input ?? {};
       this.execution.executionTimeMs = executionTimeMs ?? null;
       this.execution.status = status ?? null;
       this.execution.partialFailure = partialFailure ?? false;
@@ -192,7 +203,11 @@ export class TurnTelemetry {
           overrideApplied: this.classification.overrideApplied,
           overrideSource: this.classification.overrideSource,
           // v2: CRE diagnostic snapshot
-          diag: this.diag ? Object.freeze(this.diag) : null,
+          diag: this.diag ? Object.freeze({
+            ...this.diag,
+            followUp: this.diag.followUp ? Object.freeze({ ...this.diag.followUp }) : null,
+            overrides: this.diag.overrides ? Object.freeze([...this.diag.overrides]) : null,
+          }) : null,
         }),
 
         execution: Object.freeze({
@@ -223,6 +238,16 @@ export class TurnTelemetry {
 
     return this._snapshot;
   }
+}
+
+function stringOrNull(value) {
+  return typeof value === 'string' ? value : null;
+}
+
+function confidenceOrNull(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+    ? value
+    : null;
 }
 
 export default TurnTelemetry;

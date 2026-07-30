@@ -9,6 +9,7 @@
 
 import { strict as assert } from 'node:assert';
 import { TurnTelemetry } from '../src/telemetry/turn-telemetry.js';
+import { aggregate } from '../src/autonomy/aggregator.js';
 import { config } from '../src/config.js';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -105,6 +106,52 @@ test('II.4 — recordDecision defaults overrideApplied to false', () => {
   t.recordDecision({ decideTimeMs: 5 });
   assert.equal(t.classification.overrideApplied, false);
   assert.equal(t.classification.overrideSource, null);
+});
+
+test('II.5 — v2 snapshot emits serializable, whitelisted CRE diagnostics', () => {
+  const t = new TurnTelemetry('t-001', 's', 'c');
+  const cyclicValue = {};
+  cyclicValue.self = cyclicValue;
+  const followUp = {
+    rule: 'explicit-search',
+    confidence: Infinity,
+    type: cyclicValue,
+    privateDetail: 'must-not-persist',
+  };
+  const overrides = ['explicit_search_override', cyclicValue, 42];
+  t.recordClassification({
+    intent: 'SEARCH',
+    diag: {
+      initialIntent: 'AMBIGUOUS',
+      finalIntent: 'SEARCH',
+      isIntentBreak: 'yes',
+      lastIntent: cyclicValue,
+      followUp,
+      overrides,
+      privateDetail: 'must-not-persist',
+    },
+  });
+  followUp.rule = 'mutated-after-recording';
+  overrides[0] = 'mutated_after_recording';
+
+  const snap = t.finalize(Date.now());
+  assert.equal(snap.version, 2);
+  assert.deepEqual(snap.classification.diag, {
+    initialIntent: 'AMBIGUOUS',
+    finalIntent: 'SEARCH',
+    isIntentBreak: false,
+    lastIntent: null,
+    followUp: {
+      rule: 'explicit-search',
+      confidence: null,
+      type: null,
+    },
+    overrides: ['explicit_search_override'],
+  });
+  assert.ok(Object.isFrozen(snap.classification.diag));
+  assert.ok(Object.isFrozen(snap.classification.diag.followUp));
+  assert.ok(Object.isFrozen(snap.classification.diag.overrides));
+  assert.doesNotThrow(() => JSON.parse(JSON.stringify(snap)));
 });
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -236,7 +283,7 @@ test('VII.1 — finalize returns frozen snapshot with version', () => {
   const turnStart = Date.now() - 1500; // simulate 1.5s ago
   const snap = t.finalize(turnStart);
 
-  assert.equal(snap.version, 1);
+  assert.equal(snap.version, 2);
   assert.equal(snap.turnId, 't-001');
   assert.equal(snap.sessionId, 'sess-1');
   assert.equal(snap.conversationId, 'conv-1');
@@ -252,6 +299,7 @@ test('VII.1 — finalize returns frozen snapshot with version', () => {
   assert.equal(snap.classification.classifiedBy, 'llm');
   assert.equal(snap.classification.confidence, 0.9);
   assert.equal(snap.classification.overrideApplied, false);
+  assert.equal(snap.classification.diag, null);
 
   // Execution
   assert.equal(snap.execution.toolsInvoked.length, 1);
@@ -319,11 +367,21 @@ test('VII.5 — finalize with null turnStartTime produces null totalTurnTimeMs',
 
 console.log('\n═══ VIII. Safety Guarantees ═══');
 
-test('VIII.1 — recordClassification does not throw on undefined input', () => {
+test('VIII.1 — recording methods do not throw on undefined input', () => {
   const t = new TurnTelemetry('t-001', 's', 'c');
-  t.recordClassification(undefined ?? {});
-  // Should not throw
+  t.recordClassification(undefined);
+  t.recordDecision(undefined);
+  t.recordToolInvocation(undefined);
+  t.recordCircuitState(undefined);
+  t.recordExecution(undefined);
+  t.recordClassification(null);
+  t.recordDecision(null);
+  t.recordToolInvocation(null);
+  t.recordCircuitState(null);
+  t.recordExecution(null);
   assert.equal(t.classification.intent, null);
+  assert.equal(t.execution.toolsInvoked.length, 2);
+  assert.equal(t.circuit.states.length, 2);
 });
 
 test('VIII.2 — recordToolInvocation does not throw on empty object', () => {
@@ -351,7 +409,7 @@ test('VIII.4 — multiple recording methods can be chained without issues', () =
 
   const snap = t.finalize(Date.now() - 3000);
 
-  assert.equal(snap.version, 1);
+  assert.equal(snap.version, 2);
   assert.equal(snap.classification.intent, 'REPORT');
   assert.equal(snap.classification.overrideApplied, true);
   assert.equal(snap.classification.overrideSource, 'sticky_intent');
@@ -416,7 +474,7 @@ test('X.1 — Full TOOL_CALL turn produces complete snapshot', () => {
   const snap = t.finalize(turnStart);
 
   // Verify full structure
-  assert.equal(snap.version, 1);
+  assert.equal(snap.version, 2);
   assert.equal(snap.turnId, 't-042');
   assert.equal(snap.sessionId, 'ws-session-7');
   assert.equal(snap.conversationId, 'conv-main');
@@ -478,6 +536,67 @@ test('X.4 — Partial failure turn with circuit breaker opening', () => {
   assert.equal(snap.circuit.states.length, 2);
   assert.equal(snap.circuit.states[1].stateAfter, 'OPEN');
   assert.ok(snap.timing.totalTurnTimeMs >= 31000);
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// XI. MIXED-VERSION AGGREGATION
+// ════════════════════════════════════════════════════════════════════════════
+
+console.log('\n═══ XI. Mixed-Version Aggregation ═══');
+
+test('XI.1 — autonomy rates and volume use only eligible v2 diagnostics', () => {
+  const rows = [
+    { snapshot_json: JSON.stringify({ version: 1, classification: { diag: null } }) },
+    { snapshot_json: JSON.stringify({
+      version: 1,
+      classification: {
+        diag: { finalIntent: 'LOCAL', overrides: ['legacy_override'] },
+      },
+    }) },
+    { snapshot_json: JSON.stringify({
+      version: 2,
+      classification: {
+        diag: {
+          initialIntent: 'AMBIGUOUS',
+          finalIntent: 'AMBIGUOUS',
+          isIntentBreak: false,
+          followUp: null,
+          overrides: null,
+        },
+      },
+    }) },
+    { snapshot_json: JSON.stringify({ version: 2, classification: { diag: null } }) },
+    { snapshot_json: JSON.stringify({
+      version: 2,
+      classification: {
+        diag: {
+          initialIntent: 'LOCAL',
+          finalIntent: 'LOCAL',
+          isIntentBreak: 'false',
+          followUp: null,
+          overrides: [],
+        },
+      },
+    }) },
+    { snapshot_json: JSON.stringify({ version: 2, classification: { diag: 'malformed' } }) },
+    { snapshot_json: '{' },
+  ];
+  let insertedMetrics = null;
+  const result = aggregate({
+    db: { prepare: () => ({ all: () => rows }) },
+    telemetryMetrics: { add: { run: (...args) => { insertedMetrics = args; } } },
+    telemetryAlerts: { add: { run: () => {} } },
+    creEngine: { getOverrideThreshold: () => 0.7 },
+    logger: { debug: () => {} },
+  }, new Date('2026-07-30T00:15:00.000Z'));
+
+  assert.equal(result.metrics.observedTurns, 7);
+  assert.equal(result.metrics.totalTurns, 1);
+  assert.equal(result.metrics.ambiguousCount, 1);
+  assert.equal(result.metrics.askUserCount, 1);
+  assert.equal(result.metrics.overrideCount, 0);
+  assert.equal(insertedMetrics[2], 1, 'persisted denominator must count only eligible v2 diagnostics');
+  assert.equal(result.lowVolume, 1 < config.autonomy.minTurnsPerWindow);
 });
 
 // ════════════════════════════════════════════════════════════════════════════

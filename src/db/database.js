@@ -1597,8 +1597,9 @@ export const telemetryMetrics = {
     INSERT INTO telemetry_metrics (
       window_start, window_end, total_turns, ambiguous_count,
       ask_user_count, break_count, override_count,
-      avg_confidence, override_threshold_at_time, rule_distribution
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      avg_confidence, override_threshold_at_time, rule_distribution,
+      aggregation_version
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `),
 
   latest: db.prepare(`SELECT * FROM telemetry_metrics ORDER BY window_end DESC LIMIT 1`),
@@ -1610,7 +1611,8 @@ export const telemetryMetrics = {
     SELECT AVG(ask_user_rate) as avg_ask_user_rate, AVG(break_rate) as avg_break_rate FROM (
       SELECT (ask_user_count * 1.0 / total_turns) AS ask_user_rate,
              (break_count * 1.0 / total_turns) AS break_rate
-      FROM telemetry_metrics WHERE total_turns >= ?
+      FROM telemetry_metrics
+      WHERE aggregation_version = ? AND total_turns >= ? AND window_end < ?
       ORDER BY window_end DESC LIMIT ?
     )
   `),

@@ -22,6 +22,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { TurnTelemetry } from '../src/telemetry/turn-telemetry.js';
+import { aggregate } from '../src/autonomy/aggregator.js';
 import { ToolExecutor, ToolResult, ToolResultType, ExecutionStatus, ToolErrorCode } from '../src/executor/tool-executor.js';
 import { CREDecisionEngine, IntentType, DecisionType, ToolType } from '../src/chat/cre-decision.js';
 
@@ -31,6 +32,13 @@ import { CREDecisionEngine, IntentType, DecisionType, ToolType } from '../src/ch
 
 const TOTAL_TURNS = parseInt(process.env.SOAK_TURNS || '1000');
 const CONV_ID = 'soak-test-conv';
+const SOAK_SEED = Number.parseInt(process.env.SOAK_SEED || '12648430', 10) >>> 0;
+let randomState = SOAK_SEED;
+
+function random() {
+  randomState = (Math.imul(randomState, 1664525) + 1013904223) >>> 0;
+  return randomState / 0x100000000;
+}
 
 // Failure injection rates (realistic production estimates)
 const FAILURE_RATE = 0.08;       // 8% of tool executions fail
@@ -130,7 +138,7 @@ function intentToDecision(intent) {
 
 // Weighted distribution (approximate real traffic)
 function pickRandomInput(turnIndex) {
-  const r = Math.random();
+  const r = random();
   if (r < 0.30) return { input: SEARCH_INPUTS[turnIndex % SEARCH_INPUTS.length], category: 'search' };
   if (r < 0.50) return { input: CONVERSATIONAL_INPUTS[turnIndex % CONVERSATIONAL_INPUTS.length], category: 'conversational' };
   if (r < 0.65) return { input: SIMPLE_INPUTS[turnIndex % SIMPLE_INPUTS.length], category: 'simple' };
@@ -148,7 +156,7 @@ function createMockExecutor() {
 
   // Override ALL handlers with fast mocks
   executor.register(ToolType.WEB_SEARCH, async () => {
-    const latency = 200 + Math.random() * 800; // 200-1000ms simulated
+    const latency = 200 + random() * 800; // 200-1000ms simulated
     if (shouldFail()) {
       return ToolResult.failed({
         type: ToolResultType.SEARCH,
@@ -172,7 +180,7 @@ function createMockExecutor() {
   });
 
   executor.register(ToolType.WEB_SCRAPE, async () => {
-    const latency = 500 + Math.random() * 1500; // 500-2000ms simulated
+    const latency = 500 + random() * 1500; // 500-2000ms simulated
     if (shouldFail()) {
       return ToolResult.failed({
         type: ToolResultType.SCRAPE,
@@ -203,9 +211,9 @@ function createMockExecutor() {
   return executor;
 }
 
-function shouldFail() { return Math.random() < FAILURE_RATE; }
-function shouldTimeout() { return Math.random() < TIMEOUT_RATE; }
-function shouldCancel() { return Math.random() < CANCEL_RATE; }
+function shouldFail() { return random() < FAILURE_RATE; }
+function shouldTimeout() { return random() < TIMEOUT_RATE; }
+function shouldCancel() { return random() < CANCEL_RATE; }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SOAK TEST RUNNER
@@ -238,21 +246,29 @@ async function runSoakTest() {
 
     // Simulate LLM classification for ~15% of turns (record as 'llm' even
     // though we didn't actually call LLM — tests the telemetry shape)
-    const simulateLlm = Math.random() < 0.15;
+    const simulateLlm = random() < 0.15;
     const classifiedBy = simulateLlm ? 'llm' : 'deterministic';
-    const confidence = simulateLlm ? (0.7 + Math.random() * 0.3) : 1.0;
+    const confidence = simulateLlm ? (0.7 + random() * 0.3) : 1.0;
+    const overrideApplied = random() < 0.05;
 
     telemetry.recordClassification({
       intent,
       classifiedBy,
       confidence,
-      classificationTimeMs: simulateLlm ? classTimeMs + Math.round(Math.random() * 500) : classTimeMs,
+      classificationTimeMs: simulateLlm ? classTimeMs + Math.round(random() * 500) : classTimeMs,
+      diag: {
+        initialIntent: intent,
+        finalIntent: intent,
+        isIntentBreak: false,
+        lastIntent: null,
+        followUp: null,
+        overrides: overrideApplied ? ['first_turn_override'] : null,
+      },
     });
 
     // Simulate override for ~5% of turns
-    const overrideApplied = Math.random() < 0.05;
     telemetry.recordDecision({
-      decideTimeMs: classTimeMs + Math.round(Math.random() * 5),
+      decideTimeMs: classTimeMs + Math.round(random() * 5),
       overrideApplied,
       overrideSource: overrideApplied ? 'first_turn_override' : null,
     });
@@ -299,6 +315,17 @@ function percentile(sortedArr, p) {
 
 function analyzeSnapshots(snapshots) {
   const total = snapshots.length;
+  const aggregation = aggregate({
+    db: {
+      prepare: () => ({
+        all: () => snapshots.map(snapshot => ({ snapshot_json: JSON.stringify(snapshot) })),
+      }),
+    },
+    telemetryMetrics: { add: { run: () => {} } },
+    telemetryAlerts: { add: { run: () => {} } },
+    creEngine: { getOverrideThreshold: () => 0.85 },
+    logger: { debug: () => {} },
+  }, new Date('2026-07-30T00:15:00.000Z'));
 
   // ── Timing distribution ────────────────────────────────────────────────
   const totalTurnTimes = snapshots
@@ -483,8 +510,8 @@ function analyzeSnapshots(snapshots) {
     }
   }
 
-  check('All snapshots have version: 1',
-    snapshots.every(s => s.version === 1));
+  check('All snapshots have version: 2',
+    snapshots.every(s => s.version === 2));
 
   check('All snapshots have turnId, sessionId, conversationId',
     snapshots.every(s => s.turnId && s.sessionId && s.conversationId));
@@ -497,6 +524,10 @@ function analyzeSnapshots(snapshots) {
 
   check('All snapshots have classification block',
     snapshots.every(s => s.classification !== undefined));
+
+  check('All v2 snapshots are eligible for telemetry aggregation',
+    aggregation?.metrics?.observedTurns === total
+      && aggregation?.metrics?.totalTurns === total);
 
   const execTurns = snapshots.filter(s => s.execution.toolsInvoked.length > 0);
   check('Execution turns have status set',
