@@ -8,15 +8,17 @@
 //   Phase 2: SPEC refinement — user changes requirements, spec re-generated
 //   Phase 3: Roadmap change BEFORE build — milestone reordering
 //   Phase 4: Change DURING build — key rotation added mid-project
-//   Phase 5: Pressure test — product usability verification
+//   Phase 5: Pressure test — generated source-contract verification
 //   Phase 6: FakeLLM context audit — engine passes correct context to LLM
 //
 // Run: node tests/lifecycle-stress-advanced.test.js
 // ══════════════════════════════════════════════════════════════════════════════
 
+import './helpers/isolated-test-db.js';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync, execSync } from 'child_process';
 
 import {
   ProjectPhase,
@@ -49,6 +51,7 @@ import {
   clearLcState,
   initLifecycleStateDb,
 } from '../src/chat/handlers/lifecycle-state.js';
+import { rawId } from '../src/planner/lifecycle-planning.js';
 
 // ─── Assertions ─────────────────────────────────────────────────────────────
 
@@ -155,47 +158,47 @@ const ROADMAP_V1 = {
   milestones: [
     {
       id: 'ms-1', title: 'Encryption Engine', status: 'PENDING',
-      description: 'AES-256-GCM encrypt/decrypt + scrypt key derivation — foundation for all other milestones',
+      description: 'AES-256-GCM and scrypt source scaffold — foundation for later implementation',
       dependencies: [], dependency_rationale: 'No dependencies — foundational layer',
-      estimated_loc: 150, estimated_files: 2, estimated_complexity: 'MEDIUM',
+      estimated_loc: 150, estimated_files: 3, estimated_complexity: 'MEDIUM',
       goals_addressed: ['G1'], requirements_addressed: ['R1', 'R2'],
       risk: { description: 'scrypt param tuning for weak HW', mitigation: 'Benchmark on target HW', fallback: 'Reduce N/r/p params' },
-      test_strategy: { type: 'unit', description: 'Round-trip encrypt/decrypt', specific_tests: ['encrypt then decrypt returns original', 'different passwords produce different ciphertext', 'tampered ciphertext throws'], expected_test_count: 5 },
-      acceptance_criteria: ['Round-trip works', 'Wrong password fails gracefully'],
-      deliverables: ['src/crypto.js', 'tests/crypto.test.js'],
+      test_strategy: { type: 'source-contract', description: 'Validate AES-GCM and scrypt source-contract markers', command: 'node tests/contracts/current.test.js', specific_tests: ['crypto imports present', 'encrypt/decrypt/deriveKey exports present'], expected_test_count: 7 },
+      acceptance_criteria: ['Required crypto imports and interfaces are declared'],
+      deliverables: ['src/crypto.js', 'tests/contracts/crypto.test.js', 'tests/contracts/current.test.js'],
     },
     {
       id: 'ms-2', title: 'Credential Store', status: 'PENDING',
-      description: 'File-based encrypted credential store with CRUD',
+      description: 'File-based credential-store source scaffold with crypto and CRUD interfaces',
       dependencies: ['ms-1'], dependency_rationale: 'Store needs crypto for encrypt/decrypt',
-      estimated_loc: 180, estimated_files: 2, estimated_complexity: 'MEDIUM',
+      estimated_loc: 180, estimated_files: 3, estimated_complexity: 'MEDIUM',
       goals_addressed: ['G2'], requirements_addressed: ['R3', 'R4'],
       risk: { description: 'File corruption during write', mitigation: 'Atomic write pattern', fallback: 'Backup before write' },
-      test_strategy: { type: 'integration', description: 'CRUD operations on store', specific_tests: ['add entry then get returns it', 'list shows all entries', 'remove deletes entry', 'concurrent writes handled'], expected_test_count: 8 },
-      acceptance_criteria: ['All CRUD ops work', 'File survives process crash'],
-      deliverables: ['src/store.js', 'tests/store.test.js'],
+      test_strategy: { type: 'source-contract', description: 'Validate filesystem, crypto, and CRUD source-contract markers', command: 'node tests/contracts/current.test.js', specific_tests: ['filesystem and crypto imports present', 'CRUD exports present'], expected_test_count: 7 },
+      acceptance_criteria: ['Filesystem, crypto, and CRUD interfaces are declared'],
+      deliverables: ['src/store.js', 'tests/contracts/store.test.js', 'tests/contracts/current.test.js'],
     },
     {
       id: 'ms-3', title: 'CLI Interface', status: 'PENDING',
-      description: 'Command-line interface: add, get, list, remove, export, import',
+      description: 'Command-line source scaffold with documented add, get, list, and remove vocabulary',
       dependencies: ['ms-2'], dependency_rationale: 'CLI dispatches to Store',
-      estimated_loc: 220, estimated_files: 3, estimated_complexity: 'MEDIUM',
+      estimated_loc: 220, estimated_files: 4, estimated_complexity: 'MEDIUM',
       goals_addressed: ['G3'], requirements_addressed: ['R5', 'R6'],
       risk: { description: 'TTY vs piped input handling', mitigation: 'Detect TTY and switch mode', fallback: 'Interactive-only' },
-      test_strategy: { type: 'e2e', description: 'CLI commands end-to-end', specific_tests: ['klicenka add key=val', 'klicenka get key', 'klicenka list', 'export | import round-trip'], expected_test_count: 10 },
-      acceptance_criteria: ['All commands exit 0 on success', 'Export/import round-trip'],
-      deliverables: ['src/cli.js', 'bin/klicenka', 'tests/cli.test.js'],
+      test_strategy: { type: 'source-contract', description: 'Validate CLI and executable-wrapper source markers', command: 'node tests/contracts/current.test.js', specific_tests: ['parseArgs and command markers present', 'wrapper imports main'], expected_test_count: 8 },
+      acceptance_criteria: ['CLI scaffold and executable wrapper are declared'],
+      deliverables: ['src/cli.js', 'bin/klicenka', 'tests/contracts/cli.test.js', 'tests/contracts/current.test.js'],
     },
     {
       id: 'ms-4', title: 'C3 Integration', status: 'PENDING',
-      description: 'Integration module for C3 config system',
+      description: 'C3 configuration bridge source scaffold',
       dependencies: ['ms-2'], dependency_rationale: 'Integration reads from Store',
-      estimated_loc: 80, estimated_files: 2, estimated_complexity: 'LOW',
+      estimated_loc: 80, estimated_files: 3, estimated_complexity: 'LOW',
       goals_addressed: ['G4'], requirements_addressed: ['R7'],
       risk: { description: 'C3 config API changes', mitigation: 'Version-locked import', fallback: 'Fallback to env vars' },
-      test_strategy: { type: 'integration', description: 'C3 config reads secrets', specific_tests: ['getSecret returns decrypted value', 'missing key returns null'], expected_test_count: 3 },
-      acceptance_criteria: ['C3 config.getSecret() works'],
-      deliverables: ['src/integration.js', 'tests/integration.test.js'],
+      test_strategy: { type: 'source-contract', description: 'Validate getSecret store-wiring markers', command: 'node tests/contracts/current.test.js', specific_tests: ['store import present', 'getSecret export present'], expected_test_count: 2 },
+      acceptance_criteria: ['C3 bridge import and export interfaces are declared'],
+      deliverables: ['src/integration.js', 'tests/contracts/integration.test.js', 'tests/contracts/current.test.js'],
     },
   ],
   total_estimated_loc: 630,
@@ -207,14 +210,14 @@ const ROADMAP_V1 = {
 // Roadmap v2: CLI first (user request), then encryption
 const ROADMAP_V2 = {
   milestones: [
-    { ...ROADMAP_V1.milestones[2], id: 'ms-1', dependencies: [], dependency_rationale: 'CLI first per user request — stub crypto', status: 'PENDING' },
-    { ...ROADMAP_V1.milestones[0], id: 'ms-2', dependencies: ['ms-1'], dependency_rationale: 'Encryption replaces CLI stubs', status: 'PENDING' },
-    { ...ROADMAP_V1.milestones[1], id: 'ms-3', dependencies: ['ms-2'], dependency_rationale: 'Store needs real crypto', status: 'PENDING' },
-    { ...ROADMAP_V1.milestones[3], id: 'ms-4', dependencies: ['ms-3'], dependency_rationale: 'Integration reads from Store', status: 'PENDING' },
+    { ...ROADMAP_V1.milestones[2], dependencies: [], dependency_rationale: 'CLI first per user request — source scaffold precedes its backing modules', status: 'PENDING' },
+    { ...ROADMAP_V1.milestones[0], dependencies: ['ms-3'], dependency_rationale: 'Encryption follows the CLI scaffold', status: 'PENDING' },
+    { ...ROADMAP_V1.milestones[1], dependencies: ['ms-1'], dependency_rationale: 'Store needs the crypto scaffold', status: 'PENDING' },
+    { ...ROADMAP_V1.milestones[3], dependencies: ['ms-2'], dependency_rationale: 'Integration reads from Store', status: 'PENDING' },
   ],
   total_estimated_loc: 630,
   total_milestones: 4,
-  critical_path: ['ms-1', 'ms-2', 'ms-3'],
+  critical_path: ['ms-3', 'ms-1', 'ms-2', 'ms-4'],
   requirements_coverage: ROADMAP_V1.requirements_coverage,
 };
 
@@ -227,78 +230,114 @@ const ROADMAP_V3 = {
     { ...ROADMAP_V2.milestones[3] },
     {
       id: 'ms-5', title: 'Key Rotation', status: 'PENDING',
-      description: 'Re-encrypt all entries with new master password',
-      dependencies: ['ms-3'], dependency_rationale: 'Needs store + crypto',
-      estimated_loc: 100, estimated_files: 2, estimated_complexity: 'MEDIUM',
+      description: 'Key-rotation source scaffold with crypto imports and rotate interface',
+      dependencies: ['ms-2'], dependency_rationale: 'Needs store + crypto',
+      estimated_loc: 100, estimated_files: 3, estimated_complexity: 'MEDIUM',
       goals_addressed: ['G1', 'G2'], requirements_addressed: ['R1', 'R4'],
       risk: { description: 'Partial rotation on crash', mitigation: 'Transaction-like approach', fallback: 'Backup before rotation' },
-      test_strategy: { type: 'integration', description: 'Rotate and verify all entries', specific_tests: ['rotate changes ciphertext', 'old password fails after rotate', 'new password works'], expected_test_count: 5 },
-      acceptance_criteria: ['All entries re-encrypted', 'Old password rejected'],
-      deliverables: ['src/rotate.js', 'tests/rotate.test.js'],
+      test_strategy: { type: 'source-contract', description: 'Validate rotation source-contract markers', command: 'node tests/contracts/current.test.js', specific_tests: ['crypto imports present', 'rotate export present'], expected_test_count: 4 },
+      acceptance_criteria: ['Rotation crypto imports and interface are declared'],
+      deliverables: ['src/rotate.js', 'tests/contracts/rotate.test.js', 'tests/contracts/current.test.js'],
     },
   ],
   changes_summary: 'Added ms-5 (Key Rotation) per user change request',
   diff: { added: ['ms-5'], removed: [], modified: [], preserved: ['ms-1', 'ms-2', 'ms-3', 'ms-4'] },
   total_estimated_loc: 730,
   total_milestones: 5,
-  critical_path: ['ms-1', 'ms-2', 'ms-3', 'ms-5'],
+  critical_path: ['ms-3', 'ms-1', 'ms-2', 'ms-5'],
   requirements_coverage: ROADMAP_V1.requirements_coverage,
 };
 
 const MS_PLANS = {
-  'ms-1': {
-    milestone_id: 'ms-1',
-    technical_approach: 'Build CLI with stub crypto — parseArgs for command dispatch, prompt for master password, JSON store with plaintext initially.',
+  'ms-3': {
+    milestone_id: 'ms-3',
+    technical_approach: 'Create a CLI source scaffold with parseArgs, documented command vocabulary, and an executable wrapper.',
     files: [
       { path: 'src/cli.js', action: 'create', purpose: 'CLI entry point — parseArgs + command dispatch' },
       { path: 'bin/klicenka', action: 'create', purpose: 'Executable shebang wrapper' },
+      { path: 'tests/contracts/cli.test.js', action: 'create', purpose: 'Executable CLI source contract' },
+      { path: 'tests/contracts/current.test.js', action: 'create', purpose: 'Stable milestone contract entry point' },
     ],
     implementation_steps: [
-      { step: 1, action: 'Create parseArgs-based CLI with add/get/list/remove commands', file: 'src/cli.js', validation: 'klicenka --help shows all commands' },
+      { step: 1, action: 'Create parseArgs-based CLI source with add/get/list/remove command markers', file: 'src/cli.js', validation: 'Source contains parseArgs and the command vocabulary' },
+      { step: 2, action: 'Add executable command dispatch wrapper', file: 'bin/klicenka', validation: 'Wrapper invokes the CLI entry point' },
+      { step: 3, action: 'Create executable CLI and wrapper source-contract checks', file: 'tests/contracts/cli.test.js', validation: 'CLI scaffold and wrapper exports are present' },
     ],
-    test_plan: [{ name: 'CLI help', type: 'e2e', description: 'Shows help', input: '--help', expected_output: 'Usage:' }],
-    error_handling: [{ scenario: 'Unknown command', handling: 'Print usage and exit 1' }],
-    scope_files: ['src/cli.js', 'bin/klicenka'],
+    test_plan: [{ name: 'CLI source contract', type: 'structural', description: 'Check command and wrapper markers', expected_output: 'parseArgs and main exports present' }],
+    error_handling: [],
+    scope_files: ['src/cli.js', 'bin/klicenka', 'tests/contracts/cli.test.js', 'tests/contracts/current.test.js'],
     rollback_strategy: 'Delete created files',
+  },
+  'ms-1': {
+    milestone_id: 'ms-1',
+    technical_approach: 'Create a crypto module scaffold that declares the Node.js AES-GCM and scrypt interfaces.',
+    files: [
+      { path: 'src/crypto.js', action: 'create', purpose: 'Encryption engine' },
+      { path: 'tests/contracts/crypto.test.js', action: 'create', purpose: 'Executable crypto source contract' },
+      { path: 'tests/contracts/current.test.js', action: 'modify', purpose: 'Stable milestone contract entry point' },
+    ],
+    implementation_steps: [
+      { step: 1, action: 'Create scrypt key-derivation source scaffold', file: 'src/crypto.js', validation: 'Source imports and calls scryptSync' },
+      { step: 2, action: 'Define AES-GCM encrypt and decrypt interfaces', file: 'src/crypto.js', validation: 'Named crypto exports are present' },
+      { step: 3, action: 'Create executable crypto source-contract checks', file: 'tests/contracts/crypto.test.js', validation: 'Cipher, decipher, random-byte, and export symbols are present' },
+    ],
+    test_plan: [{ name: 'Crypto source contract', type: 'structural', description: 'Check AES-GCM and scrypt interface markers', expected_output: 'Required imports and exports present' }],
+    error_handling: [],
+    scope_files: ['src/crypto.js', 'tests/contracts/crypto.test.js', 'tests/contracts/current.test.js'],
+    rollback_strategy: 'Delete crypto.js',
   },
   'ms-2': {
     milestone_id: 'ms-2',
-    technical_approach: 'Implement AES-256-GCM with scrypt key derivation using Node.js crypto built-in.',
-    files: [{ path: 'src/crypto.js', action: 'create', purpose: 'Encryption engine' }],
-    implementation_steps: [{ step: 1, action: 'Implement encrypt/decrypt with scrypt', file: 'src/crypto.js', validation: 'Round-trip test passes' }],
-    test_plan: [{ name: 'Round-trip', type: 'unit', description: 'Encrypt then decrypt', input: 'test data', expected_output: 'test data' }],
-    error_handling: [{ scenario: 'Wrong password', handling: 'GCM auth tag mismatch → throw DecryptionError' }],
-    scope_files: ['src/crypto.js'],
-    rollback_strategy: 'Delete crypto.js',
-  },
-  'ms-3': {
-    milestone_id: 'ms-3',
-    technical_approach: 'File-based JSON store using crypto layer for per-value encryption.',
-    files: [{ path: 'src/store.js', action: 'create', purpose: 'Credential store' }],
-    implementation_steps: [{ step: 1, action: 'Implement CRUD with atomic write', file: 'src/store.js', validation: 'Add/get/list/remove all work' }],
-    test_plan: [{ name: 'CRUD', type: 'integration', description: 'All operations', input: 'key=val', expected_output: 'val' }],
-    error_handling: [{ scenario: 'Corrupted file', handling: 'Detect invalid JSON, offer recovery from backup' }],
-    scope_files: ['src/store.js'],
+    technical_approach: 'Create a credential-store source scaffold with filesystem, crypto, and CRUD interfaces.',
+    files: [
+      { path: 'src/store.js', action: 'create', purpose: 'Credential store' },
+      { path: 'tests/contracts/store.test.js', action: 'create', purpose: 'Executable store source contract' },
+      { path: 'tests/contracts/current.test.js', action: 'modify', purpose: 'Stable milestone contract entry point' },
+    ],
+    implementation_steps: [
+      { step: 1, action: 'Create credential-store filesystem and crypto imports', file: 'src/store.js', validation: 'Source imports read, write, encrypt, and decrypt symbols' },
+      { step: 2, action: 'Define add, get, list, and remove interfaces', file: 'src/store.js', validation: 'All CRUD exports are present' },
+      { step: 3, action: 'Create executable store source-contract checks', file: 'tests/contracts/store.test.js', validation: 'Filesystem, crypto, and CRUD symbols are present' },
+    ],
+    test_plan: [{ name: 'Store source contract', type: 'structural', description: 'Check filesystem, crypto, and CRUD markers', expected_output: 'Required imports and exports present' }],
+    error_handling: [],
+    scope_files: ['src/store.js', 'tests/contracts/store.test.js', 'tests/contracts/current.test.js'],
     rollback_strategy: 'Delete store.js',
   },
   'ms-4': {
     milestone_id: 'ms-4',
-    technical_approach: 'Bridge module exposing getSecret() for C3 config consumption.',
-    files: [{ path: 'src/integration.js', action: 'create', purpose: 'C3 integration' }],
-    implementation_steps: [{ step: 1, action: 'Implement getSecret() that reads from store', file: 'src/integration.js', validation: 'getSecret returns correct value' }],
-    test_plan: [{ name: 'Integration', type: 'integration', description: 'getSecret works', input: 'known key', expected_output: 'decrypted value' }],
-    error_handling: [{ scenario: 'Store file missing', handling: 'Return null, log warning' }],
-    scope_files: ['src/integration.js'],
+    technical_approach: 'Create a C3 bridge source scaffold exposing getSecret through the store interface.',
+    files: [
+      { path: 'src/integration.js', action: 'create', purpose: 'C3 integration' },
+      { path: 'tests/contracts/integration.test.js', action: 'create', purpose: 'Executable integration source contract' },
+      { path: 'tests/contracts/current.test.js', action: 'modify', purpose: 'Stable milestone contract entry point' },
+    ],
+    implementation_steps: [
+      { step: 1, action: 'Create the C3 configuration bridge', file: 'src/integration.js', validation: 'Bridge module exports getSecret' },
+      { step: 2, action: 'Connect getSecret to the credential-store get export', file: 'src/integration.js', validation: 'Source imports get from the store module' },
+      { step: 3, action: 'Create executable bridge source-contract checks', file: 'tests/contracts/integration.test.js', validation: 'getSecret import and export markers are present' },
+    ],
+    test_plan: [{ name: 'Bridge source contract', type: 'structural', description: 'Check getSecret store wiring markers', expected_output: 'Store import and bridge export present' }],
+    error_handling: [],
+    scope_files: ['src/integration.js', 'tests/contracts/integration.test.js', 'tests/contracts/current.test.js'],
     rollback_strategy: 'Delete integration.js',
   },
   'ms-5': {
     milestone_id: 'ms-5',
-    technical_approach: 'Key rotation: re-derive key with new password, re-encrypt all entries, atomic save.',
-    files: [{ path: 'src/rotate.js', action: 'create', purpose: 'Key rotation module' }],
-    implementation_steps: [{ step: 1, action: 'Implement rotate(oldPass, newPass) with backup', file: 'src/rotate.js', validation: 'All entries re-encrypted' }],
-    test_plan: [{ name: 'Rotation', type: 'integration', description: 'Rotate and verify', input: 'old+new password', expected_output: 'All entries accessible with new password' }],
-    error_handling: [{ scenario: 'Crash mid-rotation', handling: 'Restore from backup file' }],
-    scope_files: ['src/rotate.js'],
+    technical_approach: 'Create a key-rotation source scaffold with crypto imports and a rotate interface.',
+    files: [
+      { path: 'src/rotate.js', action: 'create', purpose: 'Key rotation module' },
+      { path: 'tests/contracts/rotate.test.js', action: 'create', purpose: 'Executable rotation source contract' },
+      { path: 'tests/contracts/current.test.js', action: 'modify', purpose: 'Stable milestone contract entry point' },
+    ],
+    implementation_steps: [
+      { step: 1, action: 'Create key-rotation crypto imports', file: 'src/rotate.js', validation: 'Source imports encrypt, decrypt, and deriveKey' },
+      { step: 2, action: 'Define the rotate interface and password parameters', file: 'src/rotate.js', validation: 'rotate export accepts store and password inputs' },
+      { step: 3, action: 'Create executable rotation source-contract checks', file: 'tests/contracts/rotate.test.js', validation: 'Required crypto imports and rotate export are present' },
+    ],
+    test_plan: [{ name: 'Rotation source contract', type: 'structural', description: 'Check rotation interface markers', expected_output: 'Crypto imports and rotate export present' }],
+    error_handling: [],
+    scope_files: ['src/rotate.js', 'tests/contracts/rotate.test.js', 'tests/contracts/current.test.js'],
     rollback_strategy: 'Delete rotate.js, restore backup',
   },
 };
@@ -426,15 +465,15 @@ function createFakeLLM() {
     // BUILD: milestone plan
     if (p.includes('implementation plan for THIS milestone') || p.includes('implementing a specific milestone')) {
       const msMatch = p.match(/"id"\s*:\s*"(ms-\d+)"/);
-      const msId = msMatch ? msMatch[1] : 'ms-1';
+      const msId = msMatch?.[1];
       milestonePlanPrompts.push({ msId, prompt: p });
 
       // ── Context validation: prompt must identify which milestone ──
-      if (!msMatch) {
-        promptContextErrors.push(`milestonePlan: cannot extract milestone ID from prompt (first 200 chars: ${p.substring(0, 200)})`);
+      if (!msId || !MS_PLANS[msId]) {
+        throw new Error(`Unknown milestone plan prompt: ${msId ?? 'missing'}; prompt: ${p.substring(0, 200)}`);
       }
 
-      return { content: JSON.stringify(MS_PLANS[msId] || MS_PLANS['ms-1']) };
+      return { content: JSON.stringify(MS_PLANS[msId]) };
     }
 
     // BUILD: checkpoint
@@ -548,19 +587,80 @@ export default { rotate };
 import { main } from '../src/cli.js';
 main();
 `,
+    'tests/contracts/cli.test.js': `import fs from 'node:fs';
+import assert from 'node:assert/strict';
+
+const cli = fs.readFileSync(new URL('../../src/cli.js', import.meta.url), 'utf8');
+const wrapper = fs.readFileSync(new URL('../../bin/klicenka', import.meta.url), 'utf8');
+assert.match(cli, /import \\{ parseArgs \\} from 'node:util'/);
+assert.match(cli, /export function main/);
+for (const command of ['add', 'get', 'list', 'remove']) {
+  assert.ok(cli.includes(command), \`missing CLI command marker: \${command}\`);
+}
+assert.match(wrapper, /import \\{ main \\} from '\\.\\.\\/src\\/cli\\.js'/);
+assert.match(wrapper, /main\\(\\)/);
+`,
+    'tests/contracts/crypto.test.js': `import fs from 'node:fs';
+import assert from 'node:assert/strict';
+
+const source = fs.readFileSync(new URL('../../src/crypto.js', import.meta.url), 'utf8');
+for (const symbol of ['createCipheriv', 'createDecipheriv', 'scryptSync', 'randomBytes']) {
+  assert.ok(source.includes(symbol), \`missing crypto symbol: \${symbol}\`);
+}
+for (const exported of ['encrypt', 'decrypt', 'deriveKey']) {
+  assert.match(source, new RegExp(\`export function \${exported}\\\\(\`));
+}
+`,
+    'tests/contracts/store.test.js': `import fs from 'node:fs';
+import assert from 'node:assert/strict';
+
+const source = fs.readFileSync(new URL('../../src/store.js', import.meta.url), 'utf8');
+for (const symbol of ['encrypt', 'decrypt', 'writeFileSync', 'readFileSync', 'renameSync']) {
+  assert.ok(source.includes(symbol), \`missing store dependency: \${symbol}\`);
+}
+for (const exported of ['add', 'get', 'list', 'remove']) {
+  assert.match(source, new RegExp(\`export function \${exported}\\\\(\`));
+}
+`,
+    'tests/contracts/integration.test.js': `import fs from 'node:fs';
+import assert from 'node:assert/strict';
+
+const source = fs.readFileSync(new URL('../../src/integration.js', import.meta.url), 'utf8');
+assert.match(source, /import \\{ get \\} from '\\.\\/store\\.js'/);
+assert.match(source, /export function getSecret\\(/);
+`,
+    'tests/contracts/rotate.test.js': `import fs from 'node:fs';
+import assert from 'node:assert/strict';
+
+const source = fs.readFileSync(new URL('../../src/rotate.js', import.meta.url), 'utf8');
+for (const symbol of ['encrypt', 'decrypt', 'deriveKey']) {
+  assert.ok(source.includes(symbol), \`missing rotation dependency: \${symbol}\`);
+}
+assert.match(source, /export function rotate\\(storePath, oldPassword, newPassword\\)/);
+`,
+  };
+  const currentContractByMilestone = {
+    'ms-1': 'crypto.test.js',
+    'ms-2': 'store.test.js',
+    'ms-3': 'cli.test.js',
+    'ms-4': 'integration.test.js',
+    'ms-5': 'rotate.test.js',
   };
 
   return {
     async start(request, meta) {
-      const msId = meta?.milestoneId || 'ms-unknown';
-      const plan = MS_PLANS[msId] || {};
+      const msId = rawId(meta?.milestoneId);
+      const plan = MS_PLANS[msId];
+      if (!plan) throw new Error(`No executor fixture for ${meta?.milestoneId ?? 'missing milestone'}`);
       const files = plan.files || [];
       for (const f of files) {
         const fullPath = path.join(projectPath, f.path);
         fs.mkdirSync(path.dirname(fullPath), { recursive: true });
         // Use domain-specific content if available, otherwise generic
-        const content = contentTemplates[f.path]
-          || `// ${f.purpose || msId}\n// Auto-generated by lifecycle executor\nexport default {};\n`;
+        const content = f.path === 'tests/contracts/current.test.js'
+          ? `import './${currentContractByMilestone[msId]}';\n`
+          : contentTemplates[f.path]
+            || `// ${f.purpose || msId}\n// Auto-generated by lifecycle executor\nexport default {};\n`;
         fs.writeFileSync(fullPath, content);
       }
       try {
@@ -603,14 +703,16 @@ async function run() {
   cleanDB();
 
   const SESSION_ID = 'stress-e2e';
-  const projectPath = `/tmp/lc-stress-${Date.now()}`;
-  fs.mkdirSync(projectPath, { recursive: true });
+  const projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'lc-stress-'));
   execSync('git init', { cwd: projectPath, stdio: 'pipe' });
   execSync('git config user.email "test@test.com"', { cwd: projectPath, stdio: 'pipe' });
   execSync('git config user.name "Test"', { cwd: projectPath, stdio: 'pipe' });
-  // Minimal package.json so engine's `npm test` passes during post-execution
+  // Fail closed if a milestone forgets its explicit source-contract command.
   fs.writeFileSync(path.join(projectPath, 'package.json'), JSON.stringify({
-    name: 'klicenka-stress-test', version: '0.0.1', scripts: { test: 'echo "ok"' },
+    name: 'klicenka-stress-test',
+    version: '0.0.1',
+    type: 'module',
+    scripts: { test: 'node -e "process.exit(97)"' },
   }));
   execSync('git add -A && git commit -m "init"', { cwd: projectPath, stdio: 'pipe' });
 
@@ -834,6 +936,27 @@ async function run() {
         `V1: ${v1Order} | V2: ${v2Order}`);
     }
 
+    const revisedDbMilestones = msRepo.listByLifecycle(s6.lifecycleId);
+    const revisedDbOrder = revisedDbMilestones.map(ms => ms.title);
+    check(JSON.stringify(revisedDbOrder) === JSON.stringify([
+      'CLI Interface',
+      'Encryption Engine',
+      'Credential Store',
+      'C3 Integration',
+    ]), 'RC.8: persisted milestone sequence matches the revised roadmap',
+    `DB: ${revisedDbOrder.join(' → ')}`);
+
+    const definitionsMatch = revisedDbMilestones.every((stored, index) => {
+      const expected = ROADMAP_V2.milestones[index];
+      return rawId(stored.id) === expected.id
+        && stored.title === expected.title
+        && stored.sequence === index + 1
+        && JSON.stringify(stored.dependencies.map(rawId)) === JSON.stringify(expected.dependencies)
+        && stored.test_strategy?.description === expected.test_strategy.description;
+    });
+    check(definitionsMatch,
+      'RC.9: persisted IDs, dependencies, and test strategies match roadmap V2');
+
     // ═══════════════════════════════════════════════════════════════════════
     // PHASE 4: BUILD — Execute milestones + CHANGE during BUILD
     // ═══════════════════════════════════════════════════════════════════════
@@ -849,13 +972,13 @@ async function run() {
     check(s7?.phase === 'BUILD' || s7?.currentMilestoneId != null,
       'BLD.1: in BUILD phase', `phase=${s7?.phase}`);
 
-    // Execute ms-1 (CLI stub)
+    // Execute the reordered first milestone (stable ms-3 is now first).
     const r8 = await handleLifecycleInput('ano', context);
-    logTurn('ano — build ms-1', r8);
+    logTurn('ano — build reordered ms-3', r8);
 
-    // Check ms-1 files created
+    // Check the first reordered milestone created its actual CLI deliverables.
     check(fs.existsSync(path.join(projectPath, 'src/cli.js')) || fs.existsSync(path.join(projectPath, 'bin/klicenka')),
-      'BLD.2: ms-1 deliverables created');
+      'BLD.2: reordered CLI milestone deliverables created');
 
     // BUILD progress
     const s8 = getLcState(SESSION_ID);
@@ -880,7 +1003,7 @@ async function run() {
     const s9 = getLcState(SESSION_ID);
 
     // Engine should detect this as a change request
-    check(s9?.phase === 'CHANGE' || r9?.content?.includes('change') || r9?.content?.includes('rotation') || r9?.content?.includes('milník'),
+    check(s9?.phase === 'CHANGE',
       'CHG.1: change request detected and acknowledged', `phase=${s9?.phase}`);
 
     // If in CHANGE phase, approve the change
@@ -897,13 +1020,11 @@ async function run() {
         `SELECT id, title, status FROM milestones WHERE lifecycle_id = ? AND status = 'PASSED'`
       ).all(lcIdAfterChange);
 
-      if (passedBeforeChange.length > 0) {
-        const allPreserved = passedBeforeChange.every(before =>
-          passedAfterChange.some(after => after.title === before.title && after.status === 'PASSED'));
-        check(allPreserved,
-          'CHG.3: all PASSED milestones before change remain PASSED after',
-          `before: [${passedBeforeChange.map(m => m.title).join(', ')}], after: [${passedAfterChange.map(m => m.title).join(', ')}]`);
-      }
+      const allPreserved = passedBeforeChange.length > 0 && passedBeforeChange.every(before =>
+        passedAfterChange.some(after => after.title === before.title && after.status === 'PASSED'));
+      check(allPreserved,
+        'CHG.3: all PASSED milestones before change remain PASSED after',
+        `before: [${passedBeforeChange.map(m => m.title).join(', ')}], after: [${passedAfterChange.map(m => m.title).join(', ')}]`);
 
       // Verify change ADDED milestone(s) — total count grew
       const totalMilestonesAfterChange = db.prepare(
@@ -912,15 +1033,22 @@ async function run() {
       check(totalMilestonesAfterChange > totalMilestonesBeforeChange,
         'CHG.4: change request added new milestone(s)',
         `before: ${totalMilestonesBeforeChange}, after: ${totalMilestonesAfterChange}`);
+    } else {
+      check(false, 'CHG.2: back in BUILD after change approval', `phase=${s9?.phase}`);
+      check(false, 'CHG.3: all PASSED milestones before change remain PASSED after',
+        'change approval was not reached');
+      check(false, 'CHG.4: change request added new milestone(s)',
+        'change approval was not reached');
     }
 
     // Continue building remaining milestones (handles both BUILD and BUILD_MILESTONE_REVIEW)
     let buildIter = 0;
     let currentState = getLcState(SESSION_ID);
-    const buildPhases = new Set(['BUILD', 'BUILD_MILESTONE_REVIEW']);
+    const buildPhases = new Set(['BUILD', 'BUILD_MILESTONE_REVIEW', 'REVIEW']);
     while (buildPhases.has(currentState?.phase) && buildIter < 20) {
-      const rN = await handleLifecycleInput('ano', context);
-      logTurn(`ano — build iter ${buildIter}`, rN);
+      const input = currentState.phase === 'REVIEW' ? 'pokračovat' : 'ano';
+      const rN = await handleLifecycleInput(input, context);
+      logTurn(`${input} — build iter ${buildIter}`, rN);
       currentState = getLcState(SESSION_ID);
       buildIter++;
       if (!buildPhases.has(currentState?.phase)) break;
@@ -929,74 +1057,91 @@ async function run() {
     check(buildIter > 0, 'BLD.4: build iterations completed', `iterations: ${buildIter}`);
 
     const finalState = getLcState(SESSION_ID);
-    const terminalPhases = new Set(['COMPLETED', 'BUILD', 'BUILD_MILESTONE_REVIEW', 'REVIEW']);
-    check(terminalPhases.has(finalState?.phase),
-      'BLD.5: reached COMPLETED, REVIEW, or still building', `phase=${finalState?.phase}`);
+    const finalDbState = lifecycleRepo.findById.get(s7.lifecycleId);
+    check(finalState == null,
+      'BLD.5: completed lifecycle clears in-memory handoff state',
+      `phase=${finalState?.phase}`);
+    check(finalDbState?.phase === 'COMPLETED',
+      'BLD.6: persisted lifecycle phase is COMPLETED',
+      `phase=${finalDbState?.phase}`);
 
     // ═══════════════════════════════════════════════════════════════════════
-    // PHASE 5: PRESSURE TEST — Product usability verification
+    // PHASE 5: PRESSURE TEST — Generated source-contract verification
     // ═══════════════════════════════════════════════════════════════════════
 
     console.log('\n═══ PHASE 5: PRESSURE TEST ══════════════════════════════════════════');
 
-    // Verify product files exist
-    const srcFiles = ['src/cli.js', 'src/crypto.js', 'src/store.js', 'src/integration.js'];
-    let filesExist = 0;
-    for (const f of srcFiles) {
-      if (fs.existsSync(path.join(projectPath, f))) filesExist++;
-    }
-    check(filesExist >= 3, 'PT.1: ≥3 product source files exist', `got ${filesExist}/4`);
+    const expectedArtifacts = [
+      'src/cli.js',
+      'bin/klicenka',
+      'src/crypto.js',
+      'src/store.js',
+      'src/integration.js',
+      'src/rotate.js',
+      'tests/contracts/cli.test.js',
+      'tests/contracts/crypto.test.js',
+      'tests/contracts/store.test.js',
+      'tests/contracts/integration.test.js',
+      'tests/contracts/rotate.test.js',
+      'tests/contracts/current.test.js',
+    ];
+    const missingArtifacts = expectedArtifacts.filter(
+      relPath => !fs.existsSync(path.join(projectPath, relPath))
+    );
+    check(missingArtifacts.length === 0, 'PT.1: every declared source and contract artifact exists',
+      `missing: ${missingArtifacts.join(', ')}`);
 
-    // Verify source files contain domain-specific symbols (not just empty stubs)
-    const cryptoPath = path.join(projectPath, 'src/crypto.js');
-    if (fs.existsSync(cryptoPath)) {
-      const cryptoContent = fs.readFileSync(cryptoPath, 'utf-8');
-      const hasCryptoSymbols = cryptoContent.includes('createCipheriv') || cryptoContent.includes('scryptSync')
-        || cryptoContent.includes('encrypt') || cryptoContent.includes('randomBytes');
-      check(hasCryptoSymbols, 'PT.2: crypto.js contains crypto API symbols',
-        `first 120 chars: ${cryptoContent.substring(0, 120)}`);
-    } else {
-      check(false, 'PT.2: crypto.js missing — cannot validate content');
-    }
-
-    const cliPath = path.join(projectPath, 'src/cli.js');
-    if (fs.existsSync(cliPath)) {
-      const cliContent = fs.readFileSync(cliPath, 'utf-8');
-      const hasCliSymbols = cliContent.includes('parseArgs') || cliContent.includes('add')
-        || cliContent.includes('command') || cliContent.includes('klicenka');
-      check(hasCliSymbols, 'PT.3: cli.js contains CLI dispatch symbols',
-        `first 120 chars: ${cliContent.substring(0, 120)}`);
-    } else {
-      check(false, 'PT.3: cli.js missing — cannot validate content');
+    const contractFiles = [
+      'tests/contracts/cli.test.js',
+      'tests/contracts/crypto.test.js',
+      'tests/contracts/store.test.js',
+      'tests/contracts/integration.test.js',
+      'tests/contracts/rotate.test.js',
+      'tests/contracts/current.test.js',
+    ];
+    for (const contractFile of contractFiles) {
+      try {
+        execFileSync(process.execPath, [contractFile], {
+          cwd: projectPath,
+          encoding: 'utf8',
+          stdio: 'pipe',
+        });
+        check(true, `PT.contract: ${contractFile} passes`);
+      } catch (error) {
+        check(false, `PT.contract: ${contractFile} passes`,
+          error.stderr?.toString() || error.message);
+      }
     }
 
     // Verify ROADMAP.md has substantial content + milestone status markers
     if (fs.existsSync(roadmapPath)) {
       const rmContent = fs.readFileSync(roadmapPath, 'utf-8');
-      check(rmContent.length > 100, 'PT.4: ROADMAP.md has substantial content', `${rmContent.length} chars`);
+      check(rmContent.length > 100, 'PT.2: ROADMAP.md has substantial content', `${rmContent.length} chars`);
 
-      const hasStatusMarkers = rmContent.includes('PASSED') || rmContent.includes('✅')
-        || rmContent.includes('[x]') || rmContent.includes('COMPLETED')
-        || rmContent.includes('PENDING') || rmContent.includes('ms-');
-      check(hasStatusMarkers, 'PT.5: ROADMAP.md contains milestone identifiers or status markers',
-        `first 200 chars: ${rmContent.substring(0, 200)}`);
+      const roadmapStatuses = [...rmContent.matchAll(
+        /^\|\s*\d+\s*\|[^|\n]*\|\s*([^|\n]+?)\s*\|/gm
+      )].map(match => match[1].trim());
+      check(roadmapStatuses.length === ROADMAP_V3.milestones.length
+          && roadmapStatuses.every(status => status === 'DONE'),
+      'PT.3: ROADMAP.md reports every revised milestone as DONE',
+      `statuses: ${roadmapStatuses.join(', ')}`);
     } else {
-      check(false, 'PT.4: ROADMAP.md missing');
-      check(false, 'PT.5: ROADMAP.md missing — cannot check status markers');
+      check(false, 'PT.2: ROADMAP.md missing');
+      check(false, 'PT.3: ROADMAP.md missing — cannot check status markers');
     }
 
     // Verify git history: multiple commits with milestone-tagged messages
     try {
       const gitLog = execSync('git log --oneline', { cwd: projectPath, encoding: 'utf8' });
       const commits = gitLog.trim().split('\n');
-      check(commits.length >= 3, 'PT.6: git has ≥3 commits', `got ${commits.length}`);
+      check(commits.length >= 3, 'PT.4: git has ≥3 commits', `got ${commits.length}`);
 
       const hasMsCommit = commits.some(c => /executor:\s*ms-\d+|feat\(ms-\d+\)/.test(c));
-      check(hasMsCommit, 'PT.7: git log contains milestone-tagged commits',
+      check(hasMsCommit, 'PT.5: git log contains milestone-tagged commits',
         `commits: ${commits.slice(0, 5).join(' | ')}`);
     } catch {
-      check(false, 'PT.6: git log readable');
-      check(false, 'PT.7: git commit pattern check skipped');
+      check(false, 'PT.4: git log readable');
+      check(false, 'PT.5: git commit pattern check skipped');
     }
 
     // ═══════════════════════════════════════════════════════════════════════

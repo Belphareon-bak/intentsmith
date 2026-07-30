@@ -25,6 +25,10 @@ import { validateMilestoneSize, suggestMilestoneSplit } from './milestone-size.j
 import { splitFirstRoadmapMilestone } from './milestone-decomposer.js';
 import { ProjectPhase } from './lifecycle.js';
 import { logRoadmapScore } from './quality-telemetry.js';
+import {
+  assertCompletedMilestonesPreserved,
+  syncRevisedMilestones,
+} from './milestone-sync.js';
 
 // v112: Adaptive Build Strategy — lazy-loaded
 let _buildStratLoaded = false;
@@ -373,16 +377,14 @@ IMPORTANT: Do NOT modify or remove completed milestones. Adjust remaining milest
     throw new Error('D1 failed to revise roadmap');
   }
 
+  assertCompletedMilestonesPreserved(
+    currentRoadmap.roadmap.milestones,
+    newRoadmap.milestones,
+    completed.map(milestone => rawId(milestone.id))
+  );
+
   // Scope all IDs before comparison with DB (which has scoped IDs)
   _scopeRoadmapMilestones(newRoadmap.milestones, lifecycle.id);
-
-  // Verify completed milestones are preserved
-  for (const comp of completed) {
-    const found = newRoadmap.milestones.find(m => m.id === comp.id);
-    if (!found) {
-      throw new Error(`Revised roadmap dropped completed milestone ${comp.id}`);
-    }
-  }
 
   // Size validation
   const sizeWarnings = [];
@@ -414,51 +416,23 @@ IMPORTANT: Do NOT modify or remove completed milestones. Adjust remaining milest
     })),
   };
 
-  roadmapVersions.addVersion(
-    lifecycle.id,
+  // Store the immutable version and apply its definitions in one transaction.
+  // A rejected reorder must not become the latest roadmap version.
+  syncRevisedMilestones(
+    lifecycle,
+    newRoadmap.milestones,
+    completed,
     newVersion,
-    unscopedRoadmap,
-    `User revision: ${feedback.substring(0, 100)}`,
-    JSON.stringify(diffSummary)
-  );
-
-  // Update milestone DB records for new/changed milestones (scoped IDs)
-  // Keep completed milestones, re-create pending ones
-  const existingMs = msRepo.listByLifecycle(lifecycle.id);
-  const existingIds = new Set(existingMs.map(m => m.id));
-
-  for (let i = 0; i < newRoadmap.milestones.length; i++) {
-    const ms = newRoadmap.milestones[i];
-    // Skip completed milestones — already in DB with scoped ID
-    if (completed.some(c => c.id === ms.id)) continue;
-
-    // Delete old pending version if exists
-    if (existingIds.has(ms.id)) {
-      // Update in place for existing non-completed
-      msRepo.updateStatus.run('PENDING', ms.id);
-    } else {
-      // Resolve checkpoint_mode: explicit from LLM > positional heuristic
-      const checkpointMode = ms.checkpoint_mode ||
-        (i === 0 ? 'STRUCTURAL' : i === newRoadmap.milestones.length - 1 ? 'SECURITY' : 'FUNCTIONAL');
-
-      // Add new milestone (scoped ID)
-      msRepo.addMilestone({
-        id: ms.id,
-        lifecycle_id: lifecycle.id,
-        roadmap_version: newVersion,
-        sequence: i + 1,
-        title: ms.title,
-        description: ms.description,
-        dependencies: ms.dependencies || [],
-        estimated_loc: ms.estimated_loc || 0,
-        estimated_files: ms.estimated_files || 0,
-        estimated_complexity: ms.estimated_complexity || 'MEDIUM',
-        test_strategy: ms.test_strategy || null,
-        max_retries: lifecycle.config.maxMilestoneRetries,
-        checkpoint_mode: checkpointMode,
-      });
+    {
+      persistVersion: () => roadmapVersions.addVersion(
+        lifecycle.id,
+        newVersion,
+        unscopedRoadmap,
+        `User revision: ${feedback.substring(0, 100)}`,
+        JSON.stringify(diffSummary)
+      ),
     }
-  }
+  );
 
   // Write ROADMAP.md to disk (after milestones are updated in DB)
   await writeRoadmapFile(lifecycle.projectPath, lifecycle.id);

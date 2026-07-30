@@ -30,6 +30,10 @@ import {
 import { validateDependencies, writeRoadmapFile, scopeId, rawId } from './lifecycle-planning.js';
 import { ProjectPhase } from './lifecycle.js';
 import { logChangeScore } from './quality-telemetry.js';
+import {
+  assertCompletedMilestonesPreserved,
+  syncRevisedMilestones,
+} from './milestone-sync.js';
 
 // ─── Propose Change ──────────────────────────────────────────────────────────
 
@@ -146,6 +150,12 @@ export async function applyChange(lifecycle, changeRequestId) {
     throw new Error('D1 failed to rewrite roadmap');
   }
 
+  assertCompletedMilestonesPreserved(
+    currentRoadmap.roadmap.milestones,
+    newRoadmap.milestones,
+    unscopedCompleted.map(milestone => milestone.id)
+  );
+
   // Scope all milestone IDs before any comparison with DB (scoped) records
   for (const ms of newRoadmap.milestones) {
     ms.id = scopeId(lifecycle.id, ms.id);
@@ -191,24 +201,25 @@ export async function applyChange(lifecycle, changeRequestId) {
     })),
   };
 
-  roadmapVersions.addVersion(
-    lifecycle.id,
+  // ─── Persist version, milestones, and request state atomically ──────────
+
+  syncMilestonesAfterRewrite(
+    lifecycle,
+    newRoadmap.milestones,
+    completed,
     newVersion,
-    unscopedRoadmap,
-    `Change request ${changeRequestId}: ${cr.description.substring(0, 100)}`,
-    typeof diffSummary === 'string' ? diffSummary : JSON.stringify(diffSummary)
+    () => roadmapVersions.addVersion(
+      lifecycle.id,
+      newVersion,
+      unscopedRoadmap,
+      `Change request ${changeRequestId}: ${cr.description.substring(0, 100)}`,
+      typeof diffSummary === 'string' ? diffSummary : JSON.stringify(diffSummary)
+    ),
+    () => crRepo.updateApplied.run(newVersion, changeRequestId)
   );
-
-  // ─── Update milestone DB records (scoped IDs) ──────────────────────────
-
-  syncMilestonesAfterRewrite(lifecycle, newRoadmap.milestones, completed, newVersion);
 
   // Write ROADMAP.md to disk with updated milestones
   await writeRoadmapFile(lifecycle.projectPath, lifecycle.id);
-
-  // ─── Mark change request as APPLIED ────────────────────────────────────
-
-  crRepo.updateApplied.run(newVersion, changeRequestId);
 
   logger.info('LifecycleChange', 'Change applied successfully', {
     lifecycleId: lifecycle.id,
@@ -321,50 +332,21 @@ function resequence(milestoneList) {
  * - Existing pending: update if modified, delete if removed
  * - New: insert
  */
-function syncMilestonesAfterRewrite(lifecycle, newMilestones, completed, newVersion) {
-  const completedIds = new Set(completed.map(m => m.id));
-  const existing = msRepo.listByLifecycle(lifecycle.id);
-  const existingMap = new Map(existing.map(m => [m.id, m]));
-  const newIds = new Set(newMilestones.map(m => m.id));
-
-  // Delete removed milestones (only if not completed)
-  for (const ms of existing) {
-    if (!newIds.has(ms.id) && !completedIds.has(ms.id)) {
-      // Can't delete with prepared statement — use raw query
-      try {
-        const { db: rawDb } = require('../db/database.js');
-        rawDb.prepare('DELETE FROM milestones WHERE id = ?').run(ms.id);
-      } catch { /* ignore cleanup errors */ }
-    }
-  }
-
-  // Add/update milestones
-  for (const ms of newMilestones) {
-    if (completedIds.has(ms.id)) continue; // Skip completed
-
-    const seq = parseInt(ms.id?.replace('ms-', ''), 10) || newMilestones.indexOf(ms) + 1;
-
-    if (existingMap.has(ms.id)) {
-      // Update existing pending milestone
-      msRepo.updateStatus.run('PENDING', ms.id);
-    } else {
-      // Insert new milestone
-      msRepo.addMilestone({
-        id: ms.id,
-        lifecycle_id: lifecycle.id,
-        roadmap_version: newVersion,
-        sequence: seq,
-        title: ms.title,
-        description: ms.description || null,
-        dependencies: ms.dependencies || [],
-        estimated_loc: ms.estimated_loc || 0,
-        estimated_files: ms.estimated_files || 0,
-        estimated_complexity: ms.estimated_complexity || 'MEDIUM',
-        test_strategy: ms.test_strategy || null,
-        max_retries: lifecycle.config.maxMilestoneRetries,
-      });
-    }
-  }
+function syncMilestonesAfterRewrite(
+  lifecycle,
+  newMilestones,
+  completed,
+  newVersion,
+  persistVersion,
+  finalize
+) {
+  syncRevisedMilestones(
+    lifecycle,
+    newMilestones,
+    completed,
+    newVersion,
+    { persistVersion, finalize }
+  );
 }
 
 // ─── Change Request List ─────────────────────────────────────────────────────

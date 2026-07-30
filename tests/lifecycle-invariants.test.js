@@ -15,6 +15,8 @@
 // Run: node tests/lifecycle-invariants.test.js
 // ══════════════════════════════════════════════════════════════════════════════
 
+import './helpers/isolated-test-db.js';
+
 import {
   ProjectPhase,
   MilestoneStatus,
@@ -25,9 +27,14 @@ import { validatePreservation } from '../src/planner/lifecycle-change.js';
 import {
   lifecycles as lifecycleRepo,
   milestones as msRepo,
+  roadmapVersions,
   projects,
   db,
 } from '../src/db/database.js';
+import {
+  assertCompletedMilestonesPreserved,
+  syncRevisedMilestones,
+} from '../src/planner/milestone-sync.js';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -57,6 +64,15 @@ function assert(condition, name, detail = '') {
 async function assertThrowsAsync(fn, name) {
   try {
     await fn();
+    fail(name, 'expected throw');
+  } catch {
+    pass(name);
+  }
+}
+
+function assertThrows(fn, name) {
+  try {
+    fn();
     fail(name, 'expected throw');
   } catch {
     pass(name);
@@ -814,6 +830,187 @@ console.log('\n── 17. test_strategy Invariant ──');
   const inProgress = [MilestoneStatus.PENDING, MilestoneStatus.PLANNING, MilestoneStatus.AWAITING_PLAN, MilestoneStatus.EXECUTING, MilestoneStatus.TESTING, MilestoneStatus.REVIEW];
   assert(terminal.length + inProgress.length === Object.values(MilestoneStatus).length,
     'All MilestoneStatus values categorized as terminal or in-progress');
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// 18. Revised Milestone Persistence Is Atomic and Fail-Closed
+// ════════════════════════════════════════════════════════════════════════════════
+
+console.log('\n── 18. Revised Milestone Persistence ──');
+
+{
+  const previous = [{
+    id: 'ms-preserved',
+    title: 'Original completed milestone',
+    description: 'Immutable definition',
+    dependencies: [],
+    test_strategy: { command: 'node original.test.js' },
+  }];
+  const validCompletionMetadata = [{
+    ...previous[0],
+    status: 'PASSED',
+    preserved: true,
+    commit_hash: 'commit-1',
+  }];
+  try {
+    assertCompletedMilestonesPreserved(previous, validCompletionMetadata, ['ms-preserved']);
+    pass('Completed milestone permits completion metadata without definition changes');
+  } catch (error) {
+    fail('Completed milestone permits completion metadata without definition changes', error.message);
+  }
+
+  assertThrows(
+    () => assertCompletedMilestonesPreserved(previous, [{
+      ...validCompletionMetadata[0],
+      title: 'MUTATED COMPLETED',
+    }], ['ms-preserved']),
+    'Completed milestone definition mutation is rejected'
+  );
+  assertThrows(
+    () => assertCompletedMilestonesPreserved(previous, [{
+      ...validCompletionMetadata[0],
+      test_strategy: { command: 'node weakened.test.js' },
+    }], ['ms-preserved']),
+    'Completed milestone test-strategy mutation is rejected'
+  );
+}
+
+{
+  const lc = makeLc('sync-invalid');
+  const completedId = `${lc.id}-completed`;
+  const pendingId = `${lc.id}-pending`;
+  const roadmapV1 = {
+    milestones: [
+      { id: completedId, title: 'Completed', dependencies: [] },
+      { id: pendingId, title: 'Pending', dependencies: [completedId] },
+    ],
+  };
+  roadmapVersions.addVersion(lc.id, 1, roadmapV1, 'initial');
+  msRepo.addMilestone({
+    id: completedId,
+    lifecycle_id: lc.id,
+    roadmap_version: 1,
+    sequence: 1,
+    title: 'Completed',
+    dependencies: [],
+  });
+  msRepo.addMilestone({
+    id: pendingId,
+    lifecycle_id: lc.id,
+    roadmap_version: 1,
+    sequence: 2,
+    title: 'Pending',
+    dependencies: [completedId],
+  });
+  msRepo.updateCompletion.run('commit-1', 'tag-1', '{"score":1}', completedId);
+
+  const completed = msRepo.getCompleted(lc.id);
+  const rowsBefore = JSON.stringify(msRepo.listByLifecycle(lc.id));
+  const invalidMove = [
+    { id: pendingId, title: 'Pending moved first', dependencies: [] },
+    { id: completedId, title: 'Completed', dependencies: [] },
+  ];
+  assertThrows(
+    () => syncRevisedMilestones(lc, invalidMove, completed, 2, {
+      persistVersion: () => roadmapVersions.addVersion(lc.id, 2, { milestones: invalidMove }, 'invalid'),
+    }),
+    'Completed milestone reorder is rejected'
+  );
+  assert(roadmapVersions.getLatestVersion(lc.id) === 1,
+    'Rejected completed reorder does not leave an orphan roadmap version');
+  assert(JSON.stringify(msRepo.listByLifecycle(lc.id)) === rowsBefore,
+    'Rejected completed reorder leaves milestone rows unchanged');
+
+  const duplicateIds = [
+    { id: completedId, title: 'Completed', dependencies: [] },
+    { id: pendingId, title: 'Pending A', dependencies: [completedId] },
+    { id: pendingId, title: 'Pending B', dependencies: [completedId] },
+  ];
+  assertThrows(
+    () => syncRevisedMilestones(lc, duplicateIds, completed, 2, {
+      persistVersion: () => roadmapVersions.addVersion(lc.id, 2, { milestones: duplicateIds }, 'duplicate'),
+    }),
+    'Duplicate revised milestone IDs are rejected'
+  );
+  assert(roadmapVersions.getLatestVersion(lc.id) === 1,
+    'Duplicate IDs are rejected before roadmap-version persistence');
+
+  cleanup(lc);
+}
+
+{
+  const lc = makeLc('sync-valid');
+  const firstId = `${lc.id}-first`;
+  const removedId = `${lc.id}-removed`;
+  const thirdId = `${lc.id}-third`;
+  const initial = [
+    { id: firstId, title: 'First', dependencies: [] },
+    { id: removedId, title: 'Remove me', dependencies: [firstId] },
+    { id: thirdId, title: 'Third', dependencies: [removedId] },
+  ];
+  roadmapVersions.addVersion(lc.id, 1, { milestones: initial }, 'initial');
+  initial.forEach((milestone, index) => msRepo.addMilestone({
+    ...milestone,
+    lifecycle_id: lc.id,
+    roadmap_version: 1,
+    sequence: index + 1,
+    test_strategy: { command: `node test-${index + 1}.js` },
+  }));
+  msRepo.updateLocalPlan.run('{"stale":true}', '["old.js"]', firstId);
+  msRepo.updateStatus.run('EXECUTING', firstId);
+
+  const revised = [
+    {
+      id: thirdId,
+      title: 'Third now first',
+      dependencies: [],
+      test_strategy: { command: 'node third.js' },
+    },
+    {
+      id: firstId,
+      title: 'First now second',
+      dependencies: [thirdId],
+      test_strategy: { command: 'node first.js' },
+    },
+  ];
+  syncRevisedMilestones(lc, revised, [], 2, {
+    persistVersion: () => roadmapVersions.addVersion(lc.id, 2, { milestones: revised }, 'valid reorder'),
+  });
+
+  const rows = msRepo.listByLifecycle(lc.id);
+  assert(rows.map(row => row.id).join(',') === `${thirdId},${firstId}`,
+    'Valid reorder persists contiguous array order and removes omitted pending rows');
+  assert(rows[0].sequence === 1 && rows[1].sequence === 2,
+    'Valid reorder persists contiguous sequence numbers');
+  assert(rows[0].title === 'Third now first'
+      && rows[1].dependencies[0] === thirdId
+      && rows[1].test_strategy.command === 'node first.js',
+    'Valid reorder updates title, dependencies, and test strategy');
+  assert(rows[1].local_plan === null && rows[1].scope_files === null
+      && rows[1].status === 'PENDING',
+    'Valid revision clears stale execution state');
+  assert(msRepo.getMilestone(removedId) === null,
+    'Removed non-completed milestone is deleted');
+  assert(roadmapVersions.getLatestVersion(lc.id) === 2,
+    'Valid reorder persists its roadmap version');
+
+  const rowsBeforeFinalizeFailure = JSON.stringify(rows);
+  const rejectedV3 = revised.map(milestone => ({ ...milestone, title: `${milestone.title} v3` }));
+  assertThrows(
+    () => syncRevisedMilestones(lc, rejectedV3, [], 3, {
+      persistVersion: () => roadmapVersions.addVersion(lc.id, 3, { milestones: rejectedV3 }, 'v3'),
+      finalize: () => {
+        throw new Error('synthetic finalize failure');
+      },
+    }),
+    'Finalize failure rolls back the whole revised-roadmap transaction'
+  );
+  assert(roadmapVersions.getLatestVersion(lc.id) === 2,
+    'Finalize failure rolls back roadmap-version persistence');
+  assert(JSON.stringify(msRepo.listByLifecycle(lc.id)) === rowsBeforeFinalizeFailure,
+    'Finalize failure rolls back milestone definition updates');
+
+  cleanup(lc);
 }
 
 // ════════════════════════════════════════════════════════════════════════════════

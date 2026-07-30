@@ -1248,6 +1248,40 @@ export const milestones = {
     UPDATE milestones SET status = ? WHERE id = ?
   `),
 
+  parkIncompleteSequences: db.prepare(`
+    UPDATE milestones
+    SET sequence = -sequence - 1
+    WHERE lifecycle_id = ? AND status != 'PASSED'
+  `),
+
+  updateDefinition: db.prepare(`
+    UPDATE milestones
+    SET roadmap_version = ?,
+        sequence = ?,
+        title = ?,
+        description = ?,
+        status = 'PENDING',
+        dependencies = ?,
+        estimated_loc = ?,
+        estimated_files = ?,
+        estimated_complexity = ?,
+        test_strategy = ?,
+        local_plan = NULL,
+        scope_files = NULL,
+        workflow_session_id = NULL,
+        commit_hash = NULL,
+        git_tag = NULL,
+        health_score = NULL,
+        started_at = NULL,
+        completed_at = NULL,
+        retry_count = 0,
+        max_retries = ?,
+        checkpoint_mode = ?
+    WHERE id = ?
+  `),
+
+  deleteById: db.prepare(`DELETE FROM milestones WHERE id = ?`),
+
   updateLocalPlan: db.prepare(`
     UPDATE milestones SET local_plan = ?, scope_files = ? WHERE id = ?
   `),
@@ -1288,6 +1322,32 @@ export const milestones = {
       testStr, planStr, scopeStr,
       data.max_retries || 3,
       data.checkpoint_mode || 'FUNCTIONAL'
+    );
+  },
+
+  updateMilestoneDefinition(data) {
+    const deps = typeof data.dependencies === 'string'
+      ? data.dependencies
+      : JSON.stringify(data.dependencies || []);
+    const testStr = data.test_strategy
+      ? (typeof data.test_strategy === 'string'
+          ? data.test_strategy
+          : JSON.stringify(data.test_strategy))
+      : null;
+
+    this.updateDefinition.run(
+      data.roadmap_version,
+      data.sequence,
+      data.title,
+      data.description || null,
+      deps,
+      data.estimated_loc || 0,
+      data.estimated_files || 0,
+      data.estimated_complexity || 'MEDIUM',
+      testStr,
+      data.max_retries || 3,
+      data.checkpoint_mode || 'FUNCTIONAL',
+      data.id
     );
   },
 
