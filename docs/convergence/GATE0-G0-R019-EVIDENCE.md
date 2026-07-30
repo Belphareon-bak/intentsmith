@@ -4,6 +4,8 @@ Status: deterministic repair verified; model/GPU rerun not claimed
 
 Base commit: `d79a8059e018312a917b268b156aeee80d27a3c6`
 
+Implementation commit: `445c1a7cd825ca47c0ebb7ecea4d816f2d92652d`
+
 Branch: `codex/g0-r019-milestone-truth`
 
 Date: 2026-07-30 Europe/Prague
@@ -49,10 +51,10 @@ All test processes used private temporary roots and an explicit
 
 ```bash
 env \
-  HOME=/tmp/intentsmith-g0-r019-harness-final.2DPs4u/home \
-  TMPDIR=/tmp/intentsmith-g0-r019-harness-final.2DPs4u/tmp \
-  C3_DB_PATH=/tmp/intentsmith-g0-r019-harness-final.2DPs4u/test.sqlite \
-  INTENTSMITH_TEST_ARTIFACT_DIR=/tmp/intentsmith-g0-r019-harness-final.2DPs4u/.intentsmith-artifacts \
+  HOME=/tmp/intentsmith-g0-r019-exact-harness.cM7Zvs/home \
+  TMPDIR=/tmp/intentsmith-g0-r019-exact-harness.cM7Zvs/tmp \
+  C3_DB_PATH=/tmp/intentsmith-g0-r019-exact-harness.cM7Zvs/test.sqlite \
+  INTENTSMITH_TEST_ARTIFACT_DIR=/tmp/intentsmith-g0-r019-exact-harness.cM7Zvs/.intentsmith-artifacts \
   node tests/e2e-harness-isolation.test.js
 ```
 
@@ -62,10 +64,10 @@ completion marker after a synthetic generation exception.
 
 ```bash
 env \
-  HOME=/tmp/intentsmith-g0-r019-lifecycle-helper.E4ZoaS/home \
-  TMPDIR=/tmp/intentsmith-g0-r019-lifecycle-helper.E4ZoaS/tmp \
-  C3_DB_PATH=/tmp/intentsmith-g0-r019-lifecycle-helper.E4ZoaS/test.sqlite \
-  INTENTSMITH_TEST_ARTIFACT_DIR=/tmp/intentsmith-g0-r019-lifecycle-helper.E4ZoaS/.intentsmith-artifacts \
+  HOME=/tmp/intentsmith-g0-r019-exact-lifecycle.6MsPsd/home \
+  TMPDIR=/tmp/intentsmith-g0-r019-exact-lifecycle.6MsPsd/tmp \
+  C3_DB_PATH=/tmp/intentsmith-g0-r019-exact-lifecycle.6MsPsd/test.sqlite \
+  INTENTSMITH_TEST_ARTIFACT_DIR=/tmp/intentsmith-g0-r019-exact-lifecycle.6MsPsd/.intentsmith-artifacts \
   node tests/lifecycle-build.test.js
 ```
 
@@ -87,6 +89,18 @@ env \
 
 Result: all five chained lifecycle programs completed; exit 0.
 
+The focused commands above were run from a clean worktree at exact HEAD
+`445c1a7cd825ca47c0ebb7ecea4d816f2d92652d`. Additional commit-bound checks
+returned:
+
+| Command | Result | Exit |
+|---|---|---:|
+| `node --check` on both changed implementations and both changed tests | all four syntax checks valid | 0 |
+| `node scripts/reconcile-ffd-e2e-registry.js` | 78 disputed E2E suites, all `BLOCKED`; path hash `43108129171be799d282df0fc5b7db5d40daefda0bbcebe5cc287f3139b033ff` | 0 |
+| `node scripts/validate-test-registry.js` | 350 runnable programs; registry hash `a7a5c6d4670159cd38a08edea8aabbf868eb3342a3baf1857b6a4849d1f4960a` | 0 |
+| isolated `node tests/artifact-validation.test.js` | 50 passed, 0 failed, 0 skipped | 0 |
+| isolated `node tests/repository-hygiene.test.js` | 1,341 tracked paths checked | 0 |
+
 The harness test was run outside the process sandbox because its existing
 containment assertion invokes local `git init`; the sandboxed baseline reported
 `spawnSync git EPERM`. The test itself used no network, model or GPU.
@@ -101,9 +115,13 @@ committing:
 | generation catch returns `COMPLETED` instead of `FAILED` | `generation failure was reported as COMPLETED` | 2 passed, 1 failed | 1 |
 | unavailable pytest returns `allPassed: null` instead of `false` | fail-closed result and final milestone decision assertions | 66 passed, 2 failed | 1 |
 
-The restored tree returned 3/3 and 68/68 in the focused suites. These are
-author-session mutation results; a commit-bound replay is recorded after the
-implementation commit exists.
+Both mutations were replayed against implementation commit `445c1a7`, one at a
+time. The generation mutation used
+`/tmp/intentsmith-g0-r019-exact-mutation-generation.aiAQyA`; the pytest mutation
+used `/tmp/intentsmith-g0-r019-exact-mutation-pytest.edYnL1`. After restoration,
+`git diff --exit-code`, `git diff --cached --exit-code` and
+`git status --porcelain=v1 --untracked-files=all` were all empty/exit 0 at the
+same implementation commit.
 
 ## Boundary
 
