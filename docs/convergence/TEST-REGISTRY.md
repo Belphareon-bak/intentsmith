@@ -10,9 +10,9 @@ override a failed or blocked suite.
 
 ## Inventory
 
-- Runnable programs: 263
-- Profiles: offline=171, database=22, server=7, model=44, soak=5, manual=14
-- States: ACTIVE=249, HISTORICAL=14
+- Runnable programs: 269
+- Profiles: offline=171, database=26, server=7, model=44, soak=6, manual=15
+- States: ACTIVE=254, HISTORICAL=15
 
 ## Execution profiles
 
@@ -116,6 +116,7 @@ override a failed or blocked suite.
 | `IS-T1-TESTS-DOMAINS-TEST` | `tests/domains.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-DRIFT-DETECTOR-TEST` | `tests/drift-detector.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-E2E-COMPLEX-TEST` | `tests/e2e-complex.test.js` | `C3-027` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
+| `IS-T2-TESTS-E2E-HARNESS-ISOLATION-TEST` | `tests/e2e-harness-isolation.test.js` | `C3-027` | T2 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-E2E-NOTIFICATIONS-TEST` | `tests/e2e-notifications.test.js` | `C3-027` | T3 | `model` | 5 min | 15 min | network:external | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-E2E-PIPELINE-TEST` | `tests/e2e-pipeline.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-E2E-RESILIENCE-TEST` | `tests/e2e-resilience.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
@@ -207,16 +208,19 @@ override a failed or blocked suite.
 | `IS-T1-TESTS-NOTIFICATIONS-TEST` | `tests/notifications.test.js` | `C3-021` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-ONLINE-DISCOVERY-TEST` | `tests/online-discovery.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-OUTPUT-GATE` | `tests/output-gate.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T5-TESTS-P5-ONLY-TEST` | `tests/p5-only.test.js` | `C3-005` | T5 | `manual` | 10 min | 15 min | network:loopback, temp-db, ollama, gpu | no | `HISTORICAL` | — | primary implementer |
 | `IS-T1-TESTS-PATCH-ENGINE-TEST` | `tests/patch-engine.test.js` | `C3-007` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-PATTERN-MINER-TEST` | `tests/pattern-miner.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-PERF-ANALYZER-TEST` | `tests/perf-analyzer.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-PILOT-C1C2C3-TEST` | `tests/pilot-c1c2c3.test.js` | `C3-027` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-PROJECT-CONVERSATION-E2E-P5P7-TEST` | `tests/project-conversation-e2e-p5p7.test.js` | `C3-005` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
+| `IS-T4-TESTS-PROJECT-CONVERSATION-E2E-V2-TEST` | `tests/project-conversation-e2e-v2.test.js` | `C3-005` | T4 | `soak` | 45 min | 60 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-PROJECT-CONVERSATION-E2E-TEST` | `tests/project-conversation-e2e.test.js` | `C3-005` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-PROJECT-E2E-V131-TEST` | `tests/project-e2e-v131.test.js` | `C3-005` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-PROJECT-E2E-TEST` | `tests/project-e2e.test.js` | `C3-005` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-PROJECT-KB-DECOMPOSER-TEST` | `tests/project-kb-decomposer.test.js` | `C3-005` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-PROJECT-LIFECYCLE-CHANGE-MGMT-TEST` | `tests/project-lifecycle-change-mgmt.test.js` | `C3-005` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
+| `IS-T2-TESTS-PROJECT-LIFECYCLE-ENTRY-TEST` | `tests/project-lifecycle-entry.test.js` | `C3-005` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-PROJECT-LIFECYCLE-EXPERTISE-TEST` | `tests/project-lifecycle-expertise.test.js` | `C3-005` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-PROJECT-LIFECYCLE-HAPPY-PATH-TEST` | `tests/project-lifecycle-happy-path.test.js` | `C3-005` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-PROJECT-LIFECYCLE-INTERCEPT-TEST` | `tests/project-lifecycle-intercept.test.js` | `C3-005` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
@@ -224,6 +228,7 @@ override a failed or blocked suite.
 | `IS-T2-TESTS-PROJECT-LIFECYCLE-KLICENKA-TEST` | `tests/project-lifecycle-klicenka.test.js` | `C3-005` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-PROJECT-WELCOME-TEST` | `tests/project-welcome.test.js` | `C3-005` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-PROMPT-BUILDER-TEST` | `tests/prompt-builder.test.js` | `C3-016` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T2-TESTS-PROPOSAL-STALE-CLEANUP-TEST` | `tests/proposal-stale-cleanup.test.js` | `C3-025` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-PUSH-CHANNEL-TEST` | `tests/push-channel.test.js` | `C3-021` | T3 | `model` | 5 min | 15 min | network:external | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-QG-IDEMPOTENCE-TEST` | `tests/qg-idempotence.test.js` | `C3-008` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-QUALITY-GATE-TEST` | `tests/quality-gate.test.js` | `C3-008` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
@@ -257,6 +262,7 @@ override a failed or blocked suite.
 | `IS-T1-TESTS-SIGNATURE-MAP-TEST` | `tests/signature-map.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SKILL-META-DETECTION-TEST` | `tests/skill-meta-detection.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-SKILL-ROUTING-CRE-TEST` | `tests/skill-routing-cre.test.js` | `C3-013` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
+| `IS-T2-TESTS-SMOKE-TEST` | `tests/smoke.test.js` | `C3-005` | T2 | `database` | 2 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T5-TESTS-SOAK-ATTACHMENT-HEAVY-TEST` | `tests/soak/attachment-heavy.test.js` | `C3-027` | T5 | `soak` | 30 min | 60 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T5-TESTS-SOAK-BREAK-PATTERN-PROBE-TEST` | `tests/soak/break-pattern-probe.test.js` | `C3-027` | T5 | `soak` | 30 min | 60 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T5-TESTS-SOAK-FOLLOWUP-LOAD-TEST` | `tests/soak/followup-load.test.js` | `C3-027` | T5 | `soak` | 30 min | 60 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |

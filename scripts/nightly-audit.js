@@ -387,6 +387,7 @@ async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
   const homeDir = path.join(suiteRoot, 'home');
   const tempDir = path.join(suiteRoot, 'tmp');
   const projectsDir = path.join(suiteRoot, 'projects');
+  const artifactsDir = path.join(suiteRoot, 'artifacts');
   const runtimeDir = path.join(suiteRoot, 'runtime');
   const xdgConfigDir = path.join(suiteRoot, 'xdg', 'config');
   const xdgCacheDir = path.join(suiteRoot, 'xdg', 'cache');
@@ -400,6 +401,7 @@ async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
     homeDir,
     tempDir,
     projectsDir,
+    artifactsDir,
     runtimeDir,
     xdgConfigDir,
     xdgCacheDir,
@@ -437,6 +439,7 @@ async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
     homeDir,
     tempDir,
     projectsDir,
+    artifactsDir,
     runtimeDir,
     xdgConfigDir,
     xdgCacheDir,
@@ -629,6 +632,7 @@ function makeSuiteEnvironment({
   homeDir,
   tempDir,
   projectsDir,
+  artifactsDir,
   runtimeDir,
   xdgConfigDir,
   xdgCacheDir,
@@ -676,6 +680,8 @@ function makeSuiteEnvironment({
     C3_AUDIT_RUN: '1',
     C3_DB_PATH: path.join(runtimeDir, 'intentsmith-test.sqlite'),
     C3_PROJECTS_DIR: projectsDir,
+    INTENTSMITH_TEST_PROJECTS_DIR: projectsDir,
+    INTENTSMITH_TEST_ARTIFACT_DIR: artifactsDir,
     C3_PORT: '0',
     C3_PORT_FILE: path.join(runtimeDir, 'intentsmith.port'),
     C3_LIFECYCLE_AUTO_COMMIT: 'false',
@@ -696,6 +702,7 @@ function makeSuiteEnvironment({
       temp: tempDir,
       database: env.C3_DB_PATH,
       projects: projectsDir,
+      artifacts: artifactsDir,
       portFile: env.C3_PORT_FILE,
       pdfPython: env.INTENTSMITH_PDF_PYTHON || env.C3_PDF_PYTHON || null,
       pythonNoUserSite: true,

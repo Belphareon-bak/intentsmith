@@ -29,13 +29,14 @@
 
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 
 import {
   TestRunner,
   createExecutor,
   cleanDB,
   initProjectDir,
+  resolveTestProjectPath,
   walkFiles,
   buildLoop,
   specLoop,
@@ -65,7 +66,7 @@ async function testUltimate_AIKnowledgeBase() {
   console.log('╚══════════════════════════════════════════════════════════════════════╝');
 
   const SESSION_ID = 'ultimate-kb-e2e';
-  const projectPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../projects/Ultimate-KB-E2E');
+  const projectPath = resolveTestProjectPath('Ultimate-KB-E2E');
   initProjectDir(projectPath);
   cleanDB(projectPath);
 
@@ -373,12 +374,18 @@ async function testUltimate_AIKnowledgeBase() {
 
     // ── Git history integrity ──
     try {
-      const gitLog = execSync('git log --oneline', { cwd: projectPath, encoding: 'utf8' });
+      const gitLog = execFileSync('git', ['log', '--oneline'], {
+        cwd: projectPath,
+        encoding: 'utf8',
+      });
       const commits = gitLog.trim().split('\n');
       t.check(commits.length >= 3, 'GIT: ≥3 commits (init + milestones)', `got: ${commits.length}`);
 
       // Check commit count via rev-list for accuracy
-      const revCount = execSync('git rev-list --count HEAD', { cwd: projectPath, encoding: 'utf8' }).trim();
+      const revCount = execFileSync('git', ['rev-list', '--count', 'HEAD'], {
+        cwd: projectPath,
+        encoding: 'utf8',
+      }).trim();
       t.check(Number(revCount) >= 3, 'GIT: rev-list confirms ≥3 commits', `got: ${revCount}`);
 
       console.log(`    Git commits (${commits.length}):`);
@@ -389,10 +396,12 @@ async function testUltimate_AIKnowledgeBase() {
 
     // ── Quality gate: Python syntax check ──
     let syntaxOk = true;
+    const syntaxCheckScript =
+      'import ast, pathlib, sys; ast.parse(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))';
     for (const pyFile of pyFiles) {
       const fullPath = path.join(projectPath, pyFile);
       try {
-        execSync(`python3 -c "import ast; ast.parse(open('${fullPath}').read())"`, {
+        execFileSync('python3', ['-c', syntaxCheckScript, fullPath], {
           stdio: 'pipe',
           timeout: 5000,
         });

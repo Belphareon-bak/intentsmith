@@ -8,7 +8,8 @@ import fs from 'fs';
 import path from 'path';
 
 import {
-  TestRunner, checkOllama, createExecutor, cleanDB, initProjectDir, walkFiles, buildLoop, specLoop, runTests,
+  TestRunner, checkOllama, createExecutor, cleanDB, initProjectDir, resolveTestProjectPath,
+  walkFiles, buildLoop, specLoop, runTests,
   allTranscripts, totalPassed, totalFailed, allFailures, globalStart, elapsed,
   ProjectPhase, MilestoneStatus, CheckpointMode,
   getBuildProgress, computeLifecycleProgress, formatMilestoneTable,
@@ -36,7 +37,7 @@ async function testPA_MobileAgent() {
   console.log('╚══════════════════════════════════════════════════════════════════════╝');
 
   const SESSION_ID = 'pa-mobile-agent-e2e';
-  const projectPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../projects/PA-MobileAgent-E2E');
+  const projectPath = resolveTestProjectPath('PA-MobileAgent-E2E');
   initProjectDir(projectPath);
   cleanDB(projectPath);
 
@@ -381,7 +382,7 @@ async function testPB_NasDupFinder() {
   console.log('╚══════════════════════════════════════════════════════════════════════╝');
 
   const SESSION_ID = 'pb-nas-dupfinder-e2e';
-  const projectPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../projects/PB-NasDupFinder-E2E');
+  const projectPath = resolveTestProjectPath('PB-NasDupFinder-E2E');
   initProjectDir(projectPath);
   cleanDB(projectPath);
 
@@ -616,7 +617,7 @@ async function testPC_MidPointConnector() {
   console.log('╚══════════════════════════════════════════════════════════════════════╝');
 
   const SESSION_ID = 'pc-midpoint-jira-e2e';
-  const projectPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../projects/PC-MidPointJira-E2E');
+  const projectPath = resolveTestProjectPath('PC-MidPointJira-E2E');
   initProjectDir(projectPath);
   cleanDB(projectPath);
 

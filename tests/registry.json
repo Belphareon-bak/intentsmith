@@ -7891,6 +7891,186 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T5-TESTS-P5-ONLY-TEST",
+      "path": "tests/p5-only.test.js",
+      "argv": [
+        "node",
+        "tests/p5-only.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T5",
+      "fixture": "historical-model-comparison",
+      "profile": "manual",
+      "timeoutMs": 900000,
+      "expectedDurationMs": 600000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": false,
+      "owner": "primary implementer",
+      "state": "HISTORICAL",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T4-TESTS-PROJECT-CONVERSATION-E2E-V2-TEST",
+      "path": "tests/project-conversation-e2e-v2.test.js",
+      "argv": [
+        "node",
+        "tests/project-conversation-e2e-v2.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T4",
+      "fixture": "isolated-model-soak-database",
+      "profile": "soak",
+      "timeoutMs": 3600000,
+      "expectedDurationMs": 2700000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-ENTRY-TEST",
+      "path": "tests/project-lifecycle-entry.test.js",
+      "argv": [
+        "node",
+        "tests/project-lifecycle-entry.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T2",
+      "fixture": "isolated-sqlite",
+      "profile": "database",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 60000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T2-TESTS-PROPOSAL-STALE-CLEANUP-TEST",
+      "path": "tests/proposal-stale-cleanup.test.js",
+      "argv": [
+        "node",
+        "tests/proposal-stale-cleanup.test.js"
+      ],
+      "capabilityId": "C3-025",
+      "tier": "T2",
+      "fixture": "isolated-sqlite",
+      "profile": "database",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 60000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T2-TESTS-SMOKE-TEST",
+      "path": "tests/smoke.test.js",
+      "argv": [
+        "node",
+        "tests/smoke.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T2",
+      "fixture": "isolated-sqlite",
+      "profile": "database",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T2-TESTS-E2E-HARNESS-ISOLATION-TEST",
+      "path": "tests/e2e-harness-isolation.test.js",
+      "argv": [
+        "node",
+        "tests/e2e-harness-isolation.test.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T2",
+      "fixture": "isolated-home-sqlite-git",
+      "profile": "database",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }

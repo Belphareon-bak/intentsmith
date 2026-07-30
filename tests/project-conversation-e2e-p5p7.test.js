@@ -4,10 +4,10 @@
 
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 
 import {
-  TestRunner, checkOllama, createExecutor, cleanDB, initProjectDir,
+  TestRunner, checkOllama, createExecutor, cleanDB, initProjectDir, resolveTestProjectPath,
   walkFiles, buildLoop, specLoop, runTests,
   allTranscripts, totalPassed, totalFailed, allFailures, globalStart, elapsed,
   ProjectPhase, MilestoneStatus, CheckpointMode,
@@ -31,7 +31,7 @@ async function testP5_TaskBoardSaaS() {
   console.log('╚══════════════════════════════════════════════════════════════════════╝');
 
   const SESSION_ID = 'p5-taskboard-e2e';
-  const projectPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../projects/P5-TaskBoard-E2E');
+  const projectPath = resolveTestProjectPath('P5-TaskBoard-E2E');
   initProjectDir(projectPath);
   cleanDB(projectPath);
 
@@ -214,7 +214,7 @@ async function testP6_LegacyRefactor() {
   console.log('╚══════════════════════════════════════════════════════════════════════╝');
 
   const SESSION_ID = 'p6-refactor-e2e';
-  const projectPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../projects/P6-LegacyRefactor-E2E');
+  const projectPath = resolveTestProjectPath('P6-LegacyRefactor-E2E');
   initProjectDir(projectPath);
   cleanDB(projectPath);
 
@@ -397,8 +397,8 @@ Simple inventory management system. Python + SQLite.
   }
 
   try {
-    execSync('git add -A', { cwd: projectPath, stdio: 'pipe' });
-    execSync('git commit -m "legacy: inventory manager monolith"', {
+    execFileSync('git', ['add', '-A'], { cwd: projectPath, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'legacy: inventory manager monolith'], {
       cwd: projectPath, stdio: 'pipe',
     });
   } catch { /* ignore */ }
@@ -519,7 +519,10 @@ Simple inventory management system. Python + SQLite.
 
     // Git history should have legacy commit + milestone commits
     try {
-      const gitLog = execSync('git log --oneline', { cwd: projectPath, encoding: 'utf8' });
+      const gitLog = execFileSync('git', ['log', '--oneline'], {
+        cwd: projectPath,
+        encoding: 'utf8',
+      });
       const commits = gitLog.trim().split('\n');
       t.check(commits.length >= 3, 'Git: ≥3 commits (init + legacy + milestones)', `got: ${commits.length}`);
     } catch (e) {
@@ -548,7 +551,7 @@ async function testP7_DevCLI() {
   console.log('╚══════════════════════════════════════════════════════════════════════╝');
 
   const SESSION_ID = 'p7-devcli-e2e';
-  const projectPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../projects/P7-DevCLI-E2E');
+  const projectPath = resolveTestProjectPath('P7-DevCLI-E2E');
   initProjectDir(projectPath);
   cleanDB(projectPath);
 

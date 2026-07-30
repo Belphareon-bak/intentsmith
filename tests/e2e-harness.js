@@ -13,7 +13,8 @@
 
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
+import { fileURLToPath } from 'url';
 
 import {
   ProjectPhase,
@@ -46,6 +47,48 @@ import { getLcState, setLcState, clearLcState, initLifecycleStateDb } from '../s
 import { callLLM } from '../src/planner/workflow.js';
 import { stripCodeFences, checkSyntax, repairCode, languagePromptSuffix } from '../src/planner/code-cleaner.js';
 import { runQualityGate, runEnhancedValidation, resolveJsImport, extractJsExports } from '../src/planner/quality-gate.js';
+
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const DEFAULT_PRIVATE_ROOT = path.join(
+  REPO_ROOT,
+  '.intentsmith-artifacts',
+  'model-e2e',
+  `manual-${process.pid}`,
+);
+
+function resolvePrivateRoot(envName, fallback) {
+  const configured = process.env[envName];
+  const resolved = path.resolve(configured || fallback);
+  if (!resolved.split(path.sep).includes('.intentsmith-artifacts')) {
+    throw new Error(`${envName} must be inside a .intentsmith-artifacts directory: ${resolved}`);
+  }
+  return resolved;
+}
+
+const TEST_ARTIFACT_ROOT = resolvePrivateRoot(
+  'INTENTSMITH_TEST_ARTIFACT_DIR',
+  DEFAULT_PRIVATE_ROOT,
+);
+const TEST_PROJECTS_ROOT = resolvePrivateRoot(
+  'INTENTSMITH_TEST_PROJECTS_DIR',
+  path.join(TEST_ARTIFACT_ROOT, 'projects'),
+);
+
+function assertOwnedChild(root, candidate, label) {
+  const relative = path.relative(root, candidate);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`${label} must be a child of the runner-owned root ${root}: ${candidate}`);
+  }
+}
+
+export function resolveTestProjectPath(projectName) {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(projectName)) {
+    throw new Error(`Unsafe test project name: ${projectName}`);
+  }
+  const projectPath = path.join(TEST_PROJECTS_ROOT, projectName);
+  assertOwnedChild(TEST_PROJECTS_ROOT, projectPath, 'test project path');
+  return projectPath;
+}
 
 // ─── Shared State ───────────────────────────────────────────────────────────
 
@@ -257,8 +300,8 @@ ${langSuffix}`;
       }
 
       try {
-        execSync('git add -A', { cwd: projectPath, stdio: 'pipe' });
-        execSync(`git commit -m "feat(${msId}): milestone implementation" --allow-empty`, {
+        execFileSync('git', ['add', '-A'], { cwd: projectPath, stdio: 'pipe' });
+        execFileSync('git', ['commit', '-m', `feat(${msId}): milestone implementation`, '--allow-empty'], {
           cwd: projectPath, stdio: 'pipe',
         });
       } catch { /* ignore */ }
@@ -294,6 +337,9 @@ export function cleanDB(projectPath) {
 }
 
 export function initProjectDir(dirPath) {
+  const resolved = path.resolve(dirPath);
+  assertOwnedChild(TEST_PROJECTS_ROOT, resolved, 'project initialization path');
+  dirPath = resolved;
   fs.mkdirSync(dirPath, { recursive: true });
   // Clean stale files from previous runs (preserve .git)
   for (const entry of fs.readdirSync(dirPath)) {
@@ -301,10 +347,10 @@ export function initProjectDir(dirPath) {
     fs.rmSync(path.join(dirPath, entry), { recursive: true, force: true });
   }
   if (!fs.existsSync(path.join(dirPath, '.git'))) {
-    execSync('git init', { cwd: dirPath, stdio: 'pipe' });
-    execSync('git config user.email "test@test.com"', { cwd: dirPath, stdio: 'pipe' });
-    execSync('git config user.name "Test"', { cwd: dirPath, stdio: 'pipe' });
-    execSync('git commit --allow-empty -m "init"', { cwd: dirPath, stdio: 'pipe' });
+    execFileSync('git', ['init'], { cwd: dirPath, stdio: 'pipe' });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: dirPath, stdio: 'pipe' });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dirPath, stdio: 'pipe' });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: dirPath, stdio: 'pipe' });
   }
 }
 
@@ -464,14 +510,26 @@ export async function runTests(testName, testFns, transcriptPrefix) {
 
   console.log('══════════════════════════════════════════════════════════════════════\n');
 
-  // Save transcript
-  const transcriptDir = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'test-transcripts');
-  fs.mkdirSync(transcriptDir, { recursive: true });
-  const transcriptPath = path.join(transcriptDir, `transcript-${transcriptPrefix}-${Date.now()}.json`);
-  fs.writeFileSync(transcriptPath, JSON.stringify(allTranscripts, null, 2));
+  const transcriptPath = saveTestTranscript(transcriptPrefix);
   console.log(`  Transcript: ${transcriptPath}`);
 
   process.exit(totalFailed > 0 ? 1 : 0);
+}
+
+export function saveTestTranscript(transcriptPrefix) {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(transcriptPrefix)) {
+    throw new Error(`Unsafe transcript prefix: ${transcriptPrefix}`);
+  }
+  const transcriptDir = path.join(TEST_ARTIFACT_ROOT, 'transcripts');
+  fs.mkdirSync(transcriptDir, { recursive: true, mode: 0o700 });
+  fs.chmodSync(transcriptDir, 0o700);
+  const transcriptPath = path.join(transcriptDir, `transcript-${transcriptPrefix}-${Date.now()}.json`);
+  fs.writeFileSync(transcriptPath, JSON.stringify(allTranscripts, null, 2), {
+    encoding: 'utf8',
+    mode: 0o600,
+    flag: 'wx',
+  });
+  return transcriptPath;
 }
 
 // ─── v134: Project Validation Utilities ─────────────────────────────────────

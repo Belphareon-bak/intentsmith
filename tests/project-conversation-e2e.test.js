@@ -4,10 +4,11 @@
 
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 
 import {
-  TestRunner, checkOllama, createExecutor, cleanDB, initProjectDir, walkFiles, buildLoop, specLoop, runTests,
+  TestRunner, checkOllama, createExecutor, cleanDB, initProjectDir, resolveTestProjectPath,
+  walkFiles, buildLoop, specLoop, runTests,
   allTranscripts, totalPassed, totalFailed, allFailures, globalStart, elapsed,
   ProjectPhase, MilestoneStatus, CheckpointMode,
   getBuildProgress, computeLifecycleProgress, formatMilestoneTable,
@@ -30,7 +31,7 @@ async function testP1_MalyAlchymista() {
   console.log('╚══════════════════════════════════════════════════════════════════════╝');
 
   const SESSION_ID = 'p1-alchymista-e2e';
-  const projectPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../projects/P1-Alchymista-E2E');
+  const projectPath = resolveTestProjectPath('P1-Alchymista-E2E');
   initProjectDir(projectPath);
   cleanDB(projectPath);
 
@@ -171,7 +172,7 @@ async function testP2_QuizMaster() {
   console.log('╚══════════════════════════════════════════════════════════════════════╝');
 
   const SESSION_ID = 'p2-quizmaster-e2e';
-  const projectPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../projects/P2-QuizMaster-E2E');
+  const projectPath = resolveTestProjectPath('P2-QuizMaster-E2E');
   initProjectDir(projectPath);
   cleanDB(projectPath);
 
@@ -292,7 +293,7 @@ async function testP3_DetskyDenik() {
   console.log('╚══════════════════════════════════════════════════════════════════════╝');
 
   const SESSION_ID = 'p3-denik-e2e';
-  const projectPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../projects/P3-DetskyDenik-E2E');
+  const projectPath = resolveTestProjectPath('P3-DetskyDenik-E2E');
   initProjectDir(projectPath);
   cleanDB(projectPath);
 
@@ -428,7 +429,7 @@ async function testP4_ResumeBot() {
   console.log('╚══════════════════════════════════════════════════════════════════════╝');
 
   const SESSION_ID = 'p4-resumebot-e2e';
-  const projectPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../projects/P4-ResumeBot-E2E');
+  const projectPath = resolveTestProjectPath('P4-ResumeBot-E2E');
   initProjectDir(projectPath);
   cleanDB(projectPath);
 
@@ -563,8 +564,8 @@ REST API for managing resumes and job applications.
   }
 
   try {
-    execSync('git add -A', { cwd: projectPath, stdio: 'pipe' });
-    execSync('git commit -m "initial: project scaffold with DB + partial routes"', {
+    execFileSync('git', ['add', '-A'], { cwd: projectPath, stdio: 'pipe' });
+    execFileSync('git', ['commit', '-m', 'initial: project scaffold with DB + partial routes'], {
       cwd: projectPath, stdio: 'pipe',
     });
   } catch { /* ignore */ }
@@ -674,7 +675,10 @@ REST API for managing resumes and job applications.
 
     // Git history should have original + milestone commits
     try {
-      const gitLog = execSync('git log --oneline', { cwd: projectPath, encoding: 'utf8' });
+      const gitLog = execFileSync('git', ['log', '--oneline'], {
+        cwd: projectPath,
+        encoding: 'utf8',
+      });
       const commits = gitLog.trim().split('\n');
       t.check(commits.length >= 3, 'Git: ≥3 commits (scaffold + milestones)', `got: ${commits.length}`);
     } catch (e) {
