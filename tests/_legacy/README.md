@@ -20,9 +20,8 @@ command, output, and exit code are recorded.
   to `.intentsmith-artifacts/e2e-loop/`.
 - `LIFECYCLE_E2E_REPORT.txt` and `PROJECT-LIFECYCLE-E2E-PLAN.md`: historical
   evidence and planning material, not current results.
-- `packages/c3-backend`: a preserved absolute symlink from the disputed
-  commit's parent. It points to a machine-local C3 checkout and is deliberately
-  excluded from portable or automated coverage.
+- `packages/c3-backend.md`: a portable historical reference replacing the
+  machine-local absolute symlink moved by the disputed commit.
 
 The current inventory and execution profiles are generated from the filesystem;
 no assertion total in these historical files is authoritative.

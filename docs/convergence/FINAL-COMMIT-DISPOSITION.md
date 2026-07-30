@@ -1,6 +1,7 @@
 # Disposition of disputed `final` commit
 
-Status: baseline classification complete; replay verification is in progress.
+Status: classification and current-tree resolution are machine-validated; Gate 0
+verification is in progress.
 
 Compared refs:
 
@@ -11,8 +12,11 @@ Compared refs:
 
 ## Vocabulary
 
-- `KEEP / REPLAY`: preserve the exact intended change, subject to focused and regression tests.
-- `REBUILD / REPAIR`: preserve the product or test intent, but do not accept the exact patch until repaired.
+- `KEEP / REPLAY`: preserve the intended change; any subsequent hardening is
+  recorded as a separate repair and must retain functional parity.
+- `REBUILD / REPAIR`: preserve the product or test intent, but do not accept the
+  exact patch until isolation, truthful exits, and focused verification are
+  restored.
 - `EXCLUDE / MOVE_OUTSIDE_PRODUCTION`: evidence or generated output stays outside the production tree; only sanitized metadata may be committed.
 - `EXCLUDE / REMOVE_FOLLOWUP`: the path must not exist in the clean candidate. Because this branch starts at the parent, removal is implemented non-destructively by never replaying it.
 - `UNRESOLVED / USER_DECISION`: requires an operator choice before activation. There are no diff paths in this state after the initial classification; remote incident-response choices remain separately recorded in `DECISIONS.md`.
@@ -23,8 +27,8 @@ Compared refs:
 |---|---:|
 | `EXCLUDE/MOVE_OUTSIDE_PRODUCTION` | 78 |
 | `EXCLUDE/REMOVE_FOLLOWUP` | 13 |
-| `KEEP/REPLAY` | 124 |
-| `REBUILD/REPAIR` | 10 |
+| `KEEP/REPLAY` | 42 |
+| `REBUILD/REPAIR` | 92 |
 | `UNRESOLVED / USER_DECISION` | 0 |
 
 ## Path-by-path classification
@@ -147,7 +151,7 @@ Compared refs:
 | `A` | `tests/_legacy/e2e-loop.js` | `KEEP` | `REPLAY` | Intentional legacy-test relocation/reference; preserves historical assets outside active registry. |
 | `R100` | `tests/e2e-quality-deep.cjs -> tests/_legacy/e2e-quality-deep.cjs` | `KEEP` | `REPLAY` | Intentional legacy-test relocation/reference; preserves historical assets outside active registry. |
 | `R100` | `tests/p5-scoring-simulation.js -> tests/_legacy/p5-scoring-simulation.js` | `KEEP` | `REPLAY` | Intentional legacy-test relocation/reference; preserves historical assets outside active registry. |
-| `R100` | `tests/packages/c3-backend -> tests/_legacy/packages/c3-backend` | `KEEP` | `REPLAY` | Intentional legacy-test relocation/reference; preserves historical assets outside active registry. |
+| `R100` | `tests/packages/c3-backend -> tests/_legacy/packages/c3-backend` | `REBUILD` | `REPAIR` | Preserve the historical WS-backend reference, but replace the machine-local absolute symlink with portable `tests/_legacy/packages/c3-backend.md`. |
 | `R100` | `tests/phase-c.test.cjs -> tests/_legacy/phase-c.test.cjs` | `KEEP` | `REPLAY` | Intentional legacy-test relocation/reference; preserves historical assets outside active registry. |
 | `R100` | `tests/phase-f.test.cjs -> tests/_legacy/phase-f.test.cjs` | `KEEP` | `REPLAY` | Intentional legacy-test relocation/reference; preserves historical assets outside active registry. |
 | `R100` | `tests/run-all-expertise-e2e.sh -> tests/_legacy/run-all-expertise-e2e.sh` | `KEEP` | `REPLAY` | Intentional legacy-test relocation/reference; preserves historical assets outside active registry. |
@@ -159,89 +163,89 @@ Compared refs:
 | `R100` | `tests/sprints/sprint7.test.cjs -> tests/_legacy/sprints/sprint7.test.cjs` | `KEEP` | `REPLAY` | Intentional legacy-test relocation/reference; preserves historical assets outside active registry. |
 | `A` | `tests/artifact-validation.test.js` | `REBUILD` | `REPAIR` | Assertions are useful, but copied validator logic can false-green; test production implementation instead. |
 | `A` | `tests/e2e-transcript-all-2026-04-13.md` | `EXCLUDE` | `MOVE_OUTSIDE_PRODUCTION` | Generated transcript with potential conversation-derived content; never replayed. |
-| `A` | `tests/e2e/01-health-smoke.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/02-chat-api.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/03-conversations.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/04-projects.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/05-attachments.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/06-expertises.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/07-specialists.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/08-agents.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/09-skills.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/10-marketplace.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/11-memory.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/12-notifications.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/13-security.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/14-system.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/15-quality.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/16-setup-wizard.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/17-export.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/18-websocket.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/19-rate-limit.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/20-security-hardening.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/200-s1-minic3-p1.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/201-s1-minic3-p2.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/202-s1-minic3-p3.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/203-s1-minic3-p4.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/204-s1-minic3-p5.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/205-s1-minic3-p6.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/206-s2-shopflow-p1.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/207-s2-shopflow-p2.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/208-s2-shopflow-p3.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/209-s2-shopflow-p4.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/21-model-upgrade.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/210-s2-shopflow-p5.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/211-s2-shopflow-p6.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/22-autonomy.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
+| `A` | `tests/e2e/01-health-smoke.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/02-chat-api.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/03-conversations.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/04-projects.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/05-attachments.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/06-expertises.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/07-specialists.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/08-agents.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/09-skills.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/10-marketplace.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/11-memory.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/12-notifications.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/13-security.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/14-system.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/15-quality.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/16-setup-wizard.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/17-export.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/18-websocket.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/19-rate-limit.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/20-security-hardening.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/200-s1-minic3-p1.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/201-s1-minic3-p2.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/202-s1-minic3-p3.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/203-s1-minic3-p4.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/204-s1-minic3-p5.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/205-s1-minic3-p6.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/206-s2-shopflow-p1.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/207-s2-shopflow-p2.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/208-s2-shopflow-p3.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/209-s2-shopflow-p4.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/21-model-upgrade.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/210-s2-shopflow-p5.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/211-s2-shopflow-p6.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/22-autonomy.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/220-e2e-suite-runner.js` | `REBUILD` | `REPAIR` | Keep suite orchestration intent, but redirect raw transcripts/state to ignored evidence storage and preserve truthful exits. |
-| `A` | `tests/e2e/23-feedback.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/24-drafts.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/25-features.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/50-chat-conversation.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/51-cre-classification.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/52-chat-quality-gate.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/53-long-conversation.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/54-chat-with-expertise.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/55-chat-with-specialist.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/56-chat-with-project.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/57-lifecycle-full.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/58-code-generation.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/59-cross-feature.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/60-ws-chat.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/61-autocomplete.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/62-validation-suites.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/63-agent-execution.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/70-cre-intent-semantic.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/71-language-enforcement.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/72-followup-coherence.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/73-quality-gate-content.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/74-session-isolation.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/75-expertise-behavioral.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/76-specialist-domain.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/77-project-context-injection.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/78-guard-rules.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/79-response-semantics.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/80-ws-semantic-events.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/81-conversation-lifecycle.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/82-cre-conflict-resolution.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/85-long-session-degradation.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/86-code-semantic-quality.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/87-security-injection.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/88-concurrent-load.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/89-response-usefulness.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/90-large-project-generation.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/91-multi-turn-project-build.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/92-code-analysis-depth.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/93-chat-response-quality.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/94-long-conversation-quality.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/95-code-generation-quality.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/96-project-workflow-quality.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/97-project-build-quality.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/98-analysis-quality.e2e.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
+| `A` | `tests/e2e/23-feedback.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/24-drafts.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/25-features.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/50-chat-conversation.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/51-cre-classification.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/52-chat-quality-gate.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/53-long-conversation.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/54-chat-with-expertise.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/55-chat-with-specialist.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/56-chat-with-project.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/57-lifecycle-full.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/58-code-generation.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/59-cross-feature.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/60-ws-chat.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/61-autocomplete.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/62-validation-suites.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/63-agent-execution.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/70-cre-intent-semantic.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/71-language-enforcement.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/72-followup-coherence.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/73-quality-gate-content.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/74-session-isolation.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/75-expertise-behavioral.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/76-specialist-domain.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/77-project-context-injection.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/78-guard-rules.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/79-response-semantics.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/80-ws-semantic-events.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/81-conversation-lifecycle.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/82-cre-conflict-resolution.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/85-long-session-degradation.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/86-code-semantic-quality.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/87-security-injection.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/88-concurrent-load.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/89-response-usefulness.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/90-large-project-generation.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/91-multi-turn-project-build.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/92-code-analysis-depth.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/93-chat-response-quality.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/94-long-conversation-quality.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/95-code-generation-quality.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/96-project-workflow-quality.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/97-project-build-quality.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/98-analysis-quality.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/QUALITY-REPORT.md` | `EXCLUDE` | `MOVE_OUTSIDE_PRODUCTION` | Generated quality report; replace with bounded evidence metadata when rerun. |
-| `A` | `tests/e2e/_e2e-state.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/_helpers.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
-| `A` | `tests/e2e/_quality-evaluator.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
+| `A` | `tests/e2e/_e2e-state.js` | `REBUILD` | `REPAIR` | Preserve multi-phase state intent, but confine state to a private runner-owned root with safe IDs, atomic writes, and explicit cleanup. |
+| `A` | `tests/e2e/_helpers.js` | `REBUILD` | `REPAIR` | Preserve shared E2E behavior, but rebuild endpoint ownership, request timeouts, resource cleanup, and private transcript storage. |
+| `A` | `tests/e2e/_quality-evaluator.js` | `REBUILD` | `REPAIR` | Preserve deterministic quality scoring, but replace shell execution and loose temporary files with argv execution and owned cleanup. |
 | `A` | `tests/e2e/_test-fixtures.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
 | `A` | `tests/intent-classifier.test.js` | `EXCLUDE` | `REMOVE_FOLLOWUP` | Confirmed generated/save-response contamination, not executable C3 test source. |
 | `M` | `tests/lifecycle-conversation-e2e.test.js` | `KEEP` | `REPLAY` | Legitimate test intent/change; replay and verify without weakening assertions. |
