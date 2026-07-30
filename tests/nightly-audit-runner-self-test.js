@@ -26,8 +26,37 @@ import {
 
 const tempRoots = new Set();
 const activeSignalFixtures = new Set();
+const sourceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 try {
+const nestedSourceRoot = await makeTempDirectory(
+  path.join(sourceRoot, 'tests', '.nightly-nested-source-'),
+);
+await mkdir(path.join(nestedSourceRoot, 'tests'), { recursive: true });
+await writeFile(path.join(nestedSourceRoot, 'tests', 'pass.test.js'), 'console.log("nested pass");\n');
+await writeFixtureRegistry(nestedSourceRoot, ['tests/pass.test.js']);
+const nestedSourceDryRun = await runAudit({
+  root: nestedSourceRoot,
+  outDir: 'data/artifacts/audit-runs',
+  runId: 'nested-source-root',
+  dryRun: true,
+  noBlock: true,
+});
+assert.equal(
+  nestedSourceDryRun.sourceRevision,
+  'unknown',
+  'a nested fixture must not inherit an ancestor worktree revision',
+);
+await assert.rejects(
+  () => runAudit({
+    root: nestedSourceRoot,
+    outDir: 'data/artifacts/audit-runs',
+    runId: 'nested-source-clean-guard',
+    noBlock: true,
+  }),
+  /audit root is not an exact Git worktree root/,
+);
+
 const root = await makeTempDirectory(path.join(os.tmpdir(), 'c3-audit-runner-'));
 const testsDir = path.join(root, 'tests');
 await mkdir(testsDir, { recursive: true });

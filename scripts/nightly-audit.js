@@ -182,11 +182,9 @@ export async function runAudit(options = {}) {
   if (!opts.resume && await pathExists(runDir)) {
     throw new Error(`Run id already exists: ${runId}. Use --resume to continue it or choose a new --run-id.`);
   }
-  if (!opts.dryRun && !opts.allowDirty) {
-    await assertCleanGitWorktree(opts.root);
-  }
-
-  const sourceRevision = await getSourceRevision(opts.root);
+  const sourceRevision = !opts.dryRun && !opts.allowDirty
+    ? await assertCleanGitWorktree(opts.root)
+    : await getSourceRevision(opts.root);
   const registry = await loadTestRegistry(opts.root);
   const registryHash = registryFingerprint(registry);
   const allSuites = await discoverInventory(opts.root);
@@ -1208,20 +1206,48 @@ function stableHash(value) {
 }
 
 async function getSourceRevision(root) {
-  return await new Promise(resolve => {
-    const child = spawn('git', ['rev-parse', 'HEAD'], {
+  const exactRevision = await getExactGitWorktreeRevision(root);
+  return exactRevision || 'unknown';
+}
+
+async function getExactGitWorktreeRevision(root) {
+  const output = await new Promise(resolve => {
+    const child = spawn('git', ['rev-parse', '--show-toplevel', 'HEAD'], {
       cwd: root,
       env: pickCommandEnvironment(),
-      stdio: ['ignore', 'pipe', 'ignore'],
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
     let out = '';
+    let err = '';
     child.stdout.on('data', chunk => { out += chunk; });
-    child.on('close', code => resolve(code === 0 ? out.trim() : 'unknown'));
-    child.on('error', () => resolve('unknown'));
+    child.stderr.on('data', chunk => { err += chunk; });
+    child.on('close', code => resolve({ code, out, err }));
+    child.on('error', error => resolve({ code: null, out, err: error.message }));
   });
+  if (output.code !== 0) return null;
+
+  const lines = output.out.trim().split(/\r?\n/);
+  if (lines.length !== 2 || !/^[0-9a-f]{40,64}$/i.test(lines[1])) return null;
+
+  try {
+    const [requestedRoot, discoveredRoot] = await Promise.all([
+      realpath(root),
+      realpath(lines[0]),
+    ]);
+    return requestedRoot === discoveredRoot ? lines[1] : null;
+  } catch {
+    return null;
+  }
 }
 
 async function assertCleanGitWorktree(root) {
+  const sourceRevision = await getExactGitWorktreeRevision(root);
+  if (!sourceRevision) {
+    throw new Error(
+      `Cannot verify clean git worktree: audit root is not an exact Git worktree root: ${root}`,
+    );
+  }
+
   const status = await new Promise((resolve, reject) => {
     const child = spawn('git', ['status', '--porcelain', '--untracked-files=all'], {
       cwd: root,
@@ -1242,6 +1268,7 @@ async function assertCleanGitWorktree(root) {
   if (status.trim()) {
     throw new Error('Non-dry-run audit requires a clean git worktree. Commit, stash, or use --allow-dirty for disposable fixtures only.');
   }
+  return sourceRevision;
 }
 
 function assertSafeRunId(runId) {
