@@ -87,6 +87,7 @@ const mockDeps = {
   parseBody: () => ({}),
   logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
   config: { features: {} },
+  path,
 };
 
 for (const rm of ROUTE_MODULES) {
@@ -114,8 +115,8 @@ for (const rm of ROUTE_MODULES) {
       console.log(`  ❌ ${rm.export}() → not an object`);
     }
   } catch (err) {
-    // Some routes may need more deps — that's ok for a stub
-    console.log(`  ⚠️  ${rm.export}() threw: ${err.message.slice(0, 80)}`);
+    assert(false, `${rm.export}() constructs a route map: ${err.message}`);
+    console.log(`  ❌ ${rm.export}() threw: ${err.message.slice(0, 80)}`);
   }
 }
 
