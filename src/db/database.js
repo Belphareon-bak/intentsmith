@@ -4,6 +4,7 @@
 import { config } from '../config.js';
 import { logger } from '../core/logger.js';
 import { runMigrations } from './migrate.js';
+import { requireConfiguredDatabasePath } from './database-path.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -79,7 +80,7 @@ function findProjectRoot() {
 
 // Resolve database path
 function resolveDbPath() {
-  const configPath = config.db.path;  // Usually './data/c3.db'
+  const configPath = requireConfiguredDatabasePath(config.db.path);
   
   // If absolute path, use as-is
   if (path.isAbsolute(configPath)) {

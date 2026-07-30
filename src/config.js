@@ -126,7 +126,9 @@ export const config = {
 
   // Database
   db: {
-    path: process.env.C3_DB_PATH || './data/c3.db',
+    // Runtime entry points establish the project-local default explicitly.
+    // Library/test imports without that bootstrap must fail closed.
+    path: process.env.C3_DB_PATH?.trim() || null,
   },
 
   // Projects

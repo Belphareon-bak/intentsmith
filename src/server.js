@@ -1,7 +1,7 @@
 // C.3 v135 Server - p(AI)assistant
 // ══════════════════════════════════════════════════════════════════════════════
 
-import 'dotenv/config';
+import './runtime-environment.js';
 import http from 'http';
 import fs from 'fs';
 import path from 'path';

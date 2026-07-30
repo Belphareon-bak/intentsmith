@@ -56,6 +56,11 @@ promenlive; auditni evidence musi zaznamenat skutecny modelovy digest.
 Vsechny promenne se nacitaji z `.env` souboru pres `dotenv`. Viz
 `.env.example` pro kanonickou referenci.
 
+Produkční entrypoint nastaví výchozí projektovou databázi explicitně po načtení
+`.env`. Přímý import `src/db/database.js` bez `C3_DB_PATH` záměrně selže dříve,
+než může vytvořit nebo otevřít operátorovu databázi; testovací runner každé sadě
+předává vlastní izolovanou cestu.
+
 | Skupina | Promenne | Popis |
 |---------|----------|-------|
 | Server | `C3_PORT`, `C3_HOST`, `C3_CORS_ORIGINS` | HTTP server |

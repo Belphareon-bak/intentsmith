@@ -17,20 +17,110 @@ import {
 import os from 'node:os';
 import path from 'node:path';
 import { Writable } from 'node:stream';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import {
   runAudit,
   runAuditWithTerminationHandling,
 } from '../scripts/nightly-audit.js';
+import {
+  MISSING_DATABASE_PATH_MESSAGE,
+  requireConfiguredDatabasePath,
+} from '../src/db/database-path.js';
 
 const tempRoots = new Set();
 const activeSignalFixtures = new Set();
 const sourceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const originalUmask = process.umask();
+const EXECUTION_FIXTURE_TIMEOUT_MS = 1_000;
 let permissiveUmaskActive = false;
 
 try {
+assert.throws(
+  () => requireConfiguredDatabasePath(undefined),
+  new RegExp(MISSING_DATABASE_PATH_MESSAGE.replaceAll('.', '\\.')),
+);
+assert.throws(
+  () => requireConfiguredDatabasePath('   '),
+  new RegExp(MISSING_DATABASE_PATH_MESSAGE.replaceAll('.', '\\.')),
+);
+assert.equal(requireConfiguredDatabasePath('  /owned/test.sqlite  '), '/owned/test.sqlite');
+
+const databaseImportUrl = pathToFileURL(path.join(sourceRoot, 'src', 'db', 'database.js')).href;
+const databaseProbeEnvironment = { ...process.env };
+delete databaseProbeEnvironment.C3_DB_PATH;
+delete databaseProbeEnvironment.NODE_OPTIONS;
+const rejectedDatabaseImport = spawnSync(
+  process.execPath,
+  ['--input-type=module', '--eval', `await import(${JSON.stringify(databaseImportUrl)});`],
+  {
+    cwd: sourceRoot,
+    env: databaseProbeEnvironment,
+    encoding: 'utf8',
+  },
+);
+assert.ifError(rejectedDatabaseImport.error);
+assert.equal(rejectedDatabaseImport.status, 1);
+assert.match(
+  `${rejectedDatabaseImport.stdout}\n${rejectedDatabaseImport.stderr}`,
+  new RegExp(MISSING_DATABASE_PATH_MESSAGE.replaceAll('.', '\\.')),
+);
+
+const runtimeEnvironmentUrl = pathToFileURL(
+  path.join(sourceRoot, 'src', 'runtime-environment.js'),
+).href;
+const runtimeBootstrapEnvironment = { ...databaseProbeEnvironment };
+runtimeBootstrapEnvironment.DOTENV_CONFIG_PATH = path.join(
+  sourceRoot,
+  '.intentsmith-no-such-env-file',
+);
+runtimeBootstrapEnvironment.DOTENV_CONFIG_QUIET = 'true';
+const runtimeBootstrapProbe = spawnSync(
+  process.execPath,
+  [
+    '--input-type=module',
+    '--eval',
+    `await import(${JSON.stringify(runtimeEnvironmentUrl)}); process.stdout.write(process.env.C3_DB_PATH);`,
+  ],
+  {
+    cwd: sourceRoot,
+    env: runtimeBootstrapEnvironment,
+    encoding: 'utf8',
+  },
+);
+assert.ifError(runtimeBootstrapProbe.error);
+assert.equal(runtimeBootstrapProbe.status, 0, runtimeBootstrapProbe.stderr);
+assert.equal(
+  runtimeBootstrapProbe.stdout,
+  path.join(sourceRoot, 'data', 'c3.db'),
+  'the product runtime bootstrap must preserve the explicit project-local default',
+);
+
+const databaseProbeRoot = await makeTempDirectory(
+  path.join(os.tmpdir(), 'c3-database-import-probe-'),
+);
+const isolatedDatabasePath = path.join(databaseProbeRoot, 'probe.sqlite');
+const acceptedDatabaseImport = spawnSync(
+  process.execPath,
+  [
+    '--input-type=module',
+    '--eval',
+    `const module = await import(${JSON.stringify(databaseImportUrl)}); module.close();`,
+  ],
+  {
+    cwd: sourceRoot,
+    env: {
+      ...databaseProbeEnvironment,
+      C3_DB_PATH: isolatedDatabasePath,
+      C3_LOG_LEVEL: 'error',
+    },
+    encoding: 'utf8',
+  },
+);
+assert.ifError(acceptedDatabaseImport.error);
+assert.equal(acceptedDatabaseImport.status, 0, acceptedDatabaseImport.stderr);
+assert.equal((await stat(isolatedDatabasePath)).isFile(), true);
+
 const nestedSourceRoot = await makeTempDirectory(
   path.join(sourceRoot, 'tests', '.nightly-nested-source-'),
 );
@@ -154,7 +244,7 @@ const run = await runAudit({
   root,
   outDir: 'data/artifacts/audit-runs',
   runId: 'self-test-execution',
-  timeoutMs: 250,
+  timeoutMs: EXECUTION_FIXTURE_TIMEOUT_MS,
   deadlineMs: 15_000,
   concurrency: 1,
   noBlock: true,
@@ -228,7 +318,7 @@ await assert.rejects(
     root,
     outDir: 'data/artifacts/audit-runs',
     runId: 'self-test-execution',
-    timeoutMs: 250,
+    timeoutMs: EXECUTION_FIXTURE_TIMEOUT_MS,
     deadlineMs: 15_000,
     concurrency: 1,
     noBlock: true,
@@ -241,7 +331,7 @@ const resumed = await runAudit({
   root,
   outDir: 'data/artifacts/audit-runs',
   runId: 'self-test-execution',
-  timeoutMs: 250,
+  timeoutMs: EXECUTION_FIXTURE_TIMEOUT_MS,
   deadlineMs: 15_000,
   concurrency: 1,
   noBlock: true,
@@ -260,7 +350,7 @@ await assert.rejects(
     root,
     outDir: 'data/artifacts/audit-runs',
     runId: 'self-test-execution',
-    timeoutMs: 250,
+    timeoutMs: EXECUTION_FIXTURE_TIMEOUT_MS,
     deadlineMs: 15_000,
     concurrency: 1,
     noBlock: true,
@@ -281,7 +371,7 @@ await assert.rejects(
     root,
     outDir: 'data/artifacts/audit-runs',
     runId: 'self-test-execution',
-    timeoutMs: 250,
+    timeoutMs: EXECUTION_FIXTURE_TIMEOUT_MS,
     deadlineMs: 15_000,
     concurrency: 1,
     noBlock: true,
@@ -308,7 +398,7 @@ await assert.rejects(
     root,
     outDir: 'data/artifacts/audit-runs',
     runId: 'self-test-execution',
-    timeoutMs: 250,
+    timeoutMs: EXECUTION_FIXTURE_TIMEOUT_MS,
     deadlineMs: 15_000,
     concurrency: 1,
     noBlock: true,
@@ -335,7 +425,7 @@ for (const evidenceName of ['inventory.json', 'checkpoint.json']) {
       root,
       outDir: 'data/artifacts/audit-runs',
       runId: 'self-test-execution',
-      timeoutMs: 250,
+      timeoutMs: EXECUTION_FIXTURE_TIMEOUT_MS,
       deadlineMs: 15_000,
       concurrency: 1,
       noBlock: true,
