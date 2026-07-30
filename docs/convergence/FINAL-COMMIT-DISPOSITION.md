@@ -1,9 +1,9 @@
 # Disposition of disputed `final` commit
 
 Status: all source-diff facts are recorded in a committed sanitized manifest
-and validate offline. Two shared E2E support records have evidence-backed
-`REBUILD/REPAIRED` closure; the validator deliberately remains red while 90
-legacy `REBUILD/REPAIR` rows await terminal closure under `D-018`.
+and validate offline. Sixteen E2E support, orchestration and phase records have
+evidence-backed `REBUILD/REPAIRED` closure; the validator deliberately remains
+red while 76 legacy `REBUILD/REPAIR` rows await terminal closure under `D-018`.
 
 Compared refs:
 
@@ -229,21 +229,21 @@ node scripts/validate-final-disposition.js \
 | `A` | `tests/e2e/18-websocket.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/19-rate-limit.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/20-security-hardening.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/200-s1-minic3-p1.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/201-s1-minic3-p2.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/202-s1-minic3-p3.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/203-s1-minic3-p4.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/204-s1-minic3-p5.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/205-s1-minic3-p6.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/206-s2-shopflow-p1.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/207-s2-shopflow-p2.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/208-s2-shopflow-p3.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/209-s2-shopflow-p4.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/200-s1-minic3-p1.e2e.js` | `REBUILD` | `REPAIRED` | S1 P1 now evaluates all original terminal thresholds before persisting completion. The registered helper self-check at `452b1f7688e7624d30b81daabcb0be3b18a64cd0` verifies assertion → completion → save ordering, exit 0. |
+| `A` | `tests/e2e/201-s1-minic3-p2.e2e.js` | `REBUILD` | `REPAIRED` | S1 P2 now evaluates pass-count and code-score thresholds before persisting completion; the ordering self-check at `452b1f7688e7624d30b81daabcb0be3b18a64cd0` exited 0. |
+| `A` | `tests/e2e/202-s1-minic3-p3.e2e.js` | `REBUILD` | `REPAIRED` | S1 P3 now evaluates pass-count and code-score thresholds before persisting completion; the ordering self-check at `452b1f7688e7624d30b81daabcb0be3b18a64cd0` exited 0. |
+| `A` | `tests/e2e/203-s1-minic3-p4.e2e.js` | `REBUILD` | `REPAIRED` | S1 P4 now evaluates pass-count and code-score thresholds before persisting completion; the ordering self-check at `452b1f7688e7624d30b81daabcb0be3b18a64cd0` exited 0. |
+| `A` | `tests/e2e/204-s1-minic3-p5.e2e.js` | `REBUILD` | `REPAIRED` | S1 P5 now evaluates pass-count and test-score thresholds before persisting completion; the ordering self-check at `452b1f7688e7624d30b81daabcb0be3b18a64cd0` exited 0. |
+| `A` | `tests/e2e/205-s1-minic3-p6.e2e.js` | `REBUILD` | `REPAIRED` | S1 P6 asserts before completion, performs both cleanups in `finally`, and saves only after successful assertion and cleanup. The registered self-check at `452b1f7688e7624d30b81daabcb0be3b18a64cd0` exited 0. |
+| `A` | `tests/e2e/206-s2-shopflow-p1.e2e.js` | `REBUILD` | `REPAIRED` | S2 P1 now evaluates pass-count, plan-score and web-search thresholds before persisting completion; the ordering self-check at `452b1f7688e7624d30b81daabcb0be3b18a64cd0` exited 0. |
+| `A` | `tests/e2e/207-s2-shopflow-p2.e2e.js` | `REBUILD` | `REPAIRED` | S2 P2 now evaluates pass-count and code-score thresholds before persisting completion; the ordering self-check at `452b1f7688e7624d30b81daabcb0be3b18a64cd0` exited 0. |
+| `A` | `tests/e2e/208-s2-shopflow-p3.e2e.js` | `REBUILD` | `REPAIRED` | S2 P3 now evaluates pass-count and code-score thresholds before persisting completion; the ordering self-check at `452b1f7688e7624d30b81daabcb0be3b18a64cd0` exited 0. |
+| `A` | `tests/e2e/209-s2-shopflow-p4.e2e.js` | `REBUILD` | `REPAIRED` | S2 P4 now evaluates pass-count and template-score thresholds before persisting completion; the ordering self-check at `452b1f7688e7624d30b81daabcb0be3b18a64cd0` exited 0. |
 | `A` | `tests/e2e/21-model-upgrade.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/210-s2-shopflow-p5.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/211-s2-shopflow-p6.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/210-s2-shopflow-p5.e2e.js` | `REBUILD` | `REPAIRED` | S2 P5 now evaluates pass-count and test-score thresholds before persisting completion; the ordering self-check at `452b1f7688e7624d30b81daabcb0be3b18a64cd0` exited 0. |
+| `A` | `tests/e2e/211-s2-shopflow-p6.e2e.js` | `REBUILD` | `REPAIRED` | S2 P6 asserts before completion, performs both cleanups in `finally`, and saves only after successful assertion and cleanup. The registered self-check at `452b1f7688e7624d30b81daabcb0be3b18a64cd0` exited 0. |
 | `A` | `tests/e2e/22-autonomy.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/220-e2e-suite-runner.js` | `REBUILD` | `REPAIR` | Keep suite orchestration intent, but redirect raw transcripts/state to ignored evidence storage and preserve truthful exits. |
+| `A` | `tests/e2e/220-e2e-suite-runner.js` | `REBUILD` | `REPAIRED` | The runner uses private run-owned storage, defaults to clean state, derives the exact Git HEAD, records it in schema-v2 evidence and forwards it to phases; full execution rejects a dirty tree. Its self-check at `343c19f9354c87a0154baf695f9351221c7722c8` reported `SELF_CHECK_PASS`, exit 0. |
 | `A` | `tests/e2e/23-feedback.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/24-drafts.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/25-features.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
@@ -289,7 +289,7 @@ node scripts/validate-final-disposition.js \
 | `A` | `tests/e2e/97-project-build-quality.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/98-analysis-quality.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/QUALITY-REPORT.md` | `EXCLUDE` | `MOVE_OUTSIDE_PRODUCTION` | Generated quality report; replace with bounded evidence metadata when rerun. |
-| `A` | `tests/e2e/_e2e-state.js` | `REBUILD` | `REPAIR` | Preserve multi-phase state intent, but confine state to a private runner-owned root with safe IDs, atomic writes, and explicit cleanup. |
+| `A` | `tests/e2e/_e2e-state.js` | `REBUILD` | `REPAIRED` | State is private and atomic, schema-versioned and bound to suite plus exact source SHA; corrupt, mismatched and non-contiguous state is rejected. The focused helper self-check at `343c19f9354c87a0154baf695f9351221c7722c8` exited 0. |
 | `A` | `tests/e2e/_helpers.js` | `REBUILD` | `REPAIRED` | Endpoint ownership, bounded requests and private transcript/temp cleanup were rebuilt. At `7ad7145360d927d164eb85d2e732cdfa20c6fd81`, `createConv()` rejects HTTP 500 and 2xx responses without an ID while accepting the valid nested-ID contract; focused self-check exit 0. |
 | `A` | `tests/e2e/_quality-evaluator.js` | `REBUILD` | `REPAIRED` | Syntax checks use argv execution and a `makeOwnedTempDir()` fixture with owned cleanup rather than shared `/tmp`. The focused helper self-check at `7ad7145360d927d164eb85d2e732cdfa20c6fd81` proves valid/invalid syntax discrimination and no surviving fixture, exit 0. |
 | `A` | `tests/e2e/_test-fixtures.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
@@ -312,6 +312,9 @@ node scripts/validate-final-disposition.js \
 | Candidate | Records | Command | Exit | Result |
 |---|---|---|---:|---|
 | `7ad7145360d927d164eb85d2e732cdfa20c6fd81` | `tests/e2e/_helpers.js`, `tests/e2e/_quality-evaluator.js` | `node tests/e2e/_helpers.self-check.js` | 0 | missing ID and HTTP 500 rejected; nested ID accepted; syntax fixture owned and removed |
+| `343c19f9354c87a0154baf695f9351221c7722c8` | `tests/e2e/_e2e-state.js` | `node tests/e2e/_helpers.self-check.js` | 0 | missing, stale, corrupt, schema-mismatched and non-contiguous state rejected; exact source SHA preserved |
+| `343c19f9354c87a0154baf695f9351221c7722c8` | `tests/e2e/220-e2e-suite-runner.js` | `INTENTSMITH_TEST_ARTIFACT_DIR=$REPO/.intentsmith-artifacts/220-self-check node tests/e2e/220-e2e-suite-runner.js --self-check` | 0 | schema 2 report recorded the candidate SHA, clean-state default and zero cleanup errors; final status `SELF_CHECK_PASS` |
+| `452b1f7688e7624d30b81daabcb0be3b18a64cd0` | `tests/e2e/200-s1-minic3-p1.e2e.js` … `tests/e2e/211-s2-shopflow-p6.e2e.js` | `node tests/e2e/_helpers.self-check.js` | 0 | all 12 source contracts preserve terminal thresholds before completion/save; both P6 cleanup paths are protected by `finally` |
 
 ## Incident-response decisions outside this diff
 
