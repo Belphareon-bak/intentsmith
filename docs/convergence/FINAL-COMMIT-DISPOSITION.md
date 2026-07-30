@@ -1,7 +1,8 @@
 # Disposition of disputed `final` commit
 
-Status: classification and current-tree resolution are machine-validated; Gate 0
-verification is in progress.
+Status: classification and current-tree resolution are machine-validated; local
+Gate 0 verification is complete at candidate `22a9b84` and independent review
+remains pending.
 
 Compared refs:
 
