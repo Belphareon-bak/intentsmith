@@ -1,5 +1,3 @@
-import './helpers/isolated-test-db.js';
-
 // Lifecycle E2E Test — Full Chain: SPEC → PLANNING → BUILD → REVIEW → CHANGE
 // ══════════════════════════════════════════════════════════════════════════════
 // Creates a real sample project (TODO API) and walks through the entire
@@ -12,6 +10,8 @@ import './helpers/isolated-test-db.js';
 //
 // Run: node tests/lifecycle-e2e.test.js
 // ══════════════════════════════════════════════════════════════════════════════
+
+import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 
 import fs from 'fs';
 import path from 'path';
@@ -232,8 +232,11 @@ app.listen(PORT, () => console.log(\`TODO API running on port \${PORT}\`));
 // Setup: create temp project directory + git repo
 // ════════════════════════════════════════════════════════════════════════════════
 
-const projectName = `todo-api-e2e-${Date.now()}`;
-const projectPath = path.join('/tmp', projectName);
+const projectPath = fs.mkdtempSync(path.join(
+  isolatedTestRuntime.projects,
+  'todo-api-e2e-',
+));
+const projectName = path.basename(projectPath);
 let testProjectId;
 let lifecycleId;
 
@@ -884,13 +887,14 @@ try {
   db.prepare('DELETE FROM project_lifecycles WHERE id = ?').run(lifecycleId);
   db.prepare('DELETE FROM projects WHERE id = ?').run(testProjectId);
 } catch (e) {
-  console.log(`  ⚠️ DB cleanup: ${e.message}`);
+  fail('DB cleanup', e.message);
 }
 
-// Keep sample project on disk for inspection (it's in /tmp, will auto-clean)
-console.log(`\n  📁 Sample project preserved at: ${projectPath}`);
-console.log(`     To inspect: ls -la ${projectPath}`);
-console.log(`     Git log:    git -C ${projectPath} log --oneline`);
+if (failed > 0) {
+  console.log(`\n  📁 Failed run project will be preserved with its owned runtime: ${projectPath}`);
+} else {
+  console.log(`\n  📁 Owned sample project will be removed after successful exit: ${projectPath}`);
+}
 
 // ════════════════════════════════════════════════════════════════════════════════
 // Summary

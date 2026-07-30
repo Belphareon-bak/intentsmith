@@ -364,6 +364,52 @@ try {
     'Database bootstrap mutation check: removed anchor is rejected',
   );
 
+  const ownedWriterPrograms = new Map([
+    ['chat-export-budget.test.js', 'artifacts'],
+    ['export-pdf-docx.test.js', 'artifacts'],
+    ['lifecycle-e2e.test.js', 'projects'],
+    ['lifecycle-human-friction.test.js', 'projects'],
+  ]);
+  for (const [name, ownedRoot] of ownedWriterPrograms) {
+    const source = readFileSync(join(__dirname, name), 'utf8');
+    assert.ok(
+      !source.includes('/tmp'),
+      `${name} must not use the shared /tmp namespace`,
+    );
+    assert.match(
+      source,
+      new RegExp(`isolatedTestRuntime\\.${ownedRoot}`),
+      `${name} must allocate below the owned ${ownedRoot} root`,
+    );
+    const bootstrapIndex = source.indexOf(
+      "from './helpers/isolated-test-db.js'",
+    );
+    const productDependencyIndex = source.search(
+      /\bfrom\s+['"]\.\.\/src\//,
+    );
+    assert.ok(
+      bootstrapIndex >= 0
+        && productDependencyIndex >= 0
+        && bootstrapIndex < productDependencyIndex,
+      `${name} must bootstrap isolation before product dependencies`,
+    );
+  }
+
+  const frictionSource = readFileSync(
+    join(__dirname, 'lifecycle-human-friction.test.js'),
+    'utf8',
+  );
+  assert.match(
+    frictionSource,
+    /DELETE FROM projects WHERE id = \? AND path = \?/,
+    'friction cleanup must bind the exact owned project id and path',
+  );
+  assert.doesNotMatch(
+    frictionSource,
+    /DELETE FROM projects WHERE path LIKE/,
+    'friction cleanup must not use a broad project path prefix',
+  );
+
   const directHarnessProbeFixture = writeFixture('direct-harness-probe.mjs', `
 import ${JSON.stringify(harnessUrl)};
 import { lstatSync, realpathSync } from 'node:fs';

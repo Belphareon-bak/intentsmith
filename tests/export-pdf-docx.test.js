@@ -8,7 +8,9 @@
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { readFile, writeFile, stat, mkdir, rm, symlink } from 'fs/promises';
+import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
+
+import { readFile, writeFile, stat, mkdir, mkdtemp, rm, symlink } from 'fs/promises';
 import { join } from 'path';
 import { execFile } from 'child_process';
 import { createRequire } from 'module';
@@ -85,7 +87,10 @@ const TEST_TURNS_LONG = Array.from({ length: 20 }, (_, i) => ({
   content: `Zpráva ${i + 1}: ${'Lorem ipsum dolor sit amet. '.repeat(10)}`,
 }));
 
-const TMP_BASE = `/tmp/c3-export-test-${Date.now()}`;
+const TMP_BASE = await mkdtemp(join(
+  isolatedTestRuntime.artifacts,
+  'export-pdf-docx-',
+));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  A5: PDF Export
@@ -554,9 +559,9 @@ await t('same 4-turn CZ conversation → both formats generate', async () => {
 //  Cleanup
 // ═══════════════════════════════════════════════════════════════════════════════
 
-try {
-  await rm(TMP_BASE, { recursive: true, force: true });
-} catch { /* ignore cleanup errors */ }
+if (failed === 0) {
+  await rm(TMP_BASE, { recursive: true, force: false });
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  Results

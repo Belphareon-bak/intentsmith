@@ -1,5 +1,3 @@
-import './helpers/isolated-test-db.js';
-
 // Test 8: Human Friction Test — "Is the engine usable?"
 // ══════════════════════════════════════════════════════════════════════════════
 //
@@ -23,6 +21,8 @@ import './helpers/isolated-test-db.js';
 //   - Engine must never enter infinite rejection loop
 //
 // ══════════════════════════════════════════════════════════════════════════════
+
+import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 
 import { execSync } from 'child_process';
 import fs from 'fs';
@@ -52,6 +52,7 @@ let passed = 0;
 let failed = 0;
 const failures = [];
 const metrics = {};
+const ownedProjects = [];
 
 function check(condition, name, detail) {
   if (condition) {
@@ -67,20 +68,55 @@ function check(condition, name, detail) {
 // ─── Cleanup ─────────────────────────────────────────────────────────────────
 
 function cleanDB() {
-  const deletes = [
-    `DELETE FROM messages WHERE conversation_id LIKE 'friction-%'`,
-    `DELETE FROM conversations WHERE id LIKE 'friction-%'`,
-    `DELETE FROM milestones WHERE lifecycle_id LIKE 'lc-friction-%'`,
-    `DELETE FROM roadmap_versions WHERE lifecycle_id LIKE 'lc-friction-%'`,
-    `DELETE FROM drift_checks WHERE lifecycle_id LIKE 'lc-friction-%'`,
-    `DELETE FROM change_requests WHERE lifecycle_id LIKE 'lc-friction-%'`,
-    `DELETE FROM lifecycles WHERE id LIKE 'lc-friction-%'`,
-    `DELETE FROM projects WHERE path LIKE '/tmp/friction-%' OR name LIKE 'friction-%'`,
-  ];
-  for (const sql of deletes) {
-    try { db.prepare(sql).run(); } catch { /* ignore */ }
+  const cleanOwnedProject = db.transaction(({
+    id,
+    projectPath,
+    conversationId,
+  }) => {
+    db.prepare('DELETE FROM messages WHERE conversation_id = ?').run(conversationId);
+    db.prepare(
+      'DELETE FROM conversations WHERE id = ? AND project_id = ?',
+    ).run(conversationId, id);
+    db.prepare('DELETE FROM lifecycle_handoff_state WHERE project_id = ?').run(id);
+
+    const lifecycleRows = db.prepare(
+      'SELECT id FROM project_lifecycles WHERE project_id = ?',
+    ).all(id);
+    for (const { id: lifecycleId } of lifecycleRows) {
+      db.prepare('DELETE FROM drift_checks WHERE lifecycle_id = ?').run(lifecycleId);
+      db.prepare('DELETE FROM change_requests WHERE lifecycle_id = ?').run(lifecycleId);
+      db.prepare('DELETE FROM milestones WHERE lifecycle_id = ?').run(lifecycleId);
+      db.prepare('DELETE FROM roadmap_versions WHERE lifecycle_id = ?').run(lifecycleId);
+      db.prepare('DELETE FROM quality_scores WHERE lifecycle_id = ?').run(lifecycleId);
+      db.prepare('DELETE FROM lifecycle_handoff_state WHERE lifecycle_id = ?').run(lifecycleId);
+      const deletedLifecycle = db.prepare(
+        'DELETE FROM project_lifecycles WHERE id = ? AND project_id = ?',
+      ).run(lifecycleId, id);
+      if (deletedLifecycle.changes !== 1) {
+        throw new Error(`Owned lifecycle was not removed: ${lifecycleId}`);
+      }
+    }
+
+    const deleted = db.prepare(
+      'DELETE FROM projects WHERE id = ? AND path = ?',
+    ).run(id, projectPath);
+    if (deleted.changes !== 1) {
+      throw new Error(`Owned friction project was not removed: ${projectPath}`);
+    }
+  });
+
+  for (const ownedProject of ownedProjects) {
+    cleanOwnedProject(ownedProject);
   }
+  ownedProjects.length = 0;
   initLifecycleStateDb(lifecycleHandoffState, lifecycleRepo);
+}
+
+function makeProjectPath(profile) {
+  return fs.mkdtempSync(path.join(
+    isolatedTestRuntime.projects,
+    `friction-${profile}-`,
+  ));
 }
 
 // ─── Spec fixtures (progressively better quality) ────────────────────────────
@@ -226,8 +262,7 @@ async function run() {
 
   {
     const SESSION_ID = 'friction-a';
-    const projectPath = `/tmp/friction-a-${Date.now()}`;
-    fs.mkdirSync(projectPath, { recursive: true });
+    const projectPath = makeProjectPath('a');
     execSync('git init && git config user.email "test@test.com" && git config user.name "Test"', { cwd: projectPath, stdio: 'pipe' });
     fs.writeFileSync(path.join(projectPath, 'package.json'), JSON.stringify({ name: 'friction-a', version: '0.0.1', scripts: { test: 'echo ok' } }));
     execSync('git add -A && git commit -m "init"', { cwd: projectPath, stdio: 'pipe' });
@@ -236,6 +271,11 @@ async function run() {
     const projectId = Number(project.id);
     const CONV_ID = `friction-a-${Date.now()}`;
     conversations.getOrCreate(CONV_ID, projectId, 'Friction A');
+    ownedProjects.push({
+      id: projectId,
+      projectPath,
+      conversationId: CONV_ID,
+    });
 
     // FakeLLM: Profile A — returns incomplete spec first, then complete
     const ROADMAP_A = makeRoadmap('a');
@@ -459,8 +499,7 @@ async function run() {
 
   {
     const SESSION_ID = 'friction-b';
-    const projectPath = `/tmp/friction-b-${Date.now()}`;
-    fs.mkdirSync(projectPath, { recursive: true });
+    const projectPath = makeProjectPath('b');
     execSync('git init && git config user.email "test@test.com" && git config user.name "Test"', { cwd: projectPath, stdio: 'pipe' });
     fs.writeFileSync(path.join(projectPath, 'package.json'), JSON.stringify({ name: 'friction-b', version: '0.0.1', scripts: { test: 'echo ok' } }));
     execSync('git add -A && git commit -m "init"', { cwd: projectPath, stdio: 'pipe' });
@@ -469,6 +508,11 @@ async function run() {
     const projectId = Number(project.id);
     const CONV_ID = `friction-b-${Date.now()}`;
     conversations.getOrCreate(CONV_ID, projectId, 'Friction B');
+    ownedProjects.push({
+      id: projectId,
+      projectPath,
+      conversationId: CONV_ID,
+    });
 
     // FakeLLM: Profile B — always returns complete spec (user says "pick for me")
     const ROADMAP_B = makeRoadmap('b');
@@ -606,8 +650,7 @@ async function run() {
 
   {
     const SESSION_ID = 'friction-c';
-    const projectPath = `/tmp/friction-c-${Date.now()}`;
-    fs.mkdirSync(projectPath, { recursive: true });
+    const projectPath = makeProjectPath('c');
     execSync('git init && git config user.email "test@test.com" && git config user.name "Test"', { cwd: projectPath, stdio: 'pipe' });
     fs.writeFileSync(path.join(projectPath, 'package.json'), JSON.stringify({ name: 'friction-c', version: '0.0.1', scripts: { test: 'echo ok' } }));
     execSync('git add -A && git commit -m "init"', { cwd: projectPath, stdio: 'pipe' });
@@ -616,6 +659,11 @@ async function run() {
     const projectId = Number(project.id);
     const CONV_ID = `friction-c-${Date.now()}`;
     conversations.getOrCreate(CONV_ID, projectId, 'Friction C');
+    ownedProjects.push({
+      id: projectId,
+      projectPath,
+      conversationId: CONV_ID,
+    });
 
     const ROADMAP_C = makeRoadmap('c');
     const PLANS_C = makePlans('c');

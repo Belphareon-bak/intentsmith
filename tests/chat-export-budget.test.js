@@ -10,6 +10,10 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
+import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
+
+import { mkdtempSync } from 'node:fs';
+import { join } from 'node:path';
 import { strict as assert } from 'assert';
 
 // ─── Test Infrastructure ─────────────────────────────────────────────────────
@@ -18,6 +22,10 @@ let passed = 0;
 let failed = 0;
 const failures = [];
 const pendingTests = [];
+
+function makeExportArtifacts(prefix) {
+  return mkdtempSync(join(isolatedTestRuntime.artifacts, `${prefix}-`));
+}
 
 function describe(name, fn) {
   pendingTests.push(async () => {
@@ -395,7 +403,7 @@ describe('T10.3: Export Pipeline', async () => {
     store.appendTurn('exp-test', TurnRole.USER, 'Co nového?');
     store.appendTurn('exp-test', TurnRole.ASSISTANT, 'Pracuji na Sprint 4.');
 
-    const tmpDir = `/tmp/c3-export-test-${Date.now()}`;
+    const tmpDir = makeExportArtifacts('chat-export');
     const result = await exportConversation('exp-test', {
       format,
       scope: scope || 'conversation',
@@ -465,7 +473,7 @@ describe('T10.3: Export Pipeline', async () => {
     store.appendTurn('last-test', TurnRole.USER, 'Second');
     store.appendTurn('last-test', TurnRole.ASSISTANT, 'Reply 2 - the last one');
 
-    const tmpDir = `/tmp/c3-export-last-${Date.now()}`;
+    const tmpDir = makeExportArtifacts('chat-export-last');
     const result = await exportConversation('last-test', {
       format: 'txt',
       scope: 'last',
@@ -483,7 +491,10 @@ describe('T10.3: Export Pipeline', async () => {
   await it('Export throws for nonexistent conversation', async () => {
     const store = new ConversationStore(null);
     await assert.rejects(
-      () => exportConversation('nonexistent', { store, artifactsDir: '/tmp' }),
+      () => exportConversation('nonexistent', {
+        store,
+        artifactsDir: makeExportArtifacts('chat-export-missing'),
+      }),
       /not found/
     );
   });
@@ -492,7 +503,10 @@ describe('T10.3: Export Pipeline', async () => {
     const store = new ConversationStore(null);
     store.ensureConversation('empty-exp');
     await assert.rejects(
-      () => exportConversation('empty-exp', { store, artifactsDir: '/tmp' }),
+      () => exportConversation('empty-exp', {
+        store,
+        artifactsDir: makeExportArtifacts('chat-export-empty'),
+      }),
       /no messages/
     );
   });
@@ -503,7 +517,7 @@ describe('T10.3: Export Pipeline', async () => {
     store.appendTurn('xss-test', TurnRole.USER, '<script>alert("xss")</script>');
     store.appendTurn('xss-test', TurnRole.ASSISTANT, 'Safe response');
 
-    const tmpDir = `/tmp/c3-export-xss-${Date.now()}`;
+    const tmpDir = makeExportArtifacts('chat-export-xss');
     const result = await exportConversation('xss-test', {
       format: 'html', store, artifactsDir: tmpDir,
     });
@@ -547,7 +561,7 @@ describe('T10.5: PDF Export (A5)', async () => {
 
   await it('PDF export produces valid file', async () => {
     const store = await createTestStore('pdf-e2e');
-    const tmpDir = `/tmp/c3-export-pdf-${Date.now()}`;
+    const tmpDir = makeExportArtifacts('chat-export-pdf');
     const result = await exportConversation('pdf-e2e', {
       format: 'pdf', store, artifactsDir: tmpDir,
     });
@@ -560,7 +574,7 @@ describe('T10.5: PDF Export (A5)', async () => {
 
   await it('PDF file is valid binary', async () => {
     const store = await createTestStore('pdf-bin');
-    const tmpDir = `/tmp/c3-export-pdfbin-${Date.now()}`;
+    const tmpDir = makeExportArtifacts('chat-export-pdfbin');
     const result = await exportConversation('pdf-bin', {
       format: 'pdf', store, artifactsDir: tmpDir,
     });
@@ -573,7 +587,7 @@ describe('T10.5: PDF Export (A5)', async () => {
 
   await it('PDF with scope "last" exports only last turn', async () => {
     const store = await createTestStore('pdf-last');
-    const tmpDir = `/tmp/c3-export-pdflast-${Date.now()}`;
+    const tmpDir = makeExportArtifacts('chat-export-pdflast');
     const result = await exportConversation('pdf-last', {
       format: 'pdf', scope: 'last', store, artifactsDir: tmpDir,
     });
@@ -588,7 +602,7 @@ describe('T10.5: PDF Export (A5)', async () => {
     store.appendTurn('pdf-cz', TurnRole.USER, 'Příliš žluťoučký kůň úpěl ďábelské ódy.');
     store.appendTurn('pdf-cz', TurnRole.ASSISTANT, 'Řeřicha říká: šťáva žďáru.');
 
-    const tmpDir = `/tmp/c3-export-pdfcz-${Date.now()}`;
+    const tmpDir = makeExportArtifacts('chat-export-pdfcz');
     const result = await exportConversation('pdf-cz', {
       format: 'pdf', store, artifactsDir: tmpDir,
     });
@@ -617,7 +631,7 @@ describe('T10.6: DOCX Export (A6)', async () => {
 
   await it('DOCX export produces valid file', async () => {
     const store = await createTestStore('docx-e2e');
-    const tmpDir = `/tmp/c3-export-docx-${Date.now()}`;
+    const tmpDir = makeExportArtifacts('chat-export-docx');
     const result = await exportConversation('docx-e2e', {
       format: 'docx', store, artifactsDir: tmpDir,
     });
@@ -630,7 +644,7 @@ describe('T10.6: DOCX Export (A6)', async () => {
 
   await it('DOCX file is valid ZIP (OOXML)', async () => {
     const store = await createTestStore('docx-zip');
-    const tmpDir = `/tmp/c3-export-docxzip-${Date.now()}`;
+    const tmpDir = makeExportArtifacts('chat-export-docxzip');
     const result = await exportConversation('docx-zip', {
       format: 'docx', store, artifactsDir: tmpDir,
     });
@@ -643,7 +657,7 @@ describe('T10.6: DOCX Export (A6)', async () => {
 
   await it('DOCX with scope "last" exports only last turn', async () => {
     const store = await createTestStore('docx-last');
-    const tmpDir = `/tmp/c3-export-docxlast-${Date.now()}`;
+    const tmpDir = makeExportArtifacts('chat-export-docxlast');
     const result = await exportConversation('docx-last', {
       format: 'docx', scope: 'last', store, artifactsDir: tmpDir,
     });
@@ -658,7 +672,7 @@ describe('T10.6: DOCX Export (A6)', async () => {
     store.appendTurn('docx-cz', TurnRole.USER, 'Příliš žluťoučký kůň úpěl ďábelské ódy.');
     store.appendTurn('docx-cz', TurnRole.ASSISTANT, 'Řeřicha říká: šťáva žďáru.');
 
-    const tmpDir = `/tmp/c3-export-docxcz-${Date.now()}`;
+    const tmpDir = makeExportArtifacts('chat-export-docxcz');
     const result = await exportConversation('docx-cz', {
       format: 'docx', store, artifactsDir: tmpDir,
     });
@@ -673,7 +687,7 @@ describe('T10.6: DOCX Export (A6)', async () => {
     store.appendTurn('docx-ml', TurnRole.ASSISTANT,
       'Bod 1: První věc\nBod 2: Druhá věc\n\nBod 3: Třetí věc s prázdným řádkem');
 
-    const tmpDir = `/tmp/c3-export-docxml-${Date.now()}`;
+    const tmpDir = makeExportArtifacts('chat-export-docxml');
     const result = await exportConversation('docx-ml', {
       format: 'docx', store, artifactsDir: tmpDir,
     });
@@ -701,7 +715,7 @@ describe('T10.7: XLSX Export', async () => {
 
   await it('XLSX export produces valid file', async () => {
     const store = await createTestStore('xlsx-e2e');
-    const tmpDir = `/tmp/c3-export-xlsx-${Date.now()}`;
+    const tmpDir = makeExportArtifacts('chat-export-xlsx');
     const result = await exportConversation('xlsx-e2e', {
       format: 'xlsx', store, artifactsDir: tmpDir,
     });
@@ -714,7 +728,7 @@ describe('T10.7: XLSX Export', async () => {
 
   await it('XLSX file is valid ZIP (OOXML)', async () => {
     const store = await createTestStore('xlsx-zip');
-    const tmpDir = `/tmp/c3-export-xlsxzip-${Date.now()}`;
+    const tmpDir = makeExportArtifacts('chat-export-xlsxzip');
     const result = await exportConversation('xlsx-zip', {
       format: 'xlsx', store, artifactsDir: tmpDir,
     });
@@ -727,7 +741,7 @@ describe('T10.7: XLSX Export', async () => {
 
   await it('XLSX with scope "last" exports only last turn', async () => {
     const store = await createTestStore('xlsx-last');
-    const tmpDir = `/tmp/c3-export-xlsxlast-${Date.now()}`;
+    const tmpDir = makeExportArtifacts('chat-export-xlsxlast');
     const result = await exportConversation('xlsx-last', {
       format: 'xlsx', scope: 'last', store, artifactsDir: tmpDir,
     });
@@ -742,7 +756,7 @@ describe('T10.7: XLSX Export', async () => {
     store.appendTurn('xlsx-cz', TurnRole.USER, 'Příliš žluťoučký kůň úpěl ďábelské ódy.');
     store.appendTurn('xlsx-cz', TurnRole.ASSISTANT, 'Řeřicha říká: šťáva žďáru.');
 
-    const tmpDir = `/tmp/c3-export-xlsxcz-${Date.now()}`;
+    const tmpDir = makeExportArtifacts('chat-export-xlsxcz');
     const result = await exportConversation('xlsx-cz', {
       format: 'xlsx', store, artifactsDir: tmpDir,
     });
@@ -757,7 +771,7 @@ describe('T10.7: XLSX Export', async () => {
     store.appendTurn('xlsx-ml', TurnRole.ASSISTANT,
       'Bod 1: První věc\nBod 2: Druhá věc\n\nBod 3: Třetí věc');
 
-    const tmpDir = `/tmp/c3-export-xlsxml-${Date.now()}`;
+    const tmpDir = makeExportArtifacts('chat-export-xlsxml');
     const result = await exportConversation('xlsx-ml', {
       format: 'xlsx', store, artifactsDir: tmpDir,
     });
