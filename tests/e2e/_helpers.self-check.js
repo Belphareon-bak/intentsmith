@@ -14,6 +14,16 @@ function mode(filePath) {
   return fs.statSync(filePath).mode & 0o777;
 }
 
+async function expectRejection(action, expectedMessage, label) {
+  let actualMessage = null;
+  try {
+    await action();
+  } catch (error) {
+    actualMessage = error.message;
+  }
+  ensure(actualMessage === expectedMessage, `${label}: ${String(actualMessage)}`);
+}
+
 function childImport(envOverrides) {
   const env = { ...process.env, ...envOverrides };
   for (const [key, value] of Object.entries(env)) {
@@ -40,7 +50,22 @@ const runRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-helpers-check
 const artifactRoot = path.join(runRoot, '.intentsmith-artifacts', 'helpers-check');
 const legacyTranscript = path.join(runRoot, 'legacy-transcript.md');
 let server;
-let conversationFixtureCall = 0;
+const conversationFixtures = [
+  { status: 200, data: { ok: true } },
+  { status: 500, data: { error: 'fixture failure' } },
+  { status: 201, data: { conversation: { id: 'nested-conversation-id' } } },
+  { status: 200, data: { ok: true } },
+  { status: 500, data: { error: 'fixture failure' } },
+  { status: 201, data: { id: 'project-conversation-id' } },
+];
+const chatFixtures = [
+  { status: 202, data: { response: 'queued chat response' } },
+  { status: 200, data: { response: '   ' } },
+  { status: 200, data: { response: 'chat-in-conv-response' } },
+  { status: 202, data: { response: 'queued timeout response' } },
+  { status: 200, data: { response: '   ' } },
+  { status: 200, data: { response: 'chat-with-timeout-response' } },
+];
 
 try {
   fs.mkdirSync(artifactRoot, { recursive: true, mode: 0o700 });
@@ -48,19 +73,18 @@ try {
 
   server = http.createServer((request, response) => {
     if (request.url === '/slow') return;
-    if (request.method === 'POST' && request.url === '/api/conversations') {
-      conversationFixtureCall += 1;
-      response.writeHead(
-        conversationFixtureCall === 2 ? 500 : conversationFixtureCall === 3 ? 201 : 200,
-        { 'Content-Type': 'application/json' },
-      );
-      response.end(JSON.stringify(
-        conversationFixtureCall === 2
-          ? { error: 'fixture failure' }
-          : conversationFixtureCall === 3
-            ? { conversation: { id: 'nested-conversation-id' } }
-            : { ok: true },
-      ));
+    const fixtureQueue = request.method === 'POST' && request.url === '/api/conversations'
+      ? conversationFixtures
+      : request.method === 'POST' && request.url === '/api/chat'
+        ? chatFixtures
+        : null;
+    if (fixtureQueue) {
+      const fixture = fixtureQueue.shift() || {
+        status: 500,
+        data: { error: 'unexpected fixture call' },
+      };
+      response.writeHead(fixture.status, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify(fixture.data));
       return;
     }
     response.writeHead(200, { 'Content-Type': 'application/json' });
@@ -78,6 +102,7 @@ try {
   process.env.INTENTSMITH_TEST_REQUEST_TIMEOUT_MS = '100';
   process.env.INTENTSMITH_TEST_SUITE_ID = 'helpers-self-check';
   process.env.INTENTSMITH_TEST_SOURCE_REVISION = 'a'.repeat(40);
+  process.env.E2E_GPU_COOLDOWN = '0';
 
   const helpers = await import('./_helpers.js');
   ensure(helpers.BASE_URL === process.env.C3_URL, 'C3_URL was not preserved');
@@ -93,27 +118,75 @@ try {
   ensure(raw.status === 200, 'buffered raw request lost status');
   ensure((await raw.json()).path === '/raw', 'buffered raw request lost body');
 
-  let missingConversationIdRejected = false;
-  try {
-    await helpers.createConv('missing-id-fixture');
-  } catch (error) {
-    missingConversationIdRejected = error.message.includes('did not contain a conversation id');
-  }
-  ensure(
-    missingConversationIdRejected,
-    'createConv accepted a successful response without a conversation id',
+  await expectRejection(
+    () => helpers.createConv('missing-id-fixture'),
+    'createConv failed: 200 response did not contain a conversation id',
+    'createConv accepted a successful response without an ID',
   );
-
-  let failedConversationRequestRejected = false;
-  try {
-    await helpers.createConv('server-error-fixture');
-  } catch (error) {
-    failedConversationRequestRejected = error.message === 'createConv failed: 500';
-  }
-  ensure(failedConversationRequestRejected, 'createConv accepted an HTTP 500 response');
+  await expectRejection(
+    () => helpers.createConv('server-error-fixture'),
+    'createConv failed: 500',
+    'createConv accepted HTTP 500',
+  );
   ensure(
     await helpers.createConv('nested-id-fixture') === 'nested-conversation-id',
     'createConv rejected a valid nested conversation id',
+  );
+  await expectRejection(
+    () => helpers.createProjectConv('project-fixture', 'missing-project-id-fixture'),
+    'createProjectConv failed: 200 response did not contain a conversation id',
+    'createProjectConv accepted a successful response without an ID',
+  );
+  await expectRejection(
+    () => helpers.createProjectConv('project-fixture', 'server-error-fixture'),
+    'createProjectConv failed: 500',
+    'createProjectConv accepted HTTP 500',
+  );
+  ensure(
+    await helpers.createProjectConv('project-fixture', 'valid-project-fixture')
+      === 'project-conversation-id',
+    'createProjectConv rejected a valid top-level conversation ID',
+  );
+
+  await expectRejection(
+    () => helpers.chatInConv('fixture-conversation', 'queued status'),
+    'chatInConv failed: 202',
+    'chatInConv accepted HTTP 202',
+  );
+  await expectRejection(
+    () => helpers.chatInConv('fixture-conversation', 'empty response'),
+    'chatInConv failed: 200 response did not contain a non-empty response',
+    'chatInConv accepted a whitespace-only response',
+  );
+  const chatResult = await helpers.chatInConv('fixture-conversation', 'valid response');
+  ensure(
+    chatResult.status === 200 && chatResult.response === 'chat-in-conv-response',
+    'chatInConv rejected a valid exact-200 response',
+  );
+
+  await expectRejection(
+    () => helpers.chatWithTimeout('fixture-conversation', 'queued status', 1_000),
+    'chatWithTimeout failed: 202',
+    'chatWithTimeout accepted HTTP 202',
+  );
+  await expectRejection(
+    () => helpers.chatWithTimeout('fixture-conversation', 'empty response', 1_000),
+    'chatWithTimeout failed: 200 response did not contain a non-empty response',
+    'chatWithTimeout accepted a whitespace-only response',
+  );
+  const timeoutChatResult = await helpers.chatWithTimeout(
+    'fixture-conversation',
+    'valid response',
+    1_000,
+  );
+  ensure(
+    timeoutChatResult.status === 200
+      && timeoutChatResult.response === 'chat-with-timeout-response',
+    'chatWithTimeout rejected a valid exact-200 response',
+  );
+  ensure(
+    conversationFixtures.length === 0 && chatFixtures.length === 0,
+    'not every fail-closed helper fixture was exercised',
   );
 
   let escapedOriginRejected = false;

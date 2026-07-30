@@ -18,7 +18,7 @@ async function intentTest(name, message, expectedIntents, contentCheck) {
     const convId = await createConv(`cre-${name}`);
     created.push(convId);
     const r = await chatInConv(convId, message);
-    assert(r.status === 200 || r.status === 202, `expected 200/202, got ${r.status}`);
+    assert(r.status === 200, `expected 200, got ${r.status}`);
     assert(r.response.length > 0, 'response must not be empty');
 
     const intent = r.intent;

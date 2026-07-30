@@ -722,6 +722,27 @@ const GPU_COOLDOWN_MS = parseBoundedInteger(
   'E2E_GPU_COOLDOWN',
 ) * 1000;
 
+function extractConversationId(operation, status, data) {
+  const conversationId = data?.id ?? data?.conversation?.id;
+  if (typeof conversationId !== 'string' || conversationId.trim() === '') {
+    throw new Error(`${operation} failed: ${status} response did not contain a conversation id`);
+  }
+  return conversationId;
+}
+
+function extractChatResponse(operation, status, data) {
+  if (status !== 200) {
+    throw new Error(`${operation} failed: ${status}`);
+  }
+  const response = data?.response;
+  if (typeof response !== 'string' || response.trim() === '') {
+    throw new Error(
+      `${operation} failed: ${status} response did not contain a non-empty response`,
+    );
+  }
+  return response;
+}
+
 /** Create a conversation and return its id. */
 export async function createConv(title) {
   const { status, data } = await api('POST', '/api/conversations', {
@@ -731,11 +752,7 @@ export async function createConv(title) {
   if (status !== 200 && status !== 201) {
     throw new Error(`createConv failed: ${status}`);
   }
-  const conversationId = data?.id ?? data?.conversation?.id;
-  if (typeof conversationId !== 'string' || conversationId.trim() === '') {
-    throw new Error(`createConv failed: ${status} response did not contain a conversation id`);
-  }
-  return conversationId;
+  return extractConversationId('createConv', status, data);
 }
 
 /**
@@ -749,9 +766,10 @@ export async function chatInConv(convId, message, opts = {}) {
     ...opts,
   });
   if (GPU_COOLDOWN_MS > 0) await cooldown(GPU_COOLDOWN_MS);
+  const response = extractChatResponse('chatInConv', status, data);
   return {
     status,
-    response: data.response || '',
+    response,
     mode: data.mode,
     confidence: data.confidence,
     metadata: data.metadata,
@@ -781,7 +799,7 @@ export async function chatWithTimeout(convId, message, timeoutMs = 300_000) {
       message,
     }, controller.signal);
     if (GPU_COOLDOWN_MS > 0) await cooldown(GPU_COOLDOWN_MS);
-    const response = data.response || '';
+    const response = extractChatResponse('chatWithTimeout', status, data);
     transcriptTurn(message, response);
     return {
       status,
@@ -833,7 +851,7 @@ export async function createProjectConv(projectId, title) {
   if (status !== 200 && status !== 201) {
     throw new Error(`createProjectConv failed: ${status}`);
   }
-  return data.id || data.conversation?.id;
+  return extractConversationId('createProjectConv', status, data);
 }
 
 /** Fuzzy keyword check: at least minCount of keywords present (case-insensitive). */
