@@ -5,11 +5,11 @@
 // INTENTSMITH_TEST_ARTIFACT_DIR containing a `.intentsmith-artifacts` component.
 //
 // Usage:
-//   node tests/e2e/220-e2e-suite-runner.js [--suite=s1|s2|all] [--clean]
+//   node tests/e2e/220-e2e-suite-runner.js [--suite=s1|s2|all]
 //   node tests/e2e/220-e2e-suite-runner.js --self-check
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import {
   chmodSync,
@@ -40,6 +40,8 @@ import { fileURLToPath } from 'node:url';
 const PRIVATE_ROOT_COMPONENT = '.intentsmith-artifacts';
 const ARTIFACT_ROOT_ENV = 'INTENTSMITH_TEST_ARTIFACT_DIR';
 const STATE_DIR_ENV = 'INTENTSMITH_TEST_STATE_DIR';
+const SOURCE_REVISION_ENV = 'INTENTSMITH_TEST_SOURCE_REVISION';
+const SOURCE_REVISION_RE = /^[a-f0-9]{40}$/;
 const PHASE_TIMEOUT_MS = 90 * 60 * 1000;
 const DEFAULT_GLOBAL_DEADLINE_MS = 18 * 60 * 60 * 1000;
 const SERVER_START_TIMEOUT_MS = 90_000;
@@ -90,7 +92,7 @@ function usage() {
   return [
     'Usage: node tests/e2e/220-e2e-suite-runner.js [options]',
     '  --suite=s1|s2|all       Suite selection (default: all)',
-    '  --clean                 Clear only this run-owned E2E state before phases',
+    '  --clean                 Clear run-owned E2E state (default; retained for compatibility)',
     '  --deadline-ms=<number>  Finite global run deadline',
     '  --self-check            Validate isolation/argv/report plumbing; run no server or phases',
     '  --help                  Show this help',
@@ -100,7 +102,7 @@ function usage() {
 function parseArgs(argv) {
   const options = {
     suite: 'all',
-    clean: false,
+    clean: true,
     deadlineMs: DEFAULT_GLOBAL_DEADLINE_MS,
     selfCheck: false,
     help: false,
@@ -130,6 +132,56 @@ function parseArgs(argv) {
     throw new Error(`Invalid suite: ${options.suite}`);
   }
   return options;
+}
+
+function isolatedGitEnvironment() {
+  const env = { ...process.env };
+  for (const key of [
+    'GIT_DIR',
+    'GIT_WORK_TREE',
+    'GIT_INDEX_FILE',
+    'GIT_OBJECT_DIRECTORY',
+    'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+  ]) {
+    delete env[key];
+  }
+  return env;
+}
+
+function runGit(args, label) {
+  const result = spawnSync('git', ['-C', REPO_ROOT, ...args], {
+    encoding: 'utf8',
+    env: isolatedGitEnvironment(),
+    maxBuffer: 1024 * 1024,
+    shell: false,
+    timeout: 30_000,
+  });
+  if (result.error || result.status !== 0) {
+    throw new Error(
+      `${label}: ${safeError(result.error || result.stderr || `git exited ${result.status}`)}`,
+    );
+  }
+  return result.stdout;
+}
+
+function resolveSourceRevision({ requireClean }) {
+  const revision = runGit(
+    ['rev-parse', '--verify', 'HEAD'],
+    'Could not resolve source revision',
+  ).trim();
+  if (!SOURCE_REVISION_RE.test(revision)) {
+    throw new Error(`Git returned an invalid source revision: ${revision}`);
+  }
+  if (requireClean) {
+    const porcelain = runGit(
+      ['status', '--porcelain=v1', '--untracked-files=all'],
+      'Could not verify source cleanliness',
+    );
+    if (porcelain.trim() !== '') {
+      throw new Error('Large E2E execution requires an exactly clean source tree');
+    }
+  }
+  return revision;
 }
 
 function pathParts(path) {
@@ -357,7 +409,10 @@ function clearOwnedState(paths) {
   ensurePrivateDirectory(paths.state);
 }
 
-function makeChildEnv(paths, port = '0') {
+function makeChildEnv(paths, sourceRevision, port = '0') {
+  if (!SOURCE_REVISION_RE.test(sourceRevision || '')) {
+    throw new Error('Child environment requires an exact 40-character source SHA');
+  }
   const env = {};
   const inheritedKeys = [
     'PATH',
@@ -406,6 +461,7 @@ function makeChildEnv(paths, port = '0') {
     INTENTSMITH_TEST_PROJECTS_DIR: paths.projects,
     INTENTSMITH_TEST_ARTIFACT_DIR: paths.artifacts,
     [STATE_DIR_ENV]: paths.state,
+    [SOURCE_REVISION_ENV]: sourceRevision,
     C3_E2E_STATE_DIR: paths.state,
     C3_TRANSCRIPT: paths.transcript,
     C3_HOST: '127.0.0.1',
@@ -848,10 +904,11 @@ function reportSummary(results) {
   };
 }
 
-function makeInitialReport(options, paths, suitesToRun, phaseFiles) {
+function makeInitialReport(options, paths, suitesToRun, phaseFiles, sourceRevision) {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     runner: 'tests/e2e/220-e2e-suite-runner.js',
+    sourceRevision,
     runId: paths.runId,
     status: 'RUNNING',
     startedAt: new Date().toISOString(),
@@ -901,14 +958,14 @@ function makeInitialReport(options, paths, suitesToRun, phaseFiles) {
   };
 }
 
-function selfCheck(options, paths, report, suitesToRun) {
+function selfCheck(options, paths, report, suitesToRun, sourceRevision) {
   const selfCheckLog = join(paths.logs, 'self-check.log');
   createPrivateFile(selfCheckLog, 'self-check: filesystem and argv isolation only\n');
   assertRegularPrivateFile(selfCheckLog);
   assertRegularPrivateFile(paths.gitConfig);
   assertRegularPrivateFile(paths.transcript);
 
-  const env = makeChildEnv(paths, '43210');
+  const env = makeChildEnv(paths, sourceRevision, '43210');
   const writablePaths = [
     env.HOME,
     env.XDG_CONFIG_HOME,
@@ -930,6 +987,12 @@ function selfCheck(options, paths, report, suitesToRun) {
   }
   if (env.C3_URL !== 'http://127.0.0.1:43210') {
     throw new Error(`Self-check C3_URL mismatch: ${String(env.C3_URL)}`);
+  }
+  if (env[SOURCE_REVISION_ENV] !== sourceRevision || report.sourceRevision !== sourceRevision) {
+    throw new Error('Self-check source revision was not preserved');
+  }
+  if (!options.clean) {
+    throw new Error('Self-check expected fail-closed clean-state default');
   }
 
   const expectedFiles = suitesToRun.flatMap(suiteId => SUITES[suiteId].phases.map(p => p.file));
@@ -989,6 +1052,7 @@ async function main() {
   let exitCode = 1;
 
   try {
+    const sourceRevision = resolveSourceRevision({ requireClean: !options.selfCheck });
     const artifactRoot = resolvePrivateArtifactRoot(process.env[ARTIFACT_ROOT_ENV]);
     paths = makeRunPaths(artifactRoot, options.suite);
     const suitesToRun = options.suite === 'all' ? ['s1', 's2'] : [options.suite];
@@ -997,20 +1061,20 @@ async function main() {
     if (options.clean) clearOwnedState(paths);
     else ensurePrivateDirectory(paths.state);
 
-    report = makeInitialReport(options, paths, suitesToRun, phaseFiles);
+    report = makeInitialReport(options, paths, suitesToRun, phaseFiles, sourceRevision);
     writePrivateJson(paths.report, report);
 
     console.log(`IntentSmith large E2E runner: ${suitesToRun.join(', ')}`);
     console.log(`Private report: ${paths.report}`);
 
     if (options.selfCheck) {
-      selfCheck(options, paths, report, suitesToRun);
+      selfCheck(options, paths, report, suitesToRun, sourceRevision);
       exitCode = 0;
       return exitCode;
     }
 
     const globalDeadlineAt = Date.now() + options.deadlineMs;
-    const serverEnv = makeChildEnv(paths, '0');
+    const serverEnv = makeChildEnv(paths, sourceRevision, '0');
     report.preflight.ollama = await preflightOllama(serverEnv);
     writePrivateJson(paths.report, report);
 
@@ -1026,7 +1090,7 @@ async function main() {
     };
     writePrivateJson(paths.report, report);
 
-    const phaseEnv = makeChildEnv(paths, server.port);
+    const phaseEnv = makeChildEnv(paths, sourceRevision, server.port);
     const results = report.phases;
 
     for (let suitePosition = 0; suitePosition < suitesToRun.length; suitePosition++) {

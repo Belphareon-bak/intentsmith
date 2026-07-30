@@ -21,13 +21,24 @@ import { randomUUID } from 'node:crypto';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 const ARTIFACT_ROOT_ENV = 'INTENTSMITH_TEST_ARTIFACT_DIR';
+const SOURCE_REVISION_ENV = 'INTENTSMITH_TEST_SOURCE_REVISION';
 const PRIVATE_ROOT_COMPONENT = '.intentsmith-artifacts';
 const SUITE_ID_RE = /^[A-Za-z0-9](?:[A-Za-z0-9_-]{0,126}[A-Za-z0-9])?$/;
+const SOURCE_REVISION_RE = /^[a-f0-9]{40}$/;
+const STATE_SCHEMA_VERSION = 1;
 
 function assertSuiteId(suiteId) {
   if (typeof suiteId !== 'string' || !SUITE_ID_RE.test(suiteId)) {
     throw new Error(`Unsafe E2E suite id: ${String(suiteId)}`);
   }
+}
+
+function sourceRevision() {
+  const revision = process.env[SOURCE_REVISION_ENV];
+  if (!SOURCE_REVISION_RE.test(revision || '')) {
+    throw new Error(`${SOURCE_REVISION_ENV} must be the exact 40-character source SHA`);
+  }
+  return revision;
 }
 
 function assertPrivateArtifactRoot(configuredRoot) {
@@ -115,13 +126,18 @@ function assertRegularStateFile(path) {
 export function loadState(suiteId) {
   const path = statePath(suiteId);
   if (!assertRegularStateFile(path)) return null;
+  let state;
   try {
-    return JSON.parse(readFileSync(path, 'utf8'));
+    state = JSON.parse(readFileSync(path, 'utf8'));
   } catch (error) {
-    if (error instanceof SyntaxError) return null;
+    if (error instanceof SyntaxError) {
+      throw new Error(`Corrupt E2E state JSON for ${suiteId}: ${error.message}`);
+    }
     if (error?.code === 'ENOENT') return null;
     throw error;
   }
+  validateState(suiteId, state);
+  return state;
 }
 
 function removeTempFile(path) {
@@ -134,6 +150,7 @@ function removeTempFile(path) {
 
 /** Save state atomically (exclusive write + fsync + rename). */
 export function saveState(suiteId, state) {
+  validateState(suiteId, state);
   const json = JSON.stringify(state, null, 2);
   if (json === undefined) {
     throw new TypeError('E2E state must be JSON-serializable');
@@ -208,7 +225,9 @@ export function isPhaseComplete(suiteId, phaseNum) {
 /** Create initial state for a new suite run. */
 export function initState(suiteId) {
   const state = {
+    schemaVersion: STATE_SCHEMA_VERSION,
     suiteId,
+    sourceRevision: sourceRevision(),
     convId: null,
     projectId: null,
     projectPath: null,
@@ -220,4 +239,41 @@ export function initState(suiteId) {
   };
   saveState(suiteId, state);
   return state;
+}
+
+function validateState(suiteId, state) {
+  assertSuiteId(suiteId);
+  if (!state || typeof state !== 'object' || Array.isArray(state)) {
+    throw new Error(`Invalid E2E state object for ${suiteId}`);
+  }
+  if (state.schemaVersion !== STATE_SCHEMA_VERSION) {
+    throw new Error(`Unsupported E2E state schema for ${suiteId}`);
+  }
+  if (state.suiteId !== suiteId) {
+    throw new Error(`E2E state suite mismatch: ${String(state.suiteId)} !== ${suiteId}`);
+  }
+  const currentRevision = sourceRevision();
+  if (state.sourceRevision !== currentRevision) {
+    throw new Error(
+      `E2E state source revision mismatch: ${String(state.sourceRevision)} !== ${currentRevision}`,
+    );
+  }
+  if (!state.phases || typeof state.phases !== 'object' || Array.isArray(state.phases)) {
+    throw new Error(`Invalid E2E phase state for ${suiteId}`);
+  }
+
+  const completed = [];
+  for (const [phase, value] of Object.entries(state.phases)) {
+    const match = phase.match(/^p([1-9]|10)$/);
+    if (!match || !value || typeof value !== 'object' || value.completed !== true) {
+      throw new Error(`Invalid completed phase record ${phase} for ${suiteId}`);
+    }
+    completed.push(Number(match[1]));
+  }
+  completed.sort((left, right) => left - right);
+  for (let index = 0; index < completed.length; index++) {
+    if (completed[index] !== index + 1) {
+      throw new Error(`E2E phase chain is not contiguous for ${suiteId}`);
+    }
+  }
 }

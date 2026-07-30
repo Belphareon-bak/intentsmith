@@ -76,6 +76,7 @@ try {
   process.env.INTENTSMITH_TEST_ARTIFACT_DIR = artifactRoot;
   process.env.INTENTSMITH_TEST_REQUEST_TIMEOUT_MS = '100';
   process.env.INTENTSMITH_TEST_SUITE_ID = 'helpers-self-check';
+  process.env.INTENTSMITH_TEST_SOURCE_REVISION = 'a'.repeat(40);
 
   const helpers = await import('./_helpers.js');
   ensure(helpers.BASE_URL === process.env.C3_URL, 'C3_URL was not preserved');
@@ -161,6 +162,70 @@ try {
     fs.readdirSync(path.join(artifactRoot, 'tmp')).length === 0,
     'quality evaluator left a syntax fixture in the runner-owned temp root',
   );
+
+  const stateStore = await import('./_e2e-state.js');
+  const state = stateStore.initState('state-self-check');
+  ensure(state.sourceRevision === 'a'.repeat(40), 'state did not bind the source SHA');
+
+  delete process.env.INTENTSMITH_TEST_SOURCE_REVISION;
+  let missingRevisionRejected = false;
+  try {
+    stateStore.loadState('state-self-check');
+  } catch (error) {
+    missingRevisionRejected = error.message.includes('exact 40-character source SHA');
+  }
+  ensure(missingRevisionRejected, 'state accepted a missing source SHA');
+  process.env.INTENTSMITH_TEST_SOURCE_REVISION = 'a'.repeat(40);
+
+  for (const [label, mutation, expectedMessage] of [
+    ['schema', value => { value.schemaVersion = 999; }, 'Unsupported E2E state schema'],
+    ['suite', value => { value.suiteId = 'other-suite'; }, 'state suite mismatch'],
+    ['source', value => { value.sourceRevision = 'c'.repeat(40); }, 'source revision mismatch'],
+  ]) {
+    const invalidState = structuredClone(state);
+    mutation(invalidState);
+    let invalidStateRejected = false;
+    try {
+      stateStore.saveState('state-self-check', invalidState);
+    } catch (error) {
+      invalidStateRejected = error.message.includes(expectedMessage);
+    }
+    ensure(invalidStateRejected, `state accepted a mismatched ${label}`);
+  }
+
+  state.phases.p2 = { completed: true };
+  let nonContiguousPhaseRejected = false;
+  try {
+    stateStore.saveState('state-self-check', state);
+  } catch (error) {
+    nonContiguousPhaseRejected = error.message.includes('phase chain is not contiguous');
+  }
+  ensure(nonContiguousPhaseRejected, 'state accepted a non-contiguous completed phase');
+  delete state.phases.p2;
+  state.phases.p1 = { completed: true };
+  stateStore.saveState('state-self-check', state);
+  ensure(stateStore.isPhaseComplete('state-self-check', 1), 'completed phase was not persisted');
+
+  process.env.INTENTSMITH_TEST_SOURCE_REVISION = 'b'.repeat(40);
+  let staleRevisionRejected = false;
+  try {
+    stateStore.loadState('state-self-check');
+  } catch (error) {
+    staleRevisionRejected = error.message.includes('source revision mismatch');
+  }
+  ensure(staleRevisionRejected, 'state from another source SHA was accepted');
+  process.env.INTENTSMITH_TEST_SOURCE_REVISION = 'a'.repeat(40);
+
+  const statePath = path.join(artifactRoot, 'e2e-state', 'state-self-check.json');
+  fs.writeFileSync(statePath, '{broken', { mode: 0o600 });
+  let corruptStateRejected = false;
+  try {
+    stateStore.loadState('state-self-check');
+  } catch (error) {
+    corruptStateRejected = error.message.includes('Corrupt E2E state JSON');
+  }
+  ensure(corruptStateRejected, 'corrupt state was silently treated as absent');
+  stateStore.cleanupAllStates();
 
   for (const invalidUrl of [
     'https://127.0.0.1:4443',

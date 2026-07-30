@@ -436,6 +436,7 @@ async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
   const suiteTimeoutMs = Math.min(opts.timeoutMs, suite.timeoutMs, remainingMs);
   const environment = makeSuiteEnvironment({
     suite,
+    sourceRevision,
     homeDir,
     tempDir,
     projectsDir,
@@ -629,6 +630,7 @@ function isHardBlocker(blocker) {
 
 function makeSuiteEnvironment({
   suite,
+  sourceRevision,
   homeDir,
   tempDir,
   projectsDir,
@@ -678,6 +680,7 @@ function makeSuiteEnvironment({
     GIT_CONFIG_GLOBAL: gitConfigPath,
     GIT_CONFIG_NOSYSTEM: '1',
     C3_AUDIT_RUN: '1',
+    INTENTSMITH_TEST_SOURCE_REVISION: sourceRevision,
     C3_DB_PATH: path.join(runtimeDir, 'intentsmith-test.sqlite'),
     C3_PROJECTS_DIR: projectsDir,
     INTENTSMITH_TEST_PROJECTS_DIR: projectsDir,
@@ -698,6 +701,7 @@ function makeSuiteEnvironment({
     evidence: {
       inheritedKeys: inheritedKeys.filter(key => process.env[key] !== undefined),
       forwardedRuntimeKeys: pdfRuntimeKeys.filter(key => process.env[key] !== undefined),
+      sourceRevision: env.INTENTSMITH_TEST_SOURCE_REVISION,
       home: homeDir,
       temp: tempDir,
       database: env.C3_DB_PATH,

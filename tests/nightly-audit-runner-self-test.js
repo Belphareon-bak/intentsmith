@@ -71,6 +71,7 @@ writeFileSync(path.join(process.env.TMPDIR, 'observed-env.json'), JSON.stringify
   C3_DB_PATH: process.env.C3_DB_PATH,
   INTENTSMITH_PDF_PYTHON: process.env.INTENTSMITH_PDF_PYTHON,
   C3_PDF_PYTHON: process.env.C3_PDF_PYTHON,
+  INTENTSMITH_TEST_SOURCE_REVISION: process.env.INTENTSMITH_TEST_SOURCE_REVISION,
   PYTHONNOUSERSITE: process.env.PYTHONNOUSERSITE,
   TEST_SECRET_SENTINEL: process.env.TEST_SECRET_SENTINEL,
   UMASK: process.umask(),
@@ -202,6 +203,7 @@ assert.equal(observedEnv.HOME, byPath.get('tests/pass.test.js').environment.home
 assert.equal(observedEnv.C3_DB_PATH, byPath.get('tests/pass.test.js').environment.database);
 assert.equal(observedEnv.INTENTSMITH_PDF_PYTHON, expectedPdfPython);
 assert.equal(observedEnv.C3_PDF_PYTHON, expectedPdfPython);
+assert.equal(observedEnv.INTENTSMITH_TEST_SOURCE_REVISION, 'unknown');
 assert.equal(observedEnv.PYTHONNOUSERSITE, '1');
 assert.equal(observedEnv.TEST_SECRET_SENTINEL, undefined);
 assert.equal(observedEnv.UMASK, 0o077);
@@ -210,6 +212,7 @@ assert.deepEqual(
   ['INTENTSMITH_PDF_PYTHON', 'C3_PDF_PYTHON'],
 );
 assert.equal(byPath.get('tests/pass.test.js').environment.pdfPython, expectedPdfPython);
+assert.equal(byPath.get('tests/pass.test.js').environment.sourceRevision, 'unknown');
 assert.equal(byPath.get('tests/pass.test.js').environment.pythonNoUserSite, true);
 process.umask(originalUmask);
 permissiveUmaskActive = false;
