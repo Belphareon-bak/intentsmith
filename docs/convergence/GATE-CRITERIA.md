@@ -117,9 +117,10 @@ SHA-256 of the captured output — enough to re-run without reading this
 conversation, the transcript, or any local state. Evidence that cannot be
 reproduced from the commit is not evidence.
 
-Install logs additionally carry the candidate SHA, clean-worktree marker, run
-kind (`clean` or `idempotent`), and SHA-256 of the documented install command.
-The evidence generator rejects logs missing or disagreeing with any marker.
+Install logs additionally carry the candidate SHA, pre/post clean-worktree
+markers, run kind (`clean` or `idempotent`), and SHA-256 of the documented
+install command. The evidence generator rejects logs missing or disagreeing
+with any marker.
 
 ## Later gates
 

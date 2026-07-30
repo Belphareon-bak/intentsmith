@@ -42,6 +42,8 @@ try {
     'idempotent-install-log',
     'install-command',
     'deterministic-command',
+    'pilot-command-template',
+    'soak-command',
   ]) {
     if (!opts[key]) throw new Error(`Missing --${key}=VALUE`);
   }
@@ -86,6 +88,10 @@ try {
 
   const pilotReports = await loadPilotReports(resolveInput(opts['pilot-root']));
   requireEvidence(pilotReports.length === 5, `expected 5 pilot reports, got ${pilotReports.length}`);
+  requireEvidence(
+    opts['pilot-command-template'].includes('{runId}'),
+    'pilot command template must contain {runId}',
+  );
   requireEvidence(
     new Set(pilotReports.map(item => item.report.runId)).size === pilotReports.length,
     'pilot reports contain duplicate run IDs',
@@ -132,6 +138,10 @@ try {
     requireEvidence(
       logText.includes(`GATE0_INSTALL_COMMAND_SHA256=${sha256(opts['install-command'])}`),
       `${kind} install log does not match the documented install command`,
+    );
+    requireEvidence(
+      logText.includes('GATE0_POST_INSTALL_WORKTREE_STATUS=clean'),
+      `${kind} install log does not prove a clean post-install source tree`,
     );
     installLogs.push({
       kind,
@@ -221,6 +231,7 @@ try {
   };
   const pilotEvidence = await Promise.all(pilotReports.map(async item => ({
     runId: item.report.runId,
+    command: opts['pilot-command-template'].replaceAll('{runId}', item.report.runId),
     report: displayPath(item.path),
     reportSha256: await hashFile(item.path),
     exitCode: item.report.exitCode,
@@ -228,7 +239,7 @@ try {
     endedAt: item.report.endedAt,
   })));
   const soakEvidence = {
-    command: 'node scripts/nightly-audit.js --suite=<five-local-soak-ids>',
+    command: opts['soak-command'],
     exitCode: soakGuard.exitCode,
     verdict: soakGuard.verdict,
     report: displayPath(soakGuardPath),
@@ -557,6 +568,9 @@ function renderBaselineReport({
   const pilotRows = pilotEvidence.map(item => (
     `| \`${item.runId}\` | 0 | PASS | \`${item.reportSha256}\` |`
   )).join('\n');
+  const pilotCommands = pilotEvidence.map(item => (
+    `- \`${item.runId}\`: \`${item.command}\``
+  )).join('\n');
   const rotationRows = privacy.rotationInventory
     .map(item => `- ${item.category}: ${item.action}`)
     .join('\n');
@@ -626,6 +640,10 @@ suite exits.
 | Run | Exit | Verdict | Report SHA-256 |
 |---|---:|---|---|
 ${pilotRows}
+
+Exact orchestration commands:
+
+${pilotCommands}
 
 The unchanged A9 assertion passed in every run. The repair changed the low-
 ceremony C2 fixture, not production score weights or thresholds.
@@ -743,7 +761,9 @@ ${reviewDiffStat}
 - Deterministic registry: ${GATE0_DETERMINISTIC_COUNT} PASS, exit 0, report SHA
   \`${deterministicEvidence.reportSha256}\`.
 - Pilot A9: five consecutive PASS reports:
-${pilotEvidence.map(item => `  - \`${item.runId}\`: \`${item.reportSha256}\``).join('\n')}
+${pilotEvidence.map(item => (
+    `  - \`${item.runId}\`: report \`${item.reportSha256}\`; command \`${item.command}\``
+  )).join('\n')}
 - Soak requirement guard: ${soakEvidence.verdict}, exit
   ${soakEvidence.exitCode}, prerequisites \`${soakEvidence.blockedBy.join(', ')}\`.
 - Registry and disposition validators: exit 0.
