@@ -918,6 +918,6 @@ async function writeFixtureRegistry(rootDir, paths, overrides = {}) {
   }));
   await writeFile(
     path.join(rootDir, 'tests', 'registry.json'),
-    `${JSON.stringify({ schemaVersion: 1, suites }, null, 2)}\n`,
+    `${JSON.stringify({ schemaVersion: 2, exclusions: [], suites }, null, 2)}\n`,
   );
 }
