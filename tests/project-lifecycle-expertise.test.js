@@ -16,7 +16,9 @@
 // Run: node tests/project-lifecycle-expertise.test.js
 // ══════════════════════════════════════════════════════════════════════════════
 
+import './helpers/isolated-test-db.js';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { execSync } from 'child_process';
 import Database from 'better-sqlite3';
@@ -51,6 +53,7 @@ import {
   clearLcState,
   initLifecycleStateDb,
 } from '../src/chat/handlers/lifecycle-state.js';
+import { rawId, scopeId } from '../src/planner/lifecycle-planning.js';
 
 import { SpecialistLoader } from '../src/specialists/specialist-loader.js';
 
@@ -128,11 +131,26 @@ const ROADMAP = {
       description: 'specialist.json manifest and index.js entry point',
       dependencies: [],
       estimated_loc: 80,
-      estimated_files: 2,
+      estimated_files: 6,
       estimated_complexity: 'LOW',
       goals_addressed: ['G1'],
       requirements_addressed: ['R1', 'R2'],
-      deliverables: ['mobile-dev/specialist.json', 'mobile-dev/index.js'],
+      test_strategy: {
+        type: 'integration',
+        description: 'Load the manifest entry point with all declared tool interfaces present',
+        specific_tests: ['manifest parses', 'entry point imports resolve', 'register and unregister exports exist'],
+        expected_test_count: 3,
+        command: 'node mobile-dev/tests/manifest-smoke.test.js',
+      },
+      acceptance_criteria: ['Manifest parses', 'Entry point imports resolve', 'Tool interfaces export their declared functions'],
+      deliverables: [
+        'mobile-dev/specialist.json',
+        'mobile-dev/index.js',
+        'mobile-dev/tools/detect-frameworks.js',
+        'mobile-dev/tools/scaffold-project.js',
+        'mobile-dev/tools/recommend-libs.js',
+        'mobile-dev/tests/manifest-smoke.test.js',
+      ],
     },
     {
       id: 'ms-2',
@@ -140,11 +158,29 @@ const ROADMAP = {
       description: 'Three tool modules: detect-frameworks, scaffold-project, recommend-libs',
       dependencies: ['ms-1'],
       estimated_loc: 150,
-      estimated_files: 3,
+      estimated_files: 4,
       estimated_complexity: 'MEDIUM',
       goals_addressed: ['G1', 'G2', 'G3'],
       requirements_addressed: ['R3', 'R4', 'R5', 'R6'],
-      deliverables: ['mobile-dev/tools/detect-frameworks.js', 'mobile-dev/tools/scaffold-project.js', 'mobile-dev/tools/recommend-libs.js'],
+      test_strategy: {
+        type: 'integration',
+        description: 'Execute all three specialist tools with representative inputs',
+        specific_tests: [
+          'framework detection returns matches',
+          'scaffolder returns a project plan',
+          'library recommender returns packages',
+          'unknown inputs use deterministic fallbacks',
+        ],
+        expected_test_count: 6,
+        command: 'node mobile-dev/tests/tools-smoke.test.js',
+      },
+      acceptance_criteria: ['All three tools return structured output', 'Unknown inputs have deterministic fallbacks'],
+      deliverables: [
+        'mobile-dev/tools/detect-frameworks.js',
+        'mobile-dev/tools/scaffold-project.js',
+        'mobile-dev/tools/recommend-libs.js',
+        'mobile-dev/tests/tools-smoke.test.js',
+      ],
     },
     {
       id: 'ms-3',
@@ -156,12 +192,51 @@ const ROADMAP = {
       estimated_complexity: 'LOW',
       goals_addressed: ['G1'],
       requirements_addressed: ['R7'],
+      test_strategy: {
+        type: 'e2e',
+        description: 'Boot the specialist and measure routing recall, precision, and tool accuracy',
+        specific_tests: ['recall is at least 80%', 'precision is at least 80%', 'tool accuracy is at least 70%'],
+        expected_test_count: 25,
+        command: 'node mobile-dev/tests/routing.test.js',
+      },
+      acceptance_criteria: ['Specialist boots successfully', 'Routing thresholds are met', 'Disable and re-enable are reversible'],
       deliverables: ['mobile-dev/tests/routing.test.js'],
     },
   ],
   total_estimated_loc: 290,
   total_milestones: 3,
   critical_path: ['ms-1', 'ms-2', 'ms-3'],
+  requirements_coverage: {
+    covered: ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7'],
+    uncovered: [],
+    rationale_for_uncovered: '',
+  },
+};
+
+const ARCHITECTURE = {
+  layers: ['entrypoint', 'tools', 'tests'],
+  rules: [
+    {
+      from: 'entrypoint',
+      canImport: ['tools'],
+      cannotImport: ['tests'],
+    },
+    {
+      from: 'tools',
+      canImport: [],
+      cannotImport: ['entrypoint', 'tests'],
+    },
+    {
+      from: 'tests',
+      canImport: ['entrypoint', 'tools'],
+      cannotImport: [],
+    },
+  ],
+  fileStructure: {
+    entrypoint: 'mobile-dev/index.js',
+    tools: 'mobile-dev/tools',
+    tests: 'mobile-dev/tests',
+  },
 };
 
 const MS_PLANS = {
@@ -170,12 +245,25 @@ const MS_PLANS = {
     files: [
       { path: 'mobile-dev/specialist.json', action: 'create', purpose: 'Manifest' },
       { path: 'mobile-dev/index.js', action: 'create', purpose: 'Entry point' },
+      { path: 'mobile-dev/tools/detect-frameworks.js', action: 'create', purpose: 'Framework detection interface' },
+      { path: 'mobile-dev/tools/scaffold-project.js', action: 'create', purpose: 'Project scaffolding interface' },
+      { path: 'mobile-dev/tools/recommend-libs.js', action: 'create', purpose: 'Library recommendation interface' },
+      { path: 'mobile-dev/tests/manifest-smoke.test.js', action: 'create', purpose: 'Manifest and entry-point smoke test' },
     ],
     implementation_steps: [
       { step: 1, action: 'Create specialist.json manifest', file: 'mobile-dev/specialist.json' },
       { step: 2, action: 'Create index.js with register/unregister', file: 'mobile-dev/index.js' },
+      { step: 3, action: 'Create import-safe interfaces for all declared tools', file: 'mobile-dev/tools/', validation: 'Every index.js import resolves' },
+      { step: 4, action: 'Add executable manifest and entry-point smoke checks', file: 'mobile-dev/tests/manifest-smoke.test.js', validation: 'Smoke test registers and unregisters all declared tools' },
     ],
-    scope_files: ['mobile-dev/specialist.json', 'mobile-dev/index.js'],
+    scope_files: [
+      'mobile-dev/specialist.json',
+      'mobile-dev/index.js',
+      'mobile-dev/tools/detect-frameworks.js',
+      'mobile-dev/tools/scaffold-project.js',
+      'mobile-dev/tools/recommend-libs.js',
+      'mobile-dev/tests/manifest-smoke.test.js',
+    ],
   },
   'ms-2': {
     milestone_id: 'ms-2',
@@ -183,13 +271,19 @@ const MS_PLANS = {
       { path: 'mobile-dev/tools/detect-frameworks.js', action: 'create', purpose: 'Framework detection' },
       { path: 'mobile-dev/tools/scaffold-project.js', action: 'create', purpose: 'Project scaffolding' },
       { path: 'mobile-dev/tools/recommend-libs.js', action: 'create', purpose: 'Library recommendation' },
+      { path: 'mobile-dev/tests/tools-smoke.test.js', action: 'create', purpose: 'Executable tool smoke test' },
     ],
     implementation_steps: [
       { step: 1, action: 'Create detect-frameworks tool', file: 'mobile-dev/tools/detect-frameworks.js' },
       { step: 2, action: 'Create scaffold-project tool', file: 'mobile-dev/tools/scaffold-project.js' },
-      { step: 3, action: 'Create recommend-libs tool', file: 'mobile-dev/tools/recommend-libs.js' },
+      { step: 3, action: 'Create recommend-libs tool and executable smoke checks', file: 'mobile-dev/tools/recommend-libs.js', validation: 'mobile-dev/tests/tools-smoke.test.js passes' },
     ],
-    scope_files: ['mobile-dev/tools/detect-frameworks.js', 'mobile-dev/tools/scaffold-project.js', 'mobile-dev/tools/recommend-libs.js'],
+    scope_files: [
+      'mobile-dev/tools/detect-frameworks.js',
+      'mobile-dev/tools/scaffold-project.js',
+      'mobile-dev/tools/recommend-libs.js',
+      'mobile-dev/tests/tools-smoke.test.js',
+    ],
   },
   'ms-3': {
     milestone_id: 'ms-3',
@@ -198,9 +292,26 @@ const MS_PLANS = {
     ],
     implementation_steps: [
       { step: 1, action: 'Create routing accuracy test', file: 'mobile-dev/tests/routing.test.js' },
+      { step: 2, action: 'Add positive and negative routing cases', file: 'mobile-dev/tests/routing.test.js' },
+      { step: 3, action: 'Validate recall, precision, and tool accuracy thresholds', file: 'mobile-dev/tests/routing.test.js' },
     ],
     scope_files: ['mobile-dev/tests/routing.test.js'],
   },
+};
+
+const TOOL_INTERFACE_STUBS = {
+  'mobile-dev/tools/detect-frameworks.js': `export function detectFrameworks() {
+  return { detected: false, frameworks: [] };
+}
+`,
+  'mobile-dev/tools/scaffold-project.js': `export function scaffoldProject() {
+  return { platform: 'react-native', structure: [], dependencies: [] };
+}
+`,
+  'mobile-dev/tools/recommend-libs.js': `export function recommendLibraries() {
+  return { category: 'general', platform: 'react-native', libraries: [] };
+}
+`,
 };
 
 // Self-contained specialist files (no imports from C3 project)
@@ -322,6 +433,51 @@ export function unregister(ctx) {
   }
 }
 `,
+    'mobile-dev/tests/manifest-smoke.test.js': `import fs from 'node:fs';
+import * as entry from '../index.js';
+
+const manifest = JSON.parse(
+  fs.readFileSync(new URL('../specialist.json', import.meta.url), 'utf8')
+);
+if (manifest.id !== 'mobile-dev' || manifest.tools?.length !== 3) {
+  throw new Error('Manifest identity or tool declarations are invalid');
+}
+if (typeof entry.register !== 'function' || typeof entry.unregister !== 'function') {
+  throw new Error('Entry point must export register and unregister');
+}
+for (const tool of manifest.tools) {
+  const moduleUrl = new URL(\`../\${tool.module.replace(/^\\.\\//, '')}\`, import.meta.url);
+  const toolModule = await import(moduleUrl);
+  if (typeof toolModule[tool.function] !== 'function') {
+    throw new Error(\`Missing declared export \${tool.function} in \${tool.module}\`);
+  }
+}
+
+let registered;
+entry.register({
+  runtime: {
+    registerSpecialist(value) {
+      registered = value;
+    },
+  },
+});
+if (registered?.id !== manifest.id || registered.tools?.length !== manifest.tools.length) {
+  throw new Error('register() did not expose all manifest tools');
+}
+
+let unregistered;
+entry.unregister({
+  runtime: {
+    unregisterSpecialist(id) {
+      unregistered = id;
+    },
+  },
+});
+if (unregistered !== manifest.id) {
+  throw new Error('unregister() did not remove the specialist');
+}
+console.log('Manifest smoke checks passed');
+`,
   },
   'ms-2': {
     'mobile-dev/tools/detect-frameworks.js': `// Mobile framework detection tool
@@ -422,31 +578,117 @@ export function recommendLibraries(params) {
   };
 }
 `,
+    'mobile-dev/tests/tools-smoke.test.js': `import { detectFrameworks } from '../tools/detect-frameworks.js';
+import { scaffoldProject } from '../tools/scaffold-project.js';
+import { recommendLibraries } from '../tools/recommend-libs.js';
+
+if (!detectFrameworks({ query: 'React Native' }).detected) {
+  throw new Error('React Native was not detected');
+}
+if (scaffoldProject({ platform: 'flutter' }).platform !== 'flutter') {
+  throw new Error('Flutter scaffold was not selected');
+}
+if (recommendLibraries({ category: 'navigation', platform: 'react-native' }).libraries.length === 0) {
+  throw new Error('Navigation recommendations are empty');
+}
+const unknownFramework = detectFrameworks({ query: 'unrelated input' });
+if (unknownFramework.detected !== false || unknownFramework.frameworks.length === 0) {
+  throw new Error('Unknown framework input did not use the deterministic catalog fallback');
+}
+if (scaffoldProject({ platform: 'unknown' }).command !== 'npx react-native init MyApp') {
+  throw new Error('Unknown scaffold platform did not use the React Native fallback');
+}
+if (recommendLibraries({ category: 'unknown', platform: 'unknown' }).libraries.length === 0) {
+  throw new Error('Unknown library input did not use the general React Native fallback');
+}
+console.log('Tool smoke checks passed');
+`,
   },
   'ms-3': {
     'mobile-dev/tests/routing.test.js': `// Routing accuracy test for mobile-dev specialist
-// Tests pattern matching recall and precision
+import { register } from '../index.js';
+
+let specialist;
+register({
+  runtime: {
+    registerSpecialist(value) {
+      specialist = value;
+    },
+  },
+});
+
+if (!specialist?.tools?.length) {
+  throw new Error('Specialist did not register any tools');
+}
 
 const TESTS = [
-  // Should match detect_frameworks
+  // Positive routing cases
   { input: 'Which React Native version should I use?', expected: 'mobile-dev.detect_frameworks' },
   { input: 'Is Flutter better than React Native?', expected: 'mobile-dev.detect_frameworks' },
   { input: 'Jaký mobilní framework je nejlepší?', expected: 'mobile-dev.detect_frameworks' },
-
-  // Should match scaffold_project
+  { input: 'Tell me about Ionic framework', expected: 'mobile-dev.detect_frameworks' },
+  { input: 'Compare SwiftUI and Flutter', expected: 'mobile-dev.detect_frameworks' },
+  { input: 'Is Expo a mobile framework?', expected: 'mobile-dev.detect_frameworks' },
   { input: 'Scaffold a new React Native project', expected: 'mobile-dev.scaffold_project' },
   { input: 'Vytvoř nový mobilní projekt', expected: 'mobile-dev.scaffold_project' },
-
-  // Should match recommend_libs
+  { input: 'Create a new Flutter app', expected: 'mobile-dev.scaffold_project' },
+  { input: 'Initialize an Ionic app', expected: 'mobile-dev.scaffold_project' },
+  { input: 'Založ React Native aplikaci', expected: 'mobile-dev.scaffold_project' },
   { input: 'Doporuč knihovnu pro navigaci', expected: 'mobile-dev.recommend_libs' },
   { input: 'Recommend a state management library', expected: 'mobile-dev.recommend_libs' },
+  { input: 'Jaká knihovna je nejlepší pro formuláře?', expected: 'mobile-dev.recommend_libs' },
+  { input: 'Suggest a package for forms', expected: 'mobile-dev.recommend_libs' },
 
-  // Should NOT match (null)
+  // Negative routing cases
   { input: 'Kolik je hodin?', expected: null },
   { input: 'What is the weather?', expected: null },
+  { input: 'Kolik zaplatím daní?', expected: null },
+  { input: 'Hello, how are you?', expected: null },
+  { input: 'What is 2 + 2?', expected: null },
+  { input: 'Write a SQL query', expected: null },
+  { input: 'Summarize the project status', expected: null },
+  { input: 'Open the local config file', expected: null },
+  { input: 'Translate this sentence to Czech', expected: null },
+  { input: 'Explain recursion', expected: null },
 ];
 
-console.log('Routing accuracy test:', TESTS.length, 'cases');
+function route(input) {
+  const matches = [];
+  for (const tool of specialist.tools) {
+    const matched = tool.patterns?.some(group =>
+      group.patterns?.some(pattern => {
+        pattern.lastIndex = 0;
+        return pattern.test(input);
+      })
+    );
+    if (matched) matches.push(tool);
+  }
+  matches.sort((a, b) =>
+    (b.patterns?.[0]?.priority || 0) - (a.patterns?.[0]?.priority || 0)
+  );
+  return matches[0]?.id || null;
+}
+
+const positives = TESTS.filter(test => test.expected !== null);
+const negatives = TESTS.filter(test => test.expected === null);
+const positiveResults = positives.map(test => ({ ...test, actual: route(test.input) }));
+const negativeResults = negatives.map(test => ({ ...test, actual: route(test.input) }));
+const routedPositives = positiveResults.filter(test => test.actual !== null).length;
+const exactPositives = positiveResults.filter(test => test.actual === test.expected).length;
+const falsePositives = negativeResults.filter(test => test.actual !== null).length;
+const predictedPositives = routedPositives + falsePositives;
+const recall = routedPositives / positives.length;
+const precision = predictedPositives > 0 ? routedPositives / predictedPositives : 0;
+const toolAccuracy = exactPositives / positives.length;
+
+if (TESTS.length < 20 || recall < 0.8 || precision < 0.8 || toolAccuracy < 0.7) {
+  throw new Error(
+    \`Routing thresholds failed: cases=\${TESTS.length}, recall=\${recall}, precision=\${precision}, toolAccuracy=\${toolAccuracy}\`
+  );
+}
+console.log(
+  \`Routing metrics: cases=\${TESTS.length}, recall=\${recall}, precision=\${precision}, toolAccuracy=\${toolAccuracy}\`
+);
 `,
   },
 };
@@ -493,10 +735,15 @@ function createFakeLLM() {
       return { content: JSON.stringify(ROADMAP) };
     }
 
+    if (p.includes('generate an ARCHITECTURE.json file')) {
+      return { content: JSON.stringify(ARCHITECTURE) };
+    }
+
     if (p.includes('implementing a specific milestone') || p.includes('implementation plan for THIS milestone')) {
       const msMatch = p.match(/"id"\s*:\s*"(ms-\d+)"/);
-      const msId = msMatch ? msMatch[1] : 'ms-1';
-      return { content: JSON.stringify(MS_PLANS[msId] || MS_PLANS['ms-1']) };
+      const msId = msMatch?.[1];
+      if (!msId || !MS_PLANS[msId]) throw new Error(`Unknown milestone plan prompt: ${msId}`);
+      return { content: JSON.stringify(MS_PLANS[msId]) };
     }
 
     if (p.includes('reviewing a completed milestone') || p.includes('Compare the actual output')) {
@@ -532,8 +779,7 @@ function createFakeLLM() {
       };
     }
 
-    console.warn(`    ⚠️ fakeLLM: unmatched prompt (role=${role})`);
-    return { content: '{}' };
+    throw new Error(`Unmatched fake LLM prompt (role=${role}): ${p.slice(0, 160)}`);
   };
 }
 
@@ -542,8 +788,11 @@ function createFakeLLM() {
 function createFakeExecutor(projectPath) {
   return {
     async start(request, context) {
-      const msId = context.milestoneId;
-      const files = FILES[msId] || {};
+      const msId = rawId(context.milestoneId);
+      const files = msId === 'ms-1'
+        ? { ...FILES[msId], ...TOOL_INTERFACE_STUBS }
+        : FILES[msId];
+      if (!files) throw new Error(`No executor fixture for ${context.milestoneId}`);
       for (const [relPath, content] of Object.entries(files)) {
         const fullPath = path.join(projectPath, relPath);
         fs.mkdirSync(path.dirname(fullPath), { recursive: true });
@@ -654,12 +903,17 @@ function testRouting(runtime) {
     { input: 'Is Flutter good for my app?', expected: 'mobile-dev.detect_frameworks' },
     { input: 'Jaký mobilní framework je nejlepší?', expected: 'mobile-dev.detect_frameworks' },
     { input: 'Tell me about Ionic framework', expected: 'mobile-dev.detect_frameworks' },
+    { input: 'Compare SwiftUI and Flutter', expected: 'mobile-dev.detect_frameworks' },
+    { input: 'Is Expo a mobile framework?', expected: 'mobile-dev.detect_frameworks' },
     { input: 'Scaffold a new React Native project', expected: 'mobile-dev.scaffold_project' },
     { input: 'Vytvoř nový mobilní projekt', expected: 'mobile-dev.scaffold_project' },
     { input: 'Create a new Flutter app', expected: 'mobile-dev.scaffold_project' },
+    { input: 'Initialize an Ionic app', expected: 'mobile-dev.scaffold_project' },
+    { input: 'Založ React Native aplikaci', expected: 'mobile-dev.scaffold_project' },
     { input: 'Doporuč knihovnu pro navigaci', expected: 'mobile-dev.recommend_libs' },
     { input: 'Recommend a state management library', expected: 'mobile-dev.recommend_libs' },
     { input: 'Jaká knihovna je nejlepší pro formuláře?', expected: 'mobile-dev.recommend_libs' },
+    { input: 'Suggest a package for forms', expected: 'mobile-dev.recommend_libs' },
   ];
 
   // Group C: Should NOT match (precision)
@@ -669,6 +923,11 @@ function testRouting(runtime) {
     { input: 'Kolik zaplatím daní?' },
     { input: 'Hello, how are you?' },
     { input: 'What is 2 + 2?' },
+    { input: 'Write a SQL query' },
+    { input: 'Summarize the project status' },
+    { input: 'Open the local config file' },
+    { input: 'Translate this sentence to Czech' },
+    { input: 'Explain recursion' },
   ];
 
   let recallHits = 0;
@@ -683,20 +942,23 @@ function testRouting(runtime) {
     }
   }
 
-  let precisionHits = 0;
-  let precisionTotal = groupC.length;
+  let falsePositives = 0;
 
   for (const test of groupC) {
     const result = matchInput(test.input);
-    if (result === null) precisionHits++;
+    if (result !== null) falsePositives++;
   }
 
+  const predictedPositives = recallHits + falsePositives;
+  const precision = predictedPositives > 0 ? recallHits / predictedPositives : 0;
+
   return {
+    caseCount: groupA.length + groupC.length,
     recall: recallHits / recallTotal,
-    precision: precisionHits / precisionTotal,
+    precision,
     toolAccuracy: toolAccuracyHits / recallTotal,
     recallDetail: `${recallHits}/${recallTotal}`,
-    precisionDetail: `${precisionHits}/${precisionTotal}`,
+    precisionDetail: `${recallHits}/${predictedPositives}`,
     toolAccuracyDetail: `${toolAccuracyHits}/${recallTotal}`,
   };
 }
@@ -714,15 +976,8 @@ async function run() {
 
   const SESSION_ID = 'expertise-meta-test';
 
-  // ─── Persistent project path (under projects/, not /tmp/) ─────────────────
-  const projectsRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../projects');
-  const projectPath = path.join(projectsRoot, 'mobile-dev-specialist');
-
-  // Clean previous run if exists (idempotent re-run)
-  if (fs.existsSync(projectPath)) {
-    fs.rmSync(projectPath, { recursive: true, force: true });
-  }
-  fs.mkdirSync(projectPath, { recursive: true });
+  // Unique temporary project path: never overwrite a user's projects/ tree.
+  const projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-expertise-'));
 
   // Git init
   execSync('git init', { cwd: projectPath, stdio: 'pipe' });
@@ -786,27 +1041,28 @@ async function run() {
     // Check ROADMAP.md
     const roadmapPath = path.join(projectPath, 'ROADMAP.md');
     check(fs.existsSync(roadmapPath), 'Build.5: ROADMAP.md exists');
+    check(fs.existsSync(path.join(projectPath, 'ARCHITECTURE.json')), 'Build.5b: ARCHITECTURE.json exists');
 
     // Approve roadmap → BUILD ms-1
     const r5 = await handleLifecycleInput('schvaluji', context);
     logTurn('schvaluji', r5);
     const s5 = getLcState(SESSION_ID);
-    check(s5?.currentMilestoneId === 'ms-1', 'Build.6: ms-1 plan shown');
+    check(s5?.currentMilestoneId === scopeId(s5.lifecycleId, 'ms-1'), 'Build.6: scoped ms-1 plan shown');
 
     // Execute ms-1
     const r6 = await handleLifecycleInput('ano', context);
     logTurn('ano', r6);
-    const ms1 = msRepo.getMilestone('ms-1');
+    const ms1 = msRepo.getMilestone(scopeId(s5.lifecycleId, 'ms-1'));
     check(ms1?.status === 'PASSED', 'Build.7: ms-1 PASSED');
     check(fs.existsSync(path.join(projectPath, 'mobile-dev/specialist.json')), 'Build.8: specialist.json on disk');
     check(fs.existsSync(path.join(projectPath, 'mobile-dev/index.js')), 'Build.9: index.js on disk');
 
     // Execute ms-2
     const s6 = getLcState(SESSION_ID);
-    check(s6?.currentMilestoneId === 'ms-2', 'Build.10: auto-advanced to ms-2');
+    check(s6?.currentMilestoneId === scopeId(s6.lifecycleId, 'ms-2'), 'Build.10: auto-advanced to scoped ms-2');
     const r7 = await handleLifecycleInput('ano', context);
     logTurn('ano', r7);
-    const ms2 = msRepo.getMilestone('ms-2');
+    const ms2 = msRepo.getMilestone(scopeId(s6.lifecycleId, 'ms-2'));
     check(ms2?.status === 'PASSED', 'Build.11: ms-2 PASSED');
     check(fs.existsSync(path.join(projectPath, 'mobile-dev/tools/detect-frameworks.js')), 'Build.12: detect-frameworks.js on disk');
     check(fs.existsSync(path.join(projectPath, 'mobile-dev/tools/scaffold-project.js')), 'Build.13: scaffold-project.js on disk');
@@ -814,10 +1070,10 @@ async function run() {
 
     // Execute ms-3
     const s7 = getLcState(SESSION_ID);
-    check(s7?.currentMilestoneId === 'ms-3', 'Build.15: auto-advanced to ms-3');
+    check(s7?.currentMilestoneId === scopeId(s7.lifecycleId, 'ms-3'), 'Build.15: auto-advanced to scoped ms-3');
     const r8 = await handleLifecycleInput('ano', context);
     logTurn('ano', r8);
-    const ms3 = msRepo.getMilestone('ms-3');
+    const ms3 = msRepo.getMilestone(scopeId(s7.lifecycleId, 'ms-3'));
     check(ms3?.status === 'PASSED', 'Build.16: ms-3 PASSED');
     check(fs.existsSync(path.join(projectPath, 'mobile-dev/tests/routing.test.js')), 'Build.17: routing test on disk');
 
@@ -895,6 +1151,8 @@ async function run() {
     console.log(`  Precision:     ${accuracy.precisionDetail} (${(accuracy.precision * 100).toFixed(0)}%)`);
     console.log(`  Tool accuracy: ${accuracy.toolAccuracyDetail} (${(accuracy.toolAccuracy * 100).toFixed(0)}%)`);
 
+    check(accuracy.caseCount >= 20, 'Routing.0: routing corpus has 20+ cases',
+      `got: ${accuracy.caseCount}`);
     check(accuracy.recall >= 0.80, 'Routing.1: recall >= 80%',
       `got: ${(accuracy.recall * 100).toFixed(0)}%`);
     check(accuracy.precision >= 0.80, 'Routing.2: precision >= 80%',
@@ -905,35 +1163,38 @@ async function run() {
     // Phase 2.5: Tool execution test
     console.log('\n═══ TOOL EXECUTION ═════════════════════════════════════════════════');
 
-    if (specialist?.tools) {
-      // Test detect_frameworks
-      const detectTool = specialist.tools.find(t => t.id === 'mobile-dev.detect_frameworks');
-      if (detectTool?.toolAdapter) {
-        const detectResult = detectTool.toolAdapter.run({ query: 'React Native' });
-        check(detectResult?.status === 'ok', 'Exec.1: detect_frameworks returns ok');
-        check(detectResult?.data?.detected === true, 'Exec.2: detected React Native');
-      }
+    const specialistTools = specialist?.tools ?? [];
 
-      // Test scaffold_project
-      const scaffoldTool = specialist.tools.find(t => t.id === 'mobile-dev.scaffold_project');
-      if (scaffoldTool?.toolAdapter) {
-        const scaffoldResult = scaffoldTool.toolAdapter.run({ platform: 'flutter', query: 'new Flutter app' });
-        check(scaffoldResult?.status === 'ok', 'Exec.3: scaffold_project returns ok');
-        check(scaffoldResult?.data?.platform === 'flutter', 'Exec.4: scaffold for Flutter');
-      }
+    const detectTool = specialistTools.find(t => t.id === 'mobile-dev.detect_frameworks');
+    check(typeof detectTool?.toolAdapter?.run === 'function',
+      'Exec.1: detect_frameworks adapter is registered');
+    const detectResult = detectTool?.toolAdapter?.run?.({ query: 'React Native' });
+    check(detectResult?.status === 'ok', 'Exec.2: detect_frameworks returns ok');
+    check(detectResult?.data?.detected === true, 'Exec.3: detected React Native');
 
-      // Test recommend_libs
-      const recTool = specialist.tools.find(t => t.id === 'mobile-dev.recommend_libs');
-      if (recTool?.toolAdapter) {
-        const recResult = recTool.toolAdapter.run({ category: 'navigation', platform: 'react-native' });
-        check(recResult?.status === 'ok', 'Exec.5: recommend_libs returns ok');
-        check(Array.isArray(recResult?.data?.libraries) && recResult.data.libraries.length > 0,
-          'Exec.6: libraries returned');
-      }
-    }
+    const scaffoldTool = specialistTools.find(t => t.id === 'mobile-dev.scaffold_project');
+    check(typeof scaffoldTool?.toolAdapter?.run === 'function',
+      'Exec.4: scaffold_project adapter is registered');
+    const scaffoldResult = scaffoldTool?.toolAdapter?.run?.({
+      platform: 'flutter',
+      query: 'new Flutter app',
+    });
+    check(scaffoldResult?.status === 'ok', 'Exec.5: scaffold_project returns ok');
+    check(scaffoldResult?.data?.platform === 'flutter', 'Exec.6: scaffold for Flutter');
+
+    const recTool = specialistTools.find(t => t.id === 'mobile-dev.recommend_libs');
+    check(typeof recTool?.toolAdapter?.run === 'function',
+      'Exec.7: recommend_libs adapter is registered');
+    const recResult = recTool?.toolAdapter?.run?.({
+      category: 'navigation',
+      platform: 'react-native',
+    });
+    check(recResult?.status === 'ok', 'Exec.8: recommend_libs returns ok');
+    check(Array.isArray(recResult?.data?.libraries) && recResult.data.libraries.length > 0,
+      'Exec.9: libraries returned');
 
     // Phase 2.6: Disable and verify cleanup
-    loader.disable('mobile-dev');
+    await loader.disable('mobile-dev');
     check(!mockRuntime.isSpecialist('mobile-dev'), 'Boot.7: mobile-dev unregistered after disable');
 
     // Phase 2.7: Re-enable
@@ -974,8 +1235,7 @@ async function run() {
     console.log(`    Messages: ${dbMessages.length} (${userMsgs.length} user, ${assistantMsgs.length} assistant)`);
     console.log(`    Title: ${dbConv?.title}`);
 
-    // Project and conversation persist (NO cleanup)
-    console.log(`\n  ── Projekt persistuje v: ${projectPath}`);
+    console.log(`\n  ── Dočasný projekt: ${projectPath}`);
     console.log(`  ── Konverzace v DB: ${CONV_ID}`);
     console.log(`  ── Projekt v DB: id=${projectId}, name=${dbProject?.name}`);
 
@@ -984,6 +1244,13 @@ async function run() {
     console.error(err.stack);
     failed++;
     failures.push({ name: 'FATAL', detail: err.message });
+  }
+
+  if (failed === 0 && process.env.KEEP_PROJECT !== '1') {
+    fs.rmSync(projectPath, { recursive: true, force: true });
+    console.log(`\n  🧹 Dočasný projekt odstraněn: ${projectPath}`);
+  } else {
+    console.log(`\n  ℹ️ Dočasný projekt ponechán pro diagnostiku: ${projectPath}`);
   }
 
   // ═══ Summary ════════════════════════════════════════════════════════════
