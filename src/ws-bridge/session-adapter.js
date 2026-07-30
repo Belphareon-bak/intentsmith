@@ -362,7 +362,10 @@ export function createSessionAdapter({
         ? abortSourceOf(err, ac.signal, AbortSource.USER)
         : null;
 
-      if (abortSource === AbortSource.TIMEOUT || err.message?.includes('timeout')) {
+      if (
+        abortSource === AbortSource.TIMEOUT
+        || (!isAbortError(err) && err.message?.includes('timeout'))
+      ) {
         turnTelemetry?.recordCancel('timeout');
         const snap = turnTelemetry?.finalize(turnStartTime) ?? null;
         sendAgentEvent(AgentEventType.TURN_END, turnId, {

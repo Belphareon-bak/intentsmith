@@ -159,6 +159,7 @@ try {
 
   await testAsync('propagates an upstream stale timeout without attributing it to the user', async () => {
     signals.length = 0;
+    const auditStart = llmGateway.getAuditLogs().length;
     let fetchStarted;
     const started = new Promise(resolve => { fetchStarted = resolve; });
     globalThis.fetch = async (_url, options) => new Promise((_resolve, reject) => {
@@ -195,6 +196,91 @@ try {
     assertEqual(signals.length, 1);
     assertEqual(signals[0].signalType, 'runtime_timeout');
     assertEqual(signals[0].success, false);
+    assertEqual(signals[0].payload.timeoutOrigin, 'upstream');
+    assertEqual(signals[0].payload.timeoutMs, null);
+    const timeoutAudit = llmGateway.getAuditLogs()
+      .slice(auditStart)
+      .find(entry => entry.event === 'LLM_CALL_TIMEOUT');
+    assert(timeoutAudit, 'upstream timeout must create an audit entry');
+    assertEqual(timeoutAudit.timeoutOrigin, 'upstream');
+    assertEqual(timeoutAudit.timeout, null);
+  });
+
+  await testAsync('native AbortSignal.timeout is classified as upstream timeout before fetch', async () => {
+    signals.length = 0;
+    const auditStart = llmGateway.getAuditLogs().length;
+    let fetchCalls = 0;
+    globalThis.fetch = async () => {
+      fetchCalls += 1;
+      throw new Error('fetch must not run for an expired timeout signal');
+    };
+    const signal = AbortSignal.timeout(1);
+    await new Promise(resolve => {
+      signal.addEventListener('abort', resolve, { once: true });
+    });
+
+    let timeoutError;
+    try {
+      await llmGateway.call('expired request', {
+        model: 'test-model:1b',
+        requestType: 'gate0-test',
+        signal,
+      });
+    } catch (error) {
+      timeoutError = error;
+    }
+
+    assert(timeoutError, 'expired timeout signal must reject');
+    assertEqual(timeoutError.name, 'AbortError');
+    assertEqual(timeoutError.abortSource, AbortSource.TIMEOUT);
+    assertEqual(fetchCalls, 0);
+    assertEqual(signals.length, 1);
+    assertEqual(signals[0].signalType, 'runtime_timeout');
+    assertEqual(signals[0].success, false);
+    assertEqual(signals[0].payload.timeoutOrigin, 'upstream');
+    assertEqual(signals[0].payload.timeoutMs, null);
+    const timeoutAudit = llmGateway.getAuditLogs()
+      .slice(auditStart)
+      .find(entry => entry.event === 'LLM_CALL_TIMEOUT');
+    assert(timeoutAudit, 'native upstream timeout must create an audit entry');
+    assertEqual(timeoutAudit.timeoutOrigin, 'upstream');
+    assertEqual(timeoutAudit.timeout, null);
+  });
+
+  await testAsync('gateway-owned deadline records its configured threshold', async () => {
+    signals.length = 0;
+    const auditStart = llmGateway.getAuditLogs().length;
+    globalThis.fetch = async (_url, options) => new Promise((_resolve, reject) => {
+      options.signal.addEventListener('abort', () => {
+        reject(options.signal.reason);
+      }, { once: true });
+    });
+
+    let timeoutError;
+    try {
+      await llmGateway.call('gateway deadline', {
+        model: 'test-model:1b',
+        requestType: 'gate0-test',
+        timeout: 5,
+      });
+    } catch (error) {
+      timeoutError = error;
+    }
+
+    assert(timeoutError, 'gateway deadline must reject');
+    assertEqual(timeoutError.name, 'AbortError');
+    assertEqual(timeoutError.abortSource, AbortSource.TIMEOUT);
+    assertEqual(timeoutError.message, 'LLM timeout after 5ms (model: test-model:1b)');
+    assertEqual(signals.length, 1);
+    assertEqual(signals[0].signalType, 'runtime_timeout');
+    assertEqual(signals[0].payload.timeoutOrigin, 'gateway');
+    assertEqual(signals[0].payload.timeoutMs, 5);
+    const timeoutAudit = llmGateway.getAuditLogs()
+      .slice(auditStart)
+      .find(entry => entry.event === 'LLM_CALL_TIMEOUT');
+    assert(timeoutAudit, 'gateway timeout must create an audit entry');
+    assertEqual(timeoutAudit.timeoutOrigin, 'gateway');
+    assertEqual(timeoutAudit.timeout, 5);
   });
 } finally {
   globalThis.fetch = originalFetch;

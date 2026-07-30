@@ -169,3 +169,19 @@ After restoring that guard, changing only the stale-sweep abort source from
 a fresh isolated database produced `48 passed, 1 failed`, exit 1. The sole
 failure was `T10c`, which observed `Zpracování zrušeno.` instead of the required
 timeout contract. Neither mutation touched the integration worktree.
+
+### Typed-source review follow-up
+
+A second independent review reproduced both mutation results above and found
+two additional precedence gaps. A typed `user` abort whose message contained
+the word `timeout` was classified as a timeout by the legacy text heuristic,
+while native `AbortSignal.timeout()` carried a `TimeoutError` reason that the
+shared canonicalizer treated as a user cancellation. The upstream timeout also
+reported the gateway's configured model deadline rather than its actual origin.
+
+The follow-up makes a typed source authoritative over message text, restricts
+the legacy text heuristic to non-abort errors, recognizes native
+`TimeoutError`, and distinguishes `upstream` from `gateway` deadlines in both
+audit and runtime-signal payloads. Direct regressions cover the contradictory
+user/message case, native timeout, upstream stale timeout and a gateway-owned
+deadline. The provider-outage residual remains separate as `G0-R025`.

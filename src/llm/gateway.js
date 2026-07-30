@@ -399,7 +399,8 @@ class LLMGateway {
           payload: {
             requestType,
             attempt: extra.attempt ?? null,
-            timeoutMs: timeout,
+            timeoutMs: extra.timeoutMs !== undefined ? extra.timeoutMs : timeout,
+            timeoutOrigin: extra.timeoutOrigin || null,
             promptLength: prompt?.length ?? 0,
             outputLength: extra.outputLength ?? null,
             queueDepth: this._concurrency.queue.length,
@@ -546,7 +547,7 @@ class LLMGateway {
         lastError = err;
 
         // v63.0: Distinguish abort sources for proper handling
-        if (err.name === 'AbortError') {
+        if (err.name === 'AbortError' || err.name === 'TimeoutError') {
           const userSignal = options.signal;
           const abortSource = abortSourceOf(
             err,
@@ -576,23 +577,34 @@ class LLMGateway {
               message: 'LLM call cancelled by user',
             });
           } else {
+            const timeoutOrigin = userSignal?.aborted
+              ? 'upstream'
+              : 'gateway';
+            const effectiveTimeoutMs = timeoutOrigin === 'gateway' ? timeout : null;
             // v82.2: Timeout — DON'T RETRY. The model is working, just slow.
             // Retrying on timeout doubles the total time (60s+2s+60s > 90s test timeout).
             // This was the root cause of 5 E2E test timeouts.
-            logger.warn('LLMGateway', `Timeout after ${timeout}ms — not retrying (model is working, just slow)`, {
+            logger.warn('LLMGateway', timeoutOrigin === 'gateway'
+              ? `Timeout after ${timeout}ms — not retrying (model is working, just slow)`
+              : 'Upstream request deadline elapsed — not retrying', {
               abortSource: 'timeout',
+              timeoutOrigin,
+              timeoutMs: effectiveTimeoutMs,
               model,
             });
             this.audit.log('LLM_CALL_TIMEOUT', {
               role: authToken?.role,
               decisionId: authToken?.decisionId,
-              timeout,
+              timeout: effectiveTimeoutMs,
+              timeoutOrigin,
               model,
             });
             emitRuntimeSignal('runtime_timeout', false, {
               attempt,
               errorType: 'timeout',
               latencyMs: Date.now() - startTime,
+              timeoutMs: effectiveTimeoutMs,
+              timeoutOrigin,
             });
             this._releaseSlot();
             throw abortErrorFromSignal(userSignal, {

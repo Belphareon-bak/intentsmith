@@ -12,6 +12,16 @@ const DEFAULT_MESSAGES = Object.freeze({
 
 const KNOWN_SOURCES = new Set(Object.values(AbortSource));
 
+function sourceFromReason(reason) {
+  if (KNOWN_SOURCES.has(reason?.abortSource)) {
+    return reason.abortSource;
+  }
+  if (reason?.name === 'TimeoutError') {
+    return AbortSource.TIMEOUT;
+  }
+  return null;
+}
+
 export function isAbortError(error) {
   return error?.name === 'AbortError';
 }
@@ -30,19 +40,21 @@ export function abortErrorFromSignal(
   { fallbackSource = AbortSource.USER, message = null } = {},
 ) {
   const reason = signal?.reason;
-  if (isAbortError(reason) && KNOWN_SOURCES.has(reason.abortSource)) {
+  const reasonSource = sourceFromReason(reason);
+  if (isAbortError(reason) && reasonSource) {
     return reason;
   }
-  return createAbortError(fallbackSource, message);
+  return createAbortError(
+    reasonSource || fallbackSource,
+    reasonSource === AbortSource.TIMEOUT ? reason?.message : message,
+  );
 }
 
 export function abortSourceOf(error, signal, fallbackSource = AbortSource.USER) {
-  if (KNOWN_SOURCES.has(error?.abortSource)) {
-    return error.abortSource;
-  }
-  if (KNOWN_SOURCES.has(signal?.reason?.abortSource)) {
-    return signal.reason.abortSource;
-  }
+  const errorSource = sourceFromReason(error);
+  if (errorSource) return errorSource;
+  const signalSource = sourceFromReason(signal?.reason);
+  if (signalSource) return signalSource;
   return KNOWN_SOURCES.has(fallbackSource) ? fallbackSource : AbortSource.USER;
 }
 

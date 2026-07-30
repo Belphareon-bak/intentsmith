@@ -29,6 +29,10 @@ import {
 
 import { createSessionAdapter } from '../src/ws-bridge/session-adapter.js';
 import { logger } from '../src/core/logger.js';
+import {
+  AbortSource,
+  createAbortError,
+} from '../src/core/abort-error.js';
 
 let passed = 0;
 let failed = 0;
@@ -347,6 +351,34 @@ await asyncTest('T10c: stale-turn abort is reported as timeout, not user cancell
   assert.match(systemMessage.data.content, /^Chyba: Stale turn timeout/);
 });
 
+await asyncTest('T10d: typed user cancellation outranks timeout-like message text', async () => {
+  const sent = [];
+  const adapter = createSessionAdapter({
+    send: (json) => sent.push(JSON.parse(json)),
+    handleRequest: async () => {
+      throw createAbortError(
+        AbortSource.USER,
+        'User cancelled before timeout warning',
+      );
+    },
+    logger: mockLogger,
+  });
+
+  await adapter.processChat('Typed cancellation');
+  adapter.cleanup();
+
+  const turnEnd = sent.find(m => m.channel === 'agent' && m.data.type === 'turn_end');
+  assert.ok(turnEnd, 'Typed cancellation should emit turn_end');
+  assert.equal(turnEnd.data.payload.status, 'cancelled_by_user');
+  assert.equal(
+    sent.some(m => m.channel === 'agent' && m.data.type === 'error'),
+    false,
+    'Typed user cancellation must not emit a timeout error event',
+  );
+  const systemMessage = sent.find(m => m.channel === 'chat' && m.data.type === 'system');
+  assert.equal(systemMessage?.data?.content, 'Zpracování zrušeno.');
+});
+
 test('T11: ping returns pong', () => {
   const sent = [];
   const adapter = createSessionAdapter({
@@ -651,7 +683,9 @@ await asyncTest('T16e: pre-aborted static requests reject before handler dispatc
         conversationId: sessionId,
         signal: abortController.signal,
       }),
-      error => error.name === 'AbortError',
+      error => error.name === 'AbortError'
+        && error.code === 'ABORT_ERR'
+        && error.abortSource === AbortSource.USER,
       'pre-aborted and in-flight requests must share the rejecting contract',
     );
     assert.equal(handlerCalled, false, 'pre-aborted request must not dispatch a handler');
