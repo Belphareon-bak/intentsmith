@@ -227,3 +227,19 @@ přijatý `REMOTE_COMPANION`, mezi nimi nejsou — ADR 0001 zůstává nedotčen
 **Neimplementováno a záměrně:** listener, pairing, `/m1`, mobilní UI, síťové
 zpřístupnění. Kontrakt `/m1` není zmrazený. Do `tests/registry.json`,
 `CAPABILITY-MATRIX.md` ani na integrační větev tato práce nesáhla.
+
+### 9.1 Co by tuto matici změnilo
+
+Aby se nečekalo, až to někdo objeví při čtení:
+
+| Událost | Co se přepíše |
+|---|---|
+| Vznikne token streaming | `MR-06` přestane platit, mění se `MS-08` i `MS-15` (`GAP-4`) |
+| Padne `GAP-2` (hranice prokázaná) | Tři `MB` testy z `BLOCKED` na `ACTIVE`; teprve pak smí být řeč o vzdáleném zpřístupnění |
+| Uzavře se `R-5` (dělení nastavení) | Rozsah `MD-01`, a tím i toky `MS-10`/`MS-11` |
+| Uzavře se `R-3` (approval TTL) | `MD-07` a rozhodovací okno v `MS-14` |
+| Změní se `D-M6` (rozsah okna zpráv) | `M-R3`, tedy největší jednotlivý dopad ztráty telefonu |
+| Zvolí se jiná platforma než `M-1` | Rodina `MX` a podmínky můstku, ne zbytek matice |
+
+Nic z toho není důvod matici teď nedokončit — je to seznam míst, kde se
+při každé z těch událostí musí sáhnout, aby nezůstala nepravdivá.

@@ -4,6 +4,7 @@
 **Datum:** 2026-07-30
 **Ověřeno proti:** `54913a1` na `codex/intentsmith-1.0`
 **Datový model:** REMOTE_COMPANION — rozhodnuto, [ADR 0001](../adr/0001-mobile-data-ownership.md) ACCEPTED
+**Navazující dokumenty:** [DATA-MODEL.md](DATA-MODEL.md) · [TEST-STRATEGY.md](TEST-STRATEGY.md) · [SCREENS.md](SCREENS.md) · [COVERAGE.md](COVERAGE.md)
 
 Legenda: **[F]** ověřený fakt v tomto repu · **[R]** doporučení · **[?]** rozhodnutí operátora · **[D]** odloženo
 
@@ -270,15 +271,61 @@ to je přesně ta třída tvrzení, kvůli které Gate 0 vznikl.
 
 ## 9. Otevřená rozhodnutí
 
-| # | Otázka | Doporučení |
+### Uzavřená — kde a čím
+
+| # | Rozhodnutí | Kde žije |
 |---|---|---|
-| **M-1** | Expo/RN vs Flutter | Expo/RN + TS, development build |
-| **N-1** | Notifikace při spící appce | (a) pro Fázi 0, pak (b) jako opt-in |
-| R-2 | VPN: Tailscale vs WireGuard | — |
-| R-3 | Approval TTL: lokální vs remote | rozlišit; 5 min je pro telefon nedosažitelných |
-| R-4 | Je diff obsah stahovatelný na telefon? | — |
-| R-5 | Dělení nastavení dle §5 | — |
+| **ADR 0001** | REMOTE_COMPANION jako datový model klienta | [ADR 0001](../adr/0001-mobile-data-ownership.md) ACCEPTED |
+| **`D-S1`** | Klíč operace: 128bitový `operationId`, dedup podle `(deviceId, operationId)`, `UNKNOWN` bez nového klíče, klíč neopravňuje | [DATA-MODEL.md](DATA-MODEL.md) `MD-19` §4.1–§4.3, [SCREENS.md](SCREENS.md) §5.1 |
+| **`D-T1`** | `C3-031` a `C3-032` se přidají **atomicky s prvním skutečným mobilním testem** | [TEST-STRATEGY.md](TEST-STRATEGY.md) §3.1 |
+| **`GAP-2`** | Do doby, než hranice projde testy: žádný bind mimo loopback, listener, pairing, `/m1` ani tvrzení o prokázané hranici | §8.1 tohoto dokumentu |
+
+### Stále otevřená
+
+| # | Otázka | Doporučení | Co na tom visí |
+|---|---|---|---|
+| **M-1** | Expo/RN vs Flutter | Expo/RN + TS, development build | rodina testů `MX` a její můstek |
+| **N-1** | Notifikace při spící appce | (a) pro Fázi 0, pak (b) jako opt-in | `MR-21`, tok `MS-05` |
+| R-2 | VPN: Tailscale vs WireGuard | — | nic z designu; čistě provozní volba |
+| R-3 | Approval TTL: lokální vs remote | rozlišit; 5 min je pro telefon nedosažitelných | `MD-07`, tok `MS-14` |
+| R-4 | Je diff obsah stahovatelný na telefon? | ne pro 1.0, viz `D-M7` | `MD-05`, `MD-07` |
+| R-5 | Dělení nastavení dle §5 | tabulka v §5 je návrh k potvrzení | `MD-01`, toky `MS-10`/`MS-11` |
+
+Plus sedm klientských rozhodnutí `D-M1`..`D-M7` v [DATA-MODEL.md](DATA-MODEL.md) §7,
+tři otevřená `D-T` v [TEST-STRATEGY.md](TEST-STRATEGY.md) §10 a tři otevřená
+`D-S` v [SCREENS.md](SCREENS.md) §6 — `D-T1` a `D-S1` jsou uzavřené výše.
+Souhrnný přehled všech je v [COVERAGE.md](COVERAGE.md) §8.
 
 ADR 0001 je uzavřená. API kontrakt `/m1` se ale nepíše, dokud Gate 0 nedosáhne
 reprodukovatelného PASS a dokud není oddělená security boundary prokázaná
 negativními testy — viz §8.
+
+---
+
+## 10. Stav dokumentové sady
+
+Mobilní designová větev je **kompletní jako design**. Neimplementuje nic
+a nezmrazuje žádný kontrakt.
+
+| Dokument | Co odpovídá | Stav |
+|---|---|---|
+| [ADR 0001](../adr/0001-mobile-data-ownership.md) | Kde žijí data | **ACCEPTED** |
+| PLAN.md (tento) | Co se staví, v jakém pořadí a co to blokuje | k review |
+| [DATA-MODEL.md](DATA-MODEL.md) | Co smí ležet v telefonu a co zbyde po jeho ztrátě | k review |
+| [TEST-STRATEGY.md](TEST-STRATEGY.md) | Čím se to prokáže a jak to vstoupí do kanonického registru | k review |
+| [SCREENS.md](SCREENS.md) | Co uživatel vidí v každém z deseti stavů | k review |
+| [COVERAGE.md](COVERAGE.md) | Kde jsou v tom všem díry | k review |
+
+**Co se stane dál, v tomto pořadí:**
+
+1. Gate 0 dosáhne reprodukovatelného PASS z čerstvého klonu (mimo tuto větev).
+2. `S-1`..`S-4` hotové včetně negativních testů — teprve tím padá `GAP-2`.
+3. První mobilní test + oba capability řádky v jednom atomickém commitu (`D-T1`).
+4. Teprve pak discovery spike Fáze 0, pořád bez vzdáleného zpřístupnění.
+
+**Poznámka k základu větve:** dokumenty jsou ověřené proti `54913a1`, který
+**není předkem** tehdejší hlavy remote `be84c53` — obě větve se rozešly
+v `GATE-CRITERIA.md` a `ROADMAP.md`. Oprava kritérií Gate 0 (Gate 1 vstupuje
+jen z `PASS`, dvě nové FAIL podmínky) žije jen na `54913a1`. Kdo tyto dokumenty
+čte proti jinému commitu, musí si ten rozdíl ověřit dřív, než se o jejich
+`[F]` tvrzení opře.
