@@ -1,9 +1,9 @@
 # Disposition of disputed `final` commit
 
 Status: all source-diff facts are recorded in a committed sanitized manifest
-and validate offline. Fifty-nine records are evidence-backed `REPAIRED`, and 31
+and validate offline. Fifty-nine records are evidence-backed `REPAIRED`, and 32
 truthful model suites are `DEFERRED` behind concrete runtime prerequisites. The
-validator deliberately remains red while two legacy `REBUILD/REPAIR` rows await
+validator deliberately remains red while one legacy `REBUILD/REPAIR` row awaits
 terminal closure under `D-018`.
 
 Compared refs:
@@ -74,9 +74,9 @@ node scripts/validate-final-disposition.js \
 | `EXCLUDE/MOVE_OUTSIDE_PRODUCTION` | 78 |
 | `EXCLUDE/REMOVE_FOLLOWUP` | 13 |
 | `KEEP/REPLAY` | 42 |
-| `REBUILD/REPAIR` | 2 |
+| `REBUILD/REPAIR` | 1 |
 | `REBUILD/REPAIRED` | 59 |
-| `REBUILD/DEFERRED(<prerequisite>)` | 31 |
+| `REBUILD/DEFERRED(<prerequisite>)` | 32 |
 | `UNRESOLVED / USER_DECISION` | 0 |
 
 ## Path-by-path classification
@@ -274,7 +274,7 @@ node scripts/validate-final-disposition.js \
 | `A` | `tests/e2e/78-guard-rules.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | GUARD inputs use mandatory owned conversations/project fixtures and bounded chats; intent metadata is required, with exact `CREATIVE`, `CONVERSATIONAL`, `CONVERSATIONAL` and `BUILD` outcomes for GUARD 6/9/10/11. The incorrect explicit-search oracle, custom project path, fixture skips and conditional assertions are removed. |
 | `A` | `tests/e2e/79-response-semantics.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | All ten requests are bounded and fail closed. Math and date require exact deterministic `LOCAL` handlers and result metadata; the date oracle accepts only a complete current day/month/year across the request boundary. Code, explanation, comparison, poem, numbered-installation, refusal, greeting and gratitude checks now require their named semantics rather than generic non-empty prose. Static and oracle review passed; live execution remains behind the named isolated model fixture, so no model-green claim is made. |
 | `A` | `tests/e2e/80-ws-semantic-events.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/81-conversation-lifecycle.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/81-conversation-lifecycle.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Create, active retrieval, three bounded model turns, exact six-message persistence, title update, archive, immutable archived history, restore, soft delete and hard delete all have mandatory exact contracts with unconditional cleanup. Context is proven by an exact canary present only in the first user prompt; the follow-up also requires a real fenced recursive function with `return` and a self-call. The reviewed source ran green on an isolated server, but one recovered CUDA OOM and use of the shared system Ollama daemon prevent that diagnostic from satisfying the named reproducible model fixture. |
 | `A` | `tests/e2e/82-cre-conflict-resolution.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | CRE conflict assertions are fail-closed through the strict positive chat helper; execution requires the named isolated local model fixture. |
 | `A` | `tests/e2e/85-long-session-degradation.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Long-session assertions are fail-closed through the strict positive chat helper; execution requires the named isolated local model fixture. |
 | `A` | `tests/e2e/86-code-semantic-quality.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Every response is bounded and must contain fenced, non-placeholder code. Python imports are parsed individually and checked against an explicit allowlist; Express route/listen and requested implementation semantics are mandatory. Transient errors and empty implementations no longer pass, and cleanup is unconditional. Execution remains behind the named isolated model fixture. |
