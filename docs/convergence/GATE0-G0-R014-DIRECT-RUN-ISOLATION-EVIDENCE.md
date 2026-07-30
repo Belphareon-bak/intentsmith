@@ -16,6 +16,8 @@
 - Final capability test-trust follow-up SHA:
   `fab974eda32bcdb62941f91d697600af1bdbedcb`
 - Risk closure SHA: `b381f7f530e2a19127e12bcb04f80acd9c89b16f`
+- E2E helper audit follow-up SHA:
+  `aff2d475004d0851e09d55af2ee1615e08927962`
 - Scope: common bootstrap, all database-reachable root programs, and all
   previously identified fixed/non-atomic writers
 
@@ -475,5 +477,14 @@ Focused pre-commit results for the final patch:
 | single-suite audit with `--allow-dirty` | `1/1 PASS`; pre-commit probe only | 0 |
 | direct self-check after removing only `process.env.npm_config_cache = artifactNpmCache` | exact nested-cache rejection during private port-file child import | 1 |
 
-The production line was restored after the mutation. Exact clean-commit
-evidence will replace the pre-commit probe before the next full candidate run.
+The production line was restored after the mutation. Exact post-commit evidence
+at `aff2d475004d0851e09d55af2ee1615e08927962` is:
+
+| Command | Result | Exit |
+| --- | --- | ---: |
+| `node tests/e2e/_helpers.self-check.js` | `E2E helper self-check: PASS` | 0 |
+| single-suite registered audit | `1/1 PASS`; source SHA and registry hash matched | 0 |
+
+The registered report SHA-256 is
+`2b0f4acc77792e4c38730cafebba08bed1f920567ccaad21915564871af92d6f`.
+The next full candidate run must still repeat both installs and all 199 suites.
