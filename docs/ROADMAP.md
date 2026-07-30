@@ -214,6 +214,29 @@ nepohlcuje. Má vlastní verdikt.
 
 ---
 
+## Paralelní track — vzdálený přístup a mobilní klient
+
+Neběží uvnitř gate ladderu, protože nejde o produktovou schopnost, ale o
+bezpečnostní hranici. Její první položka je nicméně **P0 nález o současném
+systému** a na gaty nečeká.
+
+| # | Úkol | Priorita | Stav |
+|---|---|---|---|
+| S-1 | `G0-R018` — bez globálního auth guardu; `hello` handshake ověřuje jen `protocolVersion` a odemyká terminal exec. Bind mimo loopback = neautentizované RCE | 🔴 P0 | ❌ otevřeno |
+| S-2 | Oddělený listener pro vzdálený přístup; stávající server zůstává na loopbacku | 🔴 P0 | ❌ |
+| S-3 | Zapojit `validateApiToken()` do middleware se scope enforcementem (funkce hotová, chybí volání) | 🔴 P0 | ❌ |
+| S-4 | Negativní testy hranice — do registru testů | 🔴 P0 | ❌ |
+| S-5 | Atomický jednorázový QR pairing s TTL | 🟡 P1 | ❌ |
+| M-0 | Mobilní discovery spike — bez vzdáleného zpřístupnění, bez zmrazení kontraktu | ⚪ P2 | čeká na ADR 0001 |
+
+Detaily: [mobile/PLAN.md](mobile/PLAN.md).
+Blokující produktové rozhodnutí: [adr/0001-mobile-data-ownership.md](adr/0001-mobile-data-ownership.md).
+
+**S-1 až S-4 jsou nezávislé na mobilu.** Platí i kdyby žádný mobilní klient
+nevznikl — popisují současný stav serveru.
+
+---
+
 ## Odloženo na 1.1
 
 | Co | Důvod | Rozhodnutí |
