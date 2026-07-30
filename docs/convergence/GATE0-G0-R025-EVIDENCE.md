@@ -6,6 +6,8 @@ Candidate:
 - base commit: `265b87729628c7d21d9fea5ccef1c282ebd94170`;
 - tested implementation commit:
   `474983b5a504763319d96c770fde0ff16d28030d`;
+- tested in-memory-history follow-up commit:
+  `34e2c78b8cc5d2efbff64d77d6713556ed92b755`;
 - execution date: 2026-07-30 Europe/Prague;
 - generated Gate 0 status/index/baseline files were not edited.
 
@@ -96,16 +98,16 @@ The registry hash was
 
 ## Mutation checks
 
-Three temporary source mutations were applied one at a time and restored
-without committing:
+The implementation author recorded three temporary pre-commit mutations,
+applied one at a time and restored without committing:
 
 1. removing `throwIfTerminalChatFailure(result)` made T16f report
-   `Missing expected rejection`; WS suite 51 passed / 1 failed, exit 1;
+   `Missing expected rejection`, exit 1;
 2. removing the terminal-error mapping from both HTTP catches made
    `tests/routes-smoke.test.js` throw
    `typed provider failure reached generic safeError`, exit 1;
 3. removing the typed WS error mapping made T12b fail its exact payload
-   assertion; WS suite 51 passed / 1 failed, exit 1.
+   assertion, exit 1.
 
 The qualifying restored tree then returned:
 
@@ -113,8 +115,11 @@ The qualifying restored tree then returned:
 - routes suite 50 passed / 0 failed, exit 0;
 - `git diff --check`, exit 0.
 
-These mutations prove that the controller persistence boundary, HTTP 503
-mapping and WS typed error mapping are each observed by a failing assertion.
+The raw pre-commit mutation outputs were not retained as committed artifacts,
+so their former intermediate pass counts are not treated as exact-commit
+evidence. The named failing assertions and exit codes establish the scope of
+the author-session checks; the independently reproduced exact-commit
+follow-up mutation below is the stronger retained result.
 
 ## Commit-bound live provider outage
 
@@ -192,13 +197,42 @@ its private in-memory `responseHistory`. A subsequent production
 has priority, while a subsequent direct `controller.process()` call received
 the prior provider-error banner in `context.history`.
 
-The follow-up candidate moves the terminal guard immediately after response
+Follow-up commit `34e2c78b8cc5d2efbff64d77d6713556ed92b755`
+moves the terminal guard immediately after response
 tagging and before `#addToHistory()`. The surrounding catch explicitly
 rethrows typed chat-turn errors after preserving cancellation precedence.
 Direct `process()` callers therefore reject with the same typed provider error,
 the failed response leaves `responseHistory` empty, and a later direct turn
-receives no error banner. Exact-commit verification and mutation evidence are
-pending for this follow-up commit.
+receives no error banner.
+
+The clean exact commit was verified with private `HOME`, `TMPDIR` and
+`C3_DB_PATH` values below
+`/tmp/intentsmith-g0-r025-review.KU2rNc/`:
+
+| Program | Result | Exit |
+|---|---:|---:|
+| controller and WS syntax checks | valid | 0 |
+| `tests/ws-bridge.test.js` | 54 passed, 0 failed | 0 |
+| `tests/routes-smoke.test.js` | 50 passed, 0 failed | 0 |
+| `tests/chat-persistence.test.js` | 35 passed, 0 failed | 0 |
+| `tests/improvement-loops.test.js` | 21 passed, 0 failed, 0 skipped | 0 |
+| `scripts/validate-test-registry.js` | 350 runnable programs, valid | 0 |
+| isolated unreachable-provider `tests/e2e/60-ws-chat.e2e.js` | 4 passed, 0 failed, 0 skipped | 0 |
+
+For the exact-commit mutation, only
+`throwIfTerminalChatFailure(taggedResponse)` was temporarily removed. The WS
+suite reported:
+
+- T16f: `Missing expected rejection`;
+- T16h: `Missing expected rejection`;
+- 52 passed, 2 failed, 54 total;
+- exit 1.
+
+The guard was restored with no source diff, and the same isolated WS suite
+returned 54 passed, 0 failed, exit 0. The live E2E replay bound an ephemeral
+loopback port, used `OLLAMA_URL=http://127.0.0.1:9`, retained only user turns
+for both HTTP and WS provider failures, emitted no assistant failure output,
+and the server exited 0 after SIGINT.
 
 ## Disposition
 
