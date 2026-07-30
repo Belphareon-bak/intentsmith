@@ -1,8 +1,18 @@
-# CLAUDE.md - C.3 Agent Development Context
+# CLAUDE.md — IntentSmith Development Context
 
 **Verze:** v135.0.0 (kanonická verze z `package.json`)
-**Datum:** 2026-03-27
-**Projekt:** ~/Projects/c3-agent-wip
+**Datum:** 2026-07-30
+**Projekt:** ~/Projects/intentsmith-1.0 (dříve C3 / `c3-agent-wip`)
+
+> **Stav: Gate 0 — kandidát důvěryhodné baseline; autoritativní verdikt je
+> pouze v generovaném `docs/convergence/STATUS.md`.**
+> Popisy schopností níže jsou zděděné z C3 a popisují *zamýšlené* chování.
+> Nejsou akceptačním důkazem — 0 z 30 schopností ho zatím má. Než se na
+> kterékoli tvrzení v tomto souboru spolehneš, ověř ho proti
+> [docs/convergence/CAPABILITY-MATRIX.md](docs/convergence/CAPABILITY-MATRIX.md)
+> a [docs/convergence/STATUS.md](docs/convergence/STATUS.md).
+> Pravidla verdiktů: [docs/convergence/GATE-CRITERIA.md](docs/convergence/GATE-CRITERIA.md).
+> Směr: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ---
 
@@ -93,7 +103,10 @@ C.3 Agent je plně funkční lokální AI platforma s:
 | Project E2E | 56 | 4 typy projektů, milníky |
 | Skills | 44 | Registry, resolver, runner, step types |
 | Memory | 50+ | LTM, injection-ranker, feedback, patterns |
-| **Deterministické celkem** | **~3,500+** | **pass** |
+| **Celkem (zděděné C3 počty asercí)** | **~3,500+** | **neověřeno — viz registr** |
+
+> Počty výše jsou objem asercí zděděný z C3, ne důkaz. Vytištěný součet asercí
+> nemůže přebít selhanou nebo blokovanou sadu. Autoritou je `tests/registry.json`.
 
 ---
 
@@ -348,7 +361,7 @@ c3-ide/extensions/c3-detail-panel/ # Detail panel s capability bars
 
 ### Backend
 ```bash
-cd ~/Projects/c3-agent-wip
+cd ~/Projects/intentsmith-1.0
 export PATH="$HOME/.nvm/versions/node/v22.21.1/bin:$PATH"
 node src/server.js            # Produkční
 node --watch src/server.js    # Vývojový (auto-restart)
@@ -362,10 +375,16 @@ node --watch src/server.js    # Vývojový (auto-restart)
 
 ### Testy
 
-294 testovacích souborů: **192 pure unit** (bez LLM, bez serveru), **38 integration** (DB/server), **7 E2E** (Ollama+GPU).
+Kanonický seznam je `tests/registry.json` — **349 registrovaných spustitelných
+programů**: `255 ACTIVE`, `54 BLOCKED` (chybí prostředí), `25 KNOWN_DEFECTIVE`
+(false-green aserce), `15 HISTORICAL`. Renderovaný ledger:
+[docs/convergence/TEST-REGISTRY.md](docs/convergence/TEST-REGISTRY.md).
 
 ```bash
-# Hlavní deterministické sady (~3,600+ testů, bez LLM)
+# Registr musí být vždy validní a úplný — přidání testu bez registrace = exit 1
+node scripts/validate-test-registry.js
+
+# Gate 0 deterministický T1/T2 rozsah = 198 sad (172 offline + 26 database)
 npm test                                   # core + chat + expertises + lifecycle
 
 # Pure unit testy (příklady — žádný LLM ani server)
@@ -484,7 +503,11 @@ Discovery nikdy nemění config. Komunikace jen přes proposals v DB. Chat-based
 9. **FE webpack rebuild** — úpravy `chat-panel-module.js` vyžadují: `cd c3-ide/applications/electron && npx webpack --config gen-webpack.config.js --mode development`
 10. **NIKDY `tsc -b`** na c3-chat-panel — TS source (23 řádků) by přepsal hand-written JS (4000+ řádků)
 11. **Backend auto-restart** — `node --watch src/server.js` (Node 22)
-12. **E2E testy** — LLM-dependent, očekávej 89-97% pass rate (ne 100%)
+12. **E2E testy** — nikdy neuváděj „očekávaný pass rate" jako přijatelný.
+    Sada buď projde, nebo je to failure, nebo je `BLOCKED` s pojmenovanou
+    prerekvizitou. Tolerance typu „89–97 % je OK" je přesně to, co Gate 0
+    odhalil jako false-green. Nesnižuj aserce kvůli LLM varianci — pokud je
+    test nedeterministický, patří mu stav v registru, ne měkčí práh.
 
 ---
 

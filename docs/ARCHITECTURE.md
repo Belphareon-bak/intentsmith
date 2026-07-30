@@ -1,8 +1,17 @@
-# C.3 Agent Platform — Architecture v135
+# IntentSmith Platform — Architecture v135
 
 **Version:** v135.0.0
-**Status:** Production-ready
-**Date:** 2026-03-25
+**Status:** Gate 0 baseline candidate; authoritative verdict is generated in
+[`convergence/STATUS.md`](convergence/STATUS.md)
+**Date:** 2026-07-30
+
+> This document describes the *intended* architecture inherited from C3. It is a
+> design reference, not acceptance evidence: 0 of 30 capabilities currently carry
+> current acceptance evidence. Verify any claim here against
+> [convergence/CAPABILITY-MATRIX.md](convergence/CAPABILITY-MATRIX.md) before
+> relying on it. Verdict rules live in
+> [convergence/GATE-CRITERIA.md](convergence/GATE-CRITERIA.md); direction lives in
+> [ROADMAP.md](ROADMAP.md).
 
 ---
 
@@ -899,7 +908,21 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 
 ## Test Suite
 
-3,600+ verified tests across 294 test files (192 pure unit, 38 integration, 7 E2E/LLM):
+> **These are registered suites, not verified ones.** The canonical ledger is
+> `tests/registry.json`, rendered to
+> [convergence/TEST-REGISTRY.md](convergence/TEST-REGISTRY.md) and validated by
+> `node scripts/validate-test-registry.js`.
+>
+> Current registry: **349 runnable programs** — `255 ACTIVE`, `54 BLOCKED`
+> (missing environment), `25 KNOWN_DEFECTIVE` (false-green assertions),
+> `15 HISTORICAL`. The Gate 0 acceptance scope (`required`, no Ollama/GPU/server)
+> is **198 suites** (`172 offline` + `26 database`).
+>
+> The per-suite counts below are historical C3 figures. They describe assertion
+> volume, not verification: a printed assertion total cannot override a failed
+> or blocked suite. Treat them as orientation until each capability reaches
+> Gate 1 with its own evidence — see
+> [convergence/CAPABILITY-MATRIX.md](convergence/CAPABILITY-MATRIX.md).
 
 | Suite | Tests | Focus |
 |-------|-------|-------|

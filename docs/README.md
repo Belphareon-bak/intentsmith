@@ -1,9 +1,20 @@
-# IntentSmith v135.0.0 — dokumentacni reference
+# IntentSmith v135.0.0 — dokumentační reference
 
 Dokumentace projektu IntentSmith, C3-derived offline-first AI platformy s CRE
-decision enginem, domain expertyzami, specialist plugin systemem, lifecycle
-project managementem, skills workflow enginem, autonomnimi agenty, LTM pameti
-a zachovanym C3 Studio IDE.
+decision enginem, domain expertízami, specialist plugin systémem, lifecycle
+project managementem, skills workflow enginem, autonomními agenty, LTM pamětí
+a zachovaným C3 Studio IDE.
+
+> **Stav: Gate 0 — kandidát důvěryhodné baseline.** Autoritativní verdikt je
+> pouze v generovaném [convergence/STATUS.md](convergence/STATUS.md).
+> Dokumentace popisuje *zamýšlené* chování zděděné z C3, ne ověřené. Žádná
+> z 30 schopností nemá aktuální akceptační důkaz. Autorita pro verdikty:
+> [convergence/GATE-CRITERIA.md](convergence/GATE-CRITERIA.md). Aktuální stav:
+> [convergence/STATUS.md](convergence/STATUS.md). Směr: [ROADMAP.md](ROADMAP.md).
+>
+> **Známé poškození:** tento soubor má stripnutou českou diakritiku
+> (14 ze 407 řádků ji má). Sledováno jako `G0-R017`; oprava je samostatná úloha,
+> protože chybná diakritika je horší než žádná.
 
 ---
 
@@ -96,9 +107,26 @@ Vsechny promenne se nacitaji z `.env` souboru pres `dotenv`. Viz
 
 | Dokument | Popis |
 |----------|-------|
-| [ROADMAP.md](ROADMAP.md) | Aktualni roadmapa (stav k v135) |
+| [ROADMAP.md](ROADMAP.md) | **Roadmapa 1.0** — gate ladder, evidenční stav pilířů, směr IntentSmithu |
 | [CHANGELOG.md](CHANGELOG.md) | Changelog (v56–v135) |
 | [dev-checklist.md](dev-checklist.md) | Development checklist |
+| [archive/ROADMAP-v17-C3.md](archive/ROADMAP-v17-C3.md) | archiv — původní C3 roadmapa v17 (tvrzení o hotovosti neplatná) |
+
+### Konvergence & Gate 0
+
+Autoritativní stav obnovy baseline. Tyto dokumenty přebíjejí popisná tvrzení
+ve zbytku dokumentace.
+
+| Dokument | Popis |
+|----------|-------|
+| [convergence/GATE-CRITERIA.md](convergence/GATE-CRITERIA.md) | **normativní definice verdiktů** — co znamená PASS / CONDITIONAL PASS / FAIL |
+| [convergence/STATUS.md](convergence/STATUS.md) | který verdikt platí a ke kterému commitu (generovaný) |
+| [convergence/CAPABILITY-MATRIX.md](convergence/CAPABILITY-MATRIX.md) | evidenční stav 30 schopností |
+| [convergence/RISK-REGISTER.md](convergence/RISK-REGISTER.md) | otevřená rizika a jejich mitigace |
+| [convergence/DECISIONS.md](convergence/DECISIONS.md) | uzamčená rozhodnutí + čekající operátorská |
+| [convergence/FINAL-COMMIT-DISPOSITION.md](convergence/FINAL-COMMIT-DISPOSITION.md) | dispozice 225 záznamů `a7b90e3..ffd21cf` |
+| [convergence/TEST-REGISTRY.md](convergence/TEST-REGISTRY.md) | generovaný ledger 349 testovacích programů |
+| [convergence/PRIVACY-INCIDENT.json](convergence/PRIVACY-INCIDENT.json) | evidence potvrzené privacy kompromitace |
 
 ### Kontrakty & Protokoly
 
