@@ -1,9 +1,9 @@
 # Disposition of disputed `final` commit
 
 Status: all source-diff facts are recorded in a committed sanitized manifest
-and validate offline. Sixteen records are evidence-backed `REPAIRED`, and 16
+and validate offline. Twenty-six records are evidence-backed `REPAIRED`, and 16
 truthful model suites are `DEFERRED` behind concrete runtime prerequisites. The
-validator deliberately remains red while 60 legacy `REBUILD/REPAIR` rows await
+validator deliberately remains red while 50 legacy `REBUILD/REPAIR` rows await
 terminal closure under `D-018`.
 
 Compared refs:
@@ -74,8 +74,9 @@ node scripts/validate-final-disposition.js \
 | `EXCLUDE/MOVE_OUTSIDE_PRODUCTION` | 78 |
 | `EXCLUDE/REMOVE_FOLLOWUP` | 13 |
 | `KEEP/REPLAY` | 42 |
-| `REBUILD/REPAIR` | 90 |
-| `REBUILD/REPAIRED` | 2 |
+| `REBUILD/REPAIR` | 50 |
+| `REBUILD/REPAIRED` | 26 |
+| `REBUILD/DEFERRED(<prerequisite>)` | 16 |
 | `UNRESOLVED / USER_DECISION` | 0 |
 
 ## Path-by-path classification
@@ -83,8 +84,8 @@ node scripts/validate-final-disposition.js \
 | Git status | Path | Disposition | Action | Evidence-based rationale |
 |---|---|---|---|---|
 | `A` | `.c3-backend.log.old` | `EXCLUDE` | `REMOVE_FOLLOWUP` | Runtime log; no production source value and may contain operational data. |
-| `M` | `CLAUDE.md` | `REBUILD` | `REPAIR` | Product documentation was overwritten or made inconsistent; reconstruct from valid history plus verified newer facts. |
-| `M` | `README.md` | `REBUILD` | `REPAIR` | Product documentation was overwritten or made inconsistent; reconstruct from valid history plus verified newer facts. |
+| `M` | `CLAUDE.md` | `REBUILD` | `REPAIRED` | Overwritten product guidance was reconstructed in `b860ae96d8f333acfa61724ba8065740059995d6` and aligned to the complete registry in `af539dccbb420ac32aed5e095eb6d69bc4ffcc37`; it is unchanged from attested candidate `22a9b848db1be69f6cd0657d5d0e9bffb44bcb19`. |
+| `M` | `README.md` | `REBUILD` | `REPAIRED` | Product status and test claims were reconstructed in `b860ae96d8f333acfa61724ba8065740059995d6` and aligned in `af539dccbb420ac32aed5e095eb6d69bc4ffcc37`; it is unchanged from attested candidate `22a9b848db1be69f6cd0657d5d0e9bffb44bcb19`. |
 | `A` | `data/c3-recovered.sql` | `EXCLUDE` | `REMOVE_FOLLOWUP` | Runtime database, recovery, or backup artifact; potentially private and never replayed. |
 | `A` | `data/c3.db.bak-1775936499219` | `EXCLUDE` | `REMOVE_FOLLOWUP` | Runtime database, recovery, or backup artifact; potentially private and never replayed. |
 | `A` | `data/c3.db.corrupt-backup-20260325-132735` | `EXCLUDE` | `REMOVE_FOLLOWUP` | Runtime database, recovery, or backup artifact; potentially private and never replayed. |
@@ -167,12 +168,12 @@ node scripts/validate-final-disposition.js \
 | `A` | `e2e-review/README.md` | `EXCLUDE` | `MOVE_OUTSIDE_PRODUCTION` | Generated E2E project/evidence; retained only in disputed history, not production tree. |
 | `A` | `e2e-review/RUN3-full-log.txt` | `EXCLUDE` | `MOVE_OUTSIDE_PRODUCTION` | Generated E2E project/evidence; retained only in disputed history, not production tree. |
 | `A` | `login.html` | `EXCLUDE` | `REMOVE_FOLLOWUP` | Generated project output leaked into repository root; not C3 product source. |
-| `M` | `package-lock.json` | `REBUILD` | `REPAIR` | Preserve useful scripts/dependency intent, but repair product metadata, incomplete registries, and tree-sitter peer conflict. |
-| `M` | `package.json` | `REBUILD` | `REPAIR` | Preserve useful scripts/dependency intent, but repair product metadata, incomplete registries, and tree-sitter peer conflict. |
+| `M` | `package-lock.json` | `REBUILD` | `REPAIRED` | The lockfile peer conflict is repaired; attestation `bf70c790231d7640f78c4b391551e3e91d7f40f3` records two consecutive isolated minimal installs at `22a9b848db1be69f6cd0657d5d0e9bffb44bcb19`, both exit 0. The file is unchanged since that candidate. |
+| `M` | `package.json` | `REBUILD` | `REPAIRED` | Product metadata and dependency intent are repaired; attestation `bf70c790231d7640f78c4b391551e3e91d7f40f3` records two consecutive isolated minimal installs at `22a9b848db1be69f6cd0657d5d0e9bffb44bcb19`, both exit 0. The file is unchanged since that candidate. |
 | `M` | `src/chat/context-compact.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
 | `M` | `src/chat/cre-decision.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
 | `M` | `src/chat/handlers/decisions.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
-| `M` | `src/config.js` | `REBUILD` | `REPAIR` | Preserve long-running model/runtime intent, but replace unbounded timeout behavior with explicit bounded policy and tests. |
+| `M` | `src/config.js` | `REBUILD` | `REPAIRED` | Unbounded runtime timeouts were replaced by the explicit bounded policy in `de3eaf6c3e2004b8f69d63affe65e79b63b6aaab`; the file is unchanged from the 199/199 deterministic candidate attested by `bf70c790231d7640f78c4b391551e3e91d7f40f3`. |
 | `M` | `src/db/database.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
 | `M` | `src/llm/gateway.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
 | `A` | `src/llm/model-ctx.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
@@ -182,14 +183,14 @@ node scripts/validate-final-disposition.js \
 | `M` | `src/planner/lifecycle-planning.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
 | `M` | `src/planner/milestone-decomposer.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
 | `M` | `src/planner/quality-gate.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
-| `M` | `src/server.js` | `REBUILD` | `REPAIR` | Preserve long-running model/runtime intent, but replace unbounded timeout behavior with explicit bounded policy and tests. |
+| `M` | `src/server.js` | `REBUILD` | `REPAIRED` | Bounded timeout policy and centralized mutable model lifecycle were wired by `de3eaf6c3e2004b8f69d63affe65e79b63b6aaab` and `7d3e465033e37ad147f7fad806b09d523bac3eda`; the file is unchanged from the 199/199 deterministic candidate attested by `bf70c790231d7640f78c4b391551e3e91d7f40f3`. |
 | `M` | `src/upgrade/online-discovery.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
 | `M` | `src/upgrade/registry-client.js` | `KEEP` | `REPLAY` | Coherent intended product change; replay exactly first, then require focused and regression verification. |
 | `A` | `templates/admin/dashboard.html` | `EXCLUDE` | `REMOVE_FOLLOWUP` | Generated project output leaked into repository root; not C3 product source. |
 | `A` | `templates/products/detail.html` | `EXCLUDE` | `REMOVE_FOLLOWUP` | Generated project output leaked into repository root; not C3 product source. |
 | `A` | `test-reports/cycle-0001-1774616641097.json` | `EXCLUDE` | `MOVE_OUTSIDE_PRODUCTION` | Generated run output; only sanitized summaries belong in Gate evidence. |
-| `A` | `tests/TEST-INVENTORY.md` | `REBUILD` | `REPAIR` | Inventory/status is stale or incomplete; regenerate from filesystem and recorded command evidence. |
-| `A` | `tests/TEST-REGISTRY.md` | `REBUILD` | `REPAIR` | Inventory/status is stale or incomplete; regenerate from filesystem and recorded command evidence. |
+| `A` | `tests/TEST-INVENTORY.md` | `REBUILD` | `REPAIRED` | The stale prose inventory is replaced by mapped `tests/registry.json`; current validation discovers and validates 350 runnable programs with registry SHA-256 `f930d637693759df07c290ed415477ba5bf461a0fe4ec71ab207e5663da0bf60`, exit 0. |
+| `A` | `tests/TEST-REGISTRY.md` | `REBUILD` | `REPAIRED` | The stale location is replaced by generated `docs/convergence/TEST-REGISTRY.md`; `node scripts/validate-test-registry.js` validates its mapping to all 350 runnable programs, exit 0. |
 | `R100` | `tests/LIFECYCLE_E2E_REPORT.txt -> tests/_legacy/LIFECYCLE_E2E_REPORT.txt` | `KEEP` | `REPLAY` | Intentional legacy-test relocation/reference; preserves historical assets outside active registry. |
 | `R100` | `tests/PROJECT-LIFECYCLE-E2E-PLAN.md -> tests/_legacy/PROJECT-LIFECYCLE-E2E-PLAN.md` | `KEEP` | `REPLAY` | Intentional legacy-test relocation/reference; preserves historical assets outside active registry. |
 | `A` | `tests/_legacy/README.md` | `KEEP` | `REPLAY` | Intentional legacy-test relocation/reference; preserves historical assets outside active registry. |
@@ -198,7 +199,7 @@ node scripts/validate-final-disposition.js \
 | `A` | `tests/_legacy/e2e-loop.js` | `KEEP` | `REPLAY` | Intentional legacy-test relocation/reference; preserves historical assets outside active registry. |
 | `R100` | `tests/e2e-quality-deep.cjs -> tests/_legacy/e2e-quality-deep.cjs` | `KEEP` | `REPLAY` | Intentional legacy-test relocation/reference; preserves historical assets outside active registry. |
 | `R100` | `tests/p5-scoring-simulation.js -> tests/_legacy/p5-scoring-simulation.js` | `KEEP` | `REPLAY` | Intentional legacy-test relocation/reference; preserves historical assets outside active registry. |
-| `R100` | `tests/packages/c3-backend -> tests/_legacy/packages/c3-backend` | `REBUILD` | `REPAIR` | Preserve the historical WS-backend reference, but replace the machine-local absolute symlink with portable `tests/_legacy/packages/c3-backend.md`. |
+| `R100` | `tests/packages/c3-backend -> tests/_legacy/packages/c3-backend` | `REBUILD` | `REPAIRED` | The machine-local absolute symlink is absent and mapped to portable explanatory `tests/_legacy/packages/c3-backend.md`; the disposition resolver reports `MAPPED_REPAIR`, and tracked-symlink validation finds no unsafe replacement. |
 | `R100` | `tests/phase-c.test.cjs -> tests/_legacy/phase-c.test.cjs` | `KEEP` | `REPLAY` | Intentional legacy-test relocation/reference; preserves historical assets outside active registry. |
 | `R100` | `tests/phase-f.test.cjs -> tests/_legacy/phase-f.test.cjs` | `KEEP` | `REPLAY` | Intentional legacy-test relocation/reference; preserves historical assets outside active registry. |
 | `R100` | `tests/run-all-expertise-e2e.sh -> tests/_legacy/run-all-expertise-e2e.sh` | `KEEP` | `REPLAY` | Intentional legacy-test relocation/reference; preserves historical assets outside active registry. |
@@ -208,7 +209,7 @@ node scripts/validate-final-disposition.js \
 | `R100` | `tests/sprints/sprint5.test.cjs -> tests/_legacy/sprints/sprint5.test.cjs` | `KEEP` | `REPLAY` | Intentional legacy-test relocation/reference; preserves historical assets outside active registry. |
 | `R100` | `tests/sprints/sprint6.test.cjs -> tests/_legacy/sprints/sprint6.test.cjs` | `KEEP` | `REPLAY` | Intentional legacy-test relocation/reference; preserves historical assets outside active registry. |
 | `R100` | `tests/sprints/sprint7.test.cjs -> tests/_legacy/sprints/sprint7.test.cjs` | `KEEP` | `REPLAY` | Intentional legacy-test relocation/reference; preserves historical assets outside active registry. |
-| `A` | `tests/artifact-validation.test.js` | `REBUILD` | `REPAIR` | Assertions are useful, but copied validator logic can false-green; test production implementation instead. |
+| `A` | `tests/artifact-validation.test.js` | `REBUILD` | `REPAIRED` | Snapshot prose was replaced by executable artifact, manifest and D-018 assertions against production validators. At `b188e54bc339557b316676cc27619457710bb0bf`, `node tests/artifact-validation.test.js` reported 31 passed, 0 failed, exit 0. |
 | `A` | `tests/e2e-transcript-all-2026-04-13.md` | `EXCLUDE` | `MOVE_OUTSIDE_PRODUCTION` | Generated transcript with potential conversation-derived content; never replayed. |
 | `A` | `tests/e2e/01-health-smoke.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/02-chat-api.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
@@ -318,6 +319,9 @@ node scripts/validate-final-disposition.js \
 | `452b1f7688e7624d30b81daabcb0be3b18a64cd0` | `tests/e2e/200-s1-minic3-p1.e2e.js` … `tests/e2e/211-s2-shopflow-p6.e2e.js` | `node tests/e2e/_helpers.self-check.js` | 0 | all 12 source contracts preserve terminal thresholds before completion/save; both P6 cleanup paths are protected by `finally` |
 | `c0471924d7a445c4be0d9256c06154bd970f53f8` | `tests/e2e/_helpers.js` | `node tests/e2e/_helpers.self-check.js` | 0 | negative fixtures rejected HTTP 202/500, absent IDs and empty responses; positive exact-200 and valid-ID fixtures passed |
 | `c0471924d7a445c4be0d9256c06154bd970f53f8` | model suites `70–74`, `79`, `82`, `85`, `87`, `89`, `92`, `93`, `95–98` | `node --check <each of the 16 listed files>` | 0 | syntax valid; static inspection found no bare early-return, accepted 5xx or assertion bypass, so execution alone is deferred to the named model fixture |
+| `22a9b848db1be69f6cd0657d5d0e9bffb44bcb19` | `package.json`, `package-lock.json`, `src/config.js`, `src/server.js` | commands and output hashes in attestation `bf70c790231d7640f78c4b391551e3e91d7f40f3` | 0 | two isolated minimal installs and the complete 199-program deterministic registry passed; current four files are byte-identical to the candidate |
+| `b188e54bc339557b316676cc27619457710bb0bf` | registry mappings and `tests/artifact-validation.test.js` | `node scripts/validate-test-registry.js`; `node tests/artifact-validation.test.js` | 0 / 0 | 350 runnable programs validated with SHA-256 `f930d637…`; artifact/manifest/D-018 suite reported 31 passed, 0 failed |
+| `b188e54bc339557b316676cc27619457710bb0bf` | `CLAUDE.md`, `README.md`, legacy backend reference | `git diff --name-status 22a9b848…HEAD -- <listed paths>` plus disposition resolution | 0 | product docs are unchanged from the attested reconstruction; unsafe legacy symlink is absent and its portable target resolves as `MAPPED_REPAIR` |
 
 ## Incident-response decisions outside this diff
 
