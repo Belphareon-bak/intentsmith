@@ -13,7 +13,7 @@ override a failed or blocked suite.
 - Runnable programs: 350
 - Explicit support-module exclusions: 8
 - Profiles: offline=173, database=26, server=32, model=71, soak=33, manual=15
-- States: ACTIVE=256, HISTORICAL=15, BLOCKED=67, KNOWN_DEFECTIVE=12
+- States: ACTIVE=256, HISTORICAL=15, BLOCKED=71, KNOWN_DEFECTIVE=8
 
 ## Execution profiles
 
@@ -182,10 +182,10 @@ override a failed or blocked suite.
 | `IS-T3-E2E-72-FOLLOWUP-COHERENCE` | `tests/e2e/72-followup-coherence.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-73-QUALITY-GATE-CONTENT` | `tests/e2e/73-quality-gate-content.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-74-SESSION-ISOLATION` | `tests/e2e/74-session-isolation.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T3-E2E-75-EXPERTISE-BEHAVIORAL` | `tests/e2e/75-expertise-behavioral.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
-| `IS-T3-E2E-76-SPECIALIST-DOMAIN` | `tests/e2e/76-specialist-domain.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
-| `IS-T3-E2E-77-PROJECT-CONTEXT-INJECTION` | `tests/e2e/77-project-context-injection.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
-| `IS-T3-E2E-78-GUARD-RULES` | `tests/e2e/78-guard-rules.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
+| `IS-T3-E2E-75-EXPERTISE-BEHAVIORAL` | `tests/e2e/75-expertise-behavioral.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-76-SPECIALIST-DOMAIN` | `tests/e2e/76-specialist-domain.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-77-PROJECT-CONTEXT-INJECTION` | `tests/e2e/77-project-context-injection.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-78-GUARD-RULES` | `tests/e2e/78-guard-rules.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-79-RESPONSE-SEMANTICS` | `tests/e2e/79-response-semantics.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-80-WS-SEMANTIC-EVENTS` | `tests/e2e/80-ws-semantic-events.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
 | `IS-T3-E2E-81-CONVERSATION-LIFECYCLE` | `tests/e2e/81-conversation-lifecycle.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |

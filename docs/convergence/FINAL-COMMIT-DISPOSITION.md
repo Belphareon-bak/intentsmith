@@ -1,9 +1,9 @@
 # Disposition of disputed `final` commit
 
 Status: all source-diff facts are recorded in a committed sanitized manifest
-and validate offline. Fifty-one records are evidence-backed `REPAIRED`, and 18
+and validate offline. Fifty-one records are evidence-backed `REPAIRED`, and 22
 truthful model suites are `DEFERRED` behind concrete runtime prerequisites. The
-validator deliberately remains red while 23 legacy `REBUILD/REPAIR` rows await
+validator deliberately remains red while 19 legacy `REBUILD/REPAIR` rows await
 terminal closure under `D-018`.
 
 Compared refs:
@@ -74,9 +74,9 @@ node scripts/validate-final-disposition.js \
 | `EXCLUDE/MOVE_OUTSIDE_PRODUCTION` | 78 |
 | `EXCLUDE/REMOVE_FOLLOWUP` | 13 |
 | `KEEP/REPLAY` | 42 |
-| `REBUILD/REPAIR` | 23 |
+| `REBUILD/REPAIR` | 19 |
 | `REBUILD/REPAIRED` | 51 |
-| `REBUILD/DEFERRED(<prerequisite>)` | 18 |
+| `REBUILD/DEFERRED(<prerequisite>)` | 22 |
 | `UNRESOLVED / USER_DECISION` | 0 |
 
 ## Path-by-path classification
@@ -268,10 +268,10 @@ node scripts/validate-final-disposition.js \
 | `A` | `tests/e2e/72-followup-coherence.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Follow-up assertions are fail-closed through the strict positive chat helper; execution requires the named isolated local model fixture. |
 | `A` | `tests/e2e/73-quality-gate-content.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Quality-gate assertions are fail-closed through the strict positive chat helper; execution requires the named isolated local model fixture. |
 | `A` | `tests/e2e/74-session-isolation.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Session-isolation assertions are fail-closed through the strict positive chat helper; execution requires the named isolated local model fixture. |
-| `A` | `tests/e2e/75-expertise-behavioral.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/76-specialist-domain.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/77-project-context-injection.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/78-guard-rules.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/75-expertise-behavioral.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | The suite requires the canonical `experts` response and writer/developer/analyst fixtures, uses bounded fail-closed chats, verifies exact expert mode and persisted server-owned expertise, and asserts GUARD 6 as `CREATIVE`; all optional fixture skips and the arbitrary legacy `/chat` expertise object check are gone. Execution remains behind the named model fixture. |
+| `A` | `tests/e2e/76-specialist-domain.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Accountant and translator are mandatory installed fixtures; each specialist is set, queried, used and cleared on the exact conversation session, with exact 200/state/mode contracts and bounded model calls. Missing fixtures and alternate success/404 statuses no longer pass. |
+| `A` | `tests/e2e/77-project-context-injection.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Project creation and canary files are confined to the verified runner-owned project root; bound and unbound conversations are mandatory, the server-derived session project is exact, canary isolation is asserted, and a project build request must expose exact `BUILD` intent. All dependent returns and tautological cleanup assertions are gone. |
+| `A` | `tests/e2e/78-guard-rules.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | GUARD inputs use mandatory owned conversations/project fixtures and bounded chats; intent metadata is required, with exact `CREATIVE`, `CONVERSATIONAL`, `CONVERSATIONAL` and `BUILD` outcomes for GUARD 6/9/10/11. The incorrect explicit-search oracle, custom project path, fixture skips and conditional assertions are removed. |
 | `A` | `tests/e2e/79-response-semantics.e2e.js` | `REBUILD` | `REPAIR` | The shared chat transport is fail-closed, but the local date assertion still accepts the year alone and hard-codes stale month/day values; repair the semantic oracle before deferring execution to the model fixture. |
 | `A` | `tests/e2e/80-ws-semantic-events.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/81-conversation-lifecycle.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
@@ -292,7 +292,7 @@ node scripts/validate-final-disposition.js \
 | `A` | `tests/e2e/98-analysis-quality.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Analysis-quality assertions are fail-closed through the strict positive chat helper; execution requires the named isolated local model fixture. |
 | `A` | `tests/e2e/QUALITY-REPORT.md` | `EXCLUDE` | `MOVE_OUTSIDE_PRODUCTION` | Generated quality report; replace with bounded evidence metadata when rerun. |
 | `A` | `tests/e2e/_e2e-state.js` | `REBUILD` | `REPAIRED` | State is private and atomic, schema-versioned and bound to suite plus exact source SHA; corrupt, mismatched and non-contiguous state is rejected. The focused helper self-check at `343c19f9354c87a0154baf695f9351221c7722c8` exited 0. |
-| `A` | `tests/e2e/_helpers.js` | `REBUILD` | `REPAIRED` | Endpoint ownership, bounded requests and private cleanup are rebuilt. At `c0471924d7a445c4be0d9256c06154bd970f53f8`, both conversation creators reject HTTP 500 and missing IDs, while positive chat helpers reject non-200 and empty responses; focused self-check exit 0. |
+| `A` | `tests/e2e/_helpers.js` | `REBUILD` | `REPAIRED` | Endpoint ownership, bounded requests and private cleanup are rebuilt. Both conversation creators reject HTTP 500 and missing IDs, while positive chat helpers reject non-200 and empty responses. The bounded helper forwards server-validated options without allowing callers to replace the conversation ID or message; its focused self-check exits 0. |
 | `A` | `tests/e2e/_quality-evaluator.js` | `REBUILD` | `REPAIRED` | Syntax checks use argv execution and a `makeOwnedTempDir()` fixture with owned cleanup rather than shared `/tmp`. The focused helper self-check at `7ad7145360d927d164eb85d2e732cdfa20c6fd81` proves valid/invalid syntax discrimination and no surviving fixture, exit 0. |
 | `A` | `tests/e2e/_test-fixtures.js` | `KEEP` | `REPLAY` | Legitimate E2E test/fixture; register by prerequisites and do not count as deterministic release proof until run. |
 | `A` | `tests/intent-classifier.test.js` | `EXCLUDE` | `REMOVE_FOLLOWUP` | Confirmed generated/save-response contamination, not executable C3 test source. |

@@ -778,8 +778,15 @@ export async function chatInConv(convId, message, opts = {}) {
   };
 }
 
-/** Chat with a bounded AbortController timeout. Same return shape as chatInConv. */
-export async function chatWithTimeout(convId, message, timeoutMs = 300_000) {
+/**
+ * Chat with a bounded AbortController timeout. Same return shape as chatInConv.
+ * Optional request fields are accepted without allowing callers to replace the
+ * required conversation ID or message.
+ */
+export async function chatWithTimeout(convId, message, timeoutMs = 300_000, opts = {}) {
+  if (!opts || typeof opts !== 'object' || Array.isArray(opts)) {
+    throw new TypeError('chat options must be an object');
+  }
   const timeout = parseBoundedInteger(
     timeoutMs,
     300_000,
@@ -795,6 +802,7 @@ export async function chatWithTimeout(convId, message, timeoutMs = 300_000) {
   }, timeout);
   try {
     const { status, data } = await api('POST', '/api/chat', {
+      ...opts,
       conversation_id: convId,
       message,
     }, controller.signal);

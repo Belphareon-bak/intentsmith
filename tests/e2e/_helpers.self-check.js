@@ -66,6 +66,7 @@ const chatFixtures = [
   { status: 200, data: { response: '   ' } },
   { status: 200, data: { response: 'chat-with-timeout-response' } },
 ];
+const chatBodies = [];
 
 try {
   fs.mkdirSync(artifactRoot, { recursive: true, mode: 0o700 });
@@ -73,11 +74,26 @@ try {
 
   server = http.createServer((request, response) => {
     if (request.url === '/slow') return;
+    if (request.method === 'POST' && request.url === '/api/chat') {
+      let body = '';
+      request.setEncoding('utf8');
+      request.on('data', chunk => {
+        body += chunk;
+      });
+      request.on('end', () => {
+        chatBodies.push(JSON.parse(body));
+        const fixture = chatFixtures.shift() || {
+          status: 500,
+          data: { error: 'unexpected fixture call' },
+        };
+        response.writeHead(fixture.status, { 'Content-Type': 'application/json' });
+        response.end(JSON.stringify(fixture.data));
+      });
+      return;
+    }
     const fixtureQueue = request.method === 'POST' && request.url === '/api/conversations'
       ? conversationFixtures
-      : request.method === 'POST' && request.url === '/api/chat'
-        ? chatFixtures
-        : null;
+      : null;
     if (fixtureQueue) {
       const fixture = fixtureQueue.shift() || {
         status: 500,
@@ -178,11 +194,17 @@ try {
     'fixture-conversation',
     'valid response',
     1_000,
+    { expertise_id: 'developer', conversation_id: 'cannot-override' },
   );
   ensure(
     timeoutChatResult.status === 200
       && timeoutChatResult.response === 'chat-with-timeout-response',
     'chatWithTimeout rejected a valid exact-200 response',
+  );
+  ensure(
+    chatBodies.at(-1)?.expertise_id === 'developer'
+      && chatBodies.at(-1)?.conversation_id === 'fixture-conversation',
+    'chatWithTimeout did not forward safe options or allowed conversation override',
   );
   ensure(
     conversationFixtures.length === 0 && chatFixtures.length === 0,

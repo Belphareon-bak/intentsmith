@@ -4,103 +4,142 @@
 // Tests accountant-cz and translator specialists with domain queries.
 // ══════════════════════════════════════════════════════════════════════════════
 import {
-  suite, testAsync, assert, summary,
-  api, waitForServer, createConv, chatInConv, hasKeywords, cleanupConversation, LLM_TIMEOUT,
+  suite, testAsync, assert, assertEqual, summary,
+  api, waitForServer, createConv, chatWithTimeout, hasKeywords,
+  cleanupConversation, LLM_TIMEOUT,
 } from './_helpers.js';
 
 await waitForServer();
 
 const created = [];
-let specialists = [];
 let accountant = null;
 let translator = null;
+let accountantConvId = null;
+let translatorConvId = null;
 
 try {
   suite('Specialist — Listing');
 
   await testAsync('list specialists returns array', async () => {
     const { status, data } = await api('GET', '/api/specialists');
-    assert(status === 200, `expected 200, got ${status}`);
-    const list = Array.isArray(data) ? data : (data.specialists || []);
-    specialists = list;
-    accountant = list.find(s => /účetn|account|daň/i.test(s.id || s.name || s.domain || ''));
-    translator = list.find(s => /překl|translat|jazyk/i.test(s.id || s.name || s.domain || ''));
+    assertEqual(status, 200);
+    assertEqual(data.ok, true);
+    assert(Array.isArray(data.specialists), 'specialists must be an array');
+    accountant = data.specialists.find(item => item.id === 'accountant-cz');
+    translator = data.specialists.find(item => item.id === 'translator');
+    assert(accountant, 'accountant-cz specialist fixture required');
+    assert(translator, 'translator specialist fixture required');
   });
 
   suite('Specialist — Accountant');
 
   await testAsync('set accountant specialist', async () => {
-    if (!accountant) { assert(true, 'no accountant specialist — skip'); return; }
-    const { status } = await api('POST', '/api/chat/specialist', {
+    accountantConvId = await createConv('spec-accountant');
+    created.push(accountantConvId);
+    const { status, data } = await api('POST', '/api/chat/specialist', {
       specialistId: accountant.id,
+      sessionId: accountantConvId,
     });
-    assert(status === 200 || status === 404, `expected 200/404, got ${status}`);
+    assertEqual(status, 200);
+    assertEqual(data.ok, true);
+    assertEqual(data.specialistId, accountant.id);
+
+    const session = await api('GET', `/api/chat/sessions/${accountantConvId}`);
+    assertEqual(session.status, 200);
+    assertEqual(session.data.state.specialist.id, accountant.id);
   });
 
   await testAsync('accountant answers tax question with domain terms', async () => {
-    if (!accountant) { assert(true, 'no accountant specialist — skip'); return; }
-    const convId = await createConv('spec-tax');
-    created.push(convId);
-    const r = await chatInConv(convId, 'Jaký je základ daně z příjmu pro OSVČ?');
+    const r = await chatWithTimeout(
+      accountantConvId,
+      'Jaký je základ daně z příjmu pro OSVČ?',
+      LLM_TIMEOUT,
+    );
+    assertEqual(r.mode, 'specialist');
     assert(hasKeywords(r.response,
-      ['daň', 'základ', 'sazb', 'příjem', 'osvč', '15', '23', 'slev', 'odpočet'], 1),
+      ['daň', 'základ', 'sazb', 'příjem', 'osvč', '15', '23', 'slev', 'odpočet'], 2),
       `accountant should use tax terminology: ${r.response.substring(0, 200)}`);
   }, LLM_TIMEOUT);
 
   await testAsync('accountant knows tax deadlines', async () => {
-    if (!accountant) { assert(true, 'no accountant specialist — skip'); return; }
-    const convId = await createConv('spec-deadline');
-    created.push(convId);
-    const r = await chatInConv(convId, 'Kdy je termín pro podání daňového přiznání?');
+    const r = await chatWithTimeout(
+      accountantConvId,
+      'Kdy je termín pro podání daňového přiznání?',
+      LLM_TIMEOUT,
+    );
+    assertEqual(r.mode, 'specialist');
     assert(hasKeywords(r.response,
-      ['břez', 'dubn', 'termín', 'lhůt', 'podání', 'přiznání', 'finančn', 'úřad'], 1),
+      ['břez', 'dubn', 'termín', 'lhůt', 'podání', 'přiznání', 'finančn', 'úřad'], 2),
       `accountant should mention deadlines: ${r.response.substring(0, 200)}`);
   }, LLM_TIMEOUT);
 
   suite('Specialist — Clear');
 
   await testAsync('clear accountant specialist', async () => {
-    const { status } = await api('DELETE', '/api/chat/specialist', {});
-    assert(status === 200 || status === 204, `expected 200/204, got ${status}`);
+    const { status, data } = await api('DELETE', '/api/chat/specialist', {
+      sessionId: accountantConvId,
+    });
+    assertEqual(status, 200);
+    assertEqual(data.ok, true);
+
+    const session = await api('GET', `/api/chat/sessions/${accountantConvId}`);
+    assertEqual(session.status, 200);
+    assertEqual(session.data.state.specialist, null);
   });
 
   suite('Specialist — Translator');
 
   await testAsync('set translator specialist', async () => {
-    if (!translator) { assert(true, 'no translator specialist — skip'); return; }
-    const { status } = await api('POST', '/api/chat/specialist', {
+    translatorConvId = await createConv('spec-translator');
+    created.push(translatorConvId);
+    const { status, data } = await api('POST', '/api/chat/specialist', {
       specialistId: translator.id,
+      sessionId: translatorConvId,
     });
-    assert(status === 200 || status === 404, `expected 200/404, got ${status}`);
+    assertEqual(status, 200);
+    assertEqual(data.ok, true);
+    assertEqual(data.specialistId, translator.id);
+
+    const session = await api('GET', `/api/chat/sessions/${translatorConvId}`);
+    assertEqual(session.status, 200);
+    assertEqual(session.data.state.specialist.id, translator.id);
   });
 
   await testAsync('translator handles translation request', async () => {
-    if (!translator) { assert(true, 'no translator specialist — skip'); return; }
-    const convId = await createConv('spec-translate');
-    created.push(convId);
-    const r = await chatInConv(convId, 'Přelož do angličtiny: Dnes je krásný den');
-    assert(hasKeywords(r.response, ['today', 'beautiful', 'nice', 'lovely', 'day'], 1),
+    const r = await chatWithTimeout(
+      translatorConvId,
+      'Přelož do angličtiny: Dnes je krásný den',
+      LLM_TIMEOUT,
+    );
+    assertEqual(r.mode, 'specialist');
+    assert(hasKeywords(r.response, ['today', 'beautiful', 'nice', 'lovely', 'day'], 2),
       `translator should produce English translation: ${r.response.substring(0, 200)}`);
   }, LLM_TIMEOUT);
 
   suite('Specialist — Mode Change After Clear');
 
   await testAsync('after clearing specialist, mode changes', async () => {
-    // Clear any active specialist
-    await api('DELETE', '/api/chat/specialist', {});
-    const convId = await createConv('spec-cleared');
-    created.push(convId);
-    const r = await chatInConv(convId, 'Ahoj, jak se máš?');
-    if (r.mode) {
-      assert(r.mode !== 'specialist',
-        `after clearing, mode should not be specialist, got: ${r.mode}`);
-    }
+    const cleared = await api('DELETE', '/api/chat/specialist', {
+      sessionId: translatorConvId,
+    });
+    assertEqual(cleared.status, 200);
+    assertEqual(cleared.data.ok, true);
+
+    const session = await api('GET', `/api/chat/sessions/${translatorConvId}`);
+    assertEqual(session.status, 200);
+    assertEqual(session.data.state.specialist, null);
+
+    const r = await chatWithTimeout(translatorConvId, 'Ahoj, jak se máš?', LLM_TIMEOUT);
+    assertEqual(r.mode, 'conversation');
     assert(r.response.length > 0, 'should still produce response without specialist');
   }, LLM_TIMEOUT);
 
 } finally {
-  // Clean up specialist state
-  try { await api('DELETE', '/api/chat/specialist', {}); } catch {}
+  for (const id of created) {
+    try {
+      await api('DELETE', '/api/chat/specialist', { sessionId: id });
+    } catch {}
+  }
   for (const id of created) await cleanupConversation(id);
 }
 
