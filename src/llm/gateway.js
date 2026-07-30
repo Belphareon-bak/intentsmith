@@ -16,6 +16,12 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { config } from '../config.js';
+import {
+  AbortSource,
+  abortErrorFromSignal,
+  abortSourceOf,
+  abortWithReason,
+} from '../core/abort-error.js';
 import { logger } from '../core/logger.js';
 import { modelUniverseStore } from '../upgrade/model-universe-store.js';
 import { getNumCtx } from './model-ctx.js';
@@ -446,7 +452,14 @@ class LLMGateway {
       let userAbortHandler;
       try {
         const controller = new AbortController();
-        timeoutId = setTimeout(() => controller.abort(), timeout);
+        timeoutId = setTimeout(
+          () => abortWithReason(
+            controller,
+            AbortSource.TIMEOUT,
+            `LLM timeout after ${timeout}ms (model: ${model})`,
+          ),
+          timeout,
+        );
 
         // v63.0: Connect user cancel signal to LLM abort controller
         // When the user disconnects (req.on('close')), abort the LLM call too
@@ -454,11 +467,19 @@ class LLMGateway {
         if (userSignal) {
           if (userSignal.aborted) {
             clearTimeout(timeoutId);
-            const error = new Error('Request cancelled by user');
-            error.name = 'AbortError';
-            throw error;
+            throw abortErrorFromSignal(userSignal, {
+              fallbackSource: AbortSource.USER,
+              message: 'LLM call cancelled by user',
+            });
           }
-          userAbortHandler = () => controller.abort();
+          userAbortHandler = () => {
+            if (!controller.signal.aborted) {
+              controller.abort(abortErrorFromSignal(userSignal, {
+                fallbackSource: AbortSource.USER,
+                message: 'LLM call cancelled by user',
+              }));
+            }
+          };
           userSignal.addEventListener('abort', userAbortHandler, { once: true });
         }
 
@@ -527,7 +548,12 @@ class LLMGateway {
         // v63.0: Distinguish abort sources for proper handling
         if (err.name === 'AbortError') {
           const userSignal = options.signal;
-          if (userSignal?.aborted) {
+          const abortSource = abortSourceOf(
+            err,
+            userSignal,
+            userSignal?.aborted ? AbortSource.USER : AbortSource.TIMEOUT,
+          );
+          if (abortSource === AbortSource.USER) {
             // User cancelled (frontend disconnect / cancel button)
             logger.info('LLMGateway', `User cancelled LLM call (attempt ${attempt}/${maxRetries})`, {
               abortSource: 'user_cancel',
@@ -545,7 +571,10 @@ class LLMGateway {
               scheduleRecompute: false,
             });
             this._releaseSlot();
-            throw new Error('LLM call cancelled by user');
+            throw abortErrorFromSignal(userSignal, {
+              fallbackSource: AbortSource.USER,
+              message: 'LLM call cancelled by user',
+            });
           } else {
             // v82.2: Timeout — DON'T RETRY. The model is working, just slow.
             // Retrying on timeout doubles the total time (60s+2s+60s > 90s test timeout).
@@ -566,7 +595,10 @@ class LLMGateway {
               latencyMs: Date.now() - startTime,
             });
             this._releaseSlot();
-            throw new Error(`LLM timeout after ${timeout}ms (model: ${model})`);
+            throw abortErrorFromSignal(userSignal, {
+              fallbackSource: AbortSource.TIMEOUT,
+              message: `LLM timeout after ${timeout}ms (model: ${model})`,
+            });
           }
         } else if (err.message?.includes('503') || err.message?.includes('Service Unavailable')) {
           // v124: Ollama OOM/overload — don't retry, escalate immediately

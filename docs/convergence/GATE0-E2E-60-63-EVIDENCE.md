@@ -103,3 +103,21 @@ node tests/e2e/62-validation-suites.e2e.js
 
 Both servers bound only to loopback and were stopped after their runs. No
 runtime database, port file, log or generated test output is tracked.
+
+## Independent review follow-up
+
+An independent runtime and mutation review accepted the cancellation race
+repairs but found that the final guard immediately before assistant persistence
+was not pinned by `T16c`: that test aborted while reading the response tag and
+therefore exercised an earlier guard. The follow-up adds a distinct regression
+that aborts only when `QualityTelemetry` is emitted, then requires canonical
+rejection and exactly one persisted user turn. It also centralizes the
+`AbortError` contract, removes the redundant synchronous guard and propagates a
+stale-turn timeout as `timeout` rather than `cancelled_by_user`.
+
+The same review reproduced a separate residual with an unreachable loopback
+provider: HTTP returned 200, WebSocket emitted an assistant plus
+`turn_end.status: "ok"`, and each path persisted an assistant error banner.
+That behavior is not presented as fixed by this follow-up. It is recorded as
+the blocking runtime risk `G0-R025`; suite 60's deterministic local-math result
+proves only its model-free path.

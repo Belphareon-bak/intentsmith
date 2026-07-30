@@ -12,6 +12,10 @@ import { llmGateway } from '../src/llm/gateway.js';
 import { setNumCtx } from '../src/llm/model-ctx.js';
 import { modelUniverseStore } from '../src/upgrade/model-universe-store.js';
 import { CREDecisionEngine } from '../src/chat/cre-decision.js';
+import {
+  AbortSource,
+  abortWithReason,
+} from '../src/core/abort-error.js';
 
 const originalFetch = globalThis.fetch;
 const originalRecordSignalEvent = modelUniverseStore.recordSignalEvent;
@@ -109,6 +113,8 @@ try {
 
     assert(error, 'cancelled request must reject');
     assertEqual(error.message, 'LLM call cancelled by user');
+    assertEqual(error.name, 'AbortError');
+    assertEqual(error.abortSource, AbortSource.USER);
     assertEqual(fetchCalls, 0);
     assertEqual(signals.length, 1);
     assertEqual(signals[0].signalType, 'runtime_cancelled');
@@ -145,9 +151,50 @@ try {
     }
     assert(cancellationError, 'CRE cancellation must reject');
     assertEqual(cancellationError.name, 'AbortError');
+    assertEqual(cancellationError.abortSource, AbortSource.USER);
     assertEqual(signals.length, 1);
     assertEqual(signals[0].signalType, 'runtime_cancelled');
     assertEqual(signals[0].success, null);
+  });
+
+  await testAsync('propagates an upstream stale timeout without attributing it to the user', async () => {
+    signals.length = 0;
+    let fetchStarted;
+    const started = new Promise(resolve => { fetchStarted = resolve; });
+    globalThis.fetch = async (_url, options) => new Promise((_resolve, reject) => {
+      fetchStarted();
+      options.signal.addEventListener('abort', () => {
+        reject(options.signal.reason);
+      }, { once: true });
+    });
+
+    const controller = new AbortController();
+    const pending = llmGateway.call('stale request', {
+      model: 'test-model:1b',
+      requestType: 'gate0-test',
+      signal: controller.signal,
+    });
+    await started;
+    abortWithReason(
+      controller,
+      AbortSource.TIMEOUT,
+      'Stale turn timeout after 300000ms',
+    );
+
+    let timeoutError;
+    try {
+      await pending;
+    } catch (error) {
+      timeoutError = error;
+    }
+
+    assert(timeoutError, 'stale timeout must reject');
+    assertEqual(timeoutError.name, 'AbortError');
+    assertEqual(timeoutError.abortSource, AbortSource.TIMEOUT);
+    assertEqual(timeoutError.message, 'Stale turn timeout after 300000ms');
+    assertEqual(signals.length, 1);
+    assertEqual(signals[0].signalType, 'runtime_timeout');
+    assertEqual(signals[0].success, false);
   });
 } finally {
   globalThis.fetch = originalFetch;

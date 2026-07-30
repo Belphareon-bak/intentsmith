@@ -34,6 +34,7 @@ import { classifyIntent as llmClassify } from '../llm/cre-bridge.js';
 import { extractJSON } from '../llm/client.js';
 import { config } from '../config.js';
 import { featureManager } from '../core/feature-manager.js';
+import { throwIfAborted } from '../core/abort-error.js';
 
 // v73: Lazy import to avoid circular dependency (followup.js → intent.js → cre-decision.js)
 let _detectFollowUpType = null;
@@ -2492,9 +2493,7 @@ PRAVIDLA:
       return parsed;
     } catch (err) {
       if (context.signal?.aborted) {
-        const abortError = new Error('Request cancelled by user');
-        abortError.name = 'AbortError';
-        throw abortError;
+        throwIfAborted(context.signal);
       }
       logger.warn('CRE:LLM', `LLM intent classification failed: ${err.message}`, {
         input: input.substring(0, 60),

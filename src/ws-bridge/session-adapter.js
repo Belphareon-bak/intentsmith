@@ -21,6 +21,13 @@ import {
 import { TurnTelemetry } from '../telemetry/turn-telemetry.js';
 import { config } from '../config.js';
 import { featureManager } from '../core/feature-manager.js';
+import {
+  AbortSource,
+  abortSourceOf,
+  abortWithReason,
+  isAbortError,
+  throwIfAborted,
+} from '../core/abort-error.js';
 
 // v93: Notification router reference (set by server.js via setNotificationDeps)
 let _notificationRouter = null;
@@ -53,9 +60,20 @@ async function persistTelemetry(snapshot) {
  * @param {Function} options.handleRequest — ChatController.handle(request) function
  * @param {Object}  options.logger — Logger instance
  * @param {string}  [options.sessionId] — Explicit session ID (default: auto-generated)
+ * @param {number}  [options.staleTurnMs] — Stale-turn threshold (default: 5 minutes)
+ * @param {number}  [options.staleSweepMs] — Stale-turn sweep interval (default: 1 minute)
+ * @param {Object}  [options.staleClock] — Injectable stale-sweep clock for tests
  * @returns {SessionAdapter}
  */
-export function createSessionAdapter({ send, handleRequest, logger, sessionId = null }) {
+export function createSessionAdapter({
+  send,
+  handleRequest,
+  logger,
+  sessionId = null,
+  staleTurnMs = 5 * 60 * 1000,
+  staleSweepMs = 60_000,
+  staleClock = null,
+}) {
   let seq = 0;
   let turnCounter = 0;
 
@@ -65,17 +83,31 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
   const activeTurns = new Map(); // conversationId → { turnId, abortController, startTime }
 
   // v124: Stale turn cleanup — abort and remove turns older than 5 minutes
-  const STALE_TURN_MS = 5 * 60 * 1000;
-  const _staleCleanupInterval = setInterval(() => {
-    const now = Date.now();
+  const STALE_TURN_MS = Number.isFinite(staleTurnMs) && staleTurnMs > 0
+    ? staleTurnMs
+    : 5 * 60 * 1000;
+  const STALE_SWEEP_MS = Number.isFinite(staleSweepMs) && staleSweepMs > 0
+    ? staleSweepMs
+    : 60_000;
+  const staleNow = staleClock?.now || Date.now;
+  const staleSetInterval = staleClock?.setInterval || setInterval;
+  const staleClearInterval = staleClock?.clearInterval || clearInterval;
+  const _staleCleanupInterval = staleSetInterval(() => {
+    const now = staleNow();
     for (const [convId, entry] of activeTurns) {
       if (now - entry.startTime > STALE_TURN_MS) {
         logger.warn('WSSession', `Stale turn cleanup: ${convId} (${Math.round((now - entry.startTime) / 1000)}s old)`, { sessionId: sid });
-        try { entry.abortController?.abort(); } catch (_) {}
+        try {
+          abortWithReason(
+            entry.abortController,
+            AbortSource.TIMEOUT,
+            `Stale turn timeout after ${STALE_TURN_MS}ms`,
+          );
+        } catch (_) {}
         activeTurns.delete(convId);
       }
     }
-  }, 60_000);
+  }, STALE_SWEEP_MS);
 
   // Fáze 5 — E4: Pending edit approvals (reqId → {resolve, reject, timer})
   const editPending = new Map();
@@ -154,7 +186,7 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
     turnCounter++;
     const turnId = `t-${String(turnCounter).padStart(3, '0')}`;
     const ac = new AbortController();
-    activeTurns.set(convId, { turnId, abortController: ac, startTime: Date.now() });
+    activeTurns.set(convId, { turnId, abortController: ac, startTime: staleNow() });
 
     const turnStartTime = Date.now();
 
@@ -284,11 +316,7 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
       };
 
       const response = await handleRequest(request);
-      if (ac.signal.aborted) {
-        const error = new Error('Request cancelled by user');
-        error.name = 'AbortError';
-        throw error;
-      }
+      throwIfAborted(ac.signal);
 
       // Send final response via chat channel — include conversationId for session routing
       const responseConvId = response.conversationId || requestConversationId;
@@ -330,17 +358,11 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
 
     } catch (err) {
       const durationMs = Date.now() - turnStartTime;
+      const abortSource = isAbortError(err)
+        ? abortSourceOf(err, ac.signal, AbortSource.USER)
+        : null;
 
-      if (err.name === 'AbortError') {
-        turnTelemetry?.recordCancel('user');
-        const snap = turnTelemetry?.finalize(turnStartTime) ?? null;
-        sendAgentEvent(AgentEventType.TURN_END, turnId, {
-          status: 'cancelled_by_user',
-          durationMs,
-          ...(snap ? { telemetry: snap } : {}),
-        });
-        persistTelemetry(snap);
-      } else if (err.message?.includes('timeout')) {
+      if (abortSource === AbortSource.TIMEOUT || err.message?.includes('timeout')) {
         turnTelemetry?.recordCancel('timeout');
         const snap = turnTelemetry?.finalize(turnStartTime) ?? null;
         sendAgentEvent(AgentEventType.TURN_END, turnId, {
@@ -355,6 +377,15 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
           message: err.message,
           recoverable: true,
         });
+      } else if (isAbortError(err)) {
+        turnTelemetry?.recordCancel('user');
+        const snap = turnTelemetry?.finalize(turnStartTime) ?? null;
+        sendAgentEvent(AgentEventType.TURN_END, turnId, {
+          status: 'cancelled_by_user',
+          durationMs,
+          ...(snap ? { telemetry: snap } : {}),
+        });
+        persistTelemetry(snap);
       } else {
         logger.error('WSSession', `Turn error: ${err.message}`, { turnId });
         const snap = turnTelemetry?.finalize(turnStartTime) ?? null;
@@ -376,7 +407,7 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
       sendChannel(Channel.CHAT, {
         id: messageId('err'),
         type: 'system',
-        content: err.name === 'AbortError'
+        content: isAbortError(err) && abortSource !== AbortSource.TIMEOUT
           ? 'Zpracování zrušeno.'
           : `Chyba: ${err.message}`,
         conversationId: requestConversationId,
@@ -487,13 +518,13 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
           // Cancel specific conversation
           const turn = activeTurns.get(data.conversationId);
           if (turn) {
-            turn.abortController.abort();
+            abortWithReason(turn.abortController, AbortSource.USER);
             logger.info('WSSession', 'Cancelled by user', { sessionId: sid, conversationId: data.conversationId });
           }
         } else {
           // No conversationId → cancel all active turns
           for (const [cid, turn] of activeTurns) {
-            turn.abortController.abort();
+            abortWithReason(turn.abortController, AbortSource.USER);
           }
           logger.info('WSSession', 'Cancel all — no conversationId provided', { sessionId: sid, activeCount: activeTurns.size });
         }
@@ -603,10 +634,10 @@ export function createSessionAdapter({ send, handleRequest, logger, sessionId = 
 
   function cleanup() {
     // v124: Stop stale turn cleanup interval
-    clearInterval(_staleCleanupInterval);
+    staleClearInterval(_staleCleanupInterval);
     // Abort all active turns on disconnect
     for (const [cid, turn] of activeTurns) {
-      turn.abortController.abort();
+      abortWithReason(turn.abortController, AbortSource.USER, 'Session disconnected');
     }
     activeTurns.clear();
     // Reject all pending edits on disconnect

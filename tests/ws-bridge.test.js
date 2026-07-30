@@ -28,6 +28,7 @@ import {
 } from '../src/ws-bridge/protocol.js';
 
 import { createSessionAdapter } from '../src/ws-bridge/session-adapter.js';
+import { logger } from '../src/core/logger.js';
 
 let passed = 0;
 let failed = 0;
@@ -299,6 +300,53 @@ await asyncTest('T10b: cancelled handler result is never emitted as an assistant
   assert.equal(turnEnd.data.payload.status, 'cancelled_by_user');
 });
 
+await asyncTest('T10c: stale-turn abort is reported as timeout, not user cancellation', async () => {
+  const sent = [];
+  let staleNow = 1_000;
+  let sweepStaleTurns = null;
+  const adapter = createSessionAdapter({
+    send: (json) => sent.push(JSON.parse(json)),
+    handleRequest: async (request) => new Promise((_resolve, reject) => {
+      request.signal.addEventListener('abort', () => {
+        reject(request.signal.reason);
+      }, { once: true });
+    }),
+    logger: mockLogger,
+    staleTurnMs: 20,
+    staleClock: {
+      now: () => staleNow,
+      setInterval: (callback) => {
+        sweepStaleTurns = callback;
+        return Symbol('stale-sweep');
+      },
+      clearInterval: () => {},
+    },
+  });
+
+  try {
+    const turn = adapter.processChat('Force stale timeout');
+    assert.equal(typeof sweepStaleTurns, 'function', 'stale sweep must be scheduled');
+    staleNow += 21;
+    sweepStaleTurns();
+    await turn;
+  } finally {
+    adapter.cleanup();
+  }
+
+  const turnEnd = sent.find(m => m.channel === 'agent' && m.data.type === 'turn_end');
+  assert.ok(turnEnd, 'Stale turn should emit turn_end');
+  assert.equal(turnEnd.data.payload.status, 'timeout');
+  assert.match(turnEnd.data.payload.error, /stale turn timeout/i);
+
+  const errorEvent = sent.find(m => m.channel === 'agent' && m.data.type === 'error');
+  assert.ok(errorEvent, 'Stale turn should emit an error event');
+  assert.equal(errorEvent.data.payload.code, 'TIMEOUT');
+
+  const systemMessage = sent.find(m => m.channel === 'chat' && m.data.type === 'system');
+  assert.ok(systemMessage, 'Stale turn should emit a system message');
+  assert.match(systemMessage.data.content, /^Chyba: Stale turn timeout/);
+});
+
 test('T11: ping returns pong', () => {
   const sent = [];
   const adapter = createSessionAdapter({
@@ -515,6 +563,102 @@ await asyncTest('T16c: cancellation before persistence leaves no assistant turn'
       store.getAllTurns(sessionId).map(turn => turn.role),
       ['user'],
       'cancelled assistant response must not be persisted',
+    );
+  } finally {
+    ChatController.removeSession(sessionId);
+    resetConversationStore();
+  }
+}, ASYNC_TEST_TIMEOUT_MS);
+
+await asyncTest('T16d: final persistence-boundary guard rejects after quality telemetry', async () => {
+  resetConversationStore();
+  const store = getConversationStore(null);
+  const abortController = new AbortController();
+  const sessionId = 'test-16d-final-persistence-boundary';
+  const originalLoggerInfo = logger.info;
+  let qualityTelemetryObserved = false;
+
+  ChatController.configure({
+    handlers: {
+      [ChatMode.CONVERSATION]: async () => new TaggedResponse({
+        content: 'This response reaches quality telemetry but must not be persisted.',
+        tag: new ResponseTag({
+          speaker: ResponseSpeaker.SYSTEM,
+          mode: ChatMode.CONVERSATION,
+          confidence: 0.9,
+          metadata: { semanticScore: { total: 100 } },
+        }),
+      }),
+    },
+    config: { autoModeDetection: false },
+  });
+
+  logger.info = (...args) => {
+    originalLoggerInfo(...args);
+    if (args[0] === 'QualityTelemetry') {
+      qualityTelemetryObserved = true;
+      abortController.abort();
+    }
+  };
+
+  try {
+    await assert.rejects(
+      ChatController.handle({
+        message: 'Abort only after quality telemetry',
+        sessionId,
+        conversationId: sessionId,
+        signal: abortController.signal,
+      }),
+      error => error.name === 'AbortError',
+      'the final guard must reject an abort raised at the persistence boundary',
+    );
+    assert.equal(qualityTelemetryObserved, true, 'test must reach quality telemetry');
+    assert.deepEqual(
+      store.getAllTurns(sessionId).map(turn => turn.role),
+      ['user'],
+      'the final guard must prevent assistant persistence',
+    );
+  } finally {
+    logger.info = originalLoggerInfo;
+    ChatController.removeSession(sessionId);
+    resetConversationStore();
+  }
+}, ASYNC_TEST_TIMEOUT_MS);
+
+await asyncTest('T16e: pre-aborted static requests reject before handler dispatch', async () => {
+  resetConversationStore();
+  const store = getConversationStore(null);
+  const abortController = new AbortController();
+  const sessionId = 'test-16e-pre-aborted';
+  let handlerCalled = false;
+  abortController.abort();
+
+  ChatController.configure({
+    handlers: {
+      [ChatMode.CONVERSATION]: async () => {
+        handlerCalled = true;
+        return 'unreachable';
+      },
+    },
+    config: { autoModeDetection: false },
+  });
+
+  try {
+    await assert.rejects(
+      ChatController.handle({
+        message: 'This request must never be dispatched',
+        sessionId,
+        conversationId: sessionId,
+        signal: abortController.signal,
+      }),
+      error => error.name === 'AbortError',
+      'pre-aborted and in-flight requests must share the rejecting contract',
+    );
+    assert.equal(handlerCalled, false, 'pre-aborted request must not dispatch a handler');
+    assert.deepEqual(
+      store.getAllTurns(sessionId).map(turn => turn.role),
+      ['user'],
+      'the existing pre-flight contract retains the user turn but no assistant turn',
     );
   } finally {
     ChatController.removeSession(sessionId);
