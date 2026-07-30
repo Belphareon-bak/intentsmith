@@ -214,6 +214,23 @@ nepohlcuje. Má vlastní verdikt.
 
 ---
 
+## Paralelní bezpečnostní track — vzdálená hranice
+
+Tento track není mobilní implementace. S-1 až S-4 platí pro současný server
+bez ohledu na budoucího vzdáleného klienta. Po Gate 0 může pokračovat samostatně;
+do té doby se stávající listener nesmí bindovat mimo loopback.
+
+| # | Úkol | Priorita | Stav |
+|---|---|---|---|
+| S-1 | `G0-R018` — zdokumentovat a zachovat loopback-only hranici současného listeneru | 🔴 P0 | ❌ otevřeno |
+| S-2 | Navrhnout oddělený listener pro vzdálený přístup; legacy `/api/*` a `/c3/ws` zůstávají pouze na loopbacku | 🔴 P0 | ❌ |
+| S-3 | Zavést autentizaci a scope enforcement pouze na oddělené vzdálené hranici | 🔴 P0 | ❌ |
+| S-4 | Přidat negativní testy dokazující, že vzdálený peer neobejde hranici přes legacy API ani WS terminál | 🔴 P0 | ❌ |
+
+Pairing, mobilní kontrakt a mobilní UI nejsou součástí tohoto tracku ani Gate 0.
+
+---
+
 ## Odloženo na 1.1
 
 | Co | Důvod | Rozhodnutí |
