@@ -97,10 +97,22 @@ Any of:
 - either validator exits non-zero;
 - a `KNOWN_DEFECTIVE` result was used as green evidence;
 - a `BLOCKED` row carries no specific prerequisite;
-- the attestation and candidate disagree on the commit or registry fingerprint.
+- the attestation and candidate disagree on the commit or registry fingerprint;
+- **a validator cannot run from a fresh clone of the IntentSmith remote** — for
+  example because it dereferences a revision that no ref in this repository
+  contains. Passing only by virtue of unreferenced objects in one operator's
+  local object database is not a pass; it is an unreproduced claim that a
+  `git gc` can silently destroy;
+- **a `REBUILD` record has not reached one of the three terminal states** in
+  `FINAL-COMMIT-DISPOSITION.md`. `D-018` is a gate condition, not a convention,
+  and it is not satisfied by a validator that never checks it.
 
 A deterministic failure is never downgraded to CONDITIONAL PASS. If code is
 wrong, the verdict is FAIL regardless of how much else is green.
+
+A validator that passes is evidence only of what it actually asserts. If a
+decision is recorded but unenforced, the gate is open regardless of the exit
+code — the exit code merely fails to mention it.
 
 ### Repeatability
 
@@ -129,7 +141,7 @@ and they are only meaningful once Gate 0 holds.
 
 | Gate | Question | Entry condition |
 |---|---|---|
-| Gate 1 | Does each capability in `CAPABILITY-MATRIX.md` have current acceptance evidence? | Gate 0 PASS or CONDITIONAL PASS |
+| Gate 1 | Does each capability in `CAPABILITY-MATRIX.md` have current acceptance evidence? | Gate 0 PASS |
 | Gate 2 | Are the E2E suites truthful and activated in stages? | Gate 1 for the capability under test |
 | Gate 3 | Is the product releasable? | Gate 2, plus privacy decisions closed |
 

@@ -185,11 +185,19 @@ Po jednom řádku matice. Pořadí podle rizika, ne podle snadnosti:
 78 obnovených sad, po jedné, tři podmínky per sada (izolace → pravdivé exity →
 skutečný běh). Rozpad práce:
 
-| Skupina | Počet | Co je potřeba |
+Následující kategorie **nejsou rozkladem těch 78** — překrývají se. Sada může
+být zároveň blokovaná na prostředí a mít vadné aserce; sedm izolovaných sad je
+podmnožinou blokovaných. Součet 7 + 25 + 54 = 86 tedy neodpovídá 78 a ani nemá.
+
+| Osa | Počet | Co je potřeba |
 |---|---:|---|
-| Izolace hotová, čeká na běh | 7 | prostředí (server/Ollama/GPU) |
-| False-green aserce | 25 | skutečná oprava asercí + before/after důkaz |
-| Blokované na prostředí | 54 | pojmenovat prerekvizitu, pak hardware |
+| Izolace přepojena na runner-owned root | 7 | ⊂ blokovaných; čeká na prostředí |
+| Registrový stav `KNOWN_DEFECTIVE` (vadné aserce) | 25 | oprava asercí + before/after důkaz |
+| Registrový stav `BLOCKED` (chybí prostředí) | 54 | pojmenovat prerekvizitu, pak hardware |
+
+Autoritativní je registrový stav, ne tahle tabulka. Přesný rozklad bez překryvů
+vznikne až při per-suite klasifikaci do koncových stavů `D-018` — a právě proto
+je ta klasifikace Gate 0 podmínka, ne úklid.
 
 Sada, která splní izolaci a pravdivé exity, ale nemůže běžet z environmentálních
 důvodů, se uzavírá jako `REBUILD/DEFERRED(<prerekvizita>)`. To je koncový stav,
