@@ -23,7 +23,10 @@ import { longTermMemory } from '../memory/long-term.js';
 import { buildBudgetedContext } from './context-budget.js';
 import db from '../db/database.js';
 import { throwIfAborted } from '../core/abort-error.js';
-import { throwIfTerminalChatFailure } from '../core/chat-turn-error.js';
+import {
+  isChatTurnError,
+  throwIfTerminalChatFailure,
+} from '../core/chat-turn-error.js';
 import { finalizeChatResponse } from './response-finalizer.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -603,6 +606,10 @@ export class ChatController {
 
       // Ensure response is properly tagged
       let taggedResponse = this.#ensureTagged(response, targetMode, pendingConfirmation);
+      // Terminal handler output must not enter the in-memory response history.
+      // Re-throw the typed error from the catch below so direct process() callers
+      // receive the same fail-closed contract as ChatController.handle().
+      throwIfTerminalChatFailure(taggedResponse);
 
       // QGv2 runs inside synthesizeWithLLM() (synthesis.js) where it has
       // full context (intent, searchSubType, sourceUrls). Running it again
@@ -615,6 +622,9 @@ export class ChatController {
     } catch (error) {
       if (context.signal?.aborted) {
         throwIfAborted(context.signal);
+      }
+      if (isChatTurnError(error)) {
+        throw error;
       }
       return this.#createErrorResponse(
         `Handler error: ${error.message}`,
@@ -1995,9 +2005,6 @@ ChatController.handle = async function(request) {
   // Process the message with full context
   const result = await controller.process(message, fullContext);
   throwIfAborted(signal);
-  // Error-tagged handler output is a terminal failure, never assistant content.
-  // Keep this before quality/refinement and the assistant persistence boundary.
-  throwIfTerminalChatFailure(result);
 
   // TaggedResponse is immutable. The finalizer carries accepted refinement in a
   // local value and uses that same value for scoring, persistence, and return.

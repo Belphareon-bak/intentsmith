@@ -1100,6 +1100,68 @@ test('T16g: every error-tagged response is terminal even when it is not a provid
   );
 });
 
+await asyncTest('T16h: direct process rejects terminal output without contaminating history', async () => {
+  let handlerCalls = 0;
+  let recoveryHistory = null;
+  const controller = new ChatController({
+    sessionId: 'test-16h-direct-provider-failure',
+    handlers: {
+      [ChatMode.CONVERSATION]: async (_input, context) => {
+        handlerCalls++;
+        if (handlerCalls === 1) {
+          return new TaggedResponse({
+            content: 'This provider error banner must not enter response history.',
+            tag: new ResponseTag({
+              speaker: ResponseSpeaker.SYSTEM,
+              mode: ChatMode.CONVERSATION,
+              confidence: 1,
+              metadata: {
+                error: true,
+                errorType: 'LLM_CALL_FAILED',
+              },
+            }),
+          });
+        }
+        recoveryHistory = context.history;
+        return new TaggedResponse({
+          content: 'Healthy recovery response',
+          tag: new ResponseTag({
+            speaker: ResponseSpeaker.SYSTEM,
+            mode: ChatMode.CONVERSATION,
+            confidence: 1,
+          }),
+        });
+      },
+    },
+    config: { autoModeDetection: false },
+  });
+
+  await assert.rejects(
+    controller.process('Trigger provider failure', {}),
+    error => error instanceof LLMProviderUnavailableError
+      && error.code === 'LLM_PROVIDER_UNAVAILABLE',
+    'direct process() callers must receive the typed terminal failure',
+  );
+  assert.deepEqual(
+    controller.responseHistory,
+    [],
+    'terminal output must not enter the in-memory response history',
+  );
+
+  const recovered = await controller.process('Recover after provider failure', {});
+  assert.equal(recovered.content, 'Healthy recovery response');
+  assert.deepEqual(
+    recoveryHistory,
+    [],
+    'the next direct process() turn must not receive the prior error banner',
+  );
+  assert.equal(controller.responseHistory.length, 1);
+  assert.equal(
+    controller.responseHistory[0]?.response?.content,
+    'Healthy recovery response',
+  );
+}, ASYNC_TEST_TIMEOUT_MS);
+
 test('T17: hooks survive through full context pipeline in static handle()', () => {
   // This test verifies the architectural contract:
   // ChatController.handle(request) spreads request.context into fullContext,

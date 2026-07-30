@@ -182,6 +182,24 @@ An initial sandboxed server start failed before test execution with
 environment restriction, not a product failure. The qualifying server and
 client runs used explicit permission for loopback only.
 
+## Independent review follow-up: in-memory history boundary
+
+An independent read-only replay found that the implementation commit stopped
+the error-tagged response before quality and durable `ConversationStore`
+assistant persistence, but `ChatController.process()` had already added it to
+its private in-memory `responseHistory`. A subsequent production
+`ChatController.handle()` turn was not contaminated because DB-backed history
+has priority, while a subsequent direct `controller.process()` call received
+the prior provider-error banner in `context.history`.
+
+The follow-up candidate moves the terminal guard immediately after response
+tagging and before `#addToHistory()`. The surrounding catch explicitly
+rethrows typed chat-turn errors after preserving cancellation precedence.
+Direct `process()` callers therefore reject with the same typed provider error,
+the failed response leaves `responseHistory` empty, and a later direct turn
+receives no error banner. Exact-commit verification and mutation evidence are
+pending for this follow-up commit.
+
 ## Disposition
 
 `G0-R025` is `MITIGATED`. The original HTTP 200 / WS assistant+ok / persisted
