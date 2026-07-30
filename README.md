@@ -1,14 +1,21 @@
-# C3 Agent
+# IntentSmith
 
-Lokální AI platforma pro konverzační asistenci, správu projektů a autonomní agenty. Offline-first architektura na vlastním hardware — žádné API klíče, žádné sdílení dat. Volitelné síťové funkce (marketplace, model discovery) vyžadují explicitní zapnutí.
+Lokální AI platforma odvozená z C3 pro konverzační asistenci, správu
+projektů a autonomní agenty. Offline-first architektura běží na vlastním
+hardware. Volitelné síťové funkce (marketplace a model discovery) vyžadují
+explicitní zapnutí.
 
-**Verze:** 135.0.0 | **380+ modulů** | **294 testovacích sad** | **137,000+ řádků kódu**
+**Verze:** 135.0.0 | **263 registrovaných testovacích programů**
+(`249 ACTIVE`, `14 HISTORICAL`)
 
 ---
 
-## Co je C3
+## Co je IntentSmith
 
-C3 je AI backend + IDE postavený pro vývojáře a knowledge workers, kteří chtějí lokální AI nástroj bez závislosti na cloudových službách.
+IntentSmith zachovává funkční backend a C3 Studio IDE z C3 a postupně je
+zpevňuje auditovatelnými instalačními, testovacími a bezpečnostními kontrakty.
+Je určený vývojářům a knowledge workers, kteří chtějí lokální AI nástroj bez
+povinné závislosti na cloudových službách.
 
 ### Konverzace a rozhodování
 - **CRE (Conversational Reasoning Engine)** — single-authority klasifikátor: každý vstup → 1 z 19 typů záměrů → specializovaný handler. 10 guard pravidel, auditní trail, Gatekeeper pattern.
@@ -50,7 +57,7 @@ Vše běží lokálně přes Ollama (LLM inference) + SQLite (persistence) na je
                              │ WebSocket + REST
                              ▼
 ┌─────────────────────────────────────────────────────────┐
-│                     C3 Backend                          │
+│                 IntentSmith Backend                    │
 │                                                         │
 │  ┌──────────┐  ┌───────────┐  ┌──────────────────────┐ │
 │  │   CRE    │→ │ Handlers  │→ │     LLM Gateway      │ │
@@ -98,26 +105,30 @@ Vše běží lokálně přes Ollama (LLM inference) + SQLite (persistence) na je
 ## Quick Start
 
 ```bash
-# 1. Klonování a závislosti
-git clone <repo-url> c3-agent && cd c3-agent
-npm install
+# 1. Klonování
+git clone --branch codex/intentsmith-1.0 --single-branch \
+  https://github.com/Belphareon-bak/intentsmith.git
+cd intentsmith
 
-# 2. Konfigurace (výchozí hodnoty fungují bez úprav)
+# 2. Kanonická instalace backendu i C3 Studio
+./scripts/install.sh --minimal
+
+# 3. Kanonické mapování portu a modelů
 cp .env.example .env
 
-# 3. Ollama modely (vyžaduje ~20 GB VRAM pro 32B modely)
+# 4. Modely jsou externí artefakty; --minimal je nestahuje
 ollama pull qwen3.5:27b          # hlavní chat + kód
-ollama pull deepseek-r1-32b      # hluboká analýza + review
+ollama pull deepseek-r1:32b      # volitelná hluboká analýza + review
 
-# 4. Start
-node src/server.js
-# → http://127.0.0.1:3335
-
-# 5. IDE (volitelné)
-cd c3-ide && yarn && yarn build && yarn start
+# 5. Start backendu a C3 Studio
+./scripts/run.sh
 ```
 
-Backend se automaticky restartuje při změnách (`node --watch src/server.js`).
+`install.sh` provádí frozen instalace, hash-locked PDF runtime, Electron ABI
+rebuild, Theia build a smoke test nativních artefaktů. Ruční `npm ci` nebo
+`yarn build` je pouze dílčí vývojový krok. Tagy Ollama modelů jsou proměnlivé;
+pro auditní běh vždy evidujte skutečný digest. Pro samostatný backend ve
+vývojovém režimu použijte `npm run dev`.
 
 ---
 
@@ -125,12 +136,14 @@ Backend se automaticky restartuje při změnách (`node --watch src/server.js`).
 
 | Požadavek | Verze | Účel |
 |-----------|-------|------|
-| Node.js | 22+ | Backend runtime (ESM, `node:crypto`, `fetch()`) |
+| Node.js | 22.x | Backend runtime (ESM, `node:crypto`, `fetch()`) |
+| npm | 10.9.4 | Frozen backend instalace z `package-lock.json` |
 | Ollama | latest | Lokální LLM inference |
-| Python 3 | 3.x | Kompilace native modulů (better-sqlite3, tree-sitter) |
+| CPython | 3.12 + `venv` | Hash-locked PDF runtime; také node-gyp |
+| DejaVu fonts | `fonts-dejavu-core` | PDF export s českou/slovenskou diakritikou |
 | build-essential | - | C++ kompilátor pro native moduly |
 | Git | 2.x+ | Lifecycle (auto-commit, diff, tagging) |
-| yarn | 1.22+ | Pouze pro build IDE (volitelné) |
+| Yarn | 1.22.22 | Povinná frozen instalace C3 Studio |
 | GPU | 12+ GB VRAM | Doporučeno pro 32B modely (8B modely běží na 8 GB) |
 
 Detailní pokyny: [docs/INSTALL.md](docs/INSTALL.md)
@@ -212,9 +225,9 @@ Tři vrstvy: LTM s confidence decay (λ=0.01, poločas 69 dní), task memory (cr
 | Vrstva | Technologie | Detail |
 |--------|-------------|--------|
 | Runtime | Node.js 22 (ESM) | Žádný framework — raw `http` modul |
-| Databáze | SQLite | better-sqlite3, WAL mód, 80+ tabulek, 41 migrací |
+| Databáze | SQLite | better-sqlite3, WAL mód, verzované migrace |
 | LLM | Ollama | Lokální inference, 7 modelových rolí (D1, D2, CODE, R1, R2, CHAT, VISION) |
-| IDE | C3 Studio | Theia 1.65.2 + Electron 37, 33 vlastních rozšíření |
+| IDE | C3 Studio | Theia 1.65.2 + Electron 37, 32 vlastních rozšíření |
 | Frontend | React (lite) | Webpack bundle v chat-panel-module.js |
 | AST | tree-sitter | JS, Python, Go, Java — symbol extraction, structural analysis |
 | Závislosti | 13 produkčních | better-sqlite3, ws, dotenv, nodemailer, puppeteer, tree-sitter, chokidar, ... |
@@ -224,8 +237,8 @@ Tři vrstvy: LTM s confidence decay (λ=0.01, poločas 69 dní), task memory (cr
 ## Struktura projektu
 
 ```
-c3-agent-wip/
-├── src/                          # Backend (380 souborů, 137,000+ řádků)
+intentsmith/
+├── src/                          # Backend
 │   ├── chat/                     #   CRE engine, handlery, quality pipeline
 │   │   ├── cre-decision.js       #     Klasifikátor záměrů
 │   │   ├── handlers/             #     19 intent handlerů + lifecycle router
@@ -244,7 +257,7 @@ c3-agent-wip/
 │   ├── routes/                   #   REST API (14 route modulů)
 │   ├── ws-bridge/                #   WebSocket bridge (IDE ↔ backend)
 │   ├── marketplace/              #   Remote package marketplace (2 moduly)
-│   ├── db/                       #   SQLite schema, 41 migrací
+│   ├── db/                       #   SQLite schema a verzované migrace
 │   ├── core/                     #   Logger, error handler, feature manager
 │   ├── domains/                  #   Scaffoldy (React, Vue, FastAPI, Flutter, ...)
 │   ├── specialists/              #   Specialist loader + plugin system
@@ -262,7 +275,7 @@ c3-agent-wip/
 │   └── server.js                 #   Entry point (startup, routing, shutdown)
 │
 ├── c3-ide/                       # IDE (Theia + Electron)
-│   ├── extensions/               #   33 vlastních rozšíření
+│   ├── extensions/               #   32 vlastních rozšíření
 │   │   └── c3-chat-panel/        #     Hlavní chat widget (4,000+ ř.)
 │   └── applications/electron/    #   Electron wrapper + webpack
 │
@@ -288,16 +301,16 @@ c3-agent-wip/
 │   ├── report-gen.json           #   Generování reportů
 │   └── summarizer.json           #   Sumarizace textu
 │
-├── tests/                        # Testovací sady (226 souborů)
+├── tests/                        # Kanonický registr 263 testovacích programů
 │   ├── harness.js                #   Custom ESM test harness
 │   ├── cre-*.test.js             #   CRE testy (401+)
 │   ├── lifecycle-*.test.js       #   Lifecycle testy (103+)
 │   ├── code-intel-*.test.js      #   Code Intelligence testy (339+)
 │   ├── execution-loop.test.js    #   Execution Engine testy (597+)
-│   ├── upgrade-*.test.js         #   Model Upgrade testy (294+)
-│   └── ...                       #   Celkem 3,500+ testů
+│   ├── upgrade-*.test.js         #   Model Upgrade testy
+│   └── registry.json             #   Kanonický registr 263 programů
 │
-├── docs/                         # Dokumentace (26 aktivních + archiv)
+├── docs/                         # Aktivní dokumentace + archiv
 │   ├── ARCHITECTURE.md           #   Kompletní architektura
 │   ├── CHANGELOG.md              #   Historie verzí (v56–v135)
 │   ├── ROADMAP.md                #   Roadmapa a stav fází
@@ -317,11 +330,13 @@ c3-agent-wip/
 
 ## Konfigurace
 
-Veškerá konfigurace přes environment proměnné (`.env`). Výchozí hodnoty fungují bez úprav.
+Konfigurace používá environment proměnné. Quick Start kopíruje `.env.example`,
+který nastaví dokumentované porty a skutečné Ollama tagy. Bez `.env` se použijí
+vestavěné fallbacky z `src/config.js`.
 
-| Sekce | Klíčové proměnné | Default |
+| Sekce | Klíčové proměnné | Vestavěný fallback |
 |-------|------------------|---------|
-| Server | `C3_PORT`, `C3_HOST` | `3335`, `127.0.0.1` |
+| Server | `C3_PORT`, `C3_HOST` | `0` (dynamický), `127.0.0.1` |
 | Modely | `C3_MODEL_CHAT`, `C3_MODEL_CODE`, `C3_MODEL_D1` | qwen3.5:27b, qwen3.5:27b, deepseek-r1-32b |
 | Databáze | `C3_DB_PATH` | `./data/c3.db` |
 | Features | `C3_ENABLE_LIFECYCLE`, `C3_ENABLE_SKILLS`, ... | vše zapnuto |
@@ -356,17 +371,24 @@ WebSocket na stejném portu — IDE ↔ backend real-time komunikace (chat, agen
 ## Testy
 
 ```bash
-# Deterministické unit testy (~3,500+)
+# Kanonický registry integrity check
+npm run test:registry
+
+# Povinné deterministické profily offline + database
 npm test
 
-# Konkrétní test soubor
-node tests/cre-comprehensive.test.js
+# Kompatibilní historický agregátor; není release důkaz
+npm run test:all
 
-# E2E testy (vyžadují běžící Ollama)
-node tests/lifecycle-klicenka-e2e.test.js
+# Lokální real-model subset; celý model profil má další hard blockers
+node scripts/nightly-audit.js \
+  --suite=IS-T3-TESTS-LLM-INTEGRATION-TEST,IS-T3-TESTS-LLM-INTEGRATION-2-TEST,IS-T3-TESTS-EXPERTISE-AB-QUALITY-TEST \
+  --allow-blocker=ollama,gpu
 ```
 
-Testy používají custom ESM harness (`tests/harness.js`): `suite()`, `test()`, `testAsync()`, `assert()`, `assertEqual()`.
+Kanonický seznam, profily, timeouty a prerequisites jsou v
+[`docs/convergence/TEST-REGISTRY.md`](docs/convergence/TEST-REGISTRY.md).
+Procesní návratový kód je součást testovacího kontraktu.
 
 ---
 
@@ -379,7 +401,7 @@ Testy používají custom ESM harness (`tests/harness.js`): `suite()`, `test()`,
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Kompletní architektura systému, diagramy, design decisions |
 | [CHANGELOG.md](docs/CHANGELOG.md) | Historie všech verzí (v56–v135) |
 | [ROADMAP.md](docs/ROADMAP.md) | Stav fází, plánované features |
-| [INSTALL.md](docs/INSTALL.md) | Instalace (Ubuntu, Fedora, Docker) |
+| [INSTALL.md](docs/INSTALL.md) | Reprodukovatelná instalace a známé platformní hranice |
 
 ### Moduly a systémy
 

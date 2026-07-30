@@ -1,44 +1,54 @@
-# C3-Agent v135.0.0 — Dokumentacni reference
+# IntentSmith v135.0.0 — dokumentacni reference
 
-Kompletni dokumentace projektu C3 Agent — offline-first AI platforma s CRE decision enginem, 15 domain expertyzami, specialist plugin systemem, lifecycle project managementem, skills workflow enginem, autonomnimi agenty, LTM pametovym systemem, multimedia generovanim a C3 Studio IDE (Theia 1.65.2 + Electron 37).
+Dokumentace projektu IntentSmith, C3-derived offline-first AI platformy s CRE
+decision enginem, domain expertyzami, specialist plugin systemem, lifecycle
+project managementem, skills workflow enginem, autonomnimi agenty, LTM pameti
+a zachovanym C3 Studio IDE.
 
 ---
 
 ## Spusteni
 
 ```bash
-# 1. Instalace zavislosti
-npm install
+# 1. Kanonicka instalace backendu i C3 Studio
+./scripts/install.sh --minimal
 
-# 2. Konfigurace (volitelne — defaulty funguji out-of-the-box)
+# 2. Kanonicke mapovani portu a modelu
 cp .env.example .env
 # Uprav .env podle potreby (modely, porty, notifikace...)
 
-# 3. Spusteni backendu
-node src/server.js
-# → http://127.0.0.1:3335
-# → Chat UI: http://127.0.0.1:3335/architect
+# 3. Modelovy artefakt (--minimal modely nestahuje)
+ollama pull qwen3.5:27b
 
-# 4. Spusteni IDE (volitelne)
-cd c3-ide && yarn && yarn build && yarn start
+# 4. Spusteni backendu a C3 Studio
+./scripts/run.sh
 ```
+
+Kanonicky installer zahrnuje frozen zavislosti, hash-locked PDF runtime,
+Electron ABI rebuild, Theia build a smoke test nativnich artefaktu. Rucni
+`npm ci` nebo `yarn build` neni ekvivalent plne instalace. Ollama tagy jsou
+promenlive; auditni evidence musi zaznamenat skutecny modelovy digest.
 
 ### Prerekvizity
 
-- Node.js 22+ (povinne)
+- Node.js 22.x (povinne)
+- npm 10.9.4 (uzamcena backend instalace)
 - Ollama s modelem `qwen3.5:27b` na `http://127.0.0.1:11434`
-- Python 3 + build-essential (kompilace better-sqlite3)
+- CPython 3.12 + `venv`, glibc 2.27+ a DejaVu fonty (PDF export)
+- build-essential (kompilace native Node modulu)
+- Yarn 1.22.22 (pouze C3 Studio)
 - GPU s 12+ GB VRAM (doporuceno pro 32B modely)
 - Kompletni instalacni prirucka: [INSTALL.md](INSTALL.md)
 
 ### Konfigurace (.env)
 
-Vsechny promenne se nacitaji z `.env` souboru pres `dotenv`. Viz `.env.example` pro kompletni referenci (113 promennych).
+Vsechny promenne se nacitaji z `.env` souboru pres `dotenv`. Viz
+`.env.example` pro kanonickou referenci.
 
 | Skupina | Promenne | Popis |
 |---------|----------|-------|
 | Server | `C3_PORT`, `C3_HOST`, `C3_CORS_ORIGINS` | HTTP server |
-| Modely | `C3_MODEL_D1`, `C3_MODEL_D2`, `C3_MODEL_CODE`, `C3_MODEL_R1`, `C3_MODEL_R2`, `C3_MODEL_CHAT`, `C3_MODEL_VISION` | Ollama modely pro 6 roli |
+| Modely | `C3_MODEL_D1`, `C3_MODEL_D2`, `C3_MODEL_CODE`, `C3_MODEL_R1`, `C3_MODEL_R2`, `C3_MODEL_CHAT`, `C3_MODEL_VISION` | Ollama modely pro 7 roli |
 | Ollama | `OLLAMA_URL` | Adresa Ollama serveru |
 | Features | `C3_ENABLE_AGENTS`, `C3_ENABLE_LIFECYCLE`, `C3_ENABLE_EXPERTISES`, `C3_ENABLE_TELEMETRY`, `C3_ENABLE_SKILLS` | Zapnuti/vypnuti modulu |
 | Databaze | `C3_DB_PATH` | Cesta k SQLite souboru |
@@ -56,10 +66,10 @@ Vsechny promenne se nacitaji z `.env` souboru pres `dotenv`. Viz `.env.example` 
 
 | Dokument | Popis |
 |----------|-------|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Kompletni architektura platformy (781 radku) |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Kompletni architektura platformy |
 | [AUTHORITY.md](AUTHORITY.md) | Authority chain: User > HumanGate > CRE > Planner > Executor > Tool |
 | [OPERABILITY.md](OPERABILITY.md) | Operacni kontrakty: immutabilita, determinismus, replay |
-| [STORAGE-ARCHITECTURE.md](STORAGE-ARCHITECTURE.md) | SQLite schema (58 tabulek), drain pipeline, WAL, backup, retention |
+| [STORAGE-ARCHITECTURE.md](STORAGE-ARCHITECTURE.md) | SQLite schema, drain pipeline, WAL, backup, retention |
 
 ### Moduly & Subsystemy
 
@@ -115,16 +125,16 @@ Vsechny promenne se nacitaji z `.env` souboru pres `dotenv`. Viz `.env.example` 
 
 ### Archiv
 
-Historicke design dokumenty, implementovane RFC a point-in-time audity jsou v [`archive/`](archive/).
-Obsahuje 21 souboru — puvodni roadmap RFC, lifecycle a merge engine plany, audity v123/v127, a dalsi.
+Historicke design dokumenty, implementovane RFC a point-in-time audity jsou v
+[`archive/`](archive/).
 
 ---
 
 ## Struktura projektu
 
 ```
-c3-agent-wip/
-├── src/                              # Backend (380+ souboru)
+intentsmith/
+├── src/                              # Backend
 │   ├── server.js                     # Entry point — HTTP server (port 3335)
 │   ├── config.js                     # Konfigurace + feature flags
 │   │
@@ -321,13 +331,13 @@ c3-agent-wip/
 │   ├── create-skill.json             # Meta-skill pro tvorbu novych skills
 │   └── create-expertise.json         # Meta-skill pro tvorbu expertyz
 │
-├── tests/                            # 300+ testovych souboru (~3,600+ testu)
+├── tests/                            # Kanonicky registr 263 testovacich programu
 │   ├── harness.js                    # Custom ESM test harness
 │   └── ...                           # Viz sekce Testy nize
 │
-├── docs/                             # Dokumentace (26 aktivnich souboru + archiv)
+├── docs/                             # Aktivni dokumentace + archiv
 ├── data/                             # Runtime data (gitignored)
-└── .env.example                      # Vzorova konfigurace (113 promennych)
+└── .env.example                      # Vzorova konfigurace
 ```
 
 ---
@@ -360,11 +370,14 @@ CRE (Conversational Reasoning Engine) klasifikuje kazdy uzivatelsky vstup a rout
 ## Testy
 
 ```bash
-# Hlavni testovaci sady
-npm test                               # Core + Chat + Expertises + Lifecycle
-npm run test:all                       # + Specialists + Agents + E2E
+# Kanonicky registr a povinne deterministicke profily
+npm run test:registry                  # 263 registrovanych programu
+npm test                               # profily offline + database
 
-# Jednotlive moduly
+# Historicky kompatibilni agregator; neni release dukaz
+npm run test:all
+
+# Kuratorovane kompatibilni prikazy pro vyvoj
 npm run test:core                      # CRE, Gatekeeper, Tier-1, modules
 npm run test:chat                      # Chat pipeline, fixes, output quality, persistence
 npm run test:chat:synthesis            # Synthesis hardening, search quality
@@ -388,19 +401,22 @@ npm run test:security                  # Security hardening
 npm run test:ws                        # WebSocket bridge
 npm run test:conv                      # Konverzacni testy CZ/EN/no-diacritics (vyzaduje Ollama)
 
-# E2E Quality Loop (Tier 3, vyzaduje Ollama + GPU)
-node tests/e2e-loop.js --tiers 3       # Vsechny T3 suity (lite mode)
-node tests/e2e/97-project-build-quality.e2e.js   # Iterativni build cykly (plan→kod→ladeni→testy)
-node tests/e2e/98-analysis-quality.e2e.js         # Analyza kodu, debugging, dokonceni projektu
+# Lokalni real-model subset; cely model profil ma dalsi hard blockers
+node scripts/nightly-audit.js \
+  --suite=IS-T3-TESTS-LLM-INTEGRATION-TEST,IS-T3-TESTS-LLM-INTEGRATION-2-TEST,IS-T3-TESTS-EXPERTISE-AB-QUALITY-TEST \
+  --allow-blocker=ollama,gpu
 
 # Jednotlive testy
-node tests/cre-comprehensive.test.js   # CRE klasifikace (401 testu)
-node tests/lifecycle.test.js           # Lifecycle state machine (103 testu)
+node tests/cre-comprehensive.test.js   # CRE klasifikace
+node tests/lifecycle.test.js           # Lifecycle state machine
 node tests/specialist-runtime.test.js  # Specialist runtime
 node tests/chat-pipeline.test.js       # Chat pipeline E2E
 ```
 
-Testy pouzivaji custom ESM harness (`tests/harness.js`): `suite()`, `test()`, `testAsync()`, `assert()`, `assertEqual()`.
+Kanonicky ledger profilu, prerequisites a timeoutu je v
+[`convergence/TEST-REGISTRY.md`](convergence/TEST-REGISTRY.md). Pocet vypsanych
+asercí sam o sobe neni dukaz zeleneho celku; rozhoduje validovana evidence a
+navratovy kod procesu.
 
 ### Konverzacni testy (vyzaduji Ollama + GPU)
 

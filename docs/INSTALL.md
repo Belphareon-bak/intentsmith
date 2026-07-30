@@ -1,16 +1,16 @@
-# C3 Agent — Instalacni prirucka
+# IntentSmith — instalacni prirucka
 
-**Verze:** v131.0.0
-**Datum:** 2026-03-22
+**Verze:** v135.0.0
+**Datum:** 2026-07-30
 
 ---
 
 ## Obsah
 
 1. [Pozadavky na system](#1-pozadavky-na-system)
-2. [Instalace backendu (BE)](#2-instalace-backendu)
-3. [Instalace C3 Studio IDE](#3-instalace-c3-studio-ide)
-4. [Docker (alternativa)](#4-docker-alternativa)
+2. [Kanonicka instalace](#2-kanonicka-instalace)
+3. [Vyvoj C3 Studio IDE](#3-vyvoj-c3-studio-ide)
+4. [Docker (neoverena legacy cesta)](#4-docker-neoverena-legacy-cesta)
 5. [Konfigurace (.env)](#5-konfigurace)
 6. [Overeni instalace](#6-overeni-instalace)
 7. [Reseni problemu](#7-reseni-problemu)
@@ -36,11 +36,12 @@
 | Prerekvizita | Verze | Ucel |
 |-------------|-------|------|
 | Node.js | 22.x (povinne) | Backend + IDE build |
-| npm | 10+ | Instalace BE zavislosti |
-| yarn | 1.22+ | IDE build (Theia workspaces) |
+| npm | 10.9.4 | Frozen instalace BE zavislosti |
+| Yarn | 1.22.22 | Frozen IDE build (Theia workspaces) |
 | Ollama | latest | LLM inference server |
 | Git | 2.x+ | Lifecycle (auto-commit, diff) |
-| Python | 3.x | Native moduly (node-gyp, better-sqlite3) |
+| CPython | 3.12 + `venv` | Hash-locked PDF runtime + node-gyp |
+| DejaVu fonty | `fonts-dejavu-core` | PDF export s diakritikou |
 | build-essential | - | Kompilace better-sqlite3 |
 
 ### Instalace prerekvizit (Ubuntu/Debian)
@@ -51,13 +52,14 @@ curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 source ~/.nvm/nvm.sh
 nvm install 22
 nvm use 22
+npm install -g npm@10.9.4
 
 # Systemove zavislosti
 sudo apt update
-sudo apt install -y git python3 build-essential curl
+sudo apt install -y git python3.12 python3.12-venv build-essential curl fonts-dejavu-core
 
-# Yarn
-npm install -g yarn
+# Yarn pro C3 Studio
+npm install -g yarn@1.22.22
 
 # Ollama
 curl -fsSL https://ollama.com/install.sh | sh
@@ -71,33 +73,54 @@ curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 source ~/.nvm/nvm.sh
 nvm install 22
 nvm use 22
+npm install -g npm@10.9.4
 
 # Systemove zavislosti
-sudo dnf install -y git python3 gcc gcc-c++ make curl
+sudo dnf install -y git python3.12 gcc gcc-c++ make curl dejavu-sans-fonts
 
-# Yarn
-npm install -g yarn
+# Yarn pro C3 Studio
+npm install -g yarn@1.22.22
 
 # Ollama
 curl -fsSL https://ollama.com/install.sh | sh
 ```
 
+Gate 0 reprodukovatelnost je overena na Linux x86_64 s glibc 2.27+.
+PDF renderer v teto verzi ocekava DejaVu soubory v
+`/usr/share/fonts/truetype/dejavu`; `./scripts/install.sh` tuto podminku
+kontroluje a na jinem distribucnim layoutu failne s konkretni chybou.
+
 ---
 
-## 2. Instalace backendu
+## 2. Kanonicka instalace
 
-### 2.1 Stahnuti a instalace zavislosti
+### 2.1 Stahnuti a plna instalace
 
 ```bash
 cd ~/Projects
-git clone <repo-url> c3-agent-wip
-cd c3-agent-wip
+git clone --branch codex/intentsmith-1.0 --single-branch \
+  https://github.com/Belphareon-bak/intentsmith.git
+cd intentsmith
 
-# Instalace Node.js zavislosti
-npm install
+# Backend, PDF runtime, C3 Studio, Electron ABI rebuild a artifact smoke
+./scripts/install.sh --minimal
 ```
 
-> `npm install` zkompiluje nativni modul `better-sqlite3`. Pokud selze, zkontroluj ze mas `python3`, `make` a `gcc` (viz prerekvizity).
+Toto je jedina Gate 0 cesta s plnou funkcni paritou. Installer failne pri
+nesouladu locku, neuspesnem Electron rebuild nebo chybejicim/ABI-nekompatibilnim
+IDE artefaktu. Pouziva `npm ci`, frozen Yarn 1.22.22, hash-locked PDF wheels,
+tracked Theia webpack konfiguraci a integrity-locked ripgrep platform package.
+Rucni `npm ci`, PDF installer nebo `yarn build` jsou jen dilci vyvojove kroky.
+
+`--minimal` preskoci pouze stahovani modelu. Interaktivni rezim se na primarni
+model zepta; `--full` vyzada oba dokumentovane modely a pri chybe skonci
+nenulove. Ollama tagy jsou promenlive externi artefakty, takze `--full` neni
+bitove reprodukovatelny modelovy provisioner. Audit musi zaznamenat digest
+skutecne pouziteho modelu.
+
+PDF runtime je ve
+`${XDG_DATA_HOME:-$HOME/.local/share}/intentsmith/python/pdf`; kanonicky
+absolutni override je `INTENTSMITH_PDF_PYTHON`.
 
 ### 2.2 Konfigurace
 
@@ -105,7 +128,7 @@ npm install
 # Zkopiruj sablonu
 cp .env.example .env
 
-# Uprav podle potreby (volitelne — defaulty funguji out-of-the-box)
+# Uprav podle potreby; sablona nastavuje dokumentovane porty a modelove tagy
 # Dulezite promenne:
 #   OLLAMA_URL    — adresa Ollama serveru (default: http://127.0.0.1:11434)
 #   C3_PORT       — port backendu (default: 3335)
@@ -119,8 +142,7 @@ cp .env.example .env
 ollama serve &
 
 # Stahni modely (celkem ~50 GB)
-ollama pull qwen3.5:27b          # CHAT + R2 (hlavni konverzacni model)
-ollama pull qwen3.5:27b    # CODE (generovani kodu)
+ollama pull qwen3.5:27b          # CHAT + CODE + R2
 ollama pull deepseek-r1:32b      # D1 + R1 (hluboka analyza a review)
 
 # Volitelne:
@@ -131,16 +153,19 @@ ollama pull llava:13b             # VISION (analyza obrazku)
 > Stazeni modelu muze trvat desitky minut v zavislosti na rychlosti pripojeni.
 > Kazdy 32b model zabira ~18-20 GB na disku.
 
-### 2.4 Spusteni backendu
+### 2.4 Spusteni produktu
 
 ```bash
-cd ~/Projects/c3-agent-wip
+cd ~/Projects/intentsmith
 
-# Produkcni rezim
-node src/server.js
+# Backend + C3 Studio
+./scripts/run.sh
 
-# Vyvojovy rezim (auto-restart pri zmenach)
-node --watch src/server.js
+# Pouze backend
+npm start
+
+# Pouze backend, vyvojovy rezim
+npm run dev
 ```
 
 Po spusteni:
@@ -163,25 +188,31 @@ curl -X POST http://127.0.0.1:3335/chat \
 
 ---
 
-## 3. Instalace C3 Studio IDE
+## 3. Vyvoj C3 Studio IDE
 
 C3 Studio je desktopova IDE postavena na Eclipse Theia 1.65.2 (Electron).
+Na cistem checkoutu nejdrive vzdy spustte
+`./scripts/install.sh --minimal`; nasledujici prikazy jsou urcene pro iteraci
+po jiz uspesne kanonicke instalaci a samy neprovadeji Electron ABI rebuild ani
+jeho smoke test.
 
 ### 3.1 Instalace IDE zavislosti
 
 ```bash
-cd ~/Projects/c3-agent-wip/c3-ide
+cd ~/Projects/intentsmith/c3-ide
 
-# Instalace zavislosti (Theia + extensions)
-yarn install
+# Uzamcena instalace zavislosti (Theia + extensions)
+yarn install --frozen-lockfile --non-interactive
 ```
 
-> `yarn install` muze trvat 2-5 minut (Theia stahuje velke mnozstvi zavislosti).
+`c3-ide/yarn.lock` je soucasti source of truth. Frozen instalace nesmi pri
+selhani prejit na novy dependency resolution. Samostatny Yarn krok neni
+ekvivalent `install.sh`.
 
 ### 3.2 Build IDE
 
 ```bash
-cd ~/Projects/c3-agent-wip/c3-ide
+cd ~/Projects/intentsmith/c3-ide
 
 # Cisty build
 yarn build
@@ -195,115 +226,58 @@ yarn clean && yarn build
 ### 3.3 Spusteni IDE
 
 ```bash
-cd ~/Projects/c3-agent-wip/c3-ide
+cd ~/Projects/intentsmith/c3-ide
 yarn start
 ```
 
 > **DULEZITE:** Backend musi bezet pred spustenim IDE (port 3335).
 > IDE se pripojuje pres WebSocket na `ws://localhost:3335/ws`.
 
-### 3.4 Fonty (volitelne)
+### 3.4 UI fonty
 
-IDE pouziva fonty Plus Jakarta Sans a JetBrains Mono. Electron nema pristup ke Google Fonts, proto je nutne je bundlovat lokalne.
-
-```bash
-FONT_DIR=~/Projects/c3-agent-wip/c3-ide/extensions/c3-chat-panel/lib/browser/styles/fonts
-mkdir -p "$FONT_DIR"
-
-# Plus Jakarta Sans
-cd /tmp
-wget "https://fonts.google.com/download?family=Plus+Jakarta+Sans" -O pjs.zip
-unzip -o pjs.zip -d pjs
-cp pjs/static/*.ttf "$FONT_DIR/"
-
-# JetBrains Mono
-wget "https://fonts.google.com/download?family=JetBrains+Mono" -O jbm.zip
-unzip -o jbm.zip -d jbm
-cp jbm/static/*.ttf "$FONT_DIR/"
-```
-
-Po pridani fontu je nutny rebuild: `cd ~/Projects/c3-agent-wip/c3-ide && yarn build`
+Kanonicky source tree neobsahuje lokalne bundlovane Plus Jakarta Sans ani
+JetBrains Mono a installer je nestahuje. C3 Studio pouzije systemove fallbacky.
+Nestahujte promenlive Google Fonts archivy primo do produkcniho stromu. Budouci
+bundling musi byt samostatna reviewovana zmena s pevnou verzi, hashem, licenci a
+regresnim build testem. DejaVu fonty overovane installerem patri pouze k PDF
+exportu.
 
 ### 3.5 Layout cache (po aktualizaci)
 
 Pokud IDE po aktualizaci zobrazuje stary layout nebo nereaguje na nove panely:
 
 ```bash
-# Smaz layout cache
-rm -rf ~/.config/"C3 Studio"/Local\ Storage
-rm -rf ~/.config/"C3 Studio"/IndexedDB
-rm -f ~/.config/"C3 Studio"/storage.json
+# Nejdrive C3 Studio ukoncete. Stav se nemaze, ale presune do casovane zalohy.
+C3_STUDIO_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/C3 Studio"
+INTENTSMITH_LAYOUT_BACKUP_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/intentsmith/backups/c3-studio-layout-$(date -u +%Y%m%dT%H%M%SZ)"
+mkdir -p "$INTENTSMITH_LAYOUT_BACKUP_DIR"
+
+for name in "Local Storage" "IndexedDB" "storage.json"; do
+  if [ -e "$C3_STUDIO_CONFIG/$name" ]; then
+    mv -- "$C3_STUDIO_CONFIG/$name" "$INTENTSMITH_LAYOUT_BACKUP_DIR/"
+  fi
+done
+
+printf 'Zaloha IDE stavu: %s\n' "$INTENTSMITH_LAYOUT_BACKUP_DIR"
 ```
+
+Po restartu se vytvori novy stav. Pro obnovu C3 Studio znovu ukoncete,
+presunte pripadne nove vytvorene cesty stejnym postupem do dalsi zalohy a
+zkopirujte pozadovane polozky z puvodni zalohy zpet do
+`$C3_STUDIO_CONFIG`. Zalozni adresar nema byt soucasti Git repozitare.
 
 ---
 
-## 4. Docker (alternativa)
+## 4. Docker (neoverena legacy cesta)
 
-Pro rychle nasazeni bez manualni instalace Ollama a Node.js.
+Adresar `docker/` je zachovany kvuli funkcni parite C3, ale neni soucasti
+reprodukovatelneho Gate 0 installu. Aktualni image je zalozena na Alpine/musl,
+zatimco uzamceny PDF runtime vyzaduje glibc 2.27+, CPython 3.12 a systemove
+DejaVu fonty. Compose build context navic dosud neni pokryt kanonickym testem.
 
-### 4.1 Spusteni
-
-```bash
-cd ~/Projects/c3-agent-wip/docker
-
-# Start vsech sluzeb (Ollama + model pull + C3 backend)
-docker compose up -d
-
-# Sledovani logu
-docker compose logs -f c3
-
-# Zastaveni
-docker compose down
-```
-
-### 4.2 Co Docker stack obsahuje
-
-| Sluzba | Kontejner | Popis |
-|--------|-----------|-------|
-| `ollama` | c3-ollama | Ollama LLM server s GPU podporou |
-| `ollama-init` | c3-ollama-init | Init kontejner — stahne modely (qwen3.5:27b, qwen3.5:27b, deepseek-r1:32b) |
-| `c3` | c3-agent | C3 Agent backend (Node.js 22-alpine) |
-
-### 4.3 GPU podpora
-
-Docker compose vyzaduje NVIDIA Container Toolkit pro GPU pristup:
-
-```bash
-# Instalace NVIDIA Container Toolkit (Ubuntu)
-distribution=$(. /etc/os-release; echo $ID$VERSION_ID)
-curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
-  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-  sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-sudo apt update
-sudo apt install -y nvidia-container-toolkit
-sudo nvidia-ctk runtime configure --runtime=docker
-sudo systemctl restart docker
-```
-
-### 4.4 Volumes
-
-| Volume | Cesta v kontejneru | Ucel |
-|--------|-------------------|------|
-| c3-ollama-data | /root/.ollama | Stazene LLM modely |
-| c3-agent-data | /data | SQLite databaze |
-| c3-projects | /projects | Projektove soubory |
-
-> Data preziji `docker compose down`. Pro uplny reset: `docker compose down -v`
-
-### 4.5 Vlastni build
-
-```bash
-cd ~/Projects/c3-agent-wip/docker
-
-# Bez obfuskace
-docker build -t c3-agent .
-
-# S obfuskaci zdrojoveho kodu
-docker build --build-arg BUILD_OBFUSCATE=1 -t c3-agent .
-```
-
-> **Pozn.:** Docker stack neobsahuje IDE. IDE je desktopova aplikace a spousti se lokalne (viz sekce 3).
+Do opravy a deterministicke validace Docker cestu nepovazujte za podporovane
+produkční nasazeni. PDF export v ni neni garantovan. Tyto soubory nebyly
+odstraneny ani prepsany.
 
 ---
 
@@ -313,7 +287,7 @@ Vsechny promenne se nacitaji z `.env` souboru v koreni projektu.
 
 ### Zakladni
 
-| Promenna | Default | Popis |
+| Promenna | Vestaveny fallback | Popis |
 |----------|---------|-------|
 | `C3_PORT` | 0 | Port HTTP serveru (0 = dynamicky prirazeny OS, bez konfliktu) |
 | `C3_HOST` | 127.0.0.1 | Bind adresa |
@@ -325,15 +299,18 @@ Vsechny promenne se nacitaji z `.env` souboru v koreni projektu.
 
 ### Modely
 
-| Promenna | Default | Role |
+| Promenna | Vestaveny fallback | Role |
 |----------|---------|------|
 | `C3_MODEL_CHAT` | qwen3.5:27b | Obecna konverzace |
 | `C3_MODEL_CODE` | qwen3.5:27b | Generovani kodu |
-| `C3_MODEL_D1` | deepseek-r1:32b | Hluboka analyza |
+| `C3_MODEL_D1` | deepseek-r1-32b | Hluboka analyza |
 | `C3_MODEL_D2` | qwen3-30b-a3b | Opravy (lehci model) |
-| `C3_MODEL_R1` | deepseek-r1:32b | Finalni review |
+| `C3_MODEL_R1` | deepseek-r1-32b | Finalni review |
 | `C3_MODEL_R2` | qwen3.5:27b | Rychly review |
 | `C3_MODEL_VISION` | llava:13b | Analyza obrazku |
+
+`.env.example` zamerne mapuje D1/R1 na skutecny Ollama tag
+`deepseek-r1:32b`; proto je jeho zkopirovani soucasti kanonickeho Quick Startu.
 
 ### Feature flagy
 
@@ -386,25 +363,21 @@ Vsechny promenne se nacitaji z `.env` souboru v koreni projektu.
 ### 6.1 Backend — spusteni testu
 
 ```bash
-cd ~/Projects/c3-agent-wip
+cd ~/Projects/intentsmith
 
-# Zakladni testy (nevyzaduji Ollama)
-node tests/cre-comprehensive.test.js      # 401 testu — CRE klasifikace
-node tests/cre-gatekeeper.test.js          # 43 testu — CRE Gatekeeper
-node tests/schema-migrations.test.js       # 26 testu — DB migrace
+# Integrita kanonickeho registru (263 programu)
+npm run test:registry
 
-# Expertise system (nevyzaduje Ollama)
-node tests/merge-engine.test.js            # 40 testu
-node tests/capability-enforcer.test.js     # 38 testu
-node tests/expertise-system.test.js         # 40 testu
+# Povinne deterministicke profily offline + database
+npm test
 
-# Lifecycle (nevyzaduje Ollama)
-node tests/lifecycle-unit.test.js          # 103 testu
-node tests/lifecycle-e2e.test.js           # 138 testu
-node tests/milestone-size.test.js          # 40 testu
-
-# Celkem ~900+ testu bez nutnosti Ollama
+# Kuratorovany agregator je pouze compatibility signal, ne release dukaz
+npm run test:all
 ```
+
+Presne registry profily, prerequisites a timeouty jsou v
+[`convergence/TEST-REGISTRY.md`](convergence/TEST-REGISTRY.md). Vysledek testu
+je platny pouze s prikazem, reportem a skutecnym navratovym kodem procesu.
 
 ### 6.2 Backend — health check
 
@@ -428,13 +401,13 @@ Ocekavany vystup:
 # Overeni ze Ollama bezi
 curl -s http://127.0.0.1:11434/api/tags | python3 -m json.tool
 
-# Melo by obsahovat: qwen3.5:27b, qwen3.5:27b, deepseek-r1:32b
+# Melo by obsahovat alespon: qwen3.5:27b
 ```
 
 ### 6.4 IDE — overeni
 
-1. Spust backend: `node src/server.js`
-2. Spust IDE: `cd c3-ide && yarn start`
+1. Spust produkt: `./scripts/run.sh`
+2. Over, ze C3 Studio otevreno a backend bezi
 3. Zkontroluj status bar — zeleny indikator = backend pripojeny
 4. Otevri chat panel — napsat zpravu → mela by prijit odpoved
 
@@ -444,17 +417,20 @@ curl -s http://127.0.0.1:11434/api/tags | python3 -m json.tool
 
 ### `Cannot find module 'src-gen/backend/main.js'`
 
-IDE nebyla zbuildovana. Spust:
+Na cistem checkoutu spust kanonicky installer:
 ```bash
-cd ~/Projects/c3-agent-wip/c3-ide
-yarn build
+cd ~/Projects/intentsmith
+./scripts/install.sh --minimal
 ```
+
+Po predchozi uspesne kanonicke instalaci lze pro pouhou vyvojovou iteraci
+spustit `cd c3-ide && yarn build`.
 
 ### `better-sqlite3` kompilace selhava
 
 Chybi build nastroje:
 ```bash
-sudo apt install -y python3 build-essential
+sudo apt install -y python3.12 build-essential
 npm rebuild better-sqlite3
 ```
 
@@ -481,14 +457,8 @@ sudo systemctl enable ollama  # autostart po restartu
 
 ### IDE neukazuje nove panely po aktualizaci
 
-Smaz layout cache:
-```bash
-rm -rf ~/.config/"C3 Studio"/Local\ Storage
-rm -rf ~/.config/"C3 Studio"/IndexedDB
-rm -f ~/.config/"C3 Studio"/storage.json
-```
-
-Pak restart IDE.
+Ukoncete C3 Studio a pouzijte nedestruktivni zalohovaci postup v
+[sekci 3.5](#35-layout-cache-po-aktualizaci). Pak IDE restartujte.
 
 ### Port 3335 je obsazeny
 
@@ -500,15 +470,16 @@ lsof -i :3335
 echo "C3_PORT=3336" >> .env
 ```
 
-### `yarn install` v c3-ide selhava
+### Frozen Yarn install v c3-ide selhava
 
 ```bash
-# Smaz cache a zkus znovu
-cd ~/Projects/c3-agent-wip/c3-ide
-rm -rf node_modules
-yarn cache clean
-yarn install
+cd ~/Projects/intentsmith/c3-ide
+yarn --version  # musi byt 1.22.22
+yarn install --frozen-lockfile --non-interactive
 ```
+
+Pri nesouladu manifestu a locku instalaci neopakujte bez `--frozen-lockfile`.
+Zmenu `yarn.lock` je nutne samostatne reviewovat.
 
 ### Ollama: model neodpovida / timeout
 
@@ -524,9 +495,9 @@ echo "C3_MODEL_CHAT=qwen3.5:14b" >> .env
 
 Adresar pro databazi neexistuje:
 ```bash
-mkdir -p ~/Projects/c3-agent-wip/data
+mkdir -p ~/Projects/intentsmith/data
 ```
 
 ---
 
-*Posledni aktualizace: v131.0.0 (2026-03-22)*
+*Posledni aktualizace: v135.0.0 (2026-07-30)*
