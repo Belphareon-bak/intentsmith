@@ -56,7 +56,7 @@ echo ""
 ERRORS=0
 
 # ════════════════════════════════════════════════════════════════════════════
-# 1. Node.js ≥ 22
+# 1. Node.js 22.x
 # ════════════════════════════════════════════════════════════════════════════
 echo -e "${BOLD}── Node.js ──${NC}"
 
@@ -64,17 +64,17 @@ if command -v node >/dev/null 2>&1; then
   NODE_VERSION=$(node -v | sed 's/v//')
   NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
 
-  if [ "$NODE_MAJOR" -ge 22 ] 2>/dev/null; then
+  if [ "$NODE_MAJOR" -eq 22 ] 2>/dev/null; then
     ok "Node.js v${NODE_VERSION}"
   else
-    warn "Node.js v${NODE_VERSION} (need ≥ 22)"
+    warn "Node.js v${NODE_VERSION} (need 22.x)"
     # Try nvm auto-fix
     if command -v nvm >/dev/null 2>&1; then
       info "Found nvm — installing Node 22..."
       nvm install 22 && nvm use 22
       NODE_VERSION=$(node -v | sed 's/v//')
       NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
-      if [ "$NODE_MAJOR" -ge 22 ] 2>/dev/null; then
+      if [ "$NODE_MAJOR" -eq 22 ] 2>/dev/null; then
         ok "Node.js v${NODE_VERSION} (via nvm)"
       else
         fail "nvm install failed"
@@ -89,7 +89,7 @@ if command -v node >/dev/null 2>&1; then
       NODE_VERSION=$(node -v | sed 's/v//')
       ok "Node.js v${NODE_VERSION} (via nvm)"
     else
-      fail "Node.js ≥ 22 required. Install via:"
+      fail "Node.js 22.x required. Install via:"
       echo "       curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash"
       echo "       nvm install 22"
       ERRORS=$((ERRORS + 1))
@@ -285,7 +285,7 @@ if ! command -v yarn >/dev/null 2>&1; then
   exit 1
 fi
 
-YARN_VERSION="$(yarn --version)"
+YARN_VERSION="$(cd c3-ide && yarn --version)"
 if [ "$YARN_VERSION" != "1.22.22" ]; then
   fail "Yarn 1.22.22 required; found $YARN_VERSION"
   echo "       Install: npm install -g yarn@1.22.22"
@@ -310,16 +310,22 @@ echo ""
 echo -e "${BOLD}── Electron Native Modules ──${NC}"
 
 info "Rebuilding native modules for Electron ABI..."
-# keytar is deprecated and fails to build with modern node-addon-api — skip it
-REBUILD_MODULES="node-pty,nsfw,drivelist,native-keymap,@parcel/watcher,@vscode/watcher"
-if (cd c3-ide/applications/electron && npx electron-rebuild -f --only "$REBUILD_MODULES" 2>&1 | tail -5); then
+# Theia's canonical native set plus native watchers used by this application.
+REBUILD_MODULES="node-pty,native-keymap,find-git-repositories,drivelist,keytar,ssh2,cpu-features,nsfw,@parcel/watcher,@vscode/watcher"
+ELECTRON_REBUILD_BIN="$PROJECT_ROOT/c3-ide/node_modules/.bin/electron-rebuild"
+if [ ! -x "$ELECTRON_REBUILD_BIN" ]; then
+  fail "Locked local electron-rebuild binary is missing"
+  exit 1
+fi
+if (cd c3-ide/applications/electron && "$ELECTRON_REBUILD_BIN" -f --only "$REBUILD_MODULES" 2>&1 | tail -5); then
   ok "Native modules rebuilt for Electron"
 else
   warn "electron-rebuild had errors — retrying..."
-  if (cd c3-ide/applications/electron && npx electron-rebuild -f --only "$REBUILD_MODULES" 2>&1 | tail -5); then
+  if (cd c3-ide/applications/electron && "$ELECTRON_REBUILD_BIN" -f --only "$REBUILD_MODULES" 2>&1 | tail -5); then
     ok "Native modules rebuilt for Electron (second attempt)"
   else
-    warn "electron-rebuild had errors (non-critical modules like nsfw may have failed)"
+    fail "electron-rebuild failed; C3 Studio native modules are not trustworthy"
+    exit 1
   fi
 fi
 
@@ -338,50 +344,66 @@ else
   fi
 fi
 
+info "Building C3 Studio from the tracked Theia webpack configuration..."
+if (cd c3-ide && yarn build 2>&1 | tail -8); then
+  ok "C3 Studio build complete"
+else
+  fail "C3 Studio build failed"
+  exit 1
+fi
+
 echo ""
 
 # ════════════════════════════════════════════════════════════════════════════
-# 7. Webpack Build
+# 7. Build Artifact Verification
 # ════════════════════════════════════════════════════════════════════════════
-echo -e "${BOLD}── Frontend Build ──${NC}"
+echo -e "${BOLD}── Build Artifacts ──${NC}"
 
-BUNDLE="c3-ide/applications/electron/lib/frontend/bundle.js"
-WEBPACK_CONFIG="c3-ide/applications/electron/c3-webpack-wrapper.js"
-WEBPACK_CONFIG_FALLBACK="c3-ide/applications/electron/gen-webpack.config.js"
-
-if [ -f "$BUNDLE" ] && ( [ -f "$WEBPACK_CONFIG" ] || [ -f "$WEBPACK_CONFIG_FALLBACK" ] ); then
-  # Check if any source is newer than the bundle (skip rebuild if not)
-  NEEDS_BUILD=false
-  for src in c3-ide/extensions/*/lib/browser/*.js; do
-    if [ -f "$src" ] && [ "$src" -nt "$BUNDLE" ]; then
-      NEEDS_BUILD=true
-      break
-    fi
-  done
-  if [ "$NEEDS_BUILD" = true ]; then
-    ok "Frontend bundle exists ($(du -h "$BUNDLE" | cut -f1)) — sources changed, rebuilding..."
-  else
-    ok "Frontend bundle up to date ($(du -h "$BUNDLE" | cut -f1))"
-  fi
-else
-  NEEDS_BUILD=true
-fi
-
-if [ "$NEEDS_BUILD" = true ]; then
-  info "Running webpack..."
-  # Use c3-webpack-wrapper.js (includes C3 preload), fall back to gen-webpack if wrapper missing
-  WEBPACK_USE="$WEBPACK_CONFIG"
-  if [ ! -f "$WEBPACK_USE" ]; then
-    WEBPACK_USE="$WEBPACK_CONFIG_FALLBACK"
-    warn "c3-webpack-wrapper.js not found — using gen-webpack.config.js (no C3 preload)"
-  fi
-  if (cd c3-ide/applications/electron && npx webpack --config "$(basename "$WEBPACK_USE")" --mode development 2>&1 | tail -5); then
-    ok "Webpack build complete"
-  else
-    fail "Webpack build failed"
+for artifact in \
+  c3-ide/applications/electron/lib/frontend/bundle.js \
+  c3-ide/applications/electron/lib/frontend/preload.js \
+  c3-ide/applications/electron/lib/backend/main.js \
+  c3-ide/applications/electron/lib/backend/native/rg; do
+  if [ ! -s "$artifact" ]; then
+    fail "Required C3 Studio artifact is missing or empty: $artifact"
     exit 1
   fi
+done
+if [ ! -x c3-ide/applications/electron/lib/backend/native/rg ]; then
+  fail "Bundled ripgrep artifact is not executable"
+  exit 1
 fi
+RIPGREP_VERSION="$(
+  c3-ide/applications/electron/lib/backend/native/rg --version 2>/dev/null |
+    head -1
+)"
+case "$RIPGREP_VERSION" in
+  "ripgrep 15.0.0"*) ;;
+  *)
+    fail "Unexpected bundled ripgrep version: ${RIPGREP_VERSION:-unavailable}"
+    exit 1
+    ;;
+esac
+
+ELECTRON_BIN="$PROJECT_ROOT/c3-ide/node_modules/electron/dist/electron"
+if [ ! -x "$ELECTRON_BIN" ]; then
+  fail "Locked local Electron runtime is missing"
+  exit 1
+fi
+NATIVE_SMOKE_COUNT=0
+while IFS= read -r -d '' native_binding; do
+  if ! ELECTRON_RUN_AS_NODE=1 "$ELECTRON_BIN" \
+    -e 'require(process.argv[1])' "$PROJECT_ROOT/$native_binding" >/dev/null 2>&1; then
+    fail "Electron ABI smoke failed: $native_binding"
+    exit 1
+  fi
+  NATIVE_SMOKE_COUNT=$((NATIVE_SMOKE_COUNT + 1))
+done < <(find c3-ide/applications/electron/lib/backend/native -type f -name '*.node' -print0)
+if [ "$NATIVE_SMOKE_COUNT" -eq 0 ]; then
+  fail "No bundled native bindings were found for Electron ABI smoke"
+  exit 1
+fi
+ok "C3 Studio artifacts and $NATIVE_SMOKE_COUNT Electron ABI bindings verified"
 
 echo ""
 
@@ -434,11 +456,17 @@ if [ "$OLLAMA_OK" = true ]; then
     # Pull everything
     if [ "$PRIMARY_NEEDED" = true ]; then
       info "Pulling ${PRIMARY} (this may take a while)..."
-      ollama pull "$PRIMARY" || warn "Failed to pull ${PRIMARY}"
+      if ! ollama pull "$PRIMARY"; then
+        fail "Failed to pull required model ${PRIMARY}"
+        exit 1
+      fi
     fi
     if [ "$REASONING_NEEDED" = true ]; then
       info "Pulling ${REASONING} (this may take a while)..."
-      ollama pull "$REASONING" || warn "Failed to pull ${REASONING}"
+      if ! ollama pull "$REASONING"; then
+        fail "Failed to pull requested model ${REASONING}"
+        exit 1
+      fi
     fi
   elif [ "$MODE" = "interactive" ] && [ "$PRIMARY_NEEDED" = true ]; then
     echo ""
@@ -447,7 +475,10 @@ if [ "$OLLAMA_OK" = true ]; then
     read -rp "    [Y/n] " PULL_PRIMARY
     if [ "${PULL_PRIMARY,,}" != "n" ]; then
       info "Pulling ${PRIMARY}..."
-      ollama pull "$PRIMARY" || warn "Failed to pull ${PRIMARY}"
+      if ! ollama pull "$PRIMARY"; then
+        fail "Failed to pull requested model ${PRIMARY}"
+        exit 1
+      fi
     fi
 
     if [ "$REASONING_NEEDED" = true ]; then
@@ -457,7 +488,10 @@ if [ "$OLLAMA_OK" = true ]; then
       read -rp "    [y/N] " PULL_REASONING
       if [ "${PULL_REASONING,,}" = "y" ]; then
         info "Pulling ${REASONING}..."
-        ollama pull "$REASONING" || warn "Failed to pull ${REASONING}"
+        if ! ollama pull "$REASONING"; then
+          fail "Failed to pull requested model ${REASONING}"
+          exit 1
+        fi
       fi
     fi
   fi

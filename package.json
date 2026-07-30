@@ -6,7 +6,7 @@
   "main": "src/server.js",
   "packageManager": "npm@10.9.4",
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=22.0.0 <23"
   },
   "scripts": {
     "start": "node src/server.js",
