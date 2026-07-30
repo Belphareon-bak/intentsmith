@@ -12,8 +12,8 @@ override a failed or blocked suite.
 
 - Runnable programs: 350
 - Explicit support-module exclusions: 8
-- Profiles: offline=173, database=26, server=35, model=83, soak=18, manual=15
-- States: ACTIVE=256, HISTORICAL=15, BLOCKED=78, KNOWN_DEFECTIVE=1
+- Profiles: offline=173, database=26, server=36, model=82, soak=18, manual=15
+- States: ACTIVE=256, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -187,7 +187,7 @@ override a failed or blocked suite.
 | `IS-T3-E2E-77-PROJECT-CONTEXT-INJECTION` | `tests/e2e/77-project-context-injection.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-78-GUARD-RULES` | `tests/e2e/78-guard-rules.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-79-RESPONSE-SEMANTICS` | `tests/e2e/79-response-semantics.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T3-E2E-80-WS-SEMANTIC-EVENTS` | `tests/e2e/80-ws-semantic-events.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
+| `IS-T3-E2E-80-WS-SEMANTIC-EVENTS` | `tests/e2e/80-ws-semantic-events.e2e.js` | `C3-003` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-81-CONVERSATION-LIFECYCLE` | `tests/e2e/81-conversation-lifecycle.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-82-CRE-CONFLICT-RESOLUTION` | `tests/e2e/82-cre-conflict-resolution.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-85-LONG-SESSION-DEGRADATION` | `tests/e2e/85-long-session-degradation.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |

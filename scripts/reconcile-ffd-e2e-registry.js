@@ -17,7 +17,7 @@ const EXPECTED_PATH_HASH = '43108129171be799d282df0fc5b7db5d40daefda0bbcebe5cc28
 const EXTERNAL_NETWORK = new Set([10, 51, 206]);
 const OLLAMA_ONLY_SERVER = new Set([14, 16]);
 const MIXED_SERVER_MODEL = new Set();
-const LOCAL_SERVER_ONLY = new Set([56, 60, 63]);
+const LOCAL_SERVER_ONLY = new Set([56, 60, 63, 80]);
 
 function suiteId(tier, testPath) {
   const stem = path.basename(testPath, '.e2e.js')

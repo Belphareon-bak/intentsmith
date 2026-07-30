@@ -1,10 +1,9 @@
 # Disposition of disputed `final` commit
 
 Status: all source-diff facts are recorded in a committed sanitized manifest
-and validate offline. Fifty-nine records are evidence-backed `REPAIRED`, and 32
-truthful model suites are `DEFERRED` behind concrete runtime prerequisites. The
-validator deliberately remains red while one legacy `REBUILD/REPAIR` row awaits
-terminal closure under `D-018`.
+and validate offline. All 92 `REBUILD` records have a terminal D-018 state:
+60 are evidence-backed `REPAIRED`, and 32 truthful model suites are `DEFERRED`
+behind concrete runtime prerequisites.
 
 Compared refs:
 
@@ -74,8 +73,8 @@ node scripts/validate-final-disposition.js \
 | `EXCLUDE/MOVE_OUTSIDE_PRODUCTION` | 78 |
 | `EXCLUDE/REMOVE_FOLLOWUP` | 13 |
 | `KEEP/REPLAY` | 42 |
-| `REBUILD/REPAIR` | 1 |
-| `REBUILD/REPAIRED` | 59 |
+| `REBUILD/REPAIR` | 0 |
+| `REBUILD/REPAIRED` | 60 |
 | `REBUILD/DEFERRED(<prerequisite>)` | 32 |
 | `UNRESOLVED / USER_DECISION` | 0 |
 
@@ -273,7 +272,7 @@ node scripts/validate-final-disposition.js \
 | `A` | `tests/e2e/77-project-context-injection.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Project creation and canary files are confined to the verified runner-owned project root; bound and unbound conversations are mandatory, the server-derived session project is exact, canary isolation is asserted, and a project build request must expose exact `BUILD` intent. All dependent returns and tautological cleanup assertions are gone. |
 | `A` | `tests/e2e/78-guard-rules.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | GUARD inputs use mandatory owned conversations/project fixtures and bounded chats; intent metadata is required, with exact `CREATIVE`, `CONVERSATIONAL`, `CONVERSATIONAL` and `BUILD` outcomes for GUARD 6/9/10/11. The incorrect explicit-search oracle, custom project path, fixture skips and conditional assertions are removed. |
 | `A` | `tests/e2e/79-response-semantics.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | All ten requests are bounded and fail closed. Math and date require exact deterministic `LOCAL` handlers and result metadata; the date oracle accepts only a complete current day/month/year across the request boundary. Code, explanation, comparison, poem, numbered-installation, refusal, greeting and gratitude checks now require their named semantics rather than generic non-empty prose. Static and oracle review passed; live execution remains behind the named isolated model fixture, so no model-green claim is made. |
-| `A` | `tests/e2e/80-ws-semantic-events.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/80-ws-semantic-events.e2e.js` | `REBUILD` | `REPAIRED` | HTTP orchestration and unconditional success were replaced with actual per-session WebSocket traffic. The suite requires exact LOCAL turn envelopes, correlation, contiguous sequence and ordering; cancel acknowledgement plus `cancelled_by_user` with no assistant; cross-session isolation after causal barriers on both sockets; and recovery after malformed raw JSON. Cleanup closes sockets with `Promise.allSettled` and always hard-deletes the owned conversation. A fresh isolated server with Ollama deliberately unreachable reported 4 passed, 0 failed, proving the model-free server contract. |
 | `A` | `tests/e2e/81-conversation-lifecycle.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Create, active retrieval, three bounded model turns, exact six-message persistence, title update, archive, immutable archived history, restore, soft delete and hard delete all have mandatory exact contracts with unconditional cleanup. Context is proven by an exact canary present only in the first user prompt; the follow-up also requires a real fenced recursive function with `return` and a self-call. The reviewed source ran green on an isolated server, but one recovered CUDA OOM and use of the shared system Ollama daemon prevent that diagnostic from satisfying the named reproducible model fixture. |
 | `A` | `tests/e2e/82-cre-conflict-resolution.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | CRE conflict assertions are fail-closed through the strict positive chat helper; execution requires the named isolated local model fixture. |
 | `A` | `tests/e2e/85-long-session-degradation.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Long-session assertions are fail-closed through the strict positive chat helper; execution requires the named isolated local model fixture. |
