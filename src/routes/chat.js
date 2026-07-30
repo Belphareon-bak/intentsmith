@@ -427,6 +427,36 @@ export function createChatRoutes(deps) {
       });
 
       try {
+        const conversation = db.conversations.findById.get(conversation_id);
+        const storedProjectId = conversation?.project_id == null
+          ? null
+          : Number(conversation.project_id);
+        let requestedProjectId = null;
+
+        if (project_id !== undefined && project_id !== null) {
+          requestedProjectId = Number(project_id);
+          if (!Number.isSafeInteger(requestedProjectId) || requestedProjectId <= 0) {
+            return sendJSON(res, 400, {
+              error: 'project_id must be a positive integer',
+            });
+          }
+          if (!db.projects.findById.get(requestedProjectId)) {
+            return sendJSON(res, 404, {
+              error: 'Project not found',
+              project_id: requestedProjectId,
+            });
+          }
+          if (storedProjectId !== null && storedProjectId !== requestedProjectId) {
+            return sendJSON(res, 409, {
+              error: 'Conversation is bound to a different project',
+              conversation_id,
+              project_id: storedProjectId,
+            });
+          }
+        }
+
+        const effectiveProjectId = storedProjectId ?? requestedProjectId;
+
         // v56.0: No manual DB writes here — ChatController.handle persists via ConversationStore
         logger.info('Server', `[ChatController] Processing: "${message.substring(0, 50)}..."`);
 
@@ -451,8 +481,8 @@ export function createChatRoutes(deps) {
           attachments: body.attachments || [],
           signal: abortController.signal,  // v63.0: propagate cancel signal
           context: {
-            projectId: project_id,
-            hasActiveProject: !!project_id,
+            projectId: effectiveProjectId,
+            hasActiveProject: effectiveProjectId !== null,
           },
         });
 

@@ -161,8 +161,27 @@ if (typeof chatFactory === 'function') {
   const expertiseLookups = [];
   const dispatchedRequests = [];
   const expertiseResponses = [];
+  const projectLookups = [];
   const expertiseRoutes = chatFactory({
     ...mockDeps,
+    db: {
+      conversations: {
+        findById: {
+          get: id => ({
+            id,
+            project_id: id === 'fixture-conversation' ? 7 : null,
+          }),
+        },
+      },
+      projects: {
+        findById: {
+          get: id => {
+            projectLookups.push(id);
+            return id === 7 || id === 8 ? { id } : null;
+          },
+        },
+      },
+    },
     parseBody: async req => req.body,
     sendJSON: (_res, status, data) => expertiseResponses.push({ status, data }),
     expertiseLayer: {
@@ -213,6 +232,30 @@ if (typeof chatFactory === 'function') {
     },
     on: () => {},
   }, {});
+  await expertiseRoutes['POST /api/chat']({
+    body: {
+      conversation_id: 'fixture-conversation',
+      project_id: 8,
+      message: 'Explain this API.',
+    },
+    on: () => {},
+  }, {});
+  await expertiseRoutes['POST /api/chat']({
+    body: {
+      conversation_id: 'unbound-conversation',
+      project_id: 'not-an-id',
+      message: 'Explain this API.',
+    },
+    on: () => {},
+  }, {});
+  await expertiseRoutes['POST /api/chat']({
+    body: {
+      conversation_id: 'unbound-conversation',
+      project_id: 999,
+      message: 'Explain this API.',
+    },
+    on: () => {},
+  }, {});
 
   assert(
     JSON.stringify(expertiseLookups) === JSON.stringify(['developer', 'missing-expertise']),
@@ -220,12 +263,23 @@ if (typeof chatFactory === 'function') {
   );
   assert(
     dispatchedRequests.length === 1
-      && JSON.stringify(dispatchedRequests[0].expertise) === JSON.stringify(canonicalExpertise),
-    'chat route dispatches the canonical server-owned expertise object',
+      && JSON.stringify(dispatchedRequests[0].expertise) === JSON.stringify(canonicalExpertise)
+      && dispatchedRequests[0].context?.projectId === 7
+      && dispatchedRequests[0].context?.hasActiveProject === true,
+    'chat route dispatches canonical expertise and derives the stored conversation project',
   );
   assert(
-    JSON.stringify(expertiseResponses.map(item => item.status)) === JSON.stringify([200, 400, 404]),
-    'chat route accepts known expertise and rejects invalid or unknown expertise IDs',
+    JSON.stringify(expertiseResponses.map(item => item.status))
+      === JSON.stringify([200, 400, 404, 409, 400, 404]),
+    'chat route rejects invalid expertise and project overrides with exact statuses',
+  );
+  assert(
+    JSON.stringify(projectLookups) === JSON.stringify([8, 999]),
+    'chat route validates requested projects before controller dispatch',
+  );
+  assert(
+    dispatchedRequests.length === 1,
+    'invalid, missing, or mismatched project bindings never reach ChatController',
   );
 }
 
