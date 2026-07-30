@@ -904,6 +904,82 @@ await asyncTest('G0-R023c: rejected refinement keeps original content and truthf
   );
 }, ASYNC_TEST_TIMEOUT_MS);
 
+await asyncTest('G0-R023d: static handle persists and returns the accepted refinement', async () => {
+  resetConversationStore();
+  const store = getConversationStore(null);
+  const sessionId = 'g0-r023-controller-accepted';
+  const original = 'Docker je kontejnerová platforma pro aplikace a jejich nasazení.';
+  const refined = [
+    '## Docker',
+    '',
+    'Docker je kontejnerová platforma pro aplikace a jejich nasazení.',
+    '',
+    'Používá se pro izolaci a reprodukovatelnost.',
+  ].join('\n');
+  const handlerResponse = new TaggedResponse({
+    content: original,
+    tag: new ResponseTag({
+      speaker: ResponseSpeaker.SYSTEM,
+      mode: ChatMode.CONVERSATION,
+      confidence: 0.9,
+      metadata: {
+        semanticScore: { total: 60 },
+        decision: { intent: 'CONVERSATIONAL' },
+        model: 'test-model',
+      },
+    }),
+  });
+  const originalFetch = globalThis.fetch;
+  let modelCalls = 0;
+
+  ChatController.configure({
+    handlers: {
+      [ChatMode.CONVERSATION]: async () => handlerResponse,
+    },
+    config: { autoModeDetection: false },
+  });
+  globalThis.fetch = async (url, options) => {
+    modelCalls++;
+    assert.match(String(url), /\/api\/chat$/);
+    const body = JSON.parse(options.body);
+    assert.ok(
+      body.messages.some(message => message.content.includes(original)),
+      'the production refinement prompt must contain the immutable original',
+    );
+    return {
+      ok: true,
+      json: async () => ({ message: { content: refined } }),
+    };
+  };
+
+  try {
+    const finalized = await ChatController.handle({
+      message: 'Co je Docker a proč se používá?',
+      sessionId,
+      conversationId: sessionId,
+    });
+    const turns = store.getAllTurns(sessionId);
+
+    assert.equal(modelCalls, 1, 'the controller path must make one refinement model call');
+    assert.equal(finalized.response, refined, 'the controller must return accepted content');
+    assert.equal(finalized.qualityScore.total, 79, 'the controller must score accepted content');
+    assert.deepEqual(
+      turns.map(turn => ({ role: turn.role, content: turn.content })),
+      [
+        { role: 'user', content: 'Co je Docker a proč se používá?' },
+        { role: 'assistant', content: refined },
+      ],
+      'the controller must persist the same accepted content it returns',
+    );
+    assert.equal(handlerResponse.content, original, 'the immutable handler result must stay unchanged');
+    assert.equal(Object.isFrozen(handlerResponse), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+    ChatController.removeSession(sessionId);
+    resetConversationStore();
+  }
+}, ASYNC_TEST_TIMEOUT_MS);
+
 test('T17: hooks survive through full context pipeline in static handle()', () => {
   // This test verifies the architectural contract:
   // ChatController.handle(request) spreads request.context into fullContext,
