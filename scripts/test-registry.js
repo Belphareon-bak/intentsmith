@@ -344,6 +344,9 @@ async function walk(directory) {
     const absolutePath = path.join(directory, entry.name);
     if (entry.isDirectory()) files.push(...await walk(absolutePath));
     else if (entry.isFile()) files.push(absolutePath);
+    else if (entry.isSymbolicLink()) {
+      throw new Error(`Test inventory rejects symbolic links: ${absolutePath}`);
+    }
   }
   return files;
 }

@@ -4,7 +4,13 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -268,6 +274,15 @@ summary();
   assert.ok(
     validateTestRegistry(overlap, ['tests/unconventional.runner.mjs'])
       .some(error => error.includes('both registered and excluded')),
+  );
+
+  const symlinkRoot = join(fixtureDir, 'symlink-root');
+  mkdirSync(join(symlinkRoot, 'tests'), { recursive: true });
+  writeFileSync(join(symlinkRoot, 'tests', 'target.js'), 'export {};\n');
+  symlinkSync('target.js', join(symlinkRoot, 'tests', 'alias.js'));
+  await assert.rejects(
+    discoverRunnablePrograms(symlinkRoot),
+    /Test inventory rejects symbolic links/,
   );
 
   console.log('Harness exit-code meta-test passed');
