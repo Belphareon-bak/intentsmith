@@ -4,12 +4,12 @@
 > Do not hand-edit. The evidence-only attestation commit must have the candidate
 > below as its first parent.
 
-- Generated: 2026-07-30T10:40:13.721Z
-- Candidate: `22a9b848db1be69f6cd0657d5d0e9bffb44bcb19`
+- Generated: 2026-07-30T17:16:16.218Z
+- Candidate: `7372ad9f70c8a662c71122c2ba0ba5c6f6f90eb5`
 - Branch: `codex/intentsmith-1.0`
-- Registry SHA-256: `f930d637693759df07c290ed415477ba5bf461a0fe4ec71ab207e5663da0bf60`
+- Registry SHA-256: `a7a5c6d4670159cd38a08edea8aabbf868eb3342a3baf1857b6a4849d1f4960a`
 - Gate: **Gate 0 — trustworthy baseline**
-- Verdict: **CONDITIONAL PASS**
+- Verdict: **FAIL**
 
 ## Gate 0 clauses
 
@@ -20,24 +20,25 @@
 | G0-C3 registry | PASS | 350 runnable programs and 8 explicit support exclusions; validator exit 0 |
 | G0-C4 clean install | PASS | two consecutive minimal installs, both exit 0; second idempotent |
 | G0-C5 deterministic T1/T2 | PASS | 199 PASS, 0 FAIL/TIMEOUT/BLOCKED/SKIPPED |
-| G0-C6 defective suites excluded | PASS | 25 rows remain `KNOWN_DEFECTIVE`; none appears in green deterministic evidence |
-| G0-C7 blockers specific | PASS | every registry `BLOCKED` row names server, external-network, Ollama, or GPU |
-| G0-C8 generated evidence | PASS | this file, the index, baseline report, and review packet were generated from the candidate |
+| G0-C6 defective suites excluded | PASS | 0 registry rows are KNOWN_DEFECTIVE; none appears in green deterministic evidence |
+| G0-C7 blockers specific | PASS | every registry BLOCKED row names server, external-network, Ollama, or GPU |
+| G0-C8 generated evidence | PASS | status, index, baseline report, and review packet derive from the clean candidate |
 
 ## Registry
 
-- Profiles: model=71, manual=15, offline=173, database=26, server=32, soak=33
-- States: ACTIVE=256, HISTORICAL=15, BLOCKED=54, KNOWN_DEFECTIVE=25
+- Profiles: model=82, manual=15, offline=173, database=26, server=36, soak=18
+- States: ACTIVE=256, HISTORICAL=15, BLOCKED=79
 - Deterministic required scope: 199 (offline=173, database=26)
 
 ## Remaining boundaries
 
-- Independent Opus review: **PENDING**. This is why the verdict is conditional.
+- Independent Opus review: **PENDING**.
+- Repository-local Gate 0 blockers: **G0-R023: OPEN, G0-R025: OPEN**.
 - Confirmed privacy compromise: **CONFIRMED_COMPROMISE**.
 - Current-tree private material is contained; affected history remains reachable.
 - Credential rotation and history remediation require operator action.
-- 25 recovered E2E suites remain
-  `KNOWN_DEFECTIVE`; 54 rows remain registry-`BLOCKED`.
+- 0 recovered E2E suites remain
+  `KNOWN_DEFECTIVE`; 79 rows remain registry-`BLOCKED`.
 - Supported program-language files are discovered regardless of filename;
   8 support/aggregate files are explicit reasoned
   exclusions.
@@ -45,6 +46,4 @@
 
 ## Next action
 
-Give `docs/convergence/reviews/GATE0-OPUS-REVIEW.md` and the referenced
-artifacts to Opus 5 for read-only review. Do not enter the next gate until the
-review is evaluated and the operator confirms continuation.
+Repair every failed clause and repository-local blocker, then regenerate evidence from a new clean candidate.
