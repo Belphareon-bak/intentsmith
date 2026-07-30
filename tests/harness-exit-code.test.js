@@ -235,7 +235,7 @@ summary();
   ];
   for (const [path, argv] of executorCases) {
     const registry = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       exclusions: [],
       suites: [validRegistrySuite(path, argv)],
     };
@@ -243,7 +243,7 @@ summary();
   }
 
   const wrongExecutor = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     exclusions: [],
     suites: [
       validRegistrySuite('tests/example.js', ['/bin/true', 'tests/example.js']),
@@ -255,7 +255,7 @@ summary();
   );
 
   const extraArgument = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     exclusions: [],
     suites: [
       validRegistrySuite(
@@ -270,7 +270,7 @@ summary();
   );
 
   const missingPath = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     exclusions: [],
     suites: [validRegistrySuite(undefined, ['node', 'tests/example.js'])],
   };
@@ -280,7 +280,7 @@ summary();
   );
 
   const requiredT4 = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     exclusions: [],
     suites: [validRegistrySuite('tests/example.js', ['node', 'tests/example.js'])],
   };
@@ -311,7 +311,7 @@ summary();
   );
 
   const explicitExclusion = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     exclusions: [{
       path: 'tests/fixture-helper.js',
       reason: 'Imported support fixture with no top-level test entry point.',

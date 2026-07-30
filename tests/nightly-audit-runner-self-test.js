@@ -27,6 +27,12 @@ import {
   MISSING_DATABASE_PATH_MESSAGE,
   requireConfiguredDatabasePath,
 } from '../src/db/database-path.js';
+import {
+  evaluateModelFixturePreflight,
+  probeModelFixture,
+  validateModelFixtureRequirement,
+} from '../scripts/model-fixture-preflight.js';
+import { validateTestRegistry } from '../scripts/test-registry.js';
 
 const tempRoots = new Set();
 const activeSignalFixtures = new Set();
@@ -34,8 +40,44 @@ const sourceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '.
 const originalUmask = process.umask();
 const EXECUTION_FIXTURE_TIMEOUT_MS = 1_000;
 let permissiveUmaskActive = false;
+const modelFixtureOnly = process.argv.slice(2).includes('--model-fixture-only');
+const MIB = 1024 * 1024;
+const modelFixtureRequirement = {
+  provider: 'ollama',
+  model: 'qwen3.5:27b',
+  digestSha256: '7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e',
+  contextWindowTokens: 8_192,
+  minimumFreeVramMiB: 20_128,
+  parallelRequests: 1,
+  minimumHeadroomMiB: 1_024,
+  minimumGpuResidencyPercent: 100,
+  fallbackPolicy: 'forbid',
+};
+
+function modelFixtureObservation(overrides = {}) {
+  return {
+    provider: 'ollama',
+    installedModel: {
+      model: modelFixtureRequirement.model,
+      digestSha256: modelFixtureRequirement.digestSha256,
+    },
+    loadedModel: {
+      model: modelFixtureRequirement.model,
+      digestSha256: modelFixtureRequirement.digestSha256,
+      allocatedContextTokens: 8_192,
+      sizeBytes: 20_480 * MIB,
+      sizeVramBytes: 20_480 * MIB,
+    },
+    gpu: {
+      totalVramMiB: 24_576,
+      freeVramMiB: 4_096,
+    },
+    ...overrides,
+  };
+}
 
 try {
+if (!modelFixtureOnly) {
 assert.throws(
   () => requireConfiguredDatabasePath(undefined),
   new RegExp(MISSING_DATABASE_PATH_MESSAGE.replaceAll('.', '\\.')),
@@ -120,7 +162,234 @@ const acceptedDatabaseImport = spawnSync(
 assert.ifError(acceptedDatabaseImport.error);
 assert.equal(acceptedDatabaseImport.status, 0, acceptedDatabaseImport.stderr);
 assert.equal((await stat(isolatedDatabasePath)).isFile(), true);
+}
 
+assert.deepEqual(validateModelFixtureRequirement(modelFixtureRequirement), []);
+assert.match(
+  validateModelFixtureRequirement({
+    ...modelFixtureRequirement,
+    digestSha256: 'not-a-digest',
+  }).join('\n'),
+  /digestSha256/,
+);
+assert.match(
+  validateModelFixtureRequirement({
+    ...modelFixtureRequirement,
+    parallelRequests: 0,
+  }).join('\n'),
+  /parallelRequests/,
+);
+assert.match(
+  validateModelFixtureRequirement({
+    ...modelFixtureRequirement,
+    fallbackPolicy: 'smaller-model',
+  }).join('\n'),
+  /fallbackPolicy/,
+);
+
+const validModelPreflight = evaluateModelFixturePreflight(
+  modelFixtureRequirement,
+  modelFixtureObservation(),
+);
+assert.equal(validModelPreflight.ok, true);
+assert.deepEqual(validModelPreflight.issues, []);
+
+const wrongDigestPreflight = evaluateModelFixturePreflight(
+  modelFixtureRequirement,
+  modelFixtureObservation({
+    loadedModel: {
+      ...modelFixtureObservation().loadedModel,
+      digestSha256: 'f'.repeat(64),
+    },
+  }),
+);
+assert.equal(wrongDigestPreflight.ok, false);
+assert.ok(wrongDigestPreflight.issues.some(issue => issue.code === 'loaded-digest-mismatch'));
+
+const wrongConcurrencyPreflight = evaluateModelFixturePreflight(
+  {
+    ...modelFixtureRequirement,
+    minimumFreeVramMiB: 24_016,
+    parallelRequests: 3,
+  },
+  modelFixtureObservation(),
+);
+assert.equal(wrongConcurrencyPreflight.ok, false);
+assert.ok(
+  wrongConcurrencyPreflight.issues.some(
+    issue => issue.code === 'context-concurrency-mismatch',
+  ),
+);
+
+const insufficientVramPreflight = evaluateModelFixturePreflight(
+  modelFixtureRequirement,
+  modelFixtureObservation({
+    loadedModel: {
+      ...modelFixtureObservation().loadedModel,
+      sizeBytes: 17_000 * MIB,
+      sizeVramBytes: 17_000 * MIB,
+    },
+    gpu: {
+      totalVramMiB: 24_576,
+      freeVramMiB: 512,
+    },
+  }),
+);
+assert.equal(insufficientVramPreflight.ok, false);
+assert.ok(
+  insufficientVramPreflight.issues.some(issue => issue.code === 'free-vram-insufficient'),
+);
+assert.ok(
+  insufficientVramPreflight.issues.some(issue => issue.code === 'vram-headroom-insufficient'),
+);
+
+const partialGpuPreflight = evaluateModelFixturePreflight(
+  modelFixtureRequirement,
+  modelFixtureObservation({
+    loadedModel: {
+      ...modelFixtureObservation().loadedModel,
+      sizeVramBytes: 17_000 * MIB,
+    },
+    gpu: {
+      totalVramMiB: 24_576,
+      freeVramMiB: 7_576,
+    },
+  }),
+);
+assert.equal(partialGpuPreflight.ok, false);
+assert.ok(
+  partialGpuPreflight.issues.some(issue => issue.code === 'gpu-residency-insufficient'),
+);
+
+const probedModelPreflight = await probeModelFixture(modelFixtureRequirement, {
+  fetchImpl: async url => ({
+    ok: true,
+    json: async () => url.endsWith('/api/tags')
+      ? {
+          models: [{
+            name: modelFixtureRequirement.model,
+            digest: modelFixtureRequirement.digestSha256,
+          }],
+        }
+      : {
+          models: [{
+            name: modelFixtureRequirement.model,
+            digest: modelFixtureRequirement.digestSha256,
+            context_length: 8_192,
+            size: 20_480 * MIB,
+            size_vram: 20_480 * MIB,
+          }],
+        },
+  }),
+  execFileImpl: async () => ({ stdout: '24576, 4096\n' }),
+});
+assert.equal(probedModelPreflight.ok, true);
+
+const unavailableModelPreflight = await probeModelFixture(modelFixtureRequirement, {
+  fetchImpl: async () => {
+    throw new Error('fixture Ollama unavailable');
+  },
+  execFileImpl: async () => ({ stdout: '24576, 4096\n' }),
+});
+assert.equal(unavailableModelPreflight.ok, false);
+assert.deepEqual(
+  unavailableModelPreflight.issues.map(issue => issue.code),
+  ['probe-failed'],
+);
+
+const registryFixture = JSON.parse(await readFile(
+  path.join(sourceRoot, 'tests', 'registry.json'),
+  'utf8',
+));
+const registryCandidates = [
+  ...registryFixture.suites.map(suite => suite.path),
+  ...registryFixture.exclusions.map(exclusion => exclusion.path),
+];
+assert.deepEqual(validateTestRegistry(registryFixture, registryCandidates), []);
+const missingFixtureRegistry = structuredClone(registryFixture);
+delete missingFixtureRegistry.suites.find(
+  suite => suite.id === 'IS-T3-E2E-57-LIFECYCLE-FULL',
+).requirements.modelFixture;
+assert.match(
+  validateTestRegistry(missingFixtureRegistry, registryCandidates).join('\n'),
+  /modelFixture is required by G0-R020/,
+);
+const invalidFixtureRegistry = structuredClone(registryFixture);
+invalidFixtureRegistry.suites.find(
+  suite => suite.id === 'IS-T3-E2E-88-CONCURRENT-LOAD',
+).requirements.modelFixture.parallelRequests = 0;
+assert.match(
+  validateTestRegistry(invalidFixtureRegistry, registryCandidates).join('\n'),
+  /parallelRequests/,
+);
+
+const modelPreflightRoot = await makeTempDirectory(
+  path.join(os.tmpdir(), 'c3-audit-runner-model-preflight-'),
+);
+await mkdir(path.join(modelPreflightRoot, 'tests'), { recursive: true });
+await writeFile(
+  path.join(modelPreflightRoot, 'tests', 'model.test.js'),
+  'console.log("model fixture child executed");\n',
+);
+await writeFixtureRegistry(modelPreflightRoot, ['tests/model.test.js'], {
+  profile: 'model',
+  tier: 'T3',
+  requirements: {
+    network: 'loopback',
+    database: false,
+    server: false,
+    ollama: true,
+    gpu: true,
+    modelFixture: modelFixtureRequirement,
+  },
+});
+const modelPreflightPassRun = await runAudit({
+  root: modelPreflightRoot,
+  outDir: 'data/artifacts/audit-runs',
+  runId: 'model-preflight-pass',
+  timeoutMs: 5_000,
+  deadlineMs: 10_000,
+  concurrency: 1,
+  noBlock: true,
+  allowDirty: true,
+  modelFixtureProbe: async requirement => evaluateModelFixturePreflight(
+    requirement,
+    modelFixtureObservation(),
+  ),
+});
+assert.equal(modelPreflightPassRun.verdict, 'PASS');
+assert.equal(modelPreflightPassRun.results[0].status, 'PASS');
+assert.equal(modelPreflightPassRun.results[0].modelFixturePreflight?.ok, true);
+
+const modelPreflightBlockedRun = await runAudit({
+  root: modelPreflightRoot,
+  outDir: 'data/artifacts/audit-runs',
+  runId: 'model-preflight-blocked',
+  timeoutMs: 5_000,
+  deadlineMs: 10_000,
+  concurrency: 1,
+  noBlock: true,
+  allowDirty: true,
+  modelFixtureProbe: async requirement => evaluateModelFixturePreflight(
+    requirement,
+    modelFixtureObservation({
+      gpu: {
+        totalVramMiB: 24_576,
+        freeVramMiB: 512,
+      },
+    }),
+  ),
+});
+assert.equal(modelPreflightBlockedRun.verdict, 'BLOCKED');
+assert.equal(modelPreflightBlockedRun.results[0].status, 'BLOCKED');
+assert.ok(
+  modelPreflightBlockedRun.results[0].blockedBy.includes(
+    'model-fixture:vram-headroom-insufficient',
+  ),
+);
+assert.equal(modelPreflightBlockedRun.results[0].logPath, null);
+
+if (!modelFixtureOnly) {
 const nestedSourceRoot = await makeTempDirectory(
   path.join(sourceRoot, 'tests', '.nightly-nested-source-'),
 );
@@ -875,8 +1144,13 @@ for (const signal of ['SIGTERM', 'SIGINT']) {
     activeSignalFixtures.delete(signalFixture);
   }
 }
+}
 
-console.log('nightly audit runner self-test: PASS');
+console.log(
+  modelFixtureOnly
+    ? 'nightly audit model fixture self-test: PASS'
+    : 'nightly audit runner self-test: PASS',
+);
 } finally {
   delete process.env.TEST_SECRET_SENTINEL;
   delete process.env.INTENTSMITH_PDF_PYTHON;
@@ -1011,6 +1285,6 @@ async function writeFixtureRegistry(rootDir, paths, overrides = {}) {
   }));
   await writeFile(
     path.join(rootDir, 'tests', 'registry.json'),
-    `${JSON.stringify({ schemaVersion: 2, exclusions: [], suites }, null, 2)}\n`,
+    `${JSON.stringify({ schemaVersion: 3, exclusions: [], suites }, null, 2)}\n`,
   );
 }

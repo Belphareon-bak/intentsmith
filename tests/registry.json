@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "classificationBasis": "Gate 0 path-by-path source inspection at 3a6efa6e41701d85060e7ce1568e4a950fdc1dd7 plus same-commit test-trust repairs",
   "exclusions": [
     {
@@ -9534,7 +9534,18 @@
         "database": true,
         "server": true,
         "ollama": true,
-        "gpu": true
+        "gpu": true,
+        "modelFixture": {
+          "provider": "ollama",
+          "model": "qwen3.5:27b",
+          "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+          "contextWindowTokens": 8192,
+          "minimumFreeVramMiB": 20128,
+          "parallelRequests": 1,
+          "minimumHeadroomMiB": 1024,
+          "minimumGpuResidencyPercent": 100,
+          "fallbackPolicy": "forbid"
+        }
       },
       "required": true,
       "owner": "primary implementer",
@@ -9564,7 +9575,18 @@
         "database": true,
         "server": true,
         "ollama": true,
-        "gpu": true
+        "gpu": true,
+        "modelFixture": {
+          "provider": "ollama",
+          "model": "qwen3.5:27b",
+          "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+          "contextWindowTokens": 8192,
+          "minimumFreeVramMiB": 20128,
+          "parallelRequests": 1,
+          "minimumHeadroomMiB": 1024,
+          "minimumGpuResidencyPercent": 100,
+          "fallbackPolicy": "forbid"
+        }
       },
       "required": true,
       "owner": "primary implementer",
@@ -9594,7 +9616,18 @@
         "database": true,
         "server": true,
         "ollama": true,
-        "gpu": true
+        "gpu": true,
+        "modelFixture": {
+          "provider": "ollama",
+          "model": "qwen3.5:27b",
+          "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+          "contextWindowTokens": 8192,
+          "minimumFreeVramMiB": 20128,
+          "parallelRequests": 1,
+          "minimumHeadroomMiB": 1024,
+          "minimumGpuResidencyPercent": 100,
+          "fallbackPolicy": "forbid"
+        }
       },
       "required": true,
       "owner": "primary implementer",
@@ -10224,7 +10257,18 @@
         "database": true,
         "server": true,
         "ollama": true,
-        "gpu": true
+        "gpu": true,
+        "modelFixture": {
+          "provider": "ollama",
+          "model": "qwen3.5:27b",
+          "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+          "contextWindowTokens": 8192,
+          "minimumFreeVramMiB": 24016,
+          "parallelRequests": 3,
+          "minimumHeadroomMiB": 1024,
+          "minimumGpuResidencyPercent": 100,
+          "fallbackPolicy": "forbid"
+        }
       },
       "required": true,
       "owner": "primary implementer",

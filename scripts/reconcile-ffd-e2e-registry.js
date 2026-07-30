@@ -18,6 +18,37 @@ const EXTERNAL_NETWORK = new Set([10, 51, 206]);
 const OLLAMA_ONLY_SERVER = new Set([14, 16]);
 const MIXED_SERVER_MODEL = new Set();
 const LOCAL_SERVER_ONLY = new Set([56, 60, 63, 80]);
+const QWEN_35_27B_DIGEST = '7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e';
+const MODEL_FIXTURE_PARALLELISM = new Map([
+  [57, 1],
+  [58, 1],
+  [59, 1],
+  [88, 3],
+]);
+
+function modelFixtureFor(number) {
+  const parallelRequests = MODEL_FIXTURE_PARALLELISM.get(number);
+  if (!parallelRequests) return null;
+
+  const modelWeightsMiB = 17_160;
+  const perRequestHeadroomMiB = 1_944;
+  const minimumHeadroomMiB = 1_024;
+  return {
+    provider: 'ollama',
+    model: 'qwen3.5:27b',
+    digestSha256: QWEN_35_27B_DIGEST,
+    contextWindowTokens: 8_192,
+    minimumFreeVramMiB: (
+      modelWeightsMiB
+      + (perRequestHeadroomMiB * parallelRequests)
+      + minimumHeadroomMiB
+    ),
+    parallelRequests,
+    minimumHeadroomMiB,
+    minimumGpuResidencyPercent: 100,
+    fallbackPolicy: 'forbid',
+  };
+}
 
 function suiteId(tier, testPath) {
   const stem = path.basename(testPath, '.e2e.js')
@@ -50,6 +81,7 @@ function metadataFor(testPath, source) {
     || OLLAMA_ONLY_SERVER.has(number)
     || MIXED_SERVER_MODEL.has(number);
   const gpuRequired = !isServer || MIXED_SERVER_MODEL.has(number);
+  const modelFixture = modelFixtureFor(number);
 
   return {
     id: suiteId(tier, testPath),
@@ -73,6 +105,7 @@ function metadataFor(testPath, source) {
       server: true,
       ollama: ollamaRequired,
       gpu: gpuRequired,
+      ...(modelFixture ? { modelFixture } : {}),
     },
     required: true,
     owner: 'primary implementer',

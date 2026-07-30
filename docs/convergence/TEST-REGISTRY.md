@@ -8,6 +8,10 @@ A suite verdict is derived from child exit status, signal, timeout, required
 evidence, and cleanup. Printed assertion totals are metrics only and cannot
 override a failed or blocked suite.
 
+A `modelFixture` requirement is a non-bypassable read-only preflight. It
+pins model digest, allocated context and request concurrency, pre-load free
+VRAM, post-load headroom, GPU residency and fallback policy.
+
 ## Inventory
 
 - Runnable programs: 350
@@ -170,9 +174,9 @@ override a failed or blocked suite.
 | `IS-T3-E2E-54-CHAT-WITH-EXPERTISE` | `tests/e2e/54-chat-with-expertise.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-55-CHAT-WITH-SPECIALIST` | `tests/e2e/55-chat-with-specialist.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-56-CHAT-WITH-PROJECT` | `tests/e2e/56-chat-with-project.e2e.js` | `C3-003` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
-| `IS-T3-E2E-57-LIFECYCLE-FULL` | `tests/e2e/57-lifecycle-full.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T3-E2E-58-CODE-GENERATION` | `tests/e2e/58-code-generation.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T3-E2E-59-CROSS-FEATURE` | `tests/e2e/59-cross-feature.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-57-LIFECYCLE-FULL` | `tests/e2e/57-lifecycle-full.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu, model:qwen3.5:27b@sha256:7653528ba5cb, ctx:8192x1, free-vram:20128MiB, headroom:1024MiB, gpu-residency:100%, fallback:forbid | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-58-CODE-GENERATION` | `tests/e2e/58-code-generation.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu, model:qwen3.5:27b@sha256:7653528ba5cb, ctx:8192x1, free-vram:20128MiB, headroom:1024MiB, gpu-residency:100%, fallback:forbid | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-59-CROSS-FEATURE` | `tests/e2e/59-cross-feature.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu, model:qwen3.5:27b@sha256:7653528ba5cb, ctx:8192x1, free-vram:20128MiB, headroom:1024MiB, gpu-residency:100%, fallback:forbid | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-60-WS-CHAT` | `tests/e2e/60-ws-chat.e2e.js` | `C3-003` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-61-AUTOCOMPLETE` | `tests/e2e/61-autocomplete.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-62-VALIDATION-SUITES` | `tests/e2e/62-validation-suites.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
@@ -193,7 +197,7 @@ override a failed or blocked suite.
 | `IS-T3-E2E-85-LONG-SESSION-DEGRADATION` | `tests/e2e/85-long-session-degradation.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-86-CODE-SEMANTIC-QUALITY` | `tests/e2e/86-code-semantic-quality.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-87-SECURITY-INJECTION` | `tests/e2e/87-security-injection.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T3-E2E-88-CONCURRENT-LOAD` | `tests/e2e/88-concurrent-load.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-88-CONCURRENT-LOAD` | `tests/e2e/88-concurrent-load.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu, model:qwen3.5:27b@sha256:7653528ba5cb, ctx:8192x3, free-vram:24016MiB, headroom:1024MiB, gpu-residency:100%, fallback:forbid | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-89-RESPONSE-USEFULNESS` | `tests/e2e/89-response-usefulness.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-90-LARGE-PROJECT-GENERATION` | `tests/e2e/90-large-project-generation.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-91-MULTI-TURN-PROJECT-BUILD` | `tests/e2e/91-multi-turn-project-build.e2e.js` | `C3-003` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |

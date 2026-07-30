@@ -22,6 +22,7 @@ import {
   loadTestRegistry,
   registryFingerprint,
 } from './test-registry.js';
+import { probeModelFixture } from './model-fixture-preflight.js';
 
 const DEFAULT_OUT_DIR = '.intentsmith-artifacts/test-runs';
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
@@ -155,6 +156,7 @@ function blockersFor(suite) {
   if (suite.requirements.server) blockers.add('server');
   if (suite.requirements.ollama) blockers.add('ollama');
   if (suite.requirements.gpu) blockers.add('gpu');
+  if (suite.requirements.modelFixture) blockers.add('model-fixture');
   if (suite.requirements.network === 'external') blockers.add('external-network');
   return [...blockers].sort();
 }
@@ -286,8 +288,11 @@ export async function runAudit(options = {}) {
       if (!suite) return;
 
       const disallowedBlockers = suite.blockers.filter(blocker => (
-        isHardBlocker(blocker)
+        blocker !== 'model-fixture'
+        && (
+          isHardBlocker(blocker)
         || (!opts.noBlock && !opts.allowBlockers.has(blocker))
+        )
       ));
       let result;
       if (requestedTerminationSignal) {
@@ -299,7 +304,26 @@ export async function runAudit(options = {}) {
       } else if (disallowedBlockers.length) {
         result = makeBlockedResult(suite, sourceRevision, disallowedBlockers);
       } else {
-        result = await runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt });
+        const modelFixturePreflight = suite.requirements.modelFixture
+          ? await runModelFixturePreflight(suite, opts)
+          : null;
+        if (modelFixturePreflight && !modelFixturePreflight.ok) {
+          result = makeBlockedResult(
+            suite,
+            sourceRevision,
+            modelFixturePreflight.issues.map(issue => `model-fixture:${issue.code}`),
+            modelFixturePreflight,
+          );
+        } else {
+          result = await runSuite({
+            suite,
+            opts,
+            sourceRevision,
+            logsDir,
+            deadlineAt,
+            modelFixturePreflight,
+          });
+        }
       }
 
       results.push(result);
@@ -370,7 +394,44 @@ export async function runAudit(options = {}) {
   return report;
 }
 
-async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
+async function runModelFixturePreflight(suite, opts) {
+  const requirement = suite.requirements.modelFixture;
+  const probe = opts.modelFixtureProbe || probeModelFixture;
+  try {
+    const result = await probe(requirement, {
+      ollamaUrl: 'http://127.0.0.1:11434',
+    });
+    if (
+      !result
+      || typeof result !== 'object'
+      || typeof result.ok !== 'boolean'
+      || !Array.isArray(result.issues)
+    ) {
+      throw new Error('probe returned an invalid result');
+    }
+    return result;
+  } catch (error) {
+    return {
+      schemaVersion: 1,
+      ok: false,
+      requirement,
+      observation: null,
+      issues: [{
+        code: 'probe-failed',
+        message: error.message || String(error),
+      }],
+    };
+  }
+}
+
+async function runSuite({
+  suite,
+  opts,
+  sourceRevision,
+  logsDir,
+  deadlineAt,
+  modelFixturePreflight = null,
+}) {
   if (requestedTerminationSignal) {
     return makeSkippedResult(
       suite,
@@ -568,6 +629,7 @@ async function runSuite({ suite, opts, sourceRevision, logsDir, deadlineAt }) {
         retryCount: attempt.retryCount,
         logPath: normalizePath(path.relative(opts.root, logPath)),
         sourceRevision,
+        modelFixturePreflight,
         environment: environment.evidence,
         cleanup,
         sourceTree,
@@ -875,7 +937,12 @@ async function hashFile(filePath) {
   return hash.digest('hex');
 }
 
-function makeBlockedResult(suite, sourceRevision, blockers) {
+function makeBlockedResult(
+  suite,
+  sourceRevision,
+  blockers,
+  modelFixturePreflight = null,
+) {
   const now = new Date().toISOString();
   return {
     id: suite.id,
@@ -893,6 +960,7 @@ function makeBlockedResult(suite, sourceRevision, blockers) {
     timedOut: false,
     status: 'BLOCKED',
     blockedBy: blockers,
+    modelFixturePreflight,
     retryCount: 0,
     logPath: null,
     sourceRevision,

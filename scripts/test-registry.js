@@ -2,9 +2,11 @@ import { createHash } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 
+import { validateModelFixtureRequirement } from './model-fixture-preflight.js';
+
 export const TEST_REGISTRY_PATH = 'tests/registry.json';
 export const TEST_REGISTRY_DOC_PATH = 'docs/convergence/TEST-REGISTRY.md';
-export const TEST_REGISTRY_SCHEMA_VERSION = 2;
+export const TEST_REGISTRY_SCHEMA_VERSION = 3;
 
 export const TEST_PROFILES = [
   'offline',
@@ -23,6 +25,12 @@ const TEST_STATES = new Set([
   'HISTORICAL',
 ]);
 const NETWORK_REQUIREMENTS = new Set(['none', 'loopback', 'external']);
+const MODEL_FIXTURE_REQUIRED_SUITE_IDS = new Set([
+  'IS-T3-E2E-57-LIFECYCLE-FULL',
+  'IS-T3-E2E-58-CODE-GENERATION',
+  'IS-T3-E2E-59-CROSS-FEATURE',
+  'IS-T3-E2E-88-CONCURRENT-LOAD',
+]);
 const EXECUTOR_BY_EXTENSION = new Map([
   ['.js', 'node'],
   ['.cjs', 'node'],
@@ -192,6 +200,25 @@ export function validateTestRegistry(registry, candidates) {
           errors.push(`${label}.requirements.${field} must be boolean`);
         }
       }
+      if (MODEL_FIXTURE_REQUIRED_SUITE_IDS.has(suite.id) && !requirements.modelFixture) {
+        errors.push(`${label}.requirements.modelFixture is required by G0-R020`);
+      }
+      if (requirements.modelFixture !== undefined) {
+        for (const error of validateModelFixtureRequirement(
+          requirements.modelFixture,
+          `${label}.requirements.modelFixture`,
+        )) {
+          errors.push(error);
+        }
+        if (requirements.ollama !== true || requirements.gpu !== true) {
+          errors.push(
+            `${label}.requirements.modelFixture requires ollama=true and gpu=true`,
+          );
+        }
+        if (requirements.network !== 'loopback') {
+          errors.push(`${label}.requirements.modelFixture requires network=loopback`);
+        }
+      }
     }
 
     if (!suite.lastGreen || !Object.hasOwn(suite.lastGreen, 'commit') || !Object.hasOwn(suite.lastGreen, 'artifact')) {
@@ -255,6 +282,10 @@ export function renderTestRegistry(registry) {
     'A suite verdict is derived from child exit status, signal, timeout, required',
     'evidence, and cleanup. Printed assertion totals are metrics only and cannot',
     'override a failed or blocked suite.',
+    '',
+    'A `modelFixture` requirement is a non-bypassable read-only preflight. It',
+    'pins model digest, allocated context and request concurrency, pre-load free',
+    'VRAM, post-load headroom, GPU residency and fallback policy.',
     '',
     '## Inventory',
     '',
@@ -387,6 +418,17 @@ function formatRequirements(requirements) {
   if (requirements.server) values.push('server');
   if (requirements.ollama) values.push('ollama');
   if (requirements.gpu) values.push('gpu');
+  if (requirements.modelFixture) {
+    const fixture = requirements.modelFixture;
+    values.push(
+      `model:${fixture.model}@sha256:${fixture.digestSha256.slice(0, 12)}`,
+      `ctx:${fixture.contextWindowTokens}x${fixture.parallelRequests}`,
+      `free-vram:${fixture.minimumFreeVramMiB}MiB`,
+      `headroom:${fixture.minimumHeadroomMiB}MiB`,
+      `gpu-residency:${fixture.minimumGpuResidencyPercent}%`,
+      `fallback:${fixture.fallbackPolicy}`,
+    );
+  }
   return values.join(', ');
 }
 
