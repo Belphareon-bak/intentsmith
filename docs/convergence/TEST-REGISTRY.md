@@ -126,7 +126,7 @@ override a failed or blocked suite.
 | `IS-T1-TESTS-EXECUTION-LOOP-TEST` | `tests/execution-loop.test.js` | `C3-007` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-EXECUTION-TRACE-STRESS-TEST` | `tests/execution-trace-stress.test.js` | `C3-007` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-EXECUTOR-CAPABILITIES-TEST` | `tests/executor-capabilities.test.js` | `C3-020` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-EXPERTISE-AB-QUALITY-TEST` | `tests/expertise-ab-quality.test.js` | `C3-011` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-EXPERTISE-AB-QUALITY-TEST` | `tests/expertise-ab-quality.test.js` | `C3-011` | T3 | `model` | 10 min | 15 min | network:loopback, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-EXPERTISE-COMPARISON-E2E-B-TEST` | `tests/expertise-comparison-e2e-b.test.js` | `C3-011` | T3 | `model` | 10 min | 15 min | network:external, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-EXPERTISE-COMPARISON-E2E-C-TEST` | `tests/expertise-comparison-e2e-c.test.js` | `C3-011` | T3 | `model` | 10 min | 15 min | network:external, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-EXPERTISE-COMPARISON-E2E-D-TEST` | `tests/expertise-comparison-e2e-d.test.js` | `C3-011` | T3 | `model` | 10 min | 15 min | network:external, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
@@ -182,8 +182,8 @@ override a failed or blocked suite.
 | `IS-T2-TESTS-LIFECYCLE-STRESS-ADVANCED-TEST` | `tests/lifecycle-stress-advanced.test.js` | `C3-005` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-LIFECYCLE-TEST` | `tests/lifecycle.test.js` | `C3-005` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-LLM-GATEWAY-RUNTIME-SIGNAL-TEST` | `tests/llm-gateway-runtime-signal.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-LLM-INTEGRATION-2-TEST` | `tests/llm-integration-2.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-LLM-INTEGRATION-TEST` | `tests/llm-integration.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-LLM-INTEGRATION-2-TEST` | `tests/llm-integration-2.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-LLM-INTEGRATION-TEST` | `tests/llm-integration.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-LOCAL-MATH-NONFINITE-TEST` | `tests/local-math-nonfinite.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MANIFEST-V2-TEST` | `tests/manifest-v2.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MARKETPLACE-CATALOG-V125-TEST` | `tests/marketplace-catalog-v125.test.js` | `C3-022` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
