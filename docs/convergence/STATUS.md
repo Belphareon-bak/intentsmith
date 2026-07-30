@@ -4,8 +4,8 @@
 > Do not hand-edit. The evidence-only attestation commit must have the candidate
 > below as its first parent.
 
-- Generated: 2026-07-30T19:58:58.489Z
-- Candidate: `82dbc3b30ad0c7329182dbe399705d874b004f2e`
+- Generated: 2026-07-30T23:07:13.905Z
+- Candidate: `7c20b722b4dc389267d987b461beed1329744df3`
 - Branch: `codex/intentsmith-1.0`
 - Registry SHA-256: `f6edc6ccff693284ee01ed159e90faea20e94662892d7b84b2f61efdf35e03b5`
 - Gate: **Gate 0 — trustworthy baseline**
@@ -15,15 +15,15 @@
 
 | Clause | Result | Evidence |
 |---|---|---|
-| G0-C1 clean candidate | PASS | all 199 suite records carry clean source-tree evidence at the candidate SHA |
-| G0-C2 disposition | PASS | 225 records; validator exit 0 |
+| G0-C1 clean candidate | PASS | all 9 locked executions started and ended at a clean candidate SHA |
+| G0-C2 disposition | PASS | 225 records; 60/60 repaired subjects; validator exit 0 |
 | G0-C3 registry | PASS | 350 runnable programs and 8 explicit support exclusions; validator exit 0 |
-| G0-C4 clean install | PASS | two consecutive minimal installs, both exit 0; second idempotent |
-| G0-C5 deterministic T1/T2 | PASS | 199 PASS, 0 FAIL/TIMEOUT/BLOCKED/SKIPPED |
+| G0-C4 clean install | PASS | two consecutive locked minimal installs, both exit 0 against the same isolated cache |
+| G0-C5 deterministic T1/T2 | PASS | 199 deterministic PASS; 5/5 pilot PASS; deterministic verdict PASS/exit 0 |
 | G0-C6 defective suites excluded | PASS | 0 registry rows are KNOWN_DEFECTIVE; none appears in green deterministic evidence |
-| G0-C7 blockers specific | PASS | every registry BLOCKED row names server, external-network, Ollama, or GPU |
-| G0-C8 generated evidence | PASS | status, index, baseline report, and review packet derive from the clean candidate |
-| G0-C9 risk impact policy | PASS | 27 risk rows have validated machine-readable gateImpact entries |
+| G0-C7 blockers specific | PASS | every registry BLOCKED row names a concrete prerequisite; all five soak guards name gpu and ollama |
+| G0-C8 generated evidence | PASS | typed producer provenance .intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/provenance.json is bound by SHA-256 8d32aa50fa2642700843cc27d7e03dbe216d0f01e9b8c96d49c221c6ff6f5ada |
+| G0-C9 risk impact policy | PASS | 28 risk rows have validated machine-readable gateImpact entries |
 
 ## Registry
 

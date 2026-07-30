@@ -2,9 +2,9 @@
 
 ## Review boundary
 
-- Candidate: `82dbc3b30ad0c7329182dbe399705d874b004f2e`
+- Candidate: `7c20b722b4dc389267d987b461beed1329744df3`
 - Registry SHA-256: `f6edc6ccff693284ee01ed159e90faea20e94662892d7b84b2f61efdf35e03b5`
-- Focus range: `c4dc987a1a8c4c825e45c91fb437716efa007be1..82dbc3b30ad0c7329182dbe399705d874b004f2e`
+- Focus range: `f11026f062e5d2e75fe6802a3e4e2ad38a6c9dab..7c20b722b4dc389267d987b461beed1329744df3`
 - Role: read-only reviewer; do not modify the branch
 
 The earlier large E2E reconstruction is represented by the current
@@ -23,188 +23,54 @@ verdict machinery.
 
 | Clause | Result | Evidence |
 |---|---|---|
-| G0-C1 clean candidate | PASS | all 199 suite records carry clean source-tree evidence at the candidate SHA |
-| G0-C2 disposition | PASS | 225 records; validator exit 0 |
+| G0-C1 clean candidate | PASS | all 9 locked executions started and ended at a clean candidate SHA |
+| G0-C2 disposition | PASS | 225 records; 60/60 repaired subjects; validator exit 0 |
 | G0-C3 registry | PASS | 350 runnable programs and 8 explicit support exclusions; validator exit 0 |
-| G0-C4 clean install | PASS | two consecutive minimal installs, both exit 0; second idempotent |
-| G0-C5 deterministic T1/T2 | PASS | 199 PASS, 0 FAIL/TIMEOUT/BLOCKED/SKIPPED |
+| G0-C4 clean install | PASS | two consecutive locked minimal installs, both exit 0 against the same isolated cache |
+| G0-C5 deterministic T1/T2 | PASS | 199 deterministic PASS; 5/5 pilot PASS; deterministic verdict PASS/exit 0 |
 | G0-C6 defective suites excluded | PASS | 0 registry rows are KNOWN_DEFECTIVE; none appears in green deterministic evidence |
-| G0-C7 blockers specific | PASS | every registry BLOCKED row names server, external-network, Ollama, or GPU |
-| G0-C8 generated evidence | PASS | status, index, baseline report, and review packet derive from the clean candidate |
-| G0-C9 risk impact policy | PASS | 27 risk rows have validated machine-readable gateImpact entries |
+| G0-C7 blockers specific | PASS | every registry BLOCKED row names a concrete prerequisite; all five soak guards name gpu and ollama |
+| G0-C8 generated evidence | PASS | typed producer provenance .intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/provenance.json is bound by SHA-256 8d32aa50fa2642700843cc27d7e03dbe216d0f01e9b8c96d49c221c6ff6f5ada |
+| G0-C9 risk impact policy | PASS | 28 risk rows have validated machine-readable gateImpact entries |
 
 ## Commits
 
-- `5fd7c6dde56b27a526ae6fc49716cbf882b17953` fix(chat): preserve immutable self-refinement
-- `2bceebfbd2a235cf79640fdcb5f102fb7a471ba4` docs(gate0): record G0-R023 repair evidence
-- `cda6995dce73ab752cacdbd996875c9935e59b21` test(chat): bind refinement through controller persistence
-- `b05f2e577d22c2f87839559337c2a125adf0d9a2` docs(gate0): record controller refinement mutation proof
-- `217df1dc8bbc89c9f5741ef12ce823b13f6789b6` fix: fail closed on provider outages
-- `f1c6ce0f4b76921399be6d00a10ceeb01c0f8066` docs: record G0-R025 closure evidence
-- `bbec76355eeb43324a6ee7c25c758e3abeaf242e` fix(chat): exclude terminal output from session history
-- `d79a8059e018312a917b268b156aeee80d27a3c6` docs(gate0): close G0-R025 history residual
-- `968d6d366d5c5d0e8dfd1e3214448907d0f89348` fix(gate0): fail closed on implicit database imports
-- `8add10b4515dee6022e8d0b862f365cbbab58005` test(gate0): fail route smoke on factory exceptions
-- `660db9c5173081a0b9bc79fa62a37988c7f3ba5a` fix(gate0): fail milestone execution closed
-- `38f3ed34144be4440c09fcd1a2792a838a94fceb` docs(gate0): record R019 exact replay
-- `c82b67701a64d4d3eb479ecb71ab6a3360f07dab` fix(gate0): derive verdict from risk impact policy
-- `2c2fd256526a6ae7a5b9f84e2636f4ba0f9a49b5` docs(gate0): align risk policy with repaired findings
-- `0c46c8fccf7fe9db2096ddccf27305bb29759be6` docs(gate0): restore Czech README diacritics
-- `ecbacffcd27a5fd63e5e7278a7dc2239286b3ffc` test(gate0): enforce pinned model fixture preflight
-- `4dec1d5681feea938bae28a377a33aec53e6b1f5` docs(gate0): record G0-R020 preflight evidence
-- `bae8106d0c137437162c05b03d441d7824a888b1` docs(gate0): refresh current test-trust state
-- `6027e3b93c50998934b81e24b7a5770ac79d8600` test: isolate direct-run harness runtimes
-- `96b8e9439e0d1492678ae404511a391ab7d58afc` test(gate0): isolate fixed-path unit writers
-- `8b058076991b67af6eaed7dad7a68a35e40d3b32` docs(gate0): record R014 isolation evidence
-- `73c5f78259ed718e7c6c98c675e39a135568efe5` docs(gate0): record first fixed-writer isolation batch
-- `1a0b77946de0af7f195040d512c2a350e259a541` fix(gate0): fail npm audit errors closed
-- `ed538b8ed0c250ed8d11fd227a799f1358595138` docs(gate0): record G0-R027 mutation evidence
-- `d1305da3b34e0dbe44852e1b2fc9c8fcbfc90a00` test(gate0): keep npm audit fixture ESM-safe
-- `11e31b1f23b6c609579b6cbe9e1e36ae3c3c20bd` docs(gate0): record R014 and npm fixture interaction
-- `6c2360beb720aa9f6b74a84f8c4ca7ac201b409d` test: harden attachment server boundary
-- `e78290776cd2b30bd46465adbe9f8abcb0a4ad60` test(gate0): bootstrap direct database suites
-- `6a330a8b9b06e7d8acdc1bdf2ac87a4d1f7291cb` test(gate0): isolate custom filesystem writers
-- `c1aeb17c67a4f912c5d1e4161c0c1796f9e79f35` test(gate0): prove attachment server ownership
-- `c4ced49d9f5a39ffc9ec19b73718314e7bd61e78` docs(gate0): record attachment ownership proof
-- `9322c7f6a1213f49e1b4dccbc2d3badd9043cc7b` docs(gate0): record custom writer isolation evidence
-- `ab0b9e5601cf8256684304832cedb326f1015ef2` test(gate0): bind attachment server capability
-- `dec8cc1fe553df959cd5bde1179b85cd5bc8edb0` docs(gate0): record server capability rerun
-- `fab974eda32bcdb62941f91d697600af1bdbedcb` test(gate0): pin attachment capability wiring
-- `1aea988fe2ff8e7c5c2de4b9908d1e19ddf84831` docs(gate0): record capability mutation evidence
-- `b381f7f530e2a19127e12bcb04f80acd9c89b16f` docs(gate0): close direct-run isolation risk
-- `9d93507fb336e4f5867a3b5bbf469a3172858081` docs(gate0): attest direct-run risk closure
-- `aff2d475004d0851e09d55af2ee1615e08927962` test(gate0): align E2E helper audit isolation
-- `82dbc3b30ad0c7329182dbe399705d874b004f2e` docs(gate0): attest helper audit repair
+- `ec19fa4f603859cd7785bd508ab2c258b4b395b9` fix(gate0): reject stale disposition identity claims
+- `e859267f4718e3feb03813df317c891fdeba5ca5` docs(gate0): refresh terminal evidence provenance
+- `1c40dfa1eae6c4e27ed12c257f7d12886d19ea80` fix(gate0): emit portable evidence replay commands
+- `213e9f109e61bbfdbbfca0e4c6610cad96bb3339` test(gate0): bind root docs to current inventories
+- `6bf5166d21c4ccc1b4272da0cf6c89e8c46cc2eb` fix(gate0): bind repaired disposition subjects
+- `855fb80095b8f571303fa58ac992a51da3865f6f` gate0: bind reproducible evidence to candidate
+- `b594f30a44c8821e451102e1e4d84a04caf86fbc` fix(gate0): isolate install project directory
+- `7c20b722b4dc389267d987b461beed1329744df3` fix(gate0): remove audit direct-test sibling
 
 ## Diffstat
 
 ```text
-CLAUDE.md                                          |   2 +-
- README.md                                          |   2 +-
- docs/API-REFERENCE.md                              |  18 +-
- docs/ARCHITECTURE.md                               |   6 +-
- docs/README.md                                     | 137 ++--
- docs/ROADMAP.md                                    |  51 +-
- docs/WS-PROTOCOL.md                                |  12 +
- docs/convergence/DECISIONS.md                      |   1 +
- docs/convergence/FINAL-COMMIT-DISPOSITION.md       |   2 +-
- docs/convergence/GATE-CRITERIA.md                  |  43 +-
- .../convergence/GATE0-EVIDENCE-GENERATOR-REPAIR.md |   9 +-
- docs/convergence/GATE0-G0-R012-EVIDENCE.md         |  52 ++
- .../GATE0-G0-R014-ATTACHMENTS-EVIDENCE.md          | 334 ++++++++
- .../GATE0-G0-R014-CUSTOM-WRITERS-EVIDENCE.md       | 160 ++++
- .../GATE0-G0-R014-DIRECT-RUN-ISOLATION-EVIDENCE.md | 490 ++++++++++++
- docs/convergence/GATE0-G0-R019-EVIDENCE.md         | 133 ++++
- docs/convergence/GATE0-G0-R020-EVIDENCE.md         | 148 ++++
- docs/convergence/GATE0-G0-R023-EVIDENCE.md         | 124 +++
- docs/convergence/GATE0-G0-R025-EVIDENCE.md         | 243 ++++++
- docs/convergence/GATE0-G0-R026-EVIDENCE.md         |  26 +
- docs/convergence/GATE0-G0-R027-EVIDENCE.md         | 117 +++
- docs/convergence/GATE0-GPU-OBSERVATION.md          |   9 +-
- docs/convergence/GATE0-RISK-IMPACT.json            | 148 ++++
- docs/convergence/RISK-REGISTER.md                  |  20 +-
- docs/convergence/TEST-REGISTRY.md                  |  12 +-
- docs/nightly-audit.md                              |  23 +-
- docs/tools/REGISTRY.md                             |  20 +-
- scripts/gate0-evidence-verdict.js                  | 204 ++++-
- scripts/generate-gate0-evidence.js                 |  55 +-
- scripts/model-fixture-preflight.js                 | 307 ++++++++
- scripts/nightly-audit.js                           |  82 +-
- scripts/nightly-orchestrator.js                    |   3 +-
- scripts/reconcile-ffd-e2e-registry.js              |  33 +
- scripts/test-registry.js                           |  44 +-
- src/chat/controller.js                             | 123 +--
- src/chat/response-finalizer.js                     | 153 ++++
- src/config.js                                      |   4 +-
- src/core/chat-turn-error.js                        |  83 ++
- src/db/database-path.js                            |  10 +
- src/db/database.js                                 |   3 +-
- src/planner/lifecycle-build.js                     |  37 +-
- src/routes/chat.js                                 |  18 +
- src/runtime-environment.js                         |  17 +
- src/server-port-file.js                            |  19 +
- src/server.js                                      |  25 +-
- src/tools/npm-audit.js                             | 276 +++++++
- src/tools/registry.js                              |  78 +-
- src/ws-bridge/session-adapter.js                   |  19 +-
- tests/adversarial-cre.test.js                      |   2 +
- tests/agent-wizard.test.js                         |   2 +
- tests/architecture-policy.test.js                  |   9 +-
- tests/archive-lifecycle.test.js                    |   1 +
- tests/artifact-validation.test.js                  | 307 +++++++-
- tests/attachments-projects.test.js                 | 608 +++++++++++++--
- tests/build-handoff.test.js                        |   2 +
- tests/build-patterns.test.js                       |   2 +
- tests/build-routing-project-mode.test.js           |   2 +
- tests/chat-export-budget.test.js                   |  52 +-
- tests/chat-pipeline.test.js                        |   2 +
- tests/chat-search-quality.test.js                  |   2 +
- tests/chat-synthesis-hardening.test.js             |   2 +
- tests/conv-czech-nodiacritics.test.js              |   2 +
- tests/conv-czech.test.js                           |   2 +
- tests/conv-english.test.js                         |   2 +
- tests/cre-comprehensive.test.js                    |   2 +
- tests/cre-dialog-scenarios.test.js                 |   2 +
- tests/cre-followup-diagnostic.test.js              |   2 +
- tests/cre-gatekeeper.test.js                       |   2 +
- tests/cre-guard-interactions.test.js               |   2 +
- tests/cre-report-sticky-break.test.js              |   1 +
- tests/design-sprint34.test.js                      |   2 +
- tests/design-tests.test.js                         |   2 +
- tests/e2e-harness-isolation.test.js                |  87 ++-
- tests/e2e-harness.js                               |  16 +-
- tests/e2e-resilience.test.js                       |   2 +
- tests/e2e/220-e2e-suite-runner.js                  |  13 +
- tests/e2e/60-ws-chat.e2e.js                        | 125 +++
- tests/e2e/_helpers.self-check.js                   |  25 +-
- tests/execution-loop.test.js                       |   5 +-
- tests/executor-capabilities.test.js                |   2 +
- tests/expertise-ab-quality.test.js                 |   2 +
- tests/expertise-comparison-e2e-b.test.js           |   2 +
- tests/expertise-comparison-e2e-c.test.js           |   2 +
- tests/expertise-comparison-e2e-d.test.js           |   2 +
- tests/expertise-comparison-e2e-e.test.js           |   2 +
- tests/expertise-comparison-e2e.test.js             |   2 +
- tests/expertise-routing-correctness.test.js        |   2 +
- tests/export-pdf-docx.test.js                      |  15 +-
- tests/fixes-v582.test.js                           |   2 +
- tests/harness-exit-code.test.js                    | 851 ++++++++++++++++++++-
- tests/harness.js                                   |   2 +
- tests/helpers/isolated-test-db.js                  | 383 +++++++++-
- tests/lifecycle-analysis-e2e.test.js               |   2 +
- tests/lifecycle-android-app-e2e.test.js            |   2 +
- tests/lifecycle-build.test.js                      |  54 ++
- tests/lifecycle-cookbook-e2e.test.js               |   2 +
- tests/lifecycle-db.test.js                         |   2 +
- tests/lifecycle-e2e.test.js                        |  20 +-
- tests/lifecycle-handoff.test.js                    |   2 +
- tests/lifecycle-human-friction.test.js             |  86 ++-
- tests/lifecycle-imagegen-e2e.test.js               |   2 +
- tests/lifecycle-klicenka-e2e.test.js               |   2 +
- tests/lifecycle-review-change.test.js              |   2 +
- tests/lifecycle.test.js                            |   2 +
- tests/marketplace.test.js                          |  25 +-
- tests/nightly-audit-runner-self-test.js            | 421 +++++++++-
- tests/pilot-c1c2c3.test.js                         |   2 +
- tests/project-kb-decomposer.test.js                |  22 +-
- tests/quality-gates.test.js                        |   2 +
- tests/quality-score.test.js                        |   2 +
- tests/registry.json                                |  54 +-
- tests/routes-smoke.test.js                         |  60 +-
- tests/routing-accuracy.test.js                     |   2 +
- tests/session-context.test.js                      |   2 +
- tests/signature-cache.test.js                      |   6 +-
- tests/skill-meta-detection.test.js                 |   2 +
- tests/skill-routing-cre.test.js                    |   2 +
- tests/smoke.test.js                                |   2 +
- tests/specialist-loader.test.js                    |   1 +
- tests/telemetry-aggregation-version.test.js        |   1 +
- tests/telemetry-soak.test.js                       |   2 +
- tests/tool-registry-e2e.test.js                    | 262 ++++++-
- tests/upgrade-ux-v125.test.js                      |  58 +-
- tests/v583-tier1.test.js                           |   2 +
- tests/ws-bridge.test.js                            | 464 +++++++++++
- 125 files changed, 7508 insertions(+), 555 deletions(-)
+docs/convergence/DECISIONS.md                      |    5 +-
+ .../FINAL-COMMIT-DISPOSITION-SUBJECTS.json         |   74 +
+ docs/convergence/FINAL-COMMIT-DISPOSITION.md       |   56 +-
+ docs/convergence/GATE-CRITERIA.md                  |   87 +-
+ docs/convergence/GATE0-EVIDENCE-CORRECTION.md      |   77 +
+ docs/convergence/GATE0-RISK-IMPACT.json            |    5 +
+ docs/convergence/RISK-REGISTER.md                  |    5 +-
+ docs/nightly-audit.md                              |   66 +-
+ package.json                                       |    2 +
+ scripts/gate0-evidence-contract.js                 |  711 +++++++
+ scripts/gate0-evidence-projections.js              |  351 ++++
+ scripts/gate0-evidence-verdict.js                  |   47 +-
+ scripts/generate-gate0-evidence.js                 | 1219 ++++++++----
+ scripts/install.sh                                 |    3 +-
+ scripts/nightly-audit.js                           |   12 +-
+ scripts/nightly-orchestrator.js                    |   15 +-
+ scripts/run-gate0-candidate-evidence.js            |  691 +++++++
+ scripts/test-registry.js                           |   16 +
+ scripts/validate-final-disposition.js              |  369 +++-
+ scripts/validate-gate0-attestation.js              | 1096 +++++++++++
+ tests/artifact-validation.test.js                  | 2059 +++++++++++++++++++-
+ tests/harness-exit-code.test.js                    |   15 +
+ tests/nightly-orchestrator-self-test.js            |   40 +-
+ 23 files changed, 6591 insertions(+), 430 deletions(-)
 ```
 
 ## Invariants
@@ -220,31 +86,41 @@ CLAUDE.md                                          |   2 +-
 
 ## Verification
 
-- Deterministic registry: 199 PASS, exit 0, report SHA
-  `0b7a943c2b1f2a050d6ef0be547448fe71d23f2e695fefa429078a1e1898104e`.
-- Pilot A9: five consecutive PASS reports:
-  - `pilot-82dbc3-01`: report `19cad01a0d3368a19be5c973d7825befbd631e964700529edb109d473858bd9f`; command `env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-82dbc3-01 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1`
-  - `pilot-82dbc3-02`: report `1cb1f08a731adbfce2d964c5cfda56aa3ba1de103c2e94d5616871005f1a6214`; command `env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-82dbc3-02 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1`
-  - `pilot-82dbc3-03`: report `8c978d7bad56eb98e606cd46b66a98556562dc037ae341afbcbcf89e6cb2e4d1`; command `env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-82dbc3-03 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1`
-  - `pilot-82dbc3-04`: report `742fddd5d472344fe86fd7658f948cbc9f678ce587cc4ece4ce15de46584ae23`; command `env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-82dbc3-04 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1`
-  - `pilot-82dbc3-05`: report `c951f14a6525d2b8d20b1597583882d8e26587096bc8550415ff7113190b7bb6`; command `env INTENTSMITH_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python C3_PDF_PYTHON=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/install-root/xdg-data/intentsmith/python/pdf/bin/python node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-82dbc3-05 --out-dir=/home/belphareon/Projects/intentsmith-gate0-candidate-3WIQMa/repository/.intentsmith-artifacts/gate0/candidate-82dbc3b/pilot-five --timeout-minutes=5 --deadline-hours=1 --concurrency=1`
+- Deterministic registry: PASS, exit
+  0, status
+  `{"PASS":199,"FAIL":0,"TIMEOUT":0,"BLOCKED":0,"SKIPPED":0}`, report SHA
+  `d9993a63017bb1daa09c056cc63d0004b2c43ce7b13e5603350d904cbaed11d7`; locked replay
+  `env -i PATH="${PATH-}" SYSTEMROOT="${SYSTEMROOT-}" WINDIR="${WINDIR-}" PATHEXT="${PATHEXT-}" COMSPEC="${COMSPEC-}" HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/home" XDG_CONFIG_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-config" XDG_CACHE_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-cache" XDG_DATA_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data" XDG_STATE_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-state" TMPDIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" TMP="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" TEMP="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" GIT_CONFIG_GLOBAL="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/gitconfig" GIT_CONFIG_NOSYSTEM=1 npm_config_cache="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/npm-cache" YARN_CACHE_FOLDER="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/yarn-cache" PIP_CACHE_DIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/pip-cache" COREPACK_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/corepack" C3_DB_PATH="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/install.sqlite" C3_PROJECTS_DIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/projects" C3_PORT_FILE="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/intentsmith.port" C3_LIFECYCLE_AUTO_COMMIT=false C3_ENABLE_AUTONOMY=false C3_LOG_LEVEL=warn NODE_ENV=test CI=1 NO_COLOR=1 LANG=C.UTF-8 LC_ALL=C.UTF-8 TZ=UTC PYTHONNOUSERSITE=1 INTENTSMITH_PDF_PYTHON="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data/intentsmith/python/pdf/bin/python" C3_PDF_PYTHON="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data/intentsmith/python/pdf/bin/python" node scripts/nightly-audit.js --profile=offline,database --run-id=deterministic-7c20b722b4dc389267d987b461beed1329744df3 --out-dir=.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/deterministic --timeout-minutes=10 --deadline-hours=8 --concurrency=1`.
+- Pilot A9: five consecutive structured reports:
+  - `pilot-01-7c20b722b4dc389267d987b461beed1329744df3`: PASS/exit 0; report `c2c89914b3b45c466db9f07f8c8730e555443ee0f5dabc08a49af8b400734361`; replay `env -i PATH="${PATH-}" SYSTEMROOT="${SYSTEMROOT-}" WINDIR="${WINDIR-}" PATHEXT="${PATHEXT-}" COMSPEC="${COMSPEC-}" HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/home" XDG_CONFIG_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-config" XDG_CACHE_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-cache" XDG_DATA_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data" XDG_STATE_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-state" TMPDIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" TMP="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" TEMP="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" GIT_CONFIG_GLOBAL="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/gitconfig" GIT_CONFIG_NOSYSTEM=1 npm_config_cache="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/npm-cache" YARN_CACHE_FOLDER="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/yarn-cache" PIP_CACHE_DIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/pip-cache" COREPACK_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/corepack" C3_DB_PATH="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/install.sqlite" C3_PROJECTS_DIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/projects" C3_PORT_FILE="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/intentsmith.port" C3_LIFECYCLE_AUTO_COMMIT=false C3_ENABLE_AUTONOMY=false C3_LOG_LEVEL=warn NODE_ENV=test CI=1 NO_COLOR=1 LANG=C.UTF-8 LC_ALL=C.UTF-8 TZ=UTC PYTHONNOUSERSITE=1 INTENTSMITH_PDF_PYTHON="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data/intentsmith/python/pdf/bin/python" C3_PDF_PYTHON="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data/intentsmith/python/pdf/bin/python" node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-01-7c20b722b4dc389267d987b461beed1329744df3 --out-dir=.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/pilot --timeout-minutes=5 --deadline-hours=1 --concurrency=1`
+  - `pilot-02-7c20b722b4dc389267d987b461beed1329744df3`: PASS/exit 0; report `92a2faf6401717a2fb4226b01a9e25e05602e5cafbe5647c2c0f9738dfb5540b`; replay `env -i PATH="${PATH-}" SYSTEMROOT="${SYSTEMROOT-}" WINDIR="${WINDIR-}" PATHEXT="${PATHEXT-}" COMSPEC="${COMSPEC-}" HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/home" XDG_CONFIG_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-config" XDG_CACHE_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-cache" XDG_DATA_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data" XDG_STATE_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-state" TMPDIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" TMP="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" TEMP="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" GIT_CONFIG_GLOBAL="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/gitconfig" GIT_CONFIG_NOSYSTEM=1 npm_config_cache="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/npm-cache" YARN_CACHE_FOLDER="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/yarn-cache" PIP_CACHE_DIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/pip-cache" COREPACK_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/corepack" C3_DB_PATH="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/install.sqlite" C3_PROJECTS_DIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/projects" C3_PORT_FILE="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/intentsmith.port" C3_LIFECYCLE_AUTO_COMMIT=false C3_ENABLE_AUTONOMY=false C3_LOG_LEVEL=warn NODE_ENV=test CI=1 NO_COLOR=1 LANG=C.UTF-8 LC_ALL=C.UTF-8 TZ=UTC PYTHONNOUSERSITE=1 INTENTSMITH_PDF_PYTHON="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data/intentsmith/python/pdf/bin/python" C3_PDF_PYTHON="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data/intentsmith/python/pdf/bin/python" node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-02-7c20b722b4dc389267d987b461beed1329744df3 --out-dir=.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/pilot --timeout-minutes=5 --deadline-hours=1 --concurrency=1`
+  - `pilot-03-7c20b722b4dc389267d987b461beed1329744df3`: PASS/exit 0; report `22076f88874eeef4d9d4f901c42c0964384a45af6954847bed23b918324c24ad`; replay `env -i PATH="${PATH-}" SYSTEMROOT="${SYSTEMROOT-}" WINDIR="${WINDIR-}" PATHEXT="${PATHEXT-}" COMSPEC="${COMSPEC-}" HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/home" XDG_CONFIG_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-config" XDG_CACHE_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-cache" XDG_DATA_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data" XDG_STATE_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-state" TMPDIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" TMP="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" TEMP="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" GIT_CONFIG_GLOBAL="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/gitconfig" GIT_CONFIG_NOSYSTEM=1 npm_config_cache="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/npm-cache" YARN_CACHE_FOLDER="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/yarn-cache" PIP_CACHE_DIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/pip-cache" COREPACK_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/corepack" C3_DB_PATH="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/install.sqlite" C3_PROJECTS_DIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/projects" C3_PORT_FILE="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/intentsmith.port" C3_LIFECYCLE_AUTO_COMMIT=false C3_ENABLE_AUTONOMY=false C3_LOG_LEVEL=warn NODE_ENV=test CI=1 NO_COLOR=1 LANG=C.UTF-8 LC_ALL=C.UTF-8 TZ=UTC PYTHONNOUSERSITE=1 INTENTSMITH_PDF_PYTHON="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data/intentsmith/python/pdf/bin/python" C3_PDF_PYTHON="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data/intentsmith/python/pdf/bin/python" node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-03-7c20b722b4dc389267d987b461beed1329744df3 --out-dir=.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/pilot --timeout-minutes=5 --deadline-hours=1 --concurrency=1`
+  - `pilot-04-7c20b722b4dc389267d987b461beed1329744df3`: PASS/exit 0; report `70729554a6625783f556e0d6bf6c323cc84ae858864a607eb1130ca8f3c0bb0b`; replay `env -i PATH="${PATH-}" SYSTEMROOT="${SYSTEMROOT-}" WINDIR="${WINDIR-}" PATHEXT="${PATHEXT-}" COMSPEC="${COMSPEC-}" HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/home" XDG_CONFIG_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-config" XDG_CACHE_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-cache" XDG_DATA_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data" XDG_STATE_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-state" TMPDIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" TMP="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" TEMP="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" GIT_CONFIG_GLOBAL="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/gitconfig" GIT_CONFIG_NOSYSTEM=1 npm_config_cache="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/npm-cache" YARN_CACHE_FOLDER="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/yarn-cache" PIP_CACHE_DIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/pip-cache" COREPACK_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/corepack" C3_DB_PATH="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/install.sqlite" C3_PROJECTS_DIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/projects" C3_PORT_FILE="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/intentsmith.port" C3_LIFECYCLE_AUTO_COMMIT=false C3_ENABLE_AUTONOMY=false C3_LOG_LEVEL=warn NODE_ENV=test CI=1 NO_COLOR=1 LANG=C.UTF-8 LC_ALL=C.UTF-8 TZ=UTC PYTHONNOUSERSITE=1 INTENTSMITH_PDF_PYTHON="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data/intentsmith/python/pdf/bin/python" C3_PDF_PYTHON="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data/intentsmith/python/pdf/bin/python" node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-04-7c20b722b4dc389267d987b461beed1329744df3 --out-dir=.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/pilot --timeout-minutes=5 --deadline-hours=1 --concurrency=1`
+  - `pilot-05-7c20b722b4dc389267d987b461beed1329744df3`: PASS/exit 0; report `58fee2c123d1b6f0caa8cb4945042826ac816e12d04afb100b8fbde1158c8f7d`; replay `env -i PATH="${PATH-}" SYSTEMROOT="${SYSTEMROOT-}" WINDIR="${WINDIR-}" PATHEXT="${PATHEXT-}" COMSPEC="${COMSPEC-}" HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/home" XDG_CONFIG_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-config" XDG_CACHE_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-cache" XDG_DATA_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data" XDG_STATE_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-state" TMPDIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" TMP="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" TEMP="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" GIT_CONFIG_GLOBAL="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/gitconfig" GIT_CONFIG_NOSYSTEM=1 npm_config_cache="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/npm-cache" YARN_CACHE_FOLDER="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/yarn-cache" PIP_CACHE_DIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/pip-cache" COREPACK_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/corepack" C3_DB_PATH="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/install.sqlite" C3_PROJECTS_DIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/projects" C3_PORT_FILE="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/intentsmith.port" C3_LIFECYCLE_AUTO_COMMIT=false C3_ENABLE_AUTONOMY=false C3_LOG_LEVEL=warn NODE_ENV=test CI=1 NO_COLOR=1 LANG=C.UTF-8 LC_ALL=C.UTF-8 TZ=UTC PYTHONNOUSERSITE=1 INTENTSMITH_PDF_PYTHON="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data/intentsmith/python/pdf/bin/python" C3_PDF_PYTHON="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data/intentsmith/python/pdf/bin/python" node scripts/nightly-audit.js --suite=IS-T2-TESTS-PILOT-C1C2C3-TEST --run-id=pilot-05-7c20b722b4dc389267d987b461beed1329744df3 --out-dir=.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/pilot --timeout-minutes=5 --deadline-hours=1 --concurrency=1`
 - Soak requirement guard: BLOCKED, exit
-  2, prerequisites `gpu, ollama`.
+  2, prerequisites `gpu, ollama`;
+  replay `env -i PATH="${PATH-}" SYSTEMROOT="${SYSTEMROOT-}" WINDIR="${WINDIR-}" PATHEXT="${PATHEXT-}" COMSPEC="${COMSPEC-}" HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/home" XDG_CONFIG_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-config" XDG_CACHE_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-cache" XDG_DATA_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data" XDG_STATE_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-state" TMPDIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" TMP="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" TEMP="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" GIT_CONFIG_GLOBAL="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/gitconfig" GIT_CONFIG_NOSYSTEM=1 npm_config_cache="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/npm-cache" YARN_CACHE_FOLDER="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/yarn-cache" PIP_CACHE_DIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/pip-cache" COREPACK_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/corepack" C3_DB_PATH="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/install.sqlite" C3_PROJECTS_DIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/projects" C3_PORT_FILE="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/intentsmith.port" C3_LIFECYCLE_AUTO_COMMIT=false C3_ENABLE_AUTONOMY=false C3_LOG_LEVEL=warn NODE_ENV=test CI=1 NO_COLOR=1 LANG=C.UTF-8 LC_ALL=C.UTF-8 TZ=UTC PYTHONNOUSERSITE=1 INTENTSMITH_PDF_PYTHON="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data/intentsmith/python/pdf/bin/python" C3_PDF_PYTHON="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data/intentsmith/python/pdf/bin/python" node scripts/nightly-audit.js --suite=IS-T5-TESTS-SOAK-ATTACHMENT-HEAVY-TEST,IS-T5-TESTS-SOAK-BREAK-PATTERN-PROBE-TEST,IS-T5-TESTS-SOAK-FOLLOWUP-LOAD-TEST,IS-T5-TESTS-SOAK-MIXED-SESSION-SIMULATION-TEST,IS-T5-TESTS-SOAK-SHORT-INPUT-STRESS-TEST --run-id=soak-guard-7c20b722b4dc389267d987b461beed1329744df3 --out-dir=.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/soak --timeout-minutes=60 --deadline-hours=1 --concurrency=1`.
 - Registry and disposition validator exits: 0 and 0.
-- Clean install: two consecutive exit-0 runs from the candidate.
+- Clean install exits: clean=0, repeat=0;
+  replay `env -i PATH="${PATH-}" SYSTEMROOT="${SYSTEMROOT-}" WINDIR="${WINDIR-}" PATHEXT="${PATHEXT-}" COMSPEC="${COMSPEC-}" HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/home" XDG_CONFIG_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-config" XDG_CACHE_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-cache" XDG_DATA_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-data" XDG_STATE_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/xdg-state" TMPDIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" TMP="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" TEMP="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/tmp" GIT_CONFIG_GLOBAL="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/gitconfig" GIT_CONFIG_NOSYSTEM=1 npm_config_cache="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/npm-cache" YARN_CACHE_FOLDER="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/yarn-cache" PIP_CACHE_DIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/pip-cache" COREPACK_HOME="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/corepack" C3_DB_PATH="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/install.sqlite" C3_PROJECTS_DIR="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/projects" C3_PORT_FILE="${PWD}/.intentsmith-artifacts/gate0/candidate-7c20b722b4dc389267d987b461beed1329744df3/install-root/runtime/intentsmith.port" C3_LIFECYCLE_AUTO_COMMIT=false C3_ENABLE_AUTONOMY=false C3_LOG_LEVEL=warn NODE_ENV=test CI=1 NO_COLOR=1 LANG=C.UTF-8 LC_ALL=C.UTF-8 TZ=UTC PYTHONNOUSERSITE=1 ./scripts/install.sh --minimal`.
+- Disposition: 225 rows; terminals
+  `DEFERRED(external-network+owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` 1, `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` 30, `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+three-request-gpu-headroom)` 1, `REPAIRED` 60; repaired subjects
+  60/
+  60, digest
+  `95188ae39a57e04531ac2b92fabe4174c9255e419d0a47e11e43cd45dd056897`.
 
 ## Known risks
 
 - Registry discovery is extension-based and every support/aggregate file is an
   explicit reasoned exclusion.
-- Product DB opening remains an import side effect (`G0-R012`), although the
-  authoritative runner supplies isolated DB paths.
+- Runtime DB access fails closed without an explicit `C3_DB_PATH`, and the
+  authoritative runner supplies isolated DB paths (`G0-R012`).
 - 0 recovered E2E suites remain
   `KNOWN_DEFECTIVE`; 79 remain registry-`BLOCKED`.
 - Privacy history remains reachable and credential rotation is pending.
 - Repository-local Gate 0 blockers: none.
-- Gate-impact policy: valid; 27
-  risk rows and 27 policy entries.
+- Gate-impact policy: valid; 28
+  risk rows and 28 policy entries.
 
 ## Questions
 
