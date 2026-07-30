@@ -89,6 +89,8 @@ assert.doesNotMatch(installer, /trying without/i);
 assert.doesNotMatch(installer, /non-critical modules/i);
 assert.doesNotMatch(installer, /ollama pull "\$PRIMARY" \|\|/);
 assert.doesNotMatch(installer, /ollama pull "\$REASONING" \|\|/);
+assert.match(installer, /grep -Fqx -- "\$1"/);
+assert.match(installer, /Unknown argument: \$arg/);
 assert.match(electronWebpack, /@vscode\/ripgrep-\$\{process\.platform\}-\$\{arch\}/);
 assert.match(electronWebpack, /configs\[2\]\.entry\.preload/);
 assert.doesNotMatch(

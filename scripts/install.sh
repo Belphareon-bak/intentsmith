@@ -37,6 +37,11 @@ for arg in "$@"; do
       echo "  --full     Pull all models without asking"
       exit 0
       ;;
+    *)
+      echo "Unknown argument: $arg" >&2
+      echo "Usage: ./scripts/install.sh [--minimal|--full]" >&2
+      exit 2
+      ;;
   esac
 done
 
@@ -428,7 +433,7 @@ if [ "$OLLAMA_OK" = true ]; then
   INSTALLED_MODELS=$(ollama list 2>/dev/null | tail -n +2 | awk '{print $1}' || true)
 
   has_model() {
-    echo "$INSTALLED_MODELS" | grep -q "^${1}" 2>/dev/null
+    echo "$INSTALLED_MODELS" | grep -Fqx -- "$1" 2>/dev/null
   }
 
   # Primary model (covers CHAT, CODE, R2)
