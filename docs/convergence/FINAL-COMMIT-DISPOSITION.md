@@ -1,9 +1,9 @@
 # Disposition of disputed `final` commit
 
 Status: all source-diff facts are recorded in a committed sanitized manifest
-and validate offline. Twenty-six records are evidence-backed `REPAIRED`, and 16
+and validate offline. Thirty records are evidence-backed `REPAIRED`, and 16
 truthful model suites are `DEFERRED` behind concrete runtime prerequisites. The
-validator deliberately remains red while 50 legacy `REBUILD/REPAIR` rows await
+validator deliberately remains red while 46 legacy `REBUILD/REPAIR` rows await
 terminal closure under `D-018`.
 
 Compared refs:
@@ -74,8 +74,8 @@ node scripts/validate-final-disposition.js \
 | `EXCLUDE/MOVE_OUTSIDE_PRODUCTION` | 78 |
 | `EXCLUDE/REMOVE_FOLLOWUP` | 13 |
 | `KEEP/REPLAY` | 42 |
-| `REBUILD/REPAIR` | 50 |
-| `REBUILD/REPAIRED` | 26 |
+| `REBUILD/REPAIR` | 46 |
+| `REBUILD/REPAIRED` | 30 |
 | `REBUILD/DEFERRED(<prerequisite>)` | 16 |
 | `UNRESOLVED / USER_DECISION` | 0 |
 
@@ -211,11 +211,11 @@ node scripts/validate-final-disposition.js \
 | `R100` | `tests/sprints/sprint7.test.cjs -> tests/_legacy/sprints/sprint7.test.cjs` | `KEEP` | `REPLAY` | Intentional legacy-test relocation/reference; preserves historical assets outside active registry. |
 | `A` | `tests/artifact-validation.test.js` | `REBUILD` | `REPAIRED` | Snapshot prose was replaced by executable artifact, manifest and D-018 assertions against production validators. At `b188e54bc339557b316676cc27619457710bb0bf`, `node tests/artifact-validation.test.js` reported 31 passed, 0 failed, exit 0. |
 | `A` | `tests/e2e-transcript-all-2026-04-13.md` | `EXCLUDE` | `MOVE_OUTSIDE_PRODUCTION` | Generated transcript with potential conversation-derived content; never replayed. |
-| `A` | `tests/e2e/01-health-smoke.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/02-chat-api.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/03-conversations.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/04-projects.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/05-attachments.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/01-health-smoke.e2e.js` | `REBUILD` | `REPAIRED` | Every health, system and license request now asserts exact HTTP 200 before inspecting content; syntax and the 39-assertion route regression passed at `06d49847988ae3fb65711fe6bf737c08c0e3ac0c`. |
+| `A` | `tests/e2e/02-chat-api.e2e.js` | `REBUILD` | `REPAIRED` | Ambiguous 200/204 and 400/404 branches were replaced with current exact route contracts; syntax and route regression passed at `06d49847988ae3fb65711fe6bf737c08c0e3ac0c`. |
+| `A` | `tests/e2e/03-conversations.e2e.js` | `REBUILD` | `REPAIRED` | CRUD now asserts each exact status, including the documented empty-message-list response, without conditional assertion paths; syntax passed at `06d49847988ae3fb65711fe6bf737c08c0e3ac0c`. |
+| `A` | `tests/e2e/04-projects.e2e.js` | `REBUILD` | `REPAIR` | Runner-owned setup and open-folder payload are repaired, but the nonexistent-ID fixture still needs a numeric route-compatible ID before terminal closure. |
+| `A` | `tests/e2e/05-attachments.e2e.js` | `REBUILD` | `REPAIRED` | Every validation request now requires HTTP 400. Non-string messages are rejected before controller dispatch, proven by the 39/39 deterministic route assertions at `06d49847988ae3fb65711fe6bf737c08c0e3ac0c`. |
 | `A` | `tests/e2e/06-expertises.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/07-specialists.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
 | `A` | `tests/e2e/08-agents.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
@@ -322,6 +322,7 @@ node scripts/validate-final-disposition.js \
 | `22a9b848db1be69f6cd0657d5d0e9bffb44bcb19` | `package.json`, `package-lock.json`, `src/config.js`, `src/server.js` | commands and output hashes in attestation `bf70c790231d7640f78c4b391551e3e91d7f40f3` | 0 | two isolated minimal installs and the complete 199-program deterministic registry passed; current four files are byte-identical to the candidate |
 | `b188e54bc339557b316676cc27619457710bb0bf` | registry mappings and `tests/artifact-validation.test.js` | `node scripts/validate-test-registry.js`; `node tests/artifact-validation.test.js` | 0 / 0 | 350 runnable programs validated with SHA-256 `f930d637…`; artifact/manifest/D-018 suite reported 31 passed, 0 failed |
 | `b188e54bc339557b316676cc27619457710bb0bf` | `CLAUDE.md`, `README.md`, legacy backend reference | `git diff --name-status 22a9b848…HEAD -- <listed paths>` plus disposition resolution | 0 | product docs are unchanged from the attested reconstruction; unsafe legacy symlink is absent and its portable target resolves as `MAPPED_REPAIR` |
+| `06d49847988ae3fb65711fe6bf737c08c0e3ac0c` | server suites `01–03`, `05` and `src/routes/chat.js` | `node --check <each changed source>`; `node tests/routes-smoke.test.js` | 0 / 0 | no early-return or accepted 5xx pattern remains in the closed records; route regression reported 39 passed and proves invalid messages never reach the controller |
 
 ## Incident-response decisions outside this diff
 
