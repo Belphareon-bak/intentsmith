@@ -1,87 +1,112 @@
 // tests/e2e/53-long-conversation.e2e.js — Long multi-turn conversation
 // ══════════════════════════════════════════════════════════════════════════════
-// Tier 2: 10+ turns, context stability, response time monitoring.
+// Tier 3: Requires Ollama. Verifies ten complete user/assistant turns, retained
+// context in the final summary, and exact persistence counts.
 // ══════════════════════════════════════════════════════════════════════════════
-import { suite, testAsync, assert, summary, api, waitForServer, uniqueId, cleanupConversation } from './_helpers.js';
+import {
+  suite,
+  testAsync,
+  assert,
+  assertEqual,
+  summary,
+  api,
+  waitForServer,
+  createConv,
+  chatWithTimeout,
+  hasKeywords,
+  cleanupConversation,
+} from './_helpers.js';
 
 await waitForServer();
 
-const LLM_TIMEOUT = 90000;
+const TURN_TIMEOUT = 180_000;
 const created = [];
+const questions = [
+  'Vysvětli, co je to proměnná.',
+  'A jaké typy proměnných existují?',
+  'Co je to pole (array)?',
+  'Jak se pole liší od objektu?',
+  'Co je to funkce?',
+  'Jaký je rozdíl mezi const a let?',
+  'Co znamená scope?',
+  'Vysvětli closure.',
+  'Co je to callback?',
+  'Shrň, o čem jsme mluvili.',
+];
+
+let convId = null;
+const responseTimes = [];
+const responses = [];
 
 try {
   suite('Long Conversation — Setup');
 
-  let convId = null;
-
   await testAsync('create conversation', async () => {
-    const { data } = await api('POST', '/api/conversations', {
-      title: uniqueId('long-conv'), mode: 'chat'
-    });
-    convId = data.id || data.conversation?.id;
-    assert(convId, 'conversation created');
+    convId = await createConv('long-conv');
     created.push(convId);
+    assert(typeof convId === 'string' && convId.length > 0, 'conversation id required');
   });
 
-  // ── Multi-turn Loop ────────────────────────────────────────────────────────
-  suite('Long Conversation — Multi-turn');
+  suite('Long Conversation — Ten Complete Turns');
 
-  const questions = [
-    'Vysvětli, co je to proměnná.',
-    'A jaké typy proměnných existují?',
-    'Co je to pole (array)?',
-    'Jak se pole liší od objektu?',
-    'Co je to funkce?',
-    'Jaký je rozdíl mezi const a let?',
-    'Co znamená scope?',
-    'Vysvětli closure.',
-    'Co je to callback?',
-    'Shrň, o čem jsme mluvili.',
-  ];
+  for (let index = 0; index < questions.length; index++) {
+    await testAsync(`turn ${index + 1}: ${questions[index].substring(0, 40)}`, async () => {
+      const startedAt = Date.now();
+      const result = await chatWithTimeout(convId, questions[index], TURN_TIMEOUT - 5_000);
+      responseTimes.push(Date.now() - startedAt);
+      responses.push(result.response);
 
-  const responseTimes = [];
-
-  for (let i = 0; i < questions.length; i++) {
-    await testAsync(`turn ${i + 1}: ${questions[i].substring(0, 40)}...`, async () => {
-      if (!convId) return;
-      const start = Date.now();
-      const { status, data } = await api('POST', '/api/chat', {
-        message: questions[i],
-        conversation_id: convId
-      });
-      const elapsed = Date.now() - start;
-      responseTimes.push(elapsed);
-
-      assert(status === 200 || status === 202, `turn ${i + 1} failed with ${status}`);
-      if (data.response) {
-        assert(data.response.length > 10, `turn ${i + 1} response too short`);
-      }
-    }, LLM_TIMEOUT);
+      assertEqual(result.status, 200);
+      assert(
+        result.response.length > 10,
+        `turn ${index + 1} response should be substantive`,
+      );
+    }, TURN_TIMEOUT);
   }
 
-  // ── Context Stability ──────────────────────────────────────────────────────
-  suite('Long Conversation — Context Stability');
+  suite('Long Conversation — Context and Persistence');
 
-  await testAsync('last turn references earlier context (summary)', async () => {
-    // The last question was "Shrň, o čem jsme mluvili" — response should reference topics
-    // We just verify the conversation survived 10 turns
-    if (!convId) return;
-    const { data } = await api('GET', `/api/conversations/${convId}/messages`);
-    const msgs = data.messages || data;
-    assert(msgs.length >= 10, `expected ≥10 messages, got ${msgs.length}`);
+  await testAsync('final summary references at least three earlier topics', async () => {
+    assertEqual(responses.length, questions.length, 'all ten responses must be present');
+    const summaryResponse = responses.at(-1);
+    assert(
+      hasKeywords(
+        summaryResponse,
+        ['proměnn', 'variable', 'pole', 'array', 'objekt', 'object', 'funkc', 'function',
+          'const', 'let', 'scope', 'closure', 'callback'],
+        3,
+      ),
+      `summary should retain earlier context: ${summaryResponse.substring(0, 320)}`,
+    );
   });
 
-  await testAsync('response time stays reasonable', async () => {
-    if (responseTimes.length < 3) return;
+  await testAsync('ten turns persist exactly ten user and ten assistant messages', async () => {
+    const { status, data } = await api('GET', `/api/conversations/${convId}/messages`);
+    assertEqual(status, 200);
+    assert(Array.isArray(data.messages), 'messages must be an array');
+    assertEqual(data.messages.length, 20, 'ten turns must persist exactly twenty messages');
+    assertEqual(
+      data.messages.filter(message => message.role === 'user').length,
+      10,
+      'ten user messages must be persisted',
+    );
+    assertEqual(
+      data.messages.filter(message => message.role === 'assistant').length,
+      10,
+      'ten assistant messages must be persisted',
+    );
+  });
+
+  await testAsync('all ten measured turns stay within the per-turn timeout', async () => {
+    assertEqual(responseTimes.length, questions.length, 'all ten turn durations must be measured');
     const maxTime = Math.max(...responseTimes);
-    // Last response should not be >5x slower than first (context compaction should help)
-    assert(maxTime < 180000, `max response time ${maxTime}ms exceeds 3 min limit`);
+    assert(
+      maxTime < TURN_TIMEOUT,
+      `max response time ${maxTime}ms exceeds ${TURN_TIMEOUT}ms limit`,
+    );
   });
-
 } finally {
-  for (const id of created) {
-    await cleanupConversation(id);
-  }
+  for (const id of created) await cleanupConversation(id);
 }
 
 const result = summary();

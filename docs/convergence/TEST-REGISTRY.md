@@ -12,8 +12,8 @@ override a failed or blocked suite.
 
 - Runnable programs: 350
 - Explicit support-module exclusions: 8
-- Profiles: offline=173, database=26, server=32, model=86, soak=18, manual=15
-- States: ACTIVE=256, HISTORICAL=15, BLOCKED=74, KNOWN_DEFECTIVE=5
+- Profiles: offline=173, database=26, server=33, model=85, soak=18, manual=15
+- States: ACTIVE=255, HISTORICAL=15, BLOCKED=75, KNOWN_DEFECTIVE=5
 
 ## Execution profiles
 
@@ -164,12 +164,12 @@ override a failed or blocked suite.
 | `IS-T3-E2E-24-DRAFTS` | `tests/e2e/24-drafts.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-25-FEATURES` | `tests/e2e/25-features.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-50-CHAT-CONVERSATION` | `tests/e2e/50-chat-conversation.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T3-E2E-51-CRE-CLASSIFICATION` | `tests/e2e/51-cre-classification.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
+| `IS-T3-E2E-51-CRE-CLASSIFICATION` | `tests/e2e/51-cre-classification.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:external, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-52-CHAT-QUALITY-GATE` | `tests/e2e/52-chat-quality-gate.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-53-LONG-CONVERSATION` | `tests/e2e/53-long-conversation.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-54-CHAT-WITH-EXPERTISE` | `tests/e2e/54-chat-with-expertise.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-55-CHAT-WITH-SPECIALIST` | `tests/e2e/55-chat-with-specialist.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
-| `IS-T3-E2E-56-CHAT-WITH-PROJECT` | `tests/e2e/56-chat-with-project.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
+| `IS-T3-E2E-56-CHAT-WITH-PROJECT` | `tests/e2e/56-chat-with-project.e2e.js` | `C3-003` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-57-LIFECYCLE-FULL` | `tests/e2e/57-lifecycle-full.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-58-CODE-GENERATION` | `tests/e2e/58-code-generation.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-59-CROSS-FEATURE` | `tests/e2e/59-cross-feature.e2e.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `BLOCKED` | — | primary implementer |
@@ -353,7 +353,7 @@ override a failed or blocked suite.
 | `IS-T1-TESTS-SPECIALIST-HANDLER-TEST` | `tests/specialist-handler.test.js` | `C3-013` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SPECIALIST-LOADER-TEST` | `tests/specialist-loader.test.js` | `C3-013` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SPECIALIST-REGISTRIES-TEST` | `tests/specialist-registries.test.js` | `C3-013` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-SPECIALIST-RUNTIME-TEST` | `tests/specialist-runtime.test.js` | `C3-013` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-SPECIALIST-RUNTIME-TEST` | `tests/specialist-runtime.test.js` | `C3-013` | T1 | `offline` | 30 s | 2 min | network:none | yes | `KNOWN_DEFECTIVE` | — | primary implementer |
 | `IS-T1-TESTS-STORAGE-ARCHITECTURE-TEST` | `tests/storage-architecture.test.js` | `C3-024` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SYMBOL-INDEX-TEST` | `tests/symbol-index.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-TASK-MEMORY-TEST` | `tests/task-memory.test.js` | `C3-016` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

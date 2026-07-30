@@ -1,9 +1,9 @@
 # Disposition of disputed `final` commit
 
 Status: all source-diff facts are recorded in a committed sanitized manifest
-and validate offline. Fifty-one records are evidence-backed `REPAIRED`, and 27
+and validate offline. Fifty-five records are evidence-backed `REPAIRED`, and 30
 truthful model suites are `DEFERRED` behind concrete runtime prerequisites. The
-validator deliberately remains red while 14 legacy `REBUILD/REPAIR` rows await
+validator deliberately remains red while seven legacy `REBUILD/REPAIR` rows await
 terminal closure under `D-018`.
 
 Compared refs:
@@ -74,9 +74,9 @@ node scripts/validate-final-disposition.js \
 | `EXCLUDE/MOVE_OUTSIDE_PRODUCTION` | 78 |
 | `EXCLUDE/REMOVE_FOLLOWUP` | 13 |
 | `KEEP/REPLAY` | 42 |
-| `REBUILD/REPAIR` | 14 |
-| `REBUILD/REPAIRED` | 51 |
-| `REBUILD/DEFERRED(<prerequisite>)` | 27 |
+| `REBUILD/REPAIR` | 7 |
+| `REBUILD/REPAIRED` | 55 |
+| `REBUILD/DEFERRED(<prerequisite>)` | 30 |
 | `UNRESOLVED / USER_DECISION` | 0 |
 
 ## Path-by-path classification
@@ -249,13 +249,13 @@ node scripts/validate-final-disposition.js \
 | `A` | `tests/e2e/23-feedback.e2e.js` | `REBUILD` | `REPAIRED` | The suite now requires an exact 201 insert with a persisted category/message, an immediate exact 429 second submission, exact 404 attachment lookup and exact audit/list schemas; accepted 5xx and rate-limit early exits are gone. |
 | `A` | `tests/e2e/24-drafts.e2e.js` | `REBUILD` | `REPAIRED` | Conversation creation is mandatory; save/load assert the exact draft content, DELETE sends the route's JSON body contract, and both unknown and deleted drafts must return null before owned cleanup. |
 | `A` | `tests/e2e/25-features.e2e.js` | `REBUILD` | `REPAIRED` | A known feature is toggled and read back, reset to its captured default, and an unknown feature must return 400; short autocomplete and context estimation now use canonical payloads with exact model-free outputs, removing false Ollama/GPU prerequisites. |
-| `A` | `tests/e2e/50-chat-conversation.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/51-cre-classification.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/52-chat-quality-gate.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/53-long-conversation.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/54-chat-with-expertise.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/55-chat-with-specialist.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
-| `A` | `tests/e2e/56-chat-with-project.e2e.js` | `REBUILD` | `REPAIR` | Preserve the intended E2E scenario, but rebuild its isolation, orchestration, registry metadata, and known false-green checks before activation. |
+| `A` | `tests/e2e/50-chat-conversation.e2e.js` | `REBUILD` | `REPAIRED` | Three bounded model turns now require exact 200 responses, topic/language semantics and exact persisted user/assistant pairs; missing conversations and failed prerequisite turns cannot pass later checks. An isolated run of the repaired source at `8bdb46cce21f6368f56d02f85712d569bdebf71b` reported 6 passed, 0 failed, exit 0. |
+| `A` | `tests/e2e/51-cre-classification.e2e.js` | `REBUILD` | `DEFERRED(external-network+owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | All ten requests use supported canonical intents and exact 200/intent contracts; FACTUAL and SEARCH require a successful external tool result and REPORT requires search-backed synthesis. The source has no accepted 500 or dependent return, but its three live-data cases require the named external fixture. |
+| `A` | `tests/e2e/52-chat-quality-gate.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Six independent owned conversations use bounded fail-closed chat calls and require non-empty, language-appropriate, topic-specific output without metadata, prompt or zombie-phrase leakage. Conditional response checks are gone; execution remains behind the named model fixture. |
+| `A` | `tests/e2e/53-long-conversation.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Ten bounded turns are mandatory before context, duration and exact twenty-message persistence checks. Failed turns no longer become skipped aggregate assertions; execution remains behind the named long-conversation model fixture. |
+| `A` | `tests/e2e/54-chat-with-expertise.e2e.js` | `REBUILD` | `REPAIRED` | The legacy `/chat` route receives the complete server-provided expertise object, uses explicit owned session IDs and requires exact response, session expertise and lock state. An isolated run at `8bdb46cce21f6368f56d02f85712d569bdebf71b` reported 3 passed, 0 failed, exit 0. |
+| `A` | `tests/e2e/55-chat-with-specialist.e2e.js` | `REBUILD` | `REPAIRED` | Selection, assignment, bounded interaction, session-state proof and clear all use the same explicit session ID; missing fixtures and alternate statuses cannot pass. An isolated run at `8bdb46cce21f6368f56d02f85712d569bdebf71b` reported 4 passed, 0 failed, exit 0. |
+| `A` | `tests/e2e/56-chat-with-project.e2e.js` | `REBUILD` | `REPAIRED` | A runner-owned project and exact canary prove deterministic `FILE_READ` context, persisted project binding and isolation from an unbound `LOCAL` conversation. No model prose is accepted as proof. An isolated local-server run at `8bdb46cce21f6368f56d02f85712d569bdebf71b` reported 4 passed, 0 failed, exit 0. |
 | `A` | `tests/e2e/57-lifecycle-full.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Project and conversation setup are mandatory and runner-owned; lifecycle handoff, phase and confirmation are exact, dependent returns are gone, and cleanup is unconditional. An isolated pre-commit diagnostic reached both model-free assertions but the lifecycle request timed out at 90 seconds (2 passed, 1 failed, 0 skipped), so no green model claim is made. |
 | `A` | `tests/e2e/58-code-generation.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Each request uses a mandatory owned conversation and fail-closed transport; Python, JavaScript and explanation outputs have substantive fenced-code/semantic assertions and unconditional cleanup. An isolated pre-commit diagnostic timed out all three model requests at 60 seconds (0 passed, 3 failed, 0 skipped), so execution remains behind the named model fixture. |
 | `A` | `tests/e2e/59-cross-feature.e2e.js` | `REBUILD` | `DEFERRED(owned-server+isolated-database+ollama+pinned-model+gpu+sufficient-gpu-vram)` | Expertise IDs resolve only through the server-owned canonical registry; the suite requires exact expertise session state, draft round-trip/delete and memory persistence with snapshot restoration. Its isolated pre-commit diagnostic proved the draft contract but timed out both model-backed checks (1 passed, 2 failed, 0 skipped), so no green model claim is made. |

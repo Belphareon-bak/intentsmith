@@ -1,54 +1,111 @@
 // tests/e2e/54-chat-with-expertise.e2e.js — Chat with expertise routing
 // ══════════════════════════════════════════════════════════════════════════════
-// Tier 2: Verifies expertise affects response tone/behavior.
+// Tier 3: Requires Ollama. The legacy /chat endpoint accepts a full `expertise`
+// object, not `expertise_id`; session state proves the selected expertise was used.
 // ══════════════════════════════════════════════════════════════════════════════
-import { suite, testAsync, assert, assertEqual, summary, api, waitForServer } from './_helpers.js';
+import {
+  suite,
+  testAsync,
+  assert,
+  assertEqual,
+  summary,
+  api,
+  waitForServer,
+  uniqueId,
+  hasKeywords,
+  cleanupConversation,
+  LLM_TIMEOUT,
+} from './_helpers.js';
 
 await waitForServer();
 
-const LLM_TIMEOUT = 60000;
-
-// ── List Available Expertises ───────────────────────────────────────────────
-suite('Chat with Expertise — Setup');
-
+const MODEL_TIMEOUT = LLM_TIMEOUT * 5;
+const sessions = [];
 let expertises = [];
+let selectedExpertise = null;
 
-await testAsync('list available expertises', async () => {
-  const { status, data } = await api('GET', '/api/expertises');
-  assertEqual(status, 200);
-  expertises = data.experts || [];
-  assert(expertises.length > 0, 'need at least 1 expertise');
-});
+try {
+  suite('Chat with Expertise — Setup');
 
-// ── Chat with Default ───────────────────────────────────────────────────────
-suite('Chat with Expertise — Default');
-
-await testAsync('chat without expertise works', async () => {
-  const { status, data } = await api('POST', '/chat', {
-    message: 'Co je to Git?'
+  await testAsync('list available expertises', async () => {
+    const { status, data } = await api('GET', '/api/expertises');
+    assertEqual(status, 200);
+    assert(Array.isArray(data.experts), 'response.experts must be an array');
+    expertises = data.experts;
+    assert(expertises.length > 0, 'at least one expertise is a required prerequisite');
+    selectedExpertise = expertises.find(expertise => expertise.id === 'developer')
+      || expertises.find(expertise => /tech|soft|program|develop/i.test(
+        `${expertise.domain || ''} ${expertise.name || ''} ${expertise.id || ''}`,
+      ))
+      || expertises[0];
+    assert(
+      typeof selectedExpertise.id === 'string' && selectedExpertise.id.length > 0,
+      'selected expertise must have an id',
+    );
   });
-  assert(status === 200 || status === 202, `expected 200/202, got ${status}`);
-  if (data.response) {
-    assert(data.response.length > 20, 'default response should be meaningful');
-  }
-}, LLM_TIMEOUT);
 
-// ── Chat with Specific Expertise ─────────────────────────────────────────────
-suite('Chat with Expertise — Selected');
+  suite('Chat with Expertise — Default');
 
-await testAsync('chat with selected expertise returns response', async () => {
-  if (expertises.length === 0) return;
-  // Find a technical expertise
-  const tech = expertises.find(e => e.domain === 'technology' || e.domain === 'tech') || expertises[0];
-  const { status, data } = await api('POST', '/chat', {
-    message: 'Vysvětli princip mikroslužeb.',
-    expertise_id: tech.id
-  });
-  assert(status === 200 || status === 202, `expected 200/202, got ${status}`);
-  if (data.response) {
-    assert(data.response.length > 20, 'expertise response should be meaningful');
+  await testAsync('chat without explicit expertise returns a response', async signal => {
+    const sessionId = uniqueId('expertise-default');
+    sessions.push(sessionId);
+    const { status, data } = await api('POST', '/chat', {
+      session_id: sessionId,
+      message: 'Co je to Git?',
+    }, signal);
+    assertEqual(status, 200);
+    assertEqual(data.session_id, sessionId);
+    assert(
+      typeof data.response === 'string' && data.response.trim().length > 20,
+      'default response must be non-empty and substantive',
+    );
+    assert(
+      hasKeywords(data.response, ['git', 'verz', 'version', 'commit', 'repozit'], 1),
+      `default response should address Git: ${data.response.substring(0, 240)}`,
+    );
+  }, MODEL_TIMEOUT);
+
+  suite('Chat with Expertise — Selected');
+
+  await testAsync('full expertise object is applied to the requested session', async signal => {
+    const sessionId = uniqueId('expertise-selected');
+    sessions.push(sessionId);
+    const { status, data } = await api('POST', '/chat', {
+      session_id: sessionId,
+      message: 'Vysvětli princip mikroslužeb.',
+      expertise: selectedExpertise,
+    }, signal);
+    assertEqual(status, 200);
+    assertEqual(data.session_id, sessionId);
+    assert(
+      typeof data.response === 'string' && data.response.trim().length > 20,
+      'expertise response must be non-empty and substantive',
+    );
+    assert(
+      hasKeywords(data.response, ['mikrosluž', 'microservice', 'služb', 'service', 'api'], 1),
+      `expertise response should address microservices: ${data.response.substring(0, 240)}`,
+    );
+
+    const info = await api('GET', `/api/chat/sessions/${sessionId}`, undefined, signal);
+    assertEqual(info.status, 200);
+    assertEqual(info.data.exists, true);
+    assertEqual(
+      info.data.state?.expertise?.id,
+      selectedExpertise.id,
+      'session state must retain the explicitly supplied expertise',
+    );
+    assertEqual(
+      info.data.state?.expertiseLocked,
+      true,
+      'explicit expertise selection must be locked in session state',
+    );
+  }, MODEL_TIMEOUT);
+} finally {
+  for (const sessionId of sessions) {
+    try { await api('DELETE', `/api/chat/sessions/${sessionId}`); } catch {}
+    await cleanupConversation(sessionId);
   }
-}, LLM_TIMEOUT);
+}
 
 const result = summary();
 process.exit(result.failed > 0 ? 1 : 0);

@@ -7198,7 +7198,7 @@
       },
       "required": true,
       "owner": "primary implementer",
-      "state": "ACTIVE",
+      "state": "KNOWN_DEFECTIVE",
       "lastGreen": {
         "commit": null,
         "artifact": null
@@ -9350,7 +9350,7 @@
       "timeoutMs": 900000,
       "expectedDurationMs": 600000,
       "requirements": {
-        "network": "loopback",
+        "network": "external",
         "database": true,
         "server": true,
         "ollama": true,
@@ -9358,7 +9358,7 @@
       },
       "required": true,
       "owner": "primary implementer",
-      "state": "KNOWN_DEFECTIVE",
+      "state": "BLOCKED",
       "lastGreen": {
         "commit": null,
         "artifact": null
@@ -9495,16 +9495,16 @@
       ],
       "capabilityId": "C3-003",
       "tier": "T3",
-      "fixture": "owned-isolated-model-server",
-      "profile": "model",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
       "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
+      "expectedDurationMs": 120000,
       "requirements": {
         "network": "loopback",
         "database": true,
         "server": true,
-        "ollama": true,
-        "gpu": true
+        "ollama": false,
+        "gpu": false
       },
       "required": true,
       "owner": "primary implementer",

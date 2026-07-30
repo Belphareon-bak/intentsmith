@@ -14,9 +14,10 @@ const EXPECTED_PATH_COUNT = 78;
 const EXPECTED_PATH_HASH = '43108129171be799d282df0fc5b7db5d40daefda0bbcebe5cc287f3139b033ff';
 // Suite 08 validates and stores an HTTPS source definition but never executes
 // it; only suites that actually perform external I/O belong here.
-const EXTERNAL_NETWORK = new Set([10, 63, 206]);
+const EXTERNAL_NETWORK = new Set([10, 51, 63, 206]);
 const OLLAMA_ONLY_SERVER = new Set([14, 16]);
 const MIXED_SERVER_MODEL = new Set();
+const LOCAL_SERVER_ONLY = new Set([56]);
 
 function suiteId(tier, testPath) {
   const stem = path.basename(testPath, '.e2e.js')
@@ -38,7 +39,8 @@ function metadataFor(testPath, source) {
   const number = Number.parseInt(path.basename(testPath), 10);
   const isPhase = number >= 200;
   const isLongModel = number >= 85 && number < 200;
-  const isServer = number <= 25;
+  const isApiServer = number <= 25;
+  const isServer = isApiServer || LOCAL_SERVER_ONLY.has(number);
   const tier = isPhase ? 'T5' : 'T3';
   const profile = isPhase ? 'soak' : isServer ? 'server' : 'model';
   const timeoutMs = isPhase ? 5_400_000 : isLongModel ? 3_600_000 : 900_000;
@@ -53,7 +55,7 @@ function metadataFor(testPath, source) {
     id: suiteId(tier, testPath),
     path: testPath,
     argv: ['node', testPath],
-    capabilityId: isServer ? 'C3-023' : number < 200 ? 'C3-003' : 'C3-027',
+    capabilityId: isApiServer ? 'C3-023' : number < 200 ? 'C3-003' : 'C3-027',
     tier,
     fixture: isPhase
       ? 'owned-sequential-model-server-state'
