@@ -14,7 +14,9 @@
 // Run: node tests/project-lifecycle-interrupts.test.js
 // ══════════════════════════════════════════════════════════════════════════════
 
+import './helpers/isolated-test-db.js';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { execSync } from 'child_process';
 
@@ -48,6 +50,7 @@ import {
   preloadActiveLifecycles,
   _clearAllRam,
 } from '../src/chat/handlers/lifecycle-state.js';
+import { rawId, scopeId } from '../src/planner/lifecycle-planning.js';
 
 // ─── Assertions ─────────────────────────────────────────────────────────────
 
@@ -104,24 +107,85 @@ const SPEC = {
 const ROADMAP = {
   milestones: [
     { id: 'ms-1', title: 'Store Module', description: 'File-based counter storage',
-      dependencies: [], estimated_loc: 40, estimated_files: 1, estimated_complexity: 'LOW' },
+      dependencies: [], estimated_loc: 40, estimated_files: 1, estimated_complexity: 'LOW',
+      deliverables: ['store.js'],
+      acceptance_criteria: ['Counter value loads and saves through the store module'],
+      test_strategy: { type: 'structural', command: 'node --check store.js', specific_tests: ['Store module parses'] } },
     { id: 'ms-2', title: 'Counter Logic', description: 'Inc/dec/reset/show commands',
-      dependencies: ['ms-1'], estimated_loc: 60, estimated_files: 1, estimated_complexity: 'LOW' },
+      dependencies: ['ms-1'], estimated_loc: 60, estimated_files: 2, estimated_complexity: 'LOW',
+      deliverables: ['counter.js', 'tests/counter-behavior.test.js'],
+      acceptance_criteria: ['Counter commands update persisted state deterministically'],
+      test_strategy: { type: 'integration', command: 'node tests/counter-behavior.test.js', specific_tests: ['Inc/dec/reset/show persist expected values'] } },
+    { id: 'ms-3', title: 'Final Source Verification', description: 'Verify increment, decrement, reset, and output source contracts',
+      dependencies: ['ms-2'], estimated_loc: 30, estimated_files: 1, estimated_complexity: 'LOW',
+      deliverables: ['tests/counter.test.js'],
+      acceptance_criteria: ['Counter command source has executable source-contract checks'],
+      test_strategy: { type: 'source-contract', command: 'node tests/counter.test.js', specific_tests: ['Counter command source contracts pass'] } },
   ],
-  total_estimated_loc: 100,
-  total_milestones: 2,
+  total_estimated_loc: 130,
+  total_milestones: 3,
+  requirements_coverage: {
+    covered: ['R1', 'R2', 'R3', 'R4', 'R5'],
+    uncovered: [],
+  },
 };
 
 const MS_PLANS = {
   'ms-1': { milestone_id: 'ms-1', files: [{ path: 'store.js', action: 'create' }],
-    implementation_steps: [{ step: 1, action: 'Create store.js' }], scope_files: ['store.js'] },
-  'ms-2': { milestone_id: 'ms-2', files: [{ path: 'counter.js', action: 'create' }],
-    implementation_steps: [{ step: 1, action: 'Create counter.js' }], scope_files: ['counter.js'] },
+    implementation_steps: [
+      { step: 1, action: 'Create store.js' },
+      { step: 2, action: 'Implement persisted counter loading' },
+      { step: 3, action: 'Implement counter saving' },
+    ], scope_files: ['store.js'] },
+  'ms-2': { milestone_id: 'ms-2', files: [
+      { path: 'counter.js', action: 'create' },
+      { path: 'tests/counter-behavior.test.js', action: 'create' },
+    ],
+    implementation_steps: [
+      { step: 1, action: 'Create counter.js' },
+      { step: 2, action: 'Implement command dispatch' },
+      { step: 3, action: 'Create executable persisted-command behavior checks' },
+    ], scope_files: ['counter.js', 'tests/counter-behavior.test.js'] },
+  'ms-3': { milestone_id: 'ms-3', files: [{ path: 'tests/counter.test.js', action: 'create' }],
+    implementation_steps: [
+      { step: 1, action: 'Create counter source contract' },
+      { step: 2, action: 'Add persisted command source-contract cases' },
+      { step: 3, action: 'Validate increment, decrement, reset, and output handling' },
+    ], scope_files: ['tests/counter.test.js'] },
 };
 
 const FILES = {
   'ms-1': { 'store.js': 'import fs from "fs";\nexport const load = () => JSON.parse(fs.readFileSync("count.json","utf8")).count;\nexport const save = (n) => fs.writeFileSync("count.json", JSON.stringify({count:n}));\n' },
-  'ms-2': { 'counter.js': 'import {load,save} from "./store.js";\nconst cmd = process.argv[2];\nlet n = 0; try { n = load(); } catch {}\nif (cmd==="inc") n++;\nif (cmd==="dec") n--;\nif (cmd==="reset") n=0;\nsave(n);\nconsole.log(n);\n' },
+  'ms-2': {
+    'counter.js': 'import {load,save} from "./store.js";\nconst cmd = process.argv[2];\nlet n = 0; try { n = load(); } catch {}\nif (cmd==="inc") n++;\nif (cmd==="dec") n--;\nif (cmd==="reset") n=0;\nsave(n);\nconsole.log(n);\n',
+    'tests/counter-behavior.test.js': `import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const projectRoot = fileURLToPath(new URL('../', import.meta.url));
+const counterPath = path.join(projectRoot, 'counter.js');
+const countPath = path.join(projectRoot, 'count.json');
+const run = command => execFileSync(process.execPath, [counterPath, command], {
+  cwd: projectRoot,
+  encoding: 'utf8',
+}).trim();
+
+try {
+  fs.rmSync(countPath, { force: true });
+  assert.equal(run('inc'), '1');
+  assert.equal(run('inc'), '2');
+  assert.equal(run('dec'), '1');
+  assert.equal(run('reset'), '0');
+  assert.equal(run('show'), '0');
+  assert.equal(JSON.parse(fs.readFileSync(countPath, 'utf8')).count, 0);
+} finally {
+  fs.rmSync(countPath, { force: true });
+}
+`,
+  },
+  'ms-3': { 'tests/counter.test.js': 'import fs from "node:fs";\nimport assert from "node:assert/strict";\nconst source = fs.readFileSync(new URL("../counter.js", import.meta.url), "utf8");\nassert.match(source, /cmd===\"inc\"/);\nassert.match(source, /cmd===\"dec\"/);\nassert.match(source, /cmd===\"reset\"/);\nassert.match(source, /console\\.log\\(n\\)/);\n' },
 };
 
 function createFakeLLM() {
@@ -134,7 +198,9 @@ function createFakeLLM() {
     if (p.includes('creating a project roadmap') || p.includes('Break the project into milestones'))
       return { content: JSON.stringify(ROADMAP) };
     if (p.includes('implementing a specific milestone') || p.includes('implementation plan for THIS milestone')) {
-      const m = p.match(/"id"\s*:\s*"(ms-\d+)"/); return { content: JSON.stringify(MS_PLANS[m?.[1] || 'ms-1']) };
+      const msId = p.match(/"id"\s*:\s*"(ms-\d+)"/)?.[1];
+      if (!msId || !MS_PLANS[msId]) throw new Error(`Unknown milestone plan prompt: ${msId}`);
+      return { content: JSON.stringify(MS_PLANS[msId]) };
     }
     if (p.includes('reviewing a completed milestone') || p.includes('Compare the actual output'))
       return { content: JSON.stringify({ passed: true, deliverables_check: [], scope_violations: [], overall_assessment: 'OK' }) };
@@ -149,7 +215,8 @@ function createFakeLLM() {
 function createFakeExecutor(projectPath) {
   return {
     async start(request, context) {
-      const files = FILES[context.milestoneId] || {};
+      const files = FILES[rawId(context.milestoneId)];
+      if (!files) throw new Error(`No executor fixture for ${context.milestoneId}`);
       for (const [relPath, content] of Object.entries(files)) {
         const fp = path.join(projectPath, relPath);
         fs.mkdirSync(path.dirname(fp), { recursive: true });
@@ -176,11 +243,16 @@ function cleanDB() {
 }
 
 function setupProject() {
-  const projectPath = `/tmp/lc-interrupt-${Date.now()}`;
-  fs.mkdirSync(projectPath, { recursive: true });
+  const projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'lc-interrupt-'));
   execSync('git init', { cwd: projectPath, stdio: 'pipe' });
   execSync('git config user.email "test@test.com"', { cwd: projectPath, stdio: 'pipe' });
   execSync('git config user.name "Test"', { cwd: projectPath, stdio: 'pipe' });
+  fs.writeFileSync(path.join(projectPath, 'package.json'), JSON.stringify({
+    name: 'interrupt-counter-fixture',
+    private: true,
+    type: 'module',
+  }));
+  execSync('git add package.json', { cwd: projectPath, stdio: 'pipe' });
   execSync('git commit --allow-empty -m "init"', { cwd: projectPath, stdio: 'pipe' });
   return projectPath;
 }
@@ -206,11 +278,11 @@ async function testPauseResume() {
   await handleLifecycleInput('ano', ctx);               // → ms-1 executes, ms-2 plan
 
   const stateBeforePause = getLcState(SESSION);
-  check(stateBeforePause?.currentMilestoneId === 'ms-2', 'A.1: at ms-2 before pause',
+  check(stateBeforePause?.currentMilestoneId === scopeId(stateBeforePause.lifecycleId, 'ms-2'), 'A.1: at scoped ms-2 before pause',
     `got: ${stateBeforePause?.currentMilestoneId}`);
 
   // Verify ms-1 PASSED
-  const ms1 = msRepo.getMilestone('ms-1');
+  const ms1 = msRepo.getMilestone(scopeId(stateBeforePause.lifecycleId, 'ms-1'));
   check(ms1?.status === 'PASSED', 'A.2: ms-1 PASSED before pause', `got: ${ms1?.status}`);
 
   // ─── PAUSE ────────────────────────────────────────────────────────────
@@ -225,7 +297,7 @@ async function testPauseResume() {
   check(lcDb?.phase === 'PAUSED', 'A.5: DB phase is PAUSED', `got: ${lcDb?.phase}`);
 
   // ms-1 should still be PASSED
-  const ms1After = msRepo.getMilestone('ms-1');
+  const ms1After = msRepo.getMilestone(scopeId(pausedState.lifecycleId, 'ms-1'));
   check(ms1After?.status === 'PASSED', 'A.6: ms-1 still PASSED after pause', `got: ${ms1After?.status}`);
 
   // ─── RESUME ───────────────────────────────────────────────────────────
@@ -310,7 +382,7 @@ async function testCrashRecovery() {
   await handleLifecycleInput('ano', ctx); // ms-1 executes
 
   const stateBeforeCrash = getLcState(SESSION);
-  check(stateBeforeCrash?.currentMilestoneId === 'ms-2', 'C.1: at ms-2 before crash',
+  check(stateBeforeCrash?.currentMilestoneId === scopeId(stateBeforeCrash.lifecycleId, 'ms-2'), 'C.1: at scoped ms-2 before crash',
     `got: ${stateBeforeCrash?.currentMilestoneId}`);
   const lifecycleId = stateBeforeCrash.lifecycleId;
 
@@ -342,7 +414,7 @@ async function testCrashRecovery() {
   }
 
   // ms-1 should still be PASSED in DB
-  const ms1 = msRepo.getMilestone('ms-1');
+  const ms1 = msRepo.getMilestone(scopeId(lifecycleId, 'ms-1'));
   check(ms1?.status === 'PASSED', 'C.8: ms-1 still PASSED in DB after crash',
     `got: ${ms1?.status}`);
 
@@ -350,6 +422,27 @@ async function testCrashRecovery() {
   const progress = getBuildProgress(lifecycleId);
   check(progress.completed === 1, 'C.9: progress shows 1 completed after recovery',
     `got: ${progress.completed}`);
+
+  // Continue from recovered state and prove both behavioral and final source
+  // contracts execute after the interruption.
+  await handleLifecycleInput('ano', ctx);
+  const ms2 = msRepo.getMilestone(scopeId(lifecycleId, 'ms-2'));
+  check(ms2?.status === 'PASSED', 'C.10: recovered lifecycle executes ms-2 behavior contract',
+    `got: ${ms2?.status}`);
+  check(fs.existsSync(path.join(projectPath, 'tests/counter-behavior.test.js')),
+    'C.11: ms-2 executable behavior contract exists');
+
+  const afterMs2 = getLcState(SESSION);
+  check(afterMs2?.currentMilestoneId === scopeId(lifecycleId, 'ms-3'),
+    'C.12: recovered lifecycle advances to scoped ms-3',
+    `got: ${afterMs2?.currentMilestoneId}`);
+
+  await handleLifecycleInput('ano', ctx);
+  const ms3 = msRepo.getMilestone(scopeId(lifecycleId, 'ms-3'));
+  check(ms3?.status === 'PASSED', 'C.13: recovered lifecycle executes ms-3 source contract',
+    `got: ${ms3?.status}`);
+  check(fs.existsSync(path.join(projectPath, 'tests/counter.test.js')),
+    'C.14: ms-3 executable source contract exists');
 
   // Cleanup
   try { fs.rmSync(projectPath, { recursive: true, force: true }); } catch { /* ignore */ }

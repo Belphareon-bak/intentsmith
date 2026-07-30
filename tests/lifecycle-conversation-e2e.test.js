@@ -17,7 +17,9 @@
 // Run: node tests/lifecycle-conversation-e2e.test.js
 // ══════════════════════════════════════════════════════════════════════════════
 
+import './helpers/isolated-test-db.js';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { execSync } from 'child_process';
 
@@ -53,6 +55,7 @@ import {
 import { getLcState, setLcState, clearLcState, initLifecycleStateDb } from '../src/chat/handlers/lifecycle-state.js';
 
 import { startNextMilestone } from '../src/planner/lifecycle-build.js';
+import { rawId, scopeId } from '../src/planner/lifecycle-planning.js';
 
 // ─── Transcript Collector ───────────────────────────────────────────────────
 
@@ -164,6 +167,12 @@ const SAMPLE_ROADMAP = {
       goals_addressed: ['G2'],
       requirements_addressed: ['R4'],
       deliverables: ['package.json', 'src/db.js'],
+      acceptance_criteria: ['Project manifest and SQLite persistence module are syntactically valid'],
+      test_strategy: {
+        type: 'structural',
+        command: 'node --check src/db.js',
+        specific_tests: ['SQLite module parses successfully'],
+      },
     },
     {
       id: 'ms-2',
@@ -176,11 +185,17 @@ const SAMPLE_ROADMAP = {
       goals_addressed: ['G1'],
       requirements_addressed: ['R1', 'R2', 'R3'],
       deliverables: ['src/commands.js', 'src/index.js'],
+      acceptance_criteria: ['CLI command handlers and entry point are syntactically valid'],
+      test_strategy: {
+        type: 'structural',
+        command: 'node --check src/commands.js',
+        specific_tests: ['CLI command module parses successfully'],
+      },
     },
     {
       id: 'ms-3',
-      title: 'Output Formatting',
-      description: 'Add table formatting for task list output',
+      title: 'Final Formatting Verification',
+      description: 'Finalize table-formatting source contracts for task list output',
       dependencies: ['ms-2'],
       estimated_loc: 80,
       estimated_files: 1,
@@ -188,11 +203,37 @@ const SAMPLE_ROADMAP = {
       goals_addressed: ['G3'],
       requirements_addressed: ['R5'],
       deliverables: ['src/format.js'],
+      acceptance_criteria: ['Task rows render with stable columns and status markers'],
+      test_strategy: {
+        type: 'structural',
+        command: 'node --check src/format.js',
+        specific_tests: ['Formatting module parses successfully'],
+      },
     },
   ],
   total_estimated_loc: 400,
   total_milestones: 3,
   critical_path: ['ms-1', 'ms-2', 'ms-3'],
+  requirements_coverage: {
+    covered: ['R1', 'R2', 'R3', 'R4', 'R5'],
+    uncovered: [],
+  },
+};
+
+const SAMPLE_ARCHITECTURE = {
+  layers: ['entrypoint', 'commands', 'persistence', 'formatting'],
+  rules: [
+    { from: 'entrypoint', canImport: ['commands'], cannotImport: ['persistence', 'formatting'] },
+    { from: 'commands', canImport: ['persistence', 'formatting'], cannotImport: ['entrypoint'] },
+    { from: 'persistence', canImport: [], cannotImport: ['entrypoint', 'commands', 'formatting'] },
+    { from: 'formatting', canImport: [], cannotImport: ['entrypoint', 'commands', 'persistence'] },
+  ],
+  fileStructure: {
+    entrypoint: 'src/index.js',
+    commands: 'src/commands.js',
+    persistence: 'src/db.js',
+    formatting: 'src/format.js',
+  },
 };
 
 const MILESTONE_PLANS = {
@@ -205,6 +246,7 @@ const MILESTONE_PLANS = {
     implementation_steps: [
       { step: 1, action: 'Create package.json with better-sqlite3 dependency', file: 'package.json' },
       { step: 2, action: 'Create src/db.js with init, addTask, getTasks, markDone functions', file: 'src/db.js' },
+      { step: 3, action: 'Validate SQLite schema and persistence exports', file: 'src/db.js' },
     ],
     scope_files: ['package.json', 'src/db.js'],
     rollback_strategy: 'Delete created files',
@@ -218,6 +260,7 @@ const MILESTONE_PLANS = {
     implementation_steps: [
       { step: 1, action: 'Create src/commands.js with add, list, done commands', file: 'src/commands.js' },
       { step: 2, action: 'Create src/index.js with argument parsing', file: 'src/index.js' },
+      { step: 3, action: 'Integrate command handlers with the CLI entry point', file: 'src/index.js' },
     ],
     scope_files: ['src/commands.js', 'src/index.js'],
     rollback_strategy: 'Delete created files',
@@ -229,6 +272,8 @@ const MILESTONE_PLANS = {
     ],
     implementation_steps: [
       { step: 1, action: 'Create src/format.js with formatTable function', file: 'src/format.js' },
+      { step: 2, action: 'Add column width and status rendering', file: 'src/format.js' },
+      { step: 3, action: 'Validate formatted row alignment', file: 'src/format.js' },
     ],
     scope_files: ['src/format.js'],
     rollback_strategy: 'Delete src/format.js',
@@ -368,10 +413,11 @@ export default { formatTable };
   },
 };
 
-// ms-3 scope violation variant: writes README.md outside scope
+// ms-3 scope violation variant: writes a tracked file outside scope.
+// README.md is engine-managed and intentionally exempt from scope enforcement.
 const PROJECT_FILES_MS3_VIOLATION = {
   ...PROJECT_FILES['ms-3'],
-  'README.md': '# Task Manager CLI\nUnauthorized file outside milestone scope.\n',
+  'unauthorized-scope-change.txt': 'Unauthorized file outside milestone scope.\n',
 };
 
 // ─── Fake LLM Provider ─────────────────────────────────────────────────────
@@ -413,11 +459,17 @@ function createFakeLLM() {
       return { content: JSON.stringify(SAMPLE_ROADMAP) };
     }
 
+    // PLANNING: architecture contract
+    if (p.includes('generate an ARCHITECTURE.json file')) {
+      return { content: JSON.stringify(SAMPLE_ARCHITECTURE) };
+    }
+
     // BUILD: milestone plan — detect milestone ID from prompt
     if (p.includes('implementing a specific milestone') || p.includes('implementation plan for THIS milestone')) {
       const msIdMatch = p.match(/"id"\s*:\s*"(ms-\d+)"/);
-      const msId = msIdMatch ? msIdMatch[1] : 'ms-1';
-      return { content: JSON.stringify(MILESTONE_PLANS[msId] || MILESTONE_PLANS['ms-1']) };
+      const msId = msIdMatch?.[1];
+      if (!msId || !MILESTONE_PLANS[msId]) throw new Error(`Unknown milestone plan prompt: ${msId}`);
+      return { content: JSON.stringify(MILESTONE_PLANS[msId]) };
     }
 
     // BUILD: checkpoint
@@ -482,15 +534,21 @@ let ms3Attempt = 0;
 function createFakeExecutor(projectPath) {
   return {
     async start(request, context) {
-      const msId = context.milestoneId;
+      const msId = rawId(context.milestoneId);
 
-      // ms-3: first attempt writes out-of-scope README.md to test scope enforcement
+      // ms-3: first attempt writes an out-of-scope file to test enforcement
       let files;
       if (msId === 'ms-3' && ms3Attempt === 0) {
         ms3Attempt++;
         files = PROJECT_FILES_MS3_VIOLATION;
       } else {
-        files = PROJECT_FILES[msId] || {};
+        if (msId === 'ms-3' && fs.existsSync(path.join(projectPath, 'unauthorized-scope-change.txt'))) {
+          // Simulate the executor repairing its rejected commit before retrying.
+          // The follow-up milestone commit must contain only in-scope changes.
+          execSync('git revert --no-edit HEAD', { cwd: projectPath, stdio: 'pipe' });
+        }
+        files = PROJECT_FILES[msId];
+        if (!files) throw new Error(`No executor fixture for ${context.milestoneId}`);
       }
 
       // Write real files to disk
@@ -538,8 +596,7 @@ async function runConversation() {
   cleanDB();
 
   const SESSION_ID = 'conv-e2e-test';
-  const projectPath = `/tmp/lc-conv-e2e-${Date.now()}`;
-  fs.mkdirSync(projectPath, { recursive: true });
+  const projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'lc-conv-e2e-'));
   execSync('git init', { cwd: projectPath, stdio: 'pipe' });
   execSync('git config user.email "test@test.com"', { cwd: projectPath, stdio: 'pipe' });
   execSync('git config user.name "Test"', { cwd: projectPath, stdio: 'pipe' });
@@ -616,6 +673,8 @@ async function runConversation() {
       'T4: ms-1 present in roadmap');
     const state4 = getLcState(SESSION_ID);
     check(state4?.phase === 'PLAN_REVIEW', 'T4: state is PLAN_REVIEW', `got: ${state4?.phase}`);
+    check(fs.existsSync(path.join(projectPath, 'ARCHITECTURE.json')),
+      'T4: ARCHITECTURE.json exists after planning');
 
     // ═══ PHASE 4: BUILD — Milestone 1 ═══════════════════════════════════════
 
@@ -632,7 +691,7 @@ async function runConversation() {
     const state5 = getLcState(SESSION_ID);
     check(state5?.phase === 'BUILD_MILESTONE_REVIEW', 'T5: state is BUILD_MILESTONE_REVIEW',
       `got: ${state5?.phase}`);
-    check(state5?.currentMilestoneId === 'ms-1', 'T5: currentMilestoneId is ms-1',
+    check(state5?.currentMilestoneId === scopeId(state5.lifecycleId, 'ms-1'), 'T5: currentMilestoneId is scoped ms-1',
       `got: ${state5?.currentMilestoneId}`);
 
     // Approve ms-1 → execute
@@ -641,7 +700,7 @@ async function runConversation() {
     systemTurn('BUILD (ms-1 result)', response6);
 
     // ms-1 should PASS and auto-advance to ms-2 plan (no review at ms-1 since reviewFrequency default=3)
-    const ms1Db = msRepo.getMilestone('ms-1');
+    const ms1Db = msRepo.getMilestone(scopeId(state5.lifecycleId, 'ms-1'));
     check(ms1Db?.status === 'PASSED', 'T6: ms-1 status is PASSED in DB', `got: ${ms1Db?.status}`);
 
     // Verify real files on disk
@@ -660,14 +719,14 @@ async function runConversation() {
     const state6 = getLcState(SESSION_ID);
     check(state6?.phase === 'BUILD_MILESTONE_REVIEW', 'T6b: state is BUILD_MILESTONE_REVIEW for ms-2',
       `got: ${state6?.phase}`);
-    check(state6?.currentMilestoneId === 'ms-2', 'T6b: currentMilestoneId is ms-2',
+    check(state6?.currentMilestoneId === scopeId(state6.lifecycleId, 'ms-2'), 'T6b: currentMilestoneId is scoped ms-2',
       `got: ${state6?.currentMilestoneId}`);
 
     const userMsg7 = userTurn('ano');
     const response7 = await handleLifecycleInput(userMsg7, context);
     systemTurn('BUILD (ms-2 result)', response7);
 
-    const ms2Db = msRepo.getMilestone('ms-2');
+    const ms2Db = msRepo.getMilestone(scopeId(state6.lifecycleId, 'ms-2'));
     check(ms2Db?.status === 'PASSED', 'T7: ms-2 status is PASSED in DB', `got: ${ms2Db?.status}`);
 
     check(fs.existsSync(path.join(projectPath, 'src/commands.js')),
@@ -685,7 +744,7 @@ async function runConversation() {
     const stateBeforeChange = getLcState(SESSION_ID);
     const savedMs3State = { ...stateBeforeChange }; // save ms-3 plan state for Phase 7
 
-    check(stateBeforeChange?.currentMilestoneId === 'ms-3',
+    check(stateBeforeChange?.currentMilestoneId === scopeId(stateBeforeChange.lifecycleId, 'ms-3'),
       'T7b: ms-3 plan was auto-shown after ms-2', `got: ${stateBeforeChange?.currentMilestoneId}`);
 
     // Force to BUILD so change management routing works
@@ -721,16 +780,17 @@ async function runConversation() {
 
     currentMilestoneIdx = 2;
     ms3Attempt = 0; // reset scope violation trigger
+    const ms3ScopedId = scopeId(state9.lifecycleId, 'ms-3');
 
     // ms-3 plan was already generated (AWAITING_PLAN in DB) by the auto-advance after ms-2.
     // Restore the saved BUILD_MILESTONE_REVIEW state from Phase 6 so we can approve ms-3.
     setLcState(SESSION_ID, {
       ...savedMs3State,
       phase: 'BUILD_MILESTONE_REVIEW',
-      currentMilestoneId: 'ms-3',
+      currentMilestoneId: savedMs3State.currentMilestoneId,
     });
 
-    const ms3BeforeApprove = msRepo.getMilestone('ms-3');
+    const ms3BeforeApprove = msRepo.getMilestone(ms3ScopedId);
     check(ms3BeforeApprove?.status === 'AWAITING_PLAN', 'T10: ms-3 is AWAITING_PLAN',
       `got: ${ms3BeforeApprove?.status}`);
 
@@ -743,19 +803,28 @@ async function runConversation() {
     const scopeChecks = driftChecks.getChecks(state9.lifecycleId)
       .filter(c => c.check_type === 'SCOPE_VIOLATION');
 
-    if (scopeChecks.length > 0) {
-      check(true, 'T10: scope violation detected on ms-3 first attempt');
-    } else {
-      // Scope enforcement depends on git diff — may not trigger in mock env
-      check(true, 'T10: ms-3 completed (scope check advisory)');
-    }
+    check(
+      scopeChecks.some(c => {
+        try {
+          const details = typeof c.details === 'string' ? JSON.parse(c.details) : c.details;
+          return details?.violations?.includes('unauthorized-scope-change.txt');
+        } catch {
+          return false;
+        }
+      }),
+      'T10: exact scope violation detected on ms-3 first attempt',
+      `checks: ${JSON.stringify(scopeChecks)}`,
+    );
 
-    // If ms-3 was PASSED on first try (scope enforcement advisory), that's OK
-    // If it was retried, it should pass on second attempt
-    const ms3Final = msRepo.getMilestone('ms-3');
-    if (ms3Final?.status === 'PASSED') {
-      check(true, 'T10: ms-3 PASSED');
-    } else if (ms3Final?.status === 'AWAITING_PLAN' || ms3Final?.status === 'PENDING') {
+    const ms3Final = msRepo.getMilestone(ms3ScopedId);
+    const retryableAfterScopeViolation =
+      ms3Final?.status === 'AWAITING_PLAN' || ms3Final?.status === 'PENDING';
+    check(
+      retryableAfterScopeViolation,
+      'T10: scope-violating ms-3 attempt was rejected for retry',
+      `got: ${ms3Final?.status}`,
+    );
+    if (retryableAfterScopeViolation) {
       // Retry: re-plan + approve ms-3
       currentMilestoneIdx = 2;
       ms3Attempt = 1; // will write clean files
@@ -765,24 +834,22 @@ async function runConversation() {
         lifecycle.executor = fakeExecutor;
       }
       // Reset ms-3 to PENDING for retry
-      msRepo.updateStatus.run('PENDING', 'ms-3');
+      msRepo.updateStatus.run('PENDING', ms3ScopedId);
       const ms3PlanRetry = await startNextMilestone(lifecycle);
       if (ms3PlanRetry) {
         setLcState(SESSION_ID, {
           ...getLcState(SESSION_ID),
           phase: 'BUILD_MILESTONE_REVIEW',
-          currentMilestoneId: 'ms-3',
+          currentMilestoneId: ms3ScopedId,
         });
         const retryApprove = userTurn('ano');
         const retryResp = await handleLifecycleInput(retryApprove, context);
         systemTurn('BUILD (ms-3 retry)', retryResp);
 
-        const ms3AfterRetry = msRepo.getMilestone('ms-3');
+        const ms3AfterRetry = msRepo.getMilestone(ms3ScopedId);
         check(ms3AfterRetry?.status === 'PASSED', 'T10: ms-3 PASSED after retry',
           `got: ${ms3AfterRetry?.status}`);
       }
-    } else {
-      check(false, 'T10: ms-3 unexpected status', `got: ${ms3Final?.status}`);
     }
 
     // ═══ PHASE 7b: Acknowledge Review → Complete ═════════════════════════════
@@ -844,6 +911,8 @@ async function runConversation() {
       check(fs.existsSync(path.join(projectPath, f)),
         `File: ${f} exists on disk`);
     }
+    check(!fs.existsSync(path.join(projectPath, 'unauthorized-scope-change.txt')),
+      'File: rejected out-of-scope artifact was removed before retry');
 
     // Verify content (only if files exist)
     try {

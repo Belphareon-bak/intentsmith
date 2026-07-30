@@ -11,7 +11,9 @@
 // Run: node tests/project-lifecycle-klicenka.test.js
 // ══════════════════════════════════════════════════════════════════════════════
 
+import './helpers/isolated-test-db.js';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { execSync } from 'child_process';
 
@@ -45,6 +47,7 @@ import {
   clearLcState,
   initLifecycleStateDb,
 } from '../src/chat/handlers/lifecycle-state.js';
+import { rawId, scopeId } from '../src/planner/lifecycle-planning.js';
 
 // ─── Assertions ─────────────────────────────────────────────────────────────
 
@@ -166,6 +169,12 @@ const ROADMAP = {
       goals_addressed: ['G1'],
       requirements_addressed: ['R1', 'R2'],
       deliverables: ['src/crypto.js', 'tests/crypto.test.js'],
+      acceptance_criteria: ['Encryption roundtrip and key derivation tests pass'],
+      test_strategy: {
+        type: 'unit',
+        command: 'node tests/crypto.test.js',
+        specific_tests: ['PBKDF2 key length', 'AES-GCM roundtrip'],
+      },
     },
     {
       id: 'ms-2',
@@ -178,6 +187,12 @@ const ROADMAP = {
       goals_addressed: ['G2'],
       requirements_addressed: ['R3', 'R4'],
       deliverables: ['src/store.js', 'tests/store.test.js'],
+      acceptance_criteria: ['Encrypted store CRUD tests pass without plaintext persistence'],
+      test_strategy: {
+        type: 'unit',
+        command: 'node tests/store.test.js',
+        specific_tests: ['Credential CRUD', 'Encrypted storage'],
+      },
     },
     {
       id: 'ms-3',
@@ -185,11 +200,17 @@ const ROADMAP = {
       description: 'Command-line interface: add, get, list, remove, export, import',
       dependencies: ['ms-2'],
       estimated_loc: 200,
-      estimated_files: 2,
+      estimated_files: 3,
       estimated_complexity: 'MEDIUM',
       goals_addressed: ['G3'],
       requirements_addressed: ['R5', 'R6'],
-      deliverables: ['src/cli.js', 'bin/klicenka'],
+      deliverables: ['src/cli.js', 'bin/klicenka', 'tests/cli-source.test.js'],
+      acceptance_criteria: ['CLI command module and executable entry point are syntactically valid'],
+      test_strategy: {
+        type: 'structural',
+        command: 'node tests/cli-source.test.js',
+        specific_tests: ['CLI module parses successfully', 'Executable entry point parses successfully'],
+      },
     },
     {
       id: 'ms-4',
@@ -197,16 +218,40 @@ const ROADMAP = {
       description: 'Integration module for C3 config system',
       dependencies: ['ms-2'],
       estimated_loc: 80,
-      estimated_files: 2,
+      estimated_files: 3,
       estimated_complexity: 'LOW',
       goals_addressed: ['G4'],
       requirements_addressed: ['R7'],
-      deliverables: ['src/integration.js', 'src/index.js'],
+      deliverables: ['src/integration.js', 'src/index.js', 'tests/integration-source.test.js'],
+      acceptance_criteria: ['C3 credential lookup and package exports are syntactically valid'],
+      test_strategy: {
+        type: 'structural',
+        command: 'node tests/integration-source.test.js',
+        specific_tests: ['C3 integration module parses successfully', 'Package export module parses successfully'],
+      },
     },
   ],
   total_estimated_loc: 550,
   total_milestones: 4,
   critical_path: ['ms-1', 'ms-2', 'ms-3'],
+  requirements_coverage: {
+    covered: ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7'],
+    uncovered: [],
+  },
+};
+
+const ARCHITECTURE = {
+  layers: ['encryption', 'storage', 'application'],
+  rules: [
+    { from: 'encryption', canImport: [], cannotImport: ['storage', 'application'] },
+    { from: 'storage', canImport: ['encryption'], cannotImport: ['application'] },
+    { from: 'application', canImport: ['storage', 'encryption'], cannotImport: [] },
+  ],
+  fileStructure: {
+    encryption: 'src/crypto.js',
+    storage: 'src/store.js',
+    application: 'src',
+  },
 };
 
 const MS_PLANS = {
@@ -232,6 +277,7 @@ const MS_PLANS = {
     implementation_steps: [
       { step: 1, action: 'Create credential store with CRUD', file: 'src/store.js' },
       { step: 2, action: 'Write store tests', file: 'tests/store.test.js' },
+      { step: 3, action: 'Validate encrypted CRUD persistence', file: 'tests/store.test.js' },
     ],
     scope_files: ['src/store.js', 'tests/store.test.js'],
   },
@@ -240,24 +286,30 @@ const MS_PLANS = {
     files: [
       { path: 'src/cli.js', action: 'create', purpose: 'CLI interface' },
       { path: 'bin/klicenka', action: 'create', purpose: 'CLI entry point' },
+      { path: 'tests/cli-source.test.js', action: 'create', purpose: 'CLI source syntax contract' },
     ],
     implementation_steps: [
       { step: 1, action: 'Create CLI parser', file: 'src/cli.js' },
       { step: 2, action: 'Create bin entry point', file: 'bin/klicenka' },
+      { step: 3, action: 'Integrate CLI commands with the credential store', file: 'src/cli.js' },
+      { step: 4, action: 'Validate CLI and executable entry-point syntax', file: 'tests/cli-source.test.js' },
     ],
-    scope_files: ['src/cli.js', 'bin/klicenka'],
+    scope_files: ['src/cli.js', 'bin/klicenka', 'tests/cli-source.test.js'],
   },
   'ms-4': {
     milestone_id: 'ms-4',
     files: [
       { path: 'src/integration.js', action: 'create', purpose: 'C3 integration' },
       { path: 'src/index.js', action: 'create', purpose: 'Main export' },
+      { path: 'tests/integration-source.test.js', action: 'create', purpose: 'Integration source syntax contract' },
     ],
     implementation_steps: [
       { step: 1, action: 'Create C3 integration module', file: 'src/integration.js' },
       { step: 2, action: 'Create main index export', file: 'src/index.js' },
+      { step: 3, action: 'Validate credential lookup handling', file: 'src/integration.js' },
+      { step: 4, action: 'Validate integration and package export syntax', file: 'tests/integration-source.test.js' },
     ],
-    scope_files: ['src/integration.js', 'src/index.js'],
+    scope_files: ['src/integration.js', 'src/index.js', 'tests/integration-source.test.js'],
   },
 };
 
@@ -317,6 +369,7 @@ import { deriveKey, encrypt, decrypt } from './crypto.js';
 export class CredentialStore {
   constructor(filePath, password) {
     this.filePath = filePath;
+    this.password = password;
     const { key, salt } = deriveKey(password);
     this.key = key;
     this.salt = salt;
@@ -327,7 +380,7 @@ export class CredentialStore {
   load() {
     const raw = JSON.parse(readFileSync(this.filePath, 'utf-8'));
     this.salt = Buffer.from(raw.salt, 'base64');
-    const { key } = deriveKey(null, this.salt); // re-derive with stored salt
+    const { key } = deriveKey(this.password, this.salt);
     this.key = key;
     for (const [k, v] of Object.entries(raw.entries || {})) {
       this.data[k] = decrypt(v, this.key);
@@ -349,10 +402,10 @@ export class CredentialStore {
 }
 `,
     'tests/store.test.js': `import { CredentialStore } from '../src/store.js';
-import { unlinkSync } from 'fs';
+import { readFileSync, unlinkSync } from 'fs';
 import assert from 'assert';
 
-const testFile = '/tmp/klicenka-test-store.json';
+const testFile = '.klicenka-test-store.json';
 try { unlinkSync(testFile); } catch {}
 
 const store = new CredentialStore(testFile, 'master-pass');
@@ -362,11 +415,19 @@ store.add('db-pass', 'p@ssw0rd');
 assert.strictEqual(store.get('api-key'), 'sk-12345');
 assert.deepStrictEqual(store.list(), ['api-key', 'db-pass']);
 
-store.remove('api-key');
-assert.strictEqual(store.get('api-key'), null);
+const rawStore = readFileSync(testFile, 'utf8');
+assert.ok(!rawStore.includes('sk-12345'), 'store leaked API key plaintext');
+assert.ok(!rawStore.includes('p@ssw0rd'), 'store leaked DB password plaintext');
+
+const reloaded = new CredentialStore(testFile, 'master-pass');
+assert.strictEqual(reloaded.get('api-key'), 'sk-12345');
+assert.strictEqual(reloaded.get('db-pass'), 'p@ssw0rd');
+
+reloaded.remove('api-key');
+assert.strictEqual(reloaded.get('api-key'), null);
 
 try { unlinkSync(testFile); } catch {}
-console.log('store tests: 3 passed');
+console.log('store tests: ciphertext and reload checks passed');
 `,
   },
   'ms-3': {
@@ -410,6 +471,15 @@ export function runCLI(args, storePath = DEFAULT_STORE) {
 import { runCLI } from '../src/cli.js';
 console.log(runCLI(process.argv.slice(2)));
 `,
+    'tests/cli-source.test.js': `import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+const cliPath = fileURLToPath(new URL('../src/cli.js', import.meta.url));
+const entryPath = fileURLToPath(new URL('../bin/klicenka', import.meta.url));
+execFileSync(process.execPath, ['--check', cliPath], { stdio: 'pipe' });
+execFileSync(process.execPath, ['--check', entryPath], { stdio: 'pipe' });
+console.log('CLI source syntax checks passed');
+`,
   },
   'ms-4': {
     'src/integration.js': `import { CredentialStore } from './store.js';
@@ -430,6 +500,15 @@ export function listC3Credentials(storePath = DEFAULT_STORE_PATH) {
 export { CredentialStore } from './store.js';
 export { runCLI } from './cli.js';
 export { getC3Credential, listC3Credentials } from './integration.js';
+`,
+    'tests/integration-source.test.js': `import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+const integrationPath = fileURLToPath(new URL('../src/integration.js', import.meta.url));
+const indexPath = fileURLToPath(new URL('../src/index.js', import.meta.url));
+execFileSync(process.execPath, ['--check', integrationPath], { stdio: 'pipe' });
+execFileSync(process.execPath, ['--check', indexPath], { stdio: 'pipe' });
+console.log('Integration source syntax checks passed');
 `,
   },
 };
@@ -493,11 +572,17 @@ function createFakeLLM() {
       return { content: JSON.stringify(ROADMAP) };
     }
 
+    // PLANNING: architecture contract
+    if (p.includes('generate an ARCHITECTURE.json file')) {
+      return { content: JSON.stringify(ARCHITECTURE) };
+    }
+
     // BUILD: milestone plan
     if (p.includes('implementing a specific milestone') || p.includes('implementation plan for THIS milestone')) {
       const msMatch = p.match(/"id"\s*:\s*"(ms-\d+)"/);
-      const msId = msMatch ? msMatch[1] : 'ms-1';
-      return { content: JSON.stringify(MS_PLANS[msId] || MS_PLANS['ms-1']) };
+      const msId = msMatch?.[1];
+      if (!msId || !MS_PLANS[msId]) throw new Error(`Unknown milestone plan prompt: ${msId}`);
+      return { content: JSON.stringify(MS_PLANS[msId]) };
     }
 
     // BUILD: checkpoint
@@ -553,8 +638,9 @@ function createFakeLLM() {
 function createFakeExecutor(projectPath) {
   return {
     async start(request, context) {
-      const msId = context.milestoneId;
-      const files = FILES[msId] || {};
+      const msId = rawId(context.milestoneId);
+      const files = FILES[msId];
+      if (!files) throw new Error(`No executor fixture for ${context.milestoneId}`);
 
       for (const [relPath, content] of Object.entries(files)) {
         const fullPath = path.join(projectPath, relPath);
@@ -609,18 +695,12 @@ async function run() {
 
   const SESSION_ID = 'klicenka-e2e';
 
-  // ─── Persistent project path (under projects/, not /tmp/) ─────────────────
-  const projectsRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../projects');
-  const projectPath = path.join(projectsRoot, 'klicenka');
-
-  // Clean previous run if exists (idempotent re-run)
-  if (fs.existsSync(projectPath)) {
-    fs.rmSync(projectPath, { recursive: true, force: true });
-  }
-  fs.mkdirSync(projectPath, { recursive: true });
+  // Unique temporary project path: never overwrite a user's projects/ tree.
+  const projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-klicenka-'));
+  const projectName = path.basename(projectPath);
 
   // ─── Register project in DB ───────────────────────────────────────────────
-  const project = projects.getOrCreate('klicenka', projectPath,
+  const project = projects.getOrCreate(projectName, projectPath,
     'Šifrované úložiště citlivých údajů pro C3 — Secure Keychain');
   const projectId = Number(project.id);
 
@@ -737,6 +817,8 @@ async function run() {
     // ROADMAP.md should exist and contain all 4 milestones
     const roadmapPath = path.join(projectPath, 'ROADMAP.md');
     check(fs.existsSync(roadmapPath), 'Plan.2: ROADMAP.md exists after planning');
+    check(fs.existsSync(path.join(projectPath, 'ARCHITECTURE.json')),
+      'Plan.2b: ARCHITECTURE.json exists after planning');
 
     if (fs.existsSync(roadmapPath)) {
       const rmContent = fs.readFileSync(roadmapPath, 'utf-8');
@@ -755,12 +837,12 @@ async function run() {
     const r5 = await handleLifecycleInput('schvaluji', context);
     logTurn('schvaluji', r5);
     const s5 = getLcState(SESSION_ID);
-    check(s5?.currentMilestoneId === 'ms-1', 'MS1.1: currentMilestoneId is ms-1');
+    check(s5?.currentMilestoneId === scopeId(s5.lifecycleId, 'ms-1'), 'MS1.1: currentMilestoneId is scoped ms-1');
 
     // Execute ms-1
     const r6 = await handleLifecycleInput('ano', context);
     logTurn('ano', r6);
-    const ms1 = msRepo.getMilestone('ms-1');
+    const ms1 = msRepo.getMilestone(scopeId(s5.lifecycleId, 'ms-1'));
     check(ms1?.status === 'PASSED', 'MS1.2: ms-1 PASSED in DB');
     check(fs.existsSync(path.join(projectPath, 'src/crypto.js')), 'MS1.3: src/crypto.js on disk');
     check(fs.existsSync(path.join(projectPath, 'tests/crypto.test.js')), 'MS1.4: tests/crypto.test.js on disk');
@@ -777,22 +859,22 @@ async function run() {
     console.log('\n═══ PHASE 5: BUILD — Milestone 2 (Credential Store) ═══════════════');
 
     const s6 = getLcState(SESSION_ID);
-    check(s6?.currentMilestoneId === 'ms-2', 'MS2.1: auto-advanced to ms-2');
+    check(s6?.currentMilestoneId === scopeId(s6.lifecycleId, 'ms-2'), 'MS2.1: auto-advanced to scoped ms-2');
 
     const r7 = await handleLifecycleInput('ano', context);
     logTurn('ano', r7);
-    const ms2 = msRepo.getMilestone('ms-2');
+    const ms2 = msRepo.getMilestone(scopeId(s6.lifecycleId, 'ms-2'));
     check(ms2?.status === 'PASSED', 'MS2.2: ms-2 PASSED in DB');
     check(fs.existsSync(path.join(projectPath, 'src/store.js')), 'MS2.3: src/store.js on disk');
 
     console.log('\n═══ PHASE 6: BUILD — Milestone 3 (CLI Interface) ══════════════════');
 
     const s7 = getLcState(SESSION_ID);
-    check(s7?.currentMilestoneId === 'ms-3', 'MS3.1: auto-advanced to ms-3');
+    check(s7?.currentMilestoneId === scopeId(s7.lifecycleId, 'ms-3'), 'MS3.1: auto-advanced to scoped ms-3');
 
     const r8 = await handleLifecycleInput('ano', context);
     logTurn('ano', r8);
-    const ms3 = msRepo.getMilestone('ms-3');
+    const ms3 = msRepo.getMilestone(scopeId(s7.lifecycleId, 'ms-3'));
     check(ms3?.status === 'PASSED', 'MS3.2: ms-3 PASSED in DB');
     check(fs.existsSync(path.join(projectPath, 'src/cli.js')), 'MS3.3: src/cli.js on disk');
     check(fs.existsSync(path.join(projectPath, 'bin/klicenka')), 'MS3.4: bin/klicenka on disk');
@@ -801,9 +883,10 @@ async function run() {
     console.log('\n═══ PHASE 7: REVIEW (after ms-3) ════════════════════════════════════');
 
     const sAfterMs3 = getLcState(SESSION_ID);
+    check(sAfterMs3?.phase === 'REVIEW', 'Review.1: review triggered after 3 milestones',
+      `got: ${sAfterMs3?.phase}`);
     if (sAfterMs3?.phase === 'REVIEW') {
       console.log('  Review triggered after ms-3, acknowledging...');
-      check(true, 'Review.1: review triggered after 3 milestones');
       const rReview = await handleLifecycleInput('pokračovat', context);
       logTurn('pokračovat', rReview);
     }
@@ -811,12 +894,12 @@ async function run() {
     console.log('\n═══ PHASE 8: BUILD — Milestone 4 (C3 Integration) ═════════════════');
 
     const s8 = getLcState(SESSION_ID);
-    check(s8?.currentMilestoneId === 'ms-4', 'MS4.1: auto-advanced to ms-4',
+    check(s8?.currentMilestoneId === scopeId(s8.lifecycleId, 'ms-4'), 'MS4.1: auto-advanced to scoped ms-4',
       `got: ${s8?.currentMilestoneId}, phase: ${s8?.phase}`);
 
     const r9 = await handleLifecycleInput('ano', context);
     logTurn('ano', r9);
-    const ms4 = msRepo.getMilestone('ms-4');
+    const ms4 = msRepo.getMilestone(scopeId(s8.lifecycleId, 'ms-4'));
     check(ms4?.status === 'PASSED', 'MS4.2: ms-4 PASSED in DB', `got: ${ms4?.status}`);
     check(fs.existsSync(path.join(projectPath, 'src/integration.js')), 'MS4.3: src/integration.js on disk');
     check(fs.existsSync(path.join(projectPath, 'src/index.js')), 'MS4.4: src/index.js on disk');
@@ -909,7 +992,8 @@ async function run() {
     // Project registered in DB
     const dbProject = projects.findByPath.get(projectPath);
     check(dbProject != null, 'DB.1: project registered in DB');
-    check(dbProject?.name === 'klicenka', 'DB.2: project name is klicenka');
+    check(dbProject?.name === projectName, 'DB.2: project name matches isolated project',
+      `got: ${dbProject?.name}, expected: ${projectName}`);
 
     // Conversation linked to project
     const dbConv = conversations.findById.get(CONV_ID);
@@ -933,8 +1017,7 @@ async function run() {
     console.log(`    Messages: ${dbMessages.length} (${userMsgs.length} user, ${assistantMsgs.length} assistant)`);
     console.log(`    Title: ${dbConv?.title}`);
 
-    // Project and conversation persist (NO cleanup — this is the whole point)
-    console.log(`\n  ── Projekt persistuje v: ${projectPath}`);
+    console.log(`\n  ── Dočasný projekt: ${projectPath}`);
     console.log(`  ── Konverzace v DB: ${CONV_ID}`);
     console.log(`  ── Projekt v DB: id=${projectId}, name=${dbProject?.name}`);
 
@@ -943,6 +1026,13 @@ async function run() {
     console.error(err.stack);
     failed++;
     failures.push({ name: 'FATAL', detail: err.message });
+  }
+
+  if (failed === 0 && process.env.KEEP_PROJECT !== '1') {
+    fs.rmSync(projectPath, { recursive: true, force: true });
+    console.log(`\n  🧹 Dočasný projekt odstraněn: ${projectPath}`);
+  } else {
+    console.log(`\n  ℹ️ Dočasný projekt ponechán pro diagnostiku: ${projectPath}`);
   }
 
   // ═══ Summary ════════════════════════════════════════════════════════════

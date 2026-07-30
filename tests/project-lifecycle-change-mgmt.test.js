@@ -15,7 +15,9 @@
 // Run: node tests/project-lifecycle-change-mgmt.test.js
 // ══════════════════════════════════════════════════════════════════════════════
 
+import './helpers/isolated-test-db.js';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { execSync } from 'child_process';
 
@@ -50,6 +52,7 @@ import {
   clearLcState,
   initLifecycleStateDb,
 } from '../src/chat/handlers/lifecycle-state.js';
+import { rawId, scopeId } from '../src/planner/lifecycle-planning.js';
 
 // ─── Assertions ─────────────────────────────────────────────────────────────
 
@@ -106,49 +109,109 @@ const SPEC = {
 const ROADMAP = {
   milestones: [
     { id: 'ms-1', title: 'Note Storage', description: 'JSON file storage for notes',
-      dependencies: [], estimated_loc: 50, estimated_files: 1, estimated_complexity: 'LOW' },
+      dependencies: [], estimated_loc: 50, estimated_files: 1, estimated_complexity: 'LOW',
+      deliverables: ['store.js'],
+      acceptance_criteria: ['Store source declares JSON load and save operations'],
+      test_strategy: { type: 'structural', command: 'node --check store.js', specific_tests: ['Store module parses'] } },
     { id: 'ms-2', title: 'Basic Commands', description: 'Add and list notes',
-      dependencies: ['ms-1'], estimated_loc: 70, estimated_files: 1, estimated_complexity: 'LOW' },
-    { id: 'ms-3', title: 'Search & Tags', description: 'Search by keyword and tag support',
-      dependencies: ['ms-2'], estimated_loc: 80, estimated_files: 1, estimated_complexity: 'MEDIUM' },
+      dependencies: ['ms-1'], estimated_loc: 70, estimated_files: 1, estimated_complexity: 'LOW',
+      deliverables: ['commands.js'],
+      acceptance_criteria: ['Command source declares add/list operations and tag persistence'],
+      test_strategy: { type: 'structural', command: 'node --check commands.js', specific_tests: ['Command module parses'] } },
+    { id: 'ms-3', title: 'Search & Tags Source Verification', description: 'Finalize keyword-search and tag-filter source contracts',
+      dependencies: ['ms-2'], estimated_loc: 80, estimated_files: 1, estimated_complexity: 'MEDIUM',
+      deliverables: ['search.js'],
+      acceptance_criteria: ['Search source declares keyword and tag filters'],
+      test_strategy: { type: 'structural', command: 'node --check search.js', specific_tests: ['Search module parses'] } },
   ],
   total_estimated_loc: 200,
   total_milestones: 3,
+  requirements_coverage: {
+    covered: ['R1', 'R2', 'R3', 'R4', 'R5'],
+    uncovered: [],
+  },
 };
 
 // Rewritten roadmap after change (adds ms-4)
 const ROADMAP_AFTER_CHANGE = {
   milestones: [
     // ms-1 preserved (PASSED)
-    { id: 'ms-1', title: 'Note Storage', description: 'JSON file storage', preserved: true,
-      dependencies: [], estimated_loc: 50, estimated_files: 1, estimated_complexity: 'LOW' },
+    { id: 'ms-1', title: 'Note Storage', description: 'JSON file storage for notes', preserved: true,
+      dependencies: [], estimated_loc: 50, estimated_files: 1, estimated_complexity: 'LOW',
+      deliverables: ['store.js'],
+      acceptance_criteria: ['Store source declares JSON load and save operations'],
+      test_strategy: { type: 'structural', command: 'node --check store.js', specific_tests: ['Store module parses'] } },
     // ms-2 modified
     { id: 'ms-2', title: 'Basic Commands + Export', description: 'Add, list, export notes',
-      dependencies: ['ms-1'], estimated_loc: 90, estimated_files: 1, estimated_complexity: 'MEDIUM' },
+      dependencies: ['ms-1'], estimated_loc: 90, estimated_files: 1, estimated_complexity: 'MEDIUM',
+      deliverables: ['commands.js'],
+      acceptance_criteria: ['Command source retains add/list/tag operations and declares Markdown export'],
+      test_strategy: { type: 'structural', command: 'node --check commands.js', specific_tests: ['Command module parses'] } },
     // ms-3 unchanged
-    { id: 'ms-3', title: 'Search & Tags', description: 'Search by keyword and tag support',
-      dependencies: ['ms-2'], estimated_loc: 80, estimated_files: 1, estimated_complexity: 'MEDIUM' },
+    { id: 'ms-3', title: 'Search & Tags Source Verification', description: 'Finalize keyword-search and tag-filter source contracts',
+      dependencies: ['ms-2'], estimated_loc: 80, estimated_files: 1, estimated_complexity: 'MEDIUM',
+      deliverables: ['search.js'],
+      acceptance_criteria: ['Search source declares keyword and tag filters'],
+      test_strategy: { type: 'structural', command: 'node --check search.js', specific_tests: ['Search module parses'] } },
   ],
+  total_estimated_loc: 220,
+  total_milestones: 3,
+  requirements_coverage: {
+    covered: ['R1', 'R2', 'R3', 'R4', 'R5'],
+    uncovered: [],
+  },
   changes_summary: 'Added export functionality to ms-2',
   diff: { added: [], removed: [], modified: ['ms-2'], preserved: ['ms-1', 'ms-3'] },
 };
 
 const MS_PLANS = {
   'ms-1': { milestone_id: 'ms-1', files: [{ path: 'store.js', action: 'create' }],
-    implementation_steps: [{ step: 1, action: 'Create store.js' }], scope_files: ['store.js'] },
+    implementation_steps: [
+      { step: 1, action: 'Create store.js' },
+      { step: 2, action: 'Implement JSON note loading' },
+      { step: 3, action: 'Implement JSON note saving' },
+    ], scope_files: ['store.js'] },
   'ms-2': { milestone_id: 'ms-2', files: [{ path: 'commands.js', action: 'create' }],
-    implementation_steps: [{ step: 1, action: 'Create commands.js' }], scope_files: ['commands.js'] },
+    implementation_steps: [
+      { step: 1, action: 'Create commands.js' },
+      { step: 2, action: 'Implement add command with tag persistence' },
+      { step: 3, action: 'Implement list command' },
+    ], scope_files: ['commands.js'] },
   'ms-3': { milestone_id: 'ms-3', files: [{ path: 'search.js', action: 'create' }],
-    implementation_steps: [{ step: 1, action: 'Create search.js' }], scope_files: ['search.js'] },
+    implementation_steps: [
+      { step: 1, action: 'Create search.js' },
+      { step: 2, action: 'Import shared store loader' },
+      { step: 3, action: 'Implement keyword and tag filtering' },
+    ], scope_files: ['search.js'] },
+};
+
+const MS_PLANS_AFTER_CHANGE = {
+  ...MS_PLANS,
+  'ms-2': {
+    milestone_id: 'ms-2',
+    files: [{ path: 'commands.js', action: 'create' }],
+    implementation_steps: [
+      { step: 1, action: 'Retain add and list command interfaces' },
+      { step: 2, action: 'Retain tag persistence in added notes' },
+      { step: 3, action: 'Add Markdown export source contract' },
+    ],
+    scope_files: ['commands.js'],
+  },
 };
 
 const FILES = {
   'ms-1': { 'store.js': 'import fs from "fs";\nexport const load = () => JSON.parse(fs.readFileSync("notes.json","utf8"));\nexport const save = (d) => fs.writeFileSync("notes.json",JSON.stringify(d,null,2));\n' },
-  'ms-2': { 'commands.js': 'import {load,save} from "./store.js";\nexport function add(text) { const d = load(); d.push({text,ts:Date.now()}); save(d); }\nexport function list() { return load(); }\n' },
-  'ms-3': { 'search.js': 'import {load} from "./store.js";\nexport function search(q) { return load().filter(n=>n.text.includes(q)); }\n' },
+  'ms-2': { 'commands.js': 'import {load,save} from "./store.js";\nexport function add(text, tags = []) { const d = load(); d.push({text,tags,ts:Date.now()}); save(d); }\nexport function list() { return load(); }\n' },
+  'ms-3': { 'search.js': 'import {load} from "./store.js";\nexport function search(q) { return load().filter(n=>n.text.includes(q)); }\nexport function filterByTag(tag) { return load().filter(n => n.tags?.includes(tag)); }\n' },
 };
 
-let changeApproveMode = false; // toggle for fake LLM behavior
+const FILES_AFTER_CHANGE = {
+  'ms-2': {
+    'commands.js': 'import {load,save} from "./store.js";\nexport function add(text, tags = []) { const d = load(); d.push({text,tags,ts:Date.now()}); save(d); }\nexport function list() { return load(); }\nexport function exportMarkdown() { return load().map(n => `- ${n.text}`).join("\\n"); }\n',
+  },
+};
+
+let roadmapChanged = false;
 
 function createFakeLLM() {
   return async function fakeLLM(role, prompt) {
@@ -161,7 +224,10 @@ function createFakeLLM() {
     if (p.includes('creating a project roadmap') || p.includes('Break the project into milestones'))
       return { content: JSON.stringify(ROADMAP) };
     if (p.includes('implementing a specific milestone') || p.includes('implementation plan for THIS milestone')) {
-      const m = p.match(/"id"\s*:\s*"(ms-\d+)"/); return { content: JSON.stringify(MS_PLANS[m?.[1] || 'ms-1']) };
+      const msId = p.match(/"id"\s*:\s*"(ms-\d+)"/)?.[1];
+      const plans = roadmapChanged ? MS_PLANS_AFTER_CHANGE : MS_PLANS;
+      if (!msId || !plans[msId]) throw new Error(`Unknown milestone plan prompt: ${msId}`);
+      return { content: JSON.stringify(plans[msId]) };
     }
     if (p.includes('reviewing a completed milestone') || p.includes('Compare the actual output'))
       return { content: JSON.stringify({ passed: true, deliverables_check: [], scope_violations: [], overall_assessment: 'OK' }) };
@@ -180,8 +246,10 @@ function createFakeLLM() {
       }) };
 
     // CHANGE: rewrite roadmap
-    if (p.includes('rewriting a project roadmap') || p.includes('incorporate an approved change'))
+    if (p.includes('rewriting a project roadmap') || p.includes('incorporate an approved change')) {
+      roadmapChanged = true;
       return { content: JSON.stringify(ROADMAP_AFTER_CHANGE) };
+    }
 
     return { content: '{}' };
   };
@@ -190,7 +258,11 @@ function createFakeLLM() {
 function createFakeExecutor(projectPath) {
   return {
     async start(request, context) {
-      const files = FILES[context.milestoneId] || {};
+      const msId = rawId(context.milestoneId);
+      const files = roadmapChanged && FILES_AFTER_CHANGE[msId]
+        ? FILES_AFTER_CHANGE[msId]
+        : FILES[msId];
+      if (!files) throw new Error(`No executor fixture for ${context.milestoneId}`);
       for (const [relPath, content] of Object.entries(files)) {
         const fp = path.join(projectPath, relPath);
         fs.mkdirSync(path.dirname(fp), { recursive: true });
@@ -217,8 +289,7 @@ function cleanDB() {
 }
 
 function setupProject() {
-  const projectPath = `/tmp/lc-change-${Date.now()}`;
-  fs.mkdirSync(projectPath, { recursive: true });
+  const projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'lc-change-'));
   execSync('git init', { cwd: projectPath, stdio: 'pipe' });
   execSync('git config user.email "test@test.com"', { cwd: projectPath, stdio: 'pipe' });
   execSync('git config user.name "Test"', { cwd: projectPath, stdio: 'pipe' });
@@ -255,10 +326,10 @@ async function run() {
     const state = getLcState(SESSION);
     const lifecycleId = state.lifecycleId;
 
-    check(state?.currentMilestoneId === 'ms-2', 'Setup: at ms-2 after ms-1 PASSED',
+    check(state?.currentMilestoneId === scopeId(lifecycleId, 'ms-2'), 'Setup: at scoped ms-2 after ms-1 PASSED',
       `got: ${state?.currentMilestoneId}`);
 
-    const ms1 = msRepo.getMilestone('ms-1');
+    const ms1 = msRepo.getMilestone(scopeId(lifecycleId, 'ms-1'));
     check(ms1?.status === 'PASSED', 'Setup: ms-1 PASSED', `got: ${ms1?.status}`);
 
     const rv1 = roadmapVersions.getLatestVersion(lifecycleId);
@@ -338,7 +409,7 @@ async function run() {
     console.log('\n═══ TEST C: Completed Milestones Preserved ════════════════════════');
 
     // ms-1 should STILL be PASSED
-    const ms1After = msRepo.getMilestone('ms-1');
+    const ms1After = msRepo.getMilestone(scopeId(lifecycleId, 'ms-1'));
     check(ms1After?.status === 'PASSED', 'C.1: ms-1 still PASSED after roadmap rewrite',
       `got: ${ms1After?.status}`);
 
@@ -349,7 +420,7 @@ async function run() {
       `statuses: ${crs2.map(c => c.status).join(', ')}`);
 
     // ms-2 should still exist (modified, not deleted)
-    const ms2After = msRepo.getMilestone('ms-2');
+    const ms2After = msRepo.getMilestone(scopeId(lifecycleId, 'ms-2'));
     check(ms2After != null, 'C.3: ms-2 still exists after change');
 
     // Progress: 1 completed out of 3

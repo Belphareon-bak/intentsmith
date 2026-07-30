@@ -15,7 +15,9 @@
 // Run: node tests/project-lifecycle-happy-path.test.js
 // ══════════════════════════════════════════════════════════════════════════════
 
+import './helpers/isolated-test-db.js';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { execSync } from 'child_process';
 
@@ -47,6 +49,7 @@ import {
   clearLcState,
   initLifecycleStateDb,
 } from '../src/chat/handlers/lifecycle-state.js';
+import { rawId, scopeId } from '../src/planner/lifecycle-planning.js';
 
 // ─── Assertions ─────────────────────────────────────────────────────────────
 
@@ -125,6 +128,12 @@ const ROADMAP = {
       goals_addressed: ['G3'],
       requirements_addressed: ['R3', 'R4'],
       deliverables: ['server.js', 'config.js'],
+      acceptance_criteria: ['Server and port configuration modules are syntactically valid'],
+      test_strategy: {
+        type: 'structural',
+        command: 'node --check server.js',
+        specific_tests: ['Server entry point parses successfully'],
+      },
     },
     {
       id: 'ms-2',
@@ -132,16 +141,22 @@ const ROADMAP = {
       description: 'GET /greet endpoint with greeting logic',
       dependencies: ['ms-1'],
       estimated_loc: 80,
-      estimated_files: 1,
+      estimated_files: 3,
       estimated_complexity: 'LOW',
       goals_addressed: ['G1'],
       requirements_addressed: ['R1', 'R5'],
-      deliverables: ['greetings.js'],
+      deliverables: ['greetings.js', 'server.js', 'test/greet.contract.test.js'],
+      acceptance_criteria: ['Server source declares GET /greet wired to the greeting function'],
+      test_strategy: {
+        type: 'source-contract',
+        command: 'node test/greet.contract.test.js',
+        specific_tests: ['Greeting export and server route wiring are declared'],
+      },
     },
     {
       id: 'ms-3',
-      title: 'Multi-language Support',
-      description: 'Accept-Language header parsing and locale-based greetings',
+      title: 'Locale Source Verification',
+      description: 'Finalize Accept-Language parsing and deterministic locale fallback contracts',
       dependencies: ['ms-2'],
       estimated_loc: 50,
       estimated_files: 1,
@@ -149,11 +164,35 @@ const ROADMAP = {
       goals_addressed: ['G2'],
       requirements_addressed: ['R2'],
       deliverables: ['greetings.js'],
+      acceptance_criteria: ['Supported and unknown locales resolve deterministically'],
+      test_strategy: {
+        type: 'structural',
+        command: 'node --check greetings.js',
+        specific_tests: ['Final localized greeting module parses successfully'],
+      },
     },
   ],
   total_estimated_loc: 190,
   total_milestones: 3,
   critical_path: ['ms-1', 'ms-2', 'ms-3'],
+  requirements_coverage: {
+    covered: ['R1', 'R2', 'R3', 'R4', 'R5'],
+    uncovered: [],
+  },
+};
+
+const ARCHITECTURE = {
+  layers: ['routes', 'domain', 'config'],
+  rules: [
+    { from: 'routes', canImport: ['domain', 'config'], cannotImport: [] },
+    { from: 'domain', canImport: [], cannotImport: ['routes', 'config'] },
+    { from: 'config', canImport: [], cannotImport: ['routes', 'domain'] },
+  ],
+  fileStructure: {
+    routes: 'server.js',
+    domain: 'greetings.js',
+    config: 'config.js',
+  },
 };
 
 const MS_PLANS = {
@@ -166,6 +205,7 @@ const MS_PLANS = {
     implementation_steps: [
       { step: 1, action: 'Create config.js with PORT', file: 'config.js' },
       { step: 2, action: 'Create server.js with /health', file: 'server.js' },
+      { step: 3, action: 'Integrate port configuration into server startup', file: 'server.js' },
     ],
     scope_files: ['server.js', 'config.js'],
   },
@@ -173,11 +213,16 @@ const MS_PLANS = {
     milestone_id: 'ms-2',
     files: [
       { path: 'greetings.js', action: 'create', purpose: 'Greeting logic' },
+      { path: 'server.js', action: 'modify', purpose: 'Register greeting HTTP route' },
+      { path: 'test/greet.contract.test.js', action: 'create', purpose: 'Executable route-wiring source contract' },
     ],
     implementation_steps: [
       { step: 1, action: 'Create greetings.js with greet function', file: 'greetings.js' },
+      { step: 2, action: 'Register greeting endpoint behavior in server.js', file: 'server.js' },
+      { step: 3, action: 'Create executable greeting route source-contract checks', file: 'test/greet.contract.test.js' },
+      { step: 4, action: 'Validate structured JSON greeting wiring', file: 'test/greet.contract.test.js' },
     ],
-    scope_files: ['greetings.js', 'server.js'],
+    scope_files: ['greetings.js', 'server.js', 'test/greet.contract.test.js'],
   },
   'ms-3': {
     milestone_id: 'ms-3',
@@ -186,6 +231,8 @@ const MS_PLANS = {
     ],
     implementation_steps: [
       { step: 1, action: 'Add Accept-Language parsing', file: 'greetings.js' },
+      { step: 2, action: 'Add supported locale mappings', file: 'greetings.js' },
+      { step: 3, action: 'Validate deterministic locale fallback', file: 'greetings.js' },
     ],
     scope_files: ['greetings.js'],
   },
@@ -213,6 +260,33 @@ export function greet(name, locale = 'en') {
   const greeting = greetings[locale] || greetings.en;
   return { greeting: \`\${greeting}, \${name}!\`, locale };
 }
+`,
+    'server.js': `import express from 'express';
+import { PORT } from './config.js';
+import { greet } from './greetings.js';
+
+const app = express();
+
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+app.get('/greet', (req, res) => {
+  const locale = (req.get('Accept-Language') || 'en').split(',')[0].split('-')[0];
+  res.json(greet(req.query.name || 'World', locale));
+});
+
+app.listen(PORT, () => console.log(\`Listening on \${PORT}\`));
+
+export default app;
+`,
+    'test/greet.contract.test.js': `import fs from 'node:fs';
+import assert from 'node:assert/strict';
+
+const server = fs.readFileSync(new URL('../server.js', import.meta.url), 'utf8');
+const greetings = fs.readFileSync(new URL('../greetings.js', import.meta.url), 'utf8');
+
+assert.match(greetings, /export function greet/);
+assert.match(server, /app\\.get\\('\\/greet'/);
+assert.match(server, /greet\\(req\\.query\\.name/);
+assert.match(server, /Accept-Language/);
 `,
   },
   'ms-3': {
@@ -267,11 +341,17 @@ function createFakeLLM() {
       return { content: JSON.stringify(ROADMAP) };
     }
 
+    // PLANNING: architecture contract
+    if (p.includes('generate an ARCHITECTURE.json file')) {
+      return { content: JSON.stringify(ARCHITECTURE) };
+    }
+
     // BUILD: milestone plan
     if (p.includes('implementing a specific milestone') || p.includes('implementation plan for THIS milestone')) {
       const msMatch = p.match(/"id"\s*:\s*"(ms-\d+)"/);
-      const msId = msMatch ? msMatch[1] : 'ms-1';
-      return { content: JSON.stringify(MS_PLANS[msId] || MS_PLANS['ms-1']) };
+      const msId = msMatch?.[1];
+      if (!msId || !MS_PLANS[msId]) throw new Error(`Unknown milestone plan prompt: ${msId}`);
+      return { content: JSON.stringify(MS_PLANS[msId]) };
     }
 
     // BUILD: checkpoint
@@ -323,8 +403,9 @@ function createFakeLLM() {
 function createFakeExecutor(projectPath) {
   return {
     async start(request, context) {
-      const msId = context.milestoneId;
-      const files = FILES[msId] || {};
+      const msId = rawId(context.milestoneId);
+      const files = FILES[msId];
+      if (!files) throw new Error(`No executor fixture for ${context.milestoneId}`);
 
       for (const [relPath, content] of Object.entries(files)) {
         const fullPath = path.join(projectPath, relPath);
@@ -370,8 +451,7 @@ async function run() {
   cleanDB();
 
   const SESSION_ID = 'happy-path-test';
-  const projectPath = `/tmp/lc-happy-path-${Date.now()}`;
-  fs.mkdirSync(projectPath, { recursive: true });
+  const projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'lc-happy-path-'));
   execSync('git init', { cwd: projectPath, stdio: 'pipe' });
   execSync('git config user.email "test@test.com"', { cwd: projectPath, stdio: 'pipe' });
   execSync('git config user.name "Test"', { cwd: projectPath, stdio: 'pipe' });
@@ -441,6 +521,8 @@ async function run() {
     const roadmapAfterPlan = path.join(projectPath, 'ROADMAP.md');
     check(fs.existsSync(roadmapAfterPlan),
       'P1.1: ROADMAP.md exists after generateRoadmap');
+    check(fs.existsSync(path.join(projectPath, 'ARCHITECTURE.json')),
+      'P1.1b: ARCHITECTURE.json exists after generateRoadmap');
 
     if (fs.existsSync(roadmapAfterPlan)) {
       const rmContent = fs.readFileSync(roadmapAfterPlan, 'utf-8');
@@ -448,7 +530,7 @@ async function run() {
       check(rmContent.includes('v1'), 'P1.3: ROADMAP.md has version v1');
       check(rmContent.includes('Server Setup'), 'P1.4: ROADMAP.md has ms-1 title');
       check(rmContent.includes('Greeting Endpoint'), 'P1.5: ROADMAP.md has ms-2 title');
-      check(rmContent.includes('Multi-language'), 'P1.6: ROADMAP.md has ms-3 title');
+      check(rmContent.includes('Locale Source Verification'), 'P1.6: ROADMAP.md has ms-3 title');
       check(rmContent.includes('PENDING'), 'P1.7: ROADMAP.md shows PENDING status');
       check(rmContent.includes('Version History'), 'P1.8: ROADMAP.md has version history');
       check(rmContent.includes('Initial roadmap'), 'P1.9: version history has "Initial roadmap"');
@@ -462,13 +544,13 @@ async function run() {
     const s5 = getLcState(SESSION_ID);
     check(s5?.phase === 'BUILD_MILESTONE_REVIEW', 'P4.1: state is BUILD_MILESTONE_REVIEW',
       `got: ${s5?.phase}`);
-    check(s5?.currentMilestoneId === 'ms-1', 'P4.2: currentMilestoneId is ms-1',
+    check(s5?.currentMilestoneId === scopeId(s5?.lifecycleId, 'ms-1'), 'P4.2: currentMilestoneId is scoped ms-1',
       `got: ${s5?.currentMilestoneId}`);
 
     // Approve ms-1 → execute
     const r6 = await handleLifecycleInput('ano', context);
 
-    const ms1 = msRepo.getMilestone('ms-1');
+    const ms1 = msRepo.getMilestone(scopeId(s5.lifecycleId, 'ms-1'));
     check(ms1?.status === 'PASSED', 'P4.3: ms-1 PASSED in DB', `got: ${ms1?.status}`);
 
     // File verification
@@ -491,11 +573,11 @@ async function run() {
 
     // ms-2 plan should be auto-shown after ms-1 PASS
     const s6 = getLcState(SESSION_ID);
-    check(s6?.currentMilestoneId === 'ms-2', 'P5.1: auto-advanced to ms-2',
+    check(s6?.currentMilestoneId === scopeId(s6?.lifecycleId, 'ms-2'), 'P5.1: auto-advanced to scoped ms-2',
       `got: ${s6?.currentMilestoneId}`);
 
     const r7 = await handleLifecycleInput('ano', context);
-    const ms2 = msRepo.getMilestone('ms-2');
+    const ms2 = msRepo.getMilestone(scopeId(s6.lifecycleId, 'ms-2'));
     check(ms2?.status === 'PASSED', 'P5.2: ms-2 PASSED in DB', `got: ${ms2?.status}`);
 
     check(fs.existsSync(path.join(projectPath, 'greetings.js')), 'P5.3: greetings.js on disk');
@@ -512,11 +594,11 @@ async function run() {
     console.log('\n═══ PHASE 6: BUILD — Milestone 3 ══════════════════════════════════');
 
     const s7 = getLcState(SESSION_ID);
-    check(s7?.currentMilestoneId === 'ms-3', 'P6.1: auto-advanced to ms-3',
+    check(s7?.currentMilestoneId === scopeId(s7?.lifecycleId, 'ms-3'), 'P6.1: auto-advanced to scoped ms-3',
       `got: ${s7?.currentMilestoneId}`);
 
     const r8 = await handleLifecycleInput('ano', context);
-    const ms3 = msRepo.getMilestone('ms-3');
+    const ms3 = msRepo.getMilestone(scopeId(s7.lifecycleId, 'ms-3'));
     check(ms3?.status === 'PASSED', 'P6.2: ms-3 PASSED in DB', `got: ${ms3?.status}`);
 
     // P1: ROADMAP.md — all milestones DONE
