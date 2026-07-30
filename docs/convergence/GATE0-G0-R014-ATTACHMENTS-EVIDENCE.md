@@ -64,6 +64,20 @@ They were inspected and contained directories only, with zero files. Historical
 donor commands and counts below remain unchanged rather than being presented as
 results from the later integration tree.
 
+The second review follow-up is
+`ab0b9e5601cf8256684304832cedb326f1015ef2`. Its exact post-commit results are:
+
+| Command | Result | Exit |
+| --- | --- | ---: |
+| `node tests/harness-exit-code.test.js` outside the child-process-restricted sandbox | 49 temp creators; 92/92 DB graph; removed anchor rejected; raw attachment path rejected before `fetch` | 0 |
+| `node tests/upgrade-ux-v125.test.js` | 52 passed, including optional validated server-capability producer | 0 |
+| boundary self-check with throwing `fetch` | 5 passed; no request | 0 |
+
+This proves the raw pre-fetch rejection and the future producer/consumer
+contract. It does **not** claim that the registered T3 full suite ran: no
+current runner supplies the live child PID and private nonce, so that profile
+remains `BLOCKED`.
+
 Scope:
 
 - branch: `codex/g0-r014-attachments`;
