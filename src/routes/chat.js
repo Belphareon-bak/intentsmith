@@ -1,4 +1,20 @@
 // H9: Chat, Conversations, Drafts & Memory routes
+import {
+  chatTurnErrorPayload,
+  isChatTurnError,
+} from '../core/chat-turn-error.js';
+
+function sendTerminalChatError(res, error, sendJSON) {
+  if (!isChatTurnError(error)) return false;
+  const payload = chatTurnErrorPayload(error);
+  sendJSON(res, error.statusCode, {
+    error: payload.message,
+    code: payload.code,
+    recoverable: payload.recoverable,
+  });
+  return true;
+}
+
 export function createChatRoutes(deps) {
   const {
     db, parseBody, sendJSON, sendStaticFile, safeError, safeParseInt,
@@ -135,6 +151,7 @@ export function createChatRoutes(deps) {
       } catch (err) {
         if (abortController.signal.aborted) return; // Client gone
         logger.error('Server', `Chat error: ${err.message}`);
+        if (sendTerminalChatError(res, err, sendJSON)) return;
         sendJSON(res, 500, safeError(err));
       }
     },
@@ -500,6 +517,7 @@ export function createChatRoutes(deps) {
       } catch (err) {
         if (abortController.signal.aborted) return; // Client gone
         logger.error('Server', `Chat error: ${err.message}`);
+        if (sendTerminalChatError(res, err, sendJSON)) return;
         sendJSON(res, 500, safeError(err));
       }
     },

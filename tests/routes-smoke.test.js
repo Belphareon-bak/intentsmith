@@ -12,6 +12,7 @@
 
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { LLMProviderUnavailableError } from '../src/core/chat-turn-error.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -152,6 +153,60 @@ if (typeof chatFactory === 'function') {
     'chat routes reject non-string and blank messages with HTTP 400',
   );
   assert(controllerCalls === 0, 'invalid chat requests never reach ChatController');
+
+  const providerFailureResponses = [];
+  const providerFailureRoutes = chatFactory({
+    ...mockDeps,
+    db: {
+      conversations: {
+        findById: {
+          get: id => ({ id, project_id: null }),
+        },
+      },
+      projects: {
+        findById: {
+          get: () => null,
+        },
+      },
+    },
+    parseBody: async req => req.body,
+    sendJSON: (_res, status, data) => providerFailureResponses.push({ status, data }),
+    safeError: () => {
+      throw new Error('typed provider failure reached generic safeError');
+    },
+    ChatController: {
+      handle: async () => {
+        throw new LLMProviderUnavailableError();
+      },
+    },
+  });
+  const providerFailureResponse = { writableEnded: false };
+
+  await providerFailureRoutes['POST /chat']({
+    body: { message: 'Require provider' },
+    on: () => {},
+  }, providerFailureResponse);
+  await providerFailureRoutes['POST /api/chat']({
+    body: {
+      conversation_id: 'provider-failure-conversation',
+      message: 'Require provider',
+    },
+    on: () => {},
+  }, providerFailureResponse);
+
+  const expectedProviderFailure = {
+    status: 503,
+    data: {
+      error: 'Model provider is temporarily unavailable.',
+      code: 'LLM_PROVIDER_UNAVAILABLE',
+      recoverable: true,
+    },
+  };
+  assert(
+    JSON.stringify(providerFailureResponses)
+      === JSON.stringify([expectedProviderFailure, expectedProviderFailure]),
+    'both chat routes expose the exact stable HTTP 503 provider-failure contract',
+  );
 
   const canonicalExpertise = {
     id: 'developer',

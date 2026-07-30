@@ -36,6 +36,11 @@ import {
   AbortSource,
   createAbortError,
 } from '../src/core/abort-error.js';
+import {
+  ChatProcessingError,
+  LLMProviderUnavailableError,
+  throwIfTerminalChatFailure,
+} from '../src/core/chat-turn-error.js';
 
 let passed = 0;
 let failed = 0;
@@ -413,6 +418,49 @@ await asyncTest('T12: error during turn sends error events', async () => {
   const errorMsg = sent.find(m => m.channel === 'chat' && m.data.type === 'system');
   assert.ok(errorMsg);
   assert.ok(errorMsg.data.content.includes('LLM generation failed'));
+});
+
+await asyncTest('T12b: provider outage emits a typed terminal error and no assistant', async () => {
+  const sent = [];
+  const adapter = createSessionAdapter({
+    send: (json) => sent.push(JSON.parse(json)),
+    handleRequest: async () => {
+      throw new LLMProviderUnavailableError();
+    },
+    logger: mockLogger,
+  });
+
+  try {
+    await adapter.processChat('Require the unavailable provider');
+  } finally {
+    adapter.cleanup();
+  }
+
+  assert.equal(
+    sent.some(m => m.channel === 'chat' && m.data.type === 'assistant'),
+    false,
+    'provider outage must not emit assistant content',
+  );
+
+  const turnEnd = sent.find(m => m.channel === 'agent' && m.data.type === 'turn_end');
+  assert.equal(turnEnd?.data?.payload?.status, 'error');
+  assert.equal(
+    turnEnd?.data?.payload?.error,
+    'Model provider is temporarily unavailable.',
+  );
+
+  const errorEvent = sent.find(m => m.channel === 'agent' && m.data.type === 'error');
+  assert.deepEqual(errorEvent?.data?.payload, {
+    code: 'LLM_PROVIDER_UNAVAILABLE',
+    message: 'Model provider is temporarily unavailable.',
+    recoverable: true,
+  });
+
+  const systemMessage = sent.find(m => m.channel === 'chat' && m.data.type === 'system');
+  assert.equal(
+    systemMessage?.data?.content,
+    'Model provider is temporarily unavailable.',
+  );
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -979,6 +1027,78 @@ await asyncTest('G0-R023d: static handle persists and returns the accepted refin
     resetConversationStore();
   }
 }, ASYNC_TEST_TIMEOUT_MS);
+
+await asyncTest('T16f: provider failure stops before quality and assistant persistence', async () => {
+  resetConversationStore();
+  const store = getConversationStore(null);
+  const sessionId = 'test-16f-provider-failure';
+  let contentReads = 0;
+
+  class ObserveContentRead extends TaggedResponse {
+    get content() {
+      contentReads++;
+      return super.content;
+    }
+  }
+
+  ChatController.configure({
+    handlers: {
+      [ChatMode.CONVERSATION]: async () => new ObserveContentRead({
+        content: 'This provider error banner must never enter the quality path.',
+        tag: new ResponseTag({
+          speaker: ResponseSpeaker.SYSTEM,
+          mode: ChatMode.CONVERSATION,
+          confidence: 1,
+          metadata: {
+            error: true,
+            errorType: 'LLM_CALL_FAILED',
+          },
+        }),
+      }),
+    },
+    config: { autoModeDetection: false },
+  });
+
+  try {
+    await assert.rejects(
+      ChatController.handle({
+        message: 'Persist the user turn, then fail closed',
+        sessionId,
+        conversationId: sessionId,
+      }),
+      error => error instanceof LLMProviderUnavailableError
+        && error.code === 'LLM_PROVIDER_UNAVAILABLE'
+        && error.statusCode === 503
+        && error.recoverable === true,
+      'provider metadata must become a typed terminal error',
+    );
+    assert.equal(contentReads, 0, 'provider error content must not enter the quality path');
+    assert.deepEqual(
+      store.getAllTurns(sessionId).map(turn => turn.role),
+      ['user'],
+      'provider failure must retain the user turn and persist zero assistant turns',
+    );
+  } finally {
+    ChatController.removeSession(sessionId);
+    resetConversationStore();
+  }
+}, ASYNC_TEST_TIMEOUT_MS);
+
+test('T16g: every error-tagged response is terminal even when it is not a provider error', () => {
+  assert.throws(
+    () => throwIfTerminalChatFailure({
+      metadata: {
+        error: true,
+        errorType: 'MERGE_COMPATIBILITY_BLOCK',
+      },
+    }),
+    error => error instanceof ChatProcessingError
+      && error.code === 'CHAT_PROCESSING_FAILED'
+      && error.statusCode === 500
+      && error.recoverable === false,
+    'unknown error tags must fail closed instead of becoming assistant content',
+  );
+});
 
 test('T17: hooks survive through full context pipeline in static handle()', () => {
   // This test verifies the architectural contract:

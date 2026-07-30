@@ -23,6 +23,7 @@ import { longTermMemory } from '../memory/long-term.js';
 import { buildBudgetedContext } from './context-budget.js';
 import db from '../db/database.js';
 import { throwIfAborted } from '../core/abort-error.js';
+import { throwIfTerminalChatFailure } from '../core/chat-turn-error.js';
 import { finalizeChatResponse } from './response-finalizer.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1994,6 +1995,9 @@ ChatController.handle = async function(request) {
   // Process the message with full context
   const result = await controller.process(message, fullContext);
   throwIfAborted(signal);
+  // Error-tagged handler output is a terminal failure, never assistant content.
+  // Keep this before quality/refinement and the assistant persistence boundary.
+  throwIfTerminalChatFailure(result);
 
   // TaggedResponse is immutable. The finalizer carries accepted refinement in a
   // local value and uses that same value for scoring, persistence, and return.

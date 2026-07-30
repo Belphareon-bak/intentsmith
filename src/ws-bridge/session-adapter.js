@@ -28,6 +28,10 @@ import {
   isAbortError,
   throwIfAborted,
 } from '../core/abort-error.js';
+import {
+  chatTurnErrorPayload,
+  isChatTurnError,
+} from '../core/chat-turn-error.js';
 
 // v93: Notification router reference (set by server.js via setNotificationDeps)
 let _notificationRouter = null;
@@ -391,18 +395,21 @@ export function createSessionAdapter({
         persistTelemetry(snap);
       } else {
         logger.error('WSSession', `Turn error: ${err.message}`, { turnId });
+        const terminalChatError = isChatTurnError(err)
+          ? chatTurnErrorPayload(err)
+          : null;
         const snap = turnTelemetry?.finalize(turnStartTime) ?? null;
         sendAgentEvent(AgentEventType.TURN_END, turnId, {
           status: 'error',
           durationMs,
-          error: err.message,
+          error: terminalChatError?.message || err.message,
           ...(snap ? { telemetry: snap } : {}),
         });
         persistTelemetry(snap);
         sendAgentEvent(AgentEventType.ERROR, turnId, {
-          code: 'UNEXPECTED',
-          message: err.message,
-          recoverable: false,
+          code: terminalChatError?.code || 'UNEXPECTED',
+          message: terminalChatError?.message || err.message,
+          recoverable: terminalChatError?.recoverable || false,
         });
       }
 
@@ -412,7 +419,9 @@ export function createSessionAdapter({
         type: 'system',
         content: isAbortError(err) && abortSource !== AbortSource.TIMEOUT
           ? 'Zpracování zrušeno.'
-          : `Chyba: ${err.message}`,
+          : isChatTurnError(err)
+            ? err.message
+            : `Chyba: ${err.message}`,
         conversationId: requestConversationId,
         timestamp: new Date().toISOString(),
       });

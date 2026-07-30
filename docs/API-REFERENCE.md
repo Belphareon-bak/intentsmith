@@ -92,8 +92,13 @@ Primary chat endpoint (legacy path, used by standalone UI).
 | `attachments` | array | | `[{name, path, type, size}]` |
 | `projectId` | string | | Active project ID |
 
-**Response:** `{response, mode, confidence, session_id}`
-**Side effects:** ChatController.handle() → CRE → handler → persists to ConversationStore
+**Success (200):** `{response, mode, confidence, session_id}`
+
+**Provider unavailable (503):**
+`{error: "Model provider is temporarily unavailable.", code: "LLM_PROVIDER_UNAVAILABLE", recoverable: true}`
+
+**Side effects:** ChatController.handle() → CRE → handler → persists to ConversationStore.
+Terminal processing failures retain the user turn but do not persist an assistant turn.
 
 ### `POST /api/chat`
 
@@ -107,8 +112,13 @@ Primary chat endpoint (API path, used by IDE integration).
 | `attachments` | array | | File attachments |
 | `userId` | string | | User identifier |
 
-**Response:** `{response, mode, confidence, metadata}`
-**Side effects:** Same as `/chat`; also persists messages to conversation
+**Success (200):** `{response, mode, confidence, metadata}`
+
+**Provider unavailable (503):**
+`{error: "Model provider is temporarily unavailable.", code: "LLM_PROVIDER_UNAVAILABLE", recoverable: true}`
+
+**Side effects:** Same as `/chat`; also persists messages to conversation. Terminal
+processing failures retain the user turn but do not persist an assistant turn.
 
 ### `GET /chat-ui`
 

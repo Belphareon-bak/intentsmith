@@ -99,6 +99,18 @@ One-way event stream (Backend → IDE). Powers the agent log panel.
 | `edit_timeout` | `{reqId, file}` | Edit approval timed out (30s) |
 | `edit_conflict` | `{reqId, file, message}` | File changed since read |
 
+#### Terminal provider failure
+
+A provider outage is not an assistant response. The backend emits:
+
+1. `turn_end` with `status: "error"` and the stable public error message;
+2. `error` with
+   `{code: "LLM_PROVIDER_UNAVAILABLE", message: "Model provider is temporarily unavailable.", recoverable: true}`;
+3. a `chat` system message with the same public message.
+
+No `chat` message with `type: "assistant"` is emitted, and no assistant turn is
+persisted. The already accepted user turn remains in the conversation.
+
 ### control
 
 Bidirectional control messages.
