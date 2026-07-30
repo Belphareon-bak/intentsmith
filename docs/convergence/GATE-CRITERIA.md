@@ -106,6 +106,9 @@ Any of:
 - **a `REBUILD` record has not reached one of the three terminal states** in
   `FINAL-COMMIT-DISPOSITION.md`. `D-018` is a gate condition, not a convention,
   and it is not satisfied by a validator that never checks it.
+- repository-local test-trust findings `G0-R023` or `G0-R025` remain open.
+  They are code defects, not missing external prerequisites, so
+  `CONDITIONAL PASS` cannot absorb them.
 
 A deterministic failure is never downgraded to CONDITIONAL PASS. If code is
 wrong, the verdict is FAIL regardless of how much else is green.
@@ -113,6 +116,13 @@ wrong, the verdict is FAIL regardless of how much else is green.
 A validator that passes is evidence only of what it actually asserts. If a
 decision is recorded but unenforced, the gate is open regardless of the exit
 code — the exit code merely fails to mention it.
+
+The evidence generator derives the verdict and rejects a manual `--verdict`
+override. A well-formed red validator report produces generated `FAIL`
+documents and generator exit 1. An unexecutable validator, malformed structured
+report, unsupported schema, signal termination, or disagreement between report
+and process exit is an evidence-infrastructure failure and generator exit 2;
+it is not a Gate verdict.
 
 ### Repeatability
 

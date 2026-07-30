@@ -26,6 +26,7 @@
 | D-020 | `STATUS.md`, `EVIDENCE-INDEX.json`, `GATE0-BASELINE-REPORT.md`, and the Opus packet are generated from a clean candidate commit. They live in one evidence-only attestation commit whose parent is that candidate; the generator refuses a dirty input tree | Gate 0 evidence design; avoids impossible self-referential commit SHAs | ACCEPTED |
 | D-021 | Gate 0 evidence must be reproducible by a third party from the commit alone: exact command, exit status, output SHA-256 | current user decision | ACCEPTED |
 | D-022 | `data/c3.db` is not read, deleted, reverted, or chmod-ed; the decision to leave it untouched is recorded as a decision with an owner | current user decision | ACCEPTED |
+| D-023 | Gate 0 verdicts are derived, never supplied by `--verdict`. A well-formed red validator report generates `FAIL` evidence and exits 1; a malformed, contradictory, signalled, or unexecutable validator is evidence-infrastructure failure exit 2. Open repository-local trust blockers cannot be converted to `CONDITIONAL PASS` | Gate 0 generator repair and current user direction | ACCEPTED |
 
 ## Pending operator decisions
 

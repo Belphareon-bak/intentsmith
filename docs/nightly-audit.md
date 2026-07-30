@@ -13,9 +13,9 @@ The orchestrator is locked to:
 
 The canonical registry currently contains 350 runnable programs. This Gate 0
 orchestrator selects exactly the 173 `offline` and 26 `database` entries. The
-remaining `server`, `model`, `soak`, and `manual` profiles are not silently
-counted as passing. The reviewed registry fingerprint is
-`f930d637693759df07c290ed415477ba5bf461a0fe4ec71ab207e5663da0bf60`;
+remaining 36 `server`, 82 `model`, 18 `soak`, and 15 `manual` programs are not
+silently counted as passing. The reviewed registry fingerprint is
+`a7a5c6d4670159cd38a08edea8aabbf868eb3342a3baf1857b6a4849d1f4960a`;
 the run fails closed if either that fingerprint or the reviewed profile counts
 change.
 
@@ -97,6 +97,27 @@ Exit codes are:
 
 A printed assertion count is never a substitute for this process exit and
 validated report.
+
+## Gate 0 evidence generation
+
+`node scripts/generate-gate0-evidence.js ...` accepts only evidence artifacts
+bound to its clean candidate SHA and current registry fingerprint. The verdict
+is derived; the generator rejects the former manual `--verdict` override.
+
+The registry and disposition validators are invoked with `--json`. A
+well-formed validation report with errors is a valid red state: the generator
+writes `STATUS.md`, `EVIDENCE-INDEX.json`, the baseline report and the review
+packet with verdict `FAIL`, then exits 1. A validator that cannot execute,
+terminates by signal, emits malformed JSON, uses an unsupported schema, breaks
+the pinned source/count invariants of a green report, or disagrees with its
+process exit is an evidence-infrastructure failure; the generator exits 2 and
+does not claim a verdict from that invocation.
+
+All local clauses must be green before the generator may derive
+`CONDITIONAL PASS`, and that verdict means only that independent read-only
+review remains pending. `PASS` additionally requires approved independent
+review. Open repository-local trust blockers `G0-R023` and `G0-R025` force
+`FAIL`; neither may be absorbed into a conditional verdict.
 
 ## Known Gate 0 boundary
 

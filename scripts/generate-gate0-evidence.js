@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   mkdir,
@@ -12,6 +12,15 @@ import {
 } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { pathToFileURL } from 'node:url';
+import {
+  classifyDispositionValidatorExecution,
+  classifyRegistryValidatorExecution,
+  deriveGateOutcome,
+  EvidenceInfrastructureError,
+  findOpenGate0RepositoryBlockers,
+  ReviewStatus,
+} from './gate0-evidence-verdict.js';
 
 const OUTPUTS = {
   status: 'docs/convergence/STATUS.md',
@@ -22,6 +31,7 @@ const OUTPUTS = {
 const GATE0_OFFLINE_COUNT = 173;
 const GATE0_DATABASE_COUNT = 26;
 const GATE0_DETERMINISTIC_COUNT = GATE0_OFFLINE_COUNT + GATE0_DATABASE_COUNT;
+const GATE0_REPOSITORY_BLOCKER_IDS = ['G0-R023', 'G0-R025'];
 const MODEL_BACKED_SOAK_IDS = new Set([
   'IS-T5-TESTS-SOAK-ATTACHMENT-HEAVY-TEST',
   'IS-T5-TESTS-SOAK-BREAK-PATTERN-PROBE-TEST',
@@ -30,10 +40,11 @@ const MODEL_BACKED_SOAK_IDS = new Set([
   'IS-T5-TESTS-SOAK-SHORT-INPUT-STRESS-TEST',
 ]);
 
-const opts = parseArgs(process.argv.slice(2));
 const root = process.cwd();
 
-try {
+export async function main(argv = process.argv.slice(2)) {
+ try {
+  const opts = parseArgs(argv);
   for (const key of [
     'deterministic-report',
     'pilot-root',
@@ -46,6 +57,11 @@ try {
     'soak-command',
   ]) {
     if (!opts[key]) throw new Error(`Missing --${key}=VALUE`);
+  }
+  if (opts.verdict) {
+    throw new EvidenceInfrastructureError(
+      '--verdict is not supported; Gate 0 verdicts are derived from evidence',
+    );
   }
 
   const initialStatus = git(['status', '--porcelain=v1', '--untracked-files=all']);
@@ -152,26 +168,24 @@ try {
     });
   }
 
-  const registryValidation = runChecked(
-    ['node', 'scripts/validate-test-registry.js'],
-    'registry validation',
+  const registryValidation = classifyRegistryValidatorExecution(
+    runValidator(['node', 'scripts/validate-test-registry.js', '--json']),
   );
-  requireEvidence(
-    registryValidation.stdout.includes(registryHash),
-    'registry validator output does not contain the candidate fingerprint',
-  );
-  const dispositionValidation = runChecked(
-    ['node', 'scripts/validate-final-disposition.js'],
-    'disposition validation',
+  if (
+    registryValidation.passed
+    && registryValidation.report.fingerprint !== registryHash
+  ) {
+    throw new EvidenceInfrastructureError(
+      'registry validator output does not contain the candidate fingerprint',
+    );
+  }
+  const dispositionValidation = classifyDispositionValidatorExecution(
+    runValidator(['node', 'scripts/validate-final-disposition.js', '--json']),
   );
 
   const knownDefectiveInDeterministic = deterministicReport.results.filter(result => (
     suiteById.get(result.id)?.state === 'KNOWN_DEFECTIVE'
   ));
-  requireEvidence(
-    knownDefectiveInDeterministic.length === 0,
-    'KNOWN_DEFECTIVE result was counted in deterministic evidence',
-  );
 
   const blockedWithoutPrerequisite = registry.suites.filter(suite => (
     suite.state === 'BLOCKED'
@@ -181,13 +195,6 @@ try {
       && !suite.requirements.gpu
   ));
   requireEvidence(
-    blockedWithoutPrerequisite.length === 0,
-    `BLOCKED registry rows lack a concrete prerequisite: ${
-      blockedWithoutPrerequisite.map(suite => suite.id).join(', ')
-    }`,
-  );
-
-  requireEvidence(
     git(['status', '--porcelain=v1', '--untracked-files=all']) === '',
     'validators changed the candidate worktree',
   );
@@ -196,6 +203,14 @@ try {
   requireEvidence(
     privacy.status === 'CONFIRMED_COMPROMISE',
     'privacy incident must remain classified as CONFIRMED_COMPROMISE',
+  );
+  const riskMarkdown = await readFile(
+    path.join(root, 'docs/convergence/RISK-REGISTER.md'),
+    'utf8',
+  );
+  const repositoryBlockers = findOpenGate0RepositoryBlockers(
+    riskMarkdown,
+    GATE0_REPOSITORY_BLOCKER_IDS,
   );
 
   const reviewBase = opts['review-base'] || '126b061';
@@ -209,14 +224,22 @@ try {
   const reviewDiffStat = git(['diff', '--stat', reviewRange]);
 
   const generatedAt = deterministicReport.endedAt;
-  const verdict = opts.verdict || 'CONDITIONAL PASS';
-  if (!['PASS', 'CONDITIONAL PASS', 'FAIL'].includes(verdict)) {
-    throw new Error(`Unsupported --verdict=${verdict}`);
-  }
-  requireEvidence(
-    verdict !== 'PASS',
-    'PASS is unavailable while the generated review status is PENDING',
-  );
+  const clauses = buildGate0Clauses({
+    registryValidation,
+    dispositionValidation,
+    deterministicEvidence: deterministicReport,
+    runnablePrograms: registry.suites.length,
+    explicitSupportExclusions: registry.exclusions.length,
+    stateCounts,
+    blockedWithoutPrerequisite,
+    knownDefectiveInDeterministic,
+  });
+  const outcome = deriveGateOutcome({
+    clauses,
+    repositoryBlockers,
+    reviewStatus: ReviewStatus.PENDING,
+  });
+  const { verdict } = outcome;
 
   const deterministicEvidence = {
     command: opts['deterministic-command'],
@@ -248,10 +271,11 @@ try {
   };
 
   const evidenceIndex = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     product: 'IntentSmith',
     gate: 'Gate 0',
     verdict,
+    exitCode: outcome.exitCode,
     generatedAt,
     candidate: {
       sha: candidateSha,
@@ -263,7 +287,7 @@ try {
       c3Input: 'ffd21cf119865259ea1847af989acb24916bebe3',
       c3Parent: 'a7b90e36aa80310305703f54f2332e1c0e7f9e8f',
       intentSmithDonor: '6676902c5f6fe7a5d66aba0d79cb502e0f3a60e4',
-      localValidationCandidate: 'b0d28bbfd9d4ed55e19a72719ad5e9b776b96c12',
+      localValidationCandidate: candidateSha,
     },
     inventory: {
       runnablePrograms: registry.suites.length,
@@ -271,18 +295,26 @@ try {
       profileCounts,
       stateCounts,
       deterministicRequired: deterministicSuites.length,
-      dispositionRecords: 225,
+      dispositionRecords: dispositionValidation.report.records,
     },
+    clauses,
+    repositoryBlockers,
     validations: {
       registry: {
-        command: 'node scripts/validate-test-registry.js',
+        command: 'node scripts/validate-test-registry.js --json',
         exitCode: registryValidation.exitCode,
         outputSha256: sha256(registryValidation.output),
+        errors: registryValidation.errors,
       },
       disposition: {
-        command: 'node scripts/validate-final-disposition.js',
+        command: 'node scripts/validate-final-disposition.js --json',
         exitCode: dispositionValidation.exitCode,
         outputSha256: sha256(dispositionValidation.output),
+        errors: dispositionValidation.errors,
+        sourceManifest: dispositionValidation.report.sourceManifest,
+        dispositionCounts: dispositionValidation.report.dispositionCounts,
+        terminalCounts: dispositionValidation.report.terminalCounts,
+        resolutionCounts: dispositionValidation.report.resolutionCounts,
       },
     },
     installation: {
@@ -304,7 +336,7 @@ try {
       range: reviewRange,
       commitCount: reviewCommits.length,
       packet: OUTPUTS.review,
-      independentReviewStatus: 'PENDING',
+      independentReviewStatus: outcome.reviewStatus,
     },
   };
 
@@ -320,6 +352,8 @@ try {
     explicitSupportExclusions: registry.exclusions.length,
     deterministicEvidence,
     privacy,
+    clauses,
+    outcome,
   });
   const baselineMarkdown = renderBaselineReport({
     candidateSha,
@@ -337,6 +371,9 @@ try {
     privacy,
     explicitSupportExclusions: registry.exclusions.length,
     stateCounts,
+    clauses,
+    outcome,
+    dispositionReport: dispositionValidation.report,
   });
   const reviewMarkdown = renderReviewPacket({
     candidateSha,
@@ -348,6 +385,8 @@ try {
     pilotEvidence,
     soakEvidence,
     stateCounts,
+    clauses,
+    outcome,
   });
 
   await writeAtomic(path.join(root, OUTPUTS.status), statusMarkdown);
@@ -362,9 +401,18 @@ try {
   console.log(`Registry sha256: ${registryHash}`);
   console.log(`Verdict: ${verdict}`);
   for (const output of Object.values(OUTPUTS)) console.log(`Wrote: ${output}`);
-} catch (error) {
-  console.error(error.stack || error.message);
-  process.exitCode = 1;
+  return outcome.exitCode;
+ } catch (error) {
+   console.error(error.stack || error.message);
+   return 2;
+ }
+}
+
+if (
+  process.argv[1]
+  && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
+) {
+  process.exitCode = await main();
 }
 
 function parseArgs(args) {
@@ -387,19 +435,84 @@ function git(args) {
   }).trim();
 }
 
-function runChecked(argv, label) {
-  try {
-    const stdout = execFileSync(argv[0], argv.slice(1), {
-      cwd: process.cwd(),
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    return { exitCode: 0, stdout, stderr: '', output: stdout };
-  } catch (error) {
-    const stdout = String(error.stdout || '');
-    const stderr = String(error.stderr || '');
-    throw new Error(`${label} failed with exit ${error.status}\n${stdout}${stderr}`);
-  }
+function runValidator(argv) {
+  return spawnSync(argv[0], argv.slice(1), {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    maxBuffer: 32 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+}
+
+export function buildGate0Clauses({
+  registryValidation,
+  dispositionValidation,
+  deterministicEvidence,
+  runnablePrograms,
+  explicitSupportExclusions,
+  stateCounts,
+  blockedWithoutPrerequisite,
+  knownDefectiveInDeterministic,
+}) {
+  const validatorEvidence = (validation) => (
+    validation.passed
+      ? `validator exit 0`
+      : `validator exit ${validation.exitCode}: ${validation.errors.join('; ')}`
+  );
+  return [
+    {
+      id: 'G0-C1',
+      label: 'clean candidate',
+      result: 'PASS',
+      evidence: `all ${deterministicEvidence.statusCounts.PASS} suite records carry clean source-tree evidence at the candidate SHA`,
+    },
+    {
+      id: 'G0-C2',
+      label: 'disposition',
+      result: dispositionValidation.passed ? 'PASS' : 'FAIL',
+      evidence: `${dispositionValidation.report.records} records; ${validatorEvidence(dispositionValidation)}`,
+    },
+    {
+      id: 'G0-C3',
+      label: 'registry',
+      result: registryValidation.passed ? 'PASS' : 'FAIL',
+      evidence: `${runnablePrograms} runnable programs and ${explicitSupportExclusions} explicit support exclusions; ${validatorEvidence(registryValidation)}`,
+    },
+    {
+      id: 'G0-C4',
+      label: 'clean install',
+      result: 'PASS',
+      evidence: 'two consecutive minimal installs, both exit 0; second idempotent',
+    },
+    {
+      id: 'G0-C5',
+      label: 'deterministic T1/T2',
+      result: 'PASS',
+      evidence: `${deterministicEvidence.statusCounts.PASS} PASS, 0 FAIL/TIMEOUT/BLOCKED/SKIPPED`,
+    },
+    {
+      id: 'G0-C6',
+      label: 'defective suites excluded',
+      result: knownDefectiveInDeterministic.length === 0 ? 'PASS' : 'FAIL',
+      evidence: knownDefectiveInDeterministic.length === 0
+        ? `${stateCounts.KNOWN_DEFECTIVE || 0} registry rows are KNOWN_DEFECTIVE; none appears in green deterministic evidence`
+        : `green deterministic evidence includes ${knownDefectiveInDeterministic.length} KNOWN_DEFECTIVE rows`,
+    },
+    {
+      id: 'G0-C7',
+      label: 'blockers specific',
+      result: blockedWithoutPrerequisite.length === 0 ? 'PASS' : 'FAIL',
+      evidence: blockedWithoutPrerequisite.length === 0
+        ? 'every registry BLOCKED row names server, external-network, Ollama, or GPU'
+        : `BLOCKED rows lack a concrete prerequisite: ${blockedWithoutPrerequisite.map(suite => suite.id).join(', ')}`,
+    },
+    {
+      id: 'G0-C8',
+      label: 'generated evidence',
+      result: 'PASS',
+      evidence: 'status, index, baseline report, and review packet derive from the clean candidate',
+    },
+  ];
 }
 
 async function loadPilotReports(rootPath) {
@@ -482,7 +595,7 @@ function validateSoakGuard(report, candidateSha, registryHash) {
   );
 }
 
-function renderStatus({
+export function renderStatus({
   candidateSha,
   branch,
   registryHash,
@@ -494,6 +607,8 @@ function renderStatus({
   explicitSupportExclusions,
   deterministicEvidence,
   privacy,
+  clauses,
+  outcome,
 }) {
   return `# IntentSmith Convergence Status
 
@@ -512,14 +627,7 @@ function renderStatus({
 
 | Clause | Result | Evidence |
 |---|---|---|
-| G0-C1 clean candidate | PASS | all ${deterministicEvidence.statusCounts.PASS} suite records carry clean source-tree evidence at the candidate SHA |
-| G0-C2 disposition | PASS | 225 records; validator exit 0 |
-| G0-C3 registry | PASS | ${runnablePrograms} runnable programs and ${explicitSupportExclusions} explicit support exclusions; validator exit 0 |
-| G0-C4 clean install | PASS | two consecutive minimal installs, both exit 0; second idempotent |
-| G0-C5 deterministic T1/T2 | PASS | ${deterministicEvidence.statusCounts.PASS} PASS, 0 FAIL/TIMEOUT/BLOCKED/SKIPPED |
-| G0-C6 defective suites excluded | PASS | ${stateCounts.KNOWN_DEFECTIVE} rows remain \`KNOWN_DEFECTIVE\`; none appears in green deterministic evidence |
-| G0-C7 blockers specific | PASS | every registry \`BLOCKED\` row names server, external-network, Ollama, or GPU |
-| G0-C8 generated evidence | PASS | this file, the index, baseline report, and review packet were generated from the candidate |
+${renderClauseRows(clauses)}
 
 ## Registry
 
@@ -529,12 +637,15 @@ function renderStatus({
 
 ## Remaining boundaries
 
-- Independent Opus review: **PENDING**. This is why the verdict is conditional.
+- Independent Opus review: **${outcome.reviewStatus}**.
+${outcome.repositoryBlockers.length > 0
+    ? `- Repository-local Gate 0 blockers: **${outcome.repositoryBlockers.join(', ')}**.`
+    : '- Repository-local Gate 0 blockers: none.'}
 - Confirmed privacy compromise: **${privacy.status}**.
 - Current-tree private material is contained; affected history remains reachable.
 - Credential rotation and history remediation require operator action.
-- ${stateCounts.KNOWN_DEFECTIVE} recovered E2E suites remain
-  \`KNOWN_DEFECTIVE\`; ${stateCounts.BLOCKED} rows remain registry-\`BLOCKED\`.
+- ${stateCounts.KNOWN_DEFECTIVE || 0} recovered E2E suites remain
+  \`KNOWN_DEFECTIVE\`; ${stateCounts.BLOCKED || 0} rows remain registry-\`BLOCKED\`.
 - Supported program-language files are discovered regardless of filename;
   ${explicitSupportExclusions} support/aggregate files are explicit reasoned
   exclusions.
@@ -542,13 +653,13 @@ function renderStatus({
 
 ## Next action
 
-Give \`docs/convergence/reviews/GATE0-OPUS-REVIEW.md\` and the referenced
-artifacts to Opus 5 for read-only review. Do not enter the next gate until the
-review is evaluated and the operator confirms continuation.
+${verdict === 'FAIL'
+    ? 'Repair every failed clause and repository-local blocker, then regenerate evidence from a new clean candidate.'
+    : 'Give `docs/convergence/reviews/GATE0-OPUS-REVIEW.md` and the referenced artifacts to Opus 5 for read-only review. Do not enter the next gate until the review is evaluated and the operator confirms continuation.'}
 `;
 }
 
-function renderBaselineReport({
+export function renderBaselineReport({
   candidateSha,
   branch,
   registryHash,
@@ -564,6 +675,9 @@ function renderBaselineReport({
   privacy,
   explicitSupportExclusions,
   stateCounts,
+  clauses,
+  outcome,
+  dispositionReport,
 }) {
   const pilotRows = pilotEvidence.map(item => (
     `| \`${item.runId}\` | 0 | PASS | \`${item.reportSha256}\` |`
@@ -584,23 +698,34 @@ function renderBaselineReport({
 - Branch: \`${branch}\`
 - Registry SHA-256: \`${registryHash}\`
 - Evidence generated: ${generatedAt}
-- Independent review: PENDING
+- Independent review: ${outcome.reviewStatus}
 
-The code/test baseline satisfies the local deterministic Gate 0 clauses.
-Acceptance remains conditional until the bounded Opus review is evaluated.
+${verdict === 'FAIL'
+    ? `The candidate does not satisfy Gate 0. Failed clauses: ${outcome.failedClauses.map(clause => clause.id).join(', ') || 'none'}. Repository-local blockers: ${outcome.repositoryBlockers.join(', ') || 'none'}.`
+    : 'The code/test baseline satisfies the local deterministic Gate 0 clauses. Acceptance remains conditional until the bounded Opus review is evaluated.'}
 The confirmed privacy compromise remains a separate operator-owned incident
 and is not presented as nearly green.
+
+## Gate clauses
+
+| Clause | Result | Evidence |
+|---|---|---|
+${renderClauseRows(clauses)}
 
 ## Validators
 
 | Command | Exit | Output SHA-256 |
 |---|---:|---|
-| \`node scripts/validate-test-registry.js\` | ${registryValidation.exitCode} | \`${sha256(registryValidation.output)}\` |
-| \`node scripts/validate-final-disposition.js\` | ${dispositionValidation.exitCode} | \`${sha256(dispositionValidation.output)}\` |
+| \`node scripts/validate-test-registry.js --json\` | ${registryValidation.exitCode} | \`${sha256(registryValidation.output)}\` |
+| \`node scripts/validate-final-disposition.js --json\` | ${dispositionValidation.exitCode} | \`${sha256(dispositionValidation.output)}\` |
 
-Registry output: \`${oneLine(registryValidation.stdout)}\`
+Registry report: ${registryValidation.report.runnablePrograms} programs,
+${registryValidation.report.explicitSupportExclusions} exclusions, fingerprint
+\`${registryValidation.report.fingerprint}\`, ${registryValidation.report.errors.length} errors.
 
-Disposition output: \`${oneLine(dispositionValidation.stdout)}\`
+Disposition report: ${dispositionReport.records} records,
+${dispositionReport.errors.length} errors; dispositions
+${formatCodeCounts(dispositionReport.dispositionCounts)}.
 
 ## Clean installation
 
@@ -661,12 +786,11 @@ execution unless Ollama and GPU are explicitly authorized.
 
 ## \`a7b90e3..ffd21cf\` disposition
 
-- 225 records total
-- \`EXCLUDE\`: 91
-- \`KEEP\`: 42
-- \`REBUILD\`: 92
-- Resolutions: \`ABSENT\` 91, \`EXACT\` 87, \`MAPPED_REPAIR\` 3, \`MODIFIED\` 44
-- Unresolved path records: 0
+- ${dispositionReport.records} records total
+- Dispositions: ${formatCodeCounts(dispositionReport.dispositionCounts)}
+- Terminals: ${formatCodeCounts(dispositionReport.terminalCounts)}
+- Resolutions: ${formatCodeCounts(dispositionReport.resolutionCounts)}
+- Validator errors: ${dispositionReport.errors.length}
 
 The disputed commit was neither accepted wholesale nor reverted wholesale.
 
@@ -685,12 +809,13 @@ ${rotationRows}
 
 ## Remaining risks and blockers
 
-- Independent review has not yet reproduced the result.
+- Independent review status: ${outcome.reviewStatus}.
+- Repository-local Gate 0 blockers: ${outcome.repositoryBlockers.join(', ') || 'none'}.
 - Public-history remediation, repository visibility, and credential rotation
   remain operator decisions.
-- ${stateCounts.KNOWN_DEFECTIVE} recovered E2E suites retain known false-green
+- ${stateCounts.KNOWN_DEFECTIVE || 0} recovered E2E suites retain known false-green
   assertions and are not counted green.
-- ${stateCounts.BLOCKED} registry rows remain explicitly \`BLOCKED\` on named
+- ${stateCounts.BLOCKED || 0} registry rows remain explicitly \`BLOCKED\` on named
   prerequisites.
 - Registry discovery covers every supported program-language file independent
   of its filename; ${explicitSupportExclusions} support/aggregate files are
@@ -702,9 +827,9 @@ ${rotationRows}
 
 ## Recommended next step
 
-Perform the bounded Opus 5 read-only review, evaluate every finding against the
-candidate and evidence, then ask the operator whether Gate 0 may be accepted.
-Do not begin the next gate from this conditional checkpoint.
+${verdict === 'FAIL'
+    ? 'Repair the failed local evidence or repository blocker, then repeat the clean candidate run and regenerate this report.'
+    : 'Perform the bounded Opus 5 read-only review, evaluate every finding against the candidate and evidence, then ask the operator whether Gate 0 may be accepted. Do not begin the next gate from this conditional checkpoint.'}
 `;
 }
 
@@ -718,6 +843,8 @@ function renderReviewPacket({
   pilotEvidence,
   soakEvidence,
   stateCounts,
+  clauses,
+  outcome,
 }) {
   return `# Gate 0 — Opus 5 Read-only Review Packet
 
@@ -731,6 +858,14 @@ function renderReviewPacket({
 The earlier large E2E reconstruction is represented by the validated 225-row
 disposition and registry evidence. This bounded packet focuses on the final
 test-trust repairs and verdict machinery.
+
+- Derived verdict: **${outcome.verdict}**
+- Independent review status: **${outcome.reviewStatus}**
+- Repository-local blockers: ${outcome.repositoryBlockers.join(', ') || 'none'}
+
+| Clause | Result | Evidence |
+|---|---|---|
+${renderClauseRows(clauses)}
 
 ## Commits
 
@@ -766,7 +901,7 @@ ${pilotEvidence.map(item => (
   )).join('\n')}
 - Soak requirement guard: ${soakEvidence.verdict}, exit
   ${soakEvidence.exitCode}, prerequisites \`${soakEvidence.blockedBy.join(', ')}\`.
-- Registry and disposition validators: exit 0.
+- Registry and disposition validator exits: ${clauses.find(clause => clause.id === 'G0-C3')?.result === 'PASS' ? 0 : 1} and ${clauses.find(clause => clause.id === 'G0-C2')?.result === 'PASS' ? 0 : 1}.
 - Clean install: two consecutive exit-0 runs from the candidate.
 
 ## Known risks
@@ -775,9 +910,10 @@ ${pilotEvidence.map(item => (
   explicit reasoned exclusion.
 - Product DB opening remains an import side effect (\`G0-R012\`), although the
   authoritative runner supplies isolated DB paths.
-- ${stateCounts.KNOWN_DEFECTIVE} recovered E2E suites remain
-  \`KNOWN_DEFECTIVE\`; ${stateCounts.BLOCKED} remain registry-\`BLOCKED\`.
+- ${stateCounts.KNOWN_DEFECTIVE || 0} recovered E2E suites remain
+  \`KNOWN_DEFECTIVE\`; ${stateCounts.BLOCKED || 0} remain registry-\`BLOCKED\`.
 - Privacy history remains reachable and credential rotation is pending.
+- Repository-local Gate 0 blockers: ${outcome.repositoryBlockers.join(', ') || 'none'}.
 
 ## Questions
 
@@ -825,8 +961,23 @@ function formatCounts(counts) {
     .join(', ');
 }
 
-function oneLine(value) {
-  return value.trim().replace(/\s+/g, ' ');
+function formatCodeCounts(counts) {
+  const entries = Object.entries(counts || {});
+  return entries.length === 0
+    ? 'none'
+    : entries.map(([name, count]) => `\`${name}\` ${count}`).join(', ');
+}
+
+function renderClauseRows(clauses) {
+  return clauses
+    .map(clause => (
+      `| ${tableCell(`${clause.id} ${clause.label}`)} | ${clause.result} | ${tableCell(clause.evidence)} |`
+    ))
+    .join('\n');
+}
+
+function tableCell(value) {
+  return String(value).replace(/\r?\n/g, ' ').replaceAll('|', '\\|');
 }
 
 function resolveInput(value) {

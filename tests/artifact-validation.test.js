@@ -22,7 +22,27 @@ import {
 import {
   validateDispositionActions,
 } from '../scripts/validate-final-disposition.js';
-import { suite, test, assert, assertEqual, summary } from './harness.js';
+import {
+  classifyDispositionValidatorExecution,
+  classifyRegistryValidatorExecution,
+  deriveGateOutcome,
+  findOpenGate0RepositoryBlockers,
+  ReviewStatus,
+} from '../scripts/gate0-evidence-verdict.js';
+import {
+  main as generateGate0Evidence,
+  renderBaselineReport,
+  renderStatus,
+} from '../scripts/generate-gate0-evidence.js';
+import {
+  suite,
+  test,
+  testAsync,
+  assert,
+  assertEqual,
+  assertThrows,
+  summary,
+} from './harness.js';
 
 const testRoot = mkdtempSync(path.join(tmpdir(), 'intentsmith-artifact-validation-'));
 chmodSync(testRoot, 0o700);
@@ -260,6 +280,332 @@ test('DEFERRED with concrete canonical prerequisites is accepted', () => {
     ).length,
     0,
   );
+});
+
+suite('Gate 0 verdict derivation');
+
+function dispositionReport(errors = []) {
+  return {
+    schemaVersion: 2,
+    sourceRepository: {
+      identity: 'github.com/Belphareon-bak/C3-agent',
+    },
+    sourceRange: {
+      base: 'a7b90e36aa80310305703f54f2332e1c0e7f9e8f',
+      head: 'ffd21cf119865259ea1847af989acb24916bebe3',
+    },
+    records: 225,
+    sourceManifest: {
+      path: 'docs/convergence/FINAL-COMMIT-DIFF-MANIFEST.json',
+      schemaVersion: 1,
+      recordsSha256: 'aa95bbc0918daa3f188283297e03562e3a4b8a8d0b178bec126b60a27cd8677e',
+      recordCount: 225,
+      changeCounts: { ADD: 185, DELETE: 0, MODIFY: 24, RENAME: 16 },
+    },
+    dispositionCounts: { EXCLUDE: 91, KEEP: 42, REBUILD: 92 },
+    terminalCounts: { REPAIRED: 60, 'DEFERRED(owned-server)': 32 },
+    resolutionCounts: { ABSENT: 91, EXACT: 32, MAPPED_REPAIR: 3, MODIFIED: 99 },
+    errors,
+    paths: Array.from({ length: 225 }, () => ({})),
+  };
+}
+
+function registryReport(errors = []) {
+  return {
+    schemaVersion: 1,
+    valid: errors.length === 0,
+    runnablePrograms: errors.length === 0 ? 350 : null,
+    explicitSupportExclusions: errors.length === 0 ? 8 : null,
+    fingerprint: errors.length === 0 ? 'a'.repeat(64) : null,
+    document: {
+      path: 'docs/convergence/TEST-REGISTRY.md',
+      mode: 'check',
+    },
+    errors,
+  };
+}
+
+function validatorExecution(status, report) {
+  return {
+    status,
+    signal: null,
+    error: null,
+    stdout: JSON.stringify(report),
+    stderr: '',
+  };
+}
+
+function passingClauses() {
+  return [
+    { id: 'G0-C1', result: 'PASS', evidence: 'clean candidate' },
+    { id: 'G0-C2', result: 'PASS', evidence: 'validator exit 0' },
+  ];
+}
+
+test('complete valid registry report is accepted as green', () => {
+  const result = classifyRegistryValidatorExecution(
+    validatorExecution(0, registryReport()),
+  );
+  assertEqual(result.passed, true);
+  assertEqual(result.exitCode, 0);
+});
+
+test('structured registry failure remains valid red evidence', () => {
+  const result = classifyRegistryValidatorExecution(
+    validatorExecution(1, registryReport(['registry document is stale'])),
+  );
+  assertEqual(result.passed, false);
+  assertEqual(result.exitCode, 1);
+});
+
+test('registry syntax failure without structured output is infrastructure error', () => {
+  assertThrows(() => classifyRegistryValidatorExecution({
+    status: 1,
+    signal: null,
+    error: null,
+    stdout: '',
+    stderr: 'SyntaxError: broken validator',
+  }));
+});
+
+test('registry exit/report disagreement is an infrastructure error', () => {
+  assertThrows(() => classifyRegistryValidatorExecution(
+    validatorExecution(0, registryReport(['reported red'])),
+  ));
+});
+
+test('green registry report requires counts and a full fingerprint', () => {
+  const malformed = registryReport();
+  malformed.runnablePrograms = null;
+  malformed.fingerprint = 'short';
+  assertThrows(() => classifyRegistryValidatorExecution(
+    validatorExecution(0, malformed),
+  ));
+});
+
+test('complete valid disposition report is accepted as green', () => {
+  const result = classifyDispositionValidatorExecution(
+    validatorExecution(0, dispositionReport()),
+  );
+  assertEqual(result.passed, true);
+  assertEqual(result.exitCode, 0);
+});
+
+test('structured disposition failure remains valid red evidence', () => {
+  const result = classifyDispositionValidatorExecution(
+    validatorExecution(1, dispositionReport(['missing source record'])),
+  );
+  assertEqual(result.passed, false);
+  assertEqual(result.exitCode, 1);
+  assertEqual(result.errors[0], 'missing source record');
+});
+
+test('malformed disposition output is an infrastructure error', () => {
+  assertThrows(() => classifyDispositionValidatorExecution({
+    status: 1,
+    signal: null,
+    error: null,
+    stdout: 'not json',
+    stderr: '',
+  }));
+});
+
+test('disposition exit/report disagreement is an infrastructure error', () => {
+  assertThrows(() => classifyDispositionValidatorExecution(
+    validatorExecution(0, dispositionReport(['reported red'])),
+  ));
+});
+
+test('green disposition report must satisfy pinned source and count invariants', () => {
+  const malformed = dispositionReport();
+  malformed.records = 0;
+  malformed.sourceManifest = {};
+  malformed.dispositionCounts = {};
+  malformed.terminalCounts = {};
+  malformed.resolutionCounts = {};
+  malformed.paths = [];
+  assertThrows(() => classifyDispositionValidatorExecution(
+    validatorExecution(0, malformed),
+  ));
+});
+
+test('unexecutable disposition validator is an infrastructure error', () => {
+  assertThrows(() => classifyDispositionValidatorExecution({
+    status: null,
+    signal: null,
+    error: new Error('spawn ENOENT'),
+    stdout: '',
+    stderr: '',
+  }));
+});
+
+test('a failed local clause forces FAIL and exit 1', () => {
+  const clauses = passingClauses();
+  clauses[1] = { id: 'G0-C2', result: 'FAIL', evidence: 'validator exit 1' };
+  const outcome = deriveGateOutcome({ clauses });
+  assertEqual(outcome.verdict, 'FAIL');
+  assertEqual(outcome.exitCode, 1);
+});
+
+test('all local clauses yield only CONDITIONAL PASS while review is pending', () => {
+  const outcome = deriveGateOutcome({
+    clauses: passingClauses(),
+    reviewStatus: ReviewStatus.PENDING,
+  });
+  assertEqual(outcome.verdict, 'CONDITIONAL PASS');
+  assertEqual(outcome.exitCode, 0);
+});
+
+test('PASS requires all local clauses and approved review', () => {
+  const outcome = deriveGateOutcome({
+    clauses: passingClauses(),
+    reviewStatus: ReviewStatus.APPROVED,
+  });
+  assertEqual(outcome.verdict, 'PASS');
+  assertEqual(outcome.exitCode, 0);
+});
+
+test('an open repository blocker forces FAIL until its status is mitigated', () => {
+  const open = findOpenGate0RepositoryBlockers(
+    '| G0-R023 | P1 | confirmed | finding | action | owner | MITIGATED |\n'
+      + '| G0-R025 | P1 | confirmed | finding | action | owner | OPEN |',
+  );
+  assertEqual(open.length, 1);
+  assertEqual(
+    deriveGateOutcome({
+      clauses: passingClauses(),
+      repositoryBlockers: open,
+    }).verdict,
+    'FAIL',
+  );
+  assertEqual(
+    findOpenGate0RepositoryBlockers(
+      '| G0-R023 | P1 | confirmed | finding | action | owner | MITIGATED |\n'
+        + '| G0-R025 | P1 | confirmed | finding | action | owner | MITIGATED |',
+    ).length,
+    0,
+  );
+});
+
+test('FAIL status renders derived clauses, zero counts, and repository blockers', () => {
+  const clauses = passingClauses();
+  clauses[1] = { id: 'G0-C2', label: 'disposition', result: 'FAIL', evidence: 'exit 1' };
+  clauses[0].label = 'clean candidate';
+  const outcome = deriveGateOutcome({
+    clauses,
+    repositoryBlockers: ['G0-R025: OPEN'],
+  });
+  const markdown = renderStatus({
+    candidateSha: 'a'.repeat(40),
+    branch: 'codex/intentsmith-1.0',
+    registryHash: 'b'.repeat(64),
+    verdict: outcome.verdict,
+    generatedAt: '2026-07-30T00:00:00.000Z',
+    profileCounts: { offline: 173, database: 26 },
+    stateCounts: { ACTIVE: 256, BLOCKED: 79 },
+    runnablePrograms: 350,
+    explicitSupportExclusions: 8,
+    deterministicEvidence: { statusCounts: { PASS: 199 } },
+    privacy: { status: 'CONFIRMED_COMPROMISE' },
+    clauses,
+    outcome,
+  });
+  assert(markdown.includes('Verdict: **FAIL**'));
+  assert(markdown.includes('| G0-C2 disposition | FAIL | exit 1 |'));
+  assert(markdown.includes('Repository-local Gate 0 blockers: **G0-R025: OPEN**'));
+  assert(markdown.includes('0 recovered E2E suites'));
+  assert(!markdown.includes('undefined'));
+});
+
+test('baseline renders disposition counts from the structured report', () => {
+  const clauses = [
+    { id: 'G0-C1', label: 'clean candidate', result: 'PASS', evidence: 'clean' },
+  ];
+  const outcome = deriveGateOutcome({
+    clauses,
+    repositoryBlockers: ['G0-R023: OPEN'],
+  });
+  const disposition = dispositionReport();
+  const markdown = renderBaselineReport({
+    candidateSha: 'a'.repeat(40),
+    branch: 'codex/intentsmith-1.0',
+    registryHash: 'b'.repeat(64),
+    verdict: outcome.verdict,
+    generatedAt: '2026-07-30T00:00:00.000Z',
+    registryValidation: {
+      exitCode: 0,
+      output: 'registry',
+      stdout: 'registry',
+      report: registryReport(),
+    },
+    dispositionValidation: { exitCode: 0, output: JSON.stringify(disposition) },
+    installLogs: [
+      { kind: 'clean', bytes: 1, sha256: 'c'.repeat(64), path: 'clean.log' },
+      { kind: 'idempotent', bytes: 1, sha256: 'd'.repeat(64), path: 'again.log' },
+    ],
+    installCommand: './scripts/install.sh --minimal',
+    deterministicEvidence: {
+      command: 'node scripts/nightly-audit.js',
+      exitCode: 0,
+      statusCounts: { PASS: 199 },
+      report: 'report.json',
+      reportSha256: 'e'.repeat(64),
+      inventoryFingerprint: 'f'.repeat(64),
+      optionsFingerprint: '1'.repeat(64),
+    },
+    pilotEvidence: [],
+    soakEvidence: {
+      command: 'node scripts/nightly-audit.js --profile=soak',
+      exitCode: 2,
+      verdict: 'BLOCKED',
+      blockedBy: ['gpu', 'ollama'],
+      reportSha256: '2'.repeat(64),
+    },
+    privacy: {
+      incidentId: 'G0-PRIVACY-001',
+      status: 'CONFIRMED_COMPROMISE',
+      currentTreeContainment: { trackedPathsRemoved: 13 },
+      history: { affectedObjectsRemainReachable: true, historyRewritten: false },
+      assessment: { personalContentInspected: false },
+      rotationInventory: [],
+    },
+    explicitSupportExclusions: 8,
+    stateCounts: { ACTIVE: 256, BLOCKED: 79 },
+    clauses,
+    outcome,
+    dispositionReport: disposition,
+  });
+  assert(markdown.includes('`EXACT` 32'));
+  assert(markdown.includes('`MODIFIED` 99'));
+  assert(!markdown.includes('`EXACT` 87'));
+  assert(!markdown.includes('undefined'));
+});
+
+await testAsync('manual verdict override is rejected before any evidence write', async () => {
+  const originalError = console.error;
+  let errorText = '';
+  console.error = (...values) => {
+    errorText += values.join(' ');
+  };
+  let exitCode;
+  try {
+    exitCode = await generateGate0Evidence([
+      '--deterministic-report=unused',
+      '--pilot-root=unused',
+      '--soak-guard-report=unused',
+      '--install-log=unused',
+      '--idempotent-install-log=unused',
+      '--install-command=unused',
+      '--deterministic-command=unused',
+      '--pilot-command-template=unused-{runId}',
+      '--soak-command=unused',
+      '--verdict=PASS',
+    ]);
+  } finally {
+    console.error = originalError;
+  }
+  assertEqual(exitCode, 2);
+  assert(errorText.includes('--verdict is not supported'));
 });
 
 rmSync(testRoot, { recursive: true, force: true });

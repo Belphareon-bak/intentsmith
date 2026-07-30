@@ -12,10 +12,21 @@ import {
 } from './test-registry.js';
 
 const root = process.cwd();
-const writeDoc = process.argv.slice(2).includes('--write-doc');
+const args = process.argv.slice(2);
+const writeDoc = args.includes('--write-doc');
+const json = args.includes('--json');
+let registry = null;
 
 try {
-  const registry = await loadTestRegistry(root);
+  const unsupported = args.filter(arg => !['--write-doc', '--json'].includes(arg));
+  if (unsupported.length > 0) {
+    throw new Error(`Unsupported argument(s): ${unsupported.join(', ')}`);
+  }
+  if (writeDoc && json) {
+    throw new Error('--write-doc and --json cannot be combined');
+  }
+
+  registry = await loadTestRegistry(root);
   const rendered = renderTestRegistry(registry);
   const docPath = path.join(root, TEST_REGISTRY_DOC_PATH);
 
@@ -32,11 +43,34 @@ try {
     }
   }
 
-  console.log(
-    `Test registry valid: ${registry.suites.length} runnable programs, ` +
-    `sha256 ${registryFingerprint(registry)}`,
-  );
+  const report = buildReport(registry, []);
+  if (json) console.log(JSON.stringify(report));
+  else {
+    console.log(
+      `Test registry valid: ${registry.suites.length} runnable programs, ` +
+      `sha256 ${report.fingerprint}`,
+    );
+  }
 } catch (error) {
-  console.error(error.stack || error.message);
+  if (json) {
+    console.log(JSON.stringify(buildReport(registry, [error.message || String(error)])));
+  } else {
+    console.error(error.stack || error.message);
+  }
   process.exitCode = 1;
+}
+
+function buildReport(registryValue, errors) {
+  return {
+    schemaVersion: 1,
+    valid: errors.length === 0,
+    runnablePrograms: registryValue?.suites?.length ?? null,
+    explicitSupportExclusions: registryValue?.exclusions?.length ?? null,
+    fingerprint: registryValue ? registryFingerprint(registryValue) : null,
+    document: {
+      path: TEST_REGISTRY_DOC_PATH,
+      mode: writeDoc ? 'write' : 'check',
+    },
+    errors,
+  };
 }
