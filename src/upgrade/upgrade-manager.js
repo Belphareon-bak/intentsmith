@@ -519,7 +519,8 @@ export class UpgradeManager {
         this._persistOverride(role, targetModel, previousModel, opts.score, appliedBy);
         this._recordHistory(role, previousModel, targetModel, opts.score, 'apply');
 
-        // v126: Expire stale pending proposals (where candidate == new active model)
+        // v126: Every pending proposal for this role was ranked against the
+        // previous active model and is stale after a successful hot-swap.
         this._expirePendingProposalsForRole(role, targetModel);
       }
 
@@ -669,7 +670,7 @@ export class UpgradeManager {
   }
 
   /**
-   * Expire stale pending proposals for a role (where candidate == new active model).
+   * Expire stale pending proposals for a role after its active model changes.
    * Called after applyUpgrade to clean up proposals that are now obsolete.
    * @param {string} role
    * @param {string} newModel - The newly applied model
@@ -680,14 +681,12 @@ export class UpgradeManager {
       return;
     }
     try {
-      const normalized = _normalizeModelName(newModel);
       const result = this._db.prepare(`
         UPDATE upgrade_proposals
         SET status = 'expired', resolved_at = datetime('now')
         WHERE role = ? AND status = 'pending'
-          AND (candidate_model = ? OR candidate_model = ?)
-      `).run(role, newModel, normalized);
-      logger.info('UpgradeManager', `Expired ${result.changes} stale proposals for ${role} (candidate=${newModel})`);
+      `).run(role);
+      logger.info('UpgradeManager', `Expired ${result.changes} stale proposals for ${role} after applying ${newModel}`);
     } catch (err) {
       logger.warn('UpgradeManager', `Failed to expire proposals: ${err.message}`);
     }
