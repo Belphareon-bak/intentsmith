@@ -23,6 +23,7 @@ import { longTermMemory } from '../memory/long-term.js';
 import { buildBudgetedContext } from './context-budget.js';
 import db from '../db/database.js';
 import { throwIfAborted } from '../core/abort-error.js';
+import { finalizeChatResponse } from './response-finalizer.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Chat Mode Types
@@ -1994,95 +1995,18 @@ ChatController.handle = async function(request) {
   const result = await controller.process(message, fullContext);
   throwIfAborted(signal);
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // v126.1: Centralized Quality Loop — single orchestration point
-  // 1. Check if synthesis already scored high → skip refinement (no double loop)
-  // 2. Only call LLM refinement when score < 75 AND synthesis didn't already retry
-  // 3. Telemetry always scores the FINAL output (after any refinement)
-  // ════════════════════════════════════════════════════════════════════════════
-  let _qualityScore = null;
-  const synthesisScore = result.tag?.metadata?.semanticScore?.total ?? null;
-
-  // Skip selfRefine if synthesis already scored >= 75 (avoids double loop interference)
-  const needsRefinement = result.content
-    && result.content.length > 20
-    && (synthesisScore === null || synthesisScore < 75);
-
-  if (needsRefinement) {
-    try {
-      const { improveResponse } = await import('./quality/improvement-loops.js');
-      const intent = result.tag?.metadata?.decision?.intent || 'CONVERSATIONAL';
-      const improvement = await improveResponse(
-        result.content,
-        { query: message, intent, lang: 'cs' },
-        async (prompt, systemPrompt, opts) => {
-          const creBridge = await import('../llm/cre-bridge.js');
-          return creBridge.generateChatResponse(prompt, systemPrompt || '', {
-            sessionId: opts?.sessionId || `refine-${sessionId}`,
-            temperature: opts?.temperature ?? 0.3,
-            signal: signal || null,
-          });
-        },
-        { signal, sessionId, mode: 'balanced' },
-      );
-      if (improvement.improved) {
-        result.content = improvement.response;
-        logger.info('ChatController', 'Self-refinement applied', {
-          originalScore: improvement.telemetry.originalScore,
-          finalScore: improvement.telemetry.finalScore,
-          delta: improvement.telemetry.finalScore - improvement.telemetry.originalScore,
-        });
-      }
-    } catch (err) {
-      logger.warn('ChatController', `Self-refinement failed (non-fatal): ${err.message}`);
-    }
-  } else if (synthesisScore !== null) {
-    logger.debug('ChatController', `Skipping selfRefine: synthesis score ${synthesisScore} >= 75`);
-  }
-  throwIfAborted(signal);
-
-  // Telemetry: always score the FINAL output (after any refinement) — no drift
-  try {
-    const { scoreResponse } = await import('./quality/response-scorer.js');
-    const intent = result.tag?.metadata?.decision?.intent || 'CONVERSATIONAL';
-    const finalScore = scoreResponse(result.content || '', {
-      query: message, intent, lang: 'cs',
-    });
-    _qualityScore = {
-      total: finalScore.total,
-      dimensions: finalScore.dimensions,
-      issues: finalScore.issues,
-    };
-    logger.info('QualityTelemetry', `Chat response score: ${finalScore.total}`, {
-      conversationId: dbConversationId,
-      intent,
-      score: finalScore.total,
-      dimensions: finalScore.dimensions,
-      refined: needsRefinement,
-      synthesisScore,
-    });
-  } catch (err) {
-    logger.warn('QualityTelemetry', `Score logging failed (non-fatal): ${err.message}`);
-  }
-  // No await occurs between this check and appendTurn(), so an aborted turn
-  // cannot cross the persistence boundary on the same event-loop tick.
-  throwIfAborted(signal);
-
-  // ════════════════════════════════════════════════════════════════════════════
-  // v56.0 Sprint 3: PERSIST assistant turn to DB (after processing)
-  // INVARIANT: Turn is persisted before response is returned to caller
-  // ════════════════════════════════════════════════════════════════════════════
-  try {
-    store.appendTurn(dbConversationId, TurnRole.ASSISTANT, result.content, {
-      mode: result.mode,
-      confidence: result.confidence,
-      model: result.tag?.metadata?.model,
-      intent: result.tag?.metadata?.decision?.intent,
-    });
-  } catch (err) {
-    logger.error('ChatController', `Failed to persist assistant turn: ${err.message}`);
-    // Continue — response is still valid even if persistence fails
-  }
+  // TaggedResponse is immutable. The finalizer carries accepted refinement in a
+  // local value and uses that same value for scoring, persistence, and return.
+  const finalizedResponse = await finalizeChatResponse({
+    result,
+    message,
+    sessionId,
+    conversationId: dbConversationId,
+    signal,
+    persistAssistantTurn: (content, turnMetadata) => {
+      store.appendTurn(dbConversationId, TurnRole.ASSISTANT, content, turnMetadata);
+    },
+  });
 
   // v67.0: Auto-Compact — fire background context compression if threshold exceeded
   try {
@@ -2106,15 +2030,7 @@ ChatController.handle = async function(request) {
 
   // Return structured response with state info
   return {
-    response: result.content,
-    mode: result.mode,
-    confidence: result.confidence,
-    canExecute: result.canExecute,
-    metadata: result.tag.metadata,
-    // v126: Semantic quality score (null if scoring failed)
-    qualityScore: _qualityScore,
-    // v66.0: Return the DB conversation ID so WS bridge can echo it to IDE
-    conversationId: dbConversationId,
+    ...finalizedResponse,
     // Include current state in response so UI can stay in sync
     state: {
       project: state.project,
