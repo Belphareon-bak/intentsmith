@@ -356,7 +356,7 @@ function renderText(title, date, turns, scope) {
 /**
  * Render conversation as PDF.
  * Uses Python reportlab via export/pdf-exporter.js for proper Czech support.
- * Requires: python3 + pip install reportlab + DejaVu fonts
+ * Requires: ./scripts/install-pdf-runtime.sh + DejaVu fonts
  *
  * @returns {Promise<Buffer>} PDF as Buffer
  */

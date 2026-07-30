@@ -1,0 +1,15 @@
+# IntentSmith PDF export runtime dependencies.
+#
+# Locked target: CPython 3.12 on Linux x86_64, glibc 2.27+.
+# Generated from PyPI wheels on 2026-07-30 and verified with pip --require-hashes.
+# Unsupported Python/platform combinations must fail closed instead of resolving
+# an unreviewed artifact.
+
+--only-binary=:all:
+
+charset-normalizer==3.4.4 \
+    --hash=sha256:11d694519d7f29d6cd09f6ac70028dba10f92f6cdd059096db198c283794ac86
+pillow==12.3.0 \
+    --hash=sha256:78cb2c6865a35ab8ff8b75fd122f6033b92a62c82801110e48ddd6c936a45d91
+reportlab==5.0.0 \
+    --hash=sha256:9d5a3affa84919e1111ede580031266a570e93b1ce388219621347965ff1d93c

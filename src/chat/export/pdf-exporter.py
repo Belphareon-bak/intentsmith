@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # ═══════════════════════════════════════════════════════════════════════════════
-# C3-Agent — PDF Export (A5)
+# IntentSmith — PDF Export (A5)
 # ═══════════════════════════════════════════════════════════════════════════════
 #
 # Generates styled PDF from conversation turns.
-# Called from Node.js via: python3 pdf-exporter.py <input.json> <output.pdf>
+# Called from Node.js via the private runtime:
+# <pdf-runtime>/bin/python -I pdf-exporter.py <input.json> <output.pdf>
 #
 # Input JSON: { "title": "...", "turns": [{"role":"user","content":"..."},...], "lang": "cs" }
 # Output: PDF file with Czech character support (DejaVu font)
@@ -174,13 +175,13 @@ LABELS = {
     'cs': {
         'user': '👤 Uživatel',
         'assistant': '🤖 Asistent',
-        'exported': 'Exportováno z C3-Agent',
+        'exported': 'Exportováno z IntentSmith',
         'turns': 'zpráv',
     },
     'en': {
         'user': '👤 User',
         'assistant': '🤖 Assistant',
-        'exported': 'Exported from C3-Agent',
+        'exported': 'Exported from IntentSmith',
         'turns': 'messages',
     },
 }
@@ -188,7 +189,7 @@ LABELS = {
 # ─── Document Builder ─────────────────────────────────────────────────────────
 
 def build_pdf(data, output_path):
-    title = data.get('title', 'C3 Conversation')
+    title = data.get('title', 'IntentSmith Conversation')
     turns = data.get('turns', [])
     lang = data.get('lang', 'cs')
     labels = LABELS.get(lang, LABELS['en'])
@@ -203,7 +204,7 @@ def build_pdf(data, output_path):
         topMargin=20*mm,
         bottomMargin=20*mm,
         title=title,
-        author='C3-Agent',
+        author='IntentSmith',
         subject='Chat Export',
     )
 
@@ -242,12 +243,13 @@ def build_pdf(data, output_path):
     # ─── Footer ───────────────────────────────────────────────────────────
     story.append(Spacer(1, 16))
     story.append(Paragraph(
-        f'C3-Agent • {now}',
+        f'IntentSmith • {now}',
         styles['C3Footer'],
     ))
 
     # ─── Build ────────────────────────────────────────────────────────────
     doc.build(story)
+    os.chmod(output_path, 0o600)
     return os.path.getsize(output_path)
 
 

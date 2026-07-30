@@ -49,6 +49,38 @@ cd "$PROJECT_ROOT"
 
 PORT_FILE="$HOME/.c3/port"
 LOG_FILE="$PROJECT_ROOT/.c3-backend.log"
+if [ -n "${XDG_DATA_HOME:-}" ]; then
+  PDF_DATA_HOME="$XDG_DATA_HOME"
+else
+  PDF_DATA_HOME="$HOME/.local/share"
+fi
+DEFAULT_PDF_PYTHON="$PDF_DATA_HOME/intentsmith/python/pdf/bin/python"
+
+if [ -n "${INTENTSMITH_PDF_PYTHON:-}" ] &&
+   [ -n "${C3_PDF_PYTHON:-}" ] &&
+   [ "$INTENTSMITH_PDF_PYTHON" != "$C3_PDF_PYTHON" ]; then
+  fail "Conflicting INTENTSMITH_PDF_PYTHON and C3_PDF_PYTHON values"
+  exit 1
+fi
+
+if [ -n "${INTENTSMITH_PDF_PYTHON:-}" ]; then
+  PDF_PYTHON="$INTENTSMITH_PDF_PYTHON"
+elif [ -n "${C3_PDF_PYTHON:-}" ]; then
+  PDF_PYTHON="$C3_PDF_PYTHON"
+else
+  PDF_PYTHON="$DEFAULT_PDF_PYTHON"
+fi
+
+case "$PDF_PYTHON" in
+  /*) ;;
+  *)
+    fail "PDF Python interpreter must be an absolute path"
+    exit 1
+    ;;
+esac
+
+export INTENTSMITH_PDF_PYTHON="$PDF_PYTHON"
+export PYTHONNOUSERSITE=1
 
 echo ""
 echo -e "${BOLD}═══════════════════════════════════════════════════════════${NC}"
@@ -180,6 +212,16 @@ if node -e "require('better-sqlite3')" 2>/dev/null; then
 else
   fail "better-sqlite3 native binding broken"
   echo "       Run: npm rebuild better-sqlite3 --build-from-source"
+  exit 1
+fi
+
+if node --input-type=module -e \
+  "import { isPdfAvailable } from './src/chat/export/pdf-exporter.js'; process.exit((await isPdfAvailable()) ? 0 : 1)" \
+  2>/dev/null; then
+  ok "Isolated PDF export runtime OK"
+else
+  fail "Isolated PDF export runtime unavailable"
+  echo "       Run ./scripts/install-pdf-runtime.sh first"
   exit 1
 fi
 

@@ -240,6 +240,22 @@ fi
 echo ""
 
 # ════════════════════════════════════════════════════════════════════════════
+# 5c. Isolated PDF Export Runtime
+# ════════════════════════════════════════════════════════════════════════════
+echo -e "${BOLD}── PDF Export Runtime ──${NC}"
+
+info "Installing hash-locked ReportLab runtime..."
+if "$SCRIPT_DIR/install-pdf-runtime.sh"; then
+  ok "Isolated PDF export runtime ready"
+else
+  fail "PDF runtime installation failed"
+  echo "       Re-run: ./scripts/install-pdf-runtime.sh"
+  exit 1
+fi
+
+echo ""
+
+# ════════════════════════════════════════════════════════════════════════════
 # 6. IDE Dependencies (yarn)
 # ════════════════════════════════════════════════════════════════════════════
 echo -e "${BOLD}── IDE Dependencies ──${NC}"

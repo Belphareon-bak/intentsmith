@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — A5 + A6: PDF & DOCX Export Tests
+// IntentSmith — A5 + A6: PDF & DOCX Export Tests
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // Tests PDF (reportlab) and DOCX (docx-js) export pipelines.
@@ -8,10 +8,16 @@
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { readFile, writeFile, stat, mkdir, rm } from 'fs/promises';
+import { readFile, writeFile, stat, mkdir, rm, symlink } from 'fs/promises';
 import { join } from 'path';
 import { execFile } from 'child_process';
 import { createRequire } from 'module';
+import {
+  exportToPdf,
+  isPdfAvailable,
+  resolvePdfPythonInterpreter,
+  runPdfPython,
+} from '../src/chat/export/pdf-exporter.js';
 
 // ─── Test Runner ─────────────────────────────────────────────────────────────
 
@@ -88,15 +94,76 @@ const TMP_BASE = `/tmp/c3-export-test-${Date.now()}`;
 section('A5.0 — PDF prerequisites');
 
 await t('reportlab is available', async () => {
-  const available = await new Promise((resolve) => {
-    execFile('python3', ['-c', 'import reportlab; print(reportlab.Version)'], {
-      timeout: 5000,
-    }, (err, stdout) => {
-      resolve(!err ? stdout.trim() : null);
-    });
+  const { stdout } = await runPdfPython(
+    [
+      '-c',
+      'import json; from importlib.metadata import version; print(json.dumps({name:version(name) for name in ("charset-normalizer","pillow","reportlab")},sort_keys=True))',
+    ],
+    { timeout: 5000 }
+  );
+  const available = JSON.parse(stdout.trim());
+  eq(available['charset-normalizer'], '3.4.4', 'charset-normalizer lock mismatch');
+  eq(available.pillow, '12.3.0', 'Pillow lock mismatch');
+  eq(available.reportlab, '5.0.0', 'ReportLab lock mismatch');
+  console.log(`     PDF packages: ${JSON.stringify(available)}`);
+});
+
+await t('PDF interpreter is absolute and isolated from user site-packages', async () => {
+  const interpreter = resolvePdfPythonInterpreter();
+  ok(interpreter.startsWith('/'), 'PDF interpreter must be an absolute path');
+  const { stdout } = await runPdfPython(
+    ['-c', 'import json, site, sys; print(json.dumps({"isolated": sys.flags.isolated, "user_site": site.ENABLE_USER_SITE}))'],
+    { timeout: 5000 }
+  );
+  const state = JSON.parse(stdout.trim());
+  eq(state.isolated, 1, 'Python isolated mode must be enabled');
+  eq(state.user_site, false, 'Python user site-packages must be disabled');
+});
+
+await t('PDF subprocess receives no unrelated parent secrets', async () => {
+  process.env.INTENTSMITH_PDF_TEST_SECRET = 'must-not-cross-runtime-boundary';
+  try {
+    const { stdout } = await runPdfPython(
+      ['-c', 'import os; print("present" if "INTENTSMITH_PDF_TEST_SECRET" in os.environ else "absent")'],
+      { timeout: 5000 }
+    );
+    eq(stdout.trim(), 'absent', 'unrelated parent secret reached PDF subprocess');
+  } finally {
+    delete process.env.INTENTSMITH_PDF_TEST_SECRET;
+  }
+});
+
+await t('relative PDF interpreter override fails closed', async () => {
+  let error = null;
+  try {
+    resolvePdfPythonInterpreter({ INTENTSMITH_PDF_PYTHON: 'relative/python' });
+  } catch (caught) {
+    error = caught;
+  }
+  ok(error, 'relative override must be rejected');
+  ok(error.message.includes('absolute path'), 'rejection must explain absolute-path requirement');
+});
+
+await t('PDF installer rejects a symlinked ownership marker without touching its target', async () => {
+  const dir = join(TMP_BASE, 'installer-marker-symlink');
+  const runtimePath = join(dir, 'runtime');
+  const victimPath = join(dir, 'must-not-change.txt');
+  await mkdir(runtimePath, { recursive: true });
+  await writeFile(victimPath, 'preserved', { encoding: 'utf-8', mode: 0o600 });
+  await symlink(victimPath, join(runtimePath, '.intentsmith-pdf-runtime'));
+
+  const result = await new Promise((resolve) => {
+    execFile(
+      join(process.cwd(), 'scripts/install-pdf-runtime.sh'),
+      ['--venv', runtimePath],
+      { timeout: 10000 },
+      (error, stdout, stderr) => resolve({ error, stdout, stderr })
+    );
   });
-  ok(available, 'reportlab not installed — run: pip install reportlab');
-  console.log(`     reportlab version: ${available}`);
+
+  ok(result.error, 'symlinked marker must make the installer fail');
+  ok(result.stderr.includes('non-regular PDF runtime marker'), 'failure reason must identify marker');
+  eq(await readFile(victimPath, 'utf-8'), 'preserved', 'marker target was modified');
 });
 
 await t('DejaVu fonts available', async () => {
@@ -120,14 +187,11 @@ await t('PDF export CZ — valid file', async () => {
   await writeFile(inputPath, JSON.stringify(data), 'utf-8');
 
   const scriptPath = join(process.cwd(), 'src/chat/export/pdf-exporter.py');
-  const result = await new Promise((resolve, reject) => {
-    execFile('python3', [scriptPath, inputPath, outputPath], {
-      timeout: 15000,
-    }, (err, stdout, stderr) => {
-      if (err) reject(new Error(`${err.message}\n${stderr}`));
-      else resolve(JSON.parse(stdout.trim()));
-    });
-  });
+  const { stdout } = await runPdfPython(
+    [scriptPath, inputPath, outputPath],
+    { timeout: 15000 }
+  );
+  const result = JSON.parse(stdout.trim());
 
   ok(result.size > 1000, `PDF should be >1KB, got ${result.size}`);
 
@@ -147,14 +211,11 @@ await t('PDF export EN — valid file', async () => {
   await writeFile(inputPath, JSON.stringify(data), 'utf-8');
 
   const scriptPath = join(process.cwd(), 'src/chat/export/pdf-exporter.py');
-  const result = await new Promise((resolve, reject) => {
-    execFile('python3', [scriptPath, inputPath, outputPath], {
-      timeout: 15000,
-    }, (err, stdout, stderr) => {
-      if (err) reject(new Error(`${err.message}\n${stderr}`));
-      else resolve(JSON.parse(stdout.trim()));
-    });
-  });
+  const { stdout } = await runPdfPython(
+    [scriptPath, inputPath, outputPath],
+    { timeout: 15000 }
+  );
+  const result = JSON.parse(stdout.trim());
 
   ok(result.size > 1000, `PDF should be >1KB, got ${result.size}`);
   const buf = await readFile(outputPath);
@@ -177,14 +238,11 @@ await t('PDF handles all Czech diacritics (ěščřžýáíéúůďťňó)', asy
   await writeFile(inputPath, JSON.stringify(data), 'utf-8');
 
   const scriptPath = join(process.cwd(), 'src/chat/export/pdf-exporter.py');
-  const result = await new Promise((resolve, reject) => {
-    execFile('python3', [scriptPath, inputPath, outputPath], {
-      timeout: 15000,
-    }, (err, stdout, stderr) => {
-      if (err) reject(new Error(`${err.message}\n${stderr}`));
-      else resolve(JSON.parse(stdout.trim()));
-    });
-  });
+  const { stdout } = await runPdfPython(
+    [scriptPath, inputPath, outputPath],
+    { timeout: 15000 }
+  );
+  const result = JSON.parse(stdout.trim());
 
   ok(result.size > 500, `Diacritics PDF should generate, got ${result.size}`);
 });
@@ -202,14 +260,11 @@ await t('PDF handles multiline content with paragraph breaks', async () => {
   }), 'utf-8');
 
   const scriptPath = join(process.cwd(), 'src/chat/export/pdf-exporter.py');
-  const result = await new Promise((resolve, reject) => {
-    execFile('python3', [scriptPath, inputPath, outputPath], {
-      timeout: 15000,
-    }, (err, stdout, stderr) => {
-      if (err) reject(new Error(`${err.message}\n${stderr}`));
-      else resolve(JSON.parse(stdout.trim()));
-    });
-  });
+  const { stdout } = await runPdfPython(
+    [scriptPath, inputPath, outputPath],
+    { timeout: 15000 }
+  );
+  const result = JSON.parse(stdout.trim());
 
   ok(result.size > 500, 'Multiline PDF should generate');
 });
@@ -225,14 +280,11 @@ await t('PDF handles 20-turn long conversation', async () => {
   }), 'utf-8');
 
   const scriptPath = join(process.cwd(), 'src/chat/export/pdf-exporter.py');
-  const result = await new Promise((resolve, reject) => {
-    execFile('python3', [scriptPath, inputPath, outputPath], {
-      timeout: 30000,
-    }, (err, stdout, stderr) => {
-      if (err) reject(new Error(`${err.message}\n${stderr}`));
-      else resolve(JSON.parse(stdout.trim()));
-    });
-  });
+  const { stdout } = await runPdfPython(
+    [scriptPath, inputPath, outputPath],
+    { timeout: 30000 }
+  );
+  const result = JSON.parse(stdout.trim());
 
   ok(result.size > 5000, `Long PDF should be substantial, got ${result.size}`);
 });
@@ -250,14 +302,11 @@ await t('PDF with empty turns → still generates', async () => {
   }), 'utf-8');
 
   const scriptPath = join(process.cwd(), 'src/chat/export/pdf-exporter.py');
-  const result = await new Promise((resolve, reject) => {
-    execFile('python3', [scriptPath, inputPath, outputPath], {
-      timeout: 15000,
-    }, (err, stdout, stderr) => {
-      if (err) reject(new Error(`${err.message}\n${stderr}`));
-      else resolve(JSON.parse(stdout.trim()));
-    });
-  });
+  const { stdout } = await runPdfPython(
+    [scriptPath, inputPath, outputPath],
+    { timeout: 15000 }
+  );
+  const result = JSON.parse(stdout.trim());
 
   ok(result.size > 0, 'Empty PDF should still generate');
 });
@@ -273,14 +322,11 @@ await t('PDF with single turn', async () => {
   }), 'utf-8');
 
   const scriptPath = join(process.cwd(), 'src/chat/export/pdf-exporter.py');
-  const result = await new Promise((resolve, reject) => {
-    execFile('python3', [scriptPath, inputPath, outputPath], {
-      timeout: 15000,
-    }, (err, stdout, stderr) => {
-      if (err) reject(new Error(`${err.message}\n${stderr}`));
-      else resolve(JSON.parse(stdout.trim()));
-    });
-  });
+  const { stdout } = await runPdfPython(
+    [scriptPath, inputPath, outputPath],
+    { timeout: 15000 }
+  );
+  const result = JSON.parse(stdout.trim());
 
   ok(result.size > 500, 'Single-turn PDF should generate');
 });
@@ -431,8 +477,6 @@ await t('DOCX with special chars (& < > quotes)', async () => {
 section('Integration — Node.js PDF wrapper');
 
 await t('pdf-exporter.js exportToPdf() works end-to-end', async () => {
-  const { exportToPdf } = await import('../src/chat/export/pdf-exporter.js');
-
   const dir = join(TMP_BASE, 'pdf-node');
   await mkdir(dir, { recursive: true });
   const outputPath = join(dir, 'output.pdf');
@@ -440,14 +484,42 @@ await t('pdf-exporter.js exportToPdf() works end-to-end', async () => {
   const result = await exportToPdf(TEST_TURNS_CS, 'Node wrapper test', outputPath, 'cs');
 
   ok(result.size > 1000, `Node PDF wrapper should produce >1KB, got ${result.size}`);
+  eq((await stat(outputPath)).mode & 0o777, 0o600, 'PDF export must be private');
   const buf = await readFile(outputPath);
   ok(buf[0] === 0x25, 'Must be valid PDF');
 });
 
 await t('pdf-exporter.js isPdfAvailable() returns true', async () => {
-  const { isPdfAvailable } = await import('../src/chat/export/pdf-exporter.js');
   const available = await isPdfAvailable();
   eq(available, true, 'reportlab should be available');
+});
+
+await t('pdf-exporter.js rejects an executable that emits no verification sentinel', async () => {
+  const previous = process.env.INTENTSMITH_PDF_PYTHON;
+  process.env.INTENTSMITH_PDF_PYTHON = '/bin/true';
+  try {
+    eq(await isPdfAvailable(), false, 'empty successful process must not pass availability');
+  } finally {
+    if (previous === undefined) {
+      delete process.env.INTENTSMITH_PDF_PYTHON;
+    } else {
+      process.env.INTENTSMITH_PDF_PYTHON = previous;
+    }
+  }
+});
+
+await t('pdf-exporter.js does not use predictable conversation input paths', async () => {
+  const dir = join(TMP_BASE, 'pdf-private-input');
+  await mkdir(dir, { recursive: true });
+  const outputPath = join(dir, 'output.pdf');
+  const victimPath = join(dir, 'must-not-change.txt');
+  const predictableInputPath = outputPath + '.input.json';
+  await writeFile(victimPath, 'preserved', { encoding: 'utf-8', mode: 0o600 });
+  await symlink(victimPath, predictableInputPath);
+
+  await exportToPdf(TEST_TURNS_CS, 'Private input test', outputPath, 'cs');
+
+  eq(await readFile(victimPath, 'utf-8'), 'preserved', 'predictable-path victim changed');
 });
 
 section('Integration — DOCX availability check');
@@ -464,7 +536,6 @@ await t('docx-exporter.js isDocxAvailable() returns true', async () => {
 section('Comparative — same content in both formats');
 
 await t('same 4-turn CZ conversation → both formats generate', async () => {
-  const { exportToPdf } = await import('../src/chat/export/pdf-exporter.js');
   const { exportToDocx } = await import('../src/chat/export/docx-exporter.js');
 
   const dir = join(TMP_BASE, 'compare');
