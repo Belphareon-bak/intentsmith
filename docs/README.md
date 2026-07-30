@@ -128,6 +128,19 @@ ve zbytku dokumentace.
 | [convergence/TEST-REGISTRY.md](convergence/TEST-REGISTRY.md) | generovaný ledger 350 testovacích programů a 8 explicitních support výjimek |
 | [convergence/PRIVACY-INCIDENT.json](convergence/PRIVACY-INCIDENT.json) | evidence potvrzené privacy kompromitace |
 
+### Mobilní klient
+
+Designová větev. Nic z toho není implementované; kontrakt `/m1` není zmrazený.
+
+| Dokument | Popis |
+|----------|-------|
+| [adr/0001-mobile-data-ownership.md](adr/0001-mobile-data-ownership.md) | **ADR 0001 ACCEPTED** — REMOTE_COMPANION jako datový model klienta |
+| [mobile/PLAN.md](mobile/PLAN.md) | zadání, bezpečnostní hranice, fáze 0–5, otevřená rozhodnutí |
+| [mobile/DATA-MODEL.md](mobile/DATA-MODEL.md) | klientský datový, cache a trust model — 18 datových typů, ztráta telefonu |
+| [mobile/TEST-STRATEGY.md](mobile/TEST-STRATEGY.md) | rodiny mobilních testů a pravidla zápisu do kanonického registru |
+| [mobile/SCREENS.md](mobile/SCREENS.md) | mapa obrazovek a toků pro fáze 1–5, deset povinných stavů |
+| [mobile/COVERAGE.md](mobile/COVERAGE.md) | coverage matice — požadavky × toky × data × rizika × testovací ID |
+
 ### Kontrakty & Protokoly
 
 | Dokument | Popis |
