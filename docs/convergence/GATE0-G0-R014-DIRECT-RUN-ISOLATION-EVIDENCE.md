@@ -7,13 +7,17 @@
 - Branch: `codex/g0-r014-direct-run-isolation`
 - Base SHA: `2c2fd256526a6ae7a5b9f84e2636f4ba0f9a49b5`
 - Code and test SHA: `d2a351898c32da303182122c664571e2d16406b8`
-- Scope: first common-bootstrap block only
+- Integrated code SHA: `6027e3b918d46455e98d869cd8067b166b50a68f`
+- First fixed-writer batch SHA: `96b8e9439e0d1492678ae404511a391ab7d58afc`
+- Scope: common bootstrap plus the first five fixed-writer conversions
 
 This change does not claim to close `G0-R014`. It establishes a fail-closed
 direct-run bootstrap, connects the two shared root-test harnesses, covers every
 current root test which actually calls `mkdtemp` or `mkdtempSync`, and carries
 the same contract through the nightly audit runner and the large E2E runner.
-Residual database-reachable and fixed-path writers are listed below.
+The first follow-up moves five fixed or timestamp-only writers below the
+runner-owned project root. Residual database-reachable and fixed-path writers
+are listed below.
 
 ## Implemented contract
 
@@ -220,21 +224,31 @@ tests/ws-bridge.test.js
 database-reachable dependency and therefore is not counted as protected merely
 because the harness appears somewhere in its source.
 
-## Fixed or non-atomic writer residual
+## Fixed or non-atomic writer progress
 
-Fourteen root programs still use a fixed or timestamp-only writable path.
+The initial inventory found fourteen root programs using a fixed or
+timestamp-only writable path.
 Importing the bootstrap contains the six `os.tmpdir()`-sensitive cases, but
 does not make their leaf allocation atomic. Eight hard-coded `/tmp` cases
 ignore `TMPDIR` entirely.
 
-| Category | Programs |
-| --- | --- |
-| Hard-coded `/tmp` | `chat-export-budget`, `execution-loop`, `export-pdf-docx`, `lifecycle-e2e`, `lifecycle-human-friction`, `marketplace`, `project-kb-decomposer`, `signature-cache` |
-| `os.tmpdir()` but non-atomic | `architecture-policy`, `attachments-projects`, `multimedia`, `project-welcome`, `tool-registry-e2e`, `upgrade-ux-v125` |
+At integrated SHA `96b8e9439e0d1492678ae404511a391ab7d58afc`,
+`architecture-policy`, `execution-loop`, `marketplace`,
+`project-kb-decomposer`, and `signature-cache` allocate atomically below
+`isolatedTestRuntime.projects`. In particular, the project knowledge-base
+fixture can no longer write `/tmp/.c3/snapshot.json`.
 
-`project-kb-decomposer.test.js` is the highest-priority fixed-path case because
-its `/tmp` fixture can cause production code to write `/tmp/.c3/snapshot.json`.
-These conversions are intentionally delegated to small follow-up batches.
+The remaining inventory is:
+
+| Residual category | Programs |
+| --- | --- |
+| Hard-coded `/tmp` | `chat-export-budget`, `export-pdf-docx`, `lifecycle-e2e`, `lifecycle-human-friction` |
+| `os.tmpdir()` but non-atomic inside the per-run private root | `attachments-projects`, `multimedia`, `project-welcome`, `tool-registry-e2e`, `upgrade-ux-v125` |
+
+The common bootstrap already prevents the second category from reaching the
+shared system temporary directory. `attachments-projects` still needs an
+explicit owned-server boundary and atomic fixture cleanup; the other four
+remain bounded leaf-allocation cleanup work rather than an operator-data path.
 
 ## Test evidence
 
@@ -287,6 +301,35 @@ compatible native binary was provisioned from a sibling worktree with the same
 package version and matching package metadata. These focused results are not a
 clean-clone installation claim.
 
+The common-bootstrap block was independently repeated after integration at
+exact SHA `6027e3b918d46455e98d869cd8067b166b50a68f`:
+
+| Command | Result | Exit |
+| --- | --- | ---: |
+| `node tests/harness-exit-code.test.js` inside the restricted process sandbox | expected environment limitation: child `spawnSync` rejected with `EPERM`; no green claim | 1 |
+| same command with approved local child-process permission | `Temp bootstrap coverage: 40 root tests covered`; meta-test passed | 0 |
+| `node tests/e2e-harness-isolation.test.js` with approved local child-process permission | 3 passed, 0 failed | 0 |
+| `node tests/e2e/220-e2e-suite-runner.js --self-check` without `INTENTSMITH_TEST_ARTIFACT_DIR` | fail-closed: artifact root required | 1 |
+| same 220 self-check with a fresh private artifact root | `SELF_CHECK_PASS` | 0 |
+| `node scripts/validate-test-registry.js` | 350 runnable programs; registry SHA-256 `f6edc6ccff693284ee01ed159e90faea20e94662892d7b84b2f61efdf35e03b5` | 0 |
+| `node tests/artifact-validation.test.js` | 64 passed, 0 failed | 0 |
+
+The first integrated fixed-writer batch was then re-run from exact commit
+`96b8e9439e0d1492678ae404511a391ab7d58afc`:
+
+| Command | Result | Exit |
+| --- | --- | ---: |
+| `node tests/architecture-policy.test.js` | 31 passed, 0 failed | 0 |
+| `node tests/execution-loop.test.js` | 58 passed, 0 failed | 0 |
+| `node tests/marketplace.test.js` | 44 passed, 0 failed | 0 |
+| `node tests/project-kb-decomposer.test.js` | 28 passed, 0 failed | 0 |
+| `node tests/signature-cache.test.js` | 7 passed, 0 failed | 0 |
+
+Each successful raw run allocated below
+`.intentsmith-artifacts/direct-tests/<program>-*` and removed its invocation
+root on exit 0. No network, model, GPU, application database, or generated
+source-tree fixture was used.
+
 ## Mutation and negative coverage
 
 The existing registered meta-test covers:
@@ -306,7 +349,7 @@ weakened. Restoring only that import returned the same suite to exit code 0.
 ## Remaining decision
 
 `G0-R014` must remain **OPEN** until the remaining 52 database-reachable
-programs and the 14 fixed/non-atomic writers are converted or explicitly
+programs and nine fixed/non-atomic writers are converted or explicitly
 dispositioned, followed by a full registered audit from the integrated SHA.
-This branch does not edit `STATUS.md`, the generated risk documents, registry
-schema/version data, or `data/c3.db`.
+This work does not edit `STATUS.md`, registry schema/version data, or
+`data/c3.db`.
