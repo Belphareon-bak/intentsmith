@@ -176,7 +176,7 @@ Pořadí neurčují fáze klienta, ale to, co brání čemu.
 | **Discovery spike (M-0)** | Běží proti loopbacku nebo emulátoru. **Žádné vzdálené zpřístupnění.** `B2` scope enforcement platí i pro spike | PLAN.md §8 body 1 a 4 |
 | **Jakékoli vzdálené zpřístupnění** | `S-1`..`S-4` hotové **včetně** negativních testů, tedy `GAP-2` uzavřená | PLAN.md §2, `G0-R021` |
 | **Zmrazení kontraktu `/m1`** | Backend má Gate 1 pro `C3-002` a `C3-023` | PLAN.md §8 bod 2 |
-| **První mobilní řádek v registru** | Rozhodnutí o `C3-031`/`C3-032` (`D-T1`) + integrační větev dokončila manifest a `REBUILD` | TEST-STRATEGY §3 a §6.4 |
+| **První mobilní řádek v registru** | Integrační větev dokončila manifest a terminální uzavření `REBUILD`. Pak jeden atomický commit: oba capability řádky + testovací soubor + řádek registru + regenerovaný ledger | TEST-STRATEGY §3.1 a §6.4 |
 | **Fáze 3 (approvaly)** | `MN-approval-idempotency` (`server`) je proveditelný, tedy platí totéž co pro `GAP-2` | SCREENS `MS-14` |
 | **Klientská aplikace** | `MX` můstek splňuje pět podmínek fail-closed | TEST-STRATEGY §5 |
 

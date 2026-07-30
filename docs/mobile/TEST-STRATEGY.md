@@ -97,7 +97,7 @@ vlastníka, dokud ho operátor nepojmenuje.
 
 ---
 
-## 3. Capability ID pro mobil — **[?] návrh, neaplikovaný**
+## 3. Capability ID pro mobil — **[?] `D-T1` rozhodnuto, neaplikováno**
 
 `CAPABILITY-MATRIX.md` má dnes `C3-001`..`C3-030` a **žádný mobilní řádek**.
 Mobilní testy musí na něco ukazovat. Tři možnosti:
@@ -120,9 +120,30 @@ která má cenu i kdyby žádný telefon nikdy nevznikl (PLAN.md: S-1..S-4 jsou 
 mobilu nezávislé). `C3-032` je klient. Slepit je znamená, že selhání klienta
 zabarví bezpečnostní evidenci a naopak.
 
-**Dokud rozhodnutí nepadne, mobilní řádky se nepíšou.** Zapsat test s vymyšleným
-`C3-031` do registru dřív, než ten řádek v matici existuje, je přesně ta tichá
-cesta, kterou `F-6` umožňuje a kterou tenhle projekt nedělá.
+### 3.1 Kdy se řádky přidají — rozhodnuto
+
+> **Oba capability řádky se přidají atomicky ve stejném commitu jako první
+> skutečný mobilní test.** Ne dřív.
+
+Důvod je symetrický s `F-1`: registr zakazuje registraci neexistující cesty,
+protože visící registrace je nepravdivý ledger. Capability řádek bez jediného
+testu je totéž o patro výš — schopnost vedená v matici, ke které se nikdy nikdo
+nechystal nic ověřit.
+
+Obsah toho commitu je pevný a nedělitelný:
+
+```
+1. oba capability řádky do docs/convergence/CAPABILITY-MATRIX.md
+   (přesné znění výše, beze změn)
+2. existující testovací soubor tests/mobile/<rodina>-<případ>.test.js
+3. jeho řádek v tests/registry.json
+4. node scripts/validate-test-registry.js --write-doc
+5. regenerovaný docs/convergence/TEST-REGISTRY.md
+```
+
+Tím nevznikne ani dočasně nepravdivá matice, ani visící registrace. Každý
+další mobilní test už jen opakuje kroky 2–5; capability řádky se přidávají
+jednou.
 
 ---
 
@@ -219,6 +240,7 @@ zápisu mění, je ověření, že `path` existuje.
 Postup pro jeden test (opakuje se, nikdy hromadně):
 
 ```
+0. jen u ÚPLNĚ PRVNÍHO: oba capability řádky do CAPABILITY-MATRIX.md (§3.1)
 1. vznikne tests/mobile/<rodina>-<případ>.test.js
 2. do tests/registry.json přibude jeho řádek podle šablony níže
 3. node scripts/validate-test-registry.js --write-doc
@@ -475,7 +497,7 @@ Nezávisí na fázích klienta, ale na tom, co brání čemu.
 
 | # | Otázka | Doporučení |
 |---|---|---|
-| **D-T1** | Zavést `C3-031` a `C3-032` do `CAPABILITY-MATRIX.md`? | Ano, dvě ID; mobilní řádky do registru až poté (§3) |
+| ~~`D-T1`~~ | Zavést `C3-031` a `C3-032` do `CAPABILITY-MATRIX.md`? | **ROZHODNUTO:** ano, dvě ID, ale **atomicky s prvním skutečným mobilním testem** (§3.1) |
 | **D-T2** | Můstek na klientské testy (V-2), nebo klient bez registru (V-1)? | V-2 s pěti podmínkami z §5 |
 | **D-T3** | Kdy se smí zapsat první mobilní řádek do `tests/registry.json`? | Až integrační větev dokončí manifest a uzavírání `REBUILD` (§6.4) |
 | **D-T4** | Je `IS-T1-...-REVOKE-CANNOT-WIPE-OFFLINE-TEST` legitimní test, nebo dokumentace? | Test — zamyká přijatý limit `M-R1` proti pozdějšímu „vylepšení" |
