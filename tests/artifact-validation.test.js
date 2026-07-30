@@ -6,6 +6,7 @@ import {
   existsSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   writeFileSync,
 } from 'fs';
@@ -191,6 +192,12 @@ suite('documentation integrity');
 
 const docsReadmeUrl = new URL('../docs/README.md', import.meta.url);
 const docsReadme = readFileSync(docsReadmeUrl, 'utf8');
+const rootReadme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+const rootClaude = readFileSync(new URL('../CLAUDE.md', import.meta.url), 'utf8');
+const committedRegistry = JSON.parse(readFileSync(
+  new URL('../tests/registry.json', import.meta.url),
+  'utf8',
+));
 const strippedCzechTokenPattern = /\b(?:Spusteni|Nastroje|Bezpecnost|Planovani|Vyvoj|Dalsi|Konverzacni|Kanonicky|zavislosti|nativnich|Rucni|promenlive|auditni|skutecny|Vsechny|promenne|nacitaji|Kompletni|instalacni|prirucka|Projektovy|kazdy|uzivatelsky|spravny|zadny|Pocet|vypsanych|sobe|dukaz|zeleneho|validovana|navratovy|vystavi|zpravy|stejnem|Posledni)\b/g;
 
 function markdownProse(markdown) {
@@ -213,6 +220,36 @@ function strippedCzechTokens(markdown) {
   return markdownProse(markdown).match(strippedCzechTokenPattern) || [];
 }
 
+function rootReadmeMatchesRegistry(markdown, registry) {
+  const counts = registry.suites.reduce((result, suite) => {
+    result[suite.state] = (result[suite.state] || 0) + 1;
+    return result;
+  }, {});
+  return markdown.includes(`**${registry.suites.length} registrovaných testovacích programů**`)
+    && markdown.includes(
+      `(\`${counts.ACTIVE || 0} ACTIVE\`, \`${counts.BLOCKED || 0} BLOCKED\`, `
+      + `\`${counts.KNOWN_DEFECTIVE || 0} KNOWN_DEFECTIVE\`, `
+      + `\`${counts.HISTORICAL || 0} HISTORICAL\`)`,
+    );
+}
+
+function currentToolInventory() {
+  const toolDirectory = new URL('../src/tools/', import.meta.url);
+  const files = readdirSync(toolDirectory)
+    .filter(name => name.endsWith('.js'))
+    .sort();
+  const lines = files.reduce((total, name) => {
+    const source = readFileSync(new URL(name, toolDirectory), 'utf8');
+    return total + (source.match(/\n/g) || []).length;
+  }, 0);
+  return { files: files.length, lines };
+}
+
+function rootClaudeMatchesToolInventory(markdown, inventory) {
+  const formattedLines = String(inventory.lines).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return markdown.includes(`| src/tools/ | ${inventory.files} | ${formattedLines} |`);
+}
+
 test('current README keeps restored Czech headings and prose', () => {
   assert(!docsReadme.includes('**Známé poškození:**'));
   for (const heading of [
@@ -230,6 +267,28 @@ test('current README keeps restored Czech headings and prose', () => {
     '',
     `stripped Czech prose tokens: ${strippedTokens.join(', ')}`,
   );
+});
+
+test('root README state counts derive from the committed registry', () => {
+  assert(rootReadmeMatchesRegistry(rootReadme, committedRegistry));
+});
+
+test('root README rejects drift from the committed registry', () => {
+  assert(!rootReadmeMatchesRegistry(
+    rootReadme.replace('`256 ACTIVE`', '`255 ACTIVE`'),
+    committedRegistry,
+  ));
+});
+
+test('CLAUDE tool inventory derives from current JavaScript sources', () => {
+  assert(rootClaudeMatchesToolInventory(rootClaude, currentToolInventory()));
+});
+
+test('CLAUDE tool inventory rejects source-count drift', () => {
+  assert(!rootClaudeMatchesToolInventory(
+    rootClaude.replace('| src/tools/ | 3 | 5,694 |', '| src/tools/ | 3 | 5,695 |'),
+    currentToolInventory(),
+  ));
 });
 
 test('diacritics scan ignores intentional fenced, inline, and path examples', () => {
