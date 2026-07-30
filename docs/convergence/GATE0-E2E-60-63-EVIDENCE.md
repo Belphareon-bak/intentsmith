@@ -185,3 +185,53 @@ the legacy text heuristic to non-abort errors, recognizes native
 audit and runtime-signal payloads. Direct regressions cover the contradictory
 user/message case, native timeout, upstream stale timeout and a gateway-owned
 deadline. The provider-outage residual remains separate as `G0-R025`.
+
+The exact typed-source candidate is
+`dcf7753ccc604fbec2fa1b87cc8235f8c4726a4b`, with parent
+`32629f6283be5188655697a777a0b74c4d3e39d0`. On the integration checkout, each
+database-backed program ran with its own ignored `HOME`, `TMPDIR` and
+`C3_DB_PATH` below `.intentsmith-artifacts/g0-review-followup/post-dcf7753/`:
+
+| Program or validator | Result | Exit |
+|---|---:|---:|
+| `tests/ws-bridge.test.js` | 50 passed, 0 failed | 0 |
+| `tests/llm-gateway-runtime-signal.test.js` | 7 passed, 0 failed | 0 |
+| `tests/chat-fixes.test.js` | 58 passed, 0 failed | 0 |
+| `tests/cre-build-arbitration.test.js` | 7 passed, 0 failed | 0 |
+| `tests/artifact-validation.test.js` | 31 passed, 0 failed | 0 |
+| `node scripts/validate-test-registry.js` | 350 programs; SHA-256 `a7a5c6d4670159cd38a08edea8aabbf868eb3342a3baf1857b6a4849d1f4960a` | 0 |
+| `node scripts/reconcile-test-registry.js --check` | ACTIVE 256, HISTORICAL 15, BLOCKED 79 | 0 |
+| `node scripts/validate-final-disposition.js` | 225 records; all 92 `REBUILD` rows terminal | 0 |
+
+An independent reviewer repeated `git diff --check`, syntax checks and the WS
+and LLM programs from a `git archive` of the exact candidate. The archive runs
+produced `50 passed, 0 failed` and `7 passed, 0 failed`, both exit 0. Runtime
+and audit payloads agreed that upstream stale and native timeouts have
+`timeoutOrigin: "upstream"` and `timeoutMs: null`, while the 5 ms
+gateway-owned deadline has `timeoutOrigin: "gateway"` and `timeoutMs: 5`. The
+review verdict was `ACCEPT`, with no new blocker in this change scope.
+
+Two mutation runs pinned the new boundaries in a detached worktree at exact
+candidate `dcf7753`. Reintroducing message-first classification:
+
+```js
+abortSource === AbortSource.TIMEOUT || err.message?.includes('timeout')
+```
+
+and running the isolated WS program produced `49 passed, 1 failed`, exit 1.
+The sole failure was `T10d`: it observed `timeout` instead of the required
+typed-user result `cancelled_by_user`.
+
+After restoring the file, removing only native `TimeoutError` recognition from
+`sourceFromReason()` and running:
+
+```bash
+env HOME=.intentsmith-artifacts/mutation-native-timeout/home \
+  TMPDIR=.intentsmith-artifacts/mutation-native-timeout/tmp \
+  C3_DB_PATH=.intentsmith-artifacts/mutation-native-timeout/runtime/native-timeout.sqlite \
+  node tests/llm-gateway-runtime-signal.test.js
+```
+
+produced `6 passed, 1 failed`, exit 1. The sole failure expected abort source
+`timeout` but observed `user`. The tracked files were restored to the exact
+candidate before the temporary worktree was removed.
