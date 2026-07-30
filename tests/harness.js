@@ -1,6 +1,8 @@
 // tests/harness.js — Minimal test harness for ESM
 // ══════════════════════════════════════════════════════════════════════════════
 
+import './helpers/isolated-test-db.js';
+
 let passed = 0;
 let failed = 0;
 let skipped = 0;

@@ -6,6 +6,7 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
+import './helpers/isolated-test-db.js';
 import Database from 'better-sqlite3';
 import fs from 'fs';
 import os from 'os';

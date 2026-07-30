@@ -423,10 +423,16 @@ const testsDir = path.join(root, 'tests');
 await mkdir(testsDir, { recursive: true });
 
 await writeFile(path.join(testsDir, 'pass.test.js'), `
-import { writeFileSync } from 'node:fs';
+import { statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 writeFileSync(path.join(process.env.TMPDIR, 'observed-env.json'), JSON.stringify({
   HOME: process.env.HOME,
+  XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
+  XDG_CACHE_HOME: process.env.XDG_CACHE_HOME,
+  XDG_DATA_HOME: process.env.XDG_DATA_HOME,
+  XDG_STATE_HOME: process.env.XDG_STATE_HOME,
+  npm_config_cache: process.env.npm_config_cache,
+  NPM_CACHE_MODE: statSync(process.env.npm_config_cache).mode & 0o777,
   C3_DB_PATH: process.env.C3_DB_PATH,
   INTENTSMITH_PDF_PYTHON: process.env.INTENTSMITH_PDF_PYTHON,
   C3_PDF_PYTHON: process.env.C3_PDF_PYTHON,
@@ -559,6 +565,31 @@ const observedEnv = JSON.parse(await readFile(
   'utf8',
 ));
 assert.equal(observedEnv.HOME, byPath.get('tests/pass.test.js').environment.home);
+assert.equal(
+  observedEnv.XDG_CONFIG_HOME,
+  byPath.get('tests/pass.test.js').environment.xdg.config,
+);
+assert.equal(
+  observedEnv.XDG_CACHE_HOME,
+  byPath.get('tests/pass.test.js').environment.xdg.cache,
+);
+assert.equal(
+  observedEnv.XDG_DATA_HOME,
+  byPath.get('tests/pass.test.js').environment.xdg.data,
+);
+assert.equal(
+  observedEnv.XDG_STATE_HOME,
+  byPath.get('tests/pass.test.js').environment.xdg.state,
+);
+assert.equal(
+  observedEnv.npm_config_cache,
+  byPath.get('tests/pass.test.js').environment.npmCache,
+);
+assert.equal(observedEnv.NPM_CACHE_MODE, 0o700);
+assert.equal(
+  path.dirname(byPath.get('tests/pass.test.js').environment.npmCache),
+  byPath.get('tests/pass.test.js').environment.artifacts,
+);
 assert.equal(observedEnv.C3_DB_PATH, byPath.get('tests/pass.test.js').environment.database);
 assert.equal(observedEnv.INTENTSMITH_PDF_PYTHON, expectedPdfPython);
 assert.equal(observedEnv.C3_PDF_PYTHON, expectedPdfPython);
@@ -576,6 +607,10 @@ assert.equal(byPath.get('tests/pass.test.js').environment.pythonNoUserSite, true
 process.umask(originalUmask);
 permissiveUmaskActive = false;
 assert.equal(new Set(run.results.map(result => result.environment?.database).filter(Boolean)).size, 6);
+assert.equal(new Set(run.results.map(result => result.environment?.npmCache).filter(Boolean)).size, 6);
+for (const result of run.results) {
+  assert.equal((await stat(result.environment.npmCache)).mode & 0o777, 0o700);
+}
 assert.equal((await stat(path.join(root, run.paths.report))).mode & 0o777, 0o600);
 
 await readFile(path.join(root, dryRun.paths.report), 'utf8');

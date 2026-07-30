@@ -14,8 +14,24 @@ const projectsRoot = path.join(privateRoot, 'projects');
 const runtimeRoot = path.join(privateRoot, 'runtime');
 const homeRoot = path.join(privateRoot, 'home');
 const tempRoot = path.join(privateRoot, 'tmp');
+const xdgConfigRoot = path.join(privateRoot, 'xdg-config');
+const xdgCacheRoot = path.join(privateRoot, 'xdg-cache');
+const xdgDataRoot = path.join(privateRoot, 'xdg-data');
+const xdgStateRoot = path.join(privateRoot, 'xdg-state');
+const npmCacheRoot = path.join(privateRoot, 'npm-cache');
 
-for (const directory of [privateRoot, projectsRoot, runtimeRoot, homeRoot, tempRoot]) {
+for (const directory of [
+  privateRoot,
+  projectsRoot,
+  runtimeRoot,
+  homeRoot,
+  tempRoot,
+  xdgConfigRoot,
+  xdgCacheRoot,
+  xdgDataRoot,
+  xdgStateRoot,
+  npmCacheRoot,
+]) {
   fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
 }
 
@@ -26,10 +42,18 @@ const baseEnv = {
   NODE_ENV: 'test',
   NO_COLOR: '1',
   HOME: homeRoot,
-  XDG_CONFIG_HOME: path.join(privateRoot, 'xdg-config'),
-  XDG_CACHE_HOME: path.join(privateRoot, 'xdg-cache'),
+  XDG_CONFIG_HOME: xdgConfigRoot,
+  XDG_CACHE_HOME: xdgCacheRoot,
+  XDG_DATA_HOME: xdgDataRoot,
+  XDG_STATE_HOME: xdgStateRoot,
   TMPDIR: tempRoot,
+  TMP: tempRoot,
+  TEMP: tempRoot,
+  npm_config_cache: npmCacheRoot,
+  C3_AUDIT_RUN: '1',
   C3_DB_PATH: path.join(runtimeRoot, 'test.sqlite'),
+  C3_PROJECTS_DIR: projectsRoot,
+  C3_PORT_FILE: path.join(runtimeRoot, 'test.port'),
   INTENTSMITH_TEST_ARTIFACT_DIR: privateRoot,
   INTENTSMITH_TEST_PROJECTS_DIR: projectsRoot,
 };

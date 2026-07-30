@@ -314,6 +314,7 @@ function makeRunPaths(artifactRoot, suiteLabel) {
     portFile: join(runRoot, 'runtime', 'server.port.json'),
     projects: join(runRoot, 'projects'),
     artifacts: join(runRoot, 'artifacts'),
+    npmCache: join(runRoot, 'artifacts', 'npm-cache'),
     state: join(runRoot, 'artifacts', 'e2e-state'),
     logs: join(runRoot, 'artifacts', 'logs'),
     transcript: join(runRoot, 'artifacts', 'transcript.md'),
@@ -338,6 +339,7 @@ function makeRunPaths(artifactRoot, suiteLabel) {
     paths.runtime,
     paths.projects,
     paths.artifacts,
+    paths.npmCache,
     paths.logs,
   ]) {
     ensurePrivateDirectory(directory);
@@ -450,12 +452,14 @@ function makeChildEnv(paths, sourceRevision, port = '0') {
     TMPDIR: paths.temp,
     TMP: paths.temp,
     TEMP: paths.temp,
+    npm_config_cache: paths.npmCache,
     GIT_CONFIG_GLOBAL: paths.gitConfig,
     GIT_CONFIG_NOSYSTEM: '1',
     NODE_ENV: 'test',
     CI: '1',
     NO_COLOR: '1',
     PYTHONNOUSERSITE: '1',
+    C3_AUDIT_RUN: '1',
     C3_DB_PATH: paths.database,
     C3_PROJECTS_DIR: paths.projects,
     INTENTSMITH_TEST_PROJECTS_DIR: paths.projects,
@@ -940,6 +944,7 @@ function makeInitialReport(options, paths, suitesToRun, phaseFiles, sourceRevisi
       portFile: paths.portFile,
       projects: paths.projects,
       artifacts: paths.artifacts,
+      npmCache: paths.npmCache,
       state: paths.state,
       transcript: paths.transcript,
       privateUmask: '0077',
@@ -979,11 +984,19 @@ function selfCheck(options, paths, report, suitesToRun, sourceRevision) {
     env.C3_PROJECTS_DIR,
     env.INTENTSMITH_TEST_PROJECTS_DIR,
     env.INTENTSMITH_TEST_ARTIFACT_DIR,
+    env.npm_config_cache,
     env[STATE_DIR_ENV],
     env.C3_TRANSCRIPT,
   ];
   for (const path of writablePaths) {
     assertContained(paths.runRoot, path, 'self-check writable path');
+  }
+  if (
+    env.C3_AUDIT_RUN !== '1'
+    || env.npm_config_cache !== paths.npmCache
+    || dirname(env.npm_config_cache) !== paths.artifacts
+  ) {
+    throw new Error('Self-check audit bootstrap environment mismatch');
   }
   if (env.C3_URL !== 'http://127.0.0.1:43210') {
     throw new Error(`Self-check C3_URL mismatch: ${String(env.C3_URL)}`);

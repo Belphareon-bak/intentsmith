@@ -449,6 +449,7 @@ async function runSuite({
   const tempDir = path.join(suiteRoot, 'tmp');
   const projectsDir = path.join(suiteRoot, 'projects');
   const artifactsDir = path.join(suiteRoot, 'artifacts');
+  const npmCacheDir = path.join(artifactsDir, 'npm-cache');
   const runtimeDir = path.join(suiteRoot, 'runtime');
   const xdgConfigDir = path.join(suiteRoot, 'xdg', 'config');
   const xdgCacheDir = path.join(suiteRoot, 'xdg', 'cache');
@@ -463,6 +464,7 @@ async function runSuite({
     tempDir,
     projectsDir,
     artifactsDir,
+    npmCacheDir,
     runtimeDir,
     xdgConfigDir,
     xdgCacheDir,
@@ -502,6 +504,7 @@ async function runSuite({
     tempDir,
     projectsDir,
     artifactsDir,
+    npmCacheDir,
     runtimeDir,
     xdgConfigDir,
     xdgCacheDir,
@@ -697,6 +700,7 @@ function makeSuiteEnvironment({
   tempDir,
   projectsDir,
   artifactsDir,
+  npmCacheDir,
   runtimeDir,
   xdgConfigDir,
   xdgCacheDir,
@@ -735,6 +739,7 @@ function makeSuiteEnvironment({
     TMPDIR: tempDir,
     TMP: tempDir,
     TEMP: tempDir,
+    npm_config_cache: npmCacheDir,
     NODE_ENV: 'test',
     NODE_NO_WARNINGS: '1',
     CI: '1',
@@ -769,6 +774,7 @@ function makeSuiteEnvironment({
       database: env.C3_DB_PATH,
       projects: projectsDir,
       artifacts: artifactsDir,
+      npmCache: npmCacheDir,
       portFile: env.C3_PORT_FILE,
       pdfPython: env.INTENTSMITH_PDF_PYTHON || env.C3_PDF_PYTHON || null,
       pythonNoUserSite: true,

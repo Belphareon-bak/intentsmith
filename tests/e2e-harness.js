@@ -11,6 +11,7 @@
 // Import: import { TestRunner, createExecutor, ... } from './e2e-harness.js';
 // ══════════════════════════════════════════════════════════════════════════════
 
+import './helpers/isolated-test-db.js';
 import fs from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';

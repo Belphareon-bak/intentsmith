@@ -6,6 +6,7 @@
 //
 // ==============================================================================
 
+import './helpers/isolated-test-db.js';
 import { strict as assert } from 'node:assert';
 import fs from 'node:fs';
 import os from 'node:os';

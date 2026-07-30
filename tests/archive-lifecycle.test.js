@@ -5,6 +5,7 @@
 //   active → archived → restored → soft-deleted → hard-deleted
 // ==============================================================================
 
+import './helpers/isolated-test-db.js';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
