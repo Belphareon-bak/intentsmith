@@ -47,11 +47,15 @@ function runChild(source, env = baseEnv) {
 suite('E2E harness private-root containment');
 
 test('rejects an artifact root outside .intentsmith-artifacts', () => {
+  const unsafeArtifactRoot = path.join(
+    path.dirname(repoRoot),
+    'intentsmith-e2e-public-artifacts',
+  );
   const result = runChild(
     "await import('./tests/e2e-harness.js');",
     {
       ...baseEnv,
-      INTENTSMITH_TEST_ARTIFACT_DIR: path.join(runRoot, 'public-artifacts'),
+      INTENTSMITH_TEST_ARTIFACT_DIR: unsafeArtifactRoot,
     },
   );
 
