@@ -19,7 +19,7 @@ kód nefungoval — šlo o to, že **pro ta tvrzení neexistoval ověřitelný p
 
 - 30 z 30 schopností v [CAPABILITY-MATRIX.md](convergence/CAPABILITY-MATRIX.md)
   je `UNVERIFIED` nebo `BASELINE_RED`;
-- z 349 registrovaných testovacích programů je 25 `KNOWN_DEFECTIVE`
+- z 350 registrovaných testovacích programů je 25 `KNOWN_DEFECTIVE`
   (false-green vzory: `assert(true)`, předčasné návraty, akceptace HTTP 5xx)
   a 54 `BLOCKED` na prostředí;
 - test harness hlásil zelenou i tam, kde běh selhal;
@@ -61,12 +61,13 @@ Reprodukce: `node scripts/validate-test-registry.js`,
 
 | Ukazatel | Hodnota |
 |---|---:|
-| Registrované spustitelné programy | 349 |
-| `ACTIVE` | 255 |
+| Registrované spustitelné programy | 350 |
+| Explicitní support/aggregate výjimky | 8 |
+| `ACTIVE` | 256 |
 | `BLOCKED` (chybí prostředí) | 54 |
 | `KNOWN_DEFECTIVE` (vadné aserce) | 25 |
 | `HISTORICAL` | 15 |
-| Rozsah G0-C5 (`offline` + `database`, required) | **198** |
+| Rozsah G0-C5 (`offline` + `database`, required) | **199** |
 | Klasifikované dispoziční záznamy | 225 (validní) |
 | Schopnosti s aktuálním akceptačním důkazem | **0 z 30** |
 
@@ -75,8 +76,8 @@ engine označoval všech 10 výstupů jako `EXCELLENT`) je **opravený v `f38f5e
 sada hlásí 44 passed, 0 failed, exit 0.
 
 Gate 0 tím ale nepřechází na PASS. Zbývá čistý kandidátní strom (G0-C1),
-generovaná evidence (G0-C8) a skutečné spuštění celého rozsahu 198 sad na
-výsledném commitu (G0-C5). Jeden opravený test není důkaz o zbylých 197.
+generovaná evidence (G0-C8) a skutečné spuštění celého rozsahu 199 sad na
+výsledném commitu (G0-C5). Jeden opravený test není důkaz o zbylých 198.
 
 ---
 
@@ -89,7 +90,7 @@ věřit. Teprve gaty po něm mluví o produktu.
 Gate 0  DŮVĚRA V MĚŘENÍ        ← kandidát čeká na finální evidenci/review
         ├─ čistý strom, oba validátory zelené
         ├─ čistá instalace reprodukovatelná
-        ├─ 198 deterministických required T1/T2 sad prochází
+        ├─ 199 deterministických required T1/T2 sad prochází
         ├─ žádná KNOWN_DEFECTIVE jako zelený důkaz
         └─ evidence generovaná z verdiktního commitu
               ↓
@@ -159,7 +160,7 @@ Stav = stav důkazů, ne odhad hotovosti. Mapování na
 | G0-2 | Doplnit registr na úplnost (2 neregistrované programy) | 🔴 P0 | ✅ hotovo |
 | G0-3 | Opravit `pilot-c1c2c3` A9 — quality engine nerozlišuje kvalitu | 🔴 P0 | ✅ hotovo (`f38f5e8`) |
 | G0-4 | Izolovat autoritativní běhy přes `C3_DB_PATH`; produktový import-side-effect ponechat jako transparentní residual risk (`G0-R012`) | 🔴 P0 | ✅ runner + self-test; produktové chování nezměněno |
-| G0-5 | Discovery registru podle spustitelnosti, ne názvu; explicitní výjimky (`G0-R013`) | 🟡 P1 | ⚠ otevřeno pro review; 349 aktuálně objevených programů je validních |
+| G0-5 | Discovery registru podle spustitelnosti, ne názvu; explicitní výjimky (`G0-R013`) | 🟡 P1 | ✅ 350 programů + 8 explicitních výjimek; meta-test dokazuje nekonvenční název |
 | G0-6 | Generátor evidence — status, index, baseline report a review packet z čistého kandidáta (`D-020`) | 🔴 P0 | ✅ implementováno; finální běh čeká na kandidátní SHA |
 | G0-7 | Každý `REBUILD` záznam do koncového stavu (`D-018`) | 🟡 P1 | přesunuto do per-suite Gate 2 aktivace; Gate 0 validator má 225/225 resolution |
 | G0-8 | Každý registry-`BLOCKED` řádek s konkrétní prerekvizitou (G0-C7) | 🟡 P1 | ✅ 0 řádků bez server/external/Ollama/GPU důvodu |

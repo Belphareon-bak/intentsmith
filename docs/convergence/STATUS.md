@@ -7,7 +7,8 @@
 > transitional hand-maintained snapshot and is explicitly *not* a verdict.
 
 Last updated: 2026-07-30
-Describes: worktree in progress on `codex/intentsmith-1.0` — **not a verdict commit**
+Describes: pre-attestation source state on `codex/intentsmith-1.0` —
+**not a verdict**
 
 ## Current gate
 
@@ -21,18 +22,18 @@ Against `GATE-CRITERIA.md` § Gate 0:
 
 | Clause | State | Note |
 |---|---|---|
-| G0-C1 worktree clean | ✗ | uncommitted E2E isolation and documentation work |
+| G0-C1 worktree clean | ? | must be proved by the evidence generator from the final candidate |
 | G0-C2 disposition valid | ✓ | 225 records, `validate-final-disposition.js` exits 0 |
-| G0-C3 registry valid | ✓ | 349 runnable programs, `validate-test-registry.js` exits 0 |
+| G0-C3 registry valid | ✓ | 350 runnable programs + 8 explicit support exclusions, `validate-test-registry.js` exits 0 |
 | G0-C4 clean install reproduces | ~ | verified twice at `0b82592`, not re-run at the current tree |
-| G0-C5 required deterministic suites pass | ? | the previously known blocker is cleared — `tests/pilot-c1c2c3.test.js` now reports 44 passed, 0 failed, exit 0 at `f38f5e8`. The full 198-suite T1/T2 scope must be re-run at the final candidate |
+| G0-C5 required deterministic suites pass | ? | the previously known blocker is cleared — `tests/pilot-c1c2c3.test.js` now reports 44 passed, 0 failed, exit 0 at `f38f5e8`. The full 199-suite T1/T2 scope must be re-run at the final candidate |
 | G0-C6 no defective suite counted green | ✓ | 25 `KNOWN_DEFECTIVE` rows are excluded by state |
-| G0-C7 blocked suites name a prerequisite | ~ | 54 `BLOCKED` rows recorded; per-row reason wording still being tightened |
+| G0-C7 blocked suites name a prerequisite | ✓ | all 54 `BLOCKED` rows name server, external network, Ollama, or GPU in structured requirements |
 | G0-C8 docs derive from verdict commit | ✗ | this file is still hand-maintained; see `D-020` |
 
-The verdict is FAIL because G0-C1 (dirty worktree) and G0-C8 (hand-maintained
-documentation) are unmet, and G0-C5 is unproven at this tree. It is **not** FAIL
-for a deterministic failure any more — that blocker was cleared at `f38f5e8`.
+The transitional verdict remains FAIL because G0-C4, G0-C5, and G0-C8 are not
+yet proved for one exact final candidate. It is **not** FAIL for a known
+deterministic failure any more — that blocker was cleared at `f38f5e8`.
 
 ## Frozen refs
 
@@ -69,42 +70,38 @@ for a deterministic failure any more — that blocker was cleared at `f38f5e8`.
 
 ## Test registry
 
-349 runnable programs, registry-derived, no filename-based omissions among the
-currently discovered set (mechanism gap tracked as `G0-R013`).
+350 runnable programs, registry-derived without filename predicates, plus eight
+explicitly reasoned support/aggregate exclusions (`G0-R013` mitigated).
 
 | State | Suites |
 |---|---:|
-| `ACTIVE` | 255 |
+| `ACTIVE` | 256 |
 | `BLOCKED` | 54 |
 | `KNOWN_DEFECTIVE` | 25 |
 | `HISTORICAL` | 15 |
 
-G0-C5 scope — required `offline` + `database` profiles: **198 suites**
-(`172 + 26`). Derived from the registry per `D-015`, not hand-selected.
+G0-C5 scope — required `offline` + `database` profiles: **199 suites**
+(`173 + 26`). Derived from the registry per `D-015`, not hand-selected.
 
 ## Last completed action
 
-Rewired the seven remaining E2E suites that wrote outside the runner-owned root
-(`04`, `56`, `57`, `77`, `78`, `90`, `96`) onto `makeOwnedTempDir()` /
-`removeOwnedTempDir()`, and registered the two previously unregistered programs
-(`tests/artifact-validation.test.js`, `tests/e2e/220-e2e-suite-runner.js`),
-taking the registry validator from exit 1 to exit 0.
+Closed the filename-discovery gap: the validator inventories every supported
+program file regardless of name, `_helpers.self-check.js` is now a required
+suite, and eight support/aggregate entries carry explicit reasons.
 
 ## Next action
 
-1. Commit the E2E isolation work and the documentation revision as small
-   thematic commits.
-2. Re-run the clean install and the full G0-C5 scope from the resulting clean
-   commit.
-3. Build the evidence generator required by `D-020`, then regenerate this file
+1. Re-run the clean install and the full G0-C5 scope from one exact clean
+   candidate.
+2. Run the evidence generator required by `D-020`, then regenerate this file
    and `EVIDENCE-INDEX.json` from that commit.
-4. Classify each `REBUILD` record into a terminal state.
+3. Prepare the bounded evidence packet for independent read-only review.
 
 ## Blockers
 
 - ~~`tests/pilot-c1c2c3.test.js` A9~~ — **cleared at `f38f5e8`**; the quality
   engine now discriminates and the suite reports 44 passed, 0 failed, exit 0.
-- The full G0-C5 scope (198 suites) has not been executed at the final candidate. Until it
+- The full G0-C5 scope (199 suites) has not been executed at the final candidate. Until it
   is, G0-C5 is unproven rather than met.
 - No blocker for local, non-destructive Gate 0 work.
 - Fetch is required later if Gate 0 needs the Local Validation candidate ref.

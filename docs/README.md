@@ -125,7 +125,7 @@ ve zbytku dokumentace.
 | [convergence/RISK-REGISTER.md](convergence/RISK-REGISTER.md) | otevřená rizika a jejich mitigace |
 | [convergence/DECISIONS.md](convergence/DECISIONS.md) | uzamčená rozhodnutí + čekající operátorská |
 | [convergence/FINAL-COMMIT-DISPOSITION.md](convergence/FINAL-COMMIT-DISPOSITION.md) | dispozice 225 záznamů `a7b90e3..ffd21cf` |
-| [convergence/TEST-REGISTRY.md](convergence/TEST-REGISTRY.md) | generovaný ledger 349 testovacích programů |
+| [convergence/TEST-REGISTRY.md](convergence/TEST-REGISTRY.md) | generovaný ledger 350 testovacích programů a 8 explicitních support výjimek |
 | [convergence/PRIVACY-INCIDENT.json](convergence/PRIVACY-INCIDENT.json) | evidence potvrzené privacy kompromitace |
 
 ### Kontrakty & Protokoly

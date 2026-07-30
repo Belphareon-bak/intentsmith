@@ -51,7 +51,7 @@ whoever writes the verdict:
 > `offline` (T1) or `database` (T2). Every row in those profiles must be
 > `ACTIVE` and `required: true`.
 
-At the current registry fingerprint that is **198 suites**: 172 `offline` and
+At the current registry fingerprint that is **199 suites**: 173 `offline` and
 26 `database`, all `ACTIVE` and required. This count is reproducible; it is not
 an estimate. If the number moves, the registry moved, and the change is
 reviewable as a diff.
@@ -117,6 +117,10 @@ SHA-256 of the captured output — enough to re-run without reading this
 conversation, the transcript, or any local state. Evidence that cannot be
 reproduced from the commit is not evidence.
 
+Install logs additionally carry the candidate SHA, clean-worktree marker, run
+kind (`clean` or `idempotent`), and SHA-256 of the documented install command.
+The evidence generator rejects logs missing or disagreeing with any marker.
+
 ## Later gates
 
 Gate 0 is about trust in measurement. The gates after it are about the product,
@@ -156,4 +160,10 @@ any other row. A discovery predicate that skips files by naming convention is a
 hole in the evidence, not a convenience — a test can be hidden from the ledger
 by choosing an unusual filename.
 
-See `G0-R013`.
+The validator scans every supported program-language file (`.js`, `.cjs`,
+`.mjs`, `.py`, `.sh`) below `tests/`, independent of filename. A support module
+or aggregate entry point is allowed only as an explicit path plus a specific
+reason in `tests/registry.json`. The current eight exclusions are rendered in
+`TEST-REGISTRY.md`; the validator rejects missing, duplicate, overlapping, or
+unexplained entries and fails closed on symbolic links. `G0-R013` records the
+repaired defect.

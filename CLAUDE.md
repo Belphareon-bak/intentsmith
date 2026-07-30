@@ -375,8 +375,8 @@ node --watch src/server.js    # Vývojový (auto-restart)
 
 ### Testy
 
-Kanonický seznam je `tests/registry.json` — **349 registrovaných spustitelných
-programů**: `255 ACTIVE`, `54 BLOCKED` (chybí prostředí), `25 KNOWN_DEFECTIVE`
+Kanonický seznam je `tests/registry.json` — **350 registrovaných spustitelných
+programů**: `256 ACTIVE`, `54 BLOCKED` (chybí prostředí), `25 KNOWN_DEFECTIVE`
 (false-green aserce), `15 HISTORICAL`. Renderovaný ledger:
 [docs/convergence/TEST-REGISTRY.md](docs/convergence/TEST-REGISTRY.md).
 
@@ -384,7 +384,7 @@ programů**: `255 ACTIVE`, `54 BLOCKED` (chybí prostředí), `25 KNOWN_DEFECTIV
 # Registr musí být vždy validní a úplný — přidání testu bez registrace = exit 1
 node scripts/validate-test-registry.js
 
-# Gate 0 deterministický T1/T2 rozsah = 198 sad (172 offline + 26 database)
+# Gate 0 deterministický T1/T2 rozsah = 199 sad (173 offline + 26 database)
 npm test                                   # core + chat + expertises + lifecycle
 
 # Pure unit testy (příklady — žádný LLM ani server)
