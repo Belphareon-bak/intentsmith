@@ -100,6 +100,7 @@ import {
   buildApprovedGate0Promotion,
 } from '../scripts/gate0-promotion-contract.js';
 import {
+  normalizeGitOutput,
   validateReviewResultCommitBoundary,
   writeGate0PromotionFiles,
 } from '../scripts/promote-gate0-review.js';
@@ -738,10 +739,10 @@ function riskAssessmentCopy(overrides = {}) {
     schemaVersion: 1,
     valid: true,
     errors: [],
-    riskCount: 30,
-    policyCount: 30,
+    riskCount: 31,
+    policyCount: 31,
     impactCounts: {
-      G0_FAIL: 23,
+      G0_FAIL: 24,
       G0_REVIEW_REQUIRED: 1,
       LATER_GATE: 3,
       SEPARATE_INCIDENT: 3,
@@ -770,8 +771,8 @@ test('committed policy classifies every risk and derives current blockers', () =
     riskPolicyCopy(),
   );
   assertEqual(result.valid, true);
-  assertEqual(result.riskCount, 30);
-  assertEqual(result.policyCount, 30);
+  assertEqual(result.riskCount, 31);
+  assertEqual(result.policyCount, 31);
   assertEqual(result.repositoryBlockers.join(','), '');
   assertEqual(result.reviewRequiredRisks.join(','), 'G0-R015: OPEN');
   assertEqual(
@@ -797,6 +798,7 @@ test('policy pins Gate 0 failure classes and the loopback condition', () => {
     'G0-R027',
     'G0-R028',
     'G0-R029',
+    'G0-R031',
   ]) {
     assertEqual(byId.get(riskId)?.gateImpact, GateImpact.G0_FAIL);
   }
@@ -2483,6 +2485,15 @@ test('promotion writer boundary accepts only the one-file review commit', () => 
       executable.reviewResultCommit,
     ).length > 0,
   );
+});
+
+test('promotion writer preserves the leading porcelain status column', () => {
+  assertEqual(
+    normalizeGitOutput(' M docs/convergence/EVIDENCE-INDEX.json\n'),
+    ' M docs/convergence/EVIDENCE-INDEX.json',
+  );
+  assertEqual(normalizeGitOutput('abc123\n'), 'abc123');
+  assertEqual(normalizeGitOutput('\n'), '');
 });
 
 test('approved attestation rejects changed review evidence', () => {

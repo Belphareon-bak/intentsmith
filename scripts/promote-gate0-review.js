@@ -206,11 +206,15 @@ async function requireCanonicalRepositoryRoot(requestedRoot) {
 }
 
 function git(args, cwd) {
-  return execFileSync('git', args, {
+  return normalizeGitOutput(execFileSync('git', args, {
     cwd,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
-  }).trim();
+  }));
+}
+
+export function normalizeGitOutput(output) {
+  return String(output).trimEnd();
 }
 
 function requirePromotion(condition, message) {

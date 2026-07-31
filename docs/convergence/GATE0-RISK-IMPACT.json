@@ -159,6 +159,11 @@
       "gateImpact": "LATER_GATE",
       "rationale": "Media render lifecycle scheduling is a product-capability acceptance concern rather than a Gate 0 measurement-integrity defect.",
       "condition": "Keep failed media-output retries bounded by the per-cache 60-second and 256-entry contract; C3-001 cannot pass Gate 1 until health-request cadence and timer teardown are repaired and tested."
+    },
+    {
+      "riskId": "G0-R031",
+      "gateImpact": "G0_FAIL",
+      "rationale": "A promotion writer that rejects every valid four-output result makes the locked review-to-PASS evidence chain unreproducible."
     }
   ]
 }
