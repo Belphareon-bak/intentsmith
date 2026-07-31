@@ -14,10 +14,13 @@ The orchestrator is locked to:
 The canonical registry currently contains 350 runnable programs. This Gate 0
 orchestrator selects exactly the 173 `offline` and 26 `database` entries. The
 remaining 36 `server`, 82 `model`, 18 `soak`, and 15 `manual` programs are not
-silently counted as passing. The reviewed registry fingerprint is
+silently counted as passing. The reviewed parsed-registry serialization
+fingerprint uses `sha256-json-stringify-v1` (SHA-256 over
+`JSON.stringify(JSON.parse(bytes))`) and is
 `f6edc6ccff693284ee01ed159e90faea20e94662892d7b84b2f61efdf35e03b5`;
 the run fails closed if either that fingerprint or the reviewed profile counts
-change.
+change. This is not a byte-level hash: formatting-only JSON whitespace does not
+change it. The candidate commit independently binds the exact registry blob.
 
 ## Evidence location
 
@@ -194,6 +197,22 @@ clause and exit 1. Missing, forged, contradictory, symlink-escaped, wrong-SHA,
 wrong-options, wrong-layout, or otherwise malformed producer evidence is an
 infrastructure failure and exit 2. No clause is promoted by matching text
 markers in a log.
+
+Evidence reports distinguish two logical execution contexts without committing
+host-private absolute checkout paths:
+
+- `ATTESTED_CANDIDATE_RUN`: revision `C`, cwd `$PWD`, clean/pristine source,
+  dependencies installed by the two bound install phases, followed by the
+  authoritative registry executions;
+- `COMMITTED_DATA_ONLY_VALIDATION`: revision `E` or `A`, cwd `$PWD`,
+  dependency-free Git-object and registry/disposition validation. Dependencies
+  may be absent in this checkout.
+
+A direct test such as `node tests/harness-exit-code.test.js` is supplemental
+and requires installed dependencies. Its failure solely because `node_modules`
+is absent does not contradict the same suite's attested PASS inside
+`ATTESTED_CANDIDATE_RUN`; any checkpoint table must name which of these contexts
+produced the cited exit.
 
 All local clauses G0-C1 through G0-C9 must be green before the generator may derive
 `CONDITIONAL PASS`, and that verdict means only that independent read-only

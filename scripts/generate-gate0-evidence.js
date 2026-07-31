@@ -57,6 +57,7 @@ import {
 } from './gate0-attestation-paths.js';
 import {
   GATE0_PENDING_ATTESTATION_RULE,
+  GATE0_REGISTRY_FINGERPRINT_ALGORITHM,
   GATE0_REVIEW_PACKET_PATH,
 } from './gate0-review-contract.js';
 
@@ -513,7 +514,10 @@ export async function main(argv = process.argv.slice(2)) {
   );
 
   console.log(`Gate 0 evidence generated for ${candidateSha}`);
-  console.log(`Registry sha256: ${registryHash}`);
+  console.log(
+    `Parsed registry fingerprint `
+    + `(${GATE0_REGISTRY_FINGERPRINT_ALGORITHM}): ${registryHash}`,
+  );
   console.log(`Verdict: ${verdict}`);
   for (const output of Object.values(OUTPUTS)) console.log(`Wrote: ${output}`);
   return outcome.exitCode;
@@ -1157,7 +1161,10 @@ export function renderStatus({
 - Generated: ${generatedAt}
 - Candidate: \`${candidateSha}\`
 - Branch: \`${branch}\`
-- Registry SHA-256: \`${registryHash}\`
+- Parsed-registry serialization fingerprint
+  (\`${GATE0_REGISTRY_FINGERPRINT_ALGORITHM}\`): \`${registryHash}\`
+- Execution context: \`ATTESTED_CANDIDATE_RUN\` at \`$PWD\`; clean candidate,
+  dependencies installed by the bound install phases
 - Gate: **Gate 0 — trustworthy baseline**
 - Verdict: **${verdict}**
 
@@ -1253,7 +1260,10 @@ export function renderBaselineReport({
 
 - Candidate: \`${candidateSha}\`
 - Branch: \`${branch}\`
-- Registry SHA-256: \`${registryHash}\`
+- Parsed-registry serialization fingerprint
+  (\`${GATE0_REGISTRY_FINGERPRINT_ALGORITHM}\`): \`${registryHash}\`
+- Execution context: \`ATTESTED_CANDIDATE_RUN\` at \`$PWD\`; clean candidate,
+  dependencies installed by the bound install phases
 - Evidence generated: ${generatedAt}
 - Independent review: ${outcome.reviewStatus}
 
@@ -1418,7 +1428,10 @@ function renderReviewPacket({
 ## Review boundary
 
 - Candidate: \`${candidateSha}\`
-- Registry SHA-256: \`${registryHash}\`
+- Parsed-registry serialization fingerprint
+  (\`${GATE0_REGISTRY_FINGERPRINT_ALGORITHM}\`): \`${registryHash}\`
+- Candidate execution context: \`ATTESTED_CANDIDATE_RUN\` at \`$PWD\`;
+  dependencies installed by the bound install phases
 - Focus range: \`${reviewRange}\`
 - Role: read-only reviewer; do not modify the branch
 

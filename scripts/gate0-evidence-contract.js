@@ -306,7 +306,9 @@ export function validateGate0Provenance({
     errors.push('provenance candidate SHA mismatch');
   }
   if (provenance.registrySha256 !== registrySha256) {
-    errors.push('provenance registry SHA-256 mismatch');
+    errors.push(
+      'provenance parsed-registry serialization fingerprint mismatch',
+    );
   }
   if (provenance.sourceRoot !== root) {
     errors.push('provenance source root mismatch');

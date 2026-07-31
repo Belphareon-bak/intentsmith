@@ -3144,6 +3144,10 @@ test('FAIL status renders derived clauses, zero counts, and repository blockers'
   assert(markdown.includes('| G0-C2 disposition | FAIL | exit 1 |'));
   assert(markdown.includes('Repository-local Gate 0 blockers: **G0-R025: OPEN**'));
   assert(markdown.includes('0 recovered E2E suites'));
+  assert(markdown.includes('Parsed-registry serialization fingerprint'));
+  assert(markdown.includes('`sha256-json-stringify-v1`'));
+  assert(markdown.includes('`ATTESTED_CANDIDATE_RUN` at `$PWD`'));
+  assert(!markdown.includes('- Registry SHA-256:'));
   assert(!markdown.includes('undefined'));
 });
 
@@ -3237,6 +3241,10 @@ test('baseline renders disposition counts from the structured report', () => {
   assert(markdown.includes('Five soak programs previously misdeclared'));
   assert(markdown.includes('Runtime database access now requires'));
   assert(markdown.includes('former shared-`/tmp` convention is closed'));
+  assert(markdown.includes('Parsed-registry serialization fingerprint'));
+  assert(markdown.includes('`sha256-json-stringify-v1`'));
+  assert(markdown.includes('`ATTESTED_CANDIDATE_RUN` at `$PWD`'));
+  assert(!markdown.includes('- Registry SHA-256:'));
   assert(!markdown.includes('Product DB initialization remains an import side effect'));
   assert(!markdown.includes('undefined'));
 

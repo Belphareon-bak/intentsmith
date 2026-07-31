@@ -60,6 +60,12 @@ At the current registry fingerprint that is **199 suites**: 173 `offline` and
 an estimate. If the number moves, the registry moved, and the change is
 reviewable as a diff.
 
+Here and in generated Gate 0 evidence, “registry fingerprint” means the
+parsed-registry serialization fingerprint
+`sha256-json-stringify-v1`: SHA-256 over
+`JSON.stringify(JSON.parse(registryBytes))`. It is not a byte-level file hash;
+the candidate Git commit separately binds the exact registry blob and mode.
+
 Model, server, external-network, soak, and manual profiles are outside G0-C5 by
 construction — not by exemption. They are governed by later gates and G0-C7,
 which requires blocked runs to say *what specifically* is missing. Five soak
@@ -235,6 +241,13 @@ selection/options fingerprint and recomputed result counters. Every audit
 summary has an exact nested schema, and its verdict/exit/passed fields must
 agree with the complete PASS/FAIL/TIMEOUT/BLOCKED/SKIPPED counters. Evidence
 that cannot satisfy this contract from a fresh clone is not evidence.
+
+The evidence names logical, portable execution contexts rather than absolute
+checkout paths. `ATTESTED_CANDIDATE_RUN` is the clean candidate `C` after its
+bound dependency installation. `COMMITTED_DATA_ONLY_VALIDATION` is the
+dependency-free Git-object/validator check at `E` or `A`. A supplemental direct
+test that requires `node_modules` must identify that prerequisite and cannot be
+reported as if it ran in the committed-data-only context.
 
 After the four generated files are committed alone, run
 `npm run gate0:validate-attestation`. The validator reads blobs from the commit,
