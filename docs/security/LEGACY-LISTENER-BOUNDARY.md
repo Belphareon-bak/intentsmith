@@ -50,11 +50,14 @@ origin exactly matches that backend URL. Different schemes, host aliases,
 ports, and foreign origins never receive the capability; a caller-supplied
 copy is removed before a foreign request. Local redirects fail closed.
 
-This is deliberately a client-side staging checkpoint. It does not authorize
-HTTP by itself, and the server guard is not yet enabled. Two media paths that
-use element/navigation requests instead of `fetch()` must be converted to
-capability-bearing fetches before the server can reject every unauthorized
-opaque-origin request without breaking product behavior.
+This is deliberately client-side staging. It does not authorize HTTP by
+itself, and the server guard is not yet enabled. The three media element and
+navigation consumers now load through the capability-bearing wrapper, create
+object URLs in a shared cache capped at 24 completed entries per consumer, and
+revoke obsolete URLs. Invalidating or pruning aborts owned pending loads, the
+center widget also clears its cache on disposal, and an eventual late response
+cannot reinsert a stale URL. No capability is placed in a media URL or query
+string.
 
 The HTTP mutation boundary still requires the corresponding request guard.
 Until that guard and its live negative test are in place, S-1 remains

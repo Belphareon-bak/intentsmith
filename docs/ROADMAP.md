@@ -229,7 +229,7 @@ mimo loopback.
 
 | # | Úkol | Priorita | Stav |
 |---|---|---|---|
-| S-1 | `G0-R018` — zdokumentovat a zachovat lokální hranici současného listeneru | 🔴 P0 | ⚠️ numerický bind + WS guard hotové; Electron exact-target HTTP bootstrap je připraven, dva media consumery a serverový HTTP guard ještě chybí |
+| S-1 | `G0-R018` — zdokumentovat a zachovat lokální hranici současného listeneru | 🔴 P0 | ⚠️ numerický bind + WS guard + Electron HTTP/media klient hotové; serverový HTTP guard a live negative test ještě chybí |
 | S-2 | Navrhnout oddělený listener pro vzdálený přístup; legacy `/api/*` a `/c3/ws` zůstávají pouze na loopbacku | 🔴 P0 | ❌ |
 | S-3 | Zavést autentizaci a scope enforcement pouze na oddělené vzdálené hranici | 🔴 P0 | ❌ |
 | S-4 | Přidat negativní testy dokazující, že vzdálený peer neobejde hranici přes legacy API ani WS terminál | 🔴 P0 | ❌ |

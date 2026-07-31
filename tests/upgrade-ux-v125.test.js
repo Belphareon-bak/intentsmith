@@ -27,6 +27,9 @@ const {
 } = require(
   '../c3-ide/applications/electron/c3-local-http-bootstrap.js',
 );
+const {
+  createLegacyLocalObjectUrlCache,
+} = require('../c3-ide/shared/legacy-local-object-url-cache.js');
 
 // ─── Test DB Setup ──────────────────────────────────────────────────────────
 
@@ -893,6 +896,206 @@ await testAsync('Electron local fetch canonicalizes the explicit default HTTP po
   assertEqual(
     calls[0][0].headers.get(LEGACY_LOCAL_CAPABILITY_HEADER),
     capability,
+  );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 8b: Legacy local media object-URL ownership
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function createObjectUrlCacheTestHarness(options = {}) {
+  let fetchCalls = 0;
+  const created = [];
+  const revoked = [];
+  const cache = createLegacyLocalObjectUrlCache({
+    fetchImpl: options.fetchImpl || (async target => {
+      fetchCalls++;
+      return {
+        ok: true,
+        blob: async () => ({ target }),
+      };
+    }),
+    createObjectURL: blob => {
+      const objectUrl = `blob:test-${created.length + 1}:${blob.target}`;
+      created.push(objectUrl);
+      return objectUrl;
+    },
+    revokeObjectURL: objectUrl => {
+      revoked.push(objectUrl);
+    },
+    maxEntries: options.maxEntries || 24,
+    maxPending: options.maxPending || 64,
+  });
+  return {
+    cache,
+    created,
+    fetchCalls: () => fetchCalls,
+    revoked,
+  };
+}
+
+await testAsync('media object URL cache deduplicates loads and revokes exact entries', async () => {
+  const target = '/api/media/output?id=1&filename=one.png';
+  const harness = createObjectUrlCacheTestHarness();
+  const first = await harness.cache.load(target);
+  const second = await harness.cache.load(target);
+
+  assertEqual(first, second);
+  assertEqual(harness.fetchCalls(), 1, 'cached media must not fetch twice');
+  assertEqual(harness.cache.peek(target), first);
+  assertEqual(harness.cache.invalidate(target), true);
+  assertEqual(harness.cache.peek(target), null);
+  assertEqual(harness.revoked.length, 1);
+  assertEqual(harness.revoked[0], first);
+});
+
+await testAsync('media invalidation aborts a pending load and blocks late reinsertion', async () => {
+  const target = '/api/media/output?id=2&filename=late.png';
+  let resolveFetch;
+  let capturedSignal = null;
+  const harness = createObjectUrlCacheTestHarness({
+    fetchImpl: (_target, options) => {
+      capturedSignal = options.signal;
+      return new Promise(resolve => {
+        resolveFetch = resolve;
+      });
+    },
+  });
+
+  const pendingLoad = harness.cache.load(target);
+  await Promise.resolve();
+  assert(capturedSignal, 'pending load must receive an abort signal');
+  assertEqual(harness.cache.invalidate(target), true);
+  assertEqual(capturedSignal.aborted, true);
+  resolveFetch({
+    ok: true,
+    blob: async () => ({ target }),
+  });
+
+  assertEqual(await pendingLoad, null);
+  assertEqual(harness.created.length, 0, 'late response must not create an object URL');
+  assertEqual(harness.cache.peek(target), null);
+  assertEqual(harness.cache.stats().pending, 0);
+});
+
+await testAsync('media invalidation before the fetch microtask prevents the request', async () => {
+  const target = '/api/media/output?id=2&filename=cancelled-before-fetch.png';
+  let fetchCalls = 0;
+  const harness = createObjectUrlCacheTestHarness({
+    fetchImpl: async () => {
+      fetchCalls++;
+      return {
+        ok: true,
+        blob: async () => ({ target }),
+      };
+    },
+  });
+
+  const pendingLoad = harness.cache.load(target);
+  assertEqual(harness.cache.invalidate(target), true);
+  assertEqual(await pendingLoad, null);
+  assertEqual(fetchCalls, 0, 'synchronous invalidation must prevent the fetch call');
+  assertEqual(harness.created.length, 0);
+  assertEqual(harness.cache.stats().pending, 0);
+});
+
+await testAsync('media object URL cache enforces its completed-entry LRU bound', async () => {
+  const harness = createObjectUrlCacheTestHarness({ maxEntries: 2 });
+  const firstTarget = '/api/media/output?id=3&filename=first.png';
+  const secondTarget = '/api/media/output?id=3&filename=second.png';
+  const thirdTarget = '/api/media/output?id=3&filename=third.png';
+  const firstUrl = await harness.cache.load(firstTarget);
+  const secondUrl = await harness.cache.load(secondTarget);
+
+  assertEqual(harness.cache.peek(firstTarget), firstUrl, 'peek must refresh LRU ownership');
+  const thirdUrl = await harness.cache.load(thirdTarget);
+
+  assertEqual(harness.cache.stats().completed, 2);
+  assertEqual(harness.cache.peek(firstTarget), firstUrl);
+  assertEqual(harness.cache.peek(secondTarget), null);
+  assertEqual(harness.cache.peek(thirdTarget), thirdUrl);
+  assertEqual(harness.revoked.length, 1);
+  assertEqual(harness.revoked[0], secondUrl);
+});
+
+await testAsync('media object URL cache cancels the oldest load at its pending bound', async () => {
+  const firstTarget = '/api/media/output?id=3&filename=pending-first.png';
+  const secondTarget = '/api/media/output?id=3&filename=pending-second.png';
+  const requests = [];
+  const harness = createObjectUrlCacheTestHarness({
+    maxPending: 1,
+    fetchImpl: (target, options) => new Promise(resolve => {
+      requests.push({ resolve, signal: options.signal, target });
+    }),
+  });
+
+  const firstLoad = harness.cache.load(firstTarget);
+  await Promise.resolve();
+  assertEqual(requests.length, 1);
+  const secondLoad = harness.cache.load(secondTarget);
+  assertEqual(requests[0].signal.aborted, true);
+  await Promise.resolve();
+  assertEqual(requests.length, 2);
+  assertEqual(harness.cache.stats().pending, 1);
+
+  requests[0].resolve({
+    ok: true,
+    blob: async () => ({ target: firstTarget }),
+  });
+  requests[1].resolve({
+    ok: true,
+    blob: async () => ({ target: secondTarget }),
+  });
+  assertEqual(await firstLoad, null);
+  const secondUrl = await secondLoad;
+  assert(secondUrl, 'newest pending load must complete');
+  assertEqual(harness.cache.peek(firstTarget), null);
+  assertEqual(harness.cache.peek(secondTarget), secondUrl);
+  assertEqual(harness.created.length, 1);
+  assertEqual(harness.cache.stats().pending, 0);
+});
+
+await testAsync('media retain and clear revoke completed URLs and cancel pending URLs', async () => {
+  const keepTarget = '/api/media/output?id=4&filename=keep.png';
+  const dropTarget = '/api/media/output?id=4&filename=drop.png';
+  const pendingTarget = '/api/media/output?id=4&filename=pending.png';
+  let resolvePending;
+  let pendingSignal = null;
+  const harness = createObjectUrlCacheTestHarness({
+    fetchImpl: (target, options) => {
+      if (target === pendingTarget) {
+        pendingSignal = options.signal;
+        return new Promise(resolve => {
+          resolvePending = resolve;
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        blob: async () => ({ target }),
+      });
+    },
+  });
+  const keepUrl = await harness.cache.load(keepTarget);
+  const dropUrl = await harness.cache.load(dropTarget);
+  const pendingLoad = harness.cache.load(pendingTarget);
+  await Promise.resolve();
+
+  assertEqual(harness.cache.retain([keepTarget]), 2);
+  assertEqual(pendingSignal.aborted, true);
+  assert(harness.revoked.includes(dropUrl), 'retain must revoke a completed dropped URL');
+  resolvePending({
+    ok: true,
+    blob: async () => ({ target: pendingTarget }),
+  });
+  assertEqual(await pendingLoad, null);
+  assertEqual(harness.cache.peek(pendingTarget), null);
+  assertEqual(harness.cache.clear(), 1);
+  assert(harness.revoked.includes(keepUrl), 'clear must revoke the retained URL');
+  assertEqual(harness.cache.stats().completed, 0);
+  assertEqual(harness.cache.stats().pending, 0);
+  assertThrows(
+    () => harness.cache.retain(keepTarget),
+    'retain must reject a string instead of treating it as characters',
   );
 });
 

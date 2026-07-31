@@ -9,6 +9,7 @@ var react_widget_1 = require("@theia/core/lib/browser/widgets/react-widget");
 var ReactDOM = require("@theia/core/shared/react-dom");
 var _createRoot = (ReactDOM.createRoot || function(c){return{render:function(el){ReactDOM.render(el,c);}};});
 var React = require("@theia/core/shared/react");
+var createLegacyLocalObjectUrlCache = require("../../../../shared/legacy-local-object-url-cache").createLegacyLocalObjectUrlCache;
 var h = React.createElement;
 
 /* ═══ TRANSPORT MODULES ═══ */
@@ -4251,6 +4252,42 @@ var _media={
   msg:null
 };
 var _mediaListenersAttached=false;
+var _mediaOutputCache=createLegacyLocalObjectUrlCache({
+  fetchImpl:function(target,options){return fetch(target,options);},
+  createObjectURL:function(blob){return URL.createObjectURL(blob);},
+  revokeObjectURL:function(objectUrl){URL.revokeObjectURL(objectUrl);},
+  maxEntries:24
+});
+
+function _mediaOutputPath(id,filename){
+  return '/api/media/output?id='+encodeURIComponent(id)+'&filename='+encodeURIComponent(filename);
+}
+function _mediaOutputTarget(id,filename){
+  return _backendBase+_mediaOutputPath(id,filename);
+}
+function _mediaEnsureOutputUrl(id,filename){
+  return _mediaOutputCache.load(_mediaOutputTarget(id,filename))
+    .then(function(objectUrl){
+      if(objectUrl)MediaEvents.render();
+      return objectUrl;
+    });
+}
+function _mediaRevokeOutputUrls(id){
+  var prefix=_backendBase+'/api/media/output?id='+encodeURIComponent(id)+'&';
+  _mediaOutputCache.invalidateWhere(function(target){
+    return target.indexOf(prefix)===0;
+  });
+}
+function _mediaPruneOutputUrls(generations){
+  var activeTargets=[];
+  generations.forEach(function(generation){
+    var outputs=[];try{outputs=JSON.parse(generation.outputs||'[]');}catch(_){}
+    outputs.forEach(function(filename){
+      activeTargets.push(_mediaOutputTarget(generation.id,filename));
+    });
+  });
+  _mediaOutputCache.retain(activeTargets);
+}
 
 var MediaAPI={
   _fetch:function(path,opts){
@@ -4268,7 +4305,7 @@ var MediaAPI={
     else if(_media.tab!=='all')params+='&type='+_media.tab;
     if(_media.search)params+='&q='+encodeURIComponent(_media.search);
     MediaAPI._fetch('/api/media/history'+params)
-      .then(function(d){_media.data=d.generations||[];})
+      .then(function(d){_media.data=d.generations||[];_mediaPruneOutputUrls(_media.data);})
       .catch(function(){_media.data=[];})
       .finally(function(){_media.loading=false;MediaEvents.render();});
   },
@@ -4319,7 +4356,7 @@ var MediaAPI={
   del:function(id){
     if(!confirm('Smazat generaci?'))return;
     MediaAPI._fetch('/api/media?id='+encodeURIComponent(id),{method:'DELETE'})
-      .then(function(){_media.data=_media.data.filter(function(g){return g.id!==id;});_media.progress.delete(id);MediaEvents.render();})
+      .then(function(){_media.data=_media.data.filter(function(g){return g.id!==id;});_media.progress.delete(id);_mediaRevokeOutputUrls(id);MediaEvents.render();})
       .catch(function(){MediaEvents.render();});
   },
   cancel:function(id){
@@ -4409,6 +4446,8 @@ function centerMultimedia(){
   var gridItems=_media.data.map(function(gen){
     var outputs=[];try{outputs=JSON.parse(gen.outputs||'[]');}catch(_){}
     var thumb=outputs.length>0?outputs[0]:null;
+    var thumbUrl=thumb?_mediaOutputCache.peek(_mediaOutputTarget(gen.id,thumb)):null;
+    if(thumb&&!thumbUrl)_mediaEnsureOutputUrl(gen.id,thumb);
     var statusColor=gen.status==='completed'?C.accent:gen.status==='failed'?'#ef4444':C.tx4;
     var statusLabel=gen.status==='completed'?'Hotovo':gen.status==='failed'?'Chyba':gen.status==='cancelled'?'Zrušeno':gen.status==='running'?'Běží':'Čeká';
     return h('div',{key:gen.id,style:{background:C.bg2,border:'1px solid '+C.border,borderRadius:10,overflow:'hidden',cursor:'pointer',transition:'border-color 0.2s,box-shadow 0.2s'},
@@ -4430,7 +4469,7 @@ function centerMultimedia(){
             :gen.status==='pending'?['Zrušit','Smazat']:['Smazat']
         });
       }},
-      thumb?h('img',{src:_backendBase+'/api/media/output?id='+gen.id+'&filename='+encodeURIComponent(thumb),
+      thumbUrl?h('img',{src:thumbUrl,
         style:{width:'100%',height:140,objectFit:'cover'},
         onError:function(e){e.target.style.display='none';}
       }):h('div',{style:{width:'100%',height:140,background:C.bg3,display:'flex',alignItems:'center',justifyContent:'center',color:C.tx4}},

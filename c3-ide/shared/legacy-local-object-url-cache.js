@@ -1,0 +1,208 @@
+// Bounded object-URL cache for legacy local media responses.
+//
+// The caller supplies the already-authorized fetch implementation. Pending
+// loads carry an ownership record so invalidate/retain/clear cannot be undone
+// by a late response.
+'use strict';
+
+function createLegacyLocalObjectUrlCache({
+  fetchImpl,
+  createObjectURL,
+  revokeObjectURL,
+  AbortControllerImpl = globalThis.AbortController,
+  maxEntries = 24,
+  maxPending = 64,
+}) {
+  if (typeof fetchImpl !== 'function') {
+    throw new TypeError('object URL cache requires fetchImpl');
+  }
+  if (typeof createObjectURL !== 'function') {
+    throw new TypeError('object URL cache requires createObjectURL');
+  }
+  if (typeof revokeObjectURL !== 'function') {
+    throw new TypeError('object URL cache requires revokeObjectURL');
+  }
+  if (typeof AbortControllerImpl !== 'function') {
+    throw new TypeError('object URL cache requires AbortController');
+  }
+  if (!Number.isInteger(maxEntries) || maxEntries < 1 || maxEntries > 256) {
+    throw new TypeError('object URL cache maxEntries must be 1..256');
+  }
+  if (!Number.isInteger(maxPending) || maxPending < 1 || maxPending > 256) {
+    throw new TypeError('object URL cache maxPending must be 1..256');
+  }
+
+  const entries = new Map();
+  const pending = new Map();
+
+  function normalizeKey(target) {
+    if (typeof target !== 'string' || target.length === 0) {
+      throw new TypeError('object URL cache target must be a non-empty string');
+    }
+    return target;
+  }
+
+  function revokeEntry(key) {
+    const objectUrl = entries.get(key);
+    if (!objectUrl) return false;
+    try {
+      revokeObjectURL(objectUrl);
+    } finally {
+      entries.delete(key);
+    }
+    return true;
+  }
+
+  function cancelPending(key) {
+    const record = pending.get(key);
+    if (!record) return false;
+    record.active = false;
+    pending.delete(key);
+    record.controller.abort();
+    return true;
+  }
+
+  function invalidate(target) {
+    const key = normalizeKey(target);
+    const cancelled = cancelPending(key);
+    const revoked = revokeEntry(key);
+    return cancelled || revoked;
+  }
+
+  function evictCompletedEntries() {
+    while (entries.size > maxEntries) {
+      const oldest = entries.keys().next().value;
+      revokeEntry(oldest);
+    }
+  }
+
+  function evictPendingLoads() {
+    while (pending.size >= maxPending) {
+      const oldest = pending.keys().next().value;
+      cancelPending(oldest);
+    }
+  }
+
+  function peek(target) {
+    const key = normalizeKey(target);
+    const objectUrl = entries.get(key);
+    if (!objectUrl) return null;
+    entries.delete(key);
+    entries.set(key, objectUrl);
+    return objectUrl;
+  }
+
+  function load(target) {
+    const key = normalizeKey(target);
+    const cached = peek(key);
+    if (cached) return Promise.resolve(cached);
+    const current = pending.get(key);
+    if (current) return current.promise;
+
+    evictPendingLoads();
+    const controller = new AbortControllerImpl();
+    const record = {
+      active: true,
+      controller,
+      promise: null,
+    };
+    const ownsPendingLoad = () => (
+      record.active && pending.get(key) === record
+    );
+
+    record.promise = Promise.resolve()
+      .then(() => {
+        if (!ownsPendingLoad()) return null;
+        return fetchImpl(key, { signal: controller.signal });
+      })
+      .then(response => {
+        if (!ownsPendingLoad()) return null;
+        if (!response || response.ok !== true) {
+          const status = response?.status ?? 'unknown';
+          throw new Error(`HTTP ${status}`);
+        }
+        return response.blob();
+      })
+      .then(blob => {
+        if (!ownsPendingLoad()) {
+          return null;
+        }
+        const objectUrl = createObjectURL(blob);
+        if (!ownsPendingLoad()) {
+          revokeObjectURL(objectUrl);
+          return null;
+        }
+        entries.set(key, objectUrl);
+        evictCompletedEntries();
+        return objectUrl;
+      })
+      .catch(error => {
+        if (record.active && error?.name !== 'AbortError') {
+          return null;
+        }
+        return null;
+      })
+      .finally(() => {
+        if (pending.get(key) === record) {
+          pending.delete(key);
+        }
+      });
+
+    pending.set(key, record);
+    return record.promise;
+  }
+
+  function knownKeys() {
+    return new Set([...entries.keys(), ...pending.keys()]);
+  }
+
+  function invalidateWhere(predicate) {
+    if (typeof predicate !== 'function') {
+      throw new TypeError('object URL cache predicate must be a function');
+    }
+    let count = 0;
+    for (const key of knownKeys()) {
+      if (predicate(key) && invalidate(key)) count++;
+    }
+    return count;
+  }
+
+  function retain(targets) {
+    if (
+      typeof targets === 'string'
+      || targets == null
+      || typeof targets[Symbol.iterator] !== 'function'
+    ) {
+      throw new TypeError('object URL cache retain targets must be an iterable');
+    }
+    const keep = new Set(Array.from(targets, normalizeKey));
+    return invalidateWhere(key => !keep.has(key));
+  }
+
+  function clear() {
+    return invalidateWhere(() => true);
+  }
+
+  function stats() {
+    return Object.freeze({
+      completed: entries.size,
+      pending: pending.size,
+      maxEntries,
+      maxPending,
+    });
+  }
+
+  return Object.freeze({
+    clear,
+    invalidate,
+    invalidateWhere,
+    load,
+    peek,
+    retain,
+    stats,
+  });
+}
+
+module.exports = {
+  createLegacyLocalObjectUrlCache,
+};

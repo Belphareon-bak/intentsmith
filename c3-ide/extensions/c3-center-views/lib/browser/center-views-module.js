@@ -9,6 +9,9 @@ const inversify_1 = require("@theia/core/shared/inversify");
 const browser_1 = require("@theia/core/lib/browser");
 const react_widget_1 = require("@theia/core/lib/browser/widgets/react-widget");
 const React = require("@theia/core/shared/react");
+const {
+  createLegacyLocalObjectUrlCache,
+} = require("../../../../shared/legacy-local-object-url-cache");
 
 // v63.0: Wizard modules
 const { fetchSchema, fetchExpertises, fetchPreview, sendTestPrompt, saveExpertise, debounce } = require('./wizard/wizard-helpers');
@@ -134,6 +137,12 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
       healthTimer: null,
       queueLength: 0,
     };
+    this._mmOutputCache = createLegacyLocalObjectUrlCache({
+      fetchImpl: (target, options) => fetch(target, options),
+      createObjectURL: blob => URL.createObjectURL(blob),
+      revokeObjectURL: objectUrl => URL.revokeObjectURL(objectUrl),
+      maxEntries: 24,
+    });
 
     // Pro theme: restore from localStorage
     try {
@@ -1228,6 +1237,41 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
     return h('div', { className: 'c3-mm-actions' }, ...parts);
   }
 
+  _mmOutputPath(id, filename) {
+    return '/api/media/output?id=' + encodeURIComponent(id)
+      + '&filename=' + encodeURIComponent(filename);
+  }
+
+  _mmEnsureOutputUrl(id, filename) {
+    const target = this._mmOutputPath(id, filename);
+    return this._mmOutputCache.load(target)
+      .then(objectUrl => {
+        if (objectUrl) {
+          this.update();
+        }
+        return objectUrl;
+      });
+  }
+
+  _mmRevokeOutputUrls(id) {
+    const prefix = '/api/media/output?id=' + encodeURIComponent(id) + '&';
+    this._mmOutputCache.invalidateWhere(target => target.startsWith(prefix));
+  }
+
+  _mmPruneOutputUrls(generations) {
+    const activeTargets = [];
+    for (const generation of generations) {
+      let outputs = [];
+      try {
+        outputs = generation.outputs ? JSON.parse(generation.outputs) : [];
+      } catch (_) {}
+      for (const filename of outputs) {
+        activeTargets.push(this._mmOutputPath(generation.id, filename));
+      }
+    }
+    this._mmOutputCache.retain(activeTargets);
+  }
+
   _renderMmGallery(h) {
     const mm = this._mm;
     if (mm.history.length === 0 && mm.status === 'idle') {
@@ -1237,7 +1281,12 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
     const items = mm.history.map(gen => {
       const outputs = gen.outputs ? JSON.parse(gen.outputs) : [];
       const firstFile = outputs[0];
-      const thumbUrl = firstFile ? '/api/media/output?id=' + encodeURIComponent(gen.id) + '&filename=' + encodeURIComponent(firstFile) : null;
+      const thumbUrl = firstFile
+        ? this._mmOutputCache.peek(this._mmOutputPath(gen.id, firstFile))
+        : null;
+      if (firstFile && !thumbUrl) {
+        this._mmEnsureOutputUrl(gen.id, firstFile);
+      }
 
       return h('div', {
         key: gen.id,
@@ -1320,6 +1369,7 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
           mm.history = mm.history.concat(data.generations || []);
         } else {
           mm.history = data.generations || [];
+          this._mmPruneOutputUrls(mm.history);
         }
         mm.historyPage = page;
         this.update();
@@ -1384,9 +1434,27 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
 
   _mmOpenFull(gen) {
     const outputs = gen.outputs ? JSON.parse(gen.outputs) : [];
-    if (outputs[0]) {
-      window.open('/api/media/output?id=' + encodeURIComponent(gen.id) + '&filename=' + encodeURIComponent(outputs[0]), '_blank');
+    if (!outputs[0]) return;
+    const target = this._mmOutputPath(gen.id, outputs[0]);
+    const existing = this._mmOutputCache.peek(target);
+    if (existing) {
+      window.open(existing, '_blank', 'noopener,noreferrer');
+      return;
     }
+
+    const pendingWindow = window.open('about:blank', '_blank');
+    if (pendingWindow) pendingWindow.opener = null;
+    this._mmEnsureOutputUrl(gen.id, outputs[0]).then(objectUrl => {
+      if (!objectUrl) {
+        if (pendingWindow) pendingWindow.close();
+        return;
+      }
+      if (pendingWindow) {
+        pendingWindow.location.replace(objectUrl);
+      } else {
+        window.open(objectUrl, '_blank', 'noopener,noreferrer');
+      }
+    });
   }
 
   async _mmToggleFavorite(gen) {
@@ -1405,8 +1473,14 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
     try {
       await fetch('/api/media?id=' + encodeURIComponent(gen.id), { method: 'DELETE' });
       this._mm.history = this._mm.history.filter(g => g.id !== gen.id);
+      this._mmRevokeOutputUrls(gen.id);
       this.update();
     } catch (_) {}
+  }
+
+  dispose() {
+    this._mmOutputCache.clear();
+    super.dispose();
   }
 
   _selectItem(id, type, item) {

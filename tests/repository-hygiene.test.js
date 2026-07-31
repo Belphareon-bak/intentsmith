@@ -35,6 +35,11 @@ assert.equal(
   true,
   'tracked C3 Studio local HTTP bootstrap is missing',
 );
+assert.equal(
+  trackedSet.has('c3-ide/shared/legacy-local-object-url-cache.js'),
+  true,
+  'tracked legacy local media object-URL cache is missing',
+);
 
 const rootPackage = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8'));
 const idePackage = JSON.parse(readFileSync(resolve(repoRoot, 'c3-ide/package.json'), 'utf8'));
@@ -59,6 +64,17 @@ const chatPanelRuntime = readFileSync(
     repoRoot,
     'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js',
   ),
+  'utf8',
+);
+const centerViewsRuntime = readFileSync(
+  resolve(
+    repoRoot,
+    'c3-ide/extensions/c3-center-views/lib/browser/center-views-module.js',
+  ),
+  'utf8',
+);
+const localObjectUrlCache = readFileSync(
+  resolve(repoRoot, 'c3-ide/shared/legacy-local-object-url-cache.js'),
   'utf8',
 );
 const ideLock = readFileSync(resolve(repoRoot, 'c3-ide/yarn.lock'), 'utf8');
@@ -127,6 +143,41 @@ assert.match(
 );
 assert.doesNotMatch(chatPanelRuntime, /\b_apiBase\b/);
 assert.doesNotMatch(chatPanelRuntime, /window\._c3BackendUrl/);
+assert.doesNotMatch(
+  chatPanelRuntime,
+  /src:\s*_backendBase\s*\+\s*['"]\/api\/media\/output/,
+);
+assert.doesNotMatch(
+  centerViewsRuntime,
+  /window\.open\(\s*['"]\/api\/media\/output/,
+);
+assert.doesNotMatch(
+  centerViewsRuntime,
+  /const thumbUrl\s*=\s*firstFile\s*\?\s*['"]\/api\/media\/output/,
+);
+assert.doesNotMatch(chatPanelRuntime, /_mediaObjectUrls|_mediaObjectLoads/);
+assert.doesNotMatch(centerViewsRuntime, /_mmObjectUrls|_mmObjectUrlLoads/);
+assert.match(
+  chatPanelRuntime,
+  /_mediaOutputCache\.load\(_mediaOutputTarget\(id,filename\)\)/,
+);
+assert.match(chatPanelRuntime, /_mediaOutputCache\.invalidateWhere/);
+assert.match(chatPanelRuntime, /_mediaOutputCache\.retain\(activeTargets\)/);
+assert.match(
+  centerViewsRuntime,
+  /this\._mmOutputCache\.load\(target\)/,
+);
+assert.match(centerViewsRuntime, /this\._mmOutputCache\.invalidateWhere/);
+assert.match(centerViewsRuntime, /this\._mmOutputCache\.retain\(activeTargets\)/);
+assert.match(centerViewsRuntime, /dispose\(\)\s*\{\s*this\._mmOutputCache\.clear\(\)/);
+assert.match(centerViewsRuntime, /\?\s*h\('img',\s*\{\s*src:\s*thumbUrl/);
+assert.match(chatPanelRuntime, /thumbUrl\s*\?\s*h\('img',\s*\{\s*src:\s*thumbUrl/);
+assert.match(
+  centerViewsRuntime,
+  /_mmOpenFull\(gen\)[\s\S]*this\._mmOutputCache\.peek\(target\)[\s\S]*window\.open\(existing,[\s\S]*this\._mmEnsureOutputUrl\(gen\.id,\s*outputs\[0\]\)[\s\S]*pendingWindow\.location\.replace\(objectUrl\)/,
+);
+assert.match(localObjectUrlCache, /record\.active\s*&&\s*pending\.get\(key\)\s*===\s*record/);
+assert.match(localObjectUrlCache, /record\.controller\.abort\(\)/);
 assert.doesNotMatch(
   electronWebpack,
   /require\.resolve\([`'"]@vscode\/ripgrep\/bin\/rg/,
