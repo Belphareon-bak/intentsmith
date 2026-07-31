@@ -40,7 +40,7 @@ capability; the capability is browser/Electron origin containment, not local
 process authentication. Protecting against a malicious same-user process
 requires a separate OS identity and IPC boundary and is not claimed here.
 
-## Electron HTTP client staging
+## Electron HTTP client and media boundary
 
 The tracked Electron renderer now installs one main-world fetch bootstrap
 before Theia extensions load. It obtains the backend URL and capability from
@@ -50,20 +50,50 @@ origin exactly matches that backend URL. Different schemes, host aliases,
 ports, and foreign origins never receive the capability; a caller-supplied
 copy is removed before a foreign request. Local redirects fail closed.
 
-This is deliberately client-side staging. It does not authorize HTTP by
-itself, and the server guard is not yet enabled. The three media element and
-navigation consumers now load through the capability-bearing wrapper, create
+The three media element and navigation consumers load through the
+capability-bearing wrapper, create
 object URLs in a shared cache capped at 24 completed entries per consumer, and
 revoke obsolete URLs. Invalidating or pruning aborts owned pending loads, the
 center widget also clears its cache on disposal, and an eventual late response
 cannot reinsert a stale URL. No capability is placed in a media URL or query
 string.
 
-The HTTP mutation boundary still requires the corresponding request guard.
-Until that guard and its live negative test are in place, S-1 remains
-incomplete and `G0-R018` remains open. Under accepted decision D-024 it is a
-later-gate risk only while the legacy listener remains strictly loopback-only;
-this checkpoint does not change the generated Gate 0 verdict.
+## HTTP browser-origin boundary
+
+Every legacy HTTP request is evaluated before URL parsing, rate limiting,
+route dispatch, or body processing. The guard rejects a non-loopback peer, a
+host authority that does not identify the assigned local port, a foreign or
+malformed origin, an originless cross-site browser request, and an opaque
+`null`/`file:` origin without the exact per-process capability. Supplying that
+capability never authorizes a foreign origin. Originless native loopback
+clients, the exact backend origin, and explicitly configured local origins
+retain their existing contracts.
+
+Authorized CORS responses name the exact accepted origin and vary on `Origin`,
+`Access-Control-Request-Headers`, `X-IntentSmith-Local-Capability`, and
+`Sec-Fetch-Site`; there is no wildcard fallback and a cache cannot reuse an
+authorized opaque response across capability or fetch-site decisions. The
+headers are installed before routing so routes that call `writeHead()`
+directly preserve the same boundary. Opaque Electron preflight is limited to
+the explicit capability header and local methods. Rejections return the stable
+403 code `C3_LEGACY_LOCAL_ACCESS_REQUIRED` and log only bounded non-secret
+metadata: reason code, method, and peer address. The capability is never
+logged.
+
+The registered `C3-023` route-smoke suite starts an owned server with private
+HOME/XDG/temp/database/project/artifact/port-file paths. Its live matrix proves
+that foreign origins, hostile Host headers, copied or wrong capabilities and
+cross-site originless requests are rejected before a workspace sentinel can
+be created. It also proves exact-target, configured-local and correctly
+capability-bearing opaque requests still work, including preflight and a
+direct-`writeHead()` response. Shutdown and private port-file removal are
+verified before the authenticated fixture is removed.
+
+S-1 local containment is complete. `G0-R018` nevertheless remains open under
+accepted decision D-024 as a later-gate remote-boundary risk: the legacy
+listener must remain strictly loopback-only until a physically separate
+authenticated remote listener and bypass-negative tests exist. This checkpoint
+does not change the generated Gate 0 verdict.
 
 ## Explicitly outside this boundary
 

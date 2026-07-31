@@ -6,25 +6,32 @@
 //   2. Export a createXxxRoutes(deps) factory function
 //   3. Factory returns a route map (object with method+path keys)
 //   4. The legacy API/WS listener cannot bind outside loopback
-//
-// No HTTP server needed — purely structural.
+//   5. The owned legacy HTTP server rejects unauthorized browser requests
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
+import { request as httpRequest } from 'node:http';
 import path from 'path';
 import {
+  chmodSync,
   existsSync,
   lstatSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
   realpathSync,
   rmSync,
 } from 'fs';
-import { spawnSync } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
+import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'url';
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import { LLMProviderUnavailableError } from '../src/core/chat-turn-error.js';
+import {
+  LEGACY_LOCAL_ACCESS_REQUIRED,
+  LEGACY_LOCAL_CAPABILITY_HEADER,
+} from '../src/security/legacy-local-access-policy.js';
 import {
   LEGACY_LISTENER_LOOPBACK_HOSTS,
   LEGACY_LISTENER_LOOPBACK_REQUIRED,
@@ -622,6 +629,572 @@ assert(
     < serverSource.indexOf("import db from './db/database.js';"),
   'server evaluates the network boundary bootstrap before the database module',
 );
+
+console.log('\n── 8. Owned Legacy HTTP Browser Boundary ──\n');
+
+function makePrivateDirectory(parent, name) {
+  const directory = path.join(parent, name);
+  mkdirSync(directory, { mode: 0o700 });
+  chmodSync(directory, 0o700);
+  const metadata = lstatSync(directory);
+  if (
+    !metadata.isDirectory()
+    || metadata.isSymbolicLink()
+    || (process.platform !== 'win32' && (metadata.mode & 0o077) !== 0)
+    || realpathSync(directory) !== directory
+  ) {
+    throw new Error(`Owned HTTP fixture directory is unsafe: ${name}`);
+  }
+  return directory;
+}
+
+function boundedTail(previous, chunk) {
+  return (previous + String(chunk)).slice(-20_000);
+}
+
+async function waitForChildExit(child, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (child.exitCode === null && child.signalCode === null) {
+    if (Date.now() >= deadline) return false;
+    await delay(25);
+  }
+  return true;
+}
+
+async function waitForOwnedPortFile({
+  child,
+  nonce,
+  portFile,
+  runtimeDirectory,
+  stderrTail,
+  stdoutTail,
+}) {
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      throw new Error(
+        `Owned HTTP server exited before readiness: `
+        + `${stdoutTail()} ${stderrTail()}`.trim().slice(-2_000),
+      );
+    }
+    if (existsSync(portFile)) {
+      const metadata = lstatSync(portFile);
+      if (
+        !metadata.isFile()
+        || metadata.isSymbolicLink()
+        || (process.platform !== 'win32' && (metadata.mode & 0o777) !== 0o600)
+        || path.dirname(realpathSync(portFile)) !== runtimeDirectory
+      ) {
+        throw new Error('Owned HTTP server port file failed its private-file contract');
+      }
+
+      let payload;
+      try {
+        payload = JSON.parse(readFileSync(portFile, 'utf8'));
+      } catch {
+        await delay(25);
+        continue;
+      }
+      if (
+        payload?.pid !== child.pid
+        || payload?.host !== '127.0.0.1'
+        || payload?.testRunNonce !== nonce
+        || !Number.isInteger(payload?.port)
+        || payload.port < 1
+        || payload.port > 65535
+        || !/^[A-Za-z0-9_-]{43}$/.test(payload?.localCapability || '')
+      ) {
+        throw new Error('Owned HTTP server port payload failed its identity contract');
+      }
+      return payload;
+    }
+    await delay(25);
+  }
+  throw new Error(
+    `Timed out waiting for the owned HTTP server: `
+    + `${stdoutTail()} ${stderrTail()}`.trim().slice(-2_000),
+  );
+}
+
+function requestOwnedHttpServer({
+  body = null,
+  headers = {},
+  method,
+  pathname,
+  port,
+}) {
+  return new Promise((resolve, reject) => {
+    const request = httpRequest({
+      hostname: '127.0.0.1',
+      port,
+      method,
+      path: pathname,
+      headers,
+    }, response => {
+      let responseBody = '';
+      response.setEncoding('utf8');
+      response.on('data', chunk => {
+        responseBody += chunk;
+        if (responseBody.length > 1_000_000) {
+          request.destroy(new Error('Owned HTTP response exceeded 1 MB'));
+        }
+      });
+      response.on('end', () => {
+        resolve({
+          body: responseBody,
+          headers: response.headers,
+          status: response.statusCode,
+        });
+      });
+    });
+    request.setTimeout(5_000, () => {
+      request.destroy(new Error('Owned HTTP boundary request timed out'));
+    });
+    request.on('error', reject);
+    if (body !== null) request.write(body);
+    request.end();
+  });
+}
+
+function parseJsonResponse(response) {
+  try {
+    return JSON.parse(response.body);
+  } catch {
+    return null;
+  }
+}
+
+function assertBoundaryRejection(response, label) {
+  const parsed = parseJsonResponse(response);
+  assert(
+    response.status === 403
+      && parsed?.code === LEGACY_LOCAL_ACCESS_REQUIRED
+      && parsed?.error === 'Local access boundary rejected the request.',
+    `${label} receives the exact stable HTTP 403 boundary contract`,
+  );
+  assert(
+    JSON.stringify(Object.keys(parsed || {}).sort()) === '["code","error"]',
+    `${label} rejection contains no additional response fields`,
+  );
+  assert(
+    response.headers['access-control-allow-origin'] === undefined,
+    `${label} is not granted a readable CORS response`,
+  );
+}
+
+async function runOwnedLegacyHttpBoundary() {
+  const fixtureRoot = mkdtempSync(
+    path.join(isolatedTestRuntime.temp, 'legacy-owned-http-'),
+  );
+  chmodSync(fixtureRoot, 0o700);
+  const fixtureMetadata = lstatSync(fixtureRoot);
+  if (
+    !fixtureMetadata.isDirectory()
+    || fixtureMetadata.isSymbolicLink()
+    || realpathSync(fixtureRoot) !== fixtureRoot
+  ) {
+    throw new Error('Owned HTTP fixture root failed its identity contract');
+  }
+
+  const runtimeDirectory = makePrivateDirectory(fixtureRoot, 'runtime');
+  const projectsDirectory = makePrivateDirectory(fixtureRoot, 'projects');
+  const artifactsDirectory = makePrivateDirectory(fixtureRoot, 'artifacts');
+  const homeDirectory = makePrivateDirectory(fixtureRoot, 'home');
+  const xdgConfigDirectory = makePrivateDirectory(fixtureRoot, 'xdg-config');
+  const xdgCacheDirectory = makePrivateDirectory(fixtureRoot, 'xdg-cache');
+  const xdgDataDirectory = makePrivateDirectory(fixtureRoot, 'xdg-data');
+  const xdgStateDirectory = makePrivateDirectory(fixtureRoot, 'xdg-state');
+  const tempDirectory = makePrivateDirectory(fixtureRoot, 'tmp');
+  const npmCacheDirectory = makePrivateDirectory(artifactsDirectory, 'npm-cache');
+  const portFile = path.join(runtimeDirectory, 'server.port');
+  const databasePath = path.join(runtimeDirectory, 'server.sqlite');
+  const nonce = 'routes-smoke-owned-http-boundary-0001';
+  let child = null;
+  let stdout = '';
+  let stderr = '';
+  let forcedTermination = false;
+  let shutdownExitCode = null;
+  let shutdownSignal = null;
+  let portFileRemovedByServer = false;
+  let observedLocalCapability = null;
+
+  try {
+    child = spawn(process.execPath, ['src/server.js'], {
+      cwd: ROOT,
+      env: {
+        PATH: process.env.PATH || '',
+        LANG: 'C.UTF-8',
+        TZ: 'UTC',
+        HOME: homeDirectory,
+        XDG_CONFIG_HOME: xdgConfigDirectory,
+        XDG_CACHE_HOME: xdgCacheDirectory,
+        XDG_DATA_HOME: xdgDataDirectory,
+        XDG_STATE_HOME: xdgStateDirectory,
+        TMPDIR: tempDirectory,
+        TMP: tempDirectory,
+        TEMP: tempDirectory,
+        npm_config_cache: npmCacheDirectory,
+        NODE_ENV: 'test',
+        CI: '1',
+        DOTENV_CONFIG_PATH: path.join(runtimeDirectory, 'no-dotenv-file'),
+        DOTENV_CONFIG_QUIET: 'true',
+        C3_HOST: '127.0.0.1',
+        C3_PORT: '0',
+        C3_PORT_FILE: portFile,
+        C3_DB_PATH: databasePath,
+        C3_PROJECTS_DIR: projectsDirectory,
+        INTENTSMITH_TEST_PROJECTS_DIR: projectsDirectory,
+        INTENTSMITH_TEST_ARTIFACT_DIR: artifactsDirectory,
+        INTENTSMITH_TEST_SERVER_NONCE: nonce,
+        C3_CORS_ORIGINS: 'http://localhost:3000',
+        C3_ENABLE_AGENTS: 'false',
+        C3_ENABLE_EXPERTISES: 'false',
+        C3_ENABLE_LIFECYCLE: 'false',
+        C3_ENABLE_COMFYUI: 'false',
+        C3_ENABLE_AUTONOMY: 'false',
+        C3_ENABLE_SKILLS: 'false',
+        C3_ENABLE_TELEMETRY: 'false',
+        C3_SPECIALIST_TELEMETRY: 'false',
+        C3_MODEL_UNIVERSE_ENABLED: 'false',
+        C3_LIFECYCLE_AUTO_COMMIT: 'false',
+        C3_UPDATE_REPO: '',
+        C3_TRACE: '0',
+        C3_LOG_LEVEL: 'warn',
+        OLLAMA_URL: 'invalid://routes-smoke-no-model-provider',
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', chunk => {
+      stdout = boundedTail(stdout, chunk);
+    });
+    child.stderr.on('data', chunk => {
+      stderr = boundedTail(stderr, chunk);
+    });
+
+    const {
+      localCapability,
+      port,
+    } = await waitForOwnedPortFile({
+      child,
+      nonce,
+      portFile,
+      runtimeDirectory,
+      stderrTail: () => stderr,
+      stdoutTail: () => stdout,
+    });
+    observedLocalCapability = localCapability;
+    const wrongLocalCapability = `${
+      localCapability[0] === 'A' ? 'B' : 'A'
+    }${localCapability.slice(1)}`;
+    const exactOrigin = `http://127.0.0.1:${port}`;
+    const allowedOrigin = 'http://localhost:3000';
+    const blockedPath = path.join(projectsDirectory, 'blocked-sentinel.txt');
+    const writeBody = (filename, content) => JSON.stringify({
+      root: projectsDirectory,
+      path: filename,
+      content,
+    });
+    const mutationHeaders = {
+      'Content-Type': 'text/plain',
+    };
+
+    const nativeHealth = await requestOwnedHttpServer({
+      method: 'GET',
+      pathname: '/api/health',
+      port,
+    });
+    assert(
+      nativeHealth.status === 200
+        && nativeHealth.headers['access-control-allow-origin'] === undefined,
+      'native loopback health request remains authorized without CORS',
+    );
+
+    const foreign = await requestOwnedHttpServer({
+      body: writeBody('blocked-sentinel.txt', 'foreign-origin-must-not-write'),
+      headers: {
+        ...mutationHeaders,
+        Origin: 'https://attacker.example',
+      },
+      method: 'POST',
+      pathname: '/api/workspace/file',
+      port,
+    });
+    assertBoundaryRejection(foreign, 'foreign browser origin');
+    assert(!existsSync(blockedPath), 'foreign browser origin cannot mutate the workspace');
+
+    const hostileTargetHost = await requestOwnedHttpServer({
+      body: writeBody('blocked-sentinel.txt', 'host-rebind-must-not-write'),
+      headers: {
+        ...mutationHeaders,
+        Host: `attacker.example:${port}`,
+      },
+      method: 'POST',
+      pathname: '/api/workspace/file',
+      port,
+    });
+    assertBoundaryRejection(hostileTargetHost, 'host-header rebinding request');
+    assert(
+      !existsSync(blockedPath),
+      'host-header rebinding cannot mutate the workspace',
+    );
+
+    const foreignWithCapability = await requestOwnedHttpServer({
+      body: writeBody('blocked-sentinel.txt', 'foreign-capability-must-not-write'),
+      headers: {
+        ...mutationHeaders,
+        Origin: 'https://attacker.example',
+        [LEGACY_LOCAL_CAPABILITY_HEADER]: localCapability,
+      },
+      method: 'POST',
+      pathname: '/api/workspace/file',
+      port,
+    });
+    assertBoundaryRejection(
+      foreignWithCapability,
+      'foreign origin with a copied capability',
+    );
+    assert(
+      !existsSync(blockedPath),
+      'a copied capability cannot authorize a foreign origin mutation',
+    );
+
+    const opaqueWithoutCapability = await requestOwnedHttpServer({
+      body: writeBody('blocked-sentinel.txt', 'opaque-missing-must-not-write'),
+      headers: {
+        ...mutationHeaders,
+        Origin: 'null',
+      },
+      method: 'POST',
+      pathname: '/api/workspace/file',
+      port,
+    });
+    assertBoundaryRejection(
+      opaqueWithoutCapability,
+      'opaque origin without capability',
+    );
+    assert(
+      !existsSync(blockedPath),
+      'opaque origin without capability cannot mutate the workspace',
+    );
+
+    const opaqueWithWrongCapability = await requestOwnedHttpServer({
+      body: writeBody('blocked-sentinel.txt', 'opaque-wrong-must-not-write'),
+      headers: {
+        ...mutationHeaders,
+        Origin: 'null',
+        [LEGACY_LOCAL_CAPABILITY_HEADER]: wrongLocalCapability,
+      },
+      method: 'POST',
+      pathname: '/api/workspace/file',
+      port,
+    });
+    assertBoundaryRejection(
+      opaqueWithWrongCapability,
+      'opaque origin with the wrong capability',
+    );
+    assert(
+      !existsSync(blockedPath),
+      'wrong opaque capability cannot mutate the workspace',
+    );
+
+    const crossSiteWithoutOrigin = await requestOwnedHttpServer({
+      body: writeBody('blocked-sentinel.txt', 'cross-site-must-not-write'),
+      headers: {
+        ...mutationHeaders,
+        'Sec-Fetch-Site': 'cross-site',
+      },
+      method: 'POST',
+      pathname: '/api/workspace/file',
+      port,
+    });
+    assertBoundaryRejection(
+      crossSiteWithoutOrigin,
+      'cross-site request without Origin',
+    );
+    assert(
+      !existsSync(blockedPath),
+      'cross-site request without Origin cannot mutate the workspace',
+    );
+
+    const exactContent = 'exact-target-origin-write';
+    const exactTarget = await requestOwnedHttpServer({
+      body: writeBody('exact-target.txt', exactContent),
+      headers: {
+        ...mutationHeaders,
+        Origin: exactOrigin,
+      },
+      method: 'POST',
+      pathname: '/api/workspace/file',
+      port,
+    });
+    assert(
+      exactTarget.status === 200
+        && parseJsonResponse(exactTarget)?.ok === true
+        && exactTarget.headers['access-control-allow-origin'] === exactOrigin
+        && readFileSync(
+          path.join(projectsDirectory, 'exact-target.txt'),
+          'utf8',
+        ) === exactContent,
+      'exact backend origin preserves the workspace mutation contract',
+    );
+
+    const allowedContent = 'configured-local-origin-write';
+    const configuredLocal = await requestOwnedHttpServer({
+      body: writeBody('configured-local.txt', allowedContent),
+      headers: {
+        ...mutationHeaders,
+        Origin: allowedOrigin,
+      },
+      method: 'POST',
+      pathname: '/api/workspace/file',
+      port,
+    });
+    assert(
+      configuredLocal.status === 200
+        && parseJsonResponse(configuredLocal)?.ok === true
+        && configuredLocal.headers['access-control-allow-origin'] === allowedOrigin
+        && readFileSync(
+          path.join(projectsDirectory, 'configured-local.txt'),
+          'utf8',
+        ) === allowedContent,
+      'explicitly configured local origin preserves the mutation contract',
+    );
+
+    const directWriteHead = await requestOwnedHttpServer({
+      headers: {
+        Origin: allowedOrigin,
+      },
+      method: 'GET',
+      pathname: '/api/logs/export',
+      port,
+    });
+    const directWriteHeadVary = new Set(
+      String(directWriteHead.headers.vary || '')
+        .split(',')
+        .map(value => value.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    assert(
+      directWriteHead.status === 200
+        && directWriteHead.headers['access-control-allow-origin'] === allowedOrigin
+        && directWriteHeadVary.size === 4
+        && directWriteHeadVary.has('origin')
+        && directWriteHeadVary.has('access-control-request-headers')
+        && directWriteHeadVary.has(
+          LEGACY_LOCAL_CAPABILITY_HEADER.toLowerCase(),
+        )
+        && directWriteHeadVary.has('sec-fetch-site'),
+      'authorized CORS headers survive a direct writeHead response',
+    );
+
+    const opaquePreflight = await requestOwnedHttpServer({
+      headers: {
+        Origin: 'null',
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers':
+          `content-type, ${LEGACY_LOCAL_CAPABILITY_HEADER.toLowerCase()}`,
+      },
+      method: 'OPTIONS',
+      pathname: '/api/workspace/file',
+      port,
+    });
+    const allowHeaders = String(
+      opaquePreflight.headers['access-control-allow-headers'] || '',
+    ).toLowerCase();
+    const allowMethods = String(
+      opaquePreflight.headers['access-control-allow-methods'] || '',
+    );
+    assert(
+      opaquePreflight.status === 204
+        && opaquePreflight.headers['access-control-allow-origin'] === 'null'
+        && allowHeaders.includes('content-type')
+        && allowHeaders.includes(
+          LEGACY_LOCAL_CAPABILITY_HEADER.toLowerCase(),
+        )
+        && allowMethods.includes('PATCH'),
+      'opaque capability preflight receives only the explicit local CORS contract',
+    );
+
+    const opaqueContent = 'authorized-opaque-origin-write';
+    const opaqueAuthorized = await requestOwnedHttpServer({
+      body: writeBody('opaque-authorized.txt', opaqueContent),
+      headers: {
+        ...mutationHeaders,
+        Origin: 'null',
+        [LEGACY_LOCAL_CAPABILITY_HEADER]: localCapability,
+      },
+      method: 'POST',
+      pathname: '/api/workspace/file',
+      port,
+    });
+    assert(
+      opaqueAuthorized.status === 200
+        && parseJsonResponse(opaqueAuthorized)?.ok === true
+        && opaqueAuthorized.headers['access-control-allow-origin'] === 'null'
+        && readFileSync(
+          path.join(projectsDirectory, 'opaque-authorized.txt'),
+          'utf8',
+        ) === opaqueContent,
+      'opaque Electron origin requires the exact private capability',
+    );
+  } finally {
+    if (
+      child
+      && child.exitCode === null
+      && child.signalCode === null
+    ) {
+      child.kill('SIGTERM');
+      if (!(await waitForChildExit(child, 10_000))) {
+        forcedTermination = true;
+        child.kill('SIGKILL');
+        if (!(await waitForChildExit(child, 5_000))) {
+          throw new Error(
+            `Owned HTTP server did not stop after SIGKILL; preserving ${fixtureRoot}`,
+          );
+        }
+      }
+    }
+    shutdownExitCode = child?.exitCode ?? null;
+    shutdownSignal = child?.signalCode ?? null;
+    portFileRemovedByServer = !existsSync(portFile);
+
+    const current = lstatSync(fixtureRoot);
+    if (
+      !current.isDirectory()
+      || current.isSymbolicLink()
+      || current.dev !== fixtureMetadata.dev
+      || current.ino !== fixtureMetadata.ino
+      || realpathSync(fixtureRoot) !== fixtureRoot
+    ) {
+      throw new Error('Refusing to remove a substituted owned HTTP fixture');
+    }
+    rmSync(fixtureRoot, { recursive: true, force: false });
+  }
+
+  assert(!forcedTermination, 'owned HTTP server stops on SIGTERM without SIGKILL');
+  assert(
+    shutdownExitCode === 0 && shutdownSignal === null,
+    'owned HTTP server exits cleanly after the boundary matrix',
+  );
+  assert(
+    portFileRemovedByServer,
+    'owned HTTP server removes its private port file before fixture cleanup',
+  );
+  assert(
+    typeof observedLocalCapability === 'string'
+      && !stdout.includes(observedLocalCapability)
+      && !stderr.includes(observedLocalCapability),
+    'owned HTTP server never writes the local capability to captured logs',
+  );
+}
+
+try {
+  await runOwnedLegacyHttpBoundary();
+} catch (error) {
+  assert(false, `owned legacy HTTP boundary completes safely: ${error.message}`);
+}
 
 // ─── Summary ─────────────────────────────────────────────────────────────────
 

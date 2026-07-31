@@ -12,7 +12,12 @@ import {
   buildServerPortPayload,
   writePrivatePortFile,
 } from './server-port-file.js';
-import { createLegacyLocalCapability } from './security/legacy-local-access-policy.js';
+import {
+  LEGACY_LOCAL_ACCESS_REQUIRED,
+  LEGACY_LOCAL_CAPABILITY_HEADER,
+  createLegacyLocalCapability,
+  evaluateLegacyLocalAccess,
+} from './security/legacy-local-access-policy.js';
 import { listenOnLegacyLoopback } from './security/legacy-listener-policy.js';
 import { applyHttpTimeoutPolicy } from './timeout-policy.js';
 import { logger } from './core/logger.js';
@@ -566,18 +571,32 @@ const SECURITY_HEADERS = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' ws: wss:",
 };
+const CORS_VARY = [
+  'Origin',
+  'Access-Control-Request-Headers',
+  LEGACY_LOCAL_CAPABILITY_HEADER,
+  'Sec-Fetch-Site',
+].join(', ');
 
 function sendJSON(res, status, data, req = null) {
-  const corsOrigin = getCorsOrigin(req);
-  const headers = { 'Content-Type': 'application/json', ...SECURITY_HEADERS };
+  const corsOrigin = res._corsOrigin || getCorsOrigin(req);
+  const headers = {
+    'Content-Type': 'application/json',
+    Vary: CORS_VARY,
+    ...SECURITY_HEADERS,
+  };
   if (corsOrigin) headers['Access-Control-Allow-Origin'] = corsOrigin;
   res.writeHead(status, headers);
   res.end(JSON.stringify(data));
 }
 
 function sendHTML(res, html, req = null) {
-  const corsOrigin = getCorsOrigin(req);
-  const headers = { 'Content-Type': 'text/html; charset=utf-8', ...SECURITY_HEADERS };
+  const corsOrigin = res._corsOrigin || getCorsOrigin(req);
+  const headers = {
+    'Content-Type': 'text/html; charset=utf-8',
+    Vary: CORS_VARY,
+    ...SECURITY_HEADERS,
+  };
   if (corsOrigin) headers['Access-Control-Allow-Origin'] = corsOrigin;
   res.writeHead(200, headers);
   res.end(html);
@@ -617,12 +636,16 @@ async function sendStaticFile(res, filepath, contentType) {
       }
       try {
         const content = await fsPromises.readFile(fullPath, 'utf-8');
-        res.writeHead(200, {
+        const headers = {
           'Content-Type': contentType + '; charset=utf-8',
-          'Access-Control-Allow-Origin': res._corsOrigin || '*',
           'Cache-Control': 'no-cache',
+          Vary: CORS_VARY,
           ...SECURITY_HEADERS,
-        });
+        };
+        if (res._corsOrigin) {
+          headers['Access-Control-Allow-Origin'] = res._corsOrigin;
+        }
+        res.writeHead(200, headers);
         res.end(content);
         return;
       } catch (err) {
@@ -1064,14 +1087,67 @@ if (_rateLimitEnabled) {
 }
 
 const server = http.createServer(async (req, res) => {
+  const address = server.address();
+  const access = evaluateLegacyLocalAccess({
+    host: req.headers.host,
+    expectedPort: (
+      address
+      && typeof address === 'object'
+      && Number.isInteger(address.port)
+    ) ? address.port : null,
+    remoteAddress: req.socket.remoteAddress,
+    origin: req.headers.origin,
+    allowedOrigins: config.server.allowedOrigins,
+    expectedCapability: legacyLocalCapability,
+    presentedCapability:
+      req.headers[LEGACY_LOCAL_CAPABILITY_HEADER.toLowerCase()],
+    fetchSite: req.headers['sec-fetch-site'],
+    preflight: req.method === 'OPTIONS',
+    requestedHeaders: req.headers['access-control-request-headers'],
+  });
+  if (!access.allowed) {
+    logger.warn('Server', 'Legacy local HTTP request rejected', {
+      reasonCode: access.reasonCode,
+      method: req.method,
+      remoteAddress: req.socket.remoteAddress,
+    });
+    req.resume();
+    res.writeHead(403, {
+      'Content-Type': 'application/json',
+      Vary: CORS_VARY,
+      ...SECURITY_HEADERS,
+    });
+    return res.end(JSON.stringify({
+      error: 'Local access boundary rejected the request.',
+      code: LEGACY_LOCAL_ACCESS_REQUIRED,
+    }));
+  }
+
+  const requestOrigin = req.headers.origin;
+  res._corsOrigin = (
+    requestOrigin === 'null'
+    || (
+      typeof requestOrigin === 'string'
+      && requestOrigin.startsWith('file:')
+    )
+  ) ? 'null' : (requestOrigin || null);
+  res.setHeader('Vary', CORS_VARY);
+  if (res._corsOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', res._corsOrigin);
+  }
+
   // CORS preflight
   if (req.method === 'OPTIONS') {
-    const corsOrigin = getCorsOrigin(req);
     const headers = {
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+      'Access-Control-Allow-Headers':
+        `Content-Type, ${LEGACY_LOCAL_CAPABILITY_HEADER}`,
+      Vary: CORS_VARY,
+      ...SECURITY_HEADERS,
     };
-    if (corsOrigin) headers['Access-Control-Allow-Origin'] = corsOrigin;
+    if (res._corsOrigin) {
+      headers['Access-Control-Allow-Origin'] = res._corsOrigin;
+    }
     res.writeHead(204, headers);
     return res.end();
   }
