@@ -83,6 +83,14 @@ import {
   validateGate0Attestation,
 } from '../scripts/validate-gate0-attestation.js';
 import {
+  GATE0_REGISTRY_FINGERPRINT_ALGORITHM,
+  GATE0_REVIEW_METHOD,
+  GATE0_REVIEW_PACKET_PATH,
+  GATE0_REVIEWER_ROLE,
+  parseGate0ReviewResult,
+  validateGate0ReviewResult,
+} from '../scripts/gate0-review-contract.js';
+import {
   suite,
   test,
   testAsync,
@@ -1701,6 +1709,145 @@ test('valid red producer outcomes become failed clauses instead of false green',
     deriveGateOutcome({ clauses }).verdict,
     'FAIL',
   );
+});
+
+suite('Gate 0 independent review result contract');
+
+function validReviewResultFixture() {
+  const candidateSha = 'a'.repeat(40);
+  const pendingAttestationSha = 'b'.repeat(40);
+  const registryFingerprint = 'c'.repeat(64);
+  const reviewRange =
+    `f11026f062e5d2e75fe6802a3e4e2ad38a6c9dab..${candidateSha}`;
+  const packetSha256 = 'd'.repeat(64);
+  const reviewRequiredRisks = ['G0-R015: OPEN'];
+  return {
+    expected: {
+      candidateSha,
+      pendingAttestationSha,
+      registryFingerprint,
+      reviewRange,
+      packetSha256,
+      reviewRequiredRisks,
+    },
+    result: {
+      schemaVersion: 1,
+      gate: 'Gate 0',
+      candidateSha,
+      pendingAttestationSha,
+      registryFingerprintAlgorithm:
+        GATE0_REGISTRY_FINGERPRINT_ALGORITHM,
+      registryFingerprint,
+      reviewRange,
+      packetPath: GATE0_REVIEW_PACKET_PATH,
+      packetSha256,
+      reviewRequiredRisks,
+      reviewerRole: GATE0_REVIEWER_ROLE,
+      reviewMethod: GATE0_REVIEW_METHOD,
+      completedAt: '2026-07-31T00:00:00.000Z',
+      decision: 'APPROVED',
+      findings: [{
+        id: 'G0-REV-001',
+        severity: 'LOW',
+        blocking: false,
+        summary: 'Non-blocking fixture finding.',
+      }],
+    },
+  };
+}
+
+test('complete exact independent review result is accepted', () => {
+  const fixture = validReviewResultFixture();
+  const report = validateGate0ReviewResult(fixture.result, fixture.expected);
+  assertEqual(report.valid, true);
+  assertEqual(report.approved, true);
+  assertEqual(report.errors.length, 0);
+});
+
+test('independent review result binds candidate, pending evidence, and packet', () => {
+  for (const field of [
+    'candidateSha',
+    'pendingAttestationSha',
+    'registryFingerprint',
+    'reviewRange',
+    'packetSha256',
+  ]) {
+    const fixture = validReviewResultFixture();
+    fixture.result[field] = field.endsWith('Sha')
+      ? 'e'.repeat(40)
+      : field.includes('Fingerprint') || field.includes('Sha256')
+        ? 'e'.repeat(64)
+        : `${fixture.result[field]}-changed`;
+    assertEqual(
+      validateGate0ReviewResult(fixture.result, fixture.expected).valid,
+      false,
+      `${field} drift must be rejected`,
+    );
+  }
+});
+
+test('independent review result rejects unknown fields and unsafe decisions', () => {
+  const unknown = validReviewResultFixture();
+  unknown.result.manualOverride = true;
+  assertEqual(
+    validateGate0ReviewResult(unknown.result, unknown.expected).valid,
+    false,
+  );
+
+  const decision = validReviewResultFixture();
+  decision.result.decision = 'CHANGES_REQUIRED';
+  assertEqual(
+    validateGate0ReviewResult(decision.result, decision.expected).valid,
+    false,
+  );
+
+  const blocking = validReviewResultFixture();
+  blocking.result.findings[0].blocking = true;
+  assertEqual(
+    validateGate0ReviewResult(blocking.result, blocking.expected).valid,
+    false,
+  );
+});
+
+test('independent review result binds the exact review-required risk set', () => {
+  const missing = validReviewResultFixture();
+  missing.result.reviewRequiredRisks = [];
+  assertEqual(
+    validateGate0ReviewResult(missing.result, missing.expected).valid,
+    false,
+  );
+
+  const duplicate = validReviewResultFixture();
+  duplicate.result.reviewRequiredRisks = [
+    'G0-R015: OPEN',
+    'G0-R015: OPEN',
+  ];
+  assertEqual(
+    validateGate0ReviewResult(duplicate.result, duplicate.expected).valid,
+    false,
+  );
+
+  const unsorted = validReviewResultFixture();
+  unsorted.expected.reviewRequiredRisks = [
+    'G0-R015: OPEN',
+    'G0-R014: OPEN',
+  ];
+  assertEqual(
+    validateGate0ReviewResult(unsorted.result, unsorted.expected).valid,
+    false,
+  );
+});
+
+test('independent review result parser fails closed on invalid JSON', () => {
+  const fixture = validReviewResultFixture();
+  const report = parseGate0ReviewResult(
+    Buffer.from('{"schemaVersion":'),
+    fixture.expected,
+  );
+  assertEqual(report.valid, false);
+  assertEqual(report.approved, false);
+  assertEqual(report.result, null);
+  assertEqual(report.sha256.length, 64);
 });
 
 function validAttestationFixture() {

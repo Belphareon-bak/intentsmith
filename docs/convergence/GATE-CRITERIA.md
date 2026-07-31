@@ -125,6 +125,30 @@ tracked as their own blocking decision with their own verdict, recorded in
 those decisions still open, but the Gate 0 document MUST state their state
 verbatim rather than folding them into a prerequisite list.
 
+### Independent review result contract
+
+An `APPROVED` string is not review evidence and cannot promote Gate 0. The
+locked promotion design is a linear `C → E → R → A` chain:
+
+- `C` is the exact candidate commit;
+- `E` is its valid four-output `PENDING` evidence attestation;
+- `R` is a one-file commit containing
+  `docs/convergence/reviews/GATE0-OPUS-RESULT.json`;
+- `A` is the final four-output approved attestation.
+
+The result uses an exact schema and binds full `C` and `E` SHAs, the
+`sha256-json-stringify-v1` parsed-registry serialization fingerprint, the exact
+review range, the SHA-256 of the packet in `E`, reviewer role `Opus 5`, method
+`independent-read-only`, every sorted `G0_REVIEW_REQUIRED` risk, completion
+time, decision and bounded findings. `APPROVED` cannot contain a blocking
+finding. Reviewer identity is procedural unless a separately approved
+signature system is introduced; the unsigned result does not claim
+cryptographic authorship.
+
+Until the repository validates the complete `E → R → A` transition, the
+existing schema-7 rule deliberately rejects `APPROVED` and the only green local
+outcome remains `CONDITIONAL PASS`.
+
 ### FAIL
 
 Any of:
