@@ -1673,6 +1673,11 @@ test('T25: createSessionAdapter is exported and functional', () => {
       'utf8',
     );
     assert.match(preloadSource, /getLocalCapability:\s*\(\)\s*=>/);
+    assert.match(preloadSource, /getLocalAccess:\s*\(\)\s*=>/);
+    assert.match(
+      preloadSource,
+      /backendUrl:\s*access\.backendUrl,\s*localCapability:\s*access\.localCapability/s,
+    );
     assert.match(clientSource, /window\.electronC3\.getLocalCapability\(\)/);
     assert.match(clientSource, /new WebSocket\(wsUrl,\s*\['c3-v1',\s*'c3-local-v1\.'/);
   });

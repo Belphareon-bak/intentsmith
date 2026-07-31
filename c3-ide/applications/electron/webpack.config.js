@@ -17,6 +17,20 @@ if (!configs[2] || !configs[2].entry) {
   );
 }
 
+if (!configs[0] || !configs[0].entry || !configs[0].entry.bundle) {
+  throw new Error(
+    'Frontend bundle config not found at configs[0] — Theia build may have changed.\n' +
+    'Check gen-webpack.config.js and update webpack.config.js accordingly.'
+  );
+}
+
+const generatedFrontendEntry = configs[0].entry.bundle;
+configs[0].entry.bundle = [
+  path.resolve(__dirname, 'c3-local-http-bootstrap.js'),
+  ...(Array.isArray(generatedFrontendEntry)
+    ? generatedFrontendEntry
+    : [generatedFrontendEntry]),
+];
 configs[2].entry.preload = path.resolve(__dirname, 'c3-preload-entry.js');
 
 const nativePlugin = nodeConfig.nativePlugin;

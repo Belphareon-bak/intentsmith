@@ -30,6 +30,11 @@ assert.equal(
   true,
   'tracked C3 Studio webpack hardening config is missing',
 );
+assert.equal(
+  trackedSet.has('c3-ide/applications/electron/c3-local-http-bootstrap.js'),
+  true,
+  'tracked C3 Studio local HTTP bootstrap is missing',
+);
 
 const rootPackage = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8'));
 const idePackage = JSON.parse(readFileSync(resolve(repoRoot, 'c3-ide/package.json'), 'utf8'));
@@ -40,6 +45,20 @@ const electronPackage = JSON.parse(readFileSync(
 const installer = readFileSync(resolve(repoRoot, 'scripts/install.sh'), 'utf8');
 const electronWebpack = readFileSync(
   resolve(repoRoot, 'c3-ide/applications/electron/webpack.config.js'),
+  'utf8',
+);
+const electronLocalHttpBootstrap = readFileSync(
+  resolve(
+    repoRoot,
+    'c3-ide/applications/electron/c3-local-http-bootstrap.js',
+  ),
+  'utf8',
+);
+const chatPanelRuntime = readFileSync(
+  resolve(
+    repoRoot,
+    'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js',
+  ),
   'utf8',
 );
 const ideLock = readFileSync(resolve(repoRoot, 'c3-ide/yarn.lock'), 'utf8');
@@ -94,6 +113,20 @@ assert.match(installer, /grep -Fqx -- "\$1"/);
 assert.match(installer, /Unknown argument: \$arg/);
 assert.match(electronWebpack, /@vscode\/ripgrep-\$\{process\.platform\}-\$\{arch\}/);
 assert.match(electronWebpack, /configs\[2\]\.entry\.preload/);
+assert.match(
+  electronWebpack,
+  /configs\[0\]\.entry\.bundle\s*=\s*\[\s*path\.resolve\(__dirname,\s*'c3-local-http-bootstrap\.js'\)/,
+);
+assert.match(
+  electronLocalHttpBootstrap,
+  /resolved\.url\.origin\s*===\s*access\.backendUrl/,
+);
+assert.match(
+  electronLocalHttpBootstrap,
+  /headers\.delete\(LEGACY_LOCAL_CAPABILITY_HEADER\)/,
+);
+assert.doesNotMatch(chatPanelRuntime, /\b_apiBase\b/);
+assert.doesNotMatch(chatPanelRuntime, /window\._c3BackendUrl/);
 assert.doesNotMatch(
   electronWebpack,
   /require\.resolve\([`'"]@vscode\/ripgrep\/bin\/rg/,

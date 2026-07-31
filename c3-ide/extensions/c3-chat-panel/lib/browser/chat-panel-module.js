@@ -3616,7 +3616,7 @@ function centerUpgrades(){
 /* ── v135: Governor data loading + rendering ───────────────────────── */
 function _loadGovernorData(){
   if(_governorLoading)return;_governorLoading=true;renderCenter();
-  var base=window._c3BackendUrl||'http://127.0.0.1:3335';
+  var base=_backendBase;
   Promise.all([
     fetch(base+'/api/system/governor/report').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}),
     fetch(base+'/api/system/governor/proposals').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;})
@@ -3626,18 +3626,18 @@ function _loadGovernorData(){
   }).catch(function(){_governorLoading=false;renderCenter();});
 }
 function _runGovernorCheck(){
-  var base=window._c3BackendUrl||'http://127.0.0.1:3335';
+  var base=_backendBase;
   fetch(base+'/api/system/governor/check',{method:'POST'}).then(function(r){return r.json();}).then(function(d){
     if(d.overallHealth){_governorData=d;_governorProposals=null;_loadGovernorData();}
     else{_governorLoading=false;renderCenter();}
   }).catch(function(){_governorLoading=false;renderCenter();});
 }
 function _approveGovernorProposal(id){
-  var base=window._c3BackendUrl||'http://127.0.0.1:3335';
+  var base=_backendBase;
   fetch(base+'/api/system/governor/proposals/'+id+'/approve',{method:'POST'}).then(function(){_loadGovernorData();});
 }
 function _dismissGovernorProposal(id){
-  var base=window._c3BackendUrl||'http://127.0.0.1:3335';
+  var base=_backendBase;
   fetch(base+'/api/system/governor/proposals/'+id+'/dismiss',{method:'POST'}).then(function(){_loadGovernorData();});
 }
 function _renderGovernorTab(){
@@ -3970,7 +3970,7 @@ function _fbUploadAttachments(feedbackId,files){
   var chain=Promise.resolve();
   files.forEach(function(f){
     chain=chain.then(function(){
-      return fetch(_apiBase+'/api/feedback/'+feedbackId+'/attach',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name,type:f.type,data:f.data})}).then(function(r){return r.json();});
+      return fetch(_backendBase+'/api/feedback/'+feedbackId+'/attach',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name,type:f.type,data:f.data})}).then(function(r){return r.json();});
     });
   });
   return chain;
@@ -4070,7 +4070,7 @@ function settingsAboutPanel(){
           var payload={category:_fbCategory,message:_fbMessage.trim(),version:_serverHealth.version||null,context:_fbCollectContext()};
           if(_fbAttachLast){var lr=_fbGetLastAssistant();if(lr)payload.lastResponse=lr;}
           /* Step 1: fetch logs if requested */
-          var logsPromise=_fbAttachLogs?fetch(_apiBase+'/api/logs/export').then(function(r){return r.text();}).then(function(txt){
+          var logsPromise=_fbAttachLogs?fetch(_backendBase+'/api/logs/export').then(function(r){return r.text();}).then(function(txt){
             var b64=btoa(unescape(encodeURIComponent(txt)));
             return {name:'server-logs_'+Date.now()+'.log',type:'text/plain',data:b64,size:txt.length};
           }).catch(function(){return null;}):Promise.resolve(null);
@@ -4078,7 +4078,7 @@ function settingsAboutPanel(){
             var allFiles=_fbFiles.slice();
             if(logFile)allFiles.push(logFile);
             /* Step 2: submit feedback */
-            return fetch(_apiBase+'/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(function(r){return r.json();}).then(function(d){
+            return fetch(_backendBase+'/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(function(r){return r.json();}).then(function(d){
               if(!d.ok){if(d.error&&d.error.indexOf('Too many')>=0){_fbCooldown=Date.now()+30000;}return;}
               var fbId=d.id;
               _fbMessage='';_fbSent=true;_fbCooldown=Date.now()+30000;_fbAttachLast=false;_fbAttachLogs=false;

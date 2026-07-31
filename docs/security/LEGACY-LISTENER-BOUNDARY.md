@@ -40,9 +40,27 @@ capability; the capability is browser/Electron origin containment, not local
 process authentication. Protecting against a malicious same-user process
 requires a separate OS identity and IPC boundary and is not claimed here.
 
+## Electron HTTP client staging
+
+The tracked Electron renderer now installs one main-world fetch bootstrap
+before Theia extensions load. It obtains the backend URL and capability from
+one private-port-file snapshot, resolves the legacy renderer's relative
+`/api/*` calls, and adds `X-IntentSmith-Local-Capability` only when the request
+origin exactly matches that backend URL. Different schemes, host aliases,
+ports, and foreign origins never receive the capability; a caller-supplied
+copy is removed before a foreign request. Local redirects fail closed.
+
+This is deliberately a client-side staging checkpoint. It does not authorize
+HTTP by itself, and the server guard is not yet enabled. Two media paths that
+use element/navigation requests instead of `fetch()` must be converted to
+capability-bearing fetches before the server can reject every unauthorized
+opaque-origin request without breaking product behavior.
+
 The HTTP mutation boundary still requires the corresponding request guard.
 Until that guard and its live negative test are in place, S-1 remains
-incomplete and `G0-R018` remains a Gate 0 blocker.
+incomplete and `G0-R018` remains open. Under accepted decision D-024 it is a
+later-gate risk only while the legacy listener remains strictly loopback-only;
+this checkpoint does not change the generated Gate 0 verdict.
 
 ## Explicitly outside this boundary
 
@@ -58,13 +76,16 @@ With committed dependencies installed:
 ```bash
 node tests/routes-smoke.test.js
 node tests/ws-bridge.test.js
+node tests/upgrade-ux-v125.test.js
+node tests/repository-hygiene.test.js
 node scripts/validate-test-registry.js
 node scripts/validate-final-disposition.js
 (cd c3-ide/applications/electron && ../../node_modules/.bin/theia build --mode production)
 ```
 
-The T1 suite pins the tracked preload and client source wiring. The separate
-production Theia build verifies that the generated, ignored Electron preload
+The T1 suites pin the tracked preload, exact-target fetch wrapper, no-leak
+behavior, idempotence, request preservation, and client source wiring. The
+separate production Theia build verifies that the generated, ignored Electron
 bundle contains that wiring; generated build output is never committed as
 evidence.
 

