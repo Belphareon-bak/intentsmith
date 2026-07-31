@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "gate": "Gate 0",
+  "candidateSha": "2f11e801707a93a547795b5e96ff30c7f620ba5b",
+  "pendingAttestationSha": "01e3829545895c96720dde2bb1077ba5d01738c1",
+  "registryFingerprintAlgorithm": "sha256-json-stringify-v1",
+  "registryFingerprint": "21992f9fcc1625c14baa0a7d53771a88e4f704e97e4c276f4d4b8fd9ea08cd73",
+  "reviewRange": "f11026f062e5d2e75fe6802a3e4e2ad38a6c9dab..2f11e801707a93a547795b5e96ff30c7f620ba5b",
+  "packetPath": "docs/convergence/reviews/GATE0-OPUS-REVIEW.md",
+  "packetSha256": "a89499ea947b4c599f15ddc30e7f5179d52e1d2f9ed7ce83a09643f15a70a311",
+  "reviewRequiredRisks": [
+    "G0-R015: OPEN"
+  ],
+  "reviewerRole": "Opus 5",
+  "reviewMethod": "independent-read-only",
+  "completedAt": "2026-07-31T14:05:10.808Z",
+  "decision": "APPROVED",
+  "findings": [
+    {
+      "id": "G0-REV-001",
+      "severity": "MEDIUM",
+      "blocking": false,
+      "summary": "The candidate classifies its own new risk in the normative gate document. 2f11e80 adds G0-R030 (confirmed, OPEN) to RISK-REGISTER.md and in the same commit writes its LATER_GATE classification into GATE0-RISK-IMPACT.json and the GATE-CRITERIA.md prose. The classification is defensible: render-phase health scheduling and timer teardown are product behaviour, not measurement integrity, and the entry carries the required concrete condition. The validators only check that every register row has exactly one valid entry, so they cannot detect self-classification. Recorded as an explicit reviewer acceptance rather than validator silence."
+    },
+    {
+      "id": "G0-REV-002",
+      "severity": "MEDIUM",
+      "blocking": false,
+      "summary": "Candidate scope exceeds its subject line. Beyond the media retry bound, 2f11e80 narrows a security claim in docs/security/LEGACY-LISTENER-BOUNDARY.md and rewrites the src/config.js REBUILD/REPAIRED disposition rationale from an absolute pre-initialisation guarantee to an entrypoint-scoped one. Verified independently that the narrower claim is the true one: only src/server.js imports src/runtime-environment.js (line 4); src/config.js only names it in a comment. requireLegacyLoopbackHost in src/security/legacy-listener-policy.js still revalidates and fails closed at bind, so no enforced control was weakened. The correction should not have ridden in a commit whose subject does not mention it."
+    },
+    {
+      "id": "G0-REV-003",
+      "severity": "LOW",
+      "blocking": false,
+      "summary": "Recovery from a negative-cached media failure is event-driven, not time-driven. load() returns null from the failure map without creating a pending record, and _mediaEnsureOutputUrl/_mmEnsureOutputUrl only re-render when a URL is produced, so nothing fires at the 60s TTL expiry. Recovery depends on an unrelated re-render: a history poll, a comfyui:complete event, or navigation. This is a correct trade against the unbounded refetch loop, but the boundary document states the cooldown without stating that expiry alone never triggers a retry."
+    },
+    {
+      "id": "G0-REV-004",
+      "severity": "LOW",
+      "blocking": false,
+      "summary": "load() can resolve null for a target it successfully cached. If evictCompletedEntries() throws while revoking a previously evicted URL, the exception escapes the success then-handler into the catch; the new key is already in entries, so the !entries.has(key) guard correctly suppresses recordFailure, but the promise still resolves null and the caller skips its re-render. The suite named media eviction revoke errors do not poison an inserted URL pins exactly this state through peek(), so the behaviour is intentional and bounded rather than latent."
+    },
+    {
+      "id": "G0-REV-005",
+      "severity": "INFO",
+      "blocking": false,
+      "summary": "No committed build artifact carries this fix. c3-ide/lib/frontend/bundle.js is tracked, was last written by 3024fa8, and contains zero occurrences of c3-chat-panel, comfyui or api/media/output; the Electron bundle that would carry it is gitignored at .gitignore:66. tests/repository-hygiene.test.js therefore pins the source text of both IDE modules and nothing binds the artifact that actually executes. This is correct for Gate 0, which measures the committed tree rather than a build, but Gate 2 must not treat those source regexes as runtime evidence for C3-001."
+    }
+  ]
+}
