@@ -148,6 +148,11 @@
       "riskId": "G0-R028",
       "gateImpact": "G0_FAIL",
       "rationale": "Caller-controlled or weakly bound evidence provenance can create a false Gate 0 attestation."
+    },
+    {
+      "riskId": "G0-R029",
+      "gateImpact": "G0_FAIL",
+      "rationale": "A required offline suite that depends on live GPU discovery invalidates deterministic Gate 0 evidence."
     }
   ]
 }

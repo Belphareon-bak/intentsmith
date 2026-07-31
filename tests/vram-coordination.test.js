@@ -7,6 +7,8 @@ import { getVramUsage, getVramUsageAsync, _clearVramCache } from '../src/system/
 import { clearNumCtxCache, getNumCtx } from '../src/llm/model-ctx.js';
 
 const ASYNC_TEST_TIMEOUT_MS = 10_000;
+const MIB = 1024 * 1024;
+const NO_SYSTEM_BIN_PATH = '/intentsmith-test-no-system-binaries';
 
 // ── Mock infrastructure ───────────────────────────────────────────────────
 
@@ -35,6 +37,40 @@ function mockFetch(responses) {
 function restoreFetch() {
   globalThis.fetch = _realFetch;
   _mockFetchResponses = [];
+}
+
+async function withIsolatedVramSources({ device = null } = {}, callback) {
+  const originalPath = process.env.PATH;
+  const originalFetch = globalThis.fetch;
+
+  process.env.PATH = NO_SYSTEM_BIN_PATH;
+  globalThis.fetch = async (url) => {
+    if (device && String(url) === 'http://mock:8188/system_stats') {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ devices: [device] }),
+      };
+    }
+    throw new Error('isolated VRAM source unavailable');
+  };
+  _clearVramCache();
+
+  try {
+    return await callback();
+  } finally {
+    if (originalPath === undefined) delete process.env.PATH;
+    else process.env.PATH = originalPath;
+    globalThis.fetch = originalFetch;
+    _clearVramCache();
+  }
+}
+
+function comfyVramDevice({ totalMb = 24576, freeMb = totalMb } = {}) {
+  return {
+    vram_total: totalMb * MIB,
+    vram_free: freeMb * MIB,
+  };
 }
 
 function createManager(overrides = {}) {
@@ -138,19 +174,22 @@ await testAsync('getVramUsageAsync prefers nvidia-smi over ComfyUI', async () =>
 });
 
 await testAsync('getVramUsageAsync falls back to ComfyUI when nvidia-smi unavailable', async () => {
-  _clearVramCache();
-  // We can't easily disable nvidia-smi in tests — just verify no crash
-  const result = await getVramUsageAsync({ comfyuiUrl: 'http://localhost:99999' });
-  // result may be from nvidia-smi or null (ComfyUI unreachable) — both fine
-  assert(true, 'No crash on unreachable ComfyUI');
+  const result = await withIsolatedVramSources(
+    { device: comfyVramDevice({ totalMb: 24576, freeMb: 20480 }) },
+    () => getVramUsageAsync({ comfyuiUrl: 'http://mock:8188' }),
+  );
+  assertEqual(result?.source, 'comfyui');
+  assertEqual(result?.totalMb, 24576);
+  assertEqual(result?.usedMb, 4096);
+  assertEqual(result?.freeMb, 20480);
 });
 
 await testAsync('getVramUsageAsync returns null when all sources fail', async () => {
-  _clearVramCache();
-  // No ComfyUI URL → only nvidia-smi → may work or may not
-  const result = await getVramUsageAsync({});
-  // On non-NVIDIA: null. On NVIDIA: data. Both are valid.
-  assert(true, 'No crash');
+  const result = await withIsolatedVramSources(
+    {},
+    () => getVramUsageAsync({ comfyuiUrl: 'http://mock:8188' }),
+  );
+  assertEqual(result, null);
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -161,56 +200,60 @@ suite('computeNumCtx');
 
 await testAsync('returns 4096 fallback when VRAM cannot be queried', async () => {
   const mgr = createManager();
-  // Mock: getVramUsageAsync returns null
-  const origFetch = globalThis.fetch;
-  globalThis.fetch = async () => { throw new Error('no ollama'); };
-  _clearVramCache();
-  // Override the dynamic import result — we need to control what getVramUsageAsync returns
-  // Since we can't easily mock dynamic imports, we use a workaround:
-  // If nvidia-smi IS available (dev machine), this will succeed.
-  // Test the fallback by checking the logic with real data.
-  globalThis.fetch = origFetch;
-
-  // Alternative: test the computation logic directly
-  const numCtx = await mgr.computeNumCtx({ modelParams: 27 });
-  assert(numCtx >= 2048, `num_ctx should be >= 2048, got ${numCtx}`);
-  assert(numCtx <= 8192, `num_ctx should be <= 8192 (gateway max), got ${numCtx}`);
-  assert(numCtx % 1024 === 0, `num_ctx should be multiple of 1024, got ${numCtx}`);
+  const numCtx = await withIsolatedVramSources(
+    {},
+    () => mgr.computeNumCtx({ modelParams: 27 }),
+  );
+  assertEqual(numCtx, 4096);
+  assertEqual(mgr.getTargetNumCtx(), 4096);
 });
 
 await testAsync('computeNumCtx stores result in _targetNumCtx', async () => {
   const mgr = createManager();
   clearNumCtxCache();
-  const result = await mgr.computeNumCtx({ modelParams: 27 });
+  const result = await withIsolatedVramSources(
+    { device: comfyVramDevice() },
+    () => mgr.computeNumCtx({ modelParams: 27 }),
+  );
   assertEqual(mgr.getTargetNumCtx(), result);
   assertEqual(getNumCtx('qwen3.5:27b'), result);
 });
 
 await testAsync('computeNumCtx respects maxCtx gateway limit', async () => {
   const mgr = createManager();
-  const result = await mgr.computeNumCtx({ modelParams: 7, maxCtx: 4096 });
-  assert(result <= 4096, `num_ctx should be <= maxCtx 4096, got ${result}`);
+  const result = await withIsolatedVramSources(
+    { device: comfyVramDevice() },
+    () => mgr.computeNumCtx({ modelParams: 7, maxCtx: 4096 }),
+  );
+  assertEqual(result, 4096);
 });
 
 await testAsync('computeNumCtx clamps to minimum 2048', async () => {
   const mgr = createManager();
-  // Very large model on small GPU → should clamp to 2048
-  const result = await mgr.computeNumCtx({ modelParams: 100, modelWeightsMb: 50000 });
+  const result = await withIsolatedVramSources(
+    { device: comfyVramDevice() },
+    () => mgr.computeNumCtx({ modelParams: 100, modelWeightsMb: 50000 }),
+  );
   assertEqual(result, 2048);
 });
 
 await testAsync('computeNumCtx is always a multiple of 1024', async () => {
   const mgr = createManager();
-  const result = await mgr.computeNumCtx({ modelParams: 27 });
+  const result = await withIsolatedVramSources(
+    { device: comfyVramDevice() },
+    () => mgr.computeNumCtx({ modelParams: 27 }),
+  );
   assertEqual(result % 1024, 0);
 });
 
 await testAsync('computeNumCtx uses model meta kv_per_1k when available', async () => {
   const mgr = createManager();
-  mgr.setModelMeta({ kv_per_1k: 100 });  // low KV = more context
-  const result = await mgr.computeNumCtx({ modelParams: 27 });
-  // With low KV per 1K, should get higher context (up to gateway max 8192)
-  assert(result >= 2048, `Should be at least 2048, got ${result}`);
+  mgr.setModelMeta({ kv_per_1k: 1000 });
+  const result = await withIsolatedVramSources(
+    { device: comfyVramDevice() },
+    () => mgr.computeNumCtx({ modelParams: 27 }),
+  );
+  assertEqual(result, 6144);
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -528,20 +571,19 @@ suite('waitForVramDrop');
 
 await testAsync('returns true when VRAM is already below target', async () => {
   const mgr = createManager();
-  _clearVramCache();
-  // On dev machine with nvidia-smi, VRAM is currently whatever it is
-  // Use a very high target to guarantee success
-  const result = await mgr.waitForVramDrop(99999, { timeoutMs: 1000, pollMs: 100 });
-  // On NVIDIA: true (current usage < 99999). On non-NVIDIA: false (can't monitor)
-  assert(typeof result === 'boolean', 'Should return boolean');
+  const result = await withIsolatedVramSources(
+    { device: comfyVramDevice({ totalMb: 24576, freeMb: 22528 }) },
+    () => mgr.waitForVramDrop(4096, { timeoutMs: 100, pollMs: 10 }),
+  );
+  assertEqual(result, true);
 });
 
 await testAsync('returns false on timeout when target not reached', async () => {
   const mgr = createManager();
-  _clearVramCache();
-  // Target 0 MB — impossible to reach
-  const result = await mgr.waitForVramDrop(0, { timeoutMs: 500, pollMs: 100 });
-  // On NVIDIA: false (timeout). On non-NVIDIA: false (can't monitor)
+  const result = await withIsolatedVramSources(
+    { device: comfyVramDevice({ totalMb: 24576, freeMb: 20480 }) },
+    () => mgr.waitForVramDrop(0, { timeoutMs: 50, pollMs: 5 }),
+  );
   assertEqual(result, false);
 });
 
