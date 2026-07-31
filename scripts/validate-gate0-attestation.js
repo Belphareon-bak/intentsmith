@@ -43,24 +43,24 @@ import {
   TEST_REGISTRY_PATH,
 } from './test-registry.js';
 import {
+  GATE0_ATTESTATION_OUTPUTS,
+  GATE0_BOUND_OUTPUTS,
+} from './gate0-attestation-paths.js';
+import {
   GATE0_APPROVED_ATTESTATION_RULE,
   GATE0_PENDING_ATTESTATION_RULE,
   GATE0_REVIEW_PACKET_PATH,
   GATE0_REVIEW_RESULT_PATH,
   parseGate0ReviewResult,
 } from './gate0-review-contract.js';
+import {
+  buildApprovedGate0Promotion,
+} from './gate0-promotion-contract.js';
 
-export const GATE0_ATTESTATION_OUTPUTS = Object.freeze([
-  'docs/convergence/EVIDENCE-INDEX.json',
-  'docs/convergence/GATE0-BASELINE-REPORT.md',
-  'docs/convergence/STATUS.md',
-  'docs/convergence/reviews/GATE0-OPUS-REVIEW.md',
-]);
-export const GATE0_BOUND_OUTPUTS = Object.freeze(
-  GATE0_ATTESTATION_OUTPUTS.filter(
-    filePath => filePath !== 'docs/convergence/EVIDENCE-INDEX.json',
-  ),
-);
+export {
+  GATE0_ATTESTATION_OUTPUTS,
+  GATE0_BOUND_OUTPUTS,
+};
 const EVIDENCE_INDEX_TOP_LEVEL_KEYS = Object.freeze([
   'schemaVersion',
   'product',
@@ -335,6 +335,18 @@ export function validateGate0ApprovedAttestation({
   if (!parsedReview.valid) {
     errors.push(...parsedReview.errors.map(error => `review result: ${error}`));
   }
+  const promotion = buildApprovedGate0Promotion({
+    pendingAttestationSha,
+    reviewResultSha,
+    pendingIndex,
+    pendingArtifacts: pendingAttestation?.outputArtifacts,
+    reviewResultBytes: reviewResultCommit?.resultBytes,
+  });
+  if (!promotion.valid) {
+    errors.push(
+      ...promotion.errors.map(error => `approved promotion: ${error}`),
+    );
+  }
 
   if (
     !hasExactKeys(evidenceIndex, EVIDENCE_INDEX_TOP_LEVEL_KEYS)
@@ -474,6 +486,26 @@ export function validateGate0ApprovedAttestation({
         || binding.sha256 !== sha256(bytes)
       ) {
         errors.push(`approved generated output binding mismatch for ${filePath}`);
+      }
+    }
+  }
+  if (promotion.valid) {
+    if (!isDeepStrictEqual(evidenceIndex, promotion.evidenceIndex)) {
+      errors.push(
+        'approved evidence index differs from deterministic promotion output',
+      );
+    }
+    for (const filePath of GATE0_BOUND_OUTPUTS) {
+      const actual = toBuffer(outputArtifacts?.[filePath]);
+      const expected = promotion.outputArtifacts[filePath];
+      if (
+        actual === null
+        || !Buffer.isBuffer(expected)
+        || !actual.equals(expected)
+      ) {
+        errors.push(
+          `approved Markdown differs from deterministic promotion: ${filePath}`,
+        );
       }
     }
   }

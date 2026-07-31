@@ -149,9 +149,14 @@ The schema-7 validator deliberately rejects a bare `APPROVED`. The schema-8
 pure validator accepts it only when it can first validate the complete schema-7
 `E`, prove the exact one-file `R` parent and result binding, preserve every
 candidate-derived evidence field, re-derive `PASS` through the shared verdict
-function, and bind the exact four outputs in `A`. Until the separate promotion
-writer and current-HEAD loader enforce that same transition, the operational
-outcome remains `CONDITIONAL PASS`.
+function, and bind the exact four outputs in `A`. The three schema-8 Markdown
+outputs are deterministic approval envelopes followed by the exact reviewed
+schema-7 bytes; the validator re-derives those bytes from `E` and `R`, so a
+hand-edited status plus a recomputed self-hash is invalid. The envelope clearly
+marks the preserved PENDING/CONDITIONAL text as a historical reviewed snapshot
+and binds its original digest. Until the separate promotion writer and
+current-HEAD loader enforce that same transition, the operational outcome
+remains `CONDITIONAL PASS`.
 
 ### FAIL
 

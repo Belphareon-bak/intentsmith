@@ -86,7 +86,6 @@ import {
   validateGate0RevalidationDisjointness,
 } from '../scripts/validate-gate0-attestation.js';
 import {
-  GATE0_APPROVED_ATTESTATION_RULE,
   GATE0_PENDING_ATTESTATION_RULE,
   GATE0_REGISTRY_FINGERPRINT_ALGORITHM,
   GATE0_REVIEW_METHOD,
@@ -96,6 +95,9 @@ import {
   parseGate0ReviewResult,
   validateGate0ReviewResult,
 } from '../scripts/gate0-review-contract.js';
+import {
+  buildApprovedGate0Promotion,
+} from '../scripts/gate0-promotion-contract.js';
 import {
   suite,
   test,
@@ -2227,56 +2229,15 @@ function validApprovedAttestationFixture() {
   const resultBytes = Buffer.from(
     `${JSON.stringify(reviewFixture.result, null, 2)}\n`,
   );
-  const parsedResult = parseGate0ReviewResult(resultBytes, {
-    candidateSha: pendingIndex.candidate.sha,
+  const promotion = buildApprovedGate0Promotion({
     pendingAttestationSha: pendingAttestation.headSha,
-    registryFingerprint: pendingIndex.candidate.registrySha256,
-    reviewRange: pendingIndex.review.range,
-    packetSha256: reviewFixture.result.packetSha256,
-    reviewRequiredRisks: pendingIndex.riskPolicy.reviewRequiredRisks,
+    reviewResultSha,
+    pendingIndex,
+    pendingArtifacts: pendingAttestation.outputArtifacts,
+    reviewResultBytes: resultBytes,
   });
-  assertEqual(parsedResult.valid, true);
-
-  const outputArtifacts = Object.fromEntries(
-    GATE0_BOUND_OUTPUTS.map(filePath => [
-      filePath,
-      `approved generated fixture for ${filePath}\n`,
-    ]),
-  );
-  const evidenceIndex = JSON.parse(JSON.stringify(pendingIndex));
-  evidenceIndex.schemaVersion = 8;
-  evidenceIndex.verdict = 'PASS';
-  evidenceIndex.exitCode = 0;
-  evidenceIndex.candidate.attestationRule =
-    GATE0_APPROVED_ATTESTATION_RULE;
-  evidenceIndex.review = {
-    range: pendingIndex.review.range,
-    commitCount: pendingIndex.review.commitCount,
-    packet: pendingIndex.review.packet,
-    independentReviewStatus: ReviewStatus.APPROVED,
-    result: {
-      path: GATE0_REVIEW_RESULT_PATH,
-      commitSha: reviewResultSha,
-      pendingAttestationSha: pendingAttestation.headSha,
-      schemaVersion: parsedResult.result.schemaVersion,
-      bytes: parsedResult.bytes,
-      sha256: parsedResult.sha256,
-      decision: parsedResult.result.decision,
-      reviewerRole: parsedResult.result.reviewerRole,
-      reviewMethod: parsedResult.result.reviewMethod,
-      completedAt: parsedResult.result.completedAt,
-      findingCount: parsedResult.result.findings.length,
-    },
-  };
-  evidenceIndex.generatedOutputs = Object.fromEntries(
-    Object.entries(outputArtifacts).map(([filePath, contents]) => [
-      filePath,
-      {
-        bytes: Buffer.byteLength(contents),
-        sha256: createHash('sha256').update(contents).digest('hex'),
-      },
-    ]),
-  );
+  assertEqual(promotion.valid, true);
+  const { evidenceIndex, outputArtifacts } = promotion;
 
   return {
     headSha: 'e'.repeat(40),
@@ -2316,11 +2277,72 @@ function validApprovedAttestationFixture() {
 }
 
 test('approved attestation validates the complete candidate-review chain', () => {
-  const report = validateGate0ApprovedAttestation(
-    validApprovedAttestationFixture(),
-  );
+  const fixture = validApprovedAttestationFixture();
+  const report = validateGate0ApprovedAttestation(fixture);
   assertEqual(report.valid, true);
   assertEqual(report.errors.length, 0);
+  assertEqual(fixture.evidenceIndex.schemaVersion, 8);
+  assertEqual(fixture.evidenceIndex.verdict, 'PASS');
+  assertEqual(
+    fixture.evidenceIndex.review.independentReviewStatus,
+    ReviewStatus.APPROVED,
+  );
+  for (const filePath of GATE0_BOUND_OUTPUTS) {
+    const approved = fixture.outputArtifacts[filePath];
+    const pending = Buffer.from(
+      fixture.pendingAttestation.outputArtifacts[filePath],
+    );
+    assert(
+      approved.includes(Buffer.from('- Verdict: **PASS**\n')),
+      `${filePath} must carry the PASS approval envelope`,
+    );
+    assert(
+      approved.includes(Buffer.from('- Independent review: **APPROVED**\n')),
+      `${filePath} must carry the APPROVED review envelope`,
+    );
+    assert(
+      approved.subarray(approved.length - pending.length).equals(pending),
+      `${filePath} must preserve the reviewed pending bytes as its suffix`,
+    );
+    assert(
+      !approved.equals(pending),
+      `${filePath} must differ from the pending artifact`,
+    );
+  }
+});
+
+test('approved promotion is byte-deterministic for identical E and R', () => {
+  const fixture = validApprovedAttestationFixture();
+  const repeated = buildApprovedGate0Promotion({
+    pendingAttestationSha: fixture.pendingAttestation.headSha,
+    reviewResultSha: fixture.reviewResultCommit.headSha,
+    pendingIndex: fixture.pendingAttestation.evidenceIndex,
+    pendingArtifacts: fixture.pendingAttestation.outputArtifacts,
+    reviewResultBytes: fixture.reviewResultCommit.resultBytes,
+  });
+  assertEqual(repeated.valid, true);
+  assertEqual(
+    JSON.stringify(repeated.evidenceIndex),
+    JSON.stringify(fixture.evidenceIndex),
+  );
+  for (const filePath of GATE0_BOUND_OUTPUTS) {
+    assert(repeated.outputArtifacts[filePath].equals(
+      fixture.outputArtifacts[filePath],
+    ));
+  }
+});
+
+test('approved attestation rejects manually rebound Markdown', () => {
+  const fixture = validApprovedAttestationFixture();
+  const forged = Buffer.from('# forged Gate 0 PASS\n');
+  fixture.outputArtifacts['docs/convergence/STATUS.md'] = forged;
+  fixture.evidenceIndex.generatedOutputs[
+    'docs/convergence/STATUS.md'
+  ] = {
+    bytes: forged.length,
+    sha256: createHash('sha256').update(forged).digest('hex'),
+  };
+  assertEqual(validateGate0ApprovedAttestation(fixture).valid, false);
 });
 
 test('approved attestation rejects a broken review commit chain', () => {
