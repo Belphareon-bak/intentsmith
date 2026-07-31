@@ -5,12 +5,10 @@
 export const LEGACY_LISTENER_LOOPBACK_REQUIRED =
   'C3_LEGACY_LISTENER_LOOPBACK_REQUIRED';
 
-const LOOPBACK_HOSTS = new Set([
-  '127.0.0.1',
-  '::1',
-  '::ffff:127.0.0.1',
-  'localhost',
-]);
+// Keep this set deliberately narrow. Symbolic hosts are resolved by the OS
+// after validation and the current port-file/URL consumers are not proven
+// IPv6-bracket-safe. Additional bind addresses require their own evidence.
+const LOOPBACK_HOSTS = new Set(['127.0.0.1']);
 
 export const LEGACY_LISTENER_LOOPBACK_HOSTS = Object.freeze(
   [...LOOPBACK_HOSTS],

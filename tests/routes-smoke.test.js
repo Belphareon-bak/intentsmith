@@ -12,8 +12,18 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import path from 'path';
-import { readFileSync } from 'fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+} from 'fs';
+import { spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import { LLMProviderUnavailableError } from '../src/core/chat-turn-error.js';
 import {
   LEGACY_LISTENER_LOOPBACK_HOSTS,
@@ -431,7 +441,14 @@ if (typeof agentFactory === 'function') {
 
 console.log('\n── 7. Legacy Listener Loopback Boundary ──\n');
 
-for (const host of LEGACY_LISTENER_LOOPBACK_HOSTS) {
+const expectedLegacyBindHosts = ['127.0.0.1'];
+assert(
+  JSON.stringify(LEGACY_LISTENER_LOOPBACK_HOSTS)
+    === JSON.stringify(expectedLegacyBindHosts),
+  'legacy listener pins the exact numeric bind allowlist',
+);
+
+for (const host of expectedLegacyBindHosts) {
   assert(
     isLegacyLoopbackHost(host)
       && requireLegacyLoopbackHost(` ${host.toUpperCase()} `) === host,
@@ -442,8 +459,13 @@ for (const host of LEGACY_LISTENER_LOOPBACK_HOSTS) {
 for (const host of [
   '0.0.0.0',
   '::',
+  '::1',
+  '::ffff:127.0.0.1',
+  'localhost',
   '192.168.1.10',
   '10.0.0.2',
+  '127.0.0.2',
+  '203.0.113.77',
   'example.test',
   '',
   ' ',
@@ -498,16 +520,66 @@ const acceptedServer = {
 };
 const listenResult = listenOnLegacyLoopback(
   acceptedServer,
-  { port: 47831, host: ' LOCALHOST ' },
+  { port: 47831, host: ' 127.0.0.1 ' },
   callback,
 );
 assert(
   listenResult === listeningSentinel
     && acceptedListenCalls.length === 1
     && acceptedListenCalls[0][0] === 47831
-    && acceptedListenCalls[0][1] === 'localhost'
+    && acceptedListenCalls[0][1] === '127.0.0.1'
     && acceptedListenCalls[0][2] === callback,
   'loopback check and bind use the same canonical host',
+);
+
+const invalidHostRuntime = mkdtempSync(
+  path.join(isolatedTestRuntime.temp, 'legacy-invalid-host-'),
+);
+const invalidHostMetadata = lstatSync(invalidHostRuntime);
+let invalidHostEntries = [];
+let invalidHostResult;
+try {
+  invalidHostResult = spawnSync(
+    process.execPath,
+    ['src/server.js'],
+    {
+      cwd: ROOT,
+      env: {
+        ...process.env,
+        C3_HOST: '0.0.0.0',
+        C3_DB_PATH: path.join(invalidHostRuntime, 'c3.sqlite'),
+        C3_PORT_FILE: path.join(invalidHostRuntime, 'port.json'),
+        C3_PROJECTS_DIR: path.join(invalidHostRuntime, 'projects'),
+        C3_ENABLE_AGENTS: 'false',
+        C3_ENABLE_EXPERTISES: 'false',
+        C3_ENABLE_LIFECYCLE: 'false',
+        C3_ENABLE_COMFYUI: 'false',
+      },
+      encoding: 'utf8',
+      timeout: 30_000,
+    },
+  );
+  invalidHostEntries = readdirSync(invalidHostRuntime);
+} finally {
+  const current = lstatSync(invalidHostRuntime);
+  if (
+    current.isDirectory()
+    && !current.isSymbolicLink()
+    && current.dev === invalidHostMetadata.dev
+    && current.ino === invalidHostMetadata.ino
+    && realpathSync(invalidHostRuntime) === invalidHostRuntime
+  ) {
+    rmSync(invalidHostRuntime, { recursive: true, force: false });
+  } else {
+    throw new Error('Refusing to remove a substituted invalid-host fixture');
+  }
+}
+assert(
+  invalidHostResult?.status !== 0
+    && !invalidHostResult?.error
+    && invalidHostEntries.length === 0
+    && !existsSync(invalidHostRuntime),
+  'invalid C3_HOST fails before database, backup, project, or port-file state',
 );
 
 const serverSource = readFileSync(
@@ -520,6 +592,11 @@ assert(
   )
     && !/\bserver\.listen\s*\(/.test(serverSource),
   'server startup uses only the fail-closed legacy listener boundary',
+);
+assert(
+  serverSource.indexOf("import './runtime-environment.js';")
+    < serverSource.indexOf("import db from './db/database.js';"),
+  'server evaluates the network boundary bootstrap before the database module',
 );
 
 // ─── Summary ─────────────────────────────────────────────────────────────────

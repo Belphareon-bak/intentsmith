@@ -229,7 +229,7 @@ mimo loopback.
 
 | # | Úkol | Priorita | Stav |
 |---|---|---|---|
-| S-1 | `G0-R018` — zdokumentovat a zachovat loopback-only hranici současného listeneru | 🔴 P0 | ✅ fail-closed policy + registrovaný `C3-023` test; nový Gate 0 evidence běh čeká |
+| S-1 | `G0-R018` — zdokumentovat a zachovat lokální hranici současného listeneru | 🔴 P0 | ⚠️ numerický bind se validuje před runtime side effects; HTTP/WS browser-origin guard ještě chybí |
 | S-2 | Navrhnout oddělený listener pro vzdálený přístup; legacy `/api/*` a `/c3/ws` zůstávají pouze na loopbacku | 🔴 P0 | ❌ |
 | S-3 | Zavést autentizaci a scope enforcement pouze na oddělené vzdálené hranici | 🔴 P0 | ❌ |
 | S-4 | Přidat negativní testy dokazující, že vzdálený peer neobejde hranici přes legacy API ani WS terminál | 🔴 P0 | ❌ |

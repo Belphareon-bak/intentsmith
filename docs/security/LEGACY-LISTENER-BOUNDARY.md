@@ -4,15 +4,17 @@ The existing IntentSmith HTTP API and `/c3/ws` terminal are trusted-local
 surfaces. They do not provide the complete authentication, device binding, and
 per-operation scope enforcement required for remote exposure.
 
-## Enforced contract
+## Enforced bind contract
 
-- The legacy listener binds only to `127.0.0.1`, `::1`,
-  `::ffff:127.0.0.1`, or `localhost`.
+- The legacy listener binds only to the exact numeric address `127.0.0.1`.
 - Host input is canonicalized before use, and the exact canonical value that
   passes validation is passed to `server.listen()`.
-- Wildcard, LAN, VPN, public, missing, and malformed host values fail before
-  `server.listen()` with
+- The host is validated by `runtime-environment.js` before the database or
+  other runtime state can initialize.
+- Wildcard, symbolic, IPv6, LAN, VPN, public, explicitly blank, and malformed
+  host values fail before any runtime state or `server.listen()` with
   `C3_LEGACY_LISTENER_LOOPBACK_REQUIRED`.
+- An omitted `C3_HOST` keeps the safe `127.0.0.1` default.
 - `C3_HOST` is not a remote-access switch. Setting it to a non-loopback value
   makes startup fail closed.
 
@@ -21,6 +23,13 @@ The contract is implemented in
 The registered deterministic `C3-023` suite
 `tests/routes-smoke.test.js` covers accepted hosts, rejected hosts, rejection
 before the bind call, canonical check/bind identity, and production wiring.
+
+## Open browser-origin boundary
+
+Loopback alone is not an authorization boundary. A remote web page can target
+local HTTP and WebSocket endpoints. Until the shared HTTP/WS Host, Origin, and
+local-client capability checks are implemented and pass negative tests, S-1
+remains incomplete and `G0-R018` remains a Gate 0 blocker.
 
 ## Explicitly outside this boundary
 
