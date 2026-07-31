@@ -154,9 +154,12 @@ outputs are deterministic approval envelopes followed by the exact reviewed
 schema-7 bytes; the validator re-derives those bytes from `E` and `R`, so a
 hand-edited status plus a recomputed self-hash is invalid. The envelope clearly
 marks the preserved PENDING/CONDITIONAL text as a historical reviewed snapshot
-and binds its original digest. Until the separate promotion writer and
-current-HEAD loader enforce that same transition, the operational outcome
-remains `CONDITIONAL PASS`.
+and binds its original digest. The current-HEAD loader dispatches explicitly on
+schema 7 versus schema 8, obtains `C/E/R/A` only from physical Git parents,
+loads every artifact from Git objects, and rejects unknown schemas or broken
+lineage before validator subprocesses run. Until the separate promotion writer
+prepares the exact four schema-8 outputs, the operational outcome remains
+`CONDITIONAL PASS`.
 
 ### FAIL
 

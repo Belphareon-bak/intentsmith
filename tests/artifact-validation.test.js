@@ -81,6 +81,7 @@ import {
   buildGate0RevalidationInputScopes,
   GATE0_ATTESTATION_OUTPUTS,
   GATE0_BOUND_OUTPUTS,
+  resolveGate0AttestationChain,
   validateGate0ApprovedAttestation,
   validateGate0Attestation,
   validateGate0RevalidationDisjointness,
@@ -2345,6 +2346,85 @@ test('approved attestation rejects manually rebound Markdown', () => {
   assertEqual(validateGate0ApprovedAttestation(fixture).valid, false);
 });
 
+test('attestation topology resolves physical schema-7 and schema-8 parents', () => {
+  const candidateSha = 'a'.repeat(40);
+  const pendingAttestationSha = 'b'.repeat(40);
+  const reviewResultSha = 'd'.repeat(40);
+  const approvedAttestationSha = 'e'.repeat(40);
+  const pending = resolveGate0AttestationChain({
+    headSha: pendingAttestationSha,
+    parentShas: [candidateSha],
+    schemaVersion: 7,
+  });
+  assertEqual(pending.valid, true);
+  assertEqual(pending.candidateSha, candidateSha);
+  assertEqual(pending.pendingAttestationSha, pendingAttestationSha);
+
+  const approved = resolveGate0AttestationChain({
+    headSha: approvedAttestationSha,
+    parentShas: [reviewResultSha],
+    schemaVersion: 8,
+    reviewRevision: {
+      headSha: reviewResultSha,
+      parentShas: [pendingAttestationSha],
+    },
+    pendingRevision: {
+      headSha: pendingAttestationSha,
+      parentShas: [candidateSha],
+    },
+  });
+  assertEqual(approved.valid, true);
+  assertEqual(approved.candidateSha, candidateSha);
+  assertEqual(approved.pendingAttestationSha, pendingAttestationSha);
+  assertEqual(approved.reviewResultSha, reviewResultSha);
+  assertEqual(approved.approvedAttestationSha, approvedAttestationSha);
+});
+
+test('attestation topology rejects unknown schemas and broken lineage', () => {
+  const base = {
+    headSha: 'e'.repeat(40),
+    parentShas: ['d'.repeat(40)],
+    schemaVersion: 8,
+    reviewRevision: {
+      headSha: 'd'.repeat(40),
+      parentShas: ['b'.repeat(40)],
+    },
+    pendingRevision: {
+      headSha: 'b'.repeat(40),
+      parentShas: ['a'.repeat(40)],
+    },
+  };
+  assertEqual(resolveGate0AttestationChain({
+    ...base,
+    schemaVersion: 9,
+  }).valid, false);
+  assertEqual(resolveGate0AttestationChain({
+    ...base,
+    parentShas: [...base.parentShas, 'c'.repeat(40)],
+  }).valid, false);
+  assertEqual(resolveGate0AttestationChain({
+    ...base,
+    reviewRevision: {
+      ...base.reviewRevision,
+      parentShas: ['b'.repeat(40), 'c'.repeat(40)],
+    },
+  }).valid, false);
+  assertEqual(resolveGate0AttestationChain({
+    ...base,
+    pendingRevision: {
+      ...base.pendingRevision,
+      parentShas: ['a'.repeat(40), 'c'.repeat(40)],
+    },
+  }).valid, false);
+  assertEqual(resolveGate0AttestationChain({
+    ...base,
+    reviewRevision: {
+      ...base.reviewRevision,
+      headSha: 'f'.repeat(40),
+    },
+  }).valid, false);
+});
+
 test('approved attestation rejects a broken review commit chain', () => {
   const wrongApprovedParent = validApprovedAttestationFixture();
   wrongApprovedParent.parentShas = ['f'.repeat(40)];
@@ -2411,7 +2491,10 @@ test('post-commit attestation requires disjoint revalidation inputs', () => {
   delete missingBoundary.revalidationInputScopes;
   assertEqual(validateGate0Attestation(missingBoundary).valid, false);
 
-  for (const outputPath of GATE0_ATTESTATION_OUTPUTS) {
+  for (const outputPath of [
+    ...GATE0_ATTESTATION_OUTPUTS,
+    GATE0_REVIEW_RESULT_PATH,
+  ]) {
     const overlapping = validAttestationFixture();
     overlapping.revalidationInputScopes.push({
       kind: 'exact',

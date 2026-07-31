@@ -153,6 +153,14 @@ signal during the generator's four-file finalization
 restores all original tracked outputs, so an exit-2 run cannot leave a
 commit-ready evidence quartet.
 
+The same command dispatches explicitly by committed evidence schema. Schema 7
+validates the physical `C → E` parent relation. Schema 8 walks the physical
+`C → E → R → A` chain, reads the pending packet from `E`, the one-file review
+result from `R`, and the four approved outputs from `A`; JSON claims never
+select those commits. Unknown schemas, merges, changed lineage, mixed review
+diffs and a review-result path overlapping any validator input fail closed
+before the candidate validators run.
+
 The registry and disposition validators are invoked with `--json`. A
 well-formed validation report with errors is a valid red state: the generator
 writes `STATUS.md`, `EVIDENCE-INDEX.json`, the baseline report and the review

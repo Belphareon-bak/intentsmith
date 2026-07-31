@@ -185,7 +185,7 @@ export function validateGate0Attestation({
     errors.push('attestation validation requires a clean worktree');
   }
   const revalidationBoundary = validateGate0RevalidationDisjointness(
-    GATE0_ATTESTATION_OUTPUTS,
+    [...GATE0_ATTESTATION_OUTPUTS, GATE0_REVIEW_RESULT_PATH],
     revalidationInputScopes,
   );
   if (!revalidationBoundary.valid) {
@@ -455,7 +455,7 @@ export function validateGate0ApprovedAttestation({
     errors.push('approved attestation validation requires a clean worktree');
   }
   const revalidationBoundary = validateGate0RevalidationDisjointness(
-    GATE0_ATTESTATION_OUTPUTS,
+    [...GATE0_ATTESTATION_OUTPUTS, GATE0_REVIEW_RESULT_PATH],
     revalidationInputScopes,
   );
   if (!revalidationBoundary.valid) {
@@ -1244,87 +1244,236 @@ function validIgnoredState(value) {
     && value.unexpectedPathCount === 0;
 }
 
-export async function validateCurrentAttestation(root = process.cwd()) {
-  const revision = git(
-    ['rev-list', '--parents', '-n', '1', 'HEAD'],
-    root,
-  ).split(' ');
-  const headSha = revision.shift();
-  const parentShas = revision;
-  const changedEntries = git(
-    [
-      'diff-tree',
-      '--no-commit-id',
-      '--name-status',
-      '--no-renames',
-      '-r',
-      headSha,
-    ],
-    root,
-  ).split('\n').filter(Boolean);
+export function resolveGate0AttestationChain({
+  headSha,
+  parentShas,
+  schemaVersion,
+  reviewRevision = null,
+  pendingRevision = null,
+}) {
+  const errors = [];
+  if (!isFullSha1(headSha)) {
+    errors.push('attestation HEAD must be a full lowercase SHA-1');
+  }
+  if (
+    !Array.isArray(parentShas)
+    || parentShas.length !== 1
+    || !isFullSha1(parentShas[0])
+  ) {
+    errors.push('attestation HEAD must have exactly one full-SHA parent');
+  }
+
+  if (schemaVersion === 7) {
+    return {
+      schemaVersion: 1,
+      valid: errors.length === 0,
+      errors,
+      candidateSha: parentShas?.[0] || null,
+      pendingAttestationSha: headSha || null,
+      reviewResultSha: null,
+      approvedAttestationSha: null,
+    };
+  }
+  if (schemaVersion !== 8) {
+    errors.push(`unsupported Gate 0 evidence schema: ${String(schemaVersion)}`);
+    return {
+      schemaVersion: 1,
+      valid: false,
+      errors,
+      candidateSha: null,
+      pendingAttestationSha: null,
+      reviewResultSha: null,
+      approvedAttestationSha: headSha || null,
+    };
+  }
+
+  const reviewResultSha = parentShas?.[0] || null;
+  if (
+    reviewRevision?.headSha !== reviewResultSha
+    || !Array.isArray(reviewRevision?.parentShas)
+    || reviewRevision.parentShas.length !== 1
+    || !isFullSha1(reviewRevision.parentShas[0])
+  ) {
+    errors.push('review-result revision must be the sole parent of schema 8');
+  }
+  const pendingAttestationSha = reviewRevision?.parentShas?.[0] || null;
+  if (
+    pendingRevision?.headSha !== pendingAttestationSha
+    || !Array.isArray(pendingRevision?.parentShas)
+    || pendingRevision.parentShas.length !== 1
+    || !isFullSha1(pendingRevision.parentShas[0])
+  ) {
+    errors.push('pending revision must be the sole parent of the review result');
+  }
+  const candidateSha = pendingRevision?.parentShas?.[0] || null;
+  const identities = [
+    headSha,
+    reviewResultSha,
+    pendingAttestationSha,
+    candidateSha,
+  ];
+  if (
+    identities.some(identity => !isFullSha1(identity))
+    || new Set(identities).size !== identities.length
+  ) {
+    errors.push('schema-8 C/E/R/A identities must be full and distinct');
+  }
+  return {
+    schemaVersion: 1,
+    valid: errors.length === 0,
+    errors,
+    candidateSha,
+    pendingAttestationSha,
+    reviewResultSha,
+    approvedAttestationSha: headSha || null,
+  };
+}
+
+export function loadGate0AttestationCommit(root, revision = 'HEAD') {
+  const { headSha, parentShas } = readRevision(root, revision);
+  const changedEntries = readChangedEntries(root, headSha);
   const evidenceIndex = JSON.parse(
-    git(
+    gitBuffer(
       ['show', `${headSha}:docs/convergence/EVIDENCE-INDEX.json`],
       root,
+    ).toString('utf8'),
+  );
+  return {
+    headSha,
+    parentShas,
+    changedEntries,
+    evidenceIndex,
+    outputArtifacts: Object.fromEntries(
+      GATE0_BOUND_OUTPUTS.map(filePath => [
+        filePath,
+        gitBuffer(['show', `${headSha}:${filePath}`], root),
+      ]),
     ),
-  );
-  const outputArtifacts = Object.fromEntries(
-    GATE0_BOUND_OUTPUTS.map(filePath => [
-      filePath,
-      gitBuffer(['show', `${headSha}:${filePath}`], root),
-    ]),
-  );
-  const outputModes = Object.fromEntries(
-    GATE0_ATTESTATION_OUTPUTS.map(filePath => [
-      filePath,
-      git(['ls-tree', headSha, '--', filePath], root).split(' ')[0],
-    ]),
-  );
-  const candidateRegistry = JSON.parse(
-    git(
-      ['show', `${parentShas[0]}:tests/registry.json`],
+    outputModes: Object.fromEntries(
+      GATE0_ATTESTATION_OUTPUTS.map(filePath => [
+        filePath,
+        readMode(root, headSha, filePath),
+      ]),
+    ),
+  };
+}
+
+export function loadGate0ReviewResultCommit(root, revision) {
+  const { headSha, parentShas } = readRevision(root, revision);
+  return {
+    headSha,
+    parentShas,
+    changedEntries: readChangedEntries(root, headSha),
+    resultBytes: gitBuffer(
+      ['show', `${headSha}:${GATE0_REVIEW_RESULT_PATH}`],
       root,
     ),
+    resultMode: readMode(root, headSha, GATE0_REVIEW_RESULT_PATH),
+  };
+}
+
+export async function validateCommittedGate0PendingAttestation({
+  root,
+  pendingAttestationSha,
+  worktreeHeadSha,
+  approvedAttestation = null,
+  reviewResultCommit = null,
+}) {
+  const pendingAttestation = loadGate0AttestationCommit(
+    root,
+    pendingAttestationSha,
+  );
+  const candidateSha = pendingAttestation.parentShas[0];
+  if (
+    pendingAttestation.parentShas.length !== 1
+    || !isFullSha1(candidateSha)
+  ) {
+    return {
+      report: invalidAttestationReport({
+        headSha: pendingAttestation.headSha,
+        candidateSha,
+        errors: [
+          'pending attestation must have exactly one full-SHA candidate parent',
+        ],
+      }),
+      pendingAttestation,
+      expectations: null,
+    };
+  }
+
+  const candidateRegistry = JSON.parse(
+    gitBuffer(
+      ['show', `${candidateSha}:tests/registry.json`],
+      root,
+    ).toString('utf8'),
   );
   const expectedRegistrySha256 = sha256(
     Buffer.from(JSON.stringify(candidateRegistry)),
   );
   const expectedRegistryFacts = buildRegistryGateFacts(candidateRegistry);
   const candidateDispositionManifest = JSON.parse(
-    git(
-      ['show', `${parentShas[0]}:${FINAL_DIFF_MANIFEST_PATH}`],
+    gitBuffer(
+      ['show', `${candidateSha}:${FINAL_DIFF_MANIFEST_PATH}`],
       root,
-    ),
+    ).toString('utf8'),
   );
   const revalidationInputScopes = buildGate0RevalidationInputScopes(
     candidateDispositionManifest,
   );
-  const initialWorktreeClean = git(
-    ['status', '--porcelain=v1', '--untracked-files=all'],
+  const initialWorktreeClean = worktreeMatches(
     root,
-  ) === '' && git(['rev-parse', 'HEAD'], root) === headSha;
+    worktreeHeadSha,
+  );
   const common = {
-    headSha,
-    parentShas,
-    changedEntries,
-    evidenceIndex,
-    outputArtifacts,
-    outputModes,
+    ...pendingAttestation,
     expectedRegistrySha256,
     expectedRegistryFacts,
     revalidationInputScopes,
   };
   const preflight = validateGate0Attestation({
     ...common,
-    expectedRegistryValidation: evidenceIndex.validations?.registry,
-    expectedDispositionValidation: evidenceIndex.validations?.disposition,
-    expectedRiskPolicy: evidenceIndex.riskPolicy,
-    expectedPrivacyIncident: evidenceIndex.privacyIncident,
+    expectedRegistryValidation:
+      pendingAttestation.evidenceIndex.validations?.registry,
+    expectedDispositionValidation:
+      pendingAttestation.evidenceIndex.validations?.disposition,
+    expectedRiskPolicy: pendingAttestation.evidenceIndex.riskPolicy,
+    expectedPrivacyIncident:
+      pendingAttestation.evidenceIndex.privacyIncident,
     worktreeClean: initialWorktreeClean,
   });
-  if (!preflight.valid) return preflight;
+  if (!preflight.valid) {
+    return {
+      report: preflight,
+      pendingAttestation,
+      expectations: null,
+    };
+  }
+  if (approvedAttestation !== null || reviewResultCommit !== null) {
+    const approvedPreflight = validateGate0ApprovedAttestation({
+      ...approvedAttestation,
+      pendingAttestation,
+      reviewResultCommit,
+      expectedRegistrySha256,
+      expectedRegistryFacts,
+      expectedRegistryValidation:
+        pendingAttestation.evidenceIndex.validations?.registry,
+      expectedDispositionValidation:
+        pendingAttestation.evidenceIndex.validations?.disposition,
+      expectedRiskPolicy: pendingAttestation.evidenceIndex.riskPolicy,
+      expectedPrivacyIncident:
+        pendingAttestation.evidenceIndex.privacyIncident,
+      revalidationInputScopes,
+      worktreeClean: initialWorktreeClean,
+    });
+    if (!approvedPreflight.valid) {
+      return {
+        report: approvedPreflight,
+        pendingAttestation,
+        expectations: null,
+      };
+    }
+  }
 
-  const candidateSha = parentShas[0];
   const validatorEnvironment = environmentForExecution(
     buildGate0ExecutionPlan({
       root,
@@ -1349,40 +1498,229 @@ export async function validateCurrentAttestation(root = process.cwd()) {
       );
       return [registry, disposition];
     });
-  const expectedRegistryValidation =
-    projectRegistryValidation(registryValidation);
-  const expectedDispositionValidation =
-    projectDispositionValidation(dispositionValidation);
-  const expectedRiskPolicy = buildGate0RiskEvidence({
-    riskMarkdownBytes: gitBuffer(
-      ['show', `${candidateSha}:${RISK_REGISTER_PATH}`],
-      root,
+  const expectations = {
+    expectedRegistrySha256,
+    expectedRegistryFacts,
+    expectedRegistryValidation:
+      projectRegistryValidation(registryValidation),
+    expectedDispositionValidation:
+      projectDispositionValidation(dispositionValidation),
+    expectedRiskPolicy: buildGate0RiskEvidence({
+      riskMarkdownBytes: gitBuffer(
+        ['show', `${candidateSha}:${RISK_REGISTER_PATH}`],
+        root,
+      ),
+      policyBytes: gitBuffer(
+        ['show', `${candidateSha}:${RISK_POLICY_PATH}`],
+        root,
+      ),
+    }),
+    expectedPrivacyIncident: buildPrivacyIncidentEvidence(
+      gitBuffer(
+        ['show', `${candidateSha}:${PRIVACY_INCIDENT_PATH}`],
+        root,
+      ),
     ),
-    policyBytes: gitBuffer(
-      ['show', `${candidateSha}:${RISK_POLICY_PATH}`],
+    revalidationInputScopes,
+  };
+  const report = validateGate0Attestation({
+    ...common,
+    ...expectations,
+    worktreeClean: initialWorktreeClean
+      && worktreeMatches(root, worktreeHeadSha),
+  });
+  return {
+    report,
+    pendingAttestation,
+    expectations,
+  };
+}
+
+export async function validateCurrentAttestation(root = process.cwd()) {
+  const approvedAttestation = loadGate0AttestationCommit(root, 'HEAD');
+  const schemaVersion = approvedAttestation.evidenceIndex?.schemaVersion;
+  if (schemaVersion === 7) {
+    const topology = resolveGate0AttestationChain({
+      headSha: approvedAttestation.headSha,
+      parentShas: approvedAttestation.parentShas,
+      schemaVersion,
+    });
+    if (!topology.valid) {
+      return invalidAttestationReport({
+        headSha: approvedAttestation.headSha,
+        candidateSha: topology.candidateSha,
+        errors: topology.errors,
+      });
+    }
+    const pending = await validateCommittedGate0PendingAttestation({
       root,
+      pendingAttestationSha: approvedAttestation.headSha,
+      worktreeHeadSha: approvedAttestation.headSha,
+    });
+    return pending.report;
+  }
+  if (schemaVersion !== 8) {
+    return invalidAttestationReport({
+      headSha: approvedAttestation.headSha,
+      candidateSha: null,
+      errors: [
+        `unsupported Gate 0 evidence schema: ${String(schemaVersion)}`,
+      ],
+    });
+  }
+
+  if (
+    approvedAttestation.parentShas.length !== 1
+    || !isFullSha1(approvedAttestation.parentShas[0])
+  ) {
+    return invalidApprovedAttestationReport({
+      approvedAttestation,
+      errors: [
+        'approved attestation must have exactly one full-SHA review parent',
+      ],
+    });
+  }
+  const reviewResultCommit = loadGate0ReviewResultCommit(
+    root,
+    approvedAttestation.parentShas[0],
+  );
+  if (
+    reviewResultCommit.parentShas.length !== 1
+    || !isFullSha1(reviewResultCommit.parentShas[0])
+  ) {
+    return invalidApprovedAttestationReport({
+      approvedAttestation,
+      reviewResultCommit,
+      errors: [
+        'review-result commit must have exactly one full-SHA pending parent',
+      ],
+    });
+  }
+  const pendingAttestation = loadGate0AttestationCommit(
+    root,
+    reviewResultCommit.parentShas[0],
+  );
+  const topology = resolveGate0AttestationChain({
+    headSha: approvedAttestation.headSha,
+    parentShas: approvedAttestation.parentShas,
+    schemaVersion,
+    reviewRevision: reviewResultCommit,
+    pendingRevision: pendingAttestation,
+  });
+  if (!topology.valid) {
+    return invalidApprovedAttestationReport({
+      approvedAttestation,
+      reviewResultCommit,
+      pendingAttestation,
+      errors: topology.errors,
+    });
+  }
+
+  const pending = await validateCommittedGate0PendingAttestation({
+    root,
+    pendingAttestationSha: topology.pendingAttestationSha,
+    worktreeHeadSha: topology.approvedAttestationSha,
+    approvedAttestation,
+    reviewResultCommit,
+  });
+  if (!pending.report.valid || pending.expectations === null) {
+    if (pending.report.schemaVersion === 2) {
+      return pending.report;
+    }
+    return invalidApprovedAttestationReport({
+      approvedAttestation,
+      reviewResultCommit,
+      pendingAttestation,
+      errors: pending.report.errors.map(
+        error => `pending attestation: ${error}`,
+      ),
+    });
+  }
+  return validateGate0ApprovedAttestation({
+    ...approvedAttestation,
+    pendingAttestation,
+    reviewResultCommit,
+    ...pending.expectations,
+    worktreeClean: worktreeMatches(
+      root,
+      topology.approvedAttestationSha,
     ),
   });
-  const expectedPrivacyIncident = buildPrivacyIncidentEvidence(
-    gitBuffer(
-      ['show', `${candidateSha}:${PRIVACY_INCIDENT_PATH}`],
-      root,
-    ),
+}
+
+function readRevision(root, revision) {
+  const values = git(
+    ['rev-list', '--parents', '-n', '1', revision],
+    root,
+  ).split(' ').filter(Boolean);
+  return {
+    headSha: values.shift() || null,
+    parentShas: values,
+  };
+}
+
+function readChangedEntries(root, revision) {
+  return git(
+    [
+      'diff-tree',
+      '--no-commit-id',
+      '--name-status',
+      '--no-renames',
+      '-r',
+      revision,
+    ],
+    root,
+  ).split('\n').filter(Boolean);
+}
+
+function readMode(root, revision, filePath) {
+  const entry = git(
+    ['ls-tree', revision, '--', filePath],
+    root,
   );
-  const finalWorktreeClean = initialWorktreeClean
-    && git(['rev-parse', 'HEAD'], root) === headSha
+  return entry === '' ? null : entry.split(/\s+/, 1)[0];
+}
+
+function worktreeMatches(root, expectedHeadSha) {
+  return git(['rev-parse', 'HEAD'], root) === expectedHeadSha
     && git(
       ['status', '--porcelain=v1', '--untracked-files=all'],
       root,
     ) === '';
-  return validateGate0Attestation({
-    ...common,
-    expectedRegistryValidation,
-    expectedDispositionValidation,
-    expectedRiskPolicy,
-    expectedPrivacyIncident,
-    worktreeClean: finalWorktreeClean,
-  });
+}
+
+function invalidAttestationReport({
+  headSha,
+  candidateSha,
+  errors,
+}) {
+  return {
+    schemaVersion: 1,
+    valid: false,
+    errors,
+    headSha: headSha || null,
+    candidateSha: candidateSha || null,
+    changedEntries: [],
+  };
+}
+
+function invalidApprovedAttestationReport({
+  approvedAttestation,
+  reviewResultCommit = null,
+  pendingAttestation = null,
+  errors,
+}) {
+  return {
+    schemaVersion: 2,
+    valid: false,
+    errors,
+    headSha: approvedAttestation?.headSha || null,
+    candidateSha:
+      pendingAttestation?.evidenceIndex?.candidate?.sha || null,
+    pendingAttestationSha: pendingAttestation?.headSha || null,
+    reviewResultSha: reviewResultCommit?.headSha || null,
+    changedEntries: approvedAttestation?.changedEntries || [],
+  };
 }
 
 async function runValidator(argv, cwd, environment) {
@@ -1437,6 +1775,10 @@ function isRecord(value) {
   return value !== null
     && typeof value === 'object'
     && !Array.isArray(value);
+}
+
+function isFullSha1(value) {
+  return /^[a-f0-9]{40}$/.test(value || '');
 }
 
 function hasExactKeys(value, expectedKeys) {
