@@ -8,6 +8,7 @@
 import 'dotenv/config';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { normalizeLegacyLocalOrigins } from './security/legacy-local-access-policy.js';
 import { requireLegacyLoopbackHost } from './security/legacy-listener-policy.js';
 
 const sourceDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -20,6 +21,14 @@ const projectRoot = path.resolve(sourceDirectory, '..');
 process.env.C3_HOST = requireLegacyLoopbackHost(
   process.env.C3_HOST === undefined ? '127.0.0.1' : process.env.C3_HOST,
 );
+if (process.env.C3_CORS_ORIGINS !== undefined) {
+  const configuredOrigins = process.env.C3_CORS_ORIGINS.trim() === ''
+    ? []
+    : process.env.C3_CORS_ORIGINS.split(',').map(value => value.trim());
+  process.env.C3_CORS_ORIGINS = normalizeLegacyLocalOrigins(
+    configuredOrigins,
+  ).join(',');
+}
 
 if (!process.env.C3_DB_PATH?.trim()) {
   process.env.C3_DB_PATH = path.join(projectRoot, 'data', 'c3.db');

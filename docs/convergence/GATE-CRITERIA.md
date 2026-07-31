@@ -55,6 +55,14 @@ whoever writes the verdict:
 > `offline` (T1) or `database` (T2). Every row in those profiles must be
 > `ACTIVE` and `required: true`.
 
+`offline` means no external service or unowned network dependency. It normally
+requires `network:none`; the only loopback exception is the exact
+`isolated-home-and-owned-loopback-server` fixture, where the suite creates,
+owns, bounds, and closes its listener in-process and declares no server,
+database, Ollama, or GPU prerequisite. The registry validator enforces that
+tuple. This keeps a live local-boundary regression deterministic without
+misrepresenting it as zero-socket execution.
+
 At the current registry fingerprint that is **199 suites**: 173 `offline` and
 26 `database`, all `ACTIVE` and required. This count is reproducible; it is not
 an estimate. If the number moves, the registry moved, and the change is

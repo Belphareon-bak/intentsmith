@@ -12,6 +12,7 @@ import {
   buildServerPortPayload,
   writePrivatePortFile,
 } from './server-port-file.js';
+import { createLegacyLocalCapability } from './security/legacy-local-access-policy.js';
 import { listenOnLegacyLoopback } from './security/legacy-listener-policy.js';
 import { applyHttpTimeoutPolicy } from './timeout-policy.js';
 import { logger } from './core/logger.js';
@@ -21,6 +22,7 @@ import db from './db/database.js';
 // ESM __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const legacyLocalCapability = createLegacyLocalCapability();
 let metricsCollector = null;
 
 // Global error handlers (Phase 1 — error-handler.js)
@@ -1160,7 +1162,10 @@ listenOnLegacyLoopback(server, config.server, async () => {
   }
 
   // v59.0: Attach WebSocket server for IDE integration
-  attachWebSocketServer(server, ChatController, logger);
+  attachWebSocketServer(server, ChatController, logger, {
+    allowedOrigins: config.server.allowedOrigins,
+    localCapability: legacyLocalCapability,
+  });
 
   // Phase C1: Preload active workflow sessions into RAM cache
   try {
@@ -1329,6 +1334,7 @@ listenOnLegacyLoopback(server, config.server, async () => {
           started: new Date().toISOString(),
         },
         process.env.INTENTSMITH_TEST_SERVER_NONCE,
+        legacyLocalCapability,
       ),
     );
     logger.info('Server', `Port file written: ${config.server.portFile}`);

@@ -32,7 +32,9 @@ export const config = {
     host: process.env.C3_HOST || '127.0.0.1',
     // Port file: written after listen with assigned port (for IDE discovery)
     portFile: process.env.C3_PORT_FILE || path.join(os.homedir(), '.c3', 'port'),
-    // CORS: allowed origins (empty = same-origin only, '*' = allow all)
+    // CORS: explicit local HTTP origins only (empty = same-origin only).
+    // runtime-environment.js rejects wildcards and non-local origins before
+    // any runtime state is initialized.
     allowedOrigins: (process.env.C3_CORS_ORIGINS || '').split(',').filter(Boolean),
     // Rate limiting: tiered per IP per window (v125)
     rateLimit: {

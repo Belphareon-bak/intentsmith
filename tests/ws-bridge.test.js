@@ -14,6 +14,7 @@ import './helpers/isolated-test-db.js';
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { strict as assert } from 'assert';
+import { createServer } from 'node:http';
 
 // ─── Imports ─────────────────────────────────────────────────────────────────
 
@@ -43,6 +44,15 @@ import {
   LLMProviderUnavailableError,
   throwIfTerminalChatFailure,
 } from '../src/core/chat-turn-error.js';
+import {
+  LEGACY_LOCAL_WS_CAPABILITY_PREFIX,
+  createLegacyLocalCapability,
+  evaluateLegacyLocalAccess,
+  extractLegacyLocalWebSocketCapability,
+  isValidLegacyLocalCapability,
+  legacyLocalCapabilitiesEqual,
+  normalizeLegacyLocalOrigins,
+} from '../src/security/legacy-local-access-policy.js';
 
 let passed = 0;
 let failed = 0;
@@ -96,6 +106,127 @@ async function asyncTest(name, fn, timeoutMs = ASYNC_TEST_TIMEOUT_MS) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function listenOnOwnedLoopback(server) {
+  await new Promise((resolve, reject) => {
+    const onError = error => {
+      server.off('listening', onListening);
+      reject(error);
+    };
+    const onListening = () => {
+      server.off('error', onError);
+      resolve();
+    };
+    server.once('error', onError);
+    server.once('listening', onListening);
+    server.listen(0, '127.0.0.1');
+  });
+  const address = server.address();
+  assert.ok(address && typeof address === 'object');
+  assert.equal(address.address, '127.0.0.1');
+  return address.port;
+}
+
+async function closeOwnedWebSocket(ws) {
+  if (ws.readyState === ws.constructor.CLOSED) return;
+  await new Promise(resolve => {
+    const timer = setTimeout(() => {
+      ws.terminate();
+      resolve();
+    }, 1_000);
+    ws.once('close', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+    ws.close();
+  });
+}
+
+async function closeOwnedWebSocketServer(wss, httpServer) {
+  for (const client of wss.clients) client.terminate();
+  await new Promise((resolve, reject) => {
+    wss.close(error => error ? reject(error) : resolve());
+  });
+  await new Promise((resolve, reject) => {
+    httpServer.close(error => error ? reject(error) : resolve());
+  });
+}
+
+async function connectAndHello(WebSocket, url, protocols, options) {
+  const connectionOptions = {
+    handshakeTimeout: 3_000,
+    ...options,
+  };
+  const ws = protocols === undefined
+    ? new WebSocket(url, connectionOptions)
+    : new WebSocket(url, protocols, connectionOptions);
+  await new Promise((resolve, reject) => {
+    const onError = error => {
+      ws.off('open', onOpen);
+      reject(error);
+    };
+    const onOpen = () => {
+      ws.off('error', onError);
+      resolve();
+    };
+    ws.once('error', onError);
+    ws.once('open', onOpen);
+  });
+  ws.send(JSON.stringify({
+    type: 'hello',
+    protocolVersion: PROTOCOL_VERSION,
+    ideVersion: 'boundary-test',
+  }));
+  await new Promise((resolve, reject) => {
+    const onError = error => {
+      ws.off('message', onMessage);
+      reject(error);
+    };
+    const onMessage = raw => {
+      const message = JSON.parse(raw.toString());
+      if (message.type !== 'hello_ack') return;
+      ws.off('error', onError);
+      ws.off('message', onMessage);
+      resolve();
+    };
+    ws.on('error', onError);
+    ws.on('message', onMessage);
+  });
+  return ws;
+}
+
+async function expectWebSocketHttpRejection(
+  WebSocket,
+  url,
+  options = {},
+  expectedStatus,
+) {
+  await new Promise((resolve, reject) => {
+    const { protocols, ...connectionOptions } = options;
+    const wsOptions = {
+      handshakeTimeout: 3_000,
+      ...connectionOptions,
+    };
+    const ws = protocols === undefined
+      ? new WebSocket(url, wsOptions)
+      : new WebSocket(url, protocols, wsOptions);
+    ws.once('error', error => {
+      try {
+        assert.equal(
+          error.message,
+          `Unexpected server response: ${expectedStatus}`,
+        );
+        resolve();
+      } catch (assertionError) {
+        reject(assertionError);
+      }
+    });
+    ws.once('open', () => {
+      reject(new Error('Hostile WebSocket unexpectedly opened'));
+      ws.terminate();
+    });
+  });
 }
 
 // Mock logger
@@ -1255,41 +1386,22 @@ test('T22: onGateVerdict hook signature matches session-adapter expectation', ()
 
 console.log('\n🌐 WS Server Module');
 
-// Import WS server — may fail if 'ws' not installed (no network in test env)
-let attachWebSocketServer = null;
-let getWebSocketBridgeHealth = null;
-let wsBridgeTestInternals = null;
-try {
-  const mod = await import('../src/ws-bridge/index.js');
-  attachWebSocketServer = mod.attachWebSocketServer;
-} catch (err) {
-  if (err.code === 'ERR_MODULE_NOT_FOUND' && err.message.includes('ws')) {
-    console.log('  ⚠️  Skipping WS server tests (ws package not installed)');
-  } else {
-    throw err;
-  }
-}
+// The registered required suite fails closed if its production WS dependency
+// or boundary internals cannot load. A missing `ws` package is not a skip.
+const { attachWebSocketServer } = await import('../src/ws-bridge/index.js');
+const {
+  getWebSocketBridgeHealth,
+  _testInternals: wsBridgeTestInternals,
+} = await import('../src/ws-bridge/ws-server.js');
 
-try {
-  const mod = await import('../src/ws-bridge/ws-server.js');
-  getWebSocketBridgeHealth = mod.getWebSocketBridgeHealth;
-  wsBridgeTestInternals = mod._testInternals;
-} catch (err) {
-  if (!(err.code === 'ERR_MODULE_NOT_FOUND' && err.message.includes('ws'))) {
-    throw err;
-  }
-}
-
-if (attachWebSocketServer) {
-  test('T23: attachWebSocketServer is a function', () => {
-    assert.equal(typeof attachWebSocketServer, 'function');
-  });
-} else {
-  test('T23: attachWebSocketServer export verified via protocol/session-adapter', () => {
-    // Verified indirectly — protocol.js and session-adapter.js work without ws
-    assert.ok(true);
-  });
-}
+test('T23: attachWebSocketServer and boundary internals are available', () => {
+  assert.equal(typeof attachWebSocketServer, 'function');
+  assert.equal(typeof getWebSocketBridgeHealth, 'function');
+  assert.equal(
+    typeof wsBridgeTestInternals?.createLegacyWebSocketVerifyClient,
+    'function',
+  );
+});
 
 test('T24: all protocol exports are accessible', () => {
   assert.equal(typeof PROTOCOL_VERSION, 'number');
@@ -1313,7 +1425,400 @@ test('T25: createSessionAdapter is exported and functional', () => {
   assert.ok(adapter.sessionId);
 });
 
-if (wsBridgeTestInternals && getWebSocketBridgeHealth) {
+{
+  // This required security block is deliberately unconditional. Missing WS
+  // dependencies or boundary exports must fail the suite, never become skips.
+  test('T25a: local capability is 256-bit base64url and comparisons fail closed', () => {
+    const first = createLegacyLocalCapability();
+    const second = createLegacyLocalCapability();
+    assert.equal(isValidLegacyLocalCapability(first), true);
+    assert.equal(isValidLegacyLocalCapability(second), true);
+    assert.notEqual(first, second);
+    assert.equal(legacyLocalCapabilitiesEqual(first, first), true);
+    assert.equal(legacyLocalCapabilitiesEqual(first, second), false);
+    assert.equal(legacyLocalCapabilitiesEqual(first, 'short'), false);
+  });
+
+  test('T25aa: local origin configuration accepts only explicit local HTTP origins', () => {
+    assert.deepEqual(normalizeLegacyLocalOrigins([]), []);
+    assert.deepEqual(
+      normalizeLegacyLocalOrigins([
+        'http://127.0.0.1:47831',
+        'http://localhost:3000',
+        'http://127.0.0.1:80',
+        'http://127.0.0.1:47831',
+      ]),
+      [
+        'http://127.0.0.1:47831',
+        'http://localhost:3000',
+        'http://127.0.0.1',
+      ],
+    );
+    for (const origin of [
+      '*',
+      'null',
+      'file://',
+      'https://attacker.example',
+      'http://attacker.example:47831',
+      'http://127.0.0.1',
+    ]) {
+      assert.throws(() => normalizeLegacyLocalOrigins([origin]));
+    }
+  });
+
+  test('T25ab: shared local-access matrix rejects foreign and opaque clients', () => {
+    const capability = 'A'.repeat(43);
+    const base = {
+      host: '127.0.0.1:47831',
+      expectedPort: 47831,
+      remoteAddress: '127.0.0.1',
+      allowedOrigins: ['http://localhost:3000'],
+      expectedCapability: capability,
+    };
+    assert.equal(
+      evaluateLegacyLocalAccess(base).reasonCode,
+      'NATIVE_LOOPBACK_CLIENT',
+    );
+    assert.equal(
+      evaluateLegacyLocalAccess({
+        ...base,
+        origin: 'http://127.0.0.1:47831',
+      }).reasonCode,
+      'AUTHORIZED_LOCAL_ORIGIN',
+    );
+    assert.equal(
+      evaluateLegacyLocalAccess({
+        ...base,
+        origin: 'http://localhost:3000',
+      }).reasonCode,
+      'AUTHORIZED_LOCAL_ORIGIN',
+    );
+    assert.equal(
+      evaluateLegacyLocalAccess({
+        ...base,
+        origin: 'https://attacker.example',
+      }).allowed,
+      false,
+    );
+    assert.equal(
+      evaluateLegacyLocalAccess({ ...base, origin: 'null' }).allowed,
+      false,
+    );
+    assert.equal(
+      evaluateLegacyLocalAccess({
+        ...base,
+        origin: 'null',
+        presentedCapability: capability,
+      }).reasonCode,
+      'OPAQUE_CAPABILITY_CLIENT',
+    );
+    assert.equal(
+      evaluateLegacyLocalAccess({
+        ...base,
+        host: 'attacker.example:47831',
+        origin: 'http://attacker.example:47831',
+      }).allowed,
+      false,
+    );
+    assert.equal(
+      evaluateLegacyLocalAccess({
+        ...base,
+        origin: 'http://127.0.0.1:47832',
+      }).allowed,
+      false,
+    );
+    assert.equal(
+      evaluateLegacyLocalAccess({
+        ...base,
+        remoteAddress: '192.0.2.40',
+      }).allowed,
+      false,
+    );
+    assert.equal(
+      evaluateLegacyLocalAccess({
+        ...base,
+        host: '127.0.0.1:80',
+        expectedPort: 80,
+        origin: 'http://127.0.0.1',
+      }).reasonCode,
+      'AUTHORIZED_LOCAL_ORIGIN',
+    );
+    assert.equal(
+      evaluateLegacyLocalAccess({
+        ...base,
+        host: '127.0.0.1',
+        expectedPort: 80,
+        origin: 'http://127.0.0.1',
+      }).reasonCode,
+      'AUTHORIZED_LOCAL_ORIGIN',
+    );
+    assert.equal(
+      evaluateLegacyLocalAccess({
+        ...base,
+        allowedOrigins: ['http://localhost'],
+        origin: 'http://localhost',
+      }).reasonCode,
+      'AUTHORIZED_LOCAL_ORIGIN',
+    );
+  });
+
+  test('T25ac: WebSocket verifier returns 403 before connection for hostile origins', () => {
+    const capability = 'B'.repeat(43);
+    const verifier = wsBridgeTestInternals.createLegacyWebSocketVerifyClient({
+      httpServer: { address: () => ({ address: '127.0.0.1', port: 47831 }) },
+      allowedOrigins: [],
+      localCapability: capability,
+      logger: mockLogger,
+    });
+    const verify = overrides => {
+      let callbackArgs = null;
+      verifier({
+        origin: undefined,
+        req: {
+          headers: { host: '127.0.0.1:47831' },
+          socket: { remoteAddress: '127.0.0.1' },
+        },
+        ...overrides,
+      }, (...args) => {
+        callbackArgs = args;
+      });
+      return callbackArgs;
+    };
+
+    assert.deepEqual(verify({}), [true]);
+    assert.deepEqual(
+      verify({ origin: 'https://attacker.example' }),
+      [false, 403, 'Forbidden'],
+    );
+    assert.deepEqual(
+      verify({ origin: 'null' }),
+      [false, 403, 'Forbidden'],
+    );
+    assert.deepEqual(
+      verify({
+        req: {
+          headers: {
+            host: '127.0.0.1:47831',
+            'sec-fetch-site': 'cross-site',
+          },
+          socket: { remoteAddress: '127.0.0.1' },
+        },
+      }),
+      [false, 403, 'Forbidden'],
+    );
+    assert.deepEqual(
+      verify({
+        origin: 'https://attacker.example',
+        req: {
+          headers: {
+            host: '127.0.0.1:47831',
+            'sec-websocket-protocol':
+              `c3-v1, ${LEGACY_LOCAL_WS_CAPABILITY_PREFIX}${capability}`,
+          },
+          socket: { remoteAddress: '127.0.0.1' },
+        },
+      }),
+      [false, 403, 'Forbidden'],
+    );
+    assert.deepEqual(
+      verify({
+        origin: 'null',
+        req: {
+          headers: {
+            host: '127.0.0.1:47831',
+            'sec-websocket-protocol':
+              `c3-v1, ${LEGACY_LOCAL_WS_CAPABILITY_PREFIX}${'C'.repeat(43)}`,
+          },
+          socket: { remoteAddress: '127.0.0.1' },
+        },
+      }),
+      [false, 403, 'Forbidden'],
+    );
+    assert.deepEqual(
+      verify({
+        origin: 'null',
+        req: {
+          headers: {
+            host: '127.0.0.1:47831',
+            'sec-websocket-protocol':
+              `c3-v1, ${LEGACY_LOCAL_WS_CAPABILITY_PREFIX}${capability}`,
+          },
+          socket: { remoteAddress: '127.0.0.1' },
+        },
+      }),
+      [true],
+    );
+    assert.equal(
+      extractLegacyLocalWebSocketCapability(
+        `c3-v1, ${LEGACY_LOCAL_WS_CAPABILITY_PREFIX}${capability}`,
+      ),
+      capability,
+    );
+  });
+
+  await asyncTest('T25ad: tracked Electron source wiring presents the private WS capability', async () => {
+    const fs = await import('node:fs');
+    const preloadSource = fs.readFileSync(
+      new URL(
+        '../c3-ide/applications/electron/c3-preload.js',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const clientSource = fs.readFileSync(
+      new URL(
+        '../c3-ide/extensions/c3-chat-panel/lib/browser/ws-client.js',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    assert.match(preloadSource, /getLocalCapability:\s*\(\)\s*=>/);
+    assert.match(clientSource, /window\.electronC3\.getLocalCapability\(\)/);
+    assert.match(clientSource, /new WebSocket\(wsUrl,\s*\['c3-v1',\s*'c3-local-v1\.'/);
+  });
+
+  await asyncTest(
+    'T25ae: live loopback upgrade rejects hostile origins and admits native/capability clients',
+    async () => {
+      const { WebSocket } = await import('ws');
+      const capability = createLegacyLocalCapability();
+      const httpServer = createServer((_request, response) => {
+        response.writeHead(404);
+        response.end();
+      });
+      const wss = attachWebSocketServer(
+        httpServer,
+        { handle: async () => ({ response: 'unused' }) },
+        mockLogger,
+        {
+          allowedOrigins: ['http://localhost:3000'],
+          localCapability: capability,
+        },
+      );
+      let acceptedConnections = 0;
+      wss.on('connection', () => {
+        acceptedConnections++;
+      });
+
+      const port = await listenOnOwnedLoopback(httpServer);
+      const url = `ws://127.0.0.1:${port}/c3/ws`;
+      try {
+        const nativeClient = await connectAndHello(WebSocket, url);
+        assert.equal(acceptedConnections, 1);
+        await closeOwnedWebSocket(nativeClient);
+
+        await expectWebSocketHttpRejection(
+          WebSocket,
+          url,
+          { origin: 'https://attacker.example' },
+          403,
+        );
+        assert.equal(
+          acceptedConnections,
+          1,
+          'Foreign Origin reached the WebSocket connection/session boundary',
+        );
+
+        await expectWebSocketHttpRejection(
+          WebSocket,
+          url,
+          {
+            origin: 'https://attacker.example',
+            protocols: [
+              'c3-v1',
+              `${LEGACY_LOCAL_WS_CAPABILITY_PREFIX}${capability}`,
+            ],
+          },
+          403,
+        );
+        assert.equal(
+          acceptedConnections,
+          1,
+          'A correct capability bypassed the foreign-Origin rejection',
+        );
+
+        await expectWebSocketHttpRejection(
+          WebSocket,
+          url,
+          { origin: 'null' },
+          403,
+        );
+        assert.equal(
+          acceptedConnections,
+          1,
+          'Opaque Origin without capability reached the session boundary',
+        );
+
+        await expectWebSocketHttpRejection(
+          WebSocket,
+          url,
+          {
+            origin: 'null',
+            protocols: [
+              'c3-v1',
+              `${LEGACY_LOCAL_WS_CAPABILITY_PREFIX}${'D'.repeat(43)}`,
+            ],
+          },
+          403,
+        );
+        assert.equal(
+          acceptedConnections,
+          1,
+          'Opaque Origin with a wrong capability reached the session boundary',
+        );
+
+        await expectWebSocketHttpRejection(
+          WebSocket,
+          url,
+          {
+            headers: {
+              'Sec-Fetch-Site': 'cross-site',
+            },
+          },
+          403,
+        );
+        assert.equal(
+          acceptedConnections,
+          1,
+          'Cross-site upgrade without Origin reached the session boundary',
+        );
+
+        const sameTargetClient = await connectAndHello(
+          WebSocket,
+          url,
+          undefined,
+          { origin: `http://127.0.0.1:${port}` },
+        );
+        assert.equal(acceptedConnections, 2);
+        await closeOwnedWebSocket(sameTargetClient);
+
+        const allowedLocalClient = await connectAndHello(
+          WebSocket,
+          url,
+          undefined,
+          { origin: 'http://localhost:3000' },
+        );
+        assert.equal(acceptedConnections, 3);
+        await closeOwnedWebSocket(allowedLocalClient);
+
+        const opaqueClient = await connectAndHello(
+          WebSocket,
+          url,
+          [
+            'c3-v1',
+            `${LEGACY_LOCAL_WS_CAPABILITY_PREFIX}${capability}`,
+          ],
+          { origin: 'null' },
+        );
+        assert.equal(opaqueClient.protocol, 'c3-v1');
+        assert.equal(acceptedConnections, 4);
+        await closeOwnedWebSocket(opaqueClient);
+      } finally {
+        await closeOwnedWebSocketServer(wss, httpServer);
+      }
+    },
+  );
+
   test('T25b: dropped message counter increments and warns every 10th drop', () => {
     wsBridgeTestInternals.resetBridgeState();
     let warnCount = 0;
@@ -1658,8 +2163,15 @@ await asyncTest('T39: server.js has WS bridge import and attach', async () => {
   const serverCode = fs.readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
   assert.ok(serverCode.includes("import { attachWebSocketServer } from './ws-bridge/index.js'"),
     'Should import attachWebSocketServer');
-  assert.ok(serverCode.includes('attachWebSocketServer(server, ChatController, logger)'),
-    'Should call attachWebSocketServer');
+  assert.ok(
+    serverCode.includes(
+      'attachWebSocketServer(server, ChatController, logger, {',
+    )
+      && serverCode.includes(
+        'localCapability: legacyLocalCapability,',
+      ),
+    'Should call attachWebSocketServer with the local browser capability',
+  );
   assert.ok(serverCode.includes('ws://'),
     'Should log WS endpoint');
 });

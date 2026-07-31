@@ -532,54 +532,78 @@ assert(
   'loopback check and bind use the same canonical host',
 );
 
-const invalidHostRuntime = mkdtempSync(
-  path.join(isolatedTestRuntime.temp, 'legacy-invalid-host-'),
-);
-const invalidHostMetadata = lstatSync(invalidHostRuntime);
-let invalidHostEntries = [];
-let invalidHostResult;
-try {
-  invalidHostResult = spawnSync(
-    process.execPath,
-    ['src/server.js'],
-    {
-      cwd: ROOT,
-      env: {
-        ...process.env,
-        C3_HOST: '0.0.0.0',
-        C3_DB_PATH: path.join(invalidHostRuntime, 'c3.sqlite'),
-        C3_PORT_FILE: path.join(invalidHostRuntime, 'port.json'),
-        C3_PROJECTS_DIR: path.join(invalidHostRuntime, 'projects'),
-        C3_ENABLE_AGENTS: 'false',
-        C3_ENABLE_EXPERTISES: 'false',
-        C3_ENABLE_LIFECYCLE: 'false',
-        C3_ENABLE_COMFYUI: 'false',
-      },
-      encoding: 'utf8',
-      timeout: 30_000,
-    },
+function runRejectedNetworkBoundary(environment, prefix) {
+  const runtime = mkdtempSync(
+    path.join(isolatedTestRuntime.temp, `${prefix}-`),
   );
-  invalidHostEntries = readdirSync(invalidHostRuntime);
-} finally {
-  const current = lstatSync(invalidHostRuntime);
-  if (
-    current.isDirectory()
-    && !current.isSymbolicLink()
-    && current.dev === invalidHostMetadata.dev
-    && current.ino === invalidHostMetadata.ino
-    && realpathSync(invalidHostRuntime) === invalidHostRuntime
-  ) {
-    rmSync(invalidHostRuntime, { recursive: true, force: false });
-  } else {
-    throw new Error('Refusing to remove a substituted invalid-host fixture');
+  const metadata = lstatSync(runtime);
+  let entries = [];
+  let result;
+  try {
+    result = spawnSync(
+      process.execPath,
+      ['src/server.js'],
+      {
+        cwd: ROOT,
+        env: {
+          ...process.env,
+          C3_HOST: '127.0.0.1',
+          C3_CORS_ORIGINS: '',
+          C3_DB_PATH: path.join(runtime, 'c3.sqlite'),
+          C3_PORT_FILE: path.join(runtime, 'port.json'),
+          C3_PROJECTS_DIR: path.join(runtime, 'projects'),
+          C3_ENABLE_AGENTS: 'false',
+          C3_ENABLE_EXPERTISES: 'false',
+          C3_ENABLE_LIFECYCLE: 'false',
+          C3_ENABLE_COMFYUI: 'false',
+          ...environment,
+        },
+        encoding: 'utf8',
+        timeout: 30_000,
+      },
+    );
+    entries = readdirSync(runtime);
+  } finally {
+    const current = lstatSync(runtime);
+    if (
+      current.isDirectory()
+      && !current.isSymbolicLink()
+      && current.dev === metadata.dev
+      && current.ino === metadata.ino
+      && realpathSync(runtime) === runtime
+    ) {
+      rmSync(runtime, { recursive: true, force: false });
+    } else {
+      throw new Error(`Refusing to remove a substituted ${prefix} fixture`);
+    }
   }
+  return {
+    rejected: result?.status !== 0 && !result?.error,
+    entries,
+    runtime,
+  };
 }
+
+const invalidHost = runRejectedNetworkBoundary(
+  { C3_HOST: '0.0.0.0' },
+  'legacy-invalid-host',
+);
 assert(
-  invalidHostResult?.status !== 0
-    && !invalidHostResult?.error
-    && invalidHostEntries.length === 0
-    && !existsSync(invalidHostRuntime),
+  invalidHost.rejected
+    && invalidHost.entries.length === 0
+    && !existsSync(invalidHost.runtime),
   'invalid C3_HOST fails before database, backup, project, or port-file state',
+);
+
+const invalidCorsOrigin = runRejectedNetworkBoundary(
+  { C3_CORS_ORIGINS: 'https://attacker.example' },
+  'legacy-invalid-cors',
+);
+assert(
+  invalidCorsOrigin.rejected
+    && invalidCorsOrigin.entries.length === 0
+    && !existsSync(invalidCorsOrigin.runtime),
+  'invalid C3_CORS_ORIGINS fails before database, backup, project, or port-file state',
 );
 
 const serverSource = readFileSync(

@@ -1074,6 +1074,46 @@ summary();
     assert.deepEqual(validateTestRegistry(registry, [path]), []);
   }
 
+  const ownedLoopbackOffline = {
+    schemaVersion: 3,
+    exclusions: [],
+    suites: [
+      validRegistrySuite('tests/example.js', ['node', 'tests/example.js']),
+    ],
+  };
+  ownedLoopbackOffline.suites[0].requirements.network = 'loopback';
+  ownedLoopbackOffline.suites[0].fixture =
+    'isolated-home-and-owned-loopback-server';
+  assert.deepEqual(
+    validateTestRegistry(ownedLoopbackOffline, ['tests/example.js']),
+    [],
+    'offline deterministic suites may own an explicitly declared loopback listener',
+  );
+
+  const undeclaredLoopbackOffline = structuredClone(ownedLoopbackOffline);
+  undeclaredLoopbackOffline.suites[0].fixture = 'generic isolation fixture';
+  assert.ok(
+    validateTestRegistry(undeclaredLoopbackOffline, ['tests/example.js'])
+      .some(error => error.includes('exact owned-loopback fixture')),
+    'offline loopback must use the exact owned-listener fixture',
+  );
+
+  const externalOffline = structuredClone(ownedLoopbackOffline);
+  externalOffline.suites[0].requirements.network = 'external';
+  assert.ok(
+    validateTestRegistry(externalOffline, ['tests/example.js'])
+      .some(error => error.includes('exact owned-loopback fixture')),
+    'offline profiles must reject external network access',
+  );
+
+  const managedServerOffline = structuredClone(ownedLoopbackOffline);
+  managedServerOffline.suites[0].requirements.server = true;
+  assert.ok(
+    validateTestRegistry(managedServerOffline, ['tests/example.js'])
+      .some(error => error.includes('exact owned-loopback fixture')),
+    'offline loopback tests must own their listener instead of requiring a server',
+  );
+
   const wrongExecutor = {
     schemaVersion: 3,
     exclusions: [],

@@ -24,12 +24,25 @@ The registered deterministic `C3-023` suite
 `tests/routes-smoke.test.js` covers accepted hosts, rejected hosts, rejection
 before the bind call, canonical check/bind identity, and production wiring.
 
-## Open browser-origin boundary
+## WebSocket browser-origin boundary
 
 Loopback alone is not an authorization boundary. A remote web page can target
-local HTTP and WebSocket endpoints. Until the shared HTTP/WS Host, Origin, and
-local-client capability checks are implemented and pass negative tests, S-1
-remains incomplete and `G0-R018` remains a Gate 0 blocker.
+local HTTP and WebSocket endpoints. `/c3/ws` now rejects non-loopback peers,
+invalid target authorities, foreign origins, and opaque origins without the
+per-process 256-bit capability stored in the private mode-0600 port file.
+Same-origin local browsers and the originless Node backend bridge remain
+compatible. The Electron preload exposes the capability only to the installed
+renderer, which presents it as a secondary WebSocket subprotocol.
+
+Originless loopback clients are intentionally inside the trusted-local threat
+model. A same-user native process on the host can connect without the browser
+capability; the capability is browser/Electron origin containment, not local
+process authentication. Protecting against a malicious same-user process
+requires a separate OS identity and IPC boundary and is not claimed here.
+
+The HTTP mutation boundary still requires the corresponding request guard.
+Until that guard and its live negative test are in place, S-1 remains
+incomplete and `G0-R018` remains a Gate 0 blocker.
 
 ## Explicitly outside this boundary
 
@@ -44,9 +57,16 @@ With committed dependencies installed:
 
 ```bash
 node tests/routes-smoke.test.js
+node tests/ws-bridge.test.js
 node scripts/validate-test-registry.js
 node scripts/validate-final-disposition.js
+(cd c3-ide/applications/electron && ../../node_modules/.bin/theia build --mode production)
 ```
+
+The T1 suite pins the tracked preload and client source wiring. The separate
+production Theia build verifies that the generated, ignored Electron preload
+bundle contains that wiring; generated build output is never committed as
+evidence.
 
 Because this is a source and test change, it invalidates the prior Gate 0
 candidate. A new clean candidate run and generated evidence are required before

@@ -555,7 +555,7 @@ test('port file write/read roundtrip is private for new and stale files', () => 
   }
 });
 
-test('test server capability is explicit, validated, and absent in production', () => {
+test('port payload capabilities are explicit and independently validated', () => {
   const base = {
     port: 54321,
     host: '127.0.0.1',
@@ -564,10 +564,19 @@ test('test server capability is explicit, validated, and absent in production', 
   };
   const production = buildServerPortPayload(base);
   assertEqual('testRunNonce' in production, false);
+  assertEqual('localCapability' in production, false);
 
   const nonce = 'owned-server-capability-0000000001';
   const attested = buildServerPortPayload(base, nonce);
   assertEqual(attested.testRunNonce, nonce);
+  const localCapability = 'C'.repeat(43);
+  const browserAuthorized = buildServerPortPayload(
+    base,
+    nonce,
+    localCapability,
+  );
+  assertEqual(browserAuthorized.testRunNonce, nonce);
+  assertEqual(browserAuthorized.localCapability, localCapability);
   assertThrows(
     () => buildServerPortPayload(base, 'short'),
     'Short test server capability must fail closed',
@@ -575,6 +584,10 @@ test('test server capability is explicit, validated, and absent in production', 
   assertThrows(
     () => buildServerPortPayload(base, `${'a'.repeat(31)}!`),
     'Unsafe test server capability must fail closed',
+  );
+  assertThrows(
+    () => buildServerPortPayload(base, nonce, 'short'),
+    'Short local browser capability must fail closed',
   );
 });
 
@@ -594,6 +607,10 @@ test('server wires the test capability after resolving the bound port', () => {
     'process.env.INTENTSMITH_TEST_SERVER_NONCE',
     payloadIndex,
   );
+  const localCapabilityIndex = serverSource.indexOf(
+    'legacyLocalCapability',
+    nonceIndex,
+  );
 
   assert(assignedPortIndex >= 0, 'server must resolve its actual bound port');
   assert(
@@ -603,6 +620,10 @@ test('server wires the test capability after resolving the bound port', () => {
   assert(
     nonceIndex > payloadIndex,
     'server must pass the private test capability into the port payload',
+  );
+  assert(
+    localCapabilityIndex > nonceIndex,
+    'server must pass the local browser capability into the port payload',
   );
 });
 

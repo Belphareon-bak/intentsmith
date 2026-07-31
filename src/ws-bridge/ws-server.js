@@ -5,7 +5,10 @@
 //
 // Usage (in server.js):
 //   import { attachWebSocketServer } from './ws-bridge/index.js';
-//   const wss = attachWebSocketServer(httpServer, ChatController, logger);
+//   const wss = attachWebSocketServer(httpServer, ChatController, logger, {
+//     allowedOrigins,
+//     localCapability,
+//   });
 //
 // Protocol:
 //   1. Client connects to ws://host:port/c3/ws
@@ -23,6 +26,11 @@ import {
 } from './protocol.js';
 import { createSessionAdapter } from './session-adapter.js';
 import { watchProject, unwatchProject } from './file-watcher.js';
+import {
+  evaluateLegacyLocalAccess,
+  extractLegacyLocalWebSocketCapability,
+  isValidLegacyLocalCapability,
+} from '../security/legacy-local-access-policy.js';
 
 const WS_OPEN = 1;
 const DROP_LOG_INTERVAL = 10;
@@ -32,6 +40,42 @@ const _wsStats = {
 
 let _wss = null;
 let _bridgeLogger = console;
+
+function createLegacyWebSocketVerifyClient({
+  httpServer,
+  allowedOrigins,
+  localCapability,
+  logger,
+}) {
+  return (info, done) => {
+    const address = httpServer.address();
+    const expectedPort = typeof address === 'object' && address
+      ? address.port
+      : null;
+    const access = evaluateLegacyLocalAccess({
+      host: info.req?.headers?.host,
+      expectedPort,
+      remoteAddress: info.req?.socket?.remoteAddress,
+      origin: info.origin,
+      allowedOrigins,
+      expectedCapability: localCapability,
+      presentedCapability: extractLegacyLocalWebSocketCapability(
+        info.req?.headers?.['sec-websocket-protocol'],
+      ),
+      fetchSite: info.req?.headers?.['sec-fetch-site'],
+    });
+
+    if (!access.allowed) {
+      logger.warn('WSBridge', 'Rejected local WebSocket upgrade', {
+        reason: access.reasonCode,
+        ip: info.req?.socket?.remoteAddress,
+      });
+      done(false, 403, 'Forbidden');
+      return;
+    }
+    done(true);
+  };
+}
 
 function recordDroppedMessage(logger, meta = {}) {
   const targetLogger = logger && typeof logger.warn === 'function' ? logger : _bridgeLogger;
@@ -56,15 +100,26 @@ export function getWebSocketBridgeHealth() {
  * @param {Object} logger — Logger instance with .info(), .warn(), .error()
  * @param {Object} [options]
  * @param {string} [options.path='/c3/ws'] — WebSocket endpoint path
+ * @param {string[]} [options.allowedOrigins=[]] — Explicit local browser origins
+ * @param {string} options.localCapability — Per-process opaque-origin capability
  * @returns {WebSocketServer}
  */
 export function attachWebSocketServer(httpServer, chatController, logger, options = {}) {
   const wsPath = options.path || '/c3/ws';
   _bridgeLogger = logger || console;
+  if (!isValidLegacyLocalCapability(options.localCapability)) {
+    throw new Error('WSBridge requires a valid local browser capability');
+  }
 
   const wss = new WebSocketServer({
     server: httpServer,
     path: wsPath,
+    verifyClient: createLegacyWebSocketVerifyClient({
+      httpServer,
+      allowedOrigins: options.allowedOrigins || [],
+      localCapability: options.localCapability,
+      logger,
+    }),
   });
 
   logger.info('WSBridge', `WebSocket server attached at ${wsPath}`);
@@ -268,6 +323,7 @@ export function broadcast(channel, data) {
 }
 
 export const _testInternals = {
+  createLegacyWebSocketVerifyClient,
   recordDroppedMessage,
   resetBridgeState() {
     _wsStats.droppedMessages = 0;

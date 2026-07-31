@@ -5,7 +5,10 @@
 //
 // Usage:
 //   import { attachWebSocketServer } from './ws-bridge/index.js';
-//   const wss = attachWebSocketServer(httpServer, ChatController, logger);
+//   const wss = attachWebSocketServer(httpServer, ChatController, logger, {
+//     allowedOrigins,
+//     localCapability,
+//   });
 //
 // ══════════════════════════════════════════════════════════════════════════════
 

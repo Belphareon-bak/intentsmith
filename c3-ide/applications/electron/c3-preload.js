@@ -6,6 +6,7 @@ const path = require('path');
 const os = require('os');
 
 const PORT_FILE = path.join(os.homedir(), '.c3', 'port');
+const LOCAL_CAPABILITY_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 function readPortFile() {
   try {
@@ -25,6 +26,12 @@ exports.preload = function preload() {
     getPort: () => {
       const info = readPortFile();
       return info ? info.port : null;
+    },
+    getLocalCapability: () => {
+      const info = readPortFile();
+      return info && LOCAL_CAPABILITY_PATTERN.test(info.localCapability)
+        ? info.localCapability
+        : null;
     }
   });
 };

@@ -9,24 +9,36 @@ import {
   writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
+import { isValidLegacyLocalCapability } from './security/legacy-local-access-policy.js';
 
 const TEST_RUN_NONCE_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
 
 export function buildServerPortPayload(
   { port, host, pid, started },
   testRunNonce,
+  localCapability,
 ) {
   const payload = { port, host, pid, started };
-  if (testRunNonce === undefined) return payload;
-  if (
-    typeof testRunNonce !== 'string'
-    || !TEST_RUN_NONCE_PATTERN.test(testRunNonce)
-  ) {
-    throw new Error(
-      'INTENTSMITH_TEST_SERVER_NONCE must contain 32-128 safe characters',
-    );
+  if (testRunNonce !== undefined) {
+    if (
+      typeof testRunNonce !== 'string'
+      || !TEST_RUN_NONCE_PATTERN.test(testRunNonce)
+    ) {
+      throw new Error(
+        'INTENTSMITH_TEST_SERVER_NONCE must contain 32-128 safe characters',
+      );
+    }
+    payload.testRunNonce = testRunNonce;
   }
-  return { ...payload, testRunNonce };
+  if (localCapability !== undefined) {
+    if (!isValidLegacyLocalCapability(localCapability)) {
+      throw new Error(
+        'Legacy local capability must be a 256-bit base64url value',
+      );
+    }
+    payload.localCapability = localCapability;
+  }
+  return payload;
 }
 
 export function writePrivatePortFile(filePath, payload) {

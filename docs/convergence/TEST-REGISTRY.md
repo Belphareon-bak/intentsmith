@@ -23,7 +23,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 | Profile | Scope | Default prerequisites |
 |---|---|---|
-| `offline` | tests declared deterministic and network-independent | isolated HOME/temp; strict OS egress proof is a separate gate |
+| `offline` | deterministic tests with no external services; either `network:none` or the exact self-owned loopback fixture | isolated HOME/temp; owned loopback is declared and validator-enforced; strict OS egress proof is separate |
 | `database` | deterministic SQLite/integration checks | per-suite temporary DB |
 | `server` | local API/WS programs | hard-blocked until an owned, identity-verified server supervisor exists |
 | `model` | real-model or external-network programs | pinned model/GPU; external network remains hard-blocked |
@@ -383,7 +383,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-WORKERS-PHASE-B-TEST` | `tests/workers-phase-b.test.js` | `C3-015` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-WORKFLOW-ORCHESTRATOR-TEST` | `tests/workflow-orchestrator.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-WORKFLOW-TEST` | `tests/workflow.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-WS-BRIDGE-TEST` | `tests/ws-bridge.test.js` | `C3-023` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-WS-BRIDGE-TEST` | `tests/ws-bridge.test.js` | `C3-023` | T1 | `offline` | 30 s | 2 min | network:loopback | yes | `ACTIVE` | — | primary implementer |
 
 ## Explicit support-module exclusions
 

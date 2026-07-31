@@ -17,7 +17,7 @@ remaining 36 `server`, 82 `model`, 18 `soak`, and 15 `manual` programs are not
 silently counted as passing. The reviewed parsed-registry serialization
 fingerprint uses `sha256-json-stringify-v1` (SHA-256 over
 `JSON.stringify(JSON.parse(bytes))`) and is
-`f6edc6ccff693284ee01ed159e90faea20e94662892d7b84b2f61efdf35e03b5`;
+`7e49f315fd242a9e1f026275682ed40d11354ba676f8295bad2379665c2ddaa2`;
 the run fails closed if either that fingerprint or the reviewed profile counts
 change. This is not a byte-level hash: formatting-only JSON whitespace does not
 change it. The candidate commit independently binds the exact registry blob.

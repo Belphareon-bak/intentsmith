@@ -100,7 +100,15 @@ function _wsConnect() {
   var wsUrl = _base.replace(/^http/, 'ws') + '/c3/ws';
 
   try {
-    _chatWs = new WebSocket(wsUrl);
+    var _localCapability = null;
+    try {
+      if (typeof window !== 'undefined' && window.electronC3) {
+        _localCapability = window.electronC3.getLocalCapability();
+      }
+    } catch (e) {}
+    _chatWs = _localCapability
+      ? new WebSocket(wsUrl, ['c3-v1', 'c3-local-v1.' + _localCapability])
+      : new WebSocket(wsUrl);
   } catch (e) {
     console.error('[C3 WS] Failed to create WebSocket:', e);
     return;

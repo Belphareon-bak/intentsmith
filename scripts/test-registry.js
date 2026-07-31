@@ -25,6 +25,8 @@ const TEST_STATES = new Set([
   'HISTORICAL',
 ]);
 const NETWORK_REQUIREMENTS = new Set(['none', 'loopback', 'external']);
+const OFFLINE_OWNED_LOOPBACK_FIXTURE =
+  'isolated-home-and-owned-loopback-server';
 const MODEL_FIXTURE_REQUIRED_SUITE_IDS = new Set([
   'IS-T3-E2E-57-LIFECYCLE-FULL',
   'IS-T3-E2E-58-CODE-GENERATION',
@@ -208,6 +210,34 @@ export function validateTestRegistry(registry, candidates) {
           `${label} BLOCKED state requires external network, server, ollama, or gpu`,
         );
       }
+      if (suite.profile === 'offline') {
+        const ownsDeclaredLoopback = requirements.network === 'loopback'
+          && suite.fixture === OFFLINE_OWNED_LOOPBACK_FIXTURE
+          && requirements.database === false
+          && requirements.server === false
+          && requirements.ollama === false
+          && requirements.gpu === false;
+        if (
+          requirements.network !== 'none'
+          && !ownsDeclaredLoopback
+        ) {
+          errors.push(
+            `${label} offline profile permits only network:none or the exact owned-loopback fixture`,
+          );
+        }
+        if (
+          requirements.network === 'none'
+          && (
+            requirements.server !== false
+            || requirements.ollama !== false
+            || requirements.gpu !== false
+          )
+        ) {
+          errors.push(
+            `${label} offline profile must not require a server, Ollama, or GPU`,
+          );
+        }
+      }
       if (MODEL_FIXTURE_REQUIRED_SUITE_IDS.has(suite.id) && !requirements.modelFixture) {
         errors.push(`${label}.requirements.modelFixture is required by G0-R020`);
       }
@@ -314,7 +344,7 @@ export function renderTestRegistry(registry) {
     '',
     '| Profile | Scope | Default prerequisites |',
     '|---|---|---|',
-    '| `offline` | tests declared deterministic and network-independent | isolated HOME/temp; strict OS egress proof is a separate gate |',
+    '| `offline` | deterministic tests with no external services; either `network:none` or the exact self-owned loopback fixture | isolated HOME/temp; owned loopback is declared and validator-enforced; strict OS egress proof is separate |',
     '| `database` | deterministic SQLite/integration checks | per-suite temporary DB |',
     '| `server` | local API/WS programs | hard-blocked until an owned, identity-verified server supervisor exists |',
     '| `model` | real-model or external-network programs | pinned model/GPU; external network remains hard-blocked |',
