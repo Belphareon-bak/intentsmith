@@ -1,7 +1,7 @@
 # IntentSmith — Roadmapa 1.0
 
 **Verze kódu:** 135.0.0
-**Datum:** 2026-07-30
+**Datum:** 2026-07-31
 **Stav:** Gate 0 baseline candidate; autoritativní verdikt je pouze v
 [convergence/STATUS.md](convergence/STATUS.md)
 **Autorita pro verdikty:** [convergence/GATE-CRITERIA.md](convergence/GATE-CRITERIA.md)
@@ -75,10 +75,13 @@ Dříve známý deterministický failure `tests/pilot-c1c2c3.test.js` A9 (qualit
 engine označoval všech 10 výstupů jako `EXCELLENT`) je **opravený v `f38f5e8`** —
 sada hlásí 44 passed, 0 failed, exit 0.
 
-Gate 0 tím ale nepřechází na PASS. Zbývá uzavřít `G0-R014`, vytvořit nový
-čistý kandidátní strom (G0-C1), spustit na něm celý rozsah 199 sad (G0-C5),
-vygenerovat evidenci (G0-C8/C9) a získat nezávislé review. Starší zelený běh
-199 sad na jiném SHA není důkazem pro výsledný commit.
+Gate 0 už měl čistý kandidát se 199 zelenými deterministickými sadami a
+nezávisle schválené review. Při standardní promotion ale vyšel najevo
+`G0-R031`: normalizace `git status --porcelain` znemožňovala přijmout přesně
+čtyři generované výstupy. Oprava i disposition pěti review nálezů změnily
+kandidátní commit. Předchozí evidence proto zůstává historicky platná jen pro
+svůj SHA; současná větev potřebuje nový čistý běh, attestation, review receipt
+a promotion. `G0-R014` je uzavřený a není zbývajícím blockerem.
 
 ---
 
@@ -88,7 +91,7 @@ Gate 0 se netýká kvality produktu. Týká se toho, jestli lze čemukoli o prod
 věřit. Teprve gaty po něm mluví o produktu.
 
 ```
-Gate 0  DŮVĚRA V MĚŘENÍ        ← kandidát čeká na finální evidenci/review
+Gate 0  DŮVĚRA V MĚŘENÍ        ← nový kandidát čeká na vlastní C→E→R→A
         ├─ čistý strom, oba validátory zelené
         ├─ čistá instalace reprodukovatelná
         ├─ 199 deterministických required T1/T2 sad prochází
@@ -143,12 +146,12 @@ Stav = stav důkazů, ne odhad hotovosti. Mapování na
 
 | Pilíř | Schopnosti | Nejhorší stav v pilíři | Co chybí k Gate 1 |
 |---|---|---|---|
-| 1 CHAT | C3-002..004, C3-008, C3-011 | `BASELINE_RED` | CRE klasifikační sada zelená; jeden zdroj klasifikátoru je poškozený |
-| 2 PROJEKTY | C3-005..007, C3-009, C3-018, C3-019 | `BASELINE_RED` | lifecycle a AST/symbol sady zelené na čistém commitu |
-| 3 WORKERI | C3-015, C3-021 | `UNVERIFIED` | aktuální sada vůbec nespuštěna |
-| 4 SPECIALISTÉ | C3-012..014, C3-022 | `BASELINE_RED` | specialist boot failures v registru |
-| 5 IDE | C3-001, C3-023 | `UNVERIFIED` | kritický UI flow nespuštěn |
-| 6 PRODUKT | C3-026, C3-028..030 | `BASELINE_RED` | dokumentační a instalační kontrakty |
+| 1 CHAT | C3-002..004, C3-008, C3-011 | `BASELINE_RED` | chybí kandidátní `lastGreen` a per-capability behavior artifact |
+| 2 PROJEKTY | C3-005..007, C3-009, C3-018, C3-019 | `BASELINE_RED` | chybí kandidátní lifecycle, executor a code-intelligence evidence |
+| 3 WORKERI | C3-015, C3-021 | `UNVERIFIED` | chybí kandidátní scheduler/notification evidence |
+| 4 SPECIALISTÉ | C3-012..014, C3-022 | `BASELINE_RED` | opravené Gate 0 testy ještě nejsou capability acceptance evidence |
+| 5 IDE | C3-001, C3-023 | `UNVERIFIED` | chybí digest-bound production build a runtime UI flow; C3-001 blokuje `G0-R030` |
+| 6 PRODUKT | C3-026, C3-028..030 | `BASELINE_RED` | chybí kandidátní evidence dokumentace, izolace, approvals a Git verdictu |
 
 ---
 
@@ -163,18 +166,26 @@ Stav = stav důkazů, ne odhad hotovosti. Mapování na
 | G0-3 | Opravit `pilot-c1c2c3` A9 — quality engine nerozlišuje kvalitu | 🔴 P0 | ✅ hotovo (`f38f5e8`) |
 | G0-4 | Izolovat autoritativní běhy přes `C3_DB_PATH` a zavřít implicitní produktový DB import (`G0-R012`) | 🔴 P0 | ✅ explicitní cesta fail-closed; server bootstrap zachovává projektový default; pozitivní i negativní self-test |
 | G0-5 | Discovery registru podle spustitelnosti, ne názvu; explicitní výjimky (`G0-R013`) | 🟡 P1 | ✅ 350 programů + 8 explicitních výjimek; meta-test dokazuje nekonvenční název |
-| G0-6 | Generátor evidence — status, index, baseline report a review packet z čistého kandidáta (`D-020`) | 🔴 P0 | ✅ implementováno; finální běh čeká na kandidátní SHA |
+| G0-6 | Generátor evidence — status, index, baseline report a review packet z čistého kandidáta (`D-020`) | 🔴 P0 | ✅ implementováno; nový kandidát čeká na vlastní běh |
 | G0-7 | Každý `REBUILD` záznam do koncového stavu (`D-018`) | 🟡 P1 | ✅ 60 `REPAIRED`, 32 `DEFERRED(<konkrétní prerequisite>)`; validator 225/225 |
 | G0-8 | Každý registry-`BLOCKED` řádek s konkrétní prerekvizitou (G0-C7) | 🟡 P1 | ✅ 0 řádků bez server/external/Ollama/GPU důvodu |
-| G0-9 | Čistá instalace + celý rozsah G0-C5 z výsledného commitu | 🔴 P0 | ❌ |
-| G0-10 | Uzavřít direct-run/T1 filesystem izolaci (`G0-R014`) | 🔴 P0 | 🔄 položkový audit a nejmenší společná oprava probíhají |
+| G0-9 | Čistá instalace + celý rozsah G0-C5 z výsledného commitu | 🔴 P0 | 🔄 předchozí kandidát prošel; po opravě promotion se musí standardně přegenerovat |
+| G0-10 | Uzavřít direct-run/T1 filesystem izolaci (`G0-R014`) | 🔴 P0 | ✅ uzavřeno runner-owned bootstrapem a clean-candidate důkazem |
 | G0-11 | Obnovit poškozenou českou dokumentaci bez ztráty novějších informací (`G0-R017`) | 🟡 P1 | ✅ obnoveno; registrovaný test hlídá diakritiku, code fences a lokální odkazy |
 | G0-12 | Připnout přesný model/GPU/context kontrakt pro sady 57–59 a 88 (`G0-R020`) | 🔴 P0 | ✅ schema v3 + fail-closed preflight; sady zůstávají `BLOCKED`, žádný modelový green claim |
 | G0-13 | Zavřít false-green síťové/procesní chyby obou npm audit aliasů (`G0-R027`) | 🔴 P0 | ✅ sdílený shell-free runner + registrované offline pozitivní/negativní fixture |
+| G0-14 | Opravit promotion writer, který ořezal první porcelain status sloupec (`G0-R031`) | 🔴 P0 | ✅ `trimEnd()` kontrakt + pozitivní a mutační test |
 
 ### Gate 1 — akceptační důkaz per schopnost
 
 Po jednom řádku matice. Pořadí podle rizika, ne podle snadnosti:
+
+Akceptační evidence neznamená pouhou vazbu na registrovanou sadu. Každý odkaz
+z acceptance záznamu musí mířit na skutečně spuštěnou registrovanou sadu s
+neprázdným `lastGreen`, jehož commit je přesný Gate 1 kandidát a jehož artifact
+je reprodukovatelně vázaný. Doplnění chybějících 13 capabilities prázdnými
+registry řádky ani 30 ručně přepsaných statusů proto nemůže vytvořit zelený
+Gate 1.
 
 1. **C3-024** SQLite a migrace — je pod tím všechno ostatní; Gate 0 odstranil
    implicitní import-side-effect, ale akceptační důkaz schopnosti teprve chybí.

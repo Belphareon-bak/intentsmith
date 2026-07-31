@@ -8,9 +8,9 @@
   "recordCount": 60,
   "rationaleDigestAlgorithm": "sha256-utf8-exact-v1",
   "recordsDigestAlgorithm": "sha256-repaired-subject-tuples-v1",
-  "recordsSha256": "40fdb32bb02c8835807da79e3a1e18a27f1a4dfd1ae9a42fdc3909dbe7768efd",
+  "recordsSha256": "1dd6edffedfa902e7396fe20151002a15ddd8fbc3b64670103d3da5792300ed5",
   "records": [
-    {"sourceSequence":2,"displayPath":"CLAUDE.md","candidatePath":"CLAUDE.md","candidateBlob":"2bd9fa00330d02110e9fec18c72bd352cab2d26b","candidateMode":"100644","rationaleSha256":"6d068c05cb64ae990ccee5cf40f3bee2fe396276816e9ef8b69a63db56aa81ad"},
+    {"sourceSequence":2,"displayPath":"CLAUDE.md","candidatePath":"CLAUDE.md","candidateBlob":"da2179366e5d19368462984a6d2b7a71f9adeafa","candidateMode":"100644","rationaleSha256":"6d068c05cb64ae990ccee5cf40f3bee2fe396276816e9ef8b69a63db56aa81ad"},
     {"sourceSequence":3,"displayPath":"README.md","candidatePath":"README.md","candidateBlob":"05e752bfc6e109e552fdfe81f2628fcc1cc22b0f","candidateMode":"100644","rationaleSha256":"24cbb97c0da93a19a951434f04bfa683101942668985717458cb2d3bad57c0f0"},
     {"sourceSequence":86,"displayPath":"package-lock.json","candidatePath":"package-lock.json","candidateBlob":"cde8924175408beb7f7577505255630a659cdea1","candidateMode":"100644","rationaleSha256":"3ce838175b03b189a994b25456ff268f2563fed41e4060e98dbeb60ddb08aa20"},
     {"sourceSequence":87,"displayPath":"package.json","candidatePath":"package.json","candidateBlob":"a4763d8763d46f4856b481f1fce081e09c65a6df","candidateMode":"100644","rationaleSha256":"8d9003facc3501e23ed54412e7dda0f9bf4d1e61369e25aeda99b171adeae8d5"},

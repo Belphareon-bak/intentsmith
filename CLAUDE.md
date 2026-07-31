@@ -376,8 +376,8 @@ node --watch src/server.js    # Vývojový (auto-restart)
 ### Testy
 
 Kanonický seznam je `tests/registry.json` — **350 registrovaných spustitelných
-programů**: `256 ACTIVE`, `54 BLOCKED` (chybí prostředí), `25 KNOWN_DEFECTIVE`
-(false-green aserce), `15 HISTORICAL`. Renderovaný ledger:
+programů**: `256 ACTIVE`, `79 BLOCKED` (konkrétní prerekvizity),
+`0 KNOWN_DEFECTIVE`, `15 HISTORICAL`. Renderovaný ledger:
 [docs/convergence/TEST-REGISTRY.md](docs/convergence/TEST-REGISTRY.md).
 
 ```bash
