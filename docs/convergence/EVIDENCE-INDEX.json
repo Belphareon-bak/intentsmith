@@ -1,15 +1,15 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "product": "IntentSmith",
   "gate": "Gate 0",
-  "verdict": "CONDITIONAL PASS",
+  "verdict": "PASS",
   "exitCode": 0,
   "generatedAt": "2026-07-31T14:36:18.505Z",
   "candidate": {
     "sha": "da485841c7016887c9bd4f969271e0d365020b2f",
     "branch": "codex/s1-legacy-loopback-containment",
     "registrySha256": "21992f9fcc1625c14baa0a7d53771a88e4f704e97e4c276f4d4b8fd9ea08cd73",
-    "attestationRule": "the evidence-only commit must have this candidate as its first parent"
+    "attestationRule": "the approved evidence commit must follow the exact pending-attestation and review-result chain for this candidate"
   },
   "sourceRefs": {
     "c3Input": "ffd21cf119865259ea1847af989acb24916bebe3",
@@ -1229,20 +1229,33 @@
     "range": "f11026f062e5d2e75fe6802a3e4e2ad38a6c9dab..da485841c7016887c9bd4f969271e0d365020b2f",
     "commitCount": 32,
     "packet": "docs/convergence/reviews/GATE0-OPUS-REVIEW.md",
-    "independentReviewStatus": "PENDING"
+    "independentReviewStatus": "APPROVED",
+    "result": {
+      "path": "docs/convergence/reviews/GATE0-OPUS-RESULT.json",
+      "commitSha": "a745fc7922698e076a8ea3dcf186e2f9434f9109",
+      "pendingAttestationSha": "a067989f5df393db861caa36b3c7729e18ddd97e",
+      "schemaVersion": 1,
+      "bytes": 5062,
+      "sha256": "968adf9914020985f6ab25e130489ba7d143c0830ed45e4c3531cf72c9e19ea1",
+      "decision": "APPROVED",
+      "reviewerRole": "Opus 5",
+      "reviewMethod": "independent-read-only",
+      "completedAt": "2026-07-31T15:16:03.827Z",
+      "findingCount": 6
+    }
   },
   "generatedOutputs": {
-    "docs/convergence/STATUS.md": {
-      "bytes": 3191,
-      "sha256": "6094397a2ba16a202f62612c05b3ee6baec61d488c82ad745074b46df7d9a362"
-    },
     "docs/convergence/GATE0-BASELINE-REPORT.md": {
-      "bytes": 31854,
-      "sha256": "a32f8da1461a3655ef83cf25c426d94eee160245a4552fc97055be9c4b94b0c8"
+      "bytes": 32976,
+      "sha256": "829bb234737d1e603e86d87f6f94b455eab36f1badff22fc698b227a1c21b6bf"
+    },
+    "docs/convergence/STATUS.md": {
+      "bytes": 4298,
+      "sha256": "df7bc9e3accdd0218b931124060e66ba9d5d83197b4a7fff97e89eb0a533655a"
     },
     "docs/convergence/reviews/GATE0-OPUS-REVIEW.md": {
-      "bytes": 35736,
-      "sha256": "3abf75278ac1daacb9959e4160e2c4263dd4cb8cb5d24241856464e4c869561a"
+      "bytes": 36862,
+      "sha256": "fc5075c3b423d27946d512f558b9db8ca5be75e0225e9abee636a255f195c7a9"
     }
   }
 }
