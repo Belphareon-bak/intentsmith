@@ -21,18 +21,12 @@ import {
 } from './final-disposition-manifest.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const dispositionPath = path.join(
-  repoRoot,
-  'docs',
-  'convergence',
-  'FINAL-COMMIT-DISPOSITION.md',
-);
-const manifestPath = path.join(
-  repoRoot,
-  'docs',
-  'convergence',
-  'FINAL-COMMIT-DIFF-MANIFEST.json',
-);
+export const FINAL_DISPOSITION_PATH =
+  'docs/convergence/FINAL-COMMIT-DISPOSITION.md';
+export const FINAL_DIFF_MANIFEST_PATH =
+  'docs/convergence/FINAL-COMMIT-DIFF-MANIFEST.json';
+const dispositionPath = path.join(repoRoot, FINAL_DISPOSITION_PATH);
+const manifestPath = path.join(repoRoot, FINAL_DIFF_MANIFEST_PATH);
 export const REPAIRED_SUBJECTS_PATH =
   'docs/convergence/FINAL-COMMIT-DISPOSITION-SUBJECTS.json';
 export const REPAIRED_SUBJECTS_SCHEMA_VERSION = 1;
@@ -163,9 +157,12 @@ export function validateAndResolve({
     const row = dispositionRows[index];
     if (!diff || !row) continue;
 
-    const displayPath = diff.status === 'R100'
-      ? `${diff.oldPath} -> ${diff.newPath}`
-      : diff.newPath ?? diff.oldPath;
+    const {
+      displayPath,
+      mappedPath,
+      candidatePath,
+      renamedSourcePath,
+    } = resolveDispositionRecordPaths(diff);
     if (row.status !== diff.status || row.displayPath !== displayPath) {
       errors.push(
         `record ${index + 1} mismatch: manifest=${diff.status} ${displayPath}; `
@@ -174,17 +171,15 @@ export function validateAndResolve({
       continue;
     }
 
-    const mappedPath = repairedPathMappings.get(displayPath) ?? null;
-    const candidatePath = mappedPath ?? diff.newPath ?? diff.oldPath;
     const candidateAbsolute = safeCandidatePath(candidateRoot, candidatePath);
     const candidateExists = pathExists(candidateAbsolute);
 
     if (
       diff.changeType === 'RENAME'
-      && diff.oldPath !== candidatePath
-      && pathExists(safeCandidatePath(candidateRoot, diff.oldPath))
+      && renamedSourcePath !== null
+      && pathExists(safeCandidatePath(candidateRoot, renamedSourcePath))
     ) {
-      errors.push(`renamed source path still exists: ${diff.oldPath}`);
+      errors.push(`renamed source path still exists: ${renamedSourcePath}`);
     }
 
     const sourceBlob = diff.newBlob ?? diff.oldBlob;
@@ -283,6 +278,36 @@ export function validateAndResolve({
   return { errors, resolutions };
 }
 
+export function collectDispositionCandidateInputPaths(manifest) {
+  const records = Array.isArray(manifest?.records) ? manifest.records : [];
+  const paths = new Set();
+  for (const diff of records) {
+    const { candidatePath, renamedSourcePath } =
+      resolveDispositionRecordPaths(diff);
+    if (candidatePath) paths.add(candidatePath);
+    if (renamedSourcePath) paths.add(renamedSourcePath);
+  }
+  return [...paths].sort();
+}
+
+function resolveDispositionRecordPaths(diff) {
+  const displayPath = diff?.status === 'R100'
+    ? `${diff.oldPath} -> ${diff.newPath}`
+    : diff?.newPath ?? diff?.oldPath ?? null;
+  const mappedPath = repairedPathMappings.get(displayPath) ?? null;
+  const candidatePath = mappedPath ?? diff?.newPath ?? diff?.oldPath ?? null;
+  const renamedSourcePath = diff?.changeType === 'RENAME'
+    && diff.oldPath !== candidatePath
+    ? diff.oldPath
+    : null;
+  return {
+    displayPath,
+    mappedPath,
+    candidatePath,
+    renamedSourcePath,
+  };
+}
+
 export function buildRepairedSubjectManifest(
   resolutions,
   sourceManifestRecordsSha256,
@@ -292,7 +317,7 @@ export function buildRepairedSubjectManifest(
     schemaVersion: REPAIRED_SUBJECTS_SCHEMA_VERSION,
     manifestType: 'intentsmith.repaired-disposition-subjects',
     sourceManifestRecordsSha256,
-    sourceDocument: 'docs/convergence/FINAL-COMMIT-DISPOSITION.md',
+    sourceDocument: FINAL_DISPOSITION_PATH,
     terminalState: 'REBUILD/REPAIRED',
     candidateObjectFormat: 'sha1',
     recordCount: records.length,
@@ -354,7 +379,7 @@ export function validateRepairedSubjectManifest(
   if (subjectManifest.manifestType !== 'intentsmith.repaired-disposition-subjects') {
     errors.push('repaired subject manifest manifestType is invalid');
   }
-  if (subjectManifest.sourceDocument !== 'docs/convergence/FINAL-COMMIT-DISPOSITION.md') {
+  if (subjectManifest.sourceDocument !== FINAL_DISPOSITION_PATH) {
     errors.push('repaired subject manifest sourceDocument is invalid');
   }
   if (
@@ -788,7 +813,7 @@ function main() {
   });
   validateHeadFile(
     repoRoot,
-    'docs/convergence/FINAL-COMMIT-DISPOSITION.md',
+    FINAL_DISPOSITION_PATH,
     'disposition document',
     report.errors,
   );

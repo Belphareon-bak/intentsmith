@@ -231,7 +231,11 @@ environment, recomputes G0-C9 and repository blockers from both parent risk
 blobs, recomputes inventory plus G0-C6/G0-C7 prerequisite facts from the
 candidate-parent registry, and binds the sanitized privacy summary to the
 complete parent incident blob without republishing private paths or secret
-examples. All committed summary records use exact nested fields, so an
+examples. Before either validator subprocess starts, a segment-aware boundary
+check derives registry discovery/document inputs and every disposition subject
+path from the same constants and source manifest used by those validators; it
+rejects any exact or ancestor-tree overlap with an attestated output. All
+committed summary records use exact nested fields, so an
 unreviewed extension cannot hide inside the evidence schema. The validator
 checks HEAD and cleanliness again after those executions. A pre-commit G0-C8
 row is not a valid attestation without this post-commit check.

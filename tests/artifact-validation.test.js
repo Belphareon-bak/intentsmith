@@ -78,9 +78,11 @@ import {
   main as runGate0CandidateEvidence,
 } from '../scripts/run-gate0-candidate-evidence.js';
 import {
+  buildGate0RevalidationInputScopes,
   GATE0_ATTESTATION_OUTPUTS,
   GATE0_BOUND_OUTPUTS,
   validateGate0Attestation,
+  validateGate0RevalidationDisjointness,
 } from '../scripts/validate-gate0-attestation.js';
 import {
   GATE0_REGISTRY_FINGERPRINT_ALGORITHM,
@@ -2196,6 +2198,8 @@ function validAttestationFixture() {
       JSON.parse(JSON.stringify(dispositionValidation)),
     expectedRiskPolicy: JSON.parse(JSON.stringify(riskPolicy)),
     expectedPrivacyIncident: JSON.parse(JSON.stringify(privacyIncident)),
+    revalidationInputScopes:
+      buildGate0RevalidationInputScopes(committedManifest),
     worktreeClean: true,
   };
 }
@@ -2204,6 +2208,74 @@ test('post-commit attestation binds the candidate parent and four outputs', () =
   const report = validateGate0Attestation(validAttestationFixture());
   assertEqual(report.valid, true);
   assertEqual(report.errors.length, 0);
+});
+
+test('post-commit attestation requires disjoint revalidation inputs', () => {
+  const missingBoundary = validAttestationFixture();
+  delete missingBoundary.revalidationInputScopes;
+  assertEqual(validateGate0Attestation(missingBoundary).valid, false);
+
+  for (const outputPath of GATE0_ATTESTATION_OUTPUTS) {
+    const overlapping = validAttestationFixture();
+    overlapping.revalidationInputScopes.push({
+      kind: 'exact',
+      path: outputPath,
+      source: 'mutated-validator-input',
+    });
+    assertEqual(
+      validateGate0Attestation(overlapping).valid,
+      false,
+      `${outputPath} validator overlap must be rejected`,
+    );
+  }
+});
+
+test('revalidation disjointness is segment-aware and fails closed', () => {
+  const current = validateGate0RevalidationDisjointness(
+    GATE0_ATTESTATION_OUTPUTS,
+    buildGate0RevalidationInputScopes(committedManifest),
+  );
+  assertEqual(current.valid, true);
+
+  const treeOverlap = validateGate0RevalidationDisjointness(
+    GATE0_ATTESTATION_OUTPUTS,
+    [{
+      kind: 'tree',
+      path: 'docs/convergence',
+      source: 'mutated-tree-input',
+    }],
+  );
+  assertEqual(treeOverlap.valid, false);
+
+  const siblingPrefix = validateGate0RevalidationDisjointness(
+    GATE0_ATTESTATION_OUTPUTS,
+    [{
+      kind: 'tree',
+      path: 'docs/convergence-old',
+      source: 'sibling-tree-input',
+    }],
+  );
+  assertEqual(siblingPrefix.valid, true);
+
+  const unsafe = validateGate0RevalidationDisjointness(
+    GATE0_ATTESTATION_OUTPUTS,
+    [{
+      kind: 'exact',
+      path: '../docs/convergence/STATUS.md',
+      source: 'unsafe-input',
+    }],
+  );
+  assertEqual(unsafe.valid, false);
+});
+
+test('manifest-derived disposition input cannot overlap an attested output', () => {
+  const manifest = manifestCopy();
+  manifest.records[0].newPath = 'docs/convergence/STATUS.md';
+  const report = validateGate0RevalidationDisjointness(
+    GATE0_ATTESTATION_OUTPUTS,
+    buildGate0RevalidationInputScopes(manifest),
+  );
+  assertEqual(report.valid, false);
 });
 
 test('post-commit attestation preserves a revalidated structured red result', () => {

@@ -30,6 +30,16 @@ import {
   runLogged,
   runWithOwnedProcessTerminationHandling,
 } from './nightly-orchestrator.js';
+import {
+  collectDispositionCandidateInputPaths,
+  FINAL_DIFF_MANIFEST_PATH,
+  FINAL_DISPOSITION_PATH,
+  REPAIRED_SUBJECTS_PATH,
+} from './validate-final-disposition.js';
+import {
+  TEST_REGISTRY_DOC_PATH,
+  TEST_REGISTRY_PATH,
+} from './test-registry.js';
 
 export const GATE0_ATTESTATION_OUTPUTS = Object.freeze([
   'docs/convergence/EVIDENCE-INDEX.json',
@@ -56,6 +66,7 @@ export function validateGate0Attestation({
   expectedDispositionValidation,
   expectedRiskPolicy,
   expectedPrivacyIncident,
+  revalidationInputScopes,
   worktreeClean,
 }) {
   const errors = [];
@@ -141,6 +152,13 @@ export function validateGate0Attestation({
   if (worktreeClean !== true) {
     errors.push('attestation validation requires a clean worktree');
   }
+  const revalidationBoundary = validateGate0RevalidationDisjointness(
+    GATE0_ATTESTATION_OUTPUTS,
+    revalidationInputScopes,
+  );
+  if (!revalidationBoundary.valid) {
+    errors.push(...revalidationBoundary.errors);
+  }
   for (const filePath of GATE0_ATTESTATION_OUTPUTS) {
     if (outputModes?.[filePath] !== '100644') {
       errors.push(`attestation output has an invalid Git mode: ${filePath}`);
@@ -178,6 +196,110 @@ export function validateGate0Attestation({
     headSha,
     candidateSha: evidenceIndex?.candidate?.sha || null,
     changedEntries: actualEntries,
+  };
+}
+
+export function buildGate0RevalidationInputScopes(dispositionManifest) {
+  return [
+    {
+      kind: 'exact',
+      path: TEST_REGISTRY_PATH,
+      source: 'registry-json',
+    },
+    {
+      kind: 'exact',
+      path: TEST_REGISTRY_DOC_PATH,
+      source: 'registry-rendered-document',
+    },
+    {
+      kind: 'tree',
+      path: 'tests',
+      source: 'registry-program-discovery',
+    },
+    {
+      kind: 'exact',
+      path: 'e2e/run-e2e.js',
+      source: 'registry-root-runner-discovery',
+    },
+    {
+      kind: 'exact',
+      path: FINAL_DIFF_MANIFEST_PATH,
+      source: 'disposition-source-manifest',
+    },
+    {
+      kind: 'exact',
+      path: FINAL_DISPOSITION_PATH,
+      source: 'disposition-document',
+    },
+    {
+      kind: 'exact',
+      path: REPAIRED_SUBJECTS_PATH,
+      source: 'disposition-repaired-subjects',
+    },
+    ...collectDispositionCandidateInputPaths(dispositionManifest).map(
+      inputPath => ({
+        kind: 'exact',
+        path: inputPath,
+        source: 'disposition-candidate-subject',
+      }),
+    ),
+  ];
+}
+
+export function validateGate0RevalidationDisjointness(
+  outputPaths,
+  inputScopes,
+) {
+  const errors = [];
+  if (!Array.isArray(outputPaths) || outputPaths.length === 0) {
+    errors.push('attestation revalidation outputs are missing');
+  }
+  if (!Array.isArray(inputScopes) || inputScopes.length === 0) {
+    errors.push('attestation revalidation input boundary is missing');
+  }
+  const normalizedOutputs = [];
+  for (const [index, outputPath] of (outputPaths || []).entries()) {
+    const normalized = normalizeBoundaryPath(outputPath);
+    if (normalized === null) {
+      errors.push(`attestation output[${index}] is not a safe relative path`);
+    } else {
+      normalizedOutputs.push(normalized);
+    }
+  }
+  for (const [index, scope] of (inputScopes || []).entries()) {
+    if (
+      !hasExactKeys(scope, ['kind', 'path', 'source'])
+      || !['exact', 'tree'].includes(scope.kind)
+      || typeof scope.source !== 'string'
+      || scope.source.trim() === ''
+    ) {
+      errors.push(`attestation revalidation input scope[${index}] is invalid`);
+      continue;
+    }
+    const inputPath = normalizeBoundaryPath(scope.path);
+    if (inputPath === null) {
+      errors.push(
+        `attestation revalidation input scope[${index}] has an unsafe path`,
+      );
+      continue;
+    }
+    for (const outputPath of normalizedOutputs) {
+      const overlaps = scope.kind === 'exact'
+        ? inputPath === outputPath
+        : outputPath === inputPath
+          || outputPath.startsWith(`${inputPath}/`);
+      if (overlaps) {
+        errors.push(
+          `attestation output ${outputPath} overlaps ${scope.source} `
+          + `${scope.kind} input ${inputPath}`,
+        );
+      }
+    }
+  }
+  return {
+    schemaVersion: 1,
+    valid: errors.length === 0,
+    errors,
   };
 }
 
@@ -865,6 +987,15 @@ export async function validateCurrentAttestation(root = process.cwd()) {
     Buffer.from(JSON.stringify(candidateRegistry)),
   );
   const expectedRegistryFacts = buildRegistryGateFacts(candidateRegistry);
+  const candidateDispositionManifest = JSON.parse(
+    git(
+      ['show', `${parentShas[0]}:${FINAL_DIFF_MANIFEST_PATH}`],
+      root,
+    ),
+  );
+  const revalidationInputScopes = buildGate0RevalidationInputScopes(
+    candidateDispositionManifest,
+  );
   const initialWorktreeClean = git(
     ['status', '--porcelain=v1', '--untracked-files=all'],
     root,
@@ -878,6 +1009,7 @@ export async function validateCurrentAttestation(root = process.cwd()) {
     outputModes,
     expectedRegistrySha256,
     expectedRegistryFacts,
+    revalidationInputScopes,
   };
   const preflight = validateGate0Attestation({
     ...common,
@@ -1001,6 +1133,30 @@ function isRecord(value) {
 function hasExactKeys(value, expectedKeys) {
   return isRecord(value)
     && isDeepStrictEqual(Object.keys(value).sort(), [...expectedKeys].sort());
+}
+
+function normalizeBoundaryPath(value) {
+  if (
+    typeof value !== 'string'
+    || value === ''
+    || value.includes('\\')
+    || value.startsWith('/')
+    || value.endsWith('/')
+  ) {
+    return null;
+  }
+  const segments = value.split('/');
+  if (
+    segments.some(segment => (
+      segment === ''
+      || segment === '.'
+      || segment === '..'
+      || segment.includes('\0')
+    ))
+  ) {
+    return null;
+  }
+  return segments.join('/');
 }
 
 function validValidatorEvidence(value, expectedCommand) {
