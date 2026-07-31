@@ -5,14 +5,23 @@
 //   1. Load without errors (no missing imports, syntax ok)
 //   2. Export a createXxxRoutes(deps) factory function
 //   3. Factory returns a route map (object with method+path keys)
+//   4. The legacy API/WS listener cannot bind outside loopback
 //
 // No HTTP server needed — purely structural.
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
 import path from 'path';
+import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { LLMProviderUnavailableError } from '../src/core/chat-turn-error.js';
+import {
+  LEGACY_LISTENER_LOOPBACK_HOSTS,
+  LEGACY_LISTENER_LOOPBACK_REQUIRED,
+  isLegacyLoopbackHost,
+  listenOnLegacyLoopback,
+  requireLegacyLoopbackHost,
+} from '../src/security/legacy-listener-policy.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -419,6 +428,99 @@ if (typeof agentFactory === 'function') {
     'notification read-all preserves the adapter response',
   );
 }
+
+console.log('\n── 7. Legacy Listener Loopback Boundary ──\n');
+
+for (const host of LEGACY_LISTENER_LOOPBACK_HOSTS) {
+  assert(
+    isLegacyLoopbackHost(host)
+      && requireLegacyLoopbackHost(` ${host.toUpperCase()} `) === host,
+    `legacy listener accepts and canonicalizes ${host}`,
+  );
+}
+
+for (const host of [
+  '0.0.0.0',
+  '::',
+  '192.168.1.10',
+  '10.0.0.2',
+  'example.test',
+  '',
+  ' ',
+  null,
+  undefined,
+]) {
+  let rejection = null;
+  try {
+    requireLegacyLoopbackHost(host);
+  } catch (error) {
+    rejection = error;
+  }
+  assert(
+    rejection?.code === LEGACY_LISTENER_LOOPBACK_REQUIRED,
+    `legacy listener rejects ${String(host)} with the stable boundary code`,
+  );
+}
+
+let rejectedListenCalls = 0;
+const rejectedServer = {
+  listen() {
+    rejectedListenCalls++;
+    throw new Error('non-loopback request reached server.listen');
+  },
+};
+let rejectedBindError = null;
+try {
+  listenOnLegacyLoopback(
+    rejectedServer,
+    { port: 0, host: '0.0.0.0' },
+    () => {
+      throw new Error('non-loopback listener invoked its callback');
+    },
+  );
+} catch (error) {
+  rejectedBindError = error;
+}
+assert(
+  rejectedBindError?.code === LEGACY_LISTENER_LOOPBACK_REQUIRED
+    && rejectedListenCalls === 0,
+  'non-loopback host is rejected before server.listen',
+);
+
+const listeningSentinel = {};
+const callback = () => {};
+const acceptedListenCalls = [];
+const acceptedServer = {
+  listen(...args) {
+    acceptedListenCalls.push(args);
+    return listeningSentinel;
+  },
+};
+const listenResult = listenOnLegacyLoopback(
+  acceptedServer,
+  { port: 47831, host: ' LOCALHOST ' },
+  callback,
+);
+assert(
+  listenResult === listeningSentinel
+    && acceptedListenCalls.length === 1
+    && acceptedListenCalls[0][0] === 47831
+    && acceptedListenCalls[0][1] === 'localhost'
+    && acceptedListenCalls[0][2] === callback,
+  'loopback check and bind use the same canonical host',
+);
+
+const serverSource = readFileSync(
+  new URL('../src/server.js', import.meta.url),
+  'utf8',
+);
+assert(
+  serverSource.includes(
+    'listenOnLegacyLoopback(server, config.server, async () => {',
+  )
+    && !/\bserver\.listen\s*\(/.test(serverSource),
+  'server startup uses only the fail-closed legacy listener boundary',
+);
 
 // ─── Summary ─────────────────────────────────────────────────────────────────
 

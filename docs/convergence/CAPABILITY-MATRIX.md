@@ -26,7 +26,7 @@ Statuses are evidence states, not roadmap confidence. No row is green until its 
 | C3-020 | Tool and capability registry | UNVERIFIED | Enforcement inventory belongs to Gate 1/2 | primary implementer |
 | C3-021 | Notifications | UNVERIFIED | Current suite pending | primary implementer |
 | C3-022 | Marketplace/package behavior | UNVERIFIED | Current suite pending | primary implementer |
-| C3-023 | API and WebSocket bridge | UNVERIFIED | Contract and Studio compatibility pending | primary implementer |
+| C3-023 | API and WebSocket bridge | UNVERIFIED | Legacy listener loopback boundary has deterministic coverage; complete API/WS and Studio acceptance remains pending | primary implementer |
 | C3-024 | SQLite repositories and migrations | BASELINE_RED | Corrupt/backup DBs are tracked; clean migration evidence pending | primary implementer |
 | C3-025 | Model catalog and evaluation fixtures | UNVERIFIED | Current suite pending | primary implementer |
 | C3-026 | Product documentation and examples | BASELINE_RED | Root README is corrupt; version and status claims conflict | primary implementer |

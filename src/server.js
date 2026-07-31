@@ -12,6 +12,7 @@ import {
   buildServerPortPayload,
   writePrivatePortFile,
 } from './server-port-file.js';
+import { listenOnLegacyLoopback } from './security/legacy-listener-policy.js';
 import { applyHttpTimeoutPolicy } from './timeout-policy.js';
 import { logger } from './core/logger.js';
 import { installGlobalHandlers, handleError } from './core/error-handler.js';
@@ -1127,7 +1128,7 @@ applyHttpTimeoutPolicy(server, config.server.httpTimeouts);
 // START
 // ════════════════════════════════════════════════════════════════════════════
 
-server.listen(config.server.port, config.server.host, async () => {
+listenOnLegacyLoopback(server, config.server, async () => {
   // Start agent scheduler (Phase B — conditional)
   if (agentScheduler) agentScheduler.start();
 

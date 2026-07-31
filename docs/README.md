@@ -136,6 +136,7 @@ ve zbytku dokumentace.
 | [followup-contract-v2.md](followup-contract-v2.md) | Follow-up klasifikace, R1-R4 pravidla (aktivní kontrakt v kódu) |
 | [API-REFERENCE.md](API-REFERENCE.md) | REST API reference (~200 endpointů) |
 | [WS-PROTOCOL.md](WS-PROTOCOL.md) | WebSocket protokol — streaming, agent log, file watch |
+| [security/LEGACY-LISTENER-BOUNDARY.md](security/LEGACY-LISTENER-BOUNDARY.md) | fail-closed loopback hranice legacy API a `/c3/ws` |
 
 ### IDE
 
