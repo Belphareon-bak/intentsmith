@@ -4,8 +4,8 @@
 > Do not hand-edit. The evidence-only attestation commit must have the candidate
 > below as its first parent.
 
-- Generated: 2026-07-31T12:40:43.804Z
-- Candidate: `2f11e801707a93a547795b5e96ff30c7f620ba5b`
+- Generated: 2026-07-31T14:36:18.505Z
+- Candidate: `da485841c7016887c9bd4f969271e0d365020b2f`
 - Branch: `codex/s1-legacy-loopback-containment`
 - Parsed-registry serialization fingerprint
   (`sha256-json-stringify-v1`): `21992f9fcc1625c14baa0a7d53771a88e4f704e97e4c276f4d4b8fd9ea08cd73`
@@ -25,8 +25,8 @@
 | G0-C5 deterministic T1/T2 | PASS | 199 deterministic PASS; 5/5 pilot PASS; deterministic verdict PASS/exit 0 |
 | G0-C6 defective suites excluded | PASS | 0 registry rows are KNOWN_DEFECTIVE; none appears in green deterministic evidence |
 | G0-C7 blockers specific | PASS | every registry BLOCKED row names a concrete prerequisite; all five soak guards name gpu and ollama |
-| G0-C8 generated evidence | PASS | typed producer provenance .intentsmith-artifacts/gate0/candidate-2f11e801707a93a547795b5e96ff30c7f620ba5b/provenance.json is bound by SHA-256 c0999b27620a7decbb074d270a67dae000e185ea97eebfb63a83b03fc9058651 |
-| G0-C9 risk impact policy | PASS | 30 risk rows have validated machine-readable gateImpact entries |
+| G0-C8 generated evidence | PASS | typed producer provenance .intentsmith-artifacts/gate0/candidate-da485841c7016887c9bd4f969271e0d365020b2f/provenance.json is bound by SHA-256 a1cb91605a4f843ff230127f4846c881df4e891ce9b71ca0efde223dbed931a4 |
+| G0-C9 risk impact policy | PASS | 31 risk rows have validated machine-readable gateImpact entries |
 
 ## Registry
 
