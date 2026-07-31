@@ -145,8 +145,12 @@ finding. Reviewer identity is procedural unless a separately approved
 signature system is introduced; the unsigned result does not claim
 cryptographic authorship.
 
-Until the repository validates the complete `E → R → A` transition, the
-existing schema-7 rule deliberately rejects `APPROVED` and the only green local
+The schema-7 validator deliberately rejects a bare `APPROVED`. The schema-8
+pure validator accepts it only when it can first validate the complete schema-7
+`E`, prove the exact one-file `R` parent and result binding, preserve every
+candidate-derived evidence field, re-derive `PASS` through the shared verdict
+function, and bind the exact four outputs in `A`. Until the separate promotion
+writer and current-HEAD loader enforce that same transition, the operational
 outcome remains `CONDITIONAL PASS`.
 
 ### FAIL

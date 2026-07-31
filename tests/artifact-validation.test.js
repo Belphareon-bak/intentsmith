@@ -81,13 +81,17 @@ import {
   buildGate0RevalidationInputScopes,
   GATE0_ATTESTATION_OUTPUTS,
   GATE0_BOUND_OUTPUTS,
+  validateGate0ApprovedAttestation,
   validateGate0Attestation,
   validateGate0RevalidationDisjointness,
 } from '../scripts/validate-gate0-attestation.js';
 import {
+  GATE0_APPROVED_ATTESTATION_RULE,
+  GATE0_PENDING_ATTESTATION_RULE,
   GATE0_REGISTRY_FINGERPRINT_ALGORITHM,
   GATE0_REVIEW_METHOD,
   GATE0_REVIEW_PACKET_PATH,
+  GATE0_REVIEW_RESULT_PATH,
   GATE0_REVIEWER_ROLE,
   parseGate0ReviewResult,
   validateGate0ReviewResult,
@@ -2026,8 +2030,7 @@ function validAttestationFixture() {
         sha: candidateSha,
         branch: 'codex/intentsmith-1.0',
         registrySha256: expectedRegistrySha256,
-        attestationRule:
-          'the evidence-only commit must have this candidate as its first parent',
+        attestationRule: GATE0_PENDING_ATTESTATION_RULE,
       },
       sourceRefs: {
         c3Input: 'ffd21cf119865259ea1847af989acb24916bebe3',
@@ -2203,6 +2206,177 @@ function validAttestationFixture() {
     worktreeClean: true,
   };
 }
+
+function validApprovedAttestationFixture() {
+  const pendingAttestation = validAttestationFixture();
+  const pendingIndex = pendingAttestation.evidenceIndex;
+  const reviewResultSha = 'd'.repeat(40);
+  const reviewFixture = validReviewResultFixture();
+  const packetBytes = Buffer.from(
+    pendingAttestation.outputArtifacts[GATE0_REVIEW_PACKET_PATH],
+  );
+  reviewFixture.result.candidateSha = pendingIndex.candidate.sha;
+  reviewFixture.result.pendingAttestationSha = pendingAttestation.headSha;
+  reviewFixture.result.registryFingerprint =
+    pendingIndex.candidate.registrySha256;
+  reviewFixture.result.reviewRange = pendingIndex.review.range;
+  reviewFixture.result.packetSha256 =
+    createHash('sha256').update(packetBytes).digest('hex');
+  reviewFixture.result.reviewRequiredRisks =
+    [...pendingIndex.riskPolicy.reviewRequiredRisks];
+  const resultBytes = Buffer.from(
+    `${JSON.stringify(reviewFixture.result, null, 2)}\n`,
+  );
+  const parsedResult = parseGate0ReviewResult(resultBytes, {
+    candidateSha: pendingIndex.candidate.sha,
+    pendingAttestationSha: pendingAttestation.headSha,
+    registryFingerprint: pendingIndex.candidate.registrySha256,
+    reviewRange: pendingIndex.review.range,
+    packetSha256: reviewFixture.result.packetSha256,
+    reviewRequiredRisks: pendingIndex.riskPolicy.reviewRequiredRisks,
+  });
+  assertEqual(parsedResult.valid, true);
+
+  const outputArtifacts = Object.fromEntries(
+    GATE0_BOUND_OUTPUTS.map(filePath => [
+      filePath,
+      `approved generated fixture for ${filePath}\n`,
+    ]),
+  );
+  const evidenceIndex = JSON.parse(JSON.stringify(pendingIndex));
+  evidenceIndex.schemaVersion = 8;
+  evidenceIndex.verdict = 'PASS';
+  evidenceIndex.exitCode = 0;
+  evidenceIndex.candidate.attestationRule =
+    GATE0_APPROVED_ATTESTATION_RULE;
+  evidenceIndex.review = {
+    range: pendingIndex.review.range,
+    commitCount: pendingIndex.review.commitCount,
+    packet: pendingIndex.review.packet,
+    independentReviewStatus: ReviewStatus.APPROVED,
+    result: {
+      path: GATE0_REVIEW_RESULT_PATH,
+      commitSha: reviewResultSha,
+      pendingAttestationSha: pendingAttestation.headSha,
+      schemaVersion: parsedResult.result.schemaVersion,
+      bytes: parsedResult.bytes,
+      sha256: parsedResult.sha256,
+      decision: parsedResult.result.decision,
+      reviewerRole: parsedResult.result.reviewerRole,
+      reviewMethod: parsedResult.result.reviewMethod,
+      completedAt: parsedResult.result.completedAt,
+      findingCount: parsedResult.result.findings.length,
+    },
+  };
+  evidenceIndex.generatedOutputs = Object.fromEntries(
+    Object.entries(outputArtifacts).map(([filePath, contents]) => [
+      filePath,
+      {
+        bytes: Buffer.byteLength(contents),
+        sha256: createHash('sha256').update(contents).digest('hex'),
+      },
+    ]),
+  );
+
+  return {
+    headSha: 'e'.repeat(40),
+    parentShas: [reviewResultSha],
+    changedEntries: GATE0_ATTESTATION_OUTPUTS.map(
+      filePath => `M\t${filePath}`,
+    ),
+    evidenceIndex,
+    outputArtifacts,
+    outputModes: Object.fromEntries(
+      GATE0_ATTESTATION_OUTPUTS.map(filePath => [filePath, '100644']),
+    ),
+    pendingAttestation,
+    reviewResultCommit: {
+      headSha: reviewResultSha,
+      parentShas: [pendingAttestation.headSha],
+      changedEntries: [`A\t${GATE0_REVIEW_RESULT_PATH}`],
+      resultBytes,
+      resultMode: '100644',
+    },
+    expectedRegistrySha256:
+      pendingAttestation.expectedRegistrySha256,
+    expectedRegistryValidation:
+      pendingAttestation.expectedRegistryValidation,
+    expectedRegistryFacts:
+      pendingAttestation.expectedRegistryFacts,
+    expectedDispositionValidation:
+      pendingAttestation.expectedDispositionValidation,
+    expectedRiskPolicy:
+      pendingAttestation.expectedRiskPolicy,
+    expectedPrivacyIncident:
+      pendingAttestation.expectedPrivacyIncident,
+    revalidationInputScopes:
+      pendingAttestation.revalidationInputScopes,
+    worktreeClean: true,
+  };
+}
+
+test('approved attestation validates the complete candidate-review chain', () => {
+  const report = validateGate0ApprovedAttestation(
+    validApprovedAttestationFixture(),
+  );
+  assertEqual(report.valid, true);
+  assertEqual(report.errors.length, 0);
+});
+
+test('approved attestation rejects a broken review commit chain', () => {
+  const wrongApprovedParent = validApprovedAttestationFixture();
+  wrongApprovedParent.parentShas = ['f'.repeat(40)];
+  assertEqual(
+    validateGate0ApprovedAttestation(wrongApprovedParent).valid,
+    false,
+  );
+
+  const wrongReviewParent = validApprovedAttestationFixture();
+  wrongReviewParent.reviewResultCommit.parentShas = ['f'.repeat(40)];
+  assertEqual(
+    validateGate0ApprovedAttestation(wrongReviewParent).valid,
+    false,
+  );
+});
+
+test('approved attestation rejects a mixed or executable review commit', () => {
+  const mixed = validApprovedAttestationFixture();
+  mixed.reviewResultCommit.changedEntries.push('M\tsrc/server.js');
+  assertEqual(validateGate0ApprovedAttestation(mixed).valid, false);
+
+  const executable = validApprovedAttestationFixture();
+  executable.reviewResultCommit.resultMode = '100755';
+  assertEqual(validateGate0ApprovedAttestation(executable).valid, false);
+});
+
+test('approved attestation rejects changed review evidence', () => {
+  const fixture = validApprovedAttestationFixture();
+  const changedResult = JSON.parse(
+    fixture.reviewResultCommit.resultBytes.toString('utf8'),
+  );
+  changedResult.packetSha256 = 'f'.repeat(64);
+  fixture.reviewResultCommit.resultBytes = Buffer.from(
+    `${JSON.stringify(changedResult, null, 2)}\n`,
+  );
+  assertEqual(validateGate0ApprovedAttestation(fixture).valid, false);
+});
+
+test('approved attestation rejects inherited evidence drift', () => {
+  const fixture = validApprovedAttestationFixture();
+  fixture.evidenceIndex.validations.registry.outputSha256 = 'f'.repeat(64);
+  assertEqual(validateGate0ApprovedAttestation(fixture).valid, false);
+});
+
+test('approved review cannot promote a red pending attestation', () => {
+  const fixture = validApprovedAttestationFixture();
+  fixture.pendingAttestation.evidenceIndex.clauses[0].result = 'FAIL';
+  fixture.pendingAttestation.evidenceIndex.verdict = 'FAIL';
+  fixture.pendingAttestation.evidenceIndex.exitCode = 1;
+  fixture.evidenceIndex.clauses[0].result = 'FAIL';
+  fixture.evidenceIndex.verdict = 'FAIL';
+  fixture.evidenceIndex.exitCode = 1;
+  assertEqual(validateGate0ApprovedAttestation(fixture).valid, false);
+});
 
 test('post-commit attestation binds the candidate parent and four outputs', () => {
   const report = validateGate0Attestation(validAttestationFixture());

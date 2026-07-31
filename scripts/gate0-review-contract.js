@@ -10,6 +10,11 @@ export const GATE0_REGISTRY_FINGERPRINT_ALGORITHM =
   'sha256-json-stringify-v1';
 export const GATE0_REVIEWER_ROLE = 'Opus 5';
 export const GATE0_REVIEW_METHOD = 'independent-read-only';
+export const GATE0_PENDING_ATTESTATION_RULE =
+  'the evidence-only commit must have this candidate as its first parent';
+export const GATE0_APPROVED_ATTESTATION_RULE =
+  'the approved evidence commit must follow the exact pending-attestation '
+  + 'and review-result chain for this candidate';
 
 const REVIEW_DECISION = 'APPROVED';
 const REVIEW_SEVERITIES = new Set([

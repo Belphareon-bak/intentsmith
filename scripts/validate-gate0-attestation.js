@@ -15,6 +15,8 @@ import {
 import {
   classifyDispositionValidatorExecution,
   classifyRegistryValidatorExecution,
+  deriveGateOutcome,
+  ReviewStatus,
 } from './gate0-evidence-verdict.js';
 import {
   buildGate0RiskEvidence,
@@ -40,6 +42,13 @@ import {
   TEST_REGISTRY_DOC_PATH,
   TEST_REGISTRY_PATH,
 } from './test-registry.js';
+import {
+  GATE0_APPROVED_ATTESTATION_RULE,
+  GATE0_PENDING_ATTESTATION_RULE,
+  GATE0_REVIEW_PACKET_PATH,
+  GATE0_REVIEW_RESULT_PATH,
+  parseGate0ReviewResult,
+} from './gate0-review-contract.js';
 
 export const GATE0_ATTESTATION_OUTPUTS = Object.freeze([
   'docs/convergence/EVIDENCE-INDEX.json',
@@ -52,6 +61,29 @@ export const GATE0_BOUND_OUTPUTS = Object.freeze(
     filePath => filePath !== 'docs/convergence/EVIDENCE-INDEX.json',
   ),
 );
+const EVIDENCE_INDEX_TOP_LEVEL_KEYS = Object.freeze([
+  'schemaVersion',
+  'product',
+  'gate',
+  'verdict',
+  'exitCode',
+  'generatedAt',
+  'candidate',
+  'sourceRefs',
+  'inventory',
+  'clauses',
+  'repositoryBlockers',
+  'provenance',
+  'riskPolicy',
+  'validations',
+  'installation',
+  'deterministic',
+  'pilotFiveConsecutive',
+  'soakRequirementGuard',
+  'privacyIncident',
+  'review',
+  'generatedOutputs',
+]);
 
 export function validateGate0Attestation({
   headSha,
@@ -106,7 +138,7 @@ export function validateGate0Attestation({
     }
     if (
       evidenceIndex.candidate.attestationRule
-      !== 'the evidence-only commit must have this candidate as its first parent'
+      !== GATE0_PENDING_ATTESTATION_RULE
     ) {
       errors.push('evidence index attestation rule is missing or changed');
     }
@@ -195,6 +227,265 @@ export function validateGate0Attestation({
     errors,
     headSha,
     candidateSha: evidenceIndex?.candidate?.sha || null,
+    changedEntries: actualEntries,
+  };
+}
+
+export function validateGate0ApprovedAttestation({
+  headSha,
+  parentShas,
+  changedEntries,
+  evidenceIndex,
+  outputArtifacts,
+  outputModes,
+  pendingAttestation,
+  reviewResultCommit,
+  expectedRegistrySha256,
+  expectedRegistryValidation,
+  expectedRegistryFacts,
+  expectedDispositionValidation,
+  expectedRiskPolicy,
+  expectedPrivacyIncident,
+  revalidationInputScopes,
+  worktreeClean,
+}) {
+  const errors = [];
+  const pendingReport = validateGate0Attestation({
+    ...pendingAttestation,
+    expectedRegistrySha256,
+    expectedRegistryValidation,
+    expectedRegistryFacts,
+    expectedDispositionValidation,
+    expectedRiskPolicy,
+    expectedPrivacyIncident,
+    revalidationInputScopes,
+    worktreeClean: true,
+  });
+  if (!pendingReport.valid) {
+    errors.push(
+      ...pendingReport.errors.map(error => `pending attestation: ${error}`),
+    );
+  }
+
+  const pendingIndex = pendingAttestation?.evidenceIndex;
+  const candidateSha = pendingIndex?.candidate?.sha;
+  const pendingAttestationSha = pendingAttestation?.headSha;
+  const reviewResultSha = reviewResultCommit?.headSha;
+  const fullShaPattern = /^[a-f0-9]{40}$/;
+
+  if (!fullShaPattern.test(headSha || '')) {
+    errors.push('approved attestation HEAD must be a full lowercase SHA-1');
+  }
+  if (
+    !Array.isArray(parentShas)
+    || parentShas.length !== 1
+    || parentShas[0] !== reviewResultSha
+  ) {
+    errors.push('approved attestation must have the review-result commit as sole parent');
+  }
+  if (
+    !fullShaPattern.test(reviewResultSha || '')
+    || reviewResultSha === pendingAttestationSha
+    || reviewResultSha === candidateSha
+  ) {
+    errors.push('review-result commit identity is invalid');
+  }
+  if (
+    !Array.isArray(reviewResultCommit?.parentShas)
+    || reviewResultCommit.parentShas.length !== 1
+    || reviewResultCommit.parentShas[0] !== pendingAttestationSha
+  ) {
+    errors.push(
+      'review-result commit must have the pending attestation as sole parent',
+    );
+  }
+  if (
+    headSha === reviewResultSha
+    || headSha === pendingAttestationSha
+    || headSha === candidateSha
+  ) {
+    errors.push('approved attestation commits must have distinct identities');
+  }
+
+  const expectedReviewEntries = [`A\t${GATE0_REVIEW_RESULT_PATH}`];
+  const actualReviewEntries = Array.isArray(reviewResultCommit?.changedEntries)
+    ? [...reviewResultCommit.changedEntries].sort()
+    : [];
+  if (!isDeepStrictEqual(actualReviewEntries, expectedReviewEntries)) {
+    errors.push('review-result commit must add exactly the locked result file');
+  }
+  if (reviewResultCommit?.resultMode !== '100644') {
+    errors.push('review-result file must have Git mode 100644');
+  }
+
+  const packetBytes = toBuffer(
+    pendingAttestation?.outputArtifacts?.[GATE0_REVIEW_PACKET_PATH],
+  );
+  const parsedReview = parseGate0ReviewResult(
+    reviewResultCommit?.resultBytes,
+    {
+      candidateSha,
+      pendingAttestationSha,
+      registryFingerprint: pendingIndex?.candidate?.registrySha256,
+      reviewRange: pendingIndex?.review?.range,
+      packetSha256: packetBytes === null ? null : sha256(packetBytes),
+      reviewRequiredRisks: pendingIndex?.riskPolicy?.reviewRequiredRisks,
+    },
+  );
+  if (!parsedReview.valid) {
+    errors.push(...parsedReview.errors.map(error => `review result: ${error}`));
+  }
+
+  if (
+    !hasExactKeys(evidenceIndex, EVIDENCE_INDEX_TOP_LEVEL_KEYS)
+    || evidenceIndex?.schemaVersion !== 8
+    || evidenceIndex?.product !== 'IntentSmith'
+    || evidenceIndex?.gate !== 'Gate 0'
+  ) {
+    errors.push('approved evidence index identity/schema is invalid');
+  }
+
+  const expectedCandidate = isRecord(pendingIndex?.candidate)
+    ? {
+      ...pendingIndex.candidate,
+      attestationRule: GATE0_APPROVED_ATTESTATION_RULE,
+    }
+    : null;
+  if (!isDeepStrictEqual(evidenceIndex?.candidate, expectedCandidate)) {
+    errors.push('approved evidence candidate binding differs from pending evidence');
+  }
+
+  for (const field of [
+    'product',
+    'gate',
+    'generatedAt',
+    'sourceRefs',
+    'inventory',
+    'clauses',
+    'repositoryBlockers',
+    'provenance',
+    'riskPolicy',
+    'validations',
+    'installation',
+    'deterministic',
+    'pilotFiveConsecutive',
+    'soakRequirementGuard',
+    'privacyIncident',
+  ]) {
+    if (!isDeepStrictEqual(evidenceIndex?.[field], pendingIndex?.[field])) {
+      errors.push(`approved evidence changed inherited field: ${field}`);
+    }
+  }
+
+  let approvedOutcome = null;
+  try {
+    approvedOutcome = deriveGateOutcome({
+      clauses: evidenceIndex?.clauses,
+      repositoryBlockers: evidenceIndex?.repositoryBlockers,
+      reviewRequiredRisks:
+        evidenceIndex?.riskPolicy?.reviewRequiredRisks,
+      reviewStatus: ReviewStatus.APPROVED,
+    });
+  } catch (error) {
+    errors.push(`approved evidence outcome is invalid: ${error.message}`);
+  }
+  if (
+    approvedOutcome?.verdict !== 'PASS'
+    || approvedOutcome?.exitCode !== 0
+  ) {
+    errors.push('approved review cannot promote a failing Gate 0 candidate');
+  }
+  if (
+    evidenceIndex?.verdict !== approvedOutcome?.verdict
+    || evidenceIndex?.exitCode !== approvedOutcome?.exitCode
+  ) {
+    errors.push('approved evidence verdict/exit disagrees with derived outcome');
+  }
+
+  const result = parsedReview.result;
+  const expectedReview = {
+    range: pendingIndex?.review?.range,
+    commitCount: pendingIndex?.review?.commitCount,
+    packet: pendingIndex?.review?.packet,
+    independentReviewStatus: ReviewStatus.APPROVED,
+    result: {
+      path: GATE0_REVIEW_RESULT_PATH,
+      commitSha: reviewResultSha,
+      pendingAttestationSha,
+      schemaVersion: result?.schemaVersion,
+      bytes: parsedReview.bytes,
+      sha256: parsedReview.sha256,
+      decision: result?.decision,
+      reviewerRole: result?.reviewerRole,
+      reviewMethod: result?.reviewMethod,
+      completedAt: result?.completedAt,
+      findingCount: Array.isArray(result?.findings)
+        ? result.findings.length
+        : null,
+    },
+  };
+  if (!isDeepStrictEqual(evidenceIndex?.review, expectedReview)) {
+    errors.push('approved evidence review binding differs from the review commit');
+  }
+
+  const expectedEntries = GATE0_ATTESTATION_OUTPUTS
+    .map(filePath => `M\t${filePath}`)
+    .sort();
+  const actualEntries = Array.isArray(changedEntries)
+    ? [...changedEntries].sort()
+    : [];
+  if (!isDeepStrictEqual(actualEntries, expectedEntries)) {
+    errors.push(
+      'approved attestation must modify exactly the four generated evidence outputs',
+    );
+  }
+  if (worktreeClean !== true) {
+    errors.push('approved attestation validation requires a clean worktree');
+  }
+  const revalidationBoundary = validateGate0RevalidationDisjointness(
+    GATE0_ATTESTATION_OUTPUTS,
+    revalidationInputScopes,
+  );
+  if (!revalidationBoundary.valid) {
+    errors.push(...revalidationBoundary.errors);
+  }
+  for (const filePath of GATE0_ATTESTATION_OUTPUTS) {
+    if (outputModes?.[filePath] !== '100644') {
+      errors.push(`approved attestation output has an invalid Git mode: ${filePath}`);
+    }
+  }
+
+  const expectedBindingPaths = [...GATE0_BOUND_OUTPUTS].sort();
+  const actualBindingPaths = Object.keys(
+    evidenceIndex?.generatedOutputs || {},
+  ).sort();
+  if (!isDeepStrictEqual(actualBindingPaths, expectedBindingPaths)) {
+    errors.push(
+      'approved evidence index must bind exactly the three Markdown outputs',
+    );
+  } else {
+    for (const filePath of expectedBindingPaths) {
+      const bytes = toBuffer(outputArtifacts?.[filePath]);
+      const binding = evidenceIndex.generatedOutputs[filePath];
+      if (
+        bytes === null
+        || !hasExactKeys(binding, ['bytes', 'sha256'])
+        || binding.bytes !== bytes.length
+        || binding.sha256 !== sha256(bytes)
+      ) {
+        errors.push(`approved generated output binding mismatch for ${filePath}`);
+      }
+    }
+  }
+
+  return {
+    schemaVersion: 2,
+    valid: errors.length === 0,
+    errors,
+    headSha,
+    candidateSha: candidateSha || null,
+    pendingAttestationSha: pendingAttestationSha || null,
+    reviewResultSha: reviewResultSha || null,
     changedEntries: actualEntries,
   };
 }
@@ -305,34 +596,14 @@ export function validateGate0RevalidationDisjointness(
 
 export function validateEvidenceIndexShape(index, expectedRegistryFacts) {
   const errors = [];
-  const expectedTopLevelKeys = [
-    'schemaVersion',
-    'product',
-    'gate',
-    'verdict',
-    'exitCode',
-    'generatedAt',
-    'candidate',
-    'sourceRefs',
-    'inventory',
-    'clauses',
-    'repositoryBlockers',
-    'provenance',
-    'riskPolicy',
-    'validations',
-    'installation',
-    'deterministic',
-    'pilotFiveConsecutive',
-    'soakRequirementGuard',
-    'privacyIncident',
-    'review',
-    'generatedOutputs',
-  ].sort();
   if (
     index === null
     || typeof index !== 'object'
     || Array.isArray(index)
-    || JSON.stringify(Object.keys(index).sort()) !== JSON.stringify(expectedTopLevelKeys)
+    || !isDeepStrictEqual(
+      Object.keys(index).sort(),
+      [...EVIDENCE_INDEX_TOP_LEVEL_KEYS].sort(),
+    )
   ) {
     return ['schema-7 evidence index top-level fields differ from the locked contract'];
   }
@@ -1116,6 +1387,12 @@ function gitBuffer(args, cwd) {
 
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
+}
+
+function toBuffer(value) {
+  if (Buffer.isBuffer(value)) return value;
+  if (typeof value === 'string') return Buffer.from(value);
+  return null;
 }
 
 function validIsoTimestamp(value) {
