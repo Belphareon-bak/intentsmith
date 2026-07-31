@@ -33,8 +33,10 @@ export const config = {
     // Port file: written after listen with assigned port (for IDE discovery)
     portFile: process.env.C3_PORT_FILE || path.join(os.homedir(), '.c3', 'port'),
     // CORS: explicit local HTTP origins only (empty = same-origin only).
-    // runtime-environment.js rejects wildcards and non-local origins before
-    // any runtime state is initialized.
+    // The src/server.js entrypoint imports runtime-environment.js first, so it
+    // rejects wildcards and non-local origins before product runtime state.
+    // Other entrypoints must import that bootstrap explicitly; the listener
+    // and per-request guards still revalidate their own boundaries fail closed.
     allowedOrigins: (process.env.C3_CORS_ORIGINS || '').split(',').filter(Boolean),
     // Rate limiting: tiered per IP per window (v125)
     rateLimit: {

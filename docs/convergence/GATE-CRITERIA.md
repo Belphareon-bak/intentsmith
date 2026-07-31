@@ -104,8 +104,11 @@ that impact and become blockers again if reopened.
 `G0-R015` is `G0_REVIEW_REQUIRED`. `G0-R018` is `LATER_GATE` only under the
 condition that the legacy listener remains loopback-only; off-loopback binding
 is prohibited until the separate authenticated boundary and its bypass-negative
-tests pass. The confirmed privacy findings `G0-R001`, `G0-R002`, and `G0-R010`
-are `SEPARATE_INCIDENT`.
+tests pass. `G0-R030` is `LATER_GATE` only while failed media-output retries
+remain bounded by the per-cache 60-second/256-entry contract; `C3-001` cannot
+pass Gate 1 until health scheduling and teardown are repaired and tested. The
+confirmed privacy findings `G0-R001`, `G0-R002`, and `G0-R010` are
+`SEPARATE_INCIDENT`.
 
 Validation fails closed. A missing or duplicate entry, unknown impact, empty
 required condition, malformed policy entry, extra policy entry without a

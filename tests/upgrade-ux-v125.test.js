@@ -915,16 +915,19 @@ function createObjectUrlCacheTestHarness(options = {}) {
         blob: async () => ({ target }),
       };
     }),
-    createObjectURL: blob => {
+    createObjectURL: options.createObjectURL || (blob => {
       const objectUrl = `blob:test-${created.length + 1}:${blob.target}`;
       created.push(objectUrl);
       return objectUrl;
-    },
-    revokeObjectURL: objectUrl => {
+    }),
+    revokeObjectURL: options.revokeObjectURL || (objectUrl => {
       revoked.push(objectUrl);
-    },
-    maxEntries: options.maxEntries || 24,
-    maxPending: options.maxPending || 64,
+    }),
+    maxEntries: options.maxEntries ?? 24,
+    maxPending: options.maxPending ?? 64,
+    maxFailures: options.maxFailures ?? 256,
+    failureTtlMs: options.failureTtlMs ?? 60_000,
+    now: options.now ?? Date.now,
   });
   return {
     cache,
@@ -976,6 +979,7 @@ await testAsync('media invalidation aborts a pending load and blocks late reinse
   assertEqual(harness.created.length, 0, 'late response must not create an object URL');
   assertEqual(harness.cache.peek(target), null);
   assertEqual(harness.cache.stats().pending, 0);
+  assertEqual(harness.cache.stats().failed, 0);
 });
 
 await testAsync('media invalidation before the fetch microtask prevents the request', async () => {
@@ -997,6 +1001,237 @@ await testAsync('media invalidation before the fetch microtask prevents the requ
   assertEqual(fetchCalls, 0, 'synchronous invalidation must prevent the fetch call');
   assertEqual(harness.created.length, 0);
   assertEqual(harness.cache.stats().pending, 0);
+  assertEqual(harness.cache.stats().failed, 0);
+});
+
+await testAsync('media object URL cache bounds repeated failures across every load phase', async () => {
+  const scenarios = [
+    {
+      name: 'fetch rejection',
+      fetchImpl: async (_target, _options, countAttempt) => {
+        countAttempt();
+        throw new Error('fetch failed');
+      },
+    },
+    {
+      name: 'HTTP rejection',
+      fetchImpl: async (_target, _options, countAttempt) => {
+        countAttempt();
+        return { ok: false, status: 503 };
+      },
+    },
+    {
+      name: 'blob rejection',
+      fetchImpl: async (_target, _options, countAttempt) => {
+        countAttempt();
+        return {
+          ok: true,
+          blob: async () => { throw new Error('blob failed'); },
+        };
+      },
+    },
+    {
+      name: 'object URL rejection',
+      fetchImpl: async (target, _options, countAttempt) => {
+        countAttempt();
+        return { ok: true, blob: async () => ({ target }) };
+      },
+      createObjectURL: () => { throw new Error('object URL failed'); },
+    },
+  ];
+
+  for (const [index, scenario] of scenarios.entries()) {
+    let attempts = 0;
+    const target = `/api/media/output?id=failure-${index}&filename=bad.png`;
+    const harness = createObjectUrlCacheTestHarness({
+      fetchImpl: (requestedTarget, options) => scenario.fetchImpl(
+        requestedTarget,
+        options,
+        () => { attempts++; },
+      ),
+      createObjectURL: scenario.createObjectURL,
+    });
+
+    assertEqual(await harness.cache.load(target), null, scenario.name);
+    assertEqual(await harness.cache.load(target), null, scenario.name);
+    assertEqual(attempts, 1, `${scenario.name} must enter a bounded cooldown`);
+    assertEqual(harness.cache.stats().failed, 1, scenario.name);
+  }
+});
+
+await testAsync('media failure TTL is absolute and retries at the exact deadline', async () => {
+  const target = '/api/media/output?id=ttl&filename=retry.png';
+  let now = 10_000;
+  let attempts = 0;
+  const harness = createObjectUrlCacheTestHarness({
+    failureTtlMs: 60_000,
+    now: () => now,
+    fetchImpl: async requestedTarget => {
+      attempts++;
+      if (attempts === 1) return { ok: false, status: 503 };
+      return { ok: true, blob: async () => ({ target: requestedTarget }) };
+    },
+  });
+
+  assertEqual(await harness.cache.load(target), null);
+  assertEqual(harness.cache.stats().failureTtlMs, 60_000);
+  assertEqual(harness.cache.stats().maxFailures, 256);
+  now += 59_999;
+  assertEqual(await harness.cache.load(target), null);
+  assertEqual(attempts, 1, 'negative hits must not extend or bypass the TTL');
+  now += 1;
+  const recovered = await harness.cache.load(target);
+  assert(recovered, 'the exact TTL deadline must permit a retry');
+  assertEqual(attempts, 2);
+  assertEqual(harness.cache.stats().failed, 0);
+});
+
+await testAsync('media AbortError is never negative-cached', async () => {
+  const target = '/api/media/output?id=abort&filename=retry.png';
+  let attempts = 0;
+  const harness = createObjectUrlCacheTestHarness({
+    fetchImpl: async requestedTarget => {
+      attempts++;
+      if (attempts === 1) {
+        const error = new Error('cancelled');
+        error.name = 'AbortError';
+        throw error;
+      }
+      return { ok: true, blob: async () => ({ target: requestedTarget }) };
+    },
+  });
+
+  assertEqual(await harness.cache.load(target), null);
+  assertEqual(harness.cache.stats().failed, 0);
+  assert(await harness.cache.load(target), 'an aborted load must be immediately retryable');
+  assertEqual(attempts, 2);
+});
+
+await testAsync('late failure from an invalidated owner cannot poison its replacement', async () => {
+  const target = '/api/media/output?id=owner&filename=fresh.png';
+  const requests = [];
+  const harness = createObjectUrlCacheTestHarness({
+    fetchImpl: (requestedTarget, options) => new Promise((resolve, reject) => {
+      requests.push({ options, reject, requestedTarget, resolve });
+    }),
+  });
+
+  const staleLoad = harness.cache.load(target);
+  await Promise.resolve();
+  assertEqual(requests.length, 1);
+  assertEqual(harness.cache.invalidate(target), true);
+  const replacementLoad = harness.cache.load(target);
+  await Promise.resolve();
+  assertEqual(requests.length, 2);
+
+  requests[0].reject(new Error('late stale failure'));
+  requests[1].resolve({
+    ok: true,
+    blob: async () => ({ target: requests[1].requestedTarget }),
+  });
+  assertEqual(await staleLoad, null);
+  assert(await replacementLoad, 'the replacement owner must complete');
+  assertEqual(harness.cache.stats().failed, 0);
+});
+
+await testAsync('media failure cache enforces LRU bounds without sliding expiry', async () => {
+  const targets = ['a.png', 'b.png', 'c.png'].map(
+    filename => `/api/media/output?id=lru&filename=${filename}`,
+  );
+  const attempts = new Map();
+  const harness = createObjectUrlCacheTestHarness({
+    maxFailures: 2,
+    fetchImpl: async target => {
+      attempts.set(target, (attempts.get(target) || 0) + 1);
+      return { ok: false, status: 503 };
+    },
+  });
+
+  await harness.cache.load(targets[0]);
+  await harness.cache.load(targets[1]);
+  await harness.cache.load(targets[0]);
+  await harness.cache.load(targets[2]);
+  assertEqual(harness.cache.stats().failed, 2);
+  await harness.cache.load(targets[0]);
+  await harness.cache.load(targets[2]);
+  assertEqual(attempts.get(targets[0]), 1, 'recent failure A remains cached');
+  assertEqual(attempts.get(targets[2]), 1, 'new failure C remains cached');
+  await harness.cache.load(targets[1]);
+  assertEqual(attempts.get(targets[1]), 2, 'oldest failure B must be evicted');
+  assertEqual(harness.cache.stats().failed, 2);
+});
+
+await testAsync('media failure metadata expires lazily without a retry', async () => {
+  const target = '/api/media/output?id=expired&filename=stale.png';
+  let now = 0;
+  const harness = createObjectUrlCacheTestHarness({
+    now: () => now,
+    fetchImpl: async () => ({ ok: false, status: 503 }),
+  });
+
+  assertEqual(await harness.cache.load(target), null);
+  assertEqual(harness.cache.stats().failed, 1);
+  now = 60_000;
+  assertEqual(harness.cache.stats().failed, 0);
+  assertEqual(harness.cache.clear(), 0);
+});
+
+await testAsync('media eviction revoke errors do not poison an inserted URL', async () => {
+  const firstTarget = '/api/media/output?id=revoke&filename=first.png';
+  const secondTarget = '/api/media/output?id=revoke&filename=second.png';
+  let firstUrl = null;
+  const harness = createObjectUrlCacheTestHarness({
+    maxEntries: 1,
+    revokeObjectURL: objectUrl => {
+      if (objectUrl === firstUrl) throw new Error('revoke failed');
+    },
+  });
+
+  firstUrl = await harness.cache.load(firstTarget);
+  await harness.cache.load(secondTarget);
+  assertEqual(harness.cache.peek(firstTarget), null);
+  assert(harness.cache.peek(secondTarget), 'new URL remains owned after old revoke fails');
+  assertEqual(harness.cache.stats().failed, 0);
+});
+
+await testAsync('media invalidation retain and clear remove failure cooldowns exactly', async () => {
+  const keepTarget = '/api/media/output?id=failed&filename=keep.png';
+  const retryTarget = '/api/media/output?id=failed&filename=retry.png';
+  const dropTarget = '/api/media/output?id=failed&filename=drop.png';
+  const attempts = new Map();
+  const harness = createObjectUrlCacheTestHarness({
+    fetchImpl: async target => {
+      attempts.set(target, (attempts.get(target) || 0) + 1);
+      return { ok: false, status: 503 };
+    },
+  });
+
+  await harness.cache.load(keepTarget);
+  await harness.cache.load(retryTarget);
+  await harness.cache.load(dropTarget);
+  assertEqual(harness.cache.stats().failed, 3);
+  assertEqual(harness.cache.invalidate(retryTarget), true);
+  await harness.cache.load(retryTarget);
+  assertEqual(attempts.get(retryTarget), 2, 'explicit invalidation permits immediate retry');
+  assertEqual(harness.cache.retain([keepTarget]), 2);
+  assertEqual(harness.cache.stats().failed, 1);
+  assertEqual(harness.cache.clear(), 1);
+  assertEqual(harness.cache.stats().failed, 0);
+});
+
+test('media failure cache rejects unbounded or invalid configuration', () => {
+  const base = {
+    fetchImpl: async () => ({ ok: false, status: 503 }),
+    createObjectURL: () => 'blob:test',
+    revokeObjectURL: () => {},
+  };
+  assertThrows(() => createLegacyLocalObjectUrlCache({ ...base, maxFailures: 0 }));
+  assertThrows(() => createLegacyLocalObjectUrlCache({ ...base, maxFailures: 257 }));
+  assertThrows(() => createLegacyLocalObjectUrlCache({ ...base, failureTtlMs: 0 }));
+  assertThrows(() => createLegacyLocalObjectUrlCache({ ...base, failureTtlMs: 3_600_001 }));
+  assertThrows(() => createLegacyLocalObjectUrlCache({ ...base, now: 1 }));
+  const invalidClock = createLegacyLocalObjectUrlCache({ ...base, now: () => NaN });
+  assertThrows(() => invalidClock.stats());
 });
 
 await testAsync('media object URL cache enforces its completed-entry LRU bound', async () => {

@@ -4392,6 +4392,7 @@ var MediaEvents={
     C3Bus.on('comfyui:complete',function(ev){
       _media.progress.delete(ev.generationId);
       NAV[6].badge=_media.progress.size||0;
+      if(ev.generationId)_mediaRevokeOutputUrls(ev.generationId);
       MediaAPI.loadData();
       if(window._c3)window._c3.agentLog('TOOL','Media generování dokončeno');
     });

@@ -186,6 +186,7 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
         self._mm.error = null;
         self._mm.queueLength = 0;
         self._mm.currentGenId = null;
+        if (d.generationId) self._mmRevokeOutputUrls(d.generationId);
         self._mmFetchHistory();
         self.update();
       });

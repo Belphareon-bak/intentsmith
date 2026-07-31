@@ -2,8 +2,10 @@
 //
 // The database module deliberately has no implicit path fallback: importing it
 // without an explicit C3_DB_PATH must fail before it can touch operator data.
-// Product entry points import this module first so the normal local runtime
-// keeps its project-local default after dotenv has had a chance to override it.
+// The production server entry point imports this module first so the normal
+// local runtime keeps its project-local default after dotenv has had a chance
+// to override it. Other module entry points must import this bootstrap
+// explicitly before initializing runtime state.
 
 import 'dotenv/config';
 import path from 'node:path';

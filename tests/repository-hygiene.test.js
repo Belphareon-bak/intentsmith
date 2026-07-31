@@ -164,11 +164,19 @@ assert.match(
 assert.match(chatPanelRuntime, /_mediaOutputCache\.invalidateWhere/);
 assert.match(chatPanelRuntime, /_mediaOutputCache\.retain\(activeTargets\)/);
 assert.match(
+  chatPanelRuntime,
+  /C3Bus\.on\('comfyui:complete',function\(ev\)\{[\s\S]*?_mediaRevokeOutputUrls\(ev\.generationId\);[\s\S]*?MediaAPI\.loadData\(\);/,
+);
+assert.match(
   centerViewsRuntime,
   /this\._mmOutputCache\.load\(target\)/,
 );
 assert.match(centerViewsRuntime, /this\._mmOutputCache\.invalidateWhere/);
 assert.match(centerViewsRuntime, /this\._mmOutputCache\.retain\(activeTargets\)/);
+assert.match(
+  centerViewsRuntime,
+  /window\.C3Bus\.on\('comfyui:complete', function\(d\) \{[\s\S]*?self\._mmRevokeOutputUrls\(d\.generationId\);[\s\S]*?self\._mmFetchHistory\(\);/,
+);
 assert.match(centerViewsRuntime, /dispose\(\)\s*\{\s*this\._mmOutputCache\.clear\(\)/);
 assert.match(centerViewsRuntime, /\?\s*h\('img',\s*\{\s*src:\s*thumbUrl/);
 assert.match(chatPanelRuntime, /thumbUrl\s*\?\s*h\('img',\s*\{\s*src:\s*thumbUrl/);

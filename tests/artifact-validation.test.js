@@ -738,23 +738,23 @@ function riskAssessmentCopy(overrides = {}) {
     schemaVersion: 1,
     valid: true,
     errors: [],
-    riskCount: 29,
-    policyCount: 29,
+    riskCount: 30,
+    policyCount: 30,
     impactCounts: {
       G0_FAIL: 23,
       G0_REVIEW_REQUIRED: 1,
-      LATER_GATE: 2,
+      LATER_GATE: 3,
       SEPARATE_INCIDENT: 3,
     },
     openImpactCounts: {
       G0_FAIL: 0,
       G0_REVIEW_REQUIRED: 1,
-      LATER_GATE: 2,
+      LATER_GATE: 3,
       SEPARATE_INCIDENT: 3,
     },
     repositoryBlockers: [],
     reviewRequiredRisks: ['G0-R015: OPEN'],
-    laterGateRisks: ['G0-R009: OPEN', 'G0-R018: OPEN'],
+    laterGateRisks: ['G0-R009: OPEN', 'G0-R018: OPEN', 'G0-R030: OPEN'],
     separateIncidents: [
       'G0-R001: CONTAINED_CURRENT_TREE / OPEN_HISTORY',
       'G0-R002: CONTAINED_CURRENT_TREE / OPEN_HISTORY',
@@ -770,11 +770,14 @@ test('committed policy classifies every risk and derives current blockers', () =
     riskPolicyCopy(),
   );
   assertEqual(result.valid, true);
-  assertEqual(result.riskCount, 29);
-  assertEqual(result.policyCount, 29);
+  assertEqual(result.riskCount, 30);
+  assertEqual(result.policyCount, 30);
   assertEqual(result.repositoryBlockers.join(','), '');
   assertEqual(result.reviewRequiredRisks.join(','), 'G0-R015: OPEN');
-  assertEqual(result.laterGateRisks.join(','), 'G0-R009: OPEN,G0-R018: OPEN');
+  assertEqual(
+    result.laterGateRisks.join(','),
+    'G0-R009: OPEN,G0-R018: OPEN,G0-R030: OPEN',
+  );
   assertEqual(
     result.separateIncidents.join(','),
     'G0-R001: CONTAINED_CURRENT_TREE / OPEN_HISTORY,'
@@ -799,6 +802,8 @@ test('policy pins Gate 0 failure classes and the loopback condition', () => {
   }
   assertEqual(byId.get('G0-R018')?.gateImpact, GateImpact.LATER_GATE);
   assert(byId.get('G0-R018')?.condition.includes('loopback-only'));
+  assertEqual(byId.get('G0-R030')?.gateImpact, GateImpact.LATER_GATE);
+  assert(byId.get('G0-R030')?.condition.includes('C3-001 cannot pass Gate 1'));
   for (const riskId of ['G0-R001', 'G0-R002', 'G0-R010']) {
     assertEqual(byId.get(riskId)?.gateImpact, GateImpact.SEPARATE_INCIDENT);
   }

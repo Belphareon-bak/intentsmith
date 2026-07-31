@@ -9,11 +9,14 @@ per-operation scope enforcement required for remote exposure.
 - The legacy listener binds only to the exact numeric address `127.0.0.1`.
 - Host input is canonicalized before use, and the exact canonical value that
   passes validation is passed to `server.listen()`.
-- The host is validated by `runtime-environment.js` before the database or
-  other runtime state can initialize.
-- Wildcard, symbolic, IPv6, LAN, VPN, public, explicitly blank, and malformed
-  host values fail before any runtime state or `server.listen()` with
-  `C3_LEGACY_LISTENER_LOOPBACK_REQUIRED`.
+- For the production `src/server.js` entrypoint, its first import validates the
+  host through `runtime-environment.js` before the database or other runtime
+  state can initialize. Other module entrypoints do not inherit that
+  pre-initialization guarantee and must import the bootstrap explicitly; the
+  listener bind and per-request policies still revalidate fail closed.
+- For that production server entrypoint, wildcard, symbolic, IPv6, LAN, VPN,
+  public, explicitly blank, and malformed host values fail before runtime state
+  or `server.listen()` with `C3_LEGACY_LISTENER_LOOPBACK_REQUIRED`.
 - An omitted `C3_HOST` keeps the safe `127.0.0.1` default.
 - `C3_HOST` is not a remote-access switch. Setting it to a non-loopback value
   makes startup fail closed.
@@ -52,11 +55,17 @@ copy is removed before a foreign request. Local redirects fail closed.
 
 The three media element and navigation consumers load through the
 capability-bearing wrapper, create
-object URLs in a shared cache capped at 24 completed entries per consumer, and
-revoke obsolete URLs. Invalidating or pruning aborts owned pending loads, the
+object URLs in per-consumer cache instances capped at 24 completed entries each,
+and revoke obsolete URLs. Each cache keeps at most 256 failed targets in an
+absolute 60-second cooldown, so repeated renders cannot continuously refetch a
+broken output. It records only an active owner's non-abort failure; expiry,
+explicit invalidation, pruning, clearing, or a generation-complete event allows
+an immediate retry. Invalidating or pruning aborts owned pending loads, the
 center widget also clears its cache on disposal, and an eventual late response
-cannot reinsert a stale URL. No capability is placed in a media URL or query
-string.
+cannot reinsert a stale URL or poison its replacement. No capability is placed
+in a media URL or query string. Render-phase health polling and LRU-touch side
+effects remain separately visible as `G0-R030`; this boundary does not claim
+their lifecycle repair.
 
 ## HTTP browser-origin boundary
 

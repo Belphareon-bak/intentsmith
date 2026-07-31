@@ -12,6 +12,9 @@ function createLegacyLocalObjectUrlCache({
   AbortControllerImpl = globalThis.AbortController,
   maxEntries = 24,
   maxPending = 64,
+  maxFailures = 256,
+  failureTtlMs = 60_000,
+  now = Date.now,
 }) {
   if (typeof fetchImpl !== 'function') {
     throw new TypeError('object URL cache requires fetchImpl');
@@ -31,9 +34,23 @@ function createLegacyLocalObjectUrlCache({
   if (!Number.isInteger(maxPending) || maxPending < 1 || maxPending > 256) {
     throw new TypeError('object URL cache maxPending must be 1..256');
   }
+  if (!Number.isInteger(maxFailures) || maxFailures < 1 || maxFailures > 256) {
+    throw new TypeError('object URL cache maxFailures must be 1..256');
+  }
+  if (
+    !Number.isInteger(failureTtlMs)
+    || failureTtlMs < 1
+    || failureTtlMs > 3_600_000
+  ) {
+    throw new TypeError('object URL cache failureTtlMs must be 1..3600000');
+  }
+  if (typeof now !== 'function') {
+    throw new TypeError('object URL cache now must be a function');
+  }
 
   const entries = new Map();
   const pending = new Map();
+  const failures = new Map();
 
   function normalizeKey(target) {
     if (typeof target !== 'string' || target.length === 0) {
@@ -62,11 +79,48 @@ function createLegacyLocalObjectUrlCache({
     return true;
   }
 
+  function currentTime() {
+    const value = now();
+    if (!Number.isFinite(value)) {
+      throw new TypeError('object URL cache now must return a finite number');
+    }
+    return value;
+  }
+
+  function purgeExpiredFailures(at = currentTime()) {
+    for (const [key, expiresAt] of failures) {
+      if (expiresAt <= at) failures.delete(key);
+    }
+  }
+
+  function hasFreshFailure(key) {
+    const expiresAt = failures.get(key);
+    if (expiresAt === undefined) return false;
+    if (expiresAt <= currentTime()) {
+      failures.delete(key);
+      return false;
+    }
+    failures.delete(key);
+    failures.set(key, expiresAt);
+    return true;
+  }
+
+  function recordFailure(key) {
+    const at = currentTime();
+    purgeExpiredFailures(at);
+    failures.delete(key);
+    failures.set(key, at + failureTtlMs);
+    while (failures.size > maxFailures) {
+      failures.delete(failures.keys().next().value);
+    }
+  }
+
   function invalidate(target) {
     const key = normalizeKey(target);
     const cancelled = cancelPending(key);
     const revoked = revokeEntry(key);
-    return cancelled || revoked;
+    const forgotten = failures.delete(key);
+    return cancelled || revoked || forgotten;
   }
 
   function evictCompletedEntries() {
@@ -98,6 +152,7 @@ function createLegacyLocalObjectUrlCache({
     if (cached) return Promise.resolve(cached);
     const current = pending.get(key);
     if (current) return current.promise;
+    if (hasFreshFailure(key)) return Promise.resolve(null);
 
     evictPendingLoads();
     const controller = new AbortControllerImpl();
@@ -132,13 +187,18 @@ function createLegacyLocalObjectUrlCache({
           revokeObjectURL(objectUrl);
           return null;
         }
+        failures.delete(key);
         entries.set(key, objectUrl);
         evictCompletedEntries();
         return objectUrl;
       })
       .catch(error => {
-        if (record.active && error?.name !== 'AbortError') {
-          return null;
+        if (
+          ownsPendingLoad()
+          && !entries.has(key)
+          && error?.name !== 'AbortError'
+        ) {
+          recordFailure(key);
         }
         return null;
       })
@@ -153,7 +213,12 @@ function createLegacyLocalObjectUrlCache({
   }
 
   function knownKeys() {
-    return new Set([...entries.keys(), ...pending.keys()]);
+    purgeExpiredFailures();
+    return new Set([
+      ...entries.keys(),
+      ...pending.keys(),
+      ...failures.keys(),
+    ]);
   }
 
   function invalidateWhere(predicate) {
@@ -184,11 +249,15 @@ function createLegacyLocalObjectUrlCache({
   }
 
   function stats() {
+    purgeExpiredFailures();
     return Object.freeze({
       completed: entries.size,
       pending: pending.size,
+      failed: failures.size,
       maxEntries,
       maxPending,
+      maxFailures,
+      failureTtlMs,
     });
   }
 
