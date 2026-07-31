@@ -4,8 +4,8 @@
 > Do not hand-edit. The evidence-only attestation commit must have the candidate
 > below as its first parent.
 
-- Generated: 2026-07-31T11:44:34.504Z
-- Candidate: `c1de74e55da73724628a9f203b4dde6205a4b26a`
+- Generated: 2026-07-31T12:40:43.804Z
+- Candidate: `2f11e801707a93a547795b5e96ff30c7f620ba5b`
 - Branch: `codex/s1-legacy-loopback-containment`
 - Parsed-registry serialization fingerprint
   (`sha256-json-stringify-v1`): `21992f9fcc1625c14baa0a7d53771a88e4f704e97e4c276f4d4b8fd9ea08cd73`
@@ -25,8 +25,8 @@
 | G0-C5 deterministic T1/T2 | PASS | 199 deterministic PASS; 5/5 pilot PASS; deterministic verdict PASS/exit 0 |
 | G0-C6 defective suites excluded | PASS | 0 registry rows are KNOWN_DEFECTIVE; none appears in green deterministic evidence |
 | G0-C7 blockers specific | PASS | every registry BLOCKED row names a concrete prerequisite; all five soak guards name gpu and ollama |
-| G0-C8 generated evidence | PASS | typed producer provenance .intentsmith-artifacts/gate0/candidate-c1de74e55da73724628a9f203b4dde6205a4b26a/provenance.json is bound by SHA-256 557cd810ed37935d0cd8e042add181dc5bc43158c6b6468bea79dcc65a94c41f |
-| G0-C9 risk impact policy | PASS | 29 risk rows have validated machine-readable gateImpact entries |
+| G0-C8 generated evidence | PASS | typed producer provenance .intentsmith-artifacts/gate0/candidate-2f11e801707a93a547795b5e96ff30c7f620ba5b/provenance.json is bound by SHA-256 c0999b27620a7decbb074d270a67dae000e185ea97eebfb63a83b03fc9058651 |
+| G0-C9 risk impact policy | PASS | 30 risk rows have validated machine-readable gateImpact entries |
 
 ## Registry
 
@@ -39,7 +39,7 @@
 - Independent Opus review: **PENDING**.
 - Repository-local Gate 0 blockers: none.
 - Review-required risks: G0-R015: OPEN.
-- Later-gate risks: G0-R009: OPEN, G0-R018: OPEN.
+- Later-gate risks: G0-R009: OPEN, G0-R018: OPEN, G0-R030: OPEN.
 - Separate incidents: G0-R001: CONTAINED_CURRENT_TREE / OPEN_HISTORY, G0-R002: CONTAINED_CURRENT_TREE / OPEN_HISTORY, G0-R010: OPEN.
 - Confirmed privacy compromise: **CONFIRMED_COMPROMISE**.
 - Current-tree private material is contained; affected history remains reachable.
