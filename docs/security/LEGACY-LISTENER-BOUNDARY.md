@@ -58,14 +58,22 @@ capability-bearing wrapper, create
 object URLs in per-consumer cache instances capped at 24 completed entries each,
 and revoke obsolete URLs. Each cache keeps at most 256 failed targets in an
 absolute 60-second cooldown, so repeated renders cannot continuously refetch a
-broken output. It records only an active owner's non-abort failure; expiry,
-explicit invalidation, pruning, clearing, or a generation-complete event allows
-an immediate retry. Invalidating or pruning aborts owned pending loads, the
-center widget also clears its cache on disposal, and an eventual late response
-cannot reinsert a stale URL or poison its replacement. No capability is placed
-in a media URL or query string. Render-phase health polling and LRU-touch side
-effects remain separately visible as `G0-R030`; this boundary does not claim
-their lifecycle repair.
+broken output. It records only an active owner's non-abort failure. Expiry does
+not create a timer or force a render: it permits the next independently caused
+`load()` call to retry. Explicit invalidation, pruning, clearing, or a
+generation-complete event permits an immediate retry. Invalidating or pruning
+aborts owned pending loads, the center widget also clears its cache on disposal,
+and an eventual late response cannot reinsert a stale URL or poison its
+replacement.
+
+If completed-entry eviction throws while a newly created URL is already stored,
+the initiating `load()` resolves to `null` but the inserted URL remains owned
+and is returned by a later cache lookup. This defensive exceptional path is
+covered by a focused test; it does not create a negative-cache entry or leak the
+local capability. No capability is placed in a media URL or query string.
+Render-phase health polling and both completed-entry and failed-entry LRU-touch
+side effects remain separately visible as `G0-R030`; this boundary does not
+claim their lifecycle repair.
 
 ## HTTP browser-origin boundary
 
@@ -89,6 +97,17 @@ the explicit capability header and local methods. Rejections return the stable
 metadata: reason code, method, and peer address. The capability is never
 logged.
 
+Two low-impact residuals are accepted for this loopback-only boundary rather
+than silently treated as completed hardening. First, an allowed named origin is
+echoed from the raw `Origin` header after policy validation, rather than from a
+canonical parsed serialization. A browser does not send the trailing-slash
+form that exposes the interoperability difference, and the policy still fails
+closed; canonical echo remains a later tightening. Second, requests rejected by
+the pre-routing boundary do not consume application rate-limit buckets. The 403
+path is therefore not rate-limited. This is not accepted for a future remote
+listener and is one reason the legacy listener must remain numeric-loopback
+only.
+
 The registered `C3-023` route-smoke suite starts an owned server with private
 HOME/XDG/temp/database/project/artifact/port-file paths. Its live matrix proves
 that foreign origins, hostile Host headers, copied or wrong capabilities and
@@ -103,6 +122,11 @@ accepted decision D-024 as a later-gate remote-boundary risk: the legacy
 listener must remain strictly loopback-only until a physically separate
 authenticated remote listener and bypass-negative tests exist. This checkpoint
 does not change the generated Gate 0 verdict.
+
+Source-level hygiene checks are not runtime evidence for the IDE. Before
+`C3-001` can be accepted, Gate 2 must build the actual Theia/Electron target and
+bind its tested artifact digest; the tracked legacy frontend bundle contains no
+proof that the current chat, center-view, or media paths were assembled.
 
 ## Explicitly outside this boundary
 

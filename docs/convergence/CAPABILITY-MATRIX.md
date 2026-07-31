@@ -4,7 +4,7 @@ Statuses are evidence states, not roadmap confidence. No row is green until its 
 
 | ID | Capability | Gate 0 status | Evidence / issue | Owner |
 |---|---|---|---|---|
-| C3-001 | C3 Studio/Theia application | UNVERIFIED | Critical UI flow not yet run | primary implementer |
+| C3-001 | C3 Studio/Theia application | UNVERIFIED | Source wiring is covered, but the production Theia/Electron artifact is not built, digest-bound, or runtime-tested; `G0-R030` also blocks Gate 1 acceptance | primary implementer |
 | C3-002 | Chat sessions and history | UNVERIFIED | Current deterministic and E2E evidence pending | primary implementer |
 | C3-003 | CRE routing and 19 intents | BASELINE_RED | Registry records CRE failures; one classifier test source is corrupt | primary implementer |
 | C3-004 | Clarification and safe response behavior | UNVERIFIED | Current fixture inventory pending | primary implementer |

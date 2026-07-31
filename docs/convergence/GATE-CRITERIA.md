@@ -107,7 +107,8 @@ condition that the legacy listener remains loopback-only; off-loopback binding
 is prohibited until the separate authenticated boundary and its bypass-negative
 tests pass. `G0-R030` is `LATER_GATE` only while failed media-output retries
 remain bounded by the per-cache 60-second/256-entry contract; `C3-001` cannot
-pass Gate 1 until health scheduling and teardown are repaired and tested. The
+pass Gate 1 until health scheduling, teardown, and render-phase cache mutations
+are repaired and tested. The
 confirmed privacy findings `G0-R001`, `G0-R002`, and `G0-R010` are
 `SEPARATE_INCIDENT`.
 
@@ -309,6 +310,11 @@ A suite that clears 1 and 2 but cannot clear 3 for environmental reasons is
 closed as *isolation restored, verification deferred on `<prerequisite>`*. That
 is a terminal state, distinct from "not yet examined". See the disposition
 vocabulary in `FINAL-COMMIT-DISPOSITION.md`.
+
+For `C3-001`, source-text or repository-hygiene matches do not satisfy step 3.
+Runtime acceptance must build the candidate's production Theia/Electron target,
+bind the artifact digest, and execute the relevant UI boundary against that
+artifact.
 
 ## Registry completeness
 

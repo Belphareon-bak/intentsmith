@@ -124,6 +124,7 @@ ve zbytku dokumentace.
 | [convergence/STATUS.md](convergence/STATUS.md) | který verdikt platí a ke kterému commitu (generovaný) |
 | [convergence/CAPABILITY-MATRIX.md](convergence/CAPABILITY-MATRIX.md) | evidenční stav 30 schopností |
 | [convergence/RISK-REGISTER.md](convergence/RISK-REGISTER.md) | otevřená rizika a jejich mitigace |
+| [convergence/GATE0-REVIEW-FINDINGS-FOLLOWUP.md](convergence/GATE0-REVIEW-FINDINGS-FOLLOWUP.md) | dispozice pěti nálezů nezávislého review a hranice jejich platnosti |
 | [convergence/DECISIONS.md](convergence/DECISIONS.md) | uzamčená rozhodnutí + čekající operátorská |
 | [convergence/FINAL-COMMIT-DISPOSITION.md](convergence/FINAL-COMMIT-DISPOSITION.md) | dispozice 225 záznamů `a7b90e3..ffd21cf` |
 | [convergence/TEST-REGISTRY.md](convergence/TEST-REGISTRY.md) | generovaný ledger 350 testovacích programů a 8 explicitních support výjimek |
