@@ -18,6 +18,7 @@
     "gate0:validate-disposition": "node scripts/validate-final-disposition.js",
     "gate0:run-evidence": "node scripts/run-gate0-candidate-evidence.js",
     "gate0:generate-evidence": "node scripts/generate-gate0-evidence.js",
+    "gate0:promote-review": "node scripts/promote-gate0-review.js",
     "gate0:validate-attestation": "node scripts/validate-gate0-attestation.js",
     "test:offline": "node scripts/nightly-audit.js --profile=offline",
     "test:database": "node scripts/nightly-audit.js --profile=database",

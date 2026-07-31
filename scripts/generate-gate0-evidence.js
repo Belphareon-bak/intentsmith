@@ -50,12 +50,21 @@ import {
   runLogged,
   runWithOwnedProcessTerminationHandling,
 } from './nightly-orchestrator.js';
+import {
+  GATE0_BASELINE_REPORT_PATH,
+  GATE0_EVIDENCE_INDEX_PATH,
+  GATE0_STATUS_PATH,
+} from './gate0-attestation-paths.js';
+import {
+  GATE0_PENDING_ATTESTATION_RULE,
+  GATE0_REVIEW_PACKET_PATH,
+} from './gate0-review-contract.js';
 
 const OUTPUTS = {
-  status: 'docs/convergence/STATUS.md',
-  index: 'docs/convergence/EVIDENCE-INDEX.json',
-  report: 'docs/convergence/GATE0-BASELINE-REPORT.md',
-  review: 'docs/convergence/reviews/GATE0-OPUS-REVIEW.md',
+  status: GATE0_STATUS_PATH,
+  index: GATE0_EVIDENCE_INDEX_PATH,
+  report: GATE0_BASELINE_REPORT_PATH,
+  review: GATE0_REVIEW_PACKET_PATH,
 };
 const REVIEW_BASE = 'f11026f062e5d2e75fe6802a3e4e2ad38a6c9dab';
 
@@ -370,7 +379,7 @@ export async function main(argv = process.argv.slice(2)) {
       sha: candidateSha,
       branch,
       registrySha256: registryHash,
-      attestationRule: 'the evidence-only commit must have this candidate as its first parent',
+      attestationRule: GATE0_PENDING_ATTESTATION_RULE,
     },
     sourceRefs: {
       c3Input: 'ffd21cf119865259ea1847af989acb24916bebe3',
@@ -491,13 +500,13 @@ export async function main(argv = process.argv.slice(2)) {
     'candidate identity or worktree changed before evidence output',
   );
   await armRollback();
-  await writeAtomic(path.join(root, OUTPUTS.status), statusMarkdown);
-  await writeAtomic(
+  await writeGate0OutputAtomic(path.join(root, OUTPUTS.status), statusMarkdown);
+  await writeGate0OutputAtomic(
     path.join(root, OUTPUTS.index),
     `${JSON.stringify(evidenceIndex, null, 2)}\n`,
   );
-  await writeAtomic(path.join(root, OUTPUTS.report), baselineMarkdown);
-  await writeAtomic(path.join(root, OUTPUTS.review), reviewMarkdown);
+  await writeGate0OutputAtomic(path.join(root, OUTPUTS.report), baselineMarkdown);
+  await writeGate0OutputAtomic(path.join(root, OUTPUTS.review), reviewMarkdown);
   requireEvidence(
     git(['rev-parse', 'HEAD']) === candidateSha,
     'candidate HEAD changed while evidence was generated',
@@ -545,7 +554,10 @@ export async function runWithGate0OutputRollback({
       const restoreErrors = [];
       for (const [relativePath, contents] of rollbackSnapshot) {
         try {
-          await writeAtomic(path.join(repositoryRoot, relativePath), contents);
+          await writeGate0OutputAtomic(
+            path.join(repositoryRoot, relativePath),
+            contents,
+          );
         } catch (restoreError) {
           restoreErrors.push(`${relativePath}: ${restoreError.message}`);
         }
@@ -1585,7 +1597,7 @@ function shellToken(value) {
   return `'${text.replaceAll("'", "'\"'\"'")}'`;
 }
 
-async function writeAtomic(filePath, contents) {
+export async function writeGate0OutputAtomic(filePath, contents) {
   await mkdir(path.dirname(filePath), { recursive: true, mode: 0o755 });
   const temporaryPath = `${filePath}.tmp-${process.pid}`;
   try {

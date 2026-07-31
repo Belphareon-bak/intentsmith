@@ -109,6 +109,24 @@ npm run gate0:generate-evidence
 npm run gate0:validate-attestation
 ```
 
+After the exact pending attestation `E` has been independently reviewed, add
+only `docs/convergence/reviews/GATE0-OPUS-RESULT.json` in its own commit `R`.
+From that clean commit run:
+
+```bash
+npm run gate0:promote-review
+# inspect and commit exactly the four generated evidence outputs as A
+npm run gate0:validate-attestation
+```
+
+The promotion command accepts no arguments and never stages or commits files.
+It requires `R` to add only the mode-`100644` result, revalidates `E` and its
+physical candidate `C`, derives the exact schema-8 index and approval envelopes,
+and leaves exactly four tracked modifications. Any write, postcondition or
+signal failure restores all four original `E` artifacts. A `PASS` claim exists
+only after the four outputs are committed as `A` and the current-HEAD validator
+accepts the complete physical chain.
+
 The runner accepts no arguments. It executes a fixed nine-phase plan without a
 shell: two minimal installs against one isolated cache, the complete
 offline/database registry, five exact pilot runs, and the five-suite

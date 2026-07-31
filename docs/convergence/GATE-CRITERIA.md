@@ -157,9 +157,12 @@ marks the preserved PENDING/CONDITIONAL text as a historical reviewed snapshot
 and binds its original digest. The current-HEAD loader dispatches explicitly on
 schema 7 versus schema 8, obtains `C/E/R/A` only from physical Git parents,
 loads every artifact from Git objects, and rejects unknown schemas or broken
-lineage before validator subprocesses run. Until the separate promotion writer
-prepares the exact four schema-8 outputs, the operational outcome remains
-`CONDITIONAL PASS`.
+lineage before validator subprocesses run. The argument-free promotion writer
+runs only at the exact one-file `R`, revalidates `E`, derives the same payload,
+and atomically prepares exactly four unstaged outputs with rollback on failure
+or interruption. The current Gate 0 outcome remains `CONDITIONAL PASS` until a
+new candidate receives its own independent review result and committed `A`;
+tooling cannot reuse an earlier review.
 
 ### FAIL
 

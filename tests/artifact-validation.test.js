@@ -100,6 +100,10 @@ import {
   buildApprovedGate0Promotion,
 } from '../scripts/gate0-promotion-contract.js';
 import {
+  validateReviewResultCommitBoundary,
+  writeGate0PromotionFiles,
+} from '../scripts/promote-gate0-review.js';
+import {
   suite,
   test,
   testAsync,
@@ -2451,6 +2455,30 @@ test('approved attestation rejects a mixed or executable review commit', () => {
   assertEqual(validateGate0ApprovedAttestation(executable).valid, false);
 });
 
+test('promotion writer boundary accepts only the one-file review commit', () => {
+  const fixture = validApprovedAttestationFixture();
+  assertEqual(
+    validateReviewResultCommitBoundary(
+      fixture.reviewResultCommit,
+    ).length,
+    0,
+  );
+  const mixed = validApprovedAttestationFixture();
+  mixed.reviewResultCommit.changedEntries.push('M\tsrc/server.js');
+  assert(
+    validateReviewResultCommitBoundary(
+      mixed.reviewResultCommit,
+    ).length > 0,
+  );
+  const executable = validApprovedAttestationFixture();
+  executable.reviewResultCommit.resultMode = '100755';
+  assert(
+    validateReviewResultCommitBoundary(
+      executable.reviewResultCommit,
+    ).length > 0,
+  );
+});
+
 test('approved attestation rejects changed review evidence', () => {
   const fixture = validApprovedAttestationFixture();
   const changedResult = JSON.parse(
@@ -3285,6 +3313,65 @@ await testAsync('signal during evidence finalization restores every tracked outp
     assertEqual(
       readFileSync(path.join(repository, relativePath), 'utf8'),
       `original ${relativePath}\n`,
+    );
+  }
+});
+
+await testAsync('promotion writer rollback restores all four outputs', async () => {
+  for (const failAfter of [2, 4]) {
+    const repository = path.join(
+      testRoot,
+      `promotion-rollback-${failAfter}`,
+    );
+    const originals = new Map();
+    for (const relativePath of GATE0_ATTESTATION_OUTPUTS) {
+      const original = Buffer.from(`original ${relativePath}\n`);
+      originals.set(relativePath, original);
+      mkdirSync(path.dirname(path.join(repository, relativePath)), {
+        recursive: true,
+        mode: 0o700,
+      });
+      writeFileSync(path.join(repository, relativePath), original, {
+        mode: 0o600,
+      });
+    }
+    const fixture = validApprovedAttestationFixture();
+    let writes = 0;
+    let failed = false;
+    try {
+      await runWithGate0OutputRollback({
+        repositoryRoot: repository,
+        outputPaths: GATE0_ATTESTATION_OUTPUTS,
+        operation: async ({ armRollback }) => {
+          await armRollback();
+          await writeGate0PromotionFiles({
+            repositoryRoot: repository,
+            evidenceIndex: fixture.evidenceIndex,
+            outputArtifacts: fixture.outputArtifacts,
+            writeOutput: async (absolutePath, contents) => {
+              writeFileSync(absolutePath, contents, { mode: 0o600 });
+              writes += 1;
+              if (writes === failAfter) {
+                throw new Error(`injected write failure ${failAfter}`);
+              }
+            },
+          });
+        },
+      });
+    } catch (error) {
+      failed = error.message.includes('injected write failure');
+    }
+    assertEqual(failed, true);
+    for (const [relativePath, original] of originals) {
+      assert(
+        readFileSync(path.join(repository, relativePath)).equals(original),
+        `${relativePath} must be restored after write ${failAfter}`,
+      );
+    }
+    assert(
+      readdirSync(repository, { recursive: true })
+        .every(entry => !String(entry).includes('.tmp-')),
+      'promotion rollback must not leave temporary files',
     );
   }
 });
