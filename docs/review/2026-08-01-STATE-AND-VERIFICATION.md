@@ -276,6 +276,46 @@ donor je vstupem pro `C3-029` a `C3-030`, to za zápis stojí.
 
 ---
 
+### `EX-6` — deterministická sada se z čerstvého klonu nereprodukuje · **P1**
+
+**[M] Změřeno spuštěním `npm test` na čistém stroji** (Node 22, `npm install`,
+nic dalšího). Audit vydal verdikt **FAIL**: `{"PASS":193,"FAIL":6}`.
+
+Po zastavení mého vlastního běžícího serveru a čistém přeběhu jednotlivých sad:
+
+| Sada | Příčina | Skutečný nález? |
+|---|---|---|
+| `export-pdf-docx` | chybí Python PDF runtime (`scripts/install-pdf-runtime.sh`) | ANO |
+| `chat-export-budget` | totéž, 4 aserce | ANO |
+| `quality-gate` | `go` není dosažitelné v izolovaném PATH testu, ačkoli v systému je | ANO |
+| `multi-source-integration` | exit 1, přestože všechny viditelné aserce projdou | ANO, nutno prošetřit |
+| `nightly-audit-runner-self-test` | exit 1 na scénáři s `BLOCKED` model testem | ANO, nutno prošetřit |
+| `dependency-manager` | souběh s mým běžícím serverem nad toutéž DB | NE — samostatně 25/25 |
+
+**Čistý stav je tedy 194/199, ne 199/199.**
+
+**Proč to je vážné.** `G0-C5` — *„Every required deterministic T1/T2 suite …
+pass"* — je nosné číslo celého Gate 0. Těch pět sad je v registru `ACTIVE`
+a `required`, nikoli `BLOCKED`, takže **jejich prerekvizity nejsou nikde
+deklarované**. `G0-C7` vyžaduje pojmenovanou prerekvizitu pouze u `BLOCKED`
+řádků, takže validátor tuhle třídu chyby nemůže zachytit.
+
+Na stroji operátora Go i PDF runtime existují, takže tam 199 skutečně projde.
+Evidence není nepravdivá — je **vázaná na prostředí, které nic nedeklaruje**.
+Přitom `GATE-CRITERIA.md` § Independent reproducibility si sám stanoví:
+
+> Evidence that cannot satisfy this contract from a fresh clone is not evidence.
+
+**[R]** Dvě možnosti, obě levné: buď pěti sadám doplnit deklaraci prerekvizity
+a překlopit je na `BLOCKED` mimo `G0-C5` scope, nebo prerekvizity doinstalovat
+v rámci `scripts/install.sh --minimal`, aby `G0-C4` a `G0-C5` mluvily o témž
+prostředí. Rozhodnutí patří vlastníkovi větve.
+
+Nález zároveň vysvětluje, proč `G0-R015` (nezávislá reprodukce) nemá zůstat
+otevřený formálně — první skutečně nezávislý běh ho našel napoprvé.
+
+---
+
 ## 5. Souhrn stavu k 2026-08-01
 
 | Gate | Otázka | Stav | Zbývá |
