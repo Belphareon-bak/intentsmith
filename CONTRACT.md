@@ -47,7 +47,7 @@ Ne fáze. Fáze se projdou a zapomenou; tohle platí trvale a běží souběžn�
 | | Vrstva | Co to je |
 |---|---|---|
 | **L0** | Invarianty | Co se nesmí porušit nikdy. Osm vět, osm testů. |
-| **L1** | Zelená linie | Scénáře, které musí fungovat vždy. Běží při každé změně, trvá vteřiny. Roste o jeden scénář za každou dokončenou schopnost. |
+| **L1** | Zelená linie | Scénáře, které musí fungovat vždy. Běží při každé změně. Roste o jeden scénář za každou dokončenou schopnost. Cíl je běh v řádu vteřin — zatím **neověřeno**, dnešní deterministická sada běží minuty. |
 | **L2** | Schopnosti | Části C3, jedna po druhé, vertikálně až do PASS. |
 | **L3** | Kvalita jako číslo | p95 latence, chybovost, přesnost intentů, počet regresí. Měřeno průběžně. |
 | **L4** | Evoluce | Výměny a upgrady. Sahá se jen na to, co je za stabilním rozhraním z L0. |
@@ -69,7 +69,46 @@ Převzato z `CLAUDE.md` § Klíčové kontrakty. Každý dostane **právě jeden
 
 ---
 
-## 3. Pravidlo chování
+## 3. Postup u jedné schopnosti
+
+Každá schopnost prochází těmito čtyřmi kroky. Krok se nepřeskakuje ani
+neslučuje s dalším.
+
+### Krok 1 — inventura
+
+> **Bez inventury se na schopnosti nezačíná pracovat.** Nelze stavět na tom,
+> o čem není jasné, co dělá.
+
+Inventura vyprodukuje tři seznamy:
+
+1. **Co je dobré a použije se.**
+2. **Co je zbytečné.**
+3. **Co je nejasné a potřebuje rozhodnutí operátora.**
+
+Platí to pro **všech patnáct schopností základu**, ne jen pro přerostlé
+moduly. U velkých modulů (#6 s 32,3k a #18 s 10,3k řádky) je inventura
+nejnákladnější, ale ne jiná.
+
+Inventura popisuje **současný stav**, ne cílový. Nerozhoduje se v ní — jen se
+zjišťuje. Rozhoduje se až nad hotovými třemi seznamy.
+
+### Krok 2 — seznam chování
+
+Viz §4. Schvaluje operátor, před psaním prvního testu.
+
+### Krok 3 — testy
+
+Jeden test na jedno chování. Existující testy se nejdřív mapují na chování;
+píše se jen to, co v mapování chybí.
+
+### Krok 4 — PASS
+
+Podle §5. Teprve pak se schopnost zapíše jako hotová a její scénář se přidá
+do L1.
+
+---
+
+## 4. Pravidlo chování
 
 **Tohle je hlavní pravidlo tohoto dokumentu.**
 
@@ -105,7 +144,7 @@ Dobré — pozorovatelné zvenčí, jednoznačné PASS/FAIL:
 
 ---
 
-## 4. Definice PASS a FAIL
+## 5. Definice PASS a FAIL
 
 Platí pro schopnost, ne pro testovací sadu.
 
@@ -126,30 +165,33 @@ nezakrývá FAIL a nikdy se nepočítá jako zelený důkaz.
 
 ---
 
-## 5. Milníky — schopnosti C3
+## 6. Milníky — schopnosti C3
 
 Pracuje se **shora dolů, jedna schopnost v jednu chvíli.** Rozpracované schopnosti
 se nehromadí.
 
-### Základ — v rozsahu
+### Základ — v rozsahu, v pořadí
 
-| # | Schopnost | Rozsah | Stav |
-|---|---|---:|---|
-| 1 | Server, routing, DB, migrace | 12,3k | boot ověřen |
-| 2 | CRE — klasifikace a rozhodování | v `chat/` | deterministická část ověřena |
-| 3 | LLM gateway a role modelů | 2,9k | neověřeno |
-| 4 | Konverzace a persistence | v `chat/` | základ ověřen |
-| 5 | Quality Gate v2 | v `chat/quality/` | neověřeno |
-| 6 | Chat pipeline a handlery | 32,3k | **kandidát na rozdělení** |
-| 7 | Expertizy a 5D merge | 9,5k | 18 registrovaných |
-| 9 | Skills runtime | 1,8k | 13 registrovaných |
-| 10 | Project lifecycle | 16,6k | |
-| 11 | Execution engine + patch | 5,0k | |
-| 12 | Code Intelligence | 11,6k | |
-| 13 | Architecture governance | 4,0k | |
-| 15 | Paměť (LTM, task, cross-project) | 3,1k | |
-| 16 | Nástroje a registry | 5,7k | |
-| 21 | Studio + WS bridge | 1,3k + IDE | UI odpovídá |
+Pořadí není volba priorit, ale **závislostí**: staví se na tom, co je nutné pro
+běh. Historie vývoje C3 to potvrzuje.
+
+| Pořadí | # | Schopnost | Rozsah | Proč zde |
+|---:|---|---|---:|---|
+| 1. | 1 | Server, routing, DB, migrace | 12,3k | bez toho neběží nic |
+| 2. | 2 | CRE — klasifikace a rozhodování | v `chat/` | každá zpráva jí prochází |
+| 3. | 4 | Konverzace a persistence | v `chat/` | rozhodnutí i historie se musí kam zapsat |
+| 4. | 3 | LLM gateway a role modelů | 2,9k | nedeterministická část CRE bez něj padá na `AMBIGUOUS` |
+| 5. | 5 | Quality Gate v2 | v `chat/quality/` | prochází jí každá odpověď |
+| 6. | 6 | Chat pipeline a handlery | 32,3k | spojuje 2–5 dohromady; **kandidát na rozdělení** |
+| 7. | 21 | Studio + WS bridge | 1,3k + IDE | první bod, kde je produkt vidět jako produkt |
+| 8. | 7 | Expertizy a 5D merge | 9,5k | mění odpovědi, které už fungují |
+| 9. | 16 | Nástroje a registry | 5,7k | předpoklad pro skills i práci s kódem |
+| 10. | 9 | Skills runtime | 1,8k | staví na nástrojích |
+| 11. | 15 | Paměť (LTM, task, cross-project) | 3,1k | zlepšuje kontext, není pro běh nutná |
+| 12. | 12 | Code Intelligence | 11,6k | vstup pro execution i lifecycle |
+| 13. | 11 | Execution engine + patch | 5,0k | mění soubory — až nad ověřenou code intel |
+| 14. | 10 | Project lifecycle | 16,6k | orchestruje 12 a 13 |
+| 15. | 13 | Architecture governance | 4,0k | dohlíží na 10–13 |
 
 ### Nízká priorita — mimo základ
 
@@ -165,34 +207,30 @@ dokud základ nedrží.
 | 19 | Marketplace | 0,9k |
 | 20 | Media / ComfyUI | 1,3k |
 
-### Pravidlo inventury
-
-> U přerostlého modulu nejasné hodnoty je prvním krokem **zjistit, co dělá** —
-> ne rozhodnout, že se zmrazí nebo smaže.
-
-Inventura vyprodukuje tři seznamy: **co je dobré a použije se**, **co je zbytečné**,
-**co je nejasné a potřebuje rozhodnutí**. Teprve nad nimi se rozhoduje.
-
-Týká se to zejména #18 (10 300 řádků) a #6 (32 300 řádků).
+Nízkoprioritní schopnosti dostanou inventuru také — ale až po základu, a jen
+inventuru. Bez ní není o čem rozhodovat.
 
 ---
 
-## 6. Kontrakt pro agenta
+## 7. Kontrakt pro agenta
 
 Agent řídí větev. Operátor řídí projekt a určuje tento kontrakt.
 
 **Agent smí bez ptaní:**
+- provést inventuru schopnosti, která je aktuálně na řadě;
 - pracovat na schopnosti, která je aktuálně na řadě;
 - opravit chybu, která shodila L1;
 - doplnit chování jako regresi po nalezené chybě.
 
 **Agent si musí vyžádat souhlas:**
+- tři seznamy z inventury, **než se z nich cokoli vyvodí**;
 - seznam chování schopnosti, **před** psaním testů;
 - jakoukoli změnu pořadí schopností;
 - výměnu jakékoli části za open source;
 - cokoli, co mění L0.
 
 **Agent nesmí:**
+- začít pracovat na schopnosti bez hotové inventury;
 - začít druhou schopnost, než je první v PASS;
 - zapsat nedokončenou schopnost jako hotovou;
 - založit dokument, který nemá adresáta a důvod;
@@ -204,25 +242,40 @@ Výjimka: bezpečnostní opravy a odstranění blokujících prerekvizit.
 
 ---
 
-## 7. Co se tímto ruší
+## 8. Co se tímto ruší
 
 | Dosud | Nově |
 |---|---|
 | Gate 0 attestace u každé změny | Attestace **u releasu**. Denní režim = L1 zelená |
 | „Jakákoli změna stromu ruší kandidáta" jako provozní režim | Platí jen pro release kandidát |
-| Gate 1 jako 30 nezávislých důkazních řízení | Schopnosti podle §5, pořadí určuje operátor |
+| Gate 1 jako 30 nezávislých důkazních řízení | Schopnosti podle §6, v pořadí daném závislostmi |
 | Evidence generovaná devítifázovým producerem | Producer zůstává pro release; vývoj běží na L1 |
 | `AGENTS.md` jako pravidla vývoje | Tento dokument. `AGENTS.md` zůstává jako historický kontext |
 
 ---
 
-## 8. Otevřené položky
+## 9. Odložená rozhodnutí
 
-Vede si je operátor, ne agent.
+### Bezpečnost a credentials — až po odladění základu
 
-- **Pořadí schopností v základu** — určeno je, co je mimo základ; pořadí uvnitř zbývá.
-- **Rozdělení #6** (chat pipeline, 32,3k) na menší schopnosti.
-- **Inventura #18** (model upgrade, 10,3k).
-- **Privacy incident** `P-001`..`P-003` — vyžaduje rotaci credentialů a rozhodnutí
-  o historii. Blokuje release, ne vývoj.
-- **Nedeklarované prerekvizity** 5 sad (Python PDF runtime, Go v izolovaném PATH).
+**Rozhodnutí operátora, 2026-08-01.** Bezpečnost, credentials a privacy incident
+`P-001`..`P-003` se řeší **až budou základní věci odladěné**. Nejsou blokerem
+ničeho v §6.
+
+Zůstávají v evidenci, aby se na ně nezapomnělo:
+
+- `P-001`..`P-003` — privátní materiál je v současném stromu kontejnovaný,
+  v git historii zůstává dosažitelný. Rotace credentialů a rozhodnutí o historii
+  vyžadují akci operátora, dokud se to neudělá, expozice trvá;
+- `G0-R018` — legacy listener zůstává na loopbacku, což je invariant L0-10.
+  Dokud platí, není z toho aktivní riziko;
+- nezapojený `validateApiToken()` a chybějící globální auth guard patří do téhož
+  balíku a řeší se s ním.
+
+Nic z toho nebrání pracovat na §6 — všechno běží lokálně na loopbacku.
+
+### Zbývá rozhodnout
+
+- **Rozdělení #6** (chat pipeline, 32,3k) na menší schopnosti — vyplyne z inventury.
+- **Nedeklarované prerekvizity** 5 testovacích sad (Python PDF runtime, Go
+  v izolovaném PATH). Detail v `docs/review/2026-08-01-STATE-AND-VERIFICATION.md` `EX-6`.
