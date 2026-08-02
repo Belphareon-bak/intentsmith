@@ -19,7 +19,7 @@
 | **C-01** | Dotaz na čas a na jednoduchý výpočet je klasifikován jako `LOCAL` a odpovězen bez volání modelu. | ne |
 | **C-02** | Rozhodnutí `LOCAL` je terminální — nenásleduje žádné volání gateway. | ne |
 | **C-03** | Každé rozhodnutí vytvoří `CRE_DIAG` záznam s `classifiedBy`, `initialIntent`, `finalIntent` a `confidence`. | ne |
-| **C-04** | Když je model nedostupný, klasifikace spadne na regex a **nikdy nevyhodí výjimku**. | ne |
+| **C-04** | Když je model nedostupný, klasifikace spadne na regex, **nikdy nevyhodí výjimku** a nečeká na opakované pokusy. | ne |
 | **C-05** | `shellCommand` z výstupu modelu je vždy stržen — příkaz nikdy nepochází z modelu (`GUARD 1`). | ne |
 | **C-06** | `SKILL` se nevybere, když je jeho feature flag vypnutý (`GUARD 4`). | ne |
 | **C-07** | Žádná zpráva neobejde `decide()` — invariant L0-1. | ne |
@@ -65,6 +65,37 @@ Klasifikace **má** fallback, takže na ni čekat 6 sekund je čistá ztráta. R
 volajících a jejich limity už v `auth-types.js` existují (`LLMCallerRole.CRE_DECISION`),
 takže je kam odlišnou retry politiku pověsit.
 
-Návrh: `C-04` se rozšíří o měřitelnou horní mez a oprava se udělá pod jeho
-ochranou. Konkrétní mez je rozhodnutí operátora — **navrhuji jeden pokus bez
-opakování**, protože fallback existuje a je okamžitý.
+### Nesouvisí to s přepínáním modelu — ověřeno
+
+Operátor se ptal, jestli retry neexistuje kvůli tomu, že nahrání jiného modelu
+chvíli trvá. **Nesouvisí.** `gateway.js` už tyto případy rozlišuje:
+
+| Situace | Chování dnes |
+|---|---|
+| Timeout / `AbortError` — model nahrává, odpovídá pomalu | *„not retrying (model is working, just slow)"*, má `config.timeouts.CHAT` = 60 s |
+| Zrušení uživatelem | neopakuje se |
+| **`fetch failed` — nikdo neposlouchá** | **opakuje se 3×**, odstupy 2 s a 4 s |
+
+Pomalý model tedy retry nepotřebuje a nedostává ho. Šest sekund se platí
+výhradně za odmítnuté spojení, které se za tu dobu nespraví.
+
+### Rozhodnutí operátora — 2026-08-02
+
+**Pro klasifikaci jeden pokus bez opakování.** `C-04` se rozšíří o měřitelnou
+horní mez a oprava se udělá pod její ochranou.
+
+### Health check Ollamy — otevřené
+
+Operátor navrhl přidat ověření dostupnosti Ollamy, protože by to zjednodušilo
+řadu věcí. Zjištění k tomu:
+
+- `ollamaAvailable` **už existuje**, ale v `src/upgrade/model-discovery.js`,
+  tedy ve schopnosti **18b, která je mimo základ**. Odvozuje se navíc nepřímo —
+  `ollamaModels.length > 0`, takže běžící Ollama bez modelů vyjde jako
+  nedostupná.
+- Gateway (#3) sama žádný pojem dostupnosti nemá.
+
+Zavést health check do gateway znamená sáhnout na #3, která svým seznamem
+chování zatím neprošla. **Navrhuji to nedělat teď** a zařadit jako chování
+schopnosti #3 (5. v pořadí) — s tou opravou, že se dostupnost má odvozovat
+z odpovědi endpointu, ne z počtu modelů.
