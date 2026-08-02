@@ -1,5 +1,13 @@
 # IntentSmith Convergence Instructions
 
+> **Pravidla vývoje jsou v [`CONTRACT.md`](CONTRACT.md), změřený stav systému
+> v [`SYSTEM-MAP.md`](SYSTEM-MAP.md).** Kde si tento soubor odporuje s nimi,
+> platí ony. Sekce níže zůstávají jako historický kontext konvergence —
+> zejména baseline commity a bezpečnostní hranice platí dál.
+>
+> Postup u jedné schopnosti: **inventura → seznam chování → testy → PASS**
+> (`CONTRACT.md` §3). Gate 0 attestace se spouští u releasu, ne při vývoji.
+
 These instructions govern the C3-derived IntentSmith integration workspace.
 
 ## Product and scope
