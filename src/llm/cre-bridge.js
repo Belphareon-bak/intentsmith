@@ -59,6 +59,10 @@ export async function classifyIntent(prompt, systemPrompt = '', options = {}) {
     model: config.models?.FAST || config.models?.CHAT,
     temperature: 0.1,
     format: options.format || 'json',
+    // One attempt. Classification has an immediate regex fallback, so retrying
+    // a refused connection only delays it -- measured at ~6 s for three
+    // attempts. A slow model is unaffected: timeouts are never retried.
+    retries: 1,
     ...options
   });
 }

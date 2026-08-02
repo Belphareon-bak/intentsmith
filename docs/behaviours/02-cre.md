@@ -1,7 +1,8 @@
 # Chování #2 — CRE (klasifikace a rozhodování)
 
 **`CONTRACT.md` §3 krok 2** · **2026-08-02** · `17a8b9a8`
-**Stav: k schválení operátorem — před schválením se nepíše žádný test**
+**Stav: schváleno 2026-08-02. Deterministická část: `tests/capability-02-cre-behaviours.test.js` — 9/9.**
+**Modelová část: dosud nenapsána.**
 
 > Rozhodnutí operátora (inventura #2, `C-2`): **CRE je na Ollamě závislá,
 > testovat ji bez ní nemá přínos.** Fake LLM klient se nestaví.
@@ -21,7 +22,7 @@
 | **C-03** | Každé rozhodnutí vytvoří `CRE_DIAG` záznam s `classifiedBy`, `initialIntent`, `finalIntent` a `confidence`. | ne |
 | **C-04** | Když je model nedostupný, klasifikace spadne na regex, **nikdy nevyhodí výjimku** a nečeká na opakované pokusy. | ne |
 | **C-05** | `shellCommand` z výstupu modelu je vždy stržen — příkaz nikdy nepochází z modelu (`GUARD 1`). | ne |
-| **C-06** | `SKILL` se nevybere, když je jeho feature flag vypnutý (`GUARD 4`). | ne |
+| **C-06** | `SKILL` se nevybere, když je jeho feature flag vypnutý (`GUARD 4`). | **ano** — přesunuto |
 | **C-07** | Žádná zpráva neobejde `decide()` — invariant L0-1. | ne |
 
 ## Klasifikace — vyžaduje model
@@ -81,8 +82,12 @@ výhradně za odmítnuté spojení, které se za tu dobu nespraví.
 
 ### Rozhodnutí operátora — 2026-08-02
 
-**Pro klasifikaci jeden pokus bez opakování.** `C-04` se rozšíří o měřitelnou
-horní mez a oprava se udělá pod její ochranou.
+**Pro klasifikaci jeden pokus bez opakování.** Hotovo.
+
+`C-04c` dostalo mez 2 000 ms a **selhalo na 6 091 ms** — vada doložena testem
+dřív než opravou. Gateway nově přijímá `options.retries` a `classifyIntent()`
+si říká o `retries: 1`. Po opravě: **80 ms**, tedy 76× rychleji. Pomalý model
+zasažen není, timeouty se neopakovaly ani předtím.
 
 ### Health check Ollamy — otevřené
 

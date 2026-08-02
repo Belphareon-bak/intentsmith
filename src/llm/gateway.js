@@ -445,7 +445,13 @@ class LLMGateway {
     }
     
     let lastError;
-    const maxRetries = config.ollama?.retries || 3;
+    // Per-call override. A caller with an immediate fallback (intent
+    // classification) gains nothing from retrying a refused connection,
+    // so it asks for a single attempt. Slow models are unaffected: a
+    // timeout is never retried regardless of this value.
+    const maxRetries = Number.isInteger(options.retries) && options.retries > 0
+      ? options.retries
+      : (config.ollama?.retries || 3);
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       let timeoutId;

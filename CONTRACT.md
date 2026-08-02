@@ -158,6 +158,16 @@ funguje" ani se neschovává za varianci modelu.
 (chybí GPU, model, vlastněný server, externí toolchain). `BLOCKED` nikdy
 nezakrývá FAIL a nikdy se nepočítá jako zelený důkaz.
 
+**NAPSÁNO** — test existuje, ale ten, kdo ho psal, ho v tomto prostředí
+nespustil. Vzniká tam, kde vývoj běží jinde než prerekvizita — typicky testy
+profilu `model` psané bez Ollamy.
+
+`NAPSÁNO` je **slabší než `BLOCKED`**. `BLOCKED` říká „spustili jsme to a
+narazili na chybějící prerekvizitu"; `NAPSÁNO` říká „nespustili jsme to vůbec,
+takže nevíme ani to, jestli je test správně". Nepočítá se jako zelený důkaz,
+nikdy nezakrývá FAIL a **schopnost s jediným `NAPSÁNO` chováním nemůže být
+v PASS**. Přechází na PASS nebo FAIL při prvním skutečném běhu.
+
 > **Prerekvizity se deklarují.** Sada, která potřebuje Go, Python runtime nebo
 > cokoli mimo `npm install`, to musí říct. Nedeklarovaná prerekvizita je vada
 > evidence — z čerstvého klonu dnes projde 194 z 199 „deterministických" sad,
