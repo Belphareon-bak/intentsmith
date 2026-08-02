@@ -1,231 +1,236 @@
-# Otevřená rozhodnutí — všech 22 schopností najednou
+# Devět rozhodnutí ke schválení
 
-**2026-08-02** · `a606ac1c` · adresát: operátor
-**Důvod vzniku:** rozhodnutí operátora — schopnost po schopnosti je neefektivní,
-protože otázky se napříč inventurami opakují. Tenhle dokument je sesypává.
-
----
-
-## Co z toho je vlastně otázka na tebe
-
-Inventury vyprodukovaly **47 otevřených položek**. Po projití to vypadá takhle:
-
-| | Počet |
-|---|---:|
-| **Faktické dotazy** — nepotřebovaly tebe, jen zjistit. Zodpovězeno níže v §1. | **16** |
-| **Odložené podle `CONTRACT.md` §9** (bezpečnost) — nic nového | 4 |
-| **Skutečná rozhodnutí** — §3 | **9** |
-| z toho jedno nové, které inventury minuly (§2) | 1 |
-
-Devět rozhodnutí místo 47 otázek. Většina inventurních položek jsou totiž
-**instance téhož problému** — nejsou to nezávislé volby.
+**2026-08-02** · `6c214aee` · adresát: operátor
+**Důvod vzniku:** rozhodnutí operátora — schopnost po schopnosti je neefektivní.
 
 ---
 
-## 1. Zodpovězeno bez tebe
+## 0. Poctivě k tomu, co je odkud
 
-Ověřeno v kódu, ne odhadnuto. Uzavírám je, pokud neřekneš jinak.
+První verze tohoto dokumentu psala o „nálezech". **Většinou to nálezy nebyly.**
+`SYSTEM-MAP.md` už obsahuje:
+
+| Co jsem „objevil" | Kde to už bylo |
+|---|---|
+| Adresáře neodpovídají schopnostem (`R1`) | `SYSTEM-MAP.md` § Schopnosti — *„Hranice schopností nekopírují adresáře"*, včetně mapování |
+| Pět nedeklarovaných prerekvizit, 194/199 (`R4`) | `SYSTEM-MAP.md` § Spuštění |
+| Rozložení `offline` vs `model` (`R3`) | `SYSTEM-MAP.md` § Kde se testuje bez modelu |
+| Token streaming, rehydrate, shell krok | `SYSTEM-MAP.md` § Známý stav, který se vědomě neřeší |
+
+Tenhle dokument tedy **nic z toho neobjevil — jen to převedl na rozhodnutí**.
+`SYSTEM-MAP.md` popisuje stav a výslovně nerozhoduje; to je jeho role. Hodnota
+níže je v tom, že se ze zaznamenaného stavu stane volba, ne v objevu.
+
+**Skutečně nové z tohoto průchodu je jen dvojí:** 16 faktických odpovědí v §1
+(inventury je měly jako otevřené otázky, `SYSTEM-MAP.md` je neřeší) a nález
+v §2.
+
+---
+
+## 1. Zodpovězeno bez tebe — 16 položek
+
+Ověřeno v kódu. Uzavírám je, pokud neřekneš jinak.
 
 | # | Otázka | Zjištění |
 |---|---|---|
-| **G-3** | Kdo používá roli `LEGACY_DIRECT`? | **Jediné místo:** `routes/expertises.js:255`. Ne rozeseté obcházení, jeden konkrétní volající. |
-| **X-2** | Dva executory — stará a nová cesta? | **Ne, dvě různé cesty.** `tool-executor.js` obsluhuje chat (`server.js`, `handlers/decisions.js`), `c3-tool-executor.js` obsluhuje build (`lifecycle-build.js`). Obojí živé. |
-| **A-2** | Jeden orchestrátor, nebo dva? | **Dva, a jen jeden žije.** `architect/orchestrator.js` je dosažitelný přes `routes/architect.js` → `architect/index.js`. `planner/multi-agent.js` **nemá v produkci konzumenta** — viz §2. |
-| **A-4** | Co edituje `editor.js` v governance? | `EditorLLM` — izolovaný editor kódu bez kontextu konverzace, volaný **výhradně** z Orchestratoru po splnění gates. Patří k architect módu, ne k #11. |
-| **CI-2** | `perf-analyzer.js` — výkon čeho? | **Analyzovaného kódu**, ne C3. Detekuje N+1 dotazy, neohraničené smyčky, sync-in-async. *Advisory only — neblokuje milníky.* |
-| **E-3** | 18 expertíz vs. 15 v dokumentaci | Tři navíc (`sazeni`, `translator`, `code_reviewer`) **nejsou v `expertise-layer.js`** — pocházejí od specialistů. Potvrzuje `E-1`: hranice #7/#8 je opravdu rozmazaná. |
-| **T-3** | Proč je `npm-audit.js` mimo registr? | Spouští `spawnSync` s vlastními timeouty a stropem výstupu (2 MB). Je to modul kolem procesu, ne deklarace nástroje. Důvod existuje. |
-| **S-1** | Krok `shell` ve skills vs. zákaz shellu | **Není to díra.** `steps/shell.js` má **whitelist** (ne blacklist), sandbox na workspace cwd, 120 s timeout. Zákaz `bash` v `AGENTS.md` platí pro *agenta*, ne pro produkt — jiný subjekt. |
-| **L-3** | Tři různé „quality" | Tři různé věci, jen špatně pojmenované: `quality-score.js` = spojité diagnostické skóre 0–1, **není blocker**; `quality-gate.js` = compile/syntax check mezi generováním a R1; `quality/quality-gate-v2.js` = post-processing chatové odpovědi. Nekolidují. |
-| **W-2** | Rehydrate bez ověření — vada, nebo záměr? | **Vědomý stub.** `ws-server.js:241`: *„For now, acknowledge all — full DB validation in Phase 1.2"*. Nedodělek, ne přehlédnutí. Na loopbacku inertní. |
-| **CI-3** | — | Nebyla otázka, bylo to pozorování. |
-| **X-3** | Web search patří spíš k nástrojům? | Potvrzeno: `tool-executor.js` je jediný konzument `web-search.js`. Vstup do `R1`. |
-| **W-1, PA-3, S-1(bezp.), EX-1(bezp. část)** | | Odložené podle `CONTRACT.md` §9. `EX-1` má provozní část v `R8`. |
+| **G-3** | Kdo používá `LEGACY_DIRECT`? | **Jediné místo:** `routes/expertises.js:255`. Ne rozeseté obcházení. |
+| **X-2** | Dva executory — stará a nová cesta? | **Ne, dvě různé cesty, obě živé.** `tool-executor.js` = chat, `c3-tool-executor.js` = build (`lifecycle-build.js`). |
+| **A-2** | Jeden orchestrátor, nebo dva? | **Dva, žije jeden.** `architect/orchestrator.js` je dosažitelný přes `routes/architect.js` → `architect/index.js`. `planner/multi-agent.js` ne — §2. |
+| **A-4** | Co edituje `editor.js` v governance? | `EditorLLM` — izolovaný editor bez kontextu konverzace, volaný výhradně z Orchestratoru po splnění gates. |
+| **CI-2** | `perf-analyzer.js` — výkon čeho? | **Analyzovaného kódu**, ne C3. N+1, neohraničené smyčky, sync-in-async. *Advisory, neblokuje.* |
+| **E-3** | 18 expertíz vs. 15 | Tři navíc nejsou v `expertise-layer.js` — pocházejí od specialistů. Potvrzuje `E-1`. |
+| **T-3** | Proč je `npm-audit.js` mimo registr? | Obaluje `spawnSync` s timeouty a stropem výstupu 2 MB. Modul kolem procesu, ne deklarace nástroje. |
+| **S-1** | Krok `shell` vs. zákaz shellu | **Není díra.** Whitelist (ne blacklist), sandbox na workspace, 120 s timeout. Zákaz `bash` v `AGENTS.md` platí pro *agenta*, ne pro produkt. |
+| **L-3** | Tři „quality" | Tři různé věci: `quality-score` = spojité skóre 0–1, **není blocker**; `quality-gate` = syntax check před R1; `quality-gate-v2` = post-processing chatu. |
+| **W-2** | Rehydrate — vada, nebo záměr? | **Vědomý stub**, `ws-server.js:241`: *„For now, acknowledge all — full DB validation in Phase 1.2"*. |
+| **X-3** | Web search patří k nástrojům? | `tool-executor.js` je jeho jediný konzument. Vstup do `R1`. |
+| **CI-3** | — | Bylo to pozorování, ne otázka. |
+| **W-1, PA-3, EX-1(bezp.)** | | Odloženo podle `CONTRACT.md` §9. Provozní část `EX-1` je `R8`. |
 
 ---
 
-## 2. Nový nález — 396 řádků mrtvého kódu v produkci
+## 2. Nález — `multi-agent.js` se nikdy nespustil
 
-Inventury #10 i #13 uvádějí *„Zbytečné: nic prokazatelného"*. To neplatí.
-
-**`src/planner/multi-agent.js` (396 ř.) nemá v produkci žádného konzumenta.**
+`src/planner/multi-agent.js` (396 ř.) **nemá v produkci konzumenta**:
 
 ```
 multiAgentBuild, feasibilityGate, buildAgentPrompt, AgentRole
-  → grep přes celé src/            : 0 výskytů mimo vlastní soubor
-  → dynamické importy v planneru   : 0
-  → jediný importér                : tests/multi-agent.test.js
+  grep přes src/          : 0 výskytů mimo vlastní soubor
+  dynamické importy       : 0
+  jediný importér         : tests/multi-agent.test.js
 ```
 
-Podstatné je, **co to je**: implementuje „multi-agent pipeline 5 rolí
-(planner → builder → architect → critic → debugger)", kterou inventura #13
-vede v seznamu **předností**. Přednost, která se nikdy nespustí.
+**Historie gitu to zpřesňuje.** `git log -S "multiAgentBuild("` přes všechny
+větve vrací **jediný commit** — ten, který soubor přidal (`0e6a5e88`, v100).
+Nebyl odpojen refaktorem. **Nikdy zapojený nebyl.**
 
-Test `tests/multi-agent.test.js` je přitom zelený — testuje kód, který produkt
-nevolá. To je přesně ten druh testové hmoty, kvůli které `CONTRACT.md` §1 říká,
-že objem nic nedokazuje.
+Proč to není maličkost: implementuje pipeline `planner → builder → architect →
+critic → debugger`, kterou `docs/ARCHITECTURE.md` vede jako hotovou —
+*„Phase I (Governance) · 100% · … multi-agent"* — a `tests/multi-agent.test.js`
+je zelený. Dokumentace tvrdí hotovo, test svítí zeleně, produkt to nevolá.
 
-**Rozhodnutí je v `R7`.**
+`SYSTEM-MAP.md` tohle nezachycuje; jeho sekce „Co je zastaralé" vyjmenovává jiné
+rozpory (15 vs 18 expertíz, 11 vs 12 guardů). Tenhle je stejného druhu.
 
 ---
 
 ## 3. Devět rozhodnutí
 
-### `R1` — Adresáře neodpovídají schopnostem · **největší cluster, 13 položek**
+U každého: **co navrhuju** a **protiargument** — nejsilnější důvod rozhodnout
+opačně, ne slaměný panák.
 
-Sesypává: `G-1`, `X-1`, `X-3`, `L-2`, `A-1`, `M-1`, `E-1`, `K-4`, `PA-2`,
-`Q-2`, `P-2`, `S-3`, `CI-1`.
+---
 
-Není to třináct problémů, je to jeden, viděný ze třinácti stran. Změřeno:
+### `R1` — Adresáře vs. schopnosti · sesypává 13 položek
 
-| Kód | Fyzicky v | Patří ke schopnosti | Ř. |
-|---|---|---|---:|
-| `execution-loop.js`, `error-normalizer.js` | `src/planner/` | #11 | 1 451 |
-| `architecture-guardian.js` | `src/planner/` | #13 | 658 |
-| `specialist-runtime`, `scenario-engine`, `knowledge-base` | `src/expertises/` | #8 *(mimo základ)* | 1 516 |
-| `web-search.js` | `src/llm/` | #16 nebo vlastní | 937 |
-| `agent-wizard.js` | `src/chat/handlers/` | #14 *(mimo základ)* | 671 |
-| `debug-agent.js` | `src/code-intel/` | #14 nebo #11 | 508 |
-| `model-profiles`, `model-registry` | `src/upgrade/` | #18a *(v základu)* | 844 |
-| `ltm-context.js` | `src/chat/` | #15 | 186 |
-| **Celkem** | | | **~6 771** |
+~6 771 řádků leží v adresáři jiné schopnosti. `src/planner/` je domovem tří
+schopností, `src/upgrade/` obsahuje základ i nadstavbu, 2 187 řádků
+nízkoprioritních schopností je uvnitř základních.
 
-`src/planner/` je dnes domovem tří schopností. Adresář `src/upgrade/` obsahuje
-základ i nadstavbu. **Čtyři z osmi řádků jsou kód nízkoprioritní schopnosti
-uvnitř základní** — to je ten vzor, který jsi už jednou rozhodl u `N-1` (#18).
+**→ Navrhuju `C`: přesouvat až ve chvíli, kdy hranice brání psát seznam
+chování.** Mapování zůstává v `SYSTEM-MAP.md`, kde už je. Přesun se stává
+povinnou součástí práce na schopnosti, ne samostatnou úklidovou akcí.
 
-**Proč to není kosmetika:** `CONTRACT.md` §3 zakazuje začít schopnost bez
-inventury a §5 definuje PASS na úrovni schopnosti. Když schopnost nemá hranici,
-nemá ani PASS. U #11 dnes nejde říct, co je „všechna chování #11", protože 1 451
-řádků leží jinde.
+> **Protiargument:** #1 i #2 došly do PASS, aniž se přesunul jediný soubor —
+> empirický důkaz, že nesoulad PASS neblokuje, a moje věta „bez hranice není
+> PASS" je tím oslabená. Kdo tomu věří, zvolí `B` (nechat, jen mapovat) a ušetří
+> celý přesun. **Kde ten protiargument končí:** #1 a #2 jsou shodou okolností ty
+> dvě schopnosti, jejichž kód rozstřelený *není*. Zkouška přijde u #11, kde 1 451
+> z 6 900 řádků leží v `planner/`.
 
-| Varianta | Cena |
-|---|---|
-| **A — adresář = schopnost** | Přesunout ~6 771 řádků do adresářů podle schopností. Jednorázově velký diff, ale hranice pak drží samy. Riziko: rozbité importy, git blame. |
-| **B — mapa místo přesunu** | Nechat kód a vést mapování v `SYSTEM-MAP.md`. Nulový diff. Cena: hranice je jen v dokumentu, tedy se zase rozejde. |
-| **C — přesunout jen tam, kde to překáží** | Hýbe se, až když schopnost přijde na řadu a hranice brání psát chování. Rozloží náklad v čase. Cena: dočasně nekonzistentní strom. |
+---
 
-### `R2` — Kdy se velký soubor dělí
+### `R2` — Kdy se dělí velký soubor
 
-Sesypává: `P-1` (#6, 20 400 ř.), `E-2` (`expertise-layer` 1 682), `L-1`
-(`lifecycle-build` 2 138), `T-1` (`registry.js` 5 094 / 213 nástrojů), `N-6`.
+Precedenty jdou proti sobě: `C-4` — `cre-decision.js` (4 196 ř.) **nedělit**;
+`N-6` — `system.js` (1 621 ř.) **rozdělit**. Menší soubor se dělí, větší ne.
 
-Precedent už máš dvojí a **jde proti sobě**: u `C-4` jsi rozhodl `cre-decision.js`
-(4 196 ř.) **nedělit** — soudržnost rozhodovací logiky je důvod nechat to
-pohromadě. U `N-6` jsi rozhodl `system.js` (1 621 ř.) **rozdělit**.
+**→ Navrhuju `B`: dělí se, až když seznam chování nejde napsat**, protože
+soubor obsluhuje dvě nesouvisející věci. Řádky nerozhodují.
 
-Chybí kritérium. Bez něj se u každého velkého souboru budeme ptát znovu.
+Sedí to na oba tvé precedenty: `cre-decision.js` seznam chování unesl (14 vět
+o jedné věci — klasifikaci), `system.js` ne (GPU, úložiště, modely, proposals).
 
-| Varianta | |
-|---|---|
-| **A — kritérium podle soudržnosti** | Dělí se, když soubor obsluhuje víc než jednu schopnost (`system.js` ano, `cre-decision.js` ne). Řádky nerozhodují. |
-| **B — kritérium podle chování** | Dělí se, až když seznam chování nejde napsat, protože soubor dělá dvě nesouvisející věci. Dělení řídí `CONTRACT.md` §3, ne estetika. |
-| **C — případ od případu** | Beze změny. Cena: opakuje se ta samá diskuse. |
+> **Protiargument:** kritérium je poznatelné až v kroku 2, tedy pozdě —
+> u `registry.js` (5 094 ř.) se to dozvíš, až budeš psát chování #16. Řádkový
+> práh je hrubý, ale dá se použít předem. A upřímně: **dva body ještě nejsou
+> vzor.** Možná žádné kritérium nepotřebuješ a případ od případu stojí jednu
+> krátkou úvahu, což je levnější než špatné pravidlo.
+
+---
 
 ### `R3` — Co se dá odtrhnout od modelu
 
-Sesypává: `Q-1` (#5: 11 z 24 sad `model`, přitom QGv2 je deterministický —
-invariant L0-5), `L-4` (#10: 19 z 47 `model`), `G-4` (#3: auth vrstva je čistá
-logika, měla by jít bez Ollamy).
+#5 QGv2 má **11 z 24 sad profil `model`**, přestože invariant **L0-5 zakazuje
+QGv2 volat LLM**. Buď je prerekvizita zbytečná, nebo ty sady testují něco
+jiného, než tvrdí.
 
-U `C-2` jsi rozhodl, že **CRE se od modelu neodtrhává** — tam to dává smysl,
-CRE je LLM-first. **Ale QGv2 model volat nesmí** (L0-5), takže 11 sad profilu
-`model` je buď zbytečná prerekvizita, nebo tam testují něco jiného, než tvrdí.
+**→ Navrhuju `A`, ale jen pro #5.** U QGv2 je to prokazatelný rozpor
+s invariantem. #10 a #7 nechat — tam je závislost na modelu věcná.
 
-Dnes to znamená: největší schopnosti nejde ověřit bez GPU.
+> **Protiargument:** `CONTRACT.md` §4 říká, že existující testy se **mapují,
+> nepřepisují**, a co se nenamapuje, je kandidát na archivaci. Rozdělovat sady
+> teď může být práce, kterou krok 2 u #5 stejně zahodí. Navíc §7 chce po každé
+> změně demonstrovatelný efekt — přeskládání testů žádný nemá. **Čistší postup:
+> nedělat nic, dojít k #5 a nechat rozdělení vyplynout ze seznamu chování.**
 
-| Varianta | |
-|---|---|
-| **A — rozdělit sady** | Deterministické jádro zvlášť, „kvalita nad reálným výstupem modelu" zvlášť. To druhé je L3 metrika, ne akceptační test. |
-| **B — nechat** | Cena: #5, #10 a #3 nepůjdou do PASS bez Ollamy. |
+---
 
-### `R4` — Nedeklarované prerekvizity · `K-1` + `EX-6`
+### `R4` — Nedeklarované prerekvizity
 
-Pět sad potřebuje Python PDF runtime nebo Go v izolovaném PATH a **v registru
-mají `offline` / `ollama:false`**. Z čerstvého klonu projde 194 z 199, ne 199.
+Pět sad potřebuje Python PDF runtime nebo Go, a v registru mají
+`offline`/`ollama:false`. `CONTRACT.md` §5: nedeklarovaná prerekvizita je **vada
+evidence**.
 
-Podle `CONTRACT.md` §5 je nedeklarovaná prerekvizita **vada evidence**.
+**→ Navrhuju `A`: deklarovat a přeřadit na `BLOCKED` teď**, instalaci runtime
+řešit až s releasem.
 
-| Varianta | |
-|---|---|
-| **A — deklarovat a přeřadit na `BLOCKED`** | Čísla začnou být pravdivá. „199 deterministických" klesne na 194. |
-| **B — doinstalovat runtime v `install.sh`** | Prerekvizita zmizí, čísla zůstanou. Cena: instalace ztěžkne o Python toolchain. |
-| **C — obojí** | Deklarovat teď, doinstalovat později. |
+> **Protiargument:** deklarace srazí titulkové číslo z 199 na 194 přesně ve
+> chvíli, kdy se chystá merge a Gate 0 kandidát. Kdo chce mít čísla vysoká,
+> doinstaluje runtime v `install.sh` a prerekvizita zmizí místo toho, aby se
+> přiznala. **Proč to přesto nedoporučuju:** 194 z 199 je pravda a 199 z 199
+> není; `CONTRACT.md` §1 stojí na tom, že objem nic nedokazuje.
 
-### `R5` — Co je v rozsahu 1.0
+---
 
-Pět samostatných otázek, každá krátká:
+### `R5` — Rozsah 1.0 · pět krátkých
 
-| # | Věc | Ř. | Otázka |
-|---|---|---:|---|
-| `W-3` | **Token streaming** | — | `onLLMToken` je konzument bez producenta („reserved for future use"). Odpověď přijde až celá. **Ovlivňuje vnímanou rychlost víc než cokoli jiného.** Do 1.0? |
-| `W-4` | **`c3-ide/` (Theia/Electron)** | nezměřeno | Vlastní inventura, nebo se 1.0 opře o web UI `/architect`? `G0-R030` ho pro Gate 1 blokuje. |
-| `A-3` | **`roadmap.js`** | 325 | C3 umí generovat roadmapu analyzovaného projektu. V rozsahu? |
-| `K-2` | **`export-pipeline.js`** | 517 | Export do PDF/DOCX je jiná starost než persistence konverzace. Vlastní (nízkoprioritní) schopnost? |
-| `PA-1` | **`preferences.js`** | 715 | Největší soubor #15, ale preference nejsou paměť. Rozdělit jako #18? |
+| Věc | Návrh | Protiargument |
+|---|---|---|
+| **Token streaming** (`W-3`) | **Nedělat teď.** Zapsat jako chování #21, které je 8. v pořadí. Sahá do #3, #6 i #21 — žádná z nich nemá seznam chování. | Je to jediná položka, kterou uživatel pozná **okamžitě**. Produkt s 15 zelenými schopnostmi, kde odpověď přijde po deseti vteřinách vcelku, působí pomalu bez ohledu na důkazy. |
+| **`c3-ide/`** (`W-4`) | **Mimo 1.0**, opřít se o web UI `/architect` (ověřeno: 200, 74 KB). | 32 rozšíření a Phase E na 85 % je hodně odvedené práce k odložení. Pro část uživatelů **je IDE ten produkt**, ne web UI. |
+| **`roadmap.js`** (`A-3`, 325 ř.) | **Nechat, nepřeřazovat.** Malé, funkční, uvnitř architect módu. | Je to funkce navíc v produktu, který ještě neumí prokázat základ. |
+| **`export-pipeline.js`** (`K-2`, 517 ř.) | **Nechat v #4.** Přeřazení je přejmenování, ne zlepšení. | Táhne s sebou `R4` — je to jediný důvod prerekvizity Python PDF runtime. |
+| **`preferences.js`** (`PA-1`, 715 ř.) | **Nechat v #15**, vyřešit v jejím seznamu chování. | Stejný vzor jako #18: dvě věci pod jedním jménem. Tam ses rozdělit rozhodl. |
 
-### `R6` — #6 potřebuje vlastní hlubší inventuru · `P-4`, `P-3`
+---
 
-Inventura #6 je **vědomě mělčí** než ostatní — 20 400 řádků a 46 souborů se
-strukturálním průchodem vyčerpat nedá. Sám jsem tam napsal, že to chce
-samostatný úkol.
+### `R6` — #6 potřebuje hlubší inventuru
 
-#6 je **7. v pořadí** podle `CONTRACT.md` §6. Buď se hlubší inventura udělá,
-než na ni dojde řada, nebo se pořadí změní.
+Inventura #6 je **vědomě mělčí** — 20 400 řádků a 46 souborů se strukturálním
+průchodem vyčerpat nedá. #6 je 7. v pořadí.
 
-### `R7` — Mrtvý `multi-agent.js` · nový nález, viz §2
+**→ Navrhuju udělat hlubší průchod dřív, než na #6 dojde řada**, jako
+samostatný úkol. `CONTRACT.md` §7 na to potřebuje tvůj souhlas, protože #6
+teď na řadě není.
 
-| Varianta | |
-|---|---|
-| **A — smazat** | 396 ř. kódu + jeho test. Nejmenší strom, nejmenší lež v testech. |
-| **B — zapojit** | Pipeline 5 rolí je hodnotná, jen ji nikdo nevolá. Zjistit, proč se přestala volat, a vrátit ji do BUILD cesty. |
-| **C — nechat** | Cena: zelený test kódu, který produkt nevolá. Přesně to, co `CONTRACT.md` §1 vytýká. |
+> **Protiargument:** je to práce dopředu na schopnosti, která je šestá v pořadí
+> od té současné — do té doby se kód změní a část průchodu zestárne. Levnější
+> je dojít k #6 normálně a udělat inventuru tehdy. **Proti tomu stojí jen to,**
+> že #6 je 20 400 řádků a zjistit její rozsah pozdě znamená zablokovat pořadí.
 
-### `R8` — `EX-1` blokuje merge mobilní větve · **P0**
+---
 
-Beze změny od minula, jen ať to nezapadne: mobilní větev definuje `G0-R021`
-jako neautentizované RCE, trunk pod týmž ID vede něco jiného, a
-`GATE0-RISK-IMPACT.json` na to nemá entry. **Merge v současné podobě shodí
-`G0-C9`, a tím celý Gate 0.** Návrh opravy (přejmenovat na `G0-R032` + hotová
-JSON entry) leží v `docs/review/2026-08-01-STATE-AND-VERIFICATION.md`.
+### `R7` — `multi-agent.js`
+
+**→ Navrhuju `A`: smazat soubor i jeho test.** Historie ukazuje, že nikdy
+zapojený nebyl — `B` (zapojit) by tedy nebyla obnova, ale **nová funkce**,
+a ta patří do rozhodnutí o rozsahu, ne do úklidu.
+
+> **Protiargument:** 396 řádků implementuje smysluplnou věc — feasibility gate,
+> pět rolí, kritik s max 2 iteracemi opravy. `lifecycle-build.js` (2 138 ř.)
+> dnes staví jednofázově; ta pipeline by mu měla co dát. Smazat něco hotového,
+> co stačí zavolat, může být dražší než to nechat ležet. **Kde to selhává:**
+> „stačí zavolat" je odhad — kód, který nikdy neběžel v produkci, není hotový,
+> je nevyzkoušený. A zelený test nad ním aktivně **lže o stavu produktu**.
+
+---
+
+### `R8` — `EX-1` blokuje merge · **P0**
+
+Mobilní větev definuje `G0-R021` jako neautentizované RCE, trunk pod týmž ID
+vede něco jiného, `GATE0-RISK-IMPACT.json` na to nemá entry. Merge v současné
+podobě shodí `G0-C9`, a tím celý Gate 0.
+
+**→ Navrhuju opravu podle hotového návrhu** (přejmenovat na `G0-R032`
++ připravená JSON entry) jako součást jedné merge dávky.
+
+> **Protiargument:** žádný věcný. Jediná volba je **kdy** — teď, nebo až se
+> bude mergovat. Odklad znamená, že ta past leží nastražená dál.
+
+---
 
 ### `R9` — #18b: 9 470 řádků, které si nikdo nevyžádal
 
-Z inventury mimo základ. Zaznamenávám, protože je to největší jednotlivá
-položka „co je zbytečné" v celém projektu a inventura ji označila za hlavního
-kandidáta:
+**~1 475 řádků síťových klientů** chodí na internet hledat modely — v local-first
+produktu **jediná plocha, která z principu volá ven**. `model-universe-store.js`
+má 1 919 řádků.
 
-- **~1 475 řádků síťových klientů** (`whatllm-client`, `registry-client`,
-  `online-discovery`) chodí na internet hledat modely. **V local-first produktu
-  je to jediná část, která z principu volá ven.**
-- `model-universe-store.js` má **1 919 řádků** — největší soubor v `src/upgrade/`.
-- Invariant L0-9 drží (nikdy neupgraduje sám), takže to není riziko. Je to objem.
+**→ Navrhuju kód nemazat, ale síťovou část nechat vypnutou a mimo rozsah 1.0.**
+Invariant L0-9 drží (nikdy neupgraduje sám), takže to není riziko — je to objem.
 
-Otázka: zůstává #18b v produktu 1.0, nebo se vyřadí?
-
----
-
-## 4. Co navrhuju
-
-Kdyby to bylo na mně:
-
-| # | Návrh | Proč |
-|---|---|---|
-| `R1` | **C** — přesouvat, až když hranice překáží | Velký přesun teď by zdržel a nic neprokázal. Ale `B` samotné se zase rozejde, takže mapování musí být v `SYSTEM-MAP.md` a přesun povinný ve chvíli, kdy schopnost přijde na řadu. |
-| `R2` | **B** — dělí se, až když nejde napsat seznam chování | Váže dělení na `CONTRACT.md` §3 místo na estetiku. Sedí na oba tvé precedenty: `cre-decision.js` seznam chování unesl (14 vět), `system.js` ne. |
-| `R3` | **A** — rozdělit sady | U QGv2 je to skoro jistě vada evidence: L0-5 zakazuje LLM volání, takže `model` profil tam nemá co dělat. |
-| `R4` | **C** — deklarovat teď, instalovat později | Pravdivá čísla hned, náklad na toolchain až s releasem. |
-| `R5` | streaming **ano**, `c3-ide` **ne** | Streaming je jediná položka, kterou uživatel pozná okamžitě. IDE je vlastní build s vlastními riziky. Zbytek (`A-3`, `K-2`, `PA-1`) mimo 1.0. |
-| `R6` | udělat hlubší inventuru **dřív**, než dojde řada | Jinak se #6 zasekne na sedmém místě. |
-| `R7` | **A** — smazat | Když se pipeline bude chtít, historie gitu ji vrátí. Zelený test mrtvého kódu je horší než chybějící funkce. |
-| `R9` | vyřadit síťovou část z 1.0 | Local-first produkt nemá mít jedinou nutnou cestu ven kvůli funkci, kterou si nikdo nevyžádal. |
+> **Protiargument:** „ponecháno, ale vypnuto" je nejhorší ze tří možností —
+> platí se údržba a plocha, a nezískává se funkce. Buď to má být v produktu
+> a pak ať se ověřuje, nebo nemá a pak ať se vyřízne do pluginu. Půlka
+> rozhodnutí je způsob, jak ho neudělat.
 
 ---
 
-## 5. Co to odblokuje
+## 4. Jak to schválit
 
-Po zodpovězení jde psát seznamy chování pro **všech 20 zbývajících schopností**
-naráz, protože zbývající otázky jsou už jen uvnitř jednotlivých schopností —
-ne mezi nimi.
+Stačí `R1: C, R2: B, …` a u čeho chceš protiargument, napiš to místo písmene.
 
-Hotové: **#1 PASS** (13/13), **#2 PASS** (10/10 + 9/9).
+Po schválení jde psát seznamy chování pro všech 20 zbývajících schopností
+naráz — zbylé otázky jsou už jen uvnitř schopností, ne mezi nimi.
+
+Hotové: **#1 PASS** (13/13) · **#2 PASS** (10/10 + 9/9).
