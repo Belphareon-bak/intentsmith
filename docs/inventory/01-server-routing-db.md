@@ -91,6 +91,46 @@ Uvádím jen to, co jsem si ověřil. Sporné věci patří do seznamu 3.
 
 ---
 
+## 5b. Rozhodnutí operátora — 2026-08-01
+
+Všech osm uzavřeno. Seznamy 1–3 tím schváleny.
+
+| # | Rozhodnutí | Důsledek |
+|---|---|---|
+| **N-1** | **#18 se rozdělí** na „správa modelů" (do základu) a „upgrade automatika" (mimo základ) | `CONTRACT.md` §6 aktualizován — viz níže |
+| **N-2** | Načtení agentů při startu a jejich samostatný běh je **zhruba správné chování**. Logika se bude upravovat, ale **není to důležité a počká** | Ukázkoví agenti = produktová funkce, ne demo data. Beze změny. |
+| **N-3** | Licencování **se teprve připravovalo** | Není mrtvá plocha, je nedokončená. Mimo základ, zůstává. |
+| **N-4** | Prověřeno — viz zjištění níže | Uzavřeno bez zásahu do kódu |
+| **N-5** | **Zatím stačí `.env`** | Setup wizard mimo rozsah 1.0 |
+| **N-6** | **`system.js` se rozdělí** | Rozpad na menší celky; podklad dá rozdělení z N-1 |
+| **N-7** | **Srovnat s ostatními** | `skills.js` a `autonomy.js` přestanou sahat na DB v čase importu |
+| **N-8** | **Zapsat a zatím neřešit** | Lineární matching rout je zaznamenaná známá vlastnost, ne úkol |
+
+### N-4 — co prověření ukázalo
+
+**Governor je hotový a odpovídá své specifikaci. Neschválená je jen dokumentace.**
+
+Doklady:
+
+- struktura souborů odpovídá plánu přesně — `health-analyzer.js` (316 ř., plán
+  odhadoval ~400), `improvement-planner.js` (324 / ~300), `safety-guard.js`
+  (73 / ~130), `system-governor.js` (301 / ~350);
+- plán deklaruje **Level 1 = analyze + propose, žádné APPLY**. V kódu žádná
+  APPLY cesta není: nenašel jsem `exec`, `spawn` ani zápis do souborů.
+  `applyTrends()` je čistá funkce nad objektem dimenzí, ne zásah do systému;
+- zapisuje **výhradně do vlastních dvou tabulek** — `governor_reports`
+  a `governor_proposals`. Do žádné cizí tabulky nesahá;
+- **nespouští se sám.** `server.js` mu jen předá `db` a `broadcast`; běh
+  nastartuje pouze explicitní `POST /api/system/governor/check`;
+- plán sám říká: *„Standalone: System runs without it, can add/remove anytime.
+  Zero impact on existing functionality."*
+
+Governor tedy nemůže nic změnit, jen navrhnout. Riziko z rozporu
+„`PLANNED — awaiting approval` vs. běžící routy" je **dokumentační, ne
+provozní**. Stav v `docs/governor-v135-plan.md` je zastaralý.
+
+---
+
 ## 6. Co inventura nenašla
 
 Aby bylo jasné, co bylo prohledáno a nic se nenašlo:
@@ -101,10 +141,23 @@ Aby bylo jasné, co bylo prohledáno a nic se nenašlo:
 
 ---
 
-## 7. Další krok
+## 7. Úkoly, které z inventury vzešly
 
-Podle `CONTRACT.md` §3 se nad těmito třemi seznamy **nerozhoduje agentem**.
-Až budou schválené, následuje krok 2 — seznam chování schopnosti #1.
+Nejsou to rozhodnutí, ale práce k udělání. Řadí se do schopnosti #1.
 
-Osm otázek `N-1` až `N-8` čeká na tebe. `N-1` je z nich nejdůležitější,
-protože mění rozsah základu.
+| Úkol | Zdroj | Rozsah |
+|---|---|---|
+| Vyčlenit routy modelů/upgradů ze `system.js` podle řezu z N-1 | N-1, N-6 | 19 rout |
+| Srovnat `skills.js` a `autonomy.js` — pryč s přístupem k DB v čase importu | N-7 | 2 soubory |
+| Smazat mrtvý komentář po v57 (`server.js:1201`) | Seznam 2 | 1 blok |
+| Sjednotit tři health routy na jednu | Seznam 2 | 2 routy |
+| Aktualizovat stav v `docs/governor-v135-plan.md` | N-4 | 1 řádek |
+
+**Zaznamenáno, neřeší se:** lineární matching rout (N-8), rate limiter mrtvý
+na loopbacku (Seznam 2) — obojí je vědomě ponechaný stav, ne dluh.
+
+## 8. Další krok
+
+Seznamy 1–3 jsou schválené, osm otázek uzavřeno. Podle `CONTRACT.md` §3
+následuje **krok 2 — seznam chování schopnosti #1**, který schvaluje operátor
+před psaním prvního testu.

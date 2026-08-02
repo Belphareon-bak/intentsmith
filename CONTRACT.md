@@ -180,18 +180,19 @@ běh. Historie vývoje C3 to potvrzuje.
 | 1. | 1 | Server, routing, DB, migrace | 12,3k | bez toho neběží nic |
 | 2. | 2 | CRE — klasifikace a rozhodování | v `chat/` | každá zpráva jí prochází |
 | 3. | 4 | Konverzace a persistence | v `chat/` | rozhodnutí i historie se musí kam zapsat |
-| 4. | 3 | LLM gateway a role modelů | 2,9k | nedeterministická část CRE bez něj padá na `AMBIGUOUS` |
-| 5. | 5 | Quality Gate v2 | v `chat/quality/` | prochází jí každá odpověď |
-| 6. | 6 | Chat pipeline a handlery | 32,3k | spojuje 2–5 dohromady; **kandidát na rozdělení** |
-| 7. | 21 | Studio + WS bridge | 1,3k + IDE | první bod, kde je produkt vidět jako produkt |
-| 8. | 7 | Expertizy a 5D merge | 9,5k | mění odpovědi, které už fungují |
-| 9. | 16 | Nástroje a registry | 5,7k | předpoklad pro skills i práci s kódem |
-| 10. | 9 | Skills runtime | 1,8k | staví na nástrojích |
-| 11. | 15 | Paměť (LTM, task, cross-project) | 3,1k | zlepšuje kontext, není pro běh nutná |
-| 12. | 12 | Code Intelligence | 11,6k | vstup pro execution i lifecycle |
-| 13. | 11 | Execution engine + patch | 5,0k | mění soubory — až nad ověřenou code intel |
-| 14. | 10 | Project lifecycle | 16,6k | orchestruje 12 a 13 |
-| 15. | 13 | Architecture governance | 4,0k | dohlíží na 10–13 |
+| 4. | 18a | **Správa modelů** — profily, registry, výběr, VRAM fit | ~0,9k | gateway musí vědět, který model obsluhuje kterou roli |
+| 5. | 3 | LLM gateway a role modelů | 2,9k | nedeterministická část CRE bez něj padá na `AMBIGUOUS` |
+| 6. | 5 | Quality Gate v2 | v `chat/quality/` | prochází jí každá odpověď |
+| 7. | 6 | Chat pipeline a handlery | 32,3k | spojuje 2–6 dohromady; **kandidát na rozdělení** |
+| 8. | 21 | Studio + WS bridge | 1,3k + IDE | první bod, kde je produkt vidět jako produkt |
+| 9. | 7 | Expertizy a 5D merge | 9,5k | mění odpovědi, které už fungují |
+| 10. | 16 | Nástroje a registry | 5,7k | předpoklad pro skills i práci s kódem |
+| 11. | 9 | Skills runtime | 1,8k | staví na nástrojích |
+| 12. | 15 | Paměť (LTM, task, cross-project) | 3,1k | zlepšuje kontext, není pro běh nutná |
+| 13. | 12 | Code Intelligence | 11,6k | vstup pro execution i lifecycle |
+| 14. | 11 | Execution engine + patch | 5,0k | mění soubory — až nad ověřenou code intel |
+| 15. | 10 | Project lifecycle | 16,6k | orchestruje 12 a 13 |
+| 16. | 13 | Architecture governance | 4,0k | dohlíží na 10–13 |
 
 ### Nízká priorita — mimo základ
 
@@ -203,9 +204,17 @@ dokud základ nedrží.
 | 8 | Specialisté a loader | 1,4k |
 | 14 | Agenti a scheduler | 6,5k |
 | 17 | Notifikace | 3,3k |
-| 18 | Model upgrade | 10,3k |
+| 18b | **Upgrade automatika** — discovery, ranking, proposals, validace | ~9,5k |
 | 19 | Marketplace | 0,9k |
 | 20 | Media / ComfyUI | 1,3k |
+| — | Licencování | nedokončené, připravovalo se |
+| — | Setup wizard | mimo rozsah 1.0, stačí `.env` |
+
+**Rozdělení #18** (rozhodnutí operátora 2026-08-01, inventura #1 `N-1`): název
+„Model upgrade" popisoval 8 % modulu. Správa modelů — profily, registry, výběr
+role, VRAM fit — je pro běh nutná a jde do základu. Zbytek, včetně
+`model-universe-store.js` (1 919 ř.) a ~1 475 řádků síťových klientů, které
+chodí na internet hledat modely, je volitelná nadstavba mimo základ.
 
 Nízkoprioritní schopnosti dostanou inventuru také — ale až po základu, a jen
 inventuru. Bez ní není o čem rozhodovat.
