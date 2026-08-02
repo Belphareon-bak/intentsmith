@@ -24,8 +24,19 @@ npm test                      # deterministické sady
 node scripts/validate-test-registry.js
 ```
 
-⚠️ **Pět sad má nedeklarované prerekvizity** (Python PDF runtime, Go v izolovaném
-PATH). Z čerstvého klonu projde **194 z 199**, ne 199.
+**Prerekvizity sad — stav k 2026-08-02.** Z původních pěti nedeklarovaných
+(`EX-6`) zbyly dvě otevřené položky:
+
+| Sada | Stav |
+|---|---|
+| `export-pdf-docx`, `chat-export-budget` | **Vyřešeno.** Deklarováno jako `BLOCKED` s prerekvizitou `toolchain: python-pdf-runtime`. Instalace: `./scripts/install-pdf-runtime.sh` |
+| `quality-gate` | **Nereprodukuje.** Bez `go` na PATH projde 22/22. |
+| `multi-source-integration`, `nightly-audit-runner-self-test` | ⚠️ **Otevřené — nejsou to prerekvizity.** Exit 1 bez viditelné příčiny; deklarací se to nespraví. |
+
+Registr do 2026-08-02 **toolchain deklarovat neuměl** — `hasConcreteBlockedPrerequisite()`
+uznával jen network/server/ollama/gpu, takže sada potřebující Python musela
+zůstat `ACTIVE` a padat. To je přesně mezera, kvůli které `G0-C7` tuhle třídu
+chyby nezachytil. Doplněno `requirements.toolchain`.
 
 ---
 

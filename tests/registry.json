@@ -1374,11 +1374,14 @@
         "database": false,
         "server": false,
         "ollama": false,
-        "gpu": false
+        "gpu": false,
+        "toolchain": [
+          "python-pdf-runtime"
+        ]
       },
       "required": true,
       "owner": "primary implementer",
-      "state": "ACTIVE",
+      "state": "BLOCKED",
       "lastGreen": {
         "commit": null,
         "artifact": null
@@ -3444,11 +3447,14 @@
         "database": false,
         "server": false,
         "ollama": false,
-        "gpu": false
+        "gpu": false,
+        "toolchain": [
+          "python-pdf-runtime"
+        ]
       },
       "required": true,
       "owner": "primary implementer",
-      "state": "ACTIVE",
+      "state": "BLOCKED",
       "lastGreen": {
         "commit": null,
         "artifact": null

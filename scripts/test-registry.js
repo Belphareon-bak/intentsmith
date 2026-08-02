@@ -202,6 +202,20 @@ export function validateTestRegistry(registry, candidates) {
           errors.push(`${label}.requirements.${field} must be boolean`);
         }
       }
+      // Optional: named external toolchains outside `npm install`, e.g. a
+      // Python PDF runtime or a Go compiler. Omitted means none.
+      if (requirements.toolchain !== undefined) {
+        const named = Array.isArray(requirements.toolchain)
+          && requirements.toolchain.length > 0
+          && requirements.toolchain.every(
+            name => typeof name === 'string' && name.trim().length > 0,
+          );
+        if (!named) {
+          errors.push(
+            `${label}.requirements.toolchain must be a non-empty array of names`,
+          );
+        }
+      }
       if (
         suite.state === 'BLOCKED'
         && !hasConcreteBlockedPrerequisite(suite)
@@ -303,7 +317,11 @@ export function hasConcreteBlockedPrerequisite(suite) {
   return requirements?.network === 'external'
     || requirements?.server === true
     || requirements?.ollama === true
-    || requirements?.gpu === true;
+    || requirements?.gpu === true
+    // A named external toolchain is just as concrete a prerequisite as a GPU,
+    // and until it could be declared, a suite needing one had to stay ACTIVE
+    // and fail from a fresh clone instead of admitting what it needs.
+    || (Array.isArray(requirements?.toolchain) && requirements.toolchain.length > 0);
 }
 
 export function renderTestRegistry(registry) {
