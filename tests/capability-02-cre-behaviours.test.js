@@ -9,10 +9,12 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import './helpers/isolated-test-db.js';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, rmSync } from 'node:fs';
+import { createServer } from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CREDecisionEngine, DecisionType, IntentType } from '../src/chat/cre-decision.js';
+import { config } from '../src/config.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -66,6 +68,22 @@ async function main() {
   // ── C-04 — an unreachable model degrades fast and never throws ────────────
   // "napiš mi báseň" has no deterministic pattern, so it must go to the model,
   // find nothing listening, and fall back to regex.
+  //
+  // The unreachable model is made unreachable here rather than assumed from the
+  // environment. This suite is registered offline, but run bare on a machine
+  // where Ollama happens to be up it used to measure a live model call — 19.7 s
+  // once the model had to load — and report it as a retry-policy failure.
+  const closedPort = await new Promise((resolve, reject) => {
+    const probe = createServer();
+    probe.once('error', reject);
+    probe.listen(0, '127.0.0.1', () => {
+      const { port } = probe.address();
+      probe.close(() => resolve(port));
+    });
+  });
+  const realOllamaUrl = config.ollama.baseUrl;
+  config.ollama.baseUrl = `http://127.0.0.1:${closedPort}`;
+
   const started = Date.now();
   let threw = null;
   let fallback = null;
@@ -75,6 +93,7 @@ async function main() {
     threw = err;
   }
   const elapsed = Date.now() - started;
+  config.ollama.baseUrl = realOllamaUrl;
 
   check(threw === null && fallback !== null, 'C-04 — an unreachable model never throws out of decide()');
   check(
@@ -99,6 +118,31 @@ async function main() {
     /logIntercept\s*\(/.test(engine) && /overrideDecision\s*\(/.test(engine),
     'C-07b - the engine provides audited overrides so a bypass leaves a record',
   );
+
+  // ── C-15 — a write without an active project stays out of the install root ──
+  // Regression for the C-13 finding: the fallback root used to be
+  // process.cwd(), which for `npm start` is the installation itself.
+  const { handleFileWriteDecision } = await import('../src/chat/handlers/file.js');
+
+  const before = new Set(readdirSync(ROOT));
+  const written = await handleFileWriteDecision(
+    'ulož to',
+    { metadata: { handler: 'file.write', filePath: null }, toJSON: () => ({}) },
+    { history: [{ response: { content: 'obsah k uložení' } }] },
+  );
+
+  const writtenPath = written?.tag?.metadata?.filePath ?? '';
+  const strayFiles = readdirSync(ROOT).filter(name => !before.has(name));
+
+  check(
+    strayFiles.length === 0
+    && writtenPath.startsWith(path.join(ROOT, 'data', 'output') + path.sep)
+    && existsSync(writtenPath),
+    `C-15 — a write with no active project lands in data/output, not the install root`
+    + ` (path "${writtenPath}", stray in root: ${strayFiles.join(', ') || 'none'})`,
+  );
+
+  if (writtenPath && existsSync(writtenPath)) rmSync(writtenPath, { force: true });
 
   console.log(`\n══ RESULTS: ${pass} passed, ${fail} failed ══`);
   if (failures.length) {

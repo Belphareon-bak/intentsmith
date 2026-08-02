@@ -19,7 +19,22 @@ import { getLanguageContext } from './utils/language.js';
 import { synthesizeWithLLM } from './utils/synthesis.js';
 import fs from 'fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'node:url';
 import { config } from '../../config.js';
+
+// ─── Default write root ──────────────────────────────────────────────────────
+//
+// A write without an active project used to resolve against process.cwd(),
+// which for `npm start` is the installation root — so "ulož to" dropped
+// output-<timestamp>.md next to the source tree. Writes the operator did not
+// place themselves belong in runtime state, not in the installation.
+//
+const INSTALL_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+
+function defaultWriteRoot() {
+  const configured = process.env.C3_OUTPUT_DIR?.trim();
+  return configured ? path.resolve(configured) : path.join(INSTALL_ROOT, 'data', 'output');
+}
 
 // ─── Security constants ──────────────────────────────────────────────────────
 
@@ -539,7 +554,7 @@ function _extractUserContent(input) {
 export async function handleFileWriteDecision(input, decision, context) {
   const projectPath = decision.metadata?.projectScope?.projectPath
     || context.project?.path
-    || process.cwd();
+    || defaultWriteRoot();
 
   const langCtx = context.langCtx || getLanguageContext(input);
   const lang = langCtx?.language || 'cs';

@@ -23,6 +23,7 @@ data/*.pre-recover
 data/artifacts/
 data/backups/
 data/history/
+data/output/
 /.intentsmith-artifacts/
 /e2e-review/
 /test-reports/

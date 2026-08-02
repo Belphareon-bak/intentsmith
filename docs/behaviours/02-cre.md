@@ -5,17 +5,19 @@
 
 | Část | Sada | Výsledek |
 |---|---|---|
-| deterministická | `tests/capability-02-cre-behaviours.test.js` | **9/9** |
-| modelová | `tests/capability-02-cre-model-behaviours.test.js` | **8/9 — `C-13` selhalo** |
+| deterministická | `tests/capability-02-cre-behaviours.test.js` | **10/10** |
+| modelová | `tests/capability-02-cre-model-behaviours.test.js` | **9/9** |
 
-> **Schopnost #2 je `FAIL`.** Ne „skoro hotová" — `CONTRACT.md` §5: jedno
-> neprocházející chování ze schváleného seznamu je FAIL celé schopnosti.
-> Detail nálezu je níže v § `C-13`.
+> **Schopnost #2 je `PASS`.** Všech 15 chování má právě jeden test a všechny
+> procházejí. Chování `C-15` přibylo jako regrese z nálezu `C-13` — podle
+> pravidla „seznam roste jen z reality".
 
 Modelová sada běžela proti Ollamě na `127.0.0.1:11434`, model `qwen3.5:27b`
-(`config.models.CHAT`, protože `FAST` není nastaven). Dva běhy, shodný výsledek —
-`C-13` tedy není variance modelu. Bez Ollamy sada končí `BLOCKED` (exit 2), nikdy
-ne zeleně.
+(`config.models.CHAT`, protože `FAST` není nastaven). Bez Ollamy končí `BLOCKED`
+(exit 2), nikdy ne zeleně.
+
+**Rozdělení chování mezi sady** — 6 deterministických (`C-01`–`C-04`, `C-07`,
+`C-15`), 9 modelových (`C-05`, `C-06`, `C-08`–`C-14`).
 
 > Rozhodnutí operátora (inventura #2, `C-2`): **CRE je na Ollamě závislá,
 > testovat ji bez ní nemá přínos.** Fake LLM klient se nestaví.
@@ -52,15 +54,21 @@ ne zeleně.
 | # | Chování | Model |
 |---|---|---|
 | **C-12** | Při aktivní kreativní expertize je `SEARCH` přepsán na `CREATIVE` (`GUARD 6`). | **ano** |
-| **C-13** | `FILE_WRITE` bez rozpoznatelného cíle se nevybere (`GUARD 2`). | **ano** |
+| **C-13** | `FILE_WRITE` bez rozpoznatelného cíle **a zároveň bez signálu uložení** se nevybere (`GUARD 2`). | **ano** |
 | **C-14** | `DESIGN` bez potvrzeného deterministického vzoru je sražen na `CREATIVE` (`GUARD 5`). | **ano** |
+
+## Zápis na disk
+
+| # | Chování | Model |
+|---|---|---|
+| **C-15** | Zápis bez aktivního projektu nevznikne v kořeni instalace. | ne |
 
 ---
 
-## `C-13` — nález, vyžaduje rozhodnutí operátora
+## `C-13` — nález a rozhodnutí operátora, 2026-08-02
 
-**Chování:** „`FILE_WRITE` bez rozpoznatelného cíle se nevybere (`GUARD 2`)."
-**Skutečnost:** vybere se.
+**Původní znění:** „`FILE_WRITE` bez rozpoznatelného cíle se nevybere (`GUARD 2`)."
+**Skutečnost:** vybere se. Test to odhalil při prvním běhu modelové sady.
 
 ```
 vstup:      „ulož to"
@@ -80,23 +88,39 @@ Cesta pak pokračuje takto:
 | `handlers/file.js:553` | cíl chybí → **vygeneruje se `output-<timestamp>.md`** |
 | `handlers/file.js:540` | bez aktivního projektu je základ cesty **`process.cwd()`** |
 
-Na „ulož to" tedy vznikne soubor, o který nikdo nepožádal, se jménem, které
-nikdo nezadal, v aktuálním pracovním adresáři.
+### Co „ulož to" doopravdy je — změřeno, ne odhadnuto
 
-### Rozpor je mezi seznamem a návrhem, ne v testu
+Spustí se **výhradně z vlastní zprávy uživatele**, nikdy samo. Typická sekvence
+je *dotaz → odpověď asistenta → „ulož to"*; ukládá se ta poslední odpověď.
+Naměřeno na 11 formulacích:
 
-Kód dělá to, co v něm někdo záměrně zamýšlel. Schválené chování `C-13` říká něco
-jiného. Jedno z toho je špatně a **rozhodnout to nepřísluší agentovi** —
-`CONTRACT.md` §7 dovoluje opravit chybu, ne přepsat schválený seznam.
+| vstup | intent | cíl |
+|---|---|---|
+| `ulož to`, `zapiš to do souboru`, `save it`, `ulož mi to prosím`, `můžeš to uložit?` | `FILE_WRITE` | auto-jméno |
+| `ulož to do plan.md`, `dej to do souboru poznamky.txt`, `vytvoř soubor todo.md` | `FILE_WRITE` | z textu |
+| `shrň mi to`, `co dělá ta funkce`, `díky` | `CONVERSATIONAL` | — |
 
-| Varianta | Co znamená |
+Pět z osmi ukládacích formulací tedy končí u auto-jména — běžná cesta, ne
+okrajový případ. Dvě pojistky ale existují už dnes:
+
+- **bez předchozí odpovědi se nezapíše nic** — přijde `⚠️ Není co uložit`;
+- **po zápisu přijde jméno i celá cesta** (`handlers/file.js:634`), takže soubor
+  nevzniká potají.
+
+### Rozhodnutí — varianta „B + oprava místa"
+
+Rozpor byl mezi seznamem a návrhem, ne v testu: kód dělá užitečnou věc, kterou
+do něj někdo záměrně dal, a schválená věta ji zakazovala. Skutečné riziko není
+nechtěný soubor, ale **hromadění `output-*.md` v kořeni instalace**.
+
+| Co | Jak |
 |---|---|
-| **A — opravit kód** | `FILE_WRITE` bez cíle se nevybere; „ulož to" skončí dotazem na jméno souboru. `C-13` platí, jak je schválené. Cena: uživatel musí jméno vždy zadat. |
-| **B — opravit chování** | `C-13` se přeformuluje na „`FILE_WRITE` bez cíle **a bez signálu uložení** se nevybere". Auto-jméno zůstává funkcí. Cena: „ulož to" dál mlčky zapisuje do `cwd()`. |
-| **B′ — B plus potvrzení** | Auto-jméno zůstane, ale zapíše se až po potvrzení navrženého jména. Nejdražší, žádná ze dvou cen se neplatí. |
+| **`C-13` upřesněno** | „…bez rozpoznatelného cíle **a zároveň bez signálu uložení** se nevybere." To je přesně to, co `GUARD 2` hlídá. „Ulož to" funguje dál. |
+| **`C-15` přidáno jako regrese** | Bez aktivního projektu se nezapisuje do `process.cwd()`, ale do `data/output/` (přebitelné přes `C3_OUTPUT_DIR`). |
 
-Do rozhodnutí zůstává test **červený**. Snížit ho kvůli zelené zakazuje
-`CONTRACT.md` §7.
+Oprava místa je v `handlers/file.js` — `defaultWriteRoot()` nahradilo
+`process.cwd()`. Sandbox `validateFilePath()` se tím **utahuje**, ne uvolňuje:
+bez projektu byl dosud povolený celý podstrom `cwd()`, nově jen `data/output/`.
 
 ---
 
@@ -117,6 +141,40 @@ zelený důkaz navíc bez prerekvizity Ollamy.
 **Seznam měl 14 chování, testy mělo 5.** Zbývalo jich devět, ne sedm, jak uváděl
 předchozí handoff: navíc `C-05` (viz výše) a `C-06` (v tabulce označené
 „přesunuto", ale v žádné sadě). Modelová sada teď pokrývá všech devět.
+
+---
+
+## `C-12` — první verze testu procházela z nesprávného důvodu
+
+Test původně poslal jen „Prokletý ostrov" s aktivní kreativní expertizou a čekal
+`CREATIVE`. Prošel — ale `GUARD 6` se přitom vůbec nespustil: **model ten holý
+název klasifikuje jako `CREATIVE` sám** (`initialIntent: CREATIVE`, žádný
+override v `CRE_DIAG`). Test tedy o guardu nedokazoval nic.
+
+Vyšlo to najevo přes `adversarial-cre` `X6b`, které na témž vstupu bez expertizy
+čeká `SEARCH` nebo `AMBIGUOUS` a **padá** — to selhání je starší než tato práce
+a potvrzené i na čistém stromě.
+
+**Opraveno:** vstup je nově `kdo napsal Prokletý ostrov`, který je bez expertizy
+`SEARCH` a s ní `CREATIVE`. Testují se obě poloviny, takže `CREATIVE` může
+pocházet jedině od guardu.
+
+---
+
+## `C-04c` — test měřil prostředí, ne chování
+
+Při doplňování `C-15` začalo `C-04c` padat na **19 671 ms** proti mezi 2 000 ms.
+Nešlo o regresi retry politiky: „nedostupný model" si sada **nezajišťovala, jen
+ho předpokládala** od prostředí. Na stroji, kde Ollama běží, tedy neměřila
+odmítnuté spojení, ale skutečné volání modelu včetně jeho nahrání.
+
+Sada je registrovaná jako `profile: offline`, `network: none`, takže ve svém
+fixture je předpoklad splněný — spuštěná ručně na vývojovém stroji ale měřila
+něco jiného, než co její věta tvrdí.
+
+**Opraveno:** `C-04` si teď nedostupnost vyrobí sama — obsadí volný port, zavře
+ho a na tu adresu přesměruje `config.ollama.baseUrl`. Po opravě **21 ms** a
+výsledek nezávisí na tom, jestli Ollama zrovna běží.
 
 ---
 

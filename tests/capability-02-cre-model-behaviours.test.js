@@ -133,22 +133,38 @@ async function main() {
   );
 
   // ── C-12 — an active creative expertise rewrites SEARCH to CREATIVE ────────
-  // GUARD 6: "Prokletý ostrov" during a role-playing session is the campaign's
-  // island, not the film — the creative domain wins over the lookup.
-  const creative = await cre.decide('Prokletý ostrov', {
+  // GUARD 6: during a role-playing session the campaign's cursed island wins
+  // over the film lookup.
+  //
+  // Both halves are asserted on purpose. "Prokletý ostrov" alone is not enough:
+  // the model classifies the bare title CREATIVE by itself, so the guard never
+  // fires and the assertion would hold for the wrong reason. This phrasing is
+  // SEARCH without the expertise, so a CREATIVE result can only come from the
+  // guard.
+  const lookup = 'kdo napsal Prokletý ostrov';
+  const bare = await cre.decide(lookup);
+  const underExpertise = await cre.decide(lookup, {
     hasActiveExpertise: true,
     expertise: { id: 'dnd-master', creativeLock: true, outputBias: 'creative' },
   });
   check(
-    creative.intent === IntentType.CREATIVE,
-    `C-12 — under an active creative expertise, SEARCH is rewritten to CREATIVE (got ${creative.intent})`,
+    bare.intent === IntentType.SEARCH
+    && underExpertise.intent === IntentType.CREATIVE,
+    'C-12 — under an active creative expertise, SEARCH is rewritten to CREATIVE'
+    + ` (got ${bare.intent} bare, ${underExpertise.intent} under expertise)`,
   );
 
-  // ── C-13 — FILE_WRITE without a recognizable target is not selected ────────
-  const write = await cre.decide('ulož to');
+  // ── C-13 — FILE_WRITE needs a target or a save signal ─────────────────────
+  // Operator decision 2026-08-02: "ulož to" is the save-the-last-answer
+  // shortcut and keeps working; what GUARD 2 actually forbids is a write with
+  // neither a target nor any request to save.
+  const saveSignal = await cre.decide('ulož to');
+  const neither = await cre.decide('co dělá ta funkce');
   check(
-    write.intent !== IntentType.FILE_WRITE,
-    `C-13 — FILE_WRITE is not selected without a recognizable target (got ${write.intent})`,
+    saveSignal.intent === IntentType.FILE_WRITE
+    && neither.intent !== IntentType.FILE_WRITE,
+    'C-13 — FILE_WRITE needs a target or a save signal; with neither it is not selected'
+    + ` (got ${saveSignal.intent} / ${neither.intent})`,
   );
 
   // ── C-14 — DESIGN without a confirmed pattern is knocked down to CREATIVE ──
