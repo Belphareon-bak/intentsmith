@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 352
+- Runnable programs: 353
 - Explicit support-module exclusions: 8
-- Profiles: offline=175, database=26, server=36, model=82, soak=18, manual=15
-- States: ACTIVE=258, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=175, database=26, server=36, model=83, soak=18, manual=15
+- States: ACTIVE=259, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -77,6 +77,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-BUILD-STRATEGY-TEST` | `tests/build-strategy.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CAPABILITY-01-SERVER-BEHAVIOURS-TEST` | `tests/capability-01-server-behaviours.test.js` | `C3-023` | T1 | `offline` | 90 s | 5 min | network:loopback | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CAPABILITY-02-CRE-BEHAVIOURS-TEST` | `tests/capability-02-cre-behaviours.test.js` | `C3-003` | T1 | `offline` | 20 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-CAPABILITY-02-CRE-MODEL-BEHAVIOURS-TEST` | `tests/capability-02-cre-model-behaviours.test.js` | `C3-003` | T3 | `model` | 30 s | 5 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CAPABILITY-ENFORCER-TEST` | `tests/capability-enforcer.test.js` | `C3-020` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CAPABILITY-REGISTRY-TEST` | `tests/capability-registry.test.js` | `C3-020` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CAPABILITY-SANDBOX-TEST` | `tests/capability-sandbox.test.js` | `C3-020` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

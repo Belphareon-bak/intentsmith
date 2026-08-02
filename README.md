@@ -5,8 +5,8 @@ projektů a autonomní agenty. Offline-first architektura běží na vlastním
 hardware. Volitelné síťové funkce (marketplace a model discovery) vyžadují
 explicitní zapnutí.
 
-**Verze:** 135.0.0 | **352 registrovaných testovacích programů**
-(`258 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`)
+**Verze:** 135.0.0 | **353 registrovaných testovacích programů**
+(`259 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`)
 
 > **Stav: Gate 0 — kandidát důvěryhodné baseline.** Autoritativní verdikt je
 > pouze v generovaném [docs/convergence/STATUS.md](docs/convergence/STATUS.md).

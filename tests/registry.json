@@ -2107,6 +2107,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T3-TESTS-CAPABILITY-02-CRE-MODEL-BEHAVIOURS-TEST",
+      "path": "tests/capability-02-cre-model-behaviours.test.js",
+      "argv": [
+        "node",
+        "tests/capability-02-cre-model-behaviours.test.js"
+      ],
+      "capabilityId": "C3-003",
+      "tier": "T3",
+      "fixture": "isolated-model",
+      "profile": "model",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "loopback",
+        "database": false,
+        "server": false,
+        "ollama": true,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T3-TESTS-CRE-COMPREHENSIVE-TEST",
       "path": "tests/cre-comprehensive.test.js",
       "argv": [
