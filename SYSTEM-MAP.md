@@ -47,7 +47,17 @@ PATH). Z čerstvého klonu projde **194 z 199**, ne 199.
 ## Schopnosti a jejich soubory
 
 Toto je závazné mapování schopnost → kód. **Hranice schopností nekopírují
-adresáře** — u pěti schopností kód leží jinde, než by název adresáře čekal.
+adresáře** — u čtyř schopností kód leží jinde, než by název adresáře čekal.
+
+> **2026-08-02:** #11 se srovnalo — `execution-loop.js`, `error-normalizer.js`
+> a `fix-strategy.js` přešly z `planner/` do `executor/`. Byla to uzavřená
+> trojice se dvěma dotyky ven.
+>
+> **#13 se srovnat nedá a je to doloženo.** `architecture-check.js`
+> a `architecture-policy.js` importuje `lifecycle-planning.js`
+> a `lifecycle-build.js`, tedy #10. Přesun do `architect/` by křížové importy
+> jen otočil, ne odstranil. Governance a lifecycle **nejsou oddělitelné
+> přesunem souborů** — sdílejí kód, ne jen adresář.
 
 ### Základ
 
@@ -66,9 +76,9 @@ adresáře** — u pěti schopností kód leží jinde, než by název adresář
 | 9 | Skills | 1,8k | `skills/` |
 | 15 | Paměť | 3,1k | `memory/` |
 | 12 | Code Intelligence | 11,6k | `code-intel/` |
-| 11 | Execution + patch | 6,9k | `patch/`, `executor/`, **+ `planner/execution-loop.js`, `planner/error-normalizer.js`** |
-| 10 | Project lifecycle | 14,5k | `planner/` **mimo** soubory patřící #11 a #13 |
-| 13 | Governance | 4,7k | `architect/`, **+ `planner/architecture-guardian.js`** |
+| 11 | Execution + patch | 6,9k | `patch/`, `executor/` — **hranice sedí od 2026-08-02** |
+| 10 | Project lifecycle | 14,5k | `planner/` **mimo** soubory patřící #13 |
+| 13 | Governance | 4,7k | `architect/`, **+ `planner/architecture-{guardian,check,policy}.js`, `planner/api-contract-registry.js`, `planner/critic-agent.js`, `code-intel/regression-predictor.js`** |
 
 ### Mimo základ
 

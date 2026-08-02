@@ -9,7 +9,7 @@ import {
   validateDeterministicPatch,
   buildHeuristicHint,
   formatStrategyReport,
-} from '../src/planner/fix-strategy.js';
+} from '../src/executor/fix-strategy.js';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 

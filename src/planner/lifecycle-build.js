@@ -98,7 +98,7 @@ let _runFixLoop;
 async function ensureExecutionLoop() {
   if (_loopLoaded) return true;
   try {
-    const mod = await import('./execution-loop.js');
+    const mod = await import('../executor/execution-loop.js');
     _runFixLoop = mod.runFixLoop;
     _loopLoaded = true;
     return true;

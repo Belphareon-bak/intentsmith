@@ -13,7 +13,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { logger } from '../core/logger.js';
-import { formatErrorsForLLM } from './error-normalizer.js';
+import { formatErrorsForLLM } from '../executor/error-normalizer.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 

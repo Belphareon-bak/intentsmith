@@ -9,7 +9,7 @@ import {
   classifyRecoverability,
   findRootCause,
   formatErrorsForLLM,
-} from '../src/planner/error-normalizer.js';
+} from '../src/executor/error-normalizer.js';
 
 // ─── Suite 1: ERROR_CODES constant ──────────────────────────────────────────
 

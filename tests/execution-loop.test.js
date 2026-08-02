@@ -8,7 +8,7 @@ import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import {
   shouldContinue, compareErrors, limitErrors, buildFixPrompt,
   extractErrors, partitionErrorsByProjectScope, runFixLoop,
-} from '../src/planner/execution-loop.js';
+} from '../src/executor/execution-loop.js';
 
 // ─── Test Project Setup ─────────────────────────────────────────────────────
 
