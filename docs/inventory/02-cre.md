@@ -93,8 +93,15 @@ Nic dalšího jsem jako prokazatelně zbytečné neoznačil. Sporné věci jsou 
 
 ---
 
-## 7. Další krok
+## 7. Rozhodnutí operátora — 2026-08-02
 
-Pět otázek `C-1` až `C-5`. **`C-2` je nejdůležitější** — určuje, jestli půjde
-jádro systému vůbec deterministicky testovat. `C-1` je nejlevnější oprava
-s největším okamžitým dopadem na použitelnost.
+| # | Rozhodnutí |
+|---|---|
+| **C-1** | Otevřeno. Retry politika klasifikace se vyhodnotí s ostatními až po kompletní inventuře. |
+| **C-2** | **Uzavřeno. CRE je na Ollamě závislá, testovat ji bez ní nemá přínos.** Profil `model` zůstává, deterministická cesta přes fake LLM se nedělá. |
+| **C-3** | **Uzavřeno týmž rozhodnutím.** Odchylka regex fallbacku od LLM cesty není vada — bez modelu se stejné chování neočekává. |
+| **C-4** | **Uzavřeno. Nedělit.** 4 196 řádků je v pořádku; nesouhlasí dokumentace, ne kód. |
+| **C-5** | **Dokumentace je legacy.** Zjištění této inventury jsou aktuálnější než `CLAUDE.md`. Neopravovat po kouscích — až po kompletní inventuře, jako celek. |
+
+**Metodické rozhodnutí:** inventura pokračuje všemi částmi bez zastavování na
+dílčí otázky. Otevřené položky se sbírají a řeší se dohromady na konci.
