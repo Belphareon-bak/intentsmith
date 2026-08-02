@@ -1,7 +1,7 @@
 # Chování #1 — Server, routing, DB, migrace
 
 **`CONTRACT.md` §3 krok 2** · **2026-08-02** · `17a8b9a8`
-**Stav: k schválení operátorem — před schválením se nepíše žádný test**
+**Stav: schváleno 2026-08-02. Testy: `tests/capability-01-server-behaviours.test.js` — 13/13.**
 
 > Každé chování je pozorovatelné zvenčí a má **právě jeden** test.
 > Sloupec „dnes" je změřený stav, ne předpoklad.
@@ -17,7 +17,9 @@
 | **B-03** | Start nad již migrovanou databází neaplikuje žádnou migraci a nezmění schéma. | ✅ 0 aplikováno |
 | **B-04** | Import databázového modulu bez `C3_DB_PATH` selže a nevytvoří žádný soubor. | ✅ |
 | **B-05** | Po startu existuje port file s portem, na kterém server skutečně poslouchá. | ✅ |
-| **B-06** | **Fatální chyba při startu ukončí proces a nenaváže žádný další prostředek.** | ❌ **neplatí** |
+| **B-06** | Fatální chyba při startu ukončí proces nenulovým exitem. | ✅ |
+| **B-06b** | Fatální chyba při startu zavře databázi, kterou otevřela. | ✅ |
+| **B-06c** | Neúspěšný start nechá běžící instanci a její port file nedotčené. | ✅ |
 
 ## Routing
 
@@ -32,7 +34,7 @@
 |---|---|---|
 | **B-09** | Nevalidní JSON v těle vrací 400. | ✅ |
 | **B-10** | Tělo nad limit vrací 413 a sděluje limit. | ✅ `max 6MB` |
-| **B-11** | Žádná chybová odpověď neobsahuje stack trace ani absolutní cestu k souboru. | ⚠️ neověřeno |
+| **B-11** | Žádná chybová odpověď neobsahuje stack trace ani absolutní cestu k souboru. | ✅ |
 
 ## Hranice
 
@@ -60,26 +62,38 @@
 
 ---
 
-## `B-06` — jediné chování, které dnes neplatí
+## `R-1` — závod mezi inicializací a `listen()`, nikoli vada chování
 
-Nalezeno při ověřování tohoto seznamu. Když start selže na obsazeném portu:
+**Oprava mého vlastního tvrzení.** V předchozí verzi tohoto dokumentu bylo
+`B-06` formulováno jako *„fatální chyba nenaváže žádný další prostředek"*
+a označeno za jedinou vadu. Při psaní testu se ukázalo, že to **není
+testovatelné chování**.
 
-```
-ERROR [C3:Process] Fatal error - shutting down {"message":"listen EADDRINUSE..."}
-INFO  [C3:DB] Database connection closed
-INFO  [C3:ModelCtx] Initialized qwen3.5:27b: num_ctx=8192      ← PO shutdownu
-INFO  [C3:Server] Model context initialized
-```
+Dvě pozorování téhož scénáře:
 
-Inicializace pokračuje i poté, co fatální větev zavřela databázi. Proces
-sice nakonec skončí, ale mezitím navazuje prostředky nad zavřeným spojením.
+| Běh | Pořadí |
+|---|---|
+| 1 | `Fatal error` → `Database connection closed` → **`Model context initialized` o 6 ms později** |
+| 2 | **`Model context initialized` o 8 ms dřív** → `EADDRINUSE` → `Fatal error` |
 
-Není to blocker startu — v úspěšném případě se to neprojeví. Je to přesně ten
-typ chování, který seznam chování odhaluje a který 142 000 řádků testů
-minulo.
+Inicializace kontextu modelu běží **souběžně s `listen()`** a vyhraje ten,
+kdo doběhne dřív. Tvrzení „po fatální chybě se už nic neinicializuje" je tedy
+**časový výsledek závodu, ne vlastnost systému** — a test na něj by byl flaky.
 
-**Návrh:** `B-06` zůstane v seznamu jako platné chování a stane se **první
-opravou v této schopnosti**. Test se napíše dřív než oprava.
+`B-06` proto bylo rozděleno na tři deterministická chování (`B-06`, `B-06b`,
+`B-06c`), která platí bez ohledu na časování. Závod sám je zaznamenán zde
+jako `R-1`:
+
+- **Není to blocker.** V úspěšném startu se neprojeví a při selhání proces
+  stejně skončí nenulovým exitem se zavřenou databází (`B-06`, `B-06b`).
+- **Zůstává jako latentní nález.** Inicializace nad zavřeným spojením není
+  správná, jen dnes neškodná.
+- **Neopravuje se teď**, protože oprava znamená sekvencovat startovní
+  inicializaci — zásah do `server.js` bez chování, které by ho chránilo.
+
+**Poučení pro metodu:** seznam chování odhalil nejen mezeru v produktu, ale
+i chybu ve vlastním zadání. Chování musí být deterministické; když je jeho
+platnost otázkou milisekund, není to chování.
 
 ---
 
