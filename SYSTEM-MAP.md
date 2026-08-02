@@ -81,7 +81,7 @@ adresáře** — u čtyř schopností kód leží jinde, než by název adresá�
 | 3 | LLM gateway | 2,9k | `llm/` |
 | 5 | Quality Gate v2 | 2,9k | `chat/quality/` |
 | 6 | Chat pipeline | 20,4k | `chat/handlers/` (45), `chat/controller.js` |
-| 21 | Studio + WS | 1,3k | `ws-bridge/`, `c3-ide/` |
+| 21 | Studio + WS | 1,3k + **14,9k** | `ws-bridge/` + **`c3-ide/` (139 souborů TS/TSX, 20+ rozšíření)** — Theia IDE je **plocha produktu**, viz `DIRECTION.md` |
 | 7 | Expertizy | 9,5k | `expertises/` **mimo** specialist-runtime, scenario-engine, knowledge-base |
 | 16 | Nástroje | 5,7k | `tools/` — `registry.js` sám 5 094 ř. / **213 nástrojů** |
 | 9 | Skills | 1,8k | `skills/` |
@@ -103,6 +103,10 @@ adresáře** — u čtyř schopností kód leží jinde, než by název adresá�
 | 20 | Media | 1,3k | `media/` |
 
 Nedokončené / mimo 1.0: licencování, setup wizard.
+
+**Legacy plocha:** `src/ui/architect/` (web UI na `/architect`) je zděděný
+předchůdce C3 Studia z doby před přechodem na Theia. Není to fallback pro 1.0.
+Osud neurozhodnut — viz `DIRECTION.md` §4.
 
 ---
 
