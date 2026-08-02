@@ -99,10 +99,37 @@ platnost otázkou milisekund, není to chování.
 
 ## Úkoly z inventury, které se udělají spolu s touto schopností
 
-Nejsou to chování, je to práce (inventura #1 §7):
+Nejsou to chování, je to práce (inventura #1 §7).
 
-1. Vyčlenit 19 rout modelů/upgradů ze `system.js` (`N-1`, `N-6`)
-2. Srovnat `skills.js` a `autonomy.js` — pryč s přístupem k DB v čase importu (`N-7`)
-3. Smazat mrtvý komentář po v57 (`server.js:1201`)
-4. Sjednotit tři health routy na jednu
-5. Aktualizovat stav v `docs/governor-v135-plan.md`
+| # | Úkol | Stav |
+|---|---|---|
+| 1 | Vyčlenit routy modelů/upgradů ze `system.js` (`N-1`, `N-6`) | **odloženo — viz níže** |
+| 2 | Srovnat `skills.js` a `autonomy.js` (`N-7`) | ✅ hotovo |
+| 3 | Smazat mrtvý komentář po v57 | ✅ hotovo |
+| 4 | Sjednotit tři health routy | ✅ hotovo |
+| 5 | Aktualizovat stav v `governor-v135-plan.md` | ✅ hotovo |
+
+### Proč je úkol 1 odložený
+
+Dva důvody, oba zjištěné až při pokusu o provedení:
+
+1. **Rozsah je větší, než inventura uváděla — 23 rout z 36, ne 19.** Model,
+   upgrade a proposals tvoří 64 % `system.js`.
+2. **Řez není mechanický.** `createSystemRoutes` drží sdílený stav uvnitř
+   továrny — `recomputeQueue` (Map), closure `enqueueUniverseRecompute`,
+   `fetchShowWithStability`, `rawDb`, `dataDir` — a část ho používají obě
+   skupiny rout. Rozdělení tedy znamená rozhodnout, kam který helper patří,
+   ne přesunout bloky.
+
+**Rozhodující důvod je ale třetí:** chování napsaná v tomto dokumentu pokrývají
+*infrastrukturu* schopnosti #1 — start, routing, chyby, hranice. **Nepokrývají,
+co těch 23 rout dělá.** Ty patří schopnostem #18a a #18b, které svým seznamem
+chování zatím neprošly.
+
+Přesunout je teď by znamenalo stěhovat 23 rout, jejichž funkci nic neověřuje —
+přesně ten postup, který `CONTRACT.md` odmítá a proti kterému jsem argumentoval
+u `X-1`.
+
+**Spouštěč:** úkol se provede, až #18a (4. v pořadí) dostane svůj seznam chování.
+Tím vznikne ochrana, která dnes chybí, a hranice mezi 18a a 18b bude popsaná
+chováním, ne odhadem.

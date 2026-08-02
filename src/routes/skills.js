@@ -1,10 +1,12 @@
 // Skill API routes — skill listing, execution status, confirm/cancel/resume, reload (v85)
 
 import { skillRegistry } from '../skills/registry.js';
-import { skillExecutions, skillSteps } from '../db/database.js';
 import { confirmAndExecute, resume, cancel, getStatus } from '../skills/runner.js';
 
 export function createSkillRoutes(deps) {
+  // Statements come from deps like every other route module, so importing this
+  // file does not require C3_DB_PATH to be set.
+  const { skillExecutions, skillSteps } = deps.db;
   const { sendJSON, safeError, logger } = deps;
 
   return {

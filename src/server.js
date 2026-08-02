@@ -771,32 +771,34 @@ const routeDeps = {
 
 // v93: notificationRouter + notificationPipeline initialized above (before agent platform)
 
-const routes = {
-  // Health check (inline — small)
-  'GET /': (req, res) => {
-    sendJSON(res, 200, {
-      name: 'p(AI)assistant',
-      version: getCurrentVersion(),
-      status: 'ok',
-      setupComplete,
-      limits: config.limits,
-      endpoints: [
-        'POST /chat',
-        'POST /planner/start',
-        'GET /api/global-memory',
-        'GET /architect',
-        'GET /expertises',
-        'GET /agents',
-        'GET /chat-ui',
-        'POST /api/lifecycle/start',
-        'GET /api/debug/modules (C3_TRACE=1)',
-      ],
-    });
-  },
+// One health handler, referenced by all three paths. Previously the two aliases
+// were closures doing a runtime lookup into `routes`; the endpoints are
+// unchanged, only the indirection is gone.
+function healthHandler(req, res) {
+  sendJSON(res, 200, {
+    name: 'p(AI)assistant',
+    version: getCurrentVersion(),
+    status: 'ok',
+    setupComplete,
+    limits: config.limits,
+    endpoints: [
+      'POST /chat',
+      'POST /planner/start',
+      'GET /api/global-memory',
+      'GET /architect',
+      'GET /expertises',
+      'GET /agents',
+      'GET /chat-ui',
+      'POST /api/lifecycle/start',
+      'GET /api/debug/modules (C3_TRACE=1)',
+    ],
+  });
+}
 
-  // Health alias (frontend fetches /api/health)
-  'GET /api/health': (req, res) => routes['GET /'](req, res),
-  'GET /health': (req, res) => routes['GET /'](req, res),
+const routes = {
+  'GET /': healthHandler,
+  'GET /api/health': healthHandler,
+  'GET /health': healthHandler,
 
   // H9: Spread route modules
   ...createChatRoutes(routeDeps),
@@ -1196,11 +1198,6 @@ const server = http.createServer(async (req, res) => {
 // Keep slow-request protection finite. Long LLM generation is governed by the
 // gateway's per-role timeout and is not extended by disabling requestTimeout.
 applyHttpTimeoutPolicy(server, config.server.httpTimeouts);
-
-// ════════════════════════════════════════════════════════════════════════════
-// REMOVED: Legacy workflow UI (getUIHTML) — v57.0
-// Legacy workflow engine (THINKER→CODER→REVIEWER) deleted.
-// Use /architect for UI, planner/workflow.js for backend.
 
 // ════════════════════════════════════════════════════════════════════════════
 // START

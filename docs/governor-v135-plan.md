@@ -2,8 +2,18 @@
 
 > **Type:** Implementation plan for Level 1 (analyze + propose only)
 > **Context:** `docs/archive/C3-ROADMAP-RFC.md` is historical design RFC; this is the actionable implementation spec
-> **Status:** PLANNED — awaiting approval
-> **Date:** 2026-03-27
+> **Status:** IMPLEMENTED — matches this specification (verified 2026-08-02)
+> **Date:** 2026-03-27 (planned) / 2026-08-02 (status corrected)
+>
+> Verification: file structure and sizes track the estimates below
+> (`health-analyzer.js` 316 / ~400, `improvement-planner.js` 324 / ~300,
+> `safety-guard.js` 73 / ~130, `system-governor.js` 301 / ~350). The Level 1
+> boundary holds in code: there is no APPLY path, no `exec`, no `spawn` and no
+> file write; the pipeline writes only to `governor_reports` and
+> `governor_proposals` and touches no other table. It never runs itself —
+> `server.js` supplies a database handle and a broadcast function, and a run
+> starts only from `POST /api/system/governor/check`.
+> Recorded in `docs/inventory/01-server-routing-db.md` §5b as `N-4`.
 
 ---
 
