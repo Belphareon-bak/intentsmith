@@ -866,7 +866,7 @@ export class UpgradeManager {
     // v121.1: L4 Online Discovery (fullCycle only — same cadence as L2)
     // Use model name prefixes (library names) instead of logical families
     // because 'qwen3.5:27b' → library 'qwen3.5', not logical family 'qwen'
-    if (opts.fullCycle) {
+    if (opts.fullCycle && config.features?.onlineDiscovery) {
       try {
         const od = await _ensureOnlineDiscovery();
         if (od) {
@@ -1221,7 +1221,7 @@ export class UpgradeManager {
     }
 
     // Registry verify (async non-blocking, fullCycle only)
-    if (opts.fullCycle && this._registryClient) {
+    if (opts.fullCycle && config.features?.onlineDiscovery && this._registryClient) {
       const catalogCandidates = proposals.filter(p => p.source === 'catalog').map(p => p.candidateModel);
       if (catalogCandidates.length > 0) {
         this._registryClient.verifyBatch([...new Set(catalogCandidates.map(n => n.replace(/:.*/, '')))]).catch(() => {});

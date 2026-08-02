@@ -289,13 +289,13 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-MODEL-UPGRADE-PHASE3-TEST` | `tests/model-upgrade-phase3.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-UPGRADE-TEST` | `tests/model-upgrade.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODULES-TEST` | `tests/modules.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-MULTI-AGENT-TEST` | `tests/multi-agent.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MULTI-SOURCE-INTEGRATION-TEST` | `tests/multi-source-integration.test.js` | `C3-015` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MULTIMEDIA-TEST` | `tests/multimedia.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-NIGHTLY-AUDIT-RUNNER-SELF-TEST` | `tests/nightly-audit-runner-self-test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST` | `tests/nightly-orchestrator-self-test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-NOTIFICATIONS-TEST` | `tests/notifications.test.js` | `C3-021` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-ONLINE-DISCOVERY-TEST` | `tests/online-discovery.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-OUTBOUND-NETWORK-OPTIN-TEST` | `tests/outbound-network-optin.test.js` | `C3-027` | T1 | `offline` | 5 s | 1 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-OUTPUT-GATE` | `tests/output-gate.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T5-TESTS-P5-ONLY-TEST` | `tests/p5-only.test.js` | `C3-005` | T5 | `manual` | 10 min | 15 min | network:loopback, temp-db, ollama, gpu | no | `HISTORICAL` | — | primary implementer |
 | `IS-T1-TESTS-PATCH-ENGINE-TEST` | `tests/patch-engine.test.js` | `C3-007` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

@@ -23,6 +23,11 @@ export const config = {
     autonomy: process.env.C3_ENABLE_AUTONOMY === 'true',  // v83: Guarded autonomy (opt-IN, default OFF)
     skills: process.env.C3_ENABLE_SKILLS !== 'false',  // v85: Skills system (default ON)
     comfyui: process.env.C3_ENABLE_COMFYUI !== 'false',  // v130: Multimedia generation (ComfyUI)
+    // Outbound model discovery (L4 online discovery, L5 WhatLLM benchmarks,
+    // registry verify). This is the only path on which the product contacts
+    // anything outside the machine, so it is opt-IN, default OFF: a
+    // local-first product does not phone home unless asked to.
+    onlineDiscovery: process.env.C3_ENABLE_ONLINE_DISCOVERY === 'true',
   },
 
   // Server

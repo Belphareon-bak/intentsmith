@@ -5257,36 +5257,6 @@
       "quarantineExpiry": null
     },
     {
-      "id": "IS-T1-TESTS-MULTI-AGENT-TEST",
-      "path": "tests/multi-agent.test.js",
-      "argv": [
-        "node",
-        "tests/multi-agent.test.js"
-      ],
-      "capabilityId": "C3-027",
-      "tier": "T1",
-      "fixture": "isolated-home",
-      "profile": "offline",
-      "timeoutMs": 120000,
-      "expectedDurationMs": 30000,
-      "requirements": {
-        "network": "none",
-        "database": false,
-        "server": false,
-        "ollama": false,
-        "gpu": false
-      },
-      "required": true,
-      "owner": "primary implementer",
-      "state": "ACTIVE",
-      "lastGreen": {
-        "commit": null,
-        "artifact": null
-      },
-      "flakeCount": 0,
-      "quarantineExpiry": null
-    },
-    {
       "id": "IS-T1-TESTS-MULTI-SOURCE-INTEGRATION-TEST",
       "path": "tests/multi-source-integration.test.js",
       "argv": [
@@ -5449,6 +5419,36 @@
       "profile": "offline",
       "timeoutMs": 120000,
       "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-OUTBOUND-NETWORK-OPTIN-TEST",
+      "path": "tests/outbound-network-optin.test.js",
+      "argv": [
+        "node",
+        "tests/outbound-network-optin.test.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 60000,
+      "expectedDurationMs": 5000,
       "requirements": {
         "network": "none",
         "database": false,
