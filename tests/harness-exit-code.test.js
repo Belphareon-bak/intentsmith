@@ -326,9 +326,14 @@ try {
   );
 
   const databaseBootstrapAnalysis = analyzeDatabaseBootstraps();
+  // Reviewed 2026-08-03 after the capability/user-journey suites added since
+  // e7829077 and removal of the dead multi-agent suite. The unprotected set
+  // below remains the fail-closed safety assertion; this count only pins the
+  // reviewed import-graph census.
+  const expectedDatabaseReachableRootTests = 95;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
-    92,
+    expectedDatabaseReachableRootTests,
     'database-reachable root-test inventory changed; review the import graph',
   );
   assert.deepEqual(
@@ -339,7 +344,7 @@ try {
     'a database-reachable root test can evaluate the database before isolation',
   );
   console.log(
-    'Database bootstrap coverage: 92 database-reachable root tests protected',
+    `Database bootstrap coverage: ${expectedDatabaseReachableRootTests} database-reachable root tests protected`,
   );
 
   const mutationTarget = realpathSync(join(__dirname, 'adversarial-cre.test.js'));
@@ -354,7 +359,7 @@ try {
   ]));
   assert.equal(
     mutatedAnalysis.databaseReachable.length,
-    92,
+    expectedDatabaseReachableRootTests,
     'removing an isolation anchor must not hide database reachability',
   );
   assert.deepEqual(

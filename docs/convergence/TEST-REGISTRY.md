@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 355
+- Runnable programs: 356
 - Explicit support-module exclusions: 8
-- Profiles: offline=177, database=26, server=36, model=83, soak=18, manual=15
-- States: ACTIVE=259, HISTORICAL=15, BLOCKED=81
+- Profiles: offline=177, database=26, server=36, model=84, soak=18, manual=15
+- States: ACTIVE=260, HISTORICAL=15, BLOCKED=81
 
 ## Execution profiles
 
@@ -291,6 +291,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-MODEL-UPGRADE-PHASE3-TEST` | `tests/model-upgrade-phase3.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-UPGRADE-TEST` | `tests/model-upgrade.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODULES-TEST` | `tests/modules.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-MULTI-SOURCE-EXTERNAL-TEST` | `tests/multi-source-external.test.js` | `C3-015` | T3 | `model` | 30 s | 2 min | network:external | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MULTI-SOURCE-INTEGRATION-TEST` | `tests/multi-source-integration.test.js` | `C3-015` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MULTIMEDIA-TEST` | `tests/multimedia.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-NIGHTLY-AUDIT-RUNNER-SELF-TEST` | `tests/nightly-audit-runner-self-test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

@@ -342,7 +342,7 @@ test('root README state counts derive from the committed registry', () => {
 
 test('root README rejects drift from the committed registry', () => {
   assert(!rootReadmeMatchesRegistry(
-    rootReadme.replace('`259 ACTIVE`', '`258 ACTIVE`'),
+    rootReadme.replace('`260 ACTIVE`', '`259 ACTIVE`'),
     committedRegistry,
   ));
 });

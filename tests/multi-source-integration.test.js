@@ -12,7 +12,10 @@
 //  T4: Partial failure — one source fails, others succeed
 //  T5: Conditions evaluate across merged multi-type data
 //  T6: HUNTER pattern (no new items after mark_seen)
-//  T7: E2E with real endpoints (BBC RSS + OpenMeteo HTTP)
+//  T7: Example definition validation
+//
+// Real-endpoint coverage lives in multi-source-external.test.js so this
+// required offline suite never depends on BBC or OpenMeteo availability.
 //
 // Run: node tests/multi-source-integration.test.js
 //
@@ -557,102 +560,10 @@ await t('mark_seen idempotent across mixed sources', async () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  T7: E2E with real endpoints (BBC RSS + OpenMeteo HTTP)
+//  T7: Example definition validation
 // ═══════════════════════════════════════════════════════════════════════════════
 
-section('T7 — E2E with real endpoints');
-
-await t('real RSS + HTTP fetch and merge', async () => {
-  const repo = createMockRepository();
-  const runner = new AgentRunner({ repository: repo, logger });
-
-  // Use real source handlers (default from runner)
-  const def = {
-    sources: [
-      {
-        id: 'bbc_tech',
-        type: 'rss',
-        config: {
-          url: 'https://feeds.bbci.co.uk/news/technology/rss.xml',
-          maxItems: 3,
-        },
-      },
-      {
-        id: 'weather',
-        type: 'http',
-        config: {
-          url: 'https://api.open-meteo.com/v1/forecast?latitude=50.08&longitude=14.42&current=temperature_2m&timezone=Europe/Prague',
-          method: 'GET',
-        },
-      },
-    ],
-    conditions: [
-      { id: 'any-data', type: 'exists', field: 'sources.bbc_tech.data' },
-    ],
-    triggers: [
-      { id: 'trig', condition_id: 'any-data', edge: 'any', cooldown: 0, max_fires_per_day: 999 },
-    ],
-    actions: [],
-    schedule: { type: 'manual' },
-  };
-
-  repo.createAgent({ id: 'e2e-multi', name: 'E2E Multi', definition: def });
-
-  const result = await runner.execute('e2e-multi', { isManual: true });
-
-  ok(result.run_state !== RUN_STATE.ERROR_SOURCE, `Sources should not all fail: ${result.error}`);
-  ok(result.run_state !== RUN_STATE.ERROR_UNKNOWN, `No unknown error: ${result.error}`);
-  eq(result.run_state, RUN_STATE.INIT_BASELINE, `First run should be INIT_BASELINE, got ${result.run_state}`);
-
-  // Verify seen items were marked for RSS
-  const rssSeenCount = repo.getSeenItemIds('e2e-multi', 'bbc_tech').size;
-  ok(rssSeenCount > 0, `Should have marked RSS items as seen, got ${rssSeenCount}`);
-
-  console.log(`    → BBC RSS items seen: ${rssSeenCount}`);
-});
-
-await t('real multi-source — second run detects no new items', async () => {
-  const repo = createMockRepository();
-  const runner = new AgentRunner({ repository: repo, logger });
-
-  const def = {
-    sources: [
-      {
-        id: 'weather_api',
-        type: 'http',
-        config: {
-          url: 'https://api.open-meteo.com/v1/forecast?latitude=50.08&longitude=14.42&current=temperature_2m&timezone=Europe/Prague',
-          method: 'GET',
-        },
-      },
-    ],
-    conditions: [
-      { id: 'temp', type: 'exists', field: 'sources.weather_api.data' },
-    ],
-    triggers: [
-      { id: 'trig', condition_id: 'temp', edge: 'any', cooldown: 0, max_fires_per_day: 999 },
-    ],
-    actions: [],
-    schedule: { type: 'manual' },
-  };
-
-  repo.createAgent({ id: 'e2e-http-only', name: 'E2E HTTP', definition: def });
-
-  const r1 = await runner.execute('e2e-http-only', { isManual: true });
-  eq(r1.run_state, RUN_STATE.INIT_BASELINE);
-
-  // HTTP returns an object, not array — so filterSeenItems won't apply
-  // This verifies that non-array HTTP responses are handled correctly
-  const r2 = await runner.execute('e2e-http-only', { isManual: true });
-  // Non-array data means totalNewItems stays 0 (filterSeenItems returns non-array as-is)
-  // But filtered_count will be null, so it won't count as "new items"
-  ok(
-    r2.run_state === RUN_STATE.SUCCESS_NO_NEW ||
-    r2.run_state === RUN_STATE.SUCCESS_TRIGGERED ||
-    r2.run_state === RUN_STATE.SUCCESS_NO_TRIGGER,
-    `Second HTTP run should be some success state, got ${r2.run_state}`
-  );
-});
+section('T7 — Example definition validation');
 
 await t('morning-briefing.json definition is valid for runner', async () => {
   const { readFileSync } = await import('node:fs');

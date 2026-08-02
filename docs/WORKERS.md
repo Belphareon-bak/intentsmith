@@ -292,7 +292,8 @@ Skupiny: `agent_id::channel::recipient`. Deduplikace podle titulku. Flush na cro
 | `agent-sources.test.js` | ~15 | HTTP, RSS zdroje |
 | `agent-wizard.test.js` | ~20 | Agent builder |
 | `rss-integration.test.js` | ~47 | RSS/Atom parser |
-| `multi-source-integration.test.js` | ~14 | Deduplikace, health |
+| `multi-source-integration.test.js` | ~12 | Deduplikace, health (offline) |
+| `multi-source-external.test.js` | ~2 | BBC RSS + OpenMeteo (external) |
 | `notifications.test.js` | ~67 | Kanaly, routing, policy |
 | `push-channel.test.js` | ~31 | ntfy.sh |
 | `trust-feedback.test.js` | ~34 | Auto-degrade/mute |

@@ -246,23 +246,63 @@ await testAsync('empty outdated → all up to date', async () => {
 
 await testAsync('maxPackagesPerRun respected', async () => {
   const dir = mkTmpDir();
-  fs.writeFileSync(path.join(dir, 'package.json'), '{}');
-  fs.writeFileSync(path.join(dir, 'package-lock.json'), '{}');
+  const fakeBin = path.join(dir, 'fake-bin');
+  const invocationLog = path.join(dir, 'npm-invocations.jsonl');
+  const previousPath = process.env.PATH;
+  const previousLog = process.env.C3_TEST_NPM_LOG;
 
-  // Cache with 10 packages — all patch
-  const pkgs = [];
-  for (let i = 0; i < 10; i++) {
-    pkgs.push({ name: `pkg-${i}`, current: '1.0.0', latest: '1.0.1', type: 'patch' });
+  try {
+    fs.writeFileSync(path.join(dir, 'package.json'), '{}');
+    fs.writeFileSync(path.join(dir, 'package-lock.json'), '{}');
+    fs.mkdirSync(fakeBin);
+    fs.writeFileSync(
+      path.join(fakeBin, 'npm'),
+      [
+        '#!/usr/bin/env node',
+        "const fs = require('node:fs');",
+        "fs.appendFileSync(process.env.C3_TEST_NPM_LOG, JSON.stringify(process.argv.slice(2)) + '\\n');",
+        'process.exit(17);',
+        '',
+      ].join('\n'),
+      { mode: 0o700 },
+    );
+
+    // Cache with 10 packages — all patch. The fake executable proves exactly
+    // which upgrades were selected without contacting the package registry.
+    const pkgs = [];
+    for (let i = 0; i < 10; i++) {
+      pkgs.push({ name: `pkg-${i}`, current: '1.0.0', latest: '1.0.1', type: 'patch' });
+    }
+    saveCache(dir, { packages: pkgs, timestamp: Date.now() });
+
+    process.env.PATH = `${fakeBin}${path.delimiter}${previousPath || ''}`;
+    process.env.C3_TEST_NPM_LOG = invocationLog;
+
+    const result = await runUpgradeCycle(dir, { useCache: true, maxPackagesPerRun: 3 });
+    const invocations = fs.readFileSync(invocationLog, 'utf8')
+      .trim()
+      .split('\n')
+      .map(line => JSON.parse(line));
+
+    assertEqual(result.upgraded.length, 0, 'fake npm upgrades do not succeed');
+    assertEqual(result.failed.length, 3, 'exactly maxPackagesPerRun upgrades attempted');
+    assertEqual(invocations.length, 3, 'exactly three npm commands invoked');
+    assertEqual(
+      JSON.stringify(invocations),
+      JSON.stringify([
+        ['install', 'pkg-0@1.0.1'],
+        ['install', 'pkg-1@1.0.1'],
+        ['install', 'pkg-2@1.0.1'],
+      ]),
+      'patch upgrades are selected deterministically without network access',
+    );
+  } finally {
+    if (previousPath === undefined) delete process.env.PATH;
+    else process.env.PATH = previousPath;
+    if (previousLog === undefined) delete process.env.C3_TEST_NPM_LOG;
+    else process.env.C3_TEST_NPM_LOG = previousLog;
+    cleanup(dir);
   }
-  saveCache(dir, { packages: pkgs, timestamp: Date.now() });
-
-  // runUpgradeCycle with maxPackagesPerRun=3
-  // The upgrade will fail (npm install in temp dir with no real packages) but
-  // we can verify the slicing worked by checking failed.length + upgraded.length <= 3
-  const result = await runUpgradeCycle(dir, { useCache: true, maxPackagesPerRun: 3 });
-  const attempted = result.upgraded.length + result.failed.length;
-  assert(attempted <= 3, `attempted ${attempted} should be ≤ 3`);
-  cleanup(dir);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
