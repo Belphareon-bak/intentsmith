@@ -115,6 +115,98 @@ inventuře), formulované na úrovni požadavku, ne rozhodnutí:
 
 ---
 
+---
+
+# Druhé kolo — expertizy, skills, projekt
+
+Zadání operátora: *„všechny 3 části jsou důležité už i pro začátek roadmapy,
+žádnou z nich nevynechej."* Každá z nich něco našla.
+
+## Expertizy — routa rozbitá od v87 do v135
+
+`POST /api/expertises/route` vracelo **500 při každém volání**:
+
+```
+TypeError: expertiseLayer.routeToExpert is not a function
+  at POST /api/expertises/route (src/routes/expertises.js:464)
+```
+
+Příčina je v `expertise-layer.js:1618`:
+
+> `// v87: routeToExpertise() removed — replaced by autoSelectExpertise() in auto-select.js`
+
+Refaktor v87 metodu odstranil, `chat/controller.js` se opravil (`:1885`),
+**routa ne**. Zůstala rozbitá přes ~48 verzí. Inventura #1 hlásila *„žádný
+osiřelý modul rout"* — a měla pravdu, routa osiřelá není. Je mrtvá jinak:
+zaregistrovaná, dosažitelná a vždy padá.
+
+**Opraveno**, přepnuto na `autoSelectExpertise()`. Po opravě:
+
+| Zpráva | Expertiza | Konf. |
+|---|---|---:|
+| `napiš mi povídku o starém majáku` | `writer` | 0,30 |
+| `jaké je daňové přiznání pro OSVČ` | `accountant` | 0,40 |
+| `jaká je nejlepší sázka na zápas` | `sazeni` | 0,30 |
+| `zkontroluj mi tenhle kód na chyby` | **žádná** | 0 |
+
+Tři ze čtyř trefí. Čtvrtý nenajde `code_reviewer`, přestože existuje — to už
+je otázka kvality routingu, ne pádu, a patří do chování #7.
+
+## Skills — potvrzení sebral cizí subsystém a přenastavil modely
+
+**Nejzávažnější nález celého testování.**
+
+Skill se rozpoznal správně, vytáhl parametr a zeptal se `Potvrdit spuštění?`.
+Odpověděl jsem `ano`. Stalo se tohle:
+
+```
+Modely změněny:
+  VISION: llava:13b       → llava-llama3:8b   (načteno, ověřeno)
+  CHAT:   qwen3.5:27b     → qwen3:14b         (načteno, ověřeno)
+  D1:     deepseek-r1-32b → qwen3:14b
+  R1:     deepseek-r1-32b → qwen3:14b
+  D2:     qwen3-30b-a3b   → qwen3:14b
+```
+
+**Skill se nespustil. Místo toho se přenastavilo pět modelových vazeb včetně
+hlavního CHAT modelu** — a zápisem do tabulky `model_overrides`, takže to
+**přežije restart** (`loadPersistedOverrides()` je obnoví při startu).
+
+### Proč
+
+`pre-handler.js:224` registruje intercept `upgrade_approval` s `modes: ['*']`,
+který se spustí, kdykoli v session state leží `_pendingUpgrades`, a matchuje
+holé `ano`. Pre-handler běží **před CRE**, takže odpověď určenou skillu sebral
+dřív, než se k ní skill dostal.
+
+Systém si toho byl skoro vědom — vlastní quality gate k té odpovědi připsal
+*„Zjištěné problémy: Odpověď neřeší otázku uživatele."* Ale změnu už provedl.
+
+### Opraveno
+
+Upgrade notifikace **není otázka** — leží v session state a čeká, až ji někdo
+spotřebuje. Nesmí přebít potvrzení, na které se systém aktivně ptal o tah dřív.
+S jiným čekajícím potvrzením se počítá **jen výslovné** slovo (`schval`,
+`upgrade`, `aktualizuj`), holé `ano` propadne tomu, kdo se ptal.
+
+Ověřeno na stejném scénáři na běžícím serveru: `ano` došlo skillu, ten postoupil
+na krok 1 a zeptal se na upřesnění; `model_overrides` **0 řádků**.
+
+Regrese: `tests/confirmation-ownership.test.js` — **5/5 s opravou, 2/5 bez ní**.
+Nastavené vazby jsem po testu vrátil do původního stavu.
+
+## Projekt — lifecycle funguje
+
+Projekt se založí (30 ms) a validuje cestu (odmítne mimo domovský adresář).
+`POST /api/lifecycle/start` doběhl za **58,5 s** a vrátil fázi SPEC: pět
+upřesňujících otázek, `estimated_complexity: LOW`, seznam rizik, technická
+rozhodnutí a `coreGoal`.
+
+Otázky byly věcné a k tématu. **Tohle je ta část, o které operátor říká, že
+C3 bylo schopnější, než si umím představit — a je to vidět.**
+
+---
+
 ## Co z toho plyne pro roadmapu
 
 1. **Chování se musí formulovat na úrovni, kde je uživatel zažívá.** `C-02`

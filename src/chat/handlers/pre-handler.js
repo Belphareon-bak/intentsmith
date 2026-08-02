@@ -232,8 +232,26 @@ intercepts.push({
     const REJECT_RE = /^(ne|no|nechci|cancel|zru[sš]i?t?|skip)\s*[!.]?$/i;
 
     const trimmed = input.trim();
-    const isApproval = APPROVAL_RE.test(trimmed) || APPROVAL_PHRASE_RE.test(trimmed);
-    const isReject = REJECT_RE.test(trimmed);
+
+    // A bare "ano" belongs to whatever the system asked last, and an upgrade
+    // notification is not a question — it is a notice that sits in session
+    // state until something consumes it. When a skill has just asked
+    // "Potvrdit spuštění?", this intercept runs first and used to swallow the
+    // answer: measured 2026-08-02, confirming a brainstorm skill instead
+    // applied five model upgrades, rebinding CHAT from qwen3.5:27b to
+    // qwen3:14b, persisted in model_overrides and surviving restart.
+    //
+    // With another confirmation outstanding, only an explicit upgrade word
+    // counts here. "Ano" then reaches the handler that actually asked.
+    const awaitingElsewhere = Boolean(
+      context.sessionState?._pendingSkillExecution
+        || context.sessionState?._pendingSkillProposal,
+    );
+
+    const isApproval = awaitingElsewhere
+      ? APPROVAL_PHRASE_RE.test(trimmed)
+      : (APPROVAL_RE.test(trimmed) || APPROVAL_PHRASE_RE.test(trimmed));
+    const isReject = awaitingElsewhere ? false : REJECT_RE.test(trimmed);
 
     if (!isApproval && !isReject) return { handled: false };
 

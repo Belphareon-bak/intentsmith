@@ -461,13 +461,26 @@ export function createExpertiseRoutes(deps) {
         }
 
         const body = await parseBody(req);
-        const result = expertiseLayer.routeToExpert(body.message, body.intent);
+
+        // v87 removed expertiseLayer.routeToExpertise() in favour of
+        // autoSelectExpertise(); chat/controller.js was updated and this route
+        // was not, so every call here threw "routeToExpert is not a function"
+        // from v87 until 2026-08-02.
+        const { autoSelectExpertise } = await import('../expertises/auto-select.js');
+        const result = autoSelectExpertise(body.message, {
+          previousAutoExpertiseId: body.previousAutoExpertiseId || null,
+        });
+
+        const expert = result.expertiseId
+          ? expertiseLayer.expertiseRegistry?.get?.(result.expertiseId)
+          : null;
 
         sendJSON(res, 200, {
-          expertId: result.expert?.id || null,
-          expertName: result.expert?.name || null,
+          expertId: result.expertiseId,
+          expertName: expert?.name || null,
           confidence: result.confidence,
-          reason: result.reason
+          reason: result.reason,
+          scores: result.scores,
         });
       } catch (err) {
         sendJSON(res, 500, safeError(err));

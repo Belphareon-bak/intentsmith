@@ -1780,6 +1780,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-CONFIRMATION-OWNERSHIP-TEST",
+      "path": "tests/confirmation-ownership.test.js",
+      "argv": [
+        "node",
+        "tests/confirmation-ownership.test.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 60000,
+      "expectedDurationMs": 5000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-CONTEXT-BUILDER-TEST",
       "path": "tests/context-builder.test.js",
       "argv": [
