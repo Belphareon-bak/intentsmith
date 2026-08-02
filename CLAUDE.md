@@ -5,11 +5,15 @@
 
 **Než začneš cokoli dělat, přečti v tomto pořadí:**
 
-1. **[`CONTRACT.md`](CONTRACT.md)** — pravidla vývoje. **Jediný zdroj pravdy pro
+1. **[`DIRECTION.md`](DIRECTION.md)** — **co IntentSmith je a kam jde.** Proč
+   vznikl, dvě předchozí špatná uchopení, osm principů, produktová rozhodnutí.
+   Z kódu se to odvodit nedá, proto je první.
+2. **[`CONTRACT.md`](CONTRACT.md)** — pravidla vývoje. **Jediný zdroj pravdy pro
    to, jak se pracuje.** Kde si jakýkoli jiný dokument odporuje s ním, platí on.
-2. **[`SYSTEM-MAP.md`](SYSTEM-MAP.md)** — změřený stav systému: rozsah,
+3. **[`ROADMAP.md`](ROADMAP.md)** — pět úrovní, co se dělá teď a proč.
+4. **[`SYSTEM-MAP.md`](SYSTEM-MAP.md)** — změřený stav systému: rozsah,
    schopnosti a jejich soubory, invarianty, co se vědomě neřeší.
-3. **[`docs/inventory/`](docs/inventory/)** — inventura jednotlivých schopností.
+5. **[`docs/inventory/`](docs/inventory/)** — inventura jednotlivých schopností.
 
 Postup u jedné schopnosti (`CONTRACT.md` §3): **inventura → seznam chování →
 testy → PASS.** Krok se nepřeskakuje.

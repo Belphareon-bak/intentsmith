@@ -1,10 +1,17 @@
-# IntentSmith — Roadmapa 1.0
+# IntentSmith — Roadmapa 1.0 (nahrazeno)
+
+> **⚠️ Tenhle dokument už není platná roadmapa.**
+> Platí [`ROADMAP.md`](../ROADMAP.md) v kořeni repozitáře.
+>
+> Důvod: tahle verze řídí projekt přes Gate 0 / Gate 1, což operátor
+> **2026-08-02 zrušil pro vývoj** — attestace platí jen u releasu
+> (`CONTRACT.md` §8). Zůstává jako historický kontext a jako zdroj
+> inventáře rizik; **nerozhoduje.**
 
 **Verze kódu:** 135.0.0
 **Datum:** 2026-07-31
-**Stav:** Gate 0 baseline candidate; autoritativní verdikt je pouze v
-[convergence/STATUS.md](convergence/STATUS.md)
-**Autorita pro verdikty:** [convergence/GATE-CRITERIA.md](convergence/GATE-CRITERIA.md)
+**Stav:** historický dokument
+**Autorita pro verdikty:** [convergence/GATE-CRITERIA.md](convergence/GATE-CRITERIA.md) — platí u releasu
 
 ---
 
