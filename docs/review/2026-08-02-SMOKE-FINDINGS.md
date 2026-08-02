@@ -79,7 +79,30 @@ neprošla syntézou** — tedy i `SHELL`, `FILE_WRITE`, `FILE_READ` a další
 terminální intenty. Deterministická cesta, která je z definice hotová, platí
 plnou cenu volání modelu.
 
-### Navrhovaná oprava
+### Opraveno — změřeno na běžícím produktu
+
+| | Před | Po |
+|---|---:|---:|
+| `kolik je hodin?` | 25 466 ms | **46 ms** |
+| `kolik je 17 * 23?` | 65 ms | 36 ms |
+
+**554× rychleji, odpověď znak po znaku identická.**
+
+Kvalitní cesta zůstala netknutá — ověřeno týmž během:
+
+```
+LOCAL          refined: false, žádný ImprovementLoop záznam        46 ms
+CONVERSATIONAL ImprovementLoop běžel: scoreBefore 73, scoreAfter 73
+```
+
+Oprava zná intent, ne délku řetězce: refinement se přeskočí u `LOCAL`, `SHELL`,
+`FILE_READ` a `FILE_WRITE`, jejichž odpověď model nepsal. **`FILE_EXPLAIN` v tom
+seznamu vědomě není** — jeho odpověď syntéza *je*, takže se u něj refinement
+dál spouští.
+
+Regrese: `tests/deterministic-answer-latency.test.js`, 3/3.
+
+### Původně navrhovaná oprava
 
 Terminální deterministické intenty refinement přeskočí. `LOCAL` odpověď se
 nedá vylepšit — je to spočítaná hodnota, ne text.

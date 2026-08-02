@@ -261,15 +261,44 @@ Výjimka: bezpečnostní opravy a odstranění blokujících prerekvizit.
 
 ---
 
-## 8. Co se tímto ruší
+## 8. Gate 0 platí u releasu, ne při vývoji
+
+> **Rozhodnutí operátora, 2026-08-02.** Tohle je ta věta, na které stojí celý
+> zbytek kapitoly: **Gate 0 se uplatňuje výhradně při releasu. Během vývoje
+> neplatí.** Ne „uplatňuje se mírněji", ne „uplatňuje se u důležitých změn" —
+> **neplatí.**
+
+### Proč to bylo nutné vyslovit
+
+Gate 0 má pravidlo *„jakákoli změna stromu ruší kandidátní verdikt"*. To je
+správné pro certifikaci releasu a **fatální pro vývoj**, protože znamená, že
+nelze zároveň vyvíjet a být certifikovaný. Proces tím **trestá produktovou
+práci a odměňuje práci na aparátu.**
+
+Změřeno na vlastní historii (§1): 177 commitů za 4 dny, poměr aparátu k produktu
+zhruba **5 : 1**, a schopností s akceptačním důkazem **0 z 30**. Aparát fungoval
+— jen měřil prázdný pokoj.
+
+### Co z toho konkrétně plyne
 
 | Dosud | Nově |
 |---|---|
-| Gate 0 attestace u každé změny | Attestace **u releasu**. Denní režim = L1 zelená |
-| „Jakákoli změna stromu ruší kandidáta" jako provozní režim | Platí jen pro release kandidát |
+| Gate 0 attestace u každé změny | **Attestace jen u releasu.** Denní režim = L1 zelená |
+| „Jakákoli změna stromu ruší kandidáta" jako provozní režim | **Platí výhradně pro release kandidáta.** Při vývoji se kandidát neřeší |
+| Attestační řetěz `C→E→R→A` ve smyčce | Spouští se **při releasu**, ne jako součást běžné práce |
+| Fingerprint registru zapečetěný v Gate 0 policy | **Rozchod s ním při vývoji není vada.** `nightly-orchestrator-self-test` proto padá očekávaně; obnovení řetězce je release práce |
 | Gate 1 jako 30 nezávislých důkazních řízení | Schopnosti podle §6, v pořadí daném závislostmi |
 | Evidence generovaná devítifázovým producerem | Producer zůstává pro release; vývoj běží na L1 |
 | `AGENTS.md` jako pravidla vývoje | Tento dokument. `AGENTS.md` zůstává jako historický kontext |
+
+### Co Gate 0 naopak zůstává
+
+Ruší se **ceremonie, ne výstup.** Inventář — registr testových programů, matice
+schopností, disposition, registr rizik — je živý majetek a mapa projektu, kterou
+C3 nikdy nemělo. Udržuje se dál.
+
+**Test, jestli je pravidlo aplikované správně:** brzdí mě právě teď Gate 0
+v produktové práci? Pokud ano, aplikuju ho špatně.
 
 ---
 

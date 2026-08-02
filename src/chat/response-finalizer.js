@@ -7,6 +7,25 @@
 import { logger } from '../core/logger.js';
 import { throwIfAborted } from '../core/abort-error.js';
 
+// Intents whose answer no model wrote: a clock reading, a shell command's
+// output, a file's contents, a write confirmation. Asking a model to improve
+// them is a category error — they are values, not prose, and `improveResponse`
+// is documented as taking "the final response from synthesis".
+//
+// Measured before this guard existed: "kolik je hodin?" spent 25 466 ms in the
+// refinement loop and then threw the result away on semantic drift
+// (similarity 0.05), while "kolik je 17 * 23?" answered in 65 ms purely because
+// its answer was 17 characters and fell under the length threshold.
+//
+// FILE_EXPLAIN is deliberately NOT here: its answer *is* model synthesis, so
+// refinement can genuinely improve it and stays enabled.
+const NON_SYNTHESIZED_INTENTS = new Set([
+  'LOCAL',
+  'SHELL',
+  'FILE_READ',
+  'FILE_WRITE',
+]);
+
 async function defaultImproveResponse(...args) {
   const { improveResponse } = await import('./quality/improvement-loops.js');
   return improveResponse(...args);
@@ -62,9 +81,11 @@ export async function finalizeChatResponse({
   let refinementApplied = false;
   let qualityScore = null;
 
+  const isSynthesized = !NON_SYNTHESIZED_INTENTS.has(intent);
   const needsRefinement = Boolean(
     finalContent
       && finalContent.length > 20
+      && isSynthesized
       && (synthesisScore === null || synthesisScore < 75),
   );
 
@@ -97,6 +118,8 @@ export async function finalizeChatResponse({
     } catch (err) {
       log.warn('ChatController', `Self-refinement failed (non-fatal): ${err.message}`);
     }
+  } else if (!isSynthesized) {
+    log.debug('ChatController', `Skipping selfRefine: ${intent} answer is not model-authored`);
   } else if (synthesisScore !== null) {
     log.debug('ChatController', `Skipping selfRefine: synthesis score ${synthesisScore} >= 75`);
   }
