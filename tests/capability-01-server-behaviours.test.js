@@ -160,7 +160,7 @@ function probe(port, { method = 'GET', pathname = '/', body = null, headers = {}
 async function main() {
   console.log('\n══ Capability #1 — behaviour acceptance ══\n');
 
-  const fixtureRoot = makeDir(isolatedTestRuntime.root, 'capability-01');
+  const fixtureRoot = makeDir(isolatedTestRuntime.temp, "capability-01");
   const fixture = {
     home: makeDir(fixtureRoot, 'home'),
     xdgConfig: makeDir(fixtureRoot, 'xdg-config'),
