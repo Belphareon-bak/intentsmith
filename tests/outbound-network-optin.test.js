@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// Outbound network is opt-in
+// Automatic online model discovery is opt-in
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// The product is local-first. Model discovery (L4), WhatLLM benchmark
-// enrichment (L5) and registry verification are the only paths on which it
-// contacts anything outside the machine, and they hang off a 24h full cycle
-// that used to run with no way to switch it off.
+// The product is local-first. This suite covers only background model discovery
+// (L4), WhatLLM enrichment (L5) and registry verification. Explicit web tools,
+// marketplace, agent sources/actions, notifications and remote Ollama are
+// separate outbound capabilities and are not claimed by this test.
 //
 // This suite is structural on purpose: it asserts the gate exists and defaults
 // to off, which is checkable without a network and without a 24h wait.
@@ -31,7 +31,7 @@ function check(condition, label) {
 const manager = readFileSync(path.join(ROOT, 'src/upgrade/upgrade-manager.js'), 'utf8');
 
 async function main() {
-  console.log('\n══ Outbound network is opt-in ══\n');
+  console.log('\n══ Automatic online model discovery is opt-in ══\n');
 
   // ── The flag defaults to off ───────────────────────────────────────────────
   delete process.env.C3_ENABLE_ONLINE_DISCOVERY;
@@ -40,7 +40,7 @@ async function main() {
   );
   check(
     offByDefault.features.onlineDiscovery === false,
-    'a clean environment does not contact anything outside the machine',
+    'a clean environment leaves automatic model discovery disabled',
   );
 
   // ── And can be turned on deliberately ─────────────────────────────────────
@@ -54,9 +54,9 @@ async function main() {
     'C3_ENABLE_ONLINE_DISCOVERY=true opts in',
   );
 
-  // ── Every outbound caller sits behind the flag ────────────────────────────
-  // The three call sites are L4 online discovery, L5 WhatLLM enrichment (both
-  // inside the same guarded block) and the registry verify batch.
+  // ── Every background discovery caller sits behind the flag ────────────────
+  // The three discovery call sites are L4 online discovery, L5 WhatLLM
+  // enrichment (inside the same guarded block) and the registry verify batch.
   const guardedBlocks = manager.match(
     /if \(opts\.fullCycle && config\.features\?\.onlineDiscovery[^)]*\)/g,
   ) || [];

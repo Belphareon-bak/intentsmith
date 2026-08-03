@@ -1,42 +1,32 @@
 # IntentSmith — pravidla vývoje
 
-**Verze:** 1 · **Datum:** 2026-08-01 · **Vlastník:** operátor
+**Verze:** 2 · **Datum:** 2026-08-03 · **Vlastník:** operátor
 
 > Tento dokument je **jediný zdroj pravdy pro pravidla vývoje**. Kde si jakýkoli
 > jiný dokument v repozitáři odporuje s tímto, platí tento.
 >
-> Starší dokumenty (`AGENTS.md`, `docs/ROADMAP.md`, `docs/convergence/*`)
-> **zůstávají jako reference** — obsahují platná zjištění a inventář. Přestávají
-> však být autoritou pro to, jak se pracuje.
+> Produktový cíl určuje [`PRODUCT.md`](PRODUCT.md), evoluční rozhodnutí
+> [`DIRECTION.md`](DIRECTION.md), pořadí [`ROADMAP.md`](ROADMAP.md) a změřený
+> stav [`SYSTEM-MAP.md`](SYSTEM-MAP.md). `AGENTS.md` a `CLAUDE.md` jsou pouze
+> vstupní ukazatele; `docs/convergence/*` je historická/release evidence.
 
 ---
 
-## 1. Východisko — změřeno, ne odhadnuto
+## 1. Východisko — evoluce funkčního produktu
 
-Aby se to nemuselo znovu odvozovat:
+C3 je funkční produkt, nikoliv greenfield baseline. IntentSmith jej evolučně
+zpřesňuje, zpevňuje a doplňuje. Funkční části se zachovávají, dokud měření nebo
+uživatelský scénář neprokáže konkrétní přínos opravy či náhrady. Historický
+rozbor a čísla jsou v `DIRECTION.md`. Dynamická měření a průběžné statusy patří
+do `SYSTEM-MAP.md`; tento kontrakt může uchovat jen řídicí rozhodnutí nebo
+pojmenovaný blocker, který mění způsob práce.
 
-| | |
-|---|---:|
-| C3 vývoj (2026-01-05 → 07-27) | 431 commitů, ~7 měsíců |
-| „Konvergence" (07-27 → 07-31) | **177 commitů, 4 dny** |
-| Z toho produktový přírůstek | 6 bezpečnostních oprav, 2 hygiena, 1 funkce |
-| Přírůstek `src/` | +3 389 řádků |
-| Přírůstek testů, skriptů a konvergenčních dokumentů | **+66 500 řádků** |
-| `src/` celkem | 145 259 řádků, 406 souborů |
-| `tests/` celkem | 142 287 řádků, 345 souborů |
-| Schopností s akceptačním důkazem | **0 z 30** |
+Z toho plynou čtyři pravidla:
 
-**Závěr:** testy jsou objemem už na paritě se zdrojem a přesto neprokazují nic.
-Objem je tedy prokazatelně špatná metrika a žádné pravidlo v tomto dokumentu
-ho nepoužívá.
-
-**Ověřeno spuštěním** (2026-08-01, čerstvý klon, bez Ollamy): server nabootuje
-napoprvé, deterministické intenty odpovídají pod 5 ms, registruje se 18 expertíz,
-5 specialistů, 13 skills a 6 agentů, web UI odpovídá, a bez modelu systém
-degraduje čistě přes `LLM_PROVIDER_UNAVAILABLE` místo pádu.
-
-**C3 je funkční produkt.** Ne prototyp, ne baseline k obnově. Všechno níže z toho
-vychází.
+1. nejprve pozorovat produkt a skutečný call graph, teprve potom měnit;
+2. nepřepisovat fungující část jen proto, že existuje novější knihovna;
+3. náhrada musí prokázat přidanou funkci, kvalitu, bezpečnost nebo nižší cenu;
+4. objem testů, dokumentů ani commitů není důkaz výsledku.
 
 ---
 
@@ -46,15 +36,20 @@ Ne fáze. Fáze se projdou a zapomenou; tohle platí trvale a běží souběžn�
 
 | | Vrstva | Co to je |
 |---|---|---|
-| **L0** | Invarianty | Co se nesmí porušit nikdy. Osm vět, osm testů. |
+| **L0** | Release invarianty a vývojové rails | Co musí platit pro release a co žádná změna nesmí dále oslabit. Otevřené zděděné porušení se přizná a opraví před releasem. |
 | **L1** | Zelená linie | Scénáře, které musí fungovat vždy. Běží při každé změně. Roste o jeden scénář za každou dokončenou schopnost. Cíl je běh v řádu vteřin — zatím **neověřeno**, dnešní deterministická sada běží minuty. |
-| **L2** | Schopnosti | Části C3, jedna po druhé, vertikálně až do PASS. |
+| **L2** | Schopnosti | Vertikální user journeys v ohraničených WP; nezávislé WP mohou podle DAG běžet paralelně. |
 | **L3** | Kvalita jako číslo | p95 latence, chybovost, přesnost intentů, počet regresí. Měřeno průběžně. |
 | **L4** | Evoluce | Výměny a upgrady. Sahá se jen na to, co je za stabilním rozhraním z L0. |
 
 ### L0 — invarianty
 
-Převzato z `CLAUDE.md` § Klíčové kontrakty. Každý dostane **právě jeden** test.
+Prvních deset je zděděný technický kontrakt. Poslední tři jsou produktová
+autorita. Invariant může být `VERIFIED`, `UNVERIFIED`, `PARTIAL` nebo
+`OPEN_VIOLATION`; pouze první stav znamená prokázané splnění. Aktuální stav je
+výhradně v `SYSTEM-MAP.md`, ne v tomto kontraktu. Žádná změna nesmí otevřené
+porušení rozšířit nebo vydat za zelené a M6 vyžaduje všech třináct bez
+otevřeného porušení.
 
 1. CRE je jediná autorita — žádná zpráva ji neobejde.
 2. `mergeExpertisePrompt()` je čistá funkce — žádné side effects.
@@ -63,171 +58,153 @@ Převzato z `CLAUDE.md` § Klíčové kontrakty. Každý dostane **právě jeden
 5. QGv2 je deterministický a idempotentní — žádné LLM volání, žádné nové věty.
 6. Patch engine: 3-tier anchor, atomický zápis, plný rollback při selhání.
 7. Execution loop: max 8 iterací.
-8. Specialista je soběstačný — žádný `import ../../src/` z balíčku, vše přes `ctx.registries`.
+8. Specialista je soběstačný — žádný `import ../../src/` z balíčku, vše přes
+   schválenou registrační hranici.
 9. Model upgrade nikdy neupgraduje sám — discovery nemění konfiguraci.
 10. Legacy listener nikdy neopustí loopback, dokud neexistuje oddělená ověřená hranice.
+11. Každý významný externí nebo stav měnící efekt zůstává pod autoritou
+    uživatele: má původ, omezený rozsah, odpovídající approval a auditní stopu.
+12. Žádná tichá odchozí komunikace: background síť je opt-in; explicitní
+    síťové schopnosti jsou mediované a auditované.
+13. Učení samo nesmí rozšířit oprávnění, změnit kód nebo konfiguraci ani
+    přenést projektová data přes hranici bez explicitního opt-inu.
 
 ---
 
-## 3. Postup u jedné schopnosti
+## 3. Postup u schopnosti — hloubka až po důkazu
 
-Každá schopnost prochází těmito čtyřmi kroky. Krok se nepřeskakuje ani
-neslučuje s dalším.
+Proces nemá před implementací vyrobit stovky papírových záznamů. Pracuje ve
+dvou hloubkách.
 
-### Krok 1 — inventura
+### Lehký obraz celého produktu
 
-> **Bez inventury se na schopnosti nezačíná pracovat.** Nelze stavět na tom,
-> o čem není jasné, co dělá.
+Pro každou ze 22 schopností stačí:
 
-Inventura vyprodukuje tři seznamy:
+1. jedna věta „co uživatel udělá a co se stane";
+2. nejvyšší dosažený stupeň důkazu podle §5;
+3. případný příznak `BROKEN` a odkaz na pozorování.
 
-1. **Co je dobré a použije se.**
-2. **Co je zbytečné.**
-3. **Co je nejasné a potřebuje rozhodnutí operátora.**
+Tím vznikne společný obraz a dependency DAG, nikoliv předstíraná detailní
+znalost. Sedmidimenzionální inventura ani cílový redesign se pro schopnost,
+která nebyla skutečně spuštěná, nevymýšlí.
 
-Platí to pro **všech patnáct schopností základu**, ne jen pro přerostlé
-moduly. U velkých modulů (#6 s 32,3k a #18 s 10,3k řádky) je inventura
-nejnákladnější, ale ne jiná.
+### Hluboká práce ve schváleném Work Package
 
-Inventura popisuje **současný stav**, ne cílový. Nerozhoduje se v ní — jen se
-zjišťuje. Rozhoduje se až nad hotovými třemi seznamy.
+Schopnost se rozpracuje do hloubky teprve tehdy, když je na řadě podle DAG a
+existuje runtime pozorování. Pak následuje:
 
-### Krok 2 — seznam chování
+1. **Spuštění a měření.** Nejdřív uživatelský scénář, prerekvizity, latence,
+   data a efekty. Čtení kódu samo nestačí.
+2. **Hluboká inventura.** Moduly, funkce, principy, konektory, data, efekty,
+   hranice a případná učící smyčka. Výstup: zachovat / zlepšit / nahradit či
+   vyřadit / rozhodnout.
+3. **Schválené chování.** Operátor schválí pozorovatelné věty a případná
+   rozhodnutí o scope před implementací.
+4. **Malý vertikální přírůstek.** Implementace, focused pozitivní i negativní
+   test a uživatelsky viditelná demonstrace nebo L3 číslo.
+5. **Akceptace.** Důkaz z čerstvého klonu na pojmenovaném commitu a aktualizace
+   mapy schopností.
 
-Viz §4. Schvaluje operátor, před psaním prvního testu.
-
-### Krok 3 — testy
-
-Jeden test na jedno chování. Existující testy se nejdřív mapují na chování;
-píše se jen to, co v mapování chybí.
-
-### Krok 4 — PASS
-
-Podle §5. Teprve pak se schopnost zapíše jako hotová a její scénář se přidá
-do L1.
+Schopnosti na různých větvích mohou postupovat souběžně podle §6. Uvnitř jedné
+schopnosti se uvedené pořadí nepřeskakuje.
 
 ---
 
 ## 4. Pravidlo chování
 
-**Tohle je hlavní pravidlo tohoto dokumentu.**
+> Chování je krátká věta o tom, co musí platit **na hranici, kde to zažívá
+> uživatel**. Modulový test je doplněk; není náhradou za request, UI nebo jiný
+> skutečný vstup do produktu.
 
-> Ke každé schopnosti se **nejdřív** napíše seznam **chování** — krátkých vět
-> o tom, co musí zvenčí platit. Každé chování má **právě jeden** test.
-> Seznam schvaluje operátor **dřív, než se napíše první test**.
+- seznam se tvoří až ze spuštěné reality a schvaluje jej operátor;
+- každé schválené chování má pojmenovaný důkaz, který při rozbití zčervená;
+- existující testy se nejdřív mapují, nepřepisují automaticky;
+- chyba nalezená za provozu přidá regresní chování;
+- preventivní bezpečnostní, recovery a datové chování smí vzniknout z threat
+  modelu, i když k incidentu ještě nedošlo;
+- test bez vazby na chování se nepočítá jako důkaz schopnosti;
+- zlepšit / nahradit / vyřadit se plánuje až pro `RUNTIME_VERIFIED` schopnost.
 
-Vlastnosti, kvůli kterým to nahrazuje jakýkoli poměr:
+Dobré:
 
-- **Nedá se nafouknout** — test, který neodpovídá žádnému chování ze seznamu, je vidět.
-- **Nedá se podcenit** — chování bez testu je vidět taky.
-- **Recenzuje se deset vět, ne deset tisíc řádků.** To je kontrolní bod operátora.
-- **Seznam roste jen z reality.** Každá chyba nalezená za provozu přidá právě
-  jedno chování jako regresi. Nikdy se nepřidává z fantazie.
-- **Existující testy se mapují, nepřepisují.** Co se nenamapuje na žádné
-  chování, je kandidát na archivaci. Je to nástroj, jak testovou hmotu
-  **zmenšit**, ne zvětšit.
+> „Na `kolik je hodin?` přijde odpověď s aktuálním časem, bez volání modelu,
+> do 100 ms přes skutečný chat request."
 
-Očekávaný rozsah: ~15–20 schopností × 5–15 chování ≈ **150–250 vět pro celý produkt.**
+Špatné:
 
-### Jak vypadá chování
-
-Dobré — pozorovatelné zvenčí, jednoznačné PASS/FAIL:
-
-> „Na `kolik je hodin?` přijde odpověď s aktuálním časem, bez volání modelu, do 50 ms."
-> „Když Ollama neběží, chat vrátí `LLM_PROVIDER_UNAVAILABLE` a nespadne."
-> „Vypnutý specialista se neúčastní routingu."
-
-Špatné — neměřitelné, nebo popisuje implementaci:
-
-> „CRE funguje správně."
 > „`decide()` volá `classifyDeterministic()` před LLM."
 
 ---
 
-## 5. Definice PASS a FAIL
+## 5. Stav schopnosti a výsledek běhu
 
-Platí pro schopnost, ne pro testovací sadu.
+Tyto dvě osy se nesmějí míchat.
 
-**PASS** — všechna chování ze schváleného seznamu projdou, na čistém stroji,
-z čerstvého klonu, u pojmenovaného commitu. Nic jiného PASS není.
+### Žebřík ověření schopnosti
 
-**FAIL** — jakékoli chování ze seznamu neprojde. FAIL se nesnižuje na „většinou
-funguje" ani se neschovává za varianci modelu.
+| Stav | Co je skutečně prokázáno |
+|---|---|
+| `EXISTS` | Kód a vstupní bod byly nalezeny; existuje jedna věta uživatelského chování. |
+| `RUNTIME_VERIFIED` | Schopnost byla s reálnými prerekvizitami spuštěna a pozorována. |
+| `USER_JOURNEY_VERIFIED` | Skutečný uživatelský scénář včetně relevantní negativní cesty prošel. |
+| `ACCEPTED` / `PASS` | Všechna schválená chování prošla z čerstvého klonu na pojmenovaném commitu a operátor je přijal. |
 
-**BLOCKED** — chování nelze ověřit kvůli **konkrétní pojmenované** prerekvizitě
-(chybí GPU, model, vlastněný server, externí toolchain). `BLOCKED` nikdy
-nezakrývá FAIL a nikdy se nepočítá jako zelený důkaz.
+`BROKEN` je samostatný příznak, ne pátá příčka. `DORMANT`, `DEAD`, `RETAIN`,
+`IMPROVE`, `REPLACE`, `RETIRE` a `DEFER` jsou disposition, nikoliv důkaz.
 
-**NAPSÁNO** — test existuje, ale ten, kdo ho psal, ho v tomto prostředí
-nespustil. Vzniká tam, kde vývoj běží jinde než prerekvizita — typicky testy
-profilu `model` psané bez Ollamy.
+### Výsledek konkrétního testu nebo běhu
 
-`NAPSÁNO` je **slabší než `BLOCKED`**. `BLOCKED` říká „spustili jsme to a
-narazili na chybějící prerekvizitu"; `NAPSÁNO` říká „nespustili jsme to vůbec,
-takže nevíme ani to, jestli je test správně". Nepočítá se jako zelený důkaz,
-nikdy nezakrývá FAIL a **schopnost s jediným `NAPSÁNO` chováním nemůže být
-v PASS**. Přechází na PASS nebo FAIL při prvním skutečném běhu.
+- **PASS** — ověřované tvrzení v daném prostředí prošlo.
+- **FAIL** — tvrzení neplatí; nesnižuje se na „většinou funguje".
+- **BLOCKED** — běh narazil na konkrétní deklarovanou prerekvizitu; není zelený.
+- **NOT RUN / NAPSÁNO** — běh neproběhl; je slabší než `BLOCKED` a není důkaz.
 
-> **Prerekvizity se deklarují.** Sada, která potřebuje Go, Python runtime nebo
-> cokoli mimo `npm install`, to musí říct. Nedeklarovaná prerekvizita je vada
-> evidence — z čerstvého klonu dnes projde 194 z 199 „deterministických" sad,
-> ne 199.
+Prerekvizity se deklarují. Registry metadata jsou ale pouze deklarace: u
+offline, bezpečnostních a efektových claimů se podle rizika přidává empirická
+izolace nebo negativní kontrola.
 
 ---
 
-## 6. Milníky — schopnosti C3
+## 6. Závislosti, Work Packages a paralelní práce
 
-Pracuje se **shora dolů, jedna schopnost v jednu chvíli.** Rozpracované schopnosti
-se nehromadí.
+Pořadí neurčuje lineární seznam, ale dependency DAG v `ROADMAP.md`. Sériová je
+integrační páteř a změna jednoho connectoru; nezávislé větve se smějí řešit
+paralelně.
 
-### Základ — v rozsahu, v pořadí
+### Work Package je jednotka zapisující práce
 
-Pořadí není volba priorit, ale **závislostí**: staví se na tom, co je nutné pro
-běh. Historie vývoje C3 to potvrzuje.
+Každý WP má pouze:
 
-| Pořadí | # | Schopnost | Rozsah | Proč zde |
-|---:|---|---|---:|---|
-| 1. | 1 | Server, routing, DB, migrace | 12,3k | bez toho neběží nic |
-| 2. | 2 | CRE — klasifikace a rozhodování | v `chat/` | každá zpráva jí prochází |
-| 3. | 4 | Konverzace a persistence | v `chat/` | rozhodnutí i historie se musí kam zapsat |
-| 4. | 18a | **Správa modelů** — profily, registry, výběr, VRAM fit | ~0,9k | gateway musí vědět, který model obsluhuje kterou roli |
-| 5. | 3 | LLM gateway a role modelů | 2,9k | nedeterministická část CRE bez něj padá na `AMBIGUOUS` |
-| 6. | 5 | Quality Gate v2 | v `chat/quality/` | prochází jí každá odpověď |
-| 7. | 6 | Chat pipeline a handlery | 32,3k | spojuje 2–6 dohromady; **kandidát na rozdělení** |
-| 8. | 21 | Studio + WS bridge | 1,3k + IDE | první bod, kde je produkt vidět jako produkt |
-| 9. | 7 | Expertizy a 5D merge | 9,5k | mění odpovědi, které už fungují |
-| 10. | 16 | Nástroje a registry | 5,7k | předpoklad pro skills i práci s kódem |
-| 11. | 9 | Skills runtime | 1,8k | staví na nástrojích |
-| 12. | 15 | Paměť (LTM, task, cross-project) | 3,1k | zlepšuje kontext, není pro běh nutná |
-| 13. | 12 | Code Intelligence | 11,6k | vstup pro execution i lifecycle |
-| 14. | 11 | Execution engine + patch | 5,0k | mění soubory — až nad ověřenou code intel |
-| 15. | 10 | Project lifecycle | 16,6k | orchestruje 12 a 13 |
-| 16. | 13 | Architecture governance | 4,0k | dohlíží na 10–13 |
+- uživatelský výsledek a rozsah;
+- vlastněné cesty a connector;
+- vstupní revision a závislosti;
+- demonstraci, pozitivní a negativní test;
+- stop condition a přesný ověřovací příkaz.
 
-### Nízká priorita — mimo základ
+Další board, registr ani evidence framework se pro běžný WP nezakládá. Stav se
+udržuje v roadmapě a příslušné inventuře.
 
-Rozhodnutí operátora. Nejsou potřeba pro funkční základ a nepracuje se na nich,
-dokud základ nedrží.
+### Kdy může práce běžet souběžně
 
-| # | Schopnost | Rozsah |
-|---|---|---:|
-| 8 | Specialisté a loader | 1,4k |
-| 14 | Agenti a scheduler | 6,5k |
-| 17 | Notifikace | 3,3k |
-| 18b | **Upgrade automatika** — discovery, ranking, proposals, validace | ~9,5k |
-| 19 | Marketplace | 0,9k |
-| 20 | Media / ComfyUI | 1,3k |
-| — | Licencování | nedokončené, připravovalo se |
-| — | Setup wizard | mimo rozsah 1.0, stačí `.env` |
+Paralelní zapisující WP jsou povolené, pouze když:
 
-**Rozdělení #18** (rozhodnutí operátora 2026-08-01, inventura #1 `N-1`): název
-„Model upgrade" popisoval 8 % modulu. Správa modelů — profily, registry, výběr
-role, VRAM fit — je pro běh nutná a jde do základu. Zbytek, včetně
-`model-universe-store.js` (1 919 ř.) a ~1 475 řádků síťových klientů, které
-chodí na internet hledat modely, je volitelná nadstavba mimo základ.
+1. nemají nevyřešenou dependency edge;
+2. mají disjunktní zapisované cesty;
+3. nemění tentýž connector ani jeho sémantiku;
+4. mají jasný způsob předání a integrační pořadí;
+5. modelové/GPU běhy se na jedné RTX 3090 spouštějí sériově.
 
-Nízkoprioritní schopnosti dostanou inventuru také — ale až po základu, a jen
-inventuru. Bez ní není o čem rozhodovat.
+Connector mění jediný vlastník. Konzumenti pracují proti připnuté verzi a po
+změně musí znovu projít boundary testy. Doporučený strop jsou tři paralelní
+zapisující WP; read-only průzkum může běžet vedle nich.
+
+### Rozsah 1.0
+
+Specialisté a agenti nejsou mimo produkt: 1.0 musí dodat jejich platformu a
+jeden skutečný E2E scénář každého typu. Notifikace, marketplace, media a
+upgrade automatika vstupují do práce podle závislosti konkrétního user journey,
+nikoliv jen podle adresáře. Setup wizard, OpenCode a Serena nejsou kritická
+cesta 1.0. Přesný rozsah a milníky určuje `PRODUCT.md` a `ROADMAP.md`.
 
 ---
 
@@ -236,28 +213,33 @@ inventuru. Bez ní není o čem rozhodovat.
 Agent řídí větev. Operátor řídí projekt a určuje tento kontrakt.
 
 **Agent smí bez ptaní:**
-- provést inventuru schopnosti, která je aktuálně na řadě;
-- pracovat na schopnosti, která je aktuálně na řadě;
+- provést read-only průzkum schopnosti nebo connectoru potřebný pro aktivní WP;
+- implementovat malý přírůstek uvnitř schváleného WP a jeho vlastněných cest;
 - opravit chybu, která shodila L1;
 - doplnit chování jako regresi po nalezené chybě.
 
 **Agent si musí vyžádat souhlas:**
-- tři seznamy z inventury, **než se z nich cokoli vyvodí**;
-- seznam chování schopnosti, **před** psaním testů;
-- jakoukoli změnu pořadí schopností;
+- produktovou disposition zachovat / nahradit / vyřadit, pokud nebyla
+  schválená v aktivním WP;
+- seznam uživatelských chování a veřejný connector před implementací;
+- změnu dependency DAG nebo rozsahu release;
 - výměnu jakékoli části za open source;
 - cokoli, co mění L0.
 
 **Agent nesmí:**
-- začít pracovat na schopnosti bez hotové inventury;
-- začít druhou schopnost, než je první v PASS;
+- zahájit hlubokou implementaci bez runtime pozorování a vymezeného WP;
+- zapisovat souběžně do cizích cest nebo měnit connector vlastněný jiným WP;
 - zapsat nedokončenou schopnost jako hotovou;
 - založit dokument, který nemá adresáta a důvod;
 - snížit, přeskočit nebo umlčet test kvůli zelené;
 - spouštět attestační řetěz jako součást běžného vývoje.
 
-**Každá změna má demonstrovatelný efekt** — je vidět v UI, nebo v čísle z L3.
-Výjimka: bezpečnostní opravy a odstranění blokujících prerekvizit.
+**Každý dokončený WP má demonstrovatelný výsledek** — je vidět v UI,
+uživatelském journey nebo v čísle z L3. Jednotlivý prerequisite commit může
+zavést connector contract, boundary test, migraci, packaging/recovery krok,
+authority dokument nebo bezpečnostní opravu; musí ale být nezbytný pro
+pojmenovaný WP, focused ověřený a nesmí se vydávat za dokončený produktový
+výsledek sám o sobě.
 
 ---
 
@@ -275,9 +257,8 @@ správné pro certifikaci releasu a **fatální pro vývoj**, protože znamená,
 nelze zároveň vyvíjet a být certifikovaný. Proces tím **trestá produktovou
 práci a odměňuje práci na aparátu.**
 
-Změřeno na vlastní historii (§1): 177 commitů za 4 dny, poměr aparátu k produktu
-zhruba **5 : 1**, a schopností s akceptačním důkazem **0 z 30**. Aparát fungoval
-— jen měřil prázdný pokoj.
+Změřeno na vlastní historii (`DIRECTION.md` §0): 177 commitů za 4 dny a poměr
+aparátu k produktu zhruba **5 : 1**. Aparát fungoval — jen měřil prázdný pokoj.
 
 ### Co z toho konkrétně plyne
 
@@ -289,7 +270,7 @@ zhruba **5 : 1**, a schopností s akceptačním důkazem **0 z 30**. Aparát fun
 | Fingerprint registru zapečetěný v Gate 0 policy | **Rozchod s ním při vývoji není vada.** `nightly-orchestrator-self-test` proto padá očekávaně; obnovení řetězce je release práce |
 | Gate 1 jako 30 nezávislých důkazních řízení | Schopnosti podle §6, v pořadí daném závislostmi |
 | Evidence generovaná devítifázovým producerem | Producer zůstává pro release; vývoj běží na L1 |
-| `AGENTS.md` jako pravidla vývoje | Tento dokument. `AGENTS.md` zůstává jako historický kontext |
+| `AGENTS.md` jako vlastní pravidla vývoje | Tento dokument. `AGENTS.md` a `CLAUDE.md` jsou shodné vstupní ukazatele |
 
 ### Co Gate 0 naopak zůstává
 
@@ -304,11 +285,11 @@ v produktové práci? Pokud ano, aplikuju ho špatně.
 
 ## 9. Odložená rozhodnutí
 
-### Bezpečnost a credentials — až po odladění základu
+### Bezpečnost a credentials — před release, ne jako odbočka od základu
 
 **Rozhodnutí operátora, 2026-08-01.** Bezpečnost, credentials a privacy incident
-`P-001`..`P-003` se řeší **až budou základní věci odladěné**. Nejsou blokerem
-ničeho v §6.
+`P-001`..`P-003` se řeší **až budou základní věci odladěné**. Nezastavují M0–M4,
+ale jsou tvrdou podmínkou production-ready milníku M5 a release M6.
 
 Zůstávají v evidenci, aby se na ně nezapomnělo:
 
@@ -320,10 +301,14 @@ Zůstávají v evidenci, aby se na ně nezapomnělo:
 - nezapojený `validateApiToken()` a chybějící globální auth guard patří do téhož
   balíku a řeší se s ním.
 
-Nic z toho nebrání pracovat na §6 — všechno běží lokálně na loopbacku.
+Nic z toho nebrání lokální produktové práci v M0–M4, dokud drží loopback. Nic z
+toho se nesmí přenést jako otevřený blocker přes M5.
 
 ### Zbývá rozhodnout
 
-- **Rozdělení #6** (chat pipeline, 32,3k) na menší schopnosti — vyplyne z inventury.
-- **Nedeklarované prerekvizity** 5 testovacích sad (Python PDF runtime, Go
-  v izolovaném PATH). Detail v `docs/review/2026-08-01-STATE-AND-VERIFICATION.md` `EX-6`.
+- **L0-8 specialist boundary:** doslovný zákaz interního importu je porušený;
+  operátor musí zvolit strict injection, nebo veřejné verzované extension SDK.
+- **Rozdělení #6** (chat pipeline) — vyplyne z hluboké runtime inventury.
+- **Osud legacy web UI** `/architect` — není cílové UI, ale disposition není schválená.
+- **#18b upgrade automatika** — background síť je vypnutá; zůstává rozhodnout
+  dlouhodobé retain/defer/retire.

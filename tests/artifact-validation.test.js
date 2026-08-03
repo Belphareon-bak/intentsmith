@@ -256,7 +256,9 @@ suite('documentation integrity');
 const docsReadmeUrl = new URL('../docs/README.md', import.meta.url);
 const docsReadme = readFileSync(docsReadmeUrl, 'utf8');
 const rootReadme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+const rootAgents = readFileSync(new URL('../AGENTS.md', import.meta.url), 'utf8');
 const rootClaude = readFileSync(new URL('../CLAUDE.md', import.meta.url), 'utf8');
+const rootSystemMap = readFileSync(new URL('../SYSTEM-MAP.md', import.meta.url), 'utf8');
 const installScript = readFileSync(
   new URL('../scripts/install.sh', import.meta.url),
   'utf8',
@@ -309,12 +311,36 @@ function currentToolInventory() {
     const source = readFileSync(new URL(name, toolDirectory), 'utf8');
     return total + (source.match(/\n/g) || []).length;
   }, 0);
-  return { files: files.length, lines };
+  const declarations = (readFileSync(new URL('../src/tools/registry.js', import.meta.url), 'utf8')
+    .match(/^  name: '/gm) || []).length;
+  return { files: files.length, lines, declarations };
 }
 
-function rootClaudeMatchesToolInventory(markdown, inventory) {
+function systemMapMatchesToolInventory(markdown, inventory) {
   const formattedLines = String(inventory.lines).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return markdown.includes(`| src/tools/ | ${inventory.files} | ${formattedLines} |`);
+  return markdown.includes(
+    `**${inventory.files} JavaScript soubory, ${formattedLines.replace(',', ' ')} řádků, `
+    + `${inventory.declarations} top-level\nnástrojových deklarací**`,
+  );
+}
+
+function entrypointDocumentsAreValid(agentsMarkdown, claudeMarkdown) {
+  if (agentsMarkdown !== claudeMarkdown || agentsMarkdown.length > 5000) return false;
+  if (/INTENTSMITH-1\.0-START-HERE|Execute Gate 0/.test(agentsMarkdown)) return false;
+
+  const requiredTargets = [
+    'PRODUCT.md',
+    'DIRECTION.md',
+    'CONTRACT.md',
+    'ROADMAP.md',
+    'SYSTEM-MAP.md',
+    'docs/inventory/',
+  ];
+  const targets = [...agentsMarkdown.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)]
+    .map(match => match[1].split('#')[0]);
+
+  return requiredTargets.every(target => targets.includes(target))
+    && targets.every(target => existsSync(new URL(`../${target}`, import.meta.url)));
 }
 
 test('current README keeps restored Czech headings and prose', () => {
@@ -382,13 +408,22 @@ test('BLOCKED registry rows require a concrete parent-verifiable prerequisite', 
   ));
 });
 
-test('CLAUDE tool inventory derives from current JavaScript sources', () => {
-  assert(rootClaudeMatchesToolInventory(rootClaude, currentToolInventory()));
+test('agent entrypoints are identical pointers to existing authorities', () => {
+  assert(entrypointDocumentsAreValid(rootAgents, rootClaude));
 });
 
-test('CLAUDE tool inventory rejects source-count drift', () => {
-  assert(!rootClaudeMatchesToolInventory(
-    rootClaude.replace('| src/tools/ | 3 | 5,694 |', '| src/tools/ | 3 | 5,695 |'),
+test('agent entrypoint rejects a missing authority target', () => {
+  const drifted = rootAgents.replace('(PRODUCT.md)', '(MISSING-PRODUCT.md)');
+  assert(!entrypointDocumentsAreValid(drifted, drifted));
+});
+
+test('SYSTEM-MAP tool census derives from current JavaScript sources', () => {
+  assert(systemMapMatchesToolInventory(rootSystemMap, currentToolInventory()));
+});
+
+test('SYSTEM-MAP tool census rejects source-count drift', () => {
+  assert(!systemMapMatchesToolInventory(
+    rootSystemMap.replace('153 top-level', '154 top-level'),
     currentToolInventory(),
   ));
 });

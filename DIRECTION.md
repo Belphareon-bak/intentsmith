@@ -2,15 +2,14 @@
 
 **Verze:** 1 · **Založeno:** 2026-08-02 · **Vlastník:** operátor
 
-> **Proč tenhle dokument existuje.** `CONTRACT.md` říká *jak se pracuje*.
-> `SYSTEM-MAP.md` říká *co je změřeno*. Nikde ale nebylo zapsané **co
-> IntentSmith je a kam jde** — tahle rozhodnutí žila roztroušená uvnitř
-> inventur, v konverzacích a v hlavě operátora. To je ta nejdražší věc, která
-> se dá ztratit, protože se z kódu nedá odvodit.
+> **Proč tenhle dokument existuje.** [`PRODUCT.md`](PRODUCT.md) říká, komu
+> IntentSmith slouží a co znamená verze 1.0. `CONTRACT.md` říká, jak se pracuje,
+> a `SYSTEM-MAP.md`, co je změřeno. Tento dokument uchovává **evoluční směr z
+> C3 a chronologická rozhodnutí operátora**, která se z kódu nedají odvodit.
 >
-> Kde si jiný dokument odporuje s tímto **v otázce směřování**, platí tento.
-> V otázce pravidel vývoje platí `CONTRACT.md`. V otázce změřeného stavu
-> `SYSTEM-MAP.md`.
+> Kde si jiný dokument odporuje s tímto **v otázce evolučního směřování**, platí
+> tento. Produkt a scope určuje `PRODUCT.md`, pravidla `CONTRACT.md`, pořadí
+> `ROADMAP.md` a změřený stav `SYSTEM-MAP.md`.
 
 ---
 
@@ -34,7 +33,8 @@ leželo u ledu a mezitím se mnohé změnilo. Jenže se to rozjelo **bez jakého
 kvalitního řízení** — řídila to AI a řídila to špatně. Práce a vylepšení
 vznikly, ale **do nesmyslných rozměrů**.
 
-**Doloženo měřením** (`CONTRACT.md` §1): za 4 dny 177 commitů, z toho
+**Doloženo měřením** (historický `CONTRACT.md` v1; aktuální shrnutí níže): za
+4 dny 177 commitů, z toho
 do `src/` +3 389 řádků a mimo něj +66 500. Poměr aparátu k produktu zhruba
 **5 : 1**. Schopností s akceptačním důkazem po tom všem **0 z 30**.
 
@@ -78,7 +78,8 @@ tak jako řídil C3.
 | **Operátor řídí projekt** | Určuje kontrakt, směřování a pořadí. Nestrká nos do každé maličkosti. |
 | **Agent řídí větev** | Ale **větev nesmí vzniknout dřív, než existuje kontrakt** — a ten určuje operátor. |
 
-Tohle nahrazuje pravidlo v `AGENTS.md`, že jediný zapisovatel je Codex agent.
+Tohle nahradilo pravidlo v historické revizi `AGENTS.md`, že jediný zapisovatel
+je Codex agent. Současný `AGENTS.md` je už pouze vstupní ukazatel.
 
 ---
 
@@ -106,14 +107,12 @@ Zadání operátora, 2026-08-02. Doslova, protože každý z nich mění rozhodo
 
 ---
 
-## 1. Co IntentSmith je
+## 1. Evoluční východisko
 
-**Lokální AI platforma odvozená z C3.** Konverzační asistence, správa projektů
-a autonomní agenti, běžící na vlastním hardware.
-
-**C3 je funkční produkt, ne prototyp k obnově.** Není to baseline, ze které se
-staví znovu — je to hotová věc, která se zpevňuje. Vývoj C3 trval 7 měsíců
-a 431 commitů; IntentSmith na tom staví.
+Úplná definice produktu je v `PRODUCT.md`. Zde platí pracovní směr:
+**C3 je funkční produkt, ne prototyp k obnově.** IntentSmith zachovává jeho
+funkční části a modulární principy, zpevňuje jejich spoje a nahrazuje je pouze
+tam, kde je doložený konkrétní přínos. Nejde o greenfield přepis.
 
 ### Co znamená „local-first"
 
@@ -121,11 +120,12 @@ Není to marketingové slovo, je to omezení:
 
 - **Žádná povinná závislost na cloudu.** Bez internetu produkt funguje.
 - **Bez modelu degraduje čistě** — `LLM_PROVIDER_UNAVAILABLE`, ne pád.
-- **Odchozí síť je opt-in.** Jediná plocha, která z principu volá ven, je
-  discovery modelů (#18b). Od 2026-08-02 je za `C3_ENABLE_ONLINE_DISCOVERY`
-  s výchozím **off**. Předtím vypínač neexistoval a produkt volal ven jednou
-  za 24 h bez volby uživatele — to bylo v rozporu s tímhle odstavcem a bylo
-  to opraveno.
+- **Tichá background síť je opt-in.** Automatické model discovery (#18b) je od
+  2026-08-02 za `C3_ENABLE_ONLINE_DISCOVERY` s výchozím **off**. Produkt má i
+  explicitní nebo konfigurované síťové schopnosti — webové nástroje,
+  marketplace, agent sources/actions, notifikace a případně vzdálenou Ollamu.
+  Ty nejsou povinnou cloudovou závislostí, ale musí projít společnou outbound
+  policy a auditem.
 
 ---
 
@@ -143,17 +143,17 @@ neprokazovaly nic.
 
 **Proto žádné pravidlo v `CONTRACT.md` nepoužívá poměr ani počet.**
 
-### Chování místo poměrů
+### Pozorované chování místo poměrů
 
-Ke každé schopnosti se nejdřív napíše seznam **chování** — krátkých vět o tom,
-co musí zvenčí platit. Jedno chování = jeden test. Seznam schvaluje operátor
-dřív, než vznikne první test.
+Ke každé aktivní schopnosti se po skutečném runtime pozorování schválí krátké
+věty o tom, co musí platit **na uživatelské hranici**. Každá věta má pojmenovaný
+důkaz, který při rozbití zčervená; jeden důkaz může potřebovat více testů a
+modulový test sám není náhradou za journey.
 
-Vlastnost, kvůli které to nahrazuje jakoukoli metriku: **nedá se nafouknout ani
-podcenit** a recenzuje se deset vět místo deseti tisíc řádků.
-
-**Seznam roste jen z reality.** Každá chyba nalezená za provozu přidá právě
-jedno chování jako regresi. Nikdy se nepřidává z fantazie.
+Vlastnost, kvůli které to nahrazuje jakoukoli objemovou metriku: recenzuje se
+význam tvrzení a jeho důkaz, ne počet řádků. Seznam roste z runtime pozorování,
+nalezených regresí a explicitního threat modelu pro bezpečnost, data a recovery.
+Aktuální postup a hranice jsou závazně v `CONTRACT.md` §3–§5.
 
 ### Měřeno, ne odhadnuto
 
@@ -182,7 +182,7 @@ Chronologicky, s důvodem. Tohle je ta část, která se z kódu odvodit nedá.
 |---|---|---|
 | 2026-08-01 | **Pořadí schopností je dané závislostmi, ne prioritami** | Staví se na tom, co je nutné pro běh. Historie vývoje C3 to potvrzuje. |
 | 2026-08-01 | **#18 se rozdělí** na správu modelů (základ) a upgrade automatiku (mimo) | Název „Model upgrade" popisoval 8 % modulu. Správa modelů je pro běh nutná, discovery ne. |
-| 2026-08-01 | **Bezpečnost a credentials až po odladění základu** | `P-001`..`P-003` zůstávají v evidenci. Všechno běží na loopbacku, takže nic z toho neblokuje §6. |
+| 2026-08-01 | **Bezpečnost a credentials až po odladění základu, ale před release** | `P-001`..`P-003` zůstávají v evidenci. Loopback dovoluje lokální vývoj; production-ready milník je bez nápravy nepustí. |
 | 2026-08-01 | **Setup wizard mimo 1.0** | Zatím stačí `.env`. |
 | 2026-08-01 | **Licencování je nedokončené, ne mrtvé** | Připravovalo se. Mimo základ, zůstává. |
 | 2026-08-01 | **Ukázkoví agenti jsou produktová funkce**, ne demo data | Chování je zhruba správné, úprava počká. |
@@ -192,6 +192,11 @@ Chronologicky, s důvodem. Tohle je ta část, která se z kódu odvodit nedá.
 | 2026-08-02 | **„Ulož to" zůstává zkratkou pro uložení poslední odpovědi** | Funguje, spustí se jen na explicitní žádost a vždy oznámí jméno i cestu. Zakazovat to bylo špatné znění chování, ne vada kódu. |
 | 2026-08-02 | **Odchozí síť je opt-in, default off** | Viz §1. |
 | **2026-08-02** | **C3 Studio (Theia) je IDE produktu. Web UI `/architect` je legacy.** | Studio bylo původně webové, než se celé postavilo na Theia. Theia verze je vychytaná a zbývá na ní málo. **Web UI je zděděný předchůdce, ne fallback.** |
+| 2026-08-03 | **Primární uživatel je samostatný technický power user** | Hlavní hodnota je řízené provádění práce nad vlastními projekty na vlastním hardwaru. |
+| 2026-08-03 | **Specialisté a agenti patří do 1.0 jako platforma + jeden reálný E2E každého typu** | Modularita musí být prokázaná skutečným užitkem, ne jen zeleným testem loaderu. |
+| 2026-08-03 | **Self-learning je lokální, scoped, auditovatelný a vratný** | Učení nesmí samo rozšířit authority, měnit kód/config ani přecházet mezi projekty. |
+| 2026-08-03 | **Remote Companion je samostatný release nad rozhraním core 1.0** | Core dodá verzovaný kontrakt; mobilní listener, pairing a UI nesmí blokovat lokální 1.0. |
+| 2026-08-03 | **První podporovaná platforma je Linux + Theia + Ollama** | Na této kombinaci se měří install, runtime, GPU a release kvalita; další platformy nejsou pro 1.0 garantované. |
 
 ### Co to znamená pro rozsah
 
@@ -200,8 +205,12 @@ server/routing/DB · CRE · konverzace · správa modelů · LLM gateway · QGv2
 chat pipeline · **Studio + WS bridge včetně `c3-ide/`** · expertizy · nástroje ·
 skills · paměť · code intelligence · execution+patch · lifecycle · governance
 
-**Mimo základ:** specialisté · agenti · notifikace · upgrade automatika ·
-marketplace · media · licencování · setup wizard
+K tomu **platforma specialistů + jeden E2E**, **platforma agentů + jeden E2E**
+a interní verzované rozhraní pro budoucí Remote Companion.
+
+**Mimo core release 1.0:** mobilní klient/listener/pairing · OpenCode · Serena ·
+garance Windows/macOS · setup wizard. Notifikace, marketplace, media a upgrade
+automatika se zařazují jen podle schváleného user journey a dependency DAG.
 
 ---
 
