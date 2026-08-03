@@ -1,7 +1,8 @@
 # IntentSmith — mapa systému
 
-**Základ změřen 2026-08-02 na `17a8b9a8`; OS-isolated síťový scan proběhl
-2026-08-03 na `24457ba2`; registry klasifikace byla opravena v `06309bc8`.**
+**Základ změřen 2026-08-02 na `17a8b9a8`; pre-fix OS-isolated scan proběhl na
+`24457ba2`; registry klasifikace byla opravena v `06309bc8` a post-fix scan
+aktuálního registru proběhl na `a85c344f`.**
 Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
@@ -26,9 +27,10 @@ npm test                      # deterministické sady
 node scripts/validate-test-registry.js
 ```
 
-**Prerekvizity sad — stav k 2026-08-03.** Rodičovská deklarace byla empiricky
-prověřena v OS network namespace bez odchozí routy. Následné klasifikační
-opravy v `06309bc8` ještě čekají na celý post-fix rerun:
+**Prerekvizity sad — stav k 2026-08-03.** Deklarace byla empiricky prověřena v
+OS network namespace bez odchozí routy. Autoritativní post-fix run na
+`a85c344f` vybral 203 programů a skončil `200 PASS / 1 FAIL / 2 BLOCKED`, exit
+`1`; proto nejde o zelený celek:
 
 | Sada | Stav |
 |---|---|
@@ -37,7 +39,7 @@ opravy v `06309bc8` ještě čekají na celý post-fix rerun:
 | `multi-source-integration` | **Vyřešeno.** 12 offline testů zůstalo; 2 BBC/OpenMeteo testy jsou v samostatné `network: external` sadě. |
 | `dependency-manager` | **Vyřešeno.** Unit test už nespouští skutečné `npm install`; fake executable ověřuje přesně tři pokusy bez sítě. |
 | `harness-exit-code` | **Vyřešeno.** Po review import graphu je pin 95; mutační kontrola stále prokazuje odstranění isolation anchoru. |
-| `nightly-orchestrator-self-test` | ⚠️ **Očekávaný vývojový drift release policy.** Gate 0 fingerprint se během vývoje nezapečeťuje; před release se musí obnovit. |
+| `nightly-orchestrator-self-test` | ⚠️ **Očekávaný vývojový drift release policy.** Zapečetěný Gate 0 kontrakt fail-closed odmítá non-ACTIVE položky v offline/database required setu ještě před kontrolou fingerprintu. Před M6 se musí PDF runtime sady vrátit do pravdivého ACTIVE stavu a policy znovu zapečetit. |
 
 Registr do 2026-08-02 **toolchain deklarovat neuměl** — `hasConcreteBlockedPrerequisite()`
 uznával jen network/server/ollama/gpu, takže sada potřebující Python musela
@@ -59,7 +61,9 @@ chyby nezachytil. Doplněno `requirements.toolchain`.
 
 Registry fingerprint po pravdivém external splitu je
 `35c590edcd7de9ecab6db870a0118e3ae67ff37ea99f58943c6b180ea04c60f4`.
-`lastGreen.commit` zůstává prázdný; registry řádek sám proto není akceptační důkaz.
+Post-fix scan jej váže na `a85c344f`; `lastGreen.commit` však zůstává prázdný a
+registry řádek sám proto není akceptační důkaz. Report SHA-256 je
+`a3af7b8531509c8be753ac87920dbeab9a5ac133d10634664a078c8c99925535`.
 
 Tool census ze zdroje: **3 JavaScript soubory, 5 694 řádků, 153 top-level
 nástrojových deklarací**. Počet 213 v dřívější inventuře byl textový false count.

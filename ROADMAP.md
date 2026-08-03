@@ -234,7 +234,28 @@ Dřívější paralelní report na stejném SHA není autoritativní: sdílený 
 vyvolal dirty-tree race mezi sadami. Proto je pro toto tvrzení určen výhradně
 výše uvedený sekvenční run.
 
-Po opravách se celý scan musí zopakovat; původní výsledek se nepřepisuje.
+Post-fix scan proběhl na `a85c344f` z čistého dočasného klonu stejným síťovým
+omezením, profily `offline,database` a `concurrency=1`:
+
+- autoritativní run ID: `postfix-offline-database-a85c344f-run2`;
+- výsledek: **200 PASS / 1 FAIL / 2 BLOCKED / 0 TIMEOUT / 0 SKIPPED**;
+- procesní exit `1`, verdict `FAIL` — nejde o zelený celek;
+- jediný FAIL: `nightly-orchestrator-self-test`, protože zapečetěný Gate 0
+  kontrakt záměrně odmítá současný vývojový registry stav s blokovanými
+  release-only toolchain sadami; před M6 se musí policy a required set obnovit;
+- oba skryté outbound případy (`multi-source-integration`,
+  `dependency-manager`) pod blokovanou sítí prošly s exit `0`;
+- dvě exportní sady zůstávají pravdivě `BLOCKED` na PDF toolchainu;
+- lokální evidence:
+  `.intentsmith-artifacts/postfix-evidence/a85c344f/authoritative-run2/report.json`,
+  SHA-256
+  `a3af7b8531509c8be753ac87920dbeab9a5ac133d10634664a078c8c99925535`.
+
+První post-fix kalibrace je zachovaná, ale odmítnutá: dočasný clone path ležel
+pod adresářem pojmenovaným `.intentsmith-artifacts` a artifact root měl chybný
+mód `0775`, čímž porušil preconditions dvou harness testů. Opravený run2 použil
+mód `0700`; oba testy v něm prošly. Původní pre-fix ani odmítnutý run se
+nepřepisují a nezapočítávají do autoritativního výsledku.
 
 ## 5. M1 — Lokální runtime páteř
 
