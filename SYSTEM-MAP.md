@@ -251,9 +251,10 @@ Zaznamenané, rozhodnuté, ne zapomenuté.
 
 ## Co je zastaralé
 
-`docs/ROADMAP.md`, `docs/convergence/*` a `docs/README.md` obsahují **legacy
-tvrzení**. `AGENTS.md` a `CLAUDE.md` jsou nyní shodné ukazatele bez stavových
-claimů. Příklady rozporů, které tento dokument opravuje:
+`docs/ROADMAP.md`, `docs/convergence/*`, `docs/README.md`, historický `todo.md`
+a `docs/archive/*` obsahují **legacy tvrzení**. `AGENTS.md` a `CLAUDE.md` jsou
+nyní shodné ukazatele bez stavových claimů. Příklady rozporů, které tento
+dokument opravuje:
 15 expertíz (skutečně 18) · `chat/cre-decision-types.js` (neexistuje) ·
 11 guardů (12) · `cre-decision.js` ~2 900 ř. (4 196) · tabulka intentů se
 třemi neexistujícími a sedmi chybějícími · „~98 % hotovo" · „3 500+ verified tests".

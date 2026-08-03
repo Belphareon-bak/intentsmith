@@ -1,5 +1,12 @@
 # IntentSmith v135.0.0 — dokumentační reference
 
+> **⚠️ Historický, neautoritativní dokument.** Zachovává dobovou instalační a
+> produktovou dokumentaci C3/IntentSmith v135. Aktivní produkt, pořadí práce a
+> změřený stav určují [`../PRODUCT.md`](../PRODUCT.md),
+> [`../ROADMAP.md`](../ROADMAP.md) a [`../SYSTEM-MAP.md`](../SYSTEM-MAP.md).
+> Release evidence v `convergence/` zůstává historickým důkazem, nikoliv
+> instrukcí pro běžný vývoj.
+
 Dokumentace projektu IntentSmith, C3-derived offline-first AI platformy s CRE
 decision enginem, domain expertízami, specialist plugin systémem, lifecycle
 project managementem, skills workflow enginem, autonomními agenty, LTM pamětí
